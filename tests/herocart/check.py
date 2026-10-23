@@ -18,7 +18,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 LINE = re.compile(r"^herocart 1 t=(\d+) n=(\d+) lod=(\S+) res=(\d+)x(\d+) opt=(\S+) \| ms=([\d.]+) max=([\d.]+) "
-                  r"fps=(\d+) gpu=([\d.]+) wait=([\d.]+) anim=([\d.]+) tri=(\d+) vtx=(\d+) lua=(\d+) kb=(\d+)$")
+                  r"fps=(\d+) gpu=([\d.]+) wait=([\d.]+) anim=([\d.]+) tri=(\d+) vtx=(\d+) lua=(\d+) kb=(\d+) skip=(\d+)$")
 
 
 def script(path, taps):

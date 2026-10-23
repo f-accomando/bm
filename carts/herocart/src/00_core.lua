@@ -18,6 +18,7 @@ local SKY = 0x8CC8F0
 local PI = math.pi
 local CX, CZ = 16, 16           -- the centre of the plaza (32 x 32 cells)
 local DT = 1 / 60               -- the logic step: fixed, so two runs draw the same frames
+local MAX_SKIP = 4            -- most _update before one _draw (frameskip)
 local ROWS                      -- the option rows (30_options.lua)
 
 local function fmt(v, d)

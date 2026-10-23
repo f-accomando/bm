@@ -2,13 +2,13 @@ do
   -- The numbers. stat(16), stat(17) and stat(18) are read only to be shown and
   -- printed: nothing in the logic of the cart depends on them (no quality
   -- governor). The sweep is driven by frame counts, not by stat().
-  local W = { n = 0, ms = 0, max = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0 }
+  local W = { n = 0, ms = 0, max = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0, skip = 0 }
   local t0 = 0
   local S = nil                 -- the sweep in progress
   local COUNTS = { 0, 4, 8, 12, 16, 20, 28, 36, 48, 64 }
   local WARM, MEASURE = 30, 120
 
-  H.last = { ms = 0, max = 0, fps = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0 }
+  H.last = { ms = 0, max = 0, fps = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0, skip = 0 }
   H.seconds = 0
 
   local function add_line(s)
@@ -67,6 +67,7 @@ do
     local ms, gpu, wait = stat(1), stat(16), stat(18)
     local tri, vtx, lua = stat(4), stat(7), stat(10)
     W.n = W.n + 1
+    W.skip = W.skip + math.max(0, stat(15) - 1)   -- the frames not drawn since the last _draw
     W.ms, W.gpu, W.wait = W.ms + ms, W.gpu + gpu, W.wait + wait
     W.tri, W.vtx, W.lua, W.anim = W.tri + tri, W.vtx + vtx, W.lua + lua, W.anim + H.anim_ms
     if ms > W.max then W.max = ms end
@@ -93,17 +94,18 @@ do
       L.ms, L.max, L.gpu, L.wait, L.anim = W.ms / n, W.max, W.gpu / n, W.wait / n, W.anim / n
       L.tri, L.vtx, L.lua, L.fps = W.tri / n, W.vtx / n, W.lua / n, stat(2)
       L.kb = stat(0)
+      L.skip = W.skip
       if H.n == 0 then H.map_tris = L.tri end
       H.seconds = H.seconds + 1
       local d = H.drawn or { 0, 0, 0, 0 }
       -- the frame count and the cursor row: a test that sends keys waits on them (a serial key is held 10 frames)
       log(string.format("hkeys f=%d row=%d", H.frame, H.cur))
       add_line(string.format(
-        "herocart 1 t=%d n=%d lod=%s res=%dx%d opt=%s | ms=%s max=%s fps=%d gpu=%s wait=%s anim=%s tri=%d vtx=%d lua=%d kb=%d",
+        "herocart 1 t=%d n=%d lod=%s res=%dx%d opt=%s | ms=%s max=%s fps=%d gpu=%s wait=%s anim=%s tri=%d vtx=%d lua=%d kb=%d skip=%d",
         math.floor(now), H.n, H.lod_name(), SCREEN_W, SCREEN_H, H.opt_string(), fmt(L.ms), fmt(L.max), math.floor(L.fps),
         fmt(L.gpu), fmt(L.wait), fmt(L.anim), math.floor(L.tri), math.floor(L.vtx), math.floor(L.lua / 1000),
-        math.floor(L.kb)))
-      W = { n = 0, ms = 0, max = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0 }
+        math.floor(L.kb), L.skip))
+      W = { n = 0, ms = 0, max = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0, skip = 0 }
       t0 = now
     end
   end
