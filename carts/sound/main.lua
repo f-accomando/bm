@@ -2128,6 +2128,7 @@ local function draw_overlay()
     U.zone(x, y, 360, 150, "box")
     for i = 1, 8 do
       local cx = x + 30 + (i - 1) * 38
+      U.zone(cx, y + 50, 32, 44, "nchar", i)              -- a click: the letter to change
       ui.box(cx, y + 50, 32, 44, i == o.pos and C.yellow or C.panel2)
       print(o.chars[i], cx + 8, y + 56, i == o.pos and C.dark or C.text, 2)
     end
@@ -2998,6 +2999,7 @@ do
   local RIFF_COLS = 72
   function riff_draw(o)
     local x, y = draw_panel(600, 196, "RIFF  -  a pattern in a line", C.orange)
+    U.zone(x, y, 600, 196, "box")
     print(string.format("example %d/%d: %s", o.ex, #RIFF_EX, RIFF_EX[o.ex][1]), x + 12, y + 36, C.dim)
     ui.textr(o.bars .. " bars", x + 588, y + 36, C.yellow)
     -- the line, lit where the notes sounding were written
@@ -3010,6 +3012,7 @@ do
     local first = math.max(0, o.cx - RIFF_COLS + 1)
     local fx, fy = x + 12, y + 60
     ui.box(fx - 4, fy - 3, RIFF_COLS * 8 + 8, 22, C.dark)
+    U.zone(fx - 4, fy - 3, RIFF_COLS * 8 + 8, 22, "rline", fx, first)   -- a click: the caret
     for c = first, math.min(#o.text, first + RIFF_COLS) - 1 do
       local cx = fx + (c - first) * 8
       if lit[c] then rectfill(cx, fy, 8, 16, C.orange) end
@@ -3278,7 +3281,11 @@ local function sound_mouse()
   if o then
     if o.kind == "riff" or o.kind == "name" then            -- (text dialogs: a click outside is Esc)
       local z = U.click(0)
-      if z and z.kind == "shade" then overlay_key("esc") end
+      if z and z.kind == "shade" then overlay_key("esc")
+      elseif z and z.kind == "nchar" and o.kind == "name" then o.pos = z.a
+      elseif z and z.kind == "rline" and o.kind == "riff" then
+        o.cx = z.b + U.col(U.x, z.a, 8, math.max(0, math.min(#o.text - z.b, (z.w - 8) // 8)))
+      end
       return
     end
     if o.items and U.wheel ~= 0 then overlay_key(U.wheel > 0 and "up" or "down") end

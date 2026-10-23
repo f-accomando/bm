@@ -122,6 +122,8 @@ Press **Esc** (or **Start** on the pad). Use the up and down arrows and Enter. T
 
 A USB or Bluetooth mouse does what the keys do.
 
+In the file name prompt, a click puts the caret between the letters.
+
 | Action | What it does |
 |---|---|
 | Click on the page | puts the cursor there |

@@ -122,6 +122,8 @@ Premi **Esc** (oppure **Start** sul pad). Usa le frecce su e giù e Enter. Le vo
 
 Un mouse USB o Bluetooth fa ciò che fanno i tasti.
 
+Nella richiesta del nome del file, un clic mette il cursore tra le lettere.
+
 | Azione | Cosa fa |
 |---|---|
 | Clic sulla pagina | mette il cursore lì |

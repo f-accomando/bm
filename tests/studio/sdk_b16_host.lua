@@ -1389,6 +1389,65 @@ for _, t in ipairs(texts) do if t[1] == "code" and t[3] == 0 then cx = t[2] end 
 if cx then click(cx + 4, 8) end
 check(sees("type") and not sees("PROJECT"), "a click on the tab: the code: " .. status())
 
+-- the code view: a double click selects a word, a drag selects, a letter replaces it (M48)
+local function typed(s) for c in s:gmatch(".") do key(c) end end
+click(100, 24)
+key("end", "\n")
+typed("foo bar")
+mouse(84, 40, 0); mouse(84, 40, 1); mouse(84, 40, 0); mouse(84, 40, 1); mouse(84, 40, 0); frames(1)
+key("Z")
+check(sees("foo") and sees("Z") and not sees("bar"), "mouse: a double click on a word selects it, a letter replaces it")
+mouse(40, 40, 0); mouse(40, 40, 1); mouse(52, 40, 1); mouse(64, 40, 1); mouse(64, 40, 0); frames(1)
+key("\b")
+check(sees("Z") and not sees("foo"), "mouse: a drag selects, Backspace takes the text out")
+click(100, 24)
+key("end", "\n")
+typed("one two")
+mouse(40, 40, 0); mouse(40, 40, 1); mouse(80, 40, 1); mouse(120, 40, 1); mouse(120, 40, 0); frames(1)
+key("^c")
+key("end", "\n", "^v")
+check(select(2, screen():gsub("two", "")) >= 2, "mouse: Ctrl+C copies the selected text, Ctrl+V puts it back")
+
+-- the sound page: the wheel changes the field or the note under it, a double click does Enter (M48)
+key("f7")
+frames(2)
+local fx, fy
+for _, t in ipairs(texts) do if t[1] == "FIELDS" then fx, fy = t[2], t[3] end end
+local function at_xy(x, y) for _, t in ipairs(texts) do if t[2] == x and t[3] == y then return t[1] end end end
+local v0 = fx and at_xy(fx + 72, fy + 16)
+mouse(fx + 20, fy + 24, 0, 1); mouse(fx + 20, fy + 24, 0); frames(1)
+check(v0 and at_xy(fx + 72, fy + 16) ~= v0, "mouse: the wheel over a field changes its value (" .. tostring(v0) .. ")")
+key("f7")
+frames(2)
+local sy
+for _, t in ipairs(texts) do if t[1]:find("^STEPS") then sy = t[3] end end
+check(sy and at_xy(8 + 3 * 16, sy + 16) == "..", "the effects page: step 3 is empty")
+mouse(8 + 3 * 16 + 4, sy + 24, 0); mouse(8 + 3 * 16 + 4, sy + 24, 1); mouse(8 + 3 * 16 + 4, sy + 24, 0)
+mouse(8 + 3 * 16 + 4, sy + 24, 1); mouse(8 + 3 * 16 + 4, sy + 24, 0); frames(2)
+check(at_xy(8 + 3 * 16, sy + 16) ~= "..", "mouse: a double click on a step puts a note, as Enter does")
+mouse(8 + 3 * 16 + 4, sy + 24, 0, 1); mouse(8 + 3 * 16 + 4, sy + 24, 0); frames(1)
+check(at_xy(8 + 3 * 16, sy + 16) ~= nil, "mouse: the wheel over a step changes its note")
+
+-- the line of a dialog: a click puts the caret between the letters (M48)
+key("^S")
+check(sees("file name"), "mouse: Save as asks the name")
+for _ = 1, 20 do key("\b") end
+typed("ac")
+local lx, ly
+for _, t in ipairs(texts) do if t[1] == "ac" then lx, ly = t[2], t[3] end end
+click(lx + 8, ly + 8)
+key("b")
+check(sees("abc"), "mouse: a click on the line of the dialog puts the caret between the letters")
+key("esc")
+
+-- a click on a long message hides it
+run_sdk({ path = "/bm/VILLAGE.B16", back = false }, { mouse = true })
+frames(2)
+local function msg_rows() local n = 0; for _, t in ipairs(texts) do if t[3] == 320 and t[1]:find("^opened VILLAGE.B16") then n = n + 1 end end; return n end
+check(msg_rows() == 1, "a long message is on the hint row")
+click(100, 328)
+check(msg_rows() == 0, "mouse: a click on a long message hides it")
+
 -- the dev kit of a .b16 that uses what the profile leaves out (the shooter:
 -- math.random), every row of it inside the page
 run_sdk(nil)

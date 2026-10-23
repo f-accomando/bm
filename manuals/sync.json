@@ -507,8 +507,8 @@
     "title": "Opening"
    },
    "3": {
-    "en": "71edc116b2a6",
-    "it": "4ed9b685dd1a",
+    "en": "0ea7207a40bb",
+    "it": "2a976287c03c",
     "title": "The screen and the controls"
    },
    "4": {
@@ -546,7 +546,7 @@
    "carts/animator/main.lua": "07b6388861e6",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/progress/tools.md": "8fac04edc9bd",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -629,8 +629,8 @@
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "bfe219d4455e",
-    "it": "2bd21266c63a",
+    "en": "25f0de207503",
+    "it": "1fec0f6cb2a4",
     "title": "Selecting and moving"
    },
    "5": {
@@ -655,18 +655,18 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "c15170eef48d",
+   "carts/mesh/main.lua": "11e306a23b31",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/progress/tools.md": "8fac04edc9bd",
    "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-pixel": {
   "chapters": {
    "1": {
-    "en": "976e904ffe06",
-    "it": "2ad155188215",
+    "en": "6c036576db73",
+    "it": "293438aa13f0",
     "title": "What bm Pixel is"
    },
    "10": {
@@ -726,10 +726,10 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "a58d37f0df41",
+   "carts/pixel/main.lua": "7f6b403b9d91",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-pixel.md": "a0f942fe815a",
-   "docs/progress/tools.md": "1bd38b894068",
+   "docs/progress/tools.md": "8fac04edc9bd",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -756,8 +756,8 @@
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "605a685054fb",
-    "it": "c97a2f0aa049",
+    "en": "e24c96219071",
+    "it": "a6b7cee9dc97",
     "title": "The map editor"
    },
    "6": {
@@ -782,10 +782,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "72d73fc9f49e",
+   "carts/editor/main.lua": "dd461b4791bd",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/progress/tools.md": "8fac04edc9bd",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -807,8 +807,8 @@
     "title": "The pages"
    },
    "4": {
-    "en": "4a489f110ad8",
-    "it": "a51e3a6f5166",
+    "en": "3db5cf9c096c",
+    "it": "9734723d4eba",
     "title": "Controls"
    },
    "5": {
@@ -828,18 +828,18 @@
    }
   },
   "sources": {
-   "carts/sound/main.lua": "553281cbc787",
+   "carts/sound/main.lua": "708564aa8694",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sound.md": "c2059f0520b0",
-   "docs/progress/tools.md": "1bd38b894068",
+   "docs/progress/tools.md": "8fac04edc9bd",
    "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-studio": {
   "chapters": {
    "1": {
-    "en": "4edee514d5e5",
-    "it": "072f233ed7e7",
+    "en": "ac52368091db",
+    "it": "407005013e1d",
     "title": "What bm Studio is"
    },
    "10": {
@@ -892,7 +892,7 @@
    "carts/studio/main.lua": "285ae16f1382",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/progress/tools.md": "8fac04edc9bd",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -909,8 +909,8 @@
     "title": "First start"
    },
    "3": {
-    "en": "8238811b257e",
-    "it": "2429b1600b8a",
+    "en": "6dfa4f41f6e1",
+    "it": "f0a83fbe6a41",
     "title": "The screen and the keys"
    },
    "4": {
@@ -935,9 +935,9 @@
    }
   },
   "sources": {
-   "carts/write/main.lua": "3235307d427d",
+   "carts/write/main.lua": "cbe5f39ecbdd",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/progress/tools.md": "8fac04edc9bd",
    "sdk/README.md": "f82ca797337d"
   }
  },

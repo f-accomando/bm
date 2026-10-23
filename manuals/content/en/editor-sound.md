@@ -210,6 +210,8 @@ The pad and the keyboard do the same things. The bottom line of the screen shows
 
 The mouse works too: a click chooses, a double click does what A does, the wheel changes the value under the pointer, and a bar dragged left or right changes it.
 
+In the name editor a click on a letter box chooses that letter. In the riff line a click puts the caret there.
+
 ::: note
 A short tap on SELECT opens the menu. If you press SELECT with left/right or up/down, it changes page or item and the menu does not open.
 :::

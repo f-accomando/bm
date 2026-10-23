@@ -34,6 +34,7 @@ Un gioco ha l'aspetto di ciò che c'è sul suo sheet. Con bm Pixel disegni sulla
 - Le pagine sono quattro: **F1** disegno, **F2** sheet, **F3** palette, **F4** stack. **Esc** apre il menu.
 - Tieni premuto **F12**, o premi **?**, per vedere i tasti della pagina. **Tab** (sul pad **X**) apre l'elenco dei comandi della pagina.
 - Con il mouse, il mouse fa ciò che fanno i tasti.
+- In una riga di dialogo, un clic mette il cursore tra le lettere. Nella pagina della palette la rotella sposta la scelta di una riga; sopra R, G o B cambia quel valore.
 
 ## Attenzione
 

@@ -213,6 +213,7 @@ La pagina edit ha tre modalità. **Tab** passa dall'una alla successiva: vertici
 - Metti il puntatore su un vertice, su uno spigolo o su una faccia: si illumina. Uno spigolo è la linea tra due vertici di un triangolo; il puntatore deve stare entro 6 pixel.
 - **spazio** lo aggiunge alla scelta, o lo toglie se c'era. **Enter** lo rende l'unico.
 - Con il mouse, un clic sceglie solo ciò che è sotto il puntatore; Shift + clic aggiunge o toglie.
+- In una riga di dialogo (per esempio il nome del file), un clic mette il cursore tra le lettere.
 - **a** sceglie tutto; premilo ancora per non sceglierne nessuno. **l** aggiunge tutto ciò che è unito alla scelta da facce.
 - **n** e **b** scorrono tutti i vertici, gli spigoli o le facce in ordine: così raggiungi anche quelli nascosti dietro il modello.
 

@@ -124,21 +124,22 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   of keys on the 8x16 grid. A mouse function outside a page's `do … end` does not see its
   locals: export them. Tests `bmui_host.lua`, `write_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
   Shared helpers (M48): `U.list(kind, sel, n, step)` (wheel, click, click on the chosen row: acts), `U.col`
-  (pixel to text column), `U.scroll` (wheel on a view).
+  (pixel to text column), `U.scroll` (wheel on a view), `U.line_key/line_click/line_draw` (a text line with a caret; the dialogs use them).
+  The SDK code view keeps its selection in `sl` (`carts/editor`, `carts/sdk_b16`); mouse press uses `U.pressed(0)` (the view has no zone).
 - Mouse per program (M48, 23 Oct; host tests and QEMU `-k` on the Pi build; hardware not verified).
   Works = tabs/chips press the key, lists (click, double click, wheel), dialogs (click outside = Esc), right-click menu.
 
   | Program | Works | Gap (file) |
   |---|---|---|
   | bm Code | tabs (middle click closes), text click, drag, double click word, breakpoints, wheel, lists, dialogs, right menu | none found |
-  | bm SDK (`carts/editor`) | tabs, code click and wheel, pickers, sprite/map/3D, hub list (click, wheel since M48), right menu | code view: no drag or word select (the view has no selection); prompt box: no caret placement |
-  | bm SDK RGB30 (`carts/sdk_b16`) | same as above (hub wheel since M48) | code view as above; sound page: no wheel or double click (`mouse` near line 4052); zone `message` has no handler |
-  | bm Studio | tabs, lists, build view (paint, pick, camera), picker, models page, right menu | prompt: no caret placement |
-  | bm Animator | rig, anim (timeline drag, bones), sprites page (wheel changes a value), play, lists, right menu | prompt: no caret placement |
-  | bm Mesh | tabs, list, edit page, chooser (Open, Add a part, Ghost, Bones, Commands: click, double click, wheel, outside = Esc), camera, right menu; Import, Export, Snap, Ghost and Bones are rows of the Commands chooser (`COMMANDS`, `carts/mesh/main.lua:2179`), so the mouse reaches them | prompt: no caret placement |
-  | bm Pixel | tabs, draw (paint, wheel), sheet, palette (click, double click), stack, menu, dialogs, right menu | palette page: no wheel |
-  | bm Sound | tabs, slots, fields, steps, tracks, cells, orders, bar drag, overlays, right menu; text dialogs (riff, name): click outside = Esc (M48) | no caret placement in the name and riff fields |
-  | bm Write (M48) | page click, drag select, double click word, Shift+click, wheel, bar chips (style, B I U, L C R J), `bm Write` opens the menu, right-click edit menu, menu, open list, export list, confirm, help | prompt (file name): no caret placement; no hover highlight |
+  | bm SDK (`carts/editor`) | tabs, code (click, wheel, drag, double click word, selection with Ctrl+C/X), pickers, sprite/map/3D, hub list, prompt (caret by click), right menu | none found |
+  | bm SDK RGB30 (`carts/sdk_b16`) | same as above; sound page (wheel on a field or step, double click plays); click hides a long message | none found |
+  | bm Studio | tabs, lists, build view (paint, pick, camera), picker, models page, prompt (caret by click), right menu | none found |
+  | bm Animator | rig, anim (timeline drag, bones), sprites page (wheel changes a value), play, lists, prompt (caret by click), right menu | none found |
+  | bm Mesh | tabs, list, edit page, chooser (Open, Add a part, Ghost, Bones, Commands: click, double click, wheel, outside = Esc), camera, right menu; Import, Export, Snap, Ghost and Bones are rows of the Commands chooser (`COMMANDS`, `carts/mesh/main.lua:2179`), so the mouse reaches them; prompt (caret by click) | none found |
+  | bm Pixel | tabs, draw (paint, wheel), sheet, palette (click, double click, wheel), stack, menu, dialogs (caret by click), right menu | none found |
+  | bm Sound | tabs, slots, fields, steps, tracks, cells, orders, bar drag, overlays, right menu; text dialogs (riff, name): click outside = Esc, click puts the caret or letter (M48) | none found |
+  | bm Write (M48) | page click, drag select, double click word, Shift+click, wheel, bar chips (style, B I U, L C R J), `bm Write` opens the menu, right-click edit menu, menu, open list, export list, confirm, help, prompt (caret by click) | no hover highlight |
   | bm assistant | chips F6 to F9 press the key; the panel (`assist.lua`) clicks and wheels | none found |
   | Settings (C pages) | kernel menu, not Lua: see `ui-reference.md` | not part of this pass |
 

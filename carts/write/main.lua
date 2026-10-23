@@ -1139,9 +1139,11 @@ local function overlay_key(k)
   if o.kind == "prompt" then
     if k == "\n" then overlay = nil; o.done(o.text)
     elseif k == "esc" then overlay = nil
-    elseif k == "\b" then o.text = o.fresh and "" or o.text:sub(1, -2)
-    elseif #k == 1 and k:byte() >= 32 and (o.fresh or #o.text < 12) then o.text = (o.fresh and "" or o.text) .. k
-    else return end
+    else
+      -- the first letter or backspace replaces the chosen text; the other keys move the caret
+      if o.fresh and (k == "\b" or k == "del" or (#k == 1 and k:byte() >= 32)) then o.text, o.pos = "", 0 end
+      if not U.line_key(o, k, 12) then return end
+    end
     o.fresh = false
     return
   end
@@ -1260,6 +1262,8 @@ local function overlay_mouse()
   local z = U.click(0)
   if o.kind == "confirm" then
     if z and z.kind == "cchoice" then o.sel = z.a; U.press("\n") end
+  elseif o.kind == "prompt" then
+    if z and z.kind == "field" then o.fresh = false; U.line_click(o, z.a, 8) end
   elseif ROW[o.kind] then
     local n = o.kind == "menu" and #MENU or o.kind == "files" and #o.items or #FORMATS
     local act
@@ -1602,7 +1606,8 @@ local function draw_overlay()
     print(o.label, (c0 + 2) * 8, 9 * 16, C.text)
     rectfill((c0 + 2) * 8, 11 * 16, (cols - 4) * 8, 16, C.bar2)
     if o.fresh and #o.text > 0 then rectfill((c0 + 3) * 8, 11 * 16, #o.text * 8, 16, C.hot) end
-    print(o.text .. ((frame // 30) % 2 == 0 and "_" or ""), (c0 + 3) * 8, 11 * 16, 0xFFFFFF)
+    U.zone((c0 + 2) * 8, 11 * 16, (cols - 4) * 8, 16, "field", (c0 + 3) * 8)
+    U.line_draw(o, (c0 + 3) * 8, 11 * 16, 0xFFFFFF, (frame // 30) % 2 == 0)
   elseif o.kind == "confirm" then
     local cols = 52
     local c0 = (W // 8 - cols) // 2

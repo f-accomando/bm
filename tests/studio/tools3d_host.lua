@@ -750,6 +750,20 @@ check(#cur_models() == 8, "deleted again")
 -- save as a copy: the sections come back the same, byte for byte (cart_write)
 menu_pick("Save as", EXIT_S)
 check(sees("file name"), "Save as asks a name")
+-- a click on the line of the dialog puts the caret there (M48): "ac", a click between, "b"
+for _ = 1, 40 do key("\b") end
+key("a", "c")
+for _, b in ipairs({ 0, 1, 0 }) do
+  local was = MS.b
+  MS.x, MS.y, MS.b, MS.w = 96 + 8, 184, b, 0
+  MS.p = MS.b & ~was
+  frames(1)
+  MS.p = 0
+end
+frames(1)
+key("b")
+check(sees("abc"), "mouse: a click on the line of the dialog puts the caret between the letters")
+key("end")
 type_text("COPY3D")
 check(status():find("saved /bme/copy3d.bme", 1, true), "saved: " .. status())
 local copy = read_file(SD .. "/bme/copy3d.bme")

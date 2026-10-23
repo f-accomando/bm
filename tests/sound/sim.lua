@@ -356,6 +356,27 @@ type_keys("f1", "up")                     -- the name field
 type_keys("\n", "\b", "\b", "\b", "\b", "B", "O", "O", "M", "\n")
 b = parse(last_bank)
 check(b.sounds[1] == "BOOM", "the sound is renamed with the name editor")
+-- the name editor with the mouse (M48): a click on a letter box chooses it, the keyboard types there
+local function mclick(x, y)
+  for _, b in ipairs({ 0, 1, 0 }) do
+    local was = MS.b
+    MS.x, MS.y, MS.b, MS.w = x, y, b, 0
+    MS.p = MS.b & ~was
+    frame()
+    MS.p = 0
+  end
+  frame()
+end
+type_keys("\n")                          -- the editor again: BOOM, the first letter chosen
+mclick(170 + 2 * 38 + 16, 175)            -- the third box
+type_keys("Q", "\n")
+b = parse(last_bank)
+check(b.sounds[1] == "BOQM", "mouse: a click on a letter box of the name editor chooses the letter: " .. tostring(b.sounds[1]))
+type_keys("\n")
+mclick(170 + 2 * 38 + 16, 175)
+type_keys("O", "\n")
+b = parse(last_bank)
+check(b.sounds[1] == "BOOM", "mouse: the name is back")
 type_keys("down")
 hold_then(A, R)
 
