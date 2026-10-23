@@ -1171,8 +1171,8 @@ function draw_draw()
            { { "r" }, "turn" }, { { "del" }, "clear" }, { { "esc" }, "none" } })
   elseif dp.anchor then hint({ { { "up", "down", "left", "right" }, "the other corner" }, { { "space" }, "done" }, { { "esc" }, "cancel" } })
   else
-    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "l", "u", "o", "m", "w" }, "tools" },
-           { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "j" }, "boxes" }, { { "q" }, "tile" }, { { "tab" }, "more" } })
+    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "m", "w" }, "tools" },
+           { { "ctrl", "e" }, "PNG" }, { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "tab" }, "more" } })
   end
 end
 end
@@ -1353,7 +1353,7 @@ function draw_sheet()
   print(string.format("view (%d,%d)  %d frames from here%s  spr(%d, x, y, %d, %d)", shp.vx, shp.vy, anim.frames,
                       anim.boxes and "  boxes" or "", sprite_index(), rs // 8, rs // 8), 8, 304, C_DIM)
   hint({ { { "up", "down", "left", "right" }, "sprite" }, { { "enter" }, "draw it" }, { { "z" }, "size" }, { { "+", "-" }, "zoom" },
-         { { "j" }, "boxes" }, { { "ctrl", "c" }, "copy" }, { { "ctrl", "v" }, "paste" }, { { "shift", "r" }, "sheet size" } })
+         { { "j" }, "boxes" }, { { "ctrl", "c" }, "copy" }, { { "ctrl", "v" }, "paste" }, { { "shift", "r" }, "sheet size" }, { { "ctrl", "e" }, "export PNG" } })
 end
 end
 
@@ -1969,6 +1969,7 @@ local HELP = {
   all = {
     { "f1 / f2 / f3 / f4", "draw / sheet / palette / stack" },
     { "tab", "the commands" },
+    { "ctrl e", "export a PNG to /docs (sprite, animation, sheet)" },
   },
   draw = {
     { "up down left right", "the pointer" },
@@ -2112,6 +2113,40 @@ local function new_other()
   if not dirty or confirmed("new", "unsaved changes: choose again for a new sheet") then new_sheet(); go("draw") end
 end
 
+-- Ctrl+E: the sprite, the animation or the whole sheet as a PNG in /docs
+-- (sheet_png, doc_write; the console's file names are 8.3)
+shp.export_png = function()
+  local base = (proj.path and proj.path:match("([^/]+)$") or "sprites"):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if base == "" then base = "sprites" end
+  local function write(rects, name)
+    local stem = name:match("([^/]*)$"):lower():gsub("%.png$", ""):gsub("[^%w_]", "")
+    if stem == "" then return end
+    local cut = #stem > 8
+    stem = stem:sub(1, 8) .. ".png"
+    if not sheet_png or not doc_write then say("export: this console cannot write a PNG", C_ERR); return end
+    local png, why = sheet_png(rects)
+    if not png then say("export failed: " .. tostring(why), C_ERR, 300); return end
+    local ok, err = doc_write(stem, png)
+    if not ok then say("export failed: " .. tostring(err), C_ERR, 300); return end
+    say("saved /docs/" .. stem .. (cut and " (name cut to 8 letters)" or ""), C_ACC, 300)
+  end
+  local function go_on(rects)
+    ask("PNG name (8.3, in /docs)", base:sub(1, 8) .. ".png", function(t) write(rects, t) end)
+  end
+  local anim_rects = {}
+  local per = sw // rs                  -- the preview's order: along the sheet, wrapping round
+  local total = per * (sh // rs)
+  for k = 0, anim.frames - 1 do
+    local n = ((ry // rs) * per + rx // rs + k) % total
+    anim_rects[#anim_rects + 1] = { (n % per) * rs, (n // per) * rs, rs, rs }
+  end
+  choose("export a PNG to /docs", {
+    { "this sprite", function() go_on({ { rx, ry, rs, rs } }) end },
+    { "the animation: " .. anim.frames .. " frames side by side", function() go_on(anim_rects) end },
+    { "the whole sheet", function() go_on({ { 0, 0, sw, sh } }) end },
+  })
+end
+
 local MENU = {
   { "Continue", function() go(last_page) end },
   { "Open...   (Ctrl+O)", open_other },
@@ -2119,6 +2154,7 @@ local MENU = {
   { "Save   (Ctrl+S)", save_now },
   { "Save as...   (Ctrl+Shift+S)", save_as },
   { "Try the game (F5)", try_game },
+  { "Export a PNG to /docs...   (Ctrl+E)", function() shp.export_png() end },
   { "Sheet size...", function() go("sheet"); shp.resize() end },
   { "Exit bm Pixel", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then remember(); quit() end end },
 }
@@ -2201,6 +2237,7 @@ local function global_key(k)
   elseif k == "^o" then open_other(); return true
   elseif k == "^n" then new_other(); return true
   elseif k == "f5" or k == "^r" then try_game(); return true
+  elseif k == "^e" then shp.export_png(); return true
   elseif k == "^z" then
     if page == "draw" and dp.float then draw_key("esc") else do_undo(undo, redo, "undo") end
     return true
