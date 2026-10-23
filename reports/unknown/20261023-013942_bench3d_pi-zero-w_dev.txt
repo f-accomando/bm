@@ -1,0 +1,36 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-23 01:39:42
+file: 20261023-013942_bench3d_pi-zero-w_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.6 (cel)
+date 2026-10-23 01:39 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 44.3 C, throttled 00000
+gpu bm3d 7.6 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes)
+probes before the vertex shader probe: ERRSTAT 00003000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00003010 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.6 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3d0072.txt
+only tests htmap, profiles VS
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us
+R,ht_p100,GPU+VS,3.4,3.9,13.7,0,14.8,15.2,24216,22591,0,0,22591,1.0,3.7,7564661,405777,86703,14855328,1,31506,29392,400,300,3.4,2.5,66,0,0,84112,-1,-1,-1,940,2798
+R,ht_p100m,GPU+VS,3.4,4.1,13.1,0,16.6,43.5,32288,30121,0,0,30121,1.0,6.1,10547050,653380,172329,23298046,2,32745,30548,400,300,3.3,2.8,78,0,0,84112,-1,-1,-1,1949,4105
+R,ht_p10,GPU+VS,3.4,5.5,20.3,0,15.0,16.4,40360,40360,0,0,40360,1.0,5.9,7361241,631108,68781,16077534,1,44443,44443,400,300,3.4,2.6,94,0,0,84112,-1,-1,-1,1688,4182
+R,ht_p10m,GPU+VS,3.4,4.2,11.1,0,16.4,54.2,32288,32288,0,0,32288,1.0,6.3,10388732,680254,140545,22665464,1,33905,33905,400,300,3.2,2.7,78,0,0,84112,-1,-1,-1,2123,4216
+R,ht_p1,GPU+VS,3.4,5.1,19.0,0,16.6,16.9,40360,40360,0,0,40360,1.0,6.7,7339892,719863,62667,16673380,2,40847,40847,400,300,3.3,2.6,94,0,0,84112,-1,-1,-1,2640,4077
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+score 0 (bm3d 7.6 as the games get it, 0 of 24 tests, a part of the bench), GPU bm3d 2.1 0, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.6,0,0,0
+S,GPU,2.1,0,0,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 0 (none)
+total 10 s
