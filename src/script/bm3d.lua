@@ -954,6 +954,83 @@ function T.import_model(name, opts)
   return item
 end
 
+----------------------------------------------------------------- the ghost reference (APP-10 step 7)
+
+-- A ghost is a model shown as a faint wire behind the model that is edited. It is a layer of its own:
+-- never chosen, never saved, never counted. It keeps only what the wire needs: the vertices, a cached
+-- list of unique edges, a scale and a height offset.
+--   g = { name, from = "bmm" | "glb", nv, nf (the model's), shown (faces in the wire), stride,
+--         v = { {x, y, z}, ... }, ea = {}, eb = {} (edge ends), used = { vertex numbers }, scale = 1, dy = 0, on = true }
+-- G.GHOST_FACES: the budget of faces in the wire (the Pi Zero W draws every edge each frame); a model with
+-- more faces keeps every stride-th face (a .glb is reduced by glb3d to the budget instead).
+G.GHOST_FACES = 2000
+G.GHOST_SCALE_MIN, G.GHOST_SCALE_MAX, G.GHOST_DY_MAX = 0.1, 10, 20
+
+-- the ghost of an item { v, f } (budget: faces in the wire, default G.GHOST_FACES)
+function G.ghost_make(item, budget)
+  budget = budget or G.GHOST_FACES
+  local nf = #item.f
+  local stride = nf > budget and (-(-nf // budget)) or 1
+  local ea, eb, seen, used, usedset = {}, {}, {}, {}, {}
+  local shown = 0
+  for fi = 1, nf, stride do
+    local f = item.f[fi]
+    shown = shown + 1
+    for k = 1, 3 do
+      local a, b = f[k], f[k % 3 + 1]
+      if a > b then a, b = b, a end
+      local key = a * 65536 + b
+      if not seen[key] then
+        seen[key] = true
+        ea[#ea + 1], eb[#eb + 1] = a, b
+        if not usedset[a] then usedset[a] = true; used[#used + 1] = a end
+        if not usedset[b] then usedset[b] = true; used[#used + 1] = b end
+      end
+    end
+  end
+  local v = {}
+  for _, i in ipairs(used) do v[i] = item.v[i] end       -- the other vertices are let go
+  return { name = item.name, from = item.from, nv = #item.v, nf = nf, shown = shown, stride = stride,
+           v = v, ea = ea, eb = eb, used = used, scale = 1, dy = 0, on = true }
+end
+
+-- where vertex i of the ghost is
+function G.ghost_pos(g, i)
+  local p = g.v[i]
+  return p[1] * g.scale, p[2] * g.scale + g.dy, p[3] * g.scale
+end
+
+-- a nudge of the scale (factor) or of the height (step): kept in the range
+function G.ghost_scale(g, factor)
+  g.scale = clamp(g.scale * factor, G.GHOST_SCALE_MIN, G.GHOST_SCALE_MAX)
+  return g.scale
+end
+function G.ghost_lift(g, step)
+  g.dy = clamp(g.dy + step, -G.GHOST_DY_MAX, G.GHOST_DY_MAX)
+  if math.abs(g.dy) < 1e-9 then g.dy = 0 end
+  return g.dy
+end
+
+-- the line the editor tells after a load
+function G.ghost_text(g)
+  local s = string.format("ghost %s.%s: %d vertices, %d triangles", g.name, g.from, g.nv, g.nf)
+  if g.stride > 1 then
+    s = s .. string.format("; the wire keeps %d triangles (1 in %d: the budget)", g.shown, g.stride)
+  end
+  return s
+end
+
+-- a ghost from /bmm or /glb: the ghost, or nil and a message. Reads only: a .glb is read by glb3d (reduced
+-- to G.GHOST_FACES triangles) and NOT written to /bmm; no texture; nothing is changed on the card.
+function T.ghost_load(name, budget)
+  budget = budget or G.GHOST_FACES
+  local item, err = T.import_model(name, { faces = budget, texture = false })
+  if not item then return nil, err end
+  local g = G.ghost_make(item, budget)
+  g.name = model_entry(name).name                -- the file's name (the model in it may have another)
+  return g
+end
+
 -- an item into /bmm/NAME.bmm (NAME: 1 to 8 of a-z 0-9 _ -): true and the path, or nil and a message.
 -- The skeleton (ANIM) and the sheet go with the model when it has them (not when its vertices
 -- changed since the skeleton was made). A file that is there is not changed unless opts.replace.

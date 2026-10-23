@@ -2002,6 +2002,77 @@ function ed.toggle_mirror()
   say(ed.mirror and "mirror X on: edits happen on both sides" or "mirror X off", ed.mirror and C_ACC or C_DIM, 120)
 end
 
+-- the ghost reference (h shows / hides, Shift+H loads or clears, [ ] scale, { } height): a model of /bmm or
+-- /glb as a faint wire behind the model; it is not in `items`, not chosen, not counted, not saved, not
+-- mirrored or snapped to (B.ghost_load, B.G.ghost_*: bm3d.lua); ed.ghost is nil without one
+ed.GHOST_C = 0x3E7C68
+
+function ed.ghost_clear()
+  if not ed.ghost then return end
+  ed.ghost = nil                                 -- the vertices and the edges go
+  if collectgarbage then collectgarbage() end
+  say("ghost cleared", C_ACC, 300)
+end
+
+function ed.ghost_set(name)
+  local g, err = B.ghost_load(name)
+  if not g then say(tostring(err), C_ERR, 300); return false end
+  ed.ghost = nil
+  ed.ghost = g
+  say(B.G.ghost_text(g) .. "  (h hides, [ ] scale, { } height)", g.stride > 1 and C_ERR or C_ACC, 420)
+  return true
+end
+
+function ed.ghost_toggle()
+  local g = ed.ghost
+  if not g then say("no ghost: Shift+H loads a model from /bmm or /glb as a reference", C_DIM, 200); return end
+  g.on = not g.on
+  say(g.on and ("ghost " .. g.name .. " shown") or ("ghost " .. g.name .. " hidden"), C_ACC, 120)
+end
+
+function ed.ghost_dialog()
+  local list = B.model_files()
+  local rows = {}
+  if ed.ghost then rows[#rows + 1] = { "Clear the ghost: " .. ed.ghost.name, function() ed.ghost_clear() end } end
+  for _, e in ipairs(list) do
+    rows[#rows + 1] = { e.name .. (e.kind == "bmm" and "   .bmm" or "   .glb: read only, not converted"),
+                        function() ed.ghost_set(e.name) end }
+  end
+  if #list == 0 then say("no model in /bmm or /glb on the SD card", C_ERR, 300); if #rows == 0 then return false end end
+  choose("ghost: a model as a reference (never saved)", rows, ed.ghost and 2 or 1)
+  return true
+end
+
+-- [ ] scale by 5 %, { } height by 0.05 (the ghost keeps them while the mesh changes)
+function ed.ghost_nudge(k)
+  local g = ed.ghost
+  if not g then say("no ghost: Shift+H loads one", C_DIM, 160); return end
+  if k == "[" or k == "]" then
+    B.G.ghost_scale(g, k == "]" and 1.05 or 1 / 1.05)
+  else
+    B.G.ghost_lift(g, k == "}" and 0.05 or -0.05)
+  end
+  say(string.format("ghost %s: scale %.2f, height %+.2f", g.name, g.scale, g.dy), C_ACC, 90)
+end
+
+-- the wire, before the model's own: each used vertex is projected once
+function ed.ghost_draw()
+  local g = ed.ghost
+  if not g or not g.on then return end
+  local gx, gy = {}, {}
+  local v, sc, dy = g.v, g.scale, g.dy
+  for _, i in ipairs(g.used) do
+    local p = v[i]
+    local x, y = project3d(p[1] * sc, p[2] * sc + dy, p[3] * sc)
+    if x and abs(x) < 8000 and abs(y) < 8000 then gx[i], gy[i] = x, y end
+  end
+  local ea, eb = g.ea, g.eb
+  for k = 1, #ea do
+    local a, b = ea[k], eb[k]
+    if gx[a] and gx[b] then line(gx[a], gy[a], gx[b], gy[b], ed.GHOST_C) end
+  end
+end
+
 local COMMANDS = {
   { "Move (g)", "g" }, { "Rotate (r)", "r" }, { "Scale (t)", "t" }, { "Extrude faces (x)", "x" },
   { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
@@ -2014,6 +2085,9 @@ local COMMANDS = {
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
   { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / edges / faces (Tab)", "\t" },
   { "Next element (n)", "n" }, { "Frame the choice (f)", "f" }, { "Finer step (,)", "," }, { "Coarser step (.)", "." },
+  { "Ghost: load a model, clear it (H)", "H" }, { "Ghost: show / hide (h)", "h" },
+  { "Ghost: scale up (])", "]" }, { "Ghost: scale down ([)", "[" },
+  { "Ghost: up (})", "}" }, { "Ghost: down ({)", "{" },
   { "Import a model: /bmm, /glb (Ctrl+I)", "^i" }, { "Export to /bmm (Ctrl+E)", "^e" },
 }
 ed.commands = COMMANDS                   -- (the context menu, outside this block)
@@ -2103,6 +2177,9 @@ function edit_key(k)
   elseif k == "m" then op_mirror()
   elseif k == "M" then op_mirror_copy()
   elseif k == "X" then ed.toggle_mirror()
+  elseif k == "h" then ed.ghost_toggle()
+  elseif k == "H" then ed.ghost_dialog()
+  elseif k == "[" or k == "]" or k == "{" or k == "}" then ed.ghost_nudge(k)
   elseif k == "S" then ed.cycle_snap()
   elseif k == "G" then ed.cycle_step()
   elseif k == "^r" then ed.loop_cut()
@@ -2183,6 +2260,7 @@ function draw_edit()
     light3d(-0.4, 0.8, -0.5, 0.45)
     draw3d(v, 0, 0, 0, 0, 0, 0, 1, 0)
   end
+  ed.ghost_draw()
   project_all(it)
   ed.sync_e(it)
   hover()
@@ -2259,6 +2337,11 @@ function draw_edit()
   local nsel = ed.mode == "v" and count(ed.sv) or (ed.mode == "e" and count(ed.se) or count(ed.sf))
   if ed.mirror then rectfill(W - 72, 16, 64, 8, C_BG); print("MIRROR X", W - 72, 16, C_ACC) end
   if ed.snap ~= 0 then local s = ed.snap_text(""); print(s, W - 8 - #s * 8, 24, C_ACC) end
+  if ed.ghost then
+    local g = ed.ghost
+    local s = string.format("GHOST %s%s x%.2f", g.name:sub(1, 8), g.on and "" or " (hidden)", g.scale)
+    print(s, W - 8 - #s * 8, 32, g.on and C_ACC or C_DIM)
+  end
   print(it.name, 8, 16, KIND_C[it.kind])
   print(string.format("%d of 65535 vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
                       ed.mode == "v" and "VERTICES" or (ed.mode == "e" and "EDGES" or "FACES"), nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
@@ -2325,6 +2408,8 @@ local HELP = {
     { "shift a", "add a part: cube, cylinder, sphere, plane" },
     { "m / shift m", "mirror left-right / copy across 0" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete on both sides" },
+    { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved)" },
+    { "[ ] / { }", "ghost: scale / height (with a ghost, [ ] do not change the mesh)" },
     { "shift s / shift g", "snap: off, grid, vertex, both / the grid step (0.05 to 0.5)" },
     { "j", "new face on 3-4 vertices" },
     { "k / shift k", "merge / weld equal vertices" },
@@ -2348,7 +2433,7 @@ local HELP = {
     { "Y B", "menu" },
     { "Y A", "undo" },
     { "Y UPDOWN", "mesh" },
-    { "X", "the commands (tap): Import, Export" },
+    { "X", "the commands (tap): Import, Export, Ghost" },
     { "X DPAD", "turn the view" },
     { "X A / X B", "zoom" },
     { "A", "edit (list); choose (edit)" },
@@ -2584,7 +2669,8 @@ local function global_key(k)
     if ed.tool then edit_key("esc")            -- undo in a tool: the tool goes
     elseif k == "^z" then do_undo(undo, redo, "undo") else do_undo(redo, undo, "redo") end
     return true
-  elseif (k == "[" or k == "]") and page ~= "menu" and #items > 0 and not ed.tool then
+  elseif (k == "[" or k == "]") and page ~= "menu" and #items > 0 and not ed.tool
+         and not (page == "edit" and ed.ghost and not ed.pal) then
     cur = (cur - 1 + (k == "]" and 1 or -1)) % #items + 1
     reset_pages()
     say(I().name, C_ACC, 60)

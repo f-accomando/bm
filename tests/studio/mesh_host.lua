@@ -1671,5 +1671,148 @@ do
 end
 
 
+-- the ghost reference (APP-10 step 7): a model of /bmm or /glb as a faint wire; never chosen, counted or saved
+do
+  local GC = 0x3E7C68
+  local ghost_lines, line0 = 0, E.line
+  E.line = function(x0, y0, x1, y1, c)
+    if c == GC then ghost_lines = ghost_lines + 1 end
+    if line0 then return line0(x0, y0, x1, y1, c) end
+  end
+  MF.card["/glb"]["ref.glb"] = "glTF"
+  local function drawn() ghost_lines = 0; frames(1); return ghost_lines end
+  local function ghost_row(name, has)
+    local seen, list = {}, {}
+    for _, d in ipairs({ "/bmm", "/glb" }) do
+      for f in pairs(MF.card[d]) do
+        local stem = f:lower():match("^(.+)%.[bg][ml][mb]$")
+        if stem and not seen[stem] then seen[stem] = true; list[#list + 1] = stem end
+      end
+    end
+    table.sort(list)
+    key("H")
+    key("pgup")
+    local at = 1
+    for i, n in ipairs(list) do if n == name then at = i end end
+    for _ = 1, at - 1 + (has and 1 or 0) do key("down") end
+    key("\n")
+  end
+  key("f1")
+  goto_item("M kite")
+  key("f2")
+  local counters = "4 of 65535 vertices  2 triangles"
+  check(sees(counters) and not sees("GHOST"), "ghost: none at first, the counters: 4 vertices, 2 triangles")
+  check(in_help("h / shift h", "ghost") and in_help("[ ] / { }", "scale"), "ghost: keyhelp")
+  key("f3")
+  for _ = 1, 8 do key("up") end
+  check(sees("Ghost: load a model, clear it (H)") and sees("Ghost: show / hide (h)"), "ghost: the commands list")
+  key("esc")
+  key("h")
+  check(status():find("no ghost", 1, true), "ghost: h with none says so: " .. status())
+  key("^s")
+  local project = status():match("saved /bme/(%S+)")
+  local bytes0 = file(project)
+  local nw, ncalls = #MF.writes, #MF.calls
+  local function nbmm() local n = 0; for _ in pairs(MF.card["/bmm"]) do n = n + 1 end; return n end
+  local nb0 = nbmm()
+
+  -- a .glb: read, not written
+  key("H")
+  check(sees("ghost: a model as a reference") and sees("ref   .glb: read only, not converted") and sees("kite   .bmm"),
+        "ghost: the chooser lists /bmm and /glb")
+  key("esc")
+  ghost_row("ref")
+  check(status():find("ghost ref.glb: 4 vertices, 3 triangles", 1, true), "ghost: the .glb loads: " .. status())
+  check(sees("GHOST ref x1.00") and sees(counters), "ghost: shown on the screen, the counters are the mesh's")
+  check(#MF.writes == nw and nbmm() == nb0 and MF.card["/bmm"]["ref.bmm"] == nil and #MF.calls == ncalls + 1,
+        "ghost: a .glb is read by glb3d and not written to /bmm")
+  check(MF.calls[#MF.calls] == "/glb/ref.glb", "ghost: the .glb path read: " .. tostring(MF.calls[#MF.calls]))
+  local n1 = drawn()
+  check(n1 == 6, "ghost: the wire of a tetrahedron: 6 edges drawn (" .. n1 .. ")")
+  key("^s")
+  check(file(project) == bytes0, "ghost: the saved project has the same bytes with the ghost shown")
+  key("a")
+  check(sees(counters), "ghost: select all does not count it")
+
+  -- toggle
+  key("h")
+  check(drawn() == 0 and sees("(hidden)") and status():find("hidden", 1, true), "ghost: h hides it: " .. status())
+  key("h")
+  check(drawn() == 6 and not sees("(hidden)"), "ghost: h shows it again")
+
+  -- scale and height
+  key("]")
+  check(sees("x1.05") and status():find("scale 1.05, height +0.00", 1, true), "ghost: ] grows by 5 percent: " .. status())
+  key("[", "[")
+  check(sees("x0.95"), "ghost: [ shrinks")
+  key("{", "{")
+  check(status():find("height -0.10", 1, true), "ghost: { lowers by 0.05: " .. status())
+  key("}", "}", "}")
+  check(status():find("height +0.05", 1, true), "ghost: } lifts: " .. status())
+  for _ = 1, 80 do key("]") end
+  check(sees("x10.00"), "ghost: the scale stops at 10")
+  for _ = 1, 140 do key("[") end
+  check(sees("x0.10"), "ghost: the scale stops at 0.1")
+  key("f1")
+  key("]")                                       -- on the list the keys still change the mesh
+  check(chosen() ~= "M kite", "ghost: [ ] change the mesh in the list")
+  key("[")
+  goto_item("M kite")
+  key("f2")
+  check(sees("GHOST ref"), "ghost: it stays when the page changes")
+  key("^s")
+  check(file(project) == bytes0, "ghost: scaled and lifted, the saved bytes are the same")
+
+  -- a .bmm replaces it
+  ghost_row("kite", true)
+  check(status():find("ghost kite.bmm: 4 vertices, 3 triangles", 1, true) and sees("GHOST kite x1.00"),
+        "ghost: a .bmm loads and replaces: " .. status())
+  check(drawn() == 6, "ghost: the wire of 3 triangles: 6 edges drawn")
+  check(#MF.writes == nw, "ghost: a .bmm is not written")
+
+  -- the live mirror does not act on it
+  key("X")
+  key("a", "g", "x", "right", "\n")
+  check(drawn() == 6, "ghost: the live mirror does not touch it")
+  key("^z", "X")
+
+  -- a bad file keeps the ghost
+  ghost_row("bad", true)
+  check(status():find("not a .glb file", 1, true) and sees("GHOST kite"), "ghost: a bad .glb says why and keeps the ghost: " .. status())
+
+  -- the budget: a ghost over it keeps some of the faces and says so
+  local G = E.require("bm3d").G
+  local item = { name = "big", from = "bmm", v = {}, f = {} }
+  for _ = 1, 5000 do
+    local b = #item.v
+    item.v[b + 1] = { b, 0, 0 }
+    item.v[b + 2] = { b, 1, 0 }
+    item.v[b + 3] = { b + 1, 0, 0 }
+    item.f[#item.f + 1] = { b + 1, b + 2, b + 3, 0x808080 }
+  end
+  local g = G.ghost_make(item)
+  check(g.nf == 5000 and g.stride == 3 and g.shown == 1667 and #g.ea == 3 * 1667,
+        "T.G.ghost_make: over the budget: every 3rd face (" .. g.shown .. ")")
+  check(G.ghost_text(g):find("keeps 1667 triangles (1 in 3: the budget)", 1, true), "T.G.ghost_text: the budget is said: " .. G.ghost_text(g))
+  local g2 = G.ghost_make(item, 5000)
+  check(g2.stride == 1 and g2.shown == 5000 and #g2.used == 15000, "T.G.ghost_make: a budget that holds all")
+  check(g.v[1] ~= nil and g.v[4] == nil, "T.G.ghost_make: only the vertices of the kept faces are kept")
+  local gs = { v = { { 1, 2, 3 } }, scale = 2, dy = 0.5 }
+  local gx, gy, gz = G.ghost_pos(gs, 1)
+  check(gx == 2 and gy == 4.5 and gz == 6, "T.G.ghost_pos: scale then height")
+
+  -- clear
+  key("H")
+  key("pgup")
+  key("\n")                                      -- the first row is "Clear the ghost"
+  check(status():find("ghost cleared", 1, true) and not sees("GHOST") and drawn() == 0, "ghost: Clear removes it: " .. status())
+  key("h")
+  check(status():find("no ghost", 1, true), "ghost: after clear h says there is none")
+  key("^s")
+  check(file(project) == bytes0, "ghost: after clear the project is the same bytes")
+  check(sees(counters), "ghost: the counters are the mesh's at the end")
+  E.line = line0
+end
+
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

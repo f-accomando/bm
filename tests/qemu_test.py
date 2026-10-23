@@ -5540,6 +5540,83 @@ def test_mesh_import(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_mesh_ghost(b, opts):
+    """APP10-7: bm Mesh edit page: Shift+H lists /glb (here box.glb) as a ghost reference, which
+    is read only (not converted to /bmm, not written); the screen says "ghost box.glb: 13 vertices,
+    18 triangles", shows GHOST box, and the vertex and triangle counters are the mesh's own and do
+    not change; h hides it; the .glb and /bmm stay as they were."""
+    tmp = tempfile.mkdtemp(prefix="bm-meshghost-")
+    img = os.path.join(tmp, "sd.img")
+    glb = glbfix.build("png")
+    box = os.path.join(tmp, "box.glb")
+    with open(box, "wb") as f:
+        f.write(glb)
+    mksd.build(img, [(b("carts/astrowing.bm"), "carts/astrowing.bm"), (box, "glb/box.glb")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def counters(text):
+        m = re.search(r"(\d+) of 65535 vertices\s+(\d+) triangles", text)
+        assert m, text
+        return m.groups()
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Astro Wing"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "s", "s")
+        screen(["Open in bm Mesh"])
+        keys("\r")
+        screen(["list", "edit", "MESHES 13"])
+        keys("\r", gap=0.8)                      # the list: Enter edits the mesh
+        before = counters(screen(["of 65535 vertices"]))
+        keys("H", gap=0.6)
+        screen(["box   .glb: read only, not converted"])
+        keys("\r", gap=1.0)
+        shown = screen(["ghost box.glb: 13 vertices, 18 triangles", "GHOST box"])
+        assert counters(shown) == before, (before, counters(shown))
+        keys("h", gap=0.5)
+        hidden = screen(["(hidden)"])
+        assert counters(hidden) == before, (before, counters(hidden))
+        keys("h", gap=0.5)
+        screen(["GHOST box"])
+        keys("H", gap=0.6)
+        screen(["Clear the ghost: box"])
+        keys("\x1b[A", "\r", gap=0.6)       # the cursor is on the model below it
+        gone = screen(["ghost cleared"])
+        assert "GHOST" not in gone and counters(gone) == before
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BMM"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "BOX" not in names, names
+        same = subprocess.run(["mtype", "-i", part, "::/GLB/BOX.GLB"], capture_output=True, env=env).stdout
+        assert same == glb, "the .glb is not changed"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def _sheet_pixels(data):
     """The sheet of a .bm: (w, h, [0xRRGGBB or None ...]), from SHEET8 or
     SHEET, and the SHEET8 palette (None for SHEET)."""

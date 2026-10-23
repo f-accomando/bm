@@ -152,6 +152,10 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | m | specchia la scelta, da sinistra a destra sullo schermo |
 | M | copia la scelta dall'altra parte dello 0 |
 | X (Maiusc+X) | specchio dal vivo acceso o spento |
+| h | mostra o nascondi il fantasma (il modello di riferimento) |
+| H (Maiusc+H) | carica un fantasma da `/bmm` o `/glb`, o toglilo |
+| [ e ] | il fantasma più piccolo o più grande (5 per cento a ogni pressione) |
+| { e } (Maiusc+[ e Maiusc+]) | il fantasma in basso o in alto (0,05 a ogni pressione) |
 | S (Maiusc+S) | aggancio: spento, griglia, vertice, griglia e vertice |
 | G (Maiusc+G) | passo della griglia: 0,05, 0,1, 0,25, 0,5 |
 | Ctrl+R | taglio ad anello attraverso lo spigolo scelto |
@@ -252,6 +256,20 @@ Alla fine i vertici nuovi sono la scelta (in modalità spigoli, i nuovi spigoli 
 **Maiusc+J** è il coltello. Usalo in modalità spigoli. Scegli due spigoli di un triangolo (due spigoli che si incontrano in un angolo del triangolo). L'editor mette un vertice nuovo a metà di ogni spigolo e taglia il triangolo in modo che un nuovo spigolo unisca i due vertici nuovi. Anche il triangolo dall'altra parte di ognuno dei due spigoli viene tagliato in due, dal vertice nuovo all'angolo opposto, così non compare nessuna fessura. Un vertice nuovo prende l'osso dell'estremo più basso del suo spigolo e la media dei punti della texture (UV). Un triangolo nuovo tiene il colore della sua vecchia faccia. I due vertici nuovi sono la scelta (in modalità spigoli, il nuovo spigolo), e un solo annulla riporta indietro tutto il taglio.
 
 Il coltello non fa nulla, e un messaggio dice il perchè, in questi casi: non hai scelto esattamente due spigoli, i due spigoli non sono spigoli di uno stesso triangolo, oppure uno spigolo ha più di due triangoli. Il coltello cambia la forma della maglia, quindi lo specchio dal vivo non lo copia sull'altro lato. Con lo specchio dal vivo acceso, scegliere uno spigolo sceglie anche il suo corrispondente, quindi spegni lo specchio (Maiusc+X) prima di scegliere i due spigoli. Con il gamepad tocca X e scegli **Knife on two edges of a triangle**.
+
+## Modello di riferimento (fantasma)
+
+Un fantasma è un modello che mostri come riferimento tenue mentre modifichi un altro modello. Ci disegni sopra. È disegnato come un sottile filo verde dietro il tuo lavoro. Non fa parte del tuo modello: non lo puoi scegliere, non è nei contatori dei vertici e dei triangoli, e non è mai salvato nel progetto o in un modello. Lo specchio dal vivo e l'aggancio non agiscono su di lui.
+
+1. Apri un modello nella pagina di modifica. Premi **Maiusc+H**. Con il gamepad tocca X e scegli **Ghost: load a model, clear it**.
+2. Scegli un modello da `/bmm` o `/glb`. Un `.glb` è solo letto: bm Mesh non lo converte e non scrive nulla in `/bmm`. La riga di stato dice il nome e i conteggi, per esempio `ghost robot.glb: 1200 vertices, 2000 triangles`. La pagina mostra **GHOST** e il nome in alto a destra.
+3. Premi **h** per nascondere il fantasma e ancora **h** per mostrarlo. Il fantasma resta quando cambi pagina o modello.
+4. Adatta il fantasma al tuo lavoro. **[** e **]** lo fanno più piccolo e più grande. **{** e **}** (**Maiusc+[** e **Maiusc+]**) lo spostano in basso e in alto. La scala va da 0,1 a 10. Il fantasma usa la stessa camera del tuo modello, quindi resta allineato quando ruoti la vista.
+5. Per togliere il fantasma, premi **Maiusc+H** e scegli **Clear the ghost**. La memoria del fantasma è liberata.
+
+Con un fantasma caricato nella pagina di modifica, **[** e **]** cambiano la scala del fantasma e non passano più alla maglia precedente o successiva. Usa la pagina elenco (F1) per cambiare maglia.
+
+Il Raspberry Pi Zero W disegna ogni spigolo del fantasma a ogni fotogramma, quindi il fantasma ha un budget di 2000 triangoli. Un `.glb` con più triangoli è ridotto a 2000 dalla console. Un `.bmm` con più triangoli mostra 1 triangolo su 2, 3 o più. La riga di stato lo dice quando succede. È un budget solo per l'immagine: il file non cambia. Il fantasma non ha texture.
 
 ## La vista
 

@@ -152,6 +152,10 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | m | mirror the choice, left to right on the screen |
 | M | copy the choice to the other side of 0 |
 | X (Shift+X) | live mirror on or off |
+| h | show or hide the ghost (the reference model) |
+| H (Shift+H) | load a ghost from `/bmm` or `/glb`, or clear it |
+| [ and ] | the ghost smaller or larger (5 percent each press) |
+| { and } (Shift+[ and Shift+]) | the ghost down or up (0.05 each press) |
 | S (Shift+S) | snap: off, grid, vertex, grid and vertex |
 | G (Shift+G) | grid step: 0.05, 0.1, 0.25, 0.5 |
 | Ctrl+R | loop cut across the chosen edge |
@@ -252,6 +256,20 @@ When it is done, the new vertices are the choice (in edge mode, the new edges ac
 **Shift+J** is the knife. Use it in edge mode. Choose two edges of one triangle (two edges that meet at a corner of the triangle). The editor puts a new vertex in the middle of each edge and cuts the triangle so that a new edge joins the two new vertices. The triangle across each of the two edges is cut in two, from the new vertex to its far corner, so no crack appears. A new vertex takes the bone of the lower end of its edge and the mean of the texture points (UV). A new triangle keeps the colour of its old face. The two new vertices are the choice (the new edge, in edge mode), and one undo takes back the whole cut.
 
 The knife does nothing, and a message tells why, in these cases: you did not choose exactly two edges, the two edges are not edges of one triangle, or an edge has more than two triangles. The knife is a tool that changes the shape of the mesh, so the live mirror does not copy it to the other side. With the live mirror on, choosing an edge also chooses its counterpart, so turn the mirror off (Shift+X) before you choose the two edges. With the gamepad, tap X and pick **Knife on two edges of a triangle**.
+
+## Reference model (ghost)
+
+A ghost is a model that you show as a faint reference while you edit another model. You trace over it. It is drawn as a thin green wire behind your work. It is not part of your model: you cannot choose it, it is not in the vertex and triangle counters, and it is never saved in the project or in a model. The live mirror and the snap do not act on it.
+
+1. Open a model on the edit page. Press **Shift+H**. On the gamepad, tap X and pick **Ghost: load a model, clear it**.
+2. Choose a model from `/bmm` or `/glb`. A `.glb` is only read: bm Mesh does not convert it and does not write anything to `/bmm`. The status line tells the name and the counts, for example `ghost robot.glb: 1200 vertices, 2000 triangles`. The page shows **GHOST** and the name at the top right.
+3. Press **h** to hide the ghost and **h** again to show it. The ghost stays when you change page or model.
+4. Make the ghost fit your work. **[** and **]** make it smaller and larger. **{** and **}** (**Shift+[** and **Shift+]**) move it down and up. The scale goes from 0.1 to 10. The ghost uses the same camera as your model, so it stays aligned when you turn the view.
+5. To remove the ghost, press **Shift+H** and choose **Clear the ghost**. The memory of the ghost is freed.
+
+With a ghost loaded on the edit page, **[** and **]** change the ghost scale and no longer change to the previous or next mesh. Use the list page (F1) to change the mesh.
+
+The Raspberry Pi Zero W draws every edge of the ghost on each frame, so the ghost has a budget of 2000 triangles. A `.glb` with more triangles is reduced to 2000 by the console. A `.bmm` with more triangles shows 1 triangle in 2, 3 or more. The status line says it when this happens. This is a budget for the picture only: the file is not changed. The ghost has no texture.
 
 ## The view
 

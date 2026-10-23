@@ -624,13 +624,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "d9bf70ce5eb1",
-    "it": "29044428765c",
+    "en": "b6ae4a6c1d31",
+    "it": "571d913547f8",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "d77efc322b52",
-    "it": "cbf5bf83a6f8",
+    "en": "8d20019ef57a",
+    "it": "bc21c9360d87",
     "title": "Selecting and moving"
    },
    "5": {
@@ -655,10 +655,10 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "4352dc8386ce",
+   "carts/mesh/main.lua": "f3f5e76c120f",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "26881cb737ba",
+   "docs/progress/tools.md": "4a67ac6df77d",
    "sdk/README.md": "f56faae98658"
   }
  },
