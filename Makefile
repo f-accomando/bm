@@ -558,6 +558,19 @@ test-gamekit: $(BUILD)/host/bmhost-bin $(BUILD)/gamekit-test.bm tests/gamekit/in
 	$< $(BUILD)/gamekit-test.bm --input tests/gamekit/input.txt --seconds 28 2>&1 | tee $(BUILD)/gamekit-test.log | grep "^gamekit"
 	grep -q "^gamekit: \([0-9]*\)/\1 checks passed" $(BUILD)/gamekit-test.log
 
+# A game moved onto the kit must play as before: tests/gamekit/trace_tail.lua is added to the end of
+# its main.lua, and the digest of every frame (what it draws, plays and saves) is compared with the
+# digest kept in tests/gamekit/<game>*.golden (made with the game before the move)
+$(BUILD)/pong-trace.bm: carts/pong/main.lua tests/gamekit/trace_tail.lua scripts/mkbm.py
+	cat carts/pong/main.lua tests/gamekit/trace_tail.lua > $(BUILD)/pong-trace.lua
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/pong-trace.lua --title "pong trace" --author tests
+
+test-game-trace: $(BUILD)/host/bmhost-bin $(BUILD)/pong-trace.bm
+	$< $(BUILD)/pong-trace.bm --input tests/gamekit/pong_input.txt --seconds 28 2>&1 | grep "^trace" > $(BUILD)/pong1.trace
+	$< $(BUILD)/pong-trace.bm --input tests/gamekit/pong2_input.txt --seconds 16 2>&1 | grep "^trace" > $(BUILD)/pong2.trace
+	cmp $(BUILD)/pong1.trace tests/gamekit/pong1.golden
+	cmp $(BUILD)/pong2.trace tests/gamekit/pong2.golden
+
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
 	grep -q "^keymap: \([0-9]*\)/\1 checks passed" $(BUILD)/keymap-test.log
@@ -774,7 +787,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
