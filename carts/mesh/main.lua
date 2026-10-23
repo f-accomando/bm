@@ -1265,8 +1265,16 @@ function ed.loop_cut()
   local it = I()
   local a, b
   if ed.mode == "e" then
-    if count(ed.se) ~= 1 then say("loop cut: choose one edge first", C_ERR); return end
-    a, b = B.G.edge_ends(next(ed.se))
+    local k1, k2
+    for k in pairs(ed.se) do if not k1 then k1 = k else k2 = k end end
+    -- live mirror: an edge and its counterpart are chosen together (ed.edge_set): either one is the edge
+    if ed.mirror and k1 and k2 and count(ed.se) == 2 then
+      local a1, b1 = B.G.edge_ends(k1)
+      local mp = B.G.mirror_pairs(it, { a1, b1 })
+      if not (mp[a1] and mp[b1] and B.G.edge_key(mp[a1], mp[b1]) == k2) then k1 = nil end
+    elseif count(ed.se) ~= 1 then k1 = nil end
+    if not k1 then say("loop cut: choose one edge first", C_ERR); return end
+    a, b = B.G.edge_ends(k1)
   elseif ed.mode == "v" and count(ed.sv) == 2 then
     local l = {}
     for i in pairs(ed.sv) do l[#l + 1] = i end
@@ -1278,7 +1286,13 @@ function ed.loop_cut()
   local plan, err = B.G.loop_plan(it, a, b)
   if not plan then say("loop cut: " .. err, C_ERR); return end
   it = begin_edit()
-  local res = B.G.loop_apply(it, plan)
+  local res
+  if ed.mirror then
+    -- live mirror: the ring of the counterpart edge too, when there is one (G.loop_cut_mirror)
+    res = B.G.loop_cut_mirror(it, a, b)
+  else
+    res = B.G.loop_apply(it, plan)
+  end
   ed.sv, ed.sf, ed.se, ed.order = {}, {}, {}, 0
   if ed.mode == "e" then
     for _, r in ipairs(res.rungs) do ed.order = ed.order + 1; ed.se[B.G.edge_key(r[1], r[2])] = ed.order end
@@ -1287,14 +1301,17 @@ function ed.loop_cut()
     for _, m in ipairs(res.mids) do select_v(m, true) end
   end
   ed.sig = ""
-  finish_edit(string.format("loop cut: %d new vertices, %d quads%s%s", #res.mids, #plan.quads,
+  finish_edit(string.format("loop cut: %d new vertices, %d quads%s%s%s", #res.mids, #plan.quads + (res.quads2 or 0),
               plan.closed and " (closed ring)" or " (stopped at the ends)",
-              #plan.plains > 0 and (", " .. #plan.plains .. " other faces cut in 2") or ""))
+              #plan.plains > 0 and (", " .. #plan.plains .. " other faces cut in 2") or "",
+              ed.mirror and (res.rings == 2 and " (mirror X: both rings)" or
+                (res.mirror_err and (" (mirror X: " .. res.mirror_err .. ")") or " (mirror X: one ring)")) or ""))
 end
 
 -- Shift+J: knife-lite. Edge mode, two chosen edges of one triangle: a vertex
 -- in the middle of each, the triangle cut so that a new edge joins them; the
--- face across each edge is cut too. Not mirrored (a topology tool).
+-- face across each edge is cut too. Not mirrored: the knife works on one triangle, so it stays on the
+-- side where it is cut (the loop cut and Shift+A are mirrored).
 function ed.knife()
   local it = I()
   if ed.mode ~= "e" then say("knife: choose two edges first (Tab: edges)", C_ERR); return end
@@ -1600,10 +1617,19 @@ local function add_part(shape)
   local it = begin_edit()
   local centre = #vs > 0 and centre_of(it, vs) or { 0, 0, 0 }
   local bone = it.vb and first and it.vb[first] or 0
-  local nv = B.G.primitive(it, shape, centre, 1, ed.colour, bone)
+  local nv, twin
+  if ed.mirror then
+    -- live mirror: the mirror image across X = 0 too (a part in the middle of the plane is added once)
+    local mb = bone
+    if it.ac and it.vb then mb = B.G.mirror_bone(B.G.rig_bones(it), bone) end
+    nv, twin = B.G.primitive_mirror(it, shape, centre, 1, ed.colour, bone, mb)
+  else
+    nv, twin = B.G.primitive(it, shape, centre, 1, ed.colour, bone), {}
+  end
   ed.mode, ed.sv, ed.sf, ed.order = "v", {}, {}, 0
   for _, i in ipairs(nv) do select_v(i, true) end
-  finish_edit("added a " .. shape .. ": " .. #nv .. " vertices chosen")
+  finish_edit("added a " .. shape .. ": " .. #nv .. " vertices chosen" ..
+              (#twin > 0 and " (mirror X: both sides)" or (ed.mirror and " (in the middle: once)" or "")))
 end
 
 local function op_add_part()
@@ -2483,13 +2509,13 @@ local HELP = {
     { "space / enter", "choose (add) / only this" },
     { "a", "all, none" },
     { "tab / l", "vertices, edges or faces / all linked" },
-    { "ctrl r", "loop cut: a ring of new vertices across the chosen edge" },
+    { "ctrl r", "loop cut: a ring of new vertices across the chosen edge (live mirror: the counterpart ring too)" },
     { "shift j", "knife: cut a triangle between the middles of 2 chosen edges" },
     { "g / r / t", "move / rotate / scale" },
     { "x / d", "extrude faces / duplicate (then move)" },
-    { "shift a", "add a part: cube, cylinder, sphere, plane" },
+    { "shift a", "add a part: cube, cylinder, sphere, plane (live mirror: and its mirror image)" },
     { "m / shift m", "mirror left-right / copy across 0" },
-    { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete on both sides" },
+    { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete, add a part, loop cut on both sides (not the knife)" },
     { "shift b / v", "give the choice (or a part, l) to a bone of the skeleton / tint the dots by bone" },
     { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved)" },
     { "[ ] / { }", "ghost: scale / height (with a ghost, [ ] do not change the mesh)" },

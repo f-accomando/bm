@@ -896,15 +896,13 @@ do
   local nan = false
   for _, p in ipairs(m.verts) do for k = 1, 3 do if p[k] ~= p[k] then nan = true end end end
   check(not nan, "no NaN in the vertices")
-  -- a mirror twin for every vertex but the two the knife added
+  -- a mirror twin for every vertex but the two the knife added (the head too: the sphere's triangles are mirror images)
   local lone = 0
   for _, p in ipairs(m.verts) do
-    -- (the head is left out: the diagonals of the sphere's quads are not mirror images, so the midpoints
-    -- that Subdivide puts on them have no twin; the shape is symmetric, the cutting of it is not)
-    if p[2] < 1.70 and not find_vertex(m, -p[1], p[2], p[3]) then lone = lone + 1 end
+    if not find_vertex(m, -p[1], p[2], p[3]) then lone = lone + 1 end
   end
   R.lone = lone
-  check(lone <= 2, "symmetric left and right below the head: " .. lone .. " vertices have no twin (the knife makes 2)")
+  check(lone <= 2, "symmetric left and right, head included: " .. lone .. " vertices have no twin (the knife makes 2)")
   -- the parts: faces look away from the middle of their part
   local parent = {}
   local function root(i) while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end; return i end

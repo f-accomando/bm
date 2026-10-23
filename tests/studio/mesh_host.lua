@@ -1368,6 +1368,197 @@ do
   check(plain.vb == nil and #plain.v == 8 and plain.v[1][1] == -0.5, "T.G.primitive: no bones, no centre: at 0, size 1")
 end
 
+-- APP-16: the live mirror covers adding a part and the loop cut (the knife stays unmirrored)
+do
+  local G = E.require("bm3d").G
+  local function same(a, b) return math.abs(a - b) < 1e-5 end
+  local function has(m, x, y, z)
+    for _, p in ipairs(m.verts) do
+      if same(p[1], x) and same(p[2], y) and same(p[3], z) then return true end
+    end
+    return false
+  end
+  local function lone_of(m)
+    local n = 0
+    for _, p in ipairs(m.verts) do if not has(m, -p[1], p[2], p[3]) then n = n + 1 end end
+    return n
+  end
+  local function all_of(it) local l = {} for i = 1, #it.v do l[i] = i end return l end
+  -- sphere and cylinder: the triangulation is mirror symmetric (every face and every edge middle has a twin)
+  for _, shape in ipairs({ "sphere", "cylinder" }) do
+    local it = { v = {}, f = {} }
+    G.primitive(it, shape, { 0, 0, 0 }, 1, 0x808080)
+    local list = {}
+    for i = 1, #it.f do list[i] = i end
+    local mp = G.mirror_pairs(it, all_of(it))
+    local nov = 0
+    for i = 1, #it.v do if not mp[i] then nov = nov + 1 end end
+    local mf = G.mirror_faces(it, list, mp)
+    local nof = 0
+    for i = 1, #it.f do if not mf[i] then nof = nof + 1 end end
+    check(nov == 0 and nof == 0, "T.G.primitive " .. shape .. ": mirror symmetric (" .. nov .. " vertices and " .. nof .. " faces with no twin)")
+    local m = { verts = {} }
+    local bad = 0
+    for k, l in pairs(G.edge_faces(it)) do
+      local a, b = G.edge_ends(k)
+      local p, q = it.v[a], it.v[b]
+      m.verts[#m.verts + 1] = { (p[1] + q[1]) / 2, (p[2] + q[2]) / 2, (p[3] + q[3]) / 2 }
+      if #l ~= 2 then bad = bad + 1 end
+    end
+    check(lone_of(m) == 0, "T.G.primitive " .. shape .. ": every edge middle (what Subdivide adds) has a twin across x = 0 (" .. lone_of(m) .. " without)")
+    check(bad == 0, "T.G.primitive " .. shape .. ": still closed (" .. bad .. " edges without 2 faces)")
+  end
+  -- T.G.primitive_mirror: off the plane two parts, on the plane one, the bone of the mirror part
+  do
+    local it = { v = {}, f = {}, vb = {} }
+    local nv, twin = G.primitive_mirror(it, "cube", { 0.5, 1, 0 }, 1, 0x112233, 3, 4)
+    check(#nv == 16 and #twin == 8 and #it.v == 16 and #it.f == 24, "T.G.primitive_mirror: a part off the plane: 2 parts (" .. #it.v .. "/" .. #it.f .. ")")
+    local ok = true
+    for i = 1, 8 do
+      local p, q = it.v[nv[i]], it.v[twin[i]]
+      if not (same(p[1], -q[1]) and same(p[2], q[2]) and same(p[3], q[3])) then ok = false end
+      if it.vb[nv[i]] ~= 3 or it.vb[twin[i]] ~= 4 then ok = false end
+    end
+    check(ok, "T.G.primitive_mirror: the second part is the mirror image, on the mirror bone")
+    local good = true
+    for fi = 1, 12 do
+      local f, g = it.f[fi], it.f[fi + 12]
+      local n1, n2 = G.normal_of(it, f), G.normal_of(it, g)
+      if not (same(n1[1], -n2[1]) and same(n1[2], n2[2]) and same(n1[3], n2[3])) or g[4] ~= 0x112233 then good = false end
+    end
+    check(good, "T.G.primitive_mirror: the faces of the mirror part look out too")
+    local it2 = { v = {}, f = {} }
+    local n2, t2 = G.primitive_mirror(it2, "sphere", { 0, 1, 0 }, 1, 0)
+    check(#n2 == 62 and #t2 == 0 and #it2.v == 62 and #it2.f == 120, "T.G.primitive_mirror: a part in the middle (x = 0): one part")
+    local it3 = { v = {}, f = {} }
+    G.primitive_mirror(it3, "cylinder", { -0.3, 0, 0 }, 1, 0)
+    local mp = G.mirror_pairs(it3, all_of(it3))
+    local n = 0
+    for i = 1, #it3.v do if not mp[i] then n = n + 1 end end
+    check(#it3.v == 36 and n == 0, "T.G.primitive_mirror: a limb on the left: every vertex has a twin")
+  end
+  -- T.G.loop_cut_mirror: two limbs, one ring each; a ring that crosses x = 0 is cut once
+  local function vertical_edge(it, lo, hi)
+    for _, f in ipairs(it.f) do
+      for k = 1, 3 do
+        local p, q = f[k], f[k % 3 + 1]
+        if p >= lo and p <= hi and q >= lo and q <= hi and it.v[p][2] ~= it.v[q][2]
+           and same(it.v[p][1], it.v[q][1]) and same(it.v[p][3], it.v[q][3]) and math.abs(it.v[p][1]) > 0.1 then return p, q end
+      end
+    end
+  end
+  do
+    local it = { v = {}, f = {} }
+    G.primitive_mirror(it, "cylinder", { 1, 0, 0 }, 1, 0x808080)
+    local va, vb = vertical_edge(it, 1, 18)
+    local nv0, nf0 = #it.v, #it.f
+    local res = G.loop_cut_mirror(it, va, vb)
+    check(res and res.rings == 2 and #res.mids == 16 and #res.rungs == 16 and #it.v == nv0 + 16 and #it.f == nf0 + 32,
+          "T.G.loop_cut_mirror: both limbs cut (" .. tostring(res and res.rings) .. " rings, " .. (#it.v - nv0) .. " new vertices, " .. (#it.f - nf0) .. " new faces)")
+    local mp = G.mirror_pairs(it, all_of(it))
+    local lone = 0
+    for i = 1, #it.v do if not mp[i] then lone = lone + 1 end end
+    check(lone == 0, "T.G.loop_cut_mirror: every vertex still has a twin (" .. lone .. " without)")
+    local bad = 0
+    for _, l in pairs(G.edge_faces(it)) do if #l ~= 2 then bad = bad + 1 end end
+    check(bad == 0, "T.G.loop_cut_mirror: the model is still closed")
+    -- no counterpart edge: one ring
+    local it2 = { v = {}, f = {} }
+    G.primitive(it2, "cylinder", { 1, 0, 0 }, 1, 0x808080)
+    local res2 = G.loop_cut_mirror(it2, va, vb)
+    check(res2 and res2.rings == 1 and #res2.mids == 8, "T.G.loop_cut_mirror: no counterpart edge: one ring")
+    -- a ring that crosses x = 0 holds the counterpart edge: cut once
+    local it3 = { v = {}, f = {} }
+    G.primitive(it3, "cylinder", { 0, 0, 0 }, 1, 0x808080)
+    local a3, b3 = vertical_edge(it3, 1, 18)
+    local r3 = a3 and G.loop_cut_mirror(it3, a3, b3)
+    check(r3 and r3.rings == 1 and #r3.mids == 8, "T.G.loop_cut_mirror: the ring crosses x = 0 and holds the counterpart edge: cut once")
+  end
+  -- in the editor
+  local function mode(m)
+    for _ = 1, 3 do
+      if sees(m .. ":") then return end
+      key("	")
+    end
+  end
+  key("f1", "n")
+  key("r")
+  type_text("mirl")
+  local name = "mirl"
+  key("f2")
+  mode("VERTICES")
+  key("^s")
+  local m0 = model_of("meshcopy.bme", name)
+  check(m0 and m0.nv == 8 and m0.nf == 12, "mirror part: a new cube")
+  -- mirror off: one part
+  key("a", "a", "n", " ")
+  key("A", "\n", "^s")
+  local m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nv == 16 and m1.nf == 24, "mirror off: Shift+A adds one part (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  key("^z")
+  -- mirror on, a vertex off the plane chosen: two parts, one undo step
+  key("X")
+  check(sees("MIRROR X"), "mirror part: the live mirror is on")
+  key("a", "a", "n", " ")
+  key("A", "\n")
+  check(sees("VERTICES: 16 chosen") and status():find("mirror X", 1, true), "mirror on: the 16 new vertices are chosen: " .. status())
+  key("^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nv == 24 and m1.nf == 36, "mirror on: Shift+A adds the part and its mirror image (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  check(m1 and lone_of(m1) == 0, "mirror on: every vertex has a twin across x = 0 (" .. (m1 and lone_of(m1) or "-") .. ")")
+  key("^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nv == 8 and m1.nf == 12, "mirror part: one undo takes both parts away")
+  -- mirror on, nothing chosen: the middle is x = 0, one part
+  if not sees(": 0 chosen") then key("a") end
+  check(sees("VERTICES: 0 chosen"), "nothing chosen")
+  key("A", "down", "down", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nv == 70 and m1.nf == 132, "mirror on, a part in the middle (x = 0): added once (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  key("^z", "^s")
+  -- a limb on each side, then the loop cut on one of them
+  key("a", "a", "n", " ")
+  key("A", "down", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nv == 8 + 36 and m1.nf == 12 + 64, "mirror on: two cylinders (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  local va, vb = vertical_edge({ v = m1.verts, f = m1.faces }, 9, 26)
+  local keys = {}
+  for k in pairs(G.edge_faces({ f = m1.faces })) do keys[#keys + 1] = k end
+  table.sort(keys)
+  local no
+  for i, k in ipairs(keys) do if k == G.edge_key(va, vb) then no = i end end
+  mode("EDGES")
+  key("a")
+  key("home")
+  for _ = 1, no do key("n") end
+  key(" ")
+  check(sees("EDGES: 2 chosen"), "loop cut: the edge and its counterpart are chosen with the mirror on (" .. status() .. ")")
+  key("^r")
+  check(sees("EDGES: 16 chosen") and status():find("both rings", 1, true), "loop cut: the new edges of both rings are chosen: " .. status())
+  key("^s")
+  local m2 = model_of("meshcopy.bme", name)
+  check(m2 and m2.nv == m1.nv + 16 and m2.nf == m1.nf + 32, "loop cut with the mirror on: both rings (" .. (m2 and ((m2.nv - m1.nv) .. "/" .. (m2.nf - m1.nf)) or "-") .. ")")
+  check(m2 and lone_of(m2) == 0, "loop cut with the mirror on: every vertex still has a twin")
+  key("^z", "^s")
+  m2 = model_of("meshcopy.bme", name)
+  check(m2 and m2.nv == m1.nv and m2.nf == m1.nf, "loop cut with the mirror on: one undo step")
+  -- mirror off: one ring
+  key("X")
+  if not sees(": 0 chosen") then key("a") end
+  key("home")
+  for _ = 1, no do key("n") end
+  key(" ")
+  check(sees("EDGES: 1 chosen"), "mirror off: one edge chosen")
+  key("^r", "^s")
+  m2 = model_of("meshcopy.bme", name)
+  check(m2 and m2.nv == m1.nv + 8 and m2.nf == m1.nf + 16, "loop cut with the mirror off: one ring only (" .. (m2 and ((m2.nv - m1.nv) .. "/" .. (m2.nf - m1.nf)) or "-") .. ")")
+  key("^z", "^s")
+  key("f1")
+  goto_item("M " .. name)
+  key("del", "del", "^s")
+  check(not model_of("meshcopy.bme", name), "the mirror part test cube is deleted")
+end
+
 -- Shift+S / Shift+G: snap to the grid and to a vertex while a vertex moves
 do
   local function same(a, b) return math.abs(a - b) < 1e-5 end
