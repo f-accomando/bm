@@ -1607,6 +1607,121 @@ function lib.best(k, v)
   return b, false
 end
 
+----------------------------------------------------------------- save slots
+
+local Slots = {}
+Slots.__index = Slots
+
+-- the game's saves in progress. Slot 1 of the cartridge stays for lib.store
+-- (settings and records); lib.slots() gives the slots 2..8 as slots 1..7:
+-- S:get(i), S:put(i, t), S:used(i), S:del(i), S:list(). The functions of
+-- the system (save, saved, saves, delsave) can be replaced in api (tests)
+function lib.slots(api)
+  api = api or {}
+  return setmetatable({ n = 7, api = api }, Slots)
+end
+
+local function slot_id(self, i)
+  if type(i) ~= "number" or i < 1 or i > self.n or i % 1 ~= 0 then
+    error("lib.slots: slot " .. tostring(i) .. " is not between 1 and " .. self.n, 3)
+  end
+  return i + 1
+end
+
+-- the table saved in slot i, or nil
+function Slots:get(i)
+  return (self.api.saved or saved)(slot_id(self, i))
+end
+
+-- saves table t in slot i (when a match ends, not in every frame); true, or false and the reason
+function Slots:put(i, t)
+  return (self.api.save or save)(t, slot_id(self, i))
+end
+
+-- true if slot i holds a save
+function Slots:used(i)
+  local u = (self.api.saves or saves)()
+  return u[slot_id(self, i)] ~= nil
+end
+
+-- empties slot i; true, or false and the reason
+function Slots:del(i)
+  return (self.api.delsave or delsave)(slot_id(self, i))
+end
+
+-- the slots in use as { {slot = i, bytes = n}, ... } in order: for a "load game" page (makes
+-- a table: call it when the page opens, not in every frame)
+function Slots:list()
+  local u, out = (self.api.saves or saves)(), {}
+  for i = 1, self.n do
+    local b = u[i + 1]
+    if b then out[#out + 1] = { slot = i, bytes = b } end
+  end
+  return out
+end
+
+----------------------------------------------------------------- sound events
+
+local Sounds = {}
+Sounds.__index = Sounds
+
+-- the sounds of a game by name, so the rules say lib.sounds:play("hit") and the
+-- voices, notes and tunes sit in one table. events = { name = { ... } } with one of
+--   note = { voice, hz, ms, wave, vol }        a note()
+--   sfx = n [, semis =, vol =]                 sound effect n of the bank
+--   play = sound [, pnote =, ms =, vol =]      play() of an instrument or a sound of the bank
+--   tune = { {hz, frames}, ... }               a short tune on voice `voice` (3), 0 hz is a rest;
+--                                              wave (TRIANGLE), vol (120), ms (14 per frame)
+-- and, for any of them, gap (frames: it does not sound again before they pass) and prio
+-- (a tune does not cut a tune of a higher prio; 0 by default). api replaces note, sfx, play (tests).
+function lib.sounds(events, api)
+  api = api or {}
+  return setmetatable({ ev = events, api = api, t = 0, last = {}, tune = nil, ti = 0, tt = 0, tprio = 0 },
+                      Sounds)
+end
+
+-- plays the event; false if its gap is not over, the name is unknown or a tune of a higher prio runs
+function Sounds:play(name)
+  local e = self.ev[name]
+  if e == nil then return false end
+  local last = self.last[name]
+  if e.gap and last and self.t - last < e.gap then return false end
+  if e.tune then
+    if self.tune and (e.prio or 0) < self.tprio then return false end
+    self.tune, self.ti, self.tt, self.tprio, self.tev = e.tune, 1, 0, e.prio or 0, e
+  elseif e.note then
+    local n = e.note
+    local f = self.api.note or note; f(n[1], n[2], n[3], n[4], n[5])
+  elseif e.sfx then
+    local f = self.api.sfx or sfx; f(e.sfx, nil, e.semis, e.vol)
+  elseif e.play then
+    local f = self.api.play or play; f(e.play, e.pnote, e.ms, e.vol)
+  end
+  self.last[name] = self.t
+  return true
+end
+
+-- once a frame, first in _update: counts the frames and plays the next note of the tune
+function Sounds:update()
+  self.t = self.t + 1
+  local tune = self.tune
+  if not tune then return end
+  self.tt = self.tt - 1
+  if self.tt > 0 then return end
+  local n = tune[self.ti]
+  if not n then self.tune, self.tprio = nil, 0; return end
+  if n[1] > 0 then
+    local e = self.tev
+    local f = self.api.note or note; f(e.voice or 3, n[1], n[2] * (e.ms or 14), e.wave or TRIANGLE, e.vol or 120)
+  end
+  self.tt, self.ti = n[2], self.ti + 1
+end
+
+-- stops the tune
+function Sounds:stop()
+  self.tune, self.tprio = nil, 0
+end
+
 ----------------------------------------------------------------- animation and colour
 
 -- the element of frames that time t (time() if missing) shows at fps

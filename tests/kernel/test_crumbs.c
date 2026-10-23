@@ -28,6 +28,7 @@ void uart_putc(char c) { (void)c; }
 void uart_flush(void) {}
 void watchdog_halt(void) { for (;;) ; }
 void watchdog_reboot(void) { for (;;) ; }
+void watchdog_progress(void) {}
 void wifi_leave(void) {}
 
 int main(void)

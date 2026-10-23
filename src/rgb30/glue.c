@@ -97,6 +97,8 @@ void watchdog_reboot(void)      { plat_reset(); }
 void watchdog_halt(void)        { plat_poweroff(); }
 int  watchdog_arm(uint32_t ms)  { (void)ms; return -1; }
 void watchdog_pet(void)         { }
+void watchdog_progress(void)    { }
+void watchdog_pet_irq(void)     { }
 void watchdog_stop(void)        { }
 
 void watchdog_probe_values(uint32_t *loaded, uint32_t *left)

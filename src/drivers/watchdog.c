@@ -76,6 +76,20 @@ void watchdog_pet(void)
         wd_write(wd_ticks);
 }
 
+static volatile uint32_t progress_us;   /* 0 = main code has not called watchdog_progress() yet */
+
+void watchdog_progress(void)
+{
+    uint32_t t = timer_ticks();
+    progress_us = t ? t : 1;
+}
+
+void watchdog_pet_irq(void)
+{
+    if (watchdog_fresh(timer_ticks(), progress_us, WATCHDOG_STALL_US))
+        watchdog_pet();
+}
+
 void watchdog_stop(void)
 {
     wd_ticks = 0;

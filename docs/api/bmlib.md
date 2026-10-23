@@ -198,6 +198,45 @@ nothing. The fields of a kind: `w`, `h` (the box, `x`, `y` the top left), `hp`, 
 | `W:find(name)` / `W:count(name)` | the first live entity of kind `name` / how many |
 | `W:draw()` | in `_draw`: the `draw` of each entity, the lower `layer` first |
 
+### Sound events
+
+`lib.sounds(events)`: the sounds of a game by name. The rules say `snd:play("hit")`; the voices,
+notes and tunes stay in one table. Each event has one of these fields:
+
+| Field | Plays |
+|---|---|
+| `note = { voice, hz, ms, wave, vol }` | a `note()` |
+| `sfx = n`, `semis`, `vol` | effect `n` of the sound bank (`sfx`) |
+| `play = sound`, `pnote`, `ms`, `vol` | an instrument or a sound of the bank (`play`) |
+| `tune = { {hz, frames}, ... }`, `voice` (3), `wave` (`TRIANGLE`), `vol` (120), `ms` (14 per frame) | a short tune, one note after the other; `hz` 0 is a rest |
+
+Any event can have `gap` (frames before it can sound again) and, for a tune, `prio` (0 by
+default).
+
+| Function | Description |
+|---|---|
+| `snd:play(name)` | plays the event. Returns `false` if the name is unknown, the `gap` is not over, or a tune of a higher `prio` is running. A new tune replaces a tune of the same or a lower `prio`; its first note sounds in the next `snd:update()` |
+| `snd:update()` | once a frame, first in `_update`: counts the frames and plays the next note of the tune |
+| `snd:stop()` | stops the tune |
+
+`lib.sounds(events, api)` takes `api = { note =, sfx =, play = }` to replace the sound functions
+(tests). `snd:play` and `snd:update` make no table.
+
+### Save slots
+
+Slot 1 of the cartridge is for `lib.store` (settings and records). `lib.slots()` gives the
+slots 2 to 8 as the game's slots 1 to 7 (games in progress).
+
+| Function | Description |
+|---|---|
+| `S:get(i)` | the table saved in slot `i`, or `nil` |
+| `S:put(i, t)` | saves table `t` in slot `i` (at the end of a match, not in every frame): `true`, or `false` and the reason |
+| `S:used(i)` | `true` if slot `i` holds a save |
+| `S:del(i)` | empties slot `i` |
+| `S:list()` | the slots in use as `{ {slot = i, bytes = n}, ... }` for a "load game" page; it makes a table, so call it when the page opens |
+
+A slot out of 1 to 7 is an error. `lib.slots(api)` takes `api = { save =, saved =, saves =, delsave = }` (tests).
+
 `W.list` is the plain list (read it in your loops; do not remove from it). For fighters with
 frame data (startup, active, recovery) use `lib.hits` (above): `W:fight()` is for contact damage.
 `tests/gamekit/cart.lua` is a whole small game on the kit (states, input, tween, timer, record).

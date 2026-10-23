@@ -4,6 +4,7 @@
 #include "mmio.h"
 #include "prop.h"
 #include "timer.h"
+#include "watchdog.h"
 #include "dma.h"
 
 #define TAG_ALLOCATE_BUFFER   0x00040001u
@@ -132,6 +133,7 @@ void fb_show(framebuffer_t *fb, uint32_t index)
 
 int fb_flip(framebuffer_t *fb)
 {
+    watchdog_progress();
     if (fb->buffers < 2)
         return 0;
 

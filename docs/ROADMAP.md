@@ -52,7 +52,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 ## Platforms and kernel
 
-- SYS-2 - P0 - in progress - Reliable freeze report and SD logs. An intended reboot does not report a freeze. A crash writes a correct `bootprev.txt` (needs the Pi run). [system](progress/system.md) `Open work`
+- SYS-2 - P0 - in progress - Reliable freeze report and SD logs. An intended reboot does not report a freeze. A crash writes a correct `bootprev.txt` (needs the Pi run). The watchdog now resets a hung main code (guard built; the Pi run is open). [system](progress/system.md) `Open work`
 - BETA-6 - P1 - partly done - Consistency between the two kernels. The gate is at 11 blockers (was 20; round 2 on 23 Oct closed D48, D49, resource files and project layout). Left in menu, input and Games: D03 and D05 (owner decision), D10 (background covers), D01 and D02 (to try with a Bluetooth pad on the RGB30). Also D14 (partly: Stack bench ported), D15, D17, D23, D24 and three partial specification items (compat-policy, cart-type, folders-bm-bme). Done is: `python scripts/consistency.py gate` shows none of D01-D13, D28, D30-D36 as `open` or `untested`. [platforms](progress/platforms.md) `Open work`, [CONSISTENCY](spec/CONSISTENCY.md)
 - M42 - P1 - in progress - Identical `.b16` profile on Pi and RGB30. Left: Yharnam `.b16` on both consoles (user's hardware run) and the lint warnings in the SDK export (`mkbm.py` has them). [b16](progress/b16.md) §2-3
 - SYS-8 - P2 - partial - Single-bm and adaptive screen, remaining stages of the design: (1) the rest of the compat check: the build lint; the menus (Pi, RGB30), the Market list (`targets` line, `market_bm` default) and the load-time message already grey a not-compatible cart with a reason and ask before the start (policy `docs/spec/compat-policy.toml`, C table by `scripts/mkcompat.py`); (2) the 720x405 mode, `safe_area()`, `aspect()`, bars; (3) per-system input chips and the pad cursor; (4) retire `.b16`; (5) assistant text about the 8 MiB `.b16`; (6) long sound stream. Decided 22 Oct: old `.b16` = Pi + RGB30; old `.bm` = Pi only; grey not hidden, start after confirm; audio max 8M; pad mouse; bars G1; 720x405 mode; `.bm` for all. [single-bm-and-adaptive-screen](design/single-bm-and-adaptive-screen.md), sheet [b16](progress/b16.md)
@@ -78,7 +78,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 - GAME-1 - P3 - in progress - Yharnam: close the open checks (§2), test the map on the Pi. After M42. [yharnam](progress/yharnam.md) §2-3, [tools](progress/tools.md)
 - GAME-2 - P3 - in progress - Overbit: screens, quality, mech pilots from images. Benchmark on the Pi and the RGB30. After M41. [overbit](progress/overbit.md), [tools](progress/tools.md)
-- GAME-3 - P3 - in progress - Game architecture and gameplay kit. Done: `lib.world` and the test game `tests/gamekit` (`make test-gamekit`). Open: spawn from an OBJECTS section, named audio events, save slots, kit cost on the Pi Zero W. [games-architecture](design/games-architecture.md)
+- GAME-3 - P3 - in progress - Game architecture and gameplay kit. Done: `lib.world`, `lib.sounds`, `lib.slots`, the test game `tests/gamekit` (`make test-gamekit`) and Pong on the kit (`make test-game-trace`). Open: spawn from an OBJECTS section (format change), kit cost on the Pi Zero W, more games on the kit. [games-architecture](design/games-architecture.md)
 
 ## Process and docs
 
