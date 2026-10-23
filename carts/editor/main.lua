@@ -18,11 +18,35 @@ local ok_assist, assist = pcall(require, "assist")
 if not ok_assist then assist = nil end
 
 local C = B.C
+local LY = require("bmlib").layout          -- the elastic layout: the screen size is read, not assumed
 local W, H = SCREEN_W, SCREEN_H
 local HINT_Y, STATUS_Y = B.HINT_Y, B.STATUS_Y
 local PANEL_W = 168                      -- the left panel, as bm Studio and bm Animator
 local INFO_X = PANEL_W + 8               -- the text right of the panel
 local ROWS = (HINT_Y - 16) // 16         -- text rows between the tab bar and the hint row
+
+-- the screen changed size (screen(), at the start and from the menu): what is cut from W and H again
+local function relayout(w, h)
+  W, H = w, h
+  B.resize(w, h)
+  HINT_Y, STATUS_Y = B.HINT_Y, B.STATUS_Y
+  ROWS = (HINT_Y - 16) // 16
+end
+LY.on_resize(relayout)
+
+-- 1280x720 where the GPU draws (auto), or as the menu's Screen row chose
+local BIG_W, BIG_H = 1280, 720
+do
+  local pref = (saved() or {}).big
+  if pref == true then screen(BIG_W, BIG_H)
+  elseif pref == nil then LY.want(BIG_W, BIG_H) end
+end
+local function switch_screen()
+  local t = saved() or {}
+  t.big = not (SCREEN_W >= BIG_W)
+  save(t)
+  if t.big then screen(BIG_W, BIG_H) else screen(640, 360) end
+end
 local max, min, floor = math.max, math.min, math.floor
 local spack, sunpack = string.pack, string.unpack
 local C_KEY = 0xFFC050                   -- the key of a row in the panel
@@ -1227,7 +1251,7 @@ do
   local cx, cy, top, left = 0, 1, 1, 0   -- cursor column (0 = before the first char), line
   local undo, last_edit, clip_lines = {}, nil, nil
   local GUTTER = 5
-  local VISIBLE_COLS = W // 8 - GUTTER
+  local function visible_cols() return W // 8 - GUTTER end
 
   local KEYWORDS = {}
   for w in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%S+") do KEYWORDS[w] = true end
@@ -1300,7 +1324,7 @@ do
     if cy < top then top = cy end
     if cy >= top + ROWS then top = cy - ROWS + 1 end
     if cx < left then left = cx end
-    if cx >= left + VISIBLE_COLS - 1 then left = cx - VISIBLE_COLS + 2 end
+    if cx >= left + visible_cols() - 1 then left = cx - visible_cols() + 2 end
   end
 
   -- code from the assistant or the 3D page: under the cursor's line
@@ -1483,7 +1507,7 @@ do
         local a0 = (i == sy1 and sx1 or 0) - left
         local a1 = (i == sy2 and sx2 or #lines[i] + 1) - left
         if a0 < 0 then a0 = 0 end
-        if a1 > VISIBLE_COLS then a1 = VISIBLE_COLS end
+        if a1 > visible_cols() then a1 = visible_cols() end
         if a1 > a0 then rectfill((GUTTER + a0) * 8, y, (a1 - a0) * 8, 16, C.SEL) end
       end
       local num = tostring(i)
@@ -1492,9 +1516,9 @@ do
       for _, s in ipairs(segments(lines[i])) do
         local start, text, col = s[1], s[2], s[3]
         local a = start - 1 - left                 -- column on screen (0-based)
-        if a + #text > 0 and a < VISIBLE_COLS then
+        if a + #text > 0 and a < visible_cols() then
           if a < 0 then text = text:sub(1 - a); a = 0 end
-          if a + #text > VISIBLE_COLS then text = text:sub(1, VISIBLE_COLS - a) end
+          if a + #text > visible_cols() then text = text:sub(1, visible_cols() - a) end
           print(text, (GUTTER + a) * 8, y, col)
         end
       end
@@ -1593,7 +1617,7 @@ do
   local focus = "canvas"                 -- or "sheet"
   local s_undo, clip_px, stroke = {}, nil, false
   local CX, CY = 16, 56                  -- the canvas
-  local SX, SY, SW, SH = 336, 56, 256, 176   -- the sheet's window
+  local SX, SY = 336, 56                       -- the sheet's window; it fills what the screen leaves
 
   local function cells_per_row() return S.sheet_w // 8 end
   local function sel_xy() return (sel % cells_per_row()) * 8, (sel // cells_per_row()) * 8 end
@@ -1760,7 +1784,8 @@ do
       rect(CX + px * z - 1, CY + py * z - 1, z + 1, z + 1, (S.frame // 10) % 2 == 0 and 0xFFFFFF or 0x000000)
     end
     -- the sheet at 1:1 around the chosen cell
-    local vw, vh = min(SW, S.sheet_w), min(SH, S.sheet_h)
+    local vw, vh = min(W - SX - 16, S.sheet_w), min(HINT_Y - SY - 88, S.sheet_h)
+    local PY = max(240, SY + vh + 8)            -- the palette, the colour and the flags under it
     local scx = clamp(sx - vw // 2, 0, S.sheet_w - vw) // 8 * 8
     local scy = clamp(sy - vh // 2, 0, S.sheet_h - vh) // 8 * 8
     checker(SX, SY, vw, vh, 4)
@@ -1771,26 +1796,26 @@ do
     clip()
     -- the palette, the transparent swatch, the colour
     for i, c in ipairs(PALETTE) do
-      local x, y = SX + ((i - 1) % 16) * 16, 240 + ((i - 1) // 16) * 14
+      local x, y = SX + ((i - 1) % 16) * 16, PY + ((i - 1) // 16) * 14
       U.zone(x, y, 16, 14, "colour", i)
       rectfill(x, y, 15, 13, c)
       if c == color and not transparent then rect(x - 1, y - 1, 17, 15, 0xFFFFFF) end
     end
-    checker(SX + 264, 240, 28, 27, 4)
-    U.zone(SX + 264, 240, 28, 27, "colour", 0)
-    if transparent then rect(SX + 263, 239, 30, 29, 0xFFFFFF) end
-    rectfill(SX, 272, 20, 16, 0x000000)
-    if transparent then checker(SX + 1, 273, 18, 14, 4) else rectfill(SX + 1, 273, 18, 14, color) end
-    print(transparent and "transparent" or string.format("#%06X", color), SX + 32, 272, C.TEXT)
+    checker(SX + 264, PY, 28, 27, 4)
+    U.zone(SX + 264, PY, 28, 27, "colour", 0)
+    if transparent then rect(SX + 263, PY - 1, 30, 29, 0xFFFFFF) end
+    rectfill(SX, PY + 32, 20, 16, 0x000000)
+    if transparent then checker(SX + 1, PY + 33, 18, 14, 4) else rectfill(SX + 1, PY + 33, 18, 14, color) end
+    print(transparent and "transparent" or string.format("#%06X", color), SX + 32, PY + 32, C.TEXT)
     -- the flags of the cell: what the tile is to the game (bmlib's convention)
-    print("FLAGS", SX, 288, C.DIM)
+    print("FLAGS", SX, PY + 48, C.DIM)
     for f = 0, 7 do
       local x = SX + 48 + f * 24
-      U.key_zone(x - 4, 288, 16, 16, tostring(f))   -- a click: the flag on / off
-      if fget(sel, f) then rectfill(x - 4, 288, 16, 16, FLAG_C[f]) else rect(x - 4, 288, 16, 16, C.BAR) end
-      print(tostring(f), x, 288, fget(sel, f) and 0x000000 or C.DIM)
+      U.key_zone(x - 4, PY + 48, 16, 16, tostring(f))   -- a click: the flag on / off
+      if fget(sel, f) then rectfill(x - 4, PY + 48, 16, 16, FLAG_C[f]) else rect(x - 4, PY + 48, 16, 16, C.BAR) end
+      print(tostring(f), x, PY + 48, fget(sel, f) and 0x000000 or C.DIM)
     end
-    print("0 wall 1 plat. 2 ladder 3 water 4 hurt", SX, 304, C.DIM)
+    print("0 wall 1 plat. 2 ladder 3 water 4 hurt", SX, PY + 64, C.DIM)
     hint({ { "space", "A", "draw" }, { "x", "B", "pick" }, { "f", nil, "fill" }, { "tab", "Y", "sheet" },
            { "z", nil, "8/16" }, { ",", "X", "colour" }, { "0", nil, "flags" }, { "f6", nil, "assistant" } })
   end
@@ -1852,7 +1877,8 @@ do
   local cell_col, row_runs, col_rev = {}, {}, -1
   local m_undo, m_stroke = {}, nil
   local VIEW_Y = 48
-  local VIEW_CW, VIEW_CH = W // 8, (HINT_Y - VIEW_Y) // 8
+  local function view_cw() return W // 8 end
+  local function view_ch() return (HINT_Y - VIEW_Y) // 8 end
   local OBJ_COL = { [1024] = 0xFFD860, [1026] = 0x9A6438, [1028] = 0x8A96A8, [1030] = 0xE04040, [1032] = 0xFFC888, [1034] = 0x70A0D0 }
   local view3d = false
   local w3d = nil
@@ -2550,9 +2576,9 @@ do
       rect(0, VIEW_Y, mw_px, mh_px, C.BAR)
       if zoom == 1 then
         -- 1:1 viewport frame around the cursor
-        local v1x = clamp(mx - VIEW_CW // 2, 0, max(0, S.map_w - VIEW_CW))
-        local v1y = clamp(my - VIEW_CH // 2, 0, max(0, S.map_h - VIEW_CH))
-        rect(v1x, VIEW_Y + v1y, min(VIEW_CW, S.map_w), min(VIEW_CH, S.map_h), C.ACC)
+        local v1x = clamp(mx - view_cw() // 2, 0, max(0, S.map_w - view_cw()))
+        local v1y = clamp(my - view_ch() // 2, 0, max(0, S.map_h - view_ch()))
+        rect(v1x, VIEW_Y + v1y, min(view_cw(), S.map_w), min(view_ch(), S.map_h), C.ACC)
         -- side legend on the right of the 256x256 overview
         local lx = S.map_w + 24
         if lx + 160 <= W then
@@ -3312,6 +3338,7 @@ do
       { "Try the game (F5)", run_project },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Import a Tiled map (.tmj)...", import_tiled },
+      { "Screen: " .. (SCREEN_W >= BIG_W and "1280x720" or "640x360") .. " (switch)", switch_screen },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
     }
   end
@@ -3643,6 +3670,7 @@ local function mouse_frame()
 end
 
 function _update()
+  LY.poll()
   S.frame = S.frame + 1
   if S.msg_t > 0 then S.msg_t = S.msg_t - 1 end
   if confirm.t > 0 then confirm.t = confirm.t - 1 end
@@ -3706,6 +3734,7 @@ function _update()
 end
 
 function _draw()
+  LY.poll()
   U.begin()
   local y = btn(7)                        -- Y: a press and release without a direction
   if ytap.was and not y then ytap.tap = true end
@@ -3739,7 +3768,7 @@ function _draw()
   if S.msg_t > 0 and S.msg then status, sc = S.msg, S.msg_c
   elseif S.page == "d2" then status = S.d2view == "sprite" and P.sprite.status() or P.map.status()
   else status, sc = P[S.page].status() end
-  print(status:sub(1, #status <= 62 and 62 or 79), 0, STATUS_Y, sc or C.TEXT)
+  print(status:sub(1, #status <= 62 and 62 or W // 8 - 1), 0, STATUS_Y, sc or C.TEXT)
   D.draw()
   if assist then assist.draw() end       -- the assistant's panel on top, if open
   U.menu_draw()                          -- the context menu over everything

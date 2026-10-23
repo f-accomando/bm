@@ -241,6 +241,42 @@ A slot out of 1 to 7 is an error. `lib.slots(api)` takes `api = { save =, saved 
 frame data (startup, active, recovery) use `lib.hits` (above): `W:fight()` is for contact damage.
 `tests/gamekit/cart.lua` is a whole small game on the kit (states, input, tween, timer, record).
 
+### Elastic layout
+
+`lib.layout` (2026-10-23) cuts the screen into regions on the text grid (the cell of `font()`:
+8 x 16 pixels). Each call reads `SCREEN_W` and `SCREEN_H`, so an app that calls it again lays
+itself out again when `screen()` changes the size. A region is a table `{x, y, w, h}`. The
+SDK uses it (1280x720 where the GPU draws, 640x360 otherwise).
+
+| Function | Description |
+|---|---|
+| `lib.layout.rect(x, y, w, h)` / `lib.layout.screen()` | a region / the whole screen now |
+| `lib.layout.split(r, "v", sizes)` | `r` cut top to bottom (`"h"`: left to right). A size is pixels (`16`), rows or columns of text (`"3r"`, `"20c"`) or a share of what is left (`"*"`, `"2*"`). Shares fall on whole cells, the last one takes the rest. More than fits is an error |
+| `lib.layout.side_by_side(r, [cols])` | `r` cut into a panel and the work region. The panel has `cols` columns (16 on a screen narrower than 480 pixels, 30 otherwise) |
+| `lib.layout.cols(r)`, `lib.layout.rows(r)`, `lib.layout.row(r, i)` | whole columns and rows of text in `r`; `x, y` of the text row `i` |
+| `lib.layout.snap(x)`, `lib.layout.fit(s, cols)`, `lib.layout.wrap(s, cols, [n])` | `x` on the next column; `s` cut to `cols` characters; `s` in lines of at most `cols` characters, cut between words |
+| `lib.layout.inside(a, b)`, `lib.layout.overlap(a, b)` | with regions (`lib.inside` and `lib.overlap` take numbers) |
+| `lib.layout.narrow([w])` | the screen is too narrow for panels side by side |
+| `lib.layout.on_resize(fn, [now])` / `lib.layout.poll()` | `fn(w, h)` runs when the size changed. Call `lib.layout.poll()` first in `_update` and `_draw`: it runs the functions when `screen()` took effect (the next frame). With `now` the function runs once at once |
+| `lib.layout.big_ok()` / `lib.layout.want(w, h)` | whether the GPU draws; `screen(w, h)`, but a size over 640x360 only where the GPU draws. `true` if the screen is that size now or from the next frame |
+
+```lua
+local L = require("bmlib").layout
+local W, H, body
+local function relayout(w, h)
+  W, H = w, h
+  local bars
+  body, bars = table.unpack(L.split(L.rect(0, 0, w, h), "v", { "*", "3r" }))
+end
+L.on_resize(relayout, true)
+L.want(1280, 720)               -- 720p with the GPU, else it stays
+function _update() L.poll() end -- relayout runs at the frame the size changes
+```
+
+Variables that hold `W`, `H` or a size cut from them (`local W = SCREEN_W` at the top of a
+file) stay at the old size. Keep them in `relayout`. `bm3d.resize(w, h)` does it for the
+suite's frame (`HINT_Y`, `STATUS_Y`, `FOCAL`).
+
 ### Camera
 
 | Function | Description |

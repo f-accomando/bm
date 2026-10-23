@@ -1837,4 +1837,173 @@ function Build:build()
   return mesh(self.v, self.f)
 end
 
+----------------------------------------------------------------- layout
+
+-- The elastic layout (R10, 2026-10-23): the screen cut into regions on the
+-- text grid, from the size the screen has now (SCREEN_W, SCREEN_H, read at
+-- each call), so an app lays itself out again when screen() changes.
+--
+--   L.rect(x, y, w, h)          a region {x, y, w, h}
+--   L.screen()                  the whole screen as a region
+--   L.split(r, "v", sizes)      r cut top to bottom ("h": left to right):
+--                               a size is pixels (16), rows or columns of
+--                               text ("3r", "20c"), or a share of what is
+--                               left ("*", "2*"); shares fall on the grid
+--                               (whole columns, whole rows) and the last one
+--                               takes the rest. Returns the regions, in order
+--   L.narrow([w])               a screen too narrow for panels side by side
+--                               (under 480 pixels): the pages stack them
+--   L.cols(r), L.rows(r)        whole columns and rows of text in r
+--   L.row(r, i)                 x, y of the text row i (1 = the first) of r
+--   L.snap(x)                   x on the next column (text starts there)
+--   L.fit(s, cols)              s cut to cols characters
+--   L.wrap(s, cols, [n])        s in lines of at most cols characters, cut
+--                               between words (at most n lines)
+--   L.inside(a, b), L.overlap(a, b)   regions (lib.inside, lib.overlap take numbers)
+--   L.side_by_side(r, [cols])   cut r into a panel (cols columns; 16 when
+--                               narrow, 30 when wide) and the work region
+--   L.on_resize(fn, [now])      fn(w, h) runs when the screen changes size;
+--                               with now it runs once at once
+--   L.poll()                    call it in _update: runs the on_resize
+--                               functions if the size changed since the last
+--                               call. Returns true then
+--   L.big_ok()                  whether the GPU draws (a screen over 640x360
+--                               is worth it only then)
+--   L.want(w, h)                screen(w, h) if the size is already it, or
+--                               it is one of the console's and, over
+--                               640x360, the GPU draws. true if the screen
+--                               is that size now or from the next frame
+local Lay = {}
+lib.layout = Lay
+
+local function cell_w() return (font_size()) end
+local function cell_h() local _, h = font_size(); return h end
+
+function Lay.rect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
+function Lay.screen() return Lay.rect(0, 0, SCREEN_W, SCREEN_H) end
+
+function Lay.snap(x) local cw = cell_w(); return (x + cw - 1) // cw * cw end
+function Lay.cols(r) return r.w // cell_w() end
+function Lay.rows(r) return r.h // cell_h() end
+function Lay.row(r, i) return r.x, r.y + (i - 1) * cell_h() end
+function Lay.narrow(w) return (w or SCREEN_W or 640) < 480 end
+
+function Lay.side_by_side(r, panel_cols)
+  local narrow = Lay.narrow(r.w)
+  local cols
+  if type(panel_cols) == "table" then
+    cols = narrow and (panel_cols.narrow or panel_cols[1]) or (panel_cols.wide or panel_cols[2] or 30)
+  elseif type(panel_cols) == "number" then
+    cols = (narrow and panel_cols > 20) and 16 or panel_cols
+  elseif type(panel_cols) == "string" then
+    local n = tonumber(panel_cols:match("^(%d+)c?$"))
+    cols = n and ((narrow and n > 20) and 16 or n) or (narrow and 16 or 30)
+  else
+    cols = narrow and 16 or 30
+  end
+  local out = Lay.split(r, "h", { tostring(cols) .. "c", "*" })
+  return out[1], out[2]
+end
+
+-- a size of a split: pixels, or nil and the weight of a share
+local function fixed(s)
+  if type(s) == "number" then return s end
+  local n, u = tostring(s):match("^(%d+)([rc])$")
+  if n then return tonumber(n) * (u == "r" and cell_h() or cell_w()) end
+  local k = tostring(s):match("^(%d*)%*$")
+  if not k then error("layout: a size is pixels, \"3r\", \"20c\" or \"*\": " .. tostring(s), 3) end
+  return nil, tonumber(k ~= "" and k or "1")
+end
+
+function Lay.split(r, dir, sizes)
+  local v = dir == "v"
+  if not v and dir ~= "h" then error("layout: split \"v\" or \"h\", not " .. tostring(dir), 2) end
+  local total, unit = v and r.h or r.w, v and cell_h() or cell_w()
+  local px, weight, used, shares = {}, {}, 0, 0
+  for i, s in ipairs(sizes) do
+    px[i], weight[i] = fixed(s)
+    if px[i] then used = used + px[i] else shares = shares + weight[i] end
+  end
+  if used > total then error(string.format("layout: %d pixels do not fit in %d", used, total), 2) end
+  -- the shares: whole cells of the grid, the last share the rest
+  local free, last = total - used, nil
+  for i = #sizes, 1, -1 do if not px[i] then last = i; break end end
+  local given = 0
+  for i in ipairs(sizes) do
+    if not px[i] and i ~= last then
+      px[i] = free * weight[i] // shares // unit * unit
+      given = given + px[i]
+    end
+  end
+  if last then px[last] = free - given end
+  local out, at = {}, v and r.y or r.x
+  for i in ipairs(sizes) do
+    if v then out[i] = Lay.rect(r.x, at, r.w, px[i]) else out[i] = Lay.rect(at, r.y, px[i], r.h) end
+    at = at + px[i]
+  end
+  return out
+end
+
+function Lay.fit(s, cols)
+  s = tostring(s)
+  if cols <= 0 then return "" end
+  if #s <= cols then return s end
+  return s:sub(1, cols)
+end
+
+function Lay.wrap(s, cols, n)
+  local out, line = {}, ""
+  for w in tostring(s):gmatch("%S+") do
+    local word = w
+    while #word > cols do                      -- a word longer than the line: cut
+      if line ~= "" then out[#out + 1] = line; line = "" end
+      out[#out + 1] = word:sub(1, cols)
+      word = word:sub(cols + 1)
+    end
+    if line == "" then line = word
+    elseif #line + 1 + #word <= cols then line = line .. " " .. word
+    else out[#out + 1] = line; line = word end
+  end
+  if line ~= "" or #out == 0 then out[#out + 1] = line end
+  if n and #out > n then
+    for i = #out, n + 1, -1 do out[i] = nil end
+  end
+  return out
+end
+
+function Lay.inside(a, b)
+  return a.x >= b.x and a.y >= b.y and a.x + a.w <= b.x + b.w and a.y + a.h <= b.y + b.h
+end
+
+function Lay.overlap(a, b)
+  return a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+end
+
+-- the size changed: screen() takes effect at the next frame, and an app that
+-- laid itself out at the old size does it again here
+local on_size, known_w, known_h = {}, SCREEN_W, SCREEN_H
+
+function Lay.on_resize(fn, now)
+  on_size[#on_size + 1] = fn
+  if now then fn(SCREEN_W, SCREEN_H) end
+  return fn
+end
+
+function Lay.poll()
+  if SCREEN_W == known_w and SCREEN_H == known_h then return false end
+  known_w, known_h = SCREEN_W, SCREEN_H
+  for _, fn in ipairs(on_size) do fn(known_w, known_h) end
+  return true
+end
+
+function Lay.big_ok()
+  return gpu3d ~= nil and (gpu3d()) == true
+end
+
+function Lay.want(w, h)
+  if SCREEN_W == w and SCREEN_H == h then return true end
+  if w * h > 640 * 360 and not Lay.big_ok() then return false end
+  return screen(w, h) == true
+end
+
 return lib

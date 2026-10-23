@@ -9594,6 +9594,79 @@ def test_sdk_suite(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_sdk_elastic(b, opts):
+    """The SDK on the elastic layout (lib.layout, 2026-10-23): the menu's
+    Screen row switches it to 1280x720 and back to 640x360 (QEMU has no GPU,
+    so it starts at 640x360); at 1280x720 every page fills the screen: the
+    tab bar at the top, the hint row and the status bar at the bottom."""
+    tmp = tempfile.mkdtemp(prefix="bm-elastic-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
+    UP = "\x1b[A"
+
+    def k(s, gap=0.3):
+        q.send(s)
+        time.sleep(gap)
+
+    def size_is(w, h, tries=40):
+        for _ in range(tries):
+            got = q.screendump()
+            if (got[0], got[1]) == (w, h):
+                return got
+            time.sleep(0.25)
+        raise AssertionError(f"screen {got[0]}x{got[1]}, not {w}x{h}")
+
+    def rows_of(got, y0, y1):
+        w, h, px = got
+        return screen_text((w, y1 - y0, px[y0 * w * 3:y1 * w * 3]))
+
+    def shot(got, name):
+        if opts.shots:
+            _save_png(got, os.path.join(opts.shots, f"elastic-{name}.png"))
+    try:
+        q.boot()
+        k("e", 1)
+        k("\x0f", 0.5)                                     # Ctrl+O: the cartridges
+        k("\r", 1)
+        small = size_is(640, 360)
+        shot(small, "640-project")
+        k("\x1b", 0.5)                                     # the menu: Screen is the row before Exit
+        k(UP, 0.3)
+        k(UP, 0.3)
+        k("\r", 1)
+        big = size_is(1280, 720)
+        time.sleep(1)
+        big = q.screendump()
+        top = rows_of(big, 0, 16)[0]
+        assert "project" in top and "village.bm" in top, top
+        bottom = rows_of(big, 720 - 40, 720)
+        assert any(l.strip() for l in bottom), "the hint row and the status bar are at the bottom of 720"
+        shot(big, "720-menu")
+        k("\x1b", 0.5)                                     # back to the page
+        for name, key in (("project", F1), ("code", F2), ("sprite", F3), ("map", F3), ("3d", F4)):
+            k(key, 1)
+            for _ in range(20):                             # a frame at 720p is long: not a half drawn one
+                got = q.screendump()
+                if (got[0], got[1]) == (1280, 720) and any(l.strip() for l in rows_of(got, 720 - 40, 720)):
+                    break
+                time.sleep(0.4)
+            shot(got, "720-" + name)
+            assert (got[0], got[1]) == (1280, 720), f"{name}: {got[0]}x{got[1]}"
+            assert any(l.strip() for l in rows_of(got, 720 - 40, 720)), f"{name}: the bottom bars"
+        k("\x1b", 0.5)                                     # the menu keeps its row: Screen again, back to 640x360
+        k("\r", 1)
+        size_is(640, 360)
+        q.send("\x1c")                                     # Ctrl+\ (Ctrl+Esc): leave
+        time.sleep(1)
+        q.send("\x1c")
+        q.expect("> ", timeout=20)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_projects(b, opts):
     """Games and projects (src/bm/project.h, 2026-10-06): a game (.bm) is read
     only for the tools. Its options make an editable copy, a project (.bme)

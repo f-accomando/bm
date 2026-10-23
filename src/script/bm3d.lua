@@ -44,6 +44,15 @@ T.TRIS_60FPS = 1200                              -- about what the console draws
 -- text on rows of 16 pixels and columns of 8: the hint row, the status bar
 T.HINT_Y, T.STATUS_Y = H - 40, H - 24
 local HINT_Y, STATUS_Y = T.HINT_Y, T.STATUS_Y
+
+-- the screen changed size (screen(), lib.layout.on_resize): what was cut from W and H again
+function T.resize(w, h)
+  W, H = w, h
+  T.W, T.H = w, h
+  T.FOCAL = (w / 2) / math.tan(math.rad(30))
+  T.HINT_Y, T.STATUS_Y = h - 40, h - 24
+  HINT_Y, STATUS_Y = T.HINT_Y, T.STATUS_Y
+end
 local SEC_MESH, SEC_ANIM = 8, 9
 local TEXTURED = 0x80000000
 
@@ -3798,9 +3807,9 @@ function T.run(app)
     elseif S.page == "menu" then status = "up/down choose, Enter select"
     elseif pg and pg.status then status = pg.status()
     else status = M() and ("model " .. S.cur .. "/" .. #S.models .. ": " .. M().name) or "" end
-    print(status:sub(1, 79), 0, STATUS_Y, (S.msg_t > 0 and S.msg_c) or C.TEXT)
+    print(status:sub(1, W // 8 - 1), 0, STATUS_Y, (S.msg_t > 0 and S.msg_c) or C.TEXT)
     if #status <= 62 then                  -- room on the right: F12 held for the keys
-      T.chip_hint("f12", nil, "held: keys", 528, STATUS_Y)
+      T.chip_hint("f12", nil, "held: keys", W - 112, STATUS_Y)
     end
     if choosing then draw_choose() end
     if input then draw_input() end

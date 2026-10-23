@@ -1,6 +1,6 @@
 # One cartridge type, input profile, adaptive screen, compatibility header
 
-Status: design study, 2026-10-22. No code changes. Nothing here is built.
+Status: design study, 2026-10-22. Stage 8 is partly built (23 Oct): `lib.layout` in bmlib and the SDK on it; see [tools](../progress/tools.md) Open work. The other stages are not built.
 Author's note: this document is the answer to four requests from the user. Decisions of the user are marked **Decided**. Everything else is a proposal.
 
 The four topics:
