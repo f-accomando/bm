@@ -100,14 +100,14 @@ Time in the host (PC, keys typed into the carts; the carts draw nothing here): a
 | loop cut (Ctrl+R) / knife (Shift+J) | 16 / 1 | 16 / 1 | 0.07 s / 0.02 s |
 | choose a part (l) / copy across (Shift+M) | 6 / 6 | 6 / 6 | 0.02 s / 0.03 s |
 | live mirror / snap / paint | 1 / 1 / 3 | 1 / 1 / 3 | 0.01 s |
-| bm Animator: 12 new bones, 2 parents, 2 deletes, 2 mirrors, 10 turns, 1 mirror pose | 29 | 33 | 0.3 s |
+| bm Animator: 10 new bones, 2 head-alone moves, 2 mirrors, 10 turns, 1 mirror pose | 29 | 33 | 0.3 s |
 | bm Mesh: Shift+B gives a part to its bone (10 times: 8 pieces and 2 welded parts) | 10 | 10 | 0.1 s |
 
 How the test checks the model plays: it gives the parts to their bones in bm Mesh (the middle line and the .L side by hand, the live mirror gives the .R side the mirror bones), reads the saved file, takes the 16 bones, the bone of each vertex and the keyframes, and skins 60 frames at 30 per second with the formula of `animate()` (`M = M_parent * T(head + t) * R(q) * T(-head)`, one bone for each vertex). It asserts that each bone moves its vertices, that no vertex lacks a bone, that no value is NaN, that the box of the body stays near the rest box (height within 25 percent), that the skinned positions change from frame to frame, and that the pose at 1 s is the pose at 0 s. The host does not run the kernel's `animate()` (the kernel is not run here).
 
 What is missing, in plain words. These are not hidden; each has a roadmap item. (APP-14, bones in bm Mesh, is closed: the test gives the bones with Shift+B and no longer uses the auto skin of bm Animator.)
 
-- APP-15: bm Animator moves an end of a bone with every joint at that point. A shoulder or a hip is not at the end of the parent. The test builds a stub bone, moves it, builds the arm on it, sets the arm's parent and deletes the stub.
+- APP-15 (done): key `j` in the rig page of bm Animator moves one head alone. The test makes a shoulder and a hip with it: no stub bone.
 - APP-16: with the live mirror on, Shift+A adds one part and not its mirror image, and the loop cut does not cut both sides (documented: topology tools are not mirrored). The second side is made by Shift+M. The sphere primitive uses diagonals that are not mirror images, so Subdivide leaves vertices of the head with no twin across x = 0.
 - APP-11 (already planned): numeric entry and box select. Without them a size is a series of scale steps and a vertex is reached with `n` and `b` presses.
 

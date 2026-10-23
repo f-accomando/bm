@@ -434,6 +434,7 @@ rig_page = {
     { "w a s d r f", "move its end" },
     { "shift w a s d r f", "move it a little" },
     { "tab", "head / tail" },
+    { "j", "head alone: it leaves the parent's tail (shoulder, hip)" },
     { "n", "new bone (child of this one)" },
     { "x / del", "delete the bone" },
     { "m", "mirror it and its children (.L / .R)" },
@@ -600,7 +601,8 @@ local function mirror_bones()
 end
 
 -- moves the chosen end of the bone: every joint at that point goes with it
--- (a chain stays joined)
+-- (a chain stays joined). With rg.alone (j) and a head chosen, only this head moves: the
+-- bone leaves the tail of its parent (a shoulder, a hip). The parent, the tail, the poses stay.
 local function rig_move(dx, dy, dz, step)
   local r = rig()
   if not r then return end
@@ -611,6 +613,14 @@ local function rig_move(dx, dy, dz, step)
   d[fa] = d[fa] + dz * fs * step
   local b = r.bones[rg.bone]
   local at = V.copy(rg.tail and b.tail or b.head)
+  if rg.alone and not rg.tail then
+    local nh = V.add(b.head, d)
+    if V.dist2(nh, b.tail) < (1 / 16) ^ 2 then say("the bone would be too short", C.ERR, 90); return end
+    T.begin_edit()
+    b.head = nh
+    T.commit_anim()
+    return
+  end
   T.begin_edit()
   for _, o in ipairs(r.bones) do
     if V.dist2(o.head, at) < 1e-8 then o.head = V.add(o.head, d) end
@@ -720,6 +730,10 @@ function rig_page.key(k)
   if k == "up" then rg.bone = (rg.bone - 2) % #r.bones + 1
   elseif k == "down" then rg.bone = rg.bone % #r.bones + 1
   elseif k == "\t" then rg.tail = not rg.tail
+  elseif k == "j" then
+    rg.alone = not rg.alone
+    if rg.alone then rg.tail = false end
+    say(rg.alone and "head alone: w a s d r f move only this head (j: joints go together)" or "joints go together", C.ACC, 120)
   elseif k == "x" or k == "del" then delete_bone()
   elseif k == "m" then mirror_bones()
   elseif k == "p" then choose_parent()
@@ -786,7 +800,7 @@ function rig_page.menu_items()
     return { { "Choose", " " }, { "Give to the bone", "a" }, { "All joined", "c" }, { "None", "\b" },
              { "Auto skin", "k" }, { "Auto skin, smooth", "K" }, { "Bones", "v" } }
   end
-  return { { "New bone", "n" }, { "Rename...", "\n" }, { "Head / tail", "\t" }, { "Parent...", "p" },
+  return { { "New bone", "n" }, { "Rename...", "\n" }, { "Head / tail", "\t" }, { "Head alone", "j" }, { "Parent...", "p" },
            { "Mirror the bones", "m" }, { "Delete the bone", "x" }, "-", { "Skin", "v" }, { "Auto skin", "k" },
            { "Frame the model", "z" } }
 end
@@ -870,8 +884,8 @@ function rig_page.draw()
     local parent = b.parent > 0 and r.bones[b.parent].name or "-"
     print(string.format("%s of %s: %.3f, %.3f, %.3f", rg.tail and "tail" or "head", b.name, e[1], e[2], e[3]),
           INFO_X, 32, C.ACC)
-    print("parent: " .. parent, INFO_X, 48, C.DIM)
-    T.hint({ { { "up", "down" }, "bone" }, { { "w", "a", "s", "d", "r", "f" }, "move" }, { { "tab" }, "head/tail" },
+    print("parent: " .. parent .. ((rg.alone and not rg.tail) and "   head alone (j)" or ""), INFO_X, 48, C.DIM)
+    T.hint({ { { "up", "down" }, "bone" }, { { "w", "a", "s", "d", "r", "f" }, "move" }, { { "tab" }, "head/tail" }, { { "j" }, "alone" },
              { { "n" }, "new" }, { { "m" }, "mirror" }, { { "k" }, "auto skin" }, { { "v" }, "skin" } })
   end
 end

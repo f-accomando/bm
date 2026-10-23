@@ -1038,36 +1038,19 @@ end
 go_to(false, 0, 0.875, 0)
 key("\n"); type_text("pelvis")
 go_to(true, 0, 1.0, 0)
--- (a stub bone ends where its parent's other children end, and an end moves every joint at its point:
--- the legs come first, while nothing else ends at 0 1.5 0)
--- an arm: the shoulder is off the spine, so a stub bone carries it there; the arm hangs from the spine
-local function reparent(to)
-  timed("parent", key, "p")
-  check(sees("the parent of"), "p: the list of parents")
-  -- the list starts on the bone's parent; up goes to the first, then down to the one wanted
-  for _ = 1, 8 do key("pgup") end
-  for _ = 2, to do key("down") end
-  key("\n")
-end
-local function delete_bone_at(i)
-  select_bone(i)
-  timed("delete bone", key, "x")
-  R.nbones = R.nbones - 1
-  cur = math.max(1, i - 1)
-end
-local function chain(from_bone, stub_to, bones, back_to)
+-- (an end moves every joint at its point: the legs come first, while nothing else ends at 0 1.5 0)
+-- a leg or an arm hangs off the end of its parent, and its head goes alone (key j) to the hip or the
+-- shoulder: no stub bone, no new parent, no delete
+local function chain(from_bone, head_at, bones)
   select_bone(from_bone)
-  new_bone()                                 -- the stub: from the tail of from_bone
-  go_to(true, table.unpack(stub_to))
-  local stub = cur
-  new_bone(bones[1][1])
-  go_to(true, bones[1][2][1], bones[1][2][2], bones[1][2][3], bones[1][3])
-  reparent(from_bone)
-  local _, _ = bone_info()
-  delete_bone_at(stub)
-  select_bone(stub)                          -- the first bone of the chain took the stub's number
-  local _, n = bone_info()
-  check(n == bones[1][1], "the stub is gone, the chain goes on from " .. bones[1][1] .. ": " .. tostring(n))
+  new_bone(bones[1][1])                      -- from the tail of from_bone, which is its parent
+  go_to(true, bones[1][2][1], bones[1][2][2], bones[1][2][3])        -- the tail first: nothing is on its way
+  end_is(false)
+  key("j")                                   -- the head alone
+  go_to(false, table.unpack(head_at))
+  key("j")                                   -- the joints go together again
+  local rgn = the_rig()
+  check(rgn.bones[cur].parent == from_bone, bones[1][1] .. " still hangs from bone " .. from_bone)
   for i = 2, #bones do
     new_bone(bones[i][1])
     go_to(true, bones[i][2][1], bones[i][2][2], bones[i][2][3], bones[i][3])

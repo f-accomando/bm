@@ -507,13 +507,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "4f6e09f8d8e7",
-    "it": "64d988316cf3",
+    "en": "71edc116b2a6",
+    "it": "4ed9b685dd1a",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "a2c2b610d93f",
-    "it": "2f30cdb7ce3d",
+    "en": "ca46bc25caf8",
+    "it": "0311a9ed3f72",
     "title": "Bones and rigging"
    },
    "5": {
@@ -543,11 +543,11 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "6bc4c3631506",
+   "carts/animator/main.lua": "07b6388861e6",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "26881cb737ba",
-   "sdk/README.md": "f56faae98658"
+   "docs/progress/tools.md": "e3efb77e150e",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-code": {
