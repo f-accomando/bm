@@ -15,6 +15,10 @@
  * size is not 1..4096 a side. */
 uint8_t *shot_png(const uint16_t *px, int stride, int w, int h, size_t *len);
 
+/* The same as RGBA (PNG colour type 6) for tools: `alpha` (one byte a pixel, same stride; NULL = all
+ * opaque) 0 gives A = 0, any other value A = 255. Same limits and the same deflate path. */
+uint8_t *shot_png_rgba(const uint16_t *px, const uint8_t *alpha, int stride, int w, int h, size_t *len);
+
 /* The file name a screenshot gets: the first letters of `title` (up to 4,
  * lower case letters and digits; "shot" if none) or of `prefix` if it is
  * not NULL or empty, then the number `n` (0..9999): "pong0007.png".

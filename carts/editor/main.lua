@@ -1236,7 +1236,7 @@ do
     battery battery_low
     quit keymap controller online udp_open udp_send udp_recv udp_close net_ip net_resolve save saved keyp keyheld
     rawkeys keydown keys pad mouse mousep timeslice ls cart_load cart_new cart_save cart_build cart_run cart_tool cart_arg
-    cart_read cart_write cart_sheet cart_audio cart_put_audio light_begin light light_end fades dark_begin glow
+    cart_read cart_write cart_sheet sheet_png cart_audio cart_put_audio light_begin light light_end fades dark_begin glow
     dark_end note noteoff freq envelope duty playing apu hz slide vibrato arp sfx sfxpos music tempo mute volume
     audio_bank audio_pattern audio_play nnet require SCREEN_W SCREEN_H SQUARE TRIANGLE SAW NOISE SINE METAL math
     string table coroutine ipairs pairs tostring tonumber type select pcall error assert]]):gmatch("%S+") do

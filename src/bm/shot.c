@@ -170,34 +170,17 @@ static void chunk(uint8_t *out, size_t *o, const char type[4], const uint8_t *da
     *o += n + 12;
 }
 
-uint8_t *shot_png(const uint16_t *px, int stride, int w, int h, size_t *len)
+/* The PNG chunks around a zlib stream of `raw` (n bytes, `row` bytes a row, filter byte 0 each);
+ * frees `raw`. ctype: 2 RGB, 6 RGBA. */
+static uint8_t *png_encode(uint8_t *raw, size_t n, size_t row, int w, int h, int ctype, size_t *len)
 {
-    if (w < 1 || h < 1 || w > 4096 || h > 4096 || stride < w)
-        return NULL;
     crc_init();
-    const size_t row = 3 * (size_t)w + 1;           /* a filter byte (0), then R G B */
-    const size_t n = row * (size_t)h;
-    uint8_t *raw = malloc(n);
     const size_t cap = n + n / 8 + 128;             /* 9 bits at the worst for a byte */
     uint8_t *out = malloc(64);
-    if (!raw || !out) {
+    if (!out) {
         free(raw);
-        free(out);
         return NULL;
     }
-    for (int y = 0; y < h; y++) {
-        uint8_t *d = raw + (size_t)y * row;
-        const uint16_t *s = px + (size_t)y * (size_t)stride;
-        *d++ = 0;
-        for (int x = 0; x < w; x++) {
-            uint16_t c = s[x];
-            uint8_t r = (uint8_t)(c >> 11 << 3), g = (uint8_t)(c >> 5 << 2), b = (uint8_t)(c << 3);
-            *d++ = (uint8_t)(r | r >> 5);
-            *d++ = (uint8_t)(g | g >> 6);
-            *d++ = (uint8_t)(b | b >> 5);
-        }
-    }
-
     uint8_t *z = malloc(cap);                       /* the zlib stream */
     if (!z) {
         free(raw);
@@ -241,7 +224,7 @@ uint8_t *shot_png(const uint16_t *px, int stride, int w, int h, size_t *len)
     uint8_t ihdr[13];
     put32(ihdr, (uint32_t)w);
     put32(ihdr + 4, (uint32_t)h);
-    ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = ihdr[11] = ihdr[12] = 0;   /* 8 bits, RGB */
+    ihdr[8] = 8; ihdr[9] = (uint8_t)ctype; ihdr[10] = ihdr[11] = ihdr[12] = 0;   /* 8 bits */
     chunk(out, &o, "IHDR", ihdr, 13);
     out = realloc(out, o + b.n + 24);
     if (!out) {
@@ -253,4 +236,54 @@ uint8_t *shot_png(const uint16_t *px, int stride, int w, int h, size_t *len)
     free(z);
     *len = o;
     return out;
+}
+
+uint8_t *shot_png(const uint16_t *px, int stride, int w, int h, size_t *len)
+{
+    if (w < 1 || h < 1 || w > 4096 || h > 4096 || stride < w)
+        return NULL;
+    const size_t row = 3 * (size_t)w + 1;           /* a filter byte (0), then R G B */
+    const size_t n = row * (size_t)h;
+    uint8_t *raw = malloc(n);
+    if (!raw)
+        return NULL;
+    for (int y = 0; y < h; y++) {
+        uint8_t *d = raw + (size_t)y * row;
+        const uint16_t *s = px + (size_t)y * (size_t)stride;
+        *d++ = 0;
+        for (int x = 0; x < w; x++) {
+            uint16_t c = s[x];
+            uint8_t r = (uint8_t)(c >> 11 << 3), g = (uint8_t)(c >> 5 << 2), b = (uint8_t)(c << 3);
+            *d++ = (uint8_t)(r | r >> 5);
+            *d++ = (uint8_t)(g | g >> 6);
+            *d++ = (uint8_t)(b | b >> 5);
+        }
+    }
+    return png_encode(raw, n, row, w, h, 2, len);
+}
+
+uint8_t *shot_png_rgba(const uint16_t *px, const uint8_t *alpha, int stride, int w, int h, size_t *len)
+{
+    if (w < 1 || h < 1 || w > 4096 || h > 4096 || stride < w)
+        return NULL;
+    const size_t row = 4 * (size_t)w + 1;           /* a filter byte (0), then R G B A */
+    const size_t n = row * (size_t)h;
+    uint8_t *raw = malloc(n);
+    if (!raw)
+        return NULL;
+    for (int y = 0; y < h; y++) {
+        uint8_t *d = raw + (size_t)y * row;
+        const uint16_t *s = px + (size_t)y * (size_t)stride;
+        const uint8_t *al = alpha ? alpha + (size_t)y * (size_t)stride : NULL;
+        *d++ = 0;
+        for (int x = 0; x < w; x++) {
+            uint16_t c = s[x];
+            uint8_t r = (uint8_t)(c >> 11 << 3), g = (uint8_t)(c >> 5 << 2), b = (uint8_t)(c << 3);
+            *d++ = (uint8_t)(r | r >> 5);
+            *d++ = (uint8_t)(g | g >> 6);
+            *d++ = (uint8_t)(b | b >> 5);
+            *d++ = (uint8_t)(!al || al[x] ? 255 : 0);
+        }
+    }
+    return png_encode(raw, n, row, w, h, 6, len);
 }

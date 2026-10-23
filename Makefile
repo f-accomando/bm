@@ -795,7 +795,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -1702,6 +1702,14 @@ test-shot: $(BUILD)/host/bmhost-bin $(BUILD)/shot-test.bm tests/shot/check.py te
 	rm -rf $(BUILD)/shot-sd && mkdir -p $(BUILD)/shot-sd
 	$< $(BUILD)/shot-test.bm --sd $(BUILD)/shot-sd --input tests/shot/key.txt --seconds 40 2>&1 | tee $(BUILD)/shot-test.log | grep "shot:"
 	$(PYTHON) tests/shot/check.py $(BUILD)/shot-sd
+
+# sheet_png (src/bm/runtime.c l_sheet_png, shot_png_rgba): PNG bytes with alpha of sheet rectangles
+$(BUILD)/sheet-png.bm: tests/shot/sheet_png.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "sheet png" --author tests
+test-sheet-png: $(BUILD)/host/bmhost-bin $(BUILD)/sheet-png.bm tests/shot/check_sheet_png.py
+	rm -rf $(BUILD)/sheet-png-sd && mkdir -p $(BUILD)/sheet-png-sd
+	$< $(BUILD)/sheet-png.bm --sd $(BUILD)/sheet-png-sd --seconds 20 > $(BUILD)/sheet-png.log 2>&1
+	$(PYTHON) tests/shot/check_sheet_png.py $(BUILD)/sheet-png.log
 
 # The PDF manuals (docs/MANUALS.md): en and it, theme A; test-manuals says if one language is behind
 manuals:
