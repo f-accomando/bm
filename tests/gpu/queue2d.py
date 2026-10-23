@@ -103,7 +103,7 @@ function _draw()
   camera3d(0.3 * math.sin(t * 0.05), 3, -9, 0, -0.3, 60)
   zclear()
   for i = 0, 5 do
-    for j = 0, 3 do                            -- 24 cubes that stand still, unlit: one run
+    for j = 0, 5 do                            -- 36 cubes that stand still, unlit: one run (merges from 32 pieces)
       draw3d((i + j) %% 2 == 0 and a or b, -5 + 2 * i, 0, 2 * j, 0, 0.3 * i, 0, 0.8, 2)
     end
   end
@@ -215,9 +215,10 @@ def main():
                     differ.append(s)
             check(not differ, f"{mode}, 2D on the GPU, queue {q}: the same frames ({len(differ)} differ: "
                   f"{' '.join(differ[:5])})", log2[-800:])
-    # bm3d 7.6: draw merging (gpu3d_merge, on by default): 24 unlit cubes standing still, drawn in one run, become
-    # one mesh from the second frame on; the pictures are the same as with gpu3d_merge=0 (a pixel or two on an
-    # edge may differ: the vertex sums are made in another order), the vertex shader is given 24 meshes less
+    # bm3d 7.6: draw merging (gpu3d_merge, on by default): 36 unlit cubes standing still, drawn in one run (a run merges
+    # from 32 pieces of at most 150 faces), become one mesh from the second frame on; the pictures are the same as
+    # with gpu3d_merge=0 (a pixel or two on an edge may differ: the vertex sums are made in another order), the
+    # vertex shader is given 36 meshes less
     cart = os.path.join(out, "merge.bm")
     with open(cart, "wb") as f:
         f.write(mkbm.pack((MERGE_CART).replace("%%", "%").encode(), title="queue2d merge", author="bm", res=(320, 180)))
@@ -229,7 +230,7 @@ def main():
         m = [l for l in log.splitlines() if "vertex shader:" in l]
         res[(merge, q)] = (d, float(m[0].split("shader: ")[1].split()[0]) if m else -1, log)
     off, on = res[(0, 1)], res[(1, 1)]
-    check(off[1] >= 24 and 0 < on[1] <= 4, f"merge: {off[1]:.0f} meshes a frame without, {on[1]:.0f} with", off[2] + on[2])
+    check(off[1] >= 36 and 0 < on[1] <= 6, f"merge: {off[1]:.0f} meshes a frame without, {on[1]:.0f} with", off[2] + on[2])
     for key in ((1, 1), (1, 0)):
         d = res[key][0]
         shots = sorted(os.listdir(off[0]))

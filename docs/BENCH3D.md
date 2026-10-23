@@ -398,6 +398,20 @@ Profiles: `ARM`, `GPU`, `GPU+VS`, `GPU+VS+Q` (the path of the games). Read the `
 Draw merging holds the draws, so at the first frame of a run (and after any change of the run) the frame is as without merging; from the second frame
 on the run is one draw. A step of the bench has several frames, so the median of a step is the merged one. Run each profile three times.
 
+A run merges only when it pays: at least 32 pieces and at most 150 faces a piece on average (`MG_MIN_PIECES`, `MG_MEAN_FACES` in `r3d.c`). So `ht_p100m` merges (100 pieces of 50) and `ht_p10m` draws the pieces as `ht_p10` does (10 pieces of 500). Expect `ht_p10m` equal to `ht_p10`.
+
+Pi Zero W, 23 Oct, two full runs (very stable), triangles at 60 fps (`tris60`), before the threshold:
+
+| Test | GPU+VS+Q | GPU+VS |
+|---|---|---|
+| `ht_p100` | 54 600 | 32 000 |
+| `ht_p100m` | 67 600 (+24%) | 32 500 (+2% to +4%) |
+| `ht_p10` | 96 300 | 44 200 |
+| `ht_p10m` | 71 600 (-26%) | 34 500 (-20%) |
+| `ht_p1` | 87 400 | not measured |
+
+A call costs the ARM: 100 pieces are 6.8 sets, 10 pieces are 11.9 sets. Merging 10 big pieces costs more than the calls it saves, hence the threshold. Compact attributes: `herotris` 54 056 (plain) and 54 013 (A8) with the queue, ARM 12.0 ms and GPU 7.0 ms in both: the frame is ARM-bound, no gain, so `gpu3d_attr` is off by default. The Pi re-measure of `ht_p10m` with the threshold is pending (`b3d tests=htmap profiles=VSQ`, and `VS`).
+
 On the PC `make test-b3d` runs the five (`check_b3d.py`: the same triangles given to r3d in all five, every profile of the list has a row) and `make test-gpu3d`
 checks the pixels of merged against drawn one by one (`draw merging` line).
 

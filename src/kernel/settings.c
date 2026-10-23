@@ -304,12 +304,12 @@ static int fs2_on(void)
     return !on || strcmp(on, "0") != 0;
 }
 
-/* compact vertex attributes: on unless gpu3d_attr=0 (bm3d 7.6; the boot's
+/* compact vertex attributes: off unless gpu3d_attr=1 (the boot's
  * probe_attr keeps them only where the pixels match) */
 static int attr_on(void)
 {
     const char *on = config_get("gpu3d_attr");
-    return !on || strcmp(on, "0") != 0;
+    return on && strcmp(on, "1") == 0;
 }
 
 static const char *gpu3d_choice(void)
@@ -1307,7 +1307,7 @@ void home_act(int id, int row, int how, home_do_t *d)
                   config_on("gpu3d_sort") ? "nearest first" : "as the game");
         break;
     case R_ATTR:
-        config_set("gpu3d_attr", attr_on() ? "0" : "1");
+        config_set("gpu3d_attr", attr_on() ? "0" : "1");   /* floats by default */
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D corners of the next game: %s",
                   attr_on() ? "compact" : "floats");

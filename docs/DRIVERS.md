@@ -359,14 +359,14 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   model, an impostor, or a camera inside the mesh's sphere. Not measured on the Pi; the hull costs
   the vertex and bin work of the mesh again (the design estimates +40-60% of a hero draw).
 
-- **7.6** (2026-10-23): **compact attributes on by default, draws of static meshes merged**.
-  `gpu3d_attr` is on unless `gpu3d_attr=0` (the runtime and the Settings row *3D corners*; the boot
-  `probe_attr` still decides if the path is used). `r3d_t.merge` (key `gpu3d_merge`, hidden, on by
+- **7.6** (2026-10-23): **draws of many small static meshes merged**.
+  `gpu3d_attr` stays off by default (Pi: no gain, `herotris` 54 056 against 54 013). `r3d_t.merge` (key `gpu3d_merge`, hidden, on by
   default; `gpu3d_merge=0` off): `r3d_draw_flags` holds the draws of meshes with baked light (or flag 2),
   no skeleton and no other flag; the held run is drawn before anything else changes the scene or reaches
   the job (`r3d_flush`; the backend calls it through `r3d_backend_t.merge`, `GPU_PRE` in `gpu3d.c`). The
   second time the same run comes (the same meshes, places, turns and order) its pieces become one mesh
-  in world axes and the run is one draw: 36 pieces in 2 draws on the PC. Not measured on the Pi.
+  in world axes and the run is one draw: 64 pieces in 2 draws on the PC. Only a run of at least 32 pieces with at most
+  150 faces a piece on average merges (Pi, 23 Oct: 100 pieces of 50 faces +24%, 10 of 500 -26% before the threshold).
 
 ## The modes: old versions on today's code
 
@@ -386,8 +386,8 @@ The settings reproduce the earlier versions, so they can be compared on the same
 - with meshes from the nearest and triangles in cache order (`gpu3d_sort=1`, with the
   vertex shader): **5.4** and **5.6**;
 - with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**;
-- with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1** (on by default from **7.6**; `gpu3d_attr=0` off);
-- with the draws of static meshes merged (`gpu3d_merge`, on by default): **7.6**;
+- with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1** (off by default);
+- with the draws of many small static meshes merged (`gpu3d_merge`, on by default): **7.6**;
 - with the opaque sheets as ETC1 (`gpu3d_etc1=1`, with `gpu3d_tex16=1`): **7.3**;
 - with cel draws (`cel3d`, flag 256), the ARM lighting of the same version: **7.4** (no setting);
   with `gpu3d_vs=2` the cut is in the vertex programs and the outline (flag 512) is the hull: **7.5**
