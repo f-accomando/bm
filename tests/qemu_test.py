@@ -8404,7 +8404,9 @@ def test_code_editor(b, opts):
         see(["if v > 0 then"])
 
         # a new project: Ctrl+N, the name offered, Ctrl+S writes it
-        k("\x0e", 0.5)                                      # Ctrl+N
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see(["choose a template", "Empty"])
+        k("\r", 0.5)                                        # Empty
         see(["New project, file name", "game1.bme"])
         k("\r", 0.5)
         k("\x13")
@@ -8568,6 +8570,82 @@ def test_code_modules(b, opts):
                 lua = d[off:off + size].decode()
         want = "local n = 0\n--@module gfx\n-- added\nlocal c = 1\n--@module ui\nlocal u = 2\n"
         assert lua == want, repr(lua)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_code_templates(b, opts):
+    """R16, bm Code: Ctrl+N lists the templates (Empty, Platform 2D, Top-down 2D,
+    Shooter 2D, Versus 2D, 3D scene); Esc leaves with no project; choosing
+    Platform 2D asks for the name, opens a project with the module tabs
+    (level, hero, loop) and Ctrl+S writes its code, markers included, into
+    /bme/game1.bme. The card is still a clean FAT32 volume."""
+    tmp = tempfile.mkdtemp(prefix="bm-codetpl-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.04):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def see(words, tries=80):
+        text = []
+        for _ in range(tries):
+            img_ = q.screendump()
+            text = screen_text(img_, 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        os.makedirs("build/diag", exist_ok=True)
+        _save_png(img_, "build/diag/code-templates-miss.png")
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("C")
+        q.expect("code: ready", timeout=15)
+        k("\x0e", 0.5)                                      # Ctrl+N
+        see(["choose a template", "Empty", "Platform 2D", "Top-down 2D", "Shooter 2D", "Versus 2D", "3D scene"])
+        k("\x1b", 0.6)                                      # Esc: no project
+        time.sleep(0.5)
+        text = screen_text(q.screendump(), 6, 12)
+        assert not any("choose a template" in l for l in text), text
+        k("\x0e", 0.5)
+        see(["choose a template"])
+        k("\x1b[B", 0.3)                                    # down: Platform 2D
+        k("\r", 0.5)
+        see(["New project, file name", "game1.bme"])
+        k("\r", 0.5)
+        see(["platform: arrows run", "level", "hero", "loop"])
+        k("\x13")                                           # Ctrl+S
+        q.expect("code: saved /bme/game1.bme", timeout=15)
+        k("\x1b", 0.6)                                      # Esc: the menu
+        see(["Modules..."])
+        k("\x1b[A", 0.3)                                    # up from the first: Exit
+        k("\r", 0.5)
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        out = os.path.join(tmp, "out.bme")
+        subprocess.run(["mcopy", "-i", part, "::/BME/GAME1.BME", out], check=True, env=env)
+        d = open(out, "rb").read()
+        lua = None
+        for i in range(d[17]):
+            t, off, size, _ = struct.unpack_from("<IIII", d, 128 + 16 * i)
+            if t == 1:
+                lua = d[off:off + size].decode()
+        assert lua and lua.startswith("-- platform: arrows run"), repr(lua and lua[:60])
+        for m in ("--@module level", "--@module hero", "--@module loop"):
+            assert m in lua, m
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -563,8 +563,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "0cccf6b6d5ae",
-    "it": "cf9a06f2fb22",
+    "en": "1498aacde17a",
+    "it": "5397d948ed19",
     "title": "Opening and saving"
    },
    "3": {
@@ -604,10 +604,10 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "d1c30bc0136b",
+   "carts/code/main.lua": "917d3fd12ce8",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-code.md": "9fd910acecf7",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/design/suite-code.md": "d03fa1579401",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },

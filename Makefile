@@ -1488,6 +1488,7 @@ test-img2mesh: $(BUILD)/host/meshview
 test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
+	$(BUILD)/host/luahost tests/studio/code_templates_host.lua .
 	$(BUILD)/host/luahost tests/studio/write_host.lua .
 	$(BUILD)/host/luahost tests/studio/write_pdf_host.lua .
 	$(BUILD)/host/luahost tests/studio/import_host.lua .

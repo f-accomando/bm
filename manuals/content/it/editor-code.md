@@ -52,7 +52,7 @@ Premi **Ctrl+O**. L'elenco mostra `+ New project...` e poi i progetti `.bme` di 
 
 ## Un nuovo progetto
 
-Premi **Ctrl+N**. Una riga chiede `New project, file name (8.3 in /bme):` e suggerisce `game1.bme`. Il nome deve essere 8.3: fino a otto lettere, cifre, `_` o `-`, e l'estensione `.BME`. Se il file esiste già, bm Code lo dice e suggerisce Ctrl+O. La nuova scheda ha un piccolo programma di partenza; premi **Ctrl+S** per scrivere il file.
+Premi **Ctrl+N**. Un elenco mostra i modelli: Empty, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D e 3D scene. Muoviti con le frecce su e giù, premi **Enter** per scegliere, **Esc** per uscire. Ogni modello tranne Empty è diviso in moduli (schede sulla seconda riga), e l'ultimo modulo, `loop`, contiene `_update` e `_draw`. Poi una riga chiede `New project, file name (8.3 in /bme):` e suggerisce `game1.bme`. Il nome deve essere 8.3: fino a otto lettere, cifre, `_` o `-`, e l'estensione `.BME`. Se il file esiste già, bm Code lo dice e suggerisce Ctrl+O. La nuova scheda ha il programma di partenza del modello; premi **Ctrl+S** per scrivere il file.
 
 **Ctrl+T** apre una nuova scheda vuota senza file: il primo salvataggio chiede un nome.
 

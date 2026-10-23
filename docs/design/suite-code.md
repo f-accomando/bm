@@ -84,5 +84,6 @@ Integrate into the assistant menu (F6) generators of proven architectural patter
 3. **Screen Shake & Hit-stop**: Ready-to-use standard functions to give hits visual impact.
 
 ### Proposal 5: Game Templates for "New Game" (R16)
+- **Status:** done (23 Oct) with code-only starters: Ctrl+N lists Empty, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D and 3D scene, each split in `--@module` modules. See [tools-code-templates](../progress/tools-code-templates.md). The SDK templates with art and maps stay in the SDK.
 - Currently "New Game" in bm Code generates a single basic empty skeleton (`TEMPLATE`).
 - Integrate guided selection of the templates already available in the SDK (Platform 2D, Top-Down 2D, Versus 2D, Shooter 2D, 3D Scene), generating ready, module-structured files.

@@ -46,6 +46,310 @@ function _draw()
 end
 ]]
 
+-- templates: begin (tests/studio/code_templates_host.lua reads up to the end line)
+-- "New project" offers these starters. Each is plain code; the lines
+-- "--@module name" make the tabs of the second row. The modules share the
+-- locals of the ones before them, so the last module holds _update and _draw.
+local TEMPLATES = {
+  { id = "empty", name = "Empty", desc = "a ball that moves: the smallest game", code = TEMPLATE },
+  { id = "platform", name = "Platform 2D", desc = "run and jump on planks (4 modules)", code = [==[
+-- platform: arrows run, act1 jumps.
+-- Modules (Ctrl+P): main = the state, level = the ground and the planks,
+-- hero = the movement, loop = _update and _draw.
+local lib = require "bmlib"
+lib.input()
+local GROUND = SCREEN_H - 40
+local hero = { x = 40, y = 0, w = 12, h = 16, vx = 0, vy = 0, on = false }
+local rects = {}
+
+--@module level
+-- the solid rectangles { x, y, w, h }: the floor and three planks
+rects = {
+  { 0, GROUND, SCREEN_W, 40 },
+  { 120, GROUND - 50, 80, 8 },
+  { 260, GROUND - 100, 80, 8 },
+  { 400, GROUND - 60, 80, 8 },
+}
+
+--@module hero
+local function hits(r)
+  return hero.x < r[1] + r[3] and hero.x + hero.w > r[1] and
+         hero.y < r[2] + r[4] and hero.y + hero.h > r[2]
+end
+
+local function move_hero()
+  hero.vx = 0
+  if btn("left") then hero.vx = -2 end
+  if btn("right") then hero.vx = 2 end
+  if hero.on and btnp("act1") then hero.vy = -6 end
+  hero.vy = hero.vy + 0.3
+  hero.x = math.max(0, math.min(SCREEN_W - hero.w, hero.x + hero.vx))
+  for _, r in ipairs(rects) do          -- sideways: a wall stops the hero
+    if hits(r) then hero.x = hero.x - hero.vx end
+  end
+  hero.y = hero.y + hero.vy
+  hero.on = false
+  for _, r in ipairs(rects) do          -- up and down: land or bump
+    if hits(r) then
+      if hero.vy > 0 then hero.y, hero.on = r[2] - hero.h, true
+      else hero.y = r[2] + r[4] end
+      hero.vy = 0
+    end
+  end
+  if hero.y > SCREEN_H + 64 then hero.x, hero.y, hero.vy = 40, 0, 0 end   -- fell: again
+end
+
+--@module loop
+function _update()
+  move_hero()
+end
+
+function _draw()
+  cls(0x5080C0)
+  for _, r in ipairs(rects) do rectfill(r[1], r[2], r[3], r[4], 0x407030) end
+  rectfill(hero.x, hero.y, hero.w, hero.h, 0xFFD050)
+  print("arrows: run   act1: jump", 8, 8, 0xFFFFFF)
+end
+]==] },
+  { id = "topdown", name = "Top-down 2D", desc = "walk among walls, pick up coins (4 modules)", code = [==[
+-- top-down: arrows walk, pick up all the coins.
+-- Modules (Ctrl+P): main = the state, world = walls and coins,
+-- player = the movement, loop = _update and _draw.
+local lib = require "bmlib"
+lib.input()
+local player = { x = 40, y = 40, w = 10, h = 10 }
+local walls, coins, score = {}, {}, 0
+
+--@module world
+-- walls { x, y, w, h }; the coins are { x, y, taken }
+walls = {
+  { 120, 60, 16, 200 },
+  { 240, 120, 16, 200 },
+  { 360, 40, 16, 200 },
+}
+for i = 1, 8 do coins[i] = { 80 + i * 50, 60 + (i % 3) * 90, false } end
+
+--@module player
+local function blocked(x, y)
+  for _, w in ipairs(walls) do
+    if x < w[1] + w[3] and x + player.w > w[1] and y < w[2] + w[4] and y + player.h > w[2] then
+      return true
+    end
+  end
+  return false
+end
+
+local function walk()
+  local dx = (btn("right") and 2 or 0) - (btn("left") and 2 or 0)
+  local dy = (btn("down") and 2 or 0) - (btn("up") and 2 or 0)
+  if not blocked(player.x + dx, player.y) then player.x = player.x + dx end
+  if not blocked(player.x, player.y + dy) then player.y = player.y + dy end
+  player.x = math.max(0, math.min(SCREEN_W - player.w, player.x))
+  player.y = math.max(0, math.min(SCREEN_H - player.h, player.y))
+  for _, c in ipairs(coins) do
+    if not c[3] and math.abs(c[1] - player.x) < 10 and math.abs(c[2] - player.y) < 10 then
+      c[3] = true
+      score = score + 1
+    end
+  end
+end
+
+--@module loop
+function _update()
+  walk()
+end
+
+function _draw()
+  cls(0x182818)
+  for _, w in ipairs(walls) do rectfill(w[1], w[2], w[3], w[4], 0x607060) end
+  for _, c in ipairs(coins) do
+    if not c[3] then circfill(c[1], c[2], 5, 0xFFD050) end
+  end
+  rectfill(player.x, player.y, player.w, player.h, 0x60C0FF)
+  print("coins " .. score .. "/" .. #coins .. "   arrows: walk", 8, 8, 0xFFFFFF)
+end
+]==] },
+  { id = "shooter", name = "Shooter 2D", desc = "fly, fire, waves of foes (4 modules)", code = [==[
+-- shooter: arrows fly, act1 fires; the foes come from the right.
+-- Modules (Ctrl+P): main = the state, ship = the ship and its shots,
+-- foes = the waves, loop = _update and _draw.
+local lib = require "bmlib"
+lib.input()
+local ship = { x = 40, y = SCREEN_H // 2, w = 16, h = 10 }
+local shots, foes = {}, {}
+local t, score, over = 0, 0, false
+
+--@module ship
+local function move_ship()
+  if btn("up") then ship.y = ship.y - 3 end
+  if btn("down") then ship.y = ship.y + 3 end
+  if btn("left") then ship.x = ship.x - 3 end
+  if btn("right") then ship.x = ship.x + 3 end
+  ship.x = math.max(0, math.min(SCREEN_W // 2, ship.x))
+  ship.y = math.max(0, math.min(SCREEN_H - ship.h, ship.y))
+  if btnp("act1") then shots[#shots + 1] = { x = ship.x + ship.w, y = ship.y + 4 } end
+  for i = #shots, 1, -1 do
+    local s = shots[i]
+    s.x = s.x + 7
+    if s.x > SCREEN_W then table.remove(shots, i) end
+  end
+end
+
+--@module foes
+local function move_foes()
+  if t % 40 == 0 then
+    foes[#foes + 1] = { x = SCREEN_W, y = math.random(0, SCREEN_H - 12), w = 14, h = 12 }
+  end
+  for i = #foes, 1, -1 do
+    local f = foes[i]
+    f.x = f.x - 2
+    if f.x < -f.w then table.remove(foes, i)
+    elseif f.x < ship.x + ship.w and f.x + f.w > ship.x and
+           f.y < ship.y + ship.h and f.y + f.h > ship.y then
+      over = true                                      -- a foe touched the ship
+    else
+      for j = #shots, 1, -1 do
+        local s = shots[j]
+        if s.x > f.x and s.x < f.x + f.w and s.y > f.y and s.y < f.y + f.h then
+          table.remove(shots, j)
+          table.remove(foes, i)
+          score = score + 1
+          break
+        end
+      end
+    end
+  end
+end
+
+--@module loop
+function _update()
+  if over then
+    if btnp("act1") then ship.y, shots, foes, score, over = SCREEN_H // 2, {}, {}, 0, false end
+    return
+  end
+  t = t + 1
+  move_ship()
+  move_foes()
+end
+
+function _draw()
+  cls(0x080818)
+  rectfill(ship.x, ship.y, ship.w, ship.h, 0x60C0FF)
+  for _, s in ipairs(shots) do rectfill(s.x, s.y, 6, 2, 0xFFFFFF) end
+  for _, f in ipairs(foes) do rectfill(f.x, f.y, f.w, f.h, 0xFF6060) end
+  print("score " .. score, 8, 8, 0xFFFFFF)
+  if over then print("game over: act1 plays again", SCREEN_W // 2 - 100, SCREEN_H // 2, 0xFFD050) end
+end
+]==] },
+  { id = "versus", name = "Versus 2D", desc = "two fighters, punches (3 modules)", code = [==[
+-- versus: two fighters, one controller each. Left/right walk, act1 jumps,
+-- act2 punches. A punch hits once; the one hit loses a life.
+-- Modules (Ctrl+P): main = the fighters, fight = the rules,
+-- loop = _update and _draw.
+local lib = require "bmlib"
+lib.input()
+local FLOOR = SCREEN_H - 64
+local fighters = {}
+local winner
+
+local function reset()
+  winner = nil
+  fighters = {
+    { pad = 1, x = 120, y = FLOOR, w = 16, h = 32, vy = 0, face = 1, life = 5, punch = 0, color = 0x60C0FF },
+    { pad = 2, x = SCREEN_W - 136, y = FLOOR, w = 16, h = 32, vy = 0, face = -1, life = 5, punch = 0, color = 0xFF8060 },
+  }
+end
+reset()
+
+--@module fight
+local function step(f, o)
+  if btn("left", f.pad) then f.x = f.x - 2; f.face = -1 end
+  if btn("right", f.pad) then f.x = f.x + 2; f.face = 1 end
+  if btnp("act1", f.pad) and f.y >= FLOOR then f.vy = -6 end
+  f.vy = f.vy + 0.3
+  f.y = math.min(f.y + f.vy, FLOOR)
+  f.x = math.max(0, math.min(SCREEN_W - f.w, f.x))
+  if btnp("act2", f.pad) and f.punch == 0 then f.punch = 14; f.hit = false end
+  if f.punch > 0 then
+    f.punch = f.punch - 1
+    local px = f.face > 0 and f.x + f.w or f.x - 14      -- the punch's box
+    if not f.hit and px < o.x + o.w and px + 14 > o.x and f.y < o.y + o.h and f.y + 12 > o.y then
+      f.hit = true
+      o.life = o.life - 1
+      o.x = o.x + f.face * 12
+    end
+  end
+end
+
+--@module loop
+function _update()
+  if winner then
+    if btnp("start") then reset() end
+    return
+  end
+  step(fighters[1], fighters[2])
+  step(fighters[2], fighters[1])
+  if fighters[1].life <= 0 then winner = "P2" end
+  if fighters[2].life <= 0 then winner = "P1" end
+end
+
+function _draw()
+  cls(0x182030)
+  rectfill(0, FLOOR + 32, SCREEN_W, 64, 0x403828)
+  for i, f in ipairs(fighters) do
+    rectfill(f.x, f.y, f.w, f.h, f.color)
+    if f.punch > 0 then rectfill(f.face > 0 and f.x + f.w or f.x - 14, f.y + 4, 14, 8, 0xFFFFFF) end
+    print("P" .. i .. " " .. string.rep("#", math.max(0, f.life)), 8 + (i - 1) * (SCREEN_W - 120), 8, f.color)
+  end
+  if winner then print(winner .. " wins: start plays again", SCREEN_W // 2 - 100, 60, 0xFFD050) end
+end
+]==] },
+  { id = "scene3d", name = "3D scene", desc = "a ball and cubes on a floor (2 modules)", code = [==[
+-- 3D scene: arrows move the ball, act1 jumps, the camera follows.
+-- Modules (Ctrl+P): main = the state and the models, loop = _update and _draw.
+local lib = require "bmlib"
+lib.input()
+local floor, cube, ball
+local bx, by, bz, vy, t = 0, 0.5, 0, 0, 0
+local boxes = { { -3, 2 }, { 2, 4 }, { 4, -2 }, { -4, -3 } }
+
+function _init()
+  floor = mesh({ -10, 0, -10, -10, 0, 10, 10, 0, 10, 10, 0, -10 },
+               { 1, 2, 3, 0x3A6A3A, 1, 3, 4, 0x3A6A3A })
+  cube = mesh_cube(0xD06040)
+  ball = mesh_sphere(0.5, 12, 0xFFD050, 0xE0A030)
+end
+
+--@module loop
+function _update()
+  t = t + 1 / 60
+  if btn("left") then bx = bx - 0.1 end
+  if btn("right") then bx = bx + 0.1 end
+  if btn("up") then bz = bz + 0.1 end
+  if btn("down") then bz = bz - 0.1 end
+  if btnp("act1") and by <= 0.5 then vy = 0.18 end
+  vy = vy - 0.01
+  by = math.max(0.5, by + vy)
+end
+
+function _draw()
+  cls(0x101828)
+  camera3d(bx, 4, bz - 8, 0, -0.4, 60)
+  light3d(-0.4, 0.8, -0.5, 0.45)
+  fog3d(0x101828, 12, 26)
+  zclear()
+  draw3d(floor, 0, 0, 0, 0, 0, 0, 1, 1)
+  for i, b in ipairs(boxes) do
+    draw3d(cube, b[1], 0.5, b[2], 0, t * 0.5 + i, 0, 1)
+  end
+  draw3d(ball, bx, by, bz, 0, 0, 0, 1, 8)
+  draw3d(ball, bx, by, bz)
+  print("arrows: move   act1: jump", 8, 8, 0xFFFFFF)
+end
+]==] },
+}
+-- templates: end
+
 ------------------------------------------------------------------ state
 
 local tabs = {}               -- {path, name, title, author, res, lines, dirty, undo, redo, err, breaks}
@@ -971,7 +1275,13 @@ local function project_name(name)
   return name
 end
 
-local function new_cart()
+local function new_cart(tpl)
+  if not tpl then                    -- first the template, then the name
+    local items = {}
+    for _, t in ipairs(TEMPLATES) do items[#items + 1] = { label = t.name, desc = t.desc, tpl = t } end
+    overlay = { kind = "files", title = "New project: choose a template (Enter)", items = items, sel = 1, top = 1 }
+    return
+  end
   local n = 1
   while find_tab(U.project_path("game" .. n)) or cart_read(U.project_path("game" .. n)) do n = n + 1 end
   prompt("New project, file name (8.3 in /bme):", "game" .. n .. ".bme", function(name)
@@ -982,7 +1292,8 @@ local function new_cart()
     end
     local path = U.project_path(name)
     if cart_read(path) then say(path .. " exists: Ctrl+O opens it", C_ERR); return end
-    local i = new_tab(path, TEMPLATE, { title = name:gsub("%.bme$", "") })
+    local i = new_tab(path, tpl.code, { title = name:gsub("%.bme$", "") })
+    MOD.load(tabs[i])
     tabs[i].dirty = true
     show_tab(i)
     say("new: Ctrl+S writes " .. path, C_OK)
@@ -1383,7 +1694,7 @@ local function overlay_key(k)
       else
         local it = o.items[o.sel]
         overlay = nil
-        if it.new then new_cart() else open_file(it.path) end
+        if it.tpl then new_cart(it.tpl) elseif it.new then new_cart() else open_file(it.path) end
       end
     end
   end
@@ -2035,10 +2346,10 @@ local function draw_overlay()
   else
     local menu = o.kind == "menu"
     local n = menu and #MENU or #o.items
-    local cols = menu and 40 or math.min(COLS - 4, 60)
+    local cols = menu and 40 or math.min(COLS - 4, o.title and 72 or 60)
     local rows = math.min(n, ROWS - 6) + 2
     local c0, r0 = (COLS - cols) // 2, 2
-    draw_box(c0, r0, cols, rows, menu and "bm Code" or "Open a cartridge (Enter)")
+    draw_box(c0, r0, cols, rows, menu and "bm Code" or o.title or "Open a cartridge (Enter)")
     U.zone(c0 * CW, r0 * CH, cols * CW, rows * CH, "box")
     local vis = rows - 2
     o.vis = vis
@@ -2055,9 +2366,9 @@ local function draw_overlay()
       else
         local it = o.items[i]
         label = it.label
-        right = it.size and string.format("%d KB", (it.size + 1023) // 1024) or ""
+        right = it.desc or (it.size and string.format("%d KB", (it.size + 1023) // 1024)) or ""
       end
-      print(label:sub(1, cols - 12), (c0 + 2) * CW, y, i == o.sel and 0xFFFFFF or C_TEXT)
+      print(label:sub(1, (not menu and o.items[i].desc) and 14 or cols - 12), (c0 + 2) * CW, y, i == o.sel and 0xFFFFFF or C_TEXT)
       local keys = menu and shortcut_keys(right)
       if keys then                       -- the shortcut's keys, on the right
         local kx = (c0 + cols - 1) * CW - chips_w(keys)

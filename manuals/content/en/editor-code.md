@@ -52,7 +52,7 @@ Press **Ctrl+O**. The list shows `+ New project...` and then the `.bme` projects
 
 ## A new project
 
-Press **Ctrl+N**. A line asks `New project, file name (8.3 in /bme):` and suggests `game1.bme`. The name must be 8.3: up to eight letters, digits, `_` or `-`, and the extension `.BME`. If the file already exists, bm Code says so and suggests Ctrl+O. The new tab has a small starter program; press **Ctrl+S** to write the file.
+Press **Ctrl+N**. A list shows the templates: Empty, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D and 3D scene. Move with the up and down arrows, press **Enter** to choose, **Esc** to leave. Each template except Empty is split in modules (tabs on the second row), and the last module, `loop`, holds `_update` and `_draw`. Then a line asks `New project, file name (8.3 in /bme):` and suggests `game1.bme`. The name must be 8.3: up to eight letters, digits, `_` or `-`, and the extension `.BME`. If the file already exists, bm Code says so and suggests Ctrl+O. The new tab has the starter program of the template; press **Ctrl+S** to write the file.
 
 **Ctrl+T** opens a new empty tab with no file: the first save asks for a name.
 
