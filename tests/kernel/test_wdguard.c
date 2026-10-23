@@ -6,6 +6,8 @@
 #include "../../src/drivers/watchdog.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static int fails, checks;
 static void check(int ok, const char *what)
@@ -24,6 +26,29 @@ static int pets_between(uint32_t from, uint32_t to, uint32_t mark)
     for (uint32_t t = from; (uint32_t)(t - to) > 0x80000000u; t += 100000u)
         n += watchdog_fresh(t, mark, WATCHDOG_STALL_US);
     return n;
+}
+
+/* The long waits of the main code must mark progress, or a legal block of more than 20 s resets the
+ * Pi (found by the audit in docs/design/watchdog-hang.md). Run from the repository root: the call
+ * must stand within 400 bytes after the head of each function. */
+static void need_mark(const char *file, const char *head)
+{
+    FILE *f = fopen(file, "rb");
+    char *buf = f ? calloc(1, 1 << 20) : NULL;
+    size_t n = buf ? fread(buf, 1, (1 << 20) - 1, f) : 0;
+    if (f)
+        fclose(f);
+    char *at = n ? strstr(buf, head) : NULL;
+    int ok = at != NULL;
+    if (ok) {
+        char win[401] = { 0 };
+        strncpy(win, at, 400);
+        ok = strstr(win, "watchdog_progress();") != NULL;
+    }
+    free(buf);
+    char what[160];
+    snprintf(what, sizeof what, "%s: %s marks progress", file, head);
+    check(ok, what);
 }
 
 int main(void)
@@ -47,6 +72,11 @@ int main(void)
     mark = 0xFFFFF000u;
     check(watchdog_fresh(0x00000100u, mark, L), "wrap: 4 ms after the mark is fresh");
     check(!watchdog_fresh(0x00000100u + L, mark, L), "wrap: past the limit is stale");
+
+    need_mark("src/kernel/fiber.c", "void fiber_slice(void)");
+    need_mark("src/net/net.c", "int net_wait_step(void)");
+    need_mark("src/net/netxfer.c", "static int keep_net(void)");
+    need_mark("src/wifi/wifi.c", "static int bp_mem(int write");
 
     printf("%d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;

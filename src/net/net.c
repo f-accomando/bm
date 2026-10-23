@@ -10,6 +10,7 @@
 #include "wifi/wifi.h"
 #include "usb/smsc95xx.h"
 #include "drivers/timer.h"
+#include "drivers/watchdog.h"
 #include "kernel/fiber.h"
 #include "lib/printf.h"
 
@@ -173,6 +174,7 @@ static void poll_now(void)
 
 int net_wait_step(void)
 {
+    watchdog_progress();                /* a wait of the net has its own limit (SYS-2) */
     if (started)
         poll_now();
     if (fiber_current()) {              /* the menu goes on meanwhile */
@@ -230,6 +232,7 @@ int net_wait_ip(uint32_t ms)
 {
     uint32_t t0 = timer_ticks();
     while (started && timer_ticks() - t0 < ms * 1000u) {
+        watchdog_progress();
         poll_now();
         if (shown_ip)
             return 0;

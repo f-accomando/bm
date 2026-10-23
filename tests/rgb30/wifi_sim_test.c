@@ -154,6 +154,7 @@ struct fiber *fiber_current(void) { return 0; }
 void fiber_yield(void) {}
 int fiber_cancelled(void) { return 0; }
 void fiber_slice(void) {}
+void watchdog_progress(void) {}
 /* wifi_auto.c's job: run straight through when it starts */
 static int jobs;
 int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)

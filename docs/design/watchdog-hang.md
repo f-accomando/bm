@@ -45,6 +45,33 @@ The hang risk is in the firmware call that follows the reset.
 - `mbox_call()` returns 0 after 2 s.
 - Test: `make test-crumbs` (the decision `watchdog_fresh()` with a wrapping counter).
 
+## Audit of long blocks (false restart)
+
+A block of the main code longer than 20 s with no mark would reset the Pi. The RGB30 is not at risk:
+`src/rgb30/glue.c` has stubs (`watchdog_arm` returns -1, `watchdog_progress` does nothing).
+Result, by reading the code (nothing ran on a Pi):
+
+- Boot (SD init, FAT scan, USB, `wifi_boot`, TLS in the first reports): no mark exists before the
+  cartridge menu, so the IRQ pets. Safe.
+- The menu jobs run in fibers (covers, reports, Market, update, SD map, WiFi retry). A fiber yields to
+  the menu loop, which polls. Safe where the fiber calls `fiber_slice`.
+- Games: `crumb_frame()` each frame. A game load reads the SD with `fat_load_tick` (`sd_tick`). Safe.
+- Gaps found and closed. Each mark is one timer read and one store.
+  1. Settings > Connect (`x_connect`, `settings.c`) and monitor `wifi` run `wifi_start`, scan (8 s),
+     join (15 s) and `net_wait_ip` (15 s) in the main code. Up to 40 s. `fiber_slice()` now marks, and
+     those loops call it outside a fiber too. `net_wait_ip()` marks.
+  2. `net_wait_step()` outside a fiber (Settings > Test the connection: DNS, connect, TLS, up to 1 MiB)
+     had no mark. It marks now.
+  3. `file_write` of 8 MiB in a game: `fat_write_tick` is `fiber_slice_tick`, which does nothing
+     outside a fiber. `fiber_slice()` marks now, so each written run marks.
+  4. A kernel written at once from netxfer (`save_now`, `keep_net`): marks per piece now.
+  5. The WiFi firmware upload (`bp_mem`, `wifi.c`, 400 KB) marks per chunk.
+- Not measured, bounded by the code only: the build in the editor (Ctrl+B, `project.c`) and the decode
+  of a 16 MiB game after it is read. If a false restart names one of them in `bm/bootprev.txt`, add
+  `watchdog_progress()` there.
+- Test: `make test-crumbs` checks that the marks stay in `fiber_slice`, `net_wait_step`, `keep_net`
+  and `bp_mem`.
+
 ## Only a Pi run can show
 
 - Which wait hung. After the next freeze, read `bm/bootprev.txt`: the `while:` line names the crumb and

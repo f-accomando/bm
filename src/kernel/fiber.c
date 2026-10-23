@@ -1,5 +1,6 @@
 #include "fiber.h"
 #include "drivers/timer.h"
+#include "drivers/watchdog.h"
 #include "lib/printf.h"
 
 #include <stdlib.h>
@@ -115,6 +116,7 @@ int fiber_run(fiber_t *f, uint32_t until)
 
 void fiber_slice(void)
 {
+    watchdog_progress();        /* a long loop that calls this is alive, in a fiber or not (SYS-2) */
     fiber_t *f = current;
     if (f && (int32_t)(timer_ticks() - f->until) >= 0)
         fiber_yield();
