@@ -241,6 +241,8 @@ Draw the 16 tiles of the set in this order on the sheet. Then:
 
 The status line shows `TERRAIN base N` while the brush is on. The hint bar shows the chip `t terrain` where it showed `m overview`. The key **m** still shows the whole map: it is in the help (**F12**).
 
+The RGB30 SDK has the same brush. Press **t** on the map page, or choose *Terrain brush* in the **X** list. The status line shows `TERRAIN` and the base tile. Paint and erase work as on the Pi. The hint chip **c** (flags) became **t** (terrain) on a keyboard; **c** stays in the help and the menu.
+
 ## Good to know
 
 - Map cells are numbers: 0 is empty, the others are the tile.

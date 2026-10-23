@@ -241,6 +241,8 @@ Disegna le 16 tile del set in questo ordine sul foglio. Poi:
 
 La riga di stato mostra `TERRAIN base N` quando il pennello è attivo. La barra dei suggerimenti mostra il chip `t terrain` dove prima c'era `m overview`. Il tasto **m** mostra ancora l'intera mappa: è nell'aiuto (**F12**).
 
+L'SDK RGB30 ha lo stesso pennello. Premi **t** nella pagina mappa, oppure scegli *Terrain brush* nella lista **X**. La riga di stato mostra `TERRAIN` e la tile base. Dipingere e cancellare funzionano come sul Pi. Il chip di suggerimento **c** (flags) è diventato **t** (terrain) su una tastiera; **c** resta nell'aiuto e nel menu.
+
 ## Da sapere
 
 - Le celle della mappa sono numeri: 0 è vuoto, gli altri sono la tile.
