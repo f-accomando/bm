@@ -576,6 +576,59 @@ function U.find_all(sources, text)
   return out
 end
 
+-- rename a word in lines (rename in the project): old is a name, a whole
+-- word ([%w_] around it is not part of it); a string ('...', "...", [[...]]) and
+-- a comment (-- and --[[ ]]) never change. The lines change in place; returns
+-- how many words changed. A long string or comment may run over lines.
+function U.rename_word(lines, old, new)
+  local n, close = 0, nil          -- close: the closing bracket of a long string/comment
+  for li, l in ipairs(lines) do
+    local out, i, len, changed = {}, 1, #l, false
+    local function put(a, b) out[#out + 1] = l:sub(a, b) end
+    while i <= len do
+      if close then
+        local a, b = l:find(close, i, true)
+        if a then put(i, b); i, close = b + 1, nil else put(i, len); i = len + 1 end
+      else
+        local c = l:sub(i, i)
+        if c == "-" and l:sub(i + 1, i + 1) == "-" then
+          local eq = l:match("^%[(=*)%[", i + 2)
+          if eq then close = "]" .. eq .. "]"; put(i, i + 3 + #eq); i = i + 4 + #eq
+          else put(i, len); i = len + 1 end
+        elseif c == '"' or c == "'" then
+          local j = i + 1
+          while j <= len and l:sub(j, j) ~= c do j = j + (l:sub(j, j) == "\\" and 2 or 1) end
+          put(i, math.min(j, len)); i = j + 1
+        elseif c == "[" and l:match("^%[=*%[", i) then
+          local eq = l:match("^%[(=*)%[", i)
+          close = "]" .. eq .. "]"; put(i, i + 1 + #eq); i = i + 2 + #eq
+        elseif c:match("%d") then
+          local _, b = l:find("^[%w_%.]*", i); put(i, b); i = b + 1
+        elseif c:match("[%a_]") then
+          local _, b = l:find("^[%w_]*", i)
+          local w = l:sub(i, b)
+          if w == old then out[#out + 1] = new; n, changed = n + 1, true else out[#out + 1] = w end
+          i = b + 1
+        else
+          put(i, i); i = i + 1
+        end
+      end
+    end
+    if changed then lines[li] = table.concat(out) end
+  end
+  return n
+end
+
+local LUA_WORDS = {}
+for w in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%S+") do
+  LUA_WORDS[w] = true
+end
+
+-- a name Lua accepts for a variable or a function (not a keyword)
+function U.lua_name_ok(name)
+  return type(name) == "string" and name:match("^[%a_][%w_]*$") ~= nil and not LUA_WORDS[name]
+end
+
 -- The Lua modules of one project (APP-8). The code of a project stays ONE
 -- LUA section; a line "--@module NAME" starts a module, which runs to the
 -- next such line. For the cartridge it is a comment, so the game, its bytes

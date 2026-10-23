@@ -954,6 +954,34 @@ function MOD.jump(h)
   say("found at line " .. h.line)
 end
 
+-- rename a word as a whole word in every open tab and every module (Ctrl+Shift+H):
+-- strings and comments stay; one undo step per module (Ctrl+Z in each)
+function MOD.rename_all(old, new)
+  if not U.lua_name_ok(old) then say("not a name to rename: " .. tostring(old), C_ERR); return end
+  if not U.lua_name_ok(new) then say("a Lua name: letters, digits, _ ; not a number first, not a keyword", C_ERR); return end
+  if old == new then return end
+  local n, m_n = 0, 0
+  for _, t in ipairs(tabs) do
+    MOD.flush(t)
+    for mi, m in ipairs(t.mods or { t }) do
+      local lines = m.lines
+      local copy = table.move(lines, 1, #lines, 1, {})
+      local k = U.rename_word(lines, old, new)
+      if k > 0 then
+        local u = (t.mods and mi ~= t.cur) and m or t        -- the active module is t itself
+        local v = panes[focus].views[t]
+        u.undo[#u.undo + 1] = { lines = copy, cx = v and v.cx or 0, cy = v and v.cy or 1 }
+        if #u.undo > 100 then table.remove(u.undo, 1) end
+        u.redo = {}
+        t.dirty, t.lint_lines, t.last_kind = true, nil, nil
+        n, m_n = n + k, m_n + 1
+      end
+    end
+  end
+  if n == 0 then say("\"" .. old .. "\" is not in the project as a whole word", C_ERR); return end
+  say(n .. " renamed in " .. m_n .. (m_n == 1 and " module" or " modules"), C_OK)
+end
+
 local function module_taken(t, name)
   for _, m in ipairs(t.mods or { { name = "main" } }) do
     if m.name == name then return true end
@@ -1302,6 +1330,24 @@ local function prompt(label, text, done, words)
   overlay = { kind = "prompt", label = label, text = text or "", done = done, words = words }
 end
 
+-- Ctrl+Shift+H: the name under the cursor, then the new one
+function MOD.rename_ask(t, v)
+  local function ask(old)
+    if not U.lua_name_ok(old) then say("\"" .. old .. "\" is not a name; put the cursor on one", C_ERR); return end
+    prompt("Rename \"" .. old .. "\" in the project, new name:", old, function(new) MOD.rename_all(old, new) end)
+    overlay.hint = "whole word, every module and tab; strings and comments stay"
+  end
+  local l, a, b = t.lines[v.cy], v.cx, v.cx + 1
+  while a > 0 and l:sub(a, a):match("[%w_]") do a = a - 1 end
+  while b <= #l and l:sub(b, b):match("[%w_]") do b = b + 1 end
+  local w = l:sub(a + 1, b - 1)
+  if w == "" then
+    prompt("Rename which word:", "", ask)
+  else
+    ask(w)
+  end
+end
+
 local function confirm(question, choices, done)
   overlay = { kind = "confirm", question = question, choices = choices, done = done }
 end
@@ -1432,7 +1478,7 @@ local MENU = {
   { "Breakpoint", "F8" }, { "Debug from the start", "" }, { "Clear breakpoints", "" },
   { "Modules...", "Ctrl+P" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
-  { "Find in the project...", "Ctrl+Shift+F" }, { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
+  { "Find in the project...", "Ctrl+Shift+F" }, { "Rename a word...", "Ctrl+Shift+H" }, { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
   { "Explain the error", "F9" }, { "Play the music (riff)", "Ctrl+Enter" }, { "Stop the music", "Ctrl+." },
   { "Word completion", "" }, { "Words in comments", "" },
   { "Pad typing", "" }, { "Keys", "F12 held" }, { "Exit", "" },
@@ -1475,6 +1521,7 @@ local function menu_choose(name)
   elseif name == "Font size" then do_command("f10")
   elseif name == "Find" then do_command("^f")
   elseif name == "Find in the project..." then do_command("^F")
+  elseif name == "Rename a word..." then do_command("^H")
   elseif name == "Replace" then do_command("^h")
   elseif name == "Go to line" then do_command("^l")
   elseif name == "Assistant" then open_assistant(t, v)
@@ -1551,6 +1598,7 @@ do_command = function(k)
       find_text = s
       MOD.find_all(s)
     end, "code")
+  elseif k == "^H" then MOD.rename_ask(t, v)
   elseif k == "^g" then find_next(t, v, find_text)
   elseif k == "^h" then
     prompt("Replace:", find_text or word_at(t, v) or "", function(a)
@@ -2295,6 +2343,7 @@ local KEYHELP = {
   { "tab", "after a word: the grey-blue rest" },
   { "ctrl g", "find the next" },
   { "ctrl shift f", "find in every module and tab" },
+  { "ctrl shift h", "rename the word in every module and tab" },
   { "ctrl h", "replace all" },
   { "ctrl l", "go to line" },
   { "enter", "on #entry: ... #: the assistant does it" },
@@ -2318,7 +2367,8 @@ local HELP = {
   "Editing", "Ctrl+Z undo, Ctrl+Y redo", "Ctrl+B start a selection", "Ctrl+C copy, Ctrl+X cut",
   "Ctrl+V paste (a line: above)", "Ctrl+K cut line, Ctrl+D duplicate", "Tab / Ctrl+U indent / unindent",
   "Tab after a word: the grey-blue rest",
-  "Ctrl+F find, Ctrl+G next", "Ctrl+Shift+F find in the project", "Ctrl+H replace all", "Ctrl+L go to line", "",
+  "Ctrl+F find, Ctrl+G next", "Ctrl+Shift+F find in the project",
+  "Ctrl+Shift+H rename the word everywhere", "Ctrl+H replace all", "Ctrl+L go to line", "",
   "Assistant", "F6 ask (the word under the cursor)", "Ctrl+Q help on the API function", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
   "Music (riff, docs/RIFF.md)", "Ctrl+Enter play the tab, or the", "  riff.code [[ ]] under the cursor",

@@ -321,6 +321,29 @@ do
   check(#U.find_all(srcs, "") == 0 and #U.find_all(srcs, "zzz") == 0 and #U.find_all({}, "a") == 0,
         "find_all: empty text, no match, no source: no hits")
   check(#U.find_all({ { name = "a", lines = { "a.b", "a+b" } } }, ".") == 1, "find_all: the text is plain, not a pattern")
+
+  -- rename a word (APP-24): a whole word, never in a string or a comment
+  local src = {
+    "local hp, hpmax = 10, 20",
+    "if hp > 0 then hp = hp - 1 end",
+    [=[print("hp", 'hp', "a\"hp", hpmax)  -- hp stays]=],
+    "local s = [[ hp",
+    "hp ]] .. hp",
+    "--[==[ hp",
+    "hp ]==] hp = 1",
+    "x.hp = _hp + hp1 + 0x1hp + hp",
+  }
+  local n = U.rename_word(src, "hp", "life")
+  check(src[1] == "local life, hpmax = 10, 20", "rename_word: a whole word, hpmax stays: " .. src[1])
+  check(src[2] == "if life > 0 then life = life - 1 end" , "rename_word: every one on a line: " .. src[2])
+  check(src[3] == [=[print("hp", 'hp', "a\"hp", hpmax)  -- hp stays]=], "rename_word: strings and a comment stay: " .. src[3])
+  check(src[4] == "local s = [[ hp" and src[5] == "hp ]] .. life", "rename_word: a long string over lines stays: " .. src[5])
+  check(src[6] == "--[==[ hp" and src[7] == "hp ]==] life = 1", "rename_word: a long comment over lines stays: " .. src[7])
+  check(src[8] == "x.life = _hp + hp1 + 0x1hp + life", "rename_word: _hp, hp1, a number stay; a field changes: " .. src[8])
+  check(n == 8, "rename_word: the count (" .. n .. ")")
+  check(U.rename_word({ "a b" }, "c", "d") == 0, "rename_word: not found, 0")
+  check(U.lua_name_ok("life_2") and U.lua_name_ok("_x") and not U.lua_name_ok("2x") and not U.lua_name_ok("end")
+        and not U.lua_name_ok("a-b") and not U.lua_name_ok("") and not U.lua_name_ok(nil), "lua_name_ok")
 end
 
 -- a line of text with a caret: keys, click, draw

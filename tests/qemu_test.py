@@ -8559,6 +8559,26 @@ def test_code_modules(b, opts):
         assert not any("local n = 0" in l or "Find \"" in l for l in text), text
         k("\x10", 0.5)                                      # Ctrl+P: round to main
         see(["local n = 0"])
+        # APP-24, rename a word: the menu row (Ctrl+Shift+H is its key); a
+        # keyword is refused, a name changes as a whole word, Ctrl+Z brings it back
+        k("\x1b[D" * 20, 0.2)                               # column 0: on "local"
+        k("\x1b", 0.6)
+        see(["Rename a word...", "Ctrl+Shift+H"])
+        k("\x1b[B" * 14, 0.15)                              # down to "Rename a word..."
+        k("\r", 0.5)
+        see(["\"local\" is not a name"])
+        k("\x1b[C" * 6, 0.2)                                # on the n of "local n = 0"
+        k("\x1b", 0.6)
+        k("\x1b[B" * 14, 0.15)
+        k("\r", 0.5)
+        see(["Rename \"n\" in the project, new name:"])
+        k("\b" + "num", 0.1)
+        k("\r", 0.5)
+        see(["local num = 0", "1 renamed in 1 module"])
+        k("\x1a", 0.4)                                      # Ctrl+Z: one undo step
+        see(["local n = 0"])
+        k("\x13")                                           # Ctrl+S: the same text again, no question at Exit
+        q.expect("code: saved /bme/mods.bme", timeout=15)
         k("\x1b", 0.6)                                      # Esc: the menu
         see(["Modules..."])
         k("\x1b[A", 0.3)                                    # up from the first: Exit
