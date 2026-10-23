@@ -117,12 +117,9 @@ The most suitable suite for 3D game maps is **bm SDK**: it already has layers, f
 
 ---
 
-## 5. Open Ideas and External Integrations (R11, R38, R39)
+## 5. Open Ideas and External Integrations (R39)
 
-- **Map Import from Tiled `.tmj` (R11)**:
-  - Support for importing levels generated with Tiled Map Editor (`.tmj` JSON) preserving multiple graphic layers and custom tile properties.
-- **Assistant Support for Large Maps (R38)**:
-  - Dedicated entry in the knowledge base for composing large maps with the 16×16 brush (`z`), with examples based on `mkmap.py` and the platform tutorial.
-- **720×720 SDK Interface on RGB30 (R39)**:
-  - Extension of the `carts/sdk_b16` layout with an 8×16 grid logical scale: on the native 720×720 display it allows placing the side panel and map view side by side, as on the Raspberry Pi edition.
+Done: the Tiled import (R11, menu *Import a Tiled map*, see [`progress/tools-suite.md`](../progress/tools-suite.md)), the overview and the used-tiles palette of big maps (R37, keys `m` and `Tab`) and the assistant entries for big maps (R38, `map_big` and `map_tiled` in `src/ai/kb/howto_map.txt`).
 
+- **720x720 SDK Interface on RGB30 (R39)**:
+  - Extension of the `carts/sdk_b16` layout with an 8x16 grid logical scale: on the native 720x720 display it allows placing the side panel and map view side by side, as on the Raspberry Pi edition. Not started: it changes every page of `carts/sdk_b16`. Plan: [`sdk-720.md`](sdk-720.md).

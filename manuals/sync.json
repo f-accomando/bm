@@ -756,8 +756,8 @@
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "e24c96219071",
-    "it": "a6b7cee9dc97",
+    "en": "3b709f72ab15",
+    "it": "ca8b0298c969",
     "title": "The map editor"
    },
    "6": {
@@ -771,8 +771,8 @@
     "title": "Building and exporting"
    },
    "8": {
-    "en": "bae231287baf",
-    "it": "108703b0dfb0",
+    "en": "579b68177179",
+    "it": "d9f8402a93ce",
     "title": "Keys"
    },
    "9": {
@@ -782,10 +782,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "dd461b4791bd",
+   "carts/editor/main.lua": "baa1afd403cd",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "8fac04edc9bd",
+   "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
+   "docs/progress/tools.md": "24313cfad452",
    "sdk/README.md": "f82ca797337d"
   }
  },

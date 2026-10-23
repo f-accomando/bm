@@ -3589,4 +3589,252 @@ function T.run(app)
   end
 end
 
+----------------------------------------------------------------- Tiled maps (R11)
+
+-- A small JSON reader (for Tiled's .tmj/.json files): objects, arrays,
+-- strings, numbers, true, false, null (null becomes nil). Returns the value,
+-- or nil and the reason.
+function T.json_decode(s)
+  local pos = 1
+  local esc = { b = "\b", f = "\f", n = "\n", r = "\r", t = "\t", ['"'] = '"', ["\\"] = "\\", ["/"] = "/" }
+  local function skip() pos = s:find("[^ \t\r\n]", pos) or #s + 1 end
+  local function fail(msg) error({ msg = msg .. " at byte " .. pos }, 0) end
+  local value
+  local function str()
+    local out, i = {}, pos + 1
+    while true do
+      local j = s:find('["\\]', i)
+      if not j then pos = i; fail("string not closed") end
+      out[#out + 1] = s:sub(i, j - 1)
+      if s:sub(j, j) == '"' then pos = j + 1; return table.concat(out) end
+      local c = s:sub(j + 1, j + 1)
+      if c == "u" then
+        local cp = tonumber(s:sub(j + 2, j + 5), 16)
+        if not cp then pos = j; fail("bad \\u escape") end
+        out[#out + 1] = cp < 128 and string.char(cp) or "?"
+        i = j + 6
+      elseif esc[c] then out[#out + 1] = esc[c]; i = j + 2
+      else pos = j; fail("bad escape") end
+    end
+  end
+  function value()
+    skip()
+    local c = s:sub(pos, pos)
+    if c == "{" then
+      local t = {}
+      pos = pos + 1; skip()
+      if s:sub(pos, pos) == "}" then pos = pos + 1; return t end
+      while true do
+        skip()
+        if s:sub(pos, pos) ~= '"' then fail("a key was expected") end
+        local k = str()
+        skip()
+        if s:sub(pos, pos) ~= ":" then fail("':' was expected") end
+        pos = pos + 1
+        t[k] = value()
+        skip()
+        local d = s:sub(pos, pos)
+        pos = pos + 1
+        if d == "}" then return t end
+        if d ~= "," then pos = pos - 1; fail("',' or '}' was expected") end
+      end
+    elseif c == "[" then
+      local t, n = {}, 0
+      pos = pos + 1; skip()
+      if s:sub(pos, pos) == "]" then pos = pos + 1; return t end
+      while true do
+        n = n + 1
+        t[n] = value()
+        skip()
+        local d = s:sub(pos, pos)
+        pos = pos + 1
+        if d == "]" then return t end
+        if d ~= "," then pos = pos - 1; fail("',' or ']' was expected") end
+      end
+    elseif c == '"' then return str()
+    elseif s:sub(pos, pos + 3) == "true" then pos = pos + 4; return true
+    elseif s:sub(pos, pos + 4) == "false" then pos = pos + 5; return false
+    elseif s:sub(pos, pos + 3) == "null" then pos = pos + 4; return nil
+    else
+      local num = s:match("^-?%d+%.?%d*[eE]?[+-]?%d*", pos)
+      if not num or num == "" then fail("a value was expected") end
+      pos = pos + #num
+      local n = tonumber(num)
+      if not n then fail("bad number") end
+      return math.type(n) == "float" and n == math.floor(n) and math.tointeger(n) or n
+    end
+  end
+  local ok, v = pcall(value)
+  if not ok then return nil, type(v) == "table" and v.msg or tostring(v) end
+  skip()
+  if pos <= #s then return nil, "extra text after the JSON value" end
+  return v
+end
+
+-- The flags of a tile come from the custom properties of a Tiled tile: a
+-- boolean property called solid, platform, ladder, water or hurt (flags 0 to
+-- 4), or flag0 to flag7.
+local TILED_FLAGS = { solid = 0, platform = 1, ladder = 2, water = 3, hurt = 4, damage = 4 }
+for i = 0, 7 do TILED_FLAGS["flag" .. i] = i end
+
+-- Reads a Tiled map (the text of a .tmj/.json file: orthogonal, CSV tile
+-- layers) into bm cells. `cols`: the columns of the sheet in 8x8 cells
+-- (sheet_w // 8). Tiles of 8x8 or 16x16 pixels: a 16x16 Tiled tile becomes
+-- a tile of 2 x 2 cells (n, n+1 and the two under them), as the 16x16 brush
+-- (z) puts it. A Tiled tile at column c, row r of its tileset is the sheet
+-- tile at the same column and row. Tiled gid 0 is empty. Returns
+--   { w, h (in cells), tile = 8|16, layers = { {name=, cells={w*h}} },
+--     flags = { [cell] = byte }, ignored = { "name (kind)", ... } }
+-- or nil and the reason.
+function T.tiled_import(text, cols)
+  local m, err = T.json_decode(text)
+  if not m then return nil, "not a JSON file: " .. tostring(err) end
+  if type(m) ~= "table" or type(m.layers) ~= "table" then return nil, "not a Tiled map (no layers)" end
+  if m.orientation and m.orientation ~= "orthogonal" then return nil, "only orthogonal maps (" .. tostring(m.orientation) .. ")" end
+  if m.infinite then return nil, "infinite maps are not supported (give the map a fixed size in Tiled)" end
+  local tw, th = m.tilewidth, m.tileheight
+  if tw ~= th or (tw ~= 8 and tw ~= 16) then
+    return nil, "tiles of 8x8 or 16x16 pixels only (" .. tostring(tw) .. "x" .. tostring(th) .. ")"
+  end
+  local k = tw // 8
+  local mw, mh = m.width, m.height
+  if math.type(mw) ~= "integer" or math.type(mh) ~= "integer" or mw < 1 or mh < 1 then return nil, "no map size" end
+  if mw * k > 256 or mh * k > 256 then return nil, "the map is " .. mw * k .. "x" .. mh * k .. " cells: 256x256 at most" end
+  cols = cols or 32
+  local sets = {}
+  for _, ts in ipairs(m.tilesets or {}) do
+    if type(ts.firstgid) == "number" then sets[#sets + 1] = ts end
+  end
+  table.sort(sets, function(a, b) return a.firstgid < b.firstgid end)
+  -- the sheet cells of a tileset's tile (its local id)
+  local function cells_of(ts, id)
+    local tc = ts.columns
+    if math.type(tc) ~= "integer" or tc < 1 then tc = cols // k end
+    local n = (id // tc) * k * cols + (id % tc) * k
+    if k == 1 then return { n } end
+    return { n, n + 1, n + cols, n + cols + 1 }
+  end
+  local flags = {}
+  for _, ts in ipairs(sets) do
+    for _, tl in ipairs(ts.tiles or {}) do
+      local bits, props = 0, tl.properties
+      if type(props) == "table" then
+        if props[1] == nil then               -- (old style: { name = value })
+          for name, v in pairs(props) do
+            if v == true and TILED_FLAGS[name] then bits = bits | 1 << TILED_FLAGS[name] end
+          end
+        end
+        for _, p in ipairs(props) do
+          if p.value == true and TILED_FLAGS[p.name] then bits = bits | 1 << TILED_FLAGS[p.name] end
+        end
+      end
+      if bits ~= 0 and math.type(tl.id) == "integer" then
+        for _, c in ipairs(cells_of(ts, tl.id)) do flags[c] = (flags[c] or 0) | bits end
+      end
+    end
+  end
+  local out = { w = mw * k, h = mh * k, tile = tw, layers = {}, flags = flags, ignored = {} }
+  local taken = {}
+  local function layer_name(n)
+    n = tostring(n):gsub("[^%w_%-%. ]", "_"):sub(1, 16)
+    if n == "" then n = "layer" end
+    local base, i = n, 1
+    while taken[n] do i = i + 1; n = base:sub(1, 16 - #tostring(i)) .. i end
+    taken[n] = true
+    return n
+  end
+  local walk
+  function walk(list, prefix)
+    for _, ly in ipairs(list) do
+      local nm = tostring(ly.name or "layer")
+      if ly.type == "group" and type(ly.layers) == "table" then
+        local ok, why = walk(ly.layers, prefix .. nm .. "_")
+        if not ok then return nil, why end
+      elseif ly.type ~= "tilelayer" then
+        out.ignored[#out.ignored + 1] = nm .. " (" .. tostring(ly.type) .. ")"
+      else
+        if ly.chunks then return nil, "layer " .. nm .. ": infinite layers are not supported" end
+        if type(ly.data) ~= "table" then
+          return nil, "layer " .. nm .. ": use CSV encoding (Tiled: Map properties, Tile Layer Format: CSV)"
+        end
+        if #ly.data ~= mw * mh then return nil, "layer " .. nm .. ": " .. #ly.data .. " tiles, the map has " .. mw * mh end
+        local cells = {}
+        for i = 1, out.w * out.h do cells[i] = 0 end
+        for i, g in ipairs(ly.data) do
+          if math.type(g) ~= "integer" then return nil, "layer " .. nm .. ": a tile is not a number" end
+          g = g & 0x0FFFFFFF                   -- (the flip bits of Tiled are dropped)
+          if g > 0 then
+            local ts
+            for _, s2 in ipairs(sets) do if s2.firstgid <= g then ts = s2 end end
+            if not ts then return nil, "layer " .. nm .. ": tile " .. g .. " has no tileset" end
+            local cs = cells_of(ts, g - ts.firstgid)
+            for _, c in ipairs(cs) do
+              if c > 4095 then return nil, "layer " .. nm .. ": tile " .. g .. " is outside the sheet (cell " .. c .. ")" end
+            end
+            local x, y = (i - 1) % mw, (i - 1) // mw
+            for j, c in ipairs(cs) do
+              cells[(y * k + (j - 1) // k) * out.w + x * k + (j - 1) % k + 1] = c
+            end
+          end
+        end
+        out.layers[#out.layers + 1] = { name = layer_name(prefix .. nm), cells = cells }
+      end
+    end
+    return true
+  end
+  local ok, why = walk(m.layers, "")
+  if not ok then return nil, why end
+  if #out.layers == 0 then return nil, "the map has no tile layer" end
+  return out
+end
+
+-- Puts a map read by tiled_import in the project's map. mode "add": the
+-- layers go after the ones there (8 in all at most) and the map grows to fit;
+-- "replace": the map has only the imported layers, at their size. The tiles'
+-- flags are added to the sheet's. Returns the map's width, height and number
+-- of layers, or nil and the reason (nothing is changed then).
+function T.tiled_apply(res, mode)
+  local names = mlayers()
+  local list = {}
+  if mode ~= "replace" then
+    if #names + #res.layers > 8 then
+      return nil, "needs " .. #res.layers .. " free layers, the map has " .. 8 - #names
+    end
+    list = table.move(names, 1, #names, 1, {})
+  elseif #res.layers > 8 then
+    return nil, "the file has " .. #res.layers .. " tile layers, 8 at most"
+  end
+  local have, added = {}, {}
+  for _, n in ipairs(list) do have[n] = true end
+  for _, ly in ipairs(res.layers) do
+    local n, i = ly.name, 1
+    while have[n] do i = i + 1; n = ly.name:sub(1, 16 - #tostring(i)) .. i end
+    have[n] = true
+    list[#list + 1] = n
+    added[#added + 1] = { n, ly }
+  end
+  local w0, h0 = msize()
+  mlayers(list)
+  local w, h = w0, h0
+  if mode == "replace" then
+    w, h = res.w, res.h
+    for _, a in ipairs(added) do           -- (a layer that kept its name starts empty)
+      for y = 0, h0 - 1 do for x = 0, w0 - 1 do mset(x, y, 0, a[1]) end end
+    end
+  else
+    w, h = math.max(w0, res.w), math.max(h0, res.h)
+  end
+  if w ~= w0 or h ~= h0 then msize(w, h) end
+  for _, a in ipairs(added) do
+    for y = 0, res.h - 1 do
+      for x = 0, res.w - 1 do
+        local c = a[2].cells[y * res.w + x + 1]
+        if c ~= 0 then mset(x, y, c, a[1]) end
+      end
+    end
+  end
+  for c, bits in pairs(res.flags) do fset(c, fget(c) | bits) end
+  return w, h, #list
+end
+
 return T

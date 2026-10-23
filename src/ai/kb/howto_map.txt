@@ -171,3 +171,55 @@ for step = 1, 4 do
     end
   end
 end
+
+== map_big
+kind: howto
+title: Disegnare una mappa grande con tile 16x16
+title_en: Drawing a big map with 16x16 tiles
+ask: come disegno una mappa grande con tile 16x16 | mappa grande nell'sdk | pennello 16x16
+ask: how do I draw a big map with 16x16 tiles | big map in the sdk | 16x16 brush
+ask: mappa 256x256 | disegnare un mondo grande | tile da 16 pixel sulla mappa
+keys: grande, 16x16, mappa, big, brush, pennello
+see: map_layers, map_scroll, map_in_code, map_tiled, guide.platformer
+text:
+Sulla pagina mappa dell'SDK (F3 due volte) z passa dal pennello 8x8 a
+quello 16x16: una tile da 2 x 2 celle (n, n+1 e le due sotto sullo sheet).
+m mostra tutta la mappa 256x256 in uno schermo per spostarti; con Tab, a
+16x16, vedi solo le tile gia' usate nella mappa. l e L cambiano e
+aggiungono livelli. Per un esempio guarda carts/yharnam/build/mkmap.py.
+text_en:
+On the SDK's map page (F3 twice) z switches from the 8x8 brush to the
+16x16 one: a tile of 2 x 2 cells (n, n+1 and the two under them on the
+sheet). m shows the whole 256x256 map on one screen so you can move; with
+Tab, at 16x16, you see only the tiles already used in the map. l and L
+change and add layers. For an example see carts/yharnam/build/mkmap.py.
+code:
+-- the game draws a 16x16 tile as 2 x 2 cells of 8x8
+map(0, 0, 0, 0, 80, 45, "main")
+
+== map_tiled
+kind: howto
+title: Importare una mappa di Tiled
+title_en: Importing a Tiled map
+ask: importare una mappa di tiled | caricare un file tmj | tiled map editor
+ask: import a tiled map | load a tmj file in the sdk | tiled json to bm map
+ask: usare tiled con bm | livelli di tiled nella mappa
+keys: tiled, tmj, importare, import
+see: map_big, map_layers, tile_flags
+text:
+In Tiled salva la mappa come JSON (.tmj): ortogonale, tile 8x8 o 16x16,
+formato dei livelli CSV, dimensione fissa. Mettila nella cartella /docs
+della scheda SD. Nell'SDK, menu (Esc) > "Import a Tiled map": scegli il
+file e se aggiungere i livelli o sostituire la mappa. Una tile di Tiled e'
+la tile dello sheet nella stessa colonna e riga. Le proprieta' booleane
+solid, platform, ladder, water e hurt di una tile accendono i flag 0-4.
+text_en:
+In Tiled save the map as JSON (.tmj): orthogonal, 8x8 or 16x16 tiles,
+CSV layer format, fixed size. Put it in the /docs folder of the SD card.
+In the SDK, menu (Esc) > "Import a Tiled map": choose the file and
+whether to add the layers or replace the map. A Tiled tile is the sheet
+tile in the same column and row. The boolean properties solid, platform,
+ladder, water and hurt of a tile turn on flags 0-4.
+code:
+-- after the import every Tiled layer is a map layer with its name
+map(0, 0, 0, 0, 80, 45, "Ground")

@@ -492,7 +492,9 @@ local function new_env(arg, o)
     if f == nil then return v end
     return v >> f & 1 == 1
   end
+  E.msize = function() return 256, 256, #lnames end
   E.fset = function(n, f, on)
+    if on == nil then flg[n] = f & 255; return end
     local bit = 1 << f
     flg[n] = on and (flg[n] or 0) | bit or (flg[n] or 0) & ~bit
   end
@@ -1351,6 +1353,74 @@ for _, k in ipairs({ "f1", "f1", "f2", "f3", "f3", "f4", "esc" }) do
   frames(2)
 end
 check(sees("Exit bm SDK") and sees("Ctrl+Shift+S"), "the menu with the keyboard's shortcuts")
+-- R11: a Tiled map (.tmj) into the map's layers
+do
+  local B = E.require("bm3d")
+  local function tmj(w, h, tw, layers, extra)
+    return '{"width":' .. w .. ',"height":' .. h .. ',"tilewidth":' .. tw .. ',"tileheight":' .. tw ..
+           ',"orientation":"orthogonal","tilesets":[{"firstgid":1,"columns":' .. (tw == 16 and 4 or 8) ..
+           ',"tilewidth":' .. tw .. ',"tiles":[{"id":1,"properties":[{"name":"solid","type":"bool","value":true}]},' ..
+           '{"id":9,"properties":[{"name":"hurt","type":"bool","value":true},{"name":"note","type":"string","value":"x"}]}]}],' ..
+           '"layers":[' .. layers .. ']' .. (extra or "") .. '}'
+  end
+  local ground = '{"name":"Ground","type":"tilelayer","data":[0,2,2147483650,10,1,0,0,2]}'
+  local objs = '{"name":"spawns","type":"objectgroup","objects":[]}'
+  local m8 = tmj(4, 2, 8, ground .. "," .. objs)
+  local r = assert(B.tiled_import(m8, 32))
+  check(r.w == 4 and r.h == 2 and r.tile == 8 and #r.layers == 1 and r.layers[1].name == "Ground", "tiled: size, layer name")
+  local c = r.layers[1].cells
+  check(c[2] == 1 and c[3] == 1 and c[4] == 33 and c[5] == 0 and c[8] == 1, "tiled: gids to sheet cells (flip bits dropped, gid 1 = cell 0 = empty)")
+  check(r.flags[1] == 1 and r.flags[33] == 16 and r.ignored[1] == "spawns (objectgroup)", "tiled: tile properties to flags, object layer ignored")
+  local r16 = assert(B.tiled_import(tmj(2, 2, 16, '{"name":"a","type":"tilelayer","data":[1,6,0,6]}'), 32))
+  local c16 = r16.layers[1].cells
+  check(r16.w == 4 and r16.h == 4 and r16.tile == 16, "tiled: 16x16 tiles make 2 x 2 cells")
+  check(c16[1] == 0 and c16[2] == 1 and c16[5] == 32 and c16[6] == 33, "tiled: 16x16 gid 1 is the cells 0 1 32 33")
+  check(c16[3] == 66 and c16[4] == 67 and c16[7] == 98 and c16[8] == 99 and c16[9] == 0, "tiled: 16x16 gid 6 is the cells 66 67 98 99")
+  local group = '{"name":"g","type":"group","layers":[{"name":"in","type":"tilelayer","data":[2,2,2,2,2,2,2,2]}]}'
+  local rg = assert(B.tiled_import(tmj(4, 2, 8, group .. "," .. ground .. ',{"name":"Ground","type":"tilelayer","data":[0,0,0,0,0,0,0,0]}'), 32))
+  check(#rg.layers == 3 and rg.layers[1].name == "g_in" and rg.layers[3].name == "Ground2", "tiled: groups walked, equal names told apart")
+  local function bad(text, why, msg)
+    local res, err = B.tiled_import(text, 32)
+    check(res == nil and tostring(err):find(why, 1, true), "tiled error " .. msg .. ": " .. tostring(err))
+  end
+  bad("{", "JSON", "broken JSON")
+  bad('{"a":1}', "no layers", "no layers")
+  bad(tmj(4, 2, 12, ground), "8x8 or 16x16", "tile size")
+  bad(tmj(4, 2, 8, '{"name":"x","type":"tilelayer","encoding":"base64","data":"AAAA"}'), "CSV", "base64")
+  bad(tmj(4, 2, 8, objs), "no tile layer", "only objects")
+  bad(tmj(4, 2, 8, '{"name":"x","type":"tilelayer","data":[1,2]}'), "2 tiles", "short data")
+  bad(tmj(4, 2, 8, ground, ',"infinite":true'), "infinite", "infinite map")
+  bad(tmj(300, 2, 8, ground), "256x256", "too big")
+  bad(tmj(4, 2, 8, '{"name":"x","type":"tilelayer","data":[0,0,0,0,0,0,0,2000]}'), "outside the sheet", "tile past the sheet")
+  bad((m8:gsub('"orthogonal"', '"isometric"')), "orthogonal", "isometric")
+  -- the menu: Import a Tiled map
+  local file = { name = "level1.tmj", data = m8 }
+  E.doc_list = function() return { { name = "notes.txt", size = 3 }, { name = file.name, size = #file.data } } end
+  E.doc_read = function(n) return n == file.name and file.data or nil, "no such file" end
+  local before = #E.mlayers()
+  check(sees("Import a Tiled map"), "tiled: the menu has the import")
+  key("up", "up", "\n")
+  check(sees("level1.tmj") and not sees("notes.txt"), "tiled: the dialog lists the .tmj files only")
+  key("\n")
+  check(sees("add the layers to the map") and sees("replace the map"), "tiled: add or replace")
+  key("\n")
+  local names = E.mlayers()
+  check(#names == before + 1 and names[#names] == "Ground", "tiled: the layer was added: " .. table.concat(names, ","))
+  check(E.mget(1, 0, "Ground") == 1 and E.mget(3, 0, "Ground") == 33 and E.mget(0, 0, "Ground") == 0, "tiled: the cells are in the layer")
+  check(E.fget(1, 0) and E.fget(33, 4), "tiled: the flags are on the sheet")
+  check(sees("Tiled: ") or status():find("Tiled", 1, true), "tiled: the answer " .. status())
+  -- a file that does not parse says why
+  file.data = "[1,2"
+  key("esc", "\n", "\n")
+  check(sees("Tiled: not a JSON file"), "tiled: a broken file is told")
+  -- replace: the map has only the file's layers
+  file.data = m8
+  key("\n", "\n", "down", "\n")
+  names = E.mlayers()
+  check(#names == 1 and names[1] == "Ground" and E.mget(3, 0, "Ground") == 33, "tiled: replace keeps only the imported layers: " .. table.concat(names, ","))
+  key("esc", "down", "down", "esc")                -- (the menu's choice back on the first line)
+end
+
 key("esc", "f2")
 for c in ("x = 1"):gmatch(".") do key(c) end
 check(sees("x = 1") or sees("x"), "typing on the keyboard")

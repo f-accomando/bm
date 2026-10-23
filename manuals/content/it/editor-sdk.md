@@ -229,6 +229,7 @@ Premi **F3** per vedere gli sprite, poi ancora **F3** per la mappa. Una mappa è
 
 - Una mappa ha al massimo 8 layer: l'SDK dice `a map has at most 8 layers`.
 - La voce di menu *New map layer (n/8)* fa lo stesso di `L` e mostra quanti ne hai.
+- **Importare una mappa di Tiled**: salva la mappa in Tiled come JSON (`.tmj`): ortogonale, tile di 8x8 o 16x16 pixel, formato dei layer CSV, dimensione fissa, al massimo 256x256 celle. Metti il file nella cartella `/docs` della scheda SD. Apri il menu (`Esc`), scegli *Import a Tiled map (.tmj)...*, scegli il file, poi *add the layers to the map* o *replace the map*. Ogni layer di tile di Tiled diventa un layer della mappa con lo stesso nome. Una tile di Tiled è la tile dello sheet nella stessa colonna e riga (una tile 16x16 sono 2x2 celle). Le proprietà `solid`, `platform`, `ladder`, `water` e `hurt` (booleane) di una tile accendono i flag da 0 a 4. I layer di oggetti sono ignorati. L'importazione non si annulla: riapri il progetto per tornare indietro.
 
 ## Mappe 3D e strumenti per i livelli
 
@@ -240,7 +241,7 @@ Premi **v** nella pagina della mappa per passare tra la modifica 2D e l'**antepr
 - **Strumento percorso (`Shift+P`, `Shift+W`)**: premi `Shift+W` per scorrere la larghezza del corridoio da 1 a 5 tile. Premi `Shift+P`, vai alla cella di partenza e premi Invio, poi vai alla cella di arrivo e premi Invio: sul layer `floor` viene disegnato un corridoio largo *N* con la tile attiva.
 - **Strumento fila di mele (`Shift+A`)**: premi `Shift+A`, premi Invio sulla cella di partenza e Invio su quella di arrivo: sul layer `objects` viene messa una linea continua di segnaposto mela (ID 1026).
 - **Piazza casse e lampade (`Shift+C`, `Shift+O`)**: `Shift+C` piazza un segnaposto cassa (ID 1028) sulla cella del cursore nel layer `objects`, e `Shift+O` un segnaposto lampada (ID 1032).
-- **Piazza partenza e arrivo (`Shift+S`, `Shift+G`, solo SDK Pi)**: l'SDK RGB30 non ha lo strumento di partenza e arrivo. Su Pi, `Shift+S` piazza il segnaposto di partenza (ID 1024) e `Shift+G` quello di arrivo (ID 1030) sulla cella del cursore.
+- **Piazza partenza e arrivo (`Shift+S`, `Shift+G`)**: `Shift+S` piazza il segnaposto di partenza (ID 1024) e `Shift+G` quello di arrivo (ID 1030) sulla cella del cursore.
 - **Barra di stato**: mostra il conteggio di mele, casse e lampade, con una stima del budget di triangoli (pavimento + oggetti).
 - **Annulla**: `u` o `Ctrl+Z` annulla in un solo passo un intero percorso, una fila o un oggetto piazzato.
 
@@ -400,7 +401,7 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 | Shift+P / Shift+W | mappa | strumento percorso (inizio, fine: Invio) / larghezza (1-5) |
 | Shift+A | mappa | strumento fila di mele (inizio, fine: Invio) |
 | Shift+C / Shift+O | mappa | piazza cassa (1028) / piazza lampada (1032) |
-| Shift+S / Shift+G | mappa | (solo SDK Pi) piazza la partenza (1024) / l'arrivo (1030) |
+| Shift+S / Shift+G | mappa | piazza la partenza (1024) / l'arrivo (1030) |
 | r | mappa | rinomina il layer |
 | T | mappa | template: layer della mappa 3D |
 | x | mappa | prende la tile |

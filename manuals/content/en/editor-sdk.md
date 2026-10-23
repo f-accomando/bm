@@ -229,6 +229,7 @@ Press **F3** to see the sprites, then **F3** again for the map. A map is made of
 
 - A map has at most 8 layers: the SDK says `a map has at most 8 layers`.
 - The menu entry *New map layer (n/8)* does the same as `L` and shows how many you have.
+- **Import a Tiled map**: save the map in Tiled as JSON (`.tmj`): orthogonal, tiles of 8x8 or 16x16 pixels, layer format CSV, fixed size, at most 256x256 cells. Put the file in the `/docs` folder of the SD card. Open the menu (`Esc`), choose *Import a Tiled map (.tmj)...*, choose the file, then *add the layers to the map* or *replace the map*. Each Tiled tile layer becomes a map layer with the same name. A Tiled tile is the sheet tile in the same column and row (a 16x16 tile is 2x2 cells). Tile properties `solid`, `platform`, `ladder`, `water` and `hurt` (boolean) turn on flags 0 to 4. Object layers are ignored. The import cannot be undone: reopen the project to go back.
 
 ## 3D maps and level tools
 
@@ -240,7 +241,7 @@ Press **v** on the map page to toggle between 2D editing and real-time **3D prev
 - **Path tool (`Shift+P`, `Shift+W`)**: press `Shift+W` to cycle corridor width from 1 to 5 tiles. Press `Shift+P`, navigate to the start cell and press Enter, then navigate to the destination cell and press Enter: a corridor of width *N* is drawn on the `floor` layer with the active tile.
 - **Apples row tool (`Shift+A`)**: press `Shift+A`, press Enter at the start cell and Enter at the destination cell: a continuous line of apple placeholders (ID 1026) is placed on the `objects` layer.
 - **Place crates and lamps (`Shift+C`, `Shift+O`)**: `Shift+C` places a crate placeholder (ID 1028) at the cursor cell on the `objects` layer, and `Shift+O` places a lamp placeholder (ID 1032).
-- **Place the start and the goal (`Shift+S`, `Shift+G`, Pi SDK only)**: the RGB30 SDK has no start or goal tool. On the Pi, `Shift+S` places the start placeholder (ID 1024) and `Shift+G` the goal (ID 1030) at the cursor cell.
+- **Place the start and the goal (`Shift+S`, `Shift+G`)**: `Shift+S` places the start placeholder (ID 1024) and `Shift+G` the goal (ID 1030) at the cursor cell.
 - **Status bar**: displays the current counts of apples, crates, and lamps, together with an estimated triangle budget (floor + objects).
 - **Undo**: `u` or `Ctrl+Z` undoes an entire path, row, or object placement in one step.
 
@@ -400,7 +401,7 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 | Shift+P / Shift+W | map | path tool (start, end: Enter) / width (1-5) |
 | Shift+A | map | apples line tool (start, end: Enter) |
 | Shift+C / Shift+O | map | place crate (1028) / place lamp (1032) |
-| Shift+S / Shift+G | map | (Pi SDK only) place the start (1024) / the goal (1030) |
+| Shift+S / Shift+G | map | place the start (1024) / the goal (1030) |
 | r | map | rename layer |
 | T | map | template: 3D map layers |
 | x | map | pick the tile |

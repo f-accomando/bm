@@ -132,7 +132,7 @@ ask: come faccio un platform | fare un gioco di piattaforme | platform game step
 ask: gioco tipo mario | make a platformer with the sdk | personaggio che salta sulle piattaforme
 ask: guida platform 2d | un gioco a scorrimento con i salti | side scroller
 keys: platform, piattaforme, mario
-see: jump_gravity, lib.step, tile_flags, lib.camera, guide.map
+see: jump_gravity, lib.step, tile_flags, lib.camera, guide.map, map_big
 text:
 1. Ctrl+N > Platform 2D: lo sprite 1 è l'eroe, il 2 il terreno (flag 0:
 solido), il 6 le assi (flag 1: piattaforma, si sale da sotto).

@@ -12,6 +12,10 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   4, 8, 16 px/cell), `m` (*Overview*) full 256×256 map at 1 px/cell with viewport box and
   click/arrow jump, `Tab` compact palette of used 16×16 tiles (`z` toggles full sheet), Home/End
   and PgUp/PgDn a page. Template *Stages 2D* as on the RGB30: `test_sdk_stages_pi`.
+  Tiled import (R11, both SDKs): menu *Import a Tiled map*, a `.tmj`/`.json` in `/docs`;
+  `bm3d.tiled_import` and `tiled_apply` (`src/script/bm3d.lua`): orthogonal, CSV layers, 8x8 or
+  16x16 tiles (a 16x16 tile is 2x2 cells), groups, boolean tile properties to flags 0-4, add or
+  replace; host tests in `sdk_host.lua` and `sdk_b16_host.lua`. Not undoable (reopen the project).
 - **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
   published as `editor.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
   the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,

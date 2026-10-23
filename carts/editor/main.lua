@@ -3247,6 +3247,39 @@ do
   end
   P.menu_open = open_other
 
+  -- R11: a Tiled map (.tmj/.json in /docs) into the map's layers
+  local function import_tiled()
+    local files, why = doc_list()
+    if not files then say("Tiled import: " .. tostring(why), C.ERR); return end
+    local rows = {}
+    for _, f in ipairs(files) do
+      local n = f.name:lower()
+      if n:match("%.tmj$") or n:match("%.json$") then
+        rows[#rows + 1] = { f.name, function()
+          local text, why2 = doc_read(f.name)
+          local res, err = nil, why2
+          if text then res, err = B.tiled_import(text, S.sheet_w // 8) end
+          if not res then say("Tiled: " .. tostring(err), C.ERR); return end
+          local function go(mode)
+            local w, h, n2 = B.tiled_apply(res, mode)
+            if not w then say("Tiled: " .. tostring(h), C.ERR); return end
+            S.map_w, S.map_h = w, h
+            P.map.reset()
+            touched()
+            S.d2view = "map"; show("d2")
+            say(string.format("Tiled: %d layers in, %d in the map, %dx%d cells, tiles %dx%d%s", #res.layers, n2, w, h, res.tile, res.tile,
+                #res.ignored > 0 and (", ignored: " .. #res.ignored) or ""), C.ACC)
+          end
+          D.choose("Tiled " .. f.name .. ": " .. #res.layers .. " layers", {
+            { "add the layers to the map", function() go("add") end },
+            { "replace the map", function() go("replace") end } })
+        end }
+      end
+    end
+    if #rows == 0 then say("no .tmj or .json Tiled file in /docs on the SD card", C.ERR); return end
+    D.choose("import a Tiled map (JSON)", rows)
+  end
+
   local function build()
     items = {
       { "Continue", function() S.page = S.last end },
@@ -3258,6 +3291,7 @@ do
       { "Export .b16   (Ctrl+Shift+B)", function() build_project(true) end },
       { "Try the game (F5)", run_project },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
+      { "Import a Tiled map (.tmj)...", import_tiled },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
     }
   end
