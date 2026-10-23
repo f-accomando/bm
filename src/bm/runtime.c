@@ -4315,6 +4315,69 @@ static int l_sheet_png(lua_State *L)
     return 1;
 }
 
+/* sheet_gif({ {x, y, w, h}, ... }, delay_cs) -> the bytes of an animated GIF (a string), or nil and why.
+ * One frame a rectangle, in the order given; all the same size; a transparent pixel of the sheet stays
+ * transparent. delay_cs: hundredths of a second a frame (default 10). The pixels are copied to buffers
+ * freed before the call returns; nothing runs until the call. */
+static int l_sheet_gif(lua_State *L)
+{
+    int r[64][4], n = 0;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    const int cnt = (int)lua_rawlen(L, 1);
+    if (cnt < 1 || cnt > 64)
+        return web_nil(L, "the list has 1 to 64 rectangles");
+    for (int i = 0; i < cnt; i++) {
+        lua_rawgeti(L, 1, i + 1);
+        if (!lua_istable(L, -1))
+            return luaL_error(L, "sheet_gif: item %d is not {x, y, w, h}", i + 1);
+        for (int k = 0; k < 4; k++) {
+            lua_rawgeti(L, -1, k + 1);
+            r[n][k] = (int)luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+        n++;
+    }
+    const int delay = oval(L, 2, 10);
+    if (!rt.sheet.px)
+        return web_nil(L, "no sprite sheet");
+    for (int i = 0; i < n; i++) {
+        const int x = r[i][0], y = r[i][1], w = r[i][2], h = r[i][3];
+        if (w < 1 || h < 1 || x < 0 || y < 0 || x > rt.sheet.w - w || y > rt.sheet.h - h)
+            return web_nil(L, "outside the sprite sheet");
+        if (w != r[0][2] || h != r[0][3])
+            return web_nil(L, "the rectangles must have the same size");
+    }
+    const int fw = r[0][2], fh = r[0][3];
+    if (fw > 4096 || fh > 4096 || (long long)fw * fh * n > 4096LL * 64)
+        return web_nil(L, "too big: at most 262144 pixels in all the frames");
+    const size_t fpix = (size_t)fw * (size_t)fh;
+    uint16_t *px = malloc(fpix * (size_t)n * sizeof *px);
+    uint8_t *al = malloc(fpix * (size_t)n);
+    if (!px || !al) {
+        free(px);
+        free(al);
+        return web_nil(L, "no memory");
+    }
+    for (int i = 0; i < n; i++)
+        for (int y = 0; y < fh; y++) {
+            const size_t s = (size_t)(r[i][1] + y) * (size_t)rt.sheet.w + (size_t)r[i][0];
+            const size_t d = (size_t)i * fpix + (size_t)y * (size_t)fw;
+            memcpy(px + d, rt.sheet.px + s, (size_t)fw * sizeof *px);
+            memcpy(al + d, rt.sheet.alpha + s, (size_t)fw);
+        }
+    size_t len = 0;
+    const char *why = NULL;
+    uint8_t *gif = shot_gif(px, al, fw, fh, n, delay, &len, &why);
+    free(px);
+    free(al);
+    if (!gif)
+        return web_nil(L, why ? why : "no memory");
+    lua_pushlstring(L, (const char *)gif, len);
+    free(gif);
+    return 1;
+}
+
 /* image_file(path, sx, sy, [fitw, fith, mix, bg]) -> { x =, y =, w =, h =, sw =, sh = }, or nil and why.
  * Reads a JPEG (baseline), PNG or WebP file of the SD card (up to 16 MiB, 4 megapixels), makes it fit
  * fitw x fith (default 256 x 256; the picture keeps its shape and is never made bigger; a box average)
@@ -5636,7 +5699,7 @@ static const luaL_Reg api[] = {
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "web_get", l_web_get }, { "web_poll", l_web_poll }, { "web_info", l_web_info }, { "web_body", l_web_body },
-    { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "image_file", l_image_file }, { "sheet_png", l_sheet_png }, { "file_write", l_file_write }, { "file_state", l_file_state },
+    { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "image_file", l_image_file }, { "sheet_png", l_sheet_png }, { "sheet_gif", l_sheet_gif }, { "file_write", l_file_write }, { "file_state", l_file_state },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },

@@ -19,6 +19,16 @@ uint8_t *shot_png(const uint16_t *px, int stride, int w, int h, size_t *len);
  * opaque) 0 gives A = 0, any other value A = 255. Same limits and the same deflate path. */
 uint8_t *shot_png_rgba(const uint16_t *px, const uint8_t *alpha, int stride, int w, int h, size_t *len);
 
+/* An animated GIF (GIF89a) of `nframes` frames (1..64) of w x h RGB565 pixels, one after the other in
+ * `px` (frame k starts at px + k*w*h, no gap between rows); `alpha` (same layout; NULL = all opaque):
+ * 0 is a transparent pixel. delay_cs is the time of a frame in 1/100 s (1..65535). It loops for ever;
+ * each frame is drawn on the background (disposal 2). All frames share one colour table of up to 255
+ * colours (the RGB565 widened as in shot_png, so exact) and the transparent one; with more than 255
+ * colours a median cut reduces them. w*h*nframes is at most 4096*64. malloc'd, the size in *len; NULL
+ * and a short reason in *why (may be NULL) when it cannot be made. Nothing runs until it is called. */
+uint8_t *shot_gif(const uint16_t *px, const uint8_t *alpha, int w, int h, int nframes, int delay_cs,
+                  size_t *len, const char **why);
+
 /* The file name a screenshot gets: the first letters of `title` (up to 4,
  * lower case letters and digits; "shot" if none) or of `prefix` if it is
  * not NULL or empty, then the number `n` (0..9999): "pong0007.png".
