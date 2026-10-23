@@ -601,7 +601,7 @@ end
 
 local function menu_pick(label, exit_label)
   if not sees(exit_label) then key("esc") end
-  for _ = 1, 16 do
+  for _ = 1, 24 do
     local c = chosen_item()
     if c and c:sub(1, #label) == label then key("\n"); return true end
     key("down")
@@ -1435,6 +1435,78 @@ do
   menu_pick("Import a model", EXIT_A)
   check(sees("import a model (/bmm, /glb)"), "bm Animator: menu, Import a model")
   key("esc")
+
+  -- animations from another model (APP-27): Ctrl+Shift+I and the menu row; the clips go on by bone name
+  local function n16(x) return x .. string.rep("\0", 16 - #x) end
+  local function rig_ac(name, bones, clips)       -- a skeleton chunk for a model of four vertices on bone 0
+    local o = { n16(name), string.pack("<I2I2I2I2", #bones, #clips, 4, 0) }
+    for i, b in ipairs(bones) do
+      o[#o + 1] = n16(b[1]) .. string.pack("<i2I2ffffff", b[2], 0, b[3][1], b[3][2], b[3][3], b[4][1], b[4][2], b[4][3])
+    end
+    o[#o + 1] = string.rep("\0", 4)
+    for _, c in ipairs(clips) do
+      o[#o + 1] = n16(c[1]) .. string.pack("<I2BBf", #c[5], c[2], c[3], c[4])
+      for _, k in ipairs(c[5]) do
+        o[#o + 1] = string.pack("<f", k)
+        for i = 1, #bones do o[#o + 1] = string.pack("<fffffff", 0, 0, 0, 1, 0, 0, 0) end
+      end
+    end
+    return table.concat(o)
+  end
+  local function put_rig(file, name, ac)
+    MF.put_bmm(file, name, name, 2)
+    MF.card["/bmm"][file].sections[9] = string.pack("<I2I2I4", 1, 0, 0) .. ac
+  end
+  put_rig("dstrig.bmm", "dstrig", rig_ac("dstrig", { { "root", -1, { 0, 0, 0 }, { 0, 1, 0 } }, { "arm_l", 0, { 0, 1, 0 }, { 1, 1, 0 } },
+                                                      { "leg_l", 0, { 0, 0, 0 }, { 0, -1, 0 } } }, { { "walk", 1, 1, 1, { 0, 0.5 } } }))
+  put_rig("walker.bmm", "walker", rig_ac("walker", { { "Root", -1, { 0, 0, 0 }, { 0, 2, 0 } }, { "arm.L", 0, { 0, 2, 0 }, { 2, 2, 0 } },
+                                                      { "tail", 0, { 0, 0, 0 }, { 0, -2, 0 } } },
+                                         { { "walk", 2, 1, 1.5, { 0, 0.5, 1.5 } }, { "run", 0, 0, 1, { 0 } } }))
+  put_rig("empty.bmm", "empty", rig_ac("empty", { { "root", -1, { 0, 0, 0 }, { 0, 1, 0 } } }, {}))
+  local function pick_row(name)
+    key("pgup")
+    for _ = 2, row_of(name) do key("down") end
+    key("\n")
+  end
+  key("^i")
+  pick_row("dstrig")
+  key("f3")
+  local dst = anim_rigs(sec[9])["dstrig"]
+  check(dst and #dst.clips == 1 and sees("walk"), "retarget: the target model has one animation")
+  check(in_help("ctrl shift i", "animate"), "retarget: Ctrl+Shift+I is in the F12 help of the animate page")
+  check(in_help("ctrl c / ctrl v", "animate") and in_help("o", "animate"), "retarget: the onion key stays in the help")
+  check(sees("other anims"), "retarget: the hint bar has the new key")
+  key("^I")
+  check(sees("import a model (/bmm, /glb)"), "retarget: Ctrl+Shift+I opens the list of models")
+  key("esc")
+  key("^I")
+  pick_row("empty")
+  check(status():find("no animations", 1, true) and #anim_rigs(sec[9])["dstrig"].clips == 1, "retarget: a model with no animations: " .. status())
+  key("^I")
+  pick_row("kite")
+  check(status():find("no animations", 1, true) and #anim_rigs(sec[9])["dstrig"].clips == 1, "retarget: a model with no skeleton: " .. status())
+  key("^I")
+  pick_row("walker")
+  local after = anim_rigs(sec[9])["dstrig"]
+  check(#after.clips == 3 and after.clips[2].name == "walk2" and after.clips[3].name == "run", "retarget: two animations added, 'walk' is 'walk2': "
+        .. (after.clips[2] and after.clips[2].name or "?"))
+  check(after.clips[2].length == 1.5 and after.clips[2].mode == 2 and after.clips[2].loop and after.clips[2].keys == 3
+        and after.clips[2].times[3] == 1.5 and not after.clips[3].loop and after.clips[3].mode == 0,
+        "retarget: length, loop, mode and key times are kept")
+  check(status() == "2 animations, 2 bones matched, missing: leg_l", "retarget: the message: " .. status())
+  key("^z")
+  check(#anim_rigs(sec[9])["dstrig"].clips == 1, "retarget: one undo takes both animations out")
+  key("^y")
+  check(#anim_rigs(sec[9])["dstrig"].clips == 3, "retarget: redo puts them back")
+  key("^z")
+  click(420, 200, 2)
+  local rx, ry = at("Animations from another model...")
+  check(rx, "retarget: the context menu has the row")
+  if rx then click(rx, ry) end
+  check(sees("import a model (/bmm, /glb)"), "retarget: the context menu row opens the list")
+  pick_row("walker")
+  check(#anim_rigs(sec[9])["dstrig"].clips == 3 and status():find("2 animations", 1, true), "retarget: the context menu row adds them too")
+  key("^z")
 end
 
 -- the format limit: 65535 vertices and 65535 triangles (the u16 counts of the MESH record)

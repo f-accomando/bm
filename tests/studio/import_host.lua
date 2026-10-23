@@ -297,5 +297,59 @@ do
   check(n == 7, "import_glb_to_bmm: no file added to /glb")
 end
 
+-- animations from another model (APP-27): T.retarget on the humanoid walk, onto a copy with other names
+do
+  local hum = G.humanoid("man")
+  local src = T.decode_rig(hum.ac)
+  local function pose(a)                -- the walk: the legs and arms swing, the pelvis moves
+    local p = {}
+    for i = 1, #src.bones do p[i] = { q = { 0, 0, 0, 1 }, t = { 0, 0, 0 } } end
+    local function swing(name, deg)
+      for i, b in ipairs(src.bones) do
+        if b.name == name then p[i].q = { math.sin(math.rad(deg) / 2), 0, 0, math.cos(math.rad(deg) / 2) } end
+      end
+    end
+    swing("uleg.L", a); swing("uleg.R", -a); swing("uarm.L", -a); swing("uarm.R", a)
+    p[1].t = { 0, 0.1, 0.2 }
+    return p
+  end
+  src.clips = { { name = "walk", mode = 1, loop = true, length = 0.75,
+                  keys = { { t = 0, pose = pose(30) }, { t = 0.375, pose = pose(-30) }, { t = 0.75, pose = pose(30) } } },
+                { name = "stand", mode = 2, loop = false, length = 1, keys = { { t = 0, pose = pose(0) } } } }
+  -- the copy: names with _ and lower case, twice as tall, one bone with a name of its own
+  local dst = { bones = {}, clips = {} }
+  local renamed = { ["uarm.L"] = "uarm_l", ["larm.L"] = "larm_l", ["hand.L"] = "hand_l", ["uarm.R"] = "UArm-R",
+                    ["uleg.L"] = "uleg_l", ["uleg.R"] = "uleg_r", ["foot.R"] = "toe" }
+  for i, b in ipairs(src.bones) do
+    local h, t = {}, {}
+    for k = 1, 3 do h[k], t[k] = b.head[k] * 2, b.tail[k] * 2 end
+    dst.bones[i] = { name = renamed[b.name] or b.name, parent = b.parent, head = h, tail = t }
+  end
+  check(math.abs(T.rig_height(src) - 1.825) < 1e-6 and math.abs(T.rig_height(dst) - 3.65) < 1e-6,
+        "retarget: the height of a rig is the y span of heads and tails")
+  local clips, info = T.retarget(src, dst)
+  check(#clips == 2 and clips[1].name == "walk" and clips[1].length == 0.75 and clips[1].loop == true and clips[1].mode == 1,
+        "retarget: the clips come with name, length, loop and mode")
+  check(clips[2].loop == false and clips[2].mode == 2 and #clips[1].keys == 3 and clips[1].keys[2].t == 0.375,
+        "retarget: the same keys, the same times")
+  check(info.matched == 15 and #info.missing == 1 and info.missing[1] == "toe", "retarget: 15 bones match, 'toe' is missing")
+  local function idx(rig, n) for i, b in ipairs(rig.bones) do if b.name == n then return i end end end
+  local k1 = clips[1].keys[1].pose
+  local ul = k1[idx(dst, "uleg_l")].q
+  check(math.abs(ul[1] - math.sin(math.rad(15))) < 1e-6, "retarget: uleg.L -> uleg_l (the rotation is copied)")
+  local ua = k1[idx(dst, "UArm-R")].q
+  check(math.abs(ua[1] - math.sin(math.rad(15))) < 1e-6, "retarget: uarm.R -> UArm-R (lower case, no . _ -)")
+  local ft = k1[idx(dst, "toe")]
+  check(ft.q[4] == 1 and ft.q[1] == 0 and ft.t[1] == 0 and ft.t[2] == 0, "retarget: a bone with no match gets the rest pose")
+  local pt = k1[1].t
+  check(math.abs(pt[2] - 0.2) < 1e-6 and math.abs(pt[3] - 0.4) < 1e-6, "retarget: the translation is scaled by the ratio of the heights (2)")
+  check(src.clips[1].keys[1].pose[1].t[2] == 0.1 and clips[1].keys[1].pose ~= src.clips[1].keys[1].pose, "retarget: the source is not changed")
+  local back = T.retarget({ bones = dst.bones, clips = clips }, src)
+  local _, i2 = T.retarget({ bones = dst.bones, clips = clips }, src)
+  check(#back == 2 and i2.matched == 15 and i2.missing[1] == "foot.R", "retarget: the way back, the missing list follows the target")
+  local c3, i3 = T.retarget({ bones = { { name = "x", parent = 0, head = { 0, 0, 0 }, tail = { 0, 1, 0 } } }, clips = {} }, dst)
+  check(#c3 == 0 and i3.matched == 0 and #i3.missing == 16, "retarget: no clips, no match")
+end
+
 io.write(string.format("model files: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

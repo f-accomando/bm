@@ -1888,6 +1888,58 @@ function T.decode_rig(ac)
   return { bones = bones, clips = clips }, vb, nv
 end
 
+-- Animations from another model (APP-27). T.retarget(src_rig, dst_rig): the clips of src_rig (as
+-- decode_rig gives them) for the bones of dst_rig. A bone matches by its name, else by its name in lower case
+-- with . _ - taken out. The rotation q of a matched bone is copied; its translation t is scaled by the ratio
+-- of the heights of the two rigs (the y span of heads and tails); a bone with no match gets the rest pose.
+-- Returns the new clips (the times, length, loop and mode kept) and { matched = bones of dst_rig that
+-- have a match, missing = their names, clips = #clips }. Nothing in the two rigs changes.
+function T.rig_height(rig)
+  local lo, hi
+  for _, b in ipairs(rig.bones) do
+    for _, p in ipairs({ b.head, b.tail }) do
+      if not lo or p[2] < lo then lo = p[2] end
+      if not hi or p[2] > hi then hi = p[2] end
+    end
+  end
+  return lo and hi - lo or 0
+end
+
+function T.retarget(src, dst)
+  local exact, loose = {}, {}
+  for i, b in ipairs(src.bones) do
+    if not exact[b.name] then exact[b.name] = i end
+    local n = b.name:lower():gsub("[%._%-]", "")
+    if not loose[n] then loose[n] = i end
+  end
+  local map, missing, matched = {}, {}, 0
+  for i, b in ipairs(dst.bones) do
+    local j = exact[b.name] or loose[(b.name:lower():gsub("[%._%-]", ""))]
+    map[i] = j or false
+    if j then matched = matched + 1 else missing[#missing + 1] = b.name end
+  end
+  local hs, hd = T.rig_height(src), T.rig_height(dst)
+  local ratio = (hs > 1e-6 and hd > 1e-6) and hd / hs or 1
+  local clips = {}
+  for c, clip in ipairs(src.clips) do
+    local o = { name = clip.name, mode = clip.mode, loop = clip.loop, length = clip.length, keys = {} }
+    for k, key in ipairs(clip.keys) do
+      local pose = {}
+      for i = 1, #dst.bones do
+        local p = map[i] and key.pose[map[i]]
+        if p then
+          pose[i] = { q = { p.q[1], p.q[2], p.q[3], p.q[4] }, t = { p.t[1] * ratio, p.t[2] * ratio, p.t[3] * ratio } }
+        else
+          pose[i] = { q = { 0, 0, 0, 1 }, t = { 0, 0, 0 } }
+        end
+      end
+      o.keys[k] = { t = key.t, pose = pose }
+    end
+    clips[c] = o
+  end
+  return clips, { matched = matched, missing = missing, clips = #clips }
+end
+
 -- back from triangles: the two halves of each tile become a tile again
 -- (as bm Studio's meshToFaces)
 function T.decode_model(mc, ac, bones)
