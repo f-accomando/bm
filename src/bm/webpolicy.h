@@ -26,10 +26,10 @@
  * reason in err. */
 int web_url_check(const char *url, char *host, size_t hn, char *err, size_t en);
 
-/* 0 if path names a file a cartridge may write: a bare 8.3 name ("MODEL.GLB"), or the
+/* 0 if path names a file a cartridge may write: a bare 8.3 name ("model.glb"), or the
  * same after "web/", "bm/web/" or "/bm/web/". No "..", no other folder,
  * no backslash, no leading dot, and not a .bm, .bme or .b16 file. out gets the name in
- * upper case (13 bytes). Else -1 and the reason in err. */
+ * lower case (13 bytes). Else -1 and the reason in err. */
 int web_file_name(const char *path, char out[13], char *err, size_t en);
 
 /* The pause between two requests to one host. now_us is a free-running microsecond

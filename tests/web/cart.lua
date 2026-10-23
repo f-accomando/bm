@@ -163,12 +163,12 @@ do
   for _, u in ipairs({ "https://x.test/a/Model.glb", "https://x.test/", "https://x.test/p?x=1", "https://x.test/very-long-file-name.tar.gz",
                        "https://x.test/evil.bm", "https://x.test/evil.BME", "https://x.test/e.b16", "https://x.test/.hidden" }) do
     local n = files.name(u, "application/octet-stream")
-    check(n:match("^[A-Z0-9]+%.[A-Z0-9]+$") and #n <= 12 and #n:match("^[^.]+") <= 8, "8.3 name " .. n)
+    check(n:match("^[a-z0-9]+%.[a-z0-9]+$") and #n <= 12 and #n:match("^[^.]+") <= 8, "8.3 name " .. n)
     local ext = n:match("%.(.+)$")
-    check(ext ~= "BM" and ext ~= "BME" and ext ~= "B16", "no cart extension " .. n)
+    check(ext ~= "bm" and ext ~= "bme" and ext ~= "b16", "no cart extension " .. n)
   end
-  eq(files.name("https://x.test/a/m.glb", ""):match("%.(%w+)$"), "GLB", "name keeps the extension")
-  eq(files.name("https://x.test/x", "model/gltf-binary"):match("%.(%w+)$"), "GLB", "name from the type")
+  eq(files.name("https://x.test/a/m.glb", ""):match("%.(%w+)$"), "glb", "name keeps the extension")
+  eq(files.name("https://x.test/x", "model/gltf-binary"):match("%.(%w+)$"), "glb", "name from the type")
   check(files.name("https://x.test/a", "") ~= files.name("https://x.test/b", ""), "name hash differs")
   eq(files.kind("text/html; charset=utf-8"), "html", "kind html")
   eq(files.kind("application/octet-stream"), "sniff", "kind sniff")
@@ -178,8 +178,8 @@ do
   eq(files.sniff("  <!DOCTYPE html>"), "html", "sniff html")
   eq(files.sniff("glTF\2\0\0\0"), "glb", "sniff glb")
   eq(files.sniff("\0\1\2\3"), nil, "sniff unknown")
-  eq(files.note_name("A.TXT"), "A.NTE", "note name for a txt")
-  eq(files.note_name("A.GLB"), "A.TXT", "note name")
+  eq(files.note_name("a.txt"), "a.nte", "note name for a txt")
+  eq(files.note_name("a.glb"), "a.txt", "note name")
 end
 
 ---------------------------------------------------------------------------
@@ -343,7 +343,7 @@ do
   b:go("https://example.test/model.glb")
   check(settle(m, b), "download settles")
   eq(b.mode, "download", "download prompt")
-  check(b.dl.name:match("^MODEL%w%w%.GLB$"), "8.3 name " .. tostring(b.dl.name))
+  check(b.dl.name:match("^model%w%w%.glb$"), "8.3 name " .. tostring(b.dl.name))
   eq(next(m.written), nil, "nothing written before A")
   m.write_busy = 2
   b:save_download()
@@ -351,7 +351,7 @@ do
   eq(b.mode, "page", "back to the page")
   local name = b.saved_path:match("([^/]+)$")
   eq(m.written[name], SITE["https://example.test/model.glb"].body, "file body")
-  local note = m.written[name:gsub("%.GLB$", ".TXT")]
+  local note = m.written[name:gsub("%.glb$", ".txt")]
   check(note and note:find("https://example.test/model.glb", 1, true), "note beside the file")
   check(note:find("https://example.test/", 1, true), "note has the page it came from")
   eq(next(m.open), nil, "result freed")

@@ -399,7 +399,7 @@ Fallo su un Pi Zero W. Puoi eseguire tutto dal menu e leggere i report sulla SD;
 2. Apri la scheda Dev e scegli **3D Bench**. Puoi anche premere `j` nel monitor seriale.
 3. Lascialo in pace. Il report del Pi del 2026-10-05 finisce con `total 79 s`. Ogni passo misura 6 frame e tiene quello di mezzo, quindi un singolo frame lento non sposta il risultato.
 4. Usa sinistra e destra per cambiare pagina. La prima pagina è il punteggio. Premi B (o Esc) per uscire.
-5. Estrai la SD e apri `bm/bench/`: la prova ha salvato `3D0001.TXT`, `3D0002.TXT`, e così via.
+5. Estrai la SD e apri `bm/bench/`: la prova ha salvato `3d0001.txt`, `3d0002.txt`, e così via.
 6. La prova successiva legge l'ultimo report e si confronta con quello. Per conservare uno storico, copia i file in `docs/bench/` del repository.
 
 ::: try

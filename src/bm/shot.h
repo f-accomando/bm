@@ -16,13 +16,13 @@
 uint8_t *shot_png(const uint16_t *px, int stride, int w, int h, size_t *len);
 
 /* The file name a screenshot gets: the first letters of `title` (up to 4,
- * upper case letters and digits; "SHOT" if none) or of `prefix` if it is
- * not NULL or empty, then the number `n` (0..9999): "PONG0007.PNG".
+ * lower case letters and digits; "shot" if none) or of `prefix` if it is
+ * not NULL or empty, then the number `n` (0..9999): "pong0007.png".
  * Returns 0, or -1 for a bad number. */
 int shot_name(char out[13], const char *title, const char *prefix, int n);
 
-/* The number in `name` if it is one of this prefix's ("PONG0007.PNG" for
- * "PONG": 7), else -1: for the next number, one more than the highest. */
+/* The number in `name` if it is one of this prefix's ("pong0007.png" for
+ * "pong": 7), else -1: for the next number, one more than the highest. */
 int shot_number(const char *name, const char prefix[5]);
 
 /* The prefix (up to 4 characters) that shot_name makes from title/prefix. */

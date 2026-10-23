@@ -39,12 +39,12 @@ If the game stops with an error, the SDK goes back to the line in red (Ctrl+G fi
 again). Everything else in this guide holds for the SDK too.
 
 **Projects and games**: what the tools change is a **project**, a `.bme` in `/bme` with an
-8.3 name (e.g. `MYGAME.BME`). It is not listed in the menu tabs: the editors open it (the SDK's
+8.3 name (e.g. `mygame.bme`). It is not listed in the menu tabs: the editors open it (the SDK's
 *Open*, Ctrl+O). A `.bm` is a **game**, in Games: the tools open it to read it and take its
 code, sprites, models and sounds, but do not change it. Saving one, they ask to make its
-**editable copy** (`/bme/NAME.BME`); the copy is also in a game's options (X), *Make an
+**editable copy** (`/bme/name.bme`); the copy is also in a game's options (X), *Make an
 editable copy*. When the project is ready, **Ctrl+B** in the SDK (or *Build the game (.bm)*
-in its options) makes its game: `MYGAME.BM` in Games, replaced at every build.
+in its options) makes its game: `mygame.bm` in Games, replaced at every build.
 
 For 3D models: **bm Studio**; for skeletons, animations and pre-rendered sprites: **bm
 Animator** ([sdk/README.md](../sdk/README.md)). They are on the console, in the Dev tab (X on
@@ -585,7 +585,7 @@ if saves()[3] then print("slot 3: game saved", 8, 8, 7) end
 ```
 
 An app that makes files for the player (texts, drawings, exports) writes them in `/docs`,
-shared by all the apps: `doc_write("NOTES.TXT", text)`, `doc_read`, `doc_list`,
+shared by all the apps: `doc_write("notes.txt", text)`, `doc_read`, `doc_list`,
 `doc_delete` (8.3 names; the first time the console asks the player). bm Write keeps its
 documents there.
 

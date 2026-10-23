@@ -772,26 +772,26 @@ local function confirm(question, choices, done)
   overlay = { kind = "confirm", question = question, choices = choices, done = done }
 end
 
--- a project's 8.3 name: "game" -> "GAME.BME"; nil if it cannot be one
+-- a project's 8.3 name: "game" -> "game.bme"; nil if it cannot be one
 local function project_name(name)
-  name = name:upper():gsub("%.BM$", ".BME")
-  if not name:match("%.") then name = name .. ".BME" end
-  if not name:match("^[%w_%-]+%.BME$") or #name:match("^[^.]*") > 8 then return nil end
+  name = name:lower():gsub("%.bm$", ".bme")
+  if not name:match("%.") then name = name .. ".bme" end
+  if not name:match("^[%w_%-]+%.bme$") or #name:match("^[^.]*") > 8 then return nil end
   return name
 end
 
 local function new_cart()
   local n = 1
-  while find_tab(U.project_path("GAME" .. n)) or cart_read(U.project_path("GAME" .. n)) do n = n + 1 end
-  prompt("New project, file name (8.3 in /bme):", "GAME" .. n .. ".BME", function(name)
+  while find_tab(U.project_path("game" .. n)) or cart_read(U.project_path("game" .. n)) do n = n + 1 end
+  prompt("New project, file name (8.3 in /bme):", "game" .. n .. ".bme", function(name)
     name = project_name(name)
     if not name then
-      say("8.3 name, like MYGAME.BME", C_ERR)
+      say("8.3 name, like mygame.bme", C_ERR)
       return
     end
     local path = U.project_path(name)
     if cart_read(path) then say(path .. " exists: Ctrl+O opens it", C_ERR); return end
-    local i = new_tab(path, TEMPLATE, { title = name:gsub("%.BME$", "") })
+    local i = new_tab(path, TEMPLATE, { title = name:gsub("%.bme$", "") })
     tabs[i].dirty = true
     show_tab(i)
     say("new: Ctrl+S writes " .. path, C_OK)
@@ -799,11 +799,11 @@ local function new_cart()
 end
 
 local function save_as(t)
-  local suggest = t.path and project_name(base_name(t.path)) or "GAME.BME"
+  local suggest = t.path and project_name(base_name(t.path)) or "game.bme"
   prompt("Save as (8.3 in /bme):", suggest, function(name)
     name = project_name(name)
     if not name then
-      say("8.3 name, like MYGAME.BME", C_ERR)
+      say("8.3 name, like mygame.bme", C_ERR)
       return
     end
     local ok, err = save_tab(t, U.project_path(name))

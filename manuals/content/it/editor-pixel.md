@@ -346,7 +346,7 @@ python3 scripts/bmres.py add GAME.bm COIN.bmi
 5. Premi **b** per la matita. Muovi il puntatore con le frecce e premi **spazio**. Tieni premuto spazio e muoviti per disegnare una linea di pixel.
 6. Premi **y** per disegnare in modo speculare: ciò che disegni da un lato appare dall'altro. Premi di nuovo **y** per fermarlo.
 7. Se sbagli, premi **Ctrl+Z**.
-8. Premi **Esc**, scegli **Save as...**, scrivi un nome come `HERO.BME` e premi Enter. Lo schermo dice `saved`.
+8. Premi **Esc**, scegli **Save as...**, scrivi un nome come `hero.bme` e premi Enter. Lo schermo dice `saved`.
 
 ![Il tuo primo sprite](shots/editor-pixel-first.png)
 

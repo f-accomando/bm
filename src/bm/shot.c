@@ -11,13 +11,13 @@ void shot_prefix(char out[5], const char *title, const char *prefix)
     int n = 0;
     for (; *src && n < 4; src++) {
         char c = *src;
-        if (c >= 'a' && c <= 'z')
-            c = (char)(c - 'a' + 'A');
-        if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+        if (c >= 'A' && c <= 'Z')
+            c = (char)(c - 'A' + 'a');
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
             out[n++] = c;
     }
     if (n == 0) {
-        memcpy(out, "SHOT", 4);
+        memcpy(out, "shot", 4);
         n = 4;
     }
     out[n] = 0;
@@ -35,19 +35,21 @@ int shot_name(char out[13], const char *title, const char *prefix, int n)
     out[l + 1] = (char)('0' + n / 100 % 10);
     out[l + 2] = (char)('0' + n / 10 % 10);
     out[l + 3] = (char)('0' + n % 10);
-    memcpy(out + l + 4, ".PNG", 5);
+    memcpy(out + l + 4, ".png", 5);
     return 0;
 }
 
 int shot_number(const char *name, const char prefix[5])
 {
     size_t l = strlen(prefix);
-    char up[13];
+    char up[13], pre[5];
     size_t i = 0;
-    for (; name[i] && i < sizeof up - 1; i++)
-        up[i] = name[i] >= 'a' && name[i] <= 'z' ? (char)(name[i] - 'a' + 'A') : name[i];
+    for (; name[i] && i < sizeof up - 1; i++)           /* any case: old cards have capitals */
+        up[i] = name[i] >= 'A' && name[i] <= 'Z' ? (char)(name[i] - 'A' + 'a') : name[i];
     up[i] = 0;
-    if (i != l + 8 || memcmp(up, prefix, l) != 0 || memcmp(up + l + 4, ".PNG", 5) != 0)
+    for (size_t k = 0; k < l && k < 4; k++)
+        pre[k] = prefix[k] >= 'A' && prefix[k] <= 'Z' ? (char)(prefix[k] - 'A' + 'a') : prefix[k];
+    if (i != l + 8 || memcmp(up, pre, l) != 0 || memcmp(up + l + 4, ".png", 5) != 0)
         return -1;
     int n = 0;
     for (int k = 0; k < 4; k++) {

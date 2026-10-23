@@ -3,18 +3,18 @@
 local M = {}
 
 local EXT_BY_TYPE = {
-  ["model/gltf-binary"] = "GLB", ["model/gltf+json"] = "GLT", ["application/zip"] = "ZIP",
-  ["application/pdf"] = "PDF", ["application/json"] = "JSN", ["text/plain"] = "TXT",
-  ["text/csv"] = "CSV", ["image/png"] = "PNG", ["image/jpeg"] = "JPG", ["image/webp"] = "WBP",
-  ["image/gif"] = "GIF", ["image/svg+xml"] = "SVG", ["audio/mpeg"] = "MP3", ["audio/ogg"] = "OGG",
-  ["audio/wav"] = "WAV", ["application/octet-stream"] = "BIN",
+  ["model/gltf-binary"] = "glb", ["model/gltf+json"] = "glt", ["application/zip"] = "zip",
+  ["application/pdf"] = "pdf", ["application/json"] = "jsn", ["text/plain"] = "txt",
+  ["text/csv"] = "csv", ["image/png"] = "png", ["image/jpeg"] = "jpg", ["image/webp"] = "wbp",
+  ["image/gif"] = "gif", ["image/svg+xml"] = "svg", ["audio/mpeg"] = "mp3", ["audio/ogg"] = "ogg",
+  ["audio/wav"] = "wav", ["application/octet-stream"] = "bin",
 }
-local FORBIDDEN = { BM = true, BME = true, B16 = true }
+local FORBIDDEN = { bm = true, bme = true, b16 = true }
 
 local function hash2(s)
   local h = 5381
   for i = 1, #s do h = (h * 33 + s:byte(i)) % 1296 end
-  local d = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  local d = "0123456789abcdefghijklmnopqrstuvwxyz"
   return d:sub(h // 36 + 1, h // 36 + 1) .. d:sub(h % 36 + 1, h % 36 + 1)
 end
 
@@ -46,17 +46,17 @@ function M.kind(ctype)
   return "download"
 end
 
--- A safe 8.3 name for a saved file: STEM(6)+2 characters of a hash of the
--- URL, a dot and a 3-letter extension. Never a .BM, .BME or .B16.
+-- A safe 8.3 name for a saved file: stem(6)+2 characters of a hash of the
+-- URL, a dot and a 3-letter extension. Never a .bm, .bme or .b16. All in lowercase.
 function M.name(u, ctype)
   local path = u:gsub("[?#].*$", ""):match("([^/]*)$") or ""
   local stem, ext = path:match("^(.-)%.([%w]+)$")
   if not stem then stem = path end
-  stem = stem:upper():gsub("[^A-Z0-9]", ""):sub(1, 6)
-  if stem == "" then stem = "FILE" end
-  ext = (ext or ""):upper():gsub("[^A-Z0-9]", ""):sub(1, 3)
-  if ext == "" then ext = EXT_BY_TYPE[mime(ctype)] or "DAT" end
-  if FORBIDDEN[ext] then ext = "DAT" end
+  stem = stem:lower():gsub("[^a-z0-9]", ""):sub(1, 6)
+  if stem == "" then stem = "file" end
+  ext = (ext or ""):lower():gsub("[^a-z0-9]", ""):sub(1, 3)
+  if ext == "" then ext = EXT_BY_TYPE[mime(ctype)] or "dat" end
+  if FORBIDDEN[ext] then ext = "dat" end
   return stem .. hash2(u) .. "." .. ext
 end
 
@@ -72,7 +72,7 @@ end
 
 function M.note_name(name)
   local stem, ext = name:match("^(.*)%.(%w+)$")
-  return stem .. (ext == "TXT" and ".NTE" or ".TXT")
+  return stem .. (ext:lower() == "txt" and ".nte" or ".txt")
 end
 
 return M

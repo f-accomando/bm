@@ -1,5 +1,5 @@
 /*
- * The reports (reports.h): saved as bm/reports/RPTnnnnn.TXT (8.3 names on
+ * The reports (reports.h): saved as bm/reports/rptnnnnn.txt (8.3 names on
  * the card; the long name is in the header), sent with github_put
  * (src/net/github.c), deleted from the card once on GitHub.
  */
@@ -220,7 +220,7 @@ static int save_report(const char *kind, const char *fixed, const char *text, si
         all[hl + len++] = '\n';
     reports_mask_secrets(all + hl, len);
     char name[16], path[40];
-    ksnprintf(name, sizeof name, "RPT%05d.TXT", scan(NULL) + 1);
+    ksnprintf(name, sizeof name, "rpt%05d.txt", scan(NULL) + 1);
     ksnprintf(path, sizeof path, DIR "/%s", name);
     int rc = fat_mkdirs(DIR) == 0 ? fat_write_file(DIR, name, all, hl + len) : -1;
     free(all);
@@ -306,7 +306,7 @@ int reports_send_pending(void)
         if (!first)
             break;
         char path[40];
-        ksnprintf(path, sizeof path, DIR "/RPT%05d.TXT", first);
+        ksnprintf(path, sizeof path, DIR "/rpt%05d.txt", first);
         if (send(path, 0) != 0) {
             kprintf("report: %s\n", last);
             break;

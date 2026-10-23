@@ -37,7 +37,7 @@ From the PC, with the console's network link ([design/pi-test.md](design/pi-test
 
 ```
 python tools/bm_net.py IP --shot out.png                    # the running game, saved as out.png
-python tools/bm_net.py IP --get bm/shots/PONG0007.PNG out.png   # a file already in bm/shots
+python tools/bm_net.py IP --get bm/shots/pong0007.png out.png   # a file already in bm/shots
 python3 tools/pi_test.py --cart build/carts/pong.bm --shot out.png
 ```
 

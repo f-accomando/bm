@@ -31,9 +31,9 @@ def read_png(path):
 def main():
     shots = os.path.join(sys.argv[1], "bm", "shots")
     names = sorted(os.listdir(shots))
-    # the cart's title is "shot test" (the first four letters: SHOT); shot("ab!c") keeps the letters: ABC
-    want = ["ABC0001.PNG", "SHOT0001.PNG", "SHOT0002.PNG", "SHOT0003.PNG", "SHOT0004.PNG"]
-    # SHOT0003: the Print Screen key at frame 20; SHOT0004: Select held from frame 30, shot at 3 s (frame 210), no second shot while it stays down.
+    # the cart's title is "shot test" (the first four letters: shot); shot("ab!c") keeps the letters: abc
+    want = ["abc0001.png", "shot0001.png", "shot0002.png", "shot0003.png", "shot0004.png"]
+    # shot0003: the Print Screen key at frame 20; shot0004: Select held from frame 30, shot at 3 s (frame 210), no second shot while it stays down.
     # None for: Select held 2 s (frames 300-420), Select + L1 held 4 s (500-700), the old Select + L1 + R1 held 4 s (720-920)
     ok = names == want
     print(f"shot: names {names} {'ok' if ok else 'WRONG, want ' + str(want)}")
@@ -45,7 +45,7 @@ def main():
         assert img[n](20, 20) != img[n](0, 0), "the rectangle at 10,10 is there"
         print(f"shot: {n} {w}x{h} ok")
     # the moving rectangle starts at x 12 in frame 3 and reaches x 40; at 24 in frame 6, to x 64
-    a, b = img["SHOT0001.PNG"], img["SHOT0002.PNG"]
+    a, b = img["shot0001.png"], img["shot0002.png"]
     assert a(14, 60) != a(0, 0) and b(14, 60) == b(0, 0), "frame 3"
     assert b(60, 60) != b(0, 0) and a(60, 60) == a(0, 0), "frame 6"
     print("shot: 4/4 checks passed")

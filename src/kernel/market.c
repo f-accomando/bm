@@ -52,7 +52,7 @@ typedef struct {
     int failed;                 /* the last download failed */
 } slot_t;
 
-/* the games installed from the Market: /bm/market/GAMES.TXT, one line each,
+/* the games installed from the Market: /bm/market/games.txt, one line each,
  * "<id> <sha256 hex> <path>" */
 typedef struct {
     char id[24];
@@ -271,7 +271,7 @@ static void owned_load(void)
     fat_entry_t e;
     uint8_t *d;
     size_t len;
-    if (fat_find(CACHE_DIR "/GAMES.TXT", &e) != 0 || fat_load(&e, &d, &len) != 0)
+    if (fat_find(CACHE_DIR "/games.txt", &e) != 0 || fat_load(&e, &d, &len) != 0)
         return;
     char line[256];
     for (size_t pos = 0; pos < len && nowned < CATALOG_MAX; ) {
@@ -306,7 +306,7 @@ static int owned_save(void)
         hex(owned[i].sha, 32, h);
         p += ksnprintf(p, sizeof *owned + 70, "%s %s %s\n", owned[i].id, h, owned[i].path);
     }
-    int r = fat_mkdirs(CACHE_DIR) == 0 && fat_write_file(CACHE_DIR, "GAMES.TXT", text, (size_t)(p - text)) == 0;
+    int r = fat_mkdirs(CACHE_DIR) == 0 && fat_write_file(CACHE_DIR, "games.txt", text, (size_t)(p - text)) == 0;
     free(text);
     return r ? 0 : -1;
 }
@@ -476,8 +476,8 @@ static void job_cache(void)
     fiber_slice();
     uint8_t *idx, *sig;
     size_t il, sl;
-    load_file(CACHE_DIR "/INDEX.TXT", &idx, &il);
-    load_file(CACHE_DIR "/INDEX.SIG", &sig, &sl);
+    load_file(CACHE_DIR "/index.txt", &idx, &il);
+    load_file(CACHE_DIR "/index.sig", &sig, &sl);
     fiber_slice();
     catalog_t c;
     char err[96];
@@ -524,9 +524,9 @@ static void job_index(void)
         fiber_slice();
         int ok = fat_mkdirs(CACHE_DIR) == 0;
         fiber_slice();
-        ok = ok && fat_write_file(CACHE_DIR, "INDEX.TXT", idx, il) == 0;
+        ok = ok && fat_write_file(CACHE_DIR, "index.txt", idx, il) == 0;
         fiber_slice();
-        ok = ok && fat_write_file(CACHE_DIR, "INDEX.SIG", sig, sl) == 0;
+        ok = ok && fat_write_file(CACHE_DIR, "index.sig", sig, sl) == 0;
         if (!ok)
             kprintf("market: cannot save the catalog: %s\n", fat_error());
     }
@@ -540,9 +540,7 @@ static void cache_name(const catalog_file_t *f, char *name)
 {
     char h[9];
     hex(f->sha256, 4, h);
-    for (char *p = h; *p; p++)
-        if (*p >= 'a') *p = (char)(*p - 32);
-    ksnprintf(name, 13, "%s.PNG", h);
+    ksnprintf(name, 13, "%s.png", h);
 }
 
 static void job_cover(int i)
@@ -623,14 +621,14 @@ static int find(const char *id, int b16)
     return -1;
 }
 
-/* where a new game goes: /carts/SNAKE.BM from the id (a .b16 SNAKE.B16;
+/* where a new game goes: /carts/snake.bm from the id (a .b16 snake.b16;
  * on the RGB30 in /bm), another name if that one is taken */
 static int new_path(const char *id, const char *ext, char *name, size_t n)
 {
     char stem[9];
     int k = 0;
     for (; id[k] && k < 8; k++)
-        stem[k] = id[k] >= 'a' && id[k] <= 'z' ? (char)(id[k] - 32) : id[k];
+        stem[k] = id[k] >= 'A' && id[k] <= 'Z' ? (char)(id[k] + 32) : id[k];
     stem[k] = 0;
     for (int t = 0; t < 10; t++) {
         char path[32];
@@ -687,7 +685,7 @@ static void job_get(int i)
     if (s->path[0]) {
         ksnprintf(path, sizeof path, "%s", s->path);
         ok = fat_replace(path, d, len) == 0;
-    } else if (new_path(g->id, is_b16(g->file.path) ? ".B16" : ".BM", name, sizeof name) == 0) {
+    } else if (new_path(g->id, is_b16(g->file.path) ? ".b16" : ".bm", name, sizeof name) == 0) {
         ksnprintf(path, sizeof path, GAMES_DIR "/%s", name);
         ok = fat_mkdirs(GAMES_DIR) == 0 && fat_write_file(GAMES_DIR, name, d, len) == 0;
     } else {
@@ -1145,7 +1143,7 @@ static void keep_received(uint8_t *d, size_t len, const lan_offer_t *o)
             ksnprintf(id, sizeof id, "%s", cat.games[g].id);
         else if (github_id_from_name(o->title, id, sizeof id) != 0)
             ksnprintf(id, sizeof id, "game");
-        if (new_path(id, g >= 0 && is_b16(cat.games[g].file.path) ? ".B16" : ".BM", name, sizeof name) == 0) {
+        if (new_path(id, g >= 0 && is_b16(cat.games[g].file.path) ? ".b16" : ".bm", name, sizeof name) == 0) {
             ksnprintf(path, sizeof path, GAMES_DIR "/%s", name);
             ok = fat_mkdirs(GAMES_DIR) == 0 && fat_write_file(GAMES_DIR, name, d, len) == 0;
         }

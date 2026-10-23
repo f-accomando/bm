@@ -354,9 +354,9 @@ local function short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
-  local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
-  if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+  local stem = (base or path):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if stem == "" then stem = "game" end
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".bme"
 end
 
 -- a game (.bm, .b16) is read only: saving it makes its editable copy
@@ -2320,7 +2320,7 @@ end
 
 local function save_as()
   if not proj.path then say("open a .bm first", C_ERR); return end
-  ask("file name (8.3, in /bme)", short_path(proj.path):match("([^/]+)$") or "MESHES.BME", function(t)
+  ask("file name (8.3, in /bme)", short_path(proj.path):match("([^/]+)$") or "meshes.bme", function(t)
     local to = U.project_path(t)
     local from = proj.path
     code_dirty = true                    -- the new file gets all the code

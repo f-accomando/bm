@@ -53,12 +53,12 @@ int bm_is_game(const char *path);
 const char *bm_games_dir(void);
 
 /* The project path of a name or a game path, 8.3: "/carts/Il mio gioco.bm"
- * -> "/bme/ILMIOGIO.BME". The one place that builds a project path in C. 0. */
+ * -> "/bme/ilmiogio.bme". The one place that builds a project path in C. 0. */
 int bm_project_path(const char *name, char *out, size_t n);
 
 /* The name the editable copy of a game takes: in /bme, the game's name
- * with .BME, or with a digit at the end if that is taken ("/carts/
- * VILLAGE.BM" -> "/bme/VILLAGE.BME", "/bme/VILLAGE1.BME"...). 0, or -1
+ * with .bme, or with a digit at the end if that is taken ("/carts/
+ * village.bm" -> "/bme/village.bme", "/bme/village1.bme"...). 0, or -1
  * if there is no free one. */
 int bm_copy_name(const char *game, char *out, size_t n);
 

@@ -275,7 +275,7 @@ int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const cha
         if (web_file_name(stem, name, err, en))
             return -1;
         const char *dot = strchr(name, '.');
-        snprintf(part, sizeof part, "%.*s.PRT", (int)(dot ? (size_t)(dot - name) : strlen(name)), name);
+        snprintf(part, sizeof part, "%.*s.prt", (int)(dot ? (size_t)(dot - name) : strlen(name)), name);
     }
     if (web_url_check(url, host, sizeof host, err, en))
         return -1;

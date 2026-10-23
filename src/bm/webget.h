@@ -35,7 +35,7 @@ typedef struct {
     int too_big;                /* the body went over the cap */
     uint32_t timeout_ms;
     /* resume (stage 5) */
-    char part[13];              /* "NAME.PRT" in bm/web, or "" for a request that does not resume */
+    char part[13];              /* "name.prt" in bm/web, or "" for a request that does not resume */
     size_t resumed;             /* bytes that came from the part file */
     size_t persisted;           /* bytes in the last part file saved */
     long long total;            /* the whole size, if the server said (206 or Content-Length), else -1 */
@@ -50,7 +50,7 @@ typedef struct {
 /* Starts a request: its id (> 0), or -1 with the reason in err (bad address, one request
  * already running, no free slot, no memory, called from a fiber). max: the cap in bytes. */
 int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en);
-/* The same, resuming: stem is a bare 8.3 name of bm/web ("MODEL.GLB"); its part file is "MODEL.PRT"
+/* The same, resuming: stem is a bare 8.3 name of bm/web ("model.glb"); its part file is "model.prt"
  * (the same stem and "PRT"). If that file holds the start of the same address, the request asks for
  * the rest; the answer is the whole file in the body either way. The part file is saved when the
  * request fails (a lost connection, a timeout) or is cancelled, and about every 1 MiB, only if

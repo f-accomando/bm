@@ -239,7 +239,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   (`src/bm/b3d.c`), at 640×360 scaled onto the panel; all 3D tests drawn by the ARM; with `mali3d=1` the GPU
   profile runs flat-colour scenes on the Mali (written, not verified on hardware), the other rows stay empty, the Cortex-A55 counters
   (instructions, L1 data cache misses, cycles; `start.S` leaves them to EL1 with `MDCR_EL2.HPMN`), the
-  report in `bm/bench/3DNNNN.TXT` on the SD and on the serial port. Left/right page through the
+  report in `bm/bench/3dnnnn.txt` on the SD and on the serial port. Left/right page through the
   result pages, the back button (A) returns to the menu. In QEMU it takes about 40 s
   (`test_bench3d`).
 - Bluetooth: RTL8821CS on UART1, H5 protocol (`src/bt/h5.c`) and Realtek firmware

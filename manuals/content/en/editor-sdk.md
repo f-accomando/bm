@@ -27,7 +27,7 @@ bm SDK is the program where a game starts. It holds the project's code, sprites,
 ## The rules of the suite
 
 ::: warn
-The editors modify only **projects** (`.bme`). A **game** (`.bm`, `.b16`) is read-only. If you save while a game is open, the console asks *Save an editable copy: NAME.BME?* and from then on you work on the copy.
+The editors modify only **projects** (`.bme`). A **game** (`.bm`, `.b16`) is read-only. If you save while a game is open, the console asks *Save an editable copy: name.bme?* and from then on you work on the copy.
 :::
 
 - **Ctrl+B** builds the game of the project: a `.bm`, or a `.b16` when the target is `.b16`.
@@ -104,7 +104,7 @@ The smallest game: a ball you move with the arrows.
 3. Choose **Empty 2D** with up and down and press **Enter**. The status line says `new project (Empty 2D): Esc > Save as gives it a name, F5 tries it`. The title is `New game`.
 4. Press **F2**. You see the code of the game: `_init`, `_update` and `_draw`.
 5. Move the cursor with the arrows to the line `print("hello!", ...)` and change the word `hello!` to your own text.
-6. Press **Esc**, choose **Save as...** and press Enter. A box asks `file name (8.3, in /bme)` and suggests `MYGAME.BME`. Type a name and press **Enter**. The status line says `saved` and the name of the file.
+6. Press **Esc**, choose **Save as...** and press Enter. A box asks `file name (8.3, in /bme)` and suggests `mygame.bme`. Type a name and press **Enter**. The status line says `saved` and the name of the file.
 7. Press **F5**. The SDK saves and the console plays the game: a yellow ball on a dark background with your text. The arrows move the ball.
 8. Leave the game. Press Start + Select, Ctrl+Shift+Esc or Ctrl+Esc (Esc alone goes back inside a tool).
 9. You are back in the SDK. Press **F1**: the **LAST TRY** line now shows fps and milliseconds.
@@ -285,7 +285,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 - **Ctrl+B**, or *Build the game .bm* in the menu: builds the game of the project. When the target is `.b16`, it builds the `.b16` and the menu entry says so.
 - **Ctrl+Shift+B**, or *Export .b16*: exports the `.b16` whatever the target.
 - A project is in `/bme`; its game is written in the games folder: `/carts` on the Pi, `/bm` on the RGB30. The **Games** tab lists that folder. A project found next to its game on an older card builds next to it.
-- On success the SDK says `built /carts/NAME.BM: it is in Games` (the path of the game).
+- On success the SDK says `built /carts/name.bm: it is in Games` (the path of the game).
 
 ## Good to know
 
@@ -303,7 +303,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 1. Open or create a project and save it with **Save as**.
 2. Press **Ctrl+B**.
-3. Wait for `built /carts/NAME.BM: it is in Games`.
+3. Wait for `built /carts/name.bm: it is in Games`.
 4. Leave the SDK (Esc, **Exit bm SDK**) and open the **Games** tab: your game is there.
 
 ::: copy

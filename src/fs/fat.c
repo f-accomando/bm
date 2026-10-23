@@ -652,9 +652,17 @@ static int zero_cluster(uint32_t c)
     return 0;
 }
 
-/* "config.txt" -> "CONFIG  TXT"; -1 if not a valid 8.3 name */
+/* "config.txt" -> "CONFIG  TXT"; -1 if not a valid 8.3 name. A new name is
+ * always written in lowercase, whatever case the caller gives: `g_nt` (byte
+ * 12 of the entry) gets 0x08 when the base has a letter and 0x10 when the
+ * extension has one. The stored short name stays in capitals, as FAT needs;
+ * Windows, Linux and the console show the name in lowercase. */
+static uint8_t g_nt;                    /* the flags of the last to_83 */
+
 static int to_83(const char *name, uint8_t out[11])
 {
+    int let_b = 0, let_e = 0;
+    g_nt = 0;
     memset(out, ' ', 11);
     int i = 0, n = 0;
     for (; name[i] && name[i] != '.'; i++, n++) {
@@ -671,11 +679,15 @@ static int to_83(const char *name, uint8_t out[11])
     }
     for (int k = 0; k < 11; k++) {
         uint8_t ch = out[k];
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
+            if (k < 8) let_b = 1; else let_e = 1;
+        }
         if (ch >= 'a' && ch <= 'z') out[k] = (uint8_t)(ch - 32);
         else if (!((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' ||
                    ch == '-' || ch == ' ' || ch == '~'))
             return -1;
     }
+    g_nt = (uint8_t)((let_b ? 0x08 : 0) | (let_e ? 0x10 : 0));
     return 0;
 }
 
@@ -726,11 +738,12 @@ static void fat_stamp(uint16_t *date, uint16_t *time)
 }
 
 static void make_entry(uint8_t de[32], const uint8_t name[11], uint8_t attr,
-                       uint32_t cluster, uint32_t size)
+                       uint32_t cluster, uint32_t size, uint8_t nt)
 {
     memset(de, 0, 32);
     memcpy(de, name, 11);
     de[11] = attr;
+    de[12] = nt;                                /* NT lowercase flags */
     uint16_t date, time;
     fat_stamp(&date, &time);
     wr16(de + 14, time);                        /* created, time */
@@ -825,15 +838,16 @@ int fat_mkdirs(const char *path)
             err = "not an 8.3 name";
             return -1;
         }
+        const uint8_t nt = g_nt;
         if (fsinfo_unknown() || dir_cluster(parent, &pc) || pick_free(&nc, 1) || zero_cluster(nc))
             return -1;
         uint8_t dot[64];
         static const uint8_t n_dot[11] = { '.', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
         static const uint8_t n_dotdot[11] = { '.', '.', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
-        make_entry(dot, n_dot, 0x10, nc, 0);
-        make_entry(dot + 32, n_dotdot, 0x10, pc == vol.root_cluster ? 0 : pc, 0);
+        make_entry(dot, n_dot, 0x10, nc, 0, 0);
+        make_entry(dot + 32, n_dotdot, 0x10, pc == vol.root_cluster ? 0 : pc, 0, 0);
         uint8_t de[32];
-        make_entry(de, name, 0x10, nc, 0);
+        make_entry(de, name, 0x10, nc, 0, nt);
         if (patch_sector(cluster_lba(nc), 0, dot, 64) || set_fat(nc, eoc()) || add_entry(pc, de))
             return -1;
     }
@@ -915,7 +929,7 @@ static int locate(const char *path, const char *dir, const char *name, fat_entry
  * a tick: no cluster is ever free in the FAT while one of the two owns it,
  * and the directory is read and changed in one go. */
 static int store(const char *path, const char *dir, const char *name, const uint8_t n83[11],
-                 const void *data, size_t len)
+                 uint8_t nt, const void *data, size_t len)
 {
     const uint32_t csize = vol.spc * 512;
     const uint32_t n = (uint32_t)((len + csize - 1) / csize);
@@ -994,7 +1008,7 @@ static int store(const char *path, const char *dir, const char *name, const uint
             goto out;
     } else {
         uint8_t de[32];
-        make_entry(de, n83, 0x20, first, (uint32_t)len);
+        make_entry(de, n83, 0x20, first, (uint32_t)len, nt);
         if (add_entry(dc, de))
             goto out;
     }
@@ -1024,10 +1038,11 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
         err = "not an 8.3 name";
         return -1;
     }
+    const uint8_t nt = g_nt;
     uint32_t dc;
     if (dir_cluster(dir, &dc))
         return -1;
-    return store(NULL, dir, name, n83, data, len);
+    return store(NULL, dir, name, n83, nt, data, len);
 }
 
 int fat_replace(const char *path, const void *data, size_t len)
@@ -1043,7 +1058,7 @@ int fat_replace(const char *path, const void *data, size_t len)
         err = "a directory";
         return -1;
     }
-    return store(path, NULL, NULL, NULL, data, len);
+    return store(path, NULL, NULL, NULL, 0, data, len);
 }
 
 int fat_delete(const char *path)

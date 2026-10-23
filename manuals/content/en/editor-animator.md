@@ -60,7 +60,7 @@ If the file list is empty, the screen says `no .bm files: make models in bm Stud
 | `.bme` | a project | opens it, changes it, saves it in its place |
 | `.bm`, `.b16` | a game | only reads it |
 
-With a game open, the first save asks `Save an editable copy: NAME.BME?`. Answer yes: from then on you work on the copy, in `/bme`. The game itself is never changed.
+With a game open, the first save asks `Save an editable copy: name.bme?`. Answer yes: from then on you work on the copy, in `/bme`. The game itself is never changed.
 
 ## Good to know
 

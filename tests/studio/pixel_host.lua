@@ -549,7 +549,7 @@ keyq[#keyq + 1] = "^s"
 frames(1)
 check(sees("saving /carts/village.bm ..."), "Ctrl+S: saving first")
 key()
-check(status():find("saved /bme/VILLAGE.BME", 1, true), "Ctrl+S: " .. status())
+check(status():find("saved /bme/village.bme", 1, true), "Ctrl+S: " .. status())
 check(file("village.bm") == village0, "the game stays as it was: the save went into its copy, VILLAGE.BME")
 local v1 = file("village.bme")
 for _, t in ipairs({ 1, 4, 8, 9 }) do
@@ -589,7 +589,7 @@ key("1", "b", " ")
 key("^s")
 check(sees("file name"), "Ctrl+S on a new sheet: Save as")
 type_text("NEWSPR")
-check(status():find("saved /bme/NEWSPR.BME", 1, true), "saved: " .. status())
+check(status():find("saved /bme/newspr.bme", 1, true), "saved: " .. status())
 local n1 = file("newspr.bme")
 check(n1 and section(n1, 1):find("bm Pixel: a new sprite sheet", 1, true) and section(n1, 5), "the new cartridge: the viewer and a SHEET8")
 local ok, err = pcall(load, section(n1, 1))
@@ -597,7 +597,7 @@ check(ok and err, "the viewer is Lua")
 
 -- try the game
 key("f5")
-check(ran == "/bme/NEWSPR.BME", "F5: the project runs")
+check(ran == "/bme/newspr.bme", "F5: the project runs")
 
 -- F12 held: the keys of the page (keyhelp(), the kernel draws them)
 local function in_help(keys, what)
