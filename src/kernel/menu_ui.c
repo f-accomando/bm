@@ -1661,6 +1661,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                     "min slack %d us, paced %d%s\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
                     (unsigned long)(idle_offered / 1000), (unsigned long)(idle_over / 1000),
                     (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)idle_slack, paced, sd);
+        {
+            char st[160];
+            if (sd_stats_line(st, sizeof st))
+                kprintf("menu idle: %s\n", st);
+        }
         stalls_report();
         idle_frames = idle_gave = 0;
         idle_offered = idle_used = idle_over = 0;

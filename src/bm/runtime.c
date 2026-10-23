@@ -10572,8 +10572,10 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     char err[64];
     const char *error = NULL;
     lua_State *L = NULL;
+    const uint32_t ld0 = timer_ticks();        /* load profile (sd-stall-plan S0): one log line at the end */
 
     bm_close_suspended();              /* one cartridge in memory at a time */
+    const uint32_t ld_close = timer_ticks();
     memset(st, 0, sizeof *st);
     if (rt.pfx) {
         r3d_pfx_free(rt.pfx);
@@ -10617,6 +10619,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
             kprintf("\x1b[93mbm: made for the %s only, it may not run well here\x1b[0m\n",
                     me == BM_TARGET_PI ? "RGB30" : "Pi Zero W");
     }
+    const uint32_t ld_parse = timer_ticks();
     loading_tick();
     if (cur.w > 0 && cur.h > 0) {
         cart.width = cur.w;
@@ -10631,6 +10634,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         loading_stop();
         return BM_ENDED;
     }
+    const uint32_t ld_state = timer_ticks();
     loading_tick();
 
     const uint32_t con_w = fb->width, con_h = fb->height;
@@ -10643,6 +10647,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         return BM_ENDED;
     }
     loading_page(fb, &rt.g);            /* the loading screen on the game's page now */
+    const uint32_t ld_mode = timer_ticks();
 
     {
         char path[40];
@@ -10657,7 +10662,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
             kprintf("\x1b[91mbm: sound bank not loaded: %s\x1b[0m\n", aerr);
         set_copy(&own_audio, &own_audio_len, cart.audio, cart.audio_size);
     }
-    rt.start_us = timer_ticks();
+    const uint32_t ld_audio = timer_ticks();
+    rt.start_us = ld_audio;
     rt.hook_count = 0;
     rt.tokens = lua_tokens(cart.lua, cart.lua_size);
     sess_reset();                       /* the session report: this cartridge's frames only */
@@ -10668,6 +10674,14 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
         call(L, "_init") != 0)
         error = lua_tostring(L, -1);
+    {                                   /* ms of each step; "assets" has the state of the state */
+        const uint32_t ld_end = timer_ticks();
+        kprintf("load: %s %lu ms (close %lu, parse %lu, assets+state %lu, mode %lu, audio %lu, lua %lu)\n", cart.title,
+                (unsigned long)((ld_end - ld0) / 1000), (unsigned long)((ld_close - ld0) / 1000),
+                (unsigned long)((ld_parse - ld_close) / 1000), (unsigned long)((ld_state - ld_parse) / 1000),
+                (unsigned long)((ld_mode - ld_state) / 1000), (unsigned long)((ld_audio - ld_mode) / 1000),
+                (unsigned long)((ld_end - ld_audio) / 1000));
+    }
     if (error)
         loading_stop();
     else

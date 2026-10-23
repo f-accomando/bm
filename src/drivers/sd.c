@@ -60,3 +60,4 @@ int sd_is_hc(void) { return use_emmc ? emmc_sd_is_hc() : sdhost_is_hc(); }
 const char *sd_error(void) { return use_emmc ? emmc_sd_error() : sdhost_error(); }
 const char *sd_controller(void) { return use_emmc ? "emmc" : "sdhost"; }
 void sd_counters(uint32_t *retries, uint32_t *timeouts) { sdhost_counters(retries, timeouts); }
+int sd_stats_line(char *buf, size_t n) { return use_emmc ? 0 : sdhost_stats_line(buf, n); }

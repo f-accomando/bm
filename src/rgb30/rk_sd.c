@@ -190,4 +190,5 @@ void sd_counters(uint32_t *retries, uint32_t *timeouts)
     if (retries) *retries = 0;
     if (timeouts) *timeouts = 0;
 }
+int sd_stats_line(char *buf, size_t n) { (void)n; buf[0] = 0; return 0; }
 #endif

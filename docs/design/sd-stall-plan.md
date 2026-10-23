@@ -1,6 +1,6 @@
 # SD stall plan (single core)
 
-Status: design, 23 Oct 2026. No code changed. Every number marked "log" comes from the Pi report `reports/unknown/20261023-174601_log_pi-zero-w_dev.txt` (branch `reports`). Every other number is not measured.
+Status: design, 23 Oct 2026. S0 is in the code (measurement only, QEMU-checked, not yet run on the Pi). The other stages are not started. Every number marked "log" comes from the Pi report `reports/unknown/20261023-174601_log_pi-zero-w_dev.txt` (branch `reports`). Every other number is not measured.
 
 Scope: one core (Pi Zero W, and the RGB30 until SYS-10 gives it a worker core). The method is the one built in stages 1-5 of [multitasking](../progress/multitasking.md): fibers, shares, the SD writer lock, keep-alive, Range, bands (`menu_bg_step`).
 
@@ -111,6 +111,8 @@ Dwell prefetch (proposal): when the cursor stays on a game for 700 ms and the me
 | S3 | C1, C2, C5 | The pointer follows the hand while covers load; no report starts within 5 s of input. |
 | S4 | C3, C4, staggered restart | Time from A to first frame and from exit to a smooth menu drop (numbers from S0). |
 | S5 | Only what S0-S4 numbers still demand: band decode, cover cache, restartable ECC, dwell prefetch, arena. | Each by its own number. |
+
+S0 output on the Pi console: `menu idle: sd sites: rd1 3, rew 1; first word <1ms 120 <3ms 4 >25ms 3 (max 503.2 ms)` (the site of each timeout and the time to the first word of a read, since the last line) and, at each game start, `load: TITLE N ms (close, parse, assets+state, mode, audio, lua)`. Sites: busy, cmd, rd1 (no first word), rdN (stall in the stream), rew (the controller's own timeout), rdend, wr, wrend, card (busy after a write). To revert S0: `git revert` of the commit "S0".
 
 Host test for S1 and S2: write the wait ladder as a pure function (state, time, status in; action out) and test it on the host with injected stalls, because QEMU never times out. Test the number of yields, not time. Add a host test that a fiber parked in a write and `config_save` from the main loop leave the file intact.
 

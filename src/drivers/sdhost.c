@@ -14,6 +14,7 @@
 #include "prop.h"
 #include "timer.h"
 
+#include "lib/printf.h"
 #include <string.h>
 
 #define SDHOST          (PERIPHERAL_BASE + 0x202000)
@@ -82,6 +83,15 @@ static const char *err = "not initialised";
 /* since boot: transfers tried again, waits that ran out (sd_counters) */
 static uint32_t n_retries, n_timeouts;
 
+/* S0 of docs/design/sd-stall-plan.md (measurement only, no change of behaviour): where each
+ * wait ran out, and how long the card takes to send the first word of a read. */
+enum { TO_BUSY, TO_CMD, TO_RD_FIRST, TO_RD_MID, TO_REW, TO_RD_END, TO_WR, TO_WR_END, TO_CARD_BUSY, TO_SITES };
+static const char *const to_name[TO_SITES] = { "busy", "cmd", "rd1", "rdN", "rew", "rdend", "wr", "wrend", "card" };
+static uint32_t to_site[TO_SITES];
+static uint32_t lat_hist[5];            /* first word of a read: under 1, 3, 10, 25 ms, over */
+static uint32_t lat_max;                /* the longest of them, us */
+#define TO(site) (n_timeouts++, to_site[site]++)
+
 static void set_clock(uint32_t hz)
 {
     /* f = core / (div + 2) */
@@ -101,7 +111,7 @@ static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint
     while (mmio_read(SDCMD) & CMD_NEW)
         if (timer_ticks() - t0 > 500000) {
             err = "controller busy";
-            n_timeouts++;
+            TO(TO_BUSY);
             return -1;
         }
     uint32_t st = mmio_read(SDHSTS);
@@ -118,7 +128,7 @@ static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint
     while ((v = mmio_read(SDCMD)) & CMD_NEW)
         if (timer_ticks() - t0 > 500000) {
             err = "command timeout";
-            n_timeouts++;
+            TO(TO_CMD);
             return -1;
         }
     if (v & CMD_FAIL) {
@@ -160,7 +170,7 @@ static int wait_card_ready(uint32_t timeout_us)
             return 0;
         if (timer_ticks() - t0 > timeout_us) {
             err = "card busy";
-            n_timeouts++;
+            TO(TO_CARD_BUSY);
             return -1;
         }
     }
@@ -280,7 +290,7 @@ static int wait_transfer_complete(int write)
         }
         if (timer_ticks() - t0 > 500000) {
             err = write ? "write not completed" : "read not completed";
-            n_timeouts++;
+            TO(write ? TO_WR_END : TO_RD_END);
             return -1;
         }
     }
@@ -300,21 +310,31 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
         return -1;
     uint32_t words = count * 128, done = 0;
     uint32_t t0 = timer_ticks();
+    const uint32_t tcmd = t0;
     while (done < words) {
         uint32_t level = EDM_FIFO_LEVEL(mmio_read(SDEDM));
         if (!level) {
             uint32_t st = mmio_read(SDHSTS);
             if (st & (HSTS_CRC16 | HSTS_FIFO_ERR | HSTS_REW_TIMEOUT)) {
                 err = "read error";
-                n_timeouts += (st & HSTS_REW_TIMEOUT) != 0;    /* the controller's own (SDTOUT) */
+                if (st & HSTS_REW_TIMEOUT) {                    /* the controller's own (SDTOUT) */
+                    n_timeouts++;
+                    to_site[TO_REW]++;
+                }
                 goto fail;
             }
             if (timer_ticks() - t0 > 500000) {
                 err = "read timeout";
-                n_timeouts++;
+                TO(done ? TO_RD_MID : TO_RD_FIRST);
                 goto fail;
             }
             continue;
+        }
+        if (!done) {                                            /* the first word: how long the card took */
+            const uint32_t us = timer_ticks() - tcmd;
+            lat_hist[us < 1000 ? 0 : us < 3000 ? 1 : us < 10000 ? 2 : us < 25000 ? 3 : 4]++;
+            if (us > lat_max)
+                lat_max = us;
         }
         if (level > words - done)
             level = words - done;
@@ -351,12 +371,15 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
             const uint32_t st = mmio_read(SDHSTS);
             if (st & (HSTS_CRC16 | HSTS_FIFO_ERR | HSTS_REW_TIMEOUT)) {
                 err = "write error";
-                n_timeouts += (st & HSTS_REW_TIMEOUT) != 0;
+                if (st & HSTS_REW_TIMEOUT) {
+                    n_timeouts++;
+                    to_site[TO_REW]++;
+                }
                 goto fail;
             }
             if (timer_ticks() - t0 > 500000) {
                 err = "write timeout";
-                n_timeouts++;
+                TO(TO_WR);
                 goto fail;
             }
             continue;
@@ -375,7 +398,7 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
     while (EDM_FIFO_LEVEL(mmio_read(SDEDM)))
         if (timer_ticks() - t0 > 500000) {
             err = "write not completed";
-            n_timeouts++;
+            TO(TO_WR_END);
             goto fail;
         }
     if (wait_transfer_complete(1))
@@ -446,4 +469,33 @@ void sdhost_counters(uint32_t *retries, uint32_t *timeouts)
         *retries = n_retries;
     if (timeouts)
         *timeouts = n_timeouts;
+}
+
+/* "to busy 0 cmd 1 ..., first word <1ms 120 <3ms 4 ... max 2.1 ms" for the menu's log line, only the
+ * sites that moved since the last call; 0 when nothing moved. */
+int sdhost_stats_line(char *buf, size_t n)
+{
+    static uint32_t last_site[TO_SITES], last_hist[5];
+    size_t w = 0;
+    int moved = 0;
+    buf[0] = 0;
+    for (int i = 0; i < TO_SITES; i++)
+        if (to_site[i] != last_site[i]) {
+            w += (size_t)ksnprintf(buf + w, n - w, "%s%s %lu", w ? ", " : "sd sites: ", to_name[i],
+                                   (unsigned long)(to_site[i] - last_site[i]));
+            last_site[i] = to_site[i];
+            moved = 1;
+        }
+    static const char *const hn[5] = { "<1ms", "<3ms", "<10ms", "<25ms", ">25ms" };
+    int any = 0;
+    for (int i = 0; i < 5 && w < n; i++)
+        if (lat_hist[i] != last_hist[i]) {
+            w += (size_t)ksnprintf(buf + w, n - w, "%s%s %lu", any ? " " : (w ? "; first word " : "sd first word "), hn[i],
+                                   (unsigned long)(lat_hist[i] - last_hist[i]));
+            last_hist[i] = lat_hist[i];
+            any = 1;
+        }
+    if (any && w < n)
+        ksnprintf(buf + w, n - w, " (max %lu.%lu ms)", (unsigned long)(lat_max / 1000), (unsigned long)(lat_max / 100 % 10));
+    return moved || any;
 }

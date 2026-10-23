@@ -5,6 +5,7 @@
 #ifndef SD_BACKEND_H
 #define SD_BACKEND_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 int emmc_sd_init(void);
@@ -21,5 +22,6 @@ uint32_t sdhost_blocks(void);
 int sdhost_is_hc(void);
 const char *sdhost_error(void);
 void sdhost_counters(uint32_t *retries, uint32_t *timeouts);
+int sdhost_stats_line(char *buf, size_t n);
 
 #endif

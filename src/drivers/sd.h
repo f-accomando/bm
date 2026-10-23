@@ -5,6 +5,7 @@
 #ifndef SD_H
 #define SD_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* Initialises controller and card. Returns 0 on success. */
@@ -31,5 +32,8 @@ const char *sd_controller(void);
  * one 0.5 s or more of the card stopping everything). The SDHOST driver's;
  * 0 on the other drivers. */
 void sd_counters(uint32_t *retries, uint32_t *timeouts);
+/* Where the waits ran out and how long the first word of a read took, since the last call, as text
+ * for the log (docs/design/sd-stall-plan.md, S0). 1 if there is something to print; 0 on other drivers. */
+int sd_stats_line(char *buf, size_t n);
 
 #endif
