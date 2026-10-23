@@ -148,6 +148,8 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | m | specchia la scelta, da sinistra a destra sullo schermo |
 | M | copia la scelta dall'altra parte dello 0 |
 | X (Maiusc+X) | specchio dal vivo acceso o spento |
+| S (Maiusc+S) | aggancio: spento, griglia, vertice, griglia e vertice |
+| G (Maiusc+G) | passo della griglia: 0,05, 0,1, 0,25, 0,5 |
 | Ctrl+R | taglio ad anello attraverso lo spigolo scelto |
 | Maiusc+J | coltello: taglia un triangolo tra i punti di mezzo di due spigoli scelti |
 | j | crea una faccia su 3 o 4 vertici scelti |
@@ -224,6 +226,14 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 ## Specchio dal vivo
 
 **Maiusc+X** accende e spegne lo specchio dal vivo. Quando è acceso, la pagina mostra **MIRROR X**. Sposta, ruota, scala, dipingi e cancella agiscono allora sui vertici o sulle facce scelti e sui loro corrispondenti dall'altra parte del piano X = 0. L'editor trova il corrispondente dalla posizione: il vertice in (-x, y, z), entro 0,001. Un vertice sul piano è il corrispondente di se stesso. Un vertice senza corrispondente cambia da solo. Se scegli entrambi i lati, guida il vertice con il numero più basso e l'altro lo segue. Gli strumenti che aggiungono parti o cambiano la topologia (aggiungi una parte, estrudi, duplica, suddividi) non agiscono sull'altro lato. Un solo annulla riporta indietro entrambi i lati. Con il gamepad tocca X e scegli **Live mirror X on / off**.
+
+## Aggancio
+
+**Maiusc+S** cambia l'aggancio. L'ordine è: spento, griglia, vertice, griglia e vertice, poi di nuovo spento. La pagina mostra il modo in alto a destra, per esempio **SNAP grid 0.1**, e un messaggio dice il modo nuovo. L'aggancio funziona mentre sposti i vertici (**g**, e lo spostamento dopo **d**). **Maiusc+G** cambia il passo della griglia: 0,05, 0,1, 0,25 o 0,5 unità. Puoi premere i due tasti anche mentre uno spostamento è aperto.
+
+L'aggancio agisce sul vertice guida. È il vertice scelto con il numero più basso. L'editor aggancia la posizione di questo vertice, e ogni altro vertice scelto si sposta della stessa distanza. Il modo griglia arrotonda ogni asse del vertice guida al passo. Se blocchi un asse (x, y o z), si arrotonda solo quell'asse. Il modo vertice porta il vertice guida sul vertice più vicino del modello quando quel vertice è entro 6 pixel sullo schermo. Un piccolo anello verde mostra il vertice che l'aggancio ha preso. I vertici scelti non sono mai un bersaglio. Nel modo griglia e vertice vince un vertice a portata, e la griglia agisce quando nessun vertice è a portata. Con un asse bloccato, l'aggancio al vertice cambia solo quell'asse.
+
+Con lo specchio dal vivo acceso, i corrispondenti seguono lo stesso spostamento, specchiato. Un solo annulla riporta indietro tutto lo spostamento. La riga dello strumento mostra **SNAP** e lo spostamento dopo l'aggancio. L'aggancio non cambia una rotazione o una scala, e non posiziona una parte nuova. Con il gamepad tocca X e scegli **Snap: off, grid, vertex, both** o **Snap grid step**.
 
 ## Spigoli e taglio ad anello
 

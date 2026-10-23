@@ -1025,7 +1025,7 @@ end
 ----------------------------------------------------------------- edit page
 do
 
-ed = { mirror = false, mode = "v", sv = {}, sf = {}, se = {}, he = nil, sig = "", order = 0, px = W // 2, py = 184, tool = nil, step = 3, colour = 0xE84A5A,
+ed = { mirror = false, snap = 0, snap_i = 2, snap_steps = { 0.05, 0.1, 0.25, 0.5 }, mode = "v", sv = {}, sf = {}, se = {}, he = nil, sig = "", order = 0, px = W // 2, py = 184, tool = nil, step = 3, colour = 0xE84A5A,
        cam = { yaw = 0.6, pitch = -0.45, dist = 4, tx = 0, ty = 0, tz = 0 },
        sx = {}, sy = {}, sz = {}, hv = nil, hf = nil, force = nil, pal = nil, last_k = nil, last_f = 0, rep = 0 }
 
@@ -1371,6 +1371,10 @@ local function tool_start(kind, axis, keep)
   end
   ed.tool = { kind = kind, vs = vs, base = base, c = centre_of(it, vs), n = unit(n), axis = axis,
               d = { 0, 0, 0 }, m = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, s = { 1, 1, 1 }, deg = 0 }
+  ed.tool.e = ed.tool.d                  -- the move after the snap (the same without it)
+  ed.tool.lead = min(table.unpack(vs))   -- the leader: the snap works on this vertex
+  ed.tool.moving = {}                    -- the vertices that move: no snap target
+  for _, i in ipairs(vs) do ed.tool.moving[i] = true end
   if ed.mirror then
     -- live mirror: a vertex with a counterpart across X = 0 moves it too. When both
     -- are chosen, the lower number leads and the other follows.
@@ -1383,17 +1387,33 @@ local function tool_start(kind, axis, keep)
       elseif j ~= i and not skip[i] then fol[i], skip[j] = j, true end
     end
     ed.tool.fol, ed.tool.skip = fol, skip
+    for _, j in pairs(fol) do ed.tool.moving[j] = true end
     if lone > 0 then say("mirror X: " .. lone .. " chosen without a counterpart", C_DIM, 120) end
   end
 end
 
+-- the move of the tool after the snap: the leader goes to the grid, or to the
+-- vertex nearest on the screen; every chosen vertex gets the same move
+function ed.snap_delta(t, it)
+  t.e, t.target = t.d, nil
+  if ed.snap == 0 then return t.d end
+  local b = t.base[t.lead]
+  local p = { b[1] + t.d[1], b[2] + t.d[2], b[3] + t.d[3] }
+  local q, target = B.G.snap_pos(it, p, ed.snap, ed.snap_steps[ed.snap_i],
+                                 function(v) return project3d(v[1], v[2], v[3]) end, 6, t.moving, t.axis)
+  t.e = { round((q[1] - b[1]) * 1e5) / 1e5, round((q[2] - b[2]) * 1e5) / 1e5, round((q[3] - b[3]) * 1e5) / 1e5 }
+  t.target = target
+  return t.e
+end
+
 local function tool_apply()
   local t, it = ed.tool, I()
+  local d = t.kind == "move" and ed.snap_delta(t, it) or t.d
   for _, i in ipairs(t.vs) do
     if t.skip and t.skip[i] then goto next_vertex end
     local b, p = t.base[i], it.v[i]
     if t.kind == "move" then
-      p[1], p[2], p[3] = b[1] + t.d[1], b[2] + t.d[2], b[3] + t.d[3]
+      p[1], p[2], p[3] = b[1] + d[1], b[2] + d[2], b[3] + d[3]
     else
       local x, y, z = b[1] - t.c[1], b[2] - t.c[2], b[3] - t.c[3]
       if t.kind == "rotate" then
@@ -1415,8 +1435,8 @@ local function tool_text()
   local t = ed.tool
   local ax = t.axis == "n" and "along the normal" or (t.axis and ("on " .. AXIS[t.axis]) or "")
   if t.kind == "move" then
-    return string.format("MOVE %s  x %s  y %s  z %s  (step %s)", ax, num(t.d[1]), num(t.d[2]), num(t.d[3]),
-                         num(MOVE_STEPS[ed.step]))
+    return string.format("MOVE %s  x %s  y %s  z %s  (step %s)", ax, num(t.e[1]), num(t.e[2]), num(t.e[3]),
+                         num(MOVE_STEPS[ed.step])) .. ed.snap_text(" ")
   elseif t.kind == "rotate" then
     return string.format("ROTATE %s  %s deg  (step %d)", t.axis and ax or "", num(t.deg), ROT_STEPS[ed.step])
   end
@@ -1448,6 +1468,8 @@ local function tool_key(k)
     return
   end
   if k == "n" then t.axis = t.axis ~= "n" and "n" or nil; return end
+  if k == "S" then ed.cycle_snap(); return end
+  if k == "G" then ed.cycle_step(); return end
   if k == "axis" then                       -- the pad: free, x, y, z, normal
     local order = { [false] = 1, [1] = 2, [2] = 3, [3] = "n", n = false }
     t.axis = order[t.axis or false] or nil
@@ -1950,6 +1972,25 @@ local function open_palette()
   for i, c in ipairs(PALETTE) do if c == ed.colour then ed.pal = i end end
 end
 
+-- Shift+S: snap off -> grid -> vertex -> grid + vertex -> off. Shift+G: the grid step.
+function ed.snap_text(pre)
+  if ed.snap == 0 then return "" end
+  local g = num(ed.snap_steps[ed.snap_i])
+  return pre .. "SNAP " .. (ed.snap == 1 and ("grid " .. g) or (ed.snap == 2 and "vertex" or ("grid " .. g .. " + vertex")))
+end
+
+function ed.cycle_snap()
+  ed.snap = (ed.snap + 1) % 4
+  say(ed.snap == 0 and "snap off" or (ed.snap_text("") .. " (Shift+S: next, Shift+G: grid step)"), ed.snap == 0 and C_DIM or C_ACC, 140)
+  if ed.tool then if ed.tool.kind == "move" then tool_apply() end end
+end
+
+function ed.cycle_step()
+  ed.snap_i = ed.snap_i % #ed.snap_steps + 1
+  say("grid step " .. num(ed.snap_steps[ed.snap_i]) .. (ed.snap % 2 == 1 and "" or " (snap to the grid: Shift+S)"), C_ACC, 140)
+  if ed.tool and ed.tool.kind == "move" then tool_apply() end
+end
+
 -- Shift+X: the live mirror across X = 0 for move, rotate, scale, paint and delete
 function ed.toggle_mirror()
   ed.mirror = not ed.mirror
@@ -1960,6 +2001,7 @@ local COMMANDS = {
   { "Move (g)", "g" }, { "Rotate (r)", "r" }, { "Scale (t)", "t" }, { "Extrude faces (x)", "x" },
   { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
   { "Live mirror X on / off (X)", "X" },
+  { "Snap: off, grid, vertex, both (S)", "S" }, { "Snap grid step (G)", "G" },
   { "Loop cut on the chosen edge (Ctrl+R)", "^r" },
   { "Knife on two edges of a triangle (J)", "J" },
   { "New face on 3-4 vertices (j)", "j" }, { "Merge vertices (k)", "k" }, { "Weld equal vertices (K)", "K" },
@@ -2051,6 +2093,8 @@ function edit_key(k)
   elseif k == "m" then op_mirror()
   elseif k == "M" then op_mirror_copy()
   elseif k == "X" then ed.toggle_mirror()
+  elseif k == "S" then ed.cycle_snap()
+  elseif k == "G" then ed.cycle_step()
   elseif k == "^r" then ed.loop_cut()
   elseif k == "J" then ed.knife()
   elseif k == "j" then op_join()
@@ -2188,6 +2232,11 @@ function draw_edit()
   if ed.tool then
     local x, y = scr(ed.tool.c)
     if x then circ(x, y, 4, 0xFFFFFF) end
+    local tv = ed.tool.target and it.v[ed.tool.target]
+    if tv then                                  -- the vertex the snap took
+      local tx, ty = scr(tv)
+      if tx then circ(tx, ty, 6, 0x40FF80); circ(tx, ty, 2, 0x40FF80) end
+    end
   end
   -- the pointer
   line(ed.px - 7, ed.py, ed.px - 3, ed.py, 0xFFFFFF)
@@ -2199,6 +2248,7 @@ function draw_edit()
   rectfill(0, 16, W, 32, C_BG)
   local nsel = ed.mode == "v" and count(ed.sv) or (ed.mode == "e" and count(ed.se) or count(ed.sf))
   if ed.mirror then rectfill(W - 72, 16, 64, 8, C_BG); print("MIRROR X", W - 72, 16, C_ACC) end
+  if ed.snap ~= 0 then local s = ed.snap_text(""); print(s, W - 8 - #s * 8, 24, C_ACC) end
   print(it.name, 8, 16, KIND_C[it.kind])
   print(string.format("%d of 65535 vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
                       ed.mode == "v" and "VERTICES" or (ed.mode == "e" and "EDGES" or "FACES"), nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
@@ -2262,6 +2312,7 @@ local HELP = {
     { "shift a", "add a part: cube, cylinder, sphere, plane" },
     { "m / shift m", "mirror left-right / copy across 0" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete on both sides" },
+    { "shift s / shift g", "snap: off, grid, vertex, both / the grid step (0.05 to 0.5)" },
     { "j", "new face on 3-4 vertices" },
     { "k / shift k", "merge / weld equal vertices" },
     { "u / i", "subdivide / turn over" },

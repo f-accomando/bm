@@ -612,6 +612,54 @@ function G.knife(it, k1, k2)
   if not plan then return nil, err end
   return G.knife_apply(it, plan), plan
 end
+-- Snap. G.snap_grid(p, step, axis): a copy of the point p with each axis
+-- rounded to a multiple of step (only the axis given, 1-3, when there is one).
+-- G.snap_vertex(it, p, proj, px, skip): the number of the vertex of it nearest
+-- to p on the screen (proj(q) gives x, y), within px pixels, and the distance;
+-- the vertices in the set skip are not looked at. G.snap_pos(it, p, mode, step,
+-- proj, px, skip, axis): mode 1 = grid, 2 = vertex, 3 = both (a vertex in range
+-- wins over the grid). With an axis (1-3) only that axis changes; with "n" the
+-- grid does not apply. Returns the new point and the vertex number it took (or nil).
+function G.snap_grid(p, step, axis)
+  local q = { p[1], p[2], p[3] }
+  for k = 1, 3 do
+    if axis == nil or axis == k then
+      q[k] = math.floor(math.floor(q[k] / step + 0.5) * step * 1e5 + 0.5) / 1e5
+    end
+  end
+  return q
+end
+
+function G.snap_vertex(it, p, proj, px, skip)
+  local x0, y0 = proj(p)
+  if not x0 then return nil end
+  local best, bd = nil, px * px
+  for i, v in ipairs(it.v) do
+    if not (skip and skip[i]) then
+      local x, y = proj(v)
+      if x then
+        local d = (x - x0) * (x - x0) + (y - y0) * (y - y0)
+        if d <= bd then best, bd = i, d end
+      end
+    end
+  end
+  return best, best and math.sqrt(bd)
+end
+
+function G.snap_pos(it, p, mode, step, proj, px, skip, axis)
+  if mode == nil or mode == 0 then return p, nil end
+  if mode >= 2 then
+    local i = G.snap_vertex(it, p, proj, px, skip)
+    if i then
+      local v, q = it.v[i], { p[1], p[2], p[3] }
+      for k = 1, 3 do if type(axis) ~= "number" or axis == k then q[k] = v[k] end end
+      return q, i
+    end
+  end
+  if mode % 2 == 1 and axis ~= "n" then return G.snap_grid(p, step, type(axis) == "number" and axis or nil), nil end
+  return p, nil
+end
+
 -- A primitive ("cube", "plane", "sphere" or "cylinder") of the width size, in
 -- the colour col, with its middle at centre, added to the model it as a new
 -- part. The faces look out. The new vertices take the bone given (or 0) when
