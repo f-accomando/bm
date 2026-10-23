@@ -541,6 +541,49 @@ key("^z", "r")
 check(S(14, 0) == c1 and S(14, 3) == c1, "a quarter turn")
 key("^z")
 
+-- w: the wand chooses the area of one colour; the tools keep to it
+local function goto_xy(x, y)
+  key("home")
+  for _ = 1, math.abs(x - 8) do key(x < 8 and "left" or "right") end
+  for _ = 1, math.abs(y - 8) do key(y < 8 and "up" or "down") end
+end
+key("f1", "del")                         -- the draw page, the whole sprite clear
+key("1", "U")
+goto_xy(2, 2); key(" ")
+goto_xy(5, 5); key(" ")                  -- colour 1 on (2,2)-(5,5)
+key("2", "b")
+goto_xy(3, 3); key(" ")                  -- one pixel of colour 2 inside
+local w1, w2 = S(2, 2), S(3, 3)
+check(w1 and w2 and w1 ~= w2, "wand: two colours drawn")
+key("w")
+check(sees("wand"), "w: the wand is the tool: " .. status())
+goto_xy(2, 2); key(" ")
+check(sees("15 pixels chosen"), "wand: 15 pixels of colour 1 (the hole is not in): " .. status())
+key("del")
+check(S(2, 2) == nil and S(5, 5) == nil and S(3, 3) == w2, "wand + Del: only the region is cleared, the hole stays")
+key("^z")
+check(S(2, 2) == w1 and S(5, 5) == w1 and S(4, 4) == w1 and S(3, 3) == w2, "one undo restores it")
+-- copy honours the mask: pasted, the hole stays empty under it
+goto_xy(2, 2); key("w", " ", "^c", "esc")
+goto_xy(9, 9); key("^v", "\n")
+check(S(9, 9) == w1 and S(12, 12) == w1 and S(10, 10) == nil, "wand + copy + paste: the region only, the hole is empty")
+key("^z")
+-- lift honours the mask and moves the region only
+goto_xy(2, 2); key("w", " ", "\n", "down", "\n")
+check(S(2, 2) == nil and S(2, 3) == w1 and S(3, 3) == w1 and S(3, 4) == nil, "wand + lift: the region moves one lower (it covers the hole), the hole itself stays behind")
+key("^z")
+check(S(2, 2) == w1 and S(3, 3) == w2, "undo the lift")
+-- flip acts on the region
+goto_xy(2, 2); key("w", " ", "h")
+check(S(3, 3) == w1 and S(4, 3) == nil and S(2, 2) == w1, "wand + flip: only the region flips (the hole pixel does not)")
+key("^z")
+-- m clears the mask: a rectangle then clears everything inside
+key("m")
+goto_xy(2, 2); key(" ")
+goto_xy(5, 5); key(" ", "del")
+check(S(3, 3) == nil and S(2, 2) == nil, "m: a rectangle select has no mask, Del clears the whole box")
+key("^z", "esc", "b")
+
 -- the animation and the size
 key("+", "+", ">", "k", "z")
 check(screen():find("anim %d+/6") and sees("9 fps") and sees("onion"), "6 frames, 9 frames a second, onion skin")
@@ -678,6 +721,7 @@ check(sprs - s0 == 0 and sees("tile view off"), "q again: back to the normal pre
 check(keyhelp_title == "bm Pixel" and in_help("b / e / g / i", "pencil, eraser, fill") and in_help("Y A", "undo"),
       "keyhelp: the keys of the draw page, the pad's")
 check(in_help("q", "tile view"), "keyhelp: q is tile view")
+check(in_help("w", "wand"), "keyhelp: w is the wand")
 key("f3")
 check(in_help("e", "edit: R G B") and not in_help("p", "play"), "keyhelp: the palette's")
 check(E._exit() == true, "_exit: nothing to save, it leaves")

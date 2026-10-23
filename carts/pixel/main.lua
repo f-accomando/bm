@@ -499,6 +499,7 @@ dp = { anchor = nil, sel = nil, float = nil, stroke = nil, last_k = nil, last_f 
 local TOOLS = {
   { "pencil", "b" }, { "eraser", "e" }, { "fill", "g" }, { "pick", "i" }, { "line", "l" }, { "rect", "u" },
   { "rectfill", "U" }, { "oval", "o" }, { "ovalfill", "O" }, { "select", "m" },
+  { "wand", "w" },
 }
 local TWO_STEP = { line = true, rect = true, rectfill = true, oval = true, ovalfill = true, select = true }
 
@@ -621,6 +622,48 @@ local function sel_box()
   return s[1], s[2], s[3] - s[1] + 1, s[4] - s[2] + 1
 end
 
+-- the wand's mask (a set keyed y*rs+x) keeps the other tools to the pixels of one colour
+local MK = {}
+function MK.wand(x, y)
+  local target = get(x, y)
+  local m, stack, sp, n = {}, { x, y }, 2, 0
+  local x0, y0, x1, y1 = x, y, x, y
+  while sp > 0 do
+    local yy, xx = stack[sp], stack[sp - 1]
+    sp = sp - 2
+    if inside(xx, yy) and not m[yy * rs + xx] and get(xx, yy) == target then
+      m[yy * rs + xx] = true
+      n = n + 1
+      if xx < x0 then x0 = xx elseif xx > x1 then x1 = xx end
+      if yy < y0 then y0 = yy elseif yy > y1 then y1 = yy end
+      stack[sp + 1], stack[sp + 2], stack[sp + 3], stack[sp + 4] = xx + 1, yy, xx - 1, yy
+      stack[sp + 5], stack[sp + 6], stack[sp + 7], stack[sp + 8] = xx, yy + 1, xx, yy - 1
+      sp = sp + 8
+    end
+  end
+  return { x0, y0, x1, y1, mask = m }, n
+end
+-- the block with the pixels outside the mask transparent (no mask: as it is)
+function MK.cut(b, x, y)
+  local m = dp.sel and dp.sel.mask
+  if not m then return b end
+  for j = 0, b.h - 1 do
+    for i = 0, b.w - 1 do
+      if not m[(y + j) * rs + x + i] then b.px[j * b.w + i + 1] = false end
+    end
+  end
+  return b
+end
+-- the pixels of the box that the tools reach become transparent
+function MK.wipe(x, y, w, h)
+  local m = dp.sel and dp.sel.mask
+  for j = 0, h - 1 do
+    for i = 0, w - 1 do
+      if not m or m[(y + j) * rs + x + i] then sset(rx + x + i, ry + y + j, nil) end
+    end
+  end
+end
+
 local function use_tool()
   local c = colour()
   if dp.float then                          -- a block floating: put it down
@@ -643,6 +686,11 @@ local function use_tool()
     if n == 0 then table.remove(undo) else say(n .. " pixels filled", C_DIM, 60) end
   elseif tool == "pick" then
     pick_at(px, py)
+  elseif tool == "wand" then
+    local n
+    dp.sel, n = MK.wand(px, py)
+    dp.anchor = nil
+    say(n .. " pixels chosen: Ctrl+C copy, Ctrl+X cut, Enter lift, h v r, Del", C_DIM, 200)
   elseif TWO_STEP[tool] then
     if not dp.anchor then
       dp.anchor = { px, py }
@@ -685,11 +733,26 @@ local function transform(what)
   local x, y, w, h = target_box()
   if what == "turn" and w ~= h then say("only a square turns: choose one, or the whole sprite", C_ERR); return end
   begin()
-  local b = read_block(x, y, w, h)
+  local b = MK.cut(read_block(x, y, w, h), x, y)
+  local m = dp.sel and dp.sel.mask
+  local mb
+  if m then
+    mb = { w = w, h = h, px = {} }
+    for j = 0, h - 1 do for i = 0, w - 1 do mb.px[j * w + i + 1] = m[(y + j) * rs + x + i] or false end end
+    MK.wipe(x, y, w, h)
+  end
   if what == "flip h" then b = flip_block(b, true)
   elseif what == "flip v" then b = flip_block(b, false)
   elseif what == "turn" then b = turn_block(b) end
-  write_block(b, x, y, false)
+  if mb then                                -- the mask moves with the pixels
+    local nm = {}
+    if what == "flip h" then mb = flip_block(mb, true)
+    elseif what == "flip v" then mb = flip_block(mb, false)
+    else mb = turn_block(mb) end
+    for j = 0, mb.h - 1 do for i = 0, mb.w - 1 do if mb.px[j * mb.w + i + 1] then nm[(y + j) * rs + x + i] = true end end end
+    dp.sel.mask = nm
+  end
+  write_block(b, x, y, mb ~= nil)
   edits = edits + 1
   say(what .. (dp.sel and " (the selection)" or ""), C_DIM, 60)
 end
@@ -697,17 +760,17 @@ end
 local function clear_box()
   local x, y, w, h = target_box()
   begin()
-  for j = 0, h - 1 do for i = 0, w - 1 do sset(rx + x + i, ry + y + j, nil) end end
+  MK.wipe(x, y, w, h)
   edits = edits + 1
   say("cleared", C_DIM, 60)
 end
 
 local function copy_box(cut)
   local x, y, w, h = target_box()
-  clip_b = read_block(x, y, w, h)
+  clip_b = MK.cut(read_block(x, y, w, h), x, y)
   if cut then
     begin()
-    for j = 0, h - 1 do for i = 0, w - 1 do sset(rx + x + i, ry + y + j, nil) end end
+    MK.wipe(x, y, w, h)
     edits = edits + 1
   end
   say((cut and "cut " or "copied ") .. w .. "x" .. h, C_DIM, 60)
@@ -725,8 +788,8 @@ local function lift()
   if not dp.sel then return end
   local x, y, w, h = sel_box()
   begin()
-  local b = read_block(x, y, w, h)
-  for j = 0, h - 1 do for i = 0, w - 1 do sset(rx + x + i, ry + y + j, nil) end end
+  local b = MK.cut(read_block(x, y, w, h), x, y)
+  MK.wipe(x, y, w, h)
   dp.float = { b = b, x = x, y = y, lifted = true }
   dp.sel = nil
   edits = edits + 1
@@ -802,7 +865,7 @@ end
 local COMMANDS = {
   { "Pencil (b)", "b" }, { "Eraser (e)", "e" }, { "Fill (g)", "g" }, { "Colour from the sprite (i)", "i" },
   { "Line (l)", "l" }, { "Rectangle (u)", "u" }, { "Filled rectangle (U)", "U" }, { "Oval (o)", "o" },
-  { "Filled oval (O)", "O" }, { "Select (m)", "m" }, { "Copy (Ctrl+C)", "^c" }, { "Cut (Ctrl+X)", "^x" },
+  { "Filled oval (O)", "O" }, { "Select (m)", "m" }, { "Wand select (w)", "w" }, { "Copy (Ctrl+C)", "^c" }, { "Cut (Ctrl+X)", "^x" },
   { "Paste (Ctrl+V)", "^v" }, { "Flip left-right (h)", "h" }, { "Flip up-down (v)", "v" }, { "Turn (r)", "r" },
   { "Clear (Del)", "del" }, { "Mirror drawing (y)", "y" }, { "Grid (t)", "t" }, { "Onion skin (k)", "k" },
   { "Play the animation (p)", "p" }, { "More frames (+)", "+" }, { "Fewer frames (-)", "-" },
@@ -999,6 +1062,19 @@ function draw_draw()
   if dp.anchor and tool == "select" then
     local x0, y0, x1, y1 = box(dp.anchor[1], dp.anchor[2], px, py)
     frame_box(x0, y0, x1, y1, (frame // 8) % 2 == 0 and 0xFFFFFF or C_ACC)
+  elseif dp.sel and dp.sel.mask then          -- the wand: a dotted line round the pixels only
+    local m, col = dp.sel.mask, (frame // 8) % 2 == 0 and 0xFFFFFF or C_ACC
+    for k in pairs(m) do
+      local x, y = k % rs, k // rs
+      local sx, sy = CANVAS_X + x * z, CANVAS_Y + y * z
+      for t = 0, z - 1, 4 do
+        local l = min(2, z - t)
+        if not m[k - rs] then rectfill(sx + t, sy, l, 1, col) end
+        if not m[k + rs] then rectfill(sx + t, sy + z - 1, l, 1, col) end
+        if not m[k - 1] or x == 0 then rectfill(sx, sy + t, 1, l, col) end
+        if not m[k + 1] or x == rs - 1 then rectfill(sx + z - 1, sy + t, 1, l, col) end
+      end
+    end
   elseif dp.sel then
     frame_box(dp.sel[1], dp.sel[2], dp.sel[3], dp.sel[4], (frame // 8) % 2 == 0 and 0xFFFFFF or C_ACC)
   end
@@ -1095,7 +1171,7 @@ function draw_draw()
            { { "r" }, "turn" }, { { "del" }, "clear" }, { { "esc" }, "none" } })
   elseif dp.anchor then hint({ { { "up", "down", "left", "right" }, "the other corner" }, { { "space" }, "done" }, { { "esc" }, "cancel" } })
   else
-    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "l", "u", "o", "m" }, "tools" },
+    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "l", "u", "o", "m", "w" }, "tools" },
            { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "j" }, "boxes" }, { { "q" }, "tile" }, { { "tab" }, "more" } })
   end
 end
@@ -1900,7 +1976,8 @@ local HELP = {
     { "b / e / g / i", "pencil, eraser, fill, colour from the sprite" },
     { "l / u / shift u", "line, rectangle (filled)" },
     { "o / shift o", "oval (filled)" },
-    { "m", "select" },
+    { "m", "select a rectangle" },
+    { "w", "wand: select the area of one colour" },
     { ", / .", "colour back / on" },
     { "x", "the colour before" },
     { "1 - 9 / 0", "the first ten colours" },
@@ -2163,7 +2240,7 @@ local function mouse_frame()
   local list
   if page == "draw" then
     list = { { "Pencil", "b" }, { "Eraser", "e" }, { "Fill", "g" }, { "Pick", "i" }, { "Line", "l" }, { "Rectangle", "u" },
-             { "Filled rectangle", "U" }, { "Oval", "o" }, { "Filled oval", "O" }, { "Select", "m" }, "-",
+             { "Filled rectangle", "U" }, { "Oval", "o" }, { "Filled oval", "O" }, { "Select", "m" }, { "Wand select", "w" }, "-",
              { "Copy", "^c" }, { "Cut", "^x" }, { "Paste", "^v" }, { "Mirror", "h" }, { "Upside down", "v" },
              { "Turn", "r" }, { "Clear", "del" }, "-", { "Mirror drawing", "y" }, { "Grid", "t" }, { "Onion skin", "k" },
              { "Play", "p" }, { "Size", "z" }, { "Tile view", "q" } }
