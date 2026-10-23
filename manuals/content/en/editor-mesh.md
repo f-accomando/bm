@@ -20,7 +20,7 @@ footer: bm manuals - editor-mesh
 ## What it does
 
 - It shows the models of a cartridge turning in a preview, with vertices, triangles and skeleton.
-- It lets you choose vertices or faces and move, rotate, scale, extrude, mirror, merge, delete and paint them.
+- It lets you choose vertices, edges or faces and move, rotate, scale, extrude, mirror, merge, delete and paint them.
 - It also reads the meshes that the game's own code builds, so you can start from a ship or a ring made in Lua.
 
 ## How it connects to Studio and Animator
@@ -140,7 +140,7 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | Enter | choose only that one |
 | a | choose all; if something is chosen, choose none |
 | l | choose everything connected to it |
-| Tab | switch between vertices and faces |
+| Tab | switch between vertices, edges and faces |
 | g, r, t | move, rotate, scale |
 | x | extrude the chosen faces |
 | d | duplicate the chosen faces |
@@ -148,6 +148,7 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | m | mirror the choice, left to right on the screen |
 | M | copy the choice to the other side of 0 |
 | X (Shift+X) | live mirror on or off |
+| Ctrl+R | loop cut across the chosen edge |
 | j | make a face on 3 or 4 chosen vertices |
 | k | merge the chosen vertices into one |
 | K | weld the vertices at the same point |
@@ -185,17 +186,17 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 
 # Selecting and moving
 
-## Vertices or faces
+## Vertices, edges or faces
 
-The edit page has two modes. **Tab** switches between them; the line at the top says `VERTICES` or `FACES`. In each mode a choice is a set of vertices or a set of faces.
+The edit page has three modes. **Tab** goes from one to the next: vertices, edges, faces, and again vertices. The line at the top says `VERTICES`, `EDGES` or `FACES`. In each mode a choice is a set of vertices, a set of edges or a set of faces.
 
-- Put the pointer on a vertex or on a face: it lights up.
+- Put the pointer on a vertex, on an edge or on a face: it lights up. An edge is the line between two vertices of a triangle; the pointer must be within 6 pixels of it.
 - **space** adds it to the choice, or takes it away if it was in. **Enter** makes it the only one.
 - With the mouse, a click chooses only what is under the pointer; Shift + click adds or takes away.
 - **a** chooses all; press it again to choose none. **l** adds everything joined to the choice by faces.
-- **n** and **b** walk through all the vertices or faces in order: this reaches also the ones hidden behind the model.
+- **n** and **b** walk through all the vertices, edges or faces in order: this reaches also the ones hidden behind the model.
 
-When you switch mode, the choice follows: the vertices of the chosen faces, or the faces whose three corners are chosen.
+When you switch mode, the choice follows: from vertices to edges, the edges whose two ends are chosen; from edges to faces, the faces whose three corners are chosen; from faces to vertices, the corners of the chosen faces.
 
 ## Move, rotate, scale
 
@@ -222,6 +223,16 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 ## Live mirror
 
 **Shift+X** turns the live mirror on and off. While it is on, the page shows **MIRROR X**. Move, rotate, scale, paint and delete then act on the chosen vertices or faces and on their counterparts across the plane X = 0. The editor finds the counterpart by position: the vertex at (-x, y, z), within 0.001. A vertex on the plane is its own counterpart. A vertex with no counterpart changes alone. If you choose both sides, the vertex with the lower number leads and the other follows. The tools that add parts or change the topology (add a part, extrude, duplicate, subdivide) do not act on the other side. One undo takes back both sides. With the gamepad, tap X and pick **Live mirror X on / off**.
+
+## Edges and the loop cut
+
+In edge mode a choice is a set of edges. The chosen edges show as thick lines. Move, rotate and scale act on the two ends of each chosen edge. **x** and **d** act on the faces whose corners are all chosen. **Del** removes the triangles next to the chosen edges, and the vertices that no triangle uses any more. With the live mirror on, choosing an edge also chooses its counterpart across X = 0, and move, rotate, scale and delete act on both. The loop cut does not act on the other side.
+
+**Ctrl+R** makes a loop cut. Choose one edge first (in vertex mode, two vertices that make an edge are enough). The editor goes from the edge across the quads around the model. A quad is two triangles that look the same way (the angle between their normals is less than 60 degrees) and share a diagonal. In each quad it crosses the edge and the opposite edge, and goes on from that edge. It puts one new vertex in the middle of each crossed edge and cuts each quad in four triangles. A new vertex takes the bone of the lower end of its edge and the mean of the texture points (UV). A new triangle takes the colour of the old face that holds most of its corners.
+
+The ring stops in two cases. At an open border (an edge with one triangle only) there is nothing to cross. At a triangle that is not part of a quad, the triangle is cut in two, from the new vertex to its far corner, so no gap stays. The ring is closed if it comes back to the first edge. If the ring would cross itself, or an edge has more than two triangles, nothing changes and a message tells why.
+
+When it is done, the new vertices are the choice (in edge mode, the new edges across the quads), so you can move or scale the loop at once. One undo takes back the whole cut. With the gamepad, tap X and pick **Loop cut on the chosen edge**.
 
 ## The view
 
@@ -272,7 +283,7 @@ Do the three tutorials in order with a cartridge of yours that has a model, or w
 1. Start bm Mesh from the **Dev** tab (or **X** on the cover of a game, **Open in bm Mesh**). Choose the cartridge in the file chooser with up and down and Enter.
 2. You are on the list page. Choose a mesh with up and down: it turns in the preview.
 3. Press **Enter** to edit it. If the mesh is a G mesh, the first change makes a copy as a model.
-4. Look at the top line. If it says `FACES`, press **Tab**: it must say `VERTICES`.
+4. Look at the top line. If it does not say `VERTICES`, press **Tab** until it does.
 5. Move the pointer with the arrows to a vertex until it gets a circle around it.
 6. Press **Enter**. The top line says `VERTICES: 1 chosen`.
 7. Press **g**. The top line shows `MOVE`. Press the **up** arrow once: the vertex moves up by the step.

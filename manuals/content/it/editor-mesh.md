@@ -20,7 +20,7 @@ footer: manuali bm - editor-mesh
 ## Cosa fa
 
 - Mostra i modelli di una cartuccia che girano in un'anteprima, con vertici, triangoli e scheletro.
-- Ti lascia scegliere vertici o facce e spostarli, ruotarli, scalarli, estrudere, specchiare, fondere, cancellare e colorare.
+- Ti lascia scegliere vertici, spigoli o facce e spostarli, ruotarli, scalarli, estrudere, specchiare, fondere, cancellare e colorare.
 - Legge anche le mesh che costruisce il codice del gioco, quindi puoi partire da un'astronave o da un anello fatti in Lua.
 
 ## Come si collega a Studio e Animator
@@ -140,7 +140,7 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | Enter | sceglie solo quello |
 | a | sceglie tutto; se qualcosa è scelto, non sceglie niente |
 | l | sceglie tutto ciò che è collegato |
-| Tab | passa da vertici a facce |
+| Tab | passa da vertici a spigoli e a facce |
 | g, r, t | sposta, ruota, scala |
 | x | estrude le facce scelte |
 | d | duplica le facce scelte |
@@ -148,6 +148,7 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | m | specchia la scelta, da sinistra a destra sullo schermo |
 | M | copia la scelta dall'altra parte dello 0 |
 | X (Maiusc+X) | specchio dal vivo acceso o spento |
+| Ctrl+R | taglio ad anello attraverso lo spigolo scelto |
 | j | crea una faccia su 3 o 4 vertici scelti |
 | k | fonde i vertici scelti in uno |
 | K | salda i vertici nello stesso punto |
@@ -185,17 +186,17 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 
 # Scegliere e spostare
 
-## Vertici o facce
+## Vertici, spigoli o facce
 
-La pagina edit ha due modalità. **Tab** passa dall'una all'altra; la riga in alto dice `VERTICES` o `FACES`. In ogni modalità una scelta è un insieme di vertici o un insieme di facce.
+La pagina edit ha tre modalità. **Tab** passa dall'una alla successiva: vertici, spigoli, facce, e di nuovo vertici. La riga in alto dice `VERTICES`, `EDGES` o `FACES`. In ogni modalità una scelta è un insieme di vertici, di spigoli o di facce.
 
-- Metti il puntatore su un vertice o su una faccia: si illumina.
+- Metti il puntatore su un vertice, su uno spigolo o su una faccia: si illumina. Uno spigolo è la linea tra due vertici di un triangolo; il puntatore deve stare entro 6 pixel.
 - **spazio** lo aggiunge alla scelta, o lo toglie se c'era. **Enter** lo rende l'unico.
 - Con il mouse, un clic sceglie solo ciò che è sotto il puntatore; Shift + clic aggiunge o toglie.
 - **a** sceglie tutto; premilo ancora per non sceglierne nessuno. **l** aggiunge tutto ciò che è unito alla scelta da facce.
-- **n** e **b** scorrono tutti i vertici o le facce in ordine: così raggiungi anche quelli nascosti dietro il modello.
+- **n** e **b** scorrono tutti i vertici, gli spigoli o le facce in ordine: così raggiungi anche quelli nascosti dietro il modello.
 
-Quando cambi modalità la scelta ti segue: i vertici delle facce scelte, o le facce di cui tutti e tre gli angoli sono scelti.
+Quando cambi modalità la scelta ti segue: da vertici a spigoli, gli spigoli di cui i due estremi sono scelti; da spigoli a facce, le facce di cui tutti e tre gli angoli sono scelti; da facce a vertici, gli angoli delle facce scelte.
 
 ## Sposta, ruota, scala
 
@@ -222,6 +223,16 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 ## Specchio dal vivo
 
 **Maiusc+X** accende e spegne lo specchio dal vivo. Quando è acceso, la pagina mostra **MIRROR X**. Sposta, ruota, scala, dipingi e cancella agiscono allora sui vertici o sulle facce scelti e sui loro corrispondenti dall'altra parte del piano X = 0. L'editor trova il corrispondente dalla posizione: il vertice in (-x, y, z), entro 0,001. Un vertice sul piano è il corrispondente di se stesso. Un vertice senza corrispondente cambia da solo. Se scegli entrambi i lati, guida il vertice con il numero più basso e l'altro lo segue. Gli strumenti che aggiungono parti o cambiano la topologia (aggiungi una parte, estrudi, duplica, suddividi) non agiscono sull'altro lato. Un solo annulla riporta indietro entrambi i lati. Con il gamepad tocca X e scegli **Live mirror X on / off**.
+
+## Spigoli e taglio ad anello
+
+In modalità spigoli una scelta è un insieme di spigoli. Gli spigoli scelti si vedono come linee spesse. Sposta, ruota e scala agiscono sui due estremi di ogni spigolo scelto. **x** e **d** agiscono sulle facce di cui tutti gli angoli sono scelti. **Canc** toglie i triangoli accanto agli spigoli scelti, e i vertici che nessun triangolo usa più. Con lo specchio dal vivo acceso, scegliere uno spigolo sceglie anche il suo corrispondente dall'altra parte di X = 0, e sposta, ruota, scala e cancella agiscono su entrambi. Il taglio ad anello non agisce sull'altro lato.
+
+**Ctrl+R** fa un taglio ad anello. Scegli prima uno spigolo (in modalità vertici bastano due vertici che formano uno spigolo). L'editor parte dallo spigolo e attraversa i quadrati intorno al modello. Un quadrato è fatto di due triangoli che guardano dalla stessa parte (l'angolo tra le loro normali è minore di 60 gradi) e che hanno una diagonale in comune. In ogni quadrato attraversa lo spigolo e quello opposto, e continua da quello opposto. Mette un vertice nuovo a metà di ogni spigolo attraversato e taglia ogni quadrato in quattro triangoli. Un vertice nuovo prende l'osso dell'estremo più basso del suo spigolo e la media dei punti della texture (UV). Un triangolo nuovo prende il colore della vecchia faccia che contiene più dei suoi angoli.
+
+L'anello si ferma in due casi. A un bordo aperto (uno spigolo con un solo triangolo) non c'è nulla da attraversare. A un triangolo che non fa parte di un quadrato, il triangolo viene tagliato in due, dal vertice nuovo all'angolo opposto, così non resta nessun buco. L'anello è chiuso se torna al primo spigolo. Se l'anello si attraversasse da solo, o uno spigolo avesse più di due triangoli, non cambia nulla e un messaggio dice il perché.
+
+Alla fine i vertici nuovi sono la scelta (in modalità spigoli, i nuovi spigoli attraverso i quadrati), quindi puoi spostare o scalare l'anello subito. Un solo annulla riporta indietro tutto il taglio. Con il gamepad tocca X e scegli **Loop cut on the chosen edge**.
 
 ## La vista
 
@@ -272,7 +283,7 @@ Fai i tre tutorial in ordine con una cartuccia tua che ha un modello, oppure con
 1. Avvia bm Mesh dalla scheda **Dev** (oppure **X** sulla copertina di un gioco, **Open in bm Mesh**). Scegli la cartuccia nel selettore di file con su, giù ed Enter.
 2. Sei nella pagina list. Scegli una mesh con su e giù: gira nell'anteprima.
 3. Premi **Enter** per modificarla. Se la mesh è una mesh G, la prima modifica ne crea una copia come modello.
-4. Guarda la riga in alto. Se dice `FACES`, premi **Tab**: deve dire `VERTICES`.
+4. Guarda la riga in alto. Se non dice `VERTICES`, premi **Tab** finché lo dice.
 5. Muovi il puntatore con le frecce su un vertice finché ottiene un cerchio intorno.
 6. Premi **Enter**. La riga in alto dice `VERTICES: 1 chosen`.
 7. Premi **g**. La riga in alto mostra `MOVE`. Premi la freccia **su** una volta: il vertice sale del passo.

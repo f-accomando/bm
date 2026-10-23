@@ -614,8 +614,8 @@
  "editor-mesh": {
   "chapters": {
    "1": {
-    "en": "a11fc1598498",
-    "it": "0a1abf1502fb",
+    "en": "5db5eb1e8fd0",
+    "it": "cd6ad0ba2171",
     "title": "What bm Mesh is"
    },
    "2": {
@@ -624,13 +624,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "e2ad4eb6ec34",
-    "it": "86de6081cbcf",
+    "en": "3e379aae410b",
+    "it": "4cfc1a3e2d43",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "bd395efd3020",
-    "it": "754f2d874756",
+    "en": "90469d61675b",
+    "it": "899ec40dc07c",
     "title": "Selecting and moving"
    },
    "5": {
@@ -644,8 +644,8 @@
     "title": "Saving"
    },
    "7": {
-    "en": "1dc8d2ad12e8",
-    "it": "3e6cdf456d9d",
+    "en": "f4524c507d07",
+    "it": "f1c9e58f3b33",
     "title": "Tutorials"
    },
    "8": {
@@ -655,7 +655,7 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "0cde58b53156",
+   "carts/mesh/main.lua": "9f8bcb2e5596",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
    "docs/progress/tools.md": "15b2419a1eaa",

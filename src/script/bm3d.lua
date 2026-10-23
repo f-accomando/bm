@@ -328,6 +328,194 @@ function G.mirror_faces(it, fs, mp)
   return out
 end
 
+-- Edges are not stored: they come from the triangles. An edge is a pair of
+-- vertices a < b; its key is a * 65536 + b.
+function G.edge_key(a, b)
+  if a > b then a, b = b, a end
+  return a * 65536 + b
+end
+
+function G.edge_ends(k) return k // 65536, k % 65536 end
+
+-- { [edge key] = { the faces that have the edge } }
+function G.edge_faces(it)
+  local out = {}
+  for fi, f in ipairs(it.f) do
+    for k = 1, 3 do
+      local key = G.edge_key(f[k], f[k % 3 + 1])
+      local l = out[key]
+      if l then l[#l + 1] = fi else out[key] = { fi } end
+    end
+  end
+  return out
+end
+
+-- The quad that the face ti makes across the edge key: ti and the face
+-- over one of its other two edges (the diagonal; it must be shared with one
+-- face only, and the two faces must look the same way: normals within 60
+-- degrees; when both edges fit, the flatter pair, then the longer edge, is the
+-- diagonal). Returns { c = {q1, q2, q3, q4} the corners in the winding of
+-- ti with the edge (q1, q2) and the opposite edge (q3, q4), t = ti, u = the
+-- other face, e2 = the key of the opposite edge } or nil.
+local function loop_quad(it, ef, ti, key)
+  local f = it.f[ti]
+  local p, q, c
+  for k = 1, 3 do
+    if G.edge_key(f[k], f[k % 3 + 1]) == key then p, q, c = f[k], f[k % 3 + 1], f[(k + 1) % 3 + 1] end
+  end
+  if not p then return nil end
+  local n1 = G.unit(G.normal_of(it, f))
+  local best
+  for side = 1, 2 do
+    local x, y = c, p
+    if side == 1 then x, y = q, c end
+    local l = ef[G.edge_key(x, y)]
+    if l and #l == 2 then
+      local u = l[1] == ti and l[2] or l[1]
+      local g = it.f[u]
+      local d
+      for k = 1, 3 do if g[k] ~= x and g[k] ~= y then d = g[k] end end
+      if d and d ~= p and d ~= q and d ~= c then
+        local n2 = G.unit(G.normal_of(it, g))
+        local dot = n1[1] * n2[1] + n1[2] * n2[2] + n1[3] * n2[3]
+        local a, b = it.v[x], it.v[y]
+        local len = (a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2
+        if dot >= 0.5 and (not best or dot > best.dot + 1e-4 or (dot > best.dot - 1e-4 and len > best.len)) then
+          best = { dot = dot, len = len, u = u,
+                   c = side == 1 and { p, q, d, c } or { p, q, c, d } }
+        end
+      end
+    end
+  end
+  if not best then return nil end
+  return { c = best.c, t = ti, u = best.u, e2 = G.edge_key(best.c[3], best.c[4]) }
+end
+
+-- Loop cut, the plan. The ring of quads (two triangles) that cross the edge
+-- (a, b): from the edge, over the quad of each face it has, to the opposite
+-- edge, and on, until the ring is closed. The walk stops at an open border
+-- (an edge with one face) and at a face that makes no quad: that face is cut
+-- in two from the new vertex to its far corner, so no gap stays. Nothing
+-- changes. Returns the plan { edges = {keys}, quads = {...}, plains = { {face,
+-- key} }, closed } or nil and a message.
+function G.loop_plan(it, a, b)
+  local ef = G.edge_faces(it)
+  local k0 = G.edge_key(a, b)
+  local l0 = ef[k0]
+  if not l0 then return nil, "this is not an edge" end
+  if #l0 > 2 then return nil, "the edge has more than 2 faces" end
+  local plan = { edges = { k0 }, quads = {}, plains = {}, closed = false }
+  local seen, used, failed = { [k0] = true }, {}, nil
+  local function walk(ti)
+    local key = k0
+    while true do
+      if used[ti] then failed = "the ring crosses itself"; return end
+      local qd = loop_quad(it, ef, ti, key)
+      if not qd then
+        used[ti] = true
+        plan.plains[#plan.plains + 1] = { ti, key }
+        return
+      end
+      if used[qd.u] then failed = "the ring crosses itself"; return end
+      used[ti], used[qd.u] = true, true
+      plan.quads[#plan.quads + 1] = qd
+      if qd.e2 == k0 then plan.closed = true; return end
+      if seen[qd.e2] then failed = "the ring crosses itself"; return end
+      seen[qd.e2] = true
+      plan.edges[#plan.edges + 1] = qd.e2
+      local l = ef[qd.e2]
+      if #l > 2 then failed = "an edge of the ring has more than 2 faces"; return end
+      if #l == 1 then return end
+      key, ti = qd.e2, l[1] == qd.u and l[2] or l[1]
+    end
+  end
+  walk(l0[1])
+  if not failed and l0[2] and not used[l0[2]] then walk(l0[2]) end
+  if failed then return nil, failed end
+  if #plan.quads == 0 then return nil, "no quad around this edge (two triangles that make a square)" end
+  return plan
+end
+
+-- Loop cut, the change: one new vertex in the middle of each edge of the
+-- plan (the bone of the lower end; the uv by the mean), the quads in 4
+-- triangles, the other faces in 2. A new triangle takes the colour and the uv
+-- of the old face that holds most of its corners. Returns { mids = the new
+-- vertices, rungs = { {m, n} one for each quad: the new edge across it } }.
+function G.loop_apply(it, plan)
+  local mid, ends = {}, {}
+  for _, k in ipairs(plan.edges) do
+    local a, b = G.edge_ends(k)
+    local p, q = it.v[a], it.v[b]
+    mid[k] = G.add_vertex(it, { (p[1] + q[1]) / 2, (p[2] + q[2]) / 2, (p[3] + q[3]) / 2 }, a)
+    ends[mid[k]] = { a, b }
+  end
+  local function has(f, v)
+    if ends[v] then return has(f, ends[v][1]) and has(f, ends[v][2]) end
+    return f[1] == v or f[2] == v or f[3] == v
+  end
+  local function uvof(f, v)
+    if not f[5] then return nil end
+    for k = 1, 3 do if f[k] == v then return { f[5][k * 2 - 1], f[5][k * 2] } end end
+  end
+  -- the uv of a corner (an old vertex or a new one) from the face f, else from g
+  local function corner_uv(v, f, g)
+    local e = ends[v]
+    if e then
+      local a, b = corner_uv(e[1], f, g), corner_uv(e[2], f, g)
+      return { (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 }
+    end
+    return uvof(f, v) or uvof(g, v) or { 0, 0 }
+  end
+  local function tri(a, b, c, f, g)
+    local sf, sg = 0, 0
+    for _, v in ipairs({ a, b, c }) do
+      if has(f, v) then sf = sf + 1 end
+      if has(g, v) then sg = sg + 1 end
+    end
+    local s, o = f, g
+    if sg > sf then s, o = g, f end
+    local uv
+    if s[5] then
+      local ua, ub, uc = corner_uv(a, s, o), corner_uv(b, s, o), corner_uv(c, s, o)
+      uv = { ua[1], ua[2], ub[1], ub[2], uc[1], uc[2] }
+    end
+    return { a, b, c, s[4], uv }
+  end
+  local add = {}
+  local rungs = {}
+  for _, qd in ipairs(plan.quads) do
+    local q1, q2, q3, q4 = qd.c[1], qd.c[2], qd.c[3], qd.c[4]
+    local m, n = mid[G.edge_key(q1, q2)], mid[qd.e2]
+    local f, g = it.f[qd.t], it.f[qd.u]
+    local t = { tri(q1, m, n, f, g), tri(q1, n, q4, f, g), tri(m, q2, q3, f, g), tri(m, q3, n, f, g) }
+    it.f[qd.t], it.f[qd.u] = t[1], t[2]
+    add[#add + 1] = t[3]; add[#add + 1] = t[4]
+    rungs[#rungs + 1] = { m, n }
+  end
+  for _, pl in ipairs(plan.plains) do
+    local f = it.f[pl[1]]
+    local m = mid[pl[2]]
+    for k = 1, 3 do
+      if G.edge_key(f[k], f[k % 3 + 1]) == pl[2] then
+        local x, y, z = f[k], f[k % 3 + 1], f[(k + 1) % 3 + 1]
+        it.f[pl[1]] = tri(x, m, z, f, f)
+        add[#add + 1] = tri(m, y, z, f, f)
+        break
+      end
+    end
+  end
+  for _, f in ipairs(add) do it.f[#it.f + 1] = f end
+  local mids = {}
+  for _, k in ipairs(plan.edges) do mids[#mids + 1] = mid[k] end
+  return { mids = mids, rungs = rungs }
+end
+
+function G.loop_cut(it, a, b)
+  local plan, err = G.loop_plan(it, a, b)
+  if not plan then return nil, err end
+  return G.loop_apply(it, plan), plan
+end
+
 -- A primitive ("cube", "plane", "sphere" or "cylinder") of the width size, in
 -- the colour col, with its middle at centre, added to the model it as a new
 -- part. The faces look out. The new vertices take the bone given (or 0) when
