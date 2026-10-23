@@ -1656,7 +1656,7 @@ function models_page.key(k)
     T.picture_chooser()
   elseif k == "-" and m and m.nt and m.nt > 1 then
     -- the reducer (src/bm/decimate.c): the triangles wanted, half by default
-    T.ask("triangles (now " .. m.nt .. "; at most " .. T.TRIS_60FPS .. " a scene at 60 fps)", tostring(m.nt // 2),
+    T.ask("triangles (now " .. m.nt .. "; about " .. T.TRIS_60FPS .. " a scene for 60 fps on the Pi Zero W)", tostring(m.nt // 2),
           function(t)
       local n = math.tointeger(tonumber(t))
       if not n or n < 1 then say("a number of triangles", C.ERR); return end

@@ -166,7 +166,7 @@ since = 3
 status = "implemented"
 platforms = "all"
 where = ["src/kernel/sdmap_core.c", "src/kernel/sdmap.c", "src/kernel/settings.c", "src/kernel/menu_ui.c", "src/fs/fat.c"]
-note = "Settings > System > SD map: bar kernel/bm/bme/other/free, folders, other files; incremental scan in a menu fiber; cache bm/sdmap.txt"
+note = "Settings > System > SD map: bar kernel/bm/bme/other/free, folders, other files; incremental scan in a menu fiber; cache bm/sdmap.txt; /glb and /bmm are listed as folders of their own (host test_fat)"
 
 [[item]]
 id = "api-cel3d"

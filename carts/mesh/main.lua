@@ -16,6 +16,7 @@
 
 local W, H = SCREEN_W, SCREEN_H
 local U = require "bmui"                 -- the mouse: what the keys do, by clicking
+local B = require "bm3d"                 -- the shared code; B.G is the pure geometry of a model
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
 local C_SKY, C_GRID, C_WIRE, C_PT, C_HOT = 0x262C3E, 0x3A4258, 0x7A88B0, 0xFFE070, 0x60E0FF
@@ -39,6 +40,10 @@ local ok_assist, assist = pcall(require, "assist")   -- F6: the assistant's 3D r
 
 local function clamp(v, a, b) if v < a then return a elseif v > b then return b end return v end
 local function round(v) return floor(v + 0.5) end
+
+-- the pure geometry (bm3d.lua, B.G)
+local model_item, encode_model = B.G.model_item, B.G.encode_model
+local normal_of, unit, flip, add_vertex = B.G.normal_of, B.G.unit, B.G.flip, B.G.add_vertex
 
 local PALETTE = {
   0x000000, 0x1C2030, 0x404450, 0x808490, 0xC0C4D0, 0xFFFFFF, 0x5A2A22, 0xA84632, 0xE84A5A, 0xE890B0,
@@ -98,55 +103,6 @@ end
 --   from 1; colour 0xRRGGBB or -1 = textured, uv = 6 sheet pixels),
 --   vb = { the bone of each vertex, from 0 } and ac (the ANIM part) for a
 --   model with a skeleton, mc (the MESH part as read, while unchanged) }
-local function model_item(name, mc, ac)
-  local nv, nf = sunpack("<I2I2", mc, 17)
-  local it = { kind = "model", name = name, v = {}, f = {}, mc = mc, mc_name = name }
-  local pos = 25
-  for i = 1, nv do
-    local x, y, z = sunpack("<fff", mc, pos)
-    it.v[i] = { x, y, z }
-    pos = pos + 12
-  end
-  for i = 1, nf do
-    local a, b, c, _, col, u0, v0, u1, v1, u2, v2 = sunpack("<I2I2I2I2I4I2I2I2I2I2I2", mc, pos)
-    local f = { a + 1, b + 1, c + 1, col & 0xFFFFFF }
-    if col & TEXTURED ~= 0 then f[4], f[5] = -1, { u0 / 8, v0 / 8, u1 / 8, v1 / 8, u2 / 8, v2 / 8 } end
-    it.f[i] = f
-    pos = pos + 24
-  end
-  if ac then
-    local nb, nc, anv = sunpack("<I2I2I2", ac, 17)
-    it.ac, it.bones, it.clips = ac, nb, nc
-    if anv == nv then
-      it.vb = {}
-      local p = 25 + nb * 44
-      for i = 1, nv do it.vb[i] = ac:byte(p + i - 1) end
-    end
-  end
-  return it
-end
-
--- the model's part of the MESH section
-local function encode_model(it)
-  if not it.dirty and it.mc then
-    return it.mc_name == it.name and it.mc or name16(it.name) .. it.mc:sub(17)
-  end
-  local out = { name16(it.name), spack("<I2I2I4", #it.v, #it.f, 0) }
-  for _, p in ipairs(it.v) do out[#out + 1] = spack("<fff", p[1], p[2], p[3]) end
-  for _, f in ipairs(it.f) do
-    local col, u, t = f[4], f[5], { 0, 0, 0, 0, 0, 0 }
-    if col == -1 then
-      col = TEXTURED
-      if u then for k = 1, 6 do t[k] = clamp(round(u[k] * 8), 0, 65535) end end
-    else
-      col = col & 0xFFFFFF
-    end
-    out[#out + 1] = spack("<I2I2I2I2I4I2I2I2I2I2I2", f[1] - 1, f[2] - 1, f[3] - 1, 0, col,
-                          t[1], t[2], t[3], t[4], t[5], t[6])
-  end
-  return table.concat(out)
-end
-
 -- its skeleton in the ANIM section: the bones and animations as they
 -- were, the bone of each vertex from vb (vertices added and removed)
 local function encode_rig(it)
@@ -579,7 +535,7 @@ local function finish_edit(what)
   if #it.v > LIMIT_V or #it.f > LIMIT_F then
     local s = table.remove(undo)
     if s then restore(s) end
-    say("cannot: at most " .. LIMIT_V .. " vertices and " .. LIMIT_F .. " triangles", C_ERR)
+    say("cannot: format limit " .. LIMIT_V .. " vertices and " .. LIMIT_F .. " triangles", C_ERR)
     return false
   end
   changed(it)
@@ -939,54 +895,11 @@ local function delete()
   say("deleted " .. it.name .. " (Ctrl+S saves)", C_ACC)
 end
 
--- new models: a cube, a plane, a sphere (in the colour of the edit page)
-local function orient(it, c)
-  for _, f in ipairs(it.f) do
-    local a, b, d = it.v[f[1]], it.v[f[2]], it.v[f[3]]
-    local ux, uy, uz = b[1] - a[1], b[2] - a[2], b[3] - a[3]
-    local vx, vy, vz = d[1] - a[1], d[2] - a[2], d[3] - a[3]
-    local nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
-    local mx, my, mz = (a[1] + b[1] + d[1]) / 3 - c[1], (a[2] + b[2] + d[2]) / 3 - c[2], (a[3] + b[3] + d[3]) / 3 - c[3]
-    if nx * mx + ny * my + nz * mz < 0 then f[2], f[3] = f[3], f[2] end
-  end
-end
-
+-- new models: a cube, a plane, a sphere, a cylinder (in the colour of the edit page)
 local function new_shape(shape)
   if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return end
-  local col = ed.colour
   local it = { kind = "model", name = unique_name("model", shape), v = {}, f = {}, dirty = true }
-  if shape == "cube" then
-    for _, p in ipairs({ { -0.5, 0, -0.5 }, { 0.5, 0, -0.5 }, { 0.5, 1, -0.5 }, { -0.5, 1, -0.5 },
-                         { -0.5, 0, 0.5 }, { 0.5, 0, 0.5 }, { 0.5, 1, 0.5 }, { -0.5, 1, 0.5 } }) do it.v[#it.v + 1] = p end
-    for _, t in ipairs({ { 1, 4, 3 }, { 1, 3, 2 }, { 5, 6, 7 }, { 5, 7, 8 }, { 1, 2, 6 }, { 1, 6, 5 },
-                         { 4, 8, 7 }, { 4, 7, 3 }, { 1, 5, 8 }, { 1, 8, 4 }, { 2, 3, 7 }, { 2, 7, 6 } }) do
-      it.f[#it.f + 1] = { t[1], t[2], t[3], col }
-    end
-  elseif shape == "plane" then
-    it.v = { { -0.5, 0, -0.5 }, { 0.5, 0, -0.5 }, { 0.5, 0, 0.5 }, { -0.5, 0, 0.5 } }
-    it.f = { { 1, 4, 3, col }, { 1, 3, 2, col } }
-  else
-    local rings, segs = 6, 12
-    it.v[1] = { 0, 1, 0 }
-    for r = 1, rings - 1 do
-      local a = r / rings * pi
-      for s = 0, segs - 1 do
-        local b = s / segs * 2 * pi
-        it.v[#it.v + 1] = { 0.5 * sin(a) * cos(b), 0.5 + 0.5 * cos(a), 0.5 * sin(a) * sin(b) }
-      end
-    end
-    it.v[#it.v + 1] = { 0, 0, 0 }
-    local function at(r, s) return 2 + (r - 1) * segs + s % segs end
-    for s = 0, segs - 1 do
-      it.f[#it.f + 1] = { 1, at(1, s), at(1, s + 1), col }
-      it.f[#it.f + 1] = { #it.v, at(rings - 1, s + 1), at(rings - 1, s), col }
-      for r = 1, rings - 2 do
-        it.f[#it.f + 1] = { at(r, s), at(r + 1, s), at(r + 1, s + 1), col }
-        it.f[#it.f + 1] = { at(r, s), at(r + 1, s + 1), at(r, s + 1), col }
-      end
-    end
-    orient(it, { 0, 0.5, 0 })
-  end
+  B.G.primitive(it, shape, { 0, shape == "plane" and 0 or 0.5, 0 }, 1, ed.colour)
   dirty = true
   select_item(insert_item(it))
   say("new model " .. it.name .. ": F2 edits it", C_ACC)
@@ -1004,8 +917,9 @@ function list_actions()
     { "New model: cube (n)", function() new_shape("cube") end },
     { "New model: plane", function() new_shape("plane") end },
     { "New model: sphere", function() new_shape("sphere") end },
+    { "New model: cylinder", function() new_shape("cylinder") end },
   }
-  if not it then rows = { rows[7], rows[8], rows[9] } end
+  if not it then rows = { rows[7], rows[8], rows[9], rows[10] } end
   choose("the mesh" .. (it and (": " .. it.name) or ""), rows)
 end
 
@@ -1111,12 +1025,13 @@ end
 ----------------------------------------------------------------- edit page
 do
 
-ed = { mode = "v", sv = {}, sf = {}, order = 0, px = W // 2, py = 184, tool = nil, step = 3, colour = 0xE84A5A,
+ed = { mirror = false, mode = "v", sv = {}, sf = {}, se = {}, he = nil, sig = "", order = 0, px = W // 2, py = 184, tool = nil, step = 3, colour = 0xE84A5A,
        cam = { yaw = 0.6, pitch = -0.45, dist = 4, tx = 0, ty = 0, tz = 0 },
        sx = {}, sy = {}, sz = {}, hv = nil, hf = nil, force = nil, pal = nil, last_k = nil, last_f = 0, rep = 0 }
 
 function edit_reset()
-  ed.sv, ed.sf, ed.order, ed.tool, ed.force, ed.pal = {}, {}, 0, nil, nil, nil
+  ed.sv, ed.sf, ed.se, ed.order, ed.tool, ed.force, ed.pal = {}, {}, {}, 0, nil, nil, nil
+  ed.he, ed.sig = nil, ""
   ed.sx, ed.sy, ed.sz = {}, {}, {}
   local it = I()
   if it then aim(ed.cam, it, nil, 2.2) end
@@ -1129,6 +1044,7 @@ on_restore = function()
   for i in pairs(ed.sv) do if not it.v[i] then ed.sv[i] = nil end end
   for i in pairs(ed.sf) do if not it.f[i] then ed.sf[i] = nil end end
   ed.force = nil
+  ed.sig = ""
 end
 
 local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
@@ -1137,7 +1053,7 @@ local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return 
 -- chosen faces
 local function sel_verts()
   local it, out, seen = I(), {}, {}
-  if ed.mode == "v" then
+  if ed.mode ~= "f" then
     for i in pairs(ed.sv) do if it.v[i] then out[#out + 1] = i end end
   else
     for fi in pairs(ed.sf) do
@@ -1171,57 +1087,13 @@ local function select_v(i, on)
   if on then ed.order = ed.order + 1; ed.sv[i] = ed.order else ed.sv[i] = nil end
 end
 
-local function normal_of(it, f)
-  local a, b, c = it.v[f[1]], it.v[f[2]], it.v[f[3]]
-  local ux, uy, uz = b[1] - a[1], b[2] - a[2], b[3] - a[3]
-  local vx, vy, vz = c[1] - a[1], c[2] - a[2], c[3] - a[3]
-  return { uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx }
-end
-
-local function unit(v)
-  local l = sqrt(v[1] * v[1] + v[2] * v[2] + v[3] * v[3])
-  if l < 1e-9 then return { 0, 1, 0 } end
-  return { v[1] / l, v[2] / l, v[3] / l }
-end
-
-local function flip(f)
-  f[2], f[3] = f[3], f[2]
-  local u = f[5]
-  if u then u[3], u[4], u[5], u[6] = u[5], u[6], u[3], u[4] end
-end
-
 -- vertices no face uses go away (the selection and the bones follow)
-local function compact(it)
-  local used, map, nv, vb = {}, {}, {}, it.vb and {} or nil
-  for _, f in ipairs(it.f) do used[f[1]], used[f[2]], used[f[3]] = true, true, true end
-  for i, p in ipairs(it.v) do
-    if used[i] then
-      nv[#nv + 1] = p
-      map[i] = #nv
-      if vb then vb[#nv] = it.vb[i] end
-    end
-  end
-  for _, f in ipairs(it.f) do f[1], f[2], f[3] = map[f[1]], map[f[2]], map[f[3]] end
-  it.v = nv
-  if vb then it.vb = vb end
-  local sv = {}
-  for i, o in pairs(ed.sv) do if map[i] then sv[map[i]] = o end end
-  ed.sv = sv
-end
+local function compact(it) ed.sv = B.G.compact(it, ed.sv) end
 
 local function drop_degenerate(it)
-  local out = {}
-  for _, f in ipairs(it.f) do if f[1] ~= f[2] and f[2] ~= f[3] and f[1] ~= f[3] then out[#out + 1] = f end end
-  local n = #it.f - #out
-  it.f = out
+  local n = B.G.drop_degenerate(it)
   if n > 0 then ed.sf = {} end     -- the faces moved
   return n
-end
-
-local function add_vertex(it, p, from)
-  it.v[#it.v + 1] = { p[1], p[2], p[3] }
-  if it.vb then it.vb[#it.v] = it.vb[from] or 0 end
-  return #it.v
 end
 
 -- the screen: where each vertex is (after look()); what is under the pointer
@@ -1265,7 +1137,8 @@ end
 
 local function hover()
   local it = I()
-  ed.hv, ed.hf = nil, nil
+  ed.hv, ed.hf, ed.he = nil, nil, nil
+  if ed.mode == "e" then ed.edge_hover(it); return end
   if ed.force then
     if ed.mode == "v" then ed.hv = it.v[ed.force] and ed.force else ed.hf = it.f[ed.force] and ed.force end
     return
@@ -1290,6 +1163,156 @@ local function centre_of(it, list)
   for _, i in ipairs(list) do for k = 1, 3 do c[k] = c[k] + it.v[i][k] end end
   for k = 1, 3 do c[k] = c[k] / max(1, #list) end
   return c
+end
+
+----------------------------------------------------------------- edges (select mode "e")
+-- ed.se is { [edge key] = order } (B.G.edge_key); ed.sv always holds the ends
+-- of the chosen edges, so the tools and the commands that work on vertices
+-- (move, rotate, scale, extrude, the live mirror) work on edges as they are.
+
+function ed.edge_list(it)
+  local out = {}
+  for k in pairs(B.G.edge_faces(it)) do out[#out + 1] = k end
+  table.sort(out)
+  return out
+end
+
+-- the edge nearest to the pointer (6 pixels at most); in front of the others
+function ed.edge_hover(it)
+  if ed.force then ed.he = ed.edge_list(it)[ed.force]; return end
+  local sx, sy, sz = ed.sx, ed.sy, ed.sz
+  local best, bd, bz, seen = nil, 37, 1e18, {}
+  for _, f in ipairs(it.f) do
+    for k = 1, 3 do
+      local a, b = f[k], f[k % 3 + 1]
+      if sx[a] and sx[b] then
+        local key = B.G.edge_key(a, b)
+        if not seen[key] then
+          seen[key] = true
+          local ax, ay = sx[a], sy[a]
+          local dx, dy = sx[b] - ax, sy[b] - ay
+          local l2 = dx * dx + dy * dy
+          local t = l2 > 0 and clamp(((ed.px - ax) * dx + (ed.py - ay) * dy) / l2, 0, 1) or 0
+          local ex, ey = ax + dx * t - ed.px, ay + dy * t - ed.py
+          local d, z = ex * ex + ey * ey, (sz[a] + sz[b]) / 2
+          if d < bd - 1 or (d < bd + 1 and z < bz) then best, bd, bz = key, d, z end
+        end
+      end
+    end
+  end
+  ed.he = best
+end
+
+function ed.se_to_sv()
+  ed.sv = {}
+  for k, o in pairs(ed.se) do
+    local a, b = B.G.edge_ends(k)
+    ed.sv[a], ed.sv[b] = ed.sv[a] or o, ed.sv[b] or o
+  end
+end
+
+-- after a change of the mesh or of the chosen vertices: the chosen edges are
+-- edges of the mesh with both ends chosen; a chosen vertex with no chosen edge
+-- brings the edges between the chosen vertices; the other vertices go
+function ed.sync_e(it)
+  if ed.mode ~= "e" then return end
+  local sig = #it.v .. ":" .. #it.f .. ":" .. count(ed.sv) .. ":" .. count(ed.se)
+  if sig == ed.sig then return end
+  local ef = B.G.edge_faces(it)
+  local cov = {}
+  for k in pairs(ed.se) do
+    local a, b = B.G.edge_ends(k)
+    if ef[k] and ed.sv[a] and ed.sv[b] then cov[a], cov[b] = true, true else ed.se[k] = nil end
+  end
+  local lone = false
+  for i in pairs(ed.sv) do if not cov[i] then lone = true; break end end
+  if lone then
+    for k in pairs(ef) do
+      local a, b = B.G.edge_ends(k)
+      if ed.sv[a] and ed.sv[b] and not (cov[a] and cov[b]) then ed.se[k] = ed.sv[a] end
+    end
+  end
+  ed.se_to_sv()
+  ed.sig = #it.v .. ":" .. #it.f .. ":" .. count(ed.sv) .. ":" .. count(ed.se)
+end
+
+-- an edge in or out; with the live mirror its counterpart too
+function ed.edge_set(it, key, on)
+  local keys = { key }
+  if ed.mirror then
+    local ef = B.G.edge_faces(it)
+    local a, b = B.G.edge_ends(key)
+    local mp = B.G.mirror_pairs(it, { a, b })
+    if mp[a] and mp[b] then
+      local k2 = B.G.edge_key(mp[a], mp[b])
+      if k2 ~= key and ef[k2] then keys[2] = k2 end
+    end
+  end
+  ed.order = ed.order + 1
+  for _, k in ipairs(keys) do ed.se[k] = on and ed.order or nil end
+  ed.se_to_sv()
+  ed.sig = ""
+end
+
+-- Ctrl+R: the loop cut on the chosen edge (edge mode: one edge; vertex
+-- mode: two vertices that make an edge)
+function ed.loop_cut()
+  local it = I()
+  local a, b
+  if ed.mode == "e" then
+    if count(ed.se) ~= 1 then say("loop cut: choose one edge first", C_ERR); return end
+    a, b = B.G.edge_ends(next(ed.se))
+  elseif ed.mode == "v" and count(ed.sv) == 2 then
+    local l = {}
+    for i in pairs(ed.sv) do l[#l + 1] = i end
+    a, b = l[1], l[2]
+  else
+    say("loop cut: choose one edge first (Tab: edges)", C_ERR)
+    return
+  end
+  local plan, err = B.G.loop_plan(it, a, b)
+  if not plan then say("loop cut: " .. err, C_ERR); return end
+  it = begin_edit()
+  local res = B.G.loop_apply(it, plan)
+  ed.sv, ed.sf, ed.se, ed.order = {}, {}, {}, 0
+  if ed.mode == "e" then
+    for _, r in ipairs(res.rungs) do ed.order = ed.order + 1; ed.se[B.G.edge_key(r[1], r[2])] = ed.order end
+    ed.se_to_sv()
+  else
+    for _, m in ipairs(res.mids) do select_v(m, true) end
+  end
+  ed.sig = ""
+  finish_edit(string.format("loop cut: %d new vertices, %d quads%s%s", #res.mids, #plan.quads,
+              plan.closed and " (closed ring)" or " (stopped at the ends)",
+              #plan.plains > 0 and (", " .. #plan.plains .. " other faces cut in 2") or ""))
+end
+
+-- delete in edge mode: the faces next to the chosen edges
+function ed.edge_delete()
+  if not next(ed.se) then say("choose edges first", C_ERR); return end
+  local it = begin_edit()
+  local ef = B.G.edge_faces(it)
+  local keys = {}
+  for k in pairs(ed.se) do keys[#keys + 1] = k end
+  if ed.mirror then
+    local list = {}
+    for i in pairs(ed.sv) do list[#list + 1] = i end
+    local mp = B.G.mirror_pairs(it, list)
+    for _, k in ipairs({ table.unpack(keys) }) do
+      local a, b = B.G.edge_ends(k)
+      if mp[a] and mp[b] then keys[#keys + 1] = B.G.edge_key(mp[a], mp[b]) end
+    end
+  end
+  local del, n = {}, 0
+  for _, k in ipairs(keys) do
+    for _, fi in ipairs(ef[k] or {}) do if not del[fi] then del[fi] = true; n = n + 1 end end
+  end
+  local out = {}
+  for fi, f in ipairs(it.f) do if not del[fi] then out[#out + 1] = f end end
+  it.f, ed.sv, ed.sf, ed.se = out, {}, {}, {}
+  compact(it)
+  ed.sig = ""
+  finish_edit("deleted: " .. n .. " faces next to the edges")
 end
 
 ----------------------------------------------------------------- the tools: move, rotate, scale
@@ -1326,11 +1349,26 @@ local function tool_start(kind, axis, keep)
   end
   ed.tool = { kind = kind, vs = vs, base = base, c = centre_of(it, vs), n = unit(n), axis = axis,
               d = { 0, 0, 0 }, m = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, s = { 1, 1, 1 }, deg = 0 }
+  if ed.mirror then
+    -- live mirror: a vertex with a counterpart across X = 0 moves it too. When both
+    -- are chosen, the lower number leads and the other follows.
+    local mp = B.G.mirror_pairs(it, vs)
+    local sorted, fol, skip, lone = { table.unpack(vs) }, {}, {}, 0
+    table.sort(sorted)
+    for _, i in ipairs(sorted) do
+      local j = mp[i]
+      if j == nil then lone = lone + 1
+      elseif j ~= i and not skip[i] then fol[i], skip[j] = j, true end
+    end
+    ed.tool.fol, ed.tool.skip = fol, skip
+    if lone > 0 then say("mirror X: " .. lone .. " chosen without a counterpart", C_DIM, 120) end
+  end
 end
 
 local function tool_apply()
   local t, it = ed.tool, I()
   for _, i in ipairs(t.vs) do
+    if t.skip and t.skip[i] then goto next_vertex end
     local b, p = t.base[i], it.v[i]
     if t.kind == "move" then
       p[1], p[2], p[3] = b[1] + t.d[1], b[2] + t.d[2], b[3] + t.d[3]
@@ -1344,6 +1382,9 @@ local function tool_apply()
       end
       p[1], p[2], p[3] = t.c[1] + x, t.c[2] + y, t.c[3] + z
     end
+    local j = t.fol and t.fol[i]
+    if j then local q = it.v[j]; q[1], q[2], q[3] = -p[1], p[2], p[3] end
+    ::next_vertex::
   end
   it.view = nil
 end
@@ -1362,7 +1403,8 @@ local function tool_text()
 end
 
 local function tool_ok()
-  local what = tool_text():gsub("%s*%(step.*$", ""):lower() .. ": " .. #ed.tool.vs .. " vertices"
+  local what = tool_text():gsub("%s*%(step.*$", ""):lower() .. ": " .. #ed.tool.vs .. " vertices" ..
+               (ed.tool.fol and " (mirror X)" or "")
   ed.tool = nil
   finish_edit(what)
 end
@@ -1466,7 +1508,7 @@ local function op_extrude()
     local f = it.f[fi]
     for k = 1, 3 do f[k] = copy[f[k]] end
   end
-  if ed.mode == "v" then
+  if ed.mode ~= "f" then
     ed.sv = {}
     for _, nw in pairs(copy) do select_v(nw, true) end
   end
@@ -1493,11 +1535,35 @@ local function op_duplicate()
     nf[#nf + 1] = #it.f
   end
   ed.sv, ed.sf = {}, {}
-  if ed.mode == "v" then for _, nw in pairs(copy) do select_v(nw, true) end
+  if ed.mode ~= "f" then for _, nw in pairs(copy) do select_v(nw, true) end
   else for _, fi in ipairs(nf) do ed.sf[fi] = true end end
   if #it.v > LIMIT_V or #it.f > LIMIT_F then finish_edit(); return end
   tool_start("move", nil, true)
   say("copied " .. #fs .. " faces: move the copy, Enter done", C_ACC, 300)
+end
+
+-- a cube, cylinder, sphere or plane as a new part of the model: at the
+-- middle of the choice (or at 0), in the colour of the page, on the bone of
+-- the first chosen vertex; the new vertices are the choice
+local function add_part(shape)
+  local vs = sel_verts()
+  local first = vs[1]
+  local it = begin_edit()
+  local centre = #vs > 0 and centre_of(it, vs) or { 0, 0, 0 }
+  local bone = it.vb and first and it.vb[first] or 0
+  local nv = B.G.primitive(it, shape, centre, 1, ed.colour, bone)
+  ed.mode, ed.sv, ed.sf, ed.order = "v", {}, {}, 0
+  for _, i in ipairs(nv) do select_v(i, true) end
+  finish_edit("added a " .. shape .. ": " .. #nv .. " vertices chosen")
+end
+
+local function op_add_part()
+  choose("add a part", {
+    { "Cube", function() add_part("cube") end },
+    { "Cylinder", function() add_part("cylinder") end },
+    { "Sphere", function() add_part("sphere") end },
+    { "Plane", function() add_part("plane") end },
+  })
 end
 
 -- left-right on the screen (x or z), through the middle of the choice
@@ -1657,10 +1723,28 @@ local function op_flip()
   finish_edit(#fs .. " faces turned over")
 end
 
+-- live mirror: the faces and their counterparts across X = 0 (a new list)
+function ed.mirror_faces(it, fs)
+  if not ed.mirror then return fs end
+  local corners, seen = {}, {}
+  for _, fi in ipairs(fs) do
+    for k = 1, 3 do local c = it.f[fi][k]; if not seen[c] then seen[c] = true; corners[#corners + 1] = c end end
+  end
+  local mf = B.G.mirror_faces(it, fs, B.G.mirror_pairs(it, corners))
+  local out, in_out = {}, {}
+  for _, fi in ipairs(fs) do if not in_out[fi] then in_out[fi] = true; out[#out + 1] = fi end end
+  for _, fi in ipairs(fs) do
+    local g = mf[fi]
+    if g and not in_out[g] then in_out[g] = true; out[#out + 1] = g end
+  end
+  return out
+end
+
 local function op_paint()
   local fs = sel_faces()
   if not need_faces(fs) then return end
   local it = begin_edit()
+  fs = ed.mirror_faces(it, fs)
   for _, fi in ipairs(fs) do it.f[fi][4], it.f[fi][5] = ed.colour, nil end
   finish_edit(string.format("%d faces painted #%06X", #fs, ed.colour))
 end
@@ -1677,9 +1761,15 @@ end
 
 local function op_delete()
   local it = I()
+  if ed.mode == "e" then ed.edge_delete(); return end
   if ed.mode == "v" then
     if not next(ed.sv) then say("choose vertices first", C_ERR); return end
     it = begin_edit()
+    if ed.mirror then
+      local list = {}
+      for i in pairs(ed.sv) do list[#list + 1] = i end
+      for _, j in pairs(B.G.mirror_pairs(it, list)) do ed.sv[j] = ed.sv[j] or ed.order end
+    end
     local out = {}
     for _, f in ipairs(it.f) do if not (ed.sv[f[1]] or ed.sv[f[2]] or ed.sv[f[3]]) then out[#out + 1] = f end end
     local n = #it.f - #out
@@ -1690,6 +1780,7 @@ local function op_delete()
     local fs = sel_faces()
     if not need_faces(fs) then return end
     it = begin_edit()
+    fs = ed.mirror_faces(it, fs)
     local del, out = {}, {}
     for _, fi in ipairs(fs) do del[fi] = true end
     for fi, f in ipairs(it.f) do if not del[fi] then out[#out + 1] = f end end
@@ -1725,7 +1816,7 @@ local function op_linked()
   local want = {}
   for _, i in ipairs(start) do want[root(i)] = true end
   local n = 0
-  if ed.mode == "v" then
+  if ed.mode ~= "f" then
     for i in ipairs(it.v) do if want[root(i)] and not ed.sv[i] then select_v(i, true) end end
     n = count(ed.sv)
   else
@@ -1737,10 +1828,10 @@ end
 
 local function op_all()
   local it = I()
-  if next(ed.sv) or next(ed.sf) then
-    ed.sv, ed.sf = {}, {}
+  if next(ed.sv) or next(ed.sf) or next(ed.se) then
+    ed.sv, ed.sf, ed.se = {}, {}, {}
     say("none chosen", C_DIM, 60)
-  elseif ed.mode == "v" then
+  elseif ed.mode ~= "f" then
     for i in ipairs(it.v) do select_v(i, true) end
     say("all " .. #it.v .. " vertices", C_DIM, 60)
   else
@@ -1749,23 +1840,38 @@ local function op_all()
   end
 end
 
+-- Tab: vertices -> edges -> faces -> vertices; the choice goes with it
+local MODE_NAME = { v = "vertices", e = "edges", f = "faces" }
 local function op_mode()
-  if ed.mode == "v" then
+  local it = I()
+  if ed.mode == "v" then                 -- the edges with both ends chosen
+    ed.mode, ed.se = "e", {}
+    for k in pairs(B.G.edge_faces(it)) do
+      local a, b = B.G.edge_ends(k)
+      if ed.sv[a] and ed.sv[b] then ed.order = ed.order + 1; ed.se[k] = ed.order end
+    end
+    ed.se_to_sv()
+  elseif ed.mode == "e" then             -- the faces with all corners chosen
     local fs = sel_faces()
-    ed.mode, ed.sf = "f", {}
+    ed.mode, ed.sf, ed.se = "f", {}, {}
     for _, fi in ipairs(fs) do ed.sf[fi] = true end
   else
     local vs = sel_verts()
     ed.mode, ed.sv, ed.order = "v", {}, 0
     for _, i in ipairs(vs) do select_v(i, true) end
   end
-  ed.force = nil
-  say(ed.mode == "v" and "vertices" or "faces", C_DIM, 60)
+  ed.force, ed.sig = nil, ""
+  say(MODE_NAME[ed.mode], C_DIM, 60)
 end
 
 -- space: the vertex (face) under the pointer in or out; Enter: only it
 local function op_toggle(only)
-  if ed.mode == "v" then
+  if ed.mode == "e" then
+    local k = ed.he
+    if only then ed.se, ed.sv, ed.order = {}, {}, 0 end
+    if not k then if not only then say("no edge under the pointer", C_DIM, 60) end; return end
+    ed.edge_set(I(), k, only or not ed.se[k])
+  elseif ed.mode == "v" then
     local i = ed.hv
     if only then ed.sv, ed.order = {}, 0 end
     if not i then if not only then say("no vertex under the pointer", C_DIM, 60) end; return end
@@ -1781,12 +1887,16 @@ end
 -- n / b: the pointer on the next (previous) vertex or face, even behind
 local function op_next(d)
   local it = I()
-  local n = ed.mode == "v" and #it.v or #it.f
+  local el = ed.mode == "e" and ed.edge_list(it)
+  local n = el and #el or (ed.mode == "v" and #it.v or #it.f)
   if n == 0 then return end
   local i = ((ed.force or (d > 0 and 0 or 1)) - 1 + d) % n + 1
   ed.force = i
   local x, y
-  if ed.mode == "v" then x, y = ed.sx[i], ed.sy[i]
+  if el then
+    local a, b = B.G.edge_ends(el[i])
+    if ed.sx[a] and ed.sx[b] then x, y = (ed.sx[a] + ed.sx[b]) / 2, (ed.sy[a] + ed.sy[b]) / 2 end
+  elseif ed.mode == "v" then x, y = ed.sx[i], ed.sy[i]
   else
     local f = it.f[i]
     if ed.sx[f[1]] and ed.sx[f[2]] and ed.sx[f[3]] then
@@ -1794,7 +1904,7 @@ local function op_next(d)
     end
   end
   if x then ed.px, ed.py = clamp(round(x), 0, W - 1), clamp(round(y), 16, HINT_Y - 1) end
-  say((ed.mode == "v" and "vertex " or "face ") .. i .. "/" .. n, C_DIM, 60)
+  say((el and "edge " or (ed.mode == "v" and "vertex " or "face ")) .. i .. "/" .. n, C_DIM, 60)
 end
 
 local function view(yaw, pitch)
@@ -1818,13 +1928,21 @@ local function open_palette()
   for i, c in ipairs(PALETTE) do if c == ed.colour then ed.pal = i end end
 end
 
+-- Shift+X: the live mirror across X = 0 for move, rotate, scale, paint and delete
+function ed.toggle_mirror()
+  ed.mirror = not ed.mirror
+  say(ed.mirror and "mirror X on: edits happen on both sides" or "mirror X off", ed.mirror and C_ACC or C_DIM, 120)
+end
+
 local COMMANDS = {
   { "Move (g)", "g" }, { "Rotate (r)", "r" }, { "Scale (t)", "t" }, { "Extrude faces (x)", "x" },
-  { "Duplicate (d)", "d" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
+  { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
+  { "Live mirror X on / off (X)", "X" },
+  { "Loop cut on the chosen edge (Ctrl+R)", "^r" },
   { "New face on 3-4 vertices (j)", "j" }, { "Merge vertices (k)", "k" }, { "Weld equal vertices (K)", "K" },
   { "Subdivide faces (u)", "u" }, { "Turn faces over (i)", "i" }, { "Paint faces (p)", "p" },
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
-  { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / faces (Tab)", "\t" },
+  { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / edges / faces (Tab)", "\t" },
   { "Next element (n)", "n" }, { "Frame the choice (f)", "f" }, { "Finer step (,)", "," }, { "Coarser step (.)", "." },
 }
 ed.commands = COMMANDS                   -- (the context menu, outside this block)
@@ -1906,8 +2024,11 @@ function edit_key(k)
   elseif k == "t" then tool_start("scale")
   elseif k == "x" then op_extrude()
   elseif k == "d" then op_duplicate()
+  elseif k == "A" then op_add_part()
   elseif k == "m" then op_mirror()
   elseif k == "M" then op_mirror_copy()
+  elseif k == "X" then ed.toggle_mirror()
+  elseif k == "^r" then ed.loop_cut()
   elseif k == "j" then op_join()
   elseif k == "k" then op_merge()
   elseif k == "K" then op_weld()
@@ -1985,6 +2106,7 @@ function draw_edit()
     draw3d(v, 0, 0, 0, 0, 0, 0, 1, 0)
   end
   project_all(it)
+  ed.sync_e(it)
   hover()
   local sx, sy = ed.sx, ed.sy
   -- the edges of the faces that look at the camera
@@ -2009,7 +2131,27 @@ function draw_edit()
       rectfill(mx - 1, my - 1, 3, 3, c)
     end
   end
-  if ed.mode == "v" then
+  if ed.mode == "e" then
+    if #it.v <= 4096 then
+      for i in ipairs(it.v) do if sx[i] and not ed.sv[i] then rectfill(sx[i] - 1, sy[i] - 1, 2, 2, C_WIRE) end end
+    end
+    for k in pairs(ed.se) do
+      local a, b = B.G.edge_ends(k)
+      if sx[a] and sx[b] then
+        line(sx[a], sy[a], sx[b], sy[b], C_PT)
+        line(sx[a] + 1, sy[a], sx[b] + 1, sy[b], C_PT)
+        line(sx[a], sy[a] + 1, sx[b], sy[b] + 1, C_PT)
+      end
+    end
+    for i in pairs(ed.sv) do if sx[i] then rectfill(sx[i] - 2, sy[i] - 2, 5, 5, C_PT) end end
+    if ed.he then
+      local a, b = B.G.edge_ends(ed.he)
+      if sx[a] and sx[b] then
+        line(sx[a], sy[a], sx[b], sy[b], C_HOT)
+        line(sx[a] + 1, sy[a], sx[b] + 1, sy[b], C_HOT)
+      end
+    end
+  elseif ed.mode == "v" then
     if #it.v <= 4096 then
       for i in ipairs(it.v) do if sx[i] and not ed.sv[i] then rectfill(sx[i] - 1, sy[i] - 1, 2, 2, C_WIRE) end end
     end
@@ -2031,10 +2173,11 @@ function draw_edit()
   draw_gizmo(cam, 40, HINT_Y - 40)
   -- what it is
   rectfill(0, 16, W, 32, C_BG)
-  local nsel = ed.mode == "v" and count(ed.sv) or count(ed.sf)
+  local nsel = ed.mode == "v" and count(ed.sv) or (ed.mode == "e" and count(ed.se) or count(ed.sf))
+  if ed.mirror then rectfill(W - 72, 16, 64, 8, C_BG); print("MIRROR X", W - 72, 16, C_ACC) end
   print(it.name, 8, 16, KIND_C[it.kind])
-  print(string.format("%d vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
-                      ed.mode == "v" and "VERTICES" or "FACES", nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
+  print(string.format("%d of 65535 vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
+                      ed.mode == "v" and "VERTICES" or (ed.mode == "e" and "EDGES" or "FACES"), nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
   if ed.tool then
     print(tool_text(), 8, 32, C_ACC)
   else
@@ -2047,7 +2190,7 @@ function draw_edit()
            { { "esc" }, "cancel" } })
   elseif ed.pal then hint({ { { "up", "down", "left", "right" }, "colour" }, { { "enter" }, "take it" }, { { "esc" }, "close" } })
   else
-    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "choose" }, { { "a" }, "all" }, { { "tab" }, "vert/face" },
+    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "choose" }, { { "a" }, "all" }, { { "tab" }, "vert/edge/face" },
            { { "g" }, "move" }, { { "r" }, "rotate" }, { { "t" }, "scale" }, { { "x" }, "extrude" } })
   end
 end
@@ -2074,7 +2217,7 @@ local HELP = {
     { "c", "copy as code: model -> mesh_name()" },
     { "r / d", "rename / duplicate" },
     { "del", "delete" },
-    { "n", "a new model (a cube; f3: plane, sphere)" },
+    { "n", "a new model (a cube; f3: plane, sphere, cylinder)" },
     { "q / e", "turn the view" },
     { "w / s", "tilt" },
     { "+ / -", "zoom" },
@@ -2087,10 +2230,13 @@ local HELP = {
     { "home", "the pointer to the middle" },
     { "space / enter", "choose (add) / only this" },
     { "a", "all, none" },
-    { "tab / l", "vertices or faces / all linked" },
+    { "tab / l", "vertices, edges or faces / all linked" },
+    { "ctrl r", "loop cut: a ring of new vertices across the chosen edge" },
     { "g / r / t", "move / rotate / scale" },
     { "x / d", "extrude faces / duplicate (then move)" },
+    { "shift a", "add a part: cube, cylinder, sphere, plane" },
     { "m / shift m", "mirror left-right / copy across 0" },
+    { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete on both sides" },
     { "j", "new face on 3-4 vertices" },
     { "k / shift k", "merge / weld equal vertices" },
     { "u / i", "subdivide / turn over" },
@@ -2292,7 +2438,7 @@ local function global_key(k)
   elseif k == "^o" and not ed.tool then open_other(); return true
   elseif k == "^n" and not ed.tool then new_shape("cube"); return true
   elseif k == "f6" and not ed.tool then assistant(); return true
-  elseif k == "f5" or k == "^r" then try_game(); return true
+  elseif k == "f5" or (k == "^r" and not (page == "edit" and not ed.tool and not ed.pal)) then try_game(); return true
   elseif k == "^z" or k == "^y" then
     if ed.tool then edit_key("esc")            -- undo in a tool: the tool goes
     elseif k == "^z" then do_undo(undo, redo, "undo") else do_undo(redo, undo, "redo") end

@@ -31,7 +31,7 @@ T.C = C
 T.FOCAL = (W / 2) / math.tan(math.rad(30))      -- camera3d with fov 60
 T.FPS = 12                                       -- the timeline's frames, as in bm Animator
 T.MODES = { [0] = "linear", "smooth", "step" }
-T.LIMIT_V, T.LIMIT_T = 4096, 16384
+T.LIMIT_V, T.LIMIT_T = 65535, 65535              -- u16 format limit
 T.TRIS_60FPS = 1200                              -- about what the console draws at 60 fps
 -- text on rows of 16 pixels and columns of 8: the hint row, the status bar
 T.HINT_Y, T.STATUS_Y = H - 40, H - 24
@@ -139,6 +139,454 @@ end
 
 local function cname(b, pos) return b:sub(pos, pos + 15):match("^[^\0]*") end
 
+----------------------------------------------------------------- G: the pure geometry of a model
+
+-- The model shape is { v = { {x, y, z}, ... }, f = { {a, b, c, colour, uv}, ... }, vb }
+-- (bm Mesh's item). Nothing here touches an editor state.
+local G = {}
+T.G = G
+
+-- the model as the program reads it: the MESH part (and the ANIM part)
+function G.model_item(name, mc, ac)
+  local nv, nf = sunpack("<I2I2", mc, 17)
+  local it = { kind = "model", name = name, v = {}, f = {}, mc = mc, mc_name = name }
+  local pos = 25
+  for i = 1, nv do
+    local x, y, z = sunpack("<fff", mc, pos)
+    it.v[i] = { x, y, z }
+    pos = pos + 12
+  end
+  for i = 1, nf do
+    local a, b, c, _, col, u0, v0, u1, v1, u2, v2 = sunpack("<I2I2I2I2I4I2I2I2I2I2I2", mc, pos)
+    local f = { a + 1, b + 1, c + 1, col & 0xFFFFFF }
+    if col & TEXTURED ~= 0 then f[4], f[5] = -1, { u0 / 8, v0 / 8, u1 / 8, v1 / 8, u2 / 8, v2 / 8 } end
+    it.f[i] = f
+    pos = pos + 24
+  end
+  if ac then
+    local nb, nc, anv = sunpack("<I2I2I2", ac, 17)
+    it.ac, it.bones, it.clips = ac, nb, nc
+    if anv == nv then
+      it.vb = {}
+      local p = 25 + nb * 44
+      for i = 1, nv do it.vb[i] = ac:byte(p + i - 1) end
+    end
+  end
+  return it
+end
+
+-- the model's part of the MESH section
+function G.encode_model(it)
+  if not it.dirty and it.mc then
+    return it.mc_name == it.name and it.mc or name16(it.name) .. it.mc:sub(17)
+  end
+  local out = { name16(it.name), spack("<I2I2I4", #it.v, #it.f, 0) }
+  for _, p in ipairs(it.v) do out[#out + 1] = spack("<fff", p[1], p[2], p[3]) end
+  for _, f in ipairs(it.f) do
+    local col, u, t = f[4], f[5], { 0, 0, 0, 0, 0, 0 }
+    if col == -1 then
+      col = TEXTURED
+      if u then for k = 1, 6 do t[k] = clamp(round(u[k] * 8), 0, 65535) end end
+    else
+      col = col & 0xFFFFFF
+    end
+    out[#out + 1] = spack("<I2I2I2I2I4I2I2I2I2I2I2", f[1] - 1, f[2] - 1, f[3] - 1, 0, col,
+                          t[1], t[2], t[3], t[4], t[5], t[6])
+  end
+  return table.concat(out)
+end
+
+-- every face looks away from the point c
+function G.orient(it, c)
+  for _, f in ipairs(it.f) do
+    local a, b, d = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+    local ux, uy, uz = b[1] - a[1], b[2] - a[2], b[3] - a[3]
+    local vx, vy, vz = d[1] - a[1], d[2] - a[2], d[3] - a[3]
+    local nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+    local mx, my, mz = (a[1] + b[1] + d[1]) / 3 - c[1], (a[2] + b[2] + d[2]) / 3 - c[2], (a[3] + b[3] + d[3]) / 3 - c[3]
+    if nx * mx + ny * my + nz * mz < 0 then f[2], f[3] = f[3], f[2] end
+  end
+end
+
+function G.normal_of(it, f)
+  local a, b, c = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+  local ux, uy, uz = b[1] - a[1], b[2] - a[2], b[3] - a[3]
+  local vx, vy, vz = c[1] - a[1], c[2] - a[2], c[3] - a[3]
+  return { uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx }
+end
+
+function G.unit(v)
+  local l = sqrt(v[1] * v[1] + v[2] * v[2] + v[3] * v[3])
+  if l < 1e-9 then return { 0, 1, 0 } end
+  return { v[1] / l, v[2] / l, v[3] / l }
+end
+
+function G.flip(f)
+  f[2], f[3] = f[3], f[2]
+  local u = f[5]
+  if u then u[3], u[4], u[5], u[6] = u[5], u[6], u[3], u[4] end
+end
+
+-- vertices no face uses go away (the bones follow). sv is a selection
+-- { [vertex] = order }; the function returns it with the new numbers.
+function G.compact(it, sv)
+  local used, map, nv, vb = {}, {}, {}, it.vb and {} or nil
+  for _, f in ipairs(it.f) do used[f[1]], used[f[2]], used[f[3]] = true, true, true end
+  for i, p in ipairs(it.v) do
+    if used[i] then
+      nv[#nv + 1] = p
+      map[i] = #nv
+      if vb then vb[#nv] = it.vb[i] end
+    end
+  end
+  for _, f in ipairs(it.f) do f[1], f[2], f[3] = map[f[1]], map[f[2]], map[f[3]] end
+  it.v = nv
+  if vb then it.vb = vb end
+  local out = {}
+  for i, o in pairs(sv or {}) do if map[i] then out[map[i]] = o end end
+  return out
+end
+
+-- the faces with two equal corners go away; returns how many
+function G.drop_degenerate(it)
+  local out = {}
+  for _, f in ipairs(it.f) do if f[1] ~= f[2] and f[2] ~= f[3] and f[1] ~= f[3] then out[#out + 1] = f end end
+  local n = #it.f - #out
+  it.f = out
+  return n
+end
+
+function G.add_vertex(it, p, from)
+  it.v[#it.v + 1] = { p[1], p[2], p[3] }
+  if it.vb then it.vb[#it.v] = it.vb[from] or 0 end
+  return #it.v
+end
+
+-- Mirror across the plane X = 0. G.mirror_pairs(it, list, eps) takes a list
+-- of vertex numbers and returns { [vertex] = partner }: the vertex at the
+-- mirrored position (-x, y, z), within eps (0.001 by default). A vertex on
+-- the plane is its own partner. A vertex with no counterpart is not in the
+-- table. When two vertices share the place, the nearest one is the partner.
+function G.mirror_pairs(it, list, eps)
+  eps = eps or 0.001
+  local cell, grid, v = eps * 2, {}, it.v
+  local function key(cx, cy, cz) return (cx * 1000003 + cy) * 1000033 + cz end
+  for i, p in ipairs(v) do
+    local k = key(floor(p[1] / cell), floor(p[2] / cell), floor(p[3] / cell))
+    local b = grid[k]
+    if b then b[#b + 1] = i else grid[k] = { i } end
+  end
+  local out = {}
+  for _, i in ipairs(list) do
+    local p = v[i]
+    local x, y, z = -p[1], p[2], p[3]
+    local cx, cy, cz = floor(x / cell), floor(y / cell), floor(z / cell)
+    local best, bd = nil, eps * eps * 3 + 1e-12
+    for dx = -1, 1 do for dy = -1, 1 do for dz = -1, 1 do
+      local b = grid[key(cx + dx, cy + dy, cz + dz)]
+      if b then
+        for _, j in ipairs(b) do
+          local q = v[j]
+          local ex, ey, ez = q[1] - x, q[2] - y, q[3] - z
+          if math.abs(ex) <= eps and math.abs(ey) <= eps and math.abs(ez) <= eps then
+            local d = ex * ex + ey * ey + ez * ez
+            if d < bd then best, bd = j, d end
+          end
+        end
+      end
+    end end end
+    out[i] = best
+  end
+  return out
+end
+
+-- The faces that mirror the faces fs (a list of face numbers): the face whose
+-- three corners are the partners (table mp of G.mirror_pairs, which must hold
+-- every corner of fs) of the three corners. Returns { [face] = partner face };
+-- a face with no counterpart is not in the table.
+function G.mirror_faces(it, fs, mp)
+  local byk, out = {}, {}
+  local function key(a, b, c)
+    if a > b then a, b = b, a end
+    if b > c then b, c = c, b end
+    if a > b then a, b = b, a end
+    return (a * 70001 + b) * 70001 + c
+  end
+  for fi, f in ipairs(it.f) do
+    local k = key(f[1], f[2], f[3])
+    local b = byk[k]
+    if b then b[#b + 1] = fi else byk[k] = { fi } end
+  end
+  for _, fi in ipairs(fs) do
+    local f = it.f[fi]
+    local a, b, c = mp[f[1]], mp[f[2]], mp[f[3]]
+    if a and b and c then
+      local l = byk[key(a, b, c)]
+      if l then out[fi] = l[1] end
+    end
+  end
+  return out
+end
+
+-- Edges are not stored: they come from the triangles. An edge is a pair of
+-- vertices a < b; its key is a * 65536 + b.
+function G.edge_key(a, b)
+  if a > b then a, b = b, a end
+  return a * 65536 + b
+end
+
+function G.edge_ends(k) return k // 65536, k % 65536 end
+
+-- { [edge key] = { the faces that have the edge } }
+function G.edge_faces(it)
+  local out = {}
+  for fi, f in ipairs(it.f) do
+    for k = 1, 3 do
+      local key = G.edge_key(f[k], f[k % 3 + 1])
+      local l = out[key]
+      if l then l[#l + 1] = fi else out[key] = { fi } end
+    end
+  end
+  return out
+end
+
+-- The quad that the face ti makes across the edge key: ti and the face
+-- over one of its other two edges (the diagonal; it must be shared with one
+-- face only, and the two faces must look the same way: normals within 60
+-- degrees; when both edges fit, the flatter pair, then the longer edge, is the
+-- diagonal). Returns { c = {q1, q2, q3, q4} the corners in the winding of
+-- ti with the edge (q1, q2) and the opposite edge (q3, q4), t = ti, u = the
+-- other face, e2 = the key of the opposite edge } or nil.
+local function loop_quad(it, ef, ti, key)
+  local f = it.f[ti]
+  local p, q, c
+  for k = 1, 3 do
+    if G.edge_key(f[k], f[k % 3 + 1]) == key then p, q, c = f[k], f[k % 3 + 1], f[(k + 1) % 3 + 1] end
+  end
+  if not p then return nil end
+  local n1 = G.unit(G.normal_of(it, f))
+  local best
+  for side = 1, 2 do
+    local x, y = c, p
+    if side == 1 then x, y = q, c end
+    local l = ef[G.edge_key(x, y)]
+    if l and #l == 2 then
+      local u = l[1] == ti and l[2] or l[1]
+      local g = it.f[u]
+      local d
+      for k = 1, 3 do if g[k] ~= x and g[k] ~= y then d = g[k] end end
+      if d and d ~= p and d ~= q and d ~= c then
+        local n2 = G.unit(G.normal_of(it, g))
+        local dot = n1[1] * n2[1] + n1[2] * n2[2] + n1[3] * n2[3]
+        local a, b = it.v[x], it.v[y]
+        local len = (a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2
+        if dot >= 0.5 and (not best or dot > best.dot + 1e-4 or (dot > best.dot - 1e-4 and len > best.len)) then
+          best = { dot = dot, len = len, u = u,
+                   c = side == 1 and { p, q, d, c } or { p, q, c, d } }
+        end
+      end
+    end
+  end
+  if not best then return nil end
+  return { c = best.c, t = ti, u = best.u, e2 = G.edge_key(best.c[3], best.c[4]) }
+end
+
+-- Loop cut, the plan. The ring of quads (two triangles) that cross the edge
+-- (a, b): from the edge, over the quad of each face it has, to the opposite
+-- edge, and on, until the ring is closed. The walk stops at an open border
+-- (an edge with one face) and at a face that makes no quad: that face is cut
+-- in two from the new vertex to its far corner, so no gap stays. Nothing
+-- changes. Returns the plan { edges = {keys}, quads = {...}, plains = { {face,
+-- key} }, closed } or nil and a message.
+function G.loop_plan(it, a, b)
+  local ef = G.edge_faces(it)
+  local k0 = G.edge_key(a, b)
+  local l0 = ef[k0]
+  if not l0 then return nil, "this is not an edge" end
+  if #l0 > 2 then return nil, "the edge has more than 2 faces" end
+  local plan = { edges = { k0 }, quads = {}, plains = {}, closed = false }
+  local seen, used, failed = { [k0] = true }, {}, nil
+  local function walk(ti)
+    local key = k0
+    while true do
+      if used[ti] then failed = "the ring crosses itself"; return end
+      local qd = loop_quad(it, ef, ti, key)
+      if not qd then
+        used[ti] = true
+        plan.plains[#plan.plains + 1] = { ti, key }
+        return
+      end
+      if used[qd.u] then failed = "the ring crosses itself"; return end
+      used[ti], used[qd.u] = true, true
+      plan.quads[#plan.quads + 1] = qd
+      if qd.e2 == k0 then plan.closed = true; return end
+      if seen[qd.e2] then failed = "the ring crosses itself"; return end
+      seen[qd.e2] = true
+      plan.edges[#plan.edges + 1] = qd.e2
+      local l = ef[qd.e2]
+      if #l > 2 then failed = "an edge of the ring has more than 2 faces"; return end
+      if #l == 1 then return end
+      key, ti = qd.e2, l[1] == qd.u and l[2] or l[1]
+    end
+  end
+  walk(l0[1])
+  if not failed and l0[2] and not used[l0[2]] then walk(l0[2]) end
+  if failed then return nil, failed end
+  if #plan.quads == 0 then return nil, "no quad around this edge (two triangles that make a square)" end
+  return plan
+end
+
+-- Loop cut, the change: one new vertex in the middle of each edge of the
+-- plan (the bone of the lower end; the uv by the mean), the quads in 4
+-- triangles, the other faces in 2. A new triangle takes the colour and the uv
+-- of the old face that holds most of its corners. Returns { mids = the new
+-- vertices, rungs = { {m, n} one for each quad: the new edge across it } }.
+function G.loop_apply(it, plan)
+  local mid, ends = {}, {}
+  for _, k in ipairs(plan.edges) do
+    local a, b = G.edge_ends(k)
+    local p, q = it.v[a], it.v[b]
+    mid[k] = G.add_vertex(it, { (p[1] + q[1]) / 2, (p[2] + q[2]) / 2, (p[3] + q[3]) / 2 }, a)
+    ends[mid[k]] = { a, b }
+  end
+  local function has(f, v)
+    if ends[v] then return has(f, ends[v][1]) and has(f, ends[v][2]) end
+    return f[1] == v or f[2] == v or f[3] == v
+  end
+  local function uvof(f, v)
+    if not f[5] then return nil end
+    for k = 1, 3 do if f[k] == v then return { f[5][k * 2 - 1], f[5][k * 2] } end end
+  end
+  -- the uv of a corner (an old vertex or a new one) from the face f, else from g
+  local function corner_uv(v, f, g)
+    local e = ends[v]
+    if e then
+      local a, b = corner_uv(e[1], f, g), corner_uv(e[2], f, g)
+      return { (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 }
+    end
+    return uvof(f, v) or uvof(g, v) or { 0, 0 }
+  end
+  local function tri(a, b, c, f, g)
+    local sf, sg = 0, 0
+    for _, v in ipairs({ a, b, c }) do
+      if has(f, v) then sf = sf + 1 end
+      if has(g, v) then sg = sg + 1 end
+    end
+    local s, o = f, g
+    if sg > sf then s, o = g, f end
+    local uv
+    if s[5] then
+      local ua, ub, uc = corner_uv(a, s, o), corner_uv(b, s, o), corner_uv(c, s, o)
+      uv = { ua[1], ua[2], ub[1], ub[2], uc[1], uc[2] }
+    end
+    return { a, b, c, s[4], uv }
+  end
+  local add = {}
+  local rungs = {}
+  for _, qd in ipairs(plan.quads) do
+    local q1, q2, q3, q4 = qd.c[1], qd.c[2], qd.c[3], qd.c[4]
+    local m, n = mid[G.edge_key(q1, q2)], mid[qd.e2]
+    local f, g = it.f[qd.t], it.f[qd.u]
+    local t = { tri(q1, m, n, f, g), tri(q1, n, q4, f, g), tri(m, q2, q3, f, g), tri(m, q3, n, f, g) }
+    it.f[qd.t], it.f[qd.u] = t[1], t[2]
+    add[#add + 1] = t[3]; add[#add + 1] = t[4]
+    rungs[#rungs + 1] = { m, n }
+  end
+  for _, pl in ipairs(plan.plains) do
+    local f = it.f[pl[1]]
+    local m = mid[pl[2]]
+    for k = 1, 3 do
+      if G.edge_key(f[k], f[k % 3 + 1]) == pl[2] then
+        local x, y, z = f[k], f[k % 3 + 1], f[(k + 1) % 3 + 1]
+        it.f[pl[1]] = tri(x, m, z, f, f)
+        add[#add + 1] = tri(m, y, z, f, f)
+        break
+      end
+    end
+  end
+  for _, f in ipairs(add) do it.f[#it.f + 1] = f end
+  local mids = {}
+  for _, k in ipairs(plan.edges) do mids[#mids + 1] = mid[k] end
+  return { mids = mids, rungs = rungs }
+end
+
+function G.loop_cut(it, a, b)
+  local plan, err = G.loop_plan(it, a, b)
+  if not plan then return nil, err end
+  return G.loop_apply(it, plan), plan
+end
+
+-- A primitive ("cube", "plane", "sphere" or "cylinder") of the width size, in
+-- the colour col, with its middle at centre, added to the model it as a new
+-- part. The faces look out. The new vertices take the bone given (or 0) when
+-- the model has bones. Returns the list of the new vertex numbers.
+function G.primitive(it, shape, centre, size, col, bone)
+  size = size or 1
+  local v, f = {}, {}
+  if shape == "cube" then
+    for _, p in ipairs({ { -0.5, -0.5, -0.5 }, { 0.5, -0.5, -0.5 }, { 0.5, 0.5, -0.5 }, { -0.5, 0.5, -0.5 },
+                         { -0.5, -0.5, 0.5 }, { 0.5, -0.5, 0.5 }, { 0.5, 0.5, 0.5 }, { -0.5, 0.5, 0.5 } }) do v[#v + 1] = p end
+    for _, t in ipairs({ { 1, 4, 3 }, { 1, 3, 2 }, { 5, 6, 7 }, { 5, 7, 8 }, { 1, 2, 6 }, { 1, 6, 5 },
+                         { 4, 8, 7 }, { 4, 7, 3 }, { 1, 5, 8 }, { 1, 8, 4 }, { 2, 3, 7 }, { 2, 7, 6 } }) do
+      f[#f + 1] = { t[1], t[2], t[3], col }
+    end
+  elseif shape == "plane" then
+    v = { { -0.5, 0, -0.5 }, { 0.5, 0, -0.5 }, { 0.5, 0, 0.5 }, { -0.5, 0, 0.5 } }
+    f = { { 1, 4, 3, col }, { 1, 3, 2, col } }
+  elseif shape == "cylinder" then
+    local segs = 8
+    for s = 0, segs - 1 do
+      local b = s / segs * 2 * pi
+      v[#v + 1] = { 0.5 * cos(b), 0.5, 0.5 * sin(b) }
+    end
+    for s = 0, segs - 1 do
+      local b = s / segs * 2 * pi
+      v[#v + 1] = { 0.5 * cos(b), -0.5, 0.5 * sin(b) }
+    end
+    v[#v + 1] = { 0, 0.5, 0 }
+    v[#v + 1] = { 0, -0.5, 0 }
+    local top, bot = 2 * segs + 1, 2 * segs + 2
+    for s = 0, segs - 1 do
+      local n = (s + 1) % segs
+      f[#f + 1] = { top, s + 1, n + 1, col }
+      f[#f + 1] = { bot, segs + n + 1, segs + s + 1, col }
+      f[#f + 1] = { s + 1, segs + s + 1, segs + n + 1, col }
+      f[#f + 1] = { s + 1, segs + n + 1, n + 1, col }
+    end
+  else
+    local rings, segs = 6, 12
+    v[1] = { 0, 0.5, 0 }
+    for r = 1, rings - 1 do
+      local a = r / rings * pi
+      for s = 0, segs - 1 do
+        local b = s / segs * 2 * pi
+        v[#v + 1] = { 0.5 * sin(a) * cos(b), 0.5 * cos(a), 0.5 * sin(a) * sin(b) }
+      end
+    end
+    v[#v + 1] = { 0, -0.5, 0 }
+    local last = #v
+    local function at(r, s) return 2 + (r - 1) * segs + s % segs end
+    for s = 0, segs - 1 do
+      f[#f + 1] = { 1, at(1, s), at(1, s + 1), col }
+      f[#f + 1] = { last, at(rings - 1, s + 1), at(rings - 1, s), col }
+      for r = 1, rings - 2 do
+        f[#f + 1] = { at(r, s), at(r + 1, s), at(r + 1, s + 1), col }
+        f[#f + 1] = { at(r, s), at(r + 1, s + 1), at(r, s + 1), col }
+      end
+    end
+  end
+  if shape ~= "plane" then G.orient({ v = v, f = f }, { 0, 0, 0 }) end
+  centre = centre or { 0, 0, 0 }
+  local base, out = #it.v, {}
+  for i, p in ipairs(v) do
+    it.v[base + i] = { centre[1] + p[1] * size, centre[2] + p[2] * size, centre[3] + p[3] * size }
+    if it.vb then it.vb[base + i] = bone or 0 end
+    out[i] = base + i
+  end
+  for _, t in ipairs(f) do it.f[#it.f + 1] = { t[1] + base, t[2] + base, t[3] + base, t[4] } end
+  return out
+end
+
 local QUAD, TRI = { { 1, 2, 3 }, { 1, 3, 4 } }, { { 1, 2, 3 } }
 T.QUAD, T.TRI = QUAD, TRI
 
@@ -184,8 +632,8 @@ function T.encode_mesh(m)
     end
   end
   if #tris == 0 then return true end
-  if #verts > T.LIMIT_V then return false, #verts .. " vertices, at most " .. T.LIMIT_V end
-  if #tris > T.LIMIT_T then return false, #tris .. " triangles, at most " .. T.LIMIT_T end
+  if #verts > T.LIMIT_V then return false, #verts .. " vertices: format limit " .. T.LIMIT_V end
+  if #tris > T.LIMIT_T then return false, #tris .. " triangles: format limit " .. T.LIMIT_T end
   m.mc = name16(m.name) .. spack("<I2I2I4", #verts, #tris, 0) .. table.concat(verts) .. table.concat(tris)
   m.vb, m.nv, m.nt = table.concat(vb), #verts, #tris
   return true
@@ -1050,7 +1498,7 @@ function T.counts(m, x, y, narrow)
   x = print((m and #m.faces or 0) .. " faces", x, y, C.TEXT) + 8
   x = print(nt .. " tri", x, y, nt > T.TRIS_60FPS and C.ACC or C.TEXT) + 8
   if narrow then x, y = x0, y + 16 end
-  print(nv .. " vertices", x, y, nv > T.LIMIT_V and C.ERR or C.TEXT)
+  print(nv .. " of " .. T.LIMIT_V .. " vertices", x, y, nv > T.LIMIT_V and C.ERR or C.TEXT)
   if nt > T.TRIS_60FPS then return "heavy for 60 fps (" .. T.TRIS_60FPS .. " triangles a scene)" end
 end
 

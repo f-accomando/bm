@@ -160,9 +160,12 @@ E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.
 E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 local bmui
 E.require = function(name)
-  assert(name == "bmui", "require: only bmui here")      -- (no assistant: F6 says so)
-  bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
-  return bmui
+  if name == "bmui" then                 -- the mouse: once (it takes keyp over)
+    bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+    return bmui
+  end
+  assert(name == "bm3d", "require: only bm3d and bmui here")      -- (no assistant: F6 says so)
+  return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
 end
 local keyhelp_list, keyhelp_title
 E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
@@ -561,7 +564,7 @@ check(sees("cancelled"), "a tool cancelled with Esc")
 -- the tools on a cube: faces in 4, mirror, delete one, a new face, merge
 key("f1", "n")
 check(chosen() == "M cube", "n: a new model, a cube")
-key("f2", "\t", "a")
+key("f2", "\t", "\t", "a")
 check(sees("FACES: 12 chosen"), "Tab, a: the 12 faces of the cube")
 key("u")
 key("K")
@@ -575,7 +578,7 @@ check(sees("VERTICES: 26 chosen"), "Tab: the corners of the chosen faces")
 key("m", "^s")
 cube = model_of("astrowin.bme", "cube")
 check(cube and outward(cube), "m: mirrored, the faces still look out")
-key("\t", "a", "n", " ", "del", "^s")
+key("\t", "\t", "a", "n", " ", "del", "^s")
 cube = model_of("astrowin.bme", "cube")
 check(cube and cube.nf == 47 and cube.nv == 26, "a face deleted: 47 (" .. (cube and cube.nf or "-") .. ")")
 key("\t", "n", " ", "n", " ", "n", " ")
@@ -586,7 +589,7 @@ check(cube and cube.nf == 48, "j: a new face on them (" .. (cube and cube.nf or 
 key("a", "n", " ", "n", " ", "k", "^s")
 cube = model_of("astrowin.bme", "cube")
 check(cube and cube.nv == 25, "k: two vertices merged into one (" .. (cube and cube.nv or "-") .. ")")
-key("\t", "a", "a", "c", "right", "\n", "p", "^s")
+key("\t", "\t", "a", "c", "right", "\n", "p", "^s")
 cube = model_of("astrowin.bme", "cube")
 local pink = cube ~= nil
 for _, f in ipairs(cube and cube.faces or {}) do if f[4] ~= 0xE890B0 then pink = false end end
@@ -690,6 +693,447 @@ check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 
 check(file("astrowing.bm") == astro0 and file("village.bm") == village0,
       "the games stay as they were: the saves went into their editable copies (.bme)")
 
+-- Shift+A: a primitive as a new part of the model (the villager has bones)
+do
+  key("f1")
+  goto_item("M villager")
+  key("f2", "a", "a")
+  local before = model_of("meshcopy.bme", "villager")
+  local rb = anim_rigs(section(file("meshcopy.bme"), 9)).villager
+  key("A")
+  check(sees("add a part") and sees("Cylinder"), "Shift+A: the four shapes")
+  key("\n")
+  check(sees("VERTICES: 8 chosen") and status():find("added a cube", 1, true), "a cube: its 8 vertices are chosen: " .. status())
+  key("^z")
+  check(sees("VERTICES: 0 chosen"), "undo: the new vertices are not chosen any more")
+  key("^s")
+  local same = model_of("meshcopy.bme", "villager")
+  check(same and same.nv == before.nv and same.nf == before.nf, "undo: the count as before (one step)")
+  local shapes = { { "cube", 8, 12, 0 }, { "cylinder", 18, 32, 1 }, { "sphere", 62, 120, 2 }, { "plane", 4, 2, 3 } }
+  for _, sh in ipairs(shapes) do
+    key("a", "a", "A")
+    for _ = 1, sh[4] do key("down") end
+    key("\n", "^s")
+    local m = model_of("meshcopy.bme", "villager")
+    check(m and m.nv == before.nv + sh[2] and m.nf == before.nf + sh[3], sh[1] .. ": " .. sh[2] .. " vertices, " .. sh[3] ..
+          " faces (" .. (m and (m.nv - before.nv) .. "/" .. (m.nf - before.nf) or "-") .. ")")
+    check(sees("VERTICES: " .. sh[2] .. " chosen"), sh[1] .. ": the new vertices are chosen")
+    key("^z", "^s")
+    m = model_of("meshcopy.bme", "villager")
+    check(m and m.nv == before.nv and m.nf == before.nf, sh[1] .. ": one undo takes it away")
+  end
+  -- on a chosen vertex: the part goes to its middle and takes its bone
+  key("a", "a", "n", " ")
+  check(sees("VERTICES: 1 chosen"), "one vertex chosen")
+  key("A", "\n", "^s")
+  local m = model_of("meshcopy.bme", "villager")
+  local rg = anim_rigs(section(file("meshcopy.bme"), 9)).villager
+  local c, ok = { 0, 0, 0 }, m and m.nv == before.nv + 8 and rg and rg.nv == m.nv
+  if ok then
+    for i = before.nv + 1, m.nv do for k = 1, 3 do c[k] = c[k] + m.verts[i][k] / 8 end end
+    local bone, hit = rg.vb[m.nv], false
+    for i = before.nv + 1, m.nv do if rg.vb[i] ~= bone then ok = false end end
+    for j, q in ipairs(before.verts) do
+      if math.abs(q[1] - c[1]) < 1e-5 and math.abs(q[2] - c[2]) < 1e-5 and math.abs(q[3] - c[3]) < 1e-5 then
+        hit = true
+        if rb.vb[j] ~= bone then ok = false end
+      end
+    end
+    ok = ok and hit
+  end
+  check(ok, "a part on a chosen vertex: at its place, on its bone")
+  check(m and outward({ nv = 8, verts = { table.unpack(m.verts, before.nv + 1, m.nv) },
+        faces = (function() local t = {} for i = before.nf + 1, m.nf do local f = m.faces[i]; t[#t + 1] = { f[1] - before.nv, f[2] - before.nv, f[3] - before.nv } end return t end)() }),
+        "the cube part looks out")
+  key("^z", "^s")
+end
+
+-- Shift+X: the live mirror across X = 0 (a new cube: v1..v8 = x -,+,+,-,-,+,+,-)
+do
+  local function same(a, b) return math.abs(a - b) < 1e-5 end
+  local function changed(m0, m1)
+    local out = {}
+    for i = 1, m0.nv do
+      for k = 1, 3 do if not same(m0.verts[i][k], m1.verts[i][k]) then out[#out + 1] = i; break end end
+    end
+    return out
+  end
+  local function mirrored(m, i, j)
+    return same(m.verts[i][1], -m.verts[j][1]) and same(m.verts[i][2], m.verts[j][2]) and same(m.verts[i][3], m.verts[j][3])
+  end
+  local function mode(m)               -- "VERTICES" or "FACES" (Tab: vertices, edges, faces)
+    for _ = 1, 3 do
+      if sees(m .. ":") then return end
+      key("	")
+    end
+  end
+  local function pick(list)            -- clear, then choose these numbers (n steps the pointer)
+    if not sees(": 0 chosen") then key("a") end
+    key("home")
+    local last = 0
+    for _, i in ipairs(list) do
+      for _ = last + 1, i do key("n") end
+      last = i
+      key(" ")
+    end
+  end
+  key("f1", "n")
+  key("r")
+  type_text("mirt")
+  local name = "mirt"
+  key("f2")
+  mode("VERTICES")
+  key("^s")
+  local m0 = model_of("meshcopy.bme", name)
+  check(m0 and m0.nv == 8 and m0.nf == 12, "mirror: a new cube")
+  -- off: one vertex moves alone
+  pick({ 1 })
+  key("g", "up", "\n", "^s")
+  local m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 1, "mirror off: one vertex moves (" .. #changed(m0, m1) .. ")")
+  key("^z", "^s")
+  -- on: the vertex and its counterpart
+  check(not sees("MIRROR X"), "no indicator while the mirror is off")
+  key("X")
+  check(sees("MIRROR X") and status():find("mirror X on", 1, true), "Shift+X: the indicator and the message: " .. status())
+  key("g", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  local ch = changed(m0, m1)
+  check(#ch == 2 and ch[1] == 1 and ch[2] == 2 and mirrored(m1, 1, 2) and not same(m1.verts[1][2], m0.verts[1][2]),
+        "move: v1 and its counterpart v2 (" .. table.concat(ch, ",") .. ")")
+  check(sees("of 65535 vertices") and sees("8 of"), "the counters stay")
+  key("^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 0, "one undo takes back both sides")
+  -- rotate: v1 and v4 (the left side)
+  pick({ 1, 4 })
+  check(sees("VERTICES: 2 chosen"), "v1 and v4 chosen")
+  key("r", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 4 and mirrored(m1, 1, 2) and mirrored(m1, 4, 3),
+        "rotate: both sides turn (" .. #changed(m0, m1) .. ")")
+  key("^z")
+  -- scale
+  key("t", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 4 and mirrored(m1, 1, 2) and mirrored(m1, 4, 3), "scale: both sides (" .. #changed(m0, m1) .. ")")
+  key("^z")
+  -- every vertex chosen: still symmetric
+  pick({ 1, 2, 3, 4, 5, 6, 7, 8 })
+  key("r", "left", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) > 0 and mirrored(m1, 1, 2) and mirrored(m1, 4, 3) and mirrored(m1, 5, 6) and mirrored(m1, 8, 7),
+        "rotate with both sides chosen: the result is symmetric")
+  key("^z", "^s")
+  -- a vertex that lost its counterpart has no pair
+  key("X")
+  pick({ 1 })
+  key("g", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(not sees("MIRROR X") and #changed(m0, m1) == 1, "off again: one vertex")
+  key("X", "g", "up", "\n", "^s")
+  local m2 = model_of("meshcopy.bme", name)
+  check(#changed(m1, m2) == 1 and changed(m1, m2)[1] == 1, "no counterpart: only v1 moves (" .. #changed(m1, m2) .. ")")
+  key("^z", "^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 0, "back to the cube")
+  -- paint: face 9 (left side), its counterpart is face 12
+  mode("FACES")
+  pick({ 9 })
+  check(sees("FACES: 1 chosen"), "face 9 chosen")
+  key("c", "right", "right", "\n", "p", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  local c9 = m1.faces[9][4]
+  local ok = c9 ~= m0.faces[9][4] and m1.faces[12][4] == c9
+  for i = 1, 12 do if i ~= 9 and i ~= 12 and m1.faces[i][4] ~= m0.faces[i][4] then ok = false end end
+  check(ok, "paint: face 9 and its counterpart 12 only")
+  key("^z", "^s")
+  -- delete a face with its counterpart (one undo)
+  pick({ 9 })
+  key("del", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nf == 10, "delete a face: two faces go (" .. (m1 and m1.nf or "-") .. ")")
+  key("^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nf == 12, "one undo brings both back")
+  -- delete a vertex: it and its counterpart with their faces
+  mode("VERTICES")
+  pick({ 1 })
+  key("del", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nf == 4 and m1.nv == 6, "delete a vertex: v1 and v2 go (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  key("^z", "X", "^s")
+  check(not sees("MIRROR X"), "Shift+X again: off")
+  -- the command is on the menu and in the help
+  key("f3")
+  check(sees("Live mirror X"), "the commands list the live mirror")
+  key("esc")
+  -- the test model goes (the copy stays the village as saved)
+  key("f1")
+  goto_item("M mirt")
+  key("del", "del", "^s")
+  check(not model_of("meshcopy.bme", name), "the test cube is deleted")
+  -- T.G.mirror_pairs: tolerance, the plane, no counterpart
+  local G = E.require("bm3d").G
+  local it = { v = { { 1, 2, 3 }, { -1.0004, 2, 3 }, { 0, 5, 5 }, { 4, 4, 4 }, { -4.01, 4, 4 }, { 7, 7, 7 } }, f = {} }
+  local mp = G.mirror_pairs(it, { 1, 2, 3, 4, 5, 6 })
+  check(mp[1] == 2 and mp[2] == 1 and mp[3] == 3 and mp[4] == nil and mp[5] == nil and mp[6] == nil,
+        "T.G.mirror_pairs: a pair within 0.001, the plane, none beyond it")
+  local fm = G.mirror_faces({ f = { { 1, 3, 5 }, { 2, 3, 6 }, { 1, 2, 3 } } }, { 1, 3 }, { [1] = 2, [3] = 3, [5] = 6, [2] = 1 })
+  check(fm[1] == 2 and fm[3] == 3 and next(fm, 3) == nil, "T.G.mirror_faces: the counterpart face, a face on the plane is its own")
+end
+
+-- Edge mode (Tab) and the loop cut (Ctrl+R) on a new cube: v1..v8 = x -,+,+,-,-,+,+,-; y -,-,+,+ ...
+do
+  local G = E.require("bm3d").G
+  local function mode(m)
+    for _ = 1, 3 do
+      if sees(m .. ":") then return end
+      key("	")
+    end
+  end
+  local function same(a, b) return math.abs(a - b) < 1e-5 end
+  -- the n-th edge of the model, in the order of the n key (the keys sorted)
+  local function edge_no(m, a, b)
+    local keys = {}
+    for k in pairs(G.edge_faces({ f = m.faces })) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for i, k in ipairs(keys) do if k == G.edge_key(a, b) then return i, #keys end end
+  end
+  local function pick_edges(m, list)
+    mode("EDGES")
+    if not sees(": 0 chosen") then key("a") end
+    key("home")
+    local last = 0
+    for _, e in ipairs(list) do
+      local i = edge_no(m, e[1], e[2])
+      for _ = last + 1, i do key("n") end
+      last = i
+      key(" ")
+    end
+  end
+  local function nmoved(m0, m1)
+    local n = 0
+    for i = 1, m0.nv do
+      for k = 1, 3 do if not same(m0.verts[i][k], m1.verts[i][k]) then n = n + 1; break end end
+    end
+    return n
+  end
+  key("f1", "n")
+  key("r")
+  type_text("edgt")
+  local name = "edgt"
+  key("f2")
+  mode("VERTICES")
+  key("^s")
+  local m0 = model_of("meshcopy.bme", name)
+  check(m0 and m0.nv == 8 and m0.nf == 12, "edges: a new cube")
+  -- Tab: vertices -> edges -> faces -> vertices
+  check(sees("VERTICES:"), "edges: the page starts in vertex mode")
+  key("	")
+  check(sees("EDGES: 0 chosen"), "Tab: edge mode")
+  key("	")
+  check(sees("FACES:"), "Tab again: face mode")
+  key("	")
+  check(sees("VERTICES:"), "Tab again: vertex mode")
+  -- select one edge, move it
+  pick_edges(m0, { { 1, 2 } })
+  check(sees("EDGES: 1 chosen"), "an edge chosen with n and space (" .. status() .. ")")
+  key("g", "up", "\n", "^s")
+  local m1 = model_of("meshcopy.bme", name)
+  check(m1 and nmoved(m0, m1) == 2 and not same(m1.verts[1][2], m0.verts[1][2]) and not same(m1.verts[2][2], m0.verts[2][2]),
+        "move on an edge: its two vertices move (" .. (m1 and nmoved(m0, m1) or "-") .. ")")
+  key("^z", "^s")
+  -- scale / rotate act on the ends of the edge
+  key("t", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and nmoved(m0, m1) == 2, "scale on an edge: its two vertices")
+  key("^z", "^s")
+  -- two edges, the same edge again takes it out
+  pick_edges(m0, { { 1, 2 }, { 2, 3 } })
+  check(sees("EDGES: 2 chosen"), "two edges chosen")
+  key("g", "left", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and nmoved(m0, m1) == 3, "move two edges that share a vertex: 3 vertices (" .. (m1 and nmoved(m0, m1) or "-") .. ")")
+  key("^z", "^s")
+  -- Tab to faces: the faces with all corners chosen (none for two edges); back to vertices keeps the corners
+  key("a")
+  check(sees("EDGES: 0 chosen"), "a: none chosen")
+  -- Ctrl+R with nothing chosen
+  key("^r")
+  check(status():find("loop cut", 1, true) and status():find("one edge", 1, true), "Ctrl+R with no edge: a message (" .. status() .. ")")
+  check(sees("EDGES: 0 chosen"), "no change, no try of the game")
+  -- the loop cut around the cube: 4 quads, 4 new vertices, 8 new triangles
+  pick_edges(m0, { { 1, 2 } })
+  key("^r")
+  check(sees("EDGES: 4 chosen") and status():find("closed ring", 1, true), "the new loop is chosen: " .. status())
+  key("^s")
+  local m2 = model_of("meshcopy.bme", name)
+  check(m2 and m2.nv == 12 and m2.nf == 20, "loop cut on a cube edge: 12 vertices, 20 triangles (" .. (m2 and (m2.nv .. "/" .. m2.nf) or "-") .. ")")
+  local mids = {}
+  for i = 9, 12 do if m2 then mids[#mids + 1] = string.format("%.2f,%.2f,%.2f", m2.verts[i][1], m2.verts[i][2], m2.verts[i][3]) end end
+  table.sort(mids)
+  check(table.concat(mids, " ") == "0.00,0.00,-0.50 0.00,0.00,0.50 0.00,1.00,-0.50 0.00,1.00,0.50",
+        "loop cut: a vertex in the middle of the four edges along x (" .. table.concat(mids, " ") .. ")")
+  check(m2 and outward(m2), "loop cut: the faces still look out")
+  -- the new loop moves as one
+  key("g", "right", "\n", "^s")
+  local m3 = model_of("meshcopy.bme", name)
+  local moved = 0
+  for i = 1, m2.nv do if not same(m3.verts[i][1], m2.verts[i][1]) then moved = moved + 1 end end
+  check(moved == 4, "move the new loop: 4 vertices (" .. moved .. ")")
+  key("^z", "^z", "^s")
+  local m4 = model_of("meshcopy.bme", name)
+  check(m4 and m4.nv == 8 and m4.nf == 12, "two undo steps: the cube again (" .. (m4 and (m4.nv .. "/" .. m4.nf) or "-") .. ")")
+  -- two undo steps would be wrong: the loop cut is one step
+  key("^y", "^s")
+  m4 = model_of("meshcopy.bme", name)
+  check(m4 and m4.nv == 12 and m4.nf == 20, "redo: the loop cut again, one step")
+  key("^z", "^s")
+  -- vertex mode: two vertices that make an edge
+  mode("VERTICES")
+  if not sees(": 0 chosen") then key("a") end
+  key("home")
+  key("n", " ", "n", " ")
+  check(sees("VERTICES: 2 chosen"), "vertex mode: two vertices chosen")
+  key("^r", "^s")
+  m4 = model_of("meshcopy.bme", name)
+  check(m4 and m4.nv == 12 and m4.nf == 20 and sees("VERTICES: 4 chosen"), "loop cut from two vertices: the 4 new vertices are chosen")
+  key("^z", "^s")
+  -- delete: the faces next to the edge
+  pick_edges(m0, { { 1, 2 } })
+  key("del", "^s")
+  m4 = model_of("meshcopy.bme", name)
+  check(m4 and m4.nf == 10 and m4.nv == 8, "delete an edge: the 2 faces next to it (" .. (m4 and (m4.nv .. "/" .. m4.nf) or "-") .. ")")
+  key("^z", "^s")
+  -- the live mirror: an edge and its counterpart (1-4 and 2-3)
+  mode("EDGES")
+  key("X")
+  pick_edges(m0, { { 1, 4 } })
+  check(sees("EDGES: 2 chosen"), "live mirror: the edge and its counterpart are chosen (" .. status() .. ")")
+  key("g", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and nmoved(m0, m1) == 4, "live mirror: move acts on both edges (" .. (m1 and nmoved(m0, m1) or "-") .. ")")
+  key("^z", "del", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nf == 8, "live mirror: delete takes the faces of both edges (" .. (m1 and m1.nf or "-") .. ")")
+  key("^z", "X", "^s")
+  check(not sees("MIRROR X"), "live mirror off")
+  -- the commands list
+  key("f3")
+  check(sees("Loop cut"), "the commands list the loop cut")
+  key("esc")
+  -- the pad reaches it: the menu row runs the same key
+  key("f1")
+  goto_item("M edgt")
+  key("del", "del", "^s")
+  check(not model_of("meshcopy.bme", name), "the edge test cube is deleted")
+end
+
+-- T.G edges and the loop cut: pure, no editor
+do
+  local G = E.require("bm3d").G
+  local function mk(verts, faces, bones)
+    local it = { v = {}, f = {}, vb = bones }
+    for i, p in ipairs(verts) do it.v[i] = { p[1], p[2], p[3] } end
+    for i, f in ipairs(faces) do it.f[i] = { f[1], f[2], f[3], f[4] or 0x808080, f[5] } end
+    return it
+  end
+  check(G.edge_key(3, 7) == G.edge_key(7, 3) and select(2, G.edge_ends(G.edge_key(7, 3))) == 7, "T.G.edge_key: a pair, any order")
+  -- a plane: 4 vertices, 2 triangles; an open border stops the ring
+  do
+    local it = { v = {}, f = {} }
+    G.primitive(it, "plane", { 0, 0, 0 }, 1, 0xFF0000)
+    local ef = G.edge_faces(it)
+    local n = 0
+    for _ in pairs(ef) do n = n + 1 end
+    check(n == 5, "T.G.edge_faces: a plane has 5 edges (" .. n .. ")")
+    -- a side edge: the one with exactly one face that is not the border of the diagonal
+    local side
+    for k, l in pairs(ef) do if #l == 1 and not side then side = k end end
+    local a, b = G.edge_ends(side)
+    local res = G.loop_cut(it, a, b)
+    check(res and #it.v == 6 and #it.f == 4 and #res.mids == 2 and #res.rungs == 1, "loop cut on a plane: 2 new vertices, 4 triangles, stops at the borders")
+    local ok = true
+    for _, f in ipairs(it.f) do if G.normal_of(it, f)[2] == 0 then ok = false end end
+    check(ok, "loop cut on a plane: no flat triangle")
+  end
+  -- a strip of 2 quads (6 vertices): the cut across the first quad's side runs to the other border
+  do
+    local it = mk({ { 0, 0, 0 }, { 1, 0, 0 }, { 2, 0, 0 }, { 0, 0, 1 }, { 1, 0, 1 }, { 2, 0, 1 } },
+                  { { 1, 4, 5 }, { 1, 5, 2 }, { 2, 5, 6 }, { 2, 6, 3 } }, { 0, 0, 1, 0, 0, 1 })
+    local res, plan = G.loop_cut(it, 2, 5)
+    check(res and #res.mids == 3 and #res.rungs == 2 and not plan.closed and #it.v == 9 and #it.f == 8,
+          "loop cut on a strip: across the shared edge, 2 quads, an open ring (" .. #it.v .. "/" .. #it.f .. ")")
+    check(it.vb[7] == 0 and it.vb[8] == 0 and it.vb[9] == 1, "loop cut: the bones of the 3 new vertices")
+  end
+  -- the bone of a new vertex: the lower end
+  do
+    local it = mk({ { 0, 0, 0 }, { 2, 0, 0 }, { 2, 0, 2 }, { 0, 0, 2 } }, { { 1, 3, 2 }, { 1, 4, 3 } }, { 5, 9, 9, 5 })
+    local res = G.loop_cut(it, 1, 2)
+    check(res and it.vb[res.mids[1]] == 5, "T.G.loop_cut: the new vertex takes the bone of the lower end")
+  end
+  -- a closed ring: the cylinder side (8 quads)
+  do
+    local it = { v = {}, f = {} }
+    G.primitive(it, "cylinder", { 0, 0, 0 }, 1, 0x00FF00)
+    -- a vertical edge: two vertices with the same x, z and different y, joined by a side triangle
+    local va, vb
+    for _, f in ipairs(it.f) do
+      for k = 1, 3 do
+        local p, q = f[k], f[k % 3 + 1]
+        if it.v[p][2] ~= it.v[q][2] and math.abs(it.v[p][1] - it.v[q][1]) < 1e-6 and math.abs(it.v[p][3] - it.v[q][3]) < 1e-6 then va, vb = p, q end
+      end
+    end
+    local nv0, nf0 = #it.v, #it.f
+    local res, plan = G.loop_cut(it, va, vb)
+    check(res and plan.closed and #plan.quads == 8 and #res.mids == 8 and #it.v == nv0 + 8 and #it.f == nf0 + 16,
+          "loop cut around a cylinder: a closed ring of 8 quads (" .. #it.v .. "/" .. #it.f .. ")")
+    local ef = G.edge_faces(it)
+    local bad = 0
+    for _, l in pairs(ef) do if #l ~= 2 then bad = bad + 1 end end
+    check(bad == 0, "the cut cylinder is still closed: every edge has two faces (" .. bad .. ")")
+  end
+  -- a ring that ends on a triangle that is no quad: the triangle is cut in 2, no gap
+  do
+    local it = mk({ { 0, 0, 0 }, { 2, 0, 0 }, { 2, 0, 2 }, { 0, 0, 2 }, { 1, 0, 3.5 } },
+                  { { 1, 3, 2 }, { 1, 4, 3 }, { 4, 5, 3 } })
+    local res, plan = G.loop_cut(it, 1, 2)
+    check(res and not plan.closed and #plan.quads == 1 and #plan.plains == 1 and #it.v == 7 and #it.f == 6,
+          "loop cut: the ring ends on a triangle, it is cut in 2 (" .. #it.v .. "/" .. #it.f .. ")")
+    local ef = G.edge_faces(it)
+    local ok = true
+    for k, l in pairs(ef) do if #l > 2 then ok = false end end
+    check(ok, "loop cut at a triangle: no edge with more than 2 faces")
+  end
+  -- no quad: one triangle alone; not an edge
+  do
+    local it = mk({ { 0, 0, 0 }, { 1, 0, 0 }, { 0, 0, 1 } }, { { 1, 3, 2 } })
+    local res, err = G.loop_cut(it, 1, 2)
+    check(res == nil and err:find("no quad", 1, true), "loop cut on a lone triangle: no quad (" .. tostring(err) .. ")")
+    res, err = G.loop_cut(it, 1, 9)
+    check(res == nil and err:find("not an edge", 1, true), "loop cut: not an edge")
+    check(#it.v == 3 and #it.f == 1, "a failed loop cut changes nothing")
+  end
+  -- uv and colour: the middle of the edge gets the mean
+  do
+    local it = mk({ { 0, 0, 0 }, { 2, 0, 0 }, { 2, 0, 2 }, { 0, 0, 2 } },
+                  { { 1, 3, 2, -1, { 0, 0, 1, 1, 1, 0 } }, { 1, 4, 3, -1, { 0, 0, 0, 1, 1, 1 } } })
+    local res = G.loop_cut(it, 1, 2)
+    local mm = res.mids[1]
+    local found
+    for _, f in ipairs(it.f) do
+      for k = 1, 3 do
+        if f[k] == mm and f[5] then
+          local u, v = f[5][k * 2 - 1], f[5][k * 2]
+          if math.abs(u - 0.5) < 1e-6 and math.abs(v) < 1e-6 then found = true end
+        end
+      end
+    end
+    check(found and it.f[1][4] == -1, "loop cut: the new vertex gets the mean uv, the faces keep the sheet flag")
+  end
+end
+
 -- F12 held: the keys of the page (keyhelp(), the kernel draws them)
 local function in_help(keys, what)
   for _, e in ipairs(keyhelp_list or {}) do
@@ -702,6 +1146,7 @@ check(keyhelp_title == "bm Mesh" and in_help("m", "copy as a model") and in_help
       "keyhelp: the keys of the list, the pad's")
 key("f2")
 check(in_help("x / d", "extrude faces") and not in_help("m", "copy as a model"), "keyhelp: the keys of the edit page")
+check(in_help("ctrl r", "loop cut"), "keyhelp: Ctrl+R is the loop cut")
 -- Ctrl+Esc: with nothing to save it leaves at once; with changes it asks first
 check(E._exit() == true, "_exit: nothing to save, it leaves")
 key("f1", "n")
@@ -740,7 +1185,7 @@ check(chosen() and chosen():find(rows[2][1]:gsub("%*$", ""), 1, true), "mouse: a
 mouse(100, rows[1][3] + 8, 0, -1)
 click(rows[2][2] + 4, rows[2][3] + 8)
 click(rows[2][2] + 4, rows[2][3] + 8)
-check(sees("VERTICES") or sees("FACES"), "mouse: a double click edits it")
+check(sees("VERTICES") or sees("FACES") or sees("EDGES"), "mouse: a double click edits it")
 for i = 0, 10 do mouse(300 + i * 4, 180 + i * 3) end
 click(330, 200)
 frames(2)
@@ -760,6 +1205,54 @@ check(sees("Exit bm Mesh"), "mouse: the menu tab")
 mx, my = at("Continue", 32)
 click(mx, my)
 check(not sees("Exit bm Mesh"), "mouse: a click on Continue")
+
+-- the shared geometry (bm3d.lua, T.G): pure, no editor state
+do
+  local G = E.require("bm3d").G
+  local it = { v = { { 0, 0, 0 }, { 9, 9, 9 }, { 1, 0, 0 }, { 0, 1, 0 } },
+               f = { { 1, 3, 4, 0xFF0000 } }, vb = { 0, 1, 2, 3 }, dirty = true, name = "tri" }
+  local sv = G.compact(it, { [1] = 1, [2] = 2, [4] = 3 })
+  check(#it.v == 3 and it.f[1][1] == 1 and it.f[1][2] == 2 and it.f[1][3] == 3, "T.G.compact: the unused vertex goes, the corners follow")
+  check(it.vb[1] == 0 and it.vb[2] == 2 and it.vb[3] == 3 and #it.vb == 3, "T.G.compact: the bones follow")
+  check(sv[1] == 1 and sv[3] == 3 and sv[2] == nil, "T.G.compact: the selection is returned with the new numbers")
+  it.f[2] = { 1, 2, 3, -1, { 0, 0, 1.5, 2, 3, 4 } }
+  local bin = G.encode_model(it)
+  local back = G.model_item("tri", bin)
+  local again = G.encode_model({ name = "tri", v = back.v, f = back.f, dirty = true })
+  check(#back.v == 3 and #back.f == 2 and back.f[2][4] == -1 and back.f[2][5][3] == 1.5, "T.G.model_item: reads what encode_model wrote")
+  check(again == bin, "T.G.encode_model, model_item, encode_model: byte-equal")
+end
+
+-- T.G.primitive: counts, winding, bones
+do
+  local G = E.require("bm3d").G
+  local want = { cube = { 8, 12 }, plane = { 4, 2 }, sphere = { 62, 120 }, cylinder = { 18, 32 } }
+  for shape, w in pairs(want) do
+    local it = { v = { { 5, 5, 5 } }, f = {}, vb = { 7 } }
+    local nv = G.primitive(it, shape, { 1, 2, 3 }, 2, 0x123456, 4)
+    check(#nv == w[1] and #it.v == 1 + w[1] and #it.f == w[2], "T.G.primitive " .. shape .. ": " .. w[1] .. " vertices, " .. w[2] .. " faces")
+    check(nv[1] == 2 and nv[#nv] == #it.v, "T.G.primitive " .. shape .. ": returns the new numbers")
+    check(it.vb[1] == 7 and it.vb[2] == 4 and it.vb[#it.v] == 4, "T.G.primitive " .. shape .. ": the bone of the new vertices")
+    local mx = 0
+    for _, i in ipairs(nv) do mx = math.max(mx, math.abs(it.v[i][1] - 1)) end
+    check(math.abs(mx - 1) < 1e-6 or shape == "cylinder" or shape == "sphere", "T.G.primitive " .. shape .. ": size 2 about the centre")
+    local ok = true
+    local cc = { 1, 2, 3 }
+    for _, f in ipairs(it.f) do
+      if f[1] < 2 or f[4] ~= 0x123456 then ok = false end
+      if shape ~= "plane" then
+        local a, b, d = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+        local n = G.normal_of(it, f)
+        local m = { (a[1] + b[1] + d[1]) / 3 - cc[1], (a[2] + b[2] + d[2]) / 3 - cc[2], (a[3] + b[3] + d[3]) / 3 - cc[3] }
+        if n[1] * m[1] + n[2] * m[2] + n[3] * m[3] <= 0 then ok = false end
+      end
+    end
+    check(ok, "T.G.primitive " .. shape .. ": the faces look out, in the colour")
+  end
+  local plain = { v = {}, f = {} }
+  G.primitive(plain, "cube")
+  check(plain.vb == nil and #plain.v == 8 and plain.v[1][1] == -0.5, "T.G.primitive: no bones, no centre: at 0, size 1")
+end
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)
