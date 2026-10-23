@@ -954,6 +954,120 @@ function T.import_model(name, opts)
   return item
 end
 
+----------------------------------------------------------------- bones in bm Mesh (APP-14)
+
+-- A model with a skeleton (it.ac, and it.vb when the skeleton fits the vertices; a skeleton with no
+-- vertices yet gets it.vb at the first give, all on bone 0) gives each vertex to one bone. These functions read the bone names and heads from the ANIM part and change it.vb.
+-- Bone numbers start at 0 (as in the file); lists of names start at 1 (name of bone b = names[b + 1]).
+
+-- { { name, hx }, ... } for the bones of the skeleton (hx is the x of the head), or nil
+function G.rig_bones(it)
+  local ac = it.ac
+  if not ac then return nil end
+  local nb = sunpack("<I2", ac, 17)
+  local out, pos = {}, 25
+  for i = 1, nb do
+    out[i] = { name = cname(ac, pos), hx = (sunpack("<f", ac, pos + 20)) }
+    pos = pos + 44
+  end
+  return out
+end
+
+-- the name of the other side: arm_l -> arm_r, hand.R -> hand.L, Left -> Right, l_arm -> r_arm; nil
+-- when the name has no side
+local SIDE = { l = "r", r = "l", L = "R", R = "L" }
+function G.side_name(n)
+  local p, c = n:match("^(.*[%._%- ])([LlRr])$")
+  if p then return p .. SIDE[c] end
+  p, c = n:match("^([LlRr])([%._%- ].*)$")
+  if p then return SIDE[p] .. c end
+  p = n:match("^(.-)[Ll]eft$")
+  if p then return p .. (n:sub(-4) == "Left" and "Right" or "right") end
+  p = n:match("^(.-)[Rr]ight$")
+  if p then return p .. (n:sub(-5) == "Right" and "Left" or "left") end
+  return nil
+end
+
+-- the bone that mirrors bone b across X = 0: the bone with the other side's name, else b itself
+function G.mirror_bone(rig, b)
+  local r = rig[b + 1]
+  local other = r and G.side_name(r.name)
+  if other then
+    for i, o in ipairs(rig) do if o.name == other then return i - 1 end end
+  end
+  return b
+end
+
+-- "none" (no skeleton), "skinned" (a bone for each vertex: it.vb), "unskinned" (the skeleton has no vertices
+-- yet: every vertex is on bone 0 until it is given another) or "mismatch" (it has vertices that are not these)
+function G.skin_state(it)
+  if not it.ac then return "none" end
+  if it.vb then return "skinned" end
+  return sunpack("<I2", it.ac, 21) == 0 and "unskinned" or "mismatch"
+end
+
+-- the vertices of an unskinned skeleton go to bone 0 (it.vb is made); true when there is it.vb after
+function G.ensure_bones(it)
+  if it.vb then return true end
+  if G.skin_state(it) ~= "unskinned" then return false end
+  it.vb = {}
+  for i = 1, #it.v do it.vb[i] = 0 end
+  return true
+end
+
+-- the bone of the vertices in list: bone, count (how many different bones; bone is the first one)
+function G.bone_summary(it, list)
+  if not it.vb then return nil end
+  local seen, n, first = {}, 0, nil
+  for _, i in ipairs(list) do
+    local b = it.vb[i]
+    if b and not seen[b] then
+      seen[b] = true
+      n = n + 1
+      first = first or b
+    end
+  end
+  if n == 0 then return nil end
+  return first, n
+end
+
+-- Gives the vertices in list to bone b; returns the number of vertices changed, or nil and a message.
+-- With mirror on, the counterpart across X = 0 (G.mirror_pairs) takes the mirror bone (G.mirror_bone:
+-- the bone with the other side's name, else the same bone). A counterpart that is chosen too takes the
+-- mirror bone only when it is on the other side of the bone's head; a vertex on X = 0 takes b.
+-- Changes it.vb and nothing else.
+function G.set_bone(it, list, b, mirror)
+  if not it.ac then return nil, "no skeleton: bm Animator makes the bones" end
+  if not G.ensure_bones(it) then return nil, "the skeleton does not fit the vertices: skin it in bm Animator" end
+  local rig = G.rig_bones(it)
+  if b < 0 or b >= #rig then return nil, "no bone " .. b end
+  local chosen = {}
+  for _, i in ipairs(list) do chosen[i] = true end
+  local mb = mirror and G.mirror_bone(rig, b) or b
+  local mp = mirror and G.mirror_pairs(it, list) or {}
+  local hx = rig[b + 1].hx
+  local out = {}
+  local function put(i, nb)
+    out[i] = true
+    it.vb[i] = nb
+  end
+  for _, i in ipairs(list) do
+    local j = mp[i]
+    local nb = b
+    if j and j ~= i and chosen[j] and mb ~= b and it.v[i][1] * hx < 0 then nb = mb end
+    put(i, nb)
+  end
+  if mirror then
+    for _, i in ipairs(list) do
+      local j = mp[i]
+      if j and j ~= i and not chosen[j] then put(j, mb) end
+    end
+  end
+  local n = 0
+  for _ in pairs(out) do n = n + 1 end
+  return n
+end
+
 ----------------------------------------------------------------- the ghost reference (APP-10 step 7)
 
 -- A ghost is a model shown as a faint wire behind the model that is edited. It is a layer of its own:

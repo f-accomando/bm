@@ -1814,5 +1814,154 @@ do
   E.line = line0
 end
 
+-- bones in bm Mesh (APP-14): a key gives the chosen vertices (or a part, l) to a bone; the header shows it
+do
+  local G = E.require("bm3d").G
+  -- the names of the sides
+  check(G.side_name("arm_l") == "arm_r" and G.side_name("hand.R") == "hand.L" and G.side_name("Leg_L") == "Leg_R" and
+        G.side_name("l_foot") == "r_foot" and G.side_name("armLeft") == "armRight" and G.side_name("armright") == "armleft" and
+        G.side_name("spine") == nil and G.side_name("pelvis") == nil, "T.G.side_name: l and r, Left and Right, either end")
+  -- a rig of 5 bones: pelvis, arm_l (head x +), arm_r (head x -), hand.L with no hand.R, spine
+  local function rig_of(names, heads, nv, vbs)
+    local out = { string.pack("<I2I2I2I2", #names, 0, nv, 0) }
+    for i, n in ipairs(names) do
+      out[#out + 1] = (n .. string.rep("\0", 16)):sub(1, 16) .. string.pack("<i2I2ffffff", -1, 0, heads[i], 0, 0, heads[i], 1, 0)
+    end
+    local b = {}
+    for i = 1, nv do b[i] = string.char(vbs[i]) end
+    out[#out + 1] = table.concat(b) .. string.rep("\0", (4 - nv % 4) % 4)
+    return ("x"):rep(16) .. table.concat(out)
+  end
+  local ac = rig_of({ "pelvis", "arm_l", "arm_r", "hand.L", "spine" }, { 0, 0.5, -0.5, 0.8, 0 }, 6, { 0, 0, 0, 0, 0, 0 })
+  local it = { kind = "model", name = "t", ac = ac, bones = 5, clips = 0,
+               v = { { 0.5, 1, 0 }, { -0.5, 1, 0 }, { 0.5, 2, 0 }, { -0.5, 2, 0 }, { 0, 1, 0 }, { 0.3, 5, 0 } },
+               f = {}, vb = { 0, 0, 0, 0, 0, 0 } }
+  local rig = G.rig_bones(it)
+  check(#rig == 5 and rig[2].name == "arm_l" and math.abs(rig[2].hx - 0.5) < 1e-6 and rig[3].hx < 0, "T.G.rig_bones: names and head x")
+  check(G.mirror_bone(rig, 1) == 2 and G.mirror_bone(rig, 2) == 1 and G.mirror_bone(rig, 3) == 3 and G.mirror_bone(rig, 4) == 4,
+        "T.G.mirror_bone: arm_l <-> arm_r; hand.L has no mirror: itself; spine itself")
+  local n = G.set_bone(it, { 1, 3 }, 1, false)
+  check(n == 2 and it.vb[1] == 1 and it.vb[3] == 1 and it.vb[2] == 0 and it.vb[4] == 0, "T.G.set_bone: without the mirror only the chosen")
+  n = G.set_bone(it, { 1, 3, 5 }, 1, true)
+  check(n == 5 and it.vb[2] == 2 and it.vb[4] == 2 and it.vb[5] == 1 and it.vb[1] == 1 and it.vb[6] == 0,
+        "T.G.set_bone: mirror: the counterparts take arm_r, a vertex on x = 0 takes arm_l, a vertex with no pair stays")
+  G.set_bone(it, { 2 }, 3, true)
+  check(it.vb[2] == 3 and it.vb[1] == 3, "T.G.set_bone: a bone with no mirror name: the counterpart takes the same bone")
+  G.set_bone(it, { 1, 2, 3, 4 }, 1, true)
+  check(it.vb[1] == 1 and it.vb[3] == 1 and it.vb[2] == 2 and it.vb[4] == 2,
+        "T.G.set_bone: both sides chosen: the side of the bone's head keeps it, the other side takes the mirror bone")
+  local nn, err = G.set_bone(it, { 1 }, 9, false)
+  check(nn == nil and err:find("no bone 9", 1, true), "T.G.set_bone: no such bone")
+  nn, err = G.set_bone({ v = {}, f = {} }, { 1 }, 0, false)
+  check(nn == nil and err:find("no skeleton", 1, true), "T.G.set_bone: no skeleton")
+  nn, err = G.set_bone({ v = {}, f = {}, ac = ac }, { 1 }, 0, false)
+  check(nn == nil and err:find("does not fit", 1, true), "T.G.set_bone: a skeleton that does not fit")
+  -- a skeleton with no vertices yet: every vertex is on bone 0 until it is given another
+  local ac0 = rig_of({ "pelvis", "arm_l", "arm_r" }, { 0, 0.5, -0.5 }, 0, {})
+  local un = { v = { { 0.5, 1, 0 }, { -0.5, 1, 0 } }, f = {}, ac = ac0 }
+  check(G.skin_state(un) == "unskinned" and G.skin_state(it) == "skinned" and G.skin_state({ v = {}, f = {} }) == "none" and
+        G.skin_state({ v = {}, f = {}, ac = ac }) == "mismatch", "T.G.skin_state: none, skinned, unskinned, mismatch")
+  nn = G.set_bone(un, { 1 }, 1, true)
+  check(nn == 2 and un.vb[1] == 1 and un.vb[2] == 2, "T.G.set_bone: an unskinned skeleton takes bones at the first give")
+  local b1, c1 = G.bone_summary(it, { 1, 3 })
+  local b2, c2 = G.bone_summary(it, { 1, 2 })
+  check(b1 == 1 and c1 == 1 and b2 == 1 and c2 == 2 and G.bone_summary(it, {}) == nil, "T.G.bone_summary")
+
+  -- on the page: the villager (7 bones)
+  key("f1")
+  goto_item("M villager")
+  key("f2", "a", "a")
+  local function one_vertex() key("a"); if not sees("VERTICES: 0 chosen") then key("a") end; key("n", " ") end
+  local function header()
+    for _, t in ipairs(texts) do if t[3] == 40 and t[2] == 8 and t[1]:find("^BONE") then return t[1] end end
+    return ""
+  end
+  key("B")
+  check(status():find("choose vertices", 1, true), "Shift+B: nothing chosen says so: " .. status())
+  key("a")
+  check(header():find("^BONES %d+:"), "all chosen: the header says how many bones: " .. header())
+  key("a", "n", " ")
+  check(sees("VERTICES: 1 chosen") and header():find("^BONE %d+ %S+$"), "one vertex: the header has its bone: " .. header())
+  key("^s")
+  local project = status():match("saved /bme/(%S+)")
+  local function vbs() return anim_rigs(section(file(project), 9)).villager.vb end
+  local vb0 = vbs()
+  key("B")
+  check(sees("1 vertices to a bone") and sees(" 0  ") and sees(" 6  "), "Shift+B: the bones listed, 0 to 6")
+  key("down", "\n")                                       -- the dialog starts on the bone of the vertex
+  check(status():find("1 vertices to bone", 1, true), "a bone given: " .. status())
+  key("^s")
+  local vb1, diff = vbs(), {}
+  for i = 1, #vb0 do if vb1[i] ~= vb0[i] then diff[#diff + 1] = i end end
+  check(#diff == 1 and vb1[diff[1]] == (vb0[diff[1]] + 1) % 7, "saved: that vertex follows the next bone, no other changed (" .. #diff .. ")")
+  local one = diff[1] or 1
+  key("^z", "^s")
+  local vb2, same = vbs(), true
+  for i = 1, #vb0 do if vb2[i] ~= vb0[i] then same = false end end
+  check(same, "one undo gives the bone back")
+  key("^y", "^s")
+  vb2 = vbs()
+  check(vb2[one] == vb1[one], "redo")
+  key("^z")
+
+  -- a part chosen with l goes to bone 0 at once
+  local m = model_of(project, "villager")
+  local par = {}
+  local function root(i) while par[i] ~= i do par[i] = par[par[i]]; i = par[i] end return i end
+  for i = 1, m.nv do par[i] = i end
+  for _, f in ipairs(m.faces) do par[root(f[1])] = root(f[2]); par[root(f[2])] = root(f[3]) end
+  one_vertex()
+  key("l")
+  key("B", "pgup", "\n", "^s")
+  vb2 = vbs()
+  local ok_in, ok_out, moved = true, true, {}
+  for i = 1, m.nv do if vb2[i] ~= vb0[i] then moved[#moved + 1] = i end end
+  local r0 = moved[1] and root(moved[1])
+  for i = 1, m.nv do
+    if r0 and root(i) == r0 then if vb2[i] ~= 0 then ok_in = false end
+    elseif vb2[i] ~= vb0[i] then ok_out = false end
+  end
+  check(r0 and ok_in and ok_out, "l then Shift+B: the whole part is on bone 0 and the rest is as before (" .. #moved .. " changed)")
+  key("^z")
+
+  -- the live mirror: the counterparts follow
+  local all = {}
+  for i = 1, m.nv do all[i] = i end
+  local pairs_ = G.mirror_pairs({ v = m.verts }, all)
+  one_vertex()
+  key("X")
+  check(sees("VERTICES: 1 chosen") and sees("MIRROR X"), "live mirror on, one vertex")
+  key("B", "pgdn", "\n", "^s")
+  vb2 = vbs()
+  local rg = anim_rigs(section(file(project), 9)).villager
+  local rigv = G.rig_bones({ ac = ("x"):rep(16) .. string.pack("<I2I2I2I2", rg.nb, 0, rg.nv, 0) .. rg.bones })
+  local changed, ok_m = 0, true
+  for i = 1, m.nv do
+    if vb2[i] ~= vb0[i] then
+      changed = changed + 1
+      local j = pairs_[i]
+      -- the chosen vertex is on the last bone; the counterpart takes that bone's mirror (the same bone without a side name)
+      if vb2[i] == 6 and j and vb2[j] ~= G.mirror_bone(rigv, 6) then ok_m = false end
+    end
+  end
+  check(changed >= 1 and ok_m, "live mirror: the counterpart takes the mirror bone (" .. changed .. " changed, bone 6 is " .. rigv[7].name .. ")")
+  key("^z", "X")
+  -- keys: v, the pad's commands
+  key("v")
+  check(status():find("bone view", 1, true), "v: the bone view: " .. status())
+  key("v")
+  key("f3")
+  check(sees("Give the choice to a bone (B)") and sees("Bone view: tint by bone (v)"), "the commands list has both")
+  key("esc")
+  check(in_help("shift b / v", "bone"), "keyhelp: the bone keys")
+  -- a model with no skeleton
+  key("f1")
+  goto_item("M kite")
+  key("f2", "a", "B")
+  check(status():find("no skeleton", 1, true) and header() == "", "a model with no skeleton: Shift+B says so: " .. status())
+  key("v")
+  check(status():find("no skeleton", 1, true), "a model with no skeleton: v says so")
+end
+
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

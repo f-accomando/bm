@@ -2002,6 +2002,78 @@ function ed.toggle_mirror()
   say(ed.mirror and "mirror X on: edits happen on both sides" or "mirror X off", ed.mirror and C_ACC or C_DIM, 120)
 end
 
+-- bones (APP-14): Shift+B gives the chosen vertices (the corners of the chosen faces; "l" chooses a whole
+-- part) to a bone of the model's skeleton, v tints the vertex dots by bone; the header shows the bone of the
+-- choice. The live mirror gives the counterparts the mirror bone (B.G.mirror_bone). B.G.set_bone: bm3d.lua
+ed.BONE_C = { 0xFF5050, 0x50FF50, 0x5080FF, 0xFFE040, 0xFF50FF, 0x40E0E0,
+              0xFFA030, 0xA0FF40, 0x9060FF, 0xFF80A0, 0x40C090, 0xC0C0C0 }
+
+-- the skeleton of the model on the page, or nil and the reason
+function ed.rig_of(it)
+  local st = B.G.skin_state(it)
+  if st == "none" then return nil, "no skeleton: bm Animator makes the bones" end
+  if st == "mismatch" then return nil, "the skeleton does not fit the vertices: skin it in bm Animator" end
+  return B.G.rig_bones(it)
+end
+
+function ed.give_bone(b)
+  local it = I()
+  local rig, err = ed.rig_of(it)
+  if not rig then say(err, C_ERR, 240); return false end
+  local vs = sel_verts()
+  if #vs == 0 then say("choose vertices, faces or a part (l) first", C_ERR); return false end
+  if b < 0 or b >= #rig then say("no bone " .. b .. " (0 to " .. (#rig - 1) .. ")", C_ERR); return false end
+  B.G.ensure_bones(it)                    -- (an unskinned skeleton: all on bone 0; before the undo step is taken)
+  it = begin_edit()
+  local n = B.G.set_bone(it, vs, b, ed.mirror)
+  finish_edit(string.format("%d vertices to bone %d %s%s", n, b, rig[b + 1].name, ed.mirror and " (mirror: the other side too)" or ""))
+  return true
+end
+
+function ed.bone_dialog()
+  local it = I()
+  local rig, err = ed.rig_of(it)
+  if not rig then say(err, C_ERR, 240); return false end
+  local vs = sel_verts()
+  if #vs == 0 then say("choose vertices, faces or a part (l) first", C_ERR); return false end
+  local rows = {}
+  for i, r in ipairs(rig) do
+    rows[i] = { string.format("%2d  %s", i - 1, r.name), function() ed.give_bone(i - 1) end }
+  end
+  local cur_b = B.G.bone_summary(it, vs)
+  choose(#vs .. " vertices to a bone", rows, (cur_b or 0) + 1)
+  return true
+end
+
+function ed.toggle_bone_view()
+  local rig, err = ed.rig_of(I())
+  if not rig then say(err, C_ERR, 240); return end
+  ed.bonecol = not ed.bonecol
+  say(ed.bonecol and "bone view: the dots take the colour of their bone" or "bone view off", ed.bonecol and C_ACC or C_DIM, 120)
+end
+
+-- the header line: the bone of the choice (or of the vertex under the pointer)
+function ed.bone_text(it)
+  if not it.vb or not it.ac then return nil end
+  local list = {}
+  if ed.mode == "f" then
+    for fi in pairs(ed.sf) do
+      local f = it.f[fi]
+      if f then list[#list + 1] = f[1]; list[#list + 1] = f[2]; list[#list + 1] = f[3] end
+    end
+  else
+    for i in pairs(ed.sv) do list[#list + 1] = i end
+  end
+  local own = #list > 0
+  if not own and ed.hv then list[1] = ed.hv end
+  local b, n = B.G.bone_summary(it, list)
+  if not b then return nil end
+  local rig = B.G.rig_bones(it)
+  local name = rig[b + 1] and rig[b + 1].name or "?"
+  if n > 1 then return string.format("BONES %d: %s and more", n, name) end
+  return string.format("BONE %d %s%s", b, name, own and "" or " (pointer)")
+end
+
 -- the ghost reference (h shows / hides, Shift+H loads or clears, [ ] scale, { } height): a model of /bmm or
 -- /glb as a faint wire behind the model; it is not in `items`, not chosen, not counted, not saved, not
 -- mirrored or snapped to (B.ghost_load, B.G.ghost_*: bm3d.lua); ed.ghost is nil without one
@@ -2077,6 +2149,7 @@ local COMMANDS = {
   { "Move (g)", "g" }, { "Rotate (r)", "r" }, { "Scale (t)", "t" }, { "Extrude faces (x)", "x" },
   { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
   { "Live mirror X on / off (X)", "X" },
+  { "Give the choice to a bone (B)", "B" }, { "Bone view: tint by bone (v)", "v" },
   { "Snap: off, grid, vertex, both (S)", "S" }, { "Snap grid step (G)", "G" },
   { "Loop cut on the chosen edge (Ctrl+R)", "^r" },
   { "Knife on two edges of a triangle (J)", "J" },
@@ -2177,6 +2250,8 @@ function edit_key(k)
   elseif k == "m" then op_mirror()
   elseif k == "M" then op_mirror_copy()
   elseif k == "X" then ed.toggle_mirror()
+  elseif k == "B" then ed.bone_dialog()
+  elseif k == "v" then ed.toggle_bone_view()
   elseif k == "h" then ed.ghost_toggle()
   elseif k == "H" then ed.ghost_dialog()
   elseif k == "[" or k == "]" or k == "{" or k == "}" then ed.ghost_nudge(k)
@@ -2309,7 +2384,10 @@ function draw_edit()
     end
   elseif ed.mode == "v" then
     if #it.v <= 4096 then
-      for i in ipairs(it.v) do if sx[i] and not ed.sv[i] then rectfill(sx[i] - 1, sy[i] - 1, 2, 2, C_WIRE) end end
+      local tint = ed.bonecol and it.vb
+      for i in ipairs(it.v) do
+        if sx[i] and not ed.sv[i] then rectfill(sx[i] - 1, sy[i] - 1, 2, 2, tint and ed.BONE_C[(it.vb[i] or 0) % 12 + 1] or C_WIRE) end
+      end
     end
     for i in pairs(ed.sv) do if sx[i] then rectfill(sx[i] - 2, sy[i] - 2, 5, 5, C_PT) end end
     if ed.hv and sx[ed.hv] then circ(sx[ed.hv], sy[ed.hv], 5, C_HOT) end
@@ -2345,6 +2423,8 @@ function draw_edit()
   print(it.name, 8, 16, KIND_C[it.kind])
   print(string.format("%d of 65535 vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
                       ed.mode == "v" and "VERTICES" or (ed.mode == "e" and "EDGES" or "FACES"), nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
+  local bt = ed.bone_text(it)
+  if bt then print(bt, 8, 40, C_ACC) end
   if ed.tool then
     print(tool_text(), 8, 32, C_ACC)
   else
@@ -2408,6 +2488,7 @@ local HELP = {
     { "shift a", "add a part: cube, cylinder, sphere, plane" },
     { "m / shift m", "mirror left-right / copy across 0" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete on both sides" },
+    { "shift b / v", "give the choice (or a part, l) to a bone of the skeleton / tint the dots by bone" },
     { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved)" },
     { "[ ] / { }", "ghost: scale / height (with a ghost, [ ] do not change the mesh)" },
     { "shift s / shift g", "snap: off, grid, vertex, both / the grid step (0.05 to 0.5)" },

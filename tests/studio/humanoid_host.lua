@@ -1116,22 +1116,146 @@ do
   check(b.parent == 1 and math.abs(b.head[1] + 0.125) < 1e-3, "uleg.R hangs from the pelvis at x = -0.125")
 end
 
--- auto skin (k): every face follows its nearest bone
-timed("auto skin", key, "k")
-check(sees("nearest bone") or status():find("nearest bone", 1, true), "k: auto skin: " .. status())
-local rig2 = the_rig()
-local mod2
-for _, x in ipairs(mesh_models(section(read_file(PFILE), 8))) do if x.name == NAME then mod2 = x end end
-check(rig2.nv == mod2.nv and rig2.nb == 16, "the rig fits the model: " .. rig2.nv .. " vertices, " .. mod2.nv .. " in the model")
-local per_bone = {}
+-- the bones of the vertices: bm Mesh gives each part to its bone (APP-14). The Animator's auto skin is not
+-- used (it split corners and gave a face to the nearest bone). The Animator saved the rig with every vertex
+-- on bone 0, and welded the vertices that share a place (the rings where the neck meets the head, the
+-- pelvis the torso: the parts are no longer apart).
+local rig_pre = the_rig()
+local all0 = rig_pre.nb == 16
+for _, b in ipairs(rig_pre.vb) do if b ~= 0 then all0 = false end end
+check(all0, "the rig is saved with 16 bones and every vertex on bone 0: " .. rig_pre.nv .. " vertices")
+local bone_no = {}
+for i, b in ipairs(rig_pre.bones) do bone_no[b.name] = i - 1 end
+
+-- which bone each place of the model belongs to: from the 16 parts of the model as bm Mesh made it
+local function pk(p)
+  local s = string.format("%.3f,%.3f,%.3f", p[1], p[2], p[3])
+  return (s:gsub("%-0%.000", "0.000"))
+end
+local pre = mesh_models(file_mesh)[1]
+local parent_pre = {}
+local function root_pre(i) while parent_pre[i] ~= i do parent_pre[i] = parent_pre[parent_pre[i]]; i = parent_pre[i] end; return i end
+for i = 1, pre.nv do parent_pre[i] = i end
+for _, f in ipairs(pre.faces) do parent_pre[root_pre(f[1])] = root_pre(f[2]); parent_pre[root_pre(f[2])] = root_pre(f[3]) end
+local parts_pre = {}
+for i = 1, pre.nv do
+  local p = parts_pre[root_pre(i)]
+  if not p then p = { n = 0, cx = 0, cy = 0 }; parts_pre[root_pre(i)] = p end
+  p.n, p.cx, p.cy = p.n + 1, p.cx + pre.verts[i][1], p.cy + pre.verts[i][2]
+end
+-- by where the part is: the middle line, an arm at x = 0.36, a leg at x = 0.10 (.L is the side of x > 0)
+local function bone_of_part(p)
+  local cx, cy = p.cx / p.n, p.cy / p.n
+  local ax = math.abs(cx)
+  local name
+  if ax < 0.05 then name = cy < 1.1 and "pelvis" or (cy < 1.5 and "spine" or (cy < 1.72 and "neck" or "head"))
+  elseif ax > 0.2 then name = cy > 1.25 and "uarm" or (cy > 1.03 and "larm" or "hand")
+  else name = cy > 0.55 and "uleg" or (cy > 0.2 and "lleg" or "foot") end
+  if ax >= 0.05 then name = name .. (cx > 0 and ".L" or ".R") end
+  return name
+end
+local at_place, names_pre = {}, {}
+for i = 1, pre.nv do
+  local name = bone_of_part(parts_pre[root_pre(i)])
+  names_pre[name] = true
+  local k = pk(pre.verts[i])
+  local old = at_place[k]
+  -- a place that two parts share goes to the bigger one: the torso, the head
+  if not old or old == "pelvis" or old == "neck" then at_place[k] = name end
+end
+local npre = 0
+for n in pairs(names_pre) do npre = npre + 1; check(bone_no[n], "a bone for the part " .. n) end
+check(npre == 16, "16 parts, 16 different bones: " .. npre)
+
+run_cart(MESH, PROJECT)
+key("f2")
+local mod2 = save_model()
+check(mod2 and mod2.nv == rig_pre.nv and mod2.nf == pre.nf and mod2.nv < pre.nv, "bm Mesh reopens the rigged model, welded: " ..
+      tostring(mod2 and mod2.nv) .. " vertices (" .. pre.nv .. " before)")
+key("a")
+check(sees("BONE 0 pelvis"), "all chosen: the header shows bone 0, pelvis")
+key("a")
+
+-- the model as the Animator saved it: its parts (linked faces) and the bone of each vertex
+local expect, missing = {}, 0
+for i = 1, mod2.nv do
+  expect[i] = at_place[pk(mod2.verts[i])]
+  if not expect[i] then missing = missing + 1 end
+end
+check(missing == 0, "every place of the welded model is a place of a part (" .. missing .. " are not)")
+local parent2 = {}
+local function root2(i) while parent2[i] ~= i do parent2[i] = parent2[parent2[i]]; i = parent2[i] end; return i end
+for i = 1, mod2.nv do parent2[i] = i end
+for _, f in ipairs(mod2.faces) do parent2[root2(f[1])] = root2(f[2]); parent2[root2(f[2])] = root2(f[3]) end
+local parts2, order2 = {}, {}
+for i = 1, mod2.nv do
+  local r = root2(i)
+  local p = parts2[r]
+  if not p then p = { first = i, n = 0, cx = 0, groups = {} }; parts2[r] = p; order2[#order2 + 1] = p end
+  p.n, p.cx = p.n + 1, p.cx + mod2.verts[i][1]
+  local g = p.groups[expect[i] or "?"]
+  if not g then g = {}; p.groups[expect[i] or "?"] = g end
+  g[#g + 1] = i
+end
+-- the middle line and the .L side by hand; the live mirror gives the .R side
+local work = {}
+for _, p in ipairs(order2) do
+  if p.cx / p.n > -0.05 then work[#work + 1] = p end
+end
+check(#work == 8, "8 pieces by hand (the torso with the pelvis, the neck with the head, 6 limbs on the .L side): " .. #work)
+
+mode("VERTICES")
+none()
+key("X")
+check(sees("MIRROR X"), "the live mirror is on: the .R side follows")
+local function give(bone_name)
+  key("B")
+  check(sees("vertices to a bone"), "Shift+B: the bones of the skeleton are listed")
+  key("pgup")
+  for _ = 1, bone_no[bone_name] do key("down") end
+  timed("give to bone", key, "\n")
+  check(status():find("to bone " .. bone_no[bone_name] .. " " .. bone_name, 1, true), "to " .. bone_name .. ": " .. status())
+end
+for _, p in ipairs(work) do
+  -- the biggest group of the piece is the piece's bone; a smaller group is a part that was welded to it
+  local main, small = nil, {}
+  for name, g in pairs(p.groups) do
+    if not main or #g > #p.groups[main] then main = name end
+  end
+  for name in pairs(p.groups) do if name ~= main then small[#small + 1] = name end end
+  table.sort(small)
+  pick({ p.first }, mod2.nv)
+  timed("linked", key, "l")
+  check(sees("BONE"), "the header shows the bone of the piece")
+  give(main)
+  for _, name in ipairs(small) do
+    pick(p.groups[name], mod2.nv)
+    give(name)
+  end
+end
+
+local mod3 = save_model()
+local rig2 = anim_rigs(section(read_file(PFILE), 9))[NAME]
+check(mod3.nv == mod2.nv and mod3.nf == mod2.nf, "the bones change no vertex and no triangle")
+check(rig2 and rig2.nv == mod3.nv and rig2.nb == 16, "the rig fits the model: " .. rig2.nv .. " vertices, " .. mod3.nv .. " in the model")
+local per_bone, wrong = {}, 0
 for i = 1, 16 do per_bone[i] = 0 end
-for _, b in ipairs(rig2.vb) do per_bone[b + 1] = per_bone[b + 1] + 1 end
+for i, b in ipairs(rig2.vb) do
+  per_bone[b + 1] = per_bone[b + 1] + 1
+  if b ~= bone_no[expect[i]] then wrong = wrong + 1 end
+end
+check(wrong == 0, "every vertex follows the bone of its part, the .R side the mirror bone (" .. wrong .. " do not)")
 local empty = {}
 for i = 1, 16 do if per_bone[i] == 0 then empty[#empty + 1] = rig2.bones[i].name end end
 check(#empty == 0, "every bone has vertices (none for: " .. table.concat(empty, " ") .. ")")
-check(mod2.nf == R.nf, "the skin changes no triangle: " .. mod2.nf)
-R.skinned_nv = mod2.nv
-say("skinned: %d vertices (%d before), vertices per bone: %s", mod2.nv, R.nv, table.concat(per_bone, " "))
+R.skinned_nv = mod3.nv
+say("bones by hand: %d vertices (%d in bm Mesh, the Animator welded the rest), vertices per bone: %s", mod3.nv, pre.nv, table.concat(per_bone, " "))
+
+-- bm Animator keeps them and goes on to the walk
+run_cart(ANIMATOR, PROJECT)
+key("f2")
+local rig2b = the_rig()
+check(rig2b.nv == rig2.nv and table.concat(rig2b.vb, ",") == table.concat(rig2.vb, ","), "bm Animator keeps the bones of the vertices")
 
 
 -- a walk: bones turned at 0 s, the pose mirrored at 0.5 s; the animation loops
