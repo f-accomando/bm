@@ -516,6 +516,102 @@ function G.loop_cut(it, a, b)
   return G.loop_apply(it, plan), plan
 end
 
+-- Knife-lite, the plan. The two edges k1 and k2 must be two edges of one
+-- triangle (they meet at its apex p). The cut joins the middles of the two
+-- edges. The face across each edge (if the edge has one) is cut in 2 too, so
+-- no crack stays. Nothing changes. Returns the plan { t = the triangle, p,
+-- a, b = its corners (the edges are p-a and p-b), n1, n2 = the faces across
+-- the edges or nil } or nil and a message.
+function G.knife_plan(it, k1, k2)
+  if k1 == k2 then return nil, "choose two different edges" end
+  local ef = G.edge_faces(it)
+  local l1, l2 = ef[k1], ef[k2]
+  if not l1 or not l2 then return nil, "this is not an edge" end
+  if #l1 > 2 or #l2 > 2 then return nil, "an edge has more than 2 faces" end
+  local t
+  for _, x in ipairs(l1) do
+    for _, y in ipairs(l2) do if x == y and not t then t = x end end
+  end
+  if not t then return nil, "the two edges do not share a triangle" end
+  local a1, b1 = G.edge_ends(k1)
+  local a2, b2 = G.edge_ends(k2)
+  local p, a, b
+  if a1 == a2 then p, a, b = a1, b1, b2
+  elseif a1 == b2 then p, a, b = a1, b1, a2
+  elseif b1 == a2 then p, a, b = b1, a1, b2
+  elseif b1 == b2 then p, a, b = b1, a1, a2
+  else return nil, "the two edges do not share a triangle" end
+  local n1, n2
+  for _, x in ipairs(l1) do if x ~= t then n1 = x end end
+  for _, x in ipairs(l2) do if x ~= t then n2 = x end end
+  if n1 and n1 == n2 then return nil, "the faces next to the edges are the same" end
+  return { t = t, p = p, a = a, b = b, n1 = n1, n2 = n2, k1 = k1, k2 = k2 }
+end
+
+-- Knife-lite, the change: one new vertex in the middle of each of the two
+-- edges (the bone of the lower end; the uv by the mean), the triangle in 3
+-- triangles, the face across each edge in 2. The faces keep their colour,
+-- sheet flag and winding. Returns { mids = {m1, m2}, rung = {m1, m2} the new
+-- edge, faces = the number of faces added }.
+function G.knife_apply(it, plan)
+  local mid = {}
+  for _, k in ipairs({ plan.k1, plan.k2 }) do
+    local a, b = G.edge_ends(k)
+    local p, q = it.v[a], it.v[b]
+    mid[k] = G.add_vertex(it, { (p[1] + q[1]) / 2, (p[2] + q[2]) / 2, (p[3] + q[3]) / 2 }, a)
+  end
+  local ends = { [mid[plan.k1]] = { G.edge_ends(plan.k1) }, [mid[plan.k2]] = { G.edge_ends(plan.k2) } }
+  local function uvof(f, v)
+    local e = ends[v]
+    if e then
+      local x, y = uvof(f, e[1]), uvof(f, e[2])
+      return { (x[1] + y[1]) / 2, (x[2] + y[2]) / 2 }
+    end
+    for k = 1, 3 do if f[k] == v then return { f[5][k * 2 - 1], f[5][k * 2] } end end
+    return { 0, 0 }
+  end
+  local function tri(a, b, c, s)
+    local uv
+    if s[5] then
+      local ua, ub, uc = uvof(s, a), uvof(s, b), uvof(s, c)
+      uv = { ua[1], ua[2], ub[1], ub[2], uc[1], uc[2] }
+    end
+    return { a, b, c, s[4], uv }
+  end
+  local add = {}
+  -- the triangle: rotated to x = p; my on x-y, mz on x-z
+  local f = it.f[plan.t]
+  local k = 1
+  while f[k] ~= plan.p do k = k + 1 end
+  local x, y, z = f[k], f[k % 3 + 1], f[(k + 1) % 3 + 1]
+  local my = mid[G.edge_key(x, y)]
+  local mz = mid[G.edge_key(x, z)]
+  it.f[plan.t] = tri(x, my, mz, f)
+  add[#add + 1] = tri(my, y, z, f)
+  add[#add + 1] = tri(my, z, mz, f)
+  -- the face across each edge, cut in 2 from the new vertex to its far corner
+  for _, pr in ipairs({ { plan.n1, plan.k1 }, { plan.n2, plan.k2 } }) do
+    if pr[1] then
+      local g, m = it.f[pr[1]], mid[pr[2]]
+      for j = 1, 3 do
+        if G.edge_key(g[j], g[j % 3 + 1]) == pr[2] then
+          local gx, gy, gz = g[j], g[j % 3 + 1], g[(j + 1) % 3 + 1]
+          it.f[pr[1]] = tri(gx, m, gz, g)
+          add[#add + 1] = tri(m, gy, gz, g)
+          break
+        end
+      end
+    end
+  end
+  for _, nf in ipairs(add) do it.f[#it.f + 1] = nf end
+  return { mids = { mid[plan.k1], mid[plan.k2] }, rung = { mid[plan.k1], mid[plan.k2] }, faces = #add }
+end
+
+function G.knife(it, k1, k2)
+  local plan, err = G.knife_plan(it, k1, k2)
+  if not plan then return nil, err end
+  return G.knife_apply(it, plan), plan
+end
 -- A primitive ("cube", "plane", "sphere" or "cylinder") of the width size, in
 -- the colour col, with its middle at centre, added to the model it as a new
 -- part. The faces look out. The new vertices take the bone given (or 0) when
