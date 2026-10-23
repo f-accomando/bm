@@ -316,6 +316,40 @@ function G.soft_weights(it, src, r, skip)
   return out
 end
 
+-- Smooth (APP-25, Shift+V): one pass that relaxes the vertices of sv (a list) toward the mean of their
+-- edge neighbours: p + k * (mean - p). Every new position comes from the old ones (no order effect).
+-- A vertex on an open border (an edge with one face), one with no edge, and one not in range stay.
+-- fol = { [leader] = counterpart } (live mirror): the counterpart gets the mirror image (x -> -x) of the
+-- new position of its leader. Returns the number of vertices that moved.
+function G.smooth(it, sv, k, fol)
+  local v = it.v
+  local nb, border = {}, {}
+  for key, l in pairs(G.edge_faces(it)) do
+    local a, b = G.edge_ends(key)
+    nb[a] = nb[a] or {}; nb[b] = nb[b] or {}
+    nb[a][#nb[a] + 1] = b; nb[b][#nb[b] + 1] = a
+    if #l == 1 then border[a], border[b] = true, true end
+  end
+  local new, n = {}, 0
+  for _, i in ipairs(sv) do
+    local l, p = nb[i], v[i]
+    if p and l and not border[i] and not new[i] then
+      local x, y, z = 0, 0, 0
+      for _, j in ipairs(l) do local q = v[j]; x, y, z = x + q[1], y + q[2], z + q[3] end
+      local m = #l
+      new[i] = { p[1] + k * (x / m - p[1]), p[2] + k * (y / m - p[2]), p[3] + k * (z / m - p[3]) }
+    end
+  end
+  for i, q in pairs(new) do
+    local p = v[i]
+    p[1], p[2], p[3] = q[1], q[2], q[3]
+    n = n + 1
+    local j = fol and fol[i]
+    if j and v[j] then v[j][1], v[j][2], v[j][3] = -q[1], q[2], q[3]; n = n + 1 end
+  end
+  return n
+end
+
 -- Hide and isolate: hid is a set { [vertex] = true }. A face is hidden when any corner is.
 function G.face_hidden(f, hid)
   return hid[f[1]] or hid[f[2]] or hid[f[3]] or false
