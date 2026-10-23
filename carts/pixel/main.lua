@@ -868,6 +868,7 @@ local COMMANDS = {
 function draw_actions()
   local rows = {}
   for _, c in ipairs(COMMANDS) do rows[#rows + 1] = { c[1], function() draw_key(c[2]) end } end
+  rows[#rows + 1] = { "Export a PNG or GIF... (Ctrl+E)", function() shp.export_png() end }
   choose("draw: " .. tool, rows)
 end
 
@@ -1238,6 +1239,7 @@ function sheet_actions()
     { "Zoom in (+)", function() sheet_key("+") end },
     { "Zoom out (-)", function() sheet_key("-") end },
     { "Sheet size... (R)", resize },
+    { "Export a PNG or GIF... (Ctrl+E)", function() shp.export_png() end },
   })
 end
 
@@ -1962,7 +1964,7 @@ local HELP = {
   all = {
     { "f1 / f2 / f3 / f4", "draw / sheet / palette / stack" },
     { "tab", "the commands" },
-    { "ctrl e", "export a PNG to /docs (sprite, animation, sheet)" },
+    { "ctrl e", "export to /docs: a PNG (sprite, animation, sheet) or the animation as a GIF" },
   },
   draw = {
     { "up down left right", "the pointer" },
@@ -2106,25 +2108,26 @@ local function new_other()
   if not dirty or confirmed("new", "unsaved changes: choose again for a new sheet") then new_sheet(); go("draw") end
 end
 
--- Ctrl+E: the sprite, the animation or the whole sheet as a PNG in /docs
--- (sheet_png, doc_write; the console's file names are 8.3)
+-- Ctrl+E: the sprite, the animation or the whole sheet as a PNG, or the animation as a GIF, in /docs
+-- (sheet_png, sheet_gif, doc_write; the console's file names are 8.3). The encoders run only here.
 shp.export_png = function()
   local base = (proj.path and proj.path:match("([^/]+)$") or "sprites"):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
   if base == "" then base = "sprites" end
-  local function write(rects, name)
-    local stem = name:match("([^/]*)$"):lower():gsub("%.png$", ""):gsub("[^%w_]", "")
+  -- ext: "png" or "gif"; make(rects) returns the bytes, or nil and why
+  local function write(rects, name, ext, make)
+    local stem = name:match("([^/]*)$"):lower():gsub("%." .. ext .. "$", ""):gsub("[^%w_]", "")
     if stem == "" then return end
     local cut = #stem > 8
-    stem = stem:sub(1, 8) .. ".png"
-    if not sheet_png or not doc_write then say("export: this console cannot write a PNG", C_ERR); return end
-    local png, why = sheet_png(rects)
-    if not png then say("export failed: " .. tostring(why), C_ERR, 300); return end
-    local ok, err = doc_write(stem, png)
+    stem = stem:sub(1, 8) .. "." .. ext
+    if not make or not doc_write then say("export: this console cannot write a " .. ext:upper(), C_ERR); return end
+    local bytes, why = make(rects)
+    if not bytes then say("export failed: " .. tostring(why), C_ERR, 300); return end
+    local ok, err = doc_write(stem, bytes)
     if not ok then say("export failed: " .. tostring(err), C_ERR, 300); return end
     say("saved /docs/" .. stem .. (cut and " (name cut to 8 letters)" or ""), C_ACC, 300)
   end
   local function go_on(rects)
-    ask("PNG name (8.3, in /docs)", base:sub(1, 8) .. ".png", function(t) write(rects, t) end)
+    ask("PNG name (8.3, in /docs)", base:sub(1, 8) .. ".png", function(t) write(rects, t, "png", sheet_png) end)
   end
   local anim_rects = {}
   local per = sw // rs                  -- the preview's order: along the sheet, wrapping round
@@ -2133,10 +2136,18 @@ shp.export_png = function()
     local n = ((ry // rs) * per + rx // rs + k) % total
     anim_rects[#anim_rects + 1] = { (n % per) * rs, (n // per) * rs, rs, rs }
   end
-  choose("export a PNG to /docs", {
-    { "this sprite", function() go_on({ { rx, ry, rs, rs } }) end },
-    { "the animation: " .. anim.frames .. " frames side by side", function() go_on(anim_rects) end },
-    { "the whole sheet", function() go_on({ { 0, 0, sw, sh } }) end },
+  -- the preview shows a frame for 1 / fps seconds: the GIF's delay is that, in hundredths
+  local delay = max(1, floor(100 / anim.fps + 0.5))
+  local function gif_on()
+    ask("GIF name (8.3, in /docs)", base:sub(1, 8) .. ".gif", function(t)
+      write(anim_rects, t, "gif", sheet_gif and function(r) return sheet_gif(r, delay) end)
+    end)
+  end
+  choose("export to /docs", {
+    { "this sprite as a PNG", function() go_on({ { rx, ry, rs, rs } }) end },
+    { "the animation as a PNG: " .. anim.frames .. " frames side by side", function() go_on(anim_rects) end },
+    { "the animation as a GIF: " .. anim.frames .. " frames, " .. anim.fps .. " a second", gif_on },
+    { "the whole sheet as a PNG", function() go_on({ { 0, 0, sw, sh } }) end },
   })
 end
 
@@ -2147,7 +2158,7 @@ local MENU = {
   { "Save   (Ctrl+S)", save_now },
   { "Save as...   (Ctrl+Shift+S)", save_as },
   { "Try the game (F5)", try_game },
-  { "Export a PNG to /docs...   (Ctrl+E)", function() shp.export_png() end },
+  { "Export a PNG or GIF to /docs...   (Ctrl+E)", function() shp.export_png() end },
   { "Sheet size...", function() go("sheet"); shp.resize() end },
   { "Exit bm Pixel", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then remember(); quit() end end },
 }

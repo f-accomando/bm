@@ -387,6 +387,12 @@ E.sheet_png = function(rects)
   if png_fail then return nil, png_fail end
   return "PNG" .. #png_calls
 end
+local gif_calls, gif_fail = {}, nil
+E.sheet_gif = function(rects, delay)
+  gif_calls[#gif_calls + 1] = { rects = rects, delay = delay }
+  if gif_fail then return nil, gif_fail end
+  return "GIF" .. #gif_calls
+end
 E.doc_write = function(name, bytes)
   if doc_fail then return nil, doc_fail end
   docs[name] = bytes
@@ -929,15 +935,15 @@ local function rects_of(call)
   return table.concat(t, ";")
 end
 key("f1")
-check(in_help("ctrl e", "export a PNG"), "help: Ctrl+E export a PNG")
+check(in_help("ctrl e", "a PNG") and in_help("ctrl e", "GIF"), "help: Ctrl+E export a PNG or a GIF")
 check(sees("PNG"), "the draw hint bar names Ctrl+E PNG")
 check(not sees("Export a PNG to /docs"), "the menu is closed on F1")
 key("esc")
-check(sees("Export a PNG to /docs...   (Ctrl+E)"), "the menu has the export row")
+check(sees("Export a PNG or GIF to /docs...   (Ctrl+E)"), "the menu has the export row")
 key("f1")
 local rx0, ry0 = sprite_at()
 key("^e")
-check(sees("this sprite") and sees("the whole sheet") and sees("frames side by side"), "Ctrl+E: the chooser offers the three")
+check(sees("this sprite") and sees("the whole sheet") and sees("frames side by side") and sees("as a GIF"), "Ctrl+E: the chooser offers the four")
 key("\n")                                   -- this sprite
 check(sees("PNG name"), "the name is asked")
 check(sees("village.png") or sees("sprites.png") or sees(".png"), "the default name ends in .png")
@@ -967,16 +973,64 @@ key("+")
 key("^e", "down", "\n")
 key("\n")
 check(#png_calls[1] == nfr + 1 or nfr == 16, "animation: + adds a rectangle (" .. nfr .. " -> " .. #png_calls[1] .. ")")
+-- the animation as a GIF: one rectangle per frame, in the preview order, the delay from the speed
+key("f1")
+local png_n = #png_calls
+docs = {}
+key("^e")
+local fps1 = tonumber(screen():match("(%d+) a second"))
+key("down", "down", "\n")
+check(sees("GIF name") and sees(".gif"), "GIF: the name is asked, it ends in .gif")
+key("\n")
+check(#gif_calls == 1 and #png_calls == png_n, "GIF: one sheet_gif call, no PNG")
+local gc = gif_calls[1]
+check(#gc.rects == nfr + 1 or nfr == 16, "GIF: one rectangle a frame (" .. #gc.rects .. ")")
+check(gc.rects[1][1] == rx0 and gc.rects[1][2] == ry0 and gc.rects[1][3] == r1[3] and gc.rects[1][4] == r1[3], "GIF: first rectangle is this sprite: " .. rects_of(gc.rects))
+local gdname = next(docs)
+check(gdname and gdname:match("^[%l%d_]+%.gif$") and #gdname:gsub("%.gif$", "") <= 8, "GIF: the default name is 8.3: " .. tostring(gdname))
+check(status():find("saved /docs/" .. gdname, 1, true), "GIF: the status shows the path: " .. status())
+check(fps1 and gc.delay == math.floor(100 / fps1 + 0.5), "GIF: delay from the speed (" .. tostring(fps1) .. " a second): " .. tostring(gc.delay))
+key("<")                                    -- one frame a second less
+gif_calls, docs = {}, {}
+key("^e")
+check(tonumber(screen():match("(%d+) a second")) == fps1 - 1, "GIF: the choice names the speed")
+key("down", "down", "\n")
+type_text("Longname_x.GIF")
+check(gif_calls[1] and gif_calls[1].delay == math.floor(100 / (fps1 - 1) + 0.5) and docs["longname.gif"] == "GIF1", "GIF: delay follows the speed; long name cut: " .. tostring(next(docs)))
+check(status():find("cut to 8", 1, true) and status():find("longname.gif", 1, true), "GIF: the status says the name was cut: " .. status())
+key(">")
+-- the errors: sheet_gif nil, doc_write nil
+gif_calls, docs = {}, {}
+gif_fail = "the rectangles must have the same size"
+key("^e", "down", "down", "\n")
+key("\n")
+check(status():find("export failed: the rectangles must have the same size", 1, true) and next(docs) == nil, "GIF: sheet_gif nil: the reason shows, nothing is written: " .. status())
+gif_fail = nil
+doc_fail = "no space"
+key("^e", "down", "down", "\n")
+key("\n")
+check(status():find("export failed: no space", 1, true), "GIF: doc_write nil: the reason shows: " .. status())
+doc_fail = nil
+-- Esc at the name writes nothing
+gif_calls = {}
+key("^e", "down", "down", "\n")
+key("esc")
+check(#gif_calls == 0, "GIF: Esc at the name: nothing is made")
+-- the Tab commands list of the sheet page has the export
+key("f2", "\t")
+check(sees("Export a PNG or GIF... (Ctrl+E)"), "F2 Tab: the commands list has the export")
+key("esc")
+key("f1")
 -- the whole sheet
 png_calls, docs = {}, {}
-key("^e", "down", "down", "\n")
+key("^e", "down", "down", "down", "\n")
 key("\n")
 local w = png_calls[1][1]
 check(#png_calls[1] == 1 and w[1] == 0 and w[2] == 0 and w[3] > 0 and w[4] > 0, "whole sheet: {0,0,w,h}: " .. rects_of(png_calls[1]))
 -- the errors
 png_calls = {}
 png_fail = "the rectangle is larger than 4096"
-key("^e", "down", "down", "\n")
+key("^e", "down", "down", "down", "\n")
 key("\n")
 check(status():find("export failed: the rectangle is larger than 4096", 1, true), "sheet_png nil: the reason shows: " .. status())
 png_fail = nil

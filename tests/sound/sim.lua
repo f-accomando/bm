@@ -319,7 +319,7 @@ hold_then(SELECT, L)
 -- 3. the pattern page: a note with A, changed with A + up, a sound with Y + up
 type_keys("f3")
 type_keys("down", "down")                -- pattern 0 (the intro beat), track 2: the hat
-type_keys("down", "down", "down", "down")   -- track 6 (voice 5): empty in pattern 0
+type_keys("down", "down", "down", "down")   -- track 6 (voice 6): empty in pattern 0
 press(A)                                  -- a note
 local b = parse(last_bank)
 local st = b.pats[1].tracks[6] and b.pats[1].tracks[6][1]
@@ -345,6 +345,94 @@ b = parse(last_bank)
 local tr = b.pats[1].tracks[6]
 check(tr[2][1] == 60 and tr[3][1] == 64 and tr[4][1] == 67, "the piano keys type C4 E4 G4")
 check(#played > 0, "the notes are heard while editing")
+
+-- 3b. solo (a, or B on a track's name) and the piano-roll view (f, or B on a step)
+do
+  local function prints(y0, y1)           -- the note names printed in the plot, as name@x
+    local got, old = {}, env.print
+    env.print = function(str, x, y, c, sc)
+      if x >= 124 and y >= y0 and y < y1 and str:match("^[A-G]#?%-?%d+$") then got[#got + 1] = str .. "@" .. x end
+      return old(str, x, y, c, sc)
+    end
+    frame()
+    env.print = old
+    table.sort(got)
+    return table.concat(got, " ")
+  end
+  local function text_shown(str)
+    local seen, old = false, env.print
+    env.print = function(s2, x, y, c, sc) if s2 == str then seen = true end return old(s2, x, y, c, sc) end
+    frame()
+    env.print = old
+    return seen
+  end
+  local bank0, banks0 = last_bank, banks
+  -- solo: the others are muted by the same mechanism, nothing is saved
+  type_keys("left", "left", "left", "left", "left", "left")     -- the header of track 6 (voice 6)
+  type_keys("a")
+  local ok = true
+  for t = 0, 7 do if (mutes[t] == true) == (t == 6) then ok = false end end
+  check(ok, "solo: a mutes every track but the one on the page")
+  check(text_shown("SOLO: 7"), "solo: the page says which tracks are solo")
+  type_keys("down", "a")                                         -- a second track
+  ok = true
+  for t = 0, 7 do if (mutes[t] == true) == (t == 6 or t == 7) then ok = false end end
+  check(ok, "solo: several tracks can be solo")
+  type_keys("a")
+  check(mutes[7] == true and mutes[6] == false, "solo: a again takes the track out")
+  type_keys("up", "a")
+  ok = true
+  for t = 0, 7 do if mutes[t] then ok = false end end
+  check(ok, "solo: the last one off, every track plays")
+  press(BB)                                                      -- the pad: B on a track's name
+  check(mutes[0] == true and mutes[6] == false, "solo: B on a track's name")
+  press(BB)
+  check(mutes[0] == false, "solo: B again clears it")
+  type_keys("a", "\n")                                           -- A on the header: the mute flag
+  check(mutes[6] == true, "solo: the mute flag of a solo track still mutes it")
+  type_keys("\n", "a")
+  check(banks == banks0 and last_bank == bank0, "solo: nothing is sent or saved (the file bytes are the same)")
+  ok = true
+  for t = 0, 7 do if mutes[t] then ok = false end end
+  check(ok, "solo: all clear again")
+
+  -- the roll shows the notes of the grid
+  type_keys("right", "right", "right", "right", "right")          -- step 5: empty
+  local row = 78 + 6 * 30
+  local grid = prints(row, row + 30)
+  check(grid:find("C4@", 1, true) and grid:find("E4@", 1, true) and grid:find("G4@", 1, true), "the grid has the notes: " .. grid)
+  type_keys("f")
+  check(text_shown("VIEW: PIANO ROLL"), "roll: the view is named")
+  local roll = prints(78, 78 + 240)
+  check(roll == grid, "roll: the same notes in the same steps as the grid (" .. roll .. " / " .. grid .. ")")
+  -- an edit in the roll is the same data as in the grid, the same file bytes
+  type_keys("\n")
+  local from_roll = last_bank
+  check(from_roll ~= bank0, "roll: A adds a note")
+  type_keys("^z")
+  check(last_bank == bank0, "roll: undo")
+  type_keys("f")
+  check(text_shown("VIEW: STEP GRID"), "roll: f again is the grid")
+  type_keys("\n")
+  check(last_bank == from_roll, "the file saved from the roll and from the grid is the same for the same edit")
+  type_keys("^z")
+  -- the arrows move the cursor; A drops the note there; A on it removes it
+  type_keys("f", "\n")
+  local n0 = parse(last_bank).pats[1].tracks[6][5][1]
+  type_keys("up", "up", "\n")
+  check(parse(last_bank).pats[1].tracks[6][5][1] == n0 + 2, "roll: up up then A moves the note two semitones")
+  type_keys("down", "\n")
+  check(parse(last_bank).pats[1].tracks[6][5][1] == n0 + 1, "roll: down then A moves it back one")
+  type_keys("\n")
+  check(parse(last_bank).pats[1].tracks[6][5][1] == 0, "roll: A on the note removes it")
+  type_keys("^z", "^z", "^z", "^z")
+  press(BB)                                                       -- B on a step is the view
+  check(text_shown("VIEW: STEP GRID"), "roll: B on a step is the view (the grid again)")
+  press(BB)
+  check(text_shown("VIEW: PIANO ROLL"), "roll: B on a step again, the roll")
+  type_keys("f")
+  check(last_bank == bank0, "the views change nothing in the file")
+end
 
 -- 4. START plays the pattern, the song page plays the song
 press(START)
@@ -526,6 +614,26 @@ run(2)
 click(320, 20)                             -- outside the menu: Esc
 run(2)
 check(true, "mouse: the context menu and the menu")
+
+do   -- the roll with the mouse: a click puts a note at the pitch under the pointer
+  click(320, 5)                             -- (the assistant of 9b is closed first)
+  type_keys("f3")
+  click(124 + 10, 78 + 10)
+  run(1)
+  type_keys("f")
+  local ys, old = {}, env.print
+  env.print = function(str, x, y, c, sc) if x == 92 then ys[str] = y end return old(str, x, y, c, sc) end
+  frame()
+  env.print = old
+  local ry
+  for _, y in pairs(ys) do ry = math.min(ry or y, y) end
+  check(ry ~= nil, "roll: the ruler names the pitches")
+  local before2 = last_bank
+  click(124 + 7 * 30 + 4 + 10, ry + 6)
+  run(2)
+  check(last_bank ~= before2, "roll: a click on the plot changes the bank")
+  type_keys("f")
+end
 
 -- 9c. a bank with samples (version 3, src/audio/player.h): opened, played and
 -- written back byte for byte; the menu's Samples... puts the kit's kick into
@@ -907,7 +1015,7 @@ end
 math.randomseed(7)
 local K = { "up", "down", "left", "right", "\n", "\b", " ", "f1", "f2", "f3", "f4", "\t", "z", "q", "x", "-", "=",
             "[", "]", ";", "'", "k", "l", "o", "p", "_", "+", ",", ".", "pgup", "pgdn", "esc", "^z", "^c", "^v",
-            "i", "^n", "^S", "^w" }
+            "i", "^n", "^S", "^w", "a", "f", "a", "f" }
 for i = 1, 6000 do
   for b2 = 0, 9 do pad[b2] = math.random() < (b2 == 9 and 0.03 or 0.12) end
   if math.random() < 0.2 then keys[#keys + 1] = K[math.random(#K)] end
@@ -938,6 +1046,7 @@ check(keyhelp_title == "Sound" and in_help("i") and in_help("SELECT LEFTRIGHT"),
 -- the fixed chip "F12 keys" at the right of the bottom bar, on every page (a keyboard in use):
 -- inside the screen, the hints and the menu chip never reach it, a click opens the keys
 do
+  run(300)                              -- (a message of the last keys hides the hints while it shows)
   local function chip_frame() repeat cap = {}; frame() until last_input == "keyboard" end
   for page = 1, 4 do
     chip_frame()
