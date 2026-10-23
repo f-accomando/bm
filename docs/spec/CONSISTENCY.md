@@ -143,7 +143,7 @@ The differences that are hardware, with the capability that explains each:
 | D34 | system keys | `no-keyboard` | Pi: F11, F12 (held: the key list), Print Screen, Ctrl+Esc. RGB30: only on a BT keyboard; the pad has Select held 3 s (screenshot) and Start+Select (leave) |
 | D35 | text input | `no-keyboard` | Pi: USB or BT keyboard and mouse. RGB30: BT only, no USB host; no on-screen keyboard |
 | D36 | storage paths | `storage-path` | Pi: cartridges in /carts and /, data in /bm. RGB30: everything in /bm; the mapping is done by hand in 4 places |
-| D37 | 3D settings | `no-3d-gpu-yet` | Pi: 12 rows (AA, VS, queue, textures...). RGB30: '3D on the ARM' only |
+| D37 | 3D settings | `no-3d-gpu-yet` | Pi: 5 rows (3D of the games, AA, textures, impostors, 3D on the ARM); the other graphics flags are hidden keys. RGB30: '3D on the ARM' only |
 | D38 | audio | `audio-codec` | Pi: HDMI only, stereo. RGB30: I2S to a codec: speaker or headphones, hardware volume keys |
 | D39 | battery | `battery` | Pi: none; battery() is nil. RGB30: icon, low-battery overlay, Settings row, LED |
 | D40 | network chip | `wifi-chip` | Pi: BCM43438 and Pi 1 Ethernet. RGB30: RTL8821CS: 2.4 GHz, open and WPA2-PSK, no Ethernet |

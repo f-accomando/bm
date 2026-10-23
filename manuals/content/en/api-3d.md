@@ -29,7 +29,7 @@ You draw a mesh with `draw3d()`, from a camera you place with `camera3d()`.
 
 ## Who draws: the GPU or the ARM
 
-The Pi's GPU (V3D) draws the triangles. With the setting *Settings > Graphics > 3D of the games* on `ARM` (`gpu3d=0` in `bm/config.txt`), and in QEMU, the ARM draws them. The functions are the same, so a cartridge does not change.
+The Pi's GPU (V3D) draws the triangles. With the setting *Settings > Screen and sound > 3D of the games* on `ARM` (`gpu3d=0` in `bm/config.txt`), and in QEMU, the ARM draws them. The functions are the same, so a cartridge does not change.
 
 - The ARM always transforms, lights and clips the triangles.
 - The GPU fills the pixels with a 24-bit z-buffer, shades without dithering and reads textures with the nearest texel.
@@ -265,7 +265,7 @@ The GPU draws the shadows (`draw3d` with flag 8), the effects, the screen-door f
 
 ## Anti-aliasing
 
-*Settings > Graphics > 3D anti-aliasing: 4x* (`gpu3d_aa=1` in `bm/config.txt`) makes the GPU draw the 3D with 4x MSAA: four samples per pixel, the average at the end of the tile, triangles' edges without steps. Nothing changes in the cartridges.
+*Settings > Screen and sound > 3D anti-aliasing* (`gpu3d_aa=1` in `bm/config.txt`; a game uses the second value of `gpu3d`) makes the GPU draw the 3D with 4x MSAA: four samples per pixel, the average at the end of the tile, triangles' edges without steps. Nothing changes in the cartridges.
 
 - It holds only where the GPU bears it (the boot test says *4x: not on this GPU* otherwise).
 - It holds only in the jobs without a kept z-buffer: cartridges that draw 3D, then 2D, then more 3D in the same frame stay without anti-aliasing (the 4-sample z-buffer cannot be saved).
@@ -274,12 +274,64 @@ The GPU draws the shadows (`draw3d` with flag 8), the effects, the screen-door f
 
 ## A frame later
 
-*Settings > Screen and sound > 3D frame shown: A frame later* (`gpu3d_later=1`, with the frame queue on two jobs, `gpu3d_queue=2`; from a game the sixth argument of `gpu3d`) shows each frame a frame later. At the end of `_draw` the GPU starts the frame's 3D and the frame waits, while the next `_update` and `_draw` run on another page. The 2D drawn after the 3D goes on the waiting frame when the GPU is done, and that frame is shown at the end of the next one.
+The hidden key `gpu3d_later=1` (no Settings row; with the frame queue on two jobs, `gpu3d_queue=2`; from a game the sixth argument of `gpu3d`) shows each frame a frame later. At the end of `_draw` the GPU starts the frame's 3D and the frame waits, while the next `_update` and `_draw` run on another page. The 2D drawn after the 3D goes on the waiting frame when the GPU is done, and that frame is shown at the end of the next one.
 
 - Nothing changes in the cartridges and the pictures are the same, a frame later: the input reaches the screen a frame later than without the queue.
 - Keep the game's state in `_update` (as for online games) and draw the HUD after the 3D. `pget` reads the page being drawn.
 - It is not used in games played `online` (left out there), via RAM (`light_begin`, `dark_begin`) and in the frame of a `screen()` change.
-- It is off by default until it is measured on the Pi.
+- It is off by default: the Pi shows no gain (see *The graphics keys of the console*).
+
+## The graphics keys of the console
+
+The console has one key in `bm/config.txt` for each graphics option. A player sees only the choices that change the picture. The other keys are hidden: they have no row in the Settings, and the console reads them at the start of each game. Each default below is on when the Pi Zero W benchmark shows a gain, and off when it shows none. A default changes only with a number in the repository docs.
+
+Settings, *Screen and sound*, for the player:
+
+- *3D of the games*: the GPU or the ARM draws the 3D (`gpu3d`).
+- *3D anti-aliasing*: smooth edges (`gpu3d_aa`).
+- *3D textures*: nearest or bilinear (`gpu3d_filter`).
+- *3D impostors*: far small models as one quad (`r3d_impostor`).
+- *3D on the ARM*: exact or fast (`r3d_fast`).
+
+The table gives, for each key, what it does, what it costs, the default, and the mean result on the Pi Zero W (3D Bench `herotris`, 22 and 23 Oct 2026, 640x360, ARM 1000 MHz, V3D 300 MHz). *Not measured* means that the docs have no Pi number. A result is a benchmark result, not a played game.
+
+| Key | What it does | What it costs | Default | Pi Zero W result |
+|---|---|---|---|---|
+| `gpu3d` | The V3D draws the 3D. `0`: the ARM draws it. | Nothing on the Pi. The ARM path is slower. | on (GPU) | Hero scene: ARM 0.41 sets at 60 fps, GPU 0.56. 3D Bench score: GPU 953, ARM 166. |
+| `gpu3d_vs` | The GPU places the vertices. `0` ARM, `1` scenery, `2` all models. | Nothing. The boot test checks it. | `2` | GPU+VS 3.85 sets against GPU 0.56 (x6.9). |
+| `gpu3d_queue` | The GPU draws a frame while the next `_update` runs. `2`: two jobs in flight. `0`: off. | An `_update` that draws 3D runs after the frame. | `1` | 3.85 to 6.74 sets (x1.75). `queue` test: +11.2%. `2` gives 6.74, the same as `1`. |
+| `gpu3d_later` | The console shows each frame a frame later. Needs `gpu3d_queue=2`. | One frame of input delay. | off | No gain: 51 222.8 triangles drawn against 50 755 (+0.9%), the same sets (6.74). |
+| `gpu3d_aa` | 4x MSAA. | More GPU work in each tile (32x32 pixels, 4 samples). It holds only in jobs without a kept z-buffer. | off | Not measured. |
+| `gpu3d_filter` | Bilinear textures. The look changes. | A filtered pixel costs more. | off (nearest) | Full-screen pass: 2.3 ns a pixel against 1.65 nearest. |
+| `gpu3d_fs2` | Textured pixel shaders with two threads. | Nothing. | on (`0` turns it off) | `quad_tex`: 148 quads against 121 (+22%). |
+| `gpu3d_2d` | The GPU draws the 2D over the 3D in its job. | Shapes that the GPU cannot draw end the job. | off | `gpu2d` test: GPU+2D 2013 sprites, GPU 1886 (+6.7%). `sprites` test: 3569 or more, ARM 2574. Not played yet. |
+| `gpu3d_wc` | The memory of the GPU jobs is not cached. | None seen. | off | No gain: data-cache misses -72%, but the load is 199 against 200. |
+| `gpu3d_sort` | Opaque meshes nearest first, triangles in vertex-cache order. | A sort in each frame. | off | Not measured on the Pi. Emulator: 99 960 pixels shaded instead of 416 546. |
+| `gpu3d_attr` | Compact vertex attributes (colour and light as bytes). | A boot probe checks the pixels. | off | Spheres +3.8%. Hero scene 54 056 triangles plain, 54 013 compact (no gain, the frame is ARM-bound). |
+| `gpu3d_tex16` | 16-bit opaque textures. | A step of RGB565 in the colours. | off | Within 1 to 6% of 32 bit (`quad_tex` 2.20 and 2.35 ns a pixel). |
+| `gpu3d_etc1` | Opaque sheets as ETC1. Set `gpu3d_tex16` too (the old Settings row did). | Block compression: 37 dB PSNR against RGB565. | off | Within 1 to 6% (`quad_tex` 2.19 ns a pixel). |
+| `gpu3d_merge` | Many small static pieces with baked light and one sheet become one draw. | A run of at least 32 pieces with 150 faces or fewer on average. | on (`0` turns it off) | 100 pieces of 50 faces +24%. 10 pieces of 500 faces -26%, so a smaller run is not merged. |
+| `gpu3d_qpu` | A check: the QPU programs run against the ARM versions. | A longer GPU test and 3D Bench. | off | Particles: QPU 47 us, ARM 158 us. Fade: QPU 9.3 ms, ARM 20.4 ms. |
+| `r3d_impostor` | A far small model is one quad. A number of pixels (2 to 64) of a 1080-line screen. | The model loses its detail. | off | 8 pixels: no effect (57.7 fps, 8588 triangles). 16 and 32: not measured. |
+| `r3d_fast` | The ARM 3D uses one matrix for a model and the light in model space. | The pixels are no longer bit-identical. | off | Not measured. |
+
+The sources are `docs/progress/v3d.md`, `docs/design/triangle-throughput.md`, `docs/PERF-BUDGET.md` and `docs/DRIVERS.md`. The Mali (RGB30) has no `gpu3d_*` keys. It reads `r3d_fast` and `r3d_impostor`.
+
+### What a game chooses
+
+A cartridge chooses what the player sees. It does not need a console key for this.
+
+- **Anti-aliasing**: the second value of `gpu3d`. `gpu3d(nil, true)` asks for 4x MSAA. The value stays `false` if the GPU cannot do it. The game can put it in its own menu or fix it in code.
+- **Vertex shader, queue, frame later**: the third, fourth and sixth values of `gpu3d`.
+- **Impostors**: the fifth value of `gpu3d`.
+- **Lights**: `light3d` (the sun and the ambient light), `lamp3d` (four point lights), the flags of `draw3d` (2 no light, 4 smooth light).
+- **Cel light and outline**: `cel3d` and the `draw3d` flags 256 and 512.
+
+The other keys are only for the console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter` and `gpu3d_merge`. A game cannot change them.
+
+::: note
+Not built yet (SYS-9b): a benchmark at the start of a game that picks the values for the console, and a menu of graphics choices in each game. Today the game chooses, or the player edits `bm/config.txt`.
+:::
 
 # Collision worlds
 

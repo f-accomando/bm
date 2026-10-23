@@ -1332,23 +1332,16 @@ def test_home_ui(b, opts):
         keys("\r")                              # Screen and sound
         screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
-                "3D vertices"])                 # nor the vertex shader (bm3d 3.0)
-        keys("sssss")                           # the GPU's options of bm3d 4.5-6.9 (queue, 2D on the GPU, a frame later): off
-        screen(["3D frame shown", "< At once >"])   # bm3d 6.9: each frame a frame later
-        keys("s")
-        screen(["2D over the 3D", "< ARM >"])
-        keys("s")
+                "3D textures", "Nearest"])      # the filter is a look the player can judge (SYS-9)
+        keys("sss")
         screen(["3D textures", "< Nearest >"])
         keys("s")
-        screen(["3D job memory", "< Cached >"])
-        keys("s")
-        screen(["3D pixel shaders", "< Two threads >"])  # bm3d 5.3; on from 6.4
-        keys("s")
-        screen(["3D draw order", "< As the game >"])
-        keys("s")
-        screen(["3D corners", "< Floats >"])    # bm3d 7.1: compact attributes (off unless gpu3d_attr=1; the boot probe keeps them only where the pixels match)
-        keys("s")
-        screen(["3D impostors", "< Off >"])     # far small models as one quad: off unless asked
+        # SYS-9: the performance flags are hidden keys now, with no row (still read from config.txt)
+        hidden_rows = ("3D vertices", "3D frame queue", "3D frame shown", "2D over the 3D", "3D job memory",
+                       "3D pixel shaders", "3D draw order", "3D corners")
+        text = screen(["3D impostors", "< Off >"])     # far small models as one quad: off unless asked
+        for name in hidden_rows:
+            assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         keys("s")
         screen(["3D on the ARM", "< Exact >"])
         keys("s")                               # the dev kit's overlay: top, bottom, off again
