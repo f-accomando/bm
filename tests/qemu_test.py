@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 End-to-end tests in QEMU (-M raspi0). Images are loaded at 0x8000 through
 -bios, exactly as the Pi firmware does. The serial port is a TCP socket.
