@@ -13,7 +13,11 @@ FUTURE = []
 TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM", "QPU"}, "light": {"ARM"},
            "herotris": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q", "GPU+VS+Q2", "GPU+VS+A8", "GPU+VS+A8+Q", "GPU+VS+FS2"},
            "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"},
-           "cel_outline": {"ARM", "GPU+VS"}, "stress": {"GPU+VS+Q"}}
+           "cel_outline": {"ARM", "GPU+VS"}, "stress": {"GPU+VS+Q"},
+           # herotris with the map in 100, 10 or 1 pieces; "m": r3d merges the draws (gpu3d_merge)
+           "ht_p100": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q"}, "ht_p100m": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q"},
+           "ht_p10": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q"}, "ht_p10m": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q"},
+           "ht_p1": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q"}}
 
 
 def check_2d(d):
@@ -38,6 +42,12 @@ def check_2d(d):
                     if "+Q" not in r[2]:        # a queued job that ended before the ARM looked is not timed
                         ok = ok and float(r[34]) > 0
         print(("ok   " if ok else "FAIL ") + f"2D scene {t}: {' '.join(sorted(got))}")
+        fails += not ok
+    # the map in 100, 10 or 1 pieces: the same triangles given to r3d (a step of the ramp each), merged or not
+    for prof in ("GPU+VS", "GPU+VS+Q"):
+        tri = {r[1]: r[9] for r in rows if r[1].startswith("ht_p") and r[2] == prof}
+        ok = len(tri) == 5 and len(set(tri.values())) == 1 and int(next(iter(tri.values()))) > 6000
+        print(("ok   " if ok else "FAIL ") + f"ht_p* on {prof}: the same triangles in 100, 10, 1 pieces, merged or not: {sorted(set(tri.values()))}")
         fails += not ok
     # Q1: an H line for every herotris profile; the VS profiles say what the mesh path did with the hero
     hrows = [l.split(",") for l in text.splitlines() if l.startswith("H,")]

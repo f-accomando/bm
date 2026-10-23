@@ -6,6 +6,13 @@
 
 #define NEAR R3D_NEAR
 
+/* Draw merging (bm3d 7.6, r3d_t.merge): see "draw merging" below r3d_draw_flags. The draws held
+ * are drawn before anything else changes the scene or reaches the backend. */
+static int mg_npend;                    /* draws held */
+static int mg_took;                     /* the backend took the last mesh draw_flags offered */
+static void mg_flush(void);
+#define MG_SYNC() do { if (mg_npend) mg_flush(); } while (0)
+
 /* ---------------------------------------------------------------- raster */
 
 typedef struct { float x, y, z; } sv_t;     /* screen x, y; z = 1/depth */
@@ -289,6 +296,7 @@ static const uint32_t bayer4_flat_pk[4] = { DPK(8), DPK(8), DPK(8), DPK(8) };
 
 int r3d_dither(int on)
 {
+    MG_SYNC();
     const int old = !dither_off;
     dither_off = !on;
     return old;
@@ -795,6 +803,7 @@ void g16_tri_gouraud(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2,
 
 int r3d_init(r3d_t *r, g16_t *g)
 {
+    MG_SYNC();
     memset(r, 0, sizeof *r);
     dither_off = 0;
     r->cel_floor = 0.35f;
@@ -814,6 +823,7 @@ int r3d_init(r3d_t *r, g16_t *g)
 
 void r3d_free(r3d_t *r)
 {
+    MG_SYNC();
     free(r->zbuf);
     free(r->mask);
     r->zbuf = NULL;
@@ -825,6 +835,7 @@ void r3d_free(r3d_t *r)
  * memory (the old z-buffer stays, for the old size). */
 int r3d_resize(r3d_t *r, int old_w)
 {
+    MG_SYNC();
     uint16_t *z = malloc((size_t)r->g->w * r->g->h * 2);
     if (!z)
         return -1;
@@ -840,6 +851,7 @@ int r3d_resize(r3d_t *r, int old_w)
 
 void r3d_zclear(r3d_t *r)
 {
+    MG_SYNC();
     if (r->backend)
         r->backend->zclear(r->backend->ctx, r->g);
     else
@@ -864,6 +876,7 @@ static void to_arm(r3d_t *r, const char *why)
 
 void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, float fov_deg)
 {
+    MG_SYNC();
     r->cam_pos = (v3_t){ x, y, z };
     r->cam_yaw = yaw;
     r->cam_pitch = pitch;
@@ -875,11 +888,13 @@ void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, flo
 
 void r3d_camera_roll(r3d_t *r, float roll)
 {
+    MG_SYNC();
     r->cam_roll = roll;
 }
 
 void r3d_fog(r3d_t *r, uint32_t rgb, float near, float far)
 {
+    MG_SYNC();
     r->fog_rgb = rgb;
     r->fog_near = near;
     r->fog_far = far;
@@ -892,6 +907,7 @@ static r3d_rgb_t rgbf(uint32_t c)
 
 void r3d_lamp_rgb(r3d_t *r, int i, float x, float y, float z, float radius, float k, uint32_t rgb)
 {
+    MG_SYNC();
     if (i < 0 || i >= R3D_LAMPS)
         return;
     r->lamp[i].pos = (v3_t){ x, y, z };
@@ -908,6 +924,7 @@ void r3d_lamp(r3d_t *r, int i, float x, float y, float z, float radius, float k)
 
 void r3d_light(r3d_t *r, float x, float y, float z, float ambient)
 {
+    MG_SYNC();
     float l = sqrtf(x * x + y * y + z * z);
     if (l < 1e-6f) l = 1;
     r->light = (v3_t){ x / l, y / l, z / l };
@@ -916,6 +933,7 @@ void r3d_light(r3d_t *r, float x, float y, float z, float ambient)
 
 void r3d_sky(r3d_t *r, uint32_t sun, uint32_t sky, uint32_t ground)
 {
+    MG_SYNC();
     r->sun = rgbf(sun);
     r->sky = rgbf(sky);
     r->ground = rgbf(ground);
@@ -923,6 +941,7 @@ void r3d_sky(r3d_t *r, uint32_t sun, uint32_t sky, uint32_t ground)
 
 void r3d_shine(r3d_t *r, float spec_k, int exponent, float rim_k)
 {
+    MG_SYNC();
     r->spec_k = spec_k < 0 ? 0 : spec_k > 2 ? 2 : spec_k;
     int s = 2;
     while (s < 6 && (1 << s) < exponent)
@@ -1370,6 +1389,7 @@ static inline float cel_cut(const uint8_t *lut, float dd)
 
 int r3d_cel(r3d_t *r, int bands, float floor_)
 {
+    MG_SYNC();
     if (bands < 2) {
         r->cel_bands = 0;
         return 0;
@@ -2093,6 +2113,7 @@ static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry
         const int nb = skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
         if (r->backend->mesh(r->backend->ctx, r->g, m, (const float (*)[12])F, (const float (*)[9])X.n, nb, &env,
                              zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
+            mg_took = 1;
             r->tris_in += (uint32_t)m->nfaces;
             r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
             return;
@@ -2462,6 +2483,7 @@ static void emit_fan(r3d_t *r, const r3d_corner_t *q, int n, int kind, const g16
 
 uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags)
 {
+    MG_SYNC();
     view_t v;
     view_setup(r, &v);
     cv_t c;
@@ -2629,6 +2651,7 @@ int r3d_pfx_live(const r3d_pfx_t *p)
 
 uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned flags)
 {
+    MG_SYNC();
     view_t v;
     view_setup(r, &v);
     cv_t ca, cb;
@@ -2693,6 +2716,7 @@ uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned fl
 uint32_t r3d_sprite(r3d_t *r, const g16_sheet_t *s, int sx, int sy, int sw, int sh, v3_t p,
                     float size, unsigned flags)
 {
+    MG_SYNC();
     if (sw <= 0 || sh <= 0 || sx < 0 || sy < 0 || sx + sw > s->w || sy + sh > s->h)
         return 0;
     view_t v;
@@ -2836,11 +2860,280 @@ static r3d_mesh_t *hull_get(r3d_mesh_t *m, float width, uint32_t rgb)
     return h;
 }
 
+/* ---------------------------------------------------------------- draw merging (bm3d 7.6)
+ *
+ * A map is many pieces of one texture that stand still: a call each costs the ARM 3.7-12.6 us
+ * (docs/design/triangle-throughput.md, Opt 3). With r3d_t.merge, a draw of a mesh with baked light (or
+ * R3D_UNLIT), no skeleton, no other flag, is held; the next draws that fit (same sheet, same flags,
+ * same kind of light) join it. When something else happens (a draw of another kind, any scene
+ * setting, any other call that reaches the backend: the backend calls r3d_flush through the hook of
+ * r3d_backend_t.merge) the run is drawn:
+ *   - the second time the same run comes (the same meshes, the same places and turns, in the same
+ *     order: nothing moved) its pieces are put in one mesh in world axes, once;
+ *   - from then on the run is one draw of that mesh, as long as the same run comes again;
+ *   - a run seen once, or one that changed, is drawn piece by piece as before.
+ * A piece out of view is dropped when it is held (as draw_flags does), so the mesh holds the pieces
+ * in view. The pixels are those of the pieces drawn one by one, up to the rounding of the sums of a
+ * vertex (object * turn * scale + place: the same sums, made ahead of the camera's). */
+
+#define MG_DRAWS 256                    /* draws in a run, at most */
+#define MG_FACES 16000                  /* faces in a merged mesh, at most (the backend's limit is 21845) */
+#define MG_VERTS 60000                  /* vertices in a merged mesh (16-bit indices) */
+#define MG_ENTRIES 48                   /* runs remembered (a map of sets, each with its own place) */
+#define MG_BUDGET 64000                 /* faces of the merged meshes kept */
+
+typedef struct {
+    const r3d_mesh_t *m;
+    const g16_sheet_t *tex;
+    uint32_t mver, tver;
+    v3_t p;
+    float rx, ry, rz, scale;
+    unsigned flags;
+} mg_key_t;
+
+typedef struct {
+    mg_key_t *key;                      /* the run: n keys */
+    int n, cap;
+    int seen;                           /* times the run came */
+    int built, bad;                     /* the mesh is made; the backend did not take it */
+    uint32_t used;
+    r3d_mesh_t mesh;
+} mg_entry_t;
+
+static struct {
+    r3d_t *owner;                       /* whose draws are held */
+    int faces, verts;                   /* of the held draws */
+    int busy;                           /* drawing the held ones */
+    uint32_t tick;
+    int kept;                           /* faces of the meshes made */
+    uint32_t merged, pieces;            /* merged meshes drawn, and the draws they replaced */
+    mg_key_t pend[MG_DRAWS];
+    mg_entry_t e[MG_ENTRIES];
+} MG;
+
+uint32_t r3d_merge_count(uint32_t *pieces)
+{
+    if (pieces)
+        *pieces = MG.pieces;
+    return MG.merged;
+}
+
+static void mg_pre(void *ctx)
+{
+    (void)ctx;
+    MG_SYNC();
+}
+
+void r3d_flush(r3d_t *r)
+{
+    if (mg_npend && MG.owner == r)
+        mg_flush();
+}
+
+static void mg_forget(mg_entry_t *e)
+{
+    if (e->built)
+        MG.kept -= e->mesh.nfaces;
+    r3d_mesh_free(&e->mesh);
+    e->n = 0;
+    e->seen = 0;
+    e->built = e->bad = 0;
+}
+
+/* the held draws as one mesh in world axes round the first one's place */
+static void mg_build(mg_entry_t *e)
+{
+    int nf = 0, nv = 0, uv = 0;
+    for (int i = 0; i < e->n; i++) {
+        nf += e->key[i].m->nfaces;
+        nv += e->key[i].m->nverts;
+        uv |= e->key[i].m->uv != NULL;
+    }
+    if (nf > MG_FACES || nv > MG_VERTS || nf > MG_BUDGET) {
+        e->bad = 1;
+        return;
+    }
+    while (MG.kept + nf > MG_BUDGET) {      /* room: the run least used goes */
+        mg_entry_t *old = NULL;
+        for (int i = 0; i < MG_ENTRIES; i++)
+            if (&MG.e[i] != e && MG.e[i].built && (!old || MG.e[i].used < old->used))
+                old = &MG.e[i];
+        if (!old) {
+            e->bad = 1;
+            return;
+        }
+        mg_forget(old);
+    }
+    r3d_mesh_t *o = &e->mesh;
+    const int clight = !(e->key[0].flags & R3D_UNLIT);
+    if (r3d_mesh_alloc(o, nv, nf) != 0 || (uv && r3d_mesh_alloc_uv(o) != 0) ||
+        (clight && !(o->clight = calloc((size_t)nf, 9)))) {
+        r3d_mesh_free(o);
+        e->bad = 1;
+        return;
+    }
+    const v3_t org = e->key[0].p;
+    int fb = 0, vb = 0;
+    for (int i = 0; i < e->n; i++) {
+        const mg_key_t *k = &e->key[i];
+        const r3d_mesh_t *m = k->m;
+        float R[9];
+        rot_matrix(R, k->rx, k->ry, k->rz);
+        const v3_t t = { k->p.x - org.x, k->p.y - org.y, k->p.z - org.z };
+        float W[12];
+        for (int a = 0; a < 3; a++) {
+            for (int b = 0; b < 3; b++)
+                W[a * 4 + b] = R[a * 3 + b] * k->scale;
+            W[a * 4 + 3] = a == 0 ? t.x : a == 1 ? t.y : t.z;
+        }
+        for (int j = 0; j < m->nverts; j++) {
+            const v3_t v = m->verts[j];
+            o->verts[vb + j] = (v3_t){ W[0] * v.x + W[1] * v.y + W[2] * v.z + W[3],
+                                       W[4] * v.x + W[5] * v.y + W[6] * v.z + W[7],
+                                       W[8] * v.x + W[9] * v.y + W[10] * v.z + W[11] };
+        }
+        for (int j = 0; j < m->nfaces * 3; j++)
+            o->faces[fb * 3 + j] = (uint16_t)(m->faces[j] + vb);
+        memcpy(o->colors + fb, m->colors, (size_t)m->nfaces * sizeof *m->colors);
+        if (m->uv)
+            memcpy(o->uv + fb * 6, m->uv, (size_t)m->nfaces * 6 * sizeof *m->uv);
+        if (clight)
+            memcpy(o->clight + fb * 9, m->clight, (size_t)m->nfaces * 9);
+        fb += m->nfaces;
+        vb += m->nverts;
+    }
+    o->tex = e->key[0].tex;
+    r3d_mesh_normals(o);                /* the sphere, the normals, the levels, a new version */
+    e->built = 1;
+    MG.kept += nf;
+}
+
+/* the entry of the run held (made, or counted once more); NULL if there is no memory */
+static mg_entry_t *mg_entry(int n)
+{
+    mg_entry_t *free_ = NULL, *lru = NULL;
+    for (int i = 0; i < MG_ENTRIES; i++) {
+        mg_entry_t *e = &MG.e[i];
+        if (e->n == n && !memcmp(e->key, MG.pend, (size_t)n * sizeof *e->key)) {
+            e->used = ++MG.tick;
+            if (e->seen < 2)
+                e->seen++;
+            if (e->seen >= 2 && !e->built && !e->bad)
+                mg_build(e);
+            return e;
+        }
+        if (!e->n)
+            free_ = e;
+        else if (!lru || e->used < lru->used)
+            lru = e;
+    }
+    mg_entry_t *e = free_ ? free_ : lru;
+    if (e->n)
+        mg_forget(e);
+    if (e->cap < n) {
+        mg_key_t *k = realloc(e->key, (size_t)n * sizeof *k);
+        if (!k)
+            return NULL;
+        e->key = k;
+        e->cap = n;
+    }
+    memcpy(e->key, MG.pend, (size_t)n * sizeof *e->key);
+    e->n = n;
+    e->seen = 1;
+    e->used = ++MG.tick;
+    return e;
+}
+
+static void mg_flush(void)
+{
+    if (!mg_npend || MG.busy)
+        return;
+    MG.busy = 1;
+    r3d_t *r = MG.owner;
+    const int n = mg_npend;
+    mg_entry_t *e = n >= 2 ? mg_entry(n) : NULL;
+    if (e && e->built && !e->bad) {
+        mg_took = 0;
+        draw_flags(r, &e->mesh, MG.pend[0].p, 0, 0, 0, 1, MG.pend[0].flags);
+        if (mg_took) {
+            MG.merged++;
+            MG.pieces += (uint32_t)n;
+        } else {
+            e->bad = 1;                 /* the ARM drew it this once: the pieces from now on */
+        }
+    } else {
+        for (int i = 0; i < n; i++) {
+            const mg_key_t *k = &MG.pend[i];
+            draw_flags(r, k->m, k->p, k->rx, k->ry, k->rz, k->scale, k->flags);
+        }
+    }
+    mg_npend = MG.faces = MG.verts = 0;
+    MG.busy = 0;
+}
+
+/* 1 if this draw was taken (held, or out of view); 0 if the caller draws it now (anything held is drawn first) */
+static int mg_take(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale, unsigned flags)
+{
+    if (mg_npend && MG.owner != r)
+        mg_flush();
+    if (MG.busy)
+        return 0;
+    if (!r->merge || !r->backend || !r->backend->merge || !r->backend->mesh || r->impostor > 0 || r->notex ||
+        !(scale > 0) || (flags & ~R3D_UNLIT) || m->bones || m->nbones > 0 || !(m->radius > 0) || m->nfaces < 1 ||
+        m->nfaces > MG_FACES || m->nverts > MG_VERTS || !(m->clight || (flags & R3D_UNLIT))) {
+        mg_flush();
+        return 0;
+    }
+    if (mg_npend) {
+        const mg_key_t *k0 = &MG.pend[0];
+        if (m->tex != k0->tex || flags != k0->flags || (m->clight != NULL) != (k0->m->clight != NULL) ||
+            mg_npend == MG_DRAWS || MG.faces + m->nfaces > MG_FACES || MG.verts + m->nverts > MG_VERTS)
+            mg_flush();
+    }
+    if (!mg_npend) {
+        MG.owner = r;
+        if (!r->backend->merge(r->backend->ctx, mg_pre, NULL))
+            return 0;                   /* the backend does not take them: at once */
+    }
+    /* out of view: skipped as draw_flags skips it */
+    view_t v;
+    view_setup(r, &v);
+    const float *C = v.c;
+    float R[9];
+    rot_matrix(R, rx, ry, rz);
+    const float rad = m->radius * scale;
+    const float wx = p.x + scale * (R[0] * m->centre.x + R[1] * m->centre.y + R[2] * m->centre.z) - r->cam_pos.x,
+                wy = p.y + scale * (R[3] * m->centre.x + R[4] * m->centre.y + R[5] * m->centre.z) - r->cam_pos.y,
+                wz = p.z + scale * (R[6] * m->centre.x + R[7] * m->centre.y + R[8] * m->centre.z) - r->cam_pos.z;
+    const float cx = C[0] * wx + C[1] * wy + C[2] * wz, cy = C[3] * wx + C[4] * wy + C[5] * wz,
+                cz = C[6] * wx + C[7] * wy + C[8] * wz;
+    if (cz + rad < NEAR || v.f * fabsf(cx) - v.hw * cz > rad * v.side || v.f * fabsf(cy) - v.hh * cz > rad * v.top) {
+        r->tris_in += (uint32_t)m->nfaces;
+        return 1;
+    }
+    mg_key_t *k = &MG.pend[mg_npend];
+    memset(k, 0, sizeof *k);
+    k->m = m;
+    k->tex = m->tex;
+    k->mver = m->version;
+    k->tver = m->tex ? m->tex->version : 0;
+    k->p = p;
+    k->rx = rx; k->ry = ry; k->rz = rz;
+    k->scale = scale;
+    k->flags = flags;
+    mg_npend++;
+    MG.faces += m->nfaces;
+    MG.verts += m->nverts;
+    return 1;
+}
+
 /* flag R3D_OUTLINE: the mesh, then its hull (a mesh drawn as an impostor, a shadow and a
  * first-person model have none) */
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags)
 {
+    if ((r->merge || mg_npend) && mg_take(r, m, p, rx, ry, rz, scale, flags))
+        return;
     const uint32_t imps = r->impostors;
     draw_flags(r, m, p, rx, ry, rz, scale, flags);
     if (!(flags & R3D_OUTLINE) || r->cel_rgb == R3D_CEL_NO_OUTLINE || (flags & (R3D_SHADOW | R3D_FRONT)) ||
@@ -2891,6 +3184,7 @@ int r3d_mesh_alloc_uv(r3d_mesh_t *m)
 
 void r3d_mesh_free(r3d_mesh_t *m)
 {
+    MG_SYNC();
     if (m->hull) {
         r3d_mesh_free(m->hull);
         free(m->hull);
@@ -2903,6 +3197,7 @@ void r3d_mesh_free(r3d_mesh_t *m)
 
 void r3d_mesh_normals(r3d_mesh_t *m)
 {
+    MG_SYNC();
     m->version = ++mesh_stamp;     /* a new mesh for the backend's copies */
     v3_t lo = { 0, 0, 0 }, hi = { 0, 0, 0 };
     for (int i = 0; i < m->nverts; i++) {

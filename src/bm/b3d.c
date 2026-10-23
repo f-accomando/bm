@@ -815,6 +815,107 @@ static void herotris_probe(int *gl, int *meshes)
     scene_light();
 }
 
+/* ------------------------------------------------- herotris with the map in pieces (opt-in)
+ * Stage 3 of docs/design/triangle-throughput.md (draw merging). The set of herotris, but the 5000
+ * triangles of the map are 100 pieces of 50, 10 of 500 or 1 of 5000: the same area, the same triangles,
+ * 100, 10 or 1 calls a set. The pieces are drawn in two runs by sheet (all of the first sheet, then all
+ * of the second), as a game that sorts its static map by texture. `ht_p100m` and `ht_p10m` are the
+ * same scenes with r3d draw merging on (gpu3d_merge): the Pi shows the cost of a call (the ARM time
+ * `ms - gpu_ms` of 100 against 1) and how much of it merging takes back. */
+
+static r3d_mesh_t slab_a, slab_b;       /* a strip (10) or the whole map (1), on the first and the second sheet */
+
+/* a slab of kx by kz squares of 0.2 (as make_tile's 5 by 5 is 1 by 1), with baked light and a sheet */
+static void make_slab(r3d_mesh_t *m, int kx, int kz, const g16_sheet_t *s, int light)
+{
+    r3d_mesh_alloc(m, (kx + 1) * (kz + 1), 2 * kx * kz);
+    for (int z = 0; z <= kz; z++)
+        for (int x = 0; x <= kx; x++)
+            m->verts[z * (kx + 1) + x] = (v3_t){ (float)x * 0.2f - (float)kx * 0.1f, 0, (float)z * 0.2f - (float)kz * 0.1f };
+    int t = 0;
+    for (int z = 0; z < kz; z++)
+        for (int x = 0; x < kx; x++, t += 2) {
+            const uint16_t a = (uint16_t)(z * (kx + 1) + x), b = (uint16_t)(a + 1), c = (uint16_t)(a + kx + 1),
+                           d = (uint16_t)(c + 1);
+            const uint16_t f[6] = { a, c, b, b, c, d };
+            memcpy(m->faces + t * 3, f, sizeof f);
+            m->colors[t] = m->colors[t + 1] = 0x80A060;
+        }
+    r3d_mesh_normals(m);
+    textured(m, s);
+    uv_small(m);
+    bake(m, light);
+}
+
+static void ht_setup(int pieces, int merge)
+{
+    herotris_setup();
+    if (pieces == 10) {
+        make_slab(&slab_a, 50, 5, &hsheet[1], 120);
+        make_slab(&slab_b, 50, 5, &hsheet[2], 100);
+    } else if (pieces == 1) {
+        make_slab(&slab_a, 50, 50, &hsheet[1], 120);
+    }
+    R.merge = merge;
+}
+
+static void ht_free(void)
+{
+    R.merge = 0;
+    r3d_flush(&R);
+    r3d_mesh_free(&slab_a);
+    r3d_mesh_free(&slab_b);
+    herotris_free();
+}
+
+static void ht_p100_setup(void) { ht_setup(100, 0); }
+static void ht_p100m_setup(void) { ht_setup(100, 1); }
+static void ht_p10_setup(void) { ht_setup(10, 0); }
+static void ht_p10m_setup(void) { ht_setup(10, 1); }
+static void ht_p1_setup(void) { ht_setup(1, 0); }
+
+/* the map of set s in `pieces` pieces: the first sheet's, then the second's */
+static void ht_map(int s, int pieces)
+{
+    const float y = -0.003f * (float)s;
+    if (pieces == 1) {
+        r3d_draw_flags(&R, &slab_a, (v3_t){ 0, y, -1.5f + 1.4f * 4.5f }, 0, 0, 0, 1.4f, 0);
+        return;
+    }
+    for (int sheet = 0; sheet < 2; sheet++) {
+        if (pieces == 10) {
+            for (int j = sheet; j < 10; j += 2)
+                r3d_draw_flags(&R, sheet ? &slab_b : &slab_a, (v3_t){ 0, y, -1.5f + 1.4f * (float)j }, 0, 0, 0, 1.4f, 0);
+        } else {
+            for (int i = 0; i < 10; i++)
+                for (int j = 0; j < 10; j++)
+                    if (((i + j) & 1) == sheet)
+                        r3d_draw_flags(&R, sheet ? &map_b : &map_a,
+                                       (v3_t){ -6.3f + 1.4f * (float)i, y, -1.5f + 1.4f * (float)j }, 0, 0, 0, 1.4f, 0);
+        }
+    }
+}
+
+static void ht_scene(int n, int f, int pieces)
+{
+    cls3d();
+    r3d_camera(&R, 0.3f * sinf((float)f * 0.02f), 1.7f, -5, 0.05f, -0.12f, 70);
+    shine_light();
+    R.shadow_style = 1;
+    for (int s = 0; s < n; s++) {
+        ht_map(s, pieces);
+        const float x = -4.2f + 1.2f * (float)(s % 8) + 0.6f * (float)((s / 8) % 2), z = 1.0f + 1.5f * (float)(s / 8);
+        pose((float)f * 0.05f + (float)s);
+        r3d_draw_flags(&R, &hero_h, (v3_t){ x, 0, z }, 0, (float)s, 0, 1, R3D_SHADOW);
+        r3d_draw_flags(&R, &hero_h, (v3_t){ x, 0, z }, 0, (float)s, 0, 1, R3D_SMOOTH);
+    }
+    scene_light();
+}
+
+static void ht_p100_scene(int n, int f) { ht_scene(n, f, 100); }
+static void ht_p10_scene(int n, int f) { ht_scene(n, f, 10); }
+static void ht_p1_scene(int n, int f) { ht_scene(n, f, 1); }
+
 /* ------------------------------------------------- stress (opt-in)
  * The load of herotris in finer steps, for the stress test (stress_phase): n is a number of quarter sets. A
  * quarter set is 25 map pieces; a hero with its shadow is added for every 4 quarters (or part of them). So 4
@@ -1187,6 +1288,17 @@ static const test_t tests[] = {
     { "herotris", "hero + map + parallax + HUD + 4M instr of logic", "sets", 1, 64,
       M_ARM | M_GPU | M_VS | M_VSQ | M_VSQ2 | M_VSA | M_VSAQ, herotris_setup, herotris_scene, herotris_free, NULL, 0,
       1300, 1, herotris_2d, NULL, herotris_probe },
+    /* herotris with the map in 100, 10 or 1 pieces (same triangles), and merged by r3d (m): `tests=htmap` runs the five */
+    { "ht_p100", "herotris, map in 100 pieces", "sets", 1, 64, M_ARM | M_GPU | M_VS | M_VSQ, ht_p100_setup, ht_p100_scene,
+      ht_free, NULL, 0, 1300, 1, herotris_2d, "htmap" },
+    { "ht_p100m", "herotris, map in 100 pieces, merged", "sets", 1, 64, M_ARM | M_GPU | M_VS | M_VSQ, ht_p100m_setup,
+      ht_p100_scene, ht_free, NULL, 0, 1300, 1, herotris_2d, "htmap" },
+    { "ht_p10", "herotris, map in 10 pieces", "sets", 1, 64, M_ARM | M_GPU | M_VS | M_VSQ, ht_p10_setup, ht_p10_scene,
+      ht_free, NULL, 0, 1300, 1, herotris_2d, "htmap" },
+    { "ht_p10m", "herotris, map in 10 pieces, merged", "sets", 1, 64, M_ARM | M_GPU | M_VS | M_VSQ, ht_p10m_setup,
+      ht_p10_scene, ht_free, NULL, 0, 1300, 1, herotris_2d, "htmap" },
+    { "ht_p1", "herotris, map in 1 piece", "sets", 1, 64, M_ARM | M_GPU | M_VS | M_VSQ, ht_p1_setup, ht_p1_scene, ht_free,
+      NULL, 0, 1300, 1, herotris_2d, "htmap" },
     /* stress: the ramp of herotris in quarter sets on the default path, then the frame at 1x and 2x the load of 60 fps */
     { "stress", "stress: herotris at 1x and 2x the load of 60 fps", "quarters", 1, 256, M_VSQ, herotris_setup,
       stress_scene, herotris_free, NULL, 0, 1300, 1, herotris_2d, NULL, NULL, 1 },
@@ -1524,12 +1636,12 @@ static void ramp(int ti, int pf)
         if (P->clocks)
             P->clocks(&a.core_mhz, &a.gpu_mhz);
         s[ns++] = a;
-        char line[192];
+        char line[224];
         ksnprintf(line, sizeof line, "b3d %s %s n=%d %d.%02d ms worst %d.%02d, %d tri, %d vtx, %lu instr, "
-                  "GPU %d.%02d ms, %d jobs, core %lu GPU %lu MHz", t->id, prof[pf].name, n, (int)a.ms,
+                  "GPU %d.%02d ms, %d jobs, %d meshes, core %lu GPU %lu MHz", t->id, prof[pf].name, n, (int)a.ms,
                   (int)(a.ms * 100) % 100, (int)a.worst, (int)(a.worst * 100) % 100, (int)a.tris, (int)a.verts,
                   (unsigned long)a.instr, (int)a.gpu_ms, (int)(a.gpu_ms * 100) % 100, (int)a.jobs,
-                  (unsigned long)a.core_mhz, (unsigned long)a.gpu_mhz);
+                  (int)((float)st.glmeshes * k + 0.5f), (unsigned long)a.core_mhz, (unsigned long)a.gpu_mhz);
         if (P->log)
             P->log(line);
         if (a.ms > LIMIT_MS || P->us() - t0 > RAMP_US || (R.backend && gpu3d_failed()))

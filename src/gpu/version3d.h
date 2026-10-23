@@ -22,10 +22,11 @@
  * cut-out sheets as RGBA5551 to gpu3d_tex16 (GPU+T16), with the opaque
  * sheets as ETC1 7.3 (gpu3d_etc1: GPU+ETC1), with the cel light on the ARM
  * (cel3d, draw3d flag 256) and dither3d 7.4, with the cel light in the vertex programs and the
- * outline by the inverted hull (flag 512) 7.5. 0.1 and 1.0 no longer run: the 3D Bench shows the
+ * outline by the inverted hull (flag 512) 7.5, with the compact attributes on by default and the draws of
+ * static meshes merged (gpu3d_merge) 7.6. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.5"
+#define BM3D_VERSION "7.6"
 #define BM3D_BLOCK   "cel"
 
 typedef struct {
@@ -79,6 +80,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.3", "etc1", "2026-10-12", "opaque sheets as ETC1, encoded when made, the TMU's block layout probed (option)" },
         { "7.4", "cel", "2026-10-22", "cel3d() and draw3d flag 256: the sun light in bands by a 64-entry table (ARM lighting); dither3d()" },
         { "7.5", "cel", "2026-10-22", "cel light in the lit vertex programs (V3D); outline by the inverted hull (draw3d flag 512)" },
+        { "7.6", "merge", "2026-10-23", "compact attributes on by default (gpu3d_attr=0 off); draws of static baked or unlit meshes merged (gpu3d_merge)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

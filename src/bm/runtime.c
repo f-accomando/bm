@@ -1889,6 +1889,8 @@ static uint32_t assets_kb(void);
  *         measurements only, never game logic (they differ between consoles) */
 static int l_stat(lua_State *L)
 {
+    if (rt.r3d_ready)
+        r3d_flush(&rt.r3d);             /* (the draws held for merging are counted) */
     switch (ival(L, 1)) {
     case 0: lua_pushinteger(L, (lua_Integer)(luavm_mem() / 1024)); break;
     case 1: lua_pushnumber(L, rt.last_cpu_us / 1000.0); break;
@@ -1982,6 +1984,14 @@ void bm_next_run(int w, int h, int gpu3d, int bench)
 /* The V3D draws the 3D of the cartridges (M33) if it starts and passes its
  * probe; gpu3d=0 in bm/config.txt (Settings > Graphics > 3D of the games: ARM) keeps
  * the ARM's rasterizer */
+/* gpu3d_merge (bm3d 7.6): draws of static meshes with the same sheet become one draw; on unless
+ * gpu3d_merge=0 (r3d.c "draw merging"; the Mali backend has no merge hook, so it never merges) */
+static int merge_cfg(void)
+{
+    const char *m = config_get("gpu3d_merge");
+    return !m || strcmp(m, "0") != 0;
+}
+
 static void gpu3d_maybe(void)
 {
     const char *v = config_get("gpu3d");
@@ -2019,13 +2029,15 @@ static void gpu3d_maybe(void)
         const char *so = config_get("gpu3d_sort");
         gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (bm3d 5.4): Settings */
         const char *at = config_get("gpu3d_attr");
-        gpu3d_set_attr(at && strcmp(at, "1") == 0);     /* compact attributes (bm3d 7.1): Settings */
+        gpu3d_set_attr(!at || strcmp(at, "0") != 0);    /* compact attributes (bm3d 7.1; on from 7.6 where the
+                                                         * boot's probe_attr passes; "0" = off): Settings */
         const char *g2 = config_get("gpu3d_2d");
         rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (bm3d 4.8): Settings */
         const char *lt = config_get("gpu3d_later");
         rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (bm3d 6.9): Settings */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
+        rt.r3d.merge = merge_cfg();
         if (!cur.bench)                 /* a benchmark has its own report */
             kprintf("bm: the 3D is drawn by the GPU as bm3d %s (%s)\n",
                     bm3d_mode_l(1, gpu3d_vshader_on(), gpu3d_queue(), rt.later && gpu3d_queue2()), gpu3d_status());
@@ -2811,6 +2823,7 @@ static int l_draw3d(lua_State *L)
 static int l_cel3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
+    r3d_flush(r);                       /* (the draws held keep the cel values they were made with) */
     if (lua_gettop(L) > 0) {
         int bands = lua_isboolean(L, 1) || lua_isnil(L, 1) ? 0 : (int)luaL_checkinteger(L, 1);
         r3d_cel(r, bands, fnum(L, 2, 0.35f));
@@ -2870,6 +2883,7 @@ static int l_shadow3d(lua_State *L)
 static int l_textures3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
+    r3d_flush(r);
     if (!lua_isnoneornil(L, 1))
         r->notex = !lua_toboolean(L, 1);
     lua_pushboolean(L, !r->notex);
@@ -3201,6 +3215,7 @@ static int l_zclear(lua_State *L)
 static int l_gpu3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
+    r3d_flush(r);
     if (!lua_isnoneornil(L, 1)) {
         const int on = lua_toboolean(L, 1);
         if (on && !r->backend && rt.g.stride == (uint32_t)rt.g.w && gpu3d_init() == 0 && !gpu3d_failed()) {
@@ -3208,6 +3223,7 @@ static int l_gpu3d(lua_State *L)
             gpu3d_page(0, 0);
             r->backend = gpu3d_backend();
             r->arm_hook = gpu3d_to_arm;
+            r->merge = merge_cfg();
         } else if (!on && r->backend) {
             flush3d(0);
             cls_settle();
@@ -9846,6 +9862,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;
+        if (rt.r3d_ready)
+            r3d_flush(&rt.r3d);
         st->tris3d = rt.r3d_ready ? rt.r3d.tris_drawn : 0;
         crumb_frame(rt.frame);
         const uint32_t shown_before = prev;

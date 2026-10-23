@@ -168,6 +168,11 @@ typedef struct {
     int (*shadow)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*W)[12], int nbones,
                   const float C[9], v3_t L, float plane, const r3d_env_t *env);
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
+    /* bm3d 7.6, optional: draw merging (r3d_t.merge). r3d holds the draws of baked or unlit
+     * meshes until something else reaches the backend; the backend keeps pre and pctx and calls
+     * pre(pctx) at the start of each of its other entry points. Returns 1 if the backend takes a
+     * merged mesh now (it places meshes and clips them), else 0 (the draws go at once). */
+    int (*merge)(void *ctx, void (*pre)(void *), void *pctx);
     void *ctx;
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
     int tex_screen;             /* draws textured screen-door faces (R3D_TEX_SCREEN, M34); else
@@ -219,6 +224,9 @@ typedef struct {
     uint32_t tris_in, tris_drawn, pixels, verts;
     uint32_t impostors;         /* meshes drawn as an impostor */
     const r3d_backend_t *backend;   /* NULL: the software rasterizer */
+    int merge;                  /* bm3d 7.6: consecutive draws of baked or unlit meshes that stand still
+                                 * (the same list in two draws) become one mesh in one draw; the
+                                 * pixels are the same; 0 off (default): gpu3d_merge in bm/config.txt */
     /* called (with arm_ctx) when a draw needs the software rasterizer
      * while a backend is set (textured screen-door faces for a backend
      * without tex_screen: since bm3d 4.7 the GPU's has it). It draws what
@@ -232,6 +240,9 @@ int  r3d_init(r3d_t *r, g16_t *g);
 void r3d_free(r3d_t *r);
 int  r3d_resize(r3d_t *r, int old_w);   /* after the screen of r->g changed size */
 void r3d_zclear(r3d_t *r);
+void r3d_flush(r3d_t *r);               /* bm3d 7.6: the draws held for merging are drawn now (no-op if none) */
+/* bm3d 7.6: merged meshes drawn so far, and the draws they replaced */
+uint32_t r3d_merge_count(uint32_t *pieces);
 void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, float fov_deg);
 void r3d_camera_roll(r3d_t *r, float roll);
 void r3d_light(r3d_t *r, float x, float y, float z, float ambient);

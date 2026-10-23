@@ -91,11 +91,34 @@ end
 """
 
 
-def run(host, cart, shots, queue, gpu2d=0, later=0):
+MERGE_CART = r"""
+local a, b, t = nil, nil, 0
+function _init()
+  a = mesh_cube(0x3080F0)
+  b = mesh_cube(0xF08030)
+end
+function _update() t = t + 1 end
+function _draw()
+  cls(0x102030)
+  camera3d(0.3 * math.sin(t * 0.05), 3, -9, 0, -0.3, 60)
+  zclear()
+  for i = 0, 5 do
+    for j = 0, 3 do                            -- 24 cubes that stand still, unlit: one run
+      draw3d((i + j) %% 2 == 0 and a or b, -5 + 2 * i, 0, 2 * j, 0, 0.3 * i, 0, 0.8, 2)
+    end
+  end
+  draw3d(a, 0, 3, 2, t * 0.05, 0, 0, 1)         -- a lit cube that turns: not held
+  rectfill(10, 10, 60, 20, 0xFF0000)            -- 2D after the 3D: the run is drawn first
+  print("merge " .. t, 4, 160, 0xFFFFFF)
+end
+"""
+
+
+def run(host, cart, shots, queue, gpu2d=0, later=0, extra=""):
     os.makedirs(shots, exist_ok=True)
     for f in os.listdir(shots):
         os.remove(os.path.join(shots, f))
-    env = dict(os.environ, BMHOST_CONFIG=f"gpu3d_vs=2,gpu3d_queue={queue},gpu3d_2d={gpu2d},gpu3d_later={later}",
+    env = dict(os.environ, BMHOST_CONFIG=f"gpu3d_vs=2,gpu3d_queue={queue},gpu3d_2d={gpu2d},gpu3d_later={later}{extra}",
                BMHOST_NONET="1")
     r = subprocess.run([host, cart, "--seconds", "1", "--shots", shots, "--every", "3"], capture_output=True,
                        text=True, env=env)
@@ -192,6 +215,32 @@ def main():
                     differ.append(s)
             check(not differ, f"{mode}, 2D on the GPU, queue {q}: the same frames ({len(differ)} differ: "
                   f"{' '.join(differ[:5])})", log2[-800:])
+    # bm3d 7.6: draw merging (gpu3d_merge, on by default): 24 unlit cubes standing still, drawn in one run, become
+    # one mesh from the second frame on; the pictures are the same as with gpu3d_merge=0 (a pixel or two on an
+    # edge may differ: the vertex sums are made in another order), the vertex shader is given 24 meshes less
+    cart = os.path.join(out, "merge.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack((MERGE_CART).replace("%%", "%").encode(), title="queue2d merge", author="bm", res=(320, 180)))
+    res = {}
+    for merge, q in ((0, 1), (1, 1), (1, 0)):
+        d = os.path.join(out, f"merge{merge}-q{q}")
+        code, log = run(host, cart, d, q, extra=f",gpu3d_merge={merge}")
+        check(code == 0 and "Lua error" not in log, f"merge {merge}, queue {q}: runs", log)
+        m = [l for l in log.splitlines() if "vertex shader:" in l]
+        res[(merge, q)] = (d, float(m[0].split("shader: ")[1].split()[0]) if m else -1, log)
+    off, on = res[(0, 1)], res[(1, 1)]
+    check(off[1] >= 24 and 0 < on[1] <= 4, f"merge: {off[1]:.0f} meshes a frame without, {on[1]:.0f} with", off[2] + on[2])
+    for key in ((1, 1), (1, 0)):
+        d = res[key][0]
+        shots = sorted(os.listdir(off[0]))
+        worst = 0
+        for s in shots:
+            a = Image.open(os.path.join(off[0], s)).convert("RGB")
+            b = Image.open(os.path.join(d, s)).convert("RGB")
+            diff = ImageChops.difference(a, b).convert("L").point(lambda v: 255 if v else 0)
+            worst = max(worst, sum(diff.getdata()) // 255)
+        check(len(shots) >= 15 and worst <= 12,
+              f"merge, queue {key[1]}: {len(shots)} frames, at most {worst} pixels differ from gpu3d_merge=0", res[key][2][-500:])
     print(f"\nqueue2d: {'all ok' if not fails else f'{fails} failed'}")
     return 1 if fails else 0
 

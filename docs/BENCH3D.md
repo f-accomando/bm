@@ -81,7 +81,7 @@ the Pi's numbers with the earlier drivers are the historical bars.
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
   logic of `queue`;
-- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*), `herotris`, `cel` (see *herotris*) and `stress` (see *stress*): they run only when `tests=` names them.
+- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*), `herotris`, `cel` (see *herotris*), `stress` (see *stress*) and `ht_p100`, `ht_p100m`, `ht_p10`, `ht_p10m`, `ht_p1` (group `htmap`, see *herotris with the map in pieces*): they run only when `tests=` names them.
 
 The maximum loads are far beyond what the drivers do today (up to 8000 spheres, 512
 heroes, 40 000 calls): they leave headroom for the drivers to come.
@@ -370,6 +370,36 @@ The hook is the comment at the top of the block "the 2D scenes" in `src/bm/b3d.c
 The test of the triangle count is a different work (`docs/design/triangle-throughput.md`).
 
 On the PC, `make test-b3d` runs them (`herotris`, `cel` and `stress`) for a few frames and checks that the fields, the `H` lines, the `C` lines and the `T` lines exist.
+
+## herotris with the map in pieces
+
+Stage 3 of `docs/design/triangle-throughput.md` (draw merging, bm3d 7.6). It is **opt-in**, group `htmap`. It answers: what does a draw call cost
+the ARM, and how much of it does `gpu3d_merge` take back?
+
+```
+./easy_install.sh line "gpu; b3d tests=htmap; send"
+```
+
+It is the `herotris` set (a hero of 1536 triangles with its shadow, the 2D, 4M instructions of logic), but the 5000 triangles of the map are in 100 pieces
+of 50 (`ht_p100`), 10 pieces of 500 (`ht_p10`) or 1 piece of 5000 (`ht_p1`). Same area, same triangles, same baked light and sheets; only the number of
+`draw3d` calls of the map changes: 100, 10 or 1 a set. The pieces are drawn in two runs by sheet (all of the first sheet, then all of the second), as a
+game that sorts its static map by texture. (`herotris` itself alternates the two sheets in a chequer and has no run to merge.) `ht_p100m` and `ht_p10m` are
+`ht_p100` and `ht_p10` with `r3d_t.merge` on, the same as a game with `gpu3d_merge` on (the bench profiles leave `gpu3d_merge` off, so every other test
+keeps its numbers).
+
+Profiles: `ARM`, `GPU`, `GPU+VS`, `GPU+VS+Q` (the path of the games). Read the `R` lines of `GPU+VS+Q` (the line format is the same as every test):
+
+| Question | Where |
+|---|---|
+| Cost of a call on the ARM | `ms - gpu_ms` of `ht_p100` less that of `ht_p1`, divided by 99 and by the sets at 60 fps. With the queue the report has `ms` only; use `GPU+VS` (no queue) for this. |
+| What merging takes back | `ht_p100m` against `ht_p100`, and `ht_p10m` against `ht_p10`: `tris60`/`drawn60` at 60 fps (more is better), `ms` at the same step. The best case is `ht_p1`. |
+| Calls a frame | The progress log line of each step ends `N meshes` (meshes placed by the vertex shader a frame): about 90 for `ht_p100` at one set, 3 for `ht_p100m`, 11 for `ht_p10`, 2 for `ht_p1` (the PC counted those). |
+
+Draw merging holds the draws, so at the first frame of a run (and after any change of the run) the frame is as without merging; from the second frame
+on the run is one draw. A step of the bench has several frames, so the median of a step is the merged one. Run each profile three times.
+
+On the PC `make test-b3d` runs the five (`check_b3d.py`: the same triangles given to r3d in all five, every profile of the list has a row) and `make test-gpu3d`
+checks the pixels of merged against drawn one by one (`draw merging` line).
 
 ## stress
 

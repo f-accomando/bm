@@ -1545,6 +1545,93 @@ int main(int argc, char **argv)
     printf("  vertex shader: %u corners shaded for %u indexed (bm3d 5.0)\n", emu_stats.glverts, emu_stats.glindexed);
     CHECK(emu_stats.glindexed > 0 && emu_stats.glverts < emu_stats.glindexed, "indexed meshes: %u shaded for %u",
           emu_stats.glverts, emu_stats.glindexed);
+    /* bm3d 7.6: draw merging. A map of pieces that stand still (baked light, two kinds: with the sheet and
+     * with colours, some turned, one scaled), drawn frame after frame: the first frame draws the pieces, the
+     * second makes the merged meshes, the third draws them, one draw a run. The pixels are those of the
+     * pieces drawn one by one. */
+    {
+        static r3d_mesh_t mt[2];
+        for (int kind = 0; kind < 2; kind++) {
+            r3d_mesh_t *m = &mt[kind];
+            const int k = 4;
+            r3d_mesh_alloc(m, (k + 1) * (k + 1), 2 * k * k);
+            r3d_mesh_alloc_uv(m);
+            for (int z = 0; z <= k; z++)
+                for (int x = 0; x <= k; x++)
+                    m->verts[z * (k + 1) + x] = (v3_t){ (float)x / k - 0.5f, 0.03f * (float)((x * 5 + z * 3) % 4), (float)z / k - 0.5f };
+            for (int z = 0, t = 0; z < k; z++)
+                for (int x = 0; x < k; x++, t += 2) {
+                    const uint16_t a = (uint16_t)(z * (k + 1) + x), b = (uint16_t)(a + 1), c = (uint16_t)(a + k + 1),
+                                   d = (uint16_t)(c + 1);
+                    const uint16_t f[6] = { a, c, b, b, c, d };
+                    memcpy(m->faces + t * 3, f, sizeof f);
+                    m->colors[t] = m->colors[t + 1] = kind ? 0xC08040u : R3D_TEXTURED;
+                    for (int q = 0; q < 2; q++)
+                        for (int v = 0; v < 3; v++) {
+                            const int vi = f[q * 3 + v];
+                            m->uv[(t + q) * 6 + v * 2] = (float)(vi % (k + 1)) * 30.0f;
+                            m->uv[(t + q) * 6 + v * 2 + 1] = (float)(vi / (k + 1)) * 30.0f;
+                        }
+                }
+            m->clight = malloc((size_t)m->nfaces * 9);
+            for (int i = 0; i < m->nfaces * 9; i++)
+                m->clight[i] = (uint8_t)(70 + (i * 37 + kind * 11) % 120);
+            m->tex = kind ? NULL : &sheet;
+            r3d_mesh_normals(m);
+        }
+        uint16_t *mp[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        uint32_t pieces = 0, merged = 0;
+        uint32_t calls[2] = { 0, 0 };
+        for (int on = 0; on < 2; on++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, mp[on], 640, 640, 360, &font);
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            r.merge = on;
+            gpu3d_drop();
+            gpu3d_set_vshader(2);
+            const int cap = gpu3d_backend()->merge(NULL, NULL, NULL);     /* (the clipper and the vertex shader) */
+            const uint32_t m0 = r3d_merge_count(&pieces);
+            const int frames = on ? 3 : 1;
+            for (int fr = 0; fr < frames; fr++) {
+                g16_cls(&g, g16_rgb(30, 20, 50));
+                r3d_zclear(&r);
+                gpu3d_stats_t sx;
+                gpu3d_take_stats(&sx);
+                r3d_camera(&r, 0.3f, 2.5f, -6, 0.05f, -0.35f, 70);
+                for (int kind = 0; kind < 2; kind++)
+                    for (int i = 0; i < 6; i++)
+                        for (int j = 0; j < 6; j++)
+                            if (((i + j) & 1) == kind)
+                                r3d_draw_flags(&r, &mt[kind], (v3_t){ -4.0f + 1.6f * (float)i, -1.0f + 0.01f * (float)j, -1.0f + 1.6f * (float)j },
+                                               0, (float)((i + j) % 4) * 1.5707963f, 0, i == 2 && j == 3 ? 1.2f : 1.6f, 0);
+                CHECK(gpu3d_flush(&g, 0) == 0, "merge: flush: %s", gpu3d_status());
+                gpu3d_take_stats(&sx);
+                calls[on] = sx.glmeshes;
+            }
+            merged = r3d_merge_count(&pieces) - m0;
+            if (on)
+                printf("  draw merging (bm3d 7.6): %u meshes a frame against %u, %u merged meshes drawn for %u pieces%s\n",
+                       calls[1], calls[0], merged, (unsigned)pieces, cap ? "" : " (the backend cannot clip: not merged)");
+            gpu3d_set_vshader(0);
+            r3d_free(&r);
+        }
+        int differ = 0;
+        for (int i = 0; i < 640 * 360; i++)
+            differ += mp[0][i] != mp[1][i];
+        /* the vertex sums in another order: a pixel on an edge may fall on the other side (1 in 230400 so far) */
+        printf("  draw merging: %d of %d pixels differ from the pieces drawn one by one (rounding of the sums)\n", differ,
+               640 * 360);
+        CHECK(differ <= 10, "draw merging: %d pixels differ from the pieces drawn one by one", differ);
+        if (gpu3d_backend()->merge(NULL, NULL, NULL))
+            CHECK(merged == 4 && calls[1] == 2 && calls[0] == 36, "draw merging: %u merged draws, %u meshes against %u pieces",
+                  merged, calls[1], calls[0]);
+        if (ppm_dir) {
+            save(mp[0], 640, 360, "merge", "off");
+            save(mp[1], 640, 360, "merge", "on");
+        }
+    }
     const int over = test_arena_overruns();
     CHECK(over == 0, "%d blocks of the driver written past their end", over);
     printf("gpu3d: %u jobs, %u triangles; %d/%d checks passed\n", st.jobs, st.tris, checks - failures, checks);

@@ -1563,7 +1563,7 @@ test-b3d: $(BUILD)/host/b3d_host
 	$< $(BUILD)/b3d
 	$(PYTHON) tests/bm/check_b3d.py $(BUILD)/b3d
 	rm -rf $(BUILD)/b3d2d && mkdir -p $(BUILD)/b3d2d
-	$< $(BUILD)/b3d2d --tests=map8,sprites,stack,fade,light,herotris,cel,stress
+	$< $(BUILD)/b3d2d --tests=map8,sprites,stack,fade,light,herotris,cel,stress,htmap
 	$(PYTHON) tests/bm/check_b3d.py $(BUILD)/b3d2d --2d
 	rm -rf $(BUILD)/b3dq && mkdir -p $(BUILD)/b3dq
 	$< $(BUILD)/b3dq --tests=fade --profiles=ARM,QPU --qpufade

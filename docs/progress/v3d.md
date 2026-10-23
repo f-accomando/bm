@@ -1,6 +1,6 @@
 # V3D driver (Pi Zero W, ARM1176 only)
 
-Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md). Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here). Triangles at 60 fps, ranked options: [triangle-throughput](../design/triangle-throughput.md).
+Tracking for bm3D 3.0-7.6. Rest of the graphics stack: [graphics](graphics.md). Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here). Triangles at 60 fps, ranked options: [triangle-throughput](../design/triangle-throughput.md).
 
 ## Today
 
@@ -23,7 +23,15 @@ Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md). 
   Measurements only (QEMU test: `-k stat_perf`, range only). The overlay already shows both as its audio and wait bars.
 - `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, threshold N*h/1080: `imp_threshold`
   in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
-- `gpu3d_attr=1` (bm3d 7.1, off; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
+- Rule: `gpu3d_attr` is on by default (bm3d 7.6, 23 Oct, user: any gain counts). Without the key the runtime and the Settings row *3D corners* use compact attributes. `gpu3d_attr=0` is the off switch. The boot `probe_attr` keeps the compact path only if its pixels match the floats; if it fails, the floats draw. The bench profiles set the key themselves, so their rows do not change. The Pi number of the default (A8 against the floats on the played games, `herotris` A8 against plain) is pending.
+- Rule: draw merging, `gpu3d_merge` (bm3d 7.6, hidden key, no Settings row, on by default; `gpu3d_merge=0` is the off switch). It lives in `r3d.c` ("draw merging") and needs `r3d_backend_t.merge`, so only the V3D has it (the Mali does not). Rules of the code:
+  - A draw is held if its mesh has baked light (or the call has flag 2), no skeleton, no other flag, a positive scale, `r3d_t.impostor` is 0 and `textures3d` is on. Held draws of the same sheet, flags and light kind form a run (at most 256 draws, 16000 faces). A piece out of view is dropped when it is held, as `draw_flags` drops it.
+  - The run is drawn before anything else changes the scene or reaches the job: every `r3d_*` call that changes the scene or draws, and the other entry points of `gpu3d.c` (`GPU_PRE`: `gpu3d_flush`, `gpu3d_submit`, `gpu3d_pending`, `gpu3d_rect2d`, `blit2d`, `text2d`, `sync`, `drop`, `page`, the setters). Add `MG_SYNC()` to a new `r3d_*` function and `GPU_PRE()` to a new public `gpu3d_*` function that records or changes the job.
+  - The second time the same run comes (same meshes and versions, same sheet and version, same places, turns and scales, same order) its pieces are put in one mesh in world axes (origin: the first piece), once; the run is then one draw of it. `MG_ENTRIES` 48 runs are remembered, 64000 faces of merged meshes are kept. A run seen once or changed is drawn piece by piece. If the backend does not take the merged mesh, the run is marked bad and drawn piece by piece.
+  - Pixels: `make test-gpu3d` (`draw merging`) draws 36 pieces merged and piece by piece: 1 of 230400 pixels differs (the vertex sums are made in another order). Host counters: 36 meshes a frame become 2.
+  - Limits: a sheet edited between a held draw and the next flush shows its new texels in the held draws. A mesh freed or changed (`r3d_mesh_free`, `r3d_mesh_normals`) draws the held pieces first.
+  - 3D Bench: `ht_p100`, `ht_p10`, `ht_p1` (the map in 100, 10 or 1 pieces, 5000 triangles) and `ht_p100m`, `ht_p10m` (merging on). Pi numbers pending ([BENCH3D](../BENCH3D.md) *herotris with the map in pieces*).
+- `gpu3d_attr=1` (bm3d 7.1; on by default from 7.6; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
   attributes for `GV_BAKED` (5 words a corner, was 9: `vs_baked8`) and `GV_LIT` (10, was 14:
   `vs_lit8`). ARM side `put_mesh_corner` / `pack_abc`; shader side the regfile A unpack
   (`UNPACK_A` in `tools/qpuasm.py`, emulated in `tests/gpu/v3d_emu.c`); `probe_attr` keeps it
@@ -111,6 +119,7 @@ Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md). 
 - Decision (user, 22 Oct): `gpu3d_attr` stays OFF by default. A8 gains only 3.8% on the
   spheres and it is a compact-attribute path with its own probe. Turn it ON only for the
   heavy-mesh games where the Pi reports above (heroes, match) show a gain.
+- Decision (user, 23 Oct, replaces the one above): any gain counts. `gpu3d_attr` is on by default where `probe_attr` passes (bm3d 7.6) and draw merging is on by default with the hidden key `gpu3d_merge`. Both are built and tested on the PC only. The Pi numbers decide if they stay: `herotris` A8 against plain (22 Oct: +4.7% without the queue, 0% with it), `ht_p100` against `ht_p100m`, `ht_p10`, `ht_p1`. If a number is negative, set the default of that key to 0 in `runtime.c` and `settings.c` (one line each). Not verified on hardware.
 - Mali: the RGB30 triangle fails (`JS_STATUS` 58); the variant probe is ready, the next Dev > GPU test run is in [graphics-mali](graphics-mali.md) `Open work`.
 - Sprite stacking (`stack()`, stack zones, `zstack()`) is done. It runs on the CPU only.
 Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [v3d-notes](v3d-notes.md). First QPU run (key `gpu3d_qpu`): same file, "First QPU run on the Pi".

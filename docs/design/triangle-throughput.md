@@ -1,6 +1,6 @@
 # Triangle throughput on the Pi Zero W
 
-Goal: raise the number of triangles on screen at 60 fps on the Pi Zero W (V3D 250/300 MHz, ARM1176 1 GHz, RGB565, 640x360). This file is an investigation. It changes no code. It ranks the options and gives a plan of PRs.
+Goal: raise the number of triangles on screen at 60 fps on the Pi Zero W (V3D 250/300 MHz, ARM1176 1 GHz, RGB565, 640x360). This file is an investigation and a log. It ranks the options and gives a plan of PRs. Stages 2 and 3 are built (23 Oct, bm3d 7.6, section 8); their Pi numbers are pending.
 
 Sources: [v3d](../progress/v3d.md), [v3d-notes](../progress/v3d-notes.md), [BENCH3D](../BENCH3D.md), [PERFORMANCE](../PERFORMANCE.md), [DRIVERS](../DRIVERS.md), `src/gpu/gpu3d.c`, `src/gpu/v3d.c`, `src/bm/r3d.c`. Old branches: `claude/v3d-compact-tex-attrs` (b8f01430, 1ced7d02), `v3d-async-proposal` (2c383089, 69ef8453, 23b9c7bf), `claude/bench-vs-etc1` (72710c09), `claude/perf-3d-budget-table` (e0afc683), `claude/v3d-closeout` (4123405b, f15ff570), `claude/stages3d-budget` (PR 95: frame budget and quality governor).
 
@@ -82,6 +82,7 @@ Gain = more triangles at 60 fps in the tests the option helps. Ranges are *E* un
 - Gain *(M)*, A8 against GPU+VS+FS2 at 60 fps: spheres +3.5%, heroes +7%, match +15% (n60 35.3 against 30.8 in the first run, 34.0 against 32.1 in the last), big +23% (9.2 to 11.3 models; the triangle counts differ). Textured heroes: 0 today. Stage 2b *(E)*: `GV_LIT_TEX` 12 to 10 words (-17%). Taking the heroes' ratio (-28% words gave -14% GPU job time): -17% words gives -8% GPU time, so **+3% to +6%** in `heroes_tex`, `mix`.
 - Cost: 0 RAM (less). Stage 2a: about 5 lines (default on if the probe passes). Stage 2b: about 100-150 lines (shader in `tools/qpuasm.py`, `put_mesh_corner`, emulator unpack), `JOB_CODE` 40 to 48 KiB.
 - Risk: pixel mismatch (the reason 1ced7d02 dropped half-uv). Medium. The probe `probe_attr` keeps the path only if pixels match.
+- Built (23 Oct, bm3d 7.6): stage 2a. `gpu3d_attr` is on by default where `probe_attr` passes; `gpu3d_attr=0` turns it off. Stage 2b (lit textured faces) is not built.
 - QEMU: `make test-gpu3d` (same pixels, fewer words). Pi: bench GPU+VS+A8 against GPU+VS+FS2 in `heroes_tex`, `mix`, the new scene; Overbit session with `attr=1`. The decision is the user's (v3d.md).
 
 ### Opt 3: merge draws of one model, and static map chunks
@@ -89,6 +90,7 @@ Gain = more triangles at 60 fps in the tests the option helps. Ranges are *E* un
 - Mechanism: one `draw3d` per model or per map chunk, not per piece. One CL group and one shader record per material. Done at load time, by `bm-forge`, or in `r3d` for static pieces with the same texture.
 - Helps: ARM-bound scenes with many calls (hero + map: tens to hundreds of calls).
 - Gain: saved ms = `calls_removed x 3.7-12.6 us`. 100 map pieces merged to 10: 0.3-1.1 ms of 16.7 = **+2% to +7%** triangles when ARM bound (*E*). More when the logic fills the ARM.
+- Built (23 Oct, bm3d 7.6): the merge is in `r3d.c` (section "draw merging"), automatic, key `gpu3d_merge` (hidden, on). See section 8. The Pi number is pending.
 - Cost: no RAM; a merged mesh keeps a bounding sphere, so culling is coarser (see Opt 4). 50-200 lines in the pipeline tools. Risk low.
 - QEMU: host test with `draws` scene: same pixels, fewer calls. Pi: test `draws` (1 413 cubes at 60 fps) and the new scene with 1, 10, 100 map pieces.
 
@@ -194,8 +196,8 @@ Pass line for the plan: every stage in section 5 must raise the report's maximum
 |---|---|---|---|
 | 0 | Add the `herotris` scene, `bin_us`/`rnd_us` columns, GPU+VS+A8+Q profile. No driver change. | The baseline, and who is bound (ARM or GPU) at a hero + map load. | Runs in `make test-b3d`; Pi report. |
 | 1 | Done (22 Oct): `gpu3d_queue=1` by default (Opt 1). `gpu3d_later` stays off. | `herotris`: GPU+VS+FS2 against GPU+VS+Q. | +10% at least (passed: x1.75). |
-| 2 | `gpu3d_attr=1` by default where `probe_attr` passes (Opt 2a). | `herotris` A8 against plain; `heroes`, `match`. | +3% at least; user decides (v3d.md). |
-| 3 | Draw merging for static map pieces (Opt 3). Count of calls in the scene: 1, 10, 100. | `herotris` with 100 / 10 / 1 map pieces. | Fewer calls, same pixels. |
+| 2 | Built (23 Oct): `gpu3d_attr=1` by default where `probe_attr` passes (Opt 2a). Numbers pending. | `herotris` A8 against plain; `heroes`, `match`. | +3% at least; user decides (v3d.md). |
+| 3 | Built (23 Oct): draw merging for static map pieces (Opt 3), hidden key `gpu3d_merge`. Scenes `ht_p100`, `ht_p10`, `ht_p1`, `ht_p100m`, `ht_p10m`. Numbers pending. | `herotris` with 100 / 10 / 1 map pieces. | Fewer calls, same pixels (passed on the PC: 1 pixel of 230400 differs). |
 | 4 | Compact attributes for lit textured faces (Opt 2b). | `herotris` and `heroes_tex`. | `make test-gpu3d` same pixels; +3% at least. |
 | 5 | Resolution scaling R41 as an option and the impostor default R42 with the quality governor of PR 95. | `herotris` at 480x270; `herotris` with far heroes. | A visible-quality photo; user decides. |
 | 6 | Only if stage 0 shows idle GPU or a big `bin_us`: frame split (Opt 7) or 16-bit positions (Opt 8). | `tiny`, `big`, `herotris`. | Measured idle time above 10% of the frame. |
@@ -236,4 +238,15 @@ Do stages 1 and 2 first. They cost almost no code and have measured gains. Stage
 - Not collected yet: three runs for each profile (the table is one run each), the items 3 to 7 of section 6.
 - Pi freeze: see `docs/NEXT.md`, Open issues.
 
-Hardware behaviour in this file is `not verified` for every *(E)* value. Section 7 is a measurement; the rest of the file is an estimate.
+## 8. Built, 23 Oct (stages 2 and 3, bm3d 7.6)
+
+What was built, on the PC only. No Pi number yet. Hardware: `not verified`.
+
+- Stage 2a: `gpu3d_attr` is on unless `gpu3d_attr=0` (`runtime.c`, `settings.c`, `config-keys.toml`). The user decided it on 23 Oct ("any gain counts"), after the 22 Oct decision to keep it off (22 Oct data: +4.7% without the queue, 0% with it, `herotris`). The bench profiles set the key themselves, so the old rows are comparable.
+- Stage 3: draw merging in `r3d.c`. The rules of the code are in [v3d](../progress/v3d.md). In short: consecutive draws of baked or unlit meshes of one sheet are held; when the same run comes a second time it becomes one mesh in world axes and one draw. A run seen once, or changed, is drawn piece by piece. The key `gpu3d_merge=0` turns it off.
+- Where the gain comes from: each piece costs the ARM `draw_flags` (cull, matrices, the environment) and `gpu3d` (`mesh_get`, the uniforms, a shader record of 64 bytes, a list packet): 3.7-12.6 us (section 1.2, finding 11). A merged run pays it once. On the PC the counter went from 90 meshes a frame to 3 (`ht_p100` and `ht_p100m`). *(E)*: 100 pieces merged to 2 save about 98 calls, that is 0.4-1.2 ms of 16.7 ms.
+- What can lose: (a) the merged mesh is clipped by the GPU as a whole and the GPU shades and bins all the pieces in view, where the pieces alone were `inside` the guard band with no clipping; (b) a map whose set of pieces in view changes at every frame never merges and pays only the bookkeeping (a copy of 52 bytes a draw and one comparison); (c) a map whose set changes every few frames pays the build (about the cost of the pieces' first draw) each time. The Pi decides with `ht_p100` against `ht_p100m`.
+- Limits: the pixels differ by the rounding of the vertex sums (1 pixel of 230400 in the test). A sheet edited between a held draw and the next flush shows its new texels.
+- To collect on the Pi: section 6 item 6 with the scenes of [BENCH3D](../BENCH3D.md) *herotris with the map in pieces* (`b3d tests=htmap`, three runs each, `GPU+VS` and `GPU+VS+Q`); `herotris` A8 against plain with `gpu3d_attr` 0 and 1 in a played game; the Overbit check is still not measured. If a number is negative: set the default of the key to 0 (one line in `runtime.c`, and `settings.c` for `gpu3d_attr`).
+
+Hardware behaviour in this file is `not verified` for every *(E)* value. Section 7 is a measurement; section 8 is a PC result; the rest of the file is an estimate.

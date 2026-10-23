@@ -304,6 +304,14 @@ static int fs2_on(void)
     return !on || strcmp(on, "0") != 0;
 }
 
+/* compact vertex attributes: on unless gpu3d_attr=0 (bm3d 7.6; the boot's
+ * probe_attr keeps them only where the pixels match) */
+static int attr_on(void)
+{
+    const char *on = config_get("gpu3d_attr");
+    return !on || strcmp(on, "0") != 0;
+}
+
 static const char *gpu3d_choice(void)
 {
     if (!gpu3d_on())
@@ -637,7 +645,7 @@ void home_panel(int id, home_panel_t *p)
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
         home_row(p, MENU_ROW_CHOICE, R_ATTR, "3D corners",
                  "Floats, or compact: colour and light bytes packed (vertex shader, bm3d 7.1)", "%s",
-                 config_on("gpu3d_attr") ? "Compact" : "Floats");
+                 attr_on() ? "Compact" : "Floats");
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
@@ -1299,10 +1307,10 @@ void home_act(int id, int row, int how, home_do_t *d)
                   config_on("gpu3d_sort") ? "nearest first" : "as the game");
         break;
     case R_ATTR:
-        config_set("gpu3d_attr", config_on("gpu3d_attr") ? "0" : "1");
+        config_set("gpu3d_attr", attr_on() ? "0" : "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D corners of the next game: %s",
-                  config_on("gpu3d_attr") ? "compact" : "floats");
+                  attr_on() ? "compact" : "floats");
         break;
     case R_IMPOSTOR: {
         const int px = impostor_px();

@@ -58,7 +58,7 @@ Friday evening:
 4. Single-bm (SYS-8), next stage: the screen modes (720x405, `safe_area()`, `aspect()`, bars), then the input chips and the end of `.b16`. The compat check is in the menus and the Market list; its rest (Market `targets` line, load-time message) is in `docs/progress/b16.md`, `## Open work`.
 5. VID-REC next slices: real 8-bit palette, audio (the RLE565 encoder is done; the Pi numbers are the API-4 item above).
 6. Web player (WEB-1): stages 1-3 are in bm-core (emsdk is in `~/emsdk` in WSL). Saves (IndexedDB) and 3D frames are checked. Next: check sound and the 60 Hz rate in a visible tab, then the release page. Plan in `docs/design/bm-web-player.md`.
-7. Triangle throughput: stage 1, make `gpu3d_queue=1` the default in a code change (the benchmark of 22 Oct gave x1.75 on `herotris`; see `docs/design/triangle-throughput.md` section 7). `gpu3d_attr` stays off (decided 22 Oct). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
+7. Triangle throughput: stage 1 is done (`gpu3d_queue=1` is the default). Stages 2 and 3 are built (23 Oct, bm3d 7.6, API-6): `gpu3d_attr` is on by default where `probe_attr` passes, and draw merging (`gpu3d_merge`, hidden, on) merges static baked map pieces. Pi numbers to collect: `b3d tests=htmap` on `GPU+VS` and `GPU+VS+Q` (three runs: `ht_p100`, `ht_p100m`, `ht_p10`, `ht_p10m`, `ht_p1`), and `b3d tests=herotris` A8 against plain; see `docs/design/triangle-throughput.md` sections 6 and 8. If a number is negative, set that key's default to 0 (one line in `runtime.c`; `settings.c` for `gpu3d_attr`). The kernel for the run: built from the merge commit, copy `dist/kernel_bench4.img` (not in git). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
 8. Evaluate the security findings of `docs/OS-CAPABILITIES.md`: `lua_load(..., NULL)` at `runtime.c:9438` may accept bytecode; default net password is 6 digits from `srand(timer_ticks())` (`netcon.c:183`), plaintext on TCP 3334; carts can `ls` the SD and `cart_read` any `.bm` without a prompt; FAT dates fixed at 2026-01-01 (`fat.c:682`); docs disagree (`docs/progress/b16.md:16` says 4 MiB heap, code 64 MiB; RGB30 menu framebuffer 360x360).
 9. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
 10. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
@@ -74,7 +74,7 @@ Friday evening:
 ## Useful commits on graphics branches (keep the branch until the commit is ported)
 - `claude/gpu3d-fade`: a2c1e904 and 4f7fbc3b (fade through the `g16_fade_accel` hook).
 - `claude/api-particles3d`: a2795d0f (runtime 3D particles), ea7e0d2e and 0c543cc6 (API docs).
-- `claude/v3d-compact-tex-attrs` (b8f01430, 1ced7d02): compact attributes (`gpu3d_attr`, stays off).
+- `claude/v3d-compact-tex-attrs` (b8f01430, 1ced7d02): compact attributes (`gpu3d_attr`, on by default from bm3d 7.6; the branch has the texture part, stage 2b).
 - `v3d-async-proposal` (2c383089, 69ef8453, 23b9c7bf): read before any V3D async work.
 - `claude/stages3d-qemu-test` (eddfd2e6, 628739b7, 26671568, c0ca055a) and `claude/stages3d-budget` (342a8018, bb9d2a12): Stages 3D carts and governor.
 

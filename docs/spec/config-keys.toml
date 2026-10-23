@@ -212,11 +212,11 @@ read_in = "src/bm/runtime.c:1865"
 [[key]]
 name = "gpu3d_attr"
 scope = "pi"
-values = "1 = compact vertex attributes; anything else = floats"
-default = "floats"
+values = "0 = floats; anything else = compact vertex attributes"
+default = "compact (on) where the boot probe_attr passes (bm3d 7.6); gpu3d_attr=0 is the off switch. The Mali (RGB30) has no such path."
 meaning = "Vertex attribute format of the GPU 3D."
 settings = "Settings > Screen and sound > 3D corners"
-read_in = "src/bm/runtime.c:1885"
+read_in = "src/bm/runtime.c:2029"
 
 [[key]]
 name = "gpu3d_etc1"
@@ -262,6 +262,15 @@ default = "off (no qpu_init call, no new work)"
 meaning = "QPU check: a step in the GPU test and a row in the 3D Bench; the darkness levels of dark_end() on the QPUs with the ARM as fallback. For the first run on the Pi."
 settings = ""
 read_in = "src/kernel/gputest.c:1232"
+
+[[key]]
+name = "gpu3d_merge"
+scope = "pi"
+values = "0 = off; anything else = on"
+default = "on (bm3d 7.6) where the vertex shader and the clipper pass the boot probe; gpu3d_merge=0 is the off switch. The Mali (RGB30) has no merge hook and never merges."
+meaning = "Draw merging: consecutive draw3d calls of meshes with baked light (or flag 2) with the same sheet that stand still become one mesh and one draw. Hidden key, no Settings row (SYS-9)."
+settings = ""
+read_in = "src/bm/runtime.c:2038"
 
 [[key]]
 name = "gpu3d_queue"

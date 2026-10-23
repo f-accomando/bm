@@ -261,6 +261,8 @@ static struct {
     float clipper[2];               /* the job's CLIPPER_XY_SCALING (0: not written yet) */
     gpu3d_stats_t st;
     r3d_backend_t backend;
+    void (*pre_fn)(void *);         /* bm3d 7.6: r3d's hook, called at the start of the other entry points */
+    void *pre_ctx;
 } G;
 
 static int flush_job(const g16_t *g, int store);
@@ -2038,6 +2040,18 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     return 0;
 }
 
+/* bm3d 7.6, draw merging: r3d holds draws of static meshes; they are drawn before anything else reaches
+ * the job (the hook r3d gave to cb_merge) */
+#define GPU_PRE() do { if (G.pre_fn) G.pre_fn(G.pre_ctx); } while (0)
+
+static int cb_merge(void *ctx, void (*pre)(void *), void *pctx)
+{
+    (void)ctx;
+    G.pre_fn = pre;
+    G.pre_ctx = pctx;
+    return G.gl_ok && G.gl_on && G.clip_ok && !G.failed;
+}
+
 static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                    int nbones, const r3d_env_t *env, int depth)
 {
@@ -2241,6 +2255,7 @@ static int quad2d(const g16_t *g, int shader, const tex_t *t, int x0, int y0, in
 
 int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
 {
+    GPU_PRE();
     if (G.failed || !G.ready)
         return 0;
     float col[3];
@@ -2251,6 +2266,7 @@ int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
 int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
                  int flip_x, int flip_y)
 {
+    GPU_PRE();
     if (G.failed || !G.ready || zoom < 1 || sw <= 0 || sh <= 0)
         return 0;
     const tex_t *t = tex_get(g, s);
@@ -2302,6 +2318,7 @@ static int glyph2d(const g16_t *g, const tex_t *t, const font_t *f, unsigned ch,
 
 int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale)
 {
+    GPU_PRE();
     const font_t *f = g->font;
     if (G.failed || !G.ready || !f || f->width > 8)
         return 0;
@@ -2360,6 +2377,7 @@ static struct {
 
 int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *page)
 {
+    GPU_PRE();
     if (!G.ready || G.failed || w < 1 || h < 1 || w > 2048 || h > 2048 || scale < 1 || page->stride != (uint32_t)page->w)
         return -1;
     job_wait();
@@ -2569,21 +2587,25 @@ static int run_async(uint32_t rcl_end)
 
 int gpu3d_sync(void)
 {
+    GPU_PRE();
     return job_wait();
 }
 
 int gpu3d_sync_page(const void *px)
 {
+    GPU_PRE();
     return G.inflight && G.inflight_px != px ? 0 : job_wait();
 }
 
 int gpu3d_pending(void)
 {
+    GPU_PRE();
     return G.open && (G.vbytes || G.b_open || G.gldraws);
 }
 
 void gpu3d_drop(void)
 {
+    GPU_PRE();
     job_wait();
     batch_close();
     G.open = 0;
@@ -2593,6 +2615,7 @@ void gpu3d_drop(void)
 
 void gpu3d_set_msaa(int on)
 {
+    GPU_PRE();
     G.msaa = on;
 }
 
@@ -2615,6 +2638,7 @@ static void wc_apply(void)
 
 void gpu3d_set_wc(int on)
 {
+    GPU_PRE();
     G.wc_on = on;
     if (G.ready && !G.failed)
         wc_apply();
@@ -2644,6 +2668,7 @@ int gpu3d_msaa_on(void)
  * are made again */
 void gpu3d_set_tex16(int on)
 {
+    GPU_PRE();
     if (G.tex16_on == !!on)
         return;
     G.tex16_on = !!on;
@@ -2661,6 +2686,7 @@ int gpu3d_tex16(void)
  * made again */
 void gpu3d_set_etc1(int on)
 {
+    GPU_PRE();
     if (G.etc1_on == !!on)
         return;
     G.etc1_on = !!on;
@@ -2676,6 +2702,7 @@ int gpu3d_etc1(void)
 /* bm3d 5.3: the opaque textured faces' shaders with two threads (gpu3d_fs2=1) */
 void gpu3d_set_fs2(int on)
 {
+    GPU_PRE();
     G.fs2_on = !!on;
 }
 
@@ -2686,6 +2713,7 @@ int gpu3d_fs2(void)
 
 void gpu3d_set_sort(int on)
 {
+    GPU_PRE();
     if (G.sort_on == !!on)
         return;
     G.sort_on = !!on;
@@ -2702,6 +2730,7 @@ int gpu3d_sort(void)
  * they are drawn next (mesh_get compares the way each was made) */
 void gpu3d_set_attr(int on)
 {
+    GPU_PRE();
     G.attr_on = !!on;
 }
 
@@ -2712,6 +2741,7 @@ int gpu3d_attr(void)
 
 void gpu3d_set_bilinear(int on)
 {
+    GPU_PRE();
     if (G.bilinear == !!on)
         return;
     G.bilinear = !!on;
@@ -2738,6 +2768,7 @@ int gpu3d_vshader(void)
 
 void gpu3d_set_vshader(int on)
 {
+    GPU_PRE();
     G.gl_on = on;
 }
 
@@ -2753,12 +2784,14 @@ int gpu3d_tiles(void)
 
 void gpu3d_page(int uniform, uint16_t c)
 {
+    GPU_PRE();
     G.page_uniform = uniform;
     G.page_colour = c;
 }
 
 int gpu3d_cleared(void)
 {
+    GPU_PRE();
     const int c = G.cleared;
     G.cleared = 0;
     return c;
@@ -2832,6 +2865,7 @@ static int flush_job(const g16_t *g, int store)
 
 int gpu3d_flush(const g16_t *g, int keep)
 {
+    GPU_PRE();
     const int had = G.open && (G.vbytes || G.gldraws);
     /* the depth is stored only for cartridges that need it: most draw all
      * their 3D, then the HUD, and a store is 1 MiB of memory traffic */
@@ -2849,6 +2883,7 @@ int gpu3d_flush(const g16_t *g, int keep)
 
 int gpu3d_submit(const g16_t *g, int keep)
 {
+    GPU_PRE();
     if (!G.queue_ok || !G.queue_on || G.failed)
         return gpu3d_flush(g, keep);
     const int had = G.open && (G.vbytes || G.gldraws);
@@ -2877,6 +2912,7 @@ int gpu3d_inflight(void)
  * flight (bm3d 5.1: the second block made here) */
 void gpu3d_set_queue(int on)
 {
+    GPU_PRE();
     G.queue_on = on != 0;
     G.queue2 = on == 2;
     if (G.queue2 && G.ready)
@@ -2905,12 +2941,14 @@ int gpu3d_zclear_ok(void)
 
 void gpu3d_take_stats(gpu3d_stats_t *s)
 {
+    GPU_PRE();
     *s = G.st;
     memset(&G.st, 0, sizeof G.st);
 }
 
 void gpu3d_peek_stats(gpu3d_stats_t *s)
 {
+    GPU_PRE();
     *s = G.st;
 }
 
@@ -4165,6 +4203,7 @@ int gpu3d_init(void)
     G.backend.mesh = cb_mesh;
     G.backend.shadow = cb_shadow;
     G.backend.zclear = cb_zclear;
+    G.backend.merge = cb_merge;
     G.backend.tex_screen = 1;
     G.backend.cel = 1;                  /* (cb_mesh says no where the probe saw the cel programs fail) */
     set_guard(G.scr_w ? G.scr_w : 640, G.scr_h ? G.scr_h : 360);   /* r3d's bound too */
