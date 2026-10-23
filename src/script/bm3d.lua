@@ -3757,6 +3757,49 @@ function T.json_decode(s)
   return v
 end
 
+-- Terrain brush (autotile). A terrain set is 16 tiles: a 4 x 4 block of the
+-- sheet that starts at `base`. `step`: 1 cell (8x8 mode) or 2 cells (16x16
+-- mode). `cpr`: cells per row of the sheet. The mask of a cell adds N=1,
+-- E=2, S=4 and W=8 for each neighbour that is in the set.
+function T.autotile_tile(base, mask, step, cpr)
+  return base + (mask % 4) * step + (mask // 4) * step * cpr
+end
+
+local function autotile_in(t, base, step, cpr)
+  local d = t - base
+  if d < 0 then return false end
+  local row, col = d // (step * cpr), d % (step * cpr)
+  return row <= 3 and col % step == 0 and col // step <= 3 and d == col + row * step * cpr
+end
+
+-- get(x, y): the tile id of a cell (0 for none). w, h: the map size.
+function T.autotile_mask(get, x, y, base, step, cpr, w, h)
+  local function inset(cx, cy)
+    if cx < 0 or cy < 0 or (w and cx >= w) or (h and cy >= h) then return false end
+    return autotile_in(get(cx, cy), base, step, cpr)
+  end
+  local m = 0
+  if inset(x, y - step) then m = m + 1 end
+  if inset(x + step, y) then m = m + 2 end
+  if inset(x, y + step) then m = m + 4 end
+  if inset(x - step, y) then m = m + 8 end
+  return m
+end
+
+-- Paints (or erases) the cell x, y with the set and re-tiles the cell and its
+-- 4 neighbours. put(x, y, tile) writes a tile (0 clears).
+function T.autotile_paint(get, put, x, y, base, step, cpr, erase, w, h)
+  put(x, y, erase and 0 or base)
+  local at = { { x, y }, { x, y - step }, { x + step, y }, { x, y + step }, { x - step, y } }
+  for _, c in ipairs(at) do
+    local cx, cy = c[1], c[2]
+    if cx >= 0 and cy >= 0 and (not w or cx < w) and (not h or cy < h)
+       and autotile_in(get(cx, cy), base, step, cpr) then
+      put(cx, cy, T.autotile_tile(base, T.autotile_mask(get, cx, cy, base, step, cpr, w, h), step, cpr))
+    end
+  end
+end
+
 -- The flags of a tile come from the custom properties of a Tiled tile: a
 -- boolean property called solid, platform, ladder, water or hurt (flags 0 to
 -- 4), or flag0 to flag7.

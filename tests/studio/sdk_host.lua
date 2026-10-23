@@ -702,6 +702,86 @@ check(status():find("map layer 1/2: main", 1, true), "l: the next layer: " .. st
 key("c")
 check(status():find("flags of the tiles", 1, true) or sees("flags of the tiles"), "c: the flags over the map")
 key("c")
+-- APP-21: the terrain brush (t): a 4 x 4 block of the sheet from the base tile, the borders choose themselves
+do
+  local B = E.require("bm3d")
+  -- the pure part: all 16 masks (N=1 E=2 S=4 W=8), 8x8 and 16x16 steps, a foreign tile is not in the set
+  local function tl(m, base, step) return base + (m % 4) * step + (m // 4) * step * 32 end
+  for _, cfg in ipairs({ { 1, 1 }, { 2, 2 } }) do
+    local step, base = cfg[1], 1 + cfg[1] * 64
+    for m = 0, 15 do
+      local cells = { [5 .. "," .. 5] = base }
+      if m & 1 ~= 0 then cells["5," .. 5 - step] = tl(15, base, step) end
+      if m & 2 ~= 0 then cells[5 + step .. ",5"] = tl(0, base, step) end
+      if m & 4 ~= 0 then cells["5," .. 5 + step] = tl(9, base, step) end
+      if m & 8 ~= 0 then cells[5 - step .. ",5"] = tl(6, base, step) end
+      cells["6,6"] = base + 1                         -- (a diagonal one: it does not count)
+      local get = function(x, y) return cells[x .. "," .. y] or 0 end
+      local got = B.autotile_mask(get, 5, 5, base, step, 32, 256, 256)
+      check(got == m, "autotile: step " .. step .. " mask " .. m .. " = " .. got)
+      check(B.autotile_tile(base, m, step, 32) == tl(m, base, step), "autotile: tile of mask " .. m)
+    end
+    local alien = { ["5,4"] = base + 3 * step * 32 + 4 * step, ["6,5"] = base - 1 }   -- (outside the block)
+    check(B.autotile_mask(function(x, y) return alien[x .. "," .. y] or 0 end, 5, 5, base, step, 32, 256, 256) == 0,
+          "autotile: tiles out of the set are not neighbours (step " .. step .. ")")
+  end
+  check(B.autotile_mask(function() return 1 end, 0, 0, 1, 1, 32, 256, 256) == 6, "autotile: the map's edge is no neighbour")
+
+  local cx, cy = 1, 0                    -- (the cursor of the map page, here)
+  local function go(x, y)
+    while cx < x do key("right"); cx = cx + 1 end
+    while cx > x do key("left"); cx = cx - 1 end
+    while cy < y do key("down"); cy = cy + 1 end
+    while cy > y do key("up"); cy = cy - 1 end
+  end
+  local x0, y0 = 3, 2
+  local base = E.mget(x0, y0) == 0 and 1 or -1
+  check(base == 1, "terrain: a free area")
+  local function T(m) return tl(m, 1, 1) end
+  key("t")
+  check(status():find("TERRAIN base 1", 1, true), "terrain: t shows TERRAIN base N: " .. status())
+  check(sees("terrain"), "terrain: the hint names the brush")
+  local before_n = 0
+  for _ in pairs(mapc) do before_n = before_n + 1 end
+  for r = 0, 2 do
+    for c = 0, 2 do go(x0 + c, y0 + r); key(" ") end
+  end
+  local want = { { 6, 14, 12 }, { 7, 15, 13 }, { 3, 11, 9 } }
+  local ok = true
+  for r = 0, 2 do
+    for c = 0, 2 do
+      if E.mget(x0 + c, y0 + r) ~= T(want[r + 1][c + 1]) then ok = false end
+    end
+  end
+  check(ok, "terrain: a 3x3 block, corners, edges and the middle choose themselves")
+  go(x0 + 1, y0 + 1); key("")
+  check(E.mget(x0 + 1, y0 + 1) == 0 and E.mget(x0 + 1, y0) == T(10) and E.mget(x0, y0 + 1) == T(5)
+        and E.mget(x0 + 2, y0 + 1) == T(5) and E.mget(x0 + 1, y0 + 2) == T(10) and E.mget(x0, y0) == T(6),
+        "terrain: Backspace erases the cell and re-tiles its 4 neighbours")
+  key("u")
+  ok = true
+  for r = 0, 2 do
+    for c = 0, 2 do
+      if E.mget(x0 + c, y0 + r) ~= T(want[r + 1][c + 1]) then ok = false end
+    end
+  end
+  check(ok, "terrain: one undo gives back the erased cell and its neighbours")
+  -- a line, then a cell more: one undo takes the last stroke only
+  go(x0, y0 + 5); key(" "); go(x0 + 1, y0 + 5); key(" "); go(x0 + 2, y0 + 5); key(" ")
+  check(E.mget(x0, y0 + 5) == T(2) and E.mget(x0 + 1, y0 + 5) == T(10) and E.mget(x0 + 2, y0 + 5) == T(8), "terrain: a line")
+  go(x0 + 3, y0 + 5); key(" ")
+  check(E.mget(x0 + 2, y0 + 5) == T(10) and E.mget(x0 + 3, y0 + 5) == T(8), "terrain: the line grows, the old end re-tiled")
+  key("u")
+  check(E.mget(x0 + 2, y0 + 5) == T(8) and E.mget(x0 + 3, y0 + 5) == 0 and E.mget(x0, y0 + 5) == T(2),
+        "terrain: one undo takes one stroke")
+  key("t")
+  check(status():find("terrain brush off", 1, true), "terrain: t again, the brush is off: " .. status())
+  go(x0 + 6, y0); key(" ")
+  check(E.mget(x0 + 6, y0) == 1, "terrain: off, space places the current tile")
+  key("u")
+  for y = y0, y0 + 6 do for x = x0, x0 + 6 do E.mset(x, y, 0) end end     -- (the later checks start from an empty map)
+  go(1, 0)
+end
 -- the 16x16 brush (z): a tile of 2 x 2 cells (n, n + 1 and the two under them: the sheet has 32 cells a row),
 -- the cursor and the tile on even cells; Home / End: a page left / right
 check(sees("z: 8/16"), "the map's strip: z, the brush")
