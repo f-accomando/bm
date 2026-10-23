@@ -929,15 +929,15 @@
     "title": "Tutorials"
    },
    "7": {
-    "en": "a001b7f42288",
-    "it": "fd406960bb5a",
+    "en": "1a94ec07d348",
+    "it": "3cc38a159bc0",
     "title": "Tips, limits and troubleshooting"
    }
   },
   "sources": {
    "carts/write/main.lua": "3235307d427d",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/progress/tools.md": "18e4faeb7bc8",
+   "docs/progress/tools.md": "d943cf73fb8f",
    "sdk/README.md": "f82ca797337d"
   }
  },

@@ -292,13 +292,13 @@ You can also open `letter.md`, if you exported it: it comes back with the same p
 - The text you did not save is kept for the next start only if it is under 24000 bytes.
 - The title of the `.BMD` file keeps the first 60 letters of the first paragraph.
 - [TO FILL: the largest number of pages or paragraphs a document can have on the console]
-- [TO FILL: the letters that the font supports beyond the Latin ones with accents]
+- The screen font is code page 437: Latin letters with accents, some Greek letters, box lines and signs of mathematics. The PDF uses the WinAnsi set (Latin letters with accents, curly quotes, the bullet and the euro sign). A sign that is not in WinAnsi, such as a box line, is written as `?` in the PDF.
 
 ## Troubleshooting
 
 | Problem | What to do |
 |---|---|
-| Saving, opening or exporting fails and the status line is red | Read the reason. If you said no to the question on documents, the calls fail: [TO FILL: how to change the answer; the answer is kept in `bm/config.txt`] |
+| Saving, opening or exporting fails and the status line is red | Read the reason. If you said no to the question on documents, the calls fail: the answer is kept in `bm/config.txt` on the SD card. Open that file on a computer and find the line that starts with `allow_` and ends with `(bm Write)`. Change `docs=no` to `docs=yes`, or delete the line: the console asks again at the next save |
 | `no documents in /docs yet: Ctrl+S saves this one` | The folder is empty. Save a document first |
 | `8 letters or digits, like LETTER` | The name has a space, or more than 8 letters (a final `.ext` is dropped: `letter.txt` is taken as `LETTER`). Type a shorter one |
 | `not a bm Write document` | The `.BMD` file is not in the bm Write format |
