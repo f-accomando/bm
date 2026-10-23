@@ -76,7 +76,7 @@ Le schede, i cursori, il font e i breakpoint tornano la prossima volta che apri 
 
 ![bm Code con due schede aperte: il codice, i numeri di riga e la riga di stato](shots/editor-code-screen.png)
 
-- **Barra in alto**: una scheda per ogni cartuccia, con il nome del file. Un `*` indica modifiche non salvate. A destra, `held: keys` ricorda che F12 tenuto premuto mostra tutti i tasti.
+- **Barra in alto**: il nome `bm Code` è il primo elemento a sinistra. Poi una scheda per ogni cartuccia, con il nome del file. Un `*` indica modifiche non salvate. A destra, `held: keys` ricorda che F12 tenuto premuto mostra tutti i tasti.
 - **Il codice**: i numeri di riga a sinistra, la riga corrente illuminata. Un breakpoint è un numero di riga rosso scuro. La riga di un errore ha lo sfondo rossiccio.
 - **Riga di stato** (l'ultima riga): il file, un `*` se modificato, poi `ln` (riga) sul totale, `col` e il font. Durante la musica aggiunge `MUSIC` e il numero di pattern che suonano. I messaggi compaiono accanto al nome del file.
 

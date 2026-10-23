@@ -39,6 +39,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | System shortcuts | F11 (audio log), F12 (held: key list), Print Screen (screenshot), Ctrl+Esc (leave game) | `docs/spec/divergences.toml:376` | implemented |
 | Button prompts | Lettered glyphs or DS4 glyphs depending on active input device | `src/kernel/settings.c:434-436`, `src/kernel/prompts.h:46` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` for confirm / cancel actions | `docs/spec/divergences.toml:360` | implemented |
+| Editor top bar | The app name (bm Code, bm SDK, bm Studio, bm Animator, bm Mesh, bm Pixel) is the first item at the left; the page tabs follow; the file name is at the right and loses its start when the room is short (`U.bar_title`, `U.bar_file`) | `src/script/bmui.lua` | implemented |
 
 ## Raspberry Pi 1 (A, B, A+, B+, CM1)
 

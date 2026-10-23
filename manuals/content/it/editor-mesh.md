@@ -81,7 +81,7 @@ La barra di stato dice quanti modelli, mesh nel codice e mesh dal codice del gio
 
 ## Le pagine
 
-La barra in alto ha tre pagine. Un clic su una scheda, o il suo tasto, cambia pagina.
+La barra in alto inizia con il nome `bm Mesh`. Poi ha tre pagine. Un clic su una scheda, o il suo tasto, cambia pagina.
 
 | Pagina | Tasto | A cosa serve |
 |---|---|---|

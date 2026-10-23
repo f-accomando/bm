@@ -1639,7 +1639,8 @@ end
 
 local function draw_tabs()
   rectfill(0, 0, W, CH, C_BAR)
-  local x = 0
+  print("bm Code", 0, 0, C_ACC)                      -- the name first, at the left
+  local x = 8
   for i, t in ipairs(tabs) do
     local label = " " .. t.name .. (t.dirty and "*" or "") .. " "
     if split then
