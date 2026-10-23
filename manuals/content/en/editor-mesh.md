@@ -148,6 +148,8 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | m | mirror the choice, left to right on the screen |
 | M | copy the choice to the other side of 0 |
 | X (Shift+X) | live mirror on or off |
+| S (Shift+S) | snap: off, grid, vertex, grid and vertex |
+| G (Shift+G) | grid step: 0.05, 0.1, 0.25, 0.5 |
 | Ctrl+R | loop cut across the chosen edge |
 | Shift+J | knife: cut a triangle between the middles of two chosen edges |
 | j | make a face on 3 or 4 chosen vertices |
@@ -224,6 +226,14 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 ## Live mirror
 
 **Shift+X** turns the live mirror on and off. While it is on, the page shows **MIRROR X**. Move, rotate, scale, paint and delete then act on the chosen vertices or faces and on their counterparts across the plane X = 0. The editor finds the counterpart by position: the vertex at (-x, y, z), within 0.001. A vertex on the plane is its own counterpart. A vertex with no counterpart changes alone. If you choose both sides, the vertex with the lower number leads and the other follows. The tools that add parts or change the topology (add a part, extrude, duplicate, subdivide) do not act on the other side. One undo takes back both sides. With the gamepad, tap X and pick **Live mirror X on / off**.
+
+## Snap
+
+**Shift+S** changes the snap. The order is: off, grid, vertex, grid and vertex, then off again. The page shows the mode at the top right, for example **SNAP grid 0.1**, and a message tells the new mode. The snap works while you move vertices (**g**, and the move after **d**). **Shift+G** changes the grid step: 0.05, 0.1, 0.25 or 0.5 units. You can press both keys while a move is open.
+
+The snap works on the leading vertex. This is the chosen vertex with the lowest number. The editor snaps the position of this vertex, and every other chosen vertex moves by the same distance. The grid mode rounds each axis of the leading vertex to the step. If you lock an axis (x, y or z), only that axis is rounded. The vertex mode moves the leading vertex to the nearest other vertex of the model when that vertex is within 6 pixels on the screen. A small green ring shows the vertex that the snap took. The chosen vertices are never a target. In the mode grid and vertex, a vertex in range wins, and the grid works when no vertex is in range. With an axis locked, the vertex snap changes only that axis.
+
+With the live mirror on, the counterparts follow the same move, mirrored. One undo takes back the whole move. The tool line shows **SNAP** and the move after the snap. The snap does not change a rotate or a scale, and it does not place a new part. With the gamepad, tap X and pick **Snap: off, grid, vertex, both** or **Snap grid step**.
 
 ## Edges and the loop cut
 

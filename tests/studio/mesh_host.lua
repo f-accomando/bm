@@ -1366,5 +1366,181 @@ do
   check(plain.vb == nil and #plain.v == 8 and plain.v[1][1] == -0.5, "T.G.primitive: no bones, no centre: at 0, size 1")
 end
 
+-- Shift+S / Shift+G: snap to the grid and to a vertex while a vertex moves
+do
+  local function same(a, b) return math.abs(a - b) < 1e-5 end
+  local function changed(m0, m1)
+    local out = {}
+    for i = 1, m0.nv do
+      for k = 1, 3 do if not same(m0.verts[i][k], m1.verts[i][k]) then out[#out + 1] = i; break end end
+    end
+    return out
+  end
+  local function pick1(i)
+    if not sees(": 0 chosen") then key("a") end
+    key("home")
+    for _ = 1, i do key("n") end
+    key(" ")
+  end
+  local function rep(k, n) for _ = 1, n do key(k) end end
+  key("f1", "n")
+  key("r")
+  type_text("sgrt")
+  local name = "sgrt"
+  key("f2")
+  for _ = 1, 3 do if sees("VERTICES:") then break end key("	") end
+  key("^s")
+  local m0 = model_of("meshcopy.bme", name)
+  check(m0 and m0.nv == 8, "snap: a new cube")
+  -- the mode in the header and the message
+  check(not sees("SNAP"), "snap: nothing in the header while it is off")
+  key("S")
+  check(sees("SNAP grid 0.1") and status():find("SNAP grid 0.1", 1, true), "Shift+S: grid 0.1 (" .. status() .. ")")
+  key("S")
+  check(sees("SNAP vertex") and status():find("SNAP vertex", 1, true), "Shift+S: vertex")
+  key("S")
+  check(sees("SNAP grid 0.1 + vertex"), "Shift+S: grid + vertex")
+  key("S")
+  check(not sees("SNAP") and status():find("snap off", 1, true), "Shift+S: off again")
+  key("G")
+  check(status():find("grid step 0.25", 1, true), "Shift+G: the step 0.25 (" .. status() .. ")")
+  key("G", "G", "G")
+  check(status():find("grid step 0.1", 1, true), "Shift+G: 0.5, 0.05, 0.1 in a ring (" .. status() .. ")")
+  -- off: the old behaviour, 7 steps of 0.01 = 0.07
+  pick1(1)
+  key("g", "x", ",", ",")
+  rep("right", 7)
+  key("\n", "^s")
+  local m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 1 and same(m1.verts[1][1], m0.verts[1][1] + 0.07), "snap off: -0.43, as before")
+  key("^z", "^s")
+  -- grid 0.1 on each axis: -0.43 -> -0.4 (the move step stays 0.01)
+  key("S")
+  for axis, k in ipairs({ "x", "y", "z" }) do
+    key("g", k)
+    rep("right", 7)
+    key("\n", "^s")
+    m1 = model_of("meshcopy.bme", name)
+    local ch = changed(m0, m1)
+    check(#ch == 1 and ch[1] == 1 and same(m1.verts[1][axis], m0.verts[1][axis] + 0.1),
+          "snap grid, axis " .. k .. ": the vertex goes to the grid (" .. tostring(m1.verts[1][axis]) .. ")")
+    key("^z", "^s")
+    m1 = model_of("meshcopy.bme", name)
+    check(#changed(m0, m1) == 0, "snap grid, axis " .. k .. ": one undo step")
+  end
+  -- a coarser step from inside the tool: 0.25 -> -0.43 goes back to -0.5 (the move is 0)
+  key("g", "x")
+  rep("right", 7)
+  key("G")
+  check(status():find("grid step 0.25", 1, true), "Shift+G inside the tool")
+  key("\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 0, "grid 0.25: -0.43 goes to -0.5")
+  key("^z")
+  key("G", "G", "G")                             -- 0.5, 0.05, 0.1
+  -- free move (no axis lock): the other axes are on the grid too
+  key("g")
+  rep("up", 7)
+  key("\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 1 and same(m1.verts[1][2], m0.verts[1][2] + 0.1) and same(m1.verts[1][1], m0.verts[1][1]),
+        "snap grid, free move: y on the grid, x and z as they were")
+  key("^z", "^s")
+  -- the live mirror: the counterpart follows the same move, one undo step
+  key("X")
+  key("g", "x")
+  rep("right", 7)
+  key("\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  local ch = changed(m0, m1)
+  check(#ch == 2 and same(m1.verts[1][1], -0.4) and same(m1.verts[2][1], 0.4),
+        "snap + mirror: v1 on the grid, v2 mirrored (" .. table.concat(ch, ",") .. ")")
+  check(sees("8 of"), "snap: the counters stay")
+  key("^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 0, "snap + mirror: one undo takes back both")
+  key("X")
+  -- vertex: the leader goes to a vertex within 6 px. v1 moves along x towards v2.
+  key("S")                                   -- vertex only
+  key("g", "x", ".", ".", "esc")             -- the move step 0.1 again
+  rep("-", 10)
+  local function px_to_v2(dx)
+    local ax, ay = E.project3d(m0.verts[1][1] + dx, m0.verts[1][2], m0.verts[1][3])
+    local bx, by = E.project3d(m0.verts[2][1], m0.verts[2][2], m0.verts[2][3])
+    return ax and bx and math.sqrt((ax - bx) ^ 2 + (ay - by) ^ 2) or -1
+  end
+  check(same(m0.verts[2][2], m0.verts[1][2]) and same(m0.verts[2][3], m0.verts[1][3]), "snap: v2 lies on the x line of v1")
+  local out_n = 0
+  for n = 1, 9 do if px_to_v2(n * 0.1) > 6.5 then out_n = n end end
+  local in_n = out_n + 1
+  check(out_n >= 1 and in_n <= 10 and px_to_v2(in_n * 0.1) < 5.5,
+        "snap: the test steps are out and in of the 6 px range (" .. out_n .. ", " .. px_to_v2(out_n * 0.1) .. ", " .. px_to_v2(in_n * 0.1) .. ")")
+  key("g", "x")
+  rep("right", out_n)
+  key("\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(same(m1.verts[1][1], m0.verts[1][1] + out_n * 0.1), "snap vertex: out of range the vertex stays where it is (" .. tostring(m1.verts[1][1]) .. ")")
+  key("^z", "^s")
+  key("g", "x")
+  rep("right", in_n)
+  check(sees("SNAP vertex"), "snap vertex: the tool line shows the mode")
+  key("\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(same(m1.verts[1][1], m0.verts[2][1]) and #changed(m0, m1) == 1, "snap vertex: in range the vertex goes to v2 (" .. tostring(m1.verts[1][1]) .. ")")
+  key("^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 0, "snap vertex: one undo step")
+  -- grid + vertex: in range the vertex wins; out of range the grid
+  key("S")
+  key("g", "x")
+  rep("right", in_n)
+  key("\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(same(m1.verts[1][1], m0.verts[2][1]), "snap grid + vertex: in range, the vertex wins")
+  key("^z")
+  key("G")                                     -- 0.25
+  key("g", "x")
+  rep("right", out_n)
+  key("\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(same(m1.verts[1][1], math.floor((m0.verts[1][1] + out_n * 0.1) / 0.25 + 0.5) * 0.25),
+        "snap grid + vertex: out of range, the grid (" .. tostring(m1.verts[1][1]) .. ")")
+  key("^z")
+  key("S")
+  check(not sees("SNAP"), "snap: off again")
+  key("f1")
+  goto_item("M sgrt")
+  key("del", "del", "^s")
+  check(not model_of("meshcopy.bme", name), "the snap test cube is deleted")
+  if model_of("meshcopy.bme", "cube") then          -- the list pad makes a second cube: it goes too
+    goto_item("M cube")
+    key("del", "del", "^s")
+  end
+  check(not model_of("meshcopy.bme", "cube"), "no cube is left in the village copy")
+  -- T.G.snap_*
+  local G = E.require("bm3d").G
+  local sq = G.snap_grid({ 0.43, -0.07, 1.26 }, 0.1)
+  check(same(sq[1], 0.4) and same(sq[2], -0.1) and same(sq[3], 1.3), "T.G.snap_grid: each axis to the step")
+  local sa = G.snap_grid({ 0.43, -0.07, 1.26 }, 0.25, 3)
+  check(same(sa[1], 0.43) and same(sa[2], -0.07) and same(sa[3], 1.25), "T.G.snap_grid: only the axis given")
+  local it = { v = { { 0, 0, 0 }, { 10, 0, 0 }, { 5, 5, 0 } }, f = {} }
+  local function proj(p) return p[1] * 10, p[2] * 10 end            -- 10 px a unit
+  check(G.snap_vertex(it, { 10.4, 0.1, 0 }, proj, 6) == 2, "T.G.snap_vertex: a vertex within 6 px")
+  check(G.snap_vertex(it, { 10.7, 0, 0 }, proj, 6) == nil, "T.G.snap_vertex: 7 px away: none")
+  check(G.snap_vertex(it, { 10.4, 0.1, 0 }, proj, 6, { [2] = true }) == nil, "T.G.snap_vertex: a skipped vertex is no target")
+  local q, t = G.snap_pos(it, { 10.3, 0.2, 0 }, 3, 0.25, proj, 6)
+  check(t == 2 and q[1] == 10 and q[2] == 0, "T.G.snap_pos: both, the vertex wins")
+  q, t = G.snap_pos(it, { 3.3, 0.2, 0 }, 3, 0.25, proj, 6)
+  check(t == nil and same(q[1], 3.25) and same(q[2], 0.25), "T.G.snap_pos: both, out of range the grid")
+  q, t = G.snap_pos(it, { 3.3, 0.2, 0 }, 2, 0.25, proj, 6)
+  check(t == nil and q[1] == 3.3, "T.G.snap_pos: vertex only, nothing in range: no change")
+  q, t = G.snap_pos(it, { 3.3, 0.2, 0 }, 0, 0.25, proj, 6)
+  check(t == nil and q[1] == 3.3 and q[2] == 0.2, "T.G.snap_pos: off")
+  q, t = G.snap_pos(it, { 10.3, 0.2, 0 }, 3, 0.25, proj, 6, nil, 1)
+  check(t == 2 and q[1] == 10 and q[2] == 0.2, "T.G.snap_pos: an axis lock takes only that axis of the vertex")
+  q, t = G.snap_pos(it, { 3.3, 0.2, 0 }, 1, 0.25, proj, 6, nil, "n")
+  check(t == nil and q[1] == 3.3, "T.G.snap_pos: along the normal the grid does not apply")
+end
+
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)
