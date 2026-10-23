@@ -6,7 +6,8 @@
 
 Reads docs/agents/ledger.txt (one line per subagent run):
   date|agent|model|task|area|gate|necessity|outcome|tokens|tools|secs
-Prints per-agent outcome shares and median tokens/secs, %DONE by gate, necessity,
+tokens, tools and secs are integers, or "-" when nobody measured them. Medians
+use the measured values only ("-" when none). Prints per-agent outcome shares and median tokens/secs, %DONE by gate, necessity,
 model and area, and a warning when runs with gate<=2 fail too often.
 Invalid lines go to stderr as "line N: reason" (exit 1; the report still covers
 the valid rows). Writes a file only with --save-baseline."""
@@ -18,7 +19,11 @@ if hasattr(sys.stdout, 'reconfigure'):
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_LEDGER = os.path.join(ROOT, "docs", "agents", "ledger.txt")
 FIELDS = ["date", "agent", "model", "task", "area", "gate", "necessity", "outcome", "tokens", "tools", "secs"]
-AGENTS = {"bm-planner", "bm-coder", "bm-mechanic", "bm-light", "bm-deep", "bm-research", "bm-ops", "general-purpose"}
+AGENTS = {"bm-planner", "bm-coder", "bm-mechanic", "bm-light", "bm-deep", "bm-research", "bm-ops",
+          "bm-runner", "general-purpose", "claude", "Explore", "Plan"}
+# Old rows (15 Oct) use "generic". agent_audit.py still reads them; ledger_add.py rejects the name.
+LEGACY_AGENTS = {"generic"}
+UNKNOWN = "-"  # tokens, tools or secs that nobody measured; never write 0 for them
 OUTCOMES = {"DONE", "BLOCKED", "FAILED x2", "ESCALATED"}
 WARN_MIN_RUNS, WARN_MAX_GATE = 5, 2
 
@@ -27,7 +32,7 @@ def _check(row):
     """Return the reason the row is invalid, or None if it is valid."""
     if not re.match(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", row["date"]):
         return "date must start with YYYY-MM-DD"
-    if row["agent"] not in AGENTS:
+    if row["agent"] not in AGENTS | LEGACY_AGENTS:
         return f"unknown agent '{row['agent']}'"
     for key in ("gate", "necessity"):
         if row[key] != "-" and not re.fullmatch(r"[1-5]", row[key]):
@@ -35,8 +40,8 @@ def _check(row):
     if row["outcome"] not in OUTCOMES:
         return f"unknown outcome '{row['outcome']}'"
     for key in ("tokens", "tools", "secs"):
-        if not re.fullmatch(r"[0-9]+", row[key]):
-            return f"{key} must be an integer >= 0"
+        if row[key] != UNKNOWN and not re.fullmatch(r"[0-9]+", row[key]):
+            return f"{key} must be an integer >= 0 or {UNKNOWN} (not measured)"
     for key in ("model", "task", "area"):
         if not row[key]:
             return f"{key} is empty"
@@ -55,8 +60,9 @@ def _typed(row):
         "gate": num(row["gate"]),
         "necessity": num(row["necessity"]),
         "outcome": row["outcome"],
-        "tokens": int(row["tokens"]),
-        "secs": int(row["secs"]),
+        "tokens": num(row["tokens"]),
+        "tools": num(row["tools"]),
+        "secs": num(row["secs"]),
     }
 
 
@@ -90,9 +96,13 @@ def _outcome_pct(rows, outcome):
     return _pct(sum(r["outcome"] == outcome for r in rows), len(rows))
 
 
+def _known(rows, key):
+    return [r[key] for r in rows if r[key] is not None]
+
+
 def _median_text(values):
     if not values:
-        return "0"
+        return UNKNOWN
     med = statistics.median(values)
     return str(int(med)) if med == int(med) else f"{med:.1f}"
 
@@ -123,8 +133,8 @@ def save_baseline(rows, ledger_name, out_path):
     for name in sorted({r["agent"] for r in rows}):
         sub = [r for r in rows if r["agent"] == name]
         pct = f"{_outcome_pct(sub, 'DONE'):.1f}"
-        tok_med = _median_text([r["tokens"] for r in sub])
-        secs_med = _median_text([r["secs"] for r in sub])
+        tok_med = _median_text(_known(sub, "tokens"))
+        secs_med = _median_text(_known(sub, "secs"))
         lines.append(f"{name}|{len(sub)}|{pct}|{tok_med}|{secs_med}")
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
@@ -146,8 +156,8 @@ def load_baseline(path):
         try:
             runs = int(runs_s)
             pct = float(pct_s)
-            tok = float(tok_s)
-            secs = float(secs_s)
+            tok = None if tok_s == UNKNOWN else float(tok_s)
+            secs = None if secs_s == UNKNOWN else float(secs_s)
         except ValueError:
             return None, f"baseline line {lno}: invalid numerical value"
         base_data[agent] = {
@@ -180,8 +190,8 @@ def report(rows, agent=None, area=None, since=None, baseline=None):
                 f"{_outcome_pct(sub, 'BLOCKED'):>10.1f}"
                 f"{_outcome_pct(sub, 'FAILED x2'):>9.1f}"
                 f"{_outcome_pct(sub, 'ESCALATED'):>12.1f}"
-                f"{_median_text([r['tokens'] for r in sub]):>10}"
-                f"{_median_text([r['secs'] for r in sub]):>10}"
+                f"{_median_text(_known(sub, 'tokens')):>10}"
+                f"{_median_text(_known(sub, 'secs')):>10}"
             )
         out.append("")
         out += _share_table("gate", rows, "gate")
@@ -208,11 +218,12 @@ def report(rows, agent=None, area=None, since=None, baseline=None):
         cur_stats = {}
         for name in sorted({r["agent"] for r in rows}):
             sub = [r for r in rows if r["agent"] == name]
+            tok, secs = _known(sub, "tokens"), _known(sub, "secs")
             cur_stats[name] = {
                 "runs": len(sub),
                 "pct": _outcome_pct(sub, "DONE"),
-                "tok": float(statistics.median([r["tokens"] for r in sub])),
-                "secs": float(statistics.median([r["secs"] for r in sub])),
+                "tok": float(statistics.median(tok)) if tok else None,
+                "secs": float(statistics.median(secs)) if secs else None,
             }
 
         all_agents = sorted(set(cur_stats.keys()) | set(baseline.keys()))
@@ -222,14 +233,14 @@ def report(rows, agent=None, area=None, since=None, baseline=None):
                 b = baseline[name]
                 d_runs = c["runs"] - b["runs"]
                 d_pct = c["pct"] - b["pct"]
-                d_tok = c["tok"] - b["tok"]
-                d_secs = c["secs"] - b["secs"]
+                d_tok = None if c["tok"] is None or b["tok"] is None else c["tok"] - b["tok"]
+                d_secs = None if c["secs"] is None or b["secs"] is None else c["secs"] - b["secs"]
                 out.append(
                     f"{name:<16}"
                     f"{_fmt_delta(d_runs):>8}"
                     f"{_fmt_delta(d_pct, is_pct=True):>10}"
-                    f"{_fmt_delta(d_tok):>12}"
-                    f"{_fmt_delta(d_secs):>12}"
+                    f"{UNKNOWN if d_tok is None else _fmt_delta(d_tok):>12}"
+                    f"{UNKNOWN if d_secs is None else _fmt_delta(d_secs):>12}"
                 )
             elif name in cur_stats:
                 out.append(f"{name:<16}{'new':>8}")

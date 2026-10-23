@@ -67,14 +67,14 @@ with tempfile.TemporaryDirectory() as tmp:
     games = os.path.join(tmp, "games")
     code = b"function _draw() cls(1) end"
     snake_cover, pong_cover = cover(10), cover(200)
-    game(games, "snake", "snake.bm", mkbm.pack(code, title="Snake", author="bm", cover=snake_cover),
+    game(games, "snake", "snake.bm", mkbm.mark_compat(mkbm.pack(code, title="Snake", author="bm", cover=snake_cover), 3),
          "version: 1.2\nlicense: MIT\nabout: Eat the apples, do not bite your tail. è la à!\n")
     game(games, "pong-2", "Pong_2.bm", mkbm.pack(code, title="Pong 2", cover=pong_cover),
          "# a comment\nversion: 0.9-beta\nlicense: CC-BY-4.0\n")
     game(games, "plain", "plain.bm", mkbm.pack(code, title="Plain", author="x"),
          "version: 3\nlicense: BM Community License 1.0\nabout: No cover.\n")
     # a .b16, the handhelds' cartridge: the same container (docs/B16.md §0)
-    game(games, "pocket", "pocket.b16", mkbm.pack(code, title="Pocket", author="x"),
+    game(games, "pocket", "pocket.b16", mkbm.mark_compat(mkbm.pack(code, title="Pocket", author="x"), 2),
          "version: 1\nlicense: MIT\nabout: For the RGB30.\n")
 
     r = mkmarket(games, "--check")
@@ -96,6 +96,11 @@ with tempfile.TemporaryDirectory() as tmp:
           "mkmarket: the files GitHub Pages serves")
     index = open(os.path.join(out, "index.txt"), encoding="cp437").read()
     check("file games/pocket/pocket.b16 " in index, "index.txt: the .b16's file, its extension kept")
+    recs = {r.split("\n", 1)[0]: r for r in index.split("game ")[1:]}
+    check("\ntargets 2\n" in recs["pocket"] and "\ntargets 3\n" in recs["snake"],
+          "index.txt: the targets line of a cartridge with the compatibility block")
+    check("targets" not in recs["plain"] and "targets" not in recs["pong-2"],
+          "index.txt: no targets line for an old file (the client uses the file name)")
     page = open(os.path.join(out, "index.html"), encoding="utf-8").read()
     check("Snake" in page and "games/snake/snake.bm" in page and "è la à" in page,
           "index.html: the games, with the accents of info.txt")

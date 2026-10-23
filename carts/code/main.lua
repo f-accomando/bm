@@ -6,6 +6,9 @@
 -- rest appears in grey-blue: Tab writes it (require "predict"). Ctrl+Enter
 -- plays the code as music (require "riff", docs/RIFF.md) and lights up the
 -- words of the notes sounding, Ctrl+. stops it. F1: every key.
+-- A project's code may hold several modules, one tab each in a second row
+-- (a line "--@module name" starts one; Ctrl+P is the next, the menu makes,
+-- renames and merges them): the cartridge keeps ONE code section.
 
 local assist = require "assist"
 local predict = require "predict"
@@ -58,6 +61,7 @@ local find_text
 local held, rep = {}, {}
 local geo = {}                -- each pane as last drawn: where its text is (the mouse)
 local mdrag                   -- a selection the mouse is drawing: {p =, cy =, cx =}
+local MOD = {}                -- the modules of a project's code (functions below, tab.mods)
 
 local function say(s, c, t)
   status, status_c, status_t = s, c or C_TEXT, t or 240
@@ -80,6 +84,10 @@ local function split_lines(s)
 end
 
 local function text_of(t)
+  if t.mods then
+    MOD.flush(t)
+    return table.concat(U.modules_join(t.mods), "\n") .. "\n"
+  end
   return table.concat(t.lines, "\n") .. "\n"
 end
 
@@ -198,6 +206,7 @@ local function open_file(path)
   local c, err = cart_read(path)
   if not c then say("cannot open " .. path .. ": " .. tostring(err), C_ERR); return false end
   i = new_tab(path, c.lua, c)
+  MOD.load(tabs[i])
   -- the first empty tab, untouched, gives its place
   local first = tabs[1]
   if #tabs == 2 and not first.path and not first.dirty and #first.undo == 0 and
@@ -207,7 +216,8 @@ local function open_file(path)
     i = 1
   end
   show_tab(i)
-  say("opened " .. path .. " (" .. #tabs[i].lines .. " lines)", C_OK)
+  say("opened " .. path .. " (" .. #tabs[i].lines .. " lines" ..
+      (tabs[i].mods and ", " .. #tabs[i].mods .. " modules" or "") .. ")", C_OK)
   log("code: opened " .. path)
   return true
 end
@@ -236,7 +246,16 @@ local function save_session()
   local budget = 16000
   for i, t in ipairs(tabs) do
     local e = { path = t.path, title = t.title, author = t.author, res = t.res }
-    if t.breaks and next(t.breaks) then e.breaks = bp_list(t) end
+    if t.mods then
+      MOD.flush(t)
+      e.cur, e.mbreaks = t.cur, {}
+      for k, m in ipairs(t.mods) do
+        local l = {}
+        for n in pairs(m.breaks or {}) do l[#l + 1] = n end
+        table.sort(l)
+        e.mbreaks[k] = l
+      end
+    elseif t.breaks and next(t.breaks) then e.breaks = bp_list(t) end
     if not t.path or t.dirty then
       local txt = text_of(t)
       if #txt <= budget then e.text, budget = txt, budget - #txt end
@@ -268,7 +287,18 @@ local function load_session()
       local c = cart_read(e.path)
       if c then i = new_tab(e.path, c.lua, c) end
     end
-    if i and e.breaks then
+    if i then MOD.load(tabs[i]) end
+    if i and tabs[i].mods and e.mbreaks then
+      local tt = tabs[i]
+      for k, m in ipairs(tt.mods) do
+        if e.mbreaks[k] and #e.mbreaks[k] > 0 then
+          m.breaks = {}
+          for _, l in ipairs(e.mbreaks[k]) do m.breaks[l] = true end
+        end
+      end
+      MOD.switch(tt, math.max(1, math.min(#tt.mods, e.cur or 1)))
+      tt.breaks = tt.mods[tt.cur].breaks
+    elseif i and e.breaks then
       tabs[i].breaks = {}
       for _, l in ipairs(e.breaks) do tabs[i].breaks[l] = true end
     end
@@ -479,10 +509,171 @@ local PLACES = {
 -- the names of the tab's code, counted again every 30 suggestions
 local function tab_words(t)
   if code_words.tab ~= t or code_words.n >= 30 then
-    code_words.tab, code_words.n, code_words.words = t, 0, predict.count_words(t.lines)
+    code_words.tab, code_words.n, code_words.words = t, 0, predict.count_words(MOD.lines_of(t))
   end
   code_words.n = code_words.n + 1
   return code_words.words
+end
+
+------------------------------------------------------------------ modules
+
+-- A project's code may be split in modules (U.modules_split in bmui): the
+-- tab keeps the active module in t.lines, t.undo, t.redo and t.breaks, the
+-- others wait in t.mods[i]. One tab, one file: the file is the modules'
+-- lines joined, so the cartridge and its build do not know about modules.
+
+-- the modules of a tab's code, from the file's lines
+function MOD.load(t)
+  local mods = U.modules_split(t.lines)
+  if #mods == 1 and not mods[1].head then return end
+  t.mods, t.cur = mods, 1
+  MOD.enter(t, 1)
+end
+
+function MOD.enter(t, i)
+  local m = t.mods[i]
+  if #m.lines == 0 then m.lines[1] = "" end
+  t.lines, t.undo, t.redo, t.breaks = m.lines, m.undo or {}, m.redo or {}, m.breaks
+  t.last_kind, t.lint_lines = nil, nil
+end
+
+-- what the active module holds goes back into t.mods
+function MOD.flush(t)
+  if t.mods then
+    local m = t.mods[t.cur]
+    m.lines, m.undo, m.redo, m.breaks = t.lines, t.undo, t.redo, t.breaks
+  end
+end
+
+-- the whole code of a tab as lines (the modules joined)
+function MOD.lines_of(t)
+  if not t.mods then return t.lines end
+  MOD.flush(t)
+  return U.modules_join(t.mods)
+end
+
+function MOD.switch(t, i)
+  if not t.mods or i == t.cur or not t.mods[i] then return end
+  MOD.flush(t)
+  local m = t.mods[t.cur]
+  m.pos = {}
+  for p = 1, 2 do
+    local v = panes[p].views[t]
+    if v then m.pos[p] = { cx = v.cx, cy = v.cy, top = v.top, left = v.left } end
+  end
+  t.cur = i
+  MOD.enter(t, i)
+  for p = 1, 2 do
+    local v = panes[p].views[t]
+    if v then
+      local sp = t.mods[i].pos and t.mods[i].pos[p]
+      v.cx, v.cy, v.top, v.left = sp and sp.cx or 0, sp and sp.cy or 1, sp and sp.top or 1, sp and sp.left or 0
+      v.mark, v.free = nil, nil
+    end
+  end
+  comp, comp_flash = nil, nil
+  code_words.n = 30
+end
+
+function MOD.step(t, d)
+  if t.mods then MOD.switch(t, (t.cur - 1 + d) % #t.mods + 1) end
+end
+
+-- the breakpoints of every module as lines of the whole file (the game runs
+-- the joined code): a module starts after the lines of those before it
+function MOD.all_breaks(t)
+  if not t.mods then return nil end
+  MOD.flush(t)
+  local out, base = {}, 0
+  for _, m in ipairs(t.mods) do
+    if m.head then base = base + 1 end
+    local n = U.module_len(m)
+    for l in pairs(m.breaks or {}) do
+      if l <= n then out[#out + 1] = base + l end
+    end
+    base = base + n
+  end
+  table.sort(out)
+  return out
+end
+
+-- a line of the whole file as { module number, line in it } (a game's error)
+function MOD.locate(t, line)
+  if not t.mods then return nil end
+  MOD.flush(t)
+  local base = 0
+  for i, m in ipairs(t.mods) do
+    if m.head then base = base + 1 end
+    local n = U.module_len(m)
+    if line <= base + n then return i, math.max(1, line - base) end
+    base = base + n
+  end
+  return #t.mods, math.max(1, U.module_len(t.mods[#t.mods]))
+end
+
+local function module_taken(t, name)
+  for _, m in ipairs(t.mods or { { name = "main" } }) do
+    if m.name == name then return true end
+  end
+end
+
+-- a new module after the active one: its tab opens
+function MOD.add(t, name)
+  if not U.module_name_ok(name) then say("a module name: letters, digits, _ . - (24 at most)", C_ERR); return end
+  if module_taken(t, name) then say("there is a module " .. name, C_ERR); return end
+  if not t.mods then
+    t.mods, t.cur = { { name = "main", lines = t.lines, undo = t.undo, redo = t.redo, breaks = t.breaks } }, 1
+  end
+  MOD.flush(t)
+  table.insert(t.mods, t.cur + 1, { name = name, head = "--@module " .. name, lines = { "" }, empty = true })
+  t.dirty = true
+  MOD.switch(t, t.cur + 1)
+  say("module " .. name .. " (Ctrl+P: the next one)", C_OK)
+end
+
+function MOD.rename(t, name)
+  if not t.mods then say("one module only: use New module", C_ERR); return end
+  if not U.module_name_ok(name) then say("a module name: letters, digits, _ . - (24 at most)", C_ERR); return end
+  local m = t.mods[t.cur]
+  if name == m.name then return end
+  if module_taken(t, name) then say("there is a module " .. name, C_ERR); return end
+  m.name = name
+  m.head = "--@module " .. name       -- the first one gets its marker too
+  t.dirty = true
+end
+
+-- the active module joins the one before it (its lines go to the end of that one);
+-- nothing is lost, the marker line goes
+function MOD.merge(t)
+  if not t.mods or t.cur == 1 then say("no module before this one", C_ERR); return end
+  MOD.flush(t)
+  local m, prev = t.mods[t.cur], t.mods[t.cur - 1]
+  local pl = U.module_len(prev)
+  for i = pl + 1, #prev.lines do prev.lines[i] = nil end
+  for i = 1, U.module_len(m) do prev.lines[pl + i] = m.lines[i] end
+  if #prev.lines == 0 then prev.lines[1] = "" end
+  prev.empty = false
+  for l in pairs(m.breaks or {}) do
+    prev.breaks = prev.breaks or {}
+    prev.breaks[pl + l] = true
+  end
+  table.remove(t.mods, t.cur)
+  local at = t.cur - 1
+  t.cur = at
+  prev.undo, prev.redo = {}, {}
+  if #t.mods == 1 and not t.mods[1].head then
+    t.lines, t.undo, t.redo, t.breaks = prev.lines, prev.undo, prev.redo, prev.breaks
+    t.mods, t.cur = nil, nil
+  else
+    MOD.enter(t, at)
+  end
+  t.dirty = true
+  for p = 1, 2 do
+    local v = panes[p].views[t]
+    if v then v.cy, v.cx, v.top, v.left, v.mark = math.min(pl + 1, #t.lines), 0, 1, 0, nil end
+  end
+  code_words.n = 30
+  say("merged into " .. prev.name, C_OK)
 end
 
 -- after a key that writes: the suggestion for the word before the cursor
@@ -686,7 +877,7 @@ local function run_game(stop)
   t.err = nil
   save_session()
   riff_stop(true)
-  local breaks = bp_list(t)
+  local breaks = MOD.all_breaks(t) or bp_list(t)
   log("code: run " .. t.path .. (#breaks > 0 and " (breakpoints " .. table.concat(breaks, " ") .. ")" or "")
       .. (stop and ", stopping at the first line" or ""))
   cart_run(t.path, { breaks = breaks, stop = stop })
@@ -745,7 +936,7 @@ function lint_tab(t)
   end
   local defined = {}
   for _, x in ipairs(tabs) do
-    for n in pairs(predict.defined(x.lines)) do defined[n] = true end
+    for n in pairs(predict.defined(MOD.lines_of(x))) do defined[n] = true end
   end
   t.lint = predict.lint(t.lines, { defined = defined })
   t.lint_lines = {}
@@ -889,6 +1080,7 @@ local MENU = {
   { "New project", "Ctrl+N" }, { "Open...", "Ctrl+O" }, { "Save", "Ctrl+S" },
   { "Save as...", "Ctrl+Shift+S" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
   { "Breakpoint", "F8" }, { "Debug from the start", "" }, { "Clear breakpoints", "" },
+  { "Modules...", "Ctrl+P" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
   { "Explain the error", "F9" }, { "Play the music (riff)", "Ctrl+Enter" }, { "Stop the music", "Ctrl+." },
@@ -920,7 +1112,15 @@ local function menu_choose(name)
   elseif name == "Debug from the start" then run_game(true)
   elseif name == "Clear breakpoints" then
     t.breaks = nil
+    for _, m in ipairs(t.mods or {}) do m.breaks = nil end
     say("no breakpoints")
+  elseif name == "Modules..." then MOD.menu()
+  elseif name == "Next module" then MOD.step(t, 1)
+  elseif name == "New module..." then
+    prompt("New module, name (after " .. (t.mods and t.mods[t.cur].name or "main") .. "):", "", function(n) MOD.add(t, n) end)
+  elseif name == "Rename module..." then
+    prompt("Rename the module:", t.mods and t.mods[t.cur].name or "", function(n) MOD.rename(t, n) end)
+  elseif name == "Merge into the one before" then MOD.merge(t)
   elseif name == "Split screen" then do_command("f4")
   elseif name == "Font size" then do_command("f10")
   elseif name == "Find" then do_command("^f")
@@ -947,6 +1147,14 @@ local function menu_choose(name)
 end
 
 ------------------------------------------------------------------ keys
+
+-- the module commands as a small menu (menu "Modules...", right click on a module tab)
+function MOD.menu()
+  U.menu({ { "Next module", "^p" }, { "Previous module", "^P" }, "-",
+           { "New module...", function() menu_choose("New module...") end },
+           { "Rename module...", function() menu_choose("Rename module...") end },
+           { "Merge into the one before", function() menu_choose("Merge into the one before") end } })
+end
 
 -- commands that do not depend on the text: the same from the menu
 do_command = function(k)
@@ -979,6 +1187,8 @@ do_command = function(k)
   elseif k == "^n" then new_cart()
   elseif k == "^t" then show_tab(new_tab(nil, ""))
   elseif k == "^w" then ask_close(panes[focus].tab)
+  elseif k == "^p" then MOD.step(t, 1)
+  elseif k == "^P" then MOD.step(t, -1)
   elseif k == "^f" then
     prompt("Find:", find_text or word_at(t, v) or "", function(s)
       find_text = s
@@ -1307,6 +1517,8 @@ local function mouse_frame()
   if left then
     if left.kind == "tab" then
       panes[focus].tab = left.a
+    elseif left.kind == "mod" then
+      MOD.switch(tabs[panes[focus].tab], left.a)
     elseif left.kind == "keys" then
       overlay = { kind = "help" }
     elseif left.kind == "pane" then
@@ -1337,6 +1549,10 @@ local function mouse_frame()
       panes[focus].tab = right.a
       U.menu({ { "New tab", "^t" }, { "Save", "^s" }, { "Save as...", "^S" }, { "Close tab", "^w" }, "-",
                { "Open...", "^o" }, { "Split screen", "f4" } })
+    elseif type(right) == "table" and right.kind == "mod" then
+      local t0 = tabs[panes[focus].tab]
+      MOD.switch(t0, right.a)
+      MOD.menu()
     elseif type(right) == "table" and right.kind == "pane" then
       local p = right.a
       focus = p
@@ -1372,12 +1588,17 @@ function _init()
     if a.error and a.error:find("stopped in the debugger", 1, true) then
       local t, v = current()
       local line = tonumber(a.error:match("main%.lua:(%d+):"))
+      local mi, ml = line and MOD.locate(t, line)
+      if mi then MOD.switch(t, mi); line = ml end
       if line then v.cy, v.cx = line, 0; clamp(t, v) end
-      say("stopped in the debugger" .. (line and " at line " .. line or ""), C_ACC, 600)
+      say("stopped in the debugger" .. (line and " at line " .. line or "") ..
+          (mi and " of module " .. t.mods[mi].name or ""), C_ACC, 600)
     elseif a.error then
       local t, v = current()
       local line = tonumber(a.error:match("main%.lua:(%d+):"))
-      t.err = { line = line, msg = a.error }
+      local mi, ml = line and MOD.locate(t, line)
+      if mi then MOD.switch(t, mi); line = ml end
+      t.err = { line = line, msg = a.error, mod = mi }
       if line then v.cy, v.cx = line, 0; clamp(t, v) end
       say("the game stopped: " .. (a.error:match("^[^\n]*") or a.error) .. "  (F9: explain)", C_ERR, 900)
     elseif a.back then
@@ -1537,7 +1758,7 @@ local function draw_pane(p, c0, ncols, r0, nrows)
     local l = t.lines[i]
     if not l then break end
     local y = y0 + r * CH
-    if t.err and t.err.line == i then rectfill(tx, y, tcols * CW + CW, CH, C_ERRBG)
+    if t.err and t.err.line == i and (not t.err.mod or t.err.mod == t.cur) then rectfill(tx, y, tcols * CW + CW, CH, C_ERRBG)
     elseif i == v.cy and p == focus then rectfill(tx, y, tcols * CW + CW, CH, C_CUR) end
     if y0s and i >= y0s and i <= y1s then
       local a = (i == y0s) and x0s or 0
@@ -1640,27 +1861,30 @@ end
 local function draw_tabs()
   rectfill(0, 0, W, CH, C_BAR)
   print("bm Code", 0, 0, C_ACC)                      -- the name first, at the left
-  local x = 8
+  local items = {}
   for i, t in ipairs(tabs) do
-    local label = " " .. t.name .. (t.dirty and "*" or "") .. " "
-    if split then
-      if panes[1].tab == i then label = label .. "1 " end
-      if panes[2].tab == i then label = label .. "2 " end
-    end
-    if x + #label > COLS - 17 then
-      print("...", x * CW, 0, C_DIM)
-      break
-    end
-    local on = panes[focus].tab == i
-    U.zone(x * CW, 0, #label * CW, CH, "tab", i)
-    if on then rectfill(x * CW, 0, #label * CW, CH, C_LINE) end
-    print(label, x * CW, 0, on and 0xFFFFFF or C_DIM)
-    x = x + #label + 1
+    items[i] = { label = t.name, dirty = t.dirty, on = panes[focus].tab == i,
+                 tag = split and ((panes[1].tab == i and " 1" or "") .. (panes[2].tab == i and " 2" or "")) or nil }
+  end
+  U.tabbar{ x = 8 * CW, y = 0, w = (COLS - 17 - 8) * CW, cw = CW, ch = CH, items = items, kind = "tab",
+            c = { on = 0xFFFFFF, off = C_DIM, line = C_LINE, dim = C_DIM } }
+  -- a project with modules: a second row, one tab each (the same component)
+  local t = tabs[panes[focus].tab]
+  local rows = 0
+  if t and t.mods then
+    rows = 1
+    rectfill(0, CH, W, CH, C_BAR)
+    local mi = {}
+    for i, m in ipairs(t.mods) do mi[i] = { label = m.name, on = t.cur == i } end
+    print("modules", 0, CH, C_ACC)
+    U.tabbar{ x = 8 * CW, y = CH, w = W - 8 * CW, cw = CW, ch = CH, items = mi, kind = "mod",
+              c = { on = 0xFFFFFF, off = C_DIM, line = C_LINE, dim = C_DIM } }
   end
   local lx = (COLS - 11) * CW                        -- "held: keys" on the last columns, F12 before
   U.zone(lx - 3 - key_chip("f12", CH < 16), 0, W - lx, CH, "keys")
   key_chip("f12", lx - 3 - key_chip("f12", CH < 16), 0, CH < 16)
   print("held: keys", lx, 0, C_DIM)
+  return rows
 end
 
 local function draw_status(t, v)
@@ -1698,6 +1922,7 @@ local KEYHELP = {
   { "ctrl w", "close the tab" },
   { "ctrl t", "a new empty tab" },
   { "f2 / f3", "the tab before / after" },
+  { "ctrl p", "the next module of the project (Ctrl+Shift+P: before)" },
   { "f4", "two pages side by side" },
   { "f7", "the other page" },
   { "f10", "font 6x12 / 8x14 / 8x16" },
@@ -1729,6 +1954,7 @@ local HELP = {
   "Debugger", "F8 breakpoint on the line (F5 stops there)", "  then F10 next, F8 into, Shift+F8 out,",
   "  F5 go on, Esc stop; the arrows: variables", "",
   "Tabs and pages", "Ctrl+T new empty tab", "F2 / F3 previous / next tab", "F4 two pages side by side",
+  "Ctrl+P next module (Ctrl+Shift+P before)",
   "F7 the other page", "F10 font 6x12 / 8x14 / 8x16", "",
   "Editing", "Ctrl+Z undo, Ctrl+Y redo", "Ctrl+B start a selection", "Ctrl+C copy, Ctrl+X cut",
   "Ctrl+V paste (a line: above)", "Ctrl+K cut line, Ctrl+D duplicate", "Tab / Ctrl+U indent / unindent",
@@ -1850,25 +2076,25 @@ function _draw()
   U.begin()
   font(FONTS[font_i])
   cls(C_BG)
-  draw_tabs()
-  local nrows = ROWS - 2
+  local mrow = draw_tabs()
+  local nrows = ROWS - 2 - mrow
   local ow, oh = pt.size()
   if pt.mode() then nrows = nrows - (oh + 4 + CH - 1) // CH end   -- the pad's overlay below the code
   if split then
     local left = (COLS - 1) // 2
-    draw_pane(1, 0, left, 1, nrows)
-    draw_pane(2, left + 1, COLS - left - 1, 1, nrows)
-    rectfill(left * CW + CW // 2 - 1, CH, 2, nrows * CH, C_LINE)
+    draw_pane(1, 0, left, 1 + mrow, nrows)
+    draw_pane(2, left + 1, COLS - left - 1, 1 + mrow, nrows)
+    rectfill(left * CW + CW // 2 - 1, (1 + mrow) * CH, 2, nrows * CH, C_LINE)
     -- the page with the keys: a line on top
     local c0 = focus == 1 and 0 or left + 1
     local w = focus == 1 and left or COLS - left - 1
-    rectfill(c0 * CW, CH, w * CW, 1, C_ACC)
+    rectfill(c0 * CW, (1 + mrow) * CH, w * CW, 1, C_ACC)
   else
-    draw_pane(1, 0, COLS, 1, nrows)
+    draw_pane(1, 0, COLS, 1 + mrow, nrows)
   end
   local t, v = current()
   if pt.mode() then
-    pt.draw((W - ow) // 2, (nrows + 1) * CH + 2)
+    pt.draw((W - ow) // 2, (nrows + 1 + mrow) * CH + 2)
     font(FONTS[font_i])
   end
   draw_status(t, v)

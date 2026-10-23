@@ -56,7 +56,7 @@ jobs:
             esac
             case "$1" in
               scripts/agent_audit.py|scripts/ci_audit.py|scripts/consistency.py|scripts/cindex.py) return 0 ;;
-              scripts/ctx_guard.py|scripts/docs_audit.py|scripts/ledger_add.py|scripts/ledger_repeats.py) return 0 ;;
+              scripts/ctx_guard.py|scripts/docs_audit.py|scripts/ledger_add.py|scripts/ledger_repeats.py|scripts/wo_scope.py) return 0 ;;
               scripts/recipe_bench.py|scripts/wsl-run.ps1|scripts/hooks/*) return 0 ;;
             esac
             return 1

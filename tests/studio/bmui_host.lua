@@ -232,5 +232,83 @@ do
   check(U.scroll(100, 0, 500, 45) == 100, "scroll: no wheel, no change")
 end
 
+-- the tab strip (APP-8): one component for every editor with tabs
+do
+  local function items(names, on)
+    local t = {}
+    for i, n in ipairs(names) do t[i] = { label = n, on = i == on } end
+    return t
+  end
+  local function zone_at(x, y)
+    M.x, M.y, M.b = x, y, 0
+    U.update()
+    return U.at()
+  end
+  U.begin()
+  drawn = {}
+  local a, b = U.tabbar{ x = 64, y = 0, w = 320, cw = 8, ch = 12, items = items({ "main", "gfx", "ui" }, 2) }
+  check(a == 1 and b == 3, "tabbar: all three tabs fit")
+  check(drawn[1].s == " main " and drawn[1].x == 64 and drawn[2].s == " gfx " and drawn[2].x == 64 + 6 * 8 + 8,
+        "tabbar: a label is ' name ', one column between tabs")
+  local z = zone_at(64 + 6 * 8 + 8 + 4, 5)
+  check(z and z.kind == "tab" and z.a == 2, "tabbar: a click on a tab gives kind tab and its number")
+  check(zone_at(64 + 6 * 8 + 2, 5) == nil, "tabbar: the gap between tabs is no tab")
+  U.begin()
+  drawn = {}
+  U.tabbar{ x = 0, y = 0, w = 200, cw = 8, ch = 12, kind = "mod", items = { { label = "a", dirty = true, tag = " 1" } } }
+  check(drawn[1].s == " a* 1 ", "tabbar: dirty star then the tag")
+  z = zone_at(4, 5)
+  check(z and z.kind == "mod", "tabbar: the zone kind is the caller's")
+  -- too many tabs: it starts where the active one shows
+  U.begin()
+  drawn = {}
+  local names = {}
+  for i = 1, 12 do names[i] = "mod" .. i end
+  a, b = U.tabbar{ x = 0, y = 0, w = 240, cw = 8, ch = 12, items = items(names, 12) }
+  check(a > 1 and b == 12, "tabbar: the active tab is always in view (from " .. a .. " to " .. b .. ")")
+  check(drawn[1].s == "<", "tabbar: '<' marks the cut at the left")
+  U.begin()
+  drawn = {}
+  a, b = U.tabbar{ x = 0, y = 0, w = 240, cw = 8, ch = 12, items = items(names, 1) }
+  check(a == 1 and b < 12 and drawn[#drawn].s == "...", "tabbar: '...' marks the cut at the right")
+end
+
+-- the Lua modules of one project: split and join are exact inverses
+do
+  local function lines_of(s)
+    local t = {}
+    for l in (s .. "\n"):gmatch("(.-)\n") do t[#t + 1] = l end
+    if t[#t] == "" then t[#t] = nil end
+    return t
+  end
+  local cases = {
+    "local x = 1\nfunction _draw() end\n",
+    "local x = 1\n--@module gfx\nlocal y = 2\n--@module ui\nprint(1)\n",
+    "--@module a\nx = 1\n--@module b\n\n--@module c\ny = 2\n",
+    "x = 1\n--@module gfx   \n\n\ny = 2\n--@module  ui\n",
+    "--@module only\n",
+    "-- @module not a marker\n--@moduleX nor this\n  --@module nor this\n",
+    "",
+  }
+  for i, c in ipairs(cases) do
+    local ls = lines_of(c)
+    local mods = U.modules_split(ls)
+    local back = U.modules_join(mods)
+    check(table.concat(back, "\n") == table.concat(ls, "\n") and #back == #ls,
+          "modules: case " .. i .. " joins back to the same lines")
+  end
+  local m = U.modules_split(lines_of("a\n--@module gfx\nb\nc\n--@module ui\n"))
+  check(#m == 3 and m[1].name == "main" and not m[1].head and m[2].name == "gfx" and m[3].name == "ui",
+        "modules: main before the first marker, then one per marker")
+  check(#m[1].lines == 1 and #m[2].lines == 2 and m[3].empty and U.module_len(m[3]) == 0,
+        "modules: the lines of each, the empty one marked")
+  m[3].lines[1] = ""                     -- an editor keeps one empty line in an empty module
+  check(#U.modules_join(m) == 5, "modules: that kept empty line is not code")
+  m[3].lines[1] = "z"
+  check(U.modules_join(m)[6] == "z", "modules: once typed in, it is")
+  check(U.module_name_ok("gfx-2.lua_") and not U.module_name_ok("a b") and not U.module_name_ok("") and
+        not U.module_name_ok(string.rep("x", 25)), "modules: a name is letters, digits, _ . -")
+end
+
 print(fails == 0 and ("bmui: " .. checks .. "/" .. checks .. " checks passed") or (fails .. " of " .. checks .. " FAILED"))
 if fails > 0 then os.exit(1) end

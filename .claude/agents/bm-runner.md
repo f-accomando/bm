@@ -25,7 +25,7 @@ You are the runner of the `bm` project: you carry out a specified task end to en
 ## Ledger accessory
 The ledger (`docs/agents/ledger.txt`) is written by SPV or the main agent, never by you. At the end, print the row ready to be added, with `--no-write`:
 `python scripts/ledger_add.py --agent bm-runner --model sonnet --task "<task>" --area <area> --outcome <DONE|BLOCKED|FAILED> --tokens <N> --tools <n tool calls> --secs <s> --no-write`
-Use the real counts if you know them, otherwise `0` and say so. If the same kind of task appears a third time in the ledger (`python scripts/ledger_repeats.py`), say so in the report: a third repetition becomes a skill or a script.
+Use the real counts if you know them. Write `-` for a count you do not know. Never write `0` for an unknown count. If the same kind of task appears a third time in the ledger (`python scripts/ledger_repeats.py`), say so in the report: a third repetition becomes a skill or a script.
 
 ## Closing
 Status line first: `DONE` (verification command passed), `BLOCKED: <reason>` (ambiguity, missing decision, denied permission) or `FAILED x2` (the check failed twice). Then at most 12 lines: commit/branch, commands run with results, what is `not verified`, and the ledger row.

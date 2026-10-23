@@ -88,6 +88,23 @@ The tabs, the cursors, the font and the breakpoints come back the next time you 
 
 **F4** shows two pages side by side. Each page has its own tab. **F7** moves between the pages; **F2** and **F3** change the tab of the page you are in. In the top bar a tab shows `1` or `2` for the page that shows it. F4 again goes back to one page.
 
+## Modules in a project
+
+A big program can be cut into **modules**. A module is a part of the code that starts at a line `--@module name`. The line is a Lua comment, so the game does not change: a project still has ONE code section, and the game built from it has the same bytes as before. The tabs are only for reading.
+
+When a project has modules, a second row appears under the top bar. It shows the word `modules` and one tab for each module. The text before the first marker is the module `main`.
+
+| Key or click | What it does |
+|---|---|
+| Ctrl+P / Ctrl+Shift+P | next / previous module |
+| click on a module tab | shows that module |
+| right click on a module tab | the module menu |
+| Esc, Modules... | the same menu |
+
+The module menu has **New module...** (asks a name, adds it after the one you are in), **Rename module...** and **Merge into the one before** (the lines go to the end of the previous module and the marker line goes; no code is lost).
+
+A name has letters, digits, `_`, `.` or `-`, up to 24 characters. Each module keeps its own cursor, undo and breakpoints. Ctrl+S, F5 and Ctrl+W work on the whole project, not on one module. A middle click on a module tab does nothing; a middle click on a file tab closes the file. When the game stops with an error, bm Code shows the module and the line in it.
+
 ## The menu
 
 **Esc** opens the menu (with a selection active, Esc first drops the selection). Up and down move, Enter chooses, Esc closes. The entries:
@@ -103,6 +120,7 @@ The tabs, the cursors, the font and the breakpoints come back the next time you 
 | Breakpoint | F8 |
 | Debug from the start | |
 | Clear breakpoints | |
+| Modules... | Ctrl+P |
 | Split screen | F4 |
 | Font size | F10 |
 | Find | Ctrl+F |
@@ -161,6 +179,7 @@ Typing `end`, `else`, `elseif`, `until` or `}` alone on a line brings it back to
 | Ctrl+T | new empty tab |
 | Ctrl+W | close the tab |
 | F2 / F3 | previous / next tab |
+| Ctrl+P | next module of the project (Ctrl+Shift+P: before) |
 | F4 | one page / two pages |
 | F7 | move to the other page |
 | F10 | font 6x12 / 8x14 / 8x16 |
@@ -365,7 +384,8 @@ Put a breakpoint inside `_draw`, press F5, and press F10 line by line. Which var
 - **Work on the copy.** If you open a game (`.bm`), the first save makes `name.bme`; keep editing that one.
 - **Tokens.** The tokens of a program are counted as the dev kit counts them; `code_tokens(text)` gives the number for a piece of Lua. They are information, not a limit: bm puts no ceiling on tokens. bm Code does not show them: the bm SDK does, on its F1 page and in the status line of its quick editor.
 - **Text not saved is kept in a limited space.** When you leave or run the game, bm Code keeps the text of the tabs with changes (and of the tabs with no file) for the next time, up to 16000 characters in all; text beyond that is not kept. Save often.
-- **Undo** remembers the last 100 steps of each tab.
+- **Undo** remembers the last 100 steps of each tab (each module has its own).
+- **Modules are one file.** Modules are lines `--@module name` in the one code section; they are not separate files on the card. A line with that exact form inside a long Lua string also starts a module for bm Code. The bm SDK shows the whole code without module tabs.
 - **Tabs.** The top bar shows as many tabs as fit; the rest are shown as `...`. Use F2 and F3 to reach them.
 - **Debug only from bm Code.** `breakpoint()` stops only in a game run from a tool such as bm Code.
 - **Lines on the screen.** With one page on the 640x360 screen, the code shows 28 lines with the 6x12 font, 23 with the 8x14 and 20 with the 8x16 (the rows of the screen, less the top bar and the status line). The columns are 106, 80 and 80. These numbers come from the layout in the code, not from a count on the screen. The pad typing box takes some rows.

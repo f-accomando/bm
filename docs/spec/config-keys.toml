@@ -347,11 +347,11 @@ read_in = "src/rgb30/bm_port.c:35"
 [[key]]
 name = "market_bm"
 scope = "rgb30"
-values = "1 = also list the .bm cartridges of the Market; anything else = only .b16"
-default = "only .b16 (user's decision 2026-10-05); when the key is missing, show_bm=1 still turns it on, as it used to"
+values = "0 = hide the .bm cartridges of the Market; anything else = list them"
+default = "listed (SYS-8: the compat policy greys a cartridge not made for the RGB30)"
 meaning = "The Market of the RGB30: whether the Pi's .bm cartridges are listed next to the .b16 ones."
 settings = ""
-read_in = "src/kernel/market.c:354"
+read_in = "src/kernel/market.c:adopt"
 
 [[key]]
 name = "market_delay"

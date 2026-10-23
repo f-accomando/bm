@@ -51,6 +51,8 @@ the serial only grows, so the console never goes back to an older catalog):
   version 1.2
   license MIT
   about Eat the apples, do not bite your tail.
+  targets 3                (only for a cartridge with the compatibility block: 1 Pi, 2 RGB30, 3 both;
+                            without the line the client reads the old rules from the file name)
   file games/snake/snake.bm 48376 <sha256 hex>
   cover games/snake/cover.png 5120 <sha256 hex>
 """
@@ -192,6 +194,15 @@ def console_text(s, what, limit):
     return b
 
 
+def cart_targets(data):
+    """-> the kernels a cartridge declares (header byte 120, flag bit 4: 1 Pi, 2 RGB30, 3 both), or 0 for an
+    old file (no block): the client then uses the old rules by the file name (docs/BM-FORMAT.md)"""
+    flags = struct.unpack_from("<H", data, 18)[0]
+    if flags & 16 and data[120] & 3:
+        return data[120] & 3
+    return 0
+
+
 def read_game(games, gid, force_kind=None):
     """-> a list of dicts (one per cartridge: a .bm, a .b16, or both), or
     raises ValueError with what is wrong"""
@@ -229,7 +240,7 @@ def read_game(games, gid, force_kind=None):
             "id": gid, "name": name, "data": data, "title": title, "author": author, "cover": cover,
             "version": version.encode(), "license": console_text(lic, "license", LIMITS["license"]),
             "about": console_text(info.get("about", ""), "about", LIMITS["about"]),
-            "kind": kind, "info": info,
+            "kind": kind, "info": info, "targets": cart_targets(data),
         })
     return out
 
@@ -281,7 +292,10 @@ def _render_cards(items):
         about = html.escape(g["info"].get("about", ""))
         lic = html.escape(g["info"].get("license", ""))
         b16 = g["name"].lower().endswith(".b16")
-        fmt = '<span class="badge b16">.b16 &middot; RGB30</span>' if b16 else '<span class="badge bm">.bm &middot; Pi</span>'
+        t_bits = g.get("targets") or (3 if b16 else 1)
+        who = {1: "Pi", 2: "RGB30", 3: "Pi + RGB30"}[t_bits]
+        fmt = (f'<span class="badge b16">.b16 &middot; {who}</span>' if b16
+               else f'<span class="badge bm">.bm &middot; {who}</span>')
         img = (f'<img src="{g["sub"]}/{g["id"]}/cover.png" width="176" height="176" alt="">' if g["cover"]
                else f'<div class="nocover">{t}</div>')
         rows.append(f"""<li>{img}<div><h2>{t} {fmt}</h2><p class="by">{a} &middot; v{html.escape(g["version"].decode())}
@@ -338,6 +352,8 @@ def build(games, out, serial):
         lines.append(b"game " + g["id"].encode())
         if g.get("kind") == "app":
             lines.append(b"kind app")
+        if g.get("targets"):
+            lines.append(f"targets {g['targets']}".encode())
         lines += [b"title " + g["title"], b"author " + g["author"],
                   b"version " + g["version"], b"license " + g["license"], b"about " + g["about"],
                   f"file {rel} {len(g['data'])} {hashlib.sha256(g['data']).hexdigest()}".encode()]
