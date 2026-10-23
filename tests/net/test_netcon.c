@@ -164,6 +164,7 @@ int fiber_job_run(fiber_job_t *j, uint32_t until)
     return 0;
 }
 fiber_t *fiber_current(void) { return NULL; }
+void watchdog_progress(void) {}
 void fiber_job_stop(fiber_job_t *j)
 {
     if (!j->busy)

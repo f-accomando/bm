@@ -44,6 +44,7 @@ int wifi_send(const void *eth, int len) { (void)eth; (void)len; return -1; }
 #include "kernel/fiber.h"
 fiber_t *fiber_current(void) { return NULL; }
 void fiber_yield(void) {}
+void watchdog_progress(void) {}
 int fiber_cancelled(void) { return 0; }
 
 /* ---- the peer: 192.168.1.1, router and DHCP server ---- */
