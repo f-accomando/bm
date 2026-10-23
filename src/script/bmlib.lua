@@ -727,6 +727,177 @@ function lib.sweep(list)
   return lib.each(list, function(it) return not it.dead end)
 end
 
+----------------------------------------------------------------- entities
+
+local World = {}
+World.__index = World
+
+-- the entities of a game (the player, the foes, the bullets, the pickups) in
+-- one list. kinds = { name = { w=, h=, hp=, team=, dmg=, ttl=, layer=,
+-- update=function(e, world), draw=function(e, world), hurt=function(e, by, n),
+-- die=function(e, world) } }: an entity reads what it does not hold from its
+-- kind, so a spawn makes one table and copies nothing.
+function lib.world(kinds)
+  return setmetatable({ kinds = kinds, list = {}, meta = {}, pend = {} }, World)
+end
+
+-- a new entity of the kind with the fields in props (x, y, vx, vy, hp...).
+-- It starts to update in the next frame. Returns the entity
+function World:spawn(name, props)
+  local kind = self.kinds[name] or error("lib.world: no kind called " .. tostring(name), 2)
+  local mt = self.meta[name]
+  if not mt then
+    mt = { __index = kind }
+    self.meta[name] = mt
+  end
+  local e = setmetatable(props or {}, mt)
+  e.kind, e.age = name, 0
+  e.x, e.y, e.vx, e.vy = e.x or 0, e.y or 0, e.vx or 0, e.vy or 0
+  local list = self.busy and self.pend or self.list   -- a spawn in die waits for the end of update
+  list[#list + 1] = e
+  return e
+end
+
+-- the entities from data (a map's object layer, a wave): rows are
+-- {kind, x, y, props} or {kind = , x = , y = , ...}
+function World:load(rows)
+  for i = 1, #rows do
+    local r = rows[i]
+    local p = {}
+    local name = r.kind
+    if name == nil then
+      name, p.x, p.y = r[1], r[2], r[3]
+      if r[4] then
+        for k, v in pairs(r[4]) do p[k] = v end
+      end
+    else
+      for k, v in pairs(r) do
+        if k ~= "kind" then p[k] = v end
+      end
+    end
+    self:spawn(name, p)
+  end
+  return self
+end
+
+-- the entity leaves at the end of this update (its die function runs once)
+function World:kill(e)
+  e.dead = true
+end
+
+-- n damage to e from by: the hurt function of its kind runs, and at hp 0 it
+-- dies. While e.invuln (frames) is above 0 e is safe. Returns true if it hurt
+function World:hurt(e, n, by)
+  if e.dead or (e.invuln or 0) > 0 then return false end
+  e.hp = (e.hp or 1) - n
+  if e.hurt then e:hurt(by, n) end
+  if e.hp <= 0 then e.dead = true end
+  return true
+end
+
+-- one frame: each entity ages, moves by vx, vy, loses its ttl and runs the
+-- update function of its kind; the dead leave (die runs once for each)
+function World:update()
+  local list = self.list
+  for i = 1, #list do
+    local e = list[i]
+    if not e.dead then
+      e.age = e.age + 1
+      e.x, e.y = e.x + e.vx, e.y + e.vy
+      if e.invuln and e.invuln > 0 then e.invuln = e.invuln - 1 end
+      if e.ttl then
+        e.ttl = e.ttl - 1
+        if e.ttl <= 0 then e.dead = true end
+      end
+      if e.update and not e.dead then e:update(self) end
+    end
+  end
+  self.busy = true
+  lib.each(list, function(e)
+    if not e.dead then return true end
+    if e.die and not e.died then
+      e.died = true
+      e:die(self)
+    end
+    return false
+  end)
+  self.busy = false
+  local pend = self.pend
+  for i = 1, #pend do
+    list[#list + 1] = pend[i]
+    pend[i] = nil
+  end
+end
+
+-- the contacts of one frame by team: each entity with dmg (a bullet, a
+-- blade) hurts each entity of another team that has hp and a box, once a
+-- frame; an attacker with e.pierce does not die by it. No table is made.
+-- Returns the number of hits
+function World:fight()
+  local list, hits = self.list, 0
+  for i = 1, #list do
+    local a = list[i]
+    local d = a.dmg
+    if d and not a.dead and a.w then
+      for j = 1, #list do
+        local b = list[j]
+        if i ~= j and not b.dead and b.hp and b.w and b.team ~= a.team
+            and lib.overlap(a.x, a.y, a.w, a.h, b.x, b.y, b.w, b.h) then
+          if self:hurt(b, d, a) then
+            hits = hits + 1
+            if not a.pierce then
+              a.dead = true
+              break
+            end
+          end
+        end
+      end
+    end
+  end
+  return hits
+end
+
+-- the first live entity of the kind (name is the kind's name), nil if none
+function World:find(name)
+  local list = self.list
+  for i = 1, #list do
+    local e = list[i]
+    if not e.dead and e.kind == name then return e end
+  end
+end
+
+-- how many live entities of the kind (name is the kind's name)
+function World:count(name)
+  local c, list = 0, self.list
+  for i = 1, #list do
+    local e = list[i]
+    if not e.dead and e.kind == name then c = c + 1 end
+  end
+  return c
+end
+
+-- every entity with a draw function, the lower layers first (kind.layer, 0
+-- if missing); entities keep their order inside a layer
+function World:draw()
+  local list = self.list
+  local top = 0
+  for i = 1, #list do
+    local l = list[i].layer or 0
+    if l > top then top = l end
+  end
+  for layer = 0, top do
+    for i = 1, #list do
+      local e = list[i]
+      if e.draw and (e.layer or 0) == layer then e:draw(self) end
+    end
+  end
+end
+
+-- every entity goes (no die function runs)
+function World:clear()
+  self.list = {}
+end
+
 ----------------------------------------------------------------- particles
 
 local Parts = {}

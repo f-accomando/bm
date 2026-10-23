@@ -516,6 +516,10 @@ $(BUILD)/keymap-test.bm: tests/keymap/cart.lua scripts/mkbm.py
 $(BUILD)/controls-test.bm: tests/controls/cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "controls test"
 
+# The gameplay kit (lib.world and the states, input, tween, record of bmlib) used by one small game
+$(BUILD)/gamekit-test.bm: tests/gamekit/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "gate kit test" --author tests
+
 # The games' loading screen (src/bm/loading.c, 2026-10-04): the retro intro,
 # its jingle, the console's page then the game's; the frames in build/loading/
 $(BUILD)/host/test_loading: tests/bm/test_loading.c src/bm/loading.c src/bm/loading_logo.c src/bm/loading.h \
@@ -549,6 +553,10 @@ test-herocart: $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm tests/herocar
 test-controls: $(BUILD)/host/bmhost-bin $(BUILD)/controls-test.bm tests/controls/input.txt
 	BMHOST_CONFIG="controls=c1:x t2:l1 s1:y pa:se mc:x" $< $(BUILD)/controls-test.bm --input tests/controls/input.txt --seconds 4 2>&1 | tee $(BUILD)/controls-test.log | grep "^controls"
 	grep -q "^controls: \([0-9]*\)/\1 checks passed" $(BUILD)/controls-test.log
+
+test-gamekit: $(BUILD)/host/bmhost-bin $(BUILD)/gamekit-test.bm tests/gamekit/input.txt
+	$< $(BUILD)/gamekit-test.bm --input tests/gamekit/input.txt --seconds 28 2>&1 | tee $(BUILD)/gamekit-test.log | grep "^gamekit"
+	grep -q "^gamekit: \([0-9]*\)/\1 checks passed" $(BUILD)/gamekit-test.log
 
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
@@ -766,7 +774,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -956,7 +964,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-compat test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-controls test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)

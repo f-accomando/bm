@@ -1,0 +1,7 @@
+# the presses of the gameplay kit test (tests/gamekit/cart.lua): start, move, fire
+10 pad 1 a
+12 pad 1 none
+30 pad 1 right
+45 pad 1 none
+60 pad 1 a
+900 pad 1 none

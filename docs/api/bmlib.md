@@ -177,6 +177,31 @@ p3:update()
 p3:draw()
 ```
 
+### Entities
+
+`lib.world(kinds)`: the list of the things in a game (the player, foes, bullets, pickups) with
+the loop that every game wrote again. `kinds = { name = { ... } }` says what each kind is. An
+entity reads the fields it does not hold from its kind, so a spawn makes one table and copies
+nothing. The fields of a kind: `w`, `h` (the box, `x`, `y` the top left), `hp`, `team`, `dmg`
+(damage on contact), `pierce`, `ttl` (frames), `layer` (draw order, 0 first), and the functions
+`update(e, world)`, `draw(e, world)`, `hurt(e, by, n)` and `die(e, world)`. Every entity has
+`kind`, `age` (frames), `x`, `y`, `vx`, `vy` (pixels per frame); `e.dead` marks the end.
+
+| Function | Description |
+|---|---|
+| `W:spawn(name, [props])` | a new entity of kind `name` with the fields in `props`; it updates from the next frame; returns it. An unknown kind is an error |
+| `W:load(rows)` | spawns from data: rows `{kind, x, y, [props]}` or `{kind = , x = , y = , ...}` (a wave, a level) |
+| `W:update()` | in `_update`: each entity ages, moves by `vx`, `vy`, loses `ttl` and `invuln`, runs its `update`; then the dead leave, `die` runs once for each (a spawn made in `die` starts next frame) |
+| `W:fight()` | in `_update`, after `W:update()`: each entity with `dmg` hurts each entity of another `team` with `hp` and a box that touches it, once a frame; the attacker dies unless `pierce`. Returns the number of hits. It makes no table |
+| `W:hurt(e, n, [by])` | `n` damage: runs `e:hurt(by, n)`, and at `hp` 0 the entity dies. Nothing happens while `e.invuln` (frames) is above 0. Returns `true` if it hurt |
+| `W:kill(e)` / `W:clear()` | `e` leaves at the end of the update / all leave (no `die`) |
+| `W:find(name)` / `W:count(name)` | the first live entity of kind `name` / how many |
+| `W:draw()` | in `_draw`: the `draw` of each entity, the lower `layer` first |
+
+`W.list` is the plain list (read it in your loops; do not remove from it). For fighters with
+frame data (startup, active, recovery) use `lib.hits` (above): `W:fight()` is for contact damage.
+`tests/gamekit/cart.lua` is a whole small game on the kit (states, input, tween, timer, record).
+
 ### Camera
 
 | Function | Description |

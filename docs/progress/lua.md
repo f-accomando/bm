@@ -38,7 +38,7 @@ here.
 
 ### Libraries built in (`src/bm/require.c`, sources in `src/script/`, `src/ai/`)
 `require` serves, once per cartridge: `bmlib` (games' shared kit: maths, collisions with map
-flags, `lib.move`/`lib.step`/`lib.ray`, `lib.hits`, tweens and timers, particles, camera,
+flags, `lib.move`/`lib.step`/`lib.ray`, `lib.hits`, `lib.world` (entities), tweens and timers, particles, camera,
 states, menus, `lib.split`/`lib.party`, saves), `bmnet` (lockstep over LAN or relay
 `tools/overbit_relay.py`: `net.input`, `net.frames`, `net.check`), `bm3d` (Studio/Animator
 toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
@@ -61,6 +61,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 ## Open work (`docs/ROADMAP.md`)
 
 - **API-1** (performance budget): the Pi Zero W budget is in [`docs/PERF-BUDGET.md`](../PERF-BUDGET.md) and `profile(true)` with `stat(17)`, `stat(18)` is in the guide. Open: the RGB30 numbers (Mali 3D Bench and the 2D scenes) after the user's RGB30 runs; flips and alpha alone, 2D particles and 3D particles are `not measured`; the cost of `profile(true)` when on.
+- **GAME-3** (gameplay kit, [games-architecture](../design/games-architecture.md) section 7): `lib.world` (entities, contact damage) is done, with the test game `tests/gamekit/cart.lua` (`make test-gamekit`, QEMU `test_game_kit`). Open: spawn from an OBJECTS section of the cartridge (format change), named audio events, save slots over `lib.store`, the kit's cost on the Pi Zero W (`not measured`), moving one existing game onto `lib.world`.
 - **GAME-INPUT-1** (input standard for games: [games-input-standard](../design/games-input-standard.md),
   `lib.input` with the schemes scroller, topdown and stick): the library, the docs, the kb and the
   templates are merged. Open: migrate the existing games one by one (list: `python scripts/input_inventory.py --games`);
@@ -92,6 +93,6 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   quality or state changed in `_draw`.
 - System keys belong to `src/kernel/syskeys.c` (F12, Esc, Ctrl+Esc, F11, F6, F5/Ctrl+R): apps
   do not reuse them.
-- Tests: `make test-gameapi`, `test-bm`, `test-profile`, `test-bmnet`, `test-online`,
+- Tests: `make test-gameapi`, `make test-gamekit`, `test-bm`, `test-profile`, `test-bmnet`, `test-online`,
   `test-loading`; QEMU `-k <name>` for the piece touched.
 - New games start from `lib.input()` (the standard in [games-input-standard](../design/games-input-standard.md)); a different binding goes only through its override table and is listed in the game's `docs/progress/<game>.md`.

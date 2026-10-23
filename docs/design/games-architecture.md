@@ -173,3 +173,28 @@ The specific details, current technical gaps and evolution proposals for each su
 - [`docs/progress/suite-sound.md`](suite-sound.md): Evolution of **bm Sound** (named audio event dictionary, pitch/volume randomization, synchronization with animations).
 
 Input standard for games (logical actions on buttons, RGB30 and Pi): [`games-input-standard.md`](games-input-standard.md).
+
+## 7. The Gameplay Kit in `bmlib`
+
+Section 5 asks for one standard structure. `bmlib` now gives the code side of it. A game keeps
+only its rules and its drawing:
+
+| Pattern of section 2 | Kit |
+|---|---|
+| A. Game loop and state machine | `lib.states` (`go`, `push`, `pop`) |
+| B. Entity table (position, speed, hp, team, timers) | `lib.world` (kinds, `spawn`, `load`, `update`, `draw`) |
+| C. Attack phases and collisions | `lib.hits` for frame data; `W:fight()` for contact damage |
+| Input | `lib.input` (the standard actions of [`games-input-standard.md`](games-input-standard.md)) |
+| Tweens, timers, scripts | `lib.tween`, `lib.after`, `lib.every`, `lib.script` |
+| Record and save | `lib.best`, `lib.store` |
+
+The test game `tests/gamekit/cart.lua` ("gate") uses all of it. It has no entity loop, no
+collision loop, no state switch and no timer of its own. `make test-gamekit` runs it with
+`bmhost` and a script of presses; the QEMU test `test_game_kit` runs its kit checks on the ARM.
+
+Cost: `W:update()` and `W:draw()` make no table. `W:fight()` compares each attacker with each
+target (n times m, no table); a game with hundreds of bullets and hundreds of targets splits
+its entities in two worlds or checks fewer pairs. Not measured on the Pi Zero W.
+
+Not done yet: spawn from an OBJECTS section of the cartridge (needs a format change; `W:load`
+takes the data today), named audio events, save slots.

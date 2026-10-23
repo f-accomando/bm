@@ -67,6 +67,16 @@ U.menu_update	U.menu_update()	input	the context menu at the pointer: `{ {"Copy",
 U.press	U.press(key)	input	a key as if typed: the next `keyp()` gives it (bmui puts its own `keyp` first)
 U.update	U.update()	input	in `_update` first (reads `mouse()` once a frame), in `_draw` first (forgets the zones of the frame before)
 U.zone	U.zone(x, y, w, h, kind, a, b)	input	something clickable, as it is drawn (the last one drawn wins: a dialog over the page); `U.at()` the zone under the pointer, `U.click([b])` the zone pressed this frame (0 left, 1 right, 2 middle), `U.clicked(b)` a button let go without a drag (the zone where it went down, or `true`)
+W:clear	W:clear()	bmlib	`e` leaves at the end of the update / all leave (no `die`)
+W:count	W:count(name)	bmlib	the first live entity of kind `name` / how many
+W:draw	W:draw()	bmlib	in `_draw`: the `draw` of each entity, the lower `layer` first
+W:fight	W:fight()	bmlib	in `_update`, after `W:update()`: each entity with `dmg` hurts each entity of another `team` with `hp` and a box that touches it, once a frame; the attacker dies unless `pierce`. Returns the number of hits. It makes no table
+W:find	W:find(name)	bmlib	the first live entity of kind `name` / how many
+W:hurt	W:hurt(e, n, [by])	bmlib	`n` damage: runs `e:hurt(by, n)`, and at `hp` 0 the entity dies. Nothing happens while `e.invuln` (frames) is above 0. Returns `true` if it hurt
+W:kill	W:kill(e)	bmlib	`e` leaves at the end of the update / all leave (no `die`)
+W:load	W:load(rows)	bmlib	spawns from data: rows `{kind, x, y, [props]}` or `{kind = , x = , y = , ...}` (a wave, a level)
+W:spawn	W:spawn(name, [props])	bmlib	a new entity of kind `name` with the fields in `props`; it updates from the next frame; returns it. An unknown kind is an error
+W:update	W:update()	bmlib	in `_update`: each entity ages, moves by `vx`, `vy`, loses `ttl` and `invuln`, runs its `update`; then the dead leave, `die` runs once for each (a spawn made in `die` starts next frame)
 a	a(3,8,2)	riff	a Euclidean rhythm
 ai.ask	ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])	tools	the best entries, the first the most likely: `{ {id=, title=, kind=, score=}, … }`, and as the second value the microseconds taken. Titles and texts are in the language of the answers (`ai.lang()`), which follows the question's. `ctx`: the word under the cursor (if it is a function of the API, its entry goes to the top). `kinds`: `api`, `howto`, `error`, `tip`, `sprite`
 ai.checksum	ai.checksum(question)	tools	the CRC-32 of the network's outputs for a question: for the tests (equal to that of the Python reference)

@@ -6037,6 +6037,35 @@ def test_game_api(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_game_kit(b, opts):
+    """The gameplay kit on the ARM: the cartridge of make test-gamekit (a
+    small game on lib.world, lib.states, lib.input, lib.tween). Without the
+    input script of bmhost it runs the kit's checks of _init, all of them
+    pass, and the title state draws its text."""
+    cart = b("gamekit-test.bm")
+    if not os.path.exists(cart):
+        subprocess.run(["make", "-s", cart], check=True, cwd=os.path.dirname(os.path.abspath(__file__)) + "/..")
+    tmp = tempfile.mkdtemp(prefix="bm-gamekit-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, open(cart, "rb").read())
+        q.expect("received", timeout=30)
+        out = q.expect("gamekit: kit", timeout=30).decode(errors="replace")
+        out += q.expect(" ok", timeout=10).decode(errors="replace")
+        time.sleep(1.0)
+        m = re.search(r"gamekit: kit (\d+)/(\d+) ok", out)
+        assert m and m.group(1) == m.group(2) and int(m.group(2)) >= 10, out[-3000:]
+        assert "FAIL" not in out and "stopped with an error" not in out, out[-3000:]
+        text = screen_text(q.screendump())
+        assert any("game kit" in l for l in text), "\n".join(text)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # a square cartridge (256x256, in the middle of a 480x270 screen) lit by
 # levels as in Dank Tomb: white everywhere, one lamp in the middle
 SQUARE_CART = r"""
