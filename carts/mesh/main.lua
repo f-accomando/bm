@@ -1691,6 +1691,40 @@ function ed.cycle_pivot()
        " for rotate and scale (Shift+O: next)"), ed.pivot == "centre" and C_DIM or C_ACC, 140)
 end
 
+-- Smooth (APP-25, Shift+V): one pass; each chosen vertex moves ed.smooth_k toward the mean of its edge
+-- neighbours (B.G.smooth). An open border and the hidden vertices stay. With the live mirror a counterpart
+-- gets the mirror image of the result. One undo step for each pass.
+ed.smooth_k = 0.5
+function ed.smooth()
+  local vs = sel_verts()
+  if #vs == 0 then say("smooth: choose vertices or faces first (Shift+V relaxes them)", C_ERR); return end
+  local fol
+  if ed.mirror then
+    local it = I()
+    local mp = B.G.mirror_pairs(it, vs)
+    if it.hid then for i, j in pairs(mp) do if it.hid[j] then mp[i] = nil end end end
+    local sorted, skip = { table.unpack(vs) }, {}
+    table.sort(sorted)
+    fol = {}
+    for _, i in ipairs(sorted) do
+      local j = mp[i]
+      if j and j ~= i and not skip[i] then fol[i], skip[j] = j, true end
+    end
+    local lead = {}
+    for _, i in ipairs(vs) do if not skip[i] then lead[#lead + 1] = i end end
+    vs = lead
+  end
+  local it = begin_edit()
+  local n = B.G.smooth(it, vs, ed.smooth_k, fol)
+  if n == 0 then
+    table.remove(undo)
+    say("smooth: nothing moved (an open border and single vertices stay)", C_DIM, 120)
+    return
+  end
+  it.view = nil
+  finish_edit("smooth: " .. n .. " vertices relaxed" .. (ed.mirror and " (mirror X: both sides)" or "") .. " (Shift+V: again)")
+end
+
 function ed.cycle_prop()
   ed.prop = (ed.prop + 1) % (#ed.prop_steps + 1)
   local t = ed.tool
@@ -2706,6 +2740,7 @@ local COMMANDS = {
   { "New face on 3-4 vertices (j)", "j" }, { "Merge vertices (k)", "k" }, { "Weld equal vertices (K)", "K" },
   { "Subdivide faces (u)", "u" }, { "Turn faces over (i)", "i" }, { "Paint faces (p)", "p" },
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
+  { "Smooth the chosen vertices: relax toward the neighbours (V)", "V" },
   { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / edges / faces (Tab)", "\t" },
   { "Next element (n)", "n" }, { "Frame the choice (f)", "f" }, { "Finer step (,)", "," }, { "Coarser step (.)", "." },
   { "Ghost: load a model, clear it (H)", "H" }, { "Ghost: show / hide (h)", "h" },
@@ -2829,6 +2864,7 @@ function edit_key(k)
   elseif k == "Y" then ed.isolate_choice()
   elseif k == "P" then ed.cycle_prop()
   elseif k == "O" then ed.cycle_pivot()
+  elseif k == "V" then ed.smooth()
   elseif k == "R" then ed.ref_dialog()
   elseif k == "B" then ed.bone_dialog()
   elseif k == "v" then ed.toggle_bone_view()
@@ -3045,7 +3081,7 @@ function draw_edit()
   elseif ed.pal then hint({ { { "up", "down", "left", "right" }, "colour" }, { { "enter" }, "take it" }, { { "esc" }, "close" } })
   else
     hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "choose" }, { { "a" }, "all" }, { { "tab" }, "vert/edge/face" },
-           { { "g" }, "move" }, { { "r" }, "rotate" }, { { "t" }, "scale" }, { { "x" }, "extrude" } })
+           { { "g" }, "move" }, { { "r" }, "rotate" }, { { "t" }, "scale" }, { { "x" }, "extrude" }, { { "shift", "v" }, "smooth" } })
   end
 end
 end
@@ -3099,6 +3135,7 @@ local HELP = {
     { "z", "box select: the arrows move the corner, Enter chooses, Space adds (or drag the left mouse button)" },
     { "y / shift y", "hide the choice / isolate it (hide all else); with no choice they show all again" },
     { "shift o", "pivot of rotate and scale: the middle of the choice, the origin (0, 0, 0), the base (lowest point); shown as PIVOT in the header; also inside r and t; not saved" },
+    { "shift v", "smooth: relax the chosen vertices halfway toward the mean of their neighbours; an open border and hidden vertices stay; live mirror: both sides; press again for more; one undo step" },
     { "shift p", "soft move: the neighbours follow a move less and less (radius off, 0.25, 0.5, 1, 2; also inside g)" },
     { "0-9 . -", "in g r t: type the exact value (axis x y z n first; Backspace)" },
     { "shift r", "reference pictures: a front and a side from /pics behind the model (views 1 and 3)" },

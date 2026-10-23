@@ -897,6 +897,47 @@ do
         "T.G.mirror_pairs: a pair within 0.001, the plane, none beyond it")
   local fm = G.mirror_faces({ f = { { 1, 3, 5 }, { 2, 3, 6 }, { 1, 2, 3 } } }, { 1, 3 }, { [1] = 2, [3] = 3, [5] = 6, [2] = 1 })
   check(fm[1] == 2 and fm[3] == 3 and next(fm, 3) == nil, "T.G.mirror_faces: the counterpart face, a face on the plane is its own")
+  -- T.G.smooth: a noisy grid of 5 x 5 vertices (z = noise), the border stays, the rest gets flatter
+  do
+    local gv, gf = {}, {}
+    for r = 0, 4 do for c = 0, 4 do
+      local noise = ((r * 7 + c * 3) % 5 - 2) * 0.1
+      if r == 0 or c == 0 or r == 4 or c == 4 then noise = 0.3 end
+      gv[#gv + 1] = { c, r, noise }
+    end end
+    for r = 0, 3 do for c = 0, 3 do
+      local a = r * 5 + c + 1
+      gf[#gf + 1] = { a, a + 1, a + 6 }
+      gf[#gf + 1] = { a, a + 6, a + 5 }
+    end end
+    local git = { v = gv, f = gf }
+    local before, all = {}, {}
+    for i, v in ipairs(gv) do before[i] = { v[1], v[2], v[3] }; all[i] = i end
+    local n = G.smooth(git, all, 0.5)
+    local bord_ok, inner_moved = true, 0
+    for r = 0, 4 do for c = 0, 4 do
+      local i = r * 5 + c + 1
+      local same3 = gv[i][1] == before[i][1] and gv[i][2] == before[i][2] and gv[i][3] == before[i][3]
+      if (r == 0 or c == 0 or r == 4 or c == 4) then if not same3 then bord_ok = false end
+      elseif not same3 then inner_moved = inner_moved + 1 end
+    end end
+    check(bord_ok, "T.G.smooth: the open border stays")
+    check(inner_moved >= 8 and n == 9, "T.G.smooth: the 9 inner vertices move (" .. inner_moved .. "/" .. n .. ")")
+    local inner_before, inner_after = 0, 0
+    for r = 1, 3 do for c = 1, 3 do
+      local i = r * 5 + c + 1
+      inner_before = inner_before + (before[i][3] - 0.3) ^ 2
+      inner_after = inner_after + (gv[i][3] - 0.3) ^ 2
+    end end
+    check(inner_after < inner_before, "T.G.smooth: the noisy grid gets flatter (" .. inner_before .. " -> " .. inner_after .. ")")
+    -- only the vertices of the list move; k = 0 moves nothing in space; a vertex with no edge stays
+    local hv = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 }, { 5, 5, 5 }, { 0, 0, 1 }, { 1, 1, 1 } }
+    local hit = { v = hv, f = { { 1, 2, 3 }, { 1, 3, 2 }, { 1, 2, 5 }, { 1, 5, 2 } } }
+    G.smooth(hit, { 4 }, 0.5)
+    check(hv[4][1] == 5 and hv[4][3] == 5, "T.G.smooth: a vertex with no edge stays")
+    G.smooth(hit, { 2 }, 0.5)
+    check(hv[1][1] == 0 and hv[3][2] == 1, "T.G.smooth: only the listed vertices move")
+  end
 end
 
 -- Edge mode (Tab) and the loop cut (Ctrl+R) on a new cube: v1..v8 = x -,+,+,-,-,+,+,-; y -,-,+,+ ...
@@ -2511,6 +2552,70 @@ do
     check(not sees("PIVOT"), "pivot: back to the centre")
     save()
     check(#changed(mr0, mdl()) == 0, "pivot: the cube is as at the start")
+  end
+
+  ---------------------------------------------------------------- smooth (APP-25, Shift+V)
+  do
+    local function spread(m, list)               -- the sum of the distances to the middle of the cube
+      local t = 0
+      for _, i in ipairs(list) do
+        local v = m.verts[i]
+        t = t + math.sqrt((v[1] - cx) ^ 2 + (v[2] - cy) ^ 2 + (v[3] - cz) ^ 2)
+      end
+      return t
+    end
+    local all8 = { 1, 2, 3, 4, 5, 6, 7, 8 }
+    if not sees(": 0 chosen") then key("a") end
+    check(sees("smooth"), "smooth: the hint bar shows Shift+V")
+    key("V")
+    check(status():find("choose vertices", 1, true), "smooth: nothing chosen, a message (" .. status() .. ")")
+    key("f3")
+    for _ = 1, 40 do if not sees("Smooth the chosen") then key("down") end end
+    check(sees("Smooth the chosen"), "smooth: the commands list has it")
+    key("esc")
+    key("a")
+    key("V")
+    check(status():find("smooth: 8 vertices relaxed", 1, true), "smooth: the message (" .. status() .. ")")
+    save()
+    local ms = mdl()
+    check(#changed(mr0, ms) == 8 and spread(ms, all8) < spread(mr0, all8) - 1e-4, "smooth: a closed cube relaxes toward its middle")
+    key("^z")
+    save()
+    check(#changed(mr0, mdl()) == 0, "smooth: one undo step restores the cube")
+    -- one vertex: hidden vertices stay
+    pick1(1)
+    key("y")                                       -- hide vertex 1
+    check(sees("1 HIDDEN"), "smooth: vertex 1 is hidden (" .. status() .. ")")
+    key("a")                                       -- all that are shown (hiding cleared the choice)
+    key("V")
+    save()
+    ms = mdl()
+    local moved = changed(mr0, ms)
+    check(#moved == 7, "smooth: the hidden vertex stays, 7 move (" .. #moved .. ")")
+    key("^z")
+    key("a")
+    key("y")                                       -- shows all (nothing chosen)
+    check(not sees("HIDDEN"), "smooth: all shown again")
+    save()
+    check(#changed(mr0, mdl()) == 0, "smooth: the cube is as at the start")
+    -- the live mirror: the counterpart gets the mirror image
+    pick1(1)
+    local v1 = mr0.verts[1]
+    local twin
+    for i = 2, 8 do
+      local w = mr0.verts[i]
+      if same(w[1], -v1[1]) and same(w[2], v1[2]) and same(w[3], v1[3]) and not same(v1[1], 0) then twin = i end
+    end
+    key("X", "V")
+    save()
+    ms = mdl()
+    check(twin and #changed(mr0, ms) == 2 and not same(ms.verts[1][1], v1[1]), "smooth mirror: v1 and its counterpart move")
+    check(twin and same(ms.verts[twin][1], -ms.verts[1][1]) and same(ms.verts[twin][2], ms.verts[1][2]) and same(ms.verts[twin][3], ms.verts[1][3]),
+          "smooth mirror: the result is symmetric")
+    key("^z", "X")
+    save()
+    check(#changed(mr0, mdl()) == 0, "smooth mirror: undo restores the cube")
+    key("a")
   end
 
   ---------------------------------------------------------------- soft (proportional) move
