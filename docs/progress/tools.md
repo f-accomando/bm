@@ -41,7 +41,14 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 - **bm Sound** (`carts/sound`): SOUNDS, SFX, PATTERN, SONG pages; music assistant on F6
   ([audio](audio.md)).
 - **bm Write** (`carts/write`, a Market app): `.BMD` documents in `/docs`, A4 pages,
-  exports `.TXT`/`.MD`/`.HTM`/`.PDF`.
+  exports `.TXT`/`.MD`/`.HTM`/`.PDF`. The PDF equals the screen: host test `tests/studio/write_pdf_host.lua`
+  (in `make test-studio`) exports a five-page document with every style, alignment, bold, italic, underline,
+  accents, brackets and a backslash. It reads the PDF with its own small reader (xref, pages, streams) and
+  compares each page with what the cart draws on a tall screen: the same runs of letters, the same place (screen
+  pixels times 595/540 points, within 0.01 pt), the same Courier face, size and width, the underlines, quote bars,
+  bullets and page numbers (493 checks, 389 runs). A change to the baseline or a bullet makes it fail. Not
+  checked: a real PDF viewer (no `pdftotext` or `pdftoppm` in WSL; the test keeps the file with `luahost ... ROOT
+  OUT.pdf`), the Pi and the RGB30.
 - **Lib tab** (`src/kernel/lib.c`, `libview.c`): resources `.bmm .bmi .bms .bmt .bmc .bmk`,
   hidden until `lib_tab=1`.
 - Shared Lua: `bm3d` (Studio/Animator; Mesh loads it only for the pure geometry `T.G`: `model_item`, `encode_model`, `orient`, `compact`... on the shape `{v, f, vb}`), `bmui` (mouse: zones registered while drawing,
@@ -84,7 +91,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 19 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet. All 19 manuals are re-read against their sources and stamped (`python scripts/manuals.py status` shows no "sources changed"). The PDFs were not looked at in a viewer (no `pdftoppm` on the host). In the bm SDK dev kit the file bar now counts against 100 MiB (the Market ceiling) instead of 8 MiB (`B16_LIMIT` in `carts/editor/main.lua`). The `.b16` edition of the SDK (`carts/sdk_b16/main.lua`) still shows the old 8 MiB mark (`B16_LIMIT`, and the "8 MiB" texts): change it from its own sources.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
-- **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
+- **M45** bm Write: the PDF against the screen is checked on the host (`write_pdf_host.lua`). Left: try on the Pi (keyboard and pad), open the PDF in a real viewer on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice. Also on the Pi and the RGB30: the copy lands in `/bme`, `Ctrl+B` builds into the games folder, an old `.bme` next to its game still opens (not verified on hardware).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse on the Pi and the RGB30 (not verified on hardware). Gaps: see the table under `## Rules`, "Mouse per program". Also an I-beam cursor (kernel `pointer.c`) and dragging panels.
 - **Stack page of bm Pixel**: try it on the Pi and the RGB30 (keyboard and pad). Not done: delete a stack zone, a vertical layout (`stackv`, branch `claude/stackv`: the page keeps `sp.dir` and `cell()` ready), mouse drag. Pad and mouse are not tested in QEMU.

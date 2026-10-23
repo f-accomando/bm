@@ -292,13 +292,13 @@ Puoi aprire anche `letter.md`, se l'hai esportato: ritorna con gli stessi paragr
 - Il testo non salvato viene conservato per il prossimo avvio solo se è sotto i 24000 byte.
 - Il titolo del file `.BMD` conserva le prime 60 lettere del primo paragrafo.
 - [DA COMPLETARE: il massimo numero di pagine o di paragrafi che un documento può avere sulla console]
-- [DA COMPLETARE: le lettere che il carattere supporta oltre a quelle latine con gli accenti]
+- Il carattere dello schermo è la tabella di caratteri 437: lettere latine con gli accenti, alcune lettere greche, linee per riquadri e segni di matematica. Il PDF usa l'insieme WinAnsi (lettere latine con gli accenti, virgolette curve, il pallino elenco e il segno dell'euro). Un segno che non è in WinAnsi, come una linea per riquadri, nel PDF è scritto come `?`.
 
 ## Problemi
 
 | Problema | Cosa fare |
 |---|---|
-| Salvare, aprire o esportare fallisce e la riga di stato è rossa | Leggi il motivo. Se hai risposto no alla domanda sui documenti, le chiamate falliscono: [DA COMPLETARE: come cambiare la risposta; la risposta è conservata in `bm/config.txt`] |
+| Salvare, aprire o esportare fallisce e la riga di stato è rossa | Leggi il motivo. Se hai risposto no alla domanda sui documenti, le chiamate falliscono: la risposta è conservata in `bm/config.txt` sulla scheda SD. Apri quel file su un computer e cerca la riga che inizia con `allow_` e finisce con `(bm Write)`. Cambia `docs=no` in `docs=yes`, oppure cancella la riga: la console chiede di nuovo al salvataggio successivo |
 | `no documents in /docs yet: Ctrl+S saves this one` | La cartella è vuota. Salva prima un documento |
 | `8 letters or digits, like LETTER` | Il nome ha uno spazio, o più di 8 lettere (un `.ext` finale viene tolto: `letter.txt` è accettato come `LETTER`). Scrivine uno più corto |
 | `not a bm Write document` | Il file `.BMD` non è nel formato di bm Write |
