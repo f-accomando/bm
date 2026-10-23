@@ -3080,7 +3080,7 @@ function draw_edit()
     hint({ { { "up", "down", "left", "right" }, "corner" }, { { "enter" }, "choose" }, { { "space" }, "add" }, { { "esc" }, "cancel" } })
   elseif ed.pal then hint({ { { "up", "down", "left", "right" }, "colour" }, { { "enter" }, "take it" }, { { "esc" }, "close" } })
   else
-    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "choose" }, { { "a" }, "all" }, { { "tab" }, "vert/edge/face" },
+    hint({ { { "space" }, "choose" }, { { "tab" }, "mode" },
            { { "g" }, "move" }, { { "r" }, "rotate" }, { { "t" }, "scale" }, { { "x" }, "extrude" }, { { "shift", "v" }, "smooth" } })
   end
 end
