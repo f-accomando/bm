@@ -528,7 +528,7 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
 /* ---------------------------------------------------------------- binning */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
-       SH_TEX_RGB_SCREEN, SH_TEXT };
+       SH_TEX_RGB_SCREEN, SH_TEXT, SH_SHADOW };
 
 typedef struct { float x, y, z, iw, v[8]; } evert_t;
 
@@ -751,6 +751,7 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_tex_rgb, sizeof fs_tex_rgb)) return SH_TEX_RGB;
     if (!memcmp(code, fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha)) return SH_TEX_RGB_ALPHA;
     if (!memcmp(code, fs_zclear, sizeof fs_zclear)) return SH_ZCLEAR;
+    if (!memcmp(code, fs_shadow, sizeof fs_shadow)) return SH_SHADOW;     /* bm3d 7.7 */
     if (!memcmp(code, fs_tex_lit_screen, sizeof fs_tex_lit_screen)) return SH_TEX_SCREEN;
     if (!memcmp(code, fs_tex_rgb_screen, sizeof fs_tex_rgb_screen)) return SH_TEX_RGB_SCREEN;
     if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
@@ -1018,7 +1019,7 @@ static int bin(uint32_t start, uint32_t end)
                 return err("unknown shader at %08x", rd32(rec + 4), 0);
             if (threaded_check(rec) != 0)
                 return -1;
-            const int colour = sh == SH_COLOUR || sh == SH_SCREEN || sh == SH_ZCLEAR,
+            const int colour = sh == SH_COLOUR || sh == SH_SCREEN || sh == SH_ZCLEAR || sh == SH_SHADOW,
                       rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA || sh == SH_TEX_RGB_SCREEN;
             int stride = rec[1], nvary = rec[3];
             if (sh == SH_ZCLEAR && emu_hang_zclear)
@@ -1369,6 +1370,11 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                     if (pr->shader == SH_ZCLEAR) {  /* fs_zclear: the colour loaded and written back */
                         if (pr->z_update)
                             tz[i] = zz;
+                        continue;
+                    }
+                    if (pr->shader == SH_SHADOW) {  /* fs_shadow: the pixel's colour times 0.5, plus times 0.125 */
+                        for (int k = 0; k < 3; k++)
+                            tcol[i][k] = adds(muld(tcol[i][k], 0x80), muld(tcol[i][k], 0x20));
                         continue;
                     }
                     if (!shaded) {              /* once a pixel, at its centre */

@@ -643,6 +643,26 @@ SHADERS = {
         nop                 ; nop
         nop                 ; nop           ; sbdone
     """,
+    # bm3d 7.7: the shadow that darkens. The colour load signal reads the pixel
+    # from the tile buffer into r4; the shadow keeps 5/8 of it (as the ARM's
+    # (p >> 1) + (p >> 3)): r4 * 0.5 + r4 * 0.125, bytewise. Tested against
+    # the depth, not written. The three varyings (a black colour) are read and dropped.
+    "fs_shadow": """
+        nop                 ; nop
+        nop                 ; mov r1.8888, 0.5
+        mov nop, vary       ; mov r2.8888, 0.125
+        mov nop, vary       ; nop
+        mov nop, vary       ; nop
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; loadc     # r4 = the pixel's colour
+        nop                 ; v8muld r0, r4, r1
+        nop                 ; v8muld r3, r4, r2
+        v8adds r0, r0, r3   ; nop
+        mov tlb_z, rb15     ; nop
+        mov tlbc, r0        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
     # zclear() inside a job (bm3d 4.1): a quad over the page at depth 1 (no
     # varyings) writes the far depth and gives each pixel back its colour
     # (the colour load signal reads the tile buffer into r4), so the 3D

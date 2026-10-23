@@ -368,6 +368,15 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   in world axes and the run is one draw: 64 pieces in 2 draws on the PC. Only a run of at least 32 pieces with at most
   150 faces a piece on average merges (Pi, 23 Oct: 100 pieces of 50 faces +24%, 10 of 500 -26% before the threshold).
 
+- **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
+  black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
+  colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).
+  The depth is tested and not written. `R3D_KIND_SHADE` (r3d to the backend, `r3d_backend_t.shadow_blend`) and
+  `r3d_env_t.shade` ask for it; the GPU uses it when the boot probe of `zclear()` in a job passed and MSAA is off, else the
+  screen-door as before. `shadow3d(1)` keeps the dither on every backend. Where faces of one mesh overlap after the flattening
+  (an arm in front of the torso, seen from the sun) the pixel is darkened once for each face: the ARM darkens it once.
+  Not measured on the Pi: the emulator test `shadow darken` (0.02% of the pixels differ from the ARM).
+
 ## The modes: old versions on today's code
 
 The settings reproduce the earlier versions, so they can be compared on the same Pi:
@@ -388,6 +397,7 @@ The settings reproduce the earlier versions, so they can be compared on the same
 - with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**;
 - with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1** (off by default);
 - with the draws of many small static meshes merged (`gpu3d_merge`, on by default): **7.6**;
+- with `shadow3d(1)`, the GPU's shadows are the screen-door of **7.6** and before (the default, `shadow3d(0)`, darkens: **7.7**);
 - with the opaque sheets as ETC1 (`gpu3d_etc1=1`, with `gpu3d_tex16=1`): **7.3**;
 - with cel draws (`cel3d`, flag 256), the ARM lighting of the same version: **7.4** (no setting);
   with `gpu3d_vs=2` the cut is in the vertex programs and the outline (flag 512) is the hull: **7.5**

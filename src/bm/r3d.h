@@ -115,7 +115,12 @@ typedef struct { float x, y, z, a, b, c; float l[3], f[3]; } r3d_corner_t;
  * from the screen (rounding aside), so the backend need not check them.
  * R3D_TEX_SCREEN, added to R3D_KIND_TEXTURE or R3D_KIND_TEX_RGB: a textured
  * screen-door face (only to a backend with tex_screen) */
-enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_KIND_SCREEN, R3D_KIND_TEX_RGB, R3D_INSIDE = 4, R3D_TEX_SCREEN = 8 };
+enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_KIND_SCREEN, R3D_KIND_TEX_RGB, R3D_INSIDE = 4, R3D_TEX_SCREEN = 8,
+       R3D_KIND_SHADE = 16 };
+
+/* R3D_KIND_SHADE (bm3d 7.7, only to a backend with shadow_blend): a shadow that darkens what is
+ * there (5/8 of each channel, as the ARM's style 0), the depth tested and not written; the corner
+ * colour is ignored. A backend that cannot read the pixel back may draw it as R3D_KIND_SCREEN. */
 
 /* the depth of a backend triangle: tested and written, neither (R3D_NOZ),
  * or tested only (3D effects, shadows) */
@@ -147,6 +152,7 @@ typedef struct {
      * (on above 0.5). Only to a backend with cel */
     int cel;
     float cel_floor;
+    int shade;                  /* bm3d 7.7, a shadow: darken (style 0), not the screen-door */
 } r3d_env_t;
 
 typedef struct {
@@ -177,6 +183,7 @@ typedef struct {
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
     int tex_screen;             /* draws textured screen-door faces (R3D_TEX_SCREEN, M34); else
                                  * they go to the ARM */
+    int shadow_blend;           /* bm3d 7.7: draws R3D_KIND_SHADE and r3d_env_t.shade shadows */
     int cel;                    /* bm3d 7.5: its mesh cuts the sun's light by the bands of r3d_env_t.cel
                                  * (cel3d); else a lit cel draw goes to the ARM triangle by triangle */
     int colour_only;            /* M41: draws flat colours with depth R3D_DEPTH_WRITE only (the Mali, phase 2): anything

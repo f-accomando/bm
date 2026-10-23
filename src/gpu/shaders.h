@@ -311,6 +311,23 @@ static const uint32_t fs_text[58] __attribute__((aligned(8))) = {
     0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
 };
 
+static const uint32_t fs_shadow[28] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x809ef03f, 0xd13049e1,     /* nop                 ; mov r1.8888, 0.5 */
+    0x958eddbf, 0xd13249e2,     /* mov nop, vary       ; mov r2.8888, 0.125 */
+    0x158e7d80, 0x100209e7,     /* mov nop, vary       ; nop */
+    0x158e7d80, 0x100209e7,     /* mov nop, vary       ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop                 ; nop           ; loadc */
+    0x609e7021, 0x100049e0,     /* nop                 ; v8muld r0, r4, r1 */
+    0x609e7022, 0x100049e3,     /* nop                 ; v8muld r3, r4, r2 */
+    0xc09e7003, 0x100049e0,     /* v8adds r0, r0, r3   ; nop */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15     ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0        ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
 static const uint32_t fs_zclear[16] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */

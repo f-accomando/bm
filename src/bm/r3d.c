@@ -1358,7 +1358,8 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
             r3d_corner_t q[4];
             for (int i = 0; i < np; i++)
                 corner(&q[i], pts[i].x, pts[i].y, pts[i].z * 1.035f, 0, 0, 0);
-            emit(r, q, np, R3D_KIND_SCREEN, NULL, R3D_DEPTH_TEST);
+            emit(r, q, np, r->backend->shadow_blend && !r->shadow_style ? R3D_KIND_SHADE : R3D_KIND_SCREEN, NULL,
+                 R3D_DEPTH_TEST);
             continue;
         }
         raster_mask(r, pts[0], pts[1], pts[2], box);
@@ -1979,6 +1980,7 @@ static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry
             env.cx = v.hw;
             env.cy = v.hh;
             env.detail = detail;
+            env.shade = r->backend->shadow_blend && !r->shadow_style;
             const int nb = m->bones && m->nbones > 0 ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
             if (r->backend->shadow(r->backend->ctx, r->g, m, (const float (*)[12])X.m, nb, v.c, L,
                                    p.y - r->cam_pos.y, &env)) {

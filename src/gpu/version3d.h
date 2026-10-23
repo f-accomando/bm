@@ -23,10 +23,11 @@
  * sheets as ETC1 7.3 (gpu3d_etc1: GPU+ETC1), with the cel light on the ARM
  * (cel3d, draw3d flag 256) and dither3d 7.4, with the cel light in the vertex programs and the
  * outline by the inverted hull (flag 512) 7.5, with the draws of many small
- * static meshes merged (gpu3d_merge) 7.6. 0.1 and 1.0 no longer run: the 3D Bench shows the
+ * static meshes merged (gpu3d_merge) 7.6, with the shadows that darken on the GPU
+ * (shadow3d(0); shadow3d(1) is the screen-door of 7.6) 7.7. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.6"
+#define BM3D_VERSION "7.7"
 #define BM3D_BLOCK   "cel"
 
 typedef struct {
@@ -81,6 +82,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.4", "cel", "2026-10-22", "cel3d() and draw3d flag 256: the sun light in bands by a 64-entry table (ARM lighting); dither3d()" },
         { "7.5", "cel", "2026-10-22", "cel light in the lit vertex programs (V3D); outline by the inverted hull (draw3d flag 512)" },
         { "7.6", "merge", "2026-10-23", "draws of many small static baked or unlit meshes merged (gpu3d_merge; compact attributes stay off by default)" },
+        { "7.7", "shadow", "2026-10-23", "shadows (draw3d flag 8) darken on the GPU: fs_shadow reads the pixel (colour load) and keeps 5/8 of it, as the ARM; the screen-door stays for shadow3d(1) and with MSAA" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

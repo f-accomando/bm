@@ -748,6 +748,26 @@ static void s_overbit(r3d_t *r, g16_t *g, int gpu)
     flush(r, g, gpu);
 }
 
+/* bm3d 7.7: the shadow that darkens (style 0) on a floor and a lit sphere above it, the corners
+ * drawn by r3d (vs 0) or the shadow by the vertex programs (vs 1); the ARM darkens the same pixels */
+static void shadow_darken(r3d_t *r, g16_t *g, int gpu, int vs)
+{
+    r3d_camera(r, 0, 1.5f, -5, 0, -0.25f, 60);
+    r3d_light(r, -0.3f, 0.8f, 0.4f, 0.4f);
+    r->shadow_style = 0;
+    gpu3d_set_vshader(gpu != 0 && vs);
+    r3d_draw_flags(r, &cube, (v3_t){ 0, -2.2f, 1 }, 0, 0, 0, 1.2f, 0);
+    r3d_draw_flags(r, &sphere, (v3_t){ 0.6f, -1.0f, 1 }, 0, 0, 0, 0.8f, R3D_SHADOW);
+    r3d_draw_flags(r, &sphere, (v3_t){ -0.7f, -1.0f, 1.4f }, 0, 0, 0, 0.6f, R3D_SHADOW);
+    r3d_draw_flags(r, &sphere, (v3_t){ 0.6f, -0.2f, 1 }, 0, 0, 0, 0.8f, R3D_SMOOTH);
+    if (gpu)
+        CHECK(r->backend != NULL, "shadow darken: the shadows went to the ARM");
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+}
+static void s_shadow_darken(r3d_t *r, g16_t *g, int gpu) { shadow_darken(r, g, gpu, 0); }
+static void s_shadow_darken_vs(r3d_t *r, g16_t *g, int gpu) { shadow_darken(r, g, gpu, 1); }
+
 /* M34: textured screen-door faces over a sphere: a plain textured quad, a
  * quad of a "lit" model (light baked, fog), a "lit" box through the vertex
  * shader (vsh), all on the GPU (they went to the ARM before) */
@@ -885,6 +905,8 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "3D 2D 3D", s_split, 640, 360, 0.02f, 0 },
     { "cleared", s_cleared, 320, 180, 0.02f, 1 },
     { "overbit", s_overbit, 640, 360, 0.03f, 1 },
+    { "shadow darken", s_shadow_darken, 640, 360, 0.03f, 0 },
+    { "shadow darken vs", s_shadow_darken_vs, 640, 360, 0.03f, 0 },
     { "effects", s_effects, 640, 360, 0.02f, 1 },
     { "vshader", s_vshader, 640, 360, 0.02f, 1 },
     { "vshader lit", s_vshader_lit, 640, 360, 0.04f, 1 },

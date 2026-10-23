@@ -46,7 +46,7 @@ do
     end
   end
 
-  local order, dist = {}, {}
+  local order, dist, lvl = {}, {}, {}
   local function farther(a, b) return dist[a] > dist[b] end
 
   -- draws the first H.n heroes that can be seen; counts them per level in H.drawn
@@ -75,6 +75,23 @@ do
         lv = d2 < 64 and 0 or d2 < 256 and 1 or d2 < 784 and 2 or 3
       end
       drawn[lv + 1] = drawn[lv + 1] + 1
+      lvl[k] = lv
+    end
+    -- the shadows first, all of them: a hero drawn after its shadow covers it, so a foot is never
+    -- darkened (the shadow is tested against the floor only). The pose is set again for the heroes.
+    if opt.shadow then
+      for k = 1, m do
+        local i, lv = order[k], lvl[k]
+        local mesh = H.hero[lv + 1]
+        local a = stat(8)
+        animate(mesh, "walk", t + i * 0.37)
+        H.anim_ms = H.anim_ms + stat(8) - a
+        local x, z = H.x[i], H.z[i]
+        draw3d(mesh, x, map3d_height(H.world, x, z) or 0, z, 0, H.yaw[i] + PI, 0, 1, 8)
+      end
+    end
+    for k = 1, m do
+      local i, lv = order[k], lvl[k]
       local x, z = H.x[i], H.z[i]
       local y = map3d_height(H.world, x, z) or 0
       local ry = H.yaw[i] + PI                -- the model faces -z (checked with the close camera: from behind, no eyes)
@@ -86,7 +103,6 @@ do
       local f = opt.cel and (flags | 256) or flags
       if opt.flag512 then f = f | 512 end
       draw3d(mesh, x, y, z, 0, ry, 0, 1, f)
-      if opt.shadow then draw3d(mesh, x, y, z, 0, ry, 0, 1, 8) end
       if opt.hull then
         local hull = H.hull[lv + 1]
         a = stat(8)

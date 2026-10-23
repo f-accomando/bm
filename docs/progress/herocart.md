@@ -61,6 +61,7 @@ Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. To check the verte
 - `cel3d` and `dither3d` are cart state. `r3d_init` resets them.
 - The logic of the 64 heroes runs every frame, whatever the count.
 - `stat(16)` to `stat(18)` are read only for display and the printed line. No quality governor.
+- The shadows (row 16) are drawn in a first pass, before all the heroes, so a foot is never darkened: the animation runs twice for each hero while the row is on (`anim` shows both). With bm3D 7.7 the GPU shadow darkens as the ARM's.
 - `_init` calls `frameskip(4)`. A frame over budget is not drawn: up to 4 `_update` run before the next `_draw`. `stat(15) - 1` counts the frames not drawn. The panel (`skip`) and the printed line (`skip=`) show them for each second.
 - The `.b16` edition, when it comes, is built from its own sources.
 - Keep the `hkeys f= row=` line. `tests/qemu_test.py` test_herocart reads it. `tests/herocart/check.py` ignores it.

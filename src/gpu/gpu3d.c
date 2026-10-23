@@ -55,7 +55,7 @@ typedef struct {
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
-       SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_TEX_T, SH_TEX_RGB_T,
+       SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_SHADOW, SH_TEX_T, SH_TEX_RGB_T,
        SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (bm3d 3.0); GV_LIT_TEX2: faces on two bones (a
@@ -93,6 +93,7 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_tex_rgb_screen, sizeof fs_tex_rgb_screen, 2, 8, 1, 0 },
     { fs_tex_lit_alpha, sizeof fs_tex_lit_alpha, 2, 3, 1, 1 },  /* bm3d 4.8: sprites (k = 1) */
     { fs_text, sizeof fs_text, 2, 5, 1, 1 },                    /* bm3d 4.8: text */
+    { fs_shadow, sizeof fs_shadow, 0, 3, 0, 0 },                /* bm3d 7.7: the shadow that darkens */
     { fs_tex_lit_t, sizeof fs_tex_lit_t, 2, 3, 0, 0 },          /* bm3d 5.3: SH_TEX, SH_TEX_RGB with two threads */
     { fs_tex_rgb_t, sizeof fs_tex_rgb_t, 2, 8, 0, 0 },
     { fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t, 2, 3, 1, 0 },  /* bm3d 6.3: the other textured ones */
@@ -1114,12 +1115,26 @@ static inline __attribute__((always_inline)) void add_tri(const g16_t *g, const 
     G.st.tris++;
 }
 
+/* bm3d 7.7: the shadow that darkens reads the pixel (the colour load of fs_zclear, which the boot
+ * probe must have seen work); with MSAA it is the screen-door's */
+static inline int shade_ok(void)
+{
+    return G.zclear_ok && !G.msaa;
+}
+
 static void cb_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex,
                    int depth)
 {
     (void)ctx;
     const int inside = kind & R3D_INSIDE, screen = kind & R3D_TEX_SCREEN;
     kind &= ~(R3D_INSIDE | R3D_TEX_SCREEN);
+    if (kind == R3D_KIND_SHADE) {       /* bm3d 7.7: the shadow that darkens, else the screen-door */
+        if (shade_ok())
+            add_tri(g, v, R3D_KIND_COLOUR, NULL, depth, SH_SHADOW, inside);
+        else
+            add_tri(g, v, R3D_KIND_SCREEN, NULL, depth, SH_SCREEN, inside);
+        return;
+    }
     if (kind == R3D_KIND_TEXTURE || kind == R3D_KIND_TEX_RGB) {
         const tex_t *t = tex ? tex_get(g, tex) : NULL;
         if (t) {
@@ -2169,9 +2184,10 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
         G.rec_next += 64;
         memset(r, 0, 64);
         uint32_t a;
-        r[0] = 4 | fs_flags(SH_SCREEN);         /* clipping; single-threaded */
-        r[3] = shaders[SH_SCREEN].varyings;
-        a = v3d_bus(G.code + 1024 * SH_SCREEN); memcpy(r + 4, &a, 4);
+        const int fs = env->shade && shade_ok() ? SH_SHADOW : SH_SCREEN;
+        r[0] = 4 | fs_flags(fs);                /* clipping; single-threaded */
+        r[3] = shaders[fs].varyings;
+        a = v3d_bus(G.code + 1024 * fs); memcpy(r + 4, &a, 4);
         r[14] = 1; r[15] = vpm_size(two ? 16 : 12);
         a = v3d_bus(G.code + 1024 * (two ? CODE_SHADOW2 : CODE_SHADOW)); memcpy(r + 16, &a, 4);
         a = v3d_bus(vs); memcpy(r + 20, &a, 4);
@@ -4205,6 +4221,7 @@ int gpu3d_init(void)
     G.backend.zclear = cb_zclear;
     G.backend.merge = cb_merge;
     G.backend.tex_screen = 1;
+    G.backend.shadow_blend = 1;         /* (shade_ok says no where the probe or MSAA forbid it) */
     G.backend.cel = 1;                  /* (cb_mesh says no where the probe saw the cel programs fail) */
     set_guard(G.scr_w ? G.scr_w : 640, G.scr_h ? G.scr_h : 360);   /* r3d's bound too */
     if (probe() != 0)
