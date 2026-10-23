@@ -75,7 +75,7 @@ Press **F1** at any time to see the keys on the screen. Any key closes the list.
 |---|---|---|
 | Toolbar | top line | `bm Write`, the document name (`Untitled` if new, with `*` if it has changes), the style of the paragraph, the letters `B` `I` `U` and `L` `C` `R` `J` |
 | Pages | the middle | the document on A4 pages, the cursor, the selection and the grey-blue word that Tab would write |
-| Status line | bottom line | `Page N of M`, the number of words, `PAD` and the pad mode when pad typing is on, the language |
+| Status line | bottom line | `Page N of M`, the number of words, `PAD` and the pad mode when pad typing is on, the language, and the chip F12 keys at the right (click it, or hold F12, to see every key of the page) |
 
 On the toolbar, the letters that are lit show the state at the cursor: bold, italic, underline, and the alignment of the paragraph. Messages such as `saved /docs/letter.bmd` take the place of the status line for a few seconds.
 

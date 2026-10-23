@@ -171,7 +171,7 @@ In F1 un puntatore si muove con le frecce. **Spazio** usa lo strumento. Con mati
 
 Il colore 0 è trasparente.
 
-La barra dei suggerimenti in fondo alla pagina di disegno mostra solo i tasti principali: gli strumenti `b e g m w`, `Ctrl+E PNG`, i tasti del colore, **z** e **Tab**. Gli altri tasti (`u o l j q` e il resto) sono nell'aiuto di **F12**.
+La barra dei suggerimenti in fondo alla pagina di disegno mostra solo i tasti principali: gli strumenti `b e g m w`, le forme `l u o`, `Ctrl+E PNG`, i tasti del colore, **z** e **Tab**. Gli altri tasti (`j q` e il resto) sono nell'aiuto di **F12**. La barra termina con il chip F12 keys. Fai clic su di esso, oppure tieni premuto F12, per vedere ogni tasto della pagina.
 
 ## Vista a piastrella (q)
 
