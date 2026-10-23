@@ -96,6 +96,8 @@ La disposizione è quella delle altre app della console: a sinistra un pannello 
 | `Ctrl+S` | salva |
 | `Ctrl+Shift+S` | salva con nome (nome 8.3 in `/carts`) |
 | `Ctrl+O` | apri un altro file |
+| `Ctrl+I` | importa un modello da `/bmm` o `/glb` |
+| `Ctrl+E` | esporta il modello in `/bmm` |
 | `F5` o `Ctrl+R` | prova il gioco (salva prima, poi torna alla stessa pagina) |
 | `F6` | l'assistente, dove il kernel ce l'ha |
 | `Ctrl+Z`, `Ctrl+Y` | annulla, ripeti |
@@ -381,6 +383,20 @@ Rinomina un osso in `sword` in F2, rifai il bake e guarda l'anteprima: il suo bo
 1. Premi **Esc**. Il menu elenca Continue, Open, Save, Save as, Try the game, Open in bm Studio ed Exit.
 2. Scegli **Save as...** e scrivi un nome come `HERO`.
 3. La riga di stato dice `saved` e il percorso. Il titolo del menu mostra il file senza `*modified*`.
+
+## Importare un .glb
+
+La scheda SD ha due cartelle per i modelli. `/glb` contiene i file `.glb` che copi lì; bm Animator li legge soltanto. `/bmm` contiene i modelli convertiti (`.bmm`); bm Animator li scrive lì. Tutti i nomi sono in minuscolo.
+
+1. Premi **Ctrl+I**, oppure scegli **Import a model...** nel menu (Esc). Sul pad, premi Y + B per il menu.
+2. L'elenco mostra `/bmm` e `/glb`. Un nome segnato `.glb: converted to /bmm` non ha ancora un `.bmm`.
+3. Scegli un `.bmm` per leggerlo. Scegli un `.glb` per convertirlo: bm Animator scrive `/bmm/NAME.bmm` e aggiunge il modello al progetto.
+4. Se il nome ha più di 8 caratteri, o `/bmm` ha già quel nome, bm Animator chiede un nuovo nome (da 1 a 8 tra a-z, 0-9, `_` e `-`).
+5. La riga di stato mostra i vertici e i triangoli. Se il file non va bene, mostra il messaggio della console, per esempio il limite del formato di 65535 vertici o triangoli.
+
+Un `.glb` dà colori piatti e nessuno scheletro: creane uno nella pagina rig (F2). Un `.bmm` con uno scheletro lo conserva, e le sue ossa compaiono nella riga di stato. La texture di un `.bmm` va sullo sheet del progetto solo quando lo sheet è vuoto; altrimenti le facce che la usavano diventano grigie. Un `.bmm` con più modelli dà il primo.
+
+**Ctrl+E**, o **Export to /bmm...** nel menu, scrive il modello corrente in `/bmm/NAME.bmm` con scheletro e animazioni; se il file c'è già, bm Animator chiede prima di sostituirlo.
 
 # Usare l'animazione in un gioco
 

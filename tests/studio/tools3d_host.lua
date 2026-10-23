@@ -11,6 +11,7 @@
 -- SDDIR/carts/village.bm must be there (a copy of build/carts/village.bm).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/studio3d-sd"
+local MF = dofile(ROOT .. "/tests/studio/model_card.lua")      -- /bmm and /glb (APP-9)
 local checks, fails = 0, 0
 local function check(ok, msg)
   checks = checks + 1
@@ -435,6 +436,7 @@ local function new_env(arg_path)
     for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
     return out
   end
+  MF.install(E)
   E.cart_load = function(path)
     local data = read_file(host(path))
     if not data then return nil, "no such file" end
@@ -1215,6 +1217,149 @@ mx, my = at("sprites", nil, 0)
 click(mx, my)
 mouse(100, 80, 0, 1)
 check(sees("SPRITES"), "mouse: the sprites page, the wheel on a row")
+
+-- models from /bmm and /glb (APP-9): the list, a .bmm read, a .glb converted to /bmm (a name asked when
+-- its own is over 8 characters or taken), the errors, the texture, the skeleton, the export to /bmm
+do
+  local card = MF.card
+  for _, d in pairs(card) do for k in pairs(d) do d[k] = nil end end
+  MF.calls, MF.writes = {}, {}
+  local SHEET = string.pack("<I2I2", 8, 8) .. string.rep("\10\20\30\255", 64)
+  MF.put_bmm("kite.bmm", "Kite", "kite", 2)
+  MF.put_bmm("tex.bmm", "Tex", "tex", 2, { textured = true, sheet = SHEET })
+  MF.put_bmm("rigged.bmm", "Rigged", "rigged", 3, { rig = true })
+  card["/glb"]["kite.glb"] = "glTF"
+  card["/glb"]["robot.glb"] = "glTF"
+  card["/glb"]["longmodelname.glb"] = "glTF"
+  card["/glb"]["bad.glb"] = "glTF"
+  card["/glb"]["huge.glb"] = "glTF"
+  card["/glb"]["notes.txt"] = "text"
+  -- the row of a name in the list: sorted, one entry for a .bmm and a .glb of the same name
+  local function row_of(name)
+    local seen, list = {}, {}
+    for _, d in ipairs({ "/bmm", "/glb" }) do
+      for f in pairs(MF.card[d]) do
+        local stem = f:lower():match("^(.+)%.[bg][ml][mb]$")
+        if stem and not seen[stem] then seen[stem] = true; list[#list + 1] = stem end
+      end
+    end
+    table.sort(list)
+    for i, n in ipairs(list) do if n == name then return i end end
+  end
+  local function import_row(name, via)
+    if via == "menu" then menu_pick("Import a model", EXIT_S) else key("^i") end
+    key("pgup")
+    for _ = 2, row_of(name) do key("down") end
+    key("\n")
+  end
+  local function bmm_has(name) return MF.card["/bmm"][name .. ".bmm"] ~= nil end
+
+  run_cart("/carts/studio/main.lua", "/carts/village.bm")
+  E._init()
+  frames(3)
+  local n0 = #cur_models()
+  key("^i")
+  check(sees("import a model (/bmm, /glb)") and sees("robot   .glb: converted to /bmm") and sees("kite   .bmm (and .glb)")
+        and sees("tex   .bmm") and not sees("notes"), "import: the list of /bmm and /glb, the .glb only ones marked")
+  key("esc")
+  check(not sees("import a model"), "import: Esc closes the list")
+  check(in_help("ctrl i") and in_help("ctrl e") and in_help("Y B"), "keyhelp: import and export")
+
+  import_row("bad")
+  check(status():find("not a .glb file", 1, true) and #cur_models() == n0 and not bmm_has("bad"),
+        "import: a bad .glb gives the message of glb3d: " .. status())
+  import_row("huge")
+  check(status():find("the format holds 65535", 1, true) and #cur_models() == n0,
+        "import: the format limit message of glb3d: " .. status())
+  import_row("kite")
+  check(#cur_models() == n0 + 1 and cur_models()[n0 + 1].name == "kite" and cur_models()[n0 + 1].nf == 2, "import: kite.bmm is a new model")
+  check(status():find("kite.bmm: 4 vertices, 2 triangles", 1, true) and sees("TOOLS"), "import: the counters, the build page: " .. status())
+  check(#MF.calls == 2 and not bmm_has("huge"), "import: a .bmm does not read a .glb")
+
+  -- a name over 8 characters: asked; a taken one: asked again
+  import_row("longmodelname")
+  check(sees("new name in /bmm") and status():find("1 to 8", 1, true), "import: a long .glb name asks a new name: " .. status())
+  type_text("kite")
+  check(sees("new name in /bmm") and status():find("/bmm/kite.bmm is there already", 1, true) and not bmm_has("longmod"),
+        "import: a taken name asks again: " .. status())
+  type_text("Bad Name")
+  check(sees("new name in /bmm") and status():find("a name is 1 to 8", 1, true), "import: a name with spaces asks again")
+  type_text("longmod")
+  check(bmm_has("longmod") and #cur_models() == n0 + 2, "import: the .glb is converted to /bmm/longmod.bmm and opened")
+  check(status():find("longmodelname.glb to /bmm/longmod.bmm: 4 vertices, 3 triangles", 1, true), "import: the counters: " .. status())
+  check(cur_models()[n0 + 2].name == "longmodelname" and cur_models()[n0 + 2].nf == 3, "import: the model keeps the name of the .glb")
+  check(MF.card["/glb"]["longmodelname.glb"] == "glTF", "import: /glb is read only")
+
+  import_row("robot", "menu")
+  check(bmm_has("robot") and #cur_models() == n0 + 3 and status():find("robot.glb to /bmm/robot.bmm", 1, true),
+        "import: robot.glb converted at once (menu: Import a model): " .. status())
+
+  -- the texture: the sheet is in use, the faces turn flat grey; with a clean sheet it comes along
+  import_row("tex")
+  check(status():find("flat grey", 1, true) and #cur_models() == n0 + 4, "import: a textured .bmm on a sheet in use: flat grey: " .. status())
+  local w, h = E.cart_sheet()
+  local keep = {}
+  for y = 0, h - 1 do for x = 0, w - 1 do keep[y * w + x] = E.sget(x, y); E.sset(x, y, nil) end end
+  import_row("tex")
+  check(status():find("its texture on the sheet", 1, true) and E.sget(0, 0) == 0x0A141E, "import: a clean sheet takes the texture: " .. status())
+  for y = 0, h - 1 do for x = 0, w - 1 do E.sset(x, y, keep[y * w + x]) end end
+  key("f2", "del", "del")
+
+  -- the skeleton comes with the model
+  import_row("rigged")
+  local rigged = anim_rigs(sec[9])["rigged"]
+  check(status():find("1 bones", 1, true) and rigged and #rigged.bones == 1, "import: a .bmm with a skeleton keeps it: " .. status())
+
+  -- the export: the name asked, a file that is there replaced only when chosen
+  key("^e")
+  check(sees("export to /bmm: name"), "export: Ctrl+E asks the name")
+  type_text("kite")
+  check(sees("/bmm/kite.bmm is there already") and sees("Replace it"), "export: a name that is taken: the choice")
+  key("\n")                              -- (the cursor is on Another name...)
+  check(sees("export to /bmm: name"), "export: Another name... asks again")
+  type_text("mine")
+  local out = MF.card["/bmm"]["mine.bmm"]
+  check(out and out.sections[9] and out.sections[8]:byte(1) == 1, "export: /bmm/mine.bmm has the model and its skeleton")
+  check(status():find("exported to /bmm/mine.bmm: 4 vertices, 3 triangles", 1, true), "export: the counters: " .. status())
+  local before = MF.card["/bmm"]["kite.bmm"].sections[8]
+  key("^e")
+  type_text("kite")
+  key("up", "\n")
+  check(MF.card["/bmm"]["kite.bmm"].sections[8] ~= before and status():find("exported to /bmm/kite.bmm", 1, true), "export: Replace it changes the file")
+  menu_pick("Export to /bmm", EXIT_S)
+  check(sees("export to /bmm: name"), "export: the menu item asks the name")
+  key("esc")
+  local nw = #MF.writes
+  click(420, 200, 2)
+  check(sees("Import a model") and sees("Export to /bmm"), "import, export: in the context menu")
+  key("esc")
+  check(#MF.writes == nw, "export: Esc writes nothing")
+
+  -- an empty model has nothing to export
+  key("f2", "n", "^e")
+  check(status():find("nothing to export", 1, true), "export: an empty model: " .. status())
+  key("f2", "del", "del")
+
+  -- bm Animator: the same list, a model with a skeleton opens on its page
+  run_cart("/carts/animator/main.lua", "/carts/village.bm")
+  E._init()
+  frames(3)
+  local a0 = #cur_models()
+  key("^i")
+  check(sees("import a model (/bmm, /glb)") and sees("rigged   .bmm"), "bm Animator: Ctrl+I lists /bmm and /glb")
+  key("pgup")
+  for _ = 2, row_of("rigged") do key("down") end
+  key("\n")
+  check(#cur_models() == a0 + 1 and anim_rigs(sec[9])["rigged"] and status():find("1 bones", 1, true),
+        "bm Animator: a model with a skeleton imported: " .. status())
+  check(in_help("ctrl i") and in_help("ctrl e"), "bm Animator keyhelp: import and export")
+  key("^e")
+  type_text("fromanim")
+  check(MF.card["/bmm"]["fromanim.bmm"] and MF.card["/bmm"]["fromanim.bmm"].sections[9], "bm Animator: export keeps the skeleton")
+  menu_pick("Import a model", EXIT_A)
+  check(sees("import a model (/bmm, /glb)"), "bm Animator: menu, Import a model")
+  key("esc")
+end
 
 -- the format limit: 65535 vertices and 65535 triangles (the u16 counts of the MESH record)
 do

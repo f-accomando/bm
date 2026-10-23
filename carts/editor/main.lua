@@ -1242,7 +1242,7 @@ do
   end
   for w in ([[mesh mesh_sphere mesh_cube model models bounds3d animate clips bone3d bones3d bone_turn hit3d
     draw3d camera3d light3d sky3d shine3d shadow3d point3d line3d sprite3d world3d world_box world_ray world_move
-    world_floor fog3d project3d lamp3d zclear gpu3d cart_data cart_meshes mesh_reduce picture3d cutout3d glb3d]]):gmatch("%S+") do
+    world_floor fog3d project3d lamp3d zclear gpu3d cart_data cart_meshes mesh_reduce picture3d cutout3d glb3d res_write res_read]]):gmatch("%S+") do
     API3D[w] = true
   end
   local C_KW, C_API, C_3D, C_STR, C_NUM, C_COM, C_PUN = 0xFF7AB0, 0x70D0FF, 0x60E0B0, 0x90E070, 0xFFB060, 0x607088, 0xB0B8D0

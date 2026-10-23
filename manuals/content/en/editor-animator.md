@@ -96,6 +96,8 @@ The layout is the one of the other console apps: on the left a panel with lists,
 | `Ctrl+S` | save |
 | `Ctrl+Shift+S` | save as (8.3 name in `/carts`) |
 | `Ctrl+O` | open another file |
+| `Ctrl+I` | import a model from `/bmm` or `/glb` |
+| `Ctrl+E` | export the model to `/bmm` |
 | `F5` or `Ctrl+R` | try the game (saves first, then comes back to the same page) |
 | `F6` | the assistant, where the kernel has it |
 | `Ctrl+Z`, `Ctrl+Y` | undo, redo |
@@ -381,6 +383,20 @@ Rename a bone to `sword` in F2, bake again and look at the preview: its box turn
 1. Press **Esc**. The menu lists Continue, Open, Save, Save as, Try the game, Open in bm Studio and Exit.
 2. Choose **Save as...** and type a name such as `HERO`.
 3. The status line says `saved` and the path. The title of the menu shows the file without `*modified*`.
+
+## Import a .glb
+
+The SD card has two folders for models. `/glb` holds `.glb` files that you copy there; bm Animator only reads them. `/bmm` holds the converted models (`.bmm`); bm Animator writes them there. All the names are in lower case.
+
+1. Press **Ctrl+I**, or choose **Import a model...** in the menu (Esc). On the pad, press Y + B for the menu.
+2. The list shows `/bmm` and `/glb`. A name marked `.glb: converted to /bmm` has no `.bmm` yet.
+3. Choose a `.bmm` to read it. Choose a `.glb` to convert it: bm Animator writes `/bmm/NAME.bmm` and adds the model to the project.
+4. If the name has more than 8 characters, or `/bmm` has the name already, bm Animator asks for a new name (1 to 8 of a-z, 0-9, `_` and `-`).
+5. The status line shows the vertices and the triangles. If the file is not good, it shows the message of the console, for example the format limit of 65535 vertices or triangles.
+
+A `.glb` gives flat colours and no skeleton: make one on the rig page (F2). A `.bmm` with a skeleton keeps it, and its bones show in the status line. The texture of a `.bmm` goes on the sheet of the project only when the sheet is empty; if not, the faces that used it turn grey. A `.bmm` with several models gives the first one.
+
+**Ctrl+E**, or **Export to /bmm...** in the menu, writes the current model to `/bmm/NAME.bmm` with its skeleton and animations; if the file is there, bm Animator asks before it replaces it.
 
 # Using the animation in a game
 

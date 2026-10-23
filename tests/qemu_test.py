@@ -5471,6 +5471,75 @@ def test_mesh(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_mesh_import(b, opts):
+    """APP9-c: bm Mesh (a game's options, "Open in bm Mesh") lists /glb (here box.glb, read
+    only), imports it (the key i of the list): the .glb is converted to /bmm/box.bmm, opens as
+    a model and the screen shows the vertex and triangle counters; the export (the key x) writes
+    /bmm/box2.bmm. The .glb stays as it was; /bmm holds the two files and nothing else."""
+    tmp = tempfile.mkdtemp(prefix="bm-meshimp-")
+    img = os.path.join(tmp, "sd.img")
+    glb = glbfix.build("png")
+    box = os.path.join(tmp, "box.glb")
+    with open(box, "wb") as f:
+        f.write(glb)
+    mksd.build(img, [(b("carts/astrowing.bm"), "carts/astrowing.bm"), (box, "glb/box.glb")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    F1 = "\x1bOP"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Astro Wing"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "s", "s")      # Play, SDK, Code, Sound, Studio, Animator, Mesh
+        screen(["Open in bm Mesh"])
+        keys("\r")
+        screen(["list", "edit", "MESHES 13"])
+        keys("i", gap=0.6)
+        screen(["box   .glb: converted to /bmm"])
+        keys("\r", gap=1.0)
+        screen(["box.glb to /bmm/box.bmm: 13 vertices, 18 triangles"])
+        keys(F1, "x", gap=0.6)
+        screen(["export to /bmm: name"])
+        keys("\x7f", "\x7f", "\x7f", "b", "o", "x", "2", "\r", gap=0.3)
+        screen(["exported to /bmm/box2.bmm: 13 vertices, 18 triangles"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BMM"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "BOX.BMM" in names and "BOX2.BMM" in names and len(names.split()) == 2, names
+        for n in ("BOX.BMM", "BOX2.BMM"):
+            data = subprocess.run(["mtype", "-i", part, "::/BMM/" + n], capture_output=True, env=env).stdout
+            f = bmres.load(data, n)
+            models, _ = bmmesh.decode(f.get(8))
+            assert len(models) == 1 and len(models[0]["verts"]) == 13 and len(models[0]["faces"]) == 18, (n, models)
+        same = subprocess.run(["mtype", "-i", part, "::/GLB/BOX.GLB"], capture_output=True, env=env).stdout
+        assert same == glb, "the .glb is not changed"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def _sheet_pixels(data):
     """The sheet of a .bm: (w, h, [0xRRGGBB or None ...]), from SHEET8 or
     SHEET, and the SHEET8 palette (None for SHEET)."""

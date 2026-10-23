@@ -54,6 +54,7 @@ bm Studio modifica **progetti** (`.bme`). Un **gioco** (`.bm` o `.b16`) è solo 
 ## Dentro bm Studio
 
 - Premi **Esc** per arrivare al menu. *Open...* elenca i progetti `.bme` di `/bme` e i file `.bm` e `.bme` di `/carts` e della radice della scheda SD. Scorciatoia: **Ctrl+O**.
+- *Import a model...* (**Ctrl+I**) ed *Export to /bmm...* (**Ctrl+E**) portano un modello da `/bmm` o `/glb` e ne scrivono uno in `/bmm` (vedi "Salvare ed esportare").
 - *New project* (**Ctrl+N**) avvia un progetto vuoto. Porta con sé le tessere iniziali di bm Studio nello sprite sheet.
 - Un nuovo progetto non è ancora salvato: il menu mostra `(not saved yet)` accanto al nome. Salvalo con **Ctrl+S**.
 
@@ -257,7 +258,21 @@ La console disegna circa 1200 triangoli in una scena a 60 fps. Oltre, i conteggi
 
 Il formato di risorsa per i modelli è `.bmm`: MESH, ANIM se animato e uno sheet con solo le celle usate dalle texture. Sul PC, `scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` ne ricava uno da un gioco.
 
-[DA COMPLETARE: salvare e aprire file `.bmm` dal bm Studio della console; i documenti sulle risorse dicono che è previsto, il programma salva solo il progetto]
+bm Studio legge e scrive file `.bmm` in `/bmm`. La sezione seguente mostra come.
+
+## Importare un .glb
+
+La scheda SD ha due cartelle per i modelli. `/glb` contiene i file `.glb` che copi lì; bm Studio li legge soltanto. `/bmm` contiene i modelli convertiti (`.bmm`); bm Studio li scrive lì. Tutti i nomi sono in minuscolo.
+
+1. Premi **Ctrl+I**, oppure scegli **Import a model...** nel menu (Esc). Sul pad, premi Y + B per il menu.
+2. L'elenco mostra `/bmm` e `/glb`. Un nome segnato `.glb: converted to /bmm` non ha ancora un `.bmm`.
+3. Scegli un `.bmm` per leggerlo. Scegli un `.glb` per convertirlo: bm Studio scrive `/bmm/NAME.bmm` e aggiunge il modello al progetto.
+4. Se il nome ha più di 8 caratteri, o `/bmm` ha già quel nome, bm Studio chiede un nuovo nome (da 1 a 8 tra a-z, 0-9, `_` e `-`).
+5. La riga di stato mostra i vertici e i triangoli. Se il file non va bene, mostra il messaggio della console, per esempio il limite del formato di 65535 vertici o triangoli.
+
+Un `.glb` dà colori piatti. Un `.bmm` con uno scheletro lo conserva (bm Animator lo anima). La texture di un `.bmm` va sullo sheet del progetto solo quando lo sheet è vuoto; altrimenti le facce che la usavano diventano grigie. Un `.bmm` con più modelli dà il primo.
+
+**Ctrl+S** salva il modello nel progetto, come ogni modello. **Ctrl+E**, o **Export to /bmm...** nel menu, scrive il modello corrente in `/bmm/NAME.bmm` con il suo scheletro; se il file c'è già, bm Studio chiede prima di sostituirlo.
 
 ## Per un gioco costruito dal repository
 

@@ -54,6 +54,7 @@ bm Studio changes **projects** (`.bme`). A **game** (`.bm` or `.b16`) is only re
 ## Inside bm Studio
 
 - Press **Esc** to reach the menu. *Open...* lists the `.bme` projects of `/bme` and the `.bm` and `.bme` files of `/carts` and of the root of the SD card. Shortcut: **Ctrl+O**.
+- *Import a model...* (**Ctrl+I**) and *Export to /bmm...* (**Ctrl+E**) bring a model in from `/bmm` or `/glb` and write one to `/bmm` (see "Saving and exporting").
 - *New project* (**Ctrl+N**) starts an empty project. It comes with the starter tiles of bm Studio on its sprite sheet.
 - A new project is not saved yet: the menu shows `(not saved yet)` next to the name. Save it with **Ctrl+S**.
 
@@ -257,7 +258,21 @@ The console draws about 1200 triangles in a scene at 60 fps. Beyond that, the co
 
 The resource format for models is `.bmm`: MESH, ANIM when animated and a sheet with only the cells the textures use. On the PC, `scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` makes one from a game.
 
-[TO FILL: saving and opening `.bmm` files from the console's bm Studio; the resource docs say it is planned, the program only saves the project]
+bm Studio reads and writes `.bmm` files in `/bmm`. The next section shows how.
+
+## Import a .glb
+
+The SD card has two folders for models. `/glb` holds `.glb` files that you copy there; bm Studio only reads them. `/bmm` holds the converted models (`.bmm`); bm Studio writes them there. All the names are in lower case.
+
+1. Press **Ctrl+I**, or choose **Import a model...** in the menu (Esc). On the pad, press Y + B for the menu.
+2. The list shows `/bmm` and `/glb`. A name marked `.glb: converted to /bmm` has no `.bmm` yet.
+3. Choose a `.bmm` to read it. Choose a `.glb` to convert it: bm Studio writes `/bmm/NAME.bmm` and adds the model to the project.
+4. If the name has more than 8 characters, or `/bmm` has the name already, bm Studio asks for a new name (1 to 8 of a-z, 0-9, `_` and `-`).
+5. The status line shows the vertices and the triangles. If the file is not good, it shows the message of the console, for example the format limit of 65535 vertices or triangles.
+
+A `.glb` gives flat colours. A `.bmm` with a skeleton keeps it (bm Animator plays it). The texture of a `.bmm` goes on the sheet of the project only when the sheet is empty; if not, the faces that used it turn grey. A `.bmm` with several models gives the first one.
+
+**Ctrl+S** saves the model in the project, as for any model. **Ctrl+E**, or **Export to /bmm...** in the menu, writes the current model to `/bmm/NAME.bmm` with its skeleton; if the file is there, bm Studio asks before it replaces it.
 
 ## For a game built from the repository
 

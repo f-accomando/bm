@@ -102,6 +102,8 @@ Other keys. F3 works only on the list and edit pages, and `[` and `]` are ignore
 | Ctrl+Shift+S | save as (a name of 8 letters, in `/carts`) |
 | Ctrl+O | open another file |
 | Ctrl+N | a new model, a cube |
+| Ctrl+I | import a model from `/bmm` or `/glb` |
+| Ctrl+E | export the mesh to `/bmm` |
 | F5 or Ctrl+R | try the game |
 | F6 | the assistant |
 | Ctrl+Z, Ctrl+Y | undo, redo |
@@ -119,6 +121,8 @@ Other keys. F3 works only on the list and edit pages, and `[` and `]` are ignore
 | d | duplicate (a model keeps its skeleton) |
 | Del | delete: press it twice |
 | n | a new model, a cube; with F3 also a plane or a sphere |
+| i | import a model from `/bmm` or `/glb` |
+| x | export the mesh to `/bmm` |
 | q, e | turn the view |
 | w, s | tilt the view |
 | + and - | zoom |
@@ -280,12 +284,26 @@ The G meshes come from the kernel function `cart_meshes(path)`. It runs the game
 # Saving
 
 - **Ctrl+S** saves. **Ctrl+Shift+S** asks for a name (8 letters, saved in `/bme` with the extension `.BME`).
-- The menu (Esc) has **Save**, **Save as...**, **Try the game (F5)** and **Exit bm Mesh**. A mark `*` after the file name at the top means unsaved changes.
+- The menu (Esc) has **Save**, **Save as...**, **Try the game (F5)**, **Import a model...**, **Export to /bmm...** and **Exit bm Mesh**. A mark `*` after the file name at the top means unsaved changes.
 - Only the MESH and ANIM sections and the bm Mesh block in the code change. Sprite sheet, map, cover, sound and the rest of the code stay exactly as they were.
 - A model with no vertices or no faces is left out of the file: the message says which one.
 - A cartridge holds at most 256 models.
 - If you opened a game, the first save asks for the editable copy and from then on the file is the `.BME`. To get a game again, build it from the project in the SDK.
 - Exit and Open ask you to choose the same entry twice when there are unsaved changes.
+
+## Import a .glb
+
+The SD card has two folders for models. `/glb` holds `.glb` files that you copy there; bm Mesh only reads them. `/bmm` holds the converted models (`.bmm`); bm Mesh writes them there. All the names are in lower case.
+
+1. Open a cartridge or a project. Press **i** on the list page, or **Ctrl+I** on any page, or choose **Import a model...** in the menu. On the pad, open the commands with **X** and choose it.
+2. The list shows `/bmm` and `/glb`. A name marked `.glb: converted to /bmm` has no `.bmm` yet.
+3. Choose a `.bmm` to read it. Choose a `.glb` to convert it: bm Mesh writes `/bmm/NAME.bmm` and opens the model on the edit page.
+4. If the name has more than 8 characters, or `/bmm` has the name already, bm Mesh asks for a new name (1 to 8 of a-z, 0-9, `_` and `-`).
+5. The status line shows the vertices and the triangles. If the file is not good, it shows the message of the console, for example the format limit of 65535 vertices or triangles.
+
+A `.glb` gives flat colours. The texture of a `.bmm` stays in that file: the faces that used it turn grey, because the project has its own sheet. A `.bmm` with a skeleton keeps it. A `.bmm` with several models gives the first one.
+
+**Ctrl+S** saves the model in the project, as for any model. **x** on the list page, **Ctrl+E**, or **Export to /bmm...** in the menu writes the mesh to `/bmm/NAME.bmm`; if the file is there, bm Mesh asks before it replaces it.
 
 # Tutorials
 

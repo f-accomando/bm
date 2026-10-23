@@ -1849,6 +1849,217 @@ local function sheet_untouched()
   return true
 end
 
+----------------------------------------------------------------- import and export of models (APP-9)
+
+-- What the three editors share to bring a model in from /bmm and /glb and to write one to /bmm.
+-- The flows know no screen: ui = { choose = f(title, rows, sel), ask = f(label, text, done),
+-- say = f(text, is_error) } is the editor's own dialogs. bm Studio and bm Animator give T.ui,
+-- bm Mesh gives its own.
+do
+  local function bmm_names()
+    local t = {}
+    for _, e in ipairs(T.model_files()) do if e.kind == "bmm" then t[e.name] = true end end
+    return t
+  end
+
+  -- a free .bmm name made from a name: lower case, 8 characters at most
+  local function free_stem(name, taken)
+    local s = tostring(name):lower():gsub("%.%w+$", ""):gsub("[^a-z0-9_%-]", ""):sub(1, 8)
+    if s == "" then s = "model" end
+    if not taken[s] then return s end
+    for k = 2, 99 do
+      local t = tostring(k)
+      local n = s:sub(1, 8 - #t) .. t
+      if not taken[n] then return n end
+    end
+    return s
+  end
+
+  local function counts(item) return #item.v .. " vertices, " .. #item.f .. " triangles" end
+
+  -- how the list shows an entry of T.model_files()
+  function T.entry_label(e)
+    if e.kind == "glb" then return e.name .. "   .glb: converted to /bmm" end
+    return e.name .. "   .bmm" .. (e.glb and " (and .glb)" or "")
+  end
+
+  -- one entry: a .bmm is read; a .glb is converted to /bmm/NAME.bmm (a new name is asked when its own
+  -- is over 8 characters or is taken); done(item, text) gets the item
+  function T.import_entry(ui, e, done)
+    if e.kind == "bmm" then
+      local item, err = T.import_model(e.name)
+      if not item then ui.say(tostring(err), true); return false end
+      done(item, e.name .. ".bmm: " .. counts(item))
+      return true
+    end
+    local function convert(to)
+      local ok, path, item = T.import_glb_to_bmm(e.name, { to = to })
+      if not ok then ui.say(tostring(path), true); return false end
+      done(item, e.name .. ".glb to " .. path .. ": " .. counts(item))
+      return true
+    end
+    local to = bmm_stem(e.name)
+    if to and not bmm_names()[to] then return convert(to) end
+    local function name_it(text, why)
+      ui.say(why, true)
+      ui.ask("new name in /bmm (1-8 of a-z 0-9 _ -)", text, function(t)
+        local s = bmm_stem(t)
+        if not s then return name_it(t, "'" .. t .. "': a name is 1 to 8 of a-z 0-9 _ -") end
+        if bmm_names()[s] then return name_it(t, "/bmm/" .. s .. ".bmm is there already") end
+        convert(s)
+      end)
+    end
+    name_it(free_stem(e.name, bmm_names()),
+            to and ("/bmm/" .. to .. ".bmm is there already: give the .glb another name")
+                or (e.name .. ".glb: the .bmm name is 1 to 8 of a-z 0-9 _ -: give it a name"))
+    return true
+  end
+
+  -- the list of /bmm and /glb to choose from; false (and a message) if there is none
+  function T.import_flow(ui, done)
+    local list = T.model_files()
+    if #list == 0 then ui.say("no model in /bmm or /glb on the SD card", true); return false end
+    local rows = {}
+    for i, e in ipairs(list) do
+      rows[i] = { T.entry_label(e), function() T.import_entry(ui, e, done) end }
+    end
+    ui.choose("import a model (/bmm, /glb)", rows, 1)
+    return true
+  end
+
+  -- an item to /bmm/NAME.bmm: asks the name; a file that is there is replaced only when chosen
+  function T.export_item(ui, item)
+    if not item or #item.v == 0 or #item.f == 0 then ui.say("the model is empty: nothing to export", true); return false end
+    local function write(stem, replace)
+      local ok, path = T.write_bmm(item, stem, { replace = replace })
+      if not ok then ui.say(tostring(path), true); return false end
+      ui.say("exported to " .. path .. ": " .. counts(item), false)
+      return true
+    end
+    local function name_it(text)
+      ui.ask("export to /bmm: name (1-8 of a-z 0-9 _ -)", text, function(t)
+        local s = bmm_stem(t)
+        if not s then ui.say("'" .. t .. "': a name is 1 to 8 of a-z 0-9 _ -", true); return name_it(t) end
+        if bmm_names()[s] then
+          ui.choose("/bmm/" .. s .. ".bmm is there already", {
+            { "Replace it", function() write(s, true) end },
+            { "Another name...", function() name_it(s) end },
+          }, 2)
+        else
+          write(s, false)
+        end
+      end)
+    end
+    name_it(free_stem(item.name, {}))
+    return true
+  end
+
+  -- the sheet of the project as a sheet section (type 2: width, height, RGBA), nil if it has none
+  function T.sheet_section()
+    if not cart_sheet or not sget then return nil end
+    local ok, w, h = pcall(cart_sheet)
+    if not ok or not w or not h or w < 1 or h < 1 then return nil end
+    local rows = {}
+    for y = 0, h - 1 do
+      local px = {}
+      for x = 0, w - 1 do
+        local c = sget(x, y)
+        px[#px + 1] = c and spack("BBBB", (c >> 16) & 255, (c >> 8) & 255, c & 255, 255) or "\0\0\0\0"
+      end
+      rows[#rows + 1] = table.concat(px)
+    end
+    return spack("<I2I2", w, h) .. table.concat(rows)
+  end
+
+  -- the pixels of a sheet section on the project's sheet
+  local function sheet_put(data)
+    local w, h = sunpack("<I2I2", data)
+    local cw, ch = cart_sheet()
+    if w > cw or h > ch then cart_sheet(math.max(w, cw), math.max(h, ch)) end
+    for y = 0, h - 1 do
+      local base = 4 + y * w * 4
+      for x = 0, w - 1 do
+        local r, g, b, a = data:byte(base + x * 4 + 1, base + x * 4 + 4)
+        sset(x, y, a >= 128 and (r << 16 | g << 8 | b) or nil)
+      end
+    end
+    S.sheet_dirty = true
+  end
+
+  -- bm Studio and bm Animator: the item as a model of the project (the current one if it is empty).
+  -- The sheet of a .bmm goes on the project's sheet when that is untouched; else its tiles turn
+  -- flat grey.
+  function T.take_item(item, note)
+    local faces, rig = T.decode_model(item.mc, item.ac)
+    local textured = false
+    for _, f in ipairs(faces) do if f.uv then textured = true end end
+    local sheet_text = ""
+    if textured then
+      if item.sheet and item.sheet.type == 2 and sheet_untouched() then
+        sheet_put(item.sheet.data)
+        sheet_text = ", its texture on the sheet"
+      else
+        for _, f in ipairs(faces) do if f.uv then f.uv, f.c = nil, 0x808080 end end
+        sheet_text = ", textured faces flat grey (the sheet is in use)"
+      end
+    end
+    local cur = M()
+    local reuse = cur ~= nil and #cur.faces == 0 and not (cur.rig and #cur.rig.bones > 0)
+    local i
+    if reuse then
+      i = S.cur
+      cur.name = T.unique_name(item.name, S.cur)
+    else
+      i = T.new_model(item.name)
+    end
+    local m = S.models[i]
+    m.faces, m.rig, m.dirty = faces, rig, true
+    S.undo, S.redo = {}, {}
+    local ok, e = T.sync()
+    if not ok then
+      if reuse then m.faces, m.rig = {}, nil else table.remove(S.models, i) end
+      T.sync()
+      say("cannot take the model: " .. tostring(e), C.ERR, 400)
+      return false
+    end
+    S.dirty = true
+    T.select_model(i)
+    T.refresh()
+    T.go(A.order[1])
+    local pg = A.pages[A.order[1]]
+    if pg.reset then pg.reset() end
+    local nb = rig and #rig.bones or 0
+    say(note .. sheet_text .. (nb > 0 and (", " .. nb .. " bones") or "") .. ": model " .. m.name, C.ACC, 400)
+    return true
+  end
+
+  T.ui = {
+    choose = function(title, rows, sel) T.choose(title, rows, sel) end,
+    ask = function(label, text, done) T.ask(label, text, done) end,
+    say = function(s, err) say(s, err and C.ERR or C.ACC, 400) end,
+  }
+
+  function T.import_dialog() return T.import_flow(T.ui, T.take_item) end
+
+  -- the current model to /bmm (its skeleton and, if it has textured faces, the sheet go with it)
+  function T.export_dialog()
+    local m = M()
+    if not m or #m.faces == 0 then say("the model is empty: nothing to export", C.ERR, 300); return false end
+    local ok, e = T.sync()
+    if not ok or not m.mc then say("cannot export: " .. tostring(e or "no faces"), C.ERR, 300); return false end
+    local item = G.model_item(m.name, m.mc, m.ac)
+    item.inset = S.inset
+    for _, f in ipairs(m.faces) do
+      if f.uv then
+        local data = T.sheet_section()
+        if data then item.sheet = { type = 2, data = data } end
+        break
+      end
+    end
+    return T.export_item(T.ui, item)
+  end
+end
+
 -- the model into the project: a new model named after the picture
 local function picture_into_project(m, how, name)
   local use_texture = m.textured and m.texture and sheet_untouched()
@@ -2099,6 +2310,8 @@ function T.keyhelp()
   local function add(t) for _, e in ipairs(t or {}) do list[#list + 1] = e end end
   for _, id in ipairs(A.order) do list[#list + 1] = { A.pages[id].fkey, A.pages[id].label } end
   list[#list + 1] = { "[ / ]", "the model before / after" }
+  list[#list + 1] = { "ctrl i", "import a model: the list of /bmm and /glb" }
+  list[#list + 1] = { "ctrl e", "export the model to /bmm" }
   add(A.help)
   local pg = A.pages[S.page]
   if pg and pg.help then
@@ -2109,7 +2322,7 @@ function T.keyhelp()
     add({ { "up / down", "choose" }, { "enter", "select" } })
   end
   list[#list + 1] = "pad"
-  add({ { "Y LEFTRIGHT", "page" }, { "Y B", "menu" }, { "Y UPDOWN", "model" }, { "Y A", "undo" },
+  add({ { "Y LEFTRIGHT", "page" }, { "Y B", "menu (Import, Export)" }, { "Y UPDOWN", "model" }, { "Y A", "undo" },
         { "Y X", "assistant" } })
   add(A.help_pad)
   if pg then add(pg.help_pad) end
@@ -2169,6 +2382,8 @@ local function build_menu()
   items[#items + 1] = { "Save as...   (Ctrl+Shift+S)", function() T.save_as() end }
   items[#items + 1] = { "Try the game (F5)", function() T.run_project() end }
   if A.menu then A.menu(items) end
+  items[#items + 1] = { "Import a model...   (Ctrl+I)", function() if T.import_dialog() then go(S.last_page or A.order[1]) end end }
+  items[#items + 1] = { "Export to /bmm...   (Ctrl+E)", function() if T.export_dialog() then go(S.last_page or A.order[1]) end end }
   if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
   -- opened by the bm SDK on this file: the way back to it (saved first)
   if S.from_sdk then items[#items + 1] = { "Back to bm SDK", function() T.open_in("sdk", "bm SDK") end } end
@@ -2236,6 +2451,8 @@ local function global_key(k)
   elseif k == "^n" and not busy and A.new_project then
     if not needs_confirm("new") then A.new_project() end
     return true
+  elseif k == "^i" and not busy then T.import_dialog(); return true
+  elseif k == "^e" and not busy then T.export_dialog(); return true
   elseif k == "f5" or k == "^r" then T.run_project(); return true
   elseif k == "f6" and not busy then T.assistant(); return true
   elseif k == "^z" then T.do_undo(S.undo, S.redo, "undo"); refresh(); return true
@@ -2346,6 +2563,8 @@ function T.mouse_frame()
     list[#list + 1] = { "Redo", "^y" }
     list[#list + 1] = { "Save", "^s" }
     list[#list + 1] = { "Try the game", "f5" }
+    list[#list + 1] = { "Import a model", "^i" }
+    list[#list + 1] = { "Export to /bmm", "^e" }
     list[#list + 1] = { "Assistant", "f6" }
     list[#list + 1] = { "Menu", "esc" }
     U.menu(list)

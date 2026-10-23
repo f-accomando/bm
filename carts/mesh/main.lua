@@ -832,6 +832,7 @@ local function select_item(i)
   list_reset()
   edit_reset()
 end
+lp.select = select_item                -- (for the code outside this block)
 
 -- mesh -> model, mesh -> code (and model <-> code): a copy, the old one stays
 local function copy_as(kind)
@@ -919,7 +920,9 @@ function list_actions()
     { "New model: sphere", function() new_shape("sphere") end },
     { "New model: cylinder", function() new_shape("cylinder") end },
   }
-  if not it then rows = { rows[7], rows[8], rows[9], rows[10] } end
+  rows[#rows + 1] = { "Import a model: /bmm, /glb (i)", function() lp.import_dialog() end }
+  rows[#rows + 1] = { "Export to /bmm (x)", function() lp.export_dialog() end }
+  if not it then rows = { rows[7], rows[8], rows[9], rows[10], rows[11] } end
   choose("the mesh" .. (it and (": " .. it.name) or ""), rows)
 end
 
@@ -951,6 +954,8 @@ function list_key(k)
   elseif k == "d" then duplicate()
   elseif k == "del" or k == "\b" then delete()
   elseif k == "n" then new_shape("cube")
+  elseif k == "i" then lp.import_dialog()
+  elseif k == "x" then lp.export_dialog()
   elseif k == " " or k == "o" then lp.spin = not lp.spin
   elseif k == "q" then cam.yaw = cam.yaw - 0.15; lp.spin = false
   elseif k == "e" then cam.yaw = cam.yaw + 0.15; lp.spin = false
@@ -2009,12 +2014,17 @@ local COMMANDS = {
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
   { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / edges / faces (Tab)", "\t" },
   { "Next element (n)", "n" }, { "Frame the choice (f)", "f" }, { "Finer step (,)", "," }, { "Coarser step (.)", "." },
+  { "Import a model: /bmm, /glb (Ctrl+I)", "^i" }, { "Export to /bmm (Ctrl+E)", "^e" },
 }
 ed.commands = COMMANDS                   -- (the context menu, outside this block)
 
 function edit_actions()
   local rows = {}
-  for _, c in ipairs(COMMANDS) do rows[#rows + 1] = { c[1], function() edit_key(c[2]) end } end
+  for _, c in ipairs(COMMANDS) do
+    rows[#rows + 1] = { c[1], function()
+      if c[2] == "^i" then lp.import_dialog() elseif c[2] == "^e" then lp.export_dialog() else edit_key(c[2]) end
+    end }
+  end
   choose("commands" .. (I() and (": " .. I().name) or ""), rows)
 end
 
@@ -2282,6 +2292,8 @@ local HELP = {
     { "f1 / f2", "list / edit" },
     { "f3", "the commands" },
     { "[ / ]", "the previous / next mesh" },
+    { "ctrl i", "import a model: the list of /bmm and /glb" },
+    { "ctrl e", "export the mesh to /bmm" },
   },
   list = {
     { "up / down", "the mesh" },
@@ -2292,6 +2304,7 @@ local HELP = {
     { "r / d", "rename / duplicate" },
     { "del", "delete" },
     { "n", "a new model (a cube; f3: plane, sphere, cylinder)" },
+    { "i / x", "import a model (/bmm, /glb) / export to /bmm" },
     { "q / e", "turn the view" },
     { "w / s", "tilt" },
     { "+ / -", "zoom" },
@@ -2335,7 +2348,7 @@ local HELP = {
     { "Y B", "menu" },
     { "Y A", "undo" },
     { "Y UPDOWN", "mesh" },
-    { "X", "the commands (tap)" },
+    { "X", "the commands (tap): Import, Export" },
     { "X DPAD", "turn the view" },
     { "X A / X B", "zoom" },
     { "A", "edit (list); choose (edit)" },
@@ -2424,7 +2437,7 @@ local function take_model(m)
     for k = 2, #f.p - 1 do it.f[#it.f + 1] = { vi(f.p[1]), vi(f.p[k]), vi(f.p[k + 1]), f.c } end
   end
   dirty = true
-  select_item(insert_item(it))
+  lp.select(insert_item(it))
   go("list")
   say(string.format("the assistant's %s: model %s, %d faces (F2 edits it)", m.name or m.gen or "model", it.name, #it.f),
       C_ACC, 300)
@@ -2435,12 +2448,62 @@ local function assistant()
   assist.open{ mode = "mesh", on_mesh = take_model }
 end
 
+-- the models of /bmm and /glb (B.import_flow, B.export_item: bm3d.lua): a .glb is converted to
+-- /bmm first; the item comes in as a model of the project (its texture stays in the file: the
+-- project has its own sheet, so its textured faces turn flat grey); export writes /bmm/NAME.bmm
+do
+local mesh_ui = {
+  choose = function(title, rows, sel) choose(title, rows, sel) end,
+  ask = function(label, text, done) ask(label, text, done) end,
+  say = function(s, err) say(s, err and C_ERR or C_ACC, 400) end,
+}
+
+local function take_imported(it, note)
+  local n = 0
+  for _, x in ipairs(items) do if x.kind == "model" then n = n + 1 end end
+  if n >= LIMIT_MODELS then say("at most " .. LIMIT_MODELS .. " models", C_ERR); return false end
+  local flat = 0
+  for _, f in ipairs(it.f) do
+    if f[4] == -1 then f[4], f[5] = 0x808080, nil; flat = flat + 1 end
+  end
+  it.kind, it.name, it.dirty, it.mc, it.mc_name = "model", unique_name("model", it.name), true, nil, nil
+  it.view = nil
+  dirty = true
+  lp.select(insert_item(it))
+  go("edit")
+  say(note .. (flat > 0 and (", " .. flat .. " textured faces flat grey") or "") .. ": model " .. it.name ..
+      "  (Ctrl+S saves it in the project)", C_ACC, 400)
+  return true
+end
+
+lp.import_dialog = function()
+  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return false end
+  return B.import_flow(mesh_ui, take_imported)
+end
+
+lp.export_dialog = function()
+  local it = I()
+  if not it or #it.f == 0 then say("no mesh with faces to export", C_ERR); return false end
+  local item = { name = it.name, v = it.v, f = it.f, ac = encode_rig(it), inset = inset / 256 }
+  for _, f in ipairs(it.f) do
+    if f[4] == -1 then
+      local data = B.sheet_section()
+      if data then item.sheet = { type = 2, data = data } end
+      break
+    end
+  end
+  return B.export_item(mesh_ui, item)
+end
+end
+
 local MENU = {
   { "Continue", function() go(last_page) end },
   { "Open...   (Ctrl+O)", open_other },
   { "Save   (Ctrl+S)", function() save_to(proj.path) end },
   { "Save as...   (Ctrl+Shift+S)", save_as },
   { "Try the game (F5)", try_game },
+  { "Import a model...   (Ctrl+I)", function() if lp.import_dialog() then go("list") end end },
+  { "Export to /bmm...   (Ctrl+E)", function() lp.export_dialog() end },
   { "Exit bm Mesh", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then quit() end end },
 }
 
@@ -2513,6 +2576,8 @@ local function global_key(k)
   elseif k == "^S" then save_as(); return true
   elseif k == "^o" and not ed.tool then open_other(); return true
   elseif k == "^n" and not ed.tool then new_shape("cube"); return true
+  elseif k == "^i" and not ed.tool then lp.import_dialog(); return true
+  elseif k == "^e" and not ed.tool then lp.export_dialog(); return true
   elseif k == "f6" and not ed.tool then assistant(); return true
   elseif k == "f5" or (k == "^r" and not (page == "edit" and not ed.tool and not ed.pal)) then try_game(); return true
   elseif k == "^z" or k == "^y" then

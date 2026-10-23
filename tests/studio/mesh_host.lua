@@ -10,6 +10,7 @@
 -- SDDIR/carts/astrowing.bm and village.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/mesh-sd"
+local MF = dofile(ROOT .. "/tests/studio/model_card.lua")      -- /bmm and /glb (APP-9)
 local checks, fails = 0, 0
 local function check(ok, msg)
   checks = checks + 1
@@ -217,6 +218,7 @@ E.ls = function(dir)
   for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
   return out
 end
+MF.install(E)
 
 -- the sections, with the first bm Studio's numbers as the kernel reads them
 local function norm_sections(data)
@@ -1541,6 +1543,133 @@ do
   q, t = G.snap_pos(it, { 3.3, 0.2, 0 }, 1, 0.25, proj, 6, nil, "n")
   check(t == nil and q[1] == 3.3, "T.G.snap_pos: along the normal the grid does not apply")
 end
+
+-- models from /bmm and /glb (APP-9): the list of both, a .bmm and a .glb brought in as models, the
+-- name asked, the texture, the skeleton, the export to /bmm, the messages of the functions
+do
+  local card = MF.card
+  for _, d in pairs(card) do for k in pairs(d) do d[k] = nil end end
+  MF.calls, MF.writes = {}, {}
+  local SHEET = string.pack("<I2I2", 8, 8) .. string.rep("\10\20\30\255", 64)
+  MF.put_bmm("kite.bmm", "Kite", "kite", 2)
+  MF.put_bmm("tex.bmm", "Tex", "tex", 2, { textured = true, sheet = SHEET })
+  MF.put_bmm("rigged.bmm", "Rigged", "rigged", 3, { rig = true })
+  card["/glb"]["kite.glb"] = "glTF"
+  card["/glb"]["robot.glb"] = "glTF"
+  card["/glb"]["longmodelname.glb"] = "glTF"
+  card["/glb"]["bad.glb"] = "glTF"
+  card["/glb"]["huge.glb"] = "glTF"
+  card["/glb"]["notes.txt"] = "text"
+  local function row_of(name)
+    local seen, list = {}, {}
+    for _, d in ipairs({ "/bmm", "/glb" }) do
+      for f in pairs(MF.card[d]) do
+        local stem = f:lower():match("^(.+)%.[bg][ml][mb]$")
+        if stem and not seen[stem] then seen[stem] = true; list[#list + 1] = stem end
+      end
+    end
+    table.sort(list)
+    for i, n in ipairs(list) do if n == name then return i end end
+  end
+  local function import_row(name, opener)
+    key(opener or "i")
+    key("pgup")
+    for _ = 2, row_of(name) do key("down") end
+    key("\n")
+  end
+  local function bmm_has(name) return MF.card["/bmm"][name .. ".bmm"] ~= nil end
+
+  key("f1", "esc", "down", "down", "down", "\n")           -- Save as: a project of its own
+  type_text("IMPORT")
+  local project = status():match("saved /bme/(%S+)")
+  check(project == "import.bme", "import: a project of its own: " .. status())
+  local n0 = #models_of(project)
+
+  key("i")
+  check(sees("import a model (/bmm, /glb)") and sees("robot   .glb: converted to /bmm") and sees("kite   .bmm (and .glb)")
+        and sees("tex   .bmm") and not sees("notes"), "import: the list of /bmm and /glb, the .glb only ones marked")
+  key("esc")
+  check(in_help("i / x", "import a model") and in_help("ctrl i", "import") and in_help("ctrl e", "export"),
+        "keyhelp: import and export")
+  key("f3")
+  check(sees("Import a model: /bmm, /glb") and sees("Export to /bmm"), "F3: the commands of the list: import and export")
+  key("esc", "f2", "f3", "up")
+  check(sees("Import a model: /bmm, /glb (Ctrl+I)") and sees("Export to /bmm (Ctrl+E)"), "F3: the commands of the edit page too")
+  key("esc", "f1")
+
+  import_row("bad")
+  check(status():find("not a .glb file", 1, true) and not bmm_has("bad"), "import: a bad .glb gives the message of glb3d: " .. status())
+  import_row("huge", "^i")
+  check(status():find("the format holds 65535", 1, true), "import: the format limit message of glb3d: " .. status())
+  import_row("kite")
+  check(status():find("kite.bmm: 4 vertices, 2 triangles", 1, true), "import: the counters: " .. status())
+  check(sees("VERTICES") or sees("FACES") or sees("EDGES"), "import: the model opens in the edit page")
+  key("f1")
+  check(chosen() == "M kite", "import: kite.bmm is a new model: " .. tostring(chosen()))
+  key("^s")
+  local k = model_of(project, "kite")
+  check(k and k.nf == 2 and k.nv == 4 and #models_of(project) == n0 + 1, "import: saved in the project, 4 vertices and 2 triangles")
+  check(#MF.calls == 2, "import: a .bmm reads no .glb")
+
+  import_row("longmodelname")
+  check(sees("new name in /bmm") and status():find("1 to 8", 1, true), "import: a long .glb name asks a new name: " .. status())
+  type_text("kite")
+  check(sees("new name in /bmm") and status():find("/bmm/kite.bmm is there already", 1, true) and not bmm_has("longmod"),
+        "import: a taken name asks again: " .. status())
+  type_text("longmod")
+  check(status():find("longmodelname.glb to /bmm/longmod.bmm: 4 vertices, 3 triangles", 1, true), "import: the counters: " .. status())
+  key("f1")
+  check(bmm_has("longmod") and chosen() == "M longmodelname", "import: the .glb is converted to /bmm/longmod.bmm and opened: " .. tostring(chosen()))
+  check(MF.card["/glb"]["longmodelname.glb"] == "glTF", "import: /glb stays as it was")
+  key("f1")
+
+  import_row("robot", "^i")
+  key("f1")
+  check(bmm_has("robot") and chosen() == "M robot", "import: robot.glb converted at once (Ctrl+I)")
+  import_row("tex")
+  check(status():find("1 textured faces flat grey", 1, true), "import: a textured .bmm: flat grey: " .. status())
+  key("f1")
+  import_row("rigged")
+  key("f1", "^s")
+  local r = anim_rigs(section(file(project), 9)).rigged
+  check(r and r.nb == 1 and r.nv == 4, "import: a .bmm with a skeleton keeps it")
+  local t = model_of(project, "tex")
+  check(t and t.faces[1][4] == 0x808080 and t.faces[2][4] == 0x336620, "import: the textured face is flat grey in the project")
+
+  -- the export: the name asked, a file that is there replaced only when chosen
+  goto_item("M kite")
+  key("x")
+  check(sees("export to /bmm: name"), "export: x asks the name")
+  type_text("kite")
+  check(sees("/bmm/kite.bmm is there already") and sees("Replace it"), "export: a name that is taken: the choice")
+  key("\n")                              -- (the cursor is on Another name...)
+  check(sees("export to /bmm: name"), "export: Another name... asks again")
+  type_text("mine")
+  local out = MF.card["/bmm"]["mine.bmm"]
+  check(out and out.sections[8] and string.unpack("<I2I2", out.sections[8], 8 + 16 + 1) == 4 and out.sections[9] == nil,
+        "export: /bmm/mine.bmm has the model")
+  check(status():find("exported to /bmm/mine.bmm: 4 vertices, 2 triangles", 1, true), "export: the counters: " .. status())
+  goto_item("M rigged")
+  key("^e")
+  type_text("kite")
+  key("up", "\n")
+  check(MF.card["/bmm"]["kite.bmm"].sections[9] ~= nil and status():find("exported to /bmm/kite.bmm", 1, true),
+        "export: Replace it changes the file, the skeleton goes with it")
+  local nw = #MF.writes
+  key("x")
+  key("esc")
+  check(#MF.writes == nw, "export: Esc writes nothing")
+  key("esc")                             -- the menu
+  check(sees("Import a model...") and sees("Export to /bmm..."), "import, export: in the menu")
+  for _ = 1, 5 do key("down") end
+  key("\n")
+  check(sees("import a model (/bmm, /glb)"), "import: the menu item")
+  key("esc")
+  key("f2", "^e")
+  check(sees("export to /bmm: name"), "export: Ctrl+E in the edit page")
+  key("esc", "f1")
+end
+
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)
