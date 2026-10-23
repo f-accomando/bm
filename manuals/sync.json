@@ -624,13 +624,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "ae17430f73d2",
-    "it": "a54f2fdfa56d",
+    "en": "a8fdeb89da94",
+    "it": "4467d45fad82",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "e87247b7960b",
-    "it": "22464b416ba3",
+    "en": "9dff8be366d2",
+    "it": "0ebe3c83127b",
     "title": "Selecting and moving"
    },
    "5": {
@@ -649,16 +649,16 @@
     "title": "Tutorials"
    },
    "8": {
-    "en": "ac901b269df9",
-    "it": "8c0efff625eb",
+    "en": "eb43067341f0",
+    "it": "b6399177df2d",
     "title": "Tips and limits"
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "70a82397475f",
+   "carts/mesh/main.lua": "f6596e4b0382",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "1d5291cea8ae",
+   "docs/progress/tools.md": "3457b87a304e",
    "sdk/README.md": "f82ca797337d"
   }
  },

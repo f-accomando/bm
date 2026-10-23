@@ -160,6 +160,11 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | { e } (Maiusc+[ e Maiusc+]) | il fantasma in basso o in alto (0,05 a ogni pressione) |
 | S (Maiusc+S) | aggancio: spento, griglia, vertice, griglia e vertice |
 | G (Maiusc+G) | passo della griglia: 0,05, 0,1, 0,25, 0,5 |
+| z | scelta a riquadro: il puntatore è un angolo; spostalo sull'altro angolo, Enter sceglie solo ciò che è dentro, Space lo aggiunge, Esc annulla |
+| y | nasconde i vertici scelti; senza scelta mostra di nuovo tutto |
+| Y (Maiusc+Y) | isola: nasconde tutto tranne la scelta; senza scelta mostra di nuovo tutto |
+| P (Maiusc+P) | spostamento morbido: raggio spento, 0.25, 0.5, 1, 2 (anche dentro uno spostamento) |
+| R (Maiusc+R) | immagini di riferimento: una frontale e una laterale da `/pics` |
 | Ctrl+R | taglio ad anello attraverso lo spigolo scelto |
 | Maiusc+J | coltello: taglia un triangolo tra i punti di mezzo di due spigoli scelti |
 | j | crea una faccia su 3 o 4 vertici scelti |
@@ -218,6 +223,7 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 - Le frecce e PgUp/PgDn cambiano il valore. Per uno spostamento: sinistra e destra vanno lungo l'asse orizzontale della vista, su e giù cambiano l'altezza, PgUp e PgDn avvicinano o allontanano.
 - **x**, **y**, **z** limitano il cambiamento a quell'asse. **n** agisce lungo la normale. Premi lo stesso tasto ancora per liberarlo.
 - `,` e `.` cambiano il passo. I passi di spostamento sono 0.01, 0.05, 0.1, 0.25, 0.5 e 1; quelli di rotazione 1, 5, 15, 30, 45 e 90 gradi; quelli di scala 1.01, 1.05, 1.1, 1.25, 1.5 e 2.
+- Scrivi **0**-**9** per dare il valore esatto (vedi *Scrivere un valore*). **Maiusc+P** accende lo spostamento morbido (vedi *Spostamento morbido*).
 - **Enter** conferma. **Esc** annulla e rimette tutto a posto.
 - Con il mouse, trascina il tasto sinistro per cambiare il valore e fai clic per metterlo. Con il gamepad, A conferma, B annulla e un tocco di X cambia asse.
 
@@ -258,6 +264,32 @@ Se uno scheletro non ha ancora vertici, tutti i vertici sono sull'osso 0 finché
 L'aggancio agisce sul vertice guida. È il vertice scelto con il numero più basso. L'editor aggancia la posizione di questo vertice, e ogni altro vertice scelto si sposta della stessa distanza. Il modo griglia arrotonda ogni asse del vertice guida al passo. Se blocchi un asse (x, y o z), si arrotonda solo quell'asse. Il modo vertice porta il vertice guida sul vertice più vicino del modello quando quel vertice è entro 6 pixel sullo schermo. Un piccolo anello verde mostra il vertice che l'aggancio ha preso. I vertici scelti non sono mai un bersaglio. Nel modo griglia e vertice vince un vertice a portata, e la griglia agisce quando nessun vertice è a portata. Con un asse bloccato, l'aggancio al vertice cambia solo quell'asse.
 
 Con lo specchio dal vivo acceso, i corrispondenti seguono lo stesso spostamento, specchiato. Un solo annulla riporta indietro tutto lo spostamento. La riga dello strumento mostra **SNAP** e lo spostamento dopo l'aggancio. L'aggancio non cambia una rotazione o una scala, e non posiziona una parte nuova. Con il gamepad tocca X e scegli **Snap: off, grid, vertex, both** o **Snap grid step**.
+
+## Scelta a riquadro, nascondi e isola
+
+**Scelta a riquadro.** Premi **z**. Il puntatore è ora un angolo di un riquadro. Con le frecce porta il puntatore sull'altro angolo: il riquadro è disegnato. **Enter** sceglie solo ciò che è dentro il riquadro, **Space** lo aggiunge alla scelta, **Esc** annulla. Con il mouse, trascina il tasto sinistro sul modello: quando lo lasci, ciò che è dentro è scelto; tieni premuto Maiusc per aggiungere. Il riquadro prende tutto ciò che è dentro, anche i vertici dietro il modello. In modalità vertici sceglie i vertici dentro. In modalità spigoli sceglie gli spigoli con i due estremi dentro. In modalità facce sceglie le facce con i tre angoli dentro. Con il gamepad tocca X e scegli **Box select**: il tasto A sceglie, il tasto B annulla.
+
+**Nascondi e isola.** Premi **y** per nascondere i vertici scelti e le facce che li usano. Premi **Maiusc+Y** per isolare: tutto tranne la scelta è nascosto. In alto a destra si vede quanti vertici sono nascosti, per esempio `12 HIDDEN`. Un vertice nascosto non è disegnato, non è sotto il puntatore, non è scelto da **a**, **l** o da un riquadro, e nessuno strumento lo sposta. Con lo specchio dal vivo acceso, sono nascosti anche i corrispondenti. Premi **y** (o **Maiusc+Y**) senza niente di scelto per mostrare di nuovo tutto. I vertici nascosti restano nel modello: il file li tiene tutti e i contatori li contano tutti. Nascondere fa parte dei passi di annullamento, quindi **Ctrl+Z** li mostra di nuovo. L'insieme dei nascosti si dimentica quando passi a un'altra mesh.
+
+## Spostamento morbido
+
+**Maiusc+P** accende lo spostamento morbido. Fa girare il raggio: spento, 0.25, 0.5, 1 e 2 unità. In alto a destra si vede, per esempio `SOFT 0.5`. Con lo spostamento morbido acceso, uno spostamento (**g**) tira anche i vertici vicini a quelli scelti: un vertice a distanza uguale al raggio non si muove, un vertice accanto alla scelta segue quasi del tutto, e la discesa in mezzo è dolce. La distanza è quella nello spazio dal vertice scelto più vicino. La riga dello strumento mostra il raggio e quanti vertici seguono, per esempio `soft 0.5 (34 near)`. Puoi premere **Maiusc+P** dentro lo spostamento per cambiare il raggio. Lo spostamento morbido agisce solo sullo spostamento, non su una rotazione o una scala. I vertici nascosti non seguono. Con lo specchio dal vivo acceso, ogni corrispondente tira i propri vicini, specchiati. L'aggancio e il valore scritto funzionano insieme. Un solo annulla riporta indietro lo spostamento e tutti i vertici che ha tirato.
+
+## Scrivere un valore
+
+In uno spostamento, una rotazione o una scala puoi scrivere il valore esatto. Premi **x**, **y**, **z** o **n** per scegliere l'asse, poi scrivi il numero con i tasti da **0** a **9**, **.** e **-** (il meno per primo). La riga in alto mostra `typed 1.25_` e il modello segue subito. **Backspace** toglie l'ultimo carattere. Per uno spostamento il numero è la distanza in unità su quell'asse. Per una rotazione è l'angolo in gradi. Per una scala è il fattore. Se non hai scelto un asse, lo spostamento va lungo x, la rotazione gira intorno a y e la scala cambia tutti e tre gli assi. Premi un altro tasto d'asse per scrivere un valore anche per quell'asse: `x 3`, poi `y 4` dà uno spostamento di 3 lungo x e di 4 lungo y. Il valore scritto sostituisce i passi delle frecce di quell'asse. **Enter** conferma ed **Esc** annulla, come sempre. Comincia un numero minore di 1 con lo zero (`0.5`): il punto da solo è il tasto del passo. Per scrivere serve una tastiera.
+
+## Immagini di riferimento
+
+Un'immagine di riferimento è un'immagine frontale o laterale che sta dietro il modello mentre lo modifichi. Metti le immagini nella cartella `/pics` della scheda SD (PNG, JPEG baseline o WebP).
+
+1. Premi **Maiusc+R**. Un elenco mostra **Front picture** e **Side picture**. Con il gamepad tocca X e scegli **Reference pictures**.
+2. Scegline una. Un secondo elenco mostra le immagini di `/pics`. Scegline una.
+3. Premi **1** per la vista frontale, o **3** per la vista laterale. L'immagine è disegnata dietro il modello, piatta sul piano che passa per il centro del modello, con i piedi del modello sul suo bordo basso.
+
+L'immagine si vede quando la vista la guarda dritta, entro circa 17 gradi. L'immagine frontale si vede da davanti e da dietro (specchiata), quella laterale da entrambi i lati. Nelle altre viste non è disegnato niente. L'immagine è adattata a 256 per 256 pixel ed è disegnata chiara e sbiadita, così il modello resta facile da vedere. L'elenco di **Maiusc+R** ha anche **Hide the pictures**, **Bigger**, **Smaller**, **Up**, **Down** e **Clear the pictures**. All'inizio l'immagine è alta quanto il modello. Usa Bigger e Smaller finché l'immagine combacia, e Up e Down per mettere i piedi a terra.
+
+Le immagini non sono mai salvate nel modello o nel progetto. Stanno nel foglio degli sprite, sotto le righe del progetto: due posti di 256 righe ciascuno (512 righe). Clear riporta il foglio alla sua misura. L'esportazione in `/bmm` scrive solo le righe del progetto. Aprire un altro progetto fa dimenticare le immagini. Il Raspberry Pi Zero W ha poca memoria: due immagini piccole costano circa 260 KB nel foglio. Usa immagini non più grandi di 1000 pixel: la console legge prima tutto il file, poi lo rimpicciolisce.
 
 ## Spigoli e taglio ad anello
 
@@ -406,7 +438,7 @@ Per uscire dal gioco e tornare a bm Mesh premi Start + Select sul pad o Ctrl+Esc
 - Usa un passo piccolo (`,`) per allineare un vertice, uno più grande (`.`) per piazzare una parte intera.
 - Usa **M** per costruire un modello simmetrico: fai metà, poi copiala dall'altra parte.
 - Usa **K** dopo aver unito delle parti, perché le facce intorno sembrino lisce.
-- Salva spesso: l'editor ricorda 30 passi di annullamento, e aprire o rinominare li azzera.
+- Salva spesso: l'editor ricorda fino a 100 passi di annullamento (meno su un modello molto grande: i passi possono occupare 4 MB in tutto, e almeno 2 restano), e aprire o rinominare li azzera.
 
 ## Limiti
 

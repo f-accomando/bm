@@ -228,8 +228,10 @@ function G.flip(f)
 end
 
 -- vertices no face uses go away (the bones follow). sv is a selection
--- { [vertex] = order }; the function returns it with the new numbers.
-function G.compact(it, sv)
+-- { [vertex] = order }; the function returns it with the new numbers. A second
+-- set (extra: for example the hidden vertices) is renumbered the same way and
+-- returned as the second value.
+function G.compact(it, sv, extra)
   local used, map, nv, vb = {}, {}, {}, it.vb and {} or nil
   for _, f in ipairs(it.f) do used[f[1]], used[f[2]], used[f[3]] = true, true, true end
   for i, p in ipairs(it.v) do
@@ -242,9 +244,111 @@ function G.compact(it, sv)
   for _, f in ipairs(it.f) do f[1], f[2], f[3] = map[f[1]], map[f[2]], map[f[3]] end
   it.v = nv
   if vb then it.vb = vb end
-  local out = {}
+  local out, out2 = {}, {}
   for i, o in pairs(sv or {}) do if map[i] then out[map[i]] = o end end
+  for i, o in pairs(extra or {}) do if map[i] then out2[map[i]] = o end end
+  return out, out2
+end
+
+-- Comfort tools (APP-11). All pure: they know no editor state.
+-- G.box_pick(sx, sy, x0, y0, x1, y1, skip): the vertices whose screen place (sx[i], sy[i]) is inside the
+-- rectangle (any two opposite corners), in order; a vertex with no place (behind the camera) or in the
+-- set skip is left out.
+function G.box_pick(sx, sy, x0, y0, x1, y1, skip)
+  if x0 > x1 then x0, x1 = x1, x0 end
+  if y0 > y1 then y0, y1 = y1, y0 end
+  local out = {}
+  for i, x in pairs(sx) do
+    local y = sy[i]
+    if y and x >= x0 and x <= x1 and y >= y0 and y <= y1 and not (skip and skip[i]) then out[#out + 1] = i end
+  end
+  table.sort(out)
   return out
+end
+
+-- The share of a move a vertex at distance d from the chosen ones takes when the radius is r: 1 at the
+-- chosen ones, a smooth fall (smoothstep) to 0 at r, 0 beyond.
+function G.falloff(d, r)
+  if r <= 0 or d >= r then return 0 end
+  local w = 1 - d / r
+  return w * w * (3 - 2 * w)
+end
+
+-- Proportional (soft) move: { [vertex] = weight } for the vertices within r of the nearest vertex of
+-- src (a list of vertex numbers), weight from G.falloff. A vertex of src, or in the set skip, is not in the
+-- result. A hash grid keeps the cost near the number of vertices.
+function G.soft_weights(it, src, r, skip)
+  local out = {}
+  if r <= 0 or #src == 0 then return out end
+  local cell, grid, v = r, {}, it.v
+  local function key(cx, cy, cz) return (cx * 73856093) ~ (cy * 19349663) ~ (cz * 83492791) end
+  local isrc = {}
+  for _, i in ipairs(src) do
+    local p = v[i]
+    isrc[i] = true
+    local k = key(math.floor(p[1] / cell), math.floor(p[2] / cell), math.floor(p[3] / cell))
+    local b = grid[k]
+    if not b then b = {}; grid[k] = b end
+    b[#b + 1] = i
+  end
+  local r2 = r * r
+  for i, p in ipairs(v) do
+    if not isrc[i] and not (skip and skip[i]) then
+      local cx, cy, cz = math.floor(p[1] / cell), math.floor(p[2] / cell), math.floor(p[3] / cell)
+      local best = r2
+      for dx = -1, 1 do for dy = -1, 1 do for dz = -1, 1 do
+        local b = grid[key(cx + dx, cy + dy, cz + dz)]
+        if b then
+          for _, j in ipairs(b) do
+            local q = v[j]
+            local ex, ey, ez = p[1] - q[1], p[2] - q[2], p[3] - q[3]
+            local d2 = ex * ex + ey * ey + ez * ez
+            if d2 < best then best = d2 end
+          end
+        end
+      end end end
+      if best < r2 then
+        local w = G.falloff(math.sqrt(best), r)
+        if w > 0 then out[i] = w end
+      end
+    end
+  end
+  return out
+end
+
+-- Hide and isolate: hid is a set { [vertex] = true }. A face is hidden when any corner is.
+function G.face_hidden(f, hid)
+  return hid[f[1]] or hid[f[2]] or hid[f[3]] or false
+end
+
+-- every vertex but the ones in keep goes into the set (isolate)
+function G.isolate(it, keep)
+  local hid = {}
+  for i in ipairs(it.v) do if not keep[i] then hid[i] = true end end
+  return hid
+end
+
+-- Numeric entry: the text typed into a number, or nil. "-", "" and "." are not numbers; a trailing point is
+-- fine ("2." is 2).
+function G.parse_number(s)
+  if s == nil or s == "" or s == "-" or s == "." or s == "-." then return nil end
+  return tonumber(s)
+end
+
+-- Reference pictures (front and side): where the picture of a slot is drawn. view = { yaw, pitch }; the
+-- slot "front" shows when the camera looks along the Z axis (yaw 0 or pi), "side" along the X axis
+-- (yaw +-pi/2), within the tolerance tol (radians, default 0.3) and with the pitch near 0. Returns the
+-- slot's flip: false (as stored), true (seen from the back), or nil (not looked at).
+function G.ref_flip(slot, yaw, pitch, tol)
+  tol = tol or 0.3
+  if math.abs(pitch) > tol then return nil end
+  local c, s = math.cos(yaw), math.sin(yaw)
+  if slot == "front" then
+    if c >= math.cos(tol) then return false elseif c <= -math.cos(tol) then return true end
+  else
+    if s <= -math.cos(tol) then return false elseif s >= math.cos(tol) then return true end
+  end
+  return nil
 end
 
 -- the faces with two equal corners go away; returns how many
@@ -2232,10 +2336,12 @@ do
   end
 
   -- the sheet of the project as a sheet section (type 2: width, height, RGBA), nil if it has none
-  function T.sheet_section()
+  -- maxh: only the first rows (bm Mesh keeps its reference pictures below the project's sheet)
+  function T.sheet_section(maxh)
     if not cart_sheet or not sget then return nil end
     local ok, w, h = pcall(cart_sheet)
     if not ok or not w or not h or w < 1 or h < 1 then return nil end
+    if maxh and maxh < h then h = maxh end
     local rows = {}
     for y = 0, h - 1 do
       local px = {}
