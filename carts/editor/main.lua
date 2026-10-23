@@ -2986,6 +2986,7 @@ do
   -- the mouse: a click chooses a row, a click on the chosen one (or a
   -- double click) does it
   local function mouse()
+    if U.wheel ~= 0 then U.press(U.wheel > 0 and "up" or "down") end     -- the wheel: the keys
     local z = U.click(0)
     if z and z.kind == "hub" then
       if z.a == row or U.double then row = z.a; U.press("\n") else row = z.a end

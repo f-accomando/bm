@@ -4,6 +4,7 @@
 -- every tool uses (require "assist"); here F6 opens it, as in the tools.
 
 local assist = require "assist"
+local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 
 local W, H = SCREEN_W, SCREEN_H
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
@@ -90,6 +91,7 @@ local function speed_test()
 end
 
 function _init()
+  U.wants()                              -- the pointer, when there is a mouse
   if keyhelp then keyhelp(KEYHELP, "bm assistant") end
   log("assistant: ready, " .. #ai.list() .. " entries, " .. #ai.recipes() .. " sprite recipes")
   -- the network on this CPU, bit for bit (tests/qemu_test.py checks it)
@@ -98,7 +100,9 @@ function _init()
 end
 
 function _update()
+  U.update()
   if assist.update() then return end
+  U.keys()                               -- a click on a chip: its key
   local k = keyp()
   while k do
     if k == "f6" or k == "^a" then open("code")
@@ -124,6 +128,7 @@ local function draw_sprite(s, x, y, z)
 end
 
 function _draw()
+  U.begin()
   cls(C_BG)
   rectfill(0, 0, W, 16, C_BAR)
   print("bm assistant", 8, 0, C_ACC)
@@ -137,6 +142,7 @@ function _draw()
     local kw = 0
     for _, n in ipairs(k[1]) do kw = kw + prompt(n) + 1 end
     local kx = lx - 2 - kw
+    if k[1][1] ~= "ctrl" then U.key_zone(kx - 2, 0, x - kx + 2, 16, k[1][1]) end    -- a click: the key
     print(k[2], lx, 0, C_DIM)
     for _, n in ipairs(k[1]) do kx = prompt(n, kx, 0) + 1 end
     x = (lx - 2 - kw) // 8 * 8 - 8
@@ -181,4 +187,5 @@ function _draw()
   print(status:sub(1, W // 8 - 16), 8, bottom, C_TEXT)
   print(string.format("Lua %d KiB", stat(0)), W - 112, bottom, C_DIM)
   assist.draw()
+  U.menu_draw()
 end

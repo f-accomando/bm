@@ -11,6 +11,7 @@
 
 local predict = require "predict"
 local pt = require "padtype"
+local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 
 local W, H = SCREEN_W, SCREEN_H
 
@@ -980,7 +981,7 @@ local MENU = {
 
 local KEYHELP = {
   { "ctrl b / ctrl i / ctrl u", "bold, italic, underline" },
-  { "ctrl l / ctrl e / ctrl j", "align left, centre, justify" },
+  { "ctrl l / ctrl e / ctrl r / ctrl j", "align left, centre, right, justify" },
   { "f2", "the paragraph's style" },
   { "f4", "its alignment (left, centre, right, justify)" },
   { "f3", "start or end a selection (or shift + arrows)" },
@@ -991,6 +992,10 @@ local KEYHELP = {
   { "ctrl c / ctrl x / ctrl v", "copy, cut, paste" },
   { "f1", "the keys" },
   { "esc", "the menu: export to PDF, HTML, Markdown, text" },
+  "mouse",
+  { "click / drag", "cursor / select (double click: a word)" },
+  { "wheel", "scroll the pages" },
+  { "right click", "the edit menu" },
   "pad",
   { "DPAD", "move" },
   { "A / B", "new paragraph, delete" },
@@ -1002,11 +1007,13 @@ local HELP = {                          -- "#" a heading
   "#Writing", "Enter new paragraph, Backspace / Del delete", "Tab writes the grey-blue word",
   "Arrows, Home, End, PgUp, PgDn move", "F3 or Shift+arrows select", "",
   "#Look", "F2 style: Body, Title, Heading 1, Heading 2,", "  Quote, Bullet list, Numbered list",
-  "F4 alignment: left, centre, right, justify", "Ctrl+L / Ctrl+E / Ctrl+J left, centre, justify",
+  "F4 alignment: left, centre, right, justify", "Ctrl+L / E / R / J left, centre, right, justify",
   "Ctrl+B bold, Ctrl+I italic, Ctrl+U underline", "",
   "#Files (in /docs on the SD card)", "Ctrl+S save, Ctrl+Shift+S save as, Ctrl+O open",
   "Ctrl+N new; Esc: the menu, Export... to PDF,", "  HTML, Markdown and text", "",
   "#Edit", "Ctrl+Z undo, Ctrl+Y redo, Ctrl+C / X / V copy, cut, paste", "",
+  "#Mouse", "Click puts the cursor, drag or double click selects,", "wheel scrolls, right click: edit menu,",
+  "the bar: style, B I U, alignment; click bm Write: menu", "",
   "#Pad", "Share writes with the pad, Start the menu",
 }
 
@@ -1094,6 +1101,7 @@ do_key = function(k)
   elseif k == "^u" then toggle(UNDER)
   elseif k == "^l" then set_align("left")
   elseif k == "^e" then set_align("center")
+  elseif k == "^r" then set_align("right")
   elseif k == "^j" then set_align("justify")
   elseif k == "f2" then next_style()
   elseif k == "f4" then next_align()
@@ -1174,6 +1182,7 @@ local frame = 0
 
 function _init()
   keyp()                                -- typing on
+  U.wants()                             -- the pointer, when there is a mouse
   if keyhelp then keyhelp(KEYHELP, "bm Write") end
   pt.set({ fallback = "off" })
   font("8x16")
@@ -1192,7 +1201,120 @@ function _exit()
   return false
 end
 
+------------------------------------------------------------------ the mouse (M48)
+
+local free_view = false                 -- the wheel scrolled: the view stays until the cursor moves
+local msel                              -- a drag that selects: where it began {p, c}
+
+local function clamp(v, lo, hi) return v < lo and lo or (v > hi and hi or v) end
+
+-- the cursor place under a pixel of the screen: paragraph, letters before
+local function pos_at(mx, my)
+  layout()
+  local dy = my - BAR + view
+  local k = #PL
+  for i = 1, #PL do
+    local L = PL[i]
+    if dy < page_top(L.page) + L.y + STY[doc[L.p].s].lh then k = i; break end
+  end
+  local L = PL[k]
+  return L.p, col_at(L.p, L.li, mx - PX)
+end
+
+local function max_view()
+  return math.max(0, page_top(npages) + PH + GAP - (H - BAR - STAT))
+end
+
+-- a double click: the word under the cursor
+local function select_word(pi, c)
+  local t = doc[pi].t
+  local a, b = c, c
+  local W_ = "[%w_\128-\255]"
+  while a > 0 and t:sub(a, a):match(W_) do a = a - 1 end
+  while b < #t and t:sub(b + 1, b + 1):match(W_) do b = b + 1 end
+  if a == b then return false end
+  anchor = { p = pi, c = a }
+  cur.p, cur.c = pi, b
+  return true
+end
+
+local function edit_menu()
+  U.menu({
+    { "Cut", "^x" }, { "Copy", "^c" }, { "Paste", "^v" }, "-",
+    { "Bold", "^b" }, { "Italic", "^i" }, { "Underline", "^u" }, "-",
+    { "Style", "f2" }, { "Alignment", "f4" }, "-",
+    { "Undo", "^z" }, { "Redo", "^y" }, "-",
+    { "Save", "^s" }, { "Menu", function() open_menu() end, "Esc" },
+  })
+end
+
+-- the dialogs: a click chooses a row (on the chosen one: takes it), the
+-- wheel moves, a click outside or the right button is Esc
+local ROW = { menu = "mrow", files = "frow", export = "xrow" }
+local function overlay_mouse()
+  local o = overlay
+  if o.kind == "help" then
+    if U.pressed(0) or U.pressed(1) then overlay = nil end
+    return
+  end
+  local z = U.click(0)
+  if o.kind == "confirm" then
+    if z and z.kind == "cchoice" then o.sel = z.a; U.press("\n") end
+  elseif ROW[o.kind] then
+    local n = o.kind == "menu" and #MENU or o.kind == "files" and #o.items or #FORMATS
+    local act
+    o.sel, act = U.list(ROW[o.kind], o.sel, n, 1)
+    if act then U.press("\n") end
+  end
+  if (z and z.kind == "shade") or U.clicked(1) then U.press("esc") end
+end
+
+local function mouse_frame()
+  if not U.on then msel = nil; return end
+  if U.keys() then return end
+  if overlay then msel = nil; return overlay_mouse() end
+  local z = U.click(0)
+  if z and z.kind == "bar_menu" then open_menu(); return end
+  local shift = U.shift()
+  if z and z.kind == "doc" then
+    local p, c = pos_at(U.x, U.y)
+    comp = nil
+    if shift then
+      anchor = anchor or { p = cur.p, c = cur.c }
+      cur.p, cur.c = p, c
+      msel = nil
+    elseif U.double and select_word(p, c) then
+      msel = nil
+    else
+      anchor = nil
+      cur.p, cur.c = p, c
+      msel = { p = p, c = c }
+    end
+    goal_x = nil
+    moved()
+  elseif msel and U.down(0) and U.drag and U.drag.b == 0 then
+    local p, c = pos_at(U.x, U.y)
+    if p ~= cur.p or c ~= cur.c then
+      anchor = anchor or { p = msel.p, c = msel.c }
+      cur.p, cur.c = p, c
+      goal_x = nil
+      moved()
+    end
+    -- the pointer at an edge of the pages: they scroll
+    if U.y < BAR + 8 then view = math.max(0, view - 6); free_view = true
+    elseif U.y > H - STAT - 8 then view = math.min(max_view(), view + 6); free_view = true end
+  end
+  if not U.down(0) then msel = nil end
+  local at = U.at()
+  if U.wheel ~= 0 and at and at.kind == "doc" then
+    view = U.scroll(view, 0, max_view(), 45)
+    free_view = true
+  end
+  if U.clicked(1) then edit_menu() end
+end
+
 local function keep_cursor_in_view()
+  if free_view then return end
   local _, y, st = cursor_xy()
   local vh = H - BAR - STAT
   local below = (pt.mode() and select(2, pt.size()) + 8 or 0)
@@ -1203,6 +1325,9 @@ end
 function _update()
   frame = frame + 1
   if status_t > 0 then status_t = status_t - 1 end
+  U.update()
+  if not U.menu_update() then mouse_frame() end
+  local sp, sc = cur.p, cur.c
   local k = keyp()
   local typed
   while k do
@@ -1235,6 +1360,7 @@ function _update()
   end
   if doc[cur.p] == nil then cur.p = #doc end
   cur.c = math.max(0, math.min(cur.c, #doc[cur.p].t))
+  if cur.p ~= sp or cur.c ~= sc then free_view = false end   -- keys moved it: the view follows
   layout()
   keep_cursor_in_view()
 end
@@ -1315,6 +1441,7 @@ local function draw_doc()
   local vh = H - BAR - STAT
   clip(0, BAR, W, vh)
   rectfill(0, BAR, W, vh, C.desk)
+  U.zone(0, BAR, W, vh, "doc")                      -- the mouse: the cursor, a selection, the wheel
   local y0 = BAR - view
   for page = 1, npages do
     local ty = y0 + page_top(page)
@@ -1366,29 +1493,33 @@ local function draw_bar()
   font("8x16")
   rectfill(0, 0, W, BAR, C.bar)
   local x = print("bm Write", 0, 0, C.acc) + 16
+  U.zone(0, 0, x - 16, BAR, "bar_menu")             -- a click: the menu (Esc)
   local name = (file or "Untitled") .. (dirty and " *" or "")
   print(name, x, 0, C.text)
   local p = doc[cur.p]
   local bits = cur_bits()
   local right = W
-  local function chip(s, on)
+  local function chip(s, on, key)
     right = right - #s * 8 - 8
     if on then rectfill(right - 4, 0, #s * 8 + 8, BAR, C.on) end
     print(s, right, 0, on and 0xFFFFFF or C.dim)
+    U.key_zone(right - 4, 0, #s * 8 + 8, BAR, key)  -- a click: the key
   end
+  local AKEY = { left = "ctrl l", center = "ctrl e", right = "ctrl r", justify = "ctrl j" }
   for i = #ALIGNS, 1, -1 do
     local a = ALIGNS[i]
-    chip(a == "left" and "L" or a == "center" and "C" or a == "right" and "R" or "J", p.a == a)
+    chip(a == "left" and "L" or a == "center" and "C" or a == "right" and "R" or "J", p.a == a, AKEY[a])
   end
   right = right - 8
-  chip("U", bits & UNDER ~= 0)
-  chip("I", bits & ITALIC ~= 0)
-  chip("B", bits & BOLD ~= 0)
+  chip("U", bits & UNDER ~= 0, "ctrl u")
+  chip("I", bits & ITALIC ~= 0, "ctrl i")
+  chip("B", bits & BOLD ~= 0, "ctrl b")
   right = right - 8
   local sname = STY[p.s].name
   right = right - #sname * 8
   rectfill(right - 8, 0, #sname * 8 + 16, BAR, C.bar2)
   print(sname, right, 0, C.text)
+  U.key_zone(right - 8, 0, #sname * 8 + 16, BAR, "f2")      -- a click: the next style
 end
 
 local function draw_status()
@@ -1421,12 +1552,15 @@ local function draw_overlay()
   local o = overlay
   if not o then return end
   font("8x16")
+  U.zone(0, 0, W, H, "shade")                 -- a click outside: Esc
   if o.kind == "menu" then
     local cols = 44
     local c0 = (W // 8 - cols) // 2
     box(c0, 1, cols, #MENU + 2, "bm Write")
+    U.zone(c0 * 8, 16, cols * 8, (#MENU + 2) * 16, "box")
     for i, m in ipairs(MENU) do
       local y = (1 + i) * 16
+      U.zone((c0 + 1) * 8, y, (cols - 2) * 8, 16, "mrow", i)
       if i == o.sel then rectfill((c0 + 1) * 8, y, (cols - 2) * 8, 16, C.hot) end
       print(m[1], (c0 + 2) * 8, y, C.text)
       print(m[2], (c0 + cols - 2 - #m[2]) * 8, y, C.dim)
@@ -1435,8 +1569,10 @@ local function draw_overlay()
     local cols = 36
     local c0 = (W // 8 - cols) // 2
     box(c0, 6, cols, #FORMATS + 3, "Export to /docs as")
+    U.zone(c0 * 8, 96, cols * 8, (#FORMATS + 3) * 16, "box")
     for i, f in ipairs(FORMATS) do
       local y = (7 + i) * 16
+      U.zone((c0 + 1) * 8, y, (cols - 2) * 8, 16, "xrow", i)
       if i == o.sel then rectfill((c0 + 1) * 8, y, (cols - 2) * 8, 16, C.hot) end
       print(f[1], (c0 + 2) * 8, y, C.text)
       local n = (base_name() or "NAME") .. "." .. f[2]
@@ -1446,11 +1582,13 @@ local function draw_overlay()
     local cols, rows = 48, math.min(#o.items, 14)
     local c0 = (W // 8 - cols) // 2
     box(c0, 2, cols, rows + 3, "Open a document (/docs)")
+    U.zone(c0 * 8, 32, cols * 8, (rows + 3) * 16, "box")
     if o.sel < o.top then o.top = o.sel end
     if o.sel >= o.top + rows then o.top = o.sel - rows + 1 end
     for i = o.top, math.min(#o.items, o.top + rows - 1) do
       local f = o.items[i]
       local y = (4 + i - o.top) * 16
+      U.zone((c0 + 1) * 8, y, (cols - 2) * 8, 16, "frow", i)
       if i == o.sel then rectfill((c0 + 1) * 8, y, (cols - 2) * 8, 16, C.hot) end
       print(f.name, (c0 + 2) * 8, y, C.text)
       local sz = f.size < 1024 and (f.size .. " B") or ((f.size + 1023) // 1024 .. " KiB")
@@ -1460,6 +1598,7 @@ local function draw_overlay()
     local cols = 52
     local c0 = (W // 8 - cols) // 2
     box(c0, 8, cols, 5, nil)
+    U.zone(c0 * 8, 128, cols * 8, 5 * 16, "box")
     print(o.label, (c0 + 2) * 8, 9 * 16, C.text)
     rectfill((c0 + 2) * 8, 11 * 16, (cols - 4) * 8, 16, C.bar2)
     if o.fresh and #o.text > 0 then rectfill((c0 + 3) * 8, 11 * 16, #o.text * 8, 16, C.hot) end
@@ -1468,9 +1607,11 @@ local function draw_overlay()
     local cols = 52
     local c0 = (W // 8 - cols) // 2
     box(c0, 8, cols, 6, nil)
+    U.zone(c0 * 8, 128, cols * 8, 6 * 16, "box")
     print(o.question, (c0 + 2) * 8, 9 * 16, C.text)
     local x = (c0 + 2) * 8
     for i, ch in ipairs(o.choices) do
+      U.zone(x - 8, 11 * 16, (#ch + 2) * 8, 16, "cchoice", i)
       if i == o.sel then rectfill(x - 8, 11 * 16, (#ch + 2) * 8, 16, C.hot) end
       print(ch, x, 11 * 16, C.text)
       x = x + (#ch + 4) * 8
@@ -1490,6 +1631,7 @@ local function draw_overlay()
 end
 
 function _draw()
+  U.begin()                                    -- the mouse: this frame's zones
   cls(C.desk)
   draw_doc()
   draw_bar()
@@ -1499,4 +1641,5 @@ function _draw()
     pt.draw((W - ow) // 2, H - STAT - oh - 4)
   end
   draw_overlay()
+  U.menu_draw()                                -- the context menu over everything
 end

@@ -68,7 +68,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 ## Editors and apps
 
-- M48 - P2 - in progress - Mouse across the whole suite (USB and Bluetooth). Every program selects, draws and navigates with the pointer without a keyboard. [tools](progress/tools.md)
+- M48 - P2 - in progress - Mouse across the whole suite (USB and Bluetooth). Done 23 Oct: shared `U.list`/`U.col`/`U.scroll`, bm Write and the assistant cart, hub wheel, Sound text dialogs. Left: try on the Pi and the RGB30; no selection or caret by mouse in the bm SDK code view and in the text prompts; sdk_b16 sound page wheel; Pixel palette wheel; I-beam cursor. [tools](progress/tools.md) `Mouse per program`
 - M45 - P2 - in progress - bm Write: `.BMD` documents, TXT/MD/HTM/PDF export. A formatted document exported to PDF is identical on the PC. [tools](progress/tools.md)
 - APP-2 - P2 - to do - 3D maps in bm SDK; bm Pixel for stacks (M43 step 3). Done when a 3D map is saved and reloaded. [tools](progress/tools.md) `Mappe 3D in bm SDK`, [suite-sdk](design/suite-sdk.md), [suite-pixel](design/suite-pixel.md)
 - APP-8 - P2 - to do - Multitab in bm Code for the source files of one project. Done when: A `.bme` project with several Lua modules opens as one tab per module in bm Code, each tab is saved to its own file, and the built `.bm` equals the one built from the same files today; the same tab bar is shared with bm SDK and the other editors that have a code page (one shared component in bmui, no copy). The tab layout is for readability only. [suite-code](design/suite-code.md), [tools](progress/tools.md)
