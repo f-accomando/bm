@@ -123,6 +123,19 @@ function Q.slerp(a, b, u)
   return Q.norm({ a[1] * k0 + s * b[1] * k1, a[2] * k0 + s * b[2] * k1,
                   a[3] * k0 + s * b[3] * k1, a[4] * k0 + s * b[4] * k1 })
 end
+-- the shorter way from the unit vector a to the unit vector b, as a rotation
+function Q.arc(a, b)
+  local d = V.dot(a, b)
+  if d > 1 - 1e-12 then return { 0, 0, 0, 1 } end
+  if d < -1 + 1e-9 then
+    local least = abs(a[1]) <= abs(a[2]) and (abs(a[1]) <= abs(a[3]) and 1 or 3) or (abs(a[2]) <= abs(a[3]) and 2 or 3)
+    local ax = V.norm(V.cross(a, V.unit(least)))
+    return { ax[1], ax[2], ax[3], 0 }
+  end
+  local c = V.cross(a, b)
+  return Q.norm({ c[1], c[2], c[3], 1 + d })
+end
+function Q.conj(q) return { -q[1], -q[2], -q[3], q[4] } end
 -- v turned by q
 function Q.rotate(q, v)
   local u = { q[1], q[2], q[3] }
@@ -1938,6 +1951,127 @@ function T.retarget(src, dst)
     clips[c] = o
   end
   return clips, { matched = matched, missing = missing, clips = #clips }
+end
+
+-- Two-bone IK (APP-29), for the editors only: the runtime, the clip format and the kernel do not change; the
+-- result is ordinary rotation keys. T.ik2(root, len1, len2, target, pole [, rest1, rest2]) puts a chain of two
+-- segments (upper from root, lower after it) on a target. Returns { mid, tip, d1, d2, q1, q2, reached }: the
+-- joint and the end, the unit directions of the two segments, and the rotations that turn rest1 / rest2
+-- (unit vectors, default +y) onto d1 / d2 by the shortest way. The lengths never change: a target out of
+-- reach (too far, or nearer than |len1 - len2|) gives a straight (or fully folded) chain that points at it
+-- and reached = false. The joint leans toward `pole` (a direction; the part of it across the root-target line).
+function T.ik2(root, len1, len2, target, pole, rest1, rest2)
+  local to = V.sub(target, root)
+  local d = sqrt(V.dot(to, to))
+  pole = pole or { 0, 0, 1 }
+  local axis
+  if d > 1e-9 then axis = V.scale(to, 1 / d) else axis = V.norm(pole) end
+  if V.dot(axis, axis) < 0.5 then axis = { 0, 1, 0 } end
+  local reach, dmin = len1 + len2, abs(len1 - len2)
+  local reached = d <= reach + 1e-9 and d >= dmin - 1e-9
+  local dd = d
+  if dd > reach then dd = reach end
+  if dd < dmin then dd = dmin end
+  if dd < 1e-6 * max(reach, 1e-9) then dd = 1e-6 * max(reach, 1e-9) end
+  -- the bend: the pole across the axis
+  local bend = V.sub(pole, V.scale(axis, V.dot(pole, axis)))
+  if V.dot(bend, bend) < 1e-10 then
+    local least = abs(axis[1]) <= abs(axis[2]) and (abs(axis[1]) <= abs(axis[3]) and 1 or 3) or (abs(axis[2]) <= abs(axis[3]) and 2 or 3)
+    bend = V.cross(axis, V.unit(least))
+  end
+  bend = V.norm(bend)
+  local a = (len1 * len1 - len2 * len2 + dd * dd) / (2 * dd)
+  local h = sqrt(max(0, len1 * len1 - a * a))
+  local mid = V.add(V.add(root, V.scale(axis, a)), V.scale(bend, h))
+  local tip = V.add(root, V.scale(axis, dd))
+  local d1, d2 = V.norm(V.sub(mid, root)), V.norm(V.sub(tip, mid))
+  if V.dot(d1, d1) < 0.5 then d1 = axis end
+  if V.dot(d2, d2) < 0.5 then d2 = axis end
+  return { mid = mid, tip = tip, d1 = d1, d2 = d2, reached = reached,
+           q1 = Q.arc(rest1 or { 0, 1, 0 }, d1), q2 = Q.arc(rest2 or { 0, 1, 0 }, d2) }
+end
+
+-- The pose of a rig in the model's space, as the kernel skins it (M = M_parent * T(head + t) * R(q) * T(-head)):
+-- { rot[i] = the bone's rotation in the world, head[i], tail[i] = where they are }. `pose` is { {q =, t =}, ... }.
+function T.fk(rig, pose)
+  local rot, tr, head, tail = {}, {}, {}, {}
+  local ident = { q = { 0, 0, 0, 1 }, t = { 0, 0, 0 } }
+  for i, b in ipairs(rig.bones) do
+    local p = pose[i] or ident
+    local q = Q.norm(p.q)
+    local h = b.head
+    local lt = V.sub(V.add(h, p.t), Q.rotate(q, h))
+    local par = b.parent
+    if par and par > 0 and par < i then
+      rot[i] = Q.mul(rot[par], q)
+      tr[i] = V.add(Q.rotate(rot[par], lt), tr[par])
+    else
+      rot[i], tr[i] = q, lt
+    end
+    head[i] = V.add(Q.rotate(rot[i], h), tr[i])
+    tail[i] = V.add(Q.rotate(rot[i], b.tail), tr[i])
+  end
+  return { rot = rot, head = head, tail = tail }
+end
+
+-- The direction the joint of the chain g (upper) > p (lower) > b (end) leans to in the rest pose, in the space
+-- of the parent of g: its offset from the line head(g) - head(b). A straight rest limb leans as the pose
+-- `pose` does, else as the end bone points across the limb (toes), else toward +z.
+function T.ik_pole(rig, g, p, b, pose)
+  local function lean(hg, hp, hb)
+    local ax = V.sub(hb, hg)
+    local l2 = V.dot(ax, ax)
+    if l2 < 1e-12 then return nil end
+    local off = V.sub(hp, hg)
+    off = V.sub(off, V.scale(ax, V.dot(off, ax) / l2))
+    if V.dot(off, off) < 1e-8 then return nil end
+    return V.norm(off)
+  end
+  local B = rig.bones
+  local rest = lean(B[g].head, B[p].head, B[b].head)
+  if rest then return rest end
+  if pose then
+    local fk = T.fk(rig, pose)
+    local w = lean(fk.head[g], fk.head[p], fk.head[b])
+    if w then
+      local pg = B[g].parent
+      if pg and pg > 0 then w = Q.rotate(Q.conj(fk.rot[pg]), w) end
+      return w
+    end
+  end
+  -- a limb straight at rest and in the pose: the knee leans where the end bone points across the limb (the
+  -- toes of a foot), else toward +z (an elbow of a model that faces -z)
+  local ax = V.sub(B[b].head, B[g].head)
+  local l2 = V.dot(ax, ax)
+  if l2 > 1e-12 then
+    local d = V.sub(B[b].tail, B[b].head)
+    d = V.sub(d, V.scale(ax, V.dot(d, ax) / l2))
+    if V.dot(d, d) > 0.0025 then return V.norm(d) end
+  end
+  return { 0, 0, 1 }
+end
+
+-- Puts the end bone b of the chain g > p > b (each the parent of the next) with its head on `target` (the
+-- model's space) by turning g and p in `pose`; b keeps its rotation in the world. `pole` is as T.ik_pole gives
+-- it. Returns a new pose (the old one stays) and { reached, eff = where the head of b is now }.
+function T.ik_chain(rig, pose, g, p, b, target, pole)
+  local fk0 = T.fk(rig, pose)
+  local root, mid, tip = fk0.head[g], fk0.head[p], fk0.head[b]
+  local len1, len2 = sqrt(V.dist2(mid, root)), sqrt(V.dist2(tip, mid))
+  local out = {}
+  for i, bp in ipairs(pose) do out[i] = { q = V.copy(bp.q), t = V.copy(bp.t) }; out[i].q[4] = bp.q[4] end
+  if len1 < 1e-6 or len2 < 1e-6 then return out, { reached = false, eff = V.copy(tip) } end
+  local pg = rig.bones[g].parent
+  local par = (pg and pg > 0) and fk0.rot[pg] or { 0, 0, 0, 1 }
+  local res = T.ik2(root, len1, len2, target, Q.rotate(par, pole or { 0, 0, 1 }))
+  local rg = Q.mul(Q.arc(V.norm(V.sub(mid, root)), res.d1), fk0.rot[g])
+  out[g].q = Q.norm(Q.mul(Q.conj(par), rg))
+  local fk1 = T.fk(rig, out)
+  local rp = Q.mul(Q.arc(V.norm(V.sub(fk1.head[b], fk1.head[p])), res.d2), fk1.rot[p])
+  out[p].q = Q.norm(Q.mul(Q.conj(fk1.rot[g]), rp))
+  local fk2 = T.fk(rig, out)
+  out[b].q = Q.norm(Q.mul(Q.conj(fk2.rot[p]), fk0.rot[b]))
+  return out, { reached = res.reached, eff = T.fk(rig, out).head[b] }
 end
 
 -- back from triangles: the two halves of each tile become a tile again

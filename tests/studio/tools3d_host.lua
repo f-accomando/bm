@@ -149,15 +149,22 @@ local function anim_rigs(bin)
     for c = 1, nc do
       local nk, mode, flags, length = string.unpack("<I2BBf", bin, p + 16)
       assert(nk >= 1 and mode <= 2 and length > 0, "ANIM: a bad clip")
-      local prev, keys = 0, {}
+      local prev, keys, poses = 0, {}, {}
       for k = 0, nk - 1 do
-        local t = string.unpack("<f", bin, p + 24 + k * (4 + nb * 28))
+        local kp = p + 24 + k * (4 + nb * 28)
+        local t = string.unpack("<f", bin, kp)
         assert(t >= prev and t <= length + 1e-4, "ANIM: keys out of order")
         prev = t
         keys[k + 1] = t
+        local pose = {}
+        for i = 1, nb do
+          local qx, qy, qz, qw, tx, ty, tz = string.unpack("<fffffff", bin, kp + 4 + (i - 1) * 28)
+          pose[i] = { q = { qx, qy, qz, qw }, t = { tx, ty, tz } }
+        end
+        poses[k + 1] = pose
       end
       r.clips[c] = { name = bin:sub(p, p + 15):match("^[^\0]*"), length = length, loop = flags & 1 == 1, keys = nk,
-                     times = keys, mode = mode }
+                     times = keys, mode = mode, poses = poses }
       p = p + 24 + nk * (4 + nb * 28)
     end
     out[name] = r
@@ -603,7 +610,7 @@ end
 
 local function menu_pick(label, exit_label)
   if not sees(exit_label) then key("esc") end
-  for _ = 1, 24 do
+  for _ = 1, 32 do
     local c = chosen_item()
     if c and c:sub(1, #label) == label then key("\n"); return true end
     key("down")
@@ -1200,6 +1207,176 @@ key("f3")
 check(sees("ANIMATIONS") and sees("BONES") and sees("idle  1/3"), "animate: the villager's animations")
 menu_pick("Open in bm Studio", EXIT_A)
 check(tooled and tooled[1] == "studio" and tooled[2] == "/carts/village.bm", "Open in bm Studio: cart_tool")
+
+-- (a fresh bm Animator: the first one leaves the page when it opens bm Studio)
+run_cart(ANIMATOR, "/carts/village.bm")
+E._init()
+frames(3)
+for _ = 2, vi do key("down") end
+key("f3")
+
+-- two-bone IK on the villager (APP-29): t on a bone with a parent and a grandparent (a foot, a hand), w s a d q e
+-- move the target, the keys of the clip reach it (the heads are found again here with matrices, apart from the
+-- cart's own T.fk), one undo per move, out of reach is said on the screen
+do
+  local function qmat(q)
+    local x, y, z, w = q[1], q[2], q[3], q[4]
+    local l = math.sqrt(x * x + y * y + z * z + w * w)
+    x, y, z, w = x / l, y / l, z / l, w / l
+    return { { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w) },
+             { 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w) },
+             { 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y) } }
+  end
+  local function heads(rg, pose)
+    local Mx, out = {}, {}
+    for i, b in ipairs(rg.bones) do
+      local R, h, t = qmat(pose[i].q), b.head, pose[i].t
+      local loc = {}
+      for r = 1, 3 do
+        loc[r] = { R[r][1], R[r][2], R[r][3], h[r] + t[r] - (R[r][1] * h[1] + R[r][2] * h[2] + R[r][3] * h[3]) }
+      end
+      local m = {}
+      local a = b.parent > 0 and Mx[b.parent]
+      for r = 1, 3 do
+        m[r] = {}
+        for c = 1, 4 do
+          if a then
+            m[r][c] = a[r][1] * loc[1][c] + a[r][2] * loc[2][c] + a[r][3] * loc[3][c] + (c == 4 and a[r][4] or 0)
+          else
+            m[r][c] = loc[r][c]
+          end
+        end
+      end
+      Mx[i] = m
+      out[i] = { m[1][1] * h[1] + m[1][2] * h[2] + m[1][3] * h[3] + m[1][4],
+                 m[2][1] * h[1] + m[2][2] * h[2] + m[2][3] * h[3] + m[2][4],
+                 m[3][1] * h[1] + m[3][2] * h[2] + m[3][3] * h[3] + m[3][4] }
+    end
+    return out
+  end
+  local function dist(a, b) return math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2) end
+  local function the_rig() return anim_rigs(sec[9]).villager end
+  local function pose_of(rg) return rg.clips[1].poses[1] end
+  local function same_pose(a, b)
+    for i = 1, #a do
+      for k = 1, 4 do if math.abs(a[i].q[k] - b[i].q[k]) > 1e-6 then return false end end
+      for k = 1, 3 do if math.abs(a[i].t[k] - b[i].t[k]) > 1e-6 then return false end end
+    end
+    return true
+  end
+  local function bone_now()                              -- the bone the page shows: "TURN name   0.00 s ..."
+    for _, t in ipairs(texts) do
+      local n = t[1]:match("^%u+ (%S+)   ")
+      if n then return n end
+    end
+  end
+  local rg0 = the_rig()
+  local function select_bone(i)
+    for _ = 1, #rg0.bones do
+      if bone_now() == rg0.bones[i].name then return true end
+      key("down")
+    end
+    return bone_now() == rg0.bones[i].name
+  end
+  local function chain_ok(rg, b)
+    local p = rg.bones[b].parent
+    local g = p > 0 and rg.bones[p].parent or 0
+    return p > 0 and g > 0, g, p
+  end
+
+  key("home")
+  local walk0 = pose_of(rg0)
+  local nkeys0 = rg0.clips[1].keys
+  -- a bone with no chain
+  check(select_bone(1) and rg0.bones[1].parent == 0, "IK: bone 1 is the root")
+  key("t")
+  check(status():find("IK needs a bone with a parent and a grandparent", 1, true) and not sees("IK on:"),
+        "IK: the root has no chain: " .. status())
+  -- the limbs: the bones with a grandparent, hands and feet first
+  local cases = {}
+  for _, pat in ipairs({ "foot", "hand", "leg", "arm" }) do
+    for i, b in ipairs(rg0.bones) do
+      if #cases < 2 and chain_ok(rg0, i) and b.name:lower():find(pat, 1, true) then
+        local dup = false
+        for _, c in ipairs(cases) do if c == i then dup = true end end
+        if not dup then cases[#cases + 1] = i end
+      end
+    end
+  end
+  for i = 1, #rg0.bones do
+    if #cases < 2 and chain_ok(rg0, i) then
+      local dup = false
+      for _, c in ipairs(cases) do if c == i then dup = true end end
+      if not dup then cases[#cases + 1] = i end
+    end
+  end
+  check(#cases == 2, "IK: the villager has two chains of three bones (" .. #cases .. ")")
+  local KEYS = { { "w", 1, 1 }, { "s", 1, -1 }, { "a", 2, 1 }, { "d", 2, -1 }, { "q", 3, 1 }, { "e", 3, -1 } }
+  local function shifted(p0, kk, n)
+    local o = { p0[1], p0[2], p0[3] }
+    o[kk[2]] = o[kk[2]] + kk[3] * n / 16
+    return o
+  end
+  for _, b in ipairs(cases) do
+    local _, g, p = chain_ok(rg0, b)
+    local label = rg0.bones[g].name .. " > " .. rg0.bones[p].name .. " > " .. rg0.bones[b].name
+    local used = 0                                       -- the moves of this case (each one undo step)
+    check(select_bone(b), "IK: the bone " .. rg0.bones[b].name .. " is chosen")
+    key("t")
+    check(sees("IK on: " .. label) and not sees("OUT OF REACH"), "IK: on for " .. label)
+    check(sees("target") and sees("IK off"), "IK: the hint bar names the target keys and the way off")
+    local base = pose_of(the_rig())
+    local h0 = heads(rg0, base)
+    local len1, len2 = dist(h0[g], h0[p]), dist(h0[p], h0[b])
+    -- a key that keeps the target in reach for 2 steps, and the one that goes farthest
+    local near_k, far_k, best, worst = nil, nil, 1e9, -1
+    for _, kk in ipairs(KEYS) do
+      local d2 = dist(h0[g], shifted(h0[b], kk, 2))
+      if d2 < best and d2 < len1 + len2 - 2e-3 and d2 > math.abs(len1 - len2) + 2e-3 then near_k, best = kk, d2 end
+      if d2 > worst then far_k, worst = kk, d2 end
+    end
+    check(near_k ~= nil, "IK " .. label .. ": a direction in reach exists")
+    local opp = near_k
+    for _, kk in ipairs(KEYS) do if kk[2] == near_k[2] and kk[3] == -near_k[3] then opp = kk end end
+    key(near_k[1], near_k[1]); used = used + 2
+    local rg = the_rig()
+    local now = pose_of(rg)
+    local h1 = heads(rg, now)
+    local want = shifted(h0[b], near_k, 2)
+    check(dist(h1[b], want) < 2e-3,
+          string.format("IK %s: the keyed rotations bring the head to the target (off by %.5f)", label, dist(h1[b], want)))
+    check(math.abs(dist(h1[g], h1[p]) - len1) < 1e-3 and math.abs(dist(h1[p], h1[b]) - len2) < 1e-3, "IK " .. label .. ": the bone lengths stay")
+    check(dist(h1[g], h0[g]) < 1e-4, "IK " .. label .. ": the root of the chain stays")
+    check(rg.clips[1].keys == nkeys0 and rg.clips[1].times[1] == 0, "IK " .. label .. ": a key at the current time, no other")
+    -- one undo step per move
+    key(opp[1]); used = used + 1
+    check(not same_pose(pose_of(the_rig()), now), "IK " .. label .. ": a move of the target changes the keys")
+    key("^z"); used = used - 1
+    check(same_pose(pose_of(the_rig()), now), "IK " .. label .. ": one undo takes back one move of the target")
+    -- the target is read again from the pose: after the undo the next move starts from it
+    key(opp[1]); used = used + 1
+    local h2 = heads(rg0, pose_of(the_rig()))
+    check(dist(h2[b], shifted(h0[b], near_k, 1)) < 2e-3, "IK " .. label .. ": after an undo the target starts from the pose")
+    -- out of reach: straight to the target, the lengths kept, said on the screen
+    for _ = 1, 24 do key(far_k[1]) end; used = used + 24
+    check(sees("OUT OF REACH") and status():find("out of reach", 1, true), "IK " .. label .. ": out of reach is on the screen")
+    local rg3 = the_rig()
+    local h3 = heads(rg3, pose_of(rg3))
+    check(math.abs(dist(h3[g], h3[p]) - len1) < 1e-3 and math.abs(dist(h3[p], h3[b]) - len2) < 1e-3, "IK " .. label .. ": out of reach, no stretch")
+    local u1 = { (h3[p][1] - h3[g][1]) / len1, (h3[p][2] - h3[g][2]) / len1, (h3[p][3] - h3[g][3]) / len1 }
+    local u2 = { (h3[b][1] - h3[p][1]) / len2, (h3[b][2] - h3[p][2]) / len2, (h3[b][3] - h3[p][3]) / len2 }
+    check(u1[1] * u2[1] + u1[2] * u2[2] + u1[3] * u2[3] > 0.9999, "IK " .. label .. ": out of reach the limb is straight")
+    -- t again: off, and the keys turn the bone again
+    key("t")
+    check(not sees("IK on:") and status() == "IK off", "IK: t again turns it off")
+    key("a"); used = used + 1
+    check(not same_pose(pose_of(the_rig()), pose_of(rg3)), "IK off: w s a d q e turn the bone again")
+    for _ = 1, used do key("^z") end
+    check(same_pose(pose_of(the_rig()), walk0), "IK " .. label .. ": undo takes every move back: the pose as it was")
+  end
+  check(in_help("t", "animate"), "IK: the key is in the F12 help of the animate page")
+  key("home")
+end
 
 -- the mouse (bmui, 2026-10-06): the same things by clicking
 local function at(str, x, y)

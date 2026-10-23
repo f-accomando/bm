@@ -968,6 +968,7 @@ anim_page = {
     { "w s / a d / q e", "turn the bone 15 degrees" },
     { "shift w s a d q e", "turn it 5 degrees" },
     { "g", "turn / move" },
+    { "t", "IK on / off: the hand or foot goes to a target (w s a d q e move it)" },
     { "k / x", "add / delete the keyframe here" },
     { ", / .", "the keyframe before / after" },
     { "( / )", "move the keyframe a frame earlier / later" },
@@ -999,6 +1000,7 @@ function anim_page.reset()
   an.clip = r and clamp(an.clip, 1, max(1, #r.clips)) or 1
   an.t, an.playing = 0, false
   an.bone, an.for_model = 1, M()
+  an.ik = nil
   T.aim(an.cam, M() and M().faces or {}, 3)
 end
 
@@ -1061,10 +1063,12 @@ local function set_pose(c, pose)
 end
 
 -- turns (or moves) the chosen bone at the current time
+local ik_move                                    -- (below) with IK on, the same keys, the pad and the mouse move the target
 local function turn(axis, deg)
   local r, c = rig(), clip_obj()
   if not c then say("no animation: n makes one", C.ERR); return end
   stop_play(c)
+  if an.ik then ik_move(axis, deg); return end
   T.begin_edit()
   local pose = sample(r, c, an.t)
   local b = pose[an.bone]
@@ -1074,6 +1078,75 @@ local function turn(axis, deg)
     b.q = Q.norm(Q.mul(Q.axis(V.unit(axis), math.rad(deg)), b.q))
   end
   set_pose(c, pose)
+end
+
+-- Two-bone IK (APP-29; the math is T.ik_chain in bm3d). t on a bone with a parent and a grandparent (a hand,
+-- a foot) puts a handle on the head of that bone: w s a d q e move its target (x, y, z, as g does for a bone)
+-- and the solver keys the two bones above it at the current time; the chosen bone keeps its turn in the world.
+-- The target is not saved: it is read again from the pose whenever the time, the animation, the bone or the
+-- pose changes by other means (undo, a turn).
+local function ik_chain_of(r, b)
+  local bb = r.bones[b]
+  local p = bb and bb.parent or 0
+  local g = p > 0 and r.bones[p].parent or 0
+  if p > 0 and g > 0 then return g, p end
+end
+
+local function ik_open(r, c, b)
+  local g, p = ik_chain_of(r, b)
+  if not g then return nil end
+  local pose = sample(r, c, an.t)
+  return { g = g, p = p, b = b, pole = T.ik_pole(r, g, p, b, pose), reach = true }
+end
+
+-- keeps an.ik true to the pose: nil when it cannot stay on
+local function ik_sync(r, c)
+  local ik = an.ik
+  if not ik then return nil end
+  if not r or not c then an.ik = nil; return nil end
+  if an.bone ~= ik.b or not r.bones[ik.b] then
+    an.ik = ik_open(r, c, an.bone)
+    ik = an.ik
+    if not ik then say("IK off: this bone has no parent and grandparent", C.DIM, 90); return nil end
+    ik.t = nil
+  end
+  local eff = T.fk(r, sample(r, c, an.t)).head[ik.b]
+  if ik.t ~= an.t or ik.clip ~= an.clip or not ik.eff or V.dist2(eff, ik.eff) > 1e-8 then
+    ik.target, ik.eff, ik.t, ik.clip, ik.reach = eff, eff, an.t, an.clip, true
+  end
+  return ik
+end
+
+local function ik_name(r, ik)
+  return r.bones[ik.g].name .. " > " .. r.bones[ik.p].name .. " > " .. r.bones[ik.b].name
+end
+
+local function ik_toggle()
+  local r, c = rig(), clip_obj()
+  if an.ik then an.ik = nil; say("IK off", C.DIM, 60); return end
+  if not c then say("no animation: n makes one", C.ERR); return end
+  an.ik = ik_open(r, c, an.bone)
+  if not an.ik then
+    say("IK needs a bone with a parent and a grandparent (a hand, a foot)", C.ERR, 150)
+    return
+  end
+  ik_sync(r, c)
+  say("IK on: " .. ik_name(r, an.ik) .. "  (w s a d q e move the target)", C.ACC, 150)
+end
+
+-- one step of the target (axis 1 x, 2 y, 3 z; a 15 degree turn is a 1/16 step): one undo step
+function ik_move(axis, deg)
+  local r, c = rig(), clip_obj()
+  stop_play(c)
+  local ik = ik_sync(r, c)
+  if not ik then return end
+  T.begin_edit()
+  ik.target = { ik.target[1], ik.target[2], ik.target[3] }
+  ik.target[axis] = ik.target[axis] + deg / 15 / 16
+  local pose, info = T.ik_chain(r, sample(r, c, an.t), ik.g, ik.p, ik.b, ik.target, ik.pole)
+  set_pose(c, pose)
+  ik.eff, ik.t, ik.clip, ik.reach = info.eff, an.t, an.clip, info.reached
+  if not info.reached then say("IK: out of reach, the limb is straight to the target", C.ERR, 90) end
 end
 
 -- the pose left <-> right: each bone takes its mirror's (.L / .R), mirrored
@@ -1145,6 +1218,7 @@ function anim_page.key(k)
   if not c then return end
   if k ~= " " then stop_play(c) end
   local turns = { w = { 1, 15 }, s = { 1, -15 }, a = { 2, 15 }, d = { 2, -15 }, q = { 3, 15 }, e = { 3, -15 } }
+  if k == "t" then ik_toggle(); return end
   if turns[k] then turn(turns[k][1], turns[k][2]); return end
   if turns[k:lower()] then turn(turns[k:lower()][1], turns[k:lower()][2] / 3); return end
   if k == "left" then an.playing = false; an.t = max(0, snap_t(an.t) - 1 / FPS)
@@ -1318,7 +1392,7 @@ end
 function anim_page.menu_items()
   if not rig() then return { { "New animation", "n" } } end
   return { { an.playing and "Stop" or "Play", " " }, { "Keyframe", "k" }, { "Delete the keyframe", "x" },
-           { "Copy the pose", "^c" }, { "Paste the pose", "^v" }, { "Rest the bone", "r" }, { "Mirror the pose", "m" },
+           { an.ik and "IK off" or "IK handle", "t" }, { "Copy the pose", "^c" }, { "Paste the pose", "^v" }, { "Rest the bone", "r" }, { "Mirror the pose", "m" },
            "-", { "Move / turn", "g" }, { "Loop", "l" }, { "Ease", "i" }, { "Onion skin", "o" }, "-",
            { "New animation", "n" }, { "Duplicate", "^d" }, { "Rename...", "\n" },
            { "Animations from another model...", "^I" }, { "Frame the model", "z" } }
@@ -1372,6 +1446,19 @@ function anim_page.draw()
     end
     local hx, hy, hz, tx, ty, tz = bone3d(view, an.bone)
     if hx then T.draw_bone({ hx, hy, hz }, { tx, ty, tz }, C.CUR, true) end
+    local ik = c and ik_sync(r, c)
+    if ik then                                   -- the IK handle: a cross on the target; a line to the hand when out of reach
+      local col = ik.reach and C.ACC or C.ERR
+      local tx2, ty2 = T.scr(ik.target)
+      if tx2 then
+        if not ik.reach then
+          local ex, ey = T.scr(ik.eff)
+          if ex then line(ex, ey, tx2, ty2, col) end
+        end
+        line(tx2 - 6, ty2, tx2 + 6, ty2, col); line(tx2, ty2 - 6, tx2, ty2 + 6, col)
+        circ(tx2, ty2, 4, col)
+      end
+    end
   end
   -- the animations, then the bones
   local cn = {}
@@ -1385,7 +1472,7 @@ function anim_page.draw()
   T.draw_list("BONES", bone_names(r), an.bone, 0, by, (HINT_Y - by - 16) // 16, PANEL_W, T.bone_colour,
               function(i) an.bone = i end)
   local x = INFO_X
-  info_strip(c and 2 or 1)
+  info_strip(c and (an.ik and 3 or 2) or 1)
   if not c then
     print("no animations yet: n makes one, ctrl shift i takes them from a model", x, 32, C.ACC)
     T.hint({ { { "n" }, "new animation" }, { { "up", "down" }, "bone" }, { { "+", "-" }, "zoom" },
@@ -1396,10 +1483,16 @@ function anim_page.draw()
                       c.length, an.onion and "  onion" or ""), x, 32, C.ACC)
   T.gizmo(cam, PANEL_W + 40, HINT_Y - 88)
   local tt = draw_timeline(c)
-  print(string.format("%s %s   %.2f s  frame %d%s", an.move and "MOVE" or "TURN", r.bones[an.bone].name, tt,
+  local ik = ik_sync(r, c)
+  print(string.format("%s %s   %.2f s  frame %d%s", ik and "IK" or an.move and "MOVE" or "TURN", r.bones[an.bone].name, tt,
                       round(tt * FPS), key_at(c, tt) and "  key" or ""), x, 48, key_at(c, tt) and C.ACC or C.TEXT)
-  T.hint({ { { "left", "right" }, "time" }, { { "space" }, "play" }, { { "w", "s", "a", "d" }, "turn" },
-           { { "k" }, "key" }, { { "ctrl", "shift", "i" }, "retarget" } })       -- (q e: in the F12 help)
+  if ik then
+    print("IK on: " .. ik_name(r, ik) .. (ik.reach and "" or "   OUT OF REACH: straight to the target"),
+          x, 64, ik.reach and C.ACC or C.ERR)
+  end
+  T.hint({ { { "left", "right" }, "time" }, { { "space" }, "play" }, { { "w", "s", "a", "d" }, ik and "target" or "turn" },
+           { { "k" }, "key" }, ik and { { "t" }, "IK off" } or { { "ctrl", "shift", "i" }, "retarget" },
+           ik and { { "ctrl", "shift", "i" }, "retarget" } or { { "t" }, "IK" } })       -- (q e: in the F12 help)
 end
 
 ----------------------------------------------------------------- sprites page (the animation into the sheet)

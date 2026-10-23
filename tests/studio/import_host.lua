@@ -351,5 +351,179 @@ do
   check(#c3 == 0 and i3.matched == 0 and #i3.missing == 16, "retarget: no clips, no match")
 end
 
+-- two-bone IK (APP-29): T.ik2, T.fk, T.ik_pole, T.ik_chain, pure
+do
+  local V, Q = T.V, T.Q
+  local function len(a) return math.sqrt(V.dot(a, a)) end
+  local function near(a, b, e) return len(V.sub(a, b)) < (e or 1e-4) end
+  local root, l1, l2 = { 0.3, 1.2, -0.1 }, 0.5, 0.4
+  local pole = { 0, 0, 1 }
+  -- reachable targets in every direction: the end gets there, the lengths stay, the joint leans to the pole
+  local seed, worst, lenbad, leanbad, qbad = 7, 0, 0, 0, 0
+  local function rnd() seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 end
+  for _ = 1, 200 do
+    local dir = V.norm({ rnd() - 0.5, rnd() - 0.5, rnd() - 0.5 })
+    local d = 0.1 + rnd() * 0.8                      -- |l1 - l2| = 0.1 .. l1 + l2 = 0.9
+    local tg = V.add(root, V.scale(dir, d))
+    local r = T.ik2(root, l1, l2, tg, pole)
+    worst = math.max(worst, len(V.sub(r.tip, tg)))
+    lenbad = math.max(lenbad, math.abs(len(V.sub(r.mid, root)) - l1), math.abs(len(V.sub(r.tip, r.mid)) - l2))
+    if not r.reached then worst = 1 end
+    local m = V.sub(r.mid, root)
+    local across = V.sub(m, V.scale(dir, V.dot(m, dir)))
+    local pa = V.sub(pole, V.scale(dir, V.dot(pole, dir)))
+    if V.dot(across, pa) < -1e-9 then leanbad = leanbad + 1 end
+    local a1, a2 = Q.rotate(r.q1, { 0, 1, 0 }), Q.rotate(r.q2, { 0, 1, 0 })
+    qbad = math.max(qbad, len(V.sub(a1, r.d1)), len(V.sub(a2, r.d2)))
+  end
+  check(worst < 1e-4, "ik2: 200 reachable targets are reached within 1e-4 (worst " .. worst .. ")")
+  check(lenbad < 1e-9, "ik2: the two lengths stay (worst " .. lenbad .. ")")
+  check(leanbad == 0, "ik2: the joint leans to the pole side")
+  check(qbad < 1e-9, "ik2: q1 and q2 turn +y onto the two directions")
+  -- out of reach: straight to the target, lengths kept, reached = false
+  local far = V.add(root, { 2, 0, 0 })
+  local r = T.ik2(root, l1, l2, far, pole)
+  check(not r.reached and near(r.tip, { root[1] + 0.9, root[2], root[3] }, 1e-9) and near(r.mid, { root[1] + 0.5, root[2], root[3] }, 1e-9)
+        and near(r.d1, { 1, 0, 0 }, 1e-9) and near(r.d2, { 1, 0, 0 }, 1e-9), "ik2: out of reach: straight to the target, no stretch")
+  -- fully stretched (on the limit) and just inside / outside
+  for _, dd in ipairs({ 0.9, 0.9 - 1e-9, 0.9 + 1e-9, 0.9 - 1e-6 }) do
+    local rr = T.ik2(root, l1, l2, V.add(root, { 0, dd, 0 }), pole)
+    check(near(rr.tip, V.add(root, { 0, math.min(dd, 0.9), 0 }), 1e-6) and math.abs(len(V.sub(rr.mid, root)) - l1) < 1e-9
+          and rr.d1[1] == rr.d1[1] and rr.q1[4] == rr.q1[4], "ik2: fully stretched, d = " .. dd .. ": stable")
+  end
+  -- folded: nearer than |l1 - l2|, and on the root itself
+  local rf = T.ik2(root, l1, l2, V.add(root, { 0, 0.05, 0 }), pole)
+  check(not rf.reached and near(rf.tip, V.add(root, { 0, 0.1, 0 }), 1e-6) and math.abs(len(V.sub(rf.tip, rf.mid)) - l2) < 1e-9,
+        "ik2: nearer than |len1 - len2|: folded flat, lengths kept")
+  local r0 = T.ik2(root, l1, l2, root, pole)
+  check(r0.d1[1] == r0.d1[1] and math.abs(len(r0.d1) - 1) < 1e-9 and math.abs(len(V.sub(r0.mid, root)) - l1) < 1e-9
+        and math.abs(len(V.sub(r0.tip, r0.mid)) - l2) < 1e-6, "ik2: the target on the root: no NaN, lengths kept")
+  local re = T.ik2(root, 0.5, 0.5, root, pole)
+  check(re.d1[1] == re.d1[1] and near(re.tip, root, 1e-4) and math.abs(len(V.sub(re.mid, root)) - 0.5) < 1e-9,
+        "ik2: equal lengths, folded to the root: the end comes back to the root")
+  -- the pole flips the bend
+  local tg = V.add(root, { 0.5, -0.3, 0 })
+  local pa, pb = T.ik2(root, l1, l2, tg, { 0, 0, 1 }), T.ik2(root, l1, l2, tg, { 0, 0, -1 })
+  check(near(pa.tip, tg) and near(pb.tip, tg) and pa.mid[3] > root[3] + 0.01 and pb.mid[3] < root[3] - 0.01
+        and math.abs((pa.mid[3] - root[3]) + (pb.mid[3] - root[3])) < 1e-9, "ik2: the pole flips the bend, the end stays")
+  local pp = T.ik2(root, l1, l2, V.add(root, { 0, -0.6, 0 }), { 0, 1, 0 })
+  check(near(pp.tip, V.add(root, { 0, -0.6, 0 })) and pp.mid[1] == pp.mid[1] and len(V.sub(pp.mid, root)) > 0.49,
+        "ik2: a pole exactly along the axis is fine")
+
+  -- a rig: hips > thigh > shin > foot (bent knee at rest, toward +z), a second thigh
+  local function bone(name, par, h, t) return { name = name, parent = par, head = h, tail = t } end
+  local rig = { bones = {
+    bone("hips", 0, { 0, 1, 0 }, { 0, 1.2, 0 }),
+    bone("thigh", 1, { 0.1, 1, 0 }, { 0.1, 0.55, 0.06 }),
+    bone("shin", 2, { 0.1, 0.55, 0.06 }, { 0.1, 0.1, 0 }),
+    bone("foot", 3, { 0.1, 0.1, 0 }, { 0.1, 0.05, 0.2 }),
+    bone("thigh2", 1, { -0.1, 1, 0 }, { -0.1, 0.5, 0 }),
+  }, clips = {} }
+  local function rest_pose()
+    local p = {}
+    for i = 1, #rig.bones do p[i] = { q = { 0, 0, 0, 1 }, t = { 0, 0, 0 } } end
+    return p
+  end
+  local rest = rest_pose()
+  local pl = T.ik_pole(rig, 2, 3, 4, rest)
+  check(pl[3] > 0.99 and math.abs(pl[1]) < 1e-9, "ik_pole: the rest bend of the leg is toward +z")
+  local srig = { bones = { bone("a", 0, { 0, 1, 0 }, { 0, 0.5, 0 }), bone("b", 1, { 0, 0.5, 0 }, { 0, 0.25, 0 }),
+                           bone("c", 2, { 0, 0, 0 }, { 0, -0.2, 0 }) } }
+  check(T.ik_pole(srig, 1, 2, 3, nil)[3] == 1, "ik_pole: a straight rest limb with no pose: +z")
+  -- fk: the rest pose is the rest heads; a turned bone moves its children only
+  local fk = T.fk(rig, rest)
+  check(near(fk.head[4], rig.bones[4].head, 1e-9) and near(fk.tail[4], rig.bones[4].tail, 1e-9), "fk: the rest pose is the rest")
+  local turned = rest_pose()
+  turned[2].q = Q.axis({ 1, 0, 0 }, math.rad(-30))
+  local f2 = T.fk(rig, turned)
+  check(near(f2.head[2], rig.bones[2].head, 1e-9) and not near(f2.head[3], rig.bones[3].head, 1e-3) and near(f2.head[5], rig.bones[5].head, 1e-9)
+        and math.abs(len(V.sub(f2.head[3], f2.head[2])) - len(V.sub(rig.bones[3].head, rig.bones[2].head))) < 1e-9,
+        "fk: a bone turns round its head and carries its children")
+  -- ik_chain: reachable targets from a posed body (hips turned and moved, the foot turned)
+  local body = rest_pose()
+  body[1].q = Q.norm(Q.mul(Q.axis({ 0, 1, 0 }, math.rad(70)), Q.axis({ 1, 0, 0 }, math.rad(15))))
+  body[1].t = { 0.05, -0.1, 0.02 }
+  body[4].q = Q.axis({ 1, 0, 0 }, math.rad(20))
+  local f0 = T.fk(rig, body)
+  local ok_reach, ok_len, ok_foot, ok_other, ok_pose = true, true, true, true, true
+  local seed2 = 3
+  local function r2() seed2 = (seed2 * 1103515245 + 12345) % 2147483648; return seed2 / 2147483648 end
+  local nreach = 0
+  for _ = 1, 60 do
+    local tg2 = V.add(f0.head[2], V.scale(V.norm({ r2() - 0.5, -r2() - 0.2, r2() - 0.5 }), 0.15 + r2() * 0.8))
+    local np, info = T.ik_chain(rig, body, 2, 3, 4, tg2, pl)
+    local fk3 = T.fk(rig, np)
+    if info.reached then nreach = nreach + 1; ok_reach = ok_reach and near(fk3.head[4], tg2, 1e-4) end
+    ok_len = ok_len and math.abs(len(V.sub(fk3.head[3], fk3.head[2])) - len(V.sub(f0.head[3], f0.head[2]))) < 1e-9
+             and math.abs(len(V.sub(fk3.head[4], fk3.head[3])) - len(V.sub(f0.head[4], f0.head[3]))) < 1e-9
+    local dq = Q.mul(fk3.rot[4], Q.conj(f0.rot[4]))
+    ok_foot = ok_foot and math.abs(math.abs(dq[4]) - 1) < 1e-9          -- the foot keeps its turn in the world
+    ok_other = ok_other and np[1].q[4] == body[1].q[4] and np[5].q[4] == 1 and np[1].t[2] == -0.1
+    ok_pose = ok_pose and np ~= body and body[2].q[4] == 1
+  end
+  check(nreach > 20 and ok_reach, "ik_chain: a posed leg: the foot reaches every reachable target (" .. nreach .. " of 60)")
+  check(ok_len, "ik_chain: the bone lengths stay")
+  check(ok_foot, "ik_chain: the foot keeps its rotation in the world")
+  check(ok_other and ok_pose, "ik_chain: the other bones are not touched, the pose given is not changed")
+  -- out of reach: straight, pointing at the target
+  local tg3 = V.add(f0.head[2], { 0.3, -3, 0 })
+  local np, info = T.ik_chain(rig, body, 2, 3, 4, tg3, pl)
+  local f3 = T.fk(rig, np)
+  local ax = V.norm(V.sub(tg3, f0.head[2]))
+  check(not info.reached and near(V.norm(V.sub(f3.head[3], f3.head[2])), ax, 1e-6) and near(V.norm(V.sub(f3.head[4], f3.head[3])), ax, 1e-6)
+        and near(info.eff, f3.head[4], 1e-9), "ik_chain: out of reach: the leg is straight to the target")
+  -- the pole turns with the hips: the knee leans where the body faces
+  local tg4 = V.add(f0.head[2], V.scale(V.norm({ 0.2, -1, 0.1 }), 0.8))
+  local f4 = T.fk(rig, (T.ik_chain(rig, body, 2, 3, 4, tg4, pl)))
+  local axis4 = V.norm(V.sub(f4.head[4], f0.head[2]))
+  local lean = V.sub(f4.head[3], f0.head[2])
+  lean = V.sub(lean, V.scale(axis4, V.dot(lean, axis4)))
+  check(V.dot(lean, Q.rotate(f0.rot[1], pl)) > 0.01, "ik_chain: the knee leans in the direction of the hips' turn")
+end
+
+-- the humanoid base (APP-29): a straight leg and a straight arm; the knee leans forward (-z, the toes), the elbow back
+do
+  local V = T.V
+  local hum = G.humanoid("man")
+  local hr = T.decode_rig(hum.ac)
+  local function len(a) return math.sqrt(V.dot(a, a)) end
+  local function pose0()
+    local p = {}
+    for i = 1, #hr.bones do p[i] = { q = { 0, 0, 0, 1 }, t = { 0, 0, 0 } } end
+    return p
+  end
+  local function idx(n) for i, b in ipairs(hr.bones) do if b.name == n then return i end end end
+  for _, c in ipairs({ { "uleg.L", "lleg.L", "foot.L", -1, "the leg" }, { "uarm.R", "larm.R", "hand.R", 1, "the arm" } }) do
+    local g, p, b = idx(c[1]), idx(c[2]), idx(c[3])
+    local pl = T.ik_pole(hr, g, p, b, pose0())
+    check(pl[3] * c[4] > 0.99, "humanoid: " .. c[5] .. " leans " .. (c[4] < 0 and "forward (-z)" or "back (+z)") .. " when straight")
+    local f0 = T.fk(hr, pose0())
+    local worst, kneeok, nr = 0, true, 0
+    -- 12 reachable targets: up, in, forward, back, sideways
+    local dirs = { { 0, 1, 0 }, { 0, 0.7, -0.7 }, { 0, 0.7, 0.7 }, { 0.5, 0.8, 0 }, { -0.5, 0.8, 0 }, { 0, 0.5, -0.9 } }
+    for _, dd in ipairs(dirs) do
+      for _, amount in ipairs({ 0.15, 0.3 }) do
+        local tg = V.add(f0.head[b], V.scale(V.norm(dd), amount))
+        local np, info = T.ik_chain(hr, pose0(), g, p, b, tg, pl)
+        local fk = T.fk(hr, np)
+        if info.reached then
+          nr = nr + 1
+          worst = math.max(worst, len(V.sub(fk.head[b], tg)))
+          local ax = V.norm(V.sub(fk.head[b], fk.head[g]))
+          local m = V.sub(fk.head[p], fk.head[g])
+          local across = V.sub(m, V.scale(ax, V.dot(m, ax)))
+          if len(across) > 1e-3 and V.dot(across, pl) < 0 then kneeok = false end
+        end
+      end
+    end
+    check(nr >= 6 and worst < 1e-4, "humanoid: " .. c[5] .. ": " .. nr .. " reachable targets reached (worst " .. worst .. ")")
+    check(kneeok, "humanoid: " .. c[5] .. ": the joint bends toward the pole")
+    local far = V.add(f0.head[g], { 0, -3, 0 })
+    local np, info = T.ik_chain(hr, pose0(), g, p, b, far, pl)
+    local fk = T.fk(hr, np)
+    check(not info.reached and len(V.sub(fk.head[b], f0.head[b])) < 1e-4, "humanoid: " .. c[5] .. ": the target at the full stretch: no stretch, no move")
+  end
+end
+
 io.write(string.format("model files: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)
