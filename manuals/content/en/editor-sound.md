@@ -133,6 +133,25 @@ The header has three fields: STEPS (1 to 64), TEMPO and SWING. Tempo and swing b
 
 ![The PATTERN page: eight tracks, sixteen steps](shots/editor-sound-pattern.png)
 
+### Solo
+
+Solo lets you hear one track alone.
+
+- Press `a` (pad: **B** on the track name) to solo the track you are on. The other tracks do not sound when the pattern plays.
+- You can solo more than one track. Go to another track and press `a` again.
+- Press `a` again on a solo track to clear it.
+- The header of a solo track shows an `S` next to the mute mark. A line on the page shows `SOLO` with the track numbers.
+- The solo is only for listening. It is not saved in the file. The mute marks (`M`) stay as they are.
+
+### The piano roll
+
+The grid is the default view. Press `f` (pad: **B** on a step) to see one track as a piano roll.
+
+- The roll shows one track. The vertical side is the pitch: a window of 20 semitones with a ruler of note names. The window scrolls when the cursor goes out of it. The horizontal side is time: the steps.
+- Up and down move the pitch cursor. Enter puts a note at the cursor. If the step has a note already, Enter moves the note to the cursor. If the note is already at the cursor, Enter removes it.
+- The other keys work as in the grid. The mouse works too: a click on the roll puts the cursor there and does what Enter does.
+- Press `f` again to go back to the grid. Both views show the same data, so the file is the same.
+
 ## SONG
 
 A song is a row of up to 64 slots; each slot holds a pattern number. The 8 songs are in the list on the left.
@@ -195,6 +214,8 @@ The pad and the keyboard do the same things. The bottom line of the screen shows
 | Piano, lower row | - | `z s x d c v g b h n j m` |
 | Piano, upper row (an octave up) | - | `q 2 w 3 e r 5 t 6 y 7 u` |
 | Piano octave | - | `,` / `.` |
+| PATTERN: solo of the track | B on the track name | `a` |
+| PATTERN: piano roll or step grid | B on a step | `f` |
 | Save | - | Ctrl+S |
 | Save as a new sound pack | - | Ctrl+Shift+S |
 | Open | - | Ctrl+O |
@@ -272,7 +293,7 @@ If you hear nothing, check that the volume of the console is up and that the ste
 5. Fill other steps. With the piano keys (`z s x d c v`) a note is placed and the cursor moves to the next step.
 6. Do the same on track 2 with another sound, for a bass or a drum.
 7. Press Space. The pattern plays and the step being played is lit.
-8. To mute a track while you listen, go to its header and press Enter. An `M` appears. Press Enter again to unmute.
+8. To mute a track while you listen, go to its header and press Enter. An `M` appears. Press Enter again to unmute. To hear one track alone, press `a` on it: this is a solo.
 
 ::: try
 Put a short noise sound on track 1 at steps 1, 5, 9 and 13, and a bass on track 2 at steps 1 and 9.

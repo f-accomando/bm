@@ -133,6 +133,25 @@ L'intestazione ha tre campi: STEPS (da 1 a 64), TEMPO e SWING. Tempo e swing app
 
 ![La pagina PATTERN: otto tracce, sedici passi](shots/editor-sound-pattern.png)
 
+### Solo
+
+Il solo ti fa sentire una traccia da sola.
+
+- Premi `a` (pad: **B** sul nome della traccia) per mettere in solo la traccia su cui sei. Le altre tracce non suonano quando il pattern gira.
+- Puoi mettere in solo più di una traccia. Vai su un'altra traccia e premi di nuovo `a`.
+- Premi di nuovo `a` su una traccia in solo per toglierla.
+- L'intestazione di una traccia in solo mostra una `S` accanto al segno di silenzio. Una riga della pagina mostra `SOLO` con i numeri delle tracce.
+- Il solo serve solo per ascoltare. Non viene salvato nel file. I segni di silenzio (`M`) restano come sono.
+
+### Il piano roll
+
+La griglia è la vista predefinita. Premi `f` (pad: **B** su un passo) per vedere una traccia come piano roll.
+
+- Il roll mostra una traccia. Il lato verticale è l'altezza: una finestra di 20 semitoni con un righello di nomi di nota. La finestra scorre quando il cursore ne esce. Il lato orizzontale è il tempo: i passi.
+- Su e giù muovono il cursore dell'altezza. Invio mette una nota al cursore. Se il passo ha già una nota, Invio sposta la nota al cursore. Se la nota è già al cursore, Invio la toglie.
+- Gli altri tasti funzionano come nella griglia. Funziona anche il mouse: un clic sul roll mette il cursore lì e fa ciò che fa Invio.
+- Premi di nuovo `f` per tornare alla griglia. Le due viste mostrano gli stessi dati, quindi il file è lo stesso.
+
 ## SONG
 
 Una canzone è una riga di al massimo 64 slot; ogni slot contiene il numero di un pattern. Le 8 canzoni sono nell'elenco a sinistra.
@@ -195,6 +214,8 @@ Il pad e la tastiera fanno le stesse cose. La riga in basso dello schermo mostra
 | Pianoforte, fila bassa | - | `z s x d c v g b h n j m` |
 | Pianoforte, fila alta (un'ottava sopra) | - | `q 2 w 3 e r 5 t 6 y 7 u` |
 | Ottava del pianoforte | - | `,` / `.` |
+| PATTERN: solo della traccia | B sul nome della traccia | `a` |
+| PATTERN: piano roll o griglia dei passi | B su un passo | `f` |
 | Salvare | - | Ctrl+S |
 | Salvare come nuovo sound pack | - | Ctrl+Shift+S |
 | Aprire | - | Ctrl+O |
@@ -272,7 +293,7 @@ Se non senti nulla, controlla che il volume della console sia alto e che il pass
 5. Riempi altri passi. Con i tasti del pianoforte (`z s x d c v`) viene messa una nota e il cursore passa al passo successivo.
 6. Fai lo stesso sulla traccia 2 con un altro suono, per un basso o una batteria.
 7. Premi Spazio. Il pattern suona e il passo in esecuzione è illuminato.
-8. Per silenziare una traccia mentre ascolti, vai alla sua intestazione e premi Invio. Compare una `M`. Premi di nuovo Invio per riattivarla.
+8. Per silenziare una traccia mentre ascolti, vai alla sua intestazione e premi Invio. Compare una `M`. Premi di nuovo Invio per riattivarla. Per sentire una sola traccia, premi `a` su di essa: è un solo.
 
 ::: try
 Metti un breve suono di rumore sulla traccia 1 ai passi 1, 5, 9 e 13, e un basso sulla traccia 2 ai passi 1 e 9.

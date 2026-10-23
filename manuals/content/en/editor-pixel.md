@@ -165,7 +165,7 @@ On F1 a pointer moves with the arrows. **Space** uses the tool. With the pencil 
 | z | sprite size |
 | PgUp / PgDn | sprite before / after |
 | j | show or hide the boxes |
-| Ctrl+E | export a PNG to `/docs` |
+| Ctrl+E | export a PNG or a GIF to `/docs` |
 | F6 | the assistant: a base for a sprite |
 | Tab | the list of commands |
 
@@ -190,7 +190,7 @@ For lines, rectangles, ovals and selections: press **space** to fix one corner, 
 | h / v | flip left-right / up-down |
 | r | turn by a quarter |
 | Del | clear the selection, or the whole sprite |
-| Ctrl+E | export the sprite, the animation or the sheet as a PNG |
+| Ctrl+E | export the sprite, the animation or the sheet as a PNG, or the animation as a GIF |
 | Shift+w a s d | scroll the sprite by one pixel (what goes out comes back on the other side) |
 
 The transparent pixels of a pasted block leave what is underneath.
@@ -201,13 +201,22 @@ Press **w** and then **space** on a pixel. bm Pixel selects the connected area o
 
 ## Export a PNG
 
-Press **Ctrl+E** (menu: *Export a PNG to /docs...*) to write a PNG file. A list asks what to export:
+Press **Ctrl+E** (menu: *Export a PNG or GIF to /docs...*) to write a PNG file or a GIF file. A list asks what to export:
 
 - *this sprite*: the sprite you draw;
-- *the animation*: its frames side by side in a strip;
+- *the animation as a PNG*: its frames side by side in a strip;
+- *the animation as a GIF: N frames, F a second*: an animated image, with one image for each frame, in the order of the preview;
 - *the whole sheet*.
 
 Then a line asks the file name and suggests one made from the file name. The PNG goes to `/docs` on the card. The pixels with colour 0 are transparent in the PNG. The name is 8.3 in lower case: letters, digits and `_`, and the extension `.png`. If the name has more than 8 letters, bm Pixel cuts it to 8 and the status line says `name cut to 8 letters`. The status line shows `saved /docs/NAME.png` when the file is written. If the export fails, the status line says why.
+
+The GIF has these rules:
+
+- It loops for ever.
+- The transparent pixels stay transparent.
+- The speed comes from the fps of the sprite, so it is the speed of the preview.
+- The file name has up to 8 letters and the extension `.gif`. The file goes to `/docs`.
+- A GIF holds 255 colours at most. If the frames have more, bm Pixel reduces them to 255.
 
 ## The assistant (F6)
 

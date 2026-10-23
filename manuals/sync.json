@@ -298,8 +298,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "efe328b11a98",
-    "it": "ad077ccb2957",
+    "en": "7453d36cf9c7",
+    "it": "4f3106bc26f1",
     "title": "The API for tools"
    },
    "4": {
@@ -322,7 +322,7 @@
    "docs/PROJECT-LAYOUT.md": "9c51571709d1",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/SCREENSHOTS.md": "afdde1690440",
-   "docs/api/tools.md": "d30ed209e509"
+   "docs/api/tools.md": "6b834ad91360"
   }
  },
  "boot-os": {
@@ -507,8 +507,8 @@
     "title": "Opening"
    },
    "3": {
-    "en": "83c6c919f265",
-    "it": "2bb29b53082c",
+    "en": "23bc5f2800dc",
+    "it": "b7fac9fc9573",
     "title": "The screen and the controls"
    },
    "4": {
@@ -517,8 +517,8 @@
     "title": "Bones and rigging"
    },
    "5": {
-    "en": "6acf2b33bb69",
-    "it": "9e538400fb06",
+    "en": "7286b13c6d92",
+    "it": "0b194066338f",
     "title": "Keyframes and clips"
    },
    "6": {
@@ -543,7 +543,7 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "a6e215fed192",
+   "carts/animator/main.lua": "26102dad9743",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/progress/tools.md": "672103c80976",
@@ -695,8 +695,8 @@
     "title": "The pages"
    },
    "4": {
-    "en": "6a19b032d5ad",
-    "it": "81ec61d97ace",
+    "en": "2f7433b48494",
+    "it": "c5fe6da6d666",
     "title": "Drawing tools and keys"
    },
    "5": {
@@ -726,7 +726,7 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "c56ef2a834a3",
+   "carts/pixel/main.lua": "3b2f838fdacd",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-pixel.md": "a0f942fe815a",
    "docs/progress/tools.md": "672103c80976",
@@ -802,18 +802,18 @@
     "title": "Opening bm Sound"
    },
    "3": {
-    "en": "1484d1b6c99c",
-    "it": "f55bdf073af7",
+    "en": "8b3064834331",
+    "it": "a52ca580a60c",
     "title": "The pages"
    },
    "4": {
-    "en": "2600eaeecc18",
-    "it": "d77cf12c2c21",
+    "en": "b15c8d028dd8",
+    "it": "4dd55f9dbb02",
     "title": "Controls"
    },
    "5": {
-    "en": "2db843d42948",
-    "it": "84a6f7eae2db",
+    "en": "bb6bc5b12f1c",
+    "it": "06cbf668602e",
     "title": "Tutorials"
    },
    "6": {
@@ -828,7 +828,7 @@
    }
   },
   "sources": {
-   "carts/sound/main.lua": "e0a80fe41be7",
+   "carts/sound/main.lua": "41d78b08a620",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sound.md": "c2059f0520b0",
    "docs/progress/tools.md": "672103c80976",

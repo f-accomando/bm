@@ -165,7 +165,7 @@ In F1 un puntatore si muove con le frecce. **Spazio** usa lo strumento. Con mati
 | z | misura dello sprite |
 | PgUp / PgDn | sprite prima / dopo |
 | j | mostra o nasconde i box |
-| Ctrl+E | esporta un PNG in `/docs` |
+| Ctrl+E | esporta un PNG o una GIF in `/docs` |
 | F6 | l'assistente: una base per uno sprite |
 | Tab | l'elenco dei comandi |
 
@@ -190,7 +190,7 @@ Per linee, rettangoli, ovali e selezioni: premi **spazio** per fissare un angolo
 | h / v | specchia sinistra-destra / alto-basso |
 | r | ruota di un quarto |
 | Del | cancella la selezione, o tutto lo sprite |
-| Ctrl+E | esporta lo sprite, l'animazione o il foglio come PNG |
+| Ctrl+E | esporta lo sprite, l'animazione o il foglio come PNG, oppure l'animazione come GIF |
 | Shift+w a s d | fa scorrere lo sprite di un pixel (ciò che esce rientra dall'altro lato) |
 
 I pixel trasparenti di un blocco incollato lasciano ciò che c'è sotto.
@@ -201,13 +201,22 @@ Premi **w** e poi **spazio** su un pixel. bm Pixel seleziona l'area connessa del
 
 ## Esportare un PNG
 
-Premi **Ctrl+E** (menu: *Export a PNG to /docs...*) per scrivere un file PNG. Un elenco chiede cosa esportare:
+Premi **Ctrl+E** (menu: *Export a PNG or GIF to /docs...*) per scrivere un file PNG o un file GIF. Un elenco chiede cosa esportare:
 
 - *this sprite*: lo sprite che disegni;
-- *the animation*: i suoi frame affiancati in una striscia;
+- *the animation as a PNG*: i suoi frame affiancati in una striscia;
+- *the animation as a GIF: N frames, F a second*: un'immagine animata, con un'immagine per ogni frame, nell'ordine dell'anteprima;
 - *the whole sheet*: tutto il foglio.
 
 Poi una riga chiede il nome del file e ne propone uno fatto dal nome del file. Il PNG va in `/docs` sulla scheda. I pixel di colore 0 sono trasparenti nel PNG. Il nome è 8.3 in minuscolo: lettere, cifre e `_`, e l'estensione `.png`. Se il nome ha più di 8 lettere, bm Pixel lo taglia a 8 e la riga di stato dice `name cut to 8 letters`. La riga di stato mostra `saved /docs/NOME.png` quando il file è scritto. Se l'esportazione fallisce, la riga di stato dice perché.
+
+La GIF ha queste regole:
+
+- Si ripete per sempre.
+- I pixel trasparenti restano trasparenti.
+- La velocità viene dagli fps dello sprite, quindi è la velocità dell'anteprima.
+- Il nome del file ha al massimo 8 lettere e l'estensione `.gif`. Il file va in `/docs`.
+- Una GIF contiene al massimo 255 colori. Se i frame ne hanno di più, bm Pixel li riduce a 255.
 
 ## L'assistente (F6)
 

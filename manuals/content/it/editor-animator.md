@@ -167,7 +167,8 @@ In modalità pelle: le frecce scelgono una faccia, spazio la segna, `c` segna qu
 | `m` | specchia la posa |
 | `o` | onion skin: le ossa dei keyframe precedente e successivo |
 | `l` | loop sì, no |
-| `i` | lineare, morbida, a scatti |
+| `i` | cambia la curva: lineare, morbida, a scatti, entrata lenta, uscita lenta |
+| `t` | maniglia IK accesa, spenta (vedi IK a due ossa) |
 | `<` `>` | più corta, più lunga di un fotogramma |
 | Invio | rinomina l'animazione (fino a 16 lettere) |
 | `Ctrl+D` | duplica l'animazione |
@@ -284,12 +285,26 @@ Un ciclo di camminata sono poche pose. Tu fai le pose, bm Animator fa il movimen
 - **Ogni rotazione di un osso è un keyframe** all'istante corrente: ruota l'osso e il keyframe c'è.
 - **g** fa passare gli stessi tasti da ruotare a spostare l'osso (un piccolo passo; nient'altro cambia).
 - **Loop** attivo: dopo l'ultimo keyframe l'animazione prosegue verso il primo, sul resto della durata. Un'animazione in loop non ha bisogno di un keyframe all'ultimo fotogramma.
-- **i** sceglie come va il movimento tra due keyframe: lineare, morbido (lento a entrambe le estremità) o a scatti (la posa salta).
+- **i** sceglie come va il movimento tra due keyframe. Ogni pressione passa al successivo di cinque modi: lineare, morbido (lento a entrambe le estremità), a scatti (la posa salta), entrata lenta (ease-in: parte piano) e uscita lenta (ease-out: arriva piano).
+- **Attenzione:** un kernel precedente a ease-in ed ease-out rifiuta una cartuccia che ha un'animazione con uno di questi due modi. Mostra il messaggio `bad skeletons (ANIM)` e la cartuccia non si carica. Aggiorna il kernel, oppure resta su lineare, morbido e a scatti.
 - **<** e **>** accorciano e allungano l'animazione di un fotogramma. Non può diventare più corta del suo ultimo keyframe.
 - `,` e `.` saltano tra i keyframe. `(` e `)` spostano di un fotogramma il keyframe su cui sei.
 - L'unico keyframe rimasto di un'animazione non si può togliere (`the last keyframe stays`).
 - Premere **Backspace** una volta chiede conferma; la seconda pressione elimina l'animazione.
 - Al massimo **255** animazioni per modello.
+
+## IK a due ossa
+
+Con la maniglia IK non giri gli ossi uno per uno. Sposti la mano o il piede, e bm Animator gira gli ossi sopra di essa.
+
+- Scegli un osso che ha un genitore e un nonno (una mano, un piede) e premi **t**. La maniglia sta sulla testa dell'osso scelto. Una croce mostra il bersaglio. La voce di menu è `IK handle`; con la maniglia accesa diventa `IK off`.
+- Se l'osso non ha genitore e nonno, un messaggio lo dice e la maniglia resta spenta.
+- **w s a d q e** ora spostano il bersaglio, non l'osso. I tasti maiuscoli fanno un passo di un terzo. Anche il gamepad e il trascinamento del mouse spostano il bersaglio allo stesso modo.
+- Dopo ogni spostamento, bm Animator mette i keyframe sul genitore e sul nonno al tempo corrente. L'osso scelto mantiene la sua rotazione nel mondo. Il ginocchio o il gomito si piega verso la piega che ha la posa di riposo.
+- Se il bersaglio è troppo lontano, l'arto va dritto verso di esso e non si allunga. Lo schermo mostra `OUT OF REACH`.
+- Ogni spostamento è un passo di annullamento. Il risultato sono normali keyframe di rotazione, quindi l'animazione gira uguale ovunque.
+- Il bersaglio non viene salvato. Premi di nuovo **t** per spegnere la maniglia.
+- Il tasto **i** resta il tasto della curva. La maniglia IK sta su **t**.
 
 ## Onion skin
 

@@ -167,7 +167,8 @@ In skin mode: arrows choose a face, space marks it, `c` marks the connected ones
 | `m` | mirror the pose |
 | `o` | onion skin: the bones of the previous and next keyframes |
 | `l` | loop on, off |
-| `i` | linear, smooth, step |
+| `i` | change the ease: linear, smooth, step, ease-in, ease-out |
+| `t` | IK handle on, off (see Two-bone IK) |
 | `<` `>` | shorter, longer by one frame |
 | Enter | rename the animation (up to 16 letters) |
 | `Ctrl+D` | duplicate the animation |
@@ -284,12 +285,26 @@ A walk cycle is a handful of poses. You make the poses, bm Animator makes the mo
 - **Every turn of a bone is a keyframe** at the current time: turn the bone and the keyframe is there.
 - **g** switches the same keys from turning to moving the bone (a small step; nothing else changes).
 - **Loop** on: after the last keyframe the animation goes on to the first one, over the rest of the length. A looping animation needs no keyframe at its last frame.
-- **i** chooses how the movement goes between two keyframes: linear, smooth (slow at both ends) or step (the pose jumps).
+- **i** chooses how the movement goes between two keyframes. Each press goes to the next of five modes: linear, smooth (slow at both ends), step (the pose jumps), ease-in (slow start) and ease-out (slow end).
+- **Warning:** a kernel from before ease-in and ease-out refuses a cartridge that has a clip with one of these two modes. It shows the message `bad skeletons (ANIM)`, and the cartridge does not load. Update the kernel, or keep to linear, smooth and step.
 - **<** and **>** shorten and lengthen the animation by one frame. It cannot become shorter than its last keyframe.
 - `,` and `.` jump between keyframes. `(` and `)` move the keyframe you are on by one frame.
 - The only keyframe left of an animation cannot be removed (`the last keyframe stays`).
 - Pressing **Backspace** once asks to confirm; a second press deletes the animation.
 - At most **255** animations for a model.
+
+## Two-bone IK
+
+With an IK handle you do not turn the bones one by one. You move the hand or the foot, and bm Animator turns the bones above it.
+
+- Choose a bone that has a parent and a grandparent (a hand, a foot) and press **t**. The handle sits on the head of the chosen bone. A cross shows the target. The menu entry is `IK handle`; when the handle is on it reads `IK off`.
+- If the bone has no parent and grandparent, a message says so and the handle stays off.
+- **w s a d q e** now move the target, not the bone. Uppercase keys make a step of one third. The gamepad and the mouse drag move the target in the same way.
+- After each move, bm Animator puts keyframes on the parent and the grandparent at the current time. The chosen bone keeps its turn in the world. The knee or the elbow bends toward the bend that the rest pose has.
+- If the target is too far, the limb goes straight to it and does not stretch. The screen shows `OUT OF REACH`.
+- Each move is one undo step. The result is ordinary rotation keys, so the animation plays the same everywhere.
+- The target is not saved. Press **t** again to turn the handle off.
+- The key **i** is still the ease key. The IK handle is on **t**.
 
 ## Onion skin
 
