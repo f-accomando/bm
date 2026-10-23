@@ -14,7 +14,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   256×256 and 360×360 (the `.b16` screen), boxed in the middle of 16:9 on the Pi.
 - `screen(w, h)` switches at run time among `screen_modes[]` (320×180 … 1920×1080, 16:9,
   whole pixels on 1080p); a square cartridge keeps its screen.
-- Menu at 1080p: `menu_scale=3`, the 640×360 layout enlarged ×3 by the GPU
+- Menu: 2x (1280x720) by default when the GPU is there, else 1x (`menu_scale` sets 1, 2 or 3). At 1080p: `menu_scale=3`, the 640×360 layout enlarged ×3 by the GPU
   (`gpu3d_enlarge`), by the ARM without GPU.
 
 ### 2D (`src/bm/gfx16.c`, `gfx16.h`)
@@ -78,6 +78,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 ## Open work (`docs/ROADMAP.md`)
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
+- Menu 2x by default on the Pi (23 Oct): built, QEMU tests pass (QEMU has no GPU, so the menu stays 1x there). Not seen on the Pi: check that the menu is 1280x720 and smooth, and that it falls back to 640x360 if the GPU fails.
 - Mali-G52 driver: [graphics-mali](graphics-mali.md) (the Dev > GPU test run with the variant probe, then the 3D Bench with `mali3d=1`: both on the device).
 - Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). `stackv` (the same call with the slices one under the other; zone line `stackv name x y w h n`, bit 0 of byte 27 of the SPRITES zone) is done. The mesh conversion is a host tool: `tools/stack2mesh.py` (see [tools](tools.md)). The bm Pixel Stack page is done (see [tools](tools.md)). Not done: a button for the conversion in bm Pixel and bm Studio, the Pi speed.
 - 3D particles: `particles*` and `lib.particles3d` are done (ARM step and draw in `r3d_pfx_*`, no cost without a pool; host test `test_pfx`, `make test-gameapi`). Not measured on the Pi Zero W. Not done: the QPU step (the idea is dropped for now).

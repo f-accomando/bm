@@ -3,8 +3,8 @@
  * screen: tabs at the top (Market, Games, Dev) and Settings after them, the covers
  * in a grid that scrolls down, moved through with the four directions;
  * the background is the blurred cover of the selected cartridge. Panels
- * (submenus) open over the grid. RGB565, 640x360 on the Pi (1920x1080 with
- * menu_scale=3: the same layout three times bigger) and 360x360 on the
+ * (submenus) open over the grid. RGB565, 640x360 on the Pi, shown 2x at 1280x720 when the GPU is there
+ * (menu_scale=3: 1920x1080) and 360x360 on the
  * RGB30 (shown 2x): the same drawing, the columns follow the width.
  */
 #ifndef MENU_UI_H

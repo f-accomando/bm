@@ -137,7 +137,7 @@ The differences that are hardware, with the capability that explains each:
 
 | Id | Area | Capability | What differs |
 |---|---|---|---|
-| D30 | screen | `square-panel` | Pi: 16:9 HDMI: menu 640x360, 6 covers a row, menu_scale. RGB30: square 720x720 panel: menu 360x360 shown x2, 3 covers a row |
+| D30 | screen | `square-panel` | Pi: 16:9 HDMI: menu 640x360 shown 2x at 1280x720 with the GPU (else 1x), 6 covers a row, menu_scale. RGB30: square 720x720 panel: menu 360x360 shown x2, 3 covers a row |
 | D31 | game screen | `square-panel` | Pi: square carts boxed in 16:9 black. RGB30: fb_init_game fills the panel; screen() offers only 360x360 and 720x720; bm_scale, bm_smooth |
 | D32 | confirm / back | `pad-only` | Pi: A confirms, B backs. RGB30: B confirms, A backs; confirm=a swaps |
 | D33 | game buttons | `pad-only` | Pi: DS4 by position. RGB30: built-in pad by the letters printed on it; game_buttons=position |

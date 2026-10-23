@@ -643,7 +643,7 @@ config_keys() {
   layout         it or us: the keyboard           volume   0 to 10
   game_intro     0: no loading splash             perf     1: the performance overlay
   gpu3d          0: the 3D on the ARM (gpu3d_aa, gpu3d_vs, gpu3d_queue: the GPU's options)
-  menu_scale     3: the Pi's menu at 1920x1080    mouse    off: no pointer anywhere
+  menu_scale     1|2|3: the Pi's menu size       mouse    off: no pointer anywhere
   confirm        a: A confirms (RGB30)            show_bm  0: no .bm in the RGB30's menu
 KEYS
 }

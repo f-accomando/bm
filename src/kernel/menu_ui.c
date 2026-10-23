@@ -31,8 +31,8 @@ static int sw = 640, sh = 360, cols = MENU_COLS;
 #define MAX_W 640
 #define MAX_H 360
 #define WIDE (SW >= 640)                /* the Pi's layout; else the narrow one */
-/* the screen is the layout `scale` times bigger (menu_scale=3 on the Pi:
- * 1920x1080), drawn in `frame` and enlarged at the flip */
+/* the screen is the layout `scale` times bigger (2 on the Pi by default: 1280x720;
+ * menu_scale=3: 1920x1080), drawn in `frame` and enlarged at the flip */
 static int scale = 1;
 static uint16_t *frame;
 static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else the ARM) */
@@ -1153,9 +1153,9 @@ int menu_ui_cols(void)
 }
 
 /* the screen of the layout: on the RGB30 360x360 shown 2x (the display
- * controller enlarges it); on the Pi 640x360, or 1920x1080 with
- * menu_scale=3 in bm/config.txt (the ARM enlarges it at each flip: a try,
- * the GPU will draw it there one day) */
+ * controller enlarges it); on the Pi 1280x720 by default when the GPU enlarges
+ * the layout (else 640x360); menu_scale in bm/config.txt sets 1 to 3 (the ARM enlarges it at each
+ * flip when the key forces a size and the GPU is missing) */
 static int screen_open(framebuffer_t *fb)
 {
 #ifdef BM_RGB30
@@ -1165,11 +1165,17 @@ static int screen_open(framebuffer_t *fb)
 #else
     const char *ms = config_get("menu_scale");
     sw = 640;
-    scale = ms && strcmp(ms, "3") == 0 ? 3 : 1;
+    /* no key: 2x (1280x720) when the GPU enlarges it, else 1x; the key sets 1, 2 or 3 */
+    const int dflt = !ms || !*ms;
+    scale = dflt ? 2 : ms[0] == '3' ? 3 : ms[0] == '2' ? 2 : 1;
+    if (dflt && gpu3d_init() != 0)
+        scale = 1;
     if (scale > 1 && !frame)
         frame = malloc(MAX_W * MAX_H * 2);
     if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
         scale = 1;
+    if (scale > 1 && dflt && fb->pitch != fb->width * 2)
+        scale = 1;                      /* the default needs the GPU path: else 1x */
     if (scale > 1) {
         /* bm3d 4.8: the GPU enlarges the layout (a job a frame: the ARM's 4 MB
          * of writes gone), where there is one; else the ARM, as before */

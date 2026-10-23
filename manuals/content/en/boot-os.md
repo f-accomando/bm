@@ -303,7 +303,7 @@ Settings, the monitor line `set`/`save` and the PC tools write `bm/config.txt`. 
 | `lib_tab=1` | show the Lib tab |
 | `show_bm=0` | hide `.bm` files in the Games tab of the RGB30 |
 | `market_bm=0` | hide `.bm` files in the Market of the RGB30 |
-| `menu_scale=3` | a 1920x1080 menu on the Pi (a try) |
+| `menu_scale=1`, `2`, `3` | the Pi's menu at 640x360, 1280x720 (default with the GPU) or 1920x1080 |
 | `battery_icon=0` | turn off the low-battery icon (RGB30) |
 | `mouse=off` | turn the pointer off |
 
