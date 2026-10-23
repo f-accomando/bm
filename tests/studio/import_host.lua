@@ -1,0 +1,301 @@
+-- The model files of the editors (src/script/bm3d.lua: T.model_files, T.import_model, T.write_bmm,
+-- T.import_glb_to_bmm; APP-9) on the PC: stand-ins for ls, glb3d, res_read and res_write (a table is the
+-- SD card; the checks of the console's res_write are made again here, the C ones are in
+-- tests/qemu_test.py test_res_write), and checks on what the functions ask and give.
+--
+--   luahost tests/studio/import_host.lua ROOT        (make test-studio)
+
+local ROOT = arg[1] or "."
+local checks, fails = 0, 0
+local function check(ok, msg)
+  checks = checks + 1
+  if not ok then fails = fails + 1; io.write("FAIL " .. msg .. "\n") end
+end
+
+----------------------------------------------------------------- the API
+
+local E = {}
+for k, v in pairs(_G) do E[k] = v end
+E.SCREEN_W, E.SCREEN_H = 640, 360
+setmetatable(E, { __index = function(_, k)       -- the drawing and the keys: nothing here
+  if k == "_G" then return E end
+  return function() end
+end })
+E.require = function() return setmetatable({}, { __index = function() return function() end end }) end
+
+local card = {                          -- the SD card: folder -> { name -> data }
+  ["/bmm"] = {}, ["/glb"] = {},
+}
+local dirs = { ["/bmm"] = { "x.bmm" } }  -- (folders inside, listed as such)
+local glb_calls = {}
+local writes = {}
+
+E.ls = function(dir)
+  local out = {}
+  for name, data in pairs(card[dir] or {}) do out[#out + 1] = { name = name, size = #data, dir = false } end
+  for _, n in ipairs(dirs[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = true } end
+  return out
+end
+
+local function path_of(path)
+  local dir, name = path:match("^(/[^/]+)/([^/]+)$")
+  if not dir then return nil end
+  for n in pairs(card[dir] or {}) do
+    if n:lower() == name:lower() then return dir, n end
+  end
+  return dir, nil, name
+end
+
+-- a model from a .glb: the table of glb3d; the file "bad.glb" is not a .glb
+E.glb3d = function(path, o)
+  glb_calls[#glb_calls + 1] = { path = path, o = o }
+  local dir, n = path_of(path)
+  if not n then return nil, path .. ": no such file" end
+  if n:lower() == "bad.glb" then return nil, path .. ": not a .glb file" end
+  local E_ = E
+  local item = { name = o.name, v = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 }, { 1, 1, 0 } },
+                 f = { { 1, 2, 3, 0x336699 }, { 2, 4, 3, -1, { 0, 0, 8 * 4, 0, 0, 8 * 4 } } } }
+  local G = E_.__G
+  local side = o.sheet
+  local textured = n:lower() ~= "flat.glb"
+  local rec = G.encode_model({ name = o.name, v = item.v, f = textured and item.f or { item.f[1], item.f[1] }, dirty = true })
+  local flat = G.encode_model({ name = o.name, v = item.v, f = { item.f[1], { 2, 4, 3, 0x808080 } }, dirty = true })
+  local m = { record = rec, nv = 4, nf = 2, textured = textured }
+  if textured then
+    m.flat = flat
+    m.texture = string.rep("\200\100\50\255", side * side)
+  end
+  return m
+end
+
+-- the model files of the console (kind 1 only here)
+E.res_write = function(path, kind, t)
+  writes[#writes + 1] = path
+  if kind ~= 1 and kind ~= "model" then return nil, "res_write: only kind 1" end
+  local name = path:match("^/bmm/([a-z0-9_%-]+)%.bmm$")
+  if not name or #name > 8 then return nil, path .. ": a model goes to /bmm/NAME.bmm" end
+  if not t.sections[8] then return nil, "a model file needs its MESH section (8)" end
+  for k in pairs(t.sections) do
+    if k ~= 2 and k ~= 5 and k ~= 8 and k ~= 9 and k ~= 10 then error("sections: a model file holds ...") end
+  end
+  if t.sections[2] and t.sections[5] then return nil, "one sheet only (2 or 5)" end
+  local _, have = path_of(path)
+  if have and not t.replace then
+    return nil, path .. ": is there already (replace = true changes it)"
+  end
+  if have then card["/bmm"][have] = nil end
+  card["/bmm"][name .. ".bmm"] = { kind = 1, name = t.name or name, author = t.author or "", sections = t.sections }
+  return true
+end
+
+E.res_read = function(path)
+  local dir, n = path_of(path)
+  if not n then return nil, path .. ": no such file" end
+  local f = card[dir][n]
+  if type(f) ~= "table" then return nil, path .. ": not a resource file" end
+  local s = {}
+  for k, v in pairs(f.sections) do s[k] = v end
+  return { kind = f.kind, name = f.name, author = f.author, sections = s }
+end
+
+local T = assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+local G = T.G
+E.__G = G
+
+----------------------------------------------------------------- models for the card
+
+local function tri_item(name)
+  return { name = name, v = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 } }, f = { { 1, 2, 3, 0x336699 } }, dirty = true }
+end
+
+local function name16(s) return s .. string.rep("\0", 16 - #s) end
+
+-- a skeleton chunk (one bone, no clips) for a model of nv vertices
+local function rig(name, nv)
+  local vb = string.rep("\0", nv) .. string.rep("\0", ((nv + 3) & ~3) - nv)
+  return name16(name) .. string.pack("<I2I2I2I2", 1, 0, nv, 0) ..
+         name16("root") .. string.pack("<i2I2ffffff", -1, 0, 0, 0, 0, 0, 1, 0) .. vb
+end
+
+local SHEET = string.pack("<I2I2", 8, 8) .. string.rep("\10\20\30\255", 64)
+
+local function put_bmm(file, name, models, anims, sheet, inset)
+  local parts = {}
+  for _, m in ipairs(models) do parts[#parts + 1] = G.encode_model(m) end
+  local s = { [8] = string.pack("<I2I2I4", #parts, inset or 64, 0) .. table.concat(parts) }
+  if anims then s[9] = string.pack("<I2I2I4", #anims, 0, 0) .. table.concat(anims) end
+  if sheet then s[2] = sheet end
+  card["/bmm"][file] = { kind = 1, name = name, author = "ann", sections = s }
+end
+
+put_bmm("knight.bmm", "The Knight", { tri_item("knight") }, { rig("knight", 3) }, SHEET, 32)
+put_bmm("ZED.BMM", "Zed", { tri_item("zed"), tri_item("zed2") })
+card["/bmm"]["notes.txt"] = "text"
+card["/bmm"]["bad.bmm"] = "not a resource file"
+card["/glb"]["knight.glb"] = "glTF"
+card["/glb"]["Robot.GLB"] = "glTF"
+card["/glb"]["a.glb"] = "glTF"
+card["/glb"]["flat.glb"] = "glTF"
+card["/glb"]["bad.glb"] = "glTF"
+card["/glb"]["Long Model Name.glb"] = "glTF"
+card["/glb"]["readme.txt"] = "text"
+
+----------------------------------------------------------------- the list
+
+do
+  local list = T.model_files()
+  local names, kinds = {}, {}
+  for i, e in ipairs(list) do names[i], kinds[i] = e.name, e.kind .. (e.glb and "+glb" or "") end
+  check(table.concat(names, ",") == "a,bad,flat,knight,long model name,robot,zed",
+        "model_files: lower case, sorted, one entry per name (" .. table.concat(names, ",") .. ")")
+  local by = {}
+  for _, e in ipairs(list) do by[e.name] = e end
+  check(by.knight.kind == "bmm" and by.knight.glb == true, "model_files: knight is in both: kind bmm, glb = true")
+  check(by.robot.kind == "glb" and by.robot.glb == true, "model_files: robot is only a .glb: kind glb")
+  check(by.zed.kind == "bmm" and not by.zed.glb, "model_files: ZED.BMM is zed, kind bmm, no .glb")
+  check(by.bad.kind == "bmm" and by.bad.glb == true, "model_files: bad has both files")
+  check(by.notes == nil and by.readme == nil and by.x == nil, "model_files: no text file, no folder")
+end
+
+----------------------------------------------------------------- import from /bmm
+
+do
+  local it, err = T.import_model("knight")
+  check(it and not err, "import_model knight: " .. tostring(err))
+  check(it.kind == "model" and it.name == "knight" and #it.v == 3 and #it.f == 1 and it.f[1][4] == 0x336699,
+        "import_model: the model of the .bmm")
+  check(it.ac and it.bones == 1 and it.vb and #it.vb == 3, "import_model: the skeleton comes with it")
+  check(it.sheet and it.sheet.type == 2 and it.sheet.data == SHEET, "import_model: the sheet comes with it")
+  check(it.inset == 0.125 and it.file.name == "The Knight" and it.file.author == "ann" and it.from == "bmm",
+        "import_model: the margin and the file's name")
+  local z = T.import_model("zed", { model = "zed2" })
+  check(z and z.name == "zed2", "import_model: a model of the file by name")
+  z = T.import_model("ZED.bmm", { model = 2, name = "My Zed!" })
+  check(z and z.name == "myzed", "import_model: by number, the name of the item cleaned")
+  check(select(2, T.import_model("zed", { model = "none" })) == "zed.bmm has no model none", "import_model: no such model")
+  local bad, msg = T.import_model("bad")
+  check(bad == nil and msg:find("not a resource file"), "import_model: a broken .bmm gives the message of res_read")
+  bad, msg = T.import_model("nothing")
+  check(bad == nil and msg == "no model nothing in /bmm or /glb", "import_model: no such model")
+  bad, msg = T.import_model("zed", { from = "glb" })
+  check(bad == nil and msg == "no zed.glb in /glb", "import_model: from glb, there is none")
+end
+
+----------------------------------------------------------------- import from /glb
+
+do
+  glb_calls = {}
+  local it, err = T.import_model("robot")
+  check(it and it.from == "glb" and it.name == "robot", "import_model robot: " .. tostring(err))
+  local c = glb_calls[1]
+  check(c and c.path == "/glb/robot.glb" and c.o.name == "robot" and c.o.height == 2 and c.o.faces == 0 and c.o.sheet == 256,
+        "import_model: glb3d gets the defaults (height 2, faces 0, sheet 256)")
+  check(#it.v == 4 and #it.f == 2 and it.f[2][4] ~= -1 and it.sheet == nil,
+        "import_model: a .glb is flat colours, no sheet, by default")
+  glb_calls = {}
+  it = T.import_model("robot", { texture = true, height = 3, faces = 500, sheet = 64, name = "Big Robot" })
+  c = glb_calls[1]
+  check(c.o.height == 3 and c.o.faces == 500 and c.o.sheet == 64 and c.o.name == "bigrobot",
+        "import_model: the options go to glb3d")
+  check(it.sheet and it.sheet.type == 2 and #it.sheet.data == 4 + 64 * 64 * 4 and it.sheet.data:sub(1, 4) == "\64\0\64\0" and
+        it.f[2][4] == -1, "import_model: texture = true: the texture is the item's sheet, the faces are textured")
+  it = T.import_model("flat", { texture = true })
+  check(it.sheet == nil, "import_model: a .glb with no texture has no sheet")
+  local bad, msg = T.import_model("bad", { from = "glb" })
+  check(bad == nil and msg:find("not a .glb file"), "import_model: the message of glb3d")
+end
+
+----------------------------------------------------------------- write
+
+do
+  local it = T.import_model("knight")
+  writes = {}
+  local ok, path = T.write_bmm(it, "Copy.bmm")
+  check(ok == true and path == "/bmm/copy.bmm", "write_bmm: the name in lower case: " .. tostring(path))
+  local f = card["/bmm"]["copy.bmm"]
+  check(f and f.name == "The Knight" and f.author == "ann", "write_bmm: the name and the author of the file stay")
+  check(f.sections[2] == SHEET and f.sections[9] and f.sections[5] == nil, "write_bmm: the sheet and the skeleton stay")
+  check(f.sections[8]:sub(1, 8) == string.pack("<I2I2I4", 1, 32, 0), "write_bmm: one model, the margin stays")
+  local back = T.import_model("copy")
+  check(back and G.encode_model(back) == G.encode_model(it) and back.ac == it.ac and back.inset == it.inset,
+        "write_bmm, import_model: the same model, the same skeleton")
+  local ok2, msg = T.write_bmm(it, "copy")
+  check(ok2 == nil and msg:find("is there already"), "write_bmm: a file that is there is not changed")
+  check(T.write_bmm(it, "copy", { replace = true, title = "Again", author = "bob" }) == true and
+        card["/bmm"]["copy.bmm"].name == "Again" and card["/bmm"]["copy.bmm"].author == "bob", "write_bmm: replace, title, author")
+  for _, n in ipairs({ "toolongname", "a/b", "", "sp ace", "Q!" }) do
+    local o, m = T.write_bmm(it, n)
+    check(o == nil and m:find("1 to 8"), "write_bmm: the name '" .. n .. "' is refused")
+  end
+  -- renamed item: the skeleton follows the name
+  it.name = "renamed"
+  T.write_bmm(it, "renamed")
+  local rr = T.import_model("renamed")
+  check(rr and rr.name == "renamed" and rr.ac and rr.ac:sub(1, 16) == name16("renamed"), "write_bmm: a new name for the model and its skeleton")
+  -- the vertices changed: no skeleton that does not fit
+  local ed = T.import_model("knight")
+  G.add_vertex(ed, { 2, 2, 2 })
+  ed.dirty = true
+  T.write_bmm(ed, "edited")
+  check(card["/bmm"]["edited.bmm"].sections[9] == nil and card["/bmm"]["edited.bmm"].sections[2] == SHEET,
+        "write_bmm: a skeleton for another number of vertices is left out, the sheet stays")
+  -- a model of no sheet, no skeleton
+  local plain = tri_item("plain")
+  check(T.write_bmm(plain, "plain") == true and next(card["/bmm"]["plain.bmm"].sections, next(card["/bmm"]["plain.bmm"].sections)) == nil
+        and card["/bmm"]["plain.bmm"].name == "plain", "write_bmm: MESH only, the item's name shown")
+  -- limits and empty models
+  local huge = { name = "huge", v = {}, f = {{ 1, 1, 1, 0 }} }
+  for i = 1, 65536 do huge.v[i] = { 0, 0, 0 } end
+  local o, m = T.write_bmm(huge, "huge")
+  check(o == nil and m:find("65536 vertices") and m:find("65535"), "write_bmm: over 65535 vertices: the format limit")
+  local manyf = { name = "manyf", v = { { 0, 0, 0 } }, f = {} }
+  for i = 1, 65536 do manyf.f[i] = { 1, 1, 1, 0 } end
+  o, m = T.write_bmm(manyf, "manyf")
+  check(o == nil and m:find("65536 triangles"), "write_bmm: over 65535 triangles: the format limit")
+  o, m = T.write_bmm({ name = "e", v = {}, f = {} }, "e")
+  check(o == nil and m == "the model is empty", "write_bmm: an empty model")
+  check(card["/bmm"]["huge.bmm"] == nil and card["/bmm"]["manyf.bmm"] == nil and card["/bmm"]["e.bmm"] == nil, "write_bmm: nothing written for those")
+end
+
+----------------------------------------------------------------- .glb to .bmm
+
+do
+  local before = card["/glb"]["Robot.GLB"]
+  writes = {}
+  local ok, path, item = T.import_glb_to_bmm("robot")
+  check(ok == true and path == "/bmm/robot.bmm" and item and item.from == "glb", "import_glb_to_bmm: " .. tostring(path))
+  local f = card["/bmm"]["robot.bmm"]
+  check(f and f.sections[2] == nil and f.sections[9] == nil and f.name == "robot", "import_glb_to_bmm: flat colours, no sheet")
+  local back = T.import_model("robot")
+  check(back and back.from == "bmm" and #back.v == 4 and #back.f == 2, "import_glb_to_bmm: the .bmm is listed and opens")
+  local by = {}
+  for _, e in ipairs(T.model_files()) do by[e.name] = e end
+  check(by.robot.kind == "bmm" and by.robot.glb == true, "import_glb_to_bmm: robot is now in both")
+  local o, m = T.import_glb_to_bmm("robot")
+  check(o == nil and m:find("is there already"), "import_glb_to_bmm: no overwrite")
+  glb_calls = {}
+  o, m = T.import_glb_to_bmm("robot")
+  check(#glb_calls == 0, "import_glb_to_bmm: no .glb read when the .bmm is there")
+  o = T.import_glb_to_bmm("robot", { replace = true, texture = true, sheet = 32 })
+  local tf = card["/bmm"]["robot.bmm"]
+  check(o == true and tf.sections[2] and #tf.sections[2] == 4 + 32 * 32 * 4, "import_glb_to_bmm: replace, with the texture as the sheet")
+  o, m = T.import_glb_to_bmm("long model name")
+  check(o == nil and m:find("opts.to"), "import_glb_to_bmm: a long name asks for opts.to")
+  o, path = T.import_glb_to_bmm("long model name", { to = "longname" })
+  check(o == true and path == "/bmm/longname.bmm", "import_glb_to_bmm: opts.to")
+  o, m = T.import_glb_to_bmm("nothing")
+  check(o == nil and m == "no nothing.glb in /bmm or /glb" or (o == nil and m:find("nothing.glb")), "import_glb_to_bmm: no such .glb")
+  o, m = T.import_glb_to_bmm("zed")
+  check(o == nil and m == "no zed.glb in /glb", "import_glb_to_bmm: a name with no .glb")
+  o, m = T.import_glb_to_bmm("bad", { to = "badnew" })
+  check(o == nil and m:find("not a .glb file") and card["/bmm"]["badnew.bmm"] == nil, "import_glb_to_bmm: the message of glb3d, nothing written")
+  local only_bmm = true
+  for _, p in ipairs(writes) do only_bmm = only_bmm and p:match("^/bmm/") ~= nil end
+  check(only_bmm and card["/glb"]["Robot.GLB"] == before, "import_glb_to_bmm: only /bmm is written, the .glb is as it was")
+  local n = 0
+  for _ in pairs(card["/glb"]) do n = n + 1 end
+  check(n == 7, "import_glb_to_bmm: no file added to /glb")
+end
+
+io.write(string.format("model files: %d/%d checks passed\n", checks - fails, checks))
+os.exit(fails == 0 and 0 or 1)

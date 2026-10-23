@@ -1276,6 +1276,11 @@ $(BUILD)/host/test_decimate: $(DECIMATE_SRCS) src/bm/*.h
 
 # the .glb reader (the image-to-3D services' files on the console)
 GLB_SRCS := src/bm/glb.c src/bm/json.c src/bm/jpeg.c src/bm/decimate.c src/bm/png.c
+# bm_res_build: the file the console's res_write makes in /bmm, byte for byte as scripts/bmres.py
+$(BUILD)/host/test_resbuild: tests/bm/test_resbuild.c src/bm/format.c src/lib/crc32.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/test_resbuild.c src/bm/format.c src/lib/crc32.c -lm
+
 $(BUILD)/host/test_glb: tests/bm/test_glb.c $(GLB_SRCS) src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -o $@ tests/bm/test_glb.c $(GLB_SRCS) -lm
@@ -1311,11 +1316,13 @@ test-map3d: $(BUILD)/host/test_map3d
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
          $(BUILD)/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
          $(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/host/libbmdecimate.so \
-         $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so $(BUILD)/host/test_tokens
+         $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so $(BUILD)/host/test_tokens \
+         $(BUILD)/host/test_resbuild
 	$< $(BUILD)/demo.bm
 	$(BUILD)/host/test_tokens carts/editor/main.lua carts/pong/main.lua
 	$(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/carts/kitchen.bm
 	$(PYTHON) tests/bm/run_glb_test.py $(BUILD)/host/test_glb $(BUILD)/glb
+	$(PYTHON) tests/bm/run_resbuild_test.py $(BUILD)/host/test_resbuild $(BUILD)/resbuild
 	$(PYTHON) tests/bm/run_cutout_test.py $(BUILD)/host/test_cutout $(BUILD)/cutout
 	$(PYTHON) tools/cutout2mesh.py $(BUILD)/cutout/lolli_alpha.png -o $(BUILD)/cutout/tool.bm
 	$(PYTHON) tools/cutout2mesh.py $(BUILD)/cutout/lolli_white.png -o $(BUILD)/cutout/tool.bm --lathe --name vase
@@ -1446,6 +1453,7 @@ test-img2mesh: $(BUILD)/host/meshview
 test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
+	$(BUILD)/host/luahost tests/studio/import_host.lua .
 	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts $(BUILD)/studio3d-sd/bme
 	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
 	$(BUILD)/host/luahost tests/studio/tools3d_host.lua . $(BUILD)/studio3d-sd

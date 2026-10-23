@@ -1159,6 +1159,54 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
     return buf;
 }
 
+/* A resource file ("BMRES", docs/RISORSE.md) from sections: the same bytes as scripts/bmres.py dump (the
+ * sections in the order given, bodies padded to 4, CRC-32 of all after the header). */
+static void res_text(uint8_t *to, const char *s, size_t room)
+{
+    size_t n = s ? strlen(s) : 0;
+    if (n > room - 1) {
+        n = room - 1;
+        while (n && (((const uint8_t *)s)[n] & 0xC0) == 0x80)    /* not in the middle of a UTF-8 character */
+            n--;
+    }
+    if (n)
+        memcpy(to, s, n);
+}
+
+uint8_t *bm_res_build(unsigned kind, const char *name, const char *author, const bm_put_t *sec, int n,
+                      size_t *outlen)
+{
+    if (kind < BM_RES_MODEL || kind >= BM_RES_KINDS || n < 0 || n > 255)
+        return NULL;
+    size_t total = BM_HEADER_SIZE + (size_t)n * 16;
+    for (int i = 0; i < n; i++) {
+        if (!sec[i].data || sec[i].size > 0x1000000u)
+            return NULL;
+        total += (sec[i].size + 3) & ~3u;
+    }
+    uint8_t *buf = calloc(total, 1);
+    if (!buf)
+        return NULL;
+    uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + (size_t)n * 16;
+    for (int i = 0; i < n; i++, tab += 16) {
+        wr32(tab, sec[i].type);
+        wr32(tab + 4, (uint32_t)(p - buf));
+        wr32(tab + 8, sec[i].size);
+        memcpy(p, sec[i].data, sec[i].size);
+        p += (sec[i].size + 3) & ~3u;
+    }
+    memcpy(buf, "BMRES\0\0\0", 8);
+    wr16(buf + 8, 1);
+    wr16(buf + 10, BM_HEADER_SIZE);
+    wr16(buf + 12, kind);
+    buf[17] = (uint8_t)n;
+    res_text(buf + 24, name, 48);
+    res_text(buf + 72, author, 32);
+    wr32(buf + 20, crc32(buf + BM_HEADER_SIZE, (uint32_t)(total - BM_HEADER_SIZE)));
+    *outlen = total;
+    return buf;
+}
+
 int bm_box(const bm_cart_t *c, int i, bm_box_t *b)
 {
     if (!c->boxes || i < 0 || i >= c->nboxes)
