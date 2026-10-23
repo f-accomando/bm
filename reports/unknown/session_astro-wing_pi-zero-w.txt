@@ -1,0 +1,34 @@
+bm report
+kind: session
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-23 17:20:02
+file: session_astro-wing_pi-zero-w.txt
+
+session of "Astro Wing" (the last one: the next run of this game replaces this file)
+options bm3d 7.6 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 3d=arm later=0 2d=0 impostor=8 fast=0
+screen 640x360, 964 frames in 16.0 s, 59.9 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 4.0 ms, max 6.7 ms, 0 frames over 16.7 ms
+memory: Lua peak 118 KiB, data 772 KiB; code 5028 tokens; busiest frame 4k Lua instructions
+frames that were shown after more than 1.5 frames: 0
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    963
+  <= 25 ms             0
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 963 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.1    1%
+  draw (no 3D)     2.4   14%
+  3D calls         1.3    8%
+  audio            0.8    5%
+  GPU wait         0.0    0%
+  all              4.7   28%
+audio interrupt: 5.0% of the CPU's time (mean), 7.9% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
