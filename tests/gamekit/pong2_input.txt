@@ -2,16 +2,233 @@
 7 pad 1 none
 10 pad 1 a
 12 pad 1 none
-40 pad 1 a
-42 pad 1 none
-60 pad 2 up
-120 pad 2 down
-200 pad 2 a
-202 pad 2 none
-300 pad 1 up
-400 pad 2 up
-500 pad 1 a
-502 pad 1 none
-600 pad 2 a
-602 pad 2 none
-900 pad 1 down
+20 pad 1 up
+20 pad 2 down
+40 pad 1 up a
+42 pad 1 up
+60 pad 2 down a
+62 pad 2 down
+80 pad 1 up a
+82 pad 1 up
+100 pad 2 down a
+102 pad 2 down
+120 pad 1 up a
+122 pad 1 up
+140 pad 2 down a
+142 pad 2 down
+160 pad 1 up a
+162 pad 1 up
+180 pad 2 down a
+182 pad 2 down
+200 pad 1 up a
+202 pad 1 up
+220 pad 2 down a
+222 pad 2 down
+240 pad 1 up a
+242 pad 1 up
+260 pad 2 down a
+262 pad 2 down
+280 pad 1 up a
+282 pad 1 up
+300 pad 2 down a
+302 pad 2 down
+320 pad 1 up a
+322 pad 1 up
+340 pad 2 down a
+342 pad 2 down
+360 pad 1 up a
+362 pad 1 up
+380 pad 2 down a
+382 pad 2 down
+400 pad 1 up a
+402 pad 1 up
+420 pad 2 down a
+422 pad 2 down
+440 pad 1 up a
+442 pad 1 up
+460 pad 2 down a
+462 pad 2 down
+480 pad 1 up a
+482 pad 1 up
+500 pad 2 down a
+502 pad 2 down
+520 pad 1 up a
+522 pad 1 up
+540 pad 2 down a
+542 pad 2 down
+560 pad 1 up a
+562 pad 1 up
+580 pad 2 down a
+582 pad 2 down
+600 pad 1 up a
+602 pad 1 up
+620 pad 2 down a
+622 pad 2 down
+640 pad 1 up a
+642 pad 1 up
+660 pad 2 down a
+662 pad 2 down
+680 pad 1 up a
+682 pad 1 up
+700 pad 2 down a
+702 pad 2 down
+720 pad 1 up a
+722 pad 1 up
+740 pad 2 down a
+742 pad 2 down
+760 pad 1 up a
+762 pad 1 up
+780 pad 2 down a
+782 pad 2 down
+800 pad 1 up a
+802 pad 1 up
+820 pad 2 down a
+822 pad 2 down
+840 pad 1 up a
+842 pad 1 up
+860 pad 2 down a
+862 pad 2 down
+880 pad 1 up a
+882 pad 1 up
+900 pad 2 down a
+902 pad 2 down
+920 pad 1 up a
+922 pad 1 up
+940 pad 2 down a
+942 pad 2 down
+960 pad 1 up a
+962 pad 1 up
+980 pad 2 down a
+982 pad 2 down
+1000 pad 1 up a
+1002 pad 1 up
+1020 pad 2 down a
+1022 pad 2 down
+1040 pad 1 up a
+1042 pad 1 up
+1060 pad 2 down a
+1062 pad 2 down
+1080 pad 1 up a
+1082 pad 1 up
+1100 pad 2 down a
+1102 pad 2 down
+1120 pad 1 up a
+1122 pad 1 up
+1140 pad 2 down a
+1142 pad 2 down
+1160 pad 1 up a
+1162 pad 1 up
+1180 pad 2 down a
+1182 pad 2 down
+1200 pad 1 up a
+1202 pad 1 up
+1220 pad 2 down a
+1222 pad 2 down
+1240 pad 1 up a
+1242 pad 1 up
+1260 pad 2 down a
+1262 pad 2 down
+1280 pad 1 up a
+1282 pad 1 up
+1300 pad 2 down a
+1302 pad 2 down
+1320 pad 1 up a
+1322 pad 1 up
+1340 pad 2 down a
+1342 pad 2 down
+1360 pad 1 up a
+1362 pad 1 up
+1380 pad 2 down a
+1382 pad 2 down
+1400 pad 1 up a
+1402 pad 1 up
+1420 pad 2 down a
+1422 pad 2 down
+1440 pad 1 up a
+1442 pad 1 up
+1460 pad 2 down a
+1462 pad 2 down
+1480 pad 1 up a
+1482 pad 1 up
+1500 pad 2 down a
+1502 pad 2 down
+1520 pad 1 up a
+1522 pad 1 up
+1540 pad 2 down a
+1542 pad 2 down
+1560 pad 1 up a
+1562 pad 1 up
+1580 pad 2 down a
+1582 pad 2 down
+1600 pad 1 up a
+1602 pad 1 up
+1620 pad 2 down a
+1622 pad 2 down
+1640 pad 1 up a
+1642 pad 1 up
+1660 pad 2 down a
+1662 pad 2 down
+1680 pad 1 up a
+1682 pad 1 up
+1700 pad 2 down a
+1702 pad 2 down
+1720 pad 1 up a
+1722 pad 1 up
+1740 pad 2 down a
+1742 pad 2 down
+1760 pad 1 up a
+1762 pad 1 up
+1780 pad 2 down a
+1782 pad 2 down
+1800 pad 1 up a
+1802 pad 1 up
+1820 pad 2 down a
+1822 pad 2 down
+1840 pad 1 up a
+1842 pad 1 up
+1860 pad 2 down a
+1862 pad 2 down
+1880 pad 1 up a
+1882 pad 1 up
+1900 pad 2 down a
+1902 pad 2 down
+1920 pad 1 up a
+1922 pad 1 up
+1940 pad 2 down a
+1942 pad 2 down
+1960 pad 1 up a
+1962 pad 1 up
+1980 pad 2 down a
+1982 pad 2 down
+2000 pad 1 up a
+2002 pad 1 up
+2020 pad 2 down a
+2022 pad 2 down
+2040 pad 1 up a
+2042 pad 1 up
+2060 pad 2 down a
+2062 pad 2 down
+2080 pad 1 up a
+2082 pad 1 up
+2100 pad 2 down a
+2102 pad 2 down
+2120 pad 1 up a
+2122 pad 1 up
+2140 pad 2 down a
+2142 pad 2 down
+2160 pad 1 up a
+2162 pad 1 up
+2180 pad 2 down a
+2182 pad 2 down
+2200 pad 1 up a
+2202 pad 1 up
+2220 pad 2 down a
+2222 pad 2 down
+2240 pad 1 up a
+2242 pad 1 up
+2260 pad 2 down a
+2262 pad 2 down
+2280 pad 1 up a
+2282 pad 1 up
+2300 pad 2 down a
+2302 pad 2 down

@@ -566,8 +566,8 @@ $(BUILD)/pong-trace.bm: carts/pong/main.lua tests/gamekit/trace_tail.lua scripts
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/pong-trace.lua --title "pong trace" --author tests
 
 test-game-trace: $(BUILD)/host/bmhost-bin $(BUILD)/pong-trace.bm
-	$< $(BUILD)/pong-trace.bm --input tests/gamekit/pong_input.txt --seconds 28 2>&1 | grep "^trace" > $(BUILD)/pong1.trace
-	$< $(BUILD)/pong-trace.bm --input tests/gamekit/pong2_input.txt --seconds 16 2>&1 | grep "^trace" > $(BUILD)/pong2.trace
+	$< $(BUILD)/pong-trace.bm --input tests/gamekit/pong_input.txt --seconds 60 2>&1 | grep "^trace" > $(BUILD)/pong1.trace
+	$< $(BUILD)/pong-trace.bm --input tests/gamekit/pong2_input.txt --seconds 40 2>&1 | grep "^trace" > $(BUILD)/pong2.trace
 	cmp $(BUILD)/pong1.trace tests/gamekit/pong1.golden
 	cmp $(BUILD)/pong2.trace tests/gamekit/pong2.golden
 
@@ -1691,7 +1691,7 @@ $(BUILD)/shot-test.bm: tests/shot/cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "shot test" --author tests
 test-shot: $(BUILD)/host/bmhost-bin $(BUILD)/shot-test.bm tests/shot/check.py tests/shot/key.txt
 	rm -rf $(BUILD)/shot-sd && mkdir -p $(BUILD)/shot-sd
-	$< $(BUILD)/shot-test.bm --sd $(BUILD)/shot-sd --input tests/shot/key.txt --seconds 16 2>&1 | tee $(BUILD)/shot-test.log | grep "shot:"
+	$< $(BUILD)/shot-test.bm --sd $(BUILD)/shot-sd --input tests/shot/key.txt --seconds 40 2>&1 | tee $(BUILD)/shot-test.log | grep "shot:"
 	$(PYTHON) tests/shot/check.py $(BUILD)/shot-sd
 
 # The PDF manuals (docs/MANUALS.md): en and it, theme A; test-manuals says if one language is behind
