@@ -95,8 +95,8 @@ Add two optional parameters for each sound effect:
   - Sample editor (R32): built-in functions for trimming, amplitude normalization, loop point setting; live recording from USB microphone or internal mix.
 - **MIDI Import / Export (R17, R25)**:
   - Import of standard `.mid` files to automatically generate sequences in the PATTERN and SONG banks of bm Sound.
-- **Sample Management Across Banks (R31, R33, R34)**:
-  - Import of a `SAMPLE` instrument from another cartridge with automatic copy and renumbering of the associated sample (`MOD1`).
+- **Sample Management Across Banks (R33, R34)**:
+  - (Done: R31, import of a `SAMPLE` instrument with its sample, renumbering `MOD1`.)
   - Distribution of `.bmau` v3 audio sample packs on the Market.
   - Support for multi-sample kits in `riff` (`s "mykit:3"`).
 - **New Presets and Effects in the Music Assistant (R35)**:

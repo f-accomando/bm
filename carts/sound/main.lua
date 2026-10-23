@@ -263,7 +263,7 @@ function B.parse(data)
     -- the samples (player.h): 32 bytes each, then their frames
     local from = pos
     for i = 1, ver >= 3 and data:byte(10) or 0 do
-      local x = {}
+      local x = { o = pos - from + 1 }       -- where it starts in sraw (import copies it)
       local name, fmt
       name, x.frames, x.rate, fmt, x.channels, x.root, x.fine, x.loop, x.loop_start, x.loop_end, pos =
         string.unpack("<c8I4I4BBBbBxxxI4I4", data, pos)
@@ -271,6 +271,7 @@ function B.parse(data)
       x.name, x.format = unname(name), fmt
       pos = pos + x.frames * x.channels * ({ 1, 2, 3, 4, 4 })[fmt + 1]
       assert(pos <= #data + 1)
+      x.n = pos - from + 1 - x.o
       b.samples[i] = x
     end
     b.sraw = data:sub(from, pos - 1)
@@ -1920,13 +1921,41 @@ end
 
 local function same(a, b)
   for _, k in ipairs(SOUND_KEYS) do if a[k] ~= b[k] then return false end end
+  if a.wave == 10 and (a.tone[7] ~= b.tone[7] or a.tone[8] ~= b.tone[8]) then return false end
   return a.name == b.name
+end
+
+-- a SAMPLE sound's sample (MOD1 below 128: the bank's own) comes along: the same
+-- bytes already in the bank are reused, else it goes to the end and the sound's
+-- MOD1 is renumbered. The kit's drums (128 up) need no copy.
+local PCM_MAX = 8 << 20                       -- AU_PCM_MAX, 16-bit values of a bank's samples
+local function import_sample(src, idx)
+  local x = src.samples[idx + 1]
+  if not x then return nil end
+  local raw = src.sraw:sub(x.o, x.o + x.n - 1)
+  local need = 0
+  for j, y in ipairs(bank.samples) do
+    if y.n == x.n and bank.sraw:sub(y.o, y.o + y.n - 1) == raw then return j - 1 end
+    need = need + (y.frames + 4) * y.channels
+  end
+  if #bank.samples >= 64 then return nil, "no free sample slots" end
+  if need + (x.frames + 4) * x.channels > PCM_MAX then return nil, "the samples would not fit in memory" end
+  local y = B.copy(x)
+  y.o = #bank.sraw + 1
+  bank.sraw = bank.sraw .. raw
+  bank.samples[#bank.samples + 1] = y
+  return #bank.samples - 1
 end
 
 local function import_sounds(src, used)
   local map = {}
   for i in pairs(used) do
     local s = src.sounds[i + 1]
+    if s.wave == 10 and s.tone[7] < 128 then
+      local m, err = import_sample(src, s.tone[7])
+      if err then return nil, err end
+      if m then s = B.copy(s); s.tone[7] = m end
+    end
     local slot
     for j = 1, B.NSOUND do if same(bank.sounds[j], s) then slot = j break end end
     if not slot then

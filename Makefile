@@ -636,7 +636,7 @@ test-web:
 
 # bm web player stage 1 (web/bmcart.js): the .bm reader in Node; skipped when Node is missing
 test-webplayer:
-	@if command -v node >/dev/null 2>&1; then node tests/webplayer/test_bmcart.js; else echo "test-webplayer: skipped (no node)"; fi
+	@if command -v node >/dev/null 2>&1; then node tests/webplayer/test_bmcart.js && node tests/webplayer/test_bmring.js; else echo "test-webplayer: skipped (no node)"; fi
 
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
@@ -728,7 +728,7 @@ $(WEB_PLAYER)/bmweb.js: web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet
 	@mkdir -p $(WEB_PLAYER)
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sENVIRONMENT=web,node -sMODULARIZE -sEXPORT_NAME=createBmWeb 	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_bmweb_start,_bmweb_input,_bmweb_quit -lidbfs.js -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,FS,IDBFS 	    -o $@ web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
 web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/*)
-	cp web/index.html web/style.css web/app.js web/launcher-mock.js web/bmcart.js web/player.js $(WEB_PLAYER)/
+	cp web/index.html web/style.css web/app.js web/launcher-mock.js web/bmcart.js web/bmring.js web/player.js $(WEB_PLAYER)/
 	cp -r web/assets $(WEB_PLAYER)/
 # the 3D cartridge of the stages (the ARM rasterizer): its frames in wasm equal the PC build's
 test-wasm-3d: $(BUILD)/web/bmhost.js $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.bm tests/stages3d/input.txt

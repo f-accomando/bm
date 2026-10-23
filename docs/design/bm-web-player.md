@@ -83,7 +83,7 @@ generated C array instead.
 | 1 | Cartridge reader in JavaScript (done) | `web/bmcart.js`; the mock shows title, author, cover, sections, CRC; `tests/webplayer/test_bmcart.js` | Node |
 | 2 | wasm build of the runtime (done) | `make bmhost-wasm` builds `bmhost` to `build/web/bmhost.wasm` (1.5 MB, 0.57 MB gzip); `make test-wasm` runs a cartridge under Node and the frames equal the PC build byte for byte | emsdk |
 | 3 | Canvas, input, sound (done) | `make web-player` writes `build/web/player/`; the page plays a `.bm` from the file input: canvas, keyboard, Gamepad API, AudioWorklet | stage 2 |
-| 4 | Check of sound and speed | listen to `sfx()` and `music()`, measure the frame time in a visible tab | the user, or a visible browser |
+| 4 | Check of sound and speed (clock and sound queue tested in Node; listening and the visible-tab rate left) | `web/bmring.js` holds the 60 Hz clock (`BmPacer`) and the worklet queue (`BmRing`); `make test-webplayer` tests both with a fake clock. Listen to `sfx()` and `music()` and read `bmLauncher.stats` in a visible tab | the user, or a visible browser |
 | 5 | Storage and 3D (done) | IndexedDB saves; a 3D cartridge on `r3d.c` | stage 4 |
 | 6 | Release page | SRI or vendored React, licence policy, size check, `bmLauncher.start` connected | the user decides where to host |
 
@@ -128,7 +128,8 @@ build. It skips when Node is missing. Run result on 22 Oct: ok, equal to the PC 
   moves the square, about 800 audio frames per video frame, quit). In the built-in browser pane the page drew
   frames, the arrow keys moved the square, 252 frames came in 6 s (the pane was hidden, so its timers are
   slowed: this is not the real rate), the audio context ran and `stop()` ended the run.
-- Not checked: the sound itself, the 60 Hz rate in a visible tab, a gamepad.
+- Clock and sound queue: `web/bmring.js` (`BmPacer`, `BmRing`). `tests/webplayer/test_bmring.js` (in `make test-webplayer`) checks, with a fake clock: 59.98 Hz with a timer up to 4 ms late; no drift after a slow frame; no burst of frames after a pause of 5 s; the queue returns the samples in order, gives silence when empty, drops the oldest sound above 14400 frames and keeps the newest; a 60 Hz producer and a 128 frame consumer never underrun. The worklet runs `BmRing.toString()`. `bmLauncher.stats` shows `hz`, `frameAvgMs`, `frameWorstMs`, `audioUnderruns`, `audioDrops`, `audioQueued` (updated every 3 s): read them in a visible tab while a game plays.
+- Not checked: the sound itself (by ear), the 60 Hz rate in a visible tab with real timers, a gamepad, the new worklet in a browser (only the Node tests and the build ran).
 - Saves: `/sd/bm/save` is an IDBFS mount (`-lidbfs.js`). `player.js` reads it before a start and writes it every
   3 s and when the cartridge ends. Checked in the built-in browser with `tests/webplayer/save.lua`: the file
   `5B2B419C.SAV` was written, a reload of the page gave `runs=2` (it was 1), and a press of A saved 102. This

@@ -518,6 +518,74 @@ do
   check(b.waves[1] ~= 10, "undo takes the sample back")
 end
 
+-- 9d. importing a SAMPLE sound from another bank brings its sample along: copied
+-- to the end of this bank's samples, the sound's MOD1 renumbered; a sample with
+-- the same bytes is not copied twice
+do
+  local st8 = string.pack("<c8I4I4BBBbBxxxI4I4", "ST8", 3, 8000, 0, 2, 72, -5, 0, 0, 0) .. "\1\2\3\4\5\6"
+  local news = string.pack("<c8I4I4BBBbBxxxI4I4", "NEWS", 4, 22050, 1, 1, 60, 0, 0, 0, 0) ..
+               string.pack("<i2i2i2i2", 1000, -1000, 2000, -2000)
+  local src = "BMAU" .. string.char(3) .. demo:sub(6, 9) .. string.char(2) .. demo:sub(11)
+  -- sounds 0 and 1 (48 bytes each from byte 17): wave 10, MOD1 (tone[7] = byte 24 + 6) 0 and 1
+  local function sample_sound(d, k, mod1)
+    local at = 17 + 48 * k                          -- 1-based start of the sound
+    d = d:sub(1, at + 8 - 1) .. string.char(10) .. d:sub(at + 9)
+    local m = at + 24 + 6
+    return d:sub(1, m - 1) .. string.char(mod1) .. d:sub(m + 1)
+  end
+  src = sample_sound(sample_sound(src, 0, 0), 1, 1)
+  src = src:sub(1, 9) .. string.char(2) .. src:sub(11)
+  -- the samples sit after the songs: demo has none, so they end the file
+  files["/bm/sounds/ZSRC.BME"] = { title = "ZSRC", bank = src .. news .. st8 }
+  -- where the picker puts it: games, projects, packs, each sorted by name
+  local order = {}
+  for _, dir in ipairs({ "/carts", "", "/bme", "/bm/sounds" }) do
+    local l = {}
+    for p in pairs(files) do
+      local d, n = p:match("^(.*)/([^/]+)$")
+      if d == dir and (n:lower():match("%.bme?$")) then l[#l + 1] = { n = n, p = p } end
+    end
+    table.sort(l, function(a, c) return a.n:lower() < c.n:lower() end)
+    for _, e in ipairs(l) do order[#order + 1] = e.p end
+  end
+  local at
+  for i, p in ipairs(order) do if p == "/bm/sounds/ZSRC.BME" then at = i end end
+  local before = parse(last_bank)
+  check(#before.samples == 2, "the project holds two samples before the import")
+  local function import_sound(n)
+    menu_item(6)
+    type_keys("\n")                          -- Import from...
+    for _ = 1, at - 1 do type_keys("down") end
+    type_keys("\n")                          -- ZSRC.BME
+    type_keys("\n")                          -- a sound
+    for _ = 1, n do type_keys("down") end
+    type_keys("\n")
+  end
+  local function sample_sounds(b2)
+    local out = {}
+    for i, w in ipairs(b2.waves) do if w == 10 then out[#out + 1] = b2.tones[i][7] end end
+    return out
+  end
+  local old = #sample_sounds(before)
+  import_sound(0)
+  b = parse(last_bank)
+  check(#b.samples == 3 and b.samples[3] == "NEWS", "the sound's sample went to the end of the bank's samples")
+  check(last_bank:sub(-#news) == news and last_bank:find(st8, 1, true), "the bank's samples and the new one are whole")
+  local mods = sample_sounds(b)
+  local has2 = false
+  for _, m in ipairs(mods) do if m == 2 then has2 = true end end
+  check(#mods == old + 1 and has2, "its MOD1 points to the new sample (2)")
+  local len = #last_bank
+  import_sound(1)
+  b = parse(last_bank)
+  check(#b.samples == 3, "a sample with the same bytes is not copied twice")
+  check(#last_bank - len == 48, "only the sound itself was added")
+  local found1 = false
+  for _, m in ipairs(sample_sounds(b)) do if m == 1 then found1 = true end end
+  check(found1, "the second sound points to the sample the bank already had (1)")
+  type_keys("^z")
+end
+
 -- 10. random input: nothing stops the editor
 math.randomseed(7)
 local K = { "up", "down", "left", "right", "\n", "\b", " ", "f1", "f2", "f3", "f4", "\t", "z", "q", "x", "-", "=",

@@ -1254,9 +1254,14 @@ end
 -- list of unique edges, a scale and a height offset.
 --   g = { name, from = "bmm" | "glb", nv, nf (the model's), shown (faces in the wire), stride,
 --         v = { {x, y, z}, ... }, ea = {}, eb = {} (edge ends), used = { vertex numbers }, scale = 1, dy = 0, on = true }
--- G.GHOST_FACES: the budget of faces in the wire (the Pi Zero W draws every edge each frame); a model with
--- more faces keeps every stride-th face (a .glb is reduced by glb3d to the budget instead).
-G.GHOST_FACES = 2000
+-- G.GHOST_FACES: the default budget of faces in the wire; a model with more faces keeps every stride-th face
+-- (a .glb is reduced by glb3d to the budget instead). G.GHOST_DETAIL: the budgets the editor offers (the
+-- last, 65535, is the format limit: all). G.GHOST_EDGES_FRAME: the most edges one frame draws; a longer list
+-- is drawn 1 edge in `every`, and the window moves by one edge each frame (g.every, g.phase). The cost on
+-- the Pi Zero W is not measured: see docs/progress/tools.md.
+G.GHOST_FACES = 20000
+G.GHOST_DETAIL = { 2000, 5000, 20000, 65535 }
+G.GHOST_EDGES_FRAME = 4000
 G.GHOST_SCALE_MIN, G.GHOST_SCALE_MAX, G.GHOST_DY_MAX = 0.1, 10, 20
 
 -- the ghost of an item { v, f } (budget: faces in the wire, default G.GHOST_FACES)
@@ -1283,7 +1288,10 @@ function G.ghost_make(item, budget)
   end
   local v = {}
   for _, i in ipairs(used) do v[i] = item.v[i] end       -- the other vertices are let go
+  local every = (#ea + G.GHOST_EDGES_FRAME - 1) // G.GHOST_EDGES_FRAME
+  if every < 1 then every = 1 end
   return { name = item.name, from = item.from, nv = #item.v, nf = nf, shown = shown, stride = stride,
+           every = every, phase = 0,
            v = v, ea = ea, eb = eb, used = used, scale = 1, dy = 0, on = true }
 end
 
@@ -1309,6 +1317,9 @@ function G.ghost_text(g)
   local s = string.format("ghost %s.%s: %d vertices, %d triangles", g.name, g.from, g.nv, g.nf)
   if g.stride > 1 then
     s = s .. string.format("; the wire keeps %d triangles (1 in %d: the budget)", g.shown, g.stride)
+  end
+  if g.every > 1 then
+    s = s .. string.format("; each frame draws 1 edge in %d (the line budget)", g.every)
   end
   return s
 end

@@ -26,9 +26,10 @@
              B.UP, B.DOWN, B.LEFT, B.RIGHT];
   var FRAME_MS = 1000 / 60;
 
-  var stats = { frames: 0, audioFrames: 0, audioState: "none" };
+  var stats = { frames: 0, audioFrames: 0, audioState: "none", hz: 0, frameAvgMs: 0, frameWorstMs: 0,
+                audioUnderruns: 0, audioDrops: 0, audioQueued: 0 };
   var mod = null, loading = null, running = false, held = 0, quitting = false;
-  var ctx = null, audio = null, nextTime = 0, lastPad = "", dead = 0.15;
+  var ctx = null, audio = null, lastPad = "", dead = 0.15;
 
   function canvas() { return document.getElementById("bm-canvas"); }
 
@@ -83,24 +84,20 @@
     ctx.putImageData(new ImageData(px, w, h), 0, 0);
   }
 
-  /* ---- the 60 Hz clock: resolves when the next frame time has come */
+  /* ---- the 60 Hz clock (BmPacer, web/bmring.js): resolves when the next frame time has come */
+  var pacer = new BmPacer(FRAME_MS, 250);       /* after a pause longer than 250 ms: do not run to catch up */
   function onPace() {
     pollInput();
-    var now = performance.now();
-    if (!nextTime || now > nextTime + 250) nextTime = now;      /* after a pause: do not run to catch up */
-    nextTime += FRAME_MS;
+    var wait = pacer.delay(performance.now());
+    stats.hz = pacer.hz(); stats.frameAvgMs = pacer.avgMs(); stats.frameWorstMs = pacer.worst;
     /* a timer, not requestAnimationFrame: a hidden page keeps its clock (the browser may slow it down) */
-    return new Promise(function (resolve) {
-      setTimeout(resolve, Math.max(0, nextTime - performance.now() - 1));
-    });
+    return new Promise(function (resolve) { setTimeout(resolve, wait); });
   }
 
-  /* ---- sound */
-  var WORKLET = "class P extends AudioWorkletProcessor{constructor(){super();this.q=[];this.o=0;this.n=0;" +
-    "this.port.onmessage=e=>{this.q.push(e.data);this.n+=e.data.length/2;while(this.n>14400){this.n-=this.q.shift().length/2;this.o=0}}}" +
-    "process(i,out){const l=out[0][0],r=out[0][1];for(let k=0;k<l.length;k++){if(!this.q.length){l[k]=0;r[k]=0;continue}" +
-    "const c=this.q[0];l[k]=c[this.o*2];r[k]=c[this.o*2+1];if(++this.o*2>=c.length){this.q.shift();this.o=0}this.n--}return true}}" +
-    "registerProcessor('bm-audio',P)";
+  /* ---- sound: the worklet runs BmRing (web/bmring.js) as text; 14400 frames = 0.3 s at most in the queue */
+  var WORKLET = BmRing.toString() + ";class P extends AudioWorkletProcessor{constructor(){super();this.r=new BmRing(14400);" +
+    "this.port.onmessage=e=>{if(e.data===1)this.port.postMessage([this.r.under,this.r.drops,this.r.n]);else this.r.push(e.data)}}" +
+    "process(i,out){this.r.pull(out[0][0],out[0][1]);return true}}registerProcessor('bm-audio',P)";
 
   function startAudio() {
     if (audio) { if (audio.ctx.state === "suspended") audio.ctx.resume(); return Promise.resolve(); }
@@ -110,6 +107,7 @@
     var url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
     return c.audioWorklet.addModule(url).then(function () {
       var node = new AudioWorkletNode(c, "bm-audio", { outputChannelCount: [2] });
+      node.port.onmessage = function (e) { stats.audioUnderruns = e.data[0]; stats.audioDrops = e.data[1]; stats.audioQueued = e.data[2]; };
       node.connect(c.destination);
       audio = { ctx: c, node: node };
     }).catch(function () { audio = null; });
@@ -176,9 +174,9 @@
       var m = r[0];
       var ptr = m._malloc(bytes.length);
       m.HEAPU8.set(bytes, ptr);
-      running = true; held = 0; lastPad = ""; nextTime = 0;
+      running = true; held = 0; lastPad = ""; pacer.reset();
       m._bmweb_input(0, 0, 0, 0, 0);
-      saveTimer = setInterval(flushSaves, 3000);
+      saveTimer = setInterval(function () { flushSaves(); if (audio) audio.node.port.postMessage(1); }, 3000);
       /* bmweb_start sleeps between frames (Asyncify): it returns at once and bmDone tells the end */
       return new Promise(function (resolve) {
         finish = function () { m._free(ptr); resolve(); };

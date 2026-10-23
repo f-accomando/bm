@@ -296,7 +296,7 @@ Puoi prendere un suono, un effetto, un pattern o una canzone da un altro gioco o
 2. Nell'elenco scegli il file. L'elenco mostra giochi e sound pack. Mentre il cursore si ferma su un file, ne viene letto il contenuto: quanti suoni, effetti, pattern e canzoni ha.
 3. Scegli che cosa prendere: *a sound*, *a sound effect*, *a pattern*, *a song* o *everything*.
 4. Scegli l'elemento dall'elenco che segue.
-5. Un messaggio dice dove è finito: per esempio `imported as sound effect 5`. I suoni usati da un effetto, un pattern o una canzone arrivano con esso, in slot liberi. Un suono già uguale nel tuo banco non viene copiato due volte.
+5. Un messaggio dice dove è finito: per esempio `imported as sound effect 5`. I suoni usati da un effetto, un pattern o una canzone arrivano con esso, in slot liberi. Un suono già uguale nel tuo banco non viene copiato due volte. Un suono SAMPLE porta con sé anche il suo campione (un campione con gli stessi byte non viene copiato due volte).
 6. Premi Ctrl+S per salvare.
 
 ::: warn

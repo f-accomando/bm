@@ -94,7 +94,9 @@ The player and the 48-byte sound needed nothing new: the sound's tone is registe
 * **Docs and kb (R29)**: the four API docs, `docs/RIFF*.md`, kb entries `chorus`,
   `audio_depth`, `audio_samples`, `sample_kit`, `tone_fx`, `riff_kit` (and `tone`, `play`,
   `instruments`, `note` updated), `make ai-model`.
-* **Known limit**: importing a single SAMPLE sound from another bank does not bring its
-  sample: `MOD1` points into the current
-  bank's samples (or the kit, 128+), so it plays whatever sample has that number there, or
-  is silent.
+* **Import with its sample (R31)**: bm Sound's *Import from...* copies the sample of a SAMPLE
+  sound (`MOD1` below 128) with the sound, to the end of the bank's samples, and renumbers
+  `MOD1`. The same bytes already in the bank are reused (no second copy); a song, pattern or
+  sound effect brings the samples of all its sounds. The kit's drums (128 and up) need no
+  copy. Refused when the bank would pass 64 samples or `AU_PCM_MAX`. The parser keeps each
+  sample's offset and size in `sraw` (`o`, `n`). `tests/sound/sim.lua` 9d.

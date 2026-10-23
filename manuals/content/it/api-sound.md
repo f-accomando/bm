@@ -384,7 +384,7 @@ Un file WAV entra in un banco dal JSON, e un suono lo suona per nome:
 ## Attenzione
 
 - Un pacchetto di suoni in `/bm/sounds` (un `.bm` con la sola sezione AUDIO) si può ancora leggere; bm Sound salva i nuovi come file `.bms` in `/bm/lib`.
-- Importare un singolo suono SAMPLE da un altro banco non porta con sé il suo campione: punta ai campioni del banco corrente (o al kit), quindi suona il campione che ha quel numero lì, oppure tace.
+- **Importa da...** di bm Sound copia insieme al suono il campione di un suono SAMPLE e rinumera il `MOD1` del suono. Un campione con gli stessi byte non viene copiato due volte. I tamburi del kit non hanno bisogno di copia. Un banco contiene al massimo 64 campioni.
 
 # riff: musica a pattern
 
