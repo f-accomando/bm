@@ -45,8 +45,8 @@ groups a cartridge without reading its INFO. On the SD, `.bm` and `.b16` games l
   (`old place`).
 - `Ctrl+B` builds the game from a project in `/bme` into the games folder: `/carts` on the Pi, `/bm` on the RGB30
   (`bm_games_dir()`). An old project next to its game builds next to it, as before.
-- The Pi menu scans `/`, `/carts`, `/bm` and `/bme`. The RGB30 menu scans `/bm` and `/carts`: it does not list projects, the
-  SDK opens them. `/carts` stays as it is.
+- The Pi menu scans `/`, `/carts`, `/bm` and `/bme`. The RGB30 menu scans `/bm` and `/carts`. No menu tab lists a project on either kernel
+  (user decision 21 Oct 2026, D44): the editors open the projects. `/carts` stays as it is.
 
 ## File names the system writes
 
