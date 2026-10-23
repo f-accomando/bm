@@ -99,7 +99,7 @@ Sulla barra, le lettere accese mostrano lo stato sul cursore: grassetto, corsivo
 | F2 | stile successivo del paragrafo |
 | F4 | allineamento successivo del paragrafo |
 | Ctrl+B, Ctrl+I, Ctrl+U | grassetto, corsivo, sottolineato |
-| Ctrl+L, Ctrl+E, Ctrl+J | allinea a sinistra, centra, giustifica |
+| Ctrl+L, Ctrl+E, Ctrl+R, Ctrl+J | allinea a sinistra, centra, a destra, giustifica |
 | Ctrl+Z, Ctrl+Y | annulla, ripeti |
 | Ctrl+C, Ctrl+X, Ctrl+V | copia, taglia, incolla |
 | F1 | l'elenco dei tasti |
@@ -117,6 +117,23 @@ Sulla barra, le lettere accese mostrano lo stato sul cursore: grassetto, corsivo
 ## Il menu
 
 Premi **Esc** (oppure **Start** sul pad). Usa le frecce su e giù e Enter. Le voci sono: New document, Open..., Save, Save as..., Export..., Style, Alignment, Bold, Italic, Underline, Select, Undo, Redo, Word completion, Language, Pad typing, Keys, Exit. `Word completion` accende e spegne le parole grigio-blu. `Language` cambia la lingua delle parole tra Italiano e English.
+
+## Il mouse
+
+Un mouse USB o Bluetooth fa ciò che fanno i tasti.
+
+| Azione | Cosa fa |
+|---|---|
+| Clic sulla pagina | mette il cursore lì |
+| Trascinamento | seleziona il testo; al bordo alto o basso la pagina scorre |
+| Doppio clic | seleziona la parola |
+| Maiusc + clic | allarga la selezione |
+| Rotella | fa scorrere le pagine |
+| Tasto destro | apre il menu di modifica: Cut, Copy, Paste, Bold, Italic, Underline, Style, Alignment, Undo, Redo, Save, Menu |
+| Clic su `bm Write` nella barra | apre il menu |
+| Clic su stile, **B**, **I**, **U**, **L**, **C**, **R**, **J** nella barra | premono lo stesso tasto |
+
+Nel menu e negli elenchi un clic sceglie una riga e un secondo clic la prende. La rotella sposta la scelta. Un clic fuori dal riquadro, o il tasto destro, torna indietro.
 
 ## Il pad
 
@@ -159,7 +176,7 @@ Premi **Ctrl+B**, **Ctrl+I** o **Ctrl+U** per attivare o togliere grassetto, cor
 
 ## Allineamento
 
-Premi **F4** per scorrere sinistra, centro, destra e giustificato, oppure premi **Ctrl+L**, **Ctrl+E**, **Ctrl+J**. Un paragrafo giustificato allarga le parole fino al margine destro; la sua ultima riga resta a sinistra.
+Premi **F4** per scorrere sinistra, centro, destra e giustificato, oppure premi **Ctrl+L**, **Ctrl+E**, **Ctrl+R**, **Ctrl+J**. Un paragrafo giustificato allarga le parole fino al margine destro; la sua ultima riga resta a sinistra.
 
 ## Da sapere
 

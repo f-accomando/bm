@@ -82,6 +82,8 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |
 | `bmweb`, `herocart` | `bm.info`; `src/` holds the modules and `build/` the build script |
+| `demo`, `stress`, `texroom` | `bm.info` used by their rule (`--info`); the kernel embeds them. `sheet.png` and `map.csv` are in `assets/`; `make_assets.py` and `mkassets.py` are in `build/` |
+| `sdk_b16`, `titan_ex` | `bm.info`; the `.b16` editions use it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
 
 `stages3d` is not a project of this layout. It has one front per edition, and each front has its own `bm.info` (`bm/bm.info` and `b16/bm.info`). Logic is in `common/`, assets are shared, and `build.py` joins an edition's sources ([stages3d](progress/stages3d.md)). The tool does not list it.
 

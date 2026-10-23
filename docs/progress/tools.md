@@ -86,8 +86,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice. Also on the Pi and the RGB30: the copy lands in `/bme`, `Ctrl+B` builds into the games folder, an old `.bme` next to its game still opens (not verified on hardware).
-- **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
-  I-beam cursor and dragging panels.
+- **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse on the Pi and the RGB30 (not verified on hardware). Gaps: see the table under `## Rules`, "Mouse per program". Also an I-beam cursor (kernel `pointer.c`) and dragging panels.
 - **Stack page of bm Pixel**: try it on the Pi and the RGB30 (keyboard and pad). Not done: delete a stack zone, a vertical layout (`stackv`, branch `claude/stackv`: the page keeps `sp.dir` and `cell()` ready), mouse drag. Pad and mouse are not tested in QEMU.
 - **Web player** ([`design/bm-web-player.md`](../design/bm-web-player.md), [`web/README.md`](../../web/README.md)): study done; stage 1 done: `web/bmcart.js` reads a `.bm` or `.b16` in the page (title, author, cover, sections, CRC-32) and the Start tab has an "Open a .bm file" input; test `make test-webplayer` (Node). Stage 3 done: `make web-player` writes `build/web/player/` (page, `player.js`, `bmweb.js`, `bmweb.wasm`); the page plays a `.bm` opened with the file input (canvas, keyboard, Gamepad API, AudioWorklet); `make test-wasm` also runs the runner under Node (`tests/webplayer/test_bmweb.js`). Saves persist in IndexedDB (IDBFS on `bm/save`; checked by hand in the browser pane with `tests/webplayer/save.lua`). `make test-wasm-3d` compares the 3D stages cartridge frames (PC build and wasm build): 20 frames equal. Not checked: the sound itself, the 60 Hz rate in a visible tab, a gamepad, the speed of 3D in wasm. Stage 2 done: `make bmhost-wasm` (Emscripten in `~/emsdk`, `source ~/emsdk/emsdk_env.sh`) builds the `bmhost` runner to `build/web/bmhost.wasm` (1.5 MB); `make test-wasm` runs a cartridge under Node and the frames equal the PC build. Next: check sound and speed in a visible browser, then the release page (React with SRI or vendored, licence policy). The page is still a mock: no kernel code runs in it. It shows the Start, 2D, 3D and Sound tabs and calls `window.bmLauncher.start(cartUrl)`. React 18.3.1 (MIT) loads from cdnjs without SRI; the 24 PNG previews are placeholders. To do: add SRI or vendor React, set the licence policy for real assets, connect the WebAssembly runtime.
 - **Stack to mesh** (`tools/stack2mesh.py`, host tool, tests `tests/tools/test_stack2mesh.py`): done. It reads a sprite sheet PNG and a stack (`--size W H -n N --at X Y`, `--dir h` for `stack`, `--dir v` for one slice under the other), and writes a `.bmm` with one MESH model. Each opaque pixel is a voxel. Voxels of the same colour join into boxes: rectangles in a slice first, then equal rectangles on neighbouring slices. A box costs 8 vertices and 12 triangles. The default limit is 4096 vertices, so 512 boxes; `--kernel-limits` allows 8191 boxes. A stack that is too big exits with 1 and gives the limit. The round trip is tested: mesh back to slices equals the source. Not done: only the outer faces (fewer triangles for a solid volume), a button in bm Pixel and bm Studio, the `stackv` direction flag of the Lua call (the PNG layout `--dir v` exists), a check on the Pi.
@@ -111,7 +110,27 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu
   of keys on the 8x16 grid. A mouse function outside a page's `do … end` does not see its
-  locals: export them. Tests `bmui_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
+  locals: export them. Tests `bmui_host.lua`, `write_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
+  Shared helpers (M48): `U.list(kind, sel, n, step)` (wheel, click, click on the chosen row: acts), `U.col`
+  (pixel to text column), `U.scroll` (wheel on a view).
+- Mouse per program (M48, 23 Oct; host tests and QEMU `-k` on the Pi build; hardware not verified).
+  Works = tabs/chips press the key, lists (click, double click, wheel), dialogs (click outside = Esc), right-click menu.
+
+  | Program | Works | Gap (file) |
+  |---|---|---|
+  | bm Code | tabs (middle click closes), text click, drag, double click word, breakpoints, wheel, lists, dialogs, right menu | none found |
+  | bm SDK (`carts/editor`) | tabs, code click and wheel, pickers, sprite/map/3D, hub list (click, wheel since M48), right menu | code view: no drag or word select (the view has no selection); prompt box: no caret placement |
+  | bm SDK RGB30 (`carts/sdk_b16`) | same as above (hub wheel since M48) | code view as above; sound page: no wheel or double click (`mouse` near line 4052); zone `message` has no handler |
+  | bm Studio | tabs, lists, build view (paint, pick, camera), picker, models page, right menu | prompt: no caret placement |
+  | bm Animator | rig, anim (timeline drag, bones), sprites page (wheel changes a value), play, lists, right menu | prompt: no caret placement |
+  | bm Mesh | tabs, list, edit page, chooser (Open, Add a part, Ghost, Bones, Commands: click, double click, wheel, outside = Esc), camera, right menu; Import, Export, Snap, Ghost and Bones are rows of the Commands chooser (`COMMANDS`, `carts/mesh/main.lua:2179`), so the mouse reaches them | prompt: no caret placement |
+  | bm Pixel | tabs, draw (paint, wheel), sheet, palette (click, double click), stack, menu, dialogs, right menu | palette page: no wheel |
+  | bm Sound | tabs, slots, fields, steps, tracks, cells, orders, bar drag, overlays, right menu; text dialogs (riff, name): click outside = Esc (M48) | no caret placement in the name and riff fields |
+  | bm Write (M48) | page click, drag select, double click word, Shift+click, wheel, bar chips (style, B I U, L C R J), `bm Write` opens the menu, right-click edit menu, menu, open list, export list, confirm, help | prompt (file name): no caret placement; no hover highlight |
+  | bm assistant | chips F6 to F9 press the key; the panel (`assist.lua`) clicks and wheels | none found |
+  | Settings (C pages) | kernel menu, not Lua: see `ui-reference.md` | not part of this pass |
+
+  Hover highlight exists only in the 3D views and the context menu. The dialogs choose with a click.
 - Predict/pad tables `CROSS`/`FACE`/`KB` change in `src/ai/padtype.lua`.
 - Skin recipes (`mesh_skin.c`): one bone per position, one connected body (`test_skins`), shared ring to the distal
   bone; `face_b` for a bone per corner, `face()` output unchanged; `static` vertex tables.

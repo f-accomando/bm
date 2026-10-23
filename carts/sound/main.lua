@@ -2744,7 +2744,11 @@ local function sound_mouse()
   if not U.on then return end
   local o = overlay
   if o then
-    if o.kind == "riff" or o.kind == "name" then return end
+    if o.kind == "riff" or o.kind == "name" then            -- (text dialogs: a click outside is Esc)
+      local z = U.click(0)
+      if z and z.kind == "shade" then overlay_key("esc") end
+      return
+    end
     if o.items and U.wheel ~= 0 then overlay_key(U.wheel > 0 and "up" or "down") end
     local z = U.click(0)
     if not z then return end

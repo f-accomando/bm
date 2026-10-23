@@ -1151,6 +1151,29 @@ def test_gpu_test(b, opts):
         q.close()
 
 
+def test_stack_bench(b, opts):
+    """Dev > Stack bench (D14, the Pi's bench): sprite stacking at 640x360, the numbers on the serial
+    port, the back button returns to the menu's 360x360."""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+    try:
+        boot(q)
+        press(q, "r", ["every 3D test"])        # Dev tab
+        press(q, "s", ["both sticks"])          # the second row
+        press(q, "s", ["build and try"])        # the third row: bm SDK
+        press(q, "d", ["us a frame"])           # Stack bench, after it
+        q.send("\r")
+        q.expect("Stack bench: g16_stack", timeout=30)
+        img = q.screendump()
+        assert img[0] == 640 and img[1] == 360, f"screen {img[0]}x{img[1]}"
+        out = q.expect("Stack bench done", timeout=300).decode(errors="replace")
+        assert "slices/s" in out and out.count("128") >= 2, out
+        time.sleep(1)
+        text = press(q, "\x7f", ["Games", "Dev", "Settings"])     # A: back
+        assert in_menu(text), text
+    finally:
+        q.close()
+
+
 def test_menu_input_page(b, opts):
     """The Dev tab's input test: the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))

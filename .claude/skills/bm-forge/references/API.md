@@ -42,7 +42,7 @@ carts/<game>/models.bm       optional 3D models + skeletons + animations (or mod
 - Multi-file games: `carts/<game>/src/*.lua` joined in name order by `carts/<game>/build.py`
   into `build/<game>/main.lua`; the first file (`00_*.lua`) stays top level, every other is
   wrapped in `do ... end` to dodge Lua's 200-locals limit; a `.map` file maps output lines
-  back to sources (`carts/titan_ex/build.py:3-12,22-41`). Such games get an explicit rule
+  back to sources (`carts/titan_ex/build/build.py:3-12,22-41`). Such games get an explicit rule
   (`Makefile:248-257` titan, `Makefile:238-246` kitchen).
 - **`.bm` vs `.b16` are separate editions with separate sources** (`CLAUDE.md`, *Non fare*):
   `carts/titan/src/*.lua` → `titan.bm` (`Makefile:250-257`); `carts/titan_ex/src/*.lua` →
@@ -331,7 +331,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   `carts/**/*.lua` and `tests/**/*.lua` outside the tools (Grep `model\("|animate\(`).
 - Inline snippets: `sdk/README.md:25-37` (model), `docs/GAME-GUIDE.md:405-415` (animate).
 - `.bm` / `.b16` twin: `carts/titan/src/*.lua` + `carts/titan/build/build.py` and
-  `carts/titan_ex/src/*.lua` + `carts/titan_ex/build.py` (`Makefile:248-268,369`).
+  `carts/titan_ex/src/*.lua` + `carts/titan_ex/build/build.py` (`Makefile:248-268,369`).
 - API test cart: `tests/gameapi/cart.lua` (`docs/GAME-GUIDE.md:896`; `make test-gameapi`,
   `docs/api/bmlib.md:303-304`).
 

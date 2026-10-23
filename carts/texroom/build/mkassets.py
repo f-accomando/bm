@@ -2,7 +2,7 @@
 """Texture Room (M14): draws the textures (sheet.png, 128x128: 4x4 textures
 of 32x32) and the cover (cover.png, 128x80) in code, reproducibly.
 
-    python3 carts/texroom/mkassets.py
+    python3 carts/texroom/build/mkassets.py
 
 Textures, numbered by rows (the numbers main.lua uses):
   0 stone floor   1 brick wall     2 wooden crate   3 metal panel
@@ -14,7 +14,7 @@ import random
 import struct
 import zlib
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # carts/texroom/
 SW = SH = 128
 T = 32
 sheet = [(0, 0, 0, 255)] * (SW * SH)
@@ -129,7 +129,7 @@ def write_png(path, w, h, px):
                 + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
 
 
-write_png(os.path.join(HERE, "sheet.png"), SW, SH, sheet)
+write_png(os.path.join(HERE, "assets", "sheet.png"), SW, SH, sheet)
 
 # cover: a floor in perspective with a crate, from the textures
 CW, CH = 128, 80

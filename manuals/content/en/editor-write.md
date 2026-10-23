@@ -99,7 +99,7 @@ On the toolbar, the letters that are lit show the state at the cursor: bold, ita
 | F2 | next style of the paragraph |
 | F4 | next alignment of the paragraph |
 | Ctrl+B, Ctrl+I, Ctrl+U | bold, italic, underline |
-| Ctrl+L, Ctrl+E, Ctrl+J | align left, centre, justify |
+| Ctrl+L, Ctrl+E, Ctrl+R, Ctrl+J | align left, centre, right, justify |
 | Ctrl+Z, Ctrl+Y | undo, redo |
 | Ctrl+C, Ctrl+X, Ctrl+V | copy, cut, paste |
 | F1 | the list of keys |
@@ -117,6 +117,23 @@ On the toolbar, the letters that are lit show the state at the cursor: bold, ita
 ## The menu
 
 Press **Esc** (or **Start** on the pad). Use the up and down arrows and Enter. The entries are: New document, Open..., Save, Save as..., Export..., Style, Alignment, Bold, Italic, Underline, Select, Undo, Redo, Word completion, Language, Pad typing, Keys, Exit. `Word completion` switches the grey-blue words on and off. `Language` changes the language of the words between Italiano and English.
+
+## The mouse
+
+A USB or Bluetooth mouse does what the keys do.
+
+| Action | What it does |
+|---|---|
+| Click on the page | puts the cursor there |
+| Drag | selects the text; at the top or bottom edge the page scrolls |
+| Double click | selects the word |
+| Shift + click | extends the selection |
+| Wheel | scrolls the pages |
+| Right button | opens the edit menu: Cut, Copy, Paste, Bold, Italic, Underline, Style, Alignment, Undo, Redo, Save, Menu |
+| Click on `bm Write` in the bar | opens the menu |
+| Click on the style, **B**, **I**, **U**, **L**, **C**, **R**, **J** in the bar | press the same key |
+
+In the menu and in the lists, a click chooses a row and a second click takes it. The wheel moves the choice. A click outside the box, or the right button, goes back.
 
 ## The pad
 
@@ -159,7 +176,7 @@ Press **Ctrl+B**, **Ctrl+I** or **Ctrl+U** to switch bold, italic or underline.
 
 ## Alignment
 
-Press **F4** to go through left, centre, right and justify, or press **Ctrl+L**, **Ctrl+E**, **Ctrl+J**. A justified paragraph widens the words to the right margin; its last line stays on the left.
+Press **F4** to go through left, centre, right and justify, or press **Ctrl+L**, **Ctrl+E**, **Ctrl+R**, **Ctrl+J**. A justified paragraph widens the words to the right margin; its last line stays on the left.
 
 ## Good to know
 

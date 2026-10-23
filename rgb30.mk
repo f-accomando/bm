@@ -123,8 +123,8 @@ FORCE:
 # into this kernel as the Pi's SDK is into its own: the Dev tab opens it as a tool
 # (src/rgb30/ui.c, src/kernel/devtool.c). Its two Lua files joined by its build.py,
 # then the cartridge, which bm_embed.S takes with .incbin. Not in the Pi's kernel.
-$(BUILD)/sdk_b16/main.lua: carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build.py
-	$(PYTHON) carts/sdk_b16/build.py $@
+$(BUILD)/sdk_b16/main.lua: carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build/build.py
+	$(PYTHON) carts/sdk_b16/build/build.py $@
 
 SDK_B16_RES ?= 360x360
 $(BUILD)/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py

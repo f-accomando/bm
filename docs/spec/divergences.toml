@@ -165,12 +165,12 @@ action = "none"
 id = "D14"
 area = "Dev tab extras"
 pi = "CPU bench, Stress test, Texture Room, Video bench, Stack bench, Demo"
-rgb30 = "not built (stress.c, roombench.c and vidbench.c are excluded; the Stack bench is not in its Dev tab)"
+rgb30 = "Stack bench (BETA-6 round 2, src/rgb30/ui.c page_stack, QEMU test_stack_bench). Not built: CPU bench, Stress test and Texture Room (V3D, D23), Video bench (vidbench.c excluded), Demo"
 cause = "todo"
 priority = 6
 status = "open"
 evidence = "rgb30.mk:87"
-action = "port when the RGB30 3D bench matters"
+action = "Stress test and Texture Room come with the Mali driver (D23); CPU bench, Video bench and Demo: port when the RGB30 needs them"
 
 [[divergence]]
 id = "D15"
@@ -546,20 +546,23 @@ area = "menu OK and Cancel remap (Settings > Controls)"
 pi = "menus keep A (OK) and B (back); the Pause and menus panel hides the OK and Cancel rows"
 rgb30 = "mo and mc of controls= set the menus' OK and Cancel (a, b, x or y); default B and Y"
 cause = "todo"
-status = "open"
+status = "accepted"
+note = "Accepted 2026-10-23 (BETA-6 round 2): D32 already accepts that the Pi menus confirm with A and go back with B (the DS4, the Xbox pad and the keyboard's Enter and Esc set that convention; the Pi has no built-in pad whose letters can mislead). The Pi menus therefore keep their buttons and its Pause and menus panel shows the Pause row only (src/kernel/settings.c, the BM_RGB30 guard). The RGB30 remaps mo and mc because its own pad is B = OK and Y = Cancel by default (user decision 19 Oct 2026). The game buttons and the pause remap on both kernels. Proved on the Pi by QEMU test_home_ui (the Pause and menus panel has no Cancel row) and on the RGB30 by tests/rgb30 test_controls_menu and test_confirm_button (mo:x mc:a). Open for the owner: if the Pi menus should follow mo and mc, this entry goes back to todo."
 evidence = "src/rgb30/pad.c; src/kernel/settings.c"
-action = "decide whether the Pi menus follow mo and mc; the game buttons and the pause remap on both"
+action = "none"
 
 [[divergence]]
 id = "D48"
 area = "monitor"
 pi = "the monitor line `crc` prints the CRC32 of the page on screen (fixed format), to compare with a value taken from the same Pi"
 rgb30 = "none: the RGB30 kernel does not compile src/kernel/monitor.c (see D22)"
-cause = "todo"
+cause = "hardware"
+capability = "no-keyboard"
 priority = 6
-status = "open"
+status = "accepted"
+note = "Accepted 2026-10-23 (BETA-6 round 2): the crc is a monitor line, and the RGB30 has no monitor by design (D22: no USB host, no keyboard). The RGB30 tests read the screen through the QEMU screendump (tests/rgb30/qemu_test.py screen_text) and the console owner sees the screen. A serial crc command for the RGB30 can come with the terminal monitor that D22 plans."
 evidence = "src/kernel/monitor.c; tests/qemu_test.py:test_monitor_crc"
-action = "decide whether the RGB30 needs a crc of its screen (a serial command, or the pad kernel's own tool); until then the screen check by CRC is Pi-only"
+action = "none; with the terminal monitor of D22"
 
 [[divergence]]
 id = "D50"

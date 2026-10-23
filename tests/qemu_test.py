@@ -1310,6 +1310,11 @@ def test_home_ui(b, opts):
         keys("s")
         keys("\r")                              # Controls (CONTROLS-1; the RGB30 has the test of its panels)
         screen(["Settings > Controls", "Scroller games", "Top-down games", "Stick games", "Pause and menus", "Reset all"])
+        keys("sss")
+        keys("\r")                              # Pause and menus (D49): the Pi menus keep A and B, so only Pause is a row
+        text = screen(["Settings > Controls > Pause and menus", "Pause"])
+        assert "Cancel" not in text, text
+        keys("q")
         keys("q")
         keys("s")
         keys("\r")

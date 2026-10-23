@@ -16,7 +16,7 @@ import glob
 import hashlib
 import os
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # carts/titan_ex/
 
 
 def build():

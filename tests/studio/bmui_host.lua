@@ -191,5 +191,46 @@ do
   check(n == 1, "project_files: a path once, case does not matter")
 end
 
+-- M48 helpers: U.list, U.col, U.scroll
+do
+  M.shown = true
+  frame(10, 10, 0, 0, Z)
+  local LZ = { { 0, 32, 168, 16, "row", 1 }, { 0, 48, 168, 16, "row", 2 }, { 0, 64, 168, 16, "row", 3 } }
+  frame(10, 56, 0, 0, LZ)
+  frame(10, 56, 1, 0, LZ)
+  local sel, act = U.list("row", 1, 3)
+  check(sel == 2 and not act, "list: a click chooses the row")
+  frame(10, 56, 0, 0, LZ)
+  frame(10, 56, 1, 0, LZ)
+  sel, act = U.list("row", 2, 3)
+  check(sel == 2 and act, "list: a click on the chosen row acts")
+  frame(10, 56, 0, 0, LZ)
+  frame(10, 40, 1, 0, LZ)
+  sel, act = U.list("row", 3, 3)
+  check(sel == 1 and not act, "list: a click on another row moves there")
+  frame(10, 40, 0, 0, LZ)
+  frame(10, 40, 0, -2, LZ)
+  sel, act = U.list("row", 1, 3, 1)
+  check(sel == 3 and not act, "list: the wheel down moves down, clamped")
+  frame(10, 40, 0, 5, LZ)
+  sel = U.list("row", 2, 3, 2)
+  check(sel == 1, "list: the wheel up moves up, clamped, by the step")
+  frame(10, 40, 0, 0, LZ)
+  sel, act = U.list("other", 2, 3)
+  check(sel == 2 and not act, "list: no click, no change")
+  frame(10, 56, 1, 0, LZ)
+  sel, act = U.list("other", 2, 3)
+  check(sel == 2 and not act, "list: a click on a zone of another kind is not a row")
+  frame(10, 56, 0, 0, LZ)
+  check(U.col(0, 8, 6, 10) == 0 and U.col(8 + 6 * 3 + 2, 8, 6, 10) == 3 and U.col(8 + 6 * 3 + 4, 8, 6, 10) == 4
+        and U.col(900, 8, 6, 10) == 10, "col: the gap nearest to x, clamped")
+  frame(10, 40, 0, -2, LZ)
+  check(U.scroll(100, 0, 500, 45) == 190 and U.scroll(10, 0, 500, 45) == 100, "scroll: by the step")
+  frame(10, 40, 0, 20, LZ)
+  check(U.scroll(100, 0, 500, 45) == 0, "scroll: clamped at the top")
+  frame(10, 40, 0, 0, LZ)
+  check(U.scroll(100, 0, 500, 45) == 100, "scroll: no wheel, no change")
+end
+
 print(fails == 0 and ("bmui: " .. checks .. "/" .. checks .. " checks passed") or (fails .. " of " .. checks .. " FAILED"))
 if fails > 0 then os.exit(1) end
