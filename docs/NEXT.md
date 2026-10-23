@@ -31,11 +31,14 @@ Friday afternoon:
 Friday after the Mali device runs (done by the SPV through the RGB30 bridge, one session only on the RGB30):
 - Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
 
-Friday evening:
-- Clean up branches and worktrees.
-- Read this file, update `docs/ROADMAP.md`, write the summary.
+Friday evening (done 23 Oct, early):
+- Branches and worktrees checked. The branches left are the ones in "Never delete". The unintegrated ones are also in `C:\Users\Utente\Documents\GitHub\bm-archive\unintegrated-2026-10-23.bundle`.
+- The host test sweep ran: one failure, `make test-write`. Cause: the working tree of the main checkout had CRLF in `tests/write/input.txt` and `reopen.txt` (fixed). No code fault.
 
 ## Waiting for the user (decisions and Pi runs)
+- Decision, line endings: 1233 tracked files are CRLF in the working tree of the main checkout (index is LF). Cause: `core.autocrlf=true` in the global and user git config, `false` in the repo. Choose: renormalize the working tree (`git add --renormalize .` then `git checkout -- .`), and add `* text=auto eol=lf` to `.gitattributes`. Host tests that read input files can fail the way `test-write` did.
+- Decision, stray folder `C:` in the repo root (made by a command with a Windows path). Delete it?
+- Decision, pad names in game code: the standard `docs/design/games-input-standard.md` uses `act1`..`act8`. Proposal: write button names (`"x"`, `"l1"`) or gesture names (`"attack"`) in game code, add the DS4/Xbox/RGB30 symbol column, migrate Yharnam. User said to ignore it for now (23 Oct).
 - Decision SYS-11 (blocks R15, live reload from the PC): what a send from the PC does to a running game (wait for the end, prompt, "busy, queued" answer, send of the running cart: refuse, queue or ask). Plan and "done when": `docs/progress/tools-code-templates.md`.
 - Pi and RGB30 check, bm Code templates (R16): Ctrl+N shows 6 starters; choose each, Ctrl+S, F5. The Versus starter needs two controllers. Not verified on hardware.
 - Pi check, ghost wire in bm Mesh (benchmarks only; for the SPV): load a ghost of 2000, 20000 and 65535 faces (a `.bmm` made on the PC) and read the frame rate with the ghost shown and hidden. Host numbers and what is not measured are in `docs/progress/tools.md` (Modelling suite, step 7). Set `T.G.GHOST_EDGES_FRAME` (now 4000) from the result.
