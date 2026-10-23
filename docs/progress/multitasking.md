@@ -16,6 +16,7 @@ fibers probably off or used differently (job per core, real threads for download
   updates batched; multi-sector writes on for the Pi too.
 - `menu idle:` log line (every 300 frames when a job ran or SD counters moved): ms taken of
   ms offered, job time, `+x` worst overrun, `stop` time apart, min slack, sd retries/timeouts.
+- The menu background (blurred selected cover, `menu_bg.c`) is made `BG_ROWS` (24) rows per frame while the old one stays on screen; the whole picture in one frame (230,000 pixels of float math) was a long frame at each new selection and the mouse pointer jumped over the covers (23 Oct; cause by code reading and the host timing, not yet measured on the Pi). `make test-menu-bg`.
 - `background_stop()` before an app / rescan / delete, except update and publish (apps and pages
   are refused while `update_busy()` / `publish_busy()`). `net_wait_step` returns -1 if cancelled.
 
@@ -58,6 +59,8 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
 - A part file is written only when the server sent `Accept-Ranges` (or 206) and a size, and is checked by the address hash and the total.
   The whole file is checked by the caller (SHA-256 or size).
 - The limits of the web API stay: https only, 3 redirects, 1 s per host, 4 MiB `web_get`, 8 MiB `file_write`, 128 files (a part file counts), no `.bm`/`.bme`/`.b16`.
+- Work in the menu frame (drawing, a new selection) stays below one frame. The pointer position is read once per frame, so a long frame is one jump of the pointer. Make long work in bands (`menu_bg_step`) or in a job.
+
 
 ## Considerations
 - Triage of the failing tests (cause, evidence, owner) and the roadmap cleanup list for open PRs 80-100: [`docs/design/triage-and-roadmap-cleanup.md`](../design/triage-and-roadmap-cleanup.md).
