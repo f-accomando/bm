@@ -1398,8 +1398,8 @@ function anim_page.draw()
   local tt = draw_timeline(c)
   print(string.format("%s %s   %.2f s  frame %d%s", an.move and "MOVE" or "TURN", r.bones[an.bone].name, tt,
                       round(tt * FPS), key_at(c, tt) and "  key" or ""), x, 48, key_at(c, tt) and C.ACC or C.TEXT)
-  T.hint({ { { "left", "right" }, "time" }, { { "space" }, "play" }, { { "w", "s", "a", "d", "q", "e" }, "turn" },
-           { { "k" }, "key" }, { { "ctrl", "shift", "i" }, "other anims" } })
+  T.hint({ { { "left", "right" }, "time" }, { { "space" }, "play" }, { { "w", "s", "a", "d" }, "turn" },
+           { { "k" }, "key" }, { { "ctrl", "shift", "i" }, "retarget" } })       -- (q e: in the F12 help)
 end
 
 ----------------------------------------------------------------- sprites page (the animation into the sheet)

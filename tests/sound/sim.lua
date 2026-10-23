@@ -30,10 +30,12 @@ end
 env.SCREEN_W, env.SCREEN_H = 640, 360
 -- the keys as chips: prompt(name) alone measures
 local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+local cap                                 -- while not nil: the chips and the words drawn, { s, x, y, w }
 env.prompt = function(n, x, y)
   assert(type(n) == "string", "prompt: a name")
   calls = calls + 1
   if type(x) ~= "number" then return chip_w(n), 16 end
+  if cap then cap[#cap + 1] = { "[" .. n .. "]", x, y, chip_w(n) } end
   return x + chip_w(n)
 end
 local last_input = nil
@@ -41,6 +43,7 @@ env.lastinput = function() return last_input end
 env.print = function(s, x, y, c, scale)
   assert(type(x) == "number" and type(y) == "number", "print: x, y must be numbers")
   calls = calls + 1
+  if cap then cap[#cap + 1] = { tostring(s), x, y, #tostring(s) * 8 * (scale or 1) } end
   return x + #tostring(s) * 8 * (scale or 1)
 end
 
@@ -54,6 +57,8 @@ local f12 = false
 env.keyheld = function(k) return k == "f12" and f12 end
 local keyhelp_list, keyhelp_title
 env.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
+local shown_keys = 0
+env.showkeys = function() shown_keys = shown_keys + 1; return true end
 
 -- the SD card
 local files = {
@@ -1037,6 +1042,38 @@ local function in_help(keys)
   return false
 end
 check(keyhelp_title == "Sound" and in_help("i") and in_help("SELECT LEFTRIGHT"), "keyhelp: the keys and the pad's")
+
+-- the fixed chip "F12 keys" at the right of the bottom bar, on every page (a keyboard in use):
+-- inside the screen, the hints and the menu chip never reach it, a click opens the keys
+do
+  local function chip_frame() repeat cap = {}; frame() until last_input == "keyboard" end
+  for page = 1, 4 do
+    chip_frame()
+    local row, chip, label, menu = {}, nil, nil, nil
+    for _, t in ipairs(cap) do
+      if t[3] == 339 then row[#row + 1] = t end
+    end
+    for _, t in ipairs(row) do if t[1] == "[f12]" then chip = t end end
+    for _, t in ipairs(row) do
+      if chip and t[1] == "keys" and t[2] > chip[2] then label = t end
+      if t[1] == "menu" then menu = t end
+    end
+    local what = "page " .. page .. ": the fixed chip F12 keys"
+    check(chip and label and chip[2] % 8 == 0 and label[2] + 32 <= 640 - 104, what .. " is drawn, left of the menu chip")
+    local bad
+    for _, t in ipairs(row) do
+      if chip and t ~= chip and t ~= label and t[2] < chip[2] and t[2] + t[4] > chip[2] - 8 then bad = t[1] end
+    end
+    check(chip and not bad, what .. ": the hints never reach it" .. (bad and (" (" .. bad .. ")") or ""))
+    if chip then
+      local n = shown_keys
+      click(chip[2] + 4, chip[3] + 8)
+      check(shown_keys == n + 1, what .. ": a click opens the keys")
+    end
+    hold_then(SELECT, R)                  -- the next page
+  end
+  cap = nil
+end
 
 -- no globals made by mistake
 local stray = {}

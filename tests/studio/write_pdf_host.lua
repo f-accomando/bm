@@ -109,6 +109,7 @@ E.time = function() return frame / 60 end
 E.btn, E.btnp, E.keydown = function() return false end, function() return false end, function() return false end
 E.keyp = function() return table.remove(keyq, 1) end
 E.keyhelp = function() return 0 end
+E.prompt = function(n, x) if type(x) ~= "number" then return 16, 16 end; return x + 16 end   -- (the chip "F12 keys" of the status line)
 E.save, E.saved = function() return true end, function() return nil end
 E.doc_write = function(n, d) docs[n] = d; return true end
 E.doc_read = function(n) return docs[n:lower()] end

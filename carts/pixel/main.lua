@@ -325,17 +325,9 @@ local function snap(x) return (x + 7) // 8 * 8 end
 
 -- the keys of the page on the hint row: { { {keys...}, label }, ... }, as many as fit
 local function hint(list)
-  local x = 0
-  for _, h in ipairs(list) do
-    local kx = x
-    for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
-    if snap(kx + 2) + #h[2] * 8 > W then break end
-    local x0 = x
-    for _, k in ipairs(h[1]) do x = prompt(k, x, HINT_Y) + 1 end
-    x = print(h[2], snap(x + 2), HINT_Y, C_DIM)
-    U.key_zone(x0, HINT_Y, x - x0, 16, h[1])        -- a click: the key
-    x = x + 12
-  end
+  local items = {}
+  for i, h in ipairs(list) do items[i] = { keys = h[1], label = h[2] } end
+  U.hint_row(items, { y = HINT_Y, w = W, snap = snap, dim = C_DIM })
 end
 
 -- a key as a chip, or the pad's button when a pad was used last and the
@@ -1171,7 +1163,8 @@ function draw_draw()
            { { "r" }, "turn" }, { { "del" }, "clear" }, { { "esc" }, "none" } })
   elseif dp.anchor then hint({ { { "up", "down", "left", "right" }, "the other corner" }, { { "space" }, "done" }, { { "esc" }, "cancel" } })
   else
-    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "m", "w" }, "tools" },
+    -- the top keys; the fixed chip "F12 keys" shows the rest (the arrows: the help)
+    hint({ { { "space" }, "draw" }, { { "b", "e", "g", "m", "w" }, "tools" }, { { "l", "u", "o" }, "shapes" },
            { { "ctrl", "e" }, "PNG" }, { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "tab" }, "more" } })
   end
 end
@@ -2395,9 +2388,6 @@ function _draw()
                            tool, colour_name(colour()))
   end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
-  if #status <= 62 then                  -- room on the right: F12 held for the keys
-    chip_hint("f12", nil, "held: keys", 528, STATUS_Y)
-  end
   if pick then draw_pick() end
   if input then draw_input() end
   if busy then                           -- the text on the columns and rows of the font

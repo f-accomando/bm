@@ -324,13 +324,60 @@ function U.bar_file(name, dirty, x, w, c_dirty, c_dim)
 end
 
 -- a left click on a key's zone: its key pressed. True when it was one.
+-- The fixed chip "F12 keys" (U.hint_row) opens the keys (showkeys()).
 function U.keys()
   local z = U.click(0)
   if z and z.kind == "key" then
     U.press(z.a)
     return true
   end
+  if z and z.kind == "help" then
+    if showkeys then showkeys() end
+    return true
+  end
   return false
+end
+
+----------------------------------------------------------------- the hint bar
+
+-- The hint bar of every editor: chips (key + action) from the left, and one
+-- FIXED chip "F12 keys" at the right end that is always there: a click opens
+-- the list of the keys (showkeys()), so a new key goes in the help (keyhelp())
+-- and never has to take the place of a chip. The room of the fixed chip is
+-- reserved first; the other chips are cut to what fits before it.
+--   items  { { keys = {"up", "down"} (the chips drawn), label = "model",
+--              click = keys for the click ({"up"}, "up"), default keys } }
+--   o      { y =, w = the bar's width, x = first chip (0), gap = after a chip (12),
+--            snap = fn (the label's column), dim = colour of labels,
+--            fixed = false/true (default: a keyboard is in use) }
+-- Returns the x after the last chip drawn, and how many were drawn.
+function U.hint_row(items, o)
+  local y, w, x = o.y, o.w, o.x or 0
+  local gap, snap, dim = o.gap or 12, o.snap or function(v) return (v + 7) // 8 * 8 end, o.dim or C.DIM
+  local right = w
+  local show = o.fixed
+  if show == nil then local li = lastinput and lastinput(); show = li ~= "ds4" and li ~= "pad" end   -- a pad has no button for it
+  if show then
+    local lx = snap(prompt("f12") + 1 + 2)               -- the label's offset (x0 is on a column)
+    local fx = (w - 8 - lx - 4 * 8) // 8 * 8             -- "F12" then "keys", to 8 px from the edge
+    prompt("f12", fx, y)
+    print("keys", fx + lx, y, dim)
+    U.zone(fx, y, lx + 4 * 8, 16, "help")
+    right = fx - 8
+  end
+  local drawn = 0
+  for _, it in ipairs(items) do
+    local kx = x
+    for _, k in ipairs(it.keys) do kx = kx + prompt(k) + 1 end
+    if snap(kx + 2) + #it.label * 8 > right then break end
+    local x0 = x
+    for _, k in ipairs(it.keys) do x = prompt(k, x, y) + 1 end
+    x = print(it.label, snap(x + 2), y, dim)
+    U.key_zone(x0, y, x - x0, 16, it.click or it.keys)       -- a click: the key
+    x = x + gap
+    drawn = drawn + 1
+  end
+  return x, drawn
 end
 
 ----------------------------------------------------------------- the context menu

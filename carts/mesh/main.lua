@@ -637,17 +637,9 @@ local function snap(x) return (x + 7) // 8 * 8 end
 
 -- the keys of the page on the hint row: { { {keys...}, label }, ... }, as many as fit
 local function hint(list)
-  local x = 0
-  for _, h in ipairs(list) do
-    local kx = x
-    for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
-    if snap(kx + 2) + #h[2] * 8 > W then break end
-    local x0 = x
-    for _, k in ipairs(h[1]) do x = prompt(k, x, HINT_Y) + 1 end
-    x = print(h[2], snap(x + 2), HINT_Y, C_DIM)
-    U.key_zone(x0, HINT_Y, x - x0, 16, h[1])        -- a click: the key
-    x = x + 12
-  end
+  local items = {}
+  for i, h in ipairs(list) do items[i] = { keys = h[1], label = h[2] } end
+  U.hint_row(items, { y = HINT_Y, w = W, snap = snap, dim = C_DIM })
 end
 
 -- a key as a chip, or the pad's button when a pad was used last and the
@@ -3080,8 +3072,8 @@ function draw_edit()
     hint({ { { "up", "down", "left", "right" }, "corner" }, { { "enter" }, "choose" }, { { "space" }, "add" }, { { "esc" }, "cancel" } })
   elseif ed.pal then hint({ { { "up", "down", "left", "right" }, "colour" }, { { "enter" }, "take it" }, { { "esc" }, "close" } })
   else
-    hint({ { { "space" }, "choose" }, { { "tab" }, "mode" },
-           { { "g" }, "move" }, { { "r" }, "rotate" }, { { "t" }, "scale" }, { { "x" }, "extrude" }, { { "shift", "v" }, "smooth" } })
+    hint({ { { "space" }, "choose" }, { { "a" }, "all" }, { { "tab" }, "mode" },
+           { { "g" }, "move" }, { { "r" }, "rotate" }, { { "x" }, "extrude" }, { { "t" }, "scale" }, { { "shift", "v" }, "smooth" } })
   end
 end
 end
@@ -3528,9 +3520,6 @@ function _draw()
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = I() and ("mesh " .. cur .. "/" .. #items .. ": " .. I().name .. " (" .. KIND_L[I().kind] .. ")") or "" end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
-  if #status <= 62 then                  -- room on the right: F12 held for the keys
-    chip_hint("f12", nil, "held: keys", 528, STATUS_Y)
-  end
   if pick then draw_pick() end
   if input then draw_input() end
   if ok_assist then assist.draw() end    -- the assistant's panel on top, if open

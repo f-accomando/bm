@@ -268,6 +268,7 @@ local sec, sheet, mapc, lnames, mlay, flg
 local refused, copies, saves, last_save, built, ran, tooled
 local audio_files, audio_puts, audio_last = {}, 0, nil      -- the sound banks by file; what was played
 local keyhelp_list, keyhelp_title, MS, ai_full, last_kb, numeric_btn
+local showkeys_n = 0
 local loaded, cur_font
 local CUTS = {}
 local MESH_MT = {}
@@ -427,6 +428,7 @@ local function new_env(arg, o)
     keyhelp_list, keyhelp_title = list, title
     return 0
   end
+  E.showkeys = function() showkeys_n = showkeys_n + 1; return true end
   E.save = function(t) saved_t = t; return true end
   E.saved = function() return saved_t end
   E.cart_arg = function() return arg_t end
@@ -1635,6 +1637,30 @@ if os.getenv("SDK_DEBUG") then
   for k, x in pairs(ASSIST_OUT) do a[#a + 1] = k .. "@" .. x end
   io.write("the assistant's panel past 360 (cut by the screen): " .. table.concat(a, " ") .. "\n")
 end
+-- the fixed chip "F12 keys" on the hint bar of every page, at 360 px (a keyboard in use);
+-- with the pad it has no button and is not drawn
+run_sdk(nil, { mouse = true, keyboard = true })
+tag = "fixed chip"
+frames(3)
+dofile(ROOT .. "/tests/studio/hintchip.lua"){
+  name = "bm SDK (RGB30)", check = check, texts = function() return texts end, hy = 320, w = 360, chip_w = chip_w,
+  click = click, shown = function() return showkeys_n end,
+  pages = {
+    { name = "project", go = function() key("f1") end },
+    { name = "code", go = function() key("f2") end },
+    { name = "sprites", go = function() key("f3") end },
+    { name = "map", go = function() key("f3") end },
+    { name = "models", go = function() key("f4") end },
+  } }
+run_sdk(nil, { mouse = true })
+tag = "fixed chip, pad"
+frames(3)
+do
+  local any
+  for _, t in ipairs(texts) do if t[1] == "[f12]" and t[3] == 320 then any = true end end
+  check(not any, "bm SDK (RGB30): with the pad the fixed chip is not drawn (it has no button)")
+end
+
 checks = checks + 1
 if #G.fails > 0 then fails = fails + 1 end
 

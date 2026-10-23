@@ -48,15 +48,18 @@ local function chip_hint(key, pad, label, x, y, c)
   return x + 12
 end
 
--- the hint row: { {keys, pad or nil, label}, ... } while it fits
+-- the hint row: { {keys, pad or nil, label}, ... } while it fits, then the
+-- fixed chip "F12 keys" at the right (U.hint_row): a new key goes in the
+-- help, the row shows the first chips that fit
 local function hint(list, y)
-  y = y or HINT_Y
-  local x = 8
-  for _, h in ipairs(list) do
+  local items = {}
+  for i, h in ipairs(list) do
     local k = h[2] and pad_used() and h[2] or h[1]
-    if snap(chips(k, x) + 2) + #h[3] * 8 > W then break end
-    x = chip_hint(h[1], h[2], h[3], x, y)
+    local t = {}
+    for w in k:gmatch("%S+") do t[#t + 1] = w end
+    items[i] = { keys = t, label = h[3], click = h[1] }
   end
+  U.hint_row(items, { y = y or HINT_Y, w = W, x = 8, snap = snap, dim = C.DIM, fixed = not pad_used() })
 end
 
 -- "512k", "1.5M": KiB in a few columns, as the dev kit's overlay
@@ -2665,9 +2668,9 @@ do
         rect(ox + tx - scx - 1, oy + ty - scy - 1, n + 2, n + 2, C.ACC)
       end
     end
-    hint({ { "space", "A", "place" }, { "backspace", nil, "clear" }, { "x", "B", "pick" }, { "f", nil, "fill" },
-           { "tab", "Y", "tiles" }, { "t", nil, "terrain" }, { "l", nil, "layer" }, { "c", nil, "flags" },
-           { "u", nil, "undo" } })
+    hint({ { "space", "A", "place" }, { "x", "B", "pick" }, { "f", nil, "fill" }, { "tab", "Y", "tiles" },
+           { "t", nil, "terrain" }, { "l", nil, "layer" }, { "m", nil, "mini" }, { "c", nil, "flags" },
+           { "backspace", nil, "clear" }, { "u", nil, "undo" } })
   end
 
   local function status()
@@ -3737,7 +3740,6 @@ function _draw()
   elseif S.page == "d2" then status = S.d2view == "sprite" and P.sprite.status() or P.map.status()
   else status, sc = P[S.page].status() end
   print(status:sub(1, #status <= 62 and 62 or 79), 0, STATUS_Y, sc or C.TEXT)
-  if #status <= 62 then chip_hint("f12", nil, "held: keys", 528, STATUS_Y) end
   D.draw()
   if assist then assist.draw() end       -- the assistant's panel on top, if open
   U.menu_draw()                          -- the context menu over everything

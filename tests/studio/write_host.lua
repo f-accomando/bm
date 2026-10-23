@@ -27,6 +27,16 @@ E.btnp = function() return false end
 E.keyp = function() return table.remove(keyq, 1) end
 E.keydown = function() return false end
 E.keyhelp = function() return 0 end
+local showkeys_n = 0
+E.showkeys = function() showkeys_n = showkeys_n + 1; return true end
+E.lastinput = function() return "keyboard" end
+-- the keys as chips: written as "[name]"; prompt(name) alone measures
+local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+E.prompt = function(n, x, y)
+  if type(x) ~= "number" then return chip_w(n), 16 end
+  texts[#texts + 1] = { "[" .. n .. "]", x, y }
+  return x + chip_w(n)
+end
 E.save, E.saved = function() return true end, function() return nil end
 E.doc_write = function(n, d) docs[n] = d; return true end
 E.doc_read = function(n) return docs[n:lower()] end
@@ -335,6 +345,17 @@ type_text(string.rep("w", 50) .. "|" .. string.rep("v", 30))
 frames(250)
 check(sees("table too wide") ~= nil, "table: a row wider than 72 letters: the status says 'table too wide'")
 check(sees(string.rep("w", 50) .. "|" .. string.rep("v", 21)) ~= nil, "table: and it wraps as body text")
+
+-- the fixed chip "F12 keys" on the status line: drawn, and a click opens the keys
+frames(260)                              -- (the status message is gone)
+do
+  local c, w = sees("[f12]"), nil
+  for _, t in ipairs(texts) do if t[1] == "keys" then w = t end end
+  check(c ~= nil and w ~= nil and c[3] == 344 and c[2] + 16 < w[2] and w[2] + 32 <= 640, "fixed chip: F12 keys on the status line, inside the screen")
+  local n = showkeys_n
+  click(c[2] + 4, c[3] + 4)
+  check(showkeys_n == n + 1, "fixed chip: a click opens the keys (showkeys)")
+end
 
 print(fails == 0 and ("write: " .. checks .. "/" .. checks .. " checks passed") or (fails .. " of " .. checks .. " FAILED"))
 if fails > 0 then os.exit(1) end

@@ -1704,6 +1704,7 @@ local function draw_status()
     print(left, 0, y, C.dim)
     local r = cfg.lang == "it" and "Italiano" or "English"
     print(r, W - #r * 8, y, C.dim)
+    U.hint_row({}, { y = y, w = W - #r * 8 - 8, dim = C.dim })     -- the fixed chip "F12 keys"
   end
 end
 

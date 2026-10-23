@@ -2714,17 +2714,9 @@ T.snap = snap
 -- { { keys... }, label }, as many as fit
 function T.hint(list, y)
   y = y or HINT_Y
-  local x = 0
-  for _, h in ipairs(list) do
-    local kx = x
-    for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
-    if snap(kx + 2) + #h[2] * 8 > W then break end
-    local x0 = x
-    for _, k in ipairs(h[1]) do x = prompt(k, x, y) + 1 end
-    x = print(h[2], snap(x + 2), y, C.DIM)
-    U.key_zone(x0, y, x - x0, 16, h[1])          -- a click: the key
-    x = x + 12
-  end
+  local items = {}
+  for i, h in ipairs(list) do items[i] = { keys = h[1], label = h[2] } end
+  U.hint_row(items, { y = y, w = W, snap = snap, dim = C.DIM })
 end
 
 -- a key as a chip, or the pad's button when a pad was used last and the

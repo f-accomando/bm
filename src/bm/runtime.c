@@ -138,6 +138,7 @@ static struct {
     int prof_want;              /* profile(true): the profiler of functions on without its page */
     int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
     int help_page;              /* the page of the keys shown while F12 is held */
+    int help_open;              /* showkeys(): 1 the keys stay open (a click, F12 or Esc closes them), 2 closed, the click still down */
     int esc;
     int serial_quit;            /* Ctrl+\ on the serial line: Ctrl+Esc (the cartridge's _exit() asks) */
     int quit;
@@ -5134,6 +5135,20 @@ static int l_keyhelp(lua_State *L)
     return 1;
 }
 
+/* showkeys(): the same keys as F12 held, but they stay open, for a click on
+ * a chip "F12 keys" (a mouse has no way to hold a key): a click, F12 or Esc
+ * closes them; the arrows turn the pages. Nothing else reaches the cartridge
+ * meanwhile. Returns true when the keys are open. */
+static int l_showkeys(lua_State *L)
+{
+    if (!rt.help_open) {
+        rt.help_open = 1;
+        rt.help_page = 0;
+    }
+    lua_pushboolean(L, rt.help_open == 1);
+    return 1;
+}
+
 /* keyheld(name): true while a key is held on the USB keyboard: "f1".."f12",
  * "tab", "space", "enter", "esc" */
 static int l_keyheld(lua_State *L)
@@ -5209,8 +5224,8 @@ static int l_mouse(lua_State *L)
     }
     lua_pushinteger(L, rt.ptr.x);
     lua_pushinteger(L, rt.ptr.y);
-    lua_pushinteger(L, rt.leave_ask ? 0 : rt.ptr.buttons);
-    lua_pushinteger(L, rt.leave_ask ? 0 : rt.ptr.wheel);
+    lua_pushinteger(L, rt.leave_ask || rt.help_open ? 0 : rt.ptr.buttons);
+    lua_pushinteger(L, rt.leave_ask || rt.help_open ? 0 : rt.ptr.wheel);
     lua_pushboolean(L, rt.ptr.shown);
     return 5;
 }
@@ -5220,7 +5235,7 @@ static int l_mouse(lua_State *L)
 static int l_mousep(lua_State *L)
 {
     lua_Integer i = luaL_optinteger(L, 1, 0);
-    lua_pushboolean(L, rt.mouse && !rt.leave_ask && i >= 0 && i < 3 && (rt.ptr.pressed >> i & 1));
+    lua_pushboolean(L, rt.mouse && !rt.leave_ask && !rt.help_open && i >= 0 && i < 3 && (rt.ptr.pressed >> i & 1));
     return 1;
 }
 
@@ -5616,7 +5631,7 @@ static const luaL_Reg api[] = {
     { "map3d_height", l_map3d_height }, { "map3d_blocked", l_map3d_blocked },
     { "map3d_objects", l_map3d_objects }, { "map3d_size", l_map3d_size },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "shot", l_shot }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controls", l_controls }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
@@ -5985,6 +6000,10 @@ static int poll_keys(void)
                 shot_res = 2;
         }
     }
+    if (rt.help_open == 1 && (quit & HID_QUIT_ESC)) {   /* Esc closes the keys opened by showkeys() */
+        rt.help_open = 2;
+        quit &= ~HID_QUIT_ESC;
+    }
     if (quit & HID_QUIT_ESC) {              /* Esc in a game: Start, its menu */
         if (rt.leave_ask)
             rt.leave_no = 1;
@@ -5996,13 +6015,19 @@ static int poll_keys(void)
         for (int k; (k = hid_getc()) >= 0;) {
             /* the system's: F11 and F12 never reach the cartridge; while F12
              * is held the arrows turn the pages of its keys */
+            if (rt.help_open == 1 && (k == HID_KEY_F6 + 6 || k == 27)) {
+                rt.help_open = 2;           /* F12 or Esc closes the keys opened by showkeys() */
+                continue;
+            }
             if (k == HID_KEY_F6 + 5 || k == HID_KEY_F6 + 6 || rt.leave_ask)
                 continue;                   /* (and the keys of the leave question) */
-            if (hid_usage_held(0x45) && (k == HID_KEY_DOWN || k == HID_KEY_UP || k == HID_KEY_PGDN ||
+            if ((hid_usage_held(0x45) || rt.help_open == 1) && (k == HID_KEY_DOWN || k == HID_KEY_UP || k == HID_KEY_PGDN ||
                                          k == HID_KEY_PGUP || k == HID_KEY_RIGHT || k == HID_KEY_LEFT)) {
                 rt.help_page += k == HID_KEY_DOWN || k == HID_KEY_PGDN || k == HID_KEY_RIGHT ? 1 : -1;
                 continue;
             }
+            if (rt.help_open == 1)
+                continue;                   /* the open keys take the other keys */
             text_push((uint8_t)k);
         }
     uint32_t serial = 0;                    /* HID_* bits of the serial keys held */
@@ -6013,6 +6038,10 @@ static int poll_keys(void)
             rt.hold[b]--;
         }
     rt.ptr = *pointer_update();             /* also when unused: the motion is dropped */
+    if (rt.help_open == 1 && rt.ptr.pressed)
+        rt.help_open = 2;                   /* a click closes the keys opened by showkeys() */
+    if (rt.help_open == 2 && !rt.ptr.buttons)
+        rt.help_open = 0;                   /* (the cartridge sees no button until the click is up) */
     rt.prev = rt.now;
     rt.raw_all = pad | serial;
     rt.now = hid_to_btn(pad | serial);
@@ -9650,7 +9679,7 @@ static int keys_chips(const char *keys, int x, int y, int small, int draw, uint1
  * Over the frame, after the overlay of the dev kit. */
 static void keys_help(lua_State *L)
 {
-    if (!hid_usage_held(0x45)) {
+    if (!hid_usage_held(0x45) && rt.help_open != 1) {
         rt.help_page = 0;
         return;
     }
