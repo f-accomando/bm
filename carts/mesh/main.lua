@@ -2625,7 +2625,7 @@ function _draw()
   -- tab bar: each page with its key
   rectfill(0, 0, W, 16, C_BAR)
   local tabs = { { "list", "f1", "list" }, { "edit", "f2", "edit" }, { "menu", "esc", "menu" } }
-  local x = 4
+  local x = U.bar_title("bm Mesh", C_ACC)       -- the name first, at the left
   for _, t in ipairs(tabs) do
     local lx = snap(x + prompt(t[2]) + 3)
     local w = lx + #t[3] * 8 - x
@@ -2635,9 +2635,7 @@ function _draw()
     print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
     x = x + w + 20
   end
-  print("bm Mesh", snap(x + 4), 0, C_ACC)
-  local name = (proj.path or "no file") .. (dirty and "*" or "")
-  print(name, W - #name * 8 - 8, 0, dirty and C_ACC or C_DIM)
+  U.bar_file(proj.path or "no file", dirty, x, W, C_ACC, C_DIM)
 
   -- status bar
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)

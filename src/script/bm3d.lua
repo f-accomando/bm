@@ -2459,7 +2459,7 @@ function T.run(app)
 
     -- tab bar: each page with its key
     rectfill(0, 0, W, 16, C.BAR)
-    local x = 4
+    local x = U.bar_title(A.name, C.ACC)             -- the name first, at the left
     local tabs = {}
     for _, id in ipairs(A.order) do tabs[#tabs + 1] = { id, A.pages[id].fkey, A.pages[id].label } end
     tabs[#tabs + 1] = { "menu", "esc", "menu" }
@@ -2472,10 +2472,7 @@ function T.run(app)
       print(t[3], lx, 0, t[1] == S.page and 0xFFFFFF or C.DIM)
       x = x + w + 20
     end
-    local name = (S.proj.path or "untitled") .. (S.dirty and "*" or "")
-    local nx = W - #name * 8 - 8
-    if snap(x + 4) + #A.name * 8 + 16 <= nx then print(A.name, snap(x + 4), 0, C.ACC) end   -- when it fits
-    print(name, nx, 0, S.dirty and C.ACC or C.DIM)
+    U.bar_file(S.proj.path or "untitled", S.dirty, x, W, C.ACC, C.DIM)
 
     -- status bar
     rectfill(0, STATUS_Y, W, H - STATUS_Y, C.BAR)

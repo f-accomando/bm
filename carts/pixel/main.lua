@@ -2142,7 +2142,7 @@ function _draw()
   rectfill(0, 0, W, 16, C_BAR)               -- the tabs: each page with its key
   local tabs = { { "draw", "f1", "draw" }, { "sheet", "f2", "sheet" }, { "palette", "f3", "palette" },
                  { "stack", "f4", "stack" }, { "menu", "esc", "menu" } }
-  local x = 4
+  local x = U.bar_title("bm Pixel", C_ACC)      -- the name first, at the left
   for _, t in ipairs(tabs) do
     local lx = snap(x + prompt(t[2]) + 3)
     local w = lx + #t[3] * 8 - x
@@ -2150,11 +2150,9 @@ function _draw()
     U.key_zone(x - 4, 0, w + 8, 16, t[2])          -- a click: the page
     prompt(t[2], x, 0)
     print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
-    x = x + w + 20
+    x = x + w + 12
   end
-  local name = (proj.path or "new sheet") .. (dirty and "*" or "")
-  if snap(x + 4) + 72 <= W - #name * 8 - 8 then print("bm Pixel", snap(x + 4), 0, C_ACC) end   -- (the file's name has the room first)
-  print(name, W - #name * 8 - 8, 0, dirty and C_ACC or C_DIM)
+  U.bar_file(proj.path or "new sheet", dirty, x, W, C_ACC, C_DIM)
 
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)
   local status

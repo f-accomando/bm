@@ -568,8 +568,8 @@
     "title": "Opening and saving"
    },
    "3": {
-    "en": "5a2037094d0c",
-    "it": "aab5bbeaac3c",
+    "en": "451b56d9e226",
+    "it": "7bb0f91156f9",
     "title": "The screen"
    },
    "4": {
@@ -604,10 +604,10 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "ab2f6fb6534d",
+   "carts/code/main.lua": "186f8dfdbf36",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-code.md": "9def238703df",
-   "docs/progress/tools.md": "a4a65307cada",
+   "docs/progress/tools.md": "8c86e4b6fdce",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -624,8 +624,8 @@
     "title": "Opening"
    },
    "3": {
-    "en": "392c9a44fb4f",
-    "it": "064d9d872840",
+    "en": "fff5df5d4402",
+    "it": "98787211bad8",
     "title": "The screen and the controls"
    },
    "4": {
@@ -655,7 +655,7 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "ec4a953b3b2c",
+   "carts/mesh/main.lua": "5435c4aa8e7e",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
    "docs/progress/tools.md": "8c86e4b6fdce",

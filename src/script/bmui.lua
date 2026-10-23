@@ -231,6 +231,23 @@ function U.key_zone(x, y, w, h, keys)
   if k then U.zone(x, y, w, h, "key", k) end
 end
 
+-- the top bar: the program's name is the first item at the left; returns the
+-- x of the first tab
+function U.bar_title(name, colour)
+  print(name, 4, 0, colour)
+  return 4 + #name * 8 + 16
+end
+
+-- the top bar: the file's name at the right, in the room left after x (the
+-- start is cut when it is long); "*" when changed
+function U.bar_file(name, dirty, x, w, c_dirty, c_dim)
+  name = name .. (dirty and "*" or "")
+  local room = (w - 8 - x) // 8
+  if room < 4 then return end
+  if #name > room then name = "~" .. name:sub(-(room - 1)) end
+  print(name, w - #name * 8 - 8, 0, dirty and c_dirty or c_dim)
+end
+
 -- a left click on a key's zone: its key pressed. True when it was one.
 function U.keys()
   local z = U.click(0)

@@ -76,7 +76,7 @@ The tabs, the cursors, the font and the breakpoints come back the next time you 
 
 ![bm Code with two tabs open: the code, the line numbers and the status line](shots/editor-code-screen.png)
 
-- **Top bar**: one tab for each cartridge, with its file name. A `*` means changes not saved. On the right, `held: keys` reminds you that F12 held shows every key.
+- **Top bar**: the name `bm Code` is the first item at the left. Then one tab for each cartridge, with its file name. A `*` means changes not saved. On the right, `held: keys` reminds you that F12 held shows every key.
 - **The code**: line numbers on the left, the current line lit. A breakpoint is a dark red line number. The line of an error has a reddish background.
 - **Status line** (the last row): the file, a `*` if changed, then `ln` (line) of the total, `col` and the font. During music it adds `MUSIC` and the number of patterns playing. Messages appear next to the file name.
 

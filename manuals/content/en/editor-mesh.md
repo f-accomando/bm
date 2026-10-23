@@ -81,7 +81,7 @@ The status bar says how many models, code meshes and meshes from the game's code
 
 ## The pages
 
-The tab bar at the top has three pages. A click on a tab, or its key, changes page.
+The tab bar at the top starts with the name `bm Mesh`. Then it has three pages. A click on a tab, or its key, changes page.
 
 | Page | Key | What it is for |
 |---|---|---|

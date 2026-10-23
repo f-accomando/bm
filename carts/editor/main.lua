@@ -3575,7 +3575,7 @@ function _draw()
   rectfill(0, 0, W, 16, C.BAR)
   local tabs = { { "project", "f1", S.hubview == "devkit" and "dev kit" or "project" }, { "code", "f2", "code" },
                  { "d2", "f3", S.d2view == "map" and "map" or "2D" }, { "d3", "f4", "3D" }, { "menu", "esc", "menu" } }
-  local x = 4
+  local x = U.bar_title("bm SDK", C.ACC)            -- the name first, at the left
   for _, t in ipairs(tabs) do
     local lx = snap(x + prompt(t[2]) + 3)            -- the label on its column
     local w = lx + #t[3] * 8 - x
@@ -3585,9 +3585,7 @@ function _draw()
     print(t[3], lx, 0, t[1] == S.page and 0xFFFFFF or C.DIM)
     x = x + w + 20
   end
-  local name = (S.proj.save or "untitled") .. (S.dirty and "*" or "")
-  if snap(x + 4) + 48 < W - #name * 8 - 16 then print("bm SDK", snap(x + 4), 0, C.ACC) end
-  print(name, W - #name * 8 - 8, 0, S.dirty and C.ACC or C.DIM)
+  U.bar_file(S.proj.save or "untitled", S.dirty, x, W, C.ACC, C.DIM)
 
   -- status bar: a message, or the page's line
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C.BAR)
