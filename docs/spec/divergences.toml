@@ -191,7 +191,7 @@ rgb30 = "shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the o
 cause = "history"
 priority = 3
 status = "resolved"
-note = "src/kernel/market.c: the Market of the RGB30 has its own key market_bm (show_bm=1 still works as before); show_bm is only the Games tab. Documented in docs/RGB30.md and config-keys.toml. market.c syntax-checked only in part; not tried. Proved in QEMU by test_market_bm_key (market_bm=1, the old show_bm=1, market_bm=0 over show_bm=1) and test_market_b16 (the default lists .b16 only). Not verified on hardware."
+note = "src/kernel/market.c: the Market of the RGB30 has its own key market_bm (SYS-8: the default lists the .bm too, grey by the compat policy; market_bm=0 hides them); show_bm is only the Games tab. Documented in docs/RGB30.md and config-keys.toml. Proved in QEMU by test_market_bm_key (default, show_bm=0, market_bm=0) and test_market_b16 (market_bm=0 lists .b16 only). Not verified on hardware."
 evidence = "src/kernel/market.c:351-380; src/rgb30/ui.c:237; tests/rgb30/qemu_test.py:test_market_bm_key"
 action = "none"
 

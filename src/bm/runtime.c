@@ -10443,6 +10443,17 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
             return BM_ENDED;
         }
     }
+    {                                   /* not made for this kernel: the menu and the Market grey it and ask first; here
+                                         * (any way to start a game) the console only says so (compat-policy.toml) */
+#ifdef BM_RGB30
+        const unsigned me = BM_TARGET_RGB30;
+#else
+        const unsigned me = BM_TARGET_PI;
+#endif
+        if (!bm_compat_runs_on(&cart.compat, me))
+            kprintf("\x1b[93mbm: made for the %s only, it may not run well here\x1b[0m\n",
+                    me == BM_TARGET_PI ? "RGB30" : "Pi Zero W");
+    }
     loading_tick();
     if (cur.w > 0 && cur.h > 0) {
         cart.width = cur.w;

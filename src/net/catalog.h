@@ -32,6 +32,7 @@ typedef struct {
     char license[41];
     char about[121];
     uint8_t is_app;             /* 1: an app (utility / dev tool), 0: a game */
+    uint8_t targets;            /* BM_TARGET_* bits from the line "targets N"; 0: the line is missing (old rules by name) */
     catalog_file_t file;        /* the .bm or .b16 */
     catalog_file_t cover;       /* a PNG cover */
 } catalog_game_t;

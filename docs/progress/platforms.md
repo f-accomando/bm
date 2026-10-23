@@ -52,7 +52,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   the commands; no supply cut at boot, no power-mode readback. `rk_dsi_off(link_up)` runs
   before a restart.
 - Market and Games show `.b16`; `.bm` are visible in Games for tests (`show_bm=0` hides them); the
-  Market lists only `.b16` (`market_bm=1` adds the `.bm`). Games are sorted by title; tools from the Market are not games. Bar: only WiFi and battery.
+  Market lists the `.b16` and the `.bm`, the `.bm` grey by the compat policy (`market_bm=0` hides them). Games are sorted by title; tools from the Market are not games. Bar: only WiFi and battery.
 - SDK b16 (`carts/sdk_b16/`): layout a due colonne affiancate su schermi larghi $\ge 480\text{ px}$ (720×720 via `SDK_B16_RES=720x720`, default 360×360); codice validato in CI/host, da provare sul dispositivo fisico RGB30 (R39).
 
 ### PC and QEMU

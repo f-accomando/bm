@@ -249,6 +249,9 @@ int catalog_parse(const uint8_t *m, size_t len, catalog_t *c, char *err, size_t 
             bad_line = text(g->license, sizeof g->license, line + 8);
         } else if (g && strncmp(line, "about ", 6) == 0) {
             bad_line = text(g->about, sizeof g->about, line + 6);
+        } else if (g && strncmp(line, "targets ", 8) == 0) {
+            /* 1 Pi, 2 RGB30, 3 both (the BM_TARGET_* bits of src/bm/bm.h); another value is a newer catalog's */
+            g->targets = (line[8] >= '1' && line[8] <= '3' && !line[9]) ? (uint8_t)(line[8] - '0') : 0;
         } else if (g && strncmp(line, "file ", 5) == 0) {
             bad_line = parse_file(line + 5, &g->file, CATALOG_MAX_FILE);
         } else if (g && strncmp(line, "cover ", 6) == 0) {

@@ -3867,6 +3867,7 @@ def test_grey_cart_on_pi(b, opts):
             q.send("\r")
             screen_has("Start it anyway?")
             q.send("\r")                                # yes: it starts (grey is not a lock)
+            q.expect("made for the RGB30 only, it may not run well here", timeout=30)   # the load-time message
             q.expect("the b16 runs", timeout=30)
         finally:
             q.close()

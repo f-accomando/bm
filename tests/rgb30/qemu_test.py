@@ -847,6 +847,7 @@ def test_grey_cart_and_confirm(b, opts):
         wait_screen(q, ["Start it anyway?"])
         keys(q, "\r")                                       # yes: it starts (grey is not a lock)
         q.expect("play: /bm/pionly.bm", timeout=10)
+        q.expect("made for the Pi Zero W only, it may not run well here", timeout=10)   # the load-time message
         time.sleep(1.5)
         q.send("q")                                         # Start + Select: back to the menu
         q.expect("suspended", timeout=10)
@@ -1235,7 +1236,7 @@ def test_market_b16(b, opts):
     (the user's choice for the RGB30); one downloads after a question, goes
     to bm/ as POCKET.B16, plays, and the Games tab has it."""
     tmp = mktmp(prefix="bm64mk-")
-    sd = market_sd(tmp)
+    sd = market_sd(tmp, b"market_bm=0\n")      # the default lists the .bm too, greyed (test_market_bm_key)
     size = os.path.getsize(sd)
     dump = os.path.join(tmp, "after.img")
 
@@ -1294,9 +1295,9 @@ def test_market_b16(b, opts):
 
 
 def test_market_bm_key(b, opts):
-    """D16: the Market of the RGB30 lists .bm cartridges only with market_bm=1 (the Games tab has its own key,
-    show_bm); the old show_bm=1 still works for the Market."""
-    for extra, bm_listed in ((b"market_bm=1\n", True), (b"show_bm=1\n", True), (b"show_bm=1\nmarket_bm=0\n", False)):
+    """D16 and SYS-8: the Market of the RGB30 lists the .bm cartridges too (greyed by compat-policy.toml); only
+    market_bm=0 hides them. show_bm is the Games tab's key and does not touch the Market."""
+    for extra, bm_listed in ((b"", True), (b"show_bm=0\n", True), (b"show_bm=1\nmarket_bm=0\n", False)):
         tmp = mktmp(prefix="bm64mkbm-")
         q = Qemu(os.path.join(b, "kernel.elf"), sd=market_sd(tmp, extra))
         try:

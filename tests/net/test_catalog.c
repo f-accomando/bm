@@ -58,10 +58,12 @@ static char *slurp(const char *dir, const char *name, size_t *len)
 
 /* catalog_parse of a catalog written here: 0 if accepted */
 static char last_err[160];
+static int last_targets;                    /* targets of the first game of the last parse */
 static int parse_text(const char *text)
 {
     catalog_t c;
     int r = catalog_parse((const uint8_t *)text, strlen(text), &c, last_err, sizeof last_err);
+    last_targets = r == 0 && c.n ? c.games[0].targets : -1;
     catalog_free(&c);
     return r;
 }
@@ -146,6 +148,8 @@ int main(int argc, char **argv)
     check(pong && strcmp(pong->author, "") == 0 && strcmp(pong->about, "") == 0 && pong->cover.size,
           "pong: no author, no about");
     check(plain && plain->cover.size == 0 && plain->file.size, "plain: no cover");
+    check(snake && snake->targets == 3 && pocket && pocket->targets == 2 && plain && plain->targets == 0 &&
+          pong && pong->targets == 0, "targets: from the line, 0 for an old file");
 
     /* each file: size and SHA-256; the covers decode with the kernel's PNG reader */
     int good = 1;
@@ -210,6 +214,10 @@ int main(int argc, char **argv)
     snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("a", "")
              "game a\ntitle T\nversion 1\nlicense MIT\nfile games/a/a.b16 10 %s\n", sha, sha);
     check(parse_text(buf) == 0, "the same id once as .bm and once as .b16: accepted");
+    snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("a", "targets 2\n"), sha);
+    check(parse_text(buf) == 0 && last_targets == 2, "a targets line");
+    snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("a", "targets 9\n"), sha);
+    check(parse_text(buf) == 0 && last_targets == 0, "targets of a newer catalog: read as missing");
     snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("A", ""), sha);
     check(parse_text(buf) == -1, "id with capitals: refused");
     snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("../x", ""), sha);

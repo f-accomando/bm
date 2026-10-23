@@ -252,6 +252,10 @@ static int entry_grey(const catalog_game_t *g, const char **why)
 {
     bm_compat_facts_t f;
     bm_compat_facts_named(is_b16(g->file.path), g->file.size, &f);
+    if (g->targets) {                   /* the catalog line "targets N": the cartridge's own block */
+        f.declared = 1;
+        f.targets = g->targets;
+    }
     return bm_compat_classify(&f, MY_KERNEL, 1, why, NULL) == BM_ACT_GREY;
 }
 
@@ -363,10 +367,10 @@ static void refresh_slots(void)
 static void adopt(catalog_t *nc)
 {
 #ifdef BM_RGB30
-    /* the RGB30 plays only the .b16 games by default (the user's choice,
-     * 2026-10-05; market_bm=1 in bm/config.txt also lists .bm cartridges: the Games tab has its own key, show_bm) */
-    const char *mkt = config_get("market_bm"), *old = config_get("show_bm");
-    const int want_bm = mkt ? strcmp(mkt, "1") == 0 : (old && strcmp(old, "1") == 0);   /* show_bm=1: as it used to be */
+    /* The Market lists the .bm cartridges too: the policy greys the ones not made for this kernel (compat-policy.toml).
+     * market_bm=0 in bm/config.txt hides them (the Games tab has its own key, show_bm). */
+    const char *mkt = config_get("market_bm");
+    const int want_bm = !(mkt && strcmp(mkt, "0") == 0);
     if (!want_bm) {
         int k = 0;
         for (int i = 0; i < nc->n; i++)
