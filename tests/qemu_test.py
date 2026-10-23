@@ -6069,6 +6069,33 @@ def test_game_kit(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_pong_kit(b, opts):
+    """Pong, moved onto the gameplay kit (lib.world for the paddles and the ball,
+    lib.sounds for its notes and tunes): it starts on the ARM, runs without an
+    error and draws its title. Its play is compared with the old version by
+    make test-game-trace."""
+    cart = b("carts/pong.bm")
+    if not os.path.exists(cart):
+        subprocess.run(["make", "-s", cart], check=True, cwd=os.path.dirname(os.path.abspath(__file__)) + "/..")
+    tmp = tempfile.mkdtemp(prefix="bm-pongkit-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, open(cart, "rb").read())
+        q.expect("received", timeout=30)
+        time.sleep(2.0)
+        q.buf += q.port.read(0.5)
+        out = q.buf.decode(errors="replace")
+        assert "stopped with an error" not in out and "attempt to" not in out, out[-3000:]
+        text = screen_text(q.screendump())
+        assert any("P O N G" in l for l in text), "\n".join(text)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # a square cartridge (256x256, in the middle of a 480x270 screen) lit by
 # levels as in Dank Tomb: white everywhere, one lamp in the middle
 SQUARE_CART = r"""

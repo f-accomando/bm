@@ -78,7 +78,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 - GAME-1 - P3 - in progress - Yharnam: close the open checks (§2), test the map on the Pi. After M42. [yharnam](progress/yharnam.md) §2-3, [tools](progress/tools.md)
 - GAME-2 - P3 - in progress - Overbit: screens, quality, mech pilots from images. Benchmark on the Pi and the RGB30. After M41. [overbit](progress/overbit.md), [tools](progress/tools.md)
-- GAME-3 - P3 - in progress - Game architecture and gameplay kit. Done: `lib.world` and the test game `tests/gamekit` (`make test-gamekit`). Open: spawn from an OBJECTS section, named audio events, save slots, kit cost on the Pi Zero W. [games-architecture](design/games-architecture.md)
+- GAME-3 - P3 - in progress - Game architecture and gameplay kit. Done: `lib.world`, `lib.sounds`, `lib.slots`, the test game `tests/gamekit` (`make test-gamekit`) and Pong on the kit (`make test-game-trace`). Open: spawn from an OBJECTS section (format change), kit cost on the Pi Zero W, more games on the kit. [games-architecture](design/games-architecture.md)
 
 ## Process and docs
 
