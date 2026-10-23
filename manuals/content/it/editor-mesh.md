@@ -26,7 +26,7 @@ footer: manuali bm - editor-mesh
 ## Come si collega a Studio e Animator
 
 - **bm Studio** crea i modelli. bm Mesh modifica gli stessi modelli: stanno nella sezione MESH della cartuccia.
-- **bm Animator** aggiunge scheletri e animazioni (la sezione ANIM). bm Mesh conserva lo scheletro di un modello: l'osso di ogni vertice nuovo è quello del vertice da cui viene, e ossa e animazioni restano quelle di bm Animator.
+- **bm Animator** aggiunge scheletri e animazioni (la sezione ANIM). bm Mesh conserva lo scheletro di un modello: l'osso di ogni vertice nuovo è quello del vertice da cui viene, e ossa e animazioni restano quelle di bm Animator. In bm Mesh puoi anche dare dei vertici a un osso (vedi Ossa).
 - Nel gioco usi un modello con `model("name")`.
 
 ## Quale editor per cosa
@@ -152,6 +152,8 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | m | specchia la scelta, da sinistra a destra sullo schermo |
 | M | copia la scelta dall'altra parte dello 0 |
 | X (Maiusc+X) | specchio dal vivo acceso o spento |
+| B (Maiusc+B) | dai i vertici scelti a un osso dello scheletro |
+| v | vista ossa: i punti dei vertici prendono il colore del loro osso |
 | h | mostra o nascondi il fantasma (il modello di riferimento) |
 | H (Maiusc+H) | carica un fantasma da `/bmm` o `/glb`, o toglilo |
 | [ e ] | il fantasma più piccolo o più grande (5 per cento a ogni pressione) |
@@ -234,6 +236,20 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 ## Specchio dal vivo
 
 **Maiusc+X** accende e spegne lo specchio dal vivo. Quando è acceso, la pagina mostra **MIRROR X**. Sposta, ruota, scala, dipingi e cancella agiscono allora sui vertici o sulle facce scelti e sui loro corrispondenti dall'altra parte del piano X = 0. L'editor trova il corrispondente dalla posizione: il vertice in (-x, y, z), entro 0,001. Un vertice sul piano è il corrispondente di se stesso. Un vertice senza corrispondente cambia da solo. Se scegli entrambi i lati, guida il vertice con il numero più basso e l'altro lo segue. Gli strumenti che aggiungono parti o cambiano la topologia (aggiungi una parte, estrudi, duplica, suddividi) non agiscono sull'altro lato. Un solo annulla riporta indietro entrambi i lati. Con il gamepad tocca X e scegli **Live mirror X on / off**.
+
+## Ossa
+
+Un modello con uno scheletro dà ogni vertice a un solo osso. Le ossa le fa bm Animator. In bm Mesh scegli quali vertici seguono quale osso.
+
+1. Scegli vertici o facce. Per scegliere una parte intera, scegli un suo vertice e premi **l**.
+2. Premi **Maiusc+B**. Un elenco mostra le ossa con numero e nome.
+3. Scegli un osso e premi Invio. I vertici scelti (gli angoli delle facce scelte) ora seguono quell'osso. Un messaggio dice quanti sono.
+
+L'intestazione mostra l'osso della scelta a destra della seconda riga, per esempio **BONE 3 arm.L**. Se la scelta ha vertici di più ossa, mostra **BONES 3: arm.L+** (il numero di ossa e la prima). Se non c'è nulla di scelto, mostra l'osso del vertice sotto il puntatore. **v** accende e spegne la vista ossa: i punti dei vertici prendono il colore del loro osso (12 colori, poi si ripetono). Un solo annulla riporta indietro tutta la modifica.
+
+Con lo specchio dal vivo acceso, seguono anche i corrispondenti dall'altra parte di X = 0. Se lo scheletro ha una coppia speculare per nome, i corrispondenti prendono l'altro osso della coppia. I nomi che differiscono solo per il lato sono una coppia: `arm_l` e `arm_r`, `hand.L` e `hand.R`, `l_foot` e `r_foot`, `armLeft` e `armRight`. Un osso senza coppia nello scheletro dà lo stesso osso ai corrispondenti. Se scegli entrambi i lati, i vertici dal lato della testa dell'osso tengono quell'osso e l'altro lato prende la coppia. Un vertice su X = 0 tiene l'osso che hai scelto.
+
+Se uno scheletro non ha ancora vertici, tutti i vertici sono sull'osso 0 finché non li dai a un altro osso. Se lo scheletro è stato fatto per un altro numero di vertici, bm Mesh non cambia le ossa: associa di nuovo il modello in bm Animator. Un modello senza scheletro risponde "no skeleton". Con il gamepad tocca X e scegli **Give the choice to a bone** o **Bone view**.
 
 ## Aggancio
 

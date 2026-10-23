@@ -26,7 +26,7 @@ footer: bm manuals - editor-mesh
 ## How it connects to Studio and Animator
 
 - **bm Studio** makes the models. bm Mesh edits the same models: they live in the MESH section of the cartridge.
-- **bm Animator** adds skeletons and animations (the ANIM section). bm Mesh keeps the skeleton of a model: the bone of each new vertex is the one of the vertex it comes from, and bones and animations stay those of bm Animator.
+- **bm Animator** adds skeletons and animations (the ANIM section). bm Mesh keeps the skeleton of a model: the bone of each new vertex is the one of the vertex it comes from, and bones and animations stay those of bm Animator. In bm Mesh you can also give vertices to a bone (see Bones).
 - In the game you use a model with `model("name")`.
 
 ## Which editor for what
@@ -152,6 +152,8 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | m | mirror the choice, left to right on the screen |
 | M | copy the choice to the other side of 0 |
 | X (Shift+X) | live mirror on or off |
+| B (Shift+B) | give the chosen vertices to a bone of the skeleton |
+| v | bone view: the vertex dots take the colour of their bone |
 | h | show or hide the ghost (the reference model) |
 | H (Shift+H) | load a ghost from `/bmm` or `/glb`, or clear it |
 | [ and ] | the ghost smaller or larger (5 percent each press) |
@@ -234,6 +236,20 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 ## Live mirror
 
 **Shift+X** turns the live mirror on and off. While it is on, the page shows **MIRROR X**. Move, rotate, scale, paint and delete then act on the chosen vertices or faces and on their counterparts across the plane X = 0. The editor finds the counterpart by position: the vertex at (-x, y, z), within 0.001. A vertex on the plane is its own counterpart. A vertex with no counterpart changes alone. If you choose both sides, the vertex with the lower number leads and the other follows. The tools that add parts or change the topology (add a part, extrude, duplicate, subdivide) do not act on the other side. One undo takes back both sides. With the gamepad, tap X and pick **Live mirror X on / off**.
+
+## Bones
+
+A model with a skeleton gives each vertex to one bone. bm Animator makes the bones. In bm Mesh you choose which vertices follow which bone.
+
+1. Choose vertices or faces. To choose a whole part, choose one vertex of it and press **l**.
+2. Press **Shift+B**. A list shows the bones with their numbers and names.
+3. Pick a bone and press Enter. The chosen vertices (the corners of the chosen faces) now follow that bone. A message tells how many.
+
+The header shows the bone of the choice on the right of the second row, for example **BONE 3 arm.L**. If the choice has vertices of several bones, it shows **BONES 3: arm.L+** (the number of bones and the first one). With nothing chosen, it shows the bone of the vertex under the pointer. **v** turns the bone view on and off: the vertex dots take the colour of their bone (12 colours, then they repeat). One undo takes back the whole change.
+
+With the live mirror on, the counterparts across X = 0 follow too. If the skeleton has a mirrored pair by name, the counterparts take the other bone of the pair. Names that differ only by the side are a pair: `arm_l` and `arm_r`, `hand.L` and `hand.R`, `l_foot` and `r_foot`, `armLeft` and `armRight`. A bone with no pair in the skeleton gives the same bone to the counterparts. If you choose both sides, the vertices on the side of the head of the bone keep that bone and the other side takes the pair. A vertex on X = 0 keeps the bone you picked.
+
+If a skeleton has no vertices yet, all vertices are on bone 0 until you give them another bone. If the skeleton was made for a different number of vertices, bm Mesh does not change the bones: skin the model again in bm Animator. A model with no skeleton answers "no skeleton". With the gamepad, tap X and pick **Give the choice to a bone** or **Bone view**.
 
 ## Snap
 

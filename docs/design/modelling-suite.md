@@ -1,6 +1,6 @@
 # Modelling suite: Studio, Mesh and Animator
 
-Status: phase 1 (APP-10) is built and tested on the PC; phases 2 and 3 are plans. Roadmap items: APP-11, APP-12, APP-14, APP-15, APP-16 in [`../ROADMAP.md`](../ROADMAP.md). Related: [suite-studio-mesh](suite-studio-mesh.md), [suite-animator](suite-animator.md), [tools](../progress/tools.md).
+Status: phase 1 (APP-10) is built and tested on the PC; phases 2 and 3 are plans. Roadmap items: APP-11, APP-12, APP-15, APP-16 in [`../ROADMAP.md`](../ROADMAP.md). Related: [suite-studio-mesh](suite-studio-mesh.md), [suite-animator](suite-animator.md), [tools](../progress/tools.md).
 
 ## Goal
 
@@ -61,6 +61,7 @@ Each tool is described in plain words, as in Blender.
 - The model data stay as they are: the MESH section (vertices, u16 triangle indices, colour or tile per face, bone per vertex). The ghost reference is a separate, unsaved layer. Reference images are paths in the project; they are not inside the model.
 - Edges are not stored. They are derived from the triangles when needed.
 - Loop cut, knife-lite, primitives and mirror keep the bone of the source vertex (as the extrude does today), so a rigged model can still be edited.
+- **Bones in bm Mesh (APP-14, done, `claude/app14-mesh-bones`).** With a skeleton in the model, Shift+B (also in the commands list on the pad) opens the bones by number and name; the chosen vertices (the corners of the chosen faces; `l` chooses a whole part) go to the bone picked. The header shows the bone of the choice on the right of the second row (`BONE 3 arm.L`, or `BONES 3: arm.L+` for several; the vertex under the pointer when nothing is chosen). `v` tints the vertex dots by bone (12 colours; bone view). Pure functions in `T.G` (`src/script/bm3d.lua`, a block of its own): `rig_bones(it)` (names and head x from the ANIM part), `side_name(name)` (`arm_l` to `arm_r`, `hand.R` to `hand.L`, `l_foot`, `armLeft`), `mirror_bone(rig, b)` (the bone with the other side's name, else the same bone), `skin_state(it)` (`none`, `skinned`, `unskinned`, `mismatch`), `ensure_bones(it)`, `bone_summary(it, list)`, `set_bone(it, list, b, mirror)`. With the live mirror on, the counterparts across x = 0 take the mirror bone; if both sides are chosen, the side of the bone's head keeps the bone and the other side takes the mirror bone; a vertex on x = 0 keeps the bone picked. A skeleton with no vertices yet (ANIM nv = 0) gives every vertex bone 0 at the first give; a skeleton made for another number of vertices is refused with a message (skin it in bm Animator). One `begin_edit`/`finish_edit` is one undo step. `ed.give_bone`, `ed.bone_dialog`, `ed.toggle_bone_view`, `ed.bone_text` in the Mesh cart. Host tests in `tests/studio/mesh_host.lua`, QEMU `test_mesh_bones`. Key and pad feel not verified on the device.
 
 ## Counters and cap removal
 
@@ -83,13 +84,13 @@ The test is `tests/studio/humanoid_host.lua` (`make test-studio`). It types keys
 What a user can build with phase 1:
 
 - A humanoid of 16 parts: torso, pelvis, neck, head, and on each side an upper arm, a lower arm, a hand, an upper leg, a lower leg and a foot.
-- 1540 triangles and 802 vertices in bm Mesh (935 vertices after bm Animator skins it). The lopo class is about 1500 triangles and 16 bones.
+- 1540 triangles and 802 vertices in bm Mesh (798 after bm Animator saves it: it welds vertices at the same place, where the pelvis meets the torso and the neck meets the head). The lopo class is about 1500 triangles and 16 bones.
 - 5 colours: trousers, shirt, skin, hair and boots (the test checks at least 4).
 - 16 bones in bm Animator: pelvis, spine, neck, head, and for each side an upper arm, a lower arm, a hand, an upper leg, a lower leg and a foot (names end in .L or .R). One looping animation "walk" of 2 keyframes.
 - The second side is a copy across x = 0 (Shift+M). The live mirror (Shift+X) then paints, snaps, rotates and moves both sides together.
 - bm Mesh shows 802 of 65535 vertices and 1540 triangles. The file reopens with the same totals.
 
-Time in the host (PC, keys typed into the carts; the carts draw nothing here): about 12 s for 3606 keys. Each tool is one to a few keys and takes less than 0.1 s. The scale and move of the 16 parts take 765 keys and 2 s, because a value is a number of steps. The Pi is not measured.
+Time in the host (PC, keys typed into the carts; the carts draw nothing here): about 25 s for 5379 keys. Each tool is one to a few keys and takes less than 0.1 s. The scale and move of the 16 parts take 765 keys and 2 s, because a value is a number of steps. The Pi is not measured.
 
 | Tool (keys) | Times | Keys | Time |
 |---|---|---|---|
@@ -99,13 +100,13 @@ Time in the host (PC, keys typed into the carts; the carts draw nothing here): a
 | loop cut (Ctrl+R) / knife (Shift+J) | 16 / 1 | 16 / 1 | 0.07 s / 0.02 s |
 | choose a part (l) / copy across (Shift+M) | 6 / 6 | 6 / 6 | 0.02 s / 0.03 s |
 | live mirror / snap / paint | 1 / 1 / 3 | 1 / 1 / 3 | 0.01 s |
-| bm Animator: 12 new bones, 2 parents, 2 deletes, 2 mirrors, auto skin, 10 turns, 1 mirror pose | 30 | 34 | 0.3 s |
+| bm Animator: 12 new bones, 2 parents, 2 deletes, 2 mirrors, 10 turns, 1 mirror pose | 29 | 33 | 0.3 s |
+| bm Mesh: Shift+B gives a part to its bone (10 times: 8 pieces and 2 welded parts) | 10 | 10 | 0.1 s |
 
-How the test checks the model plays: it reads the saved file, takes the 16 bones, the bone of each vertex and the keyframes, and skins 60 frames at 30 per second with the formula of `animate()` (`M = M_parent * T(head + t) * R(q) * T(-head)`, one bone for each vertex). It asserts that each bone moves its vertices, that no vertex lacks a bone, that no value is NaN, that the box of the body stays near the rest box (height within 25 percent), that the skinned positions change from frame to frame, and that the pose at 1 s is the pose at 0 s. The host does not run the kernel's `animate()` (the kernel is not run here).
+How the test checks the model plays: it gives the parts to their bones in bm Mesh (the middle line and the .L side by hand, the live mirror gives the .R side the mirror bones), reads the saved file, takes the 16 bones, the bone of each vertex and the keyframes, and skins 60 frames at 30 per second with the formula of `animate()` (`M = M_parent * T(head + t) * R(q) * T(-head)`, one bone for each vertex). It asserts that each bone moves its vertices, that no vertex lacks a bone, that no value is NaN, that the box of the body stays near the rest box (height within 25 percent), that the skinned positions change from frame to frame, and that the pose at 1 s is the pose at 0 s. The host does not run the kernel's `animate()` (the kernel is not run here).
 
-What is missing, in plain words. These are not hidden; each has a roadmap item.
+What is missing, in plain words. These are not hidden; each has a roadmap item. (APP-14, bones in bm Mesh, is closed: the test gives the bones with Shift+B and no longer uses the auto skin of bm Animator.)
 
-- APP-14: bm Mesh has no key that gives vertices to a bone. The test skins in bm Animator (auto skin: each face follows the nearest bone). The arms had to be set wide of the torso (x = 0.36 against a half width of 0.18), or the rule "nearest bone" gives the torso sides to the arms.
 - APP-15: bm Animator moves an end of a bone with every joint at that point. A shoulder or a hip is not at the end of the parent. The test builds a stub bone, moves it, builds the arm on it, sets the arm's parent and deletes the stub.
 - APP-16: with the live mirror on, Shift+A adds one part and not its mirror image, and the loop cut does not cut both sides (documented: topology tools are not mirrored). The second side is made by Shift+M. The sphere primitive uses diagonals that are not mirror images, so Subdivide leaves vertices of the head with no twin across x = 0.
 - APP-11 (already planned): numeric entry and box select. Without them a size is a series of scale steps and a vertex is reached with `n` and `b` presses.

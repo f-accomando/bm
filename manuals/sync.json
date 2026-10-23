@@ -614,8 +614,8 @@
  "editor-mesh": {
   "chapters": {
    "1": {
-    "en": "5db5eb1e8fd0",
-    "it": "cd6ad0ba2171",
+    "en": "1cbb06e3d415",
+    "it": "9cd13e2ab7a1",
     "title": "What bm Mesh is"
    },
    "2": {
@@ -624,13 +624,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "b6ae4a6c1d31",
-    "it": "571d913547f8",
+    "en": "ae17430f73d2",
+    "it": "a54f2fdfa56d",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "8d20019ef57a",
-    "it": "bc21c9360d87",
+    "en": "ccfc46dc0af5",
+    "it": "48d805297c4c",
     "title": "Selecting and moving"
    },
    "5": {
@@ -655,11 +655,11 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "f3f5e76c120f",
+   "carts/mesh/main.lua": "9cd223c963b6",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "4a67ac6df77d",
-   "sdk/README.md": "f56faae98658"
+   "docs/progress/tools.md": "625b4d5234f7",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-pixel": {
