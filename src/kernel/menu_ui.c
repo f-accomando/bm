@@ -800,12 +800,12 @@ static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, 
             g16_rectfill(&g, label_col * 8 - 12, y + 3, 8, 8, c16(r->swatch));
         g16_text(&g, label_col * 8, y, buf, fg);
         if (r->kind == MENU_ROW_BAR) {
-            static const uint32_t part_col[5] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xE5C07B, 0x4A5060 };  /* kernel, bm, bme, other, free */
+            static const uint32_t part_col[MENU_BAR_PARTS] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xC678DD, 0x56B6C2, 0xE5C07B, 0x4A5060 };  /* kernel, bm, bme, glb, bmm, other, free */
             const int bx = (label_col + (int)strlen(buf) + 1) * 8, bw = value_end * 8 - bx;
             if (r->bar && bw > 0) {
                 g16_rectfill(&g, bx, y + 2, bw, 10, c16(C_LINE));
                 int px = bx;
-                for (int k = 0; k < 5; k++) {
+                for (int k = 0; k < MENU_BAR_PARTS; k++) {
                     int pw = bw * r->bar[k] / 1000;
                     if (pw > bx + bw - px)
                         pw = bx + bw - px;

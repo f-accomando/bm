@@ -11,7 +11,7 @@
 #include "drivers/fb.h"
 #include "bm/gfx16.h"
 
-#define HOME_ROWS_MAX 24
+#define HOME_ROWS_MAX 28
 
 /* A panel being built: rows with their own text, what each one does, and
  * a line of help for each. */

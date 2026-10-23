@@ -697,18 +697,18 @@ void home_panel(int id, home_panel_t *p)
         break;
     }
     case HOME_SDMAP: {
-        static uint16_t parts[5];
-        static const uint32_t col[5] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xE5C07B, 0x4A5060 };
-        static const char *const name[5] = { "Kernel", "bm (games)", "bme (projects)", "Other", "Free" };
+        static uint16_t parts[7];
+        static const uint32_t col[7] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xC678DD, 0x56B6C2, 0xE5C07B, 0x4A5060 };
+        static const char *const name[7] = { "Kernel", "bm (games)", "bme (projects)", "glb (models)", "bmm (models)", "Other", "Free" };
         ksnprintf(p->title, sizeof p->title, "Settings > System > SD map");
         sdmap_request();
         const sdmap_t *m = sdmap_result();
-        const uint64_t v[5] = { m->kernel, m->bm, m->bme, m->other, m->free };
-        for (int i = 0; i < 5; i++)
+        const uint64_t v[7] = { m->kernel, m->bm, m->bme, m->glb, m->bmm, m->other, m->free };
+        for (int i = 0; i < 7; i++)
             parts[i] = m->total ? (uint16_t)(v[i] * 1000 / m->total) : 0;
-        home_row(p, MENU_ROW_BAR, R_SDBAR, "SD card", "Kernel, games, projects, other files and free space", NULL);
+        home_row(p, MENU_ROW_BAR, R_SDBAR, "SD card", "Kernel, games, projects, models, other files and free space", NULL);
         p->rows[p->n - 1].bar = parts;
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 7; i++) {
             char sz[24];
             fmt_size(sz, sizeof sz, v[i]);
             home_row(p, MENU_ROW_INFO, R_SDINFO, name[i], "The colour of the bar", "%s", sz);

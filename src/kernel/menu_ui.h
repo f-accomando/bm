@@ -38,20 +38,22 @@ typedef struct {
 /* covers per row of the open menu: 4 on the Pi, 2 on the RGB30 */
 int menu_ui_cols(void);
 
+#define MENU_BAR_PARTS 7        /* parts of a MENU_ROW_BAR */
+
 /* A row of a panel (a submenu over the grid). */
 enum {
     MENU_ROW_ACTION,            /* A does something */
     MENU_ROW_SUB,               /* A opens another panel: "label  value >" */
     MENU_ROW_CHOICE,            /* left/right (or A) change the value: "< value >" */
     MENU_ROW_INFO,              /* only shows a value */
-    MENU_ROW_BAR,               /* only draws `bar`: the label on the left, up to 5 parts of the width on the right */
+    MENU_ROW_BAR,               /* only draws `bar`: the label on the left, up to MENU_BAR_PARTS parts of the width on the right */
 };
 
 typedef struct {
     const char *label;
     const char *value;          /* on the right, or NULL */
     int kind;
-    const uint16_t *bar;        /* MENU_ROW_BAR: 5 parts of the bar in 1/1000, in order (the rest is the background) */
+    const uint16_t *bar;        /* MENU_ROW_BAR: MENU_BAR_PARTS parts of the bar in 1/1000, in order (the rest is the background) */
     uint32_t swatch;            /* 0xRRGGBB square before the label, 0: none */
 } menu_row_t;
 

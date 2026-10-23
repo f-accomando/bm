@@ -299,7 +299,8 @@ static void test_sdmap(void)
     CHECK(r == 0);
     const sdmap_t *m = sdmap_core_result();
     CHECK(m->bm >= 5000 && m->bme == 5000 && m->kernel == 4000);
-    CHECK(m->free > 0 && m->free + m->kernel + m->bm + m->bme + m->other == m->total);
+    CHECK(m->glb == 4500 && m->bmm == 2500);          /* their own parts of the bar */
+    CHECK(m->free > 0 && m->free + m->kernel + m->bm + m->bme + m->glb + m->bmm + m->other == m->total);
     int found = 0;
     for (int i = 0; i < m->ndirs; i++)
         if (!strcasecmp(m->dirs[i].path, "/bme")) {
@@ -335,10 +336,10 @@ static void test_sdmap(void)
     sdmap_core_reset();
     CHECK(sdmap_core_load(text, tn) == 1);
     m = sdmap_core_result();
-    CHECK(m->total == was.total && m->bme == was.bme && m->bm == was.bm && m->ndirs == was.ndirs && m->nfiles == was.nfiles);
+    CHECK(m->total == was.total && m->bme == was.bme && m->glb == was.glb && m->bmm == was.bmm && m->bm == was.bm && m->ndirs == was.ndirs && m->nfiles == was.nfiles);
     CHECK(m->nfiles > 0 && !strcmp(m->files[0].path, was.files[0].path));
-    CHECK(sdmap_core_load("sdmap 2\n", 8) == 0);
-    CHECK(sdmap_core_load("sdmap 1\nD x\n", 12) == 0);
+    CHECK(sdmap_core_load("sdmap 3\n", 8) == 0);
+    CHECK(sdmap_core_load("sdmap 2\nD x\n", 12) == 0);
 }
 
 /* Projects (.bme) live in /bme (src/bm/project.h): the paths, the copy of a game, the build */

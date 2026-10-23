@@ -141,7 +141,7 @@ Game options (`c`) show the bytes of the saves and a *Delete the save data* row.
 
 Settings has these pages: Controllers, WiFi and network (Network on a board without radio), Screen and sound, Updates, Reports and System, then the rows *Restart* and *Shut down*. System shows the version, the board, the uptime, the memory in use, the CPU, the SD card and the battery, and has *Log since boot* and *Open the monitor*.
 
-System also has *SD map*: a bar of what is on the card, split in Kernel, bm (games), bme (projects), Other and Free, the size of each, the files and kilobytes of each folder, and a list *Other files* with the files the menu cannot show, largest first. The menu reads the card while it is idle and never while a game or a tool runs; the *Scan* row shows the state and the percent. The console keeps the last result in `bm/sdmap.txt`. The SD map is not verified on hardware (Pi Zero W or RGB30).
+System also has *SD map*: a bar of what is on the card, split in Kernel, bm (games), bme (projects), glb and bmm (models), Other and Free, the size of each, the files and kilobytes of each folder, and a list *Other files* with the files the menu cannot show, largest first. The menu reads the card while it is idle and never while a game or a tool runs; the *Scan* row shows the state and the percent. The console keeps the last result in `bm/sdmap.txt`. The SD map is not verified on hardware (Pi Zero W or RGB30).
 
 ![Settings, System page](shots/boot-os-settings.png)
 

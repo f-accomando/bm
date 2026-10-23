@@ -1397,10 +1397,10 @@ def test_home_ui(b, opts):
         else:
             raise AssertionError("SD map row never selected")
         keys("\r")
-        screen(["Settings > System > SD map", "SD card", "Kernel", "bm (games)", "bme (projects)", "Free"])
-        for _ in range(6):                      # the panel shows five rows: the cursor scrolls down to Scan
+        screen(["Settings > System > SD map", "SD card", "Kernel", "bm (games)", "bme (projects)", "glb (models)", "bmm (models)"])
+        for _ in range(8):                      # the panel shows five rows: the cursor scrolls down to Scan
             keys("s")
-        screen(["Scan"])
+        screen(["Free", "Scan"])
         img_, text = settled_screen(q, lambda i, t: any("Scan" in l and "done" in l for l in t), tries=300)
         assert any("Scan" in l and "done" in l for l in text), "\n".join(text)
         for _ in range(12):                     # the folders follow Scan
@@ -1499,7 +1499,7 @@ def test_home_ui(b, opts):
         assert not re.search(r"^[0-9A-F]{8}\s+(SAV|S02)", saves, re.M), saves
         cache = subprocess.run(["mtype", "-i", part, "::/BM/SDMAP.TXT"], capture_output=True,
                                text=True, env=env).stdout
-        assert cache.startswith("sdmap 1"), cache[:60]
+        assert cache.startswith("sdmap 2"), cache[:60]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -330,10 +330,10 @@ def test_sd_map(b, opts):
         keys(q, "\r")
         until(["What is on the card"], "s")     # the SD map row
         keys(q, "\r")
-        text = until(["Settings > System > SD map", "Kernel", "bm (games)", "bme (projects)"], "s", tries=1)
+        text = until(["Settings > System > SD map", "Kernel", "bm (games)", "bme (projects)", "glb (models)", "bmm (models)"], "s", tries=1)
         until(["Scan", "done"], "s", tries=60)  # the scan ends in the menu's free time
         text = until(["/bm", "/bme", "files"], "s")
-        until(["Kernel", "bm (games)", "Free"], "w", tries=20)    # back up to the bar
+        until(["Kernel", "bm (games)", "glb (models)"], "w", tries=20)    # back up to the bar
         img = q.screendump()
         w, h, px = img
         seen = {tuple(px[i:i + 3]) for i in range(0, w * h * 3, 3)}

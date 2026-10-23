@@ -6,7 +6,7 @@
 typedef struct { char path[32]; uint32_t files, kb; } sdmap_dir_t;       /* files directly in it; kb = their bytes / 1024 */
 typedef struct { char path[64]; uint32_t bytes; } sdmap_file_t;           /* path cut to its last 63 characters */
 typedef struct {
-    uint64_t total, free, kernel, bm, bme, other;                        /* bytes */
+    uint64_t total, free, kernel, bm, bme, glb, bmm, other;                        /* bytes */
     int ndirs, nfiles;
     sdmap_dir_t dirs[SDMAP_DIRS];
     sdmap_file_t files[SDMAP_FILES];                                      /* largest first */

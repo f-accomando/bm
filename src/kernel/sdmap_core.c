@@ -136,6 +136,8 @@ static void add_file(const frame_t *f, const fat_entry_t *e)
     const int kern = is_kernel_file(f->path, e->name);
     const int in_bm = under(f->path, "/bm") || under(f->path, "/carts");
     const int in_bme = under(f->path, "/bme");
+    const int in_glb = under(f->path, "/glb");
+    const int in_bmm = under(f->path, "/bmm");
     sdmap_dir_t *d = dir_entry(f->path, f->depth);
     if (d) {
         d->files++;
@@ -147,6 +149,10 @@ static void add_file(const frame_t *f, const fat_entry_t *e)
         res.bm += e->size;
     else if (in_bme)
         res.bme += e->size;
+    else if (in_glb)
+        res.glb += e->size;
+    else if (in_bmm)
+        res.bmm += e->size;
     int shown = kern || (in_bm && (iends(e->name, ".bm") || iends(e->name, ".b16"))) || (in_bme && iends(e->name, ".bme"));
     if (!shown)
         list_file(f->path, e->name, e->size);
@@ -157,7 +163,7 @@ static void finish(void)
     const uint64_t cb = fat_cluster_bytes();
     res.total = (uint64_t)fat_total_clusters() * cb;
     res.free = (uint64_t)fst.free * cb;
-    const uint64_t used = res.free + res.kernel + res.bm + res.bme;
+    const uint64_t used = res.free + res.kernel + res.bm + res.bme + res.glb + res.bmm;
     res.other = res.total > used ? res.total - used : 0;
 }
 
@@ -214,7 +220,7 @@ int sdmap_core_step(unsigned budget)
     return 0;
 }
 
-/* ---- the cache text (bm/sdmap.txt): "sdmap 1", T, D, F lines ---- */
+/* ---- the cache text (bm/sdmap.txt): "sdmap 2", T, D, F lines ---- */
 
 typedef struct { char *p; size_t n, cap; int over; } out_t;
 
@@ -246,12 +252,14 @@ static void put_u(out_t *o, uint64_t v)
 size_t sdmap_core_save(char *out, size_t n)
 {
     out_t o = { out, 0, n, 0 };
-    put_s(&o, "sdmap 1\n");
+    put_s(&o, "sdmap 2\n");
     put_s(&o, "T "); put_u(&o, res.total);
     put_s(&o, " "); put_u(&o, res.free);
     put_s(&o, " "); put_u(&o, res.kernel);
     put_s(&o, " "); put_u(&o, res.bm);
     put_s(&o, " "); put_u(&o, res.bme);
+    put_s(&o, " "); put_u(&o, res.glb);
+    put_s(&o, " "); put_u(&o, res.bmm);
     put_s(&o, " "); put_u(&o, res.other);
     put_s(&o, "\n");
     for (int i = 0; i < res.ndirs; i++) {
@@ -298,7 +306,7 @@ int sdmap_core_load(const char *text, size_t len)
         while (eol < end && *eol != '\n')
             eol++;
         if (first) {
-            if (eol - p != 7 || memcmp(p, "sdmap 1", 7) != 0)
+            if (eol - p != 7 || memcmp(p, "sdmap 2", 7) != 0)
                 goto bad;
             first = 0;
         } else if (eol > p) {
@@ -307,11 +315,11 @@ int sdmap_core_load(const char *text, size_t len)
             if (p[1] != ' ')
                 goto bad;
             if (*p == 'T') {
-                uint64_t v[6];
-                for (int i = 0; i < 6; i++)
+                uint64_t v[8];
+                for (int i = 0; i < 8; i++)
                     if (!get_u(&q, eol, &v[i]))
                         goto bad;
-                tmp.total = v[0]; tmp.free = v[1]; tmp.kernel = v[2]; tmp.bm = v[3]; tmp.bme = v[4]; tmp.other = v[5];
+                tmp.total = v[0]; tmp.free = v[1]; tmp.kernel = v[2]; tmp.bm = v[3]; tmp.bme = v[4]; tmp.glb = v[5]; tmp.bmm = v[6]; tmp.other = v[7];
                 seen_t = 1;
             } else if (*p == 'D') {
                 if (!get_u(&q, eol, &a) || !get_u(&q, eol, &b) || tmp.ndirs >= SDMAP_DIRS)
