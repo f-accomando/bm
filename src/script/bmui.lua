@@ -191,6 +191,36 @@ function U.row(kind)
   if z and z.kind == kind then return z.a, z end
 end
 
+-- a list with the mouse (M48): the wheel moves the chosen row by `step`
+-- rows (default 1), a click on a zone of `kind` (its `a` is the row) chooses
+-- that row, and a click on the chosen row, or a double click, acts (as
+-- Enter would). Returns the new row and true when it acted. Call it before
+-- the keys, with the rows' zones drawn last frame.
+function U.list(kind, sel, n, step)
+  if not U.on or n < 1 then return sel, false end
+  if U.wheel ~= 0 then sel = math.max(1, math.min(n, sel - U.wheel * (step or 1))) end
+  local z = U.click(0)
+  if z and z.kind == kind and z.a and z.a >= 1 and z.a <= n then
+    if z.a == sel or U.double then return z.a, true end
+    sel = z.a
+  end
+  return sel, false
+end
+
+-- a pixel x to a text column: the gap nearest to x in a line that starts at
+-- x0 with letters cw wide and n letters (0 = before the first letter)
+function U.col(x, x0, cw, n)
+  local c = (x - x0 + cw // 2) // cw
+  return c < 0 and 0 or (c > n and n or c)
+end
+
+-- the wheel on a view: the new top (lo..hi) after `step` units per click
+function U.scroll(top, lo, hi, step)
+  if U.wheel == 0 then return top end
+  top = top - U.wheel * step
+  return top < lo and lo or (top > hi and hi or top)
+end
+
 ----------------------------------------------------------------- keys shown as chips
 
 -- the key a chip shows, as keyp() gives it: "ctrl s" (or {"ctrl", "s"})

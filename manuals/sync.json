@@ -909,13 +909,13 @@
     "title": "First start"
    },
    "3": {
-    "en": "51f98b5fd573",
-    "it": "9ed77868a288",
+    "en": "8238811b257e",
+    "it": "2429b1600b8a",
     "title": "The screen and the keys"
    },
    "4": {
-    "en": "2f9713aea41f",
-    "it": "6e2db3a0facf",
+    "en": "355d3a94021b",
+    "it": "af2817369706",
     "title": "Styling"
    },
    "5": {
@@ -935,10 +935,10 @@
    }
   },
   "sources": {
-   "carts/write/main.lua": "af740ba56a0b",
+   "carts/write/main.lua": "3235307d427d",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/progress/tools.md": "a4a65307cada",
-   "sdk/README.md": "f56faae98658"
+   "docs/progress/tools.md": "18e4faeb7bc8",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "install-sd": {
