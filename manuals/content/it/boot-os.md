@@ -134,7 +134,7 @@ Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the
 ## Da sapere
 
 - Sull'RGB30, **B** conferma e **A** torna indietro. Imposta `confirm=a` in `bm/config.txt` per scambiarli, oppure usa Settings > Controllers > *Confirm button*.
-- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Games elenca i file `.b16` e mostra i `.bm` per le prove: `show_bm=0` li nasconde. Il Market elenca solo i `.b16`: `market_bm=1` aggiunge i `.bm`.
+- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Games elenca i file `.b16` e mostra i `.bm` per le prove: `show_bm=0` li nasconde. Il Market elenca i file `.b16` e `.bm`. Un `.bm` non fatto per l'RGB30 è grigio e ne dice il motivo. `market_bm=0` nasconde i `.bm`.
 - Gli editor lavorano solo sui progetti. Un `.bm` è in sola lettura; Ctrl+B in un editor costruisce il `.bm` definitivo.
 
 ## Impostazioni
@@ -302,7 +302,7 @@ Le Impostazioni, `set`/`save` della riga del monitor e gli strumenti del PC scri
 | `wifi_boot=0` | non collegarsi alla rete all'avvio |
 | `lib_tab=1` | mostra la scheda Lib |
 | `show_bm=0` | nasconde i file `.bm` nella scheda Games dell'RGB30 |
-| `market_bm=1` | elenca i file `.bm` anche nel Market dell'RGB30 |
+| `market_bm=0` | nasconde i file `.bm` nel Market dell'RGB30 |
 | `menu_scale=3` | un menu 1920x1080 sul Pi (una prova) |
 | `battery_icon=0` | spegne l'icona di batteria scarica (RGB30) |
 | `mouse=off` | spegne il puntatore |

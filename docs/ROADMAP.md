@@ -82,7 +82,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 ## Process and docs
 
-- APP-3 - P3 - to do - PDF manuals and project structure. EN/IT manuals aligned; layout of `docs/PROJECT-LAYOUT.md` respected. [tools](progress/tools.md) `PDF manuals`, `Project layout`
 
 ---
 

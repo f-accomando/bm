@@ -127,7 +127,7 @@
   },
   "sources": {
    "docs/API.md": "e985f0ef8b5c",
-   "docs/GAME-GUIDE.md": "aef62588eb3d",
+   "docs/GAME-GUIDE.md": "4694b2066d99",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/input.md": "4a75b07df3da",
    "docs/api/system.md": "2a164808a4c2"
@@ -237,9 +237,9 @@
    }
   },
   "sources": {
-   "docs/api/bmlib.md": "a347156cf825",
+   "docs/api/bmlib.md": "1da0c71742dc",
    "docs/api/bmnet.md": "31716bc331e1",
-   "docs/design/games-architecture.md": "9591e1a86ca1"
+   "docs/design/games-architecture.md": "41e1f6da4bed"
   }
  },
  "api-sound": {
@@ -319,10 +319,10 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "370910ab5f18",
+   "docs/PROJECT-LAYOUT.md": "89a78f452faf",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/SCREENSHOTS.md": "afdde1690440",
-   "docs/api/tools.md": "d98d081c49e7"
+   "docs/api/tools.md": "b251f25593ef"
   }
  },
  "boot-os": {
@@ -363,8 +363,8 @@
     "title": "What the kernel does at start"
    },
    "4": {
-    "en": "3af415fec840",
-    "it": "1e7a52967282",
+    "en": "43832ca39394",
+    "it": "cfe3ef66da8d",
     "title": "The menu and its tabs"
    },
    "5": {
@@ -388,8 +388,8 @@
     "title": "The files on the SD card"
    },
    "9": {
-    "en": "62baf58ad42a",
-    "it": "a1ed90e59d4f",
+    "en": "136581b67ede",
+    "it": "3be6c73befbb",
     "title": "Settings and config.txt"
    }
   },
@@ -397,7 +397,7 @@
    "boot": "63490264ed76",
    "chainloader": "7feaaf3a501c",
    "docs/HARDWARE.md": "1412f8591e74",
-   "docs/progress/system.md": "049cda3b2b46",
+   "docs/progress/system.md": "1eb3e74c1fe1",
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },
@@ -470,20 +470,20 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "6bc4c3631506",
+   "carts/animator/main.lua": "07b6388861e6",
    "carts/hunt/main.lua": "9626c44827de",
-   "carts/mesh/main.lua": "0f67d24de65f",
-   "carts/pixel/main.lua": "4f25aed5dd88",
-   "carts/studio/main.lua": "4ad32dad9ad3",
+   "carts/mesh/main.lua": "c15170eef48d",
+   "carts/pixel/main.lua": "634ae71952e3",
+   "carts/studio/main.lua": "285ae16f1382",
    "carts/titan/build/mkrobot.py": "72c7aff21afd",
    "carts/yharnam/build/mkassets.py": "efc8086470ce",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/light3d.md": "e598e3265d36",
-   "docs/design/games-architecture.md": "9591e1a86ca1",
+   "docs/design/games-architecture.md": "41e1f6da4bed",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/design/suite-pixel.md": "169370731398",
-   "docs/progress/graphics.md": "076009fe8f5f",
-   "docs/progress/tools.md": "17bea9cc5afe",
+   "docs/progress/graphics.md": "0450059d63f3",
+   "docs/progress/tools.md": "b6f6f3e87bee",
    "docs/progress/yharnam.md": "2b2e4072a162",
    "tools/cutout2mesh.py": "a2a57f9737c1",
    "tools/img2mesh.py": "db3364221d4a"
@@ -546,7 +546,7 @@
    "carts/animator/main.lua": "07b6388861e6",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "e3efb77e150e",
+   "docs/progress/tools.md": "b6f6f3e87bee",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -607,7 +607,7 @@
    "carts/code/main.lua": "d1c30bc0136b",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-code.md": "9fd910acecf7",
-   "docs/progress/tools.md": "702c8532fc91",
+   "docs/progress/tools.md": "b6f6f3e87bee",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -658,7 +658,7 @@
    "carts/mesh/main.lua": "c15170eef48d",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "3457b87a304e",
+   "docs/progress/tools.md": "b6f6f3e87bee",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -726,11 +726,11 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "f1dff1037f16",
+   "carts/pixel/main.lua": "634ae71952e3",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-pixel.md": "169370731398",
-   "docs/progress/tools.md": "a4a65307cada",
-   "sdk/README.md": "f56faae98658"
+   "docs/progress/tools.md": "b6f6f3e87bee",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-sdk": {
@@ -782,11 +782,11 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "89b7c45e0ea6",
+   "carts/editor/main.lua": "72d73fc9f49e",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "a4a65307cada",
-   "sdk/README.md": "f56faae98658"
+   "docs/progress/tools.md": "b6f6f3e87bee",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-sound": {
@@ -831,7 +831,7 @@
    "carts/sound/main.lua": "c3dca68055e4",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sound.md": "a112c9f9705e",
-   "docs/progress/tools.md": "c6c854b346d0",
+   "docs/progress/tools.md": "b6f6f3e87bee",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -892,7 +892,7 @@
    "carts/studio/main.lua": "285ae16f1382",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "3457b87a304e",
+   "docs/progress/tools.md": "b6f6f3e87bee",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -937,7 +937,7 @@
   "sources": {
    "carts/write/main.lua": "3235307d427d",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/progress/tools.md": "d943cf73fb8f",
+   "docs/progress/tools.md": "b6f6f3e87bee",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -974,8 +974,8 @@
     "title": "The Market and getting games"
    },
    "7": {
-    "en": "1efbed9dddfb",
-    "it": "69fad9054289",
+    "en": "0ec916b4e0f4",
+    "it": "6f1ff97af7ee",
     "title": "The config.txt keys that matter"
    },
    "8": {
@@ -985,8 +985,8 @@
    }
   },
   "sources": {
-   "docs/RGB30.md": "440510f5aa45",
-   "docs/progress/platforms.md": "afd45e3e9054",
+   "docs/RGB30.md": "4ec4b9989804",
+   "docs/progress/platforms.md": "476d4f8f57d7",
    "easy_install.sh": "93dfa42a24ed",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "6ed865802e51"
@@ -1046,17 +1046,17 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "ab477092a544",
-   "docs/GAME-GUIDE.md": "958000b2bd91",
-   "docs/ROADMAP.md": "9d140bac3772",
-   "docs/api/bmlib.md": "a347156cf825",
+   "carts/editor/main.lua": "72d73fc9f49e",
+   "docs/GAME-GUIDE.md": "4694b2066d99",
+   "docs/ROADMAP.md": "cc63d5e861be",
+   "docs/api/bmlib.md": "1da0c71742dc",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/light3d.md": "e598e3265d36",
-   "docs/design/games-architecture.md": "9591e1a86ca1",
+   "docs/design/games-architecture.md": "41e1f6da4bed",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/graphics.md": "6240128d72c0",
-   "docs/progress/tools.md": "ebf31668470e",
-   "docs/progress/v3d.md": "f43dce1448d8",
+   "docs/progress/graphics.md": "0450059d63f3",
+   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/progress/v3d.md": "48d60c944c2d",
    "src/bm/map3d.c": "83e5e8666802"
   }
  },
@@ -1109,7 +1109,7 @@
    "docs/HARDWARE.md": "1412f8591e74",
    "docs/PERFORMANCE.md": "1c3fc264eae4",
    "docs/progress/graphics.md": "0450059d63f3",
-   "docs/progress/v3d.md": "aac07f63a1f9"
+   "docs/progress/v3d.md": "48d60c944c2d"
   }
  },
  "riff": {

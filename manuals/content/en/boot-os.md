@@ -134,7 +134,7 @@ Game options (`c`) show the bytes of the saves and a *Delete the save data* row.
 ## Good to know
 
 - On the RGB30, **B** confirms and **A** goes back. Set `confirm=a` in `bm/config.txt` to swap them, or use Settings > Controllers > *Confirm button*.
-- On the RGB30 the top bar shows only WiFi and battery. Games lists `.b16` files, and shows `.bm` files for testing: `show_bm=0` hides them. The Market lists only `.b16`: `market_bm=1` adds the `.bm`.
+- On the RGB30 the top bar shows only WiFi and battery. Games lists `.b16` files, and shows `.bm` files for testing: `show_bm=0` hides them. The Market lists the `.b16` and the `.bm` files. A `.bm` that is not made for the RGB30 is grey with its reason. `market_bm=0` hides the `.bm` files.
 - The editors work on projects only. A `.bm` is read-only; Ctrl+B in an editor builds the final `.bm`.
 
 ## Settings
@@ -302,7 +302,7 @@ Settings, the monitor line `set`/`save` and the PC tools write `bm/config.txt`. 
 | `wifi_boot=0` | do not join the network at boot |
 | `lib_tab=1` | show the Lib tab |
 | `show_bm=0` | hide `.bm` files in the Games tab of the RGB30 |
-| `market_bm=1` | list `.bm` files also in the Market of the RGB30 |
+| `market_bm=0` | hide `.bm` files in the Market of the RGB30 |
 | `menu_scale=3` | a 1920x1080 menu on the Pi (a try) |
 | `battery_icon=0` | turn off the low-battery icon (RGB30) |
 | `mouse=off` | turn the pointer off |
