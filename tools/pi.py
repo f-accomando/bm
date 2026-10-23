@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Client of tools/pi_bridge.py:  python3 tools/pi.py line gpu | send FILE | play FILE | kernel FILE | shot OUT.png | keys NAME | logs NAME | status
-(keys NAME: monitor, crash-dabt|undef|prefetch, freeze, reboot; the bridge: tools/pi_bridge.py [--detach] IP)"""
+(keys NAME: monitor, crash-dabt|undef|prefetch, freeze, freeze-irq, reboot; the bridge: tools/pi_bridge.py [--detach] IP)"""
 import os
 import re
 import socket
