@@ -124,6 +124,8 @@ Un nome ha lettere, cifre, `_`, `.` o `-`, fino a 24 caratteri. Ogni modulo ha i
 | Split screen | F4 |
 | Font size | F10 |
 | Find | Ctrl+F |
+| Find in the project... | Ctrl+Shift+F |
+| Rename a word... | Ctrl+Shift+H |
 | Replace | Ctrl+H |
 | Go to line | Ctrl+L |
 | Assistant | F6 |
@@ -153,7 +155,21 @@ Questi sono i tasti che esistono in bm Code. **F11** e **F12** appartengono al s
 | Ctrl+L | vai alla riga: scrivi il numero |
 | Ctrl+F | cerca: scrivi il testo (la parola sotto il cursore è suggerita) |
 | Ctrl+G | cerca il successivo |
+| Ctrl+Shift+F | cerca un testo in ogni scheda e modulo del progetto |
+| Ctrl+Shift+H | rinomina la parola sotto il cursore in ogni scheda e modulo |
 | Ctrl+H | sostituisci tutto: chiede il testo, poi il nuovo testo |
+
+## Cercare e rinominare nel progetto
+
+**Ctrl+Shift+F** (menu: *Find in the project...*) cerca un testo in ogni scheda aperta e in ogni modulo di un progetto. Scrivi il testo. La parola sotto il cursore è suggerita. La ricerca non distingue maiuscole e minuscole. Si apre un elenco con una riga per ogni risultato: `modulo:riga testo`. Se hai più di una scheda aperta, il nome comincia con il nome della scheda. L'elenco mostra al massimo 200 risultati; il titolo dice quando ce ne sono di più. Muoviti con le frecce su e giù. Premi **Enter** per andare al risultato: bm Code apre la scheda e il modulo e mette il cursore sul testo. Se il testo non è nel progetto, la riga di stato dice `not found in the project`.
+
+**Ctrl+Shift+H** (menu: *Rename a word...*) rinomina la parola sotto il cursore. Cambia solo la parola intera, in tutti i moduli e in tutte le schede aperte. Il testo dentro stringhe e commenti resta com'è. Restano anche i numeri. Se il cursore non è su una parola, bm Code chiede quale parola rinominare. Poi scrivi il nuovo nome. Deve essere un nome Lua valido: lettere, cifre e `_`, non un numero all'inizio, non una parola chiave. La riga di stato dice quante parole sono cambiate e in quanti moduli.
+
+::: warn
+Rinomina non controlla lo scope. Se due variabili diverse hanno lo stesso nome, cambiano tutte e due. Guarda il risultato prima di salvare.
+:::
+
+Ogni modulo che cambia ha un passo di annullamento. Premi **Ctrl+Z** in ogni modulo per tornare indietro.
 
 ## Modificare
 

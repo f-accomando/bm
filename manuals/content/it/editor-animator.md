@@ -172,6 +172,20 @@ In modalità pelle: le frecce scelgono una faccia, spazio la segna, `c` segna qu
 | Invio | rinomina l'animazione (fino a 16 lettere) |
 | `Ctrl+D` | duplica l'animazione |
 | Backspace due volte | elimina l'animazione |
+| `Ctrl+Shift+I` | prendi le animazioni di un altro modello |
+
+La barra dei suggerimenti in fondo a F3 mostra solo i tasti principali. I tasti `,` `.` (keyframe prima e dopo), `m` (specchio) e `o` (onion skin) non sono sulla barra. Sono nell'aiuto: tieni premuto **F12**.
+
+### Animazioni da un altro modello (Ctrl+Shift+I)
+
+Puoi copiare le animazioni di un altro modello sullo scheletro che modifichi. Premi **Ctrl+Shift+I**, oppure apri il menu del tasto destro della pagina animate e scegli *Animations from another model...*. Prima serve uno scheletro (F2). Poi:
+
+1. Un elenco mostra i modelli di `/bmm` e `/glb`. Scegline uno e premi **Invio**.
+2. bm Animator abbina le ossa dei due scheletri per nome. Un osso si abbina quando i nomi sono uguali. Altrimenti si abbina quando i nomi sono uguali in minuscolo, senza i segni `.`, `_` e `-`.
+3. Ogni animazione dell'altro modello è aggiunta al tuo scheletro, con i suoi tempi, la lunghezza e il loop. Le rotazioni delle ossa abbinate sono copiate. Le traslazioni sono scalate con il rapporto delle due altezze (l'altezza del tuo scheletro divisa per quella dell'altro). Un osso senza abbinamento resta nella posa di riposo.
+4. La riga di stato dice, per esempio, `3 animations, 18 bones matched, missing: tail ear`. `missing` elenca le ossa del tuo scheletro che non hanno avuto un abbinamento.
+
+Le nuove animazioni prendono il nome della sorgente. Se il nome è già usato, bm Animator lo rende diverso. La prima nuova animazione è quella scelta. È un solo passo di annullamento. Uno scheletro può avere al massimo 255 animazioni. Se l'altro modello non ha scheletro, o non ha animazioni, o nessun osso con un nome che si abbina, un messaggio lo dice e non si aggiunge niente.
 
 ## F4, sprites
 

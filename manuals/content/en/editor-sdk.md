@@ -215,7 +215,31 @@ Press **F3** to see the sprites, then **F3** again for the map. A map is made of
 - `z` switches between 8x8 and 16x16: a 16x16 tile is 2 x 2 cells, placed on even cells.
 - `+` and `-` zoom in and out; `m` shows the whole 256x256 map on one screen (*Overview*).
 - `c` shows the flags of the tiles.
+- `t` turns the terrain brush on and off (see below).
 - `Home`, `End`, `PgUp` and `PgDn` move a page left, right, up and down.
+
+## The terrain brush (t)
+
+The terrain brush paints land, water and walls and chooses the border tiles for you. Press **t** on the map page (menu: *Terrain brush*). Press **t** again to leave. It does not work in the 3D view.
+
+A terrain set is a block of 4 x 4 tiles of the sprite sheet. The tile you chose is the first tile of the block, at the top left. In 8x8 mode the 16 tiles are next to each other. In 16x16 mode (`z`) each tile is 2 x 2 cells, so the block steps by 2 cells.
+
+For each tile of the set, bm SDK looks at the four neighbours. Each neighbour that is in the set adds a number: north 1, east 2, south 4, west 8. The sum is the mask, from 0 to 15. The tile in the block is at the column `mask % 4` and the row `mask // 4`, counted from the first tile:
+
+| Row | Column 0 | Column 1 | Column 2 | Column 3 |
+|---|---|---|---|---|
+| 0 | mask 0: alone | mask 1: N | mask 2: E | mask 3: N+E |
+| 1 | mask 4: S | mask 5: N+S | mask 6: E+S | mask 7: N+E+S |
+| 2 | mask 8: W | mask 9: N+W | mask 10: E+W | mask 11: N+E+W |
+| 3 | mask 12: S+W | mask 13: N+S+W | mask 14: E+S+W | mask 15: all four |
+
+Draw the 16 tiles of the set in this order on the sheet. Then:
+
+- **Space** paints the cell with the set. The cell and its 4 neighbours take the tile that fits their mask. Only the neighbours that are already in the set change.
+- **Backspace** erases the cell and fits its 4 neighbours again.
+- Each stroke works on the current layer. One stroke is one undo step (**u**).
+
+The status line shows `TERRAIN base N` while the brush is on. The hint bar shows the chip `t terrain` where it showed `m overview`. The key **m** still shows the whole map: it is in the help (**F12**).
 
 ## Good to know
 
@@ -409,6 +433,7 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 | Tab | map | choose the tile |
 | z | map | 8x8 / 16x16 |
 | + / - / m | map | zoom in / out, overview |
+| t | map | terrain brush on / off |
 | l / Shift+L | map | next layer / a new one |
 | o | map | this layer only / every layer |
 | c | map | show the flags |

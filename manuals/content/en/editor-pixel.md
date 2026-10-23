@@ -150,7 +150,9 @@ On F1 a pointer moves with the arrows. **Space** uses the tool. With the pencil 
 | l | line |
 | u / U | rectangle / filled rectangle |
 | o / O | oval / filled oval |
-| m | select |
+| m | select a rectangle (it also clears a wand selection) |
+| w | wand select: the area of one colour |
+| q | tile view on / off |
 | , and . | the colour before / after |
 | x | the colour used before |
 | 1 - 9, 0 | the first ten colours |
@@ -163,10 +165,17 @@ On F1 a pointer moves with the arrows. **Space** uses the tool. With the pencil 
 | z | sprite size |
 | PgUp / PgDn | sprite before / after |
 | j | show or hide the boxes |
+| Ctrl+E | export a PNG to `/docs` |
 | F6 | the assistant: a base for a sprite |
 | Tab | the list of commands |
 
 Colour 0 is transparent.
+
+The hint bar at the bottom of the drawing page shows only the main keys: the tools `b e g m w`, `Ctrl+E PNG`, the colour keys, **z** and **Tab**. The other keys (`u o l j q` and the rest) are in the **F12** help.
+
+## Tile view (q)
+
+Press **q** to see the sprite as a tile. The preview on the right shows the sprite 3 times 3, side by side. You see the seams between the copies. The text under the preview says `tile view 3x3 (q)`. Sprites up to 32x32 fit in the preview. Press **q** again to go back. The menu has the entry *Tile view (q)*.
 
 ## Shapes and selections
 
@@ -181,9 +190,24 @@ For lines, rectangles, ovals and selections: press **space** to fix one corner, 
 | h / v | flip left-right / up-down |
 | r | turn by a quarter |
 | Del | clear the selection, or the whole sprite |
+| Ctrl+E | export the sprite, the animation or the sheet as a PNG |
 | Shift+w a s d | scroll the sprite by one pixel (what goes out comes back on the other side) |
 
 The transparent pixels of a pasted block leave what is underneath.
+
+### Wand select (w)
+
+Press **w** and then **space** on a pixel. bm Pixel selects the connected area of the same colour: the pixels that touch the one you chose, up and down and left and right, and have its colour. A dotted line goes round the area. The status line says how many pixels you chose. Now **Ctrl+C**, **Ctrl+X**, **Del**, **Enter** (lift), **h**, **v** and **r** act only on these pixels. The rest of the sprite stays. Press **m** and select a rectangle to clear the wand selection.
+
+## Export a PNG
+
+Press **Ctrl+E** (menu: *Export a PNG to /docs...*) to write a PNG file. A list asks what to export:
+
+- *this sprite*: the sprite you draw;
+- *the animation*: its frames side by side in a strip;
+- *the whole sheet*.
+
+Then a line asks the file name and suggests one made from the file name. The PNG goes to `/docs` on the card. The pixels with colour 0 are transparent in the PNG. The name is 8.3 in lower case: letters, digits and `_`, and the extension `.png`. If the name has more than 8 letters, bm Pixel cuts it to 8 and the status line says `name cut to 8 letters`. The status line shows `saved /docs/NAME.png` when the file is written. If the export fails, the status line says why.
 
 ## The assistant (F6)
 

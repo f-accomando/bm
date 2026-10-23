@@ -150,7 +150,9 @@ In F1 un puntatore si muove con le frecce. **Spazio** usa lo strumento. Con mati
 | l | linea |
 | u / U | rettangolo / rettangolo pieno |
 | o / O | ovale / ovale pieno |
-| m | seleziona |
+| m | seleziona un rettangolo (cancella anche una selezione a bacchetta) |
+| w | selezione a bacchetta: l'area di un colore |
+| q | vista a piastrella sì / no |
 | , e . | il colore prima / dopo |
 | x | il colore usato prima |
 | 1 - 9, 0 | i primi dieci colori |
@@ -163,10 +165,17 @@ In F1 un puntatore si muove con le frecce. **Spazio** usa lo strumento. Con mati
 | z | misura dello sprite |
 | PgUp / PgDn | sprite prima / dopo |
 | j | mostra o nasconde i box |
+| Ctrl+E | esporta un PNG in `/docs` |
 | F6 | l'assistente: una base per uno sprite |
 | Tab | l'elenco dei comandi |
 
 Il colore 0 è trasparente.
+
+La barra dei suggerimenti in fondo alla pagina di disegno mostra solo i tasti principali: gli strumenti `b e g m w`, `Ctrl+E PNG`, i tasti del colore, **z** e **Tab**. Gli altri tasti (`u o l j q` e il resto) sono nell'aiuto di **F12**.
+
+## Vista a piastrella (q)
+
+Premi **q** per vedere lo sprite come una piastrella. L'anteprima a destra mostra lo sprite 3 per 3, affiancato. Vedi le giunzioni tra le copie. Il testo sotto l'anteprima dice `tile view 3x3 (q)`. Gli sprite fino a 32x32 stanno nell'anteprima. Premi di nuovo **q** per tornare indietro. Il menu ha la voce *Tile view (q)*.
 
 ## Forme e selezioni
 
@@ -181,9 +190,24 @@ Per linee, rettangoli, ovali e selezioni: premi **spazio** per fissare un angolo
 | h / v | specchia sinistra-destra / alto-basso |
 | r | ruota di un quarto |
 | Del | cancella la selezione, o tutto lo sprite |
+| Ctrl+E | esporta lo sprite, l'animazione o il foglio come PNG |
 | Shift+w a s d | fa scorrere lo sprite di un pixel (ciò che esce rientra dall'altro lato) |
 
 I pixel trasparenti di un blocco incollato lasciano ciò che c'è sotto.
+
+### Selezione a bacchetta (w)
+
+Premi **w** e poi **spazio** su un pixel. bm Pixel seleziona l'area connessa dello stesso colore: i pixel che toccano quello scelto, in alto, in basso, a sinistra e a destra, e hanno il suo colore. Una linea tratteggiata gira intorno all'area. La riga di stato dice quanti pixel hai scelto. Ora **Ctrl+C**, **Ctrl+X**, **Del**, **Enter** (solleva), **h**, **v** e **r** agiscono solo su questi pixel. Il resto dello sprite resta. Premi **m** e seleziona un rettangolo per cancellare la selezione a bacchetta.
+
+## Esportare un PNG
+
+Premi **Ctrl+E** (menu: *Export a PNG to /docs...*) per scrivere un file PNG. Un elenco chiede cosa esportare:
+
+- *this sprite*: lo sprite che disegni;
+- *the animation*: i suoi frame affiancati in una striscia;
+- *the whole sheet*: tutto il foglio.
+
+Poi una riga chiede il nome del file e ne propone uno fatto dal nome del file. Il PNG va in `/docs` sulla scheda. I pixel di colore 0 sono trasparenti nel PNG. Il nome è 8.3 in minuscolo: lettere, cifre e `_`, e l'estensione `.png`. Se il nome ha più di 8 lettere, bm Pixel lo taglia a 8 e la riga di stato dice `name cut to 8 letters`. La riga di stato mostra `saved /docs/NOME.png` quando il file è scritto. Se l'esportazione fallisce, la riga di stato dice perché.
 
 ## L'assistente (F6)
 

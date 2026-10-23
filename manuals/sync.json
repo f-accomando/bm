@@ -298,8 +298,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "3bb145af2f7a",
-    "it": "1e131d138566",
+    "en": "2d25686d5a1d",
+    "it": "7a6939716cfd",
     "title": "The API for tools"
    },
    "4": {
@@ -319,10 +319,10 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "89a78f452faf",
+   "docs/PROJECT-LAYOUT.md": "9c51571709d1",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/SCREENSHOTS.md": "afdde1690440",
-   "docs/api/tools.md": "b251f25593ef"
+   "docs/api/tools.md": "06bd502e269c"
   }
  },
  "boot-os": {
@@ -507,8 +507,8 @@
     "title": "Opening"
    },
    "3": {
-    "en": "0ea7207a40bb",
-    "it": "2a976287c03c",
+    "en": "d8b5b38e6dc0",
+    "it": "8abeb6853b77",
     "title": "The screen and the controls"
    },
    "4": {
@@ -543,10 +543,10 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "07b6388861e6",
+   "carts/animator/main.lua": "afcd0cf4f015",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "8fac04edc9bd",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -568,13 +568,13 @@
     "title": "Opening and saving"
    },
    "3": {
-    "en": "2179521295c1",
-    "it": "2f3c99943fe5",
+    "en": "34a9f87b9d2e",
+    "it": "d85f5169642e",
     "title": "The screen"
    },
    "4": {
-    "en": "7ff05ba758f3",
-    "it": "8ddbaa94c0fa",
+    "en": "9f07dc2da750",
+    "it": "7478aed0375a",
     "title": "Editing keys"
    },
    "5": {
@@ -604,7 +604,7 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "917d3fd12ce8",
+   "carts/code/main.lua": "5ea285b394a2",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-code.md": "d03fa1579401",
    "docs/progress/tools.md": "672103c80976",
@@ -624,13 +624,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "cd6149d3a6bb",
-    "it": "99951c61c9e1",
+    "en": "2be057db2c47",
+    "it": "6af13f0060a7",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "25f0de207503",
-    "it": "1fec0f6cb2a4",
+    "en": "973253256a24",
+    "it": "1de7f3190efd",
     "title": "Selecting and moving"
    },
    "5": {
@@ -655,10 +655,10 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "11e306a23b31",
+   "carts/mesh/main.lua": "0bf2631cada4",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "8fac04edc9bd",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -695,8 +695,8 @@
     "title": "The pages"
    },
    "4": {
-    "en": "3601dec1cae8",
-    "it": "e5f15a0962f6",
+    "en": "2b97f2bb9e00",
+    "it": "2e462adf6d6e",
     "title": "Drawing tools and keys"
    },
    "5": {
@@ -726,10 +726,10 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "7f6b403b9d91",
+   "carts/pixel/main.lua": "e27f43bf4f8f",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-pixel.md": "a0f942fe815a",
-   "docs/progress/tools.md": "8fac04edc9bd",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -756,8 +756,8 @@
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "3b709f72ab15",
-    "it": "ca8b0298c969",
+    "en": "a3be328bf6d9",
+    "it": "2eb7ca9497ef",
     "title": "The map editor"
    },
    "6": {
@@ -771,8 +771,8 @@
     "title": "Building and exporting"
    },
    "8": {
-    "en": "579b68177179",
-    "it": "d9f8402a93ce",
+    "en": "1fb9a6f919e5",
+    "it": "20dc249e8760",
     "title": "Keys"
    },
    "9": {
@@ -782,10 +782,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "baa1afd403cd",
+   "carts/editor/main.lua": "0a5bbc0b24ec",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
-   "docs/progress/tools.md": "24313cfad452",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -899,8 +899,8 @@
  "editor-write": {
   "chapters": {
    "1": {
-    "en": "b62b6843ec60",
-    "it": "bed0fe31d4b9",
+    "en": "3b02723b69f4",
+    "it": "3a91083370d3",
     "title": "What bm Write is"
    },
    "2": {
@@ -914,13 +914,13 @@
     "title": "The screen and the keys"
    },
    "4": {
-    "en": "355d3a94021b",
-    "it": "af2817369706",
+    "en": "1af1e0cdc86a",
+    "it": "f48f40ce6c33",
     "title": "Styling"
    },
    "5": {
-    "en": "1a6da62f1a1d",
-    "it": "b61bd8db06f1",
+    "en": "b2c9e4712af9",
+    "it": "07b03c8c2558",
     "title": "Saving, opening, exporting"
    },
    "6": {
@@ -935,9 +935,9 @@
    }
   },
   "sources": {
-   "carts/write/main.lua": "cbe5f39ecbdd",
+   "carts/write/main.lua": "c2b2e6df4954",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/progress/tools.md": "8fac04edc9bd",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },

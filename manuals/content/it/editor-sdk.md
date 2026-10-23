@@ -215,7 +215,31 @@ Premi **F3** per vedere gli sprite, poi ancora **F3** per la mappa. Una mappa è
 - `z` alterna 8x8 e 16x16: una tile 16x16 è 2 x 2 celle, piazzata su celle pari.
 - `+` e `-` ingrandiscono e riducono; `m` mostra l'intera mappa 256x256 in una schermata (*Overview*).
 - `c` mostra i flag delle tile.
+- `t` attiva e disattiva il pennello terreno (vedi sotto).
 - `Home`, `End`, `PgUp` e `PgDn` spostano di una pagina a sinistra, a destra, in su e in giù.
+
+## Il pennello terreno (t)
+
+Il pennello terreno dipinge terra, acqua e muri e sceglie per te le tile dei bordi. Premi **t** nella pagina mappa (menu: *Terrain brush*). Premi di nuovo **t** per uscire. Non funziona nella vista 3D.
+
+Un set di terreno è un blocco di 4 x 4 tile del foglio sprite. La tile che hai scelto è la prima tile del blocco, in alto a sinistra. In modo 8x8 le 16 tile sono vicine. In modo 16x16 (`z`) ogni tile è di 2 x 2 celle, quindi il blocco avanza di 2 celle.
+
+Per ogni tile del set, bm SDK guarda i quattro vicini. Ogni vicino che è nel set aggiunge un numero: nord 1, est 2, sud 4, ovest 8. La somma è la maschera, da 0 a 15. La tile nel blocco è alla colonna `mask % 4` e alla riga `mask // 4`, contate dalla prima tile:
+
+| Riga | Colonna 0 | Colonna 1 | Colonna 2 | Colonna 3 |
+|---|---|---|---|---|
+| 0 | maschera 0: sola | maschera 1: N | maschera 2: E | maschera 3: N+E |
+| 1 | maschera 4: S | maschera 5: N+S | maschera 6: E+S | maschera 7: N+E+S |
+| 2 | maschera 8: W | maschera 9: N+W | maschera 10: E+W | maschera 11: N+E+W |
+| 3 | maschera 12: S+W | maschera 13: N+S+W | maschera 14: E+S+W | maschera 15: tutti e quattro |
+
+Disegna le 16 tile del set in questo ordine sul foglio. Poi:
+
+- **Spazio** dipinge la cella con il set. La cella e i suoi 4 vicini prendono la tile che va con la loro maschera. Cambiano solo i vicini che sono già nel set.
+- **Backspace** cancella la cella e adatta di nuovo i suoi 4 vicini.
+- Ogni tratto lavora sul livello corrente. Un tratto è un passo di annullamento (**u**).
+
+La riga di stato mostra `TERRAIN base N` quando il pennello è attivo. La barra dei suggerimenti mostra il chip `t terrain` dove prima c'era `m overview`. Il tasto **m** mostra ancora l'intera mappa: è nell'aiuto (**F12**).
 
 ## Da sapere
 
@@ -409,6 +433,7 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 | Tab | mappa | sceglie la tile |
 | z | mappa | 8x8 / 16x16 |
 | + / - / m | mappa | ingrandisce / riduce, panoramica |
+| t | mappa | pennello terreno sì / no |
 | l / Shift+L | mappa | layer successivo / uno nuovo |
 | o | mappa | solo questo layer / tutti i layer |
 | c | mappa | mostra i flag |
