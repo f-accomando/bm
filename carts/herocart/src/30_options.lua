@@ -94,7 +94,7 @@ do
   queue = choice("Queue", { "0", "1", "2" }, 1, function(i) gpu3d(nil, nil, nil, i == 1 and false or i - 1) end,
     function() local _, _, _, _, q = gpu_state(); return ignored(queue) or (q and tostring(q) or "0") end)
   local later
-  later = choice("Frame later", { "off", "on" }, 1, function(i) gpu3d(nil, nil, nil, nil, nil, i == 2) end,
+  later = choice("Frame later", { "off", "on" }, 2, function(i) gpu3d(nil, nil, nil, nil, nil, i == 2) end,
     function() local _, _, _, _, _, _, l = gpu_state(); return ignored(later) or (l and "on" or "off") end)
   local IMP = { "off", "8", "16", "32" }
   local imp = choice("Impostor px", IMP, 1, function(i) gpu3d(nil, nil, nil, nil, i == 1 and 0 or tonumber(IMP[i])) end,
@@ -155,8 +155,14 @@ do
   function H.draw_flags()
     return ({ 2, 0, 4 })[light.i]
   end
+  local _draw_opts = {}
   function H.draw_opts()
-    return { cel = H.cel > 0, noz = zt.i == 2, shadow = shadow.i == 2, hull = outline.i == 2, flag512 = outline.i == 3 }
+    _draw_opts.cel = H.cel > 0
+    _draw_opts.noz = zt.i == 2
+    _draw_opts.shadow = shadow.i == 2
+    _draw_opts.hull = outline.i == 2
+    _draw_opts.flag512 = outline.i == 3
+    return _draw_opts
   end
 
   -- the options in force, for the printed line

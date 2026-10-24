@@ -26,7 +26,9 @@ One thing alone fills the frame at the load given below. A game adds the costs, 
 | Full-screen fade, QPU (`gpu3d_qpu=1`) | 14.3 lamps (one run) | 9.3 ms with 1 lamp |
 | Full-screen light, ARM | none (30.7 ms alone) | 30.7 ms |
 | Hero of 1536 triangles, vertex shader | 66 | 0.25 ms |
-| Hero set with map, 2D and logic (see herotris), vertex shader + queue | 6.7 sets | 2.5 ms |
+| Hero set with map, 2D and logic (see herotris), vertex shader + queue | 6.7 sets (49,956 - 50,024 tris) | 13.5 ms (60 fps) |
+| Crowd of animated heroes (Hero Stress, 640x360), VS2 + Q2 + later | 50 heroes (52,992 tris) | 15.1 ms (59-60 fps) |
+| Crowd of animated heroes (Hero Stress, 1080p), VS2 + Q2 + later | 24 heroes (27,408 tris) | 16.2 ms (60 fps) |
 | Draw call (one cube), vertex shader | 1386 | 12 us |
 
 A plan for a 2D game on the ARM (derived, not a measured scene): 2 opaque layers (6.2 ms) + 1 layer with holes (about 1.5 ms) + 400 sprites (2.6 ms) + 10 stacks (3.0 ms) = 13.3 ms. About 3.3 ms stay for Lua and the rest.

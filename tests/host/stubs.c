@@ -768,3 +768,9 @@ int sd_write_file(const char *who, const char *dir, const char *name, const void
     (void)who;
     return fat_mkdirs(dir) == 0 && fat_write_file(dir, name, data, len) == 0 ? 0 : -1;
 }
+
+int crt_filter_is_active(void) { return 0; }
+void crt_apply_filter(void *pixels, int w, int h, int pitch_bytes)
+{
+    (void)pixels; (void)w; (void)h; (void)pitch_bytes;
+}

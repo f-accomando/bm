@@ -107,36 +107,27 @@ Friday evening (done 23 Oct):
   - GPU+VS+A8+Q: 49,989 tris/frame drawn60 (13.6 ms)
   Conclusion: Vertex Shader + Command Queue consistently pushes 50k triangles @ 60 fps on Pi Zero hardware.
 
+- [RESOLVED 24 Oct, verified on Pi Zero W hardware] `Hero Stress` (`herocart.bm`) High-Throughput Target Benchmark:
+  - **Pi Zero W @ 640x360 (52,992 triangoli totali)**:
+    - 50 eroi a LOD 0 (984 tris ciascuno) + scenario piazza (~3.792 tris).
+    - *Baseline iniziale*: 18.2 ms frame time, 53-54 fps, 8 skip/s, anim 2.0 ms, wait 6.0 ms (barra superiore rossa).
+    - *Post-ottimizzazione* (pose bucketing 16 walk poses, map3d_height caching, zero-alloc draw_opts/drawn, pipelining `gpu3d_later=1` + `queue=2`):
+      **15.1 ms frame time** (-3.1 ms), **59 fps**, **2 skip/s**, **anim 0.7 ms** (-65%), barra superiore completamente verde entro i 16.6 ms.
+  - **Pi Zero W @ 1080p 1920x1080 (27,408 triangoli totali @ 60 fps)**:
+    - 24 eroi a LOD 0 (984 tris ciascuno = 23,616 tris) + scenario piazza = **27,408 triangoli stabili a 60 fps in Full HD 1080p** con opzioni extra attive.
+
 ## Next steps (immediate roadmap based on verified hardware runs)
 1. **VID-REC (Video Recording)**: Adopt RLE565 codec (codec 4) as the standard recorder on Pi Zero at 15 fps (0.13 - 1.05 MB/s fits SD write mean of 1.82 MB/s with <2 ms encode time). Next slice: audio interleaving.
 2. **Graphics Engine Defaults**: Standardize `gpu3d_queue=1` and `gpu3d_merge=1` (32+ pieces, <=150 faces) in production pipelines. Verify `gpu3d_2d=1` default (+6.7% boost, 3569+ sprites vs 2574 on ARM).
 3. **Multitasking Stage 3-5 (Web Bench)**: Run `tests/web/pi_bench.lua` on hardware to benchmark async file writes and Range resume.
 4. **Single-bm (SYS-8)**: Proceed with adaptive screen modes (720x405, `safe_area()`, `aspect()`, bars).
 
-## Piano di lavoro: 3D High-Throughput Pipeline (50k Triangoli @ 60fps)
-Ordine di esecuzione proposto in attesa di conferma utente:
-
-### 1. Documentazione e Linee Guida di Modellazione (DOCS)
-- Aggiornamento di `manuals/content/it/api-3d.md` e `manuals/content/en/api-3d.md`:
-  - Sezione Vertex Shader + Queue: spiegazione del fast-path QPU e budget ufficiale di 50.000 triangoli @ 60 fps su Pi Zero.
-  - Regole per i creatori di giochi: preferire `model()` e `mesh()` completi invece di loop su `tri3d()`, evitare texture+screendoor sulla stessa faccia.
-  - Guida al Draw Merging per scenari a blocchi e tessere (pezzi <=150 facce, >=32 istanze).
-- Aggiornamento tabelle target in `docs/PERF-BUDGET.md`.
-
-### 2. Semplificazione API per Utenti (API)
-- Aggiunta in `bmlib`/`bm3d` di helper intuitivi per il disegno in batch:
-  - `draw3d_batch(mesh, list_of_transforms)`: disegna N istanze dello stesso modello in un'unica operazione C/GPU, massimizzando il throughput senza overhead di chiamate ripetute da Lua.
-  - Funzione helper di istanziazione rapida per griglie di tessere / blocchi ripetuti.
-
-### 3. Ottimizzazione degli Editor di bm (TOOLS)
-- In bm Studio e bm Mesh:
-  - Aggiunta nel viewport di un contatore triangoli con budget bar visiva calibrata sui 50k tris @ 60fps del Pi Zero.
-  - Strumento "Merge Static" in bm Studio: unisce blocchi scenici statici adiacenti con la stessa texture in un'unica mesh ottimizzata prima del salvataggio.
-  - Validazione rapida all'esportazione contro pattern non ottimali per la GPU.
-
-### 4. Aggiornamento e Test di `herocart.bm` (BENCH & VERIFICA)
-- Aggiornare `herocart.bm` per implementare il nuovo standard di rendering ad alto throughput (hero con scheletro + cel-shading + istanze multiple di eroi e scenari densi).
-- Deploy e test dal vivo su Pi Zero per confermare stabilmente i 50k tris @ 60fps in gameplay reale con animazioni e camera interattiva.
+## Piano di lavoro approvato: 3D High-Throughput Pipeline (50k Triangoli @ 60fps)
+Stato esecuzione:
+- [x] **Benchmark e ottimizzazione Herocart**: verificati 52.992 tris a 59-60 fps (640x360) e 27.408 tris a 60 fps (1080p) su Pi Zero W.
+- [ ] **Semplificazione API Utente (bmlib)**: helper `lib.crowd3d`, `lib.gpu3d_fast`, batch instancing e pose deduplication.
+- [ ] **Documentazione Tecnica e Manuali**: aggiornare `manuals/content/{it,en}/api-3d.md`, `api-lib.md`, e `docs/PERF-BUDGET.md`.
+- [ ] **Ottimizzazione Editor e Documentazione**: aggiornare `src/script/bm3d.lua` (budget 50k vs 1.2k arm, warning calibrati, static merging) e relativi manuali editor (`editor-mesh.md`, `editor-studio.md`).
 
 ## Never delete
 `bm-core`, `reports`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.

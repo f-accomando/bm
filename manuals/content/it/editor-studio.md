@@ -243,7 +243,7 @@ Premi `-`. La finestra chiede i triangoli voluti e propone la metà. Il riduttor
 
 ## Perché conta
 
-La console disegna circa 1200 triangoli in una scena a 60 fps. Oltre, i conteggi diventano un avviso: `heavy for 60 fps (1200 triangles a scene)`.
+Sull'ARM in modalità software, la console disegna circa 1200 triangoli in una scena a 60 fps. Con la GPU VideoCore IV (Vertex Shader + Coda a doppio job), la console arriva fino a **50.000 triangoli a 60 fps** (e 27.400 a 1080p). Se il modello supera la soglia raccomandata (1.200 per ARM o 8.000 per singolo modello su GPU), i conteggi diventano un avviso: `heavy for ...`.
 
 ## Avvertenze
 
@@ -374,7 +374,7 @@ Se il conteggio supera 1200, la riga dice `heavy for 60 fps`. Riduci finché l'a
 
 # Consigli e limiti
 
-- Circa 1200 triangoli in una scena è ciò che la console disegna a 60 fps. Un modello ridotto è il modo più economico per restare sotto.
+- Su rendering software ARM circa 1200 triangoli in una scena è ciò che la console disegna a 60 fps; con la GPU (fast-path VideoCore IV) il budget sale a 50.000 triangoli a 60 fps (e fino a 8.000 per singolo modello dettagliato). Un modello ridotto con `-` o suddiviso in livelli di dettaglio (LOD) è il modo più efficiente per garantire massime prestazioni.
 - Le celle del cursore vanno da -64 a 63 su ogni asse.
 - Il pannello conta vertici e triangoli. Il salvataggio non ha un tetto di dimensione; resta solo il limite del formato di 65535 vertici e 65535 triangoli per mesh. Il contatore dei vertici lo mostra ("of 65535").
 - Le facce con texture richiedono lo sprite sheet: le texture ne sono dei pezzi.

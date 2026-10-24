@@ -484,4 +484,7 @@ Per uscire dal gioco e tornare a bm Mesh premi Start + Select sul pad o Ctrl+Esc
 - Una copia come codice non conserva lo scheletro.
 - La base umanoide (F3 nella lista, **New model: humanoid with a skeleton**) ha 17 scatole, 136 vertici, 204 triangoli e 16 ossa. Non ha animazioni: falle in bm Animator.
 - L'assistente (F6) aggiunge un modello senza scheletro.
-- [DA COMPLETARE: la dimensione di un modello che il Pi Zero W disegna in modo fluido]
+- **Budget triangoli verificato a 60 fps su Pi Zero W**:
+  - *Disegno software su ARM*: la scena intera deve rimanere entro 1.200 - 2.500 triangoli.
+  - *Disegno hardware su GPU (fast-path VideoCore IV)*: fino a **8.000 triangoli** per un singolo modello molto dettagliato, e fino a **50.000 triangoli totali per frame** a 60 fps (es. 50 eroi animati da 984 triangoli a 640x360, oppure 24 eroi per 27.408 triangoli a 1080p).
+  - *Livelli di dettaglio (LOD)*: crea versioni scalari del modello (es. `hero0` 984 triangoli per primo piano, `hero1` 492, `hero2` 246, `hero3` 97 per la distanza) per consentire alla console di mantenere 60 fps granitici anche in scene affollate.

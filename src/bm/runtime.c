@@ -8399,8 +8399,12 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
     const uint32_t bh = h <= 270 ? 270u : h <= 360 ? 360u : 720u;
     const uint32_t fw = boxed ? bh * 16 / 9 : (uint32_t)w, fh = boxed ? bh : (uint32_t)h;
     box = 0;
-    if (fb_init_depth(fb, fw, fh, 3, 16) != 0)
+    int fb_err = fb_init_depth(fb, fw, fh, 3, 16);
+    if (fb_err != 0) {
+        kprintf("bm_video_enter: fb_init_depth(%lu,%lu,3,16) failed: %d\n",
+                (unsigned long)fw, (unsigned long)fh, fb_err);
         return -1;
+    }
 #endif
     gpu3d_set_fb(fb->mem, fb->size, fb->bus);   /* its pages, for the GPU's 3D */
     gpu3d_set_size((int)fb->width, (int)fb->height);

@@ -243,7 +243,7 @@ Press `-`. The box asks for the triangles wanted and proposes half. The reducer 
 
 ## Why it matters
 
-The console draws about 1200 triangles in a scene at 60 fps. Beyond that, the counts turn to a warning: `heavy for 60 fps (1200 triangles a scene)`.
+On the ARM software rasterizer, the console draws about 1200 triangles in a scene at 60 fps. With the VideoCore IV GPU fast-path (Vertex Shader + Double Command Queue), the console pushes up to **50,000 triangles at 60 fps** (and up to 27,400 at 1080p). If a model exceeds the recommended threshold (1,200 for ARM or 8,000 for a single GPU model), the counter displays a warning: `heavy for ...`.
 
 ## Caveats
 
@@ -361,7 +361,7 @@ If the face has a flat colour instead of a tile, **Enter** paints the whole face
 5. Press **Ctrl+Z** to go back.
 
 ::: warn
-If the count is above 1200, the line says `heavy for 60 fps`. Reduce until the warning goes away.
+If the count is above the recommended threshold (1,200 for ARM or 8,000 for a single GPU model), the line displays a warning. Reduce until it fits within your game's triangle budget.
 :::
 
 ## Put your model in a game
@@ -374,7 +374,7 @@ If the count is above 1200, the line says `heavy for 60 fps`. Reduce until the w
 
 # Tips and limits
 
-- About 1200 triangles in a scene is what the console draws at 60 fps. A model you reduced is the cheapest way to stay under it.
+- On ARM software rasterization, about 1200 triangles in a scene is what the console draws at 60 fps; with the GPU (VideoCore IV fast-path) the budget reaches 50,000 triangles at 60 fps (and up to 8,000 per detailed model). A model you reduced with `-` or split into levels of detail (LOD) is the best way to maintain optimal performance.
 - Cursor cells go from -64 to 63 on each axis.
 - The panel counts vertices and triangles. There is no size cap on saving; only the format limit of 65535 vertices and 65535 triangles per mesh stays. The vertex counter shows it ("of 65535").
 - Textured faces need the sprite sheet: the textures are pieces of it.

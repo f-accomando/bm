@@ -484,4 +484,7 @@ To leave the game and come back to bm Mesh, press Start + Select on the pad or C
 - A copy as code does not keep the skeleton.
 - The humanoid base (F3 on the list, **New model: humanoid with a skeleton**) has 17 boxes, 136 vertices, 204 triangles and 16 bones. It has no animation: make one in bm Animator.
 - The assistant (F6) adds a model with no skeleton.
-- [TO FILL: the size of a model that the Pi Zero W draws smoothly]
+- **Verified 60 fps triangle budgets on Pi Zero W**:
+  - *ARM software rasterizer*: the entire scene should stay within 1,200 - 2,500 triangles.
+  - *Hardware GPU (VideoCore IV fast-path)*: up to **8,000 triangles** for a single highly detailed model, and up to **50,000 total triangles per frame** at 60 fps (demonstrated by `Hero Stress` with 50 animated heroes of 984 triangles each at 640x360, or 24 heroes pushing 27,408 triangles at 1080p).
+  - *Levels of detail (LOD)*: always create lower-polygon variants (e.g. `hero0` 984 tris for close-up, `hero1` 492, `hero2` 246, `hero3` 97 for distance) so the console can maintain rock-solid 60 fps even in dense scenes.

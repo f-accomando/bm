@@ -338,6 +338,37 @@ p3:update()
 p3:draw()
 ```
 
+# bmlib: high-throughput 3D and crowds (crowd3d)
+
+| Function | Description |
+|---|---|
+| `lib.gpu3d_fast([opt])` | activates the high-throughput GPU 3D pipeline: Vertex Shader 2, Command Queue 2, and frame-later pipelining. Pushes up to 50,000 triangles at 60 fps on the Pi Zero W |
+| `lib.crowd3d(mesh, [opt])` | creates a high-throughput 3D crowd and instance renderer with pose bucketing (skeletal animation deduplication); `opt`: `clip` ("walk"), `poses` (16), `radius` (1.3) |
+| `CR:add(x, y, z, [yaw, scale, phase, flags])` | adds an instance to the crowd and returns its `id` index |
+| `CR:set(id, [x, y, z, yaw])` | updates the instance's coordinates and rotation |
+| `CR:snap_to_map(map)` | batch snaps all `y` elevations to a `map3d` terrain, caching them to avoid map queries during drawing |
+| `CR:clear()` | removes all instances |
+| `CR:draw([time, default_flags])` | performs `visible3d` culling, groups instances by quantized pose, evaluates `animate()` once per bucket, and renders instances |
+
+```lua
+local lib = require "bmlib"
+lib.gpu3d_fast()
+
+local crowd = lib.crowd3d(model("hero0"), { clip = "walk", poses = 16 })
+for i = 1, 50 do
+  crowd:add(math.random(10, 22), 0, math.random(10, 22), math.random() * 6.28)
+end
+crowd:snap_to_map(world_map)
+
+function _draw()
+  cls(0x8CC8F0)
+  zclear()
+  camera3d(cx, cy, cz, cyaw, cpitch, 60)
+  map3d_draw(world_map)
+  crowd:draw(time())
+end
+```
+
 # bmlib: the camera
 
 | Function | Description |

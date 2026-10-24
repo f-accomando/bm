@@ -338,6 +338,37 @@ p3:update()
 p3:draw()
 ```
 
+# bmlib: 3D ad alte prestazioni e folle (crowd3d)
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.gpu3d_fast([opt])` | attiva la pipeline 3D ad alto throughput su GPU: Vertex Shader 2, Command Queue 2 e pipelining frame-later. Raggiunge fino a 50.000 triangoli a 60 fps su Pi Zero W |
+| `lib.crowd3d(mesh, [opt])` | crea un gestore di folle e istanze 3D ad alte prestazioni con pose bucketing (deduplicazione scheletrica); `opt`: `clip` ("walk"), `poses` (16), `radius` (1.3) |
+| `CR:add(x, y, z, [yaw, scale, phase, flags])` | aggiunge un'istanza alla folla e ne restituisce l'indice `id` |
+| `CR:set(id, [x, y, z, yaw])` | aggiorna posizione o rotazione di un'istanza |
+| `CR:snap_to_map(map)` | allinea in batch tutte le altezze `y` al terreno di `map3d`, memorizzandole per non interrogare la mappa durante il disegno |
+| `CR:clear()` | rimuove tutte le istanze |
+| `CR:draw([time, default_flags])` | esegue culling `visible3d`, raggruppa le istanze per posa quantizzata, chiama `animate()` una volta per bucket e disegna le istanze |
+
+```lua
+local lib = require "bmlib"
+lib.gpu3d_fast()
+
+local crowd = lib.crowd3d(model("hero0"), { clip = "walk", poses = 16 })
+for i = 1, 50 do
+  crowd:add(math.random(10, 22), 0, math.random(10, 22), math.random() * 6.28)
+end
+crowd:snap_to_map(world_map)
+
+function _draw()
+  cls(0x8CC8F0)
+  zclear()
+  camera3d(cx, cy, cz, cyaw, cpitch, 60)
+  map3d_draw(world_map)
+  crowd:draw(time())
+end
+```
+
 # bmlib: la camera
 
 | Funzione | Descrizione |

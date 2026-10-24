@@ -1011,6 +1011,116 @@ function P3:count()
   return particles_count()
 end
 
+----------------------------------------------------------------- crowd3d / batch3d
+
+local Crowd = {}
+Crowd.__index = Crowd
+
+-- Activates the high-throughput 3D pipeline on bare metal GPU:
+-- Vertex Shader 2, Command Queue 2, and frame pipelining (gpu3d_later).
+function lib.gpu3d_fast(opt)
+  opt = opt or {}
+  if gpu3d == nil then return false end
+  local vs = opt.vs ~= nil and opt.vs or 2
+  local q = opt.queue ~= nil and opt.queue or 2
+  local lat = opt.later ~= nil and opt.later or true
+  local msaa = opt.msaa or false
+  local imp = opt.impostor or nil
+  return gpu3d(true, msaa, vs, q, imp, lat)
+end
+
+-- A high-throughput instanced crowd / batch renderer with pose deduplication.
+function lib.crowd3d(mesh, o)
+  o = o or {}
+  local num_poses = o.poses or 16
+  local buckets = {}
+  for b = 1, num_poses do buckets[b] = {} end
+  return setmetatable({
+    mesh = mesh,
+    clip = o.clip or "walk",
+    poses = num_poses,
+    radius = o.radius or 1.3,
+    buckets = buckets,
+    x = {}, y = {}, z = {}, yaw = {}, scale = {}, phase = {}, flags = {},
+    count = 0,
+    time = 0,
+  }, Crowd)
+end
+
+function Crowd:add(x, y, z, yaw, scale, phase, flags)
+  local i = self.count + 1
+  self.count = i
+  self.x[i] = x or 0
+  self.y[i] = y or 0
+  self.z[i] = z or 0
+  self.yaw[i] = yaw or 0
+  self.scale[i] = scale or 1
+  self.phase[i] = phase or (i * 0.37)
+  self.flags[i] = flags or 0
+  return i
+end
+
+function Crowd:set(i, x, y, z, yaw)
+  if x then self.x[i] = x end
+  if y then self.y[i] = y end
+  if z then self.z[i] = z end
+  if yaw then self.yaw[i] = yaw end
+end
+
+function Crowd:snap_to_map(map)
+  if not map3d_height then return end
+  for i = 1, self.count do
+    self.y[i] = map3d_height(map, self.x[i], self.z[i]) or self.y[i]
+  end
+end
+
+function Crowd:clear()
+  self.count = 0
+end
+
+function Crowd:draw(t, default_flags)
+  t = t or self.time or 0
+  default_flags = default_flags or 0
+  local mesh = self.mesh
+  local radius = self.radius
+  local num_poses = self.poses
+  local buckets = self.buckets
+
+  for b = 1, num_poses do
+    local bkt = buckets[b]
+    for j = 1, #bkt do bkt[j] = nil end
+  end
+
+  local vis = visible3d
+  for i = 1, self.count do
+    local xi, yi, zi = self.x[i], self.y[i], self.z[i]
+    if not vis or vis(xi, yi + 1, zi, radius) then
+      local ph = t + self.phase[i]
+      local pidx = floor((ph % 1.0) * num_poses) + 1
+      local bkt = buckets[pidx]
+      bkt[#bkt + 1] = i
+    end
+  end
+
+  local anim = animate
+  local d3d = draw3d
+  for b = 1, num_poses do
+    local bkt = buckets[b]
+    local n = #bkt
+    if n > 0 then
+      local pose_ph = (b - 0.5) / num_poses
+      if anim and self.clip then
+        anim(mesh, self.clip, pose_ph)
+      end
+      for j = 1, n do
+        local i = bkt[j]
+        local f = self.flags[i] ~= 0 and self.flags[i] or default_flags
+        d3d(mesh, self.x[i], self.y[i], self.z[i], 0, self.yaw[i], 0, self.scale[i], f)
+      end
+    end
+  end
+end
+
 ----------------------------------------------------------------- camera
 
 local Cam = {}

@@ -9,7 +9,7 @@ local H = {
   lod = 5,                      -- 1..4 the models hero0..hero3, 5 auto
   cam = 1, cur = 1, panel = true,
   frame = 0,
-  x = {}, z = {}, yaw = {}, spd = {}, wp = {},   -- the heroes
+  x = {}, y = {}, z = {}, yaw = {}, ry = {}, spd = {}, wp = {},   -- the heroes
   hero = {}, hull = {},         -- the meshes: level 0..3 at 1..4
   lines = {},                   -- the last 120 printed lines
   anim_ms = 0, map_tris = nil,

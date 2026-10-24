@@ -3,6 +3,13 @@ do
     H.world_init()
     H.heroes_init()
     H.options_sync()
+    gpu3d(true, nil, nil, 2, nil, true)
+    H.options_sync()
+    if stat(9) == 1 then
+      H.n = 50
+      H.lod = 1
+      ROWS[2].i = 1
+    end
     textures3d(true)
     frameskip(MAX_SKIP)     -- a slow frame is not drawn: the logic runs on at 60 a second
     log("herocart 1 start build " .. tostring(HEROCART_BUILD))

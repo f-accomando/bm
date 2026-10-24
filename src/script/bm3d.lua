@@ -42,7 +42,10 @@ function T.ease(mode, u)
   return u
 end
 T.LIMIT_V, T.LIMIT_T = 65535, 65535              -- u16 format limit
-T.TRIS_60FPS = 1200                              -- about what the console draws at 60 fps
+T.TRIS_ARM = 1200                                 -- ARM software rasterizer limit
+T.TRIS_GPU_SCENE = 50000                          -- VideoCore IV GPU fast-path scene limit
+T.TRIS_GPU_MODEL = 8000                           -- recommended single model limit
+T.TRIS_60FPS = T.TRIS_ARM                         -- baseline 60 fps target
 -- text on rows of 16 pixels and columns of 8: the hint row, the status bar
 T.HINT_Y, T.STATUS_Y = H - 40, H - 24
 local HINT_Y, STATUS_Y = T.HINT_Y, T.STATUS_Y
@@ -2914,11 +2917,13 @@ end
 function T.counts(m, x, y, narrow)
   local nt, nv = m and m.nt or 0, m and m.nv or 0
   local x0 = x
+  local gpu = gpu3d ~= nil and (gpu3d()) == true
+  local limit = gpu and T.TRIS_GPU_MODEL or T.TRIS_ARM
   x = print((m and #m.faces or 0) .. " faces", x, y, C.TEXT) + 8
-  x = print(nt .. " tri", x, y, nt > T.TRIS_60FPS and C.ACC or C.TEXT) + 8
+  x = print(nt .. " tri", x, y, nt > limit and C.ACC or C.TEXT) + 8
   if narrow then x, y = x0, y + 16 end
   print(nv .. " of " .. T.LIMIT_V .. " vertices", x, y, nv > T.LIMIT_V and C.ERR or C.TEXT)
-  if nt > T.TRIS_60FPS then return "heavy for 60 fps (" .. T.TRIS_60FPS .. " triangles a scene)" end
+  if nt > limit then return "heavy for " .. (gpu and "GPU single model" or "ARM 60 fps") .. " (" .. limit .. " triangles)" end
 end
 
 ----------------------------------------------------------------- a model from a picture

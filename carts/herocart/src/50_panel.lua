@@ -43,6 +43,7 @@ do
     if press("r2") then set_heroes(5) end
     if key_edge(0x2F) then set_heroes(shift and -5 or -1) end
     if key_edge(0x30) then set_heroes(shift and 5 or 1) end
+    if key_edge(0x17) then H.n = 50; H.lod = 1; ROWS[2].i = 1 end
     -- the polygon level: X more detail, Y less (, and . on the keyboard)
     if btnp("x") or key_edge(0x36) then ROWS[2].step(-1) end
     if btnp("y") or key_edge(0x37) then ROWS[2].step(1) end
