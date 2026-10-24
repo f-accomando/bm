@@ -28,6 +28,7 @@ for _, n in ipairs({ "cls", "pset", "line", "rect", "rectfill", "circ", "circfil
   env[n] = function() calls = calls + 1 end
 end
 env.SCREEN_W, env.SCREEN_H = 640, 360
+env.screen = function(w, h) return false end
 -- the keys as chips: prompt(name) alone measures
 local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
 local cap                                 -- while not nil: the chips and the words drawn, { s, x, y, w }
