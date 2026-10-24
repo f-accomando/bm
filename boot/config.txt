@@ -5,13 +5,14 @@
 kernel=kernel.img
 arm_64bit=0
 
+# Priority HDMI (hdmi_drive=2) with fallback to composite video (SDTV PAL 16:9)
+# hdmi_force_hotplug is enabled on Pi Zero models so mini-HDMI adapters work stably
+[pi0]
+hdmi_force_hotplug=1
 [pi02]
 kernel=kernel7.img
+hdmi_force_hotplug=1
 [all]
-
-# Priority HDMI (hdmi_drive=2) with fallback to composite video (SDTV PAL 16:9)
-# hdmi_force_hotplug is commented out so firmware falls back to composite when HDMI is unplugged
-# hdmi_force_hotplug=1
 hdmi_drive=2
 sdtv_mode=2
 sdtv_aspect=3

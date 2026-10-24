@@ -14,6 +14,7 @@
 #include "arch/cache.h"
 #include "drivers/mmio.h"
 #include "drivers/prop.h"
+#include "drivers/board.h"
 #include "drivers/dma.h"
 #include "drivers/timer.h"
 #include "kernel/config.h"
@@ -310,9 +311,11 @@ int audio_out_start(const char **status)
     int force_hdmi = ao && strcmp(ao, "hdmi") == 0;
     const char *vo = config_get("video_out");
     int is_rca = vo && (strcmp(vo, "rca") == 0 || strcmp(vo, "composite") == 0);
+    uint8_t bm = board()->model;
+    int is_pi0 = (bm == BOARD_ZERO || bm == BOARD_ZERO_W || bm == BOARD_ZERO_2W);
 
-    /* When RCA video is configured or 3.5mm jack is chosen, prioritize PWM analog audio */
-    if (force_pwm || (is_rca && !force_hdmi)) {
+    /* When RCA video is configured or 3.5mm jack is chosen, prioritize PWM analog audio (Pi 1 only) */
+    if (!is_pi0 && (force_pwm || (is_rca && !force_hdmi))) {
         if (pwm_audio_start(status) == 0) {
             active_out = OUT_PWM;
             return 0;
@@ -327,8 +330,8 @@ int audio_out_start(const char **status)
         }
     }
 
-    /* Fallback: PWM analog audio on 3.5mm jack (GPIO 40/45) */
-    if (pwm_audio_start(status) == 0) {
+    /* Fallback: PWM analog audio on 3.5mm jack (Pi 1 only, no jack on Pi Zero) */
+    if (!is_pi0 && pwm_audio_start(status) == 0) {
         active_out = OUT_PWM;
         return 0;
     }

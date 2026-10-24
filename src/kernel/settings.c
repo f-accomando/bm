@@ -305,17 +305,21 @@ static const char *menu_size_choice(void)
     return v[0] == '3' ? "3x (1080p)" : v[0] == '2' ? "2x (720p)" : "1x (360p)";
 }
 
-/* CRT filter mode: 1 = off, 2 = rca (default), 3 = hdmi, 4 = on */
+/* CRT filter mode: 1 = off, 2 = rca (default for Pi 1), 3 = hdmi, 4 = on */
 int crt_mode(void)
 {
     const char *v = config_get("video_crt");
-    if (!v || !v[0])
-        return 2; /* default: 2 = rca */
+    if (!v || !v[0]) {
+        uint8_t m = board()->model;
+        if (m == BOARD_ZERO || m == BOARD_ZERO_W || m == BOARD_ZERO_2W)
+            return 1; /* default: 1 = off on Pi Zero (HDMI only, save CPU) */
+        return 2;     /* default: 2 = rca on Pi 1 */
+    }
     if (strcmp(v, "off") == 0 || strcmp(v, "1") == 0) return 1;
     if (strcmp(v, "rca") == 0 || strcmp(v, "2") == 0) return 2;
     if (strcmp(v, "hdmi") == 0 || strcmp(v, "3") == 0) return 3;
     if (strcmp(v, "on") == 0 || strcmp(v, "4") == 0) return 4;
-    return 2;
+    return 1;
 }
 
 const char *crt_choice(void)
@@ -404,6 +408,9 @@ static const char *audio_out_choice(void)
 void gpio_lcd_power(int on)
 {
 #ifndef BM_RGB30
+    uint8_t m = board()->model;
+    if (m < BOARD_PI1_A || m > BOARD_CM1)
+        return; /* Only Raspberry Pi 1 models have the SPI LCD hat headers */
     if (!on) {
         spilcd_sleep(1);
         gpio_set_function(18, GPIO_OUTPUT);

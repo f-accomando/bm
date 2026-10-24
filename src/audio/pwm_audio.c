@@ -11,6 +11,7 @@
 #include "drivers/mmio.h"
 #include "drivers/dma.h"
 #include "drivers/gpio.h"
+#include "drivers/board.h"
 #include "drivers/timer.h"
 #include "kernel/irq.h"
 #include "lib/printf.h"
@@ -129,6 +130,11 @@ static void pwm_dma_irq(void *arg)
 int pwm_audio_start(const char **status)
 {
     out_status = status;
+
+    /* Pi Zero / Zero W / Zero 2 W have no 3.5mm jack, and GPIO 45 is BT_REG_ON */
+    uint8_t m = board()->model;
+    if (m == BOARD_ZERO || m == BOARD_ZERO_W || m == BOARD_ZERO_2W)
+        return pwm_fail("board has no 3.5mm jack (GPIO 45 is BT_REG_ON)");
 
     /* Claim DMA channel */
     static const uint8_t pref[] = { 5, 4, 2, 0 };
