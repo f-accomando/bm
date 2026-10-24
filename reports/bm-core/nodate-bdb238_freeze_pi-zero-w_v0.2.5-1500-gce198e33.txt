@@ -1,0 +1,89 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1500-gce198e33
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-bdb238_freeze_pi-zero-w_v0.2.5-1500-gce198e33.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 546 s after boot, kernel v0.2.5-1496-g6f019cdc, ring 10693, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: sd first word <1ms 70 (max 1.5 ms)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.5 ms)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu idle: 292/300 frames, 3 of 1901 ms taken, 0.0 ms past a frame; no job; min slack -37733 us, paced 0
+menu idle: sd first word <1ms 137 >25ms 3 (max 37.8 ms)
+menu idle: 289/300 frames, 3 of 1890 ms taken, 0.0 ms past a frame; no job; min slack -38260 us, paced 0
+menu idle: sd first word <1ms 147 >25ms 3 (max 37.8 ms)
+menu idle: 295/300 frames, 3 of 1918 ms taken, 0.0 ms past a frame; no job; min slack -37150 us, paced 0
+menu idle: sd first word <1ms 88 >25ms 2 (max 37.8 ms)
+menu idle: 295/300 frames, 3 of 1869 ms taken, 0.0 ms past a frame; no job; min slack -36157 us, paced 0
+menu idle: sd first word <1ms 98 >25ms 2 (max 37.8 ms)
+net: receiving a new kernel (4963916 bytes)...
+net: kernel 0% (0 of 4847 KiB)
+bt: mouse disconnected after 515679 ms: it closed the link (switched off, or another console) (reason 13)
+net: kernel 10% (489 of 4847 KiB)
+net: kernel 20% (979 of 4847 KiB)
+net: kernel 30% (1460 of 4847 KiB)
+menu idle: 289/300 frames, 3 of 1330 ms taken, 0.0 ms past a frame; no job; min slack -40445 us, paced 0
+menu idle: sd first word <1ms 147 >25ms 3 (max 37.8 ms)
+net: kernel 40% (1946 of 4847 KiB)
+net: kernel 50% (2430 of 4847 KiB)
+net: kernel 60% (2911 of 4847 KiB)
+net: kernel 70% (3401 of 4847 KiB)
+menu idle: 290/300 frames, 3 of 1281 ms taken, 0.0 ms past a frame; no job; min slack -38915 us, paced 0
+menu idle: sd first word <1ms 147 >25ms 3 (max 37.8 ms)
+net: kernel 80% (3887 of 4847 KiB)
+net: kernel 90% (4366 of 4847 KiB)
+net: kernel received (4963916 bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 67.2 ms past its slice
+net: saved kernel.img on the SD card (4963916 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 19 cartridges; clusters 32 KiB; 9 retried, 9 timed out
+fiber: covers did not yield: 537.8 ms past its slice
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
