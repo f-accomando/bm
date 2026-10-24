@@ -44,8 +44,8 @@ static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else t
 #define TITLE_ROW   4               /* name of the selected cartridge */
 #define CARD_W      MENU_CARD       /* squares, as the bm Suite's icons */
 #define CARD_H      MENU_CARD
-#define RADIUS      16              /* rounded corners of the covers (the icons' own) */
-#define GAP_X       12
+#define RADIUS      0               /* square corners of the covers */
+#define GAP_X       9
 #define PITCH_Y     (CARD_H + GAP_X)
 #define GRID_X0     ((SW - (cols * CARD_W + (cols - 1) * GAP_X)) / 2)
 #define FOOT_Y      316             /* bottom bar, text rows 20-21 */
@@ -53,7 +53,7 @@ static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else t
 /* two whole rows, and the top of the next one showing: there is more below */
 #define PEEK        16
 #define GRID_Y0     (GRID_BOT - PEEK - 2 * PITCH_Y)     /* first row of covers */
-#define GRID_TOP    (GRID_Y0 - 8)   /* the selection ring is 6 px out */
+#define GRID_TOP    (GRID_Y0 - 8)   /* the selection ring is 6 px out (3 gap + 3 line) */
 /* scroll bar in the right margin, along the two whole rows */
 #define SBAR_W      4
 #define SBAR_X      (SW - GRID_X0 / 2 - SBAR_W / 2)
@@ -1359,7 +1359,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             zone(x, z0, CARD_W, z1 - z0, MENU_HIT_COVER, i, y >= GRID_TOP && y + CARD_H <= GRID_BOT);
         }
         if (i == v->sel)            /* ring with a gap, like the home screens */
-            round_ring(x - 6, y - 6, CARD_W + 12, CARD_H + 12, RADIUS + 6, 3,
+            round_ring(x - 3, y - 3, CARD_W + 6, CARD_H + 6, RADIUS, 3,
                        dim ? c16(0x45454B) : pulse(t));
         const menu_item_t *it = &v->items[i];
         card(it->cover, x, y, it->grey);
@@ -1445,7 +1445,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                 scol += sn + 3;
             }
         }
-        int max_cols = SW / 8 - 6 - sub_w - (cur && cur->format && cur->format[0] ? 8 : 0);
+        int max_cols = SW / 8 - 6 - sub_w;
         if (max_cols < 12)
             max_cols = 12;
         if (v->banner) {
@@ -1461,17 +1461,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                 buf[max_cols] = 0;
             int n = (int)strlen(buf);
             round_rect(3 * 8 - 10, TITLE_ROW * 16 - 6, (n + 2) * 8 + 4, 28, 14, c16(C_LINE));
-            int next_col = pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
-            if (cur->format && cur->format[0]) {
-                int b16 = strcmp(cur->format, "b16") == 0;
-                const char *fstr = b16 ? ".b16" : ".bm";
-                uint32_t fg = b16 ? 0xF0A030 : 0x70B8F8;
-                uint32_t bg = b16 ? 0x241808 : 0x101C2C;
-                uint32_t bd = b16 ? 0x704810 : 0x284868;
-                int fn = (int)strlen(fstr), fc = next_col + 2;
-                round_rect(fc * 8 - 10, TITLE_ROW * 16 - 6, (fn + 2) * 8 + 4, 28, 14, c16(bd));
-                pill_text(fc, TITLE_ROW, fstr, fg, bg);
-            }
+            pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
         } else if (v->n == 0) {
             pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
         }

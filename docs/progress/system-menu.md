@@ -15,7 +15,8 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   a game checked and being written (`finishing`) goes on off the tab, nothing else does.
   Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
   subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
-  `.b16` format badges on cards, title bar and details panel.
+  `.b16` format badges on cards and details panel. The title bar shows the name only.
+  Cards have square corners, a 9 px gap, and a selection ring 3 px out with a 3 px line.
 - Updates keep old kernels in `/bm/backup`; nothing is written before files are downloaded
   and checked; the board's own kernel last. Check and install run in a fiber of the menu
   (`update_start`, `update_tick`; the Updates panel lists the files, `update_notice` the
