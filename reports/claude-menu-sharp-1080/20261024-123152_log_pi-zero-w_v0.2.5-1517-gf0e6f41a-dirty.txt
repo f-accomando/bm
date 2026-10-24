@@ -1,0 +1,162 @@
+bm report
+kind: log
+kernel: v0.2.5-1517-gf0e6f41a-dirty
+branch: claude/menu-sharp-1080
+board: Pi Zero W
+date: 2026-10-24 12:31:52
+file: 20261024-123152_log_pi-zero-w_v0.2.5-1517-gf0e6f41a-dirty.txt
+
+
+bm kernel v0.2.5-1517-gf0e6f41a-dirty - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 37.9 C
+ARM1176 from SVC, MMU+caches on, heap 432 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+IRQ on: timer 1000 Hz (measured 999 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 8/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 8 networks
+   1   -55 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -80 dBm  ch  1  WPA2  Wind3 HUB - ED4188
+   3   -83 dBm  ch 10  WPA2  ASUS_30
+   4   -85 dBm  ch 11  WPA2  FASTWEB-5j5SAq
+   5   -86 dBm  ch  3  WPA2  FASTWEB-325YFF
+   6   -86 dBm  ch  8  WPA2  Infostrada-8F1A91
+   7   -87 dBm  ch  1  WPA2  Wind3 HUB - ED4188_EXT
+   8   -90 dBm  ch 11  WPA2  LL
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1280x720, the layout enlarged by the GPU
+menu: GPU check 1: 0 of 921600 pixels differ; by row of the block 0/0/0, by column 0/0/0, even/odd layout rows 0/0; first at -1,-1 got 0000 want 0000; pitch 2560, width 1280
+menu: GPU check 2: 0 of 921600 pixels differ; by row of the block 0/0/0, by column 0/0/0, even/odd layout rows 0/0; first at -1,-1 got 0000 want 0000; pitch 2560, width 1280
+menu: GPU check 3: 0 of 921600 pixels differ; by row of the block 0/0/0, by column 0/0/0, even/odd layout rows 0/0; first at -1,-1 got 0000 want 0000; pitch 2560, width 1280
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-10-24 12:29 UTC
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -110211 us, paced 0; sd 1 retried, 1 timed out
+menu idle: sd sites: rdend 1; first word <1ms 91 <3ms 7 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 6677 us, enlarge 13605 us, flip 93 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20420 us, paced 0
+menu frame: 2x, a frame averages draw 6363 us, enlarge 12537 us, flip 94 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20272 us, paced 0
+menu frame: 2x, a frame averages draw 6364 us, enlarge 12538 us, flip 94 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20274 us, paced 0
+menu frame: 2x, a frame averages draw 6365 us, enlarge 12538 us, flip 93 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20258 us, paced 0
+menu frame: 2x, a frame averages draw 6364 us, enlarge 12540 us, flip 93 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20270 us, paced 0
+menu frame: 2x, a frame averages draw 6364 us, enlarge 12540 us, flip 93 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20195 us, paced 0
+menu frame: 2x, a frame averages draw 6364 us, enlarge 12540 us, flip 93 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20550 us, paced 0
+menu idle: sd first word <1ms 4 <3ms 1 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 6380 us, enlarge 12540 us, flip 93 us, free time used 0 us (300 frames)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20258 us, paced 0
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 6374 us, enlarge 12540 us, flip 93 us, free time used 0 us (300 frames)
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+type 'h' for help
+> :
+:gpu
+: gpu 
+GPU test: the 3D unit (V3D), step by step (if the Pi freezes, the last line is the culprit)
+  1 power on the 3D unit (mailbox)    ok  V3D clock 250 MHz
+  2 identity                          ok  rev 1, 3 slices x 4 QPUs, 2 TMUs per slice, VPM 12 KB
+  3 clear (rendering list only)       ok  210 us, byte a = red
+  4 one triangle (binning, shader)    ok  bin 3 us, render 496 us
+  5 depth test (24-bit z in the chip) ok
+  6 speed: 20000 small triangles      ok  ARM 7651 us, bin 2656 us, render 4085 us: 2966 k tri/s
+  7 speed: 20 full screens            ok  bin 11 us, render 8165 us: 564 Mpixel/s
+  8 texture (TMU), nearest texel      ok  render 443 us, texel bytes as the tile buffer's
+  9 on the screen (RGBA8888)          ok  render 543 us
+  10 the 3D of the games on the GPU   ok  ARM 28378 us, GPU 9884 us (3311 triangles in 1 jobs; bin 560, render 1825), 0.1% differ
+    binner: at most 22 KB of the tile lists, 0 KB of the overflow, 0 jobs in it
+  the picture: ARM on the left, GPU on the right (a key or 10 s)
+  11 depth kept across 2D (3D, 2D, 3D)gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+ok  ARM 8775 us, GPU 4853 us (96 triangles in 2 jobs, depth kept; bin 27, render 2835), 0.0% differ
+    binner: at most 10 KB of the tile lists, 0 KB of the overflow, 0 jobs in it
+  the picture: ARM on the left, GPU on the right (a key or 10 s)
+  12 textures in tiles (T-format)     ok  render in rows 1893 us, in tiles 1764 us (1.0x), the same picture
+  13 anti-aliasing (MSAA 4x)          ok  GPU without 1718 us, with 1959 us; 6.3% of the pixels smoothed (MSAA on any page)
+  the picture: without anti-aliasing on the left, with on the right (2x, a key or 10 s)
+  14 vertex shader (the GPU places the corners)ok  ARM 9490 us without, 4068 us with (60 meshes; GPU 2974 / 2360 us), 0.0% differ
+  the picture: corners by the ARM on the left, by the GPU on the right (a key or 10 s)
+  15 frame queue and zclear() in the job (bm3d 4.1)ok  ARM 28349 us, GPU 9859 us (3311 triangles in 1 jobs; bin 0, render 2371), 0.1% differ
+    binner: at most 22 KB of the tile lists, 0 KB of the overflow, 0 jobs in it
+    1 jobs started and waited for later, 0 zclear() inside a job
+  the picture: ARM on the left, GPU on the right (a key or 10 s)
+  16 2D over the 3D in the GPU's job (bm3d 4.8)gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+ok  ARM's 2D 11328 us in 2 jobs, GPU's 9705 us in 1 jobs (37 quads), the same pixels
+  the picture: the HUD by the ARM on the left, by the GPU on the right (a key or 10 s)
+    the probes: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+    options after the test: bm3d 7.7 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0
+GPU test passed
+report: 20261024-123114_gpu_pi-zero-w_v0.2.5-1517-gf0e6f41a-dirty.txt saved as bm/reports/rpt00004.txt
+tls: 21 root certificates
+report: sending 20261024-123114_gpu_pi-zero-w_v0.2.5-1517-gf0e6f41a-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-menu-sharp-1080/20261024-123114_gpu_pi-zero-w_v0.2.5-1517-gf0e6f41a-dirty.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:log
+: log 
