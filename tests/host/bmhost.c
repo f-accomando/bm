@@ -513,7 +513,7 @@ int main(int argc, char **argv)
     if (getenv("BMHOST_REPORTS"))       /* the session report (BMHOST_CONFIG=session_report=1) */
         bm_print_stats(&st);
     fprintf(stderr, "bmhost: \"%s\" %ld frames, %s, a frame takes %.3f ms on this PC "
-                    "(max %.3f), %u KiB of Lua, %.1f s\n",
+                    "(max %.3f), %u KB of Lua, %.1f s\n",
             st.title, run.frame, st.ok ? "ok" : "ERROR",
             run.frame > 1 ? cpu_sum / 1000.0 / (double)(run.frame - 1) : 0.0, cpu_max / 1000.0, st.lua_kb, cpu);
     gpu3d_stats_t g;

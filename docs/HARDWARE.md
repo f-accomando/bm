@@ -21,7 +21,7 @@ Source legend: *(M)* measured on a real Pi Zero W, *(Q)* measured in QEMU,
 |---|---|---|---|
 | CPU | ARM1176JZF-S (ARMv6), 1 core, 700 MHz at boot → **1000 MHz** *(M)* | 1 core at 1000 MHz, MMU + I/D caches + branch prediction on *(M)* | 1 core of 1 (100% available to us, no OS) |
 | FPU | VFPv2, double in hardware *(D)* | used by Lua (double), by the 3D and by the synthesizer; RunFast on | — |
-| Cache | L1 16 KiB instructions + 16 KiB data; L2 128 KiB in the VideoCore *(D)* | L1 on | — |
+| Cache | L1 16 KB instructions + 16 KB data; L2 128 KB in the VideoCore *(D)* | L1 on | — |
 | Integer division | not in hardware (libgcc) *(D)* | — | divisions are expensive, avoid them in hot loops |
 | Frame budget | 16.7 ms at 60 fps | 640×360 fill: 2.2 ms; C demo: 2.7 ms of drawing *(M)* | ~84% of the frame free in the C demo |
 | Lua | — | ~100 ns per simple operation: fib(25) 83 ms, 1M additions 104 ms *(M)* | ~140 000 Lua operations per frame at 60 fps |
@@ -30,11 +30,11 @@ Source legend: *(M)* measured on a real Pi Zero W, *(Q)* measured in QEMU,
 
 | Resource | Pi Zero W | bm today | Use |
 |---|---|---|---|
-| Total RAM | **512 MiB** LPDDR2, shared CPU/GPU *(D)* | — | — |
-| ARM RAM | 448 MiB (with `gpu_mem=64`) *(M)* | kernel ~1.1 MB (with SDK, Sound editor and TLS inside) + stack 1.1 MiB + heap ~447 MiB | all available |
-| GPU RAM | 64 MiB *(M)* | framebuffer 640×360×4×2 = 1.8 MiB | 2.8% of the GPU memory |
-| Memory for Lua | — | limit **64 MiB** *(M)*; boot.lua uses 84 KiB of it, peak 3.4 MiB | 14% of the ARM RAM as a ceiling |
-| Sound bank | — | 2 copies of ~140 KiB (the one playing and the one the new one is read into) | ~0 |
+| Total RAM | **512 MB** LPDDR2, shared CPU/GPU *(D)* | — | — |
+| ARM RAM | 448 MB (with `gpu_mem=64`) *(M)* | kernel ~1.1 MB (with SDK, Sound editor and TLS inside) + stack 1.1 MB + heap ~447 MB | all available |
+| GPU RAM | 64 MB *(M)* | framebuffer 640×360×4×2 = 1.8 MB | 2.8% of the GPU memory |
+| Memory for Lua | — | limit **64 MB** *(M)*; boot.lua uses 84 KB of it, peak 3.4 MB | 14% of the ARM RAM as a ceiling |
+| Sound bank | — | 2 copies of ~140 KB (the one playing and the one the new one is read into) | ~0 |
 | Cartridge | microSD (GB) | the largest, Titan Clash, 1.7 MB; read entirely into RAM | negligible |
 
 In practice **memory is not a constraint**; the time per frame and the bandwidth to
@@ -90,7 +90,7 @@ Same SoC (BCM2835), same kernel; the differences that matter for bm *(D)*:
 | Resource | Pi 1 B (rev 2.0) / B+ | Pi Zero W | bm |
 |---|---|---|---|
 | CPU | ARM1176 at **700 MHz** | 1 GHz | clock at the maximum the firmware allows |
-| RAM | 512 MiB (B rev 1.0: 256) | 512 MiB | read from the firmware |
+| RAM | 512 MB (B rev 1.0: 256) | 512 MB | read from the firmware |
 | USB | 2 ports (B+: 4) behind the hub of the **LAN9512** (B+: LAN9514), high speed | 1 OTG | hub + split transactions, 1 HID device in use |
 | Network | **Ethernet 10/100** (LAN951x, USB 0424:ec00, hub port 1) | WiFi (BCM43438) | `smsc95xx.c` driver, lwIP as with WiFi |
 | Wi-Fi / Bluetooth | absent | BCM43438 | `W` and `T` say they are not there |
@@ -109,10 +109,10 @@ that matter for bm *(D)*:
 | Resource | Pi Zero 2 W | Pi Zero W | bm (`kernel7.img`) |
 |---|---|---|---|
 | CPU | **4 × Cortex-A53** (ARMv8) at 1 GHz, started by the firmware in HYP mode | 1 × ARM1176 (ARMv6) at 1 GHz | 32 bit (ARMv7: integer division in hardware, VFPv4 with 32 registers, NEON); switches from HYP to SVC; **1 core**, the other 3 stay parked in the firmware stub |
-| Cache | L1 32 KiB + 32 KiB per core, **L2 512 KiB**, 64-byte lines | L1 16 + 16 KiB, 32-byte lines | ARMv7 operations (by address up to the point of coherency; "whole cache" by set/way, L1 and L2) |
+| Cache | L1 32 KB + 32 KB per core, **L2 512 KB**, 64-byte lines | L1 16 + 16 KB, 32-byte lines | ARMv7 operations (by address up to the point of coherency; "whole cache" by set/way, L1 and L2) |
 | Peripherals | at **0x3F000000** (+ the ARM ones at 0x40000000) | at 0x20000000 | same drivers (UART, GPIO, timer, DMA, SDHOST, USB DWC2, HDMI, mailbox) |
 | Addresses for GPU and DMA | uncached alias 0xC0000000 | L2 alias 0x40000000 | `ARM_TO_BUS` in `src/drivers/mmio.h` |
-| RAM | 512 MiB LPDDR2 | 512 MiB | same |
+| RAM | 512 MB LPDDR2 | 512 MB | same |
 | ACT LED | **GPIO 29** active low | GPIO 47 active low | on the Zero 2 W GPIO 47 is the power supply's I2C: never touched by `kernel7.img` |
 | Wi-Fi | **CYW43436** (reports chip 43430; rev 2+ = 43436, rev 1 = 43436s) on the same pins (SDIO GPIO 34–39, WL_ON GPIO 41) | BCM43438 | firmware `brcmfmac43436-sdio.*` or `brcmfmac43436s-sdio.*` in `bm/` |
 | Bluetooth | same chip, UART GPIO 30–33, **BT_ON GPIO 42** | BT_ON GPIO 45 | patch `SYN43430B0.hcd` or `SYN43430A1.hcd` in `bm/`, chosen from the LMP subversion |

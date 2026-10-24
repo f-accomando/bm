@@ -191,7 +191,7 @@ or 3 with samples; version 1 is still read): up to 32 sounds (instruments, each 
 tone: filter, place, room, echo, LFO, effects), 64 sound effects, 64 patterns, 8 songs (each
 with the echo on the beat, in steps, and the room's size) and up to 64 **samples** (8, 16,
 24, 32-bit or float, mono or stereo, any rate, with a root note and a loop: forward or
-ping-pong; 16 MiB a bank, about 174 s of mono at 48 kHz). It is made with the
+ping-pong; 16 MB a bank, about 174 s of mono at 48 kHz). It is made with the
 **Sound editor** (Dev tab), which opens a game and saves its sounds right inside it; its
 menu's *Samples...* lists the bank's samples and the kit's with their length and peak and
 puts one into the sound (the SAMPLE wave, with SAMPLE and START among its settings), and the

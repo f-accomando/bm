@@ -44,7 +44,7 @@ void web_gap_reset(void);
 void web_policy_allow_http(int on);
 #endif
 
-/* A byte cap from a config value in KiB (NULL or not a number: def), kept between 1 and limit. */
+/* A byte cap from a config value in KB (NULL or not a number: def), kept between 1 and limit. */
 size_t web_cap_bytes(const char *kib_text, unsigned def, unsigned limit);
 
 #endif

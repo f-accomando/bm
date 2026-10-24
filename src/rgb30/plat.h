@@ -11,12 +11,12 @@
 #if defined(PLAT_RK3566)
 #define PLAT_NAME       "RGB30"
 #define PLAT_RAM_START  0x00200000u     /* below: TF-A (BL31) */
-#define PLAT_RAM_END    0x40000000u     /* 1 GiB of LPDDR4 */
+#define PLAT_RAM_END    0x40000000u     /* 1 GB of LPDDR4 */
 #define PLAT_DEV_START  0xc0000000u     /* peripherals 0xfc000000-0xffffffff */
 #define PLAT_DEV_END    0x100000000ull
 #define PLAT_GICD       0xfd400000u
 #define PLAT_GICR       0xfd460000u
-#define PLAT_FB_START   0x3c000000u     /* display and GPU memory: top 64 MiB, uncached */
+#define PLAT_FB_START   0x3c000000u     /* display and GPU memory: top 64 MB, uncached */
 #define PLAT_HEAP_END   PLAT_FB_START
 #elif defined(PLAT_VIRT)
 #define PLAT_NAME       "QEMU virt"
@@ -35,7 +35,7 @@
 #define IRQ_TIMER_PPI   30              /* EL1 physical timer (PPI 14) */
 
 #define PLAT_FB_END     PLAT_RAM_END
-/* The last 4 MiB of it are the GPU's (page tables, jobs: mali.c) */
+/* The last 4 MB of it are the GPU's (page tables, jobs: mali.c) */
 #define PLAT_GPU_START  (PLAT_FB_END - (4u << 20))
 
 /* serial console: UART2 on the RGB30 (1500000 8N1, as U-Boot), the PL011 in QEMU */

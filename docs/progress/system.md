@@ -26,7 +26,7 @@ peripherals as device, the rest unmapped. `mmu_set_cached` switches ranges (GPU 
 - Fibers, shares, the `menu idle:` log: [multitasking](multitasking.md).
 
 ### Crashes and freezes (`exceptions.c`, `crumbs.c`, `src/drivers/watchdog.c`)
-Exceptions show a red screen with registers and the call trail. Breadcrumbs and the last 4 KiB
+Exceptions show a red screen with registers and the call trail. Breadcrumbs and the last 4 KB
 printed live in `.noinit`, survive a reset and become a report at the next boot
 (`reports_text`), sent once the network is up. Watchdog: armed at 3 s (the Pi Zero W boot log says `watchdog: on, 3000 ms`).
 `exception_handler()` sets the crash flag before all other work, so a restart from a hang in the handler is reported as a crash. The timer IRQ pets the watchdog through `watchdog_pet_irq()`, which pets only while the main code makes progress (`watchdog_progress()`, called by `crumb`, `crumb_frame`, `fb_flip` and the input polls). More than 20 s without progress: no pet, and the SoC resets 3 s later. `mbox_call` gives up after 2 s. Analysis of the freezes of 22-23 Oct: [watchdog-hang](../design/watchdog-hang.md).
@@ -41,7 +41,7 @@ B/B+ Ethernet.
   if SDHOST fails a transfer twice; not on a failed multi-block write. `sd_counters()`
   (retries, waits run out) and `fat_cluster_bytes()` in the boot `sd:` line.
 - FAT16/FAT32: long names read, whole files and 8.3 directories written. `store()`: the
-  clusters marked as a chain first (`alloc_chain`), the data in runs of up to 32 KiB read
+  clusters marked as a chain first (`alloc_chain`), the data in runs of up to 32 KB read
   back (`fat_write_runs`, on; off for good on a mismatch), the last cluster only where it
   has data, then with no tick the entry found again (`locate`) and changed in one sector;
   the old chain released last. FAT entries change a sector per copy at a time

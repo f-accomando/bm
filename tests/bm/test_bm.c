@@ -1343,7 +1343,7 @@ static void test_type_bits(void)
     CHECK(strcmp(bm_type_name(BM_TYPE_APP), "app") == 0, "type name");
 }
 
-/* the compatibility block (bytes 120..127, flag bit 4), the old files, the writers, no 8 MiB limit */
+/* the compatibility block (bytes 120..127, flag bit 4), the old files, the writers, no 8 MB limit */
 static void test_compat(void)
 {
     static const char code[] = "function _draw() cls(0) end\n";
@@ -1410,18 +1410,18 @@ static void test_compat(void)
     CHECK(!(d[18] & BM_FLAG_COMPAT) && d[120] == 0 && d[127] == 0, "declared 0 clears the block and the flag");
     free(d);
 
-    /* no 8 MiB limit: a cartridge of 9 MiB (and its code) loads */
+    /* no 8 MB limit: a cartridge of 9 MB (and its code) loads */
     const size_t big = (size_t)9 << 20;
     char *lua = malloc(big);
-    CHECK(lua != NULL, "9 MiB of code allocated");
+    CHECK(lua != NULL, "9 MB of code allocated");
     if (!lua)
         return;
     memset(lua, 'x', big);
     memcpy(lua, "-- ", 3);
     size_t nb = 0;
     uint8_t *g = bm_rewrite(NULL, 0, lua, big, "Big", "t", 640, &nb);
-    CHECK(g && nb > ((size_t)8 << 20), "a cartridge file above 8 MiB is made");
-    CHECK(g && bm_parse(g, nb, &c, err, sizeof err) == 0 && c.lua_size == big, "a cartridge above 8 MiB loads (%s)", err);
+    CHECK(g && nb > ((size_t)8 << 20), "a cartridge file above 8 MB is made");
+    CHECK(g && bm_parse(g, nb, &c, err, sizeof err) == 0 && c.lua_size == big, "a cartridge above 8 MB loads (%s)", err);
     free(g);
     free(lua);
 }

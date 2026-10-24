@@ -63,7 +63,7 @@ def main():
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error"] + raw + ["-ss", str(a.gif_from), "-t", str(a.gif_len),
                             "-vf", pal, a.gif], check=True)
     os.remove(rgb)
-    print(f"{a.mp4}: {len(shots)} shots, {os.path.getsize(a.mp4) // 1024} KiB")
+    print(f"{a.mp4}: {len(shots)} shots, {os.path.getsize(a.mp4) // 1024} KB")
     return 0
 
 

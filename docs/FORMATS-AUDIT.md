@@ -25,7 +25,7 @@ old kernels, old tools or existing cartridges. Evidence is `file:line` at the ti
 | 2 | `mkbm.py:57` and `PROJECT-LAYOUT.md:27`, `B16.md:24`: 720x720 allowed | `format.c:562-565`: the kernel refuses 720x720 (only 5 modes) |
 | 3 | `bm.h:25-26`: cover 128x80 | `bm.h:170-173`, `mkbm.py`: 88x88 |
 | 4 | `bm.h:41`: mesh names "unique" | `format.c:149`: only "not empty" |
-| 5 | `mkbm.py:65`, `bmres.py:271`: INFO over 16 KiB is an error | `format.c:588-592`: silently dropped in a cartridge |
+| 5 | `mkbm.py:65`, `bmres.py:271`: INFO over 16 KB is an error | `format.c:588-592`: silently dropped in a cartridge |
 | 6 | `bmres.py check`: refuses broken INFO/SPRITES/BOXES and duplicate sections | the kernel plays such a cartridge (drops them; the last duplicate wins) |
 | 7 | "is it a sound bank" decided four ways: `format.c:678` (size >= 16), `runtime.c:5284` and `6730` (>= 4), `bmres.py:161`, `bmmesh.py:188` (no size test) | a 4..15 byte blob is audio for the tools and an error for the kernel |
 | 8 | `mkbm.py:436,475`: title cut at 47 bytes, can end inside a UTF-8 character | `bmres.py _fixed` avoids it |
@@ -80,12 +80,12 @@ are not applied yet"; `scripts/mkmarket.py:121-125`).
 | New container `B16CART` (256-byte header, section table of §3) | only designed, contradicted by the real container |
 | 360x360 or 720x720 fixed, no `screen()` | partly: the tools force the header; `screen()` still exists; 720 refused (F2) |
 | Palette of 256 colours / `SHEET8` | not checked for `.b16`; no `PAL` section exists |
-| Lua heap 4 MiB | **contradicted**: 64 MiB for every cartridge (`luavm.c:13`) |
-| Save 64 KiB | **contradicted**: 32 KiB (`runtime.c:3300`); `B16.md:529` says saves are not designed |
+| Lua heap 4 MB | **contradicted**: 64 MB for every cartridge (`luavm.c:13`) |
+| Save 64 KB | **contradicted**: 32 KB (`runtime.c:3300`); `B16.md:529` says saves are not designed |
 | Budget 1 M instructions, 60 -> 30 fps drop | **contradicted/missing**: 20 M per callback for every cartridge; no throttle. Decided: promise dropped (D4) |
 | Sandbox allow-list built from empty; no `math.random`, `time`, files, `screen`, `require` | **contradicted**: a deny list (only `dofile loadfile load` removed); `math`, `time`, `cart_*`, `ls` stay (`runtime.c:4809-4822`) |
 | Graphic banks 1024x1024, `gfxbank` | only designed; Yharnam's sheet is 4096x3392 |
-| File cap 8 MiB | enforced when **building** (`mkbm.py:600`, `project.c:203`, Makefile, `mkmarket.py`), not when the console loads |
+| File cap 8 MB | enforced when **building** (`mkbm.py:600`, `project.c:203`, Makefile, `mkmarket.py`), not when the console loads |
 | Working folder `dev/<name>/`, `suspend` | only designed; the real flow is `.bme` projects |
 
 How a `.b16` is really made: `mkbm.py --b16`/`--from X --b16`; the SDK's "Export .b16" (`bm_build_b16`); Overbit has its own
@@ -102,10 +102,10 @@ Documentation inconsistencies: `B16.md:5-7` "not yet implemented" against `progr
 
 | Id | Proposal | Pros | Cons | Breaks? |
 |---|---|---|---|---|
-| B1 | Rewrite `B16.md` §0 to say what is true: marking + 8 MiB + 360x360 target; move the `B16CART`, banks, `dev/` design to a "future design" part; fix the numbers (4 MiB, 64 KiB, 1 M); create `B16-IT.md` or remove the link | honest spec at zero risk | none | no |
+| B1 | Rewrite `B16.md` §0 to say what is true: marking + 8 MB + 360x360 target; move the `B16CART`, banks, `dev/` design to a "future design" part; fix the numbers (4 MB, 64 KB, 1 M); create `B16-IT.md` or remove the link | honest spec at zero risk | none | no |
 | B2 | Build Yharnam and Titan EX with `mkbm.py --from X.bm --b16` instead of `cp`, so the flag is true (or decide the extension alone is authoritative and drop the flag from the docs) | trivial; makes the flag usable | the `.b16` bytes now differ from the `.bm`; the Market version changes once | no |
-| B3 | What a `.b16` promises: **(a)** a *target* only (screen 360x360, 8 MiB): nothing else; **(b)** a **packaging lint** in `mkbm.py`/`mkmarket.py`/the SDK that refuses or warns on forbidden APIs (the SDK already lists them: `editor/main.lua:792-830`); **(c)** runtime enforcement keyed on the flag in `new_cart_state` (`runtime.c:4802`): no `math.random`, `cart_*`, `ls`, `screen`, a lower heap and budget | (a) nothing to build; (b) no runtime change; (c) is the real profile, same behaviour on Pi and RGB30 | (a) the "identical on both consoles" promise is not made; (b) a text scan is approximate and does not stop hand-made files; (c) needs B2 first and may break published `.b16` (Yharnam) | (a) no; (b) no; (c) **yes** for any `.b16` that uses them |
-| B4 | Check size (8 MiB), resolution and the flag when the console **loads** a `.b16` (`B16.md` §7 asks for it), with a message | small | blocks hand-copied oversize files | oversize files only |
+| B3 | What a `.b16` promises: **(a)** a *target* only (screen 360x360, 8 MB): nothing else; **(b)** a **packaging lint** in `mkbm.py`/`mkmarket.py`/the SDK that refuses or warns on forbidden APIs (the SDK already lists them: `editor/main.lua:792-830`); **(c)** runtime enforcement keyed on the flag in `new_cart_state` (`runtime.c:4802`): no `math.random`, `cart_*`, `ls`, `screen`, a lower heap and budget | (a) nothing to build; (b) no runtime change; (c) is the real profile, same behaviour on Pi and RGB30 | (a) the "identical on both consoles" promise is not made; (b) a text scan is approximate and does not stop hand-made files; (c) needs B2 first and may break published `.b16` (Yharnam) | (a) no; (b) no; (c) **yes** for any `.b16` that uses them |
+| B4 | Check size (8 MB), resolution and the flag when the console **loads** a `.b16` (`B16.md` §7 asks for it), with a message | small | blocks hand-copied oversize files | oversize files only |
 | B5 | `show_bm` default 0 on the RGB30 release builds | matches the doc | breaks the testers' workflow | no |
 | B6 | Drop the claim of 30 fps throttle and CPU % (keep the dev kit's measures) or build a deterministic frame-cost meter | honest or complete | the meter needs tuning on the Pi; 3D/GPU time is not deterministic | no |
 
@@ -138,7 +138,7 @@ overwrites it. **Nothing checks a licence**: not `mkbm.py`, not the Market (`mkm
 **What is missing for reuse:** a dependency list (`res:` in `bm.info` is only approved in principle); versioning
 (nothing compares `version`); conflicts (`add` renames duplicate model/zone/sound names, so game code using the old name
 breaks silently; tiles go to free cells and are remapped; flags are copied into the cell and can overwrite); palette
-mismatch (more than 256 colours fails only for `.bmc`); the `.b16` limits (no 256-colour or 8 MiB check in `add`); the
+mismatch (more than 256 colours fails only for `.bmc`); the `.b16` limits (no 256-colour or 8 MB check in `add`); the
 Market cannot carry resource files.
 
 ### Options
@@ -146,7 +146,7 @@ Market cannot carry resource files.
 | Id | Proposal | Pros | Cons | Breaks? |
 |---|---|---|---|---|
 | R1 | **Finish copy-on-import** (today's design): `extract` keeps the file-level INFO; the Lib options and the editors open `.bmm/.bmi/.bmk`; bm Sound writes provenance | no format change; one file per game; tested code (`test_bmres.py`) | duplicates data; no update path; licence carried, not checked; names may be renamed under the game | no |
-| R2 | **Declarative `res:`** in `bm.info`: `res: res/knight.bmm sha256=... license=CC-BY-4.0`; `mkbm.py` (or a wrapper) checks hashes, integrates in order, refuses licences not on a policy table, fails over 256 colours or 8 MiB with `--b16` | reproducible builds; licence check; plain text; the `res/` folder is already in the layout | `mkbm.py` has no integration code and `bmres.py` imports `mkbm.py` (needs a third module); someone must write the licence table; the `.bm` stays a copy; name conflicts still need a rule (rename or error) | no (text file; old kernels ignore INFO) |
+| R2 | **Declarative `res:`** in `bm.info`: `res: res/knight.bmm sha256=... license=CC-BY-4.0`; `mkbm.py` (or a wrapper) checks hashes, integrates in order, refuses licences not on a policy table, fails over 256 colours or 8 MB with `--b16` | reproducible builds; licence check; plain text; the `res/` folder is already in the layout | `mkbm.py` has no integration code and `bmres.py` imports `mkbm.py` (needs a third module); someone must write the licence table; the `.bm` stays a copy; name conflicts still need a rule (rename or error) | no (text file; old kernels ignore INFO) |
 | R3 | **Runtime loading** of resource files (`res_load`) | one copy on the card; updates reach every game; smaller cartridges | contradicts rule 7 of `RISORSE.md` (a cartridge stays one file); needs a new API and a path past the sandbox; tile numbers, palette and corners solved at load time; Market games would depend on files that may be missing; two editions need two resource sets | **yes** (old kernels, Market) |
 
 **Suggested order:** R1 (including the small fix in `extract`), then specify R2 together with the licence policy; leave R3.

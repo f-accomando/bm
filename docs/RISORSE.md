@@ -165,7 +165,7 @@ tags: metallo, colpo
   `version`, `tags` (comma-separated), `origin` (SHA-256 of the resource it was
   copied from), `date` (YYYY-MM-DD).
 - Block types: `model`, `sprite`, `sound`, `sfx`, `song`, `map`, `palette`.
-- At most 16 KiB. Unknown keys are kept.
+- At most 16 KB. Unknown keys are kept.
 - Computed tags (animated, textured, triangle count, size) are not
   written: the reader derives them.
 - INFO can also be in a game's `.bm`: old kernels ignore it and `bm_rewrite`

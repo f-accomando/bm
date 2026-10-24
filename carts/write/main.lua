@@ -1760,7 +1760,7 @@ local function draw_overlay()
       U.zone((c0 + 1) * 8, y, (cols - 2) * 8, 16, "frow", i)
       if i == o.sel then rectfill((c0 + 1) * 8, y, (cols - 2) * 8, 16, C.hot) end
       print(f.name, (c0 + 2) * 8, y, C.text)
-      local sz = f.size < 1024 and (f.size .. " B") or ((f.size + 1023) // 1024 .. " KiB")
+      local sz = f.size < 1024 and (f.size .. " B") or ((f.size + 1023) // 1024 .. " KB")
       print(sz, (c0 + cols - 2 - #sz) * 8, y, C.dim)
     end
   elseif o.kind == "prompt" then

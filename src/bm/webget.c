@@ -17,7 +17,7 @@
 #define WEB_SLICE_US    4000u
 #define PUMP_US         3000u           /* a queued file_write gets this much of each web_poll */
 #define PART_HEAD       1280u           /* the part file: this header, then the bytes */
-#define PART_STEP       (1u << 20)      /* saved about every 1 MiB */
+#define PART_STEP       (1u << 20)      /* saved about every 1 MB */
 #define PART_MIN        16384u          /* less than this is not worth a file */
 
 static web_req_t slots[WEB_SLOTS];

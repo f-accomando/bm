@@ -297,7 +297,7 @@ function B.copy(v)
 end
 
 ----------------------------------------------------------------- WAV and MIDI files
--- Read from /docs (doc_list, doc_read: at most 4 MiB). Pure functions of the
+-- Read from /docs (doc_list, doc_read: at most 4 MB). Pure functions of the
 -- file's bytes (tests/sound/sim.lua checks them): a WAV becomes a sample of
 -- the bank (B.wav_parse, B.wav_sample, B.add_sample), a standard MIDI file
 -- becomes patterns and a song (B.mid_parse, B.mid_import).

@@ -72,7 +72,7 @@ def pack(frames, fps, pcm=b"", rate=0, channels=0, bits=0):
     index = b"".join(struct.pack("<II", o, n) for o, n in offs)
     audio_off = index_off + len(index)
     if pos + len(index) + len(pcm) >= 1 << 32:
-        raise ValueError("the clip would be 4 GiB or more")
+        raise ValueError("the clip would be 4 GB or more")
     head = MAGIC + struct.pack("<BBBBHHHHIIII", 1, 1, channels, bits, w, h, fps, rate, len(frames),
                                index_off, audio_off if pcm else 0, len(pcm))
     assert len(head) == 32

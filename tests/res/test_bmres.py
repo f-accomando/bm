@@ -96,7 +96,7 @@ def test_info_sprites():
     check(info["file"][0] == ("name", "Knights") and info["items"][0][:2] == ["model", "knight"], "INFO parsed")
     check(bmres.info_parse(bmres.info_dump(info)) == info, "INFO back the same")
     check(bmres.kv_get(info["items"][0][2], "weird key") == "kept", "INFO keeps unknown keys")
-    raises(lambda: bmres.info_parse(b"x: " + b"a" * bmres.INFO_MAX), "INFO over 16 KiB")
+    raises(lambda: bmres.info_parse(b"x: " + b"a" * bmres.INFO_MAX), "INFO over 16 KB")
     zones = [{"name": "hero", "x": 0, "y": 8, "w": 16, "h": 16, "frames": 4, "fps": 8},
              {"name": "coin", "x": 64, "y": 0, "w": 8, "h": 8, "frames": 1, "fps": 0}]
     body = bmres.sprites_encode(zones)

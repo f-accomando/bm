@@ -87,13 +87,13 @@ with the F keys (Y + left/right on the gamepad), Esc the menu, **F12** held the 
 - **F1, the project**: on the left *OPEN IN* (1 bm Code, 2 bm Pixel, 3 bm Studio, 4 bm
   Animator, 5 bm Mesh, 6 bm Sound: the SDK saves and opens the program on the same file; in
   its menu **Back to bm SDK** saves and returns) and *PROJECT* (t title, a author, r screen, b
-  target `.bm`/`.b16`, n a template). On the right what is in the file: lines, KiB and **tokens**
+  target `.bm`/`.b16`, n a template). On the right what is in the file: lines, KB and **tokens**
   of the code, the drawn cells of the sheet, those of the map, the models, the
   skeletons and the animations, the sound bank; the numbers of the last test run; how to ask
   the assistant.
 - **F1 again, the dev kit**: the tokens and the biggest functions, the memory the game's
   data takes while it runs (sheet, map, models, skeletons, sounds, z-buffer: the
-  same sum as `stat(13)`; Lua is added on top), the saved file against the **8 MiB**
+  same sum as `stat(13)`; Lua is added on top), the saved file against the **8 MB**
   of a `.b16` ([docs/B16.md](../docs/B16.md) §8.5) and, with the `.b16` target, the lines that
   format won't have (`math.random`, `time()`, files...). After a test run (**F5**) its
   numbers: fps, average and maximum ms of `_update` + `_draw`, frames over 16.7 ms,

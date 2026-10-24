@@ -25,7 +25,7 @@ typedef struct fiber {
 } fiber_t;
 
 /* Gets f ready to run fn(arg) on the given stack (8-byte aligned, at least
- * a few KiB; the caller keeps it). */
+ * a few KB; the caller keeps it). */
 void fiber_prepare(fiber_t *f, void *stack, size_t size, void (*fn)(void *), void *arg);
 /* Runs f until it yields or ends. Returns 1 while it has more to do, 0
  * once fn has returned. Not from inside a fiber. */
@@ -85,7 +85,7 @@ void fiber_job_stop(fiber_job_t *j);
 #define FIBER_STALL_US 5000
 extern volatile uint8_t fiber_over;
 void fiber_tick(void);
-/* Boot diagnostics: a job that runs 8 ms with no yield and a 2 KiB stack use; prints the
+/* Boot diagnostics: a job that runs 8 ms with no yield and a 2 KB stack use; prints the
  * "did not yield" line and "fiber selftest: ok" (0), or FAILED (1). */
 int  fiber_selftest(void);
 

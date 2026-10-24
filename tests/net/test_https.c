@@ -93,7 +93,7 @@ int main(int argc, char **argv)
     int same = n == 1 << 20;
     for (size_t i = 0; same && i < n; i++)
         same = d[i] == (uint8_t)(i * 7);
-    check(st == 200 && same, "https 1 MiB, RSA certificate, same bytes");
+    check(st == 200 && same, "https 1 MB, RSA certificate, same bytes");
     if (st != 200) printf("     %s\n", info.error);
     free(d);
 

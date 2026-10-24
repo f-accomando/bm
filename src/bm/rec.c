@@ -157,7 +157,7 @@ int rec_start(const rec_cfg_t *cfg)
         want /= 2;
     if (!R.ring) {
         free_rows();
-        kprintf("rec: not enough memory for the ring (%u MiB asked)\n", (unsigned)(cfg->ring_bytes >> 20));
+        kprintf("rec: not enough memory for the ring (%u MB asked)\n", (unsigned)(cfg->ring_bytes >> 20));
         return -1;
     }
     R.nslots = want / R.slot_bytes;
@@ -187,7 +187,7 @@ int rec_start(const rec_cfg_t *cfg)
     R.period = 1000000u / (uint32_t)cfg->fps;
     R.t_start = R.next_due = timer_ticks();
     R.on = 1;
-    kprintf("rec: run %u, %dx%d %s at %d fps, ring %u chunks of %u KiB (%u MiB), files %s/r%03u0001.bmv...\n",
+    kprintf("rec: run %u, %dx%d %s at %d fps, ring %u chunks of %u KB (%u MB), files %s/r%03u0001.bmv...\n",
             (unsigned)R.st.run, cfg->w, cfg->h, fmt_name(cfg->format), cfg->fps,
             (unsigned)R.nslots, (unsigned)(R.slot_bytes / 1024), (unsigned)(want >> 20), REC_DIR, (unsigned)R.st.run);
     return 0;
@@ -397,7 +397,7 @@ void rec_stop(void)
     const rec_stats_t *s = &R.st;
     const uint32_t mbps100 = s->write_us ? (uint32_t)(s->bytes * 100u / s->write_us) : 0;
     const uint32_t secs10 = (t_end - R.t_start) / 100000u;
-    kprintf("rec: run %u done: %u frames in %u.%u s, dropped %u (ring full), %u chunks (%u failed), %u KiB\n",
+    kprintf("rec: run %u done: %u frames in %u.%u s, dropped %u (ring full), %u chunks (%u failed), %u KB\n",
             (unsigned)s->run, (unsigned)s->captured, (unsigned)(secs10 / 10), (unsigned)(secs10 % 10),
             (unsigned)s->dropped_full, (unsigned)s->chunks, (unsigned)s->chunk_fail, (unsigned)(s->bytes / 1024));
     if (s->captured) {

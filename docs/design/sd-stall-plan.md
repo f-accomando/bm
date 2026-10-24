@@ -83,7 +83,7 @@ C5. Back-off for a bad cover. A cover whose read failed twice goes to the end of
 ### 5.2 Background downloads
 
 - Market install: already a fiber with 1 ms overruns (log of 11 Oct). What is left: the write waits (B), the handshake once per host (keep-alive is in), the ECDSA verify of the catalog (time not measured, `menu stalls:` has it). Range resume in the Market job lets a download survive a game start (stage 5 part file exists, the job does not use it yet).
-- File or kernel from the PC (bridge, `easy_install`): `netxfer_write_tick` is exclusive and first, so the menu gets what is left. Use C4: while the user is active it gets a share (for example 60 percent of the free time) with pieces of 8 KiB sized from `fiber_budget_us()`. While the user is idle it keeps all the free time. The queue rule (4 jobs, own copy of the data) and the pause hook stay. A kernel is written the same way. Its restart countdown starts only after the write ended and the size check passed (existing behavior, keep).
+- File or kernel from the PC (bridge, `easy_install`): `netxfer_write_tick` is exclusive and first, so the menu gets what is left. Use C4: while the user is active it gets a share (for example 60 percent of the free time) with pieces of 8 KB sized from `fiber_budget_us()`. While the user is idle it keeps all the free time. The queue rule (4 jobs, own copy of the data) and the pause hook stay. A kernel is written the same way. Its restart countdown starts only after the write ended and the size check passed (existing behavior, keep).
 - The write waits are the larger part of the 603 ms worst write: B is the main gain here. Measure the split first (A1 counts the wait in `wait_card_ready`).
 - If the stall after A, B and C is still a TLS handshake or a verify, then restartable ECC (alternative A in [multitasking-alternatives](multitasking-alternatives.md)). Not before the numbers.
 
@@ -99,7 +99,7 @@ Known: `background_stop()` waits for the longest step of a job (an SD wait, a ha
 | Close of a game (`bm_close_suspended`, Lua state, assets) | not measured: S0; if over 100 ms, give the game its own heap arena and free it in one step (design first) |
 | Freeze back in the menu: rescan, covers, Lib and reports all restart in the same frames | staggered restart: draw the menu from the cache, then start covers, Lib, reports one by one, 1 s apart |
 
-Dwell prefetch (proposal): when the cursor stays on a game for 700 ms and the menu is otherwise idle, the covers job reads that cartridge into RAM in parked 32 KiB pieces. The start then skips the read. The buffer is freed when the selection changes or the free heap is low. Needs a check of the load path (`bm_run`) to take a buffer. Not designed further until S0 shows the read is the larger part.
+Dwell prefetch (proposal): when the cursor stays on a game for 700 ms and the menu is otherwise idle, the covers job reads that cartridge into RAM in parked 32 KB pieces. The start then skips the read. The buffer is freed when the selection changes or the free heap is low. Needs a check of the load path (`bm_run`) to take a buffer. Not designed further until S0 shows the read is the larger part.
 
 ## 6. Stages (one change per Pi test)
 
@@ -107,7 +107,7 @@ Dwell prefetch (proposal): when the cursor stays on a game for 700 ms and the me
 |---|---|---|
 | S0 | A1 counters and histogram, load profile line, stall attribution line (which counters moved in a frame over 2x budget). No behavior change. | One Pi run gives the site of the timeouts, the first-data histogram and the load profile. |
 | S1 | A2 + A3 | `covers +x` under 30 ms; no more fallbacks than before; 10 min of browsing with no "SD read error". |
-| S2 | B for writes, then B for reads | The worst frame during a 4 MiB queued write under 20 ms; Market install `+x` under 5 ms; no FAT damage (QEMU and `chkdsk`-style host check). |
+| S2 | B for writes, then B for reads | The worst frame during a 4 MB queued write under 20 ms; Market install `+x` under 5 ms; no FAT damage (QEMU and `chkdsk`-style host check). |
 | S3 | C1, C2, C5 | The pointer follows the hand while covers load; no report starts within 5 s of input. |
 | S4 | C3, C4, staggered restart | Time from A to first frame and from exit to a smooth menu drop (numbers from S0). |
 | S5 | Only what S0-S4 numbers still demand: band decode, cover cache, restartable ECC, dwell prefetch, arena. | Each by its own number. |

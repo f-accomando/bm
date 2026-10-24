@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The compatibility block of the .bm header (bytes 120..127, flag bit 4):
-mkbm.py writes it, keeps it on --from, and a cartridge above 8 MiB is built (no 8 MiB limit)."""
+mkbm.py writes it, keeps it on --from, and a cartridge above 8 MB is built (no 8 MB limit)."""
 import os
 import struct
 import subprocess

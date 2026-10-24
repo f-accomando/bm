@@ -28,7 +28,7 @@ Deep WAV output, bm Sound's samples, the Lua API, WAV and MIDI import (R28-R31, 
   sample's offset and size in `sraw` (`o`, `n`). `tests/sound/sim.lua` 9d.
 - **WAV and MIDI import from the SD card (R9, R17)**: bm Sound's *Import WAV or MIDI...*
   (menu, Ctrl+W) lists the `.wav` and `.mid` files of `/docs` (`doc_list`, `doc_read`, at most
-  4 MiB; a tool needs no permission for the documents) and imports one. The code is pure Lua
+  4 MB; a tool needs no permission for the documents) and imports one. The code is pure Lua
   in `carts/sound/main.lua` (`B.wav_parse`, `B.wav_sample`, `B.add_sample`, `B.mid_parse`,
   `B.mid_plan`, `B.mid_import`); no new C API.
   * **WAV**: RIFF chunks in any order, `WAVE_FORMAT_EXTENSIBLE`, a data chunk longer than the

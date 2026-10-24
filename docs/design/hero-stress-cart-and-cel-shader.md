@@ -203,7 +203,7 @@ A built-in measurement, so the owner does not have to press keys on the Pi.
 
 ### 3.4 Size
 
-Four levels x 2 (hull) = 8 models of 150-1500 triangles. At about 20 bytes a vertex the models section stays under 200 KiB (estimate, not verified).
+Four levels x 2 (hull) = 8 models of 150-1500 triangles. At about 20 bytes a vertex the models section stays under 200 KB (estimate, not verified).
 
 ## 4. Cel shader API (proposal)
 
@@ -326,7 +326,7 @@ Built as described below, with these differences: bm3D 7.4. The table is built b
 
 ### Stage 3: cel on the V3D (done, bm3D 7.5; state in [herocart](../progress/herocart.md))
 
-Built as way A, with these differences: the `_cel` programs are four copies of the lit programs with the cut block after the `max(d, 0)` line (`cel_variant` in `tools/qpuasm.py`), four more uniforms (N, N - 1 as an integer, the scale, the floor); the code block grows from 40 to 48 KiB; the probe is `probe_lit(…, 1)` (status `cel light yes/no`); the cut is not rounded to 1/255 as the ARM table is. `r3d_backend_t.cel` and `r3d_env_t.cel` carry the request. No `heroes_cel` bench test in this change (the 3D Bench is in another branch). The host test is the scenes `cel *` of `tests/gpu/test_gpu3d.c` (ARM against the V3D emulator).
+Built as way A, with these differences: the `_cel` programs are four copies of the lit programs with the cut block after the `max(d, 0)` line (`cel_variant` in `tools/qpuasm.py`), four more uniforms (N, N - 1 as an integer, the scale, the floor); the code block grows from 40 to 48 KB; the probe is `probe_lit(…, 1)` (status `cel light yes/no`); the cut is not rounded to 1/255 as the ARM table is. `r3d_backend_t.cel` and `r3d_env_t.cel` carry the request. No `heroes_cel` bench test in this change (the 3D Bench is in another branch). The host test is the scenes `cel *` of `tests/gpu/test_gpu3d.c` (ARM against the V3D emulator).
 
 - `tools/qpuasm.py`: `CEL` variants of the four vertex programs, regenerate `src/gpu/shaders.h`; `gpu3d.c`: choose the variant, probe it, fall back to the ARM light.
 - A bench test `heroes_cel` in `b3d.c` (heroes with cel off/on, same profiles) so the 3D Bench tracks it; `BENCH3D.md` line.

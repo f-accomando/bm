@@ -75,7 +75,7 @@ local function hint(list, y)
   U.hint_row(items, { y = y or HINT_Y, w = W, x = 8, snap = snap, dim = C.DIM, fixed = not pad_used() })
 end
 
--- "512k", "1.5M": KiB in a few columns, as the dev kit's overlay
+-- "512k", "1.5M": KB in a few columns, as the dev kit's overlay
 local function kib(k)
   if not k then return "-" end
   if k == 0 then return "0k" end
@@ -993,7 +993,7 @@ end
 -- project page shows them: the code, the sheet and the map in use, the
 -- models, the sound bank, the memory the game's data takes, the file, the
 -- biggest functions and, for a .b16, what the format will not have
-local B16_LIMIT = 100 * 1024              -- KiB: the Market ceiling for one file (docs/BM-FORMAT.md, File size); the kernel has no cap
+local B16_LIMIT = 100 * 1024              -- KB: the Market ceiling for one file (docs/BM-FORMAT.md, File size); the kernel has no cap
 local B16_CHECKS = {                     -- (whole names: %f, not "mytime(")
   { "%f[%w_]math%.random", "math.random: left out of the sandbox (the same game on every machine, 6.3)" },
   { "%f[%w_.:]time%(", "time(): no clock (2.9); count the ticks instead" },
@@ -3245,7 +3245,7 @@ do
       end
     else
       print("in the game: stat(1) ms, stat(2) fps, stat(11) tokens,", lx, 288 + dy, C.DIM)
-      print("stat(12) Lua KiB at most, stat(13) KiB of data", lx, 304 + dy, C.DIM)
+      print("stat(12) Lua KB at most, stat(13) KB of data", lx, 304 + dy, C.DIM)
     end
     hint({ { "f1", "Y", "the project" }, { "b", nil, "target" }, { "f5", nil, "try it" },
            { "f6", nil, "assistant" } })

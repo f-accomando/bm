@@ -78,7 +78,7 @@
 #define AU_MAGIC        "BMAU"
 #define AU_VERSION      3           /* with samples; without, 2 is written */
 #define AU_SAMPLES      64
-#define AU_PCM_MAX      (8u << 20)  /* 16-bit values of a bank's samples: 16 MiB */
+#define AU_PCM_MAX      (8u << 20)  /* 16-bit values of a bank's samples: 16 MB */
 enum { AU_PCM_U8, AU_PCM_S16, AU_PCM_S24, AU_PCM_S32, AU_PCM_F32 };
 #define AU_SOUND_BYTES  48          /* 24 in version 1 */
 #define AU_TONE         (SYNTH_VOICE_BYTES - SYNTH_CUTOFF)    /* registers 11..31 */

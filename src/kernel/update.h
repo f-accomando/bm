@@ -45,7 +45,7 @@ const char *update_busy(void);
 int  update_notice(char *title, char *detail, int *progress);
 
 /* For the System panel: what the last check found ("not checked",
- * "checking...", "up to date", "v0.3.0: 4 files, 6.1 MiB"), the release to
+ * "checking...", "up to date", "v0.3.0: 4 files, 6.1 MB"), the release to
  * install or NULL, and the install's row ("installing...", "failed: ...",
  * else the release). */
 const char *update_state(void);

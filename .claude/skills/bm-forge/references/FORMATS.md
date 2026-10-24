@@ -76,7 +76,7 @@ resource file (`src/bm/format.c:575-607,704-732`). Duplicate known sections: C k
   counts at 5..9, 48-byte sounds, sfx, patterns, songs, samples). Recognized only if `size>=16` and
   starts with `BMAU` (`src/bm/format.c:668`). Three implementations must agree (CLAUDE.md invariant):
   `au_parse`, bm Sound, `scripts/bmaudio.py`.
-- **INFO (10)**: UTF-8 text <= 16 KiB, `key: value` lines, then blocks `[type name]`
+- **INFO (10)**: UTF-8 text <= 16 KB, `key: value` lines, then blocks `[type name]`
   (type in model, sprite, sound, sfx, song, map, palette); unknown keys kept (`src/bm/bm.h:80-86,159`,
   `docs/RISORSE.md:144-172`). Lookup trims spaces/tabs/`\r` (`src/bm/format.c:810-863`). Writer:
   `bmres.info_dump` (blank line between blocks, trailing `\n`) (`scripts/bmres.py:293-303`).
@@ -211,8 +211,8 @@ Screen 360x360 or 720x720 per `docs/B16.md:24-27`, but the parser accepts only t
 360x360, not 720x720 (`src/bm/format.c:552-555`). B16.md says the container has "a field that states the
 profile", but no such field exists in `bm.h` or `format.c`; the sample `carts/titan_ex/titan_ex.b16` has
 bytes 18..19 and 104..127 all zero (checked with Python). Detection is by extension only
-(`src/kernel/market.c:306-311`, `src/rgb30/ui.c:249`, `scripts/mkmarket.py:68`). Profile rules (Lua 4 MiB,
-256-colour SHEET8, 8 MiB cap, sandbox) are runtime/build policy, not bytes (`docs/B16.md:28-49`).
+(`src/kernel/market.c:306-311`, `src/rgb30/ui.c:249`, `scripts/mkmarket.py:68`). Profile rules (Lua 4 MB,
+256-colour SHEET8, 8 MB cap, sandbox) are runtime/build policy, not bytes (`docs/B16.md:28-49`).
 The `B16CART` 256-byte header with 24-byte section entries (`docs/B16.md:226-367`) is a **design not
 implemented**: no code mentions `B16CART` (grep over *.c/*.h/*.py/*.lua). `.b16` and `.bm` are separate
 editions with separate sources (CLAUDE.md "Non fare").
@@ -244,7 +244,7 @@ The kind field wins over the extension (`docs/RISORSE.md:133-134`); Python maps 
 | 6 kit | MESH, ANIM, SHEET/SHEET8, SPRITES, AUDIO, MAP, LAYERS, FLAGS, BOXES | one of mesh/sheet/audio/map (C, `src/bm/format.c:753-755`); Python: any non-INFO (`scripts/bmres.py:185-186`) |
 
 A known but disallowed section, or LUA, is an error (`src/bm/format.c:571-573`); unknown types ignored.
-INFO > 16 KiB is an error in BMRES (`src/bm/format.c:578-581`). Writer: `bmres.dump` writes a zeroed
+INFO > 16 KB is an error in BMRES (`src/bm/format.c:578-581`). Writer: `bmres.dump` writes a zeroed
 header + magic, version 1, size 128, kind, count, CRC, name, author (`scripts/bmres.py:242-250`).
 Semantics: textures of `.bmm` hold only the used cells; `.bmt` only the used tiles; `.bmc` pixel i =
 colour i (`docs/RISORSE.md:79-110`). Integration/extraction rules: `docs/RISORSE.md:213-242`; CLI

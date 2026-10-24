@@ -16,7 +16,7 @@
 #               res = ["640x360", ...]               the cartridge size in the header
 #               uses_3d = true | false               the cart has a MESH section
 #               audio_bytes_over = N                 the AUDIO section is larger than N bytes
-#               size_over_mib = N                    the file is larger than N MiB
+#               size_over_mib = N                    the file is larger than N MB
 #               declared = true | false              the header has the compatibility block (flag bit 4)
 #               kernel_not_listed = true | false     the block is there and its targets do not list this kernel
 # A reason is read on a small screen: at most 31 characters (the RGB30 details line is 41 characters; "Not here: " takes 10).
@@ -70,7 +70,7 @@ action = "grey"
 market_action = "grey"
 reason = "made for the Pi Zero W only"
 
-# The sound bank limit of the kernel: 8,388,608 PCM values (16 MiB, AU_PCM_MAX).
+# The sound bank limit of the kernel: 8,388,608 PCM values (16 MB, AU_PCM_MAX).
 [[rule]]
 kernel = "pi-zero-w"
 audio_bytes_over = 16777216
@@ -83,20 +83,20 @@ audio_bytes_over = 16777216
 action = "grey"
 reason = "sound bank over the limit"
 
-# The Market ceiling is 100 MiB per file (src/net/catalog.h). The local menu has no size limit.
+# The Market ceiling is 100 MB per file (src/net/catalog.h). The local menu has no size limit.
 [[rule]]
 kernel = "pi-zero-w"
 size_over_mib = 100
 action = "show"
 market_action = "hide"
-reason = "over the Market's 100 MiB limit"
+reason = "over the Market's 100 MB limit"
 
 [[rule]]
 kernel = "rgb30"
 size_over_mib = 100
 action = "show"
 market_action = "hide"
-reason = "over the Market's 100 MiB limit"
+reason = "over the Market's 100 MB limit"
 
 # The old .b16 runs on the Pi and on the RGB30 (decided 22 Oct, option 1).
 [[rule]]

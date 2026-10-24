@@ -63,7 +63,7 @@ local function hud()
   for i, c in ipairs(colours) do rectfill(W - 80 + (i - 1) * 20, 2, 16, 12, c) end
 
   rectfill(0, H - 24, W, 24, 0x000000)
-  print(string.format("%d sprites  map %dx%d  Lua %d KiB  %s", N, WORLD_W, WORLD_H, stat(0),
+  print(string.format("%d sprites  map %dx%d  Lua %d KB  %s", N, WORLD_W, WORLD_H, stat(0),
         auto and "attract" or "arrows/wasd, space"), 0, H - 24, 0xA0A0A0)
 end
 

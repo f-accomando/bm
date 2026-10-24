@@ -1,7 +1,7 @@
 #!/bin/sh
 # Downloads what the RGB30's SD card needs and bm does not store:
 #  - the boot loader (Rockchip DDR init + U-Boot 2026.01 + BL31) from the
-#    official ROCKNIX image for the RK3566 consoles: only its first MiB
+#    official ROCKNIX image for the RK3566 consoles: only its first MB
 #    (an HTTP range request), from which the two pieces are cut out;
 #  - the Realtek RTL8821CS firmware (Bluetooth, WiFi) from linux-firmware.
 # Every file is checked against its SHA-256. Sources and licences:
@@ -40,7 +40,7 @@ check() {  # check <file> <sha256>
     echo "$2  $1" | sha256sum -c --quiet - || { echo "fetch-rgb30: $1: unexpected content" >&2; exit 1; }
 }
 
-echo "fetching the boot loader (first MiB of ROCKNIX $ROCKNIX for RK3566)"
+echo "fetching the boot loader (first MB of ROCKNIX $ROCKNIX for RK3566)"
 dl -r 0-1048575 -o "$tmp/head.gz" "$IMG_URL"
 gzip -dc "$tmp/head.gz" > "$tmp/head.img" 2>/dev/null || true    # truncated on purpose
 dd if="$tmp/head.img" of="$DEST/idbloader.img" bs=512 skip=64 count=388 status=none

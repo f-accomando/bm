@@ -126,7 +126,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 
 ## 7. System, saves, network (docs/api/system.md)
 
-- `time()`, `stat(n)` (0 Lua KiB … 4 triangles … 9 GPU on … 16 GPU ms; measurements only,
+- `time()`, `stat(n)` (0 Lua KB … 4 triangles … 9 GPU on … 16 GPU ms; measurements only,
   never game logic), `frameskip([n])`, `devkit`, `profile`, `devinfo`, `battery`,
   `battery_low`, `code_tokens`, `log`, `report`, `quit`, `timeslice(co,[k])`
   (`docs/api/system.md:9-21`).
@@ -134,7 +134,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   (`docs/api/system.md:23-24`); bmlib has `lib.rnd` (`docs/api/bmlib.md:50`).
 - UDP: `udp_open/udp_send/udp_recv/udp_close/net_ip/net_resolve`, 1024 B packets, asks
   permission (`docs/api/system.md:28-43`); prefer `bmnet` (`docs/api/system.md:28-29`).
-- Saves: `save(t,[slot])`, `saved([slot])`, `saves()`, `delsave([slot])`; 8 slots × 32 KiB
+- Saves: `save(t,[slot])`, `saved([slot])`, `saves()`, `delsave([slot])`; 8 slots × 32 KB
   (`docs/api/system.md:49-54`).
 
 ## 8. bmlib (require "bmlib")
@@ -291,11 +291,11 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 - Screen 360×360 or 720×720, fixed, no `screen()` (`docs/B16.md:24-27`); build with
   `--res 360x360` (`Makefile:268`).
 - Decided profile (`docs/B16.md:28-49`): 256-colour palette (SHEET8, use `--sheet8`); Lua
-  4 MiB; one 1024×1024 graphics bank resident; map ≤8 levels, world ≤8×8 screens; 8 voices;
-  save 64 KiB; per-frame CPU budget with drop to 30 fps; 3D allowed with a triangle cap;
-  SNES pad + stick; no files (`cart_*`, `ls`), seeded `rnd()`; **8 MiB** file cap; no token
+  4 MB; one 1024×1024 graphics bank resident; map ≤8 levels, world ≤8×8 screens; 8 voices;
+  save 64 KB; per-frame CPU budget with drop to 30 fps; 3D allowed with a triangle cap;
+  SNES pad + stick; no files (`cart_*`, `ls`), seeded `rnd()`; **8 MB** file cap; no token
   limit.
-- Enforced today: only the 8 MiB size check in the Makefile (`Makefile:364,372`). The SDK's
+- Enforced today: only the 8 MB size check in the Makefile (`Makefile:364,372`). The SDK's
   `.b16` target only lists reminders (math.random, time(), saves, ls/cart_*, udp_*,
   require, load, screen(), 3D) (`docs/B16.md:609-618`). Memory, CPU and sandbox limits are
   **NON VERIFICATO** as enforced (no b16 check found in `src/bm/runtime.c`, Grep).
@@ -339,8 +339,8 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 
 1. Does `mkbm.py --models X.glb` import skeleton and animations, or only mesh + texture?
    (Only the mesh path is visible at `scripts/mkbm.py:468-478`.)
-2. Are any `.b16` limits (Lua 4 MiB, CPU budget, sandbox, triangle cap) enforced at runtime
-   yet, or is the 8 MiB Makefile check the only one?
+2. Are any `.b16` limits (Lua 4 MB, CPU budget, sandbox, triangle cap) enforced at runtime
+   yet, or is the 8 MB Makefile check the only one?
 3. How do RGB30 games draw 3D today (ARM software only?), and at what triangle budget?
 4. Are `carts/titan_ex/main.lua` and `carts/titan_ex/titan_ex.b16` stale outputs or
    sources a generator must keep?

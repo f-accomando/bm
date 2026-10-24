@@ -502,7 +502,7 @@ local x, y = stick(1)                     -- lo stick del giocatore 1, da -1 a 1
 | `battery_low()` | `true` finché la batteria è scarica: 20% o meno fuori dal caricabatterie (fino al 23%). Allora il sistema disegna da solo una piccola batteria rossa in alto a destra sopra il fotogramma (a sinistra dell'overlay del dev kit quando è in alto), in ogni gioco e strumento; *Settings > Screen and sound > Low battery icon* (`battery_icon=0` in `bm/config.txt`) spegne quell'icona, non `battery_low()`. Solo informazione: ogni console ha la sua batteria, quindi nel lockstep (`bmnet`) non cambia mai ciò che il gioco simula; usala per mostrare qualcosa o per salvare |
 | `code_tokens(text)` | i **token** di un pezzo di codice Lua, contati come fanno `stat(11)` e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore è uno; commenti, spazi, `,` `.` `:` `;` `::`, parentesi di chiusura (`)` `]` `}`), `end` e `local` non contano, né il segno meno davanti a un numero (`-1` è un token). Informazione, non un limite: bm non mette un tetto ai token (nemmeno il `.b16`) |
 | `log(...)` | scrive nel log del kernel (linea seriale e console), non sullo schermo del gioco |
-| `report(kind, text)` | un report per chi sviluppa bm: salvato in `bm/reports` sulla scheda SD con kernel, branch, scheda e data (e una prima riga `options`: le opzioni 3D in vigore), poi inviato al repository dei report se ci sono `github_token` e la rete (`src/kernel/reports.h`); al massimo 8 per esecuzione, 256 KiB ciascuno; `true` se salvato. `kind` è una stringa obbligatoria, un'etichetta di categoria a testo libero: viene messa in minuscolo con `-` tra gli altri caratteri e finisce nell'intestazione del report e nel nome del file inviato; con `kind == "session"` l'invio sostituisce il file precedente (Overbit usa `"overbit-bench"`). La prima volta che un gioco lo chiama si chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
+| `report(kind, text)` | un report per chi sviluppa bm: salvato in `bm/reports` sulla scheda SD con kernel, branch, scheda e data (e una prima riga `options`: le opzioni 3D in vigore), poi inviato al repository dei report se ci sono `github_token` e la rete (`src/kernel/reports.h`); al massimo 8 per esecuzione, 256 KB ciascuno; `true` se salvato. `kind` è una stringa obbligatoria, un'etichetta di categoria a testo libero: viene messa in minuscolo con `-` tra gli altri caratteri e finisce nell'intestazione del report e nel nome del file inviato; con `kind == "session"` l'invio sostituisce il file precedente (Overbit usa `"overbit-bench"`). La prima volta che un gioco lo chiama si chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
 | `shot([prefix])` | salva il fotogramma in disegno come PNG (vedi il capitolo Schermate) |
 | `quit()` | chiude la cartuccia a fine fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` migliaia di istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` restituisce `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia al limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
@@ -513,7 +513,7 @@ Numeri casuali: `math.random`. Per giochi diversi a ogni avvio, inizializza il g
 
 | `n` | Valore |
 |---|---|
-| 0 | KiB usati da Lua |
+| 0 | KB usati da Lua |
 | 1 | ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU) |
 | 2 | fps |
 | 3 | numero del fotogramma |
@@ -525,8 +525,8 @@ Numeri casuali: `math.random`. Per giochi diversi a ogni avvio, inizializza il g
 | 9 | `1` se la GPU disegna il 3D |
 | 10 | istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, in istruzioni, arrotondate alle migliaia) |
 | 11 | dev kit: token del codice della cartuccia (`code_tokens`) |
-| 12 | dev kit: il massimo di KiB di Lua di questa esecuzione |
-| 13 | dev kit: KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco dei suoni, lo z-buffer 3D) |
+| 12 | dev kit: il massimo di KB di Lua di questa esecuzione |
+| 13 | dev kit: KB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco dei suoni, lo z-buffer 3D) |
 | 14 | dev kit: le istruzioni Lua del fotogramma più carico di questa esecuzione |
 | 15 | dev kit: quanti `_update` sono girati prima di questo `_draw` (1; di più con `frameskip`) |
 | 16 | dev kit: ms di tempo di job della GPU (bin + render) contati nell'ultimo fotogramma, `0` quando l'ARM disegna il 3D (insieme a `stat(1)` dice se è la GPU o l'ARM a dare il passo) |
@@ -575,8 +575,8 @@ Quando un gioco finisce il dev kit scrive un file per gioco nei report, `reports
 
 - In `bm/config.txt`: `session_report=0` mai, `=1` sempre; senza la riga, solo con un `github_token`.
 - Dal codice usi `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(16)`, `devkit()` e `profile()`. Il limite è 20 milioni di istruzioni per chiamata.
-- Il **dev kit dell'SDK** (F1 due volte) ha gli stessi numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file contro il segno degli 8 MiB di un `.b16` (una guida, non un limite) e i numeri dell'ultima prova (F5).
-- A fine esecuzione la linea seriale scrive anche la riga `dev kit: Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms, ... tokens`.
+- Il **dev kit dell'SDK** (F1 due volte) ha gli stessi numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file contro il segno degli 8 MB di un `.b16` (una guida, non un limite) e i numeri dell'ultima prova (F5).
+- A fine esecuzione la linea seriale scrive anche la riga `dev kit: Lua peak ... KB, data ... KB, busiest frame ...k instructions, ... frames over 16.7 ms, ... tokens`.
 
 ## Esempi
 
@@ -597,7 +597,7 @@ log("frame ms", stat(1))                                         -- sulla linea 
 
 ## Da sapere
 
-- Ogni cartuccia ha **8 slot di salvataggio**, ciascuno una tabella fino a 32 KiB, in `/bm/save/` sulla scheda SD.
+- Ogni cartuccia ha **8 slot di salvataggio**, ciascuno una tabella fino a 32 KB, in `/bm/save/` sulla scheda SD.
 - Lo slot 1 è `xxxxxxxx.sav` (quello di sempre: `save(t)` e `saved()` senza slot), gli altri `xxxxxxxx.s02` … `.S08`.
 - Un uso comune: lo slot 1 per impostazioni e record (lo usa anche `lib.store`), gli altri per le partite in corso.
 - Una tabella può contenere numeri, stringhe, booleani e altre tabelle (niente funzioni).
@@ -645,7 +645,7 @@ I file del giocatore, condivisi dalle app: `/docs` sulla scheda SD (bm Write vi 
 |---|---|
 | `doc_list()` | i file in `/docs`: `{ {name = "letter.bmd", size = 1234}, ... }` (vuota se non ce ne sono); `nil` e il motivo se il giocatore non lo ha permesso |
 | `doc_read(name)` | i byte di un documento (una stringa), oppure `nil` e il motivo |
-| `doc_write(name, bytes)` | scrive un documento, nuovo o sostituito (al massimo 4 MiB); `true`, oppure `nil` e il motivo |
+| `doc_write(name, bytes)` | scrive un documento, nuovo o sostituito (al massimo 4 MB); `true`, oppure `nil` e il motivo |
 | `doc_delete(name)` | cancella un documento; `true`, oppure `nil` e il motivo |
 
 ## Da sapere
@@ -741,7 +741,7 @@ Per una cartuccia che mostra pagine web. Una richiesta gira in background: il gi
 - Il giocatore deve consentire la rete, come per `udp_open`. Senza rete `web_get` restituisce `nil, "no network"`.
 - Solo indirizzi `https://`, al massimo 1024 caratteri. Il kernel segue al massimo 3 redirect e rifiuta un redirect verso `http://`.
 - Il kernel aspetta che sia passato 1 secondo dall'ultima richiesta allo stesso host. Nel frattempo lo stato è `"wait"`.
-- Il corpo si ferma a 4 MiB. `web_max_kib` in `bm/config.txt` lo cambia (fino a 32768). Una richiesta può chiedere meno con `max`.
+- Il corpo si ferma a 4 MB. `web_max_kib` in `bm/config.txt` lo cambia (fino a 32768). Una richiesta può chiedere meno con `max`.
 - Una sola richiesta gira alla volta. I risultati di al massimo 3 richieste restano in memoria fino a `web_cancel` o alla fine della cartuccia.
 - `web_poll` lavora per circa 4 ms. Una nuova connessione TLS può richiedere circa 100 ms sul Pi Zero W, e il fotogramma aspetta. Mostra un messaggio "connecting" prima del primo `web_poll`.
 - Dopo una risposta completa il kernel tiene la connessione per la richiesta successiva allo stesso host (keep-alive). Le chiamate non cambiano.
@@ -756,7 +756,7 @@ Per una cartuccia che mostra pagine web. Una richiesta gira in background: il gi
 | `web_body(id)` | il corpo come stringa, o `nil` e il motivo. Copia i byte nella memoria di Lua: per decodificare un'immagine o scrivere un file, dai l'`id` a `image_load` o `file_write` |
 | `web_cancel(id)` | ferma la richiesta e libera il risultato |
 | `img = image_load(bytes_or_id, sx, sy, [maxw, maxh])` | decodifica un JPEG baseline, PNG o WebP nello sprite sheet con l'angolo in alto a sinistra in `(sx, sy)`. JPEG progressivi e immagini sopra i 4 megapixel sono rifiutati. Restituisce `{x =, y =, w =, h =}`, o `nil` e il motivo. Disegnala con `sspr`. Se serve, ingrandisci prima lo sheet con `cart_sheet(w, h)` |
-| `file_write(name, bytes_or_id, [async])` | scrive un file in `bm/web` sulla scheda SD. `name` è un nome 8.3 semplice. Mai un file `.bm`, `.bme` o `.b16`. Al massimo 8 MiB (`file_write_max_kib`, fino a 32768) e 128 file nella cartella. Con `async = true` i dati vanno in coda, fino a 4 file aspettano, e i pezzi (fino a 32 KiB) vanno sulla scheda mentre la cartuccia chiama `web_poll` o `file_state` |
+| `file_write(name, bytes_or_id, [async])` | scrive un file in `bm/web` sulla scheda SD. `name` è un nome 8.3 semplice. Mai un file `.bm`, `.bme` o `.b16`. Al massimo 8 MB (`file_write_max_kib`, fino a 32768) e 128 file nella cartella. Con `async = true` i dati vanno in coda, fino a 4 file aspettano, e i pezzi (fino a 32 KB) vanno sulla scheda mentre la cartuccia chiama `web_poll` o `file_state` |
 | `state, info = file_state(name)` | l'ultima scrittura in coda con quel nome: `"queued"`, `"writing"`, `"done"` o `"error"`. Chiamala una volta a fotogramma mentre una scrittura è in coda |
 
 ```lua

@@ -20,7 +20,7 @@ fibers probably off or used differently (job per core, real threads for download
 - `background_stop()` before an app / rescan / delete, except update and publish (apps and pages
   are refused while `update_busy()` / `publish_busy()`). `net_wait_step` returns -1 if cancelled.
 
-## Measured on the Pi (Pi Zero W, SDHC 7.4 GiB; 2026-10-11)
+## Measured on the Pi (Pi Zero W, SDHC 7.4 GB; 2026-10-11)
 - Market download goes on in the background with ~1 ms overruns. Before the FAT work a 6.5 MB
   install froze the menu 30 s. Reports cost ~100 ms per TLS handshake (3 per report).
 - Covers +500 ms = one sdhost read timeout + retry (counters; cause unknown). A 0.1 s read timeout +
@@ -38,7 +38,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
 - A download inside a tool or game (jobs stop before an app: `background_stop`, `market_set_active(0)`;
   the Market fetch starts at byte 0 and has no `Range` yet; wall-clock read timeouts): needs the part file of
   stage 5 in `market.c` (catalog SHA-256 checks the whole) and a `FIBER_TOOL` call
-  in `runtime.c` `present()` before its vsync wait, RAM for 128 KiB stacks. Games: opt-in only, never lockstep.
+  in `runtime.c` `present()` before its vsync wait, RAM for 128 KB stacks. Games: opt-in only, never lockstep.
 - Still holding the CPU: TLS handshake (one per HTTPS request), ECDSA verify of a catalog or
   release (needs mbedTLS restartable ECC), a decoded cover, a directory growing by one
   cluster (written sector by sector).
@@ -46,8 +46,8 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
   by host:port in `tls.c`, `MBEDTLS_SSL_SESSION_TICKETS`, ~60+40 lines). Keep-alive is in; do it only if the handshake time
   per new connection on the Pi justifies it.
 - Pi numbers for stages 3-5: handshakes per report (before 3, now 1), the longest frame during a queued `file_write`
-  of 4 MiB (`menu stalls:` is menu only; use a cart that logs `timer_ticks`), `Accept-Ranges` and 206 of the catalog host
-  and the release CDN, the real cost of a part file save of 4 MiB.
+  of 4 MB (`menu stalls:` is menu only; use a cart that logs `timer_ticks`), `Accept-Ranges` and 206 of the catalog host
+  and the release CDN, the real cost of a part file save of 4 MB.
 ## Rules (do not break)
 - Every SD write from a cartridge, the settings or a fiber that gives the CPU back goes through `sd_writer_begin` /
   `sd_writer_end` (or `sd_write_file`). A writer that gives the CPU back registers a pause hook and is safe to stop at
@@ -58,7 +58,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
   A request that fails on a reused connection before any answer byte is sent again once on a new one.
 - A part file is written only when the server sent `Accept-Ranges` (or 206) and a size, and is checked by the address hash and the total.
   The whole file is checked by the caller (SHA-256 or size).
-- The limits of the web API stay: https only, 3 redirects, 1 s per host, 4 MiB `web_get`, 8 MiB `file_write`, 128 files (a part file counts), no `.bm`/`.bme`/`.b16`.
+- The limits of the web API stay: https only, 3 redirects, 1 s per host, 4 MB `web_get`, 8 MB `file_write`, 128 files (a part file counts), no `.bm`/`.bme`/`.b16`.
 - Work in the menu frame (drawing, a new selection) stays below one frame. The pointer position is read once per frame, so a long frame is one jump of the pointer. Make long work in bands (`menu_bg_step`) or in a job.
 
 

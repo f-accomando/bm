@@ -34,7 +34,7 @@ typedef struct {
 #define MAX_VERTS 60000
 
 /* Everything the V3D reads or writes, in one block: the binner wants its
- * memory (tile state, tile lists, overflow) within one 256 MiB window. */
+ * memory (tile state, tile lists, overflow) within one 256 MB window. */
 #define TSDA_SIZE     4096          /* 48 bytes per tile */
 #define ALLOC_SIZE    (2u << 20)    /* tile lists */
 #define OVERFLOW_SIZE (1u << 20)
@@ -55,7 +55,7 @@ static struct {
     uint32_t *code;
     nv_vert_t *verts;
     uint16_t *target;               /* 640x360 RGB565, in RAM */
-    uint32_t *tex;                  /* 64x64 RGBA32R, 4 KiB aligned; its P0 P1 after it */
+    uint32_t *tex;                  /* 64x64 RGBA32R, 4 KB aligned; its P0 P1 after it */
     uint32_t bcl_end, rcl_end;      /* bus addresses of the lists' ends */
     int nverts;
     int red_a;                      /* byte a of the tile buffer lands on red in BGR565 */
@@ -90,7 +90,7 @@ static uint8_t *block_alloc(void)
 {
     uint8_t *b = aligned_alloc(4096, BLOCK_SIZE);
     if (b && (v3d_bus(b) >> 28) != (v3d_bus(b + BLOCK_SIZE - 1) >> 28)) {
-        uint8_t *again = aligned_alloc(4096, BLOCK_SIZE);   /* across 256 MiB: another */
+        uint8_t *again = aligned_alloc(4096, BLOCK_SIZE);   /* across 256 MB: another */
         free(b);
         b = again;
         if (b && (v3d_bus(b) >> 28) != (v3d_bus(b + BLOCK_SIZE - 1) >> 28)) {
@@ -453,7 +453,7 @@ static int step_texture(void)
     for (int y = 0; y < 64; y++)
         for (int x = 0; x < 64; x++)
             m.tex[y * 64 + x] = x < 32 ? 0xFF0000FFu : 0xFFFF0000u;
-    /* P0: base (4 KiB units), type RGBA32R = 16: low 4 bits 0, bit 4 in P1;
+    /* P0: base (4 KB units), type RGBA32R = 16: low 4 bits 0, bit 4 in P1;
      * P1: type bit 4, height, width, nearest magnification and
      * minification, clamp to edge (1) in s and t */
     uint32_t *p = m.tex + 64 * 64;
@@ -726,7 +726,7 @@ static int step_compare(framebuffer_t *fb, const char *what, void (*scene)(g16_t
             kprintf("ok  ARM %lu us, GPU %lu us (%lu triangles in %lu jobs%s; bin %lu, render %lu), "
                     "%d.%d%% differ\n", us[0], us[1], st.tris, st.jobs, st.zjobs ? ", depth kept" : "",
                     st.bin_us, st.render_us, permille / 10, permille % 10);
-            kprintf("    binner: at most %lu KiB of the tile lists, %lu KiB of the overflow, %lu jobs in it\n",
+            kprintf("    binner: at most %lu KB of the tile lists, %lu KB of the overflow, %lu jobs in it\n",
                     (st.pool_max + 1023) / 1024, (st.ovf_max + 1023) / 1024, st.ovf_jobs);
             if (st.queued || st.zinjob)
                 kprintf("    %lu jobs started and waited for later, %lu zclear() inside a job\n", st.queued,
@@ -1270,7 +1270,7 @@ void gpu_test(framebuffer_t *fb)
 
     step("2 identity");
     uint32_t id1 = v3d_ident(1);
-    kprintf("ok  rev %lu, %lu slices x %lu QPUs, %lu TMUs per slice, VPM %lu KiB\n", id1 & 15,
+    kprintf("ok  rev %lu, %lu slices x %lu QPUs, %lu TMUs per slice, VPM %lu KB\n", id1 & 15,
             id1 >> 4 & 15, id1 >> 8 & 15, id1 >> 12 & 15, (id1 >> 28 & 15) ? (id1 >> 28 & 15) : 16);
 
     if (mem_init() != 0) {

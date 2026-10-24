@@ -70,8 +70,8 @@ static void test_malloc(void)
         free(blk[i]);
     }
 
-    void *big = malloc(64u << 20);          /* 64 MiB */
-    check(big != NULL, "64 MiB malloc");
+    void *big = malloc(64u << 20);          /* 64 MB */
+    check(big != NULL, "64 MB malloc");
     free(big);
 }
 

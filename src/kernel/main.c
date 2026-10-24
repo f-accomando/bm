@@ -130,7 +130,7 @@ static uint32_t arm_memory_end(void)
 {
     uint32_t v[2] = { 0, 0 };
     if (prop_query(PROP_GET_ARM_MEMORY, v, 2) != 0 || v[1] == 0 || v[0] + v[1] > PERIPHERAL_BASE)
-        return 0x10000000u;             /* 256 MiB: safe for gpu_mem <= 256 */
+        return 0x10000000u;             /* 256 MB: safe for gpu_mem <= 256 */
     return v[0] + v[1];
 }
 
@@ -139,7 +139,7 @@ static uint32_t sdram_end(uint32_t arm_end)
 {
     uint32_t v[2] = { 0, 0 };
     if (prop_query(PROP_GET_VC_MEMORY, v, 2) != 0 || v[0] + v[1] <= arm_end)
-        return 0x20000000u;             /* 512 MiB: the Pi Zero, W and 2 W */
+        return 0x20000000u;             /* 512 MB: the Pi Zero, W and 2 W */
     return v[0] + v[1];
 }
 

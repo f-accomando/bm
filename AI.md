@@ -84,7 +84,7 @@ then it goes through the GitHub store (M25), not a separate channel.
 rewrites 0.46 MB, ~5 ms before computing anything; bm's rasterizer produces no noise to
 remove. Offline only, on assets.
 
-**Neural image compression: no.** RAM (448 MiB) and SD are not a limit, and decoding with a
+**Neural image compression: no.** RAM (448 MB) and SD are not a limit, and decoding with a
 network costs much more than RLE or PNG.
 
 **Sensors, signals, anomalies: not today.** bm has no I2C/SPI, microphone or analog inputs;

@@ -339,7 +339,7 @@ You can bring a sound recording or a song from the SD card into the bank. Put th
 5. For a MIDI file, a new song appears with the file's name. Its patterns have 64 steps (or whole bars of the file's time signature), and the song has the file's tempo. A message says what was made, for example `song 3: 1 patterns, 120 BPM, 4 new sounds`.
 6. Press Ctrl+S to save.
 
-What the WAV import reads: 8, 16, 24 and 32-bit whole numbers and 32 and 64-bit floats, mono or stereo, up to 4 MiB. A rate above 48000 Hz is brought down to 48000 Hz.
+What the WAV import reads: 8, 16, 24 and 32-bit whole numbers and 32 and 64-bit floats, mono or stereo, up to 4 MB. A rate above 48000 Hz is brought down to 48000 Hz.
 
 What the MIDI import does:
 - One step is a sixteenth note. Notes are put on the nearest step.

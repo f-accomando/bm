@@ -207,7 +207,7 @@ void n8_memcpy(n8_t *m, uint32_t dst, uint32_t src, int32_t len)
         memmove(m->ram + dst, m->ram + src, (size_t)len);
         return;
     }
-    /* wrapping around 64 KiB: byte by byte, in the direction that keeps an
+    /* wrapping around 64 KB: byte by byte, in the direction that keeps an
      * overlap right */
     if (dst > src)
         for (int32_t i = len - 1; i >= 0; i--)

@@ -176,7 +176,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
   functions, the data's memory, the file size and the numbers of
   the last try (F5). At the end of a run the serial line also writes the line `dev kit:
-  Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms,
+  Lua peak ... KB, data ... KB, busiest frame ...k instructions, ... frames over 16.7 ms,
   ... tokens`.
 
 - Drawing is in C: a `spr` or `rectfill` call costs a few microseconds, but every call from

@@ -571,7 +571,7 @@ end
 save({ record = record })
 ```
 
-Numbers, strings, booleans and tables, up to 32 KiB, in `/bm/save/` on the SD card. With
+Numbers, strings, booleans and tables, up to 32 KB, in `/bm/save/` on the SD card. With
 bmlib: `lib.best("record", score)` keeps the record and writes only when it is beaten.
 
 More games in progress: the **slots** from 1 to 8, each a table of its own. Without a slot

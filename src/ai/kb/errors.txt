@@ -273,15 +273,15 @@ keys: memory, memoria
 see: perf_tips, stat
 text:
 Le tabelle crescono senza fine: per esempio proiettili o particelle che
-non vengono mai tolti dalla lista. stat(0) mostra i KiB usati.
+non vengono mai tolti dalla lista. stat(0) mostra i KB usati.
 text_en:
 Tables keep growing: for example bullets or particles that are never
-removed from the list. stat(0) shows the KiB in use.
+removed from the list. stat(0) shows the KB in use.
 code:
 for i = #bullets, 1, -1 do
   if bullets[i].y < 0 then table.remove(bullets, i) end
 end
-print(stat(0) .. " KiB", 8, 8)
+print(stat(0) .. " KB", 8, 8)
 
 == err_bad_argument
 kind: error

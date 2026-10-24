@@ -3,7 +3,7 @@
 Tool: `scripts/bm_weight.py`. Data: `docs/spec/compat-policy.toml`. Test: `tests/tools/test_bm_weight.py` (run it with `python tests/tools/test_bm_weight.py`; `make test-docs` finds it). Design decisions: [single-bm-and-adaptive-screen.md](../design/single-bm-and-adaptive-screen.md) (decisions 1 and 2). Overview: [progress.md](../progress.md).
 
 ## Rules (do not break)
-* The Market shows no size warning. The ceiling is 100 MiB per file. The kit tells the author about weight and cost.
+* The Market shows no size warning. The ceiling is 100 MB per file. The kit tells the author about weight and cost.
 * The performance plan is data. Each number names its source doc and says "estimate". It uses no live game data.
 * Hardware numbers come from the benchmarks: 3D Bench, Dev > GPU test, Stack bench, Video bench. The report prints the command for the next measurement.
 * The compat policy is a data table. A new kernel or a new rule changes the table, not the code. Grey is not a lock.
@@ -16,7 +16,7 @@ Tool: `scripts/bm_weight.py`. Data: `docs/spec/compat-policy.toml`. Test: `tests
 * Module use: `parse`, `weight`, `plan`, `load_policy`, `facts_of`, `classify(facts, kernel, policy, where)`.
 
 ## Compat policy table
-Rows: `[[kernel]]` (id as in `platforms.toml`, default action and reason) and `[[rule]]` (kernel, match keys, `action` for the menu, optional `market_action`, `reason`). The first matching rule of a kernel wins. Actions: `show`, `grey`, `hide`. Match keys: `edition` (bm, b16, project), `res`, `uses_3d`, `audio_bytes_over`, `size_over_mib`. Today: old `.bm` is grey on the RGB30; `.b16` shows on both; a `.bme` project is hidden; an audio bank over 2 MiB is grey; over 100 MiB is hidden in the Market.
+Rows: `[[kernel]]` (id as in `platforms.toml`, default action and reason) and `[[rule]]` (kernel, match keys, `action` for the menu, optional `market_action`, `reason`). The first matching rule of a kernel wins. Actions: `show`, `grey`, `hide`. Match keys: `edition` (bm, b16, project), `res`, `uses_3d`, `audio_bytes_over`, `size_over_mib`. Today: old `.bm` is grey on the RGB30; `.b16` shows on both; a `.bme` project is hidden; an audio bank over 2 MB is grey; over 100 MB is hidden in the Market.
 
 A consumer (the Market list, `src/kernel/market.c` `adopt()`, and the menu scan) would read these fields:
 * from the file: header flags (bit 0 project, bit 1 `.b16`), the extension, the resolution, the AUDIO section size, the file size, the presence of a MESH section;

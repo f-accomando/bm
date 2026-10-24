@@ -310,7 +310,7 @@ local function draw_status(self)
   local s = b.status
   if t and t.kind == "link" then s = b.page.links[t.id].href
   elseif t and t.kind == "ctl" then s = "field: " .. tostring(b.page.controls[t.id].kind) end
-  local mem = g.stat and (" " .. tostring(g.stat(0) or 0) .. " KiB") or ""
+  local mem = g.stat and (" " .. tostring(g.stat(0) or 0) .. " KB") or ""
   text(g, fit(s or "", cols - #mem), 4, y + 1, C.status_text)
   text(g, mem, M.W - 4 - #mem * M.CW, y + 1, C.dim)
   local hint

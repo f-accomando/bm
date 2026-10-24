@@ -7,7 +7,7 @@ mkbm.py - packs a native bm cartridge (.bm). Standard library only.
            [--audio bank.json|bank.bmau] [--models models.glb|pack.bm]
            [--title "My game"] [--author me]
            [--res 640x360|480x270|320x180|256x256|360x360]
-           [--targets pi,rgb30 [--input pad,keyboard] [--aspect wide] [--needs 3d] [--min-ram MiB]
+           [--targets pi,rgb30 [--input pad,keyboard] [--aspect wide] [--needs 3d] [--min-ram MB]
             [--min-spec N] [--min-width PX]]   the compatibility block (header bytes 120..127)
 
 sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommended.
@@ -63,7 +63,7 @@ TYPES = {"game": 0, "app": 1, "utility": 2}   # bm.info "type:", bits 2-3 of the
 
 
 def read_info(path):
-    """bm.info: (the INFO section text, UTF-8 <= 16 KiB; its top-level keys)."""
+    """bm.info: (the INFO section text, UTF-8 <= 16 KB; its top-level keys)."""
     text = "".join(ln for ln in open(path, encoding="utf-8").read().splitlines(True)
                    if not ln.lstrip().startswith("#"))       # comments stay in the file
     raw = text.encode("utf-8")
@@ -494,7 +494,7 @@ def mark_compat(data, targets, input_=0, aspect=0, needs=0, min_ram=0, min_spec=
     if not targets & 3:
         raise SystemExit("compatibility block: targets must name pi, rgb30 or both")
     if not 0 <= min_ram <= 0xFFFF or not 0 <= min_spec <= 255 or not 0 <= min_w16 <= 255:
-        raise SystemExit("compatibility block: min RAM is 0..65535 MiB, min spec 0..255, min width 0..4080")
+        raise SystemExit("compatibility block: min RAM is 0..65535 MB, min spec 0..255, min width 0..4080")
     out = bytearray(data)
     struct.pack_into("<H", out, 18, struct.unpack_from("<H", out, 18)[0] | FLAG_COMPAT)
     struct.pack_into("<BBBBHBB", out, COMPAT_AT, targets & 3, input_ & 255, aspect & 255, needs & 255,
@@ -661,7 +661,7 @@ def main():
     ap.add_argument("--input", default="", help="pad,keyboard,text,mouse,mouse_optional")
     ap.add_argument("--aspect", default="", help="wide,square,any,safe_area")
     ap.add_argument("--needs", default="", help="3d,audio,net,mouse_hw")
-    ap.add_argument("--min-ram", type=int, default=0, help="minimum RAM in MiB")
+    ap.add_argument("--min-ram", type=int, default=0, help="minimum RAM in MB")
     ap.add_argument("--min-spec", type=int, default=0, help="minimum spec revision (BM_SPEC_REV)")
     ap.add_argument("--min-width", type=int, default=0, help="minimum screen width in pixels (stored in units of 16)")
     ap.add_argument("--lua")
@@ -752,7 +752,7 @@ def main():
                 raise SystemExit(f"{a.info}: type: {info['type']!r} must be game, app or utility")
             data = mark_type(data, info["type"])
         title, res_str = a.title, a.res
-    # no size limit here: the Market takes 100 MiB a file (scripts/mkmarket.py), the console loads what fits in RAM
+    # no size limit here: the Market takes 100 MB a file (scripts/mkmarket.py), the console loads what fits in RAM
     if a.targets:
         data = mark_compat(data, compat_bits("targets", a.targets), compat_bits("input", a.input),
                            compat_bits("aspect", a.aspect), compat_bits("needs", a.needs), a.min_ram,

@@ -1,7 +1,7 @@
 /*
- * AArch64 MMU: identity map with 4 KiB granule, 32-bit address space
- * (T0SZ = 32: four level-1 entries of 1 GiB, each pointing to a level-2
- * table of 2 MiB blocks).
+ * AArch64 MMU: identity map with 4 KB granule, 32-bit address space
+ * (T0SZ = 32: four level-1 entries of 1 GB, each pointing to a level-2
+ * table of 2 MB blocks).
  *   RAM          normal memory, write-back read/write-allocate, inner shareable
  *   framebuffers normal memory, non-cacheable: what the CPU draws reaches the
  *                display controller without cache maintenance
@@ -55,11 +55,11 @@ void mmu_init(uint32_t arm_mem_end, uint32_t ram_end)
 
     write_sysreg(mair_el1, MAIR_VALUE);
     write_sysreg(tcr_el1,
-                 32ull                  /* T0SZ: 4 GiB */
+                 32ull                  /* T0SZ: 4 GB */
                  | (1ull << 8)          /* IRGN0: WB WA */
                  | (1ull << 10)         /* ORGN0: WB WA */
                  | (3ull << 12)         /* SH0: inner shareable */
-                 | (0ull << 14)         /* TG0: 4 KiB */
+                 | (0ull << 14)         /* TG0: 4 KB */
                  | (1ull << 23)         /* EPD1: no TTBR1 walks */
                  | (2ull << 32));       /* IPS: 40 bits */
     write_sysreg(ttbr0_el1, (uintptr_t)l1);

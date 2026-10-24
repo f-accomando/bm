@@ -146,7 +146,7 @@ def transfer(args, op, path, name, password):
     # the console writes it from its menu, an older one still answers OK later
     a = recv_answer(sock, 60 + len(data) // 8192)
     dt = time.time() - t0
-    print(f"\r{len(data)} bytes in {dt:.1f} s ({len(data) / 1024 / max(dt, 1e-3):.0f} KiB/s): "
+    print(f"\r{len(data)} bytes in {dt:.1f} s ({len(data) / 1024 / max(dt, 1e-3):.0f} KB/s): "
           + ANSWERS.get(a, "no answer"))
     sock.close()
     if a == b"OK" and op == b"K":

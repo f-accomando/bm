@@ -10,7 +10,7 @@
 #include <string.h>
 
 /* the memory of a job, in one block: the binner wants its own (tile
- * state, tile lists, overflow) within one 256 MiB window */
+ * state, tile lists, overflow) within one 256 MB window */
 #define JOB_TSDA     (96u << 10)    /* 48 bytes per tile: 60 x 34 tiles with MSAA (1920x1080) */
 #define JOB_ALLOC    (4u << 20)     /* tile lists */
 #define JOB_OVERFLOW (2u << 20)
@@ -19,7 +19,7 @@
 #define JOB_RCL      (128u << 10)   /* up to 44 bytes a tile: 2040 tiles (1080p with MSAA) */
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (48u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
+#define JOB_CODE     (48u << 10)    /* the shaders: 1 KB each, 2 KB for a vertex shader */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -27,7 +27,7 @@
 #define PROBE_TEX    (PROBE_W * PROBE_H * 4 + 4096)    /* (also 128 x 64 texels of 16 bits) */
 #define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF + JOB_CODE + \
                       JOB_VERTS + JOB_PROBE + PROBE_TEX)
-/* the block in whole sections of 1 MiB, which the MMU can map uncached
+/* the block in whole sections of 1 MB, which the MMU can map uncached
  * (gpu3d_set_wc, bm3d 4.1) without touching any other memory */
 #define JOB_SECTIONS ((JOB_BLOCK + 0xFFFFFu) & ~0xFFFFFu)
 /* bm3d 5.1: the second block of the memory of a job (two jobs in flight): what
@@ -192,7 +192,7 @@ static struct {
     int bilinear;                   /* bm3d 4.8: textures filtered (gpu3d_set_bilinear) */
     int ms_ok;                      /* the probe: 0 no MSAA, 1 on cleared pages, 2 also on loaded ones */
     int ms, tile;                   /* the job: MSAA, tile size */
-    int t_rev;                      /* odd rows of 4 KiB tiles run right to left */
+    int t_rev;                      /* odd rows of 4 KB tiles run right to left */
     uint16_t t_inner[2][1024];      /* word of each texel in its tile: even, odd rows of tiles */
     int tf16, t16_rev, t16_swap;    /* bm3d 5.2: RGB565 in T-format learned (tiles of 64x32), odd rows
                                      * reversed, red and blue swapped in the texel */
@@ -205,7 +205,7 @@ static struct {
     int cut_ok[2], cut_mode[2];
     /* bm3d 7.3: ETC1 (type 8) for the opaque sheets, learned by the
      * probe (ok) on the RGB565 layout: 64-byte utiles of 8 blocks (e1_uw
-     * blocks wide) in the 4 KiB tiles, each utile's place in its tile as
+     * blocks wide) in the 4 KB tiles, each utile's place in its tile as
      * RGB565's (e1_slot, [row of tiles & 1][utile row * 8 + utile column]);
      * the block's bytes in order e1_order (ETC1_...), red and blue swapped
      * (e1_swap), the block's texels where the TMU shows them (e1_map,
@@ -358,7 +358,7 @@ static uint32_t t_word(int x, int y, int w)
 }
 
 /* bm3d 5.2: the 16-bit place of texel (x, y) in an RGB565 T-format texture w
- * wide (a multiple of 64): tiles of 4 KiB, 64 x 32 texels, laid out as the
+ * wide (a multiple of 64): tiles of 4 KB, 64 x 32 texels, laid out as the
  * probe learned */
 static uint32_t t16_word(int x, int y, int w)
 {
@@ -408,7 +408,7 @@ static uint16_t cut16_of(int f, uint32_t p, uint32_t g, uint32_t s, uint32_t a)
  * the halves swapped */
 enum { ETC1_BE, ETC1_WORDS_LE, ETC1_LE, ETC1_HALVES };
 
-/* the sides of an ETC1 tile (4 KiB: 8 x 8 utiles of 8 blocks), in texels */
+/* the sides of an ETC1 tile (4 KB: 8 x 8 utiles of 8 blocks), in texels */
 static int etc1_tile_w(void)
 {
     return 8 * G.e1_uw * 4;
@@ -579,7 +579,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
         for (uint32_t i = 0; i < n; i++)
             t->texels[i] = texel_of(s->px[i], s->alpha[i]);
     }
-    /* P0: base (4 KiB units), type: RGBA8888 (0, T-format) or RGBA32R
+    /* P0: base (4 KB units), type: RGBA8888 (0, T-format) or RGBA32R
      * (16: low bits 0 here, bit 4 in P1); P1: type bit 4, height and width
      * (2048 is 0), nearest texel when magnified and minified, clamp in s
      * and t */
@@ -663,7 +663,7 @@ static int block2_make(void)
         return 0;
     G.block2 = aligned_alloc(1u << 20, JOB2_SECTIONS);
     if (G.block2 && (v3d_bus(G.block2) >> 28) != (v3d_bus(G.block2 + JOB2_SECTIONS - 1) >> 28)) {
-        free(G.block2);                 /* (across 256 MiB: the binner's memory must not be) */
+        free(G.block2);                 /* (across 256 MB: the binner's memory must not be) */
         G.block2 = NULL;
     }
     if (G.block2 && G.wc)
@@ -2884,7 +2884,7 @@ int gpu3d_flush(const g16_t *g, int keep)
     GPU_PRE();
     const int had = G.open && (G.vbytes || G.gldraws);
     /* the depth is stored only for cartridges that need it: most draw all
-     * their 3D, then the HUD, and a store is 1 MiB of memory traffic */
+     * their 3D, then the HUD, and a store is 1 MB of memory traffic */
     int r = flush_job(g, keep && G.z_wanted);
     if (!keep) {
         G.z_saved = 0;                  /* the next job starts from a clear depth */
@@ -2993,7 +2993,7 @@ static uint8_t *block_alloc(void)
 {
     uint8_t *b = aligned_alloc(1u << 20, JOB_SECTIONS);
     if (b && (v3d_bus(b) >> 28) != (v3d_bus(b + JOB_SECTIONS - 1) >> 28)) {
-        uint8_t *again = aligned_alloc(1u << 20, JOB_SECTIONS);     /* across 256 MiB: another */
+        uint8_t *again = aligned_alloc(1u << 20, JOB_SECTIONS);     /* across 256 MB: another */
         free(b);
         b = again;
         if (b && (v3d_bus(b) >> 28) != (v3d_bus(b + JOB_SECTIONS - 1) >> 28)) {
@@ -3029,7 +3029,7 @@ static int probe_ms(void)
  * 16-bit word i holds i (as RGB565: it comes back on the page as itself,
  * or with red and blue swapped) is drawn in two halves on the probe's
  * buffer: for each texel, the word the TMU read. 1 if it is a layout of
- * tiles of 4 KiB (64 x 32 texels) in rows, learned into t16_inner and
+ * tiles of 4 KB (64 x 32 texels) in rows, learned into t16_inner and
  * t16_rev; 0 if not (the textures stay 32-bit) */
 static int tformat16_learn(const g16_t *pg)
 {
@@ -3087,7 +3087,7 @@ static int tformat16_learn(const g16_t *pg)
                 for (int y = 0; y < 32; y++)
                     for (int x = 0; x < 64; x++)
                         if (seen[(ty * 32 + y) * TW + tx * 64 + x] / 2048 != pos[ty][tx])
-                            return 0;   /* a tile is not 4 KiB in one piece */
+                            return 0;   /* a tile is not 4 KB in one piece */
             }
         if (pos[0][0] != 0 || pos[0][1] != 1)
             return 0;
@@ -3490,7 +3490,7 @@ static int probe_etc1(const g16_t *pg)
 }
 
 /* G.probe holds, for each texel of a 64x64 T-format texture, the word the
- * TMU read: 1 if it is a layout of 4 KiB tiles in rows (learned into
+ * TMU read: 1 if it is a layout of 4 KB tiles in rows (learned into
  * t_inner and t_rev), 0 if not */
 static int tformat_learn(void)
 {
@@ -3509,7 +3509,7 @@ static int tformat_learn(void)
             for (int y = 0; y < 32; y++)
                 for (int x = 0; x < 32; x++)
                     if (G.probe[(ty * 32 + y) * PROBE_W + tx * 32 + x] / 1024 != pos[ty][tx])
-                        return 0;       /* a tile is not 4 KiB in one piece */
+                        return 0;       /* a tile is not 4 KB in one piece */
         }
     if (pos[0][0] != 0 || pos[0][1] != 1)
         return 0;
@@ -4148,7 +4148,7 @@ static int probe(void)
     /* T-format, the TMU's tiled layout (a texture read in tiles fits its
      * cache better than one in rows): the same quad with a 64x64 RGBA8888
      * texture whose word i shows as the RGB565 value i tells, texel by
-     * texel, which word the TMU reads: the layout of a 4 KiB tile (32x32
+     * texel, which word the TMU reads: the layout of a 4 KB tile (32x32
      * texels) in even and in odd rows of tiles, and the order of the
      * tiles. Textures go in T-format only if all of it holds together. */
     for (int i = 0; i < PROBE_W * PROBE_H; i++)

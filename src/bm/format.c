@@ -588,7 +588,7 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
         case BM_SEC_INFO:
             if (size > BM_INFO_MAX) {
                 if (c->kind)
-                    return fail(err, errlen, "INFO over 16 KiB");
+                    return fail(err, errlen, "INFO over 16 KB");
                 break;
             }
             c->info = p;

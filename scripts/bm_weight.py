@@ -69,7 +69,7 @@ BENCHMARKS = {
 
 
 def mb(n):
-    return f"{n / (1 << 20):.2f} MiB"
+    return f"{n / (1 << 20):.2f} MB"
 
 
 def pct(part, whole):

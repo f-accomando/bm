@@ -42,7 +42,7 @@ The "tris at 60 fps" column counts triangles sent, before the V3D culls back fac
 7. **Cache misses do not limit the ARM.** `GPU+WC` (job memory uncached) cuts d-misses by 72% (228 848 to 64 352, `spheres`) and the load stays 199 against 200. So cutting misses gives nothing. Do not work on it.
 8. **The second job block and triple buffering give nothing.** Queue 1 and queue 2 give the same load (651.4-652.4 and 651.6-652.7, v3d-notes). Decision of 12 Oct: no interrupts, no triple buffering.
 9. **Textures are not a lever.** T16 and ETC1 equal the plain path within 1-6% (quad_tex 2.20 / 2.35 / 2.19 ns/px; heroes_tex 74.6 against 74.6). Small sheets sit in the TMU cache.
-10. **The binner has room.** `pool_kb` is 74-398 KiB for 63-115 k triangles (about 3.5 B a triangle, *E*, if the column is the tile-list use). The pool is 4 MiB plus 2 MiB overflow. `ovf_kb` is 0 in every row. The control list `JOB_BCL` is 256 KiB. An indexed group is one command, so the list grows with groups and draws, not with triangles.
+10. **The binner has room.** `pool_kb` is 74-398 KB for 63-115 k triangles (about 3.5 B a triangle, *E*, if the column is the tile-list use). The pool is 4 MB plus 2 MB overflow. `ovf_kb` is 0 in every row. The control list `JOB_BCL` is 256 KB. An indexed group is one command, so the list grows with groups and draws, not with triangles.
 11. **A draw call costs 3.7-12.6 us.** `draws`: 1 023 cubes at 12.9 ms, ARM busy 3.3 M instructions, so 3.2 k instructions and 12.6 us a call. `clip`: 3 680 pieces at 13.6 ms, so 3.7 us a piece (the ARM culls 77% of 147 200 triangles with a bounding sphere).
 
 ### 1.3 Bytes per vertex (code)
@@ -57,7 +57,7 @@ The vertex shader reads one record per corner. Words of 4 bytes.
 | `GV_LIT_TEX` | 12 | 144 | 12 (no change) |
 | `GV_LIT_TEX2` | 11 | 132 | 11 (no change) |
 
-The ARM-transformed path writes `VSTRIDE(n) = 12 + 4n` bytes a vertex (24-44 B). Vertex reuse exists: indexed meshes, 16-entry FIFO model, `vcache_order` (`gpu3d_sort`): a grid goes from 2.96 to 0.69 shaded vertices a triangle (DRIVERS 5.6). Memory of a job: `JOB_SECTIONS` = TSDA 96 KiB + ALLOC 4 MiB + OVERFLOW 2 MiB + ZBUF 8 MiB + BCL 256 KiB + RCL 128 KiB + RECS 64 KiB + UNIF 256 KiB + CODE 40 KiB + VERTS 4 MiB + probe buffers, rounded to 1 MiB sections (about 19 MiB). The second block `JOB2_BLOCK` is about 11 MiB. A third block would cost about 11 MiB more.
+The ARM-transformed path writes `VSTRIDE(n) = 12 + 4n` bytes a vertex (24-44 B). Vertex reuse exists: indexed meshes, 16-entry FIFO model, `vcache_order` (`gpu3d_sort`): a grid goes from 2.96 to 0.69 shaded vertices a triangle (DRIVERS 5.6). Memory of a job: `JOB_SECTIONS` = TSDA 96 KB + ALLOC 4 MB + OVERFLOW 2 MB + ZBUF 8 MB + BCL 256 KB + RCL 128 KB + RECS 64 KB + UNIF 256 KB + CODE 40 KB + VERTS 4 MB + probe buffers, rounded to 1 MB sections (about 19 MB). The second block `JOB2_BLOCK` is about 11 MB. A third block would cost about 11 MB more.
 
 The compact attributes of textured faces (b8f01430) gave `vs_lit_tex8` and half-float uv. Commit 1ced7d02 removed the half uv, because the lit textures are sampled nearest and the pixels changed. What is left: `vs_tex_rgb8` only (8 to 6 words). The branch is not in `bm-core`. The lit textured shaders, which the heroes use, have no compact form.
 
@@ -80,7 +80,7 @@ Gain = more triangles at 60 fps in the tests the option helps. Ranges are *E* un
 - Mechanism: `gpu3d_attr=1` packs colour and light bytes: 28% fewer attribute words. The GPU reads and the ARM writes fewer words. Stage 2b: lit textured faces (`GV_LIT_TEX`, the hero shader) also: uv as 16-bit fixed (the sheets are at most 512 and sampled nearest) and normals or light as bytes.
 - Helps: GPU-bound mesh tests (`big`, `match`, `heroes`); ARM side a little (fewer uncached writes).
 - Gain *(M)*, A8 against GPU+VS+FS2 at 60 fps: spheres +3.5%, heroes +7%, match +15% (n60 35.3 against 30.8 in the first run, 34.0 against 32.1 in the last), big +23% (9.2 to 11.3 models; the triangle counts differ). Textured heroes: 0 today. Stage 2b *(E)*: `GV_LIT_TEX` 12 to 10 words (-17%). Taking the heroes' ratio (-28% words gave -14% GPU job time): -17% words gives -8% GPU time, so **+3% to +6%** in `heroes_tex`, `mix`.
-- Cost: 0 RAM (less). Stage 2a: about 5 lines (default on if the probe passes). Stage 2b: about 100-150 lines (shader in `tools/qpuasm.py`, `put_mesh_corner`, emulator unpack), `JOB_CODE` 40 to 48 KiB.
+- Cost: 0 RAM (less). Stage 2a: about 5 lines (default on if the probe passes). Stage 2b: about 100-150 lines (shader in `tools/qpuasm.py`, `put_mesh_corner`, emulator unpack), `JOB_CODE` 40 to 48 KB.
 - Risk: pixel mismatch (the reason 1ced7d02 dropped half-uv). Medium. The probe `probe_attr` keeps the path only if pixels match.
 - Built (23 Oct, bm3d 7.6): stage 2a. Measured on the Pi (23 Oct): no gain, so `gpu3d_attr` is off by default again; `gpu3d_attr=1` turns it on (where `probe_attr` passes). Stage 2b (lit textured faces) is not built and is not worth it while the frame is ARM-bound.
 - QEMU: `make test-gpu3d` (same pixels, fewer words). Pi: bench GPU+VS+A8 against GPU+VS+FS2 in `heroes_tex`, `mix`, the new scene; Overbit session with `attr=1`. The decision is the user's (v3d.md).
@@ -120,7 +120,7 @@ Gain = more triangles at 60 fps in the tests the option helps. Ranges are *E* un
 - Mechanism: the V3D bins job N+1 on CT0 while it renders job N on CT1. Today `v3d_start` rejects a second job and `job_wait` runs before it. Chaining needs two CLs in flight and the job memory of `JOB2`. A frame split in two (top and bottom half) would let bin(2) overlap render(1).
 - Helps: only GPU-bound scenes where binning is a large part of `gpu_ms` (`tiny`, `big`).
 - Gain: at most `min(bin, render of the other half)`. The split between bin and render is not reported (`bin_us`, `rnd_us` exist in `v3d_wait`, the bench does not print them). If bin is 30% of 11.8 ms: -1.8 ms at best, **0% to +15%** in `tiny`, `big` (*E*, no data). v3d.md already says: "only if a measurement shows the GPU idle between jobs". Queue 1 equals queue 2 (finding 8), so there is no sign of idle time.
-- Cost: about 11 MiB RAM (job block), 150-300 lines in `v3d.c` and `gpu3d.c`. Risk high (hang, lost depth between halves). Pi: print `bin_us`, `rnd_us` and the idle time before any code.
+- Cost: about 11 MB RAM (job block), 150-300 lines in `v3d.c` and `gpu3d.c`. Risk high (hang, lost depth between halves). Pi: print `bin_us`, `rnd_us` and the idle time before any code.
 
 ### Opt 8: 16-bit positions (smaller vertex)
 
@@ -159,7 +159,7 @@ The vertex shader already runs on the QPUs (`gpu3d_vs=2`). Moving more ARM work 
 | 4 | Early-out culling, LOD | content | 0% on screen, x1/visible in the world | 0 | 50-300 | low |
 | 5 | Resolution scaling R41 | fill-bound | 0% to +40% (*E*) | less | ~50 | low |
 | 6 | Impostors R42 | crowds | k x 1 534 triangles saved (*E*) | small | exists | medium |
-| 7 | Split frame, bin/render overlap | GPU-bound `tiny`, `big` | 0% to +15% (*E*, no data) | +11 MiB | 150-300 | high |
+| 7 | Split frame, bin/render overlap | GPU-bound `tiny`, `big` | 0% to +15% (*E*, no data) | +11 MB | 150-300 | high |
 | 8 | 16-bit positions | GPU-bound meshes | +2% to +5% (*E*) | 0 | 150-300 | medium |
 | 9 | Strips | - | 0% to +2% (*E*) | 0 | 80 | low |
 | 10 | V3D IRQ | power | 0% | 0 | ~80 | medium |

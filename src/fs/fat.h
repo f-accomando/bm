@@ -33,7 +33,7 @@ int fat_mount(void);
  * (UTC), 0 while unknown (then the date stays 2026-01-01). */
 void fat_set_clock(unsigned long (*seconds_since_1970)(void));
 const char *fat_error(void);
-/* "FAT32, 1024 MiB, label BOOT" */
+/* "FAT32, 1024 MB, label BOOT" */
 const char *fat_describe(void);
 /* The volume's cluster size in bytes (0 if not mounted): a card's write
  * speed depends on it (the sd: line at boot says it). */
@@ -96,7 +96,7 @@ extern int (*fat_write_tick)(void);
 /* The bytes of the file being written that are on the card so far (set
  * before each fat_write_tick: a progress bar). */
 extern size_t fat_write_done;
-/* Whole clusters (up to 32 KiB of them next to each other, the sectors
+/* Whole clusters (up to 32 KB of them next to each other, the sectors
  * with data of the last one too) in one SD command, read back and
  * compared, instead of one sector at a time (a kernel took the RGB30 more
  * than a minute, a 6 MB game froze the Pi's menu 30 s); a run that fails

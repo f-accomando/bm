@@ -447,7 +447,7 @@ local function sample()
   local tri = stat(4)
   S.tri, S.vtx, S.px, S.fps = S.tri + tri, S.vtx + stat(7), S.px + stat(5), S.fps + fps
   if tri > S.trimax then S.trimax = tri end
-  S.ins, S.kb = S.ins + stat(10), max(S.kb, stat(12))     -- Lua instructions of the frame, KiB of Lua at most
+  S.ins, S.kb = S.ins + stat(10), max(S.kb, stat(12))     -- Lua instructions of the frame, KB of Lua at most
 end
 
 -- the frames of a phase: average, 1% (the 99th percentile), worst, over
@@ -493,7 +493,7 @@ local function match_done()
   blog(string.format("overbit bench %s %dx%d %s match %d", RNAME[ph.r], s.w, s.h, Quality.names[ph.q + 1], match_hash()))
   Bench.rows[#Bench.rows + 1] = s
   blog(string.format("overbit bench %s %dx%d %s: %.0f fps, %.1f ms (1%% %.1f, worst %.1f, %.0f%% over 16.7), update %.1f, "
-    .. "3D %.1f, gpu %.1f, %.0f tri (max %d), %.0f vtx, %.0f px, %.0fk instr, %d KiB Lua, bm3d %s", RNAME[ph.r], s.w,
+    .. "3D %.1f, gpu %.1f, %.0f tri (max %d), %.0f vtx, %.0f px, %.0fk instr, %d KB Lua, bm3d %s", RNAME[ph.r], s.w,
     s.h, Quality.names[ph.q + 1], s.fps, s.ms, s.p99, s.worst, s.over, s.upd, s.d3, s.gpu, s.tri, s.trimax, s.vtx, s.px,
     s.ins / 1000, s.kb, Bench.ver[ph.r] or "?"))
   local C = Bench.climb
@@ -746,7 +746,7 @@ local function report()
   local pg = string.format("PAGE %d/%d", page, np)
   uprint(pg, LW - 4 - #pg * 6, 2, 0x7A8290)
   local y = 18
-  local narrow = LW < 380                       -- (360 wide: the KiB of Lua left out)
+  local narrow = LW < 380                       -- (360 wide: the KB of Lua left out)
   if page <= 2 * k then
     -- frame time (green: 60 fps, yellow: 30), then a page of the work of a frame
     local ROWS = rows()

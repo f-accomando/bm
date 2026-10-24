@@ -472,7 +472,7 @@ void carts_init(void)
     if (sd_init() != 0) {
         kprintf("sd: %s\n", sd_error());
     } else if (fat_mount() != 0) {
-        kprintf("sd: %s card, %lu MiB: %s\n", sd_is_hc() ? "SDHC" : "SD",
+        kprintf("sd: %s card, %lu MB: %s\n", sd_is_hc() ? "SDHC" : "SD",
                 sd_blocks() / 2048, fat_error());
     } else {
         sd_ok = 1;
@@ -492,7 +492,7 @@ void carts_init(void)
         char size[24], extra[48] = "";
         const uint32_t cb = fat_cluster_bytes();
         if (cb >= 1024)
-            ksnprintf(size, sizeof size, "%lu KiB", (unsigned long)(cb / 1024));
+            ksnprintf(size, sizeof size, "%lu KB", (unsigned long)(cb / 1024));
         else
             ksnprintf(size, sizeof size, "%lu bytes", (unsigned long)cb);
         uint32_t retries, timeouts;
@@ -820,7 +820,7 @@ static void draw(int sel, int top, int rows)
         ksnprintf(author, sizeof author, "%s", c->author);
         /* SGR 7 swaps the colours: the selected row gets it once, no
          * other attribute inside */
-        outf("%s %c %-38s %s%-18s%s %-3s %5lu KiB \x1b[0m\n",
+        outf("%s %c %-38s %s%-18s%s %-3s %5lu KB \x1b[0m\n",
              i == sel ? "\x1b[7m" : "", i == sel ? '>' : ' ', title,
              i == sel ? "" : "\x1b[90m", author, i == sel ? "" : "\x1b[0m",
              "bm", (c->size + 1023) / 1024);
@@ -947,7 +947,7 @@ static void cart_panel(home_panel_t *p)
     home_row(p, MENU_ROW_INFO, C_FILE, "File", c->builtin ? "Built into the kernel" : "On the SD card",
              "%s", c->path);
     home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
-             "%lu KiB", (c->size + 1023) / 1024);
+             "%lu KB", (c->size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, C_TYPE, "Type", "Lua 5.4 on bm", "%s",
              !strcmp(kind_of(c), "b16") ? "b16 (handheld)" : "bm (native)");
     char v[40];
@@ -1264,7 +1264,7 @@ void carts_menu(framebuffer_t *fb)
                 if (c->grey)
                     ksnprintf(details, sizeof details, "Not here: %s", c->why);
                 else
-                    ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
+                    ksnprintf(details, sizeof details, "%s   %s   %lu KB   %s",
                               c->author[0] ? c->author : "-", kind_of(c),
                               (c->size + 1023) / 1024, c->path);
             }

@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 /*
- * Flat (identity) mapping with 1 MiB sections, ARMv6 descriptor format
+ * Flat (identity) mapping with 1 MB sections, ARMv6 descriptor format
  * (the same on ARMv7):
  *   [0, arm_mem_end)          normal memory, write-back write-allocate cached
  *   [arm_mem_end, ram_end)    GPU memory (framebuffer): normal, uncached,
@@ -20,7 +20,7 @@ void mmu_init(uint32_t arm_mem_end, uint32_t ram_end);
 
 int mmu_enabled(void);
 
-/* The 1 MiB sections wholly inside [start, start + size) of the cached ARM
+/* The 1 MB sections wholly inside [start, start + size) of the cached ARM
  * memory made normal uncached (writes merged in the write buffer: for
  * buffers the ARM writes and another master reads, bm3d 4.1) or cached again
  * (cached != 0). The data cache of the range is cleaned and invalidated

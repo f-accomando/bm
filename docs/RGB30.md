@@ -3,7 +3,7 @@
 
 
 Bare metal version of bm for the **PowKiddy RGB30**: Rockchip **RK3566** SoC (4 × 64-bit
-Cortex-A55, 1 GiB LPDDR4), **720×720** IPS screen over MIPI-DSI (Sitronix ST7703 panel), two
+Cortex-A55, 1 GB LPDDR4), **720×720** IPS screen over MIPI-DSI (Sitronix ST7703 panel), two
 microSD slots, Realtek **RTL8821CS** WiFi + Bluetooth, Rockchip RK817 PMIC. The code lives in the
 `rgb30-powkiddy` branch; the Pi build does not change.
 
@@ -44,15 +44,15 @@ make TARGET=rgb30 image        # dist/rgb30/bm-rgb30.img (+ .img.gz): the SD ima
 
 1. `make TARGET=rgb30 firmware` downloads:
    - the **bootloader** from the official ROCKNIX image for RK3566 (release `20260901`): only the
-     first MiB of the `.img.gz` (HTTP range request), from which `idbloader.img`
+     first MB of the `.img.gz` (HTTP range request), from which `idbloader.img`
      (sector 64) and `u-boot.itb` (sector 16384) are cut out. They contain Rockchip's DDR
      initialisation, **U-Boot 2026.01** (mainline, `anbernic-rgxx3-rk3566_defconfig` + 3 ROCKNIX patches)
      and Rockchip's BL31. It is the same bootloader the console already uses with ROCKNIX;
    - the Bluetooth firmware `rtl8821cs_fw.bin` / `rtl8821cs_config.bin` from linux-firmware.
 
    Every file is checked against its SHA-256 (`scripts/fetch-rgb30.sh`).
-2. `make TARGET=rgb30 image` creates `dist/rgb30/bm-rgb30.img` (256 MiB; 1.1 MB compressed): MBR with
-   one 16 MiB FAT32 partition "BM", active, containing `extlinux/extlinux.conf`,
+2. `make TARGET=rgb30 image` creates `dist/rgb30/bm-rgb30.img` (256 MB; 1.1 MB compressed): MBR with
+   one 16 MB FAT32 partition "BM", active, containing `extlinux/extlinux.conf`,
    `kernel8.img`, `LEGGIMI.txt` and `bm/` with the Bluetooth firmware.
 3. Write the image to a **spare** microSD with balenaEtcher, Raspberry Pi Imager ("Use
    custom") or Rufus. WSL does not write to cards directly.
@@ -139,8 +139,8 @@ While the screen starts, `bm/bootlog.txt` is rewritten at every step, with `disp
 | File | When it is written | What it contains |
 |---|---|---|
 | `bootlog.txt` | at every boot, several times (see above) | the log of this boot up to `ready` |
-| `bootprev.txt` | at every boot, as soon as the SD is read (before the screen) | the `bootlog.txt` of the previous boot, then a line on how it ended (from the RAM record in `crumbs.c`) and its last printed lines (4 KiB kept in RAM across the restart; after a power-off they are not there: `(nothing in RAM)`) |
-| `lastrun.txt` | before a restart or a shutdown done by bm (*Restart*, *Shut down*, update, kernel from the network: all go through `plat_reset` / `plat_poweroff`), before turning off screen and audio | everything that session printed (the first 64 KiB; if full, the last lines at the end) |
+| `bootprev.txt` | at every boot, as soon as the SD is read (before the screen) | the `bootlog.txt` of the previous boot, then a line on how it ended (from the RAM record in `crumbs.c`) and its last printed lines (4 KB kept in RAM across the restart; after a power-off they are not there: `(nothing in RAM)`) |
+| `lastrun.txt` | before a restart or a shutdown done by bm (*Restart*, *Shut down*, update, kernel from the network: all go through `plat_reset` / `plat_poweroff`), before turning off screen and audio | everything that session printed (the first 64 KB; if full, the last lines at the end) |
 
 `lastrun.txt` is not written from an interrupt nor while another transfer is writing
 to the SD (a kernel from the PC): in that case the previous one stays. There is no (yet) periodic
@@ -171,7 +171,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
 - RK817 PMIC on I2C0: power-off, battery voltage, charge status.
 - Video modes ready for the GPU (`src/rgb30/display.h`): every framebuffer has the shape the
   Mali-G52 GPU wants in order to draw into it (rows aligned to 64 bytes, height in 16-pixel tiles,
-  pages on 64 KiB boundaries, up to 3 pages) in video and GPU memory, with its physical
+  pages on 64 KB boundaries, up to 3 pages) in video and GPU memory, with its physical
   address (`fb->bus`). The video controller scales the image onto the panel: a game can
   draw at 720×720 or at 360×360 shown ×2 (a quarter of the pixels for the GPU), sharp or
   smoothed; the menu is 360×360 ×2. **Display** page in the menu: the modes one after another
@@ -180,7 +180,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   only when asked for (boot does not touch the GPU), one step at a time with a line on screen and
   a `gpu` report: vdd_gpu on (RK817 DCDC2, otherwise it stops at once), clocks of the
   PD_GPU domain (CRU) and domain on (PMU, like Linux's domains), GPU_ID and present parts, reset,
-  power-up of L2, cores and tiler, address space 0 with the "Mali LPAE" tables (64 MiB of
+  power-up of L2, cores and tiler, address space 0 with the "Mali LPAE" tables (64 MB of
   video and GPU memory seen 1:1), a WRITE_VALUE job on slot 1 and a chain of two. Every
   wait has a limit; the first step that does not come back stops the test and says why (the job
   status, an MMU fault with its address). Then (bm3d 6.1) a fragment job with no
@@ -198,7 +198,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   below).
 - **bm SDK (RGB30)** (`carts/sdk_b16`): the SDK's own edition for 360×360 and the pad
   ([sdk/README.md](../sdk/README.md)), **built into `kernel8.img`** (`rgb30.mk`,
-  `src/rgb30/bm_embed.S`, about 164 KiB), not in the Market. The **Dev** tab opens it as a tool
+  `src/rgb30/bm_embed.S`, about 164 KB), not in the Market. The **Dev** tab opens it as a tool
   (the Pi's tool session, `src/kernel/devtool.c`), and a game's options (X) have **Open in bm
   SDK**: it saves its projects where they are (a game: the console asks and makes its editable
   copy next to it), builds a project's game next to it and tries it (F5: the game plays, Start +
@@ -347,7 +347,7 @@ branch and board: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
 `.b16` for `/carts` (the default) ends up in `bm/`, the folder the menu lists. The console
 replies as soon as the file has arrived whole (`QD`) and writes it to the SD from the menu, one chunk per
 frame in a fiber: the game has the *Updating* label and does not start until it is written; the
-top bar shows the KiB written. If a game is open the file waits in memory and goes to the SD
+top bar shows the KB written. If a game is open the file waits in memory and goes to the SD
 on return to the menu. A second file while the first is waiting: `BY` (busy), resend later.
 
 ## Files
@@ -382,9 +382,9 @@ on return to the menu. A second file while the first is waiting: `BY` (busy), re
 |---|---|---|
 | 0x00000000 | 0x00200000 | TF-A (BL31): not mapped |
 | 0x02000000 | | where U-Boot loads `kernel8.img` (then it moves) |
-| 0x10000000 | | kernel (text, data, bss, 1 MiB stack, MMU tables), then the heap |
-| 0x3c000000 | 0x3fc00000 | video memory, 60 MiB (non-cacheable): the framebuffers |
-| 0x3fc00000 | 0x40000000 | Mali GPU memory, 4 MiB (non-cacheable): page tables, jobs (`PLAT_GPU_START`) |
+| 0x10000000 | | kernel (text, data, bss, 1 MB stack, MMU tables), then the heap |
+| 0x3c000000 | 0x3fc00000 | video memory, 60 MB (non-cacheable): the framebuffers |
+| 0x3fc00000 | 0x40000000 | Mali GPU memory, 4 MB (non-cacheable): page tables, jobs (`PLAT_GPU_START`) |
 | 0xfc000000 | 0xffffffff | peripherals (GIC 0xfd400000, CRU 0xfdd20000, VOP2 0xfe040000, DSI0 0xfe060000, SDMMC0 0xfe2b0000, UART2 0xfe660000, …) |
 
 ## Licences of the downloaded files

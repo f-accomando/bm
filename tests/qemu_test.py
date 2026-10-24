@@ -309,7 +309,7 @@ def test_boot_banner(b, opts):
         out = q.expect("uptime")
         assert b"MMU/caches     : on" in out, out
         q.send("m")
-        q.expect("KiB in use")
+        q.expect("KB in use")
     finally:
         q.close()
 
@@ -575,7 +575,7 @@ def test_lua_out_of_memory(b, opts):
         q.boot()
         q.send("l")
         q.expect("lua> ")
-        # grows past the 64 MiB Lua limit: must fail cleanly, not crash
+        # grows past the 64 MB Lua limit: must fail cleanly, not crash
         q.send("t = {} for i = 1, 1000 do t[i] = ('x'):rep(1 << 20) .. i end\r")
         out = q.expect("lua> ", timeout=60)
         assert b"not enough memory" in out, out
@@ -1004,7 +1004,7 @@ def test_sd_cartridges(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
-        assert "sd: SD card (sdhost), FAT32, 127 MiB, label BMSD; 2 cartridges" in out, out
+        assert "sd: SD card (sdhost), FAT32, 127 MB, label BMSD; 2 cartridges" in out, out
         q.send("f")
         out = q.expect("\"Pong\"\r\n").decode(errors="replace")
         assert "Il mio gioco lungo.bm" in out and "/carts/demo2.bm" in out, out
@@ -1212,7 +1212,7 @@ def test_home_ui(b, opts):
     victim = os.path.join(tmp, "victim.bm")
     with open(victim, "wb") as f:
         f.write(mkbm.pack(COUNTER_CART.encode(), title="BBB delete me"))
-    big = os.path.join(tmp, "BIG.DAT")           # 1.5 MiB: wide enough to show in the bar of the SD map
+    big = os.path.join(tmp, "BIG.DAT")           # 1.5 MB: wide enough to show in the bar of the SD map
     with open(big, "wb") as f:
         f.write(bytes(3 << 19))
     notes = os.path.join(tmp, "NOTES.TXT")
@@ -1537,7 +1537,7 @@ def test_make_image(b, opts):
         # a cartridge for each of the Makefile's GAMES (a new game: one more)
         with open(os.path.join(root, "Makefile")) as f:
             games = re.search(r"^GAMES\s*:=(.*)$", f.read(), re.M).group(1).split()
-        assert f"FAT32, 63 MiB, label BM; {len(games)} cartridges" in out, out
+        assert f"FAT32, 63 MB, label BM; {len(games)} cartridges" in out, out
         time.sleep(0.5)
         want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Studio Village", "nano8")
         titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night", "Overbit", "Yharnam", "Pad Typing")
@@ -1813,7 +1813,7 @@ def test_glb3d(b, opts):
     SD card (read only) and gives the model table of cutout3d, or nil and a message:
     the box with its texture, the options, a missing file, a file that is not a .glb,
     the format's limits (65535 triangles: refused; the reducer is in the host test) and the
-    file size limit of 16 MiB."""
+    file size limit of 16 MB."""
     tmp = tempfile.mkdtemp(prefix="bm-glb3d-")
     img = os.path.join(tmp, "sd.img")
     try:
@@ -1850,7 +1850,7 @@ def test_glb3d(b, opts):
             assert rows["missing"][0] == "nil" and "/glb/none.glb" in rows["missing"][1], text
             assert rows["text"][0] == "nil" and "not a .glb" in rows["text"][1], text
             assert rows["grid"][0] == "nil" and "more than 65535 triangles" in rows["grid"][1], text
-            assert rows["huge"][0] == "nil" and "limit is 16 MiB" in rows["huge"][1], text
+            assert rows["huge"][0] == "nil" and "limit is 16 MB" in rows["huge"][1], text
             q.expect("> ", timeout=10)
         finally:
             q.close()
@@ -4501,14 +4501,14 @@ def test_bt_two_pads(b, opts):
 
 
 def test_sd_sdhc_and_usb_menu(b, opts):
-    """4 GiB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
+    """4 GB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
     tmp = tempfile.mkdtemp(prefix="bm-sd-")
     img = os.path.join(tmp, "sd.img")
     mksd.build(img, [(b("demo.bm"), "carts/game.bm")], 4096)
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
-        assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BMSD; 1 cartridges" in out, out
+        assert "sd: SDHC card (sdhost), FAT32, 4095 MB, label BMSD; 1 cartridges" in out, out
         time.sleep(1.0)                       # the bar: the keyboard icon (M27)
         shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and len(prompt_spans(i, 21)) == 5)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
@@ -7648,7 +7648,7 @@ def _rec_check(b, fmt_cfg, min_chunks):
 
 def test_video_rec_drops(b, opts):
     """A game that saves to the card on every frame keeps the recorder from writing (the card is the game's
-    for 300 ms after each save): the ring of 1 MiB (3 chunks) fills, frames are dropped and counted, nothing
+    for 300 ms after each save): the ring of 1 MB (3 chunks) fills, frames are dropped and counted, nothing
     blocks, and the chunks are all written when the game ends."""
     tmp = tempfile.mkdtemp(prefix="bm-recdrop-")
     try:
@@ -9251,7 +9251,7 @@ def test_editor(b, opts):
         out = q.expect('bm: "Platform 2D"', timeout=20).decode(errors="replace")
         out += q.expect("tokens", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out
-        assert re.search(r"dev kit: Lua peak \d+ KiB, data \d+ KiB", out), out
+        assert re.search(r"dev kit: Lua peak \d+ KB, data \d+ KB", out), out
         see("back from the game:")                          # the run's numbers
         shot("back")
         k(F1, 0.5)

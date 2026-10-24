@@ -61,7 +61,7 @@ sudo apt install gcc-aarch64-linux-gnu picolibc-aarch64-linux-gnu mtools dosfsto
 
 # Installare sul Pi Zero W
 
-Si crea una sola immagine disco, `dist/bm.img` (64 MiB), e la si scrive sulla scheda. L'immagine ha una partizione FAT32 con etichetta `BM` che contiene i file di avvio del Pi, `config.txt`, `kernel.img`, i giochi in `carts/` e `bm/`.
+Si crea una sola immagine disco, `dist/bm.img` (64 MB), e la si scrive sulla scheda. L'immagine ha una partizione FAT32 con etichetta `BM` che contiene i file di avvio del Pi, `config.txt`, `kernel.img`, i giochi in `carts/` e `bm/`.
 
 ## Passo per passo
 
@@ -122,7 +122,7 @@ Dopo il primo avvio, premi la tastiera o il pad e passa da una all'altra delle q
 
 # Installare sull'RGB30
 
-Si crea `dist/rgb30/bm-rgb30.img` (256 MiB), con un bootloader nascosto davanti alla partizione, e lo si scrive su una microSD di scorta.
+Si crea `dist/rgb30/bm-rgb30.img` (256 MB), con un bootloader nascosto davanti alla partizione, e lo si scrive su una microSD di scorta.
 
 ## Passo per passo
 
@@ -186,7 +186,7 @@ Cosa c'è sulla scheda dipende dalla scheda madre. Il testo di `LEGGIMI.txt` sul
 | `bm/` | entrambe | tutto ciò che bm scrive e legge per sé; sull'RGB30 anche i giochi |
 | `bm/config.txt` | entrambe | le impostazioni di bm, righe `chiave=valore` |
 | `bm/ca.pem` | entrambe | i certificati per la rete |
-| `bm/save/` | entrambe | i salvataggi dei giochi (8 slot ciascuno, fino a 32 KiB a slot) |
+| `bm/save/` | entrambe | i salvataggi dei giochi (8 slot ciascuno, fino a 32 KB a slot) |
 | `bm/shots/` | entrambe | gli screenshot (`pong0001.png`) |
 | `bm/lib/` | entrambe | risorse (`.bmm`, `.bmi`, `.bms`...) che app e giochi possono condividere |
 | `bm/backup/` | entrambe | il kernel precedente, conservato da ogni aggiornamento |

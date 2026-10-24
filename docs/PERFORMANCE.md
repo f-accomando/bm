@@ -13,14 +13,14 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 | Resource | Value | Impact on bm |
 |---|---|---|
 | **CPU** | ARM1176JZF-S, 1 core, 700 MHz at boot → **1000 MHz** requested from firmware *(M)* | Everything (game, graphics, audio, input) runs on a single core within a single loop |
-| **Cache** | L1 16 KiB instructions + 16 KiB data *(D)* | Large sprite sheets and z-buffers do not fit in L1: cache access locality is paramount |
+| **Cache** | L1 16 KB instructions + 16 KB data *(D)* | Large sprite sheets and z-buffers do not fit in L1: cache access locality is paramount |
 | **RAM Bandwidth** | memcpy ~100 MB/s, fill ~430 MB/s *(M)* | **The primary system bottleneck**: every additional byte per pixel incurs a penalty |
 | **SDRAM Reads (ARM)**| ~4× slower than writes *(M)* | Reading the framebuffer (dynamic lights, screen copies) costs significantly more than writing |
 | **Integer Division** | Not available in hardware (libgcc routine) *(D)* | Strictly forbidden inside per-pixel inner loops: use shifts or floating-point reciprocals |
 | **VFP (Floating Point)**| VFPv2; FDIVS ~19 cycles *(D)*; denormals trap unless in RunFast *(M)* | Divisions allowed per-triangle, never per-scanline or per-pixel; RunFast mode mandatory |
 | **3D GPU** | VideoCore IV (V3D: 12 QPUs, TMU, tiled z-buffer) *(D)*; 811 Mpixel/s, 3 M tri/s *(M)* | No OpenGL: custom lightweight fixed-function driver under `draw3d` (M33, default); software 3D as fallback |
 | **Scaler (HVS)** | Hardware Video Scaler scales framebuffer up to 1080p for free *(M)* | Games render at 640×360, 480×270, or 320×180 and GPU scales to display |
-| **System Memory** | 448 MiB dedicated to ARM *(M)* | Not constrained (accommodates 4096 px sheets, caches, lookup tables) |
+| **System Memory** | 448 MB dedicated to ARM *(M)* | Not constrained (accommodates 4096 px sheets, caches, lookup tables) |
 | **Bluetooth UART** | 921,600 baud *(M)* | Accommodates 4 DualShock 4 pads at 125 reports/s; limits higher throughput |
 | **Frame Budget (60 fps)**| **16.7 ms** | Single global budget for `_update` + `_draw` + scanout / composition |
 
@@ -31,8 +31,8 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 | Operation | Measured Cost | Source |
 |---|---:|---|
 | Fill 640×360 (32-bit) | 2.2 ms | *(M)* |
-| Copy 450 KiB RAM → RAM (CPU / DMA) | 3.70 / 2.99 ms | *(M)* |
-| Fill 450 KiB in RAM (CPU / DMA) | 1.02 / 0.85 ms | *(M)* |
+| Copy 450 KB RAM → RAM (CPU / DMA) | 3.70 / 2.99 ms | *(M)* |
+| Fill 450 KB in RAM (CPU / DMA) | 1.02 / 0.85 ms | *(M)* |
 | 48-line strip copy, RAM → screen (CPU / DMA) | 0.87 / 0.26 ms | *(M)* |
 | Benchmark `p`, map + 256 sprites: direct render / RAM buffer | 8.58 / 11.85 ms | *(M)* |
 | Full frame copy via RAM using DMA | 14.06 ms (slower than CPU) | *(M)* |
@@ -52,14 +52,14 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 | **32-bit mode deferred** | Implement in M14 | Entire blit library duplication for minimal gain in gradients | Banding eliminated via 4×4 Bayer dithering |
 | **Direct rendering** to framebuffer | Render to RAM then copy | Copying reads back slow SDRAM | 8.58 ms direct vs 11.85 ms via RAM copy *(M)* |
 | RAM buffer **only when needed** (lights) | Render to RAM always | Lighting requires reading pixels: reading directly from display is slower | Activated dynamically on first `light_begin` |
-| **Triple buffering** | Double buffering | Screen tearing on lower half of console menu on hardware | One additional 450 KiB page, zero per-frame cost |
+| **Triple buffering** | Double buffering | Screen tearing on lower half of console menu on hardware | One additional 450 KB page, zero per-frame cost |
 | Full-frame copy with **CPU** | DMA | DMA is slower than CPU for full contiguous frame copies | 14.06 ms DMA vs 11.85 ms CPU *(M)* |
 | DMA conservative settings (Circle-aligned) | Aggressive burst | Aggressive settings caused hardware lockups on Pi | Safe burst 8, high priority, `WAIT_RESP` |
 | Lights on **4×4 px grid**, bilinear + dither | Per-pixel lighting | 1/16th of calculation overhead | Smooth lighting in Hunter's Night at 320×180 |
 | Dynamic lighting games at **320×180** | 640×360 | 1/4th of total pixels to light and write | Hunter's Night maintains 60 fps |
 | Fast C blit with row `memcpy` for opaque cells | Per-pixel check everywhere | Opaque cells bypass alpha transparency tests | ~14 ns/pixel *(M)* |
 | **SHEET8** (≤256 colors + RLE in cart) | Raw RGBA | Drastically smaller cartridge size, fast one-time decode at boot | Titan Clash: 2048×3376, 166 colors |
-| Sprite sheets up to **4096 px** | 256×256 limit | Arcade-sized character sprites | Memory is ample (448 MiB) |
+| Sprite sheets up to **4096 px** | 256×256 limit | Arcade-sized character sprites | Memory is ample (448 MB) |
 | Console 8×16 monospace font on 16 px grid | Proportional font | Fast, predictable, and verifiable in QEMU screenshot tests | Zero layout overhead |
 
 ---
@@ -70,7 +70,7 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 |---|---|---|---|
 | **Custom V3D backend** under `draw3d` (M33, default) | OpenGL ES on GPU | OpenGL requires heavy Linux DRM or VCHIQ firmware; fixed-function pipeline suffices | 182 spheres (7,142 triangles) at 60 fps *(M)* |
 | **Software rasterizer** on ARM (fallback & QEMU) | None | Runs universally, identical pixel output in regression tests | 69 spheres (2,679 triangles) at 60 fps *(M)* |
-| **16-bit 1/z depth buffer** | 32-bit float z | Halves memory bandwidth; 1/z is screen-space linear | 460 KiB depth buffer cleared per frame |
+| **16-bit 1/z depth buffer** | 32-bit float z | Halves memory bandwidth; 1/z is screen-space linear | 460 KB depth buffer cleared per frame |
 | **Depth-buffer bypass flag** for floors/skies | Z-test everywhere | Eliminates depth read/write bandwidth for background geometry | Utilized by Chaos Kitchen |
 | Early **backface culling** | Render all faces | Culls ~60% of sphere geometry upfront | Stress test: ~40% drawn |
 | Near-plane clipping **only** | Clip against all 6 planes | Screen-space scanline bounds clip other edges naturally | Eliminates redundant clipping math |

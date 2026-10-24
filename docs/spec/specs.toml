@@ -22,7 +22,7 @@ what = "the cartridge type (game, app, utility) declared in bm.info and mirrored
 [[revision]]
 rev = 4
 date = "2026-10-22"
-what = "the compatibility block in header bytes 120..127 with flag bit 4 (targets, input, aspect, needs, minimums; read and written; the menus act on the targets, see the item compat-policy), no 8 MiB cartridge limit, the sound bank limit 8,388,608 values; the web API for cartridges: web_get with web_poll, web_info, web_body and web_cancel (https only, a pause per host, a size cap), image_load (JPEG, PNG, WebP into the sprite sheet), file_write (bm/web only); the config keys web_max_kib and file_write_max_kib"
+what = "the compatibility block in header bytes 120..127 with flag bit 4 (targets, input, aspect, needs, minimums; read and written; the menus act on the targets, see the item compat-policy), no 8 MB cartridge limit, the sound bank limit 8,388,608 values; the web API for cartridges: web_get with web_poll, web_info, web_body and web_cancel (https only, a pause per host, a size cap), image_load (JPEG, PNG, WebP into the sprite sheet), file_write (bm/web only); the config keys web_max_kib and file_write_max_kib"
 
 [[item]]
 id = "container-v1"
@@ -62,7 +62,7 @@ since = 1
 status = "implemented"
 platforms = "all"
 where = ["docs/B16.md", "src/bm/project.h", "scripts/mkbm.py"]
-note = "by decision (2026-10-13) a target (360x360 or 720x720), not a sandbox: same runtime as .bm. The 8 MiB build check is removed"
+note = "by decision (2026-10-13) a target (360x360 or 720x720), not a sandbox: same runtime as .bm. The 8 MB build check is removed"
 
 [[item]]
 id = "compat-header"

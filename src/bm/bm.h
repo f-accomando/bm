@@ -21,7 +21,7 @@
  *   104 char[16] built from: the 8.3 name of the project a game was built from (src/bm/project.h); 0 if none
  *   120 u8[8]    compatibility block, valid only when flag bit 4 is set (else all 0 = an old file):
  *                120 targets (BM_TARGET_*), 121 input (BM_IN_*), 122 aspect (BM_ASPECT_*),
- *                123 needs (BM_NEED_*), 124 u16 min RAM in MiB (0 = none), 126 min spec revision,
+ *                123 needs (BM_NEED_*), 124 u16 min RAM in MB (0 = none), 126 min spec revision,
  *                127 min screen width in units of 16 pixels. Not covered by the CRC. See bm_compat_t.
  *   128 section table: count x { u32 type, u32 offset, u32 size, u32 reserved }
  *
@@ -84,7 +84,7 @@
  *   (6 and 7 were MESH and ANIM in the first files of bm Studio: a type 6
  *   section that is not a sound bank ("BMAU") is still read as MESH, a type
  *   7 one as ANIM; they are written as 8 and 9.)
- *   10 INFO  about the file and its parts, UTF-8 text of at most 16 KiB:
+ *   10 INFO  about the file and its parts, UTF-8 text of at most 16 KB:
  *            lines "key: value" (name, desc, author, license as an SPDX id,
  *            version, tags separated by commas, origin = the SHA-256 of the
  *            resource file it came from, date YYYY-MM-DD), then a block for
@@ -294,7 +294,7 @@ typedef struct {
 } bm_model_t;
 
 int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);
-/* Called every 64 KiB of the CRC check, if set (the loading screen, the
+/* Called every 64 KB of the CRC check, if set (the loading screen, the
  * menu's fibers); nonzero stops the parse (it fails: "stopped"). */
 extern int (*bm_parse_tick)(void);
 /* bm_parse for a cartridge or a resource file ("BMRES": no code, the

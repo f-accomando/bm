@@ -96,7 +96,7 @@ def main():
     ffmpeg("-i", mp4, "-vf", "fps=12,scale=720:-1:flags=lanczos,split[a][b];"
            "[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle",
            "-loop", "0", gif)
-    print(f"reel: {total:.1f} s; {mp4} {os.path.getsize(mp4) // 1024} KiB, {gif} {os.path.getsize(gif) // 1024} KiB")
+    print(f"reel: {total:.1f} s; {mp4} {os.path.getsize(mp4) // 1024} KB, {gif} {os.path.getsize(gif) // 1024} KB")
 
 
 if __name__ == "__main__":

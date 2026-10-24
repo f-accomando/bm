@@ -5,7 +5,7 @@ Split from [v3d](v3d.md); the to-do list stays there.
 ## Decisions (from Pi reports, 2026-10-12)
 
 - Interrupts, triple buffering, `v3d_async.c/.h` of the v3d-async-proposal: skip.
-- Whole-cache clean (about 5 kcycles a job in the bench rows) and binner overflow (0 KiB, 0 jobs
+- Whole-cache clean (about 5 kcycles a job in the bench rows) and binner overflow (0 KB, 0 jobs
   in every row) cost nothing measurable: range clean and dynamic overflow stay off the list.
 - `gpu3d_later=1` = `queue=2` in the mean (50 vs 51 fps at 640x360), fewer late frames (38% vs
   50%): keep it an option, off.

@@ -16,7 +16,7 @@
 #include "lib/crc32.h"
 
 #define KERNEL_ADDR     0x8000u
-#define KERNEL_MAX      (0x02000000u - KERNEL_ADDR - 0x100000u)  /* keep 1 MiB for our stack */
+#define KERNEL_MAX      (0x02000000u - KERNEL_ADDR - 0x100000u)  /* keep 1 MB for our stack */
 #define BYTE_TIMEOUT_US 2000000u
 
 void boot_kernel(uint32_t r0, uint32_t r1, uint32_t r2) __attribute__((noreturn));

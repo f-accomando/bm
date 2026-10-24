@@ -8,7 +8,7 @@ Confidence: high / medium / low.
 
 | Point | Pi Zero W | RGB30 | Source | Conf. |
 |---|---|---|---|---|
-| RAM | 512 MiB, 64 MiB of it for the GPU (`gpu_mem=64`) | **1 GiB** LPDDR4 | F: `docs/HARDWARE.md:34-35,93`; `docs/RGB30.md:6`; `src/rgb30/plat.h:14` | high |
+| RAM | 512 MB, 64 MB of it for the GPU (`gpu_mem=64`) | **1 GB** LPDDR4 | F: `docs/HARDWARE.md:34-35,93`; `docs/RGB30.md:6`; `src/rgb30/plat.h:14` | high |
 | CPU | ARM1176 1 GHz, VFP on (`-mfpu=vfp`, CPACR in `src/boot/start.S:108`) | Cortex-A55 | F: `Makefile:38`; `HARDWARE.md:92` | high |
 | memcpy / fill | ~100 / ~430 MB/s | not found | F, measured: `HARDWARE.md:40-41`, `docs/PERFORMANCE.md:17` | high |
 | Opaque row blit | ~14 ns/pixel | not found | F, measured: `PERFORMANCE.md:60` | medium |
@@ -16,11 +16,11 @@ Confidence: high / medium / low.
 | Audio | 48000 Hz stereo, 256-sample chunks, 16/24/32-bit | same | F: `src/audio/audio.h:22-23`, `audio.c:94-96` | high |
 | SD driver | EMMC2 / SDHOST, 512-byte blocks, multi-block with CMD12 | dwmmc, 512-byte blocks, multi-block with CMD12 | F: `src/drivers/sd_emmc.c:284,366`; `src/rgb30/rk_sd.c:95-178` | high |
 | SD throughput | **not measured anywhere in the repo** | same | F: grep of `docs/ src/ tests/` found only RAM figures | high |
-| FAT write | clusters first, then the directory entry; `fat_write_runs` batches whole clusters up to 32 KiB; one-sector cache; **no preallocation** | same code | F: `src/fs/fat.c:38-39`, `fat.h:86-96` | high |
+| FAT write | clusters first, then the directory entry; `fat_write_runs` batches whole clusters up to 32 KB; one-sector cache; **no preallocation** | same code | F: `src/fs/fat.c:38-39`, `fat.h:86-96` | high |
 | Screenshot | `shot_png` (fixed-Huffman deflate, one block) then `fat_write_file` to `/bm/shots`, synchronous, whole PNG | same | F: `src/bm/shot.c:171-179`, `src/bm/runtime.c:7244-7253` | high |
 | Existing video | QEMU + Xvfb + ffmpeg, about 3.4x slower than real time in a full 3D scene, about 19x in idle menus and editors at `shift=1` (7.4x at `shift=2`, 2x at `shift=3`); the two figures are two scene types, not a contradiction | same tool | F: `video/lib/qemurec.py:1-26`; `docs/video/PIANO.md:113,117` | high |
 
-**RAM discrepancy settled.** The 512 MiB at `docs/HARDWARE.md:115` is in the Pi section (the "RAM" row of the Pi table), not an RGB30 value. The RGB30 has 1 GiB (`plat.h:14` `PLAT_RAM_END 0x40000000`). The QEMU test uses `-m 512M` (`rgb30.mk:210`), which is a test value. The framebuffer takes the top 60-64 MiB and Mali 4 MiB (`plat.h:19,39`; `RGB30.md:383-384`), so about 0.9 GiB is left on the RGB30 and about 448 MiB on the Pi, before the runtime and the game.
+**RAM discrepancy settled.** The 512 MB at `docs/HARDWARE.md:115` is in the Pi section (the "RAM" row of the Pi table), not an RGB30 value. The RGB30 has 1 GB (`plat.h:14` `PLAT_RAM_END 0x40000000`). The QEMU test uses `-m 512M` (`rgb30.mk:210`), which is a test value. The framebuffer takes the top 60-64 MB and Mali 4 MB (`plat.h:19,39`; `RGB30.md:383-384`), so about 0.9 GB is left on the RGB30 and about 448 MB on the Pi, before the runtime and the game.
 Nothing in the repo contradicts the RGB30 number, so no doc fix is needed; a one-line note in `HARDWARE.md:115` naming "Pi" would stop the misreading.
 
 ## 2. Data rates (all **I**, plain arithmetic, 1 MB = 10^6 bytes)
@@ -43,7 +43,7 @@ Frame = width x height x bytes per pixel. Rates are the same on both machines; o
 | 5 MB/s | 1:1 | 1.6:1 | 1:1 |
 | 10 MB/s | 1:1 | 1:1 | 1:1 |
 
-**RAM buffer**, 64 MiB (67.1 MB) set aside: 360x360 RGB565 raw holds 17.3 s at 15 fps and 8.6 s at 30 fps; with 4:1 compression 69 s and 35 s. 64 MiB is a proposal (**I**): the Pi has about 448 MiB and the RGB30 about 0.9 GiB, but the game's own use is not measured here.
+**RAM buffer**, 64 MB (67.1 MB) set aside: 360x360 RGB565 raw holds 17.3 s at 15 fps and 8.6 s at 30 fps; with 4:1 compression 69 s and 35 s. 64 MB is a proposal (**I**): the Pi has about 448 MB and the RGB30 about 0.9 GB, but the game's own use is not measured here.
 
 **Capture cost on the Pi (I, medium).** Copying one 259,200-byte frame at the measured ~100 MB/s memcpy takes about 2.6 ms, so about 8% of a frame at 30 fps. It is a lower bound (cache effects not counted).
 
@@ -75,7 +75,7 @@ A container is needed in every case: header (fps, size, frame count, audio rate)
 
 Design (**I**):
 1. At the game's present point, copy the frame into a RAM ring (`shot_grab` already knows where the frame is: `rt.g.px`, `runtime.c:7244`).
-2. A cooperative job (the fibers in `src/kernel/fiber.c`, never an IRQ) writes finished chunks of 256 KiB to files `REC/0001.raw`, `0002.raw` ... on the SD with `fat_write_runs`. One file per chunk bounds the FAT work per write and a power loss costs one chunk.
+2. A cooperative job (the fibers in `src/kernel/fiber.c`, never an IRQ) writes finished chunks of 256 KB to files `REC/0001.raw`, `0002.raw` ... on the SD with `fat_write_runs`. One file per chunk bounds the FAT work per write and a power loss costs one chunk.
 3. Raw RGB565 on the card; audio as a second raw stream per chunk.
 4. On the PC: `ffmpeg -f rawvideo -pix_fmt rgb565le -s 360x360 -r 15 -i REC.raw -f s16le -ar 48000 -ac 2 -i REC.pcm -c:v libx264 out.mp4` (the command to check in **S4**; the byte order of the 16-bit pixels must be confirmed against `fb.c` before it is trusted).
 Hazards (**I**): no preallocation in the FAT code, so each chunk allocates clusters while recording; a game that also saves to the card shares the same single sector cache (`fat.c:38-39`). The recording must pause or drop frames when the ring is full instead of blocking the game.
@@ -85,7 +85,7 @@ At 15 fps raw 360x360 RGB565 needs 3.89 MB/s of SD writes: only safe when S1 sho
 
 | ID | Question | Command (to be written by the task) | Pass criterion | Where |
 |---|---|---|---|---|
-| S1 | Sustained SD write speed | A test cart or kernel mode that writes 64 MiB in 256 KiB chunks with `fat_write_file`, timing each write with the system timer; print MB/s, min and worst write time | Report W (mean) and the worst single write. Go for raw 15 fps if W >= 5 MB/s and worst write <= 100 ms | Pi (via the bridge) and RGB30 (the user) |
+| S1 | Sustained SD write speed | A test cart or kernel mode that writes 64 MB in 256 KB chunks with `fat_write_file`, timing each write with the system timer; print MB/s, min and worst write time | Report W (mean) and the worst single write. Go for raw 15 fps if W >= 5 MB/s and worst write <= 100 ms | Pi (via the bridge) and RGB30 (the user) |
 | S2 | Decode time of one 360x360 frame | Loop of 100 decodes of a fixed quality-75 JPEG with `src/bm/jpeg.c`, then of an MPEG-1 clip with `pl_mpeg`, timed | Mean <= 33 ms for 30 fps, <= 66 ms for 15 fps, leaving time for the game's own work | Pi first (the slowest), then RGB30 |
 | S3 | RLE+delta ratio | A PC script over frames from QEMU console captures (`qemurec.py` writes `console.mkv`, 640x360 lossless) and game screenshots and a few game screenshots: compress each frame against the previous one on the 256-color palette, print bytes per frame | Report min/median/max ratio per content type; go if the median is >= 3:1 on pixel-art content | PC only, no hardware |
 | S4 | The offline path | The `ffmpeg` line in section 4 on a 3-second raw file made on the PC | An mp4 that plays with correct colors and A/V sync | PC only |
@@ -104,13 +104,13 @@ The "Who" column says how much planning a task needs.
 | VID-S2 | The decode-time benchmark for `jpeg.c` and `pl_mpeg` | code on the PC, run on the device | Same |
 | VID-FMT | The container format (header, index, audio) and the player API for the cartridge | plan first | Open choices: the Lua API, memory ownership, where clips live in the cartridge |
 | VID-REC | The recorder (ring, job, chunk files) | plan first | Depends on S1; touches runtime, fiber and FAT paths |
-| VID-DOC | A one-line "Pi" note at `docs/HARDWARE.md:115` | mechanical | Stops the 512 MiB misreading |
+| VID-DOC | A one-line "Pi" note at `docs/HARDWARE.md:115` | mechanical | Stops the 512 MB misreading |
 
 ## 7. Open points and limits of this study
 
 - The Pi sizes come from `HARDWARE.md:49` and `PERFORMANCE.md:58-59`; the RGB30 framebuffer size was read from `fb.c` but not run. The 360x360 tables are kept because the RGB30 uses that size.
 - No number in section 3 about decode speed or compression is measured: they are what S2 and S3 are for.
 - The `pl_mpeg` license was read from the header only; the project page was not opened for a license file.
-- The runtime's free RAM during a game is not measured, so the 64 MiB buffer is a proposal.
+- The runtime's free RAM during a game is not measured, so the 64 MB buffer is a proposal.
 - **S3 input not found.** `video/` in the repo holds only finished mp4 files (`video/*/ep0N.mp4`, `video/titan-clash/*.mp4`) and the scripts that make them; no `console.mkv` or raw capture is committed. S3 must first generate frames with `qemurec.py` (needs qemu-system-arm, Xvfb, ffmpeg) or decode the mp4 files with ffmpeg, which are already compressed and bias the ratio.
 - Figures tagged **not sourced** (MJPEG size, pl_mpeg float IDCT, 1 Mbit/s) are guesses until S2 and S3 run.

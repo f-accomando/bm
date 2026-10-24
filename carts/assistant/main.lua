@@ -185,7 +185,7 @@ function _draw()
     end
   end
   print(status:sub(1, W // 8 - 16), 8, bottom, C_TEXT)
-  print(string.format("Lua %d KiB", stat(0)), W - 112, bottom, C_DIM)
+  print(string.format("Lua %d KB", stat(0)), W - 112, bottom, C_DIM)
   assist.draw()
   U.menu_draw()
 end

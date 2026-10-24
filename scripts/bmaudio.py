@@ -70,7 +70,7 @@ Samples (version 3 of the bank; a bank with none is written as version 2):
   "store"      the format it is stored in ("u8" .. "f32"; default: the WAV's)
   "mono"       true: the two channels of a stereo file mixed into one
 The console reads them as 16-bit frames: at most PCM_MAX values (frames x
-channels, 4 frames more each) in a bank, 16 MiB of memory: 174 s of mono at
+channels, 4 frames more each) in a bank, 16 MB of memory: 174 s of mono at
 48 kHz, 380 s at 22 kHz (the cartridge itself is on the SD card; the
 console's memory is not).
 """

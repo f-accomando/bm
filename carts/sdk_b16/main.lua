@@ -118,7 +118,7 @@ local function hint(list, y)
   U.hint_row(items, { y = y or HINT_Y, w = W, x = 8, snap = snap, gap = 8, dim = C.DIM, fixed = not pad })
 end
 
--- "512k", "1.5M": KiB in a few columns, as the dev kit's overlay
+-- "512k", "1.5M": KB in a few columns, as the dev kit's overlay
 local function kib(k)
   if not k then return "-" end
   if k == 0 then return "0k" end
@@ -1251,7 +1251,7 @@ end
 -- project page shows them: the code, the sheet and the map in use, the
 -- models, the sound bank, the memory the game's data takes, the file, the
 -- biggest functions and, for a .b16, what the profile leaves out
-local B16_LIMIT = 8 * 1024                -- KiB: the cap of a .b16 cartridge (docs/B16.md 5.1)
+local B16_LIMIT = 8 * 1024                -- KB: the cap of a .b16 cartridge (docs/B16.md 5.1)
 local B16_CHECKS = {                     -- the sandbox of docs/B16.md §0 (whole names: %f)
   { "%f[%w_]math%.random", "math.random: rnd() with a seed" },
   { "%f[%w_.:]time%(", "time(): no clock, count frames" },
@@ -3618,7 +3618,7 @@ local function set_target(t)
   if t == "b16" then
     local w, h = S.proj.res:match("(%d+)x(%d+)")
     if w ~= h then S.proj.res = "360x360"; touched() end
-    say("target .b16 (RGB30): the dev kit shows its 8 MiB and what the profile leaves out", C.ACC, 400)
+    say("target .b16 (RGB30): the dev kit shows its 8 MB and what the profile leaves out", C.ACC, 400)
   else
     say("target .bm: the Pi's cartridge", C.ACC)
   end
@@ -3643,7 +3643,7 @@ do
     if h.act == "title" then return S.proj.title end
     if h.act == "author" then return S.proj.author ~= "" and S.proj.author or "-" end
     if h.act == "res" then return S.proj.res end
-    if h.act == "target" then return "." .. S.target .. (S.target == "b16" and " (RGB30, 8 MiB)" or " (the Pi)") end
+    if h.act == "target" then return "." .. S.target .. (S.target == "b16" and " (RGB30, 8 MB)" or " (the Pi)") end
     if h.act == "tools" then return "bm Code, Pixel, Studio..." end
     return ""
   end
@@ -3787,7 +3787,7 @@ do
   local function draw_devkit()
     local I, r = S.info, S.run
     strip(R.strip, "dev kit", "performance, memory, tokens",
-          "target ." .. S.target .. (S.target == "b16" and "  (RGB30, 8 MiB: docs/B16.md)" or "  (the Pi: no cap)"))
+          "target ." .. S.target .. (S.target == "b16" and "  (RGB30, 8 MB: docs/B16.md)" or "  (the Pi: no cap)"))
     local o = rows_from(R.view.y)
     if not I or I.error then
       o.line(nil, I and I.error and ("cannot measure: " .. I.error) or "measuring...", I and C.ERR or C.DIM)

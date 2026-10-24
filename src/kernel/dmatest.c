@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BIG (640 * 360 * 2)             /* one RGB565 frame, 450 KiB */
+#define BIG (640 * 360 * 2)             /* one RGB565 frame, 450 KB */
 
 static int failed;
 
@@ -55,7 +55,7 @@ void dma_test(framebuffer_t *fb)
     uint32_t t0, cpu, d;
     int ok;
 
-    step("1 copy RAM -> RAM, 4 KiB");
+    step("1 copy RAM -> RAM, 4 KB");
     for (int i = 0; i < 4096; i++) a[i] = (uint8_t)(i * 7);
     memset(b, 0, 4096);
     dcache_clean_invalidate_all();
@@ -64,14 +64,14 @@ void dma_test(framebuffer_t *fb)
     result(ok, 0, 0);
     if (!ok) goto out;
 
-    step("2 fill RAM, 4 KiB");
+    step("2 fill RAM, 4 KB");
     dcache_clean_invalidate_all();
     dma_fill(b, 0x5A5A5A5Au, 4096);
     ok = dma_wait() == 0 && all(b, 0x5A, 4096);
     result(ok, 0, 0);
     if (!ok) goto out;
 
-    step("3 copy RAM -> RAM, 450 KiB");
+    step("3 copy RAM -> RAM, 450 KB");
     for (uint32_t i = 0; i < BIG; i++) a[i] = (uint8_t)(i * 13 + (i >> 9));
     t0 = timer_ticks(); memcpy(b, a, BIG); cpu = timer_ticks() - t0;
     memset(b, 0, BIG);
@@ -83,7 +83,7 @@ void dma_test(framebuffer_t *fb)
     result(ok && memcmp(a, b, BIG) == 0, cpu, d);
     if (failed) goto out;
 
-    step("4 fill RAM, 450 KiB");
+    step("4 fill RAM, 450 KB");
     t0 = timer_ticks(); memset(b, 0, BIG); cpu = timer_ticks() - t0;
     t0 = timer_ticks();
     dcache_clean_invalidate_all();

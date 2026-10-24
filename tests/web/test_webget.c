@@ -306,7 +306,7 @@ static void test_policy(void)
     CHECK(web_gap_left_us("h19.org", 77) == WEB_MIN_GAP_US, "gap: the table keeps the newest hosts");
     web_gap_reset();
 
-    CHECK(web_cap_bytes(NULL, 4096, 32768) == 4096u * 1024, "cap: default 4 MiB");
+    CHECK(web_cap_bytes(NULL, 4096, 32768) == 4096u * 1024, "cap: default 4 MB");
     CHECK(web_cap_bytes("1024", 4096, 32768) == 1024u * 1024, "cap: from the config");
     CHECK(web_cap_bytes("999999", 4096, 32768) == 32768u * 1024, "cap: kept under the limit");
     CHECK(web_cap_bytes("abc", 4096, 32768) == 4096u * 1024 && web_cap_bytes("0", 4096, 32768) == 4096u * 1024, "cap: bad text is the default");
@@ -475,7 +475,7 @@ static void test_image(const char *dir)
 }
 
 
-/* ---- the SD card: files in memory; every 32 KiB piece takes 1 ms and calls fat_write_tick ---- */
+/* ---- the SD card: files in memory; every 32 KB piece takes 1 ms and calls fat_write_tick ---- */
 
 #define MAXF 16
 static struct { char path[48]; uint8_t *d; size_t n; int dir; } files[MAXF];

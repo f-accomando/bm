@@ -144,7 +144,7 @@ void kprintf_set_tap(void (*tap)(char c))
 }
 
 /* Everything printed since boot, without the colour escapes, for the
- * monitor's 'o' (the first 64 KiB). */
+ * monitor's 'o' (the first 64 KB). */
 #define BOOTLOG_SIZE (64 * 1024)
 static char bootlog[BOOTLOG_SIZE];
 static unsigned bootlog_len;

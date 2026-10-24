@@ -85,7 +85,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   the ARM writes it once and does not read it back, and with the *write-allocate* cache every
   line written was first read from memory and pushed out the lines of Lua and r3d.
   Without the cache the writes leave merged by the write buffer. The block is allocated in whole
-  1 MiB sections that the MMU remaps (`mmu_set_cached`, `v3d_uncached`). Option
+  1 MB sections that the MMU remaps (`mmu_set_cached`, `v3d_uncached`). Option
   `gpu3d_wc=1` (*Settings > Screen and sound > 3D job memory*), off until the Pi
   shows it pays off: the 3D Bench compares it with the GPU+WC profile.
 - **4.6** (2026-10-05): up to 8 textures in a job (previously 2: with the third the job
@@ -137,7 +137,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   image. 3D Bench profile GPU+VS+Q2 (`queue`, `split`).
 - **5.2** (2026-10-05): **16-bit textures**: a fully opaque sheet goes to the GPU as
   RGB565 in T-format (`gpu3d_tex16=1`, *3D textures: ..., 16-bit*): half the memory and half the
-  TMU reads, the same colours. The layout (4 KiB tiles of 64×32 texels) is learnt by
+  TMU reads, the same colours. The layout (4 KB tiles of 64×32 texels) is learnt by
   the boot probe as for 32-bit textures: a 128×64 texture where word *i*
   is *i* and comes back on the page as itself (or with red and blue swapped). Sheets with
   transparent pixels stay at 32 bits (RGBA5551 from 7.2). 3D Bench profile GPU+T16.
@@ -325,7 +325,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   as before. The boot probe (`probe_etc1`) draws a 128×256 texture of varied blocks for each
   candidate layout and keeps the first that gives every sampled texel back (a step of RGB565
   allowed, red and blue as they are or swapped): utiles of 2×4 blocks (Mesa's vc4 size for
-  64-bit blocks) then 4×2, each placed in the 4 KiB tile where RGB565's utile of that row and
+  64-bit blocks) then 4×2, each placed in the 4 KB tile where RGB565's utile of that row and
   column is; the block's 8 bytes big-endian (the format's, as Mesa uploads them), as two
   little-endian words, all little-endian, or big-endian with the halves swapped. Status:
   `ETC1 textures yes (utiles 2x4, bytes BE)` (the layout found) or `no`; options line
@@ -344,8 +344,8 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   `vs_lit_tex2`): the same text with a cut block after the sun term `max(n.sun, 0)`: the band
   `min(N - 1, floor(d * N))` (`ftoi`, `min`, `itof`), then `floor + (1 - floor) * b / (N - 1)`;
   four more uniforms (N, N - 1 as an integer, the scale, the floor) after the highlight's `p`. The
-  highlight of `vs_lit`, `vs_lit8` becomes one step (on above 0.5). The programs are 2 KiB slots
-  of the code block, which grows from 40 to 48 KiB. `gpu3d.c` takes the `_cel` program of a lit
+  highlight of `vs_lit`, `vs_lit8` becomes one step (on above 0.5). The programs are 2 KB slots
+  of the code block, which grows from 40 to 48 KB. `gpu3d.c` takes the `_cel` program of a lit
   group when `r3d_env_t.cel` is set (`r3d_backend_t.cel` tells `r3d.c` that the backend can);
   the boot probe `probe_lit(�, 1)` draws two faces in the top band and the second band and
   refuses the cel programs if the pixels are not r3d's (status `cel light yes/no`): then a cel

@@ -3,7 +3,7 @@
  * 2 W) behind the SDIO host (sdio.c).
  *
  * Bring-up as in Plan 9's ether4330 and Linux's brcmfmac: the chip's
- * backplane is reached through function 1 (a 32 KiB window), the cores are
+ * backplane is reached through function 1 (a 32 KB window), the cores are
  * found in the enumeration ROM, the firmware and its board settings (NVRAM
  * text) are written into the chip's RAM and its ARM core is started; then
  * frames (SDPCM) go through function 2, and the control channel carries
@@ -635,7 +635,7 @@ int wifi_start(void)
     }
     if (core_disable(w.armctl, 0, 0) || core_reset(w.d11ctl, 8 | 4, 4) || ram_scan())
         return fail("core reset failed");
-    kprintf("wifi: chip RAM %lu KiB\n", w.ramsize / 1024);
+    kprintf("wifi: chip RAM %lu KB\n", w.ramsize / 1024);
     if (w.ramsize < 256 * 1024 || w.ramsize > 1024 * 1024) {
         say("unexpected RAM size", 0, w.ramsize);
         return -1;
@@ -698,7 +698,7 @@ int wifi_start(void)
         free(nvram);
         return fail("firmware upload failed or reads back wrong");
     }
-    kprintf("wifi: firmware %lu KiB written and checked in %lu ms\n", (uint32_t)fw_len / 1024, ms);
+    kprintf("wifi: firmware %lu KB written and checked in %lu ms\n", (uint32_t)fw_len / 1024, ms);
     uint32_t nv_at = w.ramsize - 4 - nvram_len;
     err = bp_mem(1, nv_at, nvram, nvram_len);
     free(nvram);

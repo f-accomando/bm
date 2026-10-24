@@ -11,7 +11,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
 - Bar icons: controllers, keyboard and mouse without a player number; Bluetooth keeps a blue
   dot (`ICON_DOT`, `status_icons()` in `menu_ui.c`).
 - Market job (`market.c`): `fiber_slice()` between the steps of the catalog (check, parse,
-  adopt, the copy on the card); a game's SHA-256 in 64 KiB pieces (`catalog_hash_tick`);
+  adopt, the copy on the card); a game's SHA-256 in 64 KB pieces (`catalog_hash_tick`);
   a game checked and being written (`finishing`) goes on off the tab, nothing else does.
   Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
   subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /

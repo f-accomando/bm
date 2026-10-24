@@ -49,7 +49,7 @@ Written to choose the menu resolution (M27, BareMetal UI).
   480×270, 640×360, 960×540, 1280×720 or 1920×1080 between one frame and the next. On
   1080p they are all integer-pixel (6×, 5×, 4×, 3×, 2×, 1×) except 1280×720 (1.5×: irregular
   pixels with `scaling_kernel=8`). The triple-page framebuffer at 1920×1080 is
-  12.4 MB of GPU memory (64 MiB). Above 640×360 the GPU is needed: the ARM
+  12.4 MB of GPU memory (64 MB). Above 640×360 the GPU is needed: the ARM
   rasteriser pays for every pixel. Overbit offers it in the menu (RESOLUTION) and saves it.
 
 ## 3. Possible resolutions for the menu
@@ -101,7 +101,7 @@ With 32 bits (XRGB8888) the bytes double: 640×360 costs ~9.2 ms of copy, 960×5
 - **Mode change** at every switch between menu and game (games stay at 640×360 or
   320×180). Today it already happens (the menu is 16 bit, the console 32), but with the same
   size.
-- GPU memory: 960×540 × 2 bytes × 3 pages = 3.1 MB, well within the default 64 MiB
+- GPU memory: 960×540 × 2 bytes × 3 pages = 3.1 MB, well within the default 64 MB
   *(D)*.
 
 ## 5. Choice

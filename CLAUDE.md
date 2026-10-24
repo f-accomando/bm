@@ -36,6 +36,8 @@ Read files in small slices (`grep`, or `offset` and `limit`). The current state 
 
 **Projects.** Change only `.bme` projects. `.bm` files are read-only.
 
+**Units.** Write sizes as KB, MB, and GB. Each unit is a power of 1024 (1 MB = 1048576 bytes). Do not write KiB, MiB, or GiB.
+
 **Writing rules.** State each rule as an action ("do it this way"). Delete a retired rule. A negation of it keeps the old behavior in view. Add an explicit prohibition only when an action keeps harming development despite the positive rule. Write the harm next to the prohibition. Write each new or changed line of this file, and of the files it points to, in ASD-STE100: short sentences, one instruction per sentence, active voice, and imperative verbs.
 
 ## 3. Task closure

@@ -8,15 +8,15 @@ Detail of the stages of [multitasking-alternatives](../design/multitasking-alter
   fiber is past its slice. `fiber_job_run` logs `fiber: <job> did not yield: x.y ms past its slice`
   for a slice over `FIBER_STALL_US` (5 ms), once for each new record of a job.
 - `menu stalls:` line (after `menu idle:`, same window): TLS handshake (`tls.c`), `release_verify`
-  and `release_check_file` (`update.c`): count, last and worst ms, KiB hashed (`src/kernel/stalls.h`).
+  and `release_check_file` (`update.c`): count, last and worst ms, KB hashed (`src/kernel/stalls.h`).
 - Boot diagnostics (monitor B) run `fiber_selftest()`; QEMU test `test_fiber_measure`.
 - Pi numbers not collected. To collect with this build (section 6 of the design doc): 1 handshake ms
-  (`menu stalls:`), 2 verify ms (`menu stalls:`), 3 hash speed (`menu stalls:` file hash KiB / ms),
+  (`menu stalls:`), 2 verify ms (`menu stalls:`), 3 hash speed (`menu stalls:` file hash KB / ms),
   5 worst `+x` per job (`menu idle:`), 6 stack `stk` per job after a full Market session and a report.
   Items 4 and 7-12 need other measurements.
 
 ## Stage 2: hash steps (stage 2 of the design doc, 2026-10-22)
-- `release_check_file` (`src/net/release.c`) hashes in 16 KiB pieces and calls `release_hash_tick`
+- `release_check_file` (`src/net/release.c`) hashes in 16 KB pieces and calls `release_hash_tick`
   between them; `update_start` sets it to `fiber_slice` (like `catalog_hash_tick` in `market.c`).
   Same digest and errors; with no hook (host, main loop) it runs through.
 - `fiber_budget_us()` (`fiber.h`): microseconds left in the slice, 0 when over, `UINT32_MAX`
@@ -37,8 +37,8 @@ Detail of the stages of [multitasking-alternatives](../design/multitasking-alter
   as hook. Market, update and covers do not hold it (the FAT store keeps each write whole at every tick, as before).
   `begin` called inside a fiber never pauses another writer (the hook runs fibers): it returns -1.
 - **Queued `file_write`** (`src/bm/webfile.[ch]`): `file_write(name, data, true)` copies the data into one of 4 jobs and
-  returns at once. A writer fiber (64 KiB stack) puts it on the card; `fat_write_tick` yields after each piece (a run of
-  clusters, up to 32 KiB). `web_poll` and `file_state` pump it (3 ms). `web_reset` (cartridge end) writes what is left
+  returns at once. A writer fiber (64 KB stack) puts it on the card; `fat_write_tick` yields after each piece (a run of
+  clusters, up to 32 KB). `web_poll` and `file_state` pump it (3 ms). `web_reset` (cartridge end) writes what is left
   (`webfile_reset`). The longest stall of a frame is one piece (read-back included); not measured.
   The sync `file_write` takes the lock and, if a queued write is under way, pauses it.
 - **Keep-alive** (`http.c`, `http_req_t.keep_alive`): one connection kept after a complete answer (length or chunks, no
@@ -48,7 +48,7 @@ Detail of the stages of [multitasking-alternatives](../design/multitasking-alter
   has no body whatever the headers say (before: the client waited for the server to close).
 - **Range resume** (`webget.c`, `http_req_t.range_from`, `if_range`, `on_headers`): `web_get(url, {resume = "NAME.EXT"})` keeps
   `bm/web/NAME.PRT` (1280-byte header: magic, total size, ETag or Last-Modified, hash of the address; then the bytes)
-  when a request fails or is cancelled, and about every 1 MiB; only if the server sent `Accept-Ranges: bytes` (or 206) and a size.
+  when a request fails or is cancelled, and about every 1 MB; only if the server sent `Accept-Ranges: bytes` (or 206) and a size.
   The next request for the same address sends `Range: bytes=N-` and `If-Range`; 206 with the right start appends; 200
   (changed file, or Range ignored) drops the start; 416 or a wrong 206 starts again from byte 0. Done with a 2xx: the part file is
   deleted. The caller checks the whole file. Same stem with another extension shares the part file (`A.PNG`, `A.JPG`).

@@ -502,7 +502,7 @@ local x, y = stick(1)                     -- player 1's stick, from -1 to 1
 | `battery_low()` | `true` while the battery is low: 20% or less off the charger (until 23%). Then the system draws by itself a small red battery top right over the frame (left of the dev kit's overlay when it is at the top), in every game and tool; *Settings > Screen and sound > Low battery icon* (`battery_icon=0` in `bm/config.txt`) turns that icon off, not `battery_low()`. Information only: each console has its own battery, so in lockstep (`bmnet`) it never changes what the game simulates; use it to show something or to save |
 | `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)` and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens (nor does the `.b16`) |
 | `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
-| `report(kind, text)` | a report for the people who develop bm: saved in `bm/reports` on the SD card with kernel, branch, board and date (and a first `options` line: the 3D options in force), then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KiB each; `true` if saved. `kind` is a required string, a free-text category label: it is turned into lower case with `-` between other characters and goes into the report header and the uploaded file name; with `kind == "session"` the upload replaces the previous file (Overbit uses `"overbit-bench"`). The first time a game calls it, the player is asked (the answer stays in `bm/config.txt`, `allow_...`): after a no, `false` |
+| `report(kind, text)` | a report for the people who develop bm: saved in `bm/reports` on the SD card with kernel, branch, board and date (and a first `options` line: the 3D options in force), then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KB each; `true` if saved. `kind` is a required string, a free-text category label: it is turned into lower case with `-` between other characters and goes into the report header and the uploaded file name; with `kind == "session"` the upload replaces the previous file (Overbit uses `"overbit-bench"`). The first time a game calls it, the player is asked (the answer stays in `bm/config.txt`, `allow_...`): after a no, `false` |
 | `shot([prefix])` | saves the frame being drawn as a PNG (see the Screenshots chapter) |
 | `quit()` | closes the cartridge at the end of the frame |
 | `timeslice(co, [k])` | coroutine `co` stops by itself after about `k` thousand Lua instructions in a frame (400 if missing) and `coroutine.resume` returns `true` without values: a long computation goes on in the next frames instead of stopping the cartridge at the instruction limit. `timeslice(nil)` takes it away (nano8 uses it for its cartridges) |
@@ -513,7 +513,7 @@ Random numbers: `math.random`. For different games at every start, seed the gene
 
 | `n` | Value |
 |---|---|
-| 0 | KiB used by Lua |
+| 0 | KB used by Lua |
 | 1 | ms of the last frame (`_update` + `_draw`, with the GPU's 3D) |
 | 2 | fps |
 | 3 | frame number |
@@ -525,8 +525,8 @@ Random numbers: `math.random`. For different games at every start, seed the gene
 | 9 | `1` if the GPU draws the 3D |
 | 10 | Lua instructions of the last frame (`_update` + `_draw`, in instructions, rounded to the thousand) |
 | 11 | dev kit: tokens of the cartridge's code (`code_tokens`) |
-| 12 | dev kit: the most KiB of Lua of this run |
-| 13 | dev kit: KiB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer) |
+| 12 | dev kit: the most KB of Lua of this run |
+| 13 | dev kit: KB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer) |
 | 14 | dev kit: the Lua instructions of the busiest frame of this run |
 | 15 | dev kit: how many `_update` ran before this `_draw` (1; more with `frameskip`) |
 | 16 | dev kit: ms of GPU job time (bin + render) accounted in the last frame, `0` when the ARM draws the 3D (with `stat(1)` it tells whether the GPU or the ARM sets the pace) |
@@ -575,8 +575,8 @@ When a game ends the dev kit writes one file per game into the reports, `reports
 
 - In `bm/config.txt`: `session_report=0` never, `=1` always; without the line, only with a `github_token`.
 - From the code you use `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(16)`, `devkit()` and `profile()`. The limit is 20 million instructions per call.
-- The **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest functions, the data's memory, the file against the 8 MiB mark of a `.b16` (a guide, not a limit) and the numbers of the last try (F5).
-- At the end of a run the serial line also writes the line `dev kit: Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms, ... tokens`.
+- The **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest functions, the data's memory, the file against the 8 MB mark of a `.b16` (a guide, not a limit) and the numbers of the last try (F5).
+- At the end of a run the serial line also writes the line `dev kit: Lua peak ... KB, data ... KB, busiest frame ...k instructions, ... frames over 16.7 ms, ... tokens`.
 
 ## Examples
 
@@ -597,7 +597,7 @@ log("frame ms", stat(1))                                         -- on the seria
 
 ## Good to know
 
-- Each cartridge has **8 save slots**, each a table of up to 32 KiB, in `/bm/save/` on the SD card.
+- Each cartridge has **8 save slots**, each a table of up to 32 KB, in `/bm/save/` on the SD card.
 - Slot 1 is `xxxxxxxx.sav` (the one of always: `save(t)` and `saved()` without a slot), the others `xxxxxxxx.s02` … `.S08`.
 - A common use: slot 1 for settings and records (`lib.store` uses it too), the others for the games in progress.
 - A table can hold numbers, strings, booleans and other tables (no functions).
@@ -645,7 +645,7 @@ The player's files, shared by the apps: `/docs` on the SD card (bm Write keeps i
 |---|---|
 | `doc_list()` | the files in `/docs`: `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
 | `doc_read(name)` | the bytes of a document (a string), or `nil` and the reason |
-| `doc_write(name, bytes)` | writes a document, new or replaced (at most 4 MiB); `true`, or `nil` and the reason |
+| `doc_write(name, bytes)` | writes a document, new or replaced (at most 4 MB); `true`, or `nil` and the reason |
 | `doc_delete(name)` | deletes a document; `true`, or `nil` and the reason |
 
 ## Good to know
@@ -741,7 +741,7 @@ For a cartridge that shows web pages. A request runs in the background: the game
 - The player must allow the network, as for `udp_open`. Without a network `web_get` returns `nil, "no network"`.
 - Only `https://` addresses, at most 1024 characters. The kernel follows at most 3 redirects and refuses a redirect to `http://`.
 - The kernel waits until 1 second has passed since the last request to the same host. The state is `"wait"` meanwhile.
-- The body stops at 4 MiB. `web_max_kib` in `bm/config.txt` changes this (up to 32768). A request can ask for less with `max`.
+- The body stops at 4 MB. `web_max_kib` in `bm/config.txt` changes this (up to 32768). A request can ask for less with `max`.
 - One request runs at a time. The results of up to 3 requests stay in memory until `web_cancel` or the end of the cartridge.
 - `web_poll` works for about 4 ms. A new TLS connection can take about 100 ms on the Pi Zero W, and the frame waits. Show a "connecting" message before the first `web_poll`.
 - After a complete answer the kernel keeps the connection for the next request to the same host (keep-alive). The calls do not change.
@@ -756,7 +756,7 @@ For a cartridge that shows web pages. A request runs in the background: the game
 | `web_body(id)` | the body as a string, or `nil` and the reason. It copies the bytes into Lua memory: to decode a picture or write a file, give the `id` to `image_load` or `file_write` |
 | `web_cancel(id)` | stops the request and frees its result |
 | `img = image_load(bytes_or_id, sx, sy, [maxw, maxh])` | decodes a baseline JPEG, PNG or WebP into the sprite sheet with its top left corner at `(sx, sy)`. Progressive JPEG and pictures over 4 megapixels are refused. Returns `{x =, y =, w =, h =}`, or `nil` and the reason. Draw it with `sspr`. If needed, make the sheet bigger first with `cart_sheet(w, h)` |
-| `file_write(name, bytes_or_id, [async])` | writes a file in `bm/web` on the SD card. `name` is a bare 8.3 name. Never a `.bm`, `.bme` or `.b16` file. At most 8 MiB (`file_write_max_kib`, up to 32768) and 128 files in the folder. With `async = true` the data is queued, up to 4 files wait, and the pieces (up to 32 KiB) go to the card while the cartridge calls `web_poll` or `file_state` |
+| `file_write(name, bytes_or_id, [async])` | writes a file in `bm/web` on the SD card. `name` is a bare 8.3 name. Never a `.bm`, `.bme` or `.b16` file. At most 8 MB (`file_write_max_kib`, up to 32768) and 128 files in the folder. With `async = true` the data is queued, up to 4 files wait, and the pieces (up to 32 KB) go to the card while the cartridge calls `web_poll` or `file_state` |
 | `state, info = file_state(name)` | the last queued write of that name: `"queued"`, `"writing"`, `"done"` or `"error"`. Call it once a frame while a write is queued |
 
 ```lua

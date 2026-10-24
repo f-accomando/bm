@@ -308,7 +308,7 @@ def test_sd_map(b, opts):
     """Settings > System > SD map: the scan runs in the menu's free time, the
     panel shows the bar, the legend, the folders and the files the menu cannot show."""
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
-    big = bytes(3 << 19)                        # 1.5 MiB: wide enough to show in the bar on a 64 MiB card
+    big = bytes(3 << 19)                        # 1.5 MB: wide enough to show in the bar on a 64 MB card
     sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bme/PROJ.BME": big,
                        "bm/DATA.DAT": big, "bm/NOTES.TXT": b"x" * 3000})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
@@ -1063,7 +1063,7 @@ def test_cover_details_perf(b, opts):
         boot(q)
         time.sleep(0.6)
         text = screen_all(q.screendump())
-        assert "tests" in text and "KiB" in text, text
+        assert "tests" in text and "KB" in text, text
         q.send("\r")
         q.expect("play: /bm/picart.bm", timeout=10)
         q.expect("bm: loaded", timeout=30)

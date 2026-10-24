@@ -3,7 +3,7 @@
 The RGB30's Mali-G52 driver, part of [graphics](graphics.md). Driver versions: [`docs/DRIVERS.md`](../DRIVERS.md); the device: [`docs/RGB30.md`](../RGB30.md).
 
 ## Mali-G52 (`src/rgb30/mali.c`, `mali.h`, `mali_desc.c`)
-bm3d 6.0-6.1: supply, power domain, identify, reset, cores, MMU (LPAE, 2 MiB blocks), job
+bm3d 6.0-6.1: supply, power domain, identify, reset, cores, MMU (LPAE, 2 MB blocks), job
 manager (WRITE_VALUE chain), a FRAGMENT job that clears a surface (6.1) and, written and not yet a version, a triangle (Vertex,
 Tiler and Fragment jobs, a 96x96 square of the screen; the step is only on the console,
 `mali_hw_t.triangle`). The triangle step is not yet run on the device: the Dev > GPU test

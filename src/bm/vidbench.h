@@ -11,7 +11,7 @@ extern const unsigned vidbench_jpg320_len, vidbench_jpg480_len;
 /*
  * Video bench (VID-S1, VID-S2): what a clip player and a recorder cost on
  * this machine, with the console print as the report.
- *   1. SD write: 128 files of 256 KiB (32 MiB) in /bm/vidbench with
+ *   1. SD write: 128 files of 256 KB (32 MB) in /bm/vidbench with
  *      fat_write_file, each timed; mean MB/s, the best and the worst write.
  *   2. SD read: 16 of those files read back; MB/s.
  *   3. JPEG decode: 100 calls of jpeg_decode on a 320x180 and on a 480x270

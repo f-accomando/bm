@@ -80,7 +80,7 @@ class TestGameDemoBuild(unittest.TestCase):
         self.assertEqual(bm_cart.get(S.COVER), b16_cart.get(S.COVER))
 
     def test_budget(self):
-        """Triangle budget: 168 <= 1200 for both editions; .b16 <= 8 MiB."""
+        """Triangle budget: 168 <= 1200 for both editions; .b16 <= 8 MB."""
         bm_path = self.result[f"{build_game_demo.GAME}.bm"]
         b16_path = self.result[f"{build_game_demo.GAME}.b16"]
 

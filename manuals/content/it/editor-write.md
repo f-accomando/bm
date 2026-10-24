@@ -310,7 +310,7 @@ Puoi aprire anche `letter.md`, se l'hai esportato: ritorna con gli stessi paragr
 ## Limiti
 
 - Il nome di un documento è di al massimo 8 lettere o cifre, `-` e `_` ammessi, senza cartelle.
-- Un file scritto in `/docs` è al massimo di 4 MiB.
+- Un file scritto in `/docs` è al massimo di 4 MB.
 - Il corpo di una pagina contiene 72 lettere per riga, in Courier.
 - Il testo non salvato viene conservato per il prossimo avvio solo se è sotto i 24000 byte.
 - Il titolo del file `.BMD` conserva le prime 60 lettere del primo paragrafo.

@@ -3,7 +3,7 @@
 FAT write test: builds an SD image (scripts/mksd.py), runs the host test
 binary on it, then checks the result with independent tools: fsck.vfat
 (filesystem consistency) and mtools (reads back what bm wrote). Twice: a
-small card with 512-byte clusters, and one with 4 KiB clusters as a real
+small card with 512-byte clusters, and one with 4 KB clusters as a real
 card has (the last cluster of a file written only where it has data).
 
   tests/fs/run.py BUILD/host/test_fat

@@ -43,7 +43,7 @@ def _wh(body, where, what):
 
 
 def check_info(body, where="INFO"):
-    """INFO (10): UTF-8 text <= 16 KiB (src/bm/format.c:577-585, bm.h:80-86).
+    """INFO (10): UTF-8 text <= 16 KB (src/bm/format.c:577-585, bm.h:80-86).
     C does not check UTF-8; bm-forge refuses invalid UTF-8 (strict choice).
     -> {"text": str}"""
     need(len(body) <= INFO_MAX, f"INFO is {len(body)} bytes, at most {INFO_MAX}", where)

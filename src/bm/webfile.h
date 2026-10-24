@@ -2,7 +2,7 @@
  * file_write for cartridges (bm/web on the SD card), and the queue behind its async form
  * (multitasking stage 3). A write is sync (the call returns when the file is on the card) or
  * queued: the data is copied, a writer in a fiber puts it on the card in pieces (one run of
- * clusters, up to 32 KiB, per piece) while the cartridge goes on drawing. Pieces are driven by
+ * clusters, up to 32 KB, per piece) while the cartridge goes on drawing. Pieces are driven by
  * webfile_pump, which the cartridge's own web_poll / file_state calls run (about 4 ms each).
  * One writer holds the card (sdlock.h): any other SD writer that begins pauses the queued one;
  * its job starts again from the first byte later. The rules (name, cap, 128 files) are in

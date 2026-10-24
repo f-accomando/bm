@@ -1872,14 +1872,14 @@ static int l_time(lua_State *L)
 
 static uint32_t assets_kb(void);
 
-/* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
+/* stat(n): 0 Lua KB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
  *         4 3D triangles drawn and 5 3D pixels written since the last zclear()
  *         (0 with the GPU), 6 ms spent in 3D drawing (draw3d and the effects;
  *         with the GPU, the ARM's part) since then, 7 3D vertices transformed
  *         since then, 8 ms since this frame began, 9 1 if the GPU draws the 3D,
  *         10 Lua instructions of the last frame (update+draw, to the thousand);
  *         the dev kit: 11 tokens of the cartridge's code (tokens.h), 12 the
- *         most Lua KiB of this run, 13 KiB of the cartridge's data in memory
+ *         most Lua KB of this run, 13 KB of the cartridge's data in memory
  *         (sprite sheet, map, models, sound bank, z-buffer), 14 the Lua
  *         instructions of the busiest frame of this run, 15 the _update
  *         run this frame (frameskip), 16 ms of GPU job time (bin + render)
@@ -2131,7 +2131,7 @@ static void zclear_dma_start(void)
         return;
     /* no dirty line of the z-buffer may be written back over the DMA's
      * zeros, and none may stay cached: the whole data cache is cleaned and
-     * dropped (16 KiB, cheaper than the 460 KiB range) */
+     * dropped (16 KB, cheaper than the 460 KB range) */
     dcache_clean_invalidate_all();
     dma_fill(rt.r3d.zbuf, 0, bytes);
     rt.zclear_dma = 1;
@@ -3426,7 +3426,7 @@ static int l_log(lua_State *L)
 /* report(kind, text) - a report for whoever develops bm (src/kernel/reports.c,
  * 2026-10-04): saved in bm/reports on the SD card with the kernel, branch,
  * board and date, then sent to the reports' git repository if it can (a
- * benchmark's numbers instead of a photo). At most 8 a run, 256 KiB each.
+ * benchmark's numbers instead of a photo). At most 8 a run, 256 KB each.
  * true if it was saved. */
 /* The 3D's options in force, one line for the reports (the session's,
  * report()'s): the driver's (gpu3d_options_line), then the runtime's: who
@@ -3452,7 +3452,7 @@ static int l_report(lua_State *L)
     size_t len;
     const char *text = luaL_checklstring(L, 2, &len);
     if (rt.reports >= REPORTS_MAX || len > REPORT_MAX_LEN) {
-        kprintf("report: refused (%s)\n", len > REPORT_MAX_LEN ? "over 256 KiB" : "8 in this run already");
+        kprintf("report: refused (%s)\n", len > REPORT_MAX_LEN ? "over 256 KB" : "8 in this run already");
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -3604,7 +3604,7 @@ void bm_save_slot(const char *path, int slot, char *out, size_t n)
 
 /* The text is built in a fixed buffer: a luaL_Buffer cannot be used here,
  * it may sit on the Lua stack while the serializer walks the tables with
- * lua_next (a save of more than about 1 KiB then broke the stack). */
+ * lua_next (a save of more than about 1 KB then broke the stack). */
 static struct {
     char p[SAVE_MAX + 64];
     size_t n;
@@ -4003,7 +4003,7 @@ static int l_doc_read(lua_State *L)
     }
     if (e.size > DOC_MAX || fat_load(&e, &data, &len) != 0) {
         lua_pushnil(L);
-        lua_pushstring(L, e.size > DOC_MAX ? "more than 4 MiB" : fat_error());
+        lua_pushstring(L, e.size > DOC_MAX ? "more than 4 MB" : fat_error());
         return 2;
     }
     lua_pushlstring(L, (const char *)data, len);
@@ -4023,7 +4023,7 @@ static int l_doc_write(lua_State *L)
     const char *data = lua_tolstring(L, 2, &len);
     if (len > DOC_MAX) {
         lua_pushnil(L);
-        lua_pushstring(L, "more than 4 MiB");
+        lua_pushstring(L, "more than 4 MB");
         return 2;
     }
     if (sd_write_file("doc", DOCS_DIR, name, data, len) != 0) {
@@ -4381,7 +4381,7 @@ static int l_sheet_gif(lua_State *L)
 }
 
 /* image_file(path, sx, sy, [fitw, fith, mix, bg]) -> { x =, y =, w =, h =, sw =, sh = }, or nil and why.
- * Reads a JPEG (baseline), PNG or WebP file of the SD card (up to 16 MiB, 4 megapixels), makes it fit
+ * Reads a JPEG (baseline), PNG or WebP file of the SD card (up to 16 MB, 4 megapixels), makes it fit
  * fitw x fith (default 256 x 256; the picture keeps its shape and is never made bigger; a box average)
  * and puts it on the sprite sheet with its top left corner at (sx, sy). mix (0 to 100, default 100) is the
  * share of the picture kept: the rest is the colour bg (0xRRGGBB, default black), so a reference
@@ -4415,7 +4415,7 @@ static int l_image_file(lua_State *L)
     }
     if (e.size > (16u << 20)) {
         lua_pushnil(L);
-        lua_pushfstring(L, "%s: more than 16 MiB", path);
+        lua_pushfstring(L, "%s: more than 16 MB", path);
         return 2;
     }
     if (fat_load(&e, &data, &len) != 0) {
@@ -4500,7 +4500,7 @@ static int l_image_file(lua_State *L)
 
 /* file_write(name, bytes_or_id, [async]) -> true and the path ("bm/web/name.ext"), or nil and why.
  * Writes a file in bm/web on the SD card (made if it is not there): an 8.3 name, no other
- * folder, never .bm, .bme or .b16, at most file_write_max_kib (8 MiB) and 128 files in the
+ * folder, never .bm, .bme or .b16, at most file_write_max_kib (8 MB) and 128 files in the
  * folder. A name that is there is replaced. Without async the call waits for the card: a big
  * file stops the frame for the time of the write. With async = true the data is copied and
  * queued: the call returns at once with true, and the file goes to the card in pieces while the
@@ -5521,7 +5521,7 @@ static int l_quit(lua_State *L)
 #define VIDEO_MT   "bm.video"
 #define CLIP_DIR   "/bm/clips/"
 #define REC_CLIP_DIR "/bm/rec/"
-#define CLIP_MAX   (48u << 20)          /* a clip is read whole into memory: 48 MiB at most */
+#define CLIP_MAX   (48u << 20)          /* a clip is read whole into memory: 48 MB at most */
 
 typedef struct {
     bmv_t v;
@@ -5553,7 +5553,7 @@ static int l_clip_gc(lua_State *L)
 }
 
 /* video_open("intro.bmv") -> clip, or nil and a message. The file is in /bm/clips on the card
- * (made by scripts/mkvid.py), read whole into memory (48 MiB at most). */
+ * (made by scripts/mkvid.py), read whole into memory (48 MB at most). */
 static int l_video_open(lua_State *L)
 {
     const char *name = luaL_checkstring(L, 1);
@@ -5576,7 +5576,7 @@ static int l_video_open(lua_State *L)
     if (fat_find(path, &e) != 0 || e.is_dir)
         why = "no such clip";
     else if (e.size > CLIP_MAX)
-        why = "the clip is over 48 MiB";
+        why = "the clip is over 48 MB";
     else if (fat_load(&e, &data, &len) != 0)
         why = "cannot read the clip";
     if (why) {
@@ -7298,7 +7298,7 @@ static int l_cutout3d(lua_State *L)
  * faces: reduce to at most this many triangles (0: keep all); sheet: the
  * side of the texture on the sheet (256; 8 to 1024). Only the format's
  * limits: 65535 vertices and 65535 triangles per model, refused with a
- * message. A file over GLB3D_MAX_FILE (16 MiB) is refused: the file, its
+ * message. A file over GLB3D_MAX_FILE (16 MB) is refused: the file, its
  * decoded corners and the texture must fit in the RAM of the Pi Zero W. */
 #define GLB3D_MAX_FILE (16u << 20)
 static int l_glb3d(lua_State *L)
@@ -7350,7 +7350,7 @@ static int l_glb3d(lua_State *L)
     }
     if (e.size > GLB3D_MAX_FILE) {
         lua_pushnil(L);
-        lua_pushfstring(L, "%s: %d MiB is too big, the limit is 16 MiB (the console RAM)", path, (int)(e.size >> 20));
+        lua_pushfstring(L, "%s: %d MB is too big, the limit is 16 MB (the console RAM)", path, (int)(e.size >> 20));
         return 2;
     }
     if (fat_load(&e, &data, &len) != 0) {
@@ -7459,13 +7459,13 @@ static int l_res_write(lua_State *L)
         const uint8_t *s = (const uint8_t *)luaL_checklstring(L, -1, &n);
         const char *bad = NULL;
         if (n > 0x1000000)
-            bad = "a section over 16 MiB";
+            bad = "a section over 16 MB";
         else if (order[k] == BM_SEC_MESH && bm_mesh_check(s, (uint32_t)n) < 0)
             bad = "broken MESH section";
         else if (order[k] == BM_SEC_ANIM && bm_anim_check(s, (uint32_t)n) < 0)
             bad = "broken ANIM section";
         else if (order[k] == BM_SEC_INFO && n > BM_INFO_MAX)
-            bad = "INFO over 16 KiB";
+            bad = "INFO over 16 KB";
         if (bad) {
             lua_pushnil(L);
             lua_pushstring(L, bad);
@@ -7520,7 +7520,7 @@ static int l_res_write(lua_State *L)
 /* res_read(path) -> { kind =, name =, author =, sections = { [type] = string, ... } }, or nil and a
  * message: a resource file (BMRES: a .bmm, .bmi, ...) read and checked as the kernel loads it, read only.
  * kind: 1 model, 2 image, 3 sounds, 4 map, 5 palette, 6 kit. The sections are the file's, whole (MESH is
- * the whole section res_write takes). A file over 16 MiB is refused. */
+ * the whole section res_write takes). A file over 16 MB is refused. */
 static int l_res_read(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
@@ -7535,7 +7535,7 @@ static int l_res_read(lua_State *L)
     }
     if (e.size > GLB3D_MAX_FILE) {
         lua_pushnil(L);
-        lua_pushfstring(L, "%s: %d MiB is too big, the limit is 16 MiB (the console RAM)", path, (int)(e.size >> 20));
+        lua_pushfstring(L, "%s: %d MB is too big, the limit is 16 MB (the console RAM)", path, (int)(e.size >> 20));
         return 2;
     }
     if (fat_load(&e, &data, &len) != 0) {
@@ -8738,7 +8738,7 @@ static int vol_start;                   /* the volume when the cartridge started
 static int perf_on;                     /* 0 off, 1 top, 2 bottom: now */
 static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
 
-/* KiB of the cartridge's data in memory, besides its Lua: the sprite sheet
+/* KB of the cartridge's data in memory, besides its Lua: the sprite sheet
  * (RGB565 + alpha + the cells), the map, the models and skeletons, the sound
  * bank and the z-buffer of the 3D (stat(13)) */
 static uint32_t assets_kb(void)
@@ -10797,7 +10797,7 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
     PUT("3D: %s\n", st->gpu3d ? "GPU" : "ARM or none");
     PUT("\ntime of _update + _draw (+ the 3D's wait): avg %lu.%lu ms, max %lu.%lu ms, %lu frames over 16.7 ms\n",
         MS1(avg), MS1(st->cpu_us_max), (unsigned long)st->slow);
-    PUT("memory: Lua peak %lu KiB, data %lu KiB; code %lu tokens; busiest frame %luk Lua instructions\n",
+    PUT("memory: Lua peak %lu KB, data %lu KB; code %lu tokens; busiest frame %luk Lua instructions\n",
         (unsigned long)st->lua_peak_kb, (unsigned long)st->assets_kb, (unsigned long)st->tokens,
         (unsigned long)st->instr_k_max);
     PUT("frames that were shown after more than 1.5 frames: %lu\n", (unsigned long)st->dropped);
@@ -10838,7 +10838,7 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
     if (sess.n) {
         PUT("\nthe longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:\n"
             "time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):\n");
-        PUT("  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates\n");
+        PUT("  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates\n");
         for (int i = 0; i < sess.n; i++) {
             const sess_frame_t *f = &sess.worst[i];
             const uint32_t used = f->cpu_us + f->copy_us;
@@ -10856,7 +10856,7 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         if (g->untimed)
             PUT("(a job's time: from its start to the end the ARM saw; %lu jobs had ended before it looked, "
                 "counted at the others' mean)\n", (unsigned long)g->untimed);
-        PUT("binner memory: at most %lu KiB of the tile lists' 4096, %lu KiB of the overflow's 2048, %lu jobs "
+        PUT("binner memory: at most %lu KB of the tile lists' 4096, %lu KB of the overflow's 2048, %lu jobs "
             "in the overflow\n", (unsigned long)((g->pool_max + 1023) / 1024),
             (unsigned long)((g->ovf_max + 1023) / 1024), (unsigned long)g->ovf_jobs);
         if (g->clean_cyc || g->inval_cyc)
@@ -10895,12 +10895,12 @@ void bm_print_stats(const bm_stats_t *st)
     kprintf("bm: \"%s\" %lu frames, %lu.%lu fps, %lu dropped\n",
             st->title, st->frames, fps10 / 10, fps10 % 10, st->dropped);
     uint32_t copy = st->copy_us_total / st->frames;
-    kprintf("     update+draw avg %lu.%02lu ms (%lu%% of frame), max %lu.%02lu ms, Lua %lu KiB\n",
+    kprintf("     update+draw avg %lu.%02lu ms (%lu%% of frame), max %lu.%02lu ms, Lua %lu KB\n",
             avg / 1000, avg % 1000 / 10, avg * 100 / FRAME_US,
             st->cpu_us_max / 1000, st->cpu_us_max % 1000 / 10, st->lua_kb);
     if (copy)
         kprintf("     copy to screen %lu.%02lu ms per frame\n", copy / 1000, copy % 1000 / 10);
-    kprintf("     dev kit: Lua peak %lu KiB, data %lu KiB, busiest frame %luk instructions, "
+    kprintf("     dev kit: Lua peak %lu KB, data %lu KB, busiest frame %luk instructions, "
             "%lu frames over 16.7 ms, %lu tokens\n",
             st->lua_peak_kb, st->assets_kb, st->instr_k_max, st->slow, st->tokens);
     gpu3d_stats_t g;

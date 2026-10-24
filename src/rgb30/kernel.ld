@@ -6,7 +6,7 @@
  */
 ENTRY(_start)
 
-STACK_SIZE = 0x100000;      /* 1 MiB: the Lua parser and VM recurse on it */
+STACK_SIZE = 0x100000;      /* 1 MB: the Lua parser and VM recurse on it */
 
 SECTIONS
 {

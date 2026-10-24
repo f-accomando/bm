@@ -547,7 +547,7 @@ end
 save({ record = record })
 ```
 
-Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD. Con bmlib:
+Numeri, stringhe, booleani e tabelle, fino a 32 KB, in `/bm/save/` sulla SD. Con bmlib:
 `lib.best("record", punti)` tiene il record e scrive solo quando viene battuto.
 
 Più partite: gli **slot** da 1 a 8, ognuno una tabella sua. Senza slot è l'1 (lì record e

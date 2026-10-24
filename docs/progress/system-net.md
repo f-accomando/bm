@@ -19,12 +19,12 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   (`github.c`, `report.c`), 3D images (`img3d.c`), games' UDP and LAN (`lan.c`, `cartnet.c`).
 - Web API for cartridges (`web_get`, `image_load`, `file_write`; [docs/api/system.md](../api/system.md)):
   `src/bm/webpolicy.c` has the rules (https only, 3 redirects of the same scheme, 1 s per host, body
-  cap 4 MiB `web_max_kib`, file names for `bm/web`, file cap 8 MiB `file_write_max_kib`), `webget.c` runs
-  one `http_request` in a fiber of its own (128 KiB stack) that `web_poll` advances for 4 ms a frame
+  cap 4 MB `web_max_kib`, file names for `bm/web`, file cap 8 MB `file_write_max_kib`), `webget.c` runs
+  one `http_request` in a fiber of its own (128 KB stack) that `web_poll` advances for 4 ms a frame
   (the TLS handshake still stalls one frame), `webimg.c` decodes JPEG, PNG and WebP into the sheet.
   `http.c` got `max_redirects`, `same_scheme`, a `before` hook and `info->location` for it. The
   folder is `bm/web` because the FAT writer makes 8.3 names only (`downloads` has 9 letters).
-  `file_write` is synchronous by default; `file_write(name, data, true)` queues it (writer fiber, pieces of 32 KiB, `file_state`),
+  `file_write` is synchronous by default; `file_write(name, data, true)` queues it (writer fiber, pieces of 32 KB, `file_state`),
   and the SD writer lock (`sdlock.c`) lets a game save pause it. `http.c` keeps one connection (keep-alive) and
   `web_get(url, {resume = "NAME.EXT"})` resumes with `Range` from `bm/web/NAME.PRT` (stages 3-5 in
   [multitasking](multitasking.md)). Tests: `make test-webapi`

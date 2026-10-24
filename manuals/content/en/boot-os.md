@@ -354,7 +354,7 @@ A game takes a picture by itself with `shot()`; see the API manual.
 
 # Saves
 
-A game keeps its data with `save()` and `saved()`. Each game has **8 slots**, each a table of up to 32 KiB, in `bm/save/`.
+A game keeps its data with `save()` and `saved()`. Each game has **8 slots**, each a table of up to 32 KB, in `bm/save/`.
 
 - Slot 1 is `xxxxxxxx.sav`; slots 2 to 8 are `.S02` to `.S08`.
 - `XXXXXXXX` comes from the title and the author of the game. If you change either, the game starts again from zero.
@@ -368,7 +368,7 @@ To back up a game's save, copy its files from `bm/save/` to the PC.
 ## A crash
 
 - A fatal exception shows a red screen with the registers and the list of addresses it was called from, even during a game.
-- The last 4 KiB printed and a trail of breadcrumbs stay in memory across a reset. At the next boot they become a report in `bm/reports/`, sent when the network is up. Network and `report()` ask your permission the first time.
+- The last 4 KB printed and a trail of breadcrumbs stay in memory across a reset. At the next boot they become a report in `bm/reports/`, sent when the network is up. Network and `report()` ask your permission the first time.
 - After 20 seconds of running time, the screen says "Restarting in 60 s: this screen goes out as a report", the LED blinks a code, and the console restarts. This also holds on the Pi Zero W: the restart writes the power-management registers directly (`src/kernel/exceptions.c`, `src/drivers/watchdog.c`), so it does not depend on the watchdog check made at boot.
 - [TO FILL: what each LED blink count means on the Pi Zero W; only the RGB30's codes are written down]
 

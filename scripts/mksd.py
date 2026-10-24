@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Builds an SD card image: MBR + one FAT32 partition (type 0x0C) starting at
-1 MiB, filled with the given files. Used by `make image` (bm.img, ready
+1 MB, filled with the given files. Used by `make image` (bm.img, ready
 for Raspberry Pi Imager / balenaEtcher / dd) and by the QEMU tests.
 Needs mkfs.vfat (dosfstools) and mtools.
 
@@ -33,7 +33,7 @@ def build(out, files, size_mib=128, label="BMSD", start_mib=1, raw=(), active=Fa
     """raw: (file, sector) pairs written before the partition; active: the
     partition's boot flag (U-Boot's bootflow scan looks at it);
     cluster_sectors: the cluster size, in sectors (the FAT tests: a card's
-    4 or 32 KiB clusters), else mkfs.vfat's choice."""
+    4 or 32 KB clusters), else mkfs.vfat's choice."""
     start = start_mib * 2048                        # sectors
     total = size_mib * 2048                         # QEMU wants a power of 2
     part_sectors = total - start
@@ -95,7 +95,7 @@ def main():
     raw = [(r.rsplit("@", 1)[0], int(r.rsplit("@", 1)[1], 0)) for r in a.raw]
     build(a.out, [tuple(f.split("=", 1)) for f in a.files], a.size_mib, a.label,
           a.start_mib, raw, a.active)
-    print(f"{a.out}: {a.size_mib} MiB, {len(a.files)} files")
+    print(f"{a.out}: {a.size_mib} MB, {len(a.files)} files")
 
 
 if __name__ == "__main__":

@@ -41,10 +41,10 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 - **Libraries not in a cartridge**: `io`, `os`, `package`, `debug`. They are not opened. [code, `src/bm/runtime.c:4921-4926`]
 - `dofile`, `loadfile` and `load` are set to nil in a cartridge. [code, `src/bm/runtime.c:4932`]
 - `require` is the kernel's own. It loads only the libraries built into the kernel (`assist`, `bm3d`, `bmlib`, `bmnet`, `predict`, `words`, `padtype`, `riff`, `bmui`). [code, `src/bm/require.c:12-33`]
-- **Lua heap**: 64 MiB for all Lua states together. The allocator refuses growth above it. [code, `src/script/luavm.c:13`, `src/script/luavm.c:28`]
+- **Lua heap**: 64 MB for all Lua states together. The allocator refuses growth above it. [code, `src/script/luavm.c:13`, `src/script/luavm.c:28`]
 - **Time limit**: a callback that runs more than 20 million Lua instructions in one frame stops with "cart timeout". [code, `src/bm/runtime.c:70-71`, `src/bm/runtime.c:4896`]
 - **Garbage collector**: generational. [code, `src/bm/runtime.c:4978`]
-- **Stack**: the kernel stack is 1 MiB on both machines. The Lua parser and the VM use it. [code, `linker.ld:4`, `src/rgb30/kernel.ld:9`]
+- **Stack**: the kernel stack is 1 MB on both machines. The Lua parser and the VM use it. [code, `linker.ld:4`, `src/rgb30/kernel.ld:9`]
 - **Native code from a cartridge**: there is no loader, no `dlopen` and no machine-code section in the format. [code, `src/bm/bm.h:154-167`]
   - The QPU programs are built into the kernel. A cartridge cannot supply one. [code]
   - See [the bytecode question](#8-security) in section 8. The runtime loads a cartridge's code as text only. A bytecode chunk is refused.
@@ -134,14 +134,14 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
   - Network waits (`net_wait_step`) and SD reads (`fat_load_tick`) are the yield points. [code, `src/kernel/fiber.h:6-8`, `src/kernel/fiber.h:42-46`]
   - A guard of 16 words at the bottom of each stack is checked. An overflow stops the kernel with a message. [code, `src/kernel/fiber.c:30-31`, `src/kernel/fiber.c:65-67`]
 - **Jobs that run as fibers** (menu only): [code]
-  - Market: 128 KiB stack. `src/kernel/market.c:30`
-  - Market publish: 128 KiB. `src/kernel/publish.c:41`
-  - Kernel update: 128 KiB. `src/kernel/update.c:74`
-  - Report sender: 128 KiB. `src/kernel/carts.c:312`
-  - Transfer write to SD: 64 KiB. `src/net/netxfer.c:77`
-  - Wi-Fi auto join: 64 KiB. `src/net/wifi_auto.c:36`
-  - Library scan: 32 KiB. `src/kernel/lib.c:360`
-  - Cover loader, SD map scan: 16 KiB each. `src/kernel/carts.c:278`, `src/kernel/sdmap.c:87`
+  - Market: 128 KB stack. `src/kernel/market.c:30`
+  - Market publish: 128 KB. `src/kernel/publish.c:41`
+  - Kernel update: 128 KB. `src/kernel/update.c:74`
+  - Report sender: 128 KB. `src/kernel/carts.c:312`
+  - Transfer write to SD: 64 KB. `src/net/netxfer.c:77`
+  - Wi-Fi auto join: 64 KB. `src/net/wifi_auto.c:36`
+  - Library scan: 32 KB. `src/kernel/lib.c:360`
+  - Cover loader, SD map scan: 16 KB each. `src/kernel/carts.c:278`, `src/kernel/sdmap.c:87`
 - **Network polling** runs from the input loops (`net_poll` in `src/kernel/input.c`). lwIP runs while the menu, the monitor or a game polls input. [code, `src/kernel/input.c:65-216`]
 - **A game runs exclusively.** The runtime owns the main loop until the game ends or is suspended. The menu fibers do not run. A transfer waits in memory and is written when the menu returns. [code, `src/bm/runtime.c:9073`, `src/net/netxfer.c:6-12`]
 - **Suspend**: one cartridge can stay suspended in memory. A new cartridge closes the old one. [code, `src/bm/runtime.c:9266`, `src/bm/runtime.c:9362`]
@@ -154,9 +154,9 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 ### 4.1 Memory management
 
 - **No virtual memory, no swap, no paging, no protection between components.** [code]
-- **Pi MMU**: a flat 1:1 map of 1 MiB sections. ARM memory is cached. The GPU part of RAM is uncached. Peripherals are device memory. Other addresses are unmapped. [code, `src/arch/mmu.c:13-16`, `src/arch/mmu.c:41-49`]
+- **Pi MMU**: a flat 1:1 map of 1 MB sections. ARM memory is cached. The GPU part of RAM is uncached. Peripherals are device memory. Other addresses are unmapped. [code, `src/arch/mmu.c:13-16`, `src/arch/mmu.c:41-49`]
   - The first section (address 0) is mapped as ordinary RAM. A null pointer access does not fault on the Pi. [code, `src/arch/mmu.c:41-45`]
-- **RGB30 MMU**: a 1:1 map of 2 MiB blocks. RAM is cached. Frame buffers are uncached. Peripherals are device memory. The rest is unmapped. [code, `src/rgb30/mmu.c:2-10`]
+- **RGB30 MMU**: a 1:1 map of 2 MB blocks. RAM is cached. Frame buffers are uncached. Peripherals are device memory. The rest is unmapped. [code, `src/rgb30/mmu.c:2-10`]
 - **Privilege**: all code runs privileged (SVC on the Pi, EL1 on the RGB30). There is no user mode. [code, `src/boot/start.S:71`, `src/rgb30/start.S:111`]
 - **Heap**: a bump allocator (`_sbrk`) feeds newlib `malloc` on the Pi and picolibc on the RGB30. Freed memory is reused by `malloc`. It never returns to the system. [code, `src/lib/syscalls.c:28-60`]
 - **Cores**: the Pi Zero W has one core. On the RGB30 one core runs bm. No call to `PSCI CPU_ON` exists. PSCI is used only for reset and power off. [code, `src/rgb30/plat_rk3566.c:56-93`, `grep 0xc4000003 src` is empty]
@@ -205,12 +205,12 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 | Write path | whole files are written. An existing file keeps its name. The write can run in a fiber in slices. | `src/fs/fat.h:5-7` |
 | File dates | the SNTP time (UTC) when the network has set it. Else fixed at 2026-01-01. The kernel registers the clock with `fat_set_clock(net_time)` after the card is mounted. | `src/fs/fat.c` (`fat_stamp`), `src/kernel/carts.c` (`carts_init`), `src/rgb30/main.c` |
 | Reading a file | the whole file goes into a `malloc` buffer. | `src/fs/fat.c:409` |
-| File size | 32-bit size field in FAT. A transfer is limited to 100 MiB. A Market file is limited to 100 MiB. | `src/net/netxfer.c:44`, `src/net/catalog.h:19` |
-| `.b16` size | no limit. The 8 MiB build check is removed. | `docs/BM-FORMAT.md` (File size) |
-| `.bm` size | no limit in the loader except RAM and the 100 MiB transfer limit | `src/net/netxfer.c:44` |
-| Nano8 cart | 4 MiB | `src/bm/runtime.c:4904` |
-| Save | `/bm/save`, 32 KiB per slot, up to 8 slots (`BM_SAVE_SLOTS`) | `src/bm/runtime.c:3382-3384`, `src/bm/runtime.h:150` |
-| Documents | `/docs`, 4 MiB per file, 8.3 names, no folders, needs the player's permission | `src/bm/runtime.c:3711-3714`, `src/bm/runtime.c:3747` |
+| File size | 32-bit size field in FAT. A transfer is limited to 100 MB. A Market file is limited to 100 MB. | `src/net/netxfer.c:44`, `src/net/catalog.h:19` |
+| `.b16` size | no limit. The 8 MB build check is removed. | `docs/BM-FORMAT.md` (File size) |
+| `.bm` size | no limit in the loader except RAM and the 100 MB transfer limit | `src/net/netxfer.c:44` |
+| Nano8 cart | 4 MB | `src/bm/runtime.c:4904` |
+| Save | `/bm/save`, 32 KB per slot, up to 8 slots (`BM_SAVE_SLOTS`) | `src/bm/runtime.c:3382-3384`, `src/bm/runtime.h:150` |
+| Documents | `/docs`, 4 MB per file, 8.3 names, no folders, needs the player's permission | `src/bm/runtime.c:3711-3714`, `src/bm/runtime.c:3747` |
 
 ### 6.1 SD drivers
 
@@ -279,7 +279,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 
 A cartridge **can**: [code]
 - Draw, play sound, read input, read the clock. Use the 3D API.
-- Save its own data in `/bm/save` (32 KiB per slot).
+- Save its own data in `/bm/save` (32 KB per slot).
 - Read and write documents in `/docs` if the player allows it. `src/bm/runtime.c:3747`
 - Use UDP if the player allows it. `src/bm/runtime.c:3297`
 - Send a report to GitHub if the player allows it. `src/bm/runtime.c:3255`
@@ -292,7 +292,7 @@ A cartridge **cannot**: [code]
 - Open arbitrary files. `io`, `os`, `package`, `debug`, `load`, `loadfile` and `dofile` are removed.
 - Use TCP, HTTP or a raw socket.
 - Run longer than 20 million Lua instructions in one callback. `src/bm/runtime.c:70-71`
-- Use more than 64 MiB of Lua memory. `src/script/luavm.c:13`
+- Use more than 64 MB of Lua memory. `src/script/luavm.c:13`
 
 **Reading the SD card (`ls`, `cart_read`): finding kept, behaviour not changed.**
 - `ls` and `cart_read` have no `tool_mode` check and no prompt. A game can list the files of the card and read the code, the title and the author of every `.bm` on it. It cannot read other files, and it cannot change a file that was there before. [code, `src/bm/runtime.c` (`l_ls`, `l_cart_read`); `docs/APP-ARCHITECTURE.md` says the same for `cart_read`]
@@ -330,7 +330,7 @@ A cartridge **cannot**: [code]
 - The ARM transforms, lights, culls and clips. The V3D rasterizes. [code, `src/gpu/gpu3d.h:3-9`]
 - **Vertices of a mesh**: 65535. **Faces**: 65535. **Bones**: 64. **Clips**: 255. **Models in a file**: 256. [code, `src/bm/bm.h:186-191`, `src/bm/r3d.c:1058`]
 - **One GPU batch**: 65 532 vertices. [code, `src/gpu/gpu3d.c:40`]
-- **GPU job memory**: 4 MiB for vertices. A vertex takes 24 bytes (3 varyings) or 44 bytes (8 varyings). That is about 95 000 to 175 000 vertices per job. [code, `src/gpu/gpu3d.c:23,52-55`; the count is computed, an **estimate**]
+- **GPU job memory**: 4 MB for vertices. A vertex takes 24 bytes (3 varyings) or 44 bytes (8 varyings). That is about 95 000 to 175 000 vertices per job. [code, `src/gpu/gpu3d.c:23,52-55`; the count is computed, an **estimate**]
 - **Pixel and triangle rate**: 811 Mpixel/s and 3 M triangles/s on the Pi. 182 spheres at 60 fps. [measured: `docs/PERFORMANCE.md:21,161`; not run again]
 - **QPU**: a driver (`v3d_qpu_run`), an assembler and two programs (particles, fade) exist. [code, `src/gpu/v3d.c:395`, `src/gpu/qpu.c:15-20`]
   - **No function of the kernel or the runtime calls them.** Only a host test uses `qpu.h`. [code, `grep qpu_ src` shows only `src/gpu`]
@@ -383,14 +383,14 @@ Legend: **measured**, **from code**, **estimate**.
 
 | Item | Pi Zero W | RGB30 | Source |
 |---|---|---|---|
-| Total RAM | 512 MiB (shared) | 1 GiB LPDDR4 | `src/kernel/main.c:134-139`, `src/rgb30/plat.h:14` |
-| ARM share | asked from the firmware by mailbox. 448 MiB with `gpu_mem=64`. | from the kernel base to `0x3c000000` | `src/kernel/main.c:125-131`, `src/rgb30/plat.h:19-20` |
-| GPU or display share | the firmware sets it. `boot/config.txt` does not set `gpu_mem`. | the top 64 MiB. The last 4 MiB belong to the GPU. | `boot/config.txt`, `src/rgb30/plat.h:19,39` |
+| Total RAM | 512 MB (shared) | 1 GB LPDDR4 | `src/kernel/main.c:134-139`, `src/rgb30/plat.h:14` |
+| ARM share | asked from the firmware by mailbox. 448 MB with `gpu_mem=64`. | from the kernel base to `0x3c000000` | `src/kernel/main.c:125-131`, `src/rgb30/plat.h:19-20` |
+| GPU or display share | the firmware sets it. `boot/config.txt` does not set `gpu_mem`. | the top 64 MB. The last 4 MB belong to the GPU. | `boot/config.txt`, `src/rgb30/plat.h:19,39` |
 | Kernel load address | `0x8000` | `0x10000000` | `linker.ld:12`, `rgb30.mk:20` |
-| Main stack | 1 MiB (SVC) | 1 MiB | `linker.ld:4`, `src/rgb30/kernel.ld:9` |
-| Exception stacks | 4 KiB each: IRQ, FIQ, abort, undefined | one stack (not checked per mode) | `linker.ld:5-8` |
-| Heap | from the kernel end to the end of the ARM share | from the kernel end to `0x3c000000` (about 704 MiB before the kernel image size is taken off; computed) | `src/lib/syscalls.c:28-33`, `src/kernel/main.c:194-197`, `src/rgb30/main.c:209` |
-| Lua heap | 64 MiB | 64 MiB | `src/script/luavm.c:13` |
+| Main stack | 1 MB (SVC) | 1 MB | `linker.ld:4`, `src/rgb30/kernel.ld:9` |
+| Exception stacks | 4 KB each: IRQ, FIQ, abort, undefined | one stack (not checked per mode) | `linker.ld:5-8` |
+| Heap | from the kernel end to the end of the ARM share | from the kernel end to `0x3c000000` (about 704 MB before the kernel image size is taken off; computed) | `src/lib/syscalls.c:28-33`, `src/kernel/main.c:194-197`, `src/rgb30/main.c:209` |
+| Lua heap | 64 MB | 64 MB | `src/script/luavm.c:13` |
 
 - The Lua limit counts all Lua states together, one counter. [code, `src/script/luavm.c:15,28`]
 - A cartridge file is read whole into RAM. The Lua section and the sheets are copied. [code, `src/fs/fat.c:409`]
@@ -398,10 +398,10 @@ Legend: **measured**, **from code**, **estimate**.
 
 ## Where code and documents disagree
 
-- `docs/progress/b16.md` section 1 said the `.b16` Lua heap is **4 MiB**, the save **64 KiB** and that there is a sandbox. The code gives every cartridge **64 MiB**, saves of **32 KiB**, and no sandbox (`src/script/luavm.c:13`, `src/bm/runtime.c:3566`). The section is fixed from the code.
+- `docs/progress/b16.md` section 1 said the `.b16` Lua heap is **4 MB**, the save **64 KB** and that there is a sandbox. The code gives every cartridge **64 MB**, saves of **32 KB**, and no sandbox (`src/script/luavm.c:13`, `src/bm/runtime.c:3566`). The section is fixed from the code.
 - `README.md:26` and `README.md:35` say the console boots in about 2 seconds. No document records a measurement. The code has fixed waits in USB start-up (`src/usb/dwc2.c:93-175`, `src/usb/usb.c:453,513`). The claim stays an estimate.
-- `README.md:34` says "448 MiB RAM". The code reads the real split from the firmware (`src/kernel/main.c:125-139`). `boot/config.txt` sets no `gpu_mem`. `docs/HARDWARE.md:34` gives 448 MiB with `gpu_mem=64`. The number depends on the firmware default of the card used.
-- The 8 MiB `.b16` check is removed. `BM_B16_MAX` no longer exists.
+- `README.md:34` says "448 MB RAM". The code reads the real split from the firmware (`src/kernel/main.c:125-139`). `boot/config.txt` sets no `gpu_mem`. `docs/HARDWARE.md:34` gives 448 MB with `gpu_mem=64`. The number depends on the firmware default of the card used.
+- The 8 MB `.b16` check is removed. `BM_B16_MAX` no longer exists.
 - The user-facing description of the RGB30 as "720x720" is the panel size. The menu framebuffer is **360 x 360** (`src/rgb30/main.c:55-56`). Games choose their own size and the display scales it.
 - `README.md:40` says "FAT32 SD card file system". The code also handles FAT16 (`src/fs/fat.c:2`).
 - `CLAUDE.md` says the `kernel7` target is disabled. The Makefile agrees (`Makefile:45-47`).

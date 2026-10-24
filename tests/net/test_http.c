@@ -125,7 +125,7 @@ int main(int argc, char **argv)
     int same = n == 3 << 20;
     for (size_t i = 0; same && i < n; i++)
         same = d[i] == (uint8_t)(i * 31 + (i >> 12));
-    check(st == 200 && same, "3 MiB body, same bytes");
+    check(st == 200 && same, "3 MB body, same bytes");
     free(d);
 
     snprintf(url, sizeof url, "%s/big", base);

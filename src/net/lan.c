@@ -473,7 +473,7 @@ int lan_send(uint32_t ip, const char *from, const char *title, const char *autho
         }
         off += k;
         if (progress) {
-            snprintf(line, sizeof line, "%lu of %lu KiB", (unsigned long)(off / 1024),
+            snprintf(line, sizeof line, "%lu of %lu KB", (unsigned long)(off / 1024),
                      (unsigned long)((len + 1023) / 1024));
             progress(line);
         }

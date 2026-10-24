@@ -1304,7 +1304,7 @@ static void enlarge(framebuffer_t *fb)
 }
 
 /* the long calls that hold the CPU (stalls.h), a line when one ran in the window: count,
- * the last and the longest in ms; the hash adds the KiB. Starts counting again. */
+ * the last and the longest in ms; the hash adds the KB. Starts counting again. */
 static void stall_print(const char *name, stall_t *s, char *buf, size_t n, size_t *k)
 {
     if (!s->n)
@@ -1315,7 +1315,7 @@ static void stall_print(const char *name, stall_t *s, char *buf, size_t n, size_
                                 (unsigned long)(s->last / 100 % 10), (unsigned long)(s->worst / 1000),
                                 (unsigned long)(s->worst / 100 % 10));
     if (s->bytes && *k < n)
-        *k += (size_t)ksnprintf(buf + *k, n - *k, " (%lu KiB)", (unsigned long)(s->bytes / 1024));
+        *k += (size_t)ksnprintf(buf + *k, n - *k, " (%lu KB)", (unsigned long)(s->bytes / 1024));
     *s = (stall_t){0};
 }
 

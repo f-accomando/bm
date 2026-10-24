@@ -10,7 +10,7 @@ here.
 ### VM (`third_party/lua/`, `src/script/luavm.c`)
 - Stock Lua 5.4 with one patch: `luai_cprof` in `third_party/lua/ldo.c` (a hook on C calls
   for the function profiler; NULL costs one test).
-- `luavm.c` is the kernel's own state (boot script, REPL), capped at `LUA_MEM_LIMIT` 64 MiB.
+- `luavm.c` is the kernel's own state (boot script, REPL), capped at `LUA_MEM_LIMIT` 64 MB.
 - Each cartridge gets a fresh state in `src/bm/runtime.c`: generational GC (`LUA_GCGEN`),
   an instruction-count hook, globals `SCREEN_W`/`SCREEN_H`, wave constants, the API table.
 

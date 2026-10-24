@@ -67,7 +67,7 @@ The left panel has two groups.
 
 Move with up and down, do with Enter, or press the key of the row. The key `r` goes through the sizes `640x360`, `480x270`, `320x180`, `256x256`, `360x360` and back to `640x360`.
 
-On the right, **CONTENTS** shows what is in the file: code (lines, KiB, tokens), sprites (how many cells are drawn), map (size, layers, cells), models, animation, sound and the tiles with flags. **LAST TRY** shows the numbers of the last F5. **ASSISTANT** says that F6 gives step-by-step guides to make a 2D or a 3D game.
+On the right, **CONTENTS** shows what is in the file: code (lines, KB, tokens), sprites (how many cells are drawn), map (size, layers, cells), models, animation, sound and the tiles with flags. **LAST TRY** shows the numbers of the last F5. **ASSISTANT** says that F6 gives step-by-step guides to make a 2D or a 3D game.
 
 ## The other pages
 
@@ -286,9 +286,9 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 ## What it shows
 
-- **CODE**: tokens, lines, KiB, number of functions and the biggest ones.
+- **CODE**: tokens, lines, KB, number of functions and the biggest ones.
 - **DATA IN MEMORY WHILE IT RUNS**: sheet, map, models, skeletons, sound and z-buffer, and the total. The Lua comes on top. This is the same sum as `stat(13)`.
-- **CARTRIDGE FILE**: the size of the saved file against the mark of 100 MiB, the most the Market takes for one file. The mark is only a guide: the build does not refuse a larger file and the kernel has no size cap. Before the first save it says `not saved yet: Save as, then the size of the file`.
+- **CARTRIDGE FILE**: the size of the saved file against the mark of 100 MB, the most the Market takes for one file. The mark is only a guide: the build does not refuse a larger file and the kernel has no size cap. Before the first save it says `not saved yet: Save as, then the size of the file`.
 - With the target `.b16`: the lines of the code that the `.b16` will not have (`math.random`, `time()`, files...). With `.bm`: `.bm has no cap`.
 - **LAST TRY (F5)**: fps, average and maximum milliseconds of a frame, frames over 16.7 ms, the peak RAM (Lua and data), the instructions of the heaviest frame, tokens, triangles, and whether the 3D was drawn on the GPU or the ARM.
 
@@ -296,7 +296,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 ## In the game
 
-- `stat(1)` ms, `stat(2)` fps, `stat(11)` tokens, `stat(12)` Lua KiB at most, `stat(13)` KiB of data.
+- `stat(1)` ms, `stat(2)` fps, `stat(11)` tokens, `stat(12)` Lua KB at most, `stat(13)` KB of data.
 - **F11** in any game shows the overlay: fps, ms, the CPU and GPU bars.
 
 ## Try it, step by step
@@ -318,7 +318,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 ## Good to know
 
 - A game is built from its project. If a game is open, the SDK saves its editable copy first.
-- Setting the target to `.b16` (key `b` on the project page) changes the screen to `360x360` if it was not square, and shows the size of the file against the 100 MiB mark. The mark is a guide, not a limit.
+- Setting the target to `.b16` (key `b` on the project page) changes the screen to `360x360` if it was not square, and shows the size of the file against the 100 MB mark. The mark is a guide, not a limit.
 - The target is remembered for each project file.
 - On the RGB30, exporting a `.b16` from `/carts` also copies it to `/bm/`, so it appears at once in Games. On the RGB30 the Games tab lists `/bm/` and `/carts`; if the game is written somewhere else, the status line adds `(not in the Games tab)`.
 

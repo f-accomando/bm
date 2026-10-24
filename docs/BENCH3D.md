@@ -169,7 +169,7 @@ and small on the PC. With the queue, jobs that had ended before the ARM looked a
 Five columns before them are measurements only (they change nothing): `clean_kcyc` and
 `inval_kcyc` are the ARM cycles (thousands, a frame; 0 without the PMU) of the whole data
 cache clean + invalidate before each job and after it; `pool_kb` and `ovf_kb` the most of
-the binner's tile-list pool (4096 KiB) and of its overflow area (2048 KiB) one job used,
+the binner's tile-list pool (4096 KB) and of its overflow area (2048 KB) one job used,
 from `BPCA` after the job; `ovf_jobs` the jobs whose binner went into the overflow. The
 GPU test (`g`) and the session report print the binner's figures too.
 

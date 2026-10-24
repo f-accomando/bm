@@ -61,7 +61,7 @@ sudo apt install gcc-aarch64-linux-gnu picolibc-aarch64-linux-gnu mtools dosfsto
 
 # Installing on the Pi Zero W
 
-You make one disk image, `dist/bm.img` (64 MiB), and write it to the card. The image has one FAT32 partition labelled `BM` with the Pi's boot files, `config.txt`, `kernel.img`, the games in `carts/` and `bm/`.
+You make one disk image, `dist/bm.img` (64 MB), and write it to the card. The image has one FAT32 partition labelled `BM` with the Pi's boot files, `config.txt`, `kernel.img`, the games in `carts/` and `bm/`.
 
 ## Step by step
 
@@ -122,7 +122,7 @@ After the first boot, press the keyboard or the pad and move through the four ta
 
 # Installing on the RGB30
 
-You make `dist/rgb30/bm-rgb30.img` (256 MiB), with a hidden bootloader in front of the partition, and write it to a spare microSD.
+You make `dist/rgb30/bm-rgb30.img` (256 MB), with a hidden bootloader in front of the partition, and write it to a spare microSD.
 
 ## Step by step
 
@@ -186,7 +186,7 @@ What is on the card depends on the board. The text in `LEGGIMI.txt` on the RGB30
 | `bm/` | both | everything bm writes and reads for itself; on the RGB30 also the games |
 | `bm/config.txt` | both | bm's settings, `key=value` lines |
 | `bm/ca.pem` | both | the certificates for the network |
-| `bm/save/` | both | the save files of the games (8 slots each, up to 32 KiB a slot) |
+| `bm/save/` | both | the save files of the games (8 slots each, up to 32 KB a slot) |
 | `bm/shots/` | both | the screenshots (`pong0001.png`) |
 | `bm/lib/` | both | resources (`.bmm`, `.bmi`, `.bms`...) the apps and games can share |
 | `bm/backup/` | both | the previous kernel, kept by every update |

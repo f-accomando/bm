@@ -72,8 +72,8 @@ void bench_print(const bench_t *b, int n)
         kprintf("%15s", b[i].label);
     kprintf("\x1b[0m\n");
     row("fill 640x360", b, n, offsetof(bench_t, fill_us));
-    row("memset 1 MiB", b, n, offsetof(bench_t, memset_us));
-    row("memcpy 1 MiB", b, n, offsetof(bench_t, memcpy_us));
-    row("crc32 64 KiB", b, n, offsetof(bench_t, crc_us));
+    row("memset 1 MB", b, n, offsetof(bench_t, memset_us));
+    row("memcpy 1 MB", b, n, offsetof(bench_t, memcpy_us));
+    row("crc32 64 KB", b, n, offsetof(bench_t, crc_us));
     row("float 100k", b, n, offsetof(bench_t, float_us));
 }

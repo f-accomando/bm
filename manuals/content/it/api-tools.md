@@ -38,12 +38,12 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 - *Build the game (.bm)* è nelle opzioni di un progetto. Nell'SDK il tasto è **Ctrl+B**.
 - Una compilazione di un progetto in `/bme` scrive il gioco nella cartella dei giochi (`/carts` sul Pi, `/bm` sull'RGB30); un progetto accanto al suo gioco compila accanto. Il gioco ha il nome del progetto salvato all'offset 104 dell'intestazione. La compilazione successiva sostituisce quel gioco e solo quello. Un gioco con lo stesso nome che non è stato compilato dal progetto resta, e il nuovo prende una cifra (`pong1.bm`).
 - Il `.bm` e il `.b16` sono edizioni separate. Un `.b16` non sostituisce mai il `.bm`, e i sorgenti del `.bm` non vengono mai sovrascritti per fare il `.b16`.
-- Un file `.b16` non ha un limite di dimensione proprio: gli strumenti di build non rifiutano più un file grande. Il Market accetta fino a 100 MiB a file. Il suo schermo è 360x360 (o 720x720, lo dice il profilo), uguale su Pi e su RGB30.
+- Un file `.b16` non ha un limite di dimensione proprio: gli strumenti di build non rifiutano più un file grande. Il Market accetta fino a 100 MB a file. Il suo schermo è 360x360 (o 720x720, lo dice il profilo), uguale su Pi e su RGB30.
 - Le altre cartucce scrivono in `/carts` solo file `.bm` e `.bme`, e solo quelli che hanno creato nella stessa esecuzione.
 
 ## Attenzione
 
-- [DA COMPLETARE: stato del profilo `.b16`. `docs/B16.md` dice che il profilo è deciso ma non ancora implementato, e il §3 descrive un contenitore `B16CART` diverso che il §0 sostituisce con il contenitore `.bm`; `src/bm/project.h` e `scripts/mkbm.py` segnano ed esportano già i file `.b16` (bit 1 all'offset 18, controllo degli 8 MiB). Dire quale delle due è quella attuale.]
+- [DA COMPLETARE: stato del profilo `.b16`. `docs/B16.md` dice che il profilo è deciso ma non ancora implementato, e il §3 descrive un contenitore `B16CART` diverso che il §0 sostituisce con il contenitore `.bm`; `src/bm/project.h` e `scripts/mkbm.py` segnano ed esportano già i file `.b16` (bit 1 all'offset 18, controllo degli 8 MB). Dire quale delle due è quella attuale.]
 - Le voci *Build .bm* ed *Export .b16* dell'SDK chiamano `bm_build_b16`; **Ctrl+Shift+B** nell'SDK di bm esporta sempre un `.b16`.
 
 ## Provalo, passo per passo
@@ -104,7 +104,7 @@ Una cartuccia è un'intestazione di 128 byte, una tabella delle sezioni e i corp
 | 6 | AUDIO | il banco dei suoni (`BMAU`): suoni, effetti, pattern, brani; suonato da `sfx()` e `music()` |
 | 8 | MESH | modelli 3D, da 1 a 256, con il margine delle texture |
 | 9 | ANIM | scheletri e animazioni dei modelli MESH |
-| 10 | INFO | testo `chiave: valore` di al massimo 16 KiB sul file e le sue parti |
+| 10 | INFO | testo `chiave: valore` di al massimo 16 KB sul file e le sue parti |
 | 11 | SPRITES | zone con nome del foglio (da 1 a 1024), con fotogrammi e velocità |
 | 12 | LAYERS | gli altri livelli della mappa (da 2 a 8, la sezione MAP è il livello 1) |
 | 13 | FLAGS | gli 8 flag di ogni cella 8x8 del foglio |
@@ -170,7 +170,7 @@ Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di svi
 | `mesh_reduce(record, triangles, [bones, [max_err]])` | meno triangoli per un modello della sezione MESH (collasso degli spigoli con quadriche, nessuna IA). `bones` è l'osso di ogni vertice, `max_err` si ferma prima di un collasso più costoso (0: nessun limite). Restituisce il record, le ossa dei suoi vertici (`nil` senza `bones`) e il numero di triangoli; `nil` e un messaggio se il record è rotto. Sul PC: `tools/bmreduce.py` |
 | `picture3d(action, ...)` | un'immagine diventa un modello 3D tramite un servizio da immagine a 3D. `picture3d("providers")` elenca i servizi; `picture3d("ready", service)` dà `true`, oppure `false` e il perché (manca la chiave); `picture3d("start", picture, {provider=, polycount=})` avvia il lavoro su un `.png`/`.jpg` della SD o su un URL https e dà l'id del lavoro (o `nil` e un messaggio); `picture3d("status", id, service)` dà `"running", progress` oppure `"done", url`; `picture3d("take", url, {name=, faces=, height=})` scarica il `.glb` e lo converte in `{record=, flat=, texture=, nv=, nf=, textured=}`. Il primo servizio è Meshy, con la chiave `meshy_key=...` in `bm/config.txt`. Le chiamate bloccano finché la rete lavora |
 | `cutout3d(picture, {name=, lathe=, height=, depth=, segments=, faces=})` | un modello dal contorno dell'immagine, fatto sulla console senza rete né IA: una sagoma spessa `depth`, oppure con `lathe = true` il mezzo contorno fatto girare attorno all'asse verticale in `segments` passi. `height` in blocchi (2), `faces` triangoli al massimo (1200). Restituisce la stessa tabella di `picture3d("take")`, oppure `nil` e un messaggio |
-| `glb3d(path, {name=, height=, faces=, sheet=})` | un modello da un file `.glb` della scheda SD (gli editor usano `/glb/NAME.glb`), fatto sulla console senza rete né IA. Il file è solo letto. `height` in blocchi (2), `faces` triangoli al massimo (0: tutti), `sheet` il lato della texture (256, da 8 a 1024). Un modello contiene al massimo 65535 vertici e 65535 triangoli: un file con più triangoli dà `nil` e un messaggio, a meno che si imposti `faces`. Un file oltre 16 MiB dà `nil` e un messaggio. Restituisce la stessa tabella di `picture3d("take")`, oppure `nil` e un messaggio |
+| `glb3d(path, {name=, height=, faces=, sheet=})` | un modello da un file `.glb` della scheda SD (gli editor usano `/glb/NAME.glb`), fatto sulla console senza rete né IA. Il file è solo letto. `height` in blocchi (2), `faces` triangoli al massimo (0: tutti), `sheet` il lato della texture (256, da 8 a 1024). Un modello contiene al massimo 65535 vertici e 65535 triangoli: un file con più triangoli dà `nil` e un messaggio, a meno che si imposti `faces`. Un file oltre 16 MB dà `nil` e un messaggio. Restituisce la stessa tabella di `picture3d("take")`, oppure `nil` e un messaggio |
 | `res_write(path, kind, {sections=, name=, author=, replace=})` | solo per gli strumenti di bm. Scrive un file modello (kind 1 o `"model"`) in `/bmm`. `path` è `/bmm/NAME.bmm`: NOME ha da 1 a 8 lettere minuscole, cifre, `_` o `-`. `sections` contiene stringhe: `[8]` la sezione MESH (obbligatoria), `[9]` ANIM, un solo foglio (`[2]` o `[5]`), `[10]` INFO. `name` è il nome mostrato. Un file già presente resta com'è, a meno che `replace` sia true. Restituisce `true`, oppure `nil` e un messaggio |
 | `res_read(path)` | legge un file risorsa (`.bmm`, `.bmi`, ...) dalla scheda SD. Il file è solo letto. Restituisce `{ kind =, name =, author =, sections = { [tipo] = stringa } }`, oppure `nil` e un messaggio. Il kind 1 è un modello |
 
@@ -280,7 +280,7 @@ Un file di risorse usa lo stesso contenitore di un `.bm`, con il magic `BMRES` e
 
 - I nomi sono 8.3: l'estensione è `bm` più una lettera (mai `.bmp`). Il nome vero è dentro il file.
 - Il menu non elenca i file di risorse tra i giochi, e i giochi non li leggono mentre girano. Una risorsa entra in un `.bm` per copia; la cartuccia resta un solo file che funziona da solo.
-- INFO è testo, righe `chiave: valore`: `name`, `desc`, `author`, `license` (un id SPDX come `CC0-1.0`), `version`, `tags` (separati da virgole), `origin` (lo SHA-256 della risorsa da cui è stata copiata), `date` (AAAA-MM-GG). Un blocco `[tipo nome]` dà le chiavi di una parte; i tipi sono `model`, `sprite`, `sound`, `sfx`, `song`, `map`, `palette`. Al massimo 16 KiB; le chiavi sconosciute vengono conservate.
+- INFO è testo, righe `chiave: valore`: `name`, `desc`, `author`, `license` (un id SPDX come `CC0-1.0`), `version`, `tags` (separati da virgole), `origin` (lo SHA-256 della risorsa da cui è stata copiata), `date` (AAAA-MM-GG). Un blocco `[tipo nome]` dà le chiavi di una parte; i tipi sono `model`, `sprite`, `sound`, `sfx`, `song`, `map`, `palette`. Al massimo 16 KB; le chiavi sconosciute vengono conservate.
 - Una zona di sprite si sposta nel foglio intera. In un gioco, `zspr(name, x, y)` la disegna e `zboxes(name, [frame, type])` legge i suoi box.
 - I limiti sono quelli del `.bm`: foglio fino a 4096x4096, 256 modelli, 64 ossa.
 

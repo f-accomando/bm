@@ -67,7 +67,7 @@ Il pannello a sinistra ha due gruppi.
 
 Ti muovi con su e giù, esegui con Invio, oppure premi il tasto della riga. Il tasto `r` scorre le misure `640x360`, `480x270`, `320x180`, `256x256`, `360x360` e poi torna a `640x360`.
 
-A destra, **CONTENTS** mostra cosa c'è nel file: codice (righe, KiB, token), sprite (quante celle sono disegnate), mappa (misura, layer, celle), modelli, animazione, suono e le tile con i flag. **LAST TRY** mostra i numeri dell'ultimo F5. **ASSISTANT** dice che F6 offre guide passo passo per fare un gioco 2D o 3D.
+A destra, **CONTENTS** mostra cosa c'è nel file: codice (righe, KB, token), sprite (quante celle sono disegnate), mappa (misura, layer, celle), modelli, animazione, suono e le tile con i flag. **LAST TRY** mostra i numeri dell'ultimo F5. **ASSISTANT** dice che F6 offre guide passo passo per fare un gioco 2D o 3D.
 
 ## Le altre pagine
 
@@ -286,9 +286,9 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 
 ## Cosa mostra
 
-- **CODE**: token, righe, KiB, numero di funzioni e le più grandi.
+- **CODE**: token, righe, KB, numero di funzioni e le più grandi.
 - **DATA IN MEMORY WHILE IT RUNS**: sheet, mappa, modelli, scheletri, suono e z-buffer, e il totale. Il Lua si aggiunge sopra. È la stessa somma di `stat(13)`.
-- **CARTRIDGE FILE**: la dimensione del file salvato rispetto al segno di 100 MiB, il massimo che il Market accetta per un file. Il segno è solo una guida: la build non rifiuta un file più grande e il kernel non ha un tetto di dimensione. Prima del primo salvataggio dice `not saved yet: Save as, then the size of the file`.
+- **CARTRIDGE FILE**: la dimensione del file salvato rispetto al segno di 100 MB, il massimo che il Market accetta per un file. Il segno è solo una guida: la build non rifiuta un file più grande e il kernel non ha un tetto di dimensione. Prima del primo salvataggio dice `not saved yet: Save as, then the size of the file`.
 - Con il target `.b16`: le righe del codice che il `.b16` non avrà (`math.random`, `time()`, file...). Con `.bm`: `.bm has no cap`.
 - **LAST TRY (F5)**: fps, millisecondi medi e massimi di un frame, frame oltre 16,7 ms, la RAM di picco (Lua e dati), le istruzioni del frame più pesante, token, triangoli, e se il 3D è stato disegnato dalla GPU o dall'ARM.
 
@@ -296,7 +296,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 
 ## Dentro il gioco
 
-- `stat(1)` ms, `stat(2)` fps, `stat(11)` token, `stat(12)` KiB di Lua al massimo, `stat(13)` KiB di dati.
+- `stat(1)` ms, `stat(2)` fps, `stat(11)` token, `stat(12)` KB di Lua al massimo, `stat(13)` KB di dati.
 - **F11** in qualsiasi gioco mostra l'overlay: fps, ms, le barre CPU e GPU.
 
 ## Provalo, passo passo
@@ -318,7 +318,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 ## Da sapere
 
 - Un gioco si costruisce dal suo progetto. Se è aperto un gioco, l'SDK ne salva prima la copia modificabile.
-- Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e mostra la dimensione del file rispetto al segno di 100 MiB. Il segno è una guida, non un limite.
+- Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e mostra la dimensione del file rispetto al segno di 100 MB. Il segno è una guida, non un limite.
 - Il target viene ricordato per ogni file di progetto.
 - Sull'RGB30, esportare un `.b16` da `/carts` lo copia anche in `/bm/`, così compare subito in Games. Sull'RGB30 la scheda Games elenca `/bm/` e `/carts`; se il gioco è scritto altrove, la riga di stato aggiunge `(not in the Games tab)`.
 

@@ -339,7 +339,7 @@ Puoi portare nel banco una registrazione o un brano dalla scheda SD. Metti il fi
 5. Per un file MIDI compare una nuova canzone con il nome del file. I suoi pattern hanno 64 passi (oppure battute intere dell'indicazione di tempo del file), e la canzone ha il tempo del file. Un messaggio dice che cosa è stato fatto, per esempio `song 3: 1 patterns, 120 BPM, 4 new sounds`.
 6. Premi Ctrl+S per salvare.
 
-Che cosa legge l'importazione WAV: interi a 8, 16, 24 e 32 bit e numeri in virgola mobile a 32 e 64 bit, mono o stereo, fino a 4 MiB. Una frequenza sopra 48000 Hz viene portata a 48000 Hz.
+Che cosa legge l'importazione WAV: interi a 8, 16, 24 e 32 bit e numeri in virgola mobile a 32 e 64 bit, mono o stereo, fino a 4 MB. Una frequenza sopra 48000 Hz viene portata a 48000 Hz.
 
 Che cosa fa l'importazione MIDI:
 - Un passo è una semicroma. Le note vanno sul passo più vicino.

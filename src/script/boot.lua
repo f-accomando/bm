@@ -33,5 +33,5 @@ print(("           sort 100k %.0f ms, 20k strings %.0f ms"):format(t_sort, t_str
 tb, parts, str = nil, nil, nil
 collectgarbage()
 local used, peak = bm.mem()
-print(("Lua memory: %d KiB used, %d KiB peak; boot.lua ran in %.0f ms")
+print(("Lua memory: %d KB used, %d KB peak; boot.lua ran in %.0f ms")
       :format(used // 1024, peak // 1024, ms(t0)))

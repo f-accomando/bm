@@ -301,11 +301,11 @@ void update_check(framebuffer_t *fb)
     plan();
     for (int i = 0; i < up.rel.nfiles; i++) {
         const release_file_t *f = &up.rel.files[i];
-        kprintf("  %-22s %6lu KiB  %s\n", f->path, (unsigned long)((f->size + 1023) / 1024), words[up.what[i]]);
+        kprintf("  %-22s %6lu KB  %s\n", f->path, (unsigned long)((f->size + 1023) / 1024), words[up.what[i]]);
     }
     up.ok = 1;
     if (up.n && (up.cmp == RELEASE_NEWER || up.cmp == RELEASE_DEV)) {
-        ksnprintf(up.state, sizeof up.state, "%s: %d files, %lu KiB", up.rel.version, up.n,
+        ksnprintf(up.state, sizeof up.state, "%s: %d files, %lu KB", up.rel.version, up.n,
                   (unsigned long)((up.bytes + 1023) / 1024));
         ksnprintf(up.ready, sizeof up.ready, "%s", up.rel.version);
         kprintf("\x1b[92m%s can be installed: " WHERE_INSTALL "\x1b[0m\n", up.rel.version);

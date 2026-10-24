@@ -55,7 +55,7 @@ static void sd_bench(void)
     }
     for (uint32_t i = 0; i < CHUNK; i++)            /* not zeros: a card may shortcut them */
         buf[i] = (uint8_t)(i * 2654435761u >> 24);
-    kprintf("SD write: %d files of %u KiB in %s\n", chunks, CHUNK / 1024, DIR);
+    kprintf("SD write: %d files of %u KB in %s\n", chunks, CHUNK / 1024, DIR);
     uint32_t total = 0, best = 0xFFFFFFFFu, worst = 0, over100 = 0;
     int done = 0;
     char name[13];

@@ -26,12 +26,12 @@ int notice_now(char *title, char *detail, int *progress)
         if (size && got >= size)
             ksnprintf(detail, NOTICE_LEN, "Writing it on the SD card...");
         else
-            ksnprintf(detail, NOTICE_LEN, "%lu of %lu KiB", got / 1024, size / 1024);
+            ksnprintf(detail, NOTICE_LEN, "%lu of %lu KB", got / 1024, size / 1024);
         *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
         return 1;
     case NETXFER_K_WRITING:             /* by the menu's fiber: the menu goes on */
         ksnprintf(title, NOTICE_LEN, "Receiving a new kernel");
-        ksnprintf(detail, NOTICE_LEN, "Writing it on the SD card: %lu of %lu KiB", got / 1024, size / 1024);
+        ksnprintf(detail, NOTICE_LEN, "Writing it on the SD card: %lu of %lu KB", got / 1024, size / 1024);
         *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
         return 1;
     case NETXFER_K_RESTART:
@@ -52,7 +52,7 @@ int notice_now(char *title, char *detail, int *progress)
     const int f = netxfer_file_state(name, sizeof name, &got, &size);
     if (f == NETXFER_RECEIVING || f == NETXFER_WRITING) {
         ksnprintf(title, NOTICE_LEN, "%s %s", f == NETXFER_WRITING ? "Updating" : "Receiving", name);
-        ksnprintf(detail, NOTICE_LEN, "%lu of %lu KiB%s", got / 1024, size / 1024,
+        ksnprintf(detail, NOTICE_LEN, "%lu of %lu KB%s", got / 1024, size / 1024,
                   f == NETXFER_WRITING ? " on the SD card" : "");
         *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
         return 1;

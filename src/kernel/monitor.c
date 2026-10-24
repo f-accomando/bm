@@ -157,7 +157,7 @@ static void net_get_test(void)
     if (st < 0) {
         kprintf("\x1b[91mget: %s\x1b[0m\n", info.error);
     } else {
-        kprintf("get: %d, %lu bytes in %lu ms (%lu KiB/s), %s\n", st, (unsigned long)len, ms,
+        kprintf("get: %d, %lu bytes in %lu ms (%lu KB/s), %s\n", st, (unsigned long)len, ms,
                 ms ? (unsigned long)(len * 1000 / 1024 / ms) : 0, info.type[0] ? info.type : "no type");
         if (strcmp(info.url, url) != 0)
             kprintf("     from %s\n", info.url);

@@ -21,7 +21,7 @@ void kprintf_set_sink(void (*sink)(char c));
 void kprintf_set_tap(void (*tap)(char c));
 void klog_putc(char c);   /* one byte to all log outputs */
 
-/* Everything printed since boot (first 64 KiB), colour escapes removed. */
+/* Everything printed since boot (first 64 KB), colour escapes removed. */
 const char *klog_text(void);
 /* What is printed from now on is also kept in buf (size bytes, NUL ended,
  * without the colours) until klog_capture(NULL, 0); klog_captured() says

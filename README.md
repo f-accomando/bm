@@ -31,7 +31,7 @@ Power on and the console boots straight into the games menu in **~2 seconds**. G
 
 - **True Bare Metal Architecture**:
   - `kernel.img` (~2 MB of C, ARM assembly, and Lua 5.4) communicates directly with hardware registers.
-  - No Linux kernel, background daemons, or OS scheduler: the entire 1 GHz core and 448 MiB RAM belong exclusively to your game frame.
+  - No Linux kernel, background daemons, or OS scheduler: the entire 1 GHz core and 448 MB RAM belong exclusively to your game frame.
   - Zero boot wait: boots directly into interactive gameplay in under 2 seconds.
 - **Hardware & Peripherals**:
   - **Video**: Crisp HDMI output (640×360, 480×270, 320×180, or 360×360 square scaled up to 720p/1080p).

@@ -18,7 +18,7 @@ menu / RGB30 ui / monitor / bmhost
      1. close the cartridge suspended in memory (one at a time)
      2. bm_parse: magic, version, CRC, sections (format.c)
      3. load_assets: LUA SHEET/SHEET8 MAP LAYERS FLAGS SPRITES BOXES MESH ANIM AUDIO COVER   (INFO is not used here)
-     4. new_cart_state: its own Lua state (64 MiB cap), libraries base table string math coroutine utf8,
+     4. new_cart_state: its own Lua state (64 MB cap), libraries base table string math coroutine utf8,
         no io/os/package/debug, dofile loadfile load removed, the bm API as globals, `require` of the built-in libs
      5. enter the cartridge's screen mode, loading screen, load the sound bank
      6. run the chunk (top level), then _init()

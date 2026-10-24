@@ -48,7 +48,7 @@ RGB30 the `.b16` ones.
   console shows and what names the save file, so keep them the same across
   versions, and two games cannot share both.
 - **Updating a game**: the same folder, the new `.bm`, a new `version`.
-- A `.bm` has no size limit of its own; GitHub refuses files over 100 MiB.
+- A `.bm` has no size limit of its own; GitHub refuses files over 100 MB.
 
 The check of the pull request (`mkmarket.py --check`) says what is wrong.
 Once the pull request is merged the catalog is built again, signed and

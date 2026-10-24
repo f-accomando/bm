@@ -10,7 +10,7 @@
  *              spaces, job slots)
  *   reset      a soft reset (a hard one if it does not end)
  *   cores      L2, shader cores and tiler powered on
- *   mmu        address space 0: the GPU's memory mapped 1:1 in 2 MiB blocks
+ *   mmu        address space 0: the GPU's memory mapped 1:1 in 2 MB blocks
  *              (the Mali LPAE format, the one Linux's panfrost uses on the
  *              RK3568)
  *   job        a WRITE_VALUE job on job slot 1, then a chain of two (the
@@ -43,10 +43,10 @@ typedef struct {
     void (*log)(const char *line);      /* a line of the probe (no newline) */
     int (*supply_mv)(void);             /* vdd_gpu: mV, 0 off, -1 unknown (NULL: not asked) */
     uint8_t *mem;                       /* the GPU's memory as the CPU sees it (uncached) */
-    uint64_t mem_pa;                    /* its physical address (2 MiB aligned) */
-    uint32_t mem_size;                  /* at least 2 MiB */
+    uint64_t mem_pa;                    /* its physical address (2 MB aligned) */
+    uint32_t mem_size;                  /* at least 2 MB */
     uint64_t map_pa;                    /* what the GPU sees, 1:1: from map_pa, map_size */
-    uint32_t map_size;                  /* bytes (2 MiB blocks; must hold mem) */
+    uint32_t map_size;                  /* bytes (2 MB blocks; must hold mem) */
     uint8_t *screen;                    /* the page shown (XRGB8888), for a square the GPU clears: */
     uint64_t screen_pa;                 /* its physical address (inside the map); 0: none */
     uint32_t screen_w, screen_h, screen_pitch;

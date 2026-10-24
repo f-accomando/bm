@@ -70,12 +70,12 @@ static const char *sdmap_state_name(void)
 static void fmt_size(char *out, size_t n, uint64_t bytes)
 {
     if (bytes < (1u << 20))
-        ksnprintf(out, n, "%lu KiB", (unsigned long)(bytes >> 10));
+        ksnprintf(out, n, "%lu KB", (unsigned long)(bytes >> 10));
     else if (bytes < (1u << 30))
-        ksnprintf(out, n, "%lu.%lu MiB", (unsigned long)(bytes >> 20),
+        ksnprintf(out, n, "%lu.%lu MB", (unsigned long)(bytes >> 20),
                   (unsigned long)((bytes & 0xFFFFF) * 10 >> 20));
     else
-        ksnprintf(out, n, "%lu.%02lu GiB", (unsigned long)(bytes >> 30),
+        ksnprintf(out, n, "%lu.%02lu GB", (unsigned long)(bytes >> 30),
                   (unsigned long)((bytes & 0x3FFFFFFF) * 100 >> 30));
 }
 
@@ -631,7 +631,7 @@ void home_panel(int id, home_panel_t *p)
             const char *path, *what;
             uint32_t size;
             for (int i = 0; p->n < HOME_ROWS_MAX && update_changes(i, &path, &what, &size); i++) {
-                ksnprintf(sizes[i], sizeof sizes[i], "%lu KiB", (unsigned long)((size + 1023) / 1024));
+                ksnprintf(sizes[i], sizeof sizes[i], "%lu KB", (unsigned long)((size + 1023) / 1024));
                 home_row(p, MENU_ROW_INFO, R_CHANGE, path, sizes[i], "%s", what);
             }
         }
@@ -658,7 +658,7 @@ void home_panel(int id, home_panel_t *p)
                  "%02lu:%02lu:%02lu", s / 3600, s / 60 % 60, s % 60);
 #ifdef BM_RGB30
         home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
-                 "%lu of %lu MiB", (uint32_t)((heap_brk() - heap_start()) >> 20),
+                 "%lu of %lu MB", (uint32_t)((heap_brk() - heap_start()) >> 20),
                  (uint32_t)((heap_end() - heap_start()) >> 20));
         {
             uint64_t midr;
@@ -672,7 +672,7 @@ void home_panel(int id, home_panel_t *p)
             uint32_t temp[2] = { 0, 0 };
             prop_query(PROP_GET_TEMPERATURE, temp, 2);
             home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
-                     "%lu of %lu MiB", (uint32_t)mi.uordblks >> 20,
+                     "%lu of %lu MB", (uint32_t)mi.uordblks >> 20,
                      (uint32_t)((heap_end() - heap_start()) >> 20));
             home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "Processor, clock and chip temperature",
                      "%s, %lu MHz, %lu.%lu C", sysinfo_cpu(), prop_clock_rate(CLOCK_ARM) / 1000000,
@@ -878,7 +878,7 @@ static void x_nettest(framebuffer_t *fb)
     if (st < 0)
         kprintf("\x1b[91mno: %s\x1b[0m\n", info.error);
     else
-        kprintf("HTTP %d, %lu bytes in %lu ms (%lu KiB/s): the connection works\n", st,
+        kprintf("HTTP %d, %lu bytes in %lu ms (%lu KB/s): the connection works\n", st,
                 (unsigned long)len, (unsigned long)ms, ms ? (unsigned long)(len * 1000 / 1024 / ms) : 0ul);
     free(data);
 }

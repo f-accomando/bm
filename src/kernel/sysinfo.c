@@ -47,11 +47,11 @@ void sysinfo_print(void)
 
     v[0] = v[1] = 0;
     if (prop_query(PROP_GET_ARM_MEMORY, v, 2) == 0)
-        kprintf("ARM memory     : %08lx + %lu MiB\n", v[0], v[1] >> 20);
+        kprintf("ARM memory     : %08lx + %lu MB\n", v[0], v[1] >> 20);
 
     v[0] = v[1] = 0;
     if (prop_query(PROP_GET_VC_MEMORY, v, 2) == 0)
-        kprintf("GPU memory     : %08lx + %lu MiB\n", v[0], v[1] >> 20);
+        kprintf("GPU memory     : %08lx + %lu MB\n", v[0], v[1] >> 20);
 
     uint32_t midr;
     __asm__ volatile("mrc p15, 0, %0, c0, c0, 0" : "=r"(midr));
@@ -76,7 +76,7 @@ void sysinfo_print_heap(void)
     struct mallinfo mi = mallinfo();
     uint32_t total = heap_end() - heap_start();
     uint32_t brk = heap_brk() - heap_start();
-    kprintf("heap           : %p-%p, %lu MiB, %lu KiB reserved, %lu KiB in use\n",
+    kprintf("heap           : %p-%p, %lu MB, %lu KB reserved, %lu KB in use\n",
             (void *)heap_start(), (void *)heap_end(), total >> 20,
             brk >> 10, (uint32_t)mi.uordblks >> 10);
 }
@@ -90,11 +90,11 @@ void sysinfo_print_short(void)
     prop_query(PROP_GET_VC_MEMORY, vc, 2);
     prop_query(PROP_GET_TEMPERATURE, temp, 2);
 
-    kprintf("board %lx, ARM %lu MHz, core %lu MHz, RAM %lu+%lu MiB (ARM+GPU), %lu.%lu C\n",
+    kprintf("board %lx, ARM %lu MHz, core %lu MHz, RAM %lu+%lu MB (ARM+GPU), %lu.%lu C\n",
             rev[0], prop_clock_rate(CLOCK_ARM) / 1000000,
             prop_clock_rate(CLOCK_CORE) / 1000000, arm[1] >> 20, vc[1] >> 20,
             temp[1] / 1000, (temp[1] % 1000) / 100);
-    kprintf("%s from %s, MMU+caches %s, heap %lu MiB, UART %lu Hz\n", sysinfo_cpu(),
+    kprintf("%s from %s, MMU+caches %s, heap %lu MB, UART %lu Hz\n", sysinfo_cpu(),
             mode_name(boot_mode), mmu_enabled() ? "on" : "off",
             (uint32_t)((heap_end() - heap_start()) >> 20), uart_clock());
 }

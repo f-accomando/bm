@@ -61,11 +61,11 @@ ask: millisecondi per fotogramma | numero del fotogramma | memory used | cpu tim
 ask: tempo della GPU | gpu time | is the gpu the bottleneck
 see: perf_measure, time, guide.devkit
 text:
-0 KiB usati da Lua, 1 ms dell'ultimo fotogramma, 2 fps, 3 numero del
+0 KB usati da Lua, 1 ms dell'ultimo fotogramma, 2 fps, 3 numero del
 fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 ms del disegno 3D, 7 vertici 3D,
 8 ms da inizio fotogramma, 9 1 se il 3D lo fa la GPU, 10 istruzioni Lua
-dell'ultimo fotogramma. Il dev kit: 11 token del codice, 12 KiB di Lua al
-massimo, 13 KiB dei dati (sheet, mappa, modelli, suoni), 14 istruzioni del
+dell'ultimo fotogramma. Il dev kit: 11 token del codice, 12 KB di Lua al
+massimo, 13 KB dei dati (sheet, mappa, modelli, suoni), 14 istruzioni del
 fotogramma più pesante, 15 quanti _update prima di questo _draw, 16 ms di
 lavoro della GPU nell'ultimo fotogramma (0 se il 3D lo fa l'ARM): vicino a
 stat(1) vuol dire che il passo lo dà la GPU. 17 ms dell'audio e 18 ms di
@@ -73,11 +73,11 @@ attesa dell'ARM per la GPU nell'ultimo fotogramma (0 se il 3D lo fa l'ARM).
 Sono misure, diverse su ogni console: mai nella logica del gioco (in rete
 le console si separano).
 text_en:
-0 KiB used by Lua, 1 ms of the last frame, 2 fps, 3 frame number, 4 3D
+0 KB used by Lua, 1 ms of the last frame, 2 fps, 3 frame number, 4 3D
 triangles, 5 3D pixels, 6 ms of 3D drawing, 7 3D vertices, 8 ms since the
 start of the frame, 9 1 if the GPU does the 3D, 10 Lua instructions of the
-last frame. The dev kit: 11 tokens of the code, 12 the most KiB of Lua,
-13 KiB of the data (sheet, map, models, sounds), 14 instructions of the
+last frame. The dev kit: 11 tokens of the code, 12 the most KB of Lua,
+13 KB of the data (sheet, map, models, sounds), 14 instructions of the
 busiest frame, 15 how many _update ran before this _draw, 16 ms of GPU
 job time in the last frame (0 when the ARM does the 3D): close to stat(1)
 means the GPU sets the pace. 17 ms of audio and 18 ms the ARM waited for
@@ -86,7 +86,7 @@ measurements, different on every console: never game logic (in a network
 match the consoles fall apart).
 code:
 print(stat(2) .. " fps  " .. stat(1) .. " ms", 8, 8, 0x80FF80)
-print(stat(0) .. " KiB", 8, 24, 0x80FF80)
+print(stat(0) .. " KB", 8, 24, 0x80FF80)
 
 == frameskip
 kind: api
@@ -301,11 +301,11 @@ ask: memorizzare il punteggio | salvare le impostazioni | persist | savegame
 ask: salvare la partita nello slot 2 | save the game in a slot
 see: saved, saves, high_score
 text:
-Salva la tabella t (numeri, stringhe, booleani, tabelle; fino a 32 KiB)
+Salva la tabella t (numeri, stringhe, booleani, tabelle; fino a 32 KB)
 nello slot 1-8 (senza slot: l'1): true, oppure false e il motivo. Scrivere
 sulla SD richiede qualche ms: salva a fine partita, non a ogni fotogramma.
 text_en:
-Saves the table t (numbers, strings, booleans, tables; up to 32 KiB)
+Saves the table t (numbers, strings, booleans, tables; up to 32 KB)
 in slot 1-8 (without slot: 1): true, or false and the reason. Writing to
 the SD card takes a few ms: save at the end of a match, not every frame.
 code:
@@ -389,12 +389,12 @@ see: doc_read, doc_list, save
 text:
 Scrive un documento in /docs sulla SD, la cartella dei file del giocatore
 comune a tutte le app (bm Write ci tiene i suoi): nome 8.3 senza cartelle,
-al massimo 4 MiB; true, oppure nil e il motivo. La prima volta la console
+al massimo 4 MB; true, oppure nil e il motivo. La prima volta la console
 chiede al giocatore se l'app può usare i documenti.
 text_en:
 Writes a document in /docs on the SD card, the folder of the player's
 files shared by all the apps (bm Write keeps its own there): an 8.3 name
-without folders, at most 4 MiB; true, or nil and the reason. The first
+without folders, at most 4 MB; true, or nil and the reason. The first
 time the console asks the player whether the app may use the documents.
 code:
 local ok, why = doc_write("NOTES.TXT", "pane\nlatte\n")

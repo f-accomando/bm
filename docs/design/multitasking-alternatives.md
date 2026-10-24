@@ -16,16 +16,16 @@ benchmark. The RGB30 (RK3566, AArch64) has one usable core (no PSCI `CPU_ON`).
   the FAT writes (`fat_write_tick`) call it. `net_wait_step()` always yields.
 - Stacks have 16 guard words at the low end (`fiber_prepare`). `fiber_resume` checks them only
   after the fiber yields. An overflow that corrupts memory first is found late, or never.
-- The Pi MMU is on, with a flat map of 1 MiB sections (`src/arch/mmu.c`: `SECTION`, one `ttb[4096]`,
+- The Pi MMU is on, with a flat map of 1 MB sections (`src/arch/mmu.c`: `SECTION`, one `ttb[4096]`,
   no second-level tables). It gives cache attributes only. It gives no protection between tasks.
-  The RGB30 uses 2 MiB blocks (`src/rgb30/mmu.c`: `l1`, `l2[4]`), also flat.
+  The RGB30 uses 2 MB blocks (`src/rgb30/mmu.c`: `l1`, `l2[4]`), also flat.
 - Correction to R49 Beta R2: the ARM1176 and the Cortex-A55 of the RK3566 have an MMU, not an MPU.
-  A stack guard uses a 4 KiB page that is "no access". See alternative H.
+  A stack guard uses a 4 KB page that is "no access". See alternative H.
 - A data abort handler exists (`src/kernel/exceptions.c`: prints DFAR and DFSR). A guard page would
   give a clean report with no new handler.
 - A 1 kHz timer IRQ exists (`irq_init`, `irq_register`). The IRQ runs on the stack that is current.
-- Jobs: eight `fiber_job_start` users. Stack sizes: covers 16 KiB, Lib 32 KiB, sdmap 16 KiB, reports
-  128 KiB, others use `STACK_SIZE`, `JOB_STACK`, `TASK_STACK`, `WRITE_STACK`. Nobody measured the
+- Jobs: eight `fiber_job_start` users. Stack sizes: covers 16 KB, Lib 32 KB, sdmap 16 KB, reports
+  128 KB, others use `STACK_SIZE`, `JOB_STACK`, `TASK_STACK`, `WRITE_STACK`. Nobody measured the
   real use of these stacks.
 - TLS is mbedTLS 1.2 only (`MBEDTLS_SSL_PROTO_TLS1_2`). Session tickets and restartable ECC are not
   enabled. `tls.c` loops on `mbedtls_ssl_handshake` and the BIO callbacks wait with `net_wait_step`.
@@ -57,7 +57,7 @@ Each entry gives: mechanism, items solved, cost on the Pi Zero W, risk, QEMU tes
 ### A. Work-budget steps (resumable loops)
 
 Mechanism: change each long loop into steps of a bounded size. The step ends with `fiber_slice()`.
-- SHA-256: feed the data in chunks of 4-16 KiB (`mbedtls_sha256_update`). Hash while the download
+- SHA-256: feed the data in chunks of 4-16 KB (`mbedtls_sha256_update`). Hash while the download
   arrives, so the final check is one `finish`. Hash a file on SD by reading it in chunks.
 - Add one API: `fiber_budget_us(n)`. It returns how many microseconds are left in the slice. A loop
   asks and sizes its next chunk. The same code runs straight through outside fibers.
@@ -71,7 +71,7 @@ Mechanism: change each long loop into steps of a bounded size. The step ends wit
   sector writes; the gap is the directory extension path. Add the tick there.
 
 Solves: b fully for hashes, cover, FAT; b for ECDSA and handshake only if the mbedTLS check passes.
-Cost: RAM about +2 KiB (restart contexts). Code about +3-6 KiB. About 150-250 lines (hash 60, cover
+Cost: RAM about +2 KB (restart contexts). Code about +3-6 KB. About 150-250 lines (hash 60, cover
 50, FAT 20, ECC and handshake 60-100, budget API 15). Cycles: small overhead per step. Restartable
 ECC is slower in total (estimate 5-15 percent, not measured). The user feels it less: no frame stalls.
 Risk: low for hashes. Medium for restartable ECC (config, tests, patch size).
@@ -148,7 +148,7 @@ Hardware first: time of a new handshake (about 100 ms from the reports, to confi
 
 Mechanism: each job is a state machine with `step(budget)`. No own stack. mbedTLS is non-blocking
 (`WANT_READ`), so a handshake can be a state in the step.
-Solves: saves stack RAM (128 KiB for reports, others smaller). It does not solve b: a step that
+Solves: saves stack RAM (128 KB for reports, others smaller). It does not solve b: a step that
 runs ECDSA still holds the CPU. Item a only with the same Range work as E.
 Cost: a rewrite of Market, update, publish, reports. Thousands of lines. Risk: high, because the
 current code works and is tested. A new state machine bug looks like a stuck job.
@@ -161,7 +161,7 @@ a game opted in, call `fiber_share_run(table, n, ctx, now + free)`. `net_poll` k
 timers alive, so a download goes on in a game without a new connection.
 Solves: a (no pause needed in the game case, `Range` only for a restart). Cost: about 30 lines in
 `runtime.c`, one opt-in call in the API (`docs/api`), a table for FIBER_TOOL and FIBER_GAME. RAM:
-the job stacks stay allocated while a game runs (128 KiB for a Market download, less for a lighter
+the job stacks stay allocated while a game runs (128 KB for a Market download, less for a lighter
 job). Cycles: a 60 Hz game at 16.6 ms with 5 ms free gives a small background share.
 Risk: a frame that misses vsync. A hash or handshake step longer than `free` (item b) breaks the
 frame. So G needs A (steps of 1-2 ms). Lockstep games (Overbit, bmnet) never opt in.
@@ -175,12 +175,12 @@ H1 (software, now): check the 16 guard words at every `fiber_yield`, not only in
 (they are the same point on one core, so only the tail of a stack that overflows between two
 yields is missed). Paint each stack with a pattern at `fiber_prepare`. In `fiber_jobs_report` print
 the high-water mark per job. Use the numbers to right-size the stacks (RAM saved, safe margins).
-Cost: 30 lines, 0 RAM, a one-time paint of 128 KiB (about 0.1 ms estimate, not measured).
-H2 (MMU guard page): put a 4 KiB "no access" page below each stack.
-- ARM1176: replace one 1 MiB section entry of the stack area with a coarse second-level table
-  (1 KiB, 256 small-page entries). Set AP = no access for the guard pages. Allocate stacks
-  from a page-aligned pool (a 128 KiB stack costs +4 KiB guard, +4 KiB alignment waste).
-- AArch64: add an L3 table (4 KiB) under one 2 MiB block. Same idea.
+Cost: 30 lines, 0 RAM, a one-time paint of 128 KB (about 0.1 ms estimate, not measured).
+H2 (MMU guard page): put a 4 KB "no access" page below each stack.
+- ARM1176: replace one 1 MB section entry of the stack area with a coarse second-level table
+  (1 KB, 256 small-page entries). Set AP = no access for the guard pages. Allocate stacks
+  from a page-aligned pool (a 128 KB stack costs +4 KB guard, +4 KB alignment waste).
+- AArch64: add an L3 table (4 KB) under one 2 MB block. Same idea.
 Solves: the "unprotected stack" point of the Unix comparison, with a precise abort (DFAR in the
 log). Cost: about 60 lines per platform, TLB: more small-page entries for the stack area.
 Risk: medium. Wrong table attributes break the cache setting of the region (the ARM1176 note in
@@ -205,7 +205,7 @@ win on the RGB30 only. The Pi has no accelerator.
 J1 (session resume): cache `mbedtls_ssl_session` per host:port in `tls.c`. A repeat handshake does
 no certificate check and no ECDHE (an abbreviated handshake, symmetric only). Needs the server to
 accept session IDs, or `MBEDTLS_SSL_SESSION_TICKETS` + `MBEDTLS_SSL_CLI_C` with tickets. About
-60-100 lines, RAM 2-4 sessions of about 0.3 KiB each plus the peer certificate if kept.
+60-100 lines, RAM 2-4 sessions of about 0.3 KB each plus the peer certificate if kept.
 J2 (HTTP keep-alive): reuse one connection for the 3 requests of a report. About 60-90 lines in
 `http.c`. Needs `Content-Length` or chunked parsing on every reply, and idle handling when the
 server closes. Gives the biggest win (no handshake at all) for reports. J1 helps every case with a
@@ -276,7 +276,7 @@ Run on the Pi (no serial: use the `menu idle:` line and the reports branch). One
 4. Cover decode time per cover (worst), and the time of one FAT directory cluster growth.
 5. The longest `fiber_job_run` overrun per job, from `menu idle:` ("+x ms"), over a full Market
    session and a report.
-6. Stack high-water mark per job (stage 1), to set the sizes. Today: 128 KiB for reports.
+6. Stack high-water mark per job (stage 1), to set the sizes. Today: 128 KB for reports.
 7. Free time per frame in `present()` for three real games (ms from `pace()`).
 8. Cost of `timer_ticks()` read against a flag load; cost of one `net_poll` call.
 9. `Accept-Ranges` and `206` support of the catalog host and the release asset host.

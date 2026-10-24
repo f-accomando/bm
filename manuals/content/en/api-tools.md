@@ -38,12 +38,12 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 - *Build the game (.bm)* is in a project's options. In the SDK the key is **Ctrl+B**.
 - A build of a project in `/bme` writes the game in the games folder (`/carts` on the Pi, `/bm` on the RGB30); a project next to its game builds next to it. The game has the project's name stored at offset 104 of the header. The next build replaces that game and only that one. A game of the same name that it did not build stays, and the new one takes a digit (`pong1.bm`).
 - The `.bm` and the `.b16` are separate editions. A `.b16` never replaces the `.bm`, and the `.bm` sources are never overwritten to make a `.b16`.
-- A `.b16` file has no size limit of its own: the build tools no longer refuse a large file. The Market takes up to 100 MiB a file. Its screen is 360x360 (or 720x720, the profile says), the same on the Pi and on the RGB30.
+- A `.b16` file has no size limit of its own: the build tools no longer refuse a large file. The Market takes up to 100 MB a file. Its screen is 360x360 (or 720x720, the profile says), the same on the Pi and on the RGB30.
 - Other cartridges write only `.bm` and `.bme` files in `/carts`, and only ones they made in the same run.
 
 ## Caveats
 
-- [TO FILL: status of the `.b16` profile. `docs/B16.md` says the profile is decided but not yet implemented, and §3 describes a different `B16CART` container that §0 replaces with the `.bm` container; `src/bm/project.h` and `scripts/mkbm.py` already mark and export `.b16` files (bit 1 at offset 18, 8 MiB check). Say which one is current.]
+- [TO FILL: status of the `.b16` profile. `docs/B16.md` says the profile is decided but not yet implemented, and §3 describes a different `B16CART` container that §0 replaces with the `.bm` container; `src/bm/project.h` and `scripts/mkbm.py` already mark and export `.b16` files (bit 1 at offset 18, 8 MB check). Say which one is current.]
 - The SDK's *Build .bm* and *Export .b16* entries call `bm_build_b16`; **Ctrl+Shift+B** in the bm SDK always exports a `.b16`.
 
 ## Try it, step by step
@@ -104,7 +104,7 @@ A cartridge is a 128-byte header, a section table and the section bodies. Everyt
 | 6 | AUDIO | the sound bank (`BMAU`): sounds, effects, patterns, songs; played by `sfx()` and `music()` |
 | 8 | MESH | 3D models, 1 to 256, with the texture inset |
 | 9 | ANIM | skeletons and animations of the MESH models |
-| 10 | INFO | `key: value` text of at most 16 KiB about the file and its parts |
+| 10 | INFO | `key: value` text of at most 16 KB about the file and its parts |
 | 11 | SPRITES | named zones of the sheet (1 to 1024), with frames and speed |
 | 12 | LAYERS | the other layers of the map (2 to 8, the MAP section is layer 1) |
 | 13 | FLAGS | the 8 flags of each 8x8 cell of the sheet |
@@ -170,7 +170,7 @@ Part of the game API. These functions are meant for the development tools (the e
 | `mesh_reduce(record, triangles, [bones, [max_err]])` | fewer triangles for a model of the MESH section (edge collapse with quadrics, no AI). `bones` is the bone of each vertex, `max_err` stops before a costlier collapse (0: no limit). Returns the record, the bones of its vertices (`nil` without `bones`) and the number of triangles; `nil` and a message if the record is broken. On the PC: `tools/bmreduce.py` |
 | `picture3d(action, ...)` | a picture becomes a 3D model through an image-to-3D service. `picture3d("providers")` lists the services; `picture3d("ready", service)` gives `true`, or `false` and why (the key is missing); `picture3d("start", picture, {provider=, polycount=})` starts the job on a `.png`/`.jpg` of the SD card or an https URL and gives the job id (or `nil` and a message); `picture3d("status", id, service)` gives `"running", progress` or `"done", url`; `picture3d("take", url, {name=, faces=, height=})` downloads the `.glb` and converts it to `{record=, flat=, texture=, nv=, nf=, textured=}`. The first service is Meshy, with the key `meshy_key=...` in `bm/config.txt`. The calls block while the network works |
 | `cutout3d(picture, {name=, lathe=, height=, depth=, segments=, faces=})` | a model from the picture's outline, made on the console without network or AI: a cutout `depth` thick, or with `lathe = true` the half outline turned round the vertical axis in `segments` steps. `height` in blocks (2), `faces` triangles at most (1200). Returns the same table as `picture3d("take")`, or `nil` and a message |
-| `glb3d(path, {name=, height=, faces=, sheet=})` | a model from a `.glb` file of the SD card (the editors use `/glb/NAME.glb`), made on the console without network or AI. The file is only read. `height` in blocks (2), `faces` triangles at most (0: all), `sheet` the side of the texture (256, from 8 to 1024). One model holds 65535 vertices and 65535 triangles at most: a file with more triangles gives `nil` and a message, unless you set `faces`. A file over 16 MiB gives `nil` and a message. Returns the same table as `picture3d("take")`, or `nil` and a message |
+| `glb3d(path, {name=, height=, faces=, sheet=})` | a model from a `.glb` file of the SD card (the editors use `/glb/NAME.glb`), made on the console without network or AI. The file is only read. `height` in blocks (2), `faces` triangles at most (0: all), `sheet` the side of the texture (256, from 8 to 1024). One model holds 65535 vertices and 65535 triangles at most: a file with more triangles gives `nil` and a message, unless you set `faces`. A file over 16 MB gives `nil` and a message. Returns the same table as `picture3d("take")`, or `nil` and a message |
 | `res_write(path, kind, {sections=, name=, author=, replace=})` | for bm's tools only. Writes a model file (kind 1 or `"model"`) in `/bmm`. `path` is `/bmm/NAME.bmm`: NAME has 1 to 8 lower-case letters, digits, `_` or `-`. `sections` has strings: `[8]` the MESH section (needed), `[9]` ANIM, one sheet (`[2]` or `[5]`), `[10]` INFO. `name` is the name shown. A file that is there stays as it is, unless `replace` is true. Returns `true`, or `nil` and a message |
 | `res_read(path)` | reads a resource file (`.bmm`, `.bmi`, ...) from the SD card. The file is only read. Returns `{ kind =, name =, author =, sections = { [type] = string } }`, or `nil` and a message. Kind 1 is a model |
 
@@ -280,7 +280,7 @@ A resource file uses the same container as a `.bm`, with the magic `BMRES` and t
 
 - Names are 8.3: the extension is `bm` plus one letter (never `.bmp`). The real name is inside the file.
 - The menu does not list resource files among the games, and games do not read them while running. A resource enters a `.bm` by being copied in; the cartridge stays one file that works on its own.
-- INFO is text, `key: value` lines: `name`, `desc`, `author`, `license` (an SPDX id such as `CC0-1.0`), `version`, `tags` (separated by commas), `origin` (the SHA-256 of the resource it was copied from), `date` (YYYY-MM-DD). A block `[type name]` gives the keys of one part; types are `model`, `sprite`, `sound`, `sfx`, `song`, `map`, `palette`. At most 16 KiB; unknown keys are kept.
+- INFO is text, `key: value` lines: `name`, `desc`, `author`, `license` (an SPDX id such as `CC0-1.0`), `version`, `tags` (separated by commas), `origin` (the SHA-256 of the resource it was copied from), `date` (YYYY-MM-DD). A block `[type name]` gives the keys of one part; types are `model`, `sprite`, `sound`, `sfx`, `song`, `map`, `palette`. At most 16 KB; unknown keys are kept.
 - A sprite zone moves in the sheet whole. In a game, `zspr(name, x, y)` draws it and `zboxes(name, [frame, type])` reads its boxes.
 - The limits are those of the `.bm`: a sheet up to 4096x4096, 256 models, 64 bones.
 

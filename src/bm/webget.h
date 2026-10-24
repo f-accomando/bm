@@ -53,7 +53,7 @@ int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_
 /* The same, resuming: stem is a bare 8.3 name of bm/web ("model.glb"); its part file is "model.prt"
  * (the same stem and "PRT"). If that file holds the start of the same address, the request asks for
  * the rest; the answer is the whole file in the body either way. The part file is saved when the
- * request fails (a lost connection, a timeout) or is cancelled, and about every 1 MiB, only if
+ * request fails (a lost connection, a timeout) or is cancelled, and about every 1 MB, only if
  * the server said it accepts "Range" and the size; it is deleted when the request is done with a
  * 2xx. The caller checks the whole file (a SHA-256 or its size). */
 int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const char *stem, char *err, size_t en);

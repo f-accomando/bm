@@ -179,7 +179,7 @@ static void card_size(const uint32_t *r)
 {
     /* R2 in RESP0..3 = CSD bits 127..8 shifted down by 8 */
     uint32_t structure = r[3] >> 22 & 3;
-    if (structure == 1) {                       /* CSD 2.0: (C_SIZE + 1) x 512 KiB */
+    if (structure == 1) {                       /* CSD 2.0: (C_SIZE + 1) x 512 KB */
         uint32_t csize = r[1] >> 8 & 0x3FFFFF;
         blocks = (csize + 1) * 1024;
     } else {                                    /* CSD 1.0 */

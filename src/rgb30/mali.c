@@ -74,7 +74,7 @@
 #define AS_CMD_FLUSH_MEM    0x05
 #define AS_ACTIVE           0x01
 
-/* the Mali LPAE page tables: 4 levels of 512 entries (4 KiB granule) */
+/* the Mali LPAE page tables: 4 levels of 512 entries (4 KB granule) */
 #define PT_TABLE            3ull            /* a table, levels 0-2 */
 #define PT_BLOCK            1ull            /* a block or page (every level) */
 #define PT_READ             (1ull << 6)     /* stage-2 style permissions */
@@ -325,14 +325,14 @@ static int as_cmd(uint32_t cmd)
 
 static int mmu(void)
 {
-    /* L0[0] -> L1, L1[map / 1 GiB] -> L2 (the map within one GiB), L2: 2 MiB blocks */
+    /* L0[0] -> L1, L1[map / 1 GB] -> L2 (the map within one GB), L2: 2 MB blocks */
     uint8_t *m = H->mem;
     const uint64_t pa = H->mem_pa;
     memset(m + MEM_L0, 0, 3 * 4096);
     const uint64_t first = H->map_pa >> 21, n = H->map_size >> 21;
     if ((H->map_pa >> 30) != ((H->map_pa + H->map_size - 1) >> 30) || (H->map_pa >> 39) || (H->mem_pa & 0x1fffff) ||
         H->mem_pa < H->map_pa || H->mem_pa + H->mem_size > H->map_pa + H->map_size) {
-        ksnprintf(line, sizeof line, "mali: mmu: the GPU's memory must be inside one GiB, 2 MiB aligned");
+        ksnprintf(line, sizeof line, "mali: mmu: the GPU's memory must be inside one GB, 2 MB aligned");
         say();
         return -1;
     }
@@ -357,7 +357,7 @@ static int mmu(void)
     if (bad)
         ksnprintf(line, sizeof line, "mali: mmu: address space 0 stays busy (status %08x)", (unsigned)gr(AS(0, AS_STATUS)));
     else
-        ksnprintf(line, sizeof line, "mali: mmu: address space 0 on, %u MiB at %08x 1:1 (Mali LPAE, tables at %08x)",
+        ksnprintf(line, sizeof line, "mali: mmu: address space 0 on, %u MB at %08x 1:1 (Mali LPAE, tables at %08x)",
                   (unsigned)(H->map_size >> 20), (unsigned)H->map_pa, (unsigned)pa);
     say();
     return bad ? -1 : 0;
@@ -552,7 +552,7 @@ static void fbd(uint8_t *f, uint64_t samples_pa, uint32_t w, uint32_t h, uint64_
     put32(f + 32, (w - 1) | (h - 1) << 16);                 /* width, height */
     put32(f + 40, (w - 1) | (h - 1) << 16);                 /* bound max (min 0, 0) */
     put32(f + 44, 0u /* 1 sample */ | TIE_MINUS_180_IN_0_OUT << 6 | 8u << 9 /* 16 x 16 */ |
-                      0u << 19 /* 1 target */ | 1u << 24 /* 1 KiB of colour a tile */);
+                      0u << 19 /* 1 target */ | 1u << 24 /* 1 KB of colour a tile */);
     put32(f + 48, ZFMT_D24 << 16);
     uint8_t *rt = f + FBD_SIZE;
     put32(rt, CBUF_R8G8B8A8 << 26);

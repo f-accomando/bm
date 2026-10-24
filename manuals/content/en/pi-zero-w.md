@@ -25,7 +25,7 @@ The Pi Zero W 1.1 is the first target of bm. bm runs on it with no operating sys
 | CPU | ARM1176JZF-S (ARMv6), 1 core | `docs/HARDWARE.md` |
 | Clock | 700 MHz at boot, 1000 MHz requested from the firmware and measured | `docs/HARDWARE.md` |
 | FPU | VFPv2, double in hardware; bm turns on RunFast | `docs/HARDWARE.md` |
-| Cache | L1 16 KiB instructions + 16 KiB data; L2 128 KiB in the VideoCore | `docs/HARDWARE.md` |
+| Cache | L1 16 KB instructions + 16 KB data; L2 128 KB in the VideoCore | `docs/HARDWARE.md` |
 | Integer division | not in hardware (a libgcc routine): avoid it in hot loops | `docs/HARDWARE.md` |
 | MMU, caches, branch prediction | on, with the clock at 1000 MHz | `docs/HARDWARE.md` |
 
@@ -33,10 +33,10 @@ The Pi Zero W 1.1 is the first target of bm. bm runs on it with no operating sys
 
 | Item | Value | Source |
 |---|---|---|
-| Total RAM | 512 MiB LPDDR2, shared by CPU and GPU | `docs/HARDWARE.md` |
-| RAM for the ARM | 448 MiB (with `gpu_mem=64`) | `docs/HARDWARE.md` |
-| RAM for the GPU | 64 MiB; the framebuffer 640x360x4x2 takes 1.8 MiB | `docs/HARDWARE.md` |
-| Memory for Lua | limit 64 MiB | `docs/HARDWARE.md` |
+| Total RAM | 512 MB LPDDR2, shared by CPU and GPU | `docs/HARDWARE.md` |
+| RAM for the ARM | 448 MB (with `gpu_mem=64`) | `docs/HARDWARE.md` |
+| RAM for the GPU | 64 MB; the framebuffer 640x360x4x2 takes 1.8 MB | `docs/HARDWARE.md` |
+| Memory for Lua | limit 64 MB | `docs/HARDWARE.md` |
 | Copy bandwidth | memcpy about 100 MB/s, fill about 430 MB/s | `docs/HARDWARE.md`, `docs/PERFORMANCE.md` |
 | Reads from SDRAM (ARM) | about 4 times slower than writes | `docs/PERFORMANCE.md` |
 
@@ -84,8 +84,8 @@ Source: `docs/PERFORMANCE.md`, section 2, and `docs/HARDWARE.md`.
 | Operation | Cost |
 |---|---|
 | Fill 640x360, 32-bit | 2.2 ms |
-| Copy 450 KiB RAM to RAM, CPU / DMA | 3.70 / 2.99 ms |
-| Fill 450 KiB in RAM, CPU / DMA | 1.02 / 0.85 ms |
+| Copy 450 KB RAM to RAM, CPU / DMA | 3.70 / 2.99 ms |
+| Fill 450 KB in RAM, CPU / DMA | 1.02 / 0.85 ms |
 | 48-line strip RAM to screen, CPU / DMA | 0.87 / 0.26 ms |
 | Map + 256 sprites, direct / via a RAM buffer (benchmark `p`) | 8.58 / 11.85 ms |
 | Full frame copy through RAM, by DMA | 14.06 ms (slower than the CPU) |

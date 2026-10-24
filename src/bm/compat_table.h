@@ -16,8 +16,8 @@ static const bm_policy_rule_t bm_policy_rules[] = {
     { 2, BM_ACT_GREY, BM_ACT_GREY, BM_EDITION_BM, 1, 0, 0, 0, 0, -1, -1, "made for the Pi Zero W only" },   /* 5 */
     { 1, BM_ACT_GREY, BM_ACT_GREY, BM_EDITION_ANY, 0, 0, 0, 0, 0, 16777216, -1, "sound bank over the limit" },   /* 6 */
     { 2, BM_ACT_GREY, BM_ACT_GREY, BM_EDITION_ANY, 0, 0, 0, 0, 0, 16777216, -1, "sound bank over the limit" },   /* 7 */
-    { 1, BM_ACT_SHOW, BM_ACT_HIDE, BM_EDITION_ANY, 0, 0, 0, 0, 0, -1, 100, "over the Market's 100 MiB limit" },   /* 8 */
-    { 2, BM_ACT_SHOW, BM_ACT_HIDE, BM_EDITION_ANY, 0, 0, 0, 0, 0, -1, 100, "over the Market's 100 MiB limit" },   /* 9 */
+    { 1, BM_ACT_SHOW, BM_ACT_HIDE, BM_EDITION_ANY, 0, 0, 0, 0, 0, -1, 100, "over the Market's 100 MB limit" },   /* 8 */
+    { 2, BM_ACT_SHOW, BM_ACT_HIDE, BM_EDITION_ANY, 0, 0, 0, 0, 0, -1, 100, "over the Market's 100 MB limit" },   /* 9 */
     { 1, BM_ACT_SHOW, BM_ACT_SHOW, BM_EDITION_B16, 0, 0, 0, 0, 0, -1, -1, "the Pi plays a .b16" },   /* 10 */
     { 2, BM_ACT_SHOW, BM_ACT_SHOW, BM_EDITION_B16, 0, 0, 0, 0, 0, -1, -1, "the RGB30 plays .b16 by default" },   /* 11 */
     { 1, BM_ACT_SHOW, BM_ACT_SHOW, BM_EDITION_BM, 0, 0, 0, 0, 0, -1, -1, "an old .bm is for the Pi" },   /* 12 */

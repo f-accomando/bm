@@ -209,11 +209,11 @@ All standard library only unless noted.
 | | Pi Zero W | RGB30 |
 |---|---|---|
 | CPU | ARM1176JZF-S, 1 core, raised to 1 GHz (`README.md:64`) | RK3566, 4× Cortex-A55 (`docs/RGB30.md:5-6`) |
-| RAM | 512 MiB, 448 MiB to the ARM (`README.md:67`) | 1 GiB LPDDR4 (`docs/RGB30.md:6`) |
+| RAM | 512 MB, 448 MB to the ARM (`README.md:67`) | 1 GB LPDDR4 (`docs/RGB30.md:6`) |
 | Memory bandwidth | memcpy ~100 MB/s, fill ~430 MB/s, "the real limit" (`README.md:68-69`) | — |
 | Screen (game) | 640x360, 480x270, 320x180, 256x256 (`src/bm/bm.h:12-14`; `README.md:70-71`) | 720x720 panel (`docs/RGB30.md:6`); `.b16` games 360x360 (`bm.h:9-11`) |
 | 3D | V3D GPU fills pixels, ARM transforms (`README.md:70-73`); ARM-only in QEMU | software `r3d` ("The 3D on the RGB30 is `r3d`", `docs/progress/graphics-mali.md:11`) |
-| Lua memory | — (not found as a number) | `.b16` profile: Lua 4 MiB, one 1024x1024 graphics bank, 8 voices, 64 KiB save (`docs/B16.md:30-33`) |
+| Lua memory | — (not found as a number) | `.b16` profile: Lua 4 MB, one 1024x1024 graphics bank, 8 voices, 64 KB save (`docs/B16.md:30-33`) |
 
 - Triangle budget: "about 1200 triangles drawn at 60 fps" (`docs/GAME-GUIDE.md:321-322`).
 - Per-frame budget 16.7 ms for `_update` + `_draw` (`docs/GAME-GUIDE.md:179`).

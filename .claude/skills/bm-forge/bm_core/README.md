@@ -100,14 +100,14 @@ All in `export.py`; every function raises `ValidationError` on bad input.
 - `export_cart(path, lua, mesh, anim, title, author, res, cover, draws, budget)`: a game
   `.bm` or `.b16` (never `.bme`); title required; optional COVER first, then LUA; checks the
   frame triangles (`draws`, default each model once) against the budget, then `check_path`, and
-  8 MiB for `.b16` (`export.py:166-229`).
+  8 MB for `.b16` (`export.py:166-229`).
 - `export_folder(root, game, lua, mesh, anim, title, author, res, cover, overwrite)`: writes
   `<root>/<game>/main.lua`, `models.bm`, optional `cover.png`, and `make.txt` (lines to add to
   the Makefile by hand; bm-forge never edits it). `game` matches `^[a-z][a-z0-9_]{0,14}$`;
   refuses an existing `main.lua` unless `overwrite` (`export.py:232-308`).
 - `export_market(root, game_id, version, license, about, bm_path, b16_path)`: copies the given
   `.bm` / `.b16` byte for byte into `<root>/<id>/` with `info.txt` (`version:`, `license:`,
-  `about:`); refuses a folder holding `<id>.bme`; `.b16` over 8 MiB refused
+  `about:`); refuses a folder holding `<id>.bme`; `.b16` over 8 MB refused
   (`export.py:311-402`).
 - `about_line(id, license, about)` -> `id: license | about` for `market/about.txt`
   (`export.py:405-416`).

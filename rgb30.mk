@@ -149,7 +149,7 @@ firmware:
 
 # Whole SD card image: the boot loader at the sectors the RK3566 boot ROM
 # and U-Boot's SPL read (64, 16384), then one FAT32 partition "BM" from
-# 16 MiB with extlinux.conf, kernel8.img and bm/. Write it with balenaEtcher,
+# 16 MB with extlinux.conf, kernel8.img and bm/. Write it with balenaEtcher,
 # Raspberry Pi Imager or Rufus; updates: copy kernel8.img onto the card.
 SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/extlinux.conf \
              boot/rgb30/LEGGIMI.txt=LEGGIMI.txt boot/ca.pem=bm/ca.pem \

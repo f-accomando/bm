@@ -354,7 +354,7 @@ Un gioco scatta da solo con `shot()`; vedi il manuale dell'API.
 
 # Salvataggi
 
-Un gioco conserva i suoi dati con `save()` e `saved()`. Ogni gioco ha **8 slot**, ciascuno una tabella fino a 32 KiB, in `bm/save/`.
+Un gioco conserva i suoi dati con `save()` e `saved()`. Ogni gioco ha **8 slot**, ciascuno una tabella fino a 32 KB, in `bm/save/`.
 
 - Lo slot 1 è `xxxxxxxx.sav`; gli slot da 2 a 8 sono da `.S02` a `.S08`.
 - `XXXXXXXX` deriva dal titolo e dall'autore del gioco. Se cambi uno dei due, il gioco riparte da zero.
@@ -368,7 +368,7 @@ Per fare una copia dei salvataggi di un gioco, copia i suoi file da `bm/save/` s
 ## Un crash
 
 - Un'eccezione fatale mostra una schermata rossa con i registri e l'elenco degli indirizzi da cui è stata chiamata, anche durante un gioco.
-- Gli ultimi 4 KiB stampati e una traccia di breadcrumb restano in memoria attraverso un reset. Al boot successivo diventano un report in `bm/reports/`, inviato quando la rete è attiva. La rete e `report()` chiedono il tuo permesso la prima volta.
+- Gli ultimi 4 KB stampati e una traccia di breadcrumb restano in memoria attraverso un reset. Al boot successivo diventano un report in `bm/reports/`, inviato quando la rete è attiva. La rete e `report()` chiedono il tuo permesso la prima volta.
 - Dopo 20 secondi di funzionamento, lo schermo dice "Restarting in 60 s: this screen goes out as a report", il LED lampeggia un codice e la console si riavvia. Vale anche sul Pi Zero W: il riavvio scrive direttamente nei registri di gestione dell'alimentazione (`src/kernel/exceptions.c`, `src/drivers/watchdog.c`), quindi non dipende dal controllo del watchdog fatto all'avvio.
 - [DA COMPLETARE: cosa significa ogni numero di lampeggi del LED sul Pi Zero W; sono scritti solo i codici dell'RGB30]
 

@@ -884,7 +884,7 @@ const char *market_status(void)
     long rx = lan_receiving();
     lan_offer_t o;
     if (rx >= 0 && lan_offer(&o) == 0) {
-        ksnprintf(line, sizeof line, "receiving: %ld KiB", rx / 1024);
+        ksnprintf(line, sizeof line, "receiving: %ld KB", rx / 1024);
         return line;
     }
     if (note[0] && timer_ticks() - note_at < NOTE_US)
@@ -914,12 +914,12 @@ void market_details(int i, char *buf, size_t n)
     const slot_t *s = &slots[ci];
     const char *why;
     if (s->busy)
-        ksnprintf(buf, n, "downloading %lu of %lu KiB", (unsigned long)(s->got / 1024),
+        ksnprintf(buf, n, "downloading %lu of %lu KB", (unsigned long)(s->got / 1024),
                   (unsigned long)((g->file.size + 1023) / 1024));
     else if (entry_grey(g, &why))
         ksnprintf(buf, n, "Not here: %s", why);
     else
-        ksnprintf(buf, n, "%s   v%s   %s   %s   %lu KiB", g->author[0] ? g->author : "-", g->version, g->license,
+        ksnprintf(buf, n, "%s   v%s   %s   %s   %lu KB", g->author[0] ? g->author : "-", g->version, g->license,
                   kind_of(g), (unsigned long)((g->file.size + 1023) / 1024));
 }
 
@@ -959,7 +959,7 @@ void market_ask(int i, home_do_t *d)
     if (up)
         ksnprintf(d->ask_detail, sizeof d->ask_detail, "The Market's version replaces it; saves stay.");
     else
-        ksnprintf(d->ask_detail, sizeof d->ask_detail, "%lu KiB, free, license %s",
+        ksnprintf(d->ask_detail, sizeof d->ask_detail, "%lu KB, free, license %s",
                   (unsigned long)((g->file.size + 1023) / 1024), g->license);
     ksnprintf(d->ask_yes, sizeof d->ask_yes, "%s", up ? "Update" : "Download");
 }
@@ -1028,7 +1028,7 @@ void market_panel(int i, home_panel_t *p)
              g->author[0] ? g->author : "-");
     home_row(p, MENU_ROW_INFO, M_VERSION, "Version", "Given by the author", "%s", g->version);
     home_row(p, MENU_ROW_INFO, M_LICENSE, "License", "What you may do with it", "%s", g->license);
-    home_row(p, MENU_ROW_INFO, M_SIZE, "Size", "The whole cartridge", "%lu KiB",
+    home_row(p, MENU_ROW_INFO, M_SIZE, "Size", "The whole cartridge", "%lu KB",
              (unsigned long)((g->file.size + 1023) / 1024));
     home_row(p, MENU_ROW_INFO, M_FILE, "File", s->path[0] ? "On the SD card" : "Not on the SD card yet",
              "%s", s->path[0] ? s->path : "-");
@@ -1206,9 +1206,9 @@ int market_offer(char *q, size_t qn, char *detail, size_t dn)
     ksnprintf(q, qn, "%s sends %s", o.from, o.title);
     unsigned long kib = (o.size + 1023) / 1024;
     if (find_sha(o.sha256) >= 0)
-        ksnprintf(detail, dn, "%lu KiB, the Market's own: checked.", kib);
+        ksnprintf(detail, dn, "%lu KB, the Market's own: checked.", kib);
     else
-        ksnprintf(detail, dn, "%lu KiB, not in the Market: from friends only.", kib);
+        ksnprintf(detail, dn, "%lu KB, not in the Market: from friends only.", kib);
     return 1;
 }
 

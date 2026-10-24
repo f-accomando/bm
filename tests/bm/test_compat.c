@@ -123,7 +123,7 @@ int main(int argc, char **argv)
     CHECK(verdict(ED_BM, 640, 360, 0, 0, none, none, 1000, R, 1, &rule, &why) == BM_ACT_GREY && rule == 5);
     CHECK(!strcmp(why, "made for the Pi Zero W only"));
 
-    /* rule 6 and 7: a sound bank over 16 MiB (8,388,608 values) is grey */
+    /* rule 6 and 7: a sound bank over 16 MB (8,388,608 values) is grey */
     {
         unsigned ty[1] = { BM_SEC_AUDIO }, sz[1] = { 16777216 };
         CHECK(verdict(ED_B16, 360, 360, 0, 1, ty, sz, 1000, P, 0, &rule, &why) == BM_ACT_SHOW && rule == 10);
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
         CHECK(verdict(ED_B16, 360, 360, 0, 2, two_ty, two_sz, 1000, R, 0, &rule, &why) == BM_ACT_GREY && rule == 7);
     }
 
-    /* rule 8 and 9: over 100 MiB the menu shows, the Market hides */
+    /* rule 8 and 9: over 100 MB the menu shows, the Market hides */
     CHECK(verdict(ED_B16, 360, 360, 0, 0, none, none, 100u << 20, P, 1, &rule, &why) == BM_ACT_SHOW && rule == 10);
     CHECK(verdict(ED_B16, 360, 360, 0, 0, none, none, (100u << 20) + 1, P, 0, &rule, &why) == BM_ACT_SHOW &&
           rule == 8);

@@ -1,7 +1,7 @@
 -- Cfg: what nano8 keeps on the SD card (bm's save()): the key mapping,
 -- the screen size, and each cart's persistent data (cartdata: 256 bytes
 -- per id, kept as hex without the zeros at the end: a high score is a few
--- characters, and bm's 32 KiB per save hold hundreds of carts).
+-- characters, and bm's 32 KB per save hold hundreds of carts).
 
 Cfg.data = nil
 local dirty, saved_at = false, -10

@@ -310,7 +310,7 @@ You can also open `letter.md`, if you exported it: it comes back with the same p
 ## Limits
 
 - The name of a document is up to 8 letters or digits, `-` and `_` allowed, with no folders.
-- A file written in `/docs` is at most 4 MiB.
+- A file written in `/docs` is at most 4 MB.
 - The body of a page holds 72 letters per line, in Courier.
 - The text you did not save is kept for the next start only if it is under 24000 bytes.
 - The title of the `.BMD` file keeps the first 60 letters of the first paragraph.

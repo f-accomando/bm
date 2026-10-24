@@ -866,7 +866,7 @@ static void game_panel(int i, home_panel_t *p)
     home_row(p, MENU_ROW_ACTION, G_SEND, "Send to a nearby console",
              "To a console on this network with the Market tab open", NULL);
     home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", games[i].is_bm ? "bm (Pi)" : "b16 (handheld)");
-    home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KiB", (unsigned long)(games[i].size + 1023) / 1024);
+    home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KB", (unsigned long)(games[i].size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
              games[i].author[0] ? games[i].author : "-");
     int slots;
@@ -1148,7 +1148,7 @@ void ui_home(framebuffer_t *f)
             else if (games[*s].grey)
                 ksnprintf(details, sizeof details, "Not here: %s", games[*s].why);
             else
-                ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s/%s",
+                ksnprintf(details, sizeof details, "%s   %s   %lu KB   %s/%s",
                           games[*s].author[0] ? games[*s].author : "-",
                           games[*s].is_bm ? "bm" : "b16",
                           (unsigned long)(games[*s].size + 1023) / 1024,

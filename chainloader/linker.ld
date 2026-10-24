@@ -4,7 +4,7 @@
  */
 ENTRY(_start)
 
-LOAD_ADDR = 0x02000000;     /* 32 MiB */
+LOAD_ADDR = 0x02000000;     /* 32 MB */
 
 SECTIONS
 {

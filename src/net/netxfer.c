@@ -459,7 +459,7 @@ void netxfer_poll(void)
         const int tenth = (int)((uint64_t)got * 10 / size);
         if (tenth != said) {
             said = tenth;
-            kprintf("net: kernel %d%% (%lu of %lu KiB)\n", tenth * 10, got / 1024, size / 1024);
+            kprintf("net: kernel %d%% (%lu of %lu KB)\n", tenth * 10, got / 1024, size / 1024);
         }
     }
     /* a PC that went away in the middle (no FIN reached us): after 10 s of

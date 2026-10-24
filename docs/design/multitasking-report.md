@@ -41,13 +41,13 @@ Measured on the Pi Zero W (all from the docs):
 
 ### Problem today
 - A 6.5 MB install writes at 2.50 MB/s. That is 2.6 s of card time (derived).
-- One piece of a queued `file_write` is up to 32 KiB. At the mean speed that is 13 ms (derived). That is more than one frame. The worst frame during a 4 MiB queued write is **not measured**.
+- One piece of a queued `file_write` is up to 32 KB. At the mean speed that is 13 ms (derived). That is more than one frame. The worst frame during a 4 MB queued write is **not measured**.
 - The worst single write is 603 ms. Most of it is probably card-internal busy time, with the CPU spinning in `wait_card_ready`. This is a hypothesis. It needs the split in section 8, item 1.
 - A directory that grows by one cluster is written sector by sector (`multitasking.md`, Open).
 - The lock, the pause hooks and the whole-write FAT store are done. Saves and netxfer cannot corrupt each other.
 
 ### Options
-- **Fibers with smaller pieces (A).** Size each piece from `fiber_budget_us`. Cost: about 30 lines. Risk: low. Gain: the piece drops from 13 ms to about 3 ms for 8 KiB (derived). The total time grows a little.
+- **Fibers with smaller pieces (A).** Size each piece from `fiber_budget_us`. Cost: about 30 lines. Risk: low. Gain: the piece drops from 13 ms to about 3 ms for 8 KB (derived). The total time grows a little.
 - **Yield during the busy wait.** `wait_card_ready` spins. A fiber could test the card state once per tick and yield in between. Cost: about 40 lines in `sdhost.c`. Risk: medium. The sdhost timeout change already failed once, so change one thing at a time. Gain: if the 603 ms is busy time, this removes most of it.
 - **Write-behind for `save()`.** `save()` would copy the data, return at once, and write in the free time of the vsync wait. Cost: about 60 lines. Risk: medium. A power cut loses the last save. Say so in the API doc. Gain: a game never waits for the card.
 - **DMA or IRQ state machine for the card.** The BCM2835 SDHOST has a DMA request line. The data phase would run without the CPU. Cost: large (a new driver path). Risk: high. Gain: the CPU copy time goes away. The card busy time does not.
@@ -75,7 +75,7 @@ Measured on the Pi Zero W (all from the docs):
 - **Fibers with work-budget steps (A).** Done for hashes. Restartable ECC for the verify and the handshake is open. Cost: 60 to 100 lines plus an mbedTLS config change. Risk: medium.
 - **TLS session reuse (J1).** Cuts the handshake to a symmetric one for a second connection. About 60 to 100 lines. Do it only if the handshake time justifies it.
 - **Pause and resume with Range (E).** A download stops when a game starts and resumes after it. The cost is one handshake (about 100 ms) at the resume. This is cheap and needs no concurrency. It needs the Market job to use the part file, and the server to send `Accept-Ranges` (**not verified**).
-- **Download in the vsync slice (G).** `present()` calls `fiber_share_run` with the free time of the frame. The lwIP timers stay alive, so the connection survives. It needs A first, because a step longer than the free time drops a frame. RAM: the job stack stays allocated (128 KiB for a Market download).
+- **Download in the vsync slice (G).** `present()` calls `fiber_share_run` with the free time of the frame. The lwIP timers stay alive, so the connection survives. It needs A first, because a step longer than the free time drops a frame. RAM: the job stack stays allocated (128 KB for a Market download).
 - **Run-to-completion state machines (F).** Saves stack RAM. Needs a rewrite of Market, update, publish and reports. Reject.
 - **A worker core (RGB30 only).** TLS crypto and hashes run on core 1. See section 9.
 - **QPU or GPU DMA offload.** SHA-256 on a QPU is possible but poor value: games use the QPUs, and the hash is not the bottleneck on the Pi (chunked already).
@@ -92,7 +92,7 @@ Measured on the Pi Zero W (all from the docs):
 ## 4. Workload 3: loading covers in the menu
 
 ### Problem today
-- `covers_main` reads the first 48 KiB of each `.bm` with `fat_load_part` and decodes the cover (`read_cover`, `carts.c:210`). One read is about 9 ms at 5.14 MB/s (derived).
+- `covers_main` reads the first 48 KB of each `.bm` with `fat_load_part` and decodes the cover (`read_cover`, `carts.c:210`). One read is about 9 ms at 5.14 MB/s (derived).
 - The covers job has a 10 percent share of the free time of a menu frame. A read does not stop at the end of the share. It ends when the read ends. `sd_tick` calls `fiber_slice`, which yields only when the slice time is over.
 - One sdhost read timeout adds **500 ms** to a cover (`multitasking.md`). Cause unknown. It is a fault, not a scheduling problem. It blocks any slice budget under 500 ms.
 - A decoded cover (`menu_load_cover`) holds the CPU. Its time is **not measured**.
@@ -101,10 +101,10 @@ Measured on the Pi Zero W (all from the docs):
 
 ### Options
 - **Fibers (today).** Works when the card is healthy.
-- **Smaller work per slice.** Read 16 KiB first (the cover section header says if the cover is there), decode in bands (A).
+- **Smaller work per slice.** Read 16 KB first (the cover section header says if the cover is there), decode in bands (A).
 - **A cover cache file.** One packed file on the card with the small covers. The menu reads it in one sequential read. The file is rebuilt when a cartridge is added or removed. Cost: about 150 lines. Risk: medium (cache invalidation). Gain: one read, not one per game. This is a proposal. It is not in any doc yet.
 - **Poll USB inside the cover tick.** One `usb_poll` call in `sd_tick` keeps the mouse alive during a read. About 5 lines. It is in menu code, so another runner must decide. See section 7.
-- **DMA read.** Same as workload 1. Poor value for 48 KiB.
+- **DMA read.** Same as workload 1. Poor value for 48 KB.
 - **A worker core (RGB30).** The cover job runs on core 1 and posts the decoded cover. Gain: no menu stall. Cost: large. The decode is a pure function, so it is the easiest thing to move.
 - **QPU decode.** No. The cover is small.
 
@@ -120,10 +120,10 @@ Measured on the Pi Zero W (all from the docs):
 ### Problem today
 Sources of a long frame in a game:
 - **SD timeout.** 500 ms, seen on cover reads. A game that saves or reads can meet the same fault. Not measured inside a game. Cause unknown.
-- **A save.** One write of a few KiB. A directory growth costs sector writes. The worst write was 603 ms in a bench with large files.
+- **A save.** One write of a few KB. A directory growth costs sector writes. The worst write was 603 ms in a bench with large files.
 - **TLS handshake.** About 100 ms, inside `web_get` of a new connection. The doc says "show a connecting message" (`docs/api/system.md`). Not measured inside a cartridge.
 - **GC.** The runtime uses the generational collector (`runtime.c:5584`). The pause length is **not measured** in any doc.
-- **A queued `file_write` piece.** Up to 32 KiB, about 13 ms (derived). Not measured.
+- **A queued `file_write` piece.** Up to 32 KB, about 13 ms (derived). Not measured.
 - **A long frame by the game itself.** `frameskip(n)` and the session report (the 12 longest frames) show these.
 
 What a game **can** do while a background job runs: nothing runs behind it, because `background_stop()` ends all the fibers. The game's own `web_get`, `web_poll` and queued `file_write` run in the game's frames. The GPU queue and the QPU run beside the game's code on their own hardware.
@@ -155,7 +155,7 @@ What a game **cannot** do: start a Market download, share a TLS handshake, or wr
 - A start needs: the SD read of the whole file, the parse, `load_assets`, `new_cart_state`, a mode change and the audio bank. `loading_tick` redraws the splash between steps. Time to first frame is **not measured** in any doc.
 - The update and the publish jobs are not stopped. An app cannot start while they run (`update_busy`).
 - A suspended game stays in RAM and comes back at once. This is the fast path.
-- The menu fibers keep their stacks (up to 128 KiB each) until the job ends. The RAM free inside a game with a stack allocated is **not measured**.
+- The menu fibers keep their stacks (up to 128 KB each) until the job ends. The RAM free inside a game with a stack allocated is **not measured**.
 
 ### Options
 - **Fibers (today).** Works. The cost is the stop wait.
@@ -201,14 +201,14 @@ Fixes that the other runner may use (this report does not choose):
 
 Benchmarks and log lines only. Never a live game. For a frame number, use a cart that logs `timer_ticks` (the bench carts), the 3D Bench, or the GPU test. Run one change per test.
 
-1. **SD write split.** For a 4 MiB write in 32 KiB pieces: per piece, the time to fill the FIFO and the time in `wait_card_ready`. Output: the share of busy time in the 603 ms worst case.
+1. **SD write split.** For a 4 MB write in 32 KB pieces: per piece, the time to fill the FIFO and the time in `wait_card_ready`. Output: the share of busy time in the 603 ms worst case.
 2. **Handshake.** Time of one full handshake to the catalog host and to the release host. 10 runs. Source: `menu stalls:` (`tls.c`).
 3. **Verify and hash.** Time of one ECDSA P-256 verify (`release_verify`) and the SHA-256 speed in MB/s. Source: `menu stalls:`.
 4. **Range.** `Accept-Ranges` and `206` from the catalog host and the release CDN. Open item in `multitasking.md`.
 5. **Cover reads.** The count of sdhost read timeouts per 100 cover reads. The time of one `menu_load_cover`. The worst `stop` time of `menu idle:`.
-6. **Longest frame during a queued write.** A bench cart queues a 4 MiB `file_write` and logs the largest `timer_ticks` gap between frames. Open item in `multitasking.md`.
+6. **Longest frame during a queued write.** A bench cart queues a 4 MB `file_write` and logs the largest `timer_ticks` gap between frames. Open item in `multitasking.md`.
 7. **GC pause.** The longest `lua_gc` step in a bench cart that allocates like a game. Use the session report's longest frames.
-8. **Load profile.** Stop time, SD read of the file, `bm_parse`, `load_assets`, `new_cart_state`, `enter_mode`, time to the first `present()`. For a 1 MiB, a 6 MiB and a 12 MiB cart.
+8. **Load profile.** Stop time, SD read of the file, `bm_parse`, `load_assets`, `new_cart_state`, `enter_mode`, time to the first `present()`. For a 1 MB, a 6 MB and a 12 MB cart.
 9. **Free time per frame.** Milliseconds left at `pace()` for three bench loads (light, medium, heavy). This is the budget for G.
 10. **RAM.** Free heap at the Market tab and in a bench cart with a job stack allocated.
 11. **Mouse reports.** Count of `usb_poll` calls per second in the menu with covers loading, and the largest `dx, dy` per frame.

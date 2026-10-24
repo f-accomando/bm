@@ -269,7 +269,7 @@ do
 
   local big = "<p>" .. ("word "):rep(250000) .. "</p>"
   bb = parse(big)
-  eq(bb.bytes, 1048576, "byte cap reads exactly 1 MiB")
+  eq(bb.bytes, 1048576, "byte cap reads exactly 1 MB")
   check(bb.cut and bb.cut_reason == "bytes", "byte cap sets cut")
   bb = parse(big, { max_bytes = 1000 })
   eq(bb.bytes, 1000, "max_bytes option")
@@ -297,7 +297,7 @@ do
 
   local r = css.rules()
   r:add((".a{color:red}"):rep(6000))
-  check(r.cut and r.bytes == 65536, "css cap: 64 KiB of CSS (got " .. r.bytes .. ")")
+  check(r.cut and r.bytes == 65536, "css cap: 64 KB of CSS (got " .. r.bytes .. ")")
   check(r.n <= 4000, "css rule cap")
   r = css.rules({ max_rules = 3 })
   r:add(".a{color:red}.b{color:red}.c{color:red}.d{color:red}")
@@ -704,7 +704,7 @@ do
   local keep = lay2.tree
   lay1 = nil
   collectgarbage(); collectgarbage()
-  print(string.format("   (info) live Lua KiB with the tree kept: %.0f; nodes: %d", collectgarbage("count"), lay2.stats.nodes))
+  print(string.format("   (info) live Lua KB with the tree kept: %.0f; nodes: %d", collectgarbage("count"), lay2.stats.nodes))
   keep = nil
   -- A <style> that comes after some content applies to the later content only
   -- when streaming (the earlier lines are laid out already). Styles in <head>

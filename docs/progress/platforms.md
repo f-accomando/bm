@@ -45,7 +45,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `test_battery_low_game` (`tests/rgb30/qemu_test.py`); `test_stages3d_b16` (Stages 3D `.b16`: three stages by keys, `-k stages3d`).
 - WiFi RTL8821CS over SDIO (`rtw_*.c`, `wpa.c`), Bluetooth RTL8821CS on UART1 (`rk_bt.c`,
   H5).
-- Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + last 4 KiB printed),
+- Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + last 4 KB printed),
   `bm/lastrun.txt` (whole log of a run ended through `plat_reset`/`plat_poweroff`),
   `display: ...` lines in `bm/bootlog.txt` around the panel start.
 - Panel start (`rk_dsi_init`): reset low, supply on, 20 ms, reset released, 120 ms before
@@ -93,7 +93,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `display:` DSI link and panel on, dclk 36562 kHz, PHY locked, errors 0; BOOTPREV says the run ended
   cleanly. The screen was not seen in these two runs (the 21 Oct check above covers it).
 - RGB30 network bridge, real console, 2026-10-20 (c6593655): `bm_net.py --kernel` sent a 1980016-byte
-  `kernel8.img` at 237 KiB/s (8.2 s), then a clean restart after a 3 s countdown. `line` is refused (the keys go
+  `kernel8.img` at 237 KB/s (8.2 s), then a clean restart after a 3 s countdown. `line` is refused (the keys go
   to the buttons, no monitor). `--get bm/BOOTLOG.TXT`, `BOOTPREV.TXT`, `LASTRUN.TXT` work (583, 726, 2657 bytes).
   `--shot` answers `no game drew a frame` until a game runs. A kernel older than Op T/G refuses logs and shot.
 - RGB30 QEMU tests (22 Oct). The menu reads a serial key as held for `PAD_SERIAL_MS` (120 ms, `src/rgb30/pad.c`): a
@@ -108,7 +108,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 - `src/rgb30/start.S` copy_up: the copy loop must stay within the first BOOT_HEAD (0x100) bytes
   (`ASSERT` in `src/rgb30/kernel.ld`); it copies the head to the link address and continues from there (an
-  in-place forward copy overwrote itself above 1.5 MiB in QEMU virt).
+  in-place forward copy overwrote itself above 1.5 MB in QEMU virt).
 
 - One menu (`src/kernel/menu_ui.c`) and one Settings (`src/kernel/settings.c`) for Pi and
   RGB30: a new row goes there for both.

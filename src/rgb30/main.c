@@ -78,7 +78,7 @@ static void print_cpu(void)
             (uint32_t)(midr >> 20) & 0xf, (uint32_t)midr & 0xf,
             (uint32_t)(read_sysreg(CurrentEL) >> 2) & 3,
             (uint32_t)read_sysreg(cntfrq_el0));
-    kprintf("RAM: kernel at %08lx, heap %lu MiB, framebuffers at %08lx; device tree at %08lx\n",
+    kprintf("RAM: kernel at %08lx, heap %lu MB, framebuffers at %08lx; device tree at %08lx\n",
             (uint32_t)(uintptr_t)_start,
             (uint32_t)((heap_end() - heap_start()) >> 20), (uint32_t)PLAT_FB_START,
             (uint32_t)a64_dtb);
@@ -158,7 +158,7 @@ static void sd_boot(void)
         return;
     }
     if (fat_mount() != 0) {
-        kprintf("SD: %lu MiB (%s), %s\n", sd_blocks() / 2048, sd_controller(), fat_error());
+        kprintf("SD: %lu MB (%s), %s\n", sd_blocks() / 2048, sd_controller(), fat_error());
         return;
     }
     ledstate_set(LED_NO_SD, 0);

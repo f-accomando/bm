@@ -86,8 +86,8 @@ text. Both are `not verified`. TLS 1.2 is a risk only if Cloudflare drops it (no
 | Text | Three bitmap fonts: 8x16, 8x14, 6x12, 256 glyphs in code page 437. No Unicode, no proportional font. | The cart maps UTF-8 to CP437 and uses `?` for the rest. Layout is on a fixed grid. |
 | Screen | `screen(w,h)`: 320x180 up to 960x540 (16:9). 640x360 with `font("6x12")` gives 106 columns by 30 rows. | Few lines of text per screen: use the small font. |
 | Input | Pad buttons, stick, `keyp()` for typed text, `mouse()` with `mousep()` (a cart must call `mouse(true)`). Same API on Pi and RGB30. | None. The RGB30 has no keyboard: an on-screen keyboard is needed for the URL bar. |
-| Lua memory | `stat(0)` reports Lua KiB. The kernel's own state has `LUA_MEM_LIMIT` 64 MiB (`docs/progress/lua.md`). The cart limit: `not verified`. | Measure on the Pi before stage 2. |
-| Write to SD | `save(t, slot)` (a table, 32 KiB, 8 slots). `cart_save`, `cart_write`, `cart_data` (project files). No "write bytes to a path". | A `.glb` needs a raw file write. New API `file_write(path, bytes)` limited to `bm/web/`. |
+| Lua memory | `stat(0)` reports Lua KB. The kernel's own state has `LUA_MEM_LIMIT` 64 MB (`docs/progress/lua.md`). The cart limit: `not verified`. | Measure on the Pi before stage 2. |
+| Write to SD | `save(t, slot)` (a table, 32 KB, 8 slots). `cart_save`, `cart_write`, `cart_data` (project files). No "write bytes to a path". | A `.glb` needs a raw file write. New API `file_write(path, bytes)` limited to `bm/web/`. |
 | 3D import | C: `src/bm/glb.c` `glb_to_model` (positions welded, winding fixed, PNG or JPEG base colour texture shrunk to 256x256, model framed, decimated to `faces` triangles). Used by `picture3d("take")`. Python: `scripts/meshy2mesh.py`, bm-forge `mesh` for untextured `.glb`. | Lua cannot call `glb_to_model` on a file from the SD card. Add `glb_import(path, opts)`. The poly.pizza GLB checked has no texture: colours come from material factors (`not verified` that `glb.c` reads them). |
 | Multitasking | Fibers are cooperative. `fiber_slice()` yields when a slice ends. SD reads and FAT writes yield. `net_wait_step()` always yields. `timeslice(co, k)` limits Lua. A cart's `_update` runs at 60 Hz. | The work-budget steps (alternative A of the study on `origin/claude/multitasking-alternatives`) are not in `bm-core`. |
 
@@ -117,7 +117,7 @@ fetch (kernel, chunks) -> tokenizer -> tree builder -> style -> block/inline lay
 - **Tokenizer.** A state machine over chunks. It handles tags, attributes (quoted and bare),
   character references (`&amp; &lt; &gt; &quot; &#N; &#xN; &nbsp;` and about 30 named ones),
   comments, `<!doctype>`. Raw text in `<script>` and `<style>`: it skips `<script>`, it keeps
-  `<style>` text for the CSS parser. Cap per token: 4 KiB.
+  `<style>` text for the CSS parser. Cap per token: 4 KB.
 - **Tree builder.** A small stack with the implied end rules for `p`, `li`, `tr`, `td`, `option`.
   Unknown tags become inline `span`s. No full HTML5 error recovery. Depth cap 64. Node cap 20 000.
 - **Elements supported.** `html head title body`, `h1`-`h6`, `p`, `div`, `span`, `br`, `hr`,
@@ -132,7 +132,7 @@ fetch (kernel, chunks) -> tokenizer -> tree builder -> style -> block/inline lay
   descendant pair. Properties: `color`, `background-color`, `display` (`none`, `block`, `inline`,
   `inline-block` as inline, `flex` as block), `margin`, `padding` (one value or four), `font-weight`,
   `text-align`, `text-decoration`, `visibility`. The cart ignores `position`, `float`, `flex`
-  rules, `@media`, `var()`, `calc()` and units other than `px`, `em`, `%`. Cap: 64 KiB of CSS per page.
+  rules, `@media`, `var()`, `calc()` and units other than `px`, `em`, `%`. Cap: 64 KB of CSS per page.
   Tailwind-style class names (this site uses them) are not interpreted: the cart uses its own
   default sheet and only honours `hidden`/`display:none`.
 - **Layout.** Block and inline flow only. Fixed-width font: a text run is `width = chars * 6` px.
@@ -299,7 +299,7 @@ Differences from the plan:
   `NAME.TXT` (`NAME.NTE` for a `.TXT` file) with the address, the page it came from and the size. B drops it.
 - **No `glb_import` and no 3D viewer** in the cart. The kernel API stays as it is. A saved `.glb` is opened with the Dev tools.
 - **Only `https://`.** The kernel refuses `http://`; the key `web_http` of section 3.2 is not used.
-- The redirect limit is the kernel's 3 (not 5). The page cap is 1 MiB; a file is capped by `web_max_kib` (4 MiB).
+- The redirect limit is the kernel's 3 (not 5). The page cap is 1 MB; a file is capped by `web_max_kib` (4 MB).
 
 Tests: `make test-web` (PC, mock kernel, `tests/web/cart.lua`) and QEMU `test_bmweb` (the Pi kernel, no network).
 Keys and the Pi run are in [progress/tools.md](../progress/tools.md).

@@ -7,8 +7,8 @@
 -- 1. sync:   file_write of SIZE bytes: the call time in ms is one frame stopped.
 -- 2. async:  the same with async = true: the worst frame while it is written, and the time to done.
 -- 3. save:   a save() while an async write is half way: the write must pause and finish (state done).
--- 4. resume: needs URL (an https address of a file of at least 2 MiB that the server serves with Range):
---            web_get with resume, cancelled after 1 MiB, then asked again; prints "resumed" and the final size.
+-- 4. resume: needs URL (an https address of a file of at least 2 MB that the server serves with Range):
+--            web_get with resume, cancelled after 1 MB, then asked again; prints "resumed" and the final size.
 local SIZE = 2 * 1024 * 1024
 local URL = ""   -- put an https address of a big file here to run test 4 (leave empty to skip)
 
@@ -45,7 +45,7 @@ function _update()
   elseif state == "sync" then
     local a = time()
     local ok, why = file_write("BENCH1.BIN", data)
-    say(string.format("sync   %d KiB: the call took %.0f ms (%s)", SIZE // 1024, (time() - a) * 1000, tostring(ok or why)))
+    say(string.format("sync   %d KB: the call took %.0f ms (%s)", SIZE // 1024, (time() - a) * 1000, tostring(ok or why)))
     state, t0, worst = "async", time(), 0
     local ok2, why2 = file_write("BENCH2.BIN", data, true)
     say("async  queued: " .. tostring(ok2 or why2))

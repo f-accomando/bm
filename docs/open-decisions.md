@@ -6,7 +6,7 @@ document of the area.
 ## Formats (`.bm`, `.b16`, `.bme`)
 Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [BM-FORMAT.md](BM-FORMAT.md). Decided 2026-10-13:
 - **720x720**: accepted by the kernel (for the RGB30 panel and its GPU); on the Pi it is shown in the middle of a 1280x720 screen (not tried on a Pi). Done in `format.c`, `runtime.c`, `bm.h`; `test_bm` checks it.
-- **`.b16` is a target** (360x360 or 720x720, 8 MiB), not a sandbox: `B16.md` now says so; Yharnam and Titan EX are built with `mkbm.py --from X.bm --b16` (flag set). A packaging lint of the forbidden APIs (B3b) stays possible, not done.
+- **`.b16` is a target** (360x360 or 720x720, 8 MB), not a sandbox: `B16.md` now says so; Yharnam and Titan EX are built with `mkbm.py --from X.bm --b16` (flag set). A packaging lint of the forbidden APIs (B3b) stays possible, not done.
 - **Sharing assets is free**: no licence blocking. The licence is information that travels (`bmres.py extract` now keeps the source's `license`, `version`, `tags`); credits in `bm.info` with `credit:` lines (see PROJECT-LAYOUT.md). A `res:` list with hashes is only for reproducible builds, never a check that refuses.
 - Still open: header integrity (second CRC in the reserved bytes, F3a); the bigger writer unification (F6).
 
@@ -32,7 +32,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Assets
 - `res:` list in `bm.info` with SHA-256 and a licence check in `mkbm.py`: approved in
   principle, not yet specified.
-- Resources and the `.b16` limits (256 colours, 8 MiB): to verify.
+- Resources and the `.b16` limits (256 colours, 8 MB): to verify.
 
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an

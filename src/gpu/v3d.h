@@ -73,7 +73,7 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);
  * dev kit's "GPU wait"); it wraps */
 extern volatile uint32_t v3d_wait_us;
 
-/* bm3d 4.1: the 1 MiB sections wholly inside [p, p + size) of ARM memory made
+/* bm3d 4.1: the 1 MB sections wholly inside [p, p + size) of ARM memory made
  * uncached (on: the ARM's writes go out through the write buffer, merged,
  * with no line read first and no line of other data pushed out of the
  * cache) or cached again; the number of sections changed (0: none, as on
@@ -164,7 +164,7 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_LOAD_COLOUR_BGR565          (1u | 0u << 4 | 2u << 8)
 
 /* LOAD / STORE_TILE_BUFFER_GENERAL: depth and stencil (32 bits a pixel) in
- * T-format (4 KiB tiles of 32x32 pixels; width and height of the frame
+ * T-format (4 KB tiles of 32x32 pixels; width and height of the frame
  * rounded up to 32), as Mesa keeps depth buffers; a store clears the
  * buffers it stored unless told not to */
 #define V3D_LOADSTORE_ZS_TFORMAT        (2u | 1u << 4)

@@ -2,7 +2,7 @@
  * The RGB30's display modes (drivers/fb.h on the AArch64 build). Every
  * framebuffer can be drawn by the CPU or rendered by a GPU, laid out as
  * the Mali-G52 wants its render targets: rows aligned to 64 bytes, the
- * height rounded up to 16-pixel tiles, each page on a 64 KiB boundary in
+ * height rounded up to 16-pixel tiles, each page on a 64 KB boundary in
  * the display and GPU memory (plat.h: physically contiguous, uncached),
  * fb->bus its physical address. The display controller scales the image
  * to the panel: a game can render at 720x720, or at 360x360 shown twice

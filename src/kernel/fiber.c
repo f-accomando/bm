@@ -263,7 +263,7 @@ int fiber_jobs_report(char *buf, size_t n)
     return any;
 }
 
-/* Boot diagnostics (measurement build): a job that spins 8 ms with no yield and uses 2 KiB of
+/* Boot diagnostics (measurement build): a job that spins 8 ms with no yield and uses 2 KB of
  * stack. The tick must set fiber_over, the report must print the stack, the log must show
  * "did not yield". */
 static uint32_t spin_budget_in, spin_budget_out;

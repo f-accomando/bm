@@ -131,7 +131,7 @@ int fat_mount(void)
     vol.fsinfo_reset = 0;
     vol.mounted = 1;
     err = "ok";
-    ksnprintf(desc, sizeof desc, "FAT%d, %lu MiB, label %s", vol.fat32 ? 32 : 16,
+    ksnprintf(desc, sizeof desc, "FAT%d, %lu MB, label %s", vol.fat32 ? 32 : 16,
               (unsigned long)(total / 2048), vol.label[0] ? vol.label : "-");
     return 0;
 }
@@ -871,7 +871,7 @@ int fat_writing(void)
     return writing;
 }
 
-#define RUN_SECTORS 64                  /* a run of clusters next to each other: 32 KiB */
+#define RUN_SECTORS 64                  /* a run of clusters next to each other: 32 KB */
 
 /* Sectors in one command, read back into check and compared; if it fails
  * or differs, one sector at a time (from now on, too). */
@@ -953,10 +953,10 @@ static int store(const char *path, const char *dir, const char *name, const uint
         ours = 1;
     }
 
-    /* the data: clusters next to each other in one piece, up to 32 KiB in
+    /* the data: clusters next to each other in one piece, up to 32 KB in
      * one command (runs); else a sector at a time, a cluster a piece. Of
      * the last cluster only the sectors with data (before: all of it,
-     * zeros past the end: 64 writes for a byte with 32 KiB clusters) */
+     * zeros past the end: 64 writes for a byte with 32 KB clusters) */
     const uint8_t *p = data;
     for (uint32_t i = 0, k; i < n; i += k) {
         const size_t at = (size_t)i * csize;

@@ -29,7 +29,7 @@
 int emu_red_a = 1, emu_tex_swap = 0;
 int emu_qpu_busy = 0;
 int emu_qpu = 0;                        /* QPU programs: 0 run, 1 the QPUs do not answer, 2 they store wrong data */
-int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
+int emu_tformat = 0;                    /* the order of the 1 KB subtiles of a T-format tile */
 int emu_t16_alpha = 0;                  /* bm3d 7.2: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
 int emu_t16_lossy = 0;                  /* bm3d 7.2: 5551 / 4444 widened otherwise (v3d_emu.h) */
 int emu_etc1 = 0;                     /* bm3d 7.3: the layout of ETC1 textures (v3d_emu.h) */
@@ -1252,8 +1252,8 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
 }
 
 /* the word of texel (x, y) in a T-format texture w wide, as the emulator
- * lays it out: 4 KiB tiles of 32x32 texels in rows, odd rows right to
- * left; in a tile four 1 KiB subtiles of 16x16, in a C (even rows of
+ * lays it out: 4 KB tiles of 32x32 texels in rows, odd rows right to
+ * left; in a tile four 1 KB subtiles of 16x16, in a C (even rows of
  * tiles) or a reversed C (odd rows), or in raster order (emu_tformat 1:
  * the backend must learn either); in a subtile 4x4 utiles of 4x4 texels
  * in raster order. emu_tformat 2: rows, which the backend must refuse. */
@@ -1274,8 +1274,8 @@ static uint32_t t_index(int x, int y, int w)
 }
 
 /* the 16-bit place of texel (x, y) in an RGB565 T-format texture (bm3d 5.2), as
- * the emulator lays it out: tiles of 4 KiB, 64 x 32 texels, in rows, odd
- * rows right to left; in a tile four 1 KiB subtiles of 32 x 16 in a C (or
+ * the emulator lays it out: tiles of 4 KB, 64 x 32 texels, in rows, odd
+ * rows right to left; in a tile four 1 KB subtiles of 32 x 16 in a C (or
  * a reversed C, or raster with emu_tformat 1); in a subtile 4 x 4 utiles of
  * 8 x 4 texels, raster */
 static uint32_t t16_index(int x, int y, int w)
@@ -1293,8 +1293,8 @@ static uint32_t t16_index(int x, int y, int w)
 }
 
 /* bm3d 7.3: the 8-byte place of ETC1 block (bx, by) in a texture wb
- * blocks wide, as the emulator lays it out: tiles of 4 KiB in rows, odd
- * rows right to left; in a tile four 1 KiB subtiles in a C (or as
+ * blocks wide, as the emulator lays it out: tiles of 4 KB in rows, odd
+ * rows right to left; in a tile four 1 KB subtiles in a C (or as
  * emu_tformat says, as RGB565's); in a subtile 4 x 4 utiles of 64 bytes,
  * raster; in a utile 2 x 4 blocks (4 x 2 with emu_etc1 1), raster */
 static uint32_t etc1_index(int bx, int by, int wb)
@@ -1399,7 +1399,7 @@ static void draw_tile(int tx, int ty, int fw, int fh)
     }
 }
 
-/* a depth buffer in T-format as the emulator lays it out: 4 KiB tiles of
+/* a depth buffer in T-format as the emulator lays it out: 4 KB tiles of
  * 32x32 pixels, a row of tiles after the other (the real order inside
  * differs, the size is the same); NULL if it leaves memory */
 static uint32_t toff(int x, int y, int fw)

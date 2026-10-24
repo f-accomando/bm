@@ -3,7 +3,7 @@
  * the core of the nano8 cartridge (carts/nano8). Not PICO-8 itself: our own
  * name and font; the same memory map, so the carts' peek and poke work.
  *
- * 64 KiB of RAM, as the carts see it:
+ * 64 KB of RAM, as the carts see it:
  *   0x0000 sprite sheet (128x128, 4 bits per pixel, low nibble = left pixel)
  *   0x1000 sprites 128-255 / map rows 32-63
  *   0x2000 map rows 0-31 (128 cells per row)
@@ -99,7 +99,7 @@ void n8_map_size(const n8_t *m, int *w, int *h);
  * c < 0: the pen. Returns the right-most x reached. */
 int  n8_print(n8_t *m, const uint8_t *s, size_t len, int x, int y, int c, int at_cursor);
 
-/* Memory: peek/poke wrap at 64 KiB. */
+/* Memory: peek/poke wrap at 64 KB. */
 static inline int n8_peek(const n8_t *m, uint32_t a) { return m->ram[a & 0xFFFF]; }
 void n8_poke(n8_t *m, uint32_t a, int v);
 void n8_memcpy(n8_t *m, uint32_t dst, uint32_t src, int32_t len);

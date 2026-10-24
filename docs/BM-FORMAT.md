@@ -45,7 +45,7 @@ Flag bit 4 (`BM_FLAG_COMPAT`, value 16) says the block is present. The header is
 | 121 | input | bit 0 pad, 1 keyboard, 2 text, 3 mouse, 4 mouse optional (`BM_IN_*`). Zero = not declared |
 | 122 | aspect | bit 0 wide, 1 square, 2 any, 3 uses `safe_area()` (`BM_ASPECT_*`). Zero = not declared |
 | 123 | needs | bit 0 3D, 1 audio, 2 network, 3 mouse device (`BM_NEED_*`) |
-| 124-125 | min RAM | u16, MiB. Zero = none |
+| 124-125 | min RAM | u16, MB. Zero = none |
 | 126 | min spec | the `BM_SPEC_REV` the cartridge needs. Zero = none |
 | 127 | min width | minimum screen width in units of 16 pixels. Zero = none |
 
@@ -53,17 +53,17 @@ Reading (`bm_compat_read`, and `bm_cart_t.compat` after `bm_parse`): a file with
 An old `.bm` reads as targets = Pi. An old `.b16` (flag bit 1) reads as targets = Pi + RGB30. `declared` is 0 for both.
 The menus (Pi, RGB30) act on the block: `bm_compat_classify` applies `docs/spec/compat-policy.toml` and greys a cartridge that does not list the kernel, with a reason and a question before the start. The Market list uses the file name (it has no header yet). The load check in `runtime.c` does not read the block yet.
 
-Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MiB] [--min-spec N] [--min-width PX]`,
+Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MB] [--min-spec N] [--min-width PX]`,
 and `bm_compat_write`. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
 bytes 104..119 (`bm_set_built_from`), `mkbm.py --from` clears only bytes 104..119, `bmres.py` and `bmmesh.py` copy the header.
 
 ## File size
 
-The kernel has no cartridge size limit of its own. It reads the whole file into RAM and checks the CRC in 64 KiB pieces.
-The hard ceiling is the Market: 100 MiB a file (`CATALOG_MAX_FILE`, `src/net/catalog.h`), which GitHub also enforces.
-A cartridge of 100 MiB must fit in the heap of the device. Load time on the Pi Zero W is `not verified`.
-The old 8 MiB check of the `.b16` is removed from `mkbm.py`, `project.c`, the Makefile and `mkmarket.py`.
-The sound bank holds at most 8,388,608 PCM values (`AU_PCM_MAX`, 16 MiB decoded).
+The kernel has no cartridge size limit of its own. It reads the whole file into RAM and checks the CRC in 64 KB pieces.
+The hard ceiling is the Market: 100 MB a file (`CATALOG_MAX_FILE`, `src/net/catalog.h`), which GitHub also enforces.
+A cartridge of 100 MB must fit in the heap of the device. Load time on the Pi Zero W is `not verified`.
+The old 8 MB check of the `.b16` is removed from `mkbm.py`, `project.c`, the Makefile and `mkmarket.py`.
+The sound bank holds at most 8,388,608 PCM values (`AU_PCM_MAX`, 16 MB decoded).
 
 ## Section table and bodies
 
@@ -86,7 +86,7 @@ ignored. If a type is repeated, the **last** one wins in the kernel (the Python 
 | 7 | (old ANIM) | read as ANIM | |
 | 8 | MESH | u16 models (1..256), u16 inset, u32 reserved; per model a 24-byte header, vertices (3 f32), faces (24 bytes) | vertices and faces 1..65535; first byte of the name nonzero; finite floats below 1e6; indices valid; size exact. Names are **not** checked to be unique |
 | 9 | ANIM | u16 rigs, then rigs | bones 1..64, clips 0..255, keys 1..1024, times non-decreasing and within the length, parents before children; clip mode 0..4 (0 linear, 1 smooth, 2 step, 3 ease-in `u*u`, 4 ease-out `u*(2-u)`); size exact. The rig is **not** checked against its model. A kernel from before modes 3 and 4 refuses the whole ANIM section ("bad skeletons (ANIM)", mode > 2), so the cartridge does not load there |
-| 10 | INFO | UTF-8 text `key: value` lines, then `[type name]` blocks | at most 16 KiB (an oversized one is silently dropped in a cartridge, an error in a resource file). Keys: `name desc author license` (SPDX) `version tags origin` (SHA-256) `date`; unknown keys are kept. UTF-8 is not validated |
+| 10 | INFO | UTF-8 text `key: value` lines, then `[type name]` blocks | at most 16 KB (an oversized one is silently dropped in a cartridge, an error in a resource file). Keys: `name desc author license` (SPDX) `version tags origin` (SHA-256) `date`; unknown keys are kept. UTF-8 is not validated |
 | 11 | SPRITES | u16 zones (1..1024), u16 reserved, 28-byte zones | name unique and nonempty; w, h >= 1; frames 1..16; every zone inside the sheet. The u16 at byte 26 of a zone (zero before) is `slices`, its low byte: 0 for a plain zone, 2..255 for a stack zone (sprite stacking: `slices` boxes of w x h to the right, `frames` 1); the zone must fit `max(frames, slices)` boxes. Bit 0 of the high byte (byte 27) is `vertical`: the slices lie one under the other (`stackv`, the zone must fit `w x frames` by `h x slices`); it counts only with `slices` 2 or more, and the other bits stay zero. The field was reserved as zero, so the format version stays 1 and an older reader sees a plain zone. A broken one is dropped, not fatal, in a cartridge |
 | 12 | LAYERS | u16 w, h, nlayers (2..8, MAP counted), u16 reserved, names (16 each), cells of layers 2..n | needs MAP of the same size; **fatal** when wrong. Without it the map has one layer, `main` |
 | 13 | FLAGS | u16 per_row, u16 rows, bytes | size exact; **fatal** when wrong; not compared with the sheet |

@@ -880,8 +880,8 @@ massima, istruzioni del fotogramma più pesante.
 3. Il dev kit mostra anche i token, le funzioni più grandi, la memoria dei
 dati (sheet, mappa, modelli, suoni) e la dimensione del file.
 
-4. Dal codice: stat(1) ms, stat(2) fps, stat(11) token, stat(12) KiB di Lua
-al massimo, stat(13) KiB dei dati.
+4. Dal codice: stat(1) ms, stat(2) fps, stat(11) token, stat(12) KB di Lua
+al massimo, stat(13) KB dei dati.
 text_en:
 1. In any game F11 (or Settings > Performance overlay): at the top right
 fps and the frame's ms, the CPU bar (update, draw, 3D calls, audio, GPU
@@ -897,10 +897,10 @@ ms, peak RAM, instructions of the heaviest frame.
 of the data (sheet, map, models, sounds) and the size of the file.
 
 4. From the code: stat(1) ms, stat(2) fps, stat(11) tokens, stat(12) peak
-KiB of Lua, stat(13) KiB of the data.
+KB of Lua, stat(13) KB of the data.
 code:
 print(stat(2) .. " fps " .. stat(1) .. " ms", 8, 8, 0x80FF80)
-print(stat(12) + stat(13) .. " KiB  " .. stat(11) .. " token", 8, 24)
+print(stat(12) + stat(13) .. " KB  " .. stat(11) .. " token", 8, 24)
 
 == guide.ram
 kind: guide
@@ -915,7 +915,7 @@ text:
 1. Guarda il dev kit: i dati (sheet, mappa, modelli, suoni) restano in
 memoria tutto il gioco, il Lua cresce e scende.
 
-2. Uno sheet 256x256 costa circa 200 KiB, uno 1024x1024 3 MiB: tienilo
+2. Uno sheet 256x256 costa circa 200 KB, uno 1024x1024 3 MB: tienilo
 piccolo, togli le celle che non usi.
 
 3. Non creare tabelle nuove a ogni fotogramma: riusa quelle dei
@@ -926,7 +926,7 @@ text_en:
 1. Look at the dev kit: the data (sheet, map, models, sounds) stays in
 memory for the whole game, the Lua goes up and down.
 
-2. A 256x256 sheet costs about 200 KiB, a 1024x1024 one 3 MiB: keep it
+2. A 256x256 sheet costs about 200 KB, a 1024x1024 one 3 MB: keep it
 small, remove the cells you do not use.
 
 3. Do not create new tables every frame: reuse those of the bullets and

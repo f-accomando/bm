@@ -299,7 +299,7 @@ def _render_cards(items):
         img = (f'<img src="{g["sub"]}/{g["id"]}/cover.png" width="176" height="176" alt="">' if g["cover"]
                else f'<div class="nocover">{t}</div>')
         rows.append(f"""<li>{img}<div><h2>{t} {fmt}</h2><p class="by">{a} &middot; v{html.escape(g["version"].decode())}
- &middot; {lic} &middot; {(len(g["data"]) + 1023) // 1024} KiB</p><p>{about}</p>
+ &middot; {lic} &middot; {(len(g["data"]) + 1023) // 1024} KB</p><p>{about}</p>
 <p><a href="{g["sub"]}/{g["id"]}/{g["name"]}" download>{g["name"]}</a></p></div></li>""")
     return "\n".join(rows)
 
