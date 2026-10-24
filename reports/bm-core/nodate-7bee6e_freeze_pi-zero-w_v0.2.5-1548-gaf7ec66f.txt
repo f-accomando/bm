@@ -1,0 +1,110 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1548-gaf7ec66f
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-7bee6e_freeze_pi-zero-w_v0.2.5-1548-gaf7ec66f.txt
+
+the Pi froze (the watchdog restarted it) while: monitor command "?", frame 405, 55 s after boot, kernel v0.2.5-1547-g1cb137ab-dirty, ring 4743, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 2 networks
+   1   -48 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -68 dBm  ch  1  WPA2  Wind3 HUB - ED4188
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fiber: covers did not yield: 29.5 ms past its slice
+menu idle: 298/300 frames, 439 of 2115 ms taken, 29.0 ms past a frame; covers 407 ms (+29.5, stk 0.8/16K); min slack -2007 us, paced 0; sd 11 retried, 11 timed out
+menu idle: sd sites: rdend 11; first word <1ms 167 <3ms 10 (max 1.6 ms)
+menu frame: 1x, a frame averages draw 8266 us, enlarge 1 us, flip 91 us, free time used 1465 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.0 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 10.2 ms past its slice
+net: time 2026-10-24 19:02 UTC
+fiber: reports did not yield: 100.7 ms past its slice
+report: sending nodate-b42c17_freeze_pi-zero-w_v0.2.5-1547-g1cb137ab-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-b42c17_freeze_pi-zero-w_v0.2.5-1547-g1cb137ab-dirty.txt
+menu idle: 297/300 frames, 978 of 2177 ms taken, 103.2 ms past a frame; reports 937 ms (+100.7, stk 7.6/128K); min slack -6711 us, paced 0
+menu idle: sd first word <1ms 35 <3ms 2 (max 1.6 ms)
+menu stalls: tls handshake 1x last 254.3 worst 254.3 ms
+menu frame: 1x, a frame averages draw 7739 us, enlarge 1 us, flip 92 us, free time used 3262 us (300 frames)
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+type 'h' for help
+> :
+:log
+: log 
+report: 20261024-190243_log_pi-zero-w_v0.2.5-1547-g1cb137ab-dirty.txt saved as bm/reports/rpt00001.txt
+report: sending 20261024-190243_log_pi-zero-w_v0.2.5-1547-g1cb137ab-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261024-190243_log_pi-zero-w_v0.2.5-1547-g1cb137ab-dirty.txt
+the line is done
+> 
+net: console closed
+net: receiving pong.bm (40396 bytes)...
+net: cartridge received, starting it
+
+load: Pong 13 ms (close 0, parse 0, assets+state 1, mode 1, audio 0, lua 8)
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+bm: Screenshot saved: bm/shots/pong0004.png
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+net: receiving a new kernel (5068028 bytes)...
+net: kernel 0% (0 of 4949 KB)
+net: kernel 10% (503 of 4949 KB)
+net: kernel 20% (990 of 4949 KB)
+net: kernel 30% (1485 of 4949 KB)
+net: kernel 40% (1988 of 4949 KB)
+net: kernel 50% (2474 of 4949 KB)
+net: kernel 60% (2976 of 4949 KB)
+net: kernel 70% (3471 of 4949 KB)
+net: kernel 80% (3960 of 4949 KB)
+net: kernel 90% (4455 of 4949 KB)
+net: saved kernel.img on the SD card (5068028 bytes)
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
