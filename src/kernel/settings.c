@@ -119,13 +119,22 @@ enum {
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
     R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
 };
-#define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES: R_UTIL_BASE + i */
+#define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
 
 /* No utility until a kernel defines its own (home.c on the Pi, ui.c on the RGB30). */
 __attribute__((weak)) int home_utils(void) { return 0; }
 __attribute__((weak)) const char *home_util_title(int i) { (void)i; return ""; }
 __attribute__((weak)) const char *home_util_about(int i) { (void)i; return ""; }
+__attribute__((weak)) int home_util_group(int i) { (void)i; return 0; }
 __attribute__((weak)) void home_util_start(int i, home_do_t *d) { (void)i; (void)d; }
+
+static int util_count(int group)
+{
+    int n = 0;
+    for (int i = 0; i < home_utils(); i++)
+        n += home_util_group(i) == group;
+    return n;
+}
 
 /* sound_depth: the bits of each sample at the output (what the output
  * really carries is in the row's help) */
@@ -547,12 +556,12 @@ void home_panel(int id, home_panel_t *p)
                  "The modes for games and the GPU, each with a test image", "%s", plat_display_info());
 #else
         home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
-                 "Direct on screen, or via RAM (compare: Render bench)", "%s",
+                 "Direct on screen, or via RAM (compare: Diagnostics)", "%s",
                  bm_via_ram() ? "Via RAM" : "Direct");
         home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
                  "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
         home_row(p, MENU_ROW_CHOICE, R_AA, "3D anti-aliasing",
-                 "Smooth edges of the GPU's 3D (try Dev > GPU test)", "%s", aa_choice());
+                 "Smooth edges of the GPU's 3D (try GPU test, below)", "%s", aa_choice());
         home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
                  "Nearest: sharp pixels. Bilinear: smooth", "%s", filter_on() ? "Bilinear" : "Nearest");
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
@@ -593,6 +602,9 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
                  "HDMI sound status and a test tune", NULL);
 #endif
+        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
+            if (home_util_group(i) == 1)
+                home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
         break;
     case HOME_UPDATES:
         ksnprintf(p->title, sizeof p->title, "Settings > Updates");
@@ -679,7 +691,7 @@ void home_panel(int id, home_panel_t *p)
                      bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
 #endif
-        home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks, tests and controls", "%d", home_utils());
+        home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks and tests", "%d", util_count(0));
         home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
                  "Everything printed since the console started", NULL);
 #ifndef BM_RGB30
@@ -691,8 +703,9 @@ void home_panel(int id, home_panel_t *p)
     case HOME_UTILITIES: {
         ksnprintf(p->title, sizeof p->title, "Settings > System > Utilities");
         for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)
-            home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
-        if (home_utils() == 0)
+            if (home_util_group(i) == 0)
+                home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+        if (util_count(0) == 0)
             home_row(p, MENU_ROW_INFO, R_UTILS, "none", "This console has no utility yet", NULL);
         break;
     }

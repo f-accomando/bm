@@ -164,13 +164,13 @@ action = "none"
 [[divergence]]
 id = "D14"
 area = "Dev tab extras"
-pi = "CPU bench, Stress test, Texture Room, Video bench, Stack bench, Demo"
-rgb30 = "Stack bench (BETA-6 round 2, src/rgb30/ui.c page_stack, QEMU test_stack_bench). Not built: CPU bench, Stress test and Texture Room (V3D, D23), Video bench (vidbench.c excluded), Demo"
+pi = "Settings > Screen and sound: Stress test, GPU test, 3D Bench, Texture Room, Stack bench. Settings > System > Utilities: DMA test, Video bench, Diagnostics (with the CPU and render benchmarks and the demo)"
+rgb30 = "Stack bench (BETA-6 round 2, src/rgb30/ui.c page_stack, QEMU test_stack_bench). Not built: Diagnostics (CPU and render benchmarks, demo), Stress test and Texture Room (V3D, D23), Video bench (vidbench.c excluded)"
 cause = "todo"
 priority = 6
 status = "open"
 evidence = "rgb30.mk:87"
-action = "Stress test and Texture Room come with the Mali driver (D23); CPU bench, Video bench and Demo: port when the RGB30 needs them"
+action = "Stress test and Texture Room come with the Mali driver (D23); Diagnostics and Video bench: port when the RGB30 needs them"
 
 [[divergence]]
 id = "D15"

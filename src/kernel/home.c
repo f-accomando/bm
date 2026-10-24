@@ -81,17 +81,6 @@ static void t_lua(framebuffer_t *fb)
     input_pad_keys(0);
 }
 
-static void t_system(framebuffer_t *fb)
-{
-    (void)fb;
-    heading("System");
-    kprintf("bm %s\n", bm_version);
-    sysinfo_print();
-    kprintf("SD card        : %s\n", fat_describe());
-    kprintf("audio          : %s\n", audio_status());
-    kprintf("network        : %s, time %s\n", net_ip_text(), net_time_text());
-}
-
 void home_show_log(framebuffer_t *fb)
 {
     (void)fb;
@@ -106,34 +95,6 @@ void home_show_log(framebuffer_t *fb)
     input_pad_keys(0);
     if (lines + 3 < rows)                       /* it fit on one page: no pager */
         home_wait_back();
-}
-
-static void t_input(framebuffer_t *fb)
-{
-    (void)fb;
-    heading("Input test");
-    input_live_test(10);
-}
-
-static void t_audio(framebuffer_t *fb)
-{
-    (void)fb;
-    heading("Audio test");
-    audio_test();
-}
-
-static void t_cpu(framebuffer_t *fb)
-{
-    heading("CPU benchmark");
-    bench_t b;
-    bench_run(&b, fb, "now");
-    bench_print(&b, 1);
-}
-
-static void t_render(framebuffer_t *fb)
-{
-    heading("Rendering benchmark, 640x360 RGB565");
-    bm_bench_report(fb, 120);
 }
 
 static void t_stress(framebuffer_t *fb)
@@ -196,27 +157,6 @@ static void t_stack(framebuffer_t *fb)
     bm_stack_bench(fb, 30);
 }
 
-static void t_demo(framebuffer_t *fb)
-{
-    heading("Animation demo (10 s)");
-    demo_stats_t st;
-    demo_run(fb, 10, &st);
-    demo_print(&st);
-}
-
-static void t_pattern(framebuffer_t *fb)
-{
-    console_suspend(1);
-    draw_test_pattern(fb);
-    input_pad_keys(INPUT_PAD_NAV);
-    input_flush();
-    input_getc();
-    input_pad_keys(0);
-    console_suspend(0);
-    heading("Test pattern");
-    kprintf("HDMI test pattern shown\n");
-}
-
 /* the development assistant (M30) on its own: ask, see the code and the
  * sprites it would give an editor (also the monitor's I) */
 void home_assistant(framebuffer_t *fb)
@@ -255,6 +195,7 @@ typedef struct {
     int wait;
     g16_sheet_t cover;
     const char *report;                 /* what it prints is a report of this kind (reports.h), or NULL */
+    int group;                          /* a utility: 1 = Settings > Screen and sound, 0 = Settings > System */
 } tool_t;
 
 /* bm Code, the code editor */
@@ -264,27 +205,22 @@ static void t_code(framebuffer_t *fb)
 }
 
 static tool_t tools[] = {
-    { "bm Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x1E8A5A, t_code, 0, { 0 }, NULL },
-    { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 }, NULL },
-    { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 }, NULL },
-    { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL },
-    { "System", "board, clocks, memory, SD card, network", MENU_ICON_CHIP, 0x2A7A5A, t_system, 1, { 0 }, "system" },
-    { "Log", "everything printed since boot", MENU_ICON_LOG, 0x6A6A7A, home_show_log, 0, { 0 }, NULL },
-    { "Input test", "the buttons each player holds, for 10 s", MENU_ICON_PAD, 0x8A3A8A, t_input, 1, { 0 }, NULL },
-    { "Audio test", "HDMI sound status and a test tune", MENU_ICON_SOUND, 0xB05A2A, t_audio, 1, { 0 }, "audio" },
-    { "CPU bench", "CPU and memory benchmark", MENU_ICON_GAUGE, 0x3A5A8A, t_cpu, 1, { 0 }, "cpu" },
-    { "Render bench", "drawing benchmark, 640x360 RGB565", MENU_ICON_TRIANGLES, 0x5A3AA0, t_render, 1, { 0 }, "render" },
-    { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 }, "stress" },
-    { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 }, "dma" },
-    { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 }, "gpu" },
+    /* the Dev tab, after the SDK */
+    { "bm Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x1E8A5A, t_code, 0, { 0 }, NULL, 0 },
+    { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 }, NULL, 0 },
+    { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 }, NULL, 0 },
+    { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL, 0 },
+#define NDEV 4
+    /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen and sound */
+    { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 }, "stress", 1 },
+    { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 }, "dma", 0 },
+    { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 }, "gpu", 1 },
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
-      { 0 }, NULL },
-    { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 }, "room" },
-    { "Video bench", "SD write and read speed, JPEG decode time", MENU_ICON_GAUGE, 0x3A7A9A, t_video, 1, { 0 }, "video" },
-    { "Stack bench", "sprite stacking: us a frame and stacks a second", MENU_ICON_GAUGE, 0x6A3A9A, t_stack, 1, { 0 }, "stack" },
-    { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 }, "demo" },
-    { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 }, NULL },
-    { "Diagnostics", "the old boot sequence: benchmarks and demos", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 }, "diag" },
+      { 0 }, NULL, 1 },
+    { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 }, "room", 1 },
+    { "Video bench", "SD write and read speed, JPEG decode time", MENU_ICON_GAUGE, 0x3A7A9A, t_video, 1, { 0 }, "video", 0 },
+    { "Stack bench", "sprite stacking: us a frame and stacks a second", MENU_ICON_GAUGE, 0x6A3A9A, t_stack, 1, { 0 }, "stack", 1 },
+    { "Diagnostics", "boot sequence: CPU and render benchmarks, demo, self-tests", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 }, "diag", 0 },
 };
 
 #define NTOOLS ((int)(sizeof tools / sizeof tools[0]))
@@ -300,12 +236,17 @@ void home_init(void)
         bm_parse(bm_code_cart, code_len, &bc, err, sizeof err) == 0 &&
         bc.cover_rgba)
         menu_load_cover(&tools[0].cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
-    for (int i = 0; i < NTOOLS; i++)
+    for (int i = 0; i < NDEV; i++)
         if (!tools[i].cover.px)
             menu_make_tool_cover(&tools[i].cover, tools[i].title, tools[i].icon, tools[i].rgb);
 }
 
-int home_tools(void) { return NTOOLS; }
+int home_tools(void) { return NDEV; }
+int home_tool_is_utility(int i) { return i >= NDEV; }
+int home_utils(void) { return NTOOLS - NDEV; }
+const char *home_util_title(int i) { return tools[NDEV + i].title; }
+const char *home_util_about(int i) { return tools[NDEV + i].about; }
+int home_util_group(int i) { return tools[NDEV + i].group; }
 const char *home_tool_title(int i) { return tools[i].title; }
 const char *home_tool_about(int i) { return tools[i].about; }
 const g16_sheet_t *home_tool_cover(int i) { return tools[i].cover.px ? &tools[i].cover : NULL; }
@@ -348,4 +289,9 @@ void home_tool_start(int i, home_do_t *d)
     d->text = tools[i].report ? run_reported : tools[i].run;
     reported = i;
     d->wait = tools[i].wait;
+}
+
+void home_util_start(int i, home_do_t *d)
+{
+    home_tool_start(NDEV + i, d);
 }

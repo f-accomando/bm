@@ -1487,15 +1487,9 @@ def test_home_ui(b, opts):
         keys("d")
         screen(["Monitor", "the text console with every command"])
         shot("dev")
-        keys("dd")
-        screen(["System", "board, clocks, memory"])
-        keys("\r")
-        q.expect("ARM clock", timeout=10)
-        q.expect("back to the menu", timeout=10)
-        time.sleep(0.5)
-        keys("\r")
-        screen(["Dev", "System", "board, clocks, memory"])
-        keys("aa")                              # the monitor, as a tool
+        keys("d")
+        screen(["Lua", "Lua 5.4 prompt"])       # the last tool of the tab: the utilities are in Settings
+        keys("a")                               # the monitor, as a tool
         keys("\r")
         q.expect("back to the monitor", timeout=10)
         q.expect("> ")

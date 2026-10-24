@@ -78,9 +78,10 @@ void home_act(int id, int row_id, int how, home_do_t *d);
 int  home_utils(void);                                  /* how many */
 const char *home_util_title(int i);
 const char *home_util_about(int i);                     /* one line of help */
+int  home_util_group(int i);                            /* 1: shown in Screen and sound, 0: in System > Utilities */
 void home_util_start(int i, home_do_t *d);              /* fills d as home_act does */
 
-/* The tools of the Dev tab (after the SDK), with their covers. */
+/* The tools of the Dev tab (after the SDK), with their covers: the editors, the assistant, the monitor, Lua. */
 void home_init(void);
 int  home_tools(void);
 const char *home_tool_title(int i);

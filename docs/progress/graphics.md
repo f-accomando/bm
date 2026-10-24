@@ -68,8 +68,8 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 ### Mali-G52 on the RGB30
 Bring-up, draw descriptors, shaders and the triangle probe: [graphics-mali](graphics-mali.md).
 
-### Rendering tests (Dev tab)
-3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`), render bench, stress test
+### Rendering tests (Settings > Screen and sound)
+3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`), Diagnostics, stress test
 (`src/bm/stress.c`) and Texture Room (`roombench.c`) stop on Start+Select, Ctrl+Esc or PS
 after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 `b3d_platform_t.stop`, `bm_stats_t.left`); a stopped test leaves no report

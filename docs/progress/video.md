@@ -33,7 +33,7 @@ Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `
 ## To run on the Pi (VID-S1, VID-S2; done once, repeat on another card)
 1. Build and copy the kernel: `make`, then `./easy_install.sh` (SD card in the PC).
 2. Boot the Pi Zero W with a card that has at least 100 MiB free. Use the card that you use for games.
-3. Open the Dev tab. Select **Video bench**. Or send the monitor line `:video`.
+3. Open Settings > System > Utilities. Select **Video bench**. Or send the monitor line `:video`.
 4. Wait about 1 to 3 minutes. The bench writes 128 files of 256 KiB in `/bm/vidbench`, reads 16 back, deletes all, decodes two JPEG frames 100 times each, and encodes two 320x180 frames with RLE565 100 times each.
 5. Send the report: the console sends the numeric report to the `reports` branch. Or copy the lines from the screen.
 6. Read the result:
