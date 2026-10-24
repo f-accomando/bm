@@ -1,0 +1,131 @@
+bm report
+kind: log
+kernel: v0.2.5-1547-g1cb137ab
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-24 18:43:59
+file: 20261024-184359_log_pi-zero-w_v0.2.5-1547-g1cb137ab.txt
+
+
+bm kernel v0.2.5-1547-g1cb137ab - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 39.0 C
+ARM1176 from SVC, MMU+caches on, heap 432 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+the Pi froze last time and the watchdog restarted it:
+  doing: boot, frame 0, 455 s after boot, kernel 5c372c82-dirty
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 8/10
+report: nodate-88c051_freeze_pi-zero-w_v0.2.5-1547-g1cb137ab.txt saved as bm/reports/rpt00001.txt
+report: on the SD card: no network
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 2 networks
+   1   -49 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -71 dBm  ch  1  WPA2  Wind3 HUB - ED4188
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fiber: covers did not yield: 501.0 ms past its slice
+fiber: covers did not yield: 503.8 ms past its slice
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 7.9 ms past its slice
+net: time 2026-10-24 18:42 UTC
+fiber: covers did not yield: 504.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 11.8 ms past its slice
+fiber: reports did not yield: 95.9 ms past its slice
+report: sending nodate-88c051_freeze_pi-zero-w_v0.2.5-1547-g1cb137ab.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-88c051_freeze_pi-zero-w_v0.2.5-1547-g1cb137ab.txt
+net: receiving apps/bmweb.bm (492240 bytes)...
+menu idle: 292/300 frames, 5121 of 2095 ms taken, 506.2 ms past a frame; covers 4129 ms (+504.3, stk 0.8/16K), reports 946 ms (+95.9, stk 7.6/128K); min slack -8742 us, paced 0; sd 8 retried, 8 timed out
+menu idle: sd sites: rdend 8; first word <1ms 199 <3ms 12 (max 1.5 ms)
+menu stalls: tls handshake 1x last 295.2 worst 295.2 ms
+menu frame: 1x, a frame averages draw 8301 us, enlarge 1 us, flip 91 us, free time used 17070 us (300 frames)
+net: /apps/bmweb.bm received (492240 bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 207.7 ms past its slice
+net: saved /apps/bmweb.bm on the SD card (492240 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB; 8 retried, 8 timed out
+net: receiving carts/bmweb.bm (492240 bytes)...
+net: /carts/bmweb.bm received (492240 bytes): written on the SD card from the menu
+net: saved /carts/bmweb.bm on the SD card (492240 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB; 16 retried, 16 timed out
+menu idle: 283/300 frames, 7348 of 1759 ms taken, 504.1 ms past a frame; covers 7252 ms (+504.2, stk 0.8/16K), netxfer 385 ms (+207.7, stk 1.9/64K); min slack -208430 us, paced 0; sd 14 retried, 14 timed out
+menu idle: sd sites: rdend 14; first word <1ms 221 <3ms 7 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 10349 us, enlarge 1 us, flip 91 us, free time used 24493 us (300 frames)
+menu frame: 1x, a frame averages draw 7692 us, enlarge 1 us, flip 91 us, free time used 109 us (300 frames)
+menu frame: 1x, a frame averages draw 7605 us, enlarge 1 us, flip 90 us, free time used 110 us (300 frames)
+menu frame: 1x, a frame averages draw 7573 us, enlarge 1 us, flip 91 us, free time used 109 us (300 frames)
+menu frame: 1x, a frame averages draw 7766 us, enlarge 1 us, flip 90 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7676 us, enlarge 1 us, flip 91 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7595 us, enlarge 1 us, flip 91 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7622 us, enlarge 1 us, flip 91 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7754 us, enlarge 1 us, flip 90 us, free time used 107 us (300 frames)
+menu frame: 1x, a frame averages draw 7666 us, enlarge 1 us, flip 92 us, free time used 105 us (300 frames)
+menu frame: 1x, a frame averages draw 7582 us, enlarge 1 us, flip 91 us, free time used 104 us (300 frames)
+menu frame: 1x, a frame averages draw 7661 us, enlarge 1 us, flip 91 us, free time used 104 us (300 frames)
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+type 'h' for help
+> :
+:o
+: o 
+'o': not a command of the line (gpu, b3d, play, set, save, render, room, video, stack, log, err, crc, send, reboot)
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:log
+: log 
