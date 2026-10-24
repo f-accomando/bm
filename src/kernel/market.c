@@ -729,6 +729,8 @@ static void job_main(void *arg)
 
 static int start_job(void)
 {
+    if (!active)
+        return 0;
     int i;
     if (!inited) {
         job = JOB_CACHE;
@@ -983,6 +985,8 @@ const char *market_path(int i)
 
 int market_has_update(const char *path)
 {
+    if (!have)
+        return 0;
     for (int i = 0; i < cat.n; i++)
         if (slots[i].update && slots[i].path[0] && strcmp(slots[i].path, path) == 0)
             return 1;
