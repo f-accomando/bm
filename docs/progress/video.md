@@ -43,6 +43,13 @@ Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `
 7. Read the RLE565 lines at the end of the report (the bench encodes a 320x180 pixel-art test frame and a photo frame 100 times each): bytes of the frame, mean, best and worst ms, and for 15 and 30 fps the MB/s the card must take against the SD write mean of the same run. The recorder at 30 fps fits when the line says `fits` and the encode time is well under 33 ms (the bench prints it as a percentage of a frame). The pixel-art frame is a synthetic frame, not a game; the photo frame is the worst case. For a real game, set `rec=on` and `rec_fps=30` in `bm/config.txt`, play, and read the `rec: rle565, ...` line at the end of the run.
 `:video quick` runs a sixteenth of each count (the QEMU test uses it).
 
+## Pi Zero W numbers of the Video bench (24 Oct, API-4, report `10993a4b` in the `reports` branch)
+
+- SD write, 128 files of 256 KB: 1.82 MB/s mean, worst 1060 ms, 35 writes over 100 ms. Raw 15 fps does not fit. SD read: 2.29 MB/s.
+- JPEG decode: 320x180 53.15 ms mean (fits the 66 ms of 15 fps); 480x270 115.74 ms mean.
+- RLE565 encoder: a pixel-art frame is 9253 bytes (8.0% of 115 KB) in 0.78 ms; a photo frame is 70306 bytes (61.0%) in 1.75 ms. 15 fps needs 0.13 to 1.05 MB/s and fits the card. The round trip is exact.
+- Decision: RLE565 (codec 4) at 15 fps is the Pi Zero recorder; the Settings row "Screen recorder" sets `rec=on`. Next slice: audio interleaved.
+
 ## To run the recorder on the Pi (VID-REC)
 Do this after the Video bench above. It needs a game that you want to record (for example Overbit).
 1. Put these lines in `bm/config.txt` on the SD card (or send them with the monitor line `:set rec=on rec_fps=15 rec_size=320x180`):

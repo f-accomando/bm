@@ -266,7 +266,7 @@ int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
     return 0;
 }
 
-int menu_make_cover(g16_sheet_t *s, const char *title, const char *kind)
+int menu_make_cover(g16_sheet_t *s, const char *title)
 {
     if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
         return -1;
@@ -303,7 +303,6 @@ int menu_make_cover(g16_sheet_t *s, const char *title, const char *kind)
         g16_text(&cg, x + 1, y0 + i * 16 + 1, lines[i], 0);
         g16_text(&cg, x, y0 + i * 16, lines[i], g16_rgb(255, 230, 120));
     }
-    g16_text(&cg, s->w - 8 * (int)strlen(kind) - 8, s->h - 20, kind, g16_rgb(200, 210, 230));
     memset(s->alpha, 1, (size_t)s->w * s->h);
     return 0;
 }
@@ -771,23 +770,6 @@ static void cover_update(int x, int y)
             const int o = pass ? 0 : 1;
             hspan(tx + j + o, tx + 11 - j + o, ty + j + o, pass ? fill : shade);
         }
-}
-
-/* A small pill at the top-right of a loaded cover ("BM" or "B16"). */
-static void cover_format(int x, int y, const char *fmt)
-{
-    int b16 = strcmp(fmt, "b16") == 0;
-    const char *label = b16 ? "B16" : "BM";
-    int pw = (int)strlen(label) * 6 + 8, ph = 14;
-    int bx = x + CARD_W - pw - 5, by = y + 5;
-    if (by < GRID_TOP || by + ph > GRID_BOT)
-        return;
-    uint32_t bg = b16 ? 0x241808 : 0x101C2C, fg = b16 ? 0xF0A030 : 0x70B8F8;
-    round_rect(bx, by, pw, ph, 5, dim ? half(c16(bg)) : c16(bg));
-    const font_t *old = g.font;
-    g.font = &font_console_6x12;
-    m_text(bx + 4, by + 1, label, dim ? c16(C_DIM) : c16(fg));
-    g.font = old;
 }
 
 /* a download: a bar along the bottom of the cover */
@@ -1694,8 +1676,6 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         card(it->cover, x, y, it->grey);
         if (it->loading && !it->cover)
             placeholder(it, x, y, t, i);
-        if (it->format && it->format[0] && (!it->loading || it->cover))
-            cover_format(x, y, it->format);
         if (it->busy) {
             char pc[8];
             ksnprintf(pc, sizeof pc, "%d%%", it->percent);

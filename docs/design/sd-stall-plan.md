@@ -9,6 +9,13 @@ Goal: no menu frame, no game start and no game close loses more than one frame (
 2. downloads in the background (Market, a file from the PC, a kernel);
 3. lag at open, start, close and the return to the menu.
 
+## 0. Result of S0 and S1 (Pi Zero W, 24 Oct, kernel `af7ec66f`)
+
+- The timeouts sat at site `rdend` (`sd sites: rdend 14`): `wait_transfer_complete` in `sdhost.c` spun 500 ms when the controller was slow to return to idle.
+- S1 bounds that read wait to 25 ms (`timeout_us = write ? 250000u : 25000u`). A retry reads in about 1 ms. The worst frame lag in the cold-boot cover scan fell from 504.3 ms to 29.5 ms; the scan fell from 4129 ms to 407 ms.
+- `rescan()` in `src/kernel/carts.c` keeps the loaded covers (`c->cover`, `c->cover_read = 1`) across scans. Going back to the menu after a game does no SD cover read.
+- Left: report jobs still yield up to 100 ms in a TLS handshake (stages S3 and S5).
+
 ## 1. Why the fiber did not fix the 500 ms
 
 The fiber yields only between calls. The 500 ms is inside one call: `read_blocks` in `src/drivers/sdhost.c` spins on `timer_ticks() - t0 > 500000`. The hardware timeout (`SDTOUT`, `set_clock`) is also half a second. A fiber cannot give the CPU back from inside the spin. A smaller share does not help.

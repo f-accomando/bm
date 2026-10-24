@@ -120,6 +120,15 @@ settings = "Settings > Controls"
 read_in = "src/kernel/controls.c:controls_get"
 
 [[key]]
+name = "dev"
+scope = "all"
+values = "1, on, yes or true = on; anything else = off"
+default = "off"
+meaning = "Dev mode: direct kernel and app updates for debugging (dev_mode, dev_set_mode)."
+settings = "Settings > Dev mode"
+read_in = "src/kernel/config.c:102"
+
+[[key]]
 name = "dma_zclear"
 scope = "pi"
 values = "0 = off; anything else = on"

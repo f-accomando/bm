@@ -414,7 +414,7 @@ static void adopt(catalog_t *nc)
                 ns[i].cover_state = COVER_READY;
                 break;
             }
-        if (!g->cover.size && menu_make_cover(&ns[i].cover, g->title, kind_of(g)) == 0)
+        if (!g->cover.size && menu_make_cover(&ns[i].cover, g->title) == 0)
             ns[i].cover_state = COVER_READY;
     }
     for (int j = 0; j < cat.n; j++)
@@ -593,7 +593,7 @@ static void job_cover(int i)
         s->cover_state = COVER_READY;
     } else if (++s->cover_tries >= 2 || d) {
         /* broken or unreachable: the title on a label, as for games without one */
-        if (menu_make_cover(&s->cover, g->title, kind_of(g)) == 0)
+        if (menu_make_cover(&s->cover, g->title) == 0)
             s->cover_state = COVER_READY;
     } else {
         s->cover_state = COVER_WAIT;
@@ -880,7 +880,6 @@ int market_items(menu_item_t *items, int max)
         items[n++] = (menu_item_t){
             .grey = entry_grey(g, &why),
             .title = g->title, .author = g->author, .path = s->path, .kind = "market",
-            .format = b16 ? "b16" : "bm",
             .size = g->file.size, .cover = ready ? &s->cover : NULL, .loading = !ready,
             .busy = s->busy || (strcmp(want_id, g->id) == 0 && want_b16 == b16),
             .percent = s->busy && g->file.size ? (int)((uint64_t)s->got * 100 / g->file.size) : 0,

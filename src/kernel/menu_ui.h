@@ -20,7 +20,6 @@ typedef struct {
     const char *author;
     const char *path;           /* file on the SD card, or the built-in name */
     const char *kind;           /* "bm", or "tool" in the Dev tab */
-    const char *format;         /* "bm" or "b16" in the Market, or NULL */
     uint32_t size;              /* bytes */
     const g16_sheet_t *cover;   /* MENU_CARD x MENU_CARD, or NULL for a plain card */
     int running;                /* suspended in memory: a star at the top right */
@@ -180,7 +179,7 @@ void menu_ui_close(framebuffer_t *fb);
 void menu_ui_close_quiet(framebuffer_t *fb);
 
 /* A cover for cartridges without one: the title on a coloured label. */
-int  menu_make_cover(g16_sheet_t *s, const char *title, const char *kind);
+int  menu_make_cover(g16_sheet_t *s, const char *title);
 /* A cover from RGBA8888 pixels (the .bm COVER section, a Market PNG), any
  * size: a square scaled to the card; another shape (the 128x80 covers of
  * before) whole, as wide as the card, over a blurred darker copy of it. */

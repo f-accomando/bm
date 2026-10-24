@@ -238,7 +238,7 @@ static void read_cover(cart_t *c)
         menu_load_cover(&s, rgba, w, h);
     free(data);
     if (!s.px)
-        menu_make_cover(&s, c->title, kind_of(c));
+        menu_make_cover(&s, c->title);
     c->cover = s;
     c->cover_read = 1;
 }

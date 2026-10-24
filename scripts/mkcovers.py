@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Draws the 128x80 cover pictures of the demo games (carts/<game>/cover.png).
+"""Draws the 128x80 cover pictures of the bm editors (carts/<name>/cover.png).
+The covers of the games and the other apps come from scripts/mkartcovers.py.
 
 The covers are printed on the cartridges in the menu. They are drawn here
 in code (no image editor needed) with the console font; run the script again
@@ -338,9 +339,7 @@ def write():
     return c
 
 
-COVERS = (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
-          ("hunt", hunt), ("editor", editor), ("sound", sound), ("nano8", nano8), ("typing", typing),
-          ("write", write))
+COVERS = (("editor", editor), ("sound", sound), ("write", write))   # games: scripts/mkartcovers.py
 
 
 def main():

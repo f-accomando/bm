@@ -38,7 +38,6 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
   SPDX id). Confirm the string.
 - Next migrations: `texroom`, `demo`, `stress` (test carts), `sdk_b16` and `titan_ex` (own layouts); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
-- `mkcover.py` of `yharnam` gives a different `cover.png` with this Pillow (12.3.0): pin the version or leave the cover as it is?
 
 ## Found while checking the manuals (to fix in the source documents)
 - bm Pixel only SHOWS zones and boxes (toggle `j`, commits of 2026-10-12); it does not make them. Zones and boxes are made by bm Animator's bake and by `mkbm.py --sprites` / `bmres.py`; `docs/design/suite-pixel.md` proposes the editing tools (F4 zones page, box editor), not built yet. (`GAME-GUIDE.md` and `GUIDA-GIOCHI.md` said Pixel makes zones: fixed.)

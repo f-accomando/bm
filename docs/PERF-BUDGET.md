@@ -105,6 +105,12 @@ The 3D rows count triangles that the game gives to the 3D (`submitted`). The GPU
 | Raw V3D speed | 2966 thousand small triangles a second. 811 Mpixel a second for full screens (render only) | `gpu-091318`, steps 6 and 7 | GPU test | not verified on hardware |
 | 3D particles | not measured (the scene is not developed: `docs/BENCH3D.md`) | - | - | not verified on hardware |
 
+### Pi Zero W, 24 Oct (reports `c51c239a`, `dfedfea0`, `62dc910a`)
+
+- `herotris`, drawn60 triangles a frame: ARM 2385 (40.8 ms), GPU 3214 (30.3 ms), GPU+VS 29398 (15.4 ms), GPU+VS+Q 49956 (13.7 ms), GPU+VS+Q2 50024 (13.5 ms), GPU+VS+FS2 28830, GPU+VS+A8 28875, GPU+VS+A8+Q 49989. VS plus the queue holds 50k triangles at 60 fps.
+- `htmap`: `ht_p10m` equals `ht_p10` (40360 triangles, 16.2 ms against 16.4 ms). Draw merging gives +33% for `ht_p100m` (4.0 against 3.0 n60). With the queue `ht_p100m` draws 60242 and `ht_p10m` 91475 triangles at 60 fps.
+- `bmweb`: 723 frames at 59.6 fps, no late frame, update+draw 3.22 ms mean and 4.29 ms worst.
+
 ## RGB30: the old ARM-rasteriser report
 
 The RGB30 has no report for the current drivers. The Mali driver and the 2D scenes have no numbers: `not verified on hardware`.

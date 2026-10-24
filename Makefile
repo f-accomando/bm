@@ -182,9 +182,9 @@ $(BUILD)/pixel.bm: carts/pixel/bm.info carts/pixel/main.lua carts/pixel/icon.png
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/pixel/icon.png --info carts/pixel/bm.info
 
-$(BUILD)/stress.bm: carts/stress/main.lua carts/stress/bm.info scripts/mkbm.py
+$(BUILD)/stress.bm: carts/stress/main.lua carts/stress/bm.info carts/stress/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stress/bm.info
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stress/bm.info --cover carts/stress/cover.png
 
 # Texture Room (M14, M33): the 3D benchmark of the Dev tab, built into the
 # kernel; the benchmark runs it at 320x180 and 640x360 (bm_next_run)
@@ -194,11 +194,11 @@ $(BUILD)/texroom.bm: carts/texroom/main.lua carts/texroom/assets/sheet.png carts
 	    --cover carts/texroom/cover.png --sheet carts/texroom/assets/sheet.png
 
 # Native demo cartridge (.bm): Lua + sprite sheet + map
-DEMO_BM_SRC := carts/demo/main.lua carts/demo/assets/sheet.png carts/demo/assets/map.csv carts/demo/bm.info
+DEMO_BM_SRC := carts/demo/main.lua carts/demo/assets/sheet.png carts/demo/assets/map.csv carts/demo/bm.info carts/demo/cover.png
 $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/assets/sheet.png \
-	    --map carts/demo/assets/map.csv --info carts/demo/bm.info
+	    --map carts/demo/assets/map.csv --info carts/demo/bm.info --cover carts/demo/cover.png
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing write ko2
@@ -254,9 +254,9 @@ BMWEB_SRC := $(sort $(wildcard carts/bmweb/src/*.lua)) carts/bmweb/main.lua
 $(BUILD)/bmweb/main.lua: $(BMWEB_SRC) carts/bmweb/build/build.py
 	$(PYTHON) carts/bmweb/build/build.py $@
 
-$(BUILD)/carts/bmweb.bm $(BUILD)/carts/bmweb.bme: $(BUILD)/carts/bmweb.%: $(BUILD)/bmweb/main.lua scripts/mkbm.py carts/bmweb/bm.info
+$(BUILD)/carts/bmweb.bm $(BUILD)/carts/bmweb.bme: $(BUILD)/carts/bmweb.%: $(BUILD)/bmweb/main.lua scripts/mkbm.py carts/bmweb/bm.info carts/bmweb/cover.png
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/bmweb/bm.info
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/bmweb/bm.info --cover carts/bmweb/cover.png
 
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
@@ -275,10 +275,10 @@ TITAN_EX_SRC := $(sort $(wildcard carts/titan_ex/src/*.lua))
 $(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) carts/titan_ex/build/build.py
 	$(PYTHON) carts/titan_ex/build/build.py $@ --map $(BUILD)/titan_ex/main.map
 
-$(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/assets/sheet.png carts/titan/cover.png scripts/mkbm.py
+$(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/assets/sheet.png carts/titan_ex/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/titan_ex/bm.info \
-	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan/cover.png
+	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan_ex/cover.png
 
 # Stages 3D (W03): shared logic in carts/stages3d/common, one front per edition (bm/ now, b16/ later)
 STAGES3D_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/bm/*.lua))
@@ -286,9 +286,9 @@ STAGES3D_ASSETS := carts/stages3d/assets/sheet.png $(addprefix carts/stages3d/as
 $(BUILD)/stages3d/bm/main.lua: $(STAGES3D_SRC) carts/stages3d/build/build.py
 	$(PYTHON) carts/stages3d/build/build.py bm $@ --map $(BUILD)/stages3d/bm/main.map
 
-$(BUILD)/carts/stages3d.bm: $(BUILD)/stages3d/bm/main.lua $(STAGES3D_ASSETS) carts/stages3d/bm/bm.info scripts/mkbm.py
+$(BUILD)/carts/stages3d.bm: $(BUILD)/stages3d/bm/main.lua $(STAGES3D_ASSETS) carts/stages3d/bm/bm.info carts/stages3d/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/bm/bm.info --sheet carts/stages3d/assets/sheet.png \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/bm/bm.info --cover carts/stages3d/cover.png --sheet carts/stages3d/assets/sheet.png \
 	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
 	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
 
@@ -297,9 +297,9 @@ STAGES3D_B16_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d
 $(BUILD)/stages3d/b16/main.lua: $(STAGES3D_B16_SRC) carts/stages3d/build/build.py
 	$(PYTHON) carts/stages3d/build/build.py b16 $@ --map $(BUILD)/stages3d/b16/main.map
 
-$(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) carts/stages3d/b16/bm.info scripts/mkbm.py
+$(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) carts/stages3d/b16/bm.info carts/stages3d/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/b16/bm.info --sheet carts/stages3d/assets/sheet.png \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/b16/bm.info --cover carts/stages3d/cover.png --sheet carts/stages3d/assets/sheet.png \
 	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
 	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
 
@@ -339,9 +339,9 @@ HEROCART_ASSETS := $(addprefix carts/herocart/assets/,sheet.png models.bm map_fl
 $(BUILD)/herocart/main.lua: $(HEROCART_SRC) carts/herocart/build/build.py
 	$(PYTHON) carts/herocart/build/build.py $@ --map $(BUILD)/herocart/main.map
 
-$(BUILD)/carts/herocart.bm: $(BUILD)/herocart/main.lua $(HEROCART_ASSETS) scripts/mkbm.py carts/herocart/bm.info
+$(BUILD)/carts/herocart.bm: $(BUILD)/herocart/main.lua $(HEROCART_ASSETS) scripts/mkbm.py carts/herocart/bm.info carts/herocart/cover.png
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/herocart/bm.info --sheet carts/herocart/assets/sheet.png 	    --map floor=carts/herocart/assets/map_floor.csv --map height=carts/herocart/assets/map_height.csv 	    --map walls=carts/herocart/assets/map_walls.csv --models carts/herocart/assets/models.bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/herocart/bm.info --cover carts/herocart/cover.png --sheet carts/herocart/assets/sheet.png 	    --map floor=carts/herocart/assets/map_floor.csv --map height=carts/herocart/assets/map_height.csv 	    --map walls=carts/herocart/assets/map_walls.csv --models carts/herocart/assets/models.bm
 
 # Overbit (M38): a hero shooter in 3D. Several Lua files joined by its
 # build.py; the heroes' models and animations (MESH, ANIM) made by

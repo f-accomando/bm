@@ -239,7 +239,7 @@ static void load_cover(int i)
         menu_load_cover(&games[i].cover, rgba, w, h);
     free(data);
     if (!games[i].cover.px)
-        menu_make_cover(&games[i].cover, games[i].title, games[i].is_bm ? "bm" : "b16");
+        menu_make_cover(&games[i].cover, games[i].title);
 }
 
 /* the games by title, as on the Pi (carts.c title_cmp) */
