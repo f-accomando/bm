@@ -14,16 +14,30 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/ledger_subagent.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/bm_robot.py\" --hook"
           }
         ]
       }
     ],
-	"SessionStart": [
+    "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/branch_cleanup.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/bm_robot.py\" --hook"
           }
         ]
       }
@@ -35,6 +49,10 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/branch_cleanup.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/bm_robot.py\" --hook"
           }
         ]
       }

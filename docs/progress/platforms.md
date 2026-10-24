@@ -18,7 +18,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   Zero 2 W; LED GPIO per board in `led.c`). ARM clock raised to the firmware's maximum
   (`prop_clock_set_max(CLOCK_ARM)`).
 - Boot, memory, drivers: [system](system.md). Network kernel tag `bmK6` at offset 4 (`src/boot/start.S`).
-- Pi 1 GPIO SPI TFT (`src/drivers/spilcd.c`): 3.5" 480×320 ILI9486 on SPI0 (XPT2046 idle); standalone desk-robot mode (`spilcd_desk_robot`) in `Settings > Screen > GPIO screen` (`BOARD_PI1_A`..`BOARD_CM1`).
+- Pi 1 GPIO SPI TFT (`src/drivers/spilcd.c`): 3.5" 480×320 ILI9486 on SPI0 (XPT2046 idle); standalone desk-robot mode (`spilcd_desk_robot`, multi-agent UDP 3337 via `tools/bm_robot.py`) in `Settings > Screen > GPIO screen` (`BOARD_PI1_A`..`BOARD_CM1`).
 
 ### Pi Zero 2 W (`-DBM_ZERO2`)
 - Off in `make`, `test`, `install`, `image`, `release` and CI; the `BM_ZERO2` code stays
@@ -78,7 +78,6 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 - **Mali-G52 driver** (RGB30): Overbit in `.b16` at 360×360 and 720×720, ARM benchmark and Mali driver (details in [graphics-mali](graphics-mali.md)).
 - **`.b16` profile**: unified `.b16` profile (details in [b16](b16.md)).
 - **Handheld shell for the Pi Zero**: support for handheld setups based on the Pi Zero (reading keys and pad directly on GPIO pins, compact display on a DPI or SPI bus).
-- **Pi 1 GPIO SPI TFT** (`src/drivers/spilcd.c`): 3.5" SPI TFT (480×320, ILI9486; XPT2046 touch chip left idle) on SPI0 of the Pi 1 (ARMv6 `kernel.img`, not Pi Zero). Standalone desk-robot workstation mode (`spilcd_desk_robot`) activated from `Settings > Screen > GPIO screen`.
 - RGB30 runs on one core (no PSCI `CPU_ON`), fibers in the menu only; multicore: [multitasking](multitasking.md).
 - RGB30 panel after a warm restart: confirmed OK on hardware on 21 Oct 2026. Watch for a regression (`src/rgb30/rk_dsi.c`):
   1. The black screen after a restart or an update may come back now that the boot power

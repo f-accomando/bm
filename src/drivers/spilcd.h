@@ -16,8 +16,9 @@
  *   MISO      GPIO 9 (unused)         Touch IRQ GPIO 17 (unused)
  * Backlight: wired to 3.3 V on the board, no pin. */
 
-#define SPILCD_W 480
-#define SPILCD_H 320
+#define SPILCD_W        480
+#define SPILCD_H        320
+#define SPILCD_UDP_PORT 3337
 
 /* Resets the panel, sends the ILI9486 start-up sequence, clears it to black
  * and turns the display on. Returns 0 on a Pi 1, -1 on other boards. */

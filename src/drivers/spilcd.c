@@ -15,6 +15,8 @@
 #include "gfx/font.h"
 #include "kernel/input.h"
 #include "lib/printf.h"
+#include "net/cartnet.h"
+#include "net/netcon.h"
 #include "usb/hid.h"
 
 #include <stdlib.h>
@@ -706,24 +708,259 @@ static void draw_desk_and_arms(g16_t *g, unsigned frame, int st)
     }
 }
 
-static void draw_hud(g16_t *g, int st, unsigned tasks, uint32_t t0)
+static void draw_hud(g16_t *g, int st, const char *custom_sub, int active_agents,
+                     unsigned tasks, uint32_t t0)
 {
     /* Unified top status bar sized so all text stays strictly inside */
     round_box(g, 6, 4, SPILCD_W - 12, 20, 5, 0x161A22);
     g16_circfill(g, 18, 14, 4, g16_rgb24(states[st].col));
 
-    g16_clip(g, 10, 4, SPILCD_W - 20, 20);
-    g->font = &font_console_6x12;
-    int x = g16_text(g, 28, 8, states[st].badge, g16_rgb24(states[st].col));
-    g16_text(g, x + 10, 8, states[st].sub, g16_rgb24(0xD8DEE9));
-
     char stat[32];
     uint32_t sec = (timer_ticks() - t0) / 1000000u;
-    ksnprintf(stat, sizeof stat, "TASKS:%02u %02lu:%02lu",
-              tasks, (unsigned long)(sec / 60), (unsigned long)(sec % 60));
+    if (active_agents > 0) {
+        ksnprintf(stat, sizeof stat, "%dAG T:%02u %02lu:%02lu",
+                  active_agents, tasks,
+                  (unsigned long)(sec / 60), (unsigned long)(sec % 60));
+    } else {
+        ksnprintf(stat, sizeof stat, "TASKS:%02u %02lu:%02lu",
+                  tasks, (unsigned long)(sec / 60), (unsigned long)(sec % 60));
+    }
     int sw = (int)strlen(stat) * 6;
-    g16_text(g, SPILCD_W - 14 - sw, 8, stat, g16_rgb24(0xEAE2C8));
+    int stat_x = SPILCD_W - 14 - sw;
+
+    /* Clip badge + subtitle strictly to the left of the right-aligned counters */
+    g16_clip(g, 10, 4, stat_x - 16, 20);
+    g->font = &font_console_6x12;
+    const char *badge = (st == ST_BELL && custom_sub && custom_sub[0])
+                        ? "BM-CORE!" : states[st].badge;
+    const char *sub = (custom_sub && custom_sub[0]) ? custom_sub : states[st].sub;
+    int x = g16_text(g, 28, 8, badge, g16_rgb24(states[st].col));
+    g16_text(g, x + 8, 8, sub, g16_rgb24(0xD8DEE9));
+
+    g16_clip(g, 10, 4, SPILCD_W - 20, 20);
+    g16_text(g, stat_x, 8, stat,
+             g16_rgb24(active_agents > 1 ? 0x9BF6FF : 0xEAE2C8));
     g16_clip(g, 0, 0, SPILCD_W, SPILCD_H);
+}
+
+/* ---------------------------------------------------------------- Multi-agent UDP state aggregator */
+
+#define MAX_SESSIONS    8
+#define SESSION_TTL_US  20000000u   /* 20 s per-agent session activity timeout */
+#define BELL_HOLD_US    4000000u    /* 4 s celebration hold when bm-core is merged */
+#define STATE_HOLD_US   1200000u    /* 1.2 s hysteresis against rapid state jitter */
+#define DEDUP_MERGE_US  10000000u   /* 10 s deduplication window for same merge event */
+
+typedef struct {
+    int used;
+    char id[16];
+    int st;
+    char msg[36];
+    uint32_t seen_us;
+} robo_session_t;
+
+typedef struct {
+    robo_session_t slots[MAX_SESSIONS];
+    int bell_active;
+    uint32_t bell_until_us;
+    char bell_msg[36];
+    char last_merge_key[36];
+    uint32_t last_merge_us;
+    int held_st;
+    uint32_t held_until_us;
+} robo_hub_t;
+
+static int state_priority(int st)
+{
+    switch (st) {
+    case ST_BELL:      return 6;
+    case ST_DEBUGGING: return 5;
+    case ST_BUILDING:  return 4;
+    case ST_CODING:    return 3;
+    case ST_THINKING:  return 2;
+    default:           return 1;
+    }
+}
+
+static int parse_state_token(const char *s)
+{
+    if (strcmp(s, "merge") == 0 || strcmp(s, "bell") == 0 ||
+        strcmp(s, "ding") == 0 || strcmp(s, "done") == 0)
+        return ST_BELL;
+    if (strcmp(s, "debug") == 0 || strcmp(s, "debugging") == 0 ||
+        strcmp(s, "fail") == 0 || strcmp(s, "error") == 0)
+        return ST_DEBUGGING;
+    if (strcmp(s, "build") == 0 || strcmp(s, "building") == 0 ||
+        strcmp(s, "compile") == 0 || strcmp(s, "compiling") == 0)
+        return ST_BUILDING;
+    if (strcmp(s, "code") == 0 || strcmp(s, "coding") == 0 ||
+        strcmp(s, "type") == 0 || strcmp(s, "typing") == 0 ||
+        strcmp(s, "edit") == 0)
+        return ST_CODING;
+    if (strcmp(s, "think") == 0 || strcmp(s, "thinking") == 0 ||
+        strcmp(s, "read") == 0 || strcmp(s, "plan") == 0)
+        return ST_THINKING;
+    if (strcmp(s, "coffee") == 0 || strcmp(s, "idle") == 0 ||
+        strcmp(s, "rest") == 0)
+        return ST_COFFEE;
+    if (strcmp(s, "bye") == 0 || strcmp(s, "stop") == 0)
+        return -2;
+    return -1;
+}
+
+static char *next_tok(char **p)
+{
+    char *s = *p;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n')
+        s++;
+    if (!*s) {
+        *p = s;
+        return NULL;
+    }
+    char *start = s;
+    while (*s && *s != ' ' && *s != '\t' && *s != '\r' && *s != '\n')
+        s++;
+    if (*s)
+        *s++ = 0;
+    *p = s;
+    return start;
+}
+
+static void bell_chime(void)
+{
+    audio_note(0, 1047, 70, 4, 90);
+    audio_note(1, 1568, 65, 4, 140);
+}
+
+/* Packet format on UDP 3337:
+ *   BMROBO <password> <session_id> <state> [optional message...]
+ * Stateless & connectionless: any number of concurrent agents/sessions can
+ * send packets simultaneously without blocking or dropping TCP console 3333. */
+static void robo_hub_ingest(robo_hub_t *hub, char *pkt, uint32_t now, unsigned *tasks)
+{
+    char *cur = pkt;
+    char *magic = next_tok(&cur);
+    char *pw    = next_tok(&cur);
+    char *sid   = next_tok(&cur);
+    char *st_s  = next_tok(&cur);
+    if (!magic || !pw || !sid || !st_s || strcmp(magic, "BMROBO") != 0)
+        return;
+
+    const char *expect_pw = netcon_password();
+    if (expect_pw && expect_pw[0] && strcmp(pw, expect_pw) != 0)
+        return;
+
+    while (*cur == ' ' || *cur == '\t')
+        cur++;
+    size_t mlen = strlen(cur);
+    while (mlen > 0 && (cur[mlen - 1] == '\r' || cur[mlen - 1] == '\n' || cur[mlen - 1] == ' '))
+        cur[--mlen] = 0;
+
+    int parsed = parse_state_token(st_s);
+    if (parsed == -1)
+        return;
+
+    /* Remove slot if session explicitly says bye/stop */
+    if (parsed == -2) {
+        for (int i = 0; i < MAX_SESSIONS; i++) {
+            if (hub->slots[i].used && strcmp(hub->slots[i].id, sid) == 0)
+                hub->slots[i].used = 0;
+        }
+        return;
+    }
+
+    /* High-priority merge / bell trigger (deduplicated across multi-agent hooks) */
+    if (parsed == ST_BELL) {
+        const char *mkey = cur[0] ? cur : "merged -> bm-core";
+        int dup = hub->last_merge_key[0] &&
+                  strcmp(hub->last_merge_key, mkey) == 0 &&
+                  (now - hub->last_merge_us) < DEDUP_MERGE_US;
+        if (!dup) {
+            ksnprintf(hub->last_merge_key, sizeof hub->last_merge_key, "%s", mkey);
+            hub->last_merge_us = now;
+            (*tasks)++;
+            bell_chime();
+        }
+        ksnprintf(hub->bell_msg, sizeof hub->bell_msg, "%s", mkey);
+        hub->bell_active = 1;
+        hub->bell_until_us = now + BELL_HOLD_US;
+        return;
+    }
+
+    /* Find existing session slot or allocate the oldest/free one */
+    int idx = -1, oldest = 0;
+    for (int i = 0; i < MAX_SESSIONS; i++) {
+        if (hub->slots[i].used && strcmp(hub->slots[i].id, sid) == 0) {
+            idx = i;
+            break;
+        }
+        if (!hub->slots[i].used && idx < 0)
+            idx = i;
+        if (hub->slots[i].used &&
+            (now - hub->slots[i].seen_us) > (now - hub->slots[oldest].seen_us))
+            oldest = i;
+    }
+    if (idx < 0)
+        idx = oldest;
+
+    robo_session_t *s = &hub->slots[idx];
+    s->used = 1;
+    ksnprintf(s->id, sizeof s->id, "%s", sid);
+    s->st = parsed;
+    ksnprintf(s->msg, sizeof s->msg, "%s", cur);
+    s->seen_us = now;
+}
+
+static int robo_hub_resolve(robo_hub_t *hub, uint32_t now, int *out_st,
+                            const char **out_sub)
+{
+    int active = 0;
+    int best_idx = -1;
+
+    for (int i = 0; i < MAX_SESSIONS; i++) {
+        robo_session_t *s = &hub->slots[i];
+        if (!s->used)
+            continue;
+        if (now - s->seen_us > SESSION_TTL_US) {
+            s->used = 0;
+            continue;
+        }
+        active++;
+        if (best_idx < 0) {
+            best_idx = i;
+        } else {
+            int p_new = state_priority(s->st);
+            int p_cur = state_priority(hub->slots[best_idx].st);
+            if (p_new > p_cur ||
+                (p_new == p_cur && (int32_t)(s->seen_us - hub->slots[best_idx].seen_us) > 0))
+                best_idx = i;
+        }
+    }
+
+    if (hub->bell_active) {
+        if ((int32_t)(hub->bell_until_us - now) > 0) {
+            *out_st = ST_BELL;
+            *out_sub = hub->bell_msg;
+            return active > 0 ? active : 1;
+        }
+        hub->bell_active = 0;
+    }
+
+    if (best_idx < 0) {
+        *out_sub = NULL;
+        return 0;
+    }
+
+    int target_st = hub->slots[best_idx].st;
+    /* Hysteresis: switch immediately to higher-priority states, hold briefly before dropping */
+    if (state_priority(target_st) >= state_priority(hub->held_st) ||
+        (int32_t)(now - hub->held_until_us) >= 0) {
+        hub->held_st = target_st;
+        hub->held_until_us = now + STATE_HOLD_US;
+    }
+    *out_st = hub->held_st;
+    *out_sub = hub->slots[best_idx].msg[0] ? hub->slots[best_idx].msg : NULL;
+    return active;
 }
 
 /* Diffs `cur` against `prev` in 16-row horizontal strips and sends only the
@@ -788,12 +1025,6 @@ static void blit_hdmi(framebuffer_t *fb, const uint16_t *canvas, int first)
     }
 }
 
-static void bell_chime(void)
-{
-    audio_note(0, 1047, 70, 4, 90);
-    audio_note(1, 1568, 65, 4, 140);
-}
-
 void spilcd_desk_robot(framebuffer_t *fb)
 {
     size_t bytes = (size_t)SPILCD_W * SPILCD_H * sizeof(uint16_t);
@@ -822,14 +1053,34 @@ void spilcd_desk_robot(framebuffer_t *fb)
 
     int st = ST_CODING;
     unsigned st_frames = 0, frame = 0, tasks = 1;
+    int udp_sock = cartnet_open(SPILCD_UDP_PORT);
+    robo_hub_t hub;
+    memset(&hub, 0, sizeof hub);
 
     for (;;) {
         uint32_t frame_t0 = timer_ticks();
 
+        /* Open UDP socket lazily if network came up after entering the screen */
+        if (udp_sock < 0 && cartnet_ip() != 0)
+            udp_sock = cartnet_open(SPILCD_UDP_PORT);
+
+        /* Drain all queued UDP packets from any concurrent agents/sessions */
+        if (udp_sock >= 0) {
+            char pkt[160];
+            int n;
+            while ((n = cartnet_recv(udp_sock, pkt, (int)sizeof pkt - 1, NULL, NULL)) > 0) {
+                pkt[n] = 0;
+                robo_hub_ingest(&hub, pkt, frame_t0, &tasks);
+            }
+        }
+
+        const char *custom_sub = NULL;
+        int active_agents = robo_hub_resolve(&hub, frame_t0, &st, &custom_sub);
+
         memcpy(canvas, bg_canvas, bytes);
         draw_robot_upper(&g, frame, st);
         draw_desk_and_arms(&g, frame, st);
-        draw_hud(&g, st, tasks, t0);
+        draw_hud(&g, st, custom_sub, active_agents, tasks, t0);
 
         blit_diff(canvas, prev_canvas, frame == 0);
         blit_hdmi(fb, canvas, frame == 0);
@@ -883,14 +1134,18 @@ void spilcd_desk_robot(framebuffer_t *fb)
             break;
 
         frame++;
-        st_frames++;
-        if (st_frames >= states[st].frames) {
-            st_frames = 0;
-            st = (st + 1) % ST_COUNT;
-            if (st == ST_BELL) {
-                tasks++;
-                bell_chime();
+        if (active_agents == 0) {
+            st_frames++;
+            if (st_frames >= states[st].frames) {
+                st_frames = 0;
+                st = (st + 1) % ST_COUNT;
+                if (st == ST_BELL) {
+                    tasks++;
+                    bell_chime();
+                }
             }
+        } else {
+            st_frames = 0;
         }
 
         uint32_t elapsed = timer_ticks() - frame_t0;
@@ -898,6 +1153,8 @@ void spilcd_desk_robot(framebuffer_t *fb)
             timer_delay_us(33000u - elapsed);
     }
 
+    if (udp_sock >= 0)
+        cartnet_close(udp_sock);
     input_pad_keys(0);
     free(prev_canvas);
     free(canvas);
