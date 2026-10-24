@@ -195,7 +195,7 @@ typedef struct {
     int wait;
     g16_sheet_t cover;
     const char *report;                 /* what it prints is a report of this kind (reports.h), or NULL */
-    int group;                          /* a utility: 1 = Settings > Screen and sound, 0 = Settings > System */
+    int group;                          /* a utility: 1 = Settings > Screen, 0 = Settings > System */
 } tool_t;
 
 /* bm Code, the code editor */
@@ -211,7 +211,7 @@ static tool_t tools[] = {
     { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 }, NULL, 0 },
     { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL, 0 },
 #define NDEV 4
-    /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen and sound */
+    /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen */
     { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 }, "stress", 1 },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 }, "dma", 0 },
     { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 }, "gpu", 1 },

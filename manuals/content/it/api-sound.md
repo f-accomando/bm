@@ -30,7 +30,7 @@ Un terzo modo sta sopra le note: **riff** (vedi il capitolo "riff: musica a patt
 
 ## Il sintetizzatore
 
-Il sintetizzatore è **hi-fi**: onde senza aliasing, inviluppi esponenziali, un filtro risonante, una stanza (riverbero) e un'eco, e un compressore leggero in uscita. La voce a **8 bit** delle prime versioni resta disponibile: `retro(true)`, la chiave `raw` di `tone()`, oppure *Settings > Screen and sound > Sound style*.
+Il sintetizzatore è **hi-fi**: onde senza aliasing, inviluppi esponenziali, un filtro risonante, una stanza (riverbero) e un'eco, e un compressore leggero in uscita. La voce a **8 bit** delle prime versioni resta disponibile: `retro(true)`, la chiave `raw` di `tone()`, oppure *Settings > Sound > Sound style*.
 
 Forme d'onda (nomi globali, usabili in `note()`):
 
@@ -249,7 +249,7 @@ Suona una nota tenuta e rilasciala: `note(0, "A4")` la fa partire e la tiene acc
 | `reverb([size], [damp], [wet])` | la stanza in cui suonano le voci (0-1: da una stanza piccola a una sala, da brillante a spenta, quanto si sente); restituisce i tre valori. Ogni voce ci manda ciò che dice il suo `reverb` (poco per default: 0.16) |
 | `echo([ms], [feedback], [wet])` | l'eco ping-pong (sinistra, destra): il tempo tra le ripetizioni (680 ms al massimo), quanto ritorna (0-0.95), quanto si sente; restituisce i tre valori. Ciò che entra è l'`echo` di ogni voce |
 | `chorus([rate_hz], [depth_ms], [wet])` | il chorus (due ritardi che oscillano, a sinistra e a destra: ampiezza per pad e tastiere): quanto veloce oscilla (0.05-5 Hz, predefinito 0.8), quanto lontano (0-8 ms, predefinito 2.5), quanto si sente (0-1, predefinito 1); restituisce i tre valori. Ciò che entra è il `chorus` di ogni voce |
-| `audio_depth()` | `bits, out`: i bit di ogni campione che la console invia (16, 24 o 32: `sound_depth` in `bm/config.txt`, *Settings > Screen and sound > Bit depth*, 24 per default) e ciò che l'uscita chiede ora (0: nessuno). Un gioco lo legge, non lo cambia |
+| `audio_depth()` | `bits, out`: i bit di ogni campione che la console invia (16, 24 o 32: `sound_depth` in `bm/config.txt`, *Settings > Sound > Bit depth*, 24 per default) e ciò che l'uscita chiede ora (0: nessuno). Un gioco lo legge, non lo cambia |
 | `audio_samples(["kit"])` | i campioni del banco della cartuccia (la voce `n + 1` è quella che suona `sample = n`) oppure, con `"kit"`, gli otto tamburi del kit: `{ {name=, frames=, rate=, channels=, root=, fine=, loop=, loop_start=, loop_end=, peak=, meter=}, ... }`. `rate` Hz, `root` nota MIDI, `fine` cent, `loop` 0 nessuno, 1 avanti, 2 ping-pong (`loop_start`, `loop_end` in frame), `peak` 0-1 del fondo scala, `meter` 32 picchi 0-1 dall'inizio alla fine |
 | `retro([on])` | ogni voce a **8 bit** come nelle prime versioni (onde ingenue, inviluppi lineari, niente stanza né eco) mentre il gioco gira; restituisce se lo sono (anche Settings può chiederlo) |
 | `audio_time()` | l'orologio del suono in secondi (avanza con i campioni suonati) |
@@ -337,7 +337,7 @@ Otto tamburi fatti dal sintetizzatore all'avvio della console (nulla di registra
 
 ## Profondità in bit
 
-Il mix è in float e viene arrotondato una sola volta, con dither, alla profondità che l'uscita porta: `sound_depth=16|24|32` in `bm/config.txt` (*Settings > Screen and sound > Bit depth*, 24 per default). L'HDMI del Pi e il codec dell'RGB30 convertono al massimo 24 bit; `16` è esattamente il vecchio percorso. `audio_depth()` dice a un gioco quale è.
+Il mix è in float e viene arrotondato una sola volta, con dither, alla profondità che l'uscita porta: `sound_depth=16|24|32` in `bm/config.txt` (*Settings > Sound > Bit depth*, 24 per default). L'HDMI del Pi e il codec dell'RGB30 convertono al massimo 24 bit; `16` è esattamente il vecchio percorso. `audio_depth()` dice a un gioco quale è.
 
 ::: warn
 [DA COMPLETARE: l'uscita a 24 e 32 bit non è ancora stata provata sulla console RGB30; se a 24 suona male, `sound_depth=16` è esattamente il vecchio percorso]

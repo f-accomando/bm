@@ -139,7 +139,7 @@ Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the
 
 ## Impostazioni
 
-Le Impostazioni hanno queste pagine: Controllers, WiFi and network (Network su una scheda senza radio), Screen and sound, Updates, Reports e System, poi le righe *Restart* e *Shut down*. System mostra la versione, la scheda, il tempo di accensione, la memoria in uso, la CPU, la scheda SD e la batteria, e ha *Log since boot* e *Open the monitor*.
+Le Impostazioni hanno queste pagine: Controllers, WiFi and network (Network su una scheda senza radio), Screen, Sound, Updates, Reports e System, poi le righe *Restart* e *Shut down*. System mostra la versione, la scheda, il tempo di accensione, la memoria in uso, la CPU, la scheda SD e la batteria, e ha *Log since boot* e *Open the monitor*.
 
 System ha anche *SD map*: una barra di ciò che c'è sulla scheda, divisa in Kernel, bm (giochi), bme (progetti), glb e bmm (modelli), Other e Free, la dimensione di ciascuno, i file e i kilobyte di ogni cartella, e un elenco *Other files* con i file che il menu non sa mostrare, i più grandi per primi. Il menu legge la scheda quando è libero e mai mentre gira un gioco o uno strumento; la riga *Scan* mostra lo stato e la percentuale. La console tiene l'ultimo risultato in `bm/sdmap.txt`. La SD map non è verificata su hardware (Pi Zero W o RGB30).
 
@@ -168,7 +168,7 @@ Su un pad, **PS** o **Start+Select** fanno ciò che fa Ctrl+Esc. Il sistema segn
 ## Da sapere
 
 - In una partita di rete il sistema non sospende il gioco: chiede "Leave the match?" e, se rispondi sì, il gioco si chiude.
-- L'overlay mostra i fotogrammi al secondo, i millisecondi di lavoro in un fotogramma e il carico di CPU e GPU. Dura una sola esecuzione; ogni gioco parte come dice Settings > Screen and sound > *Performance overlay* (spento di default).
+- L'overlay mostra i fotogrammi al secondo, i millisecondi di lavoro in un fotogramma e il carico di CPU e GPU. Dura una sola esecuzione; ogni gioco parte come dice Settings > Screen > *Performance overlay* (spento di default).
 - Dalla linea seriale, Ctrl+\ funziona come Ctrl+Esc.
 
 # Scoprire i tasti di un gioco

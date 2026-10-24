@@ -99,7 +99,7 @@ Each row has a short name, its values, how the cart applies it and which of the 
 Notes:
 
 - Rows 12 and 20 exist from stage 1 as greyed rows, so the panel does not move when a stage lands.
-- `tex16`, `etc1`, `fs2` and `attr` are console options. The panel shows them on the `options` line in the header (the same text as `gpu3d_options_line` puts in a bench report), with the hint "Settings > Screen and sound > 3D textures".
+- `tex16`, `etc1`, `fs2` and `attr` are console options. The panel shows them on the `options` line in the header (the same text as `gpu3d_options_line` puts in a bench report), with the hint "Settings > Screen > 3D textures".
 - A row the console cannot do (no GPU in QEMU and on the RGB30, `vs` refused, `aa` refused) shows the value that is really in force. The cart reads it back from `gpu3d()` after each change.
 - Rows 4 to 8 call `gpu3d` once per change, never every frame.
 

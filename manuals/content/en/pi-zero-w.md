@@ -144,7 +144,7 @@ QEMU runs about 2 times slower than the Pi on sprites (2133 against 4482 at 60 f
 - All 2D is C code on the ARM; Lua only gives the logic (source: `docs/progress/graphics.md`).
 - Cartridges draw in RGB565 (16 bit). The console and the menu use 32 bit (source: `docs/HARDWARE.md`). RGB565 halves the bytes per pixel; 32 bit doubles the frame copy time from about 6.5 ms to about 13 ms with the CPU (source: `docs/PERFORMANCE.md`).
 - The framebuffer comes from the firmware mailbox. Its height is the screen height times the number of pages (1 to 3). A page flip changes the virtual offset (source: `docs/progress/graphics.md`).
-- The cartridges draw directly into the video memory by default, because copying from RAM reads back the slow SDRAM: 8.58 ms direct against 11.85 ms through RAM (source: `docs/PERFORMANCE.md`). *Settings > Screen and sound > Game drawing (.bm)* switches between `Direct` and `Via RAM` (source: `src/kernel/settings.c`).
+- The cartridges draw directly into the video memory by default, because copying from RAM reads back the slow SDRAM: 8.58 ms direct against 11.85 ms through RAM (source: `docs/PERFORMANCE.md`). *Settings > Screen > Game drawing (.bm)* switches between `Direct` and `Via RAM` (source: `src/kernel/settings.c`).
 - bm uses triple buffering, which removed the tearing on the lower half of the menu (source: `docs/PERFORMANCE.md`).
 - The 4x4 lighting grid, bilinear and dithered, is used by games with dynamic lights, at 320x180 (source: `docs/PERFORMANCE.md`).
 
@@ -224,7 +224,7 @@ It is the driver bm3d 0.2. It draws everything when `gpu3d=0`, in QEMU, when the
 | Situation | Who draws |
 |---|---|
 | A V3D answers and `gpu3d` is not 0 | the GPU (default) |
-| `gpu3d=0` in `bm/config.txt`, or *Settings > Screen and sound > 3D of the games: ARM* | the ARM |
+| `gpu3d=0` in `bm/config.txt`, or *Settings > Screen > 3D of the games: ARM* | the ARM |
 | QEMU | the ARM |
 | The GPU times out or a boot probe fails | the ARM takes over by itself, with a line in the log |
 | 2D that the GPU cannot reproduce exactly (list above) | the ARM, after the job |
@@ -236,7 +236,7 @@ Optional features are probed at boot. The probe checks that the GPU draws what t
 
 ## Options
 
-Each option is a key in `bm/config.txt`. Only five keys have a row in *Settings > Screen and sound*. The other keys are hidden: the console reads them from the file. The default is what applies when the key is missing (source: `src/kernel/settings.c`, `docs/DRIVERS.md`).
+Each option is a key in `bm/config.txt`. Only five keys have a row in *Settings > Screen*. The other keys are hidden: the console reads them from the file. The default is what applies when the key is missing (source: `src/kernel/settings.c`, `docs/DRIVERS.md`).
 
 | Key | What it does | Default |
 |---|---|---|

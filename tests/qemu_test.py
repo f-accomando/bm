@@ -1308,7 +1308,7 @@ def test_home_ui(b, opts):
         # keyboard layout changes and is saved; the submenus
         keys("5")
         net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
-        screen(["Settings", "Controllers", "Controls", net, "Screen and sound", "Updates", "Reports"])    # System is below the fold with the Controls row
+        screen(["Settings", "Controllers", "Controls", net, "Screen", "Sound", "Updates"])    # System is below the fold with the Controls row
         shot("settings")
         keys("\r")                              # Controllers
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
@@ -1317,14 +1317,14 @@ def test_home_ui(b, opts):
         screen(["Pair a mouse", "Test the buttons", "Keyboard layout", "Button icons", "Scan the USB again",
                 "Forget all controllers"])
         keys("www")                             # the keyboard layout
-        _, text = settled_screen(q, lambda i, t: any("< Italian >" in l or "< US >" in l for l in t))
-        before = "Italian" if any("< Italian >" in l for l in text) else "US"
-        assert before == "Italian" or any("< US >" in l for l in text), "\n".join(text)
-        keys("d")
+        _, text = settled_screen(q, lambda i, t: any("Keyboard layout" in l and ("Italian" in l or "US" in l) for l in t))
+        line = next(l for l in text if "Keyboard layout" in l)
+        before = "Italian" if "Italian" in line else "US"
+        keys("\r")                              # Enter changes it (Settings has no left/right on a choice)
         after = "US" if before == "Italian" else "Italian"
-        screen([f"< {after} >", "keyboard layout: "])
-        keys("\r")                              # A changes it too: back as it was
-        screen([f"< {before} >"])
+        screen([after, "keyboard layout: "])
+        keys("\r")                              # Enter again: back as it was
+        screen([before])
         keys("q")
         keys("s")
         keys("\r")                              # Controls (CONTROLS-1; the RGB30 has the test of its panels)
@@ -1345,54 +1345,59 @@ def test_home_ui(b, opts):
             keys("w")                           # the list scrolls to its last row
             screen(["Connect at boot", "Test the connection"])
             keys("w")
-            screen(["Connect at boot", "< On >"])
+            screen(["Connect at boot", "On"])
         keys("q")
         keys("s")
-        keys("\r")                              # Screen and sound
-        screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
+        keys("\r")                              # Screen
+        screen(["Settings > Screen", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
                 "3D textures", "Nearest"])      # the filter is a look the player can judge (SYS-9)
         keys("sss")
-        screen(["3D textures", "< Nearest >"])
+        screen(["3D textures", "Nearest"])      # Settings: Enter changes a choice, no "< >" arrows
         keys("s")
         # SYS-9: the performance flags are hidden keys now, with no row (still read from config.txt)
         hidden_rows = ("3D vertices", "3D frame queue", "3D frame shown", "2D over the 3D", "3D job memory",
                        "3D pixel shaders", "3D draw order", "3D corners")
-        text = screen(["3D impostors", "< Off >"])     # far small models as one quad: off unless asked
+        text = screen(["3D impostors", "Off"])     # far small models as one quad: off unless asked
         for name in hidden_rows:
             assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         keys("s")
-        screen(["3D on the ARM", "< Exact >"])
+        screen(["3D on the ARM", "Exact"])
         keys("s")                               # the dev kit's overlay: top, bottom, off again
-        screen(["< Off >", "fps, ms, CPU and GPU bars (F11 too)"])
+        screen(["Off", "fps, ms, CPU and GPU bars (F11 too)"])
         keys("\r")
-        screen(["< Top >", "performance overlay: Top"])
+        screen(["Top", "performance overlay: Top"])
         keys("\r")
-        screen(["< Bottom >", "performance overlay: Bottom"])
+        screen(["Bottom", "performance overlay: Bottom"])
         keys("\r")
-        screen(["< Off >", "performance overlay: Off"])
-        keys("s")                               # the volume: left/right, saved
-        screen(["Volume", "< 10 / 10 >"])
-        keys("a")
-        screen(["< 9 / 10 >", "volume: 9 / 10"])
-        keys("d")
-        screen(["< 10 / 10 >"])
+        screen(["Off", "performance overlay: Off"])
+        keys("s")
+        screen(["Test pattern", "HDMI colour bars"])
+        keys("q")
+        keys("s")
+        keys("\r")                              # Sound
+        screen(["Settings > Sound", "Volume", "10 / 10"])
+        keys("\r")                              # the volume: Enter goes round (10, 0, 1, ...), saved
+        screen(["0 / 10", "volume: 0 / 10"])
+        for _ in range(10):
+            keys("\r")
+        screen(["10 / 10", "volume: 10 / 10"])
         keys("s")                               # the sound style: hi-fi, 8-bit (M46), saved
-        screen(["Sound style", "< Hi-fi >"])
+        screen(["Sound style", "Hi-fi"])
         keys("\r")
-        screen(["< 8-bit >", "sound: 8-bit"])
+        screen(["8-bit", "sound: 8-bit"])
         keys("\r")
-        screen(["< Hi-fi >", "sound: hi-fi"])
+        screen(["Hi-fi", "sound: hi-fi"])
         keys("s")                               # the depth (2026-10-10): 24, 32, 16 and back, saved
-        screen(["Bit depth", "< 24-bit >", "Each sample: 16, 24 or 32"])
+        screen(["Bit depth", "24-bit", "Each sample: 16, 24 or 32"])
         keys("\r")
-        screen(["< 32-bit >", "depth: 32 bits"])
+        screen(["32-bit", "depth: 32 bits"])
         keys("\r")
-        screen(["< 16-bit >", "depth: 16 bits"])
+        screen(["16-bit", "depth: 16 bits"])
         keys("\r")
-        screen(["< 24-bit >", "depth: 24 bits"])
-        keys("ss")
-        screen(["Test pattern", "Test the sound", "HDMI sound status"])
+        screen(["24-bit", "depth: 24 bits"])
+        keys("s")
+        screen(["Test the sound", "HDMI sound status"])
         keys("q")
         keys("s")
         keys("\r")
@@ -3691,15 +3696,15 @@ def test_menu_tabs(b, opts):
         press(buttons=0x00)                 # up three times: round to Button icons
         press(buttons=0x00)
         press(buttons=0x00)
-        state(["Settings"], ["Button icons", "< White >"])
+        state(["Settings"], ["Button icons", "White"])
         assert not red_hint(False), "white button icons drawn red"
-        press(buttons=0x02)                 # right: Colour
-        state(["Settings"], ["< Colour >", "button icons: colour"])
+        press(buttons=0x08 | 0x20)          # A: Colour
+        state(["Settings"], ["Colour", "button icons: colour"])
         assert red_hint(), "no red circle for Back"
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "home-button-icons.png"))
-        press(buttons=0x06)                 # left: White
-        state(["Settings"], ["< White >", "button icons: white"])
+        press(buttons=0x08 | 0x20)          # A: White
+        state(["Settings"], ["White", "button icons: white"])
         assert not red_hint(False), "the circle stayed red"
         press(buttons=0x08 | 0x40)          # B: back to Settings
         state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])

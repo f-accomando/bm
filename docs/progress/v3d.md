@@ -76,4 +76,4 @@ Settings shows five graphics rows; every performance flag is a hidden key. Keys,
    - *Completion criterion*: particles and Yharnam's darkness levels handled entirely by the GPU with measurements in the 3D Bench and an identical software fallback in QEMU (`gpu3d=0`).
 6. **Dynamic impostor adaptation for crowds and heroes**:
    - Skinned models simplified to billboard quads with `r3d_impostor` when far from the camera; Overbit/Yharnam quality governor to enable `gpu3d(nil, nil, nil, nil, 8)` at low levels.
-8. Sprite stacking on the Pi: measured on the Pi Zero W (22 Oct, 128 stacks of 8 slices): 18270 us a frame, about 58k slices/s at most, over the 16600 us of 60 fps. Run again: Settings > Screen and sound > **Stack bench**, or `:stack` (16, 64, 128 stacks of 8 and 16 slices; read `us/frame`, `slices/s`).
+8. Sprite stacking on the Pi: measured on the Pi Zero W (22 Oct, 128 stacks of 8 slices): 18270 us a frame, about 58k slices/s at most, over the 16600 us of 60 fps. Run again: Settings > Screen > **Stack bench**, or `:stack` (16, 64, 128 stacks of 8 and 16 slices; read `us/frame`, `slices/s`).

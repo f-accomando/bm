@@ -2,7 +2,7 @@
 
 Split from [v3d](v3d.md).
 
-Rule: the Settings *Screen and sound* page shows only choices a player can judge by sight: *3D of the games* (`gpu3d`), *3D anti-aliasing* (`gpu3d_aa`), *3D textures* (`gpu3d_filter`, nearest or bilinear), *3D impostors* (`r3d_impostor`) and *3D on the ARM* (`r3d_fast`). Every other graphics key is hidden: no row, and `config.txt` (or `:set` in the console) still sets it. A default is on only where a Pi number below shows a gain. Change a default only with a number in this file. The user-facing table is in the 3D manual (`api-3d`, *The graphics keys of the console*).
+Rule: the Settings *Screen* page shows only choices a player can judge by sight: *3D of the games* (`gpu3d`), *3D anti-aliasing* (`gpu3d_aa`), *3D textures* (`gpu3d_filter`, nearest or bilinear), *3D impostors* (`r3d_impostor`) and *3D on the ARM* (`r3d_fast`). Every other graphics key is hidden: no row, and `config.txt` (or `:set` in the console) still sets it. A default is on only where a Pi number below shows a gain. Change a default only with a number in this file. The user-facing table is in the 3D manual (`api-3d`, *The graphics keys of the console*).
 
 | Key | Default | Shown in | Pi Zero W result (source) |
 |---|---|---|---|

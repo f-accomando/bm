@@ -86,7 +86,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   line written was first read from memory and pushed out the lines of Lua and r3d.
   Without the cache the writes leave merged by the write buffer. The block is allocated in whole
   1 MB sections that the MMU remaps (`mmu_set_cached`, `v3d_uncached`). Option
-  `gpu3d_wc=1` (*Settings > Screen and sound > 3D job memory*), off until the Pi
+  `gpu3d_wc=1` (*Settings > Screen > 3D job memory*), off until the Pi
   shows it pays off: the 3D Bench compares it with the GPU+WC profile.
 - **4.6** (2026-10-05): up to 8 textures in a job (previously 2: with the third the job
   was closed, and the 3D Bench's `texswap` test was slower on the GPU than on the ARM);
@@ -98,7 +98,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   (`r3d_t.arm_hook`, the backend now declares `tex_screen`). 3D Bench test `quad_texscreen`,
   scene `tex screen` of `make test-gpu3d`.
 - **4.8** (2026-10-05): the **2D over the 3D in the GPU job** (`gpu3d_2d=1`,
-  *Settings > Screen and sound > 2D over the 3D*): rectangles, `rect`, `pset`, horizontal
+  *Settings > Screen > 2D over the 3D*): rectangles, `rect`, `pset`, horizontal
   and vertical lines, sprites (`spr`, `sspr`, also flipped and enlarged by an integer
   factor), the cells of `map()` and the text of `print` (glyphs from a font texture,
   `fs_text`) become quads in the same job, without z test or write: the 3D
@@ -211,7 +211,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   threads always win (`quad_tex` 111 → 148, `quad_alpha` 105 → 136, `quad_texscreen` 102
   → 122; Overbit at 1920×1080 from 62.6 to 56.0 ms); with colour they lose 4–5% (there is no texel to
   wait for). So the textured shaders have **two threads by default** (`gpu3d_fs2=0` puts them
-  back to one, *Settings > Screen and sound > 3D pixel shaders*; the 3D Bench's GPU row is
+  back to one, *Settings > Screen > 3D pixel shaders*; the 3D Bench's GPU row is
   2.1 single-threaded) and `fs_colour_t`/`fs_colour_screen_t` are removed. And `fs_colour`,
   `fs_colour_screen` wait for the scoreboard last, just before writing, like Mesa
   (previously they took it at the fifth step and held it while computing the colour: overlapping
@@ -266,7 +266,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   Pi remains to be seen. To find out, from this kernel a crash becomes a report (`crash`, with the
   last lines printed and the return addresses on the stack) and so does a hang of the Pi (`freeze`).
 - **6.9** (2026-10-11): **each frame shown a frame later** (`gpu3d_later=1`, *Settings >
-  Screen and sound > 3D frame shown: A frame later*, the sixth argument of `gpu3d()`; with the two
+  Screen > 3D frame shown: A frame later*, the sixth argument of `gpu3d()`; with the two
   jobs in flight of 5.1, `gpu3d_queue=2`). At the end of a frame its job starts and the frame is
   held: its page and the 2D recorded after the job started (`held` in `runtime.c`). The next
   `_update` and `_draw` run on the next page while the GPU draws it, and its 3D fills the job's

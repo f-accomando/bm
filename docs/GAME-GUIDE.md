@@ -370,7 +370,7 @@ end
   pixels (16 → 5.3), at 720p two thirds, so the same models are chosen whatever the
   resolution. Animated models too,
   by the box of their pose. `gpu3d(nil, nil, nil, nil, 0)` turns it off. The player can turn
-  it on for every game in *Settings > Screen and sound > 3D impostors* (`r3d_impostor` in
+  it on for every game in *Settings > Screen > 3D impostors* (`r3d_impostor` in
   `bm/config.txt`).
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.

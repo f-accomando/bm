@@ -799,6 +799,8 @@ static void scroll_mark(int cx, int cy, int dir, uint16_t c)
 #define LABEL_COL   (PANEL_COL + 3)
 #define VALUE_END   ((PANEL_X + PANEL_W) / 8 - 3)   /* values end before this column */
 
+static int by_enter;                    /* Settings: Enter changes a choice (no arrows), set a frame */
+
 /* faded: a question is over it */
 /* a list of rows in a box from x, w wide: the title, MENU_PANEL_ROWS rows
  * (the selected one on a pill; faded: grey, the focus is elsewhere; sel < 0:
@@ -848,7 +850,7 @@ static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, 
             continue;
         }
         const char *val = values && r->value ? r->value : "";
-        if (r->kind == MENU_ROW_CHOICE && sel && values)
+        if (r->kind == MENU_ROW_CHOICE && sel && values && !by_enter)
             ksnprintf(buf, sizeof buf, "< %s >", val);
         else if (r->kind == MENU_ROW_SUB)
             ksnprintf(buf, sizeof buf, "%s%s>", val, val[0] ? "  " : "");
@@ -1184,9 +1186,9 @@ int menu_ui_cols(void)
 }
 
 /* the screen of the layout: on the RGB30 360x360 shown 2x (the display
- * controller enlarges it); on the Pi 1280x720 by default when the GPU enlarges
- * the layout (else 640x360); menu_scale in bm/config.txt sets 1 to 3 (the ARM enlarges it at each
- * flip when the key forces a size and the GPU is missing) */
+ * controller enlarges it); on the Pi 1280x720 by default
+ * (the ARM enlarges it at each flip); menu_scale in bm/config.txt sets 1 to 3
+ * and menu_gpu=1 lets the GPU enlarge it */
 static int screen_open(framebuffer_t *fb)
 {
 #ifdef BM_RGB30
@@ -1196,22 +1198,19 @@ static int screen_open(framebuffer_t *fb)
 #else
     const char *ms = config_get("menu_scale");
     sw = 640;
-    /* no key: 2x (1280x720) when the GPU enlarges it, else 1x; the key sets 1, 2 or 3 */
-    const int dflt = !ms || !*ms;
-    scale = dflt ? 2 : ms[0] == '3' ? 3 : ms[0] == '2' ? 2 : 1;
-    if (dflt && gpu3d_init() != 0)
-        scale = 1;
+    /* no key: 2x (1280x720); the key sets 1, 2 or 3 */
+    scale = !ms || !*ms ? 2 : ms[0] == '3' ? 3 : ms[0] == '2' ? 2 : 1;
     if (scale > 1 && !frame)
         frame = malloc(MAX_W * MAX_H * 2);
     if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
         scale = 1;
-    if (scale > 1 && dflt && fb->pitch != fb->width * 2)
-        scale = 1;                      /* the default needs the GPU path: else 1x */
     if (scale > 1) {
         /* bm3d 4.8: the GPU enlarges the layout (a job a frame: the ARM's 4 MB
-         * of writes gone), where there is one; else the ARM, as before */
+         * of writes gone) only with menu_gpu=1 (the Pi showed stripes: not
+         * checked on the hardware yet); else the ARM */
+        const char *mg = config_get("menu_gpu");
         const int was = gpu_big;
-        gpu_big = fb->pitch == fb->width * 2 && gpu3d_init() == 0;
+        gpu_big = mg && mg[0] == '1' && fb->pitch == fb->width * 2 && gpu3d_init() == 0;
         if (gpu_big) {
             gpu3d_set_fb(fb->mem, fb->size, fb->bus);
             gpu3d_set_size((int)fb->width, (int)fb->height);
@@ -1332,6 +1331,7 @@ static void stalls_report(void)
 
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 {
+    by_enter = v->on_gear;
     if (!ready)
         return;
     if (scale > 1)
@@ -1526,7 +1526,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         const menu_row_t *r = hp->sel >= 0 && hp->sel < hp->n ? &hp->rows[hp->sel] : NULL;
         col = WIDE ? 40 : hc;
         if (r && r->kind == MENU_ROW_CHOICE)
-            col = hint(v, col, 21, BTN_CHANGE, "Change");
+            col = hint(v, col, 21, v->on_gear ? BTN_A : BTN_CHANGE, "Change");
         else if (r && r->kind != MENU_ROW_INFO && r->kind != MENU_ROW_BAR)
             col = hint(v, col, 21, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
         hint(v, WIDE && col < 55 ? 55 : col, 21, BTN_B, "Back");

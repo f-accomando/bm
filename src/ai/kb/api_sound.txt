@@ -622,7 +622,7 @@ nessuna). Il mix e' in float, arrotondato una volta con il dither; HDMI
 e RGB30 convertono al piu' 24 bit. Un gioco la legge, non la cambia.
 text_en:
 Returns bits, out: the bits of each sample the console sends (16, 24 or
-32: sound_depth in bm/config.txt, Settings > Screen and sound > Bit
+32: sound_depth in bm/config.txt, Settings > Screen > Bit
 depth, 24 by default) and what the output asks for now (0 none). The mix
 is in floats, rounded once with dither; HDMI and the RGB30 convert at
 most 24 bits. A game reads it, it does not change it.

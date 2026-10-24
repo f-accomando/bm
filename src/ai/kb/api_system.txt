@@ -159,14 +159,14 @@ text:
 battery() dà la carica (0-100) e true sul caricatore; nil senza batteria
 (il Pi). battery_low() è true al 20% o meno fuori dal caricatore. Allora il
 sistema disegna da sé una piccola batteria rossa in alto a destra, in ogni
-gioco (Settings > Screen and sound > Low battery icon la spegne). Solo
+gioco (Settings > Screen > Low battery icon la spegne). Solo
 informazione: in un gioco in lockstep non cambia mai ciò che si simula,
 ogni console ha la sua batteria. Serve per salvare in tempo.
 text_en:
 battery() gives the charge (0-100) and true on the charger; nil without a
 battery (the Pi). battery_low() is true at 20% or less off the charger.
 Then the system draws by itself a small red battery top right, in every
-game (Settings > Screen and sound > Low battery icon turns it off).
+game (Settings > Screen > Low battery icon turns it off).
 Information only: in a lockstep game it never changes what is simulated,
 each console has its own battery. Use it to save in time.
 code:

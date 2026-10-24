@@ -276,9 +276,8 @@ def test_screen_console(b, opts):
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
         keys(q, "r")                            # Settings: its panel, the Pi's sections (settings.c)
         text = screen_all(q.screendump())
-        for needle in ("Controllers", "Controls", "WiFi and network", "Screen and sound", "Updates", "Reports"):   # System is below the sixth row (Controls added one)
+        for needle in ("Controllers", "Controls", "WiFi and network", "Screen", "Sound", "Updates"):   # Reports and System are below the sixth row
             assert needle in text, f"{needle!r} not in Settings:\n{text}"
-        assert "none waiting" in text, text    # no reports waiting
         keys(q, "w")                            # up from the first row: round to the last
         text = screen_all(q.screendump())
         assert "Turns the console off" in text, text    # Shut down, then Restart (2026-10-04)
@@ -297,7 +296,7 @@ def test_screen_console(b, opts):
         assert "Version, memory, the log" in screen_all(q.screendump())
         keys(q, "\x7f")                        # back: out of Settings, to Dev
         text = screen_all(q.screendump())
-        assert "GPU test" in text and "Screen and sound" not in text, text
+        assert "GPU test" in text and "Updates" not in text, text
         keys(q, "l")                            # L1: Games
         assert "No games yet" in screen_all(q.screendump())
     finally:
@@ -891,7 +890,7 @@ def test_menu_tab_keys(b, opts):
 
     def tab_now():
         text = screen_all(q.screendump())
-        return ("Settings" if "Controllers" in text and "Screen and sound" in text else
+        return ("Settings" if "Controllers" in text and "Updates" in text else
                 "Dev" if "3D Bench" in text else
                 "Games" if "No games yet" in text else
                 "Market" if "Market" in text else "?")
@@ -1960,7 +1959,7 @@ def test_battery_low_game(b, opts):
     """The low battery over the games (2026-10-10): battery() gives the
     charge and the charger, battery_low() 20% or less off the charger; while
     low a small red battery top right over the frame, none on the charger,
-    none with battery_icon=0 (Settings > Screen and sound > Low battery
+    none with battery_icon=0 (Settings > Screen > Low battery
     icon), battery_low() still true."""
 
     def run(config):
@@ -2124,7 +2123,7 @@ def test_sound(b, opts):
     keys (+ and -, here from the serial port) show their bar, bring it to
     5/10 and the same tone comes out at a quarter of the peak (the gain is
     the square of the level); the level is saved in bm/config.txt;
-    Settings > Screen and sound has the Sound, Volume, Bit depth (24-bit by
+    Settings > Sound has the Sound, Volume, Bit depth (24-bit by
     default) and Test the sound rows."""
     tmp = mktmp(prefix="bm64snd-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
@@ -2157,15 +2156,11 @@ def test_sound(b, opts):
         time.sleep(2.5)                         # the keys at rest: saved
         quarter = tone()
         assert 0.2 * full <= quarter <= 0.3 * full, (full, quarter)
-        keys(q, "rr")                           # Settings; down to Screen and sound
-        keys(q, "sss\r")
-        # its rows longer than the screen since Sound style and 3D on the ARM:
-        # seven down to the last (Bit depth before it), Test the sound, the
-        # list scrolling with it
-        keys(q, "sssssss")
+        keys(q, "rr")                           # Settings; down to Sound
+        keys(q, "ssss\r")
         text = screen_all(q.screendump())
         for want in ("Sound", "Volume", "5 / 10", "Sound style", "Bit depth", "24-bit", "Test the sound"):
-            assert want in text, f"{want!r} not in Screen and sound:\n{text}"
+            assert want in text, f"{want!r} not in Sound:\n{text}"
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
         time.sleep(0.3)

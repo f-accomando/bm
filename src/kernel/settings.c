@@ -1,7 +1,7 @@
 /*
  * Settings (2026-10-04): one tree for the Pi and the RGB30, the same
  * sections in the same order, each system filling them with what it has
- * (#ifdef BM_RGB30): Controllers, WiFi and network, Screen and sound,
+ * (#ifdef BM_RGB30): Controllers, WiFi and network, Screen, Sound,
  * Updates, Reports, System. The monitor's commands that set up or check
  * the console are rows here too (the USB scan, the connection test, the
  * test pattern, the audio test, the log). The menus draw the panels with
@@ -114,7 +114,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FILTER, R_FAST3D,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
     R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
@@ -176,7 +176,7 @@ static int wireless(void)
 #endif
 }
 
-/* the dev kit's overlay: Settings > Screen and sound */
+/* the dev kit's overlay: Settings > Screen */
 static const char *perf_name(void)
 {
     static const char *const n[3] = { "Off", "Top", "Bottom" };
@@ -378,15 +378,16 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_SUB, R_WIFI, wireless() ? "WiFi and network" : "Network",
                  "The link, the address, a test", "%s", net_word());
 #ifdef BM_RGB30
-        home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen and sound",
-                 "Screen modes, performance overlay", "360x360 x2");
+        home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
+                 "Screen modes, performance overlay, battery icon", "360x360 x2");
 #else
-        home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen and sound",
-                 "Drawing, 3D, volume, test pattern", "%s%s, vol %d",
+        home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
+                 "Drawing, 3D, menu size, test pattern", "%s%s",
                  gpu3d_choice(),
-                 strcmp(gpu3d_choice(), "GPU") == 0 && vs_on() ? (vs_on() == 1 ? "+VS1" : "+VS") : "",
-                 audio_volume());
+                 strcmp(gpu3d_choice(), "GPU") == 0 && vs_on() ? (vs_on() == 1 ? "+VS1" : "+VS") : "");
 #endif
+        home_row(p, MENU_ROW_SUB, R_SOUNDMENU, "Sound",
+                 "Volume, style, bit depth, test", "vol %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
         home_row(p, MENU_ROW_SUB, R_UPDATES, "Updates",
                  "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
         reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
@@ -559,7 +560,7 @@ void home_panel(int id, home_panel_t *p)
         break;
     }
     case HOME_GRAPHICS:
-        ksnprintf(p->title, sizeof p->title, "Settings > Screen and sound");
+        ksnprintf(p->title, sizeof p->title, "Settings > Screen");
 #ifdef BM_RGB30
         home_row(p, MENU_ROW_ACTION, R_MODES, "Screen modes",
                  "The modes for games and the GPU, each with a test image", "%s", plat_display_info());
@@ -574,7 +575,7 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
                  "Nearest: sharp pixels. Bilinear: smooth", "%s", filter_on() ? "Bilinear" : "Nearest");
         home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
-                 "Auto: 720p with the GPU, else 360p. Applies at the next start", "%s", menu_size_choice());
+                 "Auto: 720p. Applies at the next start", "%s", menu_size_choice());
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
@@ -584,6 +585,20 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "fps, ms, CPU and GPU bars (F11 too)", "%s",
                  perf_name());
+#ifdef BM_RGB30
+        home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
+                 "A small red battery over games and tools at 20% or less", "%s",
+                 battery_icon_on() ? "On" : "Off");
+#else
+        home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
+                 "HDMI colour bars; any button returns", NULL);
+#endif
+        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
+            if (home_util_group(i) == 1)
+                home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+        break;
+    case HOME_SOUND:
+        ksnprintf(p->title, sizeof p->title, "Settings > Sound");
 #ifdef BM_RGB30
         /* the speaker, or the headphones (the console switches by itself) */
         home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
@@ -596,9 +611,6 @@ void home_panel(int id, home_panel_t *p)
                  "Each sample: 16, 24 or 32 bits (the codec converts 24)", "%s", depth_choice());
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
                  "The sound's state and a test tune", NULL);
-        home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
-                 "A small red battery over games and tools at 20% or less", "%s",
-                 battery_icon_on() ? "On" : "Off");
 #else
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
@@ -608,14 +620,9 @@ void home_panel(int id, home_panel_t *p)
                  audio_retro_on() ? "8-bit" : "Hi-fi");
         home_row(p, MENU_ROW_CHOICE, R_DEPTH, "Bit depth",
                  "Each sample: 16, 24 or 32 bits (HDMI carries 24)", "%s", depth_choice());
-        home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
-                 "HDMI colour bars; any button returns", NULL);
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
                  "HDMI sound status and a test tune", NULL);
 #endif
-        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
-            if (home_util_group(i) == 1)
-                home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
         break;
     case HOME_UPDATES:
         ksnprintf(p->title, sizeof p->title, "Settings > Updates");
@@ -776,6 +783,7 @@ int home_sub_panel(int row)
     case R_CONTROLLERS: return HOME_CONTROLLERS;
     case R_WIFI: return HOME_WIFI;
     case R_SCREEN: return HOME_GRAPHICS;
+    case R_SOUNDMENU: return HOME_SOUND;
     case R_UPDATES: return HOME_UPDATES;
     case R_REPORTS_SUB: return HOME_REPORTS;
     case R_SYSTEM: return HOME_SYSTEM;

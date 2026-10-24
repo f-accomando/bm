@@ -34,7 +34,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
  * by market.c, HOME_PUBLISH (sending a game to the Market) by publish.c. */
 enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_GRAPHICS, HOME_MARKET,
        HOME_PUBLISH, HOME_SEND, HOME_UPDATES, HOME_REPORTS, HOME_UTILITIES, HOME_SDMAP, HOME_SDFILES,
-       HOME_CONTROLS, HOME_CTL_SCROLLER, HOME_CTL_TOPDOWN, HOME_CTL_STICK, HOME_CTL_SYSTEM };
+       HOME_CONTROLS, HOME_CTL_SCROLLER, HOME_CTL_TOPDOWN, HOME_CTL_STICK, HOME_CTL_SYSTEM, HOME_SOUND };
 
 /* What a row asks of the menu. */
 enum {
@@ -63,7 +63,7 @@ typedef struct {
 int  home_prompts_colour(void);
 
 /* Builds settings panel `id` (settings.c: the same tree on the Pi and the
- * RGB30: Controllers, WiFi and network, Screen and sound, Updates, Reports,
+ * RGB30: Controllers, WiFi and network, Screen, Sound, Updates, Reports,
  * System). */
 void home_panel(int id, home_panel_t *p);
 /* The panel a row of Settings opens (0: none): the page shows it beside
@@ -78,7 +78,7 @@ void home_act(int id, int row_id, int how, home_do_t *d);
 int  home_utils(void);                                  /* how many */
 const char *home_util_title(int i);
 const char *home_util_about(int i);                     /* one line of help */
-int  home_util_group(int i);                            /* 1: shown in Screen and sound, 0: in System > Utilities */
+int  home_util_group(int i);                            /* 1: shown in Screen, 0: in System > Utilities */
 void home_util_start(int i, home_do_t *d);              /* fills d as home_act does */
 
 /* The tools of the Dev tab (after the SDK), with their covers: the editors, the assistant, the monitor, Lua. */

@@ -144,7 +144,7 @@ QEMU va circa 2 volte più piano del Pi negli sprite (2133 contro 4482 a 60 fps)
 - Tutto il 2D è codice C sull'ARM; Lua dà solo la logica (fonte: `docs/progress/graphics.md`).
 - Le cartucce disegnano in RGB565 (16 bit). La console e il menu usano 32 bit (fonte: `docs/HARDWARE.md`). L'RGB565 dimezza i byte per pixel; a 32 bit il tempo di copia di un frame raddoppia, da circa 6,5 ms a circa 13 ms con la CPU (fonte: `docs/PERFORMANCE.md`).
 - Il framebuffer viene dalla mailbox del firmware. La sua altezza è l'altezza dello schermo per il numero di pagine (da 1 a 3). Il cambio di pagina modifica l'offset virtuale (fonte: `docs/progress/graphics.md`).
-- Di default le cartucce disegnano direttamente nella memoria video, perché copiare dalla RAM rilegge la lenta SDRAM: 8,58 ms diretto contro 11,85 ms via RAM (fonte: `docs/PERFORMANCE.md`). *Settings > Screen and sound > Game drawing (.bm)* passa da `Direct` a `Via RAM` (fonte: `src/kernel/settings.c`).
+- Di default le cartucce disegnano direttamente nella memoria video, perché copiare dalla RAM rilegge la lenta SDRAM: 8,58 ms diretto contro 11,85 ms via RAM (fonte: `docs/PERFORMANCE.md`). *Settings > Screen > Game drawing (.bm)* passa da `Direct` a `Via RAM` (fonte: `src/kernel/settings.c`).
 - bm usa il triplo buffer, che ha eliminato lo strappo nella metà bassa del menu (fonte: `docs/PERFORMANCE.md`).
 - La griglia di luce 4x4, bilineare e con dither, è usata dai giochi con luci dinamiche, a 320x180 (fonte: `docs/PERFORMANCE.md`).
 
@@ -224,7 +224,7 @@ bm ha due modi di disegnare il 3D, dietro le stesse funzioni. La tua cartuccia n
 | Situazione | Chi disegna |
 |---|---|
 | Un V3D risponde e `gpu3d` non è 0 | la GPU (predefinito) |
-| `gpu3d=0` in `bm/config.txt`, o *Settings > Screen and sound > 3D of the games: ARM* | l'ARM |
+| `gpu3d=0` in `bm/config.txt`, o *Settings > Screen > 3D of the games: ARM* | l'ARM |
 | QEMU | l'ARM |
 | La GPU va in timeout o una prova all'avvio fallisce | l'ARM subentra da solo, con una riga nel log |
 | 2D che la GPU non sa riprodurre esattamente (elenco sopra) | l'ARM, dopo il job |
@@ -236,7 +236,7 @@ Le funzioni opzionali sono provate all'avvio. La prova controlla che la GPU dise
 
 ## Opzioni
 
-Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga in *Settings > Screen and sound*. Le altre chiavi sono nascoste: la console le legge dal file. Il predefinito è quello che vale quando la chiave manca (fonte: `src/kernel/settings.c`, `docs/DRIVERS.md`).
+Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga in *Settings > Screen*. Le altre chiavi sono nascoste: la console le legge dal file. Il predefinito è quello che vale quando la chiave manca (fonte: `src/kernel/settings.c`, `docs/DRIVERS.md`).
 
 | Chiave | Che cosa fa | Predefinito |
 |---|---|---|

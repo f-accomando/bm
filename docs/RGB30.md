@@ -216,7 +216,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
   layout, icons), WiFi and network (saved network, address, network console, connecting,
-  *Test the connection*), Screen and sound (the screen modes, the performance overlay, the
+  *Test the connection*), Screen (the screen modes, the performance overlay, the
   sound: Sound, Volume, *Test the sound*), Updates, Reports, System (version, memory, SD, battery, the log, restart,
   shutdown). Controller only: L1/R1 the tabs (without wrapping around, as on the Pi), the D-pad
   the covers and rows, **B** opens and **A** goes back (`confirm=a` swaps them, in the
@@ -232,7 +232,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   percentage is only an indication. The lightning bolt follows the cable at once (2026-10-10: the RK817
   bit read 4 times a second, `src/rgb30/battery.c`; before, everything every 10 s). At 20% or
   less, off the charger, a small red battery also appears over games and tools
-  (top right; *Settings > Screen and sound > Low battery icon* turns it off); in Lua
+  (top right; *Settings > Screen > Low battery icon* turns it off); in Lua
   `battery()` and `battery_low()`. The lines that do work (pairing, connecting, updating, bench, log) still write
   to the text console.
 - **3D Bench** (Dev tab, `src/rgb30/b3d_rgb30.c`): the same test bench as the Pi
@@ -269,9 +269,9 @@ are plugged in the console switches to them by itself, and the headphones are mo
 - **Volume**: the **+** and **−** buttons on the side, everywhere (menu, pages, games): a "Volume"
   bar over the screen for a moment; held, they keep going. The level is saved in
   `bm/config.txt` (`volume=`, 0–10, as on the Pi) when the buttons stay still for 2 s. Also
-  *Settings > Screen and sound > Volume*.
+  *Settings > Sound > Volume*.
 - **At boot** a little two-note sound, as on the Pi: if you hear it, sound works.
-- **If you hear nothing**: *Settings > Screen and sound*: the *Sound* line says `on` or `off`
+- **If you hear nothing**: *Settings > Screen*: the *Sound* line says `on` or `off`
   and, when selected, why below; *Test the sound* writes the status, the I2S counters
   (interrupts, chunks, gaps) and the MCLK (must be 12288000 Hz), then plays the test melody
   (the six waveforms, a chord, glissando, vibrato, arpeggio). A photo of that page

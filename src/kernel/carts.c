@@ -1663,7 +1663,8 @@ void carts_menu(framebuffer_t *fb)
                 }
             }
         } else if (depth && gfx) {
-            /* a panel: up/down choose, A does, left/right change a value,
+            /* a panel: up/down choose, A does (in Settings A changes a choice,
+             * left goes back), left/right change a value elsewhere,
              * B / Esc / q go back one level */
             int *ps = &stack[depth - 1].sel, id = stack[depth - 1].id;
             if (dy && pb.n)
@@ -1671,10 +1672,10 @@ void carts_menu(framebuffer_t *fb)
             const menu_row_t *r = pb.n ? &pb.rows[*ps] : NULL;
             int row = pb.n ? pb.ids[*ps] : 0;
             /* the Settings page: right opens the section, left goes back to
-             * the sections (but changes a value on a choice) */
+             * the sections */
             if (on_gear && depth == 1 && dx > 0 && r && r->kind == MENU_ROW_SUB)
                 action = 1;
-            else if (on_gear && depth == 2 && dx < 0 && (!r || r->kind != MENU_ROW_CHOICE))
+            else if (on_gear && depth == 2 && dx < 0)
                 back = 1;
             if (quit || back) {
                 depth--;
@@ -1707,7 +1708,7 @@ void carts_menu(framebuffer_t *fb)
                     go_cart = c;
                 }
             } else if (r && ((action == 1 && r->kind != MENU_ROW_INFO) ||
-                             (dx && r->kind == MENU_ROW_CHOICE))) {
+                             (dx && r->kind == MENU_ROW_CHOICE && !on_gear))) {
                 if (id == HOME_CART)
                     cart_act(row, action == 1 ? 0 : dx, &d);
                 else if (id == HOME_MARKET)

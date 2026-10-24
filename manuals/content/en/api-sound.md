@@ -30,7 +30,7 @@ A third way sits on top of the notes: **riff** (see the chapter "riff: music as 
 
 ## The synthesizer
 
-The synthesizer is **hi-fi**: waves without aliasing, exponential envelopes, a resonant filter, a room (reverb) and an echo, and a light compressor on the output. The **8-bit** voice of the first versions stays available: `retro(true)`, the `raw` key of `tone()`, or *Settings > Screen and sound > Sound style*.
+The synthesizer is **hi-fi**: waves without aliasing, exponential envelopes, a resonant filter, a room (reverb) and an echo, and a light compressor on the output. The **8-bit** voice of the first versions stays available: `retro(true)`, the `raw` key of `tone()`, or *Settings > Sound > Sound style*.
 
 Waveforms (global names, usable in `note()`):
 
@@ -249,7 +249,7 @@ Play a held note and release it: `note(0, "A4")` starts it and keeps it on, `vib
 | `reverb([size], [damp], [wet])` | the room the voices play in (0-1: a small room to a hall, bright to dull, how much is heard); returns the three. Each voice sends to it what its `reverb` says (a little by default: 0.16) |
 | `echo([ms], [feedback], [wet])` | the ping-pong echo (left, right): the time between repeats (680 ms at most), how much comes back (0-0.95), how much is heard; returns the three. What goes in is each voice's `echo` |
 | `chorus([rate_hz], [depth_ms], [wet])` | the chorus (two delays that swing, left and right: width for pads and keys): how fast it swings (0.05-5 Hz, default 0.8), how far (0-8 ms, default 2.5), how much is heard (0-1, default 1); returns the three. What goes in is each voice's `chorus` |
-| `audio_depth()` | `bits, out`: the bits of each sample the console sends (16, 24 or 32: `sound_depth` in `bm/config.txt`, *Settings > Screen and sound > Bit depth*, 24 by default) and what the output asks for now (0: none). A game reads it, it does not change it |
+| `audio_depth()` | `bits, out`: the bits of each sample the console sends (16, 24 or 32: `sound_depth` in `bm/config.txt`, *Settings > Sound > Bit depth*, 24 by default) and what the output asks for now (0: none). A game reads it, it does not change it |
 | `audio_samples(["kit"])` | the samples of the cartridge's bank (entry `n + 1` is the one `sample = n` plays) or, with `"kit"`, the kit's eight drums: `{ {name=, frames=, rate=, channels=, root=, fine=, loop=, loop_start=, loop_end=, peak=, meter=}, ... }`. `rate` Hz, `root` MIDI note, `fine` cents, `loop` 0 none, 1 forward, 2 ping-pong (`loop_start`, `loop_end` in frames), `peak` 0-1 of full scale, `meter` 32 peaks 0-1 from its start to its end |
 | `retro([on])` | every voice **8-bit** as in the first versions (naive waves, straight envelopes, no room nor echo) while the game runs; returns whether they are (Settings can ask for it too) |
 | `audio_time()` | the sound's clock in seconds (it moves with the samples played) |
@@ -337,7 +337,7 @@ Eight drums made by the synthesizer when the console starts (nothing recorded), 
 
 ## Bit depth
 
-The mix is in floats and is rounded once, with dither, to the depth the output carries: `sound_depth=16|24|32` in `bm/config.txt` (*Settings > Screen and sound > Bit depth*, 24 by default). The Pi's HDMI and the RGB30's codec convert at most 24 bits; `16` is the old path exactly. `audio_depth()` tells a game which it is.
+The mix is in floats and is rounded once, with dither, to the depth the output carries: `sound_depth=16|24|32` in `bm/config.txt` (*Settings > Sound > Bit depth*, 24 by default). The Pi's HDMI and the RGB30's codec convert at most 24 bits; `16` is the old path exactly. `audio_depth()` tells a game which it is.
 
 ::: warn
 [TO FILL: the 24-bit and 32-bit output has not been tried on the RGB30 console yet; if 24 sounds wrong there, `sound_depth=16` is the old path exactly]

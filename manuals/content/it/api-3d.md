@@ -29,7 +29,7 @@ Una mesh si disegna con `draw3d()`, da una camera che posizioni con `camera3d()`
 
 ## Chi disegna: la GPU o l'ARM
 
-La GPU del Pi (V3D) disegna i triangoli. Con l'impostazione *Settings > Screen and sound > 3D of the games* su `ARM` (`gpu3d=0` in `bm/config.txt`), e in QEMU, li disegna l'ARM. Le funzioni sono le stesse, quindi una cartuccia non cambia.
+La GPU del Pi (V3D) disegna i triangoli. Con l'impostazione *Settings > Screen > 3D of the games* su `ARM` (`gpu3d=0` in `bm/config.txt`), e in QEMU, li disegna l'ARM. Le funzioni sono le stesse, quindi una cartuccia non cambia.
 
 - L'ARM trasforma, illumina e ritaglia sempre i triangoli.
 - La GPU riempie i pixel con uno z-buffer a 24 bit, ombreggia senza dithering e legge le texture con il texel più vicino.
@@ -257,7 +257,7 @@ Il valore `version` è la versione dei driver 3D che questa scelta riproduce: `"
 - Anche un modello con ossa è disegnato come impostor, in base al box della sua posa (dove `animate()` ha messo la parte di ogni osso). Un modello animato fuori dalla vista viene allora anche saltato, come uno senza ossa.
 - Si può dare con `on` `nil`: `gpu3d(nil, nil, nil, nil, 16)`.
 - La scelta dipende solo dalla camera, dal modello, dalla sua posa e dalla dimensione dello schermo del gioco, quindi è la stessa su ogni console di una partita.
-- Il valore predefinito della console è `r3d_impostor` in `bm/config.txt` (*Settings > Screen and sound > 3D impostors*).
+- Il valore predefinito della console è `r3d_impostor` in `bm/config.txt` (*Settings > Screen > 3D impostors*).
 
 ## Cosa fa anche la GPU
 
@@ -265,7 +265,7 @@ La GPU disegna le ombre (`draw3d` con flag 8), gli effetti, le facce screen door
 
 ## Anti-aliasing
 
-*Settings > Screen and sound > 3D anti-aliasing* (`gpu3d_aa=1` in `bm/config.txt`; un gioco usa il secondo valore di `gpu3d`) fa disegnare il 3D alla GPU con MSAA 4x: quattro campioni per pixel, la media alla fine del tile, bordi dei triangoli senza scalini. Nelle cartucce non cambia nulla.
+*Settings > Screen > 3D anti-aliasing* (`gpu3d_aa=1` in `bm/config.txt`; un gioco usa il secondo valore di `gpu3d`) fa disegnare il 3D alla GPU con MSAA 4x: quattro campioni per pixel, la media alla fine del tile, bordi dei triangoli senza scalini. Nelle cartucce non cambia nulla.
 
 - Vale solo dove la GPU lo regge (altrimenti il test all'avvio dice *4x: not on this GPU*).
 - Vale solo nei lavori senza z-buffer conservato: le cartucce che disegnano 3D, poi 2D, poi altro 3D nello stesso frame restano senza anti-aliasing (lo z-buffer a 4 campioni non si può salvare).
@@ -285,7 +285,7 @@ La chiave nascosta `gpu3d_later=1` (nessuna riga nelle Settings; con la coda dei
 
 La console ha una chiave in `bm/config.txt` per ogni opzione grafica. Il giocatore vede solo le scelte che cambiano l'immagine. Le altre chiavi sono nascoste: non hanno una riga nelle Settings e la console le legge all'avvio di ogni gioco. Ogni predefinito qui sotto è acceso quando il benchmark del Pi Zero W mostra un guadagno, ed è spento quando non ne mostra. Un predefinito cambia solo con un numero nei documenti del repository.
 
-Settings, *Screen and sound*, per il giocatore:
+Settings, *Screen*, per il giocatore:
 
 - *3D of the games*: la GPU o l'ARM disegna il 3D (`gpu3d`).
 - *3D anti-aliasing*: bordi lisci (`gpu3d_aa`).

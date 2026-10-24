@@ -29,7 +29,7 @@ You draw a mesh with `draw3d()`, from a camera you place with `camera3d()`.
 
 ## Who draws: the GPU or the ARM
 
-The Pi's GPU (V3D) draws the triangles. With the setting *Settings > Screen and sound > 3D of the games* on `ARM` (`gpu3d=0` in `bm/config.txt`), and in QEMU, the ARM draws them. The functions are the same, so a cartridge does not change.
+The Pi's GPU (V3D) draws the triangles. With the setting *Settings > Screen > 3D of the games* on `ARM` (`gpu3d=0` in `bm/config.txt`), and in QEMU, the ARM draws them. The functions are the same, so a cartridge does not change.
 
 - The ARM always transforms, lights and clips the triangles.
 - The GPU fills the pixels with a 24-bit z-buffer, shades without dithering and reads textures with the nearest texel.
@@ -257,7 +257,7 @@ The value `version` is the version of the 3D drivers this choice reproduces: `"0
 - A model with bones too is drawn as an impostor, by the box of its pose (where `animate()` put each bone's part). An animated model out of the view is then also skipped, as one without bones.
 - It can be given with `on` `nil`: `gpu3d(nil, nil, nil, nil, 16)`.
 - The choice depends only on the camera, the model, its pose and the size of the game's screen, so it is the same on every console of a match.
-- The console's default is `r3d_impostor` in `bm/config.txt` (*Settings > Screen and sound > 3D impostors*).
+- The console's default is `r3d_impostor` in `bm/config.txt` (*Settings > Screen > 3D impostors*).
 
 ## What the GPU also does
 
@@ -265,7 +265,7 @@ The GPU draws the shadows (`draw3d` with flag 8), the effects, the screen-door f
 
 ## Anti-aliasing
 
-*Settings > Screen and sound > 3D anti-aliasing* (`gpu3d_aa=1` in `bm/config.txt`; a game uses the second value of `gpu3d`) makes the GPU draw the 3D with 4x MSAA: four samples per pixel, the average at the end of the tile, triangles' edges without steps. Nothing changes in the cartridges.
+*Settings > Screen > 3D anti-aliasing* (`gpu3d_aa=1` in `bm/config.txt`; a game uses the second value of `gpu3d`) makes the GPU draw the 3D with 4x MSAA: four samples per pixel, the average at the end of the tile, triangles' edges without steps. Nothing changes in the cartridges.
 
 - It holds only where the GPU bears it (the boot test says *4x: not on this GPU* otherwise).
 - It holds only in the jobs without a kept z-buffer: cartridges that draw 3D, then 2D, then more 3D in the same frame stay without anti-aliasing (the 4-sample z-buffer cannot be saved).
@@ -285,7 +285,7 @@ The hidden key `gpu3d_later=1` (no Settings row; with the frame queue on two job
 
 The console has one key in `bm/config.txt` for each graphics option. A player sees only the choices that change the picture. The other keys are hidden: they have no row in the Settings, and the console reads them at the start of each game. Each default below is on when the Pi Zero W benchmark shows a gain, and off when it shows none. A default changes only with a number in the repository docs.
 
-Settings, *Screen and sound*, for the player:
+Settings, *Screen*, for the player:
 
 - *3D of the games*: the GPU or the ARM draws the 3D (`gpu3d`).
 - *3D anti-aliasing*: smooth edges (`gpu3d_aa`).

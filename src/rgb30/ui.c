@@ -590,7 +590,7 @@ static void test_image(int i)
     fb_show(fb, 0);
 }
 
-/* Dev > Display, Settings > Screen and sound > Screen modes */
+/* Dev > Display, Settings > Screen > Screen modes */
 void ui_screen_modes(void)
 {
     int n = (int)(sizeof modes / sizeof modes[0]);

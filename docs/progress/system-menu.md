@@ -18,7 +18,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   `.b16` format badges on cards and details panel. The title bar shows the name only.
 - The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). The
   benchmarks and tests are utilities (`home_utils()`): Stress test, GPU test, 3D Bench, Texture Room and
-  Stack bench in Settings > Screen and sound; DMA test, Video bench and Diagnostics in Settings > System >
+  Stack bench in Settings > Screen; DMA test, Video bench and Diagnostics in Settings > System >
   Utilities. CPU bench, Render bench and Demo are part of Diagnostics. Input test, Audio test, Test pattern,
   System and Log were already Settings rows.
   A game in memory has a star at the top right of its card; a game with a newer

@@ -14,8 +14,8 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   256×256 and 360×360 (the `.b16` screen), boxed in the middle of 16:9 on the Pi.
 - `screen(w, h)` switches at run time among `screen_modes[]` (320×180 … 1920×1080, 16:9,
   whole pixels on 1080p); a square cartridge keeps its screen.
-- Menu: 2x (1280x720) by default when the GPU is there, else 1x (`menu_scale` sets 1, 2 or 3). At 1080p: `menu_scale=3`, the 640×360 layout enlarged ×3 by the GPU
-  (`gpu3d_enlarge`), by the ARM without GPU.
+- Menu: 2x (1280x720) by default, enlarged by the ARM (`menu_scale` sets 1, 2 or 3; Settings > Screen > Menu size). The GPU enlarge (`gpu3d_enlarge`) is
+  off until a Pi run shows a clean menu: `menu_gpu=1` turns it on (24 Oct: stripes on the Pi).
 
 ### 2D (`src/bm/gfx16.c`, `gfx16.h`)
 - All 2D in C (Lua only logic): primitives, `spr`/`sspr`, `map()` with up to 8 layers
@@ -68,7 +68,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 ### Mali-G52 on the RGB30
 Bring-up, draw descriptors, shaders and the triangle probe: [graphics-mali](graphics-mali.md).
 
-### Rendering tests (Settings > Screen and sound)
+### Rendering tests (Settings > Screen)
 3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`), Diagnostics, stress test
 (`src/bm/stress.c`) and Texture Room (`roombench.c`) stop on Start+Select, Ctrl+Esc or PS
 after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
@@ -103,6 +103,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
   `flush3d(1)` in `runtime.c`.
 - A step that changes what the driver can do raises `BM3D_VERSION` in `version3d.h` and adds
   a line to `docs/DRIVERS.md`.
+- Settings: in a sub-menu Enter changes a choice (left goes back, no arrows).
 - New GPU behaviour that changes look, latency or memory is an option (config key, Settings
   row, `gpu3d()` argument); the default is what the Pi verified.
 - Early z is off after a `zclear()` quad in the job and in jobs that load the page (Mesa,
