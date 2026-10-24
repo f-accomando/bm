@@ -1,0 +1,92 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1550-g8c2dc69e
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-6ac8a4_freeze_pi-zero-w_v0.2.5-1550-g8c2dc69e.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 34 s after boot, kernel v0.2.5-1549-ge5449887-dirty, ring 4905, sink on
+--- the last lines printed ---
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 2 networks
+   1   -49 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -68 dBm  ch  1  WPA2  Wind3 HUB - ED4188
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fiber: covers did not yield: 29.5 ms past its slice
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.0 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 9.8 ms past its slice
+net: time 2026-10-24 19:24 UTC
+fiber: reports did not yield: 95.9 ms past its slice
+report: sending nodate-13db20_freeze_pi-zero-w_v0.2.5-1549-ge5449887-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-13db20_freeze_pi-zero-w_v0.2.5-1549-ge5449887-dirty.txt
+menu idle: 296/300 frames, 1878 of 2104 ms taken, 98.4 ms past a frame; covers 488 ms (+29.5, stk 0.8/16K), reports 1348 ms (+95.9, stk 7.6/128K); min slack -3264 us, paced 0; sd 16 retried, 16 timed out
+menu idle: sd sites: rdend 16; first word <1ms 210 <3ms 12 (max 1.5 ms)
+menu stalls: tls handshake 1x last 269.3 worst 269.3 ms
+menu frame: 1x, a frame averages draw 8270 us, enlarge 1 us, flip 91 us, free time used 6260 us (300 frames)
+menu frame: 1x, a frame averages draw 7603 us, enlarge 1 us, flip 90 us, free time used 107 us (300 frames)
+net: receiving a new kernel (5068612 bytes)...
+net: kernel 0% (0 of 4949 KB)
+net: kernel 10% (503 of 4949 KB)
+net: kernel 20% (998 of 4949 KB)
+net: kernel 30% (1493 of 4949 KB)
+menu frame: 1x, a frame averages draw 8469 us, enlarge 1 us, flip 90 us, free time used 107 us (300 frames)
+net: kernel 40% (1988 of 4949 KB)
+net: kernel 50% (2483 of 4949 KB)
+net: kernel 60% (2970 of 4949 KB)
+net: kernel 70% (3465 of 4949 KB)
+net: kernel 80% (3960 of 4949 KB)
+net: kernel 90% (4455 of 4949 KB)
+menu frame: 1x, a frame averages draw 9411 us, enlarge 1 us, flip 91 us, free time used 107 us (300 frames)
+net: dev mode: kernel received (5068612 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 25.4 ms past its slice
+net: saved kernel.img on the SD card (5068612 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB; 16 retried, 16 timed out
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
