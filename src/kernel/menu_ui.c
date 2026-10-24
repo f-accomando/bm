@@ -45,7 +45,7 @@ static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else t
 #define CARD_W      MENU_CARD       /* squares, as the bm Suite's icons */
 #define CARD_H      MENU_CARD
 #define RADIUS      0               /* square corners of the covers */
-#define GAP_X       9
+#define GAP_X       6
 #define PITCH_Y     (CARD_H + GAP_X)
 #define GRID_X0     ((SW - (cols * CARD_W + (cols - 1) * GAP_X)) / 2)
 #define FOOT_Y      316             /* bottom bar, text rows 20-21 */
