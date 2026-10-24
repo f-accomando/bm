@@ -4696,6 +4696,7 @@ local function setup_object(rt)
   end, 2)
   def(Obj, "defineProperty", function(this, o, k, d) define_property(o, k, d); return o end, 3)
   def(Obj, "defineProperties", function(this, o, props)
+    props = to_object_keys(props)
     local ks, n = own_keys(props)
     for i = 1, n do define_property(o, ks[i], getv(props, ks[i])) end
     return o
@@ -5602,12 +5603,19 @@ function setup_regexp(rt)
     if not st then return null end
     return build_match(this, s, st, en, caps)
   end, 1)
-  def(RP, "toString", function(this) return "/" .. this.source .. "/" .. this.flags end, 0)
-  defacc(RP, "source", function(this) return this.source end)
-  defacc(RP, "flags", function(this) return this.flags end)
-  defacc(RP, "lastIndex", function(this) return this.li + 0.0 end, function(this, v) this.li = toint(v, 0) end)
+  def(RP, "toString", function(this)
+    if type(this) ~= "table" or this.cls ~= "RegExp" then throw_error("TypeError", "RegExp.prototype.toString called on incompatible receiver") end
+    return "/" .. this.source .. "/" .. this.flags
+  end, 0)
+  local function RX(this)
+    if type(this) ~= "table" or this.cls ~= "RegExp" then throw_error("TypeError", "incompatible receiver") end
+    return this
+  end
+  defacc(RP, "source", function(this) return RX(this).source end)
+  defacc(RP, "flags", function(this) return RX(this).flags end)
+  defacc(RP, "lastIndex", function(this) return RX(this).li + 0.0 end, function(this, v) RX(this).li = toint(v, 0) end)
   for name, ch in pairs({ global = "g", ignoreCase = "i", multiline = "m", sticky = "y", unicode = "u", dotAll = "s" }) do
-    defacc(RP, name, function(this) return sfind(this.flags, ch, 1, true) ~= nil end)
+    defacc(RP, name, function(this) return sfind(RX(this).flags, ch, 1, true) ~= nil end)
   end
 end
 
