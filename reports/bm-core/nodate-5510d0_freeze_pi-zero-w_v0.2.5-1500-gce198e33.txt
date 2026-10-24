@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1500-gce198e33
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-5510d0_freeze_pi-zero-w_v0.2.5-1500-gce198e33.txt
+
+the Pi froze (the watchdog restarted it) while: monitor command "M", frame 0, 249 s after boot, kernel v0.2.5-1500-gce198e33, ring 7366, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ bm-108
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -28559 us, paced 0
+menu idle: sd first word <1ms 30 (max 1.4 ms)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23614 us, paced 0
+market: nearby consoles: listening as bm-108
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23616 us, paced 0
+menu idle: sd first word <1ms 45 (max 1.4 ms)
+market: nearby consoles: listening as bm-108
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -24218 us, paced 0
+menu idle: sd first word <1ms 40 (max 1.4 ms)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -24243 us, paced 0
+menu idle: sd first word <1ms 55 (max 1.4 ms)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -32640 us, paced 0
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23861 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23630 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23619 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -28455 us, paced 0
+menu idle: sd first word <1ms 20 (max 1.4 ms)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -24887 us, paced 0
+menu idle: sd first word <1ms 35 (max 1.4 ms)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23814 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23620 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23641 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23613 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23623 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23613 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23627 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23637 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23557 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -23629 us, paced 0
+market: nearby consoles: listening as bm-108
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -28533 us, paced 0
+menu idle: sd first word <1ms 10 (max 1.4 ms)
+back to the monitor
+
+type 'h' for help
+> M
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+market: nearby consoles: listening as bm-108
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -28542 us, paced 0
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+market: nearby consoles: listening as bm-108
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -28576 us, paced 0
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20834 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20626 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20626 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20593 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20566 us, paced 0
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -20630 us, paced 0
+market: nearby consoles: listening as bm-1
