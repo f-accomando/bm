@@ -78,6 +78,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 - **Mali-G52 driver** (RGB30): Overbit in `.b16` at 360×360 and 720×720, ARM benchmark and Mali driver (details in [graphics-mali](graphics-mali.md)).
 - **`.b16` profile**: unified `.b16` profile (details in [b16](b16.md)).
 - **Handheld shell for the Pi Zero**: support for handheld setups based on the Pi Zero (reading keys and pad directly on GPIO pins, compact display on a DPI or SPI bus).
+  Done: `src/drivers/spilcd.c` drives a 3.5" SPI TFT (480×320, ILI9486; XPT2046 touch chip left idle) on SPI0 of the Pi 1. It is standalone: `spilcd_init`, `spilcd_fill`, `spilcd_blit`, and nothing calls it yet. Not tried on hardware: check the colours and the orientation (`SPILCD_MADCTL`), then connect it to the menu.
 - RGB30 runs on one core (no PSCI `CPU_ON`), fibers in the menu only; multicore: [multitasking](multitasking.md).
 - RGB30 panel after a warm restart: confirmed OK on hardware on 21 Oct 2026. Watch for a regression (`src/rgb30/rk_dsi.c`):
   1. The black screen after a restart or an update may come back now that the boot power
@@ -105,6 +106,8 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   A full `/tmp` (tmpfs) in WSL fails any test that writes an SD image: delete `/tmp/bm64*` or set `TMPDIR`.
 
 ## Rules (do not break)
+
+- `src/drivers/spilcd.c` owns GPIO 7-11, 24 and 25 only after `spilcd_init`. Call it on a Pi with the SPI TFT wired, never at boot by default.
 
 - `src/rgb30/start.S` copy_up: the copy loop must stay within the first BOOT_HEAD (0x100) bytes
   (`ASSERT` in `src/rgb30/kernel.ld`); it copies the head to the link address and continues from there (an
