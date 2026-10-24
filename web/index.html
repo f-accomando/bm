@@ -5,14 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>bm web player</title>
   <link rel="stylesheet" href="style.css">
-  <!-- React 18.3.1 and ReactDOM 18.3.1 UMD -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-  <!-- Mock launcher -->
-  <script src="launcher-mock.js"></script>
+  <!-- React 18.3.1 and ReactDOM 18.3.1 UMD with SRI -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
   <!-- .bm cartridge reader -->
   <script src="bmcart.js"></script>
-  <!-- web player: replaces the mock launcher; it needs bmweb.js from make web-player -->
+  <!-- web player: WebAssembly bm runtime with Asyncify, AudioWorklet and IDBFS -->
   <script src="bmring.js"></script>
   <script src="player.js"></script>
 </head>

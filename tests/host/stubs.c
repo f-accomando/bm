@@ -774,3 +774,4 @@ void crt_apply_filter(void *pixels, int w, int h, int pitch_bytes)
 {
     (void)pixels; (void)w; (void)h; (void)pitch_bytes;
 }
+

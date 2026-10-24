@@ -24,11 +24,11 @@ Mock only. Assets need the licence policy before real content.
 
 ## External loads
 
-The page loads React 18.3.1 and ReactDOM 18.3.1 (MIT) from `cdnjs.cloudflare.com`. The page has no `fetch`, no storage, and sends no data. The only link is "Buy me a coffee" (a plain `<a>`).
+The page loads React 18.3.1 and ReactDOM 18.3.1 (MIT) from `cdnjs.cloudflare.com` with Subresource Integrity (SRI) hashes. The only external link is "Buy me a coffee" (a plain `<a>`).
 
-## Player (stage 3)
+## Player (Stages 3 & 6)
 
-`make web-player` (Emscripten in WSL: `source ~/emsdk/emsdk_env.sh`) writes `build/web/player/` with this page, `bmweb.js` and `bmweb.wasm`. Serve that folder with a static server and open a `.bm` with "Open a .bm file", then press "Start bm". `player.js` defines `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). The saves of the cartridges stay in the browser (IndexedDB). Without `bmweb.js` the launcher says that the runtime is not built. `launcher-mock.js` stays for reference and `player.js` replaces it.
+`make web-player` (Emscripten in WSL: `source /root/emsdk/emsdk_env.sh`) builds the WebAssembly runtime and packages `build/web/player/` with `index.html`, `style.css`, `app.js`, `player.js`, `bmcart.js`, `bmring.js`, `bmweb.js`, `bmweb.wasm`, bundled sample cartridges (`kitchen.bm`, `demo.bm`, `stages3d.bm`), and static assets. Serve that folder with any static HTTP server or publish to GitHub Pages. `player.js` connects `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). The saves of the cartridges stay in the browser (IndexedDB). Without `bmweb.js` the launcher notifies that the runtime is not built. Cartridges can be launched immediately via preset pills or loaded locally with "Open custom .bm file".
 
 ## Cartridge reader (stage 1)
 

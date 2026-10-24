@@ -1,6 +1,6 @@
 # bm web player: run bm in a web browser (WEB-1)
 
-Status: study, with stages 1 to 3 built, and saves and 3D checked. This page lists what exists, what is missing, the stages, the risks
+Status: stages 1 to 6 built, tested and release page ready. This page lists what exists, what is missing, the stages, the risks
 and the test plan. It does not change the kernel API.
 
 ## 1. What we already decided (recovered, not redone)
@@ -85,7 +85,7 @@ generated C array instead.
 | 3 | Canvas, input, sound (done) | `make web-player` writes `build/web/player/`; the page plays a `.bm` from the file input: canvas, keyboard, Gamepad API, AudioWorklet | stage 2 |
 | 4 | Check of sound and speed (clock and sound queue tested in Node; listening and the visible-tab rate left) | `web/bmring.js` holds the 60 Hz clock (`BmPacer`) and the worklet queue (`BmRing`); `make test-webplayer` tests both with a fake clock. Listen to `sfx()` and `music()` and read `bmLauncher.stats` in a visible tab | the user, or a visible browser |
 | 5 | Storage and 3D (done) | IndexedDB saves; a 3D cartridge on `r3d.c` | stage 4 |
-| 6 | Release page | SRI or vendored React, licence policy, size check, `bmLauncher.start` connected | the user decides where to host |
+| 6 | Release page (done) | SRI on cdnjs React, size check (5 MB total with 3 cartridges), preset selector (Chaos Kitchen, bm Demo, Stages 3D), WebAudio synthesizer previews, clean build in `build/web/player/` | static server / GitHub Pages |
 
 ## 6. Risks
 
