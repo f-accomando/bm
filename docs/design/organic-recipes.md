@@ -32,7 +32,7 @@ rings, bridge, cap, tent, align) to `src/ai/mesh_skin.c`, emit faces through a n
 corner, and write `r_biped` and `r_chameleon` with fixed numbers. Rule for the bone of a shared ring: the **distal**
 bone. The script language is not extended for now (WO-7).
 
-Not to do: change the output of `face()` or `biped_bones`/`r_hero` (the village cart uses `bone3d(v, "arm.L")`);
+Not to do: change the output of `face()` or `biped_bones`/`r_hero` (Overbit uses `bone3d`);
 port charkit's Python into the kernel; build +z then flip (build facing -z directly); name Rango or the sheriff in code
 or in the KB; put a vertex array on the stack (Pi Zero: `static` only).
 

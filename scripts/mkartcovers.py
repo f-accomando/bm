@@ -142,24 +142,6 @@ def astrowing(a):
     a.glow(44, 44, 6, 0xFFC060, 0.9)
 
 
-def hunt(a):
-    stars(a, 7, 30, 30, (255, 200, 200))
-    moon(a, 62, 17, 8, 0xF2E6D8, 0xC03030)
-    lay, d = a.draw()
-    d.polygon(P([(0, 62), (0, 40), (10, 40), (13, 26), (16, 40), (26, 40), (26, 34), (34, 34), (34, 62)]),
-              fill=(26, 8, 16, 255))
-    d.polygon(P([(52, 62), (52, 38), (60, 38), (64, 22), (68, 38), (78, 38), (78, 30), (88, 30), (88, 62)]),
-              fill=(26, 8, 16, 255))
-    a.over(lay)
-    a.glow(44, 44, 14, 0xE05030, 0.5)
-    lay, d = a.draw()
-    d.polygon(P([(36, 62), (40, 40), (48, 40), (52, 62)]), fill=(10, 4, 8, 255))     # the coat
-    d.ellipse(P([(40.5, 31), (47.5, 39)])[0] + P([(40.5, 31), (47.5, 39)])[1], fill=(10, 4, 8, 255))
-    d.polygon(P([(35, 33), (53, 33), (49, 30), (47, 24), (41, 24), (39, 30)]), fill=(10, 4, 8, 255))
-    d.line(P([(48, 44), (58, 36)]), fill=(210, 210, 220, 255), width=int(1.4 * S))   # the blade
-    a.over(lay)
-
-
 def kitchen(a):
     a.glow(44, 36, 36, 0xFFC050, 0.75)
     lay, d = a.draw()
@@ -422,30 +404,6 @@ def iso_box(d, x, y, w, h, top, left, right, hw=None):
     d.polygon(P([(x + w, y - h), (x, y + t - h), (x, y + t), (x + w, y)]), fill=right)
 
 
-def village(a):
-    a.glow(44, 30, 34, 0xFFF0B0, 0.6)
-    lay, d = a.draw()
-    d.polygon(P([(44, 26), (82, 44), (44, 62), (6, 44)]), fill=(70, 160, 80, 255))
-    d.polygon(P([(6, 44), (44, 62), (44, 66), (6, 48)]), fill=(120, 80, 50, 255))
-    d.polygon(P([(82, 44), (44, 62), (44, 66), (82, 48)]), fill=(90, 58, 40, 255))
-    d.polygon(P([(44, 46), (58, 53), (44, 60), (30, 53)]), fill=(200, 180, 130, 255))
-    a.over(lay)
-    a.shadow(lambda dr, c: iso_box(dr, 30, 46, 11, 10, c, c, c), 1, 2)
-    lay, d = a.draw()
-    iso_box(d, 30, 46, 11, 10, (214, 120, 90, 255), (190, 190, 200, 255), (150, 150, 165, 255))
-    d.polygon(P([(30, 20), (43, 30), (30, 36), (17, 30)]), fill=(180, 60, 50, 255))
-    d.polygon(P([(17, 30), (30, 36), (30, 40), (17, 34)]), fill=(140, 40, 40, 255))
-    d.polygon(P([(43, 30), (30, 36), (30, 40), (43, 34)]), fill=(120, 34, 36, 255))
-    d.polygon(P([(22, 44), (26, 46), (26, 50), (22, 48)]), fill=(90, 150, 220, 255))
-    a.over(lay)
-    for x, y in ((60, 40), (68, 46), (54, 36)):
-        lay, d = a.draw()
-        d.rectangle(P([(x - .8, y), (x + .8, y + 6)]), fill=(100, 66, 40, 255))
-        d.ellipse(P([(x - 5, y - 9), (x + 5, y + 2)])[0] + P([(x - 5, y - 9), (x + 5, y + 2)])[1], fill=(40, 130, 60, 255))
-        d.ellipse(P([(x - 4, y - 9), (x + 2, y - 3)])[0] + P([(x - 4, y - 9), (x + 2, y - 3)])[1], fill=(80, 180, 90, 255))
-        a.over(lay)
-
-
 def yharnam(a):
     stars(a, 23, 26, 28, (210, 230, 240))
     moon(a, 62, 16, 9, 0xE8F0F0, 0x4090A0)
@@ -570,7 +528,6 @@ def stages3d(a):
 # name -> (title, top colour, bottom colour, emblem)
 COVERS = {
     "astrowing": ("Astro Wing", 0x0A1030, 0x2A3A78, astrowing),
-    "hunt": ("Hunter's Night", 0x14060E, 0x4A1220, hunt),
     "kitchen": ("Chaos Kitchen", 0x6A2A18, 0xD08038, kitchen),
     "ko2": ("KO-II", 0x10161E, 0x2A3A4E, ko2),
     "nano8": ("nano8", 0x1C1040, 0x4A2A78, nano8),
@@ -582,7 +539,6 @@ COVERS = {
     "titan": ("Titan Clash", 0x1A1030, 0x6A2A38, lambda a: titan(a, False)),
     "titan_ex": ("Titan Clash EX", 0x120C28, 0x5A3A18, lambda a: titan(a, True)),
     "typing": ("Pad Typing", 0x0E2A38, 0x2A6A70, typing),
-    "village": ("Studio Village", 0x4A90D8, 0xBCE0F8, village),
     "yharnam": ("Yharnam", 0x06141E, 0x1A4450, yharnam),
     "herocart": ("Hero Stress", 0x141A3A, 0x2A4A9A, herocart),
     "bmweb": ("bm Web", 0x0E2850, 0x2078B0, bmweb),

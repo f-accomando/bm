@@ -693,7 +693,7 @@ local path = shot("menu")    -- "bm/shots/MENU0001.png"
 
 ## Names and format
 
-- **Name**: `<PREFIX><NNNN>.PNG`, 8.3 as the card's file system wants. The prefix is the first (up to) 4 letters or digits of the game's title (`Pong` → `PONG`, `Hunter's Night` → `HUNT`; `SHOT` if there are none) or of the `prefix` the app gave.
+- **Name**: `<PREFIX><NNNN>.PNG`, 8.3 as the card's file system wants. The prefix is the first (up to) 4 letters or digits of the game's title (`Pong` → `PONG`, `Star Shooter` → `STAR`; `SHOT` if there are none) or of the `prefix` the app gave.
 - **Number**: one more than the highest of that prefix already in `bm/shots/`, from 0001 to 9999. The Pi Zero has no clock, so there is no date.
 - **Format**: PNG, 8 bits RGB, the size of the game's screen (640×360, 360×360…). Nothing is lost: the console's colours are 16 bits (RGB565) and are widened to 8 bits. There is no JPG: it spoils pixel art.
 - **Size on disk**: a flat screen takes a few KB; noise can take as much as the raw picture (about 0.7 MB at 640×360).

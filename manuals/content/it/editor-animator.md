@@ -481,7 +481,7 @@ function _draw()
 end
 :::
 
-È lo schema di `carts/village` del repository. Per gli sprite 2D:
+È lo schema di `carts/overbit` del repository. Per gli sprite 2D:
 
 ::: copy
 zspr("hero_walk", 100, 80)

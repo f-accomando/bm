@@ -22,7 +22,7 @@ Although sound generation is rich, the way game code communicates with the audio
 
 ### A. No Named SFX Dictionary (Named Sound Events)
 - Sound effects in the audio bank are identified only by integer numbers (`0..63`).
-- In almost all games in the repository (*Hunter's Night*, *Star Shooter*, *Skyvale World*), developers ended up **writing the sound effect code directly in Lua via `note()`**:
+- In almost all games in the repository (*Star Shooter*, *Skyvale World*), developers ended up **writing the sound effect code directly in Lua via `note()`**:
   ```lua
   local function sfx(kind)
     if kind == "slash" then note(0, 2600, 90, NOISE, 70)
@@ -33,7 +33,7 @@ Although sound generation is rich, the way game code communicates with the audio
 - This happens because using `sfx(14)` or `sfx(22)` in Lua code forces you to constantly consult bm Sound to remember which number corresponds to which effect, making the code opaque and prone to misalignment errors.
 
 ### B. "Machine Gun" Effect and Lack of Micro-Variations (Jitter)
-- In high-action-frequency games (e.g. pistol shots in *Hunter's Night* or robot footsteps in *Titan Clash*), playing exactly the same sound effect dozens of times per second with identical frequency and volume generates monotony and ear fatigue.
+- In high-action-frequency games (e.g. robot footsteps in *Titan Clash*), playing exactly the same sound effect dozens of times per second with identical frequency and volume generates monotony and ear fatigue.
 - bm Sound currently has no **controlled randomization** parameter (pitch jitter / volume variation). The developer must manually program formulas such as `hz + math.random(-20, 20)` in Lua.
 
 ### C. Audio Channel Management and Priority (Voice Stealing & Ducking)
@@ -44,7 +44,7 @@ Although sound generation is rich, the way game code communicates with the audio
   - *Audio Ducking*: automatic lowering of the music volume during important sounds (dialogue, boss roar, critical hit).
 
 ### D. Simplified Jingle Sequencer
-- In games like *Star Shooter* or *Hunter's Night*, short melodies (e.g. picking up a power-up, leveling up, lighting a lantern) are written as dedicated mini-sequencers in Lua (`tune = { {523, 4}, {659, 4}, {784, 8} }`).
+- In games like *Star Shooter*, short melodies (e.g. picking up a power-up, leveling up, lighting a lantern) are written as dedicated mini-sequencers in Lua (`tune = { {523, 4}, {659, 4}, {784, 8} }`).
 - There is no way to save these 1- or 2-voice "Jingles" in bm Sound, distinct from the full 8-track song patterns.
 
 ---

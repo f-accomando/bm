@@ -389,7 +389,7 @@ carts/<id>/
 
 - The Makefile looks in `assets/` first, then in `carts/<id>/`, so old games still work.
 - Unknown keys are kept in the cartridge. The binary `.bm` format does not change, and an older kernel ignores INFO.
-- Games already moved: `pong` (`bm.info`), `yharnam` (`bm.info`, `sheet.png` and `map_*.csv` in `assets/`, the `mk*.py` scripts, `mapview.py` and `art/` in `build/`) and `hunt` (`bm.info`, `sheet.png` and `map.csv` in `assets/`, `mkassets.py` in `build/`).
+- Games already moved: `pong` (`bm.info`), `yharnam` (`bm.info`, `sheet.png` and `map_*.csv` in `assets/`, the `mk*.py` scripts, `mapview.py` and `art/` in `build/`).
 
 ## Caveats
 
@@ -444,7 +444,7 @@ A box says `Screenshot saved` and the file name for two seconds. The picture is 
 
 - `shot([prefix])` asks for the frame being drawn. It is saved when `_draw` ends, so call it at any point of the frame; calling it twice in a frame gives one file.
 - It returns the name the file will have, or `nil` and a message if the numbers are over. It asks the player nothing.
-- The name is `<PREFIX><NNNN>.PNG`, 8.3. The prefix is the first, up to 4, letters or digits of the game's title (`Pong` gives `PONG`, `Hunter's Night` gives `HUNT`, `SHOT` if there are none) or the `prefix` you gave.
+- The name is `<PREFIX><NNNN>.PNG`, 8.3. The prefix is the first, up to 4, letters or digits of the game's title (`Pong` gives `PONG`, `Star Shooter` gives `STAR`, `SHOT` if there are none) or the `prefix` you gave.
 - The number is one more than the highest of that prefix already in `bm/shots/`, from 0001 to 9999. The Pi Zero has no clock, so there is no date.
 - The format is PNG, 8 bits RGB, the size of the game's screen (640x360, 360x360...). Nothing is lost: the console's 16-bit colours are widened to 8 bits. There is no JPG, because it spoils pixel art.
 - From the PC, over the network link, `python tools/bm_net.py IP --shot out.png` asks the console for a screenshot of the running game (the console asks for the Console password) and saves it as `out.png`. `python tools/bm_net.py IP --get bm/shots/pong0007.png out.png` fetches a file that is already in `bm/shots/`. A game must be drawing frames: with none, the request fails after 3 seconds. Only files of `bm/shots/` can be fetched. This is not verified on an RGB30.

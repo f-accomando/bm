@@ -410,7 +410,7 @@ light_end()
 print("life", 4, 4, 0xFFFFFF)                -- the HUD is not darkened
 ```
 
-Complete example: `carts/hunt`.
+No game of the repository uses these three functions now.
 
 ## Light by levels
 

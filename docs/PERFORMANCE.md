@@ -55,8 +55,8 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 | **Triple buffering** | Double buffering | Screen tearing on lower half of console menu on hardware | One additional 450 KB page, zero per-frame cost |
 | Full-frame copy with **CPU** | DMA | DMA is slower than CPU for full contiguous frame copies | 14.06 ms DMA vs 11.85 ms CPU *(M)* |
 | DMA conservative settings (Circle-aligned) | Aggressive burst | Aggressive settings caused hardware lockups on Pi | Safe burst 8, high priority, `WAIT_RESP` |
-| Lights on **4×4 px grid**, bilinear + dither | Per-pixel lighting | 1/16th of calculation overhead | Smooth lighting in Hunter's Night at 320×180 |
-| Dynamic lighting games at **320×180** | 640×360 | 1/4th of total pixels to light and write | Hunter's Night maintains 60 fps |
+| Lights on **4×4 px grid**, bilinear + dither | Per-pixel lighting | 1/16th of calculation overhead | Smooth lighting at 320×180 |
+| Dynamic lighting games at **320×180** | 640×360 | 1/4th of total pixels to light and write | 60 fps at 320×180 (measured with a game since removed) |
 | Fast C blit with row `memcpy` for opaque cells | Per-pixel check everywhere | Opaque cells bypass alpha transparency tests | ~14 ns/pixel *(M)* |
 | **SHEET8** (≤256 colors + RLE in cart) | Raw RGBA | Drastically smaller cartridge size, fast one-time decode at boot | Titan Clash: 2048×3376, 166 colors |
 | Sprite sheets up to **4096 px** | 256×256 limit | Arcade-sized character sprites | Memory is ample (448 MB) |

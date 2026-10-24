@@ -15,8 +15,8 @@ import argparse, fnmatch, os, re, shutil, subprocess, sys
 EXCLUDE = [
     '.agents', '.antigravity', '.claude', '.github', 'claude', 'market', 'sync', 'video', 'art',
     'AGENTS.md', 'AI.md', 'CLAUDE.md', 'GEMINI.md', 'SYNC.md',
-    *['carts/' + g for g in ('astrowing hunt kitchen nano8 overbit pong shooter snake titan '
-                             'titan_ex typing village yharnam').split()],
+    *['carts/' + g for g in ('astrowing kitchen nano8 overbit pong shooter snake titan '
+                             'titan_ex typing yharnam').split()],
     'carts/*/cover.png',
     'docs/agents', 'docs/archive', 'docs/design', 'docs/giochi', 'docs/img', 'docs/progress',
     'docs/spec', 'docs/video', 'docs/progress.md', 'docs/ROADMAP.md', 'docs/open-decisions.md',
@@ -34,7 +34,7 @@ EXCLUDE = [
     '*.mp4', '*.gif',
 ]
 KEEP = ['carts/texroom/cover.png']   # exceptions to EXCLUDE
-GAMES = 'astrowing hunt kitchen nano8 overbit pong shooter snake titan yharnam typing village'.split()
+GAMES = 'astrowing kitchen nano8 overbit pong shooter snake titan yharnam typing'.split()
 GONE_FILES = ['agent_audit.py', 'cindex.py', 'consistency.py', 'ctx_guard.py', 'docs_audit.py',
               'mkcovers.py', 'render_game_shots.py', 'market.sh', 'market-key.sh', 'wsl-run.ps1',
               'sync_hdr.py', 'sync_check.py', 'sync_watch.py', 'generate_guide_pdf.py']

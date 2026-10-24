@@ -87,7 +87,7 @@ In the F4 page (or integrated in F1):
   - **Shading Brush** tool: a brush that does not change color but raises/lowers the tone by one step on the current ramp.
 
 ### Proposal 4: 8-Direction Mirroring Assistant
-- For characters with a 3/4 view (*Yharnam* or *Hunter's Night* style):
+- For characters with a 3/4 view (*Yharnam* style):
   - The left-facing directions (SW, W, NW) are often mirrors of the right-facing ones (SE, E, NE).
   - A dedicated "Generate mirrored directions" command that clones the sequences in the sheet applying a horizontal flip, preserving the hand holding the weapon (to prevent the character from suddenly becoming left-handed).
 

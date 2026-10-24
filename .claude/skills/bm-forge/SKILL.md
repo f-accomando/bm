@@ -96,7 +96,7 @@ VERIFICA: export cart <ABS>/anim.bm --lua ... -o <ABS>/forgedemo.b16 --title "Fo
 COSA: validate an existing asset
 VINCOLI: kernel limits, budget 2000 triangles a frame, no edits to the file
 OUTPUT: pass/fail lines and the last check --json
-VERIFICA: check carts/village/assets/models.bm --kernel-limits --budget 2000 --json
+VERIFICA: check tests/fixtures/village/models.bm --kernel-limits --budget 2000 --json
 ```
 
 ```

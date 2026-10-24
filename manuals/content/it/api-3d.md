@@ -410,7 +410,7 @@ light_end()
 print("life", 4, 4, 0xFFFFFF)                -- l'HUD non viene oscurato
 ```
 
-Esempio completo: `carts/hunt`.
+Nessun gioco del repository usa ora queste tre funzioni.
 
 ## Luce a livelli
 

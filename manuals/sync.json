@@ -2,8 +2,8 @@
  "api-3d": {
   "chapters": {
    "1": {
-    "en": "b8b49863daaa",
-    "it": "619cf9fe0aba",
+    "en": "b8d39b4c558f",
+    "it": "974fa3a44eaf",
     "title": "How 3D works in bm"
    },
    "10": {
@@ -17,13 +17,13 @@
     "title": "3D map terrain"
    },
    "12": {
-    "en": "3d5ce41a52f7",
-    "it": "d12b8bfe0a44",
+    "en": "b9768ffb4c03",
+    "it": "38acb3ae9d3c",
     "title": "Light for 2D scenes"
    },
    "13": {
-    "en": "24f58caa9063",
-    "it": "c27c08de5682",
+    "en": "6ff2e2133ee2",
+    "it": "1a6f5935fac5",
     "title": "Performance tips"
    },
    "2": {
@@ -62,14 +62,14 @@
     "title": "Visibility"
    },
    "9": {
-    "en": "4ca6ce2898bb",
-    "it": "a48fbd8fcce4",
+    "en": "780cbee71e68",
+    "it": "e1b02d9951d8",
     "title": "The GPU: gpu3d and its options"
    }
   },
   "sources": {
    "docs/BENCH3D.md": "af60de01fb2c",
-   "docs/api/light3d.md": "8472028af1a0"
+   "docs/api/light3d.md": "6dc8f3b69098"
   }
  },
  "api-core": {
@@ -100,8 +100,8 @@
     "title": "Input"
    },
    "5": {
-    "en": "bb30b4f0f576",
-    "it": "eb59a8cabb03",
+    "en": "3ef49e136d21",
+    "it": "7ca9be8e059d",
     "title": "Time and system"
    },
    "6": {
@@ -115,8 +115,8 @@
     "title": "Documents"
    },
    "8": {
-    "en": "e9c0b9bdef7a",
-    "it": "83d17eb56bb8",
+    "en": "d91bee74facf",
+    "it": "8e987007b925",
     "title": "Screenshots"
    },
    "9": {
@@ -126,8 +126,8 @@
    }
   },
   "sources": {
-   "docs/API.md": "ee05df89ef61",
-   "docs/GAME-GUIDE.md": "13cee5d18016",
+   "docs/API.md": "2778cdb7f962",
+   "docs/GAME-GUIDE.md": "5880ba4b4d06",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/input.md": "4a75b07df3da",
    "docs/api/system.md": "62684bc75e0c"
@@ -308,20 +308,20 @@
     "title": "Resource files and sharing assets"
    },
    "5": {
-    "en": "d35e0a6d1047",
-    "it": "c4c9d0436dc9",
+    "en": "df023b878f23",
+    "it": "4339df8ea105",
     "title": "The project layout"
    },
    "6": {
-    "en": "15436a4d4cf6",
-    "it": "27d0a4e4300b",
+    "en": "7b9b66c2241b",
+    "it": "de929581f8e6",
     "title": "Screenshots for developers"
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "15c0a8e6e6e2",
+   "docs/PROJECT-LAYOUT.md": "96de0fc04139",
    "docs/RISORSE.md": "46d80064fc62",
-   "docs/SCREENSHOTS.md": "afdde1690440",
+   "docs/SCREENSHOTS.md": "819c2580bb7d",
    "docs/api/tools.md": "5f4905aa4832"
   }
  },
@@ -414,8 +414,8 @@
     "title": "3D models"
    },
    "11": {
-    "en": "e8a268cce9bb",
-    "it": "e5e5b3b3d4d6",
+    "en": "d8a78791530b",
+    "it": "d2f163c04145",
     "title": "Drawing and animating in the game"
    },
    "12": {
@@ -429,8 +429,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "ab16820a9e91",
-    "it": "cb878f4bba28",
+    "en": "3fe12a2a02eb",
+    "it": "359858de036d",
     "title": "Choosing a technique"
    },
    "3": {
@@ -444,8 +444,8 @@
     "title": "Side-scroller characters"
    },
    "5": {
-    "en": "c532dffe2b33",
-    "it": "a48638a4d3d8",
+    "en": "3714fdd583cd",
+    "it": "fa29f531fa80",
     "title": "Top-down characters, 4 directions"
    },
    "6": {
@@ -459,8 +459,8 @@
     "title": "Optimising sprites"
    },
    "8": {
-    "en": "c906e56eee6f",
-    "it": "14249902483c",
+    "en": "5daeaeddca72",
+    "it": "d6f84ecebf8e",
     "title": "Pre-rendered 2D"
    },
    "9": {
@@ -470,20 +470,19 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "07b6388861e6",
-   "carts/hunt/main.lua": "9626c44827de",
-   "carts/mesh/main.lua": "c15170eef48d",
-   "carts/pixel/main.lua": "634ae71952e3",
-   "carts/studio/main.lua": "285ae16f1382",
+   "carts/animator/main.lua": "4c4eafda795f",
+   "carts/mesh/main.lua": "e108e7248bac",
+   "carts/pixel/main.lua": "ff4d7d19619e",
+   "carts/studio/main.lua": "597711e5f5c8",
    "carts/titan/build/mkrobot.py": "72c7aff21afd",
    "carts/yharnam/build/mkassets.py": "efc8086470ce",
    "docs/api/draw.md": "bc14d3e027f6",
-   "docs/api/light3d.md": "e598e3265d36",
-   "docs/design/games-architecture.md": "41e1f6da4bed",
+   "docs/api/light3d.md": "6dc8f3b69098",
+   "docs/design/games-architecture.md": "38d1cf8a4cc1",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/design/suite-pixel.md": "169370731398",
-   "docs/progress/graphics.md": "0450059d63f3",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/design/suite-pixel.md": "14bcb5f6aee2",
+   "docs/progress/graphics.md": "267ed2b8c0bc",
+   "docs/progress/tools.md": "7219aec6478f",
    "docs/progress/yharnam.md": "2b2e4072a162",
    "tools/cutout2mesh.py": "a2a57f9737c1",
    "tools/img2mesh.py": "db3364221d4a"
@@ -532,8 +531,8 @@
     "title": "Saving and exporting"
    },
    "8": {
-    "en": "7236c81aafe9",
-    "it": "bdeb1ab22cc9",
+    "en": "6e61ebd53c5e",
+    "it": "43e19617f839",
     "title": "Using the animation in a game"
    },
    "9": {
@@ -543,11 +542,11 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "26102dad9743",
-   "docs/RISORSE.md": "4b94efc50686",
+   "carts/animator/main.lua": "4c4eafda795f",
+   "docs/RISORSE.md": "46d80064fc62",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "docs/progress/tools.md": "7219aec6478f",
+   "sdk/README.md": "9405dd4d3479"
   }
  },
  "editor-code": {

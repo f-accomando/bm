@@ -57,7 +57,7 @@ The notes of the repository are clear on the limit: drawing every direction of e
 
 ## Good to know
 
-- *Hunter's Night* (`carts/hunt`) uses drawn sprites; *Titan Clash* (`carts/titan`) and *Yharnam* (`carts/yharnam`) use pre-rendered ones; *Studio Village* (`carts/village`) uses a 3D model and its pre-rendered version of the same villager.
+- *Titan Clash* (`carts/titan`) and *Yharnam* (`carts/yharnam`) use pre-rendered sprites.
 - A 3D model can feed the other two: the same model is a 3D character and, baked, a 2D one.
 
 # Sprites by hand
@@ -137,7 +137,7 @@ Seen from above, the character faces down, up, left or right. Four directions ne
 
 ## What to draw
 
-*Hunter's Night* (`carts/hunt`) does exactly this, with sprites of 2 by 2 cells and two walking frames for each view:
+A game does this with sprites of 2 by 2 cells and two walking frames for each view:
 
 - facing down: the first sprite of the group, then the second walking frame;
 - facing up: the sprite 4 cells after;
@@ -331,7 +331,7 @@ The baked frames are ordinary sprites in the sheet. Open the project in bm Pixel
 
 ## Try it, step by step
 
-1. Open the **Dev** tab and start **bm Animator**. Choose a project with a rigged model (`carts/village` has a villager).
+1. Open the **Dev** tab and start **bm Animator**. Choose a project with a rigged model (`carts/overbit` has rigged models).
 2. Press **F4**. Choose the animation `walk` in the first row.
 3. Set `frames` to 8, `size` to 48, `directions` to 4.
 4. Check that `hitboxes` says `from bones`.
@@ -541,7 +541,7 @@ function _draw()
 end
 :::
 
-The last line draws the shadow. This is the pattern of `carts/village`, where a villager is also drawn as pre-rendered sprites.
+The last line draws the shadow. This is the pattern of the games with rigged models, such as `carts/overbit`.
 
 # Tutorials
 

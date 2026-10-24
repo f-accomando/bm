@@ -137,7 +137,6 @@ Everything in a cartridge can be created using bm's built-in editors in the **De
 - **Titan Clash**: Giant fighting mechas with large sprite sheets and 2-player combat.
 - **Chaos Kitchen**: Cooperative 3D cooking party game for 1 to 4 players.
 - **Yharnam**: Gothic nighttime action RPG at 360×360 (.b16 screen) with 27 hunter animations, trick weapons, gun parries, visceral attacks, stamina management, and 4 district boss fights.
-- **Hunter's Night**: 2D gothic platformer with real-time dynamic light sources.
 - **bm Market**: Integrated online catalog downloading free cartridges with cryptographic SHA-256 verification directly to the SD card.
 
 ---

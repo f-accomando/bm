@@ -693,7 +693,7 @@ local path = shot("menu")    -- "bm/shots/MENU0001.png"
 
 ## Nomi e formato
 
-- **Nome**: `<PREFIX><NNNN>.PNG`, 8.3 come vuole il file system della scheda. Il prefisso sono le prime (fino a) 4 lettere o cifre del titolo del gioco (`Pong` → `PONG`, `Hunter's Night` → `HUNT`; `SHOT` se non ce ne sono) o del `prefix` dato dall'app.
+- **Nome**: `<PREFIX><NNNN>.PNG`, 8.3 come vuole il file system della scheda. Il prefisso sono le prime (fino a) 4 lettere o cifre del titolo del gioco (`Pong` → `PONG`, `Star Shooter` → `STAR`; `SHOT` se non ce ne sono) o del `prefix` dato dall'app.
 - **Numero**: uno più del più alto di quel prefisso già presente in `bm/shots/`, da 0001 a 9999. Il Pi Zero non ha un orologio, quindi non c'è la data.
 - **Formato**: PNG, RGB a 8 bit, della dimensione dello schermo del gioco (640×360, 360×360…). Non si perde nulla: i colori della console sono a 16 bit (RGB565) e vengono estesi a 8 bit. Niente JPG: rovina il pixel art.
 - **Spazio su disco**: uno schermo uniforme occupa pochi KB; il rumore può occupare quanto l'immagine grezza (circa 0,7 MB a 640×360).

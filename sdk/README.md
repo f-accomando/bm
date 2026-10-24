@@ -50,8 +50,7 @@ end
 the models and skeletons, saved by the console's bm Studio or bm Animator) or `models.glb`
 in `carts/<game>/`; `make` puts it into the cartridge with `mkbm.py --models`. If the game doesn't
 have its own `sheet.png`, the sheet is the one of `models.bm` or of the `.glb`. Complete example:
-`carts/village` (Studio Village: the houses, the trees and the villager with its three animations
-are in `models.bm`).
+`carts/overbit` (its models and skeletons are in `models.bm`, made by `art/models.py`).
 
 ## Limits
 

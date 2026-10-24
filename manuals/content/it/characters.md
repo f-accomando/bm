@@ -57,7 +57,7 @@ Le note del repository sono chiare sul limite: disegnare a mano ogni direzione d
 
 ## Da sapere
 
-- *Hunter's Night* (`carts/hunt`) usa sprite disegnati; *Titan Clash* (`carts/titan`) e *Yharnam* (`carts/yharnam`) usano sprite pre-renderizzati; *Studio Village* (`carts/village`) usa un modello 3D e la versione pre-renderizzata dello stesso paesano.
+- *Titan Clash* (`carts/titan`) e *Yharnam* (`carts/yharnam`) usano sprite pre-renderizzati.
 - Un modello 3D può alimentare gli altri due: lo stesso modello è un personaggio 3D e, generato in sprite, uno 2D.
 
 # Sprite a mano
@@ -137,7 +137,7 @@ Visto dall'alto, il personaggio guarda in basso, in alto, a sinistra o a destra.
 
 ## Cosa disegnare
 
-*Hunter's Night* (`carts/hunt`) fa proprio così, con sprite di 2 per 2 celle e due fotogrammi di camminata per ogni vista:
+Un gioco lo fa con sprite di 2 per 2 celle e due fotogrammi di camminata per ogni vista:
 
 - rivolto in basso: il primo sprite del gruppo, poi il secondo fotogramma di camminata;
 - rivolto in alto: lo sprite 4 celle dopo;
@@ -331,7 +331,7 @@ I fotogrammi generati sono sprite normali nello sheet. Apri il progetto in bm Pi
 
 ## Provalo, passo per passo
 
-1. Apri la scheda **Dev** e avvia **bm Animator**. Scegli un progetto con un modello con scheletro (`carts/village` ha un paesano).
+1. Apri la scheda **Dev** e avvia **bm Animator**. Scegli un progetto con un modello con scheletro (`carts/overbit` ha dei modelli con scheletro).
 2. Premi **F4**. Scegli l'animazione `walk` nella prima riga.
 3. Imposta `frames` a 8, `size` a 48, `directions` a 4.
 4. Controlla che `hitboxes` dica `from bones`.
@@ -541,7 +541,7 @@ function _draw()
 end
 :::
 
-L'ultima riga disegna l'ombra. È lo schema di `carts/village`, dove un paesano è disegnato anche come sprite pre-renderizzati.
+L'ultima riga disegna l'ombra. È lo schema dei giochi con modelli con scheletro, come `carts/overbit`.
 
 # Tutorial
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-The showreel, on the console in QEMU: the villager of Studio Village (its
-model, skeleton and walk, carts/village/models.bm) in a new cartridge whose
+The showreel, on the console in QEMU: the villager of the village fixture (its
+model, skeleton and walk, tests/fixtures/village/models.bm) in a new cartridge whose
 code is one line. In the SDK a small map is painted; in bm Code the
 assistant writes the movement with the arrows and the rest of the game is
 typed (the map becomes the 3D ground, the villager walks on it); then the
@@ -148,9 +148,9 @@ def sections(data):
 
 def start_cart():
     """The cartridge the scenes start from, "My Village": the models,
-    skeleton, animations and sheet of carts/village/models.bm and one line
+    skeleton, animations and sheet of tests/fixtures/village/models.bm and one line
     of code: the game is written on the console."""
-    data = open(os.path.join(ROOT, "carts", "village", "models.bm"), "rb").read()
+    data = open(os.path.join(ROOT, "tests", "fixtures", "village", "models.bm"), "rb").read()
     extra = [(t, b) for t, b in sections(data) if t != mkbm.SEC_LUA]
     return mkbm.pack(b"-- My Village: a villager on a map\n", title="My Village", author="bm",
                      res=struct.unpack_from("<HH", data, 12), extra=extra)

@@ -171,7 +171,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   light plus lamps and fog (`docs/api/light3d.md:71`).
 - `models()` names in order; `bounds3d(m)` → `x0,y0,z0,x1,y1,z1` (`docs/api/light3d.md:72-73`).
 - Typical loop: `for _, name in ipairs(models()) do m[name] = model(name) end`
-  (`carts/village/main.lua:33`).
+  (`carts/overbit/src/40_actor.lua:38` loads a model the same way).
 - Textured faces read the cart's sheet: `sset` changes the models too (`sdk/README.md:44-45`).
   If the game has no `sheet.png`, the sheet comes from `models.bm`/`.glb`
   (`sdk/README.md:49-52`).
@@ -202,7 +202,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 - Call `animate` before `draw3d` each frame (`docs/GAME-GUIDE.md:401-415`). Rigid skinning:
   `animate` costs only the bones (`docs/api/light3d.md:74`).
 - Blend example `animate(v, "walk", t, "wave", t, k)`; attaching a light to `bone3d(v,"arm.L")`
-  with the model's yaw applied by hand (`carts/village/main.lua:58-71`).
+  with the model's yaw applied by hand (`docs/GAME-GUIDE.md`, the animated model section).
 - Invariant: `animate()` in `runtime.c` and the pose in `carts/animator/main.lua` do the same
   maths (`docs/progress/graphics.md:88-89`).
 
@@ -324,11 +324,9 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 - Smallest 2D game: `carts/pong/main.lua` (+ `carts/pong/cover.png`)
   (`docs/GAME-GUIDE.md:886`); inline example `docs/GAME-GUIDE.md:78-102`.
 - 3D in code only: `carts/astrowing/main.lua` (`docs/GAME-GUIDE.md:889`).
-- **Mesh load + animation (smallest found)**: `carts/village/main.lua` (109 lines),
-  `carts/village/assets/models.bm`, `carts/village/cover.png`; registered by `Makefile:191,202-203`
-  (`res_village := 320x180`). `model()` at `carts/village/main.lua:33`, `animate()` at
-  `:61,63`, `bone3d()` at `:68`. No smaller cart with `model()` was found among
-  `carts/**/*.lua` and `tests/**/*.lua` outside the tools (Grep `model\("|animate\(`).
+- **Mesh load + animation**: `carts/overbit/src/40_actor.lua` (`model()` at `:38`, `animate()` at
+  `:340-341`). The test fixture `tests/fixtures/village/` (`models.bm`, a stub `main.lua`) is a
+  small cart with 8 models and one skeleton; the Makefile builds it as `build/carts/village.bm`.
 - Inline snippets: `sdk/README.md:25-37` (model), `docs/GAME-GUIDE.md:405-415` (animate).
 - `.bm` / `.b16` twin: `carts/titan/src/*.lua` + `carts/titan/build/build.py` and
   `carts/titan_ex/src/*.lua` + `carts/titan_ex/build/build.py` (`Makefile:248-268,369`).

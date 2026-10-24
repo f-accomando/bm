@@ -29,7 +29,7 @@ build/host/test_bm build/demo.bm $O/anim-figure.bm $O/studio3d-sd/carts/blocks.b
 
 | Golden | Copied from | Writer |
 |---|---|---|
-| `village_models.bm` | `carts/village/assets/models.bm` (tracked, last changed in `14718bb`) | bm Studio / bmmesh history; reference file |
+| `village_models.bm` | `tests/fixtures/village/models.bm` (tracked, last changed in `14718bb`) | bm Studio / bmmesh history; reference file |
 | `anim_figure.bm` | `$O/anim-figure.bm` | `tests/studio/anim_figure.py` = `scripts/bmmesh.py` `encode_faces`/`encode`/`encode_anim` + `scripts/mkbm.py` `pack` |
 | `bmmesh_lit.bm` | `python3 gen_bmmesh_lit.py bmmesh_lit.bm` (in this folder) | `scripts/bmmesh.py` `encode`/`encode_anim` + `scripts/mkbm.py` `pack`: lit model, corner and 5-6-5 lights, material bits, step/linear clips |
 | `studio_blocks.bme` | `$O/studio3d-sd/carts/blocks.bme` | bm Studio + bm Animator (`carts/studio`, `carts/animator`, `src/script/bm3d.lua`) under luahost: new project, skeleton, clip |

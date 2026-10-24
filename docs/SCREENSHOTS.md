@@ -48,8 +48,8 @@ level) can be fetched. Not yet proved on the RGB30.
 ## Names and format
 
 - **Name**: `<PREFIX><NNNN>.PNG`, 8.3 as the card's file system wants. The prefix is the
-  first (up to) 4 letters or digits of the game's title (`Pong` → `PONG`, `Hunter's Night`
-  → `HUNT`; `SHOT` if there are none) or of the `prefix` the app gave. The number is one more
+  first (up to) 4 letters or digits of the game's title (`Pong` → `PONG`, `Star Shooter`
+  → `STAR`; `SHOT` if there are none) or of the `prefix` the app gave. The number is one more
   than the highest of that prefix already in `bm/shots/`, from 0001 to 9999: the Pi Zero has
   no clock, so no date.
 - **Format**: PNG, 8 bits RGB, the size of the game's screen (640×360, 360×360...). Nothing is

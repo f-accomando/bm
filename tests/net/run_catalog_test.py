@@ -168,18 +168,18 @@ with tempfile.TemporaryDirectory() as tmp:
 
     # --add: a new game, the same one again, then a changed one
     add = os.path.join(tmp, "add")
-    cart = os.path.join(tmp, "Hunt.bm")
+    cart = os.path.join(tmp, "Seek.bm")
     with open(cart, "wb") as f:
-        f.write(mkbm.pack(code, title="Hunt", author="bm"))
+        f.write(mkbm.pack(code, title="Seek", author="bm"))
     r = mkmarket(add, "--add", cart, "--version", "a1", "--license", "MIT", "--about", "Find them.")
-    info = os.path.join(add, "hunt", "info.txt")
-    check(r.returncode == 0 and os.path.exists(os.path.join(add, "hunt", "Hunt.bm")) and
+    info = os.path.join(add, "seek", "info.txt")
+    check(r.returncode == 0 and os.path.exists(os.path.join(add, "seek", "Seek.bm")) and
           open(info).read() == "version: a1\nlicense: MIT\nabout: Find them.\n", "--add: a new game")
     r = mkmarket(add, "--add", cart, "--version", "a2")
     check(r.returncode == 0 and "unchanged" in r.stdout and "version: a1" in open(info).read(),
           "--add: the same bytes keep the version")
     with open(cart, "wb") as f:
-        f.write(mkbm.pack(code + b" ", title="Hunt", author="bm"))
+        f.write(mkbm.pack(code + b" ", title="Seek", author="bm"))
     r = mkmarket(add, "--add", cart, "--version", "a3")
     check(r.returncode == 0 and "version: a3" in open(info).read() and "about: Find them." in open(info).read(),
           "--add: changed bytes take the new version, the rest stays")

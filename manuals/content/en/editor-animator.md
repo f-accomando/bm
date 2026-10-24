@@ -481,7 +481,7 @@ function _draw()
 end
 :::
 
-This is the pattern of the repository's `carts/village`. For the 2D sprites:
+This is the pattern of the repository's `carts/overbit`. For the 2D sprites:
 
 ::: copy
 zspr("hero_walk", 100, 80)

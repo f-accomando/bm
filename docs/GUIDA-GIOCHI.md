@@ -267,9 +267,8 @@ mset(cx, cy, 5)                                       -- cambiare una cella (por
 ```
 
 Senza `--map` la mappa è 256×256 vuota e si riempie con `mset` (`msize(w, h)` le dà
-un'altra misura). Una mappa grande (Hunter's Night: 256×256 celle, 2048×2048 pixel)
-conviene generarla con uno script: vedi `carts/hunt/build/mkassets.py`, che produce `assets/sheet.png` e
-`map.csv`.
+un'altra misura). Una mappa grande (Yharnam: 256×256 celle, 2048×2048 pixel)
+conviene generarla con uno script: vedi `carts/yharnam/build/mkmap.py`.
 
 **I flag: che cosa è ogni tile.** Ogni tile dello sheet ha 8 flag (0–7), accesi o spenti.
 Le collisioni guardano i flag, non i numeri delle tile: si possono aggiungere tile nuove
@@ -397,8 +396,7 @@ gioco 2D (il codice Lua per disegnarli lo prepara lui).
 
 **Da Blender** (o da altri
 programmi): un `.glb` si importa in bm Studio (le texture finiscono nello sprite sheet) e
-da lì nel `.bm`; per un gioco del repository basta mettere `models.glb` nella sua cartella
-(vedi `carts/village`).
+da lì nel `.bm`; per un gioco del repository basta mettere `models.glb` nella sua cartella.
 
 ## 7. Suono
 
@@ -533,8 +531,8 @@ light_end()                                   -- applica la luce a tutto ciò ch
 print("vita", 4, 4, 0xFFFFFF)                 -- l'HUD dopo: resta a piena luce
 ```
 
-Una fiamma che tremola: raggio moltiplicato per `0.95 + math.random() * 0.1`. Esempio
-completo: `carts/hunt/main.lua`.
+Una fiamma che tremola: raggio moltiplicato per `0.95 + math.random() * 0.1`. L'altro tipo di luce
+(`dark_begin`, `glow`) è in `carts/yharnam/main.lua`.
 
 ## 9. Salvataggi
 
@@ -866,10 +864,9 @@ con `BMHOST_NET_ID=0` e `1` sono due console (`make test-bmnet`).
 | `carts/snake` | griglia, tempo di gioco, record |
 | `carts/shooter` | sprite scritti nel codice con `sset`, ondate, particelle |
 | `carts/astrowing` | 3D: modelli, nebbia, camera che si inclina, orizzonte |
-| `carts/hunt` | 320×180, mappa 2048×2048 generata, luci, combattimento, boss |
 | `carts/demo` | sprite sheet PNG e mappa CSV veri e propri |
 | `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
-| `carts/village` | modelli 3D fatti con bm Studio e un paesano animato con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, terreno senza z-buffer, notte con `lamp3d` e nebbia, sprite pre-renderizzati |
+| `carts/overbit` | modelli 3D fatti con bm Studio e animati con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, `bone_turn()`, notte con `lamp3d` e nebbia |
 | `carts/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |
 | modelli dell'SDK (Ctrl+N) | *Platform 2D*, *Top-down 2D* e *Shooter 2D* con bmlib e i flag delle tile; *Versus 2D*: due giocatori sulla stessa console, pugni con hitbox e hurtbox; *Online 2D*: lobby e lockstep con bmnet |
 | `tests/gameapi/cart.lua` | ogni funzione dei livelli della mappa, dei flag delle tile, delle zone con nome e dei loro riquadri, di bmlib (anche colpi, schermata dei giocatori e schermo diviso), con i suoi casi |

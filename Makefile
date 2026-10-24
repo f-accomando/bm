@@ -201,7 +201,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/assets/map.csv --info carts/demo/bm.info --cover carts/demo/cover.png
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing write ko2
+GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
@@ -218,6 +218,14 @@ layers_yharnam := ground overlay objects
 # in carts/<game>/map_<name>.csv, in the order of layers_<game> := name ...
 # (R11), the flags of the tiles in flags.csv and named sprite zones in
 # sprites.txt (scripts/mkbm.py --flags, --sprites).
+# Test fixture, not a game (tests/fixtures/village): a cartridge with 8 models, a skeleton and
+# a sheet. The studio, resource and QEMU tests open it. It is not in GAMES, the SD card or the Market.
+$(BUILD)/carts/village.bm: tests/fixtures/village/main.lua tests/fixtures/village/models.bm tests/fixtures/village/bm.info \
+                           tests/fixtures/village/cover.png scripts/mkbm.py scripts/bmmesh.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info tests/fixtures/village/bm.info \
+	    --cover tests/fixtures/village/cover.png --models tests/fixtures/village/models.bm
+
 # A migrated game keeps its assets in carts/<game>/assets/ (docs/PROJECT-LAYOUT.md); the others
 # keep them in carts/<game>/.
 asset = $(firstword $(wildcard carts/$(1)/assets/$(2) carts/$(1)/$(2)))
@@ -677,10 +685,10 @@ test-res: $(BUILD)/carts/village.bm $(BUILD)/village-before.bm $(BUILD)/demo.bm 
 	    $(BUILD)/sound.bm $(BUILD)/res
 	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/village-before.bm
 
-# a game of before the INFO section: the village without bm.info (test_res)
-$(BUILD)/village-before.bm: carts/village/main.lua carts/village/assets/models.bm scripts/mkbm.py
+# a game of before the INFO section: the village fixture without bm.info (test_res)
+$(BUILD)/village-before.bm: tests/fixtures/village/main.lua tests/fixtures/village/models.bm scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Village --author bm --res 320x180 \
-	    --models carts/village/assets/models.bm
+	    --models tests/fixtures/village/models.bm
 
 $(BUILD)/host/test_res: tests/bm/test_res.c src/bm/format.c src/lib/crc32.c src/bm/bm.h
 	@mkdir -p $(dir $@)
@@ -1141,12 +1149,10 @@ MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 MARKET_B16 := overbit yharnam titanex editor
 MARKET_NO_BM := yharnam titanex
 MARKET_ONLY := titanex
-# The Market has its own list of games: GAMES minus the games kept out of it
-# (Studio Village is a test asset, not a Market game).
+# The Market has its own list of games: GAMES minus MARKET_APPS_OF_GAMES.
 # typing and write are apps: they go to the apps/ folder of the Market.
-MARKET_NOT := village
 MARKET_APPS_OF_GAMES := typing write
-MARKET_GAMES := $(filter-out $(MARKET_NOT) $(MARKET_APPS_OF_GAMES),$(GAMES))
+MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
 # the SDK as .b16 (carts/sdk_b16, its own sources) under the id "editor".
@@ -1154,7 +1160,7 @@ MARKET_APPS := editor code pixel studio animator mesh sound
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
 $(BUILD)/carts/editor.b16: $(BUILD)/carts/sdk_b16.bm
 	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
-market-seed: $(filter-out $(BUILD)/carts/village.bm,$(GAME_CARTS)) $(MARKET_APP_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
+market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows $(MARKET)/games $(MARKET)/apps
 	cp market/README.md market/.gitignore $(MARKET)/
@@ -1537,7 +1543,7 @@ test-sdk-b16: $(BUILD)/host/luahost $(BUILD)/sdk_b16/main.lua $(BUILD)/carts/vil
 	$(BUILD)/host/luahost tests/studio/sdk_b16_host.lua . $(BUILD)/sdk-b16-sd $(BUILD)/sdk_b16/main.lua
 
 # The showreel at the top of the README (docs/showreel.gif and .mp4): the
-# villager of Studio Village in a new cartridge, the map in the SDK, the
+# villager of the village fixture in a new cartridge, the map in the SDK, the
 # code in bm Code with the assistant and the game, on the console in QEMU;
 # the cards drawn by Chromium (Playwright), ffmpeg puts it together
 # (tools/showreel/)

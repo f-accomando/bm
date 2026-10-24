@@ -1,6 +1,6 @@
 # Development Proposals: bm Studio & bm Mesh (3D Modeling Suite)
 
-This document analyzes what **bm Studio** (`carts/studio`) and **bm Mesh** (`carts/mesh`) lack to support fast creation of 3D assets, complex scenery and collision geometry for both three-dimensional games (like *Studio Village* or *Astro Wing*) and hybrid 2D/3D ones.
+This document analyzes what **bm Studio** (`carts/studio`) and **bm Mesh** (`carts/mesh`) lack to support fast creation of 3D assets, complex scenery and collision geometry for both three-dimensional games (like *Overbit* or *Astro Wing*) and hybrid 2D/3D ones.
 
 ---
 
@@ -26,7 +26,7 @@ Despite the ease of use for small single objects, clear limitations emerge when 
 - Currently developers must compute collision radii by hand in Lua (`dist(p.x, p.z, obj.x, obj.z) < r`).
 
 ### B. No 3D Scene Assembler (Scene / Kitbash Layout)
-- In *Studio Village* ([`carts/village/main.lua`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/village/main.lua)), the village layout is defined by a hand-written Lua table:
+- In *Studio Village* (a game removed from the repository), the village layout was defined by a hand-written Lua table:
   ```lua
   local things = {
     { "house", -3.5, 5.5, 0, 1 },

@@ -15,9 +15,7 @@ The cartridge catalog (`carts/` and `video/`) shows several technological and st
 | **Titan Clash** (`carts/titan`) | 2D Versus fighter | 640×360 (and 360×360 on `.b16`) | Modular multi-file (11 Lua files concatenated via `build.py`) | Orthographic 3D pre-rendering with solids and skeleton (`mkrobot.py`), automatic hitbox/hurtbox computation from bones |
 | **Yharnam** (`carts/yharnam`) | Gothic 3/4 Action RPG | 360×360 (RGB30 panel) | Procedural monolith (5573 lines in `main.lua`) | Procedural SDF 3D pre-rendering (`mkassets.py`), over 5000 frames across 8 directions, Hermite curves, chunked CSV map streaming |
 | **Skyvale World** (`video/`) | 16-bit 2D Platformer | 640×360 | Sequential, tutorial-style (`lib.tiles`, `lib.step`) | Hand-made pixel art in bm Pixel (`skyvale.bm`), tiles and multi-layer maps in the SDK, collision flags |
-| **Hunter's Night** (`carts/hunt`) | Top-down Action Survival | 320×180 | Monolith (758 lines) | Classic 2D sprites with hardcoded numeric offsets, tile maps with flags, integrated audio with chord progression |
 | **Star Shooter** (`carts/shooter`) | Wave-based shmup | 640×360 | Monolith (339 lines) | Inline procedural: sprites generated at runtime from text strings with `sset()`, no PNG |
-| **Studio Village** (`carts/village`) | 3D Exploration / Diorama | 640×360 | Monolith (109 lines) | 3D models from `models.bm` (`model("house")`), blended skeletal animation (`animate()`) |
 | **Astro Wing** (`carts/astrowing`) | Flat 3D space simulator | 640×360 | Monolith (643 lines) | 3D meshes procedurally generated in code (mathematical `builder()`, tetrahedra and cuboids) |
 
 ---
@@ -46,7 +44,7 @@ Entities (player, enemies, projectiles, particles) share a unified table structu
 - **Collisions**: bounding box and lists of hurtboxes/hitboxes for the current frame.
 
 ### C. Attack Phases and Collisions (Startup / Active / Recovery)
-In *Titan Clash*, *Yharnam* and *Hunter's Night*, every offensive action strictly follows 3 phases:
+In *Titan Clash* and *Yharnam*, every offensive action strictly follows 3 phases:
 1. **Startup (Pre-attack)**: the character winds up the blow; vulnerable, no active hitbox.
 2. **Active (Impact)**: the `hitbox` appears (or the projectile is spawned); collision is computed against the opponent's `hurtbox`es.
 3. **Recovery (Return)**: the blow retracts; the character cannot move until the recovery frames end.
@@ -75,7 +73,7 @@ If a developer decides to build a game **without any PC, without Python and with
 2. **Top-Down Shooter / Shmup / Puzzle Game**:
    - Managing ship and projectile tables directly in code.
    - Standard AABB collision tracking.
-3. **Low-Poly 3D Dioramas and Explorations (Studio Village style)**:
+3. **Low-Poly 3D Dioramas and Explorations (3D models with `model()`)**:
    - Modeling houses, trees and furniture with blocks/tiles in **bm Studio**.
    - Rigging the character skeleton in **bm Animator** (page F2 **rig**).
    - Walk/wave animation with keyframes in **bm Animator** (page F3 **animate**).

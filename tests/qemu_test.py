@@ -1349,28 +1349,20 @@ def test_home_ui(b, opts):
         keys("q")
         keys("s")
         keys("\r")                              # Screen
-        screen(["Settings > Screen", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
-                "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
-                "3D textures", "Nearest"])      # the filter is a look the player can judge (SYS-9)
-        keys("sss")
-        screen(["3D textures", "Nearest"])      # Settings: Enter changes a choice, no "< >" arrows
-        keys("s")
-        # SYS-9: the performance flags are hidden keys now, with no row (still read from config.txt)
-        hidden_rows = ("3D vertices", "3D frame queue", "3D frame shown", "2D over the 3D", "3D job memory",
-                       "3D pixel shaders", "3D draw order", "3D corners")
-        text = screen(["3D impostors", "Off"])     # far small models as one quad: off unless asked
-        for name in hidden_rows:
+        text = screen(["Settings > Screen", "3D of the games", "ARM (no GPU)"])   # QEMU has no V3D
+        # the rows of drawing, anti-aliasing, textures, impostors and the overlay are hidden keys on the Pi
+        # (0a): no row; config.txt still sets them
+        for name in ("Game drawing", "3D anti-aliasing", "3D textures", "3D impostors", "Performance overlay"):
             assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         keys("s")
-        screen(["3D on the ARM", "Exact"])
-        keys("s")                               # the dev kit's overlay: top, bottom, off again
-        screen(["Off", "fps, ms, CPU and GPU bars (F11 too)"])
-        keys("\r")
-        screen(["Top", "performance overlay: Top"])
-        keys("\r")
-        screen(["Bottom", "performance overlay: Bottom"])
-        keys("\r")
-        screen(["Off", "performance overlay: Off"])
+        screen(["Menu size", "Auto"])
+        # SYS-9: the performance flags are hidden keys too, with no row (still read from config.txt)
+        hidden_rows = ("3D vertices", "3D frame queue", "3D frame shown", "2D over the 3D", "3D job memory",
+                       "3D pixel shaders", "3D draw order", "3D corners")
+        keys("s")
+        text = screen(["3D on the ARM", "Exact"])
+        for name in hidden_rows:
+            assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         keys("s")
         screen(["Test pattern", "HDMI colour bars"])
         keys("q")
@@ -1544,8 +1536,8 @@ def test_make_image(b, opts):
             games = re.search(r"^GAMES\s*:=(.*)$", f.read(), re.M).group(1).split()
         assert f"FAT32, 63 MB, label BM; {len(games)} cartridges" in out, out
         time.sleep(0.5)
-        want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Studio Village", "nano8")
-        titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night", "Overbit", "Yharnam", "Pad Typing")
+        want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "nano8")
+        titles = want + ("Astro Wing", "Titan Clash", "Overbit", "Yharnam", "Pad Typing")
 
         def chosen(t):                         # the name of the chosen cover (row 4)
             return next((n for n in titles if len(t) > 4 and n in t[4]), None)
@@ -4601,10 +4593,9 @@ def arrow_at(img, x, y):
     return black(pixel(img, x, y + 5)) and all(white(pixel(img, x + i, y + 5)) for i in (1, 2, 3, 4))
 
 
-MOUSE_CARTS = ["astrowing", "hunt", "pong", "snake", "shooter", "village", "kitchen", "titan"]
+MOUSE_CARTS = ["astrowing", "nano8", "pong", "snake", "shooter", "kitchen", "titan"]
 # their titles, in the order of the menu
-MOUSE_TITLES = ["Astro Wing", "Chaos Kitchen", "Hunter's Night", "Pong", "Snake", "Star Shooter",
-                "Studio Village", "Titan Clash"]
+MOUSE_TITLES = ["Astro Wing", "Chaos Kitchen", "nano8", "Pong", "Snake", "Star Shooter", "Titan Clash"]
 
 
 def cover_xy(i):
@@ -4653,16 +4644,16 @@ def test_usb_mouse(b, opts):
         assert MOUSE_TITLES[2] in screen_text(shot_)[4], screen_text(shot_)[4]
         # the wheel: a row down (the last cover of the shorter row)
         q.click("wheel-down")
-        assert MOUSE_TITLES[7] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[7])))[4]
+        assert MOUSE_TITLES[6] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[6])))[4]
         # the keys move the selection: the arrow goes away until it moves
         # press and release in one QMP call (sendkey holds the key 100 ms): the
         # key is up before the 500 ms repeat (hid.c), so it moves one cover
         q.input_events([{"type": "key", "data": {"down": d_, "key": {"type": "qcode", "data": "left"}}}
                         for d_ in (True, False)])
-        moved = lambda s_: title_is(MOUSE_TITLES[6])(s_)
+        moved = lambda s_: title_is(MOUSE_TITLES[5])(s_)
         shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and moved(s_))
         assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
-        assert MOUSE_TITLES[6] in screen_text(shot_)[4], screen_text(shot_)[4]
+        assert MOUSE_TITLES[5] in screen_text(shot_)[4], screen_text(shot_)[4]
 
         def click_at(px, py, button="left"):        # once the arrow is there
             q.pointer(px, py)

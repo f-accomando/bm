@@ -264,9 +264,8 @@ mset(cx, cy, 5)                                       -- changing a cell (doors,
 ```
 
 Without `--map` the map is 256×256 empty and is filled with `mset` (`msize(w, h)` gives it
-another size). A big map (Hunter's Night: 256×256 cells, 2048×2048 pixels) is better made
-by a script: see `carts/hunt/build/mkassets.py`, which writes `assets/sheet.png` and `assets/map.csv`. Or a
-script makes the first one and the SDK's map page retouches it by hand: Yharnam's layers
+another size). A big map (Yharnam: 256×256 cells, 2048×2048 pixels) is better made
+by a script. A script makes the first one and the SDK's map page retouches it by hand: Yharnam's layers
 (`carts/yharnam/build/mkmap.py`), 16×16 tiles placed with `z`. A layer the game never draws can
 hold placeholders, tiles that say where things go: Yharnam reads its `objects` layer with
 `mget` and builds a house, a tree or a lamp where each one is.
@@ -370,8 +369,8 @@ end
   pixels (16 → 5.3), at 720p two thirds, so the same models are chosen whatever the
   resolution. Animated models too,
   by the box of their pose. `gpu3d(nil, nil, nil, nil, 0)` turns it off. The player can turn
-  it on for every game in *Settings > Screen > 3D impostors* (`r3d_impostor` in
-  `bm/config.txt`).
+  it on for every game with `r3d_impostor` in
+  `bm/config.txt` (no Settings row).
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.
 - **The Pi's GPU:** `gpu3d()` says whether it draws the 3D, and how (`on, aa, vs, version,
@@ -423,7 +422,7 @@ use with `sspr()` in a 2D game (it prepares the Lua code that draws them).
 
 **From Blender** (or other programs): copy the `.glb` into `/glb` on the SD card: bm Studio, bm Animator and bm Mesh list it (Ctrl+I, Import a model), convert it to `/bmm/NAME.bmm` and open it. On the PC,
 `python3 scripts/bmres.py convert IN.glb OUT.bmm` converts it to a `.bmm`. For a game of the repository,
-the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first). `carts/village/assets` holds `models.bm`.
+the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first). `tests/fixtures/village` holds a small `models.bm` for the tests.
 
 ## 7. Sound
 
@@ -557,8 +556,8 @@ light_end()                                   -- applies the light to everything
 print("life", 4, 4, 0xFFFFFF)                 -- the HUD after: it stays at full light
 ```
 
-A flickering flame: the radius multiplied by `0.95 + math.random() * 0.1`. A complete
-example: `carts/hunt/main.lua`.
+A flickering flame: the radius multiplied by `0.95 + math.random() * 0.1`. The other kind of
+light (`dark_begin`, `glow`) is in `carts/yharnam/main.lua`.
 
 ## 9. Saves
 
@@ -939,10 +938,9 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 | `carts/snake` | a grid, game time, record |
 | `carts/shooter` | sprites written in the code with `sset`, waves, particles |
 | `carts/astrowing` | 3D: models, fog, a camera that tilts, horizon |
-| `carts/hunt` | 320×180, a generated 2048×2048 map, lights, combat, boss |
 | `carts/demo` | a real PNG sprite sheet and CSV map |
 | `carts/kitchen` | a big game: sources in several files joined by `build.py`, 3D with meshes built in code, 1–4 players (`btn(i, p)`, `players()`), and saves |
-| `carts/village` | 3D models made with bm Studio and a villager animated with bm Animator (`models.bm`): `model()`, `animate()` with two animations blended, `bone3d()`, terrain without z-buffer, night with `lamp3d` and fog, pre-rendered sprites |
+| `carts/overbit` | 3D models made with bm Studio and animated with bm Animator (`models.bm`): `model()`, `animate()` with two animations blended, `bone3d()`, `bone_turn()`, night with `lamp3d` and fog |
 | `carts/titan` | big pre-rendered sprites (a 3D model made in Python becomes layered pixel art: one frame, many combinations of equipment), a big sheet with a palette (`--sheet8`), parallax, the states of a fighting game with per-frame hitboxes, a CPU opponent |
 | the SDK's templates (Ctrl+N) | *Platform 2D*, *Top-down 2D* and *Shooter 2D* with bmlib and the tiles' flags; *Versus 2D*: two players on one console, punches with hitboxes and hurtboxes; *Online 2D*: a lobby and lockstep with bmnet; *Stages 2D* (Pi and RGB30): title, 3 stages, ending and a saved record |
 | `tests/gameapi/cart.lua` | every function of the map's layers, the tiles' flags, the named zones and their boxes, bmlib (hits, the players' screen and the split screen too), with its cases |

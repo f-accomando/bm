@@ -61,7 +61,7 @@ class Exclusion(unittest.TestCase):
 
 class Dangling(unittest.TestCase):
     def test_refs_found_in_makefile_scripts_tests_only(self):
-        d = tree({'Makefile': 'GAMES := write\nx: build/carts/village.bm\n',
+        d = tree({'Makefile': 'GAMES := write\nx: build/carts/snake.bm\n',
                   'scripts/s.py': 'run("scripts/docs_audit.py")\n',
                   'tests/t.lua': 'dofile("carts/pong/main.lua")\n',
                   'docs/x.md': 'carts/pong/main.lua\n',

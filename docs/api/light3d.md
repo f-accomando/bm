@@ -31,7 +31,7 @@ light_end()
 print("life", 4, 4, 0xFFFFFF)                -- the HUD is not darkened
 ```
 
-Complete example: `carts/hunt` (Hunter's Night).
+No game of the repository uses `light_begin` now. A complete game with lights is in the next section (`carts/yharnam`).
 
 ### Light by levels (as in Dank Tomb)
 
@@ -191,7 +191,6 @@ out there), via RAM (`light_begin`, `dark_begin`) and in the frame of a `screen(
 Off by default until it is measured on the Pi.
 
 Complete example: `carts/astrowing` (Star Fox-style flight: models built in code, horizon
-with `project3d`, fog, explosions, boss). With bm Studio's models: `carts/village`
-(`model()` for each model, terrain drawn without z-buffer, night with `lamp3d` and
-`fog3d`; bm Animator's villager with `animate()`, two animations blended, a light in hand
-with `bone3d()`, and its version as pre-rendered sprites).
+with `project3d`, fog, explosions, boss). With bm Studio's models: `carts/overbit`
+(`model()` for each model, night with `lamp3d` and `fog3d`; bm Animator's skeletons with
+`animate()`, two animations blended, a bone's place with `bone3d()` and `bone_turn()`).

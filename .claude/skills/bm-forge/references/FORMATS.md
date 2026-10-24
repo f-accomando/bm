@@ -272,7 +272,7 @@ update (`src/bm/runtime.c:6467-6468` sets it after `bm_rewrite_with` computed th
 
 ## Samples in the repo (golden-test candidates)
 
-- `carts/village/assets/models.bm`: BMCART 320x180, 4 sections LUA, SHEET8, MESH (8 models, inset 64 = 0.25,
+- `tests/fixtures/village/models.bm`: BMCART 320x180, 4 sections LUA, SHEET8, MESH (8 models, inset 64 = 0.25,
   untextured-material bits all 0), ANIM (rig `villager`, 7 bones, 112 verts, clips idle/walk/wave, mode 1,
   loop) (decoded with `bmmesh`).
 - `carts/titan_ex/titan_ex.b16`: BMCART 360x360, COVER + LUA + SHEET8 (1.7 MB).

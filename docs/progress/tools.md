@@ -13,7 +13,7 @@ Detail of each editor (SDK, SDK for the RGB30, Code, Pixel, Studio, Animator, Me
 Details: [tools-assistant](tools-assistant.md). Tutorial videos (`video/`, series *Skyvale World*): [video](video.md).
 
 ### Market (`market/`, repo `f-accomando/bm-market`)
-Games (`MARKET_GAMES`: `GAMES` without `MARKET_NOT`, so without `village`) and the bm editors
+Games (`MARKET_GAMES`: `GAMES` without `MARKET_APPS_OF_GAMES`) and the bm editors
 (`MARKET_APPS`: `editor`, `code`, `pixel`, `studio`, `animator`, `mesh`, `sound`, each with an explicit
 `kind: app` line) reach the consoles from `bm-market`. The Pi gets each editor as `.bm` (built as
 `build/<id>.bm`); the RGB30 gets the SDK as `.b16` under the same id `editor` (from `carts/sdk_b16`).

@@ -389,7 +389,7 @@ carts/<id>/
 
 - Il Makefile cerca prima in `assets/`, poi in `carts/<id>/`, così i giochi vecchi funzionano ancora.
 - Le chiavi sconosciute vengono conservate nella cartuccia. Il formato binario `.bm` non cambia, e un kernel più vecchio ignora INFO.
-- Giochi già spostati: `pong` (`bm.info`), `yharnam` (`bm.info`, `sheet.png` e `map_*.csv` in `assets/`, gli script `mk*.py`, `mapview.py` e `art/` in `build/`) e `hunt` (`bm.info`, `sheet.png` e `map.csv` in `assets/`, `mkassets.py` in `build/`).
+- Giochi già spostati: `pong` (`bm.info`), `yharnam` (`bm.info`, `sheet.png` e `map_*.csv` in `assets/`, gli script `mk*.py`, `mapview.py` e `art/` in `build/`).
 
 ## Attenzione
 
@@ -444,7 +444,7 @@ Un riquadro dice `Screenshot saved` e il nome del file per due secondi. L'immagi
 
 - `shot([prefix])` chiede il fotogramma che si sta disegnando. Viene salvato alla fine di `_draw`, quindi chiamalo in un punto qualsiasi del fotogramma; chiamarlo due volte in un fotogramma dà un solo file.
 - Restituisce il nome che avrà il file, oppure `nil` e un messaggio se i numeri sono finiti. Non chiede nulla al giocatore.
-- Il nome è `<PREFISSO><NNNN>.PNG`, 8.3. Il prefisso è formato dalle prime lettere o cifre del titolo del gioco, fino a 4 (`Pong` da `PONG`, `Hunter's Night` da `HUNT`, `SHOT` se non ce ne sono) oppure dal `prefix` che hai dato.
+- Il nome è `<PREFISSO><NNNN>.PNG`, 8.3. Il prefisso è formato dalle prime lettere o cifre del titolo del gioco, fino a 4 (`Pong` da `PONG`, `Star Shooter` da `STAR`, `SHOT` se non ce ne sono) oppure dal `prefix` che hai dato.
 - Il numero è uno più del più alto di quel prefisso già presente in `bm/shots/`, da 0001 a 9999. Il Pi Zero non ha orologio, quindi non c'è la data.
 - Il formato è PNG, 8 bit RGB, della dimensione dello schermo del gioco (640x360, 360x360...). Non si perde nulla: i colori a 16 bit della console vengono allargati a 8 bit. Non c'è il JPG, perché rovina la pixel art.
 - Dal PC, sul collegamento di rete, `python tools/bm_net.py IP --shot out.png` chiede alla console uno screenshot del gioco in corso (la console chiede la password della Console) e lo salva come `out.png`. `python tools/bm_net.py IP --get bm/shots/pong0007.png out.png` scarica un file già presente in `bm/shots/`. Il gioco deve disegnare fotogrammi: se non ne disegna, la richiesta fallisce dopo 3 secondi. Si possono scaricare solo file di `bm/shots/`. Non è verificato su un RGB30.
