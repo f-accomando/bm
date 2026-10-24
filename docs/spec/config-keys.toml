@@ -383,9 +383,9 @@ read_in = "src/kernel/market.c:438"
 [[key]]
 name = "menu_gpu"
 scope = "pi"
-values = "1 = the V3D enlarges the menu (gpu3d_enlarge); anything else = the ARM"
-default = "off (ARM). The GPU enlarge showed stripes on the Pi (24 Oct): hidden key until a hardware run shows a clean menu."
-meaning = "Who enlarges the menu layout to menu_scale. Hidden key, no Settings row (SYS-9). With menu_gpu=1 and menu_scale 2 or 3 the first 3 frames log `menu: GPU check N: ...` (pixels the GPU got wrong, by row and column of the block); the ARM then redraws them."
+values = "1 = the V3D draws the 1080p layout directly (1:1 with 24x48 font, 0 us enlarge copy); anything else = the ARM"
+default = "off (ARM). With menu_gpu=1 on Pi Zero W, renders 1920x1080 directly with V3D."
+meaning = "Who draws the menu layout. With menu_gpu=1, the GPU draws the 1080p layout directly at 1:1, eliminating the ARM enlarge frame copy. When off, the ARM draws at 1x (or manual menu_scale)."
 settings = ""
 read_in = "src/kernel/menu_ui.c"
 

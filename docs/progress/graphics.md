@@ -14,8 +14,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   256×256 and 360×360 (the `.b16` screen), boxed in the middle of 16:9 on the Pi.
 - `screen(w, h)` switches at run time among `screen_modes[]` (320×180 … 1920×1080, 16:9,
   whole pixels on 1080p); a square cartridge keeps its screen.
-- Menu: 1x (640x360) by default, the HDMI scaler enlarges it (`menu_scale` sets 1, 2 or 3; Settings > Screen > Menu size). 2x by the ARM copies 1.84 MB a frame (about one frame) and starves the covers; it adds no detail at the 1080p output. The GPU enlarge (`gpu3d_enlarge`) is
-  off until a Pi run shows a clean menu: `menu_gpu=1` turns it on (24 Oct: stripes on the Pi).
+- Menu: 1x (640x360) by default, the HDMI scaler enlarges it (`menu_scale` sets 1, 2 or 3; Settings > Screen > Menu size). `menu_gpu=1` enables 1080p 1:1 GPU rendering (V3D quads, blit, 24x48 text, enlarge 0 us; verified on the Pi Zero W). With `menu_gpu=0`, the ARM falls back to 1x (or manual `menu_scale` ARM pixel copy).
 
 ### 2D (`src/bm/gfx16.c`, `gfx16.h`)
 - All 2D in C (Lua only logic): primitives, `spr`/`sspr`, `map()` with up to 8 layers
@@ -78,7 +77,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 ## Open work (`docs/ROADMAP.md`)
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
-- Menu 2x by default on the Pi (23 Oct): built, QEMU tests pass (QEMU has no GPU, so the menu stays 1x there). Not seen on the Pi: check that the menu is 1280x720 and smooth, and that it falls back to 640x360 if the GPU fails.
+- Menu 1080p GPU drawing on the Pi Zero W: done with `menu_gpu=1` (24 Oct: 1920x1080 1:1 drawn by V3D, font 24x48, enlarge 0 us, tested and verified on Pi Zero W hardware).
 - Mali-G52 driver: [graphics-mali](graphics-mali.md) (the Dev > GPU test run with the variant probe, then the 3D Bench with `mali3d=1`: both on the device).
 - Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). `stackv` (the same call with the slices one under the other; zone line `stackv name x y w h n`, bit 0 of byte 27 of the SPRITES zone) is done. The mesh conversion is a host tool: `tools/stack2mesh.py` (see [tools](tools.md)). The bm Pixel Stack page is done (see [tools](tools.md)). Not done: a button for the conversion in bm Pixel and bm Studio, the Pi speed.
 - 3D particles: `particles*` and `lib.particles3d` are done (ARM step and draw in `r3d_pfx_*`, no cost without a pool; host test `test_pfx`, `make test-gameapi`). Not measured on the Pi Zero W. Not done: the QPU step (the idea is dropped for now).

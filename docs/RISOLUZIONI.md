@@ -119,7 +119,7 @@ the conditions of section 4.
 
 - The menu is **a single one** (`src/kernel/menu_ui.c`) for the Pi and the RGB30: same bar, same
   covers and panels. The height is 360 for all; the width decides the columns.
-- **Pi, default**: the 640×360 layout, enlarged by the HDMI scaler (no CPU cost). `menu_scale=2` or `3` makes the ARM copy each pixel (about one frame at 2×). `menu_gpu=1` lets the GPU do it (stripes seen on the Pi, 24 Oct: off by default).
+- **Pi, default**: the 640×360 layout, enlarged by the HDMI scaler (no CPU cost). `menu_scale=2` or `3` makes the ARM copy each pixel (about one frame at 2×). `menu_gpu=1` lets the GPU draw 1920×1080 1:1 directly with 24x48 text and 0 us enlarge copy (verified on Pi Zero W hardware, 24 Oct).
 - **Pi, `menu_scale=1`**: 640×360, as the default.
 - **Pi, `menu_scale=3`** in `bm/config.txt`: 1920×1080 with the same layout scaled 3×.
   The ARM scales it every frame (~4 MB written to video memory, like the background copy
