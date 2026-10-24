@@ -889,7 +889,7 @@ end)
 -- a list of slots on the left: items, the selected index (0-based), label(i)
 local function slot_list(title, n, sel, label, used, c)
   print(title, 8, TOP + 4, C.dim)
-  local rows = 13
+  local rows = math.max(13, (BOTTOM - TOP - 26) // 21)       -- 13 at 640x360
   local first = clamp(sel - rows // 2, 0, math.max(0, n - rows))
   for r = 0, rows - 1 do
     local i = first + r
@@ -990,7 +990,6 @@ local SGROUPS = {
       tbyte(12, "ROOM", 0, 255, off_or(pct), 16), tbyte(13, "ECHO", 0, 255, off_or(pct), 16) } } },
 }
 local function plabel(d, s) return type(d.label) == "function" and d.label(s) or d.label end
-local SCOL_X = { 168, 324, 480 }
 
 local sp = { group = 1, col = 1, row = 1 }      -- row 0: the name
 local last_note = 60                 -- the note the previews and new steps use
@@ -1257,19 +1256,28 @@ do
   end
 end
 
+-- the columns of the SOUNDS page: 156 pixels apart at 640 wide, wider on a bigger screen, and the
+-- graphs and the bars taller by a part of the height over 360
+local function sound_cols()
+  local pitch, free = (W - 172) // 3, math.max(0, H - 360)
+  return pitch, 92 + free // 3, 38 + free // 12
+end
+
 local function draw_param_graphs(s, g, gy)
   local draw_wave_graph = s.wave == 10 and ui.sample_graph or draw_wave_graph
+  local pitch, gh = sound_cols()
+  local x1, x2, x3, gw = 160, 160 + pitch, 160 + 2 * pitch, pitch - 4
   if g == 1 then
-    draw_wave_graph(s, 160, gy, 152, 92, WAVE_C[s.wave + 1])
-    draw_env_graph(s, 316, gy, 152, 92, C.green)
-    draw_pitch_graph(s, 472, gy, 152, 92, C.orange)
+    draw_wave_graph(s, x1, gy, gw, gh, WAVE_C[s.wave + 1])
+    draw_env_graph(s, x2, gy, gw, gh, C.green)
+    draw_pitch_graph(s, x3, gy, gw, gh, C.orange)
   elseif g == 2 then
-    draw_filter_graph(s, 160, gy, 152, 92, C.green)
-    draw_env_graph(s, 316, gy, 152, 92, C.blue)
-    draw_motion_graph(s, 472, gy, 152, 92, C.cyan)
+    draw_filter_graph(s, x1, gy, gw, gh, C.green)
+    draw_env_graph(s, x2, gy, gw, gh, C.blue)
+    draw_motion_graph(s, x3, gy, gw, gh, C.cyan)
   else
-    draw_wave_graph(s, 160, gy, 152, 92, WAVE_C[s.wave + 1])
-    draw_space_graph(s, 316, gy, 308, 92, C.orange)
+    draw_wave_graph(s, x1, gy, gw, gh, WAVE_C[s.wave + 1])
+    draw_space_graph(s, x2, gy, 2 * pitch - 4, gh, C.orange)
   end
 end
 
@@ -1309,35 +1317,37 @@ P[1] = {
               function(i) return not B.sound_empty(bank.sounds[i + 1]) end, C.blue)
     -- the name
     local nsel = sp.row == 0
-    U.zone(160, TOP + 2, 472, 38, "sname")
-    if nsel then ui.box(160, TOP + 2, 472, 38, C.panel2) ui.frame2(160, TOP + 2, 472, 38, C.blue) end
+    U.zone(160, TOP + 2, W - 168, 38, "sname")
+    if nsel then ui.box(160, TOP + 2, W - 168, 38, C.panel2) ui.frame2(160, TOP + 2, W - 168, 38, C.blue) end
     print(s.name ~= "" and s.name or "NO NAME", 172, TOP + 5, s.name ~= "" and C.text or C.faint, 2)
-    ui.textr(string.format("sound %02d", cur.sound), 620, TOP + 14, C.dim)
+    ui.textr(string.format("sound %02d", cur.sound), W - 20, TOP + 14, C.dim)
     -- the group of parameters: its graphs, then its bars
     local g = sp.group
     local grp = SGROUPS[g]
     draw_param_graphs(s, g, TOP + 48)
-    local by = TOP + 152
+    local pitch, gh, bp = sound_cols()
+    local by = TOP + 60 + gh
+    local function col_x(c) return 168 + (c - 1) * pitch end
     for col = 1, #grp.cols do
       for row = 1, #grp.cols[col] do
         local d = grp.cols[col][row]
         local v = d.get(s)
-        U.zone(SCOL_X[col] - 4, by + (row - 1) * 38 - 3, 144, 36, "bar", col, row)
-        ui.bar(SCOL_X[col], by + (row - 1) * 38, 136, plabel(d, s), d.fmt(v, s), (v - d.lo) / (d.hi - d.lo),
+        U.zone(col_x(col) - 4, by + (row - 1) * bp - 3, pitch - 12, 36, "bar", col, row)
+        ui.bar(col_x(col), by + (row - 1) * bp, pitch - 20, plabel(d, s), d.fmt(v, s), (v - d.lo) / (d.hi - d.lo),
                grp.c, sp.row == row and sp.col == col)
       end
     end
     if #grp.cols < 3 then
       -- the third column of the last group: the groups, and the presets
-      local x = SCOL_X[3]
+      local x = col_x(3)
       for i, gg in ipairs(SGROUPS) do
-        U.zone(x, by + 2 + (i - 1) * 20, 144, 20, "group", i)
+        U.zone(x, by + 2 + (i - 1) * 20, pitch - 12, 20, "group", i)
         print((i == g and "> " or "  ") .. gg.name, x, by + 4 + (i - 1) * 20, i == g and gg.c or C.dim)
       end
       print("MENU: INSTRUMENT", x, by + 84, C.faint)
       print("PRESETS", x, by + 100, C.faint)
     else
-      print(grp.name, 486, TOP + 152 - 14, grp.c)
+      print(grp.name, col_x(3) + 6, by - 14, grp.c)
     end
     if sp.row == 0 then
       hint_line({ { "A", nil, "rename" }, { "Y", nil, "play" }, { "START", nil, "chord" } })
@@ -1487,9 +1497,13 @@ P[2] = {
       fx0 = fx0 + w + 6
     end
     -- the lanes
-    local x0, cw = 164, 13
-    local ly, lh = TOP + 48, 128
-    ui.box(160, ly - 4, 464, lh + 8, C.panel)
+    local x0 = 164
+    local cw = math.max(13, (W - x0 - 60) // 32)          -- 13 at 640
+    local ly = TOP + 48
+    local lh = math.max(128, BOTTOM - TOP - 174)          -- 128 at 640x360; the info box ends at BOTTOM
+    local pw = W - 176                                     -- the width of the lanes and of the info box
+    local lx = x0 + 32 * cw + 8                            -- the labels at the right of the lanes
+    ui.box(160, ly - 4, pw, lh + 8, C.panel)
     local lo, hi = 200, 0
     for k = 1, x.len do
       local n = s_note(x.steps[k] or 0)
@@ -1504,7 +1518,7 @@ P[2] = {
     for n = (lo // 12 + 1) * 12, lo + span, 12 do
       local yy = ny(n)
       rectfill(x0, yy, 32 * cw, 1, C.line)
-      print("C" .. (n // 12 - 1), 588, yy - 8, C.faint)
+      print("C" .. (n // 12 - 1), lx, yy - 8, C.faint)
     end
     local playing = sfxpos(PREVIEW_VOICE) == cur.sfx and select(2, sfxpos(PREVIEW_VOICE))
     local ring = nil
@@ -1554,11 +1568,11 @@ P[2] = {
       local cx = x0 + xp.step * cw
       ui.frame2(cx - 1, ly - 3, cw + 1, lh + 64, C.white)
     end
-    print("VOL", 588, ly + lh + 16, C.faint)
-    print("FX", 588, ly + lh + 38, C.faint)
+    print("VOL", lx, ly + lh + 16, C.faint)
+    print("FX", lx, ly + lh + 38, C.faint)
     -- what the cursor step holds
-    local iy = TOP + 246
-    ui.box(160, iy, 464, 52, C.panel)
+    local iy = ly + lh + 70
+    ui.box(160, iy, pw, 52, C.panel)
     if xp.field < 0 then
       local st = x.steps[xp.step + 1] or 0
       local t = step_info(st)
@@ -1697,6 +1711,11 @@ end
 local GX, GY, CW, CH = 124, TOP + 44, 30, 30
 local function cell_x(k) return GX + (k % 16) * CW + (k % 16 // 4) * 4 end
 local function cell_y(t) return GY + t * CH end
+-- the cells fill the width and the height (30 x 30 at 640x360)
+LY.on_resize(function()
+  CW = math.max(30, (W - GX - 36) // 16)
+  CH = math.max(30, (BOTTOM - GY - 20) // 8)
+end)
 
 -- Solo and the piano roll (the pattern page). Both are views of the same
 -- data: solo uses the mute of the player (the flags of `muted` are not
@@ -1863,10 +1882,11 @@ P[3] = {
       U.zone(8, y + 1, 108, CH - 3, "track", t)
       ui.box(8, y + 1, 108, CH - 3, hsel and C.panel2 or C.panel)
       ui.box(10, y + 3, 20, CH - 7, m and C.faint or tc)
-      print(tostring(t + 1), 16, y + 6, C.dark)
-      print(sound_name(track_sound[t + 1]):sub(1, 8), 36, y + 6, m and C.faint or (hsel and C.text or C.dim))
-      if muted[t] then print("M", 104, y + 6, C.red) end
-      if pp.solo[t] then print("S", 94, y + 6, C.yellow) end
+      local ty = y + (CH - 14) // 2 + 1
+      print(tostring(t + 1), 16, ty, C.dark)
+      print(sound_name(track_sound[t + 1]):sub(1, 8), 36, ty, m and C.faint or (hsel and C.text or C.dim))
+      if muted[t] then print("M", 104, ty, C.red) end
+      if pp.solo[t] then print("S", 94, ty, C.yellow) end
       if hsel then ui.frame2(8, y + 1, 108, CH - 3, C.white) end
       for c = 0, 15 do
         local k = page * 16 + c
@@ -1881,19 +1901,19 @@ P[3] = {
             local v = s_vol(st) / 255
             ui.box(x, y + 1, CW - 3, CH - 3, m and C.faint or mix(bg, tc, 0.4 + 0.6 * v))
             local nm = note_name(n)
-            print(nm, x + (CW - 3 - #nm * 8) // 2, y + 6, C.dark)
+            print(nm, x + (CW - 3 - #nm * 8) // 2, y + (CH - 14) // 2 + 1, C.dark)
           elseif n >= 128 then
             ui.box(x, y + 1, CW - 3, CH - 3, bg)
-            print("--", x + 5, y + 6, C.red)
+            print("--", x + (CW - 3 - 16) // 2, y + (CH - 14) // 2 + 1, C.red)
           else
             ui.box(x, y + 1, CW - 3, CH - 3, bg)
-            rectfill(x + 12, y + 13, 3, 3, now == k and C.white or C.faint)
+            rectfill(x + CW // 2 - 3, y + CH // 2 - 2, 3, 3, now == k and C.white or C.faint)
           end
           if s_fx(st) >> 4 ~= 0 then
             tri(x + CW - 11, y + 1, x + CW - 4, y + 1, x + CW - 4, y + 8, C.white)
           end
         else
-          rectfill(x + 12, y + 13, 3, 3, C.panel)
+          rectfill(x + CW // 2 - 3, y + CH // 2 - 2, 3, 3, C.panel)
         end
       end
     end
@@ -2042,6 +2062,10 @@ local gp = { slot = 0, field = -1 }
 local SONG_FIELDS = { "NAME", "TEMPO", "SWING", "LOOP", "ECHO", "ROOM" }
 local NSF = #SONG_FIELDS - 1          -- the last field
 local OX, OY, OW, OH = 164, TOP + 70, 28, 30
+LY.on_resize(function()
+  OW = math.max(28, (W - OX - 16) // 16)
+  OH = 30 + math.max(0, H - 360) // 8
+end)
 local function pat_c(n) return TRACK_C[n % 8 + 1] end
 
 local function song_field_text(s, f)
@@ -2100,19 +2124,20 @@ P[4] = {
     end
     -- the pattern of the slot
     local py = OY + 4 * OH + 8
-    ui.box(160, py, 464, BOTTOM - py, C.panel)
+    ui.box(160, py, W - 176, BOTTOM - py, C.panel)
     if gp.field < 0 and gp.slot < #s.order then
       local n = s.order[gp.slot + 1]
       local p = bank.pats[n + 1]
       print(string.format("PATTERN %02d", n), 172, py + 8, pat_c(n))
       print(p.len .. " steps", 172, py + 26, C.dim)
       print("A: edit it", 172, py + 44, C.dim)
+      local hp = math.max(10, math.min((W - 340) // 36, (BOTTOM - py - 16) // 8))   -- 10 at 640x360
       for t = 0, 7 do
         for k = 0, math.min(p.len, 32) - 1 do
           local st = pat_get(p, t, k)
           local n2 = s_note(st)
           local c = n2 > 0 and n2 < 128 and TRACK_C[t + 1] or (n2 >= 128 and C.red or C.panel2)
-          rectfill(300 + k * 10 + (k // 4) * 2, py + 8 + t * 10, 8, 8, c)
+          rectfill(300 + k * hp + (k // 4) * 2, py + 8 + t * hp, hp - 2, hp - 2, c)
         end
       end
     elseif gp.field < 0 then
