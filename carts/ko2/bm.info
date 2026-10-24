@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: KO-II
+desc: A keyboard groovebox: 12 pads, 4 groups, step recorder, effects, LCD, fader and volume knob.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, music, sampler, sequencer
+resolution: 640x360
