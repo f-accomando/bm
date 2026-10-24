@@ -25,3 +25,4 @@ mesh: BM Community License 1.0 | bm Mesh: sculpt vertex-by-vertex 3D meshes and 
 sound: BM Community License 1.0 | bm Sound: compose chiptune music and sound effects on a 4-channel tracker.
 assistant: BM Community License 1.0 | bm Assistant: offline manual, Lua API reference and project helper on the console.
 
+ko2: BM Community License 1.0 | KO-II: a keyboard groovebox with 12 pads, 4 groups, a step recorder, 12 effects, LCD and fader.
