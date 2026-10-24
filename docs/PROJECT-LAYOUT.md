@@ -35,6 +35,30 @@ older kernel ignores INFO.
 `mkbm.py` mirrors `type` in bits 2-3 of the u16 flags at offset 18 of the header (`docs/BM-FORMAT.md`), so the menu
 groups a cartridge without reading its INFO. On the SD, `.bm` and `.b16` games live in `/bm` and `.bme` projects in `/bme`.
 
+## Add a cart to the Makefile
+
+One rule builds every cart (`build/carts/<id>.bm`, and `build/<tool>.bm` for the built-in tools).
+The rule is in the Makefile, section "Cartridges: one data-driven recipe".
+
+1. Make the folder `carts/<id>/` with `main.lua`. Add `bm.info`, `cover.png` and the files of `assets/` that the cart uses.
+2. Add `<id>` to `GAMES` in the Makefile. Then `make build/carts/<id>.bm` builds it.
+3. The rule adds each file that exists: `bm.info`, `cover.png`, `sheet.png`, `map.csv`, `flags.csv`, `sprites.txt`, `models.bm` or `models.glb`. Each file is also a prerequisite, so a change rebuilds the cart.
+4. Set a variable only where the cart differs from the default:
+
+| Variable | Meaning |
+|---|---|
+| `cdir_<id>` | folder of the cart (default `carts/<id>`) |
+| `lua_<id>` | the Lua file (default `main.lua` in the folder). For a cart joined by a `build.py`, give `$(BUILD)/<id>/main.lua` and write the rule of that file |
+| `bminfo_<id>`, `cover_<id>`, `sheet_<id>`, `models_<id>`, `audio_<id>` | a file other than the default |
+| `noinfo_<id> := 1` | no `bm.info`: use `title_<id>` and `res_<id>` (default `640x360`) |
+| `sheet8_<id> := 1` | sheet with a palette and runs |
+| `layers_<id> := a b` | map layers, the files `map_a.csv`, `map_b.csv`, in this order |
+| `extra_<id>` | more `mkbm.py` flags, at the end |
+
+A second edition of a cart (for example `.b16`) has its own key (`stages3d_b16`). Its rule names the key:
+`$(call CART_RECIPE,<key>)`. A `.bme` project (`BME_CARTS`) uses the same recipe.
+Special builds keep their own rules: the `.b16` made with `--from`, the Overbit variants (reel, match), the test carts.
+
 ## Where projects live on the SD card
 
 - A `.bme` project lives in `/bme`. The tools write there: the editable copy of a game, a new project, Save as, Ctrl+S.

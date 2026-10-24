@@ -127,51 +127,61 @@ $(BUILD)/words.lua: $(WORDS_SRC)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkwords.py -o $@
 
-# bm Code, the code editor (Dev tab, monitor C)
-$(BUILD)/code.bm: carts/code/bm.info carts/code/main.lua carts/code/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/code/icon.png --info carts/code/bm.info
+# The built-in tools (code, assistant, editor, sound, studio, animator, mesh, pixel) are built as
+# $(BUILD)/<tool>.bm by the cart rule below (TOOL_BMS).
 
-# The assistant on its own, in the Dev tab
-$(BUILD)/assistant.bm: carts/assistant/bm.info carts/assistant/main.lua carts/code/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/code/icon.png --info carts/assistant/bm.info
+# ---- Cartridges: one data-driven recipe (how to add a cart: docs/PROJECT-LAYOUT.md) ----
+# A cart <k> needs only carts/<k>/main.lua. The recipe adds each optional file that exists:
+#   bm.info, cover.png, sheet.png, map.csv, map_<layer>.csv (layers_<k>), flags.csv, sprites.txt,
+#   models.bm or models.glb; in carts/<k>/assets/ or in carts/<k>/.
+# Per-cart variables, only where a cart differs (all optional):
+#   cdir_<k>    folder of the cart (default carts/<k>)
+#   lua_<k>     the Lua script (default <cdir>/main.lua; a joined one: $(BUILD)/<k>/main.lua)
+#   bminfo_<k>  the bm.info file;  noinfo_<k> := 1 builds with --title/--author/--res (title_<k>, res_<k>)
+#   cover_<k>, sheet_<k>, models_<k>, audio_<k>   a file other than the default
+#   sheet8_<k> := 1            the sheet with a palette and runs (up to 256 colours, much smaller)
+#   layers_<k> := name ...     the map layers, files map_<name>.csv, in this order
+#   extra_<k>   more mkbm.py flags, at the end
+# The key <k> is the cart name; a second edition has its own key (stages3d_b16, overbit_b16).
+c_dir    = $(or $(cdir_$(1)),carts/$(1))
+c_asset  = $(firstword $(wildcard $(call c_dir,$(1))/assets/$(2) $(call c_dir,$(1))/$(2)))
+c_lua    = $(or $(lua_$(1)),$(call c_dir,$(1))/main.lua)
+c_info   = $(if $(noinfo_$(1)),,$(or $(bminfo_$(1)),$(wildcard $(call c_dir,$(1))/bm.info)))
+c_cover  = $(or $(cover_$(1)),$(wildcard $(call c_dir,$(1))/cover.png))
+c_sheet  = $(or $(sheet_$(1)),$(call c_asset,$(1),sheet.png))
+c_map    = $(call c_asset,$(1),map.csv)
+c_layer  = $(call c_asset,$(1),map_$(2).csv)
+c_flags  = $(call c_asset,$(1),flags.csv)
+c_sprite = $(call c_asset,$(1),sprites.txt)
+c_models = $(or $(models_$(1)),$(call c_asset,$(1),models.bm),$(call c_asset,$(1),models.glb))
+# the files a cart is built from: the prerequisites of its rule
+c_deps   = $(call c_info,$(1)) $(call c_cover,$(1)) $(call c_sheet,$(1)) $(call c_map,$(1)) \
+           $(foreach l,$(layers_$(1)),$(call c_layer,$(1),$(l))) $(call c_flags,$(1)) \
+           $(call c_sprite,$(1)) $(call c_models,$(1)) $(audio_$(1)) $(if $(audio_$(1)),scripts/bmaudio.py)
 
-# The editor (M15), built into the kernel
-$(BUILD)/editor.bm: carts/editor/bm.info carts/editor/main.lua carts/editor/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/editor/icon.png \
-	    --info carts/editor/bm.info
+define CART_RECIPE
+@mkdir -p $(dir $@)
+$(PYTHON) scripts/mkbm.py -o $@ --lua $< \
+	    $(if $(call c_info,$(1)),--info $(call c_info,$(1)),--title "$(title_$(1))" --author bm --res $(or $(res_$(1)),640x360)) \
+	    $(if $(call c_cover,$(1)),--cover $(call c_cover,$(1))) \
+	    $(if $(call c_sheet,$(1)),--sheet $(call c_sheet,$(1)) $(if $(sheet8_$(1)),--sheet8)) \
+	    $(if $(call c_map,$(1)),--map $(call c_map,$(1))) \
+	    $(foreach l,$(layers_$(1)),--map $(l)=$(call c_layer,$(1),$(l))) \
+	    $(if $(call c_flags,$(1)),--flags $(call c_flags,$(1))) \
+	    $(if $(call c_sprite,$(1)),--sprites $(call c_sprite,$(1))) \
+	    $(if $(call c_models,$(1)),--models $(call c_models,$(1))) \
+	    $(if $(audio_$(1)),--audio $(audio_$(1))) $(extra_$(1))
+endef
 
-# The Sound editor, built into the kernel: its own bank is the demo project
-$(BUILD)/sound.bm: carts/sound/bm.info carts/sound/main.lua carts/sound/icon.png carts/sound/demo.json scripts/mkbm.py scripts/bmaudio.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/sound/icon.png \
-	    --audio carts/sound/demo.json --info carts/sound/bm.info
-
-# bm Studio and bm Animator on the console (M22): the models, then their
-# skeletons and animations; their shared code is src/script/bm3d.lua. bm
-# Studio's sheet holds the starter tiles (made by the PC version, removed on
-# 2026-10-06: the PNG stays).
-$(BUILD)/studio.bm: carts/studio/bm.info carts/studio/main.lua carts/studio/icon.png carts/studio/assets/sheet.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/studio/icon.png \
-	    --sheet carts/studio/assets/sheet.png --sheet8 --info carts/studio/bm.info
-
-$(BUILD)/animator.bm: carts/animator/bm.info carts/animator/main.lua carts/animator/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/animator/icon.png --info carts/animator/bm.info
-
-# bm Mesh: the meshes of a .bm (its models and those its code builds), on
-# the console.
-$(BUILD)/mesh.bm: carts/mesh/bm.info carts/mesh/main.lua carts/mesh/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/mesh/icon.png --info carts/mesh/bm.info
-
-# bm Pixel: the pixel art of a .bm (its sprite sheet), on the console.
-$(BUILD)/pixel.bm: carts/pixel/bm.info carts/pixel/main.lua carts/pixel/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/pixel/icon.png --info carts/pixel/bm.info
+.SECONDEXPANSION:
+# The built-in tools: $(BUILD)/<tool>.bm. They print carts/<tool>/icon.png on the cartridge.
+TOOL_BMS := code assistant editor sound studio animator mesh pixel
+$(foreach t,$(TOOL_BMS),$(eval cover_$(t) := carts/$(t)/icon.png))
+cover_assistant := carts/code/icon.png
+audio_sound := carts/sound/demo.json
+sheet8_studio := 1
+$(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) scripts/mkbm.py $$(call c_deps,$$*)
+	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2
@@ -182,52 +192,24 @@ sheet8_ko2 := 1
 # map_objects.csv (the placeholders of the houses, trees, lamps... it places)
 # (carts/yharnam/build/mkmap.py makes the first one, and takes it back from the console)
 layers_yharnam := ground overlay objects
-# Optional per game: carts/<game>/cover.png (printed on the cartridge in the
-# menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
-# models from bm Studio / bm Animator, sdk/: with their skeletons and
-# animations from a .bm; their sprite sheet too when there is no sheet.png),
-# res_<game> := 320x180 or 256x256, sheet8_<game> := 1 (the sheet with a
-# palette and runs: up to 256 colours, much smaller); the map's other layers
-# in carts/<game>/map_<name>.csv, in the order of layers_<game> := name ...
-# (R11), the flags of the tiles in flags.csv and named sprite zones in
-# sprites.txt (scripts/mkbm.py --flags, --sprites).
 # Test fixture, not a game (tests/fixtures/village): a cartridge with 8 models, a skeleton and
 # a sheet. The studio, resource and QEMU tests open it. It is not in GAMES, the SD card or the Market.
-$(BUILD)/carts/village.bm: tests/fixtures/village/main.lua tests/fixtures/village/models.bm tests/fixtures/village/bm.info \
-                           tests/fixtures/village/cover.png scripts/mkbm.py scripts/bmmesh.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info tests/fixtures/village/bm.info \
-	    --cover tests/fixtures/village/cover.png --models tests/fixtures/village/models.bm
+cdir_village := tests/fixtures/village
 
-# A migrated game keeps its assets in carts/<game>/assets/ (docs/PROJECT-LAYOUT.md); the others
-# keep them in carts/<game>/.
-asset = $(firstword $(wildcard carts/$(1)/assets/$(2) carts/$(1)/$(2)))
-.SECONDEXPANSION:
-$(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
-                      $$(wildcard carts/$$*/bm.info carts/$$*/cover.png \
-                                  $$(addprefix carts/$$*/,sheet.png map.csv models.glb models.bm flags.csv sprites.txt) \
-                                  $$(addprefix carts/$$*/assets/,sheet.png map.csv models.glb models.bm flags.csv sprites.txt)) \
-                      $$(foreach l,$$(layers_$$*),$$(call asset,$$*,map_$$(l).csv))
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< \
-	    $(if $(wildcard carts/$*/bm.info),--info carts/$*/bm.info,--title "$(title_$*)" --author bm --res $(or $(res_$*),640x360)) \
-	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
-	    $(if $(call asset,$*,sheet.png),--sheet $(call asset,$*,sheet.png) $(if $(sheet8_$*),--sheet8)) \
-	    $(if $(call asset,$*,map.csv),--map $(call asset,$*,map.csv)) \
-	    $(foreach l,$(layers_$*),--map $(l)=$(call asset,$*,map_$(l).csv)) \
-	    $(if $(call asset,$*,flags.csv),--flags $(call asset,$*,flags.csv)) \
-	    $(if $(call asset,$*,sprites.txt),--sprites $(call asset,$*,sprites.txt)) \
-	    $(if $(call asset,$*,models.bm),--models $(call asset,$*,models.bm),$(if $(call asset,$*,models.glb),--models $(call asset,$*,models.glb)))
+$(BUILD)/carts/%.bm: $$(call c_lua,$$*) scripts/mkbm.py scripts/bmmesh.py $$(call c_deps,$$*)
+	$(call CART_RECIPE,$*)
+
+# The projects (.bme) of the carts the Dev tab edits: the same cartridge, built the same way
+BME_CARTS := kitchen bmweb
+$(BME_CARTS:%=$(BUILD)/carts/%.bme): $(BUILD)/carts/%.bme: $$(call c_lua,$$*) scripts/mkbm.py $$(call c_deps,$$*)
+	$(call CART_RECIPE,$*)
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
 KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
 $(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build/build.py
 	$(PYTHON) carts/kitchen/build/build.py $@ --map $(BUILD)/kitchen/main.map
 
-$(BUILD)/carts/kitchen.bm $(BUILD)/carts/kitchen.bme: $(BUILD)/carts/kitchen.%: $(BUILD)/kitchen/main.lua carts/kitchen/assets/sheet.png carts/kitchen/cover.png scripts/mkbm.py carts/kitchen/bm.info
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kitchen/bm.info \
-	    --sheet carts/kitchen/assets/sheet.png --cover carts/kitchen/cover.png
+lua_kitchen := $(BUILD)/kitchen/main.lua
 
 # bm Web (carts/bmweb): the modules in src/ and main.lua are joined by build/build.py. The project
 # (.bme) is the source the Dev tab edits; the .bm is the same cartridge to play. Not in GAMES.
@@ -235,9 +217,7 @@ BMWEB_SRC := $(sort $(wildcard carts/bmweb/src/*.lua)) carts/bmweb/main.lua
 $(BUILD)/bmweb/main.lua: $(BMWEB_SRC) carts/bmweb/build/build.py
 	$(PYTHON) carts/bmweb/build/build.py $@
 
-$(BUILD)/carts/bmweb.bm $(BUILD)/carts/bmweb.bme: $(BUILD)/carts/bmweb.%: $(BUILD)/bmweb/main.lua scripts/mkbm.py carts/bmweb/bm.info carts/bmweb/cover.png
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/bmweb/bm.info --cover carts/bmweb/cover.png
+lua_bmweb := $(BUILD)/bmweb/main.lua
 
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
@@ -245,10 +225,8 @@ TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
 $(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build/build.py
 	$(PYTHON) carts/titan/build/build.py $@ --map $(BUILD)/titan/main.map
 
-$(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/assets/sheet.png carts/titan/cover.png scripts/mkbm.py carts/titan/bm.info
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/titan/bm.info \
-	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan/cover.png
+lua_titan := $(BUILD)/titan/main.lua
+sheet8_titan := 1
 
 # Titan Clash EX (RGB30, .b16 only): the same game's second edition, 360x360 (1:1),
 # with its own sources in carts/titan_ex/ (the Pi's .bm stays in carts/titan/)
@@ -256,10 +234,10 @@ TITAN_EX_SRC := $(sort $(wildcard carts/titan_ex/src/*.lua))
 $(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) carts/titan_ex/build/build.py
 	$(PYTHON) carts/titan_ex/build/build.py $@ --map $(BUILD)/titan_ex/main.map
 
-$(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/assets/sheet.png carts/titan_ex/cover.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/titan_ex/bm.info \
-	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan_ex/cover.png
+cdir_titanex := carts/titan_ex
+lua_titanex := $(BUILD)/titan_ex/main.lua
+sheet_titanex := carts/titan/assets/sheet.png
+sheet8_titanex := 1
 
 # Stages 3D (W03): shared logic in carts/stages3d/common, one front per edition (bm/ now, b16/ later)
 STAGES3D_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/bm/*.lua))
@@ -267,22 +245,22 @@ STAGES3D_ASSETS := carts/stages3d/assets/sheet.png $(addprefix carts/stages3d/as
 $(BUILD)/stages3d/bm/main.lua: $(STAGES3D_SRC) carts/stages3d/build/build.py
 	$(PYTHON) carts/stages3d/build/build.py bm $@ --map $(BUILD)/stages3d/bm/main.map
 
-$(BUILD)/carts/stages3d.bm: $(BUILD)/stages3d/bm/main.lua $(STAGES3D_ASSETS) carts/stages3d/bm/bm.info carts/stages3d/cover.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/bm/bm.info --cover carts/stages3d/cover.png --sheet carts/stages3d/assets/sheet.png \
-	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
-	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
+lua_stages3d := $(BUILD)/stages3d/bm/main.lua
+bminfo_stages3d := carts/stages3d/bm/bm.info
+layers_stages3d := floor height walls objects
 
 # Stages 3D .b16 (RGB30, 360x360): the same common/ copied into its own src, its own front and bm.info
 STAGES3D_B16_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/b16/*.lua))
 $(BUILD)/stages3d/b16/main.lua: $(STAGES3D_B16_SRC) carts/stages3d/build/build.py
 	$(PYTHON) carts/stages3d/build/build.py b16 $@ --map $(BUILD)/stages3d/b16/main.map
 
-$(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) carts/stages3d/b16/bm.info carts/stages3d/cover.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/b16/bm.info --cover carts/stages3d/cover.png --sheet carts/stages3d/assets/sheet.png \
-	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
-	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
+cdir_stages3d_b16 := carts/stages3d
+cover_stages3d_b16 := carts/stages3d/cover.png
+lua_stages3d_b16 := $(BUILD)/stages3d/b16/main.lua
+bminfo_stages3d_b16 := carts/stages3d/b16/bm.info
+layers_stages3d_b16 := floor height walls objects
+$(BUILD)/carts/stages3d.b16: $$(call c_lua,stages3d_b16) scripts/mkbm.py $$(call c_deps,stages3d_b16)
+	$(call CART_RECIPE,stages3d_b16)
 
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
@@ -293,10 +271,9 @@ SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/bui
 $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
 	$(PYTHON) carts/sdk_b16/build/build.py $@
 
-$(BUILD)/carts/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
-	    --info carts/sdk_b16/bm.info --res $(SDK_B16_RES)
+lua_sdk_b16 := $(BUILD)/sdk_b16/main.lua
+cover_sdk_b16 := carts/editor/icon.png
+extra_sdk_b16 = --res $(SDK_B16_RES)
 
 # nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
 # files too. The carts it ships with (carts/nano8/roms, licenses in
@@ -306,10 +283,7 @@ NANO8_ROMS := $(sort $(wildcard carts/nano8/roms/*.p8 carts/nano8/roms/*.p8.png)
 $(BUILD)/nano8/main.lua: $(NANO8_SRC) carts/nano8/build/build.py
 	$(PYTHON) carts/nano8/build/build.py $@ --map $(BUILD)/nano8/main.map
 
-$(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/mkbm.py carts/nano8/bm.info
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/nano8/bm.info \
-	    --cover carts/nano8/cover.png
+lua_nano8 := $(BUILD)/nano8/main.lua
 
 # Hero Stress (docs/design/hero-stress-cart-and-cel-shader.md, stage 1): a plaza with walking heroes, to
 # compare the 3D options on the Pi. Not in GAMES: it does not go in dist/bm or the Market.
@@ -320,9 +294,8 @@ HEROCART_ASSETS := $(addprefix carts/herocart/assets/,sheet.png models.bm map_fl
 $(BUILD)/herocart/main.lua: $(HEROCART_SRC) carts/herocart/build/build.py
 	$(PYTHON) carts/herocart/build/build.py $@ --map $(BUILD)/herocart/main.map
 
-$(BUILD)/carts/herocart.bm: $(BUILD)/herocart/main.lua $(HEROCART_ASSETS) scripts/mkbm.py carts/herocart/bm.info carts/herocart/cover.png
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/herocart/bm.info --cover carts/herocart/cover.png --sheet carts/herocart/assets/sheet.png 	    --map floor=carts/herocart/assets/map_floor.csv --map height=carts/herocart/assets/map_height.csv 	    --map walls=carts/herocart/assets/map_walls.csv --models carts/herocart/assets/models.bm
+lua_herocart := $(BUILD)/herocart/main.lua
+layers_herocart := floor height walls
 
 # Overbit (M38): a hero shooter in 3D. Several Lua files joined by its
 # build.py; the heroes' models and animations (MESH, ANIM) made by
@@ -374,12 +347,9 @@ $(BUILD)/overbit/sounds.json: carts/overbit/art/sounds.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) carts/overbit/art/sounds.py $@
 
-$(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
-                           scripts/mkbm.py scripts/bmaudio.py carts/overbit/bm.info $(wildcard carts/overbit/cover.png)
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/overbit/bm.info \
-	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
-	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
+lua_overbit := $(BUILD)/overbit/main.lua
+models_overbit := $(BUILD)/overbit/models.bm
+audio_overbit := $(BUILD)/overbit/sounds.json
 
 # the optimized release, the .b16 of the Market for the Pi and the RGB30 (the
 # same container, docs/B16.md §0): the script without comment
@@ -391,12 +361,15 @@ OVERBIT_B16_RES := 360x360
 $(BUILD)/overbit/main.min.lua: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm
 	$(PYTHON) carts/overbit/build/build.py $@ --minify --extra $(BUILD)/overbit/21_map.lua
 
-$(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
-                            scripts/mkbm.py scripts/bmaudio.py $(wildcard carts/overbit/cover.png)
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res $(OVERBIT_B16_RES) \
-	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
-	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
+cdir_overbit_b16 := carts/overbit
+lua_overbit_b16 := $(BUILD)/overbit/main.min.lua
+noinfo_overbit_b16 := 1
+title_overbit_b16 := $(title_overbit)
+res_overbit_b16 := $(OVERBIT_B16_RES)
+models_overbit_b16 := $(BUILD)/overbit/models.bm
+audio_overbit_b16 := $(BUILD)/overbit/sounds.json
+$(BUILD)/carts/overbit.b16: $$(call c_lua,overbit_b16) scripts/mkbm.py $$(call c_deps,overbit_b16)
+	$(call CART_RECIPE,overbit_b16)
 
 # the .b16 that is the .bm's very bytes (docs/B16.md §0: the same container): a
 # 360x360 or 720x720 game, built as its .bm (Yharnam: 360x360,
