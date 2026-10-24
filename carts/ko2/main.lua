@@ -1120,9 +1120,9 @@ function _draw()
   draw_lcd()
 
   local p = cur_param()
-  fader(45, 332, 424, p and (p.get() - p.lo) / (p.hi - p.lo) or 0)
-  vtc("W", 45, 308, T2, C.txt)
-  vtc("S", 45, 432, T2, C.txt)
+  fader(45, 326, 418, p and (p.get() - p.lo) / (p.hi - p.lo) or 0)
+  vtc("W", 45, 303, T2, C.txt)
+  vtc("S", 45, 434, T2, C.txt)
 
   draw_buttons()
   draw_pads()
