@@ -17,7 +17,7 @@ local K = {
   J = 0x0D, K = 0x0E, L = 0x0F, M = 0x10, N = 0x11, O = 0x12, Q = 0x14, R = 0x15, S = 0x16,
   T = 0x17, U = 0x18, W = 0x1A, X = 0x1B, Y = 0x1C, Z = 0x1D,
   D1 = 0x1E, D2 = 0x1F, D3 = 0x20, D4 = 0x21, D5 = 0x22, D6 = 0x23, D7 = 0x24, D8 = 0x25, D9 = 0x26,
-  V = 0x19, MINUS = 0x2D, EQUAL = 0x2E, SPACE = 0x2C, COMMA = 0x36, PERIOD = 0x37, SLASH = 0x38, LB = 0x2F, RB = 0x30, F1 = 0x3A,
+  V = 0x19, MINUS = 0x2D, EQUAL = 0x2E, SPACE = 0x2C, ENTER = 0x28, COMMA = 0x36, PERIOD = 0x37, SLASH = 0x38, LB = 0x2F, RB = 0x30, F1 = 0x3A,
   RIGHT = 0x4F, LEFT = 0x50, DOWN = 0x51, UP = 0x52, SHL = 0xE1, SHR = 0xE5,
 }
 
@@ -105,6 +105,7 @@ S.sel = { 1, 7 }
 
 local mode, psel, dirty = "main", { main = 1, sound = 1, pattern = 1, timing = 1, fx = 1, keys = 1 }, false
 local showhelp = false
+local menu = false
 local recarm = false
 local meter = { l = 0, r = 0 }
 local flash, gflash = {}, {}                    -- pad / group lit for a few frames
@@ -574,6 +575,17 @@ end
 
 local function handle_keys(now)
   local sh = shift()
+  -- Esc (the console gives it as Start): the exit page. Enter saves and closes, Esc stays;
+  -- Ctrl+Esc, PS and Start+Select are the console's: they freeze the app (see _exit)
+  if btnp("start") then menu = not menu end
+  if menu then
+    if pressed(K.ENTER) then
+      if pl.on then play_stop() end
+      if dirty then save_now() end
+      quit()
+    end
+    return
+  end
   -- the fader: W and S, up and down arrows; the volume knob: A and D, left and right
   local fd = ((held[K.W] or held[K.UP]) and 1 or 0) - ((held[K.S] or held[K.DOWN]) and 1 or 0)
   local vd = ((held[K.D] or held[K.RIGHT]) and 1 or 0) - ((held[K.A] or held[K.LEFT]) and 1 or 0)
@@ -648,59 +660,205 @@ local function handle_keys(now)
 end
 
 -- ---------------------------------------------------------------- drawing
+-- Everything is drawn in the units of the real unit's front panel (498 x 523) and scaled to
+-- the 1280x720 screen the GPU shows: the panel keeps its proportions, the sides stay dark.
+local DW, DH = 498, 523
+local SW, SH = 1280, 720
+local K_ = (SH - 16) / DH
+local OX, OY = floor((SW - DW * K_) / 2), 8
+
 local C = {
-  body = 0xD2D3D0, bodyhi = 0xE6E7E4, bodylo = 0xA4A6A4, black = 0x1A1B1E, pad = 0x26272B, padtop = 0x34353A,
-  padlo = 0x0C0C0E, orange = 0xFF5A1F, red = 0xFF2A1A, key = 0xEAEAE6, keylo = 0xB6B7B3, txt = 0x2A2C2F,
-  dim = 0x6E7270, lcd = 0x0C0D0F, lcdfg = 0xF2F5F2, lcdghost = 0x1C1E21, lcddim = 0x4A5250,
-  lcdhi = 0xFF7A1E, green = 0x30D060, led = 0xFF3A20, ledoff = 0x7A7C7A,
+  bg = 0x14161A, body = 0xD6D7D4, bodyhi = 0xE8E9E6, bodylo = 0xA3A5A3, black = 0x1A1B1E,
+  pad = 0x232428, padtop = 0x303136, padlo = 0x0A0A0C, orange = 0xFF5A1F, red = 0xF0301E,
+  key = 0xEBEBE7, txt = 0x2A2C2F, dim = 0x6F7371, white = 0xF6F6F2,
+  lcd = 0x09090B, lcdfg = 0xF4F6F4, lcdghost = 0x1B1D20, lcddim = 0x585F5D,
+  lcdhi = 0xFF7A1E, green = 0x38D26A, led = 0xFF3A20, ledoff = 0x8E908E, blue = 0x2D9CDB,
 }
 
-local function rrect(x, y, w, h, r, c)
-  rectfill(x + r, y, w - 2 * r, h, c)
-  rectfill(x, y + r, w, h - 2 * r, c)
-  circfill(x + r, y + r, r, c); circfill(x + w - r - 1, y + r, r, c)
-  circfill(x + r, y + h - r - 1, r, c); circfill(x + w - r - 1, y + h - r - 1, r, c)
+local function X(x) return OX + floor(x * K_ + 0.5) end
+local function Y(y) return OY + floor(y * K_ + 0.5) end
+local function D(v) return max(1, floor(v * K_ + 0.5)) end
+
+local function R(x, y, w, h, c)
+  local x0, y0 = X(x), Y(y)
+  rectfill(x0, y0, X(x + w) - x0, Y(y + h) - y0, c)
+end
+local function RR(x, y, w, h, r, c)
+  local x0, y0 = X(x), Y(y)
+  local w0, h0 = X(x + w) - x0, Y(y + h) - y0
+  local r0 = min(D(r), w0 // 2, h0 // 2)
+  rectfill(x0 + r0, y0, w0 - 2 * r0, h0, c)
+  rectfill(x0, y0 + r0, w0, h0 - 2 * r0, c)
+  circfill(x0 + r0, y0 + r0, r0, c); circfill(x0 + w0 - r0 - 1, y0 + r0, r0, c)
+  circfill(x0 + r0, y0 + h0 - r0 - 1, r0, c); circfill(x0 + w0 - r0 - 1, y0 + h0 - r0 - 1, r0, c)
+end
+local function RO(x, y, w, h, c, t)
+  local x0, y0 = X(x), Y(y)
+  local w0, h0 = X(x + w) - x0, Y(y + h) - y0
+  for i = 0, (t or 1) - 1 do rect(x0 + i, y0 + i, w0 - 2 * i - 1, h0 - 2 * i - 1, c) end
+end
+local function CF(cx, cy, r, c) circfill(X(cx), Y(cy), D(r), c) end
+local function LN(x1, y1, x2, y2, c) line(X(x1), Y(y1), X(x2), Y(y2), c) end
+
+-- ---- a thin, clean stroke font. Each glyph is a few polylines on a 4 x 6 grid; the first time a
+-- glyph is used at a size and a colour it is drawn into the sprite sheet, and after that text
+-- costs one sspr per letter.
+local GLY = {
+  A = { { 0, 6, 0, 2, 2, 0, 4, 2, 4, 6 }, { 0, 4, 4, 4 } },
+  B = { { 0, 0, 0, 6 }, { 0, 0, 3, 0, 4, 1, 4, 2, 3, 3, 0, 3 }, { 3, 3, 4, 4, 4, 5, 3, 6, 0, 6 } },
+  C = { { 4, 1, 3, 0, 1, 0, 0, 1, 0, 5, 1, 6, 3, 6, 4, 5 } },
+  D = { { 0, 0, 0, 6 }, { 0, 0, 2, 0, 4, 2, 4, 4, 2, 6, 0, 6 } },
+  E = { { 4, 0, 0, 0, 0, 6, 4, 6 }, { 0, 3, 3, 3 } },
+  F = { { 4, 0, 0, 0, 0, 6 }, { 0, 3, 3, 3 } },
+  G = { { 4, 1, 3, 0, 1, 0, 0, 1, 0, 5, 1, 6, 3, 6, 4, 5, 4, 3, 2, 3 } },
+  H = { { 0, 0, 0, 6 }, { 4, 0, 4, 6 }, { 0, 3, 4, 3 } },
+  I = { { 1, 0, 3, 0 }, { 2, 0, 2, 6 }, { 1, 6, 3, 6 } },
+  J = { { 4, 0, 4, 5, 3, 6, 1, 6, 0, 5 } },
+  K = { { 0, 0, 0, 6 }, { 4, 0, 0, 3, 4, 6 } },
+  L = { { 0, 0, 0, 6, 4, 6 } },
+  M = { { 0, 6, 0, 0, 2, 3, 4, 0, 4, 6 } },
+  N = { { 0, 6, 0, 0, 4, 6, 4, 0 } },
+  O = { { 1, 0, 3, 0, 4, 1, 4, 5, 3, 6, 1, 6, 0, 5, 0, 1, 1, 0 } },
+  P = { { 0, 6, 0, 0, 3, 0, 4, 1, 4, 2, 3, 3, 0, 3 } },
+  Q = { { 1, 0, 3, 0, 4, 1, 4, 5, 3, 6, 1, 6, 0, 5, 0, 1, 1, 0 }, { 2, 4, 4, 6 } },
+  R = { { 0, 6, 0, 0, 3, 0, 4, 1, 4, 2, 3, 3, 0, 3 }, { 2, 3, 4, 6 } },
+  S = { { 4, 1, 3, 0, 1, 0, 0, 1, 0, 2, 1, 3, 3, 3, 4, 4, 4, 5, 3, 6, 1, 6, 0, 5 } },
+  T = { { 0, 0, 4, 0 }, { 2, 0, 2, 6 } },
+  U = { { 0, 0, 0, 5, 1, 6, 3, 6, 4, 5, 4, 0 } },
+  V = { { 0, 0, 2, 6, 4, 0 } },
+  W = { { 0, 0, 1, 6, 2, 3, 3, 6, 4, 0 } },
+  X = { { 0, 0, 4, 6 }, { 4, 0, 0, 6 } },
+  Y = { { 0, 0, 2, 3, 4, 0 }, { 2, 3, 2, 6 } },
+  Z = { { 0, 0, 4, 0, 0, 6, 4, 6 } },
+  ["0"] = { { 1, 0, 3, 0, 4, 1, 4, 5, 3, 6, 1, 6, 0, 5, 0, 1, 1, 0 }, { 0, 5, 4, 1 } },
+  ["1"] = { { 1, 1, 2, 0, 2, 6 }, { 1, 6, 3, 6 } },
+  ["2"] = { { 0, 1, 1, 0, 3, 0, 4, 1, 4, 2, 0, 6, 4, 6 } },
+  ["3"] = { { 0, 1, 1, 0, 3, 0, 4, 1, 4, 2, 3, 3, 1, 3 }, { 3, 3, 4, 4, 4, 5, 3, 6, 1, 6, 0, 5 } },
+  ["4"] = { { 3, 6, 3, 0, 0, 4, 4, 4 } },
+  ["5"] = { { 4, 0, 0, 0, 0, 3, 3, 3, 4, 4, 4, 5, 3, 6, 1, 6, 0, 5 } },
+  ["6"] = { { 4, 1, 3, 0, 1, 0, 0, 1, 0, 5, 1, 6, 3, 6, 4, 5, 4, 4, 3, 3, 0, 3 } },
+  ["7"] = { { 0, 0, 4, 0, 1, 6 } },
+  ["8"] = { { 1, 0, 3, 0, 4, 1, 4, 2, 3, 3, 1, 3, 0, 2, 0, 1, 1, 0 }, { 1, 3, 3, 3, 4, 4, 4, 5, 3, 6, 1, 6, 0, 5, 0, 4, 1, 3 } },
+  ["9"] = { { 0, 5, 1, 6, 3, 6, 4, 5, 4, 1, 3, 0, 1, 0, 0, 1, 0, 2, 1, 3, 4, 3 } },
+  ["."] = { { 2, 5.4, 2, 6 } },
+  [","] = { { 2, 5, 2, 6, 1.4, 7 } },
+  ["-"] = { { 0.5, 3, 3.5, 3 } },
+  ["+"] = { { 0.5, 3, 3.5, 3 }, { 2, 1, 2, 5 } },
+  ["="] = { { 0.5, 2, 3.5, 2 }, { 0.5, 4, 3.5, 4 } },
+  ["/"] = { { 0, 6, 4, 0 } },
+  [">"] = { { 0, 1, 4, 3, 0, 5 } },
+  ["<"] = { { 4, 1, 0, 3, 4, 5 } },
+  [":"] = { { 2, 1.6, 2, 2 }, { 2, 4, 2, 4.4 } },
+  ["("] = { { 3, 0, 1, 2, 1, 4, 3, 6 } },
+  [")"] = { { 1, 0, 3, 2, 3, 4, 1, 6 } },
+  ["["] = { { 3, 0, 1, 0, 1, 6, 3, 6 } },
+  ["]"] = { { 1, 0, 3, 0, 3, 6, 1, 6 } },
+  ["%"] = { { 0, 0, 1, 0, 1, 1, 0, 1, 0, 0 }, { 3, 5, 4, 5, 4, 6, 3, 6, 3, 5 }, { 4, 0, 0, 6 } },
+  ["*"] = { { 2, 1, 2, 5 }, { 0, 2, 4, 4 }, { 4, 2, 0, 4 } },
+  ["#"] = { { 1, 0, 1, 6 }, { 3, 0, 3, 6 }, { 0, 2, 4, 2 }, { 0, 4, 4, 4 } },
+  ["?"] = { { 0, 1, 1, 0, 3, 0, 4, 1, 4, 2, 2, 3, 2, 4 }, { 2, 5.4, 2, 6 } },
+  ["!"] = { { 2, 0, 2, 4 }, { 2, 5.4, 2, 6 } },
+  ["_"] = { { 0, 6.5, 4, 6.5 } },
+}
+
+local cells = {}
+local atlas = { x = 0, y = 0, rowh = 0 }
+local SHEET_W, SHEET_H = 1024, 512
+
+local function metrics(ph)
+  local u = ph / 6
+  return u, floor(5.5 * u + 0.5)
 end
 
-local function small(txt, x, y, c)
-  font("6x12")
-  print(txt, x, y, c)
-  font("8x16")
+local function cell(ch, ph, col, th)
+  local key = ph * 4 + th
+  local byc = cells[key]
+  if not byc then byc = {}; cells[key] = byc end
+  local bych = byc[col]
+  if not bych then bych = {}; byc[col] = bych end
+  local c = bych[ch]
+  if c ~= nil then return c end
+  local g = GLY[ch]
+  if not g then bych[ch] = false; return false end
+  local u = ph / 6
+  local gw, gh = floor(4 * u + th + 0.5) + 1, ph + th + 1
+  if atlas.x + gw > SHEET_W then atlas.x = 0; atlas.y = atlas.y + atlas.rowh + 1; atlas.rowh = 0 end
+  if atlas.y + gh > SHEET_H then bych[ch] = false; return false end
+  local ax, ay = atlas.x, atlas.y
+  atlas.x = atlas.x + gw + 1
+  atlas.rowh = max(atlas.rowh, gh)
+  for _, st in ipairs(g) do
+    for i = 1, #st - 2, 2 do
+      local x1, y1, x2, y2 = st[i] * u, st[i + 1] * u, st[i + 2] * u, st[i + 3] * u
+      local n = max(1, math.ceil(max(abs(x2 - x1), abs(y2 - y1)) * 2))
+      for s = 0, n do
+        local px = ax + floor(x1 + (x2 - x1) * s / n + 0.5)
+        local py = ay + floor(y1 + (y2 - y1) * s / n + 0.5)
+        sset(px, py, col)
+        if th > 1 then sset(px + 1, py, col) end
+      end
+    end
+  end
+  c = { ax, ay, gw, gh }
+  bych[ch] = c
+  return c
 end
-local function small_c(txt, cx, y, c) small(txt, cx - #txt * 3, y, c) end
-local function small_r(txt, rx, y, c) small(txt, rx - #txt * 6, y, c) end
-local function big_c(txt, cx, y, c, scale) print(txt, cx - #txt * 4 * scale, y, c, scale) end
+
+-- the text's width in design units
+local function tdw(s, h)
+  local _, adv = metrics(max(5, D(h)))
+  return #s * adv / K_
+end
+
+-- text at (x, y) (left, top), height h in design units
+local function vt(s, x, y, h, col, bold)
+  local ph = max(5, D(h))
+  local th = (bold or ph >= 26) and 2 or 1
+  local u, adv = metrics(ph)
+  local px, py = X(x), Y(y)
+  s = s:upper()
+  for i = 1, #s do
+    local ch = s:sub(i, i)
+    if ch ~= " " then
+      local c = cell(ch, ph, col, th)
+      if c then sspr(c[1], c[2], c[3], c[4], px, py) end
+    end
+    px = px + adv
+  end
+end
+local function vtc(s, cx, y, h, col, bold) vt(s, cx - tdw(s, h) / 2, y, h, col, bold) end
+local function vtr(s, rx, y, h, col, bold) vt(s, rx - tdw(s, h), y, h, col, bold) end
+
+local T1, T2, T3 = 5.8, 6.6, 8
 
 local function dot(x, y, on, col)
-  circfill(x, y, 2, on and (col or C.led) or C.ledoff)
+  CF(x, y, 2.1, on and (col or C.led) or C.ledoff)
 end
 
--- seven segments: the LCD's digits
+-- seven segments: the LCD's digits (design units)
 local SEG = { ["0"] = "abcdef", ["1"] = "bc", ["2"] = "abdeg", ["3"] = "abcdg", ["4"] = "bcfg", ["5"] = "acdfg",
               ["6"] = "acdefg", ["7"] = "abc", ["8"] = "abcdefg", ["9"] = "abcdfg", ["-"] = "g" }
 local function digit(x, y, w, h, t, ch, on, off)
-  local mid = y + (h - t) // 2
-  local R = {
-    a = { x + t, y, w - 2 * t, t }, d = { x + t, y + h - t, w - 2 * t, t }, g = { x + t, mid, w - 2 * t, t },
-    f = { x, y + t, t, mid - y }, b = { x + w - t, y + t, t, mid - y },
-    e = { x, mid, t, y + h - t - mid }, c = { x + w - t, mid, t, y + h - t - mid },
-  }
+  local mid = y + (h - t) / 2
   local lit = SEG[ch] or ""
-  for k, r in pairs(R) do
-    rectfill(r[1], r[2], r[3], r[4], lit:find(k, 1, true) and on or off)
+  local function seg(k, a, b, c2, d2)
+    R(a, b, c2, d2, lit:find(k, 1, true) and on or off)
   end
+  seg("a", x + t, y, w - 2 * t, t); seg("d", x + t, y + h - t, w - 2 * t, t); seg("g", x + t, mid, w - 2 * t, t)
+  seg("f", x, y + t, t, mid - y); seg("b", x + w - t, y + t, t, mid - y)
+  seg("e", x, mid, t, y + h - t - mid); seg("c", x + w - t, mid, t, y + h - t - mid)
 end
 local function seg_width(str, w)
   local n = 0
-  for ch in str:gmatch(".") do n = n + (ch == "." and 12 or w + 6) end
+  for ch in str:gmatch(".") do n = n + (ch == "." and 9 or w + 6) end
   return n
 end
 local function seg_text(str, cx, y, w, h, t, on, off)
-  local x = cx - seg_width(str, w) // 2
+  local x = cx - seg_width(str, w) / 2
   for ch in str:gmatch(".") do
     if ch == "." then
-      rectfill(x + 2, y + h - t, t, t, on)
-      x = x + 12
+      R(x + 1.5, y + h - t, t, t, on)
+      x = x + 9
     else
       digit(x, y, w, h, t, ch, on, off)
       x = x + w + 6
@@ -708,69 +866,66 @@ local function seg_text(str, cx, y, w, h, t, on, off)
   end
 end
 
-local function knob(cx, cy, r, v, cap, ring)
+local function knob(cx, cy, r, v, cap, ring, inner)
   for i = 0, 10 do
     local a = (-135 + 270 * i / 10) * pi / 180
-    circfill(cx + floor(sin(a) * (r + 6)), cy - floor(cos(a) * (r + 6)), 1, C.dim)
+    CF(cx + sin(a) * (r + 5), cy - cos(a) * (r + 5), 0.8, C.dim)
   end
-  circfill(cx + 1, cy + 3, r + 1, C.bodylo)
-  circfill(cx, cy, r + 1, ring or 0x8C8E8C)
-  circfill(cx, cy, r - 1, cap)
-  circfill(cx, cy, r - 6, cap == 0xFFFFFF and 0xF4F4F4 or cap + 0x0A0A0A)
+  CF(cx + 0.5, cy + 2, r + 1, C.bodylo)
+  CF(cx, cy, r + 1, ring or 0x8C8E8C)
+  CF(cx, cy, r - 0.5, cap)
+  CF(cx, cy, r * 0.62, inner)
   local a = (-135 + 270 * v) * pi / 180
-  local x1, y1 = cx + sin(a) * (r * 0.3), cy - cos(a) * (r * 0.3)
-  local x2, y2 = cx + sin(a) * (r - 4), cy - cos(a) * (r - 4)
   local ic = (cap == 0xFFFFFF) and 0x303030 or 0xFFFFFF
-  line(floor(x1), floor(y1), floor(x2), floor(y2), ic)
-  line(floor(x1) + 1, floor(y1), floor(x2) + 1, floor(y2), ic)
+  LN(cx + sin(a) * r * 0.3, cy - cos(a) * r * 0.3, cx + sin(a) * (r - 3), cy - cos(a) * (r - 3), ic)
+  LN(cx + sin(a) * r * 0.3 + 0.7, cy - cos(a) * r * 0.3, cx + sin(a) * (r - 3) + 0.7, cy - cos(a) * (r - 3), ic)
 end
 
 local function fader(cx, y1, y2, v)
-  rectfill(cx - 2, y1, 4, y2 - y1, C.black)
+  R(cx - 1.5, y1, 3, y2 - y1, C.black)
   for i = 0, 8 do
-    local y = y2 - floor((y2 - y1) * i / 8)
-    line(cx - 12, y, cx - 7, y, C.dim)
+    local y = y2 - (y2 - y1) * i / 8
+    LN(cx - 14, y, cx - 8, y, C.dim)
   end
-  local ky = y2 - floor((y2 - y1) * v) - 8
-  rrect(cx - 11, ky, 22, 16, 8, 0x58595B)
-  circfill(cx, ky + 8, 5, 0x8A8B8D)
+  local ky = y2 - (y2 - y1) * v - 8
+  RR(cx - 11, ky, 22, 16, 8, 0x58595B)
+  CF(cx, ky + 8, 4, 0x8A8B8D)
 end
 
--- a two-tone button: a dark label above, a light one below
-local function button2(x, y, w, h, top, sub, lit, topcol, subcol, ledcol)
-  rrect(x, y + 2, w, h, 4, C.bodylo)
-  local th = h * 3 // 5
-  rrect(x, y, w, th + 3, 4, topcol or C.black)
-  rrect(x, y + th - 2, w, h - th + 2, 4, subcol or C.key)
-  rectfill(x + 1, y + th - 2, w - 2, 5, topcol or C.black)
-  local tc = (topcol == C.red or topcol == C.orange or (topcol or C.black) == C.black) and 0xF4F4F0 or C.txt
-  print(top, x + 5, y + (th - 16) // 2 + 1, tc)
-  small(sub, x + 6, y + th + 1, (subcol == C.orange) and 0xFFFFFF or C.dim)
-  if lit then dot(x + w - 7, y + 7, true, ledcol or C.orange) end
+-- a two-tone key: a dark label above, a light one below (w x h in design units)
+local function button2(x, y, w, h, top, sub, lit, topcol, subcol)
+  RR(x, y + 1.5, w, h, 3, C.bodylo)
+  local th = h * 0.6
+  RR(x, y, w, th + 3, 3, topcol or C.black)
+  RR(x, y + th - 2, w, h - th + 2, 3, subcol or C.key)
+  R(x + 1, y + th - 2, w - 2, 5, topcol or C.black)
+  local fit = min(T2, T2 * (w - 5) / max(1, tdw(top, T2)))
+  vtc(top, x + w / 2, y + th / 2 - fit * 0.55, fit, C.white)
+  vtc(sub, x + w / 2, y + th + (h - th) / 2 - T1 * 0.55, T1, (subcol == C.orange) and C.white or C.dim)
+  if lit then dot(x + w - 5, y + 5, true, C.orange) end
 end
 
-local function draw_lcd(now)
-  local x0, y0, W, H = 8, 6, 624, 84
-  rrect(x0, y0, W, H, 6, C.lcd)
+local function draw_lcd()
+  RR(0, 0, DW, 128, 9, C.lcd)
 
   -- the modes
   local tags = { "SOUND", "MAIN", "PATTERN", "TEMPO", "TIMING", "FX", "KEYS" }
-  local tx, ty = x0 + 12, y0 + 6
-  for i, t in ipairs(tags) do
+  local tx, ty = 14, 12
+  for _, t in ipairs(tags) do
     local act
     if t == "TEMPO" then act = mode == "timing" and psel.timing == 1
     elseif t == "TIMING" then act = mode == "timing" and psel.timing ~= 1
     else act = mode == t:lower() end
-    local w = #t * 6 + 8
-    if tx + w > x0 + 180 then tx = x0 + 12; ty = ty + 17 end
-    if act then rectfill(tx, ty, w, 14, C.lcdfg); small(t, tx + 4, ty + 1, C.lcd)
-    else rect(tx, ty, w, 14, C.lcddim); small(t, tx + 4, ty + 1, C.lcddim) end
-    tx = tx + w + 5
+    local w = tdw(t, T2) + 7
+    if tx + w > 118 then tx = 14; ty = ty + 15 end
+    if act then R(tx, ty, w, 12, C.lcdfg); vt(t, tx + 3.5, ty + 2.6, T2, C.lcd)
+    else RO(tx, ty, w, 12, C.lcddim); vt(t, tx + 3.5, ty + 2.6, T2, C.lcddim) end
+    tx = tx + w + 4
   end
   local sg = S.sel
-  small(fmt("PTN %02d   GROUP %s", S.pat, GRPNAME[S.group]), x0 + 12, y0 + 44, C.lcdfg)
-  small(fmt("%s-%s  %s", GRPNAME[sg[1]], PADLAB[sg[2]], ALL[S.pads[sg[1]][sg[2]].snd].name), x0 + 12, y0 + 58, C.lcdhi)
-  small(fmt("%d BPM  QNT %s", S.bpm, QNAME[S.quant]), x0 + 12, y0 + 70, C.lcddim)
+  vt(fmt("PTN %02d  GROUP %s", S.pat, GRPNAME[S.group]), 14, 56, T3, C.lcdfg)
+  vt(fmt("%s-%s  %s", GRPNAME[sg[1]], PADLAB[sg[2]], ALL[S.pads[sg[1]][sg[2]].snd].name), 14, 71, T3, C.lcdhi)
+  vt(fmt("%d BPM  QNT %s", S.bpm, QNAME[S.quant]), 14, 86, T3, C.lcddim)
 
   -- the big value: the position, or the chosen parameter
   local p = cur_param()
@@ -782,33 +937,35 @@ local function draw_lcd(now)
     txt = note_text(clamp((ALL[pr.snd].note or 60) + pr.pit + S.oct * 12, 0, 127)); cap = fmt("KEYS  OCTAVE %+d", S.oct)
   elseif mode == "fx" then txt = pct(S.fxamt); cap = FXS[S.fx].name
   else txt = p.show(p.get()); cap = p.name end
-  local cx = x0 + 330
+  local cx = 249
   if txt:match("^[%d%.%-%+ ]+$") then
     txt = txt:gsub("%+", "")
-    seg_text((txt:gsub("%d", "8")), cx, y0 + 10, 26, 44, 5, C.lcdghost, C.lcdghost)
-    seg_text(txt, cx, y0 + 10, 26, 44, 5, C.lcdfg, C.lcdghost)
+    seg_text((txt:gsub("%d", "8")), cx, 18, 26, 52, 4.6, C.lcdghost, C.lcdghost)
+    seg_text(txt, cx, 18, 26, 52, 4.6, C.lcdfg, C.lcdghost)
   else
-    big_c(txt, cx, y0 + 16, C.lcdfg, 3)
+    vtc(txt, cx, 28, 26, C.lcdfg)
   end
-  small_c(cap, cx, y0 + 60, C.lcddim)
+  vtc(cap, cx, 80, T2, C.lcddim)
 
   -- the icons
-  local ix = x0 + 470
-  rect(ix, y0 + 8, 30, 14, pl.on and C.red or C.lcddim)
-  small("BAR", ix + 6, y0 + 9, pl.on and C.lcdfg or C.lcddim)
+  local ix = 338
+  RO(ix, 14, 30, 14, pl.on and C.red or C.lcddim)
+  vt("BAR", ix + 6.5, 17, T2, pl.on and C.lcdfg or C.lcddim)
   local blink = not pl.on or (frame_n // 15) % 2 == 0
-  circfill(ix + 46, y0 + 15, 5, recarm and blink and C.red or C.lcddim)
-  if pl.on then tri(ix + 60, y0 + 9, ix + 60, y0 + 21, ix + 71, y0 + 15, C.lcdfg)
-  else tri(ix + 60, y0 + 9, ix + 60, y0 + 21, ix + 71, y0 + 15, C.lcddim) end
-  small("MET", ix + 82, y0 + 9, S.metro and C.lcdfg or C.lcddim)
-  small("FX", ix, y0 + 32, S.fx > 1 and C.lcdhi or C.lcddim)
-  small(S.fx > 1 and FXS[S.fx].name or "-", ix + 20, y0 + 32, S.fx > 1 and C.lcdfg or C.lcddim)
-  small("STEREO", ix + 82, y0 + 32, C.lcddim)
+  CF(ix + 46, 21, 5, recarm and blink and C.red or C.lcddim)
+  do
+    local x0, y0 = X(ix + 60), Y(14)
+    tri(x0, y0, x0, y0 + D(14), x0 + D(12), y0 + D(7), pl.on and C.lcdfg or C.lcddim)
+  end
+  vt("METRO", ix, 40, T2, S.metro and C.lcdfg or C.lcddim)
+  vt("FX", ix, 56, T2, S.fx > 1 and C.lcdhi or C.lcddim)
+  vt(S.fx > 1 and FXS[S.fx].name or "-", ix + 14, 56, T2, S.fx > 1 and C.lcdfg or C.lcddim)
+  vt("STEREO", ix + 84, 56, T1, C.lcddim)
   for i, v in ipairs({ meter.l, meter.r }) do
-    local h = floor(clamp(v, 0, 1) * 44)
-    local mx = x0 + W - 28 + (i - 1) * 10
-    rect(mx, y0 + 28, 7, 46, C.lcddim)
-    rectfill(mx + 1, y0 + 73 - h, 5, h, h > 38 and C.led or C.lcdhi)
+    local h = clamp(v, 0, 1) * 62
+    local mx = 468 + (i - 1) * 11
+    RO(mx, 26, 7, 64, C.lcddim)
+    R(mx + 1.5, 88 - h, 4, h, h > 52 and C.led or C.lcdhi)
   end
 
   -- the 16 steps of the bar
@@ -822,70 +979,74 @@ local function draw_lcd(now)
     end
   end
   for s = 1, 16 do
-    local sx = x0 + 218 + (s - 1) * 16
+    local sx = 76 + (s - 1) * 22.5
     local col = lit[s] and C.lcdhi or (others[s] and C.lcddim or C.lcdghost)
     if s - 1 == head then col = C.lcdfg end
-    rectfill(sx, y0 + 74, 12, 5, col)
+    R(sx, 108, 18, 5, col)
   end
 end
 
 local BTNS = {
-  { "SOUND", "Q", 372, 94, 80, 34, function() return mode == "sound" end },
-  { "MAIN", "B", 458, 94, 80, 34, function() return mode == "main" end, C.orange },
-  { "TEMPO", "T", 544, 94, 80, 34, function() return mode == "timing" and psel.timing == 1 end },
-  { "PATTERN", "E", 372, 200, 122, 34, function() return mode == "pattern" end },
-  { "TIMING", "C", 502, 200, 122, 34, function() return mode == "timing" and psel.timing ~= 1 end },
-  { "FX", "F", 372, 238, 122, 34, function() return mode == "fx" end },
-  { "ERASE", "X (Shift: clear)", 502, 238, 122, 34, function() return held[K.X] end },
-  { "-", "[", 372, 276, 122, 34, function() return held[K.LB] end, C.key, C.dim },
-  { "+", "]", 502, 276, 122, 34, function() return held[K.RB] end, C.key, C.dim },
-  { "RECORD", "R", 372, 314, 122, 34, function() return recarm end, C.red },
-  { "PLAY", "Space", 502, 314, 122, 34, function() return pl.on end, 0x58595B },
-  { "KEYS", "G", 10, 158, 62, 34, function() return mode == "keys" end },
-  { "FADER", "V (fine)", 10, 196, 62, 34, function() return fine end },
+  { "SOUND", "Q", 92, 160, function() return mode == "sound" end },
+  { "MAIN", "B", 160, 160, function() return mode == "main" end, C.orange },
+  { "TEMPO", "T", 228, 160, function() return mode == "timing" and psel.timing == 1 end },
+  { "PATTERN", "E", 365, 232, function() return mode == "pattern" end },
+  { "TIMING", "C", 433, 232, function() return mode == "timing" and psel.timing ~= 1 end },
+  { "FX", "F", 365, 300, function() return mode == "fx" end },
+  { "ERASE", "X", 433, 300, function() return held[K.X] end },
+  { "-", "[", 365, 368, function() return held[K.LB] end },
+  { "+", "]", 433, 368, function() return held[K.RB] end },
+  { "RECORD", "R", 365, 436, function() return recarm end, C.red },
+  { "PLAY", "SPACE", 433, 436, function() return pl.on end, 0x58595B },
 }
 
 local function draw_buttons()
   for _, b in ipairs(BTNS) do
-    local lit = b[7]()
-    local topcol = b[8]
+    local lit = b[5]()
+    local x, y = b[3], b[4]
     if b[1] == "-" or b[1] == "+" then
-      rrect(b[3], b[4] + 2, b[5], b[6], 4, C.bodylo)
-      rrect(b[3], b[4], b[5], b[6], 4, lit and 0xFFFFFF or C.key)
-      big_c(b[1], b[3] + b[5] // 2, b[4] + 8, C.txt, 2)
-      small(b[2], b[3] + 6, b[4] + 22, C.dim)
+      RR(x, y + 1.5, 46, 46, 4, C.bodylo)
+      RR(x, y, 46, 46, 4, lit and 0xFFFFFF or C.key)
+      vtc(b[1], x + 23, y + 12, 16, C.txt, true)
+      vtc(b[2], x + 23, y + 35, T1, C.dim)
     else
-      button2(b[3], b[4], b[5], b[6], b[1], b[2], lit, topcol, (b[1] == "MAIN") and C.orange or nil)
+      button2(x, y, 46, 46, b[1], b[2], lit, b[6], (b[1] == "MAIN") and C.orange or nil)
     end
   end
-  -- shift
-  rrect(10, 316, 62, 28, 4, C.bodylo)
-  rrect(10, 314, 62, 28, 4, shift() and 0xFFFFFF or C.key)
-  small_c("SHIFT", 41, 322, C.dim)
-  -- the knobs: tempo, metronome
-  small_c("BPM", 415, 133, C.txt)
-  knob(415, 164, 19, (S.bpm - 60) / 140, C.orange, C.red)
-  small_c("- =", 415, 190, C.dim)
-  small_c("METRONOME", 583, 133, C.txt)
-  knob(583, 164, 19, S.metro and 0.8 or 0.1, 0x202124, 0x6A6C6E)
-  small_c("Z", 583, 190, C.dim)
+  -- the LEDs under the first row
+  dot(115, 214, mode == "sound", C.led); dot(183, 214, mode == "main", C.led); dot(251, 214, mode == "timing" and psel.timing == 1, C.led)
+  -- keys, fader, shift
+  button2(22, 232, 46, 28, "KEYS", "G", mode == "keys")
+  button2(22, 268, 46, 32, "FADER", "V FINE", fine)
+  RR(22, 446 + 1.5, 46, 28, 4, C.bodylo)
+  RR(22, 446, 46, 28, 4, shift() and 0xFFFFFF or C.key)
+  vtc("SHIFT", 45, 454, T2, C.dim)
+  vtc("SH", 45, 465, T1, C.dim)
+  -- the knobs: volume, tempo, metronome
+  vt("VOLUME", 22, 146, T2, C.txt)
+  knob(46, 184, 17, S.master, 0xFFFFFF, 0x8C8E8C, 0xF4F4F4)
+  vtc("A D", 46, 208, T1, C.dim)
+  vtc("BPM", 370, 143, T2, C.txt)
+  knob(370, 184, 21, (S.bpm - 60) / 140, C.orange, C.red, 0xFF7A3C)
+  vtc("- =", 370, 212, T1, C.dim)
+  vtc("METRONOME", 452, 143, T2, C.txt)
+  knob(452, 184, 18, S.metro and 0.8 or 0.1, 0x202124, 0x6A6C6E, 0x2E2F33)
+  vtc("Z", 452, 210, T1, C.dim)
 end
 
-local function draw_pads(now)
-  local rows = {}
+local function draw_pads()
   for g = 1, 4 do
-    local y = 94 + (g - 1) * 62 + 13
+    local y = 232 + (g - 1) * 68
     local on = S.group == g
-    rrect(96, y + 3, 44, 46, 5, C.bodylo)
-    rrect(96, y, 44, 46, 5, on and 0xFFFFFF or C.key)
-    big_c(GRPNAME[g], 118, y + 6, C.txt, 2)
-    small_c(GRPHINT[g], 118, y + 32, C.dim)
-    dot(133, y + 6, on or (gflash[g] or 0) > 0)
+    RR(92, y + 1.5, 46, 46, 4, C.bodylo)
+    RR(92, y, 46, 46, 4, on and 0xFFFFFF or C.key)
+    vtc(GRPNAME[g], 115, y + 11, 15, C.txt, true)
+    vtc(GRPHINT[g], 115, y + 34, T1, C.dim)
+    dot(131, y + 6, on or (gflash[g] or 0) > 0)
   end
   for p = 1, 12 do
     local r, c = (p - 1) // 3, (p - 1) % 3
-    local x, ly = 150 + c * 70, 94 + r * 62
-    local y = ly + 13
+    local x, y = 160 + c * 68, 232 + r * 68
     local pr = S.pads[S.group][p]
     local sd = ALL[pr.snd]
     local lit = (flash[p] or 0) > 0 or padhold[p]
@@ -893,70 +1054,84 @@ local function draw_pads(now)
     if mode == "sound" or mode == "keys" then sel = S.sel[1] == S.group and S.sel[2] == p
     elseif mode == "pattern" then sel = (PADNUM[p] + (S.page or 0) * 12) == S.pat
     elseif mode == "fx" then sel = PADNUM[p] == S.fx end
-    -- the parameter label and its light
-    small_c(PLBL[p], x + 36, ly, C.dim)
-    dot(x + 36 - #PLBL[p] * 3 - 7, ly + 6, mode == "sound" and psel.sound == p, C.led)
-    rrect(x, y + 3, 62, 46, 6, C.padlo)
-    rrect(x, y, 62, 46, 6, lit and C.orange or C.pad)
-    rrect(x + 2, y + 2, 58, 40, 5, lit and 0xFF7A40 or C.padtop)
-    if sel then rect(x - 1, y - 1, 64, 48, C.orange) end
-    print(PADLAB[p], x + 8, y + 3, 0xF6F6F2, 2)
-    small_r(PADHINT[p], x + 57, y + 3, lit and 0xFFE0C8 or 0x8A8D90)
+    -- the parameter's name and its light
+    vtc(PLBL[p], x + 23, y - 13, T2, C.dim)
+    dot(x + 23 - tdw(PLBL[p], T2) / 2 - 6, y - 10, mode == "sound" and psel.sound == p, C.led)
+    RR(x, y + 2, 46, 46, 5, C.padlo)
+    RR(x, y, 46, 46, 5, lit and C.orange or C.pad)
+    RR(x + 1.5, y + 1.5, 43, 41, 4, lit and 0xFF7A40 or C.padtop)
+    if sel then RO(x - 1.5, y - 1.5, 49, 49, C.orange, 2) end
+    vt(PADLAB[p], x + 6, y + 6, 13, C.white, true)
+    vtr(PADHINT[p], x + 41, y + 5, T1, lit and 0xFFE0C8 or 0x8A8D90)
     local label = sd.name
     if mode == "pattern" then label = "PTN " .. (PADNUM[p] + (S.page or 0) * 12)
     elseif mode == "fx" then label = FXS[PADNUM[p]] and FXS[PADNUM[p]].name or "-" end
-    small(label, x + 6, y + 31, lit and 0xFFFFFF or 0x9A9DA0)
+    vt(label, x + 5, y + 33, T1, lit and C.white or 0x9A9DA0)
   end
 end
 
 local function draw_help()
-  rectfill(0, 0, 640, 360, 0x101418)
-  print("KO-II  KEYS", 20, 8, C.lcdhi, 2)
+  cls(0x101418)
   local L = {
-    { "PADS", "7 8 9 / U I O / J K L / M , .   = pads 7 8 9 / 4 5 6 / 1 2 3 / . 0 ENT" },
-    { "GROUPS", "6=A  Y=B  H=C  N=D   (A drums, B bass, C keys, D leads and fx)" },
-    { "FADER", "W S or Up Down edits the chosen parameter (V or Shift: fine)" },
-    { "VOLUME", "A D or Left Right: master volume" },
-    { "TEMPO", "- and = move the BPM; T tempo page, Shift+T taps it; C timing page" },
-    { "PARAMS", "1-5 choose a parameter. In SOUND: Shift + pad (LEVEL PITCH TIME LPF...)" },
-    { "PLAY / REC", "Space plays and stops. R arms recording (one bar of count-in)" },
-    { "SOUND  Q", "[ ] change the sound of the last pad" },
-    { "MAIN  B", "[ ] change the pattern; the fader sets the group levels" },
-    { "PATTERN  E", "pads pick pattern 1-12, [ ] page, Shift+pad copies it" },
-    { "FX  F", "pads pick one of 12 effects, the fader sets the amount" },
-    { "KEYS  G", "the pads play a chromatic scale, [ ] octave" },
-    { "ERASE  X", "X + pad erases it from the pattern, X + group the group, Shift+X all" },
-    { "METRO  Z", "metronome on and off" },
+    { "PADS", "7 8 9 / U I O / J K L / M , .  =  PADS 7 8 9 / 4 5 6 / 1 2 3 / . 0 ENT" },
+    { "GROUPS", "6=A  Y=B  H=C  N=D  (A DRUMS, B BASS, C KEYS, D LEADS AND FX)" },
+    { "FADER", "W S OR UP DOWN EDITS THE CHOSEN PARAMETER (V OR SHIFT: FINE)" },
+    { "VOLUME", "A D OR LEFT RIGHT: MASTER VOLUME" },
+    { "TEMPO", "- AND = MOVE THE BPM. T TEMPO PAGE, SHIFT+T TAPS IT. C TIMING PAGE" },
+    { "PARAMS", "1-5 CHOOSE A PARAMETER. IN SOUND: SHIFT + PAD" },
+    { "PLAY / REC", "SPACE PLAYS AND STOPS. R ARMS RECORDING (ONE BAR OF COUNT-IN)" },
+    { "SOUND  Q", "[ ] CHANGE THE SOUND OF THE LAST PAD" },
+    { "MAIN  B", "[ ] CHANGE THE PATTERN. THE FADER SETS THE GROUP LEVELS" },
+    { "PATTERN  E", "PADS PICK PATTERN 1-12, [ ] PAGE, SHIFT+PAD COPIES IT" },
+    { "FX  F", "PADS PICK ONE OF 12 EFFECTS, THE FADER SETS THE AMOUNT" },
+    { "KEYS  G", "THE PADS PLAY A CHROMATIC SCALE, [ ] OCTAVE" },
+    { "ERASE  X", "X + PAD ERASES IT, X + GROUP ERASES THE GROUP, SHIFT+X CLEARS" },
+    { "METRO  Z", "METRONOME ON AND OFF" },
+    { "ESC", "THE EXIT PAGE. CTRL+ESC FREEZES THE APP AND LEAVES (A ON ITS COVER RESUMES)" },
   }
+  OX = 0
+  vt("KO-II  KEYS", 40, 20, 14, C.lcdhi, true)
   for i, l in ipairs(L) do
-    small(l[1], 20, 40 + (i - 1) * 20, C.lcdhi)
-    small(l[2], 120, 40 + (i - 1) * 20, C.lcdfg)
+    vt(l[1], 40, 70 + (i - 1) * 28, 10, C.lcdhi)
+    vt(l[2], 230, 70 + (i - 1) * 28, 10, C.lcdfg)
   end
-  small("F1 or / closes this page", 20, 332, C.lcddim)
+  vt("F1 OR / CLOSES THIS PAGE", 40, 500, 9, C.lcddim)
+  OX = floor((SW - DW * K_) / 2)
+end
+
+local function draw_menu()
+  RR(70, 190, 358, 170, 8, 0x000000)
+  RO(70, 190, 358, 170, C.orange, 2)
+  vtc("LEAVE KO-II?", 249, 206, 13, C.lcdfg, true)
+  vt("CTRL+ESC", 92, 244, T3, C.lcdhi)
+  vt("FREEZE AND LEAVE", 160, 244, T3, C.lcdfg)
+  vt("RESUME IT FROM ITS COVER", 160, 258, T2, C.lcddim)
+  vt("ENTER", 92, 286, T3, C.lcdhi)
+  vt("SAVE AND CLOSE", 160, 286, T3, C.lcdfg)
+  vt("ESC", 92, 314, T3, C.lcdhi)
+  vt("STAY", 160, 314, T3, C.lcdfg)
 end
 
 function _draw()
-  cls(0x8A8E8D)
   if showhelp then draw_help() return end
-  local now = audio_time()
-  rrect(2, 2, 636, 356, 12, C.bodylo)
-  rrect(2, 2, 636, 354, 12, C.body)
-  draw_lcd(now)
-
-  small_c("VOLUME", 41, 94, C.txt)
-  knob(41, 124, 19, S.master, 0xFFFFFF, 0x8C8E8C)
-  small_c("A D", 41, 146, C.dim)
+  cls(C.bg)
+  RR(0, 1.5, DW, DH - 1, 10, C.bodylo)
+  RR(0, 0, DW, DH - 3, 10, C.body)
+  draw_lcd()
 
   local p = cur_param()
-  fader(41, 246, 304, p and (p.get() - p.lo) / (p.hi - p.lo) or 0)
-  small_c("W S", 41, 232, C.dim)
+  fader(45, 332, 424, p and (p.get() - p.lo) / (p.hi - p.lo) or 0)
+  vtc("W S", 45, 432, T1, C.dim)
 
   draw_buttons()
-  draw_pads(now)
+  draw_pads()
+  vtc("F1 HELP   ESC EXIT", 249, 503, T1, C.dim)
+  if menu then draw_menu() end
 end
 
 -- ---------------------------------------------------------------- main
 function _init()
+  screen(SW, SH)
   rawkeys(true)
   local d = saved()
   if not (d and restore(d)) then demo() end
@@ -986,7 +1161,9 @@ function _update()
   end
 end
 
+-- Ctrl+Esc, PS or Start+Select: save and say yes, so the console freezes the app
+-- (A on its cover resumes it where it was)
 function _exit()
-  if pl.on then play_stop() end
   if dirty then save_now() end
+  return true
 end

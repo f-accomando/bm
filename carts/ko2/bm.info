@@ -5,6 +5,6 @@ desc: A keyboard groovebox: 12 pads, 4 groups, step recorder, effects, LCD, fade
 author: bm
 license: LicenseRef-BM-Community-1.0
 version: 1.0
-type: app
-tags: music, sampler, sequencer
+type: game
+tags: music, sampler, sequencer, keyboard
 resolution: 640x360

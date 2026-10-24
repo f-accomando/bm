@@ -204,6 +204,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing write ko2
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 sheet8_yharnam := 1
+sheet8_ko2 := 1
 # Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/assets/map_ground.csv, map_overlay.csv and
 # map_objects.csv (the placeholders of the houses, trees, lamps... it places)
 # (carts/yharnam/build/mkmap.py makes the first one, and takes it back from the console)
@@ -1141,7 +1142,7 @@ MARKET_ONLY := titanex
 # (Studio Village is a test asset, not a Market game).
 # typing and write are apps: they go to the apps/ folder of the Market.
 MARKET_NOT := village
-MARKET_APPS_OF_GAMES := typing write ko2
+MARKET_APPS_OF_GAMES := typing write
 MARKET_GAMES := $(filter-out $(MARKET_NOT) $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets

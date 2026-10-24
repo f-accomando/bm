@@ -72,7 +72,7 @@ come from a small INT8 network (`MUS_NFEAT` 116 inputs, `MUS_NOUT` 24 outputs, `
   test*, bm Sound HIFI song, F6 "rock beat", *Sound style* 8-bit and back, riff in bm Code,
   bm Sound F7, *Samples...*, *Bit depth* 16/24/32). Checklist in `docs/ROADMAP.md`.
 - **KO-II (`carts/ko2`)**: a groovebox played with the USB keyboard (12 pads, groups A-D, step
-  recorder, 12 effects, LCD, fader, volume knob; F1 shows the keys). Done and tested on the PC
+  recorder, 12 effects, LCD, fader, volume knob; F1 shows the keys). It runs at 1280x720 (, the GPU scales it) with the real panel's proportions and its own stroke font in the sprite sheet. Esc opens the exit page; Ctrl+Esc freezes it ( saves and returns ). Done and tested on the PC
   with bmhost. To verify on the Pi and on the RGB30 with a USB keyboard (keys, latency, voices).
 - **QPU programs, step 4**: block audio effects (reverb, echo, filters) on the QPUs, also for nano8.
 - Ideas not decided (spunti in `docs/ROADMAP.md`, R31 on). R28, R29, R30, R31, short PCM samples,
