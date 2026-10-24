@@ -68,6 +68,7 @@ typedef struct {
     uint8_t cover_read;         /* the covers' fiber has been at it (else a placeholder) */
     char path[FAT_NAME_MAX + 10];
     char save[32];              /* its save file (.bm), "" if none */
+    uint8_t type;               /* BM_TYPE_* from the header flags (bm.info "type:"): an app or a utility is listed in Dev */
     uint8_t grey;               /* not made for this kernel (bm_compat_classify): faded, starts after a question */
     const char *why;            /* the reason of the grey, a short static text */
 } cart_t;
@@ -128,6 +129,7 @@ static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
     }
     c->grey = 0;
     c->why = "";
+    c->type = tlen ? (uint8_t)bm_type_of_head(h) : BM_TYPE_GAME;
     if (tlen && !c->builtin) {                  /* the policy of docs/spec/compat-policy.toml, from the header read */
         bm_compat_facts_t f;
         bm_compat_facts(h, len, c->size, c->name, &f);
@@ -595,10 +597,11 @@ static int is_project(const cart_t *c)
     return !c->builtin && bm_is_project(c->name);
 }
 
-/* a development tool built into the kernel or installed from Market > Apps (the Dev tab) */
+/* a development tool built into the kernel or installed from Market > Apps (the Dev tab), or
+ * any cartridge that declares type app or utility in its bm.info (it plays as a cartridge) */
 static int is_dev(const cart_t *c)
 {
-    return tool_id_of(c) != NULL;
+    return tool_id_of(c) != NULL || (!c->builtin && c->type != BM_TYPE_GAME);
 }
 
 /* The tools a tool can open on its file with cart_tool(name, path) (bm

@@ -3,6 +3,8 @@
 -- are the main way in (a tool bar with buttons, an address box you type into, links you click,
 -- the wheel, a draggable scroll bar, keys like a desktop browser); the pad does the same
 -- with its buttons and an on-screen keyboard that shows only when no keyboard or mouse is used.
+-- Address and search: a bar in the middle of the page, like Spotlight. It is open when the cart starts;
+-- Ctrl+Space (or Y, or a click in the address box) opens it again.
 -- All kernel calls go through `g` (the global table in the cart, a stub in tests/web/cart.lua).
 local layout = require("layout")
 local cp437 = require("cp437")
@@ -61,6 +63,7 @@ function M.new(g, b)
     local c = g.controller(1)
     if type(c) == "table" and c.kind == "keyboard" then self.kbm = true end
   end
+  self:start_url_edit()            -- the search bar is open at the start
   return self
 end
 
@@ -77,7 +80,8 @@ end
 function V:begin_edit(label, text, done, opts)
   text = text or ""
   self.edit = { label = label, text = text, pos = #text, done = done, row = 2, col = 1,
-    sel = (opts and opts.select) and text ~= "" or false, osk = not self.kbm }
+    sel = (opts and opts.select) and text ~= "" or false, osk = not self.kbm,
+    spot = opts and opts.spot or false, pick = 0 }
   self.shift = false
 end
 
@@ -88,6 +92,7 @@ function V:finish_edit(accept)
 end
 
 local function ed_insert(e, s)
+  e.pick = 0
   if e.sel then e.text, e.pos, e.sel = "", 0, false end
   if #e.text + #s > 1000 then return end
   e.text = e.text:sub(1, e.pos) .. s .. e.text:sub(e.pos + 1)
@@ -95,6 +100,7 @@ local function ed_insert(e, s)
 end
 
 local function ed_back(e)
+  e.pick = 0
   if e.sel then e.text, e.pos, e.sel = "", 0, false; return end
   if e.pos > 0 then
     e.text = e.text:sub(1, e.pos - 1) .. e.text:sub(e.pos + 1)
@@ -125,14 +131,48 @@ local function osk_press(self, e)
   end
 end
 
+-- The list under the search bar: the bookmarks and the pages visited whose address has the typed
+-- text in it (all of them, newest first, when nothing is typed). At most 6 rows.
+local SPOT_ROWS = 6
+local function spot_results(self)
+  local e, b = self.edit, self.b
+  local want = e.text:lower()
+  local out, seen = {}, {}
+  local function add(u, kind)
+    if seen[u] or #out >= SPOT_ROWS then return end
+    if want == "" or u:lower():find(want, 1, true) then
+      seen[u] = true
+      out[#out + 1] = { url = u, kind = kind }
+    end
+  end
+  for _, m in ipairs(b.marks) do add(m, "bookmark") end
+  for i = #b.hist, 1, -1 do add(b.hist[i].url, "history") end
+  return out
+end
+
+local function spot_accept(self)
+  local e = self.edit
+  if e.pick > 0 then
+    local r = spot_results(self)[e.pick]
+    if r then e.text = r.url end
+  end
+  self:finish_edit(true)
+end
+
 local function edit_keys(self)
   local g, e = self.g, self.edit
   while self.edit do
     local k = g.keyp()
     if not k then break end
     self.kbm = true
-    if k == "\n" then self:finish_edit(true); return
+    if k ~= "f2" then e.osk = false end
+    if k == "\n" then
+      if e.spot then spot_accept(self) else self:finish_edit(true) end
+      return
     elseif k == "esc" then self:finish_edit(false); return
+    elseif e.spot and (k == "down" or k == "up") then
+      local n = #spot_results(self)
+      e.pick = (e.pick + (k == "down" and 1 or -1)) % (n + 1)
     elseif k == "\b" then ed_back(e)
     elseif k == "del" then ed_del(e)
     elseif k == "left" then e.sel = false; if e.pos > 0 then e.pos = e.pos - 1 end
@@ -205,10 +245,13 @@ local function rep(self, name)
   return false
 end
 
+-- The search bar in the middle of the page: type an address, or pick a bookmark or a page you
+-- visited. Empty when the page is the home page, else it holds the address of the page.
 function V:start_url_edit()
   local b = self.b
-  self:begin_edit("Address", b.mode == "page" and b.url or "https://", function(text) b:go(text) end,
-    { select = true })
+  self:begin_edit("Go to", b.mode == "page" and b.url or "", function(text)
+    if text ~= "" then b:go(text) end
+  end, { select = true, spot = true })
 end
 
 function V:start_find()
@@ -255,7 +298,7 @@ local function toolbar_at(mx, my)
   for _, bt in ipairs(BUTTONS) do
     if mx >= bt.x and mx < bt.x + bt.w then return bt.id, bt.tip end
   end
-  if mx >= ADDR_X and mx < ADDR_X + ADDR_W then return "addr", "Type an address  (Ctrl+L, F6, Y)" end
+  if mx >= ADDR_X and mx < ADDR_X + ADDR_W then return "addr", "Open an address or a bookmark  (Ctrl+Space, Y)" end
   return nil
 end
 
@@ -277,7 +320,7 @@ local function page_keys(self)
     self.kbm = true
     if k == "\n" then activate(self)
     elseif k == "\b" then b:back()
-    elseif k == "^l" or k == "f6" then self:start_url_edit()
+    elseif k == "^ " or k == "^space" or k == "^@" or k == "\0" then self:start_url_edit()
     elseif k == "^r" or k == "f5" then b:reload()
     elseif k == "^d" then b:toggle_mark()
     elseif k == "^h" then b:home()
@@ -361,6 +404,11 @@ local function mouse_input(self)
   end
 end
 
+-- The search bar: box, input row and result rows.
+local function spot_geom()
+  return 90, 78, M.W - 180, 34, 18      -- x, y, width, input height, row height
+end
+
 local function mouse_edit(self)
   local g, e = self.g, self.edit
   if not g.mouse then return end
@@ -369,6 +417,32 @@ local function mouse_edit(self)
   if mx ~= self.mx or my ~= self.my then
     if self.mx ~= nil then self.kbm = true end
     self.mx, self.my = mx, my
+  end
+  if e.spot then
+    local bx, by, bw, ih, rh = spot_geom()
+    local res = spot_results(self)
+    if mx >= bx and mx < bx + bw and my >= by + ih and my < by + ih + rh * #res then
+      e.pick = (my - by - ih) // rh + 1                 -- hover
+    end
+    if not (g.mousep and g.mousep(0)) then return end
+    if e.pick > 0 and mx >= bx and mx < bx + bw and my >= by + ih and my < by + ih + rh * #res then
+      spot_accept(self)
+      return
+    end
+    if mx >= bx and mx < bx + bw and my >= by and my < by + ih then
+      local tx = bx + 12 + (#e.label + 2) * M.CW
+      e.sel = false
+      e.pos = math.max(0, math.min(#e.text, (mx - tx + M.CW // 2) // M.CW))
+      return
+    end
+    if e.osk then
+      local r, c = osk_hit(mx, my)
+      if r then e.row, e.col = r, c; osk_press(self, e); return end
+    end
+    if my >= M.TOP then
+      self:finish_edit(false)
+      return
+    end
   end
   if not (g.mousep and g.mousep(0)) then return end
   if e.osk then
@@ -381,7 +455,9 @@ local function mouse_edit(self)
   end
   if my < M.TOP then
     local id = toolbar_at(mx, my)
-    if id == "addr" then
+    if id == "addr" and e.spot then
+      return
+    elseif id == "addr" then
       -- a click in the box puts the cursor there
       local tx = ADDR_X + 4 + (#e.label + 2) * M.CW
       e.sel = false
@@ -572,6 +648,7 @@ local function draw_bar(self)
   end
   local cols = (ADDR_W - 8) // M.CW
   local ed = self.edit
+  if ed and ed.spot then ed = nil end
   g.rectfill(ADDR_X, 2, ADDR_W, M.TOP - 4, ed and C.addr_edit or C.addr)
   if ed then
     g.rect(ADDR_X, 2, ADDR_W, M.TOP - 4, C.focus)
@@ -617,11 +694,12 @@ local function draw_status(self)
   local hint
   local e = self.edit
   if e and e.osk then hint = "A key  B delete  X shift  Y space  Start go  Select cancel"
+  elseif e and e.spot then hint = "Enter open  Up/Down choose  Esc close  F2 on-screen keys"
   elseif e then hint = "Enter go  Esc cancel  Ctrl+A select all  F2 on-screen keys"
   elseif b.mode == "download" then
     hint = self.kbm and "Enter save   Esc discard" or "A save   B discard"
   elseif self.kbm then
-    hint = "Click open  Wheel scroll  Right-click back  Ctrl+L address  Ctrl+F find  F5 reload  F9 scripts"
+    hint = "Click open  Wheel scroll  Right-click back  Ctrl+Space search  Ctrl+F find  F5 reload  F9 scripts"
   else hint = "A open  B back  X pictures  Y address  Start mark  Select home  L1/R1 page" end
   text(g, fit(hint, cols), 4, y + 12, C.dim)
 end
@@ -675,6 +753,42 @@ local function draw_osk(self)
   end
 end
 
+local function draw_spot(self)
+  local g, e = self.g, self.edit
+  local bx, by, bw, ih, rh = spot_geom()
+  local res = spot_results(self)
+  local h = ih + rh * #res + 8
+  g.rectfill(bx + 4, by + 4, bw, h, 0x000000)              -- shadow
+  g.rectfill(bx, by, bw, h, 0x1c2430)
+  g.rect(bx, by, bw, h, C.focus)
+  -- input row
+  g.rectfill(bx + 6, by + 6, bw - 12, ih - 12, 0x000000)
+  local label = e.label .. ": "
+  local tx = bx + 12 + #label * M.CW
+  local cols = (bw - 24) // M.CW - #label
+  local s, off = e.text, 0
+  if #s > cols - 1 then
+    off = math.max(0, e.pos - (cols - 2))
+    s = s:sub(off + 1, off + cols - 1)
+  end
+  text(g, label, bx + 12, by + 11, C.dim)
+  if e.text == "" then text(g, "address, or a bookmark", tx, by + 11, C.dim) end
+  if e.sel and #s > 0 then g.rectfill(tx, by + 9, #s * M.CW, 14, C.sel) end
+  text(g, s, tx, by + 11, 0xffffff)
+  if (self.frame // 20) % 2 == 0 then
+    local cx = tx + (e.pos - off) * M.CW
+    g.line(cx, by + 9, cx, by + 23, 0xffffff)
+  end
+  -- result rows
+  for i, r in ipairs(res) do
+    local y = by + ih + (i - 1) * rh
+    if i == e.pick then g.rectfill(bx + 4, y, bw - 8, rh, C.key_sel) end
+    local tag = r.kind == "bookmark" and "*" or " "
+    text(g, tag, bx + 10, y + 3, i == e.pick and 0x000000 or C.focus)
+    text(g, fit(r.url, (bw - 40) // M.CW), bx + 26, y + 3, i == e.pick and 0x000000 or C.bar_text)
+  end
+end
+
 function V:draw()
   local g, b = self.g, self.b
   self.frame = self.frame + 1
@@ -684,6 +798,7 @@ function V:draw()
   draw_bar(self)
   draw_status(self)
   if b.mode == "download" then draw_download(self) end
+  if self.edit and self.edit.spot then draw_spot(self) end
   if self.edit and self.edit.osk then draw_osk(self) end
 end
 

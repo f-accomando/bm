@@ -548,6 +548,17 @@ do
     v:update(); v:draw()
     left, right = false, false
   end
+  check(v.edit and v.edit.spot, "the search bar is open at the start")
+  keys = { "esc" }
+  frame()
+  eq(v.edit, nil, "Esc closes the search bar")
+  keys = { "^l" }
+  frame()
+  eq(v.edit, nil, "Ctrl+L does nothing")
+  keys = { "^ " }
+  frame()
+  check(v.edit and v.edit.spot, "Ctrl+Space opens the search bar")
+  keys = { "esc" }
   frame()
   mouse = { 300, 10, 0, 0 }      -- over the address box
   frame()
@@ -559,6 +570,19 @@ do
   keys = { "x", ".", "t", "e", "s", "t", "\n" }
   frame()
   eq(v.edit, nil, "typing then Enter closes the editor")
+  -- bookmarks and history show under the bar; Down then Enter opens the first
+  b.marks = { "https://css.test/" }
+  keys = { "^ " }
+  frame()
+  keys = { "c", "s", "s" }
+  frame()
+  check(v.edit and #(v.edit.text) == 3, "typed text is in the bar")
+  keys = { "down", "\n" }
+  frame()
+  eq(v.edit, nil, "Enter on a result closes the bar")
+  eq(b.nav and b.nav.url, "https://css.test/", "the chosen bookmark opens")
+  b:stop()
+  b.mode = "page"
   mouse = { 20, 60, 0, 0 }
   b:scroll_to(0)
   mouse = { 630, 300, 0, 0 }     -- on the scroll bar track, under the thumb
@@ -660,6 +684,7 @@ end
 ---------------------------------------------------------------------------
 -- The joined cart (BMWEB_MAIN): loads and runs with stubs
 ---------------------------------------------------------------------------
+local joined_log
 local joined = os.getenv("BMWEB_MAIN")
 if joined then
   local f = assert(io.open(joined, "rb"))
@@ -668,7 +693,7 @@ if joined then
   local m = mock(SITE)
   local prints = 0
   local env = setmetatable({
-    require = require, time = function() return m.now end, log = function() end,
+    os = false, require = require, time = function() return m.now end, log = function(s) joined_log = (joined_log and joined_log .. " | " or "") .. tostring(s) end,
     print = function() prints = prints + 1 end, keyp = function() return nil end,
     btn = function() return false end, btnp = function() return false end,
     mouse = function() return 0, 0, 0, 0 end, mousep = function() return false end,
@@ -688,6 +713,7 @@ if joined then
   check(type(env._update) == "function" and type(env._draw) == "function", "joined cart defines _update and _draw")
   for _ = 1, 5 do env._update(); env._draw() end
   check(prints > 0, "joined cart draws text")
+  check(joined_log and joined_log:find("scripts available", 1, true), "the joined cart has the script engine: " .. tostring(joined_log))
 end
 
 print(string.format("cart tests: %d checks, %d failed", checks, fails))

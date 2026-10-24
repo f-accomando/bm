@@ -588,3 +588,15 @@ status = "untested"
 note = "written, not run on a console (H1, H6); the Mali has no textured shader yet; mali_backend is in src/rgb30/mali.c"
 evidence = "src/rgb30/bm_port.c:30-55; src/rgb30/mali.c"
 action = "run the triangle test and the 3D Bench on the console, then decide if mali3d becomes the default"
+
+[[divergence]]
+id = "D51"
+area = "menu / cartridge type"
+pi = "a cartridge whose header declares type app or utility (bm.info `type:`) is listed in Dev and opens with no splash"
+rgb30 = "it is listed in Games (a .bm is hidden unless show_bm) and opens with the splash: the Dev tab is a fixed list of built-in items"
+cause = "todo"
+priority = 4
+status = "open"
+note = "Pi: src/kernel/carts.c is_dev() reads the type bits of the header (bm_type_of_head). RGB30: src/rgb30/ui.c has no dynamic Dev list; bm Web (type app) is a .bm, and the RGB30 runs the .b16 edition. Compiled with a host syntax check only; not tried on a Pi."
+evidence = "src/kernel/carts.c:600; src/rgb30/ui.c:737"
+action = "give the RGB30 Dev tab a list of SD apps, or skip the splash for type app and utility there"

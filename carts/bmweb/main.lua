@@ -8,6 +8,7 @@ local view = require("view")
 local atlas = require("atlas")
 -- The script engine is optional: a build without it browses pages and ignores their scripts.
 local has_js, jsdom = pcall(require, "jsdom")
+if not has_js then log("bmweb: scripts off: " .. tostring(jsdom)) end
 if not has_js then jsdom = nil end
 
 local function none(what)
@@ -31,4 +32,4 @@ local v = view.new(_G, b)
 function _update() v:update() end
 function _draw() v:draw() end
 
-log("bmweb: ready")
+log("bmweb: ready, page scripts " .. (jsdom and "available" or "missing"))
