@@ -5,7 +5,7 @@
 --   box       a cooking vessel: its process, capacity, seconds to cook and,
 --             after that, seconds until it burns (nil: never)
 --   col/top   body and top colours of the 3D model
-Kit.TOP = 0.75                      -- height of a counter top
+Kit.TOP = 0.48                      -- height of a counter top (waist level for chefs)
 
 Data.ST = {
   counter  = { name = "counter", hold = true, col = 0xB89870, top = 0xECE2CC },

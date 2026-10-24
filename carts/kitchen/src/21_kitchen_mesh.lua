@@ -84,19 +84,19 @@ local function station_model(mb, st, x, z, world, cover)
   local cx, cz = x + 0.5, z + 0.5
   if k == "oven" then
     local door = tex_uv(TX.oven)
-    block(b, x0, 0, z0, x1, TOP + 0.12, z1, def.col, def.top, nil, nil, door)
+    block(b, x0, 0, z0, x1, TOP + 0.1, z1, def.col, def.top, nil, nil, door)
     if not door then
-      b.quad({ x + 0.18, 0.14, z0 - 0.005 }, { x + 0.82, 0.14, z0 - 0.005 }, { x + 0.82, 0.62, z0 - 0.005 },
-             { x + 0.18, 0.62, z0 - 0.005 }, 0x2A2420, 0, 0, -1)
-      b.quad({ x + 0.3, 0.3, z0 - 0.01 }, { x + 0.7, 0.3, z0 - 0.01 }, { x + 0.7, 0.52, z0 - 0.01 },
-             { x + 0.3, 0.52, z0 - 0.01 }, 0xF08030, 0, 0, -1)
+      b.quad({ x + 0.18, 0.1, z0 - 0.005 }, { x + 0.82, 0.1, z0 - 0.005 }, { x + 0.82, TOP + 0.04, z0 - 0.005 },
+             { x + 0.18, TOP + 0.04, z0 - 0.005 }, 0x2A2420, 0, 0, -1)
+      b.quad({ x + 0.3, 0.2, z0 - 0.01 }, { x + 0.7, 0.2, z0 - 0.01 }, { x + 0.7, TOP - 0.04, z0 - 0.01 },
+             { x + 0.3, TOP - 0.04, z0 - 0.01 }, 0xF08030, 0, 0, -1)
     end
-    b.block(x + 0.62, TOP + 0.12, z + 0.62, x + 0.82, TOP + 0.5, z + 0.82, 0x6A3A2A, 0x3A2A20)
+    b.block(x + 0.62, TOP + 0.1, z + 0.62, x + 0.82, TOP + 0.35, z + 0.82, 0x6A3A2A, 0x3A2A20)
     return
   end
   if k == "trash" then
-    b.prism(cx, cz, 0, TOP - 0.1, 0.36, 0.4, 8, def.col, def.top)
-    b.prism(cx, cz, TOP - 0.1, TOP - 0.02, 0.42, 0.42, 8, 0x6A786A, 0x6A786A)
+    b.prism(cx, cz, 0, TOP - 0.08, 0.36, 0.4, 8, def.col, def.top)
+    b.prism(cx, cz, TOP - 0.08, TOP - 0.02, 0.42, 0.42, 8, 0x6A786A, 0x6A786A)
     return
   end
   -- everything else stands on a counter-like block: wooden top and cabinet
@@ -113,7 +113,7 @@ local function station_model(mb, st, x, z, world, cover)
   block(b, x0, 0, z0, x1, TOP, z1, def.col, def.top, cover, top_uv, front_t and tex_uv(front_t))
   if k == "crate" then
     if not top_uv then
-      for _, yy in ipairs({ 0.1, 0.4 }) do
+      for _, yy in ipairs({ TOP * 0.25, TOP * 0.65 }) do
         b.quad({ x0 + 0.05, yy, z0 - 0.004 }, { x1 - 0.05, yy, z0 - 0.004 }, { x1 - 0.05, yy + 0.06, z0 - 0.004 },
                { x0 + 0.05, yy + 0.06, z0 - 0.004 }, shade(def.col, 0.7), 0, 0, -1)
       end
@@ -133,34 +133,34 @@ local function station_model(mb, st, x, z, world, cover)
     b.block(x + 0.66, TOP + 0.04, z + 0.72, x + 0.9, TOP + 0.06, z + 0.78, 0xB8C0C8, 0xD8E0E8)
   elseif k == "pot" then
     if not top_uv then b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E) end
-    b.prism(cx, cz, TOP, TOP + 0.3, 0.27, 0.29, 8, 0xA0A8B0, false)
-    b.disc(cx, TOP + 0.16, cz, 0.26, 8, 0x3A3E44)
-    b.block(cx - 0.4, TOP + 0.2, cz - 0.04, cx - 0.28, TOP + 0.25, cz + 0.04, 0x505860)
-    b.block(cx + 0.28, TOP + 0.2, cz - 0.04, cx + 0.4, TOP + 0.25, cz + 0.04, 0x505860)
+    b.prism(cx, cz, TOP, TOP + 0.22, 0.27, 0.29, 8, 0xA0A8B0, false)
+    b.disc(cx, TOP + 0.12, cz, 0.26, 8, 0x3A3E44)
+    b.block(cx - 0.4, TOP + 0.14, cz - 0.04, cx - 0.28, TOP + 0.18, cz + 0.04, 0x505860)
+    b.block(cx + 0.28, TOP + 0.14, cz - 0.04, cx + 0.4, TOP + 0.18, cz + 0.04, 0x505860)
   elseif k == "pan" then
     if not top_uv then b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E) end
-    b.prism(cx, cz, TOP, TOP + 0.07, 0.28, 0.31, 8, 0x3A3A40, 0x26262A)
-    b.block(cx + 0.28, TOP + 0.04, cz + 0.12, cx + 0.62, TOP + 0.08, cz + 0.2, 0x5A3A2A)
+    b.prism(cx, cz, TOP, TOP + 0.06, 0.28, 0.31, 8, 0x3A3A40, 0x26262A)
+    b.block(cx + 0.28, TOP + 0.03, cz + 0.12, cx + 0.62, TOP + 0.07, cz + 0.2, 0x5A3A2A)
   elseif k == "blender" then
-    b.block(cx - 0.18, TOP, cz - 0.18, cx + 0.18, TOP + 0.14, cz + 0.18, 0xD04050, 0xE05060)
-    b.prism(cx, cz, TOP + 0.14, TOP + 0.5, 0.14, 0.19, 6, 0xB8E0F0, 0x90C0D8)
+    b.block(cx - 0.18, TOP, cz - 0.18, cx + 0.18, TOP + 0.12, cz + 0.18, 0xD04050, 0xE05060)
+    b.prism(cx, cz, TOP + 0.12, TOP + 0.38, 0.14, 0.19, 6, 0xB8E0F0, 0x90C0D8)
   elseif k == "sink" then
     if not top_uv then b.block(x + 0.12, TOP - 0.02, z + 0.12, x + 0.88, TOP + 0.005, z + 0.88, 0x5A7A98, 0x4A7AB8) end
-    b.block(cx - 0.05, TOP, z + 0.1, cx + 0.05, TOP + 0.3, z + 0.18, 0xC8D0D8, 0xE0E8F0)
+    b.block(cx - 0.05, TOP, z + 0.1, cx + 0.05, TOP + 0.22, z + 0.18, 0xC8D0D8, 0xE0E8F0)
   elseif k == "ret" then
     b.quad({ x + 0.15, TOP * 0.3, z0 - 0.004 }, { x + 0.85, TOP * 0.3, z0 - 0.004 },
            { x + 0.85, TOP * 0.7, z0 - 0.004 }, { x + 0.15, TOP * 0.7, z0 - 0.004 }, 0x5A4E40, 0, 0, -1)
   elseif k == "serve" then
     b.block(x + 0.1, TOP, z + 0.1, x + 0.9, TOP + 0.03, z + 0.9, 0xF0F0F0, 0xFFFFFF)
-    b.prism(x + 0.78, z + 0.22, TOP + 0.03, TOP + 0.13, 0.08, 0.02, 6, 0xF0C020, 0xFFE060)
-    b.block(x0, TOP + 0.7, z0, x1, TOP + 0.8, z1, 0xE04040, 0xF06060)    -- awning
-    b.block(x0, TOP, z0, x0 + 0.06, TOP + 0.7, z0 + 0.06, 0x3A7AC0)
-    b.block(x1 - 0.06, TOP, z0, x1, TOP + 0.7, z0 + 0.06, 0x3A7AC0)
+    b.prism(x + 0.78, z + 0.22, TOP + 0.03, TOP + 0.12, 0.08, 0.02, 6, 0xF0C020, 0xFFE060)
+    b.block(x0, TOP + 0.6, z0, x1, TOP + 0.7, z1, 0xE04040, 0xF06060)    -- awning
+    b.block(x0, TOP, z0, x0 + 0.06, TOP + 0.6, z0 + 0.06, 0x3A7AC0)
+    b.block(x1 - 0.06, TOP, z0, x1, TOP + 0.6, z0 + 0.06, 0x3A7AC0)
   elseif k == "register" then
-    b.block(x + 0.2, TOP, z + 0.25, x + 0.8, TOP + 0.3, z + 0.8, 0xD8A030, 0xF0C040)
-    b.quad({ x + 0.28, TOP + 0.14, z + 0.245 }, { x + 0.72, TOP + 0.14, z + 0.245 },
-           { x + 0.72, TOP + 0.26, z + 0.245 }, { x + 0.28, TOP + 0.26, z + 0.245 }, 0x30C060, 0, 0, -1)
-    b.block(x + 0.3, TOP + 0.3, z + 0.45, x + 0.7, TOP + 0.36, z + 0.75, 0xB08020, 0xE0B040)
+    b.block(x + 0.2, TOP, z + 0.25, x + 0.8, TOP + 0.22, z + 0.8, 0xD8A030, 0xF0C040)
+    b.quad({ x + 0.28, TOP + 0.08, z + 0.245 }, { x + 0.72, TOP + 0.08, z + 0.245 },
+           { x + 0.72, TOP + 0.18, z + 0.245 }, { x + 0.28, TOP + 0.18, z + 0.245 }, 0x30C060, 0, 0, -1)
+    b.block(x + 0.3, TOP + 0.22, z + 0.45, x + 0.7, TOP + 0.28, z + 0.75, 0xB08020, 0xE0B040)
   elseif k == "belt" and not top_uv then
     local d = st.dir
     for i = 0, 2 do
@@ -174,8 +174,8 @@ local function station_model(mb, st, x, z, world, cover)
       end
     end
   elseif k == "valve" then
-    b.prism(cx, cz, TOP, TOP + 0.4, 0.07, 0.07, 6, 0x8898B8, 0x8898B8)
-    b.prism(cx, cz, TOP + 0.4, TOP + 0.45, 0.2, 0.2, 6, 0xD03030, 0xE04040)
+    b.prism(cx, cz, TOP, TOP + 0.3, 0.07, 0.07, 6, 0x8898B8, 0x8898B8)
+    b.prism(cx, cz, TOP + 0.3, TOP + 0.35, 0.2, 0.2, 6, 0xD03030, 0xE04040)
   end
 end
 
@@ -238,11 +238,11 @@ function Mesh.decorate(mb, run)
         b.quad({ x + 0.47, 0.9, z - 0.01 }, { x + 0.53, 0.9, z - 0.01 }, { x + 0.53, 1.38, z - 0.01 }, { x + 0.47, 1.38, z - 0.01 }, 0xF8F4E8, 0, 0, -1)
       else
         -- a shelf with jars
-        b.boxf(x - 0.1, 1.08, z - 0.22, x + 1.1, 1.12, z, 0x8A5A30, "ts", 0xA87040)
+        b.boxf(x - 0.1, 0.82, z - 0.22, x + 1.1, 0.86, z, 0x8A5A30, "ts", 0xA87040)
         local cols = { 0xE04040, 0xF0C040, 0x60B050, 0x5080E0 }
         for j = 0, 3 do
           local jx = x + j * 0.3
-          b.prism(jx, z - 0.1, 1.12, 1.28 + (j % 2) * 0.05, 0.07, 0.07, 5, cols[(cx + j) % 4 + 1], 0xF0F0F0)
+          b.prism(jx, z - 0.1, 0.86, 0.98 + (j % 2) * 0.04, 0.07, 0.07, 5, cols[(cx + j) % 4 + 1], 0xF0F0F0)
         end
       end
     end

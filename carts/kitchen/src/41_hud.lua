@@ -136,7 +136,7 @@ function Hud.world_marks(run)
   for _, st in ipairs(run.stations) do
     local b = st.box
     if b and #b.items > 0 then
-      local sx, sy = bubble_at(st.x, Kit.TOP + 0.75, st.z)
+      local sx, sy = bubble_at(st.x, Kit.TOP + 0.55, st.z)
       if sx then
         local w = #b.items * 17 + 5
         local x0 = floor(sx - w / 2)
@@ -160,19 +160,19 @@ function Hud.world_marks(run)
     local it = st.item
     if it then
       if it.chop and it.chop > 0 then
-        local sx, sy = bubble_at(st.x, Kit.TOP + 0.35, st.z)
+        local sx, sy = bubble_at(st.x, Kit.TOP + 0.25, st.z)
         if sx then bar(floor(sx - 14), floor(sy), 28, 5, it.chop, 0x40C0FF, 0x203040) end
       elseif it.plate and #it.parts > 0 then
-        local sx, sy = bubble_at(st.x, Kit.TOP + 0.45, st.z)
+        local sx, sy = bubble_at(st.x, Kit.TOP + 0.35, st.z)
         if sx then Hud.plate_icons(it, sx, sy) end
       end
     end
     if st.kind == "sink" and st.dirty > 0 and st.prog > 0 then
-      local sx, sy = bubble_at(st.x, Kit.TOP + 0.35, st.z)
+      local sx, sy = bubble_at(st.x, Kit.TOP + 0.25, st.z)
       if sx then bar(floor(sx - 14), floor(sy), 28, 5, st.prog, 0x80E0FF, 0x203040) end
     end
     if st.fire > 0 then
-      local sx, sy = bubble_at(st.x, Kit.TOP + 0.9, st.z)
+      local sx, sy = bubble_at(st.x, Kit.TOP + 0.7, st.z)
       if sx and (G.frame // 8) % 2 == 0 then Hud.icon(IC.fire, floor(sx - 8), floor(sy - 8)) end
     end
   end
@@ -182,24 +182,18 @@ function Hud.world_marks(run)
       if sx then Hud.plate_icons(l.item, sx, sy) end
     end
   end
-  -- chefs: what their plate holds, their player marker, what they say
+  -- chefs: what their plate holds, what they say (no hovering player marker to keep view clear)
   for _, c in ipairs(run.chefs) do
     if not c.fall or c.fall < 0.3 then
-      local top = (c.head_y or 1.4) + 0.12
+      local top = (c.head_y or 1.2) + 0.1
       local sx, sy = project3d(c.x, top, c.z)
       if sx then
         sx, sy = floor(sx), floor(sy)
-        local col = PCOL[c.pad] or 0xFFFFFF
-        -- a coloured arrow with the player number
-        local ay = sy - 12 + floor(sin(G.t * 5 + c.n) * 1.5)
-        tri(sx - 6, ay, sx + 6, ay, sx, ay + 7, col)
-        panel(sx - 11, ay - 15, 22, 15, col)
-        print("P" .. c.pad, sx - 8, ay - 15, 0xFFFFFF)
         if c.hold and c.hold.plate and #c.hold.parts > 0 then
-          Hud.plate_icons(c.hold, sx, ay - 18)
+          Hud.plate_icons(c.hold, sx, sy - 14)
         end
         if c.say and c.say_t > 0 then
-          text_cs(c.say, sx, ay - 36, 0xFFFFFF)
+          text_cs(c.say, sx, sy - 28, 0xFFFFFF)
         end
         if c.work and c.work.kind == "chop" and c.work.st.item then
           -- the bar over the board is enough
