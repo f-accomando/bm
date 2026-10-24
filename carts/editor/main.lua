@@ -1756,7 +1756,8 @@ do
 
   local function draw()
     local n = size * 8
-    local z = size == 1 and 32 or 16
+    local z = (size == 1 and 32 or 16) * max(1, (HINT_Y - CY - 8) // 256)   -- the canvas: 256 pixels at 640x360, 512 at 1280x720
+    SX = CX + n * z + 64                                                   -- the sheet's window beside it (336 at 640)
     local sx, sy = sel_xy()
     strip(0, "SPRITES", string.format("cell %d  %dx%d   spr(%d, x, y%s)", sel, n, n, sel, size == 2 and ", 2, 2" or ""),
           focus == "sheet" and "choosing on the sheet: arrows, then Enter" or
@@ -3175,14 +3176,17 @@ do
       row_at(144, "sound", I.has_audio and ("bank " .. kib(I.audio_kb)) or "no bank", "6")
       row_at(160, "tiles", string.format("%d with flags, %d named zones", I.flagged, I.zones), "F3")
     end
-    print("LAST TRY", INFO_X, 176, C.DIM)
+    -- on a wide screen the last try and the assistant go to a second column, at the top
+    local lx, ly = INFO_X, 176
+    if W >= 1000 then lx, ly = INFO_X + (W - INFO_X) // 2, 48 end
+    print("LAST TRY", lx, ly, C.DIM)
     local a, b = try_lines()
-    print(a:sub(1, 58), INFO_X, 192, S.run and C.TEXT or C.DIM)
-    if b then print(b:sub(1, 58), INFO_X, 208, C.TEXT) end
-    print("F1 again: the dev kit (memory, tokens, the file)", INFO_X, 224, C.DIM)
-    print("ASSISTANT", INFO_X, 256, C.DIM)
-    print("F6: how to make a 2D or a 3D game, step by step", INFO_X, 272, C.TEXT)
-    print("\"come faccio un platform?\" \"how do I start a 3D game?\"", INFO_X, 288, C.DIM)
+    print(a:sub(1, 58), lx, ly + 16, S.run and C.TEXT or C.DIM)
+    if b then print(b:sub(1, 58), lx, ly + 32, C.TEXT) end
+    print("F1 again: the dev kit (memory, tokens, the file)", lx, ly + 48, C.DIM)
+    print("ASSISTANT", lx, ly + 80, C.DIM)
+    print("F6: how to make a 2D or a 3D game, step by step", lx, ly + 96, C.TEXT)
+    print("\"come faccio un platform?\" \"how do I start a 3D game?\"", lx, ly + 112, C.DIM)
     hint({ { "1", nil, "bm Code" }, { "2", nil, "bm Pixel" }, { "3", nil, "bm Studio" }, { "n", nil, "template" },
            { "f1", "Y", "dev kit" }, { "f5", nil, "try it" }, { "f6", nil, "assistant" } })
   end
@@ -3223,22 +3227,25 @@ do
         print(".bm has no cap; b on the left: target .b16 for the RGB30", INFO_X, 192, C.DIM)
       end
     end
-    print("LAST TRY (F5)", INFO_X, 208, C.DIM)
+    -- on a wide screen the last try goes to a second column, at the top
+    local lx, dy = INFO_X, 0
+    if W >= 1000 then lx, dy = INFO_X + (W - INFO_X) // 2, -160 end
+    print("LAST TRY (F5)", lx, 208 + dy, C.DIM)
     local a, b = try_lines()
-    print(a:sub(1, 58), INFO_X, 224, r and C.TEXT or C.DIM)
-    if b then print(b:sub(1, 58), INFO_X, 240, C.TEXT) end
+    print(a:sub(1, 58), lx, 224 + dy, r and C.TEXT or C.DIM)
+    if b then print(b:sub(1, 58), lx, 240 + dy, C.TEXT) end
     if r then
       print(string.format("%d tokens   %d triangles   3D on the %s   %.0f s", r.tokens, r.tris, r.gpu and "GPU" or "ARM",
-                          r.secs), INFO_X, 256, C.TEXT)
+                          r.secs), lx, 256 + dy, C.TEXT)
     end
     if I and not I.error and S.target == "b16" then
       for k = 1, min(3, #I.b16) do
         local f = I.b16[k]
-        print(("line " .. f[1] .. ": " .. f[2]):sub(1, 58), INFO_X, 256 + k * 16, C.ACC)
+        print(("line " .. f[1] .. ": " .. f[2]):sub(1, 58), lx, 256 + dy + k * 16, C.ACC)
       end
     else
-      print("in the game: stat(1) ms, stat(2) fps, stat(11) tokens,", INFO_X, 288, C.DIM)
-      print("stat(12) Lua KiB at most, stat(13) KiB of data", INFO_X, 304, C.DIM)
+      print("in the game: stat(1) ms, stat(2) fps, stat(11) tokens,", lx, 288 + dy, C.DIM)
+      print("stat(12) Lua KiB at most, stat(13) KiB of data", lx, 304 + dy, C.DIM)
     end
     hint({ { "f1", "Y", "the project" }, { "b", nil, "target" }, { "f5", nil, "try it" },
            { "f6", nil, "assistant" } })

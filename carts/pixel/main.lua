@@ -1540,14 +1540,16 @@ function draw_palette()
   cls(C_BG)
   local p = pal()
   print("PALETTE " .. #p .. " colours (at most 256: saved with the sheet)", 16, 16, C_DIM)
+  local cell = CELL * max(1, (HINT_Y - GY) // (16 * CELL))      -- 16 at 640x360, 32 at 1280x720
   for i, c in ipairs(p) do
-    local x, y = GX + ((i - 1) % 16) * CELL, GY + ((i - 1) // 16) * CELL
-    U.zone(x, y, CELL, CELL, "pcol", i)
-    rectfill(x + 1, y + 1, CELL - 2, CELL - 2, c)
-    if i == ci then rectfill(x + 6, y + 6, 4, 4, (c >> 8 & 255) > 128 and 0x000000 or 0xFFFFFF) end
-    if i == pp.sel then rect(x, y, CELL, CELL, (frame // 10) % 2 == 0 and 0xFFFFFF or C_ACC) end
+    local x, y = GX + ((i - 1) % 16) * cell, GY + ((i - 1) // 16) * cell
+    U.zone(x, y, cell, cell, "pcol", i)
+    rectfill(x + 1, y + 1, cell - 2, cell - 2, c)
+    if i == ci then rectfill(x + cell // 2 - 2, y + cell // 2 - 2, 4, 4, (c >> 8 & 255) > 128 and 0x000000 or 0xFFFFFF) end
+    if i == pp.sel then rect(x, y, cell, cell, (frame // 10) % 2 == 0 and 0xFFFFFF or C_ACC) end
   end
-  local x = 304
+  local x = GX + 16 * cell + 32                                  -- the panel right of the grid (304 at 640)
+  local bw = clamp(W - x - 96, 200, 400)                         -- the width of the R G B bars
   local c = p[pp.sel]
   if c then
     rectfill(x, 48, 64, 64, c)
@@ -1558,11 +1560,11 @@ function draw_palette()
     for k = 1, 3 do
       local v = c >> ({ 16, 8, 0 })[k] & 255
       local y = 128 + (k - 1) * 16
-      U.zone(x - 4, y, 320, 16, "channel", k)
-      if pp.edit == k then rectfill(x - 4, y, 320, 16, C_SEL) end
+      U.zone(x - 4, y, max(320, bw + 72), 16, "channel", k)
+      if pp.edit == k then rectfill(x - 4, y, max(320, bw + 72), 16, C_SEL) end
       print(names[k] .. string.format(" %3d", v), x, y, C_TEXT)
-      rectfill(x + 64, y + 4, 200, 8, C_PANEL)
-      rectfill(x + 64, y + 4, floor(v * 200 / 255), 8, ({ 0xE04040, 0x40C040, 0x4070E0 })[k])
+      rectfill(x + 64, y + 4, bw, 8, C_PANEL)
+      rectfill(x + 64, y + 4, floor(v * bw / 255), 8, ({ 0xE04040, 0x40C040, 0x4070E0 })[k])
     end
   end
   print("drawing with " .. ci .. " " .. colour_name(colour()), x, 192, C_TEXT)

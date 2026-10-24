@@ -9667,7 +9667,7 @@ def test_sdk_elastic(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-SUITE_TOOLS = (("1", "code", ("\x1bOP", "\x1bOQ", "\x1bOR")), ("2", "pixel", ("\x1bOP", "\x1bOQ", "\x1bOR")),
+SUITE_TOOLS = (("1", "code", ("\x1bOP", "\x1bOQ", "\x1bOR")), ("2", "pixel", ("\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS")),
                ("3", "studio", ("\x1bOP", "\x1bOQ")), ("4", "animator", ("\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS")),
                ("5", "mesh", ("\x1bOP", "\x1bOQ", "\x1bOR")), ("6", "sound", ("\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS")))
 

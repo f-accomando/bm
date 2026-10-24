@@ -1912,12 +1912,14 @@ function sprites_page.draw()
     render(view, box, sp.dir % sp.dirs, frame_time(c, f))
     -- the key colour shows as the panel's; twice as big beside it
     local zx, big = px + s + 16, s <= 64
-    if big then rectfill(zx, py, s * 2, s * 2, C.PANEL) end
+    -- the zoom: 2 at 640x360, as big as the room right of the sprite and under it allows
+    local z = clamp(min((W - zx - 16) // s, (HINT_Y - 48 - 64 - py) // s), 2, 12)
+    if big then rectfill(zx, py, s * z, s * z, C.PANEL) end
     for y = 0, s - 1 do
       for x = 0, s - 1 do
         local p = pget(px + x, py + y)
         if p == KEY then pset(px + x, py + y, C.PANEL)
-        elseif big then rectfill(zx + x * 2, py + y * 2, 2, 2, p) end
+        elseif big then rectfill(zx + x * z, py + y * z, z, z, p) end
       end
     end
     if sp.boxes and sp.frame_boxes then
@@ -1925,13 +1927,13 @@ function sprites_page.draw()
         local col = box_colour(b.kind)
         rect(px + b.x, py + b.y, b.w, b.h, col)
         if big then
-          rect(zx + b.x * 2, py + b.y * 2, b.w * 2, b.h * 2, col)
+          rect(zx + b.x * z, py + b.y * z, b.w * z, b.h * z, col)
         end
       end
     end
     local nbx = (sp.boxes and sp.frame_boxes and #sp.frame_boxes > 0) and ("  " .. #sp.frame_boxes .. " boxes") or ""
     print(string.format("direction %d/%d  frame %d/%d%s", sp.dir % sp.dirs + 1, sp.dirs, f + 1, sp.frames, nbx), px,
-          (py + (big and s * 2 or s) + 23) // 16 * 16, C.DIM)
+          (py + (big and s * z or s) + 23) // 16 * 16, C.DIM)
   end
   rectfill(0, 16, 320, HINT_Y - 16, C.PANEL)
   print("SPRITES", 16, 32, C.DIM)
