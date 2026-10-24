@@ -2,8 +2,8 @@
  "api-3d": {
   "chapters": {
    "1": {
-    "en": "c55b4d950b02",
-    "it": "d8381ff03fa5",
+    "en": "b8b49863daaa",
+    "it": "619cf9fe0aba",
     "title": "How 3D works in bm"
    },
    "10": {
@@ -62,14 +62,14 @@
     "title": "Visibility"
    },
    "9": {
-    "en": "ccad20e014a6",
-    "it": "bb36eb931f0d",
+    "en": "4ca6ce2898bb",
+    "it": "a48fbd8fcce4",
     "title": "The GPU: gpu3d and its options"
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "f0eb5df7bb55",
-   "docs/api/light3d.md": "e598e3265d36"
+   "docs/BENCH3D.md": "af60de01fb2c",
+   "docs/api/light3d.md": "8472028af1a0"
   }
  },
  "api-core": {
@@ -80,8 +80,8 @@
     "title": "How a cartridge works"
    },
    "10": {
-    "en": "63dc64f135a4",
-    "it": "a350f64d3f45",
+    "en": "ba1cedf5bcab",
+    "it": "aec27ab6052e",
     "title": "The web"
    },
    "2": {
@@ -100,18 +100,18 @@
     "title": "Input"
    },
    "5": {
-    "en": "5a2a03816618",
-    "it": "2f5bc6eaf066",
+    "en": "bb30b4f0f576",
+    "it": "eb59a8cabb03",
     "title": "Time and system"
    },
    "6": {
-    "en": "78e42f30a050",
-    "it": "47530e3e9d82",
+    "en": "ff2b7fc12f85",
+    "it": "6289baf00be7",
     "title": "Saves"
    },
    "7": {
-    "en": "5ae3e1323727",
-    "it": "5fb403892b71",
+    "en": "885007d6bda9",
+    "it": "dab3e51628ce",
     "title": "Documents"
    },
    "8": {
@@ -126,11 +126,11 @@
    }
   },
   "sources": {
-   "docs/API.md": "e985f0ef8b5c",
-   "docs/GAME-GUIDE.md": "4694b2066d99",
+   "docs/API.md": "ee05df89ef61",
+   "docs/GAME-GUIDE.md": "13cee5d18016",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/input.md": "4a75b07df3da",
-   "docs/api/system.md": "2a164808a4c2"
+   "docs/api/system.md": "62684bc75e0c"
   }
  },
  "api-lib": {
@@ -245,8 +245,8 @@
  "api-sound": {
   "chapters": {
    "1": {
-    "en": "a24d1d8cdd68",
-    "it": "aee77c4fd30b",
+    "en": "8e89a6e17656",
+    "it": "f72a83ec8a7c",
     "title": "How sound works in bm"
    },
    "2": {
@@ -265,13 +265,13 @@
     "title": "Notes from the code"
    },
    "5": {
-    "en": "6a239a404a2e",
-    "it": "c1cfc6aa4bb8",
+    "en": "0efb0ef582ad",
+    "it": "e2132a715dde",
     "title": "Instruments, tone, room"
    },
    "6": {
-    "en": "1d7f34f8f9f3",
-    "it": "6443c9556327",
+    "en": "a6f2e0bd9fc3",
+    "it": "3388ea61062a",
     "title": "The bank: format and tools"
    },
    "7": {
@@ -282,29 +282,29 @@
   },
   "sources": {
    "docs/api/riff.md": "d19ca9e137e0",
-   "docs/api/sound.md": "9dde22d1110b"
+   "docs/api/sound.md": "68d14296f09a"
   }
  },
  "api-tools": {
   "chapters": {
    "1": {
-    "en": "6b11b0f8a6fe",
-    "it": "d1f28f86c106",
+    "en": "53a4b8799e40",
+    "it": "eb0321f04540",
     "title": "The cartridge file"
    },
    "2": {
-    "en": "3fc696417695",
-    "it": "5773361e694f",
+    "en": "0b45a0b1bbd4",
+    "it": "f57f600cb081",
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "7453d36cf9c7",
-    "it": "4f3106bc26f1",
+    "en": "e24a7033d7f6",
+    "it": "fefbdd9555c0",
     "title": "The API for tools"
    },
    "4": {
-    "en": "a193b90ce73e",
-    "it": "92ca3c0604fc",
+    "en": "5769f0900909",
+    "it": "25487f6c014c",
     "title": "Resource files and sharing assets"
    },
    "5": {
@@ -319,10 +319,10 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "9c51571709d1",
-   "docs/RISORSE.md": "4b94efc50686",
+   "docs/PROJECT-LAYOUT.md": "15c0a8e6e6e2",
+   "docs/RISORSE.md": "46d80064fc62",
    "docs/SCREENSHOTS.md": "afdde1690440",
-   "docs/api/tools.md": "6b834ad91360"
+   "docs/api/tools.md": "5f4905aa4832"
   }
  },
  "boot-os": {
@@ -338,13 +338,13 @@
     "title": "Screenshots"
    },
    "11": {
-    "en": "31085dbe0718",
-    "it": "f1ad6fccdca0",
+    "en": "beba02c69af8",
+    "it": "00744c5f9f2a",
     "title": "Saves"
    },
    "12": {
-    "en": "c434369ebe13",
-    "it": "f0186a83e822",
+    "en": "5e2fdd60880a",
+    "it": "1f82eb7c9fbf",
     "title": "Crashes and logs"
    },
    "13": {
@@ -363,13 +363,13 @@
     "title": "What the kernel does at start"
    },
    "4": {
-    "en": "43832ca39394",
-    "it": "cfe3ef66da8d",
+    "en": "54b2a1e78d65",
+    "it": "f631a8cc291d",
     "title": "The menu and its tabs"
    },
    "5": {
-    "en": "dd6f3832ad14",
-    "it": "d64537d8efac",
+    "en": "8faece644095",
+    "it": "055cc9ea3fcd",
     "title": "The system keys"
    },
    "6": {
@@ -388,16 +388,16 @@
     "title": "The files on the SD card"
    },
    "9": {
-    "en": "136581b67ede",
-    "it": "3be6c73befbb",
+    "en": "9a87bec781e1",
+    "it": "62ebf254f4b0",
     "title": "Settings and config.txt"
    }
   },
   "sources": {
    "boot": "63490264ed76",
-   "chainloader": "7feaaf3a501c",
-   "docs/HARDWARE.md": "1412f8591e74",
-   "docs/progress/system.md": "1eb3e74c1fe1",
+   "chainloader": "810ae5eb2ec6",
+   "docs/HARDWARE.md": "6bfcdeee8616",
+   "docs/progress/system.md": "023a301b1f7e",
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },
@@ -746,8 +746,8 @@
     "title": "Opening bm SDK"
    },
    "3": {
-    "en": "b68edc35db15",
-    "it": "7222516d704a",
+    "en": "ba2678b9e581",
+    "it": "e244473f3e70",
     "title": "The screen"
    },
    "4": {
@@ -761,13 +761,13 @@
     "title": "The map editor"
    },
    "6": {
-    "en": "23bdec592578",
-    "it": "c05b4e75f079",
+    "en": "d5a97340afd6",
+    "it": "efaa77f8a076",
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "46b19762da3a",
-    "it": "a37f8c503acd",
+    "en": "f3fb3c3e9598",
+    "it": "3d324e02f9d7",
     "title": "Building and exporting"
    },
    "8": {
@@ -782,11 +782,11 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "3f705303f7c4",
-   "docs/RISORSE.md": "4b94efc50686",
+   "carts/editor/main.lua": "197c47f05b65",
+   "docs/RISORSE.md": "46d80064fc62",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "docs/progress/tools.md": "87bdbfd88948",
+   "sdk/README.md": "92eb56a84487"
   }
  },
  "editor-sound": {
@@ -812,8 +812,8 @@
     "title": "Controls"
    },
    "5": {
-    "en": "bb6bc5b12f1c",
-    "it": "06cbf668602e",
+    "en": "a5cc941738fe",
+    "it": "a9975dff508a",
     "title": "Tutorials"
    },
    "6": {
@@ -828,11 +828,11 @@
    }
   },
   "sources": {
-   "carts/sound/main.lua": "41d78b08a620",
-   "docs/RISORSE.md": "4b94efc50686",
+   "carts/sound/main.lua": "0ea5b7f0a04f",
+   "docs/RISORSE.md": "46d80064fc62",
    "docs/design/suite-sound.md": "c2059f0520b0",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "docs/progress/tools.md": "87bdbfd88948",
+   "sdk/README.md": "92eb56a84487"
   }
  },
  "editor-studio": {
@@ -929,16 +929,16 @@
     "title": "Tutorials"
    },
    "7": {
-    "en": "1a94ec07d348",
-    "it": "3cc38a159bc0",
+    "en": "6a15d9124532",
+    "it": "1ae32c8fe845",
     "title": "Tips, limits and troubleshooting"
    }
   },
   "sources": {
-   "carts/write/main.lua": "3cf293d3041f",
-   "docs/RISORSE.md": "4b94efc50686",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "carts/write/main.lua": "7acfe5a9c0db",
+   "docs/RISORSE.md": "46d80064fc62",
+   "docs/progress/tools.md": "87bdbfd88948",
+   "sdk/README.md": "92eb56a84487"
   }
  },
  "install-sd": {
@@ -949,18 +949,18 @@
     "title": "What you need"
    },
    "2": {
-    "en": "a376217defc7",
-    "it": "b06ecd7b4f24",
+    "en": "c094fa032c67",
+    "it": "1e9c289af5a5",
     "title": "Installing on the Pi Zero W"
    },
    "3": {
-    "en": "dd23cdc70dec",
-    "it": "230bce6629a0",
+    "en": "068807a853c8",
+    "it": "41c9a32dcca9",
     "title": "Installing on the RGB30"
    },
    "4": {
-    "en": "e68159b5736b",
-    "it": "ea028aad28bc",
+    "en": "8e5c6cebbb45",
+    "it": "56ded218e885",
     "title": "The folders on the card"
    },
    "5": {
@@ -974,8 +974,8 @@
     "title": "The Market and getting games"
    },
    "7": {
-    "en": "0ec916b4e0f4",
-    "it": "6f1ff97af7ee",
+    "en": "411ef64f6074",
+    "it": "a17be36934eb",
     "title": "The config.txt keys that matter"
    },
    "8": {
@@ -985,11 +985,11 @@
    }
   },
   "sources": {
-   "docs/RGB30.md": "4ec4b9989804",
-   "docs/progress/platforms.md": "476d4f8f57d7",
-   "easy_install.sh": "93dfa42a24ed",
+   "docs/RGB30.md": "ed82a2adc0d4",
+   "docs/progress/platforms.md": "287876036d31",
+   "easy_install.sh": "0c4ada007b75",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
-   "scripts/mksd.py": "6ed865802e51"
+   "scripts/mksd.py": "d149ff6c9295"
   }
  },
  "levels": {
@@ -1063,23 +1063,23 @@
  "pi-zero-w": {
   "chapters": {
    "1": {
-    "en": "3ab12a02bcd0",
-    "it": "aaba0ca34ceb",
+    "en": "dab44cec7287",
+    "it": "a2303166a08e",
     "title": "The board"
    },
    "2": {
-    "en": "fea227eac555",
-    "it": "51aa3ee33afc",
+    "en": "f2bcd810f438",
+    "it": "c00fd124671f",
     "title": "ARM11 performance, as measured"
    },
    "3": {
-    "en": "9342fee8040d",
-    "it": "3439abd0bc39",
+    "en": "1e11629b555b",
+    "it": "7522ceef84b1",
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "dd175ce62e9e",
-    "it": "73be21b9ed9c",
+    "en": "cb591d8efbb0",
+    "it": "63334a9cf03e",
     "title": "The GPU and the 3D"
    },
    "5": {
@@ -1104,12 +1104,12 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "f0eb5df7bb55",
-   "docs/DRIVERS.md": "af29fe46288c",
-   "docs/HARDWARE.md": "1412f8591e74",
-   "docs/PERFORMANCE.md": "1c3fc264eae4",
-   "docs/progress/graphics.md": "0450059d63f3",
-   "docs/progress/v3d.md": "48d60c944c2d"
+   "docs/BENCH3D.md": "af60de01fb2c",
+   "docs/DRIVERS.md": "16b6c735bcc4",
+   "docs/HARDWARE.md": "6bfcdeee8616",
+   "docs/PERFORMANCE.md": "8b92c98b20d1",
+   "docs/progress/graphics.md": "93f207f09786",
+   "docs/progress/v3d.md": "c9047e163369"
   }
  },
  "riff": {
