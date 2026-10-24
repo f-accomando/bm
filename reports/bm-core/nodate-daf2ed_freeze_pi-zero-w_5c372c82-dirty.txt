@@ -1,0 +1,135 @@
+bm report
+kind: freeze
+kernel: 5c372c82-dirty
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-daf2ed_freeze_pi-zero-w_5c372c82-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor, waiting for a key, frame 0, 2646 s after boot, kernel c62830b8, ring 16997, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+net: console opened from 192.168.1.97
+> :
+:b3d tests=htmap profiles=VS,VSQ
+: b3d tests=htmap profiles=VS,VSQ
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+3D Bench: done (ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 37.9 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261024-165327_bench3d_pi-zero-w_c62830b8.txt saved as bm/reports/rpt00001.txt
+report: sending 20261024-165327_bench3d_pi-zero-w_c62830b8.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261024-165327_bench3d_pi-zero-w_c62830b8.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:b3d tests=herotris
+: b3d tests=herotris
+3D Bench: done (ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 41.1 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261024-165410_bench3d_pi-zero-w_c62830b8.txt saved as bm/reports/rpt00001.txt
+report: sending 20261024-165410_bench3d_pi-zero-w_c62830b8.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261024-165410_bench3d_pi-zero-w_c62830b8.txt
+the line is done
+> 
+net: console closed
+net: receiving herocart.bm (264680 bytes)...
+net: cartridge received, starting it
+
+bm: cannot set 640x360 RGB565
+> 
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> M
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+net: receiving herocart.bm (264680 bytes)...
+net: cartridge received, starting it
+bm: cannot set 640x360 RGB565
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> net: receiving herocart.bm (264680 bytes)...
+net: cartridge received, starting it
+bm: cannot set 640x360 RGB565
+
+net: console closed
+net: receiving herocart.bm (264680 bytes)...
+net: cartridge received, starting it
+bm: cannot set 640x360 RGB565
+
+net: console opened from 192.168.1.97
+> net: receiving herocart.bm (264680 bytes)...
+net: cartridge received, starting it
+bm: cannot set 640x360 RGB565
+
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> net: receiving pong.bm (40396 bytes)...
+net: cartridge received, starting it
+bm: cannot set 640x360 RGB565
+
+net: console closed
+
+net: console opened from 192.168.1.97
+> back to the monitor
+> :
+:crc
+: crc 
+crc: 640x360 bpp=16 pitch=1280 crc32=0xa4967b52
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:play Pong
+: play Pong
+
+playing pong.bm
+bm: cannot set 640x360 RGB565
+the line is done
+> 
+net: console closed
+net: receiving a new kernel (5064244 bytes)...
+net: kernel 0% (0 of 4945 KB)
+net: kernel 10% (504 of 4945 KB)
+net: kernel 20% (998 of 4945 KB)
+net: kernel 30% (1485 of 4945 KB)
+net: kernel 40% (1980 of 4945 KB)
+net: kernel 50% (2476 of 4945 KB)
+net: kernel 60% (2969 of 4945 KB)
+net: kernel 70% (3463 of 4945 KB)
+net: kernel 80% (3961 of 4945 KB)
+net: kernel 90% (4451 of 4945 KB)
