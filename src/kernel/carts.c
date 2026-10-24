@@ -1278,6 +1278,8 @@ void carts_menu(framebuffer_t *fb)
             menu_view_t v = {
                 .tabs = tabs, .ntabs = lib_on ? 4 : 3, .tab = tab, .on_gear = on_gear, .peek_first = 1,
                 .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
+                .refresh_label = on_market ? "Refresh" : NULL,
+                .refresh_enabled = on_market && market_refresh_available(),
                 .items = items, .n = n, .sel = tsel[tab],
                 .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,
@@ -1491,6 +1493,8 @@ void carts_menu(framebuffer_t *fb)
             opts = 1;
         if (pressed & HID_Y)
             ybtn = 1;
+        if ((pressed & HID_SELECT) && !(b & HID_START) && tab == TAB_MARKET && !on_gear)
+            market_refresh();
         if ((pressed & HID_L1) && cur > 0)
             tabto = cur - 1;
         if ((pressed & HID_R1) && cur < TAB_SETTINGS)
@@ -1566,7 +1570,10 @@ void carts_menu(framebuffer_t *fb)
                     dx = h.index - lib_group;
                 else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
                     ybtn = 1;
-                else if (click && h.kind == MENU_HIT_TAB)
+                else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'R') {
+                    if (tab == TAB_MARKET && !on_gear)
+                        market_refresh();
+                } else if (click && h.kind == MENU_HIT_TAB)
                     tabto = h.index;
                 else if (click && h.kind == MENU_HIT_SETTINGS)
                     tabto = TAB_SETTINGS;
@@ -1877,11 +1884,15 @@ void carts_menu(framebuffer_t *fb)
         }
 
         if (action == 2) {
-            carts_init();
-            if (sel >= ncarts) sel = 0;
-            depth = 0;                          /* indices changed */
-            ask = ASK_NONE;
-            redraw = 1;
+            if (tab == TAB_MARKET && !on_gear) {
+                market_refresh();
+            } else {
+                carts_init();
+                if (sel >= ncarts) sel = 0;
+                depth = 0;                          /* indices changed */
+                ask = ASK_NONE;
+                redraw = 1;
+            }
         } else if (action == 3) {
             go = GO_UPLOAD;
         } else if (action == 4) {

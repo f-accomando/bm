@@ -864,7 +864,7 @@ static int put_prompt(const prompt_t *p, int x, int y)
 }
 
 /* the buttons of the hints, for the device pressed last */
-enum { BTN_A, BTN_B, BTN_X, BTN_CHANGE, BTN_MONITOR, BTN_Y };
+enum { BTN_A, BTN_B, BTN_X, BTN_CHANGE, BTN_MONITOR, BTN_Y, BTN_REFRESH };
 
 /* up to three prompts for a button, and what goes between them */
 static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], const char **join)
@@ -878,6 +878,7 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], con
         case BTN_B: p[0] = prompt_get(PROMPT_KEY_ESC, 0); return 1;
         case BTN_X: p[0] = prompt_key('C'); return 1;
         case BTN_Y: p[0] = prompt_key('V'); return 1;
+        case BTN_REFRESH: p[0] = prompt_key('R'); return 1;
         case BTN_CHANGE:
             p[0] = prompt_get(PROMPT_KEY_LEFT, 0);
             p[1] = prompt_get(PROMPT_KEY_RIGHT, 0);
@@ -911,6 +912,9 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], con
         p[0] = ds ? prompt_get(PROMPT_TRIANGLE, v->prompts_colour)
                   : prompt_get(rgb30 ? PROMPT_RGB30_Y : PROMPT_PAD_Y, 0);
         return 1;
+    case BTN_REFRESH:
+        p[0] = prompt_get(ds ? PROMPT_SHARE : PROMPT_PAD_SELECT, 0);
+        return 1;
     case BTN_CHANGE:
         p[0] = prompt_get(PROMPT_DPAD_LEFTRIGHT, 0);
         return 1;
@@ -925,7 +929,7 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], con
 /* the button's prompts from 4 px left of text column `col`, then a label
  * on the text grid after them; returns the column after the label and a
  * gap */
-static int hint(const menu_view_t *v, int col, int row, int b, const char *label)
+static int hint_btn(const menu_view_t *v, int col, int row, int b, const char *label, int enabled)
 {
     const prompt_t *p[3] = { NULL, NULL, NULL };
     const char *join;
@@ -935,20 +939,25 @@ static int hint(const menu_view_t *v, int col, int row, int b, const char *label
         if (i) {
             x += 2;
             if (join[0]) {
-                m_text(x, y, join, c16(C_TEXT));
+                m_text(x, y, join, c16(enabled ? C_TEXT : C_DIM));
                 x += 8 * (int)strlen(join) + 2;
             }
         }
         x = put_prompt(p[i], x, y);
     }
     int lc = (x + 4 + 7) / 8;
-    m_text(lc * 8, y, label, c16(C_TEXT));
-    /* the pointer (M32) clicks it: A, B, X; "Change" is A on a choice row */
-    static const char letter[] = { 'A', 'B', 'X', 'A', 0, 'Y' };
-    if (!hints_dead && letter[b])
+    m_text(lc * 8, y, label, c16(enabled ? C_TEXT : C_DIM));
+    /* the pointer (M32) clicks it: A, B, X; "Change" is A on a choice row; R for refresh */
+    static const char letter[] = { 'A', 'B', 'X', 'A', 0, 'Y', 'R' };
+    if (!hints_dead && enabled && letter[b])
         zone(col * 8 - 8, y - 4, (lc + (int)strlen(label)) * 8 - (col * 8 - 8) + 4, 24,
              MENU_HIT_BUTTON, letter[b], 1);
     return lc + (int)strlen(label) + 3;
+}
+
+static int hint(const menu_view_t *v, int col, int row, int b, const char *label)
+{
+    return hint_btn(v, col, row, b, label, 1);
 }
 
 /* a small triangle pointing up (dir -1) or down (+1), for the scroll marks */
@@ -1755,6 +1764,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             for (int i = 0; i < v->nsubtabs; i++)
                 sub_w += (int)strlen(v->subtabs[i]) + (i + 1 < v->nsubtabs ? 3 : 0);
             sub_w += 3;
+            if (v->refresh_label && v->refresh_label[0])
+                sub_w += (int)strlen(v->refresh_label) + 4;
             int scol = SW / 8 - sub_w;
             round_rect((scol - 2) * 8, TITLE_ROW * 16 - 6, (sub_w + 1) * 8, 28, 14, c16(C_BAR));
             for (int i = 0; i < v->nsubtabs; i++) {
@@ -1765,6 +1776,14 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                 else
                     m_text(scol * 8, TITLE_ROW * 16, v->subtabs[i], c16(C_DIM));
                 scol += sn + 3;
+            }
+            if (v->refresh_label && v->refresh_label[0]) {
+                int rn = (int)strlen(v->refresh_label);
+                zone(scol * 8 - 8, TITLE_ROW * 16 - 6, (rn + 2) * 8, 28, MENU_HIT_BUTTON, 'R', v->refresh_enabled);
+                if (v->refresh_enabled)
+                    pill_text(scol, TITLE_ROW, v->refresh_label, C_BAR, C_ACCENT);
+                else
+                    m_text(scol * 8, TITLE_ROW * 16, v->refresh_label, c16(C_DIM));
             }
         }
         int max_cols = SW / 8 - 6 - sub_w;
@@ -1844,6 +1863,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             col = hint(v, col, 21, BTN_X, "Options");
         if (v->y_label && v->y_label[0])
             col = hint(v, col, 21, BTN_Y, v->y_label);
+        if (v->refresh_label && v->refresh_label[0])
+            col = hint_btn(v, col, 21, BTN_REFRESH, v->refresh_label, v->refresh_enabled);
         if (!v->no_monitor && (!WIDE || col <= (v->prompts == MENU_PROMPTS_KEYBOARD ? 60 : 66)))
             hint(v, col, 21, BTN_MONITOR, "Monitor");
     }

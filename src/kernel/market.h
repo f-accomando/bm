@@ -38,6 +38,10 @@ enum { MARKET_PAGE_GAMES = 0, MARKET_PAGE_APPS = 1 };
 int  market_page(void);
 void market_set_page(int page);
 int  market_page_count(int page);
+/* 1 if the refresh button is ready, 0 while loading or during the 10s cooldown. */
+int  market_refresh_available(void);
+/* Refresh the catalog from the network; 1 if started, 0 if unavailable or ignored. */
+int  market_refresh(void);
 
 /* The grid: the games or apps of the current page, or placeholders while loading. */
 int  market_items(menu_item_t *items, int max);

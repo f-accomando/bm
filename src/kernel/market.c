@@ -67,7 +67,7 @@ static int nowned;
 static char base[160];
 static int inited, active, sel, have, changed;
 static int fetched, net_failed;
-static uint32_t fetched_at, note_at;
+static uint32_t fetched_at, note_at, refresh_done_at;
 static char note[64], banner[72];
 static char want_id[24];        /* the game to download next */
 static int want_b16;            /* 1 if want_id is the .b16 edition */
@@ -494,6 +494,8 @@ static void job_cache(void)
     kprintf("market: %s, %s%s\n", base, have ? "catalog saved on the SD card" : "no catalog saved",
             catalog_has_key() ? "" : ", no key");
     inited = 1;
+    if (!online())
+        refresh_done_at = timer_ticks();
 }
 
 static void job_index(void)
@@ -507,6 +509,7 @@ static void job_index(void)
         read_catalog(idx, il, sig, sl, &c, err, sizeof err) != 0) {
         if (strcmp(err, "cancelled") != 0) {
             net_failed = 1;
+            refresh_done_at = timer_ticks();
             say("catalog: %s", err);
         }
         free(idx);
@@ -515,6 +518,7 @@ static void job_index(void)
     }
     fetched = 1;
     fetched_at = timer_ticks();
+    refresh_done_at = timer_ticks();
     if (have && !catalog_newer(c.serial, cat.serial)) {
         if (strcmp(c.serial, cat.serial) != 0)
             say("catalog %s is older than %s: kept", c.serial, cat.serial);
@@ -758,14 +762,40 @@ void market_set_active(int on)
 {
     if (on && !active) {
         active = 1;
-        if (fetched && timer_ticks() - fetched_at > REFRESH_US)
-            fetched = 0;
-        net_failed = 0;                 /* each visit tries the network again */
+        if (!fetched)
+            net_failed = 0;             /* retry on visit only if catalog not yet loaded */
     } else if (!on && active) {
         active = 0;
         if (!finishing && job != JOB_GET)
             fiber_job_stop(&work);      /* covers/index pause off the tab; game download goes on */
     }
+}
+
+int market_refresh_available(void)
+{
+    if (!inited || (work.busy && job == JOB_INDEX) || (!fetched && !net_failed && online()))
+        return 0;
+    if (!refresh_done_at)
+        return 0;
+    return (uint32_t)(timer_ticks() - refresh_done_at) >= 10u * 1000000u;
+}
+
+int market_refresh(void)
+{
+    if (!market_refresh_available())
+        return 0;
+    if (!online()) {
+        say("No network: connect in Settings > WiFi");
+        refresh_done_at = timer_ticks();
+        return 0;
+    }
+    refresh_done_at = 0;
+    fetched = 0;
+    net_failed = 0;
+    if (work.busy && job == JOB_COVER)
+        fiber_job_stop(&work);
+    say("Checking for new games...");
+    return 1;
 }
 
 void market_tick(uint32_t until)

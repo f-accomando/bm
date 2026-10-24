@@ -149,6 +149,8 @@ typedef struct {
     int notice_progress;
     const char *a_label;        /* A in the footer, instead of Play / Open; "" hides it */
     const char *y_label;        /* Y in the footer (e.g. "Apps" / "Games" in Market), or NULL */
+    const char *refresh_label;  /* "Refresh" in Market, or NULL */
+    int refresh_enabled;        /* 1 if Refresh can be pressed, 0 if greyed out */
     /* called while the frame waits for its time, until timer_ticks() is
      * `until` (the Market's downloads), or NULL */
     void (*idle)(uint32_t until);

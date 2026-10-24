@@ -1114,6 +1114,8 @@ void ui_home(framebuffer_t *f)
         menu_view_t v = {
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
+            .refresh_label = on_market ? "Refresh" : NULL,
+            .refresh_enabled = on_market && market_refresh_available(),
             .items = items, .n = n, .sel = *s,
             .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B,
             .ok_btn = pad_ok_name(), .back_btn = pad_back_name(), .no_monitor = 1,
@@ -1458,6 +1460,8 @@ void ui_home(framebuffer_t *f)
         } else if ((p & PAD_Y) && shown == TAB_MARKET) {
             market_set_page(market_page() == MARKET_PAGE_APPS ? MARKET_PAGE_GAMES : MARKET_PAGE_APPS);
             *s = 0;
+        } else if ((p & PAD_SELECT) && !(pad_state() & PAD_START) && shown == TAB_MARKET) {
+            market_refresh();
         } else if (n > 0) {
             /* the covers: left / right along the row, up / down a row (the
              * last row may be shorter) */
