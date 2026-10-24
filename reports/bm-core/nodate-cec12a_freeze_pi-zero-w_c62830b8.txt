@@ -1,0 +1,89 @@
+bm report
+kind: freeze
+kernel: c62830b8
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-cec12a_freeze_pi-zero-w_c62830b8.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 51 s after boot, kernel c62830b8, ring 5631, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+8103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 4 networks
+   1   -52 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -76 dBm  ch  1  WPA2  Wind3 HUB - ED4188
+   3   -83 dBm  ch  4  WPA2  FASTWEB-325YFF
+   4   -84 dBm  ch  1  WPA2  WINDTRE - 73DE22
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fiber: covers did not yield: 503.6 ms past its slice
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.9 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 11.0 ms past its slice
+net: time 2026-10-24 16:45 UTC
+fiber: reports did not yield: 96.2 ms past its slice
+report: sending nodate-03ca23_freeze_pi-zero-w_c62830b8.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-03ca23_freeze_pi-zero-w_c62830b8.txt
+menu idle: 291/300 frames, 1996 of 2061 ms taken, 501.2 ms past a frame; covers 628 ms (+503.6, stk 0.8/16K), reports 1324 ms (+96.2, stk 7.6/128K); min slack -11123 us, paced 0; sd 1 retried, 1 timed out
+menu idle: sd sites: rdend 1; first word <1ms 201 <3ms 13 (max 1.5 ms)
+menu stalls: tls handshake 1x last 266.7 worst 266.7 ms
+menu frame: 1x, a frame averages draw 8367 us, enlarge 1 us, flip 91 us, free time used 6655 us (300 frames)
+menu frame: 1x, a frame averages draw 7833 us, enlarge 1 us, flip 91 us, free time used 114 us (300 frames)
+
+net: console opened from 192.168.1.97
+> menu frame: 1x, a frame averages draw 7750 us, enlarge 1 us, flip 91 us, free time used 114 us (300 frames)
+
+net: console closed
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+menu frame: 1x, a frame averages draw 7686 us, enlarge 1 us, flip 90 us, free time used 114 us (300 frames)
+menu frame: 1x, a frame averages draw 7740 us, enlarge 1 us, flip 91 us, free time used 115 us (300 frames)
+net: receiving a new kernel (5063956 bytes)...
+net: kernel 0% (0 of 4945 KB)
+net: kernel 10% (495 of 4945 KB)
+menu frame: 1x, a frame averages draw 8310 us, enlarge 1 us, flip 91 us, free time used 115 us (300 frames)
+net: kernel 20% (989 of 4945 KB)
+net: kernel 30% (1492 of 4945 KB)
+net: kernel 40% (1978 of 4945 KB)
+net: kernel 50% (2480 of 4945 KB)
+net: kernel 60% (2970 of 4945 KB)
+net: kernel 70% (3465 of 4945 KB)
+menu frame: 1x, a frame averages draw 9470 us, enlarge 1 us, flip 91 us, free time used 119 us (300 frames)
+net: kernel 80% (3960 of 4945 KB)
+net: kernel 90% (4451 of 4945 KB)
+net: dev mode: kernel received (5063956 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 44.8 ms past its slice
+fiber: netxfer did not yield: 504.6 ms past its slice
+net: writing /kernel.img paused, it starts again later
+net: saved kernel.img on the SD card (5063956 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB; 3 retried, 3 timed out
+fiber: covers did not yield: 503.8 ms past its slice
+net: restarting with the new kernel in 2 s
+fiber: covers did not yield: 503.8 ms past its slice
+net: restarting with the new kernel in 1 s
