@@ -370,6 +370,7 @@ enum {
     ST_DEBUGGING,
     ST_BELL,
     ST_COFFEE,
+    ST_SLEEPING,
     ST_COUNT
 };
 
@@ -385,6 +386,7 @@ static const struct {
     { "DEBUGGING",    "fast typing on the keyboard!",  0xFF6B6B,  85 },
     { "TASK DONE!",   "ringing the desk bell *DING!*", 0x9BF6FF,  75 },
     { "COFFEE BREAK", "resting servos for a moment",   0xF4A261,  75 },
+    { "SLEEPING...",  "recharging servos... zZz",      0xA3B8FF, 110 },
 };
 
 /* Background: clean studio backdrop + warm tabletop surface. */
@@ -434,6 +436,10 @@ static void draw_robot_upper(g16_t *g, unsigned frame, int st)
         bob = ((frame >> 1) & 1) ? -2 : 1;
         turn_x = -4;
         tilt_y = -1;
+    } else if (st == ST_SLEEPING) {
+        bob = ((frame / 18) & 1) ? 1 : 0;
+        turn_x = -2;
+        tilt_y = 6 + ((frame / 18) & 1);
     }
 
     /* 1. Black curved office chair backrest behind the robot */
@@ -518,6 +524,22 @@ static void draw_robot_upper(g16_t *g, unsigned frame, int st)
         g16_circfill(g, elx + 5, ely + 8, 5, g16_rgb24(0x0D0F14));
         g16_circfill(g, erx + 5, ery + 5, 6, g16_rgb24(0xFFFFFF));
         g16_circfill(g, erx + 5, ery + 8, 5, g16_rgb24(0x0D0F14));
+    } else if (st == ST_SLEEPING) {
+        /* Peaceful closed sleeping eyes (curved downward arcs) + floating zZz */
+        g16_circfill(g, elx + 5, ely + 3, 5, g16_rgb24(0xC8D8FF));
+        g16_circfill(g, elx + 5, ely + 1, 5, g16_rgb24(0x0D0F14));
+        g16_circfill(g, erx + 5, ery + 3, 5, g16_rgb24(0xC8D8FF));
+        g16_circfill(g, erx + 5, ery + 1, 5, g16_rgb24(0x0D0F14));
+        g->font = &font_console_6x12;
+        for (int z = 0; z < 3; z++) {
+            int phase = (int)((frame + z * 16) % 48);
+            int zx = hx + 114 + z * 10 + phase / 4;
+            int zy = hy + 18 - phase / 3;
+            if (zy >= 26) {
+                uint32_t zcol = (phase < 32) ? 0xC8D8FF : 0x7A8EC8;
+                g16_text(g, zx, zy, (z == 2) ? "Z" : "z", g16_rgb24(zcol));
+            }
+        }
     } else if (blink || st == ST_COFFEE) {
         g16_line(g, elx, ely + 4, elx + 10, ely + 3, g16_rgb24(0xFFFFFF));
         g16_line(g, elx, ely + 5, elx + 10, ely + 4, g16_rgb24(0xFFFFFF));
@@ -642,6 +664,12 @@ static void draw_desk_and_arms(g16_t *g, unsigned frame, int st)
         l_wr_y = bell_y - 6 + bell_press;
     } else if (st == ST_THINKING) {
         l_wr_y -= 4;
+    } else if (st == ST_SLEEPING) {
+        /* Arms resting calmly on the desk beside the laptop */
+        l_wr_x = 166;
+        l_wr_y = 164;
+        r_wr_x = 294;
+        r_wr_y = 148;
     }
 
     /* Draw viewer-left black arm & shoulder/elbow silver screws */
@@ -673,7 +701,8 @@ static void draw_desk_and_arms(g16_t *g, unsigned frame, int st)
 
     /* 5. Tilted Cream Laptop Lid (seen from the back/3/4 angle, as in the photo) */
     /* Soft screen glow spilling from the front of the open laptop */
-    thick_line(g, 206, 144, 338, 120, 2, (frame & 4) ? 0xA8F0FF : 0x7CE0F8);
+    uint32_t glow = (st == ST_SLEEPING) ? 0x385878 : ((frame & 4) ? 0xA8F0FF : 0x7CE0F8);
+    thick_line(g, 206, 144, 338, 120, 2, glow);
     /* Back of the tilted cream laptop screen lid */
     fill_quad(g, 204, 145, 342, 120, 316, 166, 204, 192, 0xC6BDA0);
     fill_quad(g, 206, 143, 340, 118, 314, 163, 204, 189, 0xDDD5B8);
@@ -803,6 +832,9 @@ static int parse_state_token(const char *s)
     if (strcmp(s, "coffee") == 0 || strcmp(s, "idle") == 0 ||
         strcmp(s, "rest") == 0)
         return ST_COFFEE;
+    if (strcmp(s, "sleep") == 0 || strcmp(s, "sleeping") == 0 ||
+        strcmp(s, "zzz") == 0 || strcmp(s, "nap") == 0)
+        return ST_SLEEPING;
     if (strcmp(s, "bye") == 0 || strcmp(s, "stop") == 0)
         return -2;
     return -1;
@@ -1105,7 +1137,7 @@ void spilcd_desk_robot(framebuffer_t *fb)
             } else if (c == HID_KEY_LEFT || c == 'a' || c == 'A') {
                 st = (st + ST_COUNT - 1) % ST_COUNT;
                 st_frames = 0;
-            } else if (c >= '1' && c <= '6') {
+            } else if (c >= '1' && c <= '7') {
                 st = c - '1';
                 st_frames = 0;
                 if (st == ST_BELL)

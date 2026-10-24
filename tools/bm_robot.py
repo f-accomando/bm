@@ -128,7 +128,9 @@ def is_bm_core_merge_cmd(cmd):
 def classify_hook_event(data):
     """Maps a Claude/Agent tool event to (state, subtitle) for the desk robot."""
     event = str(data.get("hook_event_name") or "")
-    if event in ("Stop", "SubagentStop", "SessionEnd"):
+    if event == "SessionEnd":
+        return ("sleep", "recharging servos... zZz")
+    if event in ("Stop", "SubagentStop"):
         return ("coffee", "session idle")
 
     tool = str(data.get("tool_name") or data.get("tool") or "")
@@ -232,7 +234,7 @@ def main():
     ap.add_argument("host", nargs="?", default=DEFAULT_HOST, help="Pi 1 IP address")
     ap.add_argument("-p", "--password", default=DEFAULT_PASS, help="Console net_password")
     ap.add_argument("--port", type=int, default=UDP_PORT, help="UDP port (default 3337)")
-    ap.add_argument("-s", "--state", help="think | code | compile | debug | merge | coffee | bye")
+    ap.add_argument("-s", "--state", help="think | code | compile | debug | merge | coffee | sleep | bye")
     ap.add_argument("-m", "--msg", default="", help="Subtitle shown in the top HUD bar")
     ap.add_argument("--session", default="cli", help="Session ID for multi-agent tracking")
     ap.add_argument("--hook", action="store_true", help="Read Claude/Agent hook JSON from stdin")
