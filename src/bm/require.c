@@ -73,7 +73,7 @@ static int l_require(lua_State *L)
             continue;
         char chunk[40];
         snprintf(chunk, sizeof chunk, "=%s", name);
-        if (luaL_loadbuffer(L, (const char *)libs[i].src, (size_t)(libs[i].end - libs[i].src), chunk) != LUA_OK)
+        if (luaL_loadbufferx(L, (const char *)libs[i].src, (size_t)(libs[i].end - libs[i].src), chunk, "t") != LUA_OK)
             return lua_error(L);
         lua_pushstring(L, name);
         int nargs = 1;

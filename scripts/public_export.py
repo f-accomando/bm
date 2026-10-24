@@ -24,10 +24,10 @@ EXCLUDE = [
     'manuals/shots', 'manuals/themes/preview.png', 'tests/ai/*.png',
     'tests/nano8', 'tests/kitchen', 'tests/overbit', 'tests/yharnam',
     'tests/bm/herobench.c', 'tests/bm/herocost.py', 'tests/bm/mapbench.c',
-    'tests/tools/test_agent_audit.py', 'tests/tools/test_public_export.py',
+    'scripts/scaffold_pdf', 'tests/tools/test_agent_audit.py', 'tests/tools/test_public_export.py',
     'boot/rgb30/LEGGIMI.txt',
     *['scripts/' + s for s in ('agent_audit.py cindex.py consistency.py ctx_guard.py docs_audit.py '
-                               'generate_guide_pdf.py generate_scaffold_pdf.py generate_scaffold_pdf_it.py '
+                               'generate_guide_pdf.py generate_scaffold_pdf.py '
                                'market-key.sh market.sh mkcovers.py render_game_shots.py wsl-run.ps1 '
                                'public_export.py').split()],
     'tools/bmplay/video.sh', 'tools/bmplay/yharnam_bot.lua', 'tools/showreel', 'tools/mappvs.c', 'tools/sync_*',

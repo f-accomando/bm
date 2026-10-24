@@ -1743,6 +1743,14 @@ test-luatext: $(BUILD)/host/bmhost-bin scripts/mkbm.py
 	@echo "luatext: 1/1 checks passed"
 .PHONY: test-luatext
 
+# luavm_run (kernel scripts) loads text only: a binary chunk is refused (mode "t")
+test-luavm-text: tests/script/luavm_text_host.c src/script/luavm.c $(LUA_SRCS)
+	@mkdir -p $(BUILD)/host
+	@$(HOSTCC) -O1 -w -Ithird_party/lua -Isrc -o $(BUILD)/host/luavm_text_host tests/script/luavm_text_host.c src/script/luavm.c \
+	    $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS)) -lm
+	@$(BUILD)/host/luavm_text_host
+.PHONY: test-luavm-text
+
 test-consistency:
 	$(PYTHON) scripts/consistency.py check
 .PHONY: test-spec test-consistency

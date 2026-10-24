@@ -86,7 +86,7 @@ int luavm_run(const char *code, size_t len, const char *chunkname)
 {
     int base = lua_gettop(L);
     lua_pushcfunction(L, traceback);
-    int status = luaL_loadbuffer(L, code, len, chunkname);
+    int status = luaL_loadbufferx(L, code, len, chunkname, "t");
     if (status == LUA_OK)
         status = lua_pcall(L, 0, 0, base + 1);
     if (status != LUA_OK) {

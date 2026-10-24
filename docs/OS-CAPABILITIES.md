@@ -7,6 +7,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 
 - Every fact comes from the source code. The `Source` column or the brackets give `file:line`.
 - Line numbers are those of `bm-core` at commit `993ae1f7` (2026-10-22). They move when the code changes.
+- The lines of section 2 and section 8 about `runtime.c` were checked again on 2026-10-24. Other `runtime.c` lines can be stale.
 - Tags:
   - **code**: read in the source. Not run on hardware.
   - **measured**: a number taken from a document of this repository. It was not measured again for this file.
@@ -37,13 +38,13 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 
 - The Lua build has 64-bit integers and double floats. `LUA_32BITS` is 0. [code, `third_party/lua/luaconf.h:125`]
 - Two changes to Lua exist: a cheaper count hook and a profiler hook for C functions. [code, `third_party/lua/README.bm`]
-- **Libraries in a cartridge**: `base`, `table`, `string`, `math`, `coroutine`, `utf8`, and the bm API. [code, `src/bm/runtime.c:4921-4926`]
-- **Libraries not in a cartridge**: `io`, `os`, `package`, `debug`. They are not opened. [code, `src/bm/runtime.c:4921-4926`]
-- `dofile`, `loadfile` and `load` are set to nil in a cartridge. [code, `src/bm/runtime.c:4932`]
+- **Libraries in a cartridge**: `base`, `table`, `string`, `math`, `coroutine`, `utf8`, and the bm API. [code, `src/bm/runtime.c:5802-5808`]
+- **Libraries not in a cartridge**: `io`, `os`, `package`, `debug`. They are not opened. [code, `src/bm/runtime.c:5802-5808`]
+- `dofile`, `loadfile` and `load` are set to nil in a cartridge. [code, `src/bm/runtime.c:5812`]
 - `require` is the kernel's own. It loads only the libraries built into the kernel (`assist`, `bm3d`, `bmlib`, `bmnet`, `predict`, `words`, `padtype`, `riff`, `bmui`). [code, `src/bm/require.c:12-33`]
 - **Lua heap**: 64 MB for all Lua states together. The allocator refuses growth above it. [code, `src/script/luavm.c:13`, `src/script/luavm.c:28`]
-- **Time limit**: a callback that runs more than 20 million Lua instructions in one frame stops with "cart timeout". [code, `src/bm/runtime.c:70-71`, `src/bm/runtime.c:4896`]
-- **Garbage collector**: generational. [code, `src/bm/runtime.c:4978`]
+- **Time limit**: a callback that runs more than 20 million Lua instructions in one frame stops with "cart timeout". [code, `src/bm/runtime.c:79-80`, `src/bm/runtime.c:5776`]
+- **Garbage collector**: generational. [code, `src/bm/runtime.c:5872`]
 - **Stack**: the kernel stack is 1 MB on both machines. The Lua parser and the VM use it. [code, `linker.ld:4`, `src/rgb30/kernel.ld:9`]
 - **Native code from a cartridge**: there is no loader, no `dlopen` and no machine-code section in the format. [code, `src/bm/bm.h:154-167`]
   - The QPU programs are built into the kernel. A cartridge cannot supply one. [code]
@@ -190,9 +191,9 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 
 ### 5.2 Video recording
 
-- **Merged code has no video recorder and no video player.** There is no `.bmv` reader in `src/`. [code, `grep -i "\.bmv" src` is empty]
-- Screenshots are the only capture feature. The PC can fetch a PNG with `G` over the network. [code, `src/net/netxfer.c:17-18`]
-- **Proposed, not merged**: PR 80 (study), PR 82 (PC spikes and a Video bench), PR 83 (`.bmv` container, reader, `mkvid` tool), PR 112 (Lua clip player). Their state and speed are **not verified on hardware**. [gh pr list]
+- The kernel has a `.bmv` reader (`src/bm/vid.c`, `src/bm/runtime.c` section `video clips (.bmv)`) and a recorder (`src/bm/rec.c`, key `rec=on`). A clip is read whole into memory, 48 MB at most. [code, `src/bm/runtime.c:5520-5526`]
+- Screenshots are the other capture feature. The PC can fetch a PNG with `G` over the network. [code, `src/net/netxfer.c:17-18`]
+- The speed of clips and of the recorder is **not verified on hardware**.
 
 ## 6. Storage
 
@@ -291,7 +292,7 @@ A cartridge **can**: [code]
 A cartridge **cannot**: [code]
 - Open arbitrary files. `io`, `os`, `package`, `debug`, `load`, `loadfile` and `dofile` are removed.
 - Use TCP, HTTP or a raw socket.
-- Run longer than 20 million Lua instructions in one callback. `src/bm/runtime.c:70-71`
+- Run longer than 20 million Lua instructions in one callback. `src/bm/runtime.c:79-80`
 - Use more than 64 MB of Lua memory. `src/script/luavm.c:13`
 
 **Reading the SD card (`ls`, `cart_read`): finding kept, behaviour not changed.**
@@ -302,9 +303,11 @@ A cartridge **cannot**: [code]
 **The bytecode question (closed).**
 - The runtime loads `main.lua` of a cartridge with `lua_load(..., "t")`. Only text chunks load. A chunk that starts with the bytecode signature stops with "attempt to load a binary chunk (mode is 't')". [code, `src/bm/runtime.c` (`bm_run`)]
 - The capture of a cartridge's 3D data (`bm_meshcap`) loads the code with mode `"t"` too. [code, `src/bm/meshcap.c`]
-- The library loader and the save loader use mode `"t"`. [code, `src/bm/require.c:50`, `src/bm/runtime.c:3840`]
+- The library loader, the save loader and the riff loader use mode `"t"`. [code, `src/bm/require.c:50`, `src/bm/require.c:76`, `src/bm/runtime.c:3862`]
+- The kernel scripts (`luavm_run`, the REPL) and the embedded library loads in `meshcap.c` use mode `"t"` too. The embedded libraries are `.lua` text files (`src/rgb30/bm_embed.S`). [code, `src/script/luavm.c:89`, `src/script/repl.c:132,138`, `src/bm/meshcap.c:336,533`]
 - Cartridges store Lua as source text (the token count in `lua_tokens` reads text). No tool in the repository writes bytecode into a cartridge, so the restriction removes no valid cartridge. [code, `scripts/mkbm.py`]
 - Why: Lua does not verify precompiled chunks. A crafted chunk can corrupt memory, and the kernel has no memory protection.
+- Test: `make test-luavm-text` runs `luavm_run` on a binary chunk and on a text chunk. The chunk is refused and the text runs. The test fails on the old `luaL_loadbuffer` call.
 - Test: `make test-luatext` packs a cartridge whose code starts with the bytecode signature. The runtime must refuse it. The test fails on the old `NULL` mode (the chunk is read as bytecode and fails with "bad binary format" instead).
 - Not covered: the `string.dump` function is still present in the cartridge sandbox. It only makes bytecode. Nothing in the sandbox can load it, because `load`, `loadfile` and `dofile` are removed.
 
@@ -410,7 +413,7 @@ Legend: **measured**, **from code**, **estimate**.
 ## Unverified items
 
 - All hardware behavior in this file is **not verified on hardware** by the writer.
-- The bytecode refusal is tested on the host only (`make test-luatext`). It is **not verified on hardware**.
+- The bytecode refusal is tested on the host only (`make test-luatext`, `make test-luavm-text`). It is **not verified on hardware**.
 - The password guessing risk in section 8.1 was **not tested**. The new password source (`rng_read`) is tested on the host with a fake generator. It is **not verified on hardware**.
 - The file dates from SNTP are tested on the host (`make test-fat`, a fake clock). They are **not verified on hardware**. The dates are UTC. There is no time zone.
 - No SD speed, no boot time and no RGB30 3D rate is documented. They are **not verified**.

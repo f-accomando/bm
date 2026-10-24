@@ -129,13 +129,13 @@ static void eval(lua_State *L, char *chunk)
 
     /* Expression? */
     lua_pushfstring(L, "return %s;", chunk);
-    status = luaL_loadbuffer(L, lua_tostring(L, -1), lua_rawlen(L, -1), "=stdin");
+    status = luaL_loadbufferx(L, lua_tostring(L, -1), lua_rawlen(L, -1), "=stdin", "t");
     lua_remove(L, -2);
     if (status != LUA_OK) {
         lua_pop(L, 1);
         /* Statement, possibly spanning several lines. */
         for (;;) {
-            status = luaL_loadbuffer(L, chunk, len, "=stdin");
+            status = luaL_loadbufferx(L, chunk, len, "=stdin", "t");
             if (!incomplete(L, status))
                 break;
             int n = read_line(">> ", line);

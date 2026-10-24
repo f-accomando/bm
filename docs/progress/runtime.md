@@ -1,6 +1,6 @@
 # runtime.c: where things are
 
-`src/bm/runtime.c` is ~350 KB and 9400 lines: never read it whole. Find the section here,
+`src/bm/runtime.c` is ~418 KB and 11010 lines: never read it whole. Find the section here,
 then `python scripts/cindex.py src/bm/runtime.c <word>` for the line, then `Read` with
 `offset`/`limit` on that stretch only. Line numbers are not kept here: they go stale; the
 banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runtime*).
@@ -29,9 +29,13 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `collision worlds`: `world3d` boxes, rays, moving bodies.
 - `the network for the games`: UDP sockets over `src/net/cartnet.h`, lockstep commands.
 - `save() / saved()`: the 8-slot Lua-source saves in `/bm/save`.
+- `screenshots`: `shot()` and the PNG save (`docs/SCREENSHOTS.md`).
 - `documents`: `/docs` files for bm Write.
+- `the web`: `web_get`, `image_load`, `file_write` for a browser cart.
 - `sound`: audio bindings, bank, `au_parse`.
-- `keys`, `light`, `state`, `input`, `typing`: key/pad/mouse reading, nano8 light, game state.
+- `keys`, `light`: key/pad/mouse reading, nano8 light.
+- `video clips (.bmv)`: clip player and recorder clips (`vid.c`, `rec.c`).
+- `state`, `input`, `typing`: game state, input, typing.
 - `loading`: cartridge load, `.bm` sections, resources.
 - `editor`: the in-console code editor (largest block).
 - `player`: the cartridge loop: `_init`, `_update`, `_draw`, page flip, frameskip.
