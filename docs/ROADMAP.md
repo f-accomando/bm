@@ -38,6 +38,7 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - API-9 - P2 - to do - `palt`, global alpha and 2D blend modes (add, multiply). Done when a test cart shows each mode and the default drawing is unchanged. [graphics](progress/graphics.md)
 - API-10 - P3 - idea - 2D physics: rigid bodies, joints and contacts (a Box2D subset, zlib license). Clarify with the user first which games need it. Do it after API-7 to API-9. [graphics](progress/graphics.md)
 - API-11 - P3 - idea - Noise (Perlin or Simplex) and other `love.math` helpers in `bmlib`. [lua](progress/lua.md)
+- API-12 - P2 - to do - Hot Lua of the games in C: move the heavy loops of `bmlib` (`lib.ray`, bot paths, particles) to C functions that the runtime registers. Lua keeps the game logic. Done when `profile(true)` shows the Lua time of each moved loop on the Pi lower than before, the Lua API does not change, and the tests of the games pass. First measure with `profile(true)`. Move a loop only if Lua limits the frame. [lua](progress/lua.md) `Lua speed, step 10`
 
 ## Video, recording and audio
 
