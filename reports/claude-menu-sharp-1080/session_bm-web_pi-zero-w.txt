@@ -3,27 +3,27 @@ kind: session
 kernel: v0.2.5-1508-g3d44b6db
 branch: claude/menu-sharp-1080
 board: Pi Zero W
-date: 2026-10-24 15:41:20
+date: 2026-10-24 15:41:29
 file: session_bm-web_pi-zero-w.txt
 
 session of "bm Web" since it was resumed (the last one: the next run of this game replaces this file)
 options bm3d 7.7 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 640x360, 291 frames in 4.8 s, 59.9 fps
+screen 640x360, 103 frames in 1.7 s, 59.9 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 4.4 ms, max 4.5 ms, 0 frames over 16.7 ms
-memory: Lua peak 656 KB, data 1098 KB; code 20549 tokens; busiest frame 91k Lua instructions
+time of _update + _draw (+ the 3D's wait): avg 4.4 ms, max 6.5 ms, 0 frames over 16.7 ms
+memory: Lua peak 657 KB, data 1098 KB; code 20549 tokens; busiest frame 91k Lua instructions
 frames that were shown after more than 1.5 frames: 0
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    291
+  <= 18 ms (60 fps)    103
   <= 25 ms             0
   <= 34 ms (30 fps)    0
   <= 50 ms             0
   <= 100 ms            0
   > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 290 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 102 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
   draw (no 3D)     4.4   26%
   3D calls         0.0    0%
