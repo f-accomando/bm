@@ -1911,28 +1911,57 @@ static const uint32_t *flat_prepare(const r3d_mesh_t *cm)
     return m->flatcol;
 }
 
-static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
-                       float scale, unsigned flags)
-{
-    if (r->notex)
-        flags |= R3D_FLATTEX;
-    static sv_t sv[MAX_VERTS];
-    static cv_t cv[MAX_VERTS];
-    static v3_t vn[MAX_VERTS];          /* Gouraud: vertex normals in world axes */
-    static float vc[MAX_VERTS][3];      /* Gouraud: the colour of each vertex... */
-    static uint32_t vkey[MAX_VERTS];    /* ...for this face colour (computed when a face needs it) */
-    if (m->nverts > MAX_VERTS)
-        return;
+/* ---- draw_flags in steps (the same arithmetic, in the same order, as the one function it was).
+ * df_cull -> df_shadow | (df_light_setup, df_objlight, df_fuse, df_backend_mesh, df_transform,
+ * df_front_clear, df_faces: df_face_baked | df_face_gouraud | df_face_light + df_face_tex or
+ * df_face_plain). The per-face steps are always_inline: no call in the triangle loop. */
 
+static sv_t df_sv[MAX_VERTS];
+static cv_t df_cv[MAX_VERTS];
+static v3_t df_vn[MAX_VERTS];         /* Gouraud: vertex normals in world axes */
+static float df_vc[MAX_VERTS][3];     /* Gouraud: the colour of each vertex... */
+static uint32_t df_vkey[MAX_VERTS];   /* ...for this face colour (computed when a face needs it) */
+static xform_t df_X;
+/* a backend: object -> camera in one matrix a bone (its pixels need not
+ * match the ARM's to the last bit; the ARM keeps its two steps, but with
+ * r->fast, bm3d 4.9) */
+static float df_F[MAX_BONES + 1][12];
+static const lit_t df_full = { { 1, 1, 1 }, { 0, 0, 0 } };
+
+/* what the steps of one draw share */
+typedef struct {
+    r3d_t *r;
+    const r3d_mesh_t *m;
     view_t v;
-    view_setup(r, &v);
-    const float *C = v.c;
-    int inside = 0;                     /* R3D_INSIDE for the backend */
-    float R[9];
-    rot_matrix(R, rx, ry, rz);
-    const int skinned = m->bones && m->nbones > 0;
-    /* impostors on, a mesh with a skeleton: the box of its pose and the
-     * sphere round it, from its bones (the same on every console) */
+    const xform_t *X;
+    uint16_t *zbuf;
+    const uint32_t *fcol;               /* the faces' colours without the textures */
+    unsigned detail;
+    int inside;                         /* R3D_INSIDE for the backend */
+    int skinned, unlit, smooth, front, fog, objlight, fused, baked_lamps, all_front;
+    float zmul, fog_k;
+    lamps_t lamps;                      /* the lamps in camera space, like the vertices */
+    shine_t sh, sho;
+    int bx0, by0, bx1, by1;             /* R3D_FRONT: screen box */
+    int nv, nfront;
+} dfc_t;
+
+/* one face, as the triangle loop found it */
+typedef struct {
+    int t;
+    uint32_t rgb;
+    const uint16_t *fc;
+    const cv_t *cs[3];
+    const sv_t *ss[3];
+    int nin, textured, emissive, glossy, screen;
+} dff_t;
+
+/* out of view (or drawn as an impostor): 1 when nothing more is to be drawn.
+ * Sets *inside. plo, phi: the pose box of a mesh with a skeleton */
+static int df_cull(r3d_t *r, const r3d_mesh_t *m, const view_t *v, const float R[9], v3_t p, float scale,
+                   unsigned flags, int skinned, int *inside)
+{
+    const float *C = v->c;
     float plo[3], phi[3], prad = 0;
     const int posed = skinned && r->impostor > 0 && m->radius >= 0 && !(flags & (R3D_SHADOW | R3D_FRONT)) &&
                       m->nfaces > 2 && imp_bones((r3d_mesh_t *)m) && imp_pose(m, plo, phi, &prad);
@@ -1950,191 +1979,216 @@ static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry
                     wz = p.z + scale * (R[6] * o.x + R[7] * o.y + R[8] * o.z) - r->cam_pos.z;
         const float cx = C[0] * wx + C[1] * wy + C[2] * wz, cy = C[3] * wx + C[4] * wy + C[5] * wz,
                     cz = C[6] * wx + C[7] * wy + C[8] * wz;
-        if (cz + rad < NEAR || v.f * fabsf(cx) - v.hw * cz > rad * v.side ||
-            v.f * fabsf(cy) - v.hh * cz > rad * v.top) {
+        if (cz + rad < NEAR || v->f * fabsf(cx) - v->hw * cz > rad * v->side ||
+            v->f * fabsf(cy) - v->hh * cz > rad * v->top) {
             r->tris_in += (uint32_t)m->nfaces;
-            return;
+            return 1;
         }
         if (r->impostor > 0 && !(flags & R3D_FRONT) && m->nfaces > 2 &&
-            impostor(r, m, &v, R, p, scale, posed ? plo : NULL, posed ? phi : NULL, wx, wy, wz, cz, rad, flags))
-            return;
+            impostor(r, m, v, R, p, scale, posed ? plo : NULL, posed ? phi : NULL, wx, wy, wz, cz, rad, flags))
+            return 1;
         /* the backend's guard band: |x| <= |cx| + rad and z >= cz - rad
          * for every point of the sphere (not with a skeleton: drawn as
          * without impostors) */
         const float zmin = cz - rad, gb = r->backend && !skinned ? r->backend->guard : 0;
-        if (gb > 0 && zmin >= NEAR && v.f * (fabsf(cx) + rad) <= (v.hw + gb) * zmin &&
-            v.f * (fabsf(cy) + rad) <= (v.hh + gb) * zmin)
-            inside = R3D_INSIDE;
+        if (gb > 0 && zmin >= NEAR && v->f * (fabsf(cx) + rad) <= (v->hw + gb) * zmin &&
+            v->f * (fabsf(cy) + rad) <= (v->hh + gb) * zmin)
+            *inside = R3D_INSIDE;
     }
-    static xform_t X;
-    xform_setup(&X, r, m, R, p, scale);
-    const unsigned detail = 3u - (flags >> 4 & 3u), dbit = 1u << detail;
-    if (flags & R3D_SHADOW) {
-        r->tris_in += (uint32_t)m->nfaces;  /* a shadow is the mesh drawn again, flattened */
-        if (r->backend && r->backend->shadow) {
-            v3_t L = r->light;
-            if (L.y < 0.25f) L.y = 0.25f;   /* as draw_shadow */
-            r3d_env_t env;
-            memset(&env, 0, sizeof env);
-            env.f = v.f;
-            env.cx = v.hw;
-            env.cy = v.hh;
-            env.detail = detail;
-            env.shade = r->backend->shadow_blend && !r->shadow_style;
-            const int nb = m->bones && m->nbones > 0 ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
-            if (r->backend->shadow(r->backend->ctx, r->g, m, (const float (*)[12])X.m, nb, v.c, L,
-                                   p.y - r->cam_pos.y, &env)) {
-                r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
-                return;
-            }
+    return 0;
+}
+
+/* a shadow is the mesh drawn again, flattened */
+static void df_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *X, v3_t p, const view_t *v, unsigned detail)
+{
+    r->tris_in += (uint32_t)m->nfaces;
+    if (r->backend && r->backend->shadow) {
+        v3_t L = r->light;
+        if (L.y < 0.25f) L.y = 0.25f;   /* as draw_shadow */
+        r3d_env_t env;
+        memset(&env, 0, sizeof env);
+        env.f = v->f;
+        env.cx = v->hw;
+        env.cy = v->hh;
+        env.detail = detail;
+        env.shade = r->backend->shadow_blend && !r->shadow_style;
+        const int nb = m->bones && m->nbones > 0 ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
+        if (r->backend->shadow(r->backend->ctx, r->g, m, (const float (*)[12])X->m, nb, v->c, L,
+                               p.y - r->cam_pos.y, &env)) {
+            r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
+            return;
         }
-        draw_shadow(r, m, &X, p, detail, &v);
-        return;
     }
-    uint16_t *zbuf = (flags & R3D_NOZ) ? NULL : r->zbuf;
-    const int unlit = (flags & R3D_UNLIT) != 0;
-    const int smooth = (flags & R3D_SMOOTH) && m->vnormals;
-    const int front = (flags & R3D_FRONT) != 0;
-    const uint32_t *fcol = (flags & R3D_FLATTEX) ? flat_prepare(m) : NULL;    /* the faces' colours without the textures */
-    const float zmul = front ? 0.1f : 1.0f;
-    const int fog = r->fog_far > r->fog_near;
-    const float fog_k = fog ? 1.0f / (r->fog_far - r->fog_near) : 0;
-    /* the lamps in camera space, like the vertices */
-    lamps_t lamps = { .n = 0 };
+    draw_shadow(r, m, X, p, detail, v);
+}
+
+/* the lamps in camera space, and one view direction for the whole object */
+static void df_light_setup(dfc_t *d, v3_t p, float scale, unsigned flags)
+{
+    r3d_t *r = d->r;
+    const float *C = d->v.c;
+    const int unlit = d->unlit, front = d->front;
+    lamps_t *lamps = &d->lamps;
+    *lamps = (lamps_t){ .n = 0 };
     for (int i = 0; i < R3D_LAMPS && !unlit; i++) {
         if (!r->lamp[i].on)
             continue;
         const float wx = r->lamp[i].pos.x - r->cam_pos.x, wy = r->lamp[i].pos.y - r->cam_pos.y,
                     wz = r->lamp[i].pos.z - r->cam_pos.z;
-        lamps.pos[lamps.n] = (v3_t){ C[0] * wx + C[1] * wy + C[2] * wz, C[3] * wx + C[4] * wy + C[5] * wz,
-                                     C[6] * wx + C[7] * wy + C[8] * wz };
-        lamps.r2[lamps.n] = r->lamp[i].r2;
-        lamps.k[lamps.n] = r->lamp[i].k;
-        lamps.c[lamps.n++] = r->lamp[i].c;
+        lamps->pos[lamps->n] = (v3_t){ C[0] * wx + C[1] * wy + C[2] * wz, C[3] * wx + C[4] * wy + C[5] * wz,
+                                       C[6] * wx + C[7] * wy + C[8] * wz };
+        lamps->r2[lamps->n] = r->lamp[i].r2;
+        lamps->k[lamps->n] = r->lamp[i].k;
+        lamps->c[lamps->n++] = r->lamp[i].c;
     }
     /* one view direction for the whole object (its middle, about a unit
      * above where it stands; the camera's own back for a first-person model) */
-    shine_t sh;
-    sh.cel = (flags & R3D_CEL) && r->cel_bands > 0 && !unlit ? r->cel_lut : NULL;
+    shine_t *sh = &d->sh;
+    sh->cel = (flags & R3D_CEL) && r->cel_bands > 0 && !unlit ? r->cel_lut : NULL;
     {
         float wx = r->cam_pos.x - p.x, wy = r->cam_pos.y - (p.y + (front ? 0 : scale)), wz = r->cam_pos.z - p.z;
         float l = sqrtf(wx * wx + wy * wy + wz * wz);
         if (front || l < 0.3f) {
-            sh.V = (v3_t){ -C[6], -C[7], -C[8] };
+            sh->V = (v3_t){ -C[6], -C[7], -C[8] };
         } else {
-            sh.V = (v3_t){ wx / l, wy / l, wz / l };
+            sh->V = (v3_t){ wx / l, wy / l, wz / l };
         }
-        float hx = r->light.x + sh.V.x, hy = r->light.y + sh.V.y, hz = r->light.z + sh.V.z;
+        float hx = r->light.x + sh->V.x, hy = r->light.y + sh->V.y, hz = r->light.z + sh->V.z;
         float hl = sqrtf(hx * hx + hy * hy + hz * hz);
-        sh.H = hl > 1e-6f ? (v3_t){ hx / hl, hy / hl, hz / hl } : sh.V;
+        sh->H = hl > 1e-6f ? (v3_t){ hx / hl, hy / hl, hz / hl } : sh->V;
     }
+}
 
-    /* baked light (a "lit" model): the lamps still add to it (flashes, fire) */
-    const int baked_lamps = m->clight && lamps.n;
-    int bx0 = r->g->w, by0 = r->g->h, bx1 = 0, by1 = 0;     /* R3D_FRONT: screen box */
-    int nv = 0, nfront = 0;
-    /* a backend: object -> camera in one matrix a bone (its pixels need not
-     * match the ARM's to the last bit; the ARM keeps its two steps, but with
-     * r->fast, bm3d 4.9) */
-    static float F[MAX_BONES + 1][12];
-    const int fused = r->backend != NULL || r->fast;
-    /* bm3d 4.9, r->fast: a model without bones lit in its own axes (the sun, up,
-     * V and H turned back once, its normals not turned at all) */
-    shine_t sho;
-    sho.cel = sh.cel;
-    const int objlight = r->fast && !skinned;
-    if (objlight) {
-        const float *N = X.n[0];
+/* bm3d 4.9, r->fast: a model without bones lit in its own axes (the sun, up,
+ * V and H turned back once, its normals not turned at all) */
+static void df_objlight(dfc_t *d)
+{
+    const r3d_t *r = d->r;
+    const shine_t *sh = &d->sh;
+    shine_t *sho = &d->sho;
+    sho->cel = sh->cel;
+    if (d->objlight) {
+        const float *N = d->X->n[0];
         const v3_t up = { 0, 1, 0 };
-        const v3_t *w[4] = { &r->light, &up, &sh.V, &sh.H };
-        v3_t *o[4] = { &sho.L, &sho.U, &sho.V, &sho.H };
+        const v3_t *w[4] = { &r->light, &up, &sh->V, &sh->H };
+        v3_t *o[4] = { &sho->L, &sho->U, &sho->V, &sho->H };
         for (int k = 0; k < 4; k++)
             *o[k] = (v3_t){ N[0] * w[k]->x + N[3] * w[k]->y + N[6] * w[k]->z,
                             N[1] * w[k]->x + N[4] * w[k]->y + N[7] * w[k]->z,
                             N[2] * w[k]->x + N[5] * w[k]->y + N[8] * w[k]->z };
     }
-    if (fused) {
-        const int nb = skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
+}
+
+/* object -> camera in one matrix a bone */
+static void df_fuse(const dfc_t *d)
+{
+    const float *C = d->v.c;
+    if (d->fused) {
+        const int nb = d->skinned ? (d->m->nbones < MAX_BONES ? d->m->nbones : MAX_BONES) : 1;
         for (int b = 0; b < nb; b++) {
-            const float *W = X.m[b];
+            const float *W = d->X->m[b];
             for (int k = 0; k < 3; k++)
                 for (int j = 0; j < 4; j++)
-                    F[b][k * 4 + j] = C[k * 3] * W[j] + C[k * 3 + 1] * W[4 + j] + C[k * 3 + 2] * W[8 + j];
+                    df_F[b][k * 4 + j] = C[k * 3] * W[j] + C[k * 3 + 1] * W[4 + j] + C[k * 3 + 2] * W[8 + j];
         }
     }
-    /* bm3d 3.0: a mesh the GPU places itself (its vertex shader), with its
-     * bones: unlit, a "lit" model (light baked at its corners: the world of
-     * a map), or lit by the sun and the sky (heroes), with the fog and the
-     * lamps; the backend may say no */
-    /* cel (bm3d 7.5): a backend with cel cuts the light itself (its vertex programs); else a lit
-     * cel draw is lit on the ARM (the triangles go one by one with their colours, as with vs 1) */
-    if (r->backend && r->backend->mesh && !fcol &&
-        !(sh.cel && !m->clight && !r->backend->cel)) {     /* (the backend's copy has the textures: the triangles go one by one) */
-        r3d_env_t env;
-        env.f = v.f;
-        env.cx = v.hw;
-        env.cy = v.hh;
-        env.fog_near = fog ? r->fog_near : 0;
-        env.fog_k = fog_k;
-        env.fog[0] = (r->fog_rgb >> 16 & 255) * (1.0f / 255);
-        env.fog[1] = (r->fog_rgb >> 8 & 255) * (1.0f / 255);
-        env.fog[2] = (r->fog_rgb & 255) * (1.0f / 255);
-        env.nlamps = lamps.n;
-        for (int i = 0; i < lamps.n; i++) {
-            float *L = env.lamp[i];
-            L[0] = lamps.pos[i].x; L[1] = lamps.pos[i].y; L[2] = lamps.pos[i].z;
-            L[3] = 1.0f / lamps.r2[i];
-            L[4] = lamps.k[i] * lamps.c[i].r; L[5] = lamps.k[i] * lamps.c[i].g; L[6] = lamps.k[i] * lamps.c[i].b;
-        }
-        env.detail = detail;
-        env.unlit = unlit;
-        env.inside = inside != 0;
-        env.lit = !unlit && !m->clight;
-        env.cel = env.lit && sh.cel ? r->cel_bands : 0;
-        env.cel_floor = r->cel_floor;
-        env.smooth = smooth;
-        env.front = front;
-        if (front && zbuf)
-            r->backend->zclear(r->backend->ctx, r->g);     /* the first-person layer, as below */
-        if (env.lit) {
-            const float a = r->ambient;
-            const float sky[3] = { r->sky.r, r->sky.g, r->sky.b }, ground[3] = { r->ground.r, r->ground.g, r->ground.b },
-                        sun[3] = { r->sun.r, r->sun.g, r->sun.b };
-            for (int c = 0; c < 3; c++) {
-                env.A[c] = a * (ground[c] + 0.5f * (sky[c] - ground[c]));
-                env.B[c] = 0.5f * a * (sky[c] - ground[c]);
-                env.D[c] = (1.0f - a) * sun[c];
-                env.R[c] = r->rim_k > 0 ? r->rim_k * sky[c] : 0;
-                env.S[c] = r->spec_k > 0 ? r->spec_k * sun[c] : 0;
-            }
-            env.spec_p = (float)(1 << r->spec_shift);
-            env.sun[0] = r->light.x; env.sun[1] = r->light.y; env.sun[2] = r->light.z;
-            env.view[0] = sh.V.x; env.view[1] = sh.V.y; env.view[2] = sh.V.z;
-            env.half[0] = sh.H.x; env.half[1] = sh.H.y; env.half[2] = sh.H.z;
-        }
-        const int nb = skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
-        if (r->backend->mesh(r->backend->ctx, r->g, m, (const float (*)[12])F, (const float (*)[9])X.n, nb, &env,
-                             zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
-            mg_took = 1;
-            r->tris_in += (uint32_t)m->nfaces;
-            r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
-            return;
-        }
+}
+
+/* bm3d 3.0: a mesh the GPU places itself (its vertex shader), with its
+ * bones: unlit, a "lit" model (light baked at its corners: the world of
+ * a map), or lit by the sun and the sky (heroes), with the fog and the
+ * lamps; the backend may say no. 1: the backend took the mesh */
+static int df_backend_mesh(dfc_t *d)
+{
+    r3d_t *r = d->r;
+    const r3d_mesh_t *m = d->m;
+    const view_t *v = &d->v;
+    const lamps_t *lamps = &d->lamps;
+    const shine_t *sh = &d->sh;
+    const int fog = d->fog, unlit = d->unlit, smooth = d->smooth, front = d->front;
+    uint16_t *zbuf = d->zbuf;
+    const float fog_k = d->fog_k;
+    r3d_env_t env;
+    env.f = v->f;
+    env.cx = v->hw;
+    env.cy = v->hh;
+    env.fog_near = fog ? r->fog_near : 0;
+    env.fog_k = fog_k;
+    env.fog[0] = (r->fog_rgb >> 16 & 255) * (1.0f / 255);
+    env.fog[1] = (r->fog_rgb >> 8 & 255) * (1.0f / 255);
+    env.fog[2] = (r->fog_rgb & 255) * (1.0f / 255);
+    env.nlamps = lamps->n;
+    for (int i = 0; i < lamps->n; i++) {
+        float *L = env.lamp[i];
+        L[0] = lamps->pos[i].x; L[1] = lamps->pos[i].y; L[2] = lamps->pos[i].z;
+        L[3] = 1.0f / lamps->r2[i];
+        L[4] = lamps->k[i] * lamps->c[i].r; L[5] = lamps->k[i] * lamps->c[i].g; L[6] = lamps->k[i] * lamps->c[i].b;
     }
+    env.detail = d->detail;
+    env.unlit = unlit;
+    env.inside = d->inside != 0;
+    env.lit = !unlit && !m->clight;
+    env.cel = env.lit && sh->cel ? r->cel_bands : 0;
+    env.cel_floor = r->cel_floor;
+    env.smooth = smooth;
+    env.front = front;
+    if (front && zbuf)
+        r->backend->zclear(r->backend->ctx, r->g);     /* the first-person layer, as below */
+    if (env.lit) {
+        const float a = r->ambient;
+        const float sky[3] = { r->sky.r, r->sky.g, r->sky.b }, ground[3] = { r->ground.r, r->ground.g, r->ground.b },
+                    sun[3] = { r->sun.r, r->sun.g, r->sun.b };
+        for (int c = 0; c < 3; c++) {
+            env.A[c] = a * (ground[c] + 0.5f * (sky[c] - ground[c]));
+            env.B[c] = 0.5f * a * (sky[c] - ground[c]);
+            env.D[c] = (1.0f - a) * sun[c];
+            env.R[c] = r->rim_k > 0 ? r->rim_k * sky[c] : 0;
+            env.S[c] = r->spec_k > 0 ? r->spec_k * sun[c] : 0;
+        }
+        env.spec_p = (float)(1 << r->spec_shift);
+        env.sun[0] = r->light.x; env.sun[1] = r->light.y; env.sun[2] = r->light.z;
+        env.view[0] = sh->V.x; env.view[1] = sh->V.y; env.view[2] = sh->V.z;
+        env.half[0] = sh->H.x; env.half[1] = sh->H.y; env.half[2] = sh->H.z;
+    }
+    const int nb = d->skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
+    if (r->backend->mesh(r->backend->ctx, r->g, m, (const float (*)[12])df_F, (const float (*)[9])d->X->n, nb, &env,
+                         zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
+        mg_took = 1;
+        r->tris_in += (uint32_t)m->nfaces;
+        r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
+        return 1;
+    }
+    return 0;
+}
+
+/* the vertices of the levels of detail shown: camera space, screen, Gouraud normals */
+static void df_transform(dfc_t *d)
+{
+    r3d_t *r = d->r;
+    const r3d_mesh_t *m = d->m;
+    const view_t v = d->v;
+    const float *C = v.c;
+    const xform_t *X = d->X;
+    const int fused = d->fused, skinned = d->skinned, front = d->front, smooth = d->smooth,
+              objlight = d->objlight;
+    const float zmul = d->zmul;
+    const unsigned dbit = 1u << d->detail;
+    int bx0 = d->bx0, by0 = d->by0, bx1 = d->bx1, by1 = d->by1;
+    int nv = 0, nfront = 0;
     for (int i = 0; i < m->nverts; i++) {
         if (m->vlod && !(m->vlod[i] & dbit))
             continue;                       /* no face of this level of detail needs it */
         nv++;
         const v3_t o = m->verts[i];
-        cv_t *c = &cv[i];
+        cv_t *c = &df_cv[i];
         if (fused) {
-            const float *M = F[skinned ? m->vbone[i] : 0];
+            const float *M = df_F[skinned ? m->vbone[i] : 0];
             c->x = M[0] * o.x + M[1] * o.y + M[2] * o.z + M[3];
             c->y = M[4] * o.x + M[5] * o.y + M[6] * o.z + M[7];
             c->z = M[8] * o.x + M[9] * o.y + M[10] * o.z + M[11];
         } else {
             /* object -> world, relative to the camera (with its bone, if any) */
-            const float *W = X.m[skinned ? m->vbone[i] : 0];
+            const float *W = X->m[skinned ? m->vbone[i] : 0];
             const v3_t w = { W[0] * o.x + W[1] * o.y + W[2] * o.z + W[3],
                              W[4] * o.x + W[5] * o.y + W[6] * o.z + W[7],
                              W[8] * o.x + W[9] * o.y + W[10] * o.z + W[11] };
@@ -2145,9 +2199,9 @@ static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry
         if (c->z >= NEAR) {
             nfront++;
             float iz = 1.0f / c->z;
-            sv[i] = (sv_t){ v.hw + c->x * v.f * iz, v.hh - c->y * v.f * iz, iz * zmul };
+            df_sv[i] = (sv_t){ v.hw + c->x * v.f * iz, v.hh - c->y * v.f * iz, iz * zmul };
             if (front) {
-                int x = (int)sv[i].x, y = (int)sv[i].y;
+                int x = (int)df_sv[i].x, y = (int)df_sv[i].y;
                 if (x < bx0) bx0 = x;
                 if (x + 1 > bx1) bx1 = x + 1;
                 if (y < by0) by0 = y;
@@ -2159,33 +2213,327 @@ static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry
             by1 = r->g->h;
         }
         if (smooth) {
-            vn[i] = objlight ? m->vnormals[i] : xform_dir(&X, i, m->vnormals[i]);
-            vkey[i] = 0xFFFFFFFFu;          /* no colour yet */
+            df_vn[i] = objlight ? m->vnormals[i] : xform_dir(X, i, m->vnormals[i]);
+            df_vkey[i] = 0xFFFFFFFFu;       /* no colour yet */
         }
     }
+    d->bx0 = bx0; d->by0 = by0; d->bx1 = bx1; d->by1 = by1;
+    d->nv = nv;
+    d->nfront = nfront;
     r->verts += (uint32_t)nv;
-    const int all_front = nfront == nv;     /* every corner of every face shown is in front */
-    if (front && zbuf) {
-        /* the first-person layer: nothing drawn before can hide it */
-        if (r->backend) {
-            r->backend->zclear(r->backend->ctx, r->g);
-        } else {
-            if (bx0 < r->g->cx0) bx0 = r->g->cx0;
-            if (by0 < r->g->cy0) by0 = r->g->cy0;
-            if (bx1 > r->g->cx1) bx1 = r->g->cx1;
-            if (by1 > r->g->cy1) by1 = r->g->cy1;
-            for (int y = by0; y < by1; y++)
-                memset(zbuf + (uint32_t)y * r->g->w + bx0, 0, (size_t)(bx1 > bx0 ? bx1 - bx0 : 0) * 2);
+    d->all_front = nfront == nv;            /* every corner of every face shown is in front */
+}
+
+/* the first-person layer: nothing drawn before can hide it */
+static void df_front_clear(dfc_t *d)
+{
+    r3d_t *r = d->r;
+    uint16_t *zbuf = d->zbuf;
+    int bx0 = d->bx0, by0 = d->by0, bx1 = d->bx1, by1 = d->by1;
+    if (r->backend) {
+        r->backend->zclear(r->backend->ctx, r->g);
+    } else {
+        if (bx0 < r->g->cx0) bx0 = r->g->cx0;
+        if (by0 < r->g->cy0) by0 = r->g->cy0;
+        if (bx1 > r->g->cx1) bx1 = r->g->cx1;
+        if (by1 > r->g->cy1) by1 = r->g->cy1;
+        for (int y = by0; y < by1; y++)
+            memset(zbuf + (uint32_t)y * r->g->w + bx0, 0, (size_t)(bx1 > bx0 ? bx1 - bx0 : 0) * 2);
+    }
+}
+
+/* light baked at the corners (the world of a map): the colour of
+ * each corner from it, the lamps on top, the fog; smooth */
+static inline __attribute__((always_inline)) void df_face_baked(dfc_t *d, const dff_t *f)
+{
+    r3d_t *r = d->r;
+    const r3d_mesh_t *m = d->m;
+    const uint32_t rgb = f->rgb;
+    const cv_t *const *cs = f->cs;
+    const int emissive = f->emissive;
+    const uint8_t *bl = m->clight + f->t * 9;
+    float col[3][3];
+    for (int k = 0; k < 3; k++) {
+        const cv_t *ck = cs[k];
+        lit_t L = { { bl[k * 3] * (1.0f / 128), bl[k * 3 + 1] * (1.0f / 128), bl[k * 3 + 2] * (1.0f / 128) },
+                    { 0, 0, 0 } };
+        if (emissive)
+            L = df_full;
+        else if (d->baked_lamps)
+            lamps_add(&d->lamps, ck->x, ck->y, ck->z, &L);
+        float ff = 0;
+        if (d->fog) {
+            ff = (ck->z - r->fog_near) * d->fog_k;
+            ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+        }
+        cv_t tmp;
+        vertex_rgb(&tmp, rgb, &L, 0, r->fog_rgb, ff);
+        col[k][0] = tmp.r; col[k][1] = tmp.g; col[k][2] = tmp.b;
+    }
+    r->tris_drawn += (uint32_t)face_colours(r, &d->v, d->zbuf, cs, f->ss, f->nin, (const float (*)[3])col, d->zmul,
+                                            f->screen, d->inside);
+}
+
+/* Gouraud: the colour of each corner, once per vertex and face colour */
+static inline __attribute__((always_inline)) void df_face_gouraud(dfc_t *d, const dff_t *f)
+{
+    r3d_t *r = d->r;
+    const uint32_t rgb = f->rgb;
+    const uint16_t *fc = f->fc;
+    const cv_t *const *cs = f->cs;
+    const int emissive = f->emissive, glossy = f->glossy;
+    const uint32_t key = rgb & 0x7FFFFFFFu;
+    float col[3][3];
+    for (int k = 0; k < 3; k++) {
+        const int i = fc[k];
+        if (df_vkey[i] != key) {
+            df_vkey[i] = key;
+            lit_t L;
+            if (emissive)
+                L = df_full;
+            else if (d->objlight)
+                light_obj(r, &d->lamps, &d->sho, df_vn[i], df_cv[i].x, df_cv[i].y, df_cv[i].z, glossy, &L);
+            else
+                light_fast(r, &d->lamps, &d->sh, df_vn[i], df_cv[i].x, df_cv[i].y, df_cv[i].z, glossy, &L);
+            float ff = 0;
+            if (d->fog) {
+                ff = (df_cv[i].z - r->fog_near) * d->fog_k;
+                ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+            }
+            cv_t tmp;
+            vertex_rgb(&tmp, rgb, &L, glossy, r->fog_rgb, ff);
+            df_vc[i][0] = tmp.r; df_vc[i][1] = tmp.g; df_vc[i][2] = tmp.b;
+        }
+        col[k][0] = df_vc[i][0]; col[k][1] = df_vc[i][1]; col[k][2] = df_vc[i][2];
+    }
+    r->tris_drawn += (uint32_t)face_colours(r, &d->v, d->zbuf, cs, f->ss, f->nin, (const float (*)[3])col, d->zmul,
+                                            f->screen, d->inside);
+}
+
+/* flat (and textured): the light of the face, at its middle (a
+ * textured face of a "lit" model has its own, baked) */
+static inline __attribute__((always_inline)) void df_face_light(const dfc_t *d, const dff_t *f, lit_t *kout)
+{
+    const r3d_mesh_t *m = d->m;
+    const r3d_t *r = d->r;
+    const cv_t *c0 = f->cs[0], *c1 = f->cs[1], *c2 = f->cs[2];
+    const uint32_t rgb = f->rgb;
+    const int t = f->t, textured = f->textured, emissive = f->emissive, glossy = f->glossy;
+    const int objlight = d->objlight, smooth = d->smooth;
+    lit_t k = df_full;
+    if (!emissive && !m->clight && !(textured && smooth && !(rgb & R3D_FLAT))) {
+        const float *N = d->X->n[d->skinned ? m->vbone[f->fc[0]] : 0];
+        const v3_t n0 = m->normals[t];
+        const v3_t n = objlight ? n0 : (v3_t){ N[0] * n0.x + N[1] * n0.y + N[2] * n0.z,
+                                                N[3] * n0.x + N[4] * n0.y + N[5] * n0.z,
+                                                N[6] * n0.x + N[7] * n0.y + N[8] * n0.z };
+        float mx = 0, my = 0, mz = 0;
+        if (d->lamps.n) {                   /* the middle, for the lamps */
+            mx = (c0->x + c1->x + c2->x) * (1.0f / 3.0f);
+            my = (c0->y + c1->y + c2->y) * (1.0f / 3.0f);
+            mz = (c0->z + c1->z + c2->z) * (1.0f / 3.0f);
+        }
+        if (objlight)
+            light_obj(r, &d->lamps, &d->sho, n, mx, my, mz, glossy, &k);
+        else
+            light_fast(r, &d->lamps, &d->sh, n, mx, my, mz, glossy, &k);
+    }
+    *kout = k;
+}
+
+/* a textured face */
+static inline __attribute__((always_inline)) void df_face_tex(dfc_t *d, const dff_t *f, const lit_t *kp)
+{
+    r3d_t *r = d->r;
+    const r3d_mesh_t *m = d->m;
+    const view_t *v = &d->v;
+    uint16_t *zbuf = d->zbuf;
+    const lit_t k = *kp;
+    const cv_t *c0 = f->cs[0], *c1 = f->cs[1], *c2 = f->cs[2];
+    const cv_t *const *cs = f->cs;
+    const sv_t *const *ss = f->ss;
+    const uint16_t *fc = f->fc;
+    const uint32_t rgb = f->rgb;
+    const int t = f->t, nin = f->nin, emissive = f->emissive, screen = f->screen;
+    const int smooth = d->smooth, objlight = d->objlight, fog = d->fog, inside = d->inside;
+    const float fog_k = d->fog_k, zmul = d->zmul;
+    /* corner i: on the screen at *ps[i], texel (tu[i], tv_[i]); the
+     * light gk[i] (Gouraud: the sun at each corner, grey, as
+     * vs_lit_tex); for a "lit" model on the backend, the light baked
+     * at the corner (and the lamps) L[i] and its depth dz[i] (fog) */
+    if (screen && r->backend && !r->backend->tex_screen)
+        /* textured screen-door: the backend cannot; the ARM from
+         * here on (this frame, mixed, is not shown) */
+        to_arm(r, "textured screen-door faces");
+    const int tscreen = screen && r->backend ? R3D_TEX_SCREEN : 0;
+    const float *uv = m->uv + t * 6;
+    float gk[4];
+    gk[0] = gk[1] = gk[2] = gk[3] = lit_grey(&k);
+    if (smooth && !(rgb & R3D_FLAT) && !emissive && !m->clight) {
+        const uint32_t key = rgb & 0x7FFFFFFFu;
+        for (int i = 0; i < 3; i++) {
+            const int vi = fc[i];
+            if (df_vkey[vi] != key) {
+                df_vkey[vi] = key;
+                lit_t Lv;
+                if (objlight)
+                    light_obj(r, &d->lamps, &d->sho, df_vn[vi], df_cv[vi].x, df_cv[vi].y, df_cv[vi].z, 0, &Lv);
+                else
+                    light_fast(r, &d->lamps, &d->sh, df_vn[vi], df_cv[vi].x, df_cv[vi].y, df_cv[vi].z, 0, &Lv);
+                df_vc[vi][0] = lit_grey(&Lv);
+            }
+            gk[i] = df_vc[vi][0];
         }
     }
+    const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
+    float tu[4] = { uv[0], uv[2], uv[4], 0 }, tv_[4] = { uv[1], uv[3], uv[5], 0 };
+    float L[4][3], dz[4] = { c0->z, c1->z, c2->z, 0 };
+    const int rgb_light = r->backend && m->clight;
+    if (rgb_light) {
+        const uint8_t *bl = m->clight + t * 9;
+        for (int i = 0; i < 3; i++) {
+            lit_t Lk = { { bl[i * 3] * (1.0f / 128), bl[i * 3 + 1] * (1.0f / 128),
+                           bl[i * 3 + 2] * (1.0f / 128) }, { 0, 0, 0 } };
+            if (d->baked_lamps)
+                lamps_add(&d->lamps, cs[i]->x, cs[i]->y, cs[i]->z, &Lk);
+            L[i][0] = Lk.l.r; L[i][1] = Lk.l.g; L[i][2] = Lk.l.b;
+        }
+    }
+    sv_t pts[4];
+    int np = 3;
+    if (nin < 3) {
+        cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
+        for (int i = 0; i < 3; i++) {
+            tri[i].u = uv[i * 2];
+            tri[i].v = uv[i * 2 + 1];
+            if (rgb_light) {
+                tri[i].r = L[i][0]; tri[i].g = L[i][1]; tri[i].b = L[i][2];
+            } else {
+                tri[i].r = gk[i];
+            }
+        }
+        np = clip_near(tri, cl);
+        for (int i = 0; i < np; i++) {
+            pts[i] = project(v, cl[i], zmul);
+            ps[i] = &pts[i];
+            tu[i] = cl[i].u;
+            tv_[i] = cl[i].v;
+            dz[i] = cl[i].z;
+            L[i][0] = cl[i].r; L[i][1] = cl[i].g; L[i][2] = cl[i].b;
+            gk[i] = cl[i].r;
+        }
+        float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
+        if (area <= 0)
+            return;
+    }
+    if (rgb_light) {
+        /* texel * light + fog, the GPU's shader: half the light (it
+         * doubles it), the fog's share taken off it */
+        const float fr = (r->fog_rgb >> 16 & 255) * (1.0f / 255), fg = (r->fog_rgb >> 8 & 255) * (1.0f / 255),
+                    fb = (r->fog_rgb & 255) * (1.0f / 255);
+        r3d_corner_t q[4];
+        for (int i = 0; i < np; i++) {
+            float ff = 0;
+            if (fog) {
+                ff = (dz[i] - r->fog_near) * fog_k;
+                ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+            }
+            const float kl = (1.0f - ff) * 0.5f;
+            corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], 1);
+            q[i].l[0] = L[i][0] * kl; q[i].l[1] = L[i][1] * kl; q[i].l[2] = L[i][2] * kl;
+            q[i].f[0] = fr * ff; q[i].f[1] = fg * ff; q[i].f[2] = fb * ff;
+        }
+        emit(r, q, np, R3D_KIND_TEX_RGB | inside | tscreen, m->tex, zbuf == NULL);
+        r->tris_drawn++;
+        return;
+    }
+    if (r->backend) {
+        r3d_corner_t q[4];
+        for (int i = 0; i < np; i++)
+            corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], gk[i]);
+        emit(r, q, np, R3D_KIND_TEXTURE | inside | tscreen, m->tex, zbuf == NULL);
+        r->tris_drawn++;
+        return;
+    }
+    tv_t tv[4];
+    for (int i = 0; i < np; i++)
+        tv[i] = (tv_t){ ps[i]->x, ps[i]->y, ps[i]->z, tu[i] * ps[i]->z, tv_[i] * ps[i]->z, gk[i] };
+    const uint8_t *lrgb = m->clight ? m->clight + t * 9 : NULL;
+    int tf = 0;
+    if (lrgb && fog) {
+        float ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
+        tf = ff <= 0 ? 0 : ff >= 1 ? 256 : (int)(ff * 256);
+    }
+    r->pixels += raster_tex(r->g, zbuf, tv[0], tv[1], tv[2], m->tex, screen, lrgb, r->fog_rgb, tf);
+    if (np == 4)
+        r->pixels += raster_tex(r->g, zbuf, tv[0], tv[2], tv[3], m->tex, screen, lrgb, r->fog_rgb, tf);
+    r->tris_drawn++;
+}
 
-    static const lit_t full = { { 1, 1, 1 }, { 0, 0, 0 } };
+/* a flat face in one colour */
+static inline __attribute__((always_inline)) void df_face_plain(dfc_t *d, const dff_t *f, const lit_t *kp)
+{
+    r3d_t *r = d->r;
+    uint16_t *zbuf = d->zbuf;
+    const view_t *v = &d->v;
+    lit_t k = *kp;
+    const cv_t *c0 = f->cs[0], *c1 = f->cs[1], *c2 = f->cs[2];
+    const sv_t *const *ss = f->ss;
+    const uint32_t rgb = f->rgb;
+    const int nin = f->nin, screen = f->screen, inside = d->inside;
+    const float zmul = d->zmul;
+    float ff = 0;
+    if (d->fog) {
+        ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * d->fog_k;
+        ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+    }
+    const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
+    sv_t pts[4];
+    int np = 3;
+    if (nin < 3) {
+        cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
+        np = clip_near(tri, cl);
+        for (int i = 0; i < np; i++) {
+            pts[i] = project(v, cl[i], zmul);
+            ps[i] = &pts[i];
+        }
+        float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
+        if (area <= 0)
+            return;
+    }
+    if (r->backend) {
+        /* the colour straight to the backend (no RGB565 on the way) */
+        float c[3];
+        shade_rgb(rgb, &k, r->fog_rgb, ff, c);
+        const float k255 = 1.0f / 255.0f, cr = c[0] * k255, cg = c[1] * k255, cb = c[2] * k255;
+        r3d_corner_t q[4];
+        for (int i = 0; i < np; i++)
+            corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, cr, cg, cb);
+        emit(r, q, np, (screen ? R3D_KIND_SCREEN : R3D_KIND_COLOUR) | inside, NULL, zbuf == NULL);
+        r->tris_drawn++;
+        return;
+    }
+    const uint16_t col = shade(rgb, &k, r->fog_rgb, ff);
+    r->pixels += raster(r->g, zbuf, *ps[0], *ps[1], *ps[2], col, screen);
+    if (np == 4)
+        r->pixels += raster(r->g, zbuf, *ps[0], *ps[2], *ps[3], col, screen);
+    r->tris_drawn++;
+}
+
+/* the triangle loop: culling per face, then the step of the face's kind */
+static void df_faces(dfc_t *d)
+{
+    r3d_t *r = d->r;
+    const r3d_mesh_t *m = d->m;
+    const uint32_t *fcol = d->fcol;
+    const unsigned detail = d->detail;
+    const int all_front = d->all_front, smooth = d->smooth, unlit = d->unlit;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t rgb = fcol ? fcol[t] : m->colors[t];
         if (!R3D_LOD_SHOWS(rgb, detail))
             continue;
         const uint16_t *fc = m->faces + t * 3;
-        const cv_t *c0 = &cv[fc[0]], *c1 = &cv[fc[1]], *c2 = &cv[fc[2]];
+        const cv_t *c0 = &df_cv[fc[0]], *c1 = &df_cv[fc[1]], *c2 = &df_cv[fc[2]];
         r->tris_in++;
         const int nin = all_front ? 3 : (c0->z >= NEAR) + (c1->z >= NEAR) + (c2->z >= NEAR);
         if (nin == 0)
@@ -2193,246 +2541,89 @@ static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry
         /* back faces first, on the vertices in front of the camera (the
          * clipped polygon has the same winding) */
         if (nin == 3) {
-            const sv_t *a = &sv[fc[0]], *b = &sv[fc[1]], *c = &sv[fc[2]];
+            const sv_t *a = &df_sv[fc[0]], *b = &df_sv[fc[1]], *c = &df_sv[fc[2]];
             if ((b->x - a->x) * (c->y - a->y) - (b->y - a->y) * (c->x - a->x) <= 0)
                 continue;                   /* y points down on screen */
         }
         const int textured = (rgb & R3D_TEXTURED) && m->uv && m->tex;
-        const int emissive = unlit || (rgb & R3D_EMISSIVE);
-        const int glossy = (rgb & R3D_GLOSSY) != 0;
-        const int screen = (rgb & R3D_SCREEN) != 0;
-        const cv_t *const cs[3] = { c0, c1, c2 };
-        const sv_t *const ss[3] = { &sv[fc[0]], &sv[fc[1]], &sv[fc[2]] };
+        dff_t f = { .t = t, .rgb = rgb, .fc = fc, .cs = { c0, c1, c2 },
+                    .ss = { &df_sv[fc[0]], &df_sv[fc[1]], &df_sv[fc[2]] }, .nin = nin, .textured = textured,
+                    .emissive = unlit || (rgb & R3D_EMISSIVE), .glossy = (rgb & R3D_GLOSSY) != 0,
+                    .screen = (rgb & R3D_SCREEN) != 0 };
 
         if (m->clight && !textured) {
-            /* light baked at the corners (the world of a map): the colour of
-             * each corner from it, the lamps on top, the fog; smooth */
-            const uint8_t *bl = m->clight + t * 9;
-            float col[3][3];
-            for (int k = 0; k < 3; k++) {
-                const cv_t *ck = cs[k];
-                lit_t L = { { bl[k * 3] * (1.0f / 128), bl[k * 3 + 1] * (1.0f / 128), bl[k * 3 + 2] * (1.0f / 128) },
-                            { 0, 0, 0 } };
-                if (emissive)
-                    L = full;
-                else if (baked_lamps)
-                    lamps_add(&lamps, ck->x, ck->y, ck->z, &L);
-                float ff = 0;
-                if (fog) {
-                    ff = (ck->z - r->fog_near) * fog_k;
-                    ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
-                }
-                cv_t tmp;
-                vertex_rgb(&tmp, rgb, &L, 0, r->fog_rgb, ff);
-                col[k][0] = tmp.r; col[k][1] = tmp.g; col[k][2] = tmp.b;
-            }
-            r->tris_drawn += (uint32_t)face_colours(r, &v, zbuf, cs, ss, nin, (const float (*)[3])col, zmul,
-                                                    screen, inside);
+            df_face_baked(d, &f);
             continue;
         }
-
         if (smooth && !(rgb & R3D_FLAT) && !textured) {
-            /* Gouraud: the colour of each corner, once per vertex and face colour */
-            const uint32_t key = rgb & 0x7FFFFFFFu;
-            float col[3][3];
-            for (int k = 0; k < 3; k++) {
-                const int i = fc[k];
-                if (vkey[i] != key) {
-                    vkey[i] = key;
-                    lit_t L;
-                    if (emissive)
-                        L = full;
-                    else if (objlight)
-                        light_obj(r, &lamps, &sho, vn[i], cv[i].x, cv[i].y, cv[i].z, glossy, &L);
-                    else
-                        light_fast(r, &lamps, &sh, vn[i], cv[i].x, cv[i].y, cv[i].z, glossy, &L);
-                    float ff = 0;
-                    if (fog) {
-                        ff = (cv[i].z - r->fog_near) * fog_k;
-                        ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
-                    }
-                    cv_t tmp;
-                    vertex_rgb(&tmp, rgb, &L, glossy, r->fog_rgb, ff);
-                    vc[i][0] = tmp.r; vc[i][1] = tmp.g; vc[i][2] = tmp.b;
-                }
-                col[k][0] = vc[i][0]; col[k][1] = vc[i][1]; col[k][2] = vc[i][2];
-            }
-            r->tris_drawn += (uint32_t)face_colours(r, &v, zbuf, cs, ss, nin, (const float (*)[3])col, zmul,
-                                                    screen, inside);
+            df_face_gouraud(d, &f);
             continue;
         }
-
-        /* flat (and textured): the light of the face, at its middle (a
-         * textured face of a "lit" model has its own, baked) */
-        lit_t k = full;
-        if (!emissive && !m->clight && !(textured && smooth && !(rgb & R3D_FLAT))) {
-            const float *N = X.n[skinned ? m->vbone[fc[0]] : 0];
-            const v3_t n0 = m->normals[t];
-            const v3_t n = objlight ? n0 : (v3_t){ N[0] * n0.x + N[1] * n0.y + N[2] * n0.z,
-                                                    N[3] * n0.x + N[4] * n0.y + N[5] * n0.z,
-                                                    N[6] * n0.x + N[7] * n0.y + N[8] * n0.z };
-            float mx = 0, my = 0, mz = 0;
-            if (lamps.n) {                  /* the middle, for the lamps */
-                mx = (c0->x + c1->x + c2->x) * (1.0f / 3.0f);
-                my = (c0->y + c1->y + c2->y) * (1.0f / 3.0f);
-                mz = (c0->z + c1->z + c2->z) * (1.0f / 3.0f);
-            }
-            if (objlight)
-                light_obj(r, &lamps, &sho, n, mx, my, mz, glossy, &k);
-            else
-                light_fast(r, &lamps, &sh, n, mx, my, mz, glossy, &k);
-        }
-        if (textured) {
-            /* corner i: on the screen at *ps[i], texel (tu[i], tv_[i]); the
-             * light gk[i] (Gouraud: the sun at each corner, grey, as
-             * vs_lit_tex); for a "lit" model on the backend, the light baked
-             * at the corner (and the lamps) L[i] and its depth dz[i] (fog) */
-            if (screen && r->backend && !r->backend->tex_screen)
-                /* textured screen-door: the backend cannot; the ARM from
-                 * here on (this frame, mixed, is not shown) */
-                to_arm(r, "textured screen-door faces");
-            const int tscreen = screen && r->backend ? R3D_TEX_SCREEN : 0;
-            const float *uv = m->uv + t * 6;
-            float gk[4];
-            gk[0] = gk[1] = gk[2] = gk[3] = lit_grey(&k);
-            if (smooth && !(rgb & R3D_FLAT) && !emissive && !m->clight) {
-                const uint32_t key = rgb & 0x7FFFFFFFu;
-                for (int i = 0; i < 3; i++) {
-                    const int vi = fc[i];
-                    if (vkey[vi] != key) {
-                        vkey[vi] = key;
-                        lit_t Lv;
-                        if (objlight)
-                            light_obj(r, &lamps, &sho, vn[vi], cv[vi].x, cv[vi].y, cv[vi].z, 0, &Lv);
-                        else
-                            light_fast(r, &lamps, &sh, vn[vi], cv[vi].x, cv[vi].y, cv[vi].z, 0, &Lv);
-                        vc[vi][0] = lit_grey(&Lv);
-                    }
-                    gk[i] = vc[vi][0];
-                }
-            }
-            const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
-            float tu[4] = { uv[0], uv[2], uv[4], 0 }, tv_[4] = { uv[1], uv[3], uv[5], 0 };
-            float L[4][3], dz[4] = { c0->z, c1->z, c2->z, 0 };
-            const int rgb_light = r->backend && m->clight;
-            if (rgb_light) {
-                const uint8_t *bl = m->clight + t * 9;
-                for (int i = 0; i < 3; i++) {
-                    lit_t Lk = { { bl[i * 3] * (1.0f / 128), bl[i * 3 + 1] * (1.0f / 128),
-                                   bl[i * 3 + 2] * (1.0f / 128) }, { 0, 0, 0 } };
-                    if (baked_lamps)
-                        lamps_add(&lamps, cs[i]->x, cs[i]->y, cs[i]->z, &Lk);
-                    L[i][0] = Lk.l.r; L[i][1] = Lk.l.g; L[i][2] = Lk.l.b;
-                }
-            }
-            sv_t pts[4];
-            int np = 3;
-            if (nin < 3) {
-                cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
-                for (int i = 0; i < 3; i++) {
-                    tri[i].u = uv[i * 2];
-                    tri[i].v = uv[i * 2 + 1];
-                    if (rgb_light) {
-                        tri[i].r = L[i][0]; tri[i].g = L[i][1]; tri[i].b = L[i][2];
-                    } else {
-                        tri[i].r = gk[i];
-                    }
-                }
-                np = clip_near(tri, cl);
-                for (int i = 0; i < np; i++) {
-                    pts[i] = project(&v, cl[i], zmul);
-                    ps[i] = &pts[i];
-                    tu[i] = cl[i].u;
-                    tv_[i] = cl[i].v;
-                    dz[i] = cl[i].z;
-                    L[i][0] = cl[i].r; L[i][1] = cl[i].g; L[i][2] = cl[i].b;
-                    gk[i] = cl[i].r;
-                }
-                float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
-                if (area <= 0)
-                    continue;
-            }
-            if (rgb_light) {
-                /* texel * light + fog, the GPU's shader: half the light (it
-                 * doubles it), the fog's share taken off it */
-                const float fr = (r->fog_rgb >> 16 & 255) * (1.0f / 255), fg = (r->fog_rgb >> 8 & 255) * (1.0f / 255),
-                            fb = (r->fog_rgb & 255) * (1.0f / 255);
-                r3d_corner_t q[4];
-                for (int i = 0; i < np; i++) {
-                    float ff = 0;
-                    if (fog) {
-                        ff = (dz[i] - r->fog_near) * fog_k;
-                        ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
-                    }
-                    const float kl = (1.0f - ff) * 0.5f;
-                    corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], 1);
-                    q[i].l[0] = L[i][0] * kl; q[i].l[1] = L[i][1] * kl; q[i].l[2] = L[i][2] * kl;
-                    q[i].f[0] = fr * ff; q[i].f[1] = fg * ff; q[i].f[2] = fb * ff;
-                }
-                emit(r, q, np, R3D_KIND_TEX_RGB | inside | tscreen, m->tex, zbuf == NULL);
-                r->tris_drawn++;
-                continue;
-            }
-            if (r->backend) {
-                r3d_corner_t q[4];
-                for (int i = 0; i < np; i++)
-                    corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], gk[i]);
-                emit(r, q, np, R3D_KIND_TEXTURE | inside | tscreen, m->tex, zbuf == NULL);
-                r->tris_drawn++;
-                continue;
-            }
-            tv_t tv[4];
-            for (int i = 0; i < np; i++)
-                tv[i] = (tv_t){ ps[i]->x, ps[i]->y, ps[i]->z, tu[i] * ps[i]->z, tv_[i] * ps[i]->z, gk[i] };
-            const uint8_t *lrgb = m->clight ? m->clight + t * 9 : NULL;
-            int tf = 0;
-            if (lrgb && fog) {
-                float ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
-                tf = ff <= 0 ? 0 : ff >= 1 ? 256 : (int)(ff * 256);
-            }
-            r->pixels += raster_tex(r->g, zbuf, tv[0], tv[1], tv[2], m->tex, screen, lrgb, r->fog_rgb, tf);
-            if (np == 4)
-                r->pixels += raster_tex(r->g, zbuf, tv[0], tv[2], tv[3], m->tex, screen, lrgb, r->fog_rgb, tf);
-            r->tris_drawn++;
-            continue;
-        }
-        float ff = 0;
-        if (fog) {
-            ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
-            ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
-        }
-        const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
-        sv_t pts[4];
-        int np = 3;
-        if (nin < 3) {
-            cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
-            np = clip_near(tri, cl);
-            for (int i = 0; i < np; i++) {
-                pts[i] = project(&v, cl[i], zmul);
-                ps[i] = &pts[i];
-            }
-            float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
-            if (area <= 0)
-                continue;
-        }
-        if (r->backend) {
-            /* the colour straight to the backend (no RGB565 on the way) */
-            float c[3];
-            shade_rgb(rgb, &k, r->fog_rgb, ff, c);
-            const float k255 = 1.0f / 255.0f, cr = c[0] * k255, cg = c[1] * k255, cb = c[2] * k255;
-            r3d_corner_t q[4];
-            for (int i = 0; i < np; i++)
-                corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, cr, cg, cb);
-            emit(r, q, np, (screen ? R3D_KIND_SCREEN : R3D_KIND_COLOUR) | inside, NULL, zbuf == NULL);
-            r->tris_drawn++;
-            continue;
-        }
-        const uint16_t col = shade(rgb, &k, r->fog_rgb, ff);
-        r->pixels += raster(r->g, zbuf, *ps[0], *ps[1], *ps[2], col, screen);
-        if (np == 4)
-            r->pixels += raster(r->g, zbuf, *ps[0], *ps[2], *ps[3], col, screen);
-        r->tris_drawn++;
+        lit_t k;
+        df_face_light(d, &f, &k);
+        if (textured)
+            df_face_tex(d, &f, &k);
+        else
+            df_face_plain(d, &f, &k);
     }
+}
+
+static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
+                       float scale, unsigned flags)
+{
+    if (r->notex)
+        flags |= R3D_FLATTEX;
+    if (m->nverts > MAX_VERTS)
+        return;
+
+    dfc_t d;
+    d.r = r;
+    d.m = m;
+    view_setup(r, &d.v);
+    d.inside = 0;
+    float R[9];
+    rot_matrix(R, rx, ry, rz);
+    d.skinned = m->bones && m->nbones > 0;
+    /* impostors on, a mesh with a skeleton: the box of its pose and the
+     * sphere round it, from its bones (the same on every console) */
+    if (df_cull(r, m, &d.v, R, p, scale, flags, d.skinned, &d.inside))
+        return;
+    xform_setup(&df_X, r, m, R, p, scale);
+    d.X = &df_X;
+    d.detail = 3u - (flags >> 4 & 3u);
+    if (flags & R3D_SHADOW) {
+        df_shadow(r, m, &df_X, p, &d.v, d.detail);
+        return;
+    }
+    d.zbuf = (flags & R3D_NOZ) ? NULL : r->zbuf;
+    d.unlit = (flags & R3D_UNLIT) != 0;
+    d.smooth = (flags & R3D_SMOOTH) && m->vnormals;
+    d.front = (flags & R3D_FRONT) != 0;
+    d.fcol = (flags & R3D_FLATTEX) ? flat_prepare(m) : NULL;    /* the faces' colours without the textures */
+    d.zmul = d.front ? 0.1f : 1.0f;
+    d.fog = r->fog_far > r->fog_near;
+    d.fog_k = d.fog ? 1.0f / (r->fog_far - r->fog_near) : 0;
+    df_light_setup(&d, p, scale, flags);
+
+    /* baked light (a "lit" model): the lamps still add to it (flashes, fire) */
+    d.baked_lamps = m->clight && d.lamps.n;
+    d.bx0 = r->g->w; d.by0 = r->g->h; d.bx1 = 0; d.by1 = 0;     /* R3D_FRONT: screen box */
+    d.nv = 0; d.nfront = 0;
+    d.fused = r->backend != NULL || r->fast;
+    d.objlight = r->fast && !d.skinned;
+    df_objlight(&d);
+    df_fuse(&d);
+    /* cel (bm3d 7.5): a backend with cel cuts the light itself (its vertex programs); else a lit
+     * cel draw is lit on the ARM (the triangles go one by one with their colours, as with vs 1) */
+    if (r->backend && r->backend->mesh && !d.fcol &&
+        !(d.sh.cel && !m->clight && !r->backend->cel)) {     /* (the backend's copy has the textures: the triangles go one by one) */
+        if (df_backend_mesh(&d))
+            return;
+    }
+    df_transform(&d);
+    if (d.front && d.zbuf)
+        df_front_clear(&d);
+    df_faces(&d);
 }
 
 /* ---------------------------------------------------------------- effects */
