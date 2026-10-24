@@ -243,7 +243,7 @@ KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
 $(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build/build.py
 	$(PYTHON) carts/kitchen/build/build.py $@ --map $(BUILD)/kitchen/main.map
 
-$(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/assets/sheet.png carts/kitchen/cover.png scripts/mkbm.py carts/kitchen/bm.info
+$(BUILD)/carts/kitchen.bm $(BUILD)/carts/kitchen.bme: $(BUILD)/carts/kitchen.%: $(BUILD)/kitchen/main.lua carts/kitchen/assets/sheet.png carts/kitchen/cover.png scripts/mkbm.py carts/kitchen/bm.info
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kitchen/bm.info \
 	    --sheet carts/kitchen/assets/sheet.png --cover carts/kitchen/cover.png
