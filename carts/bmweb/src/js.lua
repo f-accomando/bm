@@ -1705,7 +1705,7 @@ do
     expect_p("{")
     local saveb, savenoin = bc, noin
     noin = false
-    bc = { lex = {}, funcs = {} }
+    bc = { lex = {}, funcs = {}, fnlevel = true }
     local body = {}
     while not is_p("}") do
       if T[pi] == "eof" then unexpected() end
@@ -2282,6 +2282,8 @@ do
         local name = V[pi]
         pi = pi + 1
         local fn = parse_function(name, "normal", nil, nil, line)
+        -- a function declared in a block is also a var of the function (web compatibility)
+        if not bc.fnlevel then declare_var(name) end
         bc.funcs[#bc.funcs + 1] = fn
         res = { t = "Empty" }
       elseif v == "async" and T[pi + 1] == "name" and V[pi + 1] == "function" then perr("async functions are not supported")
@@ -2400,7 +2402,7 @@ do
     T, V, L, N, pi = tk.T, tk.V, tk.L, tk.N, 1
     fncount, depth, noin = 0, 0, false
     fc = { vars = {}, varset = {}, script = true }
-    bc = { lex = {}, funcs = {}, top = true }
+    bc = { lex = {}, funcs = {}, top = true, fnlevel = true }
     local body = {}
     while T[pi] ~= "eof" do body[#body + 1] = parse_statement() end
     local first = body[1]
@@ -3961,21 +3963,28 @@ local function declare_block(bcs, lex, funcs)
 end
 
 -- Returns an initializer init(s) that creates the hoisted functions of a block.
-local function hoist_funcs(funcs, bcs)
+local function hoist_funcs(funcs, bcs, mat, isblock)
   if #funcs == 0 then return nil end
   local list = {}
   for i, fnode in ipairs(funcs) do
     local make = compile_function(fnode, bcs, true)
     local d, slot = resolve(bcs, fnode.name)
+    local outer
+    if isblock then outer = compile_target({ t = "Ident", name = fnode.name }, bcs.up, true) end
     if d then
-      list[i] = { set = mk_set(d, slot), make = make }
+      list[i] = { set = mk_set(d, slot), make = make, outer = outer }
     else
       local name = fnode.name
-      list[i] = { set = function(s, v) setv(G, name, v) end, make = make }
+      list[i] = { set = function(s, v) setv(G, name, v) end, make = make, outer = outer }
     end
   end
   return function(s)
-    for i = 1, #list do list[i].set(s, list[i].make(s)) end
+    for i = 1, #list do
+      local h = list[i]
+      local f = h.make(s)
+      h.set(s, f)
+      if h.outer then h.outer(mat and s[1] or s, f) end
+    end
   end
 end
 
@@ -3983,7 +3992,7 @@ ST.Block = function(n, cs)
   local mat = n.hasfn and (#n.lex > 0 or #n.funcs > 0)
   local bcs = new_scope(cs, mat or false)
   declare_block(bcs, n.lex, n.funcs)
-  local init = hoist_funcs(n.funcs, bcs)
+  local init = hoist_funcs(n.funcs, bcs, mat, true)
   local body = cstmts(n.body, bcs)
   if mat then
     return function(s)
@@ -4176,7 +4185,7 @@ ST.Switch = function(n, cs, labels)
   local mat = n.hasfn and (#n.lex > 0 or #n.funcs > 0)
   local scs = new_scope(cs, mat or false)
   declare_block(scs, n.lex, n.funcs)
-  local init = hoist_funcs(n.funcs, scs)
+  local init = hoist_funcs(n.funcs, scs, mat, true)
   local disc = cx(n.disc, cs)
   local tests, bodies, default = {}, {}, nil
   for i, c in ipairs(n.cases) do

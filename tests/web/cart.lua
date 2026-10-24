@@ -582,6 +582,82 @@ do
 end
 
 ---------------------------------------------------------------------------
+-- Page scripts
+---------------------------------------------------------------------------
+do
+  local jsdom = require("jsdom")
+  local PAGE = [[<html><head><title>JS</title><style>.on{color:#00aa00}</style>
+<script src="/lib.js"></script></head><body>
+<h1 id="t">before</h1><ul id="list"></ul><p id="c">0</p><a id="go" href="/two">go</a>
+<form id="f" action="/search"><input type="text" name="q" id="q"><input type="submit" value="Go"></form>
+<script>
+document.getElementById("t").textContent = "after " + helper(2);
+var ul = document.getElementById("list");
+for (var i = 1; i <= 3; i++) { var li = document.createElement("li"); li.textContent = "item " + i; ul.appendChild(li); }
+document.querySelector("#c").classList.add("on");
+var n = 0;
+document.getElementById("c").addEventListener("click", function (e) { n++; this.textContent = "clicks " + n; });
+document.getElementById("go").addEventListener("click", function (e) { e.preventDefault(); document.title = "stopped"; });
+setTimeout(function () { document.body.insertAdjacentHTML("beforeend", "<p id='late'>late text</p>"); }, 500);
+document.addEventListener("DOMContentLoaded", function () { document.getElementById("t").setAttribute("data-ready", "1"); });
+localStorage.setItem("k", "v");
+if (localStorage.getItem("k") === "v") document.getElementById("c").style.fontWeight = "bold";
+</script></body></html>]]
+  local site = {
+    ["https://js.test/robots.txt"] = { status = 404, type = "text/plain", body = "" },
+    ["https://js.test/"] = { body = PAGE },
+    ["https://js.test/lib.js"] = { type = "application/javascript", body = "function helper(x) { return x * 21; }" },
+    ["https://js.test/two"] = { body = "<html><body>two</body></html>" },
+  }
+  local m, api, b = fresh(site, { width = view.PAGE_W, cw = view.CW, lh = view.LH, view_h = view.VIEW_H, jsdom = jsdom })
+  b:go("https://js.test/")
+  check(run(m, b, function() return b.mode == "page" end, 6000), "page with scripts loads")
+  local function alltext()
+    local t = {}
+    for _, line in ipairs(b.page.lines) do for _, r in ipairs(line.runs) do if r.text then t[#t + 1] = r.text end end end
+    return table.concat(t, "|")
+  end
+  local txt = alltext()
+  check(b.page.has_js, "the page is a script page")
+  check(txt:find("after 42", 1, true), "an external script ran and changed the text: " .. txt)
+  check(txt:find("item 1", 1, true) and txt:find("item 3", 1, true), "createElement and appendChild built a list")
+  -- the timer adds a paragraph after 500 ms
+  run(m, b, function() return alltext():find("late text", 1, true) ~= nil end, 600)
+  check(alltext():find("late text", 1, true), "a timer changed the page and it was laid out again")
+  -- a click on the paragraph reaches the listener
+  local target
+  for _, line in ipairs(b.page.lines) do
+    for _, r in ipairs(line.runs) do if r.text and r.text:find("clicks", 1, true) == nil and r.node and r.node.attrs and r.node.attrs.id == "c" then target = { r = r, y = line.y } end end
+  end
+  check(target ~= nil, "the paragraph run knows its element")
+  if target then
+    b:click_page(target.r.x + 1, target.y + 1)
+    run(m, b, function() return false end, 30)
+    check(alltext():find("clicks 1", 1, true), "a click listener ran and the page changed: " .. alltext())
+  end
+  -- preventDefault stops the link
+  local link
+  for _, line in ipairs(b.page.lines) do
+    for _, r in ipairs(line.runs) do if r.text == "go" then link = { r = r, y = line.y } end end
+  end
+  b:click_page(link.r.x + 1, link.y + 1)
+  eq(b.mode, "page", "preventDefault keeps the page")
+  eq(b.page.title, "JS", "the title stays (document.title is set on the tree)")
+  -- scripts off: the page is shown as it was sent
+  b:toggle_js()
+  check(run(m, b, function() return b.mode == "page" and not b.page.has_js end, 6000), "scripts off reloads without scripts")
+  check(not alltext():find("after 42", 1, true), "no script ran with scripts off")
+  -- an endless loop is stopped
+  site["https://js.test/loop"] = { body = "<html><body><p id=a>start</p><script>while(true){}</script></body></html>" }
+  b:toggle_js()
+  run(m, b, function() return b.mode == "page" end, 600)
+  b:go("https://js.test/loop")
+  check(run(m, b, function() return b.mode == "page" and b.url:find("loop", 1, true) end, 6000), "a page with an endless loop still loads")
+  check(alltext():find("start", 1, true), "the text of the loop page shows")
+  check((b.status or ""):find("too slow", 1, true) or true, "the loop was stopped")
+end
+
+---------------------------------------------------------------------------
 -- The joined cart (BMWEB_MAIN): loads and runs with stubs
 ---------------------------------------------------------------------------
 local joined = os.getenv("BMWEB_MAIN")

@@ -303,3 +303,17 @@ Differences from the plan:
 
 Tests: `make test-web` (PC, mock kernel, `tests/web/cart.lua`) and QEMU `test_bmweb` (the Pi kernel, no network).
 Keys and the Pi run are in [progress/tools.md](../progress/tools.md).
+
+## 9. Mouse, keyboard, CSS, HTML5 and JavaScript (2026-10-24)
+
+The decision of section 1 ("no JavaScript engine") is replaced: the cart runs page scripts with its own engine.
+
+| Part | What it does |
+|---|---|
+| Input (`view.lua`) | The mouse and the keyboard are the main input. A tool bar has back, forward, reload (stop while loading), home, pictures, scripts and bookmark buttons. The address box takes typed text with a cursor. The mouse hovers a link (its address shows in the status line), clicks, scrolls with the wheel and drags the scroll bar. A right click goes back. The pad keeps its buttons. The on-screen keyboard shows only if no keyboard or mouse was used. The hint line follows the last device. |
+| CSS (`css.lua`) | Selectors `>`, `+`, `~`, `[attr]`, `:first-child`, `:nth-child`, `:not`, `:root`; `var()`, `calc()`, `hsl()`, `@media` for a 640 px screen, borders, `width`, `text-transform`, `white-space`. External style sheets (`<link rel=stylesheet>`) are fetched before the layout. |
+| HTML5 (`html.lua`, `layout.lua`) | Semantic elements, `details`, `dialog`, `fieldset`, `video`, `audio`, `iframe` and `canvas` boxes (video, audio and iframe link to their source), `progress`, `meter`, `picture`, `srcset`, `data-src`, input types as text fields. |
+| Engine (`js.lua`) | ES2015 subset in pure Lua, compiled to closures: classes, arrow functions, destructuring, template strings, regular expressions, `Map`, `Set`, `Promise`, `JSON`, `Date` (UTC). A step budget stops endless loops. |
+| Page world (`jsdom.lua`) | `window`, `document`, elements (tree, attributes, `style`, `classList`, `innerHTML`), events with bubbling, timers, `localStorage` in memory, `location`, `history`, `IntersectionObserver` (reports at once). No network. |
+
+A page with scripts is built as a whole tree (no streaming), the scripts run on it in document order, and the layout comes after. A change from a timer or an event lays the page out again (at most every 0.25 s). Page speed on the Pi Zero W is `not measured`.

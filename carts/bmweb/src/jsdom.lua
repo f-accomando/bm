@@ -16,8 +16,8 @@ local layout = require("layout")
 
 local M = {}
 
-M.BUDGET_LOAD = 6000000   -- steps for all the scripts of a page load
-M.BUDGET_EVENT = 400000   -- steps for one handler or timer
+M.BUDGET_LOAD = 2000000   -- steps for all the scripts of a page load
+M.BUDGET_EVENT = 100000   -- steps for one handler or timer
 M.MAX_STORAGE = 65536     -- bytes of localStorage and sessionStorage together
 M.MAX_COOKIE = 4096
 M.MAX_HTML = 262144       -- bytes one innerHTML assignment may parse
@@ -227,6 +227,11 @@ local function build(self, info, tree_b, rules, lay)
   end
   rt.now_ms = (self.api.time() or 0) * 1000
   return S, rt
+end
+
+local function throw(rt, kind, msg)
+  local ctor = rt:get(rt.global, kind) or rt:get(rt.global, "Error")
+  error(setmetatable({ value = rt:construct(ctor, msg) }, js.Throw), 0)
 end
 
 local function nodeof(this)
@@ -857,12 +862,12 @@ local function setup(self, S)
   end
   def(elproto, "querySelector", function(this, sel)
     local l, ok = query_all(nodeof(this), sel, 1)
-    if not ok then rt:throw("SyntaxError", "unsupported selector: " .. str(sel)) end
+    if not ok then throw(rt, "SyntaxError", "unsupported selector: " .. str(sel)) end
     return wrap(S, l[1])
   end)
   def(elproto, "querySelectorAll", function(this, sel)
     local l, ok = query_all(nodeof(this), sel, 2000)
-    if not ok then rt:throw("SyntaxError", "unsupported selector: " .. str(sel)) end
+    if not ok then throw(rt, "SyntaxError", "unsupported selector: " .. str(sel)) end
     return list_of(S, l)
   end)
   def(elproto, "matches", function(this, sel)
@@ -1108,7 +1113,7 @@ local function setup(self, S)
 
   local function new_element(tag)
     tag = lower(tag)
-    if not tag:match("^[%a][%w%-]*$") then rt:throw("InvalidCharacterError", "bad tag name") end
+    if not tag:match("^[%a][%w%-]*$") then throw(rt, "InvalidCharacterError", "bad tag name") end
     return { tag = tag, attrs = {}, kids = {} }
   end
   def(docproto, "createElement", function(_, tag) return wrap(S, new_element(tag)) end)
@@ -1121,12 +1126,12 @@ local function setup(self, S)
   end)
   def(docproto, "querySelector", function(_, sel)
     local l, ok = query_all(S.root, sel, 1)
-    if not ok then rt:throw("SyntaxError", "unsupported selector: " .. str(sel)) end
+    if not ok then throw(rt, "SyntaxError", "unsupported selector: " .. str(sel)) end
     return wrap(S, l[1])
   end)
   def(docproto, "querySelectorAll", function(_, sel)
     local l, ok = query_all(S.root, sel, 2000)
-    if not ok then rt:throw("SyntaxError", "unsupported selector: " .. str(sel)) end
+    if not ok then throw(rt, "SyntaxError", "unsupported selector: " .. str(sel)) end
     return list_of(S, l)
   end)
   def(docproto, "getElementsByTagName", function(_, tag) return rt:call(rt:get(elproto, "getElementsByTagName"), wrap(S, S.root), tag) end)
@@ -1296,7 +1301,7 @@ local function setup(self, S)
       k, v = str(k), str(v)
       local old = data[k]
       local delta = #k + #v - (old and (#k + #old) or 0)
-      if S.storage.bytes + delta > M.MAX_STORAGE then rt:throw("QuotaExceededError", "storage is full") end
+      if S.storage.bytes + delta > M.MAX_STORAGE then throw(rt, "QuotaExceededError", "storage is full") end
       S.storage.bytes = S.storage.bytes + delta
       data[k] = v
     end)
@@ -1427,7 +1432,7 @@ local function setup(self, S)
     return o
   end, "XMLHttpRequest")
   rt:set(G, "XMLHttpRequest", xhr)
-  rt:set(G, "WebSocket", rt:native(function() rt:throw("SecurityError", "WebSocket is not available") end, "WebSocket"))
+  rt:set(G, "WebSocket", rt:native(function() throw(rt, "SecurityError", "WebSocket is not available") end, "WebSocket"))
 
   -- observers: an IntersectionObserver reports at once that everything is visible, which makes
   -- lazy loaders show their content; the others do nothing
@@ -1483,7 +1488,7 @@ local function setup(self, S)
     return o
   end
   rt:set(G, "URL", rt:native(function(_, u, base)
-    if u == nil then rt:throw("TypeError", "Invalid URL") end
+    if u == nil then throw(rt, "TypeError", "Invalid URL") end
     return url_obj(u, base ~= nil and str(base) or nil)
   end, "URL"))
 
