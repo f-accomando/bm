@@ -1141,7 +1141,7 @@ MARKET_ONLY := titanex
 # (Studio Village is a test asset, not a Market game).
 # typing and write are apps: they go to the apps/ folder of the Market.
 MARKET_NOT := village
-MARKET_APPS_OF_GAMES := typing write
+MARKET_APPS_OF_GAMES := typing write ko2
 MARKET_GAMES := $(filter-out $(MARKET_NOT) $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
