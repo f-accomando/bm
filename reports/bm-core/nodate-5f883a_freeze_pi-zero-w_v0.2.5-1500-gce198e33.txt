@@ -1,0 +1,81 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1500-gce198e33
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-5f883a_freeze_pi-zero-w_v0.2.5-1500-gce198e33.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 1856 s after boot, kernel v0.2.5-1500-gce198e33, ring 6361, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ -89 dBm  ch 11  WPA2  LL
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fiber: covers did not yield: 499.8 ms past its slice
+fiber: covers did not yield: 503.8 ms past its slice
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.1 ms past its slice
+net: time 2026-10-24 09:59 UTC
+fiber: covers did not yield: 504.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 11.8 ms past its slice
+fiber: reports did not yield: 102.0 ms past its slice
+report: sending nodate-bdb238_freeze_pi-zero-w_v0.2.5-1500-gce198e33.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-bdb238_freeze_pi-zero-w_v0.2.5-1500-gce198e33.txt
+menu idle: 285/300 frames, 5731 of 2072 ms taken, 503.6 ms past a frame; covers 4635 ms (+504.1, stk 0.8/16K), reports 1050 ms (+102.0, stk 7.6/128K); min slack -11129 us, paced 0; sd 10 retried, 10 timed out
+menu idle: sd sites: rdend 10; first word <1ms 206 <3ms 12 (max 1.6 ms)
+menu stalls: tls handshake 1x last 730.8 worst 730.8 ms
+net: transfer with a wrong password from 192.168.1.97
+menu idle: 290/300 frames, 32 of 2068 ms taken, 0.0 ms past a frame; no job; min slack -3469 us, paced 0
+
+playing BMWEB.BM
+bmweb: ready
+load: bm Web 95 ms (close 0, parse 1, assets+state 1, mode 5, audio 0, lua 84)
+bm: loaded in 113 ms, the splash over at 1800 ms
+bm: bm Web asks for the network (ok: allow, back: no)
+bm: allowed
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+bt:   mouse link lost after 465 ms: it closed the link (switched off, or another console) (reason 13)
+bm: "bm Web" suspended (A on its cover resumes it)
+bm: "bm Web" 4040 frames, 58.9 fps, 3 dropped
+     update+draw avg 4.01 ms (24% of frame), max 1015.85 ms, Lua 642 KB
+     dev kit: Lua peak 642 KB, data 1098 KB, busiest frame 90k instructions, 4 frames over 16.7 ms, 20549 tokens
+report: session_bm-web_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+report: sending session_bm-web_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-web_pi-zero-w.txt
+menu idle: 299/300 frames, 1229 of 2222 ms taken, 95.7 ms past a frame; reports 1194 ms (+95.7, stk 7.6/128K); min slack 1996 us, paced 0
+menu idle: sd first word <1ms 63 <3ms 7 (max 1.6 ms)
+menu stalls: tls handshake 2x last 294.2 worst 294.2 ms
+menu idle: 290/300 frames, 31 of 2061 ms taken, 0.0 ms past a frame; no job; min slack -3287 us, paced 0
+menu idle: 277/300 frames, 10 of 1720 ms taken, 0.0 ms past a frame; no job; min slack -6815 us, paced 0
+menu idle: sd first word <1ms 60 (max 1.6 ms)
+menu idle: sd first word <1ms 50 (max 1.6 ms)
+menu idle: sd first word <1ms 65 (max 1.6 ms)
+menu idle: 296/300 frames, 3 of 1888 ms taken, 0.0 ms past a frame; no job; min slack -18285 us, paced 0
+menu idle: sd first word <1ms 77 <3ms 6 (max 1.6 ms)
+menu idle: sd first word <1ms 50 (max 1.6 ms)
+menu idle: 297/300 frames, 3 of 1860 ms taken, 0.0 ms past a frame; no job; min slack -17952 us, paced 0
+menu idle: sd first word <1ms 59 <3ms 3 (max 1.6 ms)
+menu idle: 287/300 frames, 3 of 1820 ms taken, 0.0 ms past a frame; no job; min slack -18022 us, paced 0
+menu idle: sd first word <1ms 80 <3ms 13 (max 1.6 ms)
+menu idle: sd first word <1ms 60 (max 1.6 ms)
+menu idle: sd first word <1ms 55 (max 1.6 ms)
+menu idle: sd first word <1ms 70 (max 1.6 ms)
