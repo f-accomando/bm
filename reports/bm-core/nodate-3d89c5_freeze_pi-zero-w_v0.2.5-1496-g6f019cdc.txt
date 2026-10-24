@@ -1,0 +1,57 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1496-g6f019cdc
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-3d89c5_freeze_pi-zero-w_v0.2.5-1496-g6f019cdc.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 1290 s after boot, kernel v0.2.5-1496-g6f019cdc, ring 18755, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+BGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.7 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+load: bm SDK 264 ms (close 0, parse 2, assets+state 2, mode 1, audio 0, lua 257)
+bm: screen 1280x720
+menu idle: 293/300 frames, 4161 of 2065 ms taken, 501.4 ms past a frame; covers 4131 ms (+503.9, stk 0.8/16K); min slack -2380 us, paced 0; sd 8 retried, 8 timed out
+menu idle: sd sites: rdend 8; first word <1ms 106 <3ms 1 (max 1.7 ms)
+menu idle: 295/300 frames, 31 of 1801 ms taken, 0.0 ms past a frame; no job; min slack -6667 us, paced 0
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.7 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+load: bm Mesh 232 ms (close 0, parse 2, assets+state 2, mode 1, audio 0, lua 225)
+bm: screen 1280x720
+menu idle: 290/300 frames, 4663 of 1842 ms taken, 503.1 ms past a frame; covers 4633 ms (+503.9, stk 0.8/16K); min slack -2288 us, paced 0; sd 16 retried, 16 timed out
+menu idle: sd sites: rdend 16; first word <1ms 271 (max 1.7 ms)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.7 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+code: ready, 1 tab(s), font 6x12
+load: bm Code 174 ms (close 0, parse 1, assets+state 2, mode 1, audio 0, lua 168)
+bm: screen 1280x720
+menu idle: 292/300 frames, 32 of 2114 ms taken, 0.0 ms past a frame; no job; min slack -4484 us, paced 0
+menu idle: sd first word <1ms 21 <3ms 2 (max 1.7 ms)
+menu idle: 296/300 frames, 31 of 2295 ms taken, 0.0 ms past a frame; no job; min slack -2146 us, paced 0
+menu idle: 294/300 frames, 31 of 2129 ms taken, 0.0 ms past a frame; no job; min slack -2099 us, paced 0
+bt: mouse disconnected after 777657 ms: it closed the link (switched off, or another console) (reason 13)
+net: receiving a new kernel (4963812 bytes)...
+net: kernel 0% (0 of 4847 KiB)
+net: kernel 10% (494 of 4847 KiB)
+net: kernel 20% (973 of 4847 KiB)
+net: kernel 30% (1457 of 4847 KiB)
+net: kernel 40% (1944 of 4847 KiB)
+net: kernel 50% (2431 of 4847 KiB)
+net: kernel 60% (2910 of 4847 KiB)
+net: kernel 70% (3394 of 4847 KiB)
+net: kernel 80% (3886 of 4847 KiB)
+net: kernel 90% (4368 of 4847 KiB)
+net: kernel received (4963812 bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 128.4 ms past its slice
+fiber: netxfer did not yield: 504.7 ms past its slice
+net: writing /kernel.img paused, it starts again later
+net: saved kernel.img on the SD card (4963812 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 19 cartridges; clusters 32 KiB; 33 retried, 33 timed out
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
