@@ -14,7 +14,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   256×256 and 360×360 (the `.b16` screen), boxed in the middle of 16:9 on the Pi.
 - `screen(w, h)` switches at run time among `screen_modes[]` (320×180 … 1920×1080, 16:9,
   whole pixels on 1080p); a square cartridge keeps its screen.
-- Menu: 2x (1280x720) by default, enlarged by the ARM (`menu_scale` sets 1, 2 or 3; Settings > Screen > Menu size). The GPU enlarge (`gpu3d_enlarge`) is
+- Menu: 1x (640x360) by default, the HDMI scaler enlarges it (`menu_scale` sets 1, 2 or 3; Settings > Screen > Menu size). 2x by the ARM copies 1.84 MB a frame (about one frame) and starves the covers; it adds no detail at the 1080p output. The GPU enlarge (`gpu3d_enlarge`) is
   off until a Pi run shows a clean menu: `menu_gpu=1` turns it on (24 Oct: stripes on the Pi).
 
 ### 2D (`src/bm/gfx16.c`, `gfx16.h`)

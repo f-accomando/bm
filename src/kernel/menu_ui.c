@@ -81,6 +81,7 @@ static uint32_t frame_end;          /* when the last frame was over: the drawing
 static int idle_frames, idle_gave;
 static uint32_t idle_offered, idle_used, idle_over;
 static int32_t idle_slack = SLACK_NONE;
+static uint32_t st_draw, st_enlarge, st_flip;      /* us over IDLE_FRAMES: drawing, enlarging, flip */
 static int idle_first;              /* the frame after the menu opens: its slack is the opening's */
 static uint32_t idle_sd_retries, idle_sd_timeouts;  /* sd_counters at the last line */
 static float scroll;                /* first visible row, eased */
@@ -1186,8 +1187,8 @@ int menu_ui_cols(void)
 }
 
 /* the screen of the layout: on the RGB30 360x360 shown 2x (the display
- * controller enlarges it); on the Pi 1280x720 by default
- * (the ARM enlarges it at each flip); menu_scale in bm/config.txt sets 1 to 3
+ * controller enlarges it); on the Pi 640x360 by default
+ * (the HDMI scaler enlarges it; the ARM enlarges it at each flip for menu_scale 2 or 3); menu_scale in bm/config.txt sets 1 to 3
  * and menu_gpu=1 lets the GPU enlarge it */
 static int screen_open(framebuffer_t *fb)
 {
@@ -1198,8 +1199,9 @@ static int screen_open(framebuffer_t *fb)
 #else
     const char *ms = config_get("menu_scale");
     sw = 640;
-    /* no key: 2x (1280x720); the key sets 1, 2 or 3 */
-    scale = !ms || !*ms ? 2 : ms[0] == '3' ? 3 : ms[0] == '2' ? 2 : 1;
+    /* no key: 1x (the HDMI scaler enlarges it at no CPU cost; the ARM's copy of 2x took a whole
+     * frame and starved the covers); the key sets 1, 2 or 3 */
+    scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '2' ? 2 : 1;
     if (scale > 1 && !frame)
         frame = malloc(MAX_W * MAX_H * 2);
     if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
@@ -1607,6 +1609,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (v->keys_help)
         keys_help();
     pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
+    const uint32_t pre = timer_ticks();
     if (scale > 1) {
         g16_t page;
         g16_target(&page, (uint16_t *)fb->base, fb->pitch / 2, SW * scale, SH * scale, &font_console_8x16);
@@ -1623,6 +1626,9 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     paced = 0;                          /* the Pi keeps its timer pacing, as it was */
 #endif
     const uint32_t flipped = timer_ticks();
+    st_draw += pre - frame_end;
+    st_enlarge += drawn - pre;
+    st_flip += flipped - drawn;
     const int32_t slack = (int32_t)(deadline - 1500 - flipped);
     uint32_t until = 0;
     int gave = 0;
@@ -1690,6 +1696,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                 kprintf("menu idle: %s\n", st);
         }
         stalls_report();
+        kprintf("menu frame: %dx, a frame averages draw %lu us, enlarge %lu us, flip %lu us, free time used %lu us "
+                "(%d frames)\n", scale, (unsigned long)(st_draw / (uint32_t)idle_frames),
+                (unsigned long)(st_enlarge / (uint32_t)idle_frames), (unsigned long)(st_flip / (uint32_t)idle_frames),
+                (unsigned long)(idle_used / (uint32_t)idle_frames), idle_frames);
+        st_draw = st_enlarge = st_flip = 0;
         idle_frames = idle_gave = 0;
         idle_offered = idle_used = idle_over = 0;
         idle_slack = SLACK_NONE;

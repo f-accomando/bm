@@ -341,7 +341,7 @@ action = "scan_games lists /carts too (as carts.c rescan)"
 [[divergence]]
 id = "D30"
 area = "screen"
-pi = "16:9 HDMI: menu 640x360 shown 2x at 1280x720 with the GPU (else 1x), 6 covers a row, menu_scale"
+pi = "16:9 HDMI: menu 640x360 (the HDMI scaler enlarges it; menu_scale 2 or 3 by the ARM), 6 covers a row, menu_scale"
 rgb30 = "square 720x720 panel: menu 360x360 shown x2, 3 covers a row"
 cause = "hardware"
 capability = "square-panel"

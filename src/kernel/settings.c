@@ -292,7 +292,7 @@ static const char *impostor_choice(void)
     return t;
 }
 
-/* menu_scale: no key = Auto (2x when the GPU is there, else 1x) */
+/* menu_scale: no key = Auto (1x: the HDMI scaler enlarges it) */
 static const char *menu_size_choice(void)
 {
     const char *v = config_get("menu_scale");
@@ -577,7 +577,7 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
                  "Nearest: sharp pixels. Bilinear: smooth", "%s", filter_on() ? "Bilinear" : "Nearest");
         home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
-                 "Auto: 720p. Applies at the next start", "%s", menu_size_choice());
+                 "Auto: 360p, the HDMI scaler enlarges it. Applies at the next start", "%s", menu_size_choice());
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
