@@ -133,6 +133,15 @@ local function draw_item(it, x, y, z, yaw, scale)
     for i = 0, min(it.dirty, 5) - 1 do
       draw3d(Mesh.dplate, x, y + i * 0.04 * scale, z, 0, i * 0.7, 0, scale)
     end
+  elseif it.pot then
+    draw3d(Mesh.pot, x, y, z, 0, yaw or 0, 0, scale)
+    local b = it.box
+    if b and #b.items > 0 then
+      local c = b.burnt and 0x2A2420 or Mesh.mix_color(b.out or Food.mix_key("boil", b.items))
+      local lvl = 0.14 + #b.items * 0.025
+      local boil = b.done and not b.burnt and sin(G.t * 20) * 0.01 or 0
+      draw3d(Mesh.soup_disc(c), x, y + (lvl + boil) * scale, z, 0, yaw or 0, 0, scale)
+    end
   elseif it.key then
     local use_sprites = (G.food_sprites ~= false) and (it.key ~= "ext") and (sprite3d ~= nil)
     if use_sprites then
@@ -296,15 +305,19 @@ local function draw_station_top(run, st)
     local yy = y + (k == "board" and 0.04 or 0)
     draw_item(st.item, x + dx, yy, z + dz, 0)
   end
-  if st.box then
+  if k == "pot" and st.pot then
+    draw3d(Mesh.pot, x, y, z)
+    local b = st.box
+    if b and #b.items > 0 then
+      local c = b.burnt and 0x2A2420 or Mesh.mix_color(b.out or Food.mix_key("boil", b.items))
+      local lvl = 0.14 + #b.items * 0.025
+      local boil = b.done and not b.burnt and sin(G.t * 20) * 0.01 or 0
+      draw3d(Mesh.soup_disc(c), x, y + lvl + boil, z)
+    end
+  elseif st.box and k ~= "pot" then
     local b = st.box
     if #b.items > 0 then
-      if k == "pot" then
-        local c = b.burnt and 0x2A2420 or Mesh.mix_color(b.out or Food.mix_key("boil", b.items))
-        local lvl = 0.14 + #b.items * 0.035
-        local boil = b.done and not b.burnt and sin(G.t * 20) * 0.01 or 0
-        draw3d(Mesh.soup_disc(c), x, y + lvl + boil, z)
-      elseif k == "pan" then
+      if k == "pan" then
         local key = b.burnt and "burnt" or (b.done and b.out) or b.items[1]
         local use_sprites = (G.food_sprites ~= false) and (sprite3d ~= nil)
         if use_sprites then
@@ -404,7 +417,7 @@ function Ren.world(run)
     end
   end
   for _, st in ipairs(run.stations) do
-    if (st.item or st.box or st.fire > 0 or st.n or st.dirty) and not st.drop then draw_station_top(run, st) end
+    if (st.item or st.box or st.pot or st.fire > 0 or st.n or st.dirty) and not st.drop then draw_station_top(run, st) end
   end
   for _, l in ipairs(run.loose) do
     draw_item(l.item, l.x, l.y, l.z, l.spin or 0)

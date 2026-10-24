@@ -18,7 +18,10 @@ function Kit.add_station(run, kind, cx, cz, plat)
     x = cx + 0.5, z = cz + 0.5, bx = cx + 0.5, bz = cz + 0.5,
     item = nil, prog = 0, fire = 0, id = #run.stations + 1, bump = 0,
   }
-  if st.def.box then st.box = { items = {}, t = 0, done = false, burnt = false, warn = 0 } end
+  if st.def.box then
+    st.box = { items = {}, t = 0, done = false, burnt = false, warn = 0 }
+    if kind == "pot" then st.pot = { pot = true, box = st.box } end
+  end
   run.stations[#run.stations + 1] = st
   return st
 end

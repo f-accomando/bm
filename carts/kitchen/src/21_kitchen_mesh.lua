@@ -133,10 +133,6 @@ local function station_model(mb, st, x, z, world, cover)
     b.block(x + 0.66, TOP + 0.04, z + 0.72, x + 0.9, TOP + 0.06, z + 0.78, 0xB8C0C8, 0xD8E0E8)
   elseif k == "pot" then
     if not top_uv then b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E) end
-    b.prism(cx, cz, TOP, TOP + 0.22, 0.27, 0.29, 8, 0xA0A8B0, false)
-    b.disc(cx, TOP + 0.12, cz, 0.26, 8, 0x3A3E44)
-    b.block(cx - 0.4, TOP + 0.14, cz - 0.04, cx - 0.28, TOP + 0.18, cz + 0.04, 0x505860)
-    b.block(cx + 0.28, TOP + 0.14, cz - 0.04, cx + 0.4, TOP + 0.18, cz + 0.04, 0x505860)
   elseif k == "pan" then
     if not top_uv then b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E) end
     b.prism(cx, cz, TOP, TOP + 0.06, 0.28, 0.31, 8, 0x3A3A40, 0x26262A)

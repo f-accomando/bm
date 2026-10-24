@@ -134,7 +134,7 @@ end
 function Hud.world_marks(run)
   -- stations: pot contents, progress, warnings; chopping; plates on counters
   for _, st in ipairs(run.stations) do
-    local b = st.box
+    local b = st.box or (st.item and st.item.pot and st.item.box)
     if b and #b.items > 0 then
       local sx, sy = bubble_at(st.x, Kit.TOP + 0.55, st.z)
       if sx then
@@ -145,14 +145,15 @@ function Hud.world_marks(run)
           panel(x0, y0, w, 22, 0x302820, 0x000000)
           Hud.icon(IC.burnt, floor(sx - 8), y0 + 3)
         else
-          local warn = b.done and st.def.burn and b.t2 > st.def.burn * 0.45
+          local def = st.def or Data.ST.pot
+          local warn = b.done and def.burn and b.t2 > def.burn * 0.45
           local bg = warn and ((G.frame // 6) % 2 == 0 and 0xFF6040 or 0xFFD060) or 0xFFF8EC
           panel(x0, y0, w, 22, bg, 0x40302A)
           for i, key in ipairs(b.items) do draw_part(key, x0 + 3 + (i - 1) * 17, y0 + 3) end
           if b.done then
             Hud.mini(MINI.tick, x0 + w - 6, y0 - 4)
-          else
-            bar(x0 + 2, y0 + 22, w - 4, 4, b.t / st.def.cook, 0x40C040, 0x303030)
+          elseif b.t > 0 then
+            bar(x0 + 2, y0 + 22, w - 4, 4, b.t / def.cook, 0x40C040, 0x303030)
           end
         end
       end
@@ -191,6 +192,8 @@ function Hud.world_marks(run)
         sx, sy = floor(sx), floor(sy)
         if c.hold and c.hold.plate and #c.hold.parts > 0 then
           Hud.plate_icons(c.hold, sx, sy - 14)
+        elseif c.hold and c.hold.pot and c.hold.box and #c.hold.box.items > 0 then
+          Hud.pot_icons(c.hold.box, sx, sy - 14)
         end
         if c.say and c.say_t > 0 then
           text_cs(c.say, sx, sy - 28, 0xFFFFFF)
@@ -219,6 +222,22 @@ function Hud.plate_icons(plate, sx, sy)
     x = x + pw + 1
   end
   if done then Hud.mini(MINI.tick, x0 + w, y0 - 3) end
+end
+
+-- the icons of what is in a pot held by a chef
+function Hud.pot_icons(b, sx, sy)
+  local n = #b.items
+  local w = n * 17 + 5
+  local x0 = floor(sx - w / 2)
+  local y0 = floor(sy - 22)
+  local bg = b.burnt and 0x302820 or 0xFFF8EC
+  panel(x0, y0, w, 22, bg, 0x40302A)
+  if b.burnt then
+    Hud.icon(IC.burnt, floor(sx - 8), y0 + 3)
+  else
+    for i, key in ipairs(b.items) do draw_part(key, x0 + 3 + (i - 1) * 17, y0 + 3) end
+    if b.done then Hud.mini(MINI.tick, x0 + w - 6, y0 - 4) end
+  end
 end
 
 ---------------------------------------------------------------- corners

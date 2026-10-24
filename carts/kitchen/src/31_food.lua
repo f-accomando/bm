@@ -64,6 +64,25 @@ function Food.box_ok(run, proc, items, add)
   return false
 end
 
+function Food.box_complete(run, proc, items)
+  local sets = run.box_sets[proc]
+  if not sets or #items == 0 then return false end
+  local c = count(items)
+  for _, set in ipairs(sets) do
+    local match = true
+    for k, n in pairs(set) do
+      if (c[k] or 0) ~= n then match = false break end
+    end
+    if match then
+      for k, n in pairs(c) do
+        if (set[k] or 0) ~= n then match = false break end
+      end
+    end
+    if match then return true end
+  end
+  return false
+end
+
 -- 1 if the plate matches a recipe exactly (for the "ready" tick on it)
 function Food.plate_sig(parts)
   local list = {}
@@ -79,12 +98,19 @@ Food.is_food = is_food
 
 function Food.new_ing(id) return { key = id } end
 function Food.new_plate() return { plate = true, parts = {} } end
+function Food.new_pot()
+  return { pot = true, box = { items = {}, t = 0, done = false, burnt = false, warn = 0 } }
+end
 
--- what trash does to an item: nil (gone) or the item left (an empty plate)
+-- what trash does to an item: nil (gone) or the item left (an empty plate or pot)
 function Food.trash(it)
   if not it then return nil end
   if it.plate then
     if #it.parts > 0 then it.parts = {} end
+    return it
+  end
+  if it.pot then
+    if it.box and #it.box.items > 0 then Food.box_take(it.box) end
     return it
   end
   if it.dirty or it.key == "ext" then return it end
@@ -128,8 +154,8 @@ function Food.box_accepts(run, st, key)
   return Food.box_ok(run, st.def.box, b.items, key)
 end
 
-local function box_take(st)
-  local b = st.box
+local function box_take(st_or_b)
+  local b = st_or_b.box or st_or_b
   local out = b.burnt and "burnt" or b.out
   b.items, b.t, b.t2, b.done, b.burnt, b.out, b.warn = {}, 0, 0, false, false, nil, 0
   return out
@@ -144,19 +170,24 @@ function Food.update(run, dt)
     if b and #b.items > 0 and not b.burnt and st.fire <= 0 then
       local def = st.def
       if not b.done then
-        b.t = b.t + dt * cook_k
-        -- steam from pots and ovens, a sizzle from pans
-        if def.box == "fry" then
-          if random() < dt * 5 then Fx.sizzle(st.x, st.z) end
-        elseif def.box ~= "blend" and random() < dt * (1 + 3 * b.t / def.cook) then
-          Fx.steam(st.x, Kit.TOP + 0.3, st.z)
-        end
-        if b.t >= def.cook then
-          b.done = true
-          b.t2 = 0
-          b.out = Food.mix_key(def.box, b.items)
-          Snd.ding()
-          Fx.puff(st.x, Kit.TOP + 0.4, st.z, 0xFFFFFF, 3)
+        local complete = Food.box_complete(run, def.box, b.items)
+        if complete then
+          b.t = b.t + dt * cook_k
+          -- steam from pots and ovens, a sizzle from pans
+          if def.box == "fry" then
+            if random() < dt * 5 then Fx.sizzle(st.x, st.z) end
+          elseif def.box ~= "blend" and random() < dt * (1 + 3 * b.t / def.cook) then
+            Fx.steam(st.x, Kit.TOP + 0.3, st.z)
+          end
+          if b.t >= def.cook then
+            b.done = true
+            b.t2 = 0
+            b.out = Food.mix_key(def.box, b.items)
+            Snd.ding()
+            Fx.puff(st.x, Kit.TOP + 0.4, st.z, 0xFFFFFF, 3)
+          end
+        else
+          b.t = 0
         end
       elseif def.burn and not run.no_burn then
         b.t2 = b.t2 + dt / burn_k
@@ -244,11 +275,11 @@ function Food.interact(run, chef, st)
   if st.kind == "trash" then
     if not h then return false end
     if h.dirty or h.key == "ext" then return false end
-    local was_plate = h.plate
+    local was_container = h.plate or h.pot
     chef.hold = Food.trash(h)
     Snd.trash()
     Fx.puff(st.x, Kit.TOP + 0.3, st.z, 0x808080, 3)
-    if not was_plate then G.stats_add("wasted", 1) end
+    if not was_container then G.stats_add("wasted", 1) end
     return true
   end
 
@@ -301,7 +332,56 @@ function Food.interact(run, chef, st)
   end
 
   -- cooking vessels
-  if st.box then
+  if st.kind == "pot" then
+    if st.pot then
+      local pot = st.pot
+      local b = pot.box
+      local ready = b.done or b.burnt
+      if h and h.plate then
+        if ready and not b.burnt then
+          if Food.plate_ok(run, h.parts, b.out) then
+            h.parts[#h.parts + 1] = box_take(b)
+            Snd.plop()
+            return true
+          end
+          return false, "not for this dish"
+        elseif ready and b.burnt then
+          return false, "burnt!"
+        elseif not ready and #b.items > 0 then
+          local comp = Food.box_complete(run, st.def.box, b.items)
+          return false, comp and "still cooking" or "needs more ingredients"
+        else
+          return false, "pot is empty"
+        end
+      end
+      if h and is_food(h) and Food.box_accepts(run, st, h.key) then
+        box_add(run, st, h.key)
+        chef.hold = nil
+        Snd.plop()
+        return true
+      end
+      if not h then
+        chef.hold = pot
+        st.pot = nil
+        st.box = nil
+        Snd.pick()
+        return true
+      end
+      if h and is_food(h) then return false, "not in here" end
+      return false
+    else
+      if h and h.pot then
+        st.pot = h
+        st.box = h.box
+        chef.hold = nil
+        Snd.place()
+        return true
+      end
+      return false, "no pot here"
+    end
+  end
+
+  if st.box and st.kind ~= "pot" then
     local b = st.box
     local ready = b.done or b.burnt
     if ready and not h then
@@ -353,6 +433,71 @@ function Food.interact(run, chef, st)
   -- counters, boards, belts, crate lids
   if def.hold or st.kind == "crate" then
     local it = st.item
+    if it and it.pot then
+      local pot = it
+      local b = pot.box
+      local ready = b.done or b.burnt
+      if not h then
+        chef.hold = pot
+        st.item = nil
+        Snd.pick()
+        return true
+      end
+      if h and h.plate then
+        if ready and not b.burnt then
+          if Food.plate_ok(run, h.parts, b.out) then
+            h.parts[#h.parts + 1] = box_take(b)
+            Snd.plop()
+            return true
+          end
+          return false, "not for this dish"
+        elseif ready and b.burnt then
+          return false, "burnt!"
+        elseif not ready and #b.items > 0 then
+          return false, "still cooking"
+        else
+          return false, "pot is empty"
+        end
+      end
+      if h and is_food(h) and Food.box_accepts(run, { def = Data.ST.pot, cap = 3 }, h.key) then
+        box_add(run, { box = b, def = Data.ST.pot }, h.key)
+        chef.hold = nil
+        Snd.plop()
+        return true
+      end
+      return false
+    end
+
+    if h and h.pot then
+      local pot = h
+      local b = pot.box
+      local ready = b.done or b.burnt
+      if it and it.plate then
+        if ready and not b.burnt then
+          if Food.plate_ok(run, it.parts, b.out) then
+            it.parts[#it.parts + 1] = box_take(b)
+            Snd.plop()
+            return true
+          end
+          return false, "not for this dish"
+        elseif ready and b.burnt then
+          return false, "burnt!"
+        elseif #b.items > 0 then
+          return false, "still cooking"
+        else
+          return false, "pot is empty"
+        end
+      end
+      if not it then
+        st.item = h
+        chef.hold = nil
+        st.bump = 0.12
+        Snd.place()
+        return true
+      end
+      return false
+    end
+
     if not h and it then
       chef.hold = it
       st.item = nil

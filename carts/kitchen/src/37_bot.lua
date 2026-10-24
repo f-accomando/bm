@@ -89,7 +89,7 @@ local produce
 local function start_cooking(run, c, key, steps, apart)
   local k = Food.parse(key)
   local s = free_station(run, BOX[k.proc], c, function(st)
-    return #st.box.items == 0 and not (apart and st.res == c)
+    return (st.kind ~= "pot" or st.pot) and st.box and #st.box.items == 0 and not (apart and st.res == c)
   end)
   if not s then return false end         -- (false: no station free; nil: no way)
   s.res = c
@@ -202,8 +202,14 @@ local function plan_order(run, c, o)
   end
   for _, s in ipairs(cooking) do
     steps[#steps + 1] = { op = "wait", st = s, until_done = true }
-    steps[#steps + 1] = { op = "use", st = s, want = "hold", release = s }
-    steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
+    if s.kind == "pot" then
+      steps[#steps + 1] = { op = "use", st = s, want = "hold" }
+      steps[#steps + 1] = { op = "use", st = counter, want = "poured" }
+      steps[#steps + 1] = { op = "use", st = s, want = "empty", release = s }
+    else
+      steps[#steps + 1] = { op = "use", st = s, want = "hold", release = s }
+      steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
+    end
   end
   for _, part in ipairs(later) do
     if not produce(run, c, part, steps) then return fail(part) end
@@ -235,14 +241,17 @@ end
 -- a pot or pan left full (burnt, or cooked for a plan that was dropped):
 -- empty it into the trash
 local function plan_cleanup(run, c)
-  local st = free_station(run, "pot", c, function(s) return s.box.burnt or s.box.done end)
-    or free_station(run, "pan", c, function(s) return s.box.burnt or s.box.done end)
-    or free_station(run, "oven", c, function(s) return s.box.burnt or s.box.done end)
-    or free_station(run, "blender", c, function(s) return s.box.done end)
+  local st = free_station(run, "pot", c, function(s) return s.box and (s.box.burnt or s.box.done) end)
+    or free_station(run, "pan", c, function(s) return s.box and (s.box.burnt or s.box.done) end)
+    or free_station(run, "oven", c, function(s) return s.box and (s.box.burnt or s.box.done) end)
+    or free_station(run, "blender", c, function(s) return s.box and s.box.done end)
   if not st then return nil end
   local tr = free_station(run, "trash", c)
   if not tr then return nil end
   st.res = c
+  if st.kind == "pot" then
+    return { { op = "use", st = st, want = "hold" }, { op = "use", st = tr, want = "poured" }, { op = "use", st = st, want = "empty", release = st } }
+  end
   return { { op = "use", st = st, want = "hold", release = st }, { op = "use", st = tr, want = "empty" } }
 end
 
@@ -397,6 +406,7 @@ function Bot.update(run, c, dt)
       if step.op == "use" then
         if step.want == "hold" and c.hold then done = true
         elseif step.want == "empty" and not c.hold then done = true
+        elseif step.want == "poured" and c.hold and c.hold.pot and (not c.hold.box or #c.hold.box.items == 0) then done = true
         else
           c.inp.a = (G.frame + c.n) % 6 == 0
           step.tries = (step.tries or 0) + 1

@@ -106,7 +106,7 @@ Chef.separate = separate
 ---------------------------------------------------------------- actions
 
 local function can_throw(it)
-  return it and not it.dirty and it.key ~= "ext"
+  return it and not it.dirty and it.key ~= "ext" and not it.pot
 end
 
 local function throw(run, c)
