@@ -431,17 +431,18 @@ int g16_text(g16_t *g, int x, int y, const char *str, uint16_t c)
 {
     const font_t *f = g->font;
     int sx = x - g->cam_x, sy = y - g->cam_y;
-    const int cw = f->width;
+    const int cw = f->width, wb = (cw + 7) / 8;
     for (; *str; str++, sx += cw, x += cw) {
         if (*str == '\n') { sy += f->height; sx = x = x - cw; continue; }
         if (sx >= g->cx1 || sx + cw <= g->cx0 || sy >= g->cy1 || sy + f->height <= g->cy0)
             continue;
-        const uint8_t *gl = f->glyphs + (uint8_t)*str * f->height;
-        for (int r = 0; r < f->height; r++) {
-            uint8_t bits = gl[r];
-            for (int b = 0; bits; b++, bits <<= 1)
-                if (bits & 0x80) plot(g, sx + b, sy + r, c);
-        }
+        const uint8_t *gl = f->glyphs + (uint8_t)*str * f->height * wb;
+        for (int r = 0; r < f->height; r++)
+            for (int k = 0; k < wb; k++) {
+                uint8_t bits = gl[r * wb + k];
+                for (int b = 0; bits; b++, bits <<= 1)
+                    if (bits & 0x80) plot(g, sx + k * 8 + b, sy + r, c);
+            }
     }
     return x;
 }

@@ -346,11 +346,11 @@ static uint32_t texel_of(uint16_t c, int opaque)
     return (opaque ? 0xFF000000u : 0) | (ra ? b << 16 | g << 8 | r : r << 16 | g << 8 | b);
 }
 
-/* the word of texel (x, y) in a T-format texture w wide (a multiple of
- * 32), with the layout the probe learned */
+/* the word of texel (x, y) in a T-format texture w wide (rounded up to a
+ * multiple of 32), with the layout the probe learned */
 static uint32_t t_word(int x, int y, int w)
 {
-    const int tpr = w / 32, ty = y / 32;
+    const int tpr = (w + 31) / 32, ty = y / 32;
     int tx = x / 32;
     if ((ty & 1) && G.t_rev)
         tx = tpr - 1 - tx;
@@ -524,7 +524,10 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
         return NULL;
     tex_t *t = &G.tex[slot];
     const int cw = s->w / G16_CELL, ch = s->h / G16_CELL;
-    size_t size = (size_t)s->w * (size_t)s->h * 4 + 16 + (size_t)(cw + 1) * (size_t)(ch + 1) * 4;
+    const int tiled = G.tformat && !G.tformat_off;
+    const int tw = tiled ? (s->w + 31) & ~31 : s->w, th = tiled ? (s->h + 31) & ~31 : s->h;
+    const uint32_t n = (uint32_t)s->w * (uint32_t)s->h, tn = (uint32_t)tw * (uint32_t)th;
+    size_t size = (size_t)tn * 4 + 16 + (size_t)(cw + 1) * (size_t)(ch + 1) * 4;
     if (!t->texels || t->size < size) {
         free(t->texels);
         t->texels = aligned_alloc(4096, (size + 4095) & ~(size_t)4095);
@@ -534,8 +537,6 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
             return NULL;
         }
     }
-    const uint32_t n = (uint32_t)s->w * (uint32_t)s->h;
-    const int tiled = G.tformat && !G.tformat_off && s->w % 32 == 0 && s->h % 32 == 0;
     /* bm3d 5.2: an opaque sheet as RGB565 in T-format (half the memory and the
      * TMU's reads; the colours exactly the sheet's) where the probe learned
      * that layout and gpu3d_tex16 asks for it */
@@ -583,7 +584,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
      * (16: low bits 0 here, bit 4 in P1); P1: type bit 4, height and width
      * (2048 is 0), nearest texel when magnified and minified, clamp in s
      * and t */
-    t->params = t->texels + (fmt == TF_ETC1 ? n / 8 : fmt != TF_32 ? (n + 1) / 2 : n);
+    t->params = t->texels + (fmt == TF_ETC1 ? n / 8 : fmt != TF_32 ? (n + 1) / 2 : tiled ? tn : n);
     /* the cells that are not opaque, summed over areas: any box of cells
      * is checked in four reads (tex_opaque) */
     t->cw = cw;
@@ -2293,8 +2294,7 @@ int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, i
                   (float)(flip_y ? sy + sh : sy), flip_x ? -k : k, flip_y ? -k : k, NULL);
 }
 
-/* the glyphs of a font as a sheet: 16 a row, 8 pixels wide (a glyph's row
- * is a byte: a narrower font may light all 8), white where lit */
+/* the glyphs of a font as a sheet: 16 a row, wb * 8 pixels wide, white where lit */
 #define NFONTS 6
 static struct { const font_t *font; g16_sheet_t sheet; } fonts[NFONTS];
 
@@ -2308,13 +2308,14 @@ static const g16_sheet_t *font_sheet(const font_t *f)
     if (fonts[i].font)
         return &fonts[i].sheet;
     g16_sheet_t *sh = &fonts[i].sheet;
-    if (g16_sheet_alloc(sh, 128, 16 * f->height) != 0)
+    const int wb = (f->width + 7) / 8, gw = wb * 8;
+    if (g16_sheet_alloc(sh, 16 * gw, 16 * f->height) != 0)
         return NULL;
     for (int c = 0; c < 256; c++)
         for (int r = 0; r < f->height; r++) {
-            const uint8_t bits = f->glyphs[c * f->height + r];
-            for (int b = 0; b < 8; b++)
-                g16_sheet_set(sh, c % 16 * 8 + b, c / 16 * f->height + r, 0xFFFF, bits >> (7 - b) & 1);
+            const uint8_t *row = f->glyphs + (c * f->height + r) * wb;
+            for (int b = 0; b < gw; b++)
+                g16_sheet_set(sh, c % 16 * gw + b, c / 16 * f->height + r, 0xFFFF, row[b / 8] >> (7 - (b & 7)) & 1);
         }
     for (int cy = 0; cy < sh->h / G16_CELL; cy++)
         for (int cx = 0; cx < sh->w / G16_CELL; cx++)
@@ -2327,8 +2328,9 @@ static const g16_sheet_t *font_sheet(const font_t *f)
 static int glyph2d(const g16_t *g, const tex_t *t, const font_t *f, unsigned ch, int sx, int sy, int zoom,
                    const float *col)
 {
+    const int gw = (f->width + 7) / 8 * 8;
     const float k = 1.0f / (float)zoom;
-    return quad2d(g, SH_TEXT, t, sx, sy, sx + 8 * zoom, sy + f->height * zoom, (float)(ch % 16 * 8),
+    return quad2d(g, SH_TEXT, t, sx, sy, sx + gw * zoom, sy + f->height * zoom, (float)(ch % 16 * gw),
                   (float)(ch / 16 * f->height), k, k, col);
 }
 
@@ -2336,7 +2338,7 @@ int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int 
 {
     GPU_PRE();
     const font_t *f = g->font;
-    if (G.failed || !G.ready || !f || f->width > 8)
+    if (G.failed || !G.ready || !f || f->width > 24)
         return 0;
     const g16_sheet_t *fs = font_sheet(f);
     const tex_t *t = fs ? tex_get(g, fs) : NULL;
@@ -2382,8 +2384,8 @@ int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int 
 /* ---------------------------------------------------------------- enlarging (bm3d 4.8) */
 
 /* A frame of RGB565 pixels (the menu's 640x360 layout) as a texture the
- * TMU reads (RGBA32R: the TMU reads no RGB565 in rows), through a table of
- * the 65536 colours: a load and a store a pixel */
+ * TMU reads (T-format when learned, else RGBA32R), through a table of
+ * the 65536 colours */
 static struct {
     uint32_t *lut;
     uint32_t *texels;
@@ -2404,7 +2406,10 @@ int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *pag
         for (uint32_t c = 0; c < 65536; c++)
             big.lut[c] = texel_of((uint16_t)c, 1);
     }
-    const size_t size = (size_t)w * (size_t)h * 4 + 16;
+    const int tiled = G.tformat && !G.tformat_off;
+    const int tw = tiled ? (w + 31) & ~31 : w, th = tiled ? (h + 31) & ~31 : h;
+    const uint32_t n = (uint32_t)w * (uint32_t)h, tn = (uint32_t)tw * (uint32_t)th;
+    const size_t size = (size_t)tn * 4 + 16;
     if (!big.texels || big.size < size) {
         free(big.texels);
         big.texels = aligned_alloc(4096, (size + 4095) & ~(size_t)4095);
@@ -2412,16 +2417,29 @@ int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *pag
         if (!big.texels)
             return -1;
     }
-    const uint32_t n = (uint32_t)w * (uint32_t)h;
     const uint32_t *lut = big.lut;
     uint32_t *o = big.texels;
-    for (uint32_t i = 0; i < n; i++)
-        o[i] = lut[src[i]];
+    if (tiled) {
+        const int tpr = tw / 32;
+        for (int y = 0; y < h; y++) {
+            const int ty = y / 32, rev = (ty & 1) && G.t_rev;
+            const uint16_t *in = G.t_inner[ty & 1] + (y & 31) * 32;
+            const uint16_t *srow = src + y * w;
+            for (int x = 0; x < w; x++) {
+                const int tx = rev ? tpr - 1 - x / 32 : x / 32;
+                o[(uint32_t)(ty * tpr + tx) * 1024u + in[x & 31]] = lut[srow[x]];
+            }
+        }
+    } else {
+        for (uint32_t i = 0; i < n; i++)
+            o[i] = lut[src[i]];
+    }
     tex_t *t = &big.t;
     t->texels = big.texels;
-    t->params = big.texels + n;
+    t->params = big.texels + tn;
     t->params[0] = v3d_bus(big.texels) & ~0xFFFu;
-    t->params[1] = 1u << 31 | (uint32_t)(h & 2047) << 20 | (uint32_t)(w & 2047) << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    t->params[1] = (tiled ? 0 : 1u << 31) | (uint32_t)(h & 2047) << 20 | (uint32_t)(w & 2047) << 8 | 1u << 7 | 1u << 4 |
+                   1u << 2 | 1u;
     t->params[2] = t->params[0];
     t->params[3] = t->params[1];
     t->w = w;
