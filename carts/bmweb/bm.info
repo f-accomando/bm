@@ -1,10 +1,10 @@
 # bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
 # carts/bmweb/main.lua is the entry point, carts/bmweb/src/*.lua the modules; build/build.py joins them.
 name: bm Web
-desc: A text web browser for HTML without JavaScript. https only, one page at a time, robots.txt respected.
+desc: A web browser for HTML5, CSS and JavaScript pages. Mouse and keyboard first, the pad works too. https only, one page at a time, robots.txt respected.
 author: bm
 license: LicenseRef-BM-Community-1.0
-version: 0.2
+version: 0.3
 tags: tool, web
 type: app
 resolution: 640x360

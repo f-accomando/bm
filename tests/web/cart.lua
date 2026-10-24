@@ -100,7 +100,7 @@ local function run(m, b, f, max)
   return nil
 end
 local function settle(m, b)
-  return run(m, b, function() return b.mode ~= "loading" and b.mode ~= "render" end)
+  return run(m, b, function() return b.mode ~= "loading" and b.mode ~= "render" and b.mode ~= "subres" end)
 end
 local function fresh(site, opts)
   local m, api = mock(site)
@@ -451,14 +451,18 @@ do
   frame()
   seen = table.concat(prints, "|")
   check(seen:find("Hello", 1, true), "page text drawn")
-  -- the on-screen keyboard with the pad
+  -- the on-screen keyboard with the pad: typing on the keyboard hid it, a pad button shows it
   pressed.y = true
   frame()
+  check(v.edit and not v.edit.osk, "no on-screen keyboard after the keyboard was used")
+  pressed.down = true
+  frame()
+  check(v.edit.osk, "a pad button shows the on-screen keyboard")
   pressed.down = true
   frame()
   pressed.ok = true
   frame()
-  check(#v.edit.text > #"https://example.test/", "A types a key")
+  check(#v.edit.text == 1, "A types a key (the first key replaces the selected address)")
   pressed.select = true
   frame()
   eq(v.edit, nil, "Select cancels")
@@ -495,6 +499,86 @@ do
   keys = { "pgdn", "pgup", "end", "home", "\t", "^d", "^h", "esc", "x" }
   for _ = 1, 4 do frame() end
   check(true, "keys run")
+end
+
+---------------------------------------------------------------------------
+-- Style sheets of a page, find, tool bar and mouse
+---------------------------------------------------------------------------
+do
+  local site = {
+    ["https://css.test/robots.txt"] = { status = 404, type = "text/plain", body = "" },
+    ["https://css.test/"] = { body = '<html><head><link rel="stylesheet" href="/a.css">' ..
+      '<link rel="stylesheet" media="print" href="/print.css">' ..
+      '<script src="https://www.google-analytics.com/a.js"></script></head>' ..
+      '<body><p class="big">Needle in text</p><p>Second paragraph</p>' .. string.rep("<p>filler</p>", 40) .. '</body></html>' },
+    ["https://css.test/a.css"] = { type = "text/css", body = ".big{color:#ff0000;font-weight:bold}" },
+    ["https://css.test/print.css"] = { type = "text/css", body = "p{color:#00ff00}" },
+  }
+  local m, api, b = fresh(site, { width = view.PAGE_W, cw = view.CW, lh = view.LH, view_h = view.VIEW_H })
+  b:go("https://css.test/")
+  check(run(m, b, function() return b.mode == "page" end, 6000), "page with a style sheet loads")
+  local urls = {}
+  for _, r in ipairs(m.reqs) do urls[#urls + 1] = r.url end
+  local joined = table.concat(urls, " ")
+  check(joined:find("a.css", 1, true), "the style sheet is fetched")
+  check(not joined:find("print.css", 1, true), "a print style sheet is not fetched")
+  check(not joined:find("google-analytics", 1, true), "a tracker script is not fetched")
+  local red
+  for _, line in ipairs(b.page.lines) do
+    for _, r in ipairs(line.runs) do if r.text and r.text:find("Needle", 1, true) then red = r end end
+  end
+  check(red and red.color == 0xFF0000 and red.bold, "the fetched style sheet is applied")
+  -- find
+  check(b:find("second", false), "find is case blind")
+  check(b.found and b.found.run.text:find("Second", 1, true), "find marks the run")
+  check(not b:find("zzzz", false), "find reports a miss")
+  -- the view: tool bar and mouse
+  local prints, mouse, keys = {}, { 0, 0, 0, 0 }, {}
+  local left, right = false, false
+  local g = setmetatable({
+    print = function(s) prints[#prints + 1] = s end,
+    keyp = function() return table.remove(keys, 1) end,
+    btnp = function() return false end, btn = function() return false end,
+    mouse = function(on) if on ~= nil then return true end return mouse[1], mouse[2], mouse[3], mouse[4] end,
+    mousep = function(i) if i == 1 then return right end return left end,
+  }, { __index = function() return function() end end })
+  local v = view.new(g, b)
+  local function frame()
+    m.now = m.now + 1 / 60
+    v:update(); v:draw()
+    left, right = false, false
+  end
+  frame()
+  mouse = { 300, 10, 0, 0 }      -- over the address box
+  frame()
+  eq(v.hover, "addr", "the pointer is over the address box")
+  left = true
+  frame()
+  check(v.edit ~= nil, "a click in the address box opens the editor")
+  check(not v.edit.osk, "no on-screen keyboard after a mouse move")
+  keys = { "x", ".", "t", "e", "s", "t", "\n" }
+  frame()
+  eq(v.edit, nil, "typing then Enter closes the editor")
+  mouse = { 20, 60, 0, 0 }
+  b:scroll_to(0)
+  mouse = { 630, 300, 0, 0 }     -- on the scroll bar track, under the thumb
+  left = true
+  frame()
+  check(b.scroll > 0 or b:max_scroll() == 0, "a click in the scroll bar moves the page")
+  b.mode = "page"
+  b.hist = { { url = "https://css.test/", scroll = 0 }, { url = "https://css.test/b", scroll = 0 } }
+  b.pos = 2
+  mouse = { 100, 100, 0, 0 }
+  frame()
+  right = true
+  frame()
+  eq(b.mode, "loading", "a right click goes back")
+  keys = { "down", "down", " " }
+  b:stop()
+  b.mode = "page"
+  b:scroll_to(0)
+  frame()
+  check(b.scroll > 0, "arrow keys and space scroll")
 end
 
 ---------------------------------------------------------------------------

@@ -1,6 +1,9 @@
 -- bmweb: the screen and the input. It draws what the browser state holds and
--- turns buttons, keys and the mouse into browser actions. All kernel calls go
--- through `g` (the global table in the cart, a stub in tests/web/cart.lua).
+-- turns the mouse, the keyboard and the pad into browser actions. The mouse and the keyboard
+-- are the main way in (a tool bar with buttons, an address box you type into, links you click,
+-- the wheel, a draggable scroll bar, keys like a desktop browser); the pad does the same
+-- with its buttons and an on-screen keyboard that shows only when no keyboard or mouse is used.
+-- All kernel calls go through `g` (the global table in the cart, a stub in tests/web/cart.lua).
 local layout = require("layout")
 local cp437 = require("cp437")
 
@@ -8,16 +11,21 @@ local M = {}
 
 M.W, M.H = 640, 360
 M.CW, M.LH = 6, 12
-M.TOP = 18
+M.TOP = 22                      -- the tool bar
 M.BOT = 24                      -- two text lines under the page
-M.VIEW_H = M.H - M.TOP - M.BOT  -- 318
+M.VIEW_H = M.H - M.TOP - M.BOT  -- 314
 M.OX = 4                        -- left margin of the page
-M.PAGE_W = M.W - 8
+M.SB = 8                        -- width of the scroll bar strip
+M.PAGE_W = M.W - 8 - M.SB + 4   -- 628: the page leaves the scroll bar free
+M.WHEEL_STEP = 36               -- pixels for one click of the wheel (3 lines)
+M.KEY_STEP = 36                 -- pixels for an arrow key
 
 local C = {
   bar = 0x1c2430, bar_text = 0xe8e8e8, page = 0xffffff, status = 0x10161e, status_text = 0xb8c4d0,
   focus = 0xff8800, ok = 0x30c050, bad = 0xe03030, grey = 0xc8c8c8, dim = 0x707070,
   key = 0x2c3848, key_sel = 0xff8800, box_bg = 0xf4f4f4, shade = 0x000000,
+  btn = 0x2c3848, btn_hot = 0x4a5a74, btn_off = 0x1c2430, addr = 0x0c1118, addr_edit = 0x000000,
+  find = 0xffe060, sel = 0x2a64c8,
 }
 M.COLORS = C
 
@@ -26,27 +34,51 @@ local KEYS = {
 }
 local ACTIONS = { "https://", ".com", "DEL", "CLR", "GO", "ESC" }
 
+-- Tool bar: id, x, width, label, tip.
+local BUTTONS = {
+  { id = "back", x = 2, w = 22, label = "<", tip = "Back  (Alt+Left, right click, B)" },
+  { id = "fwd", x = 26, w = 22, label = ">", tip = "Forward  (Alt+Right, R2)" },
+  { id = "reload", x = 50, w = 22, label = "R", tip = "Reload  (F5, Ctrl+R, L2)" },
+  { id = "home", x = 74, w = 22, label = "H", tip = "Home and bookmarks  (Ctrl+H, Select)" },
+  { id = "img", x = M.W - 88, w = 26, label = "Im", tip = "Load the pictures of the page  (I, X)" },
+  { id = "js", x = M.W - 60, w = 26, label = "JS", tip = "Run page scripts on or off  (F9)" },
+  { id = "mark", x = M.W - 32, w = 26, label = "*", tip = "Bookmark this page  (Ctrl+D, Start)" },
+}
+local ADDR_X, ADDR_W = 100, M.W - 100 - 92
+
 local V = {}
 V.__index = V
 
 -- g: the kernel functions the view uses. b: the browser state.
 function M.new(g, b)
-  local self = setmetatable({ g = g, b = b, edit = nil, held = {}, shift = false, frame = 0 }, V)
+  local self = setmetatable({
+    g = g, b = b, edit = nil, held = {}, shift = false, frame = 0,
+    kbm = false,          -- a keyboard or a mouse is in use: no on-screen keyboard unless asked
+    mx = nil, my = nil, hover = nil, hover_focus = false, drag = nil, tip = nil,
+  }, V)
   if g.mouse then g.mouse(true) end
+  if g.controller then
+    local c = g.controller(1)
+    if type(c) == "table" and c.kind == "keyboard" then self.kbm = true end
+  end
   return self
-end
-
----------------------------------------------------------------------------
--- Text field editor (address bar and form fields), with an on-screen keyboard
----------------------------------------------------------------------------
-function V:begin_edit(label, text, done)
-  self.edit = { label = label, text = text or "", done = done, row = 2, col = 1 }
-  self.shift = false
 end
 
 local function fit(s, n)
   if #s > n then return s:sub(1, math.max(0, n - 2)) .. ".." end
   return s
+end
+
+---------------------------------------------------------------------------
+-- Text field editor (address bar, find box and form fields)
+---------------------------------------------------------------------------
+-- The text is typed on the keyboard. The on-screen keyboard shows when no keyboard or mouse
+-- was used (a pad alone) or when F2 or a pad button asks for it.
+function V:begin_edit(label, text, done, opts)
+  text = text or ""
+  self.edit = { label = label, text = text, pos = #text, done = done, row = 2, col = 1,
+    sel = (opts and opts.select) and text ~= "" or false, osk = not self.kbm }
+  self.shift = false
 end
 
 function V:finish_edit(accept)
@@ -55,34 +87,94 @@ function V:finish_edit(accept)
   if accept and e.done then e.done(e.text) end
 end
 
+local function ed_insert(e, s)
+  if e.sel then e.text, e.pos, e.sel = "", 0, false end
+  if #e.text + #s > 1000 then return end
+  e.text = e.text:sub(1, e.pos) .. s .. e.text:sub(e.pos + 1)
+  e.pos = e.pos + #s
+end
+
+local function ed_back(e)
+  if e.sel then e.text, e.pos, e.sel = "", 0, false; return end
+  if e.pos > 0 then
+    e.text = e.text:sub(1, e.pos - 1) .. e.text:sub(e.pos + 1)
+    e.pos = e.pos - 1
+  end
+end
+
+local function ed_del(e)
+  if e.sel then e.text, e.pos, e.sel = "", 0, false; return end
+  e.text = e.text:sub(1, e.pos) .. e.text:sub(e.pos + 2)
+end
+
 local function osk_press(self, e)
   local r = e.row
   if r <= #KEYS then
     local ch = KEYS[r]:sub(e.col, e.col)
     if ch ~= "" then
       if self.shift and ch:match("%l") then ch = ch:upper() end
-      e.text = e.text .. ch
+      ed_insert(e, ch)
     end
   else
     local a = ACTIONS[e.col]
-    if a == "DEL" then e.text = e.text:sub(1, -2)
-    elseif a == "CLR" then e.text = ""
+    if a == "DEL" then ed_back(e)
+    elseif a == "CLR" then e.text, e.pos, e.sel = "", 0, false
     elseif a == "GO" then self:finish_edit(true)
     elseif a == "ESC" then self:finish_edit(false)
-    elseif a then e.text = e.text .. a end
+    elseif a then ed_insert(e, a) end
   end
+end
+
+local function edit_keys(self)
+  local g, e = self.g, self.edit
+  while self.edit do
+    local k = g.keyp()
+    if not k then break end
+    self.kbm = true
+    if k == "\n" then self:finish_edit(true); return
+    elseif k == "esc" then self:finish_edit(false); return
+    elseif k == "\b" then ed_back(e)
+    elseif k == "del" then ed_del(e)
+    elseif k == "left" then e.sel = false; if e.pos > 0 then e.pos = e.pos - 1 end
+    elseif k == "right" then e.sel = false; if e.pos < #e.text then e.pos = e.pos + 1 end
+    elseif k == "home" then e.sel = false; e.pos = 0
+    elseif k == "end" then e.sel = false; e.pos = #e.text
+    elseif k == "^a" then e.sel = e.text ~= ""
+    elseif k == "^u" then e.text, e.pos, e.sel = e.text:sub(e.pos + 1), 0, false
+    elseif k == "^k" then e.text, e.sel = e.text:sub(1, e.pos), false
+    elseif k == "f2" then e.osk = not e.osk
+    elseif #k == 1 and k:byte() >= 32 and k:byte() < 127 then ed_insert(e, k)
+    elseif #k > 1 and k:byte(1) >= 0xC2 then ed_insert(e, k) end
+  end
+end
+
+-- Geometry of the on-screen keyboard (draw and mouse use the same).
+local function osk_geom()
+  local cw, ch = 40, 22
+  local x0 = (M.W - cw * 10) // 2
+  local y0 = M.H - M.BOT - ch * (#KEYS + 1) - 6
+  return x0, y0, cw, ch
+end
+
+local function osk_hit(mx, my)
+  local x0, y0, cw, ch = osk_geom()
+  if mx < x0 or mx >= x0 + cw * 10 or my < y0 or my >= y0 + ch * (#KEYS + 1) then return nil end
+  local r = (my - y0) // ch + 1
+  if r <= #KEYS then return r, (mx - x0) // cw + 1 end
+  return r, (mx - x0) // (cw * 10 // #ACTIONS) + 1
 end
 
 local function edit_input(self)
   local g, e = self.g, self.edit
-  while true do
-    local k = g.keyp()
-    if not k then break end
-    if k == "\n" then self:finish_edit(true); return
-    elseif k == "esc" then self:finish_edit(false); return
-    elseif k == "\b" then e.text = e.text:sub(1, -2)
-    elseif #k == 1 and k:byte() >= 32 and k:byte() < 127 and #e.text < 1000 then e.text = e.text .. k end
+  edit_keys(self)
+  if not self.edit then return end
+  -- a pad button shows the on-screen keyboard
+  local padbtn = false
+  for _, n in ipairs({ "ok", "back", "x", "y", "start", "select", "up", "down", "left", "right" }) do
+    if g.btnp(n) then padbtn = true end
   end
+  if padbtn and not e.osk then e.osk = true; self.kbm = false; return end
+  if not e.osk then return end
   local nrows = #KEYS + 1
   if g.btnp("up") then e.row = e.row > 1 and e.row - 1 or nrows end
   if g.btnp("down") then e.row = e.row < nrows and e.row + 1 or 1 end
@@ -91,9 +183,9 @@ local function edit_input(self)
   if g.btnp("left") then e.col = e.col > 1 and e.col - 1 or ncols end
   if g.btnp("right") then e.col = e.col < ncols and e.col + 1 or 1 end
   if g.btnp("ok") then osk_press(self, e) end
-  if self.edit and g.btnp("back") then e.text = e.text:sub(1, -2) end
+  if self.edit and g.btnp("back") then ed_back(e) end
   if self.edit and g.btnp("x") then self.shift = not self.shift end
-  if self.edit and g.btnp("y") then e.text = e.text .. " " end
+  if self.edit and g.btnp("y") then ed_insert(e, " ") end
   if self.edit and g.btnp("start") then self:finish_edit(true) end
   if self.edit and g.btnp("select") then self:finish_edit(false) end
 end
@@ -115,7 +207,13 @@ end
 
 function V:start_url_edit()
   local b = self.b
-  self:begin_edit("Address", b.mode == "page" and b.url or "https://", function(text) b:go(text) end)
+  self:begin_edit("Address", b.mode == "page" and b.url or "https://", function(text) b:go(text) end,
+    { select = true })
+end
+
+function V:start_find()
+  local b = self.b
+  self:begin_edit("Find", b.find_text or "", function(text) b:find(text, false) end, { select = true })
 end
 
 function V:start_field_edit(c)
@@ -130,21 +228,203 @@ function V:start_field_edit(c)
   end)
 end
 
-local function activate(self)
-  local act, c = self.b:activate()
+local function do_act(self, act, c)
   if act == "edit" then self:start_field_edit(c) end
+end
+
+local function activate(self)
+  do_act(self, self.b:activate())
+end
+
+-- A tool bar button, from the mouse (id) or a key.
+function V:press_button(id)
+  local b = self.b
+  if id == "back" then b:back()
+  elseif id == "fwd" then b:forward()
+  elseif id == "reload" then
+    if b.nav or b.rend then b:stop() else b:reload() end
+  elseif id == "home" then b:home()
+  elseif id == "img" then b:load_images()
+  elseif id == "js" then b:toggle_js()
+  elseif id == "mark" then b:toggle_mark()
+  elseif id == "addr" then self:start_url_edit() end
+end
+
+local function toolbar_at(mx, my)
+  if my < 0 or my >= M.TOP then return nil end
+  for _, bt in ipairs(BUTTONS) do
+    if mx >= bt.x and mx < bt.x + bt.w then return bt.id, bt.tip end
+  end
+  if mx >= ADDR_X and mx < ADDR_X + ADDR_W then return "addr", "Type an address  (Ctrl+L, F6, Y)" end
+  return nil
+end
+
+local function scrollbar_geom(self)
+  local b = self.b
+  local max = b:max_scroll()
+  if max <= 0 then return nil end
+  local h = math.max(16, M.VIEW_H * M.VIEW_H // (M.VIEW_H + max))
+  local y = M.TOP + (M.VIEW_H - h) * b.scroll // max
+  return y, h, max
+end
+
+-- Keys of the page view. May open an editor.
+local function page_keys(self)
+  local g, b = self.g, self.b
+  while true do
+    local k = g.keyp()
+    if not k then break end
+    self.kbm = true
+    if k == "\n" then activate(self)
+    elseif k == "\b" then b:back()
+    elseif k == "^l" or k == "f6" then self:start_url_edit()
+    elseif k == "^r" or k == "f5" then b:reload()
+    elseif k == "^d" then b:toggle_mark()
+    elseif k == "^h" then b:home()
+    elseif k == "^f" or k == "/" then self:start_find()
+    elseif k == "f3" or k == "^g" then b:find(b.find_text, true)
+    elseif k == "f9" or k == "^j" then b:toggle_js()
+    elseif k == "\t" then b:move_focus(1)
+    elseif k == "pgdn" or k == " " then b:scroll_by(M.VIEW_H - 24)
+    elseif k == "pgup" then b:scroll_by(-(M.VIEW_H - 24))
+    elseif k == "home" then b:scroll_to(0)
+    elseif k == "end" then b:scroll_to(1e9)
+    elseif k == "down" then b:scroll_by(M.KEY_STEP)
+    elseif k == "up" then b:scroll_by(-M.KEY_STEP)
+    elseif k == "right" then b:move_focus(1)
+    elseif k == "left" then b:move_focus(-1)
+    elseif k == "esc" then b:stop()
+    elseif k == "i" then b:load_images()
+    elseif k == "j" then b:scroll_by(M.KEY_STEP)
+    elseif k == "k" then b:scroll_by(-M.KEY_STEP)
+    elseif k == "b" then b:back()
+    elseif k == "f" then b:forward() end
+    if self.edit then return end
+  end
+end
+
+local function mouse_input(self)
+  local g, b = self.g, self.b
+  if not g.mouse then return end
+  local mx, my, btns, wheel = g.mouse()
+  if not mx then return end
+  local moved = (mx ~= self.mx or my ~= self.my)
+  if moved and self.mx ~= nil then self.kbm = true end
+  self.mx, self.my = mx, my
+  local left = g.mousep and g.mousep(0)
+  local right = g.mousep and g.mousep(1)
+  local middle = g.mousep and g.mousep(2)
+
+  -- scroll bar drag
+  if self.drag then
+    if btns and (btns & 1) ~= 0 then
+      local _, h, max = scrollbar_geom(self)
+      if h then
+        local room = M.VIEW_H - h
+        if room > 0 then b:scroll_to(self.drag.s0 + (my - self.drag.y0) * max // room) end
+      end
+    else
+      self.drag = nil
+    end
+    return
+  end
+  if wheel and wheel ~= 0 then b:scroll_by(-wheel * M.WHEEL_STEP) end
+  if right then b:back(); return end
+
+  if my < M.TOP then
+    local id, tip = toolbar_at(mx, my)
+    self.hover, self.tip = id, tip
+    if left and id then self:press_button(id) end
+    return
+  end
+  self.hover, self.tip = nil, nil
+  if my < M.TOP + M.VIEW_H then
+    -- scroll bar strip
+    if mx >= M.W - M.SB - 2 then
+      local y, h = scrollbar_geom(self)
+      if y and left then
+        if my >= y and my < y + h then self.drag = { y0 = my, s0 = b.scroll }
+        elseif my < y then b:scroll_by(-(M.VIEW_H - 24))
+        else b:scroll_by(M.VIEW_H - 24) end
+      end
+      return
+    end
+    if not b.page then return end
+    local px, py = mx - M.OX, my - M.TOP + b.scroll
+    if left or middle then
+      do_act(self, b:click_page(px, py))
+    elseif moved then
+      local t = b:pick(px, py)
+      if t then self.hover_focus = true
+      elseif self.hover_focus then b.focus = nil; self.hover_focus = false end
+    end
+  end
+end
+
+local function mouse_edit(self)
+  local g, e = self.g, self.edit
+  if not g.mouse then return end
+  local mx, my = g.mouse()
+  if not mx then return end
+  if mx ~= self.mx or my ~= self.my then
+    if self.mx ~= nil then self.kbm = true end
+    self.mx, self.my = mx, my
+  end
+  if not (g.mousep and g.mousep(0)) then return end
+  if e.osk then
+    local r, c = osk_hit(mx, my)
+    if r then
+      e.row, e.col = r, c
+      osk_press(self, e)
+      return
+    end
+  end
+  if my < M.TOP then
+    local id = toolbar_at(mx, my)
+    if id == "addr" then
+      -- a click in the box puts the cursor there
+      local tx = ADDR_X + 4 + (#e.label + 2) * M.CW
+      e.sel = false
+      e.pos = math.max(0, math.min(#e.text, (mx - tx + M.CW // 2) // M.CW))
+    elseif id then
+      self:finish_edit(false)
+      self:press_button(id)
+    end
+  elseif not e.osk then
+    self:finish_edit(false)
+  end
 end
 
 function V:input()
   local g, b = self.g, self.b
-  if self.edit then edit_input(self); return end
-  local scroll_step = 4
+  if self.edit then
+    edit_input(self)
+    if self.edit then mouse_edit(self) end
+    return
+  end
   if b.mode == "download" then
     if g.btnp("ok") then b:save_download() end
     if g.btnp("back") or g.btnp("start") then b:discard() end
-    while g.keyp() do end
+    while true do
+      local k = g.keyp()
+      if not k then break end
+      self.kbm = true
+      if k == "\n" or k == "y" then b:save_download()
+      elseif k == "esc" or k == "n" or k == "\b" then b:discard() end
+    end
+    if g.mouse and g.mousep and g.mousep(0) then
+      local mx, my = g.mouse()
+      if mx then
+        local bx, by, _, bh = self:download_box()
+        if my >= by + bh - 26 and my < by + bh - 6 then
+          if mx >= bx + 8 and mx < bx + 108 then b:save_download()
+          elseif mx >= bx + 116 and mx < bx + 216 then b:discard() end
+        end
+      end
+    end
     return
   end
+  local scroll_step = 4
   if g.btn("down") then b:scroll_by(scroll_step) end
   if g.btn("up") then b:scroll_by(-scroll_step) end
   if rep(self, "right") then b:move_focus(1) end
@@ -159,34 +439,9 @@ function V:input()
   if g.btnp("select") then b:home() end
   if g.btnp("l2") then b:reload() end
   if g.btnp("r2") then b:forward() end
-  while true do
-    local k = g.keyp()
-    if not k then break end
-    if k == "\n" then activate(self)
-    elseif k == "\b" then b:back()
-    elseif k == "^l" or k == "f6" then self:start_url_edit()
-    elseif k == "^r" or k == "f5" then b:reload()
-    elseif k == "^d" then b:toggle_mark()
-    elseif k == "^h" then b:home()
-    elseif k == "\t" then b:move_focus(1)
-    elseif k == "pgdn" then b:scroll_by(M.VIEW_H - 24)
-    elseif k == "pgup" then b:scroll_by(-(M.VIEW_H - 24))
-    elseif k == "home" then b:scroll_to(0)
-    elseif k == "end" then b:scroll_to(1e9)
-    elseif k == "esc" then b:stop()
-    elseif k == "i" then b:load_images() end
-  end
-  if g.mouse then
-    local mx, my, btns, wheel = g.mouse()
-    if wheel and wheel ~= 0 then b:scroll_by(-wheel * 36) end
-    if g.mousep and g.mousep(0) then
-      if my < M.TOP then
-        self:start_url_edit()
-      elseif my < M.TOP + M.VIEW_H and b.page then
-        if b:pick(mx - M.OX, my - M.TOP + b.scroll) then activate(self) end
-      end
-    end
-  end
+  page_keys(self)
+  if self.edit then return end
+  mouse_input(self)
 end
 
 ---------------------------------------------------------------------------
@@ -200,6 +455,7 @@ local function draw_run(self, line, r, oy)
   local x = M.OX + r.x
   local y = oy + layout.run_y(line, r)
   local kind = r.kind
+  if b.found and b.found.run == r then g.rectfill(x, y, r.w, r.h, C.find) end
   if not kind then
     local c = r.color or 0
     local s = r.text
@@ -220,7 +476,7 @@ local function draw_run(self, line, r, oy)
   elseif kind == "svg" or kind == "box" then
     g.rectfill(x, y, r.w, r.h, C.box_bg)
     g.rect(x, y, r.w, r.h, C.grey)
-    if r.text and r.text ~= "" then text(g, r.text, x + 2, y + 2, C.dim) end
+    if r.text and r.text ~= "" then text(g, r.text, x + 2, y + 2, r.link and r.color or C.dim) end
   elseif kind == "ctl" then
     local c = r.ref
     local label = r.text
@@ -255,7 +511,21 @@ local function draw_page(self)
     local oy = M.TOP - b.scroll
     for _, rc in ipairs(page.rects) do
       local y = oy + rc.y
-      if y < M.TOP + M.VIEW_H and y + rc.h > M.TOP then g.rectfill(M.OX + rc.x, y, rc.w, rc.h, rc.color) end
+      if y < M.TOP + M.VIEW_H and y + rc.h > M.TOP then
+        if rc.kind == "border" then
+          g.rect(M.OX + rc.x, y, rc.w, rc.h, rc.color)
+        elseif rc.color then
+          g.rectfill(M.OX + rc.x, y, rc.w, rc.h, rc.color)
+        end
+        local bd = rc.bd
+        if bd then
+          local x0, x1, y1 = M.OX + rc.x, M.OX + rc.x + rc.w - 1, y + math.max(rc.h, 1) - 1
+          if bd:find("t", 1, true) then g.line(x0, y, x1, y, rc.bdc) end
+          if bd:find("b", 1, true) then g.line(x0, y1, x1, y1, rc.bdc) end
+          if bd:find("l", 1, true) then g.line(x0, y, x0, y1, rc.bdc) end
+          if bd:find("r", 1, true) then g.line(x1, y, x1, y1, rc.bdc) end
+        end
+      end
     end
     local first, last = layout.visible(page, b.scroll, b.scroll + M.VIEW_H)
     local ly = b.mode == "image" and b.img and (b.img.h + 8) or 0
@@ -273,32 +543,62 @@ local function draw_page(self)
   end
   g.clip()
   -- scroll bar
-  local max = b:max_scroll()
-  if max > 0 then
-    local h = math.max(8, M.VIEW_H * M.VIEW_H // (M.VIEW_H + max))
-    local y = M.TOP + (M.VIEW_H - h) * b.scroll // max
-    g.rectfill(M.W - 3, y, 3, h, C.dim)
+  local y, h = scrollbar_geom(self)
+  if y then
+    g.rectfill(M.W - M.SB, M.TOP, M.SB, M.VIEW_H, 0xe8e8e8)
+    g.rectfill(M.W - M.SB + 1, y + 1, M.SB - 2, h - 2, self.drag and C.focus or C.dim)
   end
 end
 
 local function draw_bar(self)
   local g, b = self.g, self.b
   g.rectfill(0, 0, M.W, M.TOP, C.bar)
-  local cols = (M.W - 30) // M.CW
-  if self.edit then
-    local e = self.edit
-    local s = e.text
-    if #s > cols - 10 then s = ".." .. s:sub(-(cols - 12)) end
-    text(g, e.label .. ": " .. s .. ((self.frame // 20) % 2 == 0 and "_" or " "), 4, 3, 0xffffff)
+  for _, bt in ipairs(BUTTONS) do
+    local label = bt.label
+    local on = true
+    if bt.id == "back" then on = b:can_back()
+    elseif bt.id == "fwd" then on = b:can_forward()
+    elseif bt.id == "reload" then
+      if b.nav or b.rend or b.sub then label = "X" end
+      on = b.mode ~= "home" or label == "X"
+    elseif bt.id == "mark" then label = b:marked() and "*" or "+"
+    elseif bt.id == "js" then on = b.js_on end
+    local bg = (self.hover == bt.id and on) and C.btn_hot or (on and C.btn or C.btn_off)
+    g.rectfill(bt.x, 2, bt.w, M.TOP - 4, bg)
+    local col = on and 0xffffff or C.dim
+    if bt.id == "mark" and b:marked() then col = C.focus end
+    if bt.id == "js" and on then col = C.ok end
+    text(g, label, bt.x + (bt.w - #label * M.CW) // 2, 5, col)
+  end
+  local cols = (ADDR_W - 8) // M.CW
+  local ed = self.edit
+  g.rectfill(ADDR_X, 2, ADDR_W, M.TOP - 4, ed and C.addr_edit or C.addr)
+  if ed then
+    g.rect(ADDR_X, 2, ADDR_W, M.TOP - 4, C.focus)
+    local label = ed.label .. ": "
+    local avail = cols - #label
+    local s, off = ed.text, 0
+    if #s > avail - 1 then
+      off = math.max(0, ed.pos - (avail - 2))
+      s = s:sub(off + 1, off + avail - 1)
+    end
+    local tx = ADDR_X + 4 + #label * M.CW
+    text(g, label, ADDR_X + 4, 5, C.dim)
+    if ed.sel and #s > 0 then g.rectfill(tx, 4, #s * M.CW, 14, C.sel) end
+    text(g, s, tx, 5, 0xffffff)
+    if (self.frame // 20) % 2 == 0 then
+      local cx = tx + (ed.pos - off) * M.CW
+      g.line(cx, 4, cx, 16, 0xffffff)
+    end
     return
   end
+  g.rect(ADDR_X, 2, ADDR_W, M.TOP - 4, self.hover == "addr" and C.focus or C.btn)
   local lock = b.secure and "https" or (b.url:sub(1, 7) == "http://" and "NOT SECURE" or "")
-  text(g, lock, 4, 3, b.secure and C.ok or C.bad)
-  local ux = 4 + (#lock + 1) * M.CW
-  local mark = b:marked() and "*" or " "
-  local u = b.url ~= "" and b.url or "bm Web"
-  text(g, fit(u, (M.W - ux) // M.CW - 3), ux, 3, C.bar_text)
-  text(g, mark, M.W - 12, 3, C.focus)
+  text(g, lock, ADDR_X + 4, 5, b.secure and C.ok or C.bad)
+  local ux = ADDR_X + 4 + (#lock + (#lock > 0 and 1 or 0)) * M.CW
+  local u = b.url ~= "" and b.url or "bm Web - type an address"
+  if b.secure then u = u:gsub("^https://", "") end
+  text(g, fit(u, (ADDR_X + ADDR_W - ux) // M.CW - 1), ux, 5, b.url ~= "" and C.bar_text or C.dim)
 end
 
 local function draw_status(self)
@@ -308,24 +608,34 @@ local function draw_status(self)
   local cols = M.W // M.CW - 1
   local t = b:focused()
   local s = b.status
-  if t and t.kind == "link" then s = b.page.links[t.id].href
+  if self.tip then s = self.tip
+  elseif t and t.kind == "link" then s = b.page.links[t.id].href
   elseif t and t.kind == "ctl" then s = "field: " .. tostring(b.page.controls[t.id].kind) end
   local mem = g.stat and (" " .. tostring(g.stat(0) or 0) .. " KB") or ""
   text(g, fit(s or "", cols - #mem), 4, y + 1, C.status_text)
   text(g, mem, M.W - 4 - #mem * M.CW, y + 1, C.dim)
   local hint
-  if self.edit then hint = "A key  B delete  X shift  Y space  Start go  Select cancel"
-  elseif b.mode == "download" then hint = "A save   B discard"
+  local e = self.edit
+  if e and e.osk then hint = "A key  B delete  X shift  Y space  Start go  Select cancel"
+  elseif e then hint = "Enter go  Esc cancel  Ctrl+A select all  F2 on-screen keys"
+  elseif b.mode == "download" then
+    hint = self.kbm and "Enter save   Esc discard" or "A save   B discard"
+  elseif self.kbm then
+    hint = "Click open  Wheel scroll  Right-click back  Ctrl+L address  Ctrl+F find  F5 reload  F9 scripts"
   else hint = "A open  B back  X pictures  Y address  Start mark  Select home  L1/R1 page" end
   text(g, fit(hint, cols), 4, y + 12, C.dim)
+end
+
+function V:download_box()
+  local w, h = 440, 110
+  return (M.W - w) // 2, (M.H - h) // 2, w, h
 end
 
 local function draw_download(self)
   local g, b = self.g, self.b
   local d = b.dl
   if not d then return end
-  local w, h = 440, 110
-  local x, y = (M.W - w) // 2, (M.H - h) // 2
+  local x, y, w, h = self:download_box()
   g.rectfill(x, y, w, h, 0x202830)
   g.rect(x, y, w, h, C.focus)
   local cols = w // M.CW - 2
@@ -333,14 +643,19 @@ local function draw_download(self)
   text(g, fit("bm/web/" .. d.name, cols), x + 8, y + 26, C.focus)
   text(g, fit(string.format("%d bytes  %s", d.size, d.type ~= "" and d.type or "unknown type"), cols), x + 8, y + 40, C.status_text)
   text(g, fit(d.url, cols), x + 8, y + 54, C.status_text)
-  text(g, fit(d.saving and "saving..." or "A save  B discard", cols), x + 8, y + 86, 0xffffff)
+  if d.saving then
+    text(g, "saving...", x + 8, y + h - 24, 0xffffff)
+  else
+    g.rectfill(x + 8, y + h - 26, 100, 20, C.ok)
+    text(g, self.kbm and "Save (Enter)" or "Save (A)", x + 14, y + h - 22, 0x000000)
+    g.rectfill(x + 116, y + h - 26, 100, 20, C.bad)
+    text(g, self.kbm and "Drop (Esc)" or "Drop (B)", x + 122, y + h - 22, 0xffffff)
+  end
 end
 
 local function draw_osk(self)
   local g, e = self.g, self.edit
-  local cw, ch = 40, 22
-  local x0 = (M.W - cw * 10) // 2
-  local y0 = M.H - M.BOT - ch * (#KEYS + 1) - 6
+  local x0, y0, cw, ch = osk_geom()
   g.rectfill(x0 - 6, y0 - 6, cw * 10 + 12, ch * (#KEYS + 1) + 12, 0x101820)
   for r = 1, #KEYS do
     for c = 1, 10 do
@@ -369,7 +684,7 @@ function V:draw()
   draw_bar(self)
   draw_status(self)
   if b.mode == "download" then draw_download(self) end
-  if self.edit then draw_osk(self) end
+  if self.edit and self.edit.osk then draw_osk(self) end
 end
 
 function V:update()
