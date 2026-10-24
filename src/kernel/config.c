@@ -97,6 +97,20 @@ int config_perf(const char *v)
     return !strcmp(v, "bottom") ? 2 : 1;
 }
 
+int dev_mode(void)
+{
+    const char *v = config_get("dev");
+    if (!v || !v[0])
+        return 0;
+    return !strcmp(v, "1") || !strcmp(v, "on") || !strcmp(v, "yes") || !strcmp(v, "true");
+}
+
+void dev_set_mode(int on)
+{
+    config_set("dev", on ? "1" : "0");
+    config_save();
+}
+
 /* The settings the console uses at once */
 static void apply(void)
 {

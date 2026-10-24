@@ -123,6 +123,7 @@ enum {
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
     R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
+    R_DEV,
     R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
@@ -532,6 +533,9 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_SUB, R_UPDATES, "Updates",
                  "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
         reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
+        home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
+                 "Direct kernel and app updates without staging", "%s",
+                 dev_mode() ? "On" : "Off");
         home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
                  "Version, memory, the log", "%s, spec %s", bm_version, bm_spec);
         /* the last two, on every system (the user's request, 2026-10-04) */
@@ -875,6 +879,9 @@ void home_panel(int id, home_panel_t *p)
         }
 #endif
         home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks and tests", "%d", util_count(0));
+        home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
+                 "Direct kernel and app updates without staging", "%s",
+                 dev_mode() ? "On" : "Off");
         home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
                  "Everything printed since the console started", NULL);
 #ifndef BM_RGB30
@@ -1207,6 +1214,12 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "WiFi at boot: %s", wifi_at_boot() ? "on" : "off");
         break;
+    case R_DEV: {
+        int on = how < 0 ? 0 : how > 0 ? 1 : !dev_mode();
+        dev_set_mode(on);
+        ksnprintf(d->note, sizeof d->note, "dev mode: %s", on ? "on (direct install)" : "off (staging)");
+        break;
+    }
     case R_PAIR:
         if (how == 0) text(d, x_pair, 1, 0);
         break;

@@ -43,6 +43,10 @@ int config_secret(const char *key);
  * "bottom" 2; the old 1, 2, 3 (simple, detailed, functions) are the top */
 int config_perf(const char *v);
 
+/* dev mode: 1 if dev=1 / dev=on in bm/config.txt (direct kernel & app deployment) */
+int dev_mode(void);
+void dev_set_mode(int on);
+
 /* A file of the console on the SD card ("config.txt", "ca.pem",
  * "save/1a2b3c4d.sav"): in /bm, or in the folder of before the rename
  * until make install moves it. Returns 0 and fills e. */

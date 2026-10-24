@@ -558,7 +558,11 @@ void netxfer_poll(void)
             q.data = NULL;
             q.path[0] = 0;
             q.kernel = 0;
-            kernel_staged(save_now(STAGED_KERNEL_PATH, d, n), n);
+            if (dev_mode()) {
+                kernel_written(save_now(KERNEL_FILE, d, n), n);
+            } else {
+                kernel_staged(save_now(STAGED_KERNEL_PATH, d, n), n);
+            }
             free(d);
         }
     }
@@ -679,7 +683,8 @@ void netxfer_poll(void)
                 buf = NULL;
                 reply("QD");
                 kprintf("net: %s received (%lu bytes): written on the SD card from the menu\n", q.path, size);
-                notice_flash("Update received", file_name(q.path), -1, 4000);
+                if (!dev_mode())
+                    notice_flash("Update received", file_name(q.path), -1, 4000);
             }
             reset();
         } else if (op == 'K' && !kernel_fits(buf, size)) {
@@ -687,6 +692,22 @@ void netxfer_poll(void)
             kprintf("\x1b[91mnet: not a kernel for this console, nothing written (the Pi Zero 2 W "
                     "takes kernel7.img, the RGB30 kernel8.img, the other boards kernel.img)\x1b[0m\n");
             reset();
+        } else if (dev_mode()) {
+            /* dev mode: write directly to KERNEL_FILE and restart without staging or confirmation */
+            if (menu_here() && !q.data) {
+                q.path[0] = '/';
+                strcpy(q.path + 1, KERNEL_FILE);
+                q.data = buf;
+                q.len = size;
+                q.kernel = 1;
+                buf = NULL;
+                st = WRITING;
+                waits = 1;
+                kprintf("net: dev mode: kernel received (%lu bytes): written directly to %s\n", (unsigned long)size, KERNEL_FILE);
+            } else {
+                kernel_written(save_now(KERNEL_FILE, buf, size), size);
+                reset();
+            }
         } else if (menu_here() && !q.data) {
             /* the kernel: with the menu there, parked in staging without forced reboot */
             snprintf(q.path, sizeof q.path, "%s", STAGED_KERNEL_PATH);
@@ -754,8 +775,12 @@ static void write_over(void)
         kprintf("net: writing %s paused, it starts again later\n", q.path);
         return;
     }
-    if (q.kernel) {                     /* the PC's answer: kernel parked in staging */
-        kernel_staged(write_rc, q.len);
+    if (q.kernel) {                     /* the PC's answer */
+        if (dev_mode()) {
+            kernel_written(write_rc, q.len);
+        } else {
+            kernel_staged(write_rc, q.len);
+        }
         free(q.data);
         q.data = NULL;
         q.path[0] = 0;
@@ -765,7 +790,8 @@ static void write_over(void)
     if (write_rc == 0) {
         saves++;
         kprintf("\x1b[92mnet: saved %s on the SD card (%lu bytes)\x1b[0m\n", q.path, q.len);
-        notice_flash("Updated", file_name(q.path), -1, 3000);
+        if (!dev_mode())
+            notice_flash("Updated", file_name(q.path), -1, 3000);
     } else {
         kprintf("\x1b[91mnet: could not write %s (%s)\x1b[0m\n", q.path, fat_error());
         notice_flash("Could not write", file_name(q.path), -1, 5000);

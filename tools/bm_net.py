@@ -447,6 +447,8 @@ def main():
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
                          "KEY= removes it")
+    ap.add_argument("--dev", choices=["on", "off", "1", "0"],
+                    help="set dev mode on or off in bm/config.txt (direct kernel/app debug without staging)")
     ap.add_argument("--shot", metavar="OUT",
                     help="screenshot of the running game, written to OUT (a PNG)")
     ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
@@ -459,6 +461,13 @@ def main():
         return get_file(args, args.get[0], args.get[1], args.password or getpass.getpass("password: "))
     if args.config is not None:
         return config(args, args.password or getpass.getpass("password: "))
+
+    if args.dev is not None:
+        val = "1" if args.dev in ("on", "1") else "0"
+        pw = args.password or getpass.getpass("password: ")
+        rc = config(args, pw, [f"dev={val}"])
+        if rc != 0 and not any([args.send, args.play, args.kernel]):
+            return rc
 
     jobs = [(b"S", args.send), (b"P", args.play), (b"K", args.kernel)]
     jobs = [(op, f) for op, f in jobs if f]
