@@ -111,15 +111,18 @@ static void heading(const char *what)
 }
 
 enum {
-    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_SCREEN, R_DRAW, R_GPU3D, R_AA, R_VOLUME, R_SYSTEM,
+    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_SCREEN, R_GPU3D, R_VOLUME, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_MOUSE, R_PAIR, R_PAIR_KBD, R_PAIR_MOUSE, R_TEST,
     R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
-    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
+    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR,
+#ifdef BM_RGB30
+    R_PERF,
+#endif
     R_UPDATE, R_INSTALL, R_INSTALL_STAGED, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_GPIOSCREEN, R_AUDIO, R_LOG, R_BT,
-    R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FILTER, R_FAST3D,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
+    R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FAST3D,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
     R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
@@ -183,12 +186,14 @@ static int wireless(void)
 #endif
 }
 
-/* the dev kit's overlay: Settings > Screen */
+#ifdef BM_RGB30
+/* the dev kit's overlay: Settings > Screen (RGB30 only; the Pi has F11 and perf= in config.txt) */
 static const char *perf_name(void)
 {
     static const char *const n[3] = { "Off", "Top", "Bottom" };
     return n[bm_perf()];
 }
+#endif
 
 #ifdef BM_RGB30
 /* the low battery over the games and tools (runtime.c battery_draw): on
@@ -217,22 +222,6 @@ static int gpu3d_on(void)
     return !(on && strcmp(on, "0") == 0);
 }
 
-/* gpu3d_aa=1: the GPU smooths the edges of the 3D (MSAA 4x) */
-static int aa_on(void)
-{
-    const char *on = config_get("gpu3d_aa");
-    return on && strcmp(on, "1") == 0;
-}
-
-static const char *aa_choice(void)
-{
-    if (!aa_on())
-        return "Off";
-    if (gpu3d_ready() && !gpu3d_msaa())
-        return "4x: not on this GPU";
-    return "4x (MSAA)";
-}
-
 /* gpu3d_vs=1: the GPU's vertex shader places the corners of the scenery
  * (models unlit or with baked light), 2: of every model (bm3d 3.4; the default
  * from bm3d 6.6), 0: the ARM places them */
@@ -253,13 +242,6 @@ static int queue_on(void)
     return !on ? 1 : (on[0] == '1' || on[0] == '2') ? on[0] - '0' : 0;
 }
 
-/* gpu3d_filter=1 (bm3d 4.8): the GPU's textures filtered (bilinear) */
-static int filter_on(void)
-{
-    const char *on = config_get("gpu3d_filter");
-    return on && strcmp(on, "1") == 0;
-}
-
 static const char *gpu3d_choice(void)
 {
     if (!gpu3d_on())
@@ -278,25 +260,6 @@ static int config_on(const char *key)
 }
 
 #ifndef BM_RGB30
-/* r3d_impostor: far small meshes as one quad, at most that many pixels of
- * a 1080-line screen (whatever the game's size); 0 off (the default). The
- * row's steps: Off, 8, 16, 32 */
-static int impostor_px(void)
-{
-    const char *v = config_get("r3d_impostor");
-    return v ? atoi(v) : 0;
-}
-
-static const char *impostor_choice(void)
-{
-    static char t[24];
-    const int px = impostor_px();
-    if (px <= 0)
-        return "Off";
-    ksnprintf(t, sizeof t, "Up to %d px (1080p)", px);
-    return t;
-}
-
 /* menu_scale: no key = Auto (1x: the HDMI scaler enlarges it) */
 static const char *menu_size_choice(void)
 {
@@ -713,26 +676,19 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, R_MODES, "Screen modes",
                  "The modes for games and the GPU, each with a test image", "%s", plat_display_info());
 #else
-        home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
-                 "Direct on screen, or via RAM (compare: Diagnostics)", "%s",
-                 bm_via_ram() ? "Via RAM" : "Direct");
         home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
                  "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
-        home_row(p, MENU_ROW_CHOICE, R_AA, "3D anti-aliasing",
-                 "Smooth edges of the GPU's 3D (try GPU test, below)", "%s", aa_choice());
-        home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
-                 "Nearest: sharp pixels. Bilinear: smooth", "%s", filter_on() ? "Bilinear" : "Nearest");
         home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
                  "Auto: 360p, the HDMI scaler enlarges it. Applies at the next start", "%s", menu_size_choice());
-        home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
-                 "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
         home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
                  "Exact as before, or fast: one matrix a model, light in its axes", "%s",
                  config_on("r3d_fast") ? "Fast" : "Exact");
+#ifdef BM_RGB30
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "fps, ms, CPU and GPU bars (F11 too)", "%s",
                  perf_name());
+#endif
         if (board_is_pi1()) {
             home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
                      "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
@@ -744,6 +700,8 @@ void home_panel(int id, home_panel_t *p)
             home_row(p, MENU_ROW_CHOICE, R_LCD_POWER, "GPIO LCD screen",
                      "Turn off GPIO screen backlight when using TV/monitor", "%s",
                      lcd_gpio_is_off() ? "Off (power save)" : "On");
+            home_row(p, MENU_ROW_ACTION, R_GPIOSCREEN, "GPIO screen",
+                     "3.5\" SPI TFT on the Pi 1: a tiny robot at its computer", NULL);
 #endif
         }
 #ifdef BM_RGB30
@@ -753,8 +711,6 @@ void home_panel(int id, home_panel_t *p)
 #else
         home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
                  "HDMI colour bars; any button returns", NULL);
-        home_row(p, MENU_ROW_ACTION, R_GPIOSCREEN, "GPIO screen",
-                 "3.5\" SPI TFT on the Pi 1: a tiny robot at its computer", NULL);
 #endif
         for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
             if (home_util_group(i) == 1)
@@ -1198,12 +1154,12 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "keyboard layout: %s", hid_layout());
         break;
+#ifdef BM_RGB30
     case R_PERF:
         bm_set_perf((bm_perf() + 1) % 3);       /* top, bottom, off */
         config_save();
         ksnprintf(d->note, sizeof d->note, "performance overlay: %s", perf_name());
         break;
-#ifdef BM_RGB30
     case R_BATTERY_ICON:
         config_set("battery_icon", battery_icon_on() ? "0" : "1");
         config_save();
@@ -1386,11 +1342,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         if (how == 0) text(d, x_modes, 0, 1);
         break;
 #else
-    case R_DRAW:
-        bm_set_via_ram(!bm_via_ram());
-        config_save();
-        ksnprintf(d->note, sizeof d->note, ".bm games draw %s", bm_via_ram() ? "via RAM" : "directly");
-        break;
     case R_GPU3D:
         config_set("gpu3d", gpu3d_on() ? "0" : "1");
         config_save();
@@ -1398,16 +1349,6 @@ void home_act(int id, int row, int how, home_do_t *d)
             ksnprintf(d->note, sizeof d->note, "GPU: %s", gpu3d_status());
         else
             ksnprintf(d->note, sizeof d->note, "the 3D of the next game: %s", gpu3d_choice());
-        break;
-    case R_AA:
-        config_set("gpu3d_aa", aa_on() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "anti-aliasing of the next game: %s", aa_on() ? "4x" : "off");
-        break;
-    case R_FILTER:
-        config_set("gpu3d_filter", filter_on() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s", filter_on() ? "bilinear" : "nearest");
         break;
     case R_MENUSIZE: {
         const char *v = config_get("menu_scale");
@@ -1423,14 +1364,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "menu size at the next start: %s", menu_size_choice());
         break;
     }
-    case R_IMPOSTOR: {
-        const int px = impostor_px();
-        const char *next = px <= 0 ? "8" : px < 16 ? "16" : px < 32 ? "32" : "0";
-        config_set("r3d_impostor", next);
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D impostors of the next game: %s", impostor_choice());
-        break;
-    }
     case R_USB:
         if (how == 0) text(d, x_usb, 1, 0);
         break;
@@ -1441,7 +1374,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         if (how == 0) text(d, x_pattern, 0, 0);
         break;
     case R_GPIOSCREEN:
-        if (how == 0) text(d, x_gpioscreen, 0, 0);
+        if (how == 0 && board_is_pi1()) text(d, x_gpioscreen, 0, 0);
         break;
     case R_MONITOR:
         if (how == 0) d->what = HOME_MONITOR;

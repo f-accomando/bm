@@ -273,7 +273,7 @@ Il valore `version` è la versione dei driver 3D che questa scelta riproduce: `"
 - Anche un modello con ossa è disegnato come impostor, in base al box della sua posa (dove `animate()` ha messo la parte di ogni osso). Un modello animato fuori dalla vista viene allora anche saltato, come uno senza ossa.
 - Si può dare con `on` `nil`: `gpu3d(nil, nil, nil, nil, 16)`.
 - La scelta dipende solo dalla camera, dal modello, dalla sua posa e dalla dimensione dello schermo del gioco, quindi è la stessa su ogni console di una partita.
-- Il valore predefinito della console è `r3d_impostor` in `bm/config.txt` (*Settings > Screen > 3D impostors*).
+- Il valore predefinito della console è `r3d_impostor` in `bm/config.txt` (chiave nascosta, nessuna riga in Settings).
 
 ## Cosa fa anche la GPU
 
@@ -281,9 +281,9 @@ La GPU disegna le ombre (`draw3d` con flag 8), gli effetti, le facce screen door
 
 ## Anti-aliasing
 
-*Settings > Screen > 3D anti-aliasing* (`gpu3d_aa=1` in `bm/config.txt`; un gioco usa il secondo valore di `gpu3d`) fa disegnare il 3D alla GPU con MSAA 4x: quattro campioni per pixel, la media alla fine del tile, bordi dei triangoli senza scalini. Nelle cartucce non cambia nulla.
+L'anti-aliasing (`gpu3d_aa=1` in `bm/config.txt`, chiave nascosta senza riga in Settings; un gioco usa il secondo valore di `gpu3d`) fa disegnare il 3D alla GPU con MSAA 4x: quattro campioni per pixel, la media alla fine del tile, bordi dei triangoli senza scalini. Nelle cartucce non cambia nulla.
 
-- Vale solo dove la GPU lo regge (altrimenti il test all'avvio dice *4x: not on this GPU*).
+- Vale solo dove la GPU lo regge (Dev > GPU test mostra se la GPU ha MSAA).
 - Vale solo nei lavori senza z-buffer conservato: le cartucce che disegnano 3D, poi 2D, poi altro 3D nello stesso frame restano senza anti-aliasing (lo z-buffer a 4 campioni non si può salvare).
 - Se il test trova che la GPU non può ricaricare la pagina nei 4 campioni, l'MSAA è usato solo nei frame che iniziano con `cls()`.
 - Sull'ARM non c'è anti-aliasing.
@@ -304,10 +304,10 @@ La console ha una chiave in `bm/config.txt` per ogni opzione grafica. Il giocato
 Settings, *Screen*, per il giocatore:
 
 - *3D of the games*: la GPU o l'ARM disegna il 3D (`gpu3d`).
-- *3D anti-aliasing*: bordi lisci (`gpu3d_aa`).
-- *3D textures*: nearest o bilineare (`gpu3d_filter`).
-- *3D impostors*: i modelli piccoli lontani come un solo quadrato (`r3d_impostor`).
 - *3D on the ARM*: esatto o veloce (`r3d_fast`).
+- *Menu size* e, sul Pi 1, le righe CRT, video e GPIO screen.
+
+Queste chiavi non hanno una riga e un valore fisso se mancano: `gpu3d_aa` spento, `gpu3d_filter` nearest, `r3d_impostor` spento. Si impostano in `bm/config.txt`.
 
 La tabella dà, per ogni chiave, cosa fa, quanto costa, il predefinito e il risultato medio sul Pi Zero W (3D Bench `herotris`, 22 e 23 ott 2026, 640x360, ARM 1000 MHz, V3D 300 MHz). *Non misurato* vuol dire che i documenti non hanno un numero del Pi. Un risultato è un risultato di benchmark, non di una partita.
 

@@ -144,7 +144,7 @@ QEMU runs about 2 times slower than the Pi on sprites (2133 against 4482 at 60 f
 - All 2D is C code on the ARM; Lua only gives the logic (source: `docs/progress/graphics.md`).
 - Cartridges draw in RGB565 (16 bit). The console and the menu use 32 bit (source: `docs/HARDWARE.md`). RGB565 halves the bytes per pixel; 32 bit doubles the frame copy time from about 6.5 ms to about 13 ms with the CPU (source: `docs/PERFORMANCE.md`).
 - The framebuffer comes from the firmware mailbox. Its height is the screen height times the number of pages (1 to 3). A page flip changes the virtual offset (source: `docs/progress/graphics.md`).
-- The cartridges draw directly into the video memory by default, because copying from RAM reads back the slow SDRAM: 8.58 ms direct against 11.85 ms through RAM (source: `docs/PERFORMANCE.md`). *Settings > Screen > Game drawing (.bm)* switches between `Direct` and `Via RAM` (source: `src/kernel/settings.c`).
+- The cartridges draw directly into the video memory by default, because copying from RAM reads back the slow SDRAM: 8.58 ms direct against 11.85 ms through RAM (source: `docs/PERFORMANCE.md`). The `draw` key of `bm/config.txt` (`direct` or `ram`) and the monitor switch it; Settings has no row for it (source: `src/kernel/settings.c`).
 - bm uses triple buffering, which removed the tearing on the lower half of the menu (source: `docs/PERFORMANCE.md`).
 - The 4x4 lighting grid, bilinear and dithered, is used by games with dynamic lights, at 320x180 (source: `docs/PERFORMANCE.md`).
 
@@ -258,7 +258,7 @@ Each option is a key in `bm/config.txt`. Only five keys have a row in *Settings 
 | `r3d_fast` | ARM renderer: one matrix and light in model space (pixels no longer bit-identical) | `r3d_fast=1` to turn on |
 | `r3d_impostor` | far models as one quad (2 to 64 pixels of a 1080-line screen) | off |
 
-In the Settings the rows are *3D of the games*, *3D anti-aliasing*, *3D textures*, *3D impostors* and *3D on the ARM* (source: `src/kernel/settings.c`). The other `gpu3d_*` keys have no row. The 3D manual (volume 3, *The graphics keys of the console*) gives for each key what it does, what it costs and the Pi result.
+In the Settings the graphics rows are *3D of the games*, *3D on the ARM* and *Menu size* (and, on the Pi 1, the CRT, video and GPIO screen rows) (source: `src/kernel/settings.c`). The other `gpu3d_*` keys have no row. The 3D manual (volume 3, *The graphics keys of the console*) gives for each key what it does, what it costs and the Pi result.
 
 The cel light of `cel3d` (see the 3D volume) also runs on the Pi's GPU: with `gpu3d_vs=2` the lit vertex programs cut the light into the same bands. The game draws the same picture with the ARM lighting when `gpu3d_vs` is 0 or 1, or when the boot test sees the cel programs fail.
 

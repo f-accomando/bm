@@ -168,7 +168,7 @@ Su un pad, **PS** o **Start+Select** fanno ciò che fa Ctrl+Esc. Il sistema segn
 ## Da sapere
 
 - In una partita di rete il sistema non sospende il gioco: chiede "Leave the match?" e, se rispondi sì, il gioco si chiude.
-- L'overlay mostra i fotogrammi al secondo, i millisecondi di lavoro in un fotogramma e il carico di CPU e GPU. Dura una sola esecuzione; ogni gioco parte come dice Settings > Screen > *Performance overlay* (spento di default).
+- L'overlay mostra i fotogrammi al secondo, i millisecondi di lavoro in un fotogramma e il carico di CPU e GPU. Dura una sola esecuzione; ogni gioco parte come dice la chiave `perf` di `bm/config.txt` (spento di default; la RGB30 ha anche la riga Settings > Screen > *Performance overlay*).
 - Dalla linea seriale, Ctrl+\ funziona come Ctrl+Esc.
 
 # Scoprire i tasti di un gioco

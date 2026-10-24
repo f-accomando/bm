@@ -1,8 +1,0 @@
-# bm.info: see docs/PROJECT-LAYOUT.md
-name: Hunter's Night
-desc: A gothic top-down hunt through a town of beasts.
-author: bm
-license: LicenseRef-BM-Community-1.0
-version: 1.0
-tags: game, action, top-down
-resolution: 320x180

@@ -273,7 +273,7 @@ The value `version` is the version of the 3D drivers this choice reproduces: `"0
 - A model with bones too is drawn as an impostor, by the box of its pose (where `animate()` put each bone's part). An animated model out of the view is then also skipped, as one without bones.
 - It can be given with `on` `nil`: `gpu3d(nil, nil, nil, nil, 16)`.
 - The choice depends only on the camera, the model, its pose and the size of the game's screen, so it is the same on every console of a match.
-- The console's default is `r3d_impostor` in `bm/config.txt` (*Settings > Screen > 3D impostors*).
+- The console's default is `r3d_impostor` in `bm/config.txt` (a hidden key, no Settings row).
 
 ## What the GPU also does
 
@@ -281,9 +281,9 @@ The GPU draws the shadows (`draw3d` with flag 8), the effects, the screen-door f
 
 ## Anti-aliasing
 
-*Settings > Screen > 3D anti-aliasing* (`gpu3d_aa=1` in `bm/config.txt`; a game uses the second value of `gpu3d`) makes the GPU draw the 3D with 4x MSAA: four samples per pixel, the average at the end of the tile, triangles' edges without steps. Nothing changes in the cartridges.
+Anti-aliasing (`gpu3d_aa=1` in `bm/config.txt`, a hidden key with no Settings row; a game uses the second value of `gpu3d`) makes the GPU draw the 3D with 4x MSAA: four samples per pixel, the average at the end of the tile, triangles' edges without steps. Nothing changes in the cartridges.
 
-- It holds only where the GPU bears it (the boot test says *4x: not on this GPU* otherwise).
+- It holds only where the GPU bears it (Dev > GPU test shows if the GPU has MSAA).
 - It holds only in the jobs without a kept z-buffer: cartridges that draw 3D, then 2D, then more 3D in the same frame stay without anti-aliasing (the 4-sample z-buffer cannot be saved).
 - If the test finds the GPU cannot load the page again into the 4 samples, MSAA is used only in the frames that start with `cls()`.
 - On the ARM there is no anti-aliasing.
@@ -304,10 +304,10 @@ The console has one key in `bm/config.txt` for each graphics option. A player se
 Settings, *Screen*, for the player:
 
 - *3D of the games*: the GPU or the ARM draws the 3D (`gpu3d`).
-- *3D anti-aliasing*: smooth edges (`gpu3d_aa`).
-- *3D textures*: nearest or bilinear (`gpu3d_filter`).
-- *3D impostors*: far small models as one quad (`r3d_impostor`).
 - *3D on the ARM*: exact or fast (`r3d_fast`).
+- *Menu size* and, on the Pi 1, the CRT, video and GPIO screen rows.
+
+These keys have no row and a fixed value when unset: `gpu3d_aa` off, `gpu3d_filter` nearest, `r3d_impostor` off. Set them in `bm/config.txt`.
 
 The table gives, for each key, what it does, what it costs, the default, and the mean result on the Pi Zero W (3D Bench `herotris`, 22 and 23 Oct 2026, 640x360, ARM 1000 MHz, V3D 300 MHz). *Not measured* means that the docs have no Pi number. A result is a benchmark result, not a played game.
 

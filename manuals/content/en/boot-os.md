@@ -168,7 +168,7 @@ On a pad, **PS** or **Start+Select** do what Ctrl+Esc does. The system marks F12
 ## Good to know
 
 - In a network match, the system does not suspend the game: it asks "Leave the match?" and, on yes, the game is closed.
-- The overlay shows frames a second, the milliseconds of work in a frame and the CPU and GPU load. It lasts one run; every game starts as Settings > Screen > *Performance overlay* says (off by default).
+- The overlay shows frames a second, the milliseconds of work in a frame and the CPU and GPU load. It lasts one run; every game starts as the `perf` key of `bm/config.txt` says (off by default; the RGB30 also has the row Settings > Screen > *Performance overlay*).
 - From the serial line, Ctrl+\ works as Ctrl+Esc.
 
 # Find out the keys of a game

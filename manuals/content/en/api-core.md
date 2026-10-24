@@ -545,7 +545,7 @@ Random numbers: `math.random`. For different games at every start, seed the gene
 
 ## The dev kit and the profiler
 
-The **dev kit** is a performance overlay over any game, **off by default**. Turn it on from Settings > Screen > "Performance overlay" (Off, Top, Bottom: it stays saved), with F11 on the keyboard (a system key, also in the tools), with `p` from the serial line or with `devkit(mode)` from the game: once at the top right, again at the bottom right, again off. F11, `p` and `devkit()` last one run: every game starts (and resumes) as Settings says. It is one small block:
+The **dev kit** is a performance overlay over any game, **off by default**. Turn it on with `perf=top` or `perf=bottom` in `bm/config.txt` (on the RGB30 also from Settings > Screen > "Performance overlay": Off, Top, Bottom), with F11 on the keyboard (a system key, also in the tools), with `p` from the serial line or with `devkit(mode)` from the game: once at the top right, again at the bottom right, again off. F11, `p` and `devkit()` last one run: every game starts (and resumes) as the saved setting says. It is one small block:
 
 ```text
 60fps 8.2ms           frames a second; ms of work in a frame (the parts below)

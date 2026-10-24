@@ -143,7 +143,7 @@ scope = "all"
 values = "ram = .bm games draw via RAM; anything else = direct"
 default = "direct (the variable starts at 0)"
 meaning = "Drawing mode of the .bm games."
-settings = "Settings > Screen > Game drawing (.bm)"
+settings = ""
 read_in = "src/kernel/config.c:105"
 
 [[key]]
@@ -214,8 +214,8 @@ name = "gpu3d_aa"
 scope = "pi"
 values = "1 = MSAA 4x; anything else = off"
 default = "off"
-meaning = "Anti-aliasing of the GPU 3D. Visible in Settings; a game sets it with the second value of gpu3d(). Pi: not measured."
-settings = "Settings > Screen > 3D anti-aliasing"
+meaning = "Anti-aliasing of the GPU 3D. Hidden key, no Settings row; a game sets it with the second value of gpu3d(). Pi: not measured."
+settings = ""
 read_in = "src/bm/runtime.c:1865"
 
 [[key]]
@@ -242,7 +242,7 @@ scope = "pi"
 values = "1 = bilinear; anything else = nearest"
 default = "nearest. Bilinear changes the look and costs more per pixel (Pi: 2.3 ns/px against 1.65 nearest in a full-screen pass)."
 meaning = "Texture filter of the GPU 3D."
-settings = "Settings > Screen > 3D textures"
+settings = ""
 read_in = "src/bm/runtime.c:1875"
 
 [[key]]
@@ -449,7 +449,7 @@ scope = "all"
 values = "off or 0 = off; bottom = bottom overlay; anything else (top, 1, 2, 3) = top"
 default = "off"
 meaning = "The dev kit's performance overlay."
-settings = "Settings > Screen > Performance overlay"
+settings = "Settings > Screen > Performance overlay (RGB30 only; the Pi has F11 and this key)"
 read_in = "src/kernel/config.c:107"
 
 [[key]]
@@ -473,10 +473,10 @@ read_in = "src/bm/runtime.c:1915"
 [[key]]
 name = "r3d_impostor"
 scope = "all"
-values = "number of pixels (atoi), limited to 2..64; 0 or less = off; the Settings steps are 0, 8, 16, 32"
+values = "number of pixels (atoi), limited to 2..64; 0 or less = off"
 default = "0 (off)"
 meaning = "Far small meshes drawn as one quad, up to that many pixels of a 1080-line screen."
-settings = "Settings > Screen > 3D impostors (Pi only; the RGB30 reads the key but has no row)"
+settings = ""
 read_in = "src/bm/runtime.c:1917"
 
 [[key]]

@@ -144,7 +144,7 @@ QEMU va circa 2 volte più piano del Pi negli sprite (2133 contro 4482 a 60 fps)
 - Tutto il 2D è codice C sull'ARM; Lua dà solo la logica (fonte: `docs/progress/graphics.md`).
 - Le cartucce disegnano in RGB565 (16 bit). La console e il menu usano 32 bit (fonte: `docs/HARDWARE.md`). L'RGB565 dimezza i byte per pixel; a 32 bit il tempo di copia di un frame raddoppia, da circa 6,5 ms a circa 13 ms con la CPU (fonte: `docs/PERFORMANCE.md`).
 - Il framebuffer viene dalla mailbox del firmware. La sua altezza è l'altezza dello schermo per il numero di pagine (da 1 a 3). Il cambio di pagina modifica l'offset virtuale (fonte: `docs/progress/graphics.md`).
-- Di default le cartucce disegnano direttamente nella memoria video, perché copiare dalla RAM rilegge la lenta SDRAM: 8,58 ms diretto contro 11,85 ms via RAM (fonte: `docs/PERFORMANCE.md`). *Settings > Screen > Game drawing (.bm)* passa da `Direct` a `Via RAM` (fonte: `src/kernel/settings.c`).
+- Di default le cartucce disegnano direttamente nella memoria video, perché copiare dalla RAM rilegge la lenta SDRAM: 8,58 ms diretto contro 11,85 ms via RAM (fonte: `docs/PERFORMANCE.md`). La chiave `draw` di `bm/config.txt` (`direct` o `ram`) e il monitor lo cambiano; Settings non ha una riga (fonte: `src/kernel/settings.c`).
 - bm usa il triplo buffer, che ha eliminato lo strappo nella metà bassa del menu (fonte: `docs/PERFORMANCE.md`).
 - La griglia di luce 4x4, bilineare e con dither, è usata dai giochi con luci dinamiche, a 320x180 (fonte: `docs/PERFORMANCE.md`).
 
@@ -258,7 +258,7 @@ Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga
 | `r3d_fast` | renderer ARM: una matrice e la luce nello spazio del modello (i pixel non sono più identici bit a bit) | `r3d_fast=1` per attivarlo |
 | `r3d_impostor` | modelli lontani come un solo quad (da 2 a 64 pixel di uno schermo di 1080 righe) | spento |
 
-Nelle Settings le righe sono *3D of the games*, *3D anti-aliasing*, *3D textures*, *3D impostors* e *3D on the ARM* (fonte: `src/kernel/settings.c`). Le altre chiavi `gpu3d_*` non hanno una riga. Il manuale 3D (volume 3, *Le chiavi grafiche della console*) dà per ogni chiave cosa fa, quanto costa e il risultato sul Pi.
+Nelle Settings le righe grafiche sono *3D of the games*, *3D on the ARM* e *Menu size* (e, sul Pi 1, le righe CRT, video e GPIO screen) (fonte: `src/kernel/settings.c`). Le altre chiavi `gpu3d_*` non hanno una riga. Il manuale 3D (volume 3, *Le chiavi grafiche della console*) dà per ogni chiave cosa fa, quanto costa e il risultato sul Pi.
 
 La luce cel di `cel3d` (vedi il volume 3D) gira anche sulla GPU del Pi: con `gpu3d_vs=2` i programmi dei vertici con luce dividono la luce nelle stesse fasce. Il gioco disegna la stessa immagine con la luce ARM quando `gpu3d_vs` è 0 o 1, o quando il test all'avvio vede fallire i programmi cel.
 

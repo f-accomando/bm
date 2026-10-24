@@ -170,11 +170,10 @@ of `cls` instead of reading the page again. Textures with sides that are multipl
 (128×128 sprite sheets, 256×256, …) go to the GPU in T-format, the tiled format of its
 cache, faster to read.
 
-**Anti-aliasing (M34).** *Settings > Graphics > 3D anti-aliasing: 4x* (`gpu3d_aa=1` in
-`bm/config.txt`) makes the GPU draw the 3D with 4× MSAA: four samples per pixel, the
+**Anti-aliasing (M34).** `gpu3d_aa=1` in
+`bm/config.txt` (a hidden key, no Settings row) makes the GPU draw the 3D with 4× MSAA: four samples per pixel, the
 average at the end of the tile, triangles' edges without steps. Nothing changes in the
-cartridges. It holds only where the GPU bears it (the boot test says *4x: not on this GPU*
-otherwise) and only in the jobs without a kept z-buffer: cartridges that draw 3D, then 2D,
+cartridges. It holds only where the GPU bears it (Dev > GPU test shows if the GPU has MSAA) and only in the jobs without a kept z-buffer: cartridges that draw 3D, then 2D,
 then more 3D in the same frame stay without anti-aliasing (the 4-sample z-buffer cannot be
 saved). If the test finds the GPU cannot load the page again into the 4 samples, MSAA is
 used only in the frames that start with `cls()`. On the ARM there is no anti-aliasing.
