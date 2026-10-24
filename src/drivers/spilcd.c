@@ -270,63 +270,82 @@ void spilcd_blit(int x, int y, int w, int h, const uint16_t *src, int stride)
     lcd_stream_end(&rx);
 }
 
-/* ---------------------------------------------------------------- tiny desk robot */
+/* ---------------------------------------------------------------- polygon & 3D-shaded helpers */
 
-enum {
-    ST_CODING = 0,
-    ST_THINKING,
-    ST_BUILDING,
-    ST_DEBUGGING,
-    ST_COFFEE,
-    ST_BELL,
-    ST_COUNT
-};
+typedef struct { int x, y; } pt_t;
 
-static const struct {
-    const char *badge;
-    const char *sub;
-    uint32_t col;
-    unsigned frames;
-} states[ST_COUNT] = {
-    { "TYPING CODE",   "writing spilcd.c on Pi 1...",    0x2EE6D6, 150 },
-    { "THINKING...",   "planning next bare-metal pass",  0xFFCA3A,  85 },
-    { "BUILDING...",   "arm-none-eabi-gcc -O2 kernel",   0x56B6C2, 100 },
-    { "DEBUGGING!",    "fixing SPI0 FIFO timing...",     0xFF5964,  85 },
-    { "TASK DONE!",    "ringing the desk bell: *DING!*", 0x7AE582,  75 },
-    { "COFFEE BREAK",  "recharging servos & sipping",    0xE5C07B,  75 },
-};
-
-static const struct {
-    const char *text;
-    uint32_t col;
-} code_lines[] = {
-    { "/* Pi 1 GPIO SPI0 TFT */",     0x6A7A8C },
-    { "int spilcd_init(void) {",      0xC678DD },
-    { "  mmio_write(SPI0_CLK, 16);",  0x61AFEF },
-    { "  gpio_write(PIN_RESET, 1);",  0x98C379 },
-    { "  lcd_cmd(0x11); /* wake */",  0xE5C07B },
-    { "  lcd_cmd_args(0x3A, &p16);",  0x56B6C2 },
-    { "  lcd_cmd(0x29); /* on! */",   0x98C379 },
-    { "  return 0;",                  0xC678DD },
-    { "}",                            0xC678DD },
-    { "void robot_work(desk_t *d) {", 0xC678DD },
-    { "  while (tasks_pending()) {",  0xE5C07B },
-    { "    servo_type_keys(d->kb);",  0x61AFEF },
-    { "    if (job_done())",          0xC678DD },
-    { "      ring_desk_bell();",      0x7AE582 },
-    { "  }",                          0xE5C07B },
-    { "}",                            0xC678DD },
-};
-#define NCODE ((int)(sizeof code_lines / sizeof code_lines[0]))
-
-static void bevel_box(g16_t *g, int x, int y, int w, int h,
-                      uint32_t fill, uint32_t hi, uint32_t lo)
+static void fill_poly(g16_t *g, const pt_t *pts, int n, uint32_t rgb)
 {
-    g16_rectfill(g, x, y, w, h, g16_rgb24(fill));
-    g16_rectfill(g, x, y, w, 1, g16_rgb24(hi));
-    g16_rectfill(g, x, y, 1, h, g16_rgb24(hi));
-    g16_rectfill(g, x, y + h - 1, w, 1, g16_rgb24(lo));
-    g16_rectfill(g, x + w - 1, y, 1, h, g16_rgb24(lo));
+    if (n < 3)
+        return;
+    int ymin = pts[0].y, ymax = pts[0].y;
+    for (int i = 1; i < n; i++) {
+        if (pts[i].y < ymin) ymin = pts[i].y;
+        if (pts[i].y > ymax) ymax = pts[i].y;
+    }
+    if (ymin < 0) ymin = 0;
+    if (ymax >= SPILCD_H) ymax = SPILCD_H - 1;
+    uint16_t col = g16_rgb24(rgb);
+
+    for (int y = ymin; y <= ymax; y++) {
+        int xs[16], nx = 0;
+        for (int i = 0, j = n - 1; i < n; j = i++) {
+            int y0 = pts[j].y, y1 = pts[i].y;
+            int x0 = pts[j].x, x1 = pts[i].x;
+            if ((y0 <= y && y1 > y) || (y1 <= y && y0 > y)) {
+                if (nx < 16)
+                    xs[nx++] = x0 + (y - y0) * (x1 - x0) / (y1 - y0);
+            }
+        }
+        for (int i = 0; i < nx - 1; i++)
+            for (int k = i + 1; k < nx; k++)
+                if (xs[k] < xs[i]) { int t = xs[i]; xs[i] = xs[k]; xs[k] = t; }
+        for (int i = 0; i + 1 < nx; i += 2) {
+            int x0 = xs[i], x1 = xs[i + 1];
+            if (x1 >= x0)
+                g16_rectfill(g, x0, y, x1 - x0 + 1, 1, col);
+        }
+    }
+}
+
+static void fill_quad(g16_t *g, int x0, int y0, int x1, int y1,
+                      int x2, int y2, int x3, int y3, uint32_t rgb)
+{
+    pt_t p[4] = { { x0, y0 }, { x1, y1 }, { x2, y2 }, { x3, y3 } };
+    fill_poly(g, p, 4, rgb);
+}
+
+static void thick_line(g16_t *g, int x0, int y0, int x1, int y1, int r, uint32_t rgb)
+{
+    int dx = abs(x1 - x0), dy = abs(y1 - y0);
+    int steps = dx > dy ? dx : dy;
+    uint16_t c = g16_rgb24(rgb);
+    if (steps == 0) {
+        g16_circfill(g, x0, y0, r, c);
+        return;
+    }
+    for (int i = 0; i <= steps; i++) {
+        int x = x0 + (x1 - x0) * i / steps;
+        int y = y0 + (y1 - y0) * i / steps;
+        g16_circfill(g, x, y, r, c);
+    }
+}
+
+static void fill_ellipse(g16_t *g, int cx, int cy, int rx, int ry, uint32_t rgb)
+{
+    if (rx <= 0 || ry <= 0)
+        return;
+    uint16_t c = g16_rgb24(rgb);
+    int64_t rx2 = (int64_t)rx * rx, ry2 = (int64_t)ry * ry;
+    int64_t r2 = rx2 * ry2;
+    for (int dy = -ry; dy <= ry; dy++) {
+        int dx = 0;
+        while (dx <= rx && (int64_t)dx * dx * ry2 + (int64_t)dy * dy * rx2 <= r2)
+            dx++;
+        dx--;
+        if (dx >= 0)
+            g16_rectfill(g, cx - dx, cy + dy, 2 * dx + 1, 1, c);
+    }
 }
 
 static void round_box(g16_t *g, int x, int y, int w, int h, int r, uint32_t rgb)
@@ -340,425 +359,398 @@ static void round_box(g16_t *g, int x, int y, int w, int h, int r, uint32_t rgb)
     g16_circfill(g, x + w - 1 - r, y + h - 1 - r, r, c);
 }
 
-static void draw_backdrop(g16_t *g, unsigned frame, int st, unsigned tasks, unsigned loc, uint32_t t0)
+/* ---------------------------------------------------------------- Tiny Robot Works On My Desk */
+
+enum {
+    ST_CODING = 0,
+    ST_THINKING,
+    ST_BUILDING,
+    ST_DEBUGGING,
+    ST_BELL,
+    ST_COFFEE,
+    ST_COUNT
+};
+
+static const struct {
+    const char *badge;
+    const char *sub;
+    uint32_t col;
+    unsigned frames;
+} states[ST_COUNT] = {
+    { "TYPING CODE",  "working at the desk laptop...", 0x5CE1E6, 150 },
+    { "THINKING...",  "looking around & planning...",  0xFFD166,  85 },
+    { "COMPILING",    "building bare-metal kernel...", 0x7AE582,  95 },
+    { "DEBUGGING",    "fast typing on the keyboard!",  0xFF6B6B,  85 },
+    { "TASK DONE!",   "ringing the desk bell *DING!*", 0x9BF6FF,  75 },
+    { "COFFEE BREAK", "resting servos for a moment",   0xF4A261,  75 },
+};
+
+/* Background: blurred studio desk environment + warm pink-beige tabletop
+ * matching the PiSugarStudio "This Tiny Robot Works On My Desk" video. */
+static void draw_studio_bg(g16_t *g)
 {
-    /* Dark studio wall with subtle blueprint grid */
-    g16_cls(g, g16_rgb24(0x111622));
-    uint16_t grid = g16_rgb24(0x171F30);
-    for (int x = 24; x < SPILCD_W; x += 24)
-        g16_rectfill(g, x, 26, 1, 210, grid);
-    for (int y = 48; y < 236; y += 24)
-        g16_rectfill(g, 0, y, SPILCD_W, 1, grid);
+    /* Upper blurred studio workbench backdrop */
+    for (int y = 0; y < 175; y++) {
+        int r = 165 - y / 5;
+        int gr = 172 - y / 5;
+        int b = 175 - y / 5;
+        g16_rectfill(g, 0, y, SPILCD_W, 1, g16_rgb((uint32_t)r, (uint32_t)gr, (uint32_t)b));
+    }
+    /* Subtle out-of-focus studio equipment shapes on the workbench behind */
+    round_box(g, -10, 32, 95, 110, 8, 0x7E878C);
+    g16_rectfill(g, -6, 48, 84, 3, g16_rgb24(0x9BA4A8));
+    g16_rectfill(g, -6, 78, 84, 3, g16_rgb24(0x9BA4A8));
+    g16_rectfill(g, -6, 108, 84, 3, g16_rgb24(0x9BA4A8));
+    round_box(g, 290, 26, 70, 90, 6, 0x8D9699);
+    /* Dark PCB / dev board silhouette on background table */
+    fill_quad(g, 286, 44, 368, 52, 352, 92, 272, 82, 0x2B302C);
+    fill_quad(g, 268, 78, 376, 86, 368, 126, 260, 118, 0xDEDAD0);
 
-    /* Warm lamp glow on the left wall */
-    g16_circfill(g, 58, 128, 62, g16_rgb24(0x1A202C));
-    g16_circfill(g, 58, 128, 42, g16_rgb24(0x232832));
-
-    /* Wall shelf (top-left) with pixel books and succulent plant */
-    g16_rectfill(g, 18, 72, 92, 5, g16_rgb24(0x5C4033));
-    g16_rectfill(g, 18, 72, 92, 1, g16_rgb24(0x8B654E));
-    g16_rectfill(g, 24, 52, 8, 20, g16_rgb24(0xE06C75));
-    g16_rectfill(g, 33, 55, 7, 17, g16_rgb24(0x61AFEF));
-    g16_rectfill(g, 41, 49, 9, 23, g16_rgb24(0xE5C07B));
-    g16_rectfill(g, 51, 56, 7, 16, g16_rgb24(0xC678DD));
-    /* Tiny potted plant on shelf */
-    g16_rectfill(g, 82, 61, 14, 11, g16_rgb24(0xC86D51));
-    g16_rectfill(g, 80, 59, 18, 3, g16_rgb24(0xDF8266));
-    g16_circfill(g, 89, 54, 6, g16_rgb24(0x4EA854));
-    g16_circfill(g, 84, 56, 4, g16_rgb24(0x68C46E));
-    g16_circfill(g, 94, 56, 4, g16_rgb24(0x3B8840));
-
-    /* Articulated studio desk lamp on the left */
-    g16_rectfill(g, 16, 226, 28, 6, g16_rgb24(0x3A4454));
-    g16_line(g, 26, 226, 14, 162, g16_rgb24(0x58667A));
-    g16_line(g, 27, 226, 15, 162, g16_rgb24(0x7A8A9E));
-    g16_line(g, 14, 162, 42, 118, g16_rgb24(0x58667A));
-    g16_line(g, 15, 162, 43, 118, g16_rgb24(0x7A8A9E));
-    g16_circfill(g, 14, 162, 3, g16_rgb24(0xE5C07B));
-    g16_circfill(g, 48, 118, 9, g16_rgb24(0x465264));
-    g16_rectfill(g, 42, 118, 18, 8, g16_rgb24(0x465264));
-    g16_circfill(g, 51, 125, 5, g16_rgb24((frame & 16) ? 0xFFE885 : 0xFFD866));
-
-    /* Top studio status bar */
-    g16_rectfill(g, 0, 0, SPILCD_W, 25, g16_rgb24(0x1B2334));
-    g16_rectfill(g, 0, 25, SPILCD_W, 1, g16_rgb24(0x2E3D58));
-    g16_circfill(g, 12, 12, 4, g16_rgb24(states[st].col));
-
-    g->font = &font_console_8x14;
-    g16_text(g, 22, 6, states[st].badge, g16_rgb24(states[st].col));
-
-    g->font = &font_console_6x12;
-    g16_text(g, 144, 7, states[st].sub, g16_rgb24(0xABB2BF));
-
-    char stat[40];
-    uint32_t sec = (timer_ticks() - t0) / 1000000u;
-    ksnprintf(stat, sizeof stat, "TASKS:%02u LOC:%u %02lu:%02lu",
-              tasks, loc, (unsigned long)(sec / 60), (unsigned long)(sec % 60));
-    g16_text(g, SPILCD_W - (int)strlen(stat) * 6 - 8, 7, stat, g16_rgb24(0x7FE7DC));
+    /* Warm pink-beige tabletop surface in the lower half */
+    for (int y = 175; y < SPILCD_H; y++) {
+        int d = y - 175;
+        int r = 206 - d / 9;
+        int gr = 174 - d / 8;
+        int b = 164 - d / 8;
+        g16_rectfill(g, 0, y, SPILCD_W, 1, g16_rgb((uint32_t)r, (uint32_t)gr, (uint32_t)b));
+    }
+    /* Diagonal desk surface boundary shadow */
+    fill_quad(g, 0, 198, 120, 150, 480, 150, 480, 200, 0xC8ACA2);
 }
 
-static void draw_monitor(g16_t *g, unsigned frame, int st, unsigned loc)
+/* Draws the robot's black office chair, beige boxy torso with 3 vent slots,
+ * blue SG90 shoulder/neck servos with yellow labels, and turning/tilting
+ * wide beige visor head with glowing white eyes. */
+static void draw_robot_upper(g16_t *g, unsigned frame, int st)
 {
-    /* Monitor stand & shadow on the right side of the desk */
-    const int mx = 276, my = 66, mw = 190, mh = 136;
-    g16_rectfill(g, mx + 72, my + mh, 46, 22, g16_rgb24(0x2C3442));
-    g16_rectfill(g, mx + 78, my + mh, 12, 22, g16_rgb24(0x3E495C));
-    bevel_box(g, mx + 52, my + mh + 20, 86, 8, 0x3A4456, 0x58667E, 0x202630);
-
-    /* Outer monitor casing */
-    round_box(g, mx - 2, my + 2, mw + 4, mh, 7, 0x0B0F17);
-    round_box(g, mx, my, mw, mh, 6, 0x2E3748);
-    round_box(g, mx + 2, my + 2, mw - 4, mh - 4, 5, 0x1D2430);
-
-    /* Inner screen */
-    const int sx = mx + 7, sy = my + 7, sw = mw - 14, sh = mh - 18;
-    g16_rectfill(g, sx, sy, sw, sh, g16_rgb24(0x0D111A));
-
-    /* IDE top title bar inside monitor */
-    g16_rectfill(g, sx, sy, sw, 13, g16_rgb24(0x182132));
-    g16_circfill(g, sx + 6,  sy + 6, 2, g16_rgb24(0xFF5F56));
-    g16_circfill(g, sx + 13, sy + 6, 2, g16_rgb24(0xFFBD2E));
-    g16_circfill(g, sx + 20, sy + 6, 2, g16_rgb24(0x27C93F));
-    g->font = &font_console_6x12;
-    g16_text(g, sx + 28, sy + 1, "spilcd.c - Pi 1 ARMv6", g16_rgb24(0x8FA2BE));
-
-    /* Scrolling code editor area */
-    g16_clip(g, sx + 2, sy + 14, sw - 4, sh - 36);
-    int top_line = (int)((frame / 14) % NCODE);
-    for (int i = 0; i < 6; i++) {
-        int idx = (top_line + i) % NCODE;
-        int ly = sy + 15 + i * 12;
-        char lnum[4];
-        ksnprintf(lnum, sizeof lnum, "%2d", idx + 1);
-        g16_text(g, sx + 3, ly, lnum, g16_rgb24(0x3E4B61));
-
-        const char *line = code_lines[idx].text;
-        uint16_t col = g16_rgb24(code_lines[idx].col);
-        if (st == ST_DEBUGGING && i == 3)
-            col = g16_rgb24((frame & 4) ? 0xFF5964 : 0xFFD166);
-
-        if (i == 5 && (st == ST_CODING || st == ST_DEBUGGING)) {
-            int len = (int)strlen(line);
-            int chars = (int)((frame / 2) % (unsigned)(len + 1));
-            char partial[36];
-            if (chars > (int)sizeof partial - 1)
-                chars = (int)sizeof partial - 1;
-            memcpy(partial, line, (size_t)chars);
-            partial[chars] = '\0';
-            int cx = g16_text(g, sx + 19, ly, partial, col);
-            if ((frame & 4) == 0)
-                g16_rectfill(g, cx + 1, ly + 1, 5, 10, g16_rgb24(0x2EE6D6));
-        } else {
-            g16_text(g, sx + 19, ly, line, col);
-        }
-    }
-    g16_clip(g, 0, 0, SPILCD_W, SPILCD_H);
-
-    /* Bottom terminal / status pane inside monitor */
-    int ty = sy + sh - 21;
-    g16_rectfill(g, sx, ty, sw, 21, g16_rgb24(0x141B29));
-    g16_rectfill(g, sx, ty, sw, 1, g16_rgb24(0x28354E));
-    if (st == ST_BUILDING) {
-        int pct = (int)((frame * 2) % 101);
-        int bw = (sw - 12) * pct / 100;
-        g16_text(g, sx + 4, ty + 2, "BUILD kernel.img", g16_rgb24(0x56B6C2));
-        g16_rect(g, sx + 4, ty + 14, sw - 8, 5, g16_rgb24(0x3B4C6B));
-        g16_rectfill(g, sx + 5, ty + 15, bw, 3, g16_rgb24(0x7AE582));
-    } else if (st == ST_BELL) {
-        g16_text(g, sx + 4, ty + 4, "[PASS] All checks green! *DING*", g16_rgb24(0x7AE582));
+    int bob = 0, turn_x = 0, tilt_y = 0;
+    if (st == ST_CODING) {
+        bob = (frame & 2) ? -1 : 0;
+        turn_x = (int)((frame >> 3) % 7) - 3;
+        tilt_y = 2;
     } else if (st == ST_DEBUGGING) {
-        g16_text(g, sx + 4, ty + 4, "[WARN] SPI0 FIFO -> patching...", g16_rgb24(0xFF5964));
-    } else {
-        char tline[36];
-        ksnprintf(tline, sizeof tline, "$ pi1-gcc -O2 (%u lines)", loc);
-        g16_text(g, sx + 4, ty + 4, tline, g16_rgb24(0x98C379));
-    }
-
-    /* Power LED on bottom bezel */
-    g16_circfill(g, mx + mw - 12, my + mh - 6, 2,
-                 g16_rgb24((frame & 8) ? 0x27C93F : 0x1E8E2E));
-}
-
-static void draw_robot(g16_t *g, unsigned frame, int st)
-{
-    /* Subtle breathing / typing bounce */
-    int bob = 0;
-    if (st == ST_CODING || st == ST_DEBUGGING)
-        bob = (frame & 2) ? -1 : 1;
-    else if (st == ST_BUILDING)
+        bob = (frame & 1) ? -1 : 1;
+        turn_x = (int)((frame >> 2) % 9) - 4;
+        tilt_y = 3;
+    } else if (st == ST_THINKING) {
+        turn_x = ((frame >> 4) & 1) ? -6 : 5;
+        tilt_y = -3;
+    } else if (st == ST_BUILDING) {
         bob = ((frame >> 2) & 1) ? -2 : 0;
-    else if (st == ST_BELL)
-        bob = ((frame >> 1) & 1) ? -3 : 0;
-    else
-        bob = ((frame >> 4) & 1) ? -1 : 0;
-
-    int rx = 104, ry = 86 + bob;
-
-    /* Antenna on top of the robot's head */
-    int ax = rx + 46 + ((st == ST_THINKING) ? ((int)(frame >> 2 & 3) - 1) : 0);
-    g16_rectfill(g, rx + 42, ry - 5, 10, 6, g16_rgb24(0x465366));
-    g16_line(g, rx + 47, ry - 5, ax, ry - 19, g16_rgb24(0x8FA2BE));
-    g16_line(g, rx + 48, ry - 5, ax + 1, ry - 19, g16_rgb24(0x8FA2BE));
-    g16_circfill(g, ax, ry - 21, 5, g16_rgb24(states[st].col));
-    g16_circfill(g, ax - 1, ry - 22, 2, g16_rgb24(0xFFFFFF));
-
-    /* Side ear bolts / servos */
-    round_box(g, rx - 7, ry + 18, 8, 22, 3, 0x4E5D73);
-    g16_rectfill(g, rx - 5, ry + 22, 4, 14, g16_rgb24(0x2EE6D6));
-    round_box(g, rx + 93, ry + 18, 8, 22, 3, 0x4E5D73);
-    g16_rectfill(g, rx + 95, ry + 22, 4, 14, g16_rgb24(0x2EE6D6));
-
-    /* Robot Head (3D-printed off-white / silver housing with dark OLED face) */
-    round_box(g, rx - 1, ry + 2, 96, 62, 10, 0x202838);
-    round_box(g, rx, ry, 94, 60, 10, 0xDCE3EC);
-    round_box(g, rx + 2, ry + 2, 90, 56, 9, 0xC6D0DE);
-    /* Top brow highlight */
-    g16_rectfill(g, rx + 12, ry + 3, 70, 2, g16_rgb24(0xF4F7FB));
-
-    /* Glossy dark OLED Face Screen */
-    int fx = rx + 9, fy = ry + 9, fw = 76, fh = 42;
-    round_box(g, fx - 1, fy - 1, fw + 2, fh + 2, 6, 0x2E3846);
-    round_box(g, fx, fy, fw, fh, 5, 0x0A0E17);
-
-    /* Expressive OLED Eyes & Mouth */
-    uint16_t eye_col = g16_rgb24(states[st].col);
-    int blink = (frame % 72) >= 68;
-    int look_x = 0, look_y = 0;
-    if (st == ST_CODING || st == ST_BUILDING) {
-        look_x = 4 + (int)((frame >> 3) % 5) - 2;
-        look_y = 1;
-    } else if (st == ST_THINKING) {
-        look_x = -2;
-        look_y = -4;
-    } else if (st == ST_DEBUGGING) {
-        look_x = 5;
-        look_y = (frame & 2) ? 0 : 2;
+        tilt_y = 1;
+    } else if (st == ST_BELL) {
+        bob = ((frame >> 1) & 1) ? -2 : 1;
+        turn_x = -4;
+        tilt_y = -1;
     }
 
-    int elx = fx + 18 + look_x, erx = fx + 46 + look_x, ey = fy + 12 + look_y;
+    /* 1. Black curved office chair backrest behind the robot */
+    fill_quad(g, 82, 46, 178, 36, 192, 146, 98, 160, 0x12151B);
+    fill_quad(g, 80, 50, 86, 46, 102, 158, 95, 160, 0x262C36);
+    g16_circfill(g, 92, 56, 10, g16_rgb24(0x12151B));
+    /* Lower chair armrest / bracket on the left */
+    fill_quad(g, 88, 120, 114, 134, 116, 168, 90, 154, 0x1A1E26);
+    g16_line(g, 88, 120, 114, 134, g16_rgb24(0x363E4C));
+
+    /* 2. Robot Torso (3D isometric beige box with 3 horizontal vent slots) */
+    int ty = bob;
+    /* Left side of torso (shaded beige) */
+    fill_quad(g, 112, 74 + ty, 134, 88 + ty, 138, 148 + ty, 116, 134 + ty, 0x9E9578);
+    /* Top shoulder deck of torso (light cream) */
+    fill_quad(g, 112, 74 + ty, 240, 52 + ty, 262, 64 + ty, 134, 88 + ty, 0xDED6BA);
+    /* Dark recessed servo bay inside top of torso */
+    fill_quad(g, 124, 74 + ty, 236, 55 + ty, 250, 63 + ty, 138, 83 + ty, 0x141820);
+
+    /* Blue SG90 micro-servos in left shoulder, neck, and right shoulder */
+    /* Left shoulder blue servo + yellow sticker */
+    fill_quad(g, 124, 72 + ty, 162, 65 + ty, 172, 73 + ty, 134, 80 + ty, 0x1A46B8);
+    fill_quad(g, 124, 80 + ty, 134, 80 + ty, 134, 92 + ty, 124, 90 + ty, 0x143896);
+    fill_quad(g, 132, 68 + ty, 156, 64 + ty, 164, 70 + ty, 140, 75 + ty, 0xD4B830);
+    /* Right shoulder blue servo + yellow sticker */
+    fill_quad(g, 204, 58 + ty, 238, 52 + ty, 248, 59 + ty, 214, 65 + ty, 0x1A46B8);
+    fill_quad(g, 212, 56 + ty, 234, 52 + ty, 240, 57 + ty, 218, 61 + ty, 0xD4B830);
+    /* Center blue neck column servo */
+    g16_rectfill(g, 178, 54 + ty, 22, 18, g16_rgb24(0x163BA0));
+    g16_rectfill(g, 182, 56 + ty, 14, 12, g16_rgb24(0x2456D4));
+
+    /* Front face of torso (warm retro beige/cream) */
+    fill_quad(g, 134, 88 + ty, 262, 64 + ty, 264, 124 + ty, 138, 150 + ty, 0xC9C0A3);
+    /* Top edge highlight of front torso plate */
+    g16_line(g, 134, 88 + ty, 262, 64 + ty, g16_rgb24(0xE8E0C5));
+    g16_line(g, 134, 89 + ty, 262, 65 + ty, g16_rgb24(0xDFD7BC));
+
+    /* 3 horizontal cooling vent slots on the left of the front chest (exact match!) */
+    for (int v = 0; v < 3; v++) {
+        int vy = 98 + v * 6 + ty;
+        g16_line(g, 150, vy,     172, vy - 4, g16_rgb24(0x464236));
+        g16_line(g, 150, vy + 1, 172, vy - 3, g16_rgb24(0x2E2B22));
+        g16_line(g, 150, vy + 2, 172, vy - 2, g16_rgb24(0xDFD7BC));
+    }
+
+    /* Orange / red / brown servo ribbon wires looping out the left side */
+    g16_line(g, 128 + turn_x / 2, 42 + ty, 118, 62 + ty, g16_rgb24(0xE86F2C));
+    g16_line(g, 130 + turn_x / 2, 43 + ty, 120, 64 + ty, g16_rgb24(0xD63230));
+    g16_line(g, 132 + turn_x / 2, 44 + ty, 122, 66 + ty, g16_rgb24(0x5C3A28));
+
+    /* 3. Robot Head (wide retro beige visor with raised crown & black eye screen) */
+    int hx = 132 + turn_x;
+    int hy = 18 + ty + tilt_y;
+
+    /* Raised top cap on crown of head */
+    fill_quad(g, hx + 8, hy - 6, hx + 76, hy - 14, hx + 104, hy + 2, hx + 34, hy + 12, 0xDFD7BC);
+    fill_quad(g, hx + 8, hy - 6, hx + 34, hy + 12, hx + 34, hy + 18, hx + 8, hy - 1, 0xB5AC90);
+    /* Left side cheek of visor */
+    fill_quad(g, hx, hy + 8, hx + 16, hy + 18, hx + 18, hy + 50, hx + 2, hy + 38, 0xACA386);
+    /* Small side bracket & screw on left of head */
+    fill_quad(g, hx - 4, hy + 6, hx + 4, hy + 11, hx + 5, hy + 28, hx - 3, hy + 22, 0xC8BFA2);
+    g16_circfill(g, hx, hy + 16, 2, g16_rgb24(0x4A4E54));
+    /* Top bevel of main visor */
+    fill_quad(g, hx, hy + 8, hx + 112, hy - 6, hx + 128, hy + 4, hx + 16, hy + 18, 0xE6DEC3);
+    /* Front face of wide visor */
+    fill_quad(g, hx + 16, hy + 18, hx + 128, hy + 4, hx + 128, hy + 36, hx + 18, hy + 50, 0xD2C9AC);
+    g16_line(g, hx + 16, hy + 18, hx + 128, hy + 4, g16_rgb24(0xF0E8CE));
+
+    /* Recessed black rectangular OLED screen in the middle of the visor */
+    fill_quad(g, hx + 42, hy + 19, hx + 102, hy + 11, hx + 102, hy + 34, hx + 43, hy + 42, 0x2A2622);
+    fill_quad(g, hx + 45, hy + 21, hx + 99,  hy + 14, hx + 99,  hy + 32, hx + 46, hy + 39, 0x0D0F14);
+
+    /* Expressive glowing white eyes inside the black OLED screen */
+    int blink = (frame % 70) >= 66;
+    int ex_shift = (turn_x > 0) ? 2 : (turn_x < 0) ? -2 : 0;
+    int elx = hx + 53 + ex_shift, ely = hy + 24;
+    int erx = hx + 79 + ex_shift, ery = hy + 21;
 
     if (st == ST_BELL) {
-        /* Happy ^ ^ eyes */
-        for (int i = 0; i < 2; i++) {
-            int cx = (i == 0 ? elx : erx) + 6;
-            int cy = ey + 8;
-            g16_circfill(g, cx, cy, 8, eye_col);
-            g16_circfill(g, cx, cy + 4, 7, g16_rgb24(0x0A0E17));
-        }
-        /* Big happy smile */
-        g16_rectfill(g, fx + 31, fy + 31, 14, 3, eye_col);
-        g16_rectfill(g, fx + 29, fy + 29, 3, 3, eye_col);
-        g16_rectfill(g, fx + 44, fy + 29, 3, 3, eye_col);
-    } else if (st == ST_COFFEE) {
-        /* Relaxed content arc eyes */
-        g16_rectfill(g, elx, ey + 6, 13, 3, eye_col);
-        g16_rectfill(g, erx, ey + 6, 13, 3, eye_col);
-        g16_circfill(g, fx + 38, fy + 31, 3, eye_col);
-    } else if (st == ST_DEBUGGING) {
-        /* Determined > < / furrowed brow eyes */
-        round_box(g, elx, ey + 1, 13, 12, 3, states[st].col);
-        round_box(g, erx, ey + 1, 13, 12, 3, states[st].col);
-        /* Slanted eyebrows */
-        g16_line(g, elx - 1, ey - 1, elx + 13, ey + 4, g16_rgb24(0x0A0E17));
-        g16_line(g, elx - 1, ey,     elx + 13, ey + 5, g16_rgb24(0x0A0E17));
-        g16_line(g, erx + 13, ey - 1, erx - 1, ey + 4, g16_rgb24(0x0A0E17));
-        g16_line(g, erx + 13, ey,     erx - 1, ey + 5, g16_rgb24(0x0A0E17));
-        /* Wavy mouth */
-        g16_rectfill(g, fx + 30, fy + 32, 6, 2, eye_col);
-        g16_rectfill(g, fx + 36, fy + 30, 6, 2, eye_col);
-        g16_rectfill(g, fx + 42, fy + 32, 5, 2, eye_col);
-    } else if (blink) {
-        g16_rectfill(g, elx, ey + 6, 13, 2, eye_col);
-        g16_rectfill(g, erx, ey + 6, 13, 2, eye_col);
-        g16_rectfill(g, fx + 33, fy + 31, 10, 2, eye_col);
+        /* Happy glowing white ^ ^ eyes */
+        g16_circfill(g, elx + 5, ely + 5, 6, g16_rgb24(0xFFFFFF));
+        g16_circfill(g, elx + 5, ely + 8, 5, g16_rgb24(0x0D0F14));
+        g16_circfill(g, erx + 5, ery + 5, 6, g16_rgb24(0xFFFFFF));
+        g16_circfill(g, erx + 5, ery + 8, 5, g16_rgb24(0x0D0F14));
+    } else if (blink || st == ST_COFFEE) {
+        g16_line(g, elx, ely + 4, elx + 10, ely + 3, g16_rgb24(0xFFFFFF));
+        g16_line(g, elx, ely + 5, elx + 10, ely + 4, g16_rgb24(0xFFFFFF));
+        g16_line(g, erx, ery + 4, erx + 10, ery + 3, g16_rgb24(0xFFFFFF));
+        g16_line(g, erx, ery + 5, erx + 10, ery + 4, g16_rgb24(0xFFFFFF));
     } else {
-        /* Glowing pixel eyes with specular glint */
-        round_box(g, elx, ey, 13, 14, 3, states[st].col);
-        round_box(g, erx, ey, 13, 14, 3, states[st].col);
-        if (st == ST_THINKING)
-            g16_rectfill(g, erx, ey, 13, 3, g16_rgb24(0x0A0E17)); /* quizzical brow */
-        g16_rectfill(g, elx + 3, ey + 3, 3, 3, g16_rgb24(0xFFFFFF));
-        g16_rectfill(g, erx + 3, ey + 3, 3, 3, g16_rgb24(0xFFFFFF));
-        /* Mouth */
-        if (st == ST_THINKING)
-            g16_rectfill(g, fx + 35, fy + 31, 7, 3, eye_col);
-        else
-            g16_rectfill(g, fx + 32, fy + 31, 12, 2, eye_col);
+        /* Glowing white rounded-rectangle eyes as in the photo */
+        round_box(g, elx - 1, ely - 1, 13, 10, 3, 0x8AB4F8);
+        round_box(g, elx,     ely,     11,  8, 2, 0xFFFFFF);
+        round_box(g, erx - 1, ery - 1, 13, 10, 3, 0x8AB4F8);
+        round_box(g, erx,     ery,     11,  8, 2, 0xFFFFFF);
+        if (st == ST_DEBUGGING) {
+            /* Focused squinting top mask */
+            g16_line(g, elx, ely, elx + 11, ely + 2, g16_rgb24(0x0D0F14));
+            g16_line(g, erx, ery + 2, erx + 11, ery, g16_rgb24(0x0D0F14));
+        }
     }
-
-    /* Thought bubble / alert icon above head */
-    if (st == ST_THINKING) {
-        g16_circfill(g, rx + 8, ry - 4, 3, g16_rgb24(0xDCE3EC));
-        g16_circfill(g, rx - 2, ry - 12, 5, g16_rgb24(0xDCE3EC));
-        round_box(g, rx - 34, ry - 38, 36, 22, 6, 0xDCE3EC);
-        g->font = &font_console_8x14;
-        g16_text(g, rx - 27, ry - 34, (frame & 8) ? "01?" : "{*}", g16_rgb24(0x1D2430));
-    } else if (st == ST_DEBUGGING) {
-        round_box(g, rx - 24, ry - 22, 20, 20, 4, 0xFF5964);
-        g->font = &font_console_8x14;
-        g16_text(g, rx - 18, ry - 19, "!", g16_rgb24(0xFFFFFF));
-    }
-
-    /* Neck joint */
-    g16_rectfill(g, rx + 35, ry + 60, 24, 8, g16_rgb24(0x465366));
-    g16_rectfill(g, rx + 38, ry + 62, 18, 2, g16_rgb24(0x2C3542));
-
-    /* Robot Torso / Workstation Body */
-    int tx = rx + 10, ty = ry + 66, tw = 74, th = 64;
-    round_box(g, tx - 1, ty + 2, tw + 2, th, 8, 0x1E2636);
-    round_box(g, tx, ty, tw, th, 8, 0xBCC8D8);
-    round_box(g, tx + 3, ty + 3, tw - 6, th - 6, 6, 0xAAB7C8);
-
-    /* Chest telemetry panel */
-    bevel_box(g, tx + 11, ty + 10, 52, 28, 0x1A2230, 0x0E131C, 0x3A475C);
-    /* Chest LEDs and mini waveform */
-    g16_circfill(g, tx + 18, ty + 17, 3, g16_rgb24(0x27C93F));
-    g16_circfill(g, tx + 27, ty + 17, 3, g16_rgb24((frame & 4) ? 0xFFBD2E : 0x4A3B18));
-    g16_circfill(g, tx + 36, ty + 17, 3, g16_rgb24((st == ST_DEBUGGING) ? 0xFF5964 : 0x2EE6D6));
-    for (int i = 0; i < 6; i++) {
-        int bh = 3 + ((int)((frame + i * 5) * 3) % 9);
-        g16_rectfill(g, tx + 16 + i * 7, ty + 34 - bh, 5, bh, g16_rgb24(states[st].col));
-    }
-    g->font = &font_console_6x12;
-    g16_text(g, tx + 22, ty + 42, "PI-BOT", g16_rgb24(0x364254));
-
-    /* Articulated Servo Arms & Hands */
-    int l_shoulder_x = tx + 2,  l_shoulder_y = ty + 18;
-    int r_shoulder_x = tx + tw - 2, r_shoulder_y = ty + 18;
-
-    int l_hand_x = 136, l_hand_y = 228;
-    int r_hand_x = 186, r_hand_y = 228;
-
-    if (st == ST_CODING || st == ST_BUILDING) {
-        l_hand_y = 224 + ((frame & 2) ? 6 : -3);
-        r_hand_y = 224 + ((frame & 2) ? -3 : 6);
-        l_hand_x = 132 + (int)((frame >> 1) % 14);
-        r_hand_x = 176 + (int)(((frame >> 1) + 5) % 16);
-    } else if (st == ST_DEBUGGING) {
-        l_hand_y = 223 + ((frame & 1) ? 7 : -4);
-        r_hand_y = 223 + ((frame & 1) ? -4 : 7);
-        l_hand_x = 130 + (int)(frame % 18);
-        r_hand_x = 174 + (int)((frame + 7) % 18);
-    } else if (st == ST_THINKING) {
-        /* Left hand raised to chin, right hand resting on keyboard */
-        l_hand_x = rx + 26;
-        l_hand_y = ry + 54;
-        r_hand_x = 182;
-        r_hand_y = 229;
-    } else if (st == ST_COFFEE) {
-        /* Left hand holds the steaming mug */
-        l_hand_x = 84;
-        l_hand_y = 204;
-        r_hand_x = 178;
-        r_hand_y = 229;
-    } else if (st == ST_BELL) {
-        /* Right hand reaches over and taps the brass desk bell! */
-        l_hand_x = 138;
-        l_hand_y = 228;
-        r_hand_x = 238;
-        r_hand_y = (frame & 2) ? 215 : 223;
-    }
-
-    int l_elbow_x = (l_shoulder_x + l_hand_x) / 2 - 12;
-    int l_elbow_y = (l_shoulder_y + l_hand_y) / 2 + 8;
-    int r_elbow_x = (r_shoulder_x + r_hand_x) / 2 + 10;
-    int r_elbow_y = (r_shoulder_y + r_hand_y) / 2 + 8;
-
-    /* Draw left arm (upper, elbow servo, forearm, gripper hand) */
-    g16_circfill(g, l_shoulder_x, l_shoulder_y, 6, g16_rgb24(0x465366));
-    for (int d = -2; d <= 2; d++) {
-        g16_line(g, l_shoulder_x + d, l_shoulder_y, l_elbow_x + d, l_elbow_y, g16_rgb24(0x7C8DA3));
-        g16_line(g, l_elbow_x + d, l_elbow_y, l_hand_x + d, l_hand_y, g16_rgb24(0x9BAAC0));
-    }
-    g16_circfill(g, l_elbow_x, l_elbow_y, 5, g16_rgb24(0x3A4658));
-    g16_circfill(g, l_elbow_x, l_elbow_y, 2, g16_rgb24(0xE5C07B));
-    g16_circfill(g, l_hand_x, l_hand_y, 6, g16_rgb24(0x2EE6D6));
-    g16_circfill(g, l_hand_x, l_hand_y, 4, g16_rgb24(0xDCE3EC));
-
-    /* Draw right arm */
-    g16_circfill(g, r_shoulder_x, r_shoulder_y, 6, g16_rgb24(0x465366));
-    for (int d = -2; d <= 2; d++) {
-        g16_line(g, r_shoulder_x + d, r_shoulder_y, r_elbow_x + d, r_elbow_y, g16_rgb24(0x7C8DA3));
-        g16_line(g, r_elbow_x + d, r_elbow_y, r_hand_x + d, r_hand_y, g16_rgb24(0x9BAAC0));
-    }
-    g16_circfill(g, r_elbow_x, r_elbow_y, 5, g16_rgb24(0x3A4658));
-    g16_circfill(g, r_elbow_x, r_elbow_y, 2, g16_rgb24(0xE5C07B));
-    g16_circfill(g, r_hand_x, r_hand_y, 6, g16_rgb24(0x2EE6D6));
-    g16_circfill(g, r_hand_x, r_hand_y, 4, g16_rgb24(0xDCE3EC));
 }
 
-static void draw_desk(g16_t *g, unsigned frame, int st)
+/* Draws the black isometric desk box with 4 beige corner bumpers and silver
+ * screws, the dome button, the coffee mug, the glowing mushroom lamp, the
+ * robot's black articulated arms/hands, and the open cream laptop. */
+static void draw_desk_and_arms(g16_t *g, unsigned frame, int st)
 {
-    /* Wooden desktop surface & bevel */
-    g16_rectfill(g, 0, 224, SPILCD_W, 10, g16_rgb24(0x6E4B32));
-    g16_rectfill(g, 0, 234, SPILCD_W, 8,  g16_rgb24(0x8A6042));
-    g16_rectfill(g, 0, 242, SPILCD_W, 4,  g16_rgb24(0x523622));
-    g16_rectfill(g, 0, 246, SPILCD_W, 74, g16_rgb24(0x161C28));
+    /* 1. Black isometric desk box base (left wall and front wall) */
+    /* Left side wall of the black desk box */
+    fill_quad(g, 36, 160, 118, 232, 124, 308, 44, 224, 0x14171D);
+    /* Subtle geometric vent pattern on left side wall */
+    for (int i = 0; i < 4; i++) {
+        int vx = 54 + i * 14, vy = 192 + i * 12;
+        g16_line(g, vx, vy, vx + 8, vy + 24, g16_rgb24(0x222730));
+        g16_line(g, vx + 6, vy - 4, vx - 2, vy + 20, g16_rgb24(0x222730));
+    }
+    /* Front wall of the black desk box */
+    fill_quad(g, 118, 232, 444, 168, 430, 246, 124, 308, 0x1A1E26);
+    /* Two small mounting holes on the front wall (visible in photo!) */
+    g16_circfill(g, 228, 250, 2, g16_rgb24(0x090B0E));
+    g16_circfill(g, 356, 222, 2, g16_rgb24(0x090B0E));
 
-    /* Mechanical keyboard in front of the robot */
-    int kx = 114, ky = 224, kw = 96, kh = 16;
-    bevel_box(g, kx, ky, kw, kh, 0x263040, 0x45546C, 0x141A24);
-    int hit_a = (st == ST_CODING || st == ST_DEBUGGING || st == ST_BUILDING)
-                ? (int)((frame * 3) % 10) : -1;
-    int hit_b = (st == ST_CODING || st == ST_DEBUGGING)
-                ? (int)((frame * 7 + 3) % 10) : -1;
-    for (int row = 0; row < 2; row++) {
-        for (int col = 0; col < 10; col++) {
-            int active = (row == 0 && col == hit_a) || (row == 1 && col == hit_b);
-            uint32_t kc = active ? states[st].col : (col == 0 || col == 9 ? 0x4C5C78 : 0x7A8CA8);
-            g16_rectfill(g, kx + 5 + col * 9, ky + 3 + row * 6 + (active ? 1 : 0),
-                         7, 4, g16_rgb24(kc));
+    /* Cream/beige trim line right under the black desktop plate */
+    thick_line(g, 36, 160, 118, 232, 1, 0xD6CEB2);
+    thick_line(g, 118, 232, 444, 168, 1, 0xD6CEB2);
+
+    /* Top matte black desktop surface */
+    fill_quad(g, 36, 157, 326, 110, 444, 165, 118, 229, 0x20252E);
+    /* Subtle specular sheen across the black desktop */
+    fill_quad(g, 52, 156, 322, 113, 360, 130, 82, 182, 0x262C37);
+
+    /* 4 Beige 3D-printed corner bumpers + 4 metallic silver screws */
+    /* Left corner bumper & screw */
+    round_box(g, 28, 153, 14, 12, 4, 0xD6CEB2);
+    g16_circfill(g, 48, 158, 4, g16_rgb24(0xC8D0D8));
+    g16_circfill(g, 48, 158, 2, g16_rgb24(0x5A626A));
+    /* Front-bottom corner bumper & screw */
+    round_box(g, 106, 224, 24, 14, 5, 0xD6CEB2);
+    fill_quad(g, 108, 230, 130, 226, 128, 236, 110, 238, 0xB8AF93);
+    g16_circfill(g, 118, 220, 5, g16_rgb24(0xD8E0E8));
+    g16_line(g, 116, 220, 120, 220, g16_rgb24(0x4A525A));
+    g16_line(g, 118, 218, 118, 222, g16_rgb24(0x4A525A));
+    /* Back-right screw */
+    g16_circfill(g, 324, 115, 4, g16_rgb24(0xC8D0D8));
+    g16_circfill(g, 324, 115, 2, g16_rgb24(0x5A626A));
+    /* Front-right corner bumper & screw */
+    round_box(g, 434, 162, 16, 12, 4, 0xD6CEB2);
+    g16_circfill(g, 430, 163, 4, g16_rgb24(0xC8D0D8));
+    g16_circfill(g, 430, 163, 2, g16_rgb24(0x5A626A));
+
+    /* 2. Cream Dome Button / Bell on left of desk */
+    int bell_x = 132, bell_y = 160;
+    fill_ellipse(g, bell_x, bell_y + 4, 13, 6, 0x151920);
+    int bell_press = (st == ST_BELL && (frame & 2)) ? 2 : 0;
+    g16_circfill(g, bell_x, bell_y - 1 + bell_press, 9, g16_rgb24(0xCFC7AA));
+    g16_circfill(g, bell_x - 2, bell_y - 3 + bell_press, 5, g16_rgb24(0xEAE2C8));
+    fill_ellipse(g, bell_x, bell_y + 3, 10, 3, 0x20252E);
+    if (st == ST_BELL) {
+        int r = 13 + (int)((frame * 2) % 14);
+        g16_circ(g, bell_x, bell_y - 2, r, g16_rgb24(0x9BF6FF));
+        g16_circ(g, bell_x, bell_y - 2, r + 4, g16_rgb24(0xFFD166));
+    }
+
+    /* 3. Laptop Keyboard Base (cream/beige with round keycaps) */
+    fill_quad(g, 174, 158, 282, 136, 314, 162, 204, 190, 0xC8BFA2);
+    fill_quad(g, 174, 155, 282, 133, 314, 159, 204, 186, 0xDED6BA);
+    /* Left/front thickness of laptop base */
+    fill_quad(g, 174, 155, 204, 186, 204, 192, 174, 161, 0xABA286);
+    /* Round cream keycaps on the keyboard */
+    for (int r = 0; r < 3; r++) {
+        for (int c = 0; c < 7; c++) {
+            int kx = 190 + c * 12 + r * 6;
+            int ky = 156 - c * 2 + r * 6;
+            int active = (st == ST_CODING || st == ST_DEBUGGING) &&
+                         ((int)((frame + r * 3 + c * 5) % 9) == 0);
+            g16_circfill(g, kx, ky + (active ? 1 : 0), 3,
+                         g16_rgb24(active ? 0xFFFFFF : 0xEFE8CE));
+            g16_circ(g, kx, ky + (active ? 1 : 0), 3, g16_rgb24(0x9E9578));
         }
     }
 
-    /* Floating typing particles above keyboard */
-    if (st == ST_CODING || st == ST_DEBUGGING) {
-        static const char *const sym[4] = { "{ }", ";", "01", "()" };
-        int py = 210 - (int)((frame * 2) % 24);
-        int px = 128 + (int)((frame / 12 * 23) % 64);
-        g->font = &font_console_6x12;
-        g16_text(g, px, py, sym[(frame / 12) & 3], g16_rgb24(states[st].col));
+    /* 4. Robot's Black Articulated Servo Arms & 4-Fingered Hands */
+    /* Left arm (viewer's left: robot's right arm) */
+    int l_sh_x = 112, l_sh_y = 92;
+    int l_el_x = 118, l_el_y = 140;
+    int l_wr_x = 186, l_wr_y = 150;
+    /* Right arm (viewer's right: robot's left arm) */
+    int r_sh_x = 258, r_sh_y = 68;
+    int r_el_x = 282, r_el_y = 104;
+    int r_wr_x = 268, r_wr_y = 136;
+
+    if (st == ST_CODING || st == ST_BUILDING) {
+        l_wr_y += (frame & 2) ? 3 : -2;
+        r_wr_y += (frame & 2) ? -2 : 3;
+        l_wr_x += (int)((frame >> 1) % 7) - 3;
+        r_wr_x += (int)(((frame >> 1) + 3) % 7) - 3;
+    } else if (st == ST_DEBUGGING) {
+        l_wr_y += (frame & 1) ? 4 : -3;
+        r_wr_y += (frame & 1) ? -3 : 4;
+        l_wr_x += (int)(frame % 9) - 4;
+        r_wr_x += (int)((frame + 4) % 9) - 4;
+    } else if (st == ST_BELL) {
+        /* Robot's right hand (viewer's left) taps the dome button! */
+        l_wr_x = bell_x - 4;
+        l_wr_y = bell_y - 6 + bell_press;
+    } else if (st == ST_THINKING) {
+        l_wr_y -= 4;
     }
 
-    /* Steaming coffee mug (lifts when in ST_COFFEE) */
-    int mug_x = (st == ST_COFFEE) ? 74 : 58;
-    int mug_y = (st == ST_COFFEE) ? 194 : 208;
-    round_box(g, mug_x + 15, mug_y + 4, 8, 12, 3, 0xD8DEE9);
-    round_box(g, mug_x + 17, mug_y + 6, 4, 8,  2, 0x161C28);
-    round_box(g, mug_x, mug_y, 18, 20, 3, 0xECEFF4);
-    g16_rectfill(g, mug_x + 2, mug_y + 2, 14, 3, g16_rgb24(0x6F4E37));
-    g16_rectfill(g, mug_x + 3, mug_y + 9, 12, 5, g16_rgb24(0xE06C75));
-    /* Rising steam wisps */
+    /* Draw viewer-left black arm & shoulder/elbow silver screws */
+    thick_line(g, l_sh_x, l_sh_y, l_el_x, l_el_y, 5, 0x181C22);
+    thick_line(g, l_sh_x - 1, l_sh_y, l_el_x - 1, l_el_y, 2, 0x2E3540);
+    g16_circfill(g, l_sh_x + 2, l_sh_y + 2, 3, g16_rgb24(0xC8D0D8));
+    thick_line(g, l_el_x, l_el_y, l_wr_x, l_wr_y, 4, 0x181C22);
+    thick_line(g, l_el_x, l_el_y - 1, l_wr_x, l_wr_y - 1, 1, 0x343C48);
+    g16_circfill(g, l_el_x, l_el_y, 3, g16_rgb24(0x9AA2AC));
+    /* 4 articulated black fingers on viewer-left hand */
+    for (int f = 0; f < 4; f++) {
+        int fx = l_wr_x + 10 + f * 4;
+        int fy = l_wr_y + 8 - f * 2 + (((frame + f) & 2) && (st == ST_CODING || st == ST_DEBUGGING) ? 2 : 0);
+        thick_line(g, l_wr_x + 3, l_wr_y + 1, fx, fy, 1, 0x14171D);
+    }
+
+    /* Draw viewer-right black arm & shoulder/elbow silver screws */
+    thick_line(g, r_sh_x, r_sh_y, r_el_x, r_el_y, 5, 0x181C22);
+    thick_line(g, r_sh_x + 1, r_sh_y, r_el_x + 1, r_el_y, 2, 0x2E3540);
+    g16_circfill(g, r_sh_x, r_sh_y + 2, 3, g16_rgb24(0xC8D0D8));
+    thick_line(g, r_el_x, r_el_y, r_wr_x, r_wr_y, 4, 0x181C22);
+    g16_circfill(g, r_el_x, r_el_y, 3, g16_rgb24(0x9AA2AC));
+    /* 4 articulated black fingers on viewer-right hand */
+    for (int f = 0; f < 4; f++) {
+        int fx = r_wr_x - 8 + f * 5;
+        int fy = r_wr_y + 12 - f + (((frame + f + 1) & 2) && (st == ST_CODING || st == ST_DEBUGGING) ? 2 : 0);
+        thick_line(g, r_wr_x, r_wr_y + 2, fx, fy, 1, 0x14171D);
+    }
+
+    /* 5. Tilted Cream Laptop Lid (seen from the back/3/4 angle, as in the photo) */
+    /* Soft screen glow spilling from the front of the open laptop */
+    thick_line(g, 206, 144, 338, 120, 2, (frame & 4) ? 0xA8F0FF : 0x7CE0F8);
+    /* Back of the tilted cream laptop screen lid */
+    fill_quad(g, 204, 145, 342, 120, 316, 166, 204, 192, 0xC6BDA0);
+    fill_quad(g, 206, 143, 340, 118, 314, 163, 204, 189, 0xDDD5B8);
+    /* Rounded top rim of the laptop screen lid */
+    thick_line(g, 206, 143, 340, 118, 2, 0xEDE6CC);
+    /* Small dark diamond cutout logo in the center of the laptop lid */
+    fill_quad(g, 274, 152, 281, 149, 279, 156, 271, 157, 0x26282A);
+    /* Laptop bottom hinge base */
+    fill_quad(g, 204, 185, 314, 160, 314, 168, 204, 194, 0xACA386);
+
+    /* 6. Right Side: Cream Mushroom Lamp with Glowing Blue-White Column */
+    /* Cream rectangular lamp base */
+    fill_quad(g, 332, 134, 378, 125, 408, 146, 358, 158, 0xBFB69A);
+    fill_quad(g, 332, 131, 378, 122, 408, 143, 358, 155, 0xDED6BA);
+    /* Soft blue-white light pool on the lamp base */
+    fill_ellipse(g, 370, 139, 16, 7, (frame & 8) ? 0xF2F8FF : 0xDCEEFF);
+    /* Small dark hole in front-right of lamp base */
+    fill_ellipse(g, 386, 147, 3, 2, 0x22262E);
+    /* Glowing ice-blue / white vertical cylindrical light column */
+    int lx = 364, ly = 114;
+    g16_rectfill(g, lx - 1, ly, 16, 24, g16_rgb24(0x88C8F8));
+    g16_rectfill(g, lx + 1, ly, 12, 24, g16_rgb24(0xCBE8FF));
+    g16_rectfill(g, lx + 4, ly,  6, 24, g16_rgb24(0xFFFFFF));
+    fill_ellipse(g, lx + 7, ly + 24, 8, 3, 0xE6F4FF);
+    /* Mushroom dome cap on top of the lamp */
+    fill_ellipse(g, lx + 7, ly, 17, 6, 0xB5AC90);
+    g16_circfill(g, lx + 7, ly - 4, 15, g16_rgb24(0xD8CFAF));
+    g16_circfill(g, lx + 4, ly - 7, 10, g16_rgb24(0xEAE2C6));
+    fill_ellipse(g, lx + 7, ly + 1, 16, 4, 0xC4BB9E);
+
+    /* 7. Front-Left Corner: Cream 3D-Printed Coffee Mug */
+    int mx = 128, my = 186;
+    /* Saucer lip at bottom of mug */
+    fill_ellipse(g, mx + 12, my + 24, 16, 7, 0xABA286);
+    fill_ellipse(g, mx + 12, my + 22, 16, 6, 0xDDD4B6);
+    /* Mug cylindrical body */
+    g16_rectfill(g, mx, my, 25, 22, g16_rgb24(0xCFC6A8));
+    g16_rectfill(g, mx + 2, my, 12, 22, g16_rgb24(0xDFD7BA));
+    fill_ellipse(g, mx + 12, my + 21, 12, 5, 0xCFC6A8);
+    /* Mug handle on the left */
+    thick_line(g, mx, my + 4, mx - 5, my + 8, 2, 0xDED6BA);
+    thick_line(g, mx - 5, my + 8, mx - 4, my + 16, 2, 0xCFC6A8);
+    thick_line(g, mx - 4, my + 16, mx + 1, my + 19, 2, 0xB8AF93);
+    /* Top rim of mug & dark interior */
+    fill_ellipse(g, mx + 12, my, 12, 5, 0xECE4CA);
+    fill_ellipse(g, mx + 12, my, 9, 3, 0x4A3B2C);
+    /* Subtle rising steam wisps */
     for (int s = 0; s < 2; s++) {
-        int sy = mug_y - 5 - (int)(((frame + s * 8) / 2) % 14);
-        int sx = mug_x + 5 + s * 6 + (((frame >> 2) + s) & 1 ? 2 : -1);
-        g16_circfill(g, sx, sy, 1, g16_rgb24(0x8FA2BE));
+        int sy = my - 6 - (int)(((frame + s * 9) / 2) % 12);
+        int sx = mx + 9 + s * 6 + (((frame >> 2) + s) & 1 ? 1 : -1);
+        g16_circfill(g, sx, sy, 1, g16_rgb24(0xEAE2C8));
     }
+}
 
-    /* Brass Desk Bell (rings with waves on ST_BELL!) */
-    int bx = 236, by = 226;
-    g16_rectfill(g, bx - 12, by + 2, 24, 4, g16_rgb24(0x2B3340));
-    g16_circfill(g, bx, by + 1, 10, g16_rgb24(0xE5C07B));
-    g16_circfill(g, bx - 3, by - 2, 3, g16_rgb24(0xFFF3B0));
-    g16_rectfill(g, bx - 11, by + 2, 22, 3, g16_rgb24(0xB89246));
-    g16_rectfill(g, bx - 2, by - 11, 4, 3, g16_rgb24(0xFFE082));
-    if (st == ST_BELL) {
-        int r1 = 14 + (int)((frame * 2) % 16);
-        g16_circ(g, bx, by - 4, r1, g16_rgb24(0x7AE582));
-        g16_circ(g, bx, by - 4, r1 + 5, g16_rgb24(0xFFCA3A));
-        g->font = &font_console_8x14;
-        g16_text(g, bx - 20, by - 36 - (int)(frame & 3), "*DING!*", g16_rgb24(0xFFE082));
-    }
-
-    /* Bottom telemetry cards & controls bar */
-    bevel_box(g, 12, 254, 456, 56, 0x1D2536, 0x2F3D58, 0x0F131D);
-    g->font = &font_console_8x14;
-    g16_text(g, 24, 262, "TINY ENGINEER // PI 1 GPIO WORKSTATION", g16_rgb24(0xECEFF4));
+static void draw_hud(g16_t *g, int st, unsigned tasks, uint32_t t0)
+{
+    /* Compact translucent-style status pill at top-left and bottom-right */
+    round_box(g, 8, 6, 228, 18, 4, 0x161A22);
+    g16_circfill(g, 17, 15, 4, g16_rgb24(states[st].col));
     g->font = &font_console_6x12;
-    g16_text(g, 24, 280, "ILI9486 480x320 SPI0 (15.6 MHz) - Autonomous Desk Companion",
-             g16_rgb24(0x8FA2BE));
-    g16_text(g, 24, 294, "Space/Enter: ring bell   Left/Right: mode   B/Esc/q: back to menu",
-             g16_rgb24(0x56B6C2));
+    g16_text(g, 26, 9, states[st].badge, g16_rgb24(states[st].col));
+    g16_text(g, 104, 9, states[st].sub, g16_rgb24(0xD8DEE9));
+
+    char stat[32];
+    uint32_t sec = (timer_ticks() - t0) / 1000000u;
+    ksnprintf(stat, sizeof stat, "TASKS:%02u  %02lu:%02lu",
+              tasks, (unsigned long)(sec / 60), (unsigned long)(sec % 60));
+    round_box(g, SPILCD_W - 104, 6, 96, 18, 4, 0x161A22);
+    g16_text(g, SPILCD_W - 98, 9, stat, g16_rgb24(0xEAE2C8));
 }
 
 /* Diffs `cur` against `prev` in 16-row horizontal strips and sends only the
@@ -777,8 +769,8 @@ static void blit_diff(const uint16_t *cur, uint16_t *prev, int full)
         int h = y0 + strip <= SPILCD_H ? strip : SPILCD_H - y0;
         int x_min = SPILCD_W, x_max = -1;
         for (int r = 0; r < h; r++) {
-            const uint16_t * row_c = cur  + (y0 + r) * SPILCD_W;
-            const uint16_t * row_p = prev + (y0 + r) * SPILCD_W;
+            const uint16_t *row_c = cur  + (y0 + r) * SPILCD_W;
+            const uint16_t *row_p = prev + (y0 + r) * SPILCD_W;
             for (int x = 0; x < SPILCD_W; x++) {
                 if (row_c[x] != row_p[x]) {
                     if (x < x_min) x_min = x;
@@ -832,9 +824,11 @@ static void bell_chime(void)
 void spilcd_desk_robot(framebuffer_t *fb)
 {
     size_t bytes = (size_t)SPILCD_W * SPILCD_H * sizeof(uint16_t);
+    uint16_t *bg_canvas = malloc(bytes);
     uint16_t *canvas = malloc(bytes);
     uint16_t *prev_canvas = malloc(bytes);
-    if (!canvas || !prev_canvas) {
+    if (!bg_canvas || !canvas || !prev_canvas) {
+        free(bg_canvas);
         free(canvas);
         free(prev_canvas);
         return;
@@ -843,6 +837,9 @@ void spilcd_desk_robot(framebuffer_t *fb)
     (void)spilcd_init();
 
     g16_t g;
+    g16_target(&g, bg_canvas, SPILCD_W, SPILCD_W, SPILCD_H, &font_console_6x12);
+    draw_studio_bg(&g);
+
     g16_target(&g, canvas, SPILCD_W, SPILCD_W, SPILCD_H, &font_console_6x12);
 
     input_pad_keys(INPUT_PAD_NAV);
@@ -851,15 +848,15 @@ void spilcd_desk_robot(framebuffer_t *fb)
     uint32_t t0 = timer_ticks();
 
     int st = ST_CODING;
-    unsigned st_frames = 0, frame = 0, tasks = 1, loc = 1240;
+    unsigned st_frames = 0, frame = 0, tasks = 1;
 
     for (;;) {
         uint32_t frame_t0 = timer_ticks();
 
-        draw_backdrop(&g, frame, st, tasks, loc, t0);
-        draw_monitor(&g, frame, st, loc);
-        draw_robot(&g, frame, st);
-        draw_desk(&g, frame, st);
+        memcpy(canvas, bg_canvas, bytes);
+        draw_robot_upper(&g, frame, st);
+        draw_desk_and_arms(&g, frame, st);
+        draw_hud(&g, st, tasks, t0);
 
         blit_diff(canvas, prev_canvas, frame == 0);
         blit_hdmi(fb, canvas, frame == 0);
@@ -914,8 +911,6 @@ void spilcd_desk_robot(framebuffer_t *fb)
 
         frame++;
         st_frames++;
-        if ((st == ST_CODING || st == ST_DEBUGGING) && (frame % 6) == 0)
-            loc++;
         if (st_frames >= states[st].frames) {
             st_frames = 0;
             st = (st + 1) % ST_COUNT;
@@ -933,4 +928,5 @@ void spilcd_desk_robot(framebuffer_t *fb)
     input_pad_keys(0);
     free(prev_canvas);
     free(canvas);
+    free(bg_canvas);
 }
