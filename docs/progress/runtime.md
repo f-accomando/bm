@@ -1,6 +1,6 @@
 # runtime.c: where things are
 
-`src/bm/runtime.c` is ~404 KB and 10763 lines: never read it whole. Find the section here,
+`src/bm/runtime.c` is ~399 KB and 10620 lines: never read it whole. Find the section here,
 then `python scripts/cindex.py src/bm/runtime.c <word>` for the line, then `Read` with
 `offset`/`limit` on that stretch only. Line numbers are not kept here: they go stale; the
 banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runtime*).
@@ -26,7 +26,6 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `prompts`: on-screen prompts and dialogs used by the system.
 - `3D (software rasterizer`: `l_*` for meshes, camera, `flush3d`, `draw2d`; GPU hand-off.
 - `skeletal animation`: `animate()`; same arithmetic as `carts/animator/main.lua`.
-- `collision worlds`: `world3d` boxes, rays, moving bodies.
 - `the network for the games`: UDP sockets over `src/net/cartnet.h`, lockstep commands.
 - `save() / saved()`: the 8-slot Lua-source saves in `/bm/save`.
 - `screenshots`: `shot()` and the PNG save (`docs/SCREENSHOTS.md`).
@@ -51,6 +50,12 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `src/kernel/crt.h` declares the four `crt_*` functions of `settings.c`. `home.h` and `platform.h` include it.
 - `src/bm/rt_internal.h` is private to `src/bm`. It declares `rt` (`rt_t`), `d2` (`d2_t`) and `held` (`held_t`), the shared macros and enums, the helpers `col`, `ival`, `oval` and `sheet_commit`, and the functions that one area calls in another (`l_*`, `draw_prompt`, `perf_end` and others). Those functions are not `static`. The definitions of `rt`, `d2` and `held` stay in `runtime.c`.
 - `api[]`, `res_name`, `screen_modes`, `square_modes` and the `bm_toolnames` use stay in `runtime.c`. `scripts/consistency.py`, `tests/tools/test_mkapi.py` and `test_meshcap` read that text.
+
+## Files split from runtime.c
+
+Each file holds one banner range of `runtime.c`, moved as it was. It shares the run state through `rt_internal.h`. `api[]` still lists the `l_*` functions in `runtime.c`.
+
+- `src/bm/api_world.c`: collision worlds (`world3d`), `log()` and `report()`.
 
 ## Other big files
 

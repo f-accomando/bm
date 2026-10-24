@@ -39,6 +39,10 @@ enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_X, BTN_Y, BTN_ST
 enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
 
 #define MESH_MT "bm.mesh"
+#define WORLD_MT "bm.world"
+
+/* what a cartridge asks the player for (perm_allowed) */
+enum { PERM_NET, PERM_REPORT, PERM_DOCS, PERM_COUNT };
 
 /* ------------------------------------------------------- the state of the run */
 
@@ -249,6 +253,19 @@ void notice_draw(void);
 void shot_note_draw(void);
 void keys_help(lua_State *L);
 int session_wanted(void);
+
+float fnum(lua_State *L, int i, float def);
+void options_line(char *b, size_t n);
+
+/* collision worlds, log() and report() (api_world.c) */
+int l_world_gc(lua_State *L);
+int l_world3d(lua_State *L);
+int l_world_box(lua_State *L);
+int l_world_ray(lua_State *L);
+int l_world_move(lua_State *L);
+int l_world_floor(lua_State *L);
+int l_log(lua_State *L);
+int l_report(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
