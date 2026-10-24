@@ -1,0 +1,25 @@
+bm report
+kind: video
+kernel: c62830b8
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-24 16:52:46
+file: 20261024-165246_video_pi-zero-w_c62830b8.txt
+
+Video bench: SD write and read, JPEG decode, RLE565 encode
+SD write: 128 files of 256 KB in /bm/vidbench
+  128 writes, 1.82 MB/s mean
+  best 55.92 ms   worst 1060.14 ms   writes over 100 ms: 35
+  raw 15 fps (go if >= 5.00 MB/s and worst <= 100 ms): NO GO
+SD read: 16 files, 2.29 MB/s
+JPEG decode, 100 calls each (go if mean <= 66 ms for 15 fps):
+320x180 (10582 bytes):  mean 53.15 ms  best 53.12 ms  worst 53.36 ms  (malloc and free of the 24-bit picture included)
+480x270 (18990 bytes):  mean 115.74 ms  best 115.62 ms  worst 115.79 ms  (malloc and free of the 24-bit picture included)
+RLE565 encoder, 100 calls each (the recorder's size 320x180; raw is 115200 bytes):
+pixel-art test frame: 9253 of 115200 bytes (8.0%)  encode mean 0.78 ms  best 0.75 ms  worst 1.01 ms  round trip exact
+    15 fps: 0.13 MB/s to write, card 1.82 MB/s (fits), encode 1% of a frame
+    30 fps: 0.27 MB/s to write, card 1.82 MB/s (fits), encode 2% of a frame
+photo frame (the worst case): 70306 of 115200 bytes (61.0%)  encode mean 1.75 ms  best 1.70 ms  worst 1.99 ms  round trip exact
+    15 fps: 1.05 MB/s to write, card 1.82 MB/s (fits), encode 2% of a frame
+    30 fps: 2.10 MB/s to write, card 1.82 MB/s (too much), encode 5% of a frame
+Video bench done
