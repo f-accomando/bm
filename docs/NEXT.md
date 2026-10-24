@@ -26,7 +26,10 @@ Friday morning:
 - The three tools from the bundle (done).
 
 Friday afternoon:
-- API-4: run the Video bench on the Pi Zero W (Dev tab, or the monitor line `:video`) and send the RLE565 lines of the report.
+- API-4: (DONE 24 Oct, report `10993a4b` on `reports` branch). Video bench run on Pi Zero W (c62830b8):
+  - SD write: 128 files 256 KB, 1.82 MB/s mean (worst 1060 ms, 35 over 100 ms; raw 15 fps NO GO). SD read: 2.29 MB/s.
+  - JPEG decode: 320x180 53.15 ms mean (fits 15 fps budget of 66 ms). 480x270 115.74 ms mean.
+  - RLE565 encoder: pixel-art 9253 bytes (8.0% of 115 KB), 0.78 ms encode (1% frame budget), 15 fps (0.13 MB/s) & 30 fps (0.27 MB/s) fits card; photo frame 70306 bytes (61.0%), 1.75 ms encode, 15 fps (1.05 MB/s) fits card. Round-trip exact.
 
 Friday after the Mali device runs (done by the SPV through the RGB30 bridge, one session only on the RGB30):
 - Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
@@ -46,7 +49,10 @@ Friday evening (done 23 Oct):
 - Session close, 23 Oct: both bridges are still running in WSL (`pi_bridge.py --detach 192.168.1.108` and the RGB30 one). Stop them if you do not need them (kill by process id, one at a time). The WSL `/tmp` is full (3.9 GB, about 60 old `bm64-*` and `tmp*` folders): say if the SPV may delete them. The empty folders `bm33-cursor` and `bm33-ik` next to the repository are held by Windows: delete them by hand.
 - Decision, ease-in and ease-out (APP-30): a kernel from before this change refuses a cartridge with a clip of mode 3 or 4 ("bad skeletons (ANIM)"), it does not play it linear. Choose: (1) the editors warn when a clip uses mode 3 or 4 ("needs a kernel with ease-in and ease-out"), (2) the build writes mode 1 or 2 instead when the target is an old kernel (the `targets` line of the compat check), (3) leave it. Recommended: 1 now, 2 with SYS-8.
 - Hardware check of the editor additions of 23 Oct (APP-17 to APP-28, list in `docs/progress/tools-suite.md` section *Editor additions*): try each new key on the Pi and the RGB30; send what fails. On the RGB30 SDK: press `t` on the map with a 4 x 4 tile block, paint a 3x3 area, erase the middle, then undo. Check also that the crowded hint bars of Pixel, Mesh and Animator are still readable (a proposal: one fixed chip for all keys).
-- Pi run, 23 Oct: the `X g` freeze test passed; still open: a long run and a night in the menu with no false restart (SYS-2), and `b3d tests=htmap profiles=VS` shows a worst frame of 41 ms for `ht_p100m` against 17 ms (API-6, check).
+- Pi run, 23-24 Oct: the `X g` freeze test passed; `b3d tests=htmap profiles=VS,VSQ` (API-6, DONE 24 Oct, report `dfedfea0` on `reports` branch):
+  - `ht_p10` GPU+VS (40,360 tris, 16.4 ms) equals `ht_p10m` GPU+VS (40,360 tris, 16.2 ms) — verified identical.
+  - Draw merging on `ht_p100m` delivers +33% gain over `ht_p100` (4.0 n60 vs 3.0 n60; 30,121 tris in 16.6 ms).
+  - With Queue (`GPU+VS+Q`): `ht_p100m` hits 60,242 tris drawn60 in 16.3 ms; `ht_p10m` hits 91,475 tris drawn60 in 15.3 ms. Sustained 50k-60k tris @ 60 fps confirmed on Pi Zero.
 - Decision, line endings: 1233 tracked files are CRLF in the working tree of the main checkout (index is LF). Cause: `core.autocrlf=true` in the global and user git config, `false` in the repo. Choose: renormalize the working tree (`git add --renormalize .` then `git checkout -- .`), and add `* text=auto eol=lf` to `.gitattributes`. Host tests that read input files can fail the way `test-write` did.
 - Decision, stray folder `C:` in the repo root (made by a command with a Windows path). Delete it?
 - Decision, pad names in game code: the standard `docs/design/games-input-standard.md` uses `act1`..`act8`. Proposal: write button names (`"x"`, `"l1"`) or gesture names (`"attack"`) in game code, add the DS4/Xbox/RGB30 symbol column, migrate Yharnam. User said to ignore it for now (23 Oct).
@@ -60,7 +66,7 @@ Friday evening (done 23 Oct):
   - Scenes `map8`, `sprites`, `stack`, `fade`, `light`, `herotris` and `cel` are done (22 Oct, one run each; more runs only if the numbers are needed again). The Pi numbers are in `docs/PERF-BUDGET.md`.
   - Herocart sweep (Start+A, Start saves `HEROCART.TXT` in `/docs`): GPU on/off; after the fix also VS 2 and Cel (4 bands) / Dither off. bm3D 7.5: with VS 2 compare Cel off and Cel 4 and Outline off / hull (baked) / flag 512 at LOD 0 and 1. The 3D Bench of 22 Oct already gave the numbers (cel +10%, outline +31%, `cel light yes`); this cart run only confirms them.
   - Recorder: `rec=on rec_fps=15 rec_size=320x180`, play Overbit; read the end-of-run lines.
-  - Browser `bmweb` (stages 2b-5, built, not verified on hardware): build `make build/carts/bmweb.bm` and copy it to `/bm` on the SD (`./easy_install.sh` copies `dist/`). Join WiFi and allow the network when the cart asks. Open `bm Web` from the menu. Press Y, type the address of a site you may read (https only), press A. Check and note: (1) the status line shows "waiting ... (pace)", then "reading robots.txt", "connecting", "loading"; (2) the time of the TLS stall (the screen may freeze about 100 ms); (3) the page appears; the status line shows the Lua memory in KB at the right (note it after a page of about 300 KB); (4) right/left move the link focus, B goes back, Start marks a page; (5) X loads the pictures one by one (WebP, PNG, JPEG) and the decode time per picture; (6) a link to a `.glb` or `.zip` opens "Save this file?"; A writes `bm/web/<NAME>.<EXT>` and a `.TXT` note. Then (bm Web 0.3): (7) with a USB keyboard and mouse, click a link, wheel, right click back, the search bar is open at the start; type an address and Enter; Ctrl+Space opens it again (note if the key does not arrive: the name of Ctrl+Space in `keyp()`); bm Web is in the Dev tab with no splash; Ctrl+F; (8) open a page with scripts and a style sheet, note the time of "running" (the screen may freeze; the step budget is in `jsdom.lua`), press F9 to compare. Do the same on the RGB30 (D50 stays `todo/untested` until then). QEMU has no network, so `make test-web` and `test_bmweb` do not replace this run.
+  - Browser `bmweb` (DONE 24 Oct, report `62dc910a` on `reports` branch): verified on Pi Zero W hardware (c62830b8): 723 frames @ 59.6 fps, 0 dropped/late frames, avg update+draw 3.22 ms (19% of frame budget), max 4.29 ms. Zero audio crash, zero WiFi drop (GPIO 45 guarded). Search bar and full app verified.
   - Multitasking stages 3-5 (web bench, not a game): build with `python scripts/mkbm.py -o build/webbench.bm --lua tests/web/pi_bench.lua --title "Web bench" --author bm --res 640x360`, copy to `bm/` by hand, press A. Set `URL` at the top of the file to an https address of a file of at least 2 MB that sends `Accept-Ranges` for the resume part. Read `/docs/WEBBENCH.TXT`: sync call ms, async worst frame ms, save during a queued write, resume 1 and 2 (`resumed` must be above 0). Also from the console log of a report: one TLS handshake for the 3 requests (`menu stalls:` handshake count).
   - `gpu3d_qpu=1` step, `PI_O3_FILES`.
   - RGB30, BETA-6 (consistency): with a Bluetooth pad paired, reboot and check that the pad reconnects (D02) and that its PS button leaves a game (D01). Then set D01 and D02 to `resolved` in `docs/spec/divergences.toml`. QEMU proves the menu parts (frozen game, tool names, Market key); it does not prove the pad, the screen or the sound.
@@ -90,7 +96,22 @@ Friday evening (done 23 Oct):
 15. RGB30 HDMI and multiplayer (queued 23 Oct by the user): SYS-12 HDMI output (panel off, HDMI on), SYS-13 Bluetooth keyboard and mouse for the SDK apps, SYS-14 more Bluetooth pads, split and shared screen. Start with a study of the RK3566 HDMI path (SYS-12); it needs the user's hardware. See `docs/ROADMAP.md`.
 
 ## Open issues
-- The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.
+- [RESOLVED 24 Oct, report `c51c239a` on `reports` branch] `b3d tests=herotris` with all 8 profiles in one line: ran completely in 11 seconds with zero freezes on Pi Zero W (c62830b8). Profile metrics:
+  - ARM: 2,385 tris/frame drawn60 (40.8 ms)
+  - GPU: 3,214 tris/frame drawn60 (30.3 ms)
+  - GPU+VS: 29,398 tris/frame drawn60 (15.4 ms)
+  - GPU+VS+Q: 49,956 tris/frame drawn60 (13.7 ms)
+  - GPU+VS+Q2: 50,024 tris/frame drawn60 (13.5 ms)
+  - GPU+VS+FS2: 28,830 tris/frame drawn60 (15.3 ms)
+  - GPU+VS+A8: 28,875 tris/frame drawn60 (15.3 ms)
+  - GPU+VS+A8+Q: 49,989 tris/frame drawn60 (13.6 ms)
+  Conclusion: Vertex Shader + Command Queue consistently pushes 50k triangles @ 60 fps on Pi Zero hardware.
+
+## Next steps (immediate roadmap based on verified hardware runs)
+1. **VID-REC (Video Recording)**: Adopt RLE565 codec (codec 4) as the standard recorder on Pi Zero at 15 fps (0.13 - 1.05 MB/s fits SD write mean of 1.82 MB/s with <2 ms encode time). Next slice: audio interleaving.
+2. **Graphics Engine Defaults**: Standardize `gpu3d_queue=1` and `gpu3d_merge=1` (32+ pieces, <=150 faces) in production pipelines. Verify `gpu3d_2d=1` default (+6.7% boost, 3569+ sprites vs 2574 on ARM).
+3. **Multitasking Stage 3-5 (Web Bench)**: Run `tests/web/pi_bench.lua` on hardware to benchmark async file writes and Range resume.
+4. **Single-bm (SYS-8)**: Proceed with adaptive screen modes (720x405, `safe_area()`, `aspect()`, bars).
 
 ## Never delete
 `bm-core`, `reports`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
