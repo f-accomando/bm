@@ -10,10 +10,10 @@
 #include "pmu.h"
 #include "reports.h"
 #include "syskeys.h"
+#include "tick.h"
 #include "version.h"
 #include "bm/b3d.h"
 #include "bm/runtime.h"
-#include "bm/stress.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
@@ -34,6 +34,24 @@ static framebuffer_t *fbp;
 static g16_t page;
 
 static uint32_t us(void) { return timer_ticks(); }
+
+/* Waits until the kernel has run for ms milliseconds, with a countdown: right after boot the WiFi joins its
+ * network and a paired pad comes back, and the first tests would pay for it. The keys that stop a test end
+ * the wait too (syskeys_test_stop). */
+static void settle(uint32_t ms)
+{
+    uint32_t shown = 0;
+    while (tick_ms() < ms && !syskeys_test_stop()) {
+        uint32_t left = (ms - tick_ms() + 999) / 1000;
+        if (left != shown) {
+            kprintf("\r3d bench: waiting %2lu s for the boot to settle (WiFi, Bluetooth)", left);
+            shown = left;
+        }
+        timer_delay_ms(20);
+    }
+    if (shown)
+        kprintf("\n");
+}
 
 static uint32_t present(void) { return bm_video_present(fbp, &page); }
 
@@ -166,7 +184,7 @@ int bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, 
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     syskeys_test_begin();
-    bm_stress_settle(20000);            /* as the stress test: the boot's work done */
+    settle(20000);                      /* the boot's work done */
     if (syskeys_test_stopped()) {       /* stopped while it waited */
         kprintf("3D Bench: stopped; no report saved or sent\n");
         return 1;

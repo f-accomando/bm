@@ -106,17 +106,17 @@ int main(int argc, char **argv)
         CHECK(c.kind == BM_RES_SOUND && c.audio && !c.sheet_w, "JUMP.bms: a sound bank");
         free(d);
     }
-    if (open_any(dir, "DEMO.bmt", &c, &d, &len) == 0) {
-        CHECK(c.kind == BM_RES_MAP && c.map_w == 160 && c.map_h == 90 && c.sheet_w, "DEMO.bmt: the 160x90 map, its tiles");
+    if (open_any(dir, "SAMPLE.bmt", &c, &d, &len) == 0) {
+        CHECK(c.kind == BM_RES_MAP && c.map_w == 16 && c.map_h == 96 && c.sheet_w, "SAMPLE.bmt: the 16x96 map, its tiles");
         free(d);
     }
     if (open_any(dir, "VILLAGE.bmc", &c, &d, &len) == 0) {
         CHECK(c.kind == BM_RES_PALETTE && c.sheet8 && c.sheet_h == 1, "VILLAGE.bmc: a palette");
         free(d);
     }
-    if (open_any(dir, "demo_models.bm", &c, &d, &len) == 0) {
+    if (open_any(dir, "sample_models.bm", &c, &d, &len) == 0) {
         bm_cart_t cc;
-        CHECK(c.kind == BM_RES_CART && c.models == 4 && c.lua, "demo_models.bm: a cartridge with four models");
+        CHECK(c.kind == BM_RES_CART && c.models == 4 && c.lua, "sample_models.bm: a cartridge with four models");
         CHECK(bm_parse(d, len, &cc, err, sizeof err) == 0, "bm_parse takes it: %s", err);
         CHECK(bm_info_get(&c, "model", "house2", "origin", v, sizeof v) && !strcmp(v, "y"),
               "INFO: the origin of house2 (%s)", v);

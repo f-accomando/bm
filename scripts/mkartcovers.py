@@ -451,39 +451,6 @@ def bmweb(a):
     a.over(lay)
 
 
-def stress(a):
-    a.glow(44, 38, 36, 0xFF5030, 0.7)
-
-    def dial(dr, c):
-        dr.ellipse(P([(14, 8), (74, 62)])[0] + P([(14, 8), (74, 62)])[1], fill=c)
-    a.shadow(dial)
-    lay, d = a.draw()
-    dial(d, (30, 34, 50, 255))
-    box = P([(18, 12), (70, 58)])
-    d.ellipse(box[0] + box[1], fill=(18, 20, 32, 255))
-    d.arc(box[0] + box[1], 140, 400, fill=(60, 70, 100, 255), width=int(3 * S))
-    d.arc(box[0] + box[1], 140, 260, fill=(80, 220, 120, 255), width=int(3 * S))
-    d.arc(box[0] + box[1], 260, 330, fill=(255, 200, 60, 255), width=int(3 * S))
-    d.arc(box[0] + box[1], 330, 400, fill=(255, 70, 60, 255), width=int(3 * S))
-    ang = math.radians(372)
-    cx, cy = 44, 35
-    d.line(P([(cx, cy), (cx + math.cos(ang) * 18, cy + math.sin(ang) * 18)]), fill=(255, 255, 255, 255), width=int(1.8 * S))
-    d.ellipse(P([(cx - 3, cy - 3), (cx + 3, cy + 3)])[0] + P([(cx - 3, cy - 3), (cx + 3, cy + 3)])[1], fill=(255, 90, 70, 255))
-    d.polygon(P([(46, 40), (40, 50), (44, 50), (41, 58), (50, 47), (46, 47), (49, 40)]), fill=(255, 226, 90, 255))
-    a.over(lay)
-
-
-def demo(a):
-    a.glow(44, 34, 36, 0xA060FF, 0.7)
-    a.shadow(lambda dr, c: iso_box(dr, 44, 52, 17, 24, c, c, c), 1, 3)
-    lay, d = a.draw()
-    iso_box(d, 44, 52, 17, 24, (120, 220, 255, 255), (60, 120, 230, 255), (40, 70, 170, 255))
-    d.polygon(P([(44, 14), (50, 22), (38, 22)]), fill=(255, 120, 150, 255))
-    for k, c in enumerate(((255, 90, 90), (255, 200, 60), (90, 220, 120))):
-        d.line(P([(26 + k * 4, 28 + k * 2), (62 - k * 4, 28 + k * 2)]), fill=c + (255,), width=int(1.4 * S))
-    a.over(lay)
-
-
 def stages3d(a):
     a.glow(44, 32, 36, 0xFFC070, 0.6)
     stars(a, 41, 20, 24)
@@ -518,8 +485,6 @@ COVERS = {
     "yharnam": ("Yharnam", 0x06141E, 0x1A4450, yharnam),
     "herocart": ("Hero Stress", 0x141A3A, 0x2A4A9A, herocart),
     "bmweb": ("bm Web", 0x0E2850, 0x2078B0, bmweb),
-    "stress": ("bm stress test", 0x2A0A10, 0x8A2A20, stress),
-    "demo": ("bm native demo", 0x1A0E40, 0x5A2A9A, demo),
     "stages3d": ("Stages 3D", 0x1A1438, 0x7A4A58, stages3d),
 }
 

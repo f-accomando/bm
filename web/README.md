@@ -28,7 +28,7 @@ The page loads React 18.3.1 and ReactDOM 18.3.1 (MIT) from `cdnjs.cloudflare.com
 
 ## Player (Stages 3 & 6)
 
-`make web-player` (Emscripten in WSL: `source /root/emsdk/emsdk_env.sh`) builds the WebAssembly runtime and packages `build/web/player/` with `index.html`, `style.css`, `app.js`, `player.js`, `bmcart.js`, `bmring.js`, `bmweb.js`, `bmweb.wasm`, bundled sample cartridges (`kitchen.bm`, `demo.bm`, `stages3d.bm`), and static assets. Serve that folder with any static HTTP server or publish to GitHub Pages. `player.js` connects `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). The saves of the cartridges stay in the browser (IndexedDB). Without `bmweb.js` the launcher notifies that the runtime is not built. Cartridges can be launched immediately via preset pills or loaded locally with "Open custom .bm file".
+`make web-player` (Emscripten in WSL: `source /root/emsdk/emsdk_env.sh`) builds the WebAssembly runtime and packages `build/web/player/` with `index.html`, `style.css`, `app.js`, `player.js`, `bmcart.js`, `bmring.js`, `bmweb.js`, `bmweb.wasm`, bundled sample cartridges (`kitchen.bm`, `stages3d.bm`), and static assets. Serve that folder with any static HTTP server or publish to GitHub Pages. `player.js` connects `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). The saves of the cartridges stay in the browser (IndexedDB). Without `bmweb.js` the launcher notifies that the runtime is not built. Cartridges can be launched immediately via preset pills or loaded locally with "Open custom .bm file".
 
 ## Cartridge reader (stage 1)
 

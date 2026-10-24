@@ -14,17 +14,17 @@ So the luahost steps of the rule (`Makefile:1239-1257`) were run by hand, withou
 `test_meshcap`, into `build/forge-gold/`:
 
 ```sh
-make -j$(nproc) build/host/luahost build/host/test_bm build/carts/village.bm build/carts/astrowing.bm build/demo.bm
+make -j$(nproc) build/host/luahost build/host/test_bm build/carts/village.bm build/carts/astrowing.bm build/carts/stages3d.bm
 O=build/forge-gold; rm -rf $O; mkdir -p $O
 mkdir -p $O/studio3d-sd/carts && cp build/carts/village.bm $O/studio3d-sd/carts/
 build/host/luahost tests/studio/tools3d_host.lua . $O/studio3d-sd      # 171/171 checks passed
 mkdir -p $O/mesh-sd/carts && cp build/carts/village.bm build/carts/astrowing.bm $O/mesh-sd/carts/
 build/host/luahost tests/studio/mesh_host.lua . $O/mesh-sd             # 78/78 checks passed
-mkdir -p $O/pixel-sd/carts && cp build/carts/village.bm build/demo.bm $O/pixel-sd/carts/
+mkdir -p $O/pixel-sd/carts && cp build/carts/village.bm build/carts/stages3d.bm $O/pixel-sd/carts/
 build/host/luahost tests/studio/pixel_host.lua . $O/pixel-sd           # 68/68 checks passed
 python3 tests/studio/anim_figure.py $O/anim-figure.bm
 python3 tests/studio/check_files.py $O/studio3d-sd $O/mesh-sd $O/pixel-sd build/carts/village.bm   # 62/62
-build/host/test_bm build/demo.bm $O/anim-figure.bm $O/studio3d-sd/carts/blocks.bme                  # 163/163
+build/host/test_bm build/carts/stages3d.bm $O/anim-figure.bm $O/studio3d-sd/carts/blocks.bme                  # 163/163
 ```
 
 | Golden | Copied from | Writer |

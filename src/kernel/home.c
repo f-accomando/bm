@@ -19,7 +19,6 @@
 #include "audio/audio.h"
 #include "bm/bm.h"
 #include "bm/runtime.h"
-#include "bm/stress.h"
 #include "bt/bt.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
@@ -94,29 +93,6 @@ void home_show_log(framebuffer_t *fb)
         home_wait_back();
 }
 
-static void t_stress(framebuffer_t *fb)
-{
-    heading("Stress test: sprites, triangles, 3D");
-    home_stress(fb);
-}
-
-/* the stress test: the C part, then the Lua one; stopped in either
- * (Start+Select, Ctrl+Esc, PS: syskeys.h), the rest is not run */
-void home_stress(framebuffer_t *fb)
-{
-    extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
-    bm_stress_run(fb);
-    if (syskeys_test_stopped())
-        return;
-    kprintf("Lua part (cartridge API):\n");
-    bm_stats_t bs;
-    bm_play(fb, bm_stress_cart, (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
-    if (bs.left) {
-        syskeys_test_set_stopped();
-        kprintf("stress test stopped in the Lua part\n");
-    }
-}
-
 static void t_dma(framebuffer_t *fb)
 {
     heading("DMA test");
@@ -177,7 +153,6 @@ static tool_t tools[] = {
     { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL, 0 },
 #define NDEV 4
     /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen */
-    { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 }, "stress", 1 },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 }, "dma", 0 },
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
       { 0 }, NULL, 1 },

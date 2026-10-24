@@ -1,11 +1,4 @@
-/* native bm demo cartridge, packed by scripts/mkbm.py (see Makefile) */
-    .section .rodata
-    .balign 4
-    .globl bm_demo_cart, bm_demo_cart_end
-bm_demo_cart:
-    .incbin "demo.bm"          /* found through -Wa,-I$(BUILD) */
-bm_demo_cart_end:
-
+/* the tools packed by scripts/mkbm.py (see Makefile); found through -Wa,-I$(BUILD) */
     .section .rodata
     .balign 4
     .globl bm_editor_cart, bm_editor_cart_end
@@ -23,13 +16,6 @@ bm_sound_cart:
     .incbin "sound.bm"
 #endif
 bm_sound_cart_end:
-
-    .section .rodata
-    .balign 4
-    .globl bm_stress_cart, bm_stress_cart_end
-bm_stress_cart:
-    .incbin "stress.bm"
-bm_stress_cart_end:
 
 /* the development assistant (M30): knowledge base and network, built by
  * scripts/mkassist.py; its panel, a Lua library (require "assist") */

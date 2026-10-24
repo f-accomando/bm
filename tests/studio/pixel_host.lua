@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/pixel_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/village.bm and demo.bm must be there (games: the saves go into their .bme copies).
+-- SDDIR/carts/village.bm and stages3d.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/pixel-sd"
 local checks, fails = 0, 0
@@ -231,7 +231,7 @@ E.ai = {
 }
 
 local function host(path) return SD .. path:lower() end
-local on_sd = { ["/carts"] = { "demo.bm", "village.bm" } }
+local on_sd = { ["/carts"] = { "stages3d.bm", "village.bm" } }
 E.ls = function(dir)
   local out = {}
   for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
@@ -456,7 +456,7 @@ end
 ----------------------------------------------------------------- the scenario
 
 local village0 = file("village.bm")
-local demo0 = file("demo.bm")
+local sample0 = file("stages3d.bm")
 
 E._init()
 frames(2)

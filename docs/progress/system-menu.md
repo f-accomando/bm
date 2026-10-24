@@ -17,7 +17,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
   `.b16` format badges on cards and details panel. The title bar shows the name only.
 - The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). The
-  benchmarks and tests are utilities (`home_utils()`): Stress test and 3D Bench in Settings > Screen;
+  benchmarks and tests are utilities (`home_utils()`): the 3D Bench in Settings > Screen;
   DMA test in Settings > System > Utilities. Input test, Audio test, Test pattern, System and Log are
   Settings rows. The GPU test, Texture Room, Video bench, Stack bench and Diagnostics (with the CPU
   bench, the libc and fiber self-tests, the boot demo and the Lua boot script) were removed on 24 Oct 2026.

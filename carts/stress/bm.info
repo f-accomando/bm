@@ -1,9 +1,0 @@
-# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
-# section of a .bm: mkbm.py --info copies it in.
-name: bm stress test
-desc: Sprites, triangles and 3D in Lua; the Lua half of the stress test, built into the kernel.
-author: bm
-license: LicenseRef-BM-Community-1.0
-version: 1.0
-tags: demo, bench
-resolution: 640x360

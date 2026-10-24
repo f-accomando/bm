@@ -169,7 +169,7 @@ int main(void)
 
     /* GitHub refuses: not again at once, again after 15 minutes */
     puts_ok = 0;
-    report("Stress test\n");
+    report("Bench report\n");
     check(nfiles == 1 && puts_n == 3, "a report made on the network: tried at once (refused, it waits)");
     check(!reports_auto_due(), "  not again at once");
     now_us += 14u * 60u * 1000000u;

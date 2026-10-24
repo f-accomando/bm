@@ -4,6 +4,9 @@ Goal: find out **how many objects per frame** bm can draw before dropping below
 **60 fps** (16.7 ms per frame) and below **30 fps** (33.3 ms per frame), for sprites and
 for 2D/3D polygons, both from C and through the cartridge Lua API (`.bm`).
 
+> **History:** the stress test was removed from the kernel on 24 Oct 2026. This file keeps its
+> measurements. The 3D Bench (`docs/BENCH3D.md`) replaces it.
+>
 > **Status:** measured on the real Pi Zero W (kernel `792787f`, 2026-09-26). QEMU
 > values are reported only as a check: QEMU does not emulate caches, the memory bus or
 > real timing.
@@ -209,20 +212,11 @@ per triangle, M34) and the 256×256 quad texture from 9 to 3 ns per pixel (the t
 costs almost nothing. Lua spheres now run on the GPU (193). On the ARM, compared to
 1 October, flat spheres drop (70 → 63) and Gouraud rises (18 → 25).
 
-## How to run it on the Pi
+## How it ran on the Pi (removed)
 
-```sh
-cd ~/bm && git pull
-make sdcard-stress               # kernel dedicato: esegue lo stress test all'avvio
-sudo umount /mnt/d 2>/dev/null; sudo mount -t drvfs D: /mnt/d
-cp dist/kernel.img /mnt/d/ && sync && cmp dist/kernel.img /mnt/d/kernel.img && echo "COPIA OK"
-sudo umount /mnt/d
-```
-
-At startup, after the system summary, the six tests scroll by (about 30–60 s in total)
-and at the end the results table stays on the screen: a photo is enough.
-To return to the normal kernel: `make sdcard` and copy `dist/kernel.img` again.
-With the serial cable the same test starts from the monitor with the `S` key.
+The kernel had a dedicated stress build (`make sdcard-stress`) and the monitor key `S`. Both were
+removed on 24 Oct 2026, with `src/bm/stress.c` and `carts/stress`. The 3D Bench (`docs/BENCH3D.md`)
+measures the same scenes now.
 
 ## The machine rows (M33)
 
@@ -237,7 +231,7 @@ Before and after the C part the stress test writes two lines:
   interrupts (audio, Bluetooth, timers...), with the two heaviest: it is the time that
   drawing does not have.
 
-The `make sdcard-stress` kernel waits until the kernel has been running for 20 s before starting: right
+The stress kernel waited until the kernel had been running for 20 s before it started: right
 after boot the WiFi connects and the paired pad reconnects, and the first tests
 paid for it (with `8298b15` the 3D sphere from Lua ran almost twice as fast as the one in C).
 

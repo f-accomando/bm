@@ -75,8 +75,8 @@
  "api-core": {
   "chapters": {
    "1": {
-    "en": "20b9c32a6441",
-    "it": "b3233c481bae",
+    "en": "cafb740a691a",
+    "it": "604938eeed7f",
     "title": "How a cartridge works"
    },
    "10": {
@@ -127,7 +127,7 @@
   },
   "sources": {
    "docs/API.md": "2778cdb7f962",
-   "docs/GAME-GUIDE.md": "5880ba4b4d06",
+   "docs/GAME-GUIDE.md": "87eded8c842c",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/input.md": "4a75b07df3da",
    "docs/api/system.md": "62684bc75e0c"
@@ -1067,8 +1067,8 @@
     "title": "The board"
    },
    "2": {
-    "en": "f2bcd810f438",
-    "it": "c00fd124671f",
+    "en": "12ff00c8921d",
+    "it": "f1b3972a631e",
     "title": "ARM11 performance, as measured"
    },
    "3": {
@@ -1077,8 +1077,8 @@
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "9a27c4a48d0e",
-    "it": "cbc82827ba7f",
+    "en": "c43d9bc01ae4",
+    "it": "479af182ed05",
     "title": "The GPU and the 3D"
    },
    "5": {
@@ -1087,8 +1087,8 @@
     "title": "The bm3d drivers"
    },
    "6": {
-    "en": "4400bd0c2596",
-    "it": "8dfb3b173971",
+    "en": "4c7a983bea3d",
+    "it": "0b734e59a9c4",
     "title": "Measure on your own board"
    },
    "7": {
@@ -1103,11 +1103,11 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "33f7009fb24f",
-   "docs/DRIVERS.md": "ea03b1100565",
+   "docs/BENCH3D.md": "7d1bf309f26f",
+   "docs/DRIVERS.md": "f8ce7a5600de",
    "docs/HARDWARE.md": "6bfcdeee8616",
-   "docs/PERFORMANCE.md": "cc85b00cc622",
-   "docs/progress/graphics.md": "468fef341ae6",
+   "docs/PERFORMANCE.md": "5adf533c20fd",
+   "docs/progress/graphics.md": "654cf451bb6f",
    "docs/progress/v3d.md": "20081adc0057"
   }
  },

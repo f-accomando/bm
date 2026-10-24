@@ -32,7 +32,6 @@
 #include "lib/printf.h"
 #include "script/luavm.h"
 #include "bm/runtime.h"
-#include "bm/stress.h"
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
@@ -88,21 +87,6 @@ static void report_irq(void)
             tick_hz(), (uint32_t)((uint64_t)n * 1000000u / us),
             fb.buffers >= 2 ? "on" : "OFF");
 }
-
-extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
-
-#ifdef BM_BOOT_STRESS
-/* Stress-test boot (make BOOT=stress): C and Lua rendering stress tests,
- * results left on the console for a photo. */
-static void run_stress(void)
-{
-    bm_stress_settle(20000);
-    bm_stress_run(&fb);
-    kprintf("Lua part (cartridge API):\n");
-    bm_stats_t bs;
-    bm_play(&fb, bm_stress_cart, (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
-}
-#endif
 
 /* End of the ARM's share of SDRAM (the GPU owns the rest). */
 static uint32_t arm_memory_end(void)
@@ -262,11 +246,6 @@ void kernel_main(uint32_t atags)
         bt_start();             /* a paired pad can come back with its PS button */
     wifi_boot();
     eth_boot();
-
-#ifdef BM_BOOT_STRESS
-    run_stress();
-    monitor_run();
-#endif
 
     /* The console starts on the cartridge menu; Esc, Start+Select or 'q'
      * on the serial port go to the monitor. */

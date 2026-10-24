@@ -112,8 +112,5 @@ void home_show_log(framebuffer_t *fb);
  * rendering test (Start+Select, Ctrl+Esc, PS: syskeys.h). */
 void home_report_begin(const char *kind);
 void home_report_end(void);
-/* The stress test, its C part and then its Lua part (Dev, monitor s);
- * stopped in either, the rest is not run (syskeys_test_stopped). */
-void home_stress(framebuffer_t *fb);
 
 #endif

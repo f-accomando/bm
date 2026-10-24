@@ -95,7 +95,7 @@ Source: `docs/PERFORMANCE.md`, section 2, and `docs/HARDWARE.md`.
 
 ## How many objects fit in a frame
 
-The stress test counts the objects drawn per frame at 640x360, RGB565. Source: `docs/STRESS.md`, measure of 2026-10-05, ARM rows (the ARM rasterizer, bm3d 0.2).
+The old stress test (removed from the kernel on 24 Oct 2026) counted the objects drawn per frame at 640x360, RGB565. Source: `docs/STRESS.md`, measure of 2026-10-05, ARM rows (the ARM rasterizer, bm3d 0.2).
 
 | Test | 60 fps | 30 fps | Cost per object |
 |---|---:|---:|---:|
@@ -279,7 +279,7 @@ Source: `docs/GPU-BENCHMARK-REPORT.md`, section 4, at ARM 1000 MHz, core 250, V3
 | Small triangles | 3.0 million per second (20,000 prepared in 7.7 ms) |
 | Fill rate | 811 Mpixel/s (software fill about 45 Mpixel/s) |
 
-Stress test, most objects per frame at 640x360:
+Most objects per frame at 640x360 (old stress test):
 
 | Scene | ARM, 60 fps | GPU, 60 fps | GPU, 30 fps |
 |---|---:|---:|---:|
@@ -439,21 +439,6 @@ Source: `docs/progress/v3d.md` and `docs/BENCH3D.md`. The `P` lines of the repor
 ::: copy
 ./easy_install.sh line "b3d tests=quad_flat,quad_tex,bilinear,gpu2d profiles=ARM,GPU,FS2,2D,VSF; send"
 :::
-
-## The stress test
-
-1. For the stress test of sprites and 3D, build the dedicated kernel on the PC and copy it to the SD (source: `docs/STRESS.md`):
-
-::: copy
-cd ~/bm && git pull
-make sdcard-stress
-cp dist/kernel.img /path/to/the/SD/ && sync
-:::
-
-2. Start the Pi. After the system summary the tests run, about 30 to 60 s in all, and the table of results stays on the screen: a photo is enough.
-3. To go back to the normal kernel, run `make sdcard` and copy `dist/kernel.img` again.
-
-If you have a serial cable, the stress test starts from the monitor with the `S` key.
 
 ## Compare the drivers on the same board
 

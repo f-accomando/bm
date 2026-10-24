@@ -68,7 +68,7 @@ BCM2835_ONLY = {
 SLOW = {
     "test_web_api": 83,
     "test_chainloader": 70, "test_studio_animator": 61,
-    "test_home_ui": 66, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
+    "test_home_ui": 66, "test_pad_typing": 48, "test_lib_tab": 46,
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
@@ -709,11 +709,24 @@ def wait_menu(q, timeout=15.0):
         time.sleep(0.2)
 
 
+# the keys test: a hint on the bottom row that changes at the first direction key
+KEYS_CART = r"""
+local auto = true
+function _update()
+  if btn(0) or btn(1) or btn(2) or btn(3) then auto = false end
+end
+function _draw()
+  cls(0x203040)
+  print(auto and "attract" or "arrows/wasd, space", 0, SCREEN_H - 24, 0xA0A0A0)
+end
+"""
+
+
 def test_bm_keys(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        q.send("n")
+        assert _upload(q, mkbm.pack(KEYS_CART.encode(), title="keys test"))
         time.sleep(1.5)
         _, text = settled_screen(q, lambda i, t: "attract" in t[-1])
         assert "attract" in text[-1], text[-1]
@@ -760,7 +773,7 @@ def test_usb_keyboard(b, opts):
         q.expect("> ")
 
         # a game (the system's keys): Esc is its menu (Start), Ctrl+Esc leaves it (PS)
-        sendkeys(q, "n")
+        assert _upload(q, mkbm.pack(KEYS_CART.encode(), title="keys test"))     # uploaded: it plays
         time.sleep(1.5)
         q.buf = b""
         sendkeys(q, "esc")
@@ -769,7 +782,7 @@ def test_usb_keyboard(b, opts):
         assert b"update+draw" not in q.buf, "Esc left the game"
         sendkeys(q, "ctrl-esc")
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
-        m = re.search(r'demo" (\d+) frames', out)
+        m = re.search(r'keys test" (\d+) frames', out)
         assert m and int(m[1]) < 300, out
         q.expect("> ")
 
@@ -920,7 +933,7 @@ def test_wifi_probe(b, opts):
     message, without hanging, and the SD card must still work afterwards."""
     tmp = tempfile.mkdtemp(prefix="bm-wifi-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
+    mksd.build(img, [(b("carts/astrowing.bm"), "carts/demo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
@@ -939,7 +952,7 @@ def test_wifi_probe(b, opts):
 def test_sd_cartridges(b, opts):
     tmp = tempfile.mkdtemp(prefix="bm-sd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), "Il mio gioco lungo.bm"),
+    mksd.build(img, [(b("carts/astrowing.bm"), "Il mio gioco lungo.bm"),
                      (b("carts/pong.bm"), "carts/demo2.bm"),
                      (os.path.join(HERE, "..", "README.md"), "README.md")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
@@ -953,7 +966,7 @@ def test_sd_cartridges(b, opts):
         q.send("M")
         q.expect("cartridge menu")
         wait_menu(q)
-        want = ("Games", "bm native demo", "/Il mio gioco lungo.bm")
+        want = ("Games", "Astro Wing", "/Il mio gioco lungo.bm")
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         screen = "\n".join(text)
         for s_ in want:
@@ -964,7 +977,7 @@ def test_sd_cartridges(b, opts):
         screen = "\n".join(text)
         assert all(w in screen for w in want), screen
         q.send("a")
-        want = ("bm native demo", "/Il mio gioco lungo.bm")   # the cover is back before Enter starts it
+        want = ("Astro Wing", "/Il mio gioco lungo.bm")   # the cover is back before Enter starts it
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         assert all(any(w in l for l in text) for w in want), "\n".join(text)
         q.send("\r")                          # SD cartridges come first, by title
@@ -973,15 +986,15 @@ def test_sd_cartridges(b, opts):
         time.sleep(1.0)
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
-        assert '"bm native demo"' in out, out
+        assert '"Astro Wing"' in out, out
         wait_menu(q)                          # the menu is back (the game is suspended) before the keys
         q.send("d")                           # next: /carts/demo2.bm
         want = ("Pong", "/carts/demo2.bm")
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         assert all(any(w in l for l in text) for w in want), "\n".join(text)
         q.send("\r")
-        _, text = settled_screen(q, lambda i, t: any("Close bm native demo?" in l for l in t))
-        assert any("Close bm native demo?" in l for l in text), "\n".join(text)
+        _, text = settled_screen(q, lambda i, t: any("Close Astro Wing?" in l for l in t))
+        assert any("Close Astro Wing?" in l for l in text), "\n".join(text)
         q.send("\r")                          # the demo was suspended: close it
         q.expect("playing demo2.bm", timeout=10)
         q.expect("bm: loaded", timeout=10)
@@ -1002,7 +1015,7 @@ def test_sd_games_bm(b, opts):
     tmp = tempfile.mkdtemp(prefix="bm-sdbm-")
     img = os.path.join(tmp, "sd.img")
     mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm"),
-                     (b("demo.bm"), "bm/rgbgame.bm")])
+                     (b("carts/astrowing.bm"), "bm/rgbgame.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
@@ -1035,7 +1048,7 @@ def test_suspend_resume(b, opts):
     cart = os.path.join(tmp, "counter.bm")
     with open(cart, "wb") as f:
         f.write(mkbm.pack(COUNTER_CART.encode(), title="AAA counter"))
-    mksd.build(img, [(cart, "carts/counter.bm"), (b("demo.bm"), "carts/zdemo.bm")])
+    mksd.build(img, [(cart, "carts/counter.bm"), (b("carts/astrowing.bm"), "carts/zdemo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -1498,8 +1511,6 @@ def test_make_image(b, opts):
         screen = "\n".join(rows)
         for title in want:
             assert title in seen, screen
-        for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
-            assert title not in screen and title not in seen, screen
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
@@ -3572,7 +3583,7 @@ def test_menu_tabs(b, opts):
     with open(cfg, "w") as f:
         f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key.hex()}\n")
     mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"),
-                     (b("demo.bm"), "carts/game.bm")])
+                     (b("carts/astrowing.bm"), "carts/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
 
@@ -3602,7 +3613,7 @@ def test_menu_tabs(b, opts):
         chip.reconnect(pad, key, 0x0B, (0x50, 0x51), 1)
         _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
         time.sleep(0.5)
-        state(["Games"], ["bm native demo"])
+        state(["Games"], ["Astro Wing"])
 
         press(shoulders=2)                  # R1: Dev
         state(["Dev"], ["bm SDK"])
@@ -3646,20 +3657,20 @@ def test_menu_tabs(b, opts):
         press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Dev
         state(["Dev"], ["bm SDK"], gone=["Controllers"])
         press(shoulders=1)                  # L1: Games
-        state(["Games"], ["bm native demo"])
+        state(["Games"], ["Astro Wing"])
         press(shoulders=1)                  # L1: the Market, first (M25): QEMU has no network
         state(["Market"], ["No network: connect in Settings"])
         press(shoulders=1)                  # L1 on the first tab: nothing
         state(["Market"], ["No network: connect in Settings"])
         press(shoulders=2)                  # R1: back to Games
-        state(["Games"], ["bm native demo"])
+        state(["Games"], ["Astro Wing"])
 
         # up on the first row stays on the covers: R1 still goes to Dev
         chip.report(0x00)                   # hat up
         time.sleep(0.15)
         chip.report(0x08)
         time.sleep(0.4)
-        state(["Games"], ["bm native demo"])
+        state(["Games"], ["Astro Wing"])
 
         # PS in the menu: home, not the monitor
         press(shoulders=2)
@@ -3667,7 +3678,7 @@ def test_menu_tabs(b, opts):
         press(shoulders=2)
         state(["Settings"], ["Controllers"])
         press(ps=1)
-        state(["Games"], ["bm native demo"], gone=["Controllers"])
+        state(["Games"], ["Astro Wing"], gone=["Controllers"])
         time.sleep(0.5)
         assert b"back to the monitor" not in q.mini_buf + q.mini.read(0.2), "PS left the menu"
 
@@ -3678,7 +3689,7 @@ def test_menu_tabs(b, opts):
         press(ps=1)
         _mini_expect(q, "cartridge menu")
         time.sleep(0.5)
-        state(["Games"], ["bm native demo"])
+        state(["Games"], ["Astro Wing"])
         q.mini.write(b"q")
         _mini_expect(q, "back to the monitor")
     finally:
@@ -4220,7 +4231,7 @@ def test_lib_tab(b, opts):
     import bmres
     tmp = tempfile.mkdtemp(prefix="bm-lib-")
     img = os.path.join(tmp, "sd.img")
-    village, demo, sound = (bmres.read(b(p)) for p in ("carts/village.bm", "demo.bm", "sound.bm"))
+    village, sample, sound = (bmres.read(b(p)) for p in ("carts/village.bm", "carts/stages3d.bm", "sound.bm"))
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("lib_tab=1\n")
@@ -4236,14 +4247,14 @@ def test_lib_tab(b, opts):
     bmres.kv_set(info["file"], "tags", "building, village")
     bmres.info_store(house, info)
     res("HOUSE.BMM", house)
-    res("FLAG.BMI", bmres.extract_image(demo, rect=(8, 0, 16, 8), name="flag", frames=2, fps=6))
+    res("FLAG.BMI", bmres.extract_image(sample, rect=(8, 0, 16, 8), name="flag", frames=2, fps=6))
     res("JUMP.BMS", bmres.extract_sounds(sound, sfx=["JUMP"]))
-    res("DEMO.BMT", bmres.extract_map(demo))
+    res("SAMPLE.BMT", bmres.extract_map(sample))
     res("VILLAGE.BMC", bmres.extract_palette(village))
     kit = bmres.extract_kit(village)
     kit.name = "Village kit"
     res("VILLAGE.BMK", kit)
-    mksd.build(img, files + [(b("carts/village.bm"), "carts/village.bm"), (b("demo.bm"), "carts/game.bm")])
+    mksd.build(img, files + [(b("carts/village.bm"), "carts/village.bm"), (b("carts/stages3d.bm"), "carts/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(*ks, gap=0.3):
@@ -4304,7 +4315,7 @@ def test_lib_tab(b, opts):
         shot("sounds")
         screen(["Play"], gone=["Stop"])             # short: it ends by itself
         keys("d")
-        screen(["DEMO.BMT", "GAME.BM", "160x90", "map 160x90 tiles"])
+        screen(["SAMPLE.BMT", "GAME.BM", "16x96", "map 16x96 tiles"])
         drawn(2000)
         shot("maps")
         keys("d")
@@ -4442,7 +4453,7 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     """4 GB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
     tmp = tempfile.mkdtemp(prefix="bm-sd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), "carts/game.bm")], 4096)
+    mksd.build(img, [(b("carts/astrowing.bm"), "carts/game.bm")], 4096)
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
@@ -4491,7 +4502,7 @@ def test_menu_scroll(b, opts):
     gone (15 cartridges: three rows of six)."""
     tmp = tempfile.mkdtemp(prefix="bm-scroll-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), f"carts/g{i}.bm") for i in range(1, 16)])
+    mksd.build(img, [(b("carts/astrowing.bm"), f"carts/g{i}.bm") for i in range(1, 16)])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def thumb():
@@ -6323,7 +6334,7 @@ def test_reports(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\ngithub_token=test-token-4242\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "carts/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -6387,7 +6398,7 @@ def test_crash_report(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "carts/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -6436,7 +6447,7 @@ def test_menu_scale(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nmenu_scale=3\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "carts/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -6446,11 +6457,11 @@ def test_menu_scale(b, opts):
             small = bytes(px[((y * 3) * w + x * 3) * 3 + k] for y in range(h // 3) for x in range(w // 3)
                           for k in range(3))
             text = screen_text((w // 3, h // 3, small))
-            if (w, h) == (1920, 1080) and "Settings" in text[1] and "bm native demo" in text[4]:
+            if (w, h) == (1920, 1080) and "Settings" in text[1] and "Astro Wing" in text[4]:
                 break
             time.sleep(0.3)
         assert (w, h) == (1920, 1080), f"screen {w}x{h}"
-        assert "Games" in text[1] and "Settings" in text[1] and "bm native demo" in text[4], "\n".join(text)
+        assert "Games" in text[1] and "Settings" in text[1] and "Astro Wing" in text[4], "\n".join(text)
         # every 3x3 block one colour: the layout enlarged, not drawn again
         for y in range(0, 1080, 37 * 3):
             for x in range(0, 1920, 41 * 3):
@@ -6936,7 +6947,7 @@ def test_sd_logs(b, opts):
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
             f.write("layout=us\nwifi_boot=0\nnet_password=test-pass-4242\n")
-        mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "carts/game.bm")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
         try:
             q.expect(MENU, timeout=30)
@@ -7536,27 +7547,12 @@ def test_video_rec_drops(b, opts):
 def test_bench_stop(b, opts):
     """2026-10-10: the rendering tests stop on the keys that leave a game
     (src/kernel/syskeys.h: Start+Select, Ctrl+Esc, PS), here Ctrl+Esc on
-    the USB keyboard: the stress test in its C part (no table, no Lua part,
-    its report thrown away) and the 3D Bench in its ramps (no report, no
-    pages); the monitor goes on after each, the PS not taken as its own."""
+    the USB keyboard: the 3D Bench in its ramps (no report, no pages); the
+    monitor goes on after it, the PS not taken as its own."""
     q = Qemu(b("kernel.img"), USB_KBD)
     try:
         q.boot()
         time.sleep(0.5)
-        q.send("s")
-        q.expect("stress test: 640x360", timeout=10)
-        q.expect("sprites 16x16 (C):", timeout=10)     # (the serial port's per-step lines)
-        time.sleep(1.0)
-        sendkeys(q, "ctrl-esc")
-        out = q.expect("stress test stopped", timeout=15).decode(errors="replace")
-        out += q.expect("report: stress stopped by the user, not saved nor sent", timeout=10).decode(errors="replace")
-        out += q.expect("> ", timeout=10).decode(errors="replace")
-        assert "Lua part" not in out and "test (max per frame)" not in out, out
-        assert "saved as bm/reports" not in out and "could not be saved" not in out, out
-        time.sleep(1.0)
-        q.buf += q.port.read(0.3)
-        assert MENU not in q.buf, q.buf.decode(errors="replace")    # still the monitor
-
         q.send("j")
         q.expect("b3d spheres ARM n=", timeout=60)       # past the boot's settling: a ramp
         sendkeys(q, "ctrl-esc")
@@ -8143,7 +8139,7 @@ def test_code_editor(b, opts):
     still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-code-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), "carts/Il mio demo.bm"), (b("carts/pong.bm"), "carts/pong.bm")])
+    mksd.build(img, [(b("carts/stages3d.bm"), "carts/Il mio demo.bm"), (b("carts/pong.bm"), "carts/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     log = []
 
@@ -8276,12 +8272,12 @@ def test_code_editor(b, opts):
         # the games stay as they were: the saves went into their editable copies
         game = os.path.join(tmp, "game.bm")
         subprocess.run(["mcopy", "-i", part, "::/CARTS/Il mio demo.bm", game], check=True, env=env)
-        assert open(game, "rb").read() == open(b("demo.bm"), "rb").read(), "the demo (a game) changed"
+        assert open(game, "rb").read() == open(b("carts/stages3d.bm"), "rb").read(), "the demo (a game) changed"
         out = os.path.join(tmp, "demo.bm")
         subprocess.run(["mcopy", "-i", part, "::/BME/ILMIODEM.BME", out], check=True, env=env)
         sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
         new = open(out, "rb").read()
-        old = open(b("demo.bm"), "rb").read()
+        old = open(b("carts/stages3d.bm"), "rb").read()
         def sections(d):
             import struct
             n = d[17]
@@ -8460,7 +8456,7 @@ def test_code_templates(b, opts):
     /bme/game1.bme. The card is still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-codetpl-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
+    mksd.build(img, [(b("carts/astrowing.bm"), "carts/demo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def k(s, gap=0.04):
@@ -9737,43 +9733,6 @@ def test_upload_refused_and_corrupt(b, opts):
         assert loader._reply() == b"CE"
         q.send("h")
         q.expect("commands (")
-    finally:
-        q.close()
-
-
-def test_stress_monitor(b, opts):
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("S")
-        q.expect("stress test:", timeout=10)
-        time.sleep(3)
-        _, text = settled_screen(q, lambda i, t: t[0].startswith("stress:"))
-        assert text[0].startswith("stress:"), text[0]
-        out = q.expect("3D spheres 96 (Lua)", timeout=300)
-        out += q.expect("> ", timeout=60)
-        plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
-        for name in ("sprites 16x16 (C)", "sprites 32x32 (C)", "triangles 2D ~170px",
-                     "3D spheres 96 (C)", "3D smooth (Gouraud)", "3D textured",
-                     "sprites 16x16 (Lua)"):
-            m = re.search(re.escape(name) + r"\s+(\S+)", plain)
-            assert m, f"{name} missing:\n{plain}"
-        m = re.search(r"sprites 16x16 \(C\)\s+(\d+)\s+(\d+)", plain)
-        assert m and int(m[2]) > int(m[1]) > 100, m and m.group(0)
-        assert re.search(r"3D spheres 96 \(C\)\s+\d+ \(\d+ tri\)", plain), plain
-        # QEMU is slow at floating point: the new 3D rows may start below 1
-        assert re.search(r"3D smooth \(Gouraud\)\s+(<1|\d+ \(\d+ tri\))", plain), plain
-        assert re.search(r"3D textured\s+(<1|\d+ \(\d+ tri\))", plain), plain
-        # the quad rows give the cost of one pixel
-        for name in ("quad 320x180 flat", "quad 320x180 no z", "quad 320x180 Gouraud",
-                     "quad 320x180 texture"):
-            assert re.search(re.escape(name) + r"\s+\S+\s+\S+\s+[\d.]+ q\s+\d+ ns/px", plain), \
-                f"{name} missing:\n{plain}"
-        assert re.search(r"irq \d+\.\d% \(\d+/s", plain), plain
-        # QEMU has no V3D: no GPU rows, and the line says why
-        assert "GPU rows: none (no V3D answers" in plain and "GPU spheres" not in plain, plain
-        text = "\n".join(screen_text(q.screendump()))
-        assert "sprites 16x16 (C)" in text and "3D spheres 96 (Lua)" in text, text
     finally:
         q.close()
 

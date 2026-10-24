@@ -15,8 +15,8 @@
  * 1000; and the triangles a frame at 60 fps of a scene with everything
  * at once (the mix).
  *
- * The sphere and quad scenes are those of the stress test (src/bm/
- * stress.c), at the same 640x360: the numbers the Pi gave with the drivers
+ * The sphere and quad scenes are those of the old stress test (removed
+ * on 24 Oct 2026), at the same 640x360: the numbers the Pi gave with the drivers
  * before (docs/GPU-BENCHMARK-REPORT.md) are their bars of history. The loads go
  * far beyond what the drivers do today, to leave room for the next ones.
  */

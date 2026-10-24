@@ -14,16 +14,7 @@ OBJDUMP := $(CROSS)objdump
 QEMU    ?= qemu-system-arm
 PYTHON  ?= python3
 
-# BOOT=stress builds a kernel that runs the rendering stress test at boot
-# (its own build directory, so normal and stress objects never mix).
-BOOT    ?= normal
-ifeq ($(BOOT),stress)
-BUILD   := build-stress
-BOOT_DEFS := -DBM_BOOT_STRESS
-else
 BUILD   := build
-BOOT_DEFS :=
-endif
 DIST    := dist
 FW_DIR  := firmware
 
@@ -52,7 +43,7 @@ CLEAN_DEFS := $(if $(filter 1,$(CLEAN_KERNEL)),-DBM_CLEAN_KERNEL)
 K7      := $(if $(filter 1,$(ZERO2)),$(BUILD)/kernel7.img)
 COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
           -ffunction-sections -fdata-sections \
-          -DUART_BAUD=$(BAUD) $(BOOT_DEFS) $(CLEAN_DEFS)
+          -DUART_BAUD=$(BAUD) $(CLEAN_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
           -Ithird_party/lwip/src/include -Isrc/net \
@@ -112,7 +103,7 @@ EMBED_TOOLS := $(if $(filter 1,$(CLEAN_KERNEL)),,$(BUILD)/editor.bm $(BUILD)/sou
                $(BUILD)/assistant.bm $(BUILD)/code.bm)
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem keys/market-pub.pem \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(EMBED_TOOLS) \
+                                 $(EMBED_TOOLS) \
                                  $(BUILD)/assist.bin src/ai/assist.lua \
                                  src/ai/predict.lua $(BUILD)/words.lua \
                                  src/ai/padtype.lua
@@ -181,17 +172,6 @@ $(BUILD)/mesh.bm: carts/mesh/bm.info carts/mesh/main.lua carts/mesh/icon.png scr
 $(BUILD)/pixel.bm: carts/pixel/bm.info carts/pixel/main.lua carts/pixel/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/pixel/icon.png --info carts/pixel/bm.info
-
-$(BUILD)/stress.bm: carts/stress/main.lua carts/stress/bm.info carts/stress/cover.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stress/bm.info --cover carts/stress/cover.png
-
-# Native demo cartridge (.bm): Lua + sprite sheet + map
-DEMO_BM_SRC := carts/demo/main.lua carts/demo/assets/sheet.png carts/demo/assets/map.csv carts/demo/bm.info carts/demo/cover.png
-$(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/assets/sheet.png \
-	    --map carts/demo/assets/map.csv --info carts/demo/bm.info --cover carts/demo/cover.png
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2
@@ -673,8 +653,8 @@ test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 
 # Resource files (docs/RISORSE.md, scripts/bmres.py): models, images, sounds,
 # maps and palettes out of a .bm and back in, conversions, broken files
-test-res: $(BUILD)/carts/village.bm $(BUILD)/village-before.bm $(BUILD)/demo.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
-	rm -rf $(BUILD)/res && $(PYTHON) tests/res/test_bmres.py $(BUILD)/carts/village.bm $(BUILD)/demo.bm \
+test-res: $(BUILD)/carts/village.bm $(BUILD)/village-before.bm $(BUILD)/carts/stages3d.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
+	rm -rf $(BUILD)/res && $(PYTHON) tests/res/test_bmres.py $(BUILD)/carts/village.bm $(BUILD)/carts/stages3d.bm \
 	    $(BUILD)/sound.bm $(BUILD)/res
 	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/village-before.bm
 
@@ -765,10 +745,9 @@ WEB_PLAYER := $(BUILD)/web/player
 $(WEB_PLAYER)/bmweb.js: web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
 	@mkdir -p $(WEB_PLAYER)
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sENVIRONMENT=web,node -sMODULARIZE -sEXPORT_NAME=createBmWeb 	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_bmweb_start,_bmweb_input,_bmweb_quit -lidbfs.js -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,FS,IDBFS 	    -o $@ web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
-web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/*) $(BUILD)/demo.bm $(BUILD)/carts/kitchen.bm $(BUILD)/carts/stages3d.bm
+web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/*) $(BUILD)/carts/kitchen.bm $(BUILD)/carts/stages3d.bm
 	cp web/index.html web/style.css web/app.js web/bmcart.js web/bmring.js web/player.js $(WEB_PLAYER)/
 	cp -r web/assets $(WEB_PLAYER)/
-	cp $(BUILD)/demo.bm $(WEB_PLAYER)/demo.bm
 	cp $(BUILD)/carts/kitchen.bm $(WEB_PLAYER)/kitchen.bm
 	cp $(BUILD)/carts/stages3d.bm $(WEB_PLAYER)/stages3d.bm
 # the 3D cartridge of the stages (the ARM rasterizer): its frames in wasm equal the PC build's
@@ -808,7 +787,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
-        image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
+        image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
@@ -867,8 +846,6 @@ firmware:
 # FAT32 boot partition contents. KERNEL=chainloader puts the serial loader on
 # the card instead of the kernel (flash it once, then use `make run-serial`).
 # Cartridges go to carts/ (the menu also looks in the root directory).
-# Only the games: the native demo and the stress test live in the kernel
-# (monitor `n`, the Stress test of the Dev tab), not in the Games tab.
 # Both kernels go on the card (kernel7.img with ZERO2=1): config.txt makes
 # the firmware start kernel7.img on a Pi Zero 2 W and kernel.img on the
 # other boards, so one card works in every Pi bm runs on.
@@ -969,10 +946,6 @@ install: sdcard
 sdcard-chainloader:
 	$(MAKE) sdcard KERNEL=chainloader
 
-# SD card contents with the stress-test kernel (make sdcard-stress)
-sdcard-stress:
-	$(MAKE) sdcard BOOT=stress
-
 # Upload the kernel to a Pi running the chainloader, then open a terminal.
 # Rebooting the Pi (monitor command 'r') re-sends the current kernel.img.
 run-serial: $(BUILD)/kernel.img
@@ -1001,7 +974,7 @@ HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-audi
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
-QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm
+QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm $(BUILD)/carts/stages3d.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
 
 test: all $(HOST_TESTS) $(QEMU_DEPS)
@@ -1352,12 +1325,12 @@ $(BUILD)/host/test_map3d: tests/bm/test_map3d.c $(MAP3D_TEST_SRCS) $(BMHOST_LUA)
 test-map3d: $(BUILD)/host/test_map3d
 	$(BUILD)/host/test_map3d
 
-test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
+test-bm: $(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
          $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
          $(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/host/libbmdecimate.so \
          $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so $(BUILD)/host/test_tokens \
          $(BUILD)/host/test_resbuild
-	$< $(BUILD)/demo.bm
+	$< $(BUILD)/carts/stages3d.bm
 	$(BUILD)/host/test_tokens carts/editor/main.lua carts/pong/main.lua
 	$(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/carts/kitchen.bm
 	$(PYTHON) tests/bm/run_glb_test.py $(BUILD)/host/test_glb $(BUILD)/glb
@@ -1494,7 +1467,7 @@ test-img2mesh: $(BUILD)/host/meshview
 # The console's bm Studio, bm Animator, bm Mesh, bm Pixel and the SDK on the
 # PC (luahost), then the files they wrote read by the Python of the build
 # (tests/studio/check_files.py) and by the kernel's parser.
-test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
+test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
 	$(BUILD)/host/luahost tests/studio/layout_host.lua .
@@ -1515,7 +1488,7 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-sd/carts/
 	$(BUILD)/host/luahost tests/studio/sdk_host.lua . $(BUILD)/sdk-sd
 	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
-	cp $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/pixel-sd/carts/
+	cp $(BUILD)/carts/village.bm $(BUILD)/carts/stages3d.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/bme/village.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
 	rm -rf $(BUILD)/humanoid-sd && mkdir -p $(BUILD)/humanoid-sd/carts $(BUILD)/humanoid-sd/bme
@@ -1523,7 +1496,7 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/humanoid-sd/bme/humanoid.bme ""
 	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/village.bm $(BUILD)/humanoid-sd
 	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
-	$(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/bme/blocks.bme
+	$(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/bme/blocks.bme
 
 # bm SDK (RGB30), the .b16 edition, on the PC: its layout, every frame inside
 # 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves,
@@ -1698,7 +1671,7 @@ test-qpucheck: $(BUILD)/host/test_qpucheck
 HOSTCC ?= cc
 
 clean:
-	rm -rf build build-stress $(DIST)
+	rm -rf build $(DIST)
 
 -include $(KERNEL_OBJS:.o=.d) $(KERNEL7_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)
 

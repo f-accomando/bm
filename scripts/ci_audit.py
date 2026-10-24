@@ -30,7 +30,7 @@ TEST_MAIN = ROOT / "tests" / "qemu_test.py"
 MAKEFILE = ROOT / "Makefile"
 
 # key (substring of the expect needle) -> minimum timeout in seconds
-KNOWN_WAITS = {"stress settle": 19}
+KNOWN_WAITS = {"3d bench: waiting": 19}
 
 # expect("needle", ... timeout=<int>): needle only if literal (no f-string)
 EXPECT_RE = re.compile(

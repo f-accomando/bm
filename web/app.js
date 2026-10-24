@@ -11,7 +11,6 @@ function App() {
 
   const PRESETS = [
     { id: "kitchen.bm", name: "Chaos Kitchen", badge: "3D + Music", desc: "Full 3D cooking game with original music & sound effects" },
-    { id: "demo.bm", name: "bm Native Demo", badge: "2D 60 FPS", desc: "256 bouncing sprites and full scrolling tile map" },
     { id: "stages3d.bm", name: "Stages 3D", badge: "3D Dungeon", desc: "Software rasterized 3D stages exploration" }
   ];
 

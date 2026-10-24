@@ -90,7 +90,7 @@ NET_SRCS += src/net/catalog.c src/net/lan.c src/kernel/market.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is
 # the Pi's (menu_ui.c, its icons) at 360x360
-BM_SRCS := $(filter-out src/bm/stress.c,$(wildcard src/bm/*.c)) \
+BM_SRCS := $(wildcard src/bm/*.c) \
            src/audio/audio.c src/audio/synth.c src/audio/player.c src/audio/n8snd.c \
            src/audio/presets.c src/audio/lua_tone.c \
            src/ai/music.c src/ai/music_net.c src/ai/lua_music.c src/ai/nn.c src/ai/net.c \

@@ -4,7 +4,6 @@
 #include "bm/runtime.h"
 #include "upload.h"
 #include "update.h"
-#include "bm/stress.h"
 #include "b3dpi.h"
 #include "home.h"
 #include "input.h"
@@ -43,9 +42,8 @@
 
 static const char help_text[] =
             "commands (games: arrows/wasd, space = A, Esc their menu; Ctrl+Esc or q leaves):\n"
-            "  M  cartridge menu, or PS on a pad (SD: / and /carts; else built-in demos)\n"
+            "  M  cartridge menu, or PS on a pad (SD: / and /carts)\n"
             "  f  list cartridges        F  re-read the SD card\n"
-            "  n  built-in native demo.bm\n"
             "  l  Lua REPL (Esc, Ctrl-D or exit() returns here)\n"
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
@@ -73,7 +71,6 @@ static const char help_text[] =
             "  D  DMA test step by step (CPU against DMA timings)\n"
             "  j  3D Bench: every 3D test with every driver, bars and a saved report\n"
             "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
-            "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
             "  t  HDMI test pattern (any key returns)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
@@ -337,20 +334,7 @@ void monitor_run(void)
         case 'l': repl_run(); break;
         case 'c': console_clear(); break;
         case 'm': sysinfo_print_heap(); break;
-        case 'n': {
-            extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
-            bm_stats_t bs;
-            bm_play(console_framebuffer(), bm_demo_cart,
-                     (size_t)(bm_demo_cart_end - bm_demo_cart), 3600, &bs);
-            bm_print_stats(&bs);
-            break;
-        }
         case 'U': upload_and_play(console_framebuffer()); break;
-        case 'S': case 's':                     /* (Start+Select, Ctrl+Esc, PS stop them: no report) */
-            home_report_begin("stress");
-            home_stress(console_framebuffer());
-            home_report_end();
-            break;
         case 'p':
             home_report_begin("render");
             bm_bench_report(console_framebuffer(), 120);

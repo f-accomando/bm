@@ -10,7 +10,7 @@ development block (a milestone), Y the step within the block. The version is in
 
 Where it shows: the GPU status line (log), *Settings > System > 3D
 driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), the
-stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d()`.
+3D Bench, the Overbit benchmark and the fourth value of `gpu3d()`.
 
 ## The versions
 

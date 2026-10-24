@@ -157,10 +157,6 @@ jobs:
       - name: Build
         run: make -j"$(nproc)"
 
-      - name: Build the stress kernel
-        if: matrix.shard == 1
-        run: make -j"$(nproc)" BOOT=stress
-
       - name: QEMU tests
         run: make test-qemu SHARD=${{ matrix.shard }}/4
 
@@ -181,7 +177,6 @@ jobs:
             build/kernel.img
             build/kernel7.img
             build/chainloader.img
-            build-stress/kernel.img
             build/screen.png
             build/diag/
           if-no-files-found: ignore

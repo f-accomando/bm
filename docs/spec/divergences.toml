@@ -164,13 +164,13 @@ action = "none"
 [[divergence]]
 id = "D14"
 area = "Dev tab extras"
-pi = "Settings > Screen: Stress test, 3D Bench. Settings > System > Utilities: DMA test"
-rgb30 = "Not built: Stress test (stress.c is excluded), DMA test. The 3D Bench is in the Dev tab. GPU test, Texture Room, Video bench, Stack bench and Diagnostics were removed from both kernels on 24 Oct 2026"
+pi = "Settings > Screen: 3D Bench. Settings > System > Utilities: DMA test"
+rgb30 = "Not built: DMA test. The 3D Bench is in the Dev tab. Stress test, GPU test, Texture Room, Video bench, Stack bench and Diagnostics were removed from both kernels on 24 Oct 2026"
 cause = "todo"
 priority = 6
 status = "open"
-evidence = "rgb30.mk:87"
-action = "Stress test comes with the Mali driver (D23); the DMA test: port when the RGB30 needs it"
+evidence = "src/kernel/home.c: tools[]"
+action = "the DMA test: port when the RGB30 needs it"
 
 [[divergence]]
 id = "D15"

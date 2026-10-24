@@ -15,7 +15,7 @@ footer: manuali bm - API giochi 1
 
 # Come funziona una cartuccia
 
-Una cartuccia `.bm` è un gioco per bm scritto in **Lua 5.4**. Il kernel disegna in C (640×360, colore RGB565 a 16 bit, 60 fotogrammi al secondo); Lua si occupa solo della logica. Esempi completi sono in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice) e `demo/` (con uno sprite sheet PNG e una mappa CSV).
+Una cartuccia `.bm` è un gioco per bm scritto in **Lua 5.4**. Il kernel disegna in C (640×360, colore RGB565 a 16 bit, 60 fotogrammi al secondo); Lua si occupa solo della logica. Esempi completi sono in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice) e `stages3d/` (con uno sprite sheet PNG e una mappa CSV).
 
 ## Le funzioni che il tuo gioco definisce
 

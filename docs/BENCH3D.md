@@ -43,9 +43,9 @@ by something else, like the network printing during a monitor line, does not mov
 starts from the **last** step under the limit: a slow step before a heavier one that fits
 had been slowed down by something else (on the Pi, on 2026-10-05, `quad_flat` with the GPU: 25 quads yes,
 33 no, 44 yes, and the report said 28.7). The time of a frame includes the copy to the
-screen, as in the stress test.
+screen, as in the old stress test (removed on 24 Oct 2026).
 
-The spheres and the quads are the scenes of the stress test, at the same resolution (640×360): this way
+The spheres and the quads are the scenes of the old stress test, at the same resolution (640×360): this way
 the Pi's numbers with the earlier drivers are the historical bars.
 
 ## The tests
