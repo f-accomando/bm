@@ -36,6 +36,10 @@ Read files in small slices (`grep`, or `offset` and `limit`). The current state 
 
 **Projects.** Change only `.bme` projects. `.bm` files are read-only.
 
+**`.bme` to `.bm` workflow.** Start each game or app change from its `.bme`. Keep the `.bme` in the repository. Build the `.bm` from the `.bme`. Upload the `.bm` to the Market if possible. If not, send it to the device. If a `.bm` exists and has no `.bme`, read the `.bm` and create its `.bme` in the repository first. Then make the change in the `.bme`.
+
+**`.bme` updates.** When you change a `.bme`, update it to the current standards and APIs that it does not use yet. Tell the user in the chat what you integrated during the update.
+
 **Units.** Write sizes as KB, MB, and GB. Each unit is a power of 1024 (1 MB = 1048576 bytes). Do not write KiB, MiB, or GiB.
 
 **Writing rules.** State each rule as an action ("do it this way"). Delete a retired rule. A negation of it keeps the old behavior in view. Add an explicit prohibition only when an action keeps harming development despite the positive rule. Write the harm next to the prohibition. Write each new or changed line of this file, and of the files it points to, in ASD-STE100: short sentences, one instruction per sentence, active voice, and imperative verbs.
