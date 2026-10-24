@@ -113,6 +113,31 @@ Friday evening (done 23 Oct):
 3. **Multitasking Stage 3-5 (Web Bench)**: Run `tests/web/pi_bench.lua` on hardware to benchmark async file writes and Range resume.
 4. **Single-bm (SYS-8)**: Proceed with adaptive screen modes (720x405, `safe_area()`, `aspect()`, bars).
 
+## Piano di lavoro: 3D High-Throughput Pipeline (50k Triangoli @ 60fps)
+Ordine di esecuzione proposto in attesa di conferma utente:
+
+### 1. Documentazione e Linee Guida di Modellazione (DOCS)
+- Aggiornamento di `manuals/content/it/api-3d.md` e `manuals/content/en/api-3d.md`:
+  - Sezione Vertex Shader + Queue: spiegazione del fast-path QPU e budget ufficiale di 50.000 triangoli @ 60 fps su Pi Zero.
+  - Regole per i creatori di giochi: preferire `model()` e `mesh()` completi invece di loop su `tri3d()`, evitare texture+screendoor sulla stessa faccia.
+  - Guida al Draw Merging per scenari a blocchi e tessere (pezzi <=150 facce, >=32 istanze).
+- Aggiornamento tabelle target in `docs/PERF-BUDGET.md`.
+
+### 2. Semplificazione API per Utenti (API)
+- Aggiunta in `bmlib`/`bm3d` di helper intuitivi per il disegno in batch:
+  - `draw3d_batch(mesh, list_of_transforms)`: disegna N istanze dello stesso modello in un'unica operazione C/GPU, massimizzando il throughput senza overhead di chiamate ripetute da Lua.
+  - Funzione helper di istanziazione rapida per griglie di tessere / blocchi ripetuti.
+
+### 3. Ottimizzazione degli Editor di bm (TOOLS)
+- In bm Studio e bm Mesh:
+  - Aggiunta nel viewport di un contatore triangoli con budget bar visiva calibrata sui 50k tris @ 60fps del Pi Zero.
+  - Strumento "Merge Static" in bm Studio: unisce blocchi scenici statici adiacenti con la stessa texture in un'unica mesh ottimizzata prima del salvataggio.
+  - Validazione rapida all'esportazione contro pattern non ottimali per la GPU.
+
+### 4. Aggiornamento e Test di `herocart.bm` (BENCH & VERIFICA)
+- Aggiornare `herocart.bm` per implementare il nuovo standard di rendering ad alto throughput (hero con scheletro + cel-shading + istanze multiple di eroi e scenari densi).
+- Deploy e test dal vivo su Pi Zero per confermare stabilmente i 50k tris @ 60fps in gameplay reale con animazioni e camera interattiva.
+
 ## Never delete
 `bm-core`, `reports`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
 
