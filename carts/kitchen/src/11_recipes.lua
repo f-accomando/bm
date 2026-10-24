@@ -77,6 +77,65 @@ function Food.main_ing(key)
   return best
 end
 
+-- maps a food key to its 16x16 icon index on the sheet
+function Food.icon_num(key)
+  if not key then return nil end
+  if key == "burnt" then return Hud.IC.burnt or 72 end
+  if key == "ext" then return Hud.IC.ext or 73 end
+  local k = Food.parse(key)
+  if k.ing then
+    local g = Data.ING[k.ing]
+    if not g then return nil end
+    return k.chopped and (g.icon + 32) or g.icon
+  end
+  if k.proc and #k.kids == 1 and Food.parse(k.kids[1]).ing then
+    local kk = Food.parse(k.kids[1])
+    local g = Data.ING[kk.ing]
+    if g then return g.icon + 32 end
+  end
+  if k.proc == "boil" then return Hud.IC.dish_soup or Hud.IC.bowl or 71
+  elseif k.proc == "fry" then return Hud.IC.dish_fry or Hud.IC.pan or 66
+  elseif k.proc == "bake" then return Hud.IC.dish_bake or Hud.IC.oven or 67
+  elseif k.proc == "blend" then return Hud.IC.dish_smoothie or Hud.IC.blender or 68 end
+  local main = Food.main_ing(key)
+  if main and Data.ING[main] then
+    return Data.ING[main].icon + 32
+  end
+  return Hud.IC.plate or 69
+end
+
+-- maps a finished recipe to its dedicated plated dish sprite
+function Food.dish_icon_for_recipe(r)
+  if not r then return nil end
+  local id = r.id
+  if id:find("soup") then return Hud.IC.dish_soup or 108
+  elseif id:find("salad") then return Hud.IC.dish_salad or 109
+  elseif id:find("burger") or id:find("sand") or id:find("bun") or id:find("sizzle") or id:find("toast") then
+    return Hud.IC.dish_burger or 110
+  elseif id:find("pasta") then return Hud.IC.dish_pasta or 111
+  elseif id:find("bake") or id:find("pot") or id:find("pizza") or id:find("pie") or id:find("tart") then
+    return Hud.IC.dish_bake or 112
+  elseif id:find("smoothie") or id:find("blend") or id:find("shake") then
+    return Hud.IC.dish_smoothie or 113
+  elseif id:find("rice") or id:find("curry") then
+    return Hud.IC.dish_rice or 115
+  else
+    return Hud.IC.dish_fry or 114
+  end
+end
+
+local sig_to_dish = {}
+function Food.init_dish_icons()
+  for _, r in ipairs(Data.RECIPES) do
+    local sig = Food.plate_sig(r.parts)
+    sig_to_dish[sig] = Food.dish_icon_for_recipe(r)
+  end
+end
+
+function Food.dish_icon(sig)
+  return sig_to_dish[sig]
+end
+
 ---------------------------------------------------------------- recipes
 
 -- tier: 1 easy .. 4 very hard; world: where it first appears

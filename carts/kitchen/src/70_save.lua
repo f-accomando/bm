@@ -14,6 +14,8 @@ local function defaults()
     endless = { time = 0, money = 0, served = 0 },
     stats = {},             -- counter name -> number
     music = true, sound = true,
+    res = "640x360",
+    food_sprites = true,
   }
 end
 
@@ -25,6 +27,7 @@ function Save.load()
   Save.data = d
   Snd.music_on = d.music ~= false
   Snd.on = d.sound ~= false
+  G.food_sprites = d.food_sprites ~= false
 end
 
 function Save.write()

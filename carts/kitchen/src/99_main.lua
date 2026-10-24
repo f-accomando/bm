@@ -3,12 +3,18 @@
 function _init()
   math.randomseed(stat(3) + floor(time() * 1000))
   Save.load()
+  if Save.data.res == "1280x720" and screen then
+    screen(1280, 720)
+  end
+  update_screen_size()
+  Food.init_dish_icons()
   Mesh.init()
   Snd.init()
   Scr.go("title")
 end
 
 function _update()
+  update_screen_size()
   G.frame = G.frame + 1
   G.t = G.t + DT
   -- Select toggles the frame-time readout (to check the speed on the Pi)

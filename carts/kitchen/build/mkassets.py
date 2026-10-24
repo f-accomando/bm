@@ -180,148 +180,205 @@ def hl(x, y):
 def draw_raw(ing, c1, c2):
     if ing == "tomato":
         S.circle(8, 9.5, 6, c1)
-        S.circle(6.5, 8, 1.5, shade(c1, 1.25))
-        for x, y in ((6, 3), (7, 4), (8, 3), (9, 4), (10, 3)):
+        S.circle(8, 10.5, 4.5, shade(c1, 0.85))
+        S.circle(6.5, 7.5, 2, shade(c1, 1.25))
+        hl(5, 6)
+        # green calyx
+        for x, y in ((6, 3), (7, 4), (8, 2), (9, 4), (10, 3), (8, 4)):
             S.set(x, y, c2)
-        hl(5, 7)
+        S.set(8, 1, shade(c2, 0.75))
     elif ing == "onion":
-        S.poly([(8, 1.5), (13.5, 9), (12, 14), (4, 14), (2.5, 9)], c1)
-        S.ellipse(8, 10, 5.5, 4.5, c1)
-        S.line(8, 4, 8, 13, shade(c1, 0.8))
-        S.line(5.5, 7, 5, 13, shade(c1, 0.85))
-        S.line(10.5, 7, 11, 13, shade(c1, 0.85))
-        S.set(8, 1, 0x80A040)
+        S.poly([(8, 1.5), (13.5, 8), (12, 14), (4, 14), (2.5, 8)], c1)
+        S.ellipse(8, 9.5, 5.5, 4.5, c1)
+        S.ellipse(8, 10.5, 4, 3, shade(c1, 0.9))
+        S.line(8, 4, 8, 13, shade(c1, 0.75))
+        S.line(5.5, 7, 5, 13, shade(c1, 0.8))
+        S.line(10.5, 7, 11, 13, shade(c1, 0.8))
+        S.set(8, 1, 0x80C040)
+        S.set(8, 2, 0x60A030)
     elif ing == "potato":
         S.ellipse(8, 9, 7, 5, c1)
-        for x, y in ((5, 7), (10, 9), (7, 11), (11, 6)):
-            S.set(x, y, shade(c1, 0.7))
+        S.ellipse(7.5, 8.5, 5.5, 3.5, shade(c1, 1.15))
+        for x, y in ((5, 7), (10, 9), (7, 11), (11, 6), (4, 10)):
+            S.set(x, y, shade(c1, 0.65))
+            S.set(x + 1, y, shade(c1, 0.8))
         hl(5, 6)
     elif ing == "carrot":
         S.poly([(3, 13), (6, 6), (11, 3.5), (12.5, 5), (10, 10)], c1)
-        for x, y in ((11, 2), (12, 1), (13, 3), (14, 2), (12, 3)):
+        S.poly([(5, 11), (7, 7), (10, 5), (11, 6), (9, 9)], shade(c1, 1.15))
+        for x, y in ((11, 2), (12, 1), (13, 3), (14, 2), (12, 3), (10, 2)):
             S.set(x, y, c2)
-        S.line(6, 9, 8, 8, shade(c1, 0.8))
-        S.line(8, 6, 10, 5, shade(c1, 0.8))
+        S.line(5, 10, 8, 8, shade(c1, 0.75))
+        S.line(8, 6, 10, 5, shade(c1, 0.75))
     elif ing == "mushroom":
         S.ellipse(8, 7.5, 7, 4.5, c1)
         S.rect(1, 8, 14, 3, (0, 0, 0, 0))
         S.rect(6, 8, 4, 6, c2)
+        S.rect(6, 13, 4, 1, shade(c2, 0.8))
         S.ellipse(8, 7.5, 6.5, 3.5, c1)
-        S.rect(2, 8, 12, 1, shade(c1, 0.8))
+        S.circle(5, 6, 1.2, 0xFFFFFF)
+        S.circle(10, 5.5, 1.2, 0xFFFFFF)
+        S.circle(8, 7.5, 1, 0xFFFFFF)
+        S.rect(2, 8, 12, 1, shade(c1, 0.75))
         hl(5, 5)
     elif ing == "lettuce":
         S.circle(8, 9, 6.5, c1)
-        S.circle(8, 9, 4, c2)
+        S.circle(8, 9, 4.5, c2)
+        S.circle(8, 9, 2.5, shade(c2, 1.15))
         S.line(8, 5, 8, 13, c1)
-        S.line(5, 8, 11, 11, shade(c2, 0.85))
+        S.line(5, 8, 11, 11, shade(c2, 0.8))
+        S.line(11, 7, 5, 11, shade(c2, 0.8))
     elif ing == "cucumber":
         S.line(3, 12, 12, 3, c1, 5)
+        S.line(4, 11, 11, 4, shade(c1, 1.2), 3)
         for x, y in ((5, 9), (8, 7), (10, 5), (7, 10)):
             S.set(x, y, c2)
+        S.circle(12, 3, 2, c2)
+        S.set(12, 3, shade(c2, 0.7))
     elif ing == "cheese":
         S.poly([(2, 12), (14, 12), (14, 7), (4, 5)], c1)
-        S.poly([(4, 5), (14, 7), (13, 5)], c2)
-        S.circle(7, 9, 1.2, shade(c1, 0.8))
-        S.circle(11, 10, 1, shade(c1, 0.8))
+        S.poly([(4, 5), (14, 7), (13, 4.5), (3, 4.5)], c2)
+        S.poly([(2, 12), (4, 5), (3, 4.5), (1, 11)], shade(c1, 0.85))
+        S.circle(7, 9, 1.5, shade(c1, 0.75))
+        S.set(7, 9, shade(c1, 0.6))
+        S.circle(11, 10, 1.2, shade(c1, 0.75))
+        S.set(11, 10, shade(c1, 0.6))
+        S.circle(9, 6, 0.8, shade(c2, 0.8))
     elif ing == "bread":
         S.ellipse(8, 8, 7, 5, c1)
         S.rect(1, 8, 14, 5, c1)
+        S.ellipse(8, 12, 6, 2, shade(c1, 0.8))
         S.line(4, 6, 6, 8, c2)
         S.line(7, 5, 9, 7, c2)
         S.line(10, 5, 12, 7, c2)
+        hl(5, 5); hl(8, 4); hl(11, 4)
     elif ing == "rice":
-        S.poly([(2, 8), (14, 8), (12, 14), (4, 14)], 0x4A7AC8)
-        S.ellipse(8, 8, 6, 3, c1)
-        for x, y in ((6, 6), (9, 6), (7, 7), (10, 7)):
+        S.poly([(2, 8), (14, 8), (12, 14), (4, 14)], 0x3868B8)
+        S.rect(2, 8, 12, 1, 0x5888D8)
+        S.ellipse(8, 7.5, 6, 3, c1)
+        for x, y in ((6, 6), (9, 6), (7, 7), (10, 7), (5, 7), (8, 8)):
             S.set(x, y, 0xD8D0C0)
     elif ing == "pasta":
         for i in range(5):
             S.line(3 + i * 2, 14, 7 + i * 1.2, 2, c1)
+            S.line(3 + i * 2, 13, 7 + i * 1.2, 3, shade(c1, 1.15))
         S.rect(3, 7, 10, 2, c2)
+        S.rect(4, 7, 8, 1, shade(c2, 1.2))
     elif ing == "egg":
         S.ellipse(8, 9, 5, 6, c1)
-        hl(6, 6)
-        S.set(6, 7, 0xFFFFFF)
+        S.ellipse(7.5, 8.5, 3.8, 4.8, 0xFFFFFF)
+        S.ellipse(8.5, 10, 4, 4.5, shade(c1, 0.92))
+        hl(6, 6); S.set(6, 7, 0xFFFFFF); S.set(7, 6, 0xFFFFFF)
     elif ing == "flour":
         S.poly([(3, 5), (13, 5), (14, 14), (2, 14)], c1)
+        S.poly([(4, 6), (12, 6), (13, 13), (3, 13)], 0xFFFFFF)
         S.rect(5, 2, 6, 3, c2)
-        S.rect(6, 8, 4, 1, c2)              # an F on the sack
-        S.rect(6, 8, 1, 4, c2)
-        S.rect(6, 10, 3, 1, c2)
+        S.line(4, 4, 12, 4, 0x8A6030) # tied string
+        S.rect(6, 8, 4, 1, 0x3A70B0)  # blue F stamp
+        S.rect(6, 8, 1, 4, 0x3A70B0)
+        S.rect(6, 10, 3, 1, 0x3A70B0)
     elif ing == "milk":
         S.rect(5, 5, 6, 10, c1)
         S.poly([(5, 5), (11, 5), (9, 2), (7, 2)], c1)
-        S.rect(7, 1, 2, 2, c2)
-        S.rect(5, 8, 6, 4, c2)
+        S.rect(7, 1, 2, 2, 0xD03040)  # red cap
+        S.rect(5, 8, 6, 4, c2)        # blue label
+        S.rect(6, 9, 4, 2, 0xFFFFFF)
     elif ing == "butter":
         S.poly([(2, 9), (10, 12), (14, 9), (6, 6)], c2)
         S.poly([(2, 9), (10, 12), (10, 14), (2, 11)], c1)
-        S.poly([(10, 12), (14, 9), (14, 11), (10, 14)], shade(c1, 0.85))
+        S.poly([(10, 12), (14, 9), (14, 11), (10, 14)], shade(c1, 0.82))
+        S.line(2, 9, 10, 12, 0xFFFFFF) # highlight bevel
     elif ing == "chicken":
-        S.ellipse(9, 7, 5, 4.5, c1)
+        S.ellipse(9, 7, 5.5, 4.5, c1)
+        S.ellipse(9, 7.5, 4, 3.5, shade(c1, 1.15))
         S.line(6, 10, 3, 13, 0xF8F0E8, 2)
-        S.circle(2.5, 13.5, 1.3, 0xF8F0E8)
+        S.circle(2.5, 13.5, 1.5, 0xF8F0E8)
         hl(8, 5)
     elif ing == "beef":
         S.ellipse(8, 9, 7, 5, c1)
+        S.ellipse(7.5, 8.5, 5.5, 3.5, shade(c1, 1.15))
         S.line(3, 8, 12, 10, c2)
-        S.circle(11, 8, 1.5, c2)
+        S.circle(11, 8, 1.8, c2)
+        S.set(11, 8, 0xF8F0E8) # bone center
     elif ing == "fish":
         S.ellipse(7, 8, 6, 3.5, c1)
+        S.ellipse(6.5, 7.5, 4.5, 2.2, shade(c1, 1.25))
         S.poly([(12, 8), (15, 4), (15, 12)], c1)
-        S.ellipse(7, 9, 5, 1.5, c2)
+        S.ellipse(7, 9.5, 5, 1.5, c2)
         S.set(4, 7, 0x101010)
+        hl(4, 6) # glistening eye
     elif ing == "shrimp":
         for i in range(8):
             a = math.pi * (0.1 + i / 7 * 1.3)
             S.circle(8 + math.cos(a) * 4.5, 9 - math.sin(a) * 4.5, 2 - i * 0.12, c1 if i % 2 else c2)
+        S.set(12, 10, 0x101010) # eye
     elif ing == "sausage":
         S.line(3, 11, 13, 5, c1, 5)
-        S.line(5, 9, 10, 6, c2)
+        S.line(3, 10, 12, 4, shade(c1, 1.2), 3)
+        S.line(5, 9, 6, 11, shade(c1, 0.6))
+        S.line(8, 7, 9, 9, shade(c1, 0.6))
+        S.line(11, 5, 12, 7, shade(c1, 0.6))
     elif ing == "herbs":
-        S.line(8, 15, 8, 5, 0x207020)
+        S.line(8, 15, 8, 4, 0x207020)
         for x, y, r in ((5, 6, 2.5), (11, 6, 2.5), (8, 3, 2.5), (5, 11, 2), (11, 11, 2)):
             S.circle(x, y, r, c1)
+            S.circle(x, y, r - 1, shade(c1, 1.25))
         S.set(8, 3, c2)
     elif ing == "fruit":
         S.circle(8, 9.5, 6, c1)
+        S.circle(7, 9, 4.5, shade(c1, 1.18))
         S.ellipse(10, 3.5, 2.5, 1.5, c2)
         S.line(8, 3, 8, 5, 0x6A4A20)
-        hl(5, 7)
+        hl(5, 6); S.set(6, 6, 0xFFFFFF)
     elif ing == "chocolate":
         S.rect(3, 3, 10, 11, c1)
         for x in (3, 8):
             for y in (3, 7, 11):
                 S.rect(x + 1, y + 1, 3, 2, c2)
+                S.line(x + 1, y + 1, x + 3, y + 1, shade(c2, 1.25))
     S.outline()
 
 
 def draw_chopped(ing, c1, c2, look):
     if look in ("slices", "rings"):
-        for cx, cy in ((5, 6), (10, 8), (6, 11)):
-            S.circle(cx, cy, 3.3, c1)
-            S.circle(cx, cy, 2.2, c2)
+        for cx, cy in ((5, 6), (10, 7.5), (6, 11.5)):
+            S.circle(cx, cy, 3.4, c1)
+            S.circle(cx, cy, 2.3, c2)
             if look == "rings":
-                S.circle(cx, cy, 1, c1)
+                S.circle(cx, cy, 1.2, (0, 0, 0, 0))
+            else:
+                S.circle(cx - 0.7, cy - 0.7, 0.9, shade(c2, 1.2))
     elif look == "leaves":
-        S.poly([(2, 6), (8, 3), (7, 9)], c1)
-        S.poly([(8, 8), (14, 6), (12, 13)], c1)
-        S.poly([(3, 10), (8, 11), (5, 14)], c2)
+        S.poly([(2, 6), (8, 2.5), (7, 9)], c1)
+        S.poly([(8, 8), (14, 5.5), (12, 13)], c1)
+        S.poly([(3, 9.5), (8, 11), (5, 14)], c2)
+        S.line(3, 8, 7, 5, shade(c1, 1.25))
+        S.line(8, 10, 13, 7, shade(c1, 1.25))
     elif look == "patty":
-        S.ellipse(8, 9, 6.5, 4, c1)
-        S.ellipse(8, 8, 5, 2.5, c2)
+        S.ellipse(8, 9, 6.5, 4.2, c1)
+        S.ellipse(8, 8.5, 5, 2.8, c2)
+        S.ellipse(7.5, 8, 4, 1.8, shade(c2, 1.15))
+        # grill marks
+        S.line(5, 7, 7, 10, shade(c1, 0.6))
+        S.line(8, 7, 10, 10, shade(c1, 0.6))
     elif look == "fillet":
         S.poly([(2, 7), (13, 5), (14, 10), (3, 12)], c2)
+        S.line(2, 7, 13, 5, 0xE0E8F0, 1) # shiny fish skin top
         S.line(3, 9, 13, 7, c1)
+        S.line(4, 10.5, 12, 8.5, shade(c1, 0.85))
     elif look == "dough":
         S.ellipse(8, 10, 6.5, 4.5, c1)
+        S.ellipse(7.5, 9, 5, 3, shade(c1, 1.15))
         S.set(6, 8, 0xFFFFFF)
         S.set(10, 9, 0xFFFFFF)
     else:
-        for x, y in ((2, 4), (9, 3), (5, 9), (10, 10)):
+        # diced cubes: 3D isometric look
+        for x, y in ((2, 3), (9, 2), (4, 9), (10, 9)):
             S.rect(x, y, 4, 4, c2)
-            S.rect(x, y, 4, 1, c1)
-            S.rect(x + 3, y, 1, 4, shade(c2, 0.8))
+            S.rect(x, y, 4, 1, shade(c1, 1.25))
+            S.rect(x, y + 1, 1, 3, shade(c1, 1.1))
+            S.rect(x + 3, y + 1, 1, 3, shade(c2, 0.75))
+            S.rect(x, y + 3, 3, 1, shade(c2, 0.75))
     S.outline()
 
 
@@ -342,6 +399,7 @@ SYMBOLS = [
     "star0", "heart", "heart0", "clock", "fire", "drop", "rat", "duck", "ghost", "tornado", "steam", "lock",
     "check", "cross", "arrow", "bA", "bB", "bX", "bY", "register",
     "up", "snow", "wrench", "heart2", "trophy", "skull", "bell", "speed", "shield", "box", "knife2", "book",
+    "dish_soup", "dish_salad", "dish_burger", "dish_pasta", "dish_bake", "dish_smoothie", "dish_fry", "dish_rice",
 ]
 
 
@@ -496,6 +554,54 @@ def symbol(name):
         S.rect(2, 2, 12, 12, 0xC04040)
         S.rect(4, 3, 9, 10, 0xF8F0E0)
         S.rect(2, 2, 2, 12, 0x802020)
+    elif name == "dish_soup":
+        S.poly([(2, 7), (14, 7), (12, 13), (4, 13)], 0x3A78C8)
+        S.ellipse(8, 7, 5.5, 2, 0xE85028)
+        S.circle(6, 7, 1, 0x40B030)
+        S.circle(10, 7, 1, 0xF09020)
+        for x, y in ((6, 4), (8, 2), (10, 4)):
+            S.set(x, y, 0xFFFFFF)
+    elif name == "dish_salad":
+        S.poly([(2, 8), (14, 8), (12, 13), (4, 13)], 0x8A5228)
+        S.circle(6, 6, 2.5, 0x48B830)
+        S.circle(10, 6, 2.5, 0x60D840)
+        S.circle(8, 5, 2, 0xE83020)
+        S.set(8, 5, 0xFFFFFF)
+        S.circle(11, 7, 1.5, 0x309020)
+    elif name == "dish_burger":
+        S.ellipse(8, 4.5, 6, 3, 0xD89448)
+        S.set(6, 4, 0xFFF0D0); S.set(9, 4, 0xFFF0D0)
+        S.rect(2, 7, 12, 2, 0x40C030)
+        S.rect(3, 8.5, 10, 1.5, 0xE83020)
+        S.rect(2, 10, 12, 2, 0xF8D030)
+        S.rect(2, 11, 12, 2, 0x6A3418)
+        S.ellipse(8, 13, 5.5, 2, 0xC88038)
+    elif name == "dish_pasta":
+        S.ellipse(8, 9, 7, 4, 0xF0F4F8)
+        S.ellipse(8, 9, 5, 2.5, 0xF4D050)
+        S.circle(8, 8.5, 2.5, 0xD83020)
+        S.circle(7, 8, 1, 0x30A830)
+    elif name == "dish_bake":
+        S.poly([(2, 7), (14, 7), (12, 13), (4, 13)], 0x9098A0)
+        S.ellipse(8, 7, 6, 3, 0xE09438)
+        S.ellipse(8, 6.5, 4.5, 2, 0xF0B058)
+        S.line(6, 6, 7, 7, 0x8A4018)
+        S.line(9, 6, 10, 7, 0x8A4018)
+    elif name == "dish_smoothie":
+        S.poly([(4, 2), (12, 2), (10, 12), (6, 12)], 0xE84078)
+        S.rect(5, 12, 6, 2, 0xD0E8F8)
+        S.rect(7, 1, 2, 12, 0xF0E040)
+        S.circle(11, 3, 1.5, 0x30C040)
+    elif name == "dish_fry":
+        S.ellipse(8, 9, 6.5, 4, 0xD88828)
+        S.circle(6, 8, 2.5, 0xF0B048)
+        S.circle(10, 9, 2.5, 0xE09830)
+        S.poly([(10, 5), (14, 5), (12, 8)], 0xF8E830)
+    elif name == "dish_rice":
+        S.poly([(3, 7), (13, 7), (11, 13), (5, 13)], 0x8A3030)
+        S.circle(8, 6, 4.5, 0xF8F8FA)
+        S.rect(7, 5, 3, 2, 0x1A2820)
+        S.set(6, 6, 0x2A2018); S.set(10, 6, 0x2A2018)
     S.outline()
 
 
@@ -706,36 +812,70 @@ KITCHEN_TEX = [tex_wood_top, tex_cabinet, tex_stove_top, tex_stove_front, tex_ov
 # ---------------------------------------------------------------- cover
 
 def cover():
-    C = Img(128, 80, 0x6AB8D8)
-    for y in range(80):
-        t = y / 79
+    C = Img(128, 80, 0x4A2418)
+    # warm ambient kitchen wall gradient
+    for y in range(46):
+        t = y / 45
         for x in range(128):
-            C.set(x, y, mix(0x5AA8E0, 0xF0E0C0, t))
-    # a checked floor in perspective
-    for y in range(44, 80):
+            C.set(x, y, mix(0x281830, 0xE8A048, t))
+    # perspective checkered floor
+    for y in range(46, 80):
         for x in range(128):
-            depth = 1 / (y - 36)
-            u = int((x - 64) * depth * 8 + 100)
-            v = int(depth * 60)
-            C.set(x, y, 0xEADCC0 if (u + v) % 2 else 0xD6C29E)
-    # a pot with steam
-    C.rect(48, 44, 32, 20, 0xA0A8B0)
-    C.rect(46, 42, 36, 4, 0x707880)
-    C.ellipse(64, 44, 15, 3, 0xE85030)
-    for i, x in enumerate((54, 64, 74)):
-        for y in range(28, 40):
-            C.set(x + round(math.sin(y * 0.7 + i) * 2), y, 0xFFFFFF)
-    # four little chef heads
-    for i, (x, c) in enumerate(((14, 0xFFFFFF), (34, 0xE04830), (100, 0x30B060), (118, 0x3A70E0))):
-        C.circle(x, 58, 6, SKIN)
-        C.rect(x - 5, 49, 10, 4, c)
-        C.rect(x - 3, 57, 2, 2, 0x1C1C24)
-        C.rect(x + 1, 57, 2, 2, 0x1C1C24)
-    for dx, dy in ((1, 1), (-1, 0), (1, 0), (0, -1), (0, 1)):
-        C.text("CHAOS", 24 + dx, 2 + dy, 0x401008, 1)
-        C.text("KITCHEN", 36 + dx, 14 + dy, 0x401008, 1)
-    C.text("CHAOS", 24, 2, 0xFFD040)
-    C.text("KITCHEN", 36, 14, 0xFF6040)
+            depth = 1 / (y - 38)
+            u = int((x - 64) * depth * 9 + 100)
+            v = int(depth * 70)
+            C.set(x, y, 0xF4E8D0 if (u + v) % 2 else 0xB84830)
+    # counter top / stove edge
+    C.rect(0, 44, 128, 3, 0x302018)
+    C.rect(0, 45, 128, 1, 0x685040)
+    # central cooking pot with gleaming copper sheen & bubbling stew
+    C.rect(46, 42, 36, 22, 0x401810)
+    C.rect(48, 44, 32, 19, 0xC85020)
+    C.rect(48, 44, 32, 2, 0xF08040) # highlight rim
+    C.rect(45, 42, 38, 3, 0xE07030)
+    C.ellipse(64, 44, 15, 3.5, 0xE83020) # boiling sauce
+    C.circle(60, 44, 1.5, 0xF8D030)     # bubble
+    C.circle(68, 44, 1.2, 0xF8D030)     # bubble
+    # pot handles
+    C.rect(43, 47, 4, 4, 0x401810)
+    C.rect(81, 47, 4, 4, 0x401810)
+    # swirling steam
+    for i, x in enumerate((52, 64, 76)):
+        for y in range(25, 40):
+            C.set(x + round(math.sin(y * 0.65 + i * 2) * 2.5), y, 0xFFFFFF)
+            C.set(x + round(math.sin(y * 0.65 + i * 2) * 2.5) + 1, y, 0xF0E8E0)
+    # flying ingredients
+    # flying tomato (left)
+    C.circle(32, 28, 4, 0xE03020)
+    C.set(30, 26, 0xFFFFFF)
+    C.set(32, 24, 0x40C030)
+    # flying cheese wedge (right)
+    C.poly([(92, 26), (101, 29), (96, 34)], 0xF8D030)
+    C.circle(95, 30, 1, 0xD8A020)
+    # flying mushroom (upper right)
+    C.ellipse(82, 18, 4, 2.5, 0xC8A078)
+    C.rect(81, 19, 2, 3, 0xF0E8D8)
+    # four little chef heads with bandanas and chef hats
+    for i, (x, c) in enumerate(((14, 0x3C8CFF), (36, 0xFF5040), (96, 0x40D060), (116, 0xFF60C0))):
+        C.circle(x, 60, 6, SKIN)
+        # chef hat puff
+        C.circle(x, 48, 4.5, 0xFFFFFF)
+        C.circle(x - 3, 50, 3.5, 0xF0F0F0)
+        C.circle(x + 3, 50, 3.5, 0xF0F0F0)
+        # colored headband
+        C.rect(x - 5, 52, 11, 4, c)
+        # cute eyes
+        C.rect(x - 3, 59, 2, 2, 0x1C1C24)
+        C.rect(x + 1, 59, 2, 2, 0x1C1C24)
+        # smile
+        C.set(x - 1, 63, 0x904030)
+        C.set(x, 63, 0x904030)
+    # title with dark 3D drop shadow and golden gradient
+    for dx, dy in ((2, 2), (2, 1), (1, 2), (0, 2), (2, 0), (-1, 0), (1, 0), (0, -1), (0, 1)):
+        C.text("CHAOS", 25 + dx, 3 + dy, 0x200804, 1)
+        C.text("KITCHEN", 37 + dx, 15 + dy, 0x200804, 1)
+    C.text("CHAOS", 25, 3, 0xFFD040)
+    C.text("KITCHEN", 37, 15, 0xFF6040)
     write_png(os.path.join(HERE, "cover.png"), 128, 80, C.px, alpha=False)
 
 

@@ -96,12 +96,37 @@ local function draw_item(it, x, y, z, yaw, scale)
   if it.plate then
     draw3d(Mesh.plate, x, y, z, 0, yaw or 0, 0, scale)
     local n = #it.parts
-    for i, key in ipairs(it.parts) do
-      local m = Mesh.item(key)
-      if m then
-        local r = n > 1 and 0.1 * scale or 0
-        local a = i / n * TAU + (yaw or 0)
-        draw3d(m, x + sin(a) * r, y + 0.035 * scale, z + cos(a) * r, 0, (yaw or 0) + i, 0, 0.75 * scale)
+    if n > 0 then
+      local use_sprites = (G.food_sprites ~= false) and (sprite3d ~= nil)
+      if use_sprites then
+        local sig = Food.plate_sig(it.parts)
+        local dish = Food.dish_icon(sig)
+        if dish and n > 1 then
+          local sx = (dish % 32) * 16
+          local sy = (dish // 32) * 16
+          sprite3d(sx, sy, 16, 16, x, y + 0.14 * scale, z, 0.44 * scale)
+        else
+          for i, key in ipairs(it.parts) do
+            local ic = Food.icon_num(key)
+            if ic then
+              local sx = (ic % 32) * 16
+              local sy = (ic // 32) * 16
+              local r = n > 1 and (0.08 * scale) or 0
+              local a = (i / n) * TAU + (yaw or 0)
+              local py = y + (0.10 + i * 0.02) * scale
+              sprite3d(sx, sy, 16, 16, x + sin(a) * r, py, z + cos(a) * r, 0.34 * scale)
+            end
+          end
+        end
+      else
+        for i, key in ipairs(it.parts) do
+          local m = Mesh.item(key)
+          if m then
+            local r = n > 1 and 0.1 * scale or 0
+            local a = i / n * TAU + (yaw or 0)
+            draw3d(m, x + sin(a) * r, y + 0.035 * scale, z + cos(a) * r, 0, (yaw or 0) + i, 0, 0.75 * scale)
+          end
+        end
       end
     end
   elseif it.dirty then
@@ -109,8 +134,18 @@ local function draw_item(it, x, y, z, yaw, scale)
       draw3d(Mesh.dplate, x, y + i * 0.04 * scale, z, 0, i * 0.7, 0, scale)
     end
   elseif it.key then
-    local m = Mesh.item(it.key)
-    if m then draw3d(m, x, y, z, 0, yaw or 0, 0, scale) end
+    local use_sprites = (G.food_sprites ~= false) and (it.key ~= "ext") and (sprite3d ~= nil)
+    if use_sprites then
+      local ic = Food.icon_num(it.key)
+      if ic then
+        local sx = (ic % 32) * 16
+        local sy = (ic // 32) * 16
+        sprite3d(sx, sy, 16, 16, x, y + 0.18 * scale, z, 0.44 * scale)
+      end
+    else
+      local m = Mesh.item(it.key)
+      if m then draw3d(m, x, y, z, 0, yaw or 0, 0, scale) end
+    end
   end
 end
 Ren.draw_item = draw_item
@@ -271,8 +306,19 @@ local function draw_station_top(run, st)
         draw3d(Mesh.soup_disc(c), x, y + lvl + boil, z)
       elseif k == "pan" then
         local key = b.burnt and "burnt" or (b.done and b.out) or b.items[1]
-        local m = Mesh.item(key)
-        if m then draw3d(m, x, y + 0.06, z, 0, G.t * 0.5, 0, 0.9) end
+        local use_sprites = (G.food_sprites ~= false) and (sprite3d ~= nil)
+        if use_sprites then
+          local ic = Food.icon_num(key)
+          if ic then
+            local sx = (ic % 32) * 16
+            local sy = (ic // 32) * 16
+            local sizzle = b.done and not b.burnt and (sin(G.t * 25) * 0.015) or 0
+            sprite3d(sx, sy, 16, 16, x, y + 0.13 + sizzle, z, 0.40)
+          end
+        else
+          local m = Mesh.item(key)
+          if m then draw3d(m, x, y + 0.06, z, 0, G.t * 0.5, 0, 0.9) end
+        end
       elseif k == "oven" or k == "blender" then
         -- inside: shown by the bubble above
       end
@@ -297,8 +343,9 @@ end
 function Ren.world(run)
   local world = run.world
   -- sky: bands from the world colour to a lighter one
+  local bh = ceil(H / 6)
   for i = 0, 5 do
-    rectfill(0, i * 60, W, 60, mix_rgb(world.sky, 0xFFFFFF, i * 0.07))
+    rectfill(0, i * bh, W, bh + 1, mix_rgb(world.sky, 0xFFFFFF, i * 0.07))
   end
   zclear()
   local sx, sy = 0, 0

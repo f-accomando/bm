@@ -920,7 +920,7 @@ local STAT_NAMES = {
   { "wasted", "food binned" },
 }
 local opt = { sel = 1 }
-local OPTS = { "MUSIC", "SOUND", "CHEFS", "KITCHEN", "ALL KITCHENS", "BACK" }
+local OPTS = { "RESOLUTION", "FOOD", "MUSIC", "SOUND", "CHEFS", "KITCHEN", "ALL KITCHENS", "BACK" }
 
 screens.options = {
   enter = function() opt.sel = 1 end,
@@ -930,7 +930,21 @@ screens.options = {
     local m = OPTS[opt.sel]
     local flip = btnp(BA) or Pad.nav(nil, "x") ~= 0
     local sd = Save.data
-    if flip and m == "MUSIC" then
+    if flip and m == "RESOLUTION" then
+      local is_720 = (W == 1280 and H == 720) or (sd.res == "1280x720")
+      if is_720 then
+        sd.res = "640x360"
+        if screen then screen(640, 360) end
+      else
+        sd.res = "1280x720"
+        if screen then screen(1280, 720) end
+      end
+      Snd.ui_ok()
+    elseif flip and m == "FOOD" then
+      sd.food_sprites = not (sd.food_sprites ~= false)
+      G.food_sprites = sd.food_sprites
+      Snd.ui_ok()
+    elseif flip and m == "MUSIC" then
       sd.music = not (sd.music ~= false)
       Snd.music_on = sd.music
       if not sd.music then Snd.stop_song() end
@@ -959,34 +973,41 @@ screens.options = {
   end,
   draw = function()
     cls(0x201C2C)
-    text_cs("OPTIONS", W / 2, 6, 0xFFD040, 2, 0x000000)
+    text_cs("OPTIONS", W / 2, 4, 0xFFD040, 2, 0x000000)
     local sd = Save.data
-    local vals = { sd.music ~= false and "ON" or "OFF", sd.sound ~= false and "ON" or "OFF",
-                   sd.classic_chefs and "CLASSIC" or "MODELS", sd.flat_kitchen and "FLAT" or "TEXTURED",
-                   G.all_open and "OPEN" or "NORMAL", "" }
+    local vals = {
+      (W == 1280 and H == 720 or sd.res == "1280x720") and "720p" or "360p",
+      (sd.food_sprites ~= false) and "SPRITES" or "3D",
+      sd.music ~= false and "ON" or "OFF", sd.sound ~= false and "ON" or "OFF",
+      sd.classic_chefs and "CLASSIC" or "MODELS", sd.flat_kitchen and "FLAT" or "TEXTURED",
+      G.all_open and "OPEN" or "NORMAL", ""
+    }
+    local panel_w = min(360, W - 40)
     for i, m in ipairs(OPTS) do
-      local y = 38 + (i - 1) * 23
+      local y = 28 + (i - 1) * 20
       local on = i == opt.sel
-      panel(W / 2 - 150, y, 300, 22, on and 0xFFD040 or 0x302A3A, 0x000000)
-      print(m, W / 2 - 140, y + 3, on and 0x301808 or 0xFFFFFF)
-      print(vals[i], W / 2 + 140 - #vals[i] * 8, y + 3, on and 0x604020 or 0xA0E0A0)
+      panel(W / 2 - panel_w / 2, y, panel_w, 18, on and 0xFFD040 or 0x302A3A, 0x000000)
+      print(m, W / 2 - panel_w / 2 + 10, y + 1, on and 0x301808 or 0xFFFFFF)
+      print(vals[i], W / 2 + panel_w / 2 - 10 - #vals[i] * 8, y + 1, on and 0x604020 or 0xA0E0A0)
     end
     -- statistics
-    panel(30, 176, W - 60, 180, 0x2A2436, 0x806040)
+    local stat_y = 192
+    local stat_h = max(140, H - stat_y - 8)
+    panel(W / 2 - 280, stat_y, 560, stat_h, 0x2A2436, 0x806040)
     text_c(fmt("STATISTICS   stars %d   recipes met %d/%d", Save.total_stars(),
                (function() local n = 0 for _ in pairs(sd.seen) do n = n + 1 end return n end)(), #Data.RECIPES),
-           W / 2, 180, 0xFFD040)
+           W / 2, stat_y + 4, 0xFFD040)
     local st = sd.stats or {}
     for i, e in ipairs(STAT_NAMES) do
       local col, row = (i - 1) % 2, (i - 1) // 2
-      local x, y = 50 + col * 290, 198 + row * 16
+      local x, y = floor(W / 2 - 260) + col * 270, stat_y + 20 + row * 14
       print(e[2], x, y, 0xC0C0D0)
       local v = tostring(st[e[1]] or 0)
-      print(v, x + 260 - #v * 8, y, 0xFFFFFF)
+      print(v, x + 240 - #v * 8, y, 0xFFFFFF)
     end
     local e = sd.endless
     text_c(fmt("endless best: %s, %d coins, %d dishes", fmt_time(e.time or 0), e.money or 0, e.served or 0),
-           W / 2, 336, 0xFFE060)
+           W / 2, stat_y + stat_h - 16, 0xFFE060)
   end,
 }
 

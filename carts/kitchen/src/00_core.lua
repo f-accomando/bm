@@ -7,7 +7,15 @@
 -- first file holds the shared locals, every other file is a `do ... end`
 -- block that fills the module tables below.
 
-local W, H = SCREEN_W, SCREEN_H
+local W, H = SCREEN_W or 640, SCREEN_H or 360
+local function update_screen_size()
+  if (SCREEN_W and SCREEN_W ~= W) or (SCREEN_H and SCREEN_H ~= H) then
+    W, H = SCREEN_W, SCREEN_H
+    if G.run then Ren.fit(G.run) end
+    return true
+  end
+  return false
+end
 local DT = 1 / 60
 local floor, ceil, sqrt, abs = math.floor, math.ceil, math.sqrt, math.abs
 local min, max, sin, cos, atan = math.min, math.max, math.sin, math.cos, math.atan
@@ -43,6 +51,7 @@ local G = {
   players = {},     -- joined players: { pad = 1..4, chef = 1..4 }
   run = nil,        -- the kitchen being played
   debug = false,
+  food_sprites = true,
 }
 
 -- the colours of players 1-4 (the same as the DS4 lights)

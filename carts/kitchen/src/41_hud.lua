@@ -12,6 +12,8 @@ local IC = {
   check = 88, cross = 89, arrow = 90, bA = 91, bB = 92, bX = 93, bY = 94, register = 95,
   up = 96, snow = 97, wrench = 98, heart2 = 99, trophy = 100, skull = 101, bell = 102, speed = 103,
   shield = 104, box = 105, knife2 = 106, book = 107,
+  dish_soup = 108, dish_salad = 109, dish_burger = 110, dish_pasta = 111,
+  dish_bake = 112, dish_smoothie = 113, dish_fry = 114, dish_rice = 115,
 }
 Hud.IC = IC
 local MINI = { chop = 0, boil = 1, fry = 2, bake = 3, blend = 4, tick = 5, cross = 6, fire = 7 }
