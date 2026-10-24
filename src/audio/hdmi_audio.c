@@ -9,6 +9,7 @@
  */
 #include "audio.h"
 #include "audio_out.h"
+#include "pwm_audio.h"
 #include "iec958.h"
 #include "arch/cache.h"
 #include "drivers/mmio.h"
@@ -199,7 +200,9 @@ static int fail(const char *why)
     return -1;
 }
 
-int audio_out_start(const char **status)
+static enum { OUT_NONE, OUT_HDMI, OUT_PWM } active_out;
+
+static int hdmi_audio_start(const char **status)
 {
     out_status = status;
     iec958_init(&iec, AUDIO_RATE);
@@ -296,12 +299,39 @@ int audio_out_start(const char **status)
     return 0;
 }
 
+int audio_out_start(const char **status)
+{
+    active_out = OUT_NONE;
+    dmb();
+    /* 1. Priority: HDMI if connected and enabled */
+    if (mmio_read(HDMI_RAM_PACKET_CFG) & RAM_PACKET_ENABLE) {
+        if (hdmi_audio_start(status) == 0) {
+            active_out = OUT_HDMI;
+            return 0;
+        }
+    }
+
+    /* 2. Fallback: PWM analog audio on 3.5mm jack (GPIO 40/45) */
+    if (pwm_audio_start(status) == 0) {
+        active_out = OUT_PWM;
+        return 0;
+    }
+
+    return fail("neither HDMI nor analog audio could be started");
+}
+
 void audio_out_idle(void)
 {
+    if (active_out == OUT_PWM)
+        pwm_audio_idle();
 }
 
 void audio_out_print(void)
 {
+    if (active_out == OUT_PWM) {
+        pwm_audio_print();
+        return;
+    }
     dmb();
     uint32_t ctl = mmio_read(MAI_CTL);
     dmb();

@@ -42,6 +42,8 @@
 #include "drivers/board.h"
 #include "drivers/prop.h"
 #include "drivers/spilcd.h"
+#include "drivers/gpio.h"
+#include "drivers/mmio.h"
 #include "drivers/uart.h"
 #include "drivers/watchdog.h"
 #include "gpu/gpu3d.h"
@@ -120,6 +122,7 @@ enum {
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
+    R_CRT, R_LCD_POWER, R_VIDEO_OUT,
     R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
@@ -300,6 +303,108 @@ static const char *menu_size_choice(void)
     if (!v || !*v)
         return "Auto";
     return v[0] == '3' ? "3x (1080p)" : v[0] == '2' ? "2x (720p)" : "1x (360p)";
+}
+
+/* CRT filter mode: 1 = off, 2 = rca (default), 3 = hdmi, 4 = on */
+int crt_mode(void)
+{
+    const char *v = config_get("video_crt");
+    if (!v || !v[0])
+        return 2; /* default: 2 = rca */
+    if (strcmp(v, "off") == 0 || strcmp(v, "1") == 0) return 1;
+    if (strcmp(v, "rca") == 0 || strcmp(v, "2") == 0) return 2;
+    if (strcmp(v, "hdmi") == 0 || strcmp(v, "3") == 0) return 3;
+    if (strcmp(v, "on") == 0 || strcmp(v, "4") == 0) return 4;
+    return 2;
+}
+
+const char *crt_choice(void)
+{
+    static const char *const names[] = { "", "1. Off", "2. RCA only", "3. HDMI only", "4. On (both)" };
+    int m = crt_mode();
+    return names[m >= 1 && m <= 4 ? m : 2];
+}
+
+static int video_is_hdmi(void)
+{
+#ifdef BM_RGB30
+    return 0;
+#else
+    return !!(mmio_read(PERIPHERAL_BASE + 0x902000 + 0x0A0) & (1u << 16));
+#endif
+}
+
+int crt_filter_is_active(void)
+{
+    int m = crt_mode();
+    if (m == 1) return 0; /* off */
+    if (m == 4) return 1; /* on */
+    int hdmi = video_is_hdmi();
+    if (m == 2) return !hdmi; /* rca only: active when NOT hdmi */
+    if (m == 3) return hdmi;  /* hdmi only: active when hdmi */
+    return 0;
+}
+
+void crt_apply_filter(void *pixels, int w, int h, int pitch_bytes)
+{
+    if (!pixels || w <= 0 || h <= 0)
+        return;
+    /* Fast 75% intensity scanlines on odd lines using 32-bit SIMD arithmetic on RGB565 */
+    for (int y = 1; y < h; y += 2) {
+        uint32_t *row = (uint32_t *)((uint8_t *)pixels + y * pitch_bytes);
+        int words = w / 2;
+        for (int x = 0; x < words; x++) {
+            uint32_t p = row[x];
+            uint32_t half = (p >> 1) & 0x7BEF7BEFu;
+            row[x] = half + ((half >> 1) & 0x7BEF7BEFu);
+        }
+    }
+}
+
+#ifndef BM_RGB30
+/* Video output mode: 0 = auto, 1 = rca, 2 = hdmi */
+static int video_out_mode(void)
+{
+    const char *v = config_get("video_out");
+    if (!v || !*v || strcmp(v, "auto") == 0) return 0;
+    if (strcmp(v, "rca") == 0 || strcmp(v, "composite") == 0) return 1;
+    if (strcmp(v, "hdmi") == 0) return 2;
+    return 0;
+}
+
+static const char *video_out_choice(void)
+{
+    static const char *const names[] = { "Auto (HDMI/RCA)", "RCA (Composite)", "HDMI only" };
+    int m = video_out_mode();
+    return names[m >= 0 && m <= 2 ? m : 0];
+}
+#endif
+
+/* Turns off the GPIO LCD backlight on pin 18 (and deselects SPI CE0/CE1 on 8/7)
+ * when HDMI or Composite is active, avoiding power drain and light bleed. */
+void gpio_lcd_power(int on)
+{
+#ifndef BM_RGB30
+    if (!on) {
+        gpio_set_function(18, GPIO_OUTPUT);
+        gpio_write(18, 0);
+        gpio_set_function(8, GPIO_OUTPUT);
+        gpio_write(8, 1);
+        gpio_set_function(7, GPIO_OUTPUT);
+        gpio_write(7, 1);
+    } else {
+        gpio_set_function(18, GPIO_OUTPUT);
+        gpio_write(18, 1);
+    }
+#else
+    (void)on;
+#endif
+}
+
+static int lcd_gpio_is_off(void)
+{
+    const char *v = config_get("lcd_gpio");
+    return v && strcmp(v, "0") == 0;
 }
 #endif
 
@@ -588,6 +693,17 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "fps, ms, CPU and GPU bars (F11 too)", "%s",
                  perf_name());
+        home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
+                 "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
+                 crt_choice());
+#ifndef BM_RGB30
+        home_row(p, MENU_ROW_CHOICE, R_VIDEO_OUT, "Video output",
+                 "Select display port: Auto (HDMI fallback to RCA), RCA only, HDMI only", "%s",
+                 video_out_choice());
+        home_row(p, MENU_ROW_CHOICE, R_LCD_POWER, "GPIO LCD screen",
+                 "Turn off GPIO screen backlight when using TV/monitor", "%s",
+                 lcd_gpio_is_off() ? "Off (power save)" : "On");
+#endif
 #ifdef BM_RGB30
         home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
                  "A small red battery over games and tools at 20% or less", "%s",
@@ -1265,6 +1381,34 @@ void home_act(int id, int row, int how, home_do_t *d)
     case R_MONITOR:
         if (how == 0) d->what = HOME_MONITOR;
         break;
+#endif
+    case R_CRT: {
+        int m = crt_mode() + (how == -1 ? -1 : 1);
+        if (m > 4) m = 1;
+        if (m < 1) m = 4;
+        static const char *const val_names[] = { "", "off", "rca", "hdmi", "on" };
+        config_set("video_crt", val_names[m]);
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "CRT filter: %s", crt_choice());
+        break;
+    }
+#ifndef BM_RGB30
+    case R_VIDEO_OUT: {
+        int m = (video_out_mode() + (how == -1 ? 2 : 1)) % 3;
+        static const char *const vals[] = { "auto", "rca", "hdmi" };
+        config_set("video_out", vals[m]);
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "Video: %s (reboot to apply)", video_out_choice());
+        break;
+    }
+    case R_LCD_POWER: {
+        int off = !lcd_gpio_is_off();
+        config_set("lcd_gpio", off ? "0" : "1");
+        config_save();
+        gpio_lcd_power(!off);
+        ksnprintf(d->note, sizeof d->note, "GPIO LCD backlight: %s", off ? "Off (power save)" : "On");
+        break;
+    }
 #endif
     case R_FAST3D:
         config_set("r3d_fast", config_on("r3d_fast") ? "0" : "1");

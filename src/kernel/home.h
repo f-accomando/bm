@@ -62,6 +62,13 @@ typedef struct {
  * hints white (0) or in their colours (1); kept in config.txt. */
 int  home_prompts_colour(void);
 
+/* CRT filter settings and scanline effect */
+int  crt_mode(void);
+const char *crt_choice(void);
+int  crt_filter_is_active(void);
+void crt_apply_filter(void *pixels, int w, int h, int pitch_bytes);
+void gpio_lcd_power(int on);
+
 /* Builds settings panel `id` (settings.c: the same tree on the Pi and the
  * RGB30: Controllers, WiFi and network, Screen, Sound, Updates, Reports,
  * System). */

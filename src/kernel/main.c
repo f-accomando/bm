@@ -55,6 +55,7 @@
 #include "ledstate.h"
 #include "splash.h"
 #include "notice.h"
+#include "home.h"
 #include "bm/runtime.h"
 
 #include <string.h>
@@ -283,6 +284,15 @@ void kernel_main(uint32_t atags)
     config_load();
     if (gpu_qpu_key())                  /* gpu3d_qpu=1 (default off): Yharnam's darkness on the QPUs, ARM fallback */
         bm_fade_accel = qpu_fade_hook;
+    {
+        const char *lg = config_get("lcd_gpio");
+        if (lg && strcmp(lg, "1") == 0) {
+            gpio_lcd_power(1);
+        } else {
+            /* Default: turn off unused GPIO LCD backlight to save power */
+            gpio_lcd_power(0);
+        }
+    }
     sdlog_prev();
     watchdog_before_reboot(pi_lastrun);
     sdlog_boot(0);

@@ -46,6 +46,7 @@
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "kernel/toolnames.h"
+#include "kernel/home.h"
 #include "n8lua.h"
 #include "shot.h"
 #include "ai/assist.h"
@@ -8424,6 +8425,8 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
 {
     if (!shadow) {
+        if (crt_filter_is_active())
+            crt_apply_filter(page_px(fb), g->w, g->h, fb->pitch);
         if (rt.mouse && rt.mouse_arrow)         /* on the page about to be shown */
             pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);
         fb_flip(fb);
@@ -8432,8 +8435,9 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
     }
     uint32_t t0 = timer_ticks();
     const uint32_t row = (uint32_t)g->w * 2;
+    uint8_t *dst = fb->base;
     if (box) {
-        uint8_t *dst = fb->base + box;
+        dst = fb->base + box;
         for (int y = 0; y < g->h; y++)
             memcpy(dst + (uint32_t)y * fb->pitch, g->px + (uint32_t)y * g->stride, row);
     } else if (fb->pitch == row && dma_ready() && dma_frames) {
@@ -8447,6 +8451,8 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
         for (int y = 0; y < g->h; y++)
             memcpy(fb->base + (uint32_t)y * fb->pitch, g->px + (uint32_t)y * g->stride, row);
     }
+    if (crt_filter_is_active())
+        crt_apply_filter(dst, g->w, g->h, fb->pitch);
     uint32_t us = timer_ticks() - t0;
     if (rt.mouse && rt.mouse_arrow)             /* over the copy: never in the cartridge's buffer */
         pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);

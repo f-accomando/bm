@@ -9,10 +9,12 @@ arm_64bit=0
 kernel=kernel7.img
 [all]
 
-# Always drive HDMI even if no monitor is detected at power-on
-hdmi_force_hotplug=1
-# HDMI (not DVI) mode, so the TV also gets audio/proper levels
+# Priority HDMI (hdmi_drive=2) with fallback to composite video (SDTV PAL 16:9)
+# hdmi_force_hotplug is commented out so firmware falls back to composite when HDMI is unplugged
+# hdmi_force_hotplug=1
 hdmi_drive=2
+sdtv_mode=2
+sdtv_aspect=3
 # Use the full screen area; our pattern draws a 1px border to check this
 disable_overscan=1
 

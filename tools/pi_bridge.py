@@ -267,21 +267,25 @@ def main():
         os.unlink(SOCK)
         sys.exit(2)
     print("password from", where, flush=True)
-    signal.signal(signal.SIGTERM, signal.default_int_handler)   # the socket is removed below
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)   # the socket is removed below
     if background:
         detach()
     print("bridge ready on", SOCK, "(board %s) - Ctrl-C to stop" % board, flush=True)
     try:
         while True:
             c, _ = s.accept()
-            req = c.makefile().readline().strip()
-            print("request:", masked(req), flush=True)
             try:
-                out = run(host, pw, req, board)
+                req = c.makefile().readline().strip()
+                print("request:", masked(req), flush=True)
+                try:
+                    out = run(host, pw, req, board)
+                except Exception as e:
+                    out = "error: %s" % e
+                c.sendall(out.encode("utf-8", "replace"))
             except Exception as e:
-                out = "error: %s" % e
-            c.sendall(out.encode("utf-8", "replace"))
-            c.close()
+                print("client connection error:", e, flush=True)
+            finally:
+                c.close()
     finally:
         s.close()
         if os.path.exists(SOCK):

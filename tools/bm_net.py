@@ -230,6 +230,7 @@ def shot(args, out, password):
     if not name:
         print("incomplete answer from the console")
         return 1
+    time.sleep(0.35)  # wait for netxfer on device to transition from REPLIED (300ms) to IDLE
     return get_file(args, "bm/shots/" + name.decode(errors="replace"), out, password)
 
 
