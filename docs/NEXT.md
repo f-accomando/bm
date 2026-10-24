@@ -115,17 +115,17 @@ Friday evening (done 23 Oct):
     - 24 eroi a LOD 0 (984 tris ciascuno = 23,616 tris) + scenario piazza = **27,408 triangoli stabili a 60 fps in Full HD 1080p** con opzioni extra attive.
 
 ## Next steps (immediate roadmap based on verified hardware runs)
-1. **VID-REC (Video Recording)**: Adopt RLE565 codec (codec 4) as the standard recorder on Pi Zero at 15 fps (0.13 - 1.05 MB/s fits SD write mean of 1.82 MB/s with <2 ms encode time). Next slice: audio interleaving.
-2. **Graphics Engine Defaults**: Standardize `gpu3d_queue=1` and `gpu3d_merge=1` (32+ pieces, <=150 faces) in production pipelines. Verify `gpu3d_2d=1` default (+6.7% boost, 3569+ sprites vs 2574 on ARM).
+1. **VID-REC (Video Recording)**: [DONE 24 Oct] Adopted RLE565 codec (codec 4) as standard recorder on Pi Zero at 15 fps (0.13 - 1.05 MB/s fits SD write mean of 1.82 MB/s with <2 ms encode time). Added "Screen recorder" toggle row in Settings (Dev & System) to toggle `rec=on` directly. Next slice: audio interleaving.
+2. **Graphics Engine Defaults**: [DONE 24 Oct] `gpu3d_2d=1` enabled by default in `src/bm/runtime.c` (+6.7% boost, 3569+ sprites vs 2574 on ARM). Manuals, config-keys spec and runtime updated.
 3. **Multitasking Stage 3-5 (Web Bench)**: Run `tests/web/pi_bench.lua` on hardware to benchmark async file writes and Range resume.
 4. **Single-bm (SYS-8)**: Proceed with adaptive screen modes (720x405, `safe_area()`, `aspect()`, bars).
 
 ## Piano di lavoro approvato: 3D High-Throughput Pipeline (50k Triangoli @ 60fps)
 Stato esecuzione:
 - [x] **Benchmark e ottimizzazione Herocart**: verificati 52.992 tris a 59-60 fps (640x360) e 27.408 tris a 60 fps (1080p) su Pi Zero W.
-- [ ] **Semplificazione API Utente (bmlib)**: helper `lib.crowd3d`, `lib.gpu3d_fast`, batch instancing e pose deduplication.
-- [ ] **Documentazione Tecnica e Manuali**: aggiornare `manuals/content/{it,en}/api-3d.md`, `api-lib.md`, e `docs/PERF-BUDGET.md`.
-- [ ] **Ottimizzazione Editor e Documentazione**: aggiornare `src/script/bm3d.lua` (budget 50k vs 1.2k arm, warning calibrati, static merging) e relativi manuali editor (`editor-mesh.md`, `editor-studio.md`).
+- [x] **Semplificazione API Utente (bmlib)**: helper `lib.crowd3d`, `lib.gpu3d_fast`, batch instancing e pose deduplication.
+- [x] **Documentazione Tecnica e Manuali**: aggiornati `manuals/content/{it,en}/api-3d.md`, `api-lib.md`, e `docs/PERF-BUDGET.md`.
+- [x] **Ottimizzazione Editor e Documentazione**: aggiornati `src/script/bm3d.lua` (budget 50k vs 1.2k arm, warning calibrati, static merging) e relativi manuali editor (`editor-mesh.md`, `editor-studio.md`).
 
 ## Never delete
 `bm-core`, `reports`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.

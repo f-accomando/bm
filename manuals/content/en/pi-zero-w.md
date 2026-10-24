@@ -245,7 +245,7 @@ Each option is a key in `bm/config.txt`. Only five keys have a row in *Settings 
 | `gpu3d_vs` | vertex shader: 0 ARM, 1 scenery, 2 all models | 2 |
 | `gpu3d_queue` | 1: the job starts and the next `_update` runs meanwhile; 2: two jobs in flight; 0 turns it off | 1 (on) |
 | `gpu3d_later` | each frame shown a frame later (needs `gpu3d_queue=2`) | off |
-| `gpu3d_2d` | 2D over the 3D inside the GPU job | off |
+| `gpu3d_2d` | 2D over the 3D inside the GPU job | on (1) (`0` turns it off) |
 | `gpu3d_filter` | bilinear textures (the look changes) | off |
 | `gpu3d_wc` | job memory uncached | off |
 | `gpu3d_tex16` | 16-bit textures (RGB565; cut-out sheets as RGBA5551) | off |

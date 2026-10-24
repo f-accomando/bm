@@ -47,6 +47,10 @@ int config_perf(const char *v);
 int dev_mode(void);
 void dev_set_mode(int on);
 
+/* screen recorder: 1 if rec=1 / rec=on in bm/config.txt */
+int rec_mode(void);
+void rec_set_mode(int on);
+
 /* A file of the console on the SD card ("config.txt", "ca.pem",
  * "save/1a2b3c4d.sav"): in /bm, or in the folder of before the rename
  * until make install moves it. Returns 0 and fills e. */

@@ -320,7 +320,7 @@ La tabella dà, per ogni chiave, cosa fa, quanto costa, il predefinito e il risu
 | `gpu3d_aa` | MSAA 4x. | Più lavoro della GPU in ogni tile (32x32 pixel, 4 campioni). Vale solo nei lavori senza z-buffer conservato. | spento | Non misurato. |
 | `gpu3d_filter` | Texture bilineari. L'aspetto cambia. | Un pixel filtrato costa di più. | spento (nearest) | Passata a tutto schermo: 2,3 ns a pixel contro 1,65 nearest. |
 | `gpu3d_fs2` | Pixel shader con texture a due thread. | Niente. | acceso (`0` lo spegne) | `quad_tex`: 148 quad contro 121 (+22%). |
-| `gpu3d_2d` | La GPU disegna il 2D sopra il 3D nel suo lavoro. | Le forme che la GPU non sa disegnare chiudono il lavoro. | spento | Test `gpu2d`: GPU+2D 2013 sprite, GPU 1886 (+6,7%). Test `sprites`: 3569 o più, ARM 2574. Non ancora provato in una partita. |
+| `gpu3d_2d` | La GPU disegna il 2D sopra il 3D nel suo lavoro. | Le forme che la GPU non sa disegnare chiudono il lavoro. | acceso (1) | Test `gpu2d`: GPU+2D 2013 sprite, GPU 1886 (+6,7%). Test `sprites`: 3569 o più, ARM 2574. Attivo per default. |
 | `gpu3d_wc` | La memoria dei lavori della GPU non è in cache. | Nessuno visto. | spento | Nessun guadagno: mancati della cache dati -72%, ma il carico è 199 contro 200. |
 | `gpu3d_sort` | Mesh opache dalla più vicina, triangoli nell'ordine della cache dei vertici. | Un ordinamento a ogni frame. | spento | Non misurato sul Pi. Emulatore: 99 960 pixel calcolati invece di 416 546. |
 | `gpu3d_attr` | Attributi dei vertici compatti (colore e luce come byte). | Una prova all'avvio controlla i pixel. | spento | Sfere +3,8%. Scena con eroe 54 056 triangoli normali, 54 013 compatti (nessun guadagno, il frame è limitato dall'ARM). |

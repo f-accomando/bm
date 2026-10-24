@@ -245,7 +245,7 @@ Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga
 | `gpu3d_vs` | vertex shader: 0 ARM, 1 scenario, 2 tutti i modelli | 2 |
 | `gpu3d_queue` | 1: il job parte e il prossimo `_update` gira intanto; 2: due job in volo; 0 la spegne | 1 (attiva) |
 | `gpu3d_later` | ogni frame mostrato un frame dopo (richiede `gpu3d_queue=2`) | spento |
-| `gpu3d_2d` | 2D sopra il 3D dentro il job GPU | spento |
+| `gpu3d_2d` | 2D sopra il 3D dentro il job GPU | attivo (1) (`0` lo spegne) |
 | `gpu3d_filter` | texture bilineari (l'aspetto cambia) | spento |
 | `gpu3d_wc` | memoria dei job non in cache | spento |
 | `gpu3d_tex16` | texture a 16 bit (RGB565; sheet con ritagli come RGBA5551) | spento |

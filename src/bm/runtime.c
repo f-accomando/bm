@@ -2035,7 +2035,7 @@ static void gpu3d_maybe(void)
                                                          * Pi measured no gain; the boot's probe_attr decides
                                                          * when on): hidden key (SYS-9) */
         const char *g2 = config_get("gpu3d_2d");
-        rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (bm3d 4.8): hidden key (SYS-9) */
+        rt.gpu2d = !g2 || strcmp(g2, "0") != 0;          /* the 2D over the 3D in the job (bm3d 4.8): on by default (+6.7% boost, 3569+ sprites); 0 = off (SYS-9b) */
         const char *lt = config_get("gpu3d_later");
         rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (bm3d 6.9): hidden key (SYS-9) */
         rt.r3d.backend = gpu3d_backend();

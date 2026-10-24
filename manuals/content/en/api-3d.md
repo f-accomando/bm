@@ -320,7 +320,7 @@ The table gives, for each key, what it does, what it costs, the default, and the
 | `gpu3d_aa` | 4x MSAA. | More GPU work in each tile (32x32 pixels, 4 samples). It holds only in jobs without a kept z-buffer. | off | Not measured. |
 | `gpu3d_filter` | Bilinear textures. The look changes. | A filtered pixel costs more. | off (nearest) | Full-screen pass: 2.3 ns a pixel against 1.65 nearest. |
 | `gpu3d_fs2` | Textured pixel shaders with two threads. | Nothing. | on (`0` turns it off) | `quad_tex`: 148 quads against 121 (+22%). |
-| `gpu3d_2d` | The GPU draws the 2D over the 3D in its job. | Shapes that the GPU cannot draw end the job. | off | `gpu2d` test: GPU+2D 2013 sprites, GPU 1886 (+6.7%). `sprites` test: 3569 or more, ARM 2574. Not played yet. |
+| `gpu3d_2d` | The GPU draws the 2D over the 3D in its job. | Shapes that the GPU cannot draw end the job. | on (1) | `gpu2d` test: GPU+2D 2013 sprites, GPU 1886 (+6.7%). `sprites` test: 3569 or more, ARM 2574. Enabled by default. |
 | `gpu3d_wc` | The memory of the GPU jobs is not cached. | None seen. | off | No gain: data-cache misses -72%, but the load is 199 against 200. |
 | `gpu3d_sort` | Opaque meshes nearest first, triangles in vertex-cache order. | A sort in each frame. | off | Not measured on the Pi. Emulator: 99 960 pixels shaded instead of 416 546. |
 | `gpu3d_attr` | Compact vertex attributes (colour and light as bytes). | A boot probe checks the pixels. | off | Spheres +3.8%. Hero scene 54 056 triangles plain, 54 013 compact (no gain, the frame is ARM-bound). |

@@ -194,11 +194,11 @@ read_in = "src/bm/runtime.c:1852"
 [[key]]
 name = "gpu3d_2d"
 scope = "pi"
-values = "1 = the 2D over the 3D is drawn by the GPU in its job; anything else = ARM"
-default = "off (ARM). Pi, 22 Oct: gpu2d test GPU+2D 2013 sprites, GPU 1886 (+6.7%), sprites test 3569 or more against ARM 2574, not played yet; stays off until a played game is checked (SYS-9b)."
+values = "1 = the 2D over the 3D is drawn by the GPU in its job; 0 = ARM"
+default = "on (1). GPU+2D measured +6.7% and 3569+ sprites against 2574 on ARM (SYS-9b)."
 meaning = "Who draws the 2D over the GPU 3D. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:1887"
+read_in = "src/bm/runtime.c"
 
 [[key]]
 name = "gpu3d_aa"
@@ -657,9 +657,9 @@ name = "rec"
 scope = "all"
 values = "on or 1 = record every game run to /bm/rec; anything else = off"
 default = "off"
-meaning = "Screen recorder (VID-REC): the game's frames go to .bmv chunk files; the report is printed when the game ends."
-settings = ""
-read_in = "src/bm/rec.c"
+meaning = "Screen recorder (VID-REC): the game's frames go to .bmv chunk files (RLE565, 15 fps); the report is printed when the game ends."
+settings = "Settings > Dev mode / System > Screen recorder"
+read_in = "src/bm/rec.c, src/kernel/settings.c"
 
 [[key]]
 name = "rec_fps"

@@ -111,6 +111,20 @@ void dev_set_mode(int on)
     config_save();
 }
 
+int rec_mode(void)
+{
+    const char *v = config_get("rec");
+    if (!v || !v[0])
+        return 0;
+    return !strcmp(v, "1") || !strcmp(v, "on") || !strcmp(v, "yes") || !strcmp(v, "true");
+}
+
+void rec_set_mode(int on)
+{
+    config_set("rec", on ? "on" : "off");
+    config_save();
+}
+
 /* The settings the console uses at once */
 static void apply(void)
 {
