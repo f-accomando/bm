@@ -122,7 +122,7 @@ enum {
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
-    R_CRT, R_LCD_POWER, R_VIDEO_OUT,
+    R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
     R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
@@ -380,21 +380,46 @@ static const char *video_out_choice(void)
 }
 #endif
 
+#ifndef BM_RGB30
+/* Audio output mode: 0 = auto, 1 = pwm (3.5mm jack), 2 = hdmi */
+static int audio_out_mode(void)
+{
+    const char *v = config_get("audio_out");
+    if (!v || !*v || strcmp(v, "auto") == 0) return 0;
+    if (strcmp(v, "pwm") == 0 || strcmp(v, "jack") == 0 || strcmp(v, "analog") == 0) return 1;
+    if (strcmp(v, "hdmi") == 0) return 2;
+    return 0;
+}
+
+static const char *audio_out_choice(void)
+{
+    static const char *const names[] = { "Auto (HDMI/Jack)", "3.5mm Jack (PWM)", "HDMI only" };
+    int m = audio_out_mode();
+    return names[m >= 0 && m <= 2 ? m : 0];
+}
+#endif
+
 /* Turns off the GPIO LCD backlight on pin 18 (and deselects SPI CE0/CE1 on 8/7)
  * when HDMI or Composite is active, avoiding power drain and light bleed. */
 void gpio_lcd_power(int on)
 {
 #ifndef BM_RGB30
     if (!on) {
+        spilcd_sleep(1);
         gpio_set_function(18, GPIO_OUTPUT);
         gpio_write(18, 0);
+        gpio_set_function(22, GPIO_OUTPUT);
+        gpio_write(22, 0);
         gpio_set_function(8, GPIO_OUTPUT);
         gpio_write(8, 1);
         gpio_set_function(7, GPIO_OUTPUT);
         gpio_write(7, 1);
     } else {
+        spilcd_sleep(0);
         gpio_set_function(18, GPIO_OUTPUT);
         gpio_write(18, 1);
+        gpio_set_function(22, GPIO_OUTPUT);
+        gpio_write(22, 1);
     }
 #else
     (void)on;
@@ -733,6 +758,9 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
                  "The sound's state and a test tune", NULL);
 #else
+        home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
+        home_row(p, MENU_ROW_CHOICE, R_AUDIO_OUT, "Audio output",
+                 "Sound routing: Auto (HDMI/3.5mm), 3.5mm Jack (PWM), HDMI only", "%s", audio_out_choice());
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
                  "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
@@ -1129,7 +1157,7 @@ void home_act(int id, int row, int how, home_do_t *d)
     switch (row) {
     case R_CONTROLS: case R_CTL_SCROLLER: case R_CTL_TOPDOWN: case R_CTL_STICK: case R_CTL_SYSTEM:
     case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB: case R_UTILS:
-    case R_SDMAP: case R_SDFILES:
+    case R_SDMAP: case R_SDFILES: case R_SOUNDMENU:
         d->what = HOME_OPEN;
         d->panel = home_sub_panel(row);
         break;
@@ -1399,6 +1427,14 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_set("video_out", vals[m]);
         config_save();
         ksnprintf(d->note, sizeof d->note, "Video: %s (reboot to apply)", video_out_choice());
+        break;
+    }
+    case R_AUDIO_OUT: {
+        int m = (audio_out_mode() + (how == -1 ? 2 : 1)) % 3;
+        static const char *const vals[] = { "auto", "pwm", "hdmi" };
+        config_set("audio_out", vals[m]);
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "Audio: %s (reboot to apply)", audio_out_choice());
         break;
     }
     case R_LCD_POWER: {

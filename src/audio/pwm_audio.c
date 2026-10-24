@@ -40,8 +40,10 @@
 #define PWM_CTL_PWEN1   (1u << 0)
 #define PWM_CTL_USEF1   (1u << 5)
 #define PWM_CTL_CLRF1   (1u << 6)
+#define PWM_CTL_MSEN1   (1u << 7)
 #define PWM_CTL_PWEN2   (1u << 8)
 #define PWM_CTL_USEF2   (1u << 13)
+#define PWM_CTL_MSEN2   (1u << 15)
 
 #define PWM_RANGE       400u            /* 19.2 MHz / 48000 Hz = 400 */
 #define DREQ_PWM        5
@@ -54,7 +56,6 @@
 #define DMA_INT_STATUS  (DMA_BASE + 0xFE0)
 
 #define CS_RESET        (1u << 31)
-#define CS_WAIT_WRITES  (1u << 28)
 #define CS_PANIC_PRIORITY(p) ((uint32_t)(p) << 20)
 #define CS_PRIORITY(p)  ((uint32_t)(p) << 16)
 #define CS_ERROR        (1u << 8)
@@ -63,10 +64,8 @@
 #define CS_ACTIVE       (1u << 0)
 
 #define TI_INTEN        (1u << 0)
-#define TI_WAIT_RESP    (1u << 3)
 #define TI_DEST_DREQ    (1u << 6)
-#define TI_SRC_WIDTH    (1u << 8)
-#define TI_SRC_INC      (1u << 9)
+#define TI_SRC_INC      (1u << 8)
 #define TI_PERMAP(dreq) ((uint32_t)(dreq) << 16)
 
 #define AUDIO_CHUNK     256             /* stereo frames per buffer */
@@ -153,24 +152,11 @@ int pwm_audio_start(const char **status)
     while (!(mmio_read(CM_PWMCTL) & CM_CTL_BUSY))
         ;
 
-    /* 3. Setup PWM controller: Range 400, Stereo FIFO */
-    mmio_write(PWM_CTL, 0);
-    timer_delay_us(10);
-    mmio_write(PWM_CTL, PWM_CTL_CLRF1);
-    timer_delay_us(10);
-    mmio_write(PWM_RNG1, PWM_RANGE);
-    mmio_write(PWM_RNG2, PWM_RANGE);
-    /* Panic threshold = 7, DREQ threshold = 7, enable DMA */
-    mmio_write(PWM_DMAC, (1u << 31) | (7u << 8) | (7u << 0));
-    mmio_write(PWM_CTL, PWM_CTL_PWEN1 | PWM_CTL_USEF1 | PWM_CTL_PWEN2 | PWM_CTL_USEF2);
-    dmb();
-
-    /* 4. Pre-fill ring buffers */
+    /* 3. Pre-fill ring buffers */
     pwm_fill(0);
     pwm_fill(1);
     for (unsigned i = 0; i < 2; i++) {
-        cbs[i].ti = TI_PERMAP(DREQ_PWM) | TI_SRC_WIDTH | TI_SRC_INC | TI_DEST_DREQ |
-                    TI_WAIT_RESP | TI_INTEN;
+        cbs[i].ti = TI_PERMAP(DREQ_PWM) | TI_SRC_INC | TI_DEST_DREQ | TI_INTEN;
         cbs[i].src = ARM_TO_BUS(pwm_bufs[i]);
         cbs[i].dst = PWM_FIF1_BUS;
         cbs[i].len = sizeof pwm_bufs[i];
@@ -180,7 +166,7 @@ int pwm_audio_start(const char **status)
     }
     dcache_clean_range(cbs, sizeof cbs);
 
-    /* 5. Start DMA */
+    /* 4. Start DMA */
     dmb();
     mmio_write(DMA_ENABLE, mmio_read(DMA_ENABLE) | 1u << dma_ch);
     mmio_write(DMA_CS(dma_ch), CS_RESET);
@@ -192,7 +178,19 @@ int pwm_audio_start(const char **status)
     irq_enable(IRQ_DMA(dma_ch));
     dmb();
     mmio_write(DMA_CONBLK_AD(dma_ch), ARM_TO_BUS(&cbs[0]));
-    mmio_write(DMA_CS(dma_ch), CS_WAIT_WRITES | CS_PANIC_PRIORITY(15) | CS_PRIORITY(1) | CS_ACTIVE);
+    mmio_write(DMA_CS(dma_ch), CS_PANIC_PRIORITY(15) | CS_PRIORITY(1) | CS_ACTIVE);
+    dmb();
+
+    /* 5. Setup PWM controller: Range 400, Stereo FIFO, Mark-Space mode, enable DMA */
+    mmio_write(PWM_CTL, 0);
+    timer_delay_us(10);
+    mmio_write(PWM_CTL, PWM_CTL_CLRF1);
+    timer_delay_us(10);
+    mmio_write(PWM_RNG1, PWM_RANGE);
+    mmio_write(PWM_RNG2, PWM_RANGE);
+    mmio_write(PWM_DMAC, (1u << 31) | (7u << 8) | (7u << 0));
+    mmio_write(PWM_CTL, PWM_CTL_PWEN1 | PWM_CTL_USEF1 | PWM_CTL_MSEN1 |
+                        PWM_CTL_PWEN2 | PWM_CTL_USEF2 | PWM_CTL_MSEN2);
     dmb();
 
     /* 6. Verify DMA ring is moving */

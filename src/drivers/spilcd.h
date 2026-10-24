@@ -27,6 +27,9 @@ int  spilcd_init(void);
 /* 1 after spilcd_init succeeded on a Pi 1. */
 int  spilcd_ready(void);
 
+/* Put panel into sleep mode (display off / sleep in) or wake up */
+void spilcd_sleep(int on);
+
 /* Fills the whole screen with one RGB565 colour. */
 void spilcd_fill(uint16_t rgb565);
 

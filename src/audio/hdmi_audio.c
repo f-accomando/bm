@@ -16,6 +16,7 @@
 #include "drivers/prop.h"
 #include "drivers/dma.h"
 #include "drivers/timer.h"
+#include "kernel/config.h"
 #include "kernel/irq.h"
 #include "lib/printf.h"
 
@@ -303,15 +304,30 @@ int audio_out_start(const char **status)
 {
     active_out = OUT_NONE;
     dmb();
-    /* 1. Priority: HDMI if connected and enabled */
-    if (mmio_read(HDMI_RAM_PACKET_CFG) & RAM_PACKET_ENABLE) {
+
+    const char *ao = config_get("audio_out");
+    int force_pwm = ao && (strcmp(ao, "pwm") == 0 || strcmp(ao, "jack") == 0 || strcmp(ao, "analog") == 0);
+    int force_hdmi = ao && strcmp(ao, "hdmi") == 0;
+    const char *vo = config_get("video_out");
+    int is_rca = vo && (strcmp(vo, "rca") == 0 || strcmp(vo, "composite") == 0);
+
+    /* When RCA video is configured or 3.5mm jack is chosen, prioritize PWM analog audio */
+    if (force_pwm || (is_rca && !force_hdmi)) {
+        if (pwm_audio_start(status) == 0) {
+            active_out = OUT_PWM;
+            return 0;
+        }
+    }
+
+    /* Otherwise prioritize HDMI if connected and enabled */
+    if (!force_pwm && (mmio_read(HDMI_RAM_PACKET_CFG) & RAM_PACKET_ENABLE)) {
         if (hdmi_audio_start(status) == 0) {
             active_out = OUT_HDMI;
             return 0;
         }
     }
 
-    /* 2. Fallback: PWM analog audio on 3.5mm jack (GPIO 40/45) */
+    /* Fallback: PWM analog audio on 3.5mm jack (GPIO 40/45) */
     if (pwm_audio_start(status) == 0) {
         active_out = OUT_PWM;
         return 0;

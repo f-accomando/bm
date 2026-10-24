@@ -234,6 +234,30 @@ int spilcd_init(void)
     return 0;
 }
 
+void spilcd_sleep(int on)
+{
+    if (!is_pi1())
+        return;
+    if (on) {
+        if (!lcd_ready)
+            spilcd_init();
+        if (lcd_ready) {
+            spilcd_fill(0);
+            lcd_cmd(0x28); /* display off */
+            timer_delay_ms(20);
+            lcd_cmd(0x10); /* sleep in */
+            timer_delay_ms(50);
+        }
+    } else {
+        if (lcd_ready) {
+            lcd_cmd(0x11); /* sleep out */
+            timer_delay_ms(120);
+            lcd_cmd(0x29); /* display on */
+            timer_delay_ms(20);
+        }
+    }
+}
+
 void spilcd_fill(uint16_t rgb565)
 {
     unsigned rx = 0;
