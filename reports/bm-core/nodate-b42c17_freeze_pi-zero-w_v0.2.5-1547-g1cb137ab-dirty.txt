@@ -1,0 +1,79 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1547-g1cb137ab-dirty
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-b42c17_freeze_pi-zero-w_v0.2.5-1547-g1cb137ab-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boottor, waiting for a key, frame 0, 87 s after boot, kernel v0.2.5-1547-g1cb137ab, ring 6131, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+xt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-88c051_freeze_pi-zero-w_v0.2.5-1547-g1cb137ab.txt
+net: receiving apps/bmweb.bm (492240 bytes)...
+menu idle: 292/300 frames, 5121 of 2095 ms taken, 506.2 ms past a frame; covers 4129 ms (+504.3, stk 0.8/16K), reports 946 ms (+95.9, stk 7.6/128K); min slack -8742 us, paced 0; sd 8 retried, 8 timed out
+menu idle: sd sites: rdend 8; first word <1ms 199 <3ms 12 (max 1.5 ms)
+menu stalls: tls handshake 1x last 295.2 worst 295.2 ms
+menu frame: 1x, a frame averages draw 8301 us, enlarge 1 us, flip 91 us, free time used 17070 us (300 frames)
+net: /apps/bmweb.bm received (492240 bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 207.7 ms past its slice
+net: saved /apps/bmweb.bm on the SD card (492240 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB; 8 retried, 8 timed out
+net: receiving carts/bmweb.bm (492240 bytes)...
+net: /carts/bmweb.bm received (492240 bytes): written on the SD card from the menu
+net: saved /carts/bmweb.bm on the SD card (492240 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB; 16 retried, 16 timed out
+menu idle: 283/300 frames, 7348 of 1759 ms taken, 504.1 ms past a frame; covers 7252 ms (+504.2, stk 0.8/16K), netxfer 385 ms (+207.7, stk 1.9/64K); min slack -208430 us, paced 0; sd 14 retried, 14 timed out
+menu idle: sd sites: rdend 14; first word <1ms 221 <3ms 7 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 10349 us, enlarge 1 us, flip 91 us, free time used 24493 us (300 frames)
+menu frame: 1x, a frame averages draw 7692 us, enlarge 1 us, flip 91 us, free time used 109 us (300 frames)
+menu frame: 1x, a frame averages draw 7605 us, enlarge 1 us, flip 90 us, free time used 110 us (300 frames)
+menu frame: 1x, a frame averages draw 7573 us, enlarge 1 us, flip 91 us, free time used 109 us (300 frames)
+menu frame: 1x, a frame averages draw 7766 us, enlarge 1 us, flip 90 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7676 us, enlarge 1 us, flip 91 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7595 us, enlarge 1 us, flip 91 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7622 us, enlarge 1 us, flip 91 us, free time used 108 us (300 frames)
+menu frame: 1x, a frame averages draw 7754 us, enlarge 1 us, flip 90 us, free time used 107 us (300 frames)
+menu frame: 1x, a frame averages draw 7666 us, enlarge 1 us, flip 92 us, free time used 105 us (300 frames)
+menu frame: 1x, a frame averages draw 7582 us, enlarge 1 us, flip 91 us, free time used 104 us (300 frames)
+menu frame: 1x, a frame averages draw 7661 us, enlarge 1 us, flip 91 us, free time used 104 us (300 frames)
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+type 'h' for help
+> :
+:o
+: o 
+'o': not a command of the line (gpu, b3d, play, set, save, render, room, video, stack, log, err, crc, send, reboot)
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:log
+: log 
+report: 20261024-184359_log_pi-zero-w_v0.2.5-1547-g1cb137ab.txt saved as bm/reports/rpt00001.txt
+report: sending 20261024-184359_log_pi-zero-w_v0.2.5-1547-g1cb137ab.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261024-184359_log_pi-zero-w_v0.2.5-1547-g1cb137ab.txt
+the line is done
+> 
+net: console closed
+net: receiving a new kernel (5068036 bytes)...
+net: kernel 0% (0 of 4949 KB)
+net: kernel 10% (500 of 4949 KB)
+net: kernel 20% (991 of 4949 KB)
+net: kernel 30% (1488 of 4949 KB)
+net: kernel 40% (1981 of 4949 KB)
+net: kernel 50% (2484 of 4949 KB)
+net: kernel 60% (2977 of 4949 KB)
+net: kernel 70% (3465 of 4949 KB)
+net: kernel 80% (3962 of 4949 KB)
+net: kernel 90% (4454 of 4949 KB)
