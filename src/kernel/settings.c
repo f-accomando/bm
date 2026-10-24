@@ -40,11 +40,13 @@
 #include "testpattern.h"
 #include "drivers/board.h"
 #include "drivers/prop.h"
+#include "drivers/spilcd.h"
 #include "drivers/uart.h"
 #include "drivers/watchdog.h"
 #include "gpu/gpu3d.h"
 #include "gpu/v3d.h"
 #include "gpu/version3d.h"
+#include "net/netcon.h"
 #include "usb/smsc95xx.h"
 #include "usb/usb.h"
 #include <malloc.h>
@@ -112,7 +114,7 @@ enum {
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
-    R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
+    R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_GPIOSCREEN, R_AUDIO, R_LOG, R_BT,
     R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FILTER, R_FAST3D,
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
@@ -592,6 +594,8 @@ void home_panel(int id, home_panel_t *p)
 #else
         home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
                  "HDMI colour bars; any button returns", NULL);
+        home_row(p, MENU_ROW_ACTION, R_GPIOSCREEN, "GPIO screen",
+                 "3.5\" SPI TFT on the Pi 1: a tiny robot at its computer", NULL);
 #endif
         for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
             if (home_util_group(i) == 1)
@@ -939,6 +943,17 @@ static void x_pattern(framebuffer_t *fb)
     kprintf("HDMI test pattern shown\n");
 }
 
+static void x_gpioscreen(framebuffer_t *fb)
+{
+    console_suspend(1);
+    netcon_focus("the menu (GPIO screen: Esc or q returns)", NULL);
+    spilcd_desk_robot(fb);
+    console_suspend(0);
+    heading("GPIO screen");
+    kprintf("GPIO screen: tiny robot desk mode (%s)\n",
+            spilcd_ready() ? "SPI0 480x320 active on Pi 1" : "Pi 1 only");
+}
+
 #else
 static void x_modes(framebuffer_t *fb)
 {
@@ -1227,6 +1242,9 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_PATTERN:
         if (how == 0) text(d, x_pattern, 0, 0);
+        break;
+    case R_GPIOSCREEN:
+        if (how == 0) text(d, x_gpioscreen, 0, 0);
         break;
     case R_MONITOR:
         if (how == 0) d->what = HOME_MONITOR;
