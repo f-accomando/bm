@@ -233,6 +233,25 @@ typedef struct {
 
 extern held_t held;
 
+/* ------------------------------------------------------- meshes of Lua */
+
+/* What animate() needs for a model with a skeleton (bm Animator): its own
+ * copy of the rig, the vertices at rest, the bone matrices of the pose. */
+typedef struct {
+    uint8_t *data;
+    bm_rig_t r;
+    float (*mat)[12];           /* the pose: where each bone carries its rest vertices (r3d skins while drawing) */
+    float *radius;              /* per bone: the capsule around its vertices (hit3d) */
+    float turn[BM_BONES_MAX][4];    /* bone_turn(): an extra turn of each bone (quaternion) */
+    uint8_t turned[BM_BONES_MAX];
+} skel_t;
+
+/* A mesh of Lua: r3d_mesh_t first, so every function can see just that. */
+typedef struct {
+    r3d_mesh_t m;
+    skel_t *skel;
+} lmesh_t;
+
 /* ------------------------------------------------------- calls between areas */
 
 /* Defined in one area of runtime.c, used in another. */
@@ -257,6 +276,18 @@ int session_wanted(void);
 float fnum(lua_State *L, int i, float def);
 void options_line(char *b, size_t n);
 
+/* the 3D helpers (defined with the 3D) */
+r3d_t *r3d(lua_State *L);
+void settle2d(void);
+void flush3d(int keep);
+void cls_settle(void);
+void gpu3d_to_arm(void *ctx, const char *why);
+int merge_cfg(void);
+int impostor_px(int px);
+void zclear_dma_wait(int claim);
+r3d_mesh_t *new_mesh(lua_State *L);
+void skel_free(skel_t *s);
+
 /* collision worlds, log() and report() (api_world.c) */
 int l_world_gc(lua_State *L);
 int l_world3d(lua_State *L);
@@ -266,6 +297,41 @@ int l_world_move(lua_State *L);
 int l_world_floor(lua_State *L);
 int l_log(lua_State *L);
 int l_report(lua_State *L);
+
+/* animation and the 3D bindings (api_anim.c) */
+int l_animate(lua_State *L);
+int l_clips(lua_State *L);
+int l_bone3d(lua_State *L);
+int l_bone_turn(lua_State *L);
+int l_bones3d(lua_State *L);
+int l_hit3d(lua_State *L);
+int l_bounds3d(lua_State *L);
+int l_mesh_sphere(lua_State *L);
+int l_mesh_cube(lua_State *L);
+int l_draw3d(lua_State *L);
+int l_cel3d(lua_State *L);
+int l_dither3d(lua_State *L);
+int l_sky3d(lua_State *L);
+int l_shine3d(lua_State *L);
+int l_shadow3d(lua_State *L);
+int l_textures3d(lua_State *L);
+int l_point3d(lua_State *L);
+int l_line3d(lua_State *L);
+int l_sprite3d(lua_State *L);
+int l_particles(lua_State *L);
+int l_particles_add(lua_State *L);
+int l_particles_step(lua_State *L);
+int l_particles_draw(lua_State *L);
+int l_particles_count(lua_State *L);
+int l_camera3d(lua_State *L);
+int l_fog3d(lua_State *L);
+int l_pvs3d(lua_State *L);
+int l_visible3d(lua_State *L);
+int l_project3d(lua_State *L);
+int l_light3d(lua_State *L);
+int l_lamp3d(lua_State *L);
+int l_zclear(lua_State *L);
+int l_gpu3d(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
