@@ -289,7 +289,10 @@ local function acc_get(a, this)
   return nil
 end
 
+local function chain_fail() throw_error("RangeError", "Prototype chain too long") end
+
 local function getp(o, key, this)
+  local hops = 0
   repeat
     local v = o.p[key]
     if v ~= nil then
@@ -302,6 +305,8 @@ local function getp(o, key, this)
       if a then return acc_get(a, this) end
     end
     o = o.proto
+    hops = hops + 1
+    if hops > 100 then chain_fail() end
   until not o
   return nil
 end
@@ -403,7 +408,7 @@ function setv(o, key, v)
     p[key] = v
     return
   end
-  local obj = o
+  local obj, hops = o, 0
   repeat
     local acc = obj.acc
     if acc then
@@ -415,6 +420,8 @@ function setv(o, key, v)
       end
     end
     obj = obj.proto
+    hops = hops + 1
+    if hops > 100 then chain_fail() end
   until not obj
   if o.frozen or o.noext then return end
   setown(o, key, v)
@@ -437,9 +444,12 @@ local function has_prop(o, key)
     local n = idx_of(key)
     if n then return n < o.len and o.a[n + 1] ~= nil end
   end
+  local hops = 0
   repeat
     if o.p[key] ~= nil or (o.acc and o.acc[key]) then return true end
     o = o.proto
+    hops = hops + 1
+    if hops > 100 then chain_fail() end
   until not o
   return false
 end
@@ -625,9 +635,12 @@ local function instance_of(v, F)
   if not is_obj(v) then return false end
   local pr = getv(F, "prototype")
   v = v.proto
+  local hops = 0
   while v do
     if v == pr then return true end
     v = v.proto
+    hops = hops + 1
+    if hops > 100 then chain_fail() end
   end
   return false
 end
@@ -4115,8 +4128,10 @@ local function forin_keys(o)
   end
   if not is_obj(o) then return {}, 0 end
   local out, n, seen = {}, 0, {}
-  local cur = o
+  local cur, hops = o, 0
   while cur do
+    hops = hops + 1
+    if hops > 100 then chain_fail() end
     local ks, kn = own_keys(cur)
     for i = 1, kn do
       local k = ks[i]
@@ -4560,6 +4575,19 @@ local function define_property(o, key, desc)
   end
 end
 
+-- Sets the prototype of o (p = nil means null). Cycles are refused.
+local function set_proto(o, p)
+  if o == ObjectProto then throw_error("TypeError", "Immutable prototype object 'Object.prototype' cannot have its prototype set") end
+  local q, hops = p, 0
+  while q do
+    if q == o then throw_error("TypeError", "Cyclic __proto__ value") end
+    q = q.proto
+    hops = hops + 1
+    if hops > 100 then chain_fail() end
+  end
+  o.proto = p
+end
+
 local function setup_object(rt)
   local OP = ObjectProto
   local function ctorf(proto, v)
@@ -4576,9 +4604,12 @@ local function setup_object(rt)
   def(OP, "isPrototypeOf", function(this, v)
     if not is_obj(v) then return false end
     v = v.proto
+    local hops = 0
     while v do
       if v == this then return true end
       v = v.proto
+      hops = hops + 1
+      if hops > 100 then chain_fail() end
     end
     return false
   end, 1)
@@ -4600,7 +4631,7 @@ local function setup_object(rt)
     return nil
   end, function(this, v)
     if is_obj(this) then
-      if v == null then this.proto = nil elseif is_obj(v) then this.proto = v end
+      if v == null then set_proto(this, nil) elseif is_obj(v) then set_proto(this, v) end
     end
   end)
 
@@ -4658,7 +4689,7 @@ local function setup_object(rt)
   end, 1)
   def(Obj, "setPrototypeOf", function(this, o, p)
     if is_obj(o) then
-      if p == null then o.proto = nil elseif is_obj(p) then o.proto = p
+      if p == null then set_proto(o, nil) elseif is_obj(p) then set_proto(o, p)
       else throw_error("TypeError", "Object prototype may only be an Object or null") end
     end
     return o
