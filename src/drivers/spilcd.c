@@ -708,19 +708,22 @@ static void draw_desk_and_arms(g16_t *g, unsigned frame, int st)
 
 static void draw_hud(g16_t *g, int st, unsigned tasks, uint32_t t0)
 {
-    /* Compact translucent-style status pill at top-left and bottom-right */
-    round_box(g, 8, 6, 228, 18, 4, 0x161A22);
-    g16_circfill(g, 17, 15, 4, g16_rgb24(states[st].col));
+    /* Unified top status bar sized so all text stays strictly inside */
+    round_box(g, 6, 4, SPILCD_W - 12, 20, 5, 0x161A22);
+    g16_circfill(g, 18, 14, 4, g16_rgb24(states[st].col));
+
+    g16_clip(g, 10, 4, SPILCD_W - 20, 20);
     g->font = &font_console_6x12;
-    g16_text(g, 26, 9, states[st].badge, g16_rgb24(states[st].col));
-    g16_text(g, 104, 9, states[st].sub, g16_rgb24(0xD8DEE9));
+    int x = g16_text(g, 28, 8, states[st].badge, g16_rgb24(states[st].col));
+    g16_text(g, x + 10, 8, states[st].sub, g16_rgb24(0xD8DEE9));
 
     char stat[32];
     uint32_t sec = (timer_ticks() - t0) / 1000000u;
-    ksnprintf(stat, sizeof stat, "TASKS:%02u  %02lu:%02lu",
+    ksnprintf(stat, sizeof stat, "TASKS:%02u %02lu:%02lu",
               tasks, (unsigned long)(sec / 60), (unsigned long)(sec % 60));
-    round_box(g, SPILCD_W - 104, 6, 96, 18, 4, 0x161A22);
-    g16_text(g, SPILCD_W - 98, 9, stat, g16_rgb24(0xEAE2C8));
+    int sw = (int)strlen(stat) * 6;
+    g16_text(g, SPILCD_W - 14 - sw, 8, stat, g16_rgb24(0xEAE2C8));
+    g16_clip(g, 0, 0, SPILCD_W, SPILCD_H);
 }
 
 /* Diffs `cur` against `prev` in 16-row horizontal strips and sends only the
