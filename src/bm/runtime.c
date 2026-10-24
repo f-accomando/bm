@@ -14,19 +14,14 @@
 #include "decimate.h"
 #include "glb.h"
 #include "cutout.h"
-#include "net/img3d.h"
+#include "platform.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
 #include "fs/sdlock.h"
 #include "vid.h"
 #include "rec.h"
-#include "kernel/config.h"
-#include "kernel/controls.h"
 #include "lib/crc32.h"
-#include "kernel/input.h"
-#include "kernel/pointer.h"
-#include "usb/hid.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
 #include "lib/printf.h"
@@ -41,18 +36,8 @@
 #include "gpu/gpu3d.h"
 #include "gpu/version3d.h"
 #include "arch/cache.h"
-#include "kernel/crumbs.h"
-#include "kernel/prompts.h"
-#include "kernel/reports.h"
-#include "kernel/syskeys.h"
-#include "kernel/toolnames.h"
-#include "kernel/home.h"
 #include "n8lua.h"
 #include "shot.h"
-#include "ai/assist.h"
-#include "ai/lua_ai.h"
-#include "ai/net.h"
-#include "net/cartnet.h"
 #include "webfile.h"
 #include "webget.h"
 #include "webimg.h"
@@ -62,6 +47,7 @@
 #include "tokens.h"
 #include "profile.h"
 #include "project.h"
+#include "rt_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,199 +59,14 @@
 #include "lua.h"
 #include "lualib.h"
 
-#define FRAME_US        16667
-#define HOLD_FRAMES     10          /* a serial key press counts as held this long */
-#define QUIT_FORCE      0x100       /* 'q' on the serial line: leaves without asking _exit() */
-#define HOOK_EVERY      1000        /* instructions between hook calls */
-#define FRAME_BUDGET    20000       /* x HOOK_EVERY = 20 M instructions per callback */
+/* The state of the run (declared in rt_internal.h). */
+rt_t rt;
 
-enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_X, BTN_Y, BTN_START, BTN_SELECT,
-       BTN_COUNT };
-/* the shoulder buttons from the serial keys: pad() only, not btn() */
-enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
-
-static struct {
-    g16_t g;
-    g16_sheet_t sheet;
-    g16_map_t map;                  /* the map's layer 1 (map.cells == layer[0]) */
-    uint16_t *layer[BM_LAYERS_MAX]; /* the cells of each layer, map.w x map.h (R11) */
-    char layer_name[BM_LAYERS_MAX][BM_LAYER_NAME + 1];
-    int nlayers;
-    uint8_t *flags;                 /* fget/fset: a byte per 8x8 cell of the sheet */
-    int flags_dirty;                /* fset() since the sheet came: cart_write(sheet=) writes them */
-    uint8_t *zones;                 /* a copy of the cartridge's SPRITES section (zspr), or NULL */
-    int nzones;
-    uint8_t *boxes;                 /* a copy of its BOXES section (zboxes), or NULL */
-    int nboxes;
-    struct pvs *pvs;                /* bm3d 5.5: the map's visibility given by pvs3d(), or NULL */
-    uint8_t *cell_dirty;
-    int sheet_dirty;
-    uint8_t hold[SER_COUNT];
-    int uses_xy;                /* the cart asked for btn(6) or btn(7) */
-    uint16_t now, prev;             /* button bits this frame / last frame, any player */
-    uint16_t pnow[INPUT_PLAYERS], pprev[INPUT_PLAYERS];     /* the same per player */
-    uint32_t praw[INPUT_PLAYERS];   /* HID bits per player (stick() from the cross) */
-    uint32_t praw_prev[INPUT_PLAYERS];  /* ...the frame before (btnp() of a name) */
-    /* keymap(): the game's actions and their buttons (indices of button_names) */
-    struct { char name[16]; uint8_t btn[4], n, gbtn[4], gn; } keymap[32];  /* btn: in effect; gbtn: the game's own */
-    int nkeymap;
-    char scheme[12];                /* controls(): "scroller" (default when empty), "topdown", "stick" */
-    int local;                      /* player of the keyboard / USB / serial, or -1 */
-    uint32_t start_us, frame;
-    uint32_t last_cpu_us, fps;
-    uint32_t gpu_frame_us;      /* stat(16): the GPU's job time accounted in the last frame */
-    gpu3d_stats_t gpu_prev;     /* the driver's totals at the end of the frame before */
-    uint32_t audio_frame_us;    /* stat(17): the audio interrupt's time in the last frame */
-    uint32_t gpuwait_frame_us;  /* stat(18): the ARM's wait for the GPU in the last frame */
-    uint32_t audio_prev, gpuwait_prev;  /* their totals at the end of the frame before */
-    uint32_t present_us;        /* last copy of the frame to the framebuffer */
-    uint32_t us3d;              /* time in 3D drawing since the last zclear() */
-    uint32_t us3d_all;          /* the same, never reset (the dev kit's overlay) */
-    uint32_t frame_t0;          /* when this frame's _update began */
-    int skip_max;               /* frameskip(n): up to n _update before a _draw (0, 1: one) */
-    uint32_t updates;           /* the _update that ran before this frame's _draw (stat(15)) */
-    uint32_t update_us, draw_us;    /* this frame's: all its _update, its _draw (the dev kit) */
-    char devinfo[4][19];        /* devinfo(): the game's lines in the session report */
-    int ndevinfo;
-    uint32_t hook_count;
-    uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
-    /* the dev kit: the tokens of the code, and the most of this run */
-    int tokens;
-    uint32_t instr_k_max;       /* Lua instructions (thousands) of the busiest frame */
-    size_t lua_peak;            /* bytes of Lua memory, seen at the end of a frame */
-    uint32_t slow_frames;       /* frames over 16.7 ms (_update + _draw) */
-    int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
-    int f11_held;
-    int prof_want;              /* profile(true): the profiler of functions on without its page */
-    int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
-    int help_page;              /* the page of the keys shown while F12 is held */
-    int help_open;              /* showkeys(): 1 the keys stay open (a click, F12 or Esc closes them), 2 closed, the click still down */
-    int esc;
-    int serial_quit;            /* Ctrl+\ on the serial line: Ctrl+Esc (the cartridge's _exit() asks) */
-    int quit;
-    r3d_t r3d;
-    int r3d_ready;
-    int zclear_seen;            /* zclear() called in this frame */
-    int early;                  /* in the next frame's _update, run while the GPU draws (bm3d 4.1) */
-    int early_touch;            /* ... which drew 3D or needed the page: */
-    int no_early;               /* its _update runs after the frame again */
-    int hold_frame;             /* this frame is not shown (the 3D went from the GPU to the ARM
-                                 * in the middle of it: its depths would be mixed) */
-    int zclear_dma;             /* the z-buffer is being (or has been) cleared by the DMA
-                                 * for the next frame, and nothing has drawn on it since */
-    g16_light_t light;          /* light_begin() .. light_end() */
-    g16_fade_t fade;            /* fades(), dark_begin() .. dark_end() */
-    r3d_pfx_t *pfx;             /* particles() pool */
-    int text_mode;              /* keyp() was called: the keyboard types */
-    int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
-    lua_State *slice_thread;    /* timeslice(): this coroutine yields after slice_at */
-    uint32_t slice_at, slice_len;
-    int esc_wait;               /* frames since a serial Esc */
-    int esc_num;                /* ESC [ n ~ */
-    uint8_t tq[256];            /* typed keys for keyp() */
-    uint8_t tq_head, tq_tail;
-    char save_name[13];         /* "1a2b3c4d.sav": CRC-32 of title and author */
-    uint8_t *mesh;              /* copy of the cartridge's MESH section, or NULL */
-    uint32_t mesh_size;
-    uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
-    uint32_t anim_size;
-    int mouse, mouse_arrow;     /* mouse(true [, arrow]): the pointer is the cartridge's */
-    int reports;                /* report() calls in this run */
-    pointer_t ptr;              /* the pointer this frame */
-    int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
-    int gpu3d_boxed;            /* the GPU not started: the page was a square inside the screen */
-    int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
-    uint16_t cls_colour;
-    int gpu2d;                  /* bm3d 4.8: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1) */
-    int later;                  /* bm3d 6.9: each frame shown a frame later asked for (gpu3d_later=1,
-                                 * gpu3d()): later_on() says when it is */
-    int online;                 /* online(true): played over the network, PS asks first */
-    char online_note[64];       /* online()'s line under the question */
-    int leave_ask;              /* "Leave the match?" is open (leave_step) */
-    int leave_no;               /* Esc: its answer no */
-    int online_left;            /* yes: the game ends (not suspended) */
-    uint32_t leave_pad;         /* its buttons and keys last frame (for the presses) */
-    uint8_t leave_keys;
-    uint32_t leave_held;        /* the buttons it took: the game gets them back released */
-    uint32_t raw_all;           /* this frame's HID bits, all players and the serial line */
-} rt;
-
-#define MESH_MT "bm.mesh"
-
-/* ---------------------------------------------------------------- helpers */
-
-static uint16_t col(lua_State *L, int idx, uint32_t def)
-{
-    return g16_rgb24((uint32_t)luaL_optinteger(L, idx, def));
-}
-
-static int ival(lua_State *L, int idx)
-{
-    return (int)luaL_checknumber(L, idx);
-}
-
-static int oval(lua_State *L, int idx, int def)
-{
-    return lua_isnoneornil(L, idx) ? def : (int)luaL_checknumber(L, idx);
-}
-
-static void sheet_commit(void)
-{
-    if (!rt.sheet_dirty)
-        return;
-    int per_row = rt.sheet.w / G16_CELL, n = per_row * (rt.sheet.h / G16_CELL);
-    for (int i = 0; i < n; i++)
-        if (rt.cell_dirty[i]) {
-            g16_sheet_update_cell(&rt.sheet, i % per_row, i / per_row);
-            rt.cell_dirty[i] = 0;
-        }
-    rt.sheet_dirty = 0;
-}
+/* The records of the 2D drawn after the GPU, and the held frame. */
+d2_t d2 = { .cut = D2_NONE };
+held_t held;
 
 /* ---------------------------------------------------------------- API */
-
-/* bm3d 4.1: 2D drawn on the page while the GPU draws 3D on it (the frame
- * queue on): the GPU's job is started and the 2D is recorded here, then
- * drawn on the page in the same order once the job has ended (flush3d):
- * before more 3D, before the page is read, at the end of the frame. The
- * HUD of a game is drawn (as far as the cartridge goes) while the GPU
- * draws the scene, and the frame's 3D need not wait for it. */
-enum { D2_STATE, D2_CLS, D2_PSET, D2_LINE, D2_RECT, D2_RECTFILL, D2_CIRC, D2_CIRCFILL, D2_SPR, D2_SSPR,
-       D2_SSPR_ZOOM, D2_MAP, D2_TEXT, D2_PROMPT, D2_TRI, D2_TRI_GOURAUD, D2_STACK, D2_STACKV };
-
-#define D2_MAX (256u << 10)             /* bytes recorded at most: then drawn */
-
-#define D2_NONE 0xFFFFFFFFu
-
-static struct {
-    int on;                             /* recording: the GPU has a job on the page */
-    int32_t *w;                         /* the records: op | words << 8, then the words */
-    uint32_t n, cap;                    /* words */
-    uint32_t cut;                       /* the records from here are the next frame's (its
-                                         * _update ran early), or D2_NONE */
-    int cx0, cy0, cx1, cy1, cam_x, cam_y;   /* the drawing state of the records so far */
-    const font_t *font;
-    uint32_t ops;                       /* drawn after the GPU (for the log and the bench) */
-} d2 = { .cut = D2_NONE };
-
-/* bm3d 6.9: the frame shown a frame later (gpu3d_later=1, with two
- * jobs in flight). At the end of a frame its 3D is started on the GPU and
- * the frame is held: its page, and the 2D recorded after its job started
- * (d2's records, moved here). The next _update and _draw run meanwhile on
- * the next page (three pages: one shown, one held, one drawn); at the end
- * of that frame the held one gets its 2D and is shown (later_show). The
- * cartridge sees nothing else: the same frames, each one a frame later. */
-static struct {
-    int on;                             /* a frame is held */
-    int now;                            /* the frames are held (the last frame was: the overlay) */
-    uint16_t *px;                       /* its page */
-    int32_t *w;                         /* its 2D, recorded while its job draws (as d2's) */
-    uint32_t n, cap;                    /* words */
-    framebuffer_t *fb;                  /* the run's screen */
-    uint32_t frames;                    /* frames shown a frame later in this run */
-} held;
-
-static void draw_prompt(const prompt_t *p, int x, int y, int scale);
 
 /* the 2D records w[0..upto) on the page of rt.g (its job has ended) */
 static void d2_play(const int32_t *w, uint32_t upto)
@@ -733,7 +534,7 @@ static int l_spr(lua_State *L)
 
 /* sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom]): zoom (default 1)
  * draws it that many times bigger, or smaller below 1 (nearest pixel) */
-static int l_sspr(lua_State *L)
+int l_sspr(lua_State *L)
 {
     const int32_t v[8] = { ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
                            lua_toboolean(L, 7), lua_toboolean(L, 8) };
@@ -1163,7 +964,6 @@ static int l_zboxes(lua_State *L)
     return 1;
 }
 
-static int l_sspr(lua_State *L);
 
 /* zspr(name, x, y, [frame, flip_x, flip_y, zoom]) draws a zone: frame 1..
  * frames, or (nil) the one its fps gives at time(); returns the frame */
@@ -1370,7 +1170,7 @@ static const prompt_t *find_prompt(const char *n, int small)
 
 /* a prompt's picture at x, y (its edges blended over the page), each of
  * its pixels scale x scale */
-static void draw_prompt(const prompt_t *p, int x, int y, int scale)
+void draw_prompt(const prompt_t *p, int x, int y, int scale)
 {
     for (int j = 0; j < p->h; j++)
         for (int i = 0; i < p->w; i++) {
@@ -1396,7 +1196,6 @@ static void draw_prompt(const prompt_t *p, int x, int y, int scale)
         }
 }
 
-static const prompt_t *prompt_for(const char *n, int small, int player);
 
 /* prompt(name, x, y [, small, scale, player]): a button or a key as a chip
  * of the apps' set (prompts.c), its top left at (x, y), 16 px high for 8x16
@@ -1751,7 +1550,7 @@ static const prompt_t *button_chip(int b, int dev, int small)
     return pad_chip(button_names[b].chip, dev & INPUT_DEV_DS4 ? PROMPTS_DS4 : PROMPTS_LETTERED, small);
 }
 
-static const prompt_t *prompt_for(const char *n, int small, int player)
+const prompt_t *prompt_for(const char *n, int small, int player)
 {
     int b = -1;
     if (name_is(n, "ok") || name_is(n, "back")) {
@@ -1871,7 +1670,6 @@ static int l_time(lua_State *L)
     return 1;
 }
 
-static uint32_t assets_kb(void);
 
 /* stat(n): 0 Lua KB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
  *         4 3D triangles drawn and 5 3D pixels written since the last zclear()
@@ -3446,7 +3244,6 @@ static void options_line(char *b, size_t n)
 #define REPORTS_MAX     8
 #define REPORT_MAX_LEN  (256 * 1024)
 enum { PERM_NET, PERM_REPORT, PERM_DOCS, PERM_COUNT };
-static int perm_allowed(int what);
 static int l_report(lua_State *L)
 {
     const char *kind = luaL_checkstring(L, 1);
@@ -3622,7 +3419,6 @@ static void sb_add(lua_State *L, const char *s, size_t len)
 static void sb_str(lua_State *L, const char *s) { sb_add(L, s, strlen(s)); }
 static void sb_chr(lua_State *L, char c) { sb_add(L, &c, 1); }
 
-static void ser(lua_State *L, int idx, int depth);
 
 static void ser_string(lua_State *L, const char *str, size_t len)
 {
@@ -3677,7 +3473,7 @@ static void ser_value(lua_State *L, int idx, int depth)
     }
 }
 
-static void ser(lua_State *L, int idx, int depth)
+void ser(lua_State *L, int idx, int depth)
 {
     if (depth > 16)
         luaL_error(L, "save: tables nested too deep (or a cycle)");
@@ -5333,41 +5129,8 @@ static int l_timeslice(lua_State *L)
     return 0;
 }
 
-/* the dev kit's overlay (defined with it) */
-static int l_devkit(lua_State *L);
-static int l_profile(lua_State *L);
-static int l_breakpoint(lua_State *L);
-static int l_devinfo(lua_State *L);
-/* the console's battery (defined with the system's notice) */
-static int l_battery(lua_State *L);
-static int l_battery_low(lua_State *L);
-
-/* cartridge files, for the editor (defined after the asset loader) */
-static int l_ls(lua_State *L);
-static int l_cart_load(lua_State *L);
-static int l_cart_new(lua_State *L);
-static int l_cart_save(lua_State *L);
-static int l_cart_build(lua_State *L);
-static int l_cart_run(lua_State *L);
-static int l_cart_tool(lua_State *L);
-static int l_cart_arg(lua_State *L);
-static int l_cart_audio(lua_State *L);
-static int l_cart_put_audio(lua_State *L);
-static int l_cart_data(lua_State *L);
-static int l_cart_read(lua_State *L);
-static int l_cart_write(lua_State *L);
-static int l_cart_meshes(lua_State *L);
-static int l_mesh_reduce(lua_State *L);
-static int l_picture3d(lua_State *L);
-static int l_cutout3d(lua_State *L);
-static int l_glb3d(lua_State *L);
-static int l_res_write(lua_State *L);
-static int l_res_read(lua_State *L);
-static int l_cart_sheet(lua_State *L);
-
 /* ---------------------------------------------------------------- light */
 
-static int video_to_ram(g16_t *g);
 
 /* light_begin([ambient]): starts the lights of this frame; everything drawn
  * so far will be lit by light_end(). The cartridge draws into RAM from now
@@ -5750,7 +5513,6 @@ static struct {
     uint8_t bits[DBG_LINES / 8];
 } dbg;
 
-static void dbg_line(lua_State *L, lua_Debug *ar);
 
 static void hook(lua_State *L, lua_Debug *ar)
 {
@@ -6393,7 +6155,6 @@ void bm_set_tool(int on)
 #define MADE_MAX 16
 static char made[MADE_MAX][16];         /* the files this run made (names in /carts) */
 static int n_made;
-static int copy_question(const char *game, const char *copy);
 
 /* The names under which the kernel runs an SD file as one of bm's tools, with a tool's rights (devtool.c
  * load_sd_tool, carts.c tool_id_of): a game must not create a file called so (it would be run as the tool,
@@ -6511,7 +6272,7 @@ const char *bm_last_error(void)
 }
 
 /* ls([dir]) -> { {name=, size=, dir=}, ... } */
-static int l_ls(lua_State *L)
+int l_ls(lua_State *L)
 {
     const char *dir = luaL_optstring(L, 1, "/");
     lua_newtable(L);
@@ -6579,7 +6340,7 @@ static void push_project(lua_State *L, const char *title, const char *author, in
 
 /* cart_load(path) -> project table, or nil and a message. The cartridge's
  * sprite sheet and map replace the running cartridge's own. */
-static int l_cart_load(lua_State *L)
+int l_cart_load(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     fat_entry_t e;
@@ -6640,7 +6401,7 @@ static int l_cart_load(lua_State *L)
 /* cart_sheet([w, h]) -> the width and height of the project's sprite sheet;
  * with w and h (multiples of 8, 8 to 4096) it gets that size: the pixels
  * that fit stay where they are, the new ones are transparent (bm Pixel) */
-static int l_cart_sheet(lua_State *L)
+int l_cart_sheet(lua_State *L)
 {
     if (!lua_isnoneornil(L, 1)) {
         int w = (int)luaL_checkinteger(L, 1), h = (int)luaL_checkinteger(L, 2);
@@ -6869,7 +6630,7 @@ done:
 }
 
 /* cart_new(): an empty 256x256 sprite sheet and map, no cover */
-static int l_cart_new(lua_State *L)
+int l_cart_new(lua_State *L)
 {
     bm_cart_t c;
     memset(&c, 0, sizeof c);
@@ -6920,7 +6681,7 @@ static const char *field(lua_State *L, int t, const char *k, const char *def)
  * message. Sprite sheet, map (its layers), the flags of the tiles and the
  * named zones are the running cartridge's; the file name must be 8.3 (e.g.
  * "/carts/mygame.bm"). */
-static int l_cart_save(lua_State *L)
+int l_cart_save(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -7050,7 +6811,7 @@ static int l_cart_save(lua_State *L)
  * message: the .bm of a project (.bme), or its .b16 when target is "b16" (from
  * a .bme or .bm), next to it, the one it built before replaced (project.h).
  * bm's tools only (the SDK's "Build .bm" / "Export .b16"). */
-static int l_cart_build(lua_State *L)
+int l_cart_build(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     const char *target = luaL_optstring(L, 2, NULL);
@@ -7076,7 +6837,7 @@ static int l_cart_build(lua_State *L)
 /* cart_read(path) -> {title, author, res, lua, size}, or nil and a message.
  * Only reads: the running cartridge's sheet and map stay as they are (code
  * editors with several files open). */
-static int l_cart_read(lua_State *L)
+int l_cart_read(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     fat_entry_t e;
@@ -7132,7 +6893,7 @@ static int capture_call(lua_State *L)
  * mesh_cube()), found by running it apart with every other function of bm
  * doing nothing (meshcap.c); the fields are the arguments of mesh(). For
  * bm Mesh. */
-static int l_cart_meshes(lua_State *L)
+int l_cart_meshes(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     fat_entry_t e;
@@ -7172,7 +6933,7 @@ static int l_cart_meshes(lua_State *L)
  * `triangles` triangles (more if nothing else can go without turning a
  * face over), with the bones of its vertices (nil without `bones`) and
  * the number of triangles. bm Studio's models page. */
-static int l_mesh_reduce(lua_State *L)
+int l_mesh_reduce(lua_State *L)
 {
     size_t len = 0, vblen = 0;
     const uint8_t *rec = (const uint8_t *)luaL_checklstring(L, 1, &len);
@@ -7244,7 +7005,7 @@ static void push_glb_model(lua_State *L, glb_model_t *m)
  * cutout with thickness `depth` (a fraction of the height) or, with
  * lathe = true, the outline turned around the vertical axis in
  * `segments` steps. picture: a .png / .jpg on the SD card. */
-static int l_cutout3d(lua_State *L)
+int l_cutout3d(lua_State *L)
 {
     const char *picture = luaL_checkstring(L, 1);
     const char *name = "model";
@@ -7302,7 +7063,7 @@ static int l_cutout3d(lua_State *L)
  * message. A file over GLB3D_MAX_FILE (16 MB) is refused: the file, its
  * decoded corners and the texture must fit in the RAM of the Pi Zero W. */
 #define GLB3D_MAX_FILE (16u << 20)
-static int l_glb3d(lua_State *L)
+int l_glb3d(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     const char *name = NULL;
@@ -7399,7 +7160,7 @@ static int res_model_path(const char *path, char *file, size_t fn)
     return 1;
 }
 
-static int l_res_write(lua_State *L)
+int l_res_write(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 3, LUA_TTABLE);
@@ -7522,7 +7283,7 @@ static int l_res_write(lua_State *L)
  * message: a resource file (BMRES: a .bmm, .bmi, ...) read and checked as the kernel loads it, read only.
  * kind: 1 model, 2 image, 3 sounds, 4 map, 5 palette, 6 kit. The sections are the file's, whole (MESH is
  * the whole section res_write takes). A file over 16 MB is refused. */
-static int l_res_read(lua_State *L)
+int l_res_read(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     fat_entry_t e;
@@ -7593,7 +7354,7 @@ static int l_res_read(lua_State *L)
  *     (256 x 256 RGBA bytes, or nil), nv =, nf =, textured = }, or nil
  *     and a message. The calls block while the network works (bm Studio
  *     shows what it is doing before each one). */
-static int l_picture3d(lua_State *L)
+int l_picture3d(lua_State *L)
 {
     const char *action = luaL_checkstring(L, 1);
     char err[160];
@@ -7748,7 +7509,7 @@ static int l_picture3d(lua_State *L)
  * whatever the file holds now (bm Studio's new project). A file that does not exist yet
  * becomes a new cartridge with the code (its name must then be 8.3; an
  * existing file keeps its long name). */
-static int l_cart_write(lua_State *L)
+int l_cart_write(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -7889,7 +7650,7 @@ static int l_cart_write(lua_State *L)
  * { path =, error = }. The game is a debug session (R13): it stops at the
  * breakpoints (lines of its main.lua), at breakpoint() and, with stop, at
  * its first line. */
-static int l_cart_run(lua_State *L)
+int l_cart_run(lua_State *L)
 {
     if (!tool_mode) {           /* not a tool: nothing for the console to do, and no request left behind */
         rt.quit = 1;
@@ -7922,7 +7683,7 @@ static int l_cart_run(lua_State *L)
 /* cart_tool(name, [path]): leaves this tool for another of the console's
  * ("studio", "animator", "mesh", "pixel", "code", "sdk", "sound") on the
  * file (bm Studio's "Open in bm Animator") */
-static int l_cart_tool(lua_State *L)
+int l_cart_tool(lua_State *L)
 {
     if (!tool_mode) {           /* as cart_run: a request nobody takes would run in the next tool session */
         rt.quit = 1;
@@ -7934,7 +7695,7 @@ static int l_cart_tool(lua_State *L)
     return 0;
 }
 
-static int l_cart_arg(lua_State *L)
+int l_cart_arg(lua_State *L)
 {
     if (!arg_path[0]) {
         lua_pushnil(L);
@@ -7993,7 +7754,7 @@ static int l_cart_arg(lua_State *L)
 /* cart_audio([path]) -> the sound bank of a .bm file as a string (false
  * if it has none) and its title; nil and a message if it cannot be read.
  * Without a path: the bank of the cartridge playing, or nil. */
-static int l_cart_audio(lua_State *L)
+int l_cart_audio(lua_State *L)
 {
     if (lua_isnoneornil(L, 1)) {
         if (own_audio)
@@ -8076,7 +7837,7 @@ static int is_bank(const uint8_t *data, const uint8_t *t)
  * nil removes it) into a .bm file, everything else as it was. If the file
  * does not exist, it is made (8.3 name) with that title and Lua source.
  * true, or false and a message. */
-static int l_cart_put_audio(lua_State *L)
+int l_cart_put_audio(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     char to[96];
@@ -8194,7 +7955,7 @@ static int l_cart_put_audio(lua_State *L)
  * away) -> true, or false and a message. The bytes are checked first;
  * model() and animate() see the new ones at once, cart_save writes them.
  * bm Studio and bm Animator of the console edit models and skeletons this way. */
-static int l_cart_data(lua_State *L)
+int l_cart_data(lua_State *L)
 {
     int type = (int)luaL_checkinteger(L, 1);
     luaL_argcheck(L, type == BM_SEC_MESH || type == BM_SEC_ANIM ||
@@ -8342,7 +8103,7 @@ static uint16_t *shadow;
 void bm_set_via_ram(int on) { via_ram = on; }
 
 /* Switches a running cartridge to the RAM buffer (keeps clip and camera). */
-static int video_to_ram(g16_t *g)
+int video_to_ram(g16_t *g)
 {
     if (shadow)
         return 0;
@@ -8506,7 +8267,6 @@ static void pace(uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
         *deadline = now + FRAME_US;
 }
 
-static void perf_end(void);
 
 /* The frame drawn, before the overlays, saved if a screenshot was asked for: a PNG in /bm/shots */
 static void shot_grab(void)
@@ -8563,12 +8323,6 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
  * the battery, the leave question, the notice, F12's keys) when L is
  * given, and its page shown. Then nothing is held. Its page is the
  * framebuffer's next (later_hold leaves it there): no copy, a flip. */
-static void perf_frame(void);
-static void battery_draw(void);
-static void leave_draw(void);
-static void notice_draw(void);
-static void shot_note_draw(void);
-static void keys_help(lua_State *L);
 
 static void later_show(lua_State *L)
 {
@@ -8751,7 +8505,7 @@ static int perf_user;                   /* the same in Settings (config perf): e
 /* KB of the cartridge's data in memory, besides its Lua: the sprite sheet
  * (RGB565 + alpha + the cells), the map, the models and skeletons, the sound
  * bank and the z-buffer of the 3D (stat(13)) */
-static uint32_t assets_kb(void)
+uint32_t assets_kb(void)
 {
     size_t b = (size_t)rt.sheet.w * rt.sheet.h * 3;
     b += (size_t)(rt.sheet.w / G16_CELL) * (rt.sheet.h / G16_CELL) * 2;
@@ -8774,7 +8528,7 @@ int bm_perf(void) { return perf_user; }
 /* devkit([mode]) -> the dev kit's overlay: 0 off, 1 top right, 2 bottom
  * right (3, the old functions page: the top); a mode shows it in this run
  * (a game's own key for it, e.g. Select on a pad: F11 is the keyboard's) */
-static int l_devkit(lua_State *L)
+int l_devkit(lua_State *L)
 {
     const int old = perf_on;
     if (!lua_isnoneornil(L, 1))
@@ -8785,7 +8539,7 @@ static int l_devkit(lua_State *L)
 
 /* devinfo(line, ...): up to 4 lines of the game in the session report
  * (its quality, its actors...), 18 characters each; devinfo() none */
-static int l_devinfo(lua_State *L)
+int l_devinfo(lua_State *L)
 {
     int n = lua_gettop(L);
     if (n > 4)
@@ -8815,7 +8569,7 @@ static void prof_update(void)
  * measured (0 while the first second goes by). true starts the profiler
  * of functions for this run (the session report then lists the ten
  * costliest), false stops it. */
-static int l_profile(lua_State *L)
+int l_profile(lua_State *L)
 {
     if (lua_isboolean(L, 1)) {
         rt.prof_want = lua_toboolean(L, 1);
@@ -9001,7 +8755,7 @@ static void sys_box(const char *const *lines, int n, int dim_last, int hints, in
 }
 
 /* the question to the player leaving an online game */
-static void leave_draw(void)
+void leave_draw(void)
 {
     if (!rt.leave_ask)
         return;
@@ -9159,7 +8913,7 @@ static int perm_question(int what)
     return answer;
 }
 
-static int perm_allowed(int what)
+int perm_allowed(int what)
 {
     if (tool_mode || !perm_ask)
         return 1;
@@ -9173,7 +8927,7 @@ static int perm_allowed(int what)
 
 /* A tool saving a game (a .bm): games are read only (project.h), so the
  * question of its editable copy, a project in Dev. 1 yes */
-static int copy_question(const char *game, const char *copy)
+int copy_question(const char *game, const char *copy)
 {
     const char *g = strrchr(game, '/');
     char title[48], last[64];
@@ -9575,7 +9329,7 @@ static void dbg_pause(lua_State *L, int level, const char *why)
 }
 
 /* the line hook: a breakpoint, or the step asked */
-static void dbg_line(lua_State *L, lua_Debug *ar)
+void dbg_line(lua_State *L, lua_Debug *ar)
 {
     const int line = ar->currentline;
     int hit = 0;
@@ -9594,7 +9348,7 @@ static void dbg_line(lua_State *L, lua_Debug *ar)
 }
 
 /* breakpoint([why]): in a game tried from a tool, the debugger stops here */
-static int l_breakpoint(lua_State *L)
+int l_breakpoint(lua_State *L)
 {
     if (dbg.session)
         dbg_pause(L, 1, luaL_optstring(L, 1, "breakpoint()"));
@@ -9610,7 +9364,7 @@ void bm_set_notice(int (*fn)(char *title, char *detail, int *progress))
     notice_fn = fn;
 }
 
-static void notice_draw(void)
+void notice_draw(void)
 {
     char title[64], detail[64];
     int progress = -1;
@@ -9621,7 +9375,7 @@ static void notice_draw(void)
 }
 
 /* the box that says a screenshot was saved, for 2 seconds */
-static void shot_note_draw(void)
+void shot_note_draw(void)
 {
     if (rec_active()) {                 /* not in the recording: it is drawn after the frame was taken */
         char t[24];
@@ -9648,7 +9402,7 @@ void bm_set_battery(int (*fn)(int *pct, int *charging, int *low))
 
 /* battery() -> its charge (0..100) and true on the charger; nil without a
  * battery (the Pi) */
-static int l_battery(lua_State *L)
+int l_battery(lua_State *L)
 {
     int pct, charging, low;
     if (!battery_fn || !battery_fn(&pct, &charging, &low)) {
@@ -9662,7 +9416,7 @@ static int l_battery(lua_State *L)
 
 /* battery_low() -> true while the system shows its low battery (20% or
  * less off the charger, until 23%), whether or not the icon is on */
-static int l_battery_low(lua_State *L)
+int l_battery_low(lua_State *L)
 {
     int pct, charging, low = 0;
     lua_pushboolean(L, battery_fn && battery_fn(&pct, &charging, &low) && low);
@@ -9674,7 +9428,7 @@ static int l_battery_low(lua_State *L)
  * 5%. After the frame is drawn (the 3D finished: flush3d), as the overlay:
  * the game's own drawing and state are not touched. Settings > Screen and
  * sound > Low battery icon (battery_icon=0) turns it off. */
-static void battery_draw(void)
+void battery_draw(void)
 {
     int pct, charging, low = 0;
     if (!battery_fn || !battery_fn(&pct, &charging, &low) || !low)
@@ -9752,7 +9506,7 @@ static int keys_chips(const char *keys, int x, int y, int small, int draw, uint1
 /* While F12 is held: the system's keys, then the cartridge's (keyhelp()),
  * with their pictures, in columns; more than a page: the arrows turn them.
  * Over the frame, after the overlay of the dev kit. */
-static void keys_help(lua_State *L)
+void keys_help(lua_State *L)
 {
     if (!hid_usage_held(0x45) && rt.help_open != 1) {
         rt.help_page = 0;
@@ -9941,7 +9695,6 @@ static void sess_frame(uint32_t wall_us)
     };
 }
 
-static int session_wanted(void);
 
 /* ---- the frame in its parts (the overlay, the session report)
  *
@@ -10116,7 +9869,7 @@ static void perf_begin(void)
 }
 
 /* the frame's work done: before the pace (or at the end of a frame held) */
-static void perf_end(void)
+void perf_end(void)
 {
     if (pf.on && !pf.ended) {
         perf_mark(&pf.m3);
@@ -10180,7 +9933,7 @@ static void perf_bar(g16_t *g, int x, int y, int z, const char *name, const uint
 
 /* The overlay (perf_on: 1 top right, 2 bottom right), after the frame is
  * drawn; and the profiler of functions kept in step */
-static void perf_frame(void)
+void perf_frame(void)
 {
     prof_update();
     prof_frame();
@@ -10777,7 +10530,7 @@ void bm_close_suspended(void)
 /* ms with one decimal, from microseconds ("16.7") */
 #define MS1(us) (unsigned long)((us) / 1000), (unsigned long)((us) % 1000 / 100)
 
-static int session_wanted(void)
+int session_wanted(void)
 {
     const char *v = config_get("session_report");
     if (v && v[0])

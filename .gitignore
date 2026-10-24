@@ -18,3 +18,4 @@ docs/video/*/cover.png
 # the Pi tests (tools/pi_test.py, pi_bridge.py logs): logs and pictures of a run
 /out/
 .claude/state/
+build-*/

@@ -236,7 +236,7 @@ def main():
                 if not f.endswith('it_lessico.txt') and not (a.skip and os.path.basename(f).startswith(a.skip))]
     lexicon = open(os.path.join(words, 'it_lessico.txt'), encoding='utf-8').read().split('\n')
     en_texts = [open(f, encoding='utf-8').read() for f in sorted(glob.glob(os.path.join(words, 'en_*.txt')))]
-    games = ['pong', 'snake', 'shooter', 'astrowing', 'demo']
+    games = ['pong', 'snake', 'shooter', 'astrowing']
     lua = [open(os.path.join(ROOT, 'carts', g, 'main.lua'), encoding='utf-8').read() for g in games]
     for d in ('kitchen', 'titan'):
         lua += [open(f, encoding='utf-8').read() for f in sorted(glob.glob(os.path.join(ROOT, 'carts', d, 'src', '*.lua')))]

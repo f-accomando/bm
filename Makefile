@@ -480,7 +480,7 @@ $(BUILD)/gamekit-test.bm: tests/gamekit/cart.lua scripts/mkbm.py
 $(BUILD)/host/test_loading: tests/bm/test_loading.c src/bm/loading.c src/bm/loading_logo.c src/bm/loading.h \
                             src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c src/audio/synth.c
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/bm/test_loading.c src/bm/loading.c \
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Isrc/bm -Ithird_party/lua -o $@ tests/bm/test_loading.c src/bm/loading.c \
 	    src/bm/loading_logo.c src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c src/audio/synth.c -lm
 
 test-loading: $(BUILD)/host/test_loading
@@ -1158,7 +1158,7 @@ test-webapi: $(BUILD)/host/test_webget
 
 $(BUILD)/host/test_webget: tests/web/test_webget.c tests/web/run_webget_test.py src/bm/webget.c src/bm/webget.h src/bm/webfile.c src/bm/webfile.h src/fs/sdlock.c src/fs/sdlock.h src/bm/webpolicy.c                            src/bm/webpolicy.h src/bm/webimg.c src/bm/webimg.h src/bm/jpeg.c src/bm/png.c src/bm/webp.c                            src/net/http.c src/net/http.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -DBM_HOST_TEST 		-DHTTP_USER_AGENT='"test"' -Isrc -Isrc/bm -Isrc/net -o $@ tests/web/test_webget.c src/bm/webget.c src/bm/webfile.c src/fs/sdlock.c src/bm/webpolicy.c 		src/bm/webimg.c src/bm/jpeg.c src/bm/png.c src/bm/webp.c src/net/http.c -lm
+	$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -DBM_HOST_TEST 		-DHTTP_USER_AGENT='"test"' -Isrc -Isrc/bm -Isrc/net -Ithird_party/lua -o $@ tests/web/test_webget.c src/bm/webget.c src/bm/webfile.c src/fs/sdlock.c src/bm/webpolicy.c 		src/bm/webimg.c src/bm/jpeg.c src/bm/png.c src/bm/webp.c src/net/http.c -lm
 
 # the .bmv reader (src/bm/vid.c), jpeg_decode565 and scripts/mkvid.py
 test-vid: $(BUILD)/host/test_vid scripts/mkvid.py tests/video/run_vid_test.py

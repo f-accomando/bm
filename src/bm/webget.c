@@ -5,9 +5,7 @@
 #include "webpolicy.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
-#include "kernel/fiber.h"
-#include "net/http.h"
-#include "net/net.h"
+#include "platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>

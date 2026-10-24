@@ -5,7 +5,7 @@
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "fs/sdlock.h"
-#include "kernel/fiber.h"
+#include "platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>

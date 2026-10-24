@@ -2,8 +2,7 @@
 #include "vid.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
-#include "kernel/config.h"
-#include "kernel/fiber.h"
+#include "platform.h"
 #include "lib/printf.h"
 
 #include <stdlib.h>

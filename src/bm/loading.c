@@ -6,7 +6,7 @@
 #include "drivers/timer.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
-#include "kernel/config.h"
+#include "platform.h"
 #include "lib/printf.h"
 
 #include <math.h>

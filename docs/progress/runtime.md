@@ -1,6 +1,6 @@
 # runtime.c: where things are
 
-`src/bm/runtime.c` is ~418 KB and 11010 lines: never read it whole. Find the section here,
+`src/bm/runtime.c` is ~404 KB and 10763 lines: never read it whole. Find the section here,
 then `python scripts/cindex.py src/bm/runtime.c <word>` for the line, then `Read` with
 `offset`/`limit` on that stretch only. Line numbers are not kept here: they go stale; the
 banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runtime*).
@@ -9,7 +9,7 @@ banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runti
 
 | Looking for | Command |
 |---|---|
-| a Lua function a game calls (`rect`, `spr`, `btn`…) | `Grep -n 'static int l_<name>'`; the name→`l_…` table is `api[]` (`Grep -n 'luaL_Reg api'`) |
+| a Lua function a game calls (`rect`, `spr`, `btn`…) | `Grep -n 'int l_<name>('`; the name→`l_…` table is `api[]` (`Grep -n 'luaL_Reg api'`) |
 | any function or banner of the file | `python scripts/cindex.py src/bm/runtime.c <word>` |
 | one section (below) | `Grep -n -A3 '^/\* -+ <banner words>' src/bm/runtime.c` |
 | who calls a symbol across files | `Grep -n '<symbol>' src/` (one call, `head_limit` 30) |
@@ -44,6 +44,13 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `the debugger`: breakpoints, inspector.
 - `the frame in its parts`: overlay and session report.
 - `C bench`: built-in benchmarks.
+
+## Platform interface
+
+- `src/bm/platform.h` lists every kernel, USB, network and AI header that the runtime uses. `runtime.c`, `loading.c`, `rec.c`, `webfile.c` and `webget.c` include only this header. It holds plain declarations: the Pi kernel, the RGB30 port and bmhost link by symbol name. A file that includes it needs `-Ithird_party/lua` (`ai/net.h` includes `lua.h`).
+- `src/kernel/crt.h` declares the four `crt_*` functions of `settings.c`. `home.h` and `platform.h` include it.
+- `src/bm/rt_internal.h` is private to `src/bm`. It declares `rt` (`rt_t`), `d2` (`d2_t`) and `held` (`held_t`), the shared macros and enums, the helpers `col`, `ival`, `oval` and `sheet_commit`, and the functions that one area calls in another (`l_*`, `draw_prompt`, `perf_end` and others). Those functions are not `static`. The definitions of `rt`, `d2` and `held` stay in `runtime.c`.
+- `api[]`, `res_name`, `screen_modes`, `square_modes` and the `bm_toolnames` use stay in `runtime.c`. `scripts/consistency.py`, `tests/tools/test_mkapi.py` and `test_meshcap` read that text.
 
 ## Other big files
 
