@@ -231,7 +231,7 @@ b = parse("<foo>a<bar>b</bar></foo>")
 eq(tags(b.body), "span", "unknown tag becomes span")
 eq(tags(b.body.kids[1]), "#text,span", "unknown nested tag becomes span")
 b = parse("<p>a</p><script>var x = '<div>';</script><p>b</p><noscript><p>n</p></noscript><iframe><p>i</p></iframe>")
-eq(tags(b.body), "p,p", "script, noscript and iframe are dropped")
+eq(tags(b.body), "p,p,iframe", "script and noscript are dropped, the iframe stays as an empty element")
 eq(b.scripts, 1, "script is counted")
 b = parse('<svg aria-label="logo"><g><path d="x"/></g></svg><p>after</p>')
 eq(tags(b.body), "svg,p", "svg keeps no children")
@@ -348,8 +348,9 @@ do
   st = style_of("<div><p>y</p></div>", tag("p"), "div{background-color:red;padding:4px}")
   check(st.bg == nil and st.pt == 0, "background and padding are not inherited")
   st = style_of("<p class=x>y</p>", tag("p"), ".x{color:var(--c);margin:calc(1px + 2px);display:flex;float:left;position:absolute}")
-  eq(st.display, "block", "var() and calc() ignored, flex is block")
-  eq(st.color, 0, "var() declaration ignored")
+  eq(st.display, "block", "flex is block")
+  eq(st.color, 0, "var() without a value is ignored")
+  eq(st.mt, 3, "calc() of px")
   st = style_of("<span>y</span>", tag("span"), "span{display:none}")
   eq(st.display, "none", "display none")
   st = style_of("<span class='hidden'>y</span>", tag("span"), nil)
@@ -360,8 +361,48 @@ do
     /* comment */ @import url(x.css); @media (max-width:1px) { p { color: red } } @font-face { font-family: x }
     a:hover { color: red } a > b { color: red } [x] { color: red } p::before { color: red } ul li { color: blue }
     @keyframes k { from { top: 0 } to { top: 1 } } em { color: red }]])
-  eq(rules.dropped, 4, "selectors with > : [ ] ::are dropped")
-  eq(rules.n, 2, "rules kept: ul li and em")
+  eq(rules.dropped, 2, "pseudo-classes without a meaning here and pseudo-elements are dropped")
+  eq(rules.n, 4, "rules kept: a > b, [x], ul li and em")
+  -- selectors, variables and media queries
+  local function pick(html, finder, sheet, field)
+    local st = style_of(html, finder, sheet)
+    return st[field]
+  end
+  eq(pick("<div><p class=a>1</p></div>", tag("p"), "div > p{color:#010101}", "color"), 0x010101, "child combinator")
+  eq(pick("<div><span><p>1</p></span></div>", tag("p"), "div > p{color:#010101}", "color"), 0, "child combinator is not descendant")
+  eq(pick("<p a=1 b=\"x y\">1</p>", tag("p"), "p[a]{color:#020202}", "color"), 0x020202, "attribute exists")
+  eq(pick("<p a=1 b=\"x y\">1</p>", tag("p"), "p[b~=y]{color:#030303}", "color"), 0x030303, "attribute word")
+  eq(pick("<a href=\"https://x/y.pdf\">1</a>", tag("a"), "a[href$='.pdf']{color:#040404}", "color"), 0x040404, "attribute ends with")
+  eq(pick("<a href=\"https://x/y.pdf\">1</a>", tag("a"), "a[href^=https]{color:#050505}", "color"), 0x050505, "attribute starts with")
+  eq(pick("<ul><li>1</li><li id=t>2</li><li>3</li></ul>", function(n) return n.attrs and n.attrs.id == "t" end,
+    "li:nth-child(2){color:#060606}", "color"), 0x060606, "nth-child(2)")
+  eq(pick("<ul><li>1</li><li id=t>2</li><li>3</li></ul>", function(n) return n.attrs and n.attrs.id == "t" end,
+    "li:nth-child(odd){color:#060606}", "color"), 0, "nth-child(odd) skips the second")
+  eq(pick("<ul><li>1</li><li>2</li><li id=t>3</li></ul>", function(n) return n.attrs and n.attrs.id == "t" end,
+    "li:last-child{color:#070707}", "color"), 0, "last-child needs the whole tree")
+  eq(pick("<ul><li id=t>1</li><li>2</li></ul>", function(n) return n.attrs and n.attrs.id == "t" end,
+    "li:first-child{color:#080808}", "color"), 0x080808, "first-child")
+  eq(pick("<p>1</p><p id=t>2</p>", function(n) return n.attrs and n.attrs.id == "t" end,
+    "p + p{color:#090909}", "color"), 0x090909, "adjacent sibling")
+  eq(pick("<p class=a>1</p>", tag("p"), "p:not(.b){color:#0a0a0a}", "color"), 0x0a0a0a, "not()")
+  eq(pick("<p class=a>1</p>", tag("p"), "p:not(.a){color:#0a0a0a}", "color"), 0, "not() excludes")
+  eq(pick("<p>1</p>", tag("p"), ":root{--c:#0b0b0b} p{color:var(--c)}", "color"), 0, "root is the html element, not seen by the test")
+  eq(pick("<div><p>1</p></div>", tag("p"), "div{--c:#0c0c0c} p{color:var(--c)}", "color"), 0x0c0c0c, "custom property inherited")
+  eq(pick("<p>1</p>", tag("p"), "p{color:var(--nope, #0d0d0d)}", "color"), 0x0d0d0d, "var() fallback")
+  eq(pick("<p>1</p>", tag("p"), "p{margin-top:calc(2em + 4px)}", "mt"), 28, "calc with em")
+  eq(pick("<p>1</p>", tag("p"), "p{color:hsl(120,100%,50%)}", "color"), 0x00ff00, "hsl")
+  eq(pick("<p>1</p>", tag("p"), "p{color:rgb(1 2 3 / 50%)}", "color"), 0x010203, "rgb space syntax")
+  eq(pick("<p>1</p>", tag("p"), "p{color:#11223344}", "color"), 0x112233, "#rrggbbaa")
+  eq(pick("<p>1</p>", tag("p"), "@media (max-width: 700px){p{color:#0e0e0e}}", "color"), 0x0e0e0e, "media max-width true")
+  eq(pick("<p>1</p>", tag("p"), "@media (min-width: 900px){p{color:#0e0e0e}}", "color"), 0, "media min-width false")
+  eq(pick("<p>1</p>", tag("p"), "@media print{p{color:#0e0e0e}}", "color"), 0, "media print false")
+  eq(pick("<p>1</p>", tag("p"), "@media screen and (min-width:600px){p{color:#0f0f0f}}", "color"), 0x0f0f0f, "media screen and min-width")
+  eq(pick("<p>1</p>", tag("p"), "p{text-transform:uppercase;white-space:pre}", "tt"), "upper", "text-transform")
+  eq(pick("<p>1</p>", tag("p"), "p{border:1px solid #ccc}", "bt"), true, "border sets sides")
+  eq(pick("<p>1</p>", tag("p"), "p{border:1px solid #ccc;border-bottom:none}", "bb"), false, "border-bottom none")
+  eq(pick("<p>1</p>", tag("p"), "p{width:calc(100% - 4px)}", "w"), nil, "mixed calc with % is ignored")
+  eq(pick("<p>1</p>", tag("p"), "p{width:200px;max-width:100px}", "maxw"), 100, "max-width")
+  eq(pick("<p>1</p>", tag("p"), "p{background: url(x.png) #123456 no-repeat}", "bg"), 0x123456, "background shorthand colour")
 end
 
 ---------------------------------------------------------------------------
@@ -528,7 +569,7 @@ end
 ---------------------------------------------------------------------------
 print("-- fixtures")
 ---------------------------------------------------------------------------
-local FIXTURES = { "headings", "paragraphs", "links", "lists", "images", "tables", "entities", "malformed", "search_page" }
+local FIXTURES = { "headings", "paragraphs", "links", "lists", "images", "tables", "entities", "malformed", "search_page", "html5" }
 local P = {}
 for _, name in ipairs(FIXTURES) do
   local src = assert(readfile("tests/web/fixtures/" .. name .. ".html"), name)

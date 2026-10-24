@@ -1,0 +1,89 @@
+page w=240 h=746 lines=30 links=5 images=2 controls=9 forms=1 rects=4 cut=false title="HTML5 and CSS test"
+line y=18 h=12
+  t x=6 y=18 w=60 h=12 "PAGE TITLE" b c=cc0000
+line y=42 h=12
+  t x=6 y=42 w=24 h=12 "Home" c=0000ee link=1
+  t x=36 y=42 w=30 h=12 "Local" u c=0000ee link=2
+line y=72 h=12
+  t x=0 y=72 w=42 h=12 "Article" b i
+line y=96 h=12
+  t x=0 y=96 w=96 h=12 "First paragraph." 
+line y=122 h=12
+  t x=0 y=122 w=240 h=12 "Second paragraph with marked and a date." 
+line y=146 h=20
+  img x=0 y=146 w=40 h=20 "lazy" img=1
+line y=166 h=12
+  t x=0 y=166 w=42 h=12 "Caption" 
+line y=178 h=30
+  img x=0 y=178 w=30 h=30 "srcse" img=2
+line y=220 h=12
+  t x=6 y=220 w=6 h=12 "*" 
+  t x=18 y=220 w=18 h=12 "one" b
+line y=232 h=12
+  t x=6 y=232 w=6 h=12 "*" 
+  t x=18 y=232 w=18 h=12 "two" c=0000ff
+line y=244 h=12
+  t x=6 y=244 w=6 h=12 "*" 
+  t x=18 y=244 w=30 h=12 "three" 
+line y=256 h=12
+  t x=6 y=256 w=6 h=12 "*" 
+  t x=18 y=256 w=24 h=12 "four" c=0000ff
+line y=280 h=12
+  t x=0 y=280 w=24 h=12 "More" b
+line y=304 h=12
+  t x=0 y=304 w=234 h=12 "Hidden by default in a desktop browser," 
+line y=316 h=12
+  t x=0 y=316 w=66 h=12 "shown here." 
+line y=340 h=100
+  box x=0 y=340 w=200 h=100 "[video] movie.mp4" c=0000ee link=3
+line y=440 h=32
+  box x=0 y=440 w=240 h=32 "[audio] song.ogg" c=0000ee link=4
+line y=472 h=60
+  box x=0 y=482 w=100 h=50 "[canvas]" 
+  box x=106 y=472 w=120 h=60 "[iframe] frame" c=0000ee link=5
+line y=532 h=12
+  t x=0 y=532 w=150 h=12 "[===       ] [=====     ]" 
+line y=554 h=12
+  t x=4 y=554 w=66 h=12 "open dialog" 
+line y=580 h=12
+  t x=4 y=580 w=24 h=12 "Form" b
+line y=592 h=12
+  ctl x=4 y=592 w=132 h=12 "[mail________________]" ctl=1
+line y=604 h=12
+  ctl x=4 y=604 w=132 h=12 "[____________________]" ctl=2
+line y=616 h=12
+  ctl x=4 y=616 w=132 h=12 "[3___________________]" ctl=3
+line y=628 h=12
+  ctl x=4 y=628 w=132 h=12 "[____________________]" ctl=4
+line y=640 h=12
+  ctl x=4 y=640 w=132 h=12 "[____________________]" ctl=5
+line y=652 h=12
+  ctl x=4 y=652 w=132 h=12 "[____________________]" ctl=6
+line y=664 h=36
+  ctl x=4 y=664 w=180 h=36 "text" ctl=7
+  ctl x=190 y=688 w=30 h=12 "[B v]" ctl=8
+line y=700 h=12
+  ctl x=4 y=700 w=36 h=12 "[Send]" ctl=9
+line y=728 h=12
+  t x=102 y=728 w=36 h=12 "Footer" 
+rect bg 0,0,240,60 c=- bd=b:888888
+rect bg 0,550,240,20 c=ffffff bd=trbl:000000
+rect bg 0,576,240,140 c=- bd=trbl:444444
+rect bg 0,722,240,24 c=- bd=b:888888
+link 1 https://example.test/a "Home" boxes=6,42,24,12
+link 2 https://example.test/b "Local" boxes=36,42,30,12
+link 3 https://example.test/movie.mp4 "video" boxes=0,340,200,100
+link 4 https://example.test/song.ogg "audio" boxes=0,440,240,32
+link 5 https://example.test/frame "iframe" boxes=106,472,120,60
+image 1 https://example.test/lazy.png alt="lazy" 40x20 box=0,146,40,20
+image 2 https://example.test/p1.png alt="srcset" 30x30 box=0,178,30,30
+control 1 text name=e value="" form=1 box=4,592,132,12
+control 2 text name=s value="" form=1 box=4,604,132,12
+control 3 text name=n value="3" form=1 box=4,616,132,12
+control 4 text name=d value="" form=1 box=4,628,132,12
+control 5 text name=r value="" form=1 box=4,640,132,12
+control 6 text name=c value="" form=1 box=4,652,132,12
+control 7 textarea name=t value="text" form=1 box=4,664,180,36
+control 8 select name=x value="B" form=1 box=190,688,30,12
+control 9 submit name=nil value="" form=1 box=4,700,36,12
+form 1 get https://example.test/

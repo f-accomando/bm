@@ -11,6 +11,7 @@ local layout = require("layout")
 local loader = require("loader")
 local files = require("files")
 local atlas = require("atlas")
+local css = require("css")
 
 local M = {}
 
@@ -20,6 +21,16 @@ M.MAX_HISTORY = 32
 M.MAX_MARKS = 32
 M.SLICE = 0.006          -- seconds of layout work in one frame
 M.CHUNK = 2048
+M.SUB_GAP = 1            -- seconds between two requests for the style sheets and scripts of one page
+M.MAX_CSS = 4            -- style sheets fetched for a page
+M.MAX_JS = 6             -- scripts fetched for a page
+M.MAX_CSS_BYTES = 131072
+M.MAX_JS_BYTES = 262144
+-- Hosts of trackers and ad scripts: their scripts are not fetched.
+local BLOCKED = { "google-analytics.com", "googletagmanager.com", "doubleclick.net", "googlesyndication.com",
+  "facebook.net", "connect.facebook.com", "hotjar.com", "scorecardresearch.com", "adservice.google.com",
+  "analytics.google.com", "segment.com", "mixpanel.com", "amplitude.com", "optimizely.com", "criteo.com",
+  "taboola.com", "outbrain.com", "clarity.ms", "newrelic.com", "nr-data.net", "sentry.io" }
 
 local B = {}
 B.__index = B
@@ -38,7 +49,29 @@ function M.new(api, opts)
     mode = "home", mode0 = "home", url = "", page = nil, scroll = 0, focus = nil, targets = {},
     status = "", title = "", secure = false, nav = nil, dl = nil, at_error = false,
     imgq = nil, imgjob = nil, rend = nil, frame = 0, view_h = opts.view_h or 300,
+    js_on = opts.js ~= false, sub = nil, found = nil, find_text = nil, pdrv = nil, relayout_at = 0,
   }, B)
+  if opts.jsdom then
+    local rt = opts.jsdom.new(api, { width = self.width })
+    self.jsrt = rt
+    -- a script sets a field value, or sends a form
+    rt.set_value_cb = function(node, v)
+      for _, c in ipairs(self.page and self.page.controls or {}) do
+        if c.node == node then
+          if c.name then self.values[c.name] = v end
+          c.value = v
+        end
+      end
+    end
+    rt.submit_cb = function(node)
+      for id, f in ipairs(self.page and self.page.forms or {}) do
+        if f.node == node then
+          local u = layout.form_url(self.page, id, self.values, nil, { allow_http = self.allow_http })
+          if u then self:open(u) end
+        end
+      end
+    end
+  end
   local s = api.saved and api.saved(1)
   if type(s) == "table" and type(s.marks) == "table" then
     for i = 1, math.min(#s.marks, M.MAX_MARKS) do
@@ -58,6 +91,8 @@ function B:set_page(page, u, mode)
   self.page, self.url, self.mode = page, u or "", mode or "page"
   self.title = page and page.title or ""
   self.scroll, self.focus, self.values = 0, nil, {}
+  self.found = nil
+  if self.jsrt and not (page and page.has_js) then self.jsrt:close() end
   self.atlas = atlas.new()
   self.secure = self.url:sub(1, 8) == "https://"
   self.img = nil
@@ -167,13 +202,70 @@ function B:pick(x, y)
   return nil
 end
 
+-- A click of the left button on the page at (x, y). A page script sees it first (an onclick
+-- or a click listener may take it); then a link opens and a control reacts. Returns what
+-- `activate` returns ("edit", control) or nil.
+function B:click_page(x, y)
+  if self.page and self.page.has_js and self.jsrt then
+    if self.jsrt:click(self.page, x, y) then return nil end
+  end
+  local t = self:pick(x, y)
+  if t then return self:activate() end
+  return nil
+end
+
+function B:can_back()
+  if self.mode == "loading" or self.mode == "render" or self.mode == "subres" then return true end
+  if self.mode == "home" then return false end
+  return true
+end
+
+function B:can_forward()
+  return self.hist[self.pos + 1] ~= nil and self.mode ~= "loading"
+end
+
+-- Scripts on or off. The page is read again so that it shows what the new setting gives.
+function B:toggle_js()
+  self.js_on = not self.js_on
+  self.status = self.js_on and "page scripts on" or "page scripts off"
+  if self.mode == "page" and self.url ~= "" then self:open(self.url, { hist = false, scroll = self.scroll }) end
+end
+
+-- Find text in the page (case does not matter). `next` goes on from the last match.
+function B:find(text, next)
+  if not text or text == "" then return false end
+  local p = self.page
+  if not p then return false end
+  local want = text:lower()
+  self.find_text = text
+  local n = #p.lines
+  local start = 1
+  local f = self.found
+  if next and f and f.text == text then start = f.line + 1 end
+  for k = 0, n - 1 do
+    local i = (start - 1 + k) % n + 1
+    local line = p.lines[i]
+    for _, r in ipairs(line.runs) do
+      if r.text and r.text:lower():find(want, 1, true) then
+        self.found = { text = text, line = i, run = r }
+        self:scroll_to(line.y - 40)
+        self.status = string.format("found at line %d", i)
+        return true
+      end
+    end
+  end
+  self.found = nil
+  self.status = "not found: " .. text
+  return false
+end
+
 ---------------------------------------------------------------------------
 -- Navigation
 ---------------------------------------------------------------------------
 function B:stop()
   self.loader:cancel()
   if self.dl and self.dl.id then self.api.web_cancel(self.dl.id) end
-  self.dl, self.rend = nil, nil
+  self.dl, self.rend, self.sub = nil, nil, nil
   self.imgq, self.imgjob = nil, nil
   if self.nav then
     self.nav = nil
@@ -279,17 +371,19 @@ function B:activate()
     return "edit", c
   elseif c.kind == "checkbox" then
     c.checked = not c.checked
+    if self.jsrt and p.has_js then self.jsrt:user_toggle(c.node, c.checked) end
   elseif c.kind == "radio" then
     for _, o in ipairs(p.controls) do
       if o.kind == "radio" and o.form == c.form and o.name == c.name then o.checked = false end
     end
     c.checked = true
+    if self.jsrt and p.has_js then self.jsrt:user_toggle(c.node, true) end
   elseif c.kind == "select" then
     c.selected = (c.selected % #c.options) + 1
     c.value = c.options[c.selected].value
+    if self.jsrt and p.has_js and c.node then self.jsrt:user_input(c.node, c.value) end
   elseif c.kind == "submit" then
-    local u, why = layout.form_url(p, c.form, self.values, t.id, { allow_http = self.allow_http })
-    if u then self:open(u) else self.status = why or "cannot send" end
+    self:send_form(c.form, t.id)
   end
   return nil
 end
@@ -297,15 +391,24 @@ end
 function B:set_value(c, text)
   if c.name then self.values[c.name] = text end
   c.value = text
+  if c.node and self.jsrt and self.page and self.page.has_js then self.jsrt:user_input(c.node, text) end
+end
+
+-- Send a form: a script may stop it with preventDefault on the submit event.
+function B:send_form(form_id, pressed)
+  local p = self.page
+  local f = form_id and p.forms[form_id]
+  if f and f.node and self.jsrt and p.has_js and self.jsrt:submit(f.node) then return false end
+  local u, why = layout.form_url(p, form_id, self.values, pressed, { allow_http = self.allow_http })
+  if u then return self:open(u) end
+  self.status = why or "cannot send"
+  return false
 end
 
 -- Enter pressed in a text field: send its form.
 function B:submit_form_of(c)
   if not c.form then return false end
-  local u, why = layout.form_url(self.page, c.form, self.values, nil, { allow_http = self.allow_http })
-  if u then return self:open(u) end
-  self.status = why or "cannot send"
-  return false
+  return self:send_form(c.form, nil)
 end
 
 ---------------------------------------------------------------------------
@@ -454,6 +557,125 @@ local function commit(self, page, u, status, nav)
   self.status = table.concat(bits, " ")
 end
 
+---------------------------------------------------------------------------
+-- Style sheets and scripts of a page
+---------------------------------------------------------------------------
+local prescan, start_render
+
+local function ci(name)
+  return (name:gsub("%a", function(c) return "[" .. c:lower() .. c:upper() .. "]" end))
+end
+
+local function attr(tag, name)
+  local n = ci(name)
+  return tag:match("%f[%w]" .. n .. '%s*=%s*"([^"]*)"') or tag:match("%f[%w]" .. n .. "%s*=%s*'([^']*)'")
+    or tag:match("%f[%w]" .. n .. "%s*=%s*([^%s>]+)")
+end
+
+local function blocked_host(u)
+  local host = u:match("^https?://([^/:?#]+)")
+  if not host then return false end
+  host = host:lower()
+  for _, b in ipairs(BLOCKED) do
+    if host == b or host:sub(-#b - 1) == "." .. b then return true end
+  end
+  return false
+end
+
+local function js_type(t)
+  if not t or t == "" then return true end
+  t = t:lower():gsub(";.*$", "")
+  return t == "text/javascript" or t == "application/javascript" or t == "text/ecmascript"
+    or t == "application/ecmascript" or t == "text/jscript" or t == "application/x-javascript"
+end
+
+-- Find the style sheets and scripts a page asks for in its first 256 KB. Returns the list
+-- {kind = "css" | "js", url, media, max} and whether the page has any script.
+function prescan(self, body, base)
+  local head = body:sub(1, 262144)
+  local list, ncss, njs = {}, 0, 0
+  local ropts = { allow_http = self.allow_http }
+  for tag in head:gmatch("<" .. ci("link") .. "%s[^>]*>") do
+    local rel = (attr(tag, "rel") or ""):lower()
+    local href = attr(tag, "href")
+    if href and rel:find("stylesheet", 1, true) and not rel:find("alternate", 1, true) and ncss < M.MAX_CSS then
+      local media = attr(tag, "media")
+      if not media or media == "" or css.media_ok(media) then
+        local u = url.resolve(base, href, ropts)
+        if u and u:match("^https://") then
+          ncss = ncss + 1
+          list[#list + 1] = { kind = "css", url = u, max = M.MAX_CSS_BYTES }
+        end
+      end
+    end
+  end
+  local has_script = false
+  for tag in head:gmatch("<" .. ci("script") .. "[%s>][^>]*>?") do
+    has_script = true
+    local src = attr(tag, "src")
+    local ty = attr(tag, "type")
+    if src and njs < M.MAX_JS and js_type(ty) and not tag:lower():find("nomodule", 1, true) then
+      local u = url.resolve(base, src, ropts)
+      if u and u:match("^https://") and not blocked_host(u) then
+        njs = njs + 1
+        list[#list + 1] = { kind = "js", url = u, max = M.MAX_JS_BYTES, src = src }
+      end
+    end
+  end
+  return list, has_script
+end
+
+-- Make the page driver and begin the layout. sub: the fetched sheets and scripts (or nil).
+function start_render(self, rend, sub)
+  local sheets = {}
+  if sub then for _, c in ipairs(sub.css) do sheets[#sheets + 1] = c end end
+  local o = { url = rend.url, width = self.width, cw = self.cw, lh = self.lh, sheets = sheets }
+  if rend.use_js then
+    o.js = self.jsrt:begin({ url = rend.url, fetched = sub and sub.js or {}, width = self.width })
+  end
+  rend.p = pagemod.new(o)
+  self.rend = rend
+  self.mode = "render"
+  self.status = "laying out"
+end
+
+local function sub_step(self)
+  local s = self.sub
+  local job = self.loader.job
+  if not job then
+    s.i = s.i + 1
+    local it = s.list[s.i]
+    if not it then
+      self.sub = nil
+      start_render(self, s.rend, s)
+      return
+    end
+    s.cur = it
+    local j = self.loader:get(it.url, "sub", { max = it.max, gap = M.SUB_GAP })
+    self.status = string.format("loading %s %d/%d", it.kind == "css" and "style sheet" or "script", s.i, #s.list)
+    if not j then s.cur = nil end
+    return
+  end
+  local done = self.loader:step()
+  if done then
+    local it = s.cur
+    if done.phase == "done" and done.res.status == 200 and it then
+      local text = self.api.web_body(done.res.id) or ""
+      if it.kind == "css" then s.css[#s.css + 1] = text else s.js[it.src] = text; s.js[it.url] = text end
+    end
+    self.loader:release(done)
+    s.cur = nil
+  else
+    local ph = job.phase
+    local what = string.format("%s %d/%d", s.cur and s.cur.kind == "css" and "style" or "script", s.i, #s.list)
+    if ph == "robots-pause" or ph == "pause" then
+      self.status = string.format("waiting %.1f s (pace) %s", job.left or 0, what)
+    else
+      self.status = "loading " .. what
+    end
+  end
+end
+
 local function got_page(self, job)
   local nav = self.nav
   if job.phase == "blocked" then
@@ -484,12 +706,17 @@ local function got_page(self, job)
     body = body or self.api.web_body(res.id) or ""
     self.loader:release(job)
     if kind == "text" then body = "<pre>" .. esc(body) .. "</pre>" end
-    self.rend = {
-      p = pagemod.new({ url = res.url, width = self.width, cw = self.cw, lh = self.lh }),
-      body = body, pos = 1, url = res.url, status = res.status, nav = nav,
-    }
-    self.mode = "render"
-    self.status = "laying out"
+    local rend = { body = body, pos = 1, url = res.url, status = res.status, nav = nav }
+    local list, has_script = {}, false
+    if kind == "html" then list, has_script = prescan(self, body, res.url) end
+    rend.use_js = self.js_on and has_script and self.jsrt ~= nil
+    if #list > 0 then
+      self.sub = { list = list, i = 0, css = {}, js = {}, rend = rend }
+      self.mode = "subres"
+      self.status = "loading style sheets and scripts"
+    else
+      start_render(self, rend, nil)
+    end
   elseif kind == "image" or kind == "png" or kind == "jpeg" or kind == "webp" then
     -- A picture opened as the page: decode it into the top left of the sheet.
     local img, why = self.api.image_load(body or res.id, 0, 0, 640, 384)
@@ -527,6 +754,10 @@ function B:update()
     download_step(self)
     return
   end
+  if self.sub then
+    sub_step(self)
+    return
+  end
   local r = self.rend
   if r then
     local t0 = api.time()
@@ -537,7 +768,9 @@ function B:update()
     if r.pos > #r.body then
       local page = r.p:finish()
       self.rend, self.nav = nil, nil
+      self.pdrv = page.has_js and r.p or nil
       commit(self, page, r.url, r.status, r.nav)
+      if page.has_js and self.jsrt then self.jsrt:loaded(page) end
     else
       self.status = string.format("laying out %d%%", 100 * r.pos // #r.body)
     end
@@ -564,6 +797,44 @@ function B:update()
     return
   end
   if self.imgq then image_step(self) end
+  if self.pdrv and self.page and self.page.has_js and self.jsrt then self:script_step() end
+end
+
+-- Timers of the page scripts, a navigation they ask for, and the layout after they changed
+-- the page. At most one new layout every 0.25 s.
+function B:script_step()
+  local rt = self.jsrt
+  local now = self.api.time()
+  rt:tick(now)
+  local nav = rt:take_nav()
+  if nav then
+    self:open(nav)
+    return
+  end
+  if rt.log_last then self.status = rt.log_last; rt.log_last = nil end
+  if rt.scroll_request then self:scroll_to(rt.scroll_request); rt.scroll_request = nil end
+  if rt.dirty and now - self.relayout_at >= 0.25 then
+    rt.dirty = false
+    self.relayout_at = now
+    local old = self.page
+    local np = self.pdrv:relayout()
+    if np then
+      -- keep the pictures that are already decoded
+      local byurl = {}
+      for _, im in ipairs(old.images) do if im.tex or im.failed then byurl[im.src] = im end end
+      for _, im in ipairs(np.images) do
+        local o = byurl[im.src]
+        if o then im.tex, im.failed = o.tex, o.failed end
+      end
+      self.page = np
+      self.title = np.title or self.title
+      self:build_targets()
+      self:scroll_to(self.scroll)
+      self.focus = nil
+      self.found = nil
+      rt:relaid(np)
+    end
+  end
 end
 
 return M

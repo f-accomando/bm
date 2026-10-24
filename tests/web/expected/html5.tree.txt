@@ -1,0 +1,116 @@
+html
+  head
+    title
+      "HTML5 and CSS test"
+    style
+  body
+    "\n"
+    header
+      h1
+        "Page title"
+      nav
+        a href="https://example.test/a"
+          "Home"
+        " "
+        a href="/b"
+          "Local"
+    "\n"
+    main
+      "\n"
+      article class="card"
+        h2 class="title"
+          "Article"
+        "\n"
+        p
+          "First paragraph."
+        p
+          "Second paragraph with "
+          mark
+            "marked"
+          " and "
+          time datetime="2026-01-01"
+            "a date"
+          "."
+        "\n"
+        figure
+          img alt="lazy" data-src="/lazy.png" height="20" src="" width="40"
+          figcaption
+            "Caption"
+        "\n"
+        picture
+          source srcset="/s.webp"
+          img alt="srcset" height="30" srcset="/p1.png 1x, /p2.png 2x" width="30"
+        "\n"
+      "\n"
+      ul
+        li
+          "one"
+        li
+          "two"
+        li
+          "three"
+        li
+          "four"
+      "\n"
+      details
+        summary
+          "More"
+        p
+          "Hidden by default in a desktop browser, shown here."
+      "\n"
+      p class="hide"
+        "never shown"
+      "\n"
+      video height="100" src="/movie.mp4" width="200"
+      "\n"
+      audio controls=""
+        source src="/song.ogg" type="audio/ogg"
+        "fallback text"
+      "\n"
+      canvas height="50" width="100"
+        "canvas fallback"
+      "\n"
+      iframe height="60" src="https://example.test/frame" width="120"
+      "\n"
+      progress max="100" value="30"
+      " "
+      meter max="10" min="0" value="5"
+      "\n"
+      dialog
+        "closed dialog"
+      dialog open=""
+        "open dialog"
+      "\n"
+      form
+        fieldset
+          legend
+            "Form"
+          "\n"
+          input name="e" placeholder="mail" type="email"
+          " "
+          input name="s" type="search"
+          " "
+          input name="n" type="number" value="3"
+          "\n"
+          input name="d" type="date"
+          " "
+          input name="r" type="range"
+          " "
+          input name="c" type="color"
+          "\n"
+          textarea name="t"
+            "text"
+          " "
+          select name="x"
+            option
+              "A"
+            option selected=""
+              "B"
+          "\n"
+          button type="submit"
+            "Send"
+      "\n\n"
+    "\n"
+    footer
+      "Footer"
+    "\n\n\n\n"

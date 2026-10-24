@@ -24,12 +24,17 @@ function M.new(opts)
     width = opts.width, cw = opts.cw, lh = opts.lh, url = opts.url, rules = rules,
     allow_http = opts.allow_http, max_lines = opts.max_lines, max_images = opts.max_images,
   })
-  local stream = opts.stream ~= false
+  -- A page with scripts (opts.js) keeps the whole tree: the scripts read and change it.
+  local js = opts.js
+  local stream = opts.stream ~= false and not js
+  if js then lay.keep_nodes = true end
+  for _, text in ipairs(opts.sheets or {}) do rules:add(text) end
   local root_st = css.compute({ tag = "html", attrs = {}, kids = {} }, nil, nil)
   local b -- builder, set below
 
+  rules.full = not stream
   local hooks = {
-    max_nodes = opts.max_nodes, max_depth = opts.max_depth,
+    max_nodes = opts.max_nodes, max_depth = opts.max_depth, shallow = stream,
     on_style = function(text) rules:add(text) end,
   }
 
@@ -45,6 +50,7 @@ function M.new(opts)
       kids[#kids] = nil
     end
     hooks.on_body = function(body)
+      root_st = css.compute(b.root, rules, nil)
       if b.base_href then lay:set_base(b.base_href) end
       body.st = css.compute(body, rules, root_st)
       body.sm = true
@@ -77,8 +83,10 @@ function M.new(opts)
     end
   end
 
+  hooks.keep_scripts = js ~= nil
   b = html.builder(hooks)
-  local tk = html.tokenizer(b.token, opts)
+  local tk = html.tokenizer(b.token, { max_bytes = opts.max_bytes, max_token = opts.max_token,
+    keep_scripts = js ~= nil })
   local P = { lay = lay, rules = rules, builder = b, tokenizer = tk }
 
   function P:feed(chunk)
@@ -90,7 +98,13 @@ function M.new(opts)
   function P:finish()
     tk:finish()
     b.finish()
+    if js and b.body then
+      -- the scripts run on the finished tree, before the first layout
+      local ok, err = pcall(js.run, b, rules, lay)
+      if not ok and js.error then js.error(err) end
+    end
     if not stream and b.body then
+      root_st = css.compute(b.root, rules, nil)
       if b.base_href then lay:set_base(b.base_href) end
       local st = css.compute(b.body, rules, root_st)
       lay:open_block(b.body, st)
@@ -98,16 +112,45 @@ function M.new(opts)
       lay:close_block()
     end
     local page = lay:finish()
+    P.page = page
     page.title = b.title
     page.charset = b.charset
     page.cut = tk.cut or b.cut or lay.cut
     page.cut_reason = (tk.cut and "bytes") or b.cut_reason or (lay.cut and "lines") or nil
     page.tree = (not stream) and b.root or nil
+    page.body = b.body
+    page.has_js = js ~= nil
     page.stats = {
       bytes = tk.bytes, nodes = b.nodes, depth_cut = b.depth_cut, scripts = b.scripts,
       css_bytes = rules.bytes, css_rules = rules.n, css_cut = rules.cut, css_dropped = rules.dropped,
       tags_dropped = tk.dropped, refused = lay.refused,
     }
+    return page
+  end
+
+  -- Lay the kept tree out again (after a script changed it). Returns a new page table.
+  function P:relayout()
+    local base = lay.base
+    local nl = layout.new({
+      width = opts.width, cw = opts.cw, lh = opts.lh, url = opts.url, rules = rules,
+      allow_http = opts.allow_http, max_lines = opts.max_lines, max_images = opts.max_images,
+    })
+    nl.keep_nodes = true
+    if base then nl.base = base end
+    local body = b.body
+    if not body then return nil end
+    root_st = css.compute(b.root, rules, nil)
+    local st = css.compute(body, rules, root_st)
+    nl:open_block(body, st)
+    for _, k in ipairs(body.kids) do nl:node(k, st) end
+    nl:close_block()
+    lay = nl
+    P.lay = nl
+    local page = nl:finish()
+    local old = P.page
+    page.title, page.charset, page.cut, page.cut_reason = b.title, b.charset, old and old.cut, old and old.cut_reason
+    page.tree, page.body, page.has_js, page.stats = b.root, b.body, true, old and old.stats
+    P.page = page
     return page
   end
 

@@ -57,7 +57,8 @@ function M.page(page)
     end
   end
   for _, r in ipairs(page.rects) do
-    add("rect %s %d,%d,%d,%d c=%06x", r.kind, r.x, r.y, r.w, r.h, r.color)
+    add("rect %s %d,%d,%d,%d c=%s%s", r.kind, r.x, r.y, r.w, r.h, r.color and string.format("%06x", r.color) or "-",
+      r.bd and (" bd=" .. r.bd .. string.format(":%06x", r.bdc)) or "")
   end
   for i, l in ipairs(page.links) do
     local bs = {}

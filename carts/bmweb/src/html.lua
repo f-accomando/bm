@@ -65,6 +65,7 @@ function M.tokenizer(emit, opts)
     emit = emit, buf = "", raw = nil, skip = nil, bytes = 0, cut = false, done = false,
     max_bytes = opts.max_bytes or lim.max_bytes, max_token = opts.max_token or lim.max_token,
     dropped = 0, -- tags and comments dropped for size
+    keep_scripts = opts.keep_scripts,
   }, T)
 end
 
@@ -150,6 +151,7 @@ end
 
 function T:raw_text(text, name)
   local mode = RAW[name]
+  if name == "script" and self.keep_scripts then mode = "raw" end
   if text == "" or mode == "drop" then return end
   if mode == "rcdata" then text = decode(text) end
   self.emit({ t = "text", s = text })
@@ -267,13 +269,17 @@ end
 local KNOWN = set[[html head title body h1 h2 h3 h4 h5 h6 p div span br hr a ul ol li dl dt dd pre
   code b strong i em u blockquote img table tr th td thead tbody tfoot caption form input button
   select option textarea label nav header main footer section article aside figure figcaption
-  address center small s del sub sup abbr cite q mark kbd samp var tt big svg style]]
+  address center small s del sub sup abbr cite q mark kbd samp var tt big svg style
+  details summary dialog fieldset legend hgroup menu search time data picture ruby rt rp bdi bdo
+  output meter progress dfn ins map video audio canvas iframe source track wbr nobr font
+  script]]
 -- Elements whose whole subtree is dropped.
-local SKIP = set"script noscript iframe video audio canvas object embed template"
-local HEADTAGS = set"title style"
+local SKIP = set"script noscript object embed template datalist"
+local HEADTAGS = set"title style script"
 -- Tags that close an open p.
 local CLOSES_P = set[[p div ul ol dl h1 h2 h3 h4 h5 h6 table pre blockquote hr form section
-  article aside header footer nav main figure address center]]
+  article aside header footer nav main figure address center details summary dialog fieldset
+  hgroup menu search]]
 local P_BARRIER = set"table td th body html button caption"
 -- name -> {tags it closes, barrier tags}
 local AUTOCLOSE = {
@@ -317,6 +323,18 @@ function M.builder(opts)
     local n = { tag = tag, attrs = attrs, kids = {}, parent = parent }
     local kids = parent.kids
     kids[#kids + 1] = n
+    -- Place among the elements of the parent. `prev` is the sibling before; with
+    -- opts.shallow (streaming) the sibling before that is let go, so a wide parent
+    -- does not keep all its children alive.
+    local idx = (parent.ecount or 0) + 1
+    parent.ecount = idx
+    n.idx = idx
+    local pv = parent.last_el
+    if pv then
+      n.prev = pv
+      if opts.shallow then pv.prev = nil end
+    end
+    parent.last_el = n
     return n
   end
 
@@ -425,9 +443,18 @@ function M.builder(opts)
       if cs and not b.charset then b.charset = cs:lower() end
       return
     end
-    if name == "link" then return end
-    if SKIP[name] then
-      if name == "script" then b.scripts = b.scripts + 1 end
+    if name == "link" then
+      -- external style sheets: the driver fetches them before the layout
+      local rel = (attrs.rel or ""):lower()
+      if rel:find("stylesheet", 1, true) and not rel:find("alternate", 1, true) and attrs.href then
+        local sheets = b.sheets or {}
+        b.sheets = sheets
+        sheets[#sheets + 1] = { href = attrs.href, media = attrs.media }
+      end
+      return
+    end
+    if name == "script" then b.scripts = b.scripts + 1 end
+    if SKIP[name] and not (name == "script" and opts.keep_scripts) then
       if not tok.self then skip = { tag = name, depth = 1 } end
       return
     end

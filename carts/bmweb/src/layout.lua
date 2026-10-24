@@ -22,7 +22,8 @@ local function dim(v)
   return nil
 end
 
-local IGNORE = { title = true, style = true, head = true, option = true }
+local IGNORE = { title = true, style = true, head = true, option = true, script = true, source = true,
+  track = true, wbr = true }
 local TABLE_PARTS = { thead = true, tbody = true, tfoot = true }
 
 local L = {}
@@ -81,7 +82,7 @@ function L:place(item)
   local last = items[n]
   if last and not item.kind and not last.kind and last.color == item.color
     and last.bold == item.bold and last.italic == item.italic and last.ul == item.ul
-    and last.link == item.link and last.bg == item.bg then
+    and last.link == item.link and last.bg == item.bg and last.node == item.node then
     last.text = last.text .. (gap > 0 and " " or "") .. item.text
     last.w = last.w + gap + item.w
     ln.cx = last.x + last.w
@@ -167,9 +168,22 @@ function L:open_block(node, st)
   local w = pw - ml - mr - pl - pr
   local minw = self.cw * 4
   if w < minw then w = minw end
-  if st.bg or pt > 0 then self:settle() end
-  if st.bg and not self.full then
-    local r = { kind = "bg", x = ctx.x + ml, y = self.y, w = pw - ml - mr, h = 0, color = st.bg }
+  local fixed = st.w and px(st.w, pw)
+  if st.maxw then
+    local m = px(st.maxw, pw) - pl - pr
+    if fixed == nil or fixed > m then fixed = m end
+  elseif fixed then
+    fixed = fixed - pl - pr
+  end
+  if fixed and fixed >= minw and fixed < w then w = fixed end
+  local framed = st.bt or st.br or st.bb or st.bl
+  if st.bg or framed or pt > 0 then self:settle() end
+  if (st.bg or framed) and not self.full then
+    local r = { kind = "bg", x = ctx.x + ml, y = self.y, w = pw - ml - mr, h = 0, color = st.bg or nil }
+    if framed then
+      r.bd = (st.bt and "t" or "") .. (st.br and "r" or "") .. (st.bb and "b" or "") .. (st.bl and "l" or "")
+      r.bdc = (st.bdc and st.bdc >= 0) and st.bdc or 0x808080
+    end
     self.rects[#self.rects + 1] = r
     blk.rect = r
   end
@@ -195,7 +209,8 @@ end
 local function textitem(self, text, st, w)
   -- A text run has no "kind" and no "y" field, and the style flags only when
   -- set: a smaller table (the run y is line.y + line.h - run.h, see run_y).
-  local it = { text = (text:gsub("\u{A0}", " ")), w = w, h = self.lh, color = st.color, link = self.link }
+  local it = { text = (text:gsub("\u{A0}", " ")), w = w, h = self.lh, color = st.color, link = self.link,
+    node = self.cur_node }
   if st.bold then it.bold = true end
   if st.italic then it.italic = true end
   if st.ul then it.ul = true end
@@ -250,8 +265,15 @@ function L:pre_text(s, st)
   end
 end
 
+local function transform(s, tt)
+  if tt == "upper" then return s:upper() end
+  if tt == "lower" then return s:lower() end
+  return (s:gsub("(%f[%w])(%l)", function(_, c) return c:upper() end))
+end
+
 function L:text(s, st)
   if self.full or st.hidden then return end
+  if st.tt then s = transform(s, st.tt) end
   if self.ctx.pre then return self:pre_text(s, st) end
   if s:find("^[ \t\r\n\f]") then self.sp = true end
   local first = true
@@ -280,7 +302,7 @@ function L:box_item(w, h, label, st)
     local off = utf8.offset(label, maxc + 1)
     if off then label = label:sub(1, off - 1) end
   end
-  return { kind = "box", w = w, h = h, text = label, link = self.link, color = st.color }
+  return { kind = "box", w = w, h = h, text = label, link = self.link, color = st.color, node = self.cur_node }
 end
 
 function L:image(node, st)
@@ -298,7 +320,12 @@ function L:image(node, st)
   if h > 4000 then h = 4000 end
   local item = self:box_item(w, h, alt, st)
   item.kind = "img"
-  local src = a.src and a.src ~= "" and self:resolve(a.src)
+  local raw = a.src
+  if not raw or raw == "" or raw:find("^data:") then
+    -- lazy loaders keep the address in data-src; srcset holds "url 2x, url 1x"
+    raw = a["data-src"] or (a.srcset or a["data-srcset"] or ""):match("^%s*(%S+)") or raw
+  end
+  local src = raw and raw ~= "" and self:resolve(raw)
   if src and #self.images < self.max_images then
     local id = #self.images + 1
     local rec = { src = src, alt = alt, w = w, h = h }
@@ -319,6 +346,49 @@ function L:svg(node, st)
   self:place(item)
 end
 
+-- video, audio, canvas, iframe, progress, meter: no player, no script drawing. The element
+-- is a box with its name; video, audio and iframe link to their source so that A opens it
+-- (a media file is offered for download).
+function L:embedded(node, st)
+  local a, tag = node.attrs, node.tag
+  local avail = self.ctx.w
+  if tag == "progress" or tag == "meter" then
+    local v = tonumber(a.value) or 0
+    local mx = tonumber(a.max) or 1
+    if tag == "meter" and a.min then v = v - (tonumber(a.min) or 0); mx = mx - (tonumber(a.min) or 0) end
+    local f = mx > 0 and math.max(0, math.min(1, v / mx)) or 0
+    local n = math.floor(f * 10 + 0.5)
+    local label = "[" .. string.rep("=", n) .. string.rep(" ", 10 - n) .. "]"
+    self:place(textitem(self, label, st, ulen(label) * self.cw))
+    return
+  end
+  local src = a.src
+  if (not src or src == "") and tag ~= "canvas" then
+    for _, k in ipairs(node.kids) do
+      if k.tag == "source" and k.attrs.src and k.attrs.src ~= "" then src = k.attrs.src; break end
+    end
+  end
+  local target = src and src ~= "" and self:resolve(src)
+  local w = dim(a.width) or ((tag == "canvas" or tag == "iframe") and 300 or (tag == "audio" and 240 or 320))
+  local h = dim(a.height) or ((tag == "canvas" or tag == "iframe") and 150 or (tag == "audio" and 32 or 180))
+  if w > avail then h = math.max(self.lh, h * avail // w); w = avail end
+  if h > 4000 then h = 4000 end
+  local label = "[" .. tag .. "]"
+  if target then label = label .. " " .. (target:match("([^/?#]+)[^/]*$") or target) end
+  if a.title and a.title ~= "" then label = label .. " " .. a.title end
+  local saved = self.link
+  if target and #self.links < 5000 then
+    local id = #self.links + 1
+    self.links[id] = { href = target, text = tag, boxes = {} }
+    self.link = id
+  end
+  local item = self:box_item(w, h, label, st)
+  item.kind = "box"
+  if self.link then item.color = 0x0000EE end
+  self:place(item)
+  self.link = saved
+end
+
 local function pad_field(s, size)
   local n = ulen(s)
   if n > size then return s:sub(1, (utf8.offset(s, size + 1) or #s + 1) - 1) end
@@ -328,6 +398,7 @@ end
 function L:register_control(rec)
   local id = #self.controls + 1
   rec.form = self.form
+  rec.node = self.cur_node
   self.controls[id] = rec
   return id, rec
 end
@@ -613,6 +684,15 @@ end
 -- Lay out one node (and its subtree) as a child of the current block.
 -- ps is the computed style of the parent.
 function L:node(node, ps)
+  if not self.keep_nodes then return self:node_inner(node, ps) end
+  -- With scripts, a run, a link and a control remember their element (for events).
+  local saved = self.cur_node
+  if node.tag ~= "#text" then self.cur_node = node end
+  self:node_inner(node, ps)
+  self.cur_node = saved
+end
+
+function L:node_inner(node, ps)
   if self.full then return end
   local tag = node.tag
   if tag == "#text" then return self:text(node.text, ps) end
@@ -633,6 +713,10 @@ function L:node(node, ps)
   end
   if tag == "img" then return self:image(node, st) end
   if tag == "svg" then return self:svg(node, st) end
+  if tag == "video" or tag == "audio" or tag == "canvas" or tag == "iframe" or tag == "progress" or tag == "meter" then
+    return self:embedded(node, st)
+  end
+  if tag == "dialog" and node.attrs.open == nil then return end
   if tag == "input" or tag == "button" or tag == "select" or tag == "textarea" then
     return self:control(node, st)
   end
@@ -649,7 +733,7 @@ function L:node(node, ps)
     local act
     if action and action ~= "" then act = self:resolve(action)
     else act = self.base and url.strip_fragment(self.base) end
-    self.forms[id] = { action = act, method = (node.attrs.method or "get"):lower() }
+    self.forms[id] = { action = act, method = (node.attrs.method or "get"):lower(), node = self.keep_nodes and node or nil }
     if not saved then self.form = id end
     self:open_block(node, st)
     self:children(node, st)
@@ -664,7 +748,7 @@ function L:node(node, ps)
       local target = self:resolve(href)
       if target then
         local id = #self.links + 1
-        self.links[id] = { href = target, text = "", boxes = {} }
+        self.links[id] = { href = target, text = "", boxes = {}, node = self.cur_node }
         self.link = id
       else
         -- a refused target is shown as plain text, not as a link
@@ -681,7 +765,7 @@ function L:node(node, ps)
   end
   if st.display == "block" then
     self:open_block(node, st)
-    if tag == "pre" then
+    if tag == "pre" or st.ws == "pre" then
       self.ctx.pre = true
       self.ctx.pre_first = true
     elseif tag == "ul" or tag == "ol" then
@@ -689,8 +773,11 @@ function L:node(node, ps)
     elseif tag == "li" then
       local list = self.ctx.parent and self.ctx.parent.list
       if list then
-        if list.ordered then self.marker = list.n .. "."; list.n = list.n + 1 else self.marker = "*" end
-      else self.marker = "*" end
+        if list.ordered then
+          if not st.nolist then self.marker = list.n .. "." end
+          list.n = list.n + 1
+        elseif not st.nolist then self.marker = "*" end
+      elseif not st.nolist then self.marker = "*" end
     end
     self:children(node, st)
     if self.marker then self:flush_line(true) end
@@ -715,6 +802,22 @@ end
 ---------------------------------------------------------------------------
 -- The y of a run: runs sit at the bottom of their line.
 function M.run_y(line, run) return line.y + line.h - run.h end
+
+-- The element under a point of the page (a page laid out with keep_nodes), or nil.
+function M.hit_node(page, x, y)
+  local lines = page.lines
+  local first, last = M.visible(page, y, y + 1)
+  for i = first, last do
+    local line = lines[i]
+    if y >= line.y and y < line.y + line.h then
+      for _, r in ipairs(line.runs) do
+        local ry = line.y + line.h - r.h
+        if r.node and x >= r.x and x < r.x + r.w and y >= ry and y < ry + r.h then return r.node end
+      end
+    end
+  end
+  return nil
+end
 
 -- Index range of the lines that touch [y0, y1).
 function M.visible(page, y0, y1)

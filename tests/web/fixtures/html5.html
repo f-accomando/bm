@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>HTML5 and CSS test</title>
+<style>
+:root { --accent: #cc0000; --gap: 6px; }
+body { margin: 0 }
+header, footer { border-bottom: 1px solid #888; padding: var(--gap); }
+h1 { color: var(--accent); text-transform: uppercase }
+li:nth-child(2n) { color: #0000ff }
+li:first-child { font-weight: bold }
+a[href^="https://"] { text-decoration: none }
+p + p { margin-top: calc(1em + 2px) }
+.card > .title { font-style: italic }
+.hide { display: none }
+@media (max-width: 400px) { h1 { color: #00ff00 } }
+@media (min-width: 400px) { footer { text-align: center } }
+fieldset { border: 1px solid #444 }
+</style></head>
+<body>
+<header><h1>Page title</h1><nav><a href="https://example.test/a">Home</a> <a href="/b">Local</a></nav></header>
+<main>
+<article class="card"><h2 class="title">Article</h2>
+<p>First paragraph.</p><p>Second paragraph with <mark>marked</mark> and <time datetime="2026-01-01">a date</time>.</p>
+<figure><img src="" data-src="/lazy.png" alt="lazy" width="40" height="20"><figcaption>Caption</figcaption></figure>
+<picture><source srcset="/s.webp"><img srcset="/p1.png 1x, /p2.png 2x" alt="srcset" width="30" height="30"></picture>
+</article>
+<ul><li>one</li><li>two</li><li>three</li><li>four</li></ul>
+<details><summary>More</summary><p>Hidden by default in a desktop browser, shown here.</p></details>
+<p class="hide">never shown</p>
+<video src="/movie.mp4" width="200" height="100"></video>
+<audio controls><source src="/song.ogg" type="audio/ogg">fallback text</audio>
+<canvas width="100" height="50">canvas fallback</canvas>
+<iframe src="https://example.test/frame" width="120" height="60">iframe fallback</iframe>
+<progress value="30" max="100"></progress> <meter min="0" max="10" value="5"></meter>
+<dialog>closed dialog</dialog><dialog open>open dialog</dialog>
+<form><fieldset><legend>Form</legend>
+<input type="email" name="e" placeholder="mail"> <input type="search" name="s"> <input type="number" name="n" value="3">
+<input type="date" name="d"> <input type="range" name="r"> <input type="color" name="c">
+<textarea name="t">text</textarea> <select name="x"><option>A</option><option selected>B</option></select>
+<button type="submit">Send</button></fieldset></form>
+<template><p>template content</p></template>
+</main>
+<footer>Footer</footer>
+<script>document.title = "x";</script>
+<noscript><p>needs scripts</p></noscript>
+</body></html>

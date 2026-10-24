@@ -42,7 +42,9 @@ html
         "custom "
         b
           "inside"
-      "\n\n\n\n"
+      "\n\n\n"
+      iframe src="x"
+      "\n"
       p
         "3 < 4 and a <3 heart"
       "\n"
