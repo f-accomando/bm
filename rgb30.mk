@@ -61,6 +61,7 @@ LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LUA_SRCS := $(wildcard third_party/lua/*.c)
 # the parts of bm that run unchanged on the RGB30
 SHARED_SRCS := src/gfx/console.c src/gfx/draw.c src/gfx/font8x16.c src/gfx/font8x14.c \
+               src/gfx/font16x32.c src/gfx/font24x48.c \
                src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c \
                src/script/luavm.c src/script/lib_bm.c \
                src/kernel/version.c src/kernel/crumbs.c src/kernel/config.c src/kernel/sdlog.c \
