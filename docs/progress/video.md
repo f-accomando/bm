@@ -13,12 +13,12 @@ Study: [video-feasibility-2026-10.md](../bench/video-feasibility-2026-10.md). PC
 
 ## Open work
 * VID-S3, VID-S4: done on the PC (see the spikes sheet).
-* VID-S1, VID-S2: done on the Pi Zero W (22 Oct, reports branch). SD write 2.50 MB/s mean, worst write 603 ms: **NO GO** for raw recording at 15 fps (needs 5.00 MB/s and 100 ms). SD read 5.14 MB/s. JPEG decode: 320x180 in 53 ms (under 66 ms: MJPEG at 15 fps is a go), 480x270 in 116 ms. Steps to repeat the run on another card are below.
+* VID-S1, VID-S2: done on the Pi Zero W (22 Oct, reports branch). SD write 2.50 MB/s mean, worst write 603 ms: **NO GO** for raw recording at 15 fps (needs 5.00 MB/s and 100 ms). SD read 5.14 MB/s. JPEG decode: 320x180 in 53 ms (under 66 ms: MJPEG at 15 fps is a go), 480x270 in 116 ms. The Video bench that took them was removed on 24 Oct 2026.
 * VID-FMT slice 1 is done: format [BM-VIDEO.md](../BM-VIDEO.md), reader `src/bm/vid.c`, tool `scripts/mkvid.py`, `jpeg_decode565` (RGB565 into a given buffer), `make test-vid`.
 * VID-FMT slice 2 is done: the Lua player ([api/video.md](../api/video.md)): `video_open`, `clip:info/frame_at/draw/close`. The clip stays whole in memory (48 MB at most) in `/bm/clips`. Test: `test_video_player`.
 * VID-FMT slice 3 is open: the clip's audio (a PCM stream voice in the mixer), clips inside the cartridge, a frame read on demand for long clips.
 * Decoder guard: `jpeg_decode565` checks the picture size against the buffer after the scan. A hostile frame that declares a huge size makes it allocate its planes first. Check the size from the SOF header before the scan.
-* VID-REC slice 1 is done (below): the recorder, off by default. The RLE565 encoder is done (lossless, host-tested round trip, QEMU tests). Open: the Pi numbers of the encoder (run the Video bench, step 7 below), a palette (8-bit) format with a real palette (it needs a palette per frame or per clip and a quantizer: a separate slice), a Dev tab switch, audio in the recording, recording from a cartridge's own call, a delta against the previous frame if the Pi numbers show that intra frames are still too big.
+* VID-REC slice 1 is done (below): the recorder, off by default. The RLE565 encoder is done (lossless, host-tested round trip, QEMU tests). The Pi numbers of the encoder are measured (below). Open: a palette (8-bit) format with a real palette (it needs a palette per frame or per clip and a quantizer: a separate slice), a Dev tab switch, audio in the recording, recording from a cartridge's own call, a delta against the previous frame if the Pi numbers show that intra frames are still too big.
 
 ## Screen recorder (VID-REC)
 Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `rec_fps` (1 to 30, default 15), `rec_size` (WxH, default 320x180), `rec_format` (`rle565` default, `rgb565`, or `rgb332`), `rec_ring_mb` (1 to 256, default 64).
@@ -30,18 +30,8 @@ Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `
 * **Play a recording** in a cartridge: `video_open("rec/R0010001.BMV")` ([api/video.md](../api/video.md)). On the PC, convert the chunks with a small script (the header gives the codec; see [BM-VIDEO.md](../BM-VIDEO.md) for the RLE565 tokens).
 * **Tests:** `test_video_rec` (raw RGB565: 2 s of a cart, chunks read back, same colours through the cart player), `test_video_rec_rle` (the same with RLE565, and the encoder line in the report), `test_video_rec_drops` (raw RGB565, a game that saves every frame, a ring of 1 MB: drops are counted, nothing blocks), `make test-vid` (the raw codecs, and `test_vid rle`: bit exact round trips of flat, noise and pixel-art frames at many sizes, hostile streams).
 
-## To run on the Pi (VID-S1, VID-S2; done once, repeat on another card)
-1. Build and copy the kernel: `make`, then `./easy_install.sh` (SD card in the PC).
-2. Boot the Pi Zero W with a card that has at least 100 MB free. Use the card that you use for games.
-3. Open Settings > System > Utilities. Select **Video bench**. Or send the monitor line `:video`.
-4. Wait about 1 to 3 minutes. The bench writes 128 files of 256 KB in `/bm/vidbench`, reads 16 back, deletes all, decodes two JPEG frames 100 times each, and encodes two 320x180 frames with RLE565 100 times each.
-5. Send the report: the console sends the numeric report to the `reports` branch. Or copy the lines from the screen.
-6. Read the result:
-   * SD write: go for raw recording at 15 fps if the mean is at least 5.00 MB/s and the worst write is at most 100 ms.
-   * JPEG decode: go for MJPEG at 15 fps if the 320x180 mean is at most 66 ms. If it is more, write the RLE+delta palette codec first, or add a fast IDCT to `jpeg.c`.
-7. Repeat step 3 to 6 on a second card type if you have one. The result depends on the card.
-7. Read the RLE565 lines at the end of the report (the bench encodes a 320x180 pixel-art test frame and a photo frame 100 times each): bytes of the frame, mean, best and worst ms, and for 15 and 30 fps the MB/s the card must take against the SD write mean of the same run. The recorder at 30 fps fits when the line says `fits` and the encode time is well under 33 ms (the bench prints it as a percentage of a frame). The pixel-art frame is a synthetic frame, not a game; the photo frame is the worst case. For a real game, set `rec=on` and `rec_fps=30` in `bm/config.txt`, play, and read the `rec: rle565, ...` line at the end of the run.
-`:video quick` runs a sixteenth of each count (the QEMU test uses it).
+## The Video bench (removed)
+The Video bench (Settings > System > Utilities, monitor line `:video`) was removed from the kernel on 24 Oct 2026. It measured the SD write and read speed, the JPEG decode time and the RLE565 encoder. The numbers below stay as measurements. To measure the encoder on another card, set `rec=on` and read the `rec:` lines (next section). The test frame of the clip tests is in `tests/video/vidframes.c`.
 
 ## Pi Zero W numbers of the Video bench (24 Oct, API-4, report `10993a4b` in the `reports` branch)
 
@@ -51,7 +41,7 @@ Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `
 - Decision: RLE565 (codec 4) at 15 fps is the Pi Zero recorder; the Settings row "Screen recorder" sets `rec=on`. Next slice: audio interleaved.
 
 ## To run the recorder on the Pi (VID-REC)
-Do this after the Video bench above. It needs a game that you want to record (for example Overbit).
+It needs a game that you want to record (for example Overbit).
 1. Put these lines in `bm/config.txt` on the SD card (or send them with the monitor line `:set rec=on rec_fps=15 rec_size=320x180`):
    ```
    rec=on

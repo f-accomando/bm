@@ -59,11 +59,9 @@ bm_lib_bmui_end:
     .byte 0
 
     .balign 4
-    .globl bm_lib_words, bm_lib_words_end, bm_texroom_cart, bm_texroom_cart_end
+    .globl bm_lib_words, bm_lib_words_end
 bm_lib_words:
 bm_lib_words_end:
-bm_texroom_cart:
-bm_texroom_cart_end:
     .byte 0
 
 /* bm SDK (RGB30), the tool of the Dev tab (src/rgb30/ui.c): the cartridge

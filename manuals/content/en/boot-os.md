@@ -238,7 +238,6 @@ Type `:` and then commands separated by `;`. They run one after the other, and t
 
 | Command | What it does |
 |---|---|
-| `gpu` | the GPU test and its report |
 | `b3d tests=a,b profiles=P` | the 3D Bench, all or part |
 | `play NAME` | start a game by name |
 | `set key=value ...` | change `bm/config.txt` keys until a restart |

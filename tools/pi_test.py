@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Runs a short test on a Pi through the bridge (tools/pi_bridge.py must be running: the owner types the console password there).
 
-  python3 tools/pi_test.py --cart build/carts/pong.bm [--wait 15] [--gpu] [--bench] [--kernel build/kernel.img] [--restore build/kernel.img]
-  python3 tools/pi_test.py --line "gpu"             # any monitor line
+  python3 tools/pi_test.py --cart build/carts/pong.bm [--wait 15] [--bench] [--kernel build/kernel.img] [--restore build/kernel.img]
+  python3 tools/pi_test.py --line "render"          # any monitor line
 
-Steps, in this order, each one printed with its answer:  kernel (then the reboot is waited for), cart (--play), wait, err, shot, gpu, bench, restore.
+Steps, in this order, each one printed with its answer:  kernel (then the reboot is waited for), cart (--play), wait, err, shot, bench, restore.
 A step fails when the answer has a refusal ("refused", "wrong password", "No such file", "not a kernel", "file too big") or when the bridge is down.
 The answer to --play only says the cartridge started: --cart therefore ends with an `err` check (monitor line "err" after the wait):
 "err: <text>" = runtime error of the cartridge = FAIL; "err: none" or "back to the menu first" (game still running) = PASS
@@ -45,7 +45,6 @@ def main():
     ap.add_argument("--kernel")
     ap.add_argument("--cart")
     ap.add_argument("--wait", type=int, default=10)
-    ap.add_argument("--gpu", action="store_true")
     ap.add_argument("--bench", action="store_true")
     ap.add_argument("--line", action="append", default=[])
     ap.add_argument("--shot", metavar="OUT.png", help="after the cart (and its err check): a screenshot of the Pi saved as OUT.png")
@@ -60,8 +59,6 @@ def main():
         steps.append(("err", ["line", "err"]))
     if a.shot:
         steps.append(("shot " + a.shot, ["shot", os.path.abspath(a.shot)]))
-    if a.gpu:
-        steps.append(("gpu", ["line", "gpu"]))
     if a.bench:
         steps.append(("b3d", ["line", "b3d"]))
     for ln in a.line:

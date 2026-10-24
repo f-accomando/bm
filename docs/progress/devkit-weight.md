@@ -5,7 +5,7 @@ Tool: `scripts/bm_weight.py`. Data: `docs/spec/compat-policy.toml`. Test: `tests
 ## Rules (do not break)
 * The Market shows no size warning. The ceiling is 100 MB per file. The kit tells the author about weight and cost.
 * The performance plan is data. Each number names its source doc and says "estimate". It uses no live game data.
-* Hardware numbers come from the benchmarks: 3D Bench, Dev > GPU test, Stack bench, Video bench. The report prints the command for the next measurement.
+* Hardware numbers come from the benchmarks: 3D Bench. The report prints the command for the next measurement.
 * The compat policy is a data table. A new kernel or a new rule changes the table, not the code. Grey is not a lock.
 * A new cost constant goes in `COSTS` of `bm_weight.py` with its source doc. Read the section parser from `bmmesh.cart_sections`. Do not write a second parser.
 

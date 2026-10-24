@@ -492,7 +492,7 @@ moves, undo, subdivision, mirror, new faces, merging, color, extrusion,
 duplication, the villager with the skeleton after moved and deleted vertices, save as).
 The files it writes are reread by `check_files.py`, by `bmmesh.py` and by the kernel
 (`test_meshcap`: each skeleton matches its model). `test_meshcap` also tests the
-real capture (`src/bm/meshcap.c`) on Astro Wing, Texture Room and Chaos Kitchen. In QEMU,
+real capture (`src/bm/meshcap.c`) on Astro Wing and Chaos Kitchen. In QEMU,
 `test_mesh` opens Astro Wing from the options, copies the ship as a model, moves its vertices,
 copies it as code and saves.
 

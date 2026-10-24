@@ -84,9 +84,6 @@ void bm_print_stats(const bm_stats_t *st);
 uint32_t bm_bench(framebuffer_t *fb, uint32_t frames);
 /* bm_bench drawing directly and via RAM; prints one line. */
 void bm_bench_report(framebuffer_t *fb, uint32_t frames);
-/* Sprite stacking benchmark: g16_stack with 16, 64 and 128 stacks of 8 and 16 slices, turning;
- * a table of us a frame (drawing only), stacks a second and slices a second. */
-void bm_stack_bench(framebuffer_t *fb, uint32_t frames);
 
 /* Switches the screen to w x h RGB565 double buffered and points g at the
  * back page, or at a cached RAM buffer when "via RAM" is on (console

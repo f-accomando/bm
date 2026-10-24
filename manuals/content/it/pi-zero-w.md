@@ -232,7 +232,7 @@ bm ha due modi di disegnare il 3D, dietro le stesse funzioni. La tua cartuccia n
 
 Fonti: `docs/progress/graphics.md`, `docs/GPU-BENCHMARK-REPORT.md`, `docs/DRIVERS.md`.
 
-Le funzioni opzionali sono provate all'avvio. La prova controlla che la GPU disegni quello che disegnerebbe l'ARM, e spegne da sola la funzione se non è così. La riga di stato (*Dev > GPU test*, o `g` nel monitor) dice che cosa è stato tenuto, per esempio `vertex shader yes` o `ETC1 textures yes (utiles 2x4, bytes BE)` (fonte: `docs/DRIVERS.md`).
+Le funzioni opzionali sono provate all'avvio. La prova controlla che la GPU disegni quello che disegnerebbe l'ARM, e spegne da sola la funzione se non è così. La riga delle opzioni del report del 3D Bench dice che cosa è stato tenuto, per esempio `vertex shader yes` o `ETC1 textures yes (utiles 2x4, bytes BE)` (fonte: `docs/DRIVERS.md`).
 
 ## Opzioni
 
@@ -254,7 +254,7 @@ Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga
 | `gpu3d_sort` | mesh dalla più vicina, triangoli nell'ordine della cache dei vertici | spento |
 | `gpu3d_attr` | attributi dei vertici compatti | spento (`1` li accende; sul Pi non hanno dato guadagno) |
 | `gpu3d_merge` | unione dei disegni: i disegni consecutivi di pezzi di mappa fermi, con luce cotta e una sola sheet, diventano un solo disegno, solo una serie di almeno 32 pezzi con 150 facce o meno in media (nessuna riga nelle Settings) | attivo (`0` lo spegne) |
-| `gpu3d_qpu` | `1`: il test GPU e il 3D Bench eseguono anche i programmi QPU a confronto con quelli ARM (una prima verifica sul Pi) | spento |
+| `gpu3d_qpu` | `1`: il 3D Bench esegue anche i programmi QPU a confronto con quelli ARM (una prima verifica sul Pi) | spento |
 | `r3d_fast` | renderer ARM: una matrice e la luce nello spazio del modello (i pixel non sono più identici bit a bit) | `r3d_fast=1` per attivarlo |
 | `r3d_impostor` | modelli lontani come un solo quad (da 2 a 64 pixel di uno schermo di 1080 righe) | spento |
 
@@ -293,7 +293,7 @@ Programmi veri, stesso file:
 
 | Programma | ARM | GPU |
 |---|---|---|
-| Texture Room HD 640x360 | 25,3 ms (8 casse) | 5,8 ms (32 casse, 573 triangoli) |
+| Texture Room HD 640x360 (una cartuccia di prova, tolta) | 25,3 ms (8 casse) | 5,8 ms (32 casse, 573 triangoli) |
 | Chaos Kitchen | 14,1 ms | 6,8 ms (758 triangoli) |
 
 Calano anche le istruzioni ARM per frame, in una simulazione host QEMU (non misurate sul Pi): Texture Room, 8 casse, 320x180, 446 triangoli, passa da 3,86 milioni a 0,62 milioni (fonte: `docs/GPU-BENCHMARK-REPORT.md`, sezione "Host Simulation Metrics (qemu-arm)").
@@ -320,7 +320,7 @@ La GPU riduce le istruzioni ARM per frame dal 23% al 32% in questi preset. A 108
 
 ## Un nome, due driver
 
-Il 3D passa per **r3d** (scena, trasformazioni, luce, il rasterizzatore ARM) e **gpu3d** (il backend V3D con i suoi shader). Condividono una sola versione, **bm3d X.Y**. L'attuale è bm3d 7.3 (fonte: `src/gpu/version3d.h`). La vedi in *Settings > System > 3D driver*, nel test GPU, nel log quando parte un gioco, nel 3D Bench e come quarto valore di `gpu3d()` (fonte: `docs/DRIVERS.md`).
+Il 3D passa per **r3d** (scena, trasformazioni, luce, il rasterizzatore ARM) e **gpu3d** (il backend V3D con i suoi shader). Condividono una sola versione, **bm3d X.Y**. L'attuale è bm3d 7.3 (fonte: `src/gpu/version3d.h`). La vedi in *Settings > System > 3D driver*, nel log quando parte un gioco, nel 3D Bench e come quarto valore di `gpu3d()` (fonte: `docs/DRIVERS.md`).
 
 ## Le versioni che contano
 
@@ -421,13 +421,13 @@ Che cosa leggi (fonte: `docs/BENCH3D.md`):
 La riga del monitor esegue solo alcuni test e profili (fonte: `docs/BENCH3D.md`).
 
 ::: copy
-:gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send
+:b3d tests=match,quad_tex profiles=GPU,FS2; send
 :::
 
 Dal PC, con la scheda in rete:
 
 ::: copy
-./easy_install.sh line "gpu; b3d; send"
+./easy_install.sh line "b3d; send"
 :::
 
 La console scrive quello che fa finché non dice `the line is done`.
@@ -437,13 +437,12 @@ La console scrive quello che fa finché non dice `the line is done`.
 Fonte: `docs/progress/v3d.md` e `docs/BENCH3D.md`. Le righe `P` del report danno i ms per riempire 640x360, 1280x720 e 1920x1080.
 
 ::: copy
-./easy_install.sh line "gpu; b3d tests=quad_flat,quad_tex,bilinear,gpu2d profiles=ARM,GPU,FS2,2D,VSF; send"
+./easy_install.sh line "b3d tests=quad_flat,quad_tex,bilinear,gpu2d profiles=ARM,GPU,FS2,2D,VSF; send"
 :::
 
-## Il test GPU e lo stress test
+## Lo stress test
 
-1. Apri la scheda Dev e scegli **GPU test** (o `g` nel monitor). Esegue i passi del driver, stampa la riga di stato e il log delle prove, e riporta la velocità in triangoli e il fill rate (fonti: `docs/DRIVERS.md`, `docs/GPU-BENCHMARK-REPORT.md`).
-2. Per lo stress test di sprite e 3D, costruisci sul PC il kernel dedicato e copialo sulla SD (fonte: `docs/STRESS.md`):
+1. Per lo stress test di sprite e 3D, costruisci sul PC il kernel dedicato e copialo sulla SD (fonte: `docs/STRESS.md`):
 
 ::: copy
 cd ~/bm && git pull
@@ -451,8 +450,8 @@ make sdcard-stress
 cp dist/kernel.img /path/to/the/SD/ && sync
 :::
 
-3. Avvia il Pi. Dopo il riepilogo di sistema girano i test, circa 30-60 s in tutto, e la tabella dei risultati resta sullo schermo: basta una foto.
-4. Per tornare al kernel normale, esegui `make sdcard` e copia di nuovo `dist/kernel.img`.
+2. Avvia il Pi. Dopo il riepilogo di sistema girano i test, circa 30-60 s in tutto, e la tabella dei risultati resta sullo schermo: basta una foto.
+3. Per tornare al kernel normale, esegui `make sdcard` e copia di nuovo `dist/kernel.img`.
 
 Se hai un cavo seriale, lo stress test parte dal monitor con il tasto `S`.
 

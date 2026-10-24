@@ -317,29 +317,6 @@ def snake(a):
     a.over(lay)
 
 
-def texroom(a):
-    lay, d = a.draw()
-    for r in range(0, 6):                                    # the brick wall
-        for c in range(-1, 8):
-            x = c * 13 + (r % 2) * 6.5
-            d.rectangle(P([(x + .5, r * 6 + .5), (x + 12.5, r * 6 + 5.5)]), fill=(150 + (r * 7 + c * 13) % 30, 66, 50, 255))
-    d.polygon(P([(0, 38), (88, 38), (88, 62), (0, 62)]), fill=(70, 74, 86, 255))
-    for i in range(-4, 14):                                  # the floor in perspective
-        d.line(P([(44 + (i - 5) * 4, 38), (44 + (i - 5) * 14, 62)]), fill=(110, 116, 130, 255), width=S)
-    a.over(lay)
-    a.glow(44, 30, 28, 0xFFD890, 0.55)
-    a.shadow(lambda dr, c: dr.polygon(P([(20, 56), (68, 56), (66, 62), (22, 62)]), fill=c), 0, 0, 2, 140)
-    lay, d = a.draw()
-    d.rectangle(P([(24, 18), (64, 56)]), fill=(166, 114, 60, 255))
-    d.rectangle(P([(24, 18), (64, 23)]), fill=(200, 146, 82, 255))
-    d.rectangle(P([(24, 51), (64, 56)]), fill=(120, 80, 42, 255))
-    d.rectangle(P([(24, 18), (29, 56)]), fill=(120, 80, 42, 255))
-    d.rectangle(P([(59, 18), (64, 56)]), fill=(120, 80, 42, 255))
-    d.polygon(P([(29, 23), (34, 23), (59, 51), (54, 51)]), fill=(138, 92, 48, 255))
-    d.polygon(P([(54, 23), (59, 23), (34, 51), (29, 51)]), fill=(138, 92, 48, 255))
-    a.over(lay)
-
-
 def robot(d, cx, top, face, body, accent, dark, s):
     """a boxy titan bust looking at the side of s (+1 right, -1 left)"""
     def X(x):
@@ -535,7 +512,6 @@ COVERS = {
     "pong": ("Pong", 0x0A1030, 0x14308A, pong),
     "shooter": ("Star Shooter", 0x040616, 0x14204A, shooter),
     "snake": ("Snake", 0x0C3A28, 0x2A7A44, snake),
-    "texroom": ("Texture Room", 0x3A2418, 0x6A4A38, texroom),
     "titan": ("Titan Clash", 0x1A1030, 0x6A2A38, lambda a: titan(a, False)),
     "titan_ex": ("Titan Clash EX", 0x120C28, 0x5A3A18, lambda a: titan(a, True)),
     "typing": ("Pad Typing", 0x0E2A38, 0x2A6A70, typing),

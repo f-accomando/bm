@@ -269,8 +269,8 @@ def test_screen_console(b, opts):
             assert needle in text, f"{needle!r} not on screen:\n{text}"
         # the Dev tab: three square covers a row, the selected one's name on the pill
         # (no Lua on the RGB30's Dev tab: the Pi's only; ` on the serial port opens it)
-        for k, name in (("r", "3D Bench"), ("s", "Input test"), ("d", "Boot log"), ("d", "GPU test"),
-                        ("w", "Display"), ("s", "GPU test")):
+        for k, name in (("r", "3D Bench"), ("s", "Input test"), ("d", "Boot log"), ("d", "bm SDK"),
+                        ("w", "Display"), ("s", "bm SDK")):
             keys(q, k)
             text = screen_all(q.screendump())
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
@@ -296,7 +296,7 @@ def test_screen_console(b, opts):
         assert "Version, memory, the log" in screen_all(q.screendump())
         keys(q, "\x7f")                        # back: out of Settings, to Dev
         text = screen_all(q.screendump())
-        assert "GPU test" in text and "Updates" not in text, text
+        assert "bm SDK" in text and "Updates" not in text, text
         keys(q, "l")                            # L1: Games
         assert "No games yet" in screen_all(q.screendump())
     finally:
@@ -957,7 +957,8 @@ def test_sdk_stages_build(b, opts):
         boot(q)
         press(q, "r", ["every 3D test"])        # Dev
         press(q, "s", ["both sticks"])          # the second row: Input test
-        press(q, "s", ["build and try"])        # the third row: bm SDK
+        press(q, "d", ["since boot"])           # Boot log
+        press(q, "d", ["build and try"])        # bm SDK, the last
         q.buf = b""
         press_serial(q, "\r", "bm SDK\r\n", tries=3, wait=60.0)
         # Ctrl+N: new project from a template (sent again until the SDK is ready to read it)
@@ -1130,48 +1131,6 @@ def test_bench3d(b, opts):
     head = rpt.split("\n\n", 1)[0]
     assert rpt.startswith("bm report\nkind: bench3d\n") and "board: QEMU virt" in head, rpt[:400]
     assert "_bench3d_qemu-virt_" in head and "R,spheres,ARM" in rpt, rpt[:400]
-
-
-def test_gpu_test(b, opts):
-    """Dev > GPU test: on QEMU's virt there is no Mali, the page says
-    so and nothing touches the GPU's registers; back returns to the menu."""
-    q = Qemu(os.path.join(b, "kernel.elf"))
-    try:
-        boot(q)
-        press(q, "r", ["every 3D test"])        # Dev tab: 3D Bench
-        press(q, "s", ["both sticks"])          # the second row: Input test
-        press(q, "d", ["since boot"])           # Boot log
-        text = press(q, "d", ["Mali-G52"])      # GPU test
-        assert "GPU test" in text and in_menu(text), text
-        press_serial(q, "\r", "no Mali on QEMU virt", wait=30.0)
-        wait_screen(q, ["GPU test", "no Mali on QEMU virt"])
-        text = press(q, "\x7f", ["Games", "Dev", "Settings"])     # A: back
-        assert in_menu(text), text
-    finally:
-        q.close()
-
-
-def test_stack_bench(b, opts):
-    """Dev > Stack bench (D14, the Pi's bench): sprite stacking at 640x360, the numbers on the serial
-    port, the back button returns to the menu's 360x360."""
-    q = Qemu(os.path.join(b, "kernel.elf"))
-    try:
-        boot(q)
-        press(q, "r", ["every 3D test"])        # Dev tab
-        press(q, "s", ["both sticks"])          # the second row
-        press(q, "s", ["build and try"])        # the third row: bm SDK
-        press(q, "d", ["us a frame"])           # Stack bench, after it
-        q.send("\r")
-        q.expect("Stack bench: g16_stack", timeout=30)
-        img = q.screendump()
-        assert img[0] == 640 and img[1] == 360, f"screen {img[0]}x{img[1]}"
-        out = q.expect("Stack bench done", timeout=300).decode(errors="replace")
-        assert "slices/s" in out and out.count("128") >= 2, out
-        time.sleep(1)
-        text = press(q, "\x7f", ["Games", "Dev", "Settings"])     # A: back
-        assert in_menu(text), text
-    finally:
-        q.close()
 
 
 def test_menu_input_page(b, opts):
@@ -1361,7 +1320,7 @@ def test_sdk_tool(b, opts):
         text = screen(["Games", "Dev", "Settings"])
         assert in_menu(text), text
         keys(q, "r")                            # Dev: 3D Bench
-        keys(q, "ss")                           # the third row: bm SDK, the last
+        keys(q, "sdd")                          # the second row, third column: bm SDK, the last
         text = screen(["bm SDK", "Dev"])
         assert in_menu(text), text
         q.buf = b""
@@ -1464,7 +1423,7 @@ def sdk_open(q):
     time.sleep(1.0)
     keys(q, "r")                                # Dev
     sdk_screen(q, ["3D Bench", "Dev"])
-    keys(q, "ss")                               # the third row: bm SDK
+    keys(q, "sdd")                              # the second row, third column: bm SDK
     text = sdk_screen(q, ["bm SDK", "Dev"])
     assert in_menu(text), text
     q.buf = b""

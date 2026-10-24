@@ -176,9 +176,9 @@ was powered on again `bootprev.txt` has the log of the black boot.
   draw at 720×720 or at 360×360 shown ×2 (a quarter of the pixels for the GPU), sharp or
   smoothed; the menu is 360×360 ×2. **Display** page in the menu: the modes one after another
   with a test image (borders, tile grid, colour bars).
-- **Mali-G52 GPU, first step of the driver** (bm3d 6.0; `src/rgb30/mali.c`, *Dev > GPU test*):
-  only when asked for (boot does not touch the GPU), one step at a time with a line on screen and
-  a `gpu` report: vdd_gpu on (RK817 DCDC2, otherwise it stops at once), clocks of the
+- **Mali-G52 GPU, first step of the driver** (bm3d 6.0; `src/rgb30/mali.c`; the *Dev > GPU test* page was removed on 24 Oct 2026,
+  `mali3d=1` runs the same probe):
+  only when asked for (boot does not touch the GPU), one step at a time: vdd_gpu on (RK817 DCDC2, otherwise it stops at once), clocks of the
   PD_GPU domain (CRU) and domain on (PMU, like Linux's domains), GPU_ID and present parts, reset,
   power-up of L2, cores and tiler, address space 0 with the "Mali LPAE" tables (64 MB of
   video and GPU memory seen 1:1), a WRITE_VALUE job on slot 1 and a chain of two. Every
@@ -192,8 +192,8 @@ was powered on again `bootprev.txt` has the log of the black boot.
   failed with `JS_STATUS 58`; if the base jobs fail, the test now tries 8 variants and logs `mali: variant N <name>: ok`
   or its status (see `docs/progress/graphics-mali.md`). **Tested on the PC**
   with a simulated GPU, CRU and PMU (`make TARGET=rgb30 test-mali`; the descriptors against Mesa's
-  `v7.xml`; the simulated GPU does not run the triangle); in QEMU the page says there is no GPU
-  (`test_gpu_test`); **to be tested on the console.**
+  `v7.xml`; the simulated GPU does not run the triangle); the page and its QEMU test were removed on 24 Oct 2026;
+  **to be tested on the console.**
 - Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
   below).
 - **bm SDK (RGB30)** (`carts/sdk_b16`): the SDK's own edition for 360×360 and the pad
@@ -212,7 +212,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   catalogue's `.b16` games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
   play, download again, delete), **Games** (`.b16` games and the `.bm` ones, with their
   cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
-  Display, Input test, Boot log, Lua on the serial port, GPU test, bm SDK) and **Settings**, the last, a page of its own:
+  Display, Input test, Boot log, Lua on the serial port, bm SDK) and **Settings**, the last, a page of its own:
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
   layout, icons), WiFi and network (saved network, address, network console, connecting,
@@ -362,7 +362,7 @@ on return to the menu. A second file while the first is waiting: `BY` (busy), re
   `rk_bt.c`; WiFi: `rk_sdio.c`, `rtw_io.c`, `rtw_mac.c` (power-up, firmware, efuse),
   `rtw_init.c` + `rtw8821c_table.c` (MAC and radio, CAM, firmware commands), `rtw_frame.c`
   (packets, 802.11), `wpa.c` (WPA2), `rtw_sta.c` (the functions of `wifi/wifi.h`); GPU: `mali.c`
-  (the driver, portable), `gputest_rgb30.c` (the *GPU test* page).
+  (the driver, portable), `mali_hw.c` (the hw of the RK3566 and the probe for `mali3d=1`).
 - Code shared with the Pi: `gfx/`, `lib/printf.c`, `script/luavm.c` and `lib_bm.c`, `fs/fat.c`,
   `kernel/config.c`, `crumbs.c`, `version.c`, Lua.
 - `tests/rgb30/qemu_test.py` — tests in QEMU (boot, EL2 and relocation, screen read from pixels,
@@ -370,7 +370,7 @@ on return to the menu. A second file while the first is waiting: `BY` (busy), re
 - `tests/rgb30/rtw_frame_test.c`, `wpa_test.c` (published vectors and a handshake computed
   separately by `wpa_vectors.py`), `wifi_sim_test.c` (the whole station on a simulated RTL8821C and two access
   points): `make TARGET=rgb30 test-wifi`.
-- `tests/rgb30/mali_test.c` — the GPU test on a simulated Mali-G52, CRU and PMU (page
+- `tests/rgb30/mali_test.c` — the Mali probe on a simulated Mali-G52, CRU and PMU (page
   tables walked as the GPU does, jobs executed, variants that do not add up):
   `make TARGET=rgb30 test-mali`.
 - `boot/rgb30/` — the card's `extlinux.conf` and `LEGGIMI.txt`.

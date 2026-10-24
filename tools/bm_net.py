@@ -22,7 +22,7 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py IP --get bm/shots/pong0007.png out.png   a file of bm/shots on the console
   bm_net.py IP --keys Xa                the keys X then a pressed one by one (0.2 s apart), the
                                         console's answer shown for 3 s (what the bridge's `keys NAME` sends)
-  bm_net.py IP --line "gpu; b3d; send"  a monitor line run (from the menu or the
+  bm_net.py IP --line "b3d; send"       a monitor line run (from the menu or the
                                         monitor), its output shown until it is done
 
 The password is the one shown on the Pi's screen after 'W' (net_password in
@@ -439,7 +439,7 @@ def main():
                     help="write the kernel (kernel.img; kernel7.img on a Pi Zero 2 W, kernel8.img on "
                          "the RGB30) and restart the console")
     ap.add_argument("--line", metavar="LINE",
-                    help="run a monitor line (commands separated by ';': gpu, b3d tests=... "
+                    help="run a monitor line (commands separated by ';': b3d tests=... "
                          "profiles=..., set key=value, send...) and show its output")
     ap.add_argument("--in-monitor", action="store_true", help="with --keys: only when the monitor has the keys")
     ap.add_argument("--game-exit", action="store_true", help="end the game running (the Ctrl-backslash byte, the menu is back)")

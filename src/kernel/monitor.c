@@ -2,7 +2,6 @@
 #include "bench.h"
 #include "demo.h"
 #include "bm/runtime.h"
-#include "bm/vidbench.h"
 #include "upload.h"
 #include "update.h"
 #include "bm/stress.h"
@@ -36,8 +35,6 @@
 #include "reports.h"
 #include "audio/audio.h"
 #include "dmatest.h"
-#include "gputest.h"
-#include "bm/roombench.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
 #include <stdio.h>
@@ -72,12 +69,9 @@ static const char help_text[] =
             "     from the PC: tools/bm_net.py IP (console, --send/--play a cart, --kernel)\n"
             "  G  get a web address (http or https): status, size, speed, start\n"
             "  u  update from GitHub: the latest release, then install it (asks first)\n"
-            "  b  boot diagnostics: benchmarks, the bm demo, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
-            "  g  GPU test step by step: the 3D unit (V3D), speed, ARM vs GPU\n"
             "  j  3D Bench: every 3D test with every driver, bars and a saved report\n"
-            "  R  Texture Room benchmark: crates doubled to 30 fps, ARM and GPU\n"
             "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
             "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
@@ -85,14 +79,13 @@ static const char help_text[] =
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  X  crash tests (then u, a, b, s or f): exception screen, freeze\n"
             "  o  everything printed since boot (scrolls like this help)\n"
-            "  z  send the tests' reports waiting in bm/reports (github_token; g k p D s R do one)\n"
+            "  z  send the tests' reports waiting in bm/reports (github_token; k p D s do one)\n"
             "  Z  the log since boot as a report\n"
             "  :  a line of commands, ';' between them, run one after the other:\n"
-            "       gpu                       the GPU test (g), its report\n"
             "       b3d tests=a,b profiles=P  the 3D Bench, all or a part (GPU+FS2 or FS2...)\n"
             "       set key=value ...         bm/config.txt keys until a restart (save: kept)\n"
-            "       render  room  video [quick]  stack  log  err  crc  send  reboot\n"
-            "     e.g. :gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send\n"
+            "       render  log  err  crc  send  reboot\n"
+            "     e.g. :b3d tests=match,quad_tex profiles=GPU,FS2; send\n"
             "     crc: the CRC32 of the page on screen (crc: WxH bpp=D pitch=P crc32=0x........)\n"
             "     (from the menu too: the ':' takes the line to the monitor; from the PC\n"
             "     tools/bm_net.py IP --line \"...\" or easy_install.sh line \"...\")\n";
@@ -221,11 +214,7 @@ static int line_command(char *c)
     else
         rest = end;
     kprintf("\x1b[96m: %s %s\x1b[0m\n", c, rest);
-    if (!strcmp(c, "gpu")) {
-        reports_begin("gpu");
-        gpu_test(console_framebuffer());
-        reports_end();
-    } else if (!strcmp(c, "b3d")) {
+    if (!strcmp(c, "b3d")) {
         static char tests[160], profiles[160];
         const char *t = argv_copy(rest, "tests", tests, sizeof tests);
         const char *p = argv_copy(rest, "profiles", profiles, sizeof profiles);
@@ -260,16 +249,9 @@ static int line_command(char *c)
     } else if (!strcmp(c, "save")) {
         config_save();
         kprintf("bm/config.txt saved\n");
-    } else if (!strcmp(c, "render") || !strcmp(c, "room") || !strcmp(c, "video") || !strcmp(c, "stack")) {
+    } else if (!strcmp(c, "render")) {
         home_report_begin(c);
-        if (c[1] == 'e')
-            bm_bench_report(console_framebuffer(), 120);
-        else if (c[1] == 'i')
-            bm_video_bench(!strcmp(rest, "quick"));
-        else if (c[1] == 't')
-            bm_stack_bench(console_framebuffer(), 30);
-        else
-            bm_room_bench(console_framebuffer());
+        bm_bench_report(console_framebuffer(), 120);
         home_report_end();
         if (syskeys_test_stopped()) {   /* Start+Select, Ctrl+Esc, PS: the line ends too */
             kprintf("%s: stopped; the rest of the line is not run\n", c);
@@ -303,7 +285,7 @@ static int line_command(char *c)
         kprintf("rebooting...\n");
         crumbs_restart(0);
     } else {
-        kprintf("'%s': not a command of the line (gpu, b3d, play, set, save, render, room, video, stack, log, err, crc, send, reboot)\n", c);
+        kprintf("'%s': not a command of the line (b3d, play, set, save, render, log, err, crc, send, reboot)\n", c);
         return -1;
     }
     return 0;
@@ -394,7 +376,6 @@ void monitor_run(void)
             break;
         }
         case 't': show_test_pattern(); break;
-        case 'B': case 'b': diagnostics_run(); break;
         case 'M': case INPUT_HOME: carts_menu(console_framebuffer()); break;
         case 'f': carts_list(); break;
         case 'F': carts_init(); carts_list(); break;
@@ -439,9 +420,7 @@ void monitor_run(void)
         case 'I': home_assistant(console_framebuffer()); break;
         case 'C': carts_code(console_framebuffer(), NULL); break;
         case 'D': reports_begin("dma"); dma_test(console_framebuffer()); reports_end(); break;
-        case 'g': reports_begin("gpu"); gpu_test(console_framebuffer()); reports_end(); break;
         case 'j': case 'J': bm_bench3d(console_framebuffer()); break;
-        case 'R': home_report_begin("room"); bm_room_bench(console_framebuffer()); home_report_end(); break;
         case 'z': {
             int left = reports_send_pending();
             kprintf("%s; %d waiting on the SD card\n", reports_last(), left);

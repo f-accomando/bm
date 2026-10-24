@@ -15,7 +15,6 @@
 #include "exceptions.h"
 #include "fiber.h"
 #include "monitor.h"
-#include "selftest.h"
 #include "sysinfo.h"
 #include "arch/mmu.h"
 #include "drivers/fb.h"
@@ -37,7 +36,6 @@
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
-#include "gputest.h"
 #include "gpu/qpu.h"
 #include "bt/bt.h"
 #include "audio/audio.h"
@@ -68,16 +66,7 @@
 
 static framebuffer_t fb;
 
-static void print_palette(void)
-{
-    kprintf("colours ");
-    for (int i = 0; i < 16; i++)
-        kprintf("\x1b[%dm\xdb\xdb", i < 8 ? 30 + i : 90 + i - 8);
-    kprintf("\x1b[0m\n");
-}
-
 #define TICK_HZ     1000
-#define BM_DEMO_SECS    15
 
 static void heartbeat(uint32_t tick)
 {
@@ -100,8 +89,6 @@ static void report_irq(void)
             fb.buffers >= 2 ? "on" : "OFF");
 }
 
-extern const char boot_lua[], boot_lua_end[];
-extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
 extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
 
 #ifdef BM_BOOT_STRESS
@@ -116,15 +103,6 @@ static void run_stress(void)
     bm_play(&fb, bm_stress_cart, (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
 }
 #endif
-
-static void run_boot_script(void)
-{
-    if (!luavm_init()) {
-        kprintf("\x1b[91mLua: cannot create the state\x1b[0m\n");
-        return;
-    }
-    luavm_run(boot_lua, (size_t)(boot_lua_end - boot_lua), "@boot.lua");
-}
 
 /* End of the ARM's share of SDRAM (the GPU owns the rest). */
 static uint32_t arm_memory_end(void)
@@ -143,39 +121,6 @@ static uint32_t sdram_end(uint32_t arm_end)
         return 0x20000000u;             /* 512 MB: the Pi Zero, W and 2 W */
     return v[0] + v[1];
 }
-
-/* Everything the boot used to show before M9: palette, CPU benchmark,
- * libc self-test, the bm benchmark and demo, the
- * vsync probe and the Lua boot script. Monitor command 'B'. */
-void diagnostics_run(void)
-{
-    bench_t bench;
-    uint32_t cols, rows;
-    console_size(&cols, &rows);
-    kprintf("screen %lux%lu %s, console %lux%lu; serial 115200 8N1 on GPIO14/15\n",
-            fb.width, fb.height, fb.is_rgb ? "RGB" : "BGR", cols, rows);
-    print_palette();
-    bench_run(&bench, &fb, "max + cache");
-    bench_print(&bench, 1);
-    libc_selftest();
-    fiber_selftest();
-
-    kprintf("bm: C benchmark and native demo cart ('q' or Esc skips)...\n");
-    bm_bench_report(&fb, 120);
-    bm_stats_t bs;
-    bm_play(&fb, bm_demo_cart, (size_t)(bm_demo_cart_end - bm_demo_cart), BM_DEMO_SECS, &bs);
-    bm_print_stats(&bs);
-
-    uint32_t vs[5];
-    if (fb_vsync_probe(vs, 5) == 0)
-        kprintf("vsync probe: tag ok, waits %lu %lu %lu %lu %lu us\n",
-                vs[0], vs[1], vs[2], vs[3], vs[4]);
-    else
-        kprintf("vsync probe: tag not supported by the firmware\n");
-
-    run_boot_script();
-}
-
 
 /* The saved WiFi network is joined at boot (wifi_boot=0 in
  * bm/config.txt turns it off), two tries; if it fails the menu tries
@@ -324,8 +269,7 @@ void kernel_main(uint32_t atags)
 #endif
 
     /* The console starts on the cartridge menu; Esc, Start+Select or 'q'
-     * on the serial port go to the monitor ('B' there runs the old boot
-     * diagnostics). */
+     * on the serial port go to the monitor. */
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
     bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: the LED stays on if all is well */

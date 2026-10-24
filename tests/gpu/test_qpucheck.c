@@ -1,5 +1,5 @@
 /*
- * The QPU check (src/gpu/qpucheck.c: GPU test step and 3D Bench row, config key
+ * The QPU check (src/gpu/qpucheck.c: 3D Bench row, config key
  * gpu3d_qpu=1) on the V3D emulator.
  *
  *   test_qpucheck 0     the QPUs work: PASS for both programs

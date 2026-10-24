@@ -130,7 +130,7 @@ the repo root. Builds and tests run in WSL through `scripts/wsl-run.ps1` (skill 
 | Make target | What | Where |
 |---|---|---|
 | `test-studio` | Studio, Animator, Mesh, Pixel, SDK under luahost; files re-read by `check_files.py`, `bmmesh.py`, `test_meshcap`, `test_bm`; `anim_figure.py` builds a rigged figure | `Makefile:1237-1258` |
-| `test-bm` | parser, tokens, decimator, glb import, cutout, `bmreduce.py`, meshcap on Astro Wing / texroom / kitchen | `Makefile:1131-1147` |
+| `test-bm` | parser, tokens, decimator, glb import, cutout, `bmreduce.py`, meshcap on Astro Wing / kitchen | `Makefile:1131-1147` |
 | `test-res` | `BMRES` resource files (`.bmm` …) by `bmres.py` and C `test_res` | `Makefile:555-562` |
 | `test-img2mesh` | `img2mesh.py` from recorded replies, `meshy2mesh.py` on a test .glb, `local2mesh` | `Makefile:1223-1232` |
 | `test-ai` | assistant incl. `meshview sheet` of all 3D recipes | `Makefile:1212-1218` |

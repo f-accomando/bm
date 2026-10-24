@@ -84,7 +84,7 @@ bm integrates **bm3d** (v7.2+), a custom dual-path 3D engine:
   - GPU unlocks real-time planar hero shadows, smooth Gouraud shading, textured fog, dynamic explosion lighting, and 24-bit depth.
   - Frame rates on Pi Zero W jump from ~36 fps up to **~50 fps (LOW)**, ~34 to **~45 fps (MEDIUM)**, and ~30 to **~36 fps (HIGH)**.
   - Budget: ~6,000 triangles at 60 fps; hero models feature up to 1,394 triangles at full LOD.
-- **Texture Room HD (640×360, 32 Crates)**: **5.8 ms/frame (solid 60 fps)** on V3D GPU vs 25–26 ms on software ARM.
+- **Texture Room HD (640×360, 32 Crates)**: **5.8 ms/frame (solid 60 fps)** on V3D GPU vs 25–26 ms on software ARM (measured in Oct 2026; the Texture Room was removed from the kernel on 24 Oct 2026).
 - **Chaos Kitchen (3D Co-op)**: **6.8 ms/frame (60 fps)** on V3D GPU vs 14.1 ms on software ARM.
 - **Astro Wing (3D Flight Combat)**: **6.3 ms/frame (solid 60 fps)**.
 

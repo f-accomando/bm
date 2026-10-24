@@ -59,7 +59,7 @@ Reports in branch `reports`; ask the user. The kernel must end in the commit tes
   `gpu3d_etc1=1` (colours near the 16-bit ones, no block garbage), plus the played Overbit
   comparison of To do 4.
 - A played Overbit on the GPU at 640x360, 720p and 1080p (session report): fps, `GPU 3D` ms.
-- 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`, each from all-off.
+- 2D on GPU, tex16, WC, GPU test steps 15-16 (removed on 24 Oct 2026), `menu_scale=3`, each from all-off.
 - Cost of a pixel (`P` lines, `docs/BENCH3D.md` *The reports*): `./easy_install.sh line "gpu;
   b3d tests=quad_flat,quad_tex,bilinear,gpu2d profiles=ARM,GPU,FS2,2D,VSF; send"`.
 
@@ -85,18 +85,18 @@ Raw reports: branch `reports`, `reports/unknown/`. Source commits: 61dc9f73, 935
 
 Result: [v3d](v3d.md) item 5. The steps below stay for the 3D Bench `qpu row` line, which is not run yet.
 
-The QPU check is behind the config key `gpu3d_qpu` (default off). With the key off, nothing changes: no `qpu_init` call and no new work. The GPU test step is verified on the Pi (22 Oct); the 3D Bench line is not.
+The QPU check is behind the config key `gpu3d_qpu` (default off). With the key off, nothing changes: no `qpu_init` call and no new work. The QPU check was verified on the Pi on 22 Oct in the GPU test, which was removed on 24 Oct 2026; the 3D Bench line is not verified.
 
 1. Edit `bm/config.txt` on the SD card. Add the line `gpu3d_qpu=1`.
 2. Put the card in the Pi Zero W. Do not use a serial connection.
-3. Open Dev > GPU test (monitor key `g`). Read the new step `QPU programs (gpu3d_qpu=1)` after the speed steps.
+3. Open Dev > 3D Bench and run it. The log has one `QPU ...` line after the ramps. The saved report has one `qpu row (gpu3d_qpu=1)` line before the score.
    - `QPU PASS` = both programs gave the ARM result.
    - `QPU SKIP` = `qpu_init` failed, the probe turned the programs off, or a run timed out. The reason follows the line.
    - `QPU FAIL` = a QPU result differs from the ARM result. The line names the first word or pixel.
-4. Open Dev > 3D Bench and run it. The log has one `QPU ...` line after the ramps. The saved report has one `qpu row (gpu3d_qpu=1)` line before the score.
-5. Copy back: a photo of the GPU test lines (or the console text) and the new report in `bm/bench` (the console also sends it to the `reports` branch). The times are the numbers to read: ARM us and QPU us for 1024 particles and for 1024 pixels of fade.
+4. (The GPU test step of this list was removed on 24 Oct 2026.)
+5. Copy back: a photo of the QPU line (or the console text) and the new report in `bm/bench` (the console also sends it to the `reports` branch). The times are the numbers to read: ARM us and QPU us for 1024 particles and for 1024 pixels of fade.
 6. Play Yharnam (it lights by levels) with `gpu3d_qpu=1`. The darkness (`dark_end()`) now runs on the QPUs. Compare the look with `gpu3d_qpu=0`: it must be the same picture. Read the fps in the performance overlay (F11 or the dev kit) for both settings.
-7. Compare the speed with the ARM fade. Each `dark_end()` call on the QPUs cleans and invalidates the data cache twice and copies the picture (460 KB at 640x360). The ARM fade takes 16.55 ms (see above). The QPU path is useful only if its time per fade is lower. Read the ARM and QPU times from the GPU test line and from the fps overlay. If the QPU time is higher, set `gpu3d_qpu=0`.
+7. Compare the speed with the ARM fade. Each `dark_end()` call on the QPUs cleans and invalidates the data cache twice and copies the picture (460 KB at 640x360). The ARM fade takes 16.55 ms (see above). The QPU path is useful only if its time per fade is lower. Read the ARM and QPU times from the QPU row of the 3D Bench and from the fps overlay. If the QPU time is higher, set `gpu3d_qpu=0`.
 8. Read the end of the QPU line after the game. `fade: ARM (alignment)` = the console page or a fade table was not on a 64-byte line, so the ARM did the fade. `fade: ARM while a 3D job ran` = a 3D job was running for some calls (the ARM did them, the QPU path stays on). Note both.
 9. If the picture is wrong or the game stalls, note it and set `gpu3d_qpu=0`. After a failed QPU run the game goes on with the ARM fade by itself.
 10. Set `gpu3d_qpu=0` again (or delete the line) after the run.

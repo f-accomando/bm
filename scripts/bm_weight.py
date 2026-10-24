@@ -10,7 +10,7 @@ FILE is a .bm, .b16 or .bme (one container, docs/BM-FORMAT.md). The report has t
 1. Weight: bytes per section and per asset (models one by one), biggest first, with the total and the percent.
 2. Performance plan: data, not a measurement. The weight is combined with costs that the docs record from the
    benchmarks (SD speed, triangle limits per path). Every number says its source and "estimate". Hardware
-   numbers come from the benchmarks (3D Bench, Dev > GPU test, Stack bench, Video bench): the report prints
+   numbers come from the benchmarks (3D Bench): the report prints
    the command to run for the next measurement.
 3. Compat policy: for each kernel, show, grey or hide, from the editable table docs/spec/compat-policy.toml.
 
@@ -59,12 +59,9 @@ COSTS = {
 }
 
 BENCHMARKS = {
-    "models": ('3D Bench (Dev tab, or the monitor line): ./easy_install.sh line "gpu; b3d tests=herotris; send" '
+    "models": ('3D Bench (Dev tab, or the monitor line): ./easy_install.sh line "b3d tests=herotris; send" '
                "(docs/BENCH3D.md, herotris)"),
-    "stacks": "Stack bench (Dev tab, or the monitor line :stack): docs/progress/v3d.md",
-    "maps": 'Scenes: ./easy_install.sh line "gpu; b3d tests=map8,sprites,stack,fade,light; send" (docs/BENCH3D.md)',
-    "gpu": "Dev > GPU test (RGB30 variant probe: docs/progress/graphics-mali.md)",
-    "storage": "Video bench (Dev tab, or the monitor line :video): SD read and write speed of the card, docs/progress/video.md",
+    "maps": 'Scenes: ./easy_install.sh line "b3d tests=map8,sprites,stack,fade,light; send" (docs/BENCH3D.md)',
 }
 
 
@@ -272,12 +269,8 @@ def plan(info, w):
     nxt = []
     if "models" in cats:
         nxt.append(BENCHMARKS["models"])
-    if any(s["facts"].get("stacks") for s in w["sections"]):
-        nxt.append(BENCHMARKS["stacks"])
     if cats & {"sprites", "maps", "tiles"} and names & {"SHEET", "SHEET8", "MAP"}:
         nxt.append(BENCHMARKS["maps"])
-    nxt.append(BENCHMARKS["gpu"])
-    nxt.append(BENCHMARKS["storage"])
     known = {k: {"value": v[0], "source": v[1]} for k, v in COSTS.items()}
     return {"note": "estimates from the costs recorded in the docs; no live game data", "estimates": est,
             "flags": flags, "next_benchmarks": nxt, "known_costs": known}

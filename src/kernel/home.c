@@ -6,7 +6,6 @@
 #include "crumbs.h"
 #include "demo.h"
 #include "dmatest.h"
-#include "gputest.h"
 #include "input.h"
 #include "monitor.h"
 #include "pager.h"
@@ -19,8 +18,6 @@
 #include "version.h"
 #include "audio/audio.h"
 #include "bm/bm.h"
-#include "bm/roombench.h"
-#include "bm/vidbench.h"
 #include "bm/runtime.h"
 #include "bm/stress.h"
 #include "bt/bt.h"
@@ -126,35 +123,10 @@ static void t_dma(framebuffer_t *fb)
     dma_test(fb);
 }
 
-static void t_gpu(framebuffer_t *fb)
-{
-    heading("GPU test");
-    gpu_test(fb);
-}
-
 static void t_bench3d(framebuffer_t *fb)
 {
     heading("3D Bench: every 3D test with every driver");
     bm_bench3d(fb);
-}
-
-static void t_room(framebuffer_t *fb)
-{
-    heading("Texture Room: 3D benchmark");
-    bm_room_bench(fb);
-}
-
-static void t_video(framebuffer_t *fb)
-{
-    (void)fb;
-    heading("Video bench: SD write and read, JPEG decode");
-    bm_video_bench(0);
-}
-
-static void t_stack(framebuffer_t *fb)
-{
-    heading("Stack bench: sprite stacking");
-    bm_stack_bench(fb, 30);
 }
 
 /* the development assistant (M30) on its own: ask, see the code and the
@@ -178,13 +150,6 @@ void home_assistant(framebuffer_t *fb)
         return;
     }
     bm_play(fb, bm_assistant_cart, len, 24u * 3600u, &bs);
-}
-
-static void t_diag(framebuffer_t *fb)
-{
-    (void)fb;
-    heading("Boot diagnostics: benchmarks, the bm demo, Lua boot script");
-    diagnostics_run();
 }
 
 typedef struct {
@@ -214,13 +179,8 @@ static tool_t tools[] = {
     /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen */
     { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 }, "stress", 1 },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 }, "dma", 0 },
-    { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 }, "gpu", 1 },
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
       { 0 }, NULL, 1 },
-    { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 }, "room", 1 },
-    { "Video bench", "SD write and read speed, JPEG decode time", MENU_ICON_GAUGE, 0x3A7A9A, t_video, 1, { 0 }, "video", 0 },
-    { "Stack bench", "sprite stacking: us a frame and stacks a second", MENU_ICON_GAUGE, 0x6A3A9A, t_stack, 1, { 0 }, "stack", 1 },
-    { "Diagnostics", "boot sequence: CPU and render benchmarks, demo, self-tests", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 }, "diag", 0 },
 };
 
 #define NTOOLS ((int)(sizeof tools / sizeof tools[0]))

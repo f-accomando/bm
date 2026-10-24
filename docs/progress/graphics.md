@@ -68,8 +68,8 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 Bring-up, draw descriptors, shaders and the triangle probe: [graphics-mali](graphics-mali.md).
 
 ### Rendering tests (Settings > Screen)
-3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`), Diagnostics, stress test
-(`src/bm/stress.c`) and Texture Room (`roombench.c`) stop on Start+Select, Ctrl+Esc or PS
+3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`) and the stress test
+(`src/bm/stress.c`) stop on Start+Select, Ctrl+Esc or PS
 after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 `b3d_platform_t.stop`, `bm_stats_t.left`); a stopped test leaves no report
 (`reports_drop`). Tests: `make test-b3d` (`--stop`), QEMU `test_bench_stop`.
@@ -78,11 +78,11 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
 - Menu 1080p GPU drawing on the Pi Zero W: done with `menu_gpu=1` (24 Oct: 1920x1080 1:1 drawn by V3D, font 24x48, enlarge 0 us, tested and verified on Pi Zero W hardware).
-- Mali-G52 driver: [graphics-mali](graphics-mali.md) (the Dev > GPU test run with the variant probe, then the 3D Bench with `mali3d=1`: both on the device).
+- Mali-G52 driver: [graphics-mali](graphics-mali.md) (the variant probe has no entry point since the GPU test page was removed on 24 Oct 2026; then the 3D Bench with `mali3d=1` on the device).
 - Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). `stackv` (the same call with the slices one under the other; zone line `stackv name x y w h n`, bit 0 of byte 27 of the SPRITES zone) is done. The mesh conversion is a host tool: `tools/stack2mesh.py` (see [tools](tools.md)). The bm Pixel Stack page is done (see [tools](tools.md)). Not done: a button for the conversion in bm Pixel and bm Studio, the Pi speed.
 - 3D particles: `particles*` and `lib.particles3d` are done (ARM step and draw in `r3d_pfx_*`, no cost without a pool; host test `test_pfx`, `make test-gameapi`). Not measured on the Pi Zero W. Not done: the QPU step (the idea is dropped for now).
 - 2D benchmarks: `b3d tests=map8,sprites,stack,fade,light` ([BENCH3D](../BENCH3D.md), *The 2D scenes*). Compare with them before and after `map()` (PR 105), the `-O3` knob (`PI_O3_FILES`, when it lands) and the fade. Not run on the Pi yet.
-- QPU programs outside 3D: the driver, the queue, a particle step and the fade by levels are done on the emulator (`src/gpu/qpu.c`, [v3d](v3d.md) item 5). The QPU programs PASS on the Pi Zero W (Dev > GPU test with `gpu3d_qpu=1`, 22 Oct: 1024 particles ARM 158 us, QPU 47 us; 1024 fade pixels ARM 79 us, QPU 36 us). Only `dark_end()` calls them in the runtime (with `gpu3d_qpu=1`); its gain on a full-screen fade is not measured yet.
+- QPU programs outside 3D: the driver, the queue, a particle step and the fade by levels are done on the emulator (`src/gpu/qpu.c`, [v3d](v3d.md) item 5). The QPU programs PASS on the Pi Zero W (the GPU test, removed on 24 Oct 2026, with `gpu3d_qpu=1`, 22 Oct: 1024 particles ARM 158 us, QPU 47 us; 1024 fade pixels ARM 79 us, QPU 36 us). Only `dark_end()` calls them in the runtime (with `gpu3d_qpu=1`); its gain on a full-screen fade is not measured yet.
 - Hero stress cart (plaza, LOD, option toggles) and cel shader API: design in [hero-stress-cart-and-cel-shader](../design/hero-stress-cart-and-cel-shader.md) (five stages). Stages 1 (the cart), 2 (cel light and `dither3d` on the ARM raster, bm3D 7.4), 3 (cel in the V3D vertex programs) and 4 (outline by the inverted hull, flag 512; both bm3D 7.5) are done: [herocart](herocart.md). Stage 5 (RGB30 edition) is not started. Stages 3 and 4 are tested on the emulator only; the Pi numbers are open.
 - Hero benchmark ([BENCH3D](../BENCH3D.md), *herotris* and *The cel shader*): `b3d tests=herotris,cel` gives the hero triangles at 60 fps (ARM, GPU, GPU+VS, GPU+VS+Q2 with the frame-later model; the report says if the mesh path was ACCEPTED or fell back) and the ms of the lit hero against the cel hero (dither on and off). Built and tested on the host. Not run on the Pi yet. After the run, copy the report to `docs/bench/`.
 - Pi speed, two checks for the user (`g16_map_mask` tile path and the per-file -O3 knob). Both are built and tested on the host and in QEMU; neither is measured on the Pi. Steps:

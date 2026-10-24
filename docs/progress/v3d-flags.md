@@ -19,10 +19,10 @@ Rule: the Settings *Screen* page shows only choices a player can judge by sight:
 | `gpu3d_attr` | off | 3D Bench GPU+VS+A8; hidden | spheres +3.8%, herotris 0% (23 Oct) |
 | `gpu3d_tex16`, `gpu3d_etc1` | off | 3D Bench T16, ETC1; hidden | within 1-6% (21 Oct) |
 | `gpu3d_merge` | on | hidden | +24% for 100 small pieces, -26% for 10 big ones (23 Oct), threshold in `mg_flush` |
-| `gpu3d_qpu` | off | GPU test, 3D Bench row; hidden | QPU 47 us against ARM 158 us (particles), fade 9.3 against 20.4 ms |
+| `gpu3d_qpu` | off | 3D Bench row; hidden | QPU 47 us against ARM 158 us (particles), fade 9.3 against 20.4 ms |
 | `r3d_impostor` | off | hidden | 8 px no effect; 16, 32 not measured |
 | `r3d_fast` | off | Settings row (both kernels) | not measured |
 
-- The 3D Bench profiles and Dev > GPU test set the flags themselves and print them (options line): unchanged.
+- The 3D Bench profiles set the flags themselves and print them (options line): unchanged.
 - Games choose AA, vertex shader, queue, later and impostors with `gpu3d(on, aa, vs, queue, impostor, later)`, lights with `light3d`, `lamp3d` and the `draw3d` flags, and cel and outline with `cel3d` and flags 256 and 512 (`docs/api/light3d.md`). No new API was needed.
 - SYS-9b (not built): a menu of graphics choices in each game and an optional benchmark at the start of a game that picks the values. Do not build an auto tuner before SYS-9b is planned.

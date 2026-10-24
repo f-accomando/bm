@@ -49,7 +49,7 @@ class Exclusion(unittest.TestCase):
             self.assertTrue(pe.excluded(p), p)
 
     def test_kept_paths(self):
-        for p in ('src/kernel/main.c', 'carts/texroom/cover.png', 'carts/editor/icon.png',
+        for p in ('src/kernel/main.c', 'carts/editor/icon.png',
                   'carts/write/main.lua', 'manuals/pdf/api-3d.en.pdf', 'tools/bmplay/bmplay.c',
                   'Makefile', 'docs/API.md', 'keys/market.pem'):
             self.assertFalse(pe.excluded(p), p)

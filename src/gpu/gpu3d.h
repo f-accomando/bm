@@ -98,7 +98,7 @@ void gpu3d_set_msaa(int on);
 int gpu3d_msaa(void);
 int gpu3d_msaa_on(void);            /* asked for and possible (on any page) */
 
-/* The GPU test: textures in T-format where the probe learned it (1), or in
+/* Textures in T-format where the probe learned it (1), or in
  * rows (0); the textures made so far are made again. gpu3d_tiles(): the
  * probe learned T-format. */
 void gpu3d_tiled_textures(int on);
@@ -165,7 +165,7 @@ int gpu3d_vshader_on(void);
 
 /* What the start-up probes of the optional things saw (the vertex
  * shader's, the clipping's, the queue's, zclear() in a job), "" when all
- * went as expected; the GPU test puts it in its report. */
+ * went as expected; the 3D Bench puts it in its report. */
 const char *gpu3d_probe_log(void);
 
 /* bm3d 4.8: 2D over the 3D in the same job, drawn by the GPU pixel for pixel as

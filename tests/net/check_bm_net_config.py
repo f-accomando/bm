@@ -264,14 +264,14 @@ def main():
     check(rc == 2 and "kernel too old" in out, "--shot on a kernel without T/G: too old")
 
     # --line: a monitor line from the menu, the output until it is done
-    menu = NetConsole("the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, or a line for it: :gpu; b3d; send)")
+    menu = NetConsole("the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, or a line for it: :render; b3d; send)")
     t0 = time.time()
-    rc, out = run(menu, job=("-P", str(menu.port), "--line", "gpu; b3d; send"))
-    check(rc == 0 and menu.keys == b":gpu; b3d; send\r", "--line sends ':' + the line + Enter")
-    check("[gpu] done" in out and "[send] done" in out and "the line is done" in out, "  its output shown")
+    rc, out = run(menu, job=("-P", str(menu.port), "--line", "render; b3d; send"))
+    check(rc == 0 and menu.keys == b":render; b3d; send\r", "--line sends ':' + the line + Enter")
+    check("[render] done" in out and "[send] done" in out and "the line is done" in out, "  its output shown")
     check(time.time() - t0 < 3, "  the login ends at the line saying what takes the keys (no 5 s wait)")
     app = NetConsole("the application (Ctrl-\\ back to the menu)")
-    rc, out = run(app, job=("-P", str(app.port), "--line", "gpu"))
+    rc, out = run(app, job=("-P", str(app.port), "--line", "render"))
     check(rc == 2 and "back to the menu first" in out and app.keys == b"", "--line in a game: nothing sent")
     # a kernel whose answer is lost (the RGB30 dropped its WiFi after a long
     # SD write): what the console runs afterwards says whether it went
@@ -359,18 +359,18 @@ def main():
         check("***" in logged and "=3" not in logged and "=it" not in logged, "bridge: the log line of a config holds *** and not the value")
 
         # line: only the monitor commands of the list, ';' between them, b3d with tests=/profiles= (R-NET6)
-        for req, want in (("gpu", "gpu"), ("err", "err"), ("crc", "crc"),
-                          ("render; room; log; reboot", "render; room; log; reboot"),
-                          ("gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send", "gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send"),
-                          ("  gpu ;b3d   tests=quad_flat  profiles=FS2 ;  send ", "gpu; b3d tests=quad_flat profiles=FS2; send")):
+        for req, want in (("render", "render"), ("err", "err"), ("crc", "crc"),
+                          ("render; log; reboot", "render; log; reboot"),
+                          ("render; b3d tests=match,quad_tex profiles=GPU,FS2; send", "render; b3d tests=match,quad_tex profiles=GPU,FS2; send"),
+                          ("  render ;b3d   tests=quad_flat  profiles=FS2 ;  send ", "render; b3d tests=quad_flat profiles=FS2; send")):
             pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
             check(seen[-1][-2:] == ["--line", want], f"bridge: line {req!r} -> {want!r}")
         out = pi_bridge.run("1.2.3.4", "s3cret", "line set wifi_psk=x")
         check(out.startswith("refused: line:") and "'set' is not allowed" in out, "bridge: line set wifi_psk=x refused, says why")
         n0 = len(seen)
-        for req in ("save", "play pong", "gpu; set wifi_psk=x", "gpu; save", "err; play pong", "GPU", "Gpu",
-                    "gpu\tb3d", "gpu\rsave", "gpu\x1b", "err²", "gpu;;err", "gpu; ", "err now", "b3d tests=a-b", "b3d verbose=1",
-                    "b3d tests=", "x" * 200, "; gpu", "gpu x", "gpu,err", "", "gpu;", "b3d tests=a.b", "b3d foo=1"):
+        for req in ("save", "play pong", "render; set wifi_psk=x", "render; save", "err; play pong", "RENDER", "Render",
+                    "render\tb3d", "render\rsave", "render\x1b", "err²", "render;;err", "render; ", "err now", "b3d tests=a-b", "b3d verbose=1",
+                    "b3d tests=", "x" * 200, "; render", "render x", "render,err", "", "render;", "b3d tests=a.b", "b3d foo=1"):
             out = pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
             check(out.startswith("refused: line:"), f"bridge: line {req[:30]!r} refused")
         check(len(seen) == n0, "bridge: the refused lines started nothing")

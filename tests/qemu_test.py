@@ -38,7 +38,6 @@ import mksd  # noqa: E402
 QEMU = os.environ.get("QEMU", "qemu-system-arm")
 REF_DIR = os.path.join(HERE, "ref")
 PROMPT = b"type 'h' for help"
-BM_DEMO = b"native demo cart"
 MENU = b"cartridge menu"
 
 
@@ -73,7 +72,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_code_modules": 45, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_rle": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_code_modules": 45, "test_update": 22, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_rle": 60, "test_video_rec_drops": 40, "test_bench_stop": 35, 
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_sd_games_bm": 15, "test_editor_mouse": 40,
 }
 
@@ -138,16 +137,6 @@ class Qemu:
         out = self.expect(MENU, timeout=30)
         self.send("q")
         out += self.expect(PROMPT, timeout=10)
-        out += self.expect("> ")
-        return out
-
-    def diagnostics(self, skip_demo=True):
-        """Monitor 'B': the old boot sequence (benchmarks, demos, boot.lua)."""
-        self.send("b")             # lower or upper case
-        out = self.expect(BM_DEMO, timeout=20)
-        if skip_demo:
-            self.send("q")
-        out += self.expect("Lua memory:", timeout=40)
         out += self.expect("> ")
         return out
 
@@ -288,22 +277,16 @@ def test_boot_banner(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         out = q.boot()
-        out += q.diagnostics()
         board = b"board a21041" if KERNEL7 else b"board 920092"   # raspi2b: a Pi 2 B
-        for s in (b"bm\x1b[0m kernel", board, b"screen 640x360",
+        for s in (b"bm\x1b[0m kernel", board,
                   b"double buffer on", b"sd: no card", b"usb: nothing attached"):
             assert s in out, f"missing {s!r} in boot log"
         hz = int(re.search(rb"measured (\d+) Hz", out).group(1))
         assert 900 <= hz <= 1100, f"timer IRQ rate {hz} Hz"  # QEMU host jitter
         plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
-        for s in ("MMU+caches on", "console 80x21", "benchmark (us)",
-                  "libc selftest: ok", "printf 3.142, sqrt(2) 1.414213562",
-                  "IRQ on: timer 1000 Hz", "vsync probe"):
+        for s in ("MMU+caches on", "IRQ on: timer 1000 Hz"):
             assert s in plain, f"missing {s!r} in boot log"
         text = "\n".join(screen_text(q.screendump()))
-        for s in ("Lua 5.4 on bm", "2^10=1024.0 7//2=3 sqrt(2)=1.414214 THE QUICK BROWN FOX co:1,4,9",
-                  "pcall caught: boot.lua:", "Lua bench: fib(25)=75025", "Lua memory:"):
-            assert s in text, f"missing {s!r} on screen:\n{text}"
         assert all(len(l) < 80 for l in text.splitlines()), "boot output wraps:\n" + text
         q.send("i")
         out = q.expect("uptime")
@@ -354,23 +337,6 @@ def test_console_ansi_and_status(b, opts):
         assert not any("back to the monitor" in l for l in text), "console did not scroll"
         assert text[0].startswith(" bm "), "status bar scrolled away"
         assert any("unknown command (0x78)" in l for l in text)
-    finally:
-        q.close()
-
-
-def test_fiber_measure(b, opts):
-    """Multitasking stage 1 (measurement): a job that spins 8 ms without a yield logs
-    "did not yield", and the job report prints the stack high-water mark (fiber.c)."""
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        out = q.diagnostics()
-        plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
-        m = re.search(r"fiber: selftest did not yield: (\d+)\.\d ms past its slice", plain)
-        assert m and int(m.group(1)) >= 5, f"no 'did not yield' line:\n{plain[-1500:]}"
-        m = re.search(r"fiber selftest: ok: selftest \d+ ms \(\+\d+\.\d, stk (\d+)\.(\d)/8K\)", plain)
-        assert m, f"no ok line with the stack mark:\n{plain[-1500:]}"
-        assert 2.0 <= int(m.group(1)) + int(m.group(2)) / 10 < 4.0, m.group(0)
     finally:
         q.close()
 
@@ -585,7 +551,6 @@ def test_lua_out_of_memory(b, opts):
         q.close()
 
 
-BM_COLOURS = [(248, 0, 0), (0, 252, 0), (0, 0, 248), (248, 252, 248)]
 
 
 def bar_icons(img):
@@ -742,30 +707,6 @@ def wait_menu(q, timeout=15.0):
                 f.write("\n".join(text))
             raise AssertionError("the menu is not drawn after %.0f s:\n%s" % (timeout, "\n".join(text)))
         time.sleep(0.2)
-
-
-def test_bm_boot_demo(b, opts):
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("B")
-        q.expect(BM_DEMO, timeout=25)
-        out = q.expect("bm bench (", timeout=20)
-        time.sleep(3.0)
-        img, text = settled_screen(q, lambda i, t: t[0].startswith("bm native") and "sprites" in t[-1])
-        assert img[:2] == (640, 360), img[:2]
-        assert text[0].startswith("bm native .bm") and "fps" in text[0], text[0]
-        assert "sprites" in text[-1] and "attract" in text[-1], text[-1]
-        got = [pixel(img, 640 - 80 + i * 20 + 8, 8) for i in range(4)]
-        assert got == BM_COLOURS, f"RGB565 colour check {got}"
-        out = q.expect("Lua memory:", timeout=30).decode(errors="replace")
-        m = re.search(r'bm: "bm native demo" (\d+) frames, ([\d.]+) fps', out)
-        assert m and 850 <= int(m[1]) <= 920 and 55 <= float(m[2]) <= 62, out
-        assert re.search(r"update\+draw avg [\d.]+ ms", out), out
-        q.expect("> ")
-        assert q.screendump()[:2] == (640, 360)
-    finally:
-        q.close()
 
 
 def test_bm_keys(b, opts):
@@ -1557,7 +1498,7 @@ def test_make_image(b, opts):
         screen = "\n".join(rows)
         for title in want:
             assert title in seen, screen
-        for title in ("bm native demo", "bm stress test", "Texture Room"):   # not games: in the kernel
+        for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
             assert title not in screen and title not in seen, screen
         q.send("q")
         q.expect(PROMPT)
@@ -7314,74 +7255,6 @@ def test_audio(b, opts):
         q.close()
 
 
-def test_room_bench(b, opts):
-    """M33: the Texture Room benchmark (monitor R, Dev tab): the room at
-    320x180 and then at 640x360 (the HUD on screen at both sizes), crates
-    doubled until under 30 fps, a line per step and the summary; QEMU has
-    no V3D, so only the ARM's cases and a line saying why."""
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("R")
-        q.expect("Texture Room: crates doubled", timeout=10)
-        seen = set()
-        t0 = time.time()
-        while len(seen) < 2 and time.time() - t0 < 120:
-            w, h, px = q.screendump()
-            hud = sum(all(abs(px[(y * w + x) * 3 + i] - (255, 224, 96)[i]) < 30 for i in range(3))
-                      for y in range(0, 16, 2) for x in range(0, w, 2))
-            if hud and (w, h) in ((320, 180), (640, 360)):
-                seen.add((w, h))
-            time.sleep(0.3)
-        assert seen == {(320, 180), (640, 360)}, seen
-        out = q.expect("Texture Room benchmark done", timeout=300).decode(errors="replace")
-        plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
-        for case in ("ARM 320x180", "ARM 640x360"):
-            m = re.search(re.escape(case) + r"\s+(\d+)\s+(\d+)\s+[\d.]+ ms\s+[\d.]+ fps", plain)
-            assert m and int(m[1]) >= 8 and int(m[2]) > 100, f"{case}:\n{plain}"
-        assert "GPU: none (no V3D answers" in plain, plain
-        assert re.search(r"ARM 320x180\s+(<8|\d+ \(\d+\))\s+(<8|\d+ \(\d+\))", plain), plain
-        assert "GPU 320x180" not in plain and "error" not in plain, plain
-        q.expect("> ", timeout=10)
-    finally:
-        q.close()
-
-
-def test_video_bench(b, opts):
-    """The Video bench (monitor line word `video`, Dev tab Video bench): the
-    SD write and read figures and the JPEG decode times print, the files
-    it writes are gone and it runs to the end without an error."""
-    tmp = tempfile.mkdtemp(prefix="bm-vid-")
-    try:
-        img = os.path.join(tmp, "sd.img")
-        cfg = os.path.join(tmp, "config.txt")
-        with open(cfg, "w") as f:
-            f.write("layout=us\nwifi_boot=0\n")
-        mksd.build(img, [(cfg, "bm/config.txt")])
-        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
-        try:
-            q.expect(MENU, timeout=30)
-            time.sleep(0.5)
-            q.send(":video quick\r")
-            out = q.expect("Video bench done", timeout=300).decode(errors="replace")
-            plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
-            assert re.search(r"8 writes, \d+\.\d\d MB/s mean", plain), plain
-            assert re.search(r"SD read: 2 files, \d+\.\d\d MB/s", plain), plain
-            assert re.search(r"320x180 \(\d+ bytes\): +mean \d+\.\d\d ms", plain), plain
-            assert re.search(r"480x270 \(\d+ bytes\): +mean \d+\.\d\d ms", plain), plain
-            assert "failed" not in plain and "stopped" not in plain, plain
-            q.expect("the line is done", timeout=10)
-            time.sleep(1)
-        finally:
-            q.close()
-        part = _sd_files(img)
-        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        left = subprocess.run(["mdir", "-i", part, "::/BM/VIDBENCH"], capture_output=True, text=True, env=env).stdout
-        assert "VB" not in left, left
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
 VIDEO_CART = r"""
 local c, n
 function _init()
@@ -7412,14 +7285,14 @@ function _draw()
 end
 """
 
-# the bench frame (a 320x180 baseline JPEG) from vidbench_data.c, and its colours at five points (ffmpeg's decode)
+# the test frame (a 320x180 baseline JPEG) from tests/video/vidframes.c, and its colours at five points (ffmpeg's decode)
 VIDEO_PIXELS = {(20, 20): (40, 32, 15), (160, 90): (87, 79, 104), (300, 40): (86, 91, 106),
                 (100, 150): (97, 98, 128), (250, 160): (18, 12, 8)}
 
 
 def _bench_jpeg():
-    src = open(os.path.join(HERE, "..", "src", "bm", "vidbench_data.c")).read()
-    body = src.split("vidbench_jpg320[] = {")[1].split("};")[0]
+    src = open(os.path.join(HERE, "video", "vidframes.c")).read()
+    body = src.split("vidframe_jpg320[] = {")[1].split("};")[0]
     return bytes(int(x) for x in re.findall(r"\d+", body))
 
 
@@ -7660,26 +7533,6 @@ def test_video_rec_drops(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_stack_bench(b, opts):
-    """The sprite stacking benchmark (monitor line word `stack`, Dev tab
-    Stack bench): 16, 64 and 128 stacks of 8 and 16 slices, a row each with
-    us a frame and the rates; it runs to the end without an error."""
-    q = Qemu(b("kernel.img"))
-    try:
-        q.expect(MENU, timeout=30)
-        time.sleep(0.5)
-        q.send(":stack\r")
-        out = q.expect("Stack bench done", timeout=120).decode(errors="replace")
-        plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
-        rows = re.findall(r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$", plain, re.M)
-        assert [(int(r[0]), int(r[1])) for r in rows] == [(16, 8), (16, 16), (64, 8), (64, 16), (128, 8), (128, 16)], plain
-        assert all(int(r[2]) > 0 and int(r[3]) > 0 and int(r[4]) > 0 for r in rows), plain
-        assert "error" not in plain and "stopped" not in plain, plain
-        q.expect("the line is done", timeout=10)
-    finally:
-        q.close()
-
-
 def test_bench_stop(b, opts):
     """2026-10-10: the rendering tests stop on the keys that leave a game
     (src/kernel/syskeys.h: Start+Select, Ctrl+Esc, PS), here Ctrl+Esc on
@@ -7715,21 +7568,22 @@ def test_bench_stop(b, opts):
         q.close()
 
 
-def test_gpu_absent(b, opts):
-    """M33: QEMU has no V3D: the GPU test stops at its first step and says
-    why, and the monitor goes on."""
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("g")
-        out = q.expect("GPU test \x1b[91mfailed", timeout=20).decode(errors="replace")
-        assert "1 power on the 3D unit" in out, out
-        assert "no V3D answers" in out, out
-        q.expect("> ", timeout=10)
-        q.send("i")
-        q.expect("> ", timeout=10)
-    finally:
-        q.close()
+# a textured quad that keeps drawing (a sheet of 256 colours); the fallback test stops it with q
+FALLBACK_CART = r"""
+local m
+function _init()
+  for y = 0, 15 do for x = 0, 15 do sset(x, y, (x * 16) * 65536 + (y * 16) * 256 + 128) end end
+  m = mesh({ -1,-1,0, 1,-1,0, 1,1,0, -1,1,0 }, { 1,3,2,-1, 1,4,3,-1 },
+           { 0,16, 16,0, 16,16,   0,16, 0,0, 16,0 })
+end
+function _draw()
+  cls(0)
+  zclear()
+  camera3d(0, 0, -2)
+  light3d(0, 0, -1, 1)
+  draw3d(m, 0, 0, 0)
+end
+"""
 
 
 def test_gpu3d_fallback(b, opts):
@@ -7745,11 +7599,10 @@ def test_gpu3d_fallback(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("texroom.bm"), "rb") as f:
-            assert _upload(q, f.read())
+        assert _upload(q, mkbm.pack(FALLBACK_CART.encode(), title="fallback test"))
         out = q.expect("bm: the 3D is drawn by the ARM as bm3d 0.2: ", timeout=20).decode(errors="replace")
         q.expect("no V3D answers", timeout=5)
-        for _ in range(20):                     # the room, with its textures (after _init)
+        for _ in range(20):                     # the quad, with its texture (after _init)
             time.sleep(0.5)
             w, h, px = q.screendump()
             cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 4) for x in range(0, w, 4)]

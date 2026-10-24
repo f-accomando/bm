@@ -2595,7 +2595,7 @@ static void page_info(const char *saved)
     y += LH;
     text(0, y, C_DIM, "on the Pi with the drivers before; red line: the hardware's limit (Raspberry Pi: 1 Gpixel/s,");
     y += LH;
-    text(0, y, C_DIM, "1.5 Gtexel/s; the V3D's 3.0 Mtriangles/s measured by the GPU test). Every test goes far beyond");
+    text(0, y, C_DIM, "1.5 Gtexel/s; the V3D's 3.0 Mtriangles/s measured on the Pi). Every test goes far beyond");
     y += LH;
     text(0, y, C_DIM, "today's drivers (up to a frame of 40 ms), so the next ones have room to show.");
 }

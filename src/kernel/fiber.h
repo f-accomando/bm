@@ -85,9 +85,6 @@ void fiber_job_stop(fiber_job_t *j);
 #define FIBER_STALL_US 5000
 extern volatile uint8_t fiber_over;
 void fiber_tick(void);
-/* Boot diagnostics: a job that runs 8 ms with no yield and a 2 KB stack use; prints the
- * "did not yield" line and "fiber selftest: ok" (0), or FAILED (1). */
-int  fiber_selftest(void);
 
 /* What the jobs took since the last call, for the menu's log line: "covers
  * 31 ms (+2.0, stk 3.4/16K), market 4 ms (+0.3, stk 9.0/128K, stop 120.5)": the time each ran in its

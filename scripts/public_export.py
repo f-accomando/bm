@@ -33,7 +33,7 @@ EXCLUDE = [
     'tools/bmplay/video.sh', 'tools/bmplay/yharnam_bot.lua', 'tools/showreel', 'tools/mappvs.c', 'tools/sync_*',
     '*.mp4', '*.gif',
 ]
-KEEP = ['carts/texroom/cover.png']   # exceptions to EXCLUDE
+KEEP = []   # exceptions to EXCLUDE
 GAMES = 'astrowing kitchen nano8 overbit pong shooter snake titan yharnam typing'.split()
 GONE_FILES = ['agent_audit.py', 'cindex.py', 'consistency.py', 'ctx_guard.py', 'docs_audit.py',
               'mkcovers.py', 'render_game_shots.py', 'market.sh', 'market-key.sh', 'wsl-run.ps1',

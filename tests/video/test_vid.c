@@ -1,6 +1,6 @@
 /*
  * Host test of the .bmv reader (src/bm/vid.c) and of jpeg_decode565.
- *   test_vid dump DIR     writes DIR/f0..f2.jpg (the Video bench's 320x180 frame) and DIR/a.raw
+ *   test_vid dump DIR     writes DIR/f0..f2.jpg (the 320x180 test frame) and DIR/a.raw
  *   test_vid rle          the RLE565 codec of the recorder: round trips, hostile streams
  *   test_vid raw          the raw codecs of the recorder, built in memory
  *   test_vid check FILE CHANNELS BITS   reads a clip made by scripts/mkvid.py from those files
@@ -8,7 +8,7 @@
  */
 #include "bm/vid.h"
 #include "bm/jpeg.h"
-#include "bm/vidbench.h"
+#include "vidframes.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,20 +26,20 @@ static int fails;
 
 #define AUDIO_FRAMES 11025                  /* 0.5 s of 22050 Hz mono, 16-bit */
 
-/* frame i: the bench frame with a comment segment "Fi" after the SOI, so that every frame has its own bytes
- * (the decoder skips comments); returns the length, out has room for the bench frame + 6 */
+/* frame i: the test frame with a comment segment "Fi" after the SOI, so that every frame has its own bytes
+ * (the decoder skips comments); returns the length, out has room for the test frame + 6 */
 static size_t make_frame(int i, uint8_t *out)
 {
-    out[0] = vidbench_jpg320[0];
-    out[1] = vidbench_jpg320[1];
+    out[0] = vidframe_jpg320[0];
+    out[1] = vidframe_jpg320[1];
     out[2] = 0xFF;
     out[3] = 0xFE;
     out[4] = 0;
     out[5] = 4;
     out[6] = 'F';
     out[7] = (uint8_t)('0' + i);
-    memcpy(out + 8, vidbench_jpg320 + 2, vidbench_jpg320_len - 2);
-    return vidbench_jpg320_len + 6;
+    memcpy(out + 8, vidframe_jpg320 + 2, vidframe_jpg320_len - 2);
+    return vidframe_jpg320_len + 6;
 }
 
 static int dump(const char *dir)
@@ -50,7 +50,7 @@ static int dump(const char *dir)
         FILE *f = fopen(path, "wb");
         if (!f)
             return 1;
-        uint8_t *fr = malloc(vidbench_jpg320_len + 6);
+        uint8_t *fr = malloc(vidframe_jpg320_len + 6);
         fwrite(fr, 1, make_frame(i, fr), f);
         free(fr);
         fclose(f);
@@ -103,11 +103,11 @@ static int check(const char *file, int channels, int bits)
     uint16_t *px = malloc(320 * 180 * 2);
     uint8_t *rgb;
     int w, h;
-    CHECK(jpeg_decode(vidbench_jpg320, vidbench_jpg320_len, &rgb, &w, &h, err, sizeof err) == 0);
+    CHECK(jpeg_decode(vidframe_jpg320, vidframe_jpg320_len, &rgb, &w, &h, err, sizeof err) == 0);
     for (uint32_t i = 0; i < 3; i++) {
         const uint8_t *p;
         size_t n;
-        uint8_t *want = malloc(vidbench_jpg320_len + 6);
+        uint8_t *want = malloc(vidframe_jpg320_len + 6);
         const size_t wn = make_frame((int)i, want);
         CHECK(bmv_frame(&v, i, &p, &n) == 0 && n == wn && !memcmp(p, want, n));
         free(want);
@@ -132,7 +132,7 @@ static int check(const char *file, int channels, int bits)
     CHECK(bmv_audio_span(&v, 200, 100, &a) == 0 && bmv_audio_span(&v, 5000, 6000, &a) == 0);
 
     /* a smaller buffer refuses the picture */
-    CHECK(jpeg_decode565(vidbench_jpg320, vidbench_jpg320_len, px, 319, 180, &w, &h, err, sizeof err) != 0);
+    CHECK(jpeg_decode565(vidframe_jpg320, vidframe_jpg320_len, px, 319, 180, &w, &h, err, sizeof err) != 0);
 
     /* every cut of the file, and a flipped byte in every field of the header and the first index entry,
      * ends in a clean refusal or a clean open, never a crash */
@@ -297,7 +297,7 @@ static int rle(void)
             px[i] = rnd() % 5 ? px[i - (cnt > (size_t)w ? (size_t)w : 0)] : (uint16_t)rnd();
         round_trip("rows like the row above", px, w, h);
         if (w >= 4 && h >= 2) {
-            vidbench_synth_frame(px, w, h);
+            vidframe_synth_frame(px, w, h);
             round_trip("test frame", px, w, h);
         }
         free(px);
@@ -312,7 +312,7 @@ static int rle(void)
         memset(px, 0, 320 * 180 * 2);
         const size_t flat = bmv_rle565_encode(enc, px, 320, 180);
         CHECK(flat == 3 * 5 + 179 * 5);     /* row 0: five repeats of 64 pixels; the others: five copies */
-        vidbench_synth_frame(px, 320, 180);
+        vidframe_synth_frame(px, 320, 180);
         const size_t art = bmv_rle565_encode(enc, px, 320, 180);
         printf("test frame 320x180: %zu of 115200 bytes\n", art);
         CHECK(art < 115200 / 2);

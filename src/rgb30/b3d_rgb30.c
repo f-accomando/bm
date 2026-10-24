@@ -9,7 +9,7 @@
  * effects to the ARM, and then that GPU row is dropped).
  */
 #include "b3d_rgb30.h"
-#include "gputest_rgb30.h"
+#include "mali_hw.h"
 #include "pad.h"
 #include "bm/b3d.h"
 #include "bm/runtime.h"
@@ -152,11 +152,11 @@ void rgb30_bench3d(framebuffer_t *fb)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     static char machine[128];
-    /* M41: the Mali probed now (where there is one), else what Dev > GPU test found */
+    /* M41: the Mali probed now (where there is one), else the result of the last probe */
     const int mali = rgb30_mali_hw() ? rgb30_mali_probe() : rgb30_gpu_result(NULL);
     char ms[56];
     if (mali == 1)
-        ksnprintf(ms, sizeof ms, "not tested (Dev > GPU test)");
+        ksnprintf(ms, sizeof ms, "not tested");
     else if (mali == MALI_OK)
         ksnprintf(ms, sizeof ms, "flat colours on the GPU, textures on the ARM");
     else

@@ -283,7 +283,7 @@ The GPU draws the shadows (`draw3d` with flag 8), the effects, the screen-door f
 
 Anti-aliasing (`gpu3d_aa=1` in `bm/config.txt`, a hidden key with no Settings row; a game uses the second value of `gpu3d`) makes the GPU draw the 3D with 4x MSAA: four samples per pixel, the average at the end of the tile, triangles' edges without steps. Nothing changes in the cartridges.
 
-- It holds only where the GPU bears it (Dev > GPU test shows if the GPU has MSAA).
+- It holds only where the GPU bears it (the 3D Bench skips the MSAA profiles where the GPU has none).
 - It holds only in the jobs without a kept z-buffer: cartridges that draw 3D, then 2D, then more 3D in the same frame stay without anti-aliasing (the 4-sample z-buffer cannot be saved).
 - If the test finds the GPU cannot load the page again into the 4 samples, MSAA is used only in the frames that start with `cls()`.
 - On the ARM there is no anti-aliasing.
@@ -327,7 +327,7 @@ The table gives, for each key, what it does, what it costs, the default, and the
 | `gpu3d_tex16` | 16-bit opaque textures. | A step of RGB565 in the colours. | off | Within 1 to 6% of 32 bit (`quad_tex` 2.20 and 2.35 ns a pixel). |
 | `gpu3d_etc1` | Opaque sheets as ETC1. Set `gpu3d_tex16` too (the old Settings row did). | Block compression: 37 dB PSNR against RGB565. | off | Within 1 to 6% (`quad_tex` 2.19 ns a pixel). |
 | `gpu3d_merge` | Many small static pieces with baked light and one sheet become one draw. | A run of at least 32 pieces with 150 faces or fewer on average. | on (`0` turns it off) | 100 pieces of 50 faces +24%. 10 pieces of 500 faces -26%, so a smaller run is not merged. |
-| `gpu3d_qpu` | A check: the QPU programs run against the ARM versions. | A longer GPU test and 3D Bench. | off | Particles: QPU 47 us, ARM 158 us. Fade: QPU 9.3 ms, ARM 20.4 ms. |
+| `gpu3d_qpu` | A check: the QPU programs run against the ARM versions. | A longer 3D Bench. | off | Particles: QPU 47 us, ARM 158 us. Fade: QPU 9.3 ms, ARM 20.4 ms. |
 | `r3d_impostor` | A far small model is one quad. A number of pixels (2 to 64) of a 1080-line screen. | The model loses its detail. | off | 8 pixels: no effect (57.7 fps, 8588 triangles). 16 and 32: not measured. |
 | `r3d_fast` | The ARM 3D uses one matrix for a model and the light in model space. | The pixels are no longer bit-identical. | off | Not measured. |
 

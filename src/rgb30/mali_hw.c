@@ -1,19 +1,14 @@
 /*
- * Dev > GPU test on the RGB30: the Mali-G52 probed step by step
- * (mali.c), a line on the screen for each step, a report ("gpu") to send.
+ * The Mali-G52 of the RGB30 for r3d (mali3d=1): the hw of the RK3566 and the probe (mali.c).
  * Only when asked: the boot never touches the GPU.
  */
-#include "gputest_rgb30.h"
+#include "mali_hw.h"
 
 #include "mali.h"
 #include "plat.h"
 #include "rk_pmic.h"
 #include "drivers/timer.h"
-#include "gfx/console.h"
-#include "kernel/reports.h"
-#include "kernel/version.h"
 #include "lib/printf.h"
-#include "gpu/version3d.h"
 
 #ifdef PLAT_RK3566
 /* device writes after the job memory's (normal, uncached) writes; reads
@@ -97,38 +92,4 @@ int rgb30_gpu_result(const mali_info_t **in)
     if (in)
         *in = probed ? &info : NULL;
     return probed ? result : 1;
-}
-
-void rgb30_gpu_test(framebuffer_t *fb, const char *back)
-{
-    reports_begin("gpu");
-    kprintf("\n\x1b[1mGPU test\x1b[0m: the Mali-G52, step by step (bm3d " BM3D_VERSION ")\n");
-#ifdef PLAT_RK3566
-    /* the page shown, for the square the GPU clears (XRGB8888 only) */
-    const uint32_t page = fb->buffers ? fb->size / fb->buffers : 0, off = fb->shown * page;
-    hw_fixed();
-    hw.screen = fb->depth == 32 ? fb->mem + off : NULL;
-    hw.screen_pa = fb->depth == 32 ? fb->bus + off : 0;
-    hw.screen_w = fb->width;
-    hw.screen_h = fb->height;
-    hw.screen_pitch = fb->pitch;
-    hw.triangle = 1;
-    result = mali_probe(&hw, &info);
-    probed = 1;
-    if (result == MALI_OK)
-        kprintf("\x1b[92mmali: every step done\x1b[0m: the GPU runs jobs, clears tiles and draws a triangle\n");
-    else
-        kprintf("\x1b[91mmali: stopped at step %d\x1b[0m (the lines above say why)\n", -result);
-    reports_end();
-    if (back)
-        kprintf("\n\x1b[96m%s\x1b[0m back\n", back);
-    if (result == MALI_OK || result == MALI_E_TRIANGLE)
-        mali_square(&hw, 0x40d060);     /* drawn again over the text: the last thing on the screen */
-#else
-    (void)fb;
-    kprintf("mali: no Mali on " PLAT_NAME ": nothing to test\n");
-    reports_end();
-    if (back)
-        kprintf("\n\x1b[96m%s\x1b[0m back\n", back);
-#endif
 }

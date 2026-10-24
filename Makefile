@@ -114,7 +114,7 @@ EMBED_TOOLS := $(if $(filter 1,$(CLEAN_KERNEL)),,$(BUILD)/editor.bm $(BUILD)/sou
 $(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem keys/market-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(EMBED_TOOLS) \
                                  $(BUILD)/assist.bin src/ai/assist.lua \
-                                 $(BUILD)/texroom.bm src/ai/predict.lua $(BUILD)/words.lua \
+                                 src/ai/predict.lua $(BUILD)/words.lua \
                                  src/ai/padtype.lua
 
 # The development assistant (M30): knowledge base + trained network, built
@@ -185,13 +185,6 @@ $(BUILD)/pixel.bm: carts/pixel/bm.info carts/pixel/main.lua carts/pixel/icon.png
 $(BUILD)/stress.bm: carts/stress/main.lua carts/stress/bm.info carts/stress/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stress/bm.info --cover carts/stress/cover.png
-
-# Texture Room (M14, M33): the 3D benchmark of the Dev tab, built into the
-# kernel; the benchmark runs it at 320x180 and 640x360 (bm_next_run)
-$(BUILD)/texroom.bm: carts/texroom/main.lua carts/texroom/assets/sheet.png carts/texroom/cover.png carts/texroom/bm.info scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/texroom/bm.info \
-	    --cover carts/texroom/cover.png --sheet carts/texroom/assets/sheet.png
 
 # Native demo cartridge (.bm): Lua + sprite sheet + map
 DEMO_BM_SRC := carts/demo/main.lua carts/demo/assets/sheet.png carts/demo/assets/map.csv carts/demo/bm.info carts/demo/cover.png
@@ -1225,9 +1218,9 @@ $(BUILD)/host/test_webget: tests/web/test_webget.c tests/web/run_webget_test.py 
 test-vid: $(BUILD)/host/test_vid scripts/mkvid.py tests/video/run_vid_test.py
 	$(PYTHON) tests/video/run_vid_test.py $(BUILD)/host/test_vid $(BUILD)/vid
 
-$(BUILD)/host/test_vid: tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c src/bm/*.h
+$(BUILD)/host/test_vid: tests/video/test_vid.c tests/video/vidframes.c tests/video/vidframes.h src/bm/vid.c src/bm/jpeg.c src/bm/*.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c -lm
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -Itests/video -o $@ tests/video/test_vid.c tests/video/vidframes.c src/bm/vid.c src/bm/jpeg.c -lm
 
 test-http: $(BUILD)/host/test_http
 	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
@@ -1360,7 +1353,7 @@ test-map3d: $(BUILD)/host/test_map3d
 	$(BUILD)/host/test_map3d
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
-         $(BUILD)/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
+         $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
          $(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/host/libbmdecimate.so \
          $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so $(BUILD)/host/test_tokens \
          $(BUILD)/host/test_resbuild
@@ -1376,7 +1369,6 @@ test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUI
 	$(BUILD)/host/test_meshcap src/bm/runtime.c \
 	    $(BUILD)/meshcap-test.bm '!stop here,wheel:1,crate:12,cars1_body:1,gem:2' \
 	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
-	    $(BUILD)/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
 	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef1_body,plate,dplate
 	$(PYTHON) tests/bm/test_type.py
 

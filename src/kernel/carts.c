@@ -1174,7 +1174,7 @@ enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_M
 
 /* what the network console is told takes its keys (netcon_focus) */
 static const char FOCUS_MENU[] = "the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, "
-                                 "or a line for it: :gpu; b3d; send)";
+                                 "or a line for it: :b3d; send)";
 static const char FOCUS_APP[] = "the application (Ctrl-\\ back to the menu)";
 static const char FOCUS_PAGE[] = "a page of the menu (Esc back)";
 
@@ -1498,7 +1498,7 @@ void carts_menu(framebuffer_t *fb)
             case 'q': case 'Q': quit = HID_QUIT_MONITOR; break;
             case 'r': case 'R': action = 2; break;
             case 'U': action = 3; break;         /* bm_load.py --cart */
-            case ':':                           /* a monitor line (":gpu; b3d; send"), from */
+            case ':':                           /* a monitor line (":b3d; send"), from */
                 input_unget(':');               /* wherever the menu is: the monitor reads */
                 to_line = 1;                    /* the rest of it */
                 break;

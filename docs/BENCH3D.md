@@ -22,7 +22,7 @@ reproduce (`docs/DRIVERS.md`):
   6.3), in the tests with textures; from 6.4 they are the default, and the GPU row reproduces them with one thread.
   The colour ones stay single-threaded (with two threads the Pi measured them 4–5% slower).
 - **GPU+VS+FS2**: the driver as games have it from 6.6 (vertex shader for all models and
-  textured shaders with two threads); it runs in every GPU test (not in `bilinear`, which tests
+  textured shaders with two threads); it runs in every 3D Bench test (not in `bilinear`, which tests
   an option) and the score uses it.
 - **GPU+VS+A8**: GPU+VS+FS2 with compact attributes (bm3d 7.1, `gpu3d_attr`: colour and light
   bytes packed in the corners); in `spheres`, `heroes`, `match`, `big`, `big_logic`.
@@ -149,7 +149,7 @@ trial, off by default).
   white tick at the value of the previous report; in grey the numbers measured on the Pi with the
   earlier drivers (0.1, 0.2, 1.0: `docs/GPU-BENCHMARK-REPORT.md`); in red the hardware
   limit where there is one (the V3D: 1 Gpixel/s and 1.5 Gtexel/s according to Raspberry Pi; 3.0
-  million triangles per second measured by the `g` test); below, the table of
+  million triangles per second measured by the GPU test, removed on 24 Oct 2026); below, the table of
   statistics.
 
 Left/right change page, B (or Esc) exits.
@@ -171,7 +171,7 @@ Five columns before them are measurements only (they change nothing): `clean_kcy
 cache clean + invalidate before each job and after it; `pool_kb` and `ovf_kb` the most of
 the binner's tile-list pool (4096 KB) and of its overflow area (2048 KB) one job used,
 from `BPCA` after the job; `ovf_jobs` the jobs whose binner went into the overflow. The
-GPU test (`g`) and the session report print the binner's figures too.
+session report prints the binner's figures too.
 
 **The cost of a pixel.** The fill tests (`quad_*`, `bilinear`) and `gpu2d` count the pixels a
 frame asks to fill (`fill_px`: 320x180 a quad; for `gpu2d` the area of its sprites and text) and
@@ -200,7 +200,7 @@ So runs can be compared, every report says the 3D options in force on one `optio
 sort=0 attr=0 etc1=0` (`gpu3d=off` without the V3D), plus `3d= later= 2d= impostor= fast=` in the session
 report (second line, as the run ended) and on top of a game's `report()` (the Overbit
 bench's `overbit-bench`). The 3D Bench takes it at its start (each profile then sets its
-own), the GPU test (`g`) prints it at its end.
+own).
 
 ## A part, from the monitor
 
@@ -208,7 +208,7 @@ The monitor's command line (`:`) runs only some tests and profiles, without wait
 on the pages, and can queue other commands:
 
 ```
-:gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send
+:b3d tests=match,quad_tex profiles=GPU,FS2; send
 ```
 
 `tests=` takes the test ids (`spheres`, `match`, `quad_tex`…), `profiles=` the profile
@@ -217,9 +217,9 @@ names (`GPU+FS2`) or the short ones of the summary (`FS2`); without them, everyt
 reboot (to try a game), `save` keeps it.
 
 The line can also be typed in the menu: the `:` takes it to the monitor. From the PC: `./easy_install.sh line
-"gpu; b3d; send"` (or `tools/bm_net.py IP --line "..."`) sends it and shows what the console
-writes until it says `the line is done`; in the easy_install monitor (6) paste `:gpu;
-b3d; send` and Enter. The console tells the PC where the keys go (the menu, which does not repeat them, or the
+"b3d; send"` (or `tools/bm_net.py IP --line "..."`) sends it and shows what the console
+writes until it says `the line is done`; in the easy_install monitor (6) paste `:b3d;
+send` and Enter. The console tells the PC where the keys go (the menu, which does not repeat them, or the
 monitor).
 
 ## The 2D scenes
@@ -228,7 +228,7 @@ Five tests measure 2D work, so a 2D change can be compared on the Pi Zero W. The
 the default run does not run them, and they are not in the score. Run them by name:
 
 ```
-./easy_install.sh line "gpu; b3d tests=map8,sprites,stack,fade,light; send"
+./easy_install.sh line "b3d tests=map8,sprites,stack,fade,light; send"
 ```
 
 Each scene is fixed. The positions come from a hash of the item number and the frame number: no
@@ -269,10 +269,10 @@ Measured on the Pi Zero W (22 Oct, one run, report `20261022-184933_bench3d_pi-z
 
 The names are the usual ones: `profiles=ARM,QPU` (letters and digits, comma only). The `R,fade,QPU` line is the same format as every `R` line.
 
-Run it on the Pi (monitor line; `set` changes the key until a restart, so put it first: the GPU test then runs its QPU step too):
+Run it on the Pi (monitor line; `set` changes the key until a restart, so put it first):
 
 ```
-./easy_install.sh line "set gpu3d_qpu=1; gpu; b3d tests=fade profiles=ARM,QPU; send"
+./easy_install.sh line "set gpu3d_qpu=1; b3d tests=fade profiles=ARM,QPU; send"
 ```
 
 The PC test (`make test-b3d`) runs the profile with a stand-in hook and checks the line (`path=qpu`); the QEMU test `test_monitor_line` runs it without the key (`path=arm`). Neither measures a QPU time.
@@ -283,7 +283,7 @@ The PC test (`make test-b3d`) runs the profile with a stand-in hook and checks t
 the old numbers do not change. It answers: how many triangles at 60 fps does a hero and a map hold, with a game's 2D and logic?
 
 ```
-./easy_install.sh line "gpu; b3d tests=herotris; send"
+./easy_install.sh line "b3d tests=herotris; send"
 ```
 
 Load `n` = sets (1 to 64). A set is a hero (1536 triangles, 16 bones, a 64x32 texture, lit, with its shadow) and a map of
@@ -345,7 +345,7 @@ rows of 8. Profiles: `ARM` and `GPU+VS` (and `GPU+VS+FS2`, the driver as games g
 | `cel_outline` | the sun, no cel, outline: flag `R3D_OUTLINE`, colour 0x2030A0, width 0.03 (the inverted hull) | on |
 
 ```
-./easy_install.sh line "gpu; b3d tests=cel; send"
+./easy_install.sh line "b3d tests=cel; send"
 ```
 
 `tests=cel` runs the five. Since bm3d 7.5 the vertex programs of `GPU+VS` cut the light, so the cel hero keeps the mesh path there.
@@ -362,7 +362,7 @@ columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,outline,cel_over_lit,cel_nd_over_
 ### Both together
 
 ```
-./easy_install.sh line "gpu; b3d tests=herotris,cel; send"
+./easy_install.sh line "b3d tests=herotris,cel; send"
 ```
 
 Not developed here: `stackv` and the 3D particles. Their scenes wait for their code in `bm-core`.
@@ -377,7 +377,7 @@ Stage 3 of `docs/design/triangle-throughput.md` (draw merging, bm3d 7.6). It is 
 the ARM, and how much of it does `gpu3d_merge` take back?
 
 ```
-./easy_install.sh line "gpu; b3d tests=htmap; send"
+./easy_install.sh line "b3d tests=htmap; send"
 ```
 
 It is the `herotris` set (a hero of 1536 triangles with its shadow, the 2D, 4M instructions of logic), but the 5000 triangles of the map are in 100 pieces
@@ -420,7 +420,7 @@ checks the pixels of merged against drawn one by one (`draw merging` line).
 `stress` answers: does the frame stay stable at twice the load that holds 60 fps? It is **opt-in** like `herotris`: the default run, the score and the old numbers do not change.
 
 ```
-./easy_install.sh line "gpu; b3d tests=stress; send"
+./easy_install.sh line "b3d tests=stress; send"
 ```
 
 The test runs on one profile only: `GPU+VS+Q` (the GPU, the vertex shader and the queue: the default path of the games on the Pi). It has two stages.

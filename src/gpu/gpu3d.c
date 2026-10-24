@@ -252,7 +252,7 @@ static struct {
     int gl_clip_all;                /* every GL draw with the clipper on and its scaling written (as
                                      * Mesa, which never turns it off): the probe tries it if the
                                      * draws without it leave nothing */
-    char plog[4096];              /* what the probes saw (the GPU test's report) */
+    char plog[4096];              /* what the probes saw (the 3D Bench report) */
     int async_now;                  /* flush_job starts the job instead of running it */
     const void *async_px;           /* (its page) */
     uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
@@ -279,7 +279,7 @@ static void disable(const char *why)
 }
 
 /* a line of what the probes saw ("gpu3d: " and line, to the log), kept
- * for gpu3d_probe_log() (the GPU test writes it in its report) */
+ * for gpu3d_probe_log() (the 3D Bench writes it in its report) */
 static void plog(const char *line)
 {
     kprintf("gpu3d: %s\n", line);
@@ -2556,7 +2556,7 @@ static int run(int bin, uint32_t rcl_end)
     if (job_wait() != 0)                /* (a job of the other block, bm3d 5.1) */
         return -1;
     uint32_t bus_us = 0, rus = 0;
-    v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);    /* the GPU test sets its own */
+    v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);    /* a job sets its own */
     v3d_set_pool(v3d_bus(G.alloc), JOB_ALLOC);
     int err = v3d_run(bin ? v3d_bus(G.bcl) : 0, bin ? v3d_bus(G.cl.p) : 0, v3d_bus(G.rcl), rcl_end,
                       TIMEOUT_US, &bus_us, &rus);

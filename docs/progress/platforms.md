@@ -67,7 +67,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 ## Open work
 
 - Kernel consistency, what the gate still lists (22 Oct 2026, `python scripts/consistency.py gate`, [CONSISTENCY](../spec/CONSISTENCY.md)):
-  - Large or waiting for a device: D10 (background covers: `carts.c:182-290`, about 110 lines, needs a timing check on the console); D14 (Stack bench is on the RGB30 since round 2; the Stress test and Texture Room need the 3D path, D23; the CPU bench, Video bench and Demo are not ported); D15 (RK3566 thermal and clock drivers do not exist); D17 (on-screen keyboard); D23, D24 (Mali driver).
+  - Large or waiting for a device: D10 (background covers: `carts.c:182-290`, about 110 lines, needs a timing check on the console); D14 (the Stress test needs the 3D path, D23; the DMA test is not ported; the other tools of the row were removed on 24 Oct 2026); D15 (RK3566 thermal and clock drivers do not exist); D17 (on-screen keyboard); D23, D24 (Mali driver).
   - Waiting for the owner: D03 and D05 (suspended). Accepted in BETA-6 round 2 (23 Oct 2026): D49 (the Pi menus keep A and B, D32; the owner can ask for `mo` and `mc` on the Pi) and D48 (the crc is a monitor line, the RGB30 has no monitor, D22).
   - Written, not tried on a console: D01, D02, D18, D26. Specification items still partial: compat-policy (Market targets line, load-time message, RGB30 Market default for `.bm`: [b16](b16.md)), cart-type (the menu does not group by type; Utilities has no content), `/bme` folder. Resource files and project layout are `implemented` (round 2: every `carts/` project has `bm.info`).
 - RGB30 menu keys, user decision 19 Oct 2026 (target, not implemented): B = ok, Y = cancel,
@@ -98,7 +98,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `--shot` answers `no game drew a frame` until a game runs. A kernel older than Op T/G refuses logs and shot.
 - RGB30 QEMU tests (22 Oct). The menu reads a serial key as held for `PAD_SERIAL_MS` (120 ms, `src/rgb30/pad.c`): a
   frame longer than that, as under load, loses the key. Use `press`, `press_serial` and `wait_screen` in
-  `tests/rgb30/qemu_test.py`, no blind keys or fixed sleeps. Fixed so: `test_update_from_sd`, `test_gpu_test`,
+  `tests/rgb30/qemu_test.py`, no blind keys or fixed sleeps. Fixed so: `test_update_from_sd`, `test_gpu_test` (removed on 24 Oct 2026),
   `test_menu_input_page` (sends X again until a screen shows `held: 00000040`), `test_sdk_stages_build`,
   `test_wifi_page_without_chip`: 5 of 5 alone, 3 of 3 with 14 busy loops (load 16 on 8 cores). Still blind:
   `test_bluetooth_page_without_chip`, `test_games_in_carts`, `test_menu_games_and_hidden_bm`, `test_screen_console`.

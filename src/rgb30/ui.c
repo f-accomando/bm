@@ -57,7 +57,6 @@
 #include "net/catalog.h"
 #include "b3d_rgb30.h"
 #include "battery.h"
-#include "gputest_rgb30.h"
 
 #include <stdlib.h>
 
@@ -626,16 +625,6 @@ static void page_bench3d(void)
     pad_pressed();
 }
 
-/* Dev > GPU test: the Mali step by step */
-static void page_gputest(void)
-{
-    fb_show(fb, 0);
-    console_suspend(0);
-    rgb30_gpu_test(fb, pad_back_name());
-    wait_back();
-    console_suspend(1);
-}
-
 static void page_render(void)
 {
     fb_show(fb, 0);
@@ -650,23 +639,6 @@ static void page_render(void)
         pad_pressed();
     } else {
         reports_end();
-        kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
-        wait_back();
-    }
-    console_suspend(1);
-}
-
-/* Dev > Stack bench (D14): sprite stacking, the Pi's bench (home.c t_stack), the same call; the numbers go to the console */
-static void page_stack(void)
-{
-    fb_show(fb, 0);
-    console_suspend(0);
-    bm_stack_bench(fb, 30);                 /* Start+Select stops it (syskeys.h) */
-    if (syskeys_test_stopped()) {
-        while (pad_state())
-            timer_delay_ms(10);
-        pad_pressed();
-    } else {
         kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
         wait_back();
     }
@@ -733,17 +705,15 @@ typedef struct {
 } item_t;
 
 /* the Dev tab, with the covers of the same tools on the Pi (home.c); the
- * SDK seventh (the tests find it by its place: the third row), the Stack bench after it */
+ * SDK last (the tests find it by its place) */
 static const item_t dev_items[] = {
     { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d, MENU_ICON_GAUGE, 0x2A6A8A, NULL, NULL },
     { "Render bench", "map, sprites and text, 640x360", page_render, MENU_ICON_TRIANGLES, 0x5A3AA0, NULL, NULL },
     { "Display", "the screen modes for games and the GPU", ui_screen_modes, MENU_ICON_BARS, 0x404050, NULL, NULL },
     { "Input test", "every button and both sticks, live", ui_input_test, MENU_ICON_PAD, 0x8A3A8A, NULL, NULL },
     { "Boot log", "everything printed since boot", ui_show_log, MENU_ICON_LOG, 0x6A6A7A, NULL, NULL },
-    { "GPU test", "the Mali-G52 step by step: power, MMU, jobs", page_gputest, MENU_ICON_CHIP, 0x8A5A2A, NULL, NULL },
     { "bm SDK", "code, sprites, map, 3D; build and try", page_sdk, MENU_ICON_CODE, 0x1E8A5A,
       bm_sdk_cart, bm_sdk_cart_end },
-    { "Stack bench", "sprite stacking: us a frame and stacks a second", page_stack, MENU_ICON_GAUGE, 0x6A3A9A, NULL, NULL },
 };
 #define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
 static g16_sheet_t dev_covers[N_DEV];

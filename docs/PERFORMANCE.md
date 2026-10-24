@@ -4,6 +4,7 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 
 **Sources**
 - *(M)* Measured on physical Raspberry Pi; *(Q)* Measured in QEMU; *(H)* x86 Host benchmark (indicative proportions); *(D)* Datasheet / official documentation.
+- The Texture Room, the GPU test, the Video bench, the Stack bench and Diagnostics were removed from the kernel on 24 Oct 2026. Numbers taken with them stay as measurements.
 - Additional details: stress test in [`docs/STRESS.md`](STRESS.md); hardware specs in [`docs/HARDWARE.md`](HARDWARE.md); display modes in [`docs/RISOLUZIONI.md`](RISOLUZIONI.md); GPU transition history in [`docs/GPU-BENCHMARK-REPORT.md`](GPU-BENCHMARK-REPORT.md); benchmark suite in [`docs/BENCH3D.md`](BENCH3D.md).
 
 ---
@@ -192,7 +193,7 @@ With 3D rendering delegated to the VideoCore IV GPU, the ARM core no longer draw
 
 ## 9. Hardware Verification Targets
 
-- **Oct 5, 2026 Test Pass** (verified in `reports` branch, recorded in [`docs/STRESS.md`](STRESS.md) and [`docs/ROADMAP.md`](ROADMAP.md)): test `g`, stress test with GPU and AA passes, Texture Room HD, 3D Bench, Overbit on GPU and GPU+AA at 1080p scaled with HUD overlay.
+- **Oct 5, 2026 Test Pass** (verified in `reports` branch, recorded in [`docs/STRESS.md`](STRESS.md) and [`docs/ROADMAP.md`](ROADMAP.md)): test `g` (removed), stress test with GPU and AA passes, Texture Room HD, 3D Bench, Overbit on GPU and GPU+AA at 1080p scaled with HUD overlay.
 - Ongoing verification: Vertex shader pass (`GPU+VS`) and queued async execution (`GPU+VS+Q`).
 - Boot log inspection (`Report the log`, `Z`): check `gpu3d:` diagnostic output for vertex shader probe logs.
 - Chaos Kitchen multi-chef stress test (World 3 and World 6 with 2+ players).

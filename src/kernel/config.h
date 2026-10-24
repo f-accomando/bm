@@ -36,6 +36,10 @@ int config_merge(const char *text, size_t len, char *out, size_t out_len);
  * returns the length written (what fits in len). */
 size_t config_list(char *out, size_t len);
 
+/* 1 if bm/config.txt has gpu3d_qpu=1 (default 0). Only then the kernel runs the QPU programs
+ * (the fade hook at boot, the 3D Bench QPU row). */
+int gpu_qpu_key(void);
+
 /* A key whose value never goes out (..._token, _psk, _password, _key) */
 int config_secret(const char *key);
 

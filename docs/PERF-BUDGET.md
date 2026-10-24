@@ -55,8 +55,8 @@ Pi Zero W, kernel `dev`. Each file name is `20261022-<time>_<kind>_pi-zero-w_dev
 | `b3d-171354` to `b3d-171450` | `20261022-1713xx` and `-1714xx` | `herotris`, one profile in each report |
 | `b3d-171533`, `b3d-171542` | `20261022-171533`, `-171542` | `cel`, profiles ARM and GPU+VS |
 | `b3d-091857` | `20261022-091857_bench3d_...` | all tests, all profiles (bm3d 7.3) |
-| `stack-091216` | `20261022-091216_stack_...` | Stack bench |
-| `gpu-091318` | `20261022-091318_gpu_...` | Dev > GPU test |
+| `stack-091216` | `20261022-091216_stack_...` | Stack bench (tool removed on 24 Oct 2026) |
+| `gpu-091318` | `20261022-091318_gpu_...` | Dev > GPU test (tool removed on 24 Oct 2026) |
 
 Profiles: `ARM` is the ARM rasteriser (bm3d 0.2). `GPU` is bm3d 2.1, the V3D draws the triangles that the ARM prepares. `GPU+VS` adds the vertex shader (the V3D places the corners). `GPU+VS+FS2` is the driver as games get it (vertex shader and textured shaders with two threads). `+Q` is the frame queue. `GPU+2D` draws the 2D in the GPU job. `A8` is compact attributes.
 
@@ -72,7 +72,7 @@ All 2D rows are drawn by the ARM, unless the row says GPU. The scenes are fixed:
 | Sprites 16x16, GPU in the 2D job | 3569 sprites or more (13.6 ms; the scene stops at 4000). Frame cost 13.23 ns a pixel, of which the GPU job 7.32 ns a pixel | `b3d-180857` | `sprites`, GPU+2D | not verified on hardware |
 | Flips and alpha, each alone | not measured (the scene mixes them) | - | - | not verified on hardware |
 | Sprite stacks of 8 slices (16x16, three sizes, turning) | 54.6 stacks (58.93 ns a pixel) | `b3d-180905` | `stack`, ARM | not verified on hardware |
-| Sprite stacks, scale 1, 30 frames a case | 64 stacks of 8 slices: 9.69 ms (6608 stacks a second). 128 stacks of 8 slices: 18.27 ms. 64 stacks of 16 slices: 18.27 ms. About 116 stacks of 8 slices fit 16.6 ms (derived) | `stack-091216` | Stack bench | not verified on hardware |
+| Sprite stacks, scale 1, 30 frames a case | 64 stacks of 8 slices: 9.69 ms (6608 stacks a second). 128 stacks of 8 slices: 18.27 ms. 64 stacks of 16 slices: 18.27 ms. About 116 stacks of 8 slices fit 16.6 ms (derived) | `stack-091216` | Stack bench (removed; the 3D Bench scene `stack` measures the same) | not verified on hardware |
 | Full-screen fade (`g16_fade_glow` lamps and `g16_fade_apply`) | misses: 20.3 ms with 1 lamp (worst 20.5 ms). At 30 fps: 24.7 lamps | `b3d-180913` | `fade`, ARM | not verified on hardware |
 | Full-screen fade on the QPU (`dark_end` hook, `gpu3d_qpu=1`) | 9.3 ms with 1 lamp (ARM 20.4 ms in the same run, 2.2 times faster). 14.3 lamps at 60 fps (ARM misses) | `b3d-184933` | `fade`, QPU; one run, all 98 frames on the QPU | not verified on hardware beyond this run |
 | Full-screen light (`g16_light_add` lamps and `g16_light_apply`) | misses: 30.7 ms with 1 lamp. At 30 fps: 20.3 lamps | `b3d-180925` | `light`, ARM | not verified on hardware |
@@ -102,7 +102,7 @@ The 3D rows count triangles that the game gives to the 3D (`submitted`). The GPU
 | Cel shading (4 bands), heroes of 1536 triangles | Cost against the sun light: x1.00 on the ARM (3.3 heroes against 3.4), x0.99 to x1.02 with GPU+VS. GPU+VS: 50 heroes or more (12.1 ms at 50; lit 11.0 ms) | `b3d-171533` (ARM), `b3d-171542` (GPU+VS) | `cel`, `cel_lit` | not verified on hardware |
 | Outline (inverted hull) | Cost against the lit hero: x1.34 to x1.50 on the ARM (2.5 heroes). x1.05 to x1.23 with GPU+VS (42.4 heroes, 14.4 ms) | `b3d-171533`, `b3d-171542`, column `outline_over_lit` | `cel_outline` | not verified on hardware |
 | Cel and outline with GPU+VS+FS2 | not measured (the report has no row) | `b3d-171550` | `cel` | not verified on hardware |
-| Raw V3D speed | 2966 thousand small triangles a second. 811 Mpixel a second for full screens (render only) | `gpu-091318`, steps 6 and 7 | GPU test | not verified on hardware |
+| Raw V3D speed | 2966 thousand small triangles a second. 811 Mpixel a second for full screens (render only) | `gpu-091318`, steps 6 and 7 | GPU test (removed) | not verified on hardware |
 | 3D particles | not measured (the scene is not developed: `docs/BENCH3D.md`) | - | - | not verified on hardware |
 
 ### Pi Zero W, 24 Oct (reports `c51c239a`, `dfedfea0`, `62dc910a`)

@@ -5,7 +5,7 @@
  * the keys and the pad.
  */
 #include "b3dpi.h"
-#include "gputest.h"
+#include "config.h"
 #include "input.h"
 #include "pmu.h"
 #include "reports.h"
@@ -19,6 +19,7 @@
 #include "drivers/uart.h"
 #include "fs/fat.h"
 #include "gpu/qpu.h"
+#include "gpu/qpucheck.h"
 #include "gpu/v3d.h"
 #include "lib/printf.h"
 #include "net/net.h"
@@ -146,6 +147,14 @@ static int load_last(char **text, char *name, size_t n)
     *text = t;
     ksnprintf(name, n, "bm/bench/3d%04d.txt", k);
     return 0;
+}
+
+/* the QPU check for the 3D Bench (b3d_platform_t.qpu_row): one line */
+static void gpu_qpu_row(char *line, size_t n)
+{
+    qpucheck_t r;
+    const int all = qpu_check(&r, us);
+    qpu_check_line(&r, all, line, (unsigned)n);
 }
 
 void bm_bench3d(framebuffer_t *fb)

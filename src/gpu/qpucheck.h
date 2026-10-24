@@ -1,8 +1,7 @@
 /*
  * QPU check (bm3d 7.x, Pi Zero W): runs the particle program and the fade
  * program on a small array, compares the result with the ARM version and
- * times both. Used by the GPU test (step 'QPU programs') and by the 3D Bench
- * (the QPU row). Only called when the config key gpu3d_qpu is 1 (default 0).
+ * times both. Used by the 3D Bench (the QPU row). Only called when the config key gpu3d_qpu is 1 (default 0).
  * Every wait has a timeout (QPU_TIMEOUT_US per run), so the check never hangs.
  */
 #ifndef QPUCHECK_H

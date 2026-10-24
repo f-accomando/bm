@@ -8,7 +8,7 @@ the ARM rasterizer) and **gpu3d** (`src/gpu/gpu3d.c` with the shaders from
 development block (a milestone), Y the step within the block. The version is in
 `src/gpu/version3d.h` (`BM3D_VERSION`, the `bm3d_versions()` table).
 
-Where it shows: the GPU status line (test `g`, log), *Settings > System > 3D
+Where it shows: the GPU status line (log), *Settings > System > 3D
 driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), the
 stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d()`.
 
@@ -70,7 +70,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   checks, like Broadcom's simulator, that the shader reads every word loaded; the
   boot probe tries bytes and then words (a job that does not finish rules out only that
   path) and says which one drew. What the optional probes see ends up in the
-  report of the `g` test and of the 3D Bench (`gpu3d_probe_log()`).
+  report of the 3D Bench (`gpu3d_probe_log()`).
 - **4.4** (2026-10-05): the `zclear()` in the job, which on the Pi kept the colour but
   lost the 3D after it (`07e0 07e0`). The V3D's *early z* keeps its own idea
   of the depth, written only by primitives with *early z updates*: the
@@ -108,7 +108,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   frames). What the GPU does not do identically (circles, oblique lines, triangles,
   `prompt`, non-integer zoom) closes the job and the ARM draws it as before. A HUD between the
   3D and the 3D no longer closes the job: the 3D Bench's GPU+2D profile (`split`, `match`,
-  `gpu2d`), step 16 of the `g` test (the same HUD from the ARM and from the GPU, the pixels equal).
+  `gpu2d`), step 16 of the GPU test, removed on 24 Oct 2026 (the same HUD from the ARM and from the GPU, the pixels equal).
   Then **filtered textures** (bilinear, `gpu3d_filter=1`, *3D textures*): the
   look changes compared with the ARM (and on the edges of a sheet's regions, the colour of the neighbouring
   region); the 2D stays at the nearest texel. 3D Bench test `bilinear`.
@@ -174,8 +174,8 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   now has a model of the cache (16, FIFO): a grid of 1800 triangles in scattered order goes
   from 2.96 to 0.69 shaded vertices per triangle, same pixels. Changing the option redoes the copies
   of the meshes.
-- **6.0** (2026-10-05): **the RGB30's Mali-G52 GPU**, first step (`src/rgb30/mali.c`,
-  *Dev > GPU test*): vdd_gpu, clocks and the PD_GPU power domain, identity, reset,
+- **6.0** (2026-10-05): **the RGB30's Mali-G52 GPU**, first step (`src/rgb30/mali.c`;
+  its *Dev > GPU test* page was removed on 24 Oct 2026, `mali3d=1` probes the Mali now): vdd_gpu, clocks and the PD_GPU power domain, identity, reset,
   powering up the cores, MMU (address space 0, Mali LPAE tables as panfrost on the RK3568) and job
   manager jobs (WRITE_VALUE and a chain of two). It does not draw yet: the RGB30's 3D stays on the ARM
   and the 3D Bench says so in the machine line. Tests on the PC with a simulated GPU
@@ -185,7 +185,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   render target: Bifrost's (v7) framebuffer descriptor as it is in Mesa (parameters,
   sample positions, an R8G8B8A8 render target written linear with the channels swizzled for
   the screen's XRGB8888, the "clean" pixels written). First a 64×64 surface checked
-  pixel by pixel, then a green square at the top right of the screen of the *GPU test* page,
+  pixel by pixel, then a green square at the top right of the screen of the removed *GPU test* page,
   redrawn last over the text: if it shows, the GPU has drawn.
 - **6.2** (2026-10-05): on the Pi the 3D Bench stopped in the `match` test with GPU+FS2 (the
   GPU did not finish the job): the shaders that do not switch threads were declared "multi-threaded"
@@ -236,7 +236,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   `g` test gives 0.0% different pixels; in the 3D Bench GPU+VS does spheres 4×, heroes 11×, the
   `mix` scene 9× (79 071 triangles at 60 fps). The vertex shader is **on by default** (`gpu3d_vs`
   is 2 if missing; `gpu3d_vs=0` turns it off); the 3D Bench has the **GPU+VS+FS2** profile (the games'
-  driver of 6.6: vertex shader and textured shaders on two threads) in every GPU test, and
+  driver of 6.6: vertex shader and textured shaders on two threads) in every 3D Bench test, and
   the score uses that.
 - **6.7** (2026-10-06): the first 3D Bench with the vertex shader by default (`v0.2.3-52`, score
   2601, 78 412 triangles at 60 fps in `mix`) showed two things that cost. `texswap` (three

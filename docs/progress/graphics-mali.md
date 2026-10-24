@@ -6,8 +6,7 @@ The RGB30's Mali-G52 driver, part of [graphics](graphics.md). Driver versions: [
 bm3d 6.0-6.1: supply, power domain, identify, reset, cores, MMU (LPAE, 2 MB blocks), job
 manager (WRITE_VALUE chain), a FRAGMENT job that clears a surface (6.1) and, written and not yet a version, a triangle (Vertex,
 Tiler and Fragment jobs, a 96x96 square of the screen; the step is only on the console,
-`mali_hw_t.triangle`). The triangle step is not yet run on the device: the Dev > GPU test
-report says (`mali: the vertex job wrote ...`, `mali: a triangle: inside ... outside ...`). PC test with
+`mali_hw_t.triangle`). The triangle step is not yet run on the device. Its only entry was the Dev > GPU test page, removed on 24 Oct 2026 (`mali_hw.c` sets no `triangle`); the report says (`mali: the vertex job wrote ...`, `mali: a triangle: inside ... outside ...`). PC test with
 a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the RGB30 is `r3d`.
 - Descriptors: `mali_desc.c` (Primitive, Draw, Renderer State, Blend, Local Storage, Uniform Buffer,
   Invocation, Viewport, Tiler Heap/Context, Attribute(+Buffer), Vertex and Tiler job layouts), places
@@ -22,7 +21,7 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   ends with `mali: a vertex and a tiler job: failed, JS_STATUS 58 DATA_INVALID_FAULT`. The clear works.
 - Variant probe (`src/rgb30/mali_variants.h`, `triangle()` in `mali.c`): the base jobs (set 0, draw 0 of
   `frame_build`) run first. If they fail, the probe resets the GPU and runs 8 variants of the jobs, each built
-  again with one patch (`mv_table`: block, first bit, bit count, value). One Dev > GPU test run gives all the results.
+  again with one patch (`mv_table`: block, first bit, bit count, value). One run of the probe gives all the results (no entry point since the GPU test page was removed on 24 Oct 2026).
   Read the log lines `mali: variant N <name>: ok` or `mali: variant N <name>: JS_STATUS 0x..`:
   - 0 `vertex-only` (the vertex job alone) and 1 `tiler-only` (the CPU writes the positions, the tiler
     job alone, no dependency) isolate the failing job. They never count as the one that works.
@@ -54,7 +53,7 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 2. **Benchmark with ARM**:
    - Measure Overbit's performance (bot fight and hero ring) at both resolutions on ARM, with report generation.
 3. **Mali driver in phases**:
-   - *Phase 1*: triangles prepared by the ARM and rasterized by the GPU (triangle in the *GPU test*, with the variant probe).
+   - *Phase 1*: triangles prepared by the ARM and rasterized by the GPU (triangle with the variant probe; the *GPU test* page that ran it was removed on 24 Oct 2026).
    - *Phase 2*: `r3d` backend with batching and one color per draw (written, not run).
    - *Phase 3*: vertex shader for the geometry transforms on the GPU (`BM_VS3`, written, not run).
    - *Phase 4*: asynchronous job queue with multi-buffering support (written, not run).
@@ -62,7 +61,7 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 
 ## Open work
 All of it needs the RGB30 (not verified on hardware). The user runs these; nothing here starts a device run.
-1. Dev > GPU test (the triangle, with the variant probe). Read the `mali: variant N <name>` lines in the report on the SD card. If a variant is `ok`, apply its patch to `frame_build` and delete the probe.
+1. Decide where the triangle and the variant probe run: the Dev > GPU test page was removed on 24 Oct 2026 and `src/rgb30/mali_hw.c` sets no `mali_hw_t.triangle`. Then run it (the triangle, with the variant probe). Read the `mali: variant N <name>` lines in the report on the SD card. If a variant is `ok`, apply its patch to `frame_build` and delete the probe.
 2. If the triangle draws: `mali3d=1` in `config.txt`, then 3D Bench (`b3d`) scenes of flat colours. The `GPU` profile row appears only for those scenes; the others show the ARM.
 3. Then the phases written but not run: phase 2 (`mali_backend`), phase 3 (`BM_VS3` with a matrix), phase 4 (`mali_frame_submit` and two sets). Run them in this order, one report each.
 4. If all three run: `mali3d` default decision (divergence D45 in `docs/spec/divergences.toml`) and a bm3D version with a row in `docs/DRIVERS.md`.

@@ -283,7 +283,7 @@ La GPU disegna le ombre (`draw3d` con flag 8), gli effetti, le facce screen door
 
 L'anti-aliasing (`gpu3d_aa=1` in `bm/config.txt`, chiave nascosta senza riga in Settings; un gioco usa il secondo valore di `gpu3d`) fa disegnare il 3D alla GPU con MSAA 4x: quattro campioni per pixel, la media alla fine del tile, bordi dei triangoli senza scalini. Nelle cartucce non cambia nulla.
 
-- Vale solo dove la GPU lo regge (Dev > GPU test mostra se la GPU ha MSAA).
+- Vale solo dove la GPU lo regge (il 3D Bench salta i profili MSAA dove la GPU non li ha).
 - Vale solo nei lavori senza z-buffer conservato: le cartucce che disegnano 3D, poi 2D, poi altro 3D nello stesso frame restano senza anti-aliasing (lo z-buffer a 4 campioni non si può salvare).
 - Se il test trova che la GPU non può ricaricare la pagina nei 4 campioni, l'MSAA è usato solo nei frame che iniziano con `cls()`.
 - Sull'ARM non c'è anti-aliasing.
@@ -327,7 +327,7 @@ La tabella dà, per ogni chiave, cosa fa, quanto costa, il predefinito e il risu
 | `gpu3d_tex16` | Texture opache a 16 bit. | Un gradino di RGB565 nei colori. | spento | Entro 1-6% dei 32 bit (`quad_tex` 2,20 e 2,35 ns a pixel). |
 | `gpu3d_etc1` | Fogli opachi in ETC1. Imposta anche `gpu3d_tex16` (lo faceva la vecchia riga delle Settings). | Compressione a blocchi: 37 dB PSNR contro RGB565. | spento | Entro 1-6% (`quad_tex` 2,19 ns a pixel). |
 | `gpu3d_merge` | Molti piccoli pezzi fermi con luce precalcolata e un solo foglio diventano un solo disegno. | Una serie di almeno 32 pezzi con in media 150 facce o meno. | acceso (`0` lo spegne) | 100 pezzi da 50 facce +24%. 10 pezzi da 500 facce -26%, quindi una serie più piccola non si unisce. |
-| `gpu3d_qpu` | Una verifica: i programmi QPU girano contro le versioni ARM. | Un test GPU e un 3D Bench più lunghi. | spento | Particelle: QPU 47 us, ARM 158 us. Dissolvenza: QPU 9,3 ms, ARM 20,4 ms. |
+| `gpu3d_qpu` | Una verifica: i programmi QPU girano contro le versioni ARM. | Un 3D Bench più lungo. | spento | Particelle: QPU 47 us, ARM 158 us. Dissolvenza: QPU 9,3 ms, ARM 20,4 ms. |
 | `r3d_impostor` | Un modello piccolo lontano è un solo quadrato. Un numero di pixel (da 2 a 64) di uno schermo da 1080 righe. | Il modello perde il dettaglio. | spento | 8 pixel: nessun effetto (57,7 fps, 8588 triangoli). 16 e 32: non misurato. |
 | `r3d_fast` | Il 3D su ARM usa una matrice per modello e la luce nello spazio del modello. | I pixel non sono più identici al bit. | spento | Non misurato. |
 

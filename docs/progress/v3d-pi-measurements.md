@@ -5,8 +5,8 @@ Split from [v3d](v3d.md); open work and rules stay there.
 - Pi Zero W, 3D Bench, 21 Oct (bm3D 7.x hardware check): score 3412 (GPU 953, ARM 166). Spheres:
   ARM 70 fps, GPU+VS 809, GPU+VS+A8 840 (+3.8% over GPU+VS). Draw queue: VS 573 fps, VS+queue
   643 (+12%). Compressed textures: T16 161.6 fps and ETC1 160.6 fps, no gain, so they stay off.
-  Step 16 of test `g`: identical pixels on the ARM and the GPU.
-- Pi Zero W, 22 Oct (reports branch): GPU test 16/16 ok (3311 triangles: ARM 28.2 ms, GPU 9.7 ms). 3D Bench score 3382 (GPU bm3d 2.1 = 950, ARM = 169).
+  Step 16 of the GPU test (removed on 24 Oct 2026): identical pixels on the ARM and the GPU.
+- Pi Zero W, 22 Oct (reports branch): GPU test (removed on 24 Oct 2026) 16/16 ok (3311 triangles: ARM 28.2 ms, GPU 9.7 ms). 3D Bench score 3382 (GPU bm3d 2.1 = 950, ARM = 169).
 - Pi Zero W, 22 Oct, hero path (3D Bench `herotris`, one profile for each run; kernel built from `bm-core` 38799d49 plus the bench; 640x360; ARM 1000 MHz; V3D 250 MHz, measured 300; reports `20261022-171354` to `-171450` on the `reports` branch). A set is one hero of 1536 triangles, its shadow and a map of 5000 triangles. Benchmark numbers only, not games.
 
   | profile | sets at 60 fps | hero tris at 60 fps | drawn at 60 fps | ms | gpu_ms | vs mesh |

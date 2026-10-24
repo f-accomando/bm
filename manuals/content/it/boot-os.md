@@ -238,7 +238,6 @@ Digita `:` e poi dei comandi separati da `;`. Girano uno dopo l'altro, e la riga
 
 | Comando | Cosa fa |
 |---|---|
-| `gpu` | il test della GPU e il suo report |
 | `b3d tests=a,b profiles=P` | il 3D Bench, tutto o in parte |
 | `play NOME` | avvia un gioco per nome |
 | `set key=value ...` | cambia le chiavi di `bm/config.txt` fino al riavvio |

@@ -37,7 +37,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
   SPDX id). Confirm the string.
-- Next migrations: `texroom`, `demo`, `stress` (test carts), `sdk_b16` and `titan_ex` (own layouts); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
+- Next migrations: `demo`, `stress` (test carts; `texroom` was removed on 24 Oct 2026), `sdk_b16` and `titan_ex` (own layouts); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
 
 ## Found while checking the manuals (to fix in the source documents)
 - bm Pixel only SHOWS zones and boxes (toggle `j`, commits of 2026-10-12); it does not make them. Zones and boxes are made by bm Animator's bake and by `mkbm.py --sprites` / `bmres.py`; `docs/design/suite-pixel.md` proposes the editing tools (F4 zones page, box editor), not built yet. (`GAME-GUIDE.md` and `GUIDA-GIOCHI.md` said Pixel makes zones: fixed.)
@@ -59,7 +59,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - Manual of the specifications (the `docs/spec/` registry as a PDF).
 - Asset exchange on the console (sharing resources between games from the console itself; the PC side, `bmres.py`, exists).
 - Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select held 3 s on the RGB30) and a `.b16` 720x720 on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.
-- Test carts `demo`, `texroom`, `stress`: to be removed later, not migrated to the common layout.
+- Test carts `demo`, `stress`: to be removed later (`texroom` is removed), not migrated to the common layout.
 - Formats F3 (header integrity, variant (a): a second CRC in bytes 120..127, checked only when nonzero) and F6 (one writer in C and one in Python): do them when a header change is needed, not before; F6 must keep the bytes identical (`test_bm.c`, `test_bmres.py`).
 - D09: `/carts` on the RGB30 is accepted (storage-path); `.bme` projects in Dev are still to do.
 

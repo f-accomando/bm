@@ -17,10 +17,12 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
   `.b16` format badges on cards and details panel. The title bar shows the name only.
 - The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). The
-  benchmarks and tests are utilities (`home_utils()`): Stress test, GPU test, 3D Bench, Texture Room and
-  Stack bench in Settings > Screen; DMA test, Video bench and Diagnostics in Settings > System >
-  Utilities. CPU bench, Render bench and Demo are part of Diagnostics. Input test, Audio test, Test pattern,
-  System and Log were already Settings rows.
+  benchmarks and tests are utilities (`home_utils()`): Stress test and 3D Bench in Settings > Screen;
+  DMA test in Settings > System > Utilities. Input test, Audio test, Test pattern, System and Log are
+  Settings rows. The GPU test, Texture Room, Video bench, Stack bench and Diagnostics (with the CPU
+  bench, the libc and fiber self-tests, the boot demo and the Lua boot script) were removed on 24 Oct 2026.
+  The monitor keys `b`, `g` and `R`, and the line words `gpu`, `room`, `video` and `stack`, went with them.
+  The monitor keys `k` (CPU bench), `p` (render bench) and `d` (animation demo) stay.
   A game in memory has a star at the top right of its card; a game with a newer
   Market version has a down triangle at the bottom right (`market_has_update()`). The Market
   cards have no "Installed" or "Update" pill.

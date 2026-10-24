@@ -9,7 +9,7 @@ Detail of the stages of [multitasking-alternatives](../design/multitasking-alter
   for a slice over `FIBER_STALL_US` (5 ms), once for each new record of a job.
 - `menu stalls:` line (after `menu idle:`, same window): TLS handshake (`tls.c`), `release_verify`
   and `release_check_file` (`update.c`): count, last and worst ms, KB hashed (`src/kernel/stalls.h`).
-- Boot diagnostics (monitor B) run `fiber_selftest()`; QEMU test `test_fiber_measure`.
+- `fiber_selftest()` and the QEMU test `test_fiber_measure` were removed on 24 Oct 2026 with the boot diagnostics. The "did not yield" log line stays; no test covers it now.
 - Pi numbers not collected. To collect with this build (section 6 of the design doc): 1 handshake ms
   (`menu stalls:`), 2 verify ms (`menu stalls:`), 3 hash speed (`menu stalls:` file hash KB / ms),
   5 worst `+x` per job (`menu idle:`), 6 stack `stk` per job after a full Market session and a report.

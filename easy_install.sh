@@ -46,7 +46,7 @@
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
-# | bench [FLAGS] [profile] (the Overbit benchmark on a console, see below) | send FILE [profile] | monitor [profile] | line "gpu; b3d; send" [profile] (a monitor
+# | bench [FLAGS] [profile] (the Overbit benchmark on a console, see below) | send FILE [profile] | monitor [profile] | line "b3d; send" [profile] (a monitor
 # line run, its output shown: bm_net.py --line) | config [profile] | config-sd | release [vX.Y.Z] | rollback [vX.Y.Z]
 # | market.
 # bench: Overbit's benchmark (about a minute) on a console, its report sent to the reports'
@@ -1129,7 +1129,7 @@ case ${1:-} in
     send) job_send "${2:-}" "${3:-}"; exit 0 ;;
     monitor) job_monitor "${2:-}"; exit 0 ;;
     bridge) job_bridge "${2:-}"; exit 0 ;;
-    line) [ -n "${2:-}" ] || die "line \"gpu; b3d; send\" [profile]: the line is missing"
+    line) [ -n "${2:-}" ] || die "line \"b3d; send\" [profile]: the line is missing"
           job_monitor "${3:-}" "$2"; exit 0 ;;
     bench) job_monitor "${3:-}" "set overbit_bench=${2:-auto}; play overbit; send"; exit 0 ;;
     config) job_config "${2:-}"; exit 0 ;;

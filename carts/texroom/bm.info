@@ -1,9 +1,0 @@
-# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
-# section of a .bm: mkbm.py --info copies it in.
-name: Texture Room
-desc: The 3D bench of the Dev tab: textured crates doubled to 30 fps, built into the kernel.
-author: bm
-license: LicenseRef-BM-Community-1.0
-version: 1.0
-tags: demo, bench, 3d
-resolution: 320x180

@@ -199,7 +199,7 @@ Fixes that the other runner may use (this report does not choose):
 
 ## 8. What to measure first on the Pi Zero W
 
-Benchmarks and log lines only. Never a live game. For a frame number, use a cart that logs `timer_ticks` (the bench carts), the 3D Bench, or the GPU test. Run one change per test.
+Benchmarks and log lines only. Never a live game. For a frame number, use a cart that logs `timer_ticks` (the bench carts), or the 3D Bench. Run one change per test.
 
 1. **SD write split.** For a 4 MB write in 32 KB pieces: per piece, the time to fill the FIFO and the time in `wait_card_ready`. Output: the share of busy time in the 603 ms worst case.
 2. **Handshake.** Time of one full handshake to the catalog host and to the release host. 10 runs. Source: `menu stalls:` (`tls.c`).

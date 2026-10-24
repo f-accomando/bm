@@ -142,7 +142,7 @@ since = 2
 status = "implemented"
 platforms = "all"
 where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "scripts/carts_layout.py", "Makefile"]
-note = "bm.info + assets/ + res/ + build/. Every project in carts/ has bm.info (BETA-6 round 2: demo, stress, texroom, sdk_b16 and titan_ex now build with --info; stages3d has one bm.info per edition); python scripts/carts_layout.py reports 0 errors"
+note = "bm.info + assets/ + res/ + build/. Every project in carts/ has bm.info (BETA-6 round 2: demo, stress, sdk_b16 and titan_ex now build with --info; texroom was removed on 24 Oct 2026; stages3d has one bm.info per edition); python scripts/carts_layout.py reports 0 errors"
 
 [[item]]
 id = "cart-type"

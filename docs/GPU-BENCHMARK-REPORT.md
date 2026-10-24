@@ -5,6 +5,8 @@ Includes QEMU instruction metrics, physical Raspberry Pi Zero W verification ben
 
 Code status: complete, tested on PC and in QEMU, verified on physical Raspberry Pi hardware (`kernel.img`). GPU is the default 3D pipeline for games; software ARM rasterizer serves as fallback.
 
+The Texture Room cartridge was removed from the kernel on 24 Oct 2026. The numbers below stay as measurements. The 3D Bench scene `room` draws the same room.
+
 ---
 
 ## 1. Executive Summary
@@ -72,7 +74,7 @@ Measurements recorded at 1000 MHz CPU, 250 MHz Core, 250 MHz V3D, 400 MHz SDRAM.
 | **3D Spheres (Lua)** | 1,115 tri (29 spheres) | 2,323 tri (61 spheres) | **2.1×** |
 
 ### 4.2 Hardware GPU Throughput
-Verification via diagnostic test `g`:
+Verification via the diagnostic test `g` (removed on 24 Oct 2026):
 - **Small Triangles Throughput**: 20,000 triangles prepared in 7.7 ms; binning 2.7 ms + rendering 4.1 ms = **3.0 Million triangles/second**.
 - **Pixel Fill Rate**: 20 fullscreen buffers rendered in 5.7 ms = **811 Mpixel/second** (vs. ~45 Mpixel/s software fill).
 

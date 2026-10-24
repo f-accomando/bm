@@ -21,6 +21,12 @@
 static struct { char key[24], value[128]; } kv[MAX_KEYS];
 static int nkv;
 
+int gpu_qpu_key(void)
+{
+    const char *v = config_get("gpu3d_qpu");
+    return v && strcmp(v, "1") == 0;
+}
+
 const char *config_get(const char *key)
 {
     for (int i = 0; i < nkv; i++)

@@ -18,7 +18,7 @@
 #include "usb/usb.h"
 #include "lua.h"
 #include "lauxlib.h"
-#include "gputest_rgb30.h"
+#include "mali_hw.h"
 #include "mali.h"
 #include "kernel/config.h"
 
