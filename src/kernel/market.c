@@ -853,8 +853,7 @@ int market_items(menu_item_t *items, int max)
             .size = g->file.size, .cover = ready ? &s->cover : NULL, .loading = !ready,
             .busy = s->busy || (strcmp(want_id, g->id) == 0 && want_b16 == b16),
             .percent = s->busy && g->file.size ? (int)((uint64_t)s->got * 100 / g->file.size) : 0,
-            .badge = s->busy ? NULL : s->path[0] ? (s->update ? "Update" : "Installed")
-                   : s->failed ? "Retry" : NULL,
+            .badge = s->busy || s->path[0] ? NULL : s->failed ? "Retry" : NULL,
         };
     }
     return n;
@@ -981,6 +980,14 @@ const char *market_path(int i)
 {
     int ci = cat_idx(i);
     return ci >= 0 ? slots[ci].path : "";
+}
+
+int market_has_update(const char *path)
+{
+    for (int i = 0; i < cat.n; i++)
+        if (slots[i].update && slots[i].path[0] && strcmp(slots[i].path, path) == 0)
+            return 1;
+    return 0;
 }
 
 /* ---------------------------------------------------------------- options */

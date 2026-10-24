@@ -1237,7 +1237,8 @@ void carts_menu(framebuffer_t *fb)
                 items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = kind_of(c),
                                           .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
                                           .loading = !c->cover_read, .running = is_suspended(c),
-                                          .badge = NULL, .grey = c->grey };
+                                          .badge = NULL, .grey = c->grey,
+                                          .update = market_has_update(c->path) };
                 /* a file from the PC on its way (bm_net.py --send) */
                 const int up = netxfer_updating(c->path);
                 if (up) {

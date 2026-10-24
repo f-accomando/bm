@@ -23,9 +23,10 @@ typedef struct {
     const char *format;         /* "bm" or "b16" in the Market, or NULL */
     uint32_t size;              /* bytes */
     const g16_sheet_t *cover;   /* MENU_CARD x MENU_CARD, or NULL for a plain card */
-    int running;                /* suspended in memory: a "Playing" badge */
+    int running;                /* suspended in memory: a star at the top right */
+    int update;                 /* a newer version is in the Market: a triangle at the bottom right */
     int loading;                /* no cover yet (the Market): a placeholder with the title */
-    const char *badge;          /* a pill on the cover ("Installed"), or NULL */
+    const char *badge;          /* a pill on the cover ("Retry"), or NULL */
     int busy, percent;          /* downloading: a bar on the cover */
     int grey;                   /* not made for this device (bm_compat_classify): a faded cover and a "Not here" pill;
                                  * the caller puts the reason in the details line and asks before it starts */

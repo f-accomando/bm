@@ -572,7 +572,7 @@ static void placeholder(const menu_item_t *it, int x, int y, float t, int i)
         if (lines[n][0] && ty >= GRID_TOP && ty + 16 <= GRID_BOT)
             g16_text(&g, tx, ty, lines[n], dim ? c16(0x4D4D58) : c16(C_DIM));
     }
-    if (it->badge || it->busy || it->running)
+    if (it->badge || it->busy)
         return;                         /* the badge is where the bars go */
     float k = 0.5f + 0.5f * sinf(t * 3.0f - (float)i * 0.6f);
     uint16_t bar = c16(over(0x3A3A4A, 0x5A5A70, (int)(k * 255.0f)));
@@ -592,6 +592,37 @@ static void cover_badge(int x, int y, const char *text, int hot)
     uint32_t bg = hot ? C_ACCENT : 0x101014, fg = hot ? C_BAR : C_TEXT;
     round_rect(tx - 6, ty - 2, n * 8 + 12, 20, 10, dim ? half(c16(bg)) : c16(bg));
     g16_text(&g, tx, ty, text, dim ? c16(C_DIM) : c16(fg));
+}
+
+/* A game in memory: a star at the top right of the cover, 11x11, with a shadow. */
+static void cover_star(int x, int y)
+{
+    static const int8_t rows[11][4] = {         /* inclusive spans a-b and c-d (c < 0: none) */
+        { 5, 5, -1, 0 }, { 4, 6, -1, 0 }, { 4, 6, -1, 0 }, { 0, 10, -1, 0 }, { 1, 9, -1, 0 }, { 2, 8, -1, 0 },
+        { 3, 7, -1, 0 }, { 3, 7, -1, 0 }, { 2, 8, -1, 0 }, { 2, 4, 6, 8 }, { 1, 3, 7, 9 },
+    };
+    const int sx = x + CARD_W - 11 - 4, sy = y + 4;
+    const uint16_t fill = dim ? half(c16(0xFFD23C)) : c16(0xFFD23C), shade = c16(0x201800);
+    for (int pass = 0; pass < 2; pass++)
+        for (int j = 0; j < 11; j++) {
+            const int o = pass ? 0 : 1;         /* the shadow first, 1 px down and right */
+            hspan(sx + rows[j][0] + o, sx + rows[j][1] + 1 + o, sy + j + o, pass ? fill : shade);
+            if (rows[j][2] >= 0)
+                hspan(sx + rows[j][2] + o, sx + rows[j][3] + 1 + o, sy + j + o, pass ? fill : shade);
+        }
+}
+
+/* A game with a newer version in the Market: a triangle pointing down at the
+ * bottom right of the cover, 11 wide and 6 high, with a shadow. */
+static void cover_update(int x, int y)
+{
+    const int tx = x + CARD_W - 11 - 4, ty = y + CARD_H - 6 - 4;
+    const uint16_t fill = dim ? half(c16(C_ACCENT)) : c16(C_ACCENT), shade = c16(0x001018);
+    for (int pass = 0; pass < 2; pass++)
+        for (int j = 0; j < 6; j++) {
+            const int o = pass ? 0 : 1;
+            hspan(tx + j + o, tx + 11 - j + o, ty + j + o, pass ? fill : shade);
+        }
 }
 
 /* A small pill at the top-right of a loaded cover ("BM" or "B16"). */
@@ -1372,13 +1403,15 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             ksnprintf(pc, sizeof pc, "%d%%", it->percent);
             cover_badge(x, y, pc, 1);
             cover_progress(x, y, it->percent);
-        } else if (it->running) {
-            cover_badge(x, y, "Playing", 0);
         } else if (it->badge) {
-            cover_badge(x, y, it->badge, strcmp(it->badge, "Update") == 0);
+            cover_badge(x, y, it->badge, 0);
         } else if (it->grey) {
             cover_badge(x, y, "Not here", 0);
         }
+        if (it->running)
+            cover_star(x, y);
+        if (it->update)
+            cover_update(x, y);
     }
     g16_clip(&g, 0, 0, 0, 0);
     if (!v->lib && !v->page && v->n > 2 * cols)

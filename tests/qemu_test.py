@@ -1086,7 +1086,7 @@ function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
 
 
 def test_suspend_resume(b, opts):
-    """M21: leaving a game from the menu keeps it frozen in memory ("Playing"
+    """M21: leaving a game from the menu keeps it frozen in memory (a star
     on its cover); A on it resumes from the same frame; starting another
     cartridge asks first (B keeps it, A closes it and frees the memory)."""
     tmp = tempfile.mkdtemp(prefix="bm-susp-")
@@ -1104,8 +1104,8 @@ def test_suspend_resume(b, opts):
         q.expect("frame 120", timeout=10)
         q.send("q")
         q.expect('"AAA counter" suspended', timeout=10)
-        _, text = settled_screen(q, lambda i, t: any("Playing" in l for l in t))
-        assert any("Playing" in l for l in text), "\n".join(text)
+        _, text = settled_screen(q, lambda i, t: not any("Playing" in l for l in t))
+        assert not any("Playing" in l for l in text), "\n".join(text)
         time.sleep(2.0)                        # time in the menu does not run the game
         q.send("\r")
         out = q.expect('"AAA counter" resumed', timeout=10).decode(errors="replace")
@@ -4005,7 +4005,7 @@ def test_market(b, opts):
                     break
                 time.sleep(0.2)
             assert is_red(img_, 70, 144), "the cover of Market Test"
-            text = screen(["Installed"])            # Pong: on the card already
+            screen([], gone=["Installed"])          # Pong: on the card already, with no pill
             shot("covers")
 
             # A on Market Test: a question, then the download with its progress
@@ -4018,7 +4018,7 @@ def test_market(b, opts):
             shot("download")
             q.expect("market: games/mtest/mtest.bm -> /carts/mtest.bm", timeout=20)
             q.expect("market: Market Test installed", timeout=5)
-            screen(["Installed", "Play"])
+            screen(["Play"], gone=["Installed"])
             keys("\r")                                  # A plays it
             q.expect("market game runs", timeout=15)
             time.sleep(1.0)

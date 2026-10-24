@@ -16,6 +16,9 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
   subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
   `.b16` format badges on cards and details panel. The title bar shows the name only.
+  A game in memory has a star at the top right of its card; a game with a newer
+  Market version has a down triangle at the bottom right (`market_has_update()`). The Market
+  cards have no "Installed" or "Update" pill.
   Cards have square corners, a 9 px gap, and a selection ring 3 px out with a 3 px line.
 - Updates keep old kernels in `/bm/backup`; nothing is written before files are downloaded
   and checked; the board's own kernel last. Check and install run in a fiber of the menu

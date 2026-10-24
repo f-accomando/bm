@@ -59,6 +59,8 @@ void market_ask(int i, home_do_t *d);
 void market_get(int i);
 /* The installed file of game i, "" if it is not on the SD card. */
 const char *market_path(int i);
+/* 1 if the catalog in memory has a newer version of the game at `path`. */
+int market_has_update(const char *path);
 
 /* The options of game i (X): a panel like the settings. */
 enum { M_GET = 300, M_PLAY, M_UPDATE, M_AUTHOR, M_VERSION, M_LICENSE, M_SIZE, M_FILE, M_TYPE, M_DELETE };

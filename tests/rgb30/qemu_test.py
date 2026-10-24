@@ -851,7 +851,7 @@ def test_grey_cart_and_confirm(b, opts):
         time.sleep(1.5)
         q.send("q")                                         # Start + Select: back to the menu
         q.expect("suspended", timeout=10)
-        wait_screen(q, ["Playing"])                         # back in the menu, Pi only is frozen
+        time.sleep(1.0)                                     # back in the menu, Pi only is frozen (a star on its cover)
         for _ in range(4):                                  # to Both, a key at a time (one can fall in the return)
             if "bm/both.bm" in screen_all(q.screendump()):
                 break
@@ -991,7 +991,7 @@ def test_sdk_stages_build(b, opts):
 
 def test_frozen_game_menu(b, opts):
     """A frozen game in the menu, as on the Pi (D06, D07, D08) and the Games order (D09): the list is sorted by
-    title, not by file name; a frozen game has the 'Playing' badge, Resume and 'Close the game' in its options;
+    title, not by file name; a frozen game has a star, Resume and 'Close the game' in its options;
     starting another game asks 'Close <game>?' first (back keeps the frozen one); deleting the frozen game closes
     it, so the next game starts with no question."""
     tmp = mktmp(prefix="bm64frozen-")
@@ -1007,7 +1007,7 @@ def test_frozen_game_menu(b, opts):
         time.sleep(2)
         q.send("q")                             # Start + Select: frozen, back in the menu
         q.expect("suspended", timeout=10)
-        wait_screen(q, ["Playing", "Resume"])    # the badge on the cover, and Resume for A
+        wait_screen(q, ["Resume"])               # Resume for A (the star is on the cover)
         keys(q, "x")                            # its options
         wait_screen(q, ["Resume", "Close the game"])
         keys(q, "y")                            # back
@@ -1019,7 +1019,7 @@ def test_frozen_game_menu(b, opts):
         text = wait_screen(q, ["Zulu"])
         assert "Close it" not in text, text
         keys(q, "a")                            # Alpha again
-        wait_screen(q, ["Playing", "Resume"])
+        wait_screen(q, ["Resume"])
         keys(q, "x")
         wait_screen(q, ["Resume"])
         keys(q, "w")                            # up from the first row: the last row, Delete from the SD card
@@ -1264,7 +1264,7 @@ def test_market_b16(b, opts):
         keys(q, "\r")
         q.expect("market: games/pocket/pocket.b16 -> /bm/pocket.b16", timeout=20)
         q.expect("market: Pocket installed", timeout=5)
-        screen(["Installed", "Play"])
+        screen(["Play"], gone=["Installed"])
         keys(q, "x")                            # X: its details
         screen(["Market > Pocket", "Play", "Version", "1.0", "License", "MIT"])
         keys(q, "\x7f")                         # back: closed
