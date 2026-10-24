@@ -284,12 +284,12 @@ void kernel_main(uint32_t atags)
     config_load();
     if (gpu_qpu_key())                  /* gpu3d_qpu=1 (default off): Yharnam's darkness on the QPUs, ARM fallback */
         bm_fade_accel = qpu_fade_hook;
-    {
+    if (board_is_pi1()) {
         const char *lg = config_get("lcd_gpio");
         if (lg && strcmp(lg, "1") == 0) {
             gpio_lcd_power(1);
         } else {
-            /* Default: turn off unused GPIO LCD backlight to save power */
+            /* Default: turn off unused GPIO LCD backlight to save power on Pi 1 */
             gpio_lcd_power(0);
         }
     }

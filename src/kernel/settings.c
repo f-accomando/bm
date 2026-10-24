@@ -340,6 +340,8 @@ static int video_is_hdmi(void)
 
 int crt_filter_is_active(void)
 {
+    if (!board_is_pi1())
+        return 0; /* Pi 1 only: disabled on Pi Zero to save CPU and avoid composite */
     int m = crt_mode();
     if (m == 1) return 0; /* off */
     if (m == 4) return 1; /* on */
@@ -408,8 +410,7 @@ static const char *audio_out_choice(void)
 void gpio_lcd_power(int on)
 {
 #ifndef BM_RGB30
-    uint8_t m = board()->model;
-    if (m < BOARD_PI1_A || m > BOARD_CM1)
+    if (!board_is_pi1())
         return; /* Only Raspberry Pi 1 models have the SPI LCD hat headers */
     if (!on) {
         spilcd_sleep(1);
@@ -725,17 +726,19 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "fps, ms, CPU and GPU bars (F11 too)", "%s",
                  perf_name());
-        home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
-                 "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
-                 crt_choice());
+        if (board_is_pi1()) {
+            home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
+                     "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
+                     crt_choice());
 #ifndef BM_RGB30
-        home_row(p, MENU_ROW_CHOICE, R_VIDEO_OUT, "Video output",
-                 "Select display port: Auto (HDMI fallback to RCA), RCA only, HDMI only", "%s",
-                 video_out_choice());
-        home_row(p, MENU_ROW_CHOICE, R_LCD_POWER, "GPIO LCD screen",
-                 "Turn off GPIO screen backlight when using TV/monitor", "%s",
-                 lcd_gpio_is_off() ? "Off (power save)" : "On");
+            home_row(p, MENU_ROW_CHOICE, R_VIDEO_OUT, "Video output",
+                     "Select display port: Auto (HDMI fallback to RCA), RCA only, HDMI only", "%s",
+                     video_out_choice());
+            home_row(p, MENU_ROW_CHOICE, R_LCD_POWER, "GPIO LCD screen",
+                     "Turn off GPIO screen backlight when using TV/monitor", "%s",
+                     lcd_gpio_is_off() ? "Off (power save)" : "On");
 #endif
+        }
 #ifdef BM_RGB30
         home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
                  "A small red battery over games and tools at 20% or less", "%s",
@@ -766,8 +769,10 @@ void home_panel(int id, home_panel_t *p)
                  "The sound's state and a test tune", NULL);
 #else
         home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
-        home_row(p, MENU_ROW_CHOICE, R_AUDIO_OUT, "Audio output",
-                 "Sound routing: Auto (HDMI/3.5mm), 3.5mm Jack (PWM), HDMI only", "%s", audio_out_choice());
+        if (board_is_pi1()) {
+            home_row(p, MENU_ROW_CHOICE, R_AUDIO_OUT, "Audio output",
+                     "Sound routing: Auto (HDMI/3.5mm), 3.5mm Jack (PWM), HDMI only", "%s", audio_out_choice());
+        }
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
                  "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);

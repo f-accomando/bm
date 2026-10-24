@@ -131,10 +131,9 @@ int pwm_audio_start(const char **status)
 {
     out_status = status;
 
-    /* Pi Zero / Zero W / Zero 2 W have no 3.5mm jack, and GPIO 45 is BT_REG_ON */
-    uint8_t m = board()->model;
-    if (m == BOARD_ZERO || m == BOARD_ZERO_W || m == BOARD_ZERO_2W)
-        return pwm_fail("board has no 3.5mm jack (GPIO 45 is BT_REG_ON)");
+    /* Pi 1 Model B/B+ only: Pi Zero models have no jack and use GPIO 45 for BT_REG_ON */
+    if (!board_is_pi1())
+        return pwm_fail("board has no 3.5mm jack (Pi 1 only)");
 
     /* Claim DMA channel */
     static const uint8_t pref[] = { 5, 4, 2, 0 };

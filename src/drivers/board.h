@@ -43,4 +43,16 @@ void board_decode(uint32_t revision, board_t *b);
 /* The board we run on: the revision is asked to the firmware once. */
 const board_t *board(void);
 
+static inline int board_is_pi1(void)
+{
+    uint8_t m = board()->model;
+    return m >= BOARD_PI1_A && m <= BOARD_CM1;
+}
+
+static inline int board_is_zero(void)
+{
+    uint8_t m = board()->model;
+    return m == BOARD_ZERO || m == BOARD_ZERO_W || m == BOARD_ZERO_2W;
+}
+
 #endif
