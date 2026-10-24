@@ -12,6 +12,20 @@
 -- Iteration (for-of, spread, split("")) and regex `.` use whole UTF-8 chars.
 -- Timezone is always UTC. Holes in arrays read as undefined.
 --
+-- Public API (all methods take `rt` as self):
+--   local rt = js.new({budget = 2000000})   a new runtime; js.null; js.Throw (error metatable)
+--   rt:run(src, name) -> true, lastvalue | false, message
+--   rt:call(fn, this, ...)                  call a JS function; JS errors are Lua errors
+--   rt:call_safe(fn, this, ...) -> ok, value | message
+--   rt:construct(ctor, ...)                 rt:native(fn, name, nargs)  fn(this, a1, ...)
+--   rt:get(obj, key)  rt:set(obj, key, v)   rt:define_accessor(obj, key, getter, setter)
+--   rt:new_object([proto])  rt:new_array(list[, n])  rt:array_to_list(arr)  rt:keys(obj)
+--   rt:to_string  rt:to_number  rt:to_boolean  rt:typeof  rt:is_callable  rt:is_array
+--   rt:tick(now_ms)  rt:next_timer()  rt:drain()   timers and microtasks
+--   rt.global  rt.on_console(level, text)  rt.now_ms  rt.budget  rt.steps_left
+-- Limits: 512 KB source, nesting 200, call depth 200, 1 MB strings, 1M array items,
+-- 200 live timers. A script that spends the step budget is stopped for good.
+--
 -- Sections: 1 core, 2 regex engine, 3 tokenizer + parser, 4 compiler,
 -- 5 built-ins, 6 public API.
 
@@ -24,7 +38,6 @@ local sfmt, ssub, sbyte, schar, sfind, srep = string.format, string.sub, string.
 local sgsub, smatch, supper, slower, sgmatch = string.gsub, string.match, string.upper, string.lower, string.gmatch
 local tconcat, tunpack, tmove, tsort = table.concat, table.unpack, table.move, table.sort
 local os_time = os and os.time
-local os_clock = os and os.clock
 
 local MAX_STR, MAX_ARR, MAX_DEPTH, MAX_SRC = 1048576, 1000000, 200, 524288
 local NaN = 0 / 0
@@ -3588,13 +3601,6 @@ function compile_function(node, cs, isdecl, classinfo)
   local home_ok = (kind == "method" or kind == "get" or kind == "set" or kind == "ctor")
   local np = #params
 
-  local function run(s)
-    -- the body of the function: returns the value
-    if ex then return ex(s) end
-    local c, v = body(s)
-    if c == RET then return v end
-  end
-
   local function factory(up, fobj)
     if simple and np <= 3 then
       if np == 0 then
@@ -4676,6 +4682,7 @@ local function setup_object(rt)
     if proto ~= null and not is_obj(proto) then throw_error("TypeError", "Object prototype may only be an Object or null") end
     local o = new_obj(proto ~= null and proto or nil)
     if props ~= nil then
+      props = to_object_keys(props)
       local ks, n = own_keys(props)
       for i = 1, n do define_property(o, ks[i], getv(props, ks[i])) end
     end
@@ -5500,7 +5507,7 @@ local function string_replace(s, pat, rep, all)
 end
 
 local function string_split(s, sep, limit)
-  local lim = limit == nil and MAX_ARR or toint(limit, MAX_ARR)
+  local lim = limit == nil and MAX_ARR or (to_int32(to_num(limit)) & 0xFFFFFFFF)
   local out, n = {}, 0
   if lim <= 0 then return new_arr(out, 0) end
   if sep == nil then return new_arr({ s }, 1) end
@@ -5686,12 +5693,14 @@ function setup_string(rt)
   defs("valueOf", 0, function(s) return s end)
   defs("charAt", 1, function(s, i)
     i = toint(i, 0)
+    if i < 0 or i >= #s then return "" end
     return ssub(s, i + 1, i + 1)
   end)
   defs("charCodeAt", 1, function(s, i)
     i = toint(i, 0)
+    if i < 0 or i >= #s then return NaN end
     local c = sbyte(s, i + 1)
-    if not c or i < 0 then return NaN end
+    if not c then return NaN end
     if c >= 0xC0 then
       local cp = utf8_decode(s, i + 1)
       if cp > 0xFFFF then return 0xD800 + ((cp - 0x10000) >> 10) + 0.0 end
@@ -5701,8 +5710,7 @@ function setup_string(rt)
   end)
   defs("codePointAt", 1, function(s, i)
     i = toint(i, 0)
-    local c = sbyte(s, i + 1)
-    if not c or i < 0 then return nil end
+    if i < 0 or i >= #s then return nil end
     return utf8_decode(s, i + 1) + 0.0
   end)
   defs("at", 1, function(s, i)
@@ -5768,6 +5776,7 @@ function setup_string(rt)
     local from = relidx(a, len, 0)
     local cnt = toint(l, len - from)
     if cnt <= 0 then return "" end
+    if cnt > len then cnt = len end
     return ssub(s, from + 1, from + cnt)
   end)
   defs("toUpperCase", 0, function(s) return supper(s) end)
@@ -5884,6 +5893,7 @@ local function to_fixed(x, f)
   if mabs(x) >= 1e21 then return numstr(x) end
   local neg = x < 0
   if neg then x = -x end
+  if x == 0 then x = 0.0 end
   local L = sfmt("%." .. math.min(f + 30, 99) .. "f", x)
   local ip, fp = smatch(L, "^(%d+)%.?(%d*)$")
   local digits = ip .. ssub(fp, 1, f)
@@ -5898,6 +5908,7 @@ local function to_precision(x, p)
   if x ~= x or x == huge or x == -huge then return numstr(x) end
   local neg = x < 0
   if neg then x = -x end
+  if x == 0 then x = 0.0 end
   local es = sfmt("%." .. (p - 1) .. "e", x)
   local mant, ex = smatch(es, "^(.-)e([+-]%d+)$")
   local e = tonumber(ex)
@@ -6032,6 +6043,7 @@ function setup_number(rt)
   def(NP, "toExponential", function(this, d)
     local n = N(this)
     if n ~= n or n == huge or n == -huge then return numstr(n) end
+    if n == 0 then n = 0.0 end
     local es
     if d == nil then
       es = sfmt("%.16e", n)
@@ -7121,8 +7133,7 @@ function setup_timers(rt)
   def(G, "clearInterval", clear, 1)
   def(G, "requestAnimationFrame", function(this, fn)
     if not callable(fn) then return 0.0 end
-    local t = now()
-    return add(mkfn(function() return fn.fn(nil, t) end, "raf", 0), 16, false)
+    return add(mkfn(function() return fn.fn(nil, now()) end, "raf", 0), 16, false)
   end, 1)
   def(G, "cancelAnimationFrame", clear, 1)
 end
