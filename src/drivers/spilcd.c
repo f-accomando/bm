@@ -385,26 +385,16 @@ static const struct {
     { "COFFEE BREAK", "resting servos for a moment",   0xF4A261,  75 },
 };
 
-/* Background: blurred studio desk environment + warm pink-beige tabletop
- * matching the PiSugarStudio "This Tiny Robot Works On My Desk" video. */
+/* Background: clean studio backdrop + warm tabletop surface. */
 static void draw_studio_bg(g16_t *g)
 {
-    /* Upper blurred studio workbench backdrop */
+    /* Upper clean studio backdrop gradient */
     for (int y = 0; y < 175; y++) {
         int r = 165 - y / 5;
         int gr = 172 - y / 5;
         int b = 175 - y / 5;
         g16_rectfill(g, 0, y, SPILCD_W, 1, g16_rgb((uint32_t)r, (uint32_t)gr, (uint32_t)b));
     }
-    /* Subtle out-of-focus studio equipment shapes on the workbench behind */
-    round_box(g, -10, 32, 95, 110, 8, 0x7E878C);
-    g16_rectfill(g, -6, 48, 84, 3, g16_rgb24(0x9BA4A8));
-    g16_rectfill(g, -6, 78, 84, 3, g16_rgb24(0x9BA4A8));
-    g16_rectfill(g, -6, 108, 84, 3, g16_rgb24(0x9BA4A8));
-    round_box(g, 290, 26, 70, 90, 6, 0x8D9699);
-    /* Dark PCB / dev board silhouette on background table */
-    fill_quad(g, 286, 44, 368, 52, 352, 92, 272, 82, 0x2B302C);
-    fill_quad(g, 268, 78, 376, 86, 368, 126, 260, 118, 0xDEDAD0);
 
     /* Warm pink-beige tabletop surface in the lower half */
     for (int y = 175; y < SPILCD_H; y++) {
@@ -692,27 +682,7 @@ static void draw_desk_and_arms(g16_t *g, unsigned frame, int st)
     /* Laptop bottom hinge base */
     fill_quad(g, 204, 185, 314, 160, 314, 168, 204, 194, 0xACA386);
 
-    /* 6. Right Side: Cream Mushroom Lamp with Glowing Blue-White Column */
-    /* Cream rectangular lamp base */
-    fill_quad(g, 332, 134, 378, 125, 408, 146, 358, 158, 0xBFB69A);
-    fill_quad(g, 332, 131, 378, 122, 408, 143, 358, 155, 0xDED6BA);
-    /* Soft blue-white light pool on the lamp base */
-    fill_ellipse(g, 370, 139, 16, 7, (frame & 8) ? 0xF2F8FF : 0xDCEEFF);
-    /* Small dark hole in front-right of lamp base */
-    fill_ellipse(g, 386, 147, 3, 2, 0x22262E);
-    /* Glowing ice-blue / white vertical cylindrical light column */
-    int lx = 364, ly = 114;
-    g16_rectfill(g, lx - 1, ly, 16, 24, g16_rgb24(0x88C8F8));
-    g16_rectfill(g, lx + 1, ly, 12, 24, g16_rgb24(0xCBE8FF));
-    g16_rectfill(g, lx + 4, ly,  6, 24, g16_rgb24(0xFFFFFF));
-    fill_ellipse(g, lx + 7, ly + 24, 8, 3, 0xE6F4FF);
-    /* Mushroom dome cap on top of the lamp */
-    fill_ellipse(g, lx + 7, ly, 17, 6, 0xB5AC90);
-    g16_circfill(g, lx + 7, ly - 4, 15, g16_rgb24(0xD8CFAF));
-    g16_circfill(g, lx + 4, ly - 7, 10, g16_rgb24(0xEAE2C6));
-    fill_ellipse(g, lx + 7, ly + 1, 16, 4, 0xC4BB9E);
-
-    /* 7. Front-Left Corner: Cream 3D-Printed Coffee Mug */
+    /* 6. Front-Left Corner: Cream 3D-Printed Coffee Mug */
     int mx = 128, my = 186;
     /* Saucer lip at bottom of mug */
     fill_ellipse(g, mx + 12, my + 24, 16, 7, 0xABA286);
