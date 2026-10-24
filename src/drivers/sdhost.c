@@ -280,6 +280,7 @@ static int wait_transfer_complete(int write)
 {
     const uint32_t alt_idle = write ? FSM_WRITESTART1 : FSM_READWAIT;
     uint32_t t0 = timer_ticks();
+    const uint32_t timeout_us = write ? 250000u : 25000u;
     for (;;) {
         uint32_t edm = mmio_read(SDEDM), fsm = EDM_FSM(edm);
         if (fsm == FSM_IDENT || fsm == FSM_DATA)
@@ -288,7 +289,7 @@ static int wait_transfer_complete(int write)
             mmio_write(SDEDM, edm | EDM_FORCE_DATA);
             return 0;
         }
-        if (timer_ticks() - t0 > 500000) {
+        if (timer_ticks() - t0 > timeout_us) {
             err = write ? "write not completed" : "read not completed";
             TO(write ? TO_WR_END : TO_RD_END);
             return -1;

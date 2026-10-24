@@ -431,10 +431,32 @@ static void rescan(void)
 {
     background_stop();
     lib_invalidate();                   /* the Lib tab reads the files again */
-    /* SD cartridges by title, then the SDK. The native demo built into
-     * the kernel is not a game of the menu (monitor `n`). */
-    for (int i = 0; i < ncarts; i++)
-        g16_sheet_free(&carts[i].cover);
+
+    /* Keep covers that have already been read so the menu does not reload them
+     * every time a game exits or the user returns to the menu. */
+    static struct {
+        char path[FAT_NAME_MAX + 10];
+        uint32_t size;
+        uint32_t cluster;
+        g16_sheet_t cover;
+        uint8_t cover_read;
+        uint8_t used;
+    } old_covers[MAX_CARTS];
+    int n_old = 0;
+
+    for (int i = 0; i < ncarts && n_old < MAX_CARTS; i++) {
+        if (carts[i].cover_read && carts[i].cover.px) {
+            ksnprintf(old_covers[n_old].path, sizeof old_covers[n_old].path, "%s", carts[i].path);
+            old_covers[n_old].size = carts[i].size;
+            old_covers[n_old].cluster = carts[i].fe.cluster;
+            old_covers[n_old].cover = carts[i].cover;
+            old_covers[n_old].cover_read = carts[i].cover_read;
+            old_covers[n_old].used = 0;
+            n_old++;
+        } else {
+            g16_sheet_free(&carts[i].cover);
+        }
+    }
     ncarts = 0;
     if (sd_ok) {
         scan_dir("/");
@@ -464,7 +486,21 @@ static void rescan(void)
             ksnprintf(c->path, sizeof c->path, "%s", c->name);
         else
             ksnprintf(c->path, sizeof c->path, "%s%s%s", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
-    }                                   /* the covers: covers_tick, in the menu's free time */
+        for (int j = 0; j < n_old; j++) {
+            if (!old_covers[j].used &&
+                strcmp(c->path, old_covers[j].path) == 0 &&
+                c->size == old_covers[j].size &&
+                (c->builtin || c->fe.cluster == old_covers[j].cluster)) {
+                c->cover = old_covers[j].cover;
+                c->cover_read = old_covers[j].cover_read;
+                old_covers[j].used = 1;
+                break;
+            }
+        }
+    }
+    for (int j = 0; j < n_old; j++)
+        if (!old_covers[j].used)
+            g16_sheet_free(&old_covers[j].cover);
     market_carts_changed();
 }
 
