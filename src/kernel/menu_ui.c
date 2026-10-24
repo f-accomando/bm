@@ -1304,6 +1304,46 @@ static void enlarge(framebuffer_t *fb)
     }
 }
 
+/* menu_gpu=1: the first frames, what the GPU wrote against the pixels the ARM would copy: how many are wrong,
+ * by row of the block (y % scale), by column of the block (x % scale) and by row parity of the layout, the
+ * first wrong one and the colours of the first row; then the ARM draws the frame as it should be, so the
+ * menu stays readable (the stripes of the Pi, 24 Oct: the line tells which kind they are) */
+#define GPU_CHECKS 3
+static int gpu_checks;
+
+static void gpu_check(framebuffer_t *fb)
+{
+    gpu3d_sync();                       /* the job is over before the ARM reads the page */
+    const uint32_t stride = fb->pitch / 2;
+    const uint16_t *page = (const uint16_t *)fb->base;
+    uint32_t bad = 0, by_row[3] = { 0, 0, 0 }, by_col[3] = { 0, 0, 0 }, by_par[2] = { 0, 0 };
+    int fx = -1, fy = -1;
+    uint16_t got = 0, want = 0;
+    for (int y = 0; y < SH * scale; y++)
+        for (int x = 0; x < SW * scale; x++) {
+            const uint16_t w = frame[(y / scale) * SW + x / scale], v = page[(uint32_t)y * stride + (uint32_t)x];
+            if (v == w)
+                continue;
+            if (!bad) {
+                fx = x; fy = y; got = v; want = w;
+            }
+            bad++;
+            by_row[y % scale]++;
+            by_col[x % scale]++;
+            by_par[(y / scale) & 1]++;
+        }
+    gpu_checks++;
+    kprintf("menu: GPU check %d: %lu of %lu pixels differ; by row of the block %lu/%lu/%lu, by column %lu/%lu/%lu, "
+            "even/odd layout rows %lu/%lu; first at %d,%d got %04x want %04x; pitch %lu, width %lu\n", gpu_checks,
+            (unsigned long)bad, (unsigned long)(SW * scale) * (unsigned long)(SH * scale), (unsigned long)by_row[0],
+            (unsigned long)by_row[1], (unsigned long)by_row[2], (unsigned long)by_col[0], (unsigned long)by_col[1],
+            (unsigned long)by_col[2], (unsigned long)by_par[0], (unsigned long)by_par[1], fx, fy, got, want,
+            (unsigned long)fb->pitch, (unsigned long)fb->width);
+    if (bad)
+        enlarge(fb);
+}
+
+
 /* the long calls that hold the CPU (stalls.h), a line when one ran in the window: count,
  * the last and the longest in ms; the hash adds the KB. Starts counting again. */
 static void stall_print(const char *name, stall_t *s, char *buf, size_t n, size_t *k)
@@ -1618,6 +1658,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                 kprintf("menu: the GPU did not enlarge the layout (%s): the ARM does\n", gpu3d_status());
             gpu_big = 0;
             enlarge(fb);
+        } else if (gpu_checks < GPU_CHECKS) {
+            gpu_check(fb);              /* menu_gpu=1: what the GPU wrote, against the ARM's copy (a log line) */
         }
     }
     const uint32_t drawn = timer_ticks();

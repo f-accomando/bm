@@ -385,7 +385,7 @@ name = "menu_gpu"
 scope = "pi"
 values = "1 = the V3D enlarges the menu (gpu3d_enlarge); anything else = the ARM"
 default = "off (ARM). The GPU enlarge showed stripes on the Pi (24 Oct): hidden key until a hardware run shows a clean menu."
-meaning = "Who enlarges the menu layout to menu_scale. Hidden key, no Settings row (SYS-9)."
+meaning = "Who enlarges the menu layout to menu_scale. Hidden key, no Settings row (SYS-9). With menu_gpu=1 and menu_scale 2 or 3 the first 3 frames log `menu: GPU check N: ...` (pixels the GPU got wrong, by row and column of the block); the ARM then redraws them."
 settings = ""
 read_in = "src/kernel/menu_ui.c"
 
