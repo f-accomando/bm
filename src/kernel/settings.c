@@ -114,7 +114,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FILTER, R_FAST3D,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
     R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
@@ -288,6 +288,15 @@ static const char *impostor_choice(void)
         return "Off";
     ksnprintf(t, sizeof t, "Up to %d px (1080p)", px);
     return t;
+}
+
+/* menu_scale: no key = Auto (2x when the GPU is there, else 1x) */
+static const char *menu_size_choice(void)
+{
+    const char *v = config_get("menu_scale");
+    if (!v || !*v)
+        return "Auto";
+    return v[0] == '3' ? "3x (1080p)" : v[0] == '2' ? "2x (720p)" : "1x (360p)";
 }
 #endif
 
@@ -564,6 +573,8 @@ void home_panel(int id, home_panel_t *p)
                  "Smooth edges of the GPU's 3D (try GPU test, below)", "%s", aa_choice());
         home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
                  "Nearest: sharp pixels. Bilinear: smooth", "%s", filter_on() ? "Bilinear" : "Nearest");
+        home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
+                 "Auto: 720p with the GPU, else 360p. Applies at the next start", "%s", menu_size_choice());
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
@@ -1178,6 +1189,20 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s", filter_on() ? "bilinear" : "nearest");
         break;
+    case R_MENUSIZE: {
+        const char *v = config_get("menu_scale");
+        if (!v || !*v)
+            config_set("menu_scale", "1");
+        else if (v[0] == '1')
+            config_set("menu_scale", "2");
+        else if (v[0] == '2')
+            config_set("menu_scale", "3");
+        else
+            config_unset("menu_scale");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "menu size at the next start: %s", menu_size_choice());
+        break;
+    }
     case R_IMPOSTOR: {
         const int px = impostor_px();
         const char *next = px <= 0 ? "8" : px < 16 ? "16" : px < 32 ? "32" : "0";

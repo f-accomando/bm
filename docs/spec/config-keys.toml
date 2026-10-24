@@ -386,7 +386,7 @@ scope = "pi"
 values = "1, 2 or 3 = menu at that size (the first character is read); no key = 2 with the GPU, else 1"
 default = "2 with the GPU, else 1"
 meaning = "Size of the menu on the Pi (enlarged by the GPU where there is one)."
-settings = ""
+settings = "Settings > Screen and sound > Menu size"
 read_in = "src/kernel/menu_ui.c:1208"
 
 [[key]]
