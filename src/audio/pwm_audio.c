@@ -25,6 +25,7 @@
 #define CM_CTL_KILL     (1u << 5)
 #define CM_CTL_ENAB     (1u << 4)
 #define CM_CTL_SRC_OSC  1u              /* 19.2 MHz oscillator */
+#define CM_CTL_SRC_PLLD 6u              /* PLLD 500 MHz (250 MHz carrier with div=2) */
 
 #define PWM_BASE        (PERIPHERAL_BASE + 0x20C000)
 #define PWM_CTL         (PWM_BASE + 0x00)
@@ -45,7 +46,7 @@
 #define PWM_CTL_USEF2   (1u << 13)
 #define PWM_CTL_MSEN2   (1u << 15)
 
-#define PWM_RANGE       400u            /* 19.2 MHz / 48000 Hz = 400 */
+#define PWM_RANGE       5208u           /* 250 MHz / 48000 Hz = 5208 */
 #define DREQ_PWM        5
 #define IRQ_DMA(c)      (16 + (c))
 
@@ -56,6 +57,7 @@
 #define DMA_INT_STATUS  (DMA_BASE + 0xFE0)
 
 #define CS_RESET        (1u << 31)
+#define CS_WAIT_WRITES  (1u << 28)
 #define CS_PANIC_PRIORITY(p) ((uint32_t)(p) << 20)
 #define CS_PRIORITY(p)  ((uint32_t)(p) << 16)
 #define CS_ERROR        (1u << 8)
@@ -64,8 +66,10 @@
 #define CS_ACTIVE       (1u << 0)
 
 #define TI_INTEN        (1u << 0)
+#define TI_WAIT_RESP    (1u << 3)
 #define TI_DEST_DREQ    (1u << 6)
 #define TI_SRC_INC      (1u << 8)
+#define TI_SRC_WIDTH    (1u << 9)
 #define TI_PERMAP(dreq) ((uint32_t)(dreq) << 16)
 
 #define AUDIO_CHUNK     256             /* stereo frames per buffer */
@@ -140,23 +144,38 @@ int pwm_audio_start(const char **status)
     gpio_set_pull(40, GPIO_PULL_NONE);
     gpio_set_pull(45, GPIO_PULL_NONE);
 
-    /* 2. Setup Clock Manager for PWM (19.2 MHz oscillator, div=1) */
+    /* 2. Setup Clock Manager for PWM (PLLD 500 MHz, div=2 -> 250 MHz) */
     dmb();
     mmio_write(CM_PWMCTL, CM_PASSWD | CM_CTL_KILL);
     timer_delay_us(10);
     while (mmio_read(CM_PWMCTL) & CM_CTL_BUSY)
         ;
-    mmio_write(CM_PWMDIV, CM_PASSWD | (1u << 12));  /* divisor = 1.0 */
-    mmio_write(CM_PWMCTL, CM_PASSWD | CM_CTL_ENAB | CM_CTL_SRC_OSC);
+    mmio_write(CM_PWMDIV, CM_PASSWD | (2u << 12));  /* divisor = 2 */
     timer_delay_us(10);
-    while (!(mmio_read(CM_PWMCTL) & CM_CTL_BUSY))
-        ;
+    mmio_write(CM_PWMCTL, CM_PASSWD | CM_CTL_SRC_PLLD);
+    timer_delay_us(10);
+    mmio_write(CM_PWMCTL, mmio_read(CM_PWMCTL) | CM_PASSWD | CM_CTL_ENAB);
+    timer_delay_us(2000);
 
-    /* 3. Pre-fill ring buffers */
+    /* 3. Setup PWM controller: Range 5208, Stereo FIFO, Mark-Space mode, enable DMA */
+    mmio_write(PWM_CTL, 0);
+    timer_delay_us(10);
+    mmio_write(PWM_RNG1, PWM_RANGE);
+    mmio_write(PWM_RNG2, PWM_RANGE);
+    mmio_write(PWM_CTL, PWM_CTL_PWEN1 | PWM_CTL_USEF1 |
+                        PWM_CTL_PWEN2 | PWM_CTL_USEF2 |
+                        PWM_CTL_MSEN1 | PWM_CTL_MSEN2 |
+                        PWM_CTL_CLRF1);
+    timer_delay_us(2000);
+    mmio_write(PWM_DMAC, (1u << 31) | (7u << 8) | (7u << 0));
+    timer_delay_us(10);
+
+    /* 4. Pre-fill ring buffers */
     pwm_fill(0);
     pwm_fill(1);
     for (unsigned i = 0; i < 2; i++) {
-        cbs[i].ti = TI_PERMAP(DREQ_PWM) | TI_SRC_INC | TI_DEST_DREQ | TI_INTEN;
+        cbs[i].ti = TI_PERMAP(DREQ_PWM) | TI_SRC_WIDTH | TI_SRC_INC | TI_DEST_DREQ |
+                    TI_WAIT_RESP | TI_INTEN;
         cbs[i].src = ARM_TO_BUS(pwm_bufs[i]);
         cbs[i].dst = PWM_FIF1_BUS;
         cbs[i].len = sizeof pwm_bufs[i];
@@ -166,11 +185,13 @@ int pwm_audio_start(const char **status)
     }
     dcache_clean_range(cbs, sizeof cbs);
 
-    /* 4. Start DMA */
+    /* 5. Start DMA */
     dmb();
     mmio_write(DMA_ENABLE, mmio_read(DMA_ENABLE) | 1u << dma_ch);
     mmio_write(DMA_CS(dma_ch), CS_RESET);
     timer_delay_us(10);
+    while (mmio_read(DMA_CS(dma_ch)) & CS_RESET)
+        ;
     mmio_write(DMA_CS(dma_ch), CS_INT | CS_END);
     mmio_write(DMA_INT_STATUS, 1u << dma_ch);
     dmb();
@@ -178,19 +199,7 @@ int pwm_audio_start(const char **status)
     irq_enable(IRQ_DMA(dma_ch));
     dmb();
     mmio_write(DMA_CONBLK_AD(dma_ch), ARM_TO_BUS(&cbs[0]));
-    mmio_write(DMA_CS(dma_ch), CS_PANIC_PRIORITY(15) | CS_PRIORITY(1) | CS_ACTIVE);
-    dmb();
-
-    /* 5. Setup PWM controller: Range 400, Stereo FIFO, Mark-Space mode, enable DMA */
-    mmio_write(PWM_CTL, 0);
-    timer_delay_us(10);
-    mmio_write(PWM_CTL, PWM_CTL_CLRF1);
-    timer_delay_us(10);
-    mmio_write(PWM_RNG1, PWM_RANGE);
-    mmio_write(PWM_RNG2, PWM_RANGE);
-    mmio_write(PWM_DMAC, (1u << 31) | (7u << 8) | (7u << 0));
-    mmio_write(PWM_CTL, PWM_CTL_PWEN1 | PWM_CTL_USEF1 | PWM_CTL_MSEN1 |
-                        PWM_CTL_PWEN2 | PWM_CTL_USEF2 | PWM_CTL_MSEN2);
+    mmio_write(DMA_CS(dma_ch), CS_WAIT_WRITES | CS_PANIC_PRIORITY(15) | CS_PRIORITY(1) | CS_ACTIVE);
     dmb();
 
     /* 6. Verify DMA ring is moving */
