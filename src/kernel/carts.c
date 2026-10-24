@@ -1127,7 +1127,7 @@ static const lib_item_t *lib_current(void)
     return r >= 0 && r < lib_nrows && lib_row_item[r] >= 0 ? lib_item(lib_row_item[r]) : NULL;
 }
 
-enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER, ASK_COMPAT };
+enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER, ASK_COMPAT, ASK_UPDATE_SUSPENDED };
 enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_MESH, GO_PIXEL, GO_TEXT, GO_UPLOAD,
        GO_NETPLAY };
 
@@ -1393,6 +1393,11 @@ void carts_menu(framebuffer_t *fb)
                 v.ask = ask_q;
                 v.ask_detail = "It is suspended: what was not saved is lost.";
                 v.ask_yes = "Close it";
+            } else if (ask == ASK_UPDATE_SUSPENDED && bm_suspended(susp_title, sizeof susp_title)) {
+                ksnprintf(ask_q, sizeof ask_q, "Update %s?", susp_title);
+                v.ask = ask_q;
+                v.ask_detail = "Game is frozen in memory: close and update? Unsaved progress will be lost.";
+                v.ask_yes = "Close & Update";
             } else if (ask == ASK_PANEL || ask == ASK_MARKET || ask == ASK_OFFER || ask == ASK_COMPAT) {
                 v.ask = ask_q;
                 v.ask_detail = ask_d;
@@ -1633,6 +1638,12 @@ void carts_menu(framebuffer_t *fb)
             } else if (yes && ask == ASK_SWITCH && ask_cart >= 0 && netxfer_updating(carts[ask_cart].path)) {
                 ask = ASK_NONE;                 /* the game stays frozen: nothing to start yet */
                 ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
+            } else if (yes && ask == ASK_UPDATE_SUSPENDED) {
+                ask = ASK_NONE;
+                bm_close_suspended();
+                susp_path[0] = 0;
+                go = ask_go;
+                go_cart = ask_cart;
             } else if (yes && ask == ASK_SWITCH) {
                 ask = ASK_NONE;
                 bm_close_suspended();
@@ -1846,12 +1857,10 @@ void carts_menu(framebuffer_t *fb)
         static unsigned seen_saves;
         uint8_t *net_buf = NULL;
         size_t net_len = 0;
-        /* a new copy of the game frozen in memory arrived: the old one
-         * never comes back (the new one is written next) */
+        /* a new copy of the game frozen in memory arrived: keep it suspended until
+         * the user chooses to close and update (ASK_UPDATE_SUSPENDED) */
         if (susp_path[0] && netxfer_updating(susp_path) >= NETXFER_QUEUED && bm_suspended(NULL, 0)) {
-            kprintf("menu: %s closed, its new copy from the network replaces it\n", susp_path);
-            bm_close_suspended();
-            susp_path[0] = 0;
+            /* do not kill suspended game: prompt on launch */
         }
         if (netxfer_saves() != seen_saves) {
             seen_saves = netxfer_saves();
@@ -1912,6 +1921,10 @@ void carts_menu(framebuffer_t *fb)
                 go = GO_TEXT;
                 go_text = d.text;
                 go_wait = d.wait;
+            } else if (gfx && is_suspended(&carts[i]) && netxfer_updating(carts[i].path)) {
+                ask = ASK_UPDATE_SUSPENDED;
+                ask_go = is_project(&carts[i]) ? GO_SDK : GO_PLAY;
+                ask_cart = i;
             } else if (gfx && bm_suspended(NULL, 0) && !is_suspended(&carts[i])) {
                 ask = ASK_SWITCH;
                 ask_go = is_project(&carts[i]) ? GO_SDK : GO_PLAY;

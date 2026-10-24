@@ -761,17 +761,16 @@ void market_set_active(int on)
         net_failed = 0;                 /* each visit tries the network again */
     } else if (!on && active) {
         active = 0;
-        if (!finishing)
-            fiber_job_stop(&work);      /* stop it now: it ends at its next wait */
+        if (!finishing && job != JOB_GET)
+            fiber_job_stop(&work);      /* covers/index pause off the tab; game download goes on */
     }
 }
 
 void market_tick(uint32_t until)
 {
     if (!active) {
-        /* off the tab only a game being written goes on, to its end: no
-         * network, no new job */
-        if (work.busy && finishing)
+        /* off the tab: a game being downloaded or written continues in background */
+        if (work.busy && (finishing || job == JOB_GET))
             fiber_job_run(&work, until);
         return;
     }

@@ -62,4 +62,9 @@ int  netxfer_updating(const char *path);
  * ("pong.bm", n bytes at most), the bytes in so far and its size. */
 int  netxfer_file_state(char *name, size_t n, uint32_t *done, uint32_t *total);
 
+/* Staged kernel management (2026-10-24): kernel parked without forced reboot */
+int  netxfer_has_staged_kernel(void);
+const char *netxfer_staged_kernel_desc(void);
+int  netxfer_apply_staged_kernel(void);
+
 #endif

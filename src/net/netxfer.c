@@ -38,6 +38,7 @@
 
 #include "lwip/tcp.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -382,6 +383,84 @@ static int save(const char *p, const uint8_t *data, uint32_t len)
 #define KERNEL_MARK '6'
 #endif
 
+#define BACKUP_DIR "/bm/backup"
+#define STAGING_DIR "/bm/staging"
+#define STAGED_KERNEL_PATH STAGING_DIR "/" KERNEL_FILE
+
+static int staged_kernel;
+static uint32_t staged_kernel_size;
+static char staged_desc[48];
+
+static void kernel_staged(int r, uint32_t len)
+{
+    reply(r == 0 ? "OK" : "WE");
+    if (r == 0) {
+        saves++;
+        kprintf("\x1b[92mnet: kernel parked in %s (%lu bytes)\x1b[0m\n", STAGED_KERNEL_PATH, (unsigned long)len);
+        staged_kernel = 1;
+        staged_kernel_size = len;
+        notice_flash("Kernel downloaded", "Apply it in Settings > Updates", -1, 5000);
+    } else {
+        kprintf("\x1b[91mnet: could not write %s (%s)\x1b[0m\n", STAGED_KERNEL_PATH, fat_error());
+    }
+    st = REPLIED;
+    close_at = timer_ticks();
+}
+
+int netxfer_has_staged_kernel(void)
+{
+    if (staged_kernel)
+        return 1;
+    fat_entry_t e;
+    if (fat_find(STAGED_KERNEL_PATH, &e) == 0 && !e.is_dir && e.size > 0) {
+        staged_kernel = 1;
+        staged_kernel_size = e.size;
+        return 1;
+    }
+    return 0;
+}
+
+const char *netxfer_staged_kernel_desc(void)
+{
+    if (!netxfer_has_staged_kernel())
+        return "None";
+    snprintf(staged_desc, sizeof staged_desc, "%lu KiB ready", (unsigned long)((staged_kernel_size + 1023) / 1024));
+    return staged_desc;
+}
+
+int netxfer_apply_staged_kernel(void)
+{
+    fat_entry_t e;
+    if (fat_find(STAGED_KERNEL_PATH, &e) != 0 || e.is_dir)
+        return -1;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    if (fat_load(&e, &data, &len) != 0 || !data)
+        return -1;
+    /* backup old kernel */
+    fat_entry_t old_e;
+    uint8_t *old_data = NULL;
+    size_t old_len = 0;
+    if (fat_find("/" KERNEL_FILE, &old_e) == 0 && fat_load(&old_e, &old_data, &old_len) == 0) {
+        fat_mkdirs(BACKUP_DIR);
+        fat_write_file(BACKUP_DIR, KERNEL_FILE, old_data, old_len);
+        free(old_data);
+    }
+    int r = save(KERNEL_FILE, data, len);
+    free(data);
+    if (r == 0) {
+        fat_delete(STAGED_KERNEL_PATH);
+        staged_kernel = 0;
+        staged_kernel_size = 0;
+        reboot_after = 1;
+        restart_at = timer_ticks() + 3000000u;
+        said = -1;
+        notice_flash("Kernel installed", "Restarting in 3 seconds...", -1, 3000);
+        return 0;
+    }
+    return -1;
+}
+
 static int kernel_fits(const uint8_t *img, uint32_t len)
 {
     int arm64 = len >= 64 && memcmp(img + 56, "ARM\x64", 4) == 0;
@@ -441,12 +520,12 @@ static void kernel_written(int r, uint32_t len)
 
 /* A kernel written at once, outside the menu: the network polled after
  * each piece (keep_net) */
-static int save_now(const uint8_t *data, uint32_t len)
+static int save_now(const char *dest, const uint8_t *data, uint32_t len)
 {
     int (*was)(void) = fat_write_tick;
     st = WRITING;
     fat_write_tick = keep_net;
-    int r = save(KERNEL_FILE, data, len);
+    int r = save(dest ? dest : KERNEL_FILE, data, len);
     fat_write_tick = was;
     return r;
 }
@@ -479,7 +558,7 @@ void netxfer_poll(void)
             q.data = NULL;
             q.path[0] = 0;
             q.kernel = 0;
-            kernel_written(save_now(d, n), n);
+            kernel_staged(save_now(STAGED_KERNEL_PATH, d, n), n);
             free(d);
         }
     }
@@ -609,19 +688,17 @@ void netxfer_poll(void)
                     "takes kernel7.img, the RGB30 kernel8.img, the other boards kernel.img)\x1b[0m\n");
             reset();
         } else if (menu_here() && !q.data) {
-            /* the kernel: with the menu there, its fiber writes it like a
-             * file, alone on the card, and the answer goes after */
-            q.path[0] = '/';
-            strcpy(q.path + 1, KERNEL_FILE);
+            /* the kernel: with the menu there, parked in staging without forced reboot */
+            snprintf(q.path, sizeof q.path, "%s", STAGED_KERNEL_PATH);
             q.data = buf;
             q.len = size;
             q.kernel = 1;
             buf = NULL;
             st = WRITING;
             waits = 1;
-            kprintf("net: kernel received (%lu bytes): written on the SD card from the menu\n", size);
+            kprintf("net: kernel received (%lu bytes): parked in %s\n", (unsigned long)size, STAGED_KERNEL_PATH);
         } else {
-            kernel_written(save_now(buf, size), size);
+            kernel_staged(save_now(STAGED_KERNEL_PATH, buf, size), size);
             reset();
         }
         if (!waits) {
@@ -677,8 +754,8 @@ static void write_over(void)
         kprintf("net: writing %s paused, it starts again later\n", q.path);
         return;
     }
-    if (q.kernel) {                     /* the PC's answer, the restart */
-        kernel_written(write_rc, q.len);
+    if (q.kernel) {                     /* the PC's answer: kernel parked in staging */
+        kernel_staged(write_rc, q.len);
         free(q.data);
         q.data = NULL;
         q.path[0] = 0;

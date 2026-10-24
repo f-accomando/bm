@@ -20,21 +20,7 @@ int notice_now(char *title, char *detail, int *progress)
 {
     uint32_t got = 0, size = 0;
     int secs = 0;
-    switch (netxfer_kernel_state(&got, &size, &secs)) {
-    case NETXFER_K_RECEIVING:
-        ksnprintf(title, NOTICE_LEN, "Receiving a new kernel");
-        if (size && got >= size)
-            ksnprintf(detail, NOTICE_LEN, "Writing it on the SD card...");
-        else
-            ksnprintf(detail, NOTICE_LEN, "%lu of %lu KB", got / 1024, size / 1024);
-        *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
-        return 1;
-    case NETXFER_K_WRITING:             /* by the menu's fiber: the menu goes on */
-        ksnprintf(title, NOTICE_LEN, "Receiving a new kernel");
-        ksnprintf(detail, NOTICE_LEN, "Writing it on the SD card: %lu of %lu KB", got / 1024, size / 1024);
-        *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
-        return 1;
-    case NETXFER_K_RESTART:
+    if (netxfer_kernel_state(&got, &size, &secs) == NETXFER_K_RESTART) {
         if (secs)
             ksnprintf(title, NOTICE_LEN, "Restarting in %d", secs);
         else
@@ -46,17 +32,6 @@ int notice_now(char *title, char *detail, int *progress)
     /* an update from GitHub being installed (update.c), then its restart */
     if (update_notice(title, detail, progress))
         return 1;
-    /* a file from the PC (bm_net.py --send): arriving, then written from
-     * the menu (2026-10-10); waiting while a game runs: a flash said so */
-    char name[24];
-    const int f = netxfer_file_state(name, sizeof name, &got, &size);
-    if (f == NETXFER_RECEIVING || f == NETXFER_WRITING) {
-        ksnprintf(title, NOTICE_LEN, "%s %s", f == NETXFER_WRITING ? "Updating" : "Receiving", name);
-        ksnprintf(detail, NOTICE_LEN, "%lu of %lu KB%s", got / 1024, size / 1024,
-                  f == NETXFER_WRITING ? " on the SD card" : "");
-        *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
-        return 1;
-    }
     if (flash_until && (int32_t)(flash_until - timer_ticks()) > 0) {
         ksnprintf(title, NOTICE_LEN, "%s", flash_title);
         ksnprintf(detail, NOTICE_LEN, "%s", flash_detail);

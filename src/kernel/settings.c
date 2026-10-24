@@ -27,6 +27,7 @@
 #include "usb/hid.h"
 #include "wifi/wifi.h"
 #include "net/wifi_auto.h"
+#include "net/netxfer.h"
 #include "audio/audio.h"
 #include "audio/presets.h"
 #ifdef BM_RGB30
@@ -113,7 +114,7 @@ enum {
     R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
-    R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
+    R_UPDATE, R_INSTALL, R_INSTALL_STAGED, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_GPIOSCREEN, R_AUDIO, R_LOG, R_BT,
     R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FILTER, R_FAST3D,
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
@@ -633,6 +634,10 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
         home_row(p, MENU_ROW_ACTION, R_UPDATE, "Check for updates",
                  "The latest release on GitHub, signed: what would change", "%s", update_state());
+        if (netxfer_has_staged_kernel()) {
+            home_row(p, MENU_ROW_ACTION, R_INSTALL_STAGED, "Apply staged kernel",
+                     "Written to SD card, old kernel backed up, restarts", "%s", netxfer_staged_kernel_desc());
+        }
         if (update_ready()) {
             home_row(p, MENU_ROW_ACTION, R_INSTALL, "Install the update",
                      "Keeps the old kernels in /bm/backup, restarts", "%s", update_install_state());
@@ -1145,6 +1150,17 @@ void home_act(int id, int row, int how, home_do_t *d)
             char q[64];
             ksnprintf(q, sizeof q, "Install bm %s?", update_ready());
             ask(d, q, "The console restarts when it is done.", "Install");
+        }
+        break;
+    case R_INSTALL_STAGED:
+        if (how == HOME_YES) {
+            if (netxfer_apply_staged_kernel() == 0) {
+                ksnprintf(d->note, sizeof d->note, "Applying kernel: restarting in 3 seconds");
+            } else {
+                ksnprintf(d->note, sizeof d->note, "Failed to apply staged kernel");
+            }
+        } else if (how == 0) {
+            ask(d, "Apply downloaded kernel?", "The old kernel is backed up in /bm/backup. Restarts when done.", "Apply & Restart");
         }
         break;
     case R_VOLUME: {

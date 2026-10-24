@@ -105,10 +105,12 @@ const char *fat_error(void) { return "test"; }
 int fat_find(const char *path, fat_entry_t *e)
 {
     if (strcasecmp(path, "/bm/shots/PONG0001.PNG") && strcasecmp(path, "/bm/config.txt") &&
-        strcasecmp(path, "/bm/BOOTPREV.TXT") && strcasecmp(path, "/bm/CONFIG.TXT") && strcasecmp(path, "/bm/LASTRUN.TXT"))
+        strcasecmp(path, "/bm/BOOTPREV.TXT") && strcasecmp(path, "/bm/CONFIG.TXT") &&
+        strcasecmp(path, "/bm/LASTRUN.TXT") && strcasecmp(path, "/bm/staging/kernel.img") &&
+        strcasecmp(path, "/kernel.img"))
         return -1;
     memset(e, 0, sizeof *e);
-    e->size = 3000;
+    e->size = strcasecmp(path, "/bm/staging/kernel.img") == 0 ? (w_len ? (uint32_t)w_len : 100000u) : 3000;
     return 0;
 }
 static int load_log;                    /* the next file is a log with the password in it */
@@ -124,6 +126,9 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
     }
     return 0;
 }
+int fat_delete(const char *path) { (void)path; return 0; }
+int fat_replace(const char *path, const void *data, size_t len) { (void)path; (void)data; (void)len; return 0; }
+
 /* kernel/reports.c: the secrets of the console become stars */
 void reports_mask_secrets(char *text, size_t len)
 {
@@ -699,11 +704,15 @@ int main(int argc, char **argv)
         }
         spin(600);
         if (cases[t].op == 'K' && strcmp(cases[t].answer, "OKOK") == 0) {
-            /* the kernel is in: 3 s counted down, then the restart */
+            /* the kernel is in: parked in staging, then applied from settings */
+            check(netxfer_has_staged_kernel(), "  kernel parked in staging");
+            int r = netxfer_apply_staged_kernel();
+            check(r == 0, "  staged kernel applied from settings");
             int secs = -1;
             check(netxfer_kernel_state(NULL, NULL, &secs) == NETXFER_K_RESTART && secs >= 2 && secs <= 3,
                   "  restart counted down from 3 s");
-            spin(3000);
+            for (int i = 0; i < 3500 && !reboots; i++)
+                spin(1);
         }
         if (strcmp(x.got, cases[t].answer) != 0)
             printf("  got \"%s\"\n", x.got);
