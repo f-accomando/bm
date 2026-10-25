@@ -1,5 +1,7 @@
 /*
- * Cartridge list (built-in + SD card) and the on-screen menu.
+ * The Pi's cartridge menu: the on-screen menu loop and the launches of the games and the tools. The list of
+ * cartridges (built-in + SD card), the covers, the frozen game, the panel and the play are in library.c, shared
+ * with the RGB30's menu.
  */
 #include "sdmap.h"
 #include "carts.h"

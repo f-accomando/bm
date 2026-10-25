@@ -186,10 +186,11 @@ static int game_idx[LIB_MAX], n_games;      /* the Games tab: the library indexe
 static int dev_idx[LIB_MAX], n_dev;         /* the Dev tab after its fixed items: apps and utilities */
 static const char *sd_state = "not read";
 
-/* --- the covers, in the background (D10, as the Pi's carts.c: a fiber job in the menu's free time, the covers on
- * screen first, stopped before a game or a page starts and before the list changes) --- */
-
 enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+
+/* --- what this console gives the game library (kernel/library.h): the same library as the Pi's, with the covers
+ * read in the background (D10: a fiber job in the menu's free time, the covers on screen first, stopped before a
+ * game or a page starts and before the list changes) --- */
 
 /* What the RGB30 lists: .b16 always, .bm unless show_bm=0 (they are for the Pi, listed for testing), no tool
  * cartridge (a tool installed from Market > Apps, the SDK: Dev, not Games), no project. */
@@ -213,7 +214,7 @@ static int rgb_want(const char *name)
 static void rgb_stop_background(void)
 {
     netxfer_write_pause();                          /* a file from the PC: again later */
-    lib_covers_stop();                     /* no cover read left half way */
+    lib_covers_stop();                              /* no cover read left half way */
     wifi_auto_stop();
     sdmap_stop();
 }
@@ -236,8 +237,9 @@ static void rgb_play_begin(const lib_game_t *g, int resume);
 static const char *const rgb_dirs[] = { "/bm", "/carts", NULL };
 static const lib_backend_t rgb_backend = {
     .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
-    .panel = LIB_CAP_SDK | LIB_CAP_SEND, .play_begin = rgb_play_begin,
-    .jobs = menu_jobs, .njobs = (int)(sizeof menu_jobs / sizeof *menu_jobs),       /* no tools but the SDK, no editable copy, no Publish (D11) */
+    .panel = LIB_CAP_SDK | LIB_CAP_SEND,        /* no tools but the SDK, no editable copy, no Publish (D11) */
+    .play_begin = rgb_play_begin,
+    .jobs = menu_jobs, .njobs = (int)(sizeof menu_jobs / sizeof *menu_jobs),
 };
 
 static void scan_games(void)
