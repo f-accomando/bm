@@ -10,7 +10,7 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 |---|---|---|---|---|---|---|---|
 | D03 | players | 4 BT pads plus USB (`src/usb/hid.c:445`, `src/kernel/input.c:225`) | all pads merge into player 1 (`src/rgb30/bm_input.c:95-103`); Settings shows "Player 1" only | ASK 1 | port the Pi slots: built-in pad is P1, BT pads P2-4 | S-M | device; host test of the merge |
 | D05 | menu pointer | mouse block in the menu (`src/kernel/carts.c`) | no pointer in `src/rgb30/ui.c`, but Settings shows the Mouse rows | ASK 2 | port the pointer block (`pointer.c` is built) or hide the rows | M / S | QEMU, device |
-| D10 | covers | background fiber job, visible covers first (`carts.c`) | every cover decoded in `scan_games` (`ui.c:280-292`) | done 25 Oct (QEMU) | keep the header read synchronous (sort needs titles); move the cover decode into a `fiber_job_t`, visible covers first; stop it before a game starts | M | QEMU; load time on the device |
+| D10 | covers | background fiber job, visible covers first (`src/kernel/library.c`, shared by both menus since 25 Oct) | the same job (`lib_covers_tick`); a placeholder until the cover is read | done 25 Oct (QEMU) | the header read stays in the scan (the sort needs titles); the job stops before a game starts | M | QEMU; load time on the device |
 | D14 | DMA test | Settings > System > Utilities | not built | ASK 4 (default KEEP) | note: the DMA test exercises the BCM2835 DMA engine; capability `soc-dma` in `platforms.toml` | S | `consistency.py check` |
 | D15a | Settings > System "3D driver" row | shows the bm3d version | missing | done 25 Oct (QEMU) | row from the backend text of `src/rgb30/bm_port.c` | S | QEMU screen text |
 | D15b | CPU clock and temperature | `prop_query` | CPU name only | ASK 9 | read the RK3566 TSADC and the clock | M | device |
@@ -47,6 +47,58 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 6. **B6, large (L):** D17 (needs the on-screen keyboard); the Mali work (D45 and the D23 merge).
 
 ## Decisions of the user (answered 25 Oct 2026)
+
+## Game library (25 Oct 2026, QEMU only)
+
+The Pi menu and the RGB30 menu share one game library: `src/kernel/library.c` and `library.h` (decision D2: this place; decision D3:
+the RGB30 menu behaviour may change in the merge). The functions that existed twice are now one:
+
+| Was in `carts.c` and `src/rgb30/ui.c` | Now in `library.c` |
+|---|---|
+| `title_cmp`, `same_text` / `same_ci` | `lib_text_cmp`, `lib_same_text`, `lib_title_cmp` |
+| `scan_dir`, `read_header` / `load_head`, the covers kept by `rescan` | `lib_scan`, `lib_add_builtin` |
+| `carts_find_title`, `carts_has_path`, `find_path` / `game_of_path` | the same two names, `lib_find_path` |
+| `read_cover`, `next_cover`, `covers_main`, `covers_tick` | the same code, `lib_covers_tick`, `lib_covers_stop`, `lib_cover_focus` |
+| `is_suspended`, `susp_path` / `susp_name`, `need_switch`, the two questions | `lib_is_suspended`, `lib_need_switch`, `lib_suspend_*`, `lib_switch_question`, `lib_compat_question` |
+| `save_size`, `save_delete` / `game_save_bytes` | `lib_save_size`, `lib_save_delete` |
+| `cart_panel` / `game_panel` | `lib_panel`, `lib_panel_open` |
+| `cart_act` / `game_act` | `lib_act` (Publish stays in `carts.c`) |
+| `play` / `play_bm` | `lib_play` |
+| `menu_idle` | `lib_menu_idle` |
+| `tab_items`, `cart_at`, `is_dev`, `is_project`, `kind_of` | `lib_tab_items`, `lib_is_dev`, `lib_is_project`, `lib_kind` |
+
+What each console gives (`lib_backend_t`): the folders (Pi: `/`, `/carts`, `/bm`, `/bme`; RGB30: `/bm`, `/carts`), the compat target,
+`want` (RGB30: `.b16`, `.bm` unless `show_bm=0`, no tool cartridge), `add_builtins` (Pi: the built-in tools), `stop_background`,
+`panel` (`LIB_CAP_*`), `jobs` with their shares, `write_waits`, `before_jobs`, `play_begin`.
+
+Where the Pi and the RGB30 differed, the Pi won, except for a hardware need. The decisions:
+
+1. The RGB30 skips files whose name starts with a dot (the Pi did). It reads each header once, in the scan (it read the file twice).
+2. Titles and authors lose control characters (CP437 font), as on the Pi. A file that is not a cartridge gets no save path.
+3. The RGB30 keeps the covers it has read across a rescan (the Pi did), and shows a placeholder until the job reads a cover (it made a
+   label for every game at the scan). The count in "first frame, K of N covers read" counts the kept ones.
+4. A rescan on the RGB30 stops the same background work as the Pi's `background_stop` (a file from the PC, the covers, the WiFi try,
+   the SD map).
+5. The frozen game is known by its path (the RGB30 used the file name).
+6. The panel of a game on the RGB30 has the Pi's texts and order ("Open in the SDK", "bm (native)"), and the File row. It reads the
+   save data once, when it opens (the RGB30 read the SD card on every frame). The rows the RGB30 does not have stay out by
+   `LIB_CAP_*` and a hardware reason: the editors (no keyboard), the editable copy (they open from an editor), Publish (D11, owner).
+7. Delete and Export stop the background work first, and say the Pi's words ("Delete NAME?", "deleted PATH"). A save that cannot be
+   deleted gives the first error.
+8. `lib_play` writes both log lines on both consoles ("playing NAME" and "play: PATH (N bytes)"), and sets the crash crumbs (the RGB30
+   had none). A file that is not a cartridge shows an error page on the RGB30 (no console to read), a console line on the Pi.
+9. The two menus list the tabs with `lib_tab_items` in the order of the library (by title); the RGB30 no longer sorts games first.
+10. The shares of the menu's free time stay as each console had them (not measured on a device).
+
+What stays different on purpose: the folders; the tool cartridges (listed in Dev on the Pi, kept out of Games on the RGB30 and opened
+through its own pages); `show_bm`; the panel rows by `LIB_CAP_*`; the job shares; the splash call (`play_begin` on the RGB30, the
+launch step on the Pi); the main loops (`carts_menu` with the steps `cm_*`, `ui_home` with `uh_*`).
+
+Settings: `settings.c` asks the console through small functions (`home_wireless`, `home_restart`, `home_poweroff`,
+`home_poweroff_help`, `home_poweroff_detail`, `home_test_help`, `home_connect_help`, `home_controls_changed`, `home_has_battery`),
+defined in `home.c` and `src/rgb30/ui.c`. The `BM_RGB30` blocks of `settings.c`: 42 before, 31 after.
+
+## Decisions of the user (one line each, recommended default in brackets)
 
 1. D03 players on the RGB30: PORT the Pi slots (built-in pad is P1, BT pads P2-4). D03 stays open. The code is a later work order.
 2. D05 menu pointer: PORT the pointer block to the RGB30 menu. D05 stays open. The code is a later work order.

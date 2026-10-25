@@ -3,11 +3,23 @@
 Cut from [system](system.md): the menu and kernel services. Open work and rules stay in system.
 
 ### Menu and kernel services (`src/kernel/`)
-- `carts.c` (the menu loop, launches, `background_stop()`), `menu_ui.c` (the one menu, Pi
-  and RGB30), `settings.c`, `syskeys.c`, `splash.c` / `loading.c`, `market.c`, `update.c`,
-  `reports.c`, `ledstate.c`, `notice.c`, `prompts.c`, `monitor.c`.
+- `library.c` (the game library of both menus), `carts.c` (the Pi menu: `carts_menu` calls
+  the steps `cm_*`, launches, `background_stop()`), `menu_ui.c` (the one menu, Pi and RGB30;
+  `menu_ui_frame` calls the steps `frame_*`), `settings.c` (`home_panel` calls `panel_*`,
+  `home_act` calls `act_*`), `syskeys.c`, `splash.c` / `loading.c`, `market.c`, `update.c`,
+  `reports.c`, `ledstate.c`, `notice.c`, `prompts.c`, `monitor.c`. The RGB30 menu is
+  `src/rgb30/ui.c` (`ui_home` calls the steps `uh_*`).
+- The game library (`library.c`, `library.h`): one `library` (`lib_t`, up to 64 `lib_game_t`) for
+  the Pi and the RGB30. Each console gives a `lib_backend_t`: the folders, the compat target,
+  `want` (which file is listed), `add_builtins`, `stop_background`, the rows of the cartridge
+  panel (`LIB_CAP_*`), the jobs of the menu's free time and `play_begin`. The library does the
+  scan (`lib_scan`), the type rule (`lib_is_dev`, `lib_tab_items`), the covers (a fiber job, the
+  tab's covers first), the frozen game (`lib_is_suspended`, `lib_suspend_*`), the save data, the
+  panel (`lib_panel`), the rows that stay in the menu (`lib_act`), `lib_play` and
+  `lib_menu_idle`. Still apart: the two main loops (input, questions, launches).
 - Splash only for games: the suite (SDK, editors, Sound, Studio, Animator, Mesh, Pixel,
-  projects) opens without it (`suite` in `carts.c`).
+  projects) opens without it (`lib_is_dev`; the Pi menu shows it in `cm_launch`, the RGB30 in
+  `rgb_play_begin`).
 - Bar icons: controllers, keyboard and mouse without a player number; Bluetooth keeps a blue
   dot (`ICON_DOT`, `status_icons()` in `menu_ui.c`).
 - Market job (`market.c`): `fiber_slice()` between the steps of the catalog (check, parse,

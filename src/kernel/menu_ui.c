@@ -1492,11 +1492,9 @@ static void stalls_report(void)
         kprintf("menu stalls: %s\n", line);
 }
 
-void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
+/* Where the frame is drawn: the panel, or the layout that is enlarged after. */
+static void frame_target(framebuffer_t *fb)
 {
-    by_enter = v->on_gear;
-    if (!ready)
-        return;
     if (gpu_draw) {
         g16_target(&g, (uint16_t *)fb->base, fb->pitch / 2, SW * scale, SH * scale, menu_font(scale));
         gpu3d_drop();
@@ -1507,11 +1505,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     } else {
         g16_target(&g, (uint16_t *)fb->base, fb->pitch / 2, SW, SH, &font_console_8x16);
     }
-    float t = (float)(timer_ticks() - t0) * 1e-6f;
-    const menu_item_t *cur = v->sel >= 0 && v->sel < v->n ? &v->items[v->sel] : NULL;
-    dim = v->panel != NULL;
-    nzones = 0;
+}
 
+/* The background: the selected cover, blurred, and the cross-fade. */
+static void frame_background(const menu_item_t *cur)
+{
     /* background: the selected cover, blurred; a cross-fade on change. It is
      * made BG_ROWS rows per frame while the old one stays on screen: the
      * whole picture in one frame was 3 frames or more on the Pi, and the
@@ -1538,7 +1536,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         fade = FADE_FRAMES;
     }
     put_background();
+}
 
+/* The grid of covers (or the Settings page), with the pointer zones. */
+static void frame_grid(const menu_view_t *v, float t)
+{
     /* grid: keep the selected row among the two fully visible ones */
     int sel_row = v->sel / cols;
     if (sel_row < first_row) first_row = sel_row;
@@ -1585,7 +1587,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         scroll_bar((v->n + cols - 1) / cols, scroll);
     if (v->page)
         draw_page(v->page, v->ask != NULL);
+}
 
+/* The top bar: the tabs and Settings. */
+static void frame_tabs(const menu_view_t *v)
+{
     /* top bar: the tabs and Settings (the last tab: its panel; L1 / R1 move
      * between them), then the players and the network */
     m_rect(0, 0, SW, BAR_H, c16(C_BAR));
@@ -1621,60 +1627,64 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     else
         m_text(col * 8 + ox, 16, "Settings", c16(C_DIM));
     m_clip(0, 0, 0, 0);
+}
 
-    /* the name of the selected cartridge, on a pill (and subtabs at the right) */
-    if (v->panel || v->page) {
-        /* the panel covers it */
-    } else {
-        int sub_w = 0;
-        if (v->subtabs && v->nsubtabs > 0) {
-            for (int i = 0; i < v->nsubtabs; i++)
-                sub_w += (int)strlen(v->subtabs[i]) + (i + 1 < v->nsubtabs ? 3 : 0);
-            sub_w += 3;
-            if (v->refresh_label && v->refresh_label[0])
-                sub_w += (int)strlen(v->refresh_label) + 4;
-            int scol = SW / 8 - sub_w;
-            round_rect((scol - 2) * 8, TITLE_ROW * 16 - 6, (sub_w + 1) * 8, 28, 14, c16(C_BAR));
-            for (int i = 0; i < v->nsubtabs; i++) {
-                int sn = (int)strlen(v->subtabs[i]);
-                zone(scol * 8 - 8, TITLE_ROW * 16 - 6, (sn + 2) * 8, 28, MENU_HIT_GROUP, i, 1);
-                if (i == v->subtab)
-                    pill_text(scol, TITLE_ROW, v->subtabs[i], C_BAR, C_TAB_ON);
-                else
-                    m_text(scol * 8, TITLE_ROW * 16, v->subtabs[i], c16(C_DIM));
-                scol += sn + 3;
-            }
-            if (v->refresh_label && v->refresh_label[0]) {
-                int rn = (int)strlen(v->refresh_label);
-                zone(scol * 8 - 8, TITLE_ROW * 16 - 6, (rn + 2) * 8, 28, MENU_HIT_BUTTON, 'R', v->refresh_enabled);
-                if (v->refresh_enabled)
-                    pill_text(scol, TITLE_ROW, v->refresh_label, C_BAR, C_ACCENT);
-                else
-                    m_text(scol * 8, TITLE_ROW * 16, v->refresh_label, c16(C_DIM));
-            }
+/* The name of the selected cartridge, and the sub tabs at the right. */
+static void frame_title(const menu_view_t *v, const menu_item_t *cur)
+{
+    int sub_w = 0;
+    if (v->subtabs && v->nsubtabs > 0) {
+        for (int i = 0; i < v->nsubtabs; i++)
+            sub_w += (int)strlen(v->subtabs[i]) + (i + 1 < v->nsubtabs ? 3 : 0);
+        sub_w += 3;
+        if (v->refresh_label && v->refresh_label[0])
+            sub_w += (int)strlen(v->refresh_label) + 4;
+        int scol = SW / 8 - sub_w;
+        round_rect((scol - 2) * 8, TITLE_ROW * 16 - 6, (sub_w + 1) * 8, 28, 14, c16(C_BAR));
+        for (int i = 0; i < v->nsubtabs; i++) {
+            int sn = (int)strlen(v->subtabs[i]);
+            zone(scol * 8 - 8, TITLE_ROW * 16 - 6, (sn + 2) * 8, 28, MENU_HIT_GROUP, i, 1);
+            if (i == v->subtab)
+                pill_text(scol, TITLE_ROW, v->subtabs[i], C_BAR, C_TAB_ON);
+            else
+                m_text(scol * 8, TITLE_ROW * 16, v->subtabs[i], c16(C_DIM));
+            scol += sn + 3;
         }
-        int max_cols = SW / 8 - 6 - sub_w;
-        if (max_cols < 12)
-            max_cols = 12;
-        if (v->banner) {
-            char buf[72];
-            ksnprintf(buf, sizeof buf, "%s", v->banner);
-            if (max_cols < (int)sizeof buf)
-                buf[max_cols] = 0;
-            pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
-        } else if (cur && cur->title && cur->title[0]) {
-            char buf[72];
-            ksnprintf(buf, sizeof buf, "%s", cur->title);
-            if (max_cols < (int)sizeof buf)
-                buf[max_cols] = 0;
-            int n = (int)strlen(buf);
-            round_rect(3 * 8 - 10, TITLE_ROW * 16 - 6, (n + 2) * 8 + 4, 28, 14, c16(C_LINE));
-            pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
-        } else if (v->n == 0) {
-            pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
+        if (v->refresh_label && v->refresh_label[0]) {
+            int rn = (int)strlen(v->refresh_label);
+            zone(scol * 8 - 8, TITLE_ROW * 16 - 6, (rn + 2) * 8, 28, MENU_HIT_BUTTON, 'R', v->refresh_enabled);
+            if (v->refresh_enabled)
+                pill_text(scol, TITLE_ROW, v->refresh_label, C_BAR, C_ACCENT);
+            else
+                m_text(scol * 8, TITLE_ROW * 16, v->refresh_label, c16(C_DIM));
         }
     }
+    int max_cols = SW / 8 - 6 - sub_w;
+    if (max_cols < 12)
+        max_cols = 12;
+    if (v->banner) {
+        char buf[72];
+        ksnprintf(buf, sizeof buf, "%s", v->banner);
+        if (max_cols < (int)sizeof buf)
+            buf[max_cols] = 0;
+        pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
+    } else if (cur && cur->title && cur->title[0]) {
+        char buf[72];
+        ksnprintf(buf, sizeof buf, "%s", cur->title);
+        if (max_cols < (int)sizeof buf)
+            buf[max_cols] = 0;
+        int n = (int)strlen(buf);
+        round_rect(3 * 8 - 10, TITLE_ROW * 16 - 6, (n + 2) * 8 + 4, 28, 14, c16(C_LINE));
+        pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
+    } else if (v->n == 0) {
+        pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
+    }
+}
 
+/* The bottom bar: the key chips. */
+static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
+{
+    int col;
     /* bottom bar: the key chips only (2026-10-25, the user's request); what
      * went wrong goes to the notice box, the rest to the console log */
     hints_dead = v->ask != NULL;
@@ -1714,117 +1724,54 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         if (!v->no_monitor && (!WIDE || col <= (v->prompts == MENU_PROMPTS_KEYBOARD ? 60 : 66)))
             hint(v, col, 21, BTN_MONITOR, "Monitor");
     }
+}
 
-    hints_dead = 0;
-    if (v->panel)
-        draw_panel(v->panel, v->ask != NULL);
-
-    /* a question in a panel over everything */
-    if (v->ask) {
-        const int px = WIDE ? 12 * 8 : 2 * 8, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
-        round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_LINE));
-        round_rect(px, py, pw, ph, 12, c16(C_BAR));
-        zone(px - 2, py - 2, pw + 4, ph + 4, MENU_HIT_ASK, 0, 1);
-        char q[64];
-        ksnprintf(q, sizeof q, "%s", v->ask);
+/* A question in a panel over everything. */
+static void frame_ask(const menu_view_t *v)
+{
+    const int px = WIDE ? 12 * 8 : 2 * 8, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
+    round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_LINE));
+    round_rect(px, py, pw, ph, 12, c16(C_BAR));
+    zone(px - 2, py - 2, pw + 4, ph + 4, MENU_HIT_ASK, 0, 1);
+    char q[64];
+    ksnprintf(q, sizeof q, "%s", v->ask);
+    q[pw / 8 - 2] = 0;
+    m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
+    if (v->ask_detail) {
+        ksnprintf(q, sizeof q, "%s", v->ask_detail);
         q[pw / 8 - 2] = 0;
-        m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
-        if (v->ask_detail) {
-            ksnprintf(q, sizeof q, "%s", v->ask_detail);
-            q[pw / 8 - 2] = 0;
-            m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
-        }
-        int c = hint(v, WIDE ? 26 : 4, 12, BTN_A, v->ask_yes ? v->ask_yes : "Close it");
-        hint(v, c + 2, 12, BTN_B, "Cancel");
+        m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
     }
+    int c = hint(v, WIDE ? 26 : 4, 12, BTN_A, v->ask_yes ? v->ask_yes : "Close it");
+    hint(v, c + 2, 12, BTN_B, "Cancel");
+}
 
-    /* the system's notice, over everything (a kernel arriving, a restart) */
-    if (v->notice) {
-        const int px = WIDE ? 12 * 8 : 2 * 8, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
-        round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_ACCENT));
-        round_rect(px, py, pw, ph, 12, c16(C_BAR));
-        char q[64];
-        ksnprintf(q, sizeof q, "%s", v->notice);
+/* The system's notice, over everything (a kernel arriving, a restart). */
+static void frame_notice(const menu_view_t *v)
+{
+    const int px = WIDE ? 12 * 8 : 2 * 8, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
+    round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_ACCENT));
+    round_rect(px, py, pw, ph, 12, c16(C_BAR));
+    char q[64];
+    ksnprintf(q, sizeof q, "%s", v->notice);
+    q[pw / 8 - 2] = 0;
+    m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
+    if (v->notice_detail) {
+        ksnprintf(q, sizeof q, "%s", v->notice_detail);
         q[pw / 8 - 2] = 0;
-        m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
-        if (v->notice_detail) {
-            ksnprintf(q, sizeof q, "%s", v->notice_detail);
-            q[pw / 8 - 2] = 0;
-            m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
-        }
-        if (v->notice_progress >= 0) {
-            const int bx = px + 16, bw = pw - 32, by = 12 * 16 + 4, fill = bw * v->notice_progress / 1000;
-            round_rect(bx, by, bw, 8, 4, c16(C_LINE));
-            if (fill > 8)
-                round_rect(bx, by, fill, 8, 4, c16(C_ACCENT));
-        }
+        m_text((SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
     }
+    if (v->notice_progress >= 0) {
+        const int bx = px + 16, bw = pw - 32, by = 12 * 16 + 4, fill = bw * v->notice_progress / 1000;
+        round_rect(bx, by, bw, 8, 4, c16(C_LINE));
+        if (fill > 8)
+            round_rect(bx, by, fill, 8, 4, c16(C_ACCENT));
+    }
+}
 
-    if (v->keys_help)
-        keys_help();
-    const uint32_t pre = timer_ticks();
-    if (gpu_draw) {
-        gpu3d_flush(&g, 0);
-        m_pointer(fb);
-    } else {
-        pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
-        if (scale > 1) {
-            g16_t page;
-            g16_target(&page, (uint16_t *)fb->base, fb->pitch / 2, SW * scale, SH * scale, &font_console_8x16);
-            if (!gpu_big || gpu3d_enlarge(frame, SW, SH, scale, &page) != 0) {
-                if (gpu_big)
-                    kprintf("menu: the GPU did not enlarge the layout (%s): the ARM does\n", gpu3d_status());
-                gpu_big = 0;
-                enlarge(fb);
-            } else if (gpu_checks < GPU_CHECKS) {
-                gpu_check(fb);              /* menu_gpu=1: what the GPU wrote, against the ARM's copy (a log line) */
-            }
-        }
-    }
-    const uint32_t drawn = timer_ticks();
-    int paced = fb_flip(fb);
-#ifndef BM_RGB30
-    paced = 0;                          /* the Pi keeps its timer pacing, as it was */
-#endif
-    const uint32_t flipped = timer_ticks();
-    if (gpu_draw) {
-        st_draw += drawn - frame_end;
-        st_enlarge += 0;
-    } else {
-        st_draw += pre - frame_end;
-        st_enlarge += drawn - pre;
-    }
-    st_flip += flipped - drawn;
-    const int32_t slack = (int32_t)(deadline - 1500 - flipped);
-    uint32_t until = 0;
-    int gave = 0;
-    if (paced) {
-        /* RGB30: the flip waited for the panel's frame start (16,675 us, a
-         * hair longer than FRAME_US), so deadline falls behind it and the
-         * slack below never comes: the Market never loaded. The frame is the
-         * panel's: free time up to the next flip, less this frame's drawing
-         * (from the end of the last one to the flip) and the margin; no wait */
-        const int32_t work = (int32_t)(drawn - frame_end);
-        until = flipped + FRAME_US - (uint32_t)work - 1500;
-        gave = v->idle && work >= 0 && (int32_t)(until - flipped) > 0;
-    } else {
-        /* what is left of the frame: the Market's work, if any (a little
-         * margin for the flip), then the wait */
-        until = deadline - 1500;
-        gave = v->idle && (int32_t)(until - timer_ticks()) > 0;
-    }
-    if (gave) {
-        const uint32_t from = timer_ticks();
-        v->idle(until);
-        const uint32_t to = timer_ticks();
-        idle_offered += until - from;
-        idle_used += to - from;
-        if ((int32_t)(to - until) > (int32_t)idle_over)
-            idle_over = to - until;
-    }
-    if (!paced)
-        while ((int32_t)(timer_ticks() - deadline) < 0)
-            ;
+/* The log line of the menu's free time and frame times, every IDLE_FRAMES frames. */
+static void frame_idle_report(int gave, int paced, int32_t slack)
+{
     /* the background's time (fiber.h), a line in the log every IDLE_FRAMES
      * frames when a job ran or more than one frame had no free time: the
      * frames with some, the ms taken of the ms offered, the most past a
@@ -1871,9 +1818,115 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         idle_offered = idle_used = idle_over = 0;
         idle_slack = SLACK_NONE;
     }
+}
+
+/* The pointer over everything, and the layout enlarged to the panel's size. */
+static void frame_show(framebuffer_t *fb)
+{
+    if (gpu_draw) {
+        gpu3d_flush(&g, 0);
+        m_pointer(fb);
+    } else {
+        pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
+        if (scale > 1) {
+            g16_t page;
+            g16_target(&page, (uint16_t *)fb->base, fb->pitch / 2, SW * scale, SH * scale, &font_console_8x16);
+            if (!gpu_big || gpu3d_enlarge(frame, SW, SH, scale, &page) != 0) {
+                if (gpu_big)
+                    kprintf("menu: the GPU did not enlarge the layout (%s): the ARM does\n", gpu3d_status());
+                gpu_big = 0;
+                enlarge(fb);
+            } else if (gpu_checks < GPU_CHECKS) {
+                gpu_check(fb);              /* menu_gpu=1: what the GPU wrote, against the ARM's copy (a log line) */
+            }
+        }
+    }
+}
+
+/* The flip, the time the frame took, the free time for the jobs (v->idle), the wait for the next frame. `pre`:
+ * when the drawing ended. */
+static void frame_flip_and_wait(framebuffer_t *fb, const menu_view_t *v, uint32_t pre)
+{
+    const uint32_t drawn = timer_ticks();
+    int paced = fb_flip(fb);
+#ifndef BM_RGB30
+    paced = 0;                          /* the Pi keeps its timer pacing, as it was */
+#endif
+    const uint32_t flipped = timer_ticks();
+    if (gpu_draw) {
+        st_draw += drawn - frame_end;
+        st_enlarge += 0;
+    } else {
+        st_draw += pre - frame_end;
+        st_enlarge += drawn - pre;
+    }
+    st_flip += flipped - drawn;
+    const int32_t slack = (int32_t)(deadline - 1500 - flipped);
+    uint32_t until = 0;
+    int gave = 0;
+    if (paced) {
+        /* RGB30: the flip waited for the panel's frame start (16,675 us, a
+         * hair longer than FRAME_US), so deadline falls behind it and the
+         * slack below never comes: the Market never loaded. The frame is the
+         * panel's: free time up to the next flip, less this frame's drawing
+         * (from the end of the last one to the flip) and the margin; no wait */
+        const int32_t work = (int32_t)(drawn - frame_end);
+        until = flipped + FRAME_US - (uint32_t)work - 1500;
+        gave = v->idle && work >= 0 && (int32_t)(until - flipped) > 0;
+    } else {
+        /* what is left of the frame: the Market's work, if any (a little
+         * margin for the flip), then the wait */
+        until = deadline - 1500;
+        gave = v->idle && (int32_t)(until - timer_ticks()) > 0;
+    }
+    if (gave) {
+        const uint32_t from = timer_ticks();
+        v->idle(until);
+        const uint32_t to = timer_ticks();
+        idle_offered += until - from;
+        idle_used += to - from;
+        if ((int32_t)(to - until) > (int32_t)idle_over)
+            idle_over = to - until;
+    }
+    if (!paced)
+        while ((int32_t)(timer_ticks() - deadline) < 0)
+            ;
+    frame_idle_report(gave, paced, slack);
     uint32_t now = timer_ticks();
     deadline += FRAME_US;
     if ((int32_t)(now - deadline) > 0)
         deadline = now + FRAME_US;
     frame_end = now;
+}
+
+void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
+{
+    by_enter = v->on_gear;
+    if (!ready)
+        return;
+    frame_target(fb);
+    float t = (float)(timer_ticks() - t0) * 1e-6f;
+    const menu_item_t *cur = v->sel >= 0 && v->sel < v->n ? &v->items[v->sel] : NULL;
+    dim = v->panel != NULL;
+    nzones = 0;
+
+    frame_background(cur);
+    frame_grid(v, t);
+    frame_tabs(v);
+    if (!v->panel && !v->page)
+        frame_title(v, cur);                    /* (a panel covers it) */
+    frame_hints(v, cur);
+    hints_dead = 0;
+    if (v->panel)
+        draw_panel(v->panel, v->ask != NULL);
+
+    if (v->ask)
+        frame_ask(v);
+    if (v->notice)
+        frame_notice(v);
+    if (v->keys_help)
+        keys_help();
+    const uint32_t pre = timer_ticks();
+    frame_show(fb);
+    frame_flip_and_wait(fb, v, pre);
 }
