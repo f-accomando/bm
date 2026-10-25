@@ -7,6 +7,10 @@ local START_X, START_Y = 16, 352
 
 local level_w
 local mario, prev, acc
+local coins = 0
+local bumping = {}                        -- blocks jumping up: {cx, cy, t, used}
+local pops = {}                           -- coins thrown up by a block: {x, y, t}
+local BUMP_Y = { -2, -4, -5, -6, -5, -4, -2, 0 }
 local camx, camy = 0, 192
 local backdrop = 0xFF0000
 
@@ -16,6 +20,47 @@ function _init()
   mario = Phys.new(START_X, START_Y)
   prev = { x = mario.x, y = mario.y }
   acc = 0
+end
+
+local function set16(cx, cy, d)           -- a Map16 block is four 8x8 cells: TL, BL, TR, BR
+  mset(cx * 2, cy * 2, d[1], "main")
+  mset(cx * 2, cy * 2 + 1, d[2], "main")
+  mset(cx * 2 + 1, cy * 2, d[3], "main")
+  mset(cx * 2 + 1, cy * 2 + 1, d[4], "main")
+end
+
+local function draw16(d, x, y)
+  for i, o in ipairs({ { 0, 0 }, { 0, 8 }, { 8, 0 }, { 8, 8 } }) do
+    if d[i] ~= 0 then sspr((d[i] % 16) * 8, (d[i] // 16) * 8, 8, 8, x + o[1], y + o[2]) end
+  end
+end
+
+local function hit_block(cx, cy)
+  local k = L16[cy + 1][cx + 1]
+  local kind = KIND[k]
+  if kind ~= "coin" and kind ~= "item" then return end
+  L16[cy + 1][cx + 1] = 0x132
+  set16(cx, cy, { 0, 0, 0, 0 })
+  bumping[#bumping + 1] = { cx = cx, cy = cy, t = 0 }
+  if kind == "coin" then
+    coins = coins + 1
+    pops[#pops + 1] = { x = cx * 16, y = cy * 16 - 16, t = 0 }
+  end
+end
+
+local function pick_coins()
+  local x0, x1 = (math.floor(mario.x) + 2) // 16, (math.floor(mario.x) + 13) // 16
+  local y0, y1 = (math.floor(mario.y) + 16) // 16, (math.floor(mario.y) + 31) // 16
+  for cy = y0, y1 do
+    for cx = x0, x1 do
+      local row = L16[cy + 1]
+      if row and COINS[row[cx + 1] or 0] then
+        row[cx + 1] = 0x25
+        set16(cx, cy, { 0, 0, 0, 0 })
+        coins = coins + 1
+      end
+    end
+  end
 end
 
 local function solid(px, py)
@@ -71,6 +116,17 @@ function _update()
     local was_ground = mario.ground
     Phys.step(mario, inp, solid)
     if was_ground and not mario.ground and mario.vy < 0 then spinning = inp.spin end
+    if mario.bump then hit_block(mario.bump.x // 16, mario.bump.y // 16) end
+    pick_coins()
+    for i = #bumping, 1, -1 do
+      local b = bumping[i]
+      b.t = b.t + 1
+      if b.t > #BUMP_Y then set16(b.cx, b.cy, USED); table.remove(bumping, i) end
+    end
+    for i = #pops, 1, -1 do
+      pops[i].t = pops[i].t + 1
+      if pops[i].t > 24 then table.remove(pops, i) end
+    end
     anim = mario.ground and anim + math.abs(mario.vx) or 0
     spin_t = spin_t + 1
     if mario.y > LEVEL_H + 32 then          -- fell out of the level
@@ -101,8 +157,14 @@ function _draw()
   rectfill(VX, VY, VIEW_W, VIEW_H, backdrop)
   local mx, my = camx // 8, camy // 8
   map(mx, my, VX - (camx % 8), VY - (camy % 8), VIEW_W // 8 + 1, VIEW_H // 8 + 1, "main")
+  for _, b in ipairs(bumping) do draw16(USED, VX + b.cx * 16 - camx, VY + b.cy * 16 + BUMP_Y[b.t] - camy) end
+  for _, p in ipairs(pops) do
+    local up = p.t < 12 and p.t * 3 or 36 - (p.t - 12) * 3
+    draw16(COIN16, VX + p.x - camx, VY + p.y - up - camy)
+  end
   draw_mario(VX + math.floor(x) - camx, VY + math.floor(y) - camy)
   clip()
   rect(VX - 1, VY - 1, VIEW_W + 2, VIEW_H + 2, 0x303030)
-  print(string.format("x %d  vx %.0f  P %d", math.floor(mario.x), mario.vx, math.floor(mario.pm)), 8, 8, 0x808080)
+  print(string.format("COINS %d", coins), 8, 8, 0xFFFFFF)
+  print(string.format("x %d  vx %.0f  P %d", math.floor(mario.x), mario.vx, math.floor(mario.pm)), 8, 340, 0x808080)
 end

@@ -43,6 +43,10 @@ def tile_rgba(v, cg, wd):
     return tuple(out)
 
 
+def tile_blank(v, cg, q):
+    return all(all(p is None for p in tile_rgba(v, cg, wd)) for wd in q)
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit(__doc__)
@@ -53,11 +57,23 @@ def main():
     defs, seen_conflict = {}, set()
     cells, sheet = {}, []          # unique 8x8 images -> sheet index (0 is empty)
     words, first = {}, None
+    hit_done = set()
     w = g.wram()
     screens = w[0x5E]
     for f in range(3600):
         keys = [RIGHT, Y] + ([B] if f % 50 < 30 else [])
-        g.poke(0x1497, 0x7F)              # hit flash: Mario cannot be hurt, so the run reaches the end
+        pokes = {0x1497: 0x7F}            # hit flash: Mario cannot be hurt, so the run reaches the end
+        w = g.wram()
+        camx = w[0x1A] | w[0x1B] << 8
+        if camx >= 480 and not hit_done and first:      # bump the first question block once, to see its used tile
+            for cy, row in enumerate(first):
+                cx = next((i for i, v in enumerate(row) if v == 0x124 and 40 <= i * 16 - camx <= 200), None)
+                if cx is not None and first[cy + 1][cx] == 0x25 and first[cy + 2][cx] == 0x25:
+                    hit_done.add(1)
+                    pokes.update({0x94: (cx * 16) & 255, 0x95: (cx * 16) >> 8, 0x96: (cy * 16 + 2) & 255,
+                                  0x97: (cy * 16 + 2) >> 8, 0x7D: 0xB0, 0x7B: 0})
+                    break
+        g.poke(pokes)
         g.step(keys, 4)
         w = g.wram()
         v = g.blocks()["VRA"]
@@ -70,7 +86,7 @@ def main():
                 k = cell(w, cx, cy)
                 q = [word(v, 2 * cx, 2 * cy), word(v, 2 * cx, 2 * cy + 1),
                      word(v, 2 * cx + 1, 2 * cy), word(v, 2 * cx + 1, 2 * cy + 1)]
-                if k not in defs:
+                if k not in defs or (not any(defs[k]) and k != 0x25 and not tile_blank(v, cg, q)):
                     ids = []
                     for wd in q:
                         im = tile_rgba(v, cg, wd)

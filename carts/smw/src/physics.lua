@@ -62,6 +62,7 @@ function Phys.step(m, inp, solid)
   end
 
   -- x, then y, each a pixel at a time so that a wall or a floor stops Mario on its edge
+  m.bump = nil
   local ox = m.x
   m.x = m.x + m.vx / 16
   if hit(solid, math.floor(m.x) + 2, math.floor(m.y) + 16, Phys.W, Phys.H) then
@@ -77,6 +78,10 @@ function Phys.step(m, inp, solid)
       while hit(solid, math.floor(m.x) + 2, m.y + 16, Phys.W, Phys.H) do m.y = m.y - 1 end
       m.ground = true
     else
+      local hx, hy = math.floor(m.x), math.floor(m.y) + 16
+      local cl, cr = solid(hx + 2, hy), solid(hx + Phys.W + 1, hy)
+      -- the block he hit: under his middle if both sides are solid, else the solid side
+      m.bump = { x = (cl and cr) and hx + 8 or (cl and hx + 2 or hx + Phys.W + 1), y = hy }
       m.y = oy
     end
     m.vy = 0

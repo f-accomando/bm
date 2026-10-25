@@ -3,7 +3,7 @@
 
     python3 carts/smw/build/build.py [EXTRACTED_DIR] [OUT_DIR]
 
-Defaults: carts/smw/extracted and build/smw. Writes the map, the collision layer and the
+Defaults: carts/smw/extracted and build/smw. SMW_START=x,y starts Mario elsewhere, for tests. Writes the map, the collision layer and the
 flags, joins physics.lua and game.lua into main.lua and calls mkbm.py for the .b16 and the
 .bme. The output holds assets from the player's ROM: it stays on the player's machine."""
 import json, os, subprocess, sys
@@ -55,6 +55,16 @@ def pack_poses(ex, tiles_png, out_png, restyle=None):
     return "local POSES = {\n" + "\n".join(lines) + "\n}\n"
 
 
+def block_data(defs, level):
+    """Lua tables for the blocks: the Map16 grid, the used block and the coin. The kinds come from
+    scripts/smw_blocks.py: 0x124 gives a coin, 0x126 and 0x11A give an item, 0x11E is a turn block."""
+    rows = ",\n".join("{" + ",".join(map(str, r)) + "}" for r in level)
+    return ("local L16 = {\n%s\n}\nlocal USED = {%s}\nlocal COIN16 = {%s}\n"
+            "local KIND = { [0x124] = 'coin', [0x126] = 'item', [0x11A] = 'item', [0x11E] = 'turn' }\n"
+            "local COINS = { [0x02B] = true, [0x02D] = true, [0x02E] = true }\n" % (
+                rows, ",".join(map(str, defs.get(0x132, (0, 0, 0, 0)))), ",".join(map(str, defs.get(0x02B, (0, 0, 0, 0))))))
+
+
 def main():
     ex = sys.argv[1] if len(sys.argv) > 1 else ROOT + "/carts/smw/extracted"
     out = sys.argv[2] if len(sys.argv) > 2 else ROOT + "/build/smw"
@@ -81,8 +91,10 @@ def main():
     open(out + "/flags.csv", "w").write("%d=1\n" % col)
     sheet_png = out + "/sheet.png"
     poses_lua = pack_poses(ex, ex + "/sheet.png", sheet_png)
-    lua = poses_lua + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
+    lua = poses_lua + block_data(defs, level) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % backdrop(ex))
+    if os.environ.get("SMW_START"):         # a test start, "x,y": the shots of a block or an enemy without the walk
+        lua = lua.replace("local START_X, START_Y = 16, 352", "local START_X, START_Y = " + os.environ["SMW_START"])
     open(out + "/main.lua", "w").write(lua)
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", sheet_png,
             "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--flags", out + "/flags.csv",

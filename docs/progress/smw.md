@@ -15,6 +15,10 @@ the finished cartridge stay on the user's machine and SD card.
 - `scripts/smw_sprites.py`: plays random input and rebuilds Mario's picture each frame from OAM
   and VRAM. The palette comes from the screenshot pixels. It writes one PNG per pose and facing,
   `poses.json`, and `frames.csv` (pose against speed, air, and keys). 30 poses of small Mario.
+- `scripts/smw_spawns.py`: lists the sprites of the level as they appear (number, place, speed).
+  `scripts/smw_blocks.py`: bumps each block kind from below and records the result (new tile,
+  coins, sprite). 0x124 gives a coin, 0x126 a Yoshi egg (sprite 0x2C), 0x11A an item (0x79), 0x11E
+  is a turn block, all become 0x132.
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
 - `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.b16`
@@ -31,6 +35,7 @@ the finished cartridge stay on the user's machine and SD card.
 
 ## Open work
 
+- Test start: `SMW_START=x,y python3 carts/smw/build/build.py` starts Mario elsewhere.
 - Solidity: the table is a guess (`0x100`-`0x1BF`, dirt `0x3F`-`0x41`). Read the real
   "acts like" table from the ROM.
 - Mario poses: small Mario only. Capture big, fire, cape, Yoshi, swim, climb, death, and the
@@ -39,7 +44,11 @@ the finished cartridge stay on the user's machine and SD card.
   hide layers. Read the BG2 tilemap from VRAM or stitch it from frames.
 - Camera: use the SMW scroll rules. Now `x - 108`.
 - Tune the physics: start-up acceleration, air control, P meter decay, terminal speed. Slopes.
-- Enemies, blocks (hit and bump), items, coins, goal. Death and lives.
+- Done: question blocks with coins (bump, used tile), coin pickup, coin counter.
+- Items from blocks (egg, 0x79), turn blocks (break when big), Yoshi/dragon coins, score.
+- Enemies: the level has sprites 00, 01, 04, 05 (Koopas), 3E (P switch), 4D, 4E (Monty Mole),
+  4F (jumping piranha plant), 91 (Chargin' Chuck), B9 (message), 7B (goal). `spawns.json` has the
+  places. Goal tape and the end of the level. Death and lives.
 - More levels. Map16 for other tilesets comes from the ROM table at `$0D8000`.
 - Sound: SPC700. Music last.
 - Measure the frame time on the RGB30. The host run takes 0.04 ms a frame.

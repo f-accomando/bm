@@ -56,11 +56,13 @@ class Game:
             sys.exit("the level did not start")
         self.step(n=60)
 
-    def poke(self, addr, val):
-        """Writes one WRAM byte through the savestate (the core's memory view is read-only)."""
+    def poke(self, addr, val=0):
+        """Writes one WRAM byte through the savestate (the core's memory view is read-only).
+        With a dict {address: value} it writes several bytes in one pass."""
         st = bytearray(self.e.get_state())
         m = re.search(rb"RAM:131072:", st)
-        st[m.end() + addr] = val
+        for a, v in (addr if isinstance(addr, dict) else {addr: val}).items():
+            st[m.end() + a] = v
         self.e.set_state(bytes(st))
 
     def blocks(self):

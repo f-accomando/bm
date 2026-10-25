@@ -126,6 +126,14 @@ def main():
                 c = col_n if real.solid(k) else 0
                 crow += [c, c]
             col_rows.append(crow)
+    defs_new = {}                       # the redrawn cells of the used block and the coin, read from the level
+    for k in (0x132, 0x02B):
+        for y, row in enumerate(level):
+            if k in row:
+                x = row.index(k)
+                defs_new[k] = (main_rows[2 * y][2 * x], main_rows[2 * y + 1][2 * x], main_rows[2 * y][2 * x + 1],
+                               main_rows[2 * y + 1][2 * x + 1])
+                break
     n_cells = len(cell_list) + 2
     sh = Image.new("RGBA", (128, ((n_cells + 15) // 16) * 8), (0, 0, 0, 0))
     for i, im in enumerate(cell_list, 1):
@@ -135,7 +143,7 @@ def main():
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
     open(out + "/flags.csv", "w").write("%d=1\n" % col_n)
     poses_lua = real.pack_poses(ex, out + "/tiles.png", out + "/sheet.png", restyle=restyle)
-    lua = poses_lua + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
+    lua = poses_lua + real.block_data(defs_new, level) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % real.backdrop(ex))
     open(out + "/main.lua", "w").write(lua)
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", out + "/sheet.png",
