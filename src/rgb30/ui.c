@@ -54,6 +54,7 @@
 #include "kernel/devtool.h"
 #include "audio/audio.h"
 #include "kernel/market.h"
+#include "kernel/library.h"
 #include "net/catalog.h"
 #include "b3d_rgb30.h"
 #include "battery.h"
@@ -331,7 +332,7 @@ static void covers_tick(uint32_t until)
 /* the games by title, as on the Pi (carts.c title_cmp) */
 static int title_cmp(const void *a, const void *b)
 {
-    return strcasecmp(((const struct game *)a)->title, ((const struct game *)b)->title);
+    return lib_text_cmp(((const struct game *)a)->title, ((const struct game *)b)->title);
 }
 
 static void scan_dir(const char *open, const char *dir)
@@ -393,16 +394,11 @@ static void scan_games(void)
 
 /* what the Market asks of the games on the card (carts.h, as carts.c on the
  * Pi): its paths are /bm/NAME */
-static int same_ci(const char *a, const char *b)
-{
-    return strcasecmp(a, b) == 0;
-}
-
 const char *carts_find_title(const char *title, const char *author)
 {
     static char path[80];
     for (int i = 0; i < n_all; i++)
-        if (same_ci(games[i].title, title) && same_ci(games[i].author, author)) {
+        if (lib_same_text(games[i].title, title) && lib_same_text(games[i].author, author)) {
             ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
             return path;
         }
@@ -414,7 +410,7 @@ static int game_of_path(const char *path)
     for (int i = 0; i < n_all; i++) {
         char full[80];
         ksnprintf(full, sizeof full, "%s/%s", games[i].dir, games[i].name);
-        if (same_ci(full, path))
+        if (lib_same_text(full, path))
             return i;
     }
     return -1;

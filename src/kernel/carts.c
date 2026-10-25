@@ -38,6 +38,7 @@
 #include "fiber.h"
 #include "reports.h"
 #include "config.h"
+#include "library.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -183,13 +184,7 @@ static void scan_dir(const char *path)
 
 static int title_cmp(const void *a, const void *b)
 {
-    const char *x = ((const cart_t *)a)->title, *y = ((const cart_t *)b)->title;
-    for (;; x++, y++) {
-        int cx = *x >= 'A' && *x <= 'Z' ? *x + 32 : *x;
-        int cy = *y >= 'A' && *y <= 'Z' ? *y + 32 : *y;
-        if (cx != cy || !cx)
-            return cx - cy;
-    }
+    return lib_text_cmp(((const cart_t *)a)->title, ((const cart_t *)b)->title);
 }
 
 /* ---------------------------------------------------------------- covers in the background
@@ -376,17 +371,6 @@ static void background_stop(void)
     sdmap_stop();
 }
 
-static int same_text(const char *a, const char *b)
-{
-    for (;; a++, b++) {
-        int x = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a, y = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
-        if (x != y)
-            return 0;
-        if (!x)
-            return 1;
-    }
-}
-
 /* Tool id ("sdk", "sound", "studio", "animator", "mesh", "pixel", "code",
  * "assistant") for a built-in or SD-installed app, or NULL for a game. */
 static const char *tool_id_of(const cart_t *c)
@@ -538,7 +522,7 @@ int carts_count(void)
 static int find_path(const char *path)
 {
     for (int i = 0; i < nsd; i++)
-        if (same_text(carts[i].path, path))
+        if (lib_same_text(carts[i].path, path))
             return i;
     return -1;
 }
@@ -546,7 +530,7 @@ static int find_path(const char *path)
 const char *carts_find_title(const char *title, const char *author)
 {
     for (int i = 0; i < nsd; i++)
-        if (same_text(carts[i].title, title) && same_text(carts[i].author, author))
+        if (lib_same_text(carts[i].title, title) && lib_same_text(carts[i].author, author))
             return carts[i].path;
     return NULL;
 }
