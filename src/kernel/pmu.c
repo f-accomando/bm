@@ -82,8 +82,6 @@ void pmu_stop(void)
     on = 0;
 }
 
-int pmu_on(void) { return on; }
-
 void pmu_read(pmu_t *p)
 {
     if (!on) {
