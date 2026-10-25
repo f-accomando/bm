@@ -91,6 +91,18 @@ const char *home_util_about(int i);                     /* one line of help */
 int  home_util_group(int i);                            /* 1: shown in Screen, 0: in System > Utilities */
 void home_util_start(int i, home_do_t *d);              /* fills d as home_act does */
 
+/* What differs between the consoles in Settings: a small function for each, defined in home.c (the Pi) and in
+ * rgb30/ui.c (the RGB30), so settings.c has one text for both. */
+int  home_wireless(void);                       /* the board has WiFi (else an Ethernet port) */
+void home_restart(void);                        /* restarts the console (the WiFi is stopped already) */
+void home_poweroff(void);                       /* shuts the console down */
+const char *home_poweroff_help(void);           /* the help line of the row "Shut down" */
+const char *home_poweroff_detail(void);         /* the second line of its question */
+const char *home_test_help(void);               /* the help line of the row "Test the buttons" */
+const char *home_connect_help(void);            /* the help line of the row "Connect to a network" */
+int  home_has_battery(void);                    /* the console has a battery: the row "Low battery icon" (else "Test pattern") */
+void home_controls_changed(void);               /* a button of Controls changed: the console reads them again */
+
 /* The tools of the Dev tab (after the SDK), with their covers: the editors, the assistant, the monitor, Lua. */
 void home_init(void);
 int  home_tools(void);

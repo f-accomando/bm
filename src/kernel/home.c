@@ -33,6 +33,7 @@
 #include "lib/printf.h"
 #include "drivers/board.h"
 #include "net/net.h"
+#include "net/wifi_auto.h"
 #include "script/repl.h"
 #include "usb/hid.h"
 #include "usb/usb.h"
@@ -228,4 +229,51 @@ void home_tool_start(int i, home_do_t *d)
 void home_util_start(int i, home_do_t *d)
 {
     home_tool_start(NDEV + i, d);
+}
+
+/* ---- what differs between the consoles in Settings (home.h): the Pi's ---- */
+
+int home_wireless(void)
+{
+    return board()->wireless;
+}
+
+void home_restart(void)
+{
+    crumbs_restart(0);
+}
+
+void home_poweroff(void)
+{
+    wifi_auto_stop();
+    crumbs_restart(1);
+}
+
+const char *home_poweroff_help(void)
+{
+    return "Stops the Pi: it starts again when its power is plugged back";
+}
+
+const char *home_poweroff_detail(void)
+{
+    return "To start it again, plug its power back in.";
+}
+
+const char *home_test_help(void)
+{
+    return "The buttons each player holds, for 10 s";
+}
+
+const char *home_connect_help(void)
+{
+    return "Lists the networks; the USB keyboard types the password";
+}
+
+int home_has_battery(void)
+{
+    return 0;
+}
+
+void home_controls_changed(void)
+{
 }

@@ -184,14 +184,9 @@ static int wifi_at_boot(void)
 
 static int wireless(void)
 {
-#ifdef BM_RGB30
-    return 1;
-#else
-    return board()->wireless;
-#endif
+    return home_wireless();
 }
 
-#ifdef BM_RGB30
 /* the low battery over the games and tools (runtime.c battery_draw): on
  * unless battery_icon=0 */
 static int battery_icon_on(void)
@@ -199,7 +194,6 @@ static int battery_icon_on(void)
     const char *v = config_get("battery_icon");
     return !(v && strcmp(v, "0") == 0);
 }
-#endif
 
 #ifndef BM_RGB30
 /* what plays as the first player without a pad (the USB one) */
@@ -479,9 +473,7 @@ static void ctl_step(int i, int dir)
             at = k;
     at = (at + dir + n) % n;
     controls_set(i, cycle[at]);
-#ifdef BM_RGB30
-    pad_config();
-#endif
+    home_controls_changed();
 }
 
 /* The first page of Settings: one row for each section. */
@@ -526,12 +518,7 @@ static void panel_settings(home_panel_t *p)
              "Version, memory, the log", "%s, spec %s", bm_version, bm_spec);
     /* the last two, on every system (the user's request, 2026-10-04) */
     home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
-#ifdef BM_RGB30
-    home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down", "Turns the console off", NULL);
-#else
-    home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down",
-             "Stops the Pi: it starts again when its power is plugged back", NULL);
-#endif
+    home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down", home_poweroff_help(), NULL);
 }
 
 /* Settings > Controllers: the players, the keyboard, the mouse and how to pair them. */
@@ -590,12 +577,7 @@ static void panel_controllers(home_panel_t *p)
              "Bluetooth LE (MX Keys: hold an Easy-Switch key 3 s)", NULL);
     home_row(p, MENU_ROW_ACTION, R_PAIR_MOUSE, "Pair a mouse",
              "Bluetooth LE or classic: put the mouse in pairing mode first", NULL);
-    home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
-#ifdef BM_RGB30
-             "Every button and both sticks, live (Start + Select: back)", NULL);
-#else
-             "The buttons each player holds, for 10 s", NULL);
-#endif
+    home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons", home_test_help(), NULL);
     home_row(p, MENU_ROW_CHOICE, R_LAYOUT, "Keyboard layout",
              "Layout of the USB or Bluetooth keyboard", "%s",
              hid_layout()[0] == 'i' ? "Italian" : "US");
@@ -664,12 +646,7 @@ static void panel_wifi(home_panel_t *p)
                  "%s", ssid && ssid[0] ? ssid : "none saved");
         home_row(p, MENU_ROW_INFO, R_STATE, "State", "The link to the access point",
                  "%s", wifi_linked() || net_link_kind() == NET_LINK_WIFI ? "connected" : "not connected");
-        home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
-#ifdef BM_RGB30
-                 "Lists the networks, joins wifi_ssid of bm/config.txt", NULL);
-#else
-                 "Lists the networks; the USB keyboard types the password", NULL);
-#endif
+        home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network", home_connect_help(), NULL);
     }
 #ifndef BM_RGB30
     else {
@@ -729,14 +706,13 @@ static void panel_screen(home_panel_t *p)
                  "3.5\" SPI TFT on the Pi 1: a tiny robot at its computer", NULL);
 #endif
     }
-#ifdef BM_RGB30
-    home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
-             "A small red battery over games and tools at 20% or less", "%s",
-             battery_icon_on() ? "On" : "Off");
-#else
-    home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
-             "HDMI colour bars; any button returns", NULL);
-#endif
+    if (home_has_battery())
+        home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
+                 "A small red battery over games and tools at 20% or less", "%s",
+                 battery_icon_on() ? "On" : "Off");
+    else
+        home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
+                 "HDMI colour bars; any button returns", NULL);
     for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
         if (home_util_group(i) == 1)
             home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
@@ -1293,13 +1269,11 @@ static int act_controls(int row, int how, home_do_t *d)
 static int act_screen(int row, int how, home_do_t *d)
 {
     switch (row) {
-#ifdef BM_RGB30
     case R_BATTERY_ICON:
         config_set("battery_icon", battery_icon_on() ? "0" : "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "low battery icon: %s", battery_icon_on() ? "on" : "off");
         break;
-#endif
 #ifdef BM_RGB30
     case R_MODES:
         if (how == 0) text(d, x_modes, 0, 1);
@@ -1435,12 +1409,7 @@ static int act_system(int row, int how, home_do_t *d)
         if (how == HOME_YES) {
             kprintf("rebooting...\n");
             wifi_auto_stop();
-#ifdef BM_RGB30
-            wifi_leave();               /* the AP told: it does not hold the old association */
-            plat_reset();
-#else
-            crumbs_restart(0);
-#endif
+            home_restart();
         } else if (how == 0) {
             ask(d, "Restart the console?", "A game left suspended is closed.", "Restart");
         }
@@ -1448,18 +1417,9 @@ static int act_system(int row, int how, home_do_t *d)
     case R_POWEROFF:
         if (how == HOME_YES) {
             kprintf("shutting down\n");
-#ifdef BM_RGB30
-            plat_poweroff();
-#else
-            wifi_auto_stop();
-            crumbs_restart(1);
-#endif
+            home_poweroff();
         } else if (how == 0) {
-#ifdef BM_RGB30
-            ask(d, "Shut the console down?", "A game left suspended is closed.", "Shut down");
-#else
-            ask(d, "Shut the console down?", "To start it again, plug its power back in.", "Shut down");
-#endif
+            ask(d, "Shut the console down?", home_poweroff_detail(), "Shut down");
         }
         break;
     default:

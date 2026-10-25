@@ -604,6 +604,54 @@ static const util_t utils[] = {
 int home_utils(void) { return N_UTILS; }
 const char *home_util_title(int i) { return utils[i].name; }
 const char *home_util_about(int i) { return utils[i].help; }
+
+/* ---- what differs between the consoles in Settings (home.h): the RGB30's ---- */
+
+int home_wireless(void)
+{
+    return 1;
+}
+
+void home_restart(void)
+{
+    wifi_leave();                               /* the AP told: it does not hold the old association */
+    plat_reset();
+}
+
+void home_poweroff(void)
+{
+    plat_poweroff();
+}
+
+const char *home_poweroff_help(void)
+{
+    return "Turns the console off";
+}
+
+const char *home_poweroff_detail(void)
+{
+    return "A game left suspended is closed.";
+}
+
+const char *home_test_help(void)
+{
+    return "Every button and both sticks, live (Start + Select: back)";
+}
+
+const char *home_connect_help(void)
+{
+    return "Lists the networks, joins wifi_ssid of bm/config.txt";
+}
+
+int home_has_battery(void)
+{
+    return 1;
+}
+
+void home_controls_changed(void)
+{
+    pad_config();
+}
 int home_util_group(int i) { return utils[i].group; }
 
 void home_util_start(int i, home_do_t *d)
