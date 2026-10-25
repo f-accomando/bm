@@ -469,3 +469,22 @@ each: the PC's ms do not count) and checks report, profiles, score, comparison a
 (`build/b3d/page-NN.ppm`). `build/host/b3d_host DIR --full -v` does the full run;
 `--tests=mix --profiles=GPU,ARM` a part, `--frames` saves every frame
 (`DIR/frame-NNNN.ppm`) to look at the scenes.
+
+## Lua edition
+
+The Lua edition is the cartridge `carts/bench3d` (title "3D Bench", a `.bm` app for the Market). The C bench in the kernel stays as it is. The Lua edition has its own numbers: they are not comparable with `docs/PERF-BUDGET.md` or with the C bench's reports (decision of 25 Oct 2026).
+
+The cartridge ports the ramp of `src/bm/b3d.c` as a state machine over `_draw` frames. Each test runs on each profile with a load `n` of 1, 2, 3, 4, then +1/3 a step. A step is one warm frame and 6 measured frames. The ramp ends when the median frame is over 40 ms, after 25 s or at the test's maximum. The loads at 60 and 30 frames a second come from the median ms of the steps (`b3d_load_at`). The cost of a pixel comes from the slope over the steps (`b3d_slope`).
+
+- **Frame time**: `stat(1)` of the next frame (`_update` + `_draw` with the GPU's 3D). The C bench also adds the copy to the screen. The overlay line is inside the measured frame.
+- **Profiles** (set with `gpu3d()` and `gpu3d_opt()`; short name in brackets): `ARM`, `GPU`, `GPU+VS` (VS), `GPU+VS+Q` (VSQ), `GPU+VS+Q2` (VSQ2), `GPU+FS2` (FS2), `GPU+VS+A8` (VSA, also called `A8`), `GPU+WC` (WC), `GPU+2D` (2D), `GPU+T16` (T16), `GPU+ETC1` (ETC1). A profile the console cannot run gives no row (a line `b3d-skip` in the log). Draw merging is off in every profile, as in the C bench.
+- **Not in it** (decision of 25 Oct 2026): the QPU rows, the PMU counters, the machine line and the Mali. The columns `instr`, `wait_instr`, `dmiss`, `cycles`, `core_mhz` and `gpu_mhz` are 0 in the R lines. The line `counters none` says so.
+- **Tests now**: `spheres` (ARM, GPU, VS, WC, VSA), `quad_flat` (ARM, GPU, VS) and `match` (as the C bench, plus VSQ and VSQ2). The scenes use the C bench's parameters (the camera, the grid, the 96-face spheres, the quads of 320x180). `match` differs: the heroes have no bones and the map has no baked light, because `mesh()` has neither. Its numbers are not those of the C `match`.
+- **Keys** of `bm/config.txt` (the prefix `3d_` comes from the title): `3d_tests` (ids), `3d_profiles` (names or short names), `3d_nowait` (`1`: the summary stays 3 s, then the cartridge ends). A value has no comma, so a list uses `/`: `3d_tests=spheres/match`. Without the keys the cartridge runs every row.
+- **Log**: one line a step, as `b3d.c`: `b3d spheres ARM n=8 0.35 ms worst 0.45, 289 tri, 448 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz`.
+- **Report**: the C bench's text (header lines, `columns R,...`, the R lines, the P lines of the pixel cost, `total`) sent with `report("bench3d", text)`. The `options` line at the start comes from `gpu3d_stats().options`. There is no score line yet.
+- **Summary page** (640x360): the load at 60 frames a second for each test and profile. Esc or B leaves.
+
+Still to port (the ids of `tests[]` in `b3d.c`): `spheres_smooth`, `spheres_tex`, `spheres_unlit`, `spheres_baked`, `spheres_shine`, `heroes`, `heroes_tex`, `heroes_skin`, `heroes_shadow`, `clip`, `tiny`, `draws`, `quad_smooth`, `quad_tex`, `quad_alpha`, `quad_screen`, `quad_texscreen`, `texswap`, `split`, `mix`, `queue`, `big`, `big_logic`, `gpu2d`, `bilinear`, the 2D scenes (`map8`, `sprites`, `stack`, `fade`, `light`), `herotris`, the `htmap` group (`ht_p100`, `ht_p100m`, `ht_p10`, `ht_p10m`, `ht_p1`), `stress` and the cel tests (`cel_lit`, `cel`, `cel_lit_nd`, `cel_nd`, `cel_outline`). Heroes with bones need a model with a skeleton in the cartridge (`model()` and `animate()`).
+
+The Lua API for it: `gpu3d_opt(name [, on])` and `gpu3d_stats()` ([light3d](api/light3d.md)). `make test-gpu3d-opt` tests both on the V3D emulator. `make test-bench3d` runs the cartridge in `bmhost-gpu` for 60 s of game time with `3d_tests=spheres/quad_flat`, `3d_profiles=ARM/GPU` and `tests/bench3d/check.py` checks the log. The PC's ms do not count. Not verified on the Pi or the RGB30.

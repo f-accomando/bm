@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: 3D Bench
+desc: The 3D benchmark of bm3D: how many spheres, quads and heroes the GPU and the ARM draw at 60 frames a second.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, benchmark, 3d
+resolution: 640x360
