@@ -11,7 +11,7 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 | D03 | players | 4 BT pads plus USB (`src/usb/hid.c:445`, `src/kernel/input.c:225`) | all pads merge into player 1 (`src/rgb30/bm_input.c:95-103`); Settings shows "Player 1" only | ASK 1 | port the Pi slots: built-in pad is P1, BT pads P2-4 | S-M | device; host test of the merge |
 | D05 | menu pointer | mouse block in the menu (`src/kernel/carts.c`) | no pointer in `src/rgb30/ui.c`, but Settings shows the Mouse rows | ASK 2 | port the pointer block (`pointer.c` is built) or hide the rows | M / S | QEMU, device |
 | D10 | covers | background fiber job, visible covers first (`src/kernel/library.c`, shared by both menus since 25 Oct) | the same job (`lib_covers_tick`); a placeholder until the cover is read | done 25 Oct (QEMU) | the header read stays in the scan (the sort needs titles); the job stops before a game starts | M | QEMU; load time on the device |
-| D14 | DMA test | Settings > System > Utilities | not built | ASK 4 (default KEEP) | note: the DMA test exercises the BCM2835 DMA engine; capability `soc-dma` in `platforms.toml` | S | `consistency.py check` |
+| D14 | DMA test | Settings > System > Utilities | not built | dropped 25 Oct (removed) | note: the DMA test exercises the BCM2835 DMA engine; capability `soc-dma` in `platforms.toml` | S | `consistency.py check` |
 | D15a | Settings > System "3D driver" row | shows the bm3d version | missing | done 25 Oct (QEMU) | row from the backend text of `src/rgb30/bm_port.c` | S | QEMU screen text |
 | D15b | CPU clock and temperature | `prop_query` | CPU name only | ASK 9 | read the RK3566 TSADC and the clock | M | device |
 | D17 | WiFi password | typed on a keyboard | `config.txt` only | PORT (blocked) | after the on-screen keyboard (R1, R2) | L | QEMU, device |
@@ -103,7 +103,7 @@ defined in `home.c` and `src/rgb30/ui.c`. The `BM_RGB30` blocks of `settings.c`:
 1. D03 players on the RGB30: PORT the Pi slots (built-in pad is P1, BT pads P2-4). D03 stays open. The code is a later work order.
 2. D05 menu pointer: PORT the pointer block to the RGB30 menu. D05 stays open. The code is a later work order.
 3. D22, D48, D54 monitor: after v1.0.0. The cause stays `hardware` for now. The shared command core is `src/kernel/monitor_cmd.c`.
-4. D14 DMA test: REMOVE it from the Pi too. The driver `src/drivers/dma.c` stays (the framebuffer, the audio and the runtime use it). D14 closes as dropped. The code to remove later: `src/kernel/dmatest.c` and `dmatest.h`, the Settings > System > Utilities row, the Monitor `bench dma` (`D`) command, the QEMU test `test_dma`, the docs.
+4. D14 DMA test: REMOVE it from the Pi too. The driver `src/drivers/dma.c` stays (the framebuffer, the audio and the runtime use it). D14 closes as dropped. Done 25 Oct 2026. The code removed: `src/kernel/dmatest.c` and `dmatest.h`, the Settings > System > Utilities row, the Monitor `bench dma` (`D`) command, the QEMU test `test_dma`, the docs.
 5. D24 Overbit: removed from the divergences. It is in the game backlog (`docs/progress/graphics-mali.md`, `docs/progress/overbit.md`).
 6. D11 Publish on the RGB30: stays off (owner decision of 22 Oct). D11 is accepted.
 7. Utility cartridges: in the Dev tab on both kernels.

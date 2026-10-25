@@ -6182,7 +6182,7 @@ def test_monitor_help_table(b, opts):
             q.expect("> ", timeout=5)
             assert "commands (games:" in text and "help [COMMAND]" in text, text[-600:]
             keys = set(re.findall(r"^  (\S)  \S", text, re.M))
-            want = set("hMfFlUimcoyYLVatXrTKOPWEGkpDjdzZu3456eACI")
+            want = set("hMfFlUimcoyYLVatXrTKOPWEGkpjdzZu3456eACI")
             assert want <= keys, f"keys missing in the help: {sorted(want - keys)}"
             assert "old words that still work: b3d=bench 3d," in text, text[-500:]
             assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
@@ -7658,19 +7658,6 @@ def test_gpu3d_fallback(b, opts):
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
-
-
-def test_dma(b, opts):
-    """M14: the DMA test copies and fills RAM and the screen correctly."""
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("D")
-        out = q.expect("DMA test passed", timeout=60).decode(errors="replace")
-        assert out.count(" ok") == 6 and "FAILED" not in out, out
-        q.expect("> ")
-    finally:
-        q.close()
 
 
 TEX_CART = r"""

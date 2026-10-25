@@ -165,14 +165,14 @@ action = "none"
 [[divergence]]
 id = "D14"
 area = "Dev tab extras"
-pi = "Settings > Screen: 3D Bench. Settings > System > Utilities: DMA test"
-rgb30 = "Not built: DMA test. The 3D Bench is in the Dev tab. Stress test, GPU test, Texture Room, Video bench, Stack bench and Diagnostics were removed from both kernels on 24 Oct 2026"
+pi = "Settings > Screen: 3D Bench"
+rgb30 = "The 3D Bench is in the Dev tab. Stress test, GPU test, Texture Room, Video bench, Stack bench and Diagnostics were removed from both kernels on 24 Oct 2026"
 cause = "todo"
 priority = 6
 status = "resolved"
-note = "Decision of the user, 25 Oct 2026: REMOVE the DMA test from the Pi too. The divergence closes as dropped. The DMA driver src/drivers/dma.c stays (the framebuffer, the audio and the runtime use it). Code removal to do later: src/kernel/dmatest.c and dmatest.h, the Settings > System > Utilities row, the Monitor command bench dma (D), the QEMU test test_dma and the docs (docs/NEXT.md)."
-evidence = "src/kernel/home.c: tools[]"
-action = "none; remove the DMA test from the Pi (later work order)"
+note = "Decision of the user, 25 Oct 2026: REMOVE the DMA test from the Pi too. The divergence closes as dropped. The DMA driver src/drivers/dma.c stays (the framebuffer, the audio and the runtime use it). Removed on 25 Oct 2026: src/kernel/dmatest.c and dmatest.h, the Settings > System > Utilities row, the Monitor command bench dma (D), the QEMU test test_dma and the docs."
+evidence = "src/kernel/home.c:tools; src/kernel/monitor.c"
+action = "none"
 
 [[divergence]]
 id = "D15"

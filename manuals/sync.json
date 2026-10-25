@@ -388,8 +388,8 @@
     "title": "Find out the keys of a game"
    },
    "7": {
-    "en": "057b98ac01f7",
-    "it": "9f101293be2f",
+    "en": "385d6e6c3d53",
+    "it": "75c33a4fd5c4",
     "title": "The monitor"
    },
    "8": {
@@ -407,7 +407,7 @@
    "boot": "884854dfbb36",
    "chainloader": "810ae5eb2ec6",
    "docs/HARDWARE.md": "6bfcdeee8616",
-   "docs/progress/system.md": "15bfe6c7d9dc",
+   "docs/progress/system.md": "c3f978f9ac6f",
    "src/kernel/syskeys.c": "249cf5144149"
   }
  },

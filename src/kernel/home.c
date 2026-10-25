@@ -5,7 +5,6 @@
 #include "config.h"
 #include "crumbs.h"
 #include "demo.h"
-#include "dmatest.h"
 #include "input.h"
 #include "monitor.h"
 #include "pager.h"
@@ -94,12 +93,6 @@ void home_show_log(framebuffer_t *fb)
         home_wait_back();
 }
 
-static void t_dma(framebuffer_t *fb)
-{
-    heading("DMA test");
-    dma_test(fb);
-}
-
 static void t_bench3d(framebuffer_t *fb)
 {
     heading("3D Bench: every 3D test with every driver");
@@ -154,7 +147,6 @@ static tool_t tools[] = {
     { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL, 0 },
 #define NDEV 4
     /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen */
-    { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 }, "dma", 0 },
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
       { 0 }, NULL, 1 },
 };

@@ -122,7 +122,7 @@ removing or changing a promise is a 2.0.0.
 | D05 | open | todo | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the pointer block to the RGB30 menu; decided 25 Oct |
 | D11 | accepted | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
 | D12 | resolved | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
-| D14 | resolved | todo | Dev tab extras | Pi, in Settings: 3D Bench (Screen); DMA test (System > Utilities). RGB30: the 3D Bench in the Dev tab; the DMA test is not built | dropped (25 Oct): remove the DMA test from the Pi too |
+| D14 | resolved | todo | Dev tab extras | Pi, in Settings: 3D Bench (Screen). RGB30: the 3D Bench in the Dev tab | dropped (25 Oct): the DMA test is removed from the Pi |
 | D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | write the RK3566 TSADC and clock readback; decided 25 Oct |
 | D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | waits for the on-screen keyboard (R1/R2); decided 25 Oct |
 | D19 | open | history | SD logs | Pi: none (only the crumbs report). RGB30: bootlog.txt, bootprev.txt, lastrun.txt in bm/ | give the Pi the same three files (R3) |
