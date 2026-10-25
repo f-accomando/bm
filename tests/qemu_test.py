@@ -3872,8 +3872,8 @@ def test_market(b, opts):
     the menu runs, nothing loads while another tab is shown, a game
     downloads with its progress on the cover, is checked, installed in
     /carts and plays; a game already on the card shows as installed; a file
-    that is not the catalog's is refused; leaving the tab interrupts a
-    download."""
+    that is not the catalog's is refused; leaving the tab does not stop a
+    download (dbf1c1c: it goes on in the background)."""
     tmp = tempfile.mkdtemp(prefix="bm-market-")
     try:
         key = os.path.join(tmp, "key.pem")
@@ -3980,15 +3980,15 @@ def test_market(b, opts):
             q.expect("market: Broken: not the file of the catalog", timeout=20)
             screen(["Retry"])
 
-            # Snake: leaving the tab interrupts the download
+            # Snake: leaving the tab does not stop the download (dbf1c1c:
+            # a game download goes on in the background)
             keys("a")
             screen(["Snake", "Get"])
             keys("\r\r")
             q.expect("market: downloading games/snake/snake.bm", timeout=10)
             keys("2")
-            q.expect("market: download of Snake interrupted", timeout=10)
-            text = screen(["Market Test"])             # the Games tab has the new game
-            assert "Snake" not in text, text
+            q.expect("market: Snake installed", timeout=20)
+            screen(["Market Test"])                        # the Games tab shows the new games
         finally:
             q.close()
 
@@ -4001,13 +4001,15 @@ def test_market(b, opts):
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
         carts = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, text=True,
                                env=env).stdout.upper()
-        assert "MTEST.BM" in carts and "SNAKE" not in carts and "BROKEN" not in carts, carts
+        assert "MTEST.BM" in carts and "SNAKE.BM" in carts and "BROKEN" not in carts, carts
         cache = subprocess.run(["mdir", "-b", "-i", part, "::/BM/MARKET"], capture_output=True, text=True,
                                env=env).stdout.upper()
         assert "INDEX.TXT" in cache and "INDEX.SIG" in cache and "GAMES.TXT" in cache and ".PNG" in cache, cache
         owned = subprocess.run(["mtype", "-i", part, "::/BM/MARKET/GAMES.TXT"], capture_output=True, text=True,
                                env=env).stdout
-        assert owned.startswith("mtest ") and owned.rstrip().endswith(" /carts/mtest.bm"), owned
+        lines = owned.splitlines()      # the two installed games, each with its hash and path
+        assert len(lines) == 2 and lines[0].startswith("mtest ") and lines[0].endswith(" /carts/mtest.bm") \
+            and lines[1].startswith("snake ") and lines[1].endswith(" /carts/snake.bm"), owned
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
