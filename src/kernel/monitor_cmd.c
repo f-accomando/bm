@@ -222,7 +222,7 @@ int mcmd_suggest(const mcmd_t *tab, const char *word, char *out, size_t cap)
 
     tb_init(&b, out, cap);
     for (const mcmd_t *r = tab; r && r->name; r++)       /* a word that starts like it */
-        if (!r->alias && wl > 0 && !strncmp(r->name, word, wl) && n < 4) {
+        if (wl > 0 && !strncmp(r->name, word, wl) && n < 4) {
             if (n++)
                 tb_str(&b, ", ");
             tb_str(&b, r->name);
@@ -230,7 +230,7 @@ int mcmd_suggest(const mcmd_t *tab, const char *word, char *out, size_t cap)
     if (n)
         return n;
     for (const mcmd_t *r = tab; r && r->name; r++)       /* else the nearest ones, same first letter */
-        if (!r->alias && lower(r->name[0]) == lower(word[0])) {
+        if (lower(r->name[0]) == lower(word[0])) {
             int d = distance(r->name, word);
             if (d < best)
                 best = d;
@@ -238,7 +238,7 @@ int mcmd_suggest(const mcmd_t *tab, const char *word, char *out, size_t cap)
     if (best > 2)
         return 0;
     for (const mcmd_t *r = tab; r && r->name && n < 4; r++)
-        if (!r->alias && lower(r->name[0]) == lower(word[0]) && distance(r->name, word) == best) {
+        if (lower(r->name[0]) == lower(word[0]) && distance(r->name, word) == best) {
             if (n++)
                 tb_str(&b, ", ");
             tb_str(&b, r->name);
@@ -412,16 +412,29 @@ size_t mcmd_help_all(const mcmd_t *tab, const char *head, const char *foot, char
     if (head)
         tb_str(&b, head);
     help_walk(&b, tab, "");
+    size_t line = b.n;                  /* the start of the line of the old words: it wraps at 76 */
     for (const mcmd_t *r = tab; r && r->name; r++)
         if (r->alias) {
-            tb_str(&b, first ? "old words that still work: " : ", ");
+            size_t need = strlen(r->name) + strlen(r->alias) + 3;
+            if (first) {
+                tb_str(&b, "old words that still work:");
+                first = 0;
+            }
+            if (b.n - line + need > 76) {
+                tb_str(&b, "\n  ");
+                line = b.n - 2;
+            }
+            tb_str(&b, " ");
             tb_str(&b, r->name);
             tb_str(&b, "=");
             tb_str(&b, r->alias);
-            first = 0;
+            tb_str(&b, ",");
         }
-    if (!first)
+    if (!first) {
+        if (b.n > 0 && b.p[b.n - 1] == ',')
+            b.p[--b.n] = 0;
         tb_str(&b, "\n");
+    }
     if (foot)
         tb_str(&b, foot);
     return b.n;
@@ -616,7 +629,7 @@ static int collect(medit_t *e, const char *part, size_t pl, const char **c, int 
     }
     if (nw == 0) {
         for (const mcmd_t *r = e->tab; r && r->name && n < max; r++)
-            if (!r->alias && !strncmp(r->name, part, pl))
+            if (!strncmp(r->name, part, pl))
                 c[n++] = r->name;
         return n;
     }

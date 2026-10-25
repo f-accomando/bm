@@ -145,7 +145,8 @@ CMD(c_help)
         ":  a line of commands, ';' between them, run one after the other:\n"
         "       :bench 3d tests=match,quad_tex profiles=GPU,FS2; report send\n"
         "       quotes keep spaces: wifi join \"my net\" \"a password\"\n"
-        "     crc: the CRC32 of the page on screen (crc: WxH bpp=D pitch=P crc32=0x........)\n"
+        "     crc: the CRC32 of the page on screen\n"
+        "       (crc: WxH bpp=D pitch=P crc32=0x........)\n"
         "     (from the menu too: the ':' takes the line to the monitor; from the PC\n"
         "     tools/bm_net.py IP --line \"...\" or easy_install.sh line \"...\")\n"
         "     from the PC: tools/bm_net.py IP (console, --send/--play a cart, --kernel)\n";
@@ -482,7 +483,7 @@ static const char *cand_set(int i)
 static const char *cand_help(int i)
 {
     for (const mcmd_t *r = cmd_table(); r->name; r++)
-        if (!r->alias && i-- == 0)
+        if (i-- == 0)
             return r->name;
     return NULL;
 }
@@ -584,8 +585,8 @@ static const mcmd_t sys_sub[] = {
     { .name = "via-ram", .args = "[on|off]", .help = ".bm drawing: via RAM / direct", .key = 'V', .fn = c_via_ram },
     { .name = "audio", .help = "HDMI sound status and a test tune", .key = 'a', .fn = c_audio },
     { .name = "test-pattern", .help = "HDMI test pattern (any key returns)", .key = 't', .fn = c_pattern },
-    { .name = "crash", .args = "[KIND]", .help = "crash test: undef dabt pabt svc freeze freeze-irq", .key = 'X', .fn = c_crash },
-    { .name = "reboot", .help = "reboot (watchdog; chainloader asks for a kernel)", .key = 'r', .fn = c_reboot },
+    { .name = "crash", .args = "[KIND]", .help = "crash test: undef dabt pabt svc freeze ...", .key = 'X', .fn = c_crash },
+    { .name = "reboot", .help = "reboot (the chainloader asks for a kernel)", .key = 'r', .fn = c_reboot },
     { NULL }
 };
 
@@ -689,7 +690,7 @@ static void con_out(const char *s)
 }
 
 /* a key from the keyboard, the serial line or the network console, as the editor reads it.
- * An ESC with nothing behind it for 40 ms is the Esc key (a terminal's arrow keys send the
+ * An ESC with nothing behind it for 100 ms is the Esc key (a terminal's arrow keys send the
  * rest at once); the USB keyboard gives its arrows as HID_KEY_*. */
 #define EK_HOME (-2)                    /* the PS button */
 #define EK_PLAY (-3)                    /* a cartridge arrived over the network */
@@ -700,7 +701,7 @@ static int edit_key(void)
     if (medit_in_escape(&ed)) {
         uint32_t t0 = timer_ticks();
         while ((c = input_key()) < 0)
-            if (timer_ticks() - t0 > 40000)
+            if (timer_ticks() - t0 > 100000)
                 return MEDIT_K_ESC;
     } else {
         c = input_getc_home();
@@ -793,7 +794,7 @@ static int prompt_mode(void)
 {
     int home = 0;
     want_exit = 0;
-    kprintf("bm> prompt: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves\n");
+    kprintf("the prompt stays: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves\n");
     for (;;) {
         console_suspend(0);                     /* (a stopped test left it hidden: bm_video_leave) */
         netcon_focus(MON_FOCUS, "bm> ");

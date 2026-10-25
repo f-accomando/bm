@@ -183,7 +183,7 @@ static void test_dispatch(void)
     check(mcmd_find_key(table, 'z', path, sizeof path)->fn == h_plain, "key: a plain command");
     char sug[64];
     check(mcmd_suggest(table, "w", sug, sizeof sug) == 1 && !strcmp(sug, "wifi"), "suggest: one prefix");
-    check(mcmd_suggest(table, "b", sug, sizeof sug) == 2 && !strcmp(sug, "bt, bench"), "suggest: two prefixes, table order, no alias");
+    check(mcmd_suggest(table, "b", sug, sizeof sug) == 3 && !strcmp(sug, "bt, bench, b3d"), "suggest: prefixes in table order, aliases too");
 }
 
 static void test_help(void)
@@ -202,11 +202,11 @@ static void test_help(void)
         char *nl = strchr(l, '\n');
         if (!nl)
             break;
-        if (nl - l > 80)
+        if (nl - l > 78)
             ok = 0;
         l = nl + 1;
     }
-    check(ok, "help: no line longer than 80 columns (a long usage goes to its own line)");
+    check(ok, "help: no line longer than 78 columns (a long usage goes to its own line)");
     check(strstr(out, "bench 3d [tests=A,B profiles=P]\n"), "help: a long usage has its own line");
 
     char *w1[] = { "wifi" };
@@ -526,7 +526,7 @@ static void test_tab(void)
     begin();
     type("b3");
     feed('\t');
-    check(!strcmp(medit_text(&ed), "b3"), "tab: an old word is not offered");
+    check(!strcmp(medit_text(&ed), "b3d "), "tab: an old word is completed too");
     begin();
     type("b3d t");
     feed('\t');

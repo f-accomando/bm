@@ -21,6 +21,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | Button prompts | Colored button glyphs: A green, B blue, X red, Y yellow (`PROMPT_RGB30_*`) | `docs/RGB30.md:222-224`, `docs/progress/platforms.md:36-38` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` for confirm / cancel actions | `docs/progress/platforms.md:36`, `docs/spec/divergences.toml:360` | implemented |
 | Menu bottom bar | The key chips only (A, X, Y, Back; no Monitor chip). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `src/kernel/menu_ui.c` (bottom bar), `src/kernel/notice.c` (`notice_fail`), `src/kernel/settings.c` (`home_report`) | implemented |
+| Monitor | None by design (no USB host, no keyboard): the Menu has no Monitor chip. The command core `src/kernel/monitor_cmd.c` has no hardware dependency, so a terminal monitor can use it when D22 is decided | `docs/spec/divergences.toml` D22, D48 | implemented |
 
 ## Raspberry Pi Zero W
 
@@ -41,6 +42,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | Button prompts | Lettered glyphs or DS4 glyphs depending on active input device | `src/kernel/settings.c:434-436`, `src/kernel/prompts.h:46` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` for confirm / cancel actions | `docs/spec/divergences.toml:360` | implemented |
 | Menu bottom bar | The key chips only (A, X, Y, Refresh, Monitor, Back). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `src/kernel/menu_ui.c` (bottom bar), `src/kernel/notice.c` (`notice_fail`), `src/kernel/settings.c` (`home_report`) | implemented |
+| Monitor | The text console after the menu (Ctrl+Shift+Esc, or Settings > System). One key runs one command, or a typed word at the `bm>` prompt (`:` and Enter; `exit`, Esc or Ctrl-D leave). The prompt has a history of 16 lines (Up, Down), Tab completion of commands, subcommands and `set` keys, and line editing (Left, Right, Home, End, Backspace, Del, Ctrl-U, Ctrl-C). It works on the serial line, on a USB keyboard and on the network console. `:` and a line runs that line once (the PC tools use it). The help (`h`) is made from the command table | `src/kernel/monitor.c` (`commands`), `src/kernel/monitor_cmd.c`, `tests/qemu_test.py:test_monitor_prompt` | implemented |
 | Editor top bar | The app name (bm Code, bm SDK, bm Studio, bm Animator, bm Mesh, bm Pixel) is the first item at the left; the page tabs follow; the file name is at the right and loses its start when the room is short (`U.bar_title`, `U.bar_file`) | `src/script/bmui.lua` | implemented |
 
 ## Raspberry Pi 1 (A, B, A+, B+, CM1)
@@ -58,6 +60,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | L1 / R1 | Move between menu tabs (identical to Pi Zero W) | `src/kernel/carts.c:1392,1394` | implemented |
 | D-pad | Navigate grid covers, list rows, and options | `src/kernel/input.h:14`, `src/kernel/carts.c:1366-1381` | implemented |
 | System shortcuts | Identical system keys (F11, F12, Print Screen, Ctrl+Esc) | `docs/spec/divergences.toml:376` | implemented |
+| Monitor | Same as the Pi Zero W (the Ethernet commands need a Pi 1 B / B+) | `src/kernel/monitor.c`, `src/kernel/monitor_cmd.c` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` | `docs/spec/divergences.toml:360` | implemented |
 
 ## Open decisions

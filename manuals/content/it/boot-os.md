@@ -194,7 +194,7 @@ Se l'elenco non mostra i tasti di un gioco, il gioco non ne ha dichiarati. [DA C
 
 # Il monitor
 
-Il monitor è la console di testo di bm. Ha un prompt `>`, prende un tasto per comando e scrive sullo schermo, sulla porta seriale e sulla console di rete.
+Il monitor è la console di testo di bm. Ha un prompt `>` e prende un tasto per comando. Prende anche comandi scritti al prompt `bm>`. Scrive sullo schermo, sulla porta seriale e sulla console di rete.
 
 ## Come aprirlo
 
@@ -202,46 +202,61 @@ Il monitor è la console di testo di bm. Ha un prompt `>`, prende un tasto per c
 - Oppure scegli Settings > System > *Open the monitor*.
 - Oppure collegati dal PC: `python3 tools/bm_net.py IP` mostra il monitor di una console in rete.
 
-Digita `h` per l'aiuto. `M` torna al menu; `Esc` da solo non fa nulla al prompt.
+Digita `h` per l'aiuto. L'aiuto è fatto dalla tabella dei comandi nel kernel, quindi elenca sempre tutti i comandi. `M` torna al menu; `Esc` da solo non fa nulla al prompt.
 
 ## Comandi
 
-L'aiuto del monitor elenca molti tasti. Questi sono quelli che contano per chi comincia:
+Ogni comando ha una parola. Il tasto è una scorciatoia per la parola. L'aiuto del monitor li elenca tutti. Questi sono quelli che contano per chi comincia:
+
+| Tasto | Parola | Cosa fa |
+|---|---|---|
+| `h` o `?` | `help [NOME]` | l'aiuto, o l'aiuto di un comando |
+| `M` | `menu` | il menu delle cartucce |
+| `f` / `F` | `carts list` / `carts rescan` | elenca le cartucce / rileggi la scheda SD |
+| `i` | `sys info` | informazioni di sistema |
+| `m` | `sys heap` | uso dell'heap |
+| `c` | `sys clear` | pulisci lo schermo |
+| `l` | `lua` | prompt Lua (`Esc`, `Ctrl-D` o `exit()` tornano qui) |
+| `L` | `sys layout [it\|us]` | layout della tastiera, italiano o US |
+| `V` | `sys via-ram [on\|off]` | disegno dei `.bm`, diretto sullo schermo o via RAM |
+| `y` / `Y` | `sys usb` / `sys input` | scansione USB / prova degli input |
+| `T` `K` `O` | `bt pair pad` / `kbd` / `mouse` | Bluetooth: abbina un pad, una tastiera, un mouse |
+| `P` | `bt forget` | Bluetooth: dimentica tutti i dispositivi abbinati (chiede prima) |
+| `W` | `wifi`, `wifi list`, `wifi join NOME [PASSWORD]`, `wifi forget` | WiFi: avvia, elenca le reti, entra in una, dimenticala |
+| `u` | `update` | aggiorna da GitHub (chiede prima) |
+| `o` | `sys dmesg` | tutto ciò che è stato stampato dall'avvio |
+| `Z` | `report log` | il log dall'avvio, come report |
+| `r` | `sys reboot` | riavvia |
+| `X` | `sys crash [TIPO]` | prove di crash: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
+
+Altri tasti lanciano test e benchmark: `k`, `p`, `D` e `j` sono `bench cpu`, `bench render`, `bench dma` e `bench 3d`. `d` è `demo`, `t` è `sys test-pattern`, `a` è `sys audio`. `E` è `net eth`, `G` è `net get URL`, `z` è `report send`, `U` è `upload`. Altri aprono gli editor: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` sono `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
+
+## Il prompt bm>
+
+Digita `:` e poi `Invio`. Il prompt `bm> ` si apre e resta aperto. Digita `exit` per uscire, oppure premi `Esc`, oppure premi `Ctrl-D` su una riga vuota.
 
 | Tasto | Cosa fa |
 |---|---|
-| `h` o `?` | l'aiuto |
-| `M` | il menu delle cartucce |
-| `f` / `F` | elenca le cartucce / rileggi la scheda SD |
-| `i` | informazioni di sistema |
-| `m` | uso dell'heap |
-| `c` | pulisci lo schermo |
-| `l` | prompt Lua (`Esc`, `Ctrl-D` o `exit()` tornano qui) |
-| `L` | layout della tastiera, italiano o US |
-| `V` | disegno dei `.bm`, diretto sullo schermo o via RAM |
-| `y` / `Y` | scansione USB / prova degli input |
-| `T` `K` `O` | Bluetooth: abbina un pad, una tastiera, un mouse |
-| `P` | Bluetooth: dimentica tutti i dispositivi abbinati (chiede prima) |
-| `W` | WiFi: avvia, elenca le reti, entra in una |
-| `u` | aggiorna da GitHub (chiede prima) |
-| `o` | tutto ciò che è stato stampato dall'avvio |
-| `Z` | il log dall'avvio, come report |
-| `r` | riavvia |
-| `X` | prove di crash: poi `u`, `a`, `b`, `s` o `f` |
+| `Tab` | completa un comando, un sottocomando o una chiave di `set`; se le scelte sono due o più le elenca |
+| `Su` / `Giù` | le ultime 16 righe |
+| `Sinistra` / `Destra`, `Home` / `Fine` | muovono il cursore nella riga |
+| `Backspace` / `Canc` | cancella un carattere |
+| `Ctrl-U` | cancella il testo prima del cursore |
+| `Ctrl-C` | scarta la riga |
 
-Altri tasti lanciano test e benchmark: `k`, `p`, `D`, `g`, `j`, `R`, `s`, `d`, `t`, `a`, `b`. Altri aprono gli editor: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I`.
+Funziona con una tastiera USB, sulla porta seriale e sulla console di rete. Le virgolette tengono gli spazi in una parola: `wifi join "mia rete" "una password"`. Un errore di battitura dà un suggerimento: `sned` dice `did you mean: send`.
 
 ## Una riga di comandi
 
-Digita `:` e poi dei comandi separati da `;`. Girano uno dopo l'altro, e la riga si ferma al primo che fallisce.
+Digita `:` e poi dei comandi separati da `;`. Girano uno dopo l'altro, e la riga si ferma al primo che fallisce. La riga gira una volta, come sempre. Gli strumenti del PC la usano (`bm_net.py IP --line "..."`).
 
 | Comando | Cosa fa |
 |---|---|
-| `b3d tests=a,b profiles=P` | il 3D Bench, tutto o in parte |
+| `bench 3d tests=a,b profiles=P` | il 3D Bench, tutto o in parte (`b3d` funziona ancora) |
 | `play NOME` | avvia un gioco per nome |
-| `set key=value ...` | cambia le chiavi di `bm/config.txt` fino al riavvio |
+| `set key=value ...` | cambia le chiavi di `bm/config.txt` fino al riavvio (`set` da solo le elenca) |
 | `save` | scrive `bm/config.txt` |
-| `render`, `room`, `log`, `send`, `reboot` | benchmark, il log come report, invia i report in attesa, riavvia |
+| `bench render`, `report log`, `report send`, `sys reboot` | benchmark, il log come report, invia i report in attesa, riavvia (`render`, `log`, `send`, `reboot` funzionano ancora) |
 
 ::: copy
 :set volume=5; save

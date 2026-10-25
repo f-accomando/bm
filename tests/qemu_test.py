@@ -6156,6 +6156,219 @@ def test_monitor_crc(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _plain(data):
+    """serial output as text: no colour codes, no carriage returns"""
+    return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", data.decode(errors="replace")).replace("\r", "")
+
+
+def test_monitor_help_table(b, opts):
+    """The help is made from the table of commands (src/kernel/monitor_cmd.c): one
+    line for each key, none longer than the console (79 characters: the pager wraps at 80), the old
+    words in a last line; 'help NAME' says more about one command."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        for key in "h?":
+            q.send(key)
+            text = ""
+            for _ in range(12):
+                text += _plain(q.expect("-- lines ", timeout=5)).removesuffix("-- lines ") + "\n"
+                span = _plain(q.expect("returns --", timeout=5))
+                first, last, total = map(int, re.match(r"(\d+)-(\d+) of (\d+)", span).groups())
+                if last >= total:
+                    break
+                q.send(" ")
+            q.send("q")
+            q.expect("> ", timeout=5)
+            assert "commands (games:" in text and "help [COMMAND]" in text, text[-600:]
+            keys = set(re.findall(r"^  (\S)  \S", text, re.M))
+            want = set("hMfFlUimcoyYLVatXrTKOPWEGkpDjdzZu3456eACI")
+            assert want <= keys, f"keys missing in the help: {sorted(want - keys)}"
+            assert "old words that still work: b3d=bench 3d," in text, text[-500:]
+            assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
+            assert "wifi join NAME [PASSWORD]" in text and "bench 3d [tests=A,B profiles=P]" in text, text[-900:]
+    finally:
+        q.close()
+
+
+def _prompt_line(q, text, timeout=10):
+    """a line typed at the bm> prompt (bytes of text as they are, then Enter);
+    what it printed, up to the next prompt"""
+    q.send(text + "\r")
+    return _plain(q.expect("\nbm> ", timeout=timeout))
+
+
+def test_monitor_prompt(b, opts):
+    """The persistent line mode (2026-10-25): ':' and Enter open the bm> prompt, which stays
+    until 'exit' or Esc. Commands and subcommands, a suggestion for an unknown word, 'set'
+    and 'crc', the history on Up (a terminal's ESC [ A, also one byte at a time), Tab
+    completion of commands, subcommands and set keys, Backspace and Ctrl-U, '\\r\\n' as
+    one Enter, Ctrl-C; the one-shot ':line' of the PC tools is as before."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send(":\r")
+        q.expect("the prompt stays", timeout=5)
+        q.expect("\nbm> ", timeout=5)
+        out = _prompt_line(q, "help wifi")
+        assert "wifi join NAME [PASSWORD]" in out and "wifi forget" in out and "wifi list" in out, out
+        out = _prompt_line(q, "help nosuch")
+        assert "help: no command 'nosuch'" in out, out
+        out = _prompt_line(q, "sned")
+        assert "'sned': not a command of the line; did you mean: send" in out, out
+        out = _prompt_line(q, "wifi nosuch")
+        assert "'wifi': not a subcommand: 'nosuch'; use: list, join, forget" in out, out
+        out = _prompt_line(q, "bt")
+        assert "'bt': needs one of: pair, forget" in out, out
+        out = _prompt_line(q, "set gpu3d_sort=1 name=\"a b\"")
+        assert "set gpu3d_sort=1 (until a restart" in out and "set name=a b (until" in out, out
+        out = _prompt_line(q, "set")
+        assert "gpu3d_sort=1" in out and "name=a b" in out, out
+        out = _prompt_line(q, "set oops")
+        assert "set: 'oops' is not key=value" in out, out
+        out = _prompt_line(q, "crc")
+        assert re.search(r"crc: (\d+)x(\d+) bpp=(\d+) pitch=(\d+) crc32=0x([0-9a-f]{8})\b", out), out
+        out = _prompt_line(q, "err; net status")
+        assert "err: none" in out and "net: wifi off" in out, out
+        out = _prompt_line(q, "err; nope; net status")
+        assert "'nope': not a command" in out and "net: wifi" not in out, out     # a bad word stops the line
+        # history: Up brings back the last line, Up Up Down the one before... of the last
+        out = _prompt_line(q, "\x1b[A")
+        assert "'nope': not a command" in out, out
+        out = _prompt_line(q, "\x1b[A\x1b[A\x1b[B")
+        assert "'nope': not a command" in out, out
+        # a terminal may send the arrow's bytes one at a time
+        for ch in "\x1b[A":
+            q.send(ch)
+            time.sleep(0.01)
+        q.expect("nope; net status", timeout=5)
+        q.send("\x15")                                      # Ctrl-U
+        q.send("crc\r")
+        out = _plain(q.expect("\nbm> ", timeout=10))
+        assert "crc: " in out and "net: wifi" not in out, out
+        # Tab: a command, a subcommand, a key of set
+        q.send("cr\t")
+        q.expect("bm> crc ", timeout=5)
+        q.send("\r")
+        assert "crc: " in _plain(q.expect("\nbm> ", timeout=10))
+        q.send("wi\tjo\t")
+        q.expect("bm> wifi join ", timeout=5)
+        q.send("\x15")
+        q.send("set vol\t")
+        q.expect("bm> set volume=", timeout=5)
+        q.send("\x15")
+        q.send("sy\tcr\t")
+        q.expect("bm> sys crash ", timeout=5)
+        q.send("\x15")
+        # Tab with several words: the list, then the line again
+        q.send("se\t")
+        out = _plain(q.expect("bm> se", timeout=5))
+        assert "send" in out and "set" in out and "sys" not in out, out
+        q.send("\x03")                                      # Ctrl-C drops the line
+        q.expect("^C", timeout=5)
+        q.expect("\nbm> ", timeout=5)
+        # Backspace, and \r\n as one Enter: no empty line behind it
+        q.send("crx\x7fc\r\n")
+        out = _plain(q.expect("\nbm> ", timeout=10))
+        assert "crc: " in out, out
+        q.send("err\r\n")
+        out = _plain(q.expect("\nbm> ", timeout=10))
+        assert "err: none" in out, out
+        time.sleep(0.3)
+        assert b"\nbm> " not in q.buf, q.buf                # no second prompt for the \n
+        # the word of before inside the prompt
+        out = _prompt_line(q, "b3d tests=spheres profiles=ARM", timeout=240)
+        assert "only tests spheres, profiles ARM" in out, out[-600:]
+        # exit: back to the key prompt; the keys work again; ':' with a line is one-shot
+        q.send("exit\r")
+        q.expect("\n> ", timeout=5)
+        q.send("m")
+        assert "heap" in _plain(q.expect("\n> ", timeout=5))
+        q.send(":set name=\"q r\"; err\r")
+        out = _plain(q.expect("the line is done", timeout=10))
+        assert ": set name=q r" in out and "set name=q r (until" in out and "err: none" in out, out
+        q.expect("\n> ", timeout=5)
+        # Esc leaves the prompt too (a lone ESC byte: the Esc key of a keyboard)
+        q.send(":\r")
+        q.expect("\nbm> ", timeout=5)
+        q.send("\x1b")
+        q.expect("\n> ", timeout=5)
+        # Ctrl-D on an empty line leaves
+        q.send(":\r")
+        q.expect("\nbm> ", timeout=5)
+        q.send("\x04")
+        q.expect("\n> ", timeout=5)
+        # Esc in a one-shot ':' drops it
+        q.send(":")
+        q.send("\x1b")
+        q.expect("\n> ", timeout=5)
+        assert b"the line is done" not in q.buf
+    finally:
+        q.close()
+
+
+def test_monitor_keys_and_words(b, opts):
+    """Every single key still works as before, and the word of its command does the same
+    (the keys are shortcuts of the table). Keys that need hardware or a long wait are
+    not here (T K O P W G u X k p j d D t Y: other tests)."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+
+        def key(k):
+            q.send(k)
+            return _plain(q.expect("\n> ", timeout=20))
+
+        def words(w):
+            q.send(":" + w + "\r")
+            out = _plain(q.expect("the line is done", timeout=20))
+            q.expect("\n> ", timeout=5)
+            return out
+
+        pairs = [("i", "sys info", "board revision"), ("m", "sys heap", "heap"),
+                 ("f", "carts list", "bm SDK"), ("F", "carts rescan", "sd: no card"),
+                 ("y", "sys usb", "usb: nothing attached"), ("E", "net eth", "eth: no Ethernet controller"),
+                 ("a", "sys audio", "audio:"), ("z", "report send", "waiting on the SD card"),
+                 ("Z", "report log", "report: "), ("L", "sys layout", "keyboard layout: "),
+                 ("V", "sys via-ram", ".bm carts draw ")]
+        for k, w, want in pairs:
+            a, c = key(k), words(w)
+            assert want in a, (k, a)
+            assert want in c, (w, c)
+        # the toggles went twice each (a key, a word): set them by name
+        assert "keyboard layout: us" in words("sys layout us")
+        assert "keyboard layout: it" in words("sys layout it")
+        assert "directly on screen" in words("sys via-ram off")
+        assert "via a RAM buffer" in words("sys via-ram on")
+        assert "layout: it or us" in words("sys layout xx")
+        # the old words and the commands that replace them
+        for old, new, want in (("send", "report send", "waiting on the SD card"), ("log", "report log", "report: "),
+                               ("err", "err", "err: none"), ("crc", "crc", "crc: ")):
+            assert want in words(old) and want in words(new), old
+        # c clears the screen, h and ? are the help, an unknown key is said
+        key("c")
+        q.send("h")
+        q.expect("-- lines 1-", timeout=5)
+        q.send("q")
+        q.expect("> ", timeout=5)
+        q.send("?")
+        q.expect("-- lines 1-", timeout=5)
+        q.send("q")
+        q.expect("> ", timeout=5)
+        assert "unknown command (0x78)" in key("x")
+        # help of one command, and of an old word
+        q.send(":help b3d\r")
+        out = _plain(q.expect("\n> ", timeout=10))
+        assert "b3d is the old word for 'bench 3d'" in out and "bench 3d [tests=A,B profiles=P]" in out, out
+        out = words("sys crash nosuch")
+        assert "crash: undef, dabt, pabt, svc, freeze or freeze-irq" in out, out
+        # sys crash with a word: the same crash as X and a key
+        q.send(":sys crash dabt\r")
+        q.expect("Data abort", timeout=15)
+    finally:
+        q.close()
+
+
 def test_reports(b, opts):
     """The reports (src/kernel/reports.c, 2026-10-04): Z in the monitor makes
     one of the log, saved as bm/reports/rpt00001.txt with its header (kernel,

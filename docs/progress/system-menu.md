@@ -28,6 +28,9 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   bench, the libc and fiber self-tests, the boot demo and the Lua boot script) were removed on 24 Oct 2026.
   The monitor keys `b`, `g` and `R`, and the line words `gpu`, `room`, `video` and `stack`, went with them.
   The monitor keys `k` (CPU bench), `p` (render bench) and `d` (animation demo) stay.
+  The monitor is a table of commands (`commands` in `src/kernel/monitor.c`). Each single key is the shortcut of a
+  word (`i` is `sys info`, `W` is `wifi`, `j` is `bench 3d`). The `bm>` prompt (`:` and Enter) stays open and
+  has history, Tab and line editing (`src/kernel/monitor_cmd.c`). The old line words stay as aliases.
   A game in memory has a star at the top right of its card; a game with a newer
   Market version has a down triangle at the bottom right (`market_has_update()`). The Market
   cards have no "Installed" or "Update" pill.
