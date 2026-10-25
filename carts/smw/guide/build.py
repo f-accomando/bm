@@ -132,10 +132,16 @@ def main():
             if k not in defs_new:
                 defs_new[k] = (main_rows[2 * y][2 * x], main_rows[2 * y + 1][2 * x], main_rows[2 * y][2 * x + 1],
                                main_rows[2 * y + 1][2 * x + 1])
-    n_cells = len(cell_list) + 3
+    from bg import bg_layer                   # the background, redrawn like the rest, as a third layer
+    bg_cells, bg_rows, _ = bg_layer(ex, col_n + 2, len(main_rows[0]), restyle=restyle)
+    open(out + "/map_bg.csv", "w").write("\n".join(",".join(map(str, r)) for r in bg_rows) + "\n")
+    n_cells = col_n + 2 + len(bg_cells)
     sh = Image.new("RGBA", (128, ((n_cells + 15) // 16) * 8), (0, 0, 0, 0))
     for i, im in enumerate(cell_list, 1):
         sh.paste(im, ((i % 16) * 8, (i // 16) * 8))
+    for i, im in enumerate(bg_cells):
+        n = col_n + 2 + i
+        sh.paste(im, ((n % 16) * 8, (n // 16) * 8))
     sh.save(out + "/tiles.png")
     for name, rows in (("map_main.csv", main_rows), ("map_col.csv", col_rows)):
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
@@ -145,7 +151,7 @@ def main():
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % real.backdrop(ex))
     open(out + "/main.lua", "w").write(lua)
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", out + "/sheet.png", "--sprites", out + "/sprites.txt",
-            "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--flags", out + "/flags.csv",
+            "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--map", "bg=" + out + "/map_bg.csv", "--flags", out + "/flags.csv",
             "--info", ROOT + "/carts/smw/bm.info", "--title", "SMW Guide Edition", "--targets", "rgb30", "--input", "pad"]
     subprocess.run(base + ["-o", out + "/guide.b16", "--b16"], check=True)
     subprocess.run(base + ["-o", out + "/guide.bme"], check=True)

@@ -61,6 +61,11 @@ def pack_zones(ex, tiles_png, out_png, out_txt, restyle=None):
     def dpic(sid, key):
         m = json.load(open(ex + "/diff/%s/pics.json" % sid))[key]
         return Image.open(ex + "/diff/%s/%s" % (sid, m["file"])).convert("RGBA"), m["ox"], m["oy"]
+    # the green Koopa (sprite 00, 16x14 pictures facing left) and the green shell (04); the boxes are the red ones'
+    gbox = ["hurt * 3 6 12 10", "hit * 3 6 12 10"]
+    zones.append(("gkoopa", 24, 16, [dpic("00", "3a695f1f"), dpic("00", "9d04b60e")], (0, 0), gbox))
+    zones.append(("gshell", 24, 16, [dpic("04", "f9acab17")], (0, 0), ["hurt * 3 6 12 10"]))
+    zones.append(("gshell_slide", 24, 16, [dpic("04", "f9acab17")], (0, 0), gbox))
     zones.append(("plant", 24, 40, [(im, ox, oy + 8) for im, ox, oy in (dpic("4F", "4182a38b"), dpic("4F", "3f21bea6"))],
                   (0, -8), ["hit * 5 14 12 16"]))
     zones.append(("flower", 24, 16, [dpic("4E", k) for k in ("75c96d8a", "f4009734", "109bbf7b", "6a4ba8c4")], (0, 0), []))
@@ -129,10 +134,12 @@ def pack_zones(ex, tiles_png, out_png, out_txt, restyle=None):
             seen.add((s["id"], s["x"], s["y"]))
             decor.append("  { %s, %d, %d }," % ('"flower"' if s["id"] == 0x4E else '"tuft"', s["x"], s["y"]))
     plants = [(s["x"], s["y"]) for s in spawns if s["id"] == 0x4F][:1]
+    greens = sorted({(s["x"], s["y"], s["face"], 1 if s["status"] == 9 else 0) for s in spawns if s["id"] in (0, 4)})
     chucks = sorted({(s["x"], s["y"]) for s in spawns if s["id"] == 0x91})
     rows = [r.split(",") for r in open(ex + "/enemies/states.csv").read().splitlines()[1:]]
     path = [int(r[5]) for r in rows if int(r[2]) == 0x4F]               # its y, a tick at a time, going up
-    plant_lua = "local MSGPOS = { %s }\n" % ", ".join(msgpos)
+    plant_lua = "local GKOOPAS = { %s }   -- the green ones: x, y, face, starts as a shell\n" % ", ".join("{ %d, %d, %d, %d }" % g for g in greens)
+    plant_lua += "local MSGPOS = { %s }\n" % ", ".join(msgpos)
     plant_lua += "local CHUCKS = { %s }\n" % ", ".join("{ %d, %d }" % c for c in chucks)
     plant_lua += "local PLANT_AT = { %s }\nlocal PLANT_PATH = { %s }\n" % (
         ", ".join("{ %d, %d }" % p for p in plants), ", ".join(str(y) for y in path))

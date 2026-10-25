@@ -145,6 +145,10 @@ local H = lib.hits()                           -- the boxes of a tick, and who h
 
 spawn_foes = function()
   foes = {}
+  for _, k in ipairs(GKOOPAS) do
+    foes[#foes + 1] = { kind = "koopa", skin = "green", x = k[1], y = k[2], w = 16, h = 16, vx = k[4] == 1 and 0 or (k[3] == 1 and -8 or 8), vy = 0,
+                        face = k[3] == 1 and -1 or 1, state = k[4] == 1 and "shell" or "walk", t = 0, turn = 0 }
+  end
   for _, c in ipairs(CHUCKS) do
     foes[#foes + 1] = { kind = "chuck", x = c[1], y = c[2], w = 16, h = 16, vx = 0, vy = 0, face = -1, hp = 3, state = "idle", t = 0, turn = 0 }
   end
@@ -188,6 +192,12 @@ local function koopa_step(k)
 end
 
 local function koopa_zone(k)               -- zone, frame, flip_x, flip_y
+  if k.skin == "green" then                -- sprite 00 and 04: one picture facing left, mirrored to go right
+    if k.state == "dead" then return "gshell", 1, false, true end
+    if k.state == "shell" then return "gshell", 1, false, false end
+    if k.state == "slide" then return "gshell_slide", 1, false, false end
+    return "gkoopa", (k.t // 8) % 2 + 1, k.face > 0, false
+  end
   if k.state == "dead" then return "shell", 1, false, true end
   if k.state == "shell" then return "shell", 1, false, false end
   if k.state == "slide" then return "shell_slide", 1, false, false end
@@ -547,6 +557,8 @@ function _draw()
   camy = math.max(0, math.min(LEVEL_H - VIEW_H, math.floor(y) - 160))
   clip(VX, VY, VIEW_W, VIEW_H)
   rectfill(VX, VY, VIEW_W, VIEW_H, backdrop)
+  local bu = camx // 2                              -- the background layer scrolls at half the camera's speed on x
+  map(bu // 8, camy // 8, VX - (bu % 8), VY - (camy % 8), VIEW_W // 8 + 1, VIEW_H // 8 + 1, "bg")
   local mx, my = camx // 8, camy // 8
   map(mx, my, VX - (camx % 8), VY - (camy % 8), VIEW_W // 8 + 1, VIEW_H // 8 + 1, "main")
   for _, b in ipairs(bumping) do draw16(USED, VX + b.cx * 16 - camx, VY + b.cy * 16 + BUMP_Y[b.t] - camy) end

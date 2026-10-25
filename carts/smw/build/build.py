@@ -9,6 +9,7 @@ flags, joins physics.lua and game.lua into main.lua and calls mkbm.py for the .b
 import json, os, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sprites import pack_zones
+from bg import bg_layer
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
@@ -71,8 +72,20 @@ def main():
     for name, rows in (("map_main.csv", main_rows), ("map_col.csv", col_rows)):
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
     open(out + "/flags.csv", "w").write("%d=1\n%d=2\n" % (col, col + 1))
+    # the background layer: new cells after the two marker cells, a third map layer "bg"
+    bg_cells, bg_rows, _ = bg_layer(ex, col + 2, len(main_rows[0]))
+    open(out + "/map_bg.csv", "w").write("\n".join(",".join(map(str, r)) for r in bg_rows) + "\n")
+    from PIL import Image
+    tiles = Image.open(ex + "/sheet.png").convert("RGBA")
+    n_total = col + 2 + len(bg_cells)
+    wide = Image.new("RGBA", (tiles.width, max(tiles.height, (n_total + 15) // 16 * 8)), (0, 0, 0, 0))
+    wide.paste(tiles, (0, 0))
+    for i, im in enumerate(bg_cells):
+        n = col + 2 + i
+        wide.paste(im, ((n % 16) * 8, (n // 16) * 8))
+    wide.save(out + "/tiles.png")
     sheet_png = out + "/sheet.png"
-    poses_lua = pack_zones(ex, ex + "/sheet.png", sheet_png, out + "/sprites.txt")
+    poses_lua = pack_zones(ex, out + "/tiles.png", sheet_png, out + "/sprites.txt")
     lua = poses_lua + block_data(defs, level, col) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % backdrop(ex))
     if os.environ.get("SMW_TRACE"):        # a log line per tick: tick, Mario's x, y, state; for tests/smw/compare.py
@@ -83,7 +96,7 @@ def main():
         lua = lua.replace("local START_X, START_Y = 16, 352", "local START_X, START_Y = " + os.environ["SMW_START"])
     open(out + "/main.lua", "w").write(lua)
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", sheet_png, "--sprites", out + "/sprites.txt",
-            "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--flags", out + "/flags.csv",
+            "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--map", "bg=" + out + "/map_bg.csv", "--flags", out + "/flags.csv",
             "--info", ROOT + "/carts/smw/bm.info", "--targets", "rgb30", "--input", "pad"]
     subprocess.run(base + ["-o", out + "/smw.b16", "--b16"], check=True)
     subprocess.run(base + ["-o", out + "/smw.bme"], check=True)

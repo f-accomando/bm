@@ -29,6 +29,11 @@ the finished cartridge stay on the user's machine and SD card.
   the same state, once with the sprite's slot cleared, and keeps the pixels that differ. Used for the jumping
   plant (4F), the Chargin' Chuck (91), the P switch (3E), the flowers and tufts (4E, 4D), and the message block
   (B9). The sprite table and the graphics of a savestate do not always match the screen (dynamic graphics).
+- `scripts/smw_bg2.py` and `carts/smw/build/bg.py`: the background layer (BG2). It scrolls at half the camera's
+  speed on x and at its speed on y. The script samples every screen pixel that shows only the background and
+  votes per pixel; the build folds it on a period of 512, fills the holes, cuts it in 637 unique 8x8 cells and
+  writes the map layer `bg` (drawn first, `map` with camera x // 2). Some thin dark marks remain where the
+  foreground always hid the picture.
 - `scripts/smw_msgs.py`: bumps each message block and keeps the black box with its text (msg1: the spin jump
   tip; msg2: Yoshi's thanks). The game shows it as zones `msgN_a` and `msgN_b` (128 pixels at most a zone) and
   waits for A, B or Start.
@@ -65,8 +70,6 @@ the finished cartridge stay on the user's machine and SD card.
   For other levels read the "acts like" table from the ROM.
 - Mario poses: small Mario only. Capture big, fire, cape, Yoshi, swim, climb, death, and the
   walk speed steps. The animation rate is one rule (`anim += speed`, a frame per 122).
-- Background layer 2 (parallax forest): the game uses one colour. The TM mirror poke does not
-  hide layers. Read the BG2 tilemap from VRAM or stitch it from frames.
 - Camera: use the SMW scroll rules. Now `x - 108`.
 - Whole-level check (`tests/smw/compare.py`): the same input in the emulator (Mario unhurtable) and in the port
   (`SMW_GOD=1 SMW_TRACE=1`, a log line a tick). The first 700 ticks (to x 1900) stay within 5 pixels (mean 0.6

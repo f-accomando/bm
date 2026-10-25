@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Captures the pictures of sprites by taking them out of the screen, from your own ROM in the emulator.
 
-    python3 scripts/smw_diff.py ROM.sfc OUTDIR ID [ID ...] [--frames N]
+    python3 scripts/smw_diff.py ROM.sfc OUTDIR ID [ID ...] [--frames N] [--stop X]
 
 The sprite table and the sprite graphics of the savestate do not always match the picture on the screen
 (graphics that the game sends again every frame). So for each frame where a sprite of number ID is on screen
 it plays two frames twice from the same state: once as it is, once with that sprite's slot cleared. The pixels
 that differ are the sprite, in the exact colours of the screen. Writes to OUTDIR/ID:
     pic_<key>.png, pics.json {key: {ox, oy, w, h, count, file}}, seq.csv (frame, slot, x, y, vx, vy, face, pic)
-ox and oy are from the sprite's x and y. The pictures are the player's own: they stay out of git."""
+ox and oy are from the sprite's x and y. --stop X holds Mario still from x = X (a sprite that he would kill stays alive). The pictures are the player's own: they stay out of git."""
 import csv, hashlib, json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
@@ -25,6 +25,8 @@ def main():
     ids = [int(a, 16) for a in args if a.lower().replace("0x", "").isalnum()]
     frames = int(sys.argv[sys.argv.index("--frames") + 1]) if "--frames" in sys.argv else 2000
     ids = [i for i in ids if i != frames]
+    stop = int(sys.argv[sys.argv.index("--stop") + 1]) if "--stop" in sys.argv else None
+    ids = [i for i in ids if i != stop]
     if len(sys.argv) < 4:
         sys.exit(__doc__)
     g = Game(sys.argv[1])
@@ -34,6 +36,9 @@ def main():
         g.poke(0x1497, 0x7F)
         keys = [RIGHT, Y] + ([B] if f % 40 < 24 else [])
         w = g.wram()
+        if stop is not None and (w[0x94] | w[0x95] << 8) >= stop:       # hold Mario still so that nothing is hurt
+            keys = []
+            g.poke({0x94: stop & 255, 0x95: stop >> 8, 0x96: 0x60, 0x97: 0x01, 0x7B: 0, 0x7D: 0})
         cx0 = w[0x1A] | w[0x1B] << 8
         slots = [(i, w[0x9E + i]) for i in range(12) if w[0x14C8 + i] and w[0x9E + i] in ids]
         slots = [(i, n) for i, n in slots if 0 <= (w[0xE4 + i] | w[0x14E0 + i] << 8) - cx0 < 256]
