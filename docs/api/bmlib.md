@@ -278,6 +278,37 @@ Variables that hold `W`, `H` or a size cut from them (`local W = SCREEN_W` at th
 file) stay at the old size. Keep them in `relayout`. `bm3d.resize(w, h)` does it for the
 suite's frame (`HINT_Y`, `STATUS_Y`, `FOCAL`).
 
+### View: one game, many screens
+
+`lib.view`, `lib.anchor`, `lib.safe_clip` and `lib.fit` (2026-10-25) place the HUD in the
+safe area (`safe_area()`: the part of the screen with the aspect of the cartridge's header
+size, in the middle). Call them in `_draw`, or in `_screen(w, h)`. Do not call them once at
+load: `screen()` can change the size.
+
+| Function | Description |
+|---|---|
+| `lib.view()` | a table `{x, y, w, h, scale, wide, square, tall}`. `x, y, w, h` are the safe area. `scale` is how many screen pixels one pixel of the design gets (the header size): `1.0` on the design size, `2.0` for a 640×360 game on 1280×720. `wide`, `square` and `tall` say the shape of the **screen** (`aspect()`): one of them is `true` |
+| `lib.anchor(where, w, h, [mx, my])` | `x, y` for an element of size `w` by `h` in a place of the safe area. `where` is `"tl"` `"t"` `"tr"` `"l"` `"c"` `"r"` `"bl"` `"b"` `"br"` (top, middle, bottom by left, middle, right). The margins `mx, my` (0) are the distance from the edges the element touches; a centred axis has no margin. Another `where`, or a `w` or `h` that is no number, is an error |
+| `lib.safe_clip()` | `clip()` to the safe area. It returns `x, y, w, h`. Call `clip()` after the drawing to get the whole screen back |
+| `lib.fit(dw, dh)` | `scale, x, y`: a layer made for `dw` by `dh` pixels (a menu, a picture) fits whole in the safe area, in the middle. Draw it with `scale` and put its corner at `x, y`. `scale` is the smaller of the two ratios; it is not a whole number (use `math.floor(scale)` for pixel art). A size of 0 or less is an error |
+
+```lua
+local lib = require "bmlib"
+local hud_x, hud_y
+
+function _screen(w, h)                    -- the size changed: lay out again
+  hud_x, hud_y = lib.anchor("tr", 64, 16, 4, 4)
+end
+
+function _draw()
+  cls(0)
+  lib.safe_clip()                         -- the game stays in its own aspect
+  -- ... the game
+  clip()
+  print("SCORE", hud_x, hud_y, 0xFFFFFF)
+end
+```
+
 ### Camera
 
 | Function | Description |
