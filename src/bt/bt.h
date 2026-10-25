@@ -6,7 +6,15 @@
 #ifndef BT_H
 #define BT_H
 
-#define BT_PADS 4                   /* players with a Bluetooth pad */
+/* The players are 4 (kernel/input.h INPUT_PLAYERS). On the Pi the Bluetooth pads are players 1 to 4; on the
+ * RGB30 the built-in pad is player 1 and the Bluetooth pads are players 2 to 4 (D03). */
+#ifdef BM_RGB30
+#define BT_FIRST_PLAYER 1           /* the player (from 0) of the first Bluetooth slot */
+#else
+#define BT_FIRST_PLAYER 0
+#endif
+#define BT_PADS (4 - BT_FIRST_PLAYER)   /* players with a Bluetooth pad */
+#define BT_PLAYER(slot) ((slot) + BT_FIRST_PLAYER + 1)   /* the number a player sees */
 
 /* Moves the console to the mini UART, starts the chip (firmware patch
  * from the SD card), turns on page scan for the paired pads. Returns 0. */
@@ -48,10 +56,11 @@ int bt_forget_all(void);
  * bm/config.txt). */
 int bt_paired(void);
 
-/* Players with a connected pad: bit n = player n + 1. */
+/* Players with a connected pad: bit n = player n + 1 (on the RGB30 bit 0, the built-in pad, is never set). */
 unsigned bt_pads(void);
 
-/* Address of player slot+1's pad ("" if none); 1 if it is connected. */
+/* Address of the pad of Bluetooth slot `slot` (0..BT_PADS-1; player BT_PLAYER(slot)); "" if none; 1 if it is
+ * connected. */
 int bt_pad_addr(int slot, char out[18]);
 
 /* Starts the chip's 32.768 kHz sleep clock (GPCLK2 on GPIO43), needed by

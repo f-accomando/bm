@@ -50,6 +50,9 @@ void hid_bt_clear(int slot);
  * if ble < 0); with text != 0 the keyboards type and are left out. Clears
  * the short presses, like hid_buttons(). */
 uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble);
+/* The same with the Bluetooth pad of slot s as player s + first (the RGB30: first = 1, its built-in pad is
+ * player 1 and the keyboards play with it). */
+uint32_t hid_players_at(uint32_t out[HID_PLAYERS], int text, int local, int ble, int first);
 /* Left stick, -127..127 each (x right, y down), of the Bluetooth pad in
  * slot, or of the USB gamepad with slot -1. Returns 1 if the pad has an
  * analog stick (else xy is 0). */

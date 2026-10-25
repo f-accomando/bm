@@ -214,6 +214,25 @@ int main(void)
     hid_bt_report(0, p1, sizeof p1);
     CHECK(hid_quit_pressed() == HID_QUIT_PS);
 
+    /* the RGB30 (D03): the console's own pad is player 1 and the keyboards play with it; the Bluetooth pad of
+     * slot 0 is player 2, slot 2 is player 4, and slot 3 has no player */
+    uint8_t q1[11] = { 0x01, 128, 128, 128, 128, 0x08 | 0x20 };    /* slot 0: cross */
+    uint8_t q3[11] = { 0x01, 128, 128, 128, 128, 0x08 | 0x40 };    /* slot 3: circle */
+    hid_bt_report(0, q1, sizeof q1);
+    hid_bt_report(3, q3, sizeof q3);
+    hid_kbd_layout_t rl = { .id = 1, .nkeys = 6, .mods_bit = 0, .keys_bit = 16, .bitmap_bit = -1 };
+    uint8_t rk[8] = { 0, 0, 0x07 };                            /* D: right, the keyboard of player 1 */
+    hid_ble_keyboard(&rl, rk, sizeof rk);
+    uint32_t rany = hid_players_at(pl, 0, 0, 0, 1);
+    CHECK(pl[0] == HID_RIGHT && pl[1] == HID_A && pl[2] == 0 && pl[3] == 0);
+    CHECK(rany == (HID_RIGHT | HID_A));
+    memset(rk, 0, sizeof rk);
+    hid_ble_keyboard(&rl, rk, sizeof rk);
+    hid_players_at(pl, 0, 0, 0, 1);
+    hid_bt_clear(0);
+    hid_bt_clear(3);
+    CHECK(hid_players_at(pl, 0, 0, 0, 1) == 0);
+
     /* the Bluetooth LE keyboard is a player of its own; with ble < 0 it
      * plays with the USB one; in text mode both keyboards only type */
     hid_kbd_layout_t kl = { .id = 1, .nkeys = 6, .mods_bit = 0, .keys_bit = 16, .bitmap_bit = -1 };

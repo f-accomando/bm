@@ -44,6 +44,7 @@
 #include "bm/runtime.h"
 #include "kernel/home.h"
 #include "kernel/menu_ui.h"
+#include "kernel/pointer.h"
 #include "kernel/notice.h"
 #include "bm/loading.h"
 #include "kernel/ledstate.h"
@@ -1094,6 +1095,61 @@ static int uh_input(uhome_t *m)
     return 0;
 }
 
+/* The pointer (D05, the Pi's M32 through menu_ui_pointer): a mouse selects what it moves over, the left button does
+ * what the confirm button does there, the right one goes back or opens the options, the wheel moves by rows. What
+ * it asked becomes the pad's buttons of this frame. 1 if it changed the tab (the frame is over). */
+static int uh_pointer(uhome_t *m)
+{
+    if (m->p & (PAD_UP | PAD_DOWN | PAD_LEFT | PAD_RIGHT))
+        pointer_hide();                     /* the pad moves the selection: no arrow */
+    menu_ptr_t io = { .gfx = 1, .ask = m->asking != ASK_NONE,
+                      .panel = m->depth || m->mopt >= 0 || m->gopt >= 0,
+                      .panel_rows = m->mopt >= 0 ? mpb.n : m->gopt >= 0 ? gpb.n : pb.n,
+                      .on_gear = m->on_gear && m->mopt < 0 && m->gopt < 0, .market = m->on_market,
+                      .covers = m->n, .market_page = market_page() };
+    if (!menu_ui_pointer(&io))
+        return 0;
+    if (io.tabto >= 0 || io.settings) {
+        m->tab = io.settings ? TAB_SETTINGS : io.tabto;
+        m->mopt = -1;
+        m->gopt = -1;
+        m->p = 0;
+        return 1;
+    }
+    if (io.dy)
+        m->p |= io.dy < 0 ? PAD_UP : PAD_DOWN;
+    if (io.action)
+        m->p |= pad_ok;
+    if (io.back)
+        m->p |= pad_back;
+    if (io.opts)
+        m->p |= PAD_X;
+    if (io.ybtn)
+        m->p |= PAD_Y;
+    if (io.refresh)
+        market_refresh();
+    if (io.panel_sel >= 0) {
+        if (m->mopt >= 0)
+            m->mopt_sel = io.panel_sel;
+        else if (m->gopt >= 0)
+            m->gopt_sel = io.panel_sel;
+        else if (m->depth)
+            m->stack[m->depth - 1].sel = io.panel_sel;
+    }
+    if (io.section >= 0 && m->depth) {
+        m->depth = 1;
+        m->built = -1;
+        m->stack[0].sel = io.section;
+    }
+    if (io.cover_sel >= 0 && !m->depth)
+        *m->s = io.cover_sel;
+    if (io.page >= 0) {
+        market_set_page(io.page);
+        *m->s = 0;
+    }
+    return 0;
+}
+
 /* A question is open: confirm says yes, back cancels. */
 static void uh_answer(uhome_t *m)
 {
@@ -1405,7 +1461,7 @@ void ui_home(framebuffer_t *f)
         uh_selection(&m);
         uh_items(&m);
         uh_draw(&m);
-        if (uh_input(&m))
+        if (uh_input(&m) || uh_pointer(&m))
             continue;
         m.d.what = -1;
         if (m.asking) {

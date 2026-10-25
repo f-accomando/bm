@@ -59,10 +59,15 @@ static int by_position(void)
     return v && !strcmp(v, "position");
 }
 
-/* player 1 is the console's own controls (and a Bluetooth pad with them) */
+/* player 1 is the console's own controls (a keyboard plays with them); the Bluetooth pads are players 2 to 4,
+ * the Pi's slots (D03; bt.h BT_FIRST_PLAYER) */
 int input_device(int p)
 {
-    return p == 0 ? INPUT_DEV_PAD | INPUT_DEV_BUILTIN : INPUT_DEV_NONE;
+    if (p == 0)
+        return INPUT_DEV_PAD | INPUT_DEV_BUILTIN;
+    if (bt_pads() >> p & 1)
+        return INPUT_DEV_PAD | INPUT_DEV_BLUETOOTH | INPUT_DEV_DS4;
+    return INPUT_DEV_NONE;
 }
 
 /* the menus' confirm button (pad_ok: B, the lower one, unless confirm=a)
@@ -92,21 +97,21 @@ uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *lo
     *quit |= hid_quit_pressed();            /* the PS button, Ctrl+Esc and Esc of a Bluetooth pad or keyboard */
     const uint32_t own = plat_buttons();
     volume_keys(own, 0);                    /* + and -: the volume, in the games too */
-    uint32_t held = to_hid(own) | hid_buttons();
+    /* player 1: the console's buttons and the keyboards; players 2 to 4: the Bluetooth pads (as the Pi's slots) */
+    uint32_t any = hid_players_at(out, 0, 0, 0, BT_FIRST_PLAYER);
+    out[0] |= to_hid(own);
+    any |= out[0];
     const uint32_t leave = HID_START | HID_SELECT;
-    if ((held & leave) == leave && (prev_held & leave) != leave)
+    if ((any & leave) == leave && (prev_held & leave) != leave)
         *quit |= HID_QUIT_KEY;
-    prev_held = held;
-    out[0] = held;
-    for (int p = 1; p < INPUT_PLAYERS; p++)
-        out[p] = 0;
+    prev_held = any;
     *local = 0;
-    return held;
+    return any;
 }
 
 unsigned input_connected(void)
 {
-    return 1;
+    return 1 | bt_pads();                   /* the console's own pad, and the Bluetooth pads that are on */
 }
 
 /* -1..1, with a dead zone around the centre */
@@ -134,6 +139,20 @@ static const int16_t *sticks(void)
     return a;
 }
 
+/* a Bluetooth pad's stick (-127..127) for player p (from 0; 1 to 3 here); 0 if it has none */
+static int bt_stick(int p, int right, float *x, float *y)
+{
+    int8_t xy[2] = { 0, 0 };
+    const int slot = p - BT_FIRST_PLAYER;
+    if (slot < 0 || slot >= BT_PADS || !(bt_pads() >> p & 1))
+        return 0;
+    if (!(right ? hid_stick_r(slot, xy) : hid_stick(slot, xy)))
+        return 0;
+    *x = axis((int16_t)(xy[0] * 258));
+    *y = axis((int16_t)(xy[1] * 258));
+    return 1;
+}
+
 void input_stick(int p, uint32_t buttons, float *x, float *y)
 {
     *x = *y = 0;
@@ -141,6 +160,8 @@ void input_stick(int p, uint32_t buttons, float *x, float *y)
         const int16_t *a = sticks();
         *x = axis(a[0]);
         *y = axis(a[1]);
+    } else {
+        bt_stick(p, 0, x, y);
     }
     if (*x == 0 && *y == 0) {                   /* the cross */
         *x = (buttons & HID_RIGHT) ? 1.0f : (buttons & HID_LEFT) ? -1.0f : 0.0f;
@@ -151,8 +172,10 @@ void input_stick(int p, uint32_t buttons, float *x, float *y)
 void input_stick_r(int p, float *x, float *y)
 {
     *x = *y = 0;
-    if (p != 0)
+    if (p != 0) {
+        bt_stick(p, 1, x, y);
         return;
+    }
     const int16_t *a = sticks();
     *x = axis(a[2]);
     *y = axis(a[3]);

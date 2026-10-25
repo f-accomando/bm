@@ -52,7 +52,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Consistency and 1.0.0 ([spec/CONSISTENCY.md](spec/CONSISTENCY.md))
 - Everything converges before 1.0.0: `python3 scripts/consistency.py gate` lists the blockers (27 on 2026-10-13: differences between the Pi and the RGB30 that are not hardware, 2 accepted drifts and 2 specification items); 5 more are fixed in the code and wait for a try on an RGB30 (D01, D02, D06, D07, D08).
 - A baseline tag for the current line (`v0.3.0`?) and `v1.0.0` when `gate` is empty: waiting for a yes (a tag is outward-facing).
-- D03/D05 (RGB30 multiplayer and menu pointer): **suspended** by the owner (the stick may be the mouse unless the RGB30 has its own system; he is working on the on-screen keyboard and pad typing). D16 (`show_bm`/`show_b16`), D13 (tools from Market > Apps on the RGB30).
+- D03/D05 (RGB30 multiplayer and menu pointer): decided 25 Oct 2026 (PORT) and written; to try on the console. D16 (`show_bm`/`show_b16`), D13 (tools from Market > Apps on the RGB30).
 
 ## Postponed on purpose (to do in the future, decided 2026-10-13)
 - Manual for the Assistant app (`carts/assistant`).
@@ -65,7 +65,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 
 ## Left for later (2026-10-13, at the end of the pdf-manuals session)
 - Manuals: the `[DA COMPLETARE]` gaps that need the hardware or a measure; about 60 pictures (`manuals/shots/`, taken on the console).
-- D09 `.bme` projects in Dev on the RGB30, D17 and D35 (after the on-screen keyboard), D03 and D05 (suspended).
+- D09 `.bme` projects in Dev on the RGB30, D17 and D35 (after the on-screen keyboard).
 - Migration to the common layout: `sdk_b16` and `titan_ex` (own layouts).
 - Warnings seen but not mine: none open on the Pi or RGB30 builds.
 - Tags `v0.3.0` and `v1.0.0`: only with an explicit yes.

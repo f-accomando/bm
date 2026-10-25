@@ -38,8 +38,6 @@ Rules for this list:
 ## Code work from these decisions (to do after the menu library merge)
 
 Decisions of the user, 25 Oct 2026 (`docs/design/kernel8-alignment.md`). Each item is a later work order.
-- D03: players on the RGB30. Use the Pi slots: the built-in pad is P1, the BT pads are P2 to P4.
-- D05: port the pointer block of `carts.c` to the RGB30 menu.
 - Stop scanning `/carts` on both kernels (`src/kernel/carts.c`, `src/rgb30/ui.c`). Update the tests that use `/carts`.
 - Remove the DMA test: `src/kernel/dmatest.c` and `dmatest.h`, the Settings > System > Utilities row, the Monitor `bench dma` (`D`) command, the QEMU test `test_dma`, the docs. Keep `src/drivers/dma.c`.
 - D15b: write the RK3566 TSADC temperature and the clock readback. Test on the device.

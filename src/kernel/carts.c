@@ -913,73 +913,37 @@ static void cm_input_pad(cmenu_t *m)
         pointer_hide();                     /* the keys move the selection: no arrow */
 }
 
-/* The pointer: moving over a cover or a row selects it, the left button does what A does there, the right one
- * goes back or opens the options, the wheel moves by rows. */
+/* The pointer (menu_ui_pointer): what it asked becomes the keys' state of this frame. */
 static void cm_input_pointer(cmenu_t *m)
 {
-    /* the pointer (M32): moving over a cover or a row selects it, the
-     * left button does what A does there (or what is clicked: a tab, a
-     * button of the hints), the right one goes back, or opens the
-     * options of a cover; outside a panel or a question it closes them;
-     * the wheel moves by rows */
-    const pointer_t *pt = pointer_update();
-    if (m->gfx && pt->shown) {
-        menu_hit_t h = menu_ui_hit(pt->x, pt->y);
-        int click = pt->pressed & 1, right = pt->pressed & 2;
-        m->dy -= pt->wheel;
-        if (m->ask != ASK_NONE) {
-            if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
-                m->action = 1;
-            else if (click && h.kind == MENU_HIT_BUTTON)
-                m->back = 1;
-            else if ((click && h.kind != MENU_HIT_ASK) || right)
-                m->back = 1;
-        } else if (m->depth) {
-            int *ps_ = &m->stack[m->depth - 1].sel;
-            if (h.kind == MENU_HIT_ROW && h.index < pb.n && (pt->moved || click)) {
-                *ps_ = h.index;
-                m->action = click ? 1 : m->action;
-            } else if (click && h.kind == MENU_HIT_SECTION && m->on_gear) {
-                m->depth = 1;                  /* another section of the Settings page */
-                m->built = -1;
-                m->stack[0].sel = h.index;
-                m->action = 1;
-            } else if (click && h.kind == MENU_HIT_BUTTON) {
-                m->action = h.index == 'A' ? 1 : m->action;
-                m->back = h.index == 'B';
-            } else if (click && h.kind == MENU_HIT_TAB) {
-                m->tabto = h.index;
-            } else if (click && h.kind == MENU_HIT_SETTINGS) {
-                m->tabto = TAB_SETTINGS;
-            } else if ((click && h.kind != MENU_HIT_PANEL && h.kind != MENU_HIT_ROW) || right) {
-                m->back = 1;
-            }
-        } else {
-            if (h.kind == MENU_HIT_COVER && h.index < m->n && ((pt->moved && h.full) || click || right))
-                m->tsel[m->tab] = h.index;
-            if (click && h.kind == MENU_HIT_COVER && h.full)
-                m->action = 1;
-            else if (click && h.kind == MENU_HIT_GROUP && m->tab == TAB_MARKET && !m->on_gear) {
-                if (h.index != market_page()) {
-                    market_set_page(h.index);
-                    m->tsel[TAB_MARKET] = 0;
-                }
-            } else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
-                m->ybtn = 1;
-            else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'R') {
-                if (m->tab == TAB_MARKET && !m->on_gear)
-                    market_refresh();
-            } else if (click && h.kind == MENU_HIT_TAB)
-                m->tabto = h.index;
-            else if (click && h.kind == MENU_HIT_SETTINGS)
-                m->tabto = TAB_SETTINGS;
-            else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
-                m->action = 1;
-            else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'X')
-                m->opts = 1;
-            else if (right && h.kind == MENU_HIT_COVER)
-                m->opts = 1;
-        }
+    menu_ptr_t io = { .gfx = m->gfx, .ask = m->ask != ASK_NONE, .panel = m->depth, .panel_rows = pb.n,
+                      .on_gear = m->on_gear, .market = m->tab == TAB_MARKET && !m->on_gear, .covers = m->n,
+                      .market_page = market_page() };
+    if (!menu_ui_pointer(&io))
+        return;
+    m->dy += io.dy;
+    m->action |= io.action;
+    m->back |= io.back;
+    m->opts |= io.opts;
+    m->ybtn |= io.ybtn;
+    if (io.refresh)
+        market_refresh();
+    if (io.settings)
+        m->tabto = TAB_SETTINGS;
+    if (io.tabto >= 0)
+        m->tabto = io.tabto;
+    if (io.panel_sel >= 0 && m->depth)
+        m->stack[m->depth - 1].sel = io.panel_sel;
+    if (io.section >= 0) {
+        m->depth = 1;
+        m->built = -1;
+        m->stack[0].sel = io.section;
+    }
+    if (io.cover_sel >= 0)
+        m->tsel[m->tab] = io.cover_sel;
+    if (io.page >= 0) {
+        market_set_page(io.page);
+        m->tsel[TAB_MARKET] = 0;
     }
 }
 

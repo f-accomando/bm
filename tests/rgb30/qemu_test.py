@@ -583,7 +583,9 @@ def test_bluetooth_page_without_chip(b, opts):
         time.sleep(0.5)
         text = screen_all(q.screendump())
         assert "Settings > Controllers" in text and "Player 1" in text and "built in" in text, text
-        keys(q, "ssss")                         # Pair a new controller
+        # D03: the Pi's slots, the built-in pad is player 1 and the Bluetooth pads are players 2 to 4
+        assert "Player 2" in text and "Player 3" in text and "Player 4" in text and "Player 5" not in text, text
+        keys(q, "sssssss")                      # Pair a new controller
         q.send("\r")
         q.expect("no Bluetooth controller in QEMU", timeout=10)
         time.sleep(0.5)

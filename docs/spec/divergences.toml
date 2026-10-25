@@ -34,12 +34,12 @@ action = "call bt_start() at boot if bt_paired()"
 id = "D03"
 area = "players"
 pi = "up to 4 BT pads plus USB: local multiplayer"
-rgb30 = "one player only; Settings shows only Player 1"
+rgb30 = "same since 25 Oct 2026: the built-in pad (and a keyboard) is player 1, the Bluetooth pads are players 2 to 4; Settings > Controllers lists Player 1 to Player 4"
 cause = "todo"
 priority = 6
-status = "open"
-note = "kept suspended (2026-10-13): the owner is working on the on-screen keyboard and the pad typing; local multiplayer on the RGB30 is decided after. Decision of the user, 25 Oct 2026: PORT. The Pi slots on the RGB30: the built-in pad is P1, the Bluetooth pads are P2 to P4. Status stays open: the code is a later work order (docs/NEXT.md)."
-evidence = "src/rgb30/bm_input.c:95-98; src/kernel/settings.c:370"
+status = "untested"
+note = "Decision of the user, 25 Oct 2026: PORT. Done 25 Oct 2026: bt.h BT_FIRST_PLAYER (1 on the RGB30, so BT_PADS is 3 and bt_pads() has bit n = player n + 1), hid_players_at() in src/usb/hid.c (the Bluetooth pad of slot s is player s + first), input_players, input_device, input_connected, input_stick and input_stick_r in src/rgb30/bm_input.c, the Player rows in src/kernel/settings.c. A Bluetooth pad that was player 1 is player 2 now; the config key bt_pad<n> is the slot and does not change. Proved: host test_hid (hid_players_at: keyboard with player 1, slot 3 has no player), QEMU test_bluetooth_page_without_chip (Players 1 to 4 listed). Not tried: a real Bluetooth pad on an RGB30 (QEMU has no pad)."
+evidence = "src/rgb30/bm_input.c; src/usb/hid.c:hid_players_at; src/bt/bt.h:BT_FIRST_PLAYER; src/kernel/settings.c:panel_controllers; tests/usb/test_hid.c"
 action = "port the Pi player slots to the RGB30 (built-in pad = P1, BT pads P2-4)"
 
 [[divergence]]
@@ -58,12 +58,12 @@ action = "none"
 id = "D05"
 area = "menu pointer"
 pi = "mouse: hover, click, wheel, right-click for options"
-rgb30 = "none; Settings still offers the mouse rows"
+rgb30 = "same since 25 Oct 2026: a Bluetooth mouse moves the arrow in the menu, hover selects, the left button does what confirm does, the right one goes back or opens the options, the wheel moves by rows"
 cause = "todo"
 priority = 6
-status = "open"
-note = "kept suspended (2026-10-13): the stick may serve as the mouse, unless the RGB30 uses a system of its own; decided with the on-screen keyboard and the pad typing. Decision of the user, 25 Oct 2026: PORT the pointer block of carts.c to the RGB30 menu. Status stays open: the code is a later work order (docs/NEXT.md)."
-evidence = "src/kernel/carts.c:1519-1585; src/kernel/settings.c:402"
+status = "untested"
+note = "Decision of the user, 25 Oct 2026: PORT the pointer block of carts.c to the RGB30 menu. Done 25 Oct 2026: the block is one function for both menus, menu_ui_pointer() in src/kernel/menu_ui.c; carts.c (cm_input_pointer) and src/rgb30/ui.c (uh_pointer) call it and turn what it asks into their own state (the RGB30 into the pad bits of the frame). The arrow and the hit zones were already shared (menu_ui.c). Proved: Pi QEMU test_usb_mouse, test_bt_mouse_classic and test_mouse_cart still pass after the move; both kernels build. Not tried: a mouse on an RGB30 (QEMU virt has no mouse); the wheel moves one row a frame there."
+evidence = "src/kernel/menu_ui.c:menu_ui_pointer; src/kernel/carts.c:cm_input_pointer; src/rgb30/ui.c:uh_pointer"
 action = "port the pointer block to the RGB30 menu (pointer.c is built into the RGB30)"
 
 [[divergence]]
