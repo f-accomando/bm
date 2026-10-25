@@ -32,7 +32,9 @@ def pack_poses(ex, tiles_png, out_png, restyle=None):
     sheet = Image.open(tiles_png).convert("RGBA")
     meta = json.load(open(ex + "/mario/poses.json"))
     ids = sorted({m["pose"] for m in meta.values()})
-    rows = (len(ids) + 3) // 4
+    en_meta = json.load(open(ex + "/enemies/pics.json")) if os.path.exists(ex + "/enemies/pics.json") else {}
+    en_names = sorted(k for k, v in en_meta.items() if v["w"] <= 40 and v["h"] <= 40 and v["id"] == 5)
+    rows = (len(ids) + 3) // 4 + (len(en_names) + 3) // 4
     big = Image.new("RGBA", (sheet.width, sheet.height + rows * 32), (0, 0, 0, 0))
     big.paste(sheet, (0, 0))
     lines = []
@@ -51,8 +53,26 @@ def pack_poses(ex, tiles_png, out_png, restyle=None):
         sx, sy = (i % 4) * 32, sheet.height + (i // 4) * 32
         big.paste(im, (sx, sy))
         lines.append("  [%d] = { %d, %d, %d, %d, %d, %d }," % (pose, sx, sy, m["w"], m["h"], ox, m["oy"]))
+    base_row = (len(ids) + 3) // 4
+    en_lines = []
+    for i, name in enumerate(en_names):
+        m = en_meta[name]
+        im = Image.open(ex + "/enemies/" + m["file"]).convert("RGBA")
+        if restyle:
+            im = restyle(im)
+        sx, sy = (i % 4) * 32, sheet.height + (base_row + i // 4) * 32
+        big.paste(im, (sx, sy))
+        en_lines.append("  ['%s'] = { %d, %d, %d, %d, %d, %d }," % (name, sx, sy, m["w"], m["h"], m["ox"], m["oy"]))
+    spawns = json.load(open(ex + "/spawns.json")) if os.path.exists(ex + "/spawns.json") else []
+    seen, sp = set(), []
+    for s in spawns:
+        if s["id"] == 5 and (s["x"], s["y"]) not in seen:
+            seen.add((s["x"], s["y"]))
+            sp.append("  { %d, %d, %d, %d }," % (s["x"], s["y"], s["face"], 1 if s["status"] == 9 else 0))
     big.save(out_png)
-    return "local POSES = {\n" + "\n".join(lines) + "\n}\n"
+    return ("local POSES = {\n" + "\n".join(lines) + "\n}\n"
+            "local ENEMY = {\n" + "\n".join(en_lines) + "\n}\n"
+            "local KOOPAS = {   -- x, y, face (1 left, 0 right), starts as a shell\n" + "\n".join(sp) + "\n}\n")
 
 
 def block_data(defs, level):

@@ -19,6 +19,9 @@ the finished cartridge stay on the user's machine and SD card.
   `scripts/smw_blocks.py`: bumps each block kind from below and records the result (new tile,
   coins, sprite). 0x124 gives a coin, 0x126 a Yoshi egg (sprite 0x2C), 0x11A an item (0x79), 0x11E
   is a turn block, all become 0x132.
+- `scripts/smw_enemies.py`: per frame, the state and the picture of every sprite slot (OAM range from
+  `$15EA`). `states.csv` has the picture name per row. Koopa Troopa (sprite 05): walks at 8, two
+  frames of 8 ticks per facing, turns at walls, stomp gives a shell that sleeps 330 ticks.
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
 - `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.b16`
@@ -46,7 +49,8 @@ the finished cartridge stay on the user's machine and SD card.
 - Tune the physics: start-up acceleration, air control, P meter decay, terminal speed. Slopes.
 - Done: question blocks with coins (bump, used tile), coin pickup, coin counter.
 - Items from blocks (egg, 0x79), turn blocks (break when big), Yoshi/dragon coins, score.
-- Enemies: the level has sprites 00, 01, 04, 05 (Koopas), 3E (P switch), 4D, 4E (Monty Mole),
+- Done: Koopa Troopas (walk, turn, stomp, kick, slide, kill each other), Mario dies on touch.
+- Enemies still open: the level has sprites 00, 01, 04, 05 (Koopas), 3E (P switch), 4D, 4E (Monty Mole),
   4F (jumping piranha plant), 91 (Chargin' Chuck), B9 (message), 7B (goal). `spawns.json` has the
   places. Goal tape and the end of the level. Death and lives.
 - More levels. Map16 for other tilesets comes from the ROM table at `$0D8000`.
