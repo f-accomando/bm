@@ -12,6 +12,10 @@ apart. **Everything must converge before version 1.0.0.**
 
 A defect is written down in `docs/spec/divergences.toml` the day it is found and **blocks 1.0.0** until it is resolved.
 
+### Which kernel is the template (user, 25 Oct)
+
+The Pi Zero W is the template: a feature is born there. Some of its work was lost on the RGB30 (`cause = "history"`): that is a defect, port it. Some work was born on the RGB30 and had to be different (`cause = "hardware"`), and stays: the square 360x360 screen is one; multitasking is another (the Pi Zero W has one core and the hardware limits it; the RGB30 has several cores, so its multitasking may be optimised further, SYS-10 phase 6). Decide each divergence one by one: port it to the other kernel, keep it as a hardware difference (write the reason in `note`), or drop it. One game runs on both devices (see `docs/design/single-bm-and-adaptive-screen.md`, question 10).
+
 ## Three numbers, three meanings
 
 | Number | What it says | Where | Changes when |

@@ -344,6 +344,7 @@ Hardware: nothing here is verified on a Pi or an RGB30. QEMU does not prove hard
 7. **Games on a new ratio.** Decided (user, 22 Oct, option 1): existing games get bars (G1) on both devices. G2 (extend the view) is for new games only.
 8. **Aspect on the RGB30.** Decided (user, 22 Oct, option 1): add the 720x405 letterbox mode to `screen()`.
 9. **Name.** Decided (user, 22 Oct, option 1): the extension is `.bm` for all games and apps. `.bme` projects stay.
+10. **One game for all, adapted over time.** Decided (user, 25 Oct): there is one game for both devices. Existing games are adapted one by one, as they are touched, not all at once. Key configurations are redone per game (easy). Resolutions: only the bars version is built and enabled (G1): a game designed for 360x360 such as Yharnam runs on the Pi at 640x360 with black bars of 140 pixels on each side (640 - 360 = 280); a game with an overlay such as Overbit gets its overlay redone for the RGB30 screen. G2 (extend the view) stays for new games.
 
 ---
 
