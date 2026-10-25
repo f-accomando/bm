@@ -254,7 +254,7 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
         data[14] = 360 & 0xff; data[15] = 360 >> 8;
     }
     bm_set_built_from(data, from);
-    bm_b16_lint(data, len, lint_say, from);     /* warnings only: the build goes on */
+    bm_cart_lint(data, len, lint_say, from);     /* warnings only: the build goes on */
     int k, found = 0;
     for (k = 0; k < 10 && !found; k++) {
         candidate(dir, base, ".b16", k, out, n);

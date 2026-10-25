@@ -1,4 +1,4 @@
-/* Host program for the build lint of a .b16 (bm_b16_lint, src/bm/lint.c).
+/* Host program for the build lint of a cartridge for the RGB30 (bm_cart_lint, src/bm/lint.c).
  *
  *   test_lint FILE     prints one line "LINE|message" for each warning (LINE is 0 for a fact of the header);
  *                      tests/tools/test_mklint.py compares it with scripts/mkbm.py b16_lint */
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
         return 2;
     }
     fclose(f);
-    int r = bm_b16_lint(buf, (size_t)n, say, NULL);
+    int r = bm_cart_lint(buf, (size_t)n, say, NULL);
     free(buf);
     return r < 0 ? 1 : 0;
 }

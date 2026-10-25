@@ -1,11 +1,12 @@
 # Build lint: the Lua calls that do not suit a target. EDITABLE DATA, not code.
 # One list for both tools: `scripts/mkbm.py` (the PC build) reads this file; the SDK export `bm_build_b16`
-# (`src/bm/project.c`) uses the C table `src/bm/lint_table.h`, made by `scripts/mklint.py` (`--check` fails when the
+# (`src/bm/project.c`, through `bm_cart_lint`) uses the C table `src/bm/lint_table.h`, made by `scripts/mklint.py` (`--check` fails when the
 # table is old; `make test-lint` runs it). Both tools skip comments and the insides of strings (`lua_code_only`
 # in `mkbm.py`, `bm_lint_blank` in `src/bm/lint.c`) and print the first hit of each rule only. Warnings only: a lint
 # never stops a build (docs/progress/b16.md, decision D3).
 #
-# [[rule]]  target   the edition the rule is for: "b16" (a .b16 runs on the Pi and on the RGB30, docs/B16.md)
+# [[rule]]  target   the rule list: "b16" is the list for a cartridge that runs on the RGB30 (a .b16, or a compatibility block
+#                    that lists the RGB30); the name stays until the .b16 writers go (docs/design/b16-removal.md)
 #           kind     how the name is found in a line of code:
 #                      call         NAME(            not after a letter, digit, "_", "." or ":"
 #                      call_prefix  PREFIX...(       the same, with letters, digits and "_" between PREFIX and "("

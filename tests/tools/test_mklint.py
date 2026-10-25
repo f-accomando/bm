@@ -4,7 +4,7 @@
 
 Always: scripts/mklint.py --check (the C table is current, every `api = true` name is in src/ai/api.tsv) and the
 rules of the toml reach mkbm.py. With the path of the host program `test_lint` (make test-lint): the same
-cartridges go through b16_lint of mkbm.py and through bm_b16_lint of lint.c, and the warnings must be equal."""
+cartridges go through b16_lint of mkbm.py and through bm_cart_lint of lint.c, and the warnings must be equal."""
 import contextlib
 import io
 import os
@@ -110,6 +110,14 @@ class SameAsMkbmTest(unittest.TestCase):
         self.assertEqual(c_warnings(carts()["clean"]), [])
         self.assertEqual(len(c_warnings(carts()["all"])), 9)
         self.assertEqual(c_warnings(carts()["late"]), ["5|ls() and files: no file system"])
+
+    def test_header_facts(self):
+        """any size and any list of kernels is quiet (W4); only the need for a mouse warns"""
+        for name in ("screen256", "screen720", "screen_wide", "pi_only", "rgb30_only", "both"):
+            self.assertEqual(c_warnings(carts()[name]), [], name)
+            self.assertEqual(python_warnings(carts()[name]), [], name)
+        self.assertEqual(c_warnings(carts()["mouse_hw"]), ["0|needs mouse_hw: the RGB30 has no mouse"])
+        self.assertEqual(c_warnings(carts()["all_header"])[0], "0|needs mouse_hw: the RGB30 has no mouse")
 
 
 if __name__ == "__main__":
