@@ -489,7 +489,7 @@ def test_update_from_sd(b, opts):
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
         press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi
-        press(q, "s", ["Screen modes, performance"])    # Screen
+        press(q, "s", ["Screen modes, battery icon"])    # Screen
         press(q, "s", ["The latest bm from GitHub"])    # Updates
         press(q, "\r", ["Settings > Updates"])
         press(q, "s", ["The latest release on GitHub"])  # Check for updates

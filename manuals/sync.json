@@ -100,8 +100,8 @@
     "title": "Input"
    },
    "5": {
-    "en": "3ef49e136d21",
-    "it": "7ca9be8e059d",
+    "en": "f176cad099e3",
+    "it": "12abf8cfe428",
     "title": "Time and system"
    },
    "6": {
@@ -126,7 +126,7 @@
    }
   },
   "sources": {
-   "docs/API.md": "2778cdb7f962",
+   "docs/API.md": "213900352f27",
    "docs/GAME-GUIDE.md": "87eded8c842c",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/input.md": "4a75b07df3da",
@@ -368,8 +368,8 @@
     "title": "The menu and its tabs"
    },
    "5": {
-    "en": "f9e40eefb4b9",
-    "it": "800d77b49d5e",
+    "en": "9be2cebd3e5b",
+    "it": "78e4a8b04d75",
     "title": "The system keys"
    },
    "6": {

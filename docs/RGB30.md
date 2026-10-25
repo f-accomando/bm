@@ -216,7 +216,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
   layout, icons), WiFi and network (saved network, address, network console, connecting,
-  *Test the connection*), Screen (the screen modes, the performance overlay, the
+  *Test the connection*), Screen (the screen modes, the
   sound: Sound, Volume, *Test the sound*), Updates, Reports, System (version, memory, SD, battery, the log, restart,
   shutdown). Controller only: L1/R1 the tabs (without wrapping around, as on the Pi), the D-pad
   the covers and rows, **B** opens and **A** goes back (`confirm=a` swaps them, in the
