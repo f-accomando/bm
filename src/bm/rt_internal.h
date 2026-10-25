@@ -290,6 +290,25 @@ extern int tool_mode;           /* a bm tool runs (defined in runtime.c) */
 extern const char *box_yes, *box_no;    /* the words of sys_box's two buttons (defined in runtime.c) */
 extern framebuffer_t *perm_fb;  /* the screen of the run (defined in runtime.c) */
 
+/* the debugger's state (R13; defined in runtime.c, its code is in api_debug.c) */
+#define DBG_LINES   65536               /* breakpoints on lines 1..65535 of main.lua */
+#define DBG_FRAMES  12
+enum { DBG_RUN, DBG_INTO, DBG_OVER, DBG_OUT };
+
+typedef struct {
+    int session;                        /* a game tried from a tool */
+    int n;                              /* breakpoints */
+    int mode, depth;                    /* the step asked, and the stack's depth then */
+    int stop;                           /* stopped in the debugger: the run ends */
+    const char *cb;                     /* the callback running (_update...) */
+    uint8_t bits[DBG_LINES / 8];
+} dbg_t;
+
+extern dbg_t dbg;
+extern const char *cart_src;            /* main.lua of the run */
+void dbg_begin(lua_State *L, const char *src, size_t len);
+void hook(lua_State *L, lua_Debug *ar);    /* the count hook of the run (defined in runtime.c) */
+
 /* the project open in the editor, and cart_run's options (state in runtime.c, API in api_editor.c) */
 extern uint8_t *proj_cover;
 extern uint8_t *proj_audio, *own_audio;
