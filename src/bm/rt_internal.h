@@ -40,6 +40,7 @@ enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
 
 #define MESH_MT "bm.mesh"
 #define WORLD_MT "bm.world"
+#define VIDEO_MT "bm.video"
 
 #define SHOT_DIR "/bm/shots"
 
@@ -280,6 +281,55 @@ void notice_draw(void);
 void shot_note_draw(void);
 void keys_help(lua_State *L);
 int session_wanted(void);
+void later_paint(void);
+void later_flush(void);
+int poll_keys(void);
+uint16_t hid_to_btn(uint32_t pad);
+void sys_box(const char *const *lines, int n, int dim_last, int hints, int progress);
+extern int tool_mode;           /* a bm tool runs (defined in runtime.c) */
+extern const char *box_yes, *box_no;    /* the words of sys_box's two buttons (defined in runtime.c) */
+extern framebuffer_t *perm_fb;  /* the screen of the run (defined in runtime.c) */
+
+/* the debugger's state (R13; defined in runtime.c, its code is in api_debug.c) */
+#define DBG_LINES   65536               /* breakpoints on lines 1..65535 of main.lua */
+#define DBG_FRAMES  12
+enum { DBG_RUN, DBG_INTO, DBG_OVER, DBG_OUT };
+
+typedef struct {
+    int session;                        /* a game tried from a tool */
+    int n;                              /* breakpoints */
+    int mode, depth;                    /* the step asked, and the stack's depth then */
+    int stop;                           /* stopped in the debugger: the run ends */
+    const char *cb;                     /* the callback running (_update...) */
+    uint8_t bits[DBG_LINES / 8];
+} dbg_t;
+
+extern dbg_t dbg;
+extern const char *cart_src;            /* main.lua of the run */
+void dbg_begin(lua_State *L, const char *src, size_t len);
+void hook(lua_State *L, lua_Debug *ar);    /* the count hook of the run (defined in runtime.c) */
+
+/* the project open in the editor, and cart_run's options (state in runtime.c, API in api_editor.c) */
+extern uint8_t *proj_cover;
+extern uint8_t *proj_audio, *own_audio;
+extern uint32_t proj_audio_len, own_audio_len;
+extern uint8_t *proj_sheet8;
+extern uint32_t proj_sheet8_len;
+extern int n_made;
+typedef struct {
+    int set, stop, n;
+    uint16_t lines[64];
+} dbg_next_t;                           /* cart_run's options, for the run it asks (the debugger) */
+extern dbg_next_t dbg_next;
+extern char last_error[512];            /* the error the last run stopped with (bm_last_error) */
+int load_assets(const bm_cart_t *c);
+void free_assets(void);
+const luaL_Reg *rt_api(void);           /* api[] of runtime.c */
+void set_copy(uint8_t **dst, uint32_t *dlen, const void *src, uint32_t len);
+void extras_free(void);
+int reserved_tool_name(const char *name);
+const char *rt_res_name(int w);         /* res_name() of runtime.c */
+extern int proj_sheet_drawn;    /* the sheet was drawn on since cart_load: cart_save writes it whole (defined in runtime.c) */
 
 float fnum(lua_State *L, int i, float def);
 void options_line(char *b, size_t n);
@@ -431,6 +481,7 @@ int l_quit(lua_State *L);
 /* map, cell flags and zones (api_map.c) */
 void settle_reads(void);      /* defined in runtime.c: 2D reads the page */
 int gpu2d(int op, const int32_t *v);
+int gpu2d_open(void);
 int draw2d(int op, uint32_t words, int32_t **a);
 void stack_draw(const int32_t v[7], const float f[3], int vert);
 int sheet_cells(void);
@@ -485,6 +536,33 @@ int l_mouse(lua_State *L);
 int l_mousep(lua_State *L);
 int l_pad(lua_State *L);
 int l_timeslice(lua_State *L);
+
+/* the web, images and files for a browser cart (api_web.c) */
+int l_web_get(lua_State *L);
+int l_web_poll(lua_State *L);
+int l_web_info(lua_State *L);
+int l_web_body(lua_State *L);
+int l_web_cancel(lua_State *L);
+int l_image_load(lua_State *L);
+int l_sheet_png(lua_State *L);
+int l_sheet_gif(lua_State *L);
+int l_image_file(lua_State *L);
+int l_file_write(lua_State *L);
+int l_file_state(lua_State *L);
+
+/* video clips (api_video.c) */
+int l_video_open(lua_State *L);
+int l_clip_gc(lua_State *L);
+int l_clip_info(lua_State *L);
+int l_clip_frame_at(lua_State *L);
+int l_clip_draw(lua_State *L);
+int l_clip_close(lua_State *L);
+
+/* the sheet's pixels and the text (api_text.c) */
+int l_sget(lua_State *L);
+int l_sset(lua_State *L);
+int l_print(lua_State *L);
+int l_font(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
