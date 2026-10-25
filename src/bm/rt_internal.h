@@ -470,6 +470,19 @@ int l_stat(lua_State *L);
 int l_frameskip(lua_State *L);
 int l_tri(lua_State *L);
 
+/* keys (api_keys.c) */
+int l_keyp(lua_State *L);
+int l_keyhelp(lua_State *L);
+int l_showkeys(lua_State *L);
+int l_keyheld(lua_State *L);
+int l_rawkeys(lua_State *L);
+int l_keydown(lua_State *L);
+int l_keys(lua_State *L);
+int l_mouse(lua_State *L);
+int l_mousep(lua_State *L);
+int l_pad(lua_State *L);
+int l_timeslice(lua_State *L);
+
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
 int l_profile(lua_State *L);
