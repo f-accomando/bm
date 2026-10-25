@@ -379,6 +379,40 @@ int l_doc_read(lua_State *L);
 int l_doc_write(lua_State *L);
 int l_doc_delete(lua_State *L);
 
+/* sound (api_sound.c) */
+int l_hz(lua_State *L);
+int l_note(lua_State *L);
+int l_noteoff(lua_State *L);
+int l_freq(lua_State *L);
+int l_envelope(lua_State *L);
+int l_duty(lua_State *L);
+int l_playing(lua_State *L);
+int l_apu(lua_State *L);
+int l_slide(lua_State *L);
+int l_vibrato(lua_State *L);
+int l_arp(lua_State *L);
+int l_sfx(lua_State *L);
+int l_sfxpos(lua_State *L);
+int l_music(lua_State *L);
+int l_tempo(lua_State *L);
+int l_mute(lua_State *L);
+int l_volume(lua_State *L);
+int l_audio_bank(lua_State *L);
+int l_audio_samples(lua_State *L);
+int l_audio_depth(lua_State *L);
+int l_audio_pattern(lua_State *L);
+int l_audio_play(lua_State *L);
+int l_tone(lua_State *L);
+int l_play(lua_State *L);
+int l_audio_time(lua_State *L);
+int l_play_at(lua_State *L);
+int l_play_cancel(lua_State *L);
+int l_play_voices(lua_State *L);
+int l_reverb(lua_State *L);
+int l_echo(lua_State *L);
+int l_chorus(lua_State *L);
+int l_retro(lua_State *L);
+
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
 int l_profile(lua_State *L);
