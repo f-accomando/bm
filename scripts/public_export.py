@@ -14,7 +14,7 @@ import argparse, fnmatch, os, re, shutil, subprocess, sys
 # path also excludes everything below it.
 EXCLUDE = [
     '.agents', '.antigravity', '.claude', '.github', 'claude', 'market', 'sync', 'video', 'art',
-    'AGENTS.md', 'AI.md', 'CLAUDE.md', 'GEMINI.md', 'SYNC.md',
+    'AGENTS.md', 'AI.md', 'ANTIGRAVITY.md', 'CLAUDE.md', 'GEMINI.md', 'SYNC.md',
     *['carts/' + g for g in ('astrowing kitchen nano8 overbit pong shooter snake titan '
                              'titan_ex typing yharnam').split()],
     'carts/*/cover.png',
