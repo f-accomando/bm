@@ -105,6 +105,13 @@ The 3D rows count triangles that the game gives to the 3D (`submitted`). The GPU
 | Raw V3D speed | 2966 thousand small triangles a second. 811 Mpixel a second for full screens (render only) | `gpu-091318`, steps 6 and 7 | GPU test (removed) | not verified on hardware |
 | 3D particles | not measured (the scene is not developed: `docs/BENCH3D.md`) | - | - | not verified on hardware |
 
+### Pi Zero W, 25 Oct, run 2 (kernel `a2e6330`, [summary](bench/pi-2026-10-25b/summary.md))
+
+- `later` (queue 2): herotris GPU+VS+Q 50068 triangles at 13.7 ms, GPU+VS+Q2 50284 at 13.3 ms; heroes Q 75502 at 18.0 ms, Q2 83161 at 17.0 ms.
+- `sort`: heroes GPU+VS 104945 triangles at 15.9 ms, GPU+VS+S 95089 at 14.2 ms (pixels field 0).
+- QPU: fade 8.7 ms against ARM 20.4 ms; particles 50 us against 163 us; Yharnam 8016 frames at 59.8 fps with no stall.
+- Web bench: synchronous write of 2048 KB 656 ms; queued write: worst frame 682.0 ms, done in 1240 ms (it should be a few ms: see `docs/NEXT.md`); resume works (cancelled at 1062128 bytes, second request HTTP 206, 4040264 bytes in 12 s); TLS handshake 4 times, last 142.9 ms, worst 353.4 ms.
+
 ### Pi Zero W, 25 Oct (kernel `1199bd2`, [report](bench/pi-2026-10-25/summary.md))
 
 - `herotris` after the cut of `draw_flags`: ARM 2373 triangles at 41.0 ms; GPU+VS+Q 50915 triangles at 13.1 ms.
