@@ -373,6 +373,12 @@ int l_saved(lua_State *L);
 int l_saves(lua_State *L);
 int l_delsave(lua_State *L);
 
+/* documents (api_docs.c) */
+int l_doc_list(lua_State *L);
+int l_doc_read(lua_State *L);
+int l_doc_write(lua_State *L);
+int l_doc_delete(lua_State *L);
+
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
 int l_profile(lua_State *L);
