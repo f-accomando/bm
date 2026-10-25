@@ -105,6 +105,11 @@ The 3D rows count triangles that the game gives to the 3D (`submitted`). The GPU
 | Raw V3D speed | 2966 thousand small triangles a second. 811 Mpixel a second for full screens (render only) | `gpu-091318`, steps 6 and 7 | GPU test (removed) | not verified on hardware |
 | 3D particles | not measured (the scene is not developed: `docs/BENCH3D.md`) | - | - | not verified on hardware |
 
+### Pi Zero W, 25 Oct (kernel `1199bd2`, [report](progress/pi-hw-2026-10-25.md))
+
+- `herotris` after the cut of `draw_flags`: ARM 2373 triangles at 41.0 ms; GPU+VS+Q 50915 triangles at 13.1 ms.
+- Lua 3D Bench (`carts/bench3d`, default profiles ARM and GPU+VS+Q): 37 s of benchmark time, about 52 s wall-clock, about 2120 frames. First `R` lines (sets at 60 fps, drawn60): spheres ARM 58.1, GPU+VS+Q 558.5; heroes ARM 3.9, GPU+VS+Q 60.1; herotris ARM 7.0 sets at 44.6 ms, GPU+VS+Q 13.3. The numbers of the Lua edition are not comparable with the C bench.
+
 ### Pi Zero W, 24 Oct (reports `c51c239a`, `dfedfea0`, `62dc910a`)
 
 - `herotris`, drawn60 triangles a frame: ARM 2385 (40.8 ms), GPU 3214 (30.3 ms), GPU+VS 29398 (15.4 ms), GPU+VS+Q 49956 (13.7 ms), GPU+VS+Q2 50024 (13.5 ms), GPU+VS+FS2 28830, GPU+VS+A8 28875, GPU+VS+A8+Q 49989. VS plus the queue holds 50k triangles at 60 fps.
