@@ -555,7 +555,6 @@ static void test_frame_image(void)
                                     { 10, 10, 0.75f }, { 20, 10, 0.75f }, { 10, 20, 0.75f } };
     static const float t2[3][3] = { { 30, 30, 0.125f }, { 60, 30, 0.125f }, { 30, 60, 0.125f } };
     const mali_draw_t d[3] = { { t0, 1, 0xff0000, NULL }, { t1, 2, 0x00ff00, NULL }, { t2, 1, 0x0000ff, NULL } };
-    const float *flat[12] = { t0[0], t0[1], t0[2], t1[0], t1[1], t1[2], t1[3], t1[4], t1[5], t2[0], t2[1], t2[2] };
 
     printf("mali: mali_frame, the memory image of three draws\n");
     memset(&S, 0, sizeof S);
@@ -567,9 +566,13 @@ static void test_frame_image(void)
     (void)r;                                            /* the simulator has no tiler: the result is not asked */
 
     int bad = 0;                                        /* (a) the vertices as (x y z 1) */
-    for (int i = 0; i < 12; i++) {
-        const float want[4] = { flat[i][0], flat[i][1], flat[i][2], 1.0f };
-        bad += memcmp(mem + MALI_FRAME_VERTS + 16 * i, want, 16) != 0;
+    uint32_t first = 0;
+    for (int k = 0; k < 3; k++) {
+        for (uint32_t i = 0; i < 3 * d[k].n; i++) {
+            const float want[4] = { d[k].xyz[i][0], d[k].xyz[i][1], d[k].xyz[i][2], 1.0f };
+            bad += memcmp(mem + MALI_FRAME_VERTS + 16 * (first + i), want, 16) != 0;
+        }
+        first += (3 * d[k].n + 3) & ~3u;
     }
     CHECK(bad == 0, "frame: %d of 12 vertices differ from (x y z 1)", bad);
 

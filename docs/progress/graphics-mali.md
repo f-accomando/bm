@@ -87,7 +87,7 @@ Hardware Results (3D Bench 25 Oct 2026, 640x360):
 Next hardware steps:
 1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW.
 2. [DONE 25 Oct] 3D Bench with flat colours (H6): With `mali3d=1` in `bm/config.txt`, ran 3D Bench (Settings > Screen > 3D Bench); flat-colour scenes ran on GPU (bm3d 2.1), textured scenes stayed on ARM. Report `94aae9dd`.
-3. Multi-draw batching fix (Phase 2): In `mali_frame`, subsequent draws (`draw[1].TJOB`) hit DATA_INVALID_FAULT when multiple draws are chained in a single frame. Ensure tiler job and descriptor alignment for draws > 0.
+3. [DONE 25 Oct] Multi-draw batching fix (Phase 2): In `frame_build()`, aligned attribute buffer and tiler position pointers to 64 bytes (`first += (nv + 3) & ~3u;`). Eliminated `DATA_INVALID_FAULT` (0x58) in subsequent draws. Verified on hardware (report `fcfd2933`). Frames of up to 24 draws render without faults.
 4. Vertex shader transformation (Phase 3): Benchmark `BM_VS3` (vertex shader transforming geometry with 4x4 MVP matrix pushed via UBO 0).
 5. Asynchronous queue & multi-buffering (Phase 4): `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)`.
 6. Textures and lit faces: write textured fragment shader, remove `colour_only` fallback.

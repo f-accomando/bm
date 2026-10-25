@@ -868,7 +868,7 @@ static void frame_build(uint32_t set, const mali_draw_t *draws, uint32_t ndraws,
         job_header(dm + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
                    d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
         md_tiler_job(dm + D_TJOB, &prim, pa + sb + SO_TCTX, &td);
-        first += nv;
+        first += (nv + 3) & ~3u;                        /* 64-byte alignment: 4 vertices per step for D_ABUFS/td.position */
     }
 
     /* the fragment job: the clear's descriptor with the tiler's context */

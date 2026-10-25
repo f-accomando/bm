@@ -382,6 +382,12 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   `3d0017.txt`). Multi-draw batching in `mali_frame` requires alignment fix for subsequent
   draw tiler jobs.
 
+- **7.10** (2026-10-25): **Mali multi-draw batching (phase 2)**: fixed Attribute
+  Buffer and Tiler Job position alignment to 64 bytes (`first += (nv + 3) & ~3u;`) in
+  `frame_build()`, eliminating `DATA_INVALID_FAULT` (0x58) in multi-draw batches.
+  Verified on physical hardware (report `fcfd2933`, `3d0018.txt`): frames of up to
+  24 draws (26 triangles) complete cleanly without faults.
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).
