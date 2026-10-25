@@ -41,6 +41,11 @@ enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
 #define MESH_MT "bm.mesh"
 #define WORLD_MT "bm.world"
 
+/* the saves of a cartridge (api_save.c): the folder, the size of one, the slots */
+#define SAVE_DIR   "/bm/save"
+#define SAVE_MAX   (32 * 1024)
+#define SAVE_SLOTS BM_SAVE_SLOTS
+
 /* what a cartridge asks the player for (perm_allowed) */
 enum { PERM_NET, PERM_REPORT, PERM_DOCS, PERM_COUNT };
 
@@ -340,6 +345,14 @@ int l_udp_recv(lua_State *L);
 int l_udp_close(lua_State *L);
 int l_net_ip(lua_State *L);
 int l_net_resolve(lua_State *L);
+
+extern char perm_title[49];      /* the game asking (defined in runtime.c) */
+
+/* saves (api_save.c) */
+int save_slot(lua_State *L, int idx);
+void slot_name(int slot, char out[16]);
+int slot_find(int slot, fat_entry_t *e);
+int l_save(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
