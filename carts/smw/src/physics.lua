@@ -3,14 +3,14 @@
 -- A callback tells the engine what is solid, so the same code runs in the game and in the test.
 local Phys = {
   TICK = 1 / 50,
-  ACCEL = 1.728,      -- speed gained a tick while the stick is held
-  AIR_ACCEL = 1.896, -- the same in the air
+  ACCEL = 1.85,      -- speed gained a tick while the stick is held
+  AIR_ACCEL = 1.869, -- the same in the air
   DECEL = 1.276,       -- speed lost a tick with the stick released (ground)
-  SKID = 3.465,        -- speed lost a tick when the stick is opposite to the movement
+  SKID = 3.402,        -- speed lost a tick when the stick is opposite to the movement
   WALK = 24.5,       -- walking speed
-  RUN = 45.5,        -- running speed (Y held)
+  RUN = 44.4,        -- running speed (Y held)
   PSPEED = 59.5,     -- running at full P meter
-  PM_START = 39.9,     -- the P meter starts to fill above this speed on the ground
+  PM_START = 42.5,     -- the P meter starts to fill above this speed on the ground
   PM_RATE = 2.172,    -- P meter gained a tick while running fast on the ground
   PM_FULL = 104,
   PM_DRAIN = 1.0,
@@ -19,7 +19,7 @@ local Phys = {
   GRAV_HOLD = 3.4,   -- gravity while the jump button is held
   GRAV_FREE = 6.831,   -- gravity after it is released
   FALL_MAX = 71.405,
-  KY = 1.191,          -- vertical speed to pixels (tuned on the jump trace)
+  KY = 1.151,          -- vertical speed to pixels (tuned on the jump trace)
   W = 12, H = 16,    -- Mario's box (small Mario): x+2 .. x+14, y+16 .. y+32
 }
 
@@ -40,7 +40,7 @@ local function move(m, solid, plat)
   m.x = m.x + m.vx / 16
   if hit(solid, math.floor(m.x) + 2, math.floor(m.y) + 16, Phys.W, Phys.H) then
     m.x = ox
-    m.vx = 0
+    if m.ground then m.vx = 0 end      -- against a wall in the air the game keeps the speed (the traces show it)
   end
   local oy = m.y
   m.y = m.y + m.vy / 16 * Phys.KY
@@ -91,7 +91,7 @@ function Phys.step(m, inp, solid, plat)
   if dir ~= 0 then m.face = dir end
   local fast = m.ground and inp.run and math.abs(m.vx) >= Phys.PM_START
   if fast then m.pm = math.min(Phys.PM_FULL, m.pm + Phys.PM_RATE)
-  elseif m.ground then m.pm = math.max(0, m.pm - Phys.PM_DRAIN) end
+  elseif m.ground or m.pm < Phys.PM_FULL then m.pm = math.max(0, m.pm - Phys.PM_DRAIN) end   -- in the air too, unless it is full
   local cap = Phys.WALK
   if inp.run then cap = (m.pm >= Phys.PM_FULL) and Phys.PSPEED or Phys.RUN end
   if dir ~= 0 then

@@ -10,7 +10,7 @@ files of scripts/smw_trace.py. The scenarios are in tests/smw/trace_scripts.json
 is cut where the emulator run meets an enemy (LIMIT). --fit prints the constants it found."""
 import csv, json, os, subprocess, sys, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LIMIT = {"runjump": 164, "airturn": 85}       # frames before Mario meets something the test does not have
+LIMIT = {"runjump": 164, "airturn": 85, "cycle": 108}       # frames before Mario meets something the test does not have
 
 
 def run_sim(overrides=None):

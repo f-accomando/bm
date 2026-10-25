@@ -68,8 +68,12 @@ the finished cartridge stay on the user's machine and SD card.
 - Background layer 2 (parallax forest): the game uses one colour. The TM mirror poke does not
   hide layers. Read the BG2 tilemap from VRAM or stitch it from frames.
 - Camera: use the SMW scroll rules. Now `x - 108`.
-- Physics: 11 scenarios (`tests/smw/trace_scripts.json`) against the emulator, mean position error
-  under 0.6 pixel, worst 2.9 pixels in x and 2.4 in y (`scripts/smw_physics_check.py`; `--fit`
+- Whole-level check (`tests/smw/compare.py`): the same input in the emulator (Mario unhurtable) and in the port
+  (`SMW_GOD=1 SMW_TRACE=1`, a log line a tick). The first 700 ticks (to x 1900) stay within 5 pixels (mean 0.6
+  in the first 200). Then one corner of the step at x 1952 is touched in one run and not in the other, and the
+  two runs part. Koopa stomps start 6 pixels down (as the emulator shows). The P meter drains in the air.
+- Physics: 12 scenarios (`tests/smw/trace_scripts.json`) against the emulator, mean position error
+  under 0.8 pixel, worst 3.0 pixels in x and 3.1 in y (`scripts/smw_physics_check.py`; `--fit`
   refits the constants). The game moves first with the last tick's speed, then changes the speed.
   Open: slopes, water, ice, the sub-pixel carry of the real engine, spin jump height.
 - Done: question blocks with coins (bump, used tile), coin pickup, coin counter.

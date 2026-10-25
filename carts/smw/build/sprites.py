@@ -12,7 +12,7 @@ about the sprite (Mario's rectangle is 32 wide with his 16-pixel body in the mid
 
 Boxes (kind frame x y w h, from the rectangle's corner): Mario has hurt (his body), box 3 (his
 feet: he stomps with them), box 4 (his body, to kick a shell). A Koopa has hurt (its head: it can be
-stomped there) and hit (its body); a sliding shell has both."""
+stomped there, from 6 pixels down) and hit (its body); a sliding shell has both."""
 import json, os
 
 MARIO = [("mario_stand", [0x00]), ("mario_walk", [0x00, 0x01]), ("mario_look", [0x03]), ("mario_prun", [0x07, 0x08]),
@@ -50,11 +50,11 @@ def pack_zones(ex, tiles_png, out_png, out_txt, restyle=None):
     for name, pics in KOOPA:
         frames = [(Image.open(ex + "/enemies/" + en[p]["file"]).convert("RGBA"), en[p]["ox"], en[p]["oy"] + 16) for p in pics]
         if name == "shell":
-            boxes = ["hurt * 0 16 16 16"]
+            boxes = ["hurt * 0 22 16 10"]
         elif name == "shell_slide":
-            boxes = ["hurt * 0 16 16 16", "hit * 0 16 16 16"]
+            boxes = ["hurt * 0 22 16 10", "hit * 0 22 16 10"]
         else:
-            boxes = ["hurt * 0 16 16 10", "hit * 0 16 16 16"]
+            boxes = ["hurt * 0 22 16 10", "hit * 0 22 16 10"]       # the stomp comes 6 pixels down, as in the game
         zones.append((name, 16, 32, frames, (0, -16), boxes))
 
     # sprites captured by taking them out of the screen (scripts/smw_diff.py): the pictures are exact

@@ -302,6 +302,7 @@ restart_level = function()
 end
 
 local function die()
+  --GOD--
   if state ~= "play" then return end
   state, st_t = "dying", 0
   mario.vx, mario.vy = 0, 0
@@ -505,6 +506,7 @@ local function tick(inp)
       if lives <= 0 then state, st_t = "over", 0 else restart_level() end
     end
   end
+  --TRACE--
 end
 
 function _update()

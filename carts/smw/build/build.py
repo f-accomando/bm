@@ -3,7 +3,7 @@
 
     python3 carts/smw/build/build.py [EXTRACTED_DIR] [OUT_DIR]
 
-Defaults: carts/smw/extracted and build/smw. SMW_START=x,y starts Mario elsewhere, for tests. Writes the map, the collision layer and the
+Defaults: carts/smw/extracted and build/smw. SMW_START=x,y starts Mario elsewhere, SMW_TRACE=1 logs a line per tick, SMW_GOD=1 makes damage do nothing: for tests. Writes the map, the collision layer and the
 flags, joins physics.lua and game.lua into main.lua and calls mkbm.py for the .b16 and the
 .bme. The output holds assets from the player's ROM: it stays on the player's machine."""
 import json, os, subprocess, sys
@@ -75,6 +75,10 @@ def main():
     poses_lua = pack_zones(ex, ex + "/sheet.png", sheet_png, out + "/sprites.txt")
     lua = poses_lua + block_data(defs, level, col) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % backdrop(ex))
+    if os.environ.get("SMW_TRACE"):        # a log line per tick: tick, Mario's x, y, state; for tests/smw/compare.py
+        lua = lua.replace("  --TRACE--", "  log(string.format('T %d %.2f %.2f %.2f %.2f %s %.1f', gtick, mario.x, mario.y, mario.vx, mario.vy, state, mario.pm))")
+    if os.environ.get("SMW_GOD"):          # damage does nothing: the run can be compared with an emulator run that cannot die
+        lua = lua.replace("  --GOD--", "  if true then return end")
     if os.environ.get("SMW_START"):         # a test start, "x,y": the shots of a block or an enemy without the walk
         lua = lua.replace("local START_X, START_Y = 16, 352", "local START_X, START_Y = " + os.environ["SMW_START"])
     open(out + "/main.lua", "w").write(lua)
