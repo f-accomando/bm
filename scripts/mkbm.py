@@ -680,7 +680,8 @@ def main():
     ap.add_argument("--author", default="")
     ap.add_argument("--info", help="bm.info of the project (INFO section, docs/PROJECT-LAYOUT.md): "
                                    "key: value lines; name, author and resolution are the defaults of "
-                                   "--title, --author and --res")
+                                   "--title, --author and --res; targets, input, aspect, needs, min_ram, "
+                                   "min_spec and min_width are the defaults of the flags of the same name")
     ap.add_argument("--res", default=None, choices=RESOLUTIONS)
     a = ap.parse_args()
     info_body, info = read_info(a.info) if a.info else (None, None)
@@ -692,6 +693,17 @@ def main():
         a.res = a.res or info.get("resolution")
         if a.res and a.res not in RESOLUTIONS:
             ap.error(f"{a.info}: resolution {a.res} is not one of {', '.join(RESOLUTIONS)}")
+        # the compatibility block: the same names as the flags; a flag wins over the key
+        a.targets = a.targets or info.get("targets")
+        a.input = a.input or info.get("input", "")
+        a.aspect = a.aspect or info.get("aspect", "")
+        a.needs = a.needs or info.get("needs", "")
+        for dest, key in (("min_ram", "min_ram"), ("min_spec", "min_spec"), ("min_width", "min_width")):
+            if not getattr(a, dest) and info.get(key):
+                try:
+                    setattr(a, dest, int(info[key]))
+                except ValueError:
+                    ap.error(f"{a.info}: {key}: {info[key]!r} is not a number")
     a.res_set = a.res is not None
     if not a.res:
         a.res = "360x360" if a.b16 else "640x360"
@@ -758,7 +770,8 @@ def main():
                            compat_bits("aspect", a.aspect), compat_bits("needs", a.needs), a.min_ram,
                            a.min_spec, (a.min_width + 15) // 16)
     elif a.input or a.aspect or a.needs or a.min_ram or a.min_spec or a.min_width:
-        ap.error("--input, --aspect, --needs and the minimums go with --targets")
+        ap.error("--input, --aspect, --needs and the minimums (or the keys input, aspect, needs, min_ram, "
+                 "min_spec and min_width of bm.info) go with --targets (or the key targets)")
     if a.b16 or a.output.lower().endswith(".b16") or lists_rgb30(data):
         b16_lint(data, a.output)            # after the compatibility block: the lint reads it
     if a.output and os.path.dirname(a.output):
