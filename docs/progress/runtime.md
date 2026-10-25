@@ -1,6 +1,6 @@
 # runtime.c: where things are
 
-`src/bm/runtime.c` is ~251 KB and 6506 lines: never read it whole. Find the section here,
+`src/bm/runtime.c` is ~244 KB and 6332 lines: never read it whole. Find the section here,
 then `python scripts/cindex.py src/bm/runtime.c <word>` for the line, then `Read` with
 `offset`/`limit` on that stretch only. Line numbers are not kept here: they go stale; the
 banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runtime*).
@@ -27,7 +27,6 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `editor`: the in-console code editor (largest block).
 - `player`: the cartridge loop: `_init`, `_update`, `_draw`, page flip, frameskip.
 - `the dev kit`, `F12: the keys`: profiler, session report, debug keys.
-- `permissions`: `allow_…` questions (network, `report()`).
 - `the debugger`: breakpoints, inspector.
 - `the frame in its parts`: overlay and session report.
 - `C bench`: built-in benchmarks.
@@ -56,6 +55,7 @@ Each file holds one banner range of `runtime.c`, moved as it was. It shares the 
 - `src/bm/api_keys.c`: keyboard, mouse and pad reading (`keyp`, `keyheld`, `keydown`, `keys`, `rawkeys`, `keyhelp`, `showkeys`, `mouse`, `mousep`, `pad`) and `timeslice()`.
 - `src/bm/api_web.c`: the web for a browser cart (`web_get`, `web_poll`, `web_info`, `web_body`, `web_cancel`), images (`image_load`, `image_file`, `sheet_png`, `sheet_gif`) and files (`file_write`, `file_state`).
 - `src/bm/api_video.c`: video clips (`.bmv`): `video_open()` and the clip object (`info`, `frame_at`, `draw`, `close`). `video_to_ram` stays in `runtime.c`.
+- `src/bm/api_perm.c`: permissions: the `allow_…` questions (network, `report()`, docs), `bm_permissions()`, `perm_allowed()` and `copy_question()`. The screen of the run (`perm_fb`) stays in `runtime.c`.
 
 ## Other big files
 

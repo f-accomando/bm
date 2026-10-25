@@ -282,6 +282,13 @@ void shot_note_draw(void);
 void keys_help(lua_State *L);
 int session_wanted(void);
 void later_paint(void);
+void later_flush(void);
+int poll_keys(void);
+uint16_t hid_to_btn(uint32_t pad);
+void sys_box(const char *const *lines, int n, int dim_last, int hints, int progress);
+extern int tool_mode;           /* a bm tool runs (defined in runtime.c) */
+extern const char *box_yes, *box_no;    /* the words of sys_box's two buttons (defined in runtime.c) */
+extern framebuffer_t *perm_fb;  /* the screen of the run (defined in runtime.c) */
 extern int proj_sheet_drawn;    /* the sheet was drawn on since cart_load: cart_save writes it whole (defined in runtime.c) */
 
 float fnum(lua_State *L, int i, float def);
