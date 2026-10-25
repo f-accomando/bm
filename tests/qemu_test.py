@@ -4231,7 +4231,7 @@ def test_lib_tab(b, opts):
     import bmres
     tmp = tempfile.mkdtemp(prefix="bm-lib-")
     img = os.path.join(tmp, "sd.img")
-    village, sample, sound = (bmres.read(b(p)) for p in ("carts/village.bm", "carts/stages3d.bm", "sound.bm"))
+    tk, sample, sound = (bmres.read(b(p)) for p in ("carts/testkit.bm", "carts/stages3d.bm", "sound.bm"))
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("lib_tab=1\n")
@@ -4241,20 +4241,20 @@ def test_lib_tab(b, opts):
         path = os.path.join(tmp, name)
         bmres.write(path, f)
         files.append((path, "bm/lib/" + name))
-    house = bmres.extract_models(village, ["house"])
+    house = bmres.extract_models(tk, ["house"])
     info = bmres.info_of(house)
     bmres.kv_set(info["file"], "license", "CC0-1.0")
-    bmres.kv_set(info["file"], "tags", "building, village")
+    bmres.kv_set(info["file"], "tags", "building, kit")
     bmres.info_store(house, info)
     res("HOUSE.BMM", house)
     res("FLAG.BMI", bmres.extract_image(sample, rect=(8, 0, 16, 8), name="flag", frames=2, fps=6))
     res("JUMP.BMS", bmres.extract_sounds(sound, sfx=["JUMP"]))
     res("SAMPLE.BMT", bmres.extract_map(sample))
-    res("VILLAGE.BMC", bmres.extract_palette(village))
-    kit = bmres.extract_kit(village)
-    kit.name = "Village kit"
-    res("VILLAGE.BMK", kit)
-    mksd.build(img, files + [(b("carts/village.bm"), "carts/village.bm"), (b("carts/stages3d.bm"), "carts/game.bm")])
+    res("TESTKIT.BMC", bmres.extract_palette(tk))
+    kit = bmres.extract_kit(tk)
+    kit.name = "Test kit"
+    res("TESTKIT.BMK", kit)
+    mksd.build(img, files + [(b("carts/testkit.bm"), "carts/testkit.bm"), (b("carts/stages3d.bm"), "carts/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(*ks, gap=0.3):
@@ -4294,10 +4294,10 @@ def test_lib_tab(b, opts):
         keys("4")
         q.expect("lib: ", timeout=20)
         text = screen(["Models", "Images", "Sounds", "Maps", "Palettes", "Kits", "HOUSE.BMM", "house",
-                       "VILLAGE.BMK", "123 vertices, 180 faces", "from bm/lib/HOUSE.BMM"])
+                       "TESTKIT.BMK", "24 vertices, 36 faces", "from bm/lib/HOUSE.BMM"])
         assert img_tabs(q, ["Lib"], lib=True) == ["Lib"], img_tabs(q, lib=True)
         # the INFO lines and the preview once the selection rests: the house turns
-        screen(["bm   CC0-1.0", "tags: building, village"])
+        screen(["bm   CC0-1.0", "tags: building, kit"])
         a = drawn()
         time.sleep(0.6)
         b_ = drawn()
@@ -4319,30 +4319,30 @@ def test_lib_tab(b, opts):
         drawn(2000)
         shot("maps")
         keys("d")
-        screen(["VILLAGE.BMC", "Studio Village", "120 col", "30 colours"])     # 121 with the clear one
+        screen(["TESTKIT.BMC", "Test Kit", "56 col", "56 colours"])     # 57 with the clear one
         shot("palettes")
         cols = set(drawn(1000))
-        assert len(cols) >= 10, f"the squares of the colours: {len(cols)}"     # 30 greens: 17 in RGB565
+        assert len(cols) >= 10, f"the squares of the colours: {len(cols)}"     # 56 colours: 56 different ones in RGB565
         keys("d")
-        screen(["VILLAGE.BMK", "Village kit", "kit", "8 models, 1 animated", "sheet 256x256, 0 zones"])
+        screen(["TESTKIT.BMK", "Test kit", "kit", "8 models, 1 animated", "sheet 256x256, 0 zones"])
         shot("kits")
         keys("d")                                   # round to Models
         screen(["HOUSE.BMM", "house"])
-        # down to the villager of the game (not the kit's), then A: bm Studio on it
+        # down to the walker of the game (not the kit's), then A: bm Studio on it
         for _ in range(30):
             rows = screen(["Models"]).splitlines()
-            if rows[14][35:].strip() == "villager" and rows[16][35:].strip() == "from carts/village.bm":
+            if rows[14][35:].strip() == "walker" and rows[16][35:].strip() == "from carts/testkit.bm":
                 break
             keys("s", gap=0.2)
-        text = screen(["from carts/village.bm", "112 vertices, 168 faces"])
-        shot("villager")
+        text = screen(["from carts/testkit.bm", "56 vertices, 84 faces"])
+        shot("walker")
         keys("\r", gap=1.0)
         screen(["build", "models", "TOOLS"])
         keys("\x1b", gap=0.6)
         screen(["bm Studio", "Exit bm Studio"])
         keys("\x1b[A", "\r", gap=0.6)
         q.expect("lib: ", timeout=20)                # read again: a tool may have saved
-        screen(["Models", "VILLAGE.BM", "from carts/village.bm", "last: bm Studio on VILLAGE.BM"])
+        screen(["Models", "TESTKIT.BM", "from carts/testkit.bm", "last: bm Studio on TESTKIT.BM"])
         keys("5")
         screen(["Controllers"])
         assert img_tabs(q, ["Settings"], lib=True) == ["Settings"], img_tabs(q, lib=True)
@@ -4746,14 +4746,14 @@ def test_mouse_cart(b, opts):
 def test_studio_animator(b, opts):
     """bm Studio and bm Animator on the console (a game's options, "Open in
     bm Studio"; the menu's "Open in bm Animator"): bm Studio shows the
-    village's models with its tools (select, vertex, paint, tiles, models);
+    test kit's models with its tools (select, vertex, paint, tiles, models);
     a new project gets a block, is saved, tried (its viewer plays) and comes
     back; bm Animator opens it (cart_tool) and gives it a skeleton and an
-    animation; then the village's villager plays, its bones, its sprites go
+    animation; then the test kit's walker plays, its bones, its sprites go
     into the sheet. The file holds what the kernel reads."""
     tmp = tempfile.mkdtemp(prefix="bm-s3d-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(*ks, gap=0.3):
@@ -4780,7 +4780,7 @@ def test_studio_animator(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        screen(["Games", "Studio Village"])
+        screen(["Games", "Test Kit"])
         keys("x")
         screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in bm Studio"])
         keys("s", "s", "s", "s", "\r")         # Play, SDK, Code, Sound, Studio
@@ -4799,7 +4799,7 @@ def test_studio_animator(b, opts):
         screen(["tiles: sheet 256x256", "2 x 1 tiles"])
         shot("studio-tiles")
         keys(TAB, F2)
-        screen(["MODELS 8", "villager"])
+        screen(["MODELS 8", "walker"])
         shot("studio-models")
 
         # a new project: a block, saved as CUBE.BME
@@ -4848,16 +4848,16 @@ def test_studio_animator(b, opts):
         keys("\x13", gap=0.1)                   # Ctrl+S; short gap: the toast is brief
         screen(["saved /bme/cube.bme"])
 
-        # the village: the villager, its bones, its animations, its sprites
+        # the test kit: the walker, its bones, its animations, its sprites
         keys(ESC, gap=0.6)
         keys(DOWN, "\r")                        # Open...
-        screen(["/bme/cube.bme", "/carts/village.bm"])
+        screen(["/bme/cube.bme", "/carts/testkit.bm"])
         shot("animator-open")
-        keys(DOWN, "\r", gap=1.0)               # CUBE.BME (in /bme), then village.bm
-        screen(["opened /carts/village.bm", "MODELS"])
+        keys(DOWN, "\r", gap=1.0)               # CUBE.BME (in /bme), then testkit.bm
+        screen(["opened /carts/testkit.bm", "MODELS"])
         for _ in range(7):
             keys(DOWN)
-        screen(["ANIMATIONS", "idle", "walk", "wave", "112 vertices, 168 triangles, 7 bones"])
+        screen(["ANIMATIONS", "idle", "walk", "wave", "56 vertices, 84 triangles, 7 bones"])
         keys("k")
         shot("animator-player")
         keys(F2)
@@ -4870,7 +4870,7 @@ def test_studio_animator(b, opts):
         screen(["ANIMATIONS", "BONES", "idle  1/3  smooth  loop  2.00 s  onion"])
         shot("animator-animate")
         keys(F4)
-        screen(["SPRITES", "villager", "idle", "384x192 pixels in the sheet"])
+        screen(["SPRITES", "walker", "idle", "384x192 pixels in the sheet"])
         shot("animator-sprites")
         keys("\r")
         screen(["32 sprites and 56 boxes put in sheet", "sspr("], tries=80)
@@ -4881,7 +4881,7 @@ def test_studio_animator(b, opts):
         keys(UP, "\r", gap=0.6)                 # up from Continue: Exit bm Animator
         screen(["unsaved changes"])
         keys("\r")
-        screen(["Games", "last: bm Animator on village"])
+        screen(["Games", "last: bm Animator on testkit"])
     finally:
         q.close()
     try:
@@ -4904,9 +4904,9 @@ def test_studio_animator(b, opts):
         assert anim[clip:clip + 5] == b"anim1" and struct.unpack_from("<H", anim, clip + 16)[0] == 2
         assert saved[24:38] == b"New 3D project", saved[24:48]
         assert 5 in secs or 2 in secs, sorted(secs)     # the sheet of the new project (starter tiles)
-        village = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
-        with open(b("carts/village.bm"), "rb") as f:
-            assert village == f.read(), "the village was not saved: it stays as it was"
+        on_sd = subprocess.run(["mtype", "-i", part, "::/CARTS/TESTKIT.BM"], capture_output=True, env=env).stdout
+        with open(b("carts/testkit.bm"), "rb") as f:
+            assert on_sd == f.read(), "the test kit was not saved: it stays as it was"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -4920,7 +4920,7 @@ def test_studio_assistant(b, opts):
     dragon. The file is read back and checked."""
     tmp = tempfile.mkdtemp(prefix="bm-s3dai-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(*ks, gap=0.3):
@@ -4946,7 +4946,7 @@ def test_studio_assistant(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        screen(["Games", "Studio Village"])
+        screen(["Games", "Test Kit"])
         keys("x")
         screen(["Open in bm Studio"])
         keys("s", "s", "s", "s", "\r")
@@ -5154,12 +5154,12 @@ def test_meshy2mesh(b, opts):
 def test_mesh_reduce(b, opts):
     """The polygon reducer on the console (src/bm/decimate.c, mesh_reduce):
     bm Studio's models page, "-" asks the triangles; the ground of the
-    village (288 triangles) becomes 40, the counts say so, Ctrl+S writes
+    test kit (288 triangles) becomes 40, the counts say so, Ctrl+S writes
     the file and it holds the reduced model; the other models stay."""
     tmp = tempfile.mkdtemp(prefix="bm-reduce-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
-    with open(b("carts/village.bm"), "rb") as f:
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm")])
+    with open(b("carts/testkit.bm"), "rb") as f:
         models0, _ = bmmesh.decode(dict(bmmesh.cart_sections(f.read()))[bmmesh.SEC_MESH])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
@@ -5185,7 +5185,7 @@ def test_mesh_reduce(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        screen(["Games", "Studio Village"])
+        screen(["Games", "Test Kit"])
         keys("x")
         screen(["Open in bm Studio"])
         keys("s", "s", "s", "s", "\r")
@@ -5205,8 +5205,8 @@ def test_mesh_reduce(b, opts):
         assert got and 38 <= int(got.group(1)) <= 40, text
         shot("reduce-after")
         keys(SAVE, gap=0.8)
-        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
-        screen(["saved /bme/village.bme"])
+        copy_yes(q, "/carts/testkit.bm", "/bme/testkit.bme")     # a game: its editable copy
+        screen(["saved /bme/testkit.bme"])
         keys(ESC, gap=0.6)
         screen(["bm Studio", "Exit bm Studio"])
         keys("\x1b[A", "\r", gap=0.6)
@@ -5218,7 +5218,7 @@ def test_mesh_reduce(b, opts):
         f.seek(2048 * 512)
         o.write(f.read())
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-    saved = subprocess.run(["mtype", "-i", part, "::/BME/VILLAGE.BME"], capture_output=True, env=env).stdout
+    saved = subprocess.run(["mtype", "-i", part, "::/BME/TESTKIT.BME"], capture_output=True, env=env).stdout
     models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
     assert [m["name"] for m in models] == [m["name"] for m in models0], [m["name"] for m in models]
     assert 38 <= len(models[0]["faces"]) <= 40, len(models[0]["faces"])
@@ -5234,7 +5234,7 @@ def test_picture_model(b, opts):
     asks how (the outline cut out or turned, made here; or the image-to-3D
     service) and lists the pictures of /pics. The cutout is made on the
     ARM kernel: a red disc on white becomes the model hero with its
-    texture (the village's sheet is in use: flat colours). The service's
+    texture (the test kit's sheet is in use: flat colours). The service's
     start fails at once with a clear message (QEMU has no WiFi) and
     nothing changes."""
     tmp = tempfile.mkdtemp(prefix="bm-pic-")
@@ -5256,7 +5256,7 @@ def test_picture_model(b, opts):
     with open(cfg, "w") as f:
         f.write("# bm settings (key=value)\nmeshy_key=msy_test_key_for_qemu\n")
     ca = os.path.join(HERE, "..", "boot", "ca.pem")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm"), (pic, "pics/hero.png"), (cfg, "bm/config.txt"),
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm"), (pic, "pics/hero.png"), (cfg, "bm/config.txt"),
                      (ca, "bm/ca.pem")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
@@ -5282,7 +5282,7 @@ def test_picture_model(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        screen(["Games", "Studio Village"])
+        screen(["Games", "Test Kit"])
         keys("x")
         screen(["Open in bm Studio"])
         keys("s", "s", "s", "s", "\r")
@@ -5300,8 +5300,8 @@ def test_picture_model(b, opts):
         assert "flat colours (the sheet is in use)" in text, text
         shot("picture-cutout")
         keys(SAVE, gap=0.8)
-        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
-        screen(["saved /bme/village.bme"])
+        copy_yes(q, "/carts/testkit.bm", "/bme/testkit.bme")     # a game: its editable copy
+        screen(["saved /bme/testkit.bme"])
         # the service: the start fails with the reason (no network, no clock
         # for TLS...), named after the service; nothing changes
         keys("m")
@@ -5322,7 +5322,7 @@ def test_picture_model(b, opts):
         f.seek(2048 * 512)
         o.write(f.read())
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-    saved = subprocess.run(["mtype", "-i", part, "::/BME/VILLAGE.BME"], capture_output=True, env=env).stdout
+    saved = subprocess.run(["mtype", "-i", part, "::/BME/TESTKIT.BME"], capture_output=True, env=env).stdout
     models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
     hero = [m for m in models if m["name"] == "hero"]
     assert hero and 8 <= len(hero[0]["faces"]) <= 200, [m["name"] for m in models]
@@ -5501,12 +5501,12 @@ def test_mesh_import(b, opts):
 
 
 def test_mesh_bones(b, opts):
-    """APP-14: bm Mesh edit page, a model with a skeleton (the villager of Studio Village, 7 bones):
+    """APP-14: bm Mesh edit page, a model with a skeleton (the walker of Test Kit, 7 bones):
     with all vertices chosen the header says BONES, Shift+B lists the bones of the skeleton ("0  " to
     "6  "; hips to leg.R), Esc closes the list and changes nothing, and v turns the bone view on and off."""
     tmp = tempfile.mkdtemp(prefix="bm-meshbones-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(*ks, gap=0.3):
@@ -5526,16 +5526,16 @@ def test_mesh_bones(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        screen(["Games", "Studio Village"])
+        screen(["Games", "Test Kit"])
         keys("x")
         screen(["Open in bm Studio"])
         keys("s", "s", "s", "s", "s", "s")
         screen(["Open in bm Mesh"])
         keys("\r")
         screen(["list", "edit", "MESHES 8"])
-        keys(*([DOWN] * 7))                      # ground house tree bush well fence crates villager
+        keys(*([DOWN] * 7))                      # ground house tree bush well fence crates walker
         keys("\r", gap=0.8)
-        screen(["of 65535 vertices", "villager"])
+        screen(["of 65535 vertices", "walker"])
         keys("a", gap=0.5)
         text = screen(["BONES "])
         assert re.search(r"BONES \d+: ", text), text
@@ -5730,15 +5730,15 @@ def _sheet_pixels(data):
 
 def test_pixel(b, opts):
     """bm Pixel on the console (a game's options, "Open in bm Pixel"): the
-    village's sheet with its palette (SHEET8), a pixel and a line drawn
+    the test kit's sheet with its palette (SHEET8), a pixel and a line drawn
     with the palette's first colour, saved: in the file only those pixels
     change (the others keep their 24 bits), the palette comes first in the
     SHEET8, the code, cover, models and skeletons stay byte for byte."""
     tmp = tempfile.mkdtemp(prefix="bm-pixel-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
-    with open(b("carts/village.bm"), "rb") as f:
-        village0 = f.read()
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm")])
+    with open(b("carts/testkit.bm"), "rb") as f:
+        kit0 = f.read()
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(*ks, gap=0.3):
@@ -5762,7 +5762,7 @@ def test_pixel(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        screen(["Games", "Studio Village"])
+        screen(["Games", "Test Kit"])
         keys("x")
         screen(["Open in bm Studio"])
         for _ in range(7):
@@ -5804,12 +5804,12 @@ def test_pixel(b, opts):
         screen(["PALETTE", "edit", "add", "remove"])
         shot("palette")
         keys("\r", SAVE, gap=0.6)
-        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
-        screen(["saved /bme/village.bme"])
+        copy_yes(q, "/carts/testkit.bm", "/bme/testkit.bme")     # a game: its editable copy
+        screen(["saved /bme/testkit.bme"])
         keys(ESC, gap=0.6)
         screen(["bm Pixel", "Exit bm Pixel"])
         keys(UP, "\r")                          # up from Continue: Exit bm Pixel
-        screen(["Games", "last: bm Pixel on village.bm"])
+        screen(["Games", "last: bm Pixel on testkit.bm"])
     finally:
         q.close()
     try:
@@ -5820,8 +5820,8 @@ def test_pixel(b, opts):
         fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
         assert fsck.returncode == 0, fsck.stdout + fsck.stderr
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        saved = subprocess.run(["mtype", "-i", part, "::/BME/VILLAGE.BME"], capture_output=True, env=env).stdout
-        secs, secs0 = dict(bmmesh.cart_sections(saved)), dict(bmmesh.cart_sections(village0))
+        saved = subprocess.run(["mtype", "-i", part, "::/BME/TESTKIT.BME"], capture_output=True, env=env).stdout
+        secs, secs0 = dict(bmmesh.cart_sections(saved)), dict(bmmesh.cart_sections(kit0))
         for t in (1, 4, 8, 9):
             assert secs[t] == secs0[t], f"section {t} changed"
         assert 5 in secs and 2 not in secs, sorted(secs)
@@ -5830,7 +5830,7 @@ def test_pixel(b, opts):
         mine = [e for e in ents if e[:5] == b"stack" and e[5] == 0]
         assert len(mine) == 1 and mine[0][26] == 8, ents
         w, h, px, pal = _sheet_pixels(saved)
-        w0, h0, px0, pal0 = _sheet_pixels(village0)
+        w0, h0, px0, pal0 = _sheet_pixels(kit0)
         assert (w, h) == (w0, h0), (w, h)
         first = next(c for c in pal0 if c is not None)
         drawn = {(0, 0), (1, 0), (2, 0), (3, 0)}       # the pointer starts at the sprite's corner
@@ -9343,14 +9343,14 @@ def test_sdk_map3d_roundtrip(b, opts):
 
 
 def test_sdk_suite(b, opts):
-    """The SDK update (2026-10-04): the bm SDK opens Studio Village (Ctrl+O),
+    """The SDK update (2026-10-04): the bm SDK opens Test Kit (Ctrl+O),
     its 3D page lists the models and draws them, i writes the code for one,
     the assistant's model (F6) joins the project and is saved with it; 3 on
     the project page opens bm Studio on the file, whose menu has "Back to
     bm SDK"; the SDK comes back on the project."""
     tmp = tempfile.mkdtemp(prefix="bm-sdk-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F4, F6 = "\x1bOP", "\x1bOS", "\x1b[17~"
 
@@ -9376,9 +9376,9 @@ def test_sdk_suite(b, opts):
         k("\x0f", 0.5)                                      # Ctrl+O: the cartridges
         see("open a cartridge")
         k("\r", 1)
-        see("Studio Village")
+        see("Test Kit")
         see("8: ")                                          # the models, on the project page
-        shot("village")
+        shot("testkit")
         k(F4, 1)
         see("MODELS 8")
         see("vertices")
@@ -9398,8 +9398,8 @@ def test_sdk_suite(b, opts):
         see("MODELS 9")
         shot("3d-assistant")
         k("\x13", 1)                                        # Ctrl+S
-        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
-        see("saved /bme/village.bme")
+        copy_yes(q, "/carts/testkit.bm", "/bme/testkit.bme")     # a game: its editable copy
+        see("saved /bme/testkit.bme")
         k(F1, 0.5)
         k("3", 1)                                           # bm Studio on the project
         see("TOOLS")                                        # its build page
@@ -9425,7 +9425,7 @@ def test_sdk_suite(b, opts):
             f.seek(2048 * 512)
             o.write(f.read())
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        saved = subprocess.run(["mtype", "-i", part, "::/BME/VILLAGE.BME"], capture_output=True, env=env).stdout
+        saved = subprocess.run(["mtype", "-i", part, "::/BME/TESTKIT.BME"], capture_output=True, env=env).stdout
         secs = dict(bmmesh.cart_sections(saved))
         import struct
         assert struct.unpack("<H", secs[bmmesh.SEC_MESH][:2])[0] == 9, "the assistant's model saved"
@@ -9440,7 +9440,7 @@ def test_sdk_elastic(b, opts):
     tab bar at the top, the hint row and the status bar at the bottom."""
     tmp = tempfile.mkdtemp(prefix="bm-elastic-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    mksd.build(img, [(b("carts/testkit.bm"), "carts/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
     UP = "\x1b[A"
@@ -9479,7 +9479,7 @@ def test_sdk_elastic(b, opts):
         time.sleep(1)
         big = q.screendump()
         top = rows_of(big, 0, 16)[0]
-        assert "project" in top and "village.bm" in top, top
+        assert "project" in top and "testkit.bm" in top, top
         bottom = rows_of(big, 720 - 40, 720)
         assert any(l.strip() for l in bottom), "the hint row and the status bar are at the bottom of 720"
         shot(big, "720-menu")
@@ -9525,7 +9525,7 @@ def test_suite_elastic(b, opts):
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
             f.write("layout=us\nbm_screen=1280x720\n")
-        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/village.bm"), "carts/village.bm")])
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/testkit.bm"), "carts/testkit.bm")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
         def k(s, gap=0.4):

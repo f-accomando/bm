@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/pixel_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/village.bm and stages3d.bm must be there (games: the saves go into their .bme copies).
+-- SDDIR/carts/testkit.bm and stages3d.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/pixel-sd"
 local checks, fails = 0, 0
@@ -231,7 +231,7 @@ E.ai = {
 }
 
 local function host(path) return SD .. path:lower() end
-local on_sd = { ["/carts"] = { "stages3d.bm", "village.bm" } }
+local on_sd = { ["/carts"] = { "stages3d.bm", "testkit.bm" } }
 E.ls = function(dir)
   local out = {}
   for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
@@ -455,15 +455,15 @@ end
 
 ----------------------------------------------------------------- the scenario
 
-local village0 = file("village.bm")
+local kit0 = file("testkit.bm")
 local sample0 = file("stages3d.bm")
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/carts/village.bm"), "at the start: the list of the files")
+check(sees("open a cartridge") and sees("/carts/testkit.bm"), "at the start: the list of the files")
 key("down", "\n")
-check(status():find("village.bm: sheet", 1, true) and status():find("(the file's palette)", 1, true),
-      "the village: its sheet and the palette of its SHEET8: " .. status())
+check(status():find("testkit.bm: sheet", 1, true) and status():find("(the file's palette)", 1, true),
+      "the test kit: its sheet and the palette of its SHEET8: " .. status())
 check(sees("[f1]") and sees("draw") and sees("COLOURS"), "the draw page, its tab with the F1 chip")
 local npal0 = tonumber(screen():match("COLOURS (%d+)"))
 
@@ -655,13 +655,13 @@ check(select(2, E.cart_sheet()) == h0 + 64, "the sheet is 64 pixels taller")
 -- save: only the sheet changes in the file; first a frame that says so
 keyq[#keyq + 1] = "^s"
 frames(1)
-check(sees("saving /carts/village.bm ..."), "Ctrl+S: saving first")
+check(sees("saving /carts/testkit.bm ..."), "Ctrl+S: saving first")
 key()
-check(status():find("saved /bme/village.bme", 1, true), "Ctrl+S: " .. status())
-check(file("village.bm") == village0, "the game stays as it was: the save went into its copy, VILLAGE.BME")
-local v1 = file("village.bme")
+check(status():find("saved /bme/testkit.bme", 1, true), "Ctrl+S: " .. status())
+check(file("testkit.bm") == kit0, "the game stays as it was: the save went into its copy, TESTKIT.BME")
+local v1 = file("testkit.bme")
 for _, t in ipairs({ 1, 4, 8, 9 }) do
-  check(section(v1, t) == section(village0, t), "section " .. t .. " stays as it was")
+  check(section(v1, t) == section(kit0, t), "section " .. t .. " stays as it was")
 end
 check(section(v1, 5) and not section(v1, 2), "the sheet is a SHEET8")
 local w, h, px, spal, snc = decode_sheet(v1)
@@ -669,12 +669,12 @@ check(w == w0 and h == h0 + 64, "the new size in the file")
 local opaque, first = 0, nil
 for i = 0, snc - 1 do if spal[i] then opaque = opaque + 1 end end
 for i = 0, snc - 1 do if spal[i] then first = first or i end end
-local _, _, _, pal0 = decode_sheet(village0)
+local _, _, _, pal0 = decode_sheet(kit0)
 local orig_first
 for i = 0, 255 do if pal0[i] then orig_first = pal0[i]; break end end
 check(opaque == npal0 + 1 and first == 0 and spal[0] == orig_first,
       "the palette first in the SHEET8, as it was plus the new colour (" .. opaque .. " of " .. snc .. ")")
-local _, _, opx, opal = decode_sheet(village0)
+local _, _, opx, opal = decode_sheet(kit0)
 local exact = 0
 for i = 0, 255 do if opal[i] and spal[i - 1 + 1] then exact = exact + 1 end end
 check(exact > 0, "colours kept with their 24 bits")
@@ -950,7 +950,7 @@ key("^e")
 check(sees("this sprite") and sees("the whole sheet") and sees("frames side by side") and sees("as a GIF"), "Ctrl+E: the chooser offers the four")
 key("\n")                                   -- this sprite
 check(sees("PNG name"), "the name is asked")
-check(sees("village.png") or sees("sprites.png") or sees(".png"), "the default name ends in .png")
+check(sees("testkit.png") or sees("sprites.png") or sees(".png"), "the default name ends in .png")
 key("\n")
 check(#png_calls == 1 and #png_calls[1] == 1, "this sprite: one rectangle")
 local r1 = png_calls[1][1]

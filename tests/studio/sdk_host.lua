@@ -9,7 +9,7 @@
 --
 --   luahost tests/studio/sdk_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/village.bm must be there (a copy of build/carts/village.bm).
+-- SDDIR/carts/testkit.bm must be there (a copy of build/carts/testkit.bm).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/sdk-sd"
 local checks, fails = 0, 0
@@ -169,7 +169,7 @@ end
 
 ----------------------------------------------------------------- the SD card and the project
 
-local on_sd = { ["/carts"] = { "village.bm" } }
+local on_sd = { ["/carts"] = { "testkit.bm" } }
 local function host(path) return SD .. path:lower() end
 local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
@@ -908,12 +908,12 @@ key("^s")
 frames(2)
 check(last_save.path == "/carts/old.bme" and status():find("old place", 1, true), "an old project is saved where it is, and the status says so: " .. status())
 
--- the models of a project (village.bm): the 3D page, the code for one,
+-- the models of a project (testkit.bm): the 3D page, the code for one,
 -- the assistant's model joining them
-run_sdk({ path = "/carts/village.bm" })
+run_sdk({ path = "/carts/testkit.bm" })
 frames(10)
 local nmodels = #E.models()
-check(nmodels > 3, "village has models (" .. nmodels .. ")")
+check(nmodels > 3, "the kit has models (" .. nmodels .. ")")
 key("f4")
 frames(3)
 check(sees("MODELS " .. nmodels), "F4: the models")
@@ -941,8 +941,8 @@ key("f1", "3")
 frames(1)
 if sees("file name") then key("\n") end
 check(tooled and tooled[1] == "studio", "3: bm Studio on the project: " .. tostring(tooled and tooled[1]))
-check(tooled[2] == "/bme/village.bme", "the game was saved first: its editable copy " .. tostring(tooled[2]))
-run_sdk({ path = "/carts/village.bm", from = "pixel" })
+check(tooled[2] == "/bme/testkit.bme", "the game was saved first: its editable copy " .. tostring(tooled[2]))
+run_sdk({ path = "/carts/testkit.bm", from = "pixel" })
 frames(2)
 check(status():find("back from bm Pixel", 1, true), "back from bm Pixel: " .. status())
 
@@ -969,7 +969,7 @@ local function click(x, y, b)
   mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
 end
 
-run_sdk({ path = "/carts/village.bm" })
+run_sdk({ path = "/carts/testkit.bm" })
 frames(400)
 -- the project page: a click chooses a row, a second click does it (target)
 click(40, 16 + 12 * 16 + 8)

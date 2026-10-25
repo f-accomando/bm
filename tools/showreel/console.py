@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-The showreel, on the console in QEMU: the villager of the village fixture (its
-model, skeleton and walk, tests/fixtures/village/models.bm) in a new cartridge whose
+The showreel, on the console in QEMU: the walker of the test kit (its model,
+skeleton and walk, made by tests/fixtures/mktestkit.py) in a new cartridge whose
 code is one line. In the SDK a small map is painted; in bm Code the
 assistant writes the movement with the arrows and the rest of the game is
 typed (the map becomes the 3D ground, the villager walks on it); then the
@@ -32,6 +32,8 @@ sys.path.insert(0, os.path.join(ROOT, "tests"))
 import qemu_test as qt  # noqa: E402  (Qemu, read_ppm, screen_text; mksd and mkbm)
 
 mksd, mkbm = qt.mksd, qt.mkbm
+sys.path.insert(0, os.path.join(ROOT, "tests", "fixtures"))
+import mktestkit  # noqa: E402  (the models, skeleton and sheet of the walker)
 
 # ------------------------------------------------------------------ the map
 # 8x8 cells of the starter sheet of bm Studio (a 16 px tile is 4 cells):
@@ -67,7 +69,7 @@ local man, ground
 local px, py, t, ry = x, y, 0, 0
 """
 CODE_INIT = """function _init()
-man = model("villager")
+man = model("walker")
 local v, f, uv = {}, {}, {}
 for my = 0, H - 1 do
 for mx = 0, W - 1 do
@@ -148,9 +150,9 @@ def sections(data):
 
 def start_cart():
     """The cartridge the scenes start from, "My Village": the models,
-    skeleton, animations and sheet of tests/fixtures/village/models.bm and one line
-    of code: the game is written on the console."""
-    data = open(os.path.join(ROOT, "tests", "fixtures", "village", "models.bm"), "rb").read()
+    skeleton, animations and sheet of the test kit (tests/fixtures/mktestkit.py) and one
+    line of code: the game is written on the console."""
+    data = mktestkit.build(plain=True)
     extra = [(t, b) for t, b in sections(data) if t != mkbm.SEC_LUA]
     return mkbm.pack(b"-- My Village: a villager on a map\n", title="My Village", author="bm",
                      res=struct.unpack_from("<HH", data, 12), extra=extra)

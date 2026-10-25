@@ -3,7 +3,7 @@
  * models, zones and INFO; bm_parse still takes only cartridges; a kind
  * with a section it does not have, and a broken CRC, are refused.
  *
- *   test_res BUILD/res BUILD/carts/village.bm
+ *   test_res BUILD/res BUILD/testkit-before.bm
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,7 +48,7 @@ static int open_any(const char *dir, const char *name, bm_cart_t *c, uint8_t **d
 int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : "build/res";
-    const char *village = argc > 2 ? argv[2] : "build/carts/village.bm";
+    const char *before = argc > 2 ? argv[2] : "build/testkit-before.bm";
     bm_cart_t c;
     uint8_t *d;
     size_t len;
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
         bm_model_t m;
         CHECK(bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && !strcmp(m.name, "house"), "HOUSE.bmm: house first");
         bm_rig_t r;
-        CHECK(bm_anim_rig(c.anim, c.anim_size, "villager", &r) == 0, "HOUSE.bmm: the villager's skeleton");
+        CHECK(bm_anim_rig(c.anim, c.anim_size, "walker", &r) == 0, "HOUSE.bmm: the walker's skeleton");
         bm_cart_t cc;
         CHECK(bm_parse(d, len, &cc, err, sizeof err) != 0, "bm_parse refuses a resource file");
         /* a models file that says it is a sounds file: MESH is not its */
@@ -110,8 +110,8 @@ int main(int argc, char **argv)
         CHECK(c.kind == BM_RES_MAP && c.map_w == 16 && c.map_h == 96 && c.sheet_w, "SAMPLE.bmt: the 16x96 map, its tiles");
         free(d);
     }
-    if (open_any(dir, "VILLAGE.bmc", &c, &d, &len) == 0) {
-        CHECK(c.kind == BM_RES_PALETTE && c.sheet8 && c.sheet_h == 1, "VILLAGE.bmc: a palette");
+    if (open_any(dir, "KIT.bmc", &c, &d, &len) == 0) {
+        CHECK(c.kind == BM_RES_PALETTE && c.sheet8 && c.sheet_h == 1, "KIT.bmc: a palette");
         free(d);
     }
     if (open_any(dir, "sample_models.bm", &c, &d, &len) == 0) {
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
         CHECK(bm_info_get(&c, "model", "well", "author", v, 3) && !strcmp(v, "bm"), "INFO: cut to the buffer");
         free(d);
     }
-    if (open_any(village, NULL, &c, &d, &len) == 0) {
+    if (open_any(before, NULL, &c, &d, &len) == 0) {
         bm_cart_t cc;
         CHECK(c.kind == BM_RES_CART && c.models == 8 && !c.info && !c.zones, "a game of before: no INFO, no zones");
         CHECK(bm_parse(d, len, &cc, err, sizeof err) == 0, "bm_parse still reads it");

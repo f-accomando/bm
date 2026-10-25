@@ -267,7 +267,7 @@ which in the project receives the entries' blocks with `origin`).
 
 ### The list (on the left)
 - The entries are grouped by file, with a grey header row and the count on the
-  right (`VILLAGE.BM   8`): first the files in `/bm/lib` (by name), then the packs in
+  right (`TESTKIT.BM   8`): first the files in `/bm/lib` (by name), then the packs in
   `/bm/sounds` and the `.bm` files in `/carts` and in the root (by title). The full path is
   in the detail lines (`from bm/lib/HOUSE.BMM`).
 - What an entry is, group by group:
@@ -306,15 +306,15 @@ which in the project receives the entries' blocks with `origin`).
 
  HOUSE.BMM                    1   +------------------------------------------+
   house                           |                                          |
- VILLAGE.BMK                  8   |           (the spinning model)           |
+ TESTKIT.BMK                  8   |           (the spinning model)           |
   ground                          |                                          |
   ...                             |                                          |
- VILLAGE.BM                   8   +------------------------------------------+
-  ground                          villager
-  ...                             112 vertices, 168 faces, 3 clips
- >villager                    A   from carts/village.bm
+ TESTKIT.BM                   8   +------------------------------------------+
+  ground                          walker
+  ...                             56 vertices, 84 faces, 3 clips
+ >walker                      A   from carts/testkit.bm
                                   bm   CC0-1.0
-                                  tags: character, village
+                                  tags: character, kit
 
                    (A) Open in bm Studio   (Y) Play   (Share+Options) Monitor
 ```

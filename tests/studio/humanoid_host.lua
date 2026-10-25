@@ -179,7 +179,7 @@ end
 
 ----------------------------------------------------------------- the SD card and the project (shared by the two programs)
 
-local on_sd = { ["/carts"] = { "village.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
+local on_sd = { ["/carts"] = { "testkit.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
 local function host(path) return SD .. path:lower() end
 local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }

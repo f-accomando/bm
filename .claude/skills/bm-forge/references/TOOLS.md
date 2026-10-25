@@ -58,7 +58,7 @@ the repo root. Builds and tests run in WSL through `scripts/wsl-run.ps1` (skill 
   `tests/studio/project_rules.lua` (`:461`).
 - **This is a working headless path to produce files from the real tool code**:
   `test-studio` already makes Studio save `BLOCKS.BME`, Animator add a skeleton and a clip,
-  bm Mesh edit Astro Wing / village, and checks the outputs with Python and the C parser
+  bm Mesh edit Astro Wing / the test kit, and checks the outputs with Python and the C parser
   (`Makefile:1237-1258`, `tests/studio/tools3d_host.lua:1-11`,
   `tests/studio/mesh_host.lua:1-10`).
 - Limits of that path (fidelity of a golden file):
