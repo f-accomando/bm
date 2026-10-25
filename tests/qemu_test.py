@@ -643,8 +643,10 @@ def blue_number(img, span):
 
 def scroll_thumb(img):
     """The thumb of the menu's scroll bar (more than two rows of covers):
-    (top, bottom) of its light pixels at x 627, y 96-292, or None."""
-    ys = [y for y in range(96, 292) if sum(pixel(img, 627, y)) > 600]
+    (top, bottom) of its light pixels at x 620, y 96-300, or None. The bar
+    is 4 pixels wide, centred in the right margin: SBAR_X in
+    src/kernel/menu_ui.c (618 with six covers of 88 and a gap of 6)."""
+    ys = [y for y in range(96, 300) if sum(pixel(img, 620, y)) > 600]
     return (ys[0], ys[-1] + 1) if ys else None
 
 
