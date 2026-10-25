@@ -280,6 +280,8 @@ void notice_draw(void);
 void shot_note_draw(void);
 void keys_help(lua_State *L);
 int session_wanted(void);
+void later_paint(void);
+extern int proj_sheet_drawn;    /* the sheet was drawn on since cart_load: cart_save writes it whole (defined in runtime.c) */
 
 float fnum(lua_State *L, int i, float def);
 void options_line(char *b, size_t n);
@@ -485,6 +487,19 @@ int l_mouse(lua_State *L);
 int l_mousep(lua_State *L);
 int l_pad(lua_State *L);
 int l_timeslice(lua_State *L);
+
+/* the web, images and files for a browser cart (api_web.c) */
+int l_web_get(lua_State *L);
+int l_web_poll(lua_State *L);
+int l_web_info(lua_State *L);
+int l_web_body(lua_State *L);
+int l_web_cancel(lua_State *L);
+int l_image_load(lua_State *L);
+int l_sheet_png(lua_State *L);
+int l_sheet_gif(lua_State *L);
+int l_image_file(lua_State *L);
+int l_file_write(lua_State *L);
+int l_file_state(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);

@@ -1,6 +1,6 @@
 # runtime.c: where things are
 
-`src/bm/runtime.c` is ~274 KB and 7115 lines: never read it whole. Find the section here,
+`src/bm/runtime.c` is ~256 KB and 6656 lines: never read it whole. Find the section here,
 then `python scripts/cindex.py src/bm/runtime.c <word>` for the line, then `Read` with
 `offset`/`limit` on that stretch only. Line numbers are not kept here: they go stale; the
 banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runtime*).
@@ -22,7 +22,6 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `helpers`: small shared helpers (colour, value readers, sheet commit).
 - `API`: the bulk of the `l_*` bindings: 2D, text, tables, `stat`, `later`.
 - `3D (software rasterizer`: `l_*` for meshes, camera, `flush3d`, `draw2d`; GPU hand-off.
-- `the web`: `web_get`, `image_load`, `file_write` for a browser cart.
 - `video clips (.bmv)`: clip player and recorder clips (`vid.c`, `rec.c`).
 - `state`, `input`, `typing`: game state, input, typing.
 - `loading`: cartridge load, `.bm` sections, resources.
@@ -56,6 +55,7 @@ Each file holds one banner range of `runtime.c`, moved as it was. It shares the 
 - `src/bm/api_map.c`: map layers (`map`, `mget`, `mset`, `mflags`, `mlayers`), cell flags (`fget`, `fset`) and the named zones of the sheet (`zone`, `zones`, `zboxes`, `zspr`, `zstack`). `sget()`, `sset()`, `print()` and `font()` stay in `runtime.c`.
 - `src/bm/api_prompts.c`: button and key prompts (`prompt`, `lastinput`), buttons by name (`btn`, `btnp`, `keymap`, `controls`, `controller`, `players`, `stick`), and `camera`, `clip`, `rgb`, `time`, `stat`, `frameskip`, `tri`.
 - `src/bm/api_keys.c`: keyboard, mouse and pad reading (`keyp`, `keyheld`, `keydown`, `keys`, `rawkeys`, `keyhelp`, `showkeys`, `mouse`, `mousep`, `pad`) and `timeslice()`.
+- `src/bm/api_web.c`: the web for a browser cart (`web_get`, `web_poll`, `web_info`, `web_body`, `web_cancel`), images (`image_load`, `image_file`, `sheet_png`, `sheet_gif`) and files (`file_write`, `file_state`).
 
 ## Other big files
 
