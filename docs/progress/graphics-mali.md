@@ -89,7 +89,7 @@ Next hardware steps:
 2. [DONE 25 Oct] 3D Bench with flat colours (H6): With `mali3d=1` in `bm/config.txt`, ran 3D Bench (Settings > Screen > 3D Bench); flat-colour scenes ran on GPU (bm3d 2.1), textured scenes stayed on ARM. Report `94aae9dd`.
 3. [DONE 25 Oct] Multi-draw batching fix (Phase 2): In `frame_build()`, aligned attribute buffer and tiler position pointers to 64 bytes (`first += (nv + 3) & ~3u;`). Eliminated `DATA_INVALID_FAULT` (0x58) in subsequent draws. Verified on hardware (report `fcfd2933`). Frames of up to 24 draws render without faults.
 4. [DONE 25 Oct] Vertex shader transformation (Phase 3): Verified `BM_VS3` on hardware (`mali_probe_vs3`, report `b041b71a`): 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`) transforms model-space vertices (`41000000 42b00000 3f000000 3f800000`) and renders alongside `BM_VS` draws in 16 + 27 us.
-5. Asynchronous queue & multi-buffering (Phase 4): `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)`.
+5. [DONE 25 Oct] Asynchronous queue & multi-buffering (Phase 4): Verified `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)` in flight on hardware (`mali_probe_async`, report `9e4652bd`): 2 frames submitted back-to-back complete in 204 us with exact pixel checks (`s0 40e080/102050`, `s1 e040a0/301040`).
 6. Textures and lit faces: write textured fragment shader, remove `colour_only` fallback.
 
 ## Mali vs Pi V3D Architectural Equivalence & Feature Parity (API-5)
@@ -106,7 +106,7 @@ Mapping of Mali-G52 developments against reference Pi V3D driver:
 | **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | CPU far-to-near sort (`be_tris`), resolve key `0xFF00FF` (`be_resolve`) | **Missing on Mali**: Hardware Z-buffer attachment (currently software sort) |
 | **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | None (`colour_only = 1`); textures and lighting handled on ARM | **Missing on Mali**: Textured fragment shader, samplers, texture descriptors |
 | **Cel Shading** | `fs_cel` on QPU with 64-entry quant table and inverted hull outline | None on Mali; ARM fallback | **Missing on Mali**: Cel fragment shader |
-| **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`), state machine `SET_QUEUED`..`SET_DONE` | **Equivalent in code** (`mali_frame_submit` in `mali.c`; pending HW bench) |
+| **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`), state machine `SET_QUEUED`..`SET_DONE` | **Full Parity** (HW verified for 2 sets in flight via `mali_frame_submit`) |
 | **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | Basic batching in `mali_backend` (`MALI_BATCH_MAX` per color) | **Missing on Mali**: Multi-mesh world-space merge (`r3d_backend_t.merge`) |
 | **Config & Safety** | `gpu3d=1` default, automatic fallback to ARM | `mali3d=0` default (D45), clean ARM fallback on any fault | **Full Parity** (`gpu3d_init` verifies Mali and falls back to ARM) |
 

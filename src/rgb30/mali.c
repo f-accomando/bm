@@ -1112,6 +1112,39 @@ int mali_probe_vs3(const mali_hw_t *hw)
     return ok ? 0 : -1;
 }
 
+int mali_probe_async(const mali_hw_t *hw)
+{
+    if (!probed_ok || hw != H || hw->mem_size < MALI_SET_BASE(2))
+        return -1;
+    static const float v0[3][3] = { { 8, 88, 0.5f }, { 88, 88, 0.5f }, { 48, 8, 0.5f } };
+    static const float v1[3][3] = { { 4, 44, 0.25f }, { 44, 44, 0.25f }, { 24, 4, 0.25f } };
+    static const float mvp[16] = {
+        2.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 2.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 2.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+    };
+    const mali_draw_t d0 = { .xyz = v0, .n = 1, .rgb = 0x40e080, .mvp = NULL };
+    const mali_draw_t d1 = { .xyz = v1, .n = 1, .rgb = 0xe040a0, .mvp = mvp };
+    uint8_t *s0 = NULL, *s1 = NULL;
+    uint32_t p0 = 0, p1 = 0;
+    const uint32_t t0 = H->us();
+    const int r0 = mali_frame_submit(hw, TRI, TRI, 0x102050, &d0, 1, &s0, &p0);
+    const int r1 = mali_frame_submit(hw, TRI, TRI, 0x301040, &d1, 1, &s1, &p1);
+    const int rw = (r0 == 0 && r1 == 0) ? mali_frame_wait(100000) : -1;
+    const uint32_t dt = H->us() - t0;
+    const uint32_t s0_in = s0 ? (rd32(s0 + (size_t)61 * p0 + 48 * 4) & 0xffffff) : 0;
+    const uint32_t s0_out = s0 ? (rd32(s0 + (size_t)3 * p0 + 3 * 4) & 0xffffff) : 0;
+    const uint32_t s1_in = s1 ? (rd32(s1 + (size_t)61 * p1 + 48 * 4) & 0xffffff) : 0;
+    const uint32_t s1_out = s1 ? (rd32(s1 + (size_t)3 * p1 + 3 * 4) & 0xffffff) : 0;
+    const int ok = rw == 0 && s0_in == 0x40e080 && s0_out == 0x102050 && s1_in == 0xe040a0 && s1_out == 0x301040;
+    ksnprintf(line, sizeof line, "mali: phase 4 (2 async frames in flight, sets 0 & 1): %u us, s0 %06x/%06x (want "
+              "40e080/102050), s1 %06x/%06x (want e040a0/301040): %s", (unsigned)dt, (unsigned)s0_in,
+              (unsigned)s0_out, (unsigned)s1_in, (unsigned)s1_out, ok ? "ok" : "failed");
+    say();
+    return ok ? 0 : -1;
+}
+
 /* --- frames in flight (M41 phase 4) ---
  * A set goes QUEUED (built, waiting for slot 1) -> VT (the vertex and tiler jobs on slot 1) -> VT_DONE (waiting for slot 0)
  * -> FRAG (the fragment job on slot 0) -> DONE. A slot runs one set's chain at a time, so the second set's vertex work
