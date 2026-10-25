@@ -34,8 +34,8 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   4 s). Every other message goes to the console log (`home_report()` in `settings.c`, `market.c`).
   The help line of a panel row is inside the Settings box, not in the bar: it stays.
 - The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). On the RGB30 (`src/rgb30/ui.c`) it holds the bm SDK, then the cartridges of type app or utility (D51, D52); its utilities are the 3D Bench (Settings > Screen) and the Render bench (Settings > System > Utilities); the Utilities row is hidden when the count is 0 (D53); Settings > System has the "3D driver" row (D15a). The
-  benchmarks and tests are utilities (`home_utils()`): the 3D Bench in Settings > Screen;
-  DMA test in Settings > System > Utilities. Input test, Audio test, Test pattern, System and Log are
+  benchmarks and tests are utilities (`home_utils()`): the 3D Bench in Settings > Screen.
+  The DMA test was removed on 25 Oct 2026. Input test, Audio test, Test pattern, System and Log are
   Settings rows. The GPU test, Texture Room, Video bench, Stack bench and Diagnostics (with the CPU
   bench, the libc and fiber self-tests, the boot demo and the Lua boot script) were removed on 24 Oct 2026.
   The monitor keys `b`, `g` and `R`, and the line words `gpu`, `room`, `video` and `stack`, went with them.

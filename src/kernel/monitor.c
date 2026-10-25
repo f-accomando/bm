@@ -34,7 +34,6 @@
 #include "pager.h"
 #include "reports.h"
 #include "audio/audio.h"
-#include "dmatest.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
 #include <stdio.h>
@@ -403,14 +402,6 @@ CMD(c_bench_render)
     return 0;
 }
 
-CMD(c_bench_dma)
-{
-    reports_begin("dma");
-    dma_test(console_framebuffer());
-    reports_end();
-    return 0;
-}
-
 /* j: the 3D Bench with its pages. In a line: all or a part (tests=a,b profiles=P), no waiting on pages */
 CMD(c_bench_3d)
 {
@@ -632,7 +623,6 @@ static const mcmd_t net_sub[] = {
 static const mcmd_t bench_sub[] = {
     { .name = "cpu", .help = "CPU benchmark", .key = 'k', .fn = c_bench_cpu },
     { .name = "render", .help = "rendering benchmark 640x360 RGB565", .key = 'p', .fn = c_bench_render },
-    { .name = "dma", .help = "DMA test (CPU against DMA timings)", .key = 'D', .fn = c_bench_dma },
     { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, bars and a saved report", .key = 'j', .fn = c_bench_3d },
     { NULL }
 };

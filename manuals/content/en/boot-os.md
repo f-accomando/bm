@@ -229,7 +229,7 @@ Each command has a word. The key is a shortcut for the word. The help of the mon
 | `r` | `sys reboot` | reboot |
 | `X` | `sys crash [KIND]` | crash tests: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
 
-Other keys run tests and benchmarks: `k`, `p`, `D` and `j` are `bench cpu`, `bench render`, `bench dma` and `bench 3d`. `d` is `demo`, `t` is `sys test-pattern`, `a` is `sys audio`. `E` is `net eth`, `G` is `net get URL`, `z` is `report send`, `U` is `upload`. Other keys open the editors: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` are `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
+Other keys run tests and benchmarks: `k`, `p` and `j` are `bench cpu`, `bench render` and `bench 3d`. `d` is `demo`, `t` is `sys test-pattern`, `a` is `sys audio`. `E` is `net eth`, `G` is `net get URL`, `z` is `report send`, `U` is `upload`. Other keys open the editors: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` are `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
 
 ## The bm> prompt
 

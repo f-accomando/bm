@@ -183,7 +183,7 @@ int main(void)
     /* a send stopped half way (a game starts, the Market's tab) goes again
      * at the next chance, without waiting 15 minutes */
     ip = 0;
-    report("DMA test\n");
+    report("CPU bench\n");
     ip = 0x0101a8c0;
     check(reports_auto_due(), "a report waits, the network comes: due");
     cancelled = 1;

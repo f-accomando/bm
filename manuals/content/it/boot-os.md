@@ -229,7 +229,7 @@ Ogni comando ha una parola. Il tasto è una scorciatoia per la parola. L'aiuto d
 | `r` | `sys reboot` | riavvia |
 | `X` | `sys crash [TIPO]` | prove di crash: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
 
-Altri tasti lanciano test e benchmark: `k`, `p`, `D` e `j` sono `bench cpu`, `bench render`, `bench dma` e `bench 3d`. `d` è `demo`, `t` è `sys test-pattern`, `a` è `sys audio`. `E` è `net eth`, `G` è `net get URL`, `z` è `report send`, `U` è `upload`. Altri aprono gli editor: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` sono `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
+Altri tasti lanciano test e benchmark: `k`, `p` e `j` sono `bench cpu`, `bench render` e `bench 3d`. `d` è `demo`, `t` è `sys test-pattern`, `a` è `sys audio`. `E` è `net eth`, `G` è `net get URL`, `z` è `report send`, `U` è `upload`. Altri aprono gli editor: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` sono `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
 
 ## Il prompt bm>
 
