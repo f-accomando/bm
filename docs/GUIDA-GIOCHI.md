@@ -172,7 +172,7 @@ un altro livello), `--flags flag.csv`, `--sprites zone.txt`, `--cover copertina.
 
 ```sh
 sudo mount -t drvfs D: /mnt/d
-sudo cp palla.bm /mnt/d/carts/
+sudo cp palla.bm /mnt/d/bm/
 sync && sudo umount /mnt/d
 ```
 
@@ -183,7 +183,7 @@ budget è **16,7 ms** per fotogramma.
 **Nella build del repository:** metti il gioco in `carts/<nome>/main.lua`, aggiungi
 `<nome>` a `GAMES` nel `Makefile` e una riga `title_<nome> := Titolo` (più
 `res_<nome> := 320x180` se serve). `make` la crea in `build/carts/<nome>.bm` e
-`make sdcard` la copia in `dist/carts/`. Nella stessa cartella vengono presi da soli
+`make sdcard` la copia in `dist/bm/`. Nella stessa cartella vengono presi da soli
 `sheet.png`, `map.csv`, `flags.csv`, `sprites.txt` e `cover.png`, se ci sono; gli altri
 livelli della mappa sono `map_<nome>.csv`, nell'ordine di `layers_<gioco> := nome ...`.
 

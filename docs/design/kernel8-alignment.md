@@ -20,7 +20,7 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 | D51 | cartridge type app/utility | `is_dev()`, no splash | no type field; `loading_begin` always runs | done 25 Oct (QEMU) | store `bm_type_of_head` during the header read; list non-game types in Dev, not in Games; skip the splash | S-M | QEMU |
 | spec compat-policy | targets line, load message, RGB30 `market_bm` | | all three exist (`market.c`, `runtime.c`) | done 25 Oct: `implemented` | run the tests, then `implemented` | S | QEMU Market tests |
 | spec cart-type | type grouping | | note fixed 25 Oct | done 25 Oct: `implemented` | set `implemented` after D51 | S | QEMU |
-| spec folders-bm-bme | `/carts`, `/glb`, `/bmm` | | same on both kernels | ASK 8 | move `/glb` and `/bmm` to APP-9 | S | |
+| spec folders-bm-bme | `/carts`, `/glb`, `/bmm` | | same on both kernels | done 25 Oct (QEMU) | neither menu scans `/carts`; `/glb` and `/bmm` are APP-9's folders (the menus never list them) | S | QEMU |
 | D01 | PS, Ctrl+Esc, Esc | reach home | code done | untested | try on the device | | device |
 | D02 | BT at boot | `bt_start` | code done | untested | WiFi and BT share the RTL8821CS | | device |
 | D18 | crash screen | 60 s restart | code done | untested | force one crash | | device |
@@ -107,7 +107,7 @@ defined in `home.c` and `src/rgb30/ui.c`. The `BM_RGB30` blocks of `settings.c`:
 5. D24 Overbit: removed from the divergences. It is in the game backlog (`docs/progress/graphics-mali.md`, `docs/progress/overbit.md`).
 6. D11 Publish on the RGB30: stays off (owner decision of 22 Oct). D11 is accepted.
 7. Utility cartridges: in the Dev tab on both kernels.
-8. `/carts` folder: both kernels stop scanning `/carts` now (code to do later: `carts.c`, `src/rgb30/ui.c`). `/glb` and `/bmm` move to APP-9.
+8. `/carts` folder: both kernels stop scanning `/carts` now (done 25 Oct: `carts.c`, `src/rgb30/ui.c`, and every writer of games moved to `/bm`). `/glb` and `/bmm` move to APP-9: they stay `/glb` and `/bmm`, the folders APP-9 defines (`docs/progress/tools.md`); the menus never listed them.
 9. D15b CPU clock and temperature on the RGB30: PORT (the RK3566 TSADC and the clock readback, device-tested; a later work order).
 10. D17 WiFi password typing: wait for the on-screen keyboard (R1, R2).
 

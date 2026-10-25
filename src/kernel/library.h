@@ -25,7 +25,7 @@ typedef struct {
     char title[49];             /* from the header; the file name if none */
     char author[33];
     char name[FAT_NAME_MAX];
-    char dir[8];                /* "" for built-in, "/", "/carts", "/bm" or the projects folder */
+    char dir[8];                /* "" for built-in, "/", "/bm" or the projects folder */
     const uint8_t *builtin;     /* NULL: file on SD */
     uint32_t size;
     fat_entry_t fe;

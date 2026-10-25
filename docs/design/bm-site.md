@@ -46,7 +46,7 @@ Sources: `docs/BM-FORMAT.md` (resource files, `BMRES`), `docs/RISORSE.md` sectio
 
 | Type | Ext | Card folder | Who validates | Editors | Size limit |
 |---|---|---|---|---|---|
-| Game or app | `.bm` | `bm/` (RGB30) or `/carts` (Pi) (`market.c:24-28`); the Pi menu scans `/`, `/carts`, `/bm`, `/bme` | Kernel loader (header, CRC-32); Market: size and SHA-256 | none (a game is run) | None in the kernel; 100 MB in the Market |
+| Game or app | `.bm` | `bm/` (both consoles since 25 Oct 2026; `market.c`); the Pi menu scans `/`, `/bm`, `/bme`, the RGB30 menu `/bm` | Kernel loader (header, CRC-32); Market: size and SHA-256 | none (a game is run) | None in the kernel; 100 MB in the Market |
 | Game, RGB30 edition | `.b16` | `bm/` | as `.bm`; ends with SYS-8 | none | 8 MB when built (`single-bm...md` 2.1) |
 | Project | `.bme` | `/bme` | The tool that opens it | The editors open the projects (`PROJECT-LAYOUT.md`) | not verified |
 | Model | `.bmm` | `/bmm` | `res_write`: MESH needed, each section parsed as the loader does; `BMRES` | bm Mesh (`bm3d.lua:1523-1531`); bm Studio and bm Animator (plan in `RISORSE.md` 3) | up to 256 models per file; Lib reads files up to 8 MB (`lib.c:13`) |

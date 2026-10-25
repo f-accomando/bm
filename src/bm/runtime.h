@@ -129,7 +129,7 @@ void bm_set_arg_from(const char *tool);
  * bm Code, the Sound editor, the 3D studio): cart_save, cart_write and
  * cart_put_audio write where they are told. Off (the default), as for every
  * cartridge from the SD card or the Market, they write only .bm files in
- * /carts. */
+ * /bm. */
 void bm_set_tool(int on);
 
 /* The console's screen is square (the RGB30's panel; on by itself there):

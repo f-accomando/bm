@@ -197,9 +197,9 @@ static void add_builtins(void)
         lib_add_builtin(&library, "pixel (built-in)", "pixel", bm_pixel_cart, bm_pixel_cart_end);
 }
 
-/* the folders of the Pi: the root, /carts, /bm (the games folder of the RGB30: the Pi reads it too) and the
- * projects (.bme, project.h) */
-static const char *const pi_dirs[] = { "/", "/carts", "/bm", BM_PROJECTS_DIR, NULL };
+/* the folders of the Pi: the root, /bm (the games folder of both consoles since 25 Oct 2026: nothing reads /carts
+ * any more) and the projects (.bme, project.h) */
+static const char *const pi_dirs[] = { "/", "/bm", BM_PROJECTS_DIR, NULL };
 static const lib_backend_t pi_backend = {
     .dirs = pi_dirs, .target = BM_TARGET_PI, .add_builtins = add_builtins, .stop_background = background_stop,
     .panel = LIB_CAP_SDK | LIB_CAP_TOOLS | LIB_CAP_COPY | LIB_CAP_PUBLISH | LIB_CAP_SEND,

@@ -77,7 +77,7 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 ## Tools and SDK
 
 - SYS-1 - P0 - in progress - CI green on `bm-core`. All `ci.yml` jobs (host, qemu 1-4, rgb30) are green and `scripts/ci_audit.py` exits 0. [tools](progress/tools.md)
-- M47 - P1 - in progress - Editable `.bme` projects, read-only `.bm`. The tools open a `.bm` read-only and ask for the `.bme` copy. `Ctrl+B` generates the `.bm` in Games. Projects are written in `/bme` (done); the Pi menu scans `/bm` (done); no menu tab lists a project on either kernel (decision, D44); left: the hardware check of `/bme` on the Pi and RGB30, the `/carts` retirement (the games folder of the Pi, the Ctrl+B Pi path decision). [tools](progress/tools.md), [lua](progress/lua.md)
+- M47 - P1 - in progress - Editable `.bme` projects, read-only `.bm`. The tools open a `.bm` read-only and ask for the `.bme` copy. `Ctrl+B` generates the `.bm` in Games. Projects are written in `/bme` (done); both menus scan `/bm` and not `/carts` (done 25 Oct 2026); no menu tab lists a project on either kernel (decision, D44); left: the hardware check of `/bme` and `/bm` on the Pi and RGB30. [tools](progress/tools.md), [lua](progress/lua.md)
 - R15, R26 - P3 - idea - Live reload from the PC (blocked on SYS-11: what a send does to a running game; plan in [tools-code-templates](progress/tools-code-templates.md)), mouse in nano8. [tools](progress/tools.md)
 
 ## Editors and apps

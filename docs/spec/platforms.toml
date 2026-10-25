@@ -9,7 +9,7 @@ screen = "HDMI, 16:9 (menu 640x360), cartridges 640x360 / 480x270 / 320x180 and 
 input = "USB and Bluetooth keyboard, mouse and pads (up to 4 players)"
 gpu = "VideoCore IV (V3D): draws the 3D"
 audio = "HDMI only, stereo"
-storage = "SD: games in /carts (and /), data in /bm"
+storage = "SD: games in /bm (and /), data in /bm"
 network = "BCM43438 WiFi (Zero W); Ethernet on the Pi 1"
 battery = "none"
 
@@ -42,7 +42,7 @@ what = "the RK3566 has four cores and the Pi Zero W has one: RGB30 multitasking 
 
 [[capability]]
 id = "storage-path"
-what = "the RGB30 keeps games and data in /bm, the Pi games in /carts and data in /bm"
+what = "both consoles keep games and data in /bm since 25 Oct 2026 (the Pi also reads games in the root); /carts is not read"
 
 [[capability]]
 id = "no-3d-gpu-yet"

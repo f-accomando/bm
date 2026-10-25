@@ -851,7 +851,7 @@ firmware:
 
 # FAT32 boot partition contents. KERNEL=chainloader puts the serial loader on
 # the card instead of the kernel (flash it once, then use `make run-serial`).
-# Cartridges go to carts/ (the menu also looks in the root directory).
+# Cartridges go to bm/ (the menu also looks in the root directory; it does not read carts/ any more).
 # Both kernels go on the card (kernel7.img with ZERO2=1): config.txt makes
 # the firmware start kernel7.img on a Pi Zero 2 W and kernel.img on the
 # other boards, so one card works in every Pi bm runs on.
@@ -864,14 +864,14 @@ RADIO_FW := BCM43430A1.hcd brcmfmac43430-sdio.bin brcmfmac43430-sdio.txt brcmfma
             brcmfmac43436-sdio.clm_blob brcmfmac43436s-sdio.bin brcmfmac43436s-sdio.txt
 sdcard: $(BUILD)/$(KERNEL).img $(K7) $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
-	@mkdir -p $(DIST)/carts
+	@mkdir -p $(DIST)/carts $(DIST)/bm
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
 	$(if $(K7),cp $(K7) $(DIST)/kernel7.img,rm -f $(DIST)/kernel7.img)
-	rm -f $(DIST)/carts/*.bm       # the old extension (now .bm)
+	rm -f $(DIST)/carts/*.bm       # the games were in carts/ before 25 Oct 2026: they are in bm/ now
 	rm -f $(DIST)/carts/*.cart     # the old .cart format: bm no longer plays it
-	cp $(SD_CARTS) $(DIST)/carts/
+	cp $(SD_CARTS) $(DIST)/bm/
 	mkdir -p $(DIST)/carts/nano8 && cp $(NANO8_ROMS) $(DIST)/carts/nano8/
 	mkdir -p $(DIST)/bm && cp boot/ca.pem $(DIST)/bm/ca.pem
 	@for f in $(RADIO_FW); do \
@@ -888,7 +888,7 @@ sdcard: $(BUILD)/$(KERNEL).img $(K7) $(SD_CARTS)
 IMAGE_FILES = $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
               $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
               $(BUILD)/kernel.img=kernel.img \
-              $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
+              $(foreach c,$(SD_CARTS),$(c)=bm/$(notdir $(c))) \
               $(foreach r,$(NANO8_ROMS),$(r)=carts/nano8/$(notdir $(r))) \
               boot/ca.pem=bm/ca.pem
 image: $(BUILD)/kernel.img $(K7) $(SD_CARTS)
@@ -945,6 +945,7 @@ install: sdcard
 	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm \
 	    $(SD)/carts/texroom.bm $(SD)/carts/texroom_hd.bm && \
 	$$S cp -r $(DIST)/carts/* $(SD)/carts/ && \
+	for g in $(SD)/carts/*.bm $(SD)/carts/*.b16; do [ -f "$$g" ] && $$S mv -n "$$g" $(SD)/bm/; done; \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm/ firmware" && \
 	ls $(SD)/bm
@@ -1516,7 +1517,7 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/mapkit.bm $(BUILD)/host/luahos
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/bme/astrowin.bme ship \
 	    $(BUILD)/mesh-sd/bme/testkit.bme "" $(BUILD)/mesh-sd/bme/meshcopy.bme ""
 	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/bme/astrowin.bme $(BUILD)/mesh-sd/bme/testkit.bme >/dev/null
-	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/carts $(BUILD)/sdk-sd/bme
+	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/carts $(BUILD)/sdk-sd/bm $(BUILD)/sdk-sd/bme
 	cp $(BUILD)/carts/testkit.bm $(BUILD)/sdk-sd/carts/
 	$(BUILD)/host/luahost tests/studio/sdk_host.lua . $(BUILD)/sdk-sd
 	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
@@ -1745,7 +1746,7 @@ test-manuals:
 $(BUILD)/reserved-test.bm: tests/tools/reserved.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "reserved test" --author tests
 test-reserved: $(BUILD)/host/bmhost-bin $(BUILD)/reserved-test.bm
-	rm -rf $(BUILD)/reserved-sd && mkdir -p $(BUILD)/reserved-sd/carts
+	rm -rf $(BUILD)/reserved-sd && mkdir -p $(BUILD)/reserved-sd/bm
 	$< $(BUILD)/reserved-test.bm --sd $(BUILD)/reserved-sd --seconds 1 2>&1 | tee $(BUILD)/reserved-test.log | grep "^reserved"
 	@for n in pixel.bm SDK.BM assistan.bm code.bm Studio.bm sdk_b16.bm; do \
 	    grep -q "^reserved: $$n false .*kept for one of bm's tools" $(BUILD)/reserved-test.log || { echo "$$n was not refused"; exit 1; }; done

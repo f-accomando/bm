@@ -17,7 +17,7 @@ what = "720x720 cartridges, shot() and the screenshot keys, the INFO key spec, t
 [[revision]]
 rev = 3
 date = "2026-10-17"
-what = "the cartridge type (game, app, utility) declared in bm.info and mirrored in bits 2-3 of the header flags; projects (.bme) live in /bme; /carts is obsolete (scanned for one release, with a warning)"
+what = "the cartridge type (game, app, utility) declared in bm.info and mirrored in bits 2-3 of the header flags; projects (.bme) live in /bme; /carts is not scanned any more (25 Oct 2026); games live in /bm"
 
 [[revision]]
 rev = 4
@@ -160,10 +160,10 @@ note = "docs/BM-FORMAT.md. The type bits are in the header (project.h), written 
 [[item]]
 id = "folders-bm-bme"
 since = 3
-status = "partial"
+status = "implemented"
 platforms = "all"
 where = ["src/kernel/sdmap_core.c", "src/bm/project.c", "src/bm/project.h", "src/bm/runtime.c", "src/kernel/carts.c", "src/script/bmui.lua"]
-note = "Done (QEMU test_projects, test_sd_cartridges, test_sdk_template_pi, host test_fat and test-studio): a new .bme is written in /bme (bm_project_path, bm_copy_name; the copy of a game, a new project, Save as, the sound packs); the Pi menu scans /bm and /bme (QEMU test_sd_games_bm); the tools list /bme first (bmui project_files) and still read a .bme next to its game, saving it where it is with a status line that says so; Ctrl+B builds into the games folder (bm_games_dir: /carts on the Pi, /bm on the RGB30); the SD map counts /bm and /bme. Decision 25 Oct 2026: both kernels stop scanning /carts now (code to do: carts.c scan of / and /carts; rgb30/ui.c scan of /bm and /carts); /glb and /bmm move to APP-9. Not done: the code of that decision; no menu tab lists a project on either kernel (decision 21 Oct 2026, D44: the editors open them); not done: /glb and /bmm (APP-9); not verified on hardware"
+note = "Done (QEMU test_projects, test_sd_cartridges, test_sdk_template_pi, test_sd_games_bm, RGB30 test_games_in_bm_only, host test_fat, test-studio and test-net): a new .bme is written in /bme (bm_project_path, bm_copy_name; the copy of a game, a new project, Save as, the sound packs); both menus scan /bm (the Pi also the root) and /bme, never /carts (decision 25 Oct 2026: pi_dirs in carts.c, rgb_dirs in ui.c); every writer of games uses /bm (bm_games_dir, the Market, a file sent from the PC to carts/ is stored in bm/, cart_save of a cartridge); the tools list /bme first, then /bm, and still read /carts and the root for a .bme next to its game on an old card, saving it where it is with a status line that says so; the SD map counts /bm, /carts and /bme. /glb and /bmm are the folders of APP-9 (docs/progress/tools.md): the editors read and write them and the menus never list them. No menu tab lists a project on either kernel (decision 21 Oct 2026, D44: the editors open them). Not verified on hardware; an old card keeps its games in /carts: they are not listed until they move to /bm (make install and easy_install.sh move them)"
 
 [[item]]
 id = "sd-map"

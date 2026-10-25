@@ -235,7 +235,7 @@ static const fiber_share_t menu_jobs[] = {
 
 static void rgb_play_begin(const lib_game_t *g, int resume);
 
-static const char *const rgb_dirs[] = { "/bm", "/carts", NULL };
+static const char *const rgb_dirs[] = { "/bm", NULL };
 static const lib_backend_t rgb_backend = {
     .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
     .panel = LIB_CAP_SDK | LIB_CAP_SEND,        /* no tools but the SDK, no editable copy, no Publish (D11) */

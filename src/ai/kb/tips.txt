@@ -104,14 +104,14 @@ see: editor_run
 text:
 Sul PC: python3 scripts/mkbm.py -o gioco.bm --lua main.lua --title "Gioco"
 (con --sheet foglio.png, --map mappa.csv, --cover copertina.png, --res
-320x180). Poi copia gioco.bm nella cartella carts/ della SD; R nel menu
-rilegge la SD. Dall'editor sulla console il gioco si salva già in /carts.
+320x180). Poi copia gioco.bm nella cartella bm/ della SD; R nel menu
+rilegge la SD. Dall'editor sulla console il gioco si salva già in /bm.
 text_en:
 On the PC: python3 scripts/mkbm.py -o gioco.bm --lua main.lua --title "Gioco"
 (with --sheet foglio.png, --map mappa.csv, --cover copertina.png, --res
-320x180). Then copy gioco.bm into the carts/ folder of the SD card; R in
+320x180). Then copy gioco.bm into the bm/ folder of the SD card; R in
 the menu reads the SD card again. From the editor on the console the game
-is already saved in /carts.
+is already saved in /bm.
 
 == bm_write
 kind: tip

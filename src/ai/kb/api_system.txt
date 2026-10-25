@@ -491,7 +491,7 @@ text_en:
 { {name=, size=, dir=}, ... }: the files of the folder (the root if it is
 missing). For tools like the editor.
 code:
-for _, f in ipairs(ls("/carts")) do
+for _, f in ipairs(ls("/bm")) do
   log(f.name, f.size)
 end
 
@@ -512,7 +512,7 @@ Opens a .bm: its sprite sheet and its map take the place of those of the
 calling cartridge. Returns {title, author, res, lua, sheet_w,
 sheet_h, map_w, map_h}.
 code:
-local c = cart_load("/carts/PONG.BM")
+local c = cart_load("/bm/PONG.BM")
 log(c.title, #c.lua .. " byte di codice")
 
 == cart_new
@@ -652,7 +652,7 @@ mappa di chi chiama (al contrario di cart_load). Per editor con più file aperti
 text_en: {title, author, res, lua, size} of a .bm, without changing the sheet
 and map of the caller (unlike cart_load). For editors with several files open.
 code:
-local c = cart_read("/carts/PONG.BM")
+local c = cart_read("/bm/PONG.BM")
 if c then log(c.title, #c.lua) end
 
 == cart_write
@@ -689,13 +689,13 @@ text: Un .bm è un gioco: gli strumenti di bm lo leggono e ne prendono codice e
 asset, ma non lo cambiano. Si modifica un progetto, un .bme: salvando un gioco
 lo strumento chiede di farne la copia modificabile (NOME.BME in /bme), e
 cart_save / cart_write restituiscono anche il file scritto. cart_build fa il
-gioco del progetto in /carts (Ctrl+B nell'SDK, Build the game nel menu): la
+gioco del progetto in /bm (Ctrl+B nell'SDK, Build the game nel menu): la
 volta dopo sostituisce lo stesso file. Solo dagli strumenti della console.
 text_en: A .bm is a game: bm's tools read it and take its code and assets, but
 do not change it. What changes is a project, a .bme: saving a game, the tool
 asks to make its editable copy (NAME.BME in /bme), and cart_save /
 cart_write also return the file written. cart_build makes the project's game
-in /carts (Ctrl+B in the SDK, Build the game in the menu): the next time it
+in /bm (Ctrl+B in the SDK, Build the game in the menu): the next time it
 replaces the same file. Only from the console's tools.
 code:
 local ok, file = cart_save(path, { lua = code })

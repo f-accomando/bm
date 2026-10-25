@@ -1467,15 +1467,18 @@ def test_game_send(b, opts):
         q.close()
 
 
-def test_games_in_carts(b, opts):
-    """The Games tab lists games from both bm/ and /carts (D28): a cartridge
-    built by the SDK or placed in /carts appears in the menu alongside bm/."""
+def test_games_in_bm_only(b, opts):
+    """The Games tab lists the games of bm/ and not those of /carts (25 Oct 2026: both
+    kernels stop scanning /carts): a cartridge built by the SDK or sent over the network is in
+    bm/; one left in /carts is not listed."""
     tmp = tempfile.mkdtemp(prefix="bm64carts-")
-    built_bm = mkbm.pack(TRY_ME.encode(), title="Built in carts", author="tests", res=(360, 360))
+    built_bm = mkbm.pack(TRY_ME.encode(), title="Built in bm", author="tests", res=(360, 360))
+    old_bm = mkbm.pack(TRY_ME.encode(), title="Left in carts", author="tests", res=(360, 360))
     tryme_b16 = mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tryme.b16": tryme_b16,
-                       "carts/built.bm": built_bm})
+                       "bm/built.bm": built_bm,
+                       "carts/old.bm": old_bm})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
@@ -1485,12 +1488,13 @@ def test_games_in_carts(b, opts):
         keys(q, "d")
         time.sleep(0.5)
         text += screen_all(q.screendump())
-        assert "Built in carts" in text and "Try me" in text, text
+        assert "Built in bm" in text and "Try me" in text and "Left in carts" not in text, text
     finally:
         q.close()
     sd2 = make_sd(tmp, {"bm/config.txt": b"game_intro=0\nshow_bm=0\n",
                         "bm/tryme.b16": tryme_b16,
-                        "carts/built.bm": built_bm})
+                        "bm/built.bm": built_bm,
+                        "carts/old.bm": old_bm})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd2)
     try:
         out = boot(q)

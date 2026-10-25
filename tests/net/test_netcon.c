@@ -559,8 +559,8 @@ int main(int argc, char **argv)
         w_name[0] = 0;
         xfer(&x, 'S', "secret", "carts/game.bm", a, sizeof a, 0, 4);
         check(strcmp(x.got, "OKQD") == 0 && w_name[0] == 0, "file: QD once checked, nothing written yet");
-        check(netxfer_write_pending() && netxfer_updating("/CARTS/GAME.BM") == NETXFER_QUEUED &&
-              !netxfer_updating("/carts/other.bm"), "  queued: the menu tags that game only");
+        check(netxfer_write_pending() && netxfer_updating("/BM/GAME.BM") == NETXFER_QUEUED &&
+              !netxfer_updating("/bm/other.bm"), "  queued: the menu tags that game only");
         char nm[16];
         uint32_t d = 1, t = 0;
         check(netxfer_file_state(nm, sizeof nm, &d, &t) == NETXFER_QUEUED && strcmp(nm, "game.bm") == 0 &&
@@ -581,9 +581,9 @@ int main(int argc, char **argv)
         check(w_name[0] == 0 && netxfer_write_pending(), "  a write stopped half way: nothing written, still waiting");
         const unsigned before = netxfer_saves();
         netxfer_write_tick(0);
-        check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "GAME.BM") == 0 && w_len == sizeof b &&
+        check(strcmp(w_dir, "/bm") == 0 && strcmp(w_name, "GAME.BM") == 0 && w_len == sizeof b &&
               memcmp(w_data, b, sizeof b) == 0 && netxfer_saves() == before + 1 && !netxfer_write_pending() &&
-              !netxfer_updating("/carts/game.bm") && !fat_write_tick,
+              !netxfer_updating("/bm/game.bm") && !fat_write_tick,
               "  written from the menu: the newer copy, counted, the tag gone");
         check(strncmp(flashed, "Updated", 7) == 0, "  a notice says so");
         /* a file for the card's root (bm_net.py --to ""): "/top.bm" */
@@ -721,9 +721,9 @@ int main(int argc, char **argv)
         if (t == 0)
             netxfer_write_tick(0);      /* the menu's next frame */
         if (t == 0)
-            check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.bm") == 0 &&
+            check(strcmp(w_dir, "/bm") == 0 && strcmp(w_name, "pong.bm") == 0 &&
                   w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == saves0 + 1,
-                  "  in /carts/pong.bm, same bytes");
+                  "  carts/pong.bm is written in /bm/pong.bm, same bytes");
         if (t == 1 || t == 2 || t == 4)
             check(w_name[0] == 0, "  nothing written");
         if (t == 3) {

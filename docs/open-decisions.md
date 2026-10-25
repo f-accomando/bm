@@ -61,7 +61,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select held 3 s on the RGB30) and a `.b16` 720x720 on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.
 - Test carts `demo`, `stress`: to be removed later (`texroom` is removed), not migrated to the common layout.
 - Formats F3 (header integrity, variant (a): a second CRC in bytes 120..127, checked only when nonzero) and F6 (one writer in C and one in Python): do them when a header change is needed, not before; F6 must keep the bytes identical (`test_bm.c`, `test_bmres.py`).
-- D09: `/carts` on the RGB30 is accepted (storage-path); `.bme` projects in Dev are still to do.
+- D09: both kernels scan `/bm` and not `/carts` (25 Oct 2026); `.bme` projects in Dev are still to do.
 
 ## Left for later (2026-10-13, at the end of the pdf-manuals session)
 - Manuals: the `[DA COMPLETARE]` gaps that need the hardware or a measure; about 60 pictures (`manuals/shots/`, taken on the console).

@@ -500,7 +500,7 @@ local function new_env(arg)
     if not path:lower():match("%.bme$") then return false, "only a project (.bme) is built" end
     local ext = kind == "b16" and ".b16" or ".bm"
     local game = path:gsub("%.[Bb][Mm][Ee]$", ext)
-    if path:match("^/bme/") then game = game:gsub("^/bme/", "/carts/") end   -- a project in /bme builds into the games folder
+    if path:match("^/bme/") then game = game:gsub("^/bme/", "/bm/") end   -- a project in /bme builds into the games folder
     local fi, fo = assert(io.open(host(path), "rb")), assert(io.open(host(game), "wb"))
     fo:write(fi:read("a"))
     fi:close()
@@ -858,7 +858,7 @@ check(sees("Shooter 2D"), "the shooter opened")
 key("b")
 check(status():find("target .b16", 1, true) and sees("screen 360x360"), "b: the target .b16 and 360x360 screen")
 key("^b")
-check(built == "/carts/t4.b16" and status():find("built /carts/t4.b16", 1, true), "Ctrl+B with target .b16 builds .B16: " .. status())
+check(built == "/bm/t4.b16" and status():find("built /bm/t4.b16", 1, true), "Ctrl+B with target .b16 builds .B16: " .. status())
 key("f1")
 frames(5)
 check(sees("of 100M (Market)") and sees("math.random"), "the dev kit for a .b16: the cap, math.random")
@@ -872,9 +872,9 @@ check(status():find("the game stopped", 1, true) or status():find("boom", 1, tru
 
 -- Ctrl+B: the game of the project (cart_build), next to it; Ctrl+Shift+B: exports .b16
 key("^b")
-check(built == "/carts/t1.bm" and status():find("built /carts/t1.bm", 1, true), "Ctrl+B builds the game: " .. status())
+check(built == "/bm/t1.bm" and status():find("built /bm/t1.bm", 1, true), "Ctrl+B builds the game: " .. status())
 key("^B")
-check(built == "/carts/t1.b16" and status():find("built /carts/t1.b16", 1, true), "Ctrl+Shift+B exports .b16: " .. status())
+check(built == "/bm/t1.b16" and status():find("built /bm/t1.b16", 1, true), "Ctrl+Shift+B exports .b16: " .. status())
 
 -- projects live in /bme: Ctrl+O lists them there, and an old project next to its game
 -- (/carts/OLD.BME) is still found; Save writes where the project is, and says so

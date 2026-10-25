@@ -192,11 +192,10 @@ static int same_path(const char *a, const char *b)
     return strcasecmp(a, b) == 0;
 }
 
-/* The RGB30's menu lists bm/ (src/rgb30/ui.c): a game sent to carts/ (what
- * bm_net.py and easy_install.sh say by default) goes there. */
+/* The menus list bm/ (src/kernel/library.c): a game sent to carts/ (what
+ * older versions of bm_net.py and easy_install.sh say) goes there. */
 static void to_menu_folder(void)
 {
-#ifdef BM_RGB30
     const char *p = path[0] == '/' ? path + 1 : path;
     const char *dot = strrchr(p, '.');
     if (strncasecmp(p, "carts/", 6) == 0 && !strchr(p + 6, '/') && dot &&
@@ -206,7 +205,6 @@ static void to_menu_folder(void)
         memcpy(path, "bm/", 3);
         strcpy(path + 3, name);         /* shorter than it was */
     }
-#endif
 }
 
 static void feed(const uint8_t *p, unsigned len)

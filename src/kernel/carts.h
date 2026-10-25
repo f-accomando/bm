@@ -1,6 +1,6 @@
 /*
  * Cartridges: the built-in ones plus the .bm files found on the SD
- * card (root directory and /carts), and the on-screen menu to pick one.
+ * card (root directory and /bm), and the on-screen menu to pick one.
  */
 #ifndef CARTS_H
 #define CARTS_H
