@@ -45,15 +45,23 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
 - TLS session reuse for a new connection (proposal: 2-4 `mbedtls_ssl_session` cached
   by host:port in `tls.c`, `MBEDTLS_SSL_SESSION_TICKETS`, ~60+40 lines). Keep-alive is in; do it only if the handshake time
   per new connection on the Pi justifies it.
-- Pi numbers for stages 3-5: handshakes per report (before 3, now 1), the longest frame during a queued `file_write`
-  of 4 MB (`menu stalls:` is menu only; use a cart that logs `timer_ticks`), `Accept-Ranges` and 206 of the catalog host
+- Pi numbers for stages 3-5: handshakes per report (before 3, now 1), `Accept-Ranges` and 206 of the catalog host
   and the release CDN, the real cost of a part file save of 4 MB.
+- Worst frame of a queued `file_write` (2048 KB), Pi run of 25 Oct: 682.0 ms. The cause is the bench, not the write path: `tests/web/pi_bench.lua`
+  took the frame time from the start of the frame that made the 656 ms sync write, so the next frame counted it (682 = 656 + 26). Host proof:
+  `make test-fat-queue` (no step of a 2048 KB write writes more than 74 sectors; the old code, same result). The bench is fixed.
+  Open: the user runs the bench again (`docs/NEXT.md`); the worst frame must be under about 20 ms. The copy of 2048 KB at the call is
+  not measured on the Pi (the bench now prints the call time); if it is above 15 ms, the copy is the next cost.
 ## Rules (do not break)
 - Every SD write from a cartridge, the settings or a fiber that gives the CPU back goes through `sd_writer_begin` /
   `sd_writer_end` (or `sd_write_file`). A writer that gives the CPU back registers a pause hook and is safe to stop at
   any tick; it starts again from its first byte.
 - `sd_writer_begin` never pauses another writer from inside a fiber: the hook runs fibers.
 - A queued write keeps its own copy of the data (the web slot may be freed meanwhile); at most 4 jobs.
+- Every step of `fat.c` `store` between two `fat_write_tick` calls is short: one piece of data (a run of 32 KB), the FAT sectors of that piece
+  (`ALLOC_PIECE` = 512 clusters at most, every FAT copy), FSInfo or the entry. A new long loop before a tick breaks the queued write.
+  `make test-fat-queue` counts the sectors between ticks (4 KB and 32 KB clusters, new file, replaced by a bigger, smaller, equal one).
+- A frame time in a bench cart restarts after each call that takes a long time (a sync `file_write`); else the next frame holds it.
 - Keep-alive is opt-in per request (`keep_alive`). The kept connection is closed at `web_reset`; a request to another host closes it.
   A request that fails on a reused connection before any answer byte is sent again once on a new one.
 - A part file is written only when the server sent `Accept-Ranges` (or 206) and a size, and is checked by the address hash and the total.

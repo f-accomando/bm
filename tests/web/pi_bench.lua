@@ -5,7 +5,9 @@
 -- /docs/WEBBENCH.TXT (doc_write). It writes bm/web/BENCH1.BIN, BENCH2.BIN and, with a URL, BENCH.BIN / BENCH.PRT.
 --
 -- 1. sync:   file_write of SIZE bytes: the call time in ms is one frame stopped.
--- 2. async:  the same with async = true: the worst frame while it is written, and the time to done.
+-- 2. async:  the same with async = true: the call time, the worst frame while it is written (the frame that holds the
+--            call counts), and the time to done. The frame clock starts after the sync call (25 Oct: it did not,
+--            and the 656 ms of the sync call was read as a stalled frame of 682 ms).
 -- 3. save:   a save() while an async write is half way: the write must pause and finish (state done).
 -- 4. resume: needs URL (an https address of a file of at least 2 MB that the server serves with Range):
 --            web_get with resume, cancelled after 1 MB, then asked again; prints "resumed" and the final size.
@@ -46,9 +48,13 @@ function _update()
     local a = time()
     local ok, why = file_write("BENCH1.BIN", data)
     say(string.format("sync   %d KB: the call took %.0f ms (%s)", SIZE // 1024, (time() - a) * 1000, tostring(ok or why)))
+    -- the frame clock starts again here: `last` is from the start of this frame, and the sync call above
+    -- took 656 ms on the Pi (25 Oct): the next dt would count it as a stalled frame of the queued write
     state, t0, worst = "async", time(), 0
+    last = t0
     local ok2, why2 = file_write("BENCH2.BIN", data, true)
-    say("async  queued: " .. tostring(ok2 or why2))
+    local qms = (time() - t0) * 1000
+    say(string.format("async  queued: %s, the call took %.1f ms (copy of the data)", tostring(ok2 or why2), qms))
   elseif state == "async" then
     worst = math.max(worst, dt)
     local st, info = file_state("BENCH2.BIN")
