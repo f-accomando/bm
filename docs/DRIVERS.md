@@ -407,6 +407,14 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   `gpu3d_queue=1/2`). Verified on RGB30 hardware in 3D Bench (report `7509aa08`): `draws` 7.4x faster
   (107.1 vs 14.4 @ 60 fps), `spheres_unlit` 5.2x faster (17.2 vs 3.3), `split` 2.7x faster (14.6 ms vs 39.0 ms).
 
+- **7.14** (2026-10-25): **Mali cached 2 MB resolve surface (`dc civac`) and 8192-triangle merge-sorted batching**:
+  mapped the 2 MB resolve surface (`PLAT_GPU_START - 2 MB`) as `ATTR_NORMAL` (Write-Back Cacheable) with `dc civac`
+  D-cache invalidation before an 8-pixel (32-byte) `be_resolve` loop, and expanded `be_tris` to 8,192 triangles with
+  an O(n log n) stable merge sort. Verified on RGB30 hardware in 3D Bench (report `e259a8c8`): overall GPU score rose
+  10x (`14` -> `138`), `quad_flat` reached `211.5` @ 60 fps (`457.0` @ 30 fps, beating Pi Zero W V3D's `174.5`),
+  `draws` reached `509.8` @ 60 fps (`1,112.6` @ 30 fps, 35x faster than `7.10`), and `spheres_unlit` reached `92.5`
+  @ 60 fps (`187.3` @ 30 fps, 28x faster than `7.10`).
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).

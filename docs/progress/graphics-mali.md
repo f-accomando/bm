@@ -66,19 +66,19 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 - **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
 ## Open work
-Hardware verified on RGB30 (`bm3d 7.8`..`7.13`, 25 Oct 2026): H1 triangle (`80d62d1e`), H6 flat-colour 3D Bench (`94aae9dd`), Phase 2 multi-draw batching (`fcfd2933`), Phase 3 `BM_VS3` probe (`b041b71a`), Phase 4 async 2-set queue probe (`9e4652bd`), and `BM_VS3` mesh path + async queue in 3D Bench (`7509aa08`, `docs/bench/mali-2026-10-25/step7-bench3d-vs3-queue.txt`).
+Hardware verified on RGB30 (`bm3d 7.8`..`7.14`, 25 Oct 2026): H1 triangle (`80d62d1e`), H6 flat-colour 3D Bench (`94aae9dd`), Phase 2 multi-draw batching (`fcfd2933`), Phase 3 `BM_VS3` probe (`b041b71a`), Phase 4 async 2-set queue probe (`9e4652bd`), `BM_VS3` mesh path + async queue (`7509aa08`), and cached 2 MB resolve (`dc civac`) + 8192-triangle merge-sorted batching (`e259a8c8`, `docs/bench/mali-2026-10-25/step8-bench3d-cached-resolve.txt`).
 
-Hardware Results (3D Bench 25 Oct 2026, 640x360, `bm3d 7.13`, report `7509aa08`):
-| Test Scene | RGB30 ARM (0.2) n60 / n30 | RGB30 Mali GPU (2.1) n60 / n30 | RGB30 Mali GPU+VS (3.4) n60 / n30 | RGB30 Mali GPU+VS+Q (4.1) n60 / n30 |
+Hardware Results (3D Bench 25 Oct 2026, 640x360, `bm3d 7.14`, report `e259a8c8`, GPU score **138** vs **14** in `7.10`):
+| Test Scene | RGB30 ARM (0.2) n60 / n30 | RGB30 Mali GPU (2.1) n60 / n30 | RGB30 Mali GPU+VS (3.4) n60 / n30 | Pi Zero W V3D (GPU+VS) n60 |
 | :--- | :--- | :--- | :--- | :--- |
-| `spheres_unlit` | 29.0 / 61.9 (2,783 tri) | 3.3 / 6.8 (316 tri) | **17.2 / 33.6 (1,650 tri)** | **17.2 / 33.6 (1,650 tri)** |
-| `draws` (cubes) | 373.9 / 718.5 (4,487 tri) | 14.4 / 32.3 (172 tri) | **107.1 / 204.3 (1,286 tri)** | **107.1 / 204.3 (1,286 tri)** |
-| `spheres` (lit) | 14.6 / 30.8 (1,401 tri) | 2.2 / 4.3 (215 tri) | **4.1 / 10.7 (394 tri)** | **4.1 / 10.7 (394 tri)** |
-| `spheres_smooth` | 5.2 / 11.1 (502 tri) | 2.1 / 3.4 (202 tri) | **4.1 / 10.7 (393 tri)** | **4.1 / 10.7 (393 tri)** |
-| `tiny` (512f grids) | 10.3 / 21.6 (5,256 tri) | 1.2 / 2.6 (602 tri) | **2.4 / 4.5 (1,205 tri)** | **2.4 / 4.5 (1,205 tri)** |
-| `split` (3D+2D) | 5.8 / 12.1 (8,325 tri) | -1 / 1.0 (39.0 ms) | **1.1 / 2.3 (1,602 tri, 14.6 ms)** | **1.1 / 2.3 (1,602 tri, 14.6 ms)** |
-| `queue` (+4M instr) | - / - | -1 / 3.1 (18.6 ms) | -1 / 6.8 (18.4 ms) | **-1 / 7.2 (18.1 ms, Q2)** |
-| `quad_flat` | 15.8 / 33.6 (31 tri) | **62.6 / 310.3 (125 tri)** | **62.6 / 310.3 (125 tri)** | **62.6 / 310.3 (125 tri)** |
+| `quad_flat` (fill) | 15.8 / 33.6 (32 tri) | **211.5 / 457.0 (423 tri)** | **211.3 / 455.9 (0.27 ms/frame)** | 163.7 (174.5 GPU) |
+| `draws` (cubes) | 762.9 / 1910.4 (9,155 tri) | 67.9 / 129.6 (815 tri) | **509.8 / 1112.6 (6,118 tri)** | 1,386 (467 ARM) |
+| `spheres_unlit` | 164.8 / 437.2 (15,821 tri) | 13.6 / 26.7 (1,301 tri) | **92.5 / 187.3 (8,883 tri)** | ~885 (~85,000 tri) |
+| `spheres` (lit) | 140.5 / 376.8 (13,489 tri) | 7.4 / 15.2 (709 tri) | **24.1 / 93.6 (2,309 tri)** | 782.9 (75,159 tri) |
+| `spheres_smooth` | 72.1 / 264.7 (6,920 tri) | 7.2 / 14.7 (694 tri) | **24.1 / 93.6 (2,309 tri)** | ~730 (~70,000 tri) |
+| `tiny` (512f grids) | 26.9 / 57.7 (13,765 tri) | 10.7 / 22.1 (5,486 tri) | **13.5 / 27.4 (6,891 tri)** | ~190 (97,373 tri) |
+| `split` (3D+2D) | 21.8 / 46.8 (8,359 tri) | 1.8 / 3.6 (701 tri) | **4.0 / 8.6 (1,538 tri)** | ~52 (~20,000 tri) |
+| `queue` (+4M instr) | - / - | 5.2 / 12.5 (501 tri) | **14.3 / 70.3 (1,374 tri, +Q)** | 631.1 (+Q) |
 
 Next hardware steps:
 1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW.
@@ -86,7 +86,7 @@ Next hardware steps:
 3. [DONE 25 Oct] Multi-draw batching fix (Phase 2): In `frame_build()`, aligned attribute buffer and tiler position pointers to 64 bytes (`first += (nv + 3) & ~3u;`). Eliminated `DATA_INVALID_FAULT` (0x58) in subsequent draws. Verified on hardware (report `fcfd2933`). Frames of up to 24 draws render without faults.
 4. [DONE 25 Oct] Vertex shader transformation (Phase 3): Verified `BM_VS3` on hardware (`mali_probe_vs3`, report `b041b71a`): 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`) transforms model-space vertices (`41000000 42b00000 3f000000 3f800000`) and renders alongside `BM_VS` draws in 16 + 27 us.
 5. [DONE 25 Oct] Asynchronous queue & multi-buffering (Phase 4): Verified `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)` in flight on hardware (`mali_probe_async`, report `9e4652bd`): 2 frames submitted back-to-back complete in 204 us with exact pixel checks (`s0 40e080/102050`, `s1 e040a0/301040`).
-6. [DONE 25 Oct] `mali_backend` `BM_VS3` mesh path + async queue (`bm3d 7.13`, report `7509aa08`): Wired `mali_backend.mesh` (`be_mesh`) with per-bone back-face culling, per-face lighting/cel/fog, 2-mode batching (`BM_VS3` vs screen-space colour merge when >64 runs), 64-bit 4-pixel `be_resolve`, and async Slot 0 Fragment Job overlap (`mali_backend_submit` / `mali_backend_sync`). `draws` 7.4x faster (107.1 vs 14.4), `spheres_unlit` 5.2x faster (17.2 vs 3.3), `split` 2.7x faster (39.0 ms -> 14.6 ms).
+6. [DONE 25 Oct] `mali_backend` `BM_VS3` mesh path + async queue + cached resolve (`bm3d 7.13`–`7.14`, reports `7509aa08`, `e259a8c8`): Wired `mali_backend.mesh` (`be_mesh`) with per-bone back-face culling, per-face lighting/cel/fog, 2-mode batching, async Slot 0 Fragment Job overlap, cached 2 MB resolve surface (`dc civac`), and 8192-triangle merge-sorted scene batching. GPU score rose **10x** (`14` -> `138`); `quad_flat` (`211.5` @ 60 fps) beats Pi Zero W V3D (`174.5`); `draws` reached `509.8` @ 60 fps (`1,112.6` @ 30 fps, **35x** vs `7.10`); `spheres_unlit` reached `92.5` @ 60 fps (**28x** vs `7.10`).
 7. Textures: compile textured fragment shader with Mesa Bifrost compiler (`tools/mali/mkshader.c`), add texture/sampler descriptors, and remove `colour_only` fallback.
 
 ## Mali vs Pi V3D Architectural Equivalence & Feature Parity (API-5)

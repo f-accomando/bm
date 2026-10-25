@@ -1323,11 +1323,12 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
  * game logic in parallel until mali_backend_sync resolves the surface. */
 #define BE_SURF_OFF     0x200000    /* the surface in hw->mem when it does not fit set 0's (frames are never in flight then) */
 #define BE_KEY          0xFF00FF    /* "not covered" */
-#define BE_MAX_MVPS     256
+#define BE_MAX_TRIS     8192
+#define BE_MAX_MVPS     512
 
 typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; } be_tri_t;
 
-static be_tri_t be_tris[MALI_BATCH_MAX];
+static be_tri_t be_tris[BE_MAX_TRIS];
 static float be_mvps[BE_MAX_MVPS][16];
 static int be_n, be_nmvp;
 static int be_vs_on = 2, be_q_on = 1;
@@ -1391,34 +1392,62 @@ void mali_backend_drop(void)
     be_nmvp = 0;
 }
 
-/* the pixels of the surface that are not the key, into the page (4 pixels at a time via 64-bit loads) */
+/* the pixels of the surface that are not the key, into the page (8 pixels at a time via 64-bit loads) */
 static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
 {
     const uint64_t key2 = (uint64_t)BE_KEY | ((uint64_t)BE_KEY << 32);
     const uint64_t mask = 0x00FFFFFF00FFFFFFull;
-    const int w = g->w, h = g->h, w4 = w & ~3;
+    const int w = g->w, h = g->h, w8 = w & ~7;
+#ifdef PLAT_RK3566
+    if (!be_frame && H && surf < H->mem) {
+        const uintptr_t s0 = (uintptr_t)surf & ~63ull;
+        const uintptr_t s1 = ((uintptr_t)surf + (size_t)pitch * (size_t)h + 63ull) & ~63ull;
+        __asm__ volatile("dsb sy" ::: "memory");
+        for (uintptr_t a = s0; a < s1; a += 64)
+            __asm__ volatile("dc civac, %0" :: "r"(a) : "memory");
+        __asm__ volatile("dsb sy" ::: "memory");
+    }
+#endif
     for (int y = 0; y < h; y++) {
         const uint8_t *row = surf + (size_t)y * pitch;
         uint16_t *dst = g->px + (size_t)y * g->stride;
         int x = 0;
-        for (; x < w4; x += 4) {
-            uint64_t a, b;
+        for (; x < w8; x += 8) {
+            uint64_t a, b, c, d;
             memcpy(&a, row + 4 * (size_t)x, 8);
             memcpy(&b, row + 4 * (size_t)x + 8, 8);
+            memcpy(&c, row + 4 * (size_t)x + 16, 8);
+            memcpy(&d, row + 4 * (size_t)x + 24, 8);
             a &= mask;
             b &= mask;
-            if (((a ^ key2) | (b ^ key2)) == 0)
+            c &= mask;
+            d &= mask;
+            if (((a ^ key2) | (b ^ key2) | (c ^ key2) | (d ^ key2)) == 0)
                 continue;
-            const uint32_t p0 = (uint32_t)a, p1 = (uint32_t)(a >> 32);
-            const uint32_t p2 = (uint32_t)b, p3 = (uint32_t)(b >> 32);
-            if (p0 != BE_KEY)
-                dst[x + 0] = (uint16_t)((p0 >> 19 & 31) << 11 | (p0 >> 10 & 63) << 5 | (p0 >> 3 & 31));
-            if (p1 != BE_KEY)
-                dst[x + 1] = (uint16_t)((p1 >> 19 & 31) << 11 | (p1 >> 10 & 63) << 5 | (p1 >> 3 & 31));
-            if (p2 != BE_KEY)
-                dst[x + 2] = (uint16_t)((p2 >> 19 & 31) << 11 | (p2 >> 10 & 63) << 5 | (p2 >> 3 & 31));
-            if (p3 != BE_KEY)
-                dst[x + 3] = (uint16_t)((p3 >> 19 & 31) << 11 | (p3 >> 10 & 63) << 5 | (p3 >> 3 & 31));
+            if (((a ^ key2) | (b ^ key2)) != 0) {
+                const uint32_t p0 = (uint32_t)a, p1 = (uint32_t)(a >> 32);
+                const uint32_t p2 = (uint32_t)b, p3 = (uint32_t)(b >> 32);
+                if (p0 != BE_KEY)
+                    dst[x + 0] = (uint16_t)((p0 >> 19 & 31) << 11 | (p0 >> 10 & 63) << 5 | (p0 >> 3 & 31));
+                if (p1 != BE_KEY)
+                    dst[x + 1] = (uint16_t)((p1 >> 19 & 31) << 11 | (p1 >> 10 & 63) << 5 | (p1 >> 3 & 31));
+                if (p2 != BE_KEY)
+                    dst[x + 2] = (uint16_t)((p2 >> 19 & 31) << 11 | (p2 >> 10 & 63) << 5 | (p2 >> 3 & 31));
+                if (p3 != BE_KEY)
+                    dst[x + 3] = (uint16_t)((p3 >> 19 & 31) << 11 | (p3 >> 10 & 63) << 5 | (p3 >> 3 & 31));
+            }
+            if (((c ^ key2) | (d ^ key2)) != 0) {
+                const uint32_t p4 = (uint32_t)c, p5 = (uint32_t)(c >> 32);
+                const uint32_t p6 = (uint32_t)d, p7 = (uint32_t)(d >> 32);
+                if (p4 != BE_KEY)
+                    dst[x + 4] = (uint16_t)((p4 >> 19 & 31) << 11 | (p4 >> 10 & 63) << 5 | (p4 >> 3 & 31));
+                if (p5 != BE_KEY)
+                    dst[x + 5] = (uint16_t)((p5 >> 19 & 31) << 11 | (p5 >> 10 & 63) << 5 | (p5 >> 3 & 31));
+                if (p6 != BE_KEY)
+                    dst[x + 6] = (uint16_t)((p6 >> 19 & 31) << 11 | (p6 >> 10 & 63) << 5 | (p6 >> 3 & 31));
+                if (p7 != BE_KEY)
+                    dst[x + 7] = (uint16_t)((p7 >> 19 & 31) << 11 | (p7 >> 10 & 63) << 5 | (p7 >> 3 & 31));
+            }
         }
         for (; x < w; x++) {
             const uint32_t p = rd32(row + 4 * (size_t)x) & 0xFFFFFF;
@@ -1523,11 +1552,50 @@ static int tri_after_rgb(const be_tri_t *a, const be_tri_t *b)
     return a->rgb > b->rgb;
 }
 
+static void sort_tris(int *idx, int *tmp, int n, int (*after)(const be_tri_t *, const be_tri_t *))
+{
+    if (n <= 32) {
+        for (int i = 1; i < n; i++) {
+            const int k = idx[i];
+            int j = i - 1;
+            while (j >= 0 && after(&be_tris[idx[j]], &be_tris[k])) {
+                idx[j + 1] = idx[j];
+                j--;
+            }
+            idx[j + 1] = k;
+        }
+        return;
+    }
+    int *src = idx, *dst = tmp;
+    for (int width = 1; width < n; width <<= 1) {
+        for (int i = 0; i < n; i += 2 * width) {
+            int l = i, r = i + width < n ? i + width : n;
+            const int rend = i + 2 * width < n ? i + 2 * width : n, lend = r;
+            int out = i;
+            while (l < lend && r < rend) {
+                if (after(&be_tris[src[l]], &be_tris[src[r]]))
+                    dst[out++] = src[r++];
+                else
+                    dst[out++] = src[l++];
+            }
+            while (l < lend)
+                dst[out++] = src[l++];
+            while (r < rend)
+                dst[out++] = src[r++];
+        }
+        int *swp = src;
+        src = dst;
+        dst = swp;
+    }
+    if (src != idx)
+        memcpy(idx, src, (size_t)n * sizeof(int));
+}
+
 static int be_flush_mode(const g16_t *g, int async)
 {
     static float vbuf[MALI_BATCH_MAX * 3][3];
     static mali_draw_t dr[MALI_MAX_DRAWS];
-    static int idx[MALI_BATCH_MAX];
+    static int idx[BE_MAX_TRIS], tmp_idx[BE_MAX_TRIS];
     if (be_pend && mali_backend_sync() != 0)
         return -1;
     const int n = be_n;
@@ -1550,15 +1618,7 @@ static int be_flush_mode(const g16_t *g, int async)
         if (be_tris[i].mvp)
             any_mvp = 1;
     }
-    for (int i = 1; i < n; i++) {                   /* stable insertion sort: far (small key) first */
-        const int k = idx[i];
-        int j = i - 1;
-        while (j >= 0 && tri_after_mvp(&be_tris[idx[j]], &be_tris[k])) {
-            idx[j + 1] = idx[j];
-            j--;
-        }
-        idx[j + 1] = k;
-    }
+    sort_tris(idx, tmp_idx, n, tri_after_mvp);
     if (any_mvp) {
         int runs = 1;
         for (int i = 1; i < n; i++) {
@@ -1585,22 +1645,27 @@ static int be_flush_mode(const g16_t *g, int async)
                 }
                 t->mvp = NULL;
             }
-            for (int i = 1; i < n; i++) {
-                const int k = idx[i];
-                int j = i - 1;
-                while (j >= 0 && tri_after_rgb(&be_tris[idx[j]], &be_tris[k])) {
-                    idx[j + 1] = idx[j];
-                    j--;
-                }
-                idx[j + 1] = k;
-            }
+            sort_tris(idx, tmp_idx, n, tri_after_rgb);
         }
     }
     uint8_t *surf = hw->mem + surf_off;
-    const uint64_t pa = hw->mem_pa + surf_off;
-    uint32_t nd = 0, nv = 0;
+    uint64_t pa = hw->mem_pa + surf_off;
+#ifdef PLAT_RK3566
+    if (!be_frame && hw->map_pa > 0 && hw->mem_pa >= hw->map_pa + (2u << 20) && (uint64_t)pitch * sh <= (2u << 20)) {
+        surf = hw->mem - (2u << 20);
+        pa = hw->mem_pa - (2u << 20);
+    }
+#endif
+    uint32_t nd = 0, nv = 0, btri = 0;
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
+        if (btri == MALI_BATCH_MAX) {
+            if (be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
+                return -1;
+            nd = 0;
+            nv = 0;
+            btri = 0;
+        }
         if (nd > 0 && dr[nd - 1].rgb == t->rgb && dr[nd - 1].mvp == t->mvp) {
             dr[nd - 1].n++;
         } else {
@@ -1609,6 +1674,7 @@ static int be_flush_mode(const g16_t *g, int async)
                     return -1;
                 nd = 0;
                 nv = 0;
+                btri = 0;
             }
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
             dr[nd].n = 1;
@@ -1618,6 +1684,7 @@ static int be_flush_mode(const g16_t *g, int async)
         }
         memcpy(vbuf[nv], t->v, sizeof t->v);
         nv += 3;
+        btri++;
     }
     return be_run(g, surf, pa, pitch, sw, sh, dr, nd, async);
 }
@@ -1643,7 +1710,8 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
     (void)tex;
     if ((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR || depth != R3D_DEPTH_WRITE)    /* r3d sends nothing else (colour_only): the guard */
         return;
-    if (be_n == MALI_BATCH_MAX)
+    const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
+    if (be_n == cap)
         be_flush(g);                                /* (g16_t holds the page by pointer: const does not stop the copy) */
     be_tri_t *t = &be_tris[be_n++];
     float r = 0, gr = 0, b = 0, z = 0;
@@ -1700,7 +1768,8 @@ static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
                 return 0;
         }
     }
-    if (be_n + m->nfaces > MALI_BATCH_MAX || be_nmvp + nb > BE_MAX_MVPS)
+    const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
+    if (be_n + m->nfaces > cap || be_nmvp + nb > BE_MAX_MVPS)
         be_flush(g);
     const float zmul = env->front ? 0.1f : 1.0f;
     float mvp_local[32][16];
@@ -1776,7 +1845,7 @@ static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
         const float s2 = cam_s2[b], *at = cam_at[b];
         if ((s2 * v0.x + at[0]) * n.x + (s2 * v0.y + at[1]) * n.y + (s2 * v0.z + at[2]) * n.z >= 0.0f)
             continue;
-        if (be_n == MALI_BATCH_MAX) {
+        if (be_n == cap) {
             be_flush(g);
             for (int kb = 0; kb < nb; kb++) {
                 memcpy(be_mvps[be_nmvp], mvp_local[kb], sizeof mvp_local[kb]);

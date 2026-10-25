@@ -51,6 +51,7 @@ void mmu_init(uint32_t arm_mem_end, uint32_t ram_end)
     (void)ram_end;
     map_range(PLAT_RAM_START, PLAT_FB_START, D_ATTR(ATTR_NORMAL) | D_SH_INNER);
     map_range(PLAT_FB_START, PLAT_FB_END, D_ATTR(ATTR_NC) | D_SH_INNER);
+    map_range(PLAT_GPU_START - BLOCK_2M, PLAT_GPU_START, D_ATTR(ATTR_NORMAL) | D_SH_INNER);
     map_range(PLAT_DEV_START, PLAT_DEV_END, D_ATTR(ATTR_DEVICE) | D_PXN | D_UXN);
 
     write_sysreg(mair_el1, MAIR_VALUE);
