@@ -472,19 +472,53 @@ each: the PC's ms do not count) and checks report, profiles, score, comparison a
 
 ## Lua edition
 
-The Lua edition is the cartridge `carts/bench3d` (title "3D Bench", a `.bm` app for the Market). The C bench in the kernel stays as it is. The Lua edition has its own numbers: they are not comparable with `docs/PERF-BUDGET.md` or with the C bench's reports (decision of 25 Oct 2026).
+The Lua edition is the cartridge `carts/bench3d` (title "3D Bench", a `.bm` app for the Market). The C bench in the kernel stays as it is. The Lua edition has its own numbers: they are not comparable with `docs/PERF-BUDGET.md` or with the C bench's reports (decision of 25 Oct 2026). It measures bm3D 7.7 only, and it is light: the default run is short (decision of 25 Oct 2026, second part).
 
-The cartridge ports the ramp of `src/bm/b3d.c` as a state machine over `_draw` frames. Each test runs on each profile with a load `n` of 1, 2, 3, 4, then +1/3 a step. A step is one warm frame and 6 measured frames. The ramp ends when the median frame is over 40 ms, after 25 s or at the test's maximum. The loads at 60 and 30 frames a second come from the median ms of the steps (`b3d_load_at`). The cost of a pixel comes from the slope over the steps (`b3d_slope`).
+The cartridge ports the ramp of `src/bm/b3d.c` as a state machine over `_draw` frames. Each test runs on each profile with a load `n` of 1, 2, 3, 4, then +50% a step. A step is one warm frame and 3 measured frames. The ramp ends when the median frame is over 40 ms, after 10 s or at the test's maximum. The loads at 60 and 30 frames a second come from the median ms of the steps (`b3d_load_at`). The cost of a pixel comes from the slope over the steps (`b3d_slope`).
 
 - **Frame time**: `stat(1)` of the next frame (`_update` + `_draw` with the GPU's 3D). The C bench also adds the copy to the screen. The overlay line is inside the measured frame.
-- **Profiles** (set with `gpu3d()` and `gpu3d_opt()`; short name in brackets): `ARM`, `GPU`, `GPU+VS` (VS), `GPU+VS+Q` (VSQ), `GPU+VS+Q2` (VSQ2), `GPU+FS2` (FS2), `GPU+VS+A8` (VSA, also called `A8`), `GPU+WC` (WC), `GPU+2D` (2D), `GPU+T16` (T16), `GPU+ETC1` (ETC1). A profile the console cannot run gives no row (a line `b3d-skip` in the log). Draw merging is off in every profile, as in the C bench.
-- **Not in it** (decision of 25 Oct 2026): the QPU rows, the PMU counters, the machine line and the Mali. The columns `instr`, `wait_instr`, `dmiss`, `cycles`, `core_mhz` and `gpu_mhz` are 0 in the R lines. The line `counters none` says so.
-- **Tests now**: `spheres` (ARM, GPU, VS, WC, VSA), `quad_flat` (ARM, GPU, VS) and `match` (as the C bench, plus VSQ and VSQ2). The scenes use the C bench's parameters (the camera, the grid, the 96-face spheres, the quads of 320x180). `match` differs: the heroes have no bones and the map has no baked light, because `mesh()` has neither. Its numbers are not those of the C `match`.
-- **Keys** of `bm/config.txt` (the prefix `3d_` comes from the title): `3d_tests` (ids), `3d_profiles` (names or short names), `3d_nowait` (`1`: the summary stays 3 s, then the cartridge ends). A value has no comma, so a list uses `/`: `3d_tests=spheres/match`. Without the keys the cartridge runs every row.
+- **Profiles** (set with `gpu3d()` and `gpu3d_opt()`; short name in brackets):
+  - `ARM`: the baseline. The ARM draws the 3D.
+  - `GPU+VS+Q` (VSQ): what a game gets today. Vertex shader 2, one job in flight, two-thread pixel shaders, the 2D in the GPU's job and draw merging are on. The other switches are off.
+  - `GPU+VS+Q2` (VSQ2): `GPU+VS+Q` with two jobs in flight and each frame shown a frame later (`gpu3d(..., 2, ..., true)`). It is the candidate default. It runs only when `3d_profiles` names it.
+  - A profile the console cannot run gives no row (a line `b3d-skip` in the log).
+  - Dropped (they show old driver stages or switches that are off by default and give no gain, `docs/progress/v3d-flags.md`): `GPU`, `VS`, `Q`, `AA`, `WC`, `2D`, `T16`, `ETC1`, `FS2`, `A8`, the sorted and compact-attribute rows and the QPU rows. `gpu3d_opt()` stays in the runtime for other cartridges.
+- **Not in it**: the PMU counters, the machine line and the Mali. The columns `instr`, `wait_instr`, `dmiss`, `cycles`, `core_mhz` and `gpu_mhz` are 0 in the R lines. The line `counters none` says so.
+- **Keys** of `bm/config.txt` (the prefix `3d_` comes from the title): `3d_tests` (ids, or the group `cel` or `htmap`, or `all`), `3d_profiles` (names or short names, or `all`; default `ARM` and `VSQ`), `3d_nowait` (`1`: the summary stays 3 s, then the cartridge ends). A value has no comma, so a list uses `/`: `3d_tests=spheres/herotris`. Without `3d_tests` the cartridge runs every test.
 - **Log**: one line a step, as `b3d.c`: `b3d spheres ARM n=8 0.35 ms worst 0.45, 289 tri, 448 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz`.
-- **Report**: the C bench's text (header lines, `columns R,...`, the R lines, the P lines of the pixel cost, `total`) sent with `report("bench3d", text)`. The `options` line at the start comes from `gpu3d_stats().options`. There is no score line yet.
+- **Report**: the C bench's text (header lines, `columns R,...`, the R lines, the P lines of the pixel cost, the H lines of `herotris`, the C lines of the cel tests, the T lines of `stress`, `total`) sent with `report("bench3d", text)`. The `options` line at the start comes from `gpu3d_stats().options`. There is no score line.
 - **Summary page** (640x360): the load at 60 frames a second for each test and profile. Esc or B leaves.
+- **Models and sheet**: `carts/bench3d/mkassets.py` makes, at build time (`make`; no binary in the repository), a `models.bm` with the hero (16 bones, 1536 faces, the clip `walk` is the `pose()` of `b3d.c`), its textured and skin variants, the map pieces with baked light and the sprite sheet (384 x 160: the three 128 x 128 sheets of `b3d.c` side by side and the three 64 x 32 sheets of `herotris` below), and the 8 map layers of `map8`. The cartridge uses `model()`, `animate()`, `mesh()`, `mesh_sphere()`, `mesh_cube()`, `map()`, `sspr()`, `stack()`, `fades()`, `dark_begin()`, `light_begin()`.
 
-Still to port (the ids of `tests[]` in `b3d.c`): `spheres_smooth`, `spheres_tex`, `spheres_unlit`, `spheres_baked`, `spheres_shine`, `heroes`, `heroes_tex`, `heroes_skin`, `heroes_shadow`, `clip`, `tiny`, `draws`, `quad_smooth`, `quad_tex`, `quad_alpha`, `quad_screen`, `quad_texscreen`, `texswap`, `split`, `mix`, `queue`, `big`, `big_logic`, `gpu2d`, `bilinear`, the 2D scenes (`map8`, `sprites`, `stack`, `fade`, `light`), `herotris`, the `htmap` group (`ht_p100`, `ht_p100m`, `ht_p10`, `ht_p10m`, `ht_p1`), `stress` and the cel tests (`cel_lit`, `cel`, `cel_lit_nd`, `cel_nd`, `cel_outline`). Heroes with bones need a model with a skeleton in the cartridge (`model()` and `animate()`).
+### Tests
 
-The Lua API for it: `gpu3d_opt(name [, on])` and `gpu3d_stats()` ([light3d](api/light3d.md)). `make test-gpu3d-opt` tests both on the V3D emulator. `make test-bench3d` runs the cartridge in `bmhost-gpu` for 60 s of game time with `3d_tests=spheres/quad_flat`, `3d_profiles=ARM/GPU` and `tests/bench3d/check.py` checks the log. The PC's ms do not count. Not verified on the Pi or the RGB30.
+Criterion: a test stays if it exercises a feature of bm3D 7.7 that a game uses today. A test goes if it only compares old driver stages or a path that games rarely use.
+
+| Test | In the Lua edition | Profiles | Note |
+|---|---|---|---|
+| `spheres` | kept | ARM, VSQ | 96-face spheres, flat; `mesh_sphere(6, 8)` |
+| `heroes`, `heroes_skin` | kept | ARM, VSQ | 16 bones; the skin has faces on two bones |
+| `heroes_shadow` | kept | ARM, VSQ | shadows on a floor of 16 map pieces |
+| `tiny`, `draws` | kept | ARM, VSQ | small faces; one draw call each |
+| `quad_flat`, `quad_tex`, `quad_alpha` | kept | ARM, VSQ | fill cost; P lines |
+| `cel_lit`, `cel`, `cel_outline` | kept | ARM, VSQ | group `cel`; C lines; the dither is not switched (`cel_nd` columns are -1) |
+| `map8`, `sprites`, `stack`, `fade`, `light` | kept | `map8`, `stack`, `fade`, `light`: ARM; `sprites`: ARM, VSQ | the 2D scenes. `fade` and `light` run last: `dark_begin()` and `light_begin()` keep the drawing in RAM for the rest of the run, where the GPU cannot draw. `fade` is the ARM fade (no QPU) |
+| `herotris` | kept | ARM, VSQ, VSQ2 | H lines; the probe counts the triangles the vertex shader placed (`probe_meshes` is -1) |
+| `ht_p100`, `ht_p100m`, `ht_p10m` | kept | ARM, VSQ, VSQ2 | group `htmap`. `ht_p100` has merging off (the baseline), `ht_p100m` and `ht_p10m` have it on. One pair is enough for the gain of merging (+24% for 100 small pieces, -26% for 10 big ones, `docs/progress/v3d-flags.md`); `ht_p10m` shows that the threshold keeps the big pieces apart |
+| `stress` | kept | VSQ | the ramp of `herotris` in quarter sets, then 24 frames at 1x and at 2x of the load at 60 fps (T lines) |
+| `match` | dropped | | `herotris` and `heroes_shadow` cover the game scene with real bones |
+| `spheres_smooth`, `spheres_unlit`, `spheres_baked`, `spheres_shine`, `spheres_tex`, `quad_smooth`, `quad_screen`, `quad_texscreen`, `heroes_tex`, `clip`, `big`, `big_logic`, `bilinear`, `gpu2d`, `ht_p1`, `ht_p10` | dropped | | variants of a kept test, or a path that games rarely use |
+| `split`, `queue`, `mix`, `texswap` | dropped | | they exist to compare old driver stages (frame queue, 2D in the job); `texswap` also needs three sprite sheets and a cartridge has one |
+| `cel_lit_nd`, `cel_nd` | dropped | | the dither switch (`r3d_dither`) has no Lua function |
+
+Differences from `b3d.c` (the numbers are not those of the C bench):
+
+- The sprite sheet is one sheet. `b3d.c` has six sheets of their own.
+- The light baked in the map pieces is one colour for each face of a textured piece (the model format). `b3d.c` has one light for each corner.
+- The logic of `herotris` and `stress` is a Lua loop of 15 steps for each thousand steps of `b3d.c` (`work = 1300`: about 4M ARM instructions). It runs in `_update`, so with the queue it runs while the GPU draws. The match to 4M instructions is an estimate, not measured on the Pi.
+- The texture inset of the models is 0, as `mesh()` has.
+- The profile sets merging on for every test (it is on in bm3D 7.7). `ht_p100` turns it off for its own run.
+
+The run: the default run has 39 rows (the tests above on ARM and VSQ, `stress` on VSQ). It is about 400 ramp steps of 4 frames, 2000 to 2500 frames with the two stress loads, 40 to 60 s on the Pi (an estimate from the Pi's loads of `b3d.c`, not measured). The host emulator run takes 20 s.
+
+The Lua API for it: `gpu3d_opt(name [, on])` and `gpu3d_stats()` ([light3d](api/light3d.md)). `make test-gpu3d-opt` tests both on the V3D emulator. `make test-bench3d` runs the cartridge in `bmhost-gpu` with 8 tests (`spheres`, `heroes`, `quad_flat`, `cel_lit`, `cel`, `map8`, `sprites`, `herotris`) on ARM and GPU+VS+Q and `tests/bench3d/check.py` checks the log: about 10 s. `make test-bench3d-all` runs every test on every profile (ARM, GPU+VS+Q, GPU+VS+Q2): about 20 s. It is not in `HOST_TESTS`. The PC's ms do not count. Not verified on the Pi or the RGB30.
