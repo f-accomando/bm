@@ -80,8 +80,8 @@
     "title": "How a cartridge works"
    },
    "10": {
-    "en": "ba1cedf5bcab",
-    "it": "aec27ab6052e",
+    "en": "6fbfe8aa5ea0",
+    "it": "75cf7b837f9a",
     "title": "The web"
    },
    "2": {
@@ -127,10 +127,10 @@
   },
   "sources": {
    "docs/API.md": "213900352f27",
-   "docs/GAME-GUIDE.md": "87eded8c842c",
+   "docs/GAME-GUIDE.md": "b75e600e2b72",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/input.md": "4a75b07df3da",
-   "docs/api/system.md": "62684bc75e0c"
+   "docs/api/system.md": "583f94063149"
   }
  },
  "api-lib": {

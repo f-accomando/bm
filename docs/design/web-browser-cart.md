@@ -297,6 +297,10 @@ Differences from the plan:
 - **A file is fetched first, then asked about.** The kernel has no HEAD request, so the file is in the kernel result
   (not in Lua memory) when the box "Save this file?" opens. A writes it with `file_write(name, id)` and a note
   `NAME.TXT` (`NAME.NTE` for a `.TXT` file) with the address, the page it came from and the size. B drops it.
+- **A `.bmm` model goes to `/bmm`** (2026-10-25). The cart knows a model by the BMRES magic and kind 1, not by the extension or the type.
+  `file_write("NAME.bmm", id)` makes the kernel check the bytes as a model file and write `/bmm/NAME.bmm`. It never replaces a model.
+  The box shows `/bmm/NAME.bmm`. If the address gives no valid name, the cart makes one (lower case, 8 characters) and says so.
+  The note file goes to `bm/web`. The test catalog is `web/models/` (mock, CC0). Test: `make test-web-bmm`.
 - **No `glb_import` and no 3D viewer** in the cart. The kernel API stays as it is. A saved `.glb` is opened with the Dev tools.
 - **Only `https://`.** The kernel refuses `http://`; the key `web_http` of section 3.2 is not used.
 - The redirect limit is the kernel's 3 (not 5). The page cap is 1 MB; a file is capped by `web_max_kib` (4 MB).

@@ -282,6 +282,8 @@ A cartridge **can**: [code]
 - Draw, play sound, read input, read the clock. Use the 3D API.
 - Save its own data in `/bm/save` (32 KB per slot).
 - Read and write documents in `/docs` if the player allows it. `src/bm/runtime.c:3747`
+- Fetch `https://` pages with `web_get` if the player allows the network. Write files in `/bm/web` with `file_write` (a bare 8.3 name, never `.bm`, `.bme` or `.b16`, at most 128 files). `src/bm/runtime.c` (`l_file_write`), `src/bm/webpolicy.c`
+- Write a **model** with `file_write("NAME.bmm", bytes)`: the file goes to `/bmm/NAME.bmm`. The kernel checks the bytes as a BMRES model first. It never replaces a model that is there. It asks the player nothing more. `src/bm/runtime.c` (`file_write_model`)
 - Use UDP if the player allows it. `src/bm/runtime.c:3297`
 - Send a report to GitHub if the player allows it. `src/bm/runtime.c:3255`
 - **List any directory of the SD card** with `ls(dir)`. It needs no permission. `src/bm/runtime.c` (`l_ls`)

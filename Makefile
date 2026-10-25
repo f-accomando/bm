@@ -794,7 +794,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-web-bmm test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -980,7 +980,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
+	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm $(BUILD)/carts/stages3d.bm $(BUILD)/carts/testkit.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1190,6 +1190,16 @@ $(BUILD)/host/test_webp: tests/webp/test_webp.c src/bm/webp.c src/bm/webp.h
 # (webimg.c) against a local server
 test-webapi: $(BUILD)/host/test_webget
 	$(PYTHON) tests/web/run_webget_test.py $(BUILD)/host/test_webget
+
+# file_write of a .bmm (docs/api/system.md): the model goes to /bmm/NAME.bmm after the kernel's own check of the
+# bytes; broken files, other names and the .bm/.bme/.b16 rule on the host card. The committed models of
+# web/models: web/models/build.py --check (the same bytes as the tools make) and the BMRES validator (bmres.py)
+$(BUILD)/web-bmm-test.bm: tests/web/bmm_cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "web bmm test" --author tests
+test-web-bmm: $(BUILD)/host/bmhost-bin $(BUILD)/web-bmm-test.bm tests/web/run_bmm_test.py tests/web/test_models.py \
+              $(wildcard web/models/*)
+	$(PYTHON) tests/web/test_models.py
+	$(PYTHON) tests/web/run_bmm_test.py $(BUILD)/host/bmhost-bin $(BUILD)/web-bmm-test.bm $(BUILD)/web-bmm
 
 $(BUILD)/host/test_webget: tests/web/test_webget.c tests/web/run_webget_test.py src/bm/webget.c src/bm/webget.h src/bm/webfile.c src/bm/webfile.h src/fs/sdlock.c src/fs/sdlock.h src/bm/webpolicy.c                            src/bm/webpolicy.h src/bm/webimg.c src/bm/webimg.h src/bm/jpeg.c src/bm/png.c src/bm/webp.c                            src/net/http.c src/net/http.h
 	@mkdir -p $(dir $@)
