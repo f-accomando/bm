@@ -8,7 +8,8 @@ local START_X, START_Y = 16, 352
 local level_w
 local mario, prev, acc
 local spawn_koopas                    -- defined with the Koopas, below
-local coins, score = 0, 0
+local coins, score, dragons = 0, 0, 0
+local eggs = {}                           -- eggs from the 0x126 block: {cx, cy, t}; Yoshi hatches from them
 local state = "play"                      -- play, dying, clear, over
 local lives, time_left, time_acc = 5, 400, 0
 local st_t = 0                            -- ticks since the state began
@@ -49,7 +50,7 @@ end
 local function hit_block(cx, cy)
   local k = L16[cy + 1][cx + 1]
   local kind = KIND[k]
-  if kind ~= "coin" and kind ~= "item" then return end
+  if kind ~= "coin" and kind ~= "egg" and kind ~= "vine" then return end
   L16[cy + 1][cx + 1] = 0x132
   changed[#changed + 1] = { cx, cy }
   set16(cx, cy, { 0, 0, 0, 0 })
@@ -57,6 +58,8 @@ local function hit_block(cx, cy)
   if kind == "coin" then
     coins = coins + 1
     pops[#pops + 1] = { x = cx * 16, y = cy * 16 - 16, t = 0 }
+  elseif kind == "egg" then
+    eggs[#eggs + 1] = { cx = cx, cy = cy, t = 0 }
   end
 end
 
@@ -66,7 +69,18 @@ local function pick_coins()
   for cy = y0, y1 do
     for cx = x0, x1 do
       local row = L16[cy + 1]
-      if row and COINS[row[cx + 1] or 0] then
+      local id = row and row[cx + 1] or 0
+      if id == DRAGON_TOP or id == DRAGON_BOT then
+        local top = id == DRAGON_TOP and cy or cy - 1             -- take both halves
+        for _, yy in ipairs({ top, top + 1 }) do
+          L16[yy + 1][cx + 1] = 0x25
+          changed[#changed + 1] = { cx, yy }
+          set16(cx, yy, { 0, 0, 0, 0 })
+        end
+        dragons = dragons + 1
+        score = score + 1000
+        if dragons % 5 == 0 then lives = lives + 1 end             -- five dragon coins: a 1-up
+      elseif row and COINS[id] then
         row[cx + 1] = 0x25
         changed[#changed + 1] = { cx, cy }
         set16(cx, cy, { 0, 0, 0, 0 })
@@ -152,7 +166,7 @@ restart_level = function()
     L16[c[2] + 1][c[1] + 1] = L0[c[2] + 1][c[1] + 1]
     set16(c[1], c[2], M16[L0[c[2] + 1][c[1] + 1]] or { 0, 0, 0, 0 })
   end
-  changed, bumping, pops = {}, {}, {}
+  changed, bumping, pops, eggs = {}, {}, {}, {}
   spawn_koopas()
   mario = Phys.new(START_X, START_Y)
   prev = { x = mario.x, y = mario.y }
@@ -232,6 +246,7 @@ local function play_tick(inp)
     pops[i].t = pops[i].t + 1
     if pops[i].t > 24 then table.remove(pops, i) end
   end
+  for _, e in ipairs(eggs) do e.t = e.t + 1 end
   local cam_l = math.floor(mario.x) - 108
   for _, k in ipairs(koopas) do
     if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then koopa_step(k, koopa_solid) end
@@ -350,6 +365,21 @@ function _draw()
     local up = p.t < 12 and p.t * 3 or 36 - (p.t - 12) * 3
     draw16(COIN16, VX + p.x - camx, VY + p.y - up - camy)
   end
+  for _, e in ipairs(eggs) do                      -- the egg rises, wobbles, cracks, and Yoshi hatches (frames of scripts/smw_items.py)
+    local t, x0, y0 = e.t, e.cx * 16, e.cy * 16
+    local name, y
+    if t < 58 then
+      y = t < 26 and (y0 - 3 - 13 * t // 25) or (y0 - 16)
+      name = t < 36 and "126_2C_79cad8" or (t < 52 and "126_2C_c7a607" or "126_2C_1c9ca6")
+    else
+      y = y0 - 32
+      if t < 59 then name = "126_35_1c9ca6"
+      elseif t < 101 then name = (t // 8) % 2 == 0 and "126_35_017398" or "126_35_d3ea17"
+      else name = "126_35_0e92a7" end
+    end
+    local it = ITEM[name]
+    if it then sspr(it[1], it[2], it[3], it[4], VX + x0 + it[5] - camx, VY + y + it[6] - camy) end
+  end
   for _, k in ipairs(koopas) do
     local e = ENEMY[koopa_pic(k)]
     if e and k.y < LEVEL_H + 32 then
@@ -365,6 +395,7 @@ function _draw()
   rect(VX - 1, VY - 1, VIEW_W + 2, VIEW_H + 2, 0x303030)
   print(string.format("MARIO x%d", lives), VX, 28, 0xFFFFFF)
   print(string.format("COINS %d", coins), VX + 108, 28, 0xFFE060)
+  print(string.format("DRAGON %d", dragons % 5), VX + 108, 44, 0xF8A0C8)
   print(string.format("TIME %d", time_left), VX + 190, 28, 0xFFFFFF)
   print(string.format("%07d", score), VX + 190, 44, 0xB0B0B0)
   local ms = stat(1)                                -- the cost of the last frame, in ms

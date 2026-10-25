@@ -42,7 +42,9 @@ def pack_poses(ex, tiles_png, out_png, restyle=None):
     en_meta = json.load(open(ex + "/enemies/pics.json")) if os.path.exists(ex + "/enemies/pics.json") else {}
     en_names = sorted(k for k, v in en_meta.items() if v["w"] <= 40 and v["h"] <= 40 and v["id"] == 5)
     tape_json = ex + "/goal/goal.json"
-    rows = (len(ids) + 3) // 4 + (len(en_names) + 3) // 4 + (1 if os.path.exists(tape_json) else 0)
+    it_meta = json.load(open(ex + "/items.json")) if os.path.exists(ex + "/items.json") else {}
+    it_names = sorted(k for k in it_meta if k.startswith("126_"))      # the egg and Yoshi of the 0x126 block
+    rows = (len(ids) + 3) // 4 + (len(en_names) + 3) // 4 + (1 if os.path.exists(tape_json) else 0) + (len(it_names) + 3) // 4
     big = Image.new("RGBA", (sheet.width, sheet.height + rows * 32), (0, 0, 0, 0))
     big.paste(sheet, (0, 0))
     lines = []
@@ -81,6 +83,16 @@ def pack_poses(ex, tiles_png, out_png, restyle=None):
         big.paste(im, (sx, sy))
         tape_lua = "local TAPE = { %d, %d, %d, %d, %d, %d, %d }   -- sx, sy, w, h, ox, oy, level x\n" % (
             sx, sy, t["w"], t["h"], t["ox"], t["oy"], t["x"])
+    it_lines = []
+    it_row = base_row + (len(en_names) + 3) // 4 + (1 if os.path.exists(tape_json) else 0)
+    for i, name in enumerate(it_names):
+        m = it_meta[name]
+        im = Image.open(ex + "/item_%s.png" % name).convert("RGBA")
+        if restyle:
+            im = restyle(im)
+        sx, sy = (i % 4) * 32, sheet.height + (it_row + i // 4) * 32
+        big.paste(im, (sx, sy))
+        it_lines.append("  ['%s'] = { %d, %d, %d, %d, %d, %d }," % (name, sx, sy, m["w"], m["h"], m["ox"], m["oy"]))
     spawns = json.load(open(ex + "/spawns.json")) if os.path.exists(ex + "/spawns.json") else []
     seen, sp = set(), []
     for s in spawns:
@@ -91,18 +103,19 @@ def pack_poses(ex, tiles_png, out_png, restyle=None):
     return ("local POSES = {\n" + "\n".join(lines) + "\n}\n"
             "local ENEMY = {\n" + "\n".join(en_lines) + "\n}\n"
             + tape_lua +
+            "local ITEM = {\n" + "\n".join(it_lines) + "\n}\n"
             "local KOOPAS = {   -- x, y, face (1 left, 0 right), starts as a shell\n" + "\n".join(sp) + "\n}\n")
 
 
 def block_data(defs, level):
     """Lua tables for the blocks: the Map16 grid, the used block and the coin. The kinds come from
-    scripts/smw_blocks.py: 0x124 gives a coin, 0x126 and 0x11A give an item, 0x11E is a turn block."""
+    scripts/smw_blocks.py: 0x124 gives a coin, 0x126 a Yoshi egg, 0x11A a vine, 0x11E is a turn block."""
     rows = ",\n".join("{" + ",".join(map(str, r)) + "}" for r in level)
     ids = sorted({k for r in level for k in r})
     m16 = ",".join("[%d]={%s}" % (k, ",".join(map(str, defs.get(k, (0, 0, 0, 0))))) for k in ids)
     return ("local M16 = {%s}\nlocal L16 = {\n%s\n}\nlocal USED = {%s}\nlocal COIN16 = {%s}\n"
-            "local KIND = { [0x124] = 'coin', [0x126] = 'item', [0x11A] = 'item', [0x11E] = 'turn' }\n"
-            "local COINS = { [0x02B] = true, [0x02D] = true, [0x02E] = true }\n" % (
+            "local KIND = { [0x124] = 'coin', [0x126] = 'egg', [0x11A] = 'vine', [0x11E] = 'turn' }\n"
+            "local COINS = { [0x02B] = true }\nlocal DRAGON_TOP, DRAGON_BOT = 0x02D, 0x02E       -- a dragon coin is two Map16 blocks, one above the other\n" % (
                 m16, rows, ",".join(map(str, defs.get(0x132, (0, 0, 0, 0)))), ",".join(map(str, defs.get(0x02B, (0, 0, 0, 0))))))
 
 

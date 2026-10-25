@@ -25,6 +25,8 @@ the finished cartridge stay on the user's machine and SD card.
 - `scripts/smw_goal.py`: the goal tape picture. Measured: the tape (sprite 0x7B at x 4832) goes up
   one pixel a tick from y 368 to 244 and back (248 ticks). Touching it starts the end: Mario walks right.
   The clock drops one every 35 ticks from 400. Mario starts with 5 lives.
+- `scripts/smw_items.py`: bumps a block kind and records the sprites that appear. 0x126 gives an egg
+  (sprite 0x2C, 58 ticks) that hatches into Yoshi (0x35); 0x11A gives a growing vine (0x79).
 - `scripts/smw_solid.py`: tests every Map16 number for solidity from above, the side, and below.
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
@@ -56,7 +58,10 @@ the finished cartridge stay on the user's machine and SD card.
   refits the constants). The game moves first with the last tick's speed, then changes the speed.
   Open: slopes, water, ice, the sub-pixel carry of the real engine, spin jump height.
 - Done: question blocks with coins (bump, used tile), coin pickup, coin counter.
-- Items from blocks (egg, 0x79), turn blocks (break when big), Yoshi/dragon coins, score.
+- Done: the egg block (the egg rises, cracks, Yoshi hatches), dragon coins (two blocks, 1000 points,
+  a 1-up for five).
+- Open: riding Yoshi (poses and eating), the vine of 0x11A (growth and climbing poses), big Mario,
+  power-ups, the turn block breaking when Mario is big.
 - Done: the goal tape and the course clear banner, 5 lives, the clock, death (hop and fall), game over,
   restart of the level (blocks and coins put back), score for coins, stomps, and the time bonus.
 - Done: Koopa Troopas (walk, turn, stomp, kick, slide, kill each other), Mario dies on touch.
