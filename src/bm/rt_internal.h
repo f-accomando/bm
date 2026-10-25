@@ -40,6 +40,7 @@ enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
 
 #define MESH_MT "bm.mesh"
 #define WORLD_MT "bm.world"
+#define VIDEO_MT "bm.video"
 
 #define SHOT_DIR "/bm/shots"
 
@@ -500,6 +501,14 @@ int l_sheet_gif(lua_State *L);
 int l_image_file(lua_State *L);
 int l_file_write(lua_State *L);
 int l_file_state(lua_State *L);
+
+/* video clips (api_video.c) */
+int l_video_open(lua_State *L);
+int l_clip_gc(lua_State *L);
+int l_clip_info(lua_State *L);
+int l_clip_frame_at(lua_State *L);
+int l_clip_draw(lua_State *L);
+int l_clip_close(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
