@@ -422,7 +422,7 @@ use with `sspr()` in a 2D game (it prepares the Lua code that draws them).
 
 **From Blender** (or other programs): copy the `.glb` into `/glb` on the SD card: bm Studio, bm Animator and bm Mesh list it (Ctrl+I, Import a model), convert it to `/bmm/NAME.bmm` and open it. On the PC,
 `python3 scripts/bmres.py convert IN.glb OUT.bmm` converts it to a `.bmm`. For a game of the repository,
-the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first). `tests/fixtures/village` holds a small `models.bm` for the tests.
+the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first). `tests/fixtures/mktestkit.py` makes a small cart with models for the tests (`build/carts/testkit.bm`).
 
 ## 7. Sound
 

@@ -47,11 +47,6 @@ class CrossCheck(unittest.TestCase):
     def test_village(self):
         self.check("village_models.bm")
 
-    def test_village_is_the_repo_file(self):
-        with open(os.path.join(C.REPO, "tests", "fixtures", "village", "models.bm"), "rb") as f:
-            self.assertEqual(f.read(), C.load("village_models.bm"),
-                             "tests/fixtures/village/models.bm changed: refresh the golden (README.md)")
-
     def test_every_golden(self):
         for name in C.FILES:
             with self.subTest(name):

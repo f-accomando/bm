@@ -325,8 +325,8 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   (`docs/GAME-GUIDE.md:886`); inline example `docs/GAME-GUIDE.md:78-102`.
 - 3D in code only: `carts/astrowing/main.lua` (`docs/GAME-GUIDE.md:889`).
 - **Mesh load + animation**: `carts/overbit/src/40_actor.lua` (`model()` at `:38`, `animate()` at
-  `:340-341`). The test fixture `tests/fixtures/village/` (`models.bm`, a stub `main.lua`) is a
-  small cart with 8 models and one skeleton; the Makefile builds it as `build/carts/village.bm`.
+  `:340-341`). The test cart `tests/fixtures/mktestkit.py` makes (the Makefile builds it as
+  `build/carts/testkit.bm`) is a small cart with 8 models and one skeleton (`walker`).
 - Inline snippets: `sdk/README.md:25-37` (model), `docs/GAME-GUIDE.md:405-415` (animate).
 - `.bm` / `.b16` twin: `carts/titan/src/*.lua` + `carts/titan/build/build.py` and
   `carts/titan_ex/src/*.lua` + `carts/titan_ex/build/build.py` (`Makefile:248-268,369`).

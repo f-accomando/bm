@@ -8,7 +8,7 @@
 --
 --   luahost tests/studio/tools3d_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/village.bm must be there (a copy of build/carts/village.bm).
+-- SDDIR/carts/testkit.bm must be there (a copy of build/carts/testkit.bm).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/studio3d-sd"
 local MF = dofile(ROOT .. "/tests/studio/model_card.lua")      -- /bmm and /glb (APP-9)
@@ -176,7 +176,7 @@ end
 
 ----------------------------------------------------------------- the SD card and the project (shared by the two programs)
 
-local on_sd = { ["/carts"] = { "village.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
+local on_sd = { ["/carts"] = { "testkit.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
 local function host(path) return SD .. path:lower() end
 local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
@@ -663,20 +663,20 @@ run_cart(STUDIO)
 E._init()
 frames(2)
 check(sees("open a cartridge"), "at the start: the list of the files")
-check(sees("/carts/village.bm"), "the village is in the list")
+check(sees("/carts/testkit.bm"), "the test kit is in the list")
 
--- open the village: 8 models; the models page lists them
-open_file("village.bm")
-check(#cur_models() == 8, "the village: 8 models, " .. #cur_models())
+-- open the test kit: 8 models; the models page lists them
+open_file("testkit.bm")
+check(#cur_models() == 8, "the test kit: 8 models, " .. #cur_models())
 check(sees("[f1]") and sees("build") and sees("TOOLS") and sees("MODEL"), "the build page: " .. status())
 local orig8, orig9 = sec[8], sec[9]
 key("f2")
-check(sees("MODELS 8") and sees("ground") and sees("villager"), "F2: the models")
+check(sees("MODELS 8") and sees("ground") and sees("walker"), "F2: the models")
 key("down")
 check(sees("faces") and sees("tri"), "a model's faces and triangles")
 
 -- the reducer: "-" asks the triangles (half of them by default); the
--- skeleton of the villager follows its vertices; Ctrl+Z undoes
+-- skeleton of the walker follows its vertices; Ctrl+Z undoes
 local before = cur_models()[2].nf
 key("-")
 check(sees("triangles (now " .. before), "-: asks the triangles: " .. status())
@@ -689,20 +689,20 @@ check(sees("10 tri"), "the counts show 10 triangles")
 key("^z")
 check(cur_models()[2].nf == before, "undo: " .. before .. " triangles again (" .. cur_models()[2].nf .. ")")
 for _ = 1, 6 do key("down") end
-check(sees("villager") and cur_models()[8].name == "villager" and rig1 and anim_rigs(sec[9])["villager"], "the villager, rigged")
+check(sees("walker") and cur_models()[8].name == "walker" and rig1 and anim_rigs(sec[9])["walker"], "the walker, rigged")
 local vnf = cur_models()[8].nf
 key("-")
 type_text("20")
-local vr = anim_rigs(sec[9])["villager"]
-check(cur_models()[8].nf == 20 and vr and vr.nv == cur_models()[8].nv, "the villager reduced to 20: its skeleton fits " ..
+local vr = anim_rigs(sec[9])["walker"]
+check(cur_models()[8].nf == 20 and vr and vr.nv == cur_models()[8].nv, "the walker reduced to 20: its skeleton fits " ..
       tostring(vr and vr.nv) .. " vertices")
 key("^z")
-check(cur_models()[8].nf == vnf and anim_rigs(sec[9])["villager"].nv == cur_models()[8].nv, "undo: the villager whole again")
+check(cur_models()[8].nf == vnf and anim_rigs(sec[9])["walker"].nv == cur_models()[8].nv, "undo: the walker whole again")
 for _ = 1, 7 do key("up") end
 
 -- a model from a picture: the ways (cutout and lathe here, the service);
 -- the service without a key, then the job followed to the model (the
--- village's sheet is in use: flat colours); a service that fails
+-- the kit's sheet is in use: flat colours); a service that fails
 key("m")
 check(sees("cutout: the picture's outline") and sees("lathe:") and sees("meshy.ai:"), "m: the ways")
 key("down", "down", "\n")
@@ -727,7 +727,7 @@ end
 check(announced, "done: the download is announced first")
 frames(2)
 check(#cur_models() == 9 and cur_models()[9].name == "hero" and cur_models()[9].nf == 12, "the model hero, 12 triangles")
-check(status():find("flat colours (the sheet is in use)", 1, true), "the village's sheet is in use: " .. status())
+check(status():find("flat colours (the sheet is in use)", 1, true), "the test kit's sheet is in use: " .. status())
 check(PIC.taken and PIC.taken.faces == 1200 and PIC.taken.height == 2, "asked for 1200 triangles, 2 tall")
 check(sees("MODELS 9") and sees("hero"), "listed")
 key("esc")                                          -- the menu
@@ -784,7 +784,7 @@ local copy = read_file(SD .. "/bme/copy3d.bme")
 local got = {}
 for _, s in ipairs(sections_of(copy)) do got[s[1]] = s[2] end
 local vil = {}
-for _, s in ipairs(sections_of(read_file(SD .. "/carts/village.bm"))) do vil[s[1]] = s[2] end
+for _, s in ipairs(sections_of(read_file(SD .. "/carts/testkit.bm"))) do vil[s[1]] = s[2] end
 check(got[8] == orig8 and got[9] == orig9, "a copy with no edits keeps MESH and ANIM as they were")
 check(got[5] == vil[5] and got[1] == vil[1] and got[4] == vil[4], "and the sheet, the code and the cover (cart_write)")
 
@@ -1232,30 +1232,30 @@ check(sees(EXIT_A) and sees("Open in bm Studio"), "pad Y + B: the menu")
 buttons(5)
 check(sees("MODELS"), "pad B: back")
 
--- the village: the villager's animations, mixed
+-- the test kit: the walker's animations, mixed
 menu_pick("Open...", EXIT_A)
-open_file("village.bm")
+open_file("testkit.bm")
 local names = {}
 for i, m in ipairs(cur_models()) do names[i] = m.name end
 local vi = 0
-for i, n in ipairs(names) do if n == "villager" then vi = i end end
+for i, n in ipairs(names) do if n == "walker" then vi = i end end
 for _ = 2, vi do key("down") end
-check(sees("villager") and sees("ANIMATIONS") and sees("idle"), "the villager and its animations")
+check(sees("walker") and sees("ANIMATIONS") and sees("idle"), "the walker and its animations")
 key("right", "k", "b")
 check(sees("mixed with wave: 25%"), "b: mixed with the next one")
 key("f3")
-check(sees("ANIMATIONS") and sees("BONES") and sees("idle  1/3"), "animate: the villager's animations")
+check(sees("ANIMATIONS") and sees("BONES") and sees("idle  1/3"), "animate: the walker's animations")
 menu_pick("Open in bm Studio", EXIT_A)
-check(tooled and tooled[1] == "studio" and tooled[2] == "/carts/village.bm", "Open in bm Studio: cart_tool")
+check(tooled and tooled[1] == "studio" and tooled[2] == "/carts/testkit.bm", "Open in bm Studio: cart_tool")
 
 -- (a fresh bm Animator: the first one leaves the page when it opens bm Studio)
-run_cart(ANIMATOR, "/carts/village.bm")
+run_cart(ANIMATOR, "/carts/testkit.bm")
 E._init()
 frames(3)
 for _ = 2, vi do key("down") end
 key("f3")
 
--- two-bone IK on the villager (APP-29): t on a bone with a parent and a grandparent (a foot, a hand), w s a d q e
+-- two-bone IK on the walker (APP-29): t on a bone with a parent and a grandparent (a foot, a hand), w s a d q e
 -- move the target, the keys of the clip reach it (the heads are found again here with matrices, apart from the
 -- cart's own T.fk), one undo per move, out of reach is said on the screen
 do
@@ -1295,7 +1295,7 @@ do
     return out
   end
   local function dist(a, b) return math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2) end
-  local function the_rig() return anim_rigs(sec[9]).villager end
+  local function the_rig() return anim_rigs(sec[9]).walker end
   local function pose_of(rg) return rg.clips[1].poses[1] end
   local function same_pose(a, b)
     for i = 1, #a do
@@ -1350,7 +1350,7 @@ do
       if not dup then cases[#cases + 1] = i end
     end
   end
-  check(#cases == 2, "IK: the villager has two chains of three bones (" .. #cases .. ")")
+  check(#cases == 2, "IK: the walker has two chains of three bones (" .. #cases .. ")")
   local KEYS = { { "w", 1, 1 }, { "s", 1, -1 }, { "a", 2, 1 }, { "d", 2, -1 }, { "q", 3, 1 }, { "e", 3, -1 } }
   local function shifted(p0, kk, n)
     local o = { p0[1], p0[2], p0[3] }
@@ -1440,7 +1440,7 @@ local function click(x, y, b)
   mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
 end
 
-run_cart("/carts/studio/main.lua", "/carts/village.bm")
+run_cart("/carts/studio/main.lua", "/carts/testkit.bm")
 E._init()
 frames(3)
 local mx, my = at("models", nil, 0)
@@ -1491,16 +1491,16 @@ dofile(ROOT .. "/tests/studio/hintchip.lua"){
     { name = "models", go = function() key("f2") end },
   } }
 
-run_cart("/carts/animator/main.lua", "/carts/village.bm")
+run_cart("/carts/animator/main.lua", "/carts/testkit.bm")
 E._init()
 frames(3)
-mx, my = at("villager", 16)
-check(mx, "mouse: the villager in the list")
+mx, my = at("walker", 16)
+check(mx, "mouse: the walker in the list")
 click(mx, my)
-check(chosen_at(16) == "villager", "mouse: a click chooses the villager")
+check(chosen_at(16) == "walker", "mouse: a click chooses the walker")
 mx, my = at("animate", nil, 0)
 click(mx, my)
-check(sees("BONES") and sees("ANIMATIONS"), "mouse: the animate tab, the villager's bones")
+check(sees("BONES") and sees("ANIMATIONS"), "mouse: the animate tab, the walker's bones")
 mx, my = at("wave", 16)
 if mx then click(mx, my) end
 check(chosen_at(16) == "wave" or not mx, "mouse: a click on an animation")
@@ -1569,7 +1569,7 @@ do
   end
   local function bmm_has(name) return MF.card["/bmm"][name .. ".bmm"] ~= nil end
 
-  run_cart("/carts/studio/main.lua", "/carts/village.bm")
+  run_cart("/carts/studio/main.lua", "/carts/testkit.bm")
   E._init()
   frames(3)
   local n0 = #cur_models()
@@ -1656,7 +1656,7 @@ do
   key("f2", "del", "del")
 
   -- bm Animator: the same list, a model with a skeleton opens on its page
-  run_cart("/carts/animator/main.lua", "/carts/village.bm")
+  run_cart("/carts/animator/main.lua", "/carts/testkit.bm")
   E._init()
   frames(3)
   local a0 = #cur_models()

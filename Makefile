@@ -192,9 +192,12 @@ sheet8_ko2 := 1
 # map_objects.csv (the placeholders of the houses, trees, lamps... it places)
 # (carts/yharnam/build/mkmap.py makes the first one, and takes it back from the console)
 layers_yharnam := ground overlay objects
-# Test fixture, not a game (tests/fixtures/village): a cartridge with 8 models, a skeleton and
-# a sheet. The studio, resource and QEMU tests open it. It is not in GAMES, the SD card or the Market.
-cdir_village := tests/fixtures/village
+# Test fixture, not a game: the test kit, a cartridge with 8 models, a skeleton and a sheet, made by
+# tests/fixtures/mktestkit.py (no binary in the repository). The studio, resource and QEMU tests open
+# it. It is not in GAMES, the SD card or the Market.
+$(BUILD)/carts/testkit.bm: tests/fixtures/mktestkit.py scripts/mkbm.py scripts/bmmesh.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) tests/fixtures/mktestkit.py $@
 
 $(BUILD)/carts/%.bm: $$(call c_lua,$$*) scripts/mkbm.py scripts/bmmesh.py $$(call c_deps,$$*)
 	$(call CART_RECIPE,$*)
@@ -626,15 +629,15 @@ test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 
 # Resource files (docs/RISORSE.md, scripts/bmres.py): models, images, sounds,
 # maps and palettes out of a .bm and back in, conversions, broken files
-test-res: $(BUILD)/carts/village.bm $(BUILD)/village-before.bm $(BUILD)/carts/stages3d.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
-	rm -rf $(BUILD)/res && $(PYTHON) tests/res/test_bmres.py $(BUILD)/carts/village.bm $(BUILD)/carts/stages3d.bm \
+test-res: $(BUILD)/carts/testkit.bm $(BUILD)/testkit-before.bm $(BUILD)/carts/stages3d.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
+	rm -rf $(BUILD)/res && $(PYTHON) tests/res/test_bmres.py $(BUILD)/carts/testkit.bm $(BUILD)/carts/stages3d.bm \
 	    $(BUILD)/sound.bm $(BUILD)/res
-	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/village-before.bm
+	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/testkit-before.bm
 
-# a game of before the INFO section: the village fixture without bm.info (test_res)
-$(BUILD)/village-before.bm: tests/fixtures/village/main.lua tests/fixtures/village/models.bm scripts/mkbm.py
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Village --author bm --res 320x180 \
-	    --models tests/fixtures/village/models.bm
+# a game of before the INFO section: the test kit without INFO and cover (test_res)
+$(BUILD)/testkit-before.bm: tests/fixtures/mktestkit.py scripts/mkbm.py scripts/bmmesh.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) tests/fixtures/mktestkit.py $@ --plain
 
 $(BUILD)/host/test_res: tests/bm/test_res.c src/bm/format.c src/lib/crc32.c src/bm/bm.h
 	@mkdir -p $(dir $@)
@@ -947,7 +950,7 @@ HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-audi
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
-QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm $(BUILD)/carts/stages3d.bm
+QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm $(BUILD)/carts/stages3d.bm $(BUILD)/carts/testkit.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
 
 test: all $(HOST_TESTS) $(QEMU_DEPS)
@@ -1300,18 +1303,18 @@ test-map3d: $(BUILD)/host/test_map3d
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
          $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
-         $(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/host/libbmdecimate.so \
+         $(BUILD)/host/test_decimate $(BUILD)/carts/testkit.bm $(BUILD)/host/libbmdecimate.so \
          $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so $(BUILD)/host/test_tokens \
          $(BUILD)/host/test_resbuild
 	$< $(BUILD)/carts/stages3d.bm
 	$(BUILD)/host/test_tokens carts/editor/main.lua carts/pong/main.lua
-	$(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/carts/kitchen.bm
+	$(BUILD)/host/test_decimate $(BUILD)/carts/testkit.bm $(BUILD)/carts/kitchen.bm
 	$(PYTHON) tests/bm/run_glb_test.py $(BUILD)/host/test_glb $(BUILD)/glb
 	$(PYTHON) tests/bm/run_resbuild_test.py $(BUILD)/host/test_resbuild $(BUILD)/resbuild
 	$(PYTHON) tests/bm/run_cutout_test.py $(BUILD)/host/test_cutout $(BUILD)/cutout
 	$(PYTHON) tools/cutout2mesh.py $(BUILD)/cutout/lolli_alpha.png -o $(BUILD)/cutout/tool.bm
 	$(PYTHON) tools/cutout2mesh.py $(BUILD)/cutout/lolli_white.png -o $(BUILD)/cutout/tool.bm --lathe --name vase
-	$(PYTHON) tools/bmreduce.py $(BUILD)/carts/village.bm --ratio 0.5 -o $(BUILD)/village-half.bm
+	$(PYTHON) tools/bmreduce.py $(BUILD)/carts/testkit.bm --ratio 0.5 -o $(BUILD)/testkit-half.bm
 	$(BUILD)/host/test_meshcap src/bm/runtime.c \
 	    $(BUILD)/meshcap-test.bm '!stop here,wheel:1,crate:12,cars1_body:1,gem:2' \
 	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
@@ -1440,7 +1443,7 @@ test-img2mesh: $(BUILD)/host/meshview
 # The console's bm Studio, bm Animator, bm Mesh, bm Pixel and the SDK on the
 # PC (luahost), then the files they wrote read by the Python of the build
 # (tests/studio/check_files.py) and by the kernel's parser.
-test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
+test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/host/luahost $(BUILD)/carts/testkit.bm \
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
 	$(BUILD)/host/luahost tests/studio/layout_host.lua .
@@ -1449,25 +1452,25 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/host/luah
 	$(BUILD)/host/luahost tests/studio/write_pdf_host.lua .
 	$(BUILD)/host/luahost tests/studio/import_host.lua .
 	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts $(BUILD)/studio3d-sd/bme
-	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
+	cp $(BUILD)/carts/testkit.bm $(BUILD)/studio3d-sd/carts/
 	$(BUILD)/host/luahost tests/studio/tools3d_host.lua . $(BUILD)/studio3d-sd
 	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/carts $(BUILD)/mesh-sd/bme
-	cp $(BUILD)/carts/village.bm $(BUILD)/carts/astrowing.bm $(BUILD)/mesh-sd/carts/
+	cp $(BUILD)/carts/testkit.bm $(BUILD)/carts/astrowing.bm $(BUILD)/mesh-sd/carts/
 	$(BUILD)/host/luahost tests/studio/mesh_host.lua . $(BUILD)/mesh-sd
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/bme/astrowin.bme ship \
-	    $(BUILD)/mesh-sd/bme/village.bme "" $(BUILD)/mesh-sd/bme/meshcopy.bme ""
-	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/bme/astrowin.bme $(BUILD)/mesh-sd/bme/village.bme >/dev/null
+	    $(BUILD)/mesh-sd/bme/testkit.bme "" $(BUILD)/mesh-sd/bme/meshcopy.bme ""
+	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/bme/astrowin.bme $(BUILD)/mesh-sd/bme/testkit.bme >/dev/null
 	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/carts $(BUILD)/sdk-sd/bme
-	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-sd/carts/
+	cp $(BUILD)/carts/testkit.bm $(BUILD)/sdk-sd/carts/
 	$(BUILD)/host/luahost tests/studio/sdk_host.lua . $(BUILD)/sdk-sd
 	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
-	cp $(BUILD)/carts/village.bm $(BUILD)/carts/stages3d.bm $(BUILD)/pixel-sd/carts/
+	cp $(BUILD)/carts/testkit.bm $(BUILD)/carts/stages3d.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
-	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/bme/village.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/bme/testkit.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
 	rm -rf $(BUILD)/humanoid-sd && mkdir -p $(BUILD)/humanoid-sd/carts $(BUILD)/humanoid-sd/bme
 	$(BUILD)/host/luahost tests/studio/humanoid_host.lua . $(BUILD)/humanoid-sd
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/humanoid-sd/bme/humanoid.bme ""
-	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/village.bm $(BUILD)/humanoid-sd
+	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/testkit.bm $(BUILD)/humanoid-sd
 	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
 	$(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/bme/blocks.bme
 
@@ -1475,13 +1478,13 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/stages3d.bm $(BUILD)/host/luah
 # 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves,
 # build and try of the RGB30's kernel tool, none of the Pi's other programs. Not in
 # HOST_TESTS (the Pi's): run it when the edition changes.
-test-sdk-b16: $(BUILD)/host/luahost $(BUILD)/sdk_b16/main.lua $(BUILD)/carts/village.bm
+test-sdk-b16: $(BUILD)/host/luahost $(BUILD)/sdk_b16/main.lua $(BUILD)/carts/testkit.bm
 	rm -rf $(BUILD)/sdk-b16-sd && mkdir -p $(BUILD)/sdk-b16-sd/carts $(BUILD)/sdk-b16-sd/bme $(BUILD)/sdk-b16-sd/bm
-	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-b16-sd/bm/village.b16
+	cp $(BUILD)/carts/testkit.bm $(BUILD)/sdk-b16-sd/bm/testkit.b16
 	$(BUILD)/host/luahost tests/studio/sdk_b16_host.lua . $(BUILD)/sdk-b16-sd $(BUILD)/sdk_b16/main.lua
 
 # The showreel at the top of the README (docs/showreel.gif and .mp4): the
-# villager of the village fixture in a new cartridge, the map in the SDK, the
+# walker of the test kit in a new cartridge, the map in the SDK, the
 # code in bm Code with the assistant and the game, on the console in QEMU;
 # the cards drawn by Chromium (Playwright), ffmpeg puts it together
 # (tools/showreel/)

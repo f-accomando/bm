@@ -6,17 +6,17 @@ Python of the build (scripts/bmres.py, scripts/bmmesh.py):
 - bm Studio and bm Animator (tests/studio/tools3d_host.lua):
   BLOCKS.BM, a new project: a block, a floor tile painted red beside it, a
   tile on the far wall, each face turned to the side it is seen from; the
-  skeleton and the animation; COPY3D.BM, the village saved with no edits.
+  skeleton and the animation; COPY3D.BM, the test kit saved with no edits.
 - bm Mesh (tests/studio/mesh_host.lua): ASTROWING.BM with the models made
-  from the game's meshes and with the tools, the villager edited with its
-  skeleton, MESHCOPY.BM the village as saved.
-- bm Pixel (tests/studio/pixel_host.lua): the village's sheet 64 pixels
+  from the game's meshes and with the tools, the walker edited with its
+  skeleton, MESHCOPY.BM the test kit as saved.
+- bm Pixel (tests/studio/pixel_host.lua): the test kit's sheet 64 pixels
   taller, what was not drawn on with its 24 bits; NEWSPR.BM, a new sheet.
 - the humanoid (tests/studio/humanoid_host.lua, APP-10): HUMANOID.BME, a
   low-poly body of about 1500 triangles built in bm Mesh, with 16 bones and a
   walk made in bm Animator.
 
-  python3 tests/studio/check_files.py STUDIO3D_SD MESH_SD PIXEL_SD VILLAGE.bm [HUMANOID_SD]
+  python3 tests/studio/check_files.py STUDIO3D_SD MESH_SD PIXEL_SD TESTKIT.bm [HUMANOID_SD]
 """
 import math
 import os
@@ -83,7 +83,7 @@ def centre(v, t):
     return [sum(v[i][k] for i in t[:3]) / 3 for k in range(3)]
 
 
-def studio3d(sd, village):
+def studio3d(sd, kit):
     f = read(os.path.join(sd, "bme", "blocks.bme"))
     ms = models(f)
     check([m["name"] for m in ms] == ["model"], "BLOCKS.BM: one model, \"model\"")
@@ -117,15 +117,15 @@ def studio3d(sd, village):
               f"at 0.25 s the root is turned 15 degrees around x: {k}")
     sane("BLOCKS.BM", f)
 
-    a, b = read(os.path.join(sd, "bme", "copy3d.bme")), read(village)
+    a, b = read(os.path.join(sd, "bme", "copy3d.bme")), read(kit)
     check([(m["name"], len(m["faces"])) for m in models(a)] == [(m["name"], len(m["faces"])) for m in models(b)],
-          "COPY3D.BM has the models of the village")
+          "COPY3D.BM has the models of the test kit")
     check(a.get(bmres.SEC_ANIM) == b.get(bmres.SEC_ANIM), "and the same skeletons")
     check(a.name == b.name and a.get(bmres.SEC_LUA) == b.get(bmres.SEC_LUA), "and the same title and code")
 
 
-def mesh(sd, village):
-    files = {n: read(os.path.join(sd, "bme", n)) for n in ("astrowin.bme", "village.bme", "meshcopy.bme")}
+def mesh(sd, kit):
+    files = {n: read(os.path.join(sd, "bme", n)) for n in ("astrowin.bme", "testkit.bme", "meshcopy.bme")}
     for n, f in files.items():
         sane(n, f)
     a = files["astrowin.bme"]
@@ -133,24 +133,29 @@ def mesh(sd, village):
           f"ASTROWING.BM: hero, cube and plane: {[m['name'] for m in models(a)]}")
     check(not rigs(a), "no skeletons there")
     check(b"[bm Mesh begin]" not in (a.get(bmres.SEC_LUA) or b""), "no code meshes left in its code")
-    v, w = files["village.bme"], read(village)
-    r, r0 = rigs(v).get("villager"), rigs(w).get("villager")
-    check(r and len(r[1]) == 7 and len(r[3]) == 3, "the villager keeps 7 bones and 3 animations")
+    v, w = files["testkit.bme"], read(kit)
+    r, r0 = rigs(v).get("walker"), rigs(w).get("walker")
+    check(r and len(r[1]) == 7 and len(r[3]) == 3, "the walker keeps 7 bones and 3 animations")
     check(r and r0 and r[3] == r0[3], "the animations are the same")
     check(r and all(b < 7 for b in r[2]), "every corner follows a bone")
-    check([m["name"] for m in models(v)] == [m["name"] for m in models(w)], "the village has its models")
+    check([m["name"] for m in models(v)] == [m["name"] for m in models(w)], "the test kit has its models")
     c = files["meshcopy.bme"]
     check(all(c.get(t) == v.get(t) for t in (bmres.SEC_MESH, bmres.SEC_ANIM, bmres.SEC_LUA)),
-          "MESHCOPY.BM is the village as saved")
+          "MESHCOPY.BM is the test kit as saved")
 
 
-def pixel(sd, village):
-    f, f0 = read(os.path.join(sd, "bme", "village.bme")), read(village)
+def pixel(sd, kit):
+    f, f0 = read(os.path.join(sd, "bme", "testkit.bme")), read(kit)
     w, h, px = bmres.sheet_get(f)
     w0, h0, px0 = bmres.sheet_get(f0)
     check(w == w0 and h == h0 + 64, f"the sheet: {w}x{h}")
-    # what was not drawn on stays, 24 bits: the test drew in the sprites
-    # of 16x16 at (16,48), (0,0) and (16,0)
+    # what was not drawn on stays, 24 bits: the test drew in the first empty sprite of 16x16 (in
+    # reading order), in the one beside it (the left one at the right edge) and, then undone,
+    # in the sprites at (0,0) and (16,0)
+    def empty(x0, y0):
+        return all(px0[((y0 + j) * w0 + x0 + i) * 4 + 3] < 128 for j in range(16) for i in range(16))
+    ex, ey = next((x, y) for y in range(0, h0, 16) for x in range(0, w0, 16) if empty(x, y))
+    drawn = [(ex, ey), (ex + 16 if ex + 16 < w0 else ex - 16, ey), (0, 0), (16, 0)]
     kept = changed = inside = 0
     for y in range(h0):
         for x in range(w0):
@@ -158,13 +163,13 @@ def pixel(sd, village):
             a, b = px0[o:o + 4], px[n:n + 4]
             if a[3] < 128 and b[3] < 128:
                 continue
-            if (x < 32 and y < 16) or (16 <= x < 32 and 48 <= y < 64):
+            if any(x0 <= x < x0 + 16 and y0 <= y < y0 + 16 for x0, y0 in drawn):
                 inside += a != b
             elif a == b:
                 kept += 1
             else:
                 changed += 1
-    check(kept > 10000 and changed == 0 and inside > 0,
+    check(kept > 1000 and changed == 0 and inside > 0,
           f"the pixels not drawn on keep their 24 bits ({kept} the same, {changed} not; {inside} drawn)")
     check(all(px[i] < 128 for i in range(w0 * h0 * 4 + 3, len(px), 4)), "the 64 new rows are transparent")
     s8, s80 = f.get(bmres.SEC_SHEET8), f0.get(bmres.SEC_SHEET8)
@@ -176,7 +181,7 @@ def pixel(sd, village):
             if s80[8 + i * 4 + 3] < 128:
                 break
             first += s8[8 + i * 4:12 + i * 4] == s80[8 + i * 4:12 + i * 4]
-        check(first > 0, f"the palette begins as the village's did ({first} colours)")
+        check(first > 0, f"the palette begins as the test kit's did ({first} colours)")
     for t in (bmres.SEC_LUA, bmres.SEC_COVER, bmres.SEC_MESH, bmres.SEC_ANIM):
         check(f.get(t) is not None and f.get(t) == f0.get(t), f"section {t} byte for byte as it was")
     n = read(os.path.join(sd, "bme", "newspr.bme"))
@@ -208,10 +213,10 @@ def humanoid(sd):
 def main():
     if len(sys.argv) not in (5, 6):
         sys.exit(__doc__)
-    studio3d_sd, mesh_sd, pixel_sd, village = sys.argv[1:5]
-    studio3d(studio3d_sd, village)
-    mesh(mesh_sd, village)
-    pixel(pixel_sd, village)
+    studio3d_sd, mesh_sd, pixel_sd, kit = sys.argv[1:5]
+    studio3d(studio3d_sd, kit)
+    mesh(mesh_sd, kit)
+    pixel(pixel_sd, kit)
     if len(sys.argv) == 6:
         humanoid(sys.argv[5])
     print(f"the tools' files: {checks - fails}/{checks} checks passed")

@@ -15,8 +15,8 @@
 --
 --   luahost tests/studio/sdk_b16_host.lua ROOT SDDIR CART   (make test-sdk-b16)
 --
--- CART is the built script (build/sdk_b16/main.lua); SDDIR/bm/village.b16
--- must be there (a copy of build/carts/village.bm).
+-- CART is the built script (build/sdk_b16/main.lua); SDDIR/bm/testkit.b16
+-- must be there (a copy of build/carts/testkit.bm).
 
 local ROOT, SD, CART = arg[1] or ".", arg[2] or "build/sdk-b16-sd", arg[3] or "build/sdk_b16/main.lua"
 local checks, fails = 0, 0
@@ -243,7 +243,7 @@ end
 
 ----------------------------------------------------------------- the SD card
 
-local on_sd = { ["/carts"] = {}, ["/bm"] = { "village.b16" }, ["/"] = {} }
+local on_sd = { ["/carts"] = {}, ["/bm"] = { "testkit.b16" }, ["/"] = {} }
 local function host(path) return SD .. path:lower() end
 -- the card as this test made it (a file left in the folder by an earlier
 -- run is not on it)
@@ -1386,13 +1386,13 @@ frames(2)
 run_sdk(nil)
 frames(3)
 key("^o")
-check(sees("/bm/VILLAGE.B16"), "Open: the games in bm/")
-press("down"); press("down")                     -- (/bm/ first: KEEP.B16 and KEEP.BM built above, then VILLAGE.B16)
+check(sees("/bm/TESTKIT.B16"), "Open: the games in bm/")
+press("down"); press("down")                     -- (/bm/ first: KEEP.B16 and KEEP.BM built above, then TESTKIT.B16)
 press("ok")
 frames(2)
-check(sees("Studio Village"), "the game opened")
+check(sees("Test Kit"), "the game opened")
 check(status():find("editable copy", 1, true), "a game: saving makes its editable copy: " .. status())
-tag = "3D village"
+tag = "3D test kit"
 press("r1"); press("r1"); press("r1")
 frames(3)
 local nmodels = #E.models()
@@ -1406,11 +1406,11 @@ press("back")
 key("f6")
 check(status():find("assistant is not on this console", 1, true), "F6 on the RGB30: no assistant: " .. status())
 key("^s")
-check(copies == 1 and last_save.path == "/bme/village.bme", "Ctrl+S: the editable copy next to the game: " ..
+check(copies == 1 and last_save.path == "/bme/testkit.bme", "Ctrl+S: the editable copy next to the game: " ..
       last_save.path)
-check(status():find("saved /bme/village.bme", 1, true), "the SDK goes on with the copy: " .. status())
+check(status():find("saved /bme/testkit.bme", 1, true), "the SDK goes on with the copy: " .. status())
 key("^b")
-check(built == "/bm/village.bm" and status():find("it is in Games", 1, true), "Ctrl+B: the game in bm/: " .. status())
+check(built == "/bm/testkit.bm" and status():find("it is in Games", 1, true), "Ctrl+B: the game in bm/: " .. status())
 check(refused == 0, "the runtime never refused a save (" .. refused .. ")")
 
 -- the keyboard: the same pages with its keys, the hints with keys
@@ -1497,11 +1497,11 @@ check(sees("x = 1") or sees("x"), "typing on the keyboard")
 
 -- a long message: on two rows, over the hints (the menu's "Open in bm
 -- SDK" on a game: cart_arg() = {path, back = false})
-run_sdk({ path = "/bm/VILLAGE.B16", back = false })
+run_sdk({ path = "/bm/TESTKIT.B16", back = false })
 frames(2)
 local r320, r336
 for _, t in ipairs(texts) do
-  if t[3] == 320 and t[1]:find("^opened VILLAGE.B16") then r320 = t[1] end
+  if t[3] == 320 and t[1]:find("^opened TESTKIT.B16") then r320 = t[1] end
   if t[3] == 336 and t[1]:find("copy", 1, true) then r336 = t[1] end
 end
 check(r320 and r336, "a long message on the two status rows: " .. status())
@@ -1581,9 +1581,9 @@ check(sees("abc"), "mouse: a click on the line of the dialog puts the caret betw
 key("esc")
 
 -- a click on a long message hides it
-run_sdk({ path = "/bm/VILLAGE.B16", back = false }, { mouse = true })
+run_sdk({ path = "/bm/TESTKIT.B16", back = false }, { mouse = true })
 frames(2)
-local function msg_rows() local n = 0; for _, t in ipairs(texts) do if t[3] == 320 and t[1]:find("^opened VILLAGE.B16") then n = n + 1 end end; return n end
+local function msg_rows() local n = 0; for _, t in ipairs(texts) do if t[3] == 320 and t[1]:find("^opened TESTKIT.B16") then n = n + 1 end end; return n end
 check(msg_rows() == 1, "a long message is on the hint row")
 click(100, 328)
 check(msg_rows() == 0, "mouse: a click on a long message hides it")

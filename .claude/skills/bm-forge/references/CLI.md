@@ -111,10 +111,10 @@ check FILE [FILE ...] [--kernel-limits] [--budget N] [--draw NAME=COUNT ...] [--
   "drift": [[rel, old, new]]}}`.
 
 ```
-python .claude/skills/bm-forge/scripts/bm_forge.py check tests/fixtures/village/models.bm --budget 2000 --no-sync --json
+python .claude/skills/bm-forge/scripts/bm_forge.py check .claude/skills/bm-forge/tests/golden/village_models.bm --budget 2000 --no-sync --json
 ```
 
-(`tests/fixtures/village/models.bm` is at the repo root; run from there.)
+(`tests/golden/village_models.bm` is a frozen copy of the model data of the removed Studio Village fixture; run from the repo root.)
 
 ## preview
 

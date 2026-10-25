@@ -1,9 +1,0 @@
-# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
-# section of a .bm: mkbm.py --info copies it in.
-name: Studio Village
-desc: Test fixture with 8 models, a villager skeleton and a sheet.
-author: bm
-license: LicenseRef-BM-Community-1.0
-version: 1.0
-tags: test, 3d
-resolution: 320x180

@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/mesh_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/astrowing.bm and village.bm must be there (games: the saves go into their .bme copies).
+-- SDDIR/carts/astrowing.bm and testkit.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/mesh-sd"
 local MF = dofile(ROOT .. "/tests/studio/model_card.lua")      -- /bmm and /glb (APP-9)
@@ -218,7 +218,7 @@ end
 
 local function host(path) return SD .. path:lower() end
 
-local on_sd = { ["/carts"] = { "astrowing.bm", "village.bm" } }
+local on_sd = { ["/carts"] = { "astrowing.bm", "testkit.bm" } }
 E.ls = function(dir)
   local out = {}
   for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
@@ -484,7 +484,7 @@ end
 ----------------------------------------------------------------- the scenario
 
 local astro0 = file("astrowing.bm")
-local village0 = file("village.bm")
+local kit0 = file("testkit.bm")
 local lua0 = section(astro0, 1)
 
 E._init()
@@ -650,24 +650,24 @@ check(section(file("astrowin.bme"), 1) == lua0, "no code meshes left: the code i
 key("f5")
 check(ran and ran:upper() == "/BME/ASTROWIN.BME", "F5: the project runs: " .. tostring(ran))
 
--- the village: a model with a skeleton keeps it (the list: astrowin.bme,
--- astrowing.bm, village.bm)
+-- the test kit: a model with a skeleton keeps it (the list: astrowin.bme,
+-- astrowing.bm, testkit.bm)
 key("esc", "down", "\n")
 for _ = 1, 5 do key("down") end
 key("\n")
-check(status():find("8 models", 1, true), "the village: " .. status())
-goto_item("M villager")
-check(sees("skeleton: 7 bones, 3 animations"), "the villager has its skeleton")
-local rig0 = anim_rigs(section(village0, 9)).villager
-local vil0 = model_of("village.bm", "villager")
+check(status():find("8 models", 1, true), "the test kit: " .. status())
+goto_item("M walker")
+check(sees("skeleton: 7 bones, 3 animations"), "the walker has its skeleton")
+local rig0 = anim_rigs(section(kit0, 9)).walker
+local vil0 = model_of("testkit.bm", "walker")
 key("f2", "a", "g", "up", "\n", "^s")
-local rig1 = anim_rigs(section(file("village.bme"), 9)).villager
-check(rig1 and rig1.nv == 112 and rig1.bones == rig0.bones and rig1.clips == rig0.clips and
+local rig1 = anim_rigs(section(file("testkit.bme"), 9)).walker
+check(rig1 and rig1.nv == rig0.nv and rig1.bones == rig0.bones and rig1.clips == rig0.clips and
       table.concat(rig1.vb, ",") == table.concat(rig0.vb, ","), "moved: the skeleton is the same")
 key("a", "n", " ", "del", "^s")
-local vil = model_of("village.bme", "villager")
-local rig2 = anim_rigs(section(file("village.bme"), 9)).villager
-check(vil and rig2 and vil.nv < 112 and rig2.nv == vil.nv, "a vertex deleted: the skeleton has the new vertices (" ..
+local vil = model_of("testkit.bme", "walker")
+local rig2 = anim_rigs(section(file("testkit.bme"), 9)).walker
+check(vil and rig2 and vil.nv < vil0.nv and rig2.nv == vil.nv, "a vertex deleted: the skeleton has the new vertices (" ..
       (vil and vil.nv or "-") .. ")")
 local bones_ok = vil ~= nil
 for i, p in ipairs(vil and vil.verts or {}) do
@@ -680,13 +680,13 @@ for i, p in ipairs(vil and vil.verts or {}) do
 end
 check(bones_ok, "every vertex left follows the same bone as before")
 for _, n in ipairs({ "ground", "house", "tree", "well" }) do
-  local a, b = model_of("village.bme", n), nil
-  for _, x in ipairs(mesh_models(section(village0, 8))) do if x.name == n then b = x end end
+  local a, b = model_of("testkit.bme", n), nil
+  for _, x in ipairs(mesh_models(section(kit0, 8))) do if x.name == n then b = x end end
   check(a and b and a.nv == b.nv and a.nf == b.nf, "the other models stay: " .. n)
 end
-local v1 = file("village.bme")
-check(section(v1, 1) == section(village0, 1) and section(v1, 5) == section(village0, 5) and
-      section(v1, 4) == section(village0, 4), "the code, the sheet and the cover stay")
+local v1 = file("testkit.bme")
+check(section(v1, 1) == section(kit0, 1) and section(v1, 5) == section(kit0, 5) and
+      section(v1, 4) == section(kit0, 4), "the code, the sheet and the cover stay")
 
 -- save as a copy
 key("esc")
@@ -712,16 +712,16 @@ check(status():find("saved /bme/meshcopy.bme", 1, true), "saved as: " .. status(
 local cp = file("meshcopy.bme")
 check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 9) and section(cp, 5) == section(v1, 5),
       "the copy has the same models, skeletons and sheet")
-check(file("astrowing.bm") == astro0 and file("village.bm") == village0,
+check(file("astrowing.bm") == astro0 and file("testkit.bm") == kit0,
       "the games stay as they were: the saves went into their editable copies (.bme)")
 
--- Shift+A: a primitive as a new part of the model (the villager has bones)
+-- Shift+A: a primitive as a new part of the model (the walker has bones)
 do
   key("f1")
-  goto_item("M villager")
+  goto_item("M walker")
   key("f2", "a", "a")
-  local before = model_of("meshcopy.bme", "villager")
-  local rb = anim_rigs(section(file("meshcopy.bme"), 9)).villager
+  local before = model_of("meshcopy.bme", "walker")
+  local rb = anim_rigs(section(file("meshcopy.bme"), 9)).walker
   key("A")
   check(sees("add a part") and sees("Cylinder"), "Shift+A: the four shapes")
   key("\n")
@@ -729,27 +729,27 @@ do
   key("^z")
   check(sees("VERTICES: 0 chosen"), "undo: the new vertices are not chosen any more")
   key("^s")
-  local same = model_of("meshcopy.bme", "villager")
+  local same = model_of("meshcopy.bme", "walker")
   check(same and same.nv == before.nv and same.nf == before.nf, "undo: the count as before (one step)")
   local shapes = { { "cube", 8, 12, 0 }, { "cylinder", 18, 32, 1 }, { "sphere", 62, 120, 2 }, { "plane", 4, 2, 3 } }
   for _, sh in ipairs(shapes) do
     key("a", "a", "A")
     for _ = 1, sh[4] do key("down") end
     key("\n", "^s")
-    local m = model_of("meshcopy.bme", "villager")
+    local m = model_of("meshcopy.bme", "walker")
     check(m and m.nv == before.nv + sh[2] and m.nf == before.nf + sh[3], sh[1] .. ": " .. sh[2] .. " vertices, " .. sh[3] ..
           " faces (" .. (m and (m.nv - before.nv) .. "/" .. (m.nf - before.nf) or "-") .. ")")
     check(sees("VERTICES: " .. sh[2] .. " chosen"), sh[1] .. ": the new vertices are chosen")
     key("^z", "^s")
-    m = model_of("meshcopy.bme", "villager")
+    m = model_of("meshcopy.bme", "walker")
     check(m and m.nv == before.nv and m.nf == before.nf, sh[1] .. ": one undo takes it away")
   end
   -- on a chosen vertex: the part goes to its middle and takes its bone
   key("a", "a", "n", " ")
   check(sees("VERTICES: 1 chosen"), "one vertex chosen")
   key("A", "\n", "^s")
-  local m = model_of("meshcopy.bme", "villager")
-  local rg = anim_rigs(section(file("meshcopy.bme"), 9)).villager
+  local m = model_of("meshcopy.bme", "walker")
+  local rg = anim_rigs(section(file("meshcopy.bme"), 9)).walker
   local c, ok = { 0, 0, 0 }, m and m.nv == before.nv + 8 and rg and rg.nv == m.nv
   if ok then
     for i = before.nv + 1, m.nv do for k = 1, 3 do c[k] = c[k] + m.verts[i][k] / 8 end end
@@ -890,7 +890,7 @@ do
   key("f3")
   check(sees("Live mirror X"), "the commands list the live mirror")
   key("esc")
-  -- the test model goes (the copy stays the village as saved)
+  -- the test model goes (the copy stays the test kit as saved)
   key("f1")
   goto_item("M mirt")
   key("del", "del", "^s")
@@ -1770,7 +1770,7 @@ do
     goto_item("M cube")
     key("del", "del", "^s")
   end
-  check(not model_of("meshcopy.bme", "cube"), "no cube is left in the village copy")
+  check(not model_of("meshcopy.bme", "cube"), "no cube is left in the test kit copy")
   -- T.G.snap_*
   local G = E.require("bm3d").G
   local sq = G.snap_grid({ 0.43, -0.07, 1.26 }, 0.1)
@@ -2171,9 +2171,9 @@ do
   local b2, c2 = G.bone_summary(it, { 1, 2 })
   check(b1 == 1 and c1 == 1 and b2 == 1 and c2 == 2 and G.bone_summary(it, {}) == nil, "T.G.bone_summary")
 
-  -- on the page: the villager (7 bones)
+  -- on the page: the walker (7 bones)
   key("f1")
-  goto_item("M villager")
+  goto_item("M walker")
   key("f2", "a", "a")
   local function one_vertex() key("a"); if not sees("VERTICES: 0 chosen") then key("a") end; key("n", " ") end
   local function header()
@@ -2188,7 +2188,7 @@ do
   check(sees("VERTICES: 1 chosen") and header():find("^BONE %d+ %S+$"), "one vertex: the header has its bone: " .. header())
   key("^s")
   local project = status():match("saved /bme/(%S+)")
-  local function vbs() return anim_rigs(section(file(project), 9)).villager.vb end
+  local function vbs() return anim_rigs(section(file(project), 9)).walker.vb end
   local vb0 = vbs()
   key("B")
   check(sees("1 vertices to a bone") and sees(" 0  ") and sees(" 6  "), "Shift+B: the bones listed, 0 to 6")
@@ -2209,7 +2209,7 @@ do
   key("^z")
 
   -- a part chosen with l goes to bone 0 at once
-  local m = model_of(project, "villager")
+  local m = model_of(project, "walker")
   local par = {}
   local function root(i) while par[i] ~= i do par[i] = par[par[i]]; i = par[i] end return i end
   for i = 1, m.nv do par[i] = i end
@@ -2237,7 +2237,7 @@ do
   check(sees("VERTICES: 1 chosen") and sees("MIRROR X"), "live mirror on, one vertex")
   key("B", "pgdn", "\n", "^s")
   vb2 = vbs()
-  local rg = anim_rigs(section(file(project), 9)).villager
+  local rg = anim_rigs(section(file(project), 9)).walker
   local rigv = G.rig_bones({ ac = ("x"):rep(16) .. string.pack("<I2I2I2I2", rg.nb, 0, rg.nv, 0) .. rg.bones })
   local changed, ok_m = 0, true
   for i = 1, m.nv do

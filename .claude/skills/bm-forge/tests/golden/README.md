@@ -8,6 +8,12 @@ Files written by the **real** tools of the repo, never by bm_core. All made at c
 
 ## How each file was made
 
+Note (25 Oct): the test fixture `tests/fixtures/village` (Studio Village) is removed. The
+commands below are the history of these files and cannot run as written (`village.bm` is
+gone; the studio tests now open `build/carts/testkit.bm`, made by
+`tests/fixtures/mktestkit.py`). The goldens are frozen: do not regenerate them, their tests
+(`test_schema.py`, `test_preview.py`) hold the numbers of the old data.
+
 `make test-studio` does **not** complete at this commit: `build/host/test_meshcap` fails to
 link (`undefined reference to g16_to_rgb24`, `Makefile:1092`), before any luahost step.
 So the luahost steps of the rule (`Makefile:1239-1257`) were run by hand, without
@@ -29,7 +35,7 @@ build/host/test_bm build/carts/stages3d.bm $O/anim-figure.bm $O/studio3d-sd/cart
 
 | Golden | Copied from | Writer |
 |---|---|---|
-| `village_models.bm` | `tests/fixtures/village/models.bm` (tracked, last changed in `14718bb`) | bm Studio / bmmesh history; reference file |
+| `village_models.bm` | the former `tests/fixtures/village/models.bm` (last changed in `14718bb`; removed, this is the only copy) | bm Studio / bmmesh history; reference file |
 | `anim_figure.bm` | `$O/anim-figure.bm` | `tests/studio/anim_figure.py` = `scripts/bmmesh.py` `encode_faces`/`encode`/`encode_anim` + `scripts/mkbm.py` `pack` |
 | `bmmesh_lit.bm` | `python3 gen_bmmesh_lit.py bmmesh_lit.bm` (in this folder) | `scripts/bmmesh.py` `encode`/`encode_anim` + `scripts/mkbm.py` `pack`: lit model, corner and 5-6-5 lights, material bits, step/linear clips |
 | `studio_blocks.bme` | `$O/studio3d-sd/carts/blocks.bme` | bm Studio + bm Animator (`carts/studio`, `carts/animator`, `src/script/bm3d.lua`) under luahost: new project, skeleton, clip |
