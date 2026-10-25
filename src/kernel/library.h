@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include "bm/gfx16.h"
 #include "fs/fat.h"
+#include "fiber.h"
 
 #define LIB_MAX 64              /* cartridges in the library (the SD card and the built-in ones) */
 
@@ -27,6 +28,7 @@ typedef struct {
     uint8_t cover_read;         /* the covers' job has been at it (else a placeholder) */
     char path[FAT_NAME_MAX + 10];
     char save[32];              /* its save file (.bm), "" if none */
+    const char *tool;           /* the tool id ("sdk", "sound"...) of a tool cartridge (toolnames.h), or NULL */
     uint8_t type;               /* BM_TYPE_* from the header flags (bm.info "type:"): an app or a utility is listed in Dev */
     uint8_t grey;               /* not made for this kernel (bm_compat_classify): faded, starts after a question */
     const char *why;            /* the reason of the grey, a short static text */
@@ -51,6 +53,9 @@ typedef struct {
     int hidden;                 /* files that want() left out on purpose */
     int sd_ok;                  /* the card is mounted */
     const lib_backend_t *be;
+    fiber_job_t cover_job;      /* the covers, read in the menu's free time */
+    int cover_dev;              /* the list the menu shows: 1 Dev, 0 Games, -1 another (its covers first) */
+    int cover_sel;              /* the cartridge under the cursor, or -1 */
 } lib_t;
 
 /* The one library of the console. */
@@ -75,10 +80,33 @@ const char *lib_kind(const lib_game_t *g);
  * compatibility), sorted by title, then the built-in ones. The covers already read stay. */
 void lib_scan(lib_t *l);
 
-/* Adds a built-in cartridge (from add_builtins). */
-void lib_add_builtin(lib_t *l, const char *name, const uint8_t *start, const uint8_t *end);
+/* Adds a built-in cartridge (from add_builtins); `tool`: its tool id, or NULL. */
+void lib_add_builtin(lib_t *l, const char *name, const char *tool, const uint8_t *start, const uint8_t *end);
+
+/* The type rule: a development tool (built into the kernel or installed from Market > Apps) and any file
+ * cartridge that declares type app or utility in its bm.info are listed in Dev; the rest are games. */
+int lib_is_dev(const lib_game_t *g);
 
 /* The SD card cartridge with this path (case ignored), or -1. */
 int lib_find_path(const lib_t *l, const char *path);
+
+/* ---- the covers
+ *
+ * The menu opens at once with the titles (a placeholder with the title); the covers come in a fiber in the
+ * menu's free time, the ones on screen first (2026-10-04, the user's request: smooth with any number of
+ * games). Of a file only its first bytes are read: COVER is the first section. */
+
+/* What the menu shows, for the order of the covers: dev 1 (Dev list), 0 (Games list) or -1 (Market, Settings);
+ * sel: the library index under the cursor, or -1. */
+void lib_cover_focus(int dev, int sel);
+
+/* A share of the menu's free time for the covers (fiber_share_t function); starts the job when covers are left. */
+void lib_covers_tick(uint32_t until);
+
+/* Stops the job (a game, a page or a change of the list follows); it goes on later where it was. */
+void lib_covers_stop(void);
+
+/* How many covers are read. */
+int lib_covers_read(const lib_t *l);
 
 #endif

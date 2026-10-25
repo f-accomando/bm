@@ -82,96 +82,6 @@ static void power_led(void)
 /* the tabs of the graphical menu (carts_menu) */
 enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
 
-static fiber_job_t cover_job = { .name = "covers" };
-static int cover_tab = TAB_GAMES, cover_sel = -1;      /* what the menu shows: its covers first */
-
-static int is_dev(const lib_game_t *c);
-
-/* The cover from the .bm COVER section, or a label with the title. */
-static void read_cover(lib_game_t *c)
-{
-    const uint8_t *rgba = NULL;
-    int w = 0, h = 0, r = -1;
-    uint32_t need = 48 * 1024;          /* header, sections, an 88x88 or 128x80 cover: one read */
-    uint8_t *data = NULL;
-    if (c->builtin) {
-        r = bm_cover_peek(c->builtin, c->size, &need, &rgba, &w, &h);
-    } else {
-        for (int tries = 0; tries < 3; tries++) {
-            size_t len;
-            free(data);
-            data = NULL;
-            if (fat_load_part(&c->fe, need, &data, &len) != 0)
-                break;
-            r = bm_cover_peek(data, len, &need, &rgba, &w, &h);
-            if (r || len >= c->size)
-                break;
-        }
-    }
-    if (fiber_cancelled()) {            /* stopped half way: read it next time */
-        free(data);
-        return;
-    }
-    g16_sheet_t s = { 0 };
-    if (r == 1)
-        menu_load_cover(&s, rgba, w, h);
-    free(data);
-    if (!s.px)
-        menu_make_cover(&s, c->title);
-    c->cover = s;
-    c->cover_read = 1;
-}
-
-/* the next cover to read: the ones of the tab shown, nearest to the
- * selection first, then the others */
-static int next_cover(void)
-{
-    int best = -1, best_d = 1 << 30;
-    if (cover_tab == TAB_GAMES || cover_tab == TAB_DEV) {
-        const int dev = cover_tab == TAB_DEV;
-        int sel_pos = 0;
-        for (int i = 0, pos = 0; i < library.n; i++)
-            if (is_dev(&library.g[i]) == dev) {
-                if (i == cover_sel)
-                    sel_pos = pos;
-                pos++;
-            }
-        for (int i = 0, pos = 0; i < library.n; i++) {
-            if (is_dev(&library.g[i]) != dev)
-                continue;
-            const int d = pos > sel_pos ? pos - sel_pos : sel_pos - pos;
-            pos++;
-            if (!library.g[i].cover_read && d < best_d) {
-                best = i;
-                best_d = d;
-            }
-        }
-    }
-    for (int i = 0; best < 0 && i < library.n; i++)
-        if (!library.g[i].cover_read)
-            best = i;
-    return best;
-}
-
-static void covers_main(void *arg)
-{
-    (void)arg;
-    int i;
-    while (!fiber_cancelled() && (i = next_cover()) >= 0) {
-        read_cover(&library.g[i]);
-        fiber_slice();
-    }
-}
-
-static void covers_tick(uint32_t until)
-{
-    if (!cover_job.busy) {
-        if (next_cover() < 0 || fiber_job_start(&cover_job, 16 * 1024, covers_main, NULL) != 0)
-            return;
-    }
-    fiber_job_run(&cover_job, until);
-}
-
 /* the SD card's reads: the loading screen goes on, a fiber of the menu gives
  * the CPU back when its time is over (and stops when asked) */
 static int sd_tick(void)
@@ -219,7 +129,7 @@ static const fiber_share_t menu_jobs[] = {
     { update_tick,        {  0,   0,  15 } },   /* Settings > Updates: check, install */
     { publish_tick,       {  0,   0,  15 } },   /* a game to the Market */
     { market_tick,        {  0,   0,  25 } },   /* its tab */
-    { covers_tick,        {  0,   0,  10 } },   /* the tab's covers first */
+    { lib_covers_tick,        {  0,   0,  10 } },   /* the tab's covers first */
     { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, no panel */
     { wifi_auto_idle,     {  0,   0,   5 } },   /* the saved network again, while the link is down */
     { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
@@ -232,7 +142,7 @@ static void menu_idle(uint32_t until)
      * the SD card: the rest waits for it (2026-10-10). With nothing waiting
      * the tick only notes that the menu is there. */
     if (netxfer_write_pending()) {
-        fiber_job_stop(&cover_job);
+        lib_covers_stop();
         fiber_job_stop(&report_job);
     }
     if (netxfer_write_tick(until))
@@ -250,7 +160,7 @@ static void menu_idle(uint32_t until)
 static void background_stop(void)
 {
     netxfer_write_pause();              /* a file from the PC: again later */
-    fiber_job_stop(&cover_job);
+    lib_covers_stop();
     fiber_job_stop(&report_job);
     wifi_auto_stop();
     sdmap_stop();
@@ -260,17 +170,7 @@ static void background_stop(void)
  * "assistant") for a built-in or SD-installed app, or NULL for a game. */
 static const char *tool_id_of(const lib_game_t *c)
 {
-    if (c->builtin) {
-        if (c->builtin == bm_editor_cart) return "sdk";
-        if (c->builtin == bm_sound_cart) return "sound";
-        if (c->builtin == bm_studio_cart) return "studio";
-        if (c->builtin == bm_animator_cart) return "animator";
-        if (c->builtin == bm_mesh_cart) return "mesh";
-        if (c->builtin == bm_pixel_cart) return "pixel";
-        if (c->builtin == bm_code_cart) return "code";
-        return NULL;
-    }
-    return bm_tool_id_of_file(c->name);
+    return c->tool;
 }
 
 static int has_sd_tool(const char *tid)
@@ -288,17 +188,17 @@ static int has_sd_tool(const char *tid)
 static void add_builtins(void)
 {
     if (&bm_editor_cart_end[0] > &bm_editor_cart[0] && !has_sd_tool("sdk"))
-        lib_add_builtin(&library, "editor (built-in)", bm_editor_cart, bm_editor_cart_end);
+        lib_add_builtin(&library, "editor (built-in)", "sdk", bm_editor_cart, bm_editor_cart_end);
     if (&bm_sound_cart_end[0] > &bm_sound_cart[0] && !has_sd_tool("sound"))
-        lib_add_builtin(&library, "sound (built-in)", bm_sound_cart, bm_sound_cart_end);
+        lib_add_builtin(&library, "sound (built-in)", "sound", bm_sound_cart, bm_sound_cart_end);
     if (&bm_studio_cart_end[0] > &bm_studio_cart[0] && !has_sd_tool("studio"))
-        lib_add_builtin(&library, "studio (built-in)", bm_studio_cart, bm_studio_cart_end);
+        lib_add_builtin(&library, "studio (built-in)", "studio", bm_studio_cart, bm_studio_cart_end);
     if (&bm_animator_cart_end[0] > &bm_animator_cart[0] && !has_sd_tool("animator"))
-        lib_add_builtin(&library, "animator (built-in)", bm_animator_cart, bm_animator_cart_end);
+        lib_add_builtin(&library, "animator (built-in)", "animator", bm_animator_cart, bm_animator_cart_end);
     if (&bm_mesh_cart_end[0] > &bm_mesh_cart[0] && !has_sd_tool("mesh"))
-        lib_add_builtin(&library, "mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
+        lib_add_builtin(&library, "mesh (built-in)", "mesh", bm_mesh_cart, bm_mesh_cart_end);
     if (&bm_pixel_cart_end[0] > &bm_pixel_cart[0] && !has_sd_tool("pixel"))
-        lib_add_builtin(&library, "pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
+        lib_add_builtin(&library, "pixel (built-in)", "pixel", bm_pixel_cart, bm_pixel_cart_end);
 }
 
 /* the folders of the Pi: the root, /carts, /bm (the games folder of the RGB30: the Pi reads it too) and the
@@ -420,13 +320,6 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 static int is_project(const lib_game_t *c)
 {
     return !c->builtin && bm_is_project(c->name);
-}
-
-/* a development tool built into the kernel or installed from Market > Apps (the Dev tab), or
- * any cartridge that declares type app or utility in its bm.info (it plays as a cartridge) */
-static int is_dev(const lib_game_t *c)
-{
-    return tool_id_of(c) != NULL || (!c->builtin && c->type != BM_TYPE_GAME);
 }
 
 /* The tools a tool can open on its file with lib_game_tool(name, path) (bm
@@ -607,7 +500,7 @@ int carts_play_title(framebuffer_t *fb, const char *name)
     size_t n = strlen(name);
     for (int i = 0; n && i < library.nsd; i++) {
         const lib_game_t *c = &library.g[i];
-        if (!is_dev(c) && (lower_prefix(c->title, name, n) || lower_prefix(c->name, name, n))) {
+        if (!lib_is_dev(c) && (lower_prefix(c->title, name, n) || lower_prefix(c->name, name, n))) {
             play(fb, c);
             return 0;
         }
@@ -677,7 +570,7 @@ static int tab_items(int tab, int *idx)
 {
     int n = 0;
     for (int i = 0; i < library.n; i++)
-        if (is_dev(&library.g[i]) == (tab == TAB_DEV) && !is_project(&library.g[i]))
+        if (lib_is_dev(&library.g[i]) == (tab == TAB_DEV) && !is_project(&library.g[i]))
             idx[n++] = i;
     if (tab == TAB_DEV) {               /* the projects are not listed: the editors open them (Open) */
         for (int t = 0; t < home_tools() && n < LIB_MAX + 16; t++)
@@ -996,9 +889,9 @@ void carts_menu(framebuffer_t *fb)
                 }
             }
             /* the covers still to read: the tab's, from the selection */
-            cover_tab = on_gear ? TAB_SETTINGS : tab;
+            lib_cover_focus(on_gear ? -1 : tab == TAB_GAMES ? 0 : tab == TAB_DEV ? 1 : -1,
+                            (tab == TAB_GAMES || tab == TAB_DEV) && n && idx[tsel[tab]] >= 0 ? idx[tsel[tab]] : -1);
             reports_free = !on_gear && !depth && ask == ASK_NONE && tab != TAB_MARKET;
-            cover_sel = (tab == TAB_GAMES || tab == TAB_DEV) && n && idx[tsel[tab]] >= 0 ? idx[tsel[tab]] : -1;
             const char *a_label = NULL;
             if (tab == TAB_MARKET) {
                 a_label = market_action_label(tsel[tab]);
@@ -1638,7 +1531,7 @@ void carts_menu(framebuffer_t *fb)
             /* the bm suite (editor, Studio, Animator, Mesh, Pixel, Sound, a project) opens
              * with no splash; the splash is for games */
             const int suite = (go >= GO_SDK && go <= GO_PIXEL) ||
-                              (go == GO_PLAY && go_cart >= 0 && is_dev(&library.g[go_cart]));
+                              (go == GO_PLAY && go_cart >= 0 && lib_is_dev(&library.g[go_cart]));
             if (app && !resume && !suite)
                 loading_begin(fb);
             /* the file of a tool: a cartridge of the menu, or none */

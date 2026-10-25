@@ -7,12 +7,15 @@
 #include "bm/bm.h"
 #include "bm/runtime.h"
 #include "bm/project.h"
+#include "fs/fat.h"
 #include "lib/printf.h"
+#include "menu_ui.h"
+#include "toolnames.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-lib_t library;
+lib_t library;                  /* (no initializer: it stays in .bss, 30 KB out of the kernel image) */
 
 /* ---------------------------------------------------------------- text */
 
@@ -100,7 +103,7 @@ static void read_header(const lib_t *l, lib_game_t *c, const uint8_t *h, uint32_
         ksnprintf(c->title, sizeof c->title, "%s", c->name);
 }
 
-void lib_add_builtin(lib_t *l, const char *name, const uint8_t *start, const uint8_t *end)
+void lib_add_builtin(lib_t *l, const char *name, const char *tool, const uint8_t *start, const uint8_t *end)
 {
     if (l->n >= LIB_MAX)
         return;
@@ -108,6 +111,7 @@ void lib_add_builtin(lib_t *l, const char *name, const uint8_t *start, const uin
     memset(c, 0, sizeof *c);
     strcpy(c->name, name);
     c->builtin = start;
+    c->tool = tool;
     c->size = (uint32_t)(end - start);
     read_header(l, c, start, c->size);
 }
@@ -132,6 +136,7 @@ static void scan_dir(lib_t *l, const char *path)
         strcpy(c->dir, path);
         c->size = e.size;
         c->fe = e;
+        c->tool = bm_tool_id_of_file(e.name);
         static uint8_t head[512] __attribute__((aligned(4)));
         if (fat_read_head(&e, head) == 0)
             read_header(l, c, head, e.size < 512 ? e.size : 512);
@@ -142,6 +147,7 @@ static void scan_dir(lib_t *l, const char *path)
 
 void lib_scan(lib_t *l)
 {
+    l->cover_job.name = "covers";
     if (l->be->stop_background)
         l->be->stop_background();
 
@@ -201,6 +207,117 @@ void lib_scan(lib_t *l)
     for (int j = 0; j < n_old; j++)
         if (!old_covers[j].used)
             g16_sheet_free(&old_covers[j].cover);
+}
+
+int lib_is_dev(const lib_game_t *g)
+{
+    return g->tool != NULL || (!g->builtin && g->type != BM_TYPE_GAME);
+}
+
+/* ---------------------------------------------------------------- covers */
+
+/* The cover from the .bm COVER section, or a label with the title. */
+static void read_cover(lib_game_t *c)
+{
+    const uint8_t *rgba = NULL;
+    int w = 0, h = 0, r = -1;
+    uint32_t need = 48 * 1024;          /* header, sections, an 88x88 or 128x80 cover: one read */
+    uint8_t *data = NULL;
+    if (c->builtin) {
+        r = bm_cover_peek(c->builtin, c->size, &need, &rgba, &w, &h);
+    } else {
+        for (int tries = 0; tries < 3; tries++) {
+            size_t len;
+            free(data);
+            data = NULL;
+            if (fat_load_part(&c->fe, need, &data, &len) != 0)
+                break;
+            r = bm_cover_peek(data, len, &need, &rgba, &w, &h);
+            if (r || len >= c->size)
+                break;
+        }
+    }
+    if (fiber_cancelled()) {            /* stopped half way: read it next time */
+        free(data);
+        return;
+    }
+    g16_sheet_t s = { 0 };
+    if (r == 1)
+        menu_load_cover(&s, rgba, w, h);
+    free(data);
+    if (!s.px)
+        menu_make_cover(&s, c->title);
+    c->cover = s;
+    c->cover_read = 1;
+}
+
+/* the next cover to read: the ones of the list shown, nearest to the selection first, then the others */
+static int next_cover(const lib_t *l)
+{
+    int best = -1, best_d = 1 << 30;
+    if (l->cover_dev >= 0) {
+        int sel_pos = 0;
+        for (int i = 0, pos = 0; i < l->n; i++)
+            if (lib_is_dev(&l->g[i]) == l->cover_dev) {
+                if (i == l->cover_sel)
+                    sel_pos = pos;
+                pos++;
+            }
+        for (int i = 0, pos = 0; i < l->n; i++) {
+            if (lib_is_dev(&l->g[i]) != l->cover_dev)
+                continue;
+            const int d = pos > sel_pos ? pos - sel_pos : sel_pos - pos;
+            pos++;
+            if (!l->g[i].cover_read && d < best_d) {
+                best = i;
+                best_d = d;
+            }
+        }
+    }
+    for (int i = 0; best < 0 && i < l->n; i++)
+        if (!l->g[i].cover_read)
+            best = i;
+    return best;
+}
+
+int lib_covers_read(const lib_t *l)
+{
+    int n = 0;
+    for (int i = 0; i < l->n; i++)
+        n += l->g[i].cover_read;
+    return n;
+}
+
+static void covers_main(void *arg)
+{
+    (void)arg;
+    int i;
+    while (!fiber_cancelled() && (i = next_cover(&library)) >= 0) {
+        read_cover(&library.g[i]);
+        fiber_slice();
+    }
+    if (!fiber_cancelled())
+        kprintf("covers: all %d read\n", lib_covers_read(&library));
+}
+
+void lib_covers_tick(uint32_t until)
+{
+    if (!library.cover_job.busy) {
+        if (next_cover(&library) < 0 || fiber_job_start(&library.cover_job, 16 * 1024, covers_main, NULL) != 0)
+            return;
+    }
+    fiber_job_run(&library.cover_job, until);
+}
+
+void lib_covers_stop(void)
+{
+    fiber_job_stop(&library.cover_job);
+}
+
+void lib_cover_focus(int dev, int sel)
+{
+    library.cover_dev = dev;
+    library.cover_sel = sel;
 }
 
 /* ---------------------------------------------------------------- find */

@@ -188,93 +188,7 @@ static const char *sd_state = "not read";
 /* --- the covers, in the background (D10, as the Pi's carts.c: a fiber job in the menu's free time, the covers on
  * screen first, stopped before a game or a page starts and before the list changes) --- */
 
-static fiber_job_t cover_job = { .name = "covers" };
-static int cover_tab = -1, cover_sel = -1;      /* what the menu shows (TAB_*, -1 Settings) and the cartridge under the cursor */
-static int cover_total;                          /* the covers read so far since the last scan */
 enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
-
-/* The next cartridge whose cover is not read: the tab shown first (the Games tab: games[0..n_games), Dev: the rest),
- * the nearest to the cursor first; then the others. */
-static int next_cover(void)
-{
-    int lo = 0, hi = 0, best = -1, best_d = 1 << 30;
-    if (cover_tab == TAB_GAMES) {
-        lo = 0;
-        hi = n_games;
-    } else if (cover_tab == TAB_DEV) {
-        lo = n_games;
-        hi = library.n;
-    }
-    const int at = cover_sel >= lo && cover_sel < hi ? cover_sel : lo;
-    for (int i = lo; i < hi; i++) {
-        const int d = i > at ? i - at : at - i;
-        if (!games[i].cover_read && d < best_d) {
-            best = i;
-            best_d = d;
-        }
-    }
-    for (int i = 0; best < 0 && i < library.n; i++)
-        if (!games[i].cover_read)
-            best = i;
-    return best;
-}
-
-/* The COVER section of cartridge i (the first section: one read of the start of the file) in place of its label. */
-static void read_cover(int i)
-{
-    char path[80];
-    ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
-    fat_entry_t e;
-    uint8_t *data = NULL;
-    size_t len = 0;
-    uint32_t need = 48 * 1024;                      /* the header, the sections before it, a 128x80 cover: one read */
-    const uint8_t *rgba = NULL;
-    int w = 0, h = 0, r = -1;
-    for (int tries = 0; tries < 3 && fat_find(path, &e) == 0; tries++) {
-        free(data);
-        data = NULL;
-        if (fat_load_part(&e, need, &data, &len) != 0)
-            break;
-        r = bm_cover_peek(data, len, &need, &rgba, &w, &h);
-        if (r || len >= e.size)
-            break;
-    }
-    if (fiber_cancelled()) {                        /* stopped half way: read again later */
-        free(data);
-        return;
-    }
-    if (r == 1) {
-        g16_sheet_t c = { 0 };
-        if (menu_load_cover(&c, rgba, w, h) == 0 && c.px) {
-            g16_sheet_free(&games[i].cover);        /* the label */
-            games[i].cover = c;
-        }
-    }
-    free(data);
-    games[i].cover_read = 1;
-    cover_total++;
-}
-
-static void covers_main(void *arg)
-{
-    (void)arg;
-    int i;
-    while (!fiber_cancelled() && (i = next_cover()) >= 0) {
-        read_cover(i);
-        fiber_slice();
-    }
-    if (!fiber_cancelled())
-        kprintf("covers: all %d read\n", cover_total);
-}
-
-static void covers_tick(uint32_t until)
-{
-    if (!cover_job.busy) {
-        if (next_cover() < 0 || fiber_job_start(&cover_job, 16 * 1024, covers_main, NULL) != 0)
-            return;
-    }
-    fiber_job_run(&cover_job, until);
-}
 
 /* What the RGB30 lists: .b16 always, .bm unless show_bm=0 (they are for the Pi, listed for testing), no tool
  * cartridge (a tool installed from Market > Apps, the SDK: Dev, not Games), no project. */
@@ -298,7 +212,7 @@ static int rgb_want(const char *name)
 static void rgb_stop_background(void)
 {
     netxfer_write_pause();                          /* a file from the PC: again later */
-    fiber_job_stop(&cover_job);                     /* no cover read left half way */
+    lib_covers_stop();                     /* no cover read left half way */
     wifi_auto_stop();
     sdmap_stop();
 }
@@ -316,12 +230,6 @@ static void scan_games(void)
     sd_state = fat_opendir(&d, "bm") == 0 ? "bm/" : "no bm/ folder on the SD card";
     lib_scan(&library);
     n_games = 0;
-    cover_total = 0;
-    for (int i = 0; i < library.n; i++) {
-        if (!games[i].cover.px)
-            menu_make_cover(&games[i].cover, games[i].title);      /* the label, until the covers job reads the picture */
-        cover_total += games[i].cover_read;
-    }
     /* the games first, the apps and utilities after them (each part keeps the order by title) */
     static lib_game_t rest[LIB_MAX];
     int nr = 0;
@@ -790,7 +698,7 @@ static void run_page(void (*run)(void))
         return;
     }
     market_set_active(0);                           /* its work stops first, as on the Pi */
-    fiber_job_stop(&cover_job);                     /* the covers: later (a game or a page owns the card now) */
+    lib_covers_stop();                     /* the covers: later (a game or a page owns the card now) */
     sdmap_stop();
     netxfer_write_pause();                          /* a file from the PC: written later */
     menu_ui_close_quiet(fb);                        /* (not the console flashing: the pages draw themselves) */
@@ -979,7 +887,7 @@ static const fiber_share_t menu_jobs[] = {
     /*                      game tool menu */
     { update_tick,        {  0,   0,  25 } },
     { market_tick,        {  0,   0,  40 } },   /* its tab only: on another one it gives its time back at once */
-    { covers_tick,        {  0,   0,  15 } },   /* the tab's covers first (D10) */
+    { lib_covers_tick,        {  0,   0,  15 } },   /* the tab's covers first (D10) */
     { wifi_auto_idle,     {  0,   0,  10 } },
     { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
 };
@@ -989,7 +897,7 @@ static const fiber_share_t menu_jobs[] = {
 static void menu_idle(uint32_t until)
 {
     if (netxfer_write_pending())
-        fiber_job_stop(&cover_job);                 /* a file from the PC is written first, alone on the card */
+        lib_covers_stop();                 /* a file from the PC is written first, alone on the card */
     if (netxfer_write_tick(until))
         return;
     fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
@@ -1002,7 +910,7 @@ static menu_item_t game_item(int g)
     ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
     const int up = netxfer_updating(gp);                /* a file from the PC on its way */
     return (menu_item_t){ .title = games[g].title, .kind = lib_kind(&games[g]),
-                          .cover = &games[g].cover, .path = games[g].name, .grey = games[g].grey,
+                          .cover = games[g].cover.px ? &games[g].cover : NULL, .loading = !games[g].cover_read, .path = games[g].name, .grey = games[g].grey,
                           .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating",
                           .running = is_suspended(games[g].name) };
 }
@@ -1126,8 +1034,8 @@ void ui_home(framebuffer_t *f)
         if (*s < 0) *s = 0;
         if (shown == TAB_MARKET)
             market_select(*s);
-        cover_tab = on_gear ? -1 : tab;             /* the covers to read first (covers_tick) */
-        cover_sel = cart_at(shown, *s);
+        lib_cover_focus(on_gear ? -1 : tab == TAB_GAMES ? 0 : tab == TAB_DEV ? 1 : -1,   /* the covers to read first */
+                        cart_at(shown, *s));
         for (int i = 0; i < n && shown != TAB_MARKET; i++) {
             if (shown == TAB_GAMES) {
                 items[i] = game_item(i);
@@ -1231,7 +1139,7 @@ void ui_home(framebuffer_t *f)
         static int first_frame = 1;
         if (first_frame) {
             first_frame = 0;
-            kprintf("cartridge menu: first frame, %d of %d covers read\n", cover_total, library.n);
+            kprintf("cartridge menu: first frame, %d of %d covers read\n", lib_covers_read(&library), library.n);
         }
         /* a file from the PC goes on even when the frame left no time for
          * it (menu_idle): a piece a frame */
