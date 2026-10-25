@@ -19,3 +19,4 @@ docs/video/*/cover.png
 /out/
 .claude/state/
 build-*/
+.claude/worktrees/
