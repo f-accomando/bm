@@ -107,7 +107,7 @@ int main(int argc, char **argv)
         free(d);
     }
     if (open_any(dir, "SAMPLE.bmt", &c, &d, &len) == 0) {
-        CHECK(c.kind == BM_RES_MAP && c.map_w == 16 && c.map_h == 96 && c.sheet_w, "SAMPLE.bmt: the 16x96 map, its tiles");
+        CHECK(c.kind == BM_RES_MAP && c.map_w == 16 && c.map_h == 16 && c.sheet_w, "SAMPLE.bmt: the 16x16 map, its tiles");
         free(d);
     }
     if (open_any(dir, "KIT.bmc", &c, &d, &len) == 0) {

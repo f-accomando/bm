@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The test kit: the sample cartridge of the studio, resource and kernel tests.
 
-  tests/fixtures/mktestkit.py OUT.bm [--plain]
+  tests/fixtures/mktestkit.py OUT.bm [--plain | --map]
 
 Made at test time from a few lines of code (no binary in the repository), with
 the repository's own tools (scripts/mkbm.py, scripts/bmmesh.py):
@@ -14,9 +14,13 @@ the repository's own tools (scripts/mkbm.py, scripts/bmmesh.py):
   - a stub game (LUA), the INFO section and a cover.
 
 --plain: a game of before the INFO section (no INFO, no cover; title "Test kit").
+--map:   the map kit, a second small cartridge (title "Map Kit", 640x360) with no models: a true-colour
+         64x32 sheet of 32 tiles of 8x8, and a MAP of 16x16 cells with 3 more layers (LAYERS): floor
+         (the MAP), height, walls and objects. The sample of the tests that need a map and a plain sheet.
 """
 import math
 import os
+import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -251,11 +255,55 @@ def build(plain=False):
                      None if plain else cover(), True, None, mesh, extra)
 
 
+MAP_LUA = b"""-- The map kit (tests/fixtures/mktestkit.py --map), not a game: a sheet of 32 tiles and a map of 4 layers.
+function _draw()
+  cls(0)
+  map(0, 0, 0, 0, 16, 16)
+  print("Map kit (test fixture)", 8, 8, 0xFFFFFF)
+end
+"""
+MAP_W = MAP_H = 16
+MAP_LAYERS = ("floor", "height", "walls", "objects")
+
+
+def map_sheet():
+    """64x32: 8 x 4 tiles of 8x8; tile 0 is clear; each other tile has its own colour and a darker edge"""
+    w, h = 64, 32
+    rgba = bytearray(w * h * 4)
+    for t in range(1, 32):
+        r, g, b = (40 + t * 7 % 200, 60 + t * 13 % 180, 80 + t * 29 % 170)
+        for y in range(8):
+            for x in range(8):
+                shade = 0.6 if x in (0, 7) or y in (0, 7) else 1.0 - 0.05 * ((x + y) % 3)
+                o = ((t // 8 * 8 + y) * w + t % 8 * 8 + x) * 4
+                rgba[o:o + 4] = bytes((int(r * shade), int(g * shade), int(b * shade), 255))
+    return w, h, bytes(rgba)
+
+
+def map_layers():
+    """4 layers of 16x16 u16 cells: the floor (tiles 1..3 in a checker), the height (0..3 in steps),
+    the walls (tile 4 on the border and on a cross), the objects (tiles 8..12 in a few places)"""
+    n = MAP_W * MAP_H
+    floor = [1 + (x // 2 + y // 2) % 3 for y in range(MAP_H) for x in range(MAP_W)]
+    height = [min(3, x // 4) for y in range(MAP_H) for x in range(MAP_W)]
+    walls = [4 if x in (0, MAP_W - 1) or y in (0, MAP_H - 1) or (x == 8 and 2 <= y <= 5) else 0
+             for y in range(MAP_H) for x in range(MAP_W)]
+    objects = [0] * n
+    for i, (x, y) in enumerate(((3, 3), (12, 3), (5, 9), (10, 11), (13, 13))):
+        objects[y * MAP_W + x] = 8 + i
+    return [(name, MAP_W, MAP_H, struct.pack("<%dH" % n, *cells))
+            for name, cells in zip(MAP_LAYERS, (floor, height, walls, objects))]
+
+
+def build_map():
+    return mkbm.pack(MAP_LUA, map_sheet(), None, "Map Kit", "bm", (640, 360), layers=map_layers())
+
+
 def main():
-    args = [a for a in sys.argv[1:] if a != "--plain"]
+    args = [a for a in sys.argv[1:] if a not in ("--plain", "--map")]
     if len(args) != 1:
         raise SystemExit(__doc__)
-    data = build("--plain" in sys.argv[1:])
+    data = build_map() if "--map" in sys.argv[1:] else build("--plain" in sys.argv[1:])
     with open(args[0], "wb") as f:
         f.write(data)
     print(f"{args[0]}: {len(data)} bytes")

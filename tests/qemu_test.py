@@ -8014,7 +8014,7 @@ def test_code_editor(b, opts):
     still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-code-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/stages3d.bm"), "carts/Il mio demo.bm"), (b("carts/pong.bm"), "carts/pong.bm")])
+    mksd.build(img, [(b("carts/mapkit.bm"), "carts/Il mio demo.bm"), (b("carts/pong.bm"), "carts/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     log = []
 
@@ -8150,12 +8150,12 @@ def test_code_editor(b, opts):
         # the games stay as they were: the saves went into their editable copies
         game = os.path.join(tmp, "game.bm")
         subprocess.run(["mcopy", "-i", part, "::/CARTS/Il mio demo.bm", game], check=True, env=env)
-        assert open(game, "rb").read() == open(b("carts/stages3d.bm"), "rb").read(), "the demo (a game) changed"
+        assert open(game, "rb").read() == open(b("carts/mapkit.bm"), "rb").read(), "the demo (a game) changed"
         out = os.path.join(tmp, "demo.bm")
         subprocess.run(["mcopy", "-i", part, "::/BME/ILMIODEM.BME", out], check=True, env=env)
         sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
         new = open(out, "rb").read()
-        old = open(b("carts/stages3d.bm"), "rb").read()
+        old = open(b("carts/mapkit.bm"), "rb").read()
         def sections(d):
             import struct
             n = d[17]

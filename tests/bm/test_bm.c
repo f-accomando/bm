@@ -686,12 +686,12 @@ static void test_format(const char *path)
     if (!d) return;
     bm_cart_t c;
     char err[64] = "";
-    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse stages3d: %s", err);
-    CHECK(strcmp(c.title, "Stages 3D") == 0, "title '%s'", c.title);
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse mapkit: %s", err);
+    CHECK(strcmp(c.title, "Map Kit") == 0, "title '%s'", c.title);
     CHECK(c.width == 640 && c.height == 360 && c.pixel_format == 1, "video mode");
     CHECK(c.lua && c.lua_size > 100 && memcmp(c.lua, "--", 2) == 0, "lua section");
     CHECK(c.sheet_w == 64 && c.sheet_h == 32 && c.sheet_rgba, "sheet");
-    CHECK(c.map_w == 16 && c.map_h == 96 && c.map_cells, "map");
+    CHECK(c.map_w == 16 && c.map_h == 16 && c.map_cells, "map");
 
     /* the square resolution, 256x256; any other size is refused */
     {
@@ -1503,7 +1503,7 @@ int main(int argc, char **argv)
     test_3d();
     test_pfx();
     test_colour_only();
-    test_format(argc > 1 ? argv[1] : "build/carts/stages3d.bm");
+    test_format(argc > 1 ? argv[1] : "build/carts/mapkit.bm");
     test_cover_peek();
     test_type_bits();
     test_compat();
