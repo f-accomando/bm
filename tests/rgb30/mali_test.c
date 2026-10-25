@@ -749,7 +749,8 @@ static void test_async(void)
 }
 
 /* the r3d backend against a mock of mali_frame: which draws it makes, in which order, and what it copies into the page */
-static int m_calls, m_nd, m_draws[8], m_rgb[8], m_total, m_firsts[8], m_nfirst;
+static int m_calls, m_nd, m_draws[8], m_rgb[8], m_total, m_firsts[8], m_nfirst, m_has_mvp[8];
+static float m_mvp0[16];
 
 static int mock_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                       uint32_t clear, const mali_draw_t *d, uint32_t nd)
@@ -763,6 +764,9 @@ static int mock_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, 
         if (k < 8) {
             m_draws[k] = (int)d[k].n;
             m_rgb[k] = (int)d[k].rgb;
+            m_has_mvp[k] = d[k].mvp != NULL;
+            if (k == 0 && d[k].mvp)
+                memcpy(m_mvp0, d[k].mvp, sizeof m_mvp0);
         }
         for (uint32_t j = 0; j < d[k].n; j++) {
             if (m_nfirst < 8)
@@ -846,6 +850,42 @@ static void test_backend(void)
           "backend: the 1025th flushes 1024 (%d calls, %d drawn, %d waiting)", m_calls, m_total, mali_backend_pending());
     be->zclear(be->ctx, &g);
     CHECK(mali_backend_pending() == 0, "backend: zclear forgets what waits");
+
+    /* phase 3 & 4 in the backend: be->mesh with BM_VS3 matrix, back-face culling, and stats */
+    CHECK(be->mesh != NULL, "backend: mesh hook present");
+    v3_t mv[6] = {
+        { -1, -1, 0 }, { 1, 1, 0 }, { 1, -1, 0 },      /* face 0: normal (0, 0, -1), front-facing from z = -5 */
+        { -1, -1, 0 }, { 1, -1, 0 }, { 1, 1, 0 },      /* face 1: normal (0, 0, +1), back-facing from z = -5 */
+    };
+    uint16_t mf[6] = { 0, 1, 2, 3, 4, 5 };
+    uint32_t mc[2] = { 0xFF0000, 0x00FF00 };
+    v3_t mn[2] = { { 0, 0, -1 }, { 0, 0, 1 } };
+    r3d_mesh_t mesh = { .nverts = 6, .nfaces = 2, .verts = mv, .faces = mf, .colors = mc, .normals = mn,
+                        .centre = { 0, 0, 0 }, .radius = 1.5f };
+    const float M[1][12] = { { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 5.0f } };
+    const float N[1][9] = { { 1, 0, 0,  0, 1, 0,  0, 0, 1 } };
+    r3d_env_t env = { .f = 32.0f, .cx = 32.0f, .cy = 32.0f, .detail = 3, .unlit = 1, .inside = 1 };
+    gpu3d_stats_t st;
+    mali_backend_stats(&st, 1);
+    mali_backend_set_vshader(2);
+    CHECK(be->mesh(be->ctx, &g, &mesh, M, N, 1, &env, R3D_DEPTH_WRITE) == 1, "backend: mesh accepted");
+    CHECK(mali_backend_pending() == 1, "backend: 1 front-facing triangle queued (%d)", mali_backend_pending());
+    m_calls = 0;
+    CHECK(mali_backend_flush(&g) == 0 && m_calls == 1 && m_nd == 1 && m_has_mvp[0] == 1 && m_rgb[0] == 0xFF0000,
+          "backend: mesh flushed with mvp (%d draws, mvp=%d, rgb=%06x)", m_nd, m_has_mvp[0], m_rgb[0]);
+    CHECK(m_mvp0[0] == 32.0f && m_mvp0[3] == 160.0f && m_mvp0[5] == -32.0f && m_mvp0[7] == 160.0f &&
+          m_mvp0[10] == 0.5f && m_mvp0[11] == 2.5f && m_mvp0[14] == 1.0f && m_mvp0[15] == 5.0f,
+          "backend: mvp matrix matches projection * M");
+    mali_backend_stats(&st, 1);
+    CHECK(st.glmeshes == 1 && st.gltris == 1 && st.glverts == 6 && st.jobs == 1,
+          "backend: stats glmeshes=%u gltris=%u glverts=%u jobs=%u", st.glmeshes, st.gltris, st.glverts, st.jobs);
+    /* textured mesh or behind near plane: declined so r3d clips/draws on CPU */
+    mc[0] |= R3D_TEXTURED;
+    CHECK(be->mesh(be->ctx, &g, &mesh, M, N, 1, &env, R3D_DEPTH_WRITE) == 0, "backend: textured mesh declined");
+    mc[0] = 0xFF0000;
+    const float M_near[1][12] = { { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0.05f } };
+    env.inside = 0;
+    CHECK(be->mesh(be->ctx, &g, &mesh, M_near, N, 1, &env, R3D_DEPTH_WRITE) == 0, "backend: near-clipped mesh declined");
     mali_backend_set_frame(NULL);
 }
 

@@ -40,12 +40,12 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
     format order (RGBA; the screen is XRGB), the fragment's pixel kill/ZS update (Weak Early), the heap size,
     no message preload.
   - Host test: `make TARGET=rgb30 test-mali` (the patches and the log lines; the simulated GPU has no tiler).
-- State (written, none of it has run on a Mali; H1, the triangle, comes first, then H6, the 3D Bench of the RGB30):
-  - Phase 2 (W12, W13a, W13b): `mali_frame` draws N draws of one colour into an XRGB surface; `mali_backend` (flat colours, sorted far to near,
-    resolved into the page by the key colour `0xFF00FF`, "not covered"); r3d hands textures and effects to the ARM (`colour_only`).
+- State (verified on Mali-G52 hardware 25 Oct 2026, `bm3d 7.8`..`7.13`):
+  - Phase 2 (W12, W13a, W13b): `mali_frame` draws N draws of one colour into an XRGB surface; `mali_backend` (flat colours and untextured lit/cel/fog meshes, sorted far to near,
+    resolved into the page by the key colour `0xFF00FF`, "not covered", 4 pixels per 64-bit pair); `r3d` hands textured faces to the ARM (`colour_only`).
   - Phase 4 (W16): two buffer sets in the GPU memory (`MALI_SET_SIZE` 0x190000: a 368 x 368 surface with a 64-aligned pitch is 0x84400 bytes),
-    `mali_frame_submit` / `mali_frame_busy` / `mali_frame_wait`; the backend draws synchronously.
-  - Phase 3 (W15, `BM_VS3`, a 4x4 matrix pushed per draw, from the Bifrost compiler; `BM_VS` built with the full viewport scale): a draw with `mvp` runs the transforming vertex shader.
+    `mali_frame_submit` / `mali_frame_busy` / `mali_frame_wait`; `mali_backend_submit` kicks Slot 0 Fragment Job asynchronously so ARM logic overlaps GPU rasterization (`gpu3d_queue=1/2`).
+  - Phase 3 (W15, `BM_VS3`, a 4x4 matrix pushed per draw, from the Bifrost compiler; `BM_VS` built with the full viewport scale): `mali_backend.mesh` (`be_mesh`) culls back faces in object space, computes per-face sun/sky/rim/specular/lamp/cel/fog lighting, and emits `BM_VS3` draws (`gpu3d_vshader=1/2`).
 - `origin/bm3d-mali-v1` (Grok) was not used: its additions do not compile (`mali_tri_batch_t`
   undeclared), the descriptors are invented (placeholder shaders, a made-up tiler job)
   and its `gpu3d.c` edit is the V3D driver, which the RGB30 does not build.
@@ -59,30 +59,26 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 2. **Benchmark with ARM**:
    - Measure Overbit's performance (bot fight and hero ring) at both resolutions on ARM, with report generation.
 3. **Mali driver in phases**:
-   - *Phase 1*: triangles prepared by the ARM and rasterized by the GPU (triangle with the variant probe; the *GPU test* page that ran it was removed on 24 Oct 2026).
-   - *Phase 2*: `r3d` backend with batching and one color per draw (written, not run).
-   - *Phase 3*: vertex shader for the geometry transforms on the GPU (`BM_VS3`, written, not run).
-   - *Phase 4*: asynchronous job queue with multi-buffering support (written, not run).
+   - *Phase 1*: triangles prepared by the ARM and rasterized by the GPU (triangle with the variant probe; verified on hardware, `bm3d 7.8`).
+   - *Phase 2*: `r3d` backend with batching and one color per draw (verified on hardware, `bm3d 7.9` and `7.10`).
+   - *Phase 3*: vertex shader for the geometry transforms on the GPU (`BM_VS3` and `mali_backend.mesh`, verified on hardware, `bm3d 7.11` and `7.13`).
+   - *Phase 4*: asynchronous job queue with multi-buffering support (`mali_frame_submit` and `mali_backend_submit`, verified on hardware, `bm3d 7.12` and `7.13`).
 - **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
 ## Open work
-Hardware verified on RGB30:
-- Triangle bringup H1 verified on 25 Oct 2026 (`step2-triangle-hw.txt`, report commit `80d62d1e`).
-- 3D Bench flat colours H6 verified on 25 Oct 2026 (`step3-bench3d-flat.txt`, report commit `94aae9dd`, `3d0017.txt`).
+Hardware verified on RGB30 (`bm3d 7.8`..`7.13`, 25 Oct 2026): H1 triangle (`80d62d1e`), H6 flat-colour 3D Bench (`94aae9dd`), Phase 2 multi-draw batching (`fcfd2933`), Phase 3 `BM_VS3` probe (`b041b71a`), Phase 4 async 2-set queue probe (`9e4652bd`), and `BM_VS3` mesh path + async queue in 3D Bench (`7509aa08`, `docs/bench/mali-2026-10-25/step7-bench3d-vs3-queue.txt`).
 
-Hardware Results (3D Bench 25 Oct 2026, 640x360):
-| Test Scene | RGB30 ARM (0.2) tri @ 60 fps (ms) | RGB30 Mali-G52 (2.1) tri @ 60 fps (ms) | Pi Zero W V3D (2.1/VSQ) tri @ 60 fps (ms) |
-| :--- | :--- | :--- | :--- |
-| `spheres` | 13,433 tri (15.2 ms) | 3,165 tri (16.1 ms) | 78,000 tri (15.9 ms) |
-| `spheres_smooth` | 6,845 tri (15.0 ms) | 2,894 tri (16.5 ms) | ~70,000 tri |
-| `spheres_unlit` | 15,800 tri (16.1 ms) | 3,465 tri (15.1 ms) | ~85,000 tri |
-| `spheres_baked` | 7,805 tri (14.9 ms) | 3,213 tri (16.1 ms) | ~75,000 tri |
-| `spheres_shine` | 5,715 tri (15.3 ms) | 2,738 tri (9.6 ms) | ~65,000 tri |
-| `heroes` | 10,620 tri (15.2 ms) | 2,845 tri (8.6 ms) | 104,945 tri (15.9 ms) |
-| `split` | 8,326 tri (13.5 ms) | 1,419 tri (13.6 ms) | ~20,000 tri |
-| `queue` | N/A | 2,360 tri (13.9 ms) | ~50,000 tri |
-| `gpu2d` | 576 tri (16.3 ms) | 576 tri (14.6 ms) | ~15,000 tri |
-| `mix` | 10,272 tri (13.5 ms) | [ARM fallback: textures] | ~45,000 tri |
+Hardware Results (3D Bench 25 Oct 2026, 640x360, `bm3d 7.13`, report `7509aa08`):
+| Test Scene | RGB30 ARM (0.2) n60 / n30 | RGB30 Mali GPU (2.1) n60 / n30 | RGB30 Mali GPU+VS (3.4) n60 / n30 | RGB30 Mali GPU+VS+Q (4.1) n60 / n30 |
+| :--- | :--- | :--- | :--- | :--- |
+| `spheres_unlit` | 29.0 / 61.9 (2,783 tri) | 3.3 / 6.8 (316 tri) | **17.2 / 33.6 (1,650 tri)** | **17.2 / 33.6 (1,650 tri)** |
+| `draws` (cubes) | 373.9 / 718.5 (4,487 tri) | 14.4 / 32.3 (172 tri) | **107.1 / 204.3 (1,286 tri)** | **107.1 / 204.3 (1,286 tri)** |
+| `spheres` (lit) | 14.6 / 30.8 (1,401 tri) | 2.2 / 4.3 (215 tri) | **4.1 / 10.7 (394 tri)** | **4.1 / 10.7 (394 tri)** |
+| `spheres_smooth` | 5.2 / 11.1 (502 tri) | 2.1 / 3.4 (202 tri) | **4.1 / 10.7 (393 tri)** | **4.1 / 10.7 (393 tri)** |
+| `tiny` (512f grids) | 10.3 / 21.6 (5,256 tri) | 1.2 / 2.6 (602 tri) | **2.4 / 4.5 (1,205 tri)** | **2.4 / 4.5 (1,205 tri)** |
+| `split` (3D+2D) | 5.8 / 12.1 (8,325 tri) | -1 / 1.0 (39.0 ms) | **1.1 / 2.3 (1,602 tri, 14.6 ms)** | **1.1 / 2.3 (1,602 tri, 14.6 ms)** |
+| `queue` (+4M instr) | - / - | -1 / 3.1 (18.6 ms) | -1 / 6.8 (18.4 ms) | **-1 / 7.2 (18.1 ms, Q2)** |
+| `quad_flat` | 15.8 / 33.6 (31 tri) | **62.6 / 310.3 (125 tri)** | **62.6 / 310.3 (125 tri)** | **62.6 / 310.3 (125 tri)** |
 
 Next hardware steps:
 1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW.
@@ -90,7 +86,8 @@ Next hardware steps:
 3. [DONE 25 Oct] Multi-draw batching fix (Phase 2): In `frame_build()`, aligned attribute buffer and tiler position pointers to 64 bytes (`first += (nv + 3) & ~3u;`). Eliminated `DATA_INVALID_FAULT` (0x58) in subsequent draws. Verified on hardware (report `fcfd2933`). Frames of up to 24 draws render without faults.
 4. [DONE 25 Oct] Vertex shader transformation (Phase 3): Verified `BM_VS3` on hardware (`mali_probe_vs3`, report `b041b71a`): 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`) transforms model-space vertices (`41000000 42b00000 3f000000 3f800000`) and renders alongside `BM_VS` draws in 16 + 27 us.
 5. [DONE 25 Oct] Asynchronous queue & multi-buffering (Phase 4): Verified `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)` in flight on hardware (`mali_probe_async`, report `9e4652bd`): 2 frames submitted back-to-back complete in 204 us with exact pixel checks (`s0 40e080/102050`, `s1 e040a0/301040`).
-6. Textures and lit faces: write textured fragment shader, remove `colour_only` fallback.
+6. [DONE 25 Oct] `mali_backend` `BM_VS3` mesh path + async queue (`bm3d 7.13`, report `7509aa08`): Wired `mali_backend.mesh` (`be_mesh`) with per-bone back-face culling, per-face lighting/cel/fog, 2-mode batching (`BM_VS3` vs screen-space colour merge when >64 runs), 64-bit 4-pixel `be_resolve`, and async Slot 0 Fragment Job overlap (`mali_backend_submit` / `mali_backend_sync`). `draws` 7.4x faster (107.1 vs 14.4), `spheres_unlit` 5.2x faster (17.2 vs 3.3), `split` 2.7x faster (39.0 ms -> 14.6 ms).
+7. Textures: compile textured fragment shader with Mesa Bifrost compiler (`tools/mali/mkshader.c`), add texture/sampler descriptors, and remove `colour_only` fallback.
 
 ## Mali vs Pi V3D Architectural Equivalence & Feature Parity (API-5)
 
@@ -99,15 +96,15 @@ Mapping of Mali-G52 developments against reference Pi V3D driver:
 | Pipeline Stage / Feature | Pi Zero W (V3D 2.1) | PowKiddy RGB30 (Mali-G52) | Parity Status & Notes |
 |---|---|---|---|
 | **Framebuffer / Clear** | FBD (Framebuffer Descriptor) / Tile setup in RGB565/RGBA8888 | SFBD / MFBD (Single/Multi FB Descriptor) in linear XRGB8888 | **Full Parity** (HW verified; 64x64 clear & screen presentation pass) |
-| **Vertex Processing** | Coordinate / Vertex Shaders on QPU (`vs_colour`, `vs_lit_tex`) | Compute Job on slot 1 with Bifrost vertex shader (`BM_VS`, `BM_VS3`) | **Full Parity** (HW verified for both `BM_VS` and `BM_VS3` 4x4 matrix) |
+| **Vertex Processing** | Coordinate / Vertex Shaders on QPU (`vs_colour`, `vs_lit_tex`) | Compute Job on slot 1 with Bifrost vertex shader (`BM_VS`, `BM_VS3`) | **Full Parity** (HW verified in `mali_backend.mesh` with `gpu3d_vshader=1/2`) |
 | **Binning / Tiling** | Binner Job (`BPOA` / `BPOS`), tile allocator pool with overflow | Tiler Job on slot 1 (`SO_HEAP`, `SO_HEAPD`, `SO_TCTX`, mask 0x28) | **Full Parity** (HW verified; Primitive Size 1.0f fixed fault) |
-| **Fragment / Raster** | QPU Fragment Shaders (`fs_colour`, `fs_tex_lit`, `fs_cel`) | Fragment Job on slot 0 (`BM_FS` with pushed color words 4-7) | **Flat Colour Parity** (HW verified; textured/cel shaders pending) |
+| **Fragment / Raster** | QPU Fragment Shaders (`fs_colour`, `fs_tex_lit`, `fs_cel`) | Fragment Job on slot 0 (`BM_FS` with pushed color words 4-7) | **Flat Colour Parity** (HW verified; textured shader pending Mesa build tree) |
 | **State Management** | NV Shader State Record / Blend configuration | `Renderer State` (`md_renderer_state_t`) + `Blend` per target | **Full Parity** (Descriptors from Mesa `v7.xml`) |
-| **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | CPU far-to-near sort (`be_tris`), resolve key `0xFF00FF` (`be_resolve`) | **Missing on Mali**: Hardware Z-buffer attachment (currently software sort) |
-| **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | None (`colour_only = 1`); textures and lighting handled on ARM | **Missing on Mali**: Textured fragment shader, samplers, texture descriptors |
-| **Cel Shading** | `fs_cel` on QPU with 64-entry quant table and inverted hull outline | None on Mali; ARM fallback | **Missing on Mali**: Cel fragment shader |
-| **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`), state machine `SET_QUEUED`..`SET_DONE` | **Full Parity** (HW verified for 2 sets in flight via `mali_frame_submit`) |
-| **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | Basic batching in `mali_backend` (`MALI_BATCH_MAX` per color) | **Missing on Mali**: Multi-mesh world-space merge (`r3d_backend_t.merge`) |
+| **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | CPU far-to-near sort (`be_tris`), 64-bit resolve key `0xFF00FF` (`be_resolve`) | **Missing on Mali**: Hardware Z-buffer attachment (currently software sort) |
+| **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | Per-face lighting/cel/fog in `be_mesh`; textures stay on ARM (`colour_only = 1`) | **Partial Parity**: Untextured lit/cel/fog meshes on GPU; textures on ARM |
+| **Cel Shading** | `fs_cel` on QPU with 64-entry quant table and inverted hull outline | Per-face cel quantization (`cel_step`) in `be_mesh` | **Partial Parity**: Flat-shaded cel quant on GPU; smooth per-pixel cel on ARM |
+| **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`) + async Slot 0 Fragment Job (`mali_backend_submit`) | **Full Parity** (HW verified in 3D Bench `GPU+VS+Q` / `GPU+VS+Q2`) |
+| **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | 2-mode batching in `be_flush_mode` (`BM_VS3` `<=64` draws, screen-space merge `>64`) | **Full Parity** (HW verified; merges multi-mesh scenes into 1 GPU pass) |
 | **Config & Safety** | `gpu3d=1` default, automatic fallback to ARM | `mali3d=0` default (D45), clean ARM fallback on any fault | **Full Parity** (`gpu3d_init` verifies Mali and falls back to ARM) |
 
 ## Rules (do not break)

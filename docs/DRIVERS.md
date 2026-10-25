@@ -400,6 +400,13 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   `MALI_SET_BASE(1)` overlapping slot 1 (vertex/tiler) and slot 0 (fragment) complete
   in 204 us with exact pixel checks on both surfaces.
 
+- **7.13** (2026-10-25): **Mali `BM_VS3` mesh path and async queue in `mali_backend`**:
+  wired `mali_backend.mesh` (`be_mesh`) with per-bone back-face culling, per-face lighting/cel/fog,
+  2-mode batching (`BM_VS3` vs screen-space colour merge when >64 runs), 64-bit 4-pixel `be_resolve`,
+  and async Slot 0 Fragment Job overlap (`mali_backend_submit` / `mali_backend_sync`, `gpu3d_vshader=1/2`,
+  `gpu3d_queue=1/2`). Verified on RGB30 hardware in 3D Bench (report `7509aa08`): `draws` 7.4x faster
+  (107.1 vs 14.4 @ 60 fps), `spheres_unlit` 5.2x faster (17.2 vs 3.3), `split` 2.7x faster (14.6 ms vs 39.0 ms).
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).

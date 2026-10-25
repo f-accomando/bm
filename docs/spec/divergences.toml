@@ -575,13 +575,13 @@ action = "run docs/api/system.md example against a real https server on a Pi Zer
 id = "D45"
 area = "3D drawn by a GPU"
 pi = "the V3D draws the 3D by default (gpu3d), with the QPU programs of M44 where they landed"
-rgb30 = "the 3D is the ARM's; with mali3d=1 the Mali draws flat-colour triangles (phase 2), textures and effects stay on the ARM"
+rgb30 = "the 3D is the ARM's; with mali3d=1 the Mali draws flat-colour triangles and BM_VS3 meshes with async queue (phases 2-4), textures stay on the ARM"
 cause = "todo"
 priority = 3
 status = "open"
-note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader) and Phase 4 (2-set asynchronous queue via mali_frame_submit) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd). Next: API-5 V3D alignment (textured faces, mesh path, queue integration)."
-evidence = "src/rgb30/bm_port.c:30-55; src/rgb30/mali.c"
-action = "fix batching multi-draw in mali_frame, then evaluate default decision for mali3d"
+note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader + mali_backend.mesh) and Phase 4 (async queue via mali_frame_submit and gpu3d_submit/sync) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd, 7509aa08). Next: API-5 textured faces (requires Mesa Bifrost compiler build tree) and user decision on mali3d default."
+evidence = "src/rgb30/bm_port.c; src/rgb30/mali.c; docs/bench/mali-2026-10-25/step7-bench3d-vs3-queue.txt"
+action = "add textured fragment shader when Mesa Bifrost build tree is available, then evaluate default decision for mali3d"
 
 [[divergence]]
 id = "D51"

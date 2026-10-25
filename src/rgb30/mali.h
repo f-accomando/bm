@@ -35,6 +35,7 @@
 #include <stdint.h>
 
 #include "bm/r3d.h"
+#include "gpu/gpu3d.h"
 
 typedef struct {
     uint32_t (*rd)(uintptr_t addr);
@@ -132,7 +133,16 @@ int mali_frame_wait(uint32_t timeout_us);       /* until none is: 0, -1 timeout 
 const r3d_backend_t *mali_backend(const mali_hw_t *hw);
 int mali_backend_pending(void);                 /* triangles waiting */
 int mali_backend_flush(g16_t *g);               /* draws them, copies the covered pixels into g->px; 0, or -1 (the ARM must draw this frame) */
+int mali_backend_submit(g16_t *g);              /* starts the frame on the GPU so the ARM can work meanwhile; mali_backend_sync resolves it */
+int mali_backend_sync(void);                    /* waits for a submitted frame and copies its covered pixels into g->px */
+int mali_backend_inflight(void);                /* 1 while a submitted frame has not been synced yet */
 void mali_backend_drop(void);                   /* forgets what waits */
+void mali_backend_set_vshader(int on);          /* 0 off (be_tri), 1 unlit meshes, 2 lit meshes too (default 2) */
+int mali_backend_vshader(void);
+void mali_backend_set_queue(int on);            /* 0 synchronous flush, 1..2 async submit/sync (default 1) */
+int mali_backend_queue(void);
+void mali_backend_stats(gpu3d_stats_t *s, int reset);
+uint32_t mali_backend_wait_us(void);
 /* test seam: replaces mali_frame (NULL: the real one) */
 void mali_backend_set_frame(int (*frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
                                          const mali_draw_t *, uint32_t));

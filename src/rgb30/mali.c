@@ -1314,17 +1314,29 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
     return r;
 }
 
-/* --- the r3d backend (M41 phase 2) ---
- * r3d hands this backend flat-coloured, depth-written triangles only (colour_only, W13b). They are buffered, sorted far to
- * near (painter's order: the Mali draws without a depth test here), drawn by mali_frame into an XRGB surface cleared to a key
- * colour, and the pixels the GPU covered are copied into the RGB565 page. */
+/* --- the r3d backend (M41 phases 2, 3, 4) ---
+ * r3d hands this backend flat-coloured, depth-written triangles and meshes (colour_only, W13b). With the vertex shader on
+ * (be_vs_on), be_mesh culls back faces and lights faces per bone in object space, passing the 4x4 bone matrix in mvp so
+ * BM_VS3 transforms the vertices on the GPU. Triangles are sorted far to near (painter's order: the Mali draws without a
+ * depth test here), drawn into an XRGB surface cleared to a key colour, and the covered pixels are copied into the RGB565
+ * page. With the queue on (be_q_on), mali_backend_submit kicks the Fragment job on slot 0 and returns so the ARM can run
+ * game logic in parallel until mali_backend_sync resolves the surface. */
 #define BE_SURF_OFF     0x200000    /* the surface in hw->mem when it does not fit set 0's (frames are never in flight then) */
 #define BE_KEY          0xFF00FF    /* "not covered" */
+#define BE_MAX_MVPS     256
 
-typedef struct { float v[3][3]; float key; uint32_t rgb; } be_tri_t;
+typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; } be_tri_t;
 
 static be_tri_t be_tris[MALI_BATCH_MAX];
-static int be_n;
+static float be_mvps[BE_MAX_MVPS][16];
+static int be_n, be_nmvp;
+static int be_vs_on = 2, be_q_on = 1;
+static gpu3d_stats_t be_stats;
+static uint32_t be_wait_us;
+static int be_pend;
+static g16_t *be_pend_g;
+static uint8_t *be_pend_surf;
+static uint32_t be_pend_pitch, be_pend_t0, be_pend_us, be_pend_tris;
 static const mali_hw_t *be_hw;
 static int (*be_frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
                        const mali_draw_t *, uint32_t);
@@ -1335,48 +1347,194 @@ void mali_backend_set_frame(int (*frame)(const mali_hw_t *, uint8_t *, uint64_t,
     be_frame = frame;
 }
 
+void mali_backend_set_vshader(int on)   { be_vs_on = on < 0 ? 0 : on > 2 ? 2 : on; }
+int mali_backend_vshader(void)          { return be_vs_on; }
+void mali_backend_set_queue(int on)     { be_q_on = on < 0 ? 0 : on > 2 ? 2 : on; }
+int mali_backend_queue(void)            { return be_q_on; }
+int mali_backend_inflight(void)         { return be_pend; }
+uint32_t mali_backend_wait_us(void)     { return be_wait_us; }
+
+void mali_backend_stats(gpu3d_stats_t *s, int reset)
+{
+    if (s)
+        *s = be_stats;
+    if (reset) {
+        memset(&be_stats, 0, sizeof be_stats);
+        be_wait_us = 0;
+    }
+}
+
 int mali_backend_pending(void)
 {
     return be_n;
 }
 
+/* drains any in-flight slot 0 fragment job without resolving */
+static void be_drain_pend(void)
+{
+    if (!be_pend)
+        return;
+    if (probed_ok && H) {
+        uint32_t st = 0, raw = 0;
+        const uint32_t t0 = H->us();
+        while (!job_poll(0, &st, &raw) && H->us() - t0 < 100000)
+            ;
+        gw(MMU_INT_CLEAR, 0xffffffffu);
+    }
+    be_pend = 0;
+}
+
 void mali_backend_drop(void)
 {
+    be_drain_pend();
     be_n = 0;
+    be_nmvp = 0;
 }
 
-/* the pixels of the surface that are not the key, into the page */
+/* the pixels of the surface that are not the key, into the page (4 pixels at a time via 64-bit loads) */
 static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
 {
-    for (int y = 0; y < g->h; y++)
-        for (int x = 0; x < g->w; x++) {
-            const uint32_t p = rd32(surf + (size_t)y * pitch + 4 * (size_t)x) & 0xFFFFFF;
-            if (p != BE_KEY)
-                g->px[(size_t)y * g->stride + x] = (uint16_t)((p >> 19 & 31) << 11 | (p >> 10 & 63) << 5 | (p >> 3 & 31));
+    const uint64_t key2 = (uint64_t)BE_KEY | ((uint64_t)BE_KEY << 32);
+    const uint64_t mask = 0x00FFFFFF00FFFFFFull;
+    const int w = g->w, h = g->h, w4 = w & ~3;
+    for (int y = 0; y < h; y++) {
+        const uint8_t *row = surf + (size_t)y * pitch;
+        uint16_t *dst = g->px + (size_t)y * g->stride;
+        int x = 0;
+        for (; x < w4; x += 4) {
+            uint64_t a, b;
+            memcpy(&a, row + 4 * (size_t)x, 8);
+            memcpy(&b, row + 4 * (size_t)x + 8, 8);
+            a &= mask;
+            b &= mask;
+            if (((a ^ key2) | (b ^ key2)) == 0)
+                continue;
+            const uint32_t p0 = (uint32_t)a, p1 = (uint32_t)(a >> 32);
+            const uint32_t p2 = (uint32_t)b, p3 = (uint32_t)(b >> 32);
+            if (p0 != BE_KEY)
+                dst[x + 0] = (uint16_t)((p0 >> 19 & 31) << 11 | (p0 >> 10 & 63) << 5 | (p0 >> 3 & 31));
+            if (p1 != BE_KEY)
+                dst[x + 1] = (uint16_t)((p1 >> 19 & 31) << 11 | (p1 >> 10 & 63) << 5 | (p1 >> 3 & 31));
+            if (p2 != BE_KEY)
+                dst[x + 2] = (uint16_t)((p2 >> 19 & 31) << 11 | (p2 >> 10 & 63) << 5 | (p2 >> 3 & 31));
+            if (p3 != BE_KEY)
+                dst[x + 3] = (uint16_t)((p3 >> 19 & 31) << 11 | (p3 >> 10 & 63) << 5 | (p3 >> 3 & 31));
         }
+        for (; x < w; x++) {
+            const uint32_t p = rd32(row + 4 * (size_t)x) & 0xFFFFFF;
+            if (p != BE_KEY)
+                dst[x] = (uint16_t)((p >> 19 & 31) << 11 | (p >> 10 & 63) << 5 | (p >> 3 & 31));
+        }
+    }
 }
 
-/* one frame of the draws so far, resolved into the page; 0, or -1 */
-static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, uint32_t sw, uint32_t sh,
-                  const mali_draw_t *dr, uint32_t nd)
+int mali_backend_sync(void)
 {
-    int (*frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t, const mali_draw_t *,
-                 uint32_t) = be_frame ? be_frame : mali_frame;
-    if (frame(be_hw, surf, pa, pitch, sw, sh, BE_KEY, dr, nd) < 0)      /* 0 and 1 both count as done */
+    if (!be_pend)
+        return 0;
+    be_pend = 0;
+    if (!probed_ok || !H)
         return -1;
+    uint32_t st = 0, raw = 0;
+    const uint32_t w0 = H->us();
+    int r;
+    while (!(r = job_poll(0, &st, &raw)) && H->us() - w0 < 100000)
+        ;
+    const uint32_t wait = H->us() - w0;
+    const uint32_t us2 = H->us() - be_pend_t0;
+    if (!r)
+        st = gr(JS(0, JS_STATUS));
+    if (r <= 0) {
+        job_fail(0, "the fragment job of a frame", st, raw);
+        return -1;
+    }
+    be_stats.jobs++;
+    be_stats.tris += be_pend_tris;
+    be_stats.bin_us += be_pend_us;
+    be_stats.render_us += us2;
+    if (be_pend_us + us2 > be_stats.max_us)
+        be_stats.max_us = be_pend_us + us2;
+    be_wait_us += be_pend_us + wait;
+    be_resolve(be_pend_g, be_pend_surf, be_pend_pitch);
+    return 0;
+}
+
+/* one frame of the draws so far, resolved into the page (or kicked on slot 0 when async); 0, or -1 */
+static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, uint32_t sw, uint32_t sh,
+                  const mali_draw_t *dr, uint32_t nd, int async)
+{
+    uint32_t btris = 0;
+    for (uint32_t d = 0; d < nd; d++)
+        btris += dr[d].n;
+    if (be_frame) {
+        if (be_frame(be_hw, surf, pa, pitch, sw, sh, BE_KEY, dr, nd) < 0)   /* 0 and 1 both count as done */
+            return -1;
+        be_stats.jobs++;
+        be_stats.tris += btris;
+        be_resolve(g, surf, pitch);
+        return 0;
+    }
+    if (!probed_ok || be_hw != H || H->mem_size < MALI_SET_BASE(1) || frames_step() != 0)
+        return -1;
+    frame_build(0, dr, nd, sw, sh, pa, pitch, BE_KEY);
+    uint32_t us = 0, st = 0, us2 = 0;
+    if (run_on(1, H->mem_pa + MALI_SET_BASE(0) + SO_DRAWS, &us, &st, "the vertex and tiler jobs of a frame") != 0)
+        return -1;
+    if (async && be_q_on) {
+        gw(MMU_INT_CLEAR, 0xffffffffu);
+        be_pend_t0 = H->us();
+        job_kick(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB);
+        be_pend = 1;
+        be_pend_g = (g16_t *)g;
+        be_pend_surf = surf;
+        be_pend_pitch = pitch;
+        be_pend_us = us;
+        be_pend_tris = btris;
+        return 0;
+    }
+    if (run_on(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB, &us2, &st, "the fragment job of a frame") != 0)
+        return -1;
+    be_stats.jobs++;
+    be_stats.tris += btris;
+    be_stats.bin_us += us;
+    be_stats.render_us += us2;
+    if (us + us2 > be_stats.max_us)
+        be_stats.max_us = us + us2;
+    be_wait_us += us + us2;
     be_resolve(g, surf, pitch);
     return 0;
 }
 
-static int be_flush(const g16_t *g)
+static int tri_after_mvp(const be_tri_t *a, const be_tri_t *b)
+{
+    if (a->key != b->key)
+        return a->key > b->key;
+    if (a->mvp != b->mvp)
+        return (uintptr_t)a->mvp > (uintptr_t)b->mvp;
+    if (a->mvp != NULL)
+        return a->rgb > b->rgb;
+    return 0;
+}
+
+static int tri_after_rgb(const be_tri_t *a, const be_tri_t *b)
+{
+    if (a->key != b->key)
+        return a->key > b->key;
+    return a->rgb > b->rgb;
+}
+
+static int be_flush_mode(const g16_t *g, int async)
 {
     static float vbuf[MALI_BATCH_MAX * 3][3];
     static mali_draw_t dr[MALI_MAX_DRAWS];
     static int idx[MALI_BATCH_MAX];
+    if (be_pend && mali_backend_sync() != 0)
+        return -1;
     const int n = be_n;
     if (n == 0)
         return 0;
     be_n = 0;
+    be_nmvp = 0;
     const mali_hw_t *hw = be_hw;
     const uint32_t sw = ((uint32_t)g->w + 15) & ~15u, sh = ((uint32_t)g->h + 15) & ~15u;
     const uint32_t pitch = (sw * 4 + 63) & ~63u;
@@ -1386,27 +1544,68 @@ static int be_flush(const g16_t *g)
     const uint32_t surf_off = in_set ? MALI_SET_BASE(0) + MALI_SET_SURFACE : BE_SURF_OFF;
     if (surf_off + (uint64_t)pitch * sh > hw->mem_size)
         return -1;
-    for (int i = 0; i < n; i++)
+    int any_mvp = 0;
+    for (int i = 0; i < n; i++) {
         idx[i] = i;
+        if (be_tris[i].mvp)
+            any_mvp = 1;
+    }
     for (int i = 1; i < n; i++) {                   /* stable insertion sort: far (small key) first */
         const int k = idx[i];
         int j = i - 1;
-        while (j >= 0 && be_tris[idx[j]].key > be_tris[k].key) {
+        while (j >= 0 && tri_after_mvp(&be_tris[idx[j]], &be_tris[k])) {
             idx[j + 1] = idx[j];
             j--;
         }
         idx[j + 1] = k;
+    }
+    if (any_mvp) {
+        int runs = 1;
+        for (int i = 1; i < n; i++) {
+            const be_tri_t *p = &be_tris[idx[i - 1]], *c = &be_tris[idx[i]];
+            if (p->rgb != c->rgb || p->mvp != c->mvp)
+                runs++;
+        }
+        /* When many small meshes overflow MALI_MAX_DRAWS (64) only because each mesh has its own mvp matrix,
+         * projecting their vertices into screen space lets same-colour triangles merge across meshes into one
+         * GPU frame instead of running multiple full-surface clear + resolve passes. */
+        if (runs > MALI_MAX_DRAWS) {
+            for (int i = 0; i < n; i++) {
+                be_tri_t *t = &be_tris[i];
+                const float *m = t->mvp;
+                if (!m)
+                    continue;
+                for (int k = 0; k < 3; k++) {
+                    const float vx = t->v[k][0], vy = t->v[k][1], vz = t->v[k][2];
+                    const float wc = m[12] * vx + m[13] * vy + m[14] * vz + m[15];
+                    const float iw = wc != 0.0f ? 1.0f / wc : 1.0f;
+                    t->v[k][0] = (m[0] * vx + m[1] * vy + m[2] * vz + m[3]) * iw;
+                    t->v[k][1] = (m[4] * vx + m[5] * vy + m[6] * vz + m[7]) * iw;
+                    t->v[k][2] = 0.5f;
+                }
+                t->mvp = NULL;
+            }
+            for (int i = 1; i < n; i++) {
+                const int k = idx[i];
+                int j = i - 1;
+                while (j >= 0 && tri_after_rgb(&be_tris[idx[j]], &be_tris[k])) {
+                    idx[j + 1] = idx[j];
+                    j--;
+                }
+                idx[j + 1] = k;
+            }
+        }
     }
     uint8_t *surf = hw->mem + surf_off;
     const uint64_t pa = hw->mem_pa + surf_off;
     uint32_t nd = 0, nv = 0;
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
-        if (nd > 0 && dr[nd - 1].rgb == t->rgb) {
+        if (nd > 0 && dr[nd - 1].rgb == t->rgb && dr[nd - 1].mvp == t->mvp) {
             dr[nd - 1].n++;
         } else {
-            if (nd == MALI_MAX_DRAWS) {             /* a full frame: draw it, go on with a fresh one */
-                if (be_run(g, surf, pa, pitch, sw, sh, dr, nd) != 0)
+            if (nd == MALI_MAX_DRAWS) {             /* a full frame: draw it synchronously, go on with a fresh one */
+                if (be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
                     return -1;
                 nd = 0;
                 nv = 0;
@@ -1414,24 +1613,35 @@ static int be_flush(const g16_t *g)
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
             dr[nd].n = 1;
             dr[nd].rgb = t->rgb;
+            dr[nd].mvp = t->mvp;
             nd++;
         }
         memcpy(vbuf[nv], t->v, sizeof t->v);
         nv += 3;
     }
-    return be_run(g, surf, pa, pitch, sw, sh, dr, nd);
+    return be_run(g, surf, pa, pitch, sw, sh, dr, nd, async);
+}
+
+static int be_flush(const g16_t *g)
+{
+    return be_flush_mode(g, 0);
 }
 
 int mali_backend_flush(g16_t *g)
 {
-    return be_flush(g);
+    return be_flush_mode(g, 0);
+}
+
+int mali_backend_submit(g16_t *g)
+{
+    return be_flush_mode(g, 1);
 }
 
 static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex, int depth)
 {
     (void)ctx;
     (void)tex;
-    if (kind != R3D_KIND_COLOUR || depth != R3D_DEPTH_WRITE)    /* r3d sends nothing else (colour_only): the guard */
+    if ((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR || depth != R3D_DEPTH_WRITE)    /* r3d sends nothing else (colour_only): the guard */
         return;
     if (be_n == MALI_BATCH_MAX)
         be_flush(g);                                /* (g16_t holds the page by pointer: const does not stop the copy) */
@@ -1453,6 +1663,225 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
         rgb = 0xFF01FF;                             /* the key means "not covered" */
     t->rgb = rgb;
     t->key = z / 3;                                 /* 1/depth: larger is nearer */
+    t->mvp = NULL;
+}
+
+static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
+                   int nbones, const r3d_env_t *env, int depth)
+{
+    (void)ctx;
+    if (!be_vs_on || (env->lit && be_vs_on < 2) || depth != R3D_DEPTH_WRITE || !m ||
+        m->nfaces <= 0 || m->nverts <= 0 || m->clight)
+        return 0;
+    const int skinned = m->bones && m->nbones > 0 && m->vbone;
+    const int nb = skinned ? (nbones < 32 ? nbones : 32) : 1;
+    const unsigned dbit = 1u << env->detail;
+    for (int t = 0; t < m->nfaces; t++) {
+        const uint32_t c = m->colors[t];
+        if (!R3D_LOD_SHOWS(c, env->detail))
+            continue;
+        if (c & (R3D_TEXTURED | R3D_SCREEN))
+            return 0;
+        if (skinned) {
+            const uint16_t *fc = m->faces + t * 3;
+            const uint8_t b0 = m->vbone[fc[0]];
+            if (b0 >= (unsigned)nb || m->vbone[fc[1]] != b0 || m->vbone[fc[2]] != b0)
+                return 0;
+        }
+    }
+    if (!env->inside) {
+        for (int i = 0; i < m->nverts; i++) {
+            if (m->vlod && !(m->vlod[i] & dbit))
+                continue;
+            const float *Mb = M[skinned ? m->vbone[i] : 0];
+            const v3_t o = m->verts[i];
+            const float cz = Mb[8] * o.x + Mb[9] * o.y + Mb[10] * o.z + Mb[11];
+            if (cz < R3D_NEAR)
+                return 0;
+        }
+    }
+    if (be_n + m->nfaces > MALI_BATCH_MAX || be_nmvp + nb > BE_MAX_MVPS)
+        be_flush(g);
+    const float zmul = env->front ? 0.1f : 1.0f;
+    float mvp_local[32][16];
+    float cam_s2[32], cam_at[32][3], cz_bone[32];
+    v3_t l_sun[32], l_up[32], l_view[32], l_half[32];
+    const float *mvp_bone[32];
+    for (int b = 0; b < nb; b++) {
+        const float *Mb = M[b];
+        float *mvp = mvp_local[b];
+        for (int j = 0; j < 4; j++) {
+            mvp[0 + j]  = env->f * Mb[0 + j] + env->cx * Mb[8 + j];
+            mvp[4 + j]  = -env->f * Mb[4 + j] + env->cy * Mb[8 + j];
+            mvp[8 + j]  = 0.5f * Mb[8 + j];
+            mvp[12 + j] = Mb[8 + j];
+        }
+        if (be_nmvp < BE_MAX_MVPS) {
+            memcpy(be_mvps[be_nmvp], mvp, sizeof mvp_local[b]);
+            mvp_bone[b] = be_mvps[be_nmvp++];
+        } else {
+            mvp_bone[b] = NULL;
+        }
+        cam_s2[b] = Mb[0] * Mb[0] + Mb[1] * Mb[1] + Mb[2] * Mb[2];
+        cam_at[b][0] = Mb[0] * Mb[3] + Mb[4] * Mb[7] + Mb[8] * Mb[11];
+        cam_at[b][1] = Mb[1] * Mb[3] + Mb[5] * Mb[7] + Mb[9] * Mb[11];
+        cam_at[b][2] = Mb[2] * Mb[3] + Mb[6] * Mb[7] + Mb[10] * Mb[11];
+        const v3_t c = m->centre;
+        float cz = skinned ? 0.0f : (Mb[8] * c.x + Mb[9] * c.y + Mb[10] * c.z + Mb[11]);
+        if (!skinned && cz < R3D_NEAR)
+            cz = R3D_NEAR;
+        cz_bone[b] = cz;
+        if (env->lit && N) {
+            const float *Nb = N[b];
+            l_sun[b]  = (v3_t){ Nb[0] * env->sun[0]  + Nb[3] * env->sun[1]  + Nb[6] * env->sun[2],
+                                Nb[1] * env->sun[0]  + Nb[4] * env->sun[1]  + Nb[7] * env->sun[2],
+                                Nb[2] * env->sun[0]  + Nb[5] * env->sun[1]  + Nb[8] * env->sun[2] };
+            l_up[b]   = (v3_t){ Nb[3], Nb[4], Nb[5] };
+            l_view[b] = (v3_t){ Nb[0] * env->view[0] + Nb[3] * env->view[1] + Nb[6] * env->view[2],
+                                Nb[1] * env->view[0] + Nb[4] * env->view[1] + Nb[7] * env->view[2],
+                                Nb[2] * env->view[0] + Nb[5] * env->view[1] + Nb[8] * env->view[2] };
+            l_half[b] = (v3_t){ Nb[0] * env->half[0] + Nb[3] * env->half[1] + Nb[6] * env->half[2],
+                                Nb[1] * env->half[0] + Nb[4] * env->half[1] + Nb[7] * env->half[2],
+                                Nb[2] * env->half[0] + Nb[5] * env->half[1] + Nb[8] * env->half[2] };
+        }
+    }
+    if (skinned) {
+        int bcnt[32] = { 0 };
+        float bsum[32] = { 0 };
+        for (int i = 0; i < m->nverts; i++) {
+            const int b = m->vbone[i];
+            if (b < nb) {
+                const float *Mb = M[b];
+                const v3_t o = m->verts[i];
+                bsum[b] += Mb[8] * o.x + Mb[9] * o.y + Mb[10] * o.z + Mb[11];
+                bcnt[b]++;
+            }
+        }
+        for (int b = 0; b < nb; b++) {
+            float cz = bcnt[b] > 0 ? bsum[b] / (float)bcnt[b] : M[b][11];
+            if (cz < R3D_NEAR)
+                cz = R3D_NEAR;
+            cz_bone[b] = cz;
+        }
+    }
+    uint32_t nsent = 0;
+    for (int t = 0; t < m->nfaces; t++) {
+        const uint32_t c = m->colors[t];
+        if (!R3D_LOD_SHOWS(c, env->detail))
+            continue;
+        const uint16_t *fc = m->faces + t * 3;
+        const int b = skinned ? m->vbone[fc[0]] : 0;
+        const v3_t v0 = m->verts[fc[0]], v1 = m->verts[fc[1]], v2 = m->verts[fc[2]];
+        const v3_t n = m->normals[t];
+        const float s2 = cam_s2[b], *at = cam_at[b];
+        if ((s2 * v0.x + at[0]) * n.x + (s2 * v0.y + at[1]) * n.y + (s2 * v0.z + at[2]) * n.z >= 0.0f)
+            continue;
+        if (be_n == MALI_BATCH_MAX) {
+            be_flush(g);
+            for (int kb = 0; kb < nb; kb++) {
+                memcpy(be_mvps[be_nmvp], mvp_local[kb], sizeof mvp_local[kb]);
+                mvp_bone[kb] = be_mvps[be_nmvp++];
+            }
+        }
+        uint32_t rgb = c & 0xFFFFFFu;
+        const int emissive = env->unlit || (c & R3D_EMISSIVE) != 0;
+        if (!emissive && env->lit) {
+            const float d = n.x * l_sun[b].x + n.y * l_sun[b].y + n.z * l_sun[b].z;
+            const float ny = n.x * l_up[b].x + n.y * l_up[b].y + n.z * l_up[b].z;
+            float dd = d > 0.0f ? d : 0.0f;
+            if (env->cel > 0) {
+                int ci = (int)(dd * 64.0f);
+                if (ci > 63) ci = 63;
+                const int cb = ci * env->cel / 64;
+                const float cv = env->cel_floor + (1.0f - env->cel_floor) * (float)cb / (float)(env->cel - 1);
+                dd = (float)((int)(cv * 255.0f + 0.5f)) * (1.0f / 255.0f);
+            }
+            float lr = env->A[0] + env->B[0] * ny + env->D[0] * dd;
+            float lg = env->A[1] + env->B[1] * ny + env->D[1] * dd;
+            float lb = env->A[2] + env->B[2] * ny + env->D[2] * dd;
+            if (env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f) {
+                const float nv = n.x * l_view[b].x + n.y * l_view[b].y + n.z * l_view[b].z;
+                const float e = 1.0f - (nv > 0.0f ? nv : 0.0f), ee = e * e;
+                lr += ee * env->R[0];
+                lg += ee * env->R[1];
+                lb += ee * env->R[2];
+            }
+            if (env->nlamps > 0) {
+                const float *Mb = M[b];
+                const float ox = (v0.x + v1.x + v2.x) * (1.0f / 3.0f),
+                            oy = (v0.y + v1.y + v2.y) * (1.0f / 3.0f),
+                            oz = (v0.z + v1.z + v2.z) * (1.0f / 3.0f);
+                const float mx = Mb[0] * ox + Mb[1] * oy + Mb[2] * oz + Mb[3],
+                            my = Mb[4] * ox + Mb[5] * oy + Mb[6] * oz + Mb[7],
+                            mz = Mb[8] * ox + Mb[9] * oy + Mb[10] * oz + Mb[11];
+                for (int li = 0; li < env->nlamps; li++) {
+                    const float *L = env->lamp[li];
+                    const float dx = mx - L[0], dy = my - L[1], dz = mz - L[2];
+                    const float d2 = (dx * dx + dy * dy + dz * dz) * L[3];
+                    if (d2 < 1.0f) {
+                        const float k = 1.0f - d2;
+                        lr += k * L[4];
+                        lg += k * L[5];
+                        lb += k * L[6];
+                    }
+                }
+            }
+            float sr = 0.0f, sg = 0.0f, sb = 0.0f;
+            if ((c & R3D_GLOSSY) && d > 0.0f && (env->S[0] > 0.0f || env->S[1] > 0.0f || env->S[2] > 0.0f)) {
+                float nh = n.x * l_half[b].x + n.y * l_half[b].y + n.z * l_half[b].z;
+                if (nh > 0.0f) {
+                    for (float p = 1.0f; p < env->spec_p; p *= 2.0f)
+                        nh *= nh;
+                    const float ks = env->cel > 0 ? (nh > 0.5f ? 1.0f : 0.0f) : nh;
+                    sr = ks * env->S[0];
+                    sg = ks * env->S[1];
+                    sb = ks * env->S[2];
+                }
+            }
+            float cr = (float)(rgb >> 16 & 255) * lr + 255.0f * sr;
+            float cg = (float)(rgb >> 8 & 255) * lg + 255.0f * sg;
+            float cb = (float)(rgb & 255) * lb + 255.0f * sb;
+            if (cr > 255.0f) cr = 255.0f;
+            if (cg > 255.0f) cg = 255.0f;
+            if (cb > 255.0f) cb = 255.0f;
+            if (env->fog_k > 0.0f) {
+                float ff = (cz_bone[b] - env->fog_near) * env->fog_k;
+                if (ff < 0.0f) ff = 0.0f;
+                if (ff > 1.0f) ff = 1.0f;
+                cr += (env->fog[0] * 255.0f - cr) * ff;
+                cg += (env->fog[1] * 255.0f - cg) * ff;
+                cb += (env->fog[2] * 255.0f - cb) * ff;
+            }
+            const uint32_t r5 = (uint32_t)(cr + 0.5f) >> 3, g6 = (uint32_t)(cg + 0.5f) >> 2, b5 = (uint32_t)(cb + 0.5f) >> 3;
+            const uint32_t r8 = (r5 << 3) | (r5 >> 2), g8 = (g6 << 2) | (g6 >> 4), b8 = (b5 << 3) | (b5 >> 2);
+            rgb = (r8 > 255 ? 255 : r8) << 16 | (g8 > 255 ? 255 : g8) << 8 | (b8 > 255 ? 255 : b8);
+        } else if (env->fog_k > 0.0f) {
+            float ff = (cz_bone[b] - env->fog_near) * env->fog_k;
+            if (ff < 0.0f) ff = 0.0f;
+            if (ff > 1.0f) ff = 1.0f;
+            float cr = (float)(rgb >> 16 & 255), cg = (float)(rgb >> 8 & 255), cb = (float)(rgb & 255);
+            cr += (env->fog[0] * 255.0f - cr) * ff;
+            cg += (env->fog[1] * 255.0f - cg) * ff;
+            cb += (env->fog[2] * 255.0f - cb) * ff;
+            const uint32_t r5 = (uint32_t)(cr + 0.5f) >> 3, g6 = (uint32_t)(cg + 0.5f) >> 2, b5 = (uint32_t)(cb + 0.5f) >> 3;
+            const uint32_t r8 = (r5 << 3) | (r5 >> 2), g8 = (g6 << 2) | (g6 >> 4), b8 = (b5 << 3) | (b5 >> 2);
+            rgb = (r8 > 255 ? 255 : r8) << 16 | (g8 > 255 ? 255 : g8) << 8 | (b8 > 255 ? 255 : b8);
+        }
+        if (rgb == BE_KEY)
+            rgb = 0xFF01FF;
+        be_tri_t *tr = &be_tris[be_n++];
+        tr->v[0][0] = v0.x; tr->v[0][1] = v0.y; tr->v[0][2] = v0.z;
+        tr->v[1][0] = v1.x; tr->v[1][1] = v1.y; tr->v[1][2] = v1.z;
+        tr->v[2][0] = v2.x; tr->v[2][1] = v2.y; tr->v[2][2] = v2.z;
+        tr->rgb = rgb;
+        tr->key = zmul / cz_bone[b];
+        tr->mvp = mvp_bone[b];
+        nsent++;
+    }
+    be_stats.glmeshes++;
+    be_stats.gltris += nsent;
+    be_stats.glverts += (uint32_t)m->nverts;
+    return 1;
 }
 
 static void be_zclear(void *ctx, const g16_t *g)
@@ -1464,7 +1893,10 @@ static void be_zclear(void *ctx, const g16_t *g)
 
 const r3d_backend_t *mali_backend(const mali_hw_t *hw)
 {
-    static const r3d_backend_t be = { .tri = be_tri, .zclear = be_zclear, .colour_only = 1 };
+    static const r3d_backend_t be = {
+        .tri = be_tri, .mesh = be_mesh, .zclear = be_zclear,
+        .guard = 2048.0f, .cel = 1, .colour_only = 1,
+    };
     if (!probed_ok || hw != H)
         return NULL;
     be_hw = hw;
