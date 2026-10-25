@@ -15,6 +15,8 @@ local st_t = 0                            -- ticks since the state began
 local tape_t = 0
 local changed = {}                        -- level cells the player changed: {cx, cy}, put back on a restart
 local L0                                  -- the level as it was loaded
+local bench = false                       -- Select shows the frame cost and logs it every 5 seconds
+local b_sum, b_max, b_n, b_ms, b_peak = 0, 0, 0, 0, 0
 local bumping = {}                        -- blocks jumping up: {cx, cy, t, used}
 local pops = {}                           -- coins thrown up by a block: {x, y, t}
 local BUMP_Y = { -2, -4, -5, -6, -5, -4, -2, 0 }
@@ -91,8 +93,12 @@ spawn_koopas = function()
   end
 end
 
-local function koopa_solid(px, py)
+local function koopa_solid(px, py)      -- walls: solid only; the floor under it: solid or platform
   return mflags(px, py, 1, 1, "col") & 1 ~= 0
+end
+
+local function koopa_floor(px, py)
+  return mflags(px, py, 1, 1, "col") & 3 ~= 0
 end
 
 local function koopa_step(k, solid_at)
@@ -105,9 +111,9 @@ local function koopa_step(k, solid_at)
   k.vy = math.min(k.vy + 4, 64)
   local oy = k.y
   k.y = k.y + k.vy / 16 * 1.2
-  if solid_at(k.x + 2, k.y + 16) or solid_at(k.x + 13, k.y + 16) then
+  if koopa_floor(k.x + 2, k.y + 16) or koopa_floor(k.x + 13, k.y + 16) then
     k.y = math.floor(oy)
-    while solid_at(k.x + 2, k.y + 16) or solid_at(k.x + 13, k.y + 16) do k.y = k.y - 1 end
+    while koopa_floor(k.x + 2, k.y + 16) or koopa_floor(k.x + 13, k.y + 16) do k.y = k.y - 1 end
     k.vy = 0
   end
   if k.state == "shell" then
@@ -166,6 +172,11 @@ local function solid(px, py)
   return mflags(px, py, 1, 1, "col") & 1 ~= 0
 end
 
+local function platform(px, py)
+  if py < 0 then return false end
+  return mflags(px, py, 1, 1, "col") & 2 ~= 0
+end
+
 local last_inp = {}
 local function inputs()
   return {
@@ -206,7 +217,7 @@ end
 local function play_tick(inp)
   prev.x, prev.y = mario.x, mario.y
   local was_ground = mario.ground
-  Phys.step(mario, inp, solid)
+  Phys.step(mario, inp, solid, platform)
   if was_ground and not mario.ground and mario.vy < 0 then spinning = inp.spin end
   if state == "play" then
     if mario.bump then hit_block(mario.bump.x // 16, mario.bump.y // 16) end
@@ -236,8 +247,8 @@ local function play_tick(inp)
         elseif k.state == "shell" then                               -- a kick
           k.state, k.vx = "slide", (mx0 + 6 < k.x + 8) and 60 or -60
           k.t = 0
-        elseif (k.state == "walk" or k.state == "slide") and not (k.state == "slide" and k.t < 8) then
-          die()                                                      -- small Mario has no second chance
+        elseif k.state == "walk" or (k.state == "slide" and k.t >= 8 and (k.vx > 0) == (mx0 + 6 > k.x + 8)) then
+          die()           -- small Mario has no second chance; a shell hurts only what it runs into, not the one behind it
         end
       end
       if k.state == "slide" then
@@ -296,6 +307,7 @@ local function tick(inp)
 end
 
 function _update()
+  if btnp("select") then bench = not bench end
   if state == "over" or (state == "clear" and st_t > 200) then
     if btnp("start") or btnp("a") or btnp("b") then
       if state == "over" then lives, coins, score = 5, 0, 0 end
@@ -355,6 +367,19 @@ function _draw()
   print(string.format("COINS %d", coins), VX + 108, 28, 0xFFE060)
   print(string.format("TIME %d", time_left), VX + 190, 28, 0xFFFFFF)
   print(string.format("%07d", score), VX + 190, 44, 0xB0B0B0)
+  local ms = stat(1)                                -- the cost of the last frame, in ms
+  b_sum, b_n, b_max = b_sum + ms, b_n + 1, math.max(b_max, ms)
+  if b_n >= 60 then
+    b_ms, b_peak, b_sum, b_n, b_max = b_sum / b_n, b_max, 0, 0, 0
+    if stat(3) % 300 < 60 then
+      log(string.format("bench %.3f ms avg %.3f max, %d fps, lua %d KB, %d instr", b_ms, b_peak, stat(2), stat(0), stat(10)))
+    end
+  end
+  if bench then
+    print(string.format("%.2f ms  max %.2f  %d fps", b_ms, b_peak, stat(2)), 8, 322, 0x80FF80)
+    print(string.format("lua %d KB  %d instr  x %d  vx %.0f  P %d", stat(0), stat(10), math.floor(mario.x), mario.vx,
+                        math.floor(mario.pm)), 8, 338, 0x808080)
+  end
   local function banner(a, b)
     rectfill(VX + 28, VY + 70, VIEW_W - 56, 70, 0x101820)
     print(a, VX + (VIEW_W - #a * 16) // 2, VY + 86, 0xFFFFFF, 2)

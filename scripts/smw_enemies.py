@@ -63,14 +63,19 @@ def main():
             if name in pics:
                 pics[name]["count"] += 1
                 continue
-            if shot is None:
-                shot = g.e.get_screen()
-            pics[name] = {"id": w[0x9E + i], "status": w[0x14C8 + i], "count": 1, "px": px, "sx": sx - cx, "sy": sy - cy}
+            mirror = w[0x703:0x703 + 512]
+            col = {}
             for (qx, qy), (c, p) in px.items():
-                if 0 <= qx < 256 and 0 <= qy < 224:
-                    rgb = tuple(int(q) for q in shot[qy][qx])
-                    palette.setdefault((p, c), {}).setdefault(rgb, 0)
-                    palette[(p, c)][rgb] += 1
+                if p >= 1:                  # sprite rows 1-7 are in the game's palette copy; row 0 is Mario's
+                    k = 0x100 + (p * 16 + c) * 2
+                    r = mirror[k] | mirror[k + 1] << 8
+                    col[(p, c)] = ((r & 31) * 255 // 31, ((r >> 5) & 31) * 255 // 31, ((r >> 10) & 31) * 255 // 31)
+                elif 0 <= qx < 256 and 0 <= qy < 224:
+                    if shot is None:
+                        shot = g.e.get_screen()
+                    palette.setdefault((p, c), {}).setdefault(tuple(int(q) for q in shot[qy][qx]), 0)
+                    palette[(p, c)][tuple(int(q) for q in shot[qy][qx])] += 1
+            pics[name] = {"id": w[0x9E + i], "status": w[0x14C8 + i], "count": 1, "px": px, "sx": sx - cx, "sy": sy - cy, "col": col}
     pal = {k: max(d, key=d.get) for k, d in palette.items()}
     meta = {}
     for name, d in pics.items():
@@ -78,7 +83,7 @@ def main():
         x0, y0 = min(xs), min(ys)
         im = Image.new("RGBA", (max(xs) - x0 + 1, max(ys) - y0 + 1), (0, 0, 0, 0))
         for (qx, qy), (c, p) in d["px"].items():
-            r, gg, b = pal.get((p, c), (255, 0, 255))
+            r, gg, b = d["col"].get((p, c)) or pal.get((p, c), (255, 0, 255))
             im.putpixel((qx - x0, qy - y0), (r, gg, b, 255))
         fn = "pic_%s.png" % name
         im.save(out + "/" + fn)

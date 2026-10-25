@@ -10,9 +10,16 @@ import json, os, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
-def solid(k):
-    """Map16 numbers the player stands on or bumps into (first level only, from the tile graphics)."""
-    return 0x100 <= k < 0x1C0 or k in (0x03F, 0x040, 0x041)
+# Tested in the emulator (scripts/smw_solid.py): the ledge tiles are platforms (a floor from above only,
+# Mario goes through them from below and from the side), the blocks and pipes are solid on every side,
+# the tiles under 0x100 (hills, bushes, the goal posts) are scenery.
+PLATFORM = {0x100, 0x101, 0x102, 0x103, 0x104, 0x106}
+FULL = {0x11A, 0x11E, 0x124, 0x126, 0x132, 0x133, 0x134, 0x135, 0x136, 0x137, 0x138, 0x145, 0x146, 0x148, 0x14B, 0x14C}
+
+
+def kind(k):
+    """0 scenery, 1 solid, 2 platform: the flag bit of the collision layer's marker cell."""
+    return 1 if k in FULL else (2 if k in PLATFORM else 0)
 
 
 def backdrop(ex):
@@ -107,7 +114,7 @@ def main():
     level = json.load(open(ex + "/level.json"))
     meta = json.load(open(ex + "/meta.json"))
     defs[0x025] = (0, 0, 0, 0)          # SMW draws the empty cell with a tile the PPU hides
-    col = meta["cells"] + 1
+    col = meta["cells"] + 1             # two marker cells after the tiles: col (solid, flag 1), col + 1 (platform, flag 2)
     main_rows, col_rows = [], []
     for row in level:
         top, bot, ctop, cbot = [], [], [], []
@@ -115,14 +122,14 @@ def main():
             tl, bl, tr, br = defs.get(k, (0, 0, 0, 0))
             top += [tl, tr]
             bot += [bl, br]
-            c = col if solid(k) else 0
+            c = (0, col, col + 1)[kind(k)]
             ctop += [c, c]
             cbot += [c, c]
         main_rows += [top, bot]
         col_rows += [ctop, cbot]
     for name, rows in (("map_main.csv", main_rows), ("map_col.csv", col_rows)):
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
-    open(out + "/flags.csv", "w").write("%d=1\n" % col)
+    open(out + "/flags.csv", "w").write("%d=1\n%d=2\n" % (col, col + 1))
     sheet_png = out + "/sheet.png"
     poses_lua = pack_poses(ex, ex + "/sheet.png", sheet_png)
     lua = poses_lua + block_data(defs, level) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()

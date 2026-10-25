@@ -25,6 +25,7 @@ the finished cartridge stay on the user's machine and SD card.
 - `scripts/smw_goal.py`: the goal tape picture. Measured: the tape (sprite 0x7B at x 4832) goes up
   one pixel a tick from y 368 to 244 and back (248 ticks). Touching it starts the end: Mario walks right.
   The clock drops one every 35 ticks from 400. Mario starts with 5 lives.
+- `scripts/smw_solid.py`: tests every Map16 number for solidity from above, the side, and below.
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
 - `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.b16`
@@ -42,14 +43,18 @@ the finished cartridge stay on the user's machine and SD card.
 ## Open work
 
 - Test start: `SMW_START=x,y python3 carts/smw/build/build.py` starts Mario elsewhere.
-- Solidity: the table is a guess (`0x100`-`0x1BF`, dirt `0x3F`-`0x41`). Read the real
-  "acts like" table from the ROM.
+- Solidity: tested in the emulator for the first level (`scripts/smw_solid.py`): ledges are
+  platforms (a floor from above only), blocks and pipes are solid, hills and posts are scenery.
+  For other levels read the "acts like" table from the ROM.
 - Mario poses: small Mario only. Capture big, fire, cape, Yoshi, swim, climb, death, and the
   walk speed steps. The animation rate is one rule (`anim += speed`, a frame per 122).
 - Background layer 2 (parallax forest): the game uses one colour. The TM mirror poke does not
   hide layers. Read the BG2 tilemap from VRAM or stitch it from frames.
 - Camera: use the SMW scroll rules. Now `x - 108`.
-- Tune the physics: start-up acceleration, air control, P meter decay, terminal speed. Slopes.
+- Physics: 11 scenarios (`tests/smw/trace_scripts.json`) against the emulator, mean position error
+  under 0.6 pixel, worst 2.9 pixels in x and 2.4 in y (`scripts/smw_physics_check.py`; `--fit`
+  refits the constants). The game moves first with the last tick's speed, then changes the speed.
+  Open: slopes, water, ice, the sub-pixel carry of the real engine, spin jump height.
 - Done: question blocks with coins (bump, used tile), coin pickup, coin counter.
 - Items from blocks (egg, 0x79), turn blocks (break when big), Yoshi/dragon coins, score.
 - Done: the goal tape and the course clear banner, 5 lives, the clock, death (hop and fall), game over,
@@ -60,7 +65,9 @@ the finished cartridge stay on the user's machine and SD card.
   places. Bonus by the tape height, the end screen of SMW, the overworld, 1-ups at 100 coins.
 - More levels. Map16 for other tilesets comes from the ROM table at `$0D8000`.
 - Sound: SPC700. Music last.
-- Measure the frame time on the RGB30. The host run takes 0.04 ms a frame.
+- Frame time: Select shows the overlay (ms, fps, Lua KB, instructions) and logs a `bench` line every 5
+  seconds. On the PC the level takes 0.05 ms a frame on average, 1-2 ms at the worst frame (a restart).
+  Run it on the RGB30 and read the log: the number is not known yet.
 - Write the PDF guide (EN and IT, with `bm-manuals`): how the `.bme` is built, which APIs it
   uses, the game structure, and the asset pipeline. Use original diagrams and code excerpts
   and the real screenshots of the user, for personal use. Do not commit that PDF.

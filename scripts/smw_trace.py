@@ -8,19 +8,13 @@ then plays fixed input scripts
 and writes one CSV per script to OUTDIR: frame, buttons, x, y, x speed, y speed, in-air,
 facing, P-meter. The CSV is the reference the .bme engine is tested against.
 RAM: $94/$96 position, $7B/$7D speed (signed), $72 in air, $76 facing, $13E4 P-meter."""
-import os, sys
+import json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from smw_capture import *
 
 H = {"B": B, "Y": Y, "L": LEFT, "R": RIGHT, "A": A, "U": UP, "D": DOWN}
-# name -> list of (frames, buttons) segments
-SCRIPTS = {
-    "walk":   [(20, ""), (90, "R"), (40, "")],
-    "run":    [(20, ""), (150, "RY"), (60, "")],
-    "jump":   [(20, ""), (50, "B"), (60, "")],
-    "runjump": [(20, ""), (100, "RY"), (60, "RYB"), (60, "RY"), (60, "")],
-    "turn":   [(20, ""), (60, "R"), (40, "L"), (30, "")],
-}
+# name -> list of (frames, buttons) segments, from tests/smw/trace_scripts.json (the Lua test reads the same file)
+SCRIPTS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "smw", "trace_scripts.json")))
 
 
 def s8(v):

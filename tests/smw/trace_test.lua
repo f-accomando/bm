@@ -1,11 +1,5 @@
 -- Plays the input scripts of scripts/smw_trace.py through the physics and logs one line per tick.
-local SCRIPTS = {
-  { "walk",    { { 20, "" }, { 90, "R" }, { 40, "" } } },
-  { "run",     { { 20, "" }, { 150, "RY" }, { 60, "" } } },
-  { "jump",    { { 20, "" }, { 50, "B" }, { 60, "" } } },
-  { "runjump", { { 20, "" }, { 100, "RY" }, { 60, "RYB" }, { 60, "RY" }, { 60, "" } } },
-  { "turn",    { { 20, "" }, { 60, "R" }, { 40, "L" }, { 30, "" } } },
-}
+--SCRIPTS--
 
 local function solid(px, py) return py >= 384 end
 
