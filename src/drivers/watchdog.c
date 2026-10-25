@@ -29,6 +29,13 @@ static void wd_write(uint32_t ticks)
     dmb();
 }
 
+int watchdog_emulated(void)
+{
+    uint32_t sn[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
+    return prop_query(PROP_GET_BOARD_SERIAL, sn, 2) == 0 &&
+           ((sn[0] == 0xFFFFFFFFu && sn[1] == 0xFFFFFFFFu) || (sn[0] == 0 && sn[1] == 0));
+}
+
 int watchdog_arm(uint32_t ms)
 {
     if (ms > 15000)
@@ -39,9 +46,7 @@ int watchdog_arm(uint32_t ms)
      * kernel. Its board serial is no number (the answer leaves the words as
      * sent, or 0:0), a real Pi's always is: known before the write, so no
      * reset (R-NET9). */
-    uint32_t sn[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
-    if (prop_query(PROP_GET_BOARD_SERIAL, sn, 2) == 0 &&
-        ((sn[0] == 0xFFFFFFFFu && sn[1] == 0xFFFFFFFFu) || (sn[0] == 0 && sn[1] == 0))) {
+    if (watchdog_emulated()) {
         probe_loaded = t;
         probe_left = 0;
         return -2;

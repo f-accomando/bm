@@ -13,6 +13,9 @@ void watchdog_halt(void) __attribute__((noreturn));
 /* Freeze guard: the SoC resets if watchdog_pet() is not called within ms
  * (up to 15 s). watchdog_stop() turns it off (crash screens stay). */
 int  watchdog_arm(uint32_t ms);         /* -1: no working watchdog (emulator) */
+/* 1 under an emulator: the board serial is no number there. QEMU has no PWM
+ * block (a write is a data abort). */
+int  watchdog_emulated(void);
 /* What the last watchdog_arm loaded and read back 20 ms later. */
 void watchdog_probe_values(uint32_t *loaded, uint32_t *left);
 void watchdog_pet(void);

@@ -345,7 +345,7 @@ int audio_out_start(const char **status)
         return 0;
     }
 
-    return fail("HDMI audio could not be started");
+    return -1;      /* hdmi_audio_start has set the reason in *status */
 }
 
 void audio_out_idle(void)

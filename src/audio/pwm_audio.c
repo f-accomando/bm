@@ -13,6 +13,7 @@
 #include "drivers/gpio.h"
 #include "drivers/board.h"
 #include "drivers/timer.h"
+#include "drivers/watchdog.h"
 #include "kernel/irq.h"
 #include "lib/printf.h"
 
@@ -134,6 +135,10 @@ int pwm_audio_start(const char **status)
     /* Pi 1 Model B/B+ only: Pi Zero models have no jack and use GPIO 45 for BT_REG_ON */
     if (!board_is_pi1())
         return pwm_fail("board has no 3.5mm jack (Pi 1 only)");
+
+    /* QEMU has no PWM block: a write to it is a data abort */
+    if (watchdog_emulated())
+        return pwm_fail("no PWM audio in an emulator");
 
     /* Claim DMA channel */
     static const uint8_t pref[] = { 5, 4, 2, 0 };

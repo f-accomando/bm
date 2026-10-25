@@ -10,6 +10,7 @@
 #include "gpio.h"
 #include "mmio.h"
 #include "timer.h"
+#include "watchdog.h"
 #include "audio/audio.h"
 #include "bm/gfx16.h"
 #include "gfx/font.h"
@@ -192,6 +193,8 @@ int spilcd_init(void)
         return -1;
     if (lcd_ready)
         return 0;
+    if (watchdog_emulated())    /* QEMU has no SPI0: the first wait for DONE never ends */
+        return -1;
 
     gpio_set_function(PIN_SCLK, GPIO_ALT0);
     gpio_set_function(PIN_MOSI, GPIO_ALT0);
