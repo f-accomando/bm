@@ -1,6 +1,6 @@
 # Aligning the RGB30 kernel (kernel8) with the Pi kernel
 
-State of 25 Oct 2026, checked against the code. Policy (user, 25 Oct, `docs/spec/CONSISTENCY.md`): the Pi Zero is the template. Port what the RGB30 lost. Keep what the RGB30 needs to be different (the square 360x360 screen, the pad and no keyboard, multicore multitasking). Decide each divergence one by one. The list is `docs/spec/divergences.toml`; the gate is `python3 scripts/consistency.py gate` (12 blockers on 25 Oct before B1; after B1 and B2: D03, D05, D10, D14, D15, D17, D24 and the spec folders-bm-bme).
+State of 25 Oct 2026, checked against the code. Policy (user, 25 Oct, `docs/spec/CONSISTENCY.md`): the Pi Zero is the template. Port what the RGB30 lost. Keep what the RGB30 needs to be different (the square 360x360 screen, the pad and no keyboard, multicore multitasking). Decide each divergence one by one. The list is `docs/spec/divergences.toml`; the gate is `python3 scripts/consistency.py gate` (12 blockers on 25 Oct before B1; after B1, B2 and B3: D03, D05, D14, D15, D17, D24 and the spec folders-bm-bme).
 
 Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason in `note` and use `cause = "hardware"`), DROP (gone from both), ASK (a product decision of the user).
 
@@ -10,7 +10,7 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 |---|---|---|---|---|---|---|---|
 | D03 | players | 4 BT pads plus USB (`src/usb/hid.c:445`, `src/kernel/input.c:225`) | all pads merge into player 1 (`src/rgb30/bm_input.c:95-103`); Settings shows "Player 1" only | ASK 1 | port the Pi slots: built-in pad is P1, BT pads P2-4 | S-M | device; host test of the merge |
 | D05 | menu pointer | mouse block in the menu (`src/kernel/carts.c`) | no pointer in `src/rgb30/ui.c`, but Settings shows the Mouse rows | ASK 2 | port the pointer block (`pointer.c` is built) or hide the rows | M / S | QEMU, device |
-| D10 | covers | background fiber job, visible covers first (`carts.c`) | every cover decoded in `scan_games` (`ui.c:280-292`) | PORT | keep the header read synchronous (sort needs titles); move the cover decode into a `fiber_job_t`, visible covers first; stop it before a game starts | M | QEMU; load time on the device |
+| D10 | covers | background fiber job, visible covers first (`carts.c`) | every cover decoded in `scan_games` (`ui.c:280-292`) | done 25 Oct (QEMU) | keep the header read synchronous (sort needs titles); move the cover decode into a `fiber_job_t`, visible covers first; stop it before a game starts | M | QEMU; load time on the device |
 | D14 | DMA test | Settings > System > Utilities | not built | ASK 4 (default KEEP) | note: the DMA test exercises the BCM2835 DMA engine; capability `soc-dma` in `platforms.toml` | S | `consistency.py check` |
 | D15a | Settings > System "3D driver" row | shows the bm3d version | missing | done 25 Oct (QEMU) | row from the backend text of `src/rgb30/bm_port.c` | S | QEMU screen text |
 | D15b | CPU clock and temperature | `prop_query` | CPU name only | ASK 9 | read the RK3566 TSADC and the clock | M | device |

@@ -118,12 +118,13 @@ action = "none"
 id = "D10"
 area = "covers"
 pi = "loaded in the background, on-screen covers first"
-rgb30 = "all loaded synchronously at each scan (up to 64)"
+rgb30 = "same since 25 Oct 2026: the header read (title, author, type, compat) stays in scan_games; the covers are read by a fiber job (covers_tick), the tab shown first"
 cause = "history"
 priority = 5
-status = "open"
-evidence = "src/kernel/carts.c:182-290; src/rgb30/ui.c:230-263"
-action = "port the background cover job"
+status = "untested"
+note = "Done 25 Oct 2026 in src/rgb30/ui.c, a separate loop from the Pi's (carts.c uses cart_t and the Pi's tabs; only the idea and the fiber_job_t API are shared). The job stops in run_page (before a game or a page), in scan_games and while a file from the PC is written. QEMU test_covers_background: 40 carts with covers, the first frame is drawn with fewer than 40 read, a game starts, then 'covers: all 40 read'. Load time on the device not measured."
+evidence = "src/kernel/carts.c; src/rgb30/ui.c; tests/rgb30/qemu_test.py:test_covers_background"
+action = "time it on the console (the menu log line: menu idle ... covers N ms)"
 
 [[divergence]]
 id = "D11"

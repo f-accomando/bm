@@ -1252,6 +1252,43 @@ def test_cart_type_dev(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_covers_background(b, opts):
+    """D10, as the Pi (carts.c covers_tick): the header read (title, author, compat) stays in the scan, the covers are
+    read by a job in the menu's free time. 40 cartridges with a red cover: the menu is drawn with the titles on labels
+    before all the covers are read; a game starts while they load (the job stops, the game runs and ends); then the
+    job goes on and every cover is read ('covers: all 40 read'); the red covers are on the screen."""
+    n = 40
+    tmp = mktmp(prefix="bm64sd-")
+    red = bytes([220, 20, 20, 255]) * (128 * 80)
+    files = {f"bm/c{i:02d}.bm": mkbm.pack(QUIT_CART.encode(), title=f"Cover {i:02d}", author="tests", res=(360, 360),
+                                          cover=(128, 80, red)) for i in range(n)}
+    sd = make_sd(tmp, files)
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert f"cartridge menu: {n} games" in out, out
+        line = q.expect("first frame, ", timeout=15).decode(errors="replace")
+        line = q.expect("\n", timeout=5).decode(errors="replace")      # "K of 40 covers read"
+        m = re.match(r"(\d+) of (\d+) covers read", line)
+        assert m and int(m.group(2)) == n, line
+        assert int(m.group(1)) < n, "all the covers were read before the first frame: " + line
+        text = wait_screen(q, ["Cover 00", "Games", "Dev"])           # the menu is there, with the titles
+        assert in_menu(text), text
+        q.send("\r")                            # a game starts while the covers load (or just after: they are quick)
+        seen = q.expect("play: /bm/c00.bm", timeout=15).decode(errors="replace")
+        seen += q.expect("typed cart runs", timeout=30).decode(errors="replace")
+        if "covers: all 40 read" not in seen:           # the job goes on after the game
+            q.expect("covers: all 40 read", timeout=90)
+        wait_screen(q, ["Games", "Dev", "Settings"])
+        img = q.screendump()
+        w, px = img[0], img[2]
+        reds = sum(1 for i in range(0, len(px), 3) if px[i] > 150 and px[i + 1] < 80 and px[i + 2] < 80)
+        assert reds > 300, f"{reds} red pixels: the covers are not on the screen"
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 B16_GAME = r"""
 function _init() log("the b16 runs") end
 function _draw() cls(1) print("pocket", 8, 8, 7) end

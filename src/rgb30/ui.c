@@ -187,7 +187,8 @@ struct game {
     uint8_t type;                   /* BM_TYPE_* of the header (bm.info `type:`): not a game goes to Dev, with no splash */
     uint8_t grey;                   /* not made for this kernel (bm_compat_classify): faded, starts after a question */
     const char *why;                /* the reason of the grey, a short static text */
-    g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
+    g16_sheet_t cover;              /* 128x80: the .bm's COVER, or (until the covers job reads it) its title on a label */
+    uint8_t cover_read;             /* the covers job has read the COVER section (D10) */
 };
 static struct game games[MAX_GAMES];
 /* games[] holds the cartridges of the card: first the games (BM_TYPE_GAME, the Games tab: n_games), then the
@@ -195,9 +196,10 @@ static struct game games[MAX_GAMES];
 static int n_games, n_all, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
 static const char *sd_state = "not read";
 
-/* a .bm's title and cover (its COVER section) as on the Pi's menu; a
- * label with the file's name for the rest */
-static void load_cover(int i)
+/* Title, author, type and compatibility of cartridge i, from the first 512 bytes of the file (the sort needs the
+ * titles, so this read stays in scan_games), and a label with the title as its cover. The COVER section is read later,
+ * in the background (covers_tick, as the Pi's carts.c): the menu opens at once. */
+static void load_head(int i)
 {
     char path[80];
     ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
@@ -205,10 +207,79 @@ static void load_cover(int i)
     games[i].author[0] = 0;
     games[i].type = BM_TYPE_GAME;
     fat_entry_t e;
+    static uint8_t head[512] __attribute__((aligned(4)));
+    size_t len = 0;
+    if (fat_find(path, &e) == 0 && fat_read_head(&e, head) == 0)
+        len = e.size < sizeof head ? e.size : sizeof head;
+    const int cart = len >= BM_HEADER_SIZE && bm_is_cart(head);
+    if (cart && head[24]) {
+        char t[49];
+        memcpy(t, head + 24, 48);
+        t[48] = 0;
+        ksnprintf(games[i].title, sizeof games[i].title, "%s", t);
+        memcpy(t, head + 72, 32);
+        t[32] = 0;
+        ksnprintf(games[i].author, sizeof games[i].author, "%s", t);
+    }
+    if (cart)
+        games[i].type = (uint8_t)bm_type_of_head(head);
+    bm_save_path(games[i].title, games[i].author, games[i].save, sizeof games[i].save);
+    games[i].grey = 0;
+    games[i].why = "";
+    if (cart) {                                     /* docs/spec/compat-policy.toml */
+        bm_compat_facts_t f;
+        bm_compat_facts(head, len, games[i].size, games[i].name, &f);
+        if (bm_compat_classify(&f, BM_TARGET_RGB30, 0, &games[i].why, NULL) == BM_ACT_GREY)
+            games[i].grey = 1;
+    }
+    memset(&games[i].cover, 0, sizeof games[i].cover);
+    games[i].cover_read = 0;
+    menu_make_cover(&games[i].cover, games[i].title);
+}
+
+/* --- the covers, in the background (D10, as the Pi's carts.c: a fiber job in the menu's free time, the covers on
+ * screen first, stopped before a game or a page starts and before the list changes) --- */
+
+static fiber_job_t cover_job = { .name = "covers" };
+static int cover_tab = -1, cover_sel = -1;      /* what the menu shows (TAB_*, -1 Settings) and the cartridge under the cursor */
+static int cover_total;                          /* the covers read so far since the last scan */
+enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+
+/* The next cartridge whose cover is not read: the tab shown first (the Games tab: games[0..n_games), Dev: the rest),
+ * the nearest to the cursor first; then the others. */
+static int next_cover(void)
+{
+    int lo = 0, hi = 0, best = -1, best_d = 1 << 30;
+    if (cover_tab == TAB_GAMES) {
+        lo = 0;
+        hi = n_games;
+    } else if (cover_tab == TAB_DEV) {
+        lo = n_games;
+        hi = n_all;
+    }
+    const int at = cover_sel >= lo && cover_sel < hi ? cover_sel : lo;
+    for (int i = lo; i < hi; i++) {
+        const int d = i > at ? i - at : at - i;
+        if (!games[i].cover_read && d < best_d) {
+            best = i;
+            best_d = d;
+        }
+    }
+    for (int i = 0; best < 0 && i < n_all; i++)
+        if (!games[i].cover_read)
+            best = i;
+    return best;
+}
+
+/* The COVER section of cartridge i (the first section: one read of the start of the file) in place of its label. */
+static void read_cover(int i)
+{
+    char path[80];
+    ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
+    fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
-    /* only the first bytes: the header, then COVER, the first section */
-    uint32_t need = 48 * 1024;
+    uint32_t need = 48 * 1024;                      /* the header, the sections before it, a 128x80 cover: one read */
     const uint8_t *rgba = NULL;
     int w = 0, h = 0, r = -1;
     for (int tries = 0; tries < 3 && fat_find(path, &e) == 0; tries++) {
@@ -220,31 +291,41 @@ static void load_cover(int i)
         if (r || len >= e.size)
             break;
     }
-    if (data && len >= BM_HEADER_SIZE && bm_is_cart(data) && data[24]) {
-        char t[49];
-        memcpy(t, data + 24, 48);
-        t[48] = 0;
-        ksnprintf(games[i].title, sizeof games[i].title, "%s", t);
-        memcpy(t, data + 72, 32);
-        t[32] = 0;
-        ksnprintf(games[i].author, sizeof games[i].author, "%s", t);
+    if (fiber_cancelled()) {                        /* stopped half way: read again later */
+        free(data);
+        return;
     }
-    if (data && len >= BM_HEADER_SIZE && bm_is_cart(data))
-        games[i].type = (uint8_t)bm_type_of_head(data);
-    bm_save_path(games[i].title, games[i].author, games[i].save, sizeof games[i].save);
-    games[i].grey = 0;
-    games[i].why = "";
-    if (data && len >= BM_HEADER_SIZE && bm_is_cart(data)) {        /* docs/spec/compat-policy.toml */
-        bm_compat_facts_t f;
-        bm_compat_facts(data, len, games[i].size, games[i].name, &f);
-        if (bm_compat_classify(&f, BM_TARGET_RGB30, 0, &games[i].why, NULL) == BM_ACT_GREY)
-            games[i].grey = 1;
+    if (r == 1) {
+        g16_sheet_t c = { 0 };
+        if (menu_load_cover(&c, rgba, w, h) == 0 && c.px) {
+            g16_sheet_free(&games[i].cover);        /* the label */
+            games[i].cover = c;
+        }
     }
-    if (r == 1)
-        menu_load_cover(&games[i].cover, rgba, w, h);
     free(data);
-    if (!games[i].cover.px)
-        menu_make_cover(&games[i].cover, games[i].title);
+    games[i].cover_read = 1;
+    cover_total++;
+}
+
+static void covers_main(void *arg)
+{
+    (void)arg;
+    int i;
+    while (!fiber_cancelled() && (i = next_cover()) >= 0) {
+        read_cover(i);
+        fiber_slice();
+    }
+    if (!fiber_cancelled())
+        kprintf("covers: all %d read\n", cover_total);
+}
+
+static void covers_tick(uint32_t until)
+{
+    if (!cover_job.busy) {
+        if (next_cover() < 0 || fiber_job_start(&cover_job, 16 * 1024, covers_main, NULL) != 0)
+            return;
+    }
+    fiber_job_run(&cover_job, until);
 }
 
 /* the games by title, as on the Pi (carts.c title_cmp) */
@@ -285,15 +366,17 @@ static void scan_dir(const char *open, const char *dir)
 
 static void scan_games(void)
 {
+    fiber_job_stop(&cover_job);                     /* the list changes: no cover read left half way */
     for (int i = 0; i < n_all; i++)
         g16_sheet_free(&games[i].cover);
     n_games = n_all = n_hidden = 0;
+    cover_total = 0;
     fat_dir_t d;
     sd_state = fat_opendir(&d, "bm") == 0 ? "bm/" : "no bm/ folder on the SD card";
     scan_dir("bm", "/bm");
     scan_dir("/carts", "/carts");
     for (int i = 0; i < n_all; i++)
-        load_cover(i);
+        load_head(i);
     qsort(games, (size_t)n_all, sizeof games[0], title_cmp);
     /* the games first, the apps and utilities after them (each part keeps the order by title) */
     static struct game rest[MAX_GAMES];
@@ -758,7 +841,6 @@ void home_util_start(int i, home_do_t *d)
 
 /* Market first, off the screen at the left until it is the tab (as on the
  * Pi); Settings the last, its panel */
-enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
 
 /* The tab a key of a keyboard goes to, -1 if none (as on the Pi, carts.c): Tab is the next tab and wraps
  * after the last; 1 2 3 4 are Market, Games, Dev and Settings */
@@ -800,6 +882,7 @@ static void run_page(void (*run)(void))
         return;
     }
     market_set_active(0);                           /* its work stops first, as on the Pi */
+    fiber_job_stop(&cover_job);                     /* the covers: later (a game or a page owns the card now) */
     sdmap_stop();
     netxfer_write_pause();                          /* a file from the PC: written later */
     menu_ui_close_quiet(fb);                        /* (not the console flashing: the pages draw themselves) */
@@ -982,7 +1065,8 @@ static void text_page(void)
 static const fiber_share_t menu_jobs[] = {
     /*                      game tool menu */
     { update_tick,        {  0,   0,  25 } },
-    { market_tick,        {  0,   0,  55 } },
+    { market_tick,        {  0,   0,  40 } },   /* its tab only: on another one it gives its time back at once */
+    { covers_tick,        {  0,   0,  15 } },   /* the tab's covers first (D10) */
     { wifi_auto_idle,     {  0,   0,  10 } },
     { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
 };
@@ -991,6 +1075,8 @@ static const fiber_share_t menu_jobs[] = {
  * written first, alone on the card (2026-10-10); then the jobs */
 static void menu_idle(uint32_t until)
 {
+    if (netxfer_write_pending())
+        fiber_job_stop(&cover_job);                 /* a file from the PC is written first, alone on the card */
     if (netxfer_write_tick(until))
         return;
     fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
@@ -1143,6 +1229,8 @@ void ui_home(framebuffer_t *f)
         if (*s < 0) *s = 0;
         if (shown == TAB_MARKET)
             market_select(*s);
+        cover_tab = on_gear ? -1 : tab;             /* the covers to read first (covers_tick) */
+        cover_sel = cart_at(shown, *s);
         for (int i = 0; i < n && shown != TAB_MARKET; i++) {
             if (shown == TAB_GAMES) {
                 items[i] = game_item(i);
@@ -1261,6 +1349,11 @@ void ui_home(framebuffer_t *f)
         audio_idle();                           /* the output's news (QEMU's sink: what it heard) */
         v.battery = battery_state(&v.battery_pct, &v.charging, NULL);
         menu_ui_frame(fb, &v);
+        static int first_frame = 1;
+        if (first_frame) {
+            first_frame = 0;
+            kprintf("cartridge menu: first frame, %d of %d covers read\n", cover_total, n_all);
+        }
         /* a file from the PC goes on even when the frame left no time for
          * it (menu_idle): a piece a frame */
         if (netxfer_write_pending())
