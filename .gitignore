@@ -20,3 +20,9 @@ docs/video/*/cover.png
 .claude/state/
 build-*/
 .claude/worktrees/
+
+# Super Mario World port: the user's own ROM and everything extracted from it stay local
+*.sfc
+*.smc
+carts/smw/rom/
+carts/smw/extracted/
