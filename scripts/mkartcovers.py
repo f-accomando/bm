@@ -469,6 +469,20 @@ def stages3d(a):
     a.over(lay)
 
 
+def bench3d(a):
+    a.glow(44, 30, 36, 0x60E0FF, 0.5)
+    lay, d = a.draw()                                        # the bars of a chart, rising to the right
+    for i, (h, c) in enumerate(((10, (70, 150, 230)), (18, (70, 190, 200)), (27, (90, 220, 150)), (36, (250, 200, 80)))):
+        x = 12 + i * 12
+        d.rectangle(P([(x, 62 - h), (x + 8, 62)]), fill=c + (255,))
+    d.line(P([(10, 62.5), (62, 62.5)]), fill=(200, 215, 235, 255), width=S)
+    a.over(lay)
+    a.shadow(lambda dr, c: iso_box(dr, 66, 42, 12, 16, c, c, c), 1, 2)
+    lay, d = a.draw()                                        # the cube in front of the chart
+    iso_box(d, 66, 42, 12, 16, (240, 245, 255, 255), (120, 150, 220, 255), (70, 100, 180, 255))
+    a.over(lay)
+
+
 # name -> (title, top colour, bottom colour, emblem)
 COVERS = {
     "astrowing": ("Astro Wing", 0x0A1030, 0x2A3A78, astrowing),
@@ -486,6 +500,7 @@ COVERS = {
     "herocart": ("Hero Stress", 0x141A3A, 0x2A4A9A, herocart),
     "bmweb": ("bm Web", 0x0E2850, 0x2078B0, bmweb),
     "stages3d": ("Stages 3D", 0x1A1438, 0x7A4A58, stages3d),
+    "bench3d": ("3D Bench", 0x0A1A2E, 0x1E4A6E, bench3d),
 }
 
 

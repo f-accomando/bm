@@ -62,14 +62,14 @@
     "title": "Visibility"
    },
    "9": {
-    "en": "cd17a19ada77",
-    "it": "618ff9c0e64e",
+    "en": "4cb4c8a3cbeb",
+    "it": "9ee29d5aafb4",
     "title": "The GPU: gpu3d and its options"
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "33f7009fb24f",
-   "docs/api/light3d.md": "925d113773b3"
+   "docs/BENCH3D.md": "7d1bf309f26f",
+   "docs/api/light3d.md": "ac46dc6636b0"
   }
  },
  "api-core": {

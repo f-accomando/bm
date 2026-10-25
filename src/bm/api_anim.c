@@ -881,6 +881,112 @@ int l_zclear(lua_State *L)
     return 0;
 }
 
+/* gpu3d_opt(name [, on]) -> in_force, available: one of the GPU driver's switches, by name (the 3D Bench's
+ * profiles use them): "wc", "tex16" (or "t16"), "etc1", "fs2", "sort", "attr", "filter" (or "bilinear"),
+ * "2d" (the 2D drawn in the GPU's job) and "merge" (draws of static meshes merged). With on (true or false) it
+ * asks for the switch; in_force is what holds afterwards (a switch the GPU cannot do stays false). available
+ * is whether the GPU can do it: exact when asked with on true, else the same as in_force. The 3D waiting
+ * is drawn first. Without a GPU backend: false, false. An unknown name is an error. */
+int l_gpu3d_opt(lua_State *L)
+{
+    static const char *const names[] = { "wc", "tex16", "t16", "etc1", "fs2", "sort", "attr", "filter", "bilinear",
+                                         "2d", "merge", NULL };
+    enum { O_WC, O_T16, O_T16B, O_ETC1, O_FS2, O_SORT, O_ATTR, O_FILTER, O_FILTERB, O_2D, O_MERGE };
+    const int o = luaL_checkoption(L, 1, NULL, names);
+    r3d_t *r = r3d(L);
+    r3d_flush(r);
+    if (!r->backend) {
+        lua_pushboolean(L, 0);
+        lua_pushboolean(L, 0);
+        return 2;
+    }
+    const int ask = !lua_isnoneornil(L, 2), on = lua_toboolean(L, 2);
+    int now = 0, avail = -1;            /* avail -1: the same as now (the GPU decides) */
+    switch (o) {
+    case O_WC:
+        if (ask) gpu3d_set_wc(on);
+        now = gpu3d_wc() != 0;
+        break;
+    case O_T16: case O_T16B:
+        if (ask) gpu3d_set_tex16(on);
+        now = gpu3d_tex16() != 0;
+        break;
+    case O_ETC1:
+        if (ask) gpu3d_set_etc1(on);
+        now = gpu3d_etc1() != 0;
+        break;
+    case O_FS2:
+        if (ask) gpu3d_set_fs2(on);
+        now = gpu3d_fs2() != 0;
+        break;
+    case O_ATTR:
+        if (ask) gpu3d_set_attr(on);
+        now = gpu3d_attr() != 0;
+        break;
+    case O_SORT:
+        if (ask) gpu3d_set_sort(on);
+        now = gpu3d_sort() != 0;
+        avail = 1;
+        break;
+    case O_FILTER: case O_FILTERB:
+        if (ask) gpu3d_set_bilinear(on);
+        now = gpu3d_bilinear() != 0;
+        avail = 1;
+        break;
+    case O_2D:
+        if (ask) rt.gpu2d = on;
+        now = rt.gpu2d != 0;
+        avail = 1;
+        break;
+    default:
+        if (ask) r->merge = on;
+        now = r->merge != 0;
+        avail = 1;
+        break;
+    }
+    lua_pushboolean(L, now);
+    lua_pushboolean(L, avail < 0 ? now : avail);
+    return 2;
+}
+
+/* gpu3d_stats() -> table: the GPU driver's totals since the last read of the session's report (they are not
+ * reset here: gpu3d_peek_stats), for benchmarks. Fields (integers): jobs, bin_us, render_us, gltris, clean_cyc,
+ * inval_cyc, pool_max, ovf_max, ovf_jobs, busy_us (the GPU's time, gpu3d_busy_us), tris_in (the triangles r3d was
+ * given since the last zclear()); strings: status (gpu3d_status), probes (gpu3d_probe_log), options
+ * (options_line: the line the reports start with). The 3D waiting is drawn first. All zero and empty without a GPU. */
+int l_gpu3d_stats(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    r3d_flush(r);
+    gpu3d_stats_t s;
+    gpu3d_peek_stats(&s);
+    lua_createtable(L, 0, 14);
+#define STAT(name, v) (lua_pushinteger(L, (lua_Integer)(v)), lua_setfield(L, -2, name))
+    STAT("jobs", s.jobs);
+    STAT("bin_us", s.bin_us);
+    STAT("render_us", s.render_us);
+    STAT("gltris", s.gltris);
+    STAT("clean_cyc", s.clean_cyc);
+    STAT("inval_cyc", s.inval_cyc);
+    STAT("pool_max", s.pool_max);
+    STAT("ovf_max", s.ovf_max);
+    STAT("ovf_jobs", s.ovf_jobs);
+    STAT("busy_us", gpu3d_busy_us(&s));
+    STAT("tris_in", r->tris_in);
+#undef STAT
+    const char *st = gpu3d_status(), *pl = gpu3d_probe_log();
+    lua_pushstring(L, st ? st : "");
+    lua_setfield(L, -2, "status");
+    lua_pushstring(L, pl ? pl : "");
+    lua_setfield(L, -2, "probes");
+    char opt[256];
+    opt[0] = 0;
+    options_line(opt, sizeof opt);
+    lua_pushstring(L, opt);
+    lua_setfield(L, -2, "options");
+    return 1;
+}
+
 /* gpu3d([on, [aa, [vs, [queue, [impostor, [later]]]]]]) -> on, aa, vs, version, queue, impostor, later, probe:
  * whether the GPU draws the 3D, whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
  * its vertex shader places the corners of the models (bm3d 3.0, where the GPU's

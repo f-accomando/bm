@@ -184,7 +184,7 @@ $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) scripts/mkbm.py $
 	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2
+GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 bench3d
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
@@ -761,8 +761,23 @@ bmhost-ai: $(BUILD)/host/bmhost-ai
 test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
+# gpu3d_opt() and gpu3d_stats() (B3D-1, B3D-2) on the V3D emulator
+$(BUILD)/gpu3d-opt-test.bm: tests/gpu3d_opt/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "gpu3d opt test" --author tests
+
+test-gpu3d-opt: $(BUILD)/host/bmhost-gpu $(BUILD)/gpu3d-opt-test.bm
+	$< $(BUILD)/gpu3d-opt-test.bm --seconds 4 2>&1 | tee $(BUILD)/gpu3d-opt-test.log | grep "^gpu3d_opt"
+	grep -q "^gpu3d_opt: \([0-9]*\)/\1 checks passed" $(BUILD)/gpu3d-opt-test.log
+
+# The Lua edition of the 3D Bench (carts/bench3d) on the V3D emulator: a part of the bench (the keys of
+# bm/config.txt come from BMHOST_CONFIG; the list separator is `/`), --clock-scale 1 so the ms are real
+test-bench3d: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench3d/check.py
+	BMHOST_CONFIG="3d_tests=spheres/quad_flat,3d_profiles=ARM/GPU,3d_nowait=1" \
+	    $< $(BUILD)/carts/bench3d.bm --seconds 60 --clock-scale 1 > $(BUILD)/bench3d-test.log 2>&1
+	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-test.log
+
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -947,7 +962,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
-      test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+      test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm $(BUILD)/carts/stages3d.bm $(BUILD)/carts/testkit.bm
@@ -1092,8 +1107,8 @@ MARKET_B16 := overbit yharnam titanex editor
 MARKET_NO_BM := yharnam titanex
 MARKET_ONLY := titanex
 # The Market has its own list of games: GAMES minus MARKET_APPS_OF_GAMES.
-# typing and write are apps: they go to the apps/ folder of the Market.
-MARKET_APPS_OF_GAMES := typing write
+# typing, write and bench3d are apps: they go to the apps/ folder of the Market.
+MARKET_APPS_OF_GAMES := typing write bench3d
 MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets

@@ -339,6 +339,8 @@ int l_light3d(lua_State *L);
 int l_lamp3d(lua_State *L);
 int l_zclear(lua_State *L);
 int l_gpu3d(lua_State *L);
+int l_gpu3d_opt(lua_State *L);
+int l_gpu3d_stats(lua_State *L);
 
 /* the network for the games (api_net.c) */
 int l_udp_open(lua_State *L);
