@@ -398,7 +398,7 @@ def scenes(build, out):
             c.esc()                                     # the menu: Exit editor
             c.keys(UP, 0.4)
             c.keys(ENTER, 0.5)
-            c.see(["last: SDK on myvill.bm"])
+            c.see(["Games", "Monitor"])
             time.sleep(1.0)
 
             # ---------------------------------------------- the code (bm Code)

@@ -141,13 +141,13 @@ action = "none"
 [[divergence]]
 id = "D12"
 area = "cover details"
-pi = "author, kind, size, path; a performance note after a game"
-rgb30 = "only the hint line; no performance note"
+pi = "only the key chips in the bottom bar"
+rgb30 = "only the key chips in the bottom bar"
 cause = "history"
 priority = 6
 status = "resolved"
-note = "src/rgb30/ui.c: the cover of a game shows author, kind, size and path, and the note 'last: <file>, X fps, update+draw ...' after a game (QEMU test_cover_details_perf). On the narrow screen the note takes the details line until the cover or the tab changes, then the details return (menu_ui.c:1485 shows the note only when that line is free). Not tried on an RGB30. Proved in QEMU by test_cover_details_perf. Not verified on hardware."
-evidence = "src/kernel/carts.c:530-541,693; src/rgb30/ui.c:345,409-418,1098-1115; src/kernel/menu_ui.c:1485; tests/rgb30/qemu_test.py:test_cover_details_perf"
+note = "25 Oct 2026, user request: the bottom bar of the menu shows only the key chips on both devices (no details line, no last-game or performance note). The speed of a game goes to the console log. QEMU: test_cover_details_perf (RGB30). Not verified on hardware."
+evidence = "src/kernel/menu_ui.c; tests/rgb30/qemu_test.py:test_cover_details_perf"
 action = "none"
 
 [[divergence]]

@@ -279,7 +279,7 @@ def plan(info, w):
 # --- compat policy -----------------------------------------------------------------------------------------
 
 ACTIONS = ("show", "grey", "hide")
-REASON_MAX = 31                 # "Not here: " and the reason must fit the 41 characters of the RGB30's details line
+REASON_MAX = 31                 # the reason must fit the question "Start it anyway?" on the RGB30's narrow screen
 MATCH_KEYS = ("edition", "res", "uses_3d", "audio_bytes_over", "size_over_mib", "declared", "kernel_not_listed")
 
 

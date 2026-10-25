@@ -17,10 +17,8 @@
 
 typedef struct {
     const char *title;
-    const char *author;
     const char *path;           /* file on the SD card, or the built-in name */
     const char *kind;           /* "bm", or "tool" in the Dev tab */
-    uint32_t size;              /* bytes */
     const g16_sheet_t *cover;   /* MENU_CARD x MENU_CARD, or NULL for a plain card */
     int running;                /* suspended in memory: a star at the top right */
     int update;                 /* a newer version is in the Market: a triangle at the bottom right */
@@ -28,7 +26,7 @@ typedef struct {
     const char *badge;          /* a pill on the cover ("Retry"), or NULL */
     int busy, percent;          /* downloading: a bar on the cover */
     int grey;                   /* not made for this device (bm_compat_classify): a faded cover and a "Not here" pill;
-                                 * the caller puts the reason in the details line and asks before it starts */
+                                 * the caller asks before it starts, with the reason in the question */
 } menu_item_t;
 
 /* the covers: squares (2026-10-04, the bm Suite's icons; 128x80 before),
@@ -107,8 +105,6 @@ typedef struct {
     int confirm_b;              /* MENU_PROMPTS_PAD, _RGB30: confirm is B, back A (the RGB30) */
     int no_monitor;             /* no monitor to go to (the RGB30): no hint for it */
     int keys_help;              /* F12 is held: the keys over everything (the system's, the menu's) */
-    const char *details;        /* line under the grid (path, size) */
-    const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */
     const menu_page_t *page;    /* Settings: a page instead of the grid, or NULL */
     const char *ask;            /* a question over everything (A yes, B no), or NULL */

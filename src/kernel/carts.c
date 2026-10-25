@@ -307,14 +307,11 @@ static int sd_tick(void)
  * Settings and the options of a game use it themselves). */
 static fiber_job_t report_job = { .name = "reports" };
 static int reports_free;                /* the menu is where they may go (carts_menu) */
-static int reports_note;                /* the job ended: its word for the menu's note */
 
 static void reports_main(void *arg)
 {
     (void)arg;
-    reports_send_pending();
-    if (!fiber_cancelled())
-        reports_note = 1;
+    reports_send_pending();                     /* reports.c logs how it went */
 }
 
 static void reports_tick(uint32_t until)
@@ -778,6 +775,7 @@ static void play(framebuffer_t *fb, const cart_t *c)
         loading_stop();
         kprintf("\x1b[91mcannot read %s: %s\x1b[0m\n", c->name, fat_error());
         ksnprintf(last_msg, sizeof last_msg, "cannot read %s: %s", c->name, fat_error());
+        notice_fail(last_msg);
         return;
     }
     if (run_buffer(fb, data, len, 1) == BM_SUSPENDED)
@@ -1023,8 +1021,8 @@ static void cart_act(int row, int how, home_do_t *d)
             kprintf("menu: %s %s to %s\n", row == C_COPY ? "copied" : "built", c->path, to);
             d->what = HOME_BACK;            /* the menu reads the SD card again */
         } else {
+            d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "%s: %s", row == C_COPY ? "cannot copy" : "cannot build", err);
-            kprintf("menu: %s\n", d->note);
         }
         break;
     }
@@ -1047,7 +1045,8 @@ static void cart_act(int row, int how, home_do_t *d)
         } else if (how == HOME_YES) {
             if (save_delete(c, d->note, sizeof d->note) == 0)
                 ksnprintf(d->note, sizeof d->note, "save data deleted");
-            kprintf("menu: %s\n", d->note);
+            else
+                d->fail = 1;
             opt_save = save_size(c);
         }
         break;
@@ -1058,6 +1057,7 @@ static void cart_act(int row, int how, home_do_t *d)
             ksnprintf(d->ask_detail, sizeof d->ask_detail, "The file leaves the SD card for good.");
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
         } else if (how == HOME_YES && netxfer_updating(c->path)) {
+            d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
         } else if (how == HOME_YES) {
             if (is_suspended(c)) {
@@ -1071,9 +1071,9 @@ static void cart_act(int row, int how, home_do_t *d)
                 ksnprintf(d->note, sizeof d->note, "deleted %s", path);
                 d->what = HOME_BACK;
             } else {
+                d->fail = 1;
                 ksnprintf(d->note, sizeof d->note, "cannot delete %s: %s", path, fat_error());
             }
-            kprintf("menu: %s\n", d->note);
         }
         break;
     }
@@ -1114,7 +1114,7 @@ void carts_menu(framebuffer_t *fb)
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
     int depth = 0, built = -1, frame = 0;
-    char details[128], susp_title[49];
+    char susp_title[49];
     int ask = ASK_NONE, ask_cart = -1, ask_go = GO_NONE, ask_row = 0;
     int compat_ok = -1;                      /* the greyed game the user has said yes to (ASK_COMPAT) */
     char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
@@ -1175,13 +1175,13 @@ void carts_menu(framebuffer_t *fb)
             for (int i = 0; i < n && tab != TAB_MARKET; i++) {
                 if (idx[i] < 0) {
                     int t = -1 - idx[i];
-                    items[i] = (menu_item_t){ .title = home_tool_title(t), .author = "", .path = "",
+                    items[i] = (menu_item_t){ .title = home_tool_title(t), .path = "",
                                               .kind = "tool", .cover = home_tool_cover(t) };
                     continue;
                 }
                 const cart_t *c = &carts[idx[i]];
-                items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = kind_of(c),
-                                          .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
+                items[i] = (menu_item_t){ .title = c->title, .path = c->path, .kind = kind_of(c),
+                                          .cover = c->cover.px ? &c->cover : NULL,
                                           .loading = !c->cover_read, .running = is_suspended(c),
                                           .badge = NULL, .grey = c->grey,
                                           .update = market_has_update(c->path) };
@@ -1195,25 +1195,7 @@ void carts_menu(framebuffer_t *fb)
             /* the covers still to read: the tab's, from the selection */
             cover_tab = on_gear ? TAB_SETTINGS : tab;
             reports_free = !on_gear && !depth && ask == ASK_NONE && tab != TAB_MARKET;
-            if (reports_note) {                 /* the reports sent in the background */
-                reports_note = 0;
-                ksnprintf(last_msg, sizeof last_msg, "report %s", reports_last());
-            }
             cover_sel = (tab == TAB_GAMES || tab == TAB_DEV) && n && idx[tsel[tab]] >= 0 ? idx[tsel[tab]] : -1;
-            details[0] = 0;
-            if (tab == TAB_MARKET) {
-                market_details(tsel[tab], details, sizeof details);
-            } else if (n && idx[tsel[tab]] < 0) {
-                ksnprintf(details, sizeof details, "%s", home_tool_about(-1 - idx[tsel[tab]]));
-            } else if (n) {
-                const cart_t *c = &carts[idx[tsel[tab]]];
-                if (c->grey)
-                    ksnprintf(details, sizeof details, "Not here: %s", c->why);
-                else
-                    ksnprintf(details, sizeof details, "%s   %s   %lu KB   %s",
-                              c->author[0] ? c->author : "-", kind_of(c),
-                              (c->size + 1023) / 1024, c->path);
-            }
             const char *a_label = NULL;
             if (tab == TAB_MARKET) {
                 a_label = market_action_label(tsel[tab]);
@@ -1227,7 +1209,6 @@ void carts_menu(framebuffer_t *fb)
                 .refresh_label = on_market ? "Refresh" : NULL,
                 .refresh_enabled = on_market && market_refresh_available(),
                 .items = items, .n = n, .sel = tsel[tab],
-                .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,
                 .banner = on_market ? market_banner() : NULL,
                 .a_label = a_label,
@@ -1531,6 +1512,7 @@ void carts_menu(framebuffer_t *fb)
             } else if (yes && ask == ASK_SWITCH && ask_cart >= 0 && netxfer_updating(carts[ask_cart].path)) {
                 ask = ASK_NONE;                 /* the game stays frozen: nothing to start yet */
                 ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
+                notice_fail(last_msg);
             } else if (yes && ask == ASK_UPDATE_SUSPENDED) {
                 ask = ASK_NONE;
                 bm_close_suspended();
@@ -1603,6 +1585,7 @@ void carts_menu(framebuffer_t *fb)
                 int c = find_path(market_path(opt_market));
                 if (c < 0) {
                     ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(opt_market));
+                    notice_fail(last_msg);
                 } else if (bm_suspended(NULL, 0) && !is_suspended(&carts[c])) {
                     ask = ASK_SWITCH;
                     ask_go = GO_PLAY;
@@ -1632,8 +1615,10 @@ void carts_menu(framebuffer_t *fb)
 
         /* what a row asked for */
         if (d.what >= 0) {
-            if (d.note[0])
-                ksnprintf(last_msg, sizeof last_msg, "%s", d.note);
+            if (d.note[0]) {
+                ksnprintf(last_msg, sizeof last_msg, "%s", d.note);      /* the text menu's line */
+                home_report(&d);
+            }
             built = -1;
             switch (d.what) {
             case HOME_OPEN:
@@ -1767,6 +1752,7 @@ void carts_menu(framebuffer_t *fb)
                 int c = find_path(market_path(i));
                 if (c < 0) {
                     ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(i));
+                    notice_fail(last_msg);
                 } else if (bm_suspended(NULL, 0) && !is_suspended(&carts[c])) {
                     ask = ASK_SWITCH;
                     ask_go = GO_PLAY;
@@ -1817,6 +1803,7 @@ void carts_menu(framebuffer_t *fb)
         }
         if (go != GO_NONE && go_cart >= 0 && netxfer_updating(carts[go_cart].path)) {
             ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
+            notice_fail(last_msg);
             go = GO_NONE;
         }
         /* an update or a game being published in the background: nothing
@@ -1824,6 +1811,7 @@ void carts_menu(framebuffer_t *fb)
         const char *busy = update_busy() ? update_busy() : publish_busy() ? "Publishing to the Market" : NULL;
         if (go != GO_NONE && busy) {
             ksnprintf(last_msg, sizeof last_msg, "%s: wait for it to end", busy);
+            notice_fail(last_msg);
             if (go == GO_NETPLAY)
                 free(net_buf);
             go = GO_NONE;

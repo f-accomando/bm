@@ -8,6 +8,7 @@
  * menu_ui: carts.c on the Pi, rgb30/ui.c on the RGB30 (home.h).
  */
 #include "home.h"
+#include "notice.h"
 #include "config.h"
 #include "controls.h"
 #include "pointer.h"
@@ -1278,8 +1279,10 @@ void home_act(int id, int row, int how, home_do_t *d)
         /* in the menu's background (update.c): the row says how it goes */
         if (how == 0 && update_start(0) == 0)
             ksnprintf(d->note, sizeof d->note, "checking for updates...");
-        else if (how == 0)
+        else if (how == 0) {
+            d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
+        }
         break;
     case R_REPORTS:
         if (how == 0) text(d, t_send_reports, 1, 0);
@@ -1293,9 +1296,12 @@ void home_act(int id, int row, int how, home_do_t *d)
             if (update_start(1) == 0)
                 ksnprintf(d->note, sizeof d->note, "installing bm %s: the console restarts when it is done",
                           update_ready());
-            else
+            else {
+                d->fail = 1;
                 ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
+            }
         } else if (how == 0 && update_busy()) {
+            d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy());
         } else if (how == 0 && update_ready()) {
             char q[64];
@@ -1308,6 +1314,7 @@ void home_act(int id, int row, int how, home_do_t *d)
             if (netxfer_apply_staged_kernel() == 0) {
                 ksnprintf(d->note, sizeof d->note, "Applying kernel: restarting in 3 seconds");
             } else {
+                d->fail = 1;
                 ksnprintf(d->note, sizeof d->note, "Failed to apply staged kernel");
             }
         } else if (how == 0) {
@@ -1437,4 +1444,13 @@ void home_act(int id, int row, int how, home_do_t *d)
                   config_on("r3d_fast") ? "fast" : "exact");
         break;
     }
+}
+
+void home_report(const home_do_t *d)
+{
+    if (!d->note[0])
+        return;
+    kprintf("menu: %s\n", d->note);
+    if (d->fail)
+        notice_fail(d->note);
 }

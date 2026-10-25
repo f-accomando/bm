@@ -20,6 +20,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | System shortcuts | Start+Select leaves game / app; Select held 3 s takes screenshot (`bm/shots/`) | `docs/RGB30.md:202`, `docs/spec/divergences.toml:377` | implemented |
 | Button prompts | Colored button glyphs: A green, B blue, X red, Y yellow (`PROMPT_RGB30_*`) | `docs/RGB30.md:222-224`, `docs/progress/platforms.md:36-38` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` for confirm / cancel actions | `docs/progress/platforms.md:36`, `docs/spec/divergences.toml:360` | implemented |
+| Menu bottom bar | The key chips only (A, X, Y, Back; no Monitor chip). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `src/kernel/menu_ui.c` (bottom bar), `src/kernel/notice.c` (`notice_fail`), `src/kernel/settings.c` (`home_report`) | implemented |
 
 ## Raspberry Pi Zero W
 
@@ -39,6 +40,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | System shortcuts | F11 (audio log), F12 (held: key list), Print Screen (screenshot), Ctrl+Esc (leave game) | `docs/spec/divergences.toml:376` | implemented |
 | Button prompts | Lettered glyphs or DS4 glyphs depending on active input device | `src/kernel/settings.c:434-436`, `src/kernel/prompts.h:46` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` for confirm / cancel actions | `docs/spec/divergences.toml:360` | implemented |
+| Menu bottom bar | The key chips only (A, X, Y, Refresh, Monitor, Back). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `src/kernel/menu_ui.c` (bottom bar), `src/kernel/notice.c` (`notice_fail`), `src/kernel/settings.c` (`home_report`) | implemented |
 | Editor top bar | The app name (bm Code, bm SDK, bm Studio, bm Animator, bm Mesh, bm Pixel) is the first item at the left; the page tabs follow; the file name is at the right and loses its start when the room is short (`U.bar_title`, `U.bar_file`) | `src/script/bmui.lua` | implemented |
 
 ## Raspberry Pi 1 (A, B, A+, B+, CM1)

@@ -1675,24 +1675,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         }
     }
 
-    /* bottom bar: details, last game, buttons */
+    /* bottom bar: the key chips only (2026-10-25, the user's request); what
+     * went wrong goes to the notice box, the rest to the console log */
     hints_dead = v->ask != NULL;
     m_rect(0, FOOT_Y, SW, SH - FOOT_Y, c16(C_BAR));
     m_rect(16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
-    char buf[96];
-    int shown = 0;
-    if (v->details && !v->panel && !v->page) {
-        ksnprintf(buf, sizeof buf, "%s", v->details);
-        buf[SW / 8 - 4] = 0;
-        m_text(2 * 8, 20 * 16, buf, c16(C_DIM));
-        shown = 1;
-    }
-    /* the note left of the hints; on the narrow layout over them, if free */
-    if (v->note && v->note[0] && (WIDE || !shown)) {
-        ksnprintf(buf, sizeof buf, "%s", v->note);
-        buf[WIDE ? 29 : SW / 8 - 4] = 0;
-        m_text(2 * 8, (WIDE ? 21 : 20) * 16, buf, c16(C_DIM));
-    }
     const int hc = WIDE ? 32 : 2;               /* where the hints start */
     /* the hints of a panel, or of the Settings page's focused list */
     const menu_panel_t *hp = v->panel ? v->panel
