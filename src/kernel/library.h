@@ -140,6 +140,12 @@ void lib_panel_open(const lib_game_t *g);
 /* Builds the rows for this cartridge. */
 void lib_panel(const lib_game_t *g, home_panel_t *p);
 
+/* A row of the cartridge's panel that stays in the menu (Close, the editable copy, Export .b16, Send, the
+ * deletes). `how`: 0 (confirm) or HOME_YES (the question was answered yes). Fills `d` (it is cleared first);
+ * HOME_BACK means the list changed: the menu reads the card again. Returns 0 for a row it does not own
+ * (Play and the Open in rows: the menu starts those; Publish: the Pi's). */
+int lib_act(lib_game_t *g, int row, int how, home_do_t *d);
+
 /* ---- the covers
  *
  * The menu opens at once with the titles (a placeholder with the title); the covers come in a fiber in the

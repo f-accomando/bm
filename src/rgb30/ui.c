@@ -703,65 +703,6 @@ static void play_market(int i)
 
 /* --- a game's options (X on its cover; the Pi's C): its panel over the covers --- */
 
-/* a row that asks first: the question in `d`, or the deed (how = HOME_YES) */
-static void game_act(int i, int row, int how, home_do_t *d, int *gone)
-{
-    memset(d, 0, sizeof *d);
-    d->what = HOME_STAY;
-    if (row == LIB_ROW_CLOSE) {
-        lib_suspend_close();
-        ksnprintf(d->note, sizeof d->note, "closed %s", games[i].name);
-        return;
-    }
-    if (row == LIB_ROW_BUILD_B16) {
-        char path[80], to[96], err[64];
-        ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
-        if (bm_build_b16(path, to, sizeof to, err, sizeof err) == 0) {
-            const char *slash = strrchr(to, '/');
-            ksnprintf(d->note, sizeof d->note, "%s is in Games", slash ? slash + 1 : to);
-            d->what = HOME_BACK;
-            *gone = 1;
-        } else {
-            d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "cannot export: %s", err);
-        }
-        return;
-    }
-    if (row == LIB_ROW_DEL_SAVE || row == LIB_ROW_DELETE) {
-        const int file = row == LIB_ROW_DELETE;
-        if (how != HOME_YES) {
-            d->what = HOME_ASK;
-            ksnprintf(d->ask, sizeof d->ask, file ? "Delete the game?" : "Delete the save data?");
-            ksnprintf(d->ask_detail, sizeof d->ask_detail, file ? "The file is removed from the SD card." : "Records and progress start again.");
-            ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
-            return;
-        }
-        char path[80];
-        int err = 0;
-        if (file) {
-            ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
-            if (netxfer_updating(path)) {          /* a file from the PC on its way: not now (as on the Pi) */
-                d->fail = 1;
-                ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
-                return;
-            }
-            if (lib_is_suspended(&games[i])) {      /* the frozen copy of it goes too */
-                lib_suspend_close();
-            }
-            err = fat_delete(path) != 0;
-            *gone = !err;
-        } else {
-            err = lib_save_delete(&games[i], d->note, sizeof d->note) != 0;
-            lib_panel_open(&games[i]);              /* the panel shows what is left */
-        }
-        if (err) {
-            d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "cannot delete: %s", fat_error());
-        } else
-            ksnprintf(d->note, sizeof d->note, file ? "%s deleted" : "save data deleted", games[i].title);
-    }
-}
-
 /* a row of Settings that runs on the console (settings.c: home_do_t) */
 static void (*text_fn)(framebuffer_t *);
 static int text_wait, text_own;
@@ -1100,10 +1041,9 @@ void ui_home(framebuffer_t *f)
                     mopt = -1;
             } else if ((p & pad_ok) && kind == ASK_GOPT && gopt >= 0) {
                 home_do_t gd;
-                int gone = 0;
-                game_act(gopt, ask_row, HOME_YES, &gd, &gone);
+                lib_act(&games[gopt], ask_row, HOME_YES, &gd);
                 home_report(&gd);
-                if (gone) {
+                if (gd.what == HOME_BACK) {
                     gopt = -1;
                     scan_games();
                     market_carts_changed();
@@ -1192,8 +1132,7 @@ void ui_home(framebuffer_t *f)
                     gopt_sel = 0;
                 } else {
                     home_do_t gd;
-                    int gone = 0;
-                    game_act(g, row, 0, &gd, &gone);
+                    lib_act(&games[g], row, 0, &gd);
                     home_report(&gd);
                     if (gd.what == HOME_ASK) {
                         asking = ASK_GOPT;
@@ -1201,7 +1140,7 @@ void ui_home(framebuffer_t *f)
                         ksnprintf(ask_q, sizeof ask_q, "%s", gd.ask);
                         ksnprintf(ask_d, sizeof ask_d, "%s", gd.ask_detail);
                         ksnprintf(ask_y, sizeof ask_y, "%s", gd.ask_yes);
-                    } else if (gone || gd.what == HOME_BACK) {
+                    } else if (gd.what == HOME_BACK) {
                         gopt = -1;
                         scan_games();
                         market_carts_changed();

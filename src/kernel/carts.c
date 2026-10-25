@@ -592,85 +592,12 @@ static void cart_panel(home_panel_t *p)
 static void cart_act(int row, int how, home_do_t *d)
 {
     lib_game_t *c = &library.g[opt_cart];
-    memset(d, 0, sizeof *d);
-    d->what = HOME_STAY;
-    switch (row) {
-    case LIB_ROW_CLOSE:
-        lib_suspend_close();
-        ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
-        break;
-    case LIB_ROW_COPY:
-    case LIB_ROW_BUILD_B16: {
-        char to[96], err[64];
-        background_stop();
-        int r = row == LIB_ROW_COPY ? bm_copy_name(c->path, to, sizeof to) : 0;
-        if (r != 0)
-            ksnprintf(err, sizeof err, "no free name");
-        else if (row == LIB_ROW_COPY)
-            r = bm_make_copy(c->path, to, err, sizeof err);
-        else
-            r = bm_build_b16(c->path, to, sizeof to, err, sizeof err);
-        if (r == 0) {
-            const char *slash = strrchr(to, '/');
-            ksnprintf(d->note, sizeof d->note, row == LIB_ROW_COPY ? "%s is a project (SDK: Open)" : "%s is in Games",
-                      slash ? slash + 1 : to);
-            kprintf("menu: %s %s to %s\n", row == LIB_ROW_COPY ? "copied" : "built", c->path, to);
-            d->what = HOME_BACK;            /* the menu reads the SD card again */
-        } else {
-            d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "%s: %s", row == LIB_ROW_COPY ? "cannot copy" : "cannot build", err);
-        }
-        break;
-    }
-    case LIB_ROW_PUBLISH:
+    if (lib_act(c, row, how, d))
+        return;
+    if (row == LIB_ROW_PUBLISH) {
         publish_setup(c->path, c->title, c->author);
         d->what = HOME_OPEN;
         d->panel = HOME_PUBLISH;
-        break;
-    case LIB_ROW_SEND:
-        market_send_setup(c->path, c->title, c->author);
-        d->what = HOME_OPEN;
-        d->panel = HOME_SEND;
-        break;
-    case LIB_ROW_DEL_SAVE:
-        if (how == 0) {
-            d->what = HOME_ASK;
-            ksnprintf(d->ask, sizeof d->ask, "Delete the save data?");
-            ksnprintf(d->ask_detail, sizeof d->ask_detail, "Records and progress start again.");
-            ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
-        } else if (how == HOME_YES) {
-            if (lib_save_delete(c, d->note, sizeof d->note) == 0)
-                ksnprintf(d->note, sizeof d->note, "save data deleted");
-            else
-                d->fail = 1;
-            lib_panel_open(c);
-        }
-        break;
-    case LIB_ROW_DELETE:
-        if (how == 0) {
-            d->what = HOME_ASK;
-            ksnprintf(d->ask, sizeof d->ask, "Delete %s?", c->title);
-            ksnprintf(d->ask_detail, sizeof d->ask_detail, "The file leaves the SD card for good.");
-            ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
-        } else if (how == HOME_YES && netxfer_updating(c->path)) {
-            d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
-        } else if (how == HOME_YES) {
-            if (lib_is_suspended(c)) {
-                lib_suspend_close();
-            }
-            char path[sizeof c->path];
-            ksnprintf(path, sizeof path, "%s", c->path);
-            background_stop();          /* no read of it left half way */
-            if (fat_delete(path) == 0) {
-                ksnprintf(d->note, sizeof d->note, "deleted %s", path);
-                d->what = HOME_BACK;
-            } else {
-                d->fail = 1;
-                ksnprintf(d->note, sizeof d->note, "cannot delete %s: %s", path, fat_error());
-            }
-        }
-        break;
     }
 }
 

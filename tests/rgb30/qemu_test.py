@@ -1013,7 +1013,7 @@ def test_frozen_game_menu(b, opts):
         keys(q, "w")                            # up from the first row: the last row, Delete from the SD card
         wait_screen(q, ["Delete from the SD card"])
         keys(q, "\r")
-        wait_screen(q, ["Delete the game?"])
+        wait_screen(q, ["Delete Alpha?"])
         keys(q, "\r")                           # Delete: the frozen copy goes with the file
         wait_screen(q, ["Zulu"])
         assert "b_alpha" not in screen_all(q.screendump()), "Alpha is gone"
