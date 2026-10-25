@@ -714,8 +714,16 @@ def test_confirm_button(b, opts):
 def test_controls_menu(b, opts):
     """Settings > Controls (CONTROLS-1): a scheme's actions show the button the
     config sets (controls= in bm/config.txt) or Default with the game's own;
-    Right changes the button of the row (X -> Y here) and Reset all (asked)
-    puts every action back on Default."""
+    Enter changes the button of the row (X -> Y here; in Settings a choice has
+    no arrows, Enter changes it: docs/progress/graphics.md, Rules) and Reset
+    all (asked) puts every action back on Default."""
+    def value(text, label):
+        # the row's value, at the right of its label ("X", "Y", "Default (B)")
+        for l in text.split("\n"):
+            if label in l:
+                return l.split(label, 1)[1].strip(" ?\u2502|")
+        return None
+
     def open_scroller(q):
         for _ in range(6):                      # to the Settings tab
             if "Controllers" in screen_all(q.screendump()):
@@ -739,12 +747,12 @@ def test_controls_menu(b, opts):
         assert "Settings > Controls > Scroller games" in text, text
         a1 = [l for l in text.split("\n") if "Action 1" in l]
         a2 = [l for l in text.split("\n") if "Action 2" in l]
-        assert a1 and "< X >" in a1[0] and "Default" not in a1[0], text
+        assert a1 and value(text, "Action 1 (jump)") == "X", text
         assert a2 and "Default (Y)" in a2[0], text
-        keys(q, "d")                            # Right: X -> Y on the first row
+        q.send("\r")                            # Enter: X -> Y on the first row
+        time.sleep(0.4)
         text = screen_all(q.screendump())
-        a1 = [l for l in text.split("\n") if "Action 1" in l]
-        assert a1 and "< Y >" in a1[0], text
+        assert value(text, "Action 1 (jump)") == "Y", text
         q.send("\x7f")                          # back, then Reset all
         time.sleep(0.4)
         keys(q, "w")                            # up from the first row: the last, Reset all
@@ -1226,7 +1234,9 @@ def test_market_b16(b, opts):
         keys(q, "x")                            # X: its details
         screen(["Market > Pocket", "Play", "Version", "1.0", "License", "MIT"])
         keys(q, "\x7f")                         # back: closed
-        screen(["Installed"], gone=["Market > Pocket"])
+        # (an installed game has no pill any more: .badge is NULL when s->path
+        # is set, src/kernel/market.c:886; the Pi test says so too)
+        screen(["Play"], gone=["Market > Pocket", "Installed"])
         keys(q, "\r")                           # confirm: plays it, from the card
         q.expect("play: /bm/pocket.b16", timeout=10)
         q.expect("the b16 runs", timeout=30)
@@ -1235,8 +1245,8 @@ def test_market_b16(b, opts):
         q.send("q")
         q.expect("fps", timeout=10)
         time.sleep(1.0)
-        keys(q, "r")                            # the Games tab: the new game
-        screen(["Pocket", "Play"])
+        keys(q, "r")                            # the Games tab: the new game (frozen by q: Resume, test_frozen_game_menu)
+        screen(["Pocket", "Resume"])
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
         time.sleep(0.3)
@@ -2107,9 +2117,22 @@ def test_sound(b, opts):
         assert "audio: QEMU sink, 48 kHz" in out, out
         time.sleep(0.5)
         full = tone()
-        for _ in range(5):
-            keys(q, "-", pause=0.15)            # the volume key, five times
-        q.expect("volume: 5 / 10", timeout=5)
+        # the volume key, five times; each step waits for its printed level. A key
+        # sent while the previous one is still held (PAD_SERIAL_MS, 120 ms) or
+        # between two polls of a loaded guest makes no edge and is lost (6 busy
+        # loops on the host: 4 of 5 steps), so a missing level sends the key again
+        # (a lost key changed nothing: the retry cannot count twice).
+        for level in range(9, 4, -1):
+            for _ in range(5):
+                q.send("-")
+                try:
+                    q.expect(f"volume: {level} / 10", timeout=2)
+                    break
+                except AssertionError:
+                    time.sleep(0.2)             # let the hold end: the next key is an edge
+            else:
+                raise AssertionError(f"the volume did not reach {level} / 10:\n" + q.buf.decode(errors="replace"))
+            time.sleep(0.2)
         text = screen_all(q.screendump())
         assert "Volume" in text and "5 / 10" in text, text      # the bar over the menu
         time.sleep(2.5)                         # the keys at rest: saved

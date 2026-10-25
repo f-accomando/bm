@@ -643,8 +643,10 @@ def blue_number(img, span):
 
 def scroll_thumb(img):
     """The thumb of the menu's scroll bar (more than two rows of covers):
-    (top, bottom) of its light pixels at x 627, y 96-292, or None."""
-    ys = [y for y in range(96, 292) if sum(pixel(img, 627, y)) > 600]
+    (top, bottom) of its light pixels at x 620, y 96-300, or None. The bar
+    is 4 pixels wide, centred in the right margin: SBAR_X in
+    src/kernel/menu_ui.c (618 with six covers of 88 and a gap of 6)."""
+    ys = [y for y in range(96, 300) if sum(pixel(img, 620, y)) > 600]
     return (ys[0], ys[-1] + 1) if ys else None
 
 
@@ -4492,8 +4494,11 @@ def test_usb_mouse(b, opts):
         text = "\n".join(screen_text(wait_screen(q, lambda s_: "Open in the SDK" in "".join(screen_text(s_)))))
         assert "Play" in text and "Open in the SDK" in text, text
         click_at(30, 200)
+        # (the panel gone and the title back, in one wait: a frame between the two, as the
+        # panel fades, has neither: it failed once under load)
         text = "\n".join(screen_text(wait_screen(
-            q, lambda s_: "Open in the SDK" not in "".join(screen_text(s_)))))
+            q, lambda s_: "Open in the SDK" not in "".join(screen_text(s_)) and
+            MOUSE_TITLES[1] in "".join(screen_text(s_)))))
         assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text, text
         # a click on a cover plays it
         click_at(*cover_xy(0))
@@ -5157,7 +5162,9 @@ def test_picture_model(b, opts):
         keys("s", "s", "s", "s", "\r")
         screen(["build", "models", "TOOLS", "model 1/8: ground"])
         keys(F2)
-        screen(["MODELS 8", "picture"])
+        # (the hint row shows as many chips as fit, src/script/bmui.lua
+        # U.hint_row: at 640 wide "picture" is cut; "m" is tried just below)
+        screen(["MODELS 8", "reduce"])
         # the outline, made here: the model hero
         keys("m")
         screen(["cutout: the picture's outline", "lathe:", "meshy.ai:"])
@@ -8122,8 +8129,11 @@ def test_code_editor(b, opts):
 
         # leave: the untitled tab has changes; kept for later
         k("\x1b", 0.6)                                     # Esc: the menu
-        see(["New project", "Exit"])
+        # the menu has more rows than the screen (MENU in carts/code/main.lua,
+        # 27 entries): Exit, the last, is below the first window
+        see(["New project"])
         k("\x1b[A", 0.3)                                   # up from the first: Exit
+        see(["Exit"])
         k("\r", 0.5)
         see(["not saved"])
         k("k", 0.3)                                        # Keep for later

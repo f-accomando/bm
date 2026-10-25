@@ -638,10 +638,10 @@ void home_panel(int id, home_panel_t *p)
 #endif
             const char *b = controls_get(i);
             if (b)
-                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Left or right: another button; Default is the game's own",
+                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
                          "%s", ctl_button(b));
             else
-                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Left or right: another button; Default is the game's own",
+                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
                          "Default (%s)", ctl_button(controls_default(i)));
         }
         break;
