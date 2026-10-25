@@ -17,8 +17,14 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   colour per draw, pushed: words 4-7). Without IDVS: a Vertex job, then a Tiler job whose Draw
   `position` is the buffer the vertex job wrote (varying buffer 1; an attribute buffer of binding n is
   entry 2n; a Renderer State is followed by one Blend per render target).
-- Fault on the device (21 Oct, report `20261021-154617_gpu_rgb30_dev.txt`): the vertex and tiler job
-  ends with `mali: a vertex and a tiler job: failed, JS_STATUS 58 DATA_INVALID_FAULT`. The clear works.
+- Hardware bringup breakthrough (25 Oct 2026, report `80d62d1e`):
+  - Root cause of DATA_INVALID_FAULT (0x58): Tiler Job offset 64 holds Primitive Size (Constant float 32-bit).
+    Mesa sets Constant = line_width = 1.0f (0x3f800000) for all non-point primitives. md_tiler_job had left it 0.0f,
+    causing immediate tiler hardware failure. Set Constant to 1.0f in `src/rgb30/mali_desc.c`.
+  - Bifrost hierarchy mask: RK3566 GPU_TILER_FEATURES register (0x00c) returns `0x00000209` (`max_levels = 2`, `bin_size = 9`).
+    The hardware enforces bitcount(hierarchy_mask) <= max_levels. Fixed HIERARCHY_MASK to 0x28 (levels 3 and 5), matching Mesa
+    pan_cs.c and v7pack.py.
+  - Device verification: `mali: a triangle (vertex, tiler and fragment jobs): drawn by the GPU` (inside ff8019, outside 102050).
 - Variant probe (`src/rgb30/mali_variants.h`, `triangle()` in `mali.c`): the base jobs (set 0, draw 0 of
   `frame_build`) run first. If they fail, the probe resets the GPU and runs 8 variants of the jobs, each built
   again with one patch (`mv_table`: block, first bit, bit count, value). One run of the probe gives all the results (no entry point since the GPU test page was removed on 24 Oct 2026).
@@ -60,20 +66,34 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 - **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
 ## Open work
-All of it needs the RGB30 (not verified on hardware). The user runs these; nothing here starts a device run.
-1. Decide where the triangle and the variant probe run: the Dev > GPU test page was removed on 24 Oct 2026 and `src/rgb30/mali_hw.c` sets no `mali_hw_t.triangle`. Then run it (the triangle, with the variant probe). Read the `mali: variant N <name>` lines in the report on the SD card. If a variant is `ok`, apply its patch to `frame_build` and delete the probe.
-2. If the triangle draws: `mali3d=1` in `config.txt`, then 3D Bench (`b3d`) scenes of flat colours. The `GPU` profile row appears only for those scenes; the others show the ARM.
-3. Then the phases written but not run: phase 2 (`mali_backend`), phase 3 (`BM_VS3` with a matrix), phase 4 (`mali_frame_submit` and two sets). Run them in this order, one report each.
-4. If all three run: `mali3d` default decision (divergence D45 in `docs/spec/divergences.toml`) and a bm3D version with a row in `docs/DRIVERS.md`.
-5. A shader for textured triangles is not started: textures and effects stay on the ARM (`colour_only`).
+Hardware verified on RGB30: Triangle bringup H1 verified on 25 Oct 2026 (`step2-triangle-hw.txt`, report commit `80d62d1e`).
+Next hardware steps:
+1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW. Temporary entry point: `mali_probe=1` in `bm/config.txt` runs probe at boot; disabled by default (`mali_probe=0`).
+2. 3D Bench with flat colours (H6): With `mali3d=1` in `bm/config.txt`, run 3D Bench (Settings > Screen > 3D Bench); flat-colour scenes show GPU row, textured scenes stay on ARM.
+3. Phases written, to benchmark:
+   - Phase 2: `mali_backend` (flat colours, far-to-near sorting, key `0xFF00FF`).
+   - Phase 3: `BM_VS3` (vertex shader transforming geometry with 4x4 MVP matrix pushed via UBO 0).
+   - Phase 4: `mali_frame_submit` (multi-buffering with 2 sets `MALI_SET_BASE(0)` and `(1)`).
+4. After verification: evaluate `mali3d` default decision (D45) and bm3d version promotion.
+5. Textures and lit faces: write textured fragment shader, remove `colour_only`.
 
-Alignment with the V3D driver (API-5). Do the steps in this order. Test each step on the RGB30 through the bridge (`--dev rgb30`).
-1. The user's triangle run (H1) and the 3D Bench run (H6), with the bridge.
-2. Textures and lit faces: remove `colour_only`.
-3. The vertex-shader mesh path (`BM_VS3`).
-4. The draw queue.
-5. The cel shader.
-6. The 3D Bench scenes (heroes, herotris) and the ARM, GPU and GPU+VS columns.
+## Mali vs Pi V3D Architectural Equivalence & Feature Parity (API-5)
+
+Mapping of Mali-G52 developments against reference Pi V3D driver:
+
+| Pipeline Stage / Feature | Pi Zero W (V3D 2.1) | PowKiddy RGB30 (Mali-G52) | Parity Status & Notes |
+|---|---|---|---|
+| **Framebuffer / Clear** | FBD (Framebuffer Descriptor) / Tile setup in RGB565/RGBA8888 | SFBD / MFBD (Single/Multi FB Descriptor) in linear XRGB8888 | **Full Parity** (HW verified; 64x64 clear & screen presentation pass) |
+| **Vertex Processing** | Coordinate / Vertex Shaders on QPU (`vs_colour`, `vs_lit_tex`) | Compute Job on slot 1 with Bifrost vertex shader (`BM_VS`, `BM_VS3`) | **Full Parity** (HW verified for `BM_VS`; `BM_VS3` matrix path written) |
+| **Binning / Tiling** | Binner Job (`BPOA` / `BPOS`), tile allocator pool with overflow | Tiler Job on slot 1 (`SO_HEAP`, `SO_HEAPD`, `SO_TCTX`, mask 0x28) | **Full Parity** (HW verified; Primitive Size 1.0f fixed fault) |
+| **Fragment / Raster** | QPU Fragment Shaders (`fs_colour`, `fs_tex_lit`, `fs_cel`) | Fragment Job on slot 0 (`BM_FS` with pushed color words 4-7) | **Flat Colour Parity** (HW verified; textured/cel shaders pending) |
+| **State Management** | NV Shader State Record / Blend configuration | `Renderer State` (`md_renderer_state_t`) + `Blend` per target | **Full Parity** (Descriptors from Mesa `v7.xml`) |
+| **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | CPU far-to-near sort (`be_tris`), resolve key `0xFF00FF` (`be_resolve`) | **Missing on Mali**: Hardware Z-buffer attachment (currently software sort) |
+| **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | None (`colour_only = 1`); textures and lighting handled on ARM | **Missing on Mali**: Textured fragment shader, samplers, texture descriptors |
+| **Cel Shading** | `fs_cel` on QPU with 64-entry quant table and inverted hull outline | None on Mali; ARM fallback | **Missing on Mali**: Cel fragment shader |
+| **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`), state machine `SET_QUEUED`..`SET_DONE` | **Equivalent in code** (`mali_frame_submit` in `mali.c`; pending HW bench) |
+| **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | Basic batching in `mali_backend` (`MALI_BATCH_MAX` per color) | **Missing on Mali**: Multi-mesh world-space merge (`r3d_backend_t.merge`) |
+| **Config & Safety** | `gpu3d=1` default, automatic fallback to ARM | `mali3d=0` default (D45), clean ARM fallback on any fault | **Full Parity** (`gpu3d_init` verifies Mali and falls back to ARM) |
 
 ## Rules (do not break)
 - `mali3d` is off by default. With the key off, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).

@@ -368,6 +368,13 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   in world axes and the run is one draw: 64 pieces in 2 draws on the PC. Only a run of at least 32 pieces with at most
   150 faces a piece on average merges (Pi, 23 Oct: 100 pieces of 50 faces +24%, 10 of 500 -26% before the threshold).
 
+- **7.8** (2026-10-25): **the Mali draws triangles**: a Vertex, Tiler and Fragment
+  job chain draws a 3D triangle into an offscreen/screen surface (RGB30, RK3566,
+  Mali-G52 r1p0). Fixed Tiler Job Primitive Size Constant (1.0f at offset 64)
+  and hierarchy mask (0x28, matching hardware max_levels = 2 from register
+  GPU_TILER_FEATURES 0x00c). Verified on device (report 80d62d1e): inside
+  and outside pixels pass.
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).
