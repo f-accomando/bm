@@ -53,7 +53,7 @@ the finished cartridge stay on the user's machine and SD card.
   each role with its own colours, light, shadow, and earth speckle. No ROM pixel reaches the
   output. It builds `build/smw-guide/guide.b16`.
 - `tests/smw/guide_shots.py` plays input scripts in `bmhost` and writes
-  `manuals/shots/smw-guide-NN-name.png`. Use these images in the PDF guide. The real build
+  `manuals/shots/smw-guide-NN-name.png`. Use these images only if the PDF is shared. The real build
   (`carts/smw/build/build.py`) stays for the benchmark. `--real` writes the real screenshots
   of the same scenes to `carts/smw/extracted/shots/` (ignored by git).
 - Open: restyle Mario's real sprites the same way when they are captured. The two-tone bush
