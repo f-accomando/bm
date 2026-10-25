@@ -44,9 +44,6 @@ int input_getc_home(void);
  * Start+Select, HID_QUIT_PS once per PS button (callers set it to 0). */
 uint32_t input_buttons(int *quit);
 
-/* The same, gamepads only (the keyboard types text). */
-uint32_t input_pad_buttons(int *quit);
-
 #define INPUT_PLAYERS 4
 
 /* Local multiplayer (M16): Bluetooth pad n is player n; the USB keyboard or

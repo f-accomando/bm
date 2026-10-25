@@ -164,16 +164,6 @@ uint32_t input_buttons(int *quit)
     return hid_buttons();
 }
 
-uint32_t input_pad_buttons(int *quit)
-{
-    watchdog_progress();
-    usb_poll();
-    bt_poll();
-    net_poll();
-    *quit |= hid_quit_pressed();
-    return hid_pad_buttons();
-}
-
 void input_flush(void)
 {
     watchdog_progress();

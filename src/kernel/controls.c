@@ -34,7 +34,6 @@ static const char *const buttons[] = { "a", "b", "x", "y", "l1", "r1", "l2", "r2
 int controls_count(void) { return CONTROLS_COUNT; }
 const char *controls_code(int i) { return i >= 0 && i < CONTROLS_COUNT ? act[i].code : NULL; }
 const char *controls_scheme(int i) { return i >= 0 && i < CONTROLS_COUNT ? act[i].scheme : NULL; }
-const char *controls_action(int i) { return i >= 0 && i < CONTROLS_COUNT ? act[i].action : NULL; }
 const char *controls_label(int i) { return i >= 0 && i < CONTROLS_COUNT ? act[i].label : NULL; }
 const char *controls_default(int i) { return i >= 0 && i < CONTROLS_COUNT ? act[i].def : NULL; }
 
@@ -44,14 +43,6 @@ int controls_valid_button(const char *b)
         if (!strcmp(b, buttons[k]))
             return 1;
     return 0;
-}
-
-int controls_find(const char *code)
-{
-    for (int i = 0; code && i < CONTROLS_COUNT; i++)
-        if (!strcmp(code, act[i].code))
-            return i;
-    return -1;
 }
 
 /* the pairs of the config value: for code i the button (without its end) into out */

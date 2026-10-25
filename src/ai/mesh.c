@@ -62,13 +62,6 @@ uint32_t mshade(uint32_t c, int level)
     }
 }
 
-uint32_t mmix(uint32_t a, uint32_t b, float k)
-{
-    int ar = (int)(a >> 16 & 255), ag = (int)(a >> 8 & 255), ab = (int)(a & 255);
-    int br = (int)(b >> 16 & 255), bg = (int)(b >> 8 & 255), bb = (int)(b & 255);
-    return rgb(ar + (int)((float)(br - ar) * k), ag + (int)((float)(bg - ag) * k), ab + (int)((float)(bb - ab) * k));
-}
-
 static uint8_t locked[NMAT];        /* materials the request's words chose */
 
 void mat(mc_t *c, int m, uint32_t color)

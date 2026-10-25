@@ -16,7 +16,6 @@
 int controls_count(void);
 const char *controls_code(int i);       /* "c1" */
 const char *controls_scheme(int i);     /* "scroller", "topdown", "stick" or "system" */
-const char *controls_action(int i);     /* the keymap name: "act1".."act8", "pause", "menu_ok", "menu_cancel" */
 const char *controls_label(int i);      /* for the menu: "Action 1", "Pause", "OK" ... */
 const char *controls_default(int i);    /* the RGB30 button of the default: "b", "y", "a", "x", "r2", "st", "mo", "mc" */
 
@@ -28,8 +27,6 @@ int controls_set(int i, const char *button);
 /* Every action back on its default; saves. */
 void controls_reset(void);
 int controls_valid_button(const char *button);
-/* The index of a code ("c1"), or -1. */
-int controls_find(const char *code);
 /* The button the player set for the keymap action `action` of `scheme`, or NULL. */
 const char *controls_lookup(const char *scheme, const char *action);
 

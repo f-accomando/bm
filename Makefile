@@ -288,7 +288,6 @@ lua_nano8 := $(BUILD)/nano8/main.lua
 # The models and the plaza are committed (carts/herocart/assets/, made by build/mkheroes.py and
 # build/mkplaza.py); the sources are carts/herocart/src/*.lua joined by build/build.py.
 HEROCART_SRC := $(sort $(wildcard carts/herocart/src/*.lua))
-HEROCART_ASSETS := $(addprefix carts/herocart/assets/,sheet.png models.bm map_floor.csv map_height.csv map_walls.csv)
 $(BUILD)/herocart/main.lua: $(HEROCART_SRC) carts/herocart/build/build.py
 	$(PYTHON) carts/herocart/build/build.py $@ --map $(BUILD)/herocart/main.map
 

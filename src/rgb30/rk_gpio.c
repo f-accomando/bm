@@ -61,9 +61,4 @@ void rk_gpio_set(unsigned pin, int value)
 {
     hw_write(gpio_base(pin >> 5), 0x00, pin & 31, value);
 }
-
-int rk_gpio_get(unsigned pin)
-{
-    return (readl(gpio_base(pin >> 5) + 0x70) >> (pin & 31)) & 1;
-}
 #endif

@@ -20,16 +20,6 @@ void dcache_clean_invalidate_range(const volatile void *addr, uint32_t len)
     arm_dsb();
 }
 
-void icache_invalidate_all(void)
-{
-    __asm__ volatile("mcr p15, 0, %0, c7, c5, 0" : : "r"(0) : "memory");
-#if __ARM_ARCH >= 7
-    __asm__ volatile("mcr p15, 0, %0, c7, c5, 6" : : "r"(0) : "memory");  /* BPIALL */
-    arm_dsb();
-#endif
-    arm_isb();
-}
-
 #if __ARM_ARCH >= 7
 /* ARMv7 has no operation on the whole data cache: each set and way of
  * each level up to the point of coherency (CLIDR, CCSIDR). */

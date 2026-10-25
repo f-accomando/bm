@@ -36,7 +36,6 @@ uint32_t mpick(mc_t *c, const uint32_t *list, int n);
 void mat(mc_t *c, int m, uint32_t rgb);
 void mat_flat(mc_t *c, int m, uint32_t rgb);
 uint32_t mshade(uint32_t c, int level);     /* 0 dark .. 2 the colour .. 4 light */
-uint32_t mmix(uint32_t a, uint32_t b, float k);
 
 extern const uint32_t MP_BRIGHT[8], MP_SKIN[5], MP_HAIR[7], MP_METAL[4], MP_WOOD[4], MP_LEAF[4],
     MP_STONE[4], MP_CLOTH[6];

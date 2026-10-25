@@ -49,8 +49,6 @@ void pmu_stop(void)
     on = 0;
 }
 
-int pmu_on(void) { return on; }
-
 void pmu_read(pmu_t *p)
 {
     if (!on) {
@@ -83,8 +81,6 @@ void pmu_stop(void)
     __asm__ volatile("mcr p15, 0, %0, c15, c12, 0" ::"r"(v));
     on = 0;
 }
-
-int pmu_on(void) { return on; }
 
 void pmu_read(pmu_t *p)
 {

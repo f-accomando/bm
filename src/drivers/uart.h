@@ -12,7 +12,6 @@
  * is given to the Bluetooth chip). Same pins and baud rate either way. */
 void     uart_init(void);
 void     uart_use_mini(void);
-int      uart_is_mini(void);
 uint32_t uart_clock(void);
 void     uart_putc(char c);
 void     uart_puts(const char *s);

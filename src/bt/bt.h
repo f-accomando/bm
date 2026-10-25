@@ -48,9 +48,6 @@ int bt_forget_all(void);
  * bm/config.txt). */
 int bt_paired(void);
 
-/* 1 while at least one pad has its HID channels open. */
-int bt_connected(void);
-
 /* Players with a connected pad: bit n = player n + 1. */
 unsigned bt_pads(void);
 

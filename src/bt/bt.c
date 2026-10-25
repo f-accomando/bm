@@ -1397,14 +1397,6 @@ void bt_pair_mouse(unsigned seconds)
         kprintf("bt: no mouse among them\n");
 }
 
-int bt_connected(void)
-{
-    for (int s = 0; s < BT_PADS; s++)
-        if (slot_connected(s))
-            return 1;
-    return 0;
-}
-
 unsigned bt_pads(void)
 {
     unsigned m = 0;

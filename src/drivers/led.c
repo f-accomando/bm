@@ -48,16 +48,6 @@ void led_set(int on)
         gpio_write(led_pin, led_high ? on : !on);
 }
 
-void led_blink_forever(unsigned on_ms, unsigned off_ms)
-{
-    for (;;) {
-        led_set(1);
-        timer_delay_ms(on_ms);
-        led_set(0);
-        timer_delay_ms(off_ms);
-    }
-}
-
 void led_blink_code(unsigned n)
 {
     for (;;) {

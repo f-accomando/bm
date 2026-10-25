@@ -174,13 +174,4 @@ int rk817_plugged(void)
     int v = rk817_read(0xf0);
     return v < 0 ? -1 : (v >> 6) & 1;
 }
-
-int rk817_power_key(void)
-{
-    int v = rk817_read(0xf8);                   /* INT_STS0: bit 0 press, bit 1 release */
-    if (v <= 0)
-        return 0;
-    rk817_write(0xf8, (uint8_t)(v & 3));
-    return v & 1;
-}
 #endif

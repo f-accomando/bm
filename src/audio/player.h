@@ -287,9 +287,8 @@ void player_tempo(player_t *p, float scale);
 void player_mute(player_t *p, int track, int on);
 
 /* A sound of the bank on a voice, as a step would play it (previews in
- * the editor); released after ms (0: held until player_release). */
+ * the editor); released after ms (0: held). */
 void player_play(player_t *p, int voice, int sound, int note, int vol, int fx, uint32_t ms);
-void player_release(player_t *p, int voice);
 /* Any sound (a preset, a sound of another bank) on a voice (-1: a free
  * one) as a step would play it, pitch envelope and vibrato included;
  * released after ms (0: held). Returns the voice, or -1. */
