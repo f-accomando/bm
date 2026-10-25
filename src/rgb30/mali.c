@@ -19,6 +19,7 @@
 #define GPU_ID              0x000
 #define GPU_L2_FEATURES     0x004
 #define GPU_CORE_FEATURES   0x008
+#define GPU_TILER_FEATURES  0x00c
 #define GPU_MMU_FEATURES    0x014
 #define GPU_AS_PRESENT      0x018
 #define GPU_JS_PRESENT      0x01c
@@ -246,6 +247,10 @@ static int identify(mali_info_t *in)
     say();
     ksnprintf(line, sizeof line, "mali: MMU %u-bit addresses, %u-bit physical; %u threads a core",
               (unsigned)(in->mmu_features & 255), (unsigned)(in->mmu_features >> 8 & 255), (unsigned)in->thread_max);
+    say();
+    const uint32_t tf = gr(GPU_TILER_FEATURES);
+    ksnprintf(line, sizeof line, "mali: tiler features %08x (max_levels %u, bin_size %u)",
+              (unsigned)tf, (unsigned)(tf >> 8 & 15), (unsigned)(tf & 255));
     say();
     if (in->gpu_id == 0 || in->gpu_id == 0xffffffffu || !in->shader_present || !in->l2_present ||
         !(in->as_present & 1) || !(in->js_present & 2)) {

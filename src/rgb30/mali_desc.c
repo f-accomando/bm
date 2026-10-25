@@ -184,6 +184,7 @@ void md_tiler_job(uint8_t *j, const md_primitive_t *p, uint64_t tiler, const md_
 {
     md_invocation(j + MD_TJ_INVOCATION, p->index_count);
     md_primitive(j + MD_TJ_PRIMITIVE, p);
+    f32(j + MD_TJ_PRIM_SIZE, 0, 1.0f);           /* Primitive Size: Constant = 1.0f (Mesa line_width / point_size) */
     A(j + MD_TJ_TILER, 0, tiler);
     md_draw(j + MD_TJ_DRAW, d);
 }
