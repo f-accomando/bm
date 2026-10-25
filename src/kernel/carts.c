@@ -45,7 +45,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PLAY_SECS   (24u * 3600u)
 
 extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
 extern const uint8_t bm_sound_cart[], bm_sound_cart_end[];
@@ -280,27 +279,11 @@ static void perf_line(const bm_stats_t *st)
     }
 }
 
-/* A cartridge from the menu: .bm ones can be left suspended. Returns
- * BM_SUSPENDED if it was. */
-static int run_buffer(framebuffer_t *fb, const uint8_t *data, size_t len, int suspendable)
-{
-    if (len >= 8 && bm_is_cart(data)) {
-        bm_stats_t st;
-        int r = bm_run(fb, data, len, PLAY_SECS, &st, suspendable);
-        bm_print_stats(&st);
-        perf_line(&st);
-        return r;
-    }
-    bm_close_suspended();
-    carts_play_buffer(fb, data, len);
-    return BM_ENDED;
-}
-
 void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 {
     if (len >= 8 && bm_is_cart(data)) {
         bm_stats_t st;
-        bm_play(fb, data, len, PLAY_SECS, &st);
+        bm_play(fb, data, len, LIB_PLAY_SECS, &st);
         bm_print_stats(&st);
         perf_msg[0] = 0;
         if (st.frames) {
@@ -413,24 +396,11 @@ const char *carts_animator(framebuffer_t *fb)
     return animator_session(fb, NULL);
 }
 
-static void play(framebuffer_t *fb, const lib_game_t *c)
+static void play(framebuffer_t *fb, lib_game_t *c)
 {
-    if (lib_is_suspended(c)) {
-        kprintf("\nresuming %s\n", c->name);
-        crumb("playing", c->title[0] ? c->title : c->name);
-        bm_stats_t st;
-        int r = bm_resume(fb, PLAY_SECS, &st);
-        bm_print_stats(&st);
-        perf_line(&st);
-        if (r != BM_SUSPENDED)
-            lib_suspend_clear();
-        ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
-        crumb("cartridge menu", NULL);
-        return;
-    }
-    lib_suspend_close();               /* the menu asked first */
     const char *tid = tool_id_of(c);
     if (tid) {
+        lib_suspend_close();            /* the menu asked first */
         const char *w;
         if (!strcmp(tid, "sdk"))
             w = carts_editor(fb);
@@ -454,30 +424,22 @@ static void play(framebuffer_t *fb, const lib_game_t *c)
         rescan();                       /* it may have saved new files */
         return;
     }
-    kprintf("\nplaying %s\n", c->name);
+    bm_stats_t st;
     perf_msg[0] = 0;
-    crumb("playing", c->title[0] ? c->title : c->name);
-    if (c->builtin) {
-        if (run_buffer(fb, c->builtin, c->size, 1) == BM_SUSPENDED)
-            lib_suspend_set(c);
-        ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
-        crumb("cartridge menu", NULL);
-        return;
-    }
-    uint8_t *data;
-    size_t len;
-    if (fat_load(&c->fe, &data, &len) != 0) {
-        loading_stop();
+    const int r = lib_play(fb, c, &st);
+    if (r == LIB_PLAY_UNREADABLE) {
         kprintf("\x1b[91mcannot read %s: %s\x1b[0m\n", c->name, fat_error());
         ksnprintf(last_msg, sizeof last_msg, "cannot read %s: %s", c->name, fat_error());
         notice_fail(last_msg);
         return;
     }
-    if (run_buffer(fb, data, len, 1) == BM_SUSPENDED)
-        lib_suspend_set(c);
-    free(data);
+    if (r == LIB_PLAY_BADFORMAT) {
+        kprintf("unknown cartridge format\n");
+    } else {
+        bm_print_stats(&st);
+        perf_line(&st);
+    }
     ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
-    crumb("cartridge menu", NULL);
 }
 
 static int lower_prefix(const char *s, const char *p, size_t n)
@@ -498,7 +460,7 @@ int carts_play_title(framebuffer_t *fb, const char *name)
 {
     size_t n = strlen(name);
     for (int i = 0; n && i < library.nsd; i++) {
-        const lib_game_t *c = &library.g[i];
+        lib_game_t *c = &library.g[i];
         if (!lib_is_dev(c) && (lower_prefix(c->title, name, n) || lower_prefix(c->name, name, n))) {
             play(fb, c);
             return 0;

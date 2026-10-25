@@ -9,6 +9,8 @@
 #include "bm/project.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
+#include "crumbs.h"
+#include "bm/loading.h"
 #include "market.h"
 #include "net/netxfer.h"
 #include "menu_ui.h"
@@ -293,6 +295,49 @@ int lib_save_delete(const lib_game_t *g, char *note, size_t n)
         }
     }
     return err;
+}
+
+/* ---------------------------------------------------------------- start */
+
+int lib_play(framebuffer_t *fb, lib_game_t *c, bm_stats_t *st)
+{
+    const lib_backend_t *be = library.be;
+    const int resume = lib_is_suspended(c);
+    if (be->play_begin)
+        be->play_begin(c, resume);
+    crumb("playing", c->title[0] ? c->title : c->name);
+    if (resume) {                               /* frozen by Start + Select: continue from the same frame */
+        kprintf("\nresuming %s\n", c->name);
+        if (bm_resume(fb, LIB_PLAY_SECS, st) != BM_SUSPENDED)
+            lib_suspend_clear();
+        crumb("cartridge menu", NULL);
+        return LIB_PLAY_OK;
+    }
+    lib_suspend_close();                        /* another game: the frozen one's memory is freed */
+    kprintf("\nplaying %s\n", c->name);
+    uint8_t *data = NULL;
+    const uint8_t *image = c->builtin;
+    size_t len = c->size;
+    if (!image) {
+        if (fat_load(&c->fe, &data, &len) != 0) {
+            loading_stop();
+            crumb("cartridge menu", NULL);
+            return LIB_PLAY_UNREADABLE;
+        }
+        image = data;
+    }
+    if (len < 8 || !bm_is_cart(image)) {
+        loading_stop();
+        free(data);
+        crumb("cartridge menu", NULL);
+        return LIB_PLAY_BADFORMAT;
+    }
+    kprintf("play: %s (%lu bytes)%s\n", c->path, (unsigned long)len, lib_is_dev(c) ? ", no splash" : "");
+    if (bm_run(fb, image, len, LIB_PLAY_SECS, st, 1) == BM_SUSPENDED)
+        lib_suspend_set(c);
+    free(data);
+    crumb("cartridge menu", NULL);
+    return LIB_PLAY_OK;
 }
 
 /* ---------------------------------------------------------------- the panel */

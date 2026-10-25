@@ -12,7 +12,11 @@
 #include "bm/gfx16.h"
 #include "fs/fat.h"
 #include "fiber.h"
+#include "drivers/fb.h"
+#include "bm/runtime.h"
 #include "home.h"
+
+#define LIB_PLAY_SECS   (24u * 3600u)   /* a game runs this long at most (bm_run) */
 
 #define LIB_MAX 64              /* cartridges in the library (the SD card and the built-in ones) */
 
@@ -46,6 +50,8 @@ typedef struct {
     /* Before the list changes: the jobs that hold a cartridge of it stop. */
     void (*stop_background)(void);
     unsigned panel;                     /* LIB_CAP_*: the rows of a cartridge's panel this console has */
+    /* Just before a cartridge starts or resumes (a WiFi try of the menu's stops, the loading screen shows). NULL: none. */
+    void (*play_begin)(const lib_game_t *g, int resume);
 } lib_backend_t;
 
 /* The rows a console may have in a cartridge's panel (lib_backend_t.panel). Play, Close, Export, the info rows
@@ -132,6 +138,16 @@ int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t
 long lib_save_size(const lib_game_t *g, int *slots);
 /* Deletes every slot: 0, or -1 and the first error in note. */
 int lib_save_delete(const lib_game_t *g, char *note, size_t n);
+
+/* ---- starting a cartridge */
+
+enum { LIB_PLAY_OK, LIB_PLAY_UNREADABLE = -1, LIB_PLAY_BADFORMAT = -2 };
+
+/* Plays the cartridge, or resumes it if it is the frozen one (st gets the statistics). A game that returns
+ * suspended (Start + Select) is remembered. LIB_PLAY_UNREADABLE: the file cannot be read (the reason is
+ * fat_error(), the loading screen is stopped); LIB_PLAY_BADFORMAT: it is not a cartridge. The caller shows
+ * what comes after: the statistics, the last-played line, an error page. */
+int lib_play(framebuffer_t *fb, lib_game_t *g, bm_stats_t *st);
 
 /* ---- the panel of a cartridge (X on its cover): the options as rows, like the Settings */
 

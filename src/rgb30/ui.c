@@ -217,10 +217,12 @@ static void rgb_stop_background(void)
     sdmap_stop();
 }
 
+static void rgb_play_begin(const lib_game_t *g, int resume);
+
 static const char *const rgb_dirs[] = { "/bm", "/carts", NULL };
 static const lib_backend_t rgb_backend = {
     .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
-    .panel = LIB_CAP_SDK | LIB_CAP_SEND,       /* no tools but the SDK, no editable copy, no Publish (D11) */
+    .panel = LIB_CAP_SDK | LIB_CAP_SEND, .play_begin = rgb_play_begin,       /* no tools but the SDK, no editable copy, no Publish (D11) */
 };
 
 static void scan_games(void)
@@ -274,7 +276,6 @@ static void page_message(const char *title, const char *lines[], int n)
  * (rgb30/display.h). Start + Select (or Esc, PS) does as on the Pi: the game
  * stays in memory, frozen, and the menu comes back; A on its cover resumes it
  * from the same frame, another game closes it (bm_close_suspended). */
-#define PLAY_SECS (24u * 3600u)
 
 /* the reads and the CRC of a big game: the loading screen goes on */
 static int load_tick(void)
@@ -283,38 +284,27 @@ static int load_tick(void)
     return 0;
 }
 
-static void play_bm(int i)
+/* Just before a game starts or resumes: a WiFi try of the menu's stops (not under a game), the reads show the
+ * loading screen, and a game gets the retro intro while it loads (an app or a utility opens with none). */
+static void rgb_play_begin(const lib_game_t *g, int resume)
 {
-    char path[80];
-    bm_stats_t st;
-    if (lib_is_suspended(&games[i])) {              /* frozen by Start + Select: continue */
-        wifi_auto_stop();
-        kprintf("resuming %s\n", games[i].name);
-        if (bm_resume(fb, PLAY_SECS, &st) != BM_SUSPENDED)
-            lib_suspend_clear();
-        goto back;
-    }
-    lib_suspend_close();                           /* another game: the frozen one's memory is freed */
-    ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
-    fat_entry_t e;
-    uint8_t *data = NULL;
-    size_t len = 0;
-    wifi_auto_stop();                              /* a WiFi try of the menu's: not under a game */
-    if (games[i].type == BM_TYPE_GAME)              /* the splash is for games; an app or a utility opens with none (the Pi, carts.c) */
-        loading_begin(fb);                          /* the retro intro while it loads */
+    wifi_auto_stop();
     fat_load_tick = load_tick;
     bm_parse_tick = load_tick;
-    if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
-        loading_stop();
-        const char *lines[] = { path, "", "cannot be read:", fat_error() };
+    if (!resume && !lib_is_dev(g))
+        loading_begin(fb);
+}
+
+static void play_bm(int i)
+{
+    bm_stats_t st;
+    const int r = lib_play(fb, &games[i], &st);
+    if (r != LIB_PLAY_OK) {
+        const char *lines[] = { games[i].path, "", r == LIB_PLAY_UNREADABLE ? "cannot be read:" : "unknown cartridge format",
+                                r == LIB_PLAY_UNREADABLE ? fat_error() : "" };
         page_message("Game", lines, 4);
         return;
     }
-    kprintf("play: %s (%lu bytes)%s\n", path, (uint32_t)len, games[i].type == BM_TYPE_GAME ? "" : ", no splash");
-    if (bm_run(fb, data, len, PLAY_SECS, &st, 1) == BM_SUSPENDED)
-        lib_suspend_set(&games[i]);
-    free(data);
-back:
     console_suspend(1);                             /* the menu draws itself */
     bm_print_stats(&st);
     while (pad_state())                             /* Start + Select still held */
@@ -349,7 +339,7 @@ static void play_net(void)
     loading_begin(fb);
     kprintf("play: from the network (%lu bytes)\n", (uint32_t)net_play_len);
     bm_stats_t st;
-    bm_play(fb, net_play_buf, net_play_len, PLAY_SECS, &st);
+    bm_play(fb, net_play_buf, net_play_len, LIB_PLAY_SECS, &st);
     console_suspend(1);                             /* the menu draws itself */
     bm_print_stats(&st);
     while (pad_state())                             /* Start + Select still held */
