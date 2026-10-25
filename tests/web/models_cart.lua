@@ -27,7 +27,7 @@ local function slurp(path)
   return s
 end
 
-local NAMES = { "house", "tree", "crate", "walker" }
+local NAMES = { "house", "tree", "crate", "walker", "fox" }
 local BASE = "https://models.test/"
 local MODEL = {}
 local SITE = {
@@ -172,14 +172,14 @@ do
   check(settle(m, b), "index: loads")
   eq(b.mode, "page", "index: page mode")
   eq(b.title, "Models (test)", "index: title")
-  eq(#b.page.images, 4, "index: four preview pictures")
+  eq(#b.page.images, #NAMES, "index: one preview picture per model")
   local hrefs = {}
   for _, l in ipairs(b.page.links) do hrefs[l.href] = true end
   for _, n in ipairs(NAMES) do check(hrefs[BASE .. "models/" .. n .. ".html"], "index: link to " .. n) end
   check(#b.targets >= 8, "index: link targets " .. #b.targets)
   check(b.page.h and b.page.h > 0, "index: laid out, height " .. tostring(b.page.h))
   -- the pictures load on request, each decoded with image_load
-  eq(b:load_images(), 4, "index: four pictures queued")
+  eq(b:load_images(), #NAMES, "index: the pictures are queued")
   check(run(m, b, function() return not b:images_busy() end), "index: pictures finish")
   for i, im in ipairs(b.page.images) do check(im.tex ~= nil, "index: picture " .. i .. " decoded") end
   -- the card of the house leads to its page
