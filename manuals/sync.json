@@ -1159,5 +1159,56 @@
    "docs/api/riff.md": "d19ca9e137e0",
    "docs/api/sound.md": "9dde22d1110b"
   }
+ },
+ "smw-guide": {
+  "chapters": {
+   "1": {
+    "en": "14364baebf2b",
+    "it": "e24077b4bfbc",
+    "title": "The project"
+   },
+   "2": {
+    "en": "25d7d9fb26bd",
+    "it": "6d211458d66a",
+    "title": "The level as a map"
+   },
+   "3": {
+    "en": "e5f64540bdfc",
+    "it": "ae1de70255a1",
+    "title": "The sprites"
+   },
+   "4": {
+    "en": "4c74a0ebd6ee",
+    "it": "ee3bac18ec56",
+    "title": "Mario's movement"
+   },
+   "5": {
+    "en": "eac26e953091",
+    "it": "e4b8d6971c51",
+    "title": "The game"
+   },
+   "6": {
+    "en": "883518630d33",
+    "it": "db711664e8ff",
+    "title": "The assets pipeline"
+   },
+   "7": {
+    "en": "e147db851b0b",
+    "it": "d61f4658bfc4",
+    "title": "Try it"
+   },
+   "8": {
+    "en": "d413fe2d89d8",
+    "it": "49fb8bdc53cb",
+    "title": "Open points"
+   }
+  },
+  "sources": {
+   "carts/smw/build/build.py": "ef12ef48cc29",
+   "carts/smw/build/sprites.py": "b3b81909be57",
+   "carts/smw/src/game.lua": "8aa9a97bd662",
+   "carts/smw/src/physics.lua": "113cafbf10ca",
+   "docs/progress/smw.md": "b4d570ea2323"
+  }
  }
 }

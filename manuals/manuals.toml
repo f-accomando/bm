@@ -100,3 +100,8 @@ sources = ["docs/api/draw.md", "docs/api/light3d.md", "docs/progress/graphics.md
 id = "levels"
 order = 19
 sources = ["carts/editor/main.lua", "src/bm/map3d.c", "docs/api/draw.md", "docs/api/bmlib.md", "docs/api/light3d.md", "docs/GAME-GUIDE.md", "docs/design/games-architecture.md", "docs/design/suite-sdk.md", "docs/progress/tools.md", "docs/progress/graphics.md", "docs/progress/v3d.md", "docs/ROADMAP.md"]
+
+[[manual]]
+id = "smw-guide"
+order = 20
+sources = ["carts/smw/src/game.lua", "carts/smw/src/physics.lua", "carts/smw/build/build.py", "carts/smw/build/sprites.py", "docs/progress/smw.md"]

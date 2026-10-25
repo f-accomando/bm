@@ -104,6 +104,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 |---|---|
 | `pong` | `bm.info` |
 | `yharnam` | `bm.info`; `sheet.png`, `map_*.csv` in `assets/`; `mk*.py`, `mapview.py`, `art/` in `build/` (they find `main.lua` and `assets/` from there) |
+| `smw` | `bm.info`; code in `src/` (`physics.lua`, `game.lua`), joined into `main.lua` by `build/build.py`. The assets come from the player's own ROM into `extracted/` (ignored by git) |
 | `snake`, `shooter`, `astrowing`, `typing`, `write`, `ko2` | `bm.info` (their `title_<id>` lines left the Makefile) |
 | `kitchen`, `titan` | `bm.info`; `sheet.png` in `assets/`; `build.py`, `mkassets.py` and the other scripts (`import_chefs.py`, `mkrobot.py`, `art.py`) in `build/`; `titan_ex` shares `titan/assets/sheet.png` |
 | `nano8` | `bm.info`; `build.py` and `mkdemo.py` in `build/` |
