@@ -163,7 +163,7 @@ void rgb30_bench3d(framebuffer_t *fb)
         ksnprintf(ms, sizeof ms, "stopped at step %d", -mali);
     char keep[8];                                   /* mali3d as it was (a copy: config_set may move the string) */
     const char *was = config_get("mali3d");
-    ksnprintf(keep, sizeof keep, "%s", was ? was : "0");
+    ksnprintf(keep, sizeof keep, "%s", was ? was : "1");
     if (mali == MALI_OK)
         config_set("mali3d", "1");
     ksnprintf(machine, sizeof machine, "%s, Cortex-A55, the 3D on the ARM (Mali: %s)", PLAT_NAME, ms);

@@ -66,19 +66,20 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 - **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
 ## Open work
-Hardware verified on RGB30 (`bm3d 7.8`..`7.14`, 25 Oct 2026): H1 triangle (`80d62d1e`), H6 flat-colour 3D Bench (`94aae9dd`), Phase 2 multi-draw batching (`fcfd2933`), Phase 3 `BM_VS3` probe (`b041b71a`), Phase 4 async 2-set queue probe (`9e4652bd`), `BM_VS3` mesh path + async queue (`7509aa08`), and cached 2 MB resolve (`dc civac`) + 8192-triangle merge-sorted batching (`e259a8c8`, `docs/bench/mali-2026-10-25/step8-bench3d-cached-resolve.txt`).
+Hardware verified on RGB30 (`bm3d 7.8`..`7.15`, 25 Oct 2026): H1 triangle (`80d62d1e`), H6 flat-colour 3D Bench (`94aae9dd`), Phase 2 multi-draw batching (`fcfd2933`), Phase 3 `BM_VS3` probe (`b041b71a`), Phase 4 async 2-set queue probe (`9e4652bd`), `BM_VS3` mesh path + async queue (`7509aa08`), cached 2 MB resolve (`dc civac`) + 8192-triangle merge-sorted batching (`e259a8c8`), and default `mali3d=1` + 4 MB single-pass GPU arena (`1024` draws, L1-cached descriptor packing, report `b3cab428`, `docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`).
 
-Hardware Results (3D Bench 25 Oct 2026, 640x360, `bm3d 7.14`, report `e259a8c8`, GPU score **138** vs **14** in `7.10`):
+Hardware Results (3D Bench 25 Oct 2026, 640x360, `bm3d 7.15`, report `b3cab428`, games score **247** vs **192**, GPU score **228** vs **14** in `7.10`):
 | Test Scene | RGB30 ARM (0.2) n60 / n30 | RGB30 Mali GPU (2.1) n60 / n30 | RGB30 Mali GPU+VS (3.4) n60 / n30 | Pi Zero W V3D (GPU+VS) n60 |
 | :--- | :--- | :--- | :--- | :--- |
-| `quad_flat` (fill) | 15.8 / 33.6 (32 tri) | **211.5 / 457.0 (423 tri)** | **211.3 / 455.9 (0.27 ms/frame)** | 163.7 (174.5 GPU) |
-| `draws` (cubes) | 762.9 / 1910.4 (9,155 tri) | 67.9 / 129.6 (815 tri) | **509.8 / 1112.6 (6,118 tri)** | 1,386 (467 ARM) |
-| `spheres_unlit` | 164.8 / 437.2 (15,821 tri) | 13.6 / 26.7 (1,301 tri) | **92.5 / 187.3 (8,883 tri)** | ~885 (~85,000 tri) |
-| `spheres` (lit) | 140.5 / 376.8 (13,489 tri) | 7.4 / 15.2 (709 tri) | **24.1 / 93.6 (2,309 tri)** | 782.9 (75,159 tri) |
-| `spheres_smooth` | 72.1 / 264.7 (6,920 tri) | 7.2 / 14.7 (694 tri) | **24.1 / 93.6 (2,309 tri)** | ~730 (~70,000 tri) |
-| `tiny` (512f grids) | 26.9 / 57.7 (13,765 tri) | 10.7 / 22.1 (5,486 tri) | **13.5 / 27.4 (6,891 tri)** | ~190 (97,373 tri) |
-| `split` (3D+2D) | 21.8 / 46.8 (8,359 tri) | 1.8 / 3.6 (701 tri) | **4.0 / 8.6 (1,538 tri)** | ~52 (~20,000 tri) |
-| `queue` (+4M instr) | - / - | 5.2 / 12.5 (501 tri) | **14.3 / 70.3 (1,374 tri, +Q)** | 631.1 (+Q) |
+| `quad_flat` (fill) | 15.8 / 33.6 (32 tri) | **211.3 / 457.6 (423 tri)** | **143.2 / 307.1 (0.27 ms/frame)** | 163.7 (174.5 GPU) |
+| `draws` (cubes) | 766.7 / 1918.4 (9,200 tri) | 116.5 / 219.6 (1,398 tri) | **533.8 / 744.6 (6,405 tri)** | 1,386 (467 ARM) |
+| `spheres_unlit` | 164.4 / 437.1 (15,781 tri) | 22.5 / 46.9 (2,162 tri) | **103.8 / 212.1 (9,967 tri)** | ~885 (~85,000 tri) |
+| `spheres` (lit) | 140.1 / 376.6 (13,449 tri) | 13.4 / 27.5 (1,290 tri) | **22.9 / 141.5 (2,197 tri)** | 782.9 (75,159 tri) |
+| `spheres_smooth` | 71.4 / 261.1 (6,853 tri) | 12.0 / 26.6 (1,246 tri) | **22.9 / 141.8 (2,201 tri)** | ~730 (~70,000 tri) |
+| `tiny` (512f grids) | 26.9 / 57.7 (13,788 tri) | 14.8 / 30.3 (7,561 tri) | **21.2 / 42.7 (10,869 tri)** | ~190 (97,373 tri) |
+| `split` (3D+2D) | 21.7 / 46.8 (8,344 tri) | 3.1 / 6.2 (1,195 tri) | **5.2 / 9.9 (1,980 tri, +Q2)** | ~52 (~20,000 tri) |
+| `queue` (+4M instr) | - / - | 9.0 / 23.1 (868 tri) | **17.7 / 141.7 (1,699 tri, +Q)** | 631.1 (+Q) |
+| `gpu2d` (sprites) | 2819.1 / 6332.9 (576 tri) | **1849.2 / 5354.8 (1 job)** | **1845.4 / 5340.1 (+2D)** | ~1,200 |
 
 Next hardware steps:
 1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW.
@@ -86,7 +87,7 @@ Next hardware steps:
 3. [DONE 25 Oct] Multi-draw batching fix (Phase 2): In `frame_build()`, aligned attribute buffer and tiler position pointers to 64 bytes (`first += (nv + 3) & ~3u;`). Eliminated `DATA_INVALID_FAULT` (0x58) in subsequent draws. Verified on hardware (report `fcfd2933`). Frames of up to 24 draws render without faults.
 4. [DONE 25 Oct] Vertex shader transformation (Phase 3): Verified `BM_VS3` on hardware (`mali_probe_vs3`, report `b041b71a`): 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`) transforms model-space vertices (`41000000 42b00000 3f000000 3f800000`) and renders alongside `BM_VS` draws in 16 + 27 us.
 5. [DONE 25 Oct] Asynchronous queue & multi-buffering (Phase 4): Verified `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)` in flight on hardware (`mali_probe_async`, report `9e4652bd`): 2 frames submitted back-to-back complete in 204 us with exact pixel checks (`s0 40e080/102050`, `s1 e040a0/301040`).
-6. [DONE 25 Oct] `mali_backend` `BM_VS3` mesh path + async queue + cached resolve (`bm3d 7.13`–`7.14`, reports `7509aa08`, `e259a8c8`): Wired `mali_backend.mesh` (`be_mesh`) with per-bone back-face culling, per-face lighting/cel/fog, 2-mode batching, async Slot 0 Fragment Job overlap, cached 2 MB resolve surface (`dc civac`), and 8192-triangle merge-sorted scene batching. GPU score rose **10x** (`14` -> `138`); `quad_flat` (`211.5` @ 60 fps) beats Pi Zero W V3D (`174.5`); `draws` reached `509.8` @ 60 fps (`1,112.6` @ 30 fps, **35x** vs `7.10`); `spheres_unlit` reached `92.5` @ 60 fps (**28x** vs `7.10`).
+6. [DONE 25 Oct] `mali_backend` `BM_VS3` mesh path + async queue + cached resolve + single-pass 4 MB arena (`bm3d 7.13`–`7.15`, reports `7509aa08`, `e259a8c8`, `b3cab428`): Wired `mali_backend.mesh` (`be_mesh`), async Slot 0 Fragment Job overlap, cached 2 MB resolve (`dc civac`), 8192-triangle merge-sorted batching, L1-cached descriptor packing (`frame_build_ex`), 4 MB single-pass GPU arena (`1,024` draws), and enabled `mali3d=1` by default (`gpu3d_vs=2`, `gpu3d_queue=1`, `gpu3d_merge=1`). Games score rose from `192` to **`247`**; GPU score rose **16.3x** (`14` -> `228`); `quad_flat` (`211.3` @ 60 fps) and `gpu2d` (`1,849.2` @ 60 fps) beat Pi Zero W V3D.
 7. Textures: compile textured fragment shader with Mesa Bifrost compiler (`tools/mali/mkshader.c`), add texture/sampler descriptors, and remove `colour_only` fallback.
 
 ## Mali vs Pi V3D Architectural Equivalence & Feature Parity (API-5)
@@ -100,16 +101,16 @@ Mapping of Mali-G52 developments against reference Pi V3D driver:
 | **Binning / Tiling** | Binner Job (`BPOA` / `BPOS`), tile allocator pool with overflow | Tiler Job on slot 1 (`SO_HEAP`, `SO_HEAPD`, `SO_TCTX`, mask 0x28) | **Full Parity** (HW verified; Primitive Size 1.0f fixed fault) |
 | **Fragment / Raster** | QPU Fragment Shaders (`fs_colour`, `fs_tex_lit`, `fs_cel`) | Fragment Job on slot 0 (`BM_FS` with pushed color words 4-7) | **Flat Colour Parity** (HW verified; textured shader pending Mesa build tree) |
 | **State Management** | NV Shader State Record / Blend configuration | `Renderer State` (`md_renderer_state_t`) + `Blend` per target | **Full Parity** (Descriptors from Mesa `v7.xml`) |
-| **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | CPU far-to-near sort (`be_tris`), 64-bit resolve key `0xFF00FF` (`be_resolve`) | **Missing on Mali**: Hardware Z-buffer attachment (currently software sort) |
+| **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | CPU far-to-near merge sort (`be_tris`), cached 64-bit resolve `0xFF00FF` | **Missing on Mali**: Hardware Z-buffer attachment (currently software sort) |
 | **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | Per-face lighting/cel/fog in `be_mesh`; textures stay on ARM (`colour_only = 1`) | **Partial Parity**: Untextured lit/cel/fog meshes on GPU; textures on ARM |
 | **Cel Shading** | `fs_cel` on QPU with 64-entry quant table and inverted hull outline | Per-face cel quantization (`cel_step`) in `be_mesh` | **Partial Parity**: Flat-shaded cel quant on GPU; smooth per-pixel cel on ARM |
 | **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`) + async Slot 0 Fragment Job (`mali_backend_submit`) | **Full Parity** (HW verified in 3D Bench `GPU+VS+Q` / `GPU+VS+Q2`) |
-| **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | 2-mode batching in `be_flush_mode` (`BM_VS3` `<=64` draws, screen-space merge `>64`) | **Full Parity** (HW verified; merges multi-mesh scenes into 1 GPU pass) |
-| **Config & Safety** | `gpu3d=1` default, automatic fallback to ARM | `mali3d=0` default (D45), clean ARM fallback on any fault | **Full Parity** (`gpu3d_init` verifies Mali and falls back to ARM) |
+| **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | 4 MB single-pass arena (`1,024` draws) + screen-space merge (`>1,024` draws) | **Full Parity** (HW verified; merges up to `1,024` draws in 1 GPU pass) |
+| **Config & Safety** | `gpu3d=1` default, automatic fallback to ARM | `mali3d=1` default (`bm3d 7.15`), clean ARM fallback on any fault | **Full Parity** (`gpu3d_init` verifies Mali and falls back to ARM) |
 
 ## Rules (do not break)
-- `mali3d` is off by default. With the key off, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).
-- The Mali draws flat colours only. `r3d` hands textures and effects to the ARM (`colour_only`).
+- `mali3d` is on by default (`bm3d 7.15`). With `mali3d=0`, `gpu3d=0`, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).
+- The Mali draws flat colours and untextured lit/cel/fog meshes. `r3d` hands textures and effects to the ARM (`colour_only`).
 - A frame uses one of two sets of the GPU memory (`MALI_SET_BASE`); the layout macros (`SO_*`, `D_*`) are in `mali_variants.h` and the variant patches use them. Change a layout macro and `make TARGET=rgb30 test-mali` must still pass.
 - The variant probe runs only after the base jobs fail. It resets the GPU between variants.
 - Report hardware behaviour only from a report file. Without one, write `not verified on hardware`.

@@ -414,6 +414,10 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   10x (`14` -> `138`), `quad_flat` reached `211.5` @ 60 fps (`457.0` @ 30 fps, beating Pi Zero W V3D's `174.5`),
   `draws` reached `509.8` @ 60 fps (`1,112.6` @ 30 fps, 35x faster than `7.10`), and `spheres_unlit` reached `92.5`
   @ 60 fps (`187.3` @ 30 fps, 28x faster than `7.10`).
+- **7.15** (2026-10-25): **Default `mali3d=1`, 4 MB single-pass GPU arena (`1,024` draws), and L1-cached descriptor packing**:
+  - `src/rgb30/bm_port.c`, `src/rgb30/b3d_rgb30.c`: Enabled `mali3d=1` by default on RGB30 (`gpu3d_vs=2`, `gpu3d_queue=1`, `gpu3d_merge=1`), disabling only when `mali3d=0` or `gpu3d=0`.
+  - `src/rgb30/mali.c`: Added `frame_build_ex()` with L1-cached stack buffers (`hdr[0x1000]`, `loc[0x540]`, `frs_buf[80]`, `vrs3_buf[64]`) eliminating uncached `ATTR_NC` byte read-modify-writes, plus a 4 MB single-pass GPU arena at `H->mem - (6u << 20)` (`1,024` draws and `8,192` triangles in 1 Fragment Job and 1 `be_resolve` per frame).
+  - Verified on RGB30 hardware in 3D Bench (`docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`, report `b3cab428`): overall `games` score rose from `192` to **`247`**, `GPU` score rose **16.3x** (`14` in `7.10` -> `138` in `7.14` -> **`228`** in `7.15`), `draws` (`GPU+VS`) reached `533.8` @ 60 fps (`1 job`), `spheres` (`GPU+VS`) reached `22.9` @ 60 fps (`141.5` @ 30 fps), and `gpu2d` reached `1,849.2` @ 60 fps (`5,354.8` @ 30 fps).
 
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the

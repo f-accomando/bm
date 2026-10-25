@@ -33,7 +33,7 @@ static const r3d_backend_t *mali_be;
 int gpu3d_init(void)
 {
     const char *k = config_get("mali3d");
-    if (!k || strcmp(k, "1")) {
+    if (k && !strcmp(k, "0")) {
         if (mali_be)
             mali_backend_drop();
         mali_be = NULL;
@@ -52,9 +52,16 @@ int gpu3d_init(void)
 }
 const char *gpu3d_status(void)
 {
+    if (!mali_be && rgb30_mali_hw())
+        (void)gpu3d_init();
     return mali_be ? "the Mali draws flat colours (mali3d=1)" : "no GPU driver on the RGB30 yet";
 }
-int gpu3d_ready(void)                                   { return mali_be != NULL; }
+int gpu3d_ready(void)
+{
+    if (!mali_be && rgb30_mali_hw())
+        (void)gpu3d_init();
+    return mali_be != NULL;
+}
 int gpu3d_failed(void)                                  { return mali_be == NULL; }
 const r3d_backend_t *gpu3d_backend(void)                { return mali_be; }
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus)

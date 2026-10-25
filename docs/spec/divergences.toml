@@ -575,13 +575,13 @@ action = "run docs/api/system.md example against a real https server on a Pi Zer
 id = "D45"
 area = "3D drawn by a GPU"
 pi = "the V3D draws the 3D by default (gpu3d), with the QPU programs of M44 where they landed"
-rgb30 = "the 3D is the ARM's; with mali3d=1 the Mali draws flat-colour triangles and BM_VS3 meshes with async queue and cached resolve (bm3d 7.14), textures stay on the ARM"
+rgb30 = "the Mali draws flat-colour triangles and untextured BM_VS3 meshes by default (mali3d=1, gpu3d_vs=2, gpu3d_queue=1, gpu3d_merge=1; bm3d 7.15), textures stay on the ARM"
 cause = "todo"
 priority = 3
 status = "open"
-note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader + mali_backend.mesh), Phase 4 (async queue via mali_frame_submit and gpu3d_submit/sync), and cached 2 MB resolve surface (dc civac, 8-pixel resolve, 8192-tri merge-sorted batching) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd, 7509aa08, e259a8c8; GPU score 14 -> 138, quad_flat 211.5 beats Pi V3D 174.5). Next: API-5 textured faces (requires Mesa Bifrost compiler build tree) and user decision on mali3d default."
-evidence = "src/rgb30/bm_port.c; src/rgb30/mali.c; src/rgb30/mmu.c; docs/bench/mali-2026-10-25/step8-bench3d-cached-resolve.txt"
-action = "add textured fragment shader when Mesa Bifrost build tree is available, then evaluate default decision for mali3d"
+note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader + mali_backend.mesh), Phase 4 (async queue via mali_frame_submit and gpu3d_submit/sync), cached 2 MB resolve surface (dc civac, 8-pixel resolve, 8192-tri merge-sorted batching), and default mali3d=1 with 4 MB single-pass GPU arena (1024 draws, L1-cached descriptor packing) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd, 7509aa08, e259a8c8, b3cab428; games score 192 -> 247, GPU score 14 -> 228). Next: API-5 textured faces (requires Mesa Bifrost compiler build tree)."
+evidence = "src/rgb30/bm_port.c; src/rgb30/mali.c; src/rgb30/mmu.c; docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt"
+action = "add textured fragment shader when Mesa Bifrost build tree is available"
 
 [[divergence]]
 id = "D51"
