@@ -45,7 +45,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_CARTS   64
 #define PLAY_SECS   (24u * 3600u)
 
 extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
@@ -56,25 +55,6 @@ extern const uint8_t bm_code_cart[], bm_code_cart_end[];
 extern const uint8_t bm_mesh_cart[], bm_mesh_cart_end[];
 extern const uint8_t bm_pixel_cart[], bm_pixel_cart_end[];
 
-typedef struct {
-    char title[49];             /* from the header; the file name if none */
-    char author[33];
-    char name[FAT_NAME_MAX];
-    char dir[8];                /* "" for built-in, "/" or "/carts" */
-    const uint8_t *builtin;     /* NULL: file on SD */
-    uint32_t size;
-    fat_entry_t fe;
-    g16_sheet_t cover;          /* printed on the card in the menu (px NULL: none) */
-    uint8_t cover_read;         /* the covers' fiber has been at it (else a placeholder) */
-    char path[FAT_NAME_MAX + 10];
-    char save[32];              /* its save file (.bm), "" if none */
-    uint8_t type;               /* BM_TYPE_* from the header flags (bm.info "type:"): an app or a utility is listed in Dev */
-    uint8_t grey;               /* not made for this kernel (bm_compat_classify): faded, starts after a question */
-    const char *why;            /* the reason of the grey, a short static text */
-} cart_t;
-
-static cart_t carts[MAX_CARTS];
-static int ncarts, nsd, sd_ok;
 static char last_msg[96];
 static char perf_msg[80];          /* speed of the last .bm game */
 static char susp_path[FAT_NAME_MAX + 10];   /* the cartridge frozen in memory, "" if none */
@@ -92,101 +72,6 @@ static void power_led(void)
         ledstate_set(LED_POWER, thr[0] & 1);
 }
 
-static int ends_with(const char *s, const char *ext)
-{
-    size_t n = strlen(s), m = strlen(ext);
-    if (n <= m)
-        return 0;
-    for (size_t i = 0; i < m; i++) {
-        char c = s[n - m + i];
-        if (c >= 'A' && c <= 'Z') c = (char)(c + 32);
-        if (c != ext[i])
-            return 0;
-    }
-    return 1;
-}
-
-/* "bm", "b16" or "bme" (a project): the menu's label of a file */
-static const char *kind_of(const cart_t *c)
-{
-    return ends_with(c->name, ".b16") ? "b16" : ends_with(c->name, ".bme") ? "bme" : "bm";
-}
-
-/* Title and author from the first bytes of the .bm image. */
-static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
-{
-    size_t toff = 0, tlen = 0, aoff = 0, alen = 0;
-    if (len >= 128 && bm_is_cart(h)) {
-        toff = 24; tlen = 48; aoff = 72; alen = 32;
-    }
-    if (tlen) {
-        size_t n = tlen < sizeof c->title - 1 ? tlen : sizeof c->title - 1;
-        memcpy(c->title, h + toff, n);
-        c->title[n] = 0;
-        memcpy(c->author, h + aoff, alen < sizeof c->author - 1 ? alen : sizeof c->author - 1);
-        c->author[sizeof c->author - 1] = 0;
-        bm_save_path(c->title, c->author, c->save, sizeof c->save);   /* as the runtime names it */
-    }
-    c->grey = 0;
-    c->why = "";
-    c->type = tlen ? (uint8_t)bm_type_of_head(h) : BM_TYPE_GAME;
-    if (tlen && !c->builtin) {                  /* the policy of docs/spec/compat-policy.toml, from the header read */
-        bm_compat_facts_t f;
-        bm_compat_facts(h, len, c->size, c->name, &f);
-        if (bm_compat_classify(&f, BM_TARGET_PI, 0, &c->why, NULL) == BM_ACT_GREY)
-            c->grey = 1;
-    }
-    for (char *p = c->title; *p; p++)           /* the console font is CP437 */
-        if ((unsigned char)*p < 32) *p = ' ';
-    for (char *p = c->author; *p; p++)
-        if ((unsigned char)*p < 32) *p = ' ';
-    if (!c->title[0])
-        ksnprintf(c->title, sizeof c->title, "%s", c->name);
-}
-
-static void add_builtin(const char *name, const uint8_t *start, const uint8_t *end)
-{
-    cart_t *c = &carts[ncarts++];
-    memset(c, 0, sizeof *c);
-    strcpy(c->name, name);
-    c->builtin = start;
-    c->size = (uint32_t)(end - start);
-    read_header(c, start, c->size);
-}
-
-static void scan_dir(const char *path)
-{
-    fat_dir_t d;
-    fat_entry_t e;
-    if (fat_opendir(&d, path) != 0)
-        return;
-    while (ncarts < MAX_CARTS && fat_readdir(&d, &e)) {
-        if (e.is_dir || e.name[0] == '.')
-            continue;
-        /* .b16, the handhelds' cartridge, is the same container on the Pi
-         * and runs the same way (the user, 2026-10-05); .bme a project,
-         * the editable file of a game (project.h, 2026-10-06) */
-        if (!ends_with(e.name, ".bm") && !ends_with(e.name, ".b16") && !ends_with(e.name, ".bme"))
-            continue;
-        cart_t *c = &carts[ncarts++];
-        memset(c, 0, sizeof *c);
-        memcpy(c->name, e.name, sizeof c->name);
-        strcpy(c->dir, path);
-        c->size = e.size;
-        c->fe = e;
-        static uint8_t head[512] __attribute__((aligned(4)));
-        if (fat_read_head(&e, head) == 0)
-            read_header(c, head, e.size < 512 ? e.size : 512);
-        else
-            read_header(c, head, 0);
-    }
-}
-
-static int title_cmp(const void *a, const void *b)
-{
-    return lib_text_cmp(((const cart_t *)a)->title, ((const cart_t *)b)->title);
-}
-
 /* ---------------------------------------------------------------- covers in the background
  *
  * The menu opens at once with the titles (the Market's placeholders); the
@@ -200,10 +85,10 @@ enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
 static fiber_job_t cover_job = { .name = "covers" };
 static int cover_tab = TAB_GAMES, cover_sel = -1;      /* what the menu shows: its covers first */
 
-static int is_dev(const cart_t *c);
+static int is_dev(const lib_game_t *c);
 
 /* The cover from the .bm COVER section, or a label with the title. */
-static void read_cover(cart_t *c)
+static void read_cover(lib_game_t *c)
 {
     const uint8_t *rgba = NULL;
     int w = 0, h = 0, r = -1;
@@ -245,25 +130,25 @@ static int next_cover(void)
     if (cover_tab == TAB_GAMES || cover_tab == TAB_DEV) {
         const int dev = cover_tab == TAB_DEV;
         int sel_pos = 0;
-        for (int i = 0, pos = 0; i < ncarts; i++)
-            if (is_dev(&carts[i]) == dev) {
+        for (int i = 0, pos = 0; i < library.n; i++)
+            if (is_dev(&library.g[i]) == dev) {
                 if (i == cover_sel)
                     sel_pos = pos;
                 pos++;
             }
-        for (int i = 0, pos = 0; i < ncarts; i++) {
-            if (is_dev(&carts[i]) != dev)
+        for (int i = 0, pos = 0; i < library.n; i++) {
+            if (is_dev(&library.g[i]) != dev)
                 continue;
             const int d = pos > sel_pos ? pos - sel_pos : sel_pos - pos;
             pos++;
-            if (!carts[i].cover_read && d < best_d) {
+            if (!library.g[i].cover_read && d < best_d) {
                 best = i;
                 best_d = d;
             }
         }
     }
-    for (int i = 0; best < 0 && i < ncarts; i++)
-        if (!carts[i].cover_read)
+    for (int i = 0; best < 0 && i < library.n; i++)
+        if (!library.g[i].cover_read)
             best = i;
     return best;
 }
@@ -273,7 +158,7 @@ static void covers_main(void *arg)
     (void)arg;
     int i;
     while (!fiber_cancelled() && (i = next_cover()) >= 0) {
-        read_cover(&carts[i]);
+        read_cover(&library.g[i]);
         fiber_slice();
     }
 }
@@ -373,7 +258,7 @@ static void background_stop(void)
 
 /* Tool id ("sdk", "sound", "studio", "animator", "mesh", "pixel", "code",
  * "assistant") for a built-in or SD-installed app, or NULL for a game. */
-static const char *tool_id_of(const cart_t *c)
+static const char *tool_id_of(const lib_game_t *c)
 {
     if (c->builtin) {
         if (c->builtin == bm_editor_cart) return "sdk";
@@ -390,103 +275,59 @@ static const char *tool_id_of(const cart_t *c)
 
 static int has_sd_tool(const char *tid)
 {
-    for (int i = 0; i < nsd; i++) {
-        const char *t = tool_id_of(&carts[i]);
+    for (int i = 0; i < library.nsd; i++) {
+        const char *t = tool_id_of(&library.g[i]);
         if (t && strcmp(t, tid) == 0)
             return 1;
     }
     return 0;
 }
 
+/* the tools always come last (up from the first cartridge); skipped if
+ * already installed on the SD card from Market > Apps or if CLEAN_KERNEL=1 */
+static void add_builtins(void)
+{
+    if (&bm_editor_cart_end[0] > &bm_editor_cart[0] && !has_sd_tool("sdk"))
+        lib_add_builtin(&library, "editor (built-in)", bm_editor_cart, bm_editor_cart_end);
+    if (&bm_sound_cart_end[0] > &bm_sound_cart[0] && !has_sd_tool("sound"))
+        lib_add_builtin(&library, "sound (built-in)", bm_sound_cart, bm_sound_cart_end);
+    if (&bm_studio_cart_end[0] > &bm_studio_cart[0] && !has_sd_tool("studio"))
+        lib_add_builtin(&library, "studio (built-in)", bm_studio_cart, bm_studio_cart_end);
+    if (&bm_animator_cart_end[0] > &bm_animator_cart[0] && !has_sd_tool("animator"))
+        lib_add_builtin(&library, "animator (built-in)", bm_animator_cart, bm_animator_cart_end);
+    if (&bm_mesh_cart_end[0] > &bm_mesh_cart[0] && !has_sd_tool("mesh"))
+        lib_add_builtin(&library, "mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
+    if (&bm_pixel_cart_end[0] > &bm_pixel_cart[0] && !has_sd_tool("pixel"))
+        lib_add_builtin(&library, "pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
+}
+
+/* the folders of the Pi: the root, /carts, /bm (the games folder of the RGB30: the Pi reads it too) and the
+ * projects (.bme, project.h) */
+static const char *const pi_dirs[] = { "/", "/carts", "/bm", BM_PROJECTS_DIR, NULL };
+static const lib_backend_t pi_backend = {
+    .dirs = pi_dirs, .target = BM_TARGET_PI, .add_builtins = add_builtins, .stop_background = background_stop,
+};
+
 static void rescan(void)
 {
-    background_stop();
-
-    /* Keep covers that have already been read so the menu does not reload them
-     * every time a game exits or the user returns to the menu. */
-    static struct {
-        char path[FAT_NAME_MAX + 10];
-        uint32_t size;
-        uint32_t cluster;
-        g16_sheet_t cover;
-        uint8_t cover_read;
-        uint8_t used;
-    } old_covers[MAX_CARTS];
-    int n_old = 0;
-
-    for (int i = 0; i < ncarts && n_old < MAX_CARTS; i++) {
-        if (carts[i].cover_read && carts[i].cover.px) {
-            ksnprintf(old_covers[n_old].path, sizeof old_covers[n_old].path, "%s", carts[i].path);
-            old_covers[n_old].size = carts[i].size;
-            old_covers[n_old].cluster = carts[i].fe.cluster;
-            old_covers[n_old].cover = carts[i].cover;
-            old_covers[n_old].cover_read = carts[i].cover_read;
-            old_covers[n_old].used = 0;
-            n_old++;
-        } else {
-            g16_sheet_free(&carts[i].cover);
-        }
-    }
-    ncarts = 0;
-    if (sd_ok) {
-        scan_dir("/");
-        scan_dir("/carts");
-        scan_dir("/bm");                    /* the games folder of the RGB30: the Pi reads it too */
-        scan_dir(BM_PROJECTS_DIR);          /* the projects (.bme): project.h */
-        qsort(carts, (size_t)ncarts, sizeof *carts, title_cmp);
-    }
-    nsd = ncarts;
-    /* the tools always come last (up from the first cartridge); skipped if
-     * already installed on the SD card from Market > Apps or if CLEAN_KERNEL=1 */
-    if (ncarts < MAX_CARTS && &bm_editor_cart_end[0] > &bm_editor_cart[0] && !has_sd_tool("sdk"))
-        add_builtin("editor (built-in)", bm_editor_cart, bm_editor_cart_end);
-    if (ncarts < MAX_CARTS && &bm_sound_cart_end[0] > &bm_sound_cart[0] && !has_sd_tool("sound"))
-        add_builtin("sound (built-in)", bm_sound_cart, bm_sound_cart_end);
-    if (ncarts < MAX_CARTS && &bm_studio_cart_end[0] > &bm_studio_cart[0] && !has_sd_tool("studio"))
-        add_builtin("studio (built-in)", bm_studio_cart, bm_studio_cart_end);
-    if (ncarts < MAX_CARTS && &bm_animator_cart_end[0] > &bm_animator_cart[0] && !has_sd_tool("animator"))
-        add_builtin("animator (built-in)", bm_animator_cart, bm_animator_cart_end);
-    if (ncarts < MAX_CARTS && &bm_mesh_cart_end[0] > &bm_mesh_cart[0] && !has_sd_tool("mesh"))
-        add_builtin("mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
-    if (ncarts < MAX_CARTS && &bm_pixel_cart_end[0] > &bm_pixel_cart[0] && !has_sd_tool("pixel"))
-        add_builtin("pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
-    for (int i = 0; i < ncarts; i++) {
-        cart_t *c = &carts[i];
-        if (c->builtin)
-            ksnprintf(c->path, sizeof c->path, "%s", c->name);
-        else
-            ksnprintf(c->path, sizeof c->path, "%s%s%s", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
-        for (int j = 0; j < n_old; j++) {
-            if (!old_covers[j].used &&
-                strcmp(c->path, old_covers[j].path) == 0 &&
-                c->size == old_covers[j].size &&
-                (c->builtin || c->fe.cluster == old_covers[j].cluster)) {
-                c->cover = old_covers[j].cover;
-                c->cover_read = old_covers[j].cover_read;
-                old_covers[j].used = 1;
-                break;
-            }
-        }
-    }
-    for (int j = 0; j < n_old; j++)
-        if (!old_covers[j].used)
-            g16_sheet_free(&old_covers[j].cover);
+    library.be = &pi_backend;
+    lib_scan(&library);
     market_carts_changed();
 }
 
 void carts_init(void)
 {
-    sd_ok = 0;
+    library.sd_ok = 0;
     if (sd_init() != 0) {
         kprintf("sd: %s\n", sd_error());
     } else if (fat_mount() != 0) {
         kprintf("sd: %s card, %lu MB: %s\n", sd_is_hc() ? "SDHC" : "SD",
                 sd_blocks() / 2048, fat_error());
     } else {
-        sd_ok = 1;
+        library.sd_ok = 1;
         fat_set_clock(net_time);        /* SNTP time for the file dates, when the net has it */
     }
-    ledstate_set(LED_NO_SD, !sd_ok);
+    ledstate_set(LED_NO_SD, !library.sd_ok);
     fat_load_tick = sd_tick;            /* the loading screen, the menu's fibers */
     bm_parse_tick = sd_tick;
     /* a write in a fiber of the menu (the Market's game, an update) gives
@@ -494,7 +335,7 @@ void carts_init(void)
     if (!fat_write_tick)
         fat_write_tick = fiber_slice_tick;
     rescan();
-    if (sd_ok) {
+    if (library.sd_ok) {
         /* the cluster size (a card's writes depend on it) and, if any, the
          * transfers retried and the waits that ran out so far (sd.h) */
         char size[24], extra[48] = "";
@@ -509,43 +350,21 @@ void carts_init(void)
             ksnprintf(extra, sizeof extra, "; %lu retried, %lu timed out", (unsigned long)retries,
                       (unsigned long)timeouts);
         kprintf("sd: %s card (%s), %s; %d cartridges; clusters %s%s\n", sd_is_hc() ? "SDHC" : "SD",
-                sd_controller(), fat_describe(), nsd, size, extra);
+                sd_controller(), fat_describe(), library.nsd, size, extra);
     }
 }
 
 int carts_count(void)
 {
-    return ncarts;
-}
-
-/* the SD card cartridge with this path, or -1 */
-static int find_path(const char *path)
-{
-    for (int i = 0; i < nsd; i++)
-        if (lib_same_text(carts[i].path, path))
-            return i;
-    return -1;
-}
-
-const char *carts_find_title(const char *title, const char *author)
-{
-    for (int i = 0; i < nsd; i++)
-        if (lib_same_text(carts[i].title, title) && lib_same_text(carts[i].author, author))
-            return carts[i].path;
-    return NULL;
-}
-
-int carts_has_path(const char *path)
-{
-    return path[0] && find_path(path) >= 0;
+    return library.n;
 }
 
 void carts_list(void)
 {
-    for (int i = 0; i < ncarts; i++)
-        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, kind_of(&carts[i]),
-                carts[i].size, carts[i].dir, carts[i].dir[0] && strcmp(carts[i].dir, "/") ? "/" : "",
-                carts[i].name, carts[i].title);
+    for (int i = 0; i < library.n; i++)
+        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, lib_kind(&library.g[i]),
+                library.g[i].size, library.g[i].dir, library.g[i].dir[0] && strcmp(library.g[i].dir, "/") ? "/" : "",
+                library.g[i].name, library.g[i].title);
 }
 
 static void perf_line(const bm_stats_t *st)
@@ -598,19 +417,19 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 }
 
 /* a project (.bme): not listed in the tabs; the editors open it (Open) */
-static int is_project(const cart_t *c)
+static int is_project(const lib_game_t *c)
 {
     return !c->builtin && bm_is_project(c->name);
 }
 
 /* a development tool built into the kernel or installed from Market > Apps (the Dev tab), or
  * any cartridge that declares type app or utility in its bm.info (it plays as a cartridge) */
-static int is_dev(const cart_t *c)
+static int is_dev(const lib_game_t *c)
 {
     return tool_id_of(c) != NULL || (!c->builtin && c->type != BM_TYPE_GAME);
 }
 
-/* The tools a tool can open on its file with cart_tool(name, path) (bm
+/* The tools a tool can open on its file with lib_game_tool(name, path) (bm
  * Studio's "Open in bm Animator" and back). */
 static const devtool_t tools[] = {
     { "studio", "bm Studio", bm_studio_cart, bm_studio_cart_end },
@@ -628,7 +447,7 @@ static const devtools_t suite = { tools, sizeof tools / sizeof tools[0], NULL };
  * tries (devtool.c, the RGB30's too): when the tool asks to play a file
  * (cart_run), play it, then open the tool again on that file with the
  * error the game stopped with, if any; when it asks for another tool
- * (cart_tool), that one opens on the file. `open`: a file to start on (the
+ * (lib_game_tool), that one opens on the file. `open`: a file to start on (the
  * menu's "Open in ..."), or NULL. Returns the name of the last tool (for
  * the menu's "last: ..."). */
 const char *carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len, const char *what,
@@ -701,7 +520,7 @@ const char *carts_animator(framebuffer_t *fb)
     return animator_session(fb, NULL);
 }
 
-static void play(framebuffer_t *fb, const cart_t *c)
+static void play(framebuffer_t *fb, const lib_game_t *c)
 {
     if (susp_path[0] && strcmp(susp_path, c->path) == 0 && bm_suspended(NULL, 0)) {
         kprintf("\nresuming %s\n", c->name);
@@ -786,8 +605,8 @@ static int lower_prefix(const char *s, const char *p, size_t n)
 int carts_play_title(framebuffer_t *fb, const char *name)
 {
     size_t n = strlen(name);
-    for (int i = 0; n && i < nsd; i++) {
-        const cart_t *c = &carts[i];
+    for (int i = 0; n && i < library.nsd; i++) {
+        const lib_game_t *c = &library.g[i];
         if (!is_dev(c) && (lower_prefix(c->title, name, n) || lower_prefix(c->name, name, n))) {
             play(fb, c);
             return 0;
@@ -818,13 +637,13 @@ static void draw(int sel, int top, int rows)
 {
     out("\x1b[2J\x1b[H");
     out("\x1b[1;96m bm - cartridges\x1b[0m");
-    if (sd_ok)
+    if (library.sd_ok)
         outf("\x1b[90m   SD: %s\x1b[0m", fat_describe());
     else
         outf("\x1b[90m   SD: %s\x1b[0m", sd_error());
     out("\n\n");
-    for (int i = top; i < ncarts && i < top + rows; i++) {
-        const cart_t *c = &carts[i];
+    for (int i = top; i < library.n && i < top + rows; i++) {
+        const lib_game_t *c = &library.g[i];
         char title[39], author[19];
         ksnprintf(title, sizeof title, "%s", c->title);
         ksnprintf(author, sizeof author, "%s", c->author);
@@ -835,10 +654,10 @@ static void draw(int sel, int top, int rows)
              i == sel ? "" : "\x1b[90m", author, i == sel ? "" : "\x1b[0m",
              "bm", (c->size + 1023) / 1024);
     }
-    for (int i = ncarts - top; i < rows; i++)
+    for (int i = library.n - top; i < rows; i++)
         out("\n");
-    if (sel < ncarts) {
-        const cart_t *c = &carts[sel];
+    if (sel < library.n) {
+        const lib_game_t *c = &library.g[sel];
         if (c->builtin)
             outf("\x1b[90m %s\x1b[0m\n", c->name);
         else
@@ -857,17 +676,17 @@ static void draw(int sel, int top, int rows)
 static int tab_items(int tab, int *idx)
 {
     int n = 0;
-    for (int i = 0; i < ncarts; i++)
-        if (is_dev(&carts[i]) == (tab == TAB_DEV) && !is_project(&carts[i]))
+    for (int i = 0; i < library.n; i++)
+        if (is_dev(&library.g[i]) == (tab == TAB_DEV) && !is_project(&library.g[i]))
             idx[n++] = i;
     if (tab == TAB_DEV) {               /* the projects are not listed: the editors open them (Open) */
-        for (int t = 0; t < home_tools() && n < MAX_CARTS + 16; t++)
+        for (int t = 0; t < home_tools() && n < LIB_MAX + 16; t++)
             idx[n++] = -1 - t;
     }
     return n;
 }
 
-static int is_suspended(const cart_t *c)
+static int is_suspended(const lib_game_t *c)
 {
     return susp_path[0] && strcmp(susp_path, c->path) == 0 && bm_suspended(NULL, 0);
 }
@@ -882,11 +701,11 @@ static int opt_market;          /* the game of the HOME_MARKET panel */
 static long opt_save;           /* its save slots: bytes in all, -1 if none */
 static int opt_slots;           /* how many slots it uses */
 
-static long save_size(const cart_t *c)
+static long save_size(const lib_game_t *c)
 {
     long bytes = -1;
     opt_slots = 0;
-    for (int slot = 1; sd_ok && c->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
+    for (int slot = 1; library.sd_ok && c->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
         char path[sizeof c->save];
         fat_entry_t e;
         bm_save_slot(c->save, slot, path, sizeof path);
@@ -899,7 +718,7 @@ static long save_size(const cart_t *c)
 }
 
 /* every slot of the cartridge: 0, or -1 and the first error in note */
-static int save_delete(const cart_t *c, char *note, size_t n)
+static int save_delete(const lib_game_t *c, char *note, size_t n)
 {
     int err = 0;
     for (int slot = 1; c->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
@@ -916,7 +735,7 @@ static int save_delete(const cart_t *c, char *note, size_t n)
 
 static void cart_panel(home_panel_t *p)
 {
-    const cart_t *c = &carts[opt_cart];
+    const lib_game_t *c = &library.g[opt_cart];
     memset(p, 0, sizeof *p);
     ksnprintf(p->title, sizeof p->title, "%s", c->title);
     int susp = is_suspended(c);        /* the tabs list no project (D44): a panel is always a game's */
@@ -942,7 +761,7 @@ static void cart_panel(home_panel_t *p)
                  "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
         home_row(p, MENU_ROW_ACTION, C_COPY, "Make an editable copy",
                  "Games are read only: open the copy (.bme) from an editor", NULL);
-        if (strcmp(kind_of(c), "b16") != 0)
+        if (strcmp(lib_kind(c), "b16") != 0)
             home_row(p, MENU_ROW_ACTION, C_BUILD_B16, "Export .b16",
                      "Exports a .b16 edition without changing the .bm", NULL);
         home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
@@ -957,7 +776,7 @@ static void cart_panel(home_panel_t *p)
     home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
              "%lu KB", (c->size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, C_TYPE, "Type", "Lua 5.4 on bm", "%s",
-             !strcmp(kind_of(c), "b16") ? "b16 (handheld)" : "bm (native)");
+             !strcmp(lib_kind(c), "b16") ? "b16 (handheld)" : "bm (native)");
     char v[40];
     if (opt_save >= 0 && opt_slots > 1)
         ksnprintf(v, sizeof v, "%ld bytes in %d slots", opt_save, opt_slots);
@@ -978,7 +797,7 @@ static void cart_panel(home_panel_t *p)
  * started by the menu itself). */
 static void cart_act(int row, int how, home_do_t *d)
 {
-    cart_t *c = &carts[opt_cart];
+    lib_game_t *c = &library.g[opt_cart];
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
     switch (row) {
@@ -1093,8 +912,8 @@ void carts_menu(framebuffer_t *fb)
     kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor\n"
             "(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)\n");
     input_flush();
-    static menu_item_t items[MAX_CARTS + 16 + CATALOG_MAX];
-    static int idx[MAX_CARTS + 16];
+    static menu_item_t items[LIB_MAX + 16 + CATALOG_MAX];
+    static int idx[LIB_MAX + 16];
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
     int depth = 0, built = -1, frame = 0;
@@ -1163,8 +982,8 @@ void carts_menu(framebuffer_t *fb)
                                               .kind = "tool", .cover = home_tool_cover(t) };
                     continue;
                 }
-                const cart_t *c = &carts[idx[i]];
-                items[i] = (menu_item_t){ .title = c->title, .path = c->path, .kind = kind_of(c),
+                const lib_game_t *c = &library.g[idx[i]];
+                items[i] = (menu_item_t){ .title = c->title, .path = c->path, .kind = lib_kind(c),
                                           .cover = c->cover.px ? &c->cover : NULL,
                                           .loading = !c->cover_read, .running = is_suspended(c),
                                           .badge = NULL, .grey = c->grey,
@@ -1483,7 +1302,7 @@ void carts_menu(framebuffer_t *fb)
                 compat_ok = -1;
             } else if (yes && ask == ASK_COMPAT) {
                 compat_ok = ask_cart;           /* the user knows: the other questions go on */
-                if (bm_suspended(NULL, 0) && !is_suspended(&carts[ask_cart])) {
+                if (bm_suspended(NULL, 0) && !is_suspended(&library.g[ask_cart])) {
                     ask = ASK_SWITCH;
                 } else {
                     ask = ASK_NONE;
@@ -1493,7 +1312,7 @@ void carts_menu(framebuffer_t *fb)
             } else if (yes && ask == ASK_OFFER) {
                 ask = ASK_NONE;
                 market_offer_answer(1);
-            } else if (yes && ask == ASK_SWITCH && ask_cart >= 0 && netxfer_updating(carts[ask_cart].path)) {
+            } else if (yes && ask == ASK_SWITCH && ask_cart >= 0 && netxfer_updating(library.g[ask_cart].path)) {
                 ask = ASK_NONE;                 /* the game stays frozen: nothing to start yet */
                 ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
                 notice_fail(last_msg);
@@ -1518,8 +1337,8 @@ void carts_menu(framebuffer_t *fb)
                 if (id == HOME_CART) {
                     cart_act(ask_row, HOME_YES, &d);
                 } else if (id == HOME_MARKET) {
-                    int c = find_path(market_path(opt_market));
-                    if (ask_row == M_DELETE && c >= 0 && is_suspended(&carts[c])) {
+                    int c = lib_find_path(&library, market_path(opt_market));
+                    if (ask_row == M_DELETE && c >= 0 && is_suspended(&library.g[c])) {
                         bm_close_suspended();
                         susp_path[0] = 0;
                     }
@@ -1553,7 +1372,7 @@ void carts_menu(framebuffer_t *fb)
             } else if (r && id == HOME_CART && action == 1 &&
                        (row == C_PLAY || row == C_SDK || row == C_SOUND || row == C_CODE || row == C_STUDIO ||
                         row == C_ANIMATOR || row == C_MESH || row == C_PIXEL)) {
-                const cart_t *c = &carts[opt_cart];
+                const lib_game_t *c = &library.g[opt_cart];
                 int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : row == C_SOUND ? GO_SOUND :
                         row == C_CODE ? GO_CODE : row == C_MESH ? GO_MESH : row == C_PIXEL ? GO_PIXEL :
                         row == C_ANIMATOR ? GO_ANIMATOR : GO_STUDIO;
@@ -1566,11 +1385,11 @@ void carts_menu(framebuffer_t *fb)
                     go_cart = opt_cart;
                 }
             } else if (r && id == HOME_MARKET && action == 1 && row == M_PLAY) {
-                int c = find_path(market_path(opt_market));
+                int c = lib_find_path(&library, market_path(opt_market));
                 if (c < 0) {
                     ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(opt_market));
                     notice_fail(last_msg);
-                } else if (bm_suspended(NULL, 0) && !is_suspended(&carts[c])) {
+                } else if (bm_suspended(NULL, 0) && !is_suspended(&library.g[c])) {
                     ask = ASK_SWITCH;
                     ask_go = GO_PLAY;
                     ask_cart = c;
@@ -1673,14 +1492,14 @@ void carts_menu(framebuffer_t *fb)
                 built = -1;
             } else if (opts && !on_gear && tab != TAB_MARKET && n && idx[tsel[tab]] >= 0) {
                 opt_cart = idx[tsel[tab]];
-                opt_save = save_size(&carts[opt_cart]);
+                opt_save = save_size(&library.g[opt_cart]);
                 stack[0].id = HOME_CART;
                 stack[0].sel = stack[0].top = 0;
                 depth = 1;
                 built = -1;
             }
         } else if (!gfx && (dx || dy)) {
-            sel = ((sel + dx + dy) % ncarts + ncarts) % ncarts;
+            sel = ((sel + dx + dy) % library.n + library.n) % library.n;
             redraw = 1;
         }
         /* from the network (bm_net.py): a file saved on the SD card
@@ -1712,7 +1531,7 @@ void carts_menu(framebuffer_t *fb)
                 market_refresh();
             } else {
                 carts_init();
-                if (sel >= ncarts) sel = 0;
+                if (sel >= library.n) sel = 0;
                 depth = 0;                          /* indices changed */
                 ask = ASK_NONE;
                 redraw = 1;
@@ -1733,11 +1552,11 @@ void carts_menu(framebuffer_t *fb)
                 ask = ASK_MARKET;
                 ask_cart = i;
             } else if (a == MARKET_PLAY) {
-                int c = find_path(market_path(i));
+                int c = lib_find_path(&library, market_path(i));
                 if (c < 0) {
                     ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(i));
                     notice_fail(last_msg);
-                } else if (bm_suspended(NULL, 0) && !is_suspended(&carts[c])) {
+                } else if (bm_suspended(NULL, 0) && !is_suspended(&library.g[c])) {
                     ask = ASK_SWITCH;
                     ask_go = GO_PLAY;
                     ask_cart = c;
@@ -1757,16 +1576,16 @@ void carts_menu(framebuffer_t *fb)
                 go = GO_TEXT;
                 go_text = d.text;
                 go_wait = d.wait;
-            } else if (gfx && is_suspended(&carts[i]) && netxfer_updating(carts[i].path)) {
+            } else if (gfx && is_suspended(&library.g[i]) && netxfer_updating(library.g[i].path)) {
                 ask = ASK_UPDATE_SUSPENDED;
-                ask_go = is_project(&carts[i]) ? GO_SDK : GO_PLAY;
+                ask_go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
                 ask_cart = i;
-            } else if (gfx && bm_suspended(NULL, 0) && !is_suspended(&carts[i])) {
+            } else if (gfx && bm_suspended(NULL, 0) && !is_suspended(&library.g[i])) {
                 ask = ASK_SWITCH;
-                ask_go = is_project(&carts[i]) ? GO_SDK : GO_PLAY;
+                ask_go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
                 ask_cart = i;
             } else {
-                go = is_project(&carts[i]) ? GO_SDK : GO_PLAY;     /* a project opens in the SDK */
+                go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;     /* a project opens in the SDK */
                 go_cart = i;
             }
         }
@@ -1775,9 +1594,9 @@ void carts_menu(framebuffer_t *fb)
          * one about a suspended game. It is not a lock: yes starts it. */
         {
             const int gi = ask == ASK_SWITCH && ask_go == GO_PLAY ? ask_cart : go == GO_PLAY ? go_cart : -1;
-            if (gfx && gi >= 0 && carts[gi].grey && compat_ok != gi && !is_suspended(&carts[gi])) {
+            if (gfx && gi >= 0 && library.g[gi].grey && compat_ok != gi && !is_suspended(&library.g[gi])) {
                 ksnprintf(ask_q, sizeof ask_q, "Start it anyway?");
-                ksnprintf(ask_d, sizeof ask_d, "%s", carts[gi].why);
+                ksnprintf(ask_d, sizeof ask_d, "%s", library.g[gi].why);
                 ksnprintf(ask_y, sizeof ask_y, "Start");
                 ask = ASK_COMPAT;
                 ask_go = GO_PLAY;
@@ -1785,7 +1604,7 @@ void carts_menu(framebuffer_t *fb)
                 go = GO_NONE;
             }
         }
-        if (go != GO_NONE && go_cart >= 0 && netxfer_updating(carts[go_cart].path)) {
+        if (go != GO_NONE && go_cart >= 0 && netxfer_updating(library.g[go_cart].path)) {
             ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
             notice_fail(last_msg);
             go = GO_NONE;
@@ -1811,7 +1630,7 @@ void carts_menu(framebuffer_t *fb)
              * at once */
             const int app = go >= GO_PLAY && go <= GO_PIXEL;
             const int resume = go == GO_PLAY && go_cart >= 0 && susp_path[0] &&
-                               strcmp(susp_path, carts[go_cart].path) == 0 && bm_suspended(NULL, 0);
+                               strcmp(susp_path, library.g[go_cart].path) == 0 && bm_suspended(NULL, 0);
             if (gfx && app)
                 menu_ui_close_quiet(fb);
             else if (gfx)
@@ -1819,16 +1638,16 @@ void carts_menu(framebuffer_t *fb)
             /* the bm suite (editor, Studio, Animator, Mesh, Pixel, Sound, a project) opens
              * with no splash; the splash is for games */
             const int suite = (go >= GO_SDK && go <= GO_PIXEL) ||
-                              (go == GO_PLAY && go_cart >= 0 && is_dev(&carts[go_cart]));
+                              (go == GO_PLAY && go_cart >= 0 && is_dev(&library.g[go_cart]));
             if (app && !resume && !suite)
                 loading_begin(fb);
             /* the file of a tool: a cartridge of the menu, or none */
-            const char *gpath = go_cart >= 0 ? carts[go_cart].path : "";
-            const char *gname = go_cart >= 0 ? carts[go_cart].name : "";
+            const char *gpath = go_cart >= 0 ? library.g[go_cart].path : "";
+            const char *gname = go_cart >= 0 ? library.g[go_cart].name : "";
             netcon_focus(go == GO_TEXT ? FOCUS_PAGE : FOCUS_APP, NULL);
             switch (go) {
             case GO_PLAY:
-                play(fb, &carts[go_cart]);
+                play(fb, &library.g[go_cart]);
                 depth = 0;
                 break;
             case GO_SDK:

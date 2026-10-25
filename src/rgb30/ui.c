@@ -77,8 +77,7 @@
 #define C_WARN      0xffb13a
 #define C_BAD       0xff5a5a
 
-#define MAX_GAMES   64
-#define CATALOG_ITEMS (CATALOG_MAX > MAX_GAMES ? CATALOG_MAX : MAX_GAMES)
+#define CATALOG_ITEMS (CATALOG_MAX > LIB_MAX ? CATALOG_MAX : LIB_MAX)
 
 static framebuffer_t *fb;
 
@@ -180,63 +179,11 @@ static void frame_end(void)
 
 /* --- games on the SD card --- */
 
-struct game {
-    char name[56], title[48], author[33], save[32];     /* save: its save file, as the runtime names it */
-    char dir[8];                                        /* "/bm" or "/carts" */
-    uint32_t size;
-    int is_bm;
-    uint8_t type;                   /* BM_TYPE_* of the header (bm.info `type:`): not a game goes to Dev, with no splash */
-    uint8_t grey;                   /* not made for this kernel (bm_compat_classify): faded, starts after a question */
-    const char *why;                /* the reason of the grey, a short static text */
-    g16_sheet_t cover;              /* 128x80: the .bm's COVER, or (until the covers job reads it) its title on a label */
-    uint8_t cover_read;             /* the covers job has read the COVER section (D10) */
-};
-static struct game games[MAX_GAMES];
+static lib_game_t *const games = library.g;     /* the library (kernel/library.h) */
 /* games[] holds the cartridges of the card: first the games (BM_TYPE_GAME, the Games tab: n_games), then the
- * apps and utilities (the Dev tab after its fixed items); n_all is the count of both */
-static int n_games, n_all, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
+ * apps and utilities (the Dev tab after its fixed items); library.n is the count of both */
+static int n_games;                         /* the games (BM_TYPE_GAME): games[0..n_games); library.hidden: .bm hidden by show_bm=0 */
 static const char *sd_state = "not read";
-
-/* Title, author, type and compatibility of cartridge i, from the first 512 bytes of the file (the sort needs the
- * titles, so this read stays in scan_games), and a label with the title as its cover. The COVER section is read later,
- * in the background (covers_tick, as the Pi's carts.c): the menu opens at once. */
-static void load_head(int i)
-{
-    char path[80];
-    ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
-    ksnprintf(games[i].title, sizeof games[i].title, "%s", games[i].name);
-    games[i].author[0] = 0;
-    games[i].type = BM_TYPE_GAME;
-    fat_entry_t e;
-    static uint8_t head[512] __attribute__((aligned(4)));
-    size_t len = 0;
-    if (fat_find(path, &e) == 0 && fat_read_head(&e, head) == 0)
-        len = e.size < sizeof head ? e.size : sizeof head;
-    const int cart = len >= BM_HEADER_SIZE && bm_is_cart(head);
-    if (cart && head[24]) {
-        char t[49];
-        memcpy(t, head + 24, 48);
-        t[48] = 0;
-        ksnprintf(games[i].title, sizeof games[i].title, "%s", t);
-        memcpy(t, head + 72, 32);
-        t[32] = 0;
-        ksnprintf(games[i].author, sizeof games[i].author, "%s", t);
-    }
-    if (cart)
-        games[i].type = (uint8_t)bm_type_of_head(head);
-    bm_save_path(games[i].title, games[i].author, games[i].save, sizeof games[i].save);
-    games[i].grey = 0;
-    games[i].why = "";
-    if (cart) {                                     /* docs/spec/compat-policy.toml */
-        bm_compat_facts_t f;
-        bm_compat_facts(head, len, games[i].size, games[i].name, &f);
-        if (bm_compat_classify(&f, BM_TARGET_RGB30, 0, &games[i].why, NULL) == BM_ACT_GREY)
-            games[i].grey = 1;
-    }
-    memset(&games[i].cover, 0, sizeof games[i].cover);
-    games[i].cover_read = 0;
-    menu_make_cover(&games[i].cover, games[i].title);
-}
 
 /* --- the covers, in the background (D10, as the Pi's carts.c: a fiber job in the menu's free time, the covers on
  * screen first, stopped before a game or a page starts and before the list changes) --- */
@@ -256,7 +203,7 @@ static int next_cover(void)
         hi = n_games;
     } else if (cover_tab == TAB_DEV) {
         lo = n_games;
-        hi = n_all;
+        hi = library.n;
     }
     const int at = cover_sel >= lo && cover_sel < hi ? cover_sel : lo;
     for (int i = lo; i < hi; i++) {
@@ -266,7 +213,7 @@ static int next_cover(void)
             best_d = d;
         }
     }
-    for (int i = 0; best < 0 && i < n_all; i++)
+    for (int i = 0; best < 0 && i < library.n; i++)
         if (!games[i].cover_read)
             best = i;
     return best;
@@ -329,60 +276,56 @@ static void covers_tick(uint32_t until)
     fiber_job_run(&cover_job, until);
 }
 
-/* the games by title, as on the Pi (carts.c title_cmp) */
-static int title_cmp(const void *a, const void *b)
+/* What the RGB30 lists: .b16 always, .bm unless show_bm=0 (they are for the Pi, listed for testing), no tool
+ * cartridge (a tool installed from Market > Apps, the SDK: Dev, not Games), no project. */
+static int rgb_want(const char *name)
 {
-    return lib_text_cmp(((const struct game *)a)->title, ((const struct game *)b)->title);
+    const char *dot = strrchr(name, '.');
+    if (!dot)
+        return 0;
+    const char *show = config_get("show_bm");
+    const int show_bm = !show || strcmp(show, "0") != 0;     /* for testing: shown unless show_bm=0 */
+    const int is_b16 = strcasecmp(dot, ".b16") == 0;
+    const int is_bm = strcasecmp(dot, ".bm") == 0;
+    if (bm_tool_id_of_file(name))
+        return 0;                   /* a tool installed from Market > Apps (the SDK): Dev, not Games (as on the Pi) */
+    if (is_bm && !show_bm)
+        return -1;                  /* .bm: for the Pi, hidden here */
+    return is_b16 || is_bm;
 }
 
-static void scan_dir(const char *open, const char *dir)
+/* Before the list changes (as the Pi's background_stop): the work that holds a cartridge of it stops. */
+static void rgb_stop_background(void)
 {
-    fat_dir_t d;
-    fat_entry_t e;
-    const char *show = config_get("show_bm");
-    int show_bm = !show || strcmp(show, "0") != 0;     /* for testing: shown unless show_bm=0 */
-    if (fat_opendir(&d, open) != 0)
-        return;
-    while (fat_readdir(&d, &e) == 1 && n_all < MAX_GAMES) {
-        if (e.is_dir)
-            continue;
-        const char *dot = strrchr(e.name, '.');
-        if (!dot)
-            continue;
-        int is_b16 = strcasecmp(dot, ".b16") == 0;
-        int is_bm = strcasecmp(dot, ".bm") == 0;
-        if (bm_tool_id_of_file(e.name))
-            continue;               /* a tool installed from Market > Apps (the SDK): Dev, not Games (as on the Pi) */
-        if (is_bm && !show_bm)
-            n_hidden++;
-        if (!is_b16 && !(is_bm && show_bm))
-            continue;               /* .bm: for the Pi, hidden here */
-        ksnprintf(games[n_all].name, sizeof games[0].name, "%s", e.name);
-        ksnprintf(games[n_all].dir, sizeof games[0].dir, "%s", dir);
-        games[n_all].size = e.size;
-        games[n_all].is_bm = is_bm;
-        n_all++;
-    }
+    netxfer_write_pause();                          /* a file from the PC: again later */
+    fiber_job_stop(&cover_job);                     /* no cover read left half way */
+    wifi_auto_stop();
+    sdmap_stop();
 }
+
+static const char *const rgb_dirs[] = { "/bm", "/carts", NULL };
+static const lib_backend_t rgb_backend = {
+    .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
+};
 
 static void scan_games(void)
 {
-    fiber_job_stop(&cover_job);                     /* the list changes: no cover read left half way */
-    for (int i = 0; i < n_all; i++)
-        g16_sheet_free(&games[i].cover);
-    n_games = n_all = n_hidden = 0;
-    cover_total = 0;
+    library.be = &rgb_backend;
+    library.sd_ok = 1;
     fat_dir_t d;
     sd_state = fat_opendir(&d, "bm") == 0 ? "bm/" : "no bm/ folder on the SD card";
-    scan_dir("bm", "/bm");
-    scan_dir("/carts", "/carts");
-    for (int i = 0; i < n_all; i++)
-        load_head(i);
-    qsort(games, (size_t)n_all, sizeof games[0], title_cmp);
+    lib_scan(&library);
+    n_games = 0;
+    cover_total = 0;
+    for (int i = 0; i < library.n; i++) {
+        if (!games[i].cover.px)
+            menu_make_cover(&games[i].cover, games[i].title);      /* the label, until the covers job reads the picture */
+        cover_total += games[i].cover_read;
+    }
     /* the games first, the apps and utilities after them (each part keeps the order by title) */
-    static struct game rest[MAX_GAMES];
+    static lib_game_t rest[LIB_MAX];
     int nr = 0;
-    for (int i = 0; i < n_all; i++) {
+    for (int i = 0; i < library.n; i++) {
         if (games[i].type == BM_TYPE_GAME)
             games[n_games++] = games[i];
         else
@@ -394,31 +337,9 @@ static void scan_games(void)
 
 /* what the Market asks of the games on the card (carts.h, as carts.c on the
  * Pi): its paths are /bm/NAME */
-const char *carts_find_title(const char *title, const char *author)
-{
-    static char path[80];
-    for (int i = 0; i < n_all; i++)
-        if (lib_same_text(games[i].title, title) && lib_same_text(games[i].author, author)) {
-            ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
-            return path;
-        }
-    return NULL;
-}
-
 static int game_of_path(const char *path)
 {
-    for (int i = 0; i < n_all; i++) {
-        char full[80];
-        ksnprintf(full, sizeof full, "%s/%s", games[i].dir, games[i].name);
-        if (lib_same_text(full, path))
-            return i;
-    }
-    return -1;
-}
-
-int carts_has_path(const char *path)
-{
-    return path[0] && game_of_path(path) >= 0;
+    return lib_find_path(&library, path);
 }
 
 /* --- pages --- */
@@ -940,12 +861,12 @@ static void game_panel(int i, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, G_CLOSE, "Close the game",
                  "Ends the suspended game: what was not saved is lost", NULL);
     home_row(p, MENU_ROW_ACTION, G_SDK, "Open in bm SDK", "Saving it makes its editable copy", NULL);
-    if (games[i].is_bm)
+    if (strcmp(lib_kind(&games[i]), "bm") == 0)
         home_row(p, MENU_ROW_ACTION, G_BUILD_B16, "Export .b16",
                  "Exports a .b16 edition without changing the .bm", NULL);
     home_row(p, MENU_ROW_ACTION, G_SEND, "Send to a nearby console",
              "To a console on this network with the Market tab open", NULL);
-    home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", games[i].is_bm ? "bm (Pi)" : "b16 (handheld)");
+    home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", strcmp(lib_kind(&games[i]), "bm") == 0 ? "bm (Pi)" : "b16 (handheld)");
     home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KB", (unsigned long)(games[i].size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
              games[i].author[0] ? games[i].author : "-");
@@ -1080,7 +1001,7 @@ static menu_item_t game_item(int g)
     char gp[80];
     ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
     const int up = netxfer_updating(gp);                /* a file from the PC on its way */
-    return (menu_item_t){ .title = games[g].title, .kind = games[g].is_bm ? "bm" : "b16",
+    return (menu_item_t){ .title = games[g].title, .kind = lib_kind(&games[g]),
                           .cover = &games[g].cover, .path = games[g].name, .grey = games[g].grey,
                           .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating",
                           .running = is_suspended(games[g].name) };
@@ -1093,7 +1014,7 @@ static int cart_at(int shown, int sel)
     if (shown == TAB_GAMES)
         return sel < n_games ? sel : -1;
     if (shown == TAB_DEV && sel >= N_DEV)
-        return n_games + sel - N_DEV < n_all ? n_games + sel - N_DEV : -1;
+        return n_games + sel - N_DEV < library.n ? n_games + sel - N_DEV : -1;
     return -1;
 }
 
@@ -1114,8 +1035,8 @@ void ui_home(framebuffer_t *f)
             menu_make_tool_cover(&dev_covers[i], dev_items[i].name, dev_items[i].icon, dev_items[i].rgb);
     }
     kprintf("cartridge menu: %d games", n_games);
-    if (n_hidden)
-        kprintf(" (%d .bm hidden by show_bm=0 in bm/config.txt)", n_hidden);
+    if (library.hidden)
+        kprintf(" (%d .bm hidden by show_bm=0 in bm/config.txt)", library.hidden);
     kprintf("\n");
     menu_reopen();
 
@@ -1199,7 +1120,7 @@ void ui_home(framebuffer_t *f)
             reports_send_pending();
             kprintf("report %s\n", reports_last());
         }
-        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV + (n_all - n_games);
+        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV + (library.n - n_games);
         int *s = &sel[shown];
         if (*s >= n) *s = n - 1;
         if (*s < 0) *s = 0;
@@ -1240,8 +1161,8 @@ void ui_home(framebuffer_t *f)
         } else if (shown == TAB_GAMES && n == 0) {
             /* nothing to list: the title pill says why (the bottom bar has the key chips only) */
             static char empty[72];
-            if (n_hidden)
-                ksnprintf(empty, sizeof empty, "No games yet: %d .bm hidden by show_bm=0", n_hidden);
+            if (library.hidden)
+                ksnprintf(empty, sizeof empty, "No games yet: %d .bm hidden by show_bm=0", library.hidden);
             else if (strcmp(sd_state, "bm/") != 0)
                 ksnprintf(empty, sizeof empty, "No games yet: no bm/ folder");
             else
@@ -1310,7 +1231,7 @@ void ui_home(framebuffer_t *f)
         static int first_frame = 1;
         if (first_frame) {
             first_frame = 0;
-            kprintf("cartridge menu: first frame, %d of %d covers read\n", cover_total, n_all);
+            kprintf("cartridge menu: first frame, %d of %d covers read\n", cover_total, library.n);
         }
         /* a file from the PC goes on even when the frame left no time for
          * it (menu_idle): a piece a frame */

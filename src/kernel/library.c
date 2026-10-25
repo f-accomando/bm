@@ -3,6 +3,18 @@
  * See library.h.
  */
 #include "library.h"
+#include "carts.h"
+#include "bm/bm.h"
+#include "bm/runtime.h"
+#include "bm/project.h"
+#include "lib/printf.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+lib_t library;
+
+/* ---------------------------------------------------------------- text */
 
 static int lower(int c)
 {
@@ -21,4 +33,196 @@ int lib_text_cmp(const char *a, const char *b)
 int lib_same_text(const char *a, const char *b)
 {
     return lib_text_cmp(a, b) == 0;
+}
+
+int lib_title_cmp(const void *a, const void *b)
+{
+    return lib_text_cmp(((const lib_game_t *)a)->title, ((const lib_game_t *)b)->title);
+}
+
+static int ends_with(const char *s, const char *ext)
+{
+    size_t n = strlen(s), m = strlen(ext);
+    if (n <= m)
+        return 0;
+    for (size_t i = 0; i < m; i++) {
+        char c = s[n - m + i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c + 32);
+        if (c != ext[i])
+            return 0;
+    }
+    return 1;
+}
+
+int lib_ext_ok(const char *name)
+{
+    /* .b16, the handhelds' cartridge, is the same container on the Pi and runs the same way (the user,
+     * 2026-10-05); .bme a project, the editable file of a game (project.h, 2026-10-06) */
+    return ends_with(name, ".bm") || ends_with(name, ".b16") || ends_with(name, ".bme");
+}
+
+const char *lib_kind(const lib_game_t *g)
+{
+    return ends_with(g->name, ".b16") ? "b16" : ends_with(g->name, ".bme") ? "bme" : "bm";
+}
+
+/* ---------------------------------------------------------------- scan */
+
+/* Title and author from the first bytes of the .bm image. */
+static void read_header(const lib_t *l, lib_game_t *c, const uint8_t *h, uint32_t len)
+{
+    size_t toff = 0, tlen = 0, aoff = 0, alen = 0;
+    if (len >= 128 && bm_is_cart(h)) {
+        toff = 24; tlen = 48; aoff = 72; alen = 32;
+    }
+    if (tlen) {
+        size_t n = tlen < sizeof c->title - 1 ? tlen : sizeof c->title - 1;
+        memcpy(c->title, h + toff, n);
+        c->title[n] = 0;
+        memcpy(c->author, h + aoff, alen < sizeof c->author - 1 ? alen : sizeof c->author - 1);
+        c->author[sizeof c->author - 1] = 0;
+        bm_save_path(c->title, c->author, c->save, sizeof c->save);   /* as the runtime names it */
+    }
+    c->grey = 0;
+    c->why = "";
+    c->type = tlen ? (uint8_t)bm_type_of_head(h) : BM_TYPE_GAME;
+    if (tlen && !c->builtin) {                  /* the policy of docs/spec/compat-policy.toml, from the header read */
+        bm_compat_facts_t f;
+        bm_compat_facts(h, len, c->size, c->name, &f);
+        if (bm_compat_classify(&f, l->be->target, 0, &c->why, NULL) == BM_ACT_GREY)
+            c->grey = 1;
+    }
+    for (char *p = c->title; *p; p++)           /* the console font is CP437 */
+        if ((unsigned char)*p < 32) *p = ' ';
+    for (char *p = c->author; *p; p++)
+        if ((unsigned char)*p < 32) *p = ' ';
+    if (!c->title[0])
+        ksnprintf(c->title, sizeof c->title, "%s", c->name);
+}
+
+void lib_add_builtin(lib_t *l, const char *name, const uint8_t *start, const uint8_t *end)
+{
+    if (l->n >= LIB_MAX)
+        return;
+    lib_game_t *c = &l->g[l->n++];
+    memset(c, 0, sizeof *c);
+    strcpy(c->name, name);
+    c->builtin = start;
+    c->size = (uint32_t)(end - start);
+    read_header(l, c, start, c->size);
+}
+
+static void scan_dir(lib_t *l, const char *path)
+{
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, path) != 0)
+        return;
+    while (l->n < LIB_MAX && fat_readdir(&d, &e)) {
+        if (e.is_dir || e.name[0] == '.')
+            continue;
+        const int want = l->be->want ? l->be->want(e.name) : lib_ext_ok(e.name);
+        if (want < 0)
+            l->hidden++;
+        if (want <= 0)
+            continue;
+        lib_game_t *c = &l->g[l->n++];
+        memset(c, 0, sizeof *c);
+        memcpy(c->name, e.name, sizeof c->name);
+        strcpy(c->dir, path);
+        c->size = e.size;
+        c->fe = e;
+        static uint8_t head[512] __attribute__((aligned(4)));
+        if (fat_read_head(&e, head) == 0)
+            read_header(l, c, head, e.size < 512 ? e.size : 512);
+        else
+            read_header(l, c, head, 0);
+    }
+}
+
+void lib_scan(lib_t *l)
+{
+    if (l->be->stop_background)
+        l->be->stop_background();
+
+    /* Keep covers that have already been read so the menu does not reload them
+     * every time a game exits or the user returns to the menu. */
+    static struct {
+        char path[FAT_NAME_MAX + 10];
+        uint32_t size;
+        uint32_t cluster;
+        g16_sheet_t cover;
+        uint8_t cover_read;
+        uint8_t used;
+    } old_covers[LIB_MAX];
+    int n_old = 0;
+
+    for (int i = 0; i < l->n && n_old < LIB_MAX; i++) {
+        if (l->g[i].cover_read && l->g[i].cover.px) {
+            ksnprintf(old_covers[n_old].path, sizeof old_covers[n_old].path, "%s", l->g[i].path);
+            old_covers[n_old].size = l->g[i].size;
+            old_covers[n_old].cluster = l->g[i].fe.cluster;
+            old_covers[n_old].cover = l->g[i].cover;
+            old_covers[n_old].cover_read = l->g[i].cover_read;
+            old_covers[n_old].used = 0;
+            n_old++;
+        } else {
+            g16_sheet_free(&l->g[i].cover);
+        }
+    }
+    l->n = 0;
+    l->hidden = 0;
+    if (l->sd_ok) {
+        for (const char *const *d = l->be->dirs; *d; d++)
+            scan_dir(l, *d);
+        qsort(l->g, (size_t)l->n, sizeof l->g[0], lib_title_cmp);
+    }
+    l->nsd = l->n;
+    if (l->be->add_builtins)
+        l->be->add_builtins();
+    for (int i = 0; i < l->n; i++) {
+        lib_game_t *c = &l->g[i];
+        if (c->builtin)
+            ksnprintf(c->path, sizeof c->path, "%s", c->name);
+        else
+            ksnprintf(c->path, sizeof c->path, "%s%s%s", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
+        for (int j = 0; j < n_old; j++) {
+            if (!old_covers[j].used &&
+                strcmp(c->path, old_covers[j].path) == 0 &&
+                c->size == old_covers[j].size &&
+                (c->builtin || c->fe.cluster == old_covers[j].cluster)) {
+                c->cover = old_covers[j].cover;
+                c->cover_read = old_covers[j].cover_read;
+                old_covers[j].used = 1;
+                break;
+            }
+        }
+    }
+    for (int j = 0; j < n_old; j++)
+        if (!old_covers[j].used)
+            g16_sheet_free(&old_covers[j].cover);
+}
+
+/* ---------------------------------------------------------------- find */
+
+int lib_find_path(const lib_t *l, const char *path)
+{
+    for (int i = 0; i < l->nsd; i++)
+        if (lib_same_text(l->g[i].path, path))
+            return i;
+    return -1;
+}
+
+/* what the Market asks of the games on the card (carts.h) */
+const char *carts_find_title(const char *title, const char *author)
+{
+    for (int i = 0; i < library.nsd; i++)
+        if (lib_same_text(library.g[i].title, title) && lib_same_text(library.g[i].author, author))
+            return library.g[i].path;
+    return NULL;
+}
+
+int carts_has_path(const char *path)
+{
+    return path[0] && lib_find_path(&library, path) >= 0;
 }
