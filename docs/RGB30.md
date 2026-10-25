@@ -128,7 +128,7 @@ working; black = DSI link or panel; nothing at all = backlight.
 (version, CPU, SD, what the screen driver did step by step, menu). The SD is read
 before turning on the screen and the log is written three times (before the screen, after, and at
 `ready`): even if the screen locks everything up, from the PC you can see how far it got. The same log
-is in the menu, under *Boot log*.
+is in the menu, under Settings > System > *Log since boot*.
 
 While the screen starts, `bm/bootlog.txt` is rewritten at every step, with `display: ...` lines:
 `display: starting`, `display: DSI link and panel starting`, then `display: panel on` or
@@ -160,7 +160,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
 - Screen: VOP2 (video port 1, Esmart0 window) → MIPI DSI0 → Innosilicon D-PHY → ST7703
   panel, PWM4 backlight. Values from Linux (`rockchip_drm_vop2.c`, `dw-mipi-dsi.c`,
   `phy-rockchip-inno-dsidphy.c`, `panel-sitronix-st7703.c`). **To be tested on the console.**
-- Controls: 18 buttons on GPIO3, sticks on SARADC channel 3 with a switch; *Input test* page.
+- Controls: 18 buttons on GPIO3, sticks on SARADC channel 3 with a switch; Settings > Controllers > *Test the buttons* page.
   **Tested on the console** (2026-10-03): buttons fine; the vertical axis of the sticks was
   inverted (the dts gives it differently), fixed.
 - Confirm and back (user decision, 2026-10-03): **B** (the bottom button) confirms and
@@ -211,8 +211,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   screen to the left until it is the current tab: the same Market as the Pi, but only the
   catalogue's `.b16` games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
   play, download again, delete), **Games** (`.b16` games and the `.bm` ones, with their
-  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
-  Display, Input test, Boot log, Lua on the serial port, bm SDK) and **Settings**, the last, a page of its own:
+  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (the bm SDK, then the installed tools: the cartridges whose header says type app or utility, which start with no splash; the 3D Bench is in Settings > Screen and the Render bench in Settings > System > Utilities; the Lua prompt is on the serial port) and **Settings**, the last, a page of its own:
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
   layout, icons), WiFi and network (saved network, address, network console, connecting,
