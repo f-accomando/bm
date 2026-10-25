@@ -29,6 +29,7 @@
 #define MAX_IRQ         256
 
 static struct { irq_fn fn; void *arg; } handlers[MAX_IRQ];
+static uint32_t irq_total;
 
 static inline volatile uint32_t *gicd(uint32_t off) { return (volatile uint32_t *)(uintptr_t)(PLAT_GICD + off); }
 static inline volatile uint32_t *gicr(uint32_t off) { return (volatile uint32_t *)(uintptr_t)(PLAT_GICR + off); }
@@ -98,10 +99,16 @@ void irq_dispatch(void)
         uint32_t id = (uint32_t)read_sysreg(S3_0_C12_C12_0) & 0xffffff;     /* ICC_IAR1_EL1 */
         if (id >= 1020)
             return;                         /* spurious: nothing (more) pending */
+        irq_total++;
         if (id < MAX_IRQ && handlers[id].fn)
             handlers[id].fn(handlers[id].arg);
         else
             irq_disable(id);                /* nobody wants it: keep it quiet */
         write_sysreg(S3_0_C12_C12_1, id);   /* ICC_EOIR1_EL1 */
     }
+}
+
+uint32_t irq_count(void)
+{
+    return irq_total;
 }

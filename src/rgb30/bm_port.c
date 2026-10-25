@@ -227,3 +227,7 @@ const usb_info_t *usb_info(void)
     static const usb_info_t none;
     return &none;
 }
+
+/* --- the interrupt statistics of the Pi's overlay --- */
+
+uint32_t irq_busy_us(int irq)                           { (void)irq; return 0; }
