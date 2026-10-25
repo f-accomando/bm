@@ -76,6 +76,7 @@ Detail of `src/kernel/` (menu loop, settings, Market, update, services): [system
 
 ## Rules (do not break)
 
+- The bottom bar of the menu shows the key chips only. Put a failure of a user action in the notice box (`notice_fail()`) and any other message in the console log. Add no text line to the bar.
 - A menu card shows only the cover. The cover of a game or an app comes from `scripts/mkartcovers.py` (88x88, one art style); the bm editors keep the covers of `scripts/mkcovers.py`.
 - Settings shows a graphics choice only if a player can judge it by sight. Put every performance flag in `config.txt` as a hidden key, with no Settings row (SYS-9; table: [v3d-flags](v3d-flags.md)).
 - All SD logs only via `src/kernel/sdlog.c`.

@@ -16,6 +16,11 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
   subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
   `.b16` format badges on cards and details panel. The title bar shows the name only.
+- The bottom bar of the menu shows the key chips only (user request, 25 Oct 2026), on the Pi and the
+  RGB30. It has no details line, no last-game note, no status and no counters. `menu_view_t` has no
+  `details` and no `note`. A failed action shows its reason in the notice box (`notice_fail()`,
+  4 s). Every other message goes to the console log (`home_report()` in `settings.c`, `market.c`).
+  The help line of a panel row is inside the Settings box, not in the bar: it stays.
 - The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). The
   benchmarks and tests are utilities (`home_utils()`): the 3D Bench in Settings > Screen;
   DMA test in Settings > System > Utilities. Input test, Audio test, Test pattern, System and Log are
