@@ -56,6 +56,13 @@ class Game:
             sys.exit("the level did not start")
         self.step(n=60)
 
+    def poke(self, addr, val):
+        """Writes one WRAM byte through the savestate (the core's memory view is read-only)."""
+        st = bytearray(self.e.get_state())
+        m = re.search(rb"RAM:131072:", st)
+        st[m.end() + addr] = val
+        self.e.set_state(bytes(st))
+
     def blocks(self):
         """VRAM and the PPU's tables, read from the savestate's named blocks."""
         st = self.e.get_state()
