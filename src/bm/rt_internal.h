@@ -333,6 +333,14 @@ int l_lamp3d(lua_State *L);
 int l_zclear(lua_State *L);
 int l_gpu3d(lua_State *L);
 
+/* the network for the games (api_net.c) */
+int l_udp_open(lua_State *L);
+int l_udp_send(lua_State *L);
+int l_udp_recv(lua_State *L);
+int l_udp_close(lua_State *L);
+int l_net_ip(lua_State *L);
+int l_net_resolve(lua_State *L);
+
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
 int l_profile(lua_State *L);

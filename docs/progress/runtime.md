@@ -1,6 +1,6 @@
 # runtime.c: where things are
 
-`src/bm/runtime.c` is ~365 KB and 9702 lines: never read it whole. Find the section here,
+`src/bm/runtime.c` is ~362 KB and 9601 lines: never read it whole. Find the section here,
 then `python scripts/cindex.py src/bm/runtime.c <word>` for the line, then `Read` with
 `offset`/`limit` on that stretch only. Line numbers are not kept here: they go stale; the
 banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runtime*).
@@ -25,7 +25,6 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `named zones of the sheet`: SPRITES section zones (bm Pixel).
 - `prompts`: on-screen prompts and dialogs used by the system.
 - `3D (software rasterizer`: `l_*` for meshes, camera, `flush3d`, `draw2d`; GPU hand-off.
-- `the network for the games`: UDP sockets over `src/net/cartnet.h`, lockstep commands.
 - `save() / saved()`: the 8-slot Lua-source saves in `/bm/save`.
 - `screenshots`: `shot()` and the PNG save (`docs/SCREENSHOTS.md`).
 - `documents`: `/docs` files for bm Write.
@@ -56,6 +55,7 @@ Each file holds one banner range of `runtime.c`, moved as it was. It shares the 
 
 - `src/bm/api_world.c`: collision worlds (`world3d`), `log()` and `report()`.
 - `src/bm/api_anim.c`: skeletal animation (`animate()`, same arithmetic as `carts/animator/main.lua`) and the 3D bindings after the rasterizer (`draw3d`, camera, light, particles, `gpu3d()`). `screen()` with `screen_modes` stays in `runtime.c`.
+- `src/bm/api_net.c`: UDP sockets for the games over `src/net/cartnet.h`.
 
 ## Other big files
 
