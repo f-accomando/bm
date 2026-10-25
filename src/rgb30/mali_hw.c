@@ -100,6 +100,8 @@ int rgb30_mali_probe_triangle(const framebuffer_t *fb)
     }
     hw.triangle = 1;
     result = mali_probe(&hw, &info);
+    if (result == MALI_OK)
+        mali_probe_vs3(&hw);
     probed = 1;
     return result;
 #else

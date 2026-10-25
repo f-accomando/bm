@@ -579,7 +579,7 @@ rgb30 = "the 3D is the ARM's; with mali3d=1 the Mali draws flat-colour triangles
 cause = "todo"
 priority = 3
 status = "open"
-note = "H1 (triangle bringup), H6 (3D Bench flat colours) and Phase 2 (multi-draw batching) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933): with mali3d=1 multi-draw flat scenes ran on Mali-G52 GPU (bm3d 2.1) without faults and textured scenes fell back to ARM. Next: BM_VS3 in Phase 3, and queue in Phase 4."
+note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching) and Phase 3 (BM_VS3 4x4 matrix vertex shader) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a). Next: asynchronous 2-set queue in Phase 4 (mali_frame_submit)."
 evidence = "src/rgb30/bm_port.c:30-55; src/rgb30/mali.c"
 action = "fix batching multi-draw in mali_frame, then evaluate default decision for mali3d"
 

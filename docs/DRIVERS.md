@@ -388,6 +388,12 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   Verified on physical hardware (report `fcfd2933`, `3d0018.txt`): frames of up to
   24 draws (26 triangles) complete cleanly without faults.
 
+- **7.11** (2026-10-25): **Mali BM_VS3 vertex shader with 4x4 matrix (phase 3)**:
+  verified `BM_VS3` on physical Mali-G52 hardware (report `b041b71a`): model-space
+  vertices transformed by a 16-float row-major 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`)
+  and mixed in the same frame with a `BM_VS` screen-space draw (16 + 27 us, exact
+  vertex output `41000000 42b00000 3f000000 3f800000` and pixel check).
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).

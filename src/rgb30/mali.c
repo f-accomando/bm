@@ -1045,12 +1045,25 @@ int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_
     if (run_on(1, H->mem_pa + MALI_SET_BASE(0) + SO_DRAWS, &us, &st, "the vertex and tiler jobs of a frame") != 0 ||
         run_on(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB, &us2, &st, "the fragment job of a frame") != 0)
         return -1;
-    /* the centre of the first triangle's bounding box */
-    float lo[2] = { draws[0].xyz[0][0], draws[0].xyz[0][1] }, hi[2] = { lo[0], lo[1] };
+    /* the centre of the first triangle's bounding box (transformed by mvp when present) */
+    float p0[3][2];
+    for (int i = 0; i < 3; i++) {
+        const float *v = draws[0].xyz[i], *m = draws[0].mvp;
+        if (m) {
+            const float wc = m[12] * v[0] + m[13] * v[1] + m[14] * v[2] + m[15];
+            const float iw = wc != 0.0f ? 1.0f / wc : 1.0f;
+            p0[i][0] = (m[0] * v[0] + m[1] * v[1] + m[2] * v[2] + m[3]) * iw;
+            p0[i][1] = (m[4] * v[0] + m[5] * v[1] + m[6] * v[2] + m[7]) * iw;
+        } else {
+            p0[i][0] = v[0];
+            p0[i][1] = v[1];
+        }
+    }
+    float lo[2] = { p0[0][0], p0[0][1] }, hi[2] = { lo[0], lo[1] };
     for (int i = 1; i < 3; i++)
         for (int k = 0; k < 2; k++) {
-            if (draws[0].xyz[i][k] < lo[k]) lo[k] = draws[0].xyz[i][k];
-            if (draws[0].xyz[i][k] > hi[k]) hi[k] = draws[0].xyz[i][k];
+            if (p0[i][k] < lo[k]) lo[k] = p0[i][k];
+            if (p0[i][k] > hi[k]) hi[k] = p0[i][k];
         }
     uint32_t cx = (uint32_t)((lo[0] + hi[0]) / 2), cy = (uint32_t)((lo[1] + hi[1]) / 2);
     if (cx >= w) cx = w - 1;
@@ -1061,6 +1074,42 @@ int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_
               (unsigned)(clear & 0xffffff));
     say();
     return px != (clear & 0xffffff) ? 0 : 1;
+}
+
+int mali_probe_vs3(const mali_hw_t *hw)
+{
+    if (!probed_ok || hw != H || !H->screen_pa || !H->screen || H->screen_w < 128 || H->screen_h < 208)
+        return -1;
+    static const float v0[3][3] = { { 4, 44, 0.25f }, { 44, 44, 0.25f }, { 24, 4, 0.25f } };
+    static const float v1[3][3] = { { 64, 36, 0.5f }, { 92, 36, 0.5f }, { 78, 8, 0.5f } };
+    static const float mvp[16] = {
+        2.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 2.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 2.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+    };
+    const mali_draw_t d[2] = {
+        { .xyz = v0, .n = 1, .rgb = 0x20a0ff, .mvp = mvp },
+        { .xyz = v1, .n = 1, .rgb = 0xff8019, .mvp = NULL },
+    };
+    uint8_t *target = H->screen + (size_t)TRI_Y0 * H->screen_pitch + TRI_X0 * 4;
+    const uint64_t target_pa = H->screen_pa + (uint64_t)TRI_Y0 * H->screen_pitch + TRI_X0 * 4;
+    const int r = mali_frame(hw, target, target_pa, H->screen_pitch, TRI, TRI, TRI_CLEAR, d, 2);
+    uint32_t out[4];
+    for (int k = 0; k < 4; k++)
+        out[k] = rd32(H->mem + MALI_FRAME_POSITIONS + 4 * k);
+    ksnprintf(line, sizeof line, "mali: BM_VS3 vertex 0: %08x %08x %08x %08x (8.0 88.0 0.5 1.0 are 41000000 42b00000 "
+              "3f000000 3f800000)", (unsigned)out[0], (unsigned)out[1], (unsigned)out[2], (unsigned)out[3]);
+    say();
+    const uint32_t p_vs3 = rd32(target + (size_t)61 * H->screen_pitch + 48 * 4) & 0xffffff;
+    const uint32_t p_vs = rd32(target + (size_t)26 * H->screen_pitch + 78 * 4) & 0xffffff;
+    const uint32_t p_out = rd32(target + (size_t)3 * H->screen_pitch + 3 * 4) & 0xffffff;
+    const int ok = r == 0 && p_vs3 == 0x20a0ff && p_vs == 0xff8019 && p_out == TRI_CLEAR;
+    ksnprintf(line, sizeof line, "mali: phase 3 (BM_VS3 4x4 matrix): vs3 %06x (want 20a0ff), vs %06x (want ff8019), "
+              "outside %06x (clear %06x): %s", (unsigned)p_vs3, (unsigned)p_vs, (unsigned)p_out, (unsigned)TRI_CLEAR,
+              ok ? "ok" : "failed");
+    say();
+    return ok ? 0 : -1;
 }
 
 /* --- frames in flight (M41 phase 4) ---

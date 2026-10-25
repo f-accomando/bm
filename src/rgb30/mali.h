@@ -100,6 +100,7 @@ typedef struct {
 } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);
+int mali_probe_vs3(const mali_hw_t *hw);
 /* The GPU memory in sets (M41 phase 4): set s (0 or 1) starts at MALI_SET_BASE(s) in hw->mem and holds, from there, its tables
  * and descriptors (+0x0000), the shader code (+0x8000), the vertices (+0x10000), the positions (+0x20000), the pushed words
  * (+0x30000), the per-draw blocks (+0x40000), the tiler heap (+0x80000) and the surface (+0x100000, up to MALI_SET_SURF_MAX

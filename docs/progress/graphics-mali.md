@@ -88,7 +88,7 @@ Next hardware steps:
 1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW.
 2. [DONE 25 Oct] 3D Bench with flat colours (H6): With `mali3d=1` in `bm/config.txt`, ran 3D Bench (Settings > Screen > 3D Bench); flat-colour scenes ran on GPU (bm3d 2.1), textured scenes stayed on ARM. Report `94aae9dd`.
 3. [DONE 25 Oct] Multi-draw batching fix (Phase 2): In `frame_build()`, aligned attribute buffer and tiler position pointers to 64 bytes (`first += (nv + 3) & ~3u;`). Eliminated `DATA_INVALID_FAULT` (0x58) in subsequent draws. Verified on hardware (report `fcfd2933`). Frames of up to 24 draws render without faults.
-4. Vertex shader transformation (Phase 3): Benchmark `BM_VS3` (vertex shader transforming geometry with 4x4 MVP matrix pushed via UBO 0).
+4. [DONE 25 Oct] Vertex shader transformation (Phase 3): Verified `BM_VS3` on hardware (`mali_probe_vs3`, report `b041b71a`): 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`) transforms model-space vertices (`41000000 42b00000 3f000000 3f800000`) and renders alongside `BM_VS` draws in 16 + 27 us.
 5. Asynchronous queue & multi-buffering (Phase 4): `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)`.
 6. Textures and lit faces: write textured fragment shader, remove `colour_only` fallback.
 
@@ -99,7 +99,7 @@ Mapping of Mali-G52 developments against reference Pi V3D driver:
 | Pipeline Stage / Feature | Pi Zero W (V3D 2.1) | PowKiddy RGB30 (Mali-G52) | Parity Status & Notes |
 |---|---|---|---|
 | **Framebuffer / Clear** | FBD (Framebuffer Descriptor) / Tile setup in RGB565/RGBA8888 | SFBD / MFBD (Single/Multi FB Descriptor) in linear XRGB8888 | **Full Parity** (HW verified; 64x64 clear & screen presentation pass) |
-| **Vertex Processing** | Coordinate / Vertex Shaders on QPU (`vs_colour`, `vs_lit_tex`) | Compute Job on slot 1 with Bifrost vertex shader (`BM_VS`, `BM_VS3`) | **Full Parity** (HW verified for `BM_VS`; `BM_VS3` matrix path written) |
+| **Vertex Processing** | Coordinate / Vertex Shaders on QPU (`vs_colour`, `vs_lit_tex`) | Compute Job on slot 1 with Bifrost vertex shader (`BM_VS`, `BM_VS3`) | **Full Parity** (HW verified for both `BM_VS` and `BM_VS3` 4x4 matrix) |
 | **Binning / Tiling** | Binner Job (`BPOA` / `BPOS`), tile allocator pool with overflow | Tiler Job on slot 1 (`SO_HEAP`, `SO_HEAPD`, `SO_TCTX`, mask 0x28) | **Full Parity** (HW verified; Primitive Size 1.0f fixed fault) |
 | **Fragment / Raster** | QPU Fragment Shaders (`fs_colour`, `fs_tex_lit`, `fs_cel`) | Fragment Job on slot 0 (`BM_FS` with pushed color words 4-7) | **Flat Colour Parity** (HW verified; textured/cel shaders pending) |
 | **State Management** | NV Shader State Record / Blend configuration | `Renderer State` (`md_renderer_state_t`) + `Blend` per target | **Full Parity** (Descriptors from Mesa `v7.xml`) |
