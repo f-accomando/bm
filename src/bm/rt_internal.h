@@ -446,6 +446,30 @@ int l_zboxes(lua_State *L);
 int l_zspr(lua_State *L);
 int l_zstack(lua_State *L);
 
+/* prompts, buttons, controls and stat (api_prompts.c) */
+#define BUTTON_OK   16                  /* "ok" and "back": the system's yes and back; the index after the last of button_names */
+#define BUTTON_BACK (BUTTON_OK + 1)
+const prompt_t *find_prompt(const char *n, int small);
+int l_prompt(lua_State *L);
+int l_lastinput(lua_State *L);
+int l_camera(lua_State *L);
+int l_clip(lua_State *L);
+int l_rgb(lua_State *L);
+int button_real(int i);
+void keymap_apply_controls(void);
+int l_controls(lua_State *L);
+int l_keymap(lua_State *L);
+int l_controller(lua_State *L);
+const prompt_t *button_chip(int b, int dev, int small);
+int l_btn(lua_State *L);
+int l_btnp(lua_State *L);
+int l_players(lua_State *L);
+int l_stick(lua_State *L);
+int l_time(lua_State *L);
+int l_stat(lua_State *L);
+int l_frameskip(lua_State *L);
+int l_tri(lua_State *L);
+
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
 int l_profile(lua_State *L);
