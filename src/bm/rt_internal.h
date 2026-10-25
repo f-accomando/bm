@@ -425,6 +425,27 @@ int l_glow(lua_State *L);
 int l_dark_end(lua_State *L);
 int l_quit(lua_State *L);
 
+/* map, cell flags and zones (api_map.c) */
+void settle_reads(void);      /* defined in runtime.c: 2D reads the page */
+int gpu2d(int op, const int32_t *v);
+int draw2d(int op, uint32_t words, int32_t **a);
+void stack_draw(const int32_t v[7], const float f[3], int vert);
+int sheet_cells(void);
+int l_map(lua_State *L);
+int l_mget(lua_State *L);
+int l_mset(lua_State *L);
+int l_fget(lua_State *L);
+int l_fset(lua_State *L);
+int l_mflags(lua_State *L);
+int l_msize(lua_State *L);
+int l_mlayers(lua_State *L);
+int l_zone(lua_State *L);
+size_t name_len(const char *s, size_t max);
+int l_zones(lua_State *L);
+int l_zboxes(lua_State *L);
+int l_zspr(lua_State *L);
+int l_zstack(lua_State *L);
+
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
 int l_profile(lua_State *L);
