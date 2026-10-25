@@ -4494,8 +4494,11 @@ def test_usb_mouse(b, opts):
         text = "\n".join(screen_text(wait_screen(q, lambda s_: "Open in the SDK" in "".join(screen_text(s_)))))
         assert "Play" in text and "Open in the SDK" in text, text
         click_at(30, 200)
+        # (the panel gone and the title back, in one wait: a frame between the two, as the
+        # panel fades, has neither: it failed once under load)
         text = "\n".join(screen_text(wait_screen(
-            q, lambda s_: "Open in the SDK" not in "".join(screen_text(s_)))))
+            q, lambda s_: "Open in the SDK" not in "".join(screen_text(s_)) and
+            MOUSE_TITLES[1] in "".join(screen_text(s_)))))
         assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text, text
         # a click on a cover plays it
         click_at(*cover_xy(0))
