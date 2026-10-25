@@ -127,27 +127,23 @@ static const fiber_share_t menu_jobs[] = {
     { update_tick,        {  0,   0,  15 } },   /* Settings > Updates: check, install */
     { publish_tick,       {  0,   0,  15 } },   /* a game to the Market */
     { market_tick,        {  0,   0,  25 } },   /* its tab */
-    { lib_covers_tick,        {  0,   0,  10 } },   /* the tab's covers first */
+    { lib_covers_tick,    {  0,   0,  10 } },   /* the tab's covers first */
     { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, no panel */
     { wifi_auto_idle,     {  0,   0,   5 } },   /* the saved network again, while the link is down */
     { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
 };
 
-/* the menu's free time in a frame (menu_view_t.idle) */
-static void menu_idle(uint32_t until)
+/* a file from the PC waits: the report job stops too */
+static void idle_write_waits(void)
 {
-    /* a file (or a kernel) from the PC (bm_net.py --send) first, alone on
-     * the SD card: the rest waits for it (2026-10-10). With nothing waiting
-     * the tick only notes that the menu is there. */
-    if (netxfer_write_pending()) {
-        lib_covers_stop();
+    fiber_job_stop(&report_job);
+}
+
+/* before the Market's fiber: one at a time on the network (cancelled: it goes again later) */
+static void idle_before_jobs(void)
+{
+    if (!reports_free)
         fiber_job_stop(&report_job);
-    }
-    if (netxfer_write_tick(until))
-        return;
-    if (!reports_free)                  /* before the Market's fiber: one at a time on the network */
-        fiber_job_stop(&report_job);    /* (cancelled: it goes again later) */
-    fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
 }
 
 /* Before the list changes, an application runs or the card is written:
@@ -205,6 +201,8 @@ static const char *const pi_dirs[] = { "/", "/carts", "/bm", BM_PROJECTS_DIR, NU
 static const lib_backend_t pi_backend = {
     .dirs = pi_dirs, .target = BM_TARGET_PI, .add_builtins = add_builtins, .stop_background = background_stop,
     .panel = LIB_CAP_SDK | LIB_CAP_TOOLS | LIB_CAP_COPY | LIB_CAP_PUBLISH | LIB_CAP_SEND,
+    .jobs = menu_jobs, .njobs = (int)(sizeof menu_jobs / sizeof *menu_jobs),
+    .write_waits = idle_write_waits, .before_jobs = idle_before_jobs,
 };
 
 static void rescan(void)
@@ -689,7 +687,7 @@ void carts_menu(framebuffer_t *fb)
                 .banner = on_market ? market_banner() : NULL,
                 .a_label = a_label,
                 .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
-                .idle = menu_idle,
+                .idle = lib_menu_idle,
             };
             /* Settings is a page: the sections on the left, the rows of the
              * one chosen (or under the selection, as a preview) on the right */
@@ -768,9 +766,9 @@ void carts_menu(framebuffer_t *fb)
         }
 
         /* a file from the PC goes on even when the frame left no time for
-         * it (menu_idle), and in the text list too: a piece a frame */
+         * it (lib_menu_idle), and in the text list too: a piece a frame */
         if (netxfer_write_pending())
-            menu_idle(timer_ticks() + 2000);
+            lib_menu_idle(timer_ticks() + 2000);
 
         int dx = 0, dy = 0, action = 0, quit = 0, back = 0, opts = 0, ybtn = 0;
         int cur = on_gear ? TAB_SETTINGS : tab, tabto = -1;    /* the tab to go to */

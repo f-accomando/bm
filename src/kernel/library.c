@@ -514,6 +514,25 @@ int lib_tab_items(int dev, int *idx)
     return n;
 }
 
+/* ---------------------------------------------------------------- the menu's free time */
+
+void lib_menu_idle(uint32_t until)
+{
+    const lib_backend_t *be = library.be;
+    /* a file (or a kernel) from the PC first, alone on the SD card: the rest waits for it. With nothing
+     * waiting the tick only notes that the menu is there. */
+    if (netxfer_write_pending()) {
+        lib_covers_stop();
+        if (be->write_waits)
+            be->write_waits();
+    }
+    if (netxfer_write_tick(until))
+        return;
+    if (be->before_jobs)
+        be->before_jobs();
+    fiber_share_run(be->jobs, be->njobs, FIBER_MENU, until);
+}
+
 /* ---------------------------------------------------------------- covers */
 
 /* The cover from the .bm COVER section, or a label with the title. */

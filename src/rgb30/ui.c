@@ -218,12 +218,26 @@ static void rgb_stop_background(void)
     sdmap_stop();
 }
 
+/* The menu's jobs and their shares of its free time (fiber.h, 2026-10-11),
+ * as on the Pi: an update's check or install, the Market's work (on its
+ * tab only: market_set_active), the saved WiFi network joined again while
+ * the link is down. */
+static const fiber_share_t menu_jobs[] = {
+    /*                      game tool menu */
+    { update_tick,        {  0,   0,  25 } },
+    { market_tick,        {  0,   0,  40 } },   /* its tab only: on another one it gives its time back at once */
+    { lib_covers_tick,    {  0,   0,  15 } },   /* the tab's covers first (D10) */
+    { wifi_auto_idle,     {  0,   0,  10 } },
+    { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
+};
+
 static void rgb_play_begin(const lib_game_t *g, int resume);
 
 static const char *const rgb_dirs[] = { "/bm", "/carts", NULL };
 static const lib_backend_t rgb_backend = {
     .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
-    .panel = LIB_CAP_SDK | LIB_CAP_SEND, .play_begin = rgb_play_begin,       /* no tools but the SDK, no editable copy, no Publish (D11) */
+    .panel = LIB_CAP_SDK | LIB_CAP_SEND, .play_begin = rgb_play_begin,
+    .jobs = menu_jobs, .njobs = (int)(sizeof menu_jobs / sizeof *menu_jobs),       /* no tools but the SDK, no editable copy, no Publish (D11) */
 };
 
 static void scan_games(void)
@@ -707,30 +721,6 @@ static void text_page(void)
 
 #define DEPTH_MAX 4
 
-/* The menu's jobs and their shares of its free time (fiber.h, 2026-10-11),
- * as on the Pi: an update's check or install, the Market's work (on its
- * tab only: market_set_active), the saved WiFi network joined again while
- * the link is down. */
-static const fiber_share_t menu_jobs[] = {
-    /*                      game tool menu */
-    { update_tick,        {  0,   0,  25 } },
-    { market_tick,        {  0,   0,  40 } },   /* its tab only: on another one it gives its time back at once */
-    { lib_covers_tick,        {  0,   0,  15 } },   /* the tab's covers first (D10) */
-    { wifi_auto_idle,     {  0,   0,  10 } },
-    { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
-};
-
-/* the menu's free time in a frame: a file from the PC (bm_net.py --send)
- * written first, alone on the card (2026-10-10); then the jobs */
-static void menu_idle(uint32_t until)
-{
-    if (netxfer_write_pending())
-        lib_covers_stop();                 /* a file from the PC is written first, alone on the card */
-    if (netxfer_write_tick(until))
-        return;
-    fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
-}
-
 /* a cartridge of the card on the Games tab or in Dev */
 static menu_item_t game_item(int g)
 {
@@ -883,7 +873,7 @@ void ui_home(framebuffer_t *f)
             .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B,
             .ok_btn = pad_ok_name(), .back_btn = pad_back_name(), .no_monitor = 1,
             .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
-            .idle = menu_idle,
+            .idle = lib_menu_idle,
         };
         /* the bar: the WiFi and the battery only; no icons of the
          * controllers, mice and keyboards (the user, 2026-10-05) */
@@ -970,7 +960,7 @@ void ui_home(framebuffer_t *f)
             kprintf("cartridge menu: first frame, %d of %d covers read\n", lib_covers_read(&library), library.n);
         }
         /* a file from the PC goes on even when the frame left no time for
-         * it (menu_idle): a piece a frame */
+         * it (lib_menu_idle): a piece a frame */
         if (netxfer_write_pending())
             netxfer_write_tick(timer_ticks() + 2000);
 

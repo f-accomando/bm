@@ -50,6 +50,11 @@ typedef struct {
     /* Before the list changes: the jobs that hold a cartridge of it stop. */
     void (*stop_background)(void);
     unsigned panel;                     /* LIB_CAP_*: the rows of a cartridge's panel this console has */
+    /* The menu's jobs and their shares of its free time (fiber.h, lib_menu_idle). */
+    const fiber_share_t *jobs;
+    int njobs;
+    void (*write_waits)(void);          /* a file from the PC waits to be written: the jobs it blocks stop. NULL: none. */
+    void (*before_jobs)(void);          /* before the jobs run in a frame. NULL: none. */
     /* Just before a cartridge starts or resumes (a WiFi try of the menu's stops, the loading screen shows). NULL: none. */
     void (*play_begin)(const lib_game_t *g, int resume);
 } lib_backend_t;
@@ -168,6 +173,10 @@ void lib_panel(const lib_game_t *g, home_panel_t *p);
  * HOME_BACK means the list changed: the menu reads the card again. Returns 0 for a row it does not own
  * (Play and the Open in rows: the menu starts those; Publish: the Pi's). */
 int lib_act(lib_game_t *g, int row, int how, home_do_t *d);
+
+/* The menu's free time in a frame (menu_view_t.idle): a file from the PC (bm_net.py --send) is written first,
+ * alone on the card (2026-10-10); then the jobs of the console, each with its share. */
+void lib_menu_idle(uint32_t until);
 
 /* ---- the covers
  *
