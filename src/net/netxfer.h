@@ -11,7 +11,7 @@
  * a file still waits to be written); after the data OK, CE (crc), WE (SD
  * write error), KA (a kernel for another Pi), and for S QD (queued: the
  * file arrived whole and the console writes it from its menu, a game that
- * is running is replaced once it is closed; 2026-10-10). On the RGB30 a
+ * is running is replaced once it is closed; 2026-10-10). On both consoles a
  * .bm / .b16 for carts/ goes to bm/, the folder its menu lists.
  */
 #ifndef NETXFER_H

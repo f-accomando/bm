@@ -170,7 +170,7 @@ layer), `--flags flags.csv`, `--sprites zones.txt`, `--cover cover.png`, `--res 
 
 ```sh
 sudo mount -t drvfs D: /mnt/d
-sudo cp ball.bm /mnt/d/carts/
+sudo cp ball.bm /mnt/d/bm/
 sync && sudo umount /mnt/d
 ```
 
@@ -181,7 +181,7 @@ card again). On leaving, the line at the bottom of the menu shows fps and millis
 **In the repository's build:** put the game in `carts/<name>/main.lua`, add `<name>` to
 `GAMES` in the `Makefile` and a line `title_<name> := Title` (plus `res_<name> := 320x180`
 if needed). `make` creates it in `build/carts/<name>.bm` and `make sdcard` copies it into
-`dist/carts/`. From the same folder `sheet.png`, `map.csv`, `flags.csv`, `sprites.txt` and
+`dist/bm/`. From the same folder `sheet.png`, `map.csv`, `flags.csv`, `sprites.txt` and
 `cover.png` are taken by themselves, if they are there; the map's other layers are
 `map_<name>.csv`, in the order of `layers_<game> := name ...`.
 

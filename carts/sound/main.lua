@@ -2414,7 +2414,7 @@ local function list_files()
       end
     end
   end
-  add("/carts", "game")
+  add("/bm", "game")
   add("/", "game")
   add(U.PROJECTS, "game")                -- the projects, packs included (docs/PROJECT-LAYOUT.md)
   add(PACK_DIR, "pack")

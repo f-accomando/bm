@@ -48,11 +48,10 @@ int bm_is_game(const char *path);
  * SD card) is still read, and saved where it is. */
 #define BM_PROJECTS_DIR "/bme"
 
-/* The folder that holds the games of this device: "/bm" on the RGB30,
- * "/carts" on the Pi (the folders their menus read). */
+/* The folder that holds the games: "/bm" on both consoles (the folder their menus read; /carts is not read). */
 const char *bm_games_dir(void);
 
-/* The project path of a name or a game path, 8.3: "/carts/Il mio gioco.bm"
+/* The project path of a name or a game path, 8.3: "/bm/Il mio gioco.bm"
  * -> "/bme/ilmiogio.bme". The one place that builds a project path in C. 0. */
 int bm_project_path(const char *name, char *out, size_t n);
 

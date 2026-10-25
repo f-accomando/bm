@@ -636,7 +636,7 @@ static const mcmd_t report_sub[] = {
 static const mcmd_t commands[] = {
     { .name = "help", .args = "[COMMAND]", .help = "this list, or one command", .key = 'h', .fn = c_help, .cand = cand_help },
     { .name = "menu", .help = "cartridge menu, or PS on a pad", .key = 'M', .fn = c_menu },
-    { .name = "carts", .help = "the cartridges (SD: / and /carts)", .sub = carts_sub },
+    { .name = "carts", .help = "the cartridges (SD: / and /bm)", .sub = carts_sub },
     { .name = "lua", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .key = 'l', .fn = c_lua },
     { .name = "upload", .help = "receive a cartridge over serial, play it", .key = 'U', .fn = c_upload },
     { .name = "sys", .help = "the system", .sub = sys_sub },

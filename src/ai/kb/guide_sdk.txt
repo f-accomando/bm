@@ -22,7 +22,7 @@ models). Arriva con codice, sprite e mappa pronti.
 3. F2 il codice: cambia velocità, colori, testi. F3 gli sprite e la
 mappa, F4 i modelli 3D.
 
-4. Esc > Save as dà il nome al file (8.3, in /carts); poi Ctrl+S salva.
+4. Esc > Save as dà il nome al file (8.3, in /bm); poi Ctrl+S salva.
 
 5. F1 è la pagina del progetto: da lì 1-6 aprono il progetto negli altri
 programmi della suite. F1 di nuovo: il dev kit (fps, RAM, token).
@@ -36,7 +36,7 @@ with models). It comes with code, sprites and map ready.
 3. F2 the code: change speeds, colours, texts. F3 the sprites and the
 map, F4 the 3D models.
 
-4. Esc > Save as gives the file its name (8.3, in /carts); then Ctrl+S saves.
+4. Esc > Save as gives the file its name (8.3, in /bm); then Ctrl+S saves.
 
 5. F1 is the project page: from there 1-6 open the project in the other
 programs of the suite. F1 again: the dev kit (fps, RAM, tokens).

@@ -1930,3 +1930,66 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     frame_show(fb);
     frame_flip_and_wait(fb, v, pre);
 }
+
+/* The pointer over the menu: moving over a cover or a row selects it, the left button does what A does there
+ * (or what is clicked: a tab, a button of the hints), the right one goes back, or opens the options of a cover;
+ * outside a panel or a question it closes them; the wheel moves by rows. */
+int menu_ui_pointer(menu_ptr_t *io)
+{
+    const pointer_t *pt = pointer_update();
+    io->dy = io->action = io->back = io->opts = io->ybtn = io->refresh = io->settings = 0;
+    io->tabto = io->panel_sel = io->section = io->cover_sel = io->page = -1;
+    if (!io->gfx || !pt->shown)
+        return 0;
+    const menu_hit_t h = menu_ui_hit(pt->x, pt->y);
+    const int click = pt->pressed & 1, right = pt->pressed & 2;
+    io->dy = -pt->wheel;
+    if (io->ask) {
+        if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
+            io->action = 1;
+        else if (click && h.kind == MENU_HIT_BUTTON)
+            io->back = 1;
+        else if ((click && h.kind != MENU_HIT_ASK) || right)
+            io->back = 1;
+    } else if (io->panel) {
+        if (h.kind == MENU_HIT_ROW && h.index < io->panel_rows && (pt->moved || click)) {
+            io->panel_sel = h.index;
+            io->action = click;
+        } else if (click && h.kind == MENU_HIT_SECTION && io->on_gear) {
+            io->section = h.index;              /* another section of the Settings page */
+            io->action = 1;
+        } else if (click && h.kind == MENU_HIT_BUTTON) {
+            io->action = h.index == 'A';
+            io->back = h.index == 'B';
+        } else if (click && h.kind == MENU_HIT_TAB) {
+            io->tabto = h.index;
+        } else if (click && h.kind == MENU_HIT_SETTINGS) {
+            io->settings = 1;
+        } else if ((click && h.kind != MENU_HIT_PANEL && h.kind != MENU_HIT_ROW) || right) {
+            io->back = 1;
+        }
+    } else {
+        if (h.kind == MENU_HIT_COVER && h.index < io->covers && ((pt->moved && h.full) || click || right))
+            io->cover_sel = h.index;
+        if (click && h.kind == MENU_HIT_COVER && h.full)
+            io->action = 1;
+        else if (click && h.kind == MENU_HIT_GROUP && io->market) {
+            if (h.index != io->market_page)
+                io->page = h.index;
+        } else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
+            io->ybtn = 1;
+        else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'R')
+            io->refresh = io->market;
+        else if (click && h.kind == MENU_HIT_TAB)
+            io->tabto = h.index;
+        else if (click && h.kind == MENU_HIT_SETTINGS)
+            io->settings = 1;
+        else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
+            io->action = 1;
+        else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'X')
+            io->opts = 1;
+        else if (right && h.kind == MENU_HIT_COVER)
+            io->opts = 1;
+    }
+    return 1;
+}

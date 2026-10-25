@@ -166,11 +166,11 @@ void bm_set_tool(int on)
  * read only, project.h): saving one asks to make its editable copy (in /bme)
  * and writes that, and a new one becomes a project in /bme (a game is made by building
  * one, cart_build). The others (SD card, Market): only .bm and .bme files in
- * /carts, new ones or the ones they made in this run, never the kernel, the
+ * /bm, new ones or the ones they made in this run, never the kernel, the
  * settings or another folder. 0 and the file to write in `to`, or -1 with a
  * message on the Lua stack (false, message). */
 #define MADE_MAX 16
-static char made[MADE_MAX][16];         /* the files this run made (names in /carts) */
+static char made[MADE_MAX][16];         /* the files this run made (names in /bm) */
 
 static int write_target(lua_State *L, const char *path, char *to, size_t tn)
 {
@@ -180,7 +180,7 @@ static int write_target(lua_State *L, const char *path, char *to, size_t tn)
             return 0;
         fat_entry_t e;
         if (fat_find(path, &e) != 0) {
-            /* a new game: its project ("/carts/new.bm" -> "/bme/new.bme") */
+            /* a new game: its project ("/bm/new.bm" -> "/bme/new.bme") */
             bm_project_path(path, to, tn);
             return 0;
         }
@@ -204,14 +204,14 @@ static int write_target(lua_State *L, const char *path, char *to, size_t tn)
         return 0;
     }
     const char *name = path;
-    if (strncmp(path, "/carts/", 7) == 0)
-        name = path + 7;
+    if (strncmp(path, "/bm/", 4) == 0)
+        name = path + 4;
     size_t n = strlen(name);
     int ok = name[0] && name[0] != '.' && !strchr(name, '/') && !strchr(name, '\\') &&
              (bm_is_project(name) || (n > 3 && name[n - 3] == '.' && (name[n - 2] | 32) == 'b' && (name[n - 1] | 32) == 'm'));
     if (!ok) {
         lua_pushboolean(L, 0);
-        lua_pushfstring(L, "%s: a cartridge writes only .bm and .bme files in /carts", path);
+        lua_pushfstring(L, "%s: a cartridge writes only .bm and .bme files in /bm", path);
         return -1;
     }
     if (reserved_tool_name(name)) {
@@ -224,7 +224,7 @@ static int write_target(lua_State *L, const char *path, char *to, size_t tn)
      * game on the card, 2026-10-05); bm's own tools can */
     char full[96];
     fat_entry_t e;
-    ksnprintf(full, sizeof full, "/carts/%s", name);
+    ksnprintf(full, sizeof full, "/bm/%s", name);
     if (fat_find(full, &e) == 0) {
         for (int i = 0; i < n_made; i++)
             if (strcasecmp(made[i], name) == 0)
@@ -646,7 +646,7 @@ static void put16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(
 static void put32(uint8_t *p, uint32_t v) { put16(p, v); put16(p + 2, v >> 16); }
 static uint32_t get32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 
-/* "/carts/game.bm" -> "/carts", "game.bm"; a bare name goes to /carts */
+/* "/bm/game.bm" -> "/bm", "game.bm"; a bare name goes to /bm */
 static void split_path(const char *path, char *dir, size_t dn, char *name, size_t nn)
 {
     const char *slash = strrchr(path, '/');
@@ -658,7 +658,7 @@ static void split_path(const char *path, char *dir, size_t dn, char *name, size_
         if (!dir[0]) ksnprintf(dir, dn, "/");
         ksnprintf(name, nn, "%s", slash + 1);
     } else {
-        ksnprintf(dir, dn, "/carts");
+        ksnprintf(dir, dn, "/bm");
         ksnprintf(name, nn, "%s", path);
     }
 }
@@ -674,7 +674,7 @@ static const char *field(lua_State *L, int t, const char *k, const char *def)
 /* cart_save(path, {title=, author=, res=, lua=}) -> true, or false and a
  * message. Sprite sheet, map (its layers), the flags of the tiles and the
  * named zones are the running cartridge's; the file name must be 8.3 (e.g.
- * "/carts/mygame.bm"). */
+ * "/bm/mygame.bm"). */
 int l_cart_save(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);

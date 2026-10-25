@@ -44,6 +44,7 @@
 #include "bm/runtime.h"
 #include "kernel/home.h"
 #include "kernel/menu_ui.h"
+#include "kernel/pointer.h"
 #include "kernel/notice.h"
 #include "bm/loading.h"
 #include "kernel/ledstate.h"
@@ -234,7 +235,7 @@ static const fiber_share_t menu_jobs[] = {
 
 static void rgb_play_begin(const lib_game_t *g, int resume);
 
-static const char *const rgb_dirs[] = { "/bm", "/carts", NULL };
+static const char *const rgb_dirs[] = { "/bm", NULL };
 static const lib_backend_t rgb_backend = {
     .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
     .panel = LIB_CAP_SDK | LIB_CAP_SEND,        /* no tools but the SDK, no editable copy, no Publish (D11) */
@@ -795,7 +796,8 @@ static int cart_at(int shown, int sel)
 }
 
 /* The state of the RGB30 menu (ui_home): what stays from a frame to the next, and what one frame fills in. */
-typedef struct {
+typedef struct uhome_s uhome_t;
+struct uhome_s {
     int tab, sel[3];                    /* the tab, and the selection of each */
     int mopt, mopt_sel, ask_game;       /* a Market game's details (X): its panel over the covers */
     int gopt, gopt_sel;                 /* a game's options (X on the Games tab) */
@@ -809,7 +811,23 @@ typedef struct {
     uint32_t p;                         /* the buttons pressed */
     int tabto;
     home_do_t d;                        /* what a row of Settings asked for */
-} uhome_t;
+};
+
+/* Before a game starts: a game not made for this console asks first, then a frozen game asks to be closed
+ * (lib_start_question). 1 if a question is open; 0 if the game may start. */
+static int uh_start_question(uhome_t *m, int g)
+{
+    const int k = lib_start_question(&games[g], 0, m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
+                                     sizeof m->ask_y);
+    if (k == LIB_ASK_COMPAT) {
+        m->ask_compat = g;
+        m->asking = ASK_COMPAT;
+    } else if (k == LIB_ASK_SWITCH) {
+        m->ask_switch = g;
+        m->asking = ASK_SWITCH;
+    }
+    return k != LIB_ASK_NONE;
+}
 
 static menu_item_t items[CATALOG_ITEMS];
 static home_panel_t mpb;                /* a Market game's details */
@@ -1094,6 +1112,61 @@ static int uh_input(uhome_t *m)
     return 0;
 }
 
+/* The pointer (D05, the Pi's M32 through menu_ui_pointer): a mouse selects what it moves over, the left button does
+ * what the confirm button does there, the right one goes back or opens the options, the wheel moves by rows. What
+ * it asked becomes the pad's buttons of this frame. 1 if it changed the tab (the frame is over). */
+static int uh_pointer(uhome_t *m)
+{
+    if (m->p & (PAD_UP | PAD_DOWN | PAD_LEFT | PAD_RIGHT))
+        pointer_hide();                     /* the pad moves the selection: no arrow */
+    menu_ptr_t io = { .gfx = 1, .ask = m->asking != ASK_NONE,
+                      .panel = m->depth || m->mopt >= 0 || m->gopt >= 0,
+                      .panel_rows = m->mopt >= 0 ? mpb.n : m->gopt >= 0 ? gpb.n : pb.n,
+                      .on_gear = m->on_gear && m->mopt < 0 && m->gopt < 0, .market = m->on_market,
+                      .covers = m->n, .market_page = market_page() };
+    if (!menu_ui_pointer(&io))
+        return 0;
+    if (io.tabto >= 0 || io.settings) {
+        m->tab = io.settings ? TAB_SETTINGS : io.tabto;
+        m->mopt = -1;
+        m->gopt = -1;
+        m->p = 0;
+        return 1;
+    }
+    if (io.dy)
+        m->p |= io.dy < 0 ? PAD_UP : PAD_DOWN;
+    if (io.action)
+        m->p |= pad_ok;
+    if (io.back)
+        m->p |= pad_back;
+    if (io.opts)
+        m->p |= PAD_X;
+    if (io.ybtn)
+        m->p |= PAD_Y;
+    if (io.refresh)
+        market_refresh();
+    if (io.panel_sel >= 0) {
+        if (m->mopt >= 0)
+            m->mopt_sel = io.panel_sel;
+        else if (m->gopt >= 0)
+            m->gopt_sel = io.panel_sel;
+        else if (m->depth)
+            m->stack[m->depth - 1].sel = io.panel_sel;
+    }
+    if (io.section >= 0 && m->depth) {
+        m->depth = 1;
+        m->built = -1;
+        m->stack[0].sel = io.section;
+    }
+    if (io.cover_sel >= 0 && !m->depth)
+        *m->s = io.cover_sel;
+    if (io.page >= 0) {
+        market_set_page(io.page);
+        *m->s = 0;
+    }
+    return 0;
+}
+
 /* A question is open: confirm says yes, back cancels. */
 static void uh_answer(uhome_t *m)
 {
@@ -1125,10 +1198,10 @@ static void uh_answer(uhome_t *m)
     } else if ((m->p & pad_ok) && kind == ASK_COMPAT && m->ask_compat >= 0) {
         const int cg = m->ask_compat;          /* yes: the other questions go on */
         m->ask_compat = -1;
-        if (lib_need_switch(&games[cg])) {
+        if (lib_start_question(&games[cg], 1, m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
+                               sizeof m->ask_y) == LIB_ASK_SWITCH) {
             m->ask_switch = cg;
             m->asking = ASK_SWITCH;
-            lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
         } else {
             play_index = cg;
             run_page(play_selected);
@@ -1185,14 +1258,8 @@ static void uh_game_panel(uhome_t *m)
             } else if (row == LIB_ROW_SDK) {
                 sdk_open = gp;              /* the SDK on the game: its project next to it */
                 run_page(page_sdk);
-            } else if (row == LIB_ROW_PLAY && lib_compat_question(&games[g], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
-                                                         sizeof m->ask_y)) {
-                m->ask_compat = g;
-                m->asking = ASK_COMPAT;
-            } else if (row == LIB_ROW_PLAY && lib_need_switch(&games[g])) {
-                m->ask_switch = g;
-                m->asking = ASK_SWITCH;
-                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            } else if (row == LIB_ROW_PLAY && uh_start_question(m, g)) {
+                /* a question is open */
             } else {
                 play_index = g;
                 run_page(play_selected);
@@ -1236,13 +1303,8 @@ static void uh_market_panel(uhome_t *m)
         if (row == M_PLAY) {
             m->mopt = -1;
             const int mg = game_of_path(market_path(game));
-            if (mg >= 0 && lib_compat_question(&games[mg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y)) {
-                m->ask_compat = mg;
-                m->asking = ASK_COMPAT;
-            } else if (mg >= 0 && lib_need_switch(&games[mg])) {
-                m->ask_switch = mg;
-                m->asking = ASK_SWITCH;
-                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            if (mg >= 0 && uh_start_question(m, mg)) {
+                /* a question is open */
             } else {
                 play_market(game);
             }
@@ -1321,13 +1383,8 @@ static void uh_covers(uhome_t *m)
             m->ask_game = *m->s;
         } else if ((m->p & pad_ok) && a == MARKET_PLAY) {
             const int mg = game_of_path(market_path(*m->s));
-            if (mg >= 0 && lib_compat_question(&games[mg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y)) {
-                m->ask_compat = mg;
-                m->asking = ASK_COMPAT;
-            } else if (mg >= 0 && lib_need_switch(&games[mg])) {
-                m->ask_switch = mg;
-                m->asking = ASK_SWITCH;
-                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            if (mg >= 0 && uh_start_question(m, mg)) {
+                /* a question is open */
             } else {
                 play_market(*m->s);
             }
@@ -1343,14 +1400,8 @@ static void uh_covers(uhome_t *m)
             ksnprintf(gp, sizeof gp, "%s/%s", games[cg].dir, games[cg].name);
         if (cg >= 0 && netxfer_updating(gp)) {
             notice_fail("Updating, wait for the end of the download");
-        } else if (cg >= 0 && lib_compat_question(&games[cg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
-                                              sizeof m->ask_y)) {
-            m->ask_compat = cg;
-            m->asking = ASK_COMPAT;
-        } else if (cg >= 0 && lib_need_switch(&games[cg])) {
-            m->ask_switch = cg;
-            m->asking = ASK_SWITCH;
-            lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+        } else if (cg >= 0 && uh_start_question(m, cg)) {
+            /* a question is open */
         } else if (cg >= 0) {
             play_index = cg;
             run_page(play_selected);
@@ -1405,7 +1456,7 @@ void ui_home(framebuffer_t *f)
         uh_selection(&m);
         uh_items(&m);
         uh_draw(&m);
-        if (uh_input(&m))
+        if (uh_input(&m) || uh_pointer(&m))
             continue;
         m.d.what = -1;
         if (m.asking) {

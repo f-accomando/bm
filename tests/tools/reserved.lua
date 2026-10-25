@@ -6,7 +6,7 @@ function _draw()
   if done then return end
   done = true
   for _, n in ipairs(names) do
-    local ok, msg = cart_save("/carts/" .. n, { title = "x", lua = "function _draw() end" })
+    local ok, msg = cart_save("/bm/" .. n, { title = "x", lua = "function _draw() end" })
     log("reserved: " .. n .. " " .. tostring(ok) .. " " .. tostring(msg))
   end
   log("reserved: end")

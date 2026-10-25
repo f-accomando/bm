@@ -108,7 +108,7 @@ void home_assistant(framebuffer_t *fb)
     fat_entry_t e;
     uint8_t *sd_data = NULL;
     size_t sd_len = 0;
-    if ((fat_find("/carts/assistant.bm", &e) == 0 || fat_find("/carts/assistan.bm", &e) == 0) &&
+    if ((fat_find("/bm/assistant.bm", &e) == 0 || fat_find("/bm/assistan.bm", &e) == 0) &&
         fat_load(&e, &sd_data, &sd_len) == 0) {
         bm_play(fb, sd_data, sd_len, 24u * 3600u, &bs);
         free(sd_data);

@@ -190,8 +190,12 @@ do
   check(table.concat(list, " ") == "/bme/B.BME /carts/old.bme /carts/g.bm /R.BM" or table.concat(list, " ") == "/bme/B.BME /carts/old.bme /carts/g.bm /R.BM",
         "project_files: /bme first, then the old places, only .bme in /bme: " .. table.concat(list, " "))
   check(sizes["/bme/B.BME"] == 5 and sizes["/carts/g.bm"] == 9, "project_files: the sizes")
-  list = U.project_files({ bm = true, bme = true, b16 = true }, { "/bm" })
-  check(#list == 6 and list[#list] == "/bm/g.b16", "project_files: .b16, and an extra folder last: " .. table.concat(list, " "))
+  list = U.project_files({ bm = true, bme = true, b16 = true }, { "/extra" })
+  check(#list == 6 and list[2] == "/bm/g.b16", "project_files: .b16, the games folder /bm before the old places: " .. table.concat(list, " "))
+  card["/extra"] = { { name = "e.bm", size = 1 } }
+  list = U.project_files({ bm = true, bme = true, b16 = true }, { "/extra" })
+  check(#list == 7 and list[#list] == "/extra/e.bm", "project_files: an extra folder last: " .. table.concat(list, " "))
+  card["/extra"] = nil
   card["/carts"][#card["/carts"] + 1] = { name = "B.BME", size = 1 }
   card["/bme"][#card["/bme"] + 1] = { name = "b.bme", size = 1 }
   list = U.project_files({ bme = true })

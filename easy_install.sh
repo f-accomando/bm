@@ -16,7 +16,7 @@
 #                           formatted (FAT32, the whole card up to 31 GB) with
 #                           the image's files on it; settings, saves and your
 #                           own games are kept, unless you say no
-#   5  [NET] send a file    a game (.bm, into /carts: the menu shows it at once),
+#   5  [NET] send a file    a game (.bm, into /bm: the menu shows it at once),
 #                           a resource (.bmm .bmi .bms ..., into /bm/lib) or any
 #                           file to a console's SD card (tools/bm_net.py --send)
 #   6  [NET] monitor        a console's monitor on this PC (tools/bm_net.py): its
@@ -539,8 +539,7 @@ short_name() {                                  # an 8.3 name for the SD card (p
 }
 
 # a file on a console's SD card (tools/bm_net.py --send): a game goes into
-# /carts (bm/ on the RGB30) and the console's menu shows it once written, a
-# resource into /bm/lib
+# /bm and the console's menu shows it once written, a resource into /bm/lib
 job_send() {
     local file=${1:-} base n83 to x p name ip code board out old rc
     if [ -z "$file" ]; then
@@ -563,7 +562,7 @@ job_send() {
     fi
     case ${base,,} in
         *.bmm|*.bmi|*.bms|*.bmt|*.bmc|*.bmk) to=/bm/lib ;;
-        *) to=/carts ;;
+        *) to=/bm ;;
     esac
     read -r -p "Folder on the SD card [$to]: " x || x=
     to=${x:-$to}
@@ -584,9 +583,9 @@ job_send() {
         ok "sent: $to/$n83 on $name"
         # the console answers as soon as the file arrived whole and writes it
         # from its menu ("Updating" on the game meanwhile); a game that is
-        # open is replaced when it is closed. The RGB30 puts a game for
-        # /carts in bm/, the folder its menu lists.
-        [[ ${n83,,} != *.bm && ${n83,,} != *.b16 ]] || [ "$to" != /carts ] ||
+        # open is replaced when it is closed. A game for /carts goes to bm/,
+        # the folder the menus list.
+        [[ ${n83,,} != *.bm && ${n83,,} != *.b16 ]] || { [ "$to" != /bm ] && [ "$to" != /carts ]; } ||
             ok "the game is in its menu once written (Games, or Dev for a tool; if it is open: when you close it)"
     else
         warn "not sent: see above"
@@ -1102,7 +1101,12 @@ Raspberry Pi Imager; 2 or 3 update its files."
         cp --update=none /dev/null "$bk/.cp-test" 2>/dev/null && keep=--update=none
         rm -f "$bk/.cp-test"
         if [ -d "$bk/bm" ]; then cp -r $keep "$bk/bm/." "$SD/bm/"; fi
-        if [ -d "$bk/carts" ]; then cp -r $keep "$bk/carts/." "$SD/carts/"; fi
+        if [ -d "$bk/carts" ]; then
+            cp -r $keep "$bk/carts/." "$SD/carts/"
+            for g in "$SD"/carts/*.bm "$SD"/carts/*.BM "$SD"/carts/*.b16 "$SD"/carts/*.B16; do   # the menus read bm/ only
+                [ -f "$g" ] && mv -n "$g" "$SD/bm/"
+            done
+        fi
         ok "settings, saves and games put back"
     fi
     sync

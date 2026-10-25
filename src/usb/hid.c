@@ -442,7 +442,7 @@ uint32_t hid_buttons(void)
     return b;
 }
 
-uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble)
+uint32_t hid_players_at(uint32_t out[HID_PLAYERS], int text, int local, int ble, int first)
 {
     uint32_t mine = pad_buttons | latched_pad, le = 0, any;
     if (!text) {
@@ -450,9 +450,11 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble)
         le = kbd_buttons[KBD_BLE] | latched_kbd[KBD_BLE];
     }
     any = mine | le;
-    for (int s = 0; s < HID_PLAYERS; s++) {
-        out[s] = bt_buttons[s] | bt_latched[s];
-        any |= out[s];
+    for (int s = 0; s < HID_PLAYERS; s++)
+        out[s] = 0;
+    for (int s = 0; s + first < HID_PLAYERS; s++) {     /* the Bluetooth pad of slot s is player s + first */
+        out[s + first] = bt_buttons[s] | bt_latched[s];
+        any |= out[s + first];
     }
     if (ble < 0 || ble >= HID_PLAYERS)          /* no player of its own: with the USB one */
         ble = local;
@@ -462,6 +464,11 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble)
         out[ble] |= le;
     clear_latches();
     return any;
+}
+
+uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble)
+{
+    return hid_players_at(out, text, local, ble, 0);
 }
 
 int hid_stick(int slot, int8_t xy[2])

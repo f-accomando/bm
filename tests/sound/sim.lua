@@ -63,8 +63,8 @@ env.showkeys = function() shown_keys = shown_keys + 1; return true end
 
 -- the SD card
 local files = {
-  ["/carts/pong.bm"] = { title = "Pong", bank = false },
-  ["/carts/astrowing.bm"] = { title = "Astro Wing", bank = false },
+  ["/bm/pong.bm"] = { title = "Pong", bank = false },
+  ["/bm/astrowing.bm"] = { title = "Astro Wing", bank = false },
   ["/bm/sounds/OTHER.BM"] = { title = "OTHER", bank = demo },
 }
 env.ls = function(dir)
@@ -532,7 +532,7 @@ type_keys("down", "\n")                   -- pong.bm
 type_keys("f3", "\n")
 type_keys("^s")
 check(puts[#puts] == "/bme/pong.bme", "Save writes into the editable copy of the game opened")
-check(files["/carts/pong.bm"].bank == false, "the game stays as it was")
+check(files["/bm/pong.bm"].bank == false, "the game stays as it was")
 b = parse(files["/bme/pong.bme"].bank)
 check(#b.pats >= 1 and b.pats[1].tracks[0], "the game got the pattern")
 check(logs[#logs]:find("saved /bme/pong.bme", 1, true), "the save is in the log")
@@ -692,7 +692,7 @@ do
   files["/bm/sounds/ZSRC.BME"] = { title = "ZSRC", bank = src .. news .. st8 }
   -- where the picker puts it: games, projects, packs, each sorted by name
   local order = {}
-  for _, dir in ipairs({ "/carts", "", "/bme", "/bm/sounds" }) do
+  for _, dir in ipairs({ "/bm", "", "/bme", "/bm/sounds" }) do
     local l = {}
     for p in pairs(files) do
       local d, n = p:match("^(.*)/([^/]+)$")

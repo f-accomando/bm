@@ -137,6 +137,33 @@ enum { MENU_HIT_NONE, MENU_HIT_COVER, MENU_HIT_TAB, MENU_HIT_SETTINGS, MENU_HIT_
 typedef struct { int kind, index, full; } menu_hit_t;
 menu_hit_t menu_ui_hit(int x, int y);
 
+/* What the pointer (M32) asks of the menu in one frame, the same for the Pi's
+ * menu (carts.c) and the RGB30's (rgb30/ui.c). The caller fills the "in"
+ * fields and applies the "out" fields to its own state. */
+typedef struct {
+    /* in */
+    int gfx;                    /* the graphic menu is on screen (else the motion is only dropped) */
+    int ask;                    /* a question is open */
+    int panel;                  /* a panel is open over the covers */
+    int panel_rows;             /* its rows */
+    int on_gear;                /* Settings is the tab: its sections can be clicked */
+    int market;                 /* the Market list is shown: its pages and Refresh can be clicked */
+    int covers;                 /* the covers of the list */
+    int market_page;            /* the page of the Market shown now */
+    /* out */
+    int dy;                     /* the wheel: rows down (up is negative) */
+    int action, back, opts, ybtn, refresh;
+    int tabto;                  /* a tab clicked, -1 none */
+    int settings;               /* the gear clicked */
+    int panel_sel;              /* a row of the panel under the pointer, -1 none */
+    int section;                /* a section of the Settings page clicked, -1 none */
+    int cover_sel;              /* a cover under the pointer, -1 none */
+    int page;                   /* a page of the Market clicked, -1 none */
+} menu_ptr_t;
+/* Reads the pointer (also when nothing shows it: the motion is dropped).
+ * Returns 1 if it is shown and the out fields say what it did. */
+int menu_ui_pointer(menu_ptr_t *io);
+
 /* Switches the screen to the menu mode (it has the pointer); -1 if it
  * cannot (the caller keeps the text menu). */
 int  menu_ui_open(framebuffer_t *fb);

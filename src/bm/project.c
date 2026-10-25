@@ -34,7 +34,7 @@ static int say(char *err, size_t en, const char *msg)
     return -1;
 }
 
-/* "/carts/Il mio gioco.bm" -> dir "/carts", base "ilmiogio": what an 8.3
+/* "/bm/Il mio gioco.bm" -> dir "/bm", base "ilmiogio": what an 8.3
  * name can hold of it, in lower case */
 static void split(const char *path, char *dir, size_t dn, char base[9])
 {
@@ -45,7 +45,7 @@ static void split(const char *path, char *dir, size_t dn, char base[9])
         memcpy(dir, path, k);
         dir[k] = 0;
     } else {
-        ksnprintf(dir, dn, slash ? "/" : "/carts");
+        ksnprintf(dir, dn, slash ? "/" : "/bm");
     }
     int n = 0;
     for (const char *p = name; *p && *p != '.' && n < 8; p++) {
@@ -82,11 +82,7 @@ static int exists(const char *path)
 
 const char *bm_games_dir(void)
 {
-#ifdef BM_RGB30
     return "/bm";
-#else
-    return "/carts";
-#endif
 }
 
 int bm_project_path(const char *name, char *out, size_t n)
@@ -252,10 +248,8 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
     split(src, dir, sizeof dir, base);
     if (in_projects_dir(dir))
         ksnprintf(dir, sizeof dir, "%s", bm_games_dir());
-#ifdef BM_RGB30
-    else if (strcasecmp(dir, "/carts") == 0 && exists("/bm"))
+    else if (strcasecmp(dir, "/carts") == 0 && exists("/bm"))      /* a game of an old card */
         ksnprintf(dir, sizeof dir, "/bm");
-#endif
     const char *slash = strrchr(src, '/');
     ksnprintf(from, sizeof from, "%s", slash ? slash + 1 : src);
     for (char *p = from; *p; p++)

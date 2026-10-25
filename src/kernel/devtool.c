@@ -34,12 +34,12 @@ static uint8_t *load_sd_tool(const char *name, size_t *len)
         ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.bm", alt);
     }
 #else
-    ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.bm", name);
+    ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.bm", name);
     if (alt)
-        ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.bm", alt);
-    ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.b16", name);
+        ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.bm", alt);
+    ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.b16", name);
     if (alt)
-        ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.b16", alt);
+        ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.b16", alt);
 #endif
     for (int i = 0; i < np; i++) {
         fat_entry_t e;

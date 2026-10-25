@@ -128,7 +128,7 @@ static struct {
 } bt;
 
 /* The player colours, also used by the games (dim: the light bar is bright) */
-static const uint8_t led_rgb[BT_PADS][3] = {
+static const uint8_t led_rgb[4][3] = {   /* by player: a slot is player BT_PLAYER(slot) */
     { 0x00, 0x20, 0x80 },           /* 1 blue */
     { 0x80, 0x08, 0x00 },           /* 2 red */
     { 0x00, 0x80, 0x10 },           /* 3 green */
@@ -260,7 +260,7 @@ static int new_slot(const uint8_t *addr)
     for (s = 0; s < BT_PADS; s++)
         if (!slot_connected(s)) {
             kprintf("bt: all %d player slots are taken: the new pad replaces player %d\n",
-                    BT_PADS, s + 1);
+                    BT_PADS, BT_PLAYER(s));
             return s;
         }
     return -1;
@@ -555,7 +555,7 @@ int bt_start(void)
     for (int s = 0; s < BT_PADS; s++)
         if (bt.have_key[s]) {
             addr_str(as, bt.key_addr[s]);
-            kprintf("bt: paired pad %s (player %d): press its PS button to connect\n", as, s + 1);
+            kprintf("bt: paired pad %s (player %d): press its PS button to connect\n", as, BT_PLAYER(s));
         }
     if (bt.have_key[SLOT_MOUSE]) {
         addr_str(as, bt.key_addr[SLOT_MOUSE]);
@@ -701,9 +701,9 @@ static void send_light(link_t *l)
     r[0] = 0x11;
     r[1] = 0xC0 | DS4_POLL_MS;                  /* HID + CRC, report interval */
     r[3] = 0x07;                                /* rumble, light, flash */
-    r[8] = led_rgb[l->slot][0];
-    r[9] = led_rgb[l->slot][1];
-    r[10] = led_rgb[l->slot][2];
+    r[8] = led_rgb[l->slot + BT_FIRST_PLAYER][0];
+    r[9] = led_rgb[l->slot + BT_FIRST_PLAYER][1];
+    r[10] = led_rgb[l->slot + BT_FIRST_PLAYER][2];
     uint32_t crc = crc32(p, 1 + DS4_OUT_LEN - 4);
     r[74] = (uint8_t)crc;
     r[75] = (uint8_t)(crc >> 8);
@@ -730,7 +730,7 @@ static void check_open(link_t *l, chan_t *c)
             return;
         }
         if (l->slot >= 0)
-            kprintf("bt: controller %s connected (player %d)\n", as, l->slot + 1);
+            kprintf("bt: controller %s connected (player %d)\n", as, BT_PLAYER(l->slot));
         else
             kprintf("bt: controller %s connected (no player: not paired)\n", as);
         l->announced = 1;
@@ -1009,7 +1009,7 @@ static void handle_event(const hci_pkt_t *p)
                     if (l->battery >= 0)
                         ksnprintf(bat, sizeof bat, "%d/10", l->battery & 15);
                     kprintf("bt: controller %s (player %d) %s after %u ms, %lu input reports (last %02x, "
-                            "battery %s): %s (reason %02x)\n", as, slot + 1, what, ms,
+                            "battery %s): %s (reason %02x)\n", as, BT_PLAYER(slot), what, ms,
                             (unsigned long)l->reports, l->report_id, bat, hci_reason(e[3]), e[3]);
                 }
                 else
@@ -1348,7 +1348,7 @@ static int pair_steps(link_t *l, const found_t *f)
     if (l->slot == SLOT_MOUSE)
         kprintf("bt: mouse paired; next time click it to connect\n");
     else
-        kprintf("bt: paired as player %d; next time just press PS on the controller\n", l->slot + 1);
+        kprintf("bt: paired as player %d; next time just press PS on the controller\n", BT_PLAYER(l->slot));
     return 0;
 }
 
@@ -1402,7 +1402,7 @@ unsigned bt_pads(void)
     unsigned m = 0;
     for (int s = 0; s < BT_PADS; s++)
         if (slot_connected(s))
-            m |= 1u << s;
+            m |= 1u << (s + BT_FIRST_PLAYER);
     return m;
 }
 

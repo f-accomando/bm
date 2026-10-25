@@ -583,7 +583,9 @@ def test_bluetooth_page_without_chip(b, opts):
         time.sleep(0.5)
         text = screen_all(q.screendump())
         assert "Settings > Controllers" in text and "Player 1" in text and "built in" in text, text
-        keys(q, "ssss")                         # Pair a new controller
+        # D03: the Pi's slots, the built-in pad is player 1 and the Bluetooth pads are players 2 to 4
+        assert "Player 2" in text and "Player 3" in text and "Player 4" in text and "Player 5" not in text, text
+        keys(q, "sssssss")                      # Pair a new controller
         q.send("\r")
         q.expect("no Bluetooth controller in QEMU", timeout=10)
         time.sleep(0.5)
@@ -849,6 +851,12 @@ def test_grey_cart_and_confirm(b, opts):
         assert text.count("Not here") == 2, text            # the pill on the two covers made for the Pi only, none on Both
         keys(q, "d")                                        # Old Pi cart: an old .bm is for the Pi only
         text = wait_screen(q, ["Old Pi cart"])
+        keys(q, "x")                                        # X: the options say why the cover is grey (a row 'Not here')
+        text = wait_screen(q, ["Open in the SDK", "Author"])
+        assert "Not here" in text and "made for the Pi Zero W" in text, text      # the row and its reason
+        keys(q, "y")                                        # back: the covers
+        text = wait_screen(q, ["Old Pi cart"])
+        assert "Open in the SDK" not in text, text
         keys(q, "\r")                                       # confirm: the question, the game does not start
         text = wait_screen(q, ["Start it anyway?", "made for the Pi Zero W only", "Start"])
         assert b"play: /bm/old.bm" not in q.buf, "it started before the answer"
@@ -1465,15 +1473,18 @@ def test_game_send(b, opts):
         q.close()
 
 
-def test_games_in_carts(b, opts):
-    """The Games tab lists games from both bm/ and /carts (D28): a cartridge
-    built by the SDK or placed in /carts appears in the menu alongside bm/."""
+def test_games_in_bm_only(b, opts):
+    """The Games tab lists the games of bm/ and not those of /carts (25 Oct 2026: both
+    kernels stop scanning /carts): a cartridge built by the SDK or sent over the network is in
+    bm/; one left in /carts is not listed."""
     tmp = tempfile.mkdtemp(prefix="bm64carts-")
-    built_bm = mkbm.pack(TRY_ME.encode(), title="Built in carts", author="tests", res=(360, 360))
+    built_bm = mkbm.pack(TRY_ME.encode(), title="Built in bm", author="tests", res=(360, 360))
+    old_bm = mkbm.pack(TRY_ME.encode(), title="Left in carts", author="tests", res=(360, 360))
     tryme_b16 = mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tryme.b16": tryme_b16,
-                       "carts/built.bm": built_bm})
+                       "bm/built.bm": built_bm,
+                       "carts/old.bm": old_bm})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
@@ -1483,12 +1494,13 @@ def test_games_in_carts(b, opts):
         keys(q, "d")
         time.sleep(0.5)
         text += screen_all(q.screendump())
-        assert "Built in carts" in text and "Try me" in text, text
+        assert "Built in bm" in text and "Try me" in text and "Left in carts" not in text, text
     finally:
         q.close()
     sd2 = make_sd(tmp, {"bm/config.txt": b"game_intro=0\nshow_bm=0\n",
                         "bm/tryme.b16": tryme_b16,
-                        "carts/built.bm": built_bm})
+                        "bm/built.bm": built_bm,
+                        "carts/old.bm": old_bm})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd2)
     try:
         out = boot(q)

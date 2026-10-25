@@ -22,11 +22,10 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, page `snd` (F7: Sounds with 7 fields and Lib import `i`, Effects with 32 steps; QEMU `test_sdk_pad_*` drive it by keyboard), map zoom in/out
   (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
   tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
-  `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
+  `Export .b16` (`Ctrl+Shift+B`; exporting a `.b16` from a game left in `/carts` writes it in
   `/bm/` so it appears immediately in Games). The Stages 2D template was removed on 25 Oct (user decision).
 - **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
-  `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/carts` or
-  `/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
+  `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
   built clean with `CLEAN_KERNEL=1`.
 - **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; Ctrl+Q / Y+X help on the API function, API lint on save (`predict.lint`, same rules as `scripts/api_lint.py`); completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,

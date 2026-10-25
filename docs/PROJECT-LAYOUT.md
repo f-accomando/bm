@@ -74,12 +74,15 @@ Special builds keep their own rules: the `.b16` made with `--from`, the Overbit 
 - The menu and every open list of the tools read `/bme` first. They also read a `.bme` found next to its game (`/carts`
   or the root, old SD cards). The console does not move it. The tool saves it where it is and the status line says so
   (`old place`).
-- `Ctrl+B` builds the game from a project in `/bme` into the games folder: `/carts` on the Pi, `/bm` on the RGB30
+- `Ctrl+B` builds the game from a project in `/bme` into the games folder: `/bm` on both consoles
   (`bm_games_dir()`). An old project next to its game builds next to it, as before.
-- Decision of 25 Oct 2026: both kernels stop scanning `/carts`. The games folder is `/bm`. The code change is to do (`carts.c`, `src/rgb30/ui.c`).
-  Until then the Pi menu scans `/`, `/carts`, `/bm` and `/bme`, and the RGB30 menu scans `/bm` and `/carts`.
+- Decision of 25 Oct 2026 (done the same day): both kernels stop scanning `/carts`. The games folder is `/bm`. The Pi menu
+  scans `/`, `/bm` and `/bme`; the RGB30 menu scans `/bm`. The Market, a file sent from the PC to `carts/` (it is stored in
+  `bm/`), the games a cartridge writes and `make sdcard` all use `/bm`. A game left in `/carts` on an old card is not listed:
+  move it to `/bm` (`make install` and `easy_install.sh` do it). The tools still read `/carts` and the root for a `.bme` next to its game.
   No menu tab lists a project on either kernel (user decision 21 Oct 2026, D44): the editors open the projects.
-  `/glb` and `/bmm` move to APP-9.
+- `/glb` and `/bmm` are the folders of APP-9 (the model import, `docs/progress/tools.md`): the editors read and write them.
+  The menus never list them. The SD map counts them.
 
 ## File names the system writes
 

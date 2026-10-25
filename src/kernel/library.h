@@ -25,7 +25,7 @@ typedef struct {
     char title[49];             /* from the header; the file name if none */
     char author[33];
     char name[FAT_NAME_MAX];
-    char dir[8];                /* "" for built-in, "/", "/carts", "/bm" or the projects folder */
+    char dir[8];                /* "" for built-in, "/", "/bm" or the projects folder */
     const uint8_t *builtin;     /* NULL: file on SD */
     uint32_t size;
     fat_entry_t fe;
@@ -70,7 +70,8 @@ typedef struct {
 /* The row ids of a cartridge's panel (home_row id; lib_panel and lib_act). */
 enum { LIB_ROW_PLAY = 100, LIB_ROW_CLOSE, LIB_ROW_SDK, LIB_ROW_SOUND, LIB_ROW_STUDIO, LIB_ROW_AUTHOR, LIB_ROW_FILE,
        LIB_ROW_SIZE, LIB_ROW_TYPE, LIB_ROW_SAVE, LIB_ROW_DEL_SAVE, LIB_ROW_DELETE, LIB_ROW_CODE, LIB_ROW_MESH,
-       LIB_ROW_PIXEL, LIB_ROW_ANIMATOR, LIB_ROW_PUBLISH, LIB_ROW_SEND, LIB_ROW_COPY, LIB_ROW_BUILD_B16 };
+       LIB_ROW_PIXEL, LIB_ROW_ANIMATOR, LIB_ROW_PUBLISH, LIB_ROW_SEND, LIB_ROW_COPY, LIB_ROW_BUILD_B16,
+       LIB_ROW_COMPAT };
 
 typedef struct {
     lib_game_t g[LIB_MAX];
@@ -143,6 +144,12 @@ void lib_switch_question(char *q, size_t qn, char *d, size_t dn, char *y, size_t
 /* A game that is not made for this console (docs/spec/compat-policy.toml) asks first: 1 and the words of the
  * question, or 0 (nothing to ask). Grey is not a lock: the confirm button starts the game. */
 int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t dn, char *y, size_t yn);
+/* The questions before a game starts, in their order: LIB_ASK_COMPAT (the game is not made for this console, so
+ * "Start it anyway?" with the reason), then LIB_ASK_SWITCH (a game is frozen: close it first). Fills q, d and y
+ * with the first question that applies and returns its kind, or LIB_ASK_NONE: the game starts. compat_known = 1
+ * skips the first one (the player said yes to it). */
+enum { LIB_ASK_NONE, LIB_ASK_COMPAT, LIB_ASK_SWITCH };
+int lib_start_question(const lib_game_t *g, int compat_known, char *q, size_t qn, char *d, size_t dn, char *y, size_t yn);
 
 /* ---- the save data of a cartridge */
 

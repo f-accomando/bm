@@ -527,8 +527,20 @@ static void panel_controllers(home_panel_t *p)
     ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
 #ifdef BM_RGB30
     home_row(p, MENU_ROW_INFO, R_PAD1, "Player 1",
-             "The console's buttons and sticks, with a Bluetooth pad if one is on",
-             bt_pads() ? "built in + Bluetooth" : "built in");
+             "The console's buttons and sticks, with a keyboard if one is on", "built in");
+    for (int s = 0; s < BT_PADS; s++) {         /* the Pi's slots: the Bluetooth pads are players 2 to 4 (D03) */
+        char addr[18], label[16];
+        int on = bt_pad_addr(s, addr);
+        ksnprintf(label, sizeof label, "Player %d", BT_PLAYER(s));
+        if (addr[0] && on)
+            home_row(p, MENU_ROW_INFO, R_PAD1 + BT_FIRST_PLAYER + s, label, "A Bluetooth pad, connected",
+                     "%s on", addr);
+        else if (addr[0])
+            home_row(p, MENU_ROW_INFO, R_PAD1 + BT_FIRST_PLAYER + s, label, "Paired: press its PS button to connect",
+                     "%s off", addr);
+        else
+            home_row(p, MENU_ROW_INFO, R_PAD1 + BT_FIRST_PLAYER + s, label, "Free: pair a controller", "-");
+    }
     home_row(p, MENU_ROW_INFO, R_BT, "Bluetooth", "Starts when a row below needs it",
              "%s", bt_started() ? "on" : "off");
 #else

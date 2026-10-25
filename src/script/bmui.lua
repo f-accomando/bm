@@ -511,9 +511,9 @@ if raw_keyp and _ENV.keyp == raw_keyp then _ENV.keyp = mkeyp end
 -- src/bm/project.h). New projects are written in /bme; a project found next to its game
 -- (an old SD card) is still read, and saved where it is.
 U.PROJECTS = "/bme"
-local OLD_DIRS = { "/carts", "/" }
+local OLD_DIRS = { "/bm", "/carts", "/" }     -- the games folder, then the places of an old card
 
--- "/carts/my game.bm", "mygame.bme" or "my game" -> "/bme/mygame.bme" (8.3)
+-- "/bm/my game.bm", "mygame.bme" or "my game" -> "/bme/mygame.bme" (8.3)
 function U.project_path(name)
   local base = name:match("([^/]+)$") or name
   local stem = base:gsub("%.[^.]*$", ""):lower():gsub("[^%w_%-]", "")

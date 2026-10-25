@@ -103,7 +103,7 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D09 | resolved | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: sorted by title; scans /bm and /carts; .bme projects are D44 | try the title order on the RGB30 |
+| D09 | resolved | history | game list | Pi: sorted by title; scans / and /bm; shows .bme projects in Dev. RGB30: sorted by title; scans /bm; .bme projects are D44 (neither scans /carts since 25 Oct 2026) | try the title order on the RGB30 |
 | D13 | resolved | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
 
 **5. Robustness**
@@ -117,9 +117,9 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D03 | open | todo | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | port the Pi player slots to the RGB30 (built-in pad = P1, BT pads P2-4); decided 25 Oct |
+| D03 | untested | todo | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: same since 25 Oct 2026 (built-in pad = P1, BT pads P2-4) | try a Bluetooth pad on the RGB30 |
 | D04 | resolved | history | menu keys | Pi: Start confirms; Tab and 1-4 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
-| D05 | open | todo | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the pointer block to the RGB30 menu; decided 25 Oct |
+| D05 | untested | todo | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: same since 25 Oct 2026 (menu_ui_pointer) | try a Bluetooth mouse on the RGB30 |
 | D11 | accepted | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
 | D12 | resolved | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
 | D14 | resolved | todo | Dev tab extras | Pi, in Settings: 3D Bench (Screen). RGB30: the 3D Bench in the Dev tab | dropped (25 Oct): the DMA test is removed from the Pi |
@@ -146,7 +146,7 @@ The differences that are hardware, with the capability that explains each:
 | D33 | game buttons | `pad-only` | Pi: DS4 by position. RGB30: built-in pad by the letters printed on it; game_buttons=position |
 | D34 | system keys | `no-keyboard` | Pi: F11, F12 (held: the key list), Print Screen, Ctrl+Esc. RGB30: only on a BT keyboard; the pad has Select held 3 s (screenshot) and Start+Select (leave) |
 | D35 | text input | `no-keyboard` | Pi: USB or BT keyboard and mouse. RGB30: BT only, no USB host; no on-screen keyboard |
-| D36 | storage paths | `storage-path` | Pi: cartridges in /carts and /, data in /bm. RGB30: everything in /bm; the mapping is done by hand in 4 places |
+| D36 | storage paths | `storage-path` | Pi: cartridges in /bm and /, data in /bm (since 25 Oct 2026; /carts is not read). RGB30: everything in /bm |
 | D37 | 3D settings | `no-3d-gpu-yet` | Pi: 5 rows (3D of the games, AA, textures, impostors, 3D on the ARM); the other graphics flags are hidden keys. RGB30: '3D on the ARM' only |
 | D38 | audio | `audio-codec` | Pi: HDMI only, stereo. RGB30: I2S to a codec: speaker or headphones, hardware volume keys |
 | D39 | battery | `battery` | Pi: none; battery() is nil. RGB30: icon, low-battery overlay, Settings row, LED |
@@ -160,7 +160,6 @@ Resource files and the common project layout are `implemented` since BETA-6 roun
 
 - Version numbering: a baseline tag for the current line (for example `v0.3.0`) and `v1.0.0` when `gate` is empty. Tagging is
   outward-facing: waiting for a yes.
-- D03 and D05: should the RGB30 have local multiplayer and the menu pointer, or are they hardware choices (then the Settings rows go)? The owner keeps both suspended.
 - D49 is accepted (BETA-6 round 2): the Pi menus keep A and B (D32); only the RGB30 remaps the menus' OK and Cancel with `mo` and `mc`. If you want the Pi menus to follow them, say so: the entry goes back to `todo`.
 - D16 is decided: `show_bm` is the Games tab, `market_bm` the Market (RGB30), `show_b16` the Market (Pi).
 - The Lib tab: removed from the Pi kernel on 2026-10-25 (owner's decision; it was hidden since 2026-10-06). Both kernels have the same tabs. The tools on the RGB30 come from Market > Apps and are recognised as tools (D13).

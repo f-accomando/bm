@@ -22,11 +22,7 @@
 #include <string.h>
 
 #define BASE_URL    "https://f-accomando.github.io/bm-market/"
-#ifdef BM_RGB30
-#define GAMES_DIR   "/bm"                       /* where the RGB30's menu reads its games */
-#else
-#define GAMES_DIR   "/carts"
-#endif
+#define GAMES_DIR   "/bm"                       /* where both menus read their games */
 #ifdef BM_RGB30
 #define MY_KERNEL   BM_TARGET_RGB30             /* the kernel of docs/spec/compat-policy.toml */
 #else
@@ -641,8 +637,8 @@ static int find(const char *id, int b16)
     return -1;
 }
 
-/* where a new game goes: /carts/snake.bm from the id (a .b16 snake.b16;
- * on the RGB30 in /bm), another name if that one is taken */
+/* where a new game goes: /bm/snake.bm from the id (a .b16 snake.b16),
+ * another name if that one is taken */
 static int new_path(const char *id, const char *ext, char *name, size_t n)
 {
     char stem[9];
