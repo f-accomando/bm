@@ -183,7 +183,6 @@ const char *home_util_title(int i) { return tools[NDEV + i].title; }
 const char *home_util_about(int i) { return tools[NDEV + i].about; }
 int home_util_group(int i) { return tools[NDEV + i].group; }
 const char *home_tool_title(int i) { return tools[i].title; }
-const char *home_tool_about(int i) { return tools[i].about; }
 const g16_sheet_t *home_tool_cover(int i) { return tools[i].cover.px ? &tools[i].cover : NULL; }
 
 /* a tool whose printout is a report: run between reports_begin and _end */

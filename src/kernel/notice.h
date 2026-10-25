@@ -21,4 +21,9 @@ int notice_now(char *title, char *detail, int *progress);
  * comes first): its title, line and bar (0..1000, or -1). */
 void notice_flash(const char *title, const char *detail, int progress, uint32_t ms);
 
+/* An action that did not happen (a game cannot start, a file cannot go): its
+ * reason in the notice box for 4 s. The menu's bottom bar shows the key
+ * chips only, so this box is where the user reads it. */
+void notice_fail(const char *reason);
+
 #endif

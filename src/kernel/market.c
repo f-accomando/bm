@@ -2,6 +2,7 @@
 #include "carts.h"
 #include "config.h"
 #include "fiber.h"
+#include "notice.h"
 #include "bm/bm.h"
 #include "bm/png.h"
 #include "drivers/timer.h"
@@ -34,7 +35,6 @@
 #define CACHE_DIR   "/bm/market"
 #define STACK_SIZE  (128 * 1024)                /* TLS, and the interrupts on top */
 #define REFRESH_US  (10u * 60 * 1000000)        /* the catalog again after 10 minutes */
-#define NOTE_US     (6u * 1000000)              /* how long a message stays in the footer */
 #define SKELETONS   8                           /* placeholders before the catalog */
 #define CHUNK       (16 * 1024)                 /* sd: sources: progress, then a pause */
 #define PATH_MAX_   (FAT_NAME_MAX + 10)
@@ -67,7 +67,7 @@ static int nowned;
 static char base[160];
 static int inited, active, sel, have, changed;
 static int fetched, net_failed;
-static uint32_t fetched_at, note_at, refresh_done_at;
+static uint32_t fetched_at, refresh_done_at;
 static char note[64], banner[72];
 static char want_id[24];        /* the game to download next */
 static int want_b16;            /* 1 if want_id is the .b16 edition */
@@ -86,9 +86,21 @@ static void say(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(note, sizeof note, fmt, ap);
     va_end(ap);
-    note_at = timer_ticks();
     if (note[0])
         kprintf("market: %s\n", note);
+}
+
+/* say(), and the reason in the notice box: the user's action did not happen
+ * (the bottom bar of the menu shows the key chips only) */
+static void fail(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+static void fail(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(note, sizeof note, fmt, ap);
+    va_end(ap);
+    kprintf("market: %s\n", note);
+    notice_fail(note);
 }
 
 static int from_sd(void)
@@ -673,7 +685,7 @@ static void job_get(int i)
             say("download of %s interrupted", g->title);
         } else {
             s->failed = 1;
-            say("download failed: %s", err);
+            fail("download failed: %s", err);
         }
         return;
     }
@@ -681,7 +693,7 @@ static void job_get(int i)
         free(d);
         s->busy = 0;
         s->failed = 1;
-        say("%s: not the file of the catalog", g->title);
+        fail("%s: not the file of the catalog", g->title);
         return;
     }
     /* checked: from here the job ends even if the tab is left (the write
@@ -704,7 +716,7 @@ static void job_get(int i)
     if (!ok) {
         finishing = 0;
         s->failed = 1;
-        say("cannot write %s: %s", g->title, fat_error());
+        fail("cannot write %s: %s", g->title, fat_error());
         return;
     }
     owned_set(g->id, g->file.sha256, path);
@@ -785,7 +797,7 @@ int market_refresh(void)
     if (!market_refresh_available())
         return 0;
     if (!online()) {
-        say("No network: connect in Settings > WiFi");
+        fail("No network: connect in Settings > WiFi");
         refresh_done_at = timer_ticks();
         return 0;
     }
@@ -865,7 +877,7 @@ int market_items(menu_item_t *items, int max)
             return 0;
         int n = SKELETONS < max ? SKELETONS : max;
         for (int i = 0; i < n; i++)
-            items[i] = (menu_item_t){ .title = "", .author = "", .path = "", .kind = "market", .loading = 1 };
+            items[i] = (menu_item_t){ .title = "", .path = "", .kind = "market", .loading = 1 };
         return n;
     }
     int want_app = cur_page == MARKET_PAGE_APPS, n = 0;
@@ -879,8 +891,8 @@ int market_items(menu_item_t *items, int max)
         const char *why;
         items[n++] = (menu_item_t){
             .grey = entry_grey(g, &why),
-            .title = g->title, .author = g->author, .path = s->path, .kind = "market",
-            .size = g->file.size, .cover = ready ? &s->cover : NULL, .loading = !ready,
+            .title = g->title, .path = s->path, .kind = "market",
+            .cover = ready ? &s->cover : NULL, .loading = !ready,
             .busy = s->busy || (strcmp(want_id, g->id) == 0 && want_b16 == b16),
             .percent = s->busy && g->file.size ? (int)((uint64_t)s->got * 100 / g->file.size) : 0,
             .badge = s->busy || s->path[0] ? NULL : s->failed ? "Retry" : NULL,
@@ -906,51 +918,6 @@ const char *market_banner(void)
         return "No network: connect in Settings > WiFi";
     ksnprintf(banner, sizeof banner, "Market: %s", note[0] ? note : "no catalog");
     return banner;
-}
-
-const char *market_status(void)
-{
-    static char line[48];
-    long rx = lan_receiving();
-    lan_offer_t o;
-    if (rx >= 0 && lan_offer(&o) == 0) {
-        ksnprintf(line, sizeof line, "receiving: %ld KB", rx / 1024);
-        return line;
-    }
-    if (note[0] && timer_ticks() - note_at < NOTE_US)
-        return note;
-    if (!have)
-        return "";
-    if (!online())
-        return "Offline: the saved catalog";
-    if (work.busy && job == JOB_INDEX)
-        return "Checking for new games...";
-    const char *s = cat.serial;
-    int cnt = market_page_count(cur_page);
-    int n = ksnprintf(line, sizeof line, "%d %s", cnt, cur_page == MARKET_PAGE_APPS ? "apps" : "games");
-    if (strlen(s) >= 8 && n + 12 < (int)sizeof line)     /* the date of the serial */
-        ksnprintf(line + n, sizeof line - (size_t)n, ", %c%c%c%c-%c%c-%c%c",
-                  s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
-    return line;
-}
-
-void market_details(int i, char *buf, size_t n)
-{
-    buf[0] = 0;
-    int ci = cat_idx(i);
-    if (ci < 0)
-        return;
-    const catalog_game_t *g = &cat.games[ci];
-    const slot_t *s = &slots[ci];
-    const char *why;
-    if (s->busy)
-        ksnprintf(buf, n, "downloading %lu of %lu KB", (unsigned long)(s->got / 1024),
-                  (unsigned long)((g->file.size + 1023) / 1024));
-    else if (entry_grey(g, &why))
-        ksnprintf(buf, n, "Not here: %s", why);
-    else
-        ksnprintf(buf, n, "%s   v%s   %s   %s   %lu KB", g->author[0] ? g->author : "-", g->version, g->license,
-                  kind_of(g), (unsigned long)((g->file.size + 1023) / 1024));
 }
 
 int market_action(int i)
@@ -1003,7 +970,7 @@ void market_get(int i)
     want_b16 = is_b16(cat.games[ci].file.path);
     slots[ci].failed = 0;
     if (!online())
-        say("no network: the download waits for it");
+        fail("no network: the download waits for it");
 }
 
 const char *market_path(int i)
@@ -1110,9 +1077,9 @@ void market_act(int i, int row, int how, home_do_t *d)
                 changed = 1;
                 d->what = HOME_BACK;
             } else {
+                d->fail = 1;
                 ksnprintf(d->note, sizeof d->note, "cannot delete %s: %s", s->path, fat_error());
             }
-            kprintf("market: %s\n", d->note);
         }
         break;
     }
@@ -1173,7 +1140,7 @@ static void keep_received(uint8_t *d, size_t len, const lan_offer_t *o)
     char path[PATH_MAX_], name[16], id[24];
     int ok = 0, g = find_sha(o->sha256);
     if (len < 128 || !bm_is_cart(d)) {
-        say("%s from %s: not a cartridge", o->title, o->from);
+        fail("%s from %s: not a cartridge", o->title, o->from);
         free(d);
         return;
     }
@@ -1193,7 +1160,7 @@ static void keep_received(uint8_t *d, size_t len, const lan_offer_t *o)
     }
     free(d);
     if (!ok) {
-        say("cannot write %s: %s", o->title, fat_error());
+        fail("cannot write %s: %s", o->title, fat_error());
         return;
     }
     if (g >= 0) {                       /* the Market's game: as if downloaded */

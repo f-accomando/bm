@@ -16,6 +16,11 @@ void notice_flash(const char *title, const char *detail, int progress, uint32_t 
     flash_until = (timer_ticks() + ms * 1000u) | 1;
 }
 
+void notice_fail(const char *reason)
+{
+    notice_flash("Not done", reason, -1, 4000);
+}
+
 int notice_now(char *title, char *detail, int *progress)
 {
     uint32_t got = 0, size = 0;
