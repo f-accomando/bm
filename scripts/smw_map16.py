@@ -92,7 +92,7 @@ def main():
     json.dump({"%03X" % k: q for k, q in sorted(defs.items())}, open(out + "/map16.json", "w"))
     json.dump(first, open(out + "/level.json", "w"))
     cols = 16
-    rows_n = (len(sheet) + 1 + cols - 1) // cols
+    rows_n = (len(sheet) + 2 + cols - 1) // cols      # one spare cell after the last: the collision marker
     img = [[(0, 0, 0, 0)] * (cols * 8) for _ in range(rows_n * 8)]
     for i, im in enumerate(sheet, 1):
         for y in range(8):
@@ -103,6 +103,8 @@ def main():
     ch = lambda t, c: struct.pack(">I", len(c)) + t + c + struct.pack(">I", zlib.crc32(t + c))
     open(out + "/sheet.png", "wb").write(b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", struct.pack(">IIBBBBB", cols * 8, rows_n * 8, 8, 6, 0, 0, 0))
                                          + ch(b"IDAT", zlib.compress(raw)) + ch(b"IEND", b""))
+    json.dump({"cells": len(sheet), "backdrop": [cg[0] & 31, (cg[0] >> 5 | cg[1] << 3) & 31, (cg[1] >> 2) & 31],
+               "screens": screens}, open(out + "/meta.json", "w"))
     print("sheet cells", len(sheet))
     print("map16 definitions", len(defs), "with conflicts", sorted("%03X" % k for k in seen_conflict))
 

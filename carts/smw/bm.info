@@ -1,0 +1,10 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: SMW First Level
+desc: Personal port, built from the player's own ROM. Not for distribution.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: game, platformer, personal
+resolution: 360x360
+targets: rgb30
+input: pad
