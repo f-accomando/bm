@@ -1,0 +1,113 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1654-ga2e63306
+branch: claude/pi-hw-results-2-25oct
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-56ff57_freeze_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+
+the Pi froze (the watchdog restarted it) while: monitor command "M", frame 0, 10907 s after boot, kernel v0.2.5-1644-g1199bd23, ring 66824, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+0005.png
+net: receiving pong.bm (40832 bytes)...
+net: cartridge received, starting it
+bm: Screenshot saved: bm/shots/3dbe0006.png
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: a new console connection takes over
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+
+net: console opened from 192.168.1.97
+> bm: "3D Bench" 42379 frames, 50.1 fps, 420 dropped
+     update+draw avg 6.67 ms (40% of frame), max 127981.81 ms, Lua 223 KB
+     copy to screen 3.14 ms per frame
+     dev kit: Lua peak 358 KB, data 913 KB, busiest frame 335k instructions, 573 frames over 16.7 ms, 6922 tokens
+     GPU 3D 1132 jobs, 760 triangles a frame, 0.14 ms a frame (bin 8%), max job 38198 us
+report: session_3d-bench_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+> 
+load: Pong 42 ms (close 0, parse 0, assets+state 2, mode 1, audio 0, lua 37)
+
+net: console closed
+bm: Screenshot saved: bm/shots/pong0006.png
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> bm: "Pong" 1148 frames, 59.7 fps, 1 dropped
+     update+draw avg 1.70 ms (10% of frame), max 1.77 ms, Lua 177 KB
+     dev kit: Lua peak 177 KB, data 322 KB, busiest frame 1k instructions, 0 frames over 16.7 ms, 1865 tokens
+report: session_pong_pi-zero-w.txt saved as bm/reports/rpt00002.txt
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> M
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 1280x720, the layout enlarged by the ARM
+fiber: netxfer did not yield: 10.4 ms past its slice
+fiber: netxfer did not yield: 29.8 ms past its slice
+net: saved /bm/bench3d.bm on the SD card (451932 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 17 cartridges; clusters 32 KB; 1 retried, 1 timed out
+
+net: console closed
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; netxfer 110 ms (+29.8, stk 1.6/64K); min slack -94121 us, paced 0; sd 1 retried, 1 timed out
+menu idle: sd sites: rdend 1; first word <1ms 491 <3ms 38 <10ms 1 (max 7.0 ms)
+menu stalls: tls handshake 2x last 270.1 worst 270.1 ms
+menu frame: 2x, a frame averages draw 7194 us, enlarge 17490 us, flip 93 us, free time used 0 us (300 frames)
+net: receiving a new kernel (4751852 bytes)...
+net: kernel 0% (0 of 4640 KB)
+net: kernel 10% (464 of 4640 KB)
+net: kernel 20% (936 of 4640 KB)
+net: kernel 30% (1400 of 4640 KB)
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -27493 us, paced 0
+menu frame: 2x, a frame averages draw 7526 us, enlarge 17478 us, flip 93 us, free time used 0 us (300 frames)
+net: kernel 40% (1863 of 4640 KB)
+net: kernel 50% (2326 of 4640 KB)
+net: kernel 60% (2785 of 4640 KB)
+net: kernel 70% (3253 of 4640 KB)
+net: kernel 80% (3718 of 4640 KB)
+net: kernel 90% (4186 of 4640 KB)
+net: saved kernel.img on the SD card (4751852 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 17 cartridges; clusters 32 KB; 7 retried, 7 timed out
+menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -1117882 us, paced 0; sd 6 retried, 6 timed out
+menu idle: sd sites: rdend 6; first word <1ms 220 <3ms 2 (max 7.0 ms)
+menu frame: 2x, a frame averages draw 11788 us, enlarge 17487 us, flip 93 us, free time used 0 us (300 frames)
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
