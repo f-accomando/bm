@@ -744,7 +744,30 @@ static int cart_at(int shown, int sel)
     return -1;
 }
 
-void ui_home(framebuffer_t *f)
+/* The state of the RGB30 menu (ui_home): what stays from a frame to the next, and what one frame fills in. */
+typedef struct {
+    int tab, sel[3];                    /* the tab, and the selection of each */
+    int mopt, mopt_sel, ask_game;       /* a Market game's details (X): its panel over the covers */
+    int gopt, gopt_sel;                 /* a game's options (X on the Games tab) */
+    int gsend;                          /* 1: the options show the consoles to send the game to */
+    struct { int id, sel, top; } stack[DEPTH_MAX];      /* the panels of Settings, one over the other */
+    int depth, built, frame, ask_row, asking, ask_switch, ask_compat;
+    char ask_q[64], ask_d[64], ask_y[16];
+    /* one frame */
+    int on_gear, shown, on_market;      /* Settings is the tab; the list shown; the Market is the tab */
+    int n, *s;                          /* what the list has, and its selection */
+    uint32_t p;                         /* the buttons pressed */
+    int tabto;
+    home_do_t d;                        /* what a row of Settings asked for */
+} uhome_t;
+
+static menu_item_t items[CATALOG_ITEMS];
+static home_panel_t mpb;                /* a Market game's details */
+static home_panel_t gpb;                /* a game's options */
+static home_panel_t pb;                 /* Settings */
+
+/* The menu opens: the cartridges, the covers of the tools, the screen. */
+static void uh_open(uhome_t *m, framebuffer_t *f)
 {
     fb = f;
     console_suspend(1);
@@ -766,519 +789,600 @@ void ui_home(framebuffer_t *f)
     kprintf("\n");
     menu_reopen();
 
-    int tab = TAB_GAMES, sel[3] = { 0, 0, 0 };
-    static menu_item_t items[CATALOG_ITEMS];
-    /* a Market game's details (X): its panel over the covers */
-    static home_panel_t mpb;
-    int mopt = -1, mopt_sel = 0, ask_game = 0;
-    /* a game's options (X on the Games tab): the same kind of panel */
-    static home_panel_t gpb;
-    int gopt = -1, gopt_sel = 0;
-    int gsend = 0;                      /* 1: the options show the consoles to send the game to */
-    /* Settings: its panels, as on the Pi (settings.c), one over the other */
-    static home_panel_t pb;
-    struct { int id, sel, top; } stack[DEPTH_MAX];
-    int depth = 0, built = -1, frame = 0, ask_row = 0, asking = ASK_NONE, ask_switch = -1, ask_compat = -1;
-    char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
-    for (;;) {
-        /* the view: the tab's covers, or the Settings panels over the last tab's */
-        int on_gear = tab == TAB_SETTINGS, shown = on_gear ? TAB_DEV : tab;
-        if (on_gear && !depth) {
-            stack[0].id = HOME_SETTINGS;
-            stack[0].sel = stack[0].top = 0;
-            depth = 1;
-            built = -1;
-        } else if (!on_gear && depth) {
-            depth = 0;
-            asking = ASK_NONE;
+    memset(m, 0, sizeof *m);
+    m->tab = TAB_GAMES;
+    m->mopt = -1;
+    m->gopt = -1;
+    m->built = -1;
+    m->asking = ASK_NONE;
+    m->ask_switch = -1;
+    m->ask_compat = -1;
+}
+
+/* The view: the tab's covers, or the Settings panels over the last tab's. */
+static void uh_view_state(uhome_t *m)
+{
+    /* the view: the tab's covers, or the Settings panels over the last tab's */
+    m->on_gear = m->tab == TAB_SETTINGS;
+    m->shown = m->on_gear ? TAB_DEV : m->tab;
+    if (m->on_gear && !m->depth) {
+        m->stack[0].id = HOME_SETTINGS;
+        m->stack[0].sel = m->stack[0].top = 0;
+        m->depth = 1;
+        m->built = -1;
+    } else if (!m->on_gear && m->depth) {
+        m->depth = 0;
+        m->asking = ASK_NONE;
+    }
+}
+
+/* The work behind the menu: the Market on its tab only, a game a nearby console offers, the card read again
+ * when a game came or went, a cartridge sent to play, the tests' reports. */
+static void uh_background(uhome_t *m)
+{
+    /* the Market works only while its tab is shown; the nearby consoles
+     * hear this one only then (M24) */
+    m->on_market = m->tab == TAB_MARKET && !m->on_gear;
+    market_set_active(m->on_market);
+    market_lan(m->on_market || (m->gopt >= 0 && m->gsend));
+    if (!m->on_market)
+        m->mopt = -1;
+    if (m->tab != TAB_GAMES || m->on_gear)
+        m->gopt = -1;
+    if (m->asking == ASK_NONE && market_offer(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d)) {
+        ksnprintf(m->ask_y, sizeof m->ask_y, "Accept");
+        m->asking = ASK_OFFER;
+    } else if (m->asking == ASK_OFFER) {
+        char q_[64], d_[64];
+        if (!market_offer(q_, sizeof q_, d_, sizeof d_))
+            m->asking = ASK_NONE;          /* the sender gave up */
+    }
+    /* a game of the Market installed or deleted: the card again */
+    if (market_take_changed()) {
+        scan_games();
+        market_carts_changed();
+    }
+    /* a game written from the network: its title, cover and size again */
+    static unsigned seen_saves;
+    if (netxfer_saves() != seen_saves) {
+        seen_saves = netxfer_saves();
+        scan_games();
+        market_carts_changed();
+    }
+    /* a cartridge sent with bm_net.py --play: it plays at once, not saved (D21, as GO_NETPLAY on the Pi) */
+    {
+        uint8_t *nb;
+        size_t nl;
+        if (netxfer_take_play(&nb, &nl)) {
+            net_play_buf = nb;
+            net_play_len = nl;
+            run_page(play_net);
+            free(nb);
+            net_play_buf = NULL;
+            net_play_len = 0;
+            m->asking = ASK_NONE;
+            m->ask_switch = -1;
+            m->mopt = -1;
+            m->gopt = -1;
+            m->built = -1;
         }
-        /* the Market works only while its tab is shown; the nearby consoles
-         * hear this one only then (M24) */
-        const int on_market = tab == TAB_MARKET && !on_gear;
-        market_set_active(on_market);
-        market_lan(on_market || (gopt >= 0 && gsend));
-        if (!on_market)
-            mopt = -1;
-        if (tab != TAB_GAMES || on_gear)
-            gopt = -1;
-        if (asking == ASK_NONE && market_offer(ask_q, sizeof ask_q, ask_d, sizeof ask_d)) {
-            ksnprintf(ask_y, sizeof ask_y, "Accept");
-            asking = ASK_OFFER;
-        } else if (asking == ASK_OFFER) {
-            char q_[64], d_[64];
-            if (!market_offer(q_, sizeof q_, d_, sizeof d_))
-                asking = ASK_NONE;          /* the sender gave up */
-        }
-        /* a game of the Market installed or deleted: the card again */
-        if (market_take_changed()) {
-            scan_games();
-            market_carts_changed();
-        }
-        /* a game written from the network: its title, cover and size again */
-        static unsigned seen_saves;
-        if (netxfer_saves() != seen_saves) {
-            seen_saves = netxfer_saves();
-            scan_games();
-            market_carts_changed();
-        }
-        /* a cartridge sent with bm_net.py --play: it plays at once, not saved (D21, as GO_NETPLAY on the Pi) */
-        {
-            uint8_t *nb;
-            size_t nl;
-            if (netxfer_take_play(&nb, &nl)) {
-                net_play_buf = nb;
-                net_play_len = nl;
-                run_page(play_net);
-                free(nb);
-                net_play_buf = NULL;
-                net_play_len = 0;
-                asking = ASK_NONE;
-                ask_switch = -1;
-                mopt = -1;
-                gopt = -1;
-                built = -1;
-            }
-        }
-        /* the tests' reports waiting on the SD card go once the console is
-         * on the network (reports_auto_due; no fibers here: a moment's wait,
-         * from the covers only, not in Settings) */
-        if (!on_gear && !asking && !on_market && !netxfer_write_pending() && reports_auto_due()) {
-            reports_send_pending();
-            kprintf("report %s\n", reports_last());
-        }
-        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV + n_dev;
-        int *s = &sel[shown];
-        if (*s >= n) *s = n - 1;
-        if (*s < 0) *s = 0;
-        if (shown == TAB_MARKET)
-            market_select(*s);
-        lib_cover_focus(on_gear ? -1 : tab == TAB_GAMES ? 0 : tab == TAB_DEV ? 1 : -1,   /* the covers to read first */
-                        cart_at(shown, *s));
-        for (int i = 0; i < n && shown != TAB_MARKET; i++) {
-            if (shown == TAB_GAMES) {
-                items[i] = game_item(game_idx[i]);
-            } else if (i >= N_DEV) {
-                items[i] = game_item(cart_at(shown, i));
-            } else {
-                items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
-            }
-        }
-        static const char *const market_pages[] = { "Games", "Apps" };
-        menu_view_t v = {
-            .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
-            .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
-            .refresh_label = on_market ? "Refresh" : NULL,
-            .refresh_enabled = on_market && market_refresh_available(),
-            .items = items, .n = n, .sel = *s,
-            .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B,
-            .ok_btn = pad_ok_name(), .back_btn = pad_back_name(), .no_monitor = 1,
-            .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
-            .idle = lib_menu_idle,
-        };
-        /* the bar: the WiFi and the battery only; no icons of the
-         * controllers, mice and keyboards (the user, 2026-10-05) */
-        v.net = wifi_linked() ? MENU_NET_WIFI : MENU_NET_NONE;
-        v.net_wait = !net_ip();
-        if (shown == TAB_MARKET) {
-            v.banner = market_banner();
-            v.a_label = market_action_label(*s);
-            if (!v.a_label)
-                v.a_label = "";
-        } else if (shown == TAB_GAMES && n == 0) {
-            /* nothing to list: the title pill says why (the bottom bar has the key chips only) */
-            static char empty[72];
-            if (library.hidden)
-                ksnprintf(empty, sizeof empty, "No games yet: %d .bm hidden by show_bm=0", library.hidden);
-            else if (strcmp(sd_state, "bm/") != 0)
-                ksnprintf(empty, sizeof empty, "No games yet: no bm/ folder");
-            else
-                ksnprintf(empty, sizeof empty, "No games yet: put .b16 games in bm/");
-            v.banner = empty;
-            v.a_label = "";
-        } else if (cart_at(shown, *s) >= 0) {
-            v.a_label = lib_is_suspended(&games[cart_at(shown, *s)]) ? "Resume" : "Play";
-        }
-        menu_panel_t panel, sections, mpanel;
-        if (mopt >= 0) {
-            market_panel(mopt, &mpb);
-            if (mopt_sel >= mpb.n) mopt_sel = mpb.n ? mpb.n - 1 : 0;
-            mpanel = (menu_panel_t){ mpb.title, mpb.rows, mpb.n, mopt_sel,
-                                     mopt_sel >= MENU_PANEL_ROWS ? mopt_sel - MENU_PANEL_ROWS + 1 : 0,
-                                     mpb.n ? mpb.help[mopt_sel] : NULL };
-            v.panel = &mpanel;
-        } else if (gopt >= 0 && gopt < library.n) {
-            if (gsend)
-                market_send_panel(&gpb);
-            else
-                lib_panel(&games[gopt], &gpb);
-            if (gopt_sel >= gpb.n) gopt_sel = gpb.n ? gpb.n - 1 : 0;
-            mpanel = (menu_panel_t){ gpb.title, gpb.rows, gpb.n, gopt_sel,
-                                     gopt_sel >= MENU_PANEL_ROWS ? gopt_sel - MENU_PANEL_ROWS + 1 : 0,
-                                     gpb.n ? gpb.help[gopt_sel] : NULL };
-            v.panel = &mpanel;
+    }
+    /* the tests' reports waiting on the SD card go once the console is
+     * on the network (reports_auto_due; no fibers here: a moment's wait,
+     * from the covers only, not in Settings) */
+    if (!m->on_gear && !m->asking && !m->on_market && !netxfer_write_pending() && reports_auto_due()) {
+        reports_send_pending();
+        kprintf("report %s\n", reports_last());
+    }
+}
+
+/* What the tab lists, and the selection in it; the covers to read first. */
+static void uh_selection(uhome_t *m)
+{
+    m->n = m->shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : m->shown == TAB_GAMES ? n_games : N_DEV + n_dev;
+    m->s = &m->sel[m->shown];
+    if (*m->s >= m->n) *m->s = m->n - 1;
+    if (*m->s < 0) *m->s = 0;
+    if (m->shown == TAB_MARKET)
+        market_select(*m->s);
+    lib_cover_focus(m->on_gear ? -1 : m->tab == TAB_GAMES ? 0 : m->tab == TAB_DEV ? 1 : -1,   /* the covers to read first */
+                    cart_at(m->shown, *m->s));
+}
+
+/* The covers of the tab. */
+static void uh_items(uhome_t *m)
+{
+    for (int i = 0; i < m->n && m->shown != TAB_MARKET; i++) {
+        if (m->shown == TAB_GAMES) {
+            items[i] = game_item(game_idx[i]);
+        } else if (i >= N_DEV) {
+            items[i] = game_item(cart_at(m->shown, i));
         } else {
-            gopt = -1;
+            items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
         }
-        if (gopt < 0)
-            gsend = 0;
-        menu_page_t page;
-        frame++;
-        if (depth) {
-            /* rebuilt when it changes, and twice a second for the values
-             * that move (pads, uptime, battery) */
-            int id = stack[depth - 1].id;
-            if (built != id || frame % 30 == 0) {
-                home_panel(id, &pb);
-                built = id;
-            }
-            int *ps = &stack[depth - 1].sel, *pt = &stack[depth - 1].top;
-            if (*ps >= pb.n) *ps = pb.n ? pb.n - 1 : 0;
-            if (*ps < *pt) *pt = *ps;
-            if (*ps >= *pt + MENU_PANEL_ROWS) *pt = *ps - MENU_PANEL_ROWS + 1;
-            panel = (menu_panel_t){ pb.title, pb.rows, pb.n, *ps, *pt, pb.n ? pb.help[*ps] : NULL };
-            /* Settings is a page (the narrow screen: one list at a time) */
-            sections = panel;
-            page = (menu_page_t){ &sections, depth > 1 ? &panel : NULL, depth > 1 };
-            v.page = &page;
-        }
-        if (asking != ASK_NONE) {
-            v.ask = ask_q;
-            v.ask_detail = ask_d[0] ? ask_d : NULL;
-            v.ask_yes = ask_y;
-        }
-        static char nt[NOTICE_LEN], nd[NOTICE_LEN];
-        if (notice_now(nt, nd, &v.notice_progress)) {
-            v.notice = nt;                      /* a kernel arriving, the restart */
-            v.notice_detail = nd;
-        }
-        audio_idle();                           /* the output's news (QEMU's sink: what it heard) */
-        v.battery = battery_state(&v.battery_pct, &v.charging, NULL);
-        menu_ui_frame(fb, &v);
-        static int first_frame = 1;
-        if (first_frame) {
-            first_frame = 0;
-            kprintf("cartridge menu: first frame, %d of %d covers read\n", lib_covers_read(&library), library.n);
-        }
-        /* a file from the PC goes on even when the frame left no time for
-         * it (lib_menu_idle): a piece a frame */
-        if (netxfer_write_pending())
-            netxfer_write_tick(timer_ticks() + 2000);
+    }
+}
 
-        uint32_t p = pad_pressed();
-        /* Start confirms unless Select is held (the Pi, carts.c:1474) */
-        if ((p & PAD_START) && !(pad_state() & PAD_SELECT))
-            p |= pad_ok;
-        if (hid_quit_pressed() & HID_QUIT_PS) {
-            /* the PS button or Ctrl+Esc of a Bluetooth pad or keyboard: home, the Games tab (as on the Pi) */
-            tab = TAB_GAMES;
-            mopt = -1;
-            gopt = -1;
-            asking = ASK_NONE;
-            continue;
+/* The frame: the view with the panels over the covers, the notice, the question. */
+static void uh_draw(uhome_t *m)
+{
+    static const char *const market_pages[] = { "Games", "Apps" };
+    menu_view_t v = {
+        .tabs = tab_names, .ntabs = 3, .tab = m->shown, .on_gear = m->on_gear, .peek_first = 1,
+        .subtabs = m->on_market ? market_pages : NULL, .nsubtabs = m->on_market ? 2 : 0, .subtab = market_page(),
+        .refresh_label = m->on_market ? "Refresh" : NULL,
+        .refresh_enabled = m->on_market && market_refresh_available(),
+        .items = items, .n = m->n, .sel = *m->s,
+        .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B,
+        .ok_btn = pad_ok_name(), .back_btn = pad_back_name(), .no_monitor = 1,
+        .y_label = m->on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
+        .idle = lib_menu_idle,
+    };
+    /* the bar: the WiFi and the battery only; no icons of the
+     * controllers, mice and keyboards (the user, 2026-10-05) */
+    v.net = wifi_linked() ? MENU_NET_WIFI : MENU_NET_NONE;
+    v.net_wait = !net_ip();
+    if (m->shown == TAB_MARKET) {
+        v.banner = market_banner();
+        v.a_label = market_action_label(*m->s);
+        if (!v.a_label)
+            v.a_label = "";
+    } else if (m->shown == TAB_GAMES && m->n == 0) {
+        /* nothing to list: the title pill says why (the bottom bar has the key chips only) */
+        static char empty[72];
+        if (library.hidden)
+            ksnprintf(empty, sizeof empty, "No games yet: %d .bm hidden by show_bm=0", library.hidden);
+        else if (strcmp(sd_state, "bm/") != 0)
+            ksnprintf(empty, sizeof empty, "No games yet: no bm/ folder");
+        else
+            ksnprintf(empty, sizeof empty, "No games yet: put .b16 games in bm/");
+        v.banner = empty;
+        v.a_label = "";
+    } else if (cart_at(m->shown, *m->s) >= 0) {
+        v.a_label = lib_is_suspended(&games[cart_at(m->shown, *m->s)]) ? "Resume" : "Play";
+    }
+    menu_panel_t panel, sections, mpanel;
+    if (m->mopt >= 0) {
+        market_panel(m->mopt, &mpb);
+        if (m->mopt_sel >= mpb.n) m->mopt_sel = mpb.n ? mpb.n - 1 : 0;
+        mpanel = (menu_panel_t){ mpb.title, mpb.rows, mpb.n, m->mopt_sel,
+                                 m->mopt_sel >= MENU_PANEL_ROWS ? m->mopt_sel - MENU_PANEL_ROWS + 1 : 0,
+                                 mpb.n ? mpb.help[m->mopt_sel] : NULL };
+        v.panel = &mpanel;
+    } else if (m->gopt >= 0 && m->gopt < library.n) {
+        if (m->gsend)
+            market_send_panel(&gpb);
+        else
+            lib_panel(&games[m->gopt], &gpb);
+        if (m->gopt_sel >= gpb.n) m->gopt_sel = gpb.n ? gpb.n - 1 : 0;
+        mpanel = (menu_panel_t){ gpb.title, gpb.rows, gpb.n, m->gopt_sel,
+                                 m->gopt_sel >= MENU_PANEL_ROWS ? m->gopt_sel - MENU_PANEL_ROWS + 1 : 0,
+                                 gpb.n ? gpb.help[m->gopt_sel] : NULL };
+        v.panel = &mpanel;
+    } else {
+        m->gopt = -1;
+    }
+    if (m->gopt < 0)
+        m->gsend = 0;
+    menu_page_t page;
+    m->frame++;
+    if (m->depth) {
+        /* rebuilt when it changes, and twice a second for the values
+         * that move (pads, uptime, battery) */
+        int id = m->stack[m->depth - 1].id;
+        if (m->built != id || m->frame % 30 == 0) {
+            home_panel(id, &pb);
+            m->built = id;
         }
-        const int serial_c = pad_serial_char();
-        if (serial_c == '`') {
-            run_page(serial_lua);
-            continue;
+        int *ps = &m->stack[m->depth - 1].sel, *pt = &m->stack[m->depth - 1].top;
+        if (*ps >= pb.n) *ps = pb.n ? pb.n - 1 : 0;
+        if (*ps < *pt) *pt = *ps;
+        if (*ps >= *pt + MENU_PANEL_ROWS) *pt = *ps - MENU_PANEL_ROWS + 1;
+        panel = (menu_panel_t){ pb.title, pb.rows, pb.n, *ps, *pt, pb.n ? pb.help[*ps] : NULL };
+        /* Settings is a page (the narrow screen: one list at a time) */
+        sections = panel;
+        page = (menu_page_t){ &sections, m->depth > 1 ? &panel : NULL, m->depth > 1 };
+        v.page = &page;
+    }
+    if (m->asking != ASK_NONE) {
+        v.ask = m->ask_q;
+        v.ask_detail = m->ask_d[0] ? m->ask_d : NULL;
+        v.ask_yes = m->ask_y;
+    }
+    static char nt[NOTICE_LEN], nd[NOTICE_LEN];
+    if (notice_now(nt, nd, &v.notice_progress)) {
+        v.notice = nt;                      /* a kernel arriving, the restart */
+        v.notice_detail = nd;
+    }
+    audio_idle();                           /* the output's news (QEMU's sink: what it heard) */
+    v.battery = battery_state(&v.battery_pct, &v.charging, NULL);
+    menu_ui_frame(fb, &v);
+    static int first_frame = 1;
+    if (first_frame) {
+        first_frame = 0;
+        kprintf("cartridge menu: first frame, %d of %d covers read\n", lib_covers_read(&library), library.n);
+    }
+    /* a file from the PC goes on even when the frame left no time for
+     * it (lib_menu_idle): a piece a frame */
+    if (netxfer_write_pending())
+        netxfer_write_tick(timer_ticks() + 2000);
+}
+
+/* The first look at the input: PS is home, the serial line's backtick is a Lua prompt, a keyboard's Tab and 1 2 3 4
+ * jump tabs. 1 if the frame is over. */
+static int uh_input(uhome_t *m)
+{
+    m->p = pad_pressed();
+    /* Start confirms unless Select is held (the Pi, carts.c:1474) */
+    if ((m->p & PAD_START) && !(pad_state() & PAD_SELECT))
+        m->p |= pad_ok;
+    if (hid_quit_pressed() & HID_QUIT_PS) {
+        /* the PS button or Ctrl+Esc of a Bluetooth pad or keyboard: home, the Games tab (as on the Pi) */
+        m->tab = TAB_GAMES;
+        m->mopt = -1;
+        m->gopt = -1;
+        m->asking = ASK_NONE;
+        return 1;
+    }
+    const int serial_c = pad_serial_char();
+    if (serial_c == '`') {
+        run_page(serial_lua);
+        return 1;
+    }
+    m->tabto = -1;                             /* a keyboard: Tab and 1 2 3 4 jump tabs (carts.c) */
+    if (serial_c >= 0 && tab_of_key(serial_c, m->tab) >= 0)    /* the serial line's digits too, as on the Pi (its Tab is Select here) */
+        m->tabto = tab_of_key(serial_c, m->tab);
+    for (int k; (k = hid_getc()) >= 0;)
+        if (tab_of_key(k, m->tab) >= 0)
+            m->tabto = tab_of_key(k, m->tab);
+    if (m->tabto >= 0 && m->asking == ASK_NONE) {
+        m->tab = m->tabto;
+        m->mopt = -1;
+        m->gopt = -1;
+        return 1;
+    }
+    return 0;
+}
+
+/* A question is open: confirm says yes, back cancels. */
+static void uh_answer(uhome_t *m)
+{
+    /* a question: confirm says yes, back cancels */
+    const int kind = m->asking;
+    if (m->p & (pad_ok | pad_back))
+        m->asking = ASK_NONE;
+    if ((m->p & pad_ok) && kind == ASK_ROW) {
+        home_act(m->stack[m->depth - 1].id, m->ask_row, HOME_YES, &m->d);
+    } else if ((m->p & pad_ok) && kind == ASK_MARKET) {
+        market_get(m->ask_game);
+    } else if ((m->p & pad_ok) && kind == ASK_MOPT) {
+        home_do_t md;
+        market_act(m->mopt, m->ask_row, HOME_YES, &md);
+        home_report(&md);
+        if (md.what == HOME_BACK)
+            m->mopt = -1;
+    } else if ((m->p & pad_ok) && kind == ASK_GOPT && m->gopt >= 0) {
+        home_do_t gd;
+        lib_act(&games[m->gopt], m->ask_row, HOME_YES, &gd);
+        home_report(&gd);
+        if (gd.what == HOME_BACK) {
+            m->gopt = -1;
+            scan_games();
+            market_carts_changed();
         }
-        int tabto = -1;                             /* a keyboard: Tab and 1 2 3 4 jump tabs (carts.c) */
-        if (serial_c >= 0 && tab_of_key(serial_c, tab) >= 0)    /* the serial line's digits too, as on the Pi (its Tab is Select here) */
-            tabto = tab_of_key(serial_c, tab);
-        for (int k; (k = hid_getc()) >= 0;)
-            if (tab_of_key(k, tab) >= 0)
-                tabto = tab_of_key(k, tab);
-        if (tabto >= 0 && asking == ASK_NONE) {
-            tab = tabto;
-            mopt = -1;
-            gopt = -1;
-            continue;
+    } else if ((m->p & pad_ok) && kind == ASK_SEND && m->gopt >= 0 && m->gsend) {
+        market_send_act(m->ask_row, HOME_YES, &m->d);     /* HOME_TEXT: the sending, below */
+    } else if ((m->p & pad_ok) && kind == ASK_COMPAT && m->ask_compat >= 0) {
+        const int cg = m->ask_compat;          /* yes: the other questions go on */
+        m->ask_compat = -1;
+        if (lib_need_switch(&games[cg])) {
+            m->ask_switch = cg;
+            m->asking = ASK_SWITCH;
+            lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+        } else {
+            play_index = cg;
+            run_page(play_selected);
         }
-        home_do_t d;
-        d.what = -1;
-        if (asking) {
-            /* a question: confirm says yes, back cancels */
-            const int kind = asking;
-            if (p & (pad_ok | pad_back))
-                asking = ASK_NONE;
-            if ((p & pad_ok) && kind == ASK_ROW) {
-                home_act(stack[depth - 1].id, ask_row, HOME_YES, &d);
-            } else if ((p & pad_ok) && kind == ASK_MARKET) {
-                market_get(ask_game);
-            } else if ((p & pad_ok) && kind == ASK_MOPT) {
-                home_do_t md;
-                market_act(mopt, ask_row, HOME_YES, &md);
-                home_report(&md);
-                if (md.what == HOME_BACK)
-                    mopt = -1;
-            } else if ((p & pad_ok) && kind == ASK_GOPT && gopt >= 0) {
-                home_do_t gd;
-                lib_act(&games[gopt], ask_row, HOME_YES, &gd);
-                home_report(&gd);
-                if (gd.what == HOME_BACK) {
-                    gopt = -1;
-                    scan_games();
-                    market_carts_changed();
-                }
-            } else if ((p & pad_ok) && kind == ASK_SEND && gopt >= 0 && gsend) {
-                market_send_act(ask_row, HOME_YES, &d);     /* HOME_TEXT: the sending, below */
-            } else if ((p & pad_ok) && kind == ASK_COMPAT && ask_compat >= 0) {
-                const int cg = ask_compat;          /* yes: the other questions go on */
-                ask_compat = -1;
-                if (lib_need_switch(&games[cg])) {
-                    ask_switch = cg;
-                    asking = ASK_SWITCH;
-                    lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
-                } else {
-                    play_index = cg;
-                    run_page(play_selected);
-                }
-            } else if ((p & pad_ok) && kind == ASK_SWITCH && ask_switch >= 0) {
-                play_index = ask_switch;            /* the frozen game is closed by starting this one */
-                ask_switch = -1;
+    } else if ((m->p & pad_ok) && kind == ASK_SWITCH && m->ask_switch >= 0) {
+        play_index = m->ask_switch;            /* the frozen game is closed by starting this one */
+        m->ask_switch = -1;
+        run_page(play_selected);
+    } else if (kind == ASK_OFFER && (m->p & (pad_ok | pad_back))) {
+        market_offer_answer((m->p & pad_ok) != 0);
+    }
+}
+
+/* The consoles nearby: up/down choose, confirm asks, back returns to the options of the game. */
+static void uh_send_panel(uhome_t *m)
+{
+    /* the consoles nearby: up/down choose, confirm asks, back returns to the options */
+    int dy = (m->p & PAD_UP) ? -1 : (m->p & PAD_DOWN) ? 1 : 0;
+    if (dy && gpb.n)
+        m->gopt_sel = (m->gopt_sel + dy + gpb.n) % gpb.n;
+    if ((m->p & pad_back) || ((m->p & PAD_X) && pad_ok != PAD_X)) {
+        m->gsend = 0;
+        m->gopt_sel = 0;
+    } else if ((m->p & pad_ok) && gpb.n && gpb.rows[m->gopt_sel].kind != MENU_ROW_INFO) {
+        home_do_t sd;
+        m->ask_row = gpb.ids[m->gopt_sel];
+        market_send_act(m->ask_row, 0, &sd);
+        if (sd.what == HOME_ASK) {
+            m->asking = ASK_SEND;
+            ksnprintf(m->ask_q, sizeof m->ask_q, "%s", sd.ask);
+            ksnprintf(m->ask_d, sizeof m->ask_d, "%s", sd.ask_detail);
+            ksnprintf(m->ask_y, sizeof m->ask_y, "%s", sd.ask_yes);
+        }
+    }
+}
+
+/* A game's options: up/down choose, confirm does, back closes. */
+static void uh_game_panel(uhome_t *m)
+{
+    /* a game's options: up/down choose, confirm does, back closes */
+    int dy = (m->p & PAD_UP) ? -1 : (m->p & PAD_DOWN) ? 1 : 0;
+    if (dy && gpb.n)
+        m->gopt_sel = (m->gopt_sel + dy + gpb.n) % gpb.n;
+    if ((m->p & pad_back) || ((m->p & PAD_X) && pad_ok != PAD_X)) {
+        m->gopt = -1;
+    } else if ((m->p & pad_ok) && gpb.n && gpb.rows[m->gopt_sel].kind != MENU_ROW_INFO) {
+        const int row = gpb.ids[m->gopt_sel], g = m->gopt;
+        if (row == LIB_ROW_PLAY || row == LIB_ROW_SDK) {
+            m->gopt = -1;
+            static char gp[80];
+            ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
+            if (netxfer_updating(gp)) {
+                notice_fail("Updating, wait for the end of the download");
+            } else if (row == LIB_ROW_SDK) {
+                sdk_open = gp;              /* the SDK on the game: its project next to it */
+                run_page(page_sdk);
+            } else if (row == LIB_ROW_PLAY && lib_compat_question(&games[g], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
+                                                         sizeof m->ask_y)) {
+                m->ask_compat = g;
+                m->asking = ASK_COMPAT;
+            } else if (row == LIB_ROW_PLAY && lib_need_switch(&games[g])) {
+                m->ask_switch = g;
+                m->asking = ASK_SWITCH;
+                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            } else {
+                play_index = g;
                 run_page(play_selected);
-            } else if (kind == ASK_OFFER && (p & (pad_ok | pad_back))) {
-                market_offer_answer((p & pad_ok) != 0);
             }
-        } else if ((p & PAD_L1) && tab > TAB_MARKET) {
-            /* L1 / R1: Market, Games, Dev, Settings, no going round (as on the Pi) */
-            tab--;
-            mopt = -1;
-        } else if ((p & PAD_R1) && tab < TAB_SETTINGS) {
-            tab++;
-            mopt = -1;
-        } else if (gopt >= 0 && gsend) {
-            /* the consoles nearby: up/down choose, confirm asks, back returns to the options */
-            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
-            if (dy && gpb.n)
-                gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
-            if ((p & pad_back) || ((p & PAD_X) && pad_ok != PAD_X)) {
-                gsend = 0;
-                gopt_sel = 0;
-            } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
-                home_do_t sd;
-                ask_row = gpb.ids[gopt_sel];
-                market_send_act(ask_row, 0, &sd);
-                if (sd.what == HOME_ASK) {
-                    asking = ASK_SEND;
-                    ksnprintf(ask_q, sizeof ask_q, "%s", sd.ask);
-                    ksnprintf(ask_d, sizeof ask_d, "%s", sd.ask_detail);
-                    ksnprintf(ask_y, sizeof ask_y, "%s", sd.ask_yes);
-                }
-            }
-        } else if (gopt >= 0) {
-            /* a game's options: up/down choose, confirm does, back closes */
-            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
-            if (dy && gpb.n)
-                gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
-            if ((p & pad_back) || ((p & PAD_X) && pad_ok != PAD_X)) {
-                gopt = -1;
-            } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
-                const int row = gpb.ids[gopt_sel], g = gopt;
-                if (row == LIB_ROW_PLAY || row == LIB_ROW_SDK) {
-                    gopt = -1;
-                    static char gp[80];
-                    ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
-                    if (netxfer_updating(gp)) {
-                        notice_fail("Updating, wait for the end of the download");
-                    } else if (row == LIB_ROW_SDK) {
-                        sdk_open = gp;              /* the SDK on the game: its project next to it */
-                        run_page(page_sdk);
-                    } else if (row == LIB_ROW_PLAY && lib_compat_question(&games[g], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
-                                                                 sizeof ask_y)) {
-                        ask_compat = g;
-                        asking = ASK_COMPAT;
-                    } else if (row == LIB_ROW_PLAY && lib_need_switch(&games[g])) {
-                        ask_switch = g;
-                        asking = ASK_SWITCH;
-                        lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
-                    } else {
-                        play_index = g;
-                        run_page(play_selected);
-                    }
-                } else if (row == LIB_ROW_SEND) {
-                    char gp[80];
-                    ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
-                    market_send_setup(gp, games[g].title, games[g].author);
-                    gsend = 1;
-                    gopt_sel = 0;
-                } else {
-                    home_do_t gd;
-                    lib_act(&games[g], row, 0, &gd);
-                    home_report(&gd);
-                    if (gd.what == HOME_ASK) {
-                        asking = ASK_GOPT;
-                        ask_row = row;
-                        ksnprintf(ask_q, sizeof ask_q, "%s", gd.ask);
-                        ksnprintf(ask_d, sizeof ask_d, "%s", gd.ask_detail);
-                        ksnprintf(ask_y, sizeof ask_y, "%s", gd.ask_yes);
-                    } else if (gd.what == HOME_BACK) {
-                        gopt = -1;
-                        scan_games();
-                        market_carts_changed();
-                    }
-                }
-            }
-        } else if (mopt >= 0) {
-            /* a Market game's details: up/down choose, confirm does, back closes */
-            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
-            if (dy && mpb.n)
-                mopt_sel = (mopt_sel + dy + mpb.n) % mpb.n;
-            if (p & pad_back) {
-                mopt = -1;
-            } else if ((p & pad_ok) && mpb.n && mpb.rows[mopt_sel].kind != MENU_ROW_INFO) {
-                const int row = mpb.ids[mopt_sel], game = mopt;
-                if (row == M_PLAY) {
-                    mopt = -1;
-                    const int mg = game_of_path(market_path(game));
-                    if (mg >= 0 && lib_compat_question(&games[mg], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y)) {
-                        ask_compat = mg;
-                        asking = ASK_COMPAT;
-                    } else if (mg >= 0 && lib_need_switch(&games[mg])) {
-                        ask_switch = mg;
-                        asking = ASK_SWITCH;
-                        lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
-                    } else {
-                        play_market(game);
-                    }
-                } else {
-                    home_do_t md;
-                    market_act(game, row, 0, &md);
-                    home_report(&md);
-                    if (md.what == HOME_ASK) {
-                        asking = ASK_MOPT;
-                        ask_row = row;
-                        ksnprintf(ask_q, sizeof ask_q, "%s", md.ask);
-                        ksnprintf(ask_d, sizeof ask_d, "%s", md.ask_detail);
-                        ksnprintf(ask_y, sizeof ask_y, "%s", md.ask_yes);
-                    } else if (md.what == HOME_BACK) {
-                        mopt = -1;
-                    }
-                }
-            }
-        } else if (depth) {
-            /* a panel: up/down choose, confirm does, left/right change a
-             * value, back goes back one level (out of Settings: to Dev) */
-            int *ps = &stack[depth - 1].sel, id = stack[depth - 1].id;
-            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
-            int dx = (p & PAD_LEFT) ? -1 : (p & PAD_RIGHT) ? 1 : 0;
-            if (dy && pb.n)
-                *ps = (*ps + dy + pb.n) % pb.n;
-            const menu_row_t *r = pb.n ? &pb.rows[*ps] : NULL;
-            int row = pb.n ? pb.ids[*ps] : 0;
-            /* right opens a section, left goes back to the sections (but
-             * changes a value on a choice), as on the Pi's page */
-            if (depth == 1 && dx > 0 && r && r->kind == MENU_ROW_SUB)
-                p |= pad_ok;
-            else if (depth > 1 && dx < 0 && (!r || r->kind != MENU_ROW_CHOICE))
-                p |= pad_back;
-            if (p & pad_back) {
-                if (--depth == 0)
-                    tab = TAB_DEV;
-                built = -1;
-            } else if (r && (((p & pad_ok) && r->kind != MENU_ROW_INFO) || (dx && r->kind == MENU_ROW_CHOICE))) {
-                home_act(id, row, (p & pad_ok) ? 0 : dx, &d);
-                ask_row = row;
-            }
-        } else if ((p & PAD_Y) && shown == TAB_MARKET) {
-            market_set_page(market_page() == MARKET_PAGE_APPS ? MARKET_PAGE_GAMES : MARKET_PAGE_APPS);
-            *s = 0;
-        } else if ((p & PAD_SELECT) && !(pad_state() & PAD_START) && shown == TAB_MARKET) {
-            market_refresh();
-        } else if (n > 0) {
-            /* the covers: left / right along the row, up / down a row (the
-             * last row may be shorter) */
-            int cols = menu_ui_cols(), to = *s;
-            if (p & PAD_LEFT) to = *s - 1;
-            if (p & PAD_RIGHT) to = *s + 1;
-            if (p & PAD_UP) to = *s - cols;
-            if (p & PAD_DOWN)
-                to = *s + cols < n ? *s + cols : (*s / cols + 1) * cols < n ? n - 1 : *s;
-            if (to >= 0 && to < n)
-                *s = to;
-            if (shown == TAB_MARKET) {
-                /* X: a game's details; confirm: get it (after a question) or play it */
-                const int a = market_action(*s);
-                if ((p & PAD_X) && a != MARKET_NONE) {
-                    mopt = *s;
-                    mopt_sel = 0;
-                } else if ((p & pad_ok) && (a == MARKET_GET || a == MARKET_UPDATE)) {
-                    home_do_t q;
-                    market_ask(*s, &q);
-                    ksnprintf(ask_q, sizeof ask_q, "%s", q.ask);
-                    ksnprintf(ask_d, sizeof ask_d, "%s", q.ask_detail);
-                    ksnprintf(ask_y, sizeof ask_y, "%s", q.ask_yes);
-                    asking = ASK_MARKET;
-                    ask_game = *s;
-                } else if ((p & pad_ok) && a == MARKET_PLAY) {
-                    const int mg = game_of_path(market_path(*s));
-                    if (mg >= 0 && lib_compat_question(&games[mg], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y)) {
-                        ask_compat = mg;
-                        asking = ASK_COMPAT;
-                    } else if (mg >= 0 && lib_need_switch(&games[mg])) {
-                        ask_switch = mg;
-                        asking = ASK_SWITCH;
-                        lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
-                    } else {
-                        play_market(*s);
-                    }
-                }
-            } else if ((p & PAD_X) && shown == TAB_GAMES && n > 0) {
-                gopt = game_idx[*s];            /* X: the game's options (the Pi's C) */
-                lib_panel_open(&games[gopt]);
-                gopt_sel = 0;
-            } else if (p & pad_ok) {
-                char gp[80] = "";
-                const int cg = cart_at(shown, *s);      /* a game, or an app or utility in Dev */
-                if (cg >= 0)
-                    ksnprintf(gp, sizeof gp, "%s/%s", games[cg].dir, games[cg].name);
-                if (cg >= 0 && netxfer_updating(gp)) {
-                    notice_fail("Updating, wait for the end of the download");
-                } else if (cg >= 0 && lib_compat_question(&games[cg], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
-                                                      sizeof ask_y)) {
-                    ask_compat = cg;
-                    asking = ASK_COMPAT;
-                } else if (cg >= 0 && lib_need_switch(&games[cg])) {
-                    ask_switch = cg;
-                    asking = ASK_SWITCH;
-                    lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
-                } else if (cg >= 0) {
-                    play_index = cg;
-                    run_page(play_selected);
-                } else {
-                    run_page(dev_items[*s].run);
-                }
+        } else if (row == LIB_ROW_SEND) {
+            char gp[80];
+            ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
+            market_send_setup(gp, games[g].title, games[g].author);
+            m->gsend = 1;
+            m->gopt_sel = 0;
+        } else {
+            home_do_t gd;
+            lib_act(&games[g], row, 0, &gd);
+            home_report(&gd);
+            if (gd.what == HOME_ASK) {
+                m->asking = ASK_GOPT;
+                m->ask_row = row;
+                ksnprintf(m->ask_q, sizeof m->ask_q, "%s", gd.ask);
+                ksnprintf(m->ask_d, sizeof m->ask_d, "%s", gd.ask_detail);
+                ksnprintf(m->ask_y, sizeof m->ask_y, "%s", gd.ask_yes);
+            } else if (gd.what == HOME_BACK) {
+                m->gopt = -1;
+                scan_games();
+                market_carts_changed();
             }
         }
+    }
+}
 
-        /* what a row of Settings asked for */
-        if (d.what >= 0) {
-            home_report(&d);
-            built = -1;
-            switch (d.what) {
-            case HOME_OPEN:
-                if (depth < DEPTH_MAX) {
-                    stack[depth].id = d.panel;
-                    stack[depth].sel = stack[depth].top = 0;
-                    depth++;
-                }
-                break;
-            case HOME_BACK:
-                if (depth > 1)
-                    depth--;
-                break;
-            case HOME_ASK:
-                asking = ASK_ROW;
-                ksnprintf(ask_q, sizeof ask_q, "%s", d.ask);
-                ksnprintf(ask_d, sizeof ask_d, "%s", d.ask_detail);
-                ksnprintf(ask_y, sizeof ask_y, "%s", d.ask_yes);
-                break;
-            case HOME_TEXT:
-                text_fn = d.text;
-                text_wait = d.wait;
-                text_own = d.own;
-                run_page(text_page);
-                break;
+/* A Market game's details: up/down choose, confirm does, back closes. */
+static void uh_market_panel(uhome_t *m)
+{
+    /* a Market game's details: up/down choose, confirm does, back closes */
+    int dy = (m->p & PAD_UP) ? -1 : (m->p & PAD_DOWN) ? 1 : 0;
+    if (dy && mpb.n)
+        m->mopt_sel = (m->mopt_sel + dy + mpb.n) % mpb.n;
+    if (m->p & pad_back) {
+        m->mopt = -1;
+    } else if ((m->p & pad_ok) && mpb.n && mpb.rows[m->mopt_sel].kind != MENU_ROW_INFO) {
+        const int row = mpb.ids[m->mopt_sel], game = m->mopt;
+        if (row == M_PLAY) {
+            m->mopt = -1;
+            const int mg = game_of_path(market_path(game));
+            if (mg >= 0 && lib_compat_question(&games[mg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y)) {
+                m->ask_compat = mg;
+                m->asking = ASK_COMPAT;
+            } else if (mg >= 0 && lib_need_switch(&games[mg])) {
+                m->ask_switch = mg;
+                m->asking = ASK_SWITCH;
+                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            } else {
+                play_market(game);
+            }
+        } else {
+            home_do_t md;
+            market_act(game, row, 0, &md);
+            home_report(&md);
+            if (md.what == HOME_ASK) {
+                m->asking = ASK_MOPT;
+                m->ask_row = row;
+                ksnprintf(m->ask_q, sizeof m->ask_q, "%s", md.ask);
+                ksnprintf(m->ask_d, sizeof m->ask_d, "%s", md.ask_detail);
+                ksnprintf(m->ask_y, sizeof m->ask_y, "%s", md.ask_yes);
+            } else if (md.what == HOME_BACK) {
+                m->mopt = -1;
             }
         }
+    }
+}
+
+/* A panel of Settings: up/down choose, confirm does, left/right change a value, back goes back one level (out of
+ * Settings: to Dev). */
+static void uh_settings_panel(uhome_t *m)
+{
+    /* a panel: up/down choose, confirm does, left/right change a
+     * value, back goes back one level (out of Settings: to Dev) */
+    int *ps = &m->stack[m->depth - 1].sel, id = m->stack[m->depth - 1].id;
+    int dy = (m->p & PAD_UP) ? -1 : (m->p & PAD_DOWN) ? 1 : 0;
+    int dx = (m->p & PAD_LEFT) ? -1 : (m->p & PAD_RIGHT) ? 1 : 0;
+    if (dy && pb.n)
+        *ps = (*ps + dy + pb.n) % pb.n;
+    const menu_row_t *r = pb.n ? &pb.rows[*ps] : NULL;
+    int row = pb.n ? pb.ids[*ps] : 0;
+    /* right opens a section, left goes back to the sections (but
+     * changes a value on a choice), as on the Pi's page */
+    if (m->depth == 1 && dx > 0 && r && r->kind == MENU_ROW_SUB)
+        m->p |= pad_ok;
+    else if (m->depth > 1 && dx < 0 && (!r || r->kind != MENU_ROW_CHOICE))
+        m->p |= pad_back;
+    if (m->p & pad_back) {
+        if (--m->depth == 0)
+            m->tab = TAB_DEV;
+        m->built = -1;
+    } else if (r && (((m->p & pad_ok) && r->kind != MENU_ROW_INFO) || (dx && r->kind == MENU_ROW_CHOICE))) {
+        home_act(id, row, (m->p & pad_ok) ? 0 : dx, &m->d);
+        m->ask_row = row;
+    }
+}
+
+/* The covers: left / right along the row, up / down a row; X the options, confirm gets or plays. */
+static void uh_covers(uhome_t *m)
+{
+    /* the covers: left / right along the row, up / down a row (the
+     * last row may be shorter) */
+    int cols = menu_ui_cols(), to = *m->s;
+    if (m->p & PAD_LEFT) to = *m->s - 1;
+    if (m->p & PAD_RIGHT) to = *m->s + 1;
+    if (m->p & PAD_UP) to = *m->s - cols;
+    if (m->p & PAD_DOWN)
+        to = *m->s + cols < m->n ? *m->s + cols : (*m->s / cols + 1) * cols < m->n ? m->n - 1 : *m->s;
+    if (to >= 0 && to < m->n)
+        *m->s = to;
+    if (m->shown == TAB_MARKET) {
+        /* X: a game's details; confirm: get it (after a question) or play it */
+        const int a = market_action(*m->s);
+        if ((m->p & PAD_X) && a != MARKET_NONE) {
+            m->mopt = *m->s;
+            m->mopt_sel = 0;
+        } else if ((m->p & pad_ok) && (a == MARKET_GET || a == MARKET_UPDATE)) {
+            home_do_t q;
+            market_ask(*m->s, &q);
+            ksnprintf(m->ask_q, sizeof m->ask_q, "%s", q.ask);
+            ksnprintf(m->ask_d, sizeof m->ask_d, "%s", q.ask_detail);
+            ksnprintf(m->ask_y, sizeof m->ask_y, "%s", q.ask_yes);
+            m->asking = ASK_MARKET;
+            m->ask_game = *m->s;
+        } else if ((m->p & pad_ok) && a == MARKET_PLAY) {
+            const int mg = game_of_path(market_path(*m->s));
+            if (mg >= 0 && lib_compat_question(&games[mg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y)) {
+                m->ask_compat = mg;
+                m->asking = ASK_COMPAT;
+            } else if (mg >= 0 && lib_need_switch(&games[mg])) {
+                m->ask_switch = mg;
+                m->asking = ASK_SWITCH;
+                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            } else {
+                play_market(*m->s);
+            }
+        }
+    } else if ((m->p & PAD_X) && m->shown == TAB_GAMES && m->n > 0) {
+        m->gopt = game_idx[*m->s];            /* X: the game's options (the Pi's C) */
+        lib_panel_open(&games[m->gopt]);
+        m->gopt_sel = 0;
+    } else if (m->p & pad_ok) {
+        char gp[80] = "";
+        const int cg = cart_at(m->shown, *m->s);      /* a game, or an app or utility in Dev */
+        if (cg >= 0)
+            ksnprintf(gp, sizeof gp, "%s/%s", games[cg].dir, games[cg].name);
+        if (cg >= 0 && netxfer_updating(gp)) {
+            notice_fail("Updating, wait for the end of the download");
+        } else if (cg >= 0 && lib_compat_question(&games[cg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
+                                              sizeof m->ask_y)) {
+            m->ask_compat = cg;
+            m->asking = ASK_COMPAT;
+        } else if (cg >= 0 && lib_need_switch(&games[cg])) {
+            m->ask_switch = cg;
+            m->asking = ASK_SWITCH;
+            lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+        } else if (cg >= 0) {
+            play_index = cg;
+            run_page(play_selected);
+        } else {
+            run_page(dev_items[*m->s].run);
+        }
+    }
+}
+
+/* What a row of Settings asked for. */
+static void uh_row_result(uhome_t *m)
+{
+    /* what a row of Settings asked for */
+    if (m->d.what >= 0) {
+        home_report(&m->d);
+        m->built = -1;
+        switch (m->d.what) {
+        case HOME_OPEN:
+            if (m->depth < DEPTH_MAX) {
+                m->stack[m->depth].id = m->d.panel;
+                m->stack[m->depth].sel = m->stack[m->depth].top = 0;
+                m->depth++;
+            }
+            break;
+        case HOME_BACK:
+            if (m->depth > 1)
+                m->depth--;
+            break;
+        case HOME_ASK:
+            m->asking = ASK_ROW;
+            ksnprintf(m->ask_q, sizeof m->ask_q, "%s", m->d.ask);
+            ksnprintf(m->ask_d, sizeof m->ask_d, "%s", m->d.ask_detail);
+            ksnprintf(m->ask_y, sizeof m->ask_y, "%s", m->d.ask_yes);
+            break;
+        case HOME_TEXT:
+            text_fn = m->d.text;
+            text_wait = m->d.wait;
+            text_own = m->d.own;
+            run_page(text_page);
+            break;
+        }
+    }
+}
+
+void ui_home(framebuffer_t *f)
+{
+    uhome_t m;
+    uh_open(&m, f);
+    for (;;) {
+        uh_view_state(&m);
+        uh_background(&m);
+        uh_selection(&m);
+        uh_items(&m);
+        uh_draw(&m);
+        if (uh_input(&m))
+            continue;
+        m.d.what = -1;
+        if (m.asking) {
+            uh_answer(&m);
+        } else if ((m.p & PAD_L1) && m.tab > TAB_MARKET) {
+            /* L1 / R1: Market, Games, Dev, Settings, no going round (as on the Pi) */
+            m.tab--;
+            m.mopt = -1;
+        } else if ((m.p & PAD_R1) && m.tab < TAB_SETTINGS) {
+            m.tab++;
+            m.mopt = -1;
+        } else if (m.gopt >= 0 && m.gsend) {
+            uh_send_panel(&m);
+        } else if (m.gopt >= 0) {
+            uh_game_panel(&m);
+        } else if (m.mopt >= 0) {
+            uh_market_panel(&m);
+        } else if (m.depth) {
+            uh_settings_panel(&m);
+        } else if ((m.p & PAD_Y) && m.shown == TAB_MARKET) {
+            market_set_page(market_page() == MARKET_PAGE_APPS ? MARKET_PAGE_GAMES : MARKET_PAGE_APPS);
+            *m.s = 0;
+        } else if ((m.p & PAD_SELECT) && !(pad_state() & PAD_START) && m.shown == TAB_MARKET) {
+            market_refresh();
+        } else if (m.n > 0) {
+            uh_covers(&m);
+        }
+        uh_row_result(&m);
     }
 }
