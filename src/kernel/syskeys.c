@@ -123,7 +123,3 @@ int syskeys_test_stopped(void)
     return test_stopped;
 }
 
-void syskeys_test_set_stopped(void)
-{
-    test_stopped = 1;
-}

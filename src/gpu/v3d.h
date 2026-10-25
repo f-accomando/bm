@@ -26,7 +26,6 @@
  * the reason in v3d_status() (QEMU has no V3D). */
 int v3d_init(void);
 const char *v3d_status(void);
-uint32_t v3d_ident(int i);          /* IDENT0..2 */
 
 /* bus address of ARM memory, for the V3D */
 uint32_t v3d_bus(const void *p);

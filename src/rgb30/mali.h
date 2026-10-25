@@ -79,11 +79,6 @@ typedef struct {
 
 int mali_probe(const mali_hw_t *hw, mali_info_t *info);
 
-/* after a probe that went through (same hw): the GPU clears a 64 x 64
- * square of rgb at the top right of the screen; 0, 1 if its pixels are not
- * there, -1 */
-int mali_square(const mali_hw_t *hw, uint32_t rgb);
-
 /* the name of an exception status (JS_STATUS, AS_FAULTSTATUS & 0xff) */
 const char *mali_exception(uint32_t code);
 

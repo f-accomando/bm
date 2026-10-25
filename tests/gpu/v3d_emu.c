@@ -121,7 +121,6 @@ volatile uint32_t v3d_wait_us;          /* (no waits here: the emulator runs a j
 
 int v3d_init(void) { return 0; }
 const char *v3d_status(void) { return "emulated"; }
-uint32_t v3d_ident(int i) { return i == 0 ? 0x02443356u : 0; }
 void v3d_set_overflow(uint32_t bus, uint32_t size) { overflow_bus = bus; overflow_size = size; }
 void v3d_set_pool(uint32_t bus, uint32_t size) { (void)bus; (void)size; }
 void v3d_last_cost(v3d_cost_t *c) { memset(c, 0, sizeof *c); }    /* no ARM cache, no binner pool here */

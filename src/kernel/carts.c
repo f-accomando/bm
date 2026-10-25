@@ -11,7 +11,6 @@
 #include "market.h"
 #include "publish.h"
 #include "update.h"
-#include "lib.h"
 #include "menu_ui.h"
 #include "pointer.h"
 #include "bm/bm.h"
@@ -201,7 +200,7 @@ static int title_cmp(const void *a, const void *b)
  * a file only its first bytes are read: COVER is the first section. */
 
 /* the tabs of the graphical menu (carts_menu) */
-enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_LIB, TAB_SETTINGS };
+enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
 
 static fiber_job_t cover_job = { .name = "covers" };
 static int cover_tab = TAB_GAMES, cover_sel = -1;      /* what the menu shows: its covers first */
@@ -304,7 +303,7 @@ static int sd_tick(void)
 
 /* The tests' reports waiting on the SD card go by themselves once the
  * console is on the network (reports_auto_due), in a fiber, only where
- * the network is free: Games, Dev and Lib, no panel open (the Market,
+ * the network is free: Games and Dev, no panel open (the Market,
  * Settings and the options of a game use it themselves). */
 static fiber_job_t report_job = { .name = "reports" };
 static int reports_free;                /* the menu is where they may go (carts_menu) */
@@ -326,12 +325,6 @@ static void reports_tick(uint32_t until)
     fiber_job_run(&report_job, until);
 }
 
-static void lib_idle(uint32_t until)
-{
-    if (cover_tab == TAB_LIB)           /* the tab's own work */
-        lib_tick(until);
-}
-
 static void reports_idle(uint32_t until)
 {
     if (reports_free)
@@ -340,8 +333,8 @@ static void reports_idle(uint32_t until)
 
 /* The menu's jobs and their shares of its free time (fiber.h, 2026-10-11):
  * what the user started from a panel and waits for first, then the work of
- * the tab shown (the Market's and the Lib's work only on their tab: on
- * another one they give their time back at once). Each is sure of its
+ * the tab shown (the Market's work only on its tab: on another one it
+ * gives its time back at once). Each is sure of its
  * share; what is left goes down the table. Before, the covers took every
  * frame's time first and the Market could get none. */
 static const fiber_share_t menu_jobs[] = {
@@ -349,9 +342,8 @@ static const fiber_share_t menu_jobs[] = {
     { update_tick,        {  0,   0,  15 } },   /* Settings > Updates: check, install */
     { publish_tick,       {  0,   0,  15 } },   /* a game to the Market */
     { market_tick,        {  0,   0,  25 } },   /* its tab */
-    { lib_idle,           {  0,   0,  15 } },   /* its tab */
     { covers_tick,        {  0,   0,  10 } },   /* the tab's covers first */
-    { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, Lib, no panel */
+    { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, no panel */
     { wifi_auto_idle,     {  0,   0,   5 } },   /* the saved network again, while the link is down */
     { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
 };
@@ -364,7 +356,6 @@ static void menu_idle(uint32_t until)
      * the tick only notes that the menu is there. */
     if (netxfer_write_pending()) {
         fiber_job_stop(&cover_job);
-        lib_job_stop();
         fiber_job_stop(&report_job);
     }
     if (netxfer_write_tick(until))
@@ -383,7 +374,6 @@ static void background_stop(void)
 {
     netxfer_write_pause();              /* a file from the PC: again later */
     fiber_job_stop(&cover_job);
-    lib_job_stop();
     fiber_job_stop(&report_job);
     wifi_auto_stop();
     sdmap_stop();
@@ -430,7 +420,6 @@ static int has_sd_tool(const char *tid)
 static void rescan(void)
 {
     background_stop();
-    lib_invalidate();                   /* the Lib tab reads the files again */
 
     /* Keep covers that have already been read so the menu does not reload them
      * every time a game exits or the user returns to the menu. */
@@ -886,8 +875,6 @@ static void draw(int sel, int top, int rows)
 static int tab_items(int tab, int *idx)
 {
     int n = 0;
-    if (tab == TAB_LIB)                 /* Lib: a list of its own */
-        return 0;
     for (int i = 0; i < ncarts; i++)
         if (is_dev(&carts[i]) == (tab == TAB_DEV) && !is_project(&carts[i]))
             idx[n++] = i;
@@ -1092,80 +1079,6 @@ static void cart_act(int row, int how, home_do_t *d)
     }
 }
 
-/* ---------------------------------------------------------------- the Lib tab */
-
-#define LIB_ROWS_MAX 2400
-#define LIB_SOURCES_SHOWN 160
-
-static int lib_group;                   /* the group shown */
-static int lib_sel[LIB_GROUPS], lib_top[LIB_GROUPS];
-static menu_lib_row_t lib_rows[LIB_ROWS_MAX];
-static int lib_row_item[LIB_ROWS_MAX];  /* the item of a row, -1 for a file's row */
-static char lib_counts[LIB_SOURCES_SHOWN][8];
-static int lib_nrows;
-
-/* the rows of the group: a row for each file that has some, then its items
- * (lib.c adds the items file after file: one pass) */
-static void lib_build(void)
-{
-    lib_nrows = 0;
-    int nfiles = 0, head = -1, count = 0, src = -1;
-    for (int i = 0; i < lib_items() && lib_nrows < LIB_ROWS_MAX; i++) {
-        const lib_item_t *it = lib_item(i);
-        if (it->group != lib_group)
-            continue;
-        if (it->source != src) {
-            if (head >= 0)
-                ksnprintf((char *)lib_rows[head].value, 8, "%d", count);
-            head = -1;
-            count = 0;
-            src = it->source;
-            if (nfiles >= LIB_SOURCES_SHOWN || lib_nrows + 1 >= LIB_ROWS_MAX)
-                break;
-            head = lib_nrows++;
-            lib_rows[head] = (menu_lib_row_t){ lib_source(src)->file, lib_counts[nfiles], 1 };
-            lib_row_item[head] = -1;
-            nfiles++;
-        }
-        lib_rows[lib_nrows] = (menu_lib_row_t){ it->name, it->tag, 0 };
-        lib_row_item[lib_nrows++] = i;
-        count++;
-    }
-    if (head >= 0)
-        ksnprintf((char *)lib_rows[head].value, 8, "%d", count);
-}
-
-/* the selected row moved by dy items (never onto a file's row) */
-static void lib_move(int dy)
-{
-    int *sel = &lib_sel[lib_group], *top = &lib_top[lib_group];
-    if (*sel >= lib_nrows) *sel = lib_nrows - 1;
-    if (*sel < 0) *sel = 0;
-    int step = dy < 0 ? -1 : 1;
-    for (int k = dy ? (dy < 0 ? -dy : dy) : 0; k > 0; k--) {
-        int to = *sel + step;
-        while (to >= 0 && to < lib_nrows && lib_row_item[to] < 0)
-            to += step;
-        if (to < 0 || to >= lib_nrows)
-            break;
-        *sel = to;
-    }
-    while (*sel < lib_nrows && lib_row_item[*sel] < 0)     /* never on a file's row */
-        (*sel)++;
-    if (*sel >= lib_nrows) *sel = lib_nrows - 1;
-    /* the file's row above the first item shows too */
-    int want = *sel > 0 && lib_row_item[*sel - 1] < 0 ? *sel - 1 : *sel;
-    if (want < *top) *top = want;
-    if (*sel >= *top + MENU_LIB_ROWS) *top = *sel - MENU_LIB_ROWS + 1;
-    if (*top < 0) *top = 0;
-}
-
-static const lib_item_t *lib_current(void)
-{
-    int r = lib_sel[lib_group];
-    return r >= 0 && r < lib_nrows && lib_row_item[r] >= 0 ? lib_item(lib_row_item[r]) : NULL;
-}
-
 enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER, ASK_COMPAT, ASK_UPDATE_SUSPENDED };
 enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_MESH, GO_PIXEL, GO_TEXT, GO_UPLOAD,
        GO_NETPLAY };
@@ -1173,7 +1086,7 @@ enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_M
 #define DEPTH_MAX 4
 
 /* what the network console is told takes its keys (netcon_focus) */
-static const char FOCUS_MENU[] = "the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, "
+static const char FOCUS_MENU[] = "the menu (w a s d, Enter, Esc, 1-4 the tabs; q the monitor, "
                                  "or a line for it: :b3d; send)";
 static const char FOCUS_APP[] = "the application (Ctrl-\\ back to the menu)";
 static const char FOCUS_PAGE[] = "a page of the menu (Esc back)";
@@ -1185,22 +1098,16 @@ void carts_menu(framebuffer_t *fb)
     int list_rows = (int)rows - 7;
     if (list_rows < 3)
         list_rows = 3;
-    static const char *const tabs[] = { "Market", "Games", "Dev", "Lib" };
-    /* the Lib tab is off for now (the user's decision, 2026-10-06):
-     * lib_tab=1 in bm/config.txt shows it again; L1 / R1 and Tab go past it */
-    const char *lib_key = config_get("lib_tab");
-    const int lib_on = lib_key && lib_key[0] == '1';
-    /* the tabs: Market, Games, Dev, Lib (docs/RISORSE.md) and Settings,
+    static const char *const tabs[] = { "Market", "Games", "Dev" };
+    /* the tabs: Market, Games, Dev and Settings,
      * whose panel opens when it is the tab (on_gear); L1 / R1 move between
      * them. Games comes first. */
-    int tab = TAB_GAMES, on_gear = 0, tsel[4] = { 0, 0, 0, 0 };
-    int lib_still = 0, lib_last = -1, lib_info = 0;     /* the Lib tab: the selection at rest, its INFO shown */
-    char lib_lines[5][48], lib_path[64] = "", lib_name[16] = "";
+    int tab = TAB_GAMES, on_gear = 0, tsel[3] = { 0, 0, 0 };
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
 
-    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor\n"
-            "(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)\n");
+    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor\n"
+            "(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)\n");
     input_flush();
     static menu_item_t items[MAX_CARTS + 16 + CATALOG_MAX];
     static int idx[MAX_CARTS + 16];
@@ -1315,7 +1222,7 @@ void carts_menu(framebuffer_t *fb)
             }
             static const char *const market_pages[] = { "Games", "Apps" };
             menu_view_t v = {
-                .tabs = tabs, .ntabs = lib_on ? 4 : 3, .tab = tab, .on_gear = on_gear, .peek_first = 1,
+                .tabs = tabs, .ntabs = 3, .tab = tab, .on_gear = on_gear, .peek_first = 1,
                 .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
                 .refresh_label = on_market ? "Refresh" : NULL,
                 .refresh_enabled = on_market && market_refresh_available(),
@@ -1350,57 +1257,6 @@ void carts_menu(framebuffer_t *fb)
                 }
                 v.page = &page;
                 v.panel = NULL;
-            }
-            menu_lib_t lv;
-            if (tab == TAB_LIB && !on_gear) {
-                /* the Lib tab: the files are read in its fiber (lib_tick,
-                 * the menu's free time), the menu goes on meanwhile */
-                if (!lib_ready()) {
-                    lib_last = -2;
-                } else if (lib_last == -2) {
-                    lib_build();
-                    lib_move(0);
-                    lib_last = -1;
-                }
-                const lib_item_t *it = lib_ready() ? lib_current() : NULL;
-                int key = it ? (int)(it - lib_item(0)) : -1;
-                lib_still = key == lib_last ? lib_still + 1 : 0;
-                if (lib_last != -2)
-                    lib_last = key;
-                if (lib_still == 0) {
-                    lib_details(it, lib_lines, 0);
-                    lib_info = 0;
-                } else if (lib_still >= 8 && !lib_info && lib_preview_ready(it)) {
-                    lib_details(it, lib_lines, 1);  /* the INFO lines once its file is open */
-                    lib_info = 1;
-                }
-                static char reading[48];
-                int done_, total_;
-                lib_progress(&done_, &total_);
-                if (total_)
-                    ksnprintf(reading, sizeof reading, "reading the SD card: %d/%d", done_, total_);
-                else
-                    ksnprintf(reading, sizeof reading, "reading the SD card...");
-                const lib_source_t *src = it ? lib_source(it->source) : NULL;
-                static const char *const open_in[LIB_GROUPS] = {
-                    "Open in bm Studio", "Open in bm Pixel", "Open in Sound", "Open in SDK", "Open in bm Pixel", NULL };
-                lv = (menu_lib_t){
-                    .groups = lib_groups, .ngroups = LIB_GROUPS, .group = lib_group,
-                    .rows = lib_rows, .n = lib_ready() ? lib_nrows : 0,
-                    .sel = lib_sel[lib_group], .top = lib_top[lib_group],
-                    .empty = !lib_ready() ? reading : sd_ok ? "nothing of this kind yet" : "no SD card",
-                    .open = src && src->kind == BM_RES_CART ? open_in[lib_group] : NULL,
-                    .play = lib_play_label(it),
-                    /* the preview once the selection rests (its file is read) */
-                    .preview = it && lib_still >= 8 ? lib_preview : NULL,
-                    .ctx = (void *)it,
-                };
-                for (int i = 0; i < 5; i++)
-                    lv.lines[i] = it ? lib_lines[i] : NULL;
-                v.lib = &lv;
-                v.details = NULL;
-            } else {
-                lib_stop();                     /* a sound of the Lib tab ends with it */
             }
             for (int p = 0; p < 4; p++) {
                 int d_ = input_device(p), kind = d_ & INPUT_DEV_KIND;     /* (not the pad's model) */
@@ -1487,8 +1343,7 @@ void carts_menu(framebuffer_t *fb)
             case '1': tabto = TAB_MARKET; break;
             case '2': tabto = TAB_GAMES; break;
             case '3': tabto = TAB_DEV; break;
-            case '4': tabto = lib_on ? TAB_LIB : -1; break;
-            case '5': tabto = TAB_SETTINGS; break;
+            case '4': tabto = TAB_SETTINGS; break;
             case '[': tabto = cur > 0 ? cur - 1 : -1; break;       /* L1 */
             case ']': tabto = cur < TAB_SETTINGS ? cur + 1 : -1; break;   /* R1 */
             case 'v': case 'V': ybtn = 1; break;                  /* Y */
@@ -1545,7 +1400,7 @@ void carts_menu(framebuffer_t *fb)
             if (k == '\t')
                 tabto = (cur + 1) % (TAB_SETTINGS + 1);
             if (k >= '1' && k <= '0' + TAB_SETTINGS + 1)    /* the tabs by number, as on the serial line */
-                tabto = k - '1' == TAB_LIB && !lib_on ? -1 : k - '1';
+                tabto = k - '1';
         }
         /* PS (and Ctrl+Esc, the system's keys) is home: Games, with every
          * panel and question closed (never the monitor). Esc alone goes back
@@ -1594,20 +1449,14 @@ void carts_menu(framebuffer_t *fb)
             } else {
                 if (h.kind == MENU_HIT_COVER && h.index < n && ((pt->moved && h.full) || click || right))
                     tsel[tab] = h.index;
-                if (h.kind == MENU_HIT_LIB && h.index < lib_nrows && (pt->moved || click))
-                    lib_sel[lib_group] = h.index;
                 if (click && h.kind == MENU_HIT_COVER && h.full)
-                    action = 1;
-                else if (click && h.kind == MENU_HIT_LIB)
                     action = 1;
                 else if (click && h.kind == MENU_HIT_GROUP && tab == TAB_MARKET && !on_gear) {
                     if (h.index != market_page()) {
                         market_set_page(h.index);
                         tsel[TAB_MARKET] = 0;
                     }
-                } else if (click && h.kind == MENU_HIT_GROUP)
-                    dx = h.index - lib_group;
-                else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
+                } else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
                     ybtn = 1;
                 else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'R') {
                     if (tab == TAB_MARKET && !on_gear)
@@ -1637,8 +1486,6 @@ void carts_menu(framebuffer_t *fb)
         home_do_t d;
         d.what = -1;
 
-        if (tabto == TAB_LIB && !lib_on)    /* past the Lib, off for now */
-            tabto = cur == TAB_DEV ? TAB_SETTINGS : cur == TAB_SETTINGS ? TAB_DEV : -1;
         /* another tab: whatever panel is open closes (a question waits for
          * its answer, except for PS); Settings opens its panel */
         if (gfx && tabto >= 0 && (ask == ASK_NONE || ps)) {
@@ -1827,37 +1674,6 @@ void carts_menu(framebuffer_t *fb)
             on_gear = 0;
         if (quit || leave)
             break;
-        if (gfx && !depth && ask == ASK_NONE && tab == TAB_LIB && !on_gear) {
-            /* Lib: left/right the group, up/down the list, A opens the
-             * file of the resource in the app of its group */
-            if (dx && lib_ready()) {
-                lib_group = ((lib_group + dx) % LIB_GROUPS + LIB_GROUPS) % LIB_GROUPS;
-                lib_build();
-                lib_move(0);
-            } else if (lib_ready()) {
-                lib_move(dy);
-            }
-            const lib_item_t *it = lib_ready() ? lib_current() : NULL;
-            const lib_source_t *src = it ? lib_source(it->source) : NULL;
-            if (action == 1 && src && src->kind == BM_RES_CART && lib_group != LIB_KITS) {
-                static const int go_of[LIB_GROUPS] = { GO_STUDIO, GO_PIXEL, GO_SOUND, GO_SDK, GO_PIXEL, GO_NONE };
-                int g = go_of[lib_group];
-                if (bm_suspended(NULL, 0)) {
-                    ksnprintf(last_msg, sizeof last_msg, "close the game that is playing first");
-                } else {
-                    ksnprintf(lib_path, sizeof lib_path, "%s", src->path);
-                    ksnprintf(lib_name, sizeof lib_name, "%s", src->file);
-                    go = g;
-                    go_cart = -1;
-                }
-            } else if (action == 1 && src) {
-                ksnprintf(last_msg, sizeof last_msg, "a resource file: copy it into a game");
-            }
-            if (ybtn && it)
-                lib_play(it);
-            action = (action == 2 || action >= 3) ? action : 0;
-            dx = dy = opts = ybtn = 0;
-        }
         if (gfx && !depth && ask == ASK_NONE) {
             if (n) {
                 /* up and down along the rows (not into the tab bar: L1 / R1
@@ -2017,8 +1833,7 @@ void carts_menu(framebuffer_t *fb)
             compat_ok = -1;
             market_set_active(0);               /* nothing loads behind a game */
             market_lan(0);
-            background_stop();                  /* the covers, the Lib tab: later */
-            lib_stop();
+            background_stop();                  /* the covers: later */
             /* an application (a game, a tool): the system's splash while it
              * loads, never the log (2026-10-04); a suspended game comes back
              * at once */
@@ -2035,9 +1850,9 @@ void carts_menu(framebuffer_t *fb)
                               (go == GO_PLAY && go_cart >= 0 && is_dev(&carts[go_cart]));
             if (app && !resume && !suite)
                 loading_begin(fb);
-            /* the file of a tool: a cartridge of the menu, or one of the Lib tab */
-            const char *gpath = go_cart >= 0 ? carts[go_cart].path : lib_path;
-            const char *gname = go_cart >= 0 ? carts[go_cart].name : lib_name;
+            /* the file of a tool: a cartridge of the menu, or none */
+            const char *gpath = go_cart >= 0 ? carts[go_cart].path : "";
+            const char *gname = go_cart >= 0 ? carts[go_cart].name : "";
             netcon_focus(go == GO_TEXT ? FOCUS_PAGE : FOCUS_APP, NULL);
             switch (go) {
             case GO_PLAY:

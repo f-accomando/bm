@@ -76,31 +76,6 @@ typedef struct {
     int focus;                      /* 0: the sections, 1: the rows */
 } menu_page_t;
 
-/* The Lib tab (docs/RISORSE.md): the groups along the top, the list on
- * the left (a grey row for each file, then its resources), the preview and
- * the details on the right. */
-typedef struct {
-    const char *label;
-    const char *value;          /* right-aligned: a file's count, an item's tag */
-    int header;                 /* a file's row (not selectable) */
-} menu_lib_row_t;
-
-#define MENU_LIB_ROWS 13        /* rows of the list visible at once */
-
-typedef struct {
-    const char *const *groups;
-    int ngroups, group;
-    const menu_lib_row_t *rows;
-    int n, sel, top;            /* sel: the selected row (an item), top: the first one shown */
-    const char *empty;          /* why the list is empty */
-    const char *lines[5];       /* under the preview: name, numbers, file, author and licence, tags */
-    const char *open;           /* A's label ("Open in bm Studio"), or NULL */
-    const char *play;           /* Y's label ("Play"), or NULL */
-    /* draws the preview in the box (x, y, w, h), or NULL */
-    void (*preview)(g16_t *g, int x, int y, int w, int h, void *ctx);
-    void *ctx;
-} menu_lib_t;
-
 /* What each player plays with, and the network, for the icons of the bar */
 enum { MENU_DEV_NONE, MENU_DEV_KEYBOARD, MENU_DEV_PAD };
 enum { MENU_NET_NONE, MENU_NET_WIFI, MENU_NET_ETHERNET };
@@ -136,7 +111,6 @@ typedef struct {
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */
     const menu_page_t *page;    /* Settings: a page instead of the grid, or NULL */
-    const menu_lib_t *lib;      /* the Lib tab instead of the grid, or NULL */
     const char *ask;            /* a question over everything (A yes, B no), or NULL */
     const char *ask_detail;
     const char *ask_yes;        /* the label of A ("Close it", "Delete") */
@@ -159,10 +133,10 @@ typedef struct {
  * topmost thing: a cover (index; full = not cut by the edges of the grid),
  * a tab (index), Settings, a row of the panel (index in its rows), a
  * button of the hints (index 'A', 'B', 'X' or 'Y'), the panel or the
- * question elsewhere, a group or a row of the Lib tab (index), a section of
+ * question elsewhere, a subtab of the Market (index), a section of
  * the Settings page (index), or nothing. */
 enum { MENU_HIT_NONE, MENU_HIT_COVER, MENU_HIT_TAB, MENU_HIT_SETTINGS, MENU_HIT_ROW,
-       MENU_HIT_BUTTON, MENU_HIT_PANEL, MENU_HIT_ASK, MENU_HIT_GROUP, MENU_HIT_LIB,
+       MENU_HIT_BUTTON, MENU_HIT_PANEL, MENU_HIT_ASK, MENU_HIT_GROUP,
        MENU_HIT_SECTION };         /* a section of the Settings page while its rows have the focus */
 typedef struct { int kind, index, full; } menu_hit_t;
 menu_hit_t menu_ui_hit(int x, int y);

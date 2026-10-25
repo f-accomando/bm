@@ -882,8 +882,8 @@ def test_menu_start_confirms(b, opts):
 
 
 def test_menu_tab_keys(b, opts):
-    """D04, the number keys in the menu as on the Pi (carts.c:1421-1427, 1481): 1 2 3 5 go to Market, Games,
-    Dev and Settings; 4 is the Pi's Lib tab, which the RGB30 does not have: nothing happens. (Tab goes to the
+    """D04, the number keys in the menu as on the Pi (carts.c): 1 2 3 4 go to Market, Games,
+    Dev and Settings; 5 is no tab: nothing happens. (Tab goes to the
     next tab and wraps after the last, from a keyboard only: on the serial line Tab is the Select button, and
     QEMU has no keyboard. tab_of_key() in src/rgb30/ui.c is the one place that maps both.)"""
     q = Qemu(os.path.join(b, "kernel.elf"))
@@ -907,13 +907,13 @@ def test_menu_tab_keys(b, opts):
         time.sleep(0.5)
         assert tab_now() == "Games", tab_now()
         key_then("3", "Dev", "key 3")
-        key_then("5", "Settings", "key 5")
+        key_then("4", "Settings", "key 4")
         key_then("1", "Market", "key 1")
         key_then("2", "Games", "key 2")
         key_then("3", "Dev", "key 3 again")
-        q.send("4")                             # the Pi's Lib tab: not here
+        q.send("5")                             # no fifth tab
         time.sleep(1.0)
-        assert tab_now() == "Dev", "key 4 must do nothing, on " + tab_now()
+        assert tab_now() == "Dev", "key 5 must do nothing, on " + tab_now()
     finally:
         q.close()
 

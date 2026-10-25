@@ -264,7 +264,7 @@ def main():
     check(rc == 2 and "kernel too old" in out, "--shot on a kernel without T/G: too old")
 
     # --line: a monitor line from the menu, the output until it is done
-    menu = NetConsole("the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, or a line for it: :render; b3d; send)")
+    menu = NetConsole("the menu (w a s d, Enter, Esc, 1-4 the tabs; q the monitor, or a line for it: :render; b3d; send)")
     t0 = time.time()
     rc, out = run(menu, job=("-P", str(menu.port), "--line", "render; b3d; send"))
     check(rc == 0 and menu.keys == b":render; b3d; send\r", "--line sends ':' + the line + Enter")

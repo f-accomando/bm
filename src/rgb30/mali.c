@@ -1093,13 +1093,6 @@ int mali_frame_submit(const mali_hw_t *hw, uint32_t w, uint32_t h, uint32_t clea
     return 0;
 }
 
-int mali_square(const mali_hw_t *hw, uint32_t rgb)
-{
-    if (!probed_ok || hw != H)
-        return -1;
-    return square(rgb);
-}
-
 int mali_probe(const mali_hw_t *hw, mali_info_t *info)
 {
     static mali_info_t dummy;

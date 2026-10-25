@@ -32,11 +32,9 @@ int syskeys_reserved(const char *keys);
  * syskeys_test_begin() at the start of a test (reports_begin's callers and
  * the menu do it); syskeys_test_stop() reads the controls, once a frame or
  * a step, and says 1 from the press on; syskeys_test_stopped() says the same
- * without reading them (after the test: its report is dropped). A test that
- * runs a cartridge (bm_play) and sees it left says so with _set_stopped. */
+ * without reading them (after the test: its report is dropped). */
 void syskeys_test_begin(void);
 int syskeys_test_stop(void);
 int syskeys_test_stopped(void);
-void syskeys_test_set_stopped(void);
 
 #endif

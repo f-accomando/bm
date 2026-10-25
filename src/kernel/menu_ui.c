@@ -39,8 +39,6 @@ static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else t
 static int gpu_draw;                    /* the GPU draws the 1080p layout directly (menu_gpu=1) */
 static g16_sheet_t bg_sheet;
 static int bg_sheet_alloced;
-static g16_sheet_t lib_sheet;
-static int lib_sheet_alloced;
 
 static inline const font_t *menu_font(int sc)
 {
@@ -1072,111 +1070,6 @@ static void draw_page(const menu_page_t *pg, int faded)
     }
 }
 
-/* ---------------------------------------------------------------- the Lib tab */
-
-/* geometry: the groups on text row 4, the list (columns 2-31) and the
- * preview box (columns 35-77) on rows 6-18, the details on rows 14-18 */
-#define LIB_GROUP_ROW   4
-#define LIB_ROW0        6
-#define LIB_LIST_X      (2 * 8)
-#define LIB_LIST_W      (30 * 8)
-#define LIB_COL_END     32                      /* the list's values end before this column */
-#define LIB_BOX_X       (35 * 8)
-#define LIB_BOX_W       (42 * 8)
-#define LIB_BOX_Y       (LIB_ROW0 * 16 - 4)
-#define LIB_BOX_H       (8 * 16)
-#define LIB_INFO_ROW    14
-#define C_HEAD          0x2A2A36                /* the row of a file */
-
-static void draw_lib(const menu_lib_t *l)
-{
-    char buf[64];
-    /* the groups, on a bar of their own: the selected one on a pill like the tabs */
-    int col = 5;
-    round_rect(LIB_LIST_X - 8, LIB_GROUP_ROW * 16 - 8, SW - 2 * (LIB_LIST_X - 8), 32, 10, c16(C_BAR));
-    m_text(2 * 8, LIB_GROUP_ROW * 16, "<", c16(C_DIM));
-    for (int i = 0; i < l->ngroups; i++) {
-        int n = (int)strlen(l->groups[i]);
-        zone(col * 8 - 8, LIB_GROUP_ROW * 16 - 6, (n + 2) * 8, 28, MENU_HIT_GROUP, i, 1);
-        if (i == l->group)
-            pill_text(col, LIB_GROUP_ROW, l->groups[i], C_BAR, C_TAB_ON);
-        else
-            m_text(col * 8, LIB_GROUP_ROW * 16, l->groups[i], c16(C_TEXT));
-        col += n + 3;
-    }
-    m_text(col * 8 - 8, LIB_GROUP_ROW * 16, ">", c16(C_DIM));
-
-    /* the list */
-    round_rect(LIB_LIST_X - 8, LIB_BOX_Y - 4, LIB_LIST_W + 16, MENU_LIB_ROWS * 16 + 16, 10, c16(C_BAR));
-    if (!l->n && l->empty) {
-        ksnprintf(buf, sizeof buf, "%s", l->empty);
-        buf[29] = 0;
-        m_text(LIB_LIST_X + 8, LIB_ROW0 * 16, buf, c16(C_DIM));
-    }
-    for (int i = 0; i < MENU_LIB_ROWS && l->top + i < l->n; i++) {
-        const menu_lib_row_t *r = &l->rows[l->top + i];
-        int y = (LIB_ROW0 + i) * 16, sel = l->top + i == l->sel;
-        uint16_t fg = c16(C_TEXT), fv = c16(C_DIM);
-        if (r->header) {
-            m_rect(LIB_LIST_X, y, LIB_LIST_W, 16, c16(C_HEAD));
-            fg = c16(C_DIM);
-        } else {
-            zone(LIB_LIST_X, y, LIB_LIST_W, 16, MENU_HIT_LIB, l->top + i, 1);
-            if (sel) {
-                m_rect(LIB_LIST_X, y, LIB_LIST_W, 16, c16(C_TAB_ON));
-                fg = c16(C_BAR);
-                fv = c16(0x4A4A56);
-            }
-        }
-        int indent = r->header ? 1 : 2;
-        ksnprintf(buf, sizeof buf, "%s", r->label ? r->label : "");
-        buf[22] = 0;
-        m_text(LIB_LIST_X + indent * 8 - 8, y, buf, fg);
-        if (r->value && r->value[0]) {
-            ksnprintf(buf, sizeof buf, "%s", r->value);
-            buf[8] = 0;
-            m_text((LIB_COL_END - (int)strlen(buf)) * 8, y, buf, fv);
-        }
-    }
-    if (l->top > 0)                             /* in the panel's margin, above and below the rows */
-        scroll_mark(LIB_LIST_X + LIB_LIST_W - 4, LIB_ROW0 * 16 - 5, -1, c16(C_DIM));
-    if (l->top + MENU_LIB_ROWS < l->n)
-        scroll_mark(LIB_LIST_X + LIB_LIST_W - 4, (LIB_ROW0 + MENU_LIB_ROWS) * 16 + 5, 1, c16(C_DIM));
-
-    /* the preview and the details */
-    round_rect(LIB_BOX_X - 8, LIB_BOX_Y - 4, LIB_BOX_W + 16, MENU_LIB_ROWS * 16 + 16, 10, c16(C_BAR));
-    m_rect(LIB_BOX_X, LIB_BOX_Y, LIB_BOX_W, LIB_BOX_H, c16(C_PILL));
-    if (l->preview) {
-        if (gpu_draw) {
-            if (!lib_sheet_alloced) {
-                if (g16_sheet_alloc(&lib_sheet, LIB_BOX_W, LIB_BOX_H) == 0) {
-                    memset(lib_sheet.alpha, 1, (size_t)lib_sheet.w * lib_sheet.h);
-                    lib_sheet_alloced = 1;
-                }
-            }
-            if (lib_sheet_alloced) {
-                g16_t lg;
-                g16_target(&lg, lib_sheet.px, (uint32_t)lib_sheet.w, lib_sheet.w, lib_sheet.h, &font_console_8x16);
-                g16_rectfill(&lg, 0, 0, LIB_BOX_W, LIB_BOX_H, c16(C_PILL));
-                l->preview(&lg, 0, 0, LIB_BOX_W, LIB_BOX_H, l->ctx);
-                lib_sheet.version++;
-                gpu3d_blit2d(&g, &lib_sheet, 0, 0, LIB_BOX_W, LIB_BOX_H, LIB_BOX_X * scale, LIB_BOX_Y * scale, scale, 0, 0);
-            }
-        } else {
-            g16_clip(&g, LIB_BOX_X, LIB_BOX_Y, LIB_BOX_W, LIB_BOX_H);
-            l->preview(&g, LIB_BOX_X, LIB_BOX_Y, LIB_BOX_W, LIB_BOX_H, l->ctx);
-            g16_clip(&g, 0, 0, 0, 0);
-        }
-    }
-    for (int i = 0; i < 5; i++) {
-        if (!l->lines[i] || !l->lines[i][0])
-            continue;
-        ksnprintf(buf, sizeof buf, "%s", l->lines[i]);
-        buf[42] = 0;
-        m_text(LIB_BOX_X, (LIB_INFO_ROW + i) * 16, buf, i == 0 ? c16(0xFFB040) : c16(i == 1 ? C_TEXT : C_DIM));
-    }
-}
-
 /* an icon of icons.c over the bar: the icon in `ink`, the number's disc in
  * `disc` with the digit in `digit`; only written */
 static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_t disc, uint32_t digit)
@@ -1282,10 +1175,10 @@ static const struct { const char *keys, *what; } menu_keys[] = {
     { "up down left right", "choose (or w a s d)" },
     { "enter", "play, open, yes" },
     { "c", "options of the game" },
-    { "v", "the Lib tab: listen" },
+    { "v", "Market: Apps or Games" },
     { "q / e", "the tab before, after" },
     { "tab", "the next tab" },
-    { "1 - 5", "Market ... Settings" },
+    { "1 - 4", "Market ... Settings" },
     { "r", "read the SD card again" },
     { "mouse", "click: play; right: back" },
 };
@@ -1489,10 +1382,6 @@ static void close_menu(framebuffer_t *fb, int console)
         g16_sheet_free(&bg_sheet);
         bg_sheet_alloced = 0;
     }
-    if (lib_sheet_alloced) {
-        g16_sheet_free(&lib_sheet);
-        lib_sheet_alloced = 0;
-    }
     if (gpu_draw || gpu_big) {
         gpu3d_drop();
         gpu_draw = gpu_big = 0;
@@ -1659,7 +1548,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (fabsf(scroll - (float)first_row) < 0.01f) scroll = (float)first_row;
 
     m_clip(0, GRID_TOP, SW, GRID_BOT - GRID_TOP);
-    for (int i = 0; !v->lib && !v->page && i < v->n; i++) {
+    for (int i = 0; !v->page && i < v->n; i++) {
         int row = i / cols, col = i % cols;
         int x = GRID_X0 + col * (CARD_W + GAP_X);
         int y = GRID_Y0 + (int)lroundf(((float)row - scroll) * PITCH_Y);
@@ -1692,10 +1581,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             cover_update(x, y);
     }
     m_clip(0, 0, 0, 0);
-    if (!v->lib && !v->page && v->n > 2 * cols)
+    if (!v->page && v->n > 2 * cols)
         scroll_bar((v->n + cols - 1) / cols, scroll);
-    if (v->lib && !v->on_gear)
-        draw_lib(v->lib);
     if (v->page)
         draw_page(v->page, v->ask != NULL);
 
@@ -1736,8 +1623,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     m_clip(0, 0, 0, 0);
 
     /* the name of the selected cartridge, on a pill (and subtabs at the right) */
-    if (v->panel || v->lib || v->page) {
-        /* the panel covers it; the Lib tab has its groups there */
+    if (v->panel || v->page) {
+        /* the panel covers it */
     } else {
         int sub_w = 0;
         if (v->subtabs && v->nsubtabs > 0) {
@@ -1820,14 +1707,6 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         hint(v, WIDE && col < 55 ? 55 : col, 21, BTN_B, "Back");
     } else if (v->on_gear) {
         col = hint(v, hc, 21, BTN_A, "Settings");
-        if (!v->no_monitor)
-            hint(v, col, 21, BTN_MONITOR, "Monitor");
-    } else if (v->lib) {
-        col = hc;
-        if (v->lib->open)
-            col = hint(v, col, 21, BTN_A, v->lib->open);
-        if (v->lib->play)
-            col = hint(v, col, 21, BTN_Y, v->lib->play);
         if (!v->no_monitor)
             hint(v, col, 21, BTN_MONITOR, "Monitor");
     } else {
