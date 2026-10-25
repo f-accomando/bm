@@ -266,6 +266,17 @@ int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t
     return 1;
 }
 
+int lib_start_question(const lib_game_t *g, int compat_known, char *q, size_t qn, char *d, size_t dn, char *y, size_t yn)
+{
+    if (!compat_known && lib_compat_question(g, q, qn, d, dn, y, yn))
+        return LIB_ASK_COMPAT;
+    if (lib_need_switch(g)) {
+        lib_switch_question(q, qn, d, dn, y, yn);
+        return LIB_ASK_SWITCH;
+    }
+    return LIB_ASK_NONE;
+}
+
 long lib_save_size(const lib_game_t *g, int *slots)
 {
     long bytes = -1;
@@ -389,6 +400,8 @@ void lib_panel(const lib_game_t *c, home_panel_t *p)
             home_row(p, MENU_ROW_ACTION, LIB_ROW_SEND, "Send to a nearby console",
                      "To a console on this network with the Market tab open", NULL);
     }
+    if (c->grey)                                /* the reason of the grey cover, before Play asks */
+        home_row(p, MENU_ROW_INFO, LIB_ROW_COMPAT, "Not here", "Play asks before it starts this game", "%s", c->why);
     home_row(p, MENU_ROW_INFO, LIB_ROW_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
     home_row(p, MENU_ROW_INFO, LIB_ROW_FILE, "File", c->builtin ? "Built into the kernel" : "On the SD card",

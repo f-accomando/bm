@@ -851,6 +851,12 @@ def test_grey_cart_and_confirm(b, opts):
         assert text.count("Not here") == 2, text            # the pill on the two covers made for the Pi only, none on Both
         keys(q, "d")                                        # Old Pi cart: an old .bm is for the Pi only
         text = wait_screen(q, ["Old Pi cart"])
+        keys(q, "x")                                        # X: the options say why the cover is grey (a row 'Not here')
+        text = wait_screen(q, ["Open in the SDK", "Author"])
+        assert "Not here" in text and "made for the Pi Zero W" in text, text      # the row and its reason
+        keys(q, "y")                                        # back: the covers
+        text = wait_screen(q, ["Old Pi cart"])
+        assert "Open in the SDK" not in text, text
         keys(q, "\r")                                       # confirm: the question, the game does not start
         text = wait_screen(q, ["Start it anyway?", "made for the Pi Zero W only", "Start"])
         assert b"play: /bm/old.bm" not in q.buf, "it started before the answer"

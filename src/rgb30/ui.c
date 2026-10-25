@@ -796,7 +796,8 @@ static int cart_at(int shown, int sel)
 }
 
 /* The state of the RGB30 menu (ui_home): what stays from a frame to the next, and what one frame fills in. */
-typedef struct {
+typedef struct uhome_s uhome_t;
+struct uhome_s {
     int tab, sel[3];                    /* the tab, and the selection of each */
     int mopt, mopt_sel, ask_game;       /* a Market game's details (X): its panel over the covers */
     int gopt, gopt_sel;                 /* a game's options (X on the Games tab) */
@@ -810,7 +811,23 @@ typedef struct {
     uint32_t p;                         /* the buttons pressed */
     int tabto;
     home_do_t d;                        /* what a row of Settings asked for */
-} uhome_t;
+};
+
+/* Before a game starts: a game not made for this console asks first, then a frozen game asks to be closed
+ * (lib_start_question). 1 if a question is open; 0 if the game may start. */
+static int uh_start_question(uhome_t *m, int g)
+{
+    const int k = lib_start_question(&games[g], 0, m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
+                                     sizeof m->ask_y);
+    if (k == LIB_ASK_COMPAT) {
+        m->ask_compat = g;
+        m->asking = ASK_COMPAT;
+    } else if (k == LIB_ASK_SWITCH) {
+        m->ask_switch = g;
+        m->asking = ASK_SWITCH;
+    }
+    return k != LIB_ASK_NONE;
+}
 
 static menu_item_t items[CATALOG_ITEMS];
 static home_panel_t mpb;                /* a Market game's details */
@@ -1181,10 +1198,10 @@ static void uh_answer(uhome_t *m)
     } else if ((m->p & pad_ok) && kind == ASK_COMPAT && m->ask_compat >= 0) {
         const int cg = m->ask_compat;          /* yes: the other questions go on */
         m->ask_compat = -1;
-        if (lib_need_switch(&games[cg])) {
+        if (lib_start_question(&games[cg], 1, m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
+                               sizeof m->ask_y) == LIB_ASK_SWITCH) {
             m->ask_switch = cg;
             m->asking = ASK_SWITCH;
-            lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
         } else {
             play_index = cg;
             run_page(play_selected);
@@ -1241,14 +1258,8 @@ static void uh_game_panel(uhome_t *m)
             } else if (row == LIB_ROW_SDK) {
                 sdk_open = gp;              /* the SDK on the game: its project next to it */
                 run_page(page_sdk);
-            } else if (row == LIB_ROW_PLAY && lib_compat_question(&games[g], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
-                                                         sizeof m->ask_y)) {
-                m->ask_compat = g;
-                m->asking = ASK_COMPAT;
-            } else if (row == LIB_ROW_PLAY && lib_need_switch(&games[g])) {
-                m->ask_switch = g;
-                m->asking = ASK_SWITCH;
-                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            } else if (row == LIB_ROW_PLAY && uh_start_question(m, g)) {
+                /* a question is open */
             } else {
                 play_index = g;
                 run_page(play_selected);
@@ -1292,13 +1303,8 @@ static void uh_market_panel(uhome_t *m)
         if (row == M_PLAY) {
             m->mopt = -1;
             const int mg = game_of_path(market_path(game));
-            if (mg >= 0 && lib_compat_question(&games[mg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y)) {
-                m->ask_compat = mg;
-                m->asking = ASK_COMPAT;
-            } else if (mg >= 0 && lib_need_switch(&games[mg])) {
-                m->ask_switch = mg;
-                m->asking = ASK_SWITCH;
-                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            if (mg >= 0 && uh_start_question(m, mg)) {
+                /* a question is open */
             } else {
                 play_market(game);
             }
@@ -1377,13 +1383,8 @@ static void uh_covers(uhome_t *m)
             m->ask_game = *m->s;
         } else if ((m->p & pad_ok) && a == MARKET_PLAY) {
             const int mg = game_of_path(market_path(*m->s));
-            if (mg >= 0 && lib_compat_question(&games[mg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y)) {
-                m->ask_compat = mg;
-                m->asking = ASK_COMPAT;
-            } else if (mg >= 0 && lib_need_switch(&games[mg])) {
-                m->ask_switch = mg;
-                m->asking = ASK_SWITCH;
-                lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+            if (mg >= 0 && uh_start_question(m, mg)) {
+                /* a question is open */
             } else {
                 play_market(*m->s);
             }
@@ -1399,14 +1400,8 @@ static void uh_covers(uhome_t *m)
             ksnprintf(gp, sizeof gp, "%s/%s", games[cg].dir, games[cg].name);
         if (cg >= 0 && netxfer_updating(gp)) {
             notice_fail("Updating, wait for the end of the download");
-        } else if (cg >= 0 && lib_compat_question(&games[cg], m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y,
-                                              sizeof m->ask_y)) {
-            m->ask_compat = cg;
-            m->asking = ASK_COMPAT;
-        } else if (cg >= 0 && lib_need_switch(&games[cg])) {
-            m->ask_switch = cg;
-            m->asking = ASK_SWITCH;
-            lib_switch_question(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d, m->ask_y, sizeof m->ask_y);
+        } else if (cg >= 0 && uh_start_question(m, cg)) {
+            /* a question is open */
         } else if (cg >= 0) {
             play_index = cg;
             run_page(play_selected);
