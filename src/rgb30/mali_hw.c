@@ -87,6 +87,31 @@ int rgb30_mali_probe(void)
 #endif
 }
 
+int rgb30_mali_probe_triangle(const framebuffer_t *fb)
+{
+#ifdef PLAT_RK3566
+    hw_fixed();
+    if (fb && fb->base && fb->mem) {
+        hw.screen = fb->base;
+        hw.screen_pa = fb->bus + (uint32_t)(fb->base - fb->mem);
+        hw.screen_w = fb->width;
+        hw.screen_h = fb->height;
+        hw.screen_pitch = fb->pitch;
+    }
+    hw.triangle = 1;
+    result = mali_probe(&hw, &info);
+    if (result == MALI_OK) {
+        mali_probe_vs3(&hw);
+        mali_probe_async(&hw);
+    }
+    probed = 1;
+    return result;
+#else
+    (void)fb;
+    return MALI_E_POWER;
+#endif
+}
+
 int rgb30_gpu_result(const mali_info_t **in)
 {
     if (in)

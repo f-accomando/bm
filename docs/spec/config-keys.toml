@@ -345,6 +345,15 @@ settings = ""
 read_in = "src/rgb30/bm_port.c:35"
 
 [[key]]
+name = "mali_probe"
+scope = "rgb30"
+values = "1 = run the Mali triangle probe at boot; anything else = off"
+default = "off"
+meaning = "Run the Mali triangle probe and print/report hardware diagnostics at boot."
+settings = ""
+read_in = "src/rgb30/main.c:273"
+
+[[key]]
 name = "market_bm"
 scope = "rgb30"
 values = "0 = hide the .bm cartridges of the Market; anything else = list them"

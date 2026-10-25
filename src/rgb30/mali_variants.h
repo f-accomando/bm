@@ -42,7 +42,7 @@
 #define D_VUBO          0x480       /* the vertex shader's uniform buffer descriptor (a draw with a matrix) */
 #define D_VRSD          0x500       /* its vertex Renderer State */
 #define TRI             96          /* the square's side in pixels */
-#define HIERARCHY_MASK  0xee        /* Mesa's default_mask[6]: 6 levels, the one over the whole frame */
+#define HIERARCHY_MASK  0x28        /* Mesa v7.xml / pan_cs.c default: levels 3 and 5 */
 
 /* the triangle's blocks in the GPU's memory (offsets from mem): set 0, draw 0 */
 #define MV_VJOB         (MALI_SET_BASE(0) + SO_DRAWS + D_VJOB)

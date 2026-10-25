@@ -368,6 +368,57 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   in world axes and the run is one draw: 64 pieces in 2 draws on the PC. Only a run of at least 32 pieces with at most
   150 faces a piece on average merges (Pi, 23 Oct: 100 pieces of 50 faces +24%, 10 of 500 -26% before the threshold).
 
+- **7.8** (2026-10-25): **the Mali draws triangles**: a Vertex, Tiler and Fragment
+  job chain draws a 3D triangle into an offscreen/screen surface (RGB30, RK3566,
+  Mali-G52 r1p0). Fixed Tiler Job Primitive Size Constant (1.0f at offset 64)
+  and hierarchy mask (0x28, matching hardware max_levels = 2 from register
+  GPU_TILER_FEATURES 0x00c). Verified on device (report 80d62d1e): inside
+  and outside pixels pass.
+
+- **7.9** (2026-10-25): **Mali flat colours 3D Bench**: with `mali3d=1`, the 3D
+  Bench on RGB30 runs flat-colour scenes (`spheres`, `spheres_smooth`, `spheres_unlit`,
+  `spheres_baked`, `spheres_shine`, `heroes`, `split`, `queue`, `gpu2d`) on Mali-G52
+  hardware, while textured scenes fall back to ARM. Verified on hardware (report `94aae9dd`,
+  `3d0017.txt`). Multi-draw batching in `mali_frame` requires alignment fix for subsequent
+  draw tiler jobs.
+
+- **7.10** (2026-10-25): **Mali multi-draw batching (phase 2)**: fixed Attribute
+  Buffer and Tiler Job position alignment to 64 bytes (`first += (nv + 3) & ~3u;`) in
+  `frame_build()`, eliminating `DATA_INVALID_FAULT` (0x58) in multi-draw batches.
+  Verified on physical hardware (report `fcfd2933`, `3d0018.txt`): frames of up to
+  24 draws (26 triangles) complete cleanly without faults.
+
+- **7.11** (2026-10-25): **Mali BM_VS3 vertex shader with 4x4 matrix (phase 3)**:
+  verified `BM_VS3` on physical Mali-G52 hardware (report `b041b71a`): model-space
+  vertices transformed by a 16-float row-major 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`)
+  and mixed in the same frame with a `BM_VS` screen-space draw (16 + 27 us, exact
+  vertex output `41000000 42b00000 3f000000 3f800000` and pixel check).
+
+- **7.12** (2026-10-25): **Mali asynchronous 2-set queue (phase 4)**: verified
+  `mali_frame_submit`, `mali_frame_busy` and `mali_frame_wait` on physical Mali-G52
+  hardware (report `9e4652bd`): two frames in flight across `MALI_SET_BASE(0)` and
+  `MALI_SET_BASE(1)` overlapping slot 1 (vertex/tiler) and slot 0 (fragment) complete
+  in 204 us with exact pixel checks on both surfaces.
+
+- **7.13** (2026-10-25): **Mali `BM_VS3` mesh path and async queue in `mali_backend`**:
+  wired `mali_backend.mesh` (`be_mesh`) with per-bone back-face culling, per-face lighting/cel/fog,
+  2-mode batching (`BM_VS3` vs screen-space colour merge when >64 runs), 64-bit 4-pixel `be_resolve`,
+  and async Slot 0 Fragment Job overlap (`mali_backend_submit` / `mali_backend_sync`, `gpu3d_vshader=1/2`,
+  `gpu3d_queue=1/2`). Verified on RGB30 hardware in 3D Bench (report `7509aa08`): `draws` 7.4x faster
+  (107.1 vs 14.4 @ 60 fps), `spheres_unlit` 5.2x faster (17.2 vs 3.3), `split` 2.7x faster (14.6 ms vs 39.0 ms).
+
+- **7.14** (2026-10-25): **Mali cached 2 MB resolve surface (`dc civac`) and 8192-triangle merge-sorted batching**:
+  mapped the 2 MB resolve surface (`PLAT_GPU_START - 2 MB`) as `ATTR_NORMAL` (Write-Back Cacheable) with `dc civac`
+  D-cache invalidation before an 8-pixel (32-byte) `be_resolve` loop, and expanded `be_tris` to 8,192 triangles with
+  an O(n log n) stable merge sort. Verified on RGB30 hardware in 3D Bench (report `e259a8c8`): overall GPU score rose
+  10x (`14` -> `138`), `quad_flat` reached `211.5` @ 60 fps (`457.0` @ 30 fps, beating Pi Zero W V3D's `174.5`),
+  `draws` reached `509.8` @ 60 fps (`1,112.6` @ 30 fps, 35x faster than `7.10`), and `spheres_unlit` reached `92.5`
+  @ 60 fps (`187.3` @ 30 fps, 28x faster than `7.10`).
+- **7.15** (2026-10-25): **Default `mali3d=1`, 4 MB single-pass GPU arena (`1,024` draws), and L1-cached descriptor packing**:
+  - `src/rgb30/bm_port.c`, `src/rgb30/b3d_rgb30.c`: Enabled `mali3d=1` by default on RGB30 (`gpu3d_vs=2`, `gpu3d_queue=1`, `gpu3d_merge=1`), disabling only when `mali3d=0` or `gpu3d=0`.
+  - `src/rgb30/mali.c`: Added `frame_build_ex()` with L1-cached stack buffers (`hdr[0x1000]`, `loc[0x540]`, `frs_buf[80]`, `vrs3_buf[64]`) eliminating uncached `ATTR_NC` byte read-modify-writes, plus a 4 MB single-pass GPU arena at `H->mem - (6u << 20)` (`1,024` draws and `8,192` triangles in 1 Fragment Job and 1 `be_resolve` per frame).
+  - Verified on RGB30 hardware in 3D Bench (`docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`, report `b3cab428`): overall `games` score rose from `192` to **`247`**, `GPU` score rose **16.3x** (`14` in `7.10` -> `138` in `7.14` -> **`228`** in `7.15`), `draws` (`GPU+VS`) reached `533.8` @ 60 fps (`1 job`), `spheres` (`GPU+VS`) reached `22.9` @ 60 fps (`141.5` @ 30 fps), and `gpu2d` reached `1,849.2` @ 60 fps (`5,354.8` @ 30 fps).
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).

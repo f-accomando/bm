@@ -27,8 +27,8 @@
  * (shadow3d(0); shadow3d(1) is the screen-door of 7.6) 7.7. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.7"
-#define BM3D_BLOCK   "cel"
+#define BM3D_VERSION "7.15"
+#define BM3D_BLOCK   "Mali"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -83,6 +83,14 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.5", "cel", "2026-10-22", "cel light in the lit vertex programs (V3D); outline by the inverted hull (draw3d flag 512)" },
         { "7.6", "merge", "2026-10-23", "draws of many small static baked or unlit meshes merged (gpu3d_merge; compact attributes stay off by default)" },
         { "7.7", "shadow", "2026-10-23", "shadows (draw3d flag 8) darken on the GPU: fs_shadow reads the pixel (colour load) and keeps 5/8 of it, as the ARM; the screen-door stays for shadow3d(1) and with MSAA" },
+        { "7.8", "Mali", "2026-10-25", "RGB30: a Mali triangle drawn by the GPU (vertex, tiler and fragment jobs verified on hardware)" },
+        { "7.9", "Mali", "2026-10-25", "RGB30: Mali 3D Bench flat colours run on hardware with mali3d=1 (report 94aae9dd)" },
+        { "7.10", "Mali", "2026-10-25", "RGB30: multi-draw batching (phase 2) on Mali GPU: 64-byte attribute alignment, verified on hardware (report fcfd2933)" },
+        { "7.11", "Mali", "2026-10-25", "RGB30: BM_VS3 vertex shader with 4x4 matrix (phase 3) verified on Mali GPU (report b041b71a)" },
+        { "7.12", "Mali", "2026-10-25", "RGB30: asynchronous 2-set queue (phase 4, mali_frame_submit) verified on Mali GPU (report 9e4652bd)" },
+        { "7.13", "Mali", "2026-10-25", "RGB30: BM_VS3 mesh path (gpu3d_vshader) and async queue (gpu3d_queue) wired into mali_backend and 3D Bench" },
+        { "7.14", "Mali", "2026-10-25", "RGB30: cached 2 MB resolve surface (dc civac), 8-pixel resolve, and 8192-triangle merge-sorted scene batching in mali_backend" },
+        { "7.15", "Mali", "2026-10-25", "RGB30: mali3d on by default, 4 MB 1024-draw / 8192-triangle single-pass GPU arena and L1-cached descriptor packing" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

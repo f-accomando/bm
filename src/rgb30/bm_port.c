@@ -33,7 +33,7 @@ static const r3d_backend_t *mali_be;
 int gpu3d_init(void)
 {
     const char *k = config_get("mali3d");
-    if (!k || strcmp(k, "1")) {
+    if (k && !strcmp(k, "0")) {
         if (mali_be)
             mali_backend_drop();
         mali_be = NULL;
@@ -52,9 +52,16 @@ int gpu3d_init(void)
 }
 const char *gpu3d_status(void)
 {
+    if (!mali_be && rgb30_mali_hw())
+        (void)gpu3d_init();
     return mali_be ? "the Mali draws flat colours (mali3d=1)" : "no GPU driver on the RGB30 yet";
 }
-int gpu3d_ready(void)                                   { return mali_be != NULL; }
+int gpu3d_ready(void)
+{
+    if (!mali_be && rgb30_mali_hw())
+        (void)gpu3d_init();
+    return mali_be != NULL;
+}
 int gpu3d_failed(void)                                  { return mali_be == NULL; }
 const r3d_backend_t *gpu3d_backend(void)                { return mali_be; }
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus)
@@ -76,13 +83,17 @@ int gpu3d_flush(const g16_t *g, int keep)
     (void)keep;
     return mali_be ? mali_backend_flush((g16_t *)g) : 0;
 }
-int gpu3d_submit(const g16_t *g, int keep)              { (void)g; (void)keep; return 0; }
-int gpu3d_sync(void)                                    { return 0; }
-int gpu3d_sync_page(const void *px)                     { (void)px; return 0; }
+int gpu3d_submit(const g16_t *g, int keep)
+{
+    (void)keep;
+    return mali_be ? mali_backend_submit((g16_t *)g) : 0;
+}
+int gpu3d_sync(void)                                    { return mali_be ? mali_backend_sync() : 0; }
+int gpu3d_sync_page(const void *px)                     { (void)px; return mali_be ? mali_backend_sync() : 0; }
 int gpu3d_queue2(void)                                  { return 0; }
-int gpu3d_inflight(void)                                { return 0; }
-void gpu3d_set_queue(int on)                            { (void)on; }
-int gpu3d_queue(void)                                   { return 0; }
+int gpu3d_inflight(void)                                { return mali_be ? mali_backend_inflight() : 0; }
+void gpu3d_set_queue(int on)                            { mali_backend_set_queue(on); }
+int gpu3d_queue(void)                                   { return mali_be ? mali_backend_queue() : 0; }
 void gpu3d_set_wc(int on)                               { (void)on; }
 void gpu3d_set_bilinear(int on)                         { (void)on; }
 void gpu3d_set_tex16(int on)                            { (void)on; }
@@ -119,22 +130,26 @@ int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int 
 }
 int gpu3d_bilinear(void)                                { return 0; }
 int gpu3d_wc(void)                                      { return 0; }
-int gpu3d_queue_ok(void)                                { return 0; }
+int gpu3d_queue_ok(void)                                { return mali_be != NULL; }
 void gpu3d_set_msaa(int on)                             { (void)on; }
 int gpu3d_msaa(void)                                    { return 0; }
 int gpu3d_msaa_on(void)                                 { return 0; }
-int gpu3d_vshader(void)                                 { return 0; }
-void gpu3d_set_vshader(int on)                          { (void)on; }
-int gpu3d_vshader_on(void)                              { return 0; }
+int gpu3d_vshader(void)                                 { return mali_be ? 2 : 0; }
+void gpu3d_set_vshader(int on)                          { mali_backend_set_vshader(on); }
+int gpu3d_vshader_on(void)                              { return mali_be ? mali_backend_vshader() : 0; }
 const char *gpu3d_probe_log(void)                       { return ""; }
-void gpu3d_take_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
-void gpu3d_peek_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
-uint32_t gpu3d_wait_us(void)                            { return 0; }
+void gpu3d_take_stats(gpu3d_stats_t *s)                 { mali_backend_stats(s, 1); }
+void gpu3d_peek_stats(gpu3d_stats_t *s)                 { mali_backend_stats(s, 0); }
+uint32_t gpu3d_wait_us(void)                            { return mali_be ? mali_backend_wait_us() : 0; }
 int gpu3d_options_line(char *buf, size_t n)
 {
     if (!n)
         return 0;
-    ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
+    if (mali_be)
+        ksnprintf(buf, n, "bm3d %s mali3d=1 gpu3d_vs=%d gpu3d_queue=%d", BM3D_VERSION, mali_backend_vshader(),
+                  mali_backend_queue());
+    else
+        ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
     return (int)strlen(buf);
 }
 int v3d_init(void)                                      { return -1; }
