@@ -289,6 +289,27 @@ void sys_box(const char *const *lines, int n, int dim_last, int hints, int progr
 extern int tool_mode;           /* a bm tool runs (defined in runtime.c) */
 extern const char *box_yes, *box_no;    /* the words of sys_box's two buttons (defined in runtime.c) */
 extern framebuffer_t *perm_fb;  /* the screen of the run (defined in runtime.c) */
+
+/* the project open in the editor, and cart_run's options (state in runtime.c, API in api_editor.c) */
+extern uint8_t *proj_cover;
+extern uint8_t *proj_audio, *own_audio;
+extern uint32_t proj_audio_len, own_audio_len;
+extern uint8_t *proj_sheet8;
+extern uint32_t proj_sheet8_len;
+extern int n_made;
+typedef struct {
+    int set, stop, n;
+    uint16_t lines[64];
+} dbg_next_t;                           /* cart_run's options, for the run it asks (the debugger) */
+extern dbg_next_t dbg_next;
+extern char last_error[512];            /* the error the last run stopped with (bm_last_error) */
+int load_assets(const bm_cart_t *c);
+void free_assets(void);
+const luaL_Reg *rt_api(void);           /* api[] of runtime.c */
+void set_copy(uint8_t **dst, uint32_t *dlen, const void *src, uint32_t len);
+void extras_free(void);
+int reserved_tool_name(const char *name);
+const char *rt_res_name(int w);         /* res_name() of runtime.c */
 extern int proj_sheet_drawn;    /* the sheet was drawn on since cart_load: cart_save writes it whole (defined in runtime.c) */
 
 float fnum(lua_State *L, int i, float def);
