@@ -1,6 +1,6 @@
 # Aligning the RGB30 kernel (kernel8) with the Pi kernel
 
-State of 25 Oct 2026, checked against the code. Policy (user, 25 Oct, `docs/spec/CONSISTENCY.md`): the Pi Zero is the template. Port what the RGB30 lost. Keep what the RGB30 needs to be different (the square 360x360 screen, the pad and no keyboard, multicore multitasking). Decide each divergence one by one. The list is `docs/spec/divergences.toml`; the gate is `python3 scripts/consistency.py gate` (12 blockers on 25 Oct before B1; after B1, B2 and B3: D03, D05, D14, D15, D17, D24 and the spec folders-bm-bme).
+State of 25 Oct 2026, checked against the code. Policy (user, 25 Oct, `docs/spec/CONSISTENCY.md`): the Pi Zero is the template. Port what the RGB30 lost. Keep what the RGB30 needs to be different (the square 360x360 screen, the pad and no keyboard, multicore multitasking). Decide each divergence one by one. The list is `docs/spec/divergences.toml`; the gate is `python3 scripts/consistency.py gate` (12 blockers on 25 Oct before B1; after B1, B2 and B3: D03, D05, D14, D15, D17, D24 and the spec folders-bm-bme; after the answers of 25 Oct, 5: D03, D05, D15, D17 and folders-bm-bme).
 
 Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason in `note` and use `cause = "hardware"`), DROP (gone from both), ASK (a product decision of the user).
 
@@ -46,15 +46,17 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 5. **B5, after the user's answers:** D03, D05, D11, D15b, the folders item, D22.
 6. **B6, large (L):** D17 (needs the on-screen keyboard); the Mali work (D45 and the D23 merge).
 
-## Decisions of the user (one line each, recommended default in brackets)
+## Decisions of the user (answered 25 Oct 2026)
 
-1. D03 players on the RGB30: A port the Pi slots (built-in pad is P1, BT pads P2-4); B single player as a hardware difference. [A]
-2. D05 menu pointer: A port the BT mouse pointer to the RGB30 menu; B hide the mouse rows; C A plus the right stick as the pointer. [A]
-3. D22, D48, D54 monitor: A port the terminal monitor to both kernels as a 1.0 blocker; B after 1.0; C never on the RGB30. [B]
-4. D14 DMA test: A Pi only as a hardware difference; B remove from the Pi too. [A]
-5. D24 Overbit: A remove from the divergences and move to the game backlog; B keep as a 1.0 blocker. [A]
-6. D11 Publish on the RGB30: A port it; B keep it off. [A]
-7. Utility cartridges: A the Dev tab on both kernels; B Settings > System > Utilities on both. [A]
-8. `/carts` folder: A read `/carts` on both until 1.0 and move `/glb` and `/bmm` to APP-9; B stop scanning `/carts` now. [A]
-9. D15b CPU clock and temperature on the RGB30: A write the TSADC and clock readback; B CPU name only, as a hardware difference. [A]
-10. D17 WiFi password typing: A wait for the on-screen keyboard; B `config.txt` only, as a hardware difference. [A]
+1. D03 players on the RGB30: PORT the Pi slots (built-in pad is P1, BT pads P2-4). D03 stays open. The code is a later work order.
+2. D05 menu pointer: PORT the pointer block to the RGB30 menu. D05 stays open. The code is a later work order.
+3. D22, D48, D54 monitor: after v1.0.0. The cause stays `hardware` for now. The shared command core is `src/kernel/monitor_cmd.c`.
+4. D14 DMA test: REMOVE it from the Pi too. The driver `src/drivers/dma.c` stays (the framebuffer, the audio and the runtime use it). D14 closes as dropped. The code to remove later: `src/kernel/dmatest.c` and `dmatest.h`, the Settings > System > Utilities row, the Monitor `bench dma` (`D`) command, the QEMU test `test_dma`, the docs.
+5. D24 Overbit: removed from the divergences. It is in the game backlog (`docs/progress/graphics-mali.md`, `docs/progress/overbit.md`).
+6. D11 Publish on the RGB30: stays off (owner decision of 22 Oct). D11 is accepted.
+7. Utility cartridges: in the Dev tab on both kernels.
+8. `/carts` folder: both kernels stop scanning `/carts` now (code to do later: `carts.c`, `src/rgb30/ui.c`). `/glb` and `/bmm` move to APP-9.
+9. D15b CPU clock and temperature on the RGB30: PORT (the RK3566 TSADC and the clock readback, device-tested; a later work order).
+10. D17 WiFi password typing: wait for the on-screen keyboard (R1, R2).
+
+Other answers: `gpu3d_later` (queue 2) and `gpu3d_sort` stay off by default. `gpu3d_qpu` becomes on by default on the Pi, with the ARM fallback, after a 10 minute soak of Yharnam (the user runs the soak; the default does not change before it).

@@ -46,6 +46,8 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 
 ## Roadmap: Mali GPU & Overbit in `.b16` (RGB30)
 
+Game backlog (user, 25 Oct 2026): Overbit in `.b16` on the RGB30 (item 1 below) is not a kernel divergence any more. D24 left `docs/spec/divergences.toml`.
+
 1. **Overbit in `.b16` on RGB30**:
    - Runs at **360×360** (doubled ×2 by the hardware video controller) and native **720×720**, selectable in the *RESOLUTION* menu.
    - Adaptation with `screen()` for square modes (`fb_init_mode`: 64-byte rows and tiles of 16).

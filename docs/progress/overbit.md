@@ -3,6 +3,10 @@
 The game: `carts/overbit/` (`build.py`, `art/`, sources in `src/`). There are no host tests of the
 game any more (removed upstream); a change needs `make market-seed MARKET=<clone>` for the Market.
 
+## Backlog
+
+- Overbit in `.b16` on the RGB30 at 360×360 and 720×720, with an ARM benchmark: see the roadmap in [graphics-mali](graphics-mali.md). It was divergence D24 until 25 Oct 2026.
+
 ## How it is today
 
 - Quality and screen (`src/85_quality.lua`): the `.bm` on a TV offers 640×360 (ARM or GPU),

@@ -35,12 +35,12 @@ id = "D03"
 area = "players"
 pi = "up to 4 BT pads plus USB: local multiplayer"
 rgb30 = "one player only; Settings shows only Player 1"
-cause = "unknown"
+cause = "todo"
 priority = 6
-status = "suspended"
-note = "kept suspended (2026-10-13): the owner is working on the on-screen keyboard and the pad typing; local multiplayer on the RGB30 is decided after."
+status = "open"
+note = "kept suspended (2026-10-13): the owner is working on the on-screen keyboard and the pad typing; local multiplayer on the RGB30 is decided after. Decision of the user, 25 Oct 2026: PORT. The Pi slots on the RGB30: the built-in pad is P1, the Bluetooth pads are P2 to P4. Status stays open: the code is a later work order (docs/NEXT.md)."
 evidence = "src/rgb30/bm_input.c:95-98; src/kernel/settings.c:370"
-action = "decide whether the RGB30 has local multiplayer; if so map BT pads to players"
+action = "port the Pi player slots to the RGB30 (built-in pad = P1, BT pads P2-4)"
 
 [[divergence]]
 id = "D04"
@@ -59,12 +59,12 @@ id = "D05"
 area = "menu pointer"
 pi = "mouse: hover, click, wheel, right-click for options"
 rgb30 = "none; Settings still offers the mouse rows"
-cause = "unknown"
+cause = "todo"
 priority = 6
-status = "suspended"
-note = "kept suspended (2026-10-13): the stick may serve as the mouse, unless the RGB30 uses a system of its own; decided with the on-screen keyboard and the pad typing."
+status = "open"
+note = "kept suspended (2026-10-13): the stick may serve as the mouse, unless the RGB30 uses a system of its own; decided with the on-screen keyboard and the pad typing. Decision of the user, 25 Oct 2026: PORT the pointer block of carts.c to the RGB30 menu. Status stays open: the code is a later work order (docs/NEXT.md)."
 evidence = "src/kernel/carts.c:1519-1585; src/kernel/settings.c:402"
-action = "port the block (pointer.c is built into the RGB30) or hide the mouse rows"
+action = "port the pointer block to the RGB30 menu (pointer.c is built into the RGB30)"
 
 [[divergence]]
 id = "D06"
@@ -110,7 +110,7 @@ rgb30 = "sorted by title (src/rgb30/ui.c:281 qsort with title_cmp); scans /bm an
 cause = "history"
 priority = 4
 status = "resolved"
-note = "The RGB30 list is sorted by title: qsort with title_cmp at src/rgb30/ui.c:281 (commit 88c914c5). Compiles; not tried on an RGB30. scan_games() scans both /bm and /carts (src/rgb30/ui.c:278-279), as the Pi does; the game list is the same on both. The .bme projects in Dev are tracked by D44, not here. Proved in QEMU by test_frozen_game_menu (the first cover is the game with the first title, not the first file name). Not verified on hardware."
+note = "The RGB30 list is sorted by title: qsort with title_cmp at src/rgb30/ui.c:281 (commit 88c914c5). Compiles; not tried on an RGB30. scan_games() scans both /bm and /carts (src/rgb30/ui.c:278-279), as the Pi does; the game list is the same on both. The .bme projects in Dev are tracked by D44, not here. Proved in QEMU by test_frozen_game_menu (the first cover is the game with the first title, not the first file name). Not verified on hardware. Decision of the user, 25 Oct 2026: stop scanning /carts now on both kernels (code to do later: src/kernel/carts.c and src/rgb30/ui.c); /glb and /bmm move to APP-9."
 evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:234-237,277-281; tests/rgb30/qemu_test.py:test_frozen_game_menu"
 action = "none"
 
@@ -134,7 +134,7 @@ rgb30 = "Play, Open in bm SDK, Export .b16, Send to a nearby console, info, dele
 cause = "history"
 priority = 6
 status = "accepted"
-note = "Accepted 2026-10-22 (BETA-6): Publish stays off on the RGB30 by the owner's decision (docs/progress/platforms.md Open work). The tool rows of the Pi (Open in the tools, editable copy, Build) are 'Open in bm SDK' and 'Export .b16' on the RGB30: the SDK is the only tool with a pad edition (D13). Close is 'Close the game' on both (D07)."
+note = "Accepted 2026-10-22 (BETA-6): Publish stays off on the RGB30 by the owner's decision (docs/progress/platforms.md Open work). The tool rows of the Pi (Open in the tools, editable copy, Build) are 'Open in bm SDK' and 'Export .b16' on the RGB30: the SDK is the only tool with a pad edition (D13). Close is 'Close the game' on both (D07). Decision of the user, 25 Oct 2026: owner decision: Publish stays off on the RGB30 (first made on 22 Oct). Accepted."
 evidence = "src/kernel/carts.c:913-956; src/rgb30/ui.c:722-746; docs/progress/platforms.md"
 action = "none"
 
@@ -169,9 +169,10 @@ pi = "Settings > Screen: 3D Bench. Settings > System > Utilities: DMA test"
 rgb30 = "Not built: DMA test. The 3D Bench is in the Dev tab. Stress test, GPU test, Texture Room, Video bench, Stack bench and Diagnostics were removed from both kernels on 24 Oct 2026"
 cause = "todo"
 priority = 6
-status = "open"
+status = "resolved"
+note = "Decision of the user, 25 Oct 2026: REMOVE the DMA test from the Pi too. The divergence closes as dropped. The DMA driver src/drivers/dma.c stays (the framebuffer, the audio and the runtime use it). Code removal to do later: src/kernel/dmatest.c and dmatest.h, the Settings > System > Utilities row, the Monitor command bench dma (D), the QEMU test test_dma and the docs (docs/NEXT.md)."
 evidence = "src/kernel/home.c: tools[]"
-action = "the DMA test: port when the RGB30 needs it"
+action = "none; remove the DMA test from the Pi (later work order)"
 
 [[divergence]]
 id = "D15"
@@ -181,9 +182,9 @@ rgb30 = "CPU name; the 3D driver row since 25 Oct 2026 (D15a); no clock or tempe
 cause = "todo"
 priority = 6
 status = "open"
-note = "D15a done: Settings > System > 3D driver shows ARM or Mali, its help line is gpu3d_status() (QEMU test_dev_tab_utilities). D15b (the RK3566 TSADC and clock) waits for the owner's decision 9."
+note = "D15a done: Settings > System > 3D driver shows ARM or Mali, its help line is gpu3d_status() (QEMU test_dev_tab_utilities). D15b (the RK3566 TSADC and clock) waits for the owner's decision 9. Decision of the user, 25 Oct 2026: D15b PORT: write the RK3566 TSADC (temperature) and the clock readback. Device-tested. Later work order (docs/NEXT.md)."
 evidence = "src/kernel/settings.c:605-649,850"
-action = "add the clock and the temperature the RK3566 can report"
+action = "write the RK3566 TSADC temperature and the clock readback (device-tested)"
 
 [[divergence]]
 id = "D16"
@@ -205,7 +206,7 @@ rgb30 = "only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard"
 cause = "todo"
 priority = 6
 status = "open"
-note = "depends on the on-screen keyboard and the pad typing, which the owner is working on."
+note = "depends on the on-screen keyboard and the pad typing, which the owner is working on. Decision of the user, 25 Oct 2026: wait for the on-screen keyboard of the user (R1, R2). Status stays open."
 evidence = "src/rgb30/rtw_sta.c:643; docs/progress/system.md:82-83"
 action = "needs the on-screen keyboard (R1/R2)"
 
@@ -267,7 +268,7 @@ cause = "hardware"
 capability = "no-keyboard"
 priority = 6
 status = "open"
-note = "RGB30 has no monitor console by design (no USB host / no keyboard; serial line has a Lua REPL). 25 Oct 2026: the Pi monitor is now a table of commands with a prompt, history and Tab (src/kernel/monitor.c); the core (src/kernel/monitor_cmd.c: tokenizer, dispatcher, help, completion, line editor) has no hardware dependency and is shared code. It is wired into the Pi monitor only; the RGB30 still has no monitor, and the wiring waits for this decision."
+note = "RGB30 has no monitor console by design (no USB host / no keyboard; serial line has a Lua REPL). 25 Oct 2026: the Pi monitor is now a table of commands with a prompt, history and Tab (src/kernel/monitor.c); the core (src/kernel/monitor_cmd.c: tokenizer, dispatcher, help, completion, line editor) has no hardware dependency and is shared code. It is wired into the Pi monitor only; the RGB30 still has no monitor, and the wiring waits for this decision. Decision of the user, 25 Oct 2026: the terminal monitor on the RGB30 comes after v1.0.0. The cause stays hardware for now. The shared command core is src/kernel/monitor_cmd.c."
 evidence = "src/rgb30/ui.c:946; src/kernel/settings.c:652"
 action = "the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse"
 
@@ -282,17 +283,6 @@ status = "accepted"
 note = "Closed 25 Oct 2026: merged into D45 (the Mali driver and mali3d=1 are tracked there). Nothing else is open under D23."
 evidence = "docs/progress/graphics-mali.md:5-11"
 action = "Mali driver"
-
-[[divergence]]
-id = "D24"
-area = "Overbit .b16 and Mali benchmark"
-pi = "-"
-rgb30 = "not done"
-cause = "todo"
-priority = 6
-status = "open"
-evidence = "docs/progress/platforms.md:68"
-action = "Overbit in .b16 on the RGB30"
 
 [[divergence]]
 id = "D25"
@@ -338,7 +328,7 @@ pi = "-"
 rgb30 = "Games read only bm/: a game built by bm SDK's Ctrl+B in /carts was not listed"
 cause = "history"
 status = "resolved"
-note = "QEMU proves (both kernels): test_games_in_carts (Games lists /carts); the SDK on the Pi (test_sdk_layers, test_sdk_code_pi, test_sdk_template_pi, test_sdk_suite, test_sdk_keeps_models) and on the RGB30 (test_sdk_tool, test_sdk_pad_*, test_sdk_layers_b16, test_sdk_template_build); not proven by QEMU: the pad (QEMU virt has no pad), the console screen and sound; provato dall'utente su RGB30 fisica il 2026-10-15 (.bm e .b16, cartelle bm/ e /carts, menu Games); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso. On 2026-10-21 the user ran the 12 steps of BETA2-SDK-HW on a real Pi Zero W and a real RGB30: the game built by the SDK is listed in Games and plays on both (steps 6, 11, 12), and the RGB30 sound is heard (step 9)."
+note = "QEMU proves (both kernels): test_games_in_carts (Games lists /carts); the SDK on the Pi (test_sdk_layers, test_sdk_code_pi, test_sdk_template_pi, test_sdk_suite, test_sdk_keeps_models) and on the RGB30 (test_sdk_tool, test_sdk_pad_*, test_sdk_layers_b16, test_sdk_template_build); not proven by QEMU: the pad (QEMU virt has no pad), the console screen and sound; provato dall'utente su RGB30 fisica il 2026-10-15 (.bm e .b16, cartelle bm/ e /carts, menu Games); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso. On 2026-10-21 the user ran the 12 steps of BETA2-SDK-HW on a real Pi Zero W and a real RGB30: the game built by the SDK is listed in Games and plays on both (steps 6, 11, 12), and the RGB30 sound is heard (step 9). Decision of the user, 25 Oct 2026: stop scanning /carts now on both kernels (code to do later: src/kernel/carts.c and src/rgb30/ui.c); /glb and /bmm move to APP-9."
 evidence = "src/rgb30/ui.c:248; src/bm/project.c:162-193; carts/sdk_b16/main.lua; tests/rgb30/qemu_test.py:test_sdk_layers_b16; tests/qemu_test.py:test_sdk_code_pi"
 action = "scan_games lists /carts too (as carts.c rescan)"
 
@@ -422,7 +412,7 @@ rgb30 = "everything in /bm; the mapping is done by hand in 4 places"
 cause = "hardware"
 capability = "storage-path"
 status = "accepted"
-note = "Accepted 2026-10-22 (BETA-6): a hardware difference (storage-path). Intended. The mapping in four places is a refactor (A2), not a difference of behaviour."
+note = "Accepted 2026-10-22 (BETA-6): a hardware difference (storage-path). Intended. The mapping in four places is a refactor (A2), not a difference of behaviour. Decision of the user, 25 Oct 2026: stop scanning /carts now on both kernels (code to do later: src/kernel/carts.c and src/rgb30/ui.c); /glb and /bmm move to APP-9."
 evidence = "src/kernel/market.c:24-28; src/net/netxfer.c:175-185; src/kernel/devtool.c:27-43"
 action = "one function for the mapping (A2)"
 
@@ -554,7 +544,7 @@ cause = "hardware"
 capability = "no-keyboard"
 priority = 6
 status = "accepted"
-note = "Accepted 2026-10-23 (BETA-6 round 2): the crc is a monitor line, and the RGB30 has no monitor by design (D22: no USB host, no keyboard). The RGB30 tests read the screen through the QEMU screendump (tests/rgb30/qemu_test.py screen_text) and the console owner sees the screen. A serial crc command for the RGB30 can come with the terminal monitor that D22 plans: the command core src/kernel/monitor_cmd.c is shared, and only a new table of commands and the serial input are missing."
+note = "Accepted 2026-10-23 (BETA-6 round 2): the crc is a monitor line, and the RGB30 has no monitor by design (D22: no USB host, no keyboard). The RGB30 tests read the screen through the QEMU screendump (tests/rgb30/qemu_test.py screen_text) and the console owner sees the screen. A serial crc command for the RGB30 can come with the terminal monitor that D22 plans: the command core src/kernel/monitor_cmd.c is shared, and only a new table of commands and the serial input are missing. Decision of the user, 25 Oct 2026: see D22: the monitor on the RGB30 comes after v1.0.0."
 evidence = "src/kernel/monitor.c; tests/qemu_test.py:test_monitor_crc"
 action = "none; with the terminal monitor of D22"
 
@@ -591,7 +581,7 @@ rgb30 = "same since 25 Oct 2026: scan_games reads bm_type_of_head, the apps and 
 cause = "history"
 priority = 4
 status = "resolved"
-note = "Done 25 Oct 2026 (src/rgb30/ui.c: struct game type, cart_at, play_bm). QEMU test_cart_type_dev: a type app cartridge is not on the Games tab, is in Dev, and the log says 'no splash'; a game starts with the splash. Not seen on the panel. An app in Dev has no options panel (X) yet. Tried on the RGB30 hardware on 25 Oct 2026 (docs/bench/rgb30-2026-10-25/summary.md)."
+note = "Done 25 Oct 2026 (src/rgb30/ui.c: struct game type, cart_at, play_bm). QEMU test_cart_type_dev: a type app cartridge is not on the Games tab, is in Dev, and the log says 'no splash'; a game starts with the splash. Not seen on the panel. An app in Dev has no options panel (X) yet. Tried on the RGB30 hardware on 25 Oct 2026 (docs/bench/rgb30-2026-10-25/summary.md). Decision of the user, 25 Oct 2026: utility cartridges stay in the Dev tab on both kernels."
 evidence = "src/kernel/carts.c:627; src/rgb30/ui.c; tests/rgb30/qemu_test.py:test_cart_type_dev"
 action = "look at it on the console"
 
@@ -629,7 +619,7 @@ rgb30 = "Dev holds the bm SDK, then the cartridges of type app or utility; the 3
 cause = "history"
 priority = 4
 status = "resolved"
-note = "Done 25 Oct 2026 through an RGB30 home_util_* table in src/rgb30/ui.c. QEMU test_dev_tab_utilities, test_bench3d, test_display_modes, test_menu_input_page. Not seen on the panel. Tried on the RGB30 hardware on 25 Oct 2026 (docs/bench/rgb30-2026-10-25/summary.md)."
+note = "Done 25 Oct 2026 through an RGB30 home_util_* table in src/rgb30/ui.c. QEMU test_dev_tab_utilities, test_bench3d, test_display_modes, test_menu_input_page. Not seen on the panel. Tried on the RGB30 hardware on 25 Oct 2026 (docs/bench/rgb30-2026-10-25/summary.md). Decision of the user, 25 Oct 2026: utility cartridges stay in the Dev tab on both kernels."
 evidence = "src/rgb30/ui.c; src/kernel/settings.c:855"
 action = "look at it on the console"
 
@@ -641,6 +631,6 @@ rgb30 = "lists the Render bench; the row is hidden when the count is 0"
 cause = "history"
 priority = 4
 status = "resolved"
-note = "Done 25 Oct 2026 (settings.c util_count check). QEMU test_dev_tab_utilities. Not seen on the panel. Tried on the RGB30 hardware on 25 Oct 2026 (docs/bench/rgb30-2026-10-25/summary.md)."
+note = "Done 25 Oct 2026 (settings.c util_count check). QEMU test_dev_tab_utilities. Not seen on the panel. Tried on the RGB30 hardware on 25 Oct 2026 (docs/bench/rgb30-2026-10-25/summary.md). Decision of the user, 25 Oct 2026: the DMA test is removed (see D14); the Utilities row keeps the Render bench."
 evidence = "src/kernel/settings.c:855; src/rgb30/ui.c"
 action = "look at it on the console"

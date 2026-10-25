@@ -117,20 +117,19 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D03 | suspended | unknown | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | decide whether the RGB30 has local multiplayer; if so map BT pads to players |
+| D03 | open | todo | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | port the Pi player slots to the RGB30 (built-in pad = P1, BT pads P2-4); decided 25 Oct |
 | D04 | resolved | history | menu keys | Pi: Start confirms; Tab and 1-4 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
-| D05 | suspended | unknown | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the block (pointer.c is built into the RGB30) or hide the mouse rows |
+| D05 | open | todo | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the pointer block to the RGB30 menu; decided 25 Oct |
 | D11 | accepted | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
 | D12 | resolved | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
-| D14 | open | todo | Dev tab extras | Pi, in Settings: 3D Bench (Screen); DMA test (System > Utilities). RGB30: the 3D Bench in the Dev tab; the DMA test is not built | the DMA test when the RGB30 needs it |
-| D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | add what the RK3566 can report |
-| D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | needs the on-screen keyboard (R1/R2) |
+| D14 | resolved | todo | Dev tab extras | Pi, in Settings: 3D Bench (Screen); DMA test (System > Utilities). RGB30: the 3D Bench in the Dev tab; the DMA test is not built | dropped (25 Oct): remove the DMA test from the Pi too |
+| D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | write the RK3566 TSADC and clock readback; decided 25 Oct |
+| D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | waits for the on-screen keyboard (R1/R2); decided 25 Oct |
 | D19 | open | history | SD logs | Pi: none (only the crumbs report). RGB30: bootlog.txt, bootprev.txt, lastrun.txt in bm/ | give the Pi the same three files (R3) |
 | D20 | resolved | hardware | release content | Pi: manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem. RGB30: manifest-rgb30: kernel8.img and ca.pem only | none: intended; kernels ship bare (exception: kernel.img has the bm editor suite, kernel8.img the bm SDK, until the apps move to the Market); accepted by the user, 21 Oct 2026 |
 | D21 | open | todo | run from the PC without saving | Pi: bm_net.py --play wired (GO_NETPLAY). RGB30: not wired | wire it into ui_home (developer feature) |
 | D22 | open | hardware | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse |
 | D23 | open | todo | 3D on the GPU | Pi: V3D draws the 3D. RGB30: Mali-G52 present but the 3D is on the ARM | Mali driver |
-| D24 | open | todo | Overbit .b16 and Mali benchmark | Pi: -. RGB30: not done | Overbit in .b16 on the RGB30 |
 | D25 | accepted | todo | multicore, fibers | Pi: -. RGB30: RGB30 uses one core; fibers in the menu only | later |
 | D26 | untested | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
 | D27 | accepted | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |

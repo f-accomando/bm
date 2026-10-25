@@ -76,8 +76,10 @@ Special builds keep their own rules: the `.b16` made with `--from`, the Overbit 
   (`old place`).
 - `Ctrl+B` builds the game from a project in `/bme` into the games folder: `/carts` on the Pi, `/bm` on the RGB30
   (`bm_games_dir()`). An old project next to its game builds next to it, as before.
-- The Pi menu scans `/`, `/carts`, `/bm` and `/bme`. The RGB30 menu scans `/bm` and `/carts`. No menu tab lists a project on either kernel
-  (user decision 21 Oct 2026, D44): the editors open the projects. `/carts` stays as it is.
+- Decision of 25 Oct 2026: both kernels stop scanning `/carts`. The games folder is `/bm`. The code change is to do (`carts.c`, `src/rgb30/ui.c`).
+  Until then the Pi menu scans `/`, `/carts`, `/bm` and `/bme`, and the RGB30 menu scans `/bm` and `/carts`.
+  No menu tab lists a project on either kernel (user decision 21 Oct 2026, D44): the editors open the projects.
+  `/glb` and `/bmm` move to APP-9.
 
 ## File names the system writes
 
