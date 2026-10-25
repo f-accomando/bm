@@ -16,6 +16,7 @@ and the test plan. It does not change the kernel API.
   sends no data.
 - `docs/progress/tools.md`, "Web player mock": React has no SRI. The 24 PNG previews are placeholders. A
   licence policy for real assets is open.
+- `docs/design/bm-site.md` is the design note of the site that will host this player and the downloads.
 - `docs/design/web-browser-cart.md` (bm Web) is a different feature: it is a browser that runs *on* bm. It
   does not run bm in a browser.
 

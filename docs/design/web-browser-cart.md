@@ -317,3 +317,5 @@ The decision of section 1 ("no JavaScript engine") is replaced: the cart runs pa
 | Page world (`jsdom.lua`) | `window`, `document`, elements (tree, attributes, `style`, `classList`, `innerHTML`), events with bubbling, timers, `localStorage` in memory, `location`, `history`, `IntersectionObserver` (reports at once). No network. |
 
 A page with scripts is built as a whole tree (no streaming), the scripts run on it in document order, and the layout comes after. A change from a timer or an event lays the page out again (at most every 0.25 s). Page speed on the Pi Zero W is `not measured`.
+
+See also: [bm-site.md](bm-site.md), the design note of the site that bm Web must be able to reach (limits and rules for its authors).
