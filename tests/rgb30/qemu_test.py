@@ -2117,9 +2117,22 @@ def test_sound(b, opts):
         assert "audio: QEMU sink, 48 kHz" in out, out
         time.sleep(0.5)
         full = tone()
-        for _ in range(5):
-            keys(q, "-", pause=0.15)            # the volume key, five times
-        q.expect("volume: 5 / 10", timeout=5)
+        # the volume key, five times; each step waits for its printed level. A key
+        # sent while the previous one is still held (PAD_SERIAL_MS, 120 ms) or
+        # between two polls of a loaded guest makes no edge and is lost (6 busy
+        # loops on the host: 4 of 5 steps), so a missing level sends the key again
+        # (a lost key changed nothing: the retry cannot count twice).
+        for level in range(9, 4, -1):
+            for _ in range(5):
+                q.send("-")
+                try:
+                    q.expect(f"volume: {level} / 10", timeout=2)
+                    break
+                except AssertionError:
+                    time.sleep(0.2)             # let the hold end: the next key is an edge
+            else:
+                raise AssertionError(f"the volume did not reach {level} / 10:\n" + q.buf.decode(errors="replace"))
+            time.sleep(0.2)
         text = screen_all(q.screendump())
         assert "Volume" in text and "5 / 10" in text, text      # the bar over the menu
         time.sleep(2.5)                         # the keys at rest: saved
