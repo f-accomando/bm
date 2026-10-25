@@ -20,8 +20,9 @@ the finished cartridge stay on the user's machine and SD card.
 ## Rules (do not break)
 
 - Keep the ROM, `*.sfc`, `*.smc`, and `carts/smw/{rom,extracted}/` out of git.
-- Do not upload the cartridge to the Market. Do not put Nintendo assets in the repository,
-  in a PDF, or in a manual.
+- Do not upload the cartridge to the Market. Do not put Nintendo assets in the repository.
+  The PDF guide of the user uses real screenshots as a personal reference
+  (`tests/smw/guide_shots.py --real`, into `carts/smw/extracted/shots/`). Keep that PDF out of git.
 - Start each change from the `.bme`. Build the `.b16` from it (RGB30 edition, 360x360).
 - Measure the fidelity of the physics against the emulator trace, frame by frame.
 
@@ -40,7 +41,7 @@ the finished cartridge stay on the user's machine and SD card.
 - Measure the frame time on the RGB30. The host run takes 0.04 ms a frame.
 - Write the PDF guide (EN and IT, with `bm-manuals`): how the `.bme` is built, which APIs it
   uses, the game structure, and the asset pipeline. Use original diagrams and code excerpts
-  only. Do not include extracted images.
+  and the real screenshots of the user, for personal use. Do not commit that PDF.
 - Run `python scripts/consistency.py check` at closure.
 
 ## Guide edition
@@ -53,6 +54,7 @@ the finished cartridge stay on the user's machine and SD card.
   output. It builds `build/smw-guide/guide.b16`.
 - `tests/smw/guide_shots.py` plays input scripts in `bmhost` and writes
   `manuals/shots/smw-guide-NN-name.png`. Use these images in the PDF guide. The real build
-  (`carts/smw/build/build.py`) stays for the benchmark.
+  (`carts/smw/build/build.py`) stays for the benchmark. `--real` writes the real screenshots
+  of the same scenes to `carts/smw/extracted/shots/` (ignored by git).
 - Open: restyle Mario's real sprites the same way when they are captured. The two-tone bush
   becomes one green.
