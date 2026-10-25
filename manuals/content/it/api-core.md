@@ -150,7 +150,9 @@ Tutto ciò che sta sullo schermo: forme, testo, sprite e mappa di tile.
 | `screen(w, h)` | imposta la risoluzione della cartuccia dal fotogramma successivo: `true`, oppure `false` se non è una delle dimensioni qui sotto |
 | `screen()` | restituisce larghezza e altezza di adesso |
 | `screen(i)` | restituisce la i-esima dimensione della lista (da 1), oppure `nil`. Su RGB30 (schermo quadrato) la lista è 360×360, 720×720 e 720×405 (16:9, centrata, con barre nere) |
-| `safe_area()` | restituisce `x, y, w, h`: la parte dello schermo che ha le proporzioni della dimensione nell'header della cartuccia, al centro (un gioco 360×360 su 640×360 dà `140, 0, 360, 360`). Disponi l'HUD lì dentro |
+| `screen_modes()` | restituisce le dimensioni che `screen()` accetta su questo dispositivo come tabella `{ {w, h}, ... }` (nell'ordine di `screen(i)`), e l'indice di quella attuale (`nil` se la dimensione non è nessuna) |
+| `function _screen(w, h)` | un hook: se la definisci, il runtime la chiama una volta prima di `_init` con la prima dimensione, e all'inizio di ogni fotogramma che segue un cambio di dimensione. Disponi l'HUD qui |
+| `safe_area()` | restituisce `x, y, w, h, dw, dh`: la parte dello schermo che ha le proporzioni della dimensione nell'header della cartuccia, al centro (un gioco 360×360 su 640×360 dà `140, 0, 360, 360`). Disponi l'HUD lì dentro. `dw, dh` sono la dimensione dell'header |
 | `aspect()` | restituisce larghezza divisa per altezza dello schermo, e `"wide"`, `"square"` oppure `"tall"` |
 | `pset(x, y, c)` | scrive un pixel |
 | `pget(x, y)` | legge un pixel: `0xRRGGBB`, oppure `nil` fuori dallo schermo |

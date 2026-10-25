@@ -380,6 +380,17 @@ end
 | `C:map([layer, mask])` | le celle della mappa che si vedono |
 | `C:sees(x, y, [w, h])` / `C:screen(x, y, [view])` | il rettangolo si vede / dove si trova sullo schermo (nella vista) un punto del mondo |
 
+# bmlib: un gioco, tanti schermi
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.view()` | una tabella `{x, y, w, h, scale, wide, square, tall}`. `x, y, w, h` sono l'area sicura. `scale` è quanti pixel di schermo occupa un pixel di progetto (`1.0` sulla dimensione di progetto). `wide`, `square`, `tall`: la forma dello schermo, una è `true` |
+| `lib.anchor(where, w, h, [mx, my])` | `x, y` di un elemento `w` per `h` in `"tl"` `"t"` `"tr"` `"l"` `"c"` `"r"` `"bl"` `"b"` `"br"` dell'area sicura, con margini `mx, my` (0) dai bordi che tocca |
+| `lib.safe_clip()` | `clip()` sull'area sicura; restituisce `x, y, w, h` |
+| `lib.fit(dw, dh)` | `scale, x, y` per disegnare intero, al centro dell'area sicura, uno strato fatto per `dw` per `dh` |
+
+Chiamale in `_draw` o in `_screen(w, h)`, non una sola volta al caricamento: `screen()` può cambiare la dimensione.
+
 # bmlib: stati di gioco
 
 `lib.states(defs, [first, ...])`: titolo, partita, pausa, game over come tabelle `{enter, update, draw, exit}`; ogni funzione riceve la sua tabella (`function play:update()`), che ha `t` (i secondi passati nello stato) e `name`.

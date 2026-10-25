@@ -191,3 +191,35 @@ status = "implemented"
 platforms = "all"
 where = ["src/fs/fat.c", "src/bm/project.c", "src/bm/shot.c", "src/bm/webpolicy.c", "src/kernel/reports.c", "src/kernel/sdlog.c", "src/kernel/b3dpi.c", "src/rgb30/b3d_rgb30.c", "src/script/bmui.lua", "docs/PROJECT-LAYOUT.md"]
 note = "The system writes lowercase names and extensions; reads are case-insensitive. The FAT driver sets the NT lowercase flags (byte 12, 0x08 base, 0x10 extension) of the 8.3 entry; every writer builds a lowercase name (config.txt, bootlog.txt, rptNNNNN.txt, 3dNNNN.txt, shots, bmv, sav, prt, /bme/name.bme, .bm, .b16). Old files in capitals are read and replaced in place, never renamed. Tested by host test_fat (flags, lookup in any case, fsck.vfat and mtools) and the QEMU tests. Not verified on real cards in Windows, Linux and the console"
+
+[[item]]
+id = "api-screen-modes"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md", "tests/host/layout.lua"]
+note = "screen_modes() returns the list of {w, h} modes that screen() takes on this device and the index of the current one. Tested by make test-layout (bmhost and bmhost --square). Not tried on a Pi or an RGB30"
+
+[[item]]
+id = "hook-screen"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md", "tests/host/layout.lua"]
+note = "The hook _screen(w, h): the runtime calls it once before _init with the first mode and once at the start of the frame that follows a size change. Tested by make test-layout. Not tried on a Pi or an RGB30"
+
+[[item]]
+id = "api-safe-area-design"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md"]
+note = "safe_area() returns two more values, the design size dw, dh (the header size). Code that reads four values is not affected"
+
+[[item]]
+id = "lib-view"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/script/bmlib.lua", "docs/api/bmlib.md", "tests/host/layout.lua"]
+note = "lib.view(), lib.anchor(), lib.safe_clip() and lib.fit(): the safe area as a table, the nine places in it, clip to it, and the fit of a layer made for another size. Tested by make test-layout"

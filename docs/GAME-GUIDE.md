@@ -930,6 +930,34 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 - **Do not write again what is there:** before writing a helper function look in bmlib
   (chapter 11); the assistant (F6) knows it.
 
+### One game, many screens
+
+One `.bm` can run on a TV (16:9) and on the RGB30 (a square panel). Do this:
+
+- **Set the design size in the header** (`--res 640x360`, or the size of your art). It is the size your game draws at. `SCREEN_W` and `SCREEN_H` start at this size.
+- **Let the kernel add the bars.** If the screen has another aspect, the kernel shows your page in the middle with black bars. You do not draw the bars.
+- **Keep the HUD in the safe area.** `safe_area()` gives `x, y, w, h, dw, dh`: the part of the screen with the aspect of your design. `lib.view()` gives the same as a table with `scale` (screen pixels of one design pixel) and `wide`, `square`, `tall`.
+- **Place the HUD with `lib.anchor`.** `lib.anchor("tr", 64, 16, 4, 4)` gives `x, y` of a 64 by 16 element at the top right of the safe area, 4 pixels from the edges. The places are `tl t tr l c r bl b br`. `lib.safe_clip()` limits the drawing to the safe area. `lib.fit(dw, dh)` gives `scale, x, y` for a layer made for another size.
+- **Lay out again in `_screen(w, h)`.** If you define this function, the runtime calls it once before `_init` and once at the start of each frame that follows a size change. Put the code that depends on the size in it. Do not read `SCREEN_W` once at load.
+- **Offer the sizes with `screen_modes()`.** It returns the `{w, h}` modes of this device and the index of the current one. Call `screen(i)` or `screen(w, h)` to change.
+
+```lua
+local lib = require "bmlib"
+local hud = {}
+
+function _screen(w, h)                    -- first mode, then after each screen()
+  hud.x, hud.y = lib.anchor("tr", 64, 16, 4, 4)
+end
+
+function _draw()
+  cls(0)
+  -- ... the game, drawn in the safe area
+  print("SCORE", hud.x, hud.y, 0xFFFFFF)
+end
+```
+
+Two header fields say where the game is made to run. `targets` lists the devices (`--targets pi,rgb30`). `aspect` lists the shapes (`--aspect wide,square,any,safe_area`; `safe_area` says the game uses `safe_area()`). The same keys exist in `bm.info` of a `.bme`. A cartridge that is not made for the device is shown **grey** in the menu with the reason. It is not hidden and not blocked: the kernel asks for a confirm before it starts. See `docs/BM-FORMAT.md` for the bytes.
+
 ## 16. Examples to start from
 
 | Game | What it shows |

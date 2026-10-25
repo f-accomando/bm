@@ -150,7 +150,9 @@ Everything on the screen: shapes, text, sprites and the tile map.
 | `screen(w, h)` | sets the cartridge's resolution from the next frame: `true`, or `false` if it is not one of the sizes below |
 | `screen()` | returns the width and height now |
 | `screen(i)` | returns the i-th size of the list (from 1), or `nil`. On the RGB30 (a square panel) the list is 360×360, 720×720 and 720×405 (16:9, centred, with black bars) |
-| `safe_area()` | returns `x, y, w, h`: the part of the screen that has the aspect of the cartridge's header size, in the middle (a 360×360 game on 640×360 gives `140, 0, 360, 360`). Lay the HUD out in it |
+| `screen_modes()` | returns the sizes `screen()` takes on this device as a table `{ {w, h}, ... }` (in the order of `screen(i)`), and the index of the current one (`nil` if the size is none of them) |
+| `function _screen(w, h)` | a hook: if you define it, the runtime calls it once before `_init` with the first size, and at the start of each frame that follows a size change. Lay the HUD out here |
+| `safe_area()` | returns `x, y, w, h, dw, dh`: the part of the screen that has the aspect of the cartridge's header size, in the middle (a 360×360 game on 640×360 gives `140, 0, 360, 360`). Lay the HUD out in it. `dw, dh` are the header size |
 | `aspect()` | returns the screen's width divided by its height, and `"wide"`, `"square"` or `"tall"` |
 | `pset(x, y, c)` | writes a pixel |
 | `pget(x, y)` | reads a pixel: `0xRRGGBB`, or `nil` off screen |

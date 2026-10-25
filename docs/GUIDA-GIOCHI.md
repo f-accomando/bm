@@ -856,6 +856,34 @@ con `BMHOST_NET_ID=0` e `1` sono due console (`make test-bmnet`).
 - **Non riscrivere quello che c'è:** prima di scrivere una funzione di utilità guarda in
   bmlib (capitolo 11); l'assistente (F6) la conosce.
 
+### Un gioco, tanti schermi
+
+Un solo `.bm` può girare su una TV (16:9) e sull'RGB30 (pannello quadrato). Fai così:
+
+- **Scrivi la dimensione di progetto nell'header** (`--res 640x360`, o la dimensione della tua grafica). È la dimensione a cui disegna il gioco. `SCREEN_W` e `SCREEN_H` partono da questa dimensione.
+- **Lascia le barre al kernel.** Se lo schermo ha un'altra proporzione, il kernel mostra la pagina al centro con barre nere. Non disegni le barre.
+- **Tieni l'HUD nell'area sicura.** `safe_area()` dà `x, y, w, h, dw, dh`: la parte dello schermo con le proporzioni del progetto. `lib.view()` dà lo stesso come tabella, con `scale` (pixel di schermo per un pixel di progetto) e `wide`, `square`, `tall`.
+- **Posiziona l'HUD con `lib.anchor`.** `lib.anchor("tr", 64, 16, 4, 4)` dà `x, y` di un elemento 64 per 16 in alto a destra nell'area sicura, a 4 pixel dai bordi. I posti sono `tl t tr l c r bl b br`. `lib.safe_clip()` limita il disegno all'area sicura. `lib.fit(dw, dh)` dà `scale, x, y` per uno strato fatto per un'altra dimensione.
+- **Rifai il layout in `_screen(w, h)`.** Se definisci questa funzione, il runtime la chiama una volta prima di `_init` e una volta all'inizio di ogni frame che segue un cambio di dimensione. Metti qui il codice che dipende dalla dimensione. Non leggere `SCREEN_W` una sola volta al caricamento.
+- **Offri le dimensioni con `screen_modes()`.** Restituisce le modalità `{w, h}` di questo dispositivo e l'indice di quella attuale. Chiama `screen(i)` o `screen(w, h)` per cambiare.
+
+```lua
+local lib = require "bmlib"
+local hud = {}
+
+function _screen(w, h)                    -- prima modalità, poi dopo ogni screen()
+  hud.x, hud.y = lib.anchor("tr", 64, 16, 4, 4)
+end
+
+function _draw()
+  cls(0)
+  -- ... il gioco, disegnato nell'area sicura
+  print("SCORE", hud.x, hud.y, 0xFFFFFF)
+end
+```
+
+Due campi dell'header dicono dove il gioco è fatto per girare. `targets` elenca i dispositivi (`--targets pi,rgb30`). `aspect` elenca le forme (`--aspect wide,square,any,safe_area`; `safe_area` dice che il gioco usa `safe_area()`). Le stesse chiavi esistono in `bm.info` di un `.bme`. Una cartuccia non fatta per il dispositivo appare **grigia** nel menu con il motivo. Non è nascosta e non è bloccata: il kernel chiede una conferma prima di avviarla. I byte sono in `docs/BM-FORMAT.md`.
+
 ## 16. Esempi da cui partire
 
 | Gioco | Cosa mostra |
