@@ -8,7 +8,7 @@ local START_X, START_Y = 16, 352
 
 local level_w
 local mario, prev, acc
-local spawn_koopas                    -- defined with the Koopas, below
+local spawn_foes                      -- defined with the enemies, below
 local coins, score, dragons = 0, 0, 0
 local eggs = {}                           -- eggs from the 0x126 block: {cx, cy, t}; Yoshi hatches from them
 local state = "play"                      -- play, dying, clear, over
@@ -93,16 +93,18 @@ local function pick_coins()
   end
 end
 
+-- ---- Enemies: a list of tables with a kind; FOE[kind] says how each one steps, which zone it shows and what a stomp does.
 -- ---- Koopa Troopas (sprite 05). Speeds in 1/16 pixel a tick, as the game keeps them: it walks at 8 and
 -- turns at a wall and at the end of a ledge (they are red), a kicked shell slides fast, a stomped one sleeps
 -- for 330 ticks. Zones koopa_l, koopa_r, koopa_turn, shell and shell_slide, with their boxes (scripts/smw_enemies.py).
-local koopas = {}
+local foes = {}
+local FOE = {}
 local H = lib.hits()                           -- the boxes of a tick, and who hits whom
 
-spawn_koopas = function()
-  koopas = {}
+spawn_foes = function()
+  foes = {}
   for _, k in ipairs(KOOPAS) do
-    koopas[#koopas + 1] = { x = k[1], y = k[2], w = 16, h = 16, vx = k[4] == 1 and 0 or (k[3] == 1 and -8 or 8), vy = 0,
+    foes[#foes + 1] = { kind = "koopa", x = k[1], y = k[2], w = 16, h = 16, vx = k[4] == 1 and 0 or (k[3] == 1 and -8 or 8), vy = 0,
                             face = k[3] == 1 and -1 or 1, state = k[4] == 1 and "shell" or "walk", t = 0, turn = 0 }
   end
 end
@@ -142,6 +144,16 @@ local function koopa_zone(k)               -- zone, frame, flip_x, flip_y
   return (k.face < 0 and "koopa_l" or "koopa_r"), (k.t // 8) % 2 + 1, false, false
 end
 
+local function koopa_stomp(k)
+  if k.state == "walk" or k.state == "slide" then k.state, k.t, k.vx = "shell", 0, 0
+  elseif k.state == "shell" then k.state, k.vx = "slide", (mario.x + 8 < k.x + 8) and 60 or -60 end
+end
+
+FOE.koopa = { step = koopa_step, zone = koopa_zone, stomp = koopa_stomp }
+
+local function foe_step(k) FOE[k.kind].step(k) end
+local function foe_zone(k) return FOE[k.kind].zone(k) end
+
 -- The goal tape (sprite 0x7B) goes up one pixel a tick from y 368 to 244 and down again (248 ticks a cycle).
 -- Measured with Mario held away from it, scripts/smw_goal.py.
 local function tape_y(t)
@@ -156,7 +168,7 @@ restart_level = function()
     set16(c[1], c[2], M16[L0[c[2] + 1][c[1] + 1]] or { 0, 0, 0, 0 })
   end
   changed, bumping, pops, eggs = {}, {}, {}, {}
-  spawn_koopas()
+  spawn_foes()
   mario = Phys.new(START_X, START_Y)
   prev = { x = mario.x, y = mario.y }
   acc, tape_t, time_left, time_acc, st_t = 0, 0, 400, 0, 0
@@ -248,10 +260,10 @@ local function play_tick(inp)
       end
     end
   end
-  for _, k in ipairs(koopas) do
-    if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then koopa_step(k) end
+  for _, k in ipairs(foes) do
+    if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then foe_step(k) end
     if k.state ~= "dead" and k.x > cam_l - 16 and k.x < cam_l + VIEW_W + 16 then
-      local zn, fr = koopa_zone(k)
+      local zn, fr = foe_zone(k)
       H:zone(k, zn, fr, math.floor(k.x) + ZA[zn][1], math.floor(k.y) + ZA[zn][2], false,
              { team = k.state == "slide" and "s" or "e", attack = { kind = k.state } })
     end
@@ -263,12 +275,11 @@ local function play_tick(inp)
       local k = c.to
       if c.hit.kind == "stomp" and mario.vy > 0 and not stomped[k] then
         stomped[k] = true
-        if k.state == "walk" or k.state == "slide" then k.state, k.t, k.vx = "shell", 0, 0
-        elseif k.state == "shell" then k.state, k.vx = "slide", (mario.x + 8 < k.x + 8) and 60 or -60 end
+        FOE[k.kind].stomp(k)
         mario.vy = last_inp.jump and -88 or -48
         mario.ground = false
         score = score + 100
-      elseif c.hit.kind == "touch" and k.state == "shell" and not stomped[k] then
+      elseif c.hit.kind == "touch" and k.kind == "koopa" and k.state == "shell" and not stomped[k] then
         stomped[k] = true
         k.state, k.vx, k.t = "slide", (mario.x + 8 < k.x + 8) and 60 or -60, 0
       end
@@ -282,7 +293,7 @@ local function play_tick(inp)
         if k.state == "walk" or (k.state == "slide" and k.t >= 8 and (k.vx > 0) == (mario.x + 8 > k.x + 8)) then
           die()                                                    -- small Mario has no second chance
         end
-      elseif c.to ~= mario and k.state == "slide" and c.to.state == "walk" then
+      elseif c.to ~= mario and k.state == "slide" and c.to.kind == "koopa" and c.to.state == "walk" then
         c.to.state, c.to.vy = "dead", -40
         score = score + 200
       end
@@ -326,7 +337,7 @@ local function tick(inp)
       mario.vy = math.min(mario.vy + Phys.GRAV_HOLD, Phys.FALL_MAX)
       mario.y = mario.y + mario.vy / 16 * Phys.KY
     end
-    for _, k in ipairs(koopas) do koopa_step(k) end
+    for _, k in ipairs(foes) do foe_step(k) end
     if st_t > 130 then
       lives = lives - 1
       if lives <= 0 then state, st_t = "over", 0 else restart_level() end
@@ -389,9 +400,9 @@ function _draw()
     end
     zspr(zn, VX + x0 - camx, VY + y - camy, fr)
   end
-  for _, k in ipairs(koopas) do
+  for _, k in ipairs(foes) do
     if k.y < LEVEL_H + 32 then
-      local zn, fr, fx, fy = koopa_zone(k)
+      local zn, fr, fx, fy = foe_zone(k)
       zspr(zn, VX + math.floor(k.x) + ZA[zn][1] - camx, VY + math.floor(k.y) + ZA[zn][2] - camy, fr, fx, fy)
     end
   end
