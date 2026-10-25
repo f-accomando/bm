@@ -1,0 +1,52 @@
+bm report
+kind: session
+kernel: v0.2.5-1667-g4e3466bb
+branch: claude/rgb30-hw-results-25oct
+board: RGB30
+date: 2026-10-25 13:57:13
+file: session_yharnam_rgb30.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+options bm3d 7.7 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 6588 frames in 114.5 s, 57.4 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 10.2 ms, max 1050.5 ms, 25 frames over 16.7 ms
+memory: Lua peak 4104 KB, data 41256 KB; code 101869 tokens; busiest frame 1617k Lua instructions
+frames that were shown after more than 1.5 frames: 27
+the game says: on the spot 8
+the game says: in time 0
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    6561
+  <= 25 ms             0
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  26
+
+the frame in its parts (as the overlay, 6587 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.3    2%
+  draw (no 3D)    16.7  100%
+  3D calls         0.0    0%
+  audio            0.1    0%
+  GPU wait         0.0    0%
+  all             17.2  103%
+audio interrupt: 0.9% of the CPU's time (mean), 0.9% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+   1146    20.8  1067.2 1050.5   0.2 1050.2   0.0   1.3    15.3       13     2078        1
+   3498    61.6   266.8    8.5   0.3    8.2   0.0   1.3   256.9       13     2102        1
+   3523    62.2   216.7    8.7   0.3    8.3   0.0   1.3   206.7       13     2145        1
+   1616    28.9   150.0  133.0   0.3  132.7   0.0   1.3    15.6       14     2098        1
+   6315   110.3   150.0  136.5   0.3  136.2   0.0   1.3    12.2       14     2096        1
+   6550   114.4   150.0  136.7   0.2  136.4   0.0   1.3    12.0       13     2096        1
+   1852    32.9   150.0  136.3   0.3  136.0   0.0   1.3    12.4       13     2097        1
+   2556    45.1   150.0  135.1   0.3  134.8   0.0   1.2    13.6       14     2099        1
+   2790    49.1   150.0  136.8   0.3  136.5   0.0   1.3    11.8       14     2097        1
+   3026    53.2   150.0  136.0   0.3  135.6   0.0   1.2    12.7       14     2100        1
+   3260    57.2   150.0  134.1   0.3  133.8   0.0   1.2    14.6       14     2097        1
+   3496    61.3   150.0  135.8   0.3  135.5   0.0   1.3    12.9       14     2098        1
