@@ -29,6 +29,9 @@ the finished cartridge stay on the user's machine and SD card.
   the same state, once with the sprite's slot cleared, and keeps the pixels that differ. Used for the jumping
   plant (4F), the Chargin' Chuck (91), the P switch (3E), the flowers and tufts (4E, 4D), and the message block
   (B9). The sprite table and the graphics of a savestate do not always match the screen (dynamic graphics).
+- `scripts/smw_msgs.py`: bumps each message block and keeps the black box with its text (msg1: the spin jump
+  tip; msg2: Yoshi's thanks). The game shows it as zones `msgN_a` and `msgN_b` (128 pixels at most a zone) and
+  waits for A, B or Start.
 - `scripts/smw_items.py`: bumps a block kind and records the sprites that appear. 0x126 gives an egg
   (sprite 0x2C, 58 ticks) that hatches into Yoshi (0x35); 0x11A gives a growing vine (0x79).
 - `scripts/smw_solid.py`: tests every Map16 number for solidity from above, the side, and below.
@@ -75,8 +78,9 @@ the finished cartridge stay on the user's machine and SD card.
 - Mario's own collision stays in `physics.lua` (it matches the traces). The Koopas use `lib.move`;
   the map uses `lib.tiles` and `lib.solid`.
 - Note: `mkbm.py` warns `require: not for a .b16` for `require "bmlib"`. The runtime has it.
-- Open: what the message blocks say (hit from below), the P switch (stomp: coins turn to blocks, the timer), the
-  vine, the Chuck's other moves (hops, the clap, the slide when hit), the shell sprites 00 and 04 of the level.
+- Done: the messages, the spin jump that breaks turn blocks (four pieces fly), the blue P switch (stomp: it goes
+  flat, a puff; for 704 ticks turn blocks are coins and coins are turn blocks, then they go back).
+- Open: the vine, the Chuck's other moves (hops, the clap, the slide when hit), the shell sprites 00 and 04 of the level.
 - Open: riding Yoshi (poses and eating), the vine of 0x11A (growth and climbing poses), big Mario,
   power-ups, the turn block breaking when Mario is big.
 - Done: the goal tape and the course clear banner, 5 lives, the clock, death (hop and fall), game over,

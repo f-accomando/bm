@@ -74,7 +74,20 @@ def pack_zones(ex, tiles_png, out_png, out_txt, restyle=None):
     zones.append(("chuck_hurt", 32, 48, chuck(["cf1110af", "24bca37b", "49d7cc10"]), (-8, -16), ["hurt * 8 16 16 8"]))
     zones.append(("chuck_wait", 32, 48, chuck(["ee58e211", "ae3248ae"]), (-8, -16), cboxes))
     zones.append(("msg", 24, 16, [dpic("B9", k) for k in ("35de3170", "00414886")], (0, 0), []))
-    zones.append(("pswitch", 24, 16, [dpic("3E", "93ac4b17")], (0, 0), []))
+    zones.append(("pswitch", 24, 16, [dpic("3E", "93ac4b17")], (0, 0), ["hurt * 4 0 16 8"]))
+    ps = json.load(open(ex + "/pswitch/pics.json"))
+    ld = lambda e: (Image.open(ex + "/pswitch/" + e["file"]).convert("RGBA"), e["ox"], e["oy"])
+    zones.append(("pswitch_flat", 24, 16, [ld(ps["flat"])], (0, 0), []))          # after the stomp, then a puff
+    zones.append(("puff", 24, 16, [ld(e) for e in ps["puff"]], (0, 0), []))
+    msgpos = []                                   # the messages: pictures of the box, cut in pieces of at most 128 wide
+    msgs = json.load(open(ex + "/msgs.json"))
+    for n in sorted(msgs, key=int):
+        im = Image.open(ex + "/msg%s.png" % n).convert("RGBA")
+        m = msgs[n]
+        msgpos.append("{ %d, %d, %d, %d, %d }" % (m["x"], m["y"], m["w"], m["h"], int(n)))
+        for part, x0 in enumerate(range(0, im.width, 128)):
+            piece = im.crop((x0, 0, min(im.width, x0 + 128), im.height))
+            zones.append(("msg%s_%s" % (n, "ab"[part]), piece.width, (piece.height + 7) // 8 * 8, [(piece, 0, 0)], (0, 0), []))
 
     items = json.load(open(ex + "/items.json"))
     for name, pics in (("egg", EGG), ("yoshi", YOSHI)):
@@ -119,7 +132,8 @@ def pack_zones(ex, tiles_png, out_png, out_txt, restyle=None):
     chucks = sorted({(s["x"], s["y"]) for s in spawns if s["id"] == 0x91})
     rows = [r.split(",") for r in open(ex + "/enemies/states.csv").read().splitlines()[1:]]
     path = [int(r[5]) for r in rows if int(r[2]) == 0x4F]               # its y, a tick at a time, going up
-    plant_lua = "local CHUCKS = { %s }\n" % ", ".join("{ %d, %d }" % c for c in chucks)
+    plant_lua = "local MSGPOS = { %s }\n" % ", ".join(msgpos)
+    plant_lua += "local CHUCKS = { %s }\n" % ", ".join("{ %d, %d }" % c for c in chucks)
     plant_lua += "local PLANT_AT = { %s }\nlocal PLANT_PATH = { %s }\n" % (
         ", ".join("{ %d, %d }" % p for p in plants), ", ".join(str(y) for y in path))
     fixed = [(s["id"], s["x"], s["y"]) for s in spawns if s["id"] in (0xB9, 0x3E)]

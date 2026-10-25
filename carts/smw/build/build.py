@@ -34,16 +34,17 @@ def backdrop(ex):
     return (r << 16) | (g << 8) | b
 
 
-def block_data(defs, level):
+def block_data(defs, level, col):
     """Lua tables for the blocks: the Map16 grid, the used block and the coin. The kinds come from
     scripts/smw_blocks.py: 0x124 gives a coin, 0x126 a Yoshi egg, 0x11A a vine, 0x11E is a turn block."""
     rows = ",\n".join("{" + ",".join(map(str, r)) + "}" for r in level)
-    ids = sorted({k for r in level for k in r})
+    ids = sorted({k for r in level for k in r} | {0x02B, 0x11E, 0x25})
+    colcell = ",".join("[%d]=%d" % (k, (0, col, col + 1)[kind(k)]) for k in ids)
     m16 = ",".join("[%d]={%s}" % (k, ",".join(map(str, defs.get(k, (0, 0, 0, 0))))) for k in ids)
-    return ("local M16 = {%s}\nlocal L16 = {\n%s\n}\nlocal USED = {%s}\nlocal COIN16 = {%s}\n"
+    return ("local COLCELL = {%s}\nlocal M16 = {%s}\nlocal L16 = {\n%s\n}\nlocal USED = {%s}\nlocal COIN16 = {%s}\n"
             "local KIND = { [0x124] = 'coin', [0x126] = 'egg', [0x11A] = 'vine', [0x11E] = 'turn' }\n"
             "local COINS = { [0x02B] = true }\nlocal DRAGON_TOP, DRAGON_BOT = 0x02D, 0x02E       -- a dragon coin is two Map16 blocks, one above the other\n" % (
-                m16, rows, ",".join(map(str, defs.get(0x132, (0, 0, 0, 0)))), ",".join(map(str, defs.get(0x02B, (0, 0, 0, 0))))))
+                colcell, m16, rows, ",".join(map(str, defs.get(0x132, (0, 0, 0, 0)))), ",".join(map(str, defs.get(0x02B, (0, 0, 0, 0))))))
 
 
 def main():
@@ -72,7 +73,7 @@ def main():
     open(out + "/flags.csv", "w").write("%d=1\n%d=2\n" % (col, col + 1))
     sheet_png = out + "/sheet.png"
     poses_lua = pack_zones(ex, ex + "/sheet.png", sheet_png, out + "/sprites.txt")
-    lua = poses_lua + block_data(defs, level) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
+    lua = poses_lua + block_data(defs, level, col) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % backdrop(ex))
     if os.environ.get("SMW_START"):         # a test start, "x,y": the shots of a block or an enemy without the walk
         lua = lua.replace("local START_X, START_Y = 16, 352", "local START_X, START_Y = " + os.environ["SMW_START"])

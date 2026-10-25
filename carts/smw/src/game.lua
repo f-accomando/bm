@@ -14,6 +14,10 @@ local eggs = {}                           -- eggs from the 0x126 block: {cx, cy,
 local state = "play"                      -- play, dying, clear, over
 local lives, time_left, time_acc = 5, 400, 0
 local gtick = 0                           -- ticks since the start, for the decorations
+local msg_i, msg_t = 1, 0                 -- the message being read (state "msg")
+local psw_t = 0                           -- ticks left of the blue P switch: coins are blocks and blocks are coins
+local swapped = {}                        -- cells the switch turned: {cx, cy, from, to}
+local bits = {}                           -- the pieces of a broken block: {x, y, vx, vy, cell}
 local st_t = 0                            -- ticks since the state began
 local tape_t = 0
 local changed = {}                        -- level cells the player changed: {cx, cy}, put back on a restart
@@ -42,6 +46,43 @@ local function set16(cx, cy, d)           -- a Map16 block is four 8x8 cells: TL
   mset(cx * 2, cy * 2 + 1, d[2], "main")
   mset(cx * 2 + 1, cy * 2, d[3], "main")
   mset(cx * 2 + 1, cy * 2 + 1, d[4], "main")
+end
+
+local function set_col(cx, cy, id)                -- the collision layer of a Map16 block (solid, platform or nothing)
+  local c = COLCELL[id] or 0
+  mset(cx * 2, cy * 2, c, "col")
+  mset(cx * 2, cy * 2 + 1, c, "col")
+  mset(cx * 2 + 1, cy * 2, c, "col")
+  mset(cx * 2 + 1, cy * 2 + 1, c, "col")
+end
+
+local function put16(cx, cy, id)                   -- a block of the level changes to another one: the number, the picture, the walls
+  L16[cy + 1][cx + 1] = id
+  set16(cx, cy, M16[id] or { 0, 0, 0, 0 })
+  set_col(cx, cy, id)
+end
+
+-- The blue P switch turns the turn blocks (0x11E) into coins and the coins (0x02B) into turn blocks, for 704 ticks.
+local function swap_pswitch(on)
+  if on then
+    swapped = {}
+    for cy = 0, #L16 - 1 do
+      for cx = 0, #L16[1] - 1 do
+        local id = L16[cy + 1][cx + 1]
+        local to = (id == 0x11E and 0x02B) or (id == 0x02B and 0x11E) or nil
+        if to then
+          swapped[#swapped + 1] = { cx, cy, id, to }
+          changed[#changed + 1] = { cx, cy }
+          put16(cx, cy, to)
+        end
+      end
+    end
+  else
+    for _, c in ipairs(swapped) do
+      if L16[c[2] + 1][c[1] + 1] == c[4] then put16(c[1], c[2], c[3]) end    -- not taken or broken meanwhile
+    end
+    swapped = {}
+  end
 end
 
 local function draw16(d, x, y)
@@ -106,6 +147,9 @@ spawn_foes = function()
   foes = {}
   for _, c in ipairs(CHUCKS) do
     foes[#foes + 1] = { kind = "chuck", x = c[1], y = c[2], w = 16, h = 16, vx = 0, vy = 0, face = -1, hp = 3, state = "idle", t = 0, turn = 0 }
+  end
+  for _, m in ipairs(PSWITCHES) do
+    foes[#foes + 1] = { kind = "pswitch", x = m[1], y = m[2], w = 16, h = 16, vx = 0, vy = 0, face = 1, state = "idle", t = 0, turn = 0 }
   end
   for _, a in ipairs(PLANT_AT) do
     foes[#foes + 1] = { kind = "plant", x = a[1], y = PLANT_PATH[1], w = 24, h = 16, vx = 0, vy = 0, face = 1, state = "walk", t = 0, turn = 0 }
@@ -216,6 +260,24 @@ end
 FOE.chuck = { step = chuck_step, zone = chuck_zone, stomp = chuck_stomp,
               hurts = function(k) return k.state == "idle" or k.state == "charge" or k.state == "wait" end }
 
+-- The blue P switch (sprite 3E): stomp it and it goes flat, a puff, and the blocks and the coins change places.
+local function pswitch_zone(k)
+  if k.state == "idle" then return "pswitch", 1, false, false end
+  if k.t < 20 then return "pswitch_flat", 1, false, false end
+  return "puff", math.min(4, (k.t - 20) // 4 + 1), false, false
+end
+
+FOE.pswitch = {
+  step = function(k) k.t = k.t + 1; if k.state == "pressed" and k.t > 36 then k.state = "gone" end end,
+  zone = pswitch_zone,
+  stomp = function(k)
+    if k.state ~= "idle" then return end
+    k.state, k.t = "pressed", 0
+    psw_t = 704
+    swap_pswitch(true)
+  end,
+  hurts = function() return false end }
+
 local function foe_step(k) FOE[k.kind].step(k) end
 local function foe_zone(k) return FOE[k.kind].zone(k) end
 
@@ -229,10 +291,9 @@ end
 
 restart_level = function()
   for _, c in ipairs(changed) do
-    L16[c[2] + 1][c[1] + 1] = L0[c[2] + 1][c[1] + 1]
-    set16(c[1], c[2], M16[L0[c[2] + 1][c[1] + 1]] or { 0, 0, 0, 0 })
+    put16(c[1], c[2], L0[c[2] + 1][c[1] + 1])
   end
-  changed, bumping, pops, eggs = {}, {}, {}, {}
+  changed, bumping, pops, eggs, bits, swapped, psw_t = {}, {}, {}, {}, {}, {}, 0
   spawn_foes()
   mario = Phys.new(START_X, START_Y)
   prev = { x = mario.x, y = mario.y }
@@ -296,12 +357,40 @@ end
 
 local function play_tick(inp)
   prev.x, prev.y = mario.x, mario.y
-  local was_ground = mario.ground
+  local was_ground, vy0, spin0 = mario.ground, mario.vy, spinning
   Phys.step(mario, inp, solid, platform)
   if was_ground and not mario.ground and mario.vy < 0 then spinning = inp.spin end
   if state == "play" then
-    if mario.bump then hit_block(mario.bump.x // 16, mario.bump.y // 16) end
+    if mario.bump then
+      local bx, by = mario.bump.x, mario.bump.y
+      for i, m in ipairs(MSGS) do                       -- a message block: read it
+        if bx >= m[1] and bx < m[1] + 16 and by >= m[2] and by < m[2] + 16 then state, msg_i, msg_t = "msg", i, 0 end
+      end
+      if state == "play" then hit_block(bx // 16, by // 16) end
+    end
     pick_coins()
+    if spin0 and vy0 > 0 and mario.ground and not was_ground then       -- a spin jump lands on turn blocks: they break
+      local cy = (math.floor(mario.y) + 32) // 16
+      local broke = false
+      for cx = (math.floor(mario.x) + 2) // 16, (math.floor(mario.x) + 13) // 16 do
+        if L16[cy + 1] and L16[cy + 1][cx + 1] == 0x11E then
+          local d = M16[0x11E]
+          put16(cx, cy, 0x25)
+          changed[#changed + 1] = { cx, cy }
+          for _, pc in ipairs({ { d[1], 0, 0, -1.2, -4.2 }, { d[3], 8, 0, 1.2, -4.2 }, { d[2], 0, 8, -0.8, -2.6 }, { d[4], 8, 8, 0.8, -2.6 } }) do
+            bits[#bits + 1] = { cell = pc[1], x = cx * 16 + pc[2], y = cy * 16 + pc[3], vx = pc[4], vy = pc[5], t = 0 }
+          end
+          broke = true
+        end
+      end
+      if broke then mario.vy, mario.ground = -60, false; score = score + 50 end
+    end
+  end
+  for i = #bits, 1, -1 do                               -- the pieces fly and fall
+    local b = bits[i]
+    b.t, b.vy = b.t + 1, b.vy + 0.3
+    b.x, b.y = b.x + b.vx, b.y + b.vy
+    if b.t > 70 then table.remove(bits, i) end
   end
   for i = #bumping, 1, -1 do
     local b = bumping[i]
@@ -330,7 +419,7 @@ local function play_tick(inp)
   end
   for _, k in ipairs(foes) do
     if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then foe_step(k) end
-    if k.state ~= "dead" and k.x > cam_l - 16 and k.x < cam_l + VIEW_W + 16 then
+    if k.state ~= "dead" and k.state ~= "gone" and k.state ~= "pressed" and k.x > cam_l - 16 and k.x < cam_l + VIEW_W + 16 then
       local zn, fr = foe_zone(k)
       H:zone(k, zn, fr, math.floor(k.x) + ZA[zn][1], math.floor(k.y) + ZA[zn][2], false,
              { team = k.state == "slide" and "s" or "e", attack = { kind = k.state } })
@@ -382,8 +471,12 @@ local function tick(inp)
       time_left = time_left - 1
       if time_left <= 0 then die() end
     end
+    if psw_t > 0 then
+      psw_t = psw_t - 1
+      if psw_t == 0 then swap_pswitch(false) end
+    end
     play_tick(inp)
-    if mario.y > LEVEL_H + 32 then die() end
+    if state == "play" and mario.y > LEVEL_H + 32 then die() end
     -- the tape: Mario touches the bar and the course is clear
     local _, _, tw, th = zone("tape")
     local ty = tape_y(tape_t) + ZA.tape[2]
@@ -416,6 +509,11 @@ end
 
 function _update()
   if btnp("select") then bench = not bench end
+  if state == "msg" then
+    msg_t = msg_t + 1
+    if msg_t > 20 and (btnp("a") or btnp("b") or btnp("start")) then state = "play" end
+    return
+  end
   if state == "over" or (state == "clear" and st_t > 200) then
     if btnp("start") or btnp("a") or btnp("b") then
       if state == "over" then lives, coins, score = 5, 0, 0 end
@@ -475,17 +573,24 @@ function _draw()
     end
   end
   for _, m in ipairs(MSGS) do zspr("msg", VX + m[1] - camx, VY + m[2] - camy, (gtick // 32) % 2 + 1) end
-  for _, m in ipairs(PSWITCHES) do zspr("pswitch", VX + m[1] - camx, VY + m[2] - camy) end
   for _, k in ipairs(foes) do
-    if k.y < LEVEL_H + 32 then
+    if k.y < LEVEL_H + 32 and k.state ~= "gone" then
       local zn, fr, fx, fy = foe_zone(k)
       if k.kind == "plant" then clip(VX, VY, VIEW_W, math.max(0, 336 - camy)) end    -- it comes out of the pipe
       zspr(zn, VX + math.floor(k.x) + ZA[zn][1] - camx, VY + math.floor(k.y) + ZA[zn][2] - camy, fr, fx, fy)
       if k.kind == "plant" then clip(VX, VY, VIEW_W, VIEW_H) end
     end
   end
+  for _, b in ipairs(bits) do
+    sspr((b.cell % 16) * 8, (b.cell // 16) * 8, 8, 8, VX + math.floor(b.x) - camx, VY + math.floor(b.y) - camy)
+  end
   zspr("tape", VX + TAPE_X + ZA.tape[1] - camx, VY + math.floor(tape_y(tape_t)) + ZA.tape[2] - camy)
   draw_mario(VX + math.floor(x) - camx, VY + math.floor(y) - camy)
+  if state == "msg" then                              -- the message box, as the game wrote it
+    local p = MSGPOS[msg_i]
+    zspr("msg" .. p[5] .. "_a", VX + p[1], VY + p[2])
+    if zone("msg" .. p[5] .. "_b") then zspr("msg" .. p[5] .. "_b", VX + p[1] + 128, VY + p[2]) end
+  end
   clip()
   rect(VX - 1, VY - 1, VIEW_W + 2, VIEW_H + 2, 0x303030)
   print(string.format("MARIO x%d", lives), VX, 28, 0xFFFFFF)
