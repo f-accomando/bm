@@ -41,6 +41,8 @@ enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
 #define MESH_MT "bm.mesh"
 #define WORLD_MT "bm.world"
 
+#define SHOT_DIR "/bm/shots"
+
 /* the saves of a cartridge (api_save.c): the folder, the size of one, the slots */
 #define SAVE_DIR   "/bm/save"
 #define SAVE_MAX   (32 * 1024)
@@ -348,11 +350,28 @@ int l_net_resolve(lua_State *L);
 
 extern char perm_title[49];      /* the game asking (defined in runtime.c) */
 
+/* the state of the screenshots (defined in runtime.c, used by api_shot.c) */
+extern int shot_req;                    /* a frame to save: the one drawn next */
+extern char shot_file[13];              /* its name, "pong0007.png" */
+extern int shot_note;                   /* frames left for the box that says it was saved */
+extern char shot_line[2][40];
+extern int shot_net;                    /* asked over the network (bm_shot_ask): plan it at the next key poll */
+extern int shot_res;                    /* its answer: 2 waiting for the frame, 1 saved, -1 not saved, 0 none asked */
+extern char shot_net_file[13];          /* the name of the file it saved */
+
 /* saves (api_save.c) */
 int save_slot(lua_State *L, int idx);
 void slot_name(int slot, char out[16]);
 int slot_find(int slot, fat_entry_t *e);
 int l_save(lua_State *L);
+
+/* screenshots (api_shot.c) */
+int shot_plan(const char *prefix);
+int l_shot(lua_State *L);
+int l_cart_config(lua_State *L);
+int l_saved(lua_State *L);
+int l_saves(lua_State *L);
+int l_delsave(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
