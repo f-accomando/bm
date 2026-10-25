@@ -462,6 +462,7 @@ int l_quit(lua_State *L);
 /* map, cell flags and zones (api_map.c) */
 void settle_reads(void);      /* defined in runtime.c: 2D reads the page */
 int gpu2d(int op, const int32_t *v);
+int gpu2d_open(void);
 int draw2d(int op, uint32_t words, int32_t **a);
 void stack_draw(const int32_t v[7], const float f[3], int vert);
 int sheet_cells(void);
@@ -537,6 +538,12 @@ int l_clip_info(lua_State *L);
 int l_clip_frame_at(lua_State *L);
 int l_clip_draw(lua_State *L);
 int l_clip_close(lua_State *L);
+
+/* the sheet's pixels and the text (api_text.c) */
+int l_sget(lua_State *L);
+int l_sset(lua_State *L);
+int l_print(lua_State *L);
+int l_font(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);

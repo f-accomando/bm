@@ -269,7 +269,7 @@ static void d2_early(int begin)
  * and a frame of 3D, 2D, 3D, 2D is one job. 1 if the GPU took op (its
  * arguments v as the records keep them), else 0: the ARM draws it as
  * before (draw2d), after the job. */
-static int gpu2d_open(void)
+int gpu2d_open(void)
 {
     return rt.gpu2d && rt.r3d.backend && !d2.on && !rt.early && gpu3d_pending();
 }
@@ -593,84 +593,9 @@ static int l_stack(lua_State *L) { return stack_lua(L, 0); }
  * the other on the sheet from (sx, sy), top to bottom; the top one is the bottom of the stack */
 static int l_stackv(lua_State *L) { return stack_lua(L, 1); }
 
-static int l_sget(lua_State *L)
-{
-    int x = ival(L, 1), y = ival(L, 2);
-    if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h || !rt.sheet.alpha[y * rt.sheet.w + x])
-        lua_pushnil(L);
-    else
-        lua_pushinteger(L, g16_to_rgb24(rt.sheet.px[y * rt.sheet.w + x]));
-    return 1;
-}
-
 /* the sheet was drawn on since cart_load (sset, cart_sheet): cart_save
  * writes it whole, not the section the file had (proj_sheet8, below) */
 int proj_sheet_drawn;
-
-/* sset(x, y, colour) - nil colour = transparent */
-static int l_sset(lua_State *L)
-{
-    int x = ival(L, 1), y = ival(L, 2);
-    if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h)
-        return 0;
-    int opaque = !lua_isnoneornil(L, 3);
-    later_paint();                      /* the frame held's sprites as they were (bm3d 6.9) */
-    sync3d();                           /* the waiting 3D may use the sheet as texture */
-    g16_sheet_set(&rt.sheet, x, y, opaque ? col(L, 3, 0) : 0, opaque);
-    rt.cell_dirty[(y / G16_CELL) * (rt.sheet.w / G16_CELL) + x / G16_CELL] = 1;
-    rt.sheet_dirty = 1;
-    proj_sheet_drawn = 1;
-    return 0;
-}
-
-/* print(text, x, y [, colour, scale]) */
-static int l_print(lua_State *L)
-{
-    /* read the numeric arguments first: luaL_tolstring pushes a value */
-    int x = ival(L, 2), y = ival(L, 3);
-    uint16_t c = col(L, 4, 0xFFFFFF);
-    int scale = oval(L, 5, 1);
-    if (scale > 8) scale = 8;
-    size_t len;
-    const char *s = luaL_tolstring(L, 1, &len);
-    int32_t *a;
-    if (gpu2d_open() && gpu3d_text2d(&rt.g, x, y, s, c, scale)) {
-        g16_t m = rt.g;                 /* where it ends, as drawn (bm3d 4.8: the GPU drew it) */
-        m.cx0 = m.cy0 = 0x40000000;
-        m.cx1 = m.cy1 = -0x40000000;
-        lua_pushinteger(L, g16_text_scaled(&m, x, y, s, c, scale));
-        return 1;
-    }
-    if (draw2d(D2_TEXT, 4 + (uint32_t)(len + 4) / 4, &a)) {
-        a[0] = x; a[1] = y; a[2] = c; a[3] = scale;
-        memcpy(a + 4, s, len + 1);
-        /* where it ends, as drawn (nothing drawn: no clip rectangle) */
-        g16_t m = rt.g;
-        m.cx0 = m.cy0 = 0x40000000;
-        m.cx1 = m.cy1 = -0x40000000;
-        lua_pushinteger(L, g16_text_scaled(&m, x, y, s, c, scale));
-        return 1;
-    }
-    lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
-    return 1;
-}
-
-/* font([name]): the font of print() from now on, "8x16" (the default),
- * "8x14" or "6x12" (also "large", "medium", "small"); returns the width
- * and height of a character of the current font */
-static int l_font(lua_State *L)
-{
-    if (!lua_isnoneornil(L, 1)) {
-        const char *n = luaL_checkstring(L, 1);
-        if (!strcmp(n, "6x12") || !strcmp(n, "small")) rt.g.font = &font_console_6x12;
-        else if (!strcmp(n, "8x14") || !strcmp(n, "medium")) rt.g.font = &font_console_8x14;
-        else if (!strcmp(n, "8x16") || !strcmp(n, "large")) rt.g.font = &font_console_8x16;
-        else return luaL_argerror(L, 1, "\"6x12\", \"8x14\" or \"8x16\"");
-    }
-    lua_pushinteger(L, rt.g.font->width);
-    lua_pushinteger(L, rt.g.font->height);
-    return 2;
-}
 
 /* ---- 3D (software rasterizer, see r3d.h) */
 
