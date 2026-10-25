@@ -1323,6 +1323,7 @@ def test_home_ui(b, opts):
         keys("s")
         keys("\r")                              # Sound
         screen(["Settings > Sound", "Volume", "10 / 10"])
+        keys("s")                               # the page starts on the Sound status row: down to the volume
         keys("\r")                              # the volume: Enter goes round (10, 0, 1, ...), saved
         screen(["0 / 10", "volume: 0 / 10"])
         for _ in range(10):
@@ -1353,7 +1354,7 @@ def test_home_ui(b, opts):
         keys("\r")
         screen(["Settings > Reports", "On the SD card", "none waiting", "Send the reports", "Report the log"])
         keys("q")
-        keys("s")
+        keys("sss")                             # past Dev mode and Screen recorder (they change on Enter)
         keys("\r")
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
