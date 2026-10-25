@@ -1580,10 +1580,40 @@ static int l_image_file(lua_State *L)
     return 1;
 }
 
+/* A model file (a name that ends in .bmm) does not go to bm/web: it goes to /bmm/NAME.bmm, where the
+ * editors list it, as res_write puts the models of bm's tools. The bytes are checked first as the kernel loads
+ * a model file (bm_parse_any: BMRES, kind 1, a MESH section that bm_mesh_check accepts); a file that fails
+ * is refused and nothing is written, not even in bm/web. The name is the one web_file_name gave (1 to 8 of
+ * a-z 0-9 _ -, lower case). A file that is there is never replaced (res_write without replace). It is always
+ * written at once (a model is small), so file_state has nothing for it. No question to the player: the
+ * file is data with no code, it takes no name that is there, and the cap and the checks above hold. */
+static int file_write_model(lua_State *L, const char *name, const uint8_t *data, size_t len, size_t cap)
+{
+    char err[96] = "", path[32];
+    if (len > cap)
+        return web_nil(L, "the file is over the cap (file_write_max_kib in bm/config.txt)");
+    bm_cart_t c;
+    if (bm_parse_any(data, len, &c, err, sizeof err) != 0)
+        return web_nil(L, err[0] ? err : "not a model file (BMRES)");
+    if (c.kind != BM_RES_MODEL || !c.mesh || bm_mesh_check(c.mesh, c.mesh_size) < 0)
+        return web_nil(L, "a .bmm file is a BMRES model file (kind 1) with a MESH section");
+    ksnprintf(path, sizeof path, "/bmm/%s", name);
+    fat_entry_t e;
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) == 0)
+        return web_nil(L, e.is_dir ? "that name is a folder" : "a model of that name is there already");
+    if (sd_write_file("file_write", "/bmm", name, data, len) != 0)
+        return web_nil(L, fat_error());
+    lua_pushboolean(L, 1);
+    lua_pushstring(L, path + 1);
+    return 2;
+}
+
 /* file_write(name, bytes_or_id, [async]) -> true and the path ("bm/web/name.ext"), or nil and why.
  * Writes a file in bm/web on the SD card (made if it is not there): an 8.3 name, no other
  * folder, never .bm, .bme or .b16, at most file_write_max_kib (8 MB) and 128 files in the
- * folder. A name that is there is replaced. Without async the call waits for the card: a big
+ * folder. A name that ends in .bmm is a model: file_write_model (it goes to /bmm, checked, never
+ * replaced; the path is "bmm/name.bmm"). Another name that is there is replaced. Without async the call waits for the card: a big
  * file stops the frame for the time of the write. With async = true the data is copied and
  * queued: the call returns at once with true, and the file goes to the card in pieces while the
  * cartridge polls (web_poll, file_state, about 3-4 ms each); file_state(name) says when. One
@@ -1599,6 +1629,9 @@ static int l_file_write(lua_State *L)
     if (!data)
         return web_nil(L, why);
     const size_t cap = web_cap_bytes(config_get("file_write_max_kib"), FILE_MAX_KIB_DEFAULT, FILE_MAX_KIB_LIMIT);
+    const size_t nl = strlen(name);
+    if (nl > 4 && strcmp(name + nl - 4, ".bmm") == 0)
+        return file_write_model(L, name, data, len, cap);
     const int rc = lua_toboolean(L, 3) ? webfile_queue(name, data, len, cap, err, sizeof err)
                                        : webfile_write(name, data, len, cap, err, sizeof err);
     if (rc != 0)

@@ -746,6 +746,7 @@ Per una cartuccia che mostra pagine web. Una richiesta gira in background: il gi
 - `web_poll` lavora per circa 4 ms. Una nuova connessione TLS può richiedere circa 100 ms sul Pi Zero W, e il fotogramma aspetta. Mostra un messaggio "connecting" prima del primo `web_poll`.
 - Dopo una risposta completa il kernel tiene la connessione per la richiesta successiva allo stesso host (keep-alive). Le chiamate non cambiano.
 - Con `resume = "NAME.EXT"` una richiesta fallita o annullata conserva la parte ricevuta in `bm/web/name.prt`. Il `web_get` successivo per lo stesso indirizzo con lo stesso nome chiede al server il resto (`Range`). Il server deve mandare `Accept-Ranges` e una dimensione. Il corpo è sempre il file intero: controlla la dimensione o un hash prima di usarlo.
+- `file_write` con un nome che finisce in `.bmm` salva un modello in `/bmm/NAME.bmm`, non in `bm/web`. Il kernel controlla prima i byte, come quando carica un file modello (BMRES, tipo 1, una sezione MESH). Un file che non passa è rifiutato e non scrive nulla. Il nome è da 1 a 8 caratteri `a-z 0-9 _ -`. Un modello che c'è già non viene mai sostituito. Il giocatore non riceve nessuna domanda in più.
 - In bmhost `web_get` restituisce `nil` e un motivo. `image_load` e `file_write` funzionano.
 
 | Funzione | Che cosa fa |

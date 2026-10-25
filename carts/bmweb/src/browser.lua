@@ -526,6 +526,14 @@ local function download_step(self)
       d.tries = (d.tries or 0) + 1
       if d.tries < 120 then return end
     end
+    if d.model and not d.alt and why:find("there already", 1, true) then
+      -- The kernel never replaces a model: try once with another valid name made from the URL
+      d.alt = true
+      d.name = files.model_alt(d.name, d.url)
+      d.derived = true
+      self.status = "a model of that name is there: trying " .. d.name
+      return
+    end
     d.saving = false
     self.status = "not saved: " .. why
     return
@@ -533,7 +541,13 @@ local function download_step(self)
   local note = files.note_name(d.name)
   self.api.file_write(note, files.note(d.url, d.from, d.type, d.size))
   self.api.web_cancel(d.id)
-  self.status = "saved " .. path .. " (" .. d.size .. " bytes), note " .. note
+  if d.model then
+    -- path is "bmm/NAME.bmm"; the note stays in bm/web, where the Lib tab and the editors do not look
+    self.status = "saved in /" .. path .. " (" .. d.size .. " bytes)" ..
+      (d.derived and ", name made from the address" or "") .. ", note " .. note
+  else
+    self.status = "saved " .. path .. " (" .. d.size .. " bytes), note " .. note
+  end
   self.saved_path = path
   d.id = nil
   leave_download(self)
@@ -692,15 +706,19 @@ local function got_page(self, job)
   end
   local res = job.res
   local kind = files.kind(res.type)
-  local body
+  local body, bmm
   if kind == "sniff" then
     if (res.size or 0) <= 262144 then
       body = self.api.web_body(res.id) or ""
       kind = files.sniff(body:sub(1, 32)) or "download"
-      if kind == "glb" or kind == "gif" then kind = "download" end
+      bmm = kind == "bmm"
+      if kind == "glb" or kind == "gif" or bmm then kind = "download" end
     else
       kind = "download"
     end
+  elseif kind == "download" and (res.size or 0) > 0 and (res.size or 0) <= 262144 then
+    -- Whatever the Content-Type says, the BMRES magic makes a file a model (saved in /bmm)
+    bmm = files.is_bmm((self.api.web_body(res.id) or ""):sub(1, 32))
   end
   if kind == "html" or kind == "text" then
     body = body or self.api.web_body(res.id) or ""
@@ -734,13 +752,15 @@ local function got_page(self, job)
   else
     -- Any other file: ask before it is written. The cart now owns the result.
     local name = files.name(res.url, res.type)
+    local same = true
+    if bmm then name, same = files.model_name(res.url) end
     self.dl = { id = res.id, name = name, size = res.size or 0, type = files.mime(res.type),
-                url = res.url, from = nav.from }
+                url = res.url, from = nav.from, model = bmm or nil, derived = not same }
     job.res.id = nil
     self.loader.job = nil
     self.nav = nil
     self.mode = "download"
-    self.status = "save " .. name .. "?"
+    self.status = "save " .. (bmm and "/bmm/" or "") .. name .. "?"
   end
 end
 

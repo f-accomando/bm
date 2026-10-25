@@ -23,8 +23,15 @@ local function mime(ctype)
 end
 M.mime = mime
 
+-- A BMRES model file: the magic "BMRES" and three zero bytes, then kind 1 (a u16 at offset 12).
+-- The kernel does the real check when file_write gets the bytes (src/bm/runtime.c file_write_model).
+function M.is_bmm(head)
+  return #head >= 14 and head:sub(1, 8) == "BMRES\0\0\0" and head:byte(13) == 1 and head:byte(14) == 0
+end
+
 -- What the bytes are, from the first bytes of a body.
 function M.sniff(head)
+  if M.is_bmm(head) then return "bmm" end
   if head:sub(1, 8) == "\137PNG\r\n\26\n" then return "png" end
   if head:sub(1, 3) == "\255\216\255" then return "jpeg" end
   if head:sub(1, 4) == "RIFF" and head:sub(9, 12) == "WEBP" then return "webp" end
@@ -58,6 +65,23 @@ function M.name(u, ctype)
   if ext == "" then ext = EXT_BY_TYPE[mime(ctype)] or "dat" end
   if FORBIDDEN[ext] then ext = "dat" end
   return stem .. hash2(u) .. "." .. ext
+end
+
+-- The name of a model (a .bmm, saved in /bmm by the kernel): 1 to 8 of a-z 0-9 _ - and ".bmm". It comes from
+-- the last part of the URL in lower case, with every other character taken out. Second value: false when
+-- the URL's own name was not a valid one and this name was made from it (the status says so).
+function M.model_name(u)
+  local path = u:gsub("[?#].*$", ""):match("([^/]*)$") or ""
+  local stem = path:gsub("%.[%w]*$", "")
+  local s = stem:lower():gsub("[^a-z0-9_%-]", ""):sub(1, 8)
+  local same = s ~= "" and s == stem and path:lower():match("%.bmm$") ~= nil
+  if s == "" then s = "model" end
+  return s .. ".bmm", same
+end
+
+-- Another valid name when the first is taken: 6 characters of it and 2 of a hash of the URL.
+function M.model_alt(name, u)
+  return name:gsub("%.bmm$", ""):sub(1, 6) .. hash2(u) .. ".bmm"
 end
 
 -- The note kept beside a saved file: where it came from.

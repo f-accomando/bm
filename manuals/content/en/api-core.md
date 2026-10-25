@@ -746,6 +746,7 @@ For a cartridge that shows web pages. A request runs in the background: the game
 - `web_poll` works for about 4 ms. A new TLS connection can take about 100 ms on the Pi Zero W, and the frame waits. Show a "connecting" message before the first `web_poll`.
 - After a complete answer the kernel keeps the connection for the next request to the same host (keep-alive). The calls do not change.
 - With `resume = "NAME.EXT"` a failed or cancelled request keeps the part it received in `bm/web/name.prt`. The next `web_get` for the same address with the same name asks the server for the rest (`Range`). The server must send `Accept-Ranges` and a size. The body is always the whole file: check its size or a hash before you use it.
+- `file_write` with a name that ends in `.bmm` saves a model in `/bmm/NAME.bmm`, not in `bm/web`. The kernel checks the bytes first, as it loads a model file (BMRES, kind 1, a MESH section). A file that fails is refused and nothing is written. The name is 1 to 8 of `a-z 0-9 _ -`. A model that is there is never replaced. The player gets no extra question.
 - In bmhost `web_get` returns `nil` and a reason. `image_load` and `file_write` work.
 
 | Function | What it does |

@@ -718,7 +718,7 @@ local function draw_download(self)
   g.rect(x, y, w, h, C.focus)
   local cols = w // M.CW - 2
   text(g, "Save this file?", x + 8, y + 8, 0xffffff)
-  text(g, fit("bm/web/" .. d.name, cols), x + 8, y + 26, C.focus)
+  text(g, fit((d.model and "/bmm/" or "bm/web/") .. d.name .. (d.model and "  (3D model)" or ""), cols), x + 8, y + 26, C.focus)
   text(g, fit(string.format("%d bytes  %s", d.size, d.type ~= "" and d.type or "unknown type"), cols), x + 8, y + 40, C.status_text)
   text(g, fit(d.url, cols), x + 8, y + 54, C.status_text)
   if d.saving then

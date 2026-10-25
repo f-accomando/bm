@@ -25,4 +25,6 @@ python3 carts/bmweb/build/build.py "$J" 2>/dev/null || python carts/bmweb/build/
 BMWEB_MAIN="$J" "$LUA" tests/web/cart.lua
 rc=$?
 rm -f "$J"
-exit $rc
+[ $rc -eq 0 ] || exit $rc
+# The test catalog web/models: its pages and the .bmm downloads through the cart, with a fake file_write.
+"$LUA" tests/web/models_cart.lua
