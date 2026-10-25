@@ -451,24 +451,6 @@ def bmweb(a):
     a.over(lay)
 
 
-def stages3d(a):
-    a.glow(44, 32, 36, 0xFFC070, 0.6)
-    stars(a, 41, 20, 24)
-    cols = (((90, 200, 130), (50, 140, 90), (36, 100, 70)),
-            ((100, 170, 255), (60, 110, 210), (40, 80, 160)),
-            ((255, 170, 90), (210, 110, 60), (160, 76, 50)))
-    for i, (x, y, h) in enumerate(((24, 56, 8), (44, 50, 18), (64, 44, 28))):
-        a.shadow(lambda dr, c, x=x, y=y, h=h: iso_box(dr, x, y, 12, h, c, c, c), 1, 2)
-        lay, d = a.draw()
-        iso_box(d, x, y, 12, h, cols[i][0] + (255,), cols[i][1] + (255,), cols[i][2] + (255,))
-        a.over(lay)
-    lay, d = a.draw()
-    f = ImageFont.truetype(FONT, 7 * S)
-    for i, (x, y, h) in enumerate(((24, 56, 8), (44, 50, 18), (64, 44, 28))):
-        d.text((x * S, (y - h) * S), str(i + 1), font=f, fill=(20, 24, 40, 255), anchor="mm")
-    a.over(lay)
-
-
 def bench3d(a):
     a.glow(44, 30, 36, 0x60E0FF, 0.5)
     lay, d = a.draw()                                        # the bars of a chart, rising to the right
@@ -499,7 +481,6 @@ COVERS = {
     "yharnam": ("Yharnam", 0x06141E, 0x1A4450, yharnam),
     "herocart": ("Hero Stress", 0x141A3A, 0x2A4A9A, herocart),
     "bmweb": ("bm Web", 0x0E2850, 0x2078B0, bmweb),
-    "stages3d": ("Stages 3D", 0x1A1438, 0x7A4A58, stages3d),
     "bench3d": ("3D Bench", 0x0A1A2E, 0x1E4A6E, bench3d),
 }
 

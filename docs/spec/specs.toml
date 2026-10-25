@@ -142,7 +142,7 @@ since = 2
 status = "implemented"
 platforms = "all"
 where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "scripts/carts_layout.py", "Makefile"]
-note = "bm.info + assets/ + res/ + build/. Every project in carts/ has bm.info (BETA-6 round 2: sdk_b16 and titan_ex now build with --info; demo, stress and texroom were removed on 24 Oct 2026; stages3d has one bm.info per edition); python scripts/carts_layout.py reports 0 errors"
+note = "bm.info + assets/ + res/ + build/. Every project in carts/ has bm.info (BETA-6 round 2: sdk_b16 and titan_ex now build with --info; demo, stress and texroom were removed on 24 Oct 2026; the Stages 3D cart was removed on 25 Oct 2026); python scripts/carts_layout.py reports 0 errors"
 
 [[item]]
 id = "cart-type"
@@ -158,7 +158,7 @@ since = 3
 status = "partial"
 platforms = "all"
 where = ["src/kernel/sdmap_core.c", "src/bm/project.c", "src/bm/project.h", "src/bm/runtime.c", "src/kernel/carts.c", "src/script/bmui.lua"]
-note = "Done (QEMU test_projects, test_sd_cartridges, test_sdk_stages_pi, host test_fat and test-studio): a new .bme is written in /bme (bm_project_path, bm_copy_name; the copy of a game, a new project, Save as, the sound packs); the Pi menu scans /bm and /bme (QEMU test_sd_games_bm); the tools list /bme first (bmui project_files) and still read a .bme next to its game, saving it where it is with a status line that says so; Ctrl+B builds into the games folder (bm_games_dir: /carts on the Pi, /bm on the RGB30); the SD map counts /bm and /bme. Not done: /carts is still scanned (carts.c scan of / and /carts; rgb30/ui.c scan of /bm and /carts); no menu tab lists a project on either kernel (decision 21 Oct 2026, D44: the editors open them); not done: /glb and /bmm (APP-9); not verified on hardware"
+note = "Done (QEMU test_projects, test_sd_cartridges, test_sdk_template_pi, host test_fat and test-studio): a new .bme is written in /bme (bm_project_path, bm_copy_name; the copy of a game, a new project, Save as, the sound packs); the Pi menu scans /bm and /bme (QEMU test_sd_games_bm); the tools list /bme first (bmui project_files) and still read a .bme next to its game, saving it where it is with a status line that says so; Ctrl+B builds into the games folder (bm_games_dir: /carts on the Pi, /bm on the RGB30); the SD map counts /bm and /bme. Not done: /carts is still scanned (carts.c scan of / and /carts; rgb30/ui.c scan of /bm and /carts); no menu tab lists a project on either kernel (decision 21 Oct 2026, D44: the editors open them); not done: /glb and /bmm (APP-9); not verified on hardware"
 
 [[item]]
 id = "sd-map"

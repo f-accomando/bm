@@ -3735,19 +3735,6 @@ def _market_site(tmp, b, key):
     return files
 
 
-def sdk_template(tid):
-    """The code of the template `tid` in carts/sdk_b16/main.lua (its entry
-    `{ id = "<tid>", ... code = [==[ ... ]==] }`), the match starting at that
-    entry."""
-    path = os.path.join(HERE, "..", "carts", "sdk_b16", "main.lua")
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    m = re.search(r'\{ id = "' + re.escape(tid) + r'".*?code = \[==\[\n(.*?)\]==\]', src, re.DOTALL)
-    if not m:
-        raise AssertionError(f"template {tid!r} not found in {path}")
-    return m.group(1)
-
-
 B16_GAME = r"""
 function _init() log("the b16 runs") end
 function _draw() cls(1) print("pocket", 8, 8, 7) end
@@ -3792,7 +3779,7 @@ def test_b16_on_pi(b, opts):
 def test_grey_cart_on_pi(b, opts):
     """A cartridge whose header lists only the RGB30 is not hidden on the Pi (docs/spec/compat-policy.toml): the
     cover says "Not here", the start asks first ('Start it anyway?', the reason), back cancels, the confirm key
-    starts it. A .b16 and an old .bm start with no question (test_b16_on_pi, test_stages_template)."""
+    starts it. A .b16 and an old .bm start with no question (test_b16_on_pi)."""
     tmp = tempfile.mkdtemp(prefix="bm-grey-")
     try:
         cfg = os.path.join(tmp, "config.txt")
@@ -3830,34 +3817,6 @@ def test_grey_cart_on_pi(b, opts):
             q.send("\r")                                # yes: it starts (grey is not a lock)
             q.expect("made for the RGB30 only, it may not run well here", timeout=30)   # the load-time message
             q.expect("the b16 runs", timeout=30)
-        finally:
-            q.close()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def test_stages_template(b, opts):
-    """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the Pi: listed
-    in the menu and played from it; the title logs its best time, the ok
-    button (Space) starts stage 1."""
-    tmp = tempfile.mkdtemp(prefix="bm-stages-")
-    try:
-        cfg = os.path.join(tmp, "config.txt")
-        with open(cfg, "w") as f:
-            f.write("layout=us\nwifi_boot=0\n")
-        cart = os.path.join(tmp, "stages.bm")
-        with open(cart, "wb") as f:
-            f.write(mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests", res=(360, 360)))
-        img = os.path.join(tmp, "sd.img")
-        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/stages.bm")])
-        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
-        try:
-            q.expect(MENU, timeout=30)
-            time.sleep(0.8)
-            q.send("\r")                                # the first game: the only one
-            q.expect("stages: title best -", timeout=30)
-            q.send(" ")                                 # the ok button: stage 1
-            q.expect("stages: stage 1", timeout=10)
         finally:
             q.close()
     finally:
@@ -9719,8 +9678,8 @@ def test_chainloader_bad_crc(b, opts):
         q.close()
 
 
-def test_sdk_stages_pi(b, opts):
-    """Stages 2D in the Pi's bm SDK: Ctrl+N, the last of nine templates (one Up
+def test_sdk_template_pi(b, opts):
+    """The last template (3D with models) in the Pi's bm SDK: Ctrl+N, the last of eight templates (one Up
     from the first row), a name with Ctrl+S, Ctrl+B builds the game next to
     the project; the .BM carries the template's Lua."""
     tmp = tempfile.mkdtemp(prefix="bm-sdsp-")
@@ -9745,10 +9704,10 @@ def test_sdk_stages_pi(b, opts):
         see("OPEN IN")
         k("\x0e", 0.5)                                      # Ctrl+N: the templates
         see("new project from a template")
-        see("Stages 2D")                                    # the ninth, in the list
+        see("3D with models")                               # the eighth, in the list
         k("\x1b[A", 0.3)                                    # one Up wraps to the last row
         k("\r", 0.5)
-        see("new project (Stages 2D)")
+        see("new project (3D with models)")
         k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
         see("file name")
         k("\r")
@@ -9772,7 +9731,7 @@ def test_sdk_stages_pi(b, opts):
         game = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
                               env=env).stdout
         assert game[:8] == b"BMCART\x00\x00", game[:16]
-        assert b"stages: title best" in game, "the template's Lua in the .BM"
+        assert b"list = models()" in game, "the template's Lua in the .BM"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

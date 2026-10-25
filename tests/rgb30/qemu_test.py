@@ -20,7 +20,7 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
-from qemu_test import read_ppm, screen_text, pixel, free_port, sdk_template  # noqa: E402
+from qemu_test import read_ppm, screen_text, pixel, free_port  # noqa: E402
 import bm_load  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
 import mksd  # noqa: E402
@@ -246,21 +246,6 @@ def open_settings_screen(q):
     press(q, "s", ["The link, the address"])    # WiFi
     press(q, "s", ["Screen modes, 3D Bench"])   # Screen
     return press(q, "\r", ["Settings > Screen"])
-
-
-def walk_until(q, key, needle, limit=120.0):
-    """Send `key` (one press every 0.2 s) until `needle` shows on the serial port; returns the serial text seen."""
-    end = time.time() + limit
-    seen = b""
-    while time.time() < end:
-        q.send(key)
-        time.sleep(0.2)
-        try:
-            seen += q.expect(needle, timeout=0.1)
-            return seen.decode(errors="replace")
-        except AssertionError:
-            pass
-    raise AssertionError(f"{needle!r} not seen in {limit:.0f} s; serial output:\n" + q.buf.decode(errors="replace"))
 
 
 def test_boot_banner(b, opts):
@@ -949,35 +934,10 @@ def test_menu_tab_keys(b, opts):
         q.close()
 
 
-def test_stages_template(b, opts):
-    """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the RGB30: a
-    Pi cartridge at 360x360, played from the menu with confirm (Enter); ok in the game is Space;
-    its title logs the best time, the ok button starts stage 1; 'q' leaves."""
-    tmp = mktmp(prefix="bm64sd-")
-    sd = make_sd(tmp, {
-        "bm/config.txt": b"game_intro=0\n",
-        "bm/stages.bm": mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests",
-                                  res=(360, 360)),
-    })
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
-    try:
-        boot(q)
-        time.sleep(0.4)
-        q.send("\r")                            # confirm: play
-        q.expect("play: /bm/stages.bm", timeout=10)
-        q.expect("stages: title best -", timeout=30)
-        q.send("x")                             # serial x = the X button, which the game reads as "ok": stage 1
-        q.expect("stages: stage 1", timeout=10)
-        q.send("q")
-        q.expect("fps", timeout=10)
-    finally:
-        q.close()
-
-
-def test_sdk_stages_build(b, opts):
-    """From the bm SDK to the game: Ctrl+N, the ninth template (Stages 2D),
+def test_sdk_template_build(b, opts):
+    """From the bm SDK to the game: Ctrl+N, the last template (3D with models),
     Ctrl+B and a name build /bm/MYGAME.BM from the project in /bme; its Lua is
-    the template's (the 'stages: title best' log)."""
+    the template's ('list = models()')."""
     tmp = mktmp(prefix="bm64sdk-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n"})
     size = os.path.getsize(sd)
@@ -990,12 +950,12 @@ def test_sdk_stages_build(b, opts):
         q.buf = b""
         press_serial(q, "\r", "bm SDK\r\n", tries=3, wait=60.0)
         # Ctrl+N: new project from a template (sent again until the SDK is ready to read it)
-        press(q, "\x0e", ["new project from a template", "Stages 2D"], wait=15.0)
+        press(q, "\x0e", ["new project from a template", "3D with models"], wait=15.0)
         for desc in ("run and jump", "pick up the coins", "waves of enemies", "punches with",
-                     "two to four consoles", "floor, cubes", "the models of bm Studio",
-                     "three stages"):           # down (arrow) to the ninth row; each row shows its text
+                     "two to four consoles", "floor, cubes",
+                     "the models of bm Studio"):  # down (arrow) to the eighth row; each row shows its text
             press(q, "\x1b[B", [desc], tries=1, wait=90.0)      # the SDK reads text bytes: none is lost,
-        press(q, "\r", ["new project (Stages 2D)"], tries=1, wait=90.0)     # so none is sent again (a second
+        press(q, "\r", ["new project (3D with models)"], tries=1, wait=90.0)     # so none is sent again (a second
         press(q, "\x02", ["file name", "mygame.bme"], tries=1, wait=90.0)   # arrow would skip a row)
         press(q, "\r", ["built /bm/mygame.bm"], tries=1, wait=90.0)         # Ctrl+B: Save as, then the name
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
@@ -1014,7 +974,7 @@ def test_sdk_stages_build(b, opts):
                           env=env, check=True).stdout
     assert game[:8] == b"BMCART\x00\x00", game[:16]
     lua = next(body for t, body in mkbm.bmmesh.cart_sections(game) if t == 1)
-    assert b"stages: title best" in lua, lua[:200]
+    assert b"list = models()" in lua, lua[:200]
 
 
 def test_frozen_game_menu(b, opts):
@@ -2323,58 +2283,6 @@ def test_sound(b, opts):
     cfg = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/config.txt"], capture_output=True,
                          env=env, check=True).stdout.decode(errors="replace")
     assert "volume=5" in cfg, cfg
-
-
-def test_stages3d_b16(b, opts):
-    """Stages 3D (carts/stages3d, the .b16 edition): the game is on the Games tab, the Dev tab is still reachable,
-    A starts it and the keys reach stage 3 with no exception; q leaves for the menu. Needs
-    build/carts/stages3d.b16 (make build/carts/stages3d.b16)."""
-    cart = os.path.join(os.path.dirname(os.path.normpath(b)), "carts", "stages3d.b16")
-    if not os.path.exists(cart):
-        print(f"SKIP test_stages3d_b16: {cart} missing (make build/carts/stages3d.b16)")
-        return
-    tmp = tempfile.mkdtemp(prefix="bm64s3d-")
-    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n", "bm/stages3d.b16": open(cart, "rb").read()})
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
-    serial = ""
-    try:
-        out = boot(q)
-        assert "cartridge menu: 1 games" in out, out
-        time.sleep(0.5)
-        wait_screen(q, ["Stages 3D"])
-        keys(q, "r")
-        text = wait_screen(q, ["bm SDK"])
-        assert in_menu(text), text
-        keys(q, "l")
-        wait_screen(q, ["Stages 3D"])
-        q.buf = b""
-        q.send("\r")
-        serial += q.expect("play: /bm/stages3d.b16", timeout=10).decode(errors="replace")
-        serial += q.expect("stages3d: title gpu3d=", timeout=60).decode(errors="replace")
-        time.sleep(1)
-        img = q.screendump()
-        assert img[0] == 360 and img[1] == 360, f"screen {img[0]}x{img[1]}"
-        colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3)}
-        assert len(colours) > 3, f"{len(colours)} colours: not the title"
-        serial += walk_until(q, " ", "stages3d: stage 1 start", limit=30)
-        serial += walk_until(q, "w", "stages3d: stage 2 start", limit=180)
-        serial += walk_until(q, "w", "stages3d: stage 3 start", limit=180)
-        time.sleep(1.5)
-        img = q.screendump()
-        colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3)}
-        assert len(colours) > 8, f"{len(colours)} colours: the 3D view is not drawn"
-        q.send("q")
-        serial += q.expect("suspended", timeout=10).decode(errors="replace")
-        time.sleep(1)
-        img = q.screendump()
-        assert img[0] == SCREEN and img[1] == SCREEN
-        assert in_menu(screen_all(img))
-        serial += q.buf.decode(errors="replace")
-        low = serial.lower()
-        for bad in ("exception", "panic", "stopped with an error", "traceback"):
-            assert bad not in low, f"{bad!r} in the serial output:\n{serial[-3000:]}"
-    finally:
-        q.close()
 
 
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

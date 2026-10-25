@@ -639,7 +639,7 @@ check(sees("CONTENTS"), "F1 again: the project")
 -- each template: a new project with its code (which compiles and runs on
 -- the stand-ins), its sprites and its map
 local names = { "Empty 2D", "Platform 2D", "Top-down 2D", "Shooter 2D", "Versus 2D", "Online 2D", "3D scene",
-                "3D with models", "Stages 2D" }
+                "3D with models" }
 for i, nm in ipairs(names) do
   key("^n")
   check(sees("new project from a template"), "Ctrl+N: the templates")

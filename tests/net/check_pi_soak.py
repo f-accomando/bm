@@ -28,8 +28,8 @@ UP = ("status: up - bm v0.2.5 at 192.168.1.108\nprevious run: ended cleanly, or 
 DOWN = "status: down - no answer from 192.168.1.108:3333 (off, restarting, frozen, or another client connected)"
 FREEZE = UP.replace("ended cleanly, or the power went (no record in RAM)",
                     "ended without a clean exit (a freeze, or a restart) while: frame, 1800 s after boot, kernel x")
-FPS = 'bm: "Stages" 108000 frames, 59.8 fps, 3 dropped'
-FPS_LOW = 'bm: "Stages" 108000 frames, 41.0 fps, 3 dropped'
+FPS = 'bm: "Hero Stress" 108000 frames, 59.8 fps, 3 dropped'
+FPS_LOW = 'bm: "Hero Stress" 108000 frames, 41.0 fps, 3 dropped'
 BLOCKED = "[bm_net] the keys go to the application (Ctrl-\\ back to the menu): back to the menu first (Ctrl-Esc on the console)"
 
 

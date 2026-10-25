@@ -142,7 +142,7 @@ $(BUILD)/words.lua: $(WORDS_SRC)
 #   sheet8_<k> := 1            the sheet with a palette and runs (up to 256 colours, much smaller)
 #   layers_<k> := name ...     the map layers, files map_<name>.csv, in this order
 #   extra_<k>   more mkbm.py flags, at the end
-# The key <k> is the cart name; a second edition has its own key (stages3d_b16, overbit_b16).
+# The key <k> is the cart name; a second edition has its own key (overbit_b16).
 c_dir    = $(or $(cdir_$(1)),carts/$(1))
 c_asset  = $(firstword $(wildcard $(call c_dir,$(1))/assets/$(2) $(call c_dir,$(1))/$(2)))
 c_lua    = $(or $(lua_$(1)),$(call c_dir,$(1))/main.lua)
@@ -259,29 +259,6 @@ cdir_titanex := carts/titan_ex
 lua_titanex := $(BUILD)/titan_ex/main.lua
 sheet_titanex := carts/titan/assets/sheet.png
 sheet8_titanex := 1
-
-# Stages 3D (W03): shared logic in carts/stages3d/common, one front per edition (bm/ now, b16/ later)
-STAGES3D_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/bm/*.lua))
-STAGES3D_ASSETS := carts/stages3d/assets/sheet.png $(addprefix carts/stages3d/assets/map_,floor.csv height.csv walls.csv objects.csv)
-$(BUILD)/stages3d/bm/main.lua: $(STAGES3D_SRC) carts/stages3d/build/build.py
-	$(PYTHON) carts/stages3d/build/build.py bm $@ --map $(BUILD)/stages3d/bm/main.map
-
-lua_stages3d := $(BUILD)/stages3d/bm/main.lua
-bminfo_stages3d := carts/stages3d/bm/bm.info
-layers_stages3d := floor height walls objects
-
-# Stages 3D .b16 (RGB30, 360x360): the same common/ copied into its own src, its own front and bm.info
-STAGES3D_B16_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/b16/*.lua))
-$(BUILD)/stages3d/b16/main.lua: $(STAGES3D_B16_SRC) carts/stages3d/build/build.py
-	$(PYTHON) carts/stages3d/build/build.py b16 $@ --map $(BUILD)/stages3d/b16/main.map
-
-cdir_stages3d_b16 := carts/stages3d
-cover_stages3d_b16 := carts/stages3d/cover.png
-lua_stages3d_b16 := $(BUILD)/stages3d/b16/main.lua
-bminfo_stages3d_b16 := carts/stages3d/b16/bm.info
-layers_stages3d_b16 := floor height walls objects
-$(BUILD)/carts/stages3d.b16: $$(call c_lua,stages3d_b16) scripts/mkbm.py $$(call c_deps,stages3d_b16)
-	$(call CART_RECIPE,stages3d_b16)
 
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
@@ -587,21 +564,6 @@ test-anim-ease: $(BUILD)/host/bmhost-bin $(BUILD)/anim-ease.bm
 	$< $(BUILD)/anim-ease.bm --seconds 2 2>&1 | tee $(BUILD)/anim-ease.log | grep "^anim-ease"
 	grep -q "^anim-ease: \([0-9]*\)/\1 checks passed" $(BUILD)/anim-ease.log
 
-# Stages 3D (W03): the three stages played in bmhost with tests/stages3d/input.txt, then
-# the finale and the record (saved and read back); check.py reads the log
-test-stages3d: $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.bm tests/stages3d/input.txt tests/stages3d/check.py
-	rm -rf $(BUILD)/stages3d-sd $(BUILD)/stages3d-shots && mkdir -p $(BUILD)/stages3d-sd $(BUILD)/stages3d-shots
-	$< $(BUILD)/carts/stages3d.bm --sd $(BUILD)/stages3d-sd --input tests/stages3d/input.txt --seconds 20 \
-	    --shots $(BUILD)/stages3d-shots > $(BUILD)/stages3d-test.log 2>&1
-	$(PYTHON) tests/stages3d/check.py $(BUILD)/stages3d-test.log
-
-# Stages 3D .b16: the same script and the same check.py as the .bm; a .b16 is the .bm container (src/bm/format.c:10)
-test-stages3d-b16: $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.b16 tests/stages3d/input.txt tests/stages3d/check.py
-	rm -rf $(BUILD)/stages3d16-sd $(BUILD)/stages3d16-shots && mkdir -p $(BUILD)/stages3d16-sd $(BUILD)/stages3d16-shots
-	$< $(BUILD)/carts/stages3d.b16 --sd $(BUILD)/stages3d16-sd --input tests/stages3d/input.txt --seconds 20 \
-	    --shots $(BUILD)/stages3d16-shots > $(BUILD)/stages3d16-test.log 2>&1
-	$(PYTHON) tests/stages3d/check.py $(BUILD)/stages3d16-test.log
-
 # bm Write (carts/write, 2026-10-06): a document typed, styled, saved in
 # /docs and exported in bmhost, then opened again (the session, the
 # Markdown); tests/write/check.py reads the files (the PDF's xref too)
@@ -749,16 +711,16 @@ WEB_PLAYER := $(BUILD)/web/player
 $(WEB_PLAYER)/bmweb.js: web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
 	@mkdir -p $(WEB_PLAYER)
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sENVIRONMENT=web,node -sMODULARIZE -sEXPORT_NAME=createBmWeb 	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_bmweb_start,_bmweb_input,_bmweb_quit -lidbfs.js -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,FS,IDBFS 	    -o $@ web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
-web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/* web/models/*) $(BUILD)/carts/kitchen.bm $(BUILD)/carts/stages3d.bm
+web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/* web/models/*) $(BUILD)/carts/kitchen.bm $(BUILD)/carts/herocart.bm
 	cp web/index.html web/style.css web/app.js web/bmcart.js web/bmring.js web/player.js $(WEB_PLAYER)/
 	cp -r web/assets $(WEB_PLAYER)/
 	rm -rf $(WEB_PLAYER)/models && mkdir -p $(WEB_PLAYER)/models
 	cp web/models/*.html web/models/*.bmm web/models/*.png web/models/robots.txt $(WEB_PLAYER)/models/
 	cp $(BUILD)/carts/kitchen.bm $(WEB_PLAYER)/kitchen.bm
-	cp $(BUILD)/carts/stages3d.bm $(WEB_PLAYER)/stages3d.bm
-# the 3D cartridge of the stages (the ARM rasterizer): its frames in wasm equal the PC build's
-test-wasm-3d: $(BUILD)/web/bmhost.js $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.bm tests/stages3d/input.txt
-	sh tests/webplayer/compare3d.sh $(BUILD) $(BUILD)/carts/stages3d.bm tests/stages3d/input.txt 20
+	cp $(BUILD)/carts/herocart.bm $(WEB_PLAYER)/herocart.bm
+# a 3D cartridge (the ARM rasterizer): its frames in wasm equal the PC build's (Hero Stress, no input script)
+test-wasm-3d: $(BUILD)/web/bmhost.js $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm
+	sh tests/webplayer/compare3d.sh $(BUILD) $(BUILD)/carts/herocart.bm "" 10
 test-wasm: $(BUILD)/web/bmhost.js $(BUILD)/web/player/bmweb.js
 	$(PYTHON) tests/webplayer/run_wasm.py $(BUILD)
 
@@ -815,7 +777,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-web-bmm test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-web-bmm test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \

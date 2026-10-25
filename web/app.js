@@ -11,7 +11,7 @@ function App() {
 
   const PRESETS = [
     { id: "kitchen.bm", name: "Chaos Kitchen", badge: "3D + Music", desc: "Full 3D cooking game with original music & sound effects" },
-    { id: "stages3d.bm", name: "Stages 3D", badge: "3D Dungeon", desc: "Software rasterized 3D stages exploration" }
+    { id: "herocart.bm", name: "Hero Stress", badge: "3D Stress", desc: "A 3D plaza with walking heroes, with the 3D options in real time" }
   ];
 
   const [activeTab, setActiveTab] = React.useState(getTabFromHash);
