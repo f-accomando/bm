@@ -146,8 +146,9 @@
  * Revision 1: everything of 2026-10-11 (container v1, sections 1-14, resource files, projects, the .b16 marker).
  * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games.
  * Revision 3 (2026-10-17): the cartridge type in bits 2-3 of the flags (bm.info "type"), the /bme folder for projects.
- * Revision 4 (2026-10-22): the web API for cartridges (web_get, web_poll, web_info, web_body, web_cancel, image_load, file_write), the folder bm/web. */
-#define BM_SPEC_REV 4
+ * Revision 4 (2026-10-22): the web API for cartridges (web_get, web_poll, web_info, web_body, web_cancel, image_load, file_write), the folder bm/web.
+ * Revision 5 (2026-10-25): safe_area(), aspect() and the 720x405 screen() mode. */
+#define BM_SPEC_REV 5
 
 #include <stddef.h>
 #include <stdint.h>

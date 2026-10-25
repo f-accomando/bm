@@ -24,6 +24,11 @@ rev = 4
 date = "2026-10-22"
 what = "the compatibility block in header bytes 120..127 with flag bit 4 (targets, input, aspect, needs, minimums; read and written; the menus act on the targets, see the item compat-policy), no 8 MB cartridge limit, the sound bank limit 8,388,608 values; the web API for cartridges: web_get with web_poll, web_info, web_body and web_cancel (https only, a pause per host, a size cap), image_load (JPEG, PNG, WebP into the sprite sheet), file_write (bm/web only); the config keys web_max_kib and file_write_max_kib"
 
+[[revision]]
+rev = 5
+date = "2026-10-25"
+what = "safe_area() and aspect() (the part of the screen that has the aspect of the cartridge, and the shape of the screen) and the 720x405 mode of screen(); a cartridge that calls them says spec: 5"
+
 [[item]]
 id = "container-v1"
 since = 1
@@ -191,3 +196,19 @@ status = "implemented"
 platforms = "all"
 where = ["src/fs/fat.c", "src/bm/project.c", "src/bm/shot.c", "src/bm/webpolicy.c", "src/kernel/reports.c", "src/kernel/sdlog.c", "src/kernel/b3dpi.c", "src/rgb30/b3d_rgb30.c", "src/script/bmui.lua", "docs/PROJECT-LAYOUT.md"]
 note = "The system writes lowercase names and extensions; reads are case-insensitive. The FAT driver sets the NT lowercase flags (byte 12, 0x08 base, 0x10 extension) of the 8.3 entry; every writer builds a lowercase name (config.txt, bootlog.txt, rptNNNNN.txt, 3dNNNN.txt, shots, bmv, sav, prt, /bme/name.bme, .bm, .b16). Old files in capitals are read and replaced in place, never renamed. Tested by host test_fat (flags, lookup in any case, fsck.vfat and mtools) and the QEMU tests. Not verified on real cards in Windows, Linux and the console"
+
+[[item]]
+id = "api-safe-area"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md", "tests/host/screen_modes.lua"]
+note = "safe_area() and aspect() (docs/api/draw.md). A cartridge that calls them declares spec: 5 in bm.info. Tested on the PC by make test-screen-modes (the test cart declares spec: 5); make test-spec checks that spec: 5 runs and spec: 6 is refused"
+
+[[item]]
+id = "screen-720x405"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md", "tests/host/screen_modes.lua"]
+note = "screen() accepts the 720x405 mode (the RGB30 panel in the 16:9 view). Tested on the PC by make test-screen-modes (bmhost --square). Not verified on the RGB30 panel"

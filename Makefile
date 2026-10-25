@@ -550,7 +550,9 @@ test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/in
 # screen(): the modes of a square panel (bmhost --square: 360x360, 720x720, 720x405) and of a TV
 # (bmhost), the size after a change, safe_area() and aspect() (W2, W3 of docs/design/b16-removal.md)
 $(BUILD)/screen-modes.bm: tests/host/screen_modes.lua scripts/mkbm.py
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --res 360x360 --title "screen modes" --author tests
+	@mkdir -p $(BUILD)
+	@printf 'name: screen modes\nspec: 5\n' > $(BUILD)/screen-modes.info
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --res 360x360 --title "screen modes" --author tests --info $(BUILD)/screen-modes.info
 test-screen-modes: $(BUILD)/host/bmhost-bin $(BUILD)/screen-modes.bm
 	$< $(BUILD)/screen-modes.bm --square --seconds 4 2>&1 | tee $(BUILD)/screen-modes-square.log | grep "^screen_modes"
 	grep -q "^screen_modes: \([0-9]*\)/\1 checks passed" $(BUILD)/screen-modes-square.log
@@ -1744,13 +1746,19 @@ test-spec: $(BUILD)/host/bmhost-bin tests/spec/cart.lua scripts/mkbm.py
 	@mkdir -p $(BUILD)/spec
 	@printf 'name: spec test\nspec: 1\n' > $(BUILD)/spec/ok.info
 	@printf 'name: spec test\nspec: 999\n' > $(BUILD)/spec/new.info
+	@printf 'name: spec test\nspec: 5\n' > $(BUILD)/spec/five.info
+	@printf 'name: spec test\nspec: 6\n' > $(BUILD)/spec/six.info
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/five.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/five.info > /dev/null
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/six.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/six.info > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/ok.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/ok.info > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/none.bm --lua tests/spec/cart.lua --title none > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/new.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/new.info > /dev/null
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/ok.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 1 did not run"; exit 1; }
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/none.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "no spec did not run"; exit 1; }
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/new.bm --seconds 1 2>&1 | grep -q "needs revision 999" || { echo "spec 999 was not refused"; exit 1; }
-	@echo "spec: 3/3 checks passed"
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/five.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 5 did not run"; exit 1; }
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/six.bm --seconds 1 2>&1 | grep -q "needs revision 6" || { echo "spec 6 was not refused"; exit 1; }
+	@echo "spec: 5/5 checks passed"
 # A cartridge's code is Lua text: a section that starts with the bytecode signature is refused (mode "t" in lua_load)
 test-luatext: $(BUILD)/host/bmhost-bin scripts/mkbm.py
 	@mkdir -p $(BUILD)/luatext

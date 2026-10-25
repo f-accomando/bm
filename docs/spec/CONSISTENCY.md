@@ -21,7 +21,7 @@ The Pi Zero W is the template: a feature is born there. Some of its work was los
 | Number | What it says | Where | Changes when |
 |---|---|---|---|
 | **Kernel version** | which build is on the card | `git describe` (`bm_version`); after 1.0.0 a `vX.Y.Z` tag | every release |
-| **Specification revision** (`BM_SPEC_REV`, now 2) | what a cartridge or a tool may rely on: formats, API, system keys, config keys, platform behaviour | `src/bm/bm.h`, `bmSPEC=N` in `kernel.img`, Settings > System, `docs/spec/specs.toml` | something a cartridge can depend on is added |
+| **Specification revision** (`BM_SPEC_REV`, now 5) | what a cartridge or a tool may rely on: formats, API, system keys, config keys, platform behaviour | `src/bm/bm.h`, `bmSPEC=N` in `kernel.img`, Settings > System, `docs/spec/specs.toml` | something a cartridge can depend on is added |
 | **Container version** (header offset 8, now 1) | the layout of the file | `src/bm/bm.h` | only when an old kernel must refuse the file: a break |
 
 A cartridge that uses something newer than revision 1 writes `spec: N` in its `bm.info`; a kernel with a lower revision
