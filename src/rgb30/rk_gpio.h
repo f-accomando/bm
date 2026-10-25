@@ -18,6 +18,5 @@ void rk_pin_pull(unsigned pin, unsigned pull);
 void rk_gpio_output(unsigned pin, int value);
 void rk_gpio_input(unsigned pin);
 void rk_gpio_set(unsigned pin, int value);
-int  rk_gpio_get(unsigned pin);
 
 #endif
