@@ -43,8 +43,31 @@ local function opts()
   gpu3d(false)
 end
 
+local function stats()
+  local s = gpu3d_stats()
+  check(type(s) == "table", "gpu3d_stats gives a table")
+  for _, k in ipairs { "jobs", "bin_us", "render_us", "gltris", "clean_cyc", "inval_cyc", "pool_max", "ovf_max",
+                       "ovf_jobs", "busy_us", "tris_in" } do
+    check(math.type(s[k]) == "integer", "stats." .. k .. " is an integer")
+  end
+  for _, k in ipairs { "status", "probes", "options" } do
+    check(type(s[k]) == "string", "stats." .. k .. " is a string")
+  end
+  check(s.options:find("bm3d", 1, true) ~= nil, "options holds the version")
+  check(s.jobs > 0, "the cube drew a job")
+  check(s.tris_in > 0, "the cube was given triangles")
+  check(s.busy_us >= s.bin_us + s.render_us, "busy_us holds the timed jobs")
+  local t = gpu3d_stats()
+  check(t.jobs >= s.jobs, "reading does not reset")
+  log("gpu3d_opt: options " .. s.options)
+  log("gpu3d_opt: status " .. s.status)
+end
+
+local cube
+
 function _init()
   opts()
+  cube = mesh_cube(0x3080F0)
 end
 
 function _update()
@@ -52,8 +75,16 @@ function _update()
 end
 
 function _draw()
-  cls(0)
-  if frame == 3 then
+  cls(0x102030)
+  if frame == 2 then
+    gpu3d(true)
+    camera3d(0, 1, -4, 0, -0.2, 60)
+    zclear()
+    draw3d(cube, 0, 0, 0, 0.3, 0.2, 0)
+  elseif frame == 3 then
+    stats()                           -- the job of the frame before has ended
+    gpu3d(false)
+  elseif frame == 4 then
     log(string.format("gpu3d_opt: %d/%d checks passed", passed, total))
   end
 end

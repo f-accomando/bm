@@ -949,6 +949,44 @@ int l_gpu3d_opt(lua_State *L)
     return 2;
 }
 
+/* gpu3d_stats() -> table: the GPU driver's totals since the last read of the session's report (they are not
+ * reset here: gpu3d_peek_stats), for benchmarks. Fields (integers): jobs, bin_us, render_us, gltris, clean_cyc,
+ * inval_cyc, pool_max, ovf_max, ovf_jobs, busy_us (the GPU's time, gpu3d_busy_us), tris_in (the triangles r3d was
+ * given since the last zclear()); strings: status (gpu3d_status), probes (gpu3d_probe_log), options
+ * (options_line: the line the reports start with). The 3D waiting is drawn first. All zero and empty without a GPU. */
+int l_gpu3d_stats(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    r3d_flush(r);
+    gpu3d_stats_t s;
+    gpu3d_peek_stats(&s);
+    lua_createtable(L, 0, 14);
+#define STAT(name, v) (lua_pushinteger(L, (lua_Integer)(v)), lua_setfield(L, -2, name))
+    STAT("jobs", s.jobs);
+    STAT("bin_us", s.bin_us);
+    STAT("render_us", s.render_us);
+    STAT("gltris", s.gltris);
+    STAT("clean_cyc", s.clean_cyc);
+    STAT("inval_cyc", s.inval_cyc);
+    STAT("pool_max", s.pool_max);
+    STAT("ovf_max", s.ovf_max);
+    STAT("ovf_jobs", s.ovf_jobs);
+    STAT("busy_us", gpu3d_busy_us(&s));
+    STAT("tris_in", r->tris_in);
+#undef STAT
+    const char *st = gpu3d_status(), *pl = gpu3d_probe_log();
+    lua_pushstring(L, st ? st : "");
+    lua_setfield(L, -2, "status");
+    lua_pushstring(L, pl ? pl : "");
+    lua_setfield(L, -2, "probes");
+    char opt[256];
+    opt[0] = 0;
+    options_line(opt, sizeof opt);
+    lua_pushstring(L, opt);
+    lua_setfield(L, -2, "options");
+    return 1;
+}
+
 /* gpu3d([on, [aa, [vs, [queue, [impostor, [later]]]]]]) -> on, aa, vs, version, queue, impostor, later, probe:
  * whether the GPU draws the 3D, whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
  * its vertex shader places the corners of the models (bm3d 3.0, where the GPU's

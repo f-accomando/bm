@@ -1812,7 +1812,7 @@ static const luaL_Reg api[] = {
     { "map3d_height", l_map3d_height }, { "map3d_blocked", l_map3d_blocked },
     { "map3d_objects", l_map3d_objects }, { "map3d_size", l_map3d_size },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "gpu3d_opt", l_gpu3d_opt }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "gpu3d_opt", l_gpu3d_opt }, { "gpu3d_stats", l_gpu3d_stats }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controls", l_controls }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
