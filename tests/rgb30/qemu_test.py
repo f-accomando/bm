@@ -1234,7 +1234,9 @@ def test_market_b16(b, opts):
         keys(q, "x")                            # X: its details
         screen(["Market > Pocket", "Play", "Version", "1.0", "License", "MIT"])
         keys(q, "\x7f")                         # back: closed
-        screen(["Installed"], gone=["Market > Pocket"])
+        # (an installed game has no pill any more: .badge is NULL when s->path
+        # is set, src/kernel/market.c:886; the Pi test says so too)
+        screen(["Play"], gone=["Market > Pocket", "Installed"])
         keys(q, "\r")                           # confirm: plays it, from the card
         q.expect("play: /bm/pocket.b16", timeout=10)
         q.expect("the b16 runs", timeout=30)
@@ -1243,8 +1245,8 @@ def test_market_b16(b, opts):
         q.send("q")
         q.expect("fps", timeout=10)
         time.sleep(1.0)
-        keys(q, "r")                            # the Games tab: the new game
-        screen(["Pocket", "Play"])
+        keys(q, "r")                            # the Games tab: the new game (frozen by q: Resume, test_frozen_game_menu)
+        screen(["Pocket", "Resume"])
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
         time.sleep(0.3)
