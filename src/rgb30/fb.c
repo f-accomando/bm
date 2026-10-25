@@ -139,14 +139,3 @@ int fb_flip(framebuffer_t *fb)
     fb->base = page_addr(fb, (drawn + 1) % fb->buffers);
     return fb->vsync;
 }
-
-int fb_vsync_probe(uint32_t *us, int n)
-{
-    for (int i = 0; i < n; i++) {
-        uint32_t t0 = timer_ticks();
-        if (!plat_display_wait_vsync())
-            return -1;
-        us[i] = timer_ticks() - t0;
-    }
-    return 0;
-}

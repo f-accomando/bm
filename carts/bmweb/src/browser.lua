@@ -542,7 +542,7 @@ local function download_step(self)
   self.api.file_write(note, files.note(d.url, d.from, d.type, d.size))
   self.api.web_cancel(d.id)
   if d.model then
-    -- path is "bmm/NAME.bmm"; the note stays in bm/web, where the Lib tab and the editors do not look
+    -- path is "bmm/NAME.bmm"; the note stays in bm/web, where the editors do not look
     self.status = "saved in /" .. path .. " (" .. d.size .. " bytes)" ..
       (d.derived and ", name made from the address" or "") .. ", note " .. note
   else

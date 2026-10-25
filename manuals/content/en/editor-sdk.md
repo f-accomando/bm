@@ -21,7 +21,6 @@ bm SDK is the program where a game starts. It holds the project's code, sprites,
 
 - **The other tools of the suite.** On the project page, keys `1` to `6` open the same file in bm Code, bm Pixel, bm Studio, bm Animator, bm Mesh and bm Sound. Their menu has **Back to bm SDK**, which saves and returns.
 - **The Market.** The suite's apps can be installed from the Market Apps page. The SDK prefers the copies installed on the SD card over the ones built into the kernel, so tools can be updated from the Market.
-- **The Lib tab.** The menu's Lib tab lists the resources found in your games (models, images, sounds, maps, palettes, kits). Its options include *Copy into a project...*, which brings a resource into a project. The tab is hidden by default: `lib_tab=1` in `bm/config.txt` brings it back.
 - **The Games tab.** A game you build appears there.
 
 ## The rules of the suite

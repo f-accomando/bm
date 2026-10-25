@@ -5,11 +5,11 @@ fibers probably off or used differently (job per core, real threads for download
 ## State now
 - `src/kernel/fiber.c/.h`, `src/arch/fiber.S` (+ `src/rgb30/fiber.S`): cooperative coroutines,
   one at a time, menu loop only, never from an IRQ; no preemption; switch ~28 words, no MMU/cache.
-- Jobs (`fiber_job_t`, named, run time and worst overrun): Market, covers, reports, Lib, netxfer
+- Jobs (`fiber_job_t`, named, run time and worst overrun): Market, covers, reports, netxfer
   write, WiFi retry, update, publish.
 - Shares: contexts `FIBER_GAME` / `FIBER_TOOL` / `FIBER_MENU`; a `fiber_share_t` table per menu,
   guaranteed % first, leftover in table order. Pi (`menu_jobs`, `carts.c`): update 15, publish 15,
-  Market 25, Lib 15, covers 10, reports 5, WiFi 5, SD map 10; RGB30 (`src/rgb30/ui.c`): update 25,
+  Market 25, covers 10, reports 5, WiFi 5, SD map 10; RGB30 (`src/rgb30/ui.c`): update 25,
   Market 55, WiFi 10, SD map 10. A file/kernel from the PC (netxfer write) is exclusive, first, outside the table. GAME
   and TOOL are 0, nothing calls them: games own the machine; lockstep (Overbit, bmnet) untouched.
 - FAT writes give the CPU back between pieces (`fat_write_tick` = `fiber_slice_tick`); FAT

@@ -303,8 +303,8 @@
     "title": "The API for tools"
    },
    "4": {
-    "en": "5769f0900909",
-    "it": "25487f6c014c",
+    "en": "dc08b5165e1e",
+    "it": "4cbdc48527e3",
     "title": "Resource files and sharing assets"
    },
    "5": {
@@ -319,8 +319,8 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "96de0fc04139",
-   "docs/RISORSE.md": "46d80064fc62",
+   "docs/PROJECT-LAYOUT.md": "73e0d4cf6c20",
+   "docs/RISORSE.md": "69354ea59894",
    "docs/SCREENSHOTS.md": "819c2580bb7d",
    "docs/api/tools.md": "5f4905aa4832"
   }
@@ -363,8 +363,8 @@
     "title": "What the kernel does at start"
    },
    "4": {
-    "en": "54b2a1e78d65",
-    "it": "f631a8cc291d",
+    "en": "c3afe9c509f5",
+    "it": "e807460a0da2",
     "title": "The menu and its tabs"
    },
    "5": {
@@ -388,8 +388,8 @@
     "title": "The files on the SD card"
    },
    "9": {
-    "en": "9a87bec781e1",
-    "it": "62ebf254f4b0",
+    "en": "579b5f21b662",
+    "it": "bb0641e83854",
     "title": "Settings and config.txt"
    }
   },
@@ -397,8 +397,8 @@
    "boot": "884854dfbb36",
    "chainloader": "810ae5eb2ec6",
    "docs/HARDWARE.md": "6bfcdeee8616",
-   "docs/progress/system.md": "8df7fbcb1293",
-   "src/kernel/syskeys.c": "6299911b4014"
+   "docs/progress/system.md": "ff0d2e45a915",
+   "src/kernel/syskeys.c": "249cf5144149"
   }
  },
  "characters": {
@@ -669,8 +669,8 @@
     "title": "What bm Pixel is"
    },
    "10": {
-    "en": "9a3a99be5e95",
-    "it": "d8fd5530038c",
+    "en": "c38a88b23ce5",
+    "it": "e4ff46ef0ac5",
     "title": "Importing and exporting resources"
    },
    "11": {
@@ -725,18 +725,18 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "3b2f838fdacd",
-   "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-pixel.md": "a0f942fe815a",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "carts/pixel/main.lua": "ff4d7d19619e",
+   "docs/RISORSE.md": "69354ea59894",
+   "docs/design/suite-pixel.md": "bbfd8d899dda",
+   "docs/progress/tools.md": "a38752d0a2e5",
+   "sdk/README.md": "70140108556f"
   }
  },
  "editor-sdk": {
   "chapters": {
    "1": {
-    "en": "d3c1f53fffec",
-    "it": "8b68d52bb2cb",
+    "en": "893d051be079",
+    "it": "1911515f9ac2",
     "title": "What bm SDK is"
    },
    "2": {
@@ -782,10 +782,10 @@
   },
   "sources": {
    "carts/editor/main.lua": "197c47f05b65",
-   "docs/RISORSE.md": "46d80064fc62",
+   "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
-   "docs/progress/tools.md": "87bdbfd88948",
-   "sdk/README.md": "92eb56a84487"
+   "docs/progress/tools.md": "a38752d0a2e5",
+   "sdk/README.md": "70140108556f"
   }
  },
  "editor-sound": {

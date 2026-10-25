@@ -358,7 +358,7 @@ A resource is one thing taken out of a cartridge in its own file. For pictures, 
 
 ## What you can do today
 
-- In the menu's **Lib** tab, the **Images** group lists the zones of SPRITES. `docs/RISORSE.md` describes **A** opening one in bm Pixel, but this was not confirmed in the code. The tab is hidden unless `lib_tab=1` is in `bm/config.txt`.
+- The menu has no tab for resource files. Open a resource file from the editors.
 - On the PC, `scripts/bmres.py` extracts a sprite zone into a `.bmi` (with its boxes), adds a resource to a `.bm`, and converts to and from `.png`, `.hex` and `.gpl`.
 
 ::: copy

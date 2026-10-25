@@ -142,11 +142,6 @@ const char *v3d_status(void)
     return status;
 }
 
-uint32_t v3d_ident(int i)
-{
-    return i >= 0 && i < 3 ? ident[i] : 0;
-}
-
 uint32_t v3d_bus(const void *p)
 {
     return ARM_TO_BUS(p);

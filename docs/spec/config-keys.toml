@@ -336,15 +336,6 @@ settings = "Settings > Controllers > Keyboard layout"
 read_in = "src/kernel/config.c:103"
 
 [[key]]
-name = "lib_tab"
-scope = "pi"
-values = "1 = show the Lib tab; anything else = hidden"
-default = "Lib tab hidden"
-meaning = "Shows the Lib (resources) tab of the cartridge menu."
-settings = ""
-read_in = "src/kernel/carts.c:1139"
-
-[[key]]
 name = "mali3d"
 scope = "rgb30"
 values = "1 = the Mali draws the flat-colour triangles of the 3D; anything else = the ARM"

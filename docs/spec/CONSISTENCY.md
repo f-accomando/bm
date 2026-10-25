@@ -118,7 +118,7 @@ removing or changing a promise is a 2.0.0.
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
 | D03 | suspended | unknown | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | decide whether the RGB30 has local multiplayer; if so map BT pads to players |
-| D04 | resolved | history | menu keys | Pi: Start confirms; Tab and 1-5 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
+| D04 | resolved | history | menu keys | Pi: Start confirms; Tab and 1-4 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
 | D05 | suspended | unknown | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the block (pointer.c is built into the RGB30) or hide the mouse rows |
 | D11 | accepted | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
 | D12 | resolved | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
@@ -164,4 +164,4 @@ Resource files and the common project layout are `implemented` since BETA-6 roun
 - D03 and D05: should the RGB30 have local multiplayer and the menu pointer, or are they hardware choices (then the Settings rows go)? The owner keeps both suspended.
 - D49 is accepted (BETA-6 round 2): the Pi menus keep A and B (D32); only the RGB30 remaps the menus' OK and Cancel with `mo` and `mc`. If you want the Pi menus to follow them, say so: the entry goes back to `todo`.
 - D16 is decided: `show_bm` is the Games tab, `market_bm` the Market (RGB30), `show_b16` the Market (Pi).
-- The Lib tab: accepted as closed on both kernels (owner's decision, 2026-10-06). The tools on the RGB30 come from Market > Apps and are recognised as tools (D13).
+- The Lib tab: removed from the Pi kernel on 2026-10-25 (owner's decision; it was hidden since 2026-10-06). Both kernels have the same tabs. The tools on the RGB30 come from Market > Apps and are recognised as tools (D13).

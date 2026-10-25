@@ -58,7 +58,6 @@ The kernel has **no** 8 MB limit when it loads a cartridge. The limit exists onl
 | `src/kernel/carts.c:926`, `src/rgb30/ui.c:825`, `src/kernel/market.c:1008` | text "up to 8 MB", "8 MB ceiling" | change text |
 | `src/ai/kb/guide_sdk.txt:881,897,991,996,1001,1006`, `docs/API.md:176`, `docs/B16.md:10,57,418-422,445,621,707,713,728`, `docs/progress/b16.md:17,31,38,48` | docs and assistant knowledge base | change text. The assistant weights (`src/ai/assist.weights`) must be rebuilt after a change of `src/ai/kb/*`. |
 | `src/net/catalog.h:19` `CATALOG_MAX_FILE (100u << 20)` | Market file limit. GitHub refuses files over 100 MB. | keep. It is the real ceiling for the Market. |
-| `src/kernel/lib.c:13` `LIB_FILE_MAX (8u*1024*1024)` | limit of a Lua library file on the SD card. Not a cartridge limit. | keep, out of scope |
 | `src/kernel/monitor.c:152` | 8 MB download buffer of the monitor. Not a cartridge limit. | keep, out of scope |
 
 Search command used: `grep -rn '8 MB\|8u << 20\|8388608\|BM_B16_MAX' src scripts Makefile docs`. The pattern `8 \*` in the request matches thousands of unrelated lines, so it was not used.

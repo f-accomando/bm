@@ -286,8 +286,8 @@ A resource file uses the same container as a `.bm`, with the magic `BMRES` and t
 
 ## Caveats
 
-- The Lib tab, which lists the resources, is hidden for now. `lib_tab=1` in `bm/config.txt` brings it back.
-- The apps that open resource files are not done yet: A in the Lib tab opens only resources that are inside a `.bm`.
+- The menu has no tab for resource files (the Lib tab is removed). Open a resource file from an editor.
+- The apps that open every kind of resource file are not done yet.
 - `bmres.py add` with a `.bme` cart and no `-o` writes the `.bme` in place. With a `.bm` or `.b16` and no `-o` it refuses to change the game ("is a game, read only") and writes a copy with the same name and the `.bme` extension. A `.bme` output is marked as a project.
 - [TO FILL: `docs/RISORSE.md` says `mkbm.py --res FILE` integrates resources at build time, but in `scripts/mkbm.py` the option `--res` chooses the screen resolution. Say which tool does the build-time integration.]
 

@@ -187,7 +187,7 @@ static struct {
     int clip[4];                    /* clip window written last (x0 y0 x1 y1) */
     int cfg;                        /* configuration written last, -1: none */
     int red_a, tex_swap;            /* colour byte order, found by the probe */
-    int tformat, tformat_off;       /* textures in T-format (learned by the probe; off: rows) */
+    int tformat;                    /* textures in T-format (learned by the probe) */
     int msaa;                       /* MSAA 4x asked for (gpu3d_set_msaa) */
     int bilinear;                   /* bm3d 4.8: textures filtered (gpu3d_set_bilinear) */
     int ms_ok;                      /* the probe: 0 no MSAA, 1 on cleared pages, 2 also on loaded ones */
@@ -524,7 +524,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
         return NULL;
     tex_t *t = &G.tex[slot];
     const int cw = s->w / G16_CELL, ch = s->h / G16_CELL;
-    const int tiled = G.tformat && !G.tformat_off;
+    const int tiled = G.tformat;
     const int tw = tiled ? (s->w + 31) & ~31 : s->w, th = tiled ? (s->h + 31) & ~31 : s->h;
     const uint32_t n = (uint32_t)s->w * (uint32_t)s->h, tn = (uint32_t)tw * (uint32_t)th;
     size_t size = (size_t)tn * 4 + 16 + (size_t)(cw + 1) * (size_t)(ch + 1) * 4;
@@ -545,12 +545,12 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
         opaque_all = s->cell_opaque[i] != 0;
     /* bm3d 7.2: a sheet with transparent texels as RGBA5551 (its alpha is
      * 0 or 1: nothing lost but green's last bit) where the probe learned it */
-    const int t16_ok = G.tex16_on && G.tf16 && !G.tformat_off && s->w % 64 == 0 && s->h % 32 == 0;
+    const int t16_ok = G.tex16_on && G.tf16 && s->w % 64 == 0 && s->h % 32 == 0;
     /* bm3d 7.3: an opaque sheet as ETC1 (4 bits a texel: an eighth of the
      * memory, a quarter of RGB565's) where the probe learned the layout and
      * gpu3d_etc1 asks for it; its sides multiples of the ETC1 tile's (64 x
      * 128 texels, or 128 x 64: etc1_tile_w/h); else the 16 bits, else 32 */
-    const int e1 = G.etc1_on && G.etc1_ok && !G.tformat_off && opaque_all && s->w % etc1_tile_w() == 0 &&
+    const int e1 = G.etc1_on && G.etc1_ok && opaque_all && s->w % etc1_tile_w() == 0 &&
                    s->h % etc1_tile_h() == 0;
     const int fmt = e1 ? TF_ETC1 : !t16_ok ? TF_32 : opaque_all ? TF_565 : G.cut_ok[0] ? TF_5551 : TF_32;
     t->fmt = fmt;
@@ -2406,7 +2406,7 @@ int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *pag
         for (uint32_t c = 0; c < 65536; c++)
             big.lut[c] = texel_of((uint16_t)c, 1);
     }
-    const int tiled = G.tformat && !G.tformat_off;
+    const int tiled = G.tformat;
     const int tw = tiled ? (w + 31) & ~31 : w, th = tiled ? (h + 31) & ~31 : h;
     const uint32_t n = (uint32_t)w * (uint32_t)h, tn = (uint32_t)tw * (uint32_t)th;
     const size_t size = (size_t)tn * 4 + 16;
@@ -2788,13 +2788,6 @@ int gpu3d_bilinear(void)
     return G.bilinear;
 }
 
-void gpu3d_tiled_textures(int on)
-{
-    G.tformat_off = !on;
-    for (int i = 0; i < NTEX; i++)
-        G.tex[i].sheet = NULL;          /* made again in the other layout */
-}
-
 int gpu3d_vshader(void)
 {
     return !G.gl_ok ? 0 : G.clip_ok && G.lit_ok ? 2 : 1;
@@ -2809,11 +2802,6 @@ void gpu3d_set_vshader(int on)
 int gpu3d_vshader_on(void)
 {
     return G.gl_ok ? G.gl_on : 0;
-}
-
-int gpu3d_tiles(void)
-{
-    return G.tformat;
 }
 
 void gpu3d_page(int uniform, uint16_t c)
@@ -2966,11 +2954,6 @@ int gpu3d_queue(void)
 int gpu3d_queue_ok(void)
 {
     return G.queue_ok;
-}
-
-int gpu3d_zclear_ok(void)
-{
-    return G.zclear_ok;
 }
 
 void gpu3d_take_stats(gpu3d_stats_t *s)

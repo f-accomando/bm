@@ -149,7 +149,7 @@ What a game **cannot** do: start a Market download, share a TLS handshake, or wr
 ## 6. Workload 5: loading and closing games and apps
 
 ### Problem today
-- `background_stop()` runs before every app. It stops the covers, the Lib job, the reports, WiFi retry and the SD map. It also pauses a netxfer write (`carts.c:380`).
+- `background_stop()` runs before every app. It stops the covers, the reports, WiFi retry and the SD map. It also pauses a netxfer write (`carts.c:380`).
 - The stop is synchronous. If a job is inside a handshake (100 ms) or an SD timeout (500 ms), the start of the game waits for it. The `menu idle:` line prints the worst `stop` time. The value is **not in any doc**.
 - `bm_run` frees the suspended game first (`bm_close_suspended`, `runtime.c:9985`). Only one cartridge is in memory. The close frees Lua state, assets and sheets. Its time is **not measured**.
 - A start needs: the SD read of the whole file, the parse, `load_assets`, `new_cart_state`, a mode change and the audio bank. `loading_tick` redraws the splash between steps. Time to first frame is **not measured** in any doc.

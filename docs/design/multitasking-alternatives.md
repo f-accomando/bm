@@ -24,7 +24,7 @@ benchmark. The RGB30 (RK3566, AArch64) has one usable core (no PSCI `CPU_ON`).
 - A data abort handler exists (`src/kernel/exceptions.c`: prints DFAR and DFSR). A guard page would
   give a clean report with no new handler.
 - A 1 kHz timer IRQ exists (`irq_init`, `irq_register`). The IRQ runs on the stack that is current.
-- Jobs: eight `fiber_job_start` users. Stack sizes: covers 16 KB, Lib 32 KB, sdmap 16 KB, reports
+- Jobs: seven `fiber_job_start` users (the Lib job is removed). Stack sizes: covers 16 KB, sdmap 16 KB, reports
   128 KB, others use `STACK_SIZE`, `JOB_STACK`, `TASK_STACK`, `WRITE_STACK`. Nobody measured the
   real use of these stacks.
 - TLS is mbedTLS 1.2 only (`MBEDTLS_SSL_PROTO_TLS1_2`). Session tickets and restartable ECC are not

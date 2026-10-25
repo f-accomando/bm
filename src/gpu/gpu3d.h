@@ -78,7 +78,6 @@ int gpu3d_inflight(void);
 void gpu3d_set_queue(int on);
 int gpu3d_queue(void);                  /* on: asked for and possible */
 int gpu3d_queue_ok(void);               /* the probe saw a started job end right */
-int gpu3d_zclear_ok(void);              /* the probe saw zclear() inside a job work (with the queue) */
 /* bm3d 5.1: gpu3d_set_queue(2): the queue and two jobs in flight, each in its
  * own memory: the ARM fills the next frame's job while the GPU draws this
  * one (bm3d 5.1). gpu3d_queue2(): asked for and possible. */
@@ -97,11 +96,6 @@ int gpu3d_wc(void);
 void gpu3d_set_msaa(int on);
 int gpu3d_msaa(void);
 int gpu3d_msaa_on(void);            /* asked for and possible (on any page) */
-
-/* Textures in T-format where the probe learned it (1), or in
- * rows (0); the textures made so far are made again. gpu3d_tiles(): the
- * probe learned T-format. */
-void gpu3d_tiled_textures(int on);
 
 /* bm3d 4.8: the GPU's textures filtered (bilinear) instead of the nearest texel
  * as the ARM draws them (gpu3d_filter=1: it changes how they look);
@@ -151,7 +145,6 @@ int gpu3d_sort(void);
  * for and possible. */
 void gpu3d_set_attr(int on);
 int gpu3d_attr(void);
-int gpu3d_tiles(void);
 
 /* bm3d 3.0: whole meshes placed by the GPU's vertex shader instead of a
  * triangle at a time by r3d. gpu3d_vshader(): the probes drew with it (1),

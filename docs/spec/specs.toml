@@ -45,8 +45,8 @@ id = "resource-files"
 since = 1
 status = "implemented"
 platforms = "pi"
-where = ["src/bm/bm.h", "scripts/bmres.py", "src/kernel/lib.c", "src/bm/runtime.c", "src/script/bm3d.lua"]
-note = "BMRES files: the PC tools make and merge them (scripts/bmres.py, make test-res); the Pi's Lib tab reads them (hidden until lib_tab=1); res_read and res_write (docs/api/tools.md) let the console editors open and save the model files (.bmm, T.import_model and T.write_bmm in bm3d.lua). The RGB30 has no Lib tab: the owner closed the Lib tab on both kernels on 2026-10-06 (CONSISTENCY.md, Decisions)"
+where = ["src/bm/bm.h", "scripts/bmres.py", "src/bm/format.c", "src/bm/runtime.c", "src/script/bm3d.lua"]
+note = "BMRES files: the PC tools make and merge them (scripts/bmres.py, make test-res); res_read and res_write (docs/api/tools.md) let the console editors open and save the model files (.bmm, T.import_model and T.write_bmm in bm3d.lua). Neither kernel has a Lib tab: the owner closed it on 2026-10-06 and its code is removed (2026-10-25, CONSISTENCY.md, Decisions)"
 
 [[item]]
 id = "project-flag"

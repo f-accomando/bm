@@ -722,8 +722,8 @@ static g16_sheet_t dev_covers[N_DEV];
  * Pi); Settings the last, its panel */
 enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
 
-/* The tab a key of a keyboard goes to, -1 if none (the Pi's carts.c:1421-1427): Tab is the next tab and wraps
- * after the last; 1 2 3 5 are Market, Games, Dev and Settings; 4 is the Pi's Lib tab, which is not here */
+/* The tab a key of a keyboard goes to, -1 if none (as on the Pi, carts.c): Tab is the next tab and wraps
+ * after the last; 1 2 3 4 are Market, Games, Dev and Settings */
 static int tab_of_key(int k, int tab)
 {
     switch (k) {
@@ -731,7 +731,7 @@ static int tab_of_key(int k, int tab)
     case '1': return TAB_MARKET;
     case '2': return TAB_GAMES;
     case '3': return TAB_DEV;
-    case '5': return TAB_SETTINGS;
+    case '4': return TAB_SETTINGS;
     default: return -1;
     }
 }
@@ -1223,7 +1223,7 @@ void ui_home(framebuffer_t *f)
             run_page(serial_lua);
             continue;
         }
-        int tabto = -1;                             /* a keyboard: Tab and 1 2 3 5 jump tabs (carts.c:1421-1427, 1479-1482) */
+        int tabto = -1;                             /* a keyboard: Tab and 1 2 3 4 jump tabs (carts.c) */
         if (serial_c >= 0 && tab_of_key(serial_c, tab) >= 0)    /* the serial line's digits too, as on the Pi (its Tab is Select here) */
             tabto = tab_of_key(serial_c, tab);
         for (int k; (k = hid_getc()) >= 0;)
