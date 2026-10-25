@@ -77,7 +77,7 @@ What bm Web can save today (`webpolicy.c:86-98`, `system.md` `file_write`, `cart
   limit for downloads in bm Web. Keep each asset under 1 MB, or the cap must change (not decided).
 - bm Web writes a note file beside each download (`files.lua:note`).
 - No tool reads `bm/web` (`grep` of `src` finds only the write side). The user moves a file by hand.
-- Planned, in progress on another branch, not in this branch: bm Web saves a `.bmm` in `/bmm`. Do not rely on it until it is merged.
+- Done 25 Oct (host tests only, not tried on a device): `file_write` with a name ending in `.bmm` checks the bytes as a BMRES model (kind 1, a MESH section, the mesh check, the size cap), never replaces a file, and writes `/bmm/NAME.bmm`. bm Web recognises a model by its magic bytes and shows "saved in /bmm/NAME.bmm". No new permission prompt (`docs/api/system.md`).
 
 ## 3. Limits of bm Web and the kernel
 
@@ -184,9 +184,7 @@ Sources: `docs/design/bm-web-player.md` (stages, section 8), `web/README.md`, `d
 
 - `web/`: a React mock page (React 18.3.1 from cdnjs with SRI), 24 placeholder PNG previews in `web/assets` (3 groups of 8:
   `2d_*`, `3d_*`, `snd_*`, 128x128), and the launcher contract (`web/README.md`). Previews and text are placeholders.
-- Test assets for bm Web: another agent adds static pages with `.bmm` models and PNG previews in `web/models/`. In progress,
-  not merged here (`ls web/models` is empty on this branch). They are the test fixture of this design: they let a Pi
-  open an index page, load previews and save a `.bmm` to `bm/web`. Check them against section 4 when they land.
+- Test assets for bm Web: `web/models/` holds an index page, four model pages (house, tree, crate, walker) with a `.bmm` and a 256x256 PNG preview each, and a `robots.txt` without a delay; `build.py` makes them (`--check` proves they are deterministic). They are the test fixture of this design: they let a Pi open an index page, load previews and save a `.bmm` to `/bmm`. Check them against section 4: the previews are 256x256 (the cart cuts a picture to 160x120), so make 160x120 previews for the site.
 - Test of the player: section 5. Test of bm Web: `make test-web`.
 
 ## 7. Open decisions
@@ -203,7 +201,7 @@ For the user. Nothing here is decided.
    Keep "a third-party site" in docs. Decide the site's own name apart from `carts/bmweb`.
 7. **One catalog or two.** The Market and the site share one signed catalog, or the site keeps its own.
 8. **The 1 MB cap of bm Web.** Raise `MAX_HTML` for a link to a file, or keep assets under 1 MB.
-9. **Where bm Web saves.** `bm/web` today; `/bmm` for a `.bmm` is in progress on another branch; other types: not decided.
+9. **Where bm Web saves.** `bm/web` today; `/bmm` for a `.bmm` is done (host tests); other types: not decided.
 
 ## 8. Staged plan
 
@@ -222,4 +220,4 @@ a refused user agent, more than 16 images and a client-rendered page are the cau
 - CORS for the player when the cartridge is on another host.
 - That each editor opens each type (`RISORSE.md` is a plan; `FORMATS-AUDIT.md:119-120` says some openings are not built).
 - A POST form in bm Web (no code found; not tested).
-- The planned `.bmm` save in `/bmm` and the files in `web/models/` (other branches).
+- The `.bmm` save in `/bmm` and the files in `web/models/` on a device (host tests only).
