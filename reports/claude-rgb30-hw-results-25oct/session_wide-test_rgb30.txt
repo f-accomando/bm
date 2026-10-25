@@ -3,41 +3,32 @@ kind: session
 kernel: v0.2.5-1667-g4e3466bb
 branch: claude/rgb30-hw-results-25oct
 board: RGB30
-date: 2026-10-25 13:36:01
+date: 2026-10-25 14:23:55
 file: session_wide-test_rgb30.txt
 
 session of "Wide test" (the last one: the next run of this game replaces this file)
 options bm3d 7.7 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 720x405, 12199 frames in 203.7 s, 59.8 fps
+screen 640x360, 151 frames in 2.5 s, 60.0 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 0.4 ms, max 0.6 ms, 0 frames over 16.7 ms
-memory: Lua peak 64 KB, data 322 KB; code 70 tokens; busiest frame 1k Lua instructions
-frames that were shown after more than 1.5 frames: 5
+time of _update + _draw (+ the 3D's wait): avg 0.3 ms, max 0.5 ms, 0 frames over 16.7 ms
+memory: Lua peak 64 KB, data 322 KB; code 54 tokens; busiest frame 1k Lua instructions
+frames that were shown after more than 1.5 frames: 0
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    12193
+  <= 18 ms (60 fps)    150
   <= 25 ms             0
-  <= 34 ms (30 fps)    3
+  <= 34 ms (30 fps)    0
   <= 50 ms             0
   <= 100 ms            0
-  > 100 ms (a freeze)  2
+  > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 12198 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 150 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
-  draw (no 3D)    16.4   98%
+  draw (no 3D)    13.0   78%
   3D calls         0.0    0%
-  audio            0.1    0%
+  audio            0.3    2%
   GPU wait         0.0    0%
-  all             16.5   99%
-audio interrupt: 0.8% of the CPU's time (mean), 2.8% at most in a second
+  all             13.3   80%
+audio interrupt: 2.1% of the CPU's time (mean), 2.8% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
-
-the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
-time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
-  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-   1157    21.2   166.7    0.4   0.0    0.4   0.0   0.0   166.3        0       64        1
-   9441   159.5   166.7    0.4   0.0    0.4   0.0   0.0   166.3        1       64        1
-   1182    21.6    33.3    0.4   0.0    0.4   0.0   0.0    32.9        0       64        1
-   9466   159.9    33.3    0.4   0.0    0.4   0.0   0.0    32.8        0       64        1
-    506    10.2    33.3    0.4   0.0    0.4   0.0   0.0    32.8        0       64        1
