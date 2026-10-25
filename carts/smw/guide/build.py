@@ -140,11 +140,11 @@ def main():
     for name, rows in (("map_main.csv", main_rows), ("map_col.csv", col_rows)):
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
     open(out + "/flags.csv", "w").write("%d=1\n%d=2\n" % (col_n, col_n + 1))
-    poses_lua = real.pack_poses(ex, out + "/tiles.png", out + "/sheet.png", restyle=restyle)
+    poses_lua = real.pack_zones(ex, out + "/tiles.png", out + "/sheet.png", out + "/sprites.txt", restyle=restyle)
     lua = poses_lua + real.block_data(defs_new, level) + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % real.backdrop(ex))
     open(out + "/main.lua", "w").write(lua)
-    base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", out + "/sheet.png",
+    base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", out + "/sheet.png", "--sprites", out + "/sprites.txt",
             "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--flags", out + "/flags.csv",
             "--info", ROOT + "/carts/smw/bm.info", "--title", "SMW Guide Edition", "--targets", "rgb30", "--input", "pad"]
     subprocess.run(base + ["-o", out + "/guide.b16", "--b16"], check=True)

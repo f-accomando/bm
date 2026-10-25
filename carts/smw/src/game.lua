@@ -1,5 +1,6 @@
 -- Super Mario World, first level, for the RGB30 (.b16, 360x360). A personal port: the graphics
 -- come from the player's own ROM (scripts/smw_*.py). The movement is in physics.lua.
+local lib = require "bmlib"
 local VIEW_W, VIEW_H = 256, 224          -- the SNES picture, shown whole inside the 360x360 screen
 local VX, VY = (360 - VIEW_W) // 2, (360 - VIEW_H) // 2
 local LEVEL_H = 27 * 16
@@ -29,6 +30,7 @@ local restart_level
 function _init()
   local mw, mh = msize()
   level_w = mw * 8
+  lib.tiles({ layer = "col", solid = 1, platform = 2 })     -- the map's flags: 1 solid, 2 platform (bmlib's convention)
   L0 = {}
   for y, row in ipairs(L16) do L0[y] = { table.unpack(row) } end
   restart_level()
@@ -91,66 +93,53 @@ local function pick_coins()
   end
 end
 
--- ---- Koopa Troopas (sprite 05). Speeds in 1/16 pixel a tick, as the game keeps them: it walks at 8, a
--- kicked shell slides fast, a stomped one sleeps for 330 ticks. Frame lists from scripts/smw_enemies.py.
-local KL = { "05_8_42ad5a82", "05_8_04c81fb9" }      -- walking left, two frames of 8 ticks
-local KR = { "05_8_2f5730ba", "05_8_c999e5e3" }      -- walking right
-local KT = "05_8_5225aa56"                           -- turning
-local KSHELL = "05_9_d229f1b8"
+-- ---- Koopa Troopas (sprite 05). Speeds in 1/16 pixel a tick, as the game keeps them: it walks at 8 and
+-- turns at a wall and at the end of a ledge (they are red), a kicked shell slides fast, a stomped one sleeps
+-- for 330 ticks. Zones koopa_l, koopa_r, koopa_turn, shell and shell_slide, with their boxes (scripts/smw_enemies.py).
 local koopas = {}
+local H = lib.hits()                           -- the boxes of a tick, and who hits whom
 
 spawn_koopas = function()
   koopas = {}
   for _, k in ipairs(KOOPAS) do
-    koopas[#koopas + 1] = { x = k[1], y = k[2], vx = k[4] == 1 and 0 or (k[3] == 1 and -8 or 8), vy = 0,
+    koopas[#koopas + 1] = { x = k[1], y = k[2], w = 16, h = 16, vx = k[4] == 1 and 0 or (k[3] == 1 and -8 or 8), vy = 0,
                             face = k[3] == 1 and -1 or 1, state = k[4] == 1 and "shell" or "walk", t = 0, turn = 0 }
   end
 end
 
-local function koopa_solid(px, py)      -- walls: solid only; the floor under it: solid or platform
-  return mflags(px, py, 1, 1, "col") & 1 ~= 0
-end
-
-local function koopa_floor(px, py)
+local function floor_at(px, py)
   return mflags(px, py, 1, 1, "col") & 3 ~= 0
 end
 
-local function koopa_step(k, solid_at)
+local function koopa_step(k)
   k.t = k.t + 1
+  k.vy = math.min(k.vy + 4, 64)
   if k.state == "dead" then
-    k.vy = math.min(k.vy + 4, 64)
     k.y = k.y + k.vy / 16 * 1.2
     return
   end
-  k.vy = math.min(k.vy + 4, 64)
-  local oy = k.y
-  k.y = k.y + k.vy / 16 * 1.2
-  if koopa_floor(k.x + 2, k.y + 16) or koopa_floor(k.x + 13, k.y + 16) then
-    k.y = math.floor(oy)
-    while koopa_floor(k.x + 2, k.y + 16) or koopa_floor(k.x + 13, k.y + 16) do k.y = k.y - 1 end
-    k.vy = 0
-  end
+  local _, hy = lib.move(k, 0, k.vy / 16 * 1.2)
+  if hy ~= 0 then k.vy = 0 end
   if k.state == "shell" then
     if k.t > 330 then k.state, k.t, k.vx = "walk", 0, k.face * 8 end
     return
   end
-  local nx = k.x + k.vx / 16
-  local ahead = nx + (k.vx > 0 and 15 or 0)
-  if solid_at(ahead, k.y + 8) then
-    if k.state == "slide" then k.vx = -k.vx
-    else k.vx = -k.vx; k.turn = 7 end
+  local hx = lib.move(k, k.vx / 16, 0)
+  local at_edge = k.state == "walk" and hy == 1 and not floor_at(k.x + (k.vx > 0 and 17 or -2), k.y + 17)
+  if hx ~= 0 or at_edge then
+    k.vx = -k.vx
+    if k.state == "walk" then k.turn = 7 end
     k.face = k.vx > 0 and 1 or -1
-  else
-    k.x = nx
   end
   if k.turn > 0 then k.turn = k.turn - 1 end
 end
 
-local function koopa_pic(k)
-  if k.state == "shell" or k.state == "slide" or k.state == "dead" then return KSHELL end
-  if k.turn > 0 then return KT end
-  local f = (k.t // 8) % 2 + 1
-  return (k.face < 0 and KL or KR)[f]
+local function koopa_zone(k)               -- zone, frame, flip_x, flip_y
+  if k.state == "dead" then return "shell", 1, false, true end
+  if k.state == "shell" then return "shell", 1, false, false end
+  if k.state == "slide" then return "shell_slide", 1, false, false end
+  if k.turn > 0 then return "koopa_turn", 1, false, false end
+  return (k.face < 0 and "koopa_l" or "koopa_r"), (k.t // 8) % 2 + 1, false, false
 end
 
 -- The goal tape (sprite 0x7B) goes up one pixel a tick from y 368 to 244 and down again (248 ticks a cycle).
@@ -183,12 +172,12 @@ end
 local function solid(px, py)
   if px < 0 or px >= level_w then return true end
   if py < 0 then return false end
-  return mflags(px, py, 1, 1, "col") & 1 ~= 0
+  return lib.solid(px, py)
 end
 
 local function platform(px, py)
   if py < 0 then return false end
-  return mflags(px, py, 1, 1, "col") & 2 ~= 0
+  return mflags(px, py, 1, 1, "col") & lib.PLATFORM ~= 0
 end
 
 local last_inp = {}
@@ -201,9 +190,10 @@ local function inputs()
   }
 end
 
--- The pose of Mario, from his state. The numbers are SMW's own pose numbers; the rules come from
--- scripts/smw_sprites.py (frames.csv): a walk cycle of two poses that goes faster with speed,
--- a skid, a duck, a look up, a jump going up, a fall, the run-jump with arms up and the spin.
+-- The animation of Mario, from his state: a zone of the sheet and a frame. The zones are made of SMW's own
+-- poses (mario_walk: poses 00 and 01, and so on); the rules come from scripts/smw_sprites.py (frames.csv): a walk
+-- cycle of two poses that goes faster with speed, a skid, a duck, a look up, a jump going up, a fall, the
+-- run-jump with arms up and the spin.
 local anim, spin_t, spinning = 0, 0, false
 local WALK_FRAME = 122                      -- speed units a walk frame lasts: 5 ticks at walking speed
 
@@ -211,21 +201,17 @@ local function pose_of(m, inp)
   local ax = math.abs(m.vx)
   if m.ground then
     spinning = false
-    if inp.down then return 0x3C end
+    if inp.down then return "mario_duck", 1 end
     local dir = (inp.right and 1 or 0) - (inp.left and 1 or 0)
-    if dir ~= 0 and m.vx * dir < -1 then return 0x0D end
-    if ax < 1 then return inp.up and 0x03 or 0x00 end
-    if inp.run and m.pm >= Phys.PM_FULL then
-      return (anim // WALK_FRAME) % 2 == 0 and 0x07 or 0x08
-    end
-    return (anim // WALK_FRAME) % 2 == 0 and 0x00 or 0x01
+    if dir ~= 0 and m.vx * dir < -1 then return "mario_skid", 1 end
+    if ax < 1 then return inp.up and "mario_look" or "mario_stand", 1 end
+    local f = (anim // WALK_FRAME) % 2 + 1
+    if inp.run and m.pm >= Phys.PM_FULL then return "mario_prun", f end
+    return "mario_walk", f
   end
-  if spinning then
-    local cycle = { 0x25, 0x00, 0x0F, 0x00 }
-    return cycle[(spin_t // 2) % 4 + 1]
-  end
-  if ax >= 56 and inp.run then return 0x0C end
-  return m.vy < 0 and 0x0B or 0x24
+  if spinning then return "mario_spin", (spin_t // 2) % 4 + 1 end
+  if ax >= 56 and inp.run then return "mario_pjump", 1 end
+  return m.vy < 0 and "mario_jump" or "mario_fall", 1
 end
 
 local function play_tick(inp)
@@ -248,31 +234,57 @@ local function play_tick(inp)
   end
   for _, e in ipairs(eggs) do e.t = e.t + 1 end
   local cam_l = math.floor(mario.x) - 108
-  for _, k in ipairs(koopas) do
-    if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then koopa_step(k, koopa_solid) end
-    if state == "play" and k.state ~= "dead" and k.x > cam_l - 16 and k.x < cam_l + VIEW_W + 16 then
-      local mx0, my0 = math.floor(mario.x) + 2, math.floor(mario.y) + 16
-      if mx0 < k.x + 16 and mx0 + 12 > k.x and my0 < k.y + 16 and my0 + 16 > k.y then
-        if mario.vy > 0 and my0 + 16 - k.y < 12 then                 -- a stomp
-          if k.state == "walk" or k.state == "slide" then k.state, k.t, k.vx = "shell", 0, 0
-          elseif k.state == "shell" then k.state, k.vx = "slide", (mx0 + 6 < k.x + 8) and 60 or -60 end
-          mario.vy = last_inp.jump and -88 or -48
-          mario.ground = false
-          score = score + 100
-        elseif k.state == "shell" then                               -- a kick
-          k.state, k.vx = "slide", (mx0 + 6 < k.x + 8) and 60 or -60
-          k.t = 0
-        elseif k.state == "walk" or (k.state == "slide" and k.t >= 8 and (k.vx > 0) == (mx0 + 6 > k.x + 8)) then
-          die()           -- small Mario has no second chance; a shell hurts only what it runs into, not the one behind it
-        end
+  H:clear()
+  local mz, mf = pose_of(mario, inp)
+  mario.zone, mario.frame = mz, mf
+  local mcx, mcy = math.floor(mario.x) + ZA[mz][1], math.floor(mario.y) + ZA[mz][2]
+  local mflip = mario.face < 0
+  if state == "play" then
+    H:zone(mario, mz, mf, mcx, mcy, mflip, { team = "p" })                       -- his body can be hurt
+    for _, kind in ipairs({ 3, 4 }) do                                           -- feet (stomp) and body (kick)
+      for _, b in ipairs(zboxes(mz, mf, kind)) do
+        local bx, by, bw, bh = lib.box(b, mcx, mcy, mflip, 32)
+        H:hit(mario, bx, by, bw, bh, { team = "p", kind = kind == 3 and "stomp" or "touch" })
       end
-      if k.state == "slide" then
-        for _, o in ipairs(koopas) do
-          if o ~= k and o.state == "walk" and math.abs(o.x - k.x) < 14 and math.abs(o.y - k.y) < 12 then
-            o.state, o.vy = "dead", -40
-            score = score + 200
-          end
+    end
+  end
+  for _, k in ipairs(koopas) do
+    if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then koopa_step(k) end
+    if k.state ~= "dead" and k.x > cam_l - 16 and k.x < cam_l + VIEW_W + 16 then
+      local zn, fr = koopa_zone(k)
+      H:zone(k, zn, fr, math.floor(k.x) + ZA[zn][1], math.floor(k.y) + ZA[zn][2], false,
+             { team = k.state == "slide" and "s" or "e", attack = { kind = k.state } })
+    end
+  end
+  local contacts = H:check()
+  local stomped = {}
+  for _, c in ipairs(contacts) do                                  -- Mario hits a Koopa: a stomp or a kick
+    if c.by == mario and state == "play" then
+      local k = c.to
+      if c.hit.kind == "stomp" and mario.vy > 0 and not stomped[k] then
+        stomped[k] = true
+        if k.state == "walk" or k.state == "slide" then k.state, k.t, k.vx = "shell", 0, 0
+        elseif k.state == "shell" then k.state, k.vx = "slide", (mario.x + 8 < k.x + 8) and 60 or -60 end
+        mario.vy = last_inp.jump and -88 or -48
+        mario.ground = false
+        score = score + 100
+      elseif c.hit.kind == "touch" and k.state == "shell" and not stomped[k] then
+        stomped[k] = true
+        k.state, k.vx, k.t = "slide", (mario.x + 8 < k.x + 8) and 60 or -60, 0
+      end
+    end
+  end
+  for _, c in ipairs(contacts) do                                  -- a Koopa or a shell hits Mario or a Koopa
+    local k = c.by
+    if k ~= mario and k.state ~= "dead" and not stomped[k] then
+      if c.to == mario and state == "play" then
+        -- a walking Koopa hurts; a shell hurts only what it runs into, not the one behind it
+        if k.state == "walk" or (k.state == "slide" and k.t >= 8 and (k.vx > 0) == (mario.x + 8 > k.x + 8)) then
+          die()                                                    -- small Mario has no second chance
         end
+      elseif c.to ~= mario and k.state == "slide" and c.to.state == "walk" then
+        c.to.state, c.to.vy = "dead", -40
+        score = score + 200
       end
     end
   end
@@ -293,10 +305,11 @@ local function tick(inp)
     play_tick(inp)
     if mario.y > LEVEL_H + 32 then die() end
     -- the tape: Mario touches the bar and the course is clear
-    local ty = tape_y(tape_t) + TAPE[6]
-    local bx = TAPE[7] + TAPE[5]
+    local _, _, tw, th = zone("tape")
+    local ty = tape_y(tape_t) + ZA.tape[2]
+    local bx = TAPE_X + ZA.tape[1]
     local mx0, my0 = math.floor(mario.x) + 2, math.floor(mario.y) + 16
-    if state == "play" and mx0 + 12 > bx and mx0 < bx + TAPE[3] and my0 + 16 >= ty and my0 <= ty + TAPE[4] then
+    if state == "play" and mx0 + 12 > bx and mx0 < bx + tw and my0 + 16 >= ty and my0 <= ty + th then
       state, st_t = "clear", 0
       score = score + time_left * 50
       log("course clear, time left", time_left)
@@ -313,7 +326,7 @@ local function tick(inp)
       mario.vy = math.min(mario.vy + Phys.GRAV_HOLD, Phys.FALL_MAX)
       mario.y = mario.y + mario.vy / 16 * Phys.KY
     end
-    for _, k in ipairs(koopas) do koopa_step(k, koopa_solid) end
+    for _, k in ipairs(koopas) do koopa_step(k) end
     if st_t > 130 then
       lives = lives - 1
       if lives <= 0 then state, st_t = "over", 0 else restart_level() end
@@ -339,18 +352,14 @@ function _update()
   end
 end
 
-local cur_pose = 0
 local function draw_mario(x, y)
-  local p = POSES[cur_pose] or POSES[0]
-  local ox = p[5]
-  local flip = mario.face < 0
-  if flip then ox = 16 - ox - p[3] end
-  sspr(p[1], p[2], p[3], p[4], x + ox, y + p[6], flip)
+  local z, f = mario.zone or "mario_stand", mario.frame or 1
+  if state == "dying" then z, f = "mario_dead", 1 end
+  zspr(z, x + ZA[z][1], y + ZA[z][2], f, mario.face < 0)
 end
 
 function _draw()
   cls(0)
-  cur_pose = (state == "dying") and 0x3E or pose_of(mario, last_inp)
   local a = acc
   local x = prev.x + (mario.x - prev.x) * a
   local y = prev.y + (mario.y - prev.y) * a
@@ -367,29 +376,26 @@ function _draw()
   end
   for _, e in ipairs(eggs) do                      -- the egg rises, wobbles, cracks, and Yoshi hatches (frames of scripts/smw_items.py)
     local t, x0, y0 = e.t, e.cx * 16, e.cy * 16
-    local name, y
+    local zn, fr, y
     if t < 58 then
       y = t < 26 and (y0 - 3 - 13 * t // 25) or (y0 - 16)
-      name = t < 36 and "126_2C_79cad8" or (t < 52 and "126_2C_c7a607" or "126_2C_1c9ca6")
+      zn, fr = "egg", t < 36 and 1 or (t < 52 and 2 or 3)
     else
       y = y0 - 32
-      if t < 59 then name = "126_35_1c9ca6"
-      elseif t < 101 then name = (t // 8) % 2 == 0 and "126_35_017398" or "126_35_d3ea17"
-      else name = "126_35_0e92a7" end
+      zn = "yoshi"
+      if t < 59 then fr = 1
+      elseif t < 101 then fr = (t // 8) % 2 == 0 and 2 or 3
+      else fr = 4 end
     end
-    local it = ITEM[name]
-    if it then sspr(it[1], it[2], it[3], it[4], VX + x0 + it[5] - camx, VY + y + it[6] - camy) end
+    zspr(zn, VX + x0 - camx, VY + y - camy, fr)
   end
   for _, k in ipairs(koopas) do
-    local e = ENEMY[koopa_pic(k)]
-    if e and k.y < LEVEL_H + 32 then
-      sspr(e[1], e[2], e[3], e[4], VX + math.floor(k.x) + e[5] - camx, VY + math.floor(k.y) + e[6] - camy, false, k.state == "dead")
+    if k.y < LEVEL_H + 32 then
+      local zn, fr, fx, fy = koopa_zone(k)
+      zspr(zn, VX + math.floor(k.x) + ZA[zn][1] - camx, VY + math.floor(k.y) + ZA[zn][2] - camy, fr, fx, fy)
     end
   end
-  do                                              -- the goal tape
-    local ty = tape_y(tape_t)
-    sspr(TAPE[1], TAPE[2], TAPE[3], TAPE[4], VX + TAPE[7] + TAPE[5] - camx, VY + math.floor(ty) + TAPE[6] - camy)
-  end
+  zspr("tape", VX + TAPE_X + ZA.tape[1] - camx, VY + math.floor(tape_y(tape_t)) + ZA.tape[2] - camy)
   draw_mario(VX + math.floor(x) - camx, VY + math.floor(y) - camy)
   clip()
   rect(VX - 1, VY - 1, VIEW_W + 2, VIEW_H + 2, 0x303030)

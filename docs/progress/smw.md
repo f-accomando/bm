@@ -28,12 +28,20 @@ the finished cartridge stay on the user's machine and SD card.
 - `scripts/smw_items.py`: bumps a block kind and records the sprites that appear. 0x126 gives an egg
   (sprite 0x2C, 58 ticks) that hatches into Yoshi (0x35); 0x11A gives a growing vine (0x79).
 - `scripts/smw_solid.py`: tests every Map16 number for solidity from above, the side, and below.
+- `carts/smw/build/sprites.py`: puts the captured pictures under the tile cells as 19 named zones
+  (`mario_walk`, `koopa_l`, `shell_slide`, `egg`, `yoshi`, `tape`, ...) with their boxes. `bmres.py info`
+  lists them. Mario's boxes: `hurt` (body), kind 3 (feet, he stomps), kind 4 (body, he kicks). A Koopa:
+  `hurt` (head), `hit` (body). The Lua gets the offset of each zone from `ZA` (the suite has no anchors).
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
 - `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.b16`
   and `.bme` for the RGB30. Output goes to `build/smw/` (ignored by git).
 
 ## Rules (do not break)
+
+- Keep the sprites as SPRITES zones with BOXES (`carts/smw/build/sprites.py`). Draw them with `zspr`, read
+  the boxes with `zboxes`, and decide hits with `lib.hits`. Do not draw by pixel coordinates in Lua.
+- Keep the map as layers with flags (1 solid, 2 platform): `main` is drawn, `col` is read by `lib.tiles`.
 
 - Keep the ROM, `*.sfc`, `*.smc`, and `carts/smw/{rom,extracted}/` out of git.
 - Do not upload the cartridge to the Market. Do not put Nintendo assets in the repository.
@@ -60,6 +68,9 @@ the finished cartridge stay on the user's machine and SD card.
 - Done: question blocks with coins (bump, used tile), coin pickup, coin counter.
 - Done: the egg block (the egg rises, cracks, Yoshi hatches), dragon coins (two blocks, 1000 points,
   a 1-up for five).
+- Mario's own collision stays in `physics.lua` (it matches the traces). The Koopas use `lib.move`;
+  the map uses `lib.tiles` and `lib.solid`.
+- Note: `mkbm.py` warns `require: not for a .b16` for `require "bmlib"`. The runtime has it.
 - Open: riding Yoshi (poses and eating), the vine of 0x11A (growth and climbing poses), big Mario,
   power-ups, the turn block breaking when Mario is big.
 - Done: the goal tape and the course clear banner, 5 lives, the clock, death (hop and fall), game over,
