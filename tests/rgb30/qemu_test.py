@@ -714,8 +714,16 @@ def test_confirm_button(b, opts):
 def test_controls_menu(b, opts):
     """Settings > Controls (CONTROLS-1): a scheme's actions show the button the
     config sets (controls= in bm/config.txt) or Default with the game's own;
-    Right changes the button of the row (X -> Y here) and Reset all (asked)
-    puts every action back on Default."""
+    Enter changes the button of the row (X -> Y here; in Settings a choice has
+    no arrows, Enter changes it: docs/progress/graphics.md, Rules) and Reset
+    all (asked) puts every action back on Default."""
+    def value(text, label):
+        # the row's value, at the right of its label ("X", "Y", "Default (B)")
+        for l in text.split("\n"):
+            if label in l:
+                return l.split(label, 1)[1].strip(" ?\u2502|")
+        return None
+
     def open_scroller(q):
         for _ in range(6):                      # to the Settings tab
             if "Controllers" in screen_all(q.screendump()):
@@ -739,12 +747,12 @@ def test_controls_menu(b, opts):
         assert "Settings > Controls > Scroller games" in text, text
         a1 = [l for l in text.split("\n") if "Action 1" in l]
         a2 = [l for l in text.split("\n") if "Action 2" in l]
-        assert a1 and "< X >" in a1[0] and "Default" not in a1[0], text
+        assert a1 and value(text, "Action 1 (jump)") == "X", text
         assert a2 and "Default (Y)" in a2[0], text
-        keys(q, "d")                            # Right: X -> Y on the first row
+        q.send("\r")                            # Enter: X -> Y on the first row
+        time.sleep(0.4)
         text = screen_all(q.screendump())
-        a1 = [l for l in text.split("\n") if "Action 1" in l]
-        assert a1 and "< Y >" in a1[0], text
+        assert value(text, "Action 1 (jump)") == "Y", text
         q.send("\x7f")                          # back, then Reset all
         time.sleep(0.4)
         keys(q, "w")                            # up from the first row: the last, Reset all
