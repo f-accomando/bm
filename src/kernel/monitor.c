@@ -741,20 +741,26 @@ static int edit_read(const char *prompt)
         ed_ready = 1;
     }
     medit_begin(&ed, prompt, 1);
+    hid_text_mode(1);                           /* a USB keyboard's arrows, Home, End, Del as keys */
     for (;;) {
         int k = edit_key();
         if (k == EK_HOME) {
             kprintf("\n");
+            hid_text_mode(0);
             return EK_HOME;
         }
         if (k == EK_PLAY) {
+            hid_text_mode(0);
             net_play();
+            hid_text_mode(1);
             medit_redraw(&ed);
             continue;
         }
         int r = medit_feed(&ed, k);
-        if (r != MEDIT_NONE)
+        if (r != MEDIT_NONE) {
+            hid_text_mode(0);
             return r;
+        }
     }
 }
 
