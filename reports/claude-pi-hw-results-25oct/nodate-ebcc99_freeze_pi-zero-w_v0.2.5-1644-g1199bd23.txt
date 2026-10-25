@@ -1,0 +1,131 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1644-g1199bd23
+branch: claude/pi-hw-results-25oct
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-ebcc99_freeze_pi-zero-w_v0.2.5-1644-g1199bd23.txt
+
+the Pi froze (the watchdog restarted it) while: bm Studio, frame 49982, 1231 s after boot, kernel v0.2.5-1644-g1199bd23, ring 8019, sink on
+--- the last lines printed ---
+restarting: this run's log in bm/lastrun.txt
+BGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 3D Bench: done (ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 42.2 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261025-073802_bench3d_pi-zero-w_v0.2.5-1644-g1199bd23.txt saved as bm/reports/rpt00002.txt
+report: sending 20261025-073802_bench3d_pi-zero-w_v0.2.5-1644-g1199bd23.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-25oct/20261025-073802_bench3d_pi-zero-w_v0.2.5-1644-g1199bd23.txt
+the line is done
+> 3
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.7 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+load: bm Studio 231 ms (close 0, parse 1, assets+state 3, mode 1, audio 1, lua 223)
+
+net: console closed
+bm: screen 1280x720
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: a new console connection takes over
+
+net: console opened from 192.168.1.97
+> 
+net: a new console connection takes over
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+net: receiving settings (6 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+bm: Screenshot saved: bm/shots/bmst0001.png
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: a new console connection takes over
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+bm: Screenshot saved: bm/shots/bmst0002.png
+net: receiving a new kernel (4759788 bytes)...
+net: kernel 0% (0 of 4648 KB)
+net: kernel 10% (468 of 4648 KB)
+net: kernel 20% (939 of 4648 KB)
+net: kernel 30% (1394 of 4648 KB)
+net: kernel 40% (1866 of 4648 KB)
+net: kernel 50% (2330 of 4648 KB)
+net: kernel 60% (2790 of 4648 KB)
+net: kernel 70% (3255 of 4648 KB)
+net: kernel 80% (3723 of 4648 KB)
+net: kernel 90% (4183 of 4648 KB)
+net: saved kernel.img on the SD card (4759788 bytes)
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
