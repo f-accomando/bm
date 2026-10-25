@@ -1949,6 +1949,51 @@ def test_battery_low_game(b, opts):
     assert off[0] == "7 false true" and off[1] == 0, off
 
 
+WIDE_CART = r"""
+local t = 0
+function _init() screen(720, 405) end
+function _update()
+  t = t + 1
+  if t == 30 then
+    local w, h = screen()
+    log("wide " .. w .. "x" .. h)
+  end
+end
+function _draw() cls(0x2040C0) end
+"""
+
+
+def test_screen_wide_mode(b, opts):
+    """screen(720, 405) on the square panel (W2 of docs/design/b16-removal.md): the 16:9 picture is
+    centred on the 720x720 panel, black above and below. QEMU's ramfb does not scale, so test_panel=1
+    makes plat_virt.c scale and centre the image as rk_display.c window() does on the console."""
+    tmp = mktmp(prefix="bm64wide-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\ntest_panel=1\n",
+                       "bm/wide.bm": mkbm.pack(WIDE_CART.encode(), title="Wide", author="tests", res=(360, 360))})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        q.send("\r")                            # Games: the only one
+        q.expect("wide 720x405", timeout=30)
+        time.sleep(0.5)
+        img = q.screendump()
+        w, h, _ = img
+        assert (w, h) == (720, 720), (w, h)
+        top, bottom = (720 - 405) // 2, (720 - 405) // 2 + 405
+        band = pixel(img, 360, 360)
+        assert abs(band[0] - 0x20) < 12 and abs(band[1] - 0x40) < 12 and abs(band[2] - 0xC0) < 12, band
+        for y in range(h):
+            for x in (0, 1, 100, 359, 360, 600, 718, 719):
+                p = pixel(img, x, y)
+                if top <= y < bottom:
+                    assert p == band, f"row {y} x {x}: {p}, the band is {band}"
+                else:
+                    assert p == (0, 0, 0), f"row {y} x {x}: {p}, outside the band must be black"
+    finally:
+        q.close()
+
+
 TONE_CART = r"""
 local t = 0
 function _init() note(0, 440, 0, 4, 200) end    -- a sine, held

@@ -1071,9 +1071,11 @@ static const uint16_t screen_modes[][2] = {
 #define SCREEN_MODES (int)(sizeof screen_modes / sizeof screen_modes[0])
 /* On a square panel (the RGB30's 720x720) the modes are the .b16's two
  * (docs/B16.md §0): 360x360 shown twice as big and 720x720, whole pixels
- * both; there a page is never boxed (bm_video_enter). bmhost --square plays
- * the same on the PC. */
-static const uint16_t square_modes[][2] = { { 360, 360 }, { 720, 720 } };
+ * both; there a page is never boxed (bm_video_enter). The third is the 16:9
+ * page 720x405, in the middle of the panel with black bars above and below
+ * (the display centres it). The order is fixed: Overbit indexes the list.
+ * bmhost --square plays the same on the PC. */
+static const uint16_t square_modes[][2] = { { 360, 360 }, { 720, 720 }, { 720, 405 } };
 #define SQUARE_MODES (int)(sizeof square_modes / sizeof square_modes[0])
 #ifdef BM_RGB30
 static int square_panel = 1;
@@ -1090,7 +1092,7 @@ void bm_set_square_panel(int on)
  * next frame (SCREEN_W and SCREEN_H then say it; if the console cannot
  * set it they stay); false: not one of the modes. screen() -> w, h now.
  * screen(i) -> the i-th mode w, h (1 = 320x180 ... 7 = 1920x1080; on a
- * square panel 1 = 360x360, 2 = 720x720), or nil. A square cartridge
+ * square panel 1 = 360x360, 2 = 720x720, 3 = 720x405), or nil. A square cartridge
  * (256x256, 360x360) changes as the others (2026-10-10, Overbit's .b16 on
  * the Pi: a whole 16:9 page, where the GPU draws). */
 static int l_screen(lua_State *L)

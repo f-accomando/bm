@@ -565,6 +565,16 @@ test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/in
 	    | tee $(BUILD)/gameapi-test.log | grep "^gameapi"
 	grep -q "^gameapi: \([0-9]*\)/\1 checks passed" $(BUILD)/gameapi-test.log
 
+# screen(): the modes of a square panel (bmhost --square: 360x360, 720x720, 720x405) and of a TV
+# (bmhost), the size after a change, safe_area() and aspect() (W2, W3 of docs/design/b16-removal.md)
+$(BUILD)/screen-modes.bm: tests/host/screen_modes.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --res 360x360 --title "screen modes" --author tests
+test-screen-modes: $(BUILD)/host/bmhost-bin $(BUILD)/screen-modes.bm
+	$< $(BUILD)/screen-modes.bm --square --seconds 4 2>&1 | tee $(BUILD)/screen-modes-square.log | grep "^screen_modes"
+	grep -q "^screen_modes: \([0-9]*\)/\1 checks passed" $(BUILD)/screen-modes-square.log
+	$< $(BUILD)/screen-modes.bm --seconds 4 2>&1 | tee $(BUILD)/screen-modes-tv.log | grep "^screen_modes"
+	grep -q "^screen_modes: \([0-9]*\)/\1 checks passed" $(BUILD)/screen-modes-tv.log
+
 # Clip modes (APP-30): the kernel's pose_at through animate() and bone3d(), one clip a mode
 $(BUILD)/anim-ease.bm: tests/anim_ease_cart.py tests/anim_ease.lua tests/studio/anim_figure.py scripts/mkbm.py
 	$(PYTHON) tests/anim_ease_cart.py $@
@@ -800,7 +810,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-web-bmm test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-web-bmm test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -984,7 +994,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)

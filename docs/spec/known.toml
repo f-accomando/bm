@@ -6,7 +6,7 @@
 [[accept]]
 id = "platform-screen:modes"
 kind = "hardware"
-because = "a 16:9 TV on the Pi (screen() offers the 16:9 modes), a square 720x720 panel on the RGB30 (360x360 and 720x720, whole pixels)"
+because = "a 16:9 TV on the Pi (screen() offers the 16:9 modes), a square 720x720 panel on the RGB30 (360x360 and 720x720 at whole pixels, and 720x405 with bars)"
 
 [[accept]]
 id = "platform-tools:embedded"

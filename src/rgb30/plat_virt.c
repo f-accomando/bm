@@ -96,6 +96,10 @@ struct __attribute__((packed)) ramfb_cfg {
 
 static plat_mode_t mode;
 static char info[96];
+/* test_panel=1 in bm/config.txt: ramfb is the 720x720 panel and the image is scaled to
+ * out_w x out_h (nearest neighbour) and centred on it, as rk_display.c window() does on the
+ * console. Without it the image is shown 1:1 (the other tests read 360x360 and 640x360). */
+static int panel;
 
 static int ramfb_write(uintptr_t addr)
 {
@@ -108,9 +112,9 @@ static int ramfb_write(uintptr_t addr)
     cfg.addr = __builtin_bswap64(addr);
     cfg.fourcc = __builtin_bswap32(0x34325258u);    /* XR24 */
     cfg.flags = 0;
-    cfg.width = __builtin_bswap32(mode.w);
-    cfg.height = __builtin_bswap32(mode.h);
-    cfg.stride = __builtin_bswap32(mode.depth == 16 ? mode.w * 4 : mode.pitch ? mode.pitch : mode.w * 4);
+    cfg.width = __builtin_bswap32(panel ? PLAT_PANEL_W : mode.w);
+    cfg.height = __builtin_bswap32(panel ? PLAT_PANEL_H : mode.h);
+    cfg.stride = __builtin_bswap32(panel ? PLAT_PANEL_W * 4 : mode.depth == 16 ? mode.w * 4 : mode.pitch ? mode.pitch : mode.w * 4);
     dma.control = __builtin_bswap32(((uint32_t)ramfb_key << 16) | 0x08 /* select */ | 0x10 /* write */);
     dma.length = __builtin_bswap32(sizeof cfg);
     dma.address = __builtin_bswap64((uintptr_t)&cfg);
@@ -131,6 +135,26 @@ static uint32_t *wide;
 
 static uintptr_t widen(uintptr_t addr)
 {
+    if (panel) {
+        uint32_t ow = mode.out_w > PLAT_PANEL_W ? PLAT_PANEL_W : mode.out_w;
+        uint32_t oh = mode.out_h > PLAT_PANEL_H ? PLAT_PANEL_H : mode.out_h;
+        uint32_t x0 = (PLAT_PANEL_W - ow) / 2, y0 = (PLAT_PANEL_H - oh) / 2;
+        for (uint32_t y = 0; y < oh; y++) {
+            const uint8_t *row = (const uint8_t *)addr + (size_t)(y * mode.h / oh) * mode.pitch;
+            uint32_t *d = wide + (size_t)(y0 + y) * PLAT_PANEL_W + x0;
+            for (uint32_t x = 0; x < ow; x++) {
+                uint32_t sx = x * mode.w / ow;
+                if (mode.depth == 16) {
+                    uint32_t c = ((const uint16_t *)row)[sx];
+                    uint32_t r = (c >> 11) & 31, g = (c >> 5) & 63, b = c & 31;
+                    d[x] = (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2);
+                } else {
+                    d[x] = ((const uint32_t *)row)[sx];
+                }
+            }
+        }
+        return (uintptr_t)wide;
+    }
     for (uint32_t y = 0; y < mode.h; y++) {
         const uint16_t *s = (const uint16_t *)(addr + (uintptr_t)y * mode.pitch);
         uint32_t *d = wide + (size_t)y * mode.w;
@@ -148,9 +172,11 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
     if (ramfb_key < 0)
         ramfb_key = find_ramfb();
     mode = *m;                          /* shown 1:1: ramfb does not scale */
-    if (m->depth == 16) {
+    const char *tp = config_get("test_panel");
+    panel = tp && tp[0] == '1';
+    if (panel || m->depth == 16) {
         free(wide);
-        wide = malloc((size_t)m->w * m->h * 4);
+        wide = calloc((size_t)(panel ? PLAT_PANEL_W * PLAT_PANEL_H : m->w * m->h), 4);
         if (!wide)
             return -1;
         addr = widen(addr);
@@ -163,7 +189,7 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 
 void plat_display_show(uintptr_t addr)
 {
-    ramfb_write(mode.depth == 16 && wide ? widen(addr) : addr);
+    ramfb_write((mode.depth == 16 || panel) && wide ? widen(addr) : addr);
 }
 
 int plat_display_wait_vsync(void)
