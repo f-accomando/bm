@@ -8124,8 +8124,11 @@ def test_code_editor(b, opts):
 
         # leave: the untitled tab has changes; kept for later
         k("\x1b", 0.6)                                     # Esc: the menu
-        see(["New project", "Exit"])
+        # the menu has more rows than the screen (MENU in carts/code/main.lua,
+        # 27 entries): Exit, the last, is below the first window
+        see(["New project"])
         k("\x1b[A", 0.3)                                   # up from the first: Exit
+        see(["Exit"])
         k("\r", 0.5)
         see(["not saved"])
         k("k", 0.3)                                        # Keep for later
