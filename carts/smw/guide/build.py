@@ -127,13 +127,11 @@ def main():
                 crow += [c, c]
             col_rows.append(crow)
     defs_new = {}                       # the redrawn cells of the used block and the coin, read from the level
-    for k in (0x132, 0x02B):
-        for y, row in enumerate(level):
-            if k in row:
-                x = row.index(k)
+    for y, row in enumerate(level):
+        for x, k in enumerate(row):
+            if k not in defs_new:
                 defs_new[k] = (main_rows[2 * y][2 * x], main_rows[2 * y + 1][2 * x], main_rows[2 * y][2 * x + 1],
                                main_rows[2 * y + 1][2 * x + 1])
-                break
     n_cells = len(cell_list) + 2
     sh = Image.new("RGBA", (128, ((n_cells + 15) // 16) * 8), (0, 0, 0, 0))
     for i, im in enumerate(cell_list, 1):

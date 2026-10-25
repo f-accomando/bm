@@ -22,6 +22,9 @@ the finished cartridge stay on the user's machine and SD card.
 - `scripts/smw_enemies.py`: per frame, the state and the picture of every sprite slot (OAM range from
   `$15EA`). `states.csv` has the picture name per row. Koopa Troopa (sprite 05): walks at 8, two
   frames of 8 ticks per facing, turns at walls, stomp gives a shell that sleeps 330 ticks.
+- `scripts/smw_goal.py`: the goal tape picture. Measured: the tape (sprite 0x7B at x 4832) goes up
+  one pixel a tick from y 368 to 244 and back (248 ticks). Touching it starts the end: Mario walks right.
+  The clock drops one every 35 ticks from 400. Mario starts with 5 lives.
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
 - `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.b16`
@@ -49,10 +52,12 @@ the finished cartridge stay on the user's machine and SD card.
 - Tune the physics: start-up acceleration, air control, P meter decay, terminal speed. Slopes.
 - Done: question blocks with coins (bump, used tile), coin pickup, coin counter.
 - Items from blocks (egg, 0x79), turn blocks (break when big), Yoshi/dragon coins, score.
+- Done: the goal tape and the course clear banner, 5 lives, the clock, death (hop and fall), game over,
+  restart of the level (blocks and coins put back), score for coins, stomps, and the time bonus.
 - Done: Koopa Troopas (walk, turn, stomp, kick, slide, kill each other), Mario dies on touch.
 - Enemies still open: the level has sprites 00, 01, 04, 05 (Koopas), 3E (P switch), 4D, 4E (Monty Mole),
   4F (jumping piranha plant), 91 (Chargin' Chuck), B9 (message), 7B (goal). `spawns.json` has the
-  places. Goal tape and the end of the level. Death and lives.
+  places. Bonus by the tape height, the end screen of SMW, the overworld, 1-ups at 100 coins.
 - More levels. Map16 for other tilesets comes from the ROM table at `$0D8000`.
 - Sound: SPC700. Music last.
 - Measure the frame time on the RGB30. The host run takes 0.04 ms a frame.

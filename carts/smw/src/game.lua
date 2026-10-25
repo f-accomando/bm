@@ -8,20 +8,27 @@ local START_X, START_Y = 16, 352
 local level_w
 local mario, prev, acc
 local spawn_koopas                    -- defined with the Koopas, below
-local coins = 0
+local coins, score = 0, 0
+local state = "play"                      -- play, dying, clear, over
+local lives, time_left, time_acc = 5, 400, 0
+local st_t = 0                            -- ticks since the state began
+local tape_t = 0
+local changed = {}                        -- level cells the player changed: {cx, cy}, put back on a restart
+local L0                                  -- the level as it was loaded
 local bumping = {}                        -- blocks jumping up: {cx, cy, t, used}
 local pops = {}                           -- coins thrown up by a block: {x, y, t}
 local BUMP_Y = { -2, -4, -5, -6, -5, -4, -2, 0 }
 local camx, camy = 0, 192
 local backdrop = 0xFF0000
 
+local restart_level
+
 function _init()
   local mw, mh = msize()
   level_w = mw * 8
-  spawn_koopas()
-  mario = Phys.new(START_X, START_Y)
-  prev = { x = mario.x, y = mario.y }
-  acc = 0
+  L0 = {}
+  for y, row in ipairs(L16) do L0[y] = { table.unpack(row) } end
+  restart_level()
 end
 
 local function set16(cx, cy, d)           -- a Map16 block is four 8x8 cells: TL, BL, TR, BR
@@ -42,6 +49,7 @@ local function hit_block(cx, cy)
   local kind = KIND[k]
   if kind ~= "coin" and kind ~= "item" then return end
   L16[cy + 1][cx + 1] = 0x132
+  changed[#changed + 1] = { cx, cy }
   set16(cx, cy, { 0, 0, 0, 0 })
   bumping[#bumping + 1] = { cx = cx, cy = cy, t = 0 }
   if kind == "coin" then
@@ -58,8 +66,10 @@ local function pick_coins()
       local row = L16[cy + 1]
       if row and COINS[row[cx + 1] or 0] then
         row[cx + 1] = 0x25
+        changed[#changed + 1] = { cx, cy }
         set16(cx, cy, { 0, 0, 0, 0 })
         coins = coins + 1
+        score = score + 200
       end
     end
   end
@@ -123,6 +133,33 @@ local function koopa_pic(k)
   return (k.face < 0 and KL or KR)[f]
 end
 
+-- The goal tape (sprite 0x7B) goes up one pixel a tick from y 368 to 244 and down again (248 ticks a cycle).
+-- Measured with Mario held away from it, scripts/smw_goal.py.
+local function tape_y(t)
+  local u = t % 248
+  if u < 124 then return 368 - u end
+  return 244 + (u - 124)
+end
+
+restart_level = function()
+  for _, c in ipairs(changed) do
+    L16[c[2] + 1][c[1] + 1] = L0[c[2] + 1][c[1] + 1]
+    set16(c[1], c[2], M16[L0[c[2] + 1][c[1] + 1]] or { 0, 0, 0, 0 })
+  end
+  changed, bumping, pops = {}, {}, {}
+  spawn_koopas()
+  mario = Phys.new(START_X, START_Y)
+  prev = { x = mario.x, y = mario.y }
+  acc, tape_t, time_left, time_acc, st_t = 0, 0, 400, 0, 0
+  state = "play"
+end
+
+local function die()
+  if state ~= "play" then return end
+  state, st_t = "dying", 0
+  mario.vx, mario.vy = 0, 0
+end
+
 local function solid(px, py)
   if px < 0 or px >= level_w then return true end
   if py < 0 then return false end
@@ -166,61 +203,112 @@ local function pose_of(m, inp)
   return m.vy < 0 and 0x0B or 0x24
 end
 
-function _update()
-  acc = acc + 50 / 60
-  local inp = inputs()
-  last_inp = inp
-  while acc >= 1 do
-    acc = acc - 1
-    prev.x, prev.y = mario.x, mario.y
-    local was_ground = mario.ground
-    Phys.step(mario, inp, solid)
-    if was_ground and not mario.ground and mario.vy < 0 then spinning = inp.spin end
+local function play_tick(inp)
+  prev.x, prev.y = mario.x, mario.y
+  local was_ground = mario.ground
+  Phys.step(mario, inp, solid)
+  if was_ground and not mario.ground and mario.vy < 0 then spinning = inp.spin end
+  if state == "play" then
     if mario.bump then hit_block(mario.bump.x // 16, mario.bump.y // 16) end
     pick_coins()
-    for i = #bumping, 1, -1 do
-      local b = bumping[i]
-      b.t = b.t + 1
-      if b.t > #BUMP_Y then set16(b.cx, b.cy, USED); table.remove(bumping, i) end
-    end
-    for i = #pops, 1, -1 do
-      pops[i].t = pops[i].t + 1
-      if pops[i].t > 24 then table.remove(pops, i) end
-    end
-    local cam_l = math.floor(mario.x) - 108
-    for _, k in ipairs(koopas) do
-      if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then koopa_step(k, koopa_solid) end
-      if k.state ~= "dead" and k.x > cam_l - 16 and k.x < cam_l + VIEW_W + 16 then
-        local mx0, my0 = math.floor(mario.x) + 2, math.floor(mario.y) + 16
-        if mx0 < k.x + 16 and mx0 + 12 > k.x and my0 < k.y + 16 and my0 + 16 > k.y then
-          if mario.vy > 0 and my0 + 16 - k.y < 12 then                 -- a stomp
-            if k.state == "walk" or k.state == "slide" then k.state, k.t, k.vx = "shell", 0, 0
-            elseif k.state == "shell" then k.state, k.vx = "slide", (mx0 + 6 < k.x + 8) and 60 or -60 end
-            mario.vy = last_inp.jump and -88 or -48
-            mario.ground = false
-          elseif k.state == "shell" then                               -- a kick
-            k.state, k.vx = "slide", (mx0 + 6 < k.x + 8) and 60 or -60
-            k.t = 0
-          elseif (k.state == "walk" or k.state == "slide") and not (k.state == "slide" and k.t < 8) then
-            mario.dead = true                                          -- small Mario has no second chance
-          end
+  end
+  for i = #bumping, 1, -1 do
+    local b = bumping[i]
+    b.t = b.t + 1
+    if b.t > #BUMP_Y then set16(b.cx, b.cy, USED); table.remove(bumping, i) end
+  end
+  for i = #pops, 1, -1 do
+    pops[i].t = pops[i].t + 1
+    if pops[i].t > 24 then table.remove(pops, i) end
+  end
+  local cam_l = math.floor(mario.x) - 108
+  for _, k in ipairs(koopas) do
+    if k.x > cam_l - 64 and k.x < cam_l + VIEW_W + 64 then koopa_step(k, koopa_solid) end
+    if state == "play" and k.state ~= "dead" and k.x > cam_l - 16 and k.x < cam_l + VIEW_W + 16 then
+      local mx0, my0 = math.floor(mario.x) + 2, math.floor(mario.y) + 16
+      if mx0 < k.x + 16 and mx0 + 12 > k.x and my0 < k.y + 16 and my0 + 16 > k.y then
+        if mario.vy > 0 and my0 + 16 - k.y < 12 then                 -- a stomp
+          if k.state == "walk" or k.state == "slide" then k.state, k.t, k.vx = "shell", 0, 0
+          elseif k.state == "shell" then k.state, k.vx = "slide", (mx0 + 6 < k.x + 8) and 60 or -60 end
+          mario.vy = last_inp.jump and -88 or -48
+          mario.ground = false
+          score = score + 100
+        elseif k.state == "shell" then                               -- a kick
+          k.state, k.vx = "slide", (mx0 + 6 < k.x + 8) and 60 or -60
+          k.t = 0
+        elseif (k.state == "walk" or k.state == "slide") and not (k.state == "slide" and k.t < 8) then
+          die()                                                      -- small Mario has no second chance
         end
-        if k.state == "slide" then
-          for _, o in ipairs(koopas) do
-            if o ~= k and o.state == "walk" and math.abs(o.x - k.x) < 14 and math.abs(o.y - k.y) < 12 then
-              o.state, o.vy = "dead", -40
-            end
+      end
+      if k.state == "slide" then
+        for _, o in ipairs(koopas) do
+          if o ~= k and o.state == "walk" and math.abs(o.x - k.x) < 14 and math.abs(o.y - k.y) < 12 then
+            o.state, o.vy = "dead", -40
+            score = score + 200
           end
         end
       end
     end
-    anim = mario.ground and anim + math.abs(mario.vx) or 0
-    spin_t = spin_t + 1
-    if mario.y > LEVEL_H + 32 or mario.dead then          -- fell out of the level
-      mario = Phys.new(START_X, START_Y)
-      prev.x, prev.y = mario.x, mario.y
-      spawn_koopas()
+  end
+  anim = mario.ground and anim + math.abs(mario.vx) or 0
+  spin_t = spin_t + 1
+end
+
+local function tick(inp)
+  st_t = st_t + 1
+  if state == "play" then
+    tape_t = tape_t + 1
+    time_acc = time_acc + 1
+    if time_acc >= 35 then                 -- the clock drops one every 35 ticks
+      time_acc = 0
+      time_left = time_left - 1
+      if time_left <= 0 then die() end
     end
+    play_tick(inp)
+    if mario.y > LEVEL_H + 32 then die() end
+    -- the tape: Mario touches the bar and the course is clear
+    local ty = tape_y(tape_t) + TAPE[6]
+    local bx = TAPE[7] + TAPE[5]
+    local mx0, my0 = math.floor(mario.x) + 2, math.floor(mario.y) + 16
+    if state == "play" and mx0 + 12 > bx and mx0 < bx + TAPE[3] and my0 + 16 >= ty and my0 <= ty + TAPE[4] then
+      state, st_t = "clear", 0
+      score = score + time_left * 50
+      log("course clear, time left", time_left)
+    end
+  elseif state == "clear" then
+    tape_t = tape_t + 1
+    local auto = { right = st_t < 160 }
+    last_inp = auto
+    play_tick(auto)
+  elseif state == "dying" then
+    prev.x, prev.y = mario.x, mario.y
+    if st_t == 20 then mario.vy = -80 end
+    if st_t > 20 then
+      mario.vy = math.min(mario.vy + Phys.GRAV_HOLD, Phys.FALL_MAX)
+      mario.y = mario.y + mario.vy / 16 * Phys.KY
+    end
+    for _, k in ipairs(koopas) do koopa_step(k, koopa_solid) end
+    if st_t > 130 then
+      lives = lives - 1
+      if lives <= 0 then state, st_t = "over", 0 else restart_level() end
+    end
+  end
+end
+
+function _update()
+  if state == "over" or (state == "clear" and st_t > 200) then
+    if btnp("start") or btnp("a") or btnp("b") then
+      if state == "over" then lives, coins, score = 5, 0, 0 end
+      restart_level()
+    end
+    return
+  end
+  acc = acc + 50 / 60
+  local inp = inputs()
+  if state == "play" then last_inp = inp end
+  while acc >= 1 do
+    acc = acc - 1
+    tick(inp)
   end
 end
 
@@ -235,7 +323,7 @@ end
 
 function _draw()
   cls(0)
-  cur_pose = pose_of(mario, last_inp)
+  cur_pose = (state == "dying") and 0x3E or pose_of(mario, last_inp)
   local a = acc
   local x = prev.x + (mario.x - prev.x) * a
   local y = prev.y + (mario.y - prev.y) * a
@@ -256,9 +344,26 @@ function _draw()
       sspr(e[1], e[2], e[3], e[4], VX + math.floor(k.x) + e[5] - camx, VY + math.floor(k.y) + e[6] - camy, false, k.state == "dead")
     end
   end
+  do                                              -- the goal tape
+    local ty = tape_y(tape_t)
+    sspr(TAPE[1], TAPE[2], TAPE[3], TAPE[4], VX + TAPE[7] + TAPE[5] - camx, VY + math.floor(ty) + TAPE[6] - camy)
+  end
   draw_mario(VX + math.floor(x) - camx, VY + math.floor(y) - camy)
   clip()
   rect(VX - 1, VY - 1, VIEW_W + 2, VIEW_H + 2, 0x303030)
-  print(string.format("COINS %d", coins), 8, 8, 0xFFFFFF)
-  print(string.format("x %d  vx %.0f  P %d", math.floor(mario.x), mario.vx, math.floor(mario.pm)), 8, 340, 0x808080)
+  print(string.format("MARIO x%d", lives), VX, 28, 0xFFFFFF)
+  print(string.format("COINS %d", coins), VX + 108, 28, 0xFFE060)
+  print(string.format("TIME %d", time_left), VX + 190, 28, 0xFFFFFF)
+  print(string.format("%07d", score), VX + 190, 44, 0xB0B0B0)
+  local function banner(a, b)
+    rectfill(VX + 28, VY + 70, VIEW_W - 56, 70, 0x101820)
+    print(a, VX + (VIEW_W - #a * 16) // 2, VY + 86, 0xFFFFFF, 2)
+    if b then print(b, VX + (VIEW_W - #b * 8) // 2, VY + 130, 0xE0E0E0) end
+  end
+  if state == "clear" and st_t > 160 then
+    banner("COURSE CLEAR!", string.format("TIME BONUS %d", time_left * 50))
+    if st_t > 200 then print("PRESS B", VX + (VIEW_W - 56) // 2, VY + 150, 0xFFE060) end
+  elseif state == "over" then
+    banner("GAME OVER", "PRESS B")
+  end
 end
