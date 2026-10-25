@@ -106,24 +106,24 @@ action = "port the two checks"
 id = "D09"
 area = "game list"
 pi = "sorted by title; scans / and /carts; shows .bme projects in Dev"
-rgb30 = "sorted by title (src/rgb30/ui.c:281 qsort with title_cmp); scans /bm and /carts (scan_games, src/rgb30/ui.c:278-279); .bme projects: see D44"
+rgb30 = "sorted by title (lib_scan, src/kernel/library.c: the same code as the Pi); scans /bm and /carts (rgb_dirs, src/rgb30/ui.c); .bme projects: see D44"
 cause = "history"
 priority = 4
 status = "resolved"
-note = "The RGB30 list is sorted by title: qsort with title_cmp at src/rgb30/ui.c:281 (commit 88c914c5). Compiles; not tried on an RGB30. scan_games() scans both /bm and /carts (src/rgb30/ui.c:278-279), as the Pi does; the game list is the same on both. The .bme projects in Dev are tracked by D44, not here. Proved in QEMU by test_frozen_game_menu (the first cover is the game with the first title, not the first file name). Not verified on hardware."
-evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:234-237,277-281; tests/rgb30/qemu_test.py:test_frozen_game_menu"
+note = "The RGB30 list is sorted by title: lib_scan in src/kernel/library.c (since 25 Oct 2026 the code is the Pi's: one scan for both menus, the folders are in the backend of each console). Compiles; not tried on an RGB30. The RGB30 backend scans /bm and /carts (rgb_dirs); the Pi also reads / and /bme. The .bme projects in Dev are tracked by D44, not here. Proved in QEMU by test_frozen_game_menu (the first cover is the game with the first title, not the first file name). Not verified on hardware."
+evidence = "src/kernel/library.c:lib_scan; src/kernel/carts.c:pi_backend; src/rgb30/ui.c:rgb_backend; tests/rgb30/qemu_test.py:test_frozen_game_menu"
 action = "none"
 
 [[divergence]]
 id = "D10"
 area = "covers"
 pi = "loaded in the background, on-screen covers first"
-rgb30 = "same since 25 Oct 2026: the header read (title, author, type, compat) stays in scan_games; the covers are read by a fiber job (covers_tick), the tab shown first"
+rgb30 = "same since 25 Oct 2026, and the same code: the header read (title, author, type, compat) stays in lib_scan; the covers are read by a fiber job (lib_covers_tick in src/kernel/library.c), the tab shown first"
 cause = "history"
 priority = 5
 status = "untested"
-note = "Done 25 Oct 2026 in src/rgb30/ui.c, a separate loop from the Pi's (carts.c uses cart_t and the Pi's tabs; only the idea and the fiber_job_t API are shared). The job stops in run_page (before a game or a page), in scan_games and while a file from the PC is written. QEMU test_covers_background: 40 carts with covers, the first frame is drawn with fewer than 40 read, a game starts, then 'covers: all 40 read'. Load time on the device not measured."
-evidence = "src/kernel/carts.c; src/rgb30/ui.c; tests/rgb30/qemu_test.py:test_covers_background"
+note = "Done 25 Oct 2026 in src/rgb30/ui.c, then merged the same day with the Pi's job: src/kernel/library.c holds read_cover, next_cover and the job for both menus. The job stops in run_page (before a game or a page), in a scan (the backend's stop_background) and while a file from the PC is written (lib_menu_idle). QEMU test_covers_background: 40 carts with covers, the first frame is drawn with fewer than 40 read, a game starts, then 'covers: all 40 read'. Load time on the device not measured."
+evidence = "src/kernel/library.c; src/kernel/carts.c; src/rgb30/ui.c; tests/rgb30/qemu_test.py:test_covers_background"
 action = "time it on the console (the menu log line: menu idle ... covers N ms)"
 
 [[divergence]]

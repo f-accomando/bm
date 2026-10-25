@@ -138,7 +138,7 @@ def rule_tools():
     for alt in re.findall(r'"(\w+)" : ', dev) + re.findall(r'\? "(\w+)"', dev):
         if alt in ("editor", "assistan") and alt not in stems:
             out.append(Finding("tools", f"alias:{alt}", f"alias `{alt}` (devtool.c) is not in src/kernel/toolnames.h"))
-    for path, what in (("src/kernel/carts.c", "bm_tool_id_of_file"), ("src/bm/runtime.c", "bm_toolnames"), ("src/rgb30/ui.c", "bm_tool_id_of_file")):
+    for path, what in (("src/kernel/library.c", "bm_tool_id_of_file"), ("src/bm/runtime.c", "bm_toolnames"), ("src/rgb30/ui.c", "bm_tool_id_of_file")):
         if what not in rd(path):
             out.append(Finding("tools", f"use:{path}", f"{path} does not use the one list of tool names ({what})"))
     return out
