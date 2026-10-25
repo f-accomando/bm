@@ -188,6 +188,13 @@ GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
+# The 3D Bench (Lua edition): its models with bones and baked light, its sprite sheet and the 8 map layers
+# of the test map8 are made by carts/bench3d/mkassets.py (no binary in the repository)
+models_bench3d := $(BUILD)/bench3d/models.bm
+extra_bench3d := $(foreach l,1 2 3 4 5 6 7 8,--map l$(l)=$(BUILD)/bench3d/map_l$(l).csv)
+$(BUILD)/bench3d/models.bm: carts/bench3d/mkassets.py scripts/bmmesh.py scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) carts/bench3d/mkassets.py $(dir $@)
 # Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/assets/map_ground.csv, map_overlay.csv and
 # map_objects.csv (the placeholders of the houses, trees, lamps... it places)
 # (carts/yharnam/build/mkmap.py makes the first one, and takes it back from the console)
@@ -769,15 +776,23 @@ test-gpu3d-opt: $(BUILD)/host/bmhost-gpu $(BUILD)/gpu3d-opt-test.bm
 	$< $(BUILD)/gpu3d-opt-test.bm --seconds 4 2>&1 | tee $(BUILD)/gpu3d-opt-test.log | grep "^gpu3d_opt"
 	grep -q "^gpu3d_opt: \([0-9]*\)/\1 checks passed" $(BUILD)/gpu3d-opt-test.log
 
-# The Lua edition of the 3D Bench (carts/bench3d) on the V3D emulator: a part of the bench (the keys of
-# bm/config.txt come from BMHOST_CONFIG; the list separator is `/`), --clock-scale 1 so the ms are real
+# The Lua edition of the 3D Bench (carts/bench3d) on the V3D emulator (the keys of bm/config.txt come from
+# BMHOST_CONFIG; the list separator is `/`), --clock-scale 1 so the ms are real. test-bench3d is the fast part:
+# 8 tests of the groups (3D, heroes, cel, 2D, herotris) on ARM and GPU+VS+Q, about 10 s of run. test-bench3d-all
+# runs every test on every profile (ARM, GPU+VS+Q, GPU+VS+Q2): about 1 minute; it is not in HOST_TESTS.
+B3D_FAST := spheres/heroes/quad_flat/cel_lit/cel/map8/sprites/herotris
 test-bench3d: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench3d/check.py
-	BMHOST_CONFIG="3d_tests=spheres/quad_flat,3d_profiles=ARM/GPU,3d_nowait=1" \
-	    $< $(BUILD)/carts/bench3d.bm --seconds 60 --clock-scale 1 > $(BUILD)/bench3d-test.log 2>&1
-	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-test.log
+	BMHOST_CONFIG="3d_tests=$(B3D_FAST),3d_nowait=1" \
+	    $< $(BUILD)/carts/bench3d.bm --seconds 100 --clock-scale 1 > $(BUILD)/bench3d-test.log 2>&1
+	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-test.log --tests $(B3D_FAST)
+
+test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench3d/check.py
+	BMHOST_CONFIG="3d_profiles=all,3d_nowait=1" \
+	    $< $(BUILD)/carts/bench3d.bm --seconds 300 --clock-scale 1 > $(BUILD)/bench3d-all.log 2>&1
+	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
