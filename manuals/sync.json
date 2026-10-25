@@ -90,8 +90,8 @@
     "title": "Your first game"
    },
    "3": {
-    "en": "95a2ae9e5b81",
-    "it": "acae98f0f857",
+    "en": "efb4543b3101",
+    "it": "869fe768ee28",
     "title": "Drawing"
    },
    "4": {
@@ -127,8 +127,8 @@
   },
   "sources": {
    "docs/API.md": "213900352f27",
-   "docs/GAME-GUIDE.md": "398125798aee",
-   "docs/api/draw.md": "a9b2da1f4789",
+   "docs/GAME-GUIDE.md": "0388ba895be8",
+   "docs/api/draw.md": "6b9fc59e0ab4",
    "docs/api/input.md": "4a75b07df3da",
    "docs/api/system.md": "583f94063149"
   }
@@ -146,49 +146,49 @@
     "title": "bmlib: lists and particles"
    },
    "11": {
+    "en": "7334bcf0db29",
+    "it": "666187390629",
+    "title": "bmlib: high-throughput 3D and crowds (crowd3d)"
+   },
+   "12": {
     "en": "e4b60a2b628a",
     "it": "e5838fd43086",
     "title": "bmlib: the camera"
    },
-   "12": {
+   "13": {
+    "en": "d100ecc304f0",
+    "it": "e9265e1eec38",
+    "title": "bmlib: one game, many screens"
+   },
+   "14": {
     "en": "dcc291e94647",
     "it": "dd7be3b9cd22",
     "title": "bmlib: game states"
    },
-   "13": {
+   "15": {
     "en": "9f9061dbbc62",
     "it": "d710b1263cb7",
     "title": "bmlib: text, bars and menus"
    },
-   "14": {
+   "16": {
     "en": "675a2c073373",
     "it": "98c5328beb37",
     "title": "bmlib: players on one console"
    },
-   "15": {
+   "17": {
     "en": "382890186000",
     "it": "3f87b40a0577",
     "title": "bmlib: sound, saves, animations, colours"
    },
-   "16": {
+   "18": {
     "en": "430537f6df1a",
     "it": "91933ae133ab",
     "title": "bmlib: the 3D builder"
    },
-   "17": {
+   "19": {
     "en": "96af7ac2f917",
     "it": "ae478d679f50",
     "title": "bmnet: opening the network and the lobby"
-   },
-   "18": {
-    "en": "f0c900aa637d",
-    "it": "1e374c15f70e",
-    "title": "bmnet: messages and events"
-   },
-   "19": {
-    "en": "199b077dfbdc",
-    "it": "4473125d3b7b",
-    "title": "bmnet: the match in lockstep"
    },
    "2": {
     "en": "0abc1634cf63",
@@ -196,6 +196,16 @@
     "title": "Tutorial: a platformer step with bmlib"
    },
    "20": {
+    "en": "f0c900aa637d",
+    "it": "1e374c15f70e",
+    "title": "bmnet: messages and events"
+   },
+   "21": {
+    "en": "199b077dfbdc",
+    "it": "4473125d3b7b",
+    "title": "bmnet: the match in lockstep"
+   },
+   "22": {
     "en": "77c33e6c7955",
     "it": "fa0ad4cd3b46",
     "title": "bmnet: fields and a whole example"
@@ -237,9 +247,9 @@
    }
   },
   "sources": {
-   "docs/api/bmlib.md": "1da0c71742dc",
+   "docs/api/bmlib.md": "6556c00f9b36",
    "docs/api/bmnet.md": "31716bc331e1",
-   "docs/design/games-architecture.md": "41e1f6da4bed"
+   "docs/design/games-architecture.md": "38d1cf8a4cc1"
   }
  },
  "api-sound": {

@@ -212,3 +212,35 @@ status = "implemented"
 platforms = "all"
 where = ["src/bm/runtime.c", "docs/api/draw.md", "tests/host/screen_modes.lua"]
 note = "screen() accepts the 720x405 mode (the RGB30 panel in the 16:9 view). Tested on the PC by make test-screen-modes (bmhost --square). Not verified on the RGB30 panel"
+
+[[item]]
+id = "api-screen-modes"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md", "tests/host/layout.lua"]
+note = "screen_modes() returns the list of {w, h} modes that screen() takes on this device and the index of the current one. Tested by make test-layout (bmhost and bmhost --square). Not tried on a Pi or an RGB30"
+
+[[item]]
+id = "hook-screen"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md", "tests/host/layout.lua"]
+note = "The hook _screen(w, h): the runtime calls it once before _init with the first mode and once at the start of the frame that follows a size change. Tested by make test-layout. Not tried on a Pi or an RGB30"
+
+[[item]]
+id = "api-safe-area-design"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "docs/api/draw.md"]
+note = "safe_area() returns two more values, the design size dw, dh (the header size). Code that reads four values is not affected"
+
+[[item]]
+id = "lib-view"
+since = 5
+status = "implemented"
+platforms = "all"
+where = ["src/script/bmlib.lua", "docs/api/bmlib.md", "tests/host/layout.lua"]
+note = "lib.view(), lib.anchor(), lib.safe_clip() and lib.fit(): the safe area as a table, the nine places in it, clip to it, and the fit of a layer made for another size. Tested by make test-layout"

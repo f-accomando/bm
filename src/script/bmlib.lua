@@ -2145,4 +2145,72 @@ function Lay.want(w, h)
   return screen(w, h) == true
 end
 
+----------------------------------------------------------------- view
+
+-- One game, many screens (2026-10-25): the safe area (safe_area(): the part
+-- of the screen with the aspect of the cartridge's design, in the middle)
+-- as a table, and the places in it.
+--
+--   lib.view()                  {x, y, w, h, scale, wide, square, tall}: the safe
+--                               area; scale = screen pixels of one design
+--                               pixel (1.0 on the design size); wide, square,
+--                               tall: the shape of the screen (aspect())
+--   lib.anchor(where, w, h, [mx, my])   x, y of an element w by h at "tl" "t" "tr"
+--                               "l" "c" "r" "bl" "b" "br" of the safe area,
+--                               margin mx, my (0) from the edges it touches
+--   lib.safe_clip()             clip() to the safe area; returns x, y, w, h
+--   lib.fit(dw, dh)             scale, x, y: a layer made for dw by dh, whole
+--                               and in the middle of the safe area
+-- Call them in _draw, or in _screen(w, h) (the runtime calls it when the size
+-- changes), not once at load: the size can change.
+
+function lib.view()
+  local x, y, w, h, dw = safe_area()
+  local _, kind = aspect()
+  return {
+    x = x, y = y, w = w, h = h,
+    scale = dw and dw > 0 and w / dw or 1,
+    wide = kind == "wide", square = kind == "square", tall = kind == "tall",
+  }
+end
+
+local ANCHORS = {
+  tl = { 0, 0 }, t = { 1, 0 }, tr = { 2, 0 },
+  l = { 0, 1 }, c = { 1, 1 }, r = { 2, 1 },
+  bl = { 0, 2 }, b = { 1, 2 }, br = { 2, 2 },
+}
+
+local function span(a, size, area, m, edge)
+  if edge == 0 then return a + m end
+  if edge == 1 then return a + floor((area - size) / 2) end
+  return a + area - size - m
+end
+
+function lib.anchor(where, w, h, mx, my)
+  local a = ANCHORS[where]
+  if not a then
+    error("lib.anchor: where is tl t tr l c r bl b br, not " .. tostring(where), 2)
+  end
+  if type(w) ~= "number" or type(h) ~= "number" then
+    error("lib.anchor: w and h are numbers", 2)
+  end
+  local x, y, vw, vh = safe_area()
+  return span(x, w, vw, mx or 0, a[1]), span(y, h, vh, my or 0, a[2])
+end
+
+function lib.safe_clip()
+  local x, y, w, h = safe_area()
+  clip(x, y, w, h)
+  return x, y, w, h
+end
+
+function lib.fit(dw, dh)
+  if type(dw) ~= "number" or type(dh) ~= "number" or dw <= 0 or dh <= 0 then
+    error("lib.fit: dw and dh are sizes above 0", 2)
+  end
+  local x, y, w, h = safe_area()
+  local s = min(w / dw, h / dh)
+  return s, x + floor((w - dw * s) / 2), y + floor((h - dh * s) / 2)
+end
+
 return lib

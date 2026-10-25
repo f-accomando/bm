@@ -1049,7 +1049,32 @@ static int l_screen(lua_State *L)
     return 1;
 }
 
-/* safe_area() -> x, y, w, h: the part of the screen that has the aspect the cartridge was made for (its
+/* screen_modes() -> { {w, h}, ... }, i: the modes screen() accepts on this device now, in the order
+ * screen(i) indexes them, and the index of the current one (nil if the size is none of them) */
+static int l_screen_modes(lua_State *L)
+{
+    const uint16_t (*modes)[2] = square_panel ? square_modes : screen_modes;
+    const int nmodes = square_panel ? SQUARE_MODES : SCREEN_MODES;
+    int cur = 0;
+    lua_createtable(L, nmodes, 0);
+    for (int i = 0; i < nmodes; i++) {
+        lua_createtable(L, 2, 0);
+        lua_pushinteger(L, modes[i][0]);
+        lua_rawseti(L, -2, 1);
+        lua_pushinteger(L, modes[i][1]);
+        lua_rawseti(L, -2, 2);
+        lua_rawseti(L, -2, i + 1);
+        if (modes[i][0] == rt.g.w && modes[i][1] == rt.g.h)
+            cur = i + 1;
+    }
+    if (cur)
+        lua_pushinteger(L, cur);
+    else
+        lua_pushnil(L);
+    return 2;
+}
+
+/* safe_area() -> x, y, w, h, dw, dh: the part of the screen that has the aspect the cartridge was made for (its
  * header size), in the middle: the whole screen if the aspect is the same; a design wider than the screen
  * takes the whole width and the middle of the height; any other takes the whole height and the middle of
  * the width (a 360x360 game on 640x360: 140, 0, 360, 360). A cartridge made for another aspect lays its
@@ -1071,7 +1096,9 @@ static int l_safe_area(lua_State *L)
     lua_pushinteger(L, y);
     lua_pushinteger(L, w);
     lua_pushinteger(L, h);
-    return 4;
+    lua_pushinteger(L, dw > 0 && dh > 0 ? dw : sw);     /* the design size too: bmlib's lib.view() scale */
+    lua_pushinteger(L, dw > 0 && dh > 0 ? dh : sh);
+    return 6;
 }
 
 /* aspect() -> the screen's width / height, and "wide" (wider than tall), "square" or "tall" */
@@ -1127,7 +1154,7 @@ static const luaL_Reg api[] = {
     { "map3d_height", l_map3d_height }, { "map3d_blocked", l_map3d_blocked },
     { "map3d_objects", l_map3d_objects }, { "map3d_size", l_map3d_size },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "gpu3d_opt", l_gpu3d_opt }, { "gpu3d_stats", l_gpu3d_stats }, { "screen", l_screen }, { "safe_area", l_safe_area }, { "aspect", l_aspect },{ "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "gpu3d_opt", l_gpu3d_opt }, { "gpu3d_stats", l_gpu3d_stats }, { "screen", l_screen }, { "screen_modes", l_screen_modes }, { "safe_area", l_safe_area }, { "aspect", l_aspect },{ "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controls", l_controls }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
@@ -1306,18 +1333,22 @@ static int traceback(lua_State *L)
 
 /* Calls global `name` if it exists. Returns 0 on success, -1 on error
  * (message left on the stack). */
-static int call(lua_State *L, const char *name)
+static int call_wh(lua_State *L, const char *name, int nargs, int a, int b)
 {
     lua_pushcfunction(L, traceback);
     if (lua_getglobal(L, name) != LUA_TFUNCTION) {
         lua_pop(L, 2);
         return 0;
     }
+    if (nargs == 2) {
+        lua_pushinteger(L, a);
+        lua_pushinteger(L, b);
+    }
     rt.hook_count = 0;
     rt.slice_at = rt.slice_len;
     prof_begin(name);
     dbg.cb = name;
-    int r = lua_pcall(L, 0, 0, -2);
+    int r = lua_pcall(L, nargs, 0, -2 - nargs);
     prof_end();
     rt.frame_instr_k += rt.hook_count;
     if (r != LUA_OK) {
@@ -1326,6 +1357,17 @@ static int call(lua_State *L, const char *name)
     }
     lua_pop(L, 1);
     return 0;
+}
+
+static int call(lua_State *L, const char *name)
+{
+    return call_wh(L, name, 0, 0, 0);
+}
+
+/* _screen(w, h): the cartridge's hook for a size it lays out by (docs/api/draw.md) */
+static int call_screen(lua_State *L)
+{
+    return call_wh(L, "_screen", 2, rt.g.w, rt.g.h);
 }
 
 /* ---------------------------------------------------------------- input */
@@ -3092,6 +3134,8 @@ static int screen_apply(framebuffer_t *fb, lua_State *L)
     lua_pushinteger(L, nh);
     lua_setglobal(L, "SCREEN_H");
     kprintf("bm: screen %dx%d\n", nw, nh);
+    if (nw != ow || nh != oh)
+        rt.screen_hook = 1;             /* _screen(w, h) at the start of the next frame */
     return 0;
 }
 
@@ -3175,6 +3219,11 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         early_us = 0;
         if (!updated)
             rt.frame_instr_k = 0;
+        if (rt.screen_hook) {               /* the size changed between two frames: _screen(w, h) first */
+            rt.screen_hook = 0;
+            if (call_screen(L) != 0)
+                error = lua_tostring(L, -1);
+        }
         rt.updates = (uint32_t)ups;
         for (int u = updated; u < ups && !error; u++) {
             const uint32_t tu = timer_ticks();
@@ -3493,7 +3542,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", "t") != LUA_OK ||
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
-        call(L, "_init") != 0)
+        call_screen(L) != 0 || call(L, "_init") != 0)
         error = lua_tostring(L, -1);
     {                                   /* ms of each step; "assets" has the state of the state */
         const uint32_t ld_end = timer_ticks();

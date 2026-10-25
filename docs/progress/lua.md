@@ -91,6 +91,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   it does not see its locals (export them).
 - Lockstep games (`bmnet`, Overbit): randomness with `grandom()`; no `G.frame`, camera,
   quality or state changed in `_draw`.
+- Layout that depends on the screen size goes in the hook `_screen(w, h)` (runtime: once before `_init`, then at the start of the frame after a size change) or in `_draw`. Read the safe area with `lib.view()` and place the HUD with `lib.anchor()`. `safe_area()` returns six values (`x, y, w, h, dw, dh`). Test: `make test-layout`.
 - System keys belong to `src/kernel/syskeys.c` (F12, Esc, Ctrl+Esc, F11, F6, F5/Ctrl+R): apps
   do not reuse them.
 - Tests: `make test-gameapi`, `make test-gamekit`, `test-bm`, `test-profile`, `test-bmnet`, `test-online`,

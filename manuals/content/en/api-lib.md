@@ -380,6 +380,17 @@ end
 | `C:map([layer, mask])` | the cells of the map that show |
 | `C:sees(x, y, [w, h])` / `C:screen(x, y, [view])` | the rectangle shows / where a point of the world is on the screen (in the view) |
 
+# bmlib: one game, many screens
+
+| Function | Description |
+|---|---|
+| `lib.view()` | a table `{x, y, w, h, scale, wide, square, tall}`. `x, y, w, h` are the safe area. `scale` is how many screen pixels one design pixel gets (`1.0` on the design size). `wide`, `square`, `tall`: the shape of the screen, one is `true` |
+| `lib.anchor(where, w, h, [mx, my])` | `x, y` of an element `w` by `h` at `"tl"` `"t"` `"tr"` `"l"` `"c"` `"r"` `"bl"` `"b"` `"br"` of the safe area, with margins `mx, my` (0) from the edges it touches |
+| `lib.safe_clip()` | `clip()` to the safe area; returns `x, y, w, h` |
+| `lib.fit(dw, dh)` | `scale, x, y` to draw a layer made for `dw` by `dh` whole, in the middle of the safe area |
+
+Call them in `_draw` or in `_screen(w, h)`, not once at load: `screen()` can change the size.
+
 # bmlib: game states
 
 `lib.states(defs, [first, ...])`: title, match, pause, game over as tables `{enter, update, draw, exit}`; each function gets its table (`function play:update()`), which has `t` (the seconds spent in the state) and `name`.
