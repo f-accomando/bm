@@ -109,7 +109,6 @@ The menu is the first thing you see. It opens on **Games**.
 | Market | the catalog of games and apps you can download; two pages, **Games** and **Apps** |
 | Games | the cartridges on the card |
 | Dev | the tools: SDK, editors, Sound, Studio, Animator, Mesh, Pixel |
-| Lib | the shared resources; hidden until you set `lib_tab=1` |
 | Settings | the last tab: its panel opens in place of a list |
 
 The Market loads only while its tab is on and never blocks the menu.
@@ -299,7 +298,6 @@ Settings, the monitor line `set`/`save` and the PC tools write `bm/config.txt`. 
 | `confirm` | `b` or `a`: which button confirms |
 | `wifi_ssid`, `wifi_psk` | the network to join |
 | `wifi_boot=0` | do not join the network at boot |
-| `lib_tab=1` | show the Lib tab |
 | `show_bm=0` | hide `.bm` files in the Games tab of the RGB30 |
 | `market_bm=0` | hide `.bm` files in the Market of the RGB30 |
 | `bm_screen` | `1280x720` or `640x360`: the screen of the SDK and the editors (default 1280x720 with the GPU) |

@@ -48,8 +48,8 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   bullets and page numbers (493 checks, 389 runs). A change to the baseline or a bullet makes it fail. Not
   checked: a real PDF viewer (no `pdftotext` or `pdftoppm` in WSL; the test keeps the file with `luahost ... ROOT
   OUT.pdf`), the Pi and the RGB30.
-- **Lib tab** (`src/kernel/lib.c`, `libview.c`): resources `.bmm .bmi .bms .bmt .bmc .bmk`,
-  hidden until `lib_tab=1`.
+- **Lib tab**: removed on 25 Oct 2026 ([RISORSE.md](../RISORSE.md) chapter 7). The editors open the
+  resource files `.bmm .bmi .bms .bmt .bmc .bmk`.
 - Shared Lua: `bm3d` (Studio/Animator; Mesh loads it only for the pure geometry `T.G`: `model_item`, `encode_model`, `orient`, `compact`... on the shape `{v, f, vb}`), `bmui` (mouse: zones registered while drawing,
   chips that press keys, `U.press` before `keyp()`, a context menu of keys).
 - Projects (M47): tools edit `.bme` in `/bme`, never a `.bm`/`.b16`; saving a game asks for a copy. `bm_build` and

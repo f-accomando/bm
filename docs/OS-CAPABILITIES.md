@@ -141,7 +141,6 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
   - Report sender: 128 KB. `src/kernel/carts.c:312`
   - Transfer write to SD: 64 KB. `src/net/netxfer.c:77`
   - Wi-Fi auto join: 64 KB. `src/net/wifi_auto.c:36`
-  - Library scan: 32 KB. `src/kernel/lib.c:360`
   - Cover loader, SD map scan: 16 KB each. `src/kernel/carts.c:278`, `src/kernel/sdmap.c:87`
 - **Network polling** runs from the input loops (`net_poll` in `src/kernel/input.c`). lwIP runs while the menu, the monitor or a game polls input. [code, `src/kernel/input.c:65-216`]
 - **A game runs exclusively.** The runtime owns the main loop until the game ends or is suspended. The menu fibers do not run. A transfer waits in memory and is written when the menu returns. [code, `src/bm/runtime.c:9073`, `src/net/netxfer.c:6-12`]

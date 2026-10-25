@@ -101,7 +101,7 @@ The *sprite stacking* technique allows generating pseudo-3D volumes by overlayin
    - `stack(sx, sy, w, h, n, x, y, [rz, scala, passo])`: draws `n` consecutive slices from the sheet starting at `(sx, sy)` (in C `gfx16.c` with `sspr` inverse sampling, color 0 transparent), supported in `draw2d()` and `bmhost`.
 2. **Named Stacks in `SPRITES`**:
    - Zone definition with type `stack` and slice count in `sprites.txt` / `mkbm.py --sprites`.
-   - `zstack(nome, x, y, [rz, scala])` API, display with interactive rotation in the Lib tab and in `.bmi` files.
+   - `zstack(nome, x, y, [rz, scala])` API, display with interactive rotation in `.bmi` files.
 3. **Dedicated Editor in bm Pixel**:
    - **Stack** page (done): slice view with the thumbnails and the onion skin (the slice before, dimmed); real-time rotating preview; copy of the slice onto the upper level (`c`) to ease extrusion; both layouts (`stack`, `stackv`); delete a zone; mouse (pick, wheel, drag to turn, right menu). Left: quick creation of a stack starting from an existing zone.
 4. **Full x, y, z Rotation**:

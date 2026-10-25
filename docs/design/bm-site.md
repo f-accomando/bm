@@ -40,7 +40,7 @@ has one channel. Until then, the site must offer both editions of a game that ha
 
 ## 2. Asset types and where they go
 
-Sources: `src/kernel/lib.c:66` (extension list), `docs/BM-FORMAT.md` (resource files, `BMRES`), `docs/RISORSE.md` section 3,
+Sources: `docs/BM-FORMAT.md` (resource files, `BMRES`), `docs/RISORSE.md` section 3,
 `docs/PROJECT-LAYOUT.md` ("Where projects live on the SD card"), `src/kernel/sdmap_core.c:138-155`,
 `src/bm/runtime.c:3486-3540` (`res_write`), `src/bm/webpolicy.c:86-98`, `scripts/bmres.py`.
 
@@ -50,7 +50,7 @@ Sources: `src/kernel/lib.c:66` (extension list), `docs/BM-FORMAT.md` (resource f
 | Game, RGB30 edition | `.b16` | `bm/` | as `.bm`; ends with SYS-8 | none | 8 MB when built (`single-bm...md` 2.1) |
 | Project | `.bme` | `/bme` | The tool that opens it | The editors open the projects (`PROJECT-LAYOUT.md`) | not verified |
 | Model | `.bmm` | `/bmm` | `res_write`: MESH needed, each section parsed as the loader does; `BMRES` | bm Mesh (`bm3d.lua:1523-1531`); bm Studio and bm Animator (plan in `RISORSE.md` 3) | up to 256 models per file; Lib reads files up to 8 MB (`lib.c:13`) |
-| Image, sprites | `.bmi` | `/bm/lib` for the Lib tab | `BMRES` parse in `format.c` | bm Pixel, bm Studio (plan in `RISORSE.md` 3) | as above |
+| Image, sprites | `.bmi` | `/bm/lib` (no tab reads it now) | `BMRES` parse in `format.c` | bm Pixel, bm Studio (plan in `RISORSE.md` 3) | as above |
 | Sound | `.bms` | `/bm/lib` | `BMRES`; AUDIO section | bm Sound (plan) | PCM at most 8388608 values (`BM-FORMAT.md`) |
 | Tile map | `.bmt` | `/bm/lib` | `BMRES` | bm editor (plan) | as above |
 | Palette | `.bmc` | `/bm/lib` | `BMRES`; SHEET8 of N x 1 pixels, N up to 256 | bm Pixel, bm Studio (plan) | small |
@@ -63,8 +63,8 @@ Rules for all of them:
 - Name: 1 to 8 characters of `a-z 0-9 _ -`, lower case, for `.bmm` in `/bmm` (`runtime.c:3495-3515`). The real title
   is inside the file (`RISORSE.md` section 2, rule 6). The site must publish a file under such a name.
 - Every file has an INFO section with title, author, `license`, version and tags (`RISORSE.md`, rule 5).
-- The Lib tab scans `/bm/lib`, `/carts`, `/bm` and `/` for resource files and `.bm` files (`lib.c:287-291`). It does not scan
-  subfolders or `bm/web`.
+- The Lib tab scanned `/bm/lib`, `/carts`, `/bm` and `/` for resource files and `.bm` files. It is removed (25 Oct 2026):
+  no kernel code scans the card for resource files. The editors list their own files.
 - `res_write` is for bm's tools only (`tool_mode`). It writes `.bmm` in `/bmm` and nothing else (`runtime.c:3513-3531`).
 
 What bm Web can save today (`webpolicy.c:86-98`, `system.md` `file_write`, `carts/bmweb/src/files.lua`):

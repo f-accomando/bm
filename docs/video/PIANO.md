@@ -175,7 +175,7 @@ Fonti: `docs/progress/audio.md`, `docs/progress/audio-samples.md`, `manuals/cont
 6. **Conflitti di tasti** nella mappa: `[ ] , .` sono già "tessera prima/dopo", `Ctrl+Z` esiste già.
 7. **Formato intermedio**: `.bme` (progetto) contro `.bm`: la prima `Ctrl+S` su un `.bm` crea una copia `.BME`. Come diventa `chain/NN-nome.bm`
    (Ctrl+B dell'SDK, `bm_forge.py export`, `mkbm.py`) è da provare nei video 1, 3 e 5 (D7).
-8. **Video 6**: `Ctrl+N` con un template azzera il progetto (`new_project()` in `carts/editor/main.lua`) e la scheda Lib è nascosta: il video non
+8. **Video 6**: `Ctrl+N` con un template azzera il progetto (`new_project()` in `carts/editor/main.lua`) e la scheda Lib non esiste più (rimossa il 25 ott 2026): il video non
    può "importare" modelli, mappa e suono in un template. Flusso provvisorio: `start.bm` contiene già il codice adattato; il video mostra la lista dei template.
    Se serve un import vero, è una feature mancante dell'SDK (candidata per Antigravity dopo AGY-03).
 9. **`hit`** nel gioco = urto contro il muro basso o caduta in una buca (decisione del video 7); il bot del video 8 sbatte una volta di proposito.

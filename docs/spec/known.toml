@@ -4,11 +4,6 @@
 # `scripts/consistency.py check` fails on anything NOT listed here, and on an entry that is no longer found.
 
 [[accept]]
-id = "platform-menu:tabs"
-kind = "intended"
-because = "the Pi's menu has a Lib tab (resource files, hidden unless lib_tab=1); the RGB30's has none. Accepted 2026-10-22: the Lib tab is closed by the owner's decision (2026-10-06, docs/RISORSE.md section 7); the resources are made inside the SDK pages"
-
-[[accept]]
 id = "platform-screen:modes"
 kind = "hardware"
 because = "a 16:9 TV on the Pi (screen() offers the 16:9 modes), a square 720x720 panel on the RGB30 (360x360 and 720x720, whole pixels)"

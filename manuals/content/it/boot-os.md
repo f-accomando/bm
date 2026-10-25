@@ -109,7 +109,6 @@ Il menu è la prima cosa che vedi. Si apre su **Games**.
 | Market | il catalogo di giochi e app da scaricare; due pagine, **Games** e **Apps** |
 | Games | le cartucce sulla scheda |
 | Dev | gli strumenti: SDK, editor, Sound, Studio, Animator, Mesh, Pixel |
-| Lib | le risorse condivise; nascosta finché non imposti `lib_tab=1` |
 | Settings | l'ultima scheda: il suo pannello si apre al posto di un elenco |
 
 Il Market si carica solo mentre la sua scheda è attiva e non blocca mai il menu.
@@ -299,7 +298,6 @@ Le Impostazioni, `set`/`save` della riga del monitor e gli strumenti del PC scri
 | `confirm` | `b` o `a`: quale pulsante conferma |
 | `wifi_ssid`, `wifi_psk` | la rete a cui collegarsi |
 | `wifi_boot=0` | non collegarsi alla rete all'avvio |
-| `lib_tab=1` | mostra la scheda Lib |
 | `show_bm=0` | nasconde i file `.bm` nella scheda Games dell'RGB30 |
 | `market_bm=0` | nasconde i file `.bm` nel Market dell'RGB30 |
 | `bm_screen` | `1280x720` o `640x360`: lo schermo dell'SDK e degli editor (default 1280x720 con la GPU) |

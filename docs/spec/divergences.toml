@@ -45,13 +45,13 @@ action = "decide whether the RGB30 has local multiplayer; if so map BT pads to p
 [[divergence]]
 id = "D04"
 area = "menu keys"
-pi = "Start confirms; Tab and 1-5 jump tabs; U uploads a cart"
-rgb30 = "Start confirms unless Select is held; Tab and 1 2 3 5 of a keyboard jump tabs (4 is the Pi's Lib tab: absent, ignored); U (upload) is not ported"
+pi = "Start confirms; Tab and 1-4 jump tabs; U uploads a cart"
+rgb30 = "Start confirms unless Select is held; Tab and 1 2 3 4 of a keyboard jump tabs (as on the Pi); U (upload) is not ported"
 cause = "history"
 priority = 6
 status = "resolved"
-note = "src/rgb30/ui.c: Start confirms in the menu unless Select is held (QEMU test_menu_start_confirms); Tab (wraps after the last tab) and 1/2/3/5 of a Bluetooth or USB keyboard jump tabs; the serial line's 1/2/3/5 do the same (QEMU test_menu_tab_keys; Tab has no QEMU test: on the serial line it is Select and QEMU has no keyboard); 4 is the Pi's Lib, absent. U (upload) not ported. Not tried with a Bluetooth keyboard. Proved in QEMU (test_menu_start_confirms, test_menu_tab_keys). U (upload on the serial line, bm_load.py --cart) is not ported on purpose: the RGB30 receives a game over the network with bm_net.py --play (D21). Not verified on hardware with a Bluetooth keyboard."
-evidence = "src/kernel/carts.c:1421-1427,1479-1482; src/rgb30/ui.c:1187-1189,1198-1214; tests/rgb30/qemu_test.py:test_menu_tab_keys"
+note = "src/rgb30/ui.c: Start confirms in the menu unless Select is held (QEMU test_menu_start_confirms); Tab (wraps after the last tab) and 1/2/3/4 of a Bluetooth or USB keyboard jump tabs; the serial line's 1/2/3/4 do the same (QEMU test_menu_tab_keys; Tab has no QEMU test: on the serial line it is Select and QEMU has no keyboard). U (upload) not ported. Not tried with a Bluetooth keyboard. Proved in QEMU (test_menu_start_confirms, test_menu_tab_keys). U (upload on the serial line, bm_load.py --cart) is not ported on purpose: the RGB30 receives a game over the network with bm_net.py --play (D21). Not verified on hardware with a Bluetooth keyboard."
+evidence = "src/kernel/carts.c:1342-1348,1399-1402; src/rgb30/ui.c:1187-1189,1198-1214; tests/rgb30/qemu_test.py:test_menu_tab_keys"
 action = "none"
 
 [[divergence]]

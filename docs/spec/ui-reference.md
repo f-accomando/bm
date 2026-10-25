@@ -31,10 +31,10 @@ This document is the fixed reference for device-specific input controls, menu be
 | Scaling rule | 1x (640x360) by default, the HDMI scaler enlarges it; `menu_gpu=1` draws 1080p 1:1 via V3D; `menu_scale` (1, 2, 3) in `bm/config.txt` sets manual ARM scaling | `docs/spec/divergences.toml:332` | implemented |
 | Confirm button | A confirms (action in menu, gamepad button 0 / DS4 Cross, USB keyboard Enter/Space) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
 | Back button | B cancels / goes back (gamepad button 1 / DS4 Circle, USB keyboard Esc/Backspace) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
-| X button | Opens cartridge options / details (gamepad button 2 / DS4 Square, keyboard X) | `src/kernel/menu_ui.c:722`, `src/kernel/carts.c:1478` | implemented |
+| X button | Opens cartridge options / details (gamepad button 2 / DS4 Square, keyboard X) | `src/kernel/menu_ui.c:722`, `src/kernel/carts.c:1386` | implemented |
 | Y button | Role in menus / apps: to decide (in games face button by position on DS4 / gamepad) | `docs/spec/divergences.toml:365` | to decide |
-| L1 / R1 | Move between menu tabs (Market, Games, Dev, Lib, Settings) | `src/kernel/carts.c:1482,1484` | implemented |
-| D-pad | Navigate grid covers, list rows, and options | `src/kernel/input.h:14`, `src/kernel/carts.c:1458-1473` | implemented |
+| L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) | `src/kernel/carts.c:1392,1394` | implemented |
+| D-pad | Navigate grid covers, list rows, and options | `src/kernel/input.h:14`, `src/kernel/carts.c:1366-1381` | implemented |
 | Keyboard & mouse | Full USB and Bluetooth keyboard and mouse support (Italian/US layouts) | `docs/spec/divergences.toml:387`, `docs/progress/platforms.md:16` | implemented |
 | System shortcuts | F11 (audio log), F12 (held: key list), Print Screen (screenshot), Ctrl+Esc (leave game) | `docs/spec/divergences.toml:376` | implemented |
 | Button prompts | Lettered glyphs or DS4 glyphs depending on active input device | `src/kernel/settings.c:434-436`, `src/kernel/prompts.h:46` | implemented |
@@ -51,10 +51,10 @@ This document is the fixed reference for device-specific input controls, menu be
 | Scaling rule | Scaled to HDMI resolution via `menu_scale` in `bm/config.txt` | `docs/spec/divergences.toml:332` | implemented |
 | Confirm button | A confirms (identical to Pi Zero W) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
 | Back button | B cancels / goes back (identical to Pi Zero W) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
-| X button | Opens cartridge options / details (identical to Pi Zero W) | `src/kernel/menu_ui.c:722`, `src/kernel/carts.c:1478` | implemented |
+| X button | Opens cartridge options / details (identical to Pi Zero W) | `src/kernel/menu_ui.c:722`, `src/kernel/carts.c:1386` | implemented |
 | Y button | Role in menus / apps: to decide (identical to Pi Zero W) | `docs/spec/divergences.toml:365` | to decide |
-| L1 / R1 | Move between menu tabs (identical to Pi Zero W) | `src/kernel/carts.c:1482,1484` | implemented |
-| D-pad | Navigate grid covers, list rows, and options | `src/kernel/input.h:14`, `src/kernel/carts.c:1458-1473` | implemented |
+| L1 / R1 | Move between menu tabs (identical to Pi Zero W) | `src/kernel/carts.c:1392,1394` | implemented |
+| D-pad | Navigate grid covers, list rows, and options | `src/kernel/input.h:14`, `src/kernel/carts.c:1366-1381` | implemented |
 | System shortcuts | Identical system keys (F11, F12, Print Screen, Ctrl+Esc) | `docs/spec/divergences.toml:376` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` | `docs/spec/divergences.toml:360` | implemented |
 

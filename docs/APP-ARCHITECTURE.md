@@ -107,7 +107,7 @@ A game **cannot `require` its own files**: there is no module system for cartrid
   (`BMRES`) are made and merged by `scripts/bmres.py`; no cartridge in `carts/` uses them and the game has no API to read
   them ([FORMATS-AUDIT.md](FORMATS-AUDIT.md) section 4).
 - Metadata: the **header** (title, author, resolution) is what the menu shows; the **INFO** section (`bm.info`) holds
-  `name desc author license version tags date` and is read by the runtime only for the Lib tab.
+  `name desc author license version tags date` and is read by the runtime only for its `spec` key (`bm_info_get`).
 
 ## 6. The pieces and what crosses between them
 
@@ -120,7 +120,7 @@ tool (tool_mode)  --cart_load/save/write/data/audio--> .bme on the SD   (editabl
 tool  --cart_run(path)--> game (tool_mode 0) --exit--> cart_arg() back into the tool
 tool  --cart_tool(name, path)--> another tool (cart_arg().from = the caller)
 
-resource files  <--bmres.py extract/add/convert-->  .bm/.bme       Lib tab (kernel) reads and previews them
+resource files  <--bmres.py extract/add/convert-->  .bm/.bme       the editors open them
 Market: repo bm-market  games/<id>/{id.bm, id.b16, info.txt} --CI: mkmarket.py--> index.txt (SHA-256) signed ECDSA P-256
         console: verifies the signature (keys/market-pub.pem) then each file's SHA-256, then writes /carts or /bm
         Apps page: installs tools on the SD, which override the embedded ones (load_sd_tool)
@@ -131,12 +131,11 @@ files on the card: /carts, /bm (config.txt, save, shots, lib, sounds), /docs
 ```
 
 **Menu tabs** (`carts.c:190`): Market (Games / Apps), Games, Dev (tools, then `home.c` `tools[]`: Code, Assistant, Monitor, Lua,
-System, benches, then projects), Lib (resource files, hidden unless `lib_tab=1`), Settings (`bm/config.txt`).
+System, benches, then projects), Settings (`bm/config.txt`).
 
 **Roles:** the **SDK** is the hub (projects, templates, build/export, jumps to the other tools); **Code, Pixel, Studio,
 Animator, Mesh, Sound** edit one kind of data each, in the same project; **Write** and the **Assistant** are apps outside the
-project cycle; the **Market** delivers games and apps; the **Lib** tab is meant as the shelf of shared resources; the
-**monitor** and `bmhost` are for developers.
+project cycle; the **Market** delivers games and apps; the **monitor** and `bmhost` are for developers.
 
 ## 7. Problems and proposals
 
@@ -163,7 +162,7 @@ Other points:
 | A3 | `devtool_session` finds the tool by comparing the display string (`"SDK"` on the Pi, `"bm SDK"` on the RGB30): rename the string and the SD override stops silently | pass the tool id | no |
 | A4 | Six near-identical `build.py` (kitchen, titan, titan_ex, overbit, nano8, sdk_b16) with different features | one `scripts/joinlua.py`; or the SDK joins the project's files itself from `bm.info` | no |
 | A5 | No module system for the game's own files (only a convention of `do ... end` blocks) | keep it; a runtime module system would need several LUA sections | yes, for old kernels |
-| A6 | `bm.info` adopted by 3 games of ~13; INFO is stored but the menu does not read it | migrate the rest; read `name` from INFO in the Lib and the Market | no |
+| A6 | `bm.info` adopted by 3 games of ~13; INFO is stored but the menu does not read it | migrate the rest; read `name` from INFO in the Market | no |
 | A7 | Save identity is CRC32(title, author), checked only for Market games (`mkmarket.py:253`) | add an `id` key to INFO and use it for new saves, falling back to the CRC | no (old saves keep working) |
 | A8 | The tools do not agree on their libraries: Code requires `assist`, `predict`, `padtype`, `bmui` without `pcall` (it fails to start if one is missing); SDK, Mesh, sdk_b16 wrap them | one pattern for the optional ones | no |
 | A9 | Suspend only for menu-started games; a game tried from a tool is not suspendable; one global slot | document it; a second slot is a design change | no |

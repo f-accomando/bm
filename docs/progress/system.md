@@ -85,8 +85,8 @@ Detail of `src/kernel/` (menu loop, settings, Market, update, services): [system
 - The bar's categories are fixed: kernel, bm, bme, other, free (other = total - free - the rest).
 - Free space is counted from the FAT (`fat_free_step`), not from FSInfo.
 - Fibers (`background_stop()`, `net_wait_step`, update/publish vs apps): [multitasking](multitasking.md).
-- Tabs on the Pi: Market · Games · Dev · Lib · Settings, Lib hidden until `lib_tab=1`; the
-  menu opens on Games; the Market never blocks the menu and loads only when its tab is on.
+- Tabs on the Pi and the RGB30: Market · Games · Dev · Settings (keys `1`-`4`; the Lib tab is
+  removed, 25 Oct 2026); the menu opens on Games; the Market never blocks the menu and loads only when its tab is on.
 - System keys only in `syskeys.c` (F12 held help, Esc menu, Ctrl+Esc = PS, F11 overlay,
   F6 assistant, F5/Ctrl+R try). Online games (`online(true)`): PS asks "Leave the match?" and
   calls `_leave()`. Automatic restart: always 3 s counted.

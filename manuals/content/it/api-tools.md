@@ -286,8 +286,8 @@ Un file di risorse usa lo stesso contenitore di un `.bm`, con il magic `BMRES` e
 
 ## Attenzione
 
-- La scheda Lib, che elenca le risorse, per ora è nascosta. `lib_tab=1` in `bm/config.txt` la riporta.
-- Le app che aprono i file di risorse non sono ancora pronte: A nella scheda Lib apre solo risorse che stanno dentro un `.bm`.
+- Il menu non ha una scheda per i file di risorse (la scheda Lib è stata rimossa). Apri un file di risorse da un editor.
+- Le app che aprono ogni tipo di file di risorse non sono ancora pronte.
 - `bmres.py add` con una cartuccia `.bme` e senza `-o` scrive il `.bme` sul posto. Con un `.bm` o un `.b16` e senza `-o` si rifiuta di cambiare il gioco ("is a game, read only") e scrive una copia con lo stesso nome e l'estensione `.bme`. Un'uscita `.bme` è segnata come progetto.
 - [DA COMPLETARE: `docs/RISORSE.md` dice che `mkbm.py --res FILE` integra le risorse in fase di compilazione, ma in `scripts/mkbm.py` l'opzione `--res` sceglie la risoluzione dello schermo. Dire quale strumento fa l'integrazione in compilazione.]
 

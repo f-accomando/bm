@@ -358,7 +358,7 @@ Una risorsa è una cosa estratta da una cartuccia in un file suo. Per le immagin
 
 ## Cosa puoi fare oggi
 
-- Nella scheda **Lib** del menu, il gruppo **Images** elenca le zone di SPRITES. `docs/RISORSE.md` descrive **A** che ne apre una in bm Pixel, ma nel codice non è stato confermato. La scheda è nascosta a meno che `lib_tab=1` sia in `bm/config.txt`.
+- Il menu non ha una scheda per i file di risorse. Apri un file di risorse dagli editor.
 - Su PC, `scripts/bmres.py` estrae una zona di sprite in un `.bmi` (con i suoi box), aggiunge una risorsa a un `.bm` e converte da e verso `.png`, `.hex` e `.gpl`.
 
 ::: copy

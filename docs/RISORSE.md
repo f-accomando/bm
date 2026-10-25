@@ -1,22 +1,22 @@
-# Resources: one file per resource and the Lib tab
+# Resources: one file per resource
 
 
 
 Proposal of 2026-10-03, in progress on the `claude/lib-risorse` branch. It describes the files
 that carry **a resource outside a `.bm`** (models, images, sounds, maps, palettes),
-the tools to extract them, integrate them and view them, and the menu's **Lib tab** that
-lists them. Lua code as a resource is not included: for now it stays out.
+and the tools to extract them and integrate them. The menu has no tab for them (the Lib tab
+is closed, see chapter 7): the editors open the resource files. Lua code as a resource is
+not included: for now it stays out.
 
-**Status (2026-10-03)**
-- Steps 1–4 of chapter 10 done: the specification in `src/bm/bm.h`; `scripts/bmres.py`
-  (`make test-res`: 112 checks in Python, 28 in C with the kernel's parser); the kernel
-  reads `BMRES` files (`bm_parse_any`, `bm_zone`, `bm_info_get` in `format.c`); the
-  Lib tab (`src/kernel/lib.c` the list, `libview.c` the previews, `menu_ui.c` the
-  drawing, `carts.c` the commands), tested in QEMU by `test_lib_tab`.
-- To do: chunked reading in the FAT and the `/bm/INDEX.DAT` index (today entering Lib
-  reads all the files, as the menu already does for the covers); *Options* (X); Y that
-  animates the models; the apps that open resource files (today A only opens the resources of
-  `.bm` files); SPRITES and tags in bm Pixel and in the other apps.
+**Status (2026-10-25)**
+- Steps 1–2 of chapter 10 done: the specification in `src/bm/bm.h`; `scripts/bmres.py`
+  (`make test-res`: 112 checks in Python, 28 in C with the kernel's parser). The kernel
+  reads `BMRES` files (`bm_parse_any`, `bm_zone`, `bm_info_get` in `format.c`).
+- The Lib tab is removed (25 Oct 2026, user decision). The resource files are opened from
+  the editors: bm Mesh, bm Studio, bm Pixel, bm Sound and bm Animator (Lua `ls`, `res_read`,
+  `res_write`).
+- To do: the apps that open every kind of resource file; SPRITES and tags in bm Pixel and in
+  the other apps.
 
 ---
 
@@ -107,7 +107,7 @@ Every file also has INFO.
 ### `.bmk`: kits
 - A set of resources of different types with **a single shared sheet**, for example a
   character with model, animations, sprites and sounds.
-- In the Lib tab the kit appears in its group, and its parts in the other groups.
+- The editors list a kit and its parts.
 
 ## 4. The `BMRES` container
 
@@ -241,102 +241,17 @@ Integration never removes anything from the destination `.bm`. Extracting a reso
 integrating it into an empty project must give the same sections, byte for byte (except INFO,
 which in the project receives the entries' blocks with `origin`).
 
-## 7. The Lib tab
+## 7. The Lib tab (closed)
 
-### Place and controls
-- **Hidden for now** (user decision, 2026-10-06): `lib_tab=1` in `bm/config.txt`
-  brings it back.
-- The tabs become **Market · Games · Dev · Lib · Settings** (the Market, M25, came
-  later). L1/R1 (on the keyboard `[` `]` or Tab) move from one to the other as today; in the text
-  menu and from the serial port the keys `1`–`5`.
-- Inside Lib:
-  - **left/right**: the group (**Models, Images, Sounds, Maps, Palettes, Kits**),
-    on a row under the tabs, with the chosen one highlighted like the tabs;
-  - **up/down**: the list on the left;
-  - **A**: *Open*, in the group's app (bm Studio for models, bm Pixel for images
-    and palettes, bm Sound for sounds, bm editor for maps; a kit asks which one).
-    For now only for resources inside a `.bm`;
-  - **X**: *Options*, a panel like those of the menu: *Copy into a project…*, *Save
-    to /bm/lib* (for resources inside a `.bm`), *Tags…*, *Rename*, *Delete* (only the
-    files in `/bm/lib`), *Details*;
-  - **Y** (keyboard `V`, like Y in games; from the serial port `v`): plays or stops the sound
-    (not while a game is suspended: its bank waits in the player); later also
-    the models' animation;
-  - **B** closes the panels, as in the other tabs.
-- With the pointer (M32) you choose group, entry and buttons.
-
-### The list (on the left)
-- The entries are grouped by file, with a grey header row and the count on the
-  right (`TESTKIT.BM   8`): first the files in `/bm/lib` (by name), then the packs in
-  `/bm/sounds` and the `.bm` files in `/carts` and in the root (by title). The full path is
-  in the detail lines (`from bm/lib/HOUSE.BMM`).
-- What an entry is, group by group:
-  - **Models**: each model; an `A` next to animated models;
-  - **Images**: the SPRITES zones; without SPRITES, the file's whole sheet
-    (`sheet 256x256`);
-  - **Sounds**: songs, effects and sounds, with a letter (`S`, `E`, `I`) like the meshes in
-    bm Mesh;
-  - **Maps**: one map per file (`64x32`);
-  - **Palettes**: the `.bmc` files and the palette of every SHEET8 (`32 colours`);
-  - **Kits**: the `.bmk` files.
-- An empty group shows a line explaining where the resources come from.
-- The list scrolls and each group remembers its position, as the tabs remember the
-  chosen cover.
-- The cartridges built into the kernel (the development apps) are not listed.
-
-### The preview (on the right)
-- **Models**: the spinning model, with its file's sheet as texture (the kernel's 3D
-  renderer); Y animates it with its clips.
-- **Images**: the image scaled to fit the box, over the transparency
-  checkerboard (like bm Pixel), the chosen zone outlined and animated if it has frames.
-- **Sounds**: Y plays the song, the effect or a note of the instrument (the player is in the
-  kernel).
-- **Maps**: the whole map in small, with its tiles.
-- **Palettes**: the colour grid.
-- **Kits**: the list of the parts and the preview of the first.
-- Under the image, text lines: name; numbers (triangles, size, colours,
-  duration); source file; author and licence; tags.
-
-### Layout (640×360, 16 px rows, 80 columns)
-
-```
-   Market    Games    Dev   [Lib]   Settings                       (bar icons)
-
- <  [Models]   Images   Sounds   Maps   Palettes   Kits  >
-
- HOUSE.BMM                    1   +------------------------------------------+
-  house                           |                                          |
- TESTKIT.BMK                  8   |           (the spinning model)           |
-  ground                          |                                          |
-  ...                             |                                          |
- TESTKIT.BM                   8   +------------------------------------------+
-  ground                          walker
-  ...                             56 vertices, 84 faces, 3 clips
- >walker                      A   from carts/testkit.bm
-                                  bm   CC0-1.0
-                                  tags: character, kit
-
-                   (A) Open in bm Studio   (Y) Play   (Share+Options) Monitor
-```
-
-- Row 1 the tabs, row 4 the groups (on a bar of their own), rows 6–18 the list (columns
-  2–31) and the preview (columns 35–76, rows 6–13), rows 14–18 the details, row 21 the
-  button hints with the icons from `prompts.c` (A only if the resource is in a `.bm`,
-  Y only for sounds).
-- The text sits on the font's 16 px rows, so the QEMU tests read the
-  screen.
-- Colours, bars and panels are those of BareMetal UI (`menu_ui.c`).
-
-### Speed and memory
-- The list is built when entering Lib, and again after a save or a
-  copy. For each file only the header, the section table and the names are needed.
-- An index in `/bm/INDEX.DAT` remembers path, size and CRC-32 of every file (the CRC
-  is already in the header): a file that has not changed is not read again.
-- Today the FAT reads the first 512 bytes (`fat_read_head`) or the whole file: a
-  read of a piece (position and length) is needed, to read only the table and the names.
-- The preview loads only the file of the chosen entry, and only when the selection stays
-  still for a few frames (scrolling fast does not load every entry); the previous
-  file is freed.
+- The menu has no Lib tab. The tabs are **Market · Games · Dev · Settings** (keys `1`–`4`).
+- The user closed the tab on 6 Oct 2026 (hidden) and removed its code on 25 Oct 2026. Before, it
+  listed the resource files and the resources inside the `.bm` files, with a preview.
+- Open a resource file from an editor: bm Mesh and bm Studio for models, bm Pixel for images
+  and palettes, bm Sound for sounds. Each editor lists its own files.
+- The kernel still reads the resource files of a game (`format.c`, `BMRES`). It no longer
+  scans the card for them.
+- The previous design is in the git history (`src/kernel/lib.c`, `libview.c`, QEMU test
+  `test_lib_tab`).
 
 ## 8. PC tools
 
@@ -372,10 +287,8 @@ which in the project receives the entries' blocks with `origin`).
 
 1. Specification in `src/bm/bm.h` (`BMRES`, INFO, SPRITES) and this document.
 2. `scripts/bmres.py` with the tests on the PC: extraction, integration, conversions.
-3. Kernel: reading `BMRES`, chunked reading in the FAT, index; Lib tab with groups and
-   lists; QEMU test `test_lib_tab` (reads the screen).
-4. Previews: images, palettes and maps; then models (3D renderer) and sounds (player).
-5. *Options*: *Copy into a project*, *Save to /bm/lib*, *Delete*; then the apps open the
-   resource files.
-6. Tags and details (INFO) from *Options*; SPRITES in bm Pixel.
-7. The console's bm Studio and bm Animator open and save resource files.
+3. Kernel: reading `BMRES` (done). The Lib tab (list, previews, QEMU test) was built, then removed
+   on 25 Oct 2026.
+4. The apps open the resource files.
+5. Tags and details (INFO); SPRITES in bm Pixel.
+6. The console's bm Studio and bm Animator open and save resource files.

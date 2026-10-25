@@ -113,17 +113,16 @@ Documentation inconsistencies: `B16.md:5-7` "not yet implemented" against `progr
 
 ## 4. Resource files and the exchange of assets
 
-State: the exchange works **on the PC only** (`bmres.py extract` / `add` / `convert`). The kernel's Lib tab reads and
-previews all six kinds (hidden unless `lib_tab=1`); no console editor opens or saves a resource file; the only exchange on
+State: the exchange works **on the PC only** (`bmres.py extract` / `add` / `convert`). The kernel has no Lib tab
+(removed 25 Oct 2026); no console editor opens or saves a resource file; the only exchange on
 the console is bm Sound's "Import from..." (cartridges and packs, no INFO). `RISORSE.md` is a proposal of 2026-10-03:
-the Lib options (Copy into a project, Save to `/bm/lib`, Tags, Rename, Delete) and the editors opening `.bmm/.bmi/.bmk`
+the Lib options (Copy into a project, Save to `/bm/lib`, Tags, Rename, Delete; the tab is removed) and the editors opening `.bmm/.bmi/.bmk`
 are **not built**; "bm Sound saves `.bms` in `/bm/lib`" and "`mkbm.py --res FILE`" are not true.
 
 | Producer / consumer | `.bmm` | `.bmi` | `.bms` | `.bmt` | `.bmc` | `.bmk` |
 |---|---|---|---|---|---|---|
 | `bmres.py extract` / `add` / `convert` | yes | yes | yes | yes (one map per game) | yes | extract; add not tested |
 | `mkbm.py` | no (`--models` takes `.glb` or a `.bm`) | no | no | no | no | no |
-| kernel Lib tab | yes | yes | yes (Y plays) | yes | yes | lists the parts |
 | `bm-forge` | writes `.bmm` (colour only, no INFO) | check | check | check | check | check |
 | bm Sound | - | - | only from `.bm`/packs | - | - | - |
 | bm SDK, Studio, Animator, Pixel, Mesh | designed | designed | designed | designed | designed | designed |
@@ -145,7 +144,7 @@ Market cannot carry resource files.
 
 | Id | Proposal | Pros | Cons | Breaks? |
 |---|---|---|---|---|
-| R1 | **Finish copy-on-import** (today's design): `extract` keeps the file-level INFO; the Lib options and the editors open `.bmm/.bmi/.bmk`; bm Sound writes provenance | no format change; one file per game; tested code (`test_bmres.py`) | duplicates data; no update path; licence carried, not checked; names may be renamed under the game | no |
+| R1 | **Finish copy-on-import** (today's design): `extract` keeps the file-level INFO; the editors open `.bmm/.bmi/.bmk`; bm Sound writes provenance | no format change; one file per game; tested code (`test_bmres.py`) | duplicates data; no update path; licence carried, not checked; names may be renamed under the game | no |
 | R2 | **Declarative `res:`** in `bm.info`: `res: res/knight.bmm sha256=... license=CC-BY-4.0`; `mkbm.py` (or a wrapper) checks hashes, integrates in order, refuses licences not on a policy table, fails over 256 colours or 8 MB with `--b16` | reproducible builds; licence check; plain text; the `res/` folder is already in the layout | `mkbm.py` has no integration code and `bmres.py` imports `mkbm.py` (needs a third module); someone must write the licence table; the `.bm` stays a copy; name conflicts still need a rule (rename or error) | no (text file; old kernels ignore INFO) |
 | R3 | **Runtime loading** of resource files (`res_load`) | one copy on the card; updates reach every game; smaller cartridges | contradicts rule 7 of `RISORSE.md` (a cartridge stays one file); needs a new API and a path past the sandbox; tile numbers, palette and corners solved at load time; Market games would depend on files that may be missing; two editions need two resource sets | **yes** (old kernels, Market) |
 

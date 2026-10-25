@@ -104,7 +104,7 @@ Known: `background_stop()` waits for the longest step of a job (an SD wait, a ha
 | Read of a large cartridge (about 2.4 s for 12 MB at 5 MB/s, derived) | dwell prefetch (below) |
 | Parse, assets, state, first frame | not measured: S0 load profile |
 | Close of a game (`bm_close_suspended`, Lua state, assets) | not measured: S0; if over 100 ms, give the game its own heap arena and free it in one step (design first) |
-| Freeze back in the menu: rescan, covers, Lib and reports all restart in the same frames | staggered restart: draw the menu from the cache, then start covers, Lib, reports one by one, 1 s apart |
+| Freeze back in the menu: rescan, covers and reports all restart in the same frames | staggered restart: draw the menu from the cache, then start covers, reports one by one, 1 s apart |
 
 Dwell prefetch (proposal): when the cursor stays on a game for 700 ms and the menu is otherwise idle, the covers job reads that cartridge into RAM in parked 32 KB pieces. The start then skips the read. The buffer is freed when the selection changes or the free heap is low. Needs a check of the load path (`bm_run`) to take a buffer. Not designed further until S0 shows the read is the larger part.
 
