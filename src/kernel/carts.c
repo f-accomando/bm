@@ -205,6 +205,7 @@ static void add_builtins(void)
 static const char *const pi_dirs[] = { "/", "/carts", "/bm", BM_PROJECTS_DIR, NULL };
 static const lib_backend_t pi_backend = {
     .dirs = pi_dirs, .target = BM_TARGET_PI, .add_builtins = add_builtins, .stop_background = background_stop,
+    .panel = LIB_CAP_SDK | LIB_CAP_TOOLS | LIB_CAP_COPY | LIB_CAP_PUBLISH | LIB_CAP_SEND,
 };
 
 static void rescan(void)
@@ -578,73 +579,12 @@ static int tab_items(int tab, int *idx)
 }
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
-enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR, C_PUBLISH, C_SEND, C_COPY,
-       C_BUILD_B16 };
-
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static int opt_market;          /* the game of the HOME_MARKET panel */
-static long opt_save;           /* its save slots: bytes in all, -1 if none */
-static int opt_slots;           /* how many slots it uses */
 
 static void cart_panel(home_panel_t *p)
 {
-    const lib_game_t *c = &library.g[opt_cart];
-    memset(p, 0, sizeof *p);
-    ksnprintf(p->title, sizeof p->title, "%s", c->title);
-    int susp = lib_is_suspended(c);        /* the tabs list no project (D44): a panel is always a game's */
-    home_row(p, MENU_ROW_ACTION, C_PLAY, susp ? "Resume" : "Play",
-             susp ? "Back to the point where the game was left" : "Start the game", NULL);
-    if (susp)
-        home_row(p, MENU_ROW_ACTION, C_CLOSE, "Close the game",
-                 "Ends the suspended game: what was not saved is lost", NULL);
-    if (!c->builtin) {
-        home_row(p, MENU_ROW_ACTION, C_SDK, "Open in the SDK",
-                 "Code, sprites and map of this cartridge", NULL);
-        home_row(p, MENU_ROW_ACTION, C_CODE, "Open in bm Code",
-                 "Its code in tabs, small font; sprites, map and sounds stay as they are", NULL);
-        home_row(p, MENU_ROW_ACTION, C_SOUND, "Open in the Sound editor",
-                 "Sounds, sound effects and music of this cartridge", NULL);
-        home_row(p, MENU_ROW_ACTION, C_STUDIO, "Open in bm Studio",
-                 "Its 3D models: build them with tiles and blocks, choose, move, paint", NULL);
-        home_row(p, MENU_ROW_ACTION, C_ANIMATOR, "Open in bm Animator",
-                 "Its models' skeletons and animations: play, rig, animate, sprites", NULL);
-        home_row(p, MENU_ROW_ACTION, C_MESH, "Open in bm Mesh",
-                 "Its meshes, also those its code builds: vertices, faces; to models or to code", NULL);
-        home_row(p, MENU_ROW_ACTION, C_PIXEL, "Open in bm Pixel",
-                 "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
-        home_row(p, MENU_ROW_ACTION, C_COPY, "Make an editable copy",
-                 "Games are read only: open the copy (.bme) from an editor", NULL);
-        if (strcmp(lib_kind(c), "b16") != 0)
-            home_row(p, MENU_ROW_ACTION, C_BUILD_B16, "Export .b16",
-                     "Exports a .b16 edition without changing the .bm", NULL);
-        home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
-                 "A pull request with your GitHub token: everyone can get it", NULL);
-        home_row(p, MENU_ROW_ACTION, C_SEND, "Send to a nearby console",
-                 "To a console on this network with the Market tab open", NULL);
-    }
-    home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
-             "%s", c->author[0] ? c->author : "-");
-    home_row(p, MENU_ROW_INFO, C_FILE, "File", c->builtin ? "Built into the kernel" : "On the SD card",
-             "%s", c->path);
-    home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
-             "%lu KB", (c->size + 1023) / 1024);
-    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", "Lua 5.4 on bm", "%s",
-             !strcmp(lib_kind(c), "b16") ? "b16 (handheld)" : "bm (native)");
-    char v[40];
-    if (opt_save >= 0 && opt_slots > 1)
-        ksnprintf(v, sizeof v, "%ld bytes in %d slots", opt_save, opt_slots);
-    else if (opt_save >= 0)
-        ksnprintf(v, sizeof v, "%ld bytes", opt_save);
-    else
-        ksnprintf(v, sizeof v, "none");
-    home_row(p, MENU_ROW_INFO, C_SAVE, "Save data", c->save[0] ? c->save : "-", "%s", v);
-    if (opt_save >= 0)
-        home_row(p, MENU_ROW_ACTION, C_DEL_SAVE, "Delete the save data",
-                 "Records and progress start again", NULL);
-    if (!c->builtin)
-        home_row(p, MENU_ROW_ACTION, C_DELETE, "Delete from the SD card",
-                 "Removes the file: it cannot be undone", NULL);
+    lib_panel(&library.g[opt_cart], p);
 }
 
 /* The rows of the options that stay in the menu (play and the SDK are
@@ -655,44 +595,44 @@ static void cart_act(int row, int how, home_do_t *d)
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
     switch (row) {
-    case C_CLOSE:
+    case LIB_ROW_CLOSE:
         lib_suspend_close();
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
         break;
-    case C_COPY:
-    case C_BUILD_B16: {
+    case LIB_ROW_COPY:
+    case LIB_ROW_BUILD_B16: {
         char to[96], err[64];
         background_stop();
-        int r = row == C_COPY ? bm_copy_name(c->path, to, sizeof to) : 0;
+        int r = row == LIB_ROW_COPY ? bm_copy_name(c->path, to, sizeof to) : 0;
         if (r != 0)
             ksnprintf(err, sizeof err, "no free name");
-        else if (row == C_COPY)
+        else if (row == LIB_ROW_COPY)
             r = bm_make_copy(c->path, to, err, sizeof err);
         else
             r = bm_build_b16(c->path, to, sizeof to, err, sizeof err);
         if (r == 0) {
             const char *slash = strrchr(to, '/');
-            ksnprintf(d->note, sizeof d->note, row == C_COPY ? "%s is a project (SDK: Open)" : "%s is in Games",
+            ksnprintf(d->note, sizeof d->note, row == LIB_ROW_COPY ? "%s is a project (SDK: Open)" : "%s is in Games",
                       slash ? slash + 1 : to);
-            kprintf("menu: %s %s to %s\n", row == C_COPY ? "copied" : "built", c->path, to);
+            kprintf("menu: %s %s to %s\n", row == LIB_ROW_COPY ? "copied" : "built", c->path, to);
             d->what = HOME_BACK;            /* the menu reads the SD card again */
         } else {
             d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "%s: %s", row == C_COPY ? "cannot copy" : "cannot build", err);
+            ksnprintf(d->note, sizeof d->note, "%s: %s", row == LIB_ROW_COPY ? "cannot copy" : "cannot build", err);
         }
         break;
     }
-    case C_PUBLISH:
+    case LIB_ROW_PUBLISH:
         publish_setup(c->path, c->title, c->author);
         d->what = HOME_OPEN;
         d->panel = HOME_PUBLISH;
         break;
-    case C_SEND:
+    case LIB_ROW_SEND:
         market_send_setup(c->path, c->title, c->author);
         d->what = HOME_OPEN;
         d->panel = HOME_SEND;
         break;
-    case C_DEL_SAVE:
+    case LIB_ROW_DEL_SAVE:
         if (how == 0) {
             d->what = HOME_ASK;
             ksnprintf(d->ask, sizeof d->ask, "Delete the save data?");
@@ -703,10 +643,10 @@ static void cart_act(int row, int how, home_do_t *d)
                 ksnprintf(d->note, sizeof d->note, "save data deleted");
             else
                 d->fail = 1;
-            opt_save = lib_save_size(c, &opt_slots);
+            lib_panel_open(c);
         }
         break;
-    case C_DELETE:
+    case LIB_ROW_DELETE:
         if (how == 0) {
             d->what = HOME_ASK;
             ksnprintf(d->ask, sizeof d->ask, "Delete %s?", c->title);
@@ -1219,12 +1159,12 @@ void carts_menu(framebuffer_t *fb)
                 depth--;
                 built = -1;
             } else if (r && id == HOME_CART && action == 1 &&
-                       (row == C_PLAY || row == C_SDK || row == C_SOUND || row == C_CODE || row == C_STUDIO ||
-                        row == C_ANIMATOR || row == C_MESH || row == C_PIXEL)) {
+                       (row == LIB_ROW_PLAY || row == LIB_ROW_SDK || row == LIB_ROW_SOUND || row == LIB_ROW_CODE || row == LIB_ROW_STUDIO ||
+                        row == LIB_ROW_ANIMATOR || row == LIB_ROW_MESH || row == LIB_ROW_PIXEL)) {
                 const lib_game_t *c = &library.g[opt_cart];
-                int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : row == C_SOUND ? GO_SOUND :
-                        row == C_CODE ? GO_CODE : row == C_MESH ? GO_MESH : row == C_PIXEL ? GO_PIXEL :
-                        row == C_ANIMATOR ? GO_ANIMATOR : GO_STUDIO;
+                int g = row == LIB_ROW_PLAY ? GO_PLAY : row == LIB_ROW_SDK ? GO_SDK : row == LIB_ROW_SOUND ? GO_SOUND :
+                        row == LIB_ROW_CODE ? GO_CODE : row == LIB_ROW_MESH ? GO_MESH : row == LIB_ROW_PIXEL ? GO_PIXEL :
+                        row == LIB_ROW_ANIMATOR ? GO_ANIMATOR : GO_STUDIO;
                 if (bm_suspended(NULL, 0) && !(g == GO_PLAY && lib_is_suspended(c))) {
                     ask = ASK_SWITCH;           /* another game is frozen: ask first */
                     ask_go = g;
@@ -1341,7 +1281,7 @@ void carts_menu(framebuffer_t *fb)
                 built = -1;
             } else if (opts && !on_gear && tab != TAB_MARKET && n && idx[tsel[tab]] >= 0) {
                 opt_cart = idx[tsel[tab]];
-                opt_save = lib_save_size(&library.g[opt_cart], &opt_slots);
+                lib_panel_open(&library.g[opt_cart]);
                 stack[0].id = HOME_CART;
                 stack[0].sel = stack[0].top = 0;
                 depth = 1;

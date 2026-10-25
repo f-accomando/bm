@@ -1381,7 +1381,7 @@ function _draw() cls(1) print("try me", 8, 8, 7) end
 def test_sdk_tool(b, opts):
     """bm SDK (RGB30) (carts/sdk_b16), the tool built into this kernel, as
     the Pi's SDK in its own (src/kernel/devtool.c): a game's options (X)
-    open it on the game ("Open in bm SDK"); F5 tries it, the console plays
+    open it on the game ("Open in the SDK"); F5 tries it, the console plays
     it ('q' stops it) and the SDK comes back with the run's numbers;
     Ctrl+\\ (Ctrl+Esc) leaves it for the menu. The Dev tab has it last; it
     opens on the file of the last time."""
@@ -1403,8 +1403,8 @@ def test_sdk_tool(b, opts):
         time.sleep(0.5)
         screen(["Try me"])                      # Games: the only one
         keys(q, "x")                            # X: its options
-        screen(["Open in bm SDK", "Play"])
-        keys(q, "s")                            # down: Open in bm SDK
+        screen(["Open in the SDK", "Play"])
+        keys(q, "s")                            # down: Open in the SDK
         q.send("\r")                            # confirm
         q.expect("bm SDK on /bm/", timeout=10)    # (the name as the card has it)
         screen(["PROJECT", "Try me", "project", "code"])   # the SDK's project page, its tabs
@@ -1454,13 +1454,13 @@ def test_game_send(b, opts):
         time.sleep(0.5)
         screen(["Try me"])
         keys(q, "x")                           # X: its options
-        screen(["Open in bm SDK", "Play"])
-        keys(q, "ss")                           # down: Open in bm SDK, then Send (no Export .b16 for a .b16)
+        screen(["Open in the SDK", "Play"])
+        keys(q, "ss")                           # down: Open in the SDK, then Send (no Export .b16 for a .b16)
         screen(["Send to a nearby console", "To a console on this network"])
         q.send("\r")                           # confirm: the consoles nearby
         screen(["Send > Try me", "This console", "No console nearby yet"])
         keys(q, "x")                            # back: the options
-        screen(["Open in bm SDK", "Play"])
+        screen(["Open in the SDK", "Play"])
     finally:
         q.close()
 

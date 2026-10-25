@@ -293,6 +293,79 @@ int lib_save_delete(const lib_game_t *g, char *note, size_t n)
     return err;
 }
 
+/* ---------------------------------------------------------------- the panel */
+
+void lib_panel_open(const lib_game_t *g)
+{
+    library.panel_save = lib_save_size(g, &library.panel_slots);
+}
+
+void lib_panel(const lib_game_t *c, home_panel_t *p)
+{
+    const unsigned cap = library.be->panel;
+    memset(p, 0, sizeof *p);
+    ksnprintf(p->title, sizeof p->title, "%s", c->title);
+    const int susp = lib_is_suspended(c);      /* the tabs list no project (D44): a panel is always a game's */
+    home_row(p, MENU_ROW_ACTION, LIB_ROW_PLAY, susp ? "Resume" : "Play",
+             susp ? "Back to the point where the game was left" : "Start the game", NULL);
+    if (susp)
+        home_row(p, MENU_ROW_ACTION, LIB_ROW_CLOSE, "Close the game",
+                 "Ends the suspended game: what was not saved is lost", NULL);
+    if (!c->builtin) {
+        if (cap & LIB_CAP_SDK)
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_SDK, "Open in the SDK",
+                     "Code, sprites and map of this cartridge", NULL);
+        if (cap & LIB_CAP_TOOLS) {
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_CODE, "Open in bm Code",
+                     "Its code in tabs, small font; sprites, map and sounds stay as they are", NULL);
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_SOUND, "Open in the Sound editor",
+                     "Sounds, sound effects and music of this cartridge", NULL);
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_STUDIO, "Open in bm Studio",
+                     "Its 3D models: build them with tiles and blocks, choose, move, paint", NULL);
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_ANIMATOR, "Open in bm Animator",
+                     "Its models' skeletons and animations: play, rig, animate, sprites", NULL);
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_MESH, "Open in bm Mesh",
+                     "Its meshes, also those its code builds: vertices, faces; to models or to code", NULL);
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_PIXEL, "Open in bm Pixel",
+                     "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
+        }
+        if (cap & LIB_CAP_COPY)
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_COPY, "Make an editable copy",
+                     "Games are read only: open the copy (.bme) from an editor", NULL);
+        if (strcmp(lib_kind(c), "b16") != 0)
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_BUILD_B16, "Export .b16",
+                     "Exports a .b16 edition without changing the .bm", NULL);
+        if (cap & LIB_CAP_PUBLISH)
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_PUBLISH, "Publish to the Market",
+                     "A pull request with your GitHub token: everyone can get it", NULL);
+        if (cap & LIB_CAP_SEND)
+            home_row(p, MENU_ROW_ACTION, LIB_ROW_SEND, "Send to a nearby console",
+                     "To a console on this network with the Market tab open", NULL);
+    }
+    home_row(p, MENU_ROW_INFO, LIB_ROW_AUTHOR, "Author", "From the cartridge header",
+             "%s", c->author[0] ? c->author : "-");
+    home_row(p, MENU_ROW_INFO, LIB_ROW_FILE, "File", c->builtin ? "Built into the kernel" : "On the SD card",
+             "%s", c->path);
+    home_row(p, MENU_ROW_INFO, LIB_ROW_SIZE, "Size", "The whole cartridge",
+             "%lu KB", (c->size + 1023) / 1024);
+    home_row(p, MENU_ROW_INFO, LIB_ROW_TYPE, "Type", "Lua 5.4 on bm", "%s",
+             !strcmp(lib_kind(c), "b16") ? "b16 (handheld)" : "bm (native)");
+    char v[40];
+    if (library.panel_save >= 0 && library.panel_slots > 1)
+        ksnprintf(v, sizeof v, "%ld bytes in %d slots", library.panel_save, library.panel_slots);
+    else if (library.panel_save >= 0)
+        ksnprintf(v, sizeof v, "%ld bytes", library.panel_save);
+    else
+        ksnprintf(v, sizeof v, "none");
+    home_row(p, MENU_ROW_INFO, LIB_ROW_SAVE, "Save data", c->save[0] ? c->save : "-", "%s", v);
+    if (library.panel_save >= 0)
+        home_row(p, MENU_ROW_ACTION, LIB_ROW_DEL_SAVE, "Delete the save data",
+                 "Records and progress start again", NULL);
+    if (!c->builtin)
+        home_row(p, MENU_ROW_ACTION, LIB_ROW_DELETE, "Delete from the SD card",
+                 "Removes the file: it cannot be undone", NULL);
+}
+
 /* ---------------------------------------------------------------- covers */
 
 /* The cover from the .bm COVER section, or a label with the title. */

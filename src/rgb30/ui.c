@@ -220,6 +220,7 @@ static void rgb_stop_background(void)
 static const char *const rgb_dirs[] = { "/bm", "/carts", NULL };
 static const lib_backend_t rgb_backend = {
     .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
+    .panel = LIB_CAP_SDK | LIB_CAP_SEND,       /* no tools but the SDK, no editable copy, no Publish (D11) */
 };
 
 static void scan_games(void)
@@ -702,52 +703,17 @@ static void play_market(int i)
 
 /* --- a game's options (X on its cover; the Pi's C): its panel over the covers --- */
 
-enum { G_PLAY = 100, G_SDK, G_BUILD_B16, G_SEND, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE, G_CLOSE };
-
-static void game_panel(int i, home_panel_t *p)
-{
-    memset(p, 0, sizeof *p);
-    ksnprintf(p->title, sizeof p->title, "%s", games[i].title);
-    const int frozen = lib_is_suspended(&games[i]);
-    home_row(p, MENU_ROW_ACTION, G_PLAY, frozen ? "Resume" : "Play",
-             frozen ? "Back to the point where the game was left" : "Start the game", NULL);
-    if (frozen)
-        home_row(p, MENU_ROW_ACTION, G_CLOSE, "Close the game",
-                 "Ends the suspended game: what was not saved is lost", NULL);
-    home_row(p, MENU_ROW_ACTION, G_SDK, "Open in bm SDK", "Saving it makes its editable copy", NULL);
-    if (strcmp(lib_kind(&games[i]), "bm") == 0)
-        home_row(p, MENU_ROW_ACTION, G_BUILD_B16, "Export .b16",
-                 "Exports a .b16 edition without changing the .bm", NULL);
-    home_row(p, MENU_ROW_ACTION, G_SEND, "Send to a nearby console",
-             "To a console on this network with the Market tab open", NULL);
-    home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", strcmp(lib_kind(&games[i]), "bm") == 0 ? "bm (Pi)" : "b16 (handheld)");
-    home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KB", (unsigned long)(games[i].size + 1023) / 1024);
-    home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
-             games[i].author[0] ? games[i].author : "-");
-    int slots;
-    const long save = lib_save_size(&games[i], &slots);
-    if (save >= 0 && slots > 1)
-        home_row(p, MENU_ROW_INFO, G_SAVE, "Save data", "Its records", "%ld bytes in %d slots", save, slots);
-    else if (save >= 0)
-        home_row(p, MENU_ROW_INFO, G_SAVE, "Save data", "Its records", "%ld bytes", save);
-    else
-        home_row(p, MENU_ROW_INFO, G_SAVE, "Save data", "Its records", "none");
-    if (save >= 0)
-        home_row(p, MENU_ROW_ACTION, G_DEL_SAVE, "Delete the save data", "Records and progress start again", NULL);
-    home_row(p, MENU_ROW_ACTION, G_DELETE, "Delete from the SD card", "Removes the file: it cannot be undone", NULL);
-}
-
 /* a row that asks first: the question in `d`, or the deed (how = HOME_YES) */
 static void game_act(int i, int row, int how, home_do_t *d, int *gone)
 {
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
-    if (row == G_CLOSE) {
+    if (row == LIB_ROW_CLOSE) {
         lib_suspend_close();
         ksnprintf(d->note, sizeof d->note, "closed %s", games[i].name);
         return;
     }
-    if (row == G_BUILD_B16) {
+    if (row == LIB_ROW_BUILD_B16) {
         char path[80], to[96], err[64];
         ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
         if (bm_build_b16(path, to, sizeof to, err, sizeof err) == 0) {
@@ -761,8 +727,8 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
         }
         return;
     }
-    if (row == G_DEL_SAVE || row == G_DELETE) {
-        const int file = row == G_DELETE;
+    if (row == LIB_ROW_DEL_SAVE || row == LIB_ROW_DELETE) {
+        const int file = row == LIB_ROW_DELETE;
         if (how != HOME_YES) {
             d->what = HOME_ASK;
             ksnprintf(d->ask, sizeof d->ask, file ? "Delete the game?" : "Delete the save data?");
@@ -786,6 +752,7 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
             *gone = !err;
         } else {
             err = lib_save_delete(&games[i], d->note, sizeof d->note) != 0;
+            lib_panel_open(&games[i]);              /* the panel shows what is left */
         }
         if (err) {
             d->fail = 1;
@@ -1031,7 +998,7 @@ void ui_home(framebuffer_t *f)
             if (gsend)
                 market_send_panel(&gpb);
             else
-                game_panel(gopt, &gpb);
+                lib_panel(&games[gopt], &gpb);
             if (gopt_sel >= gpb.n) gopt_sel = gpb.n ? gpb.n - 1 : 0;
             mpanel = (menu_panel_t){ gpb.title, gpb.rows, gpb.n, gopt_sel,
                                      gopt_sel >= MENU_PANEL_ROWS ? gopt_sel - MENU_PANEL_ROWS + 1 : 0,
@@ -1196,20 +1163,20 @@ void ui_home(framebuffer_t *f)
                 gopt = -1;
             } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
                 const int row = gpb.ids[gopt_sel], g = gopt;
-                if (row == G_PLAY || row == G_SDK) {
+                if (row == LIB_ROW_PLAY || row == LIB_ROW_SDK) {
                     gopt = -1;
                     static char gp[80];
                     ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
                     if (netxfer_updating(gp)) {
                         notice_fail("Updating, wait for the end of the download");
-                    } else if (row == G_SDK) {
+                    } else if (row == LIB_ROW_SDK) {
                         sdk_open = gp;              /* the SDK on the game: its project next to it */
                         run_page(page_sdk);
-                    } else if (row == G_PLAY && lib_compat_question(&games[g], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
+                    } else if (row == LIB_ROW_PLAY && lib_compat_question(&games[g], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
                                                                  sizeof ask_y)) {
                         ask_compat = g;
                         asking = ASK_COMPAT;
-                    } else if (row == G_PLAY && lib_need_switch(&games[g])) {
+                    } else if (row == LIB_ROW_PLAY && lib_need_switch(&games[g])) {
                         ask_switch = g;
                         asking = ASK_SWITCH;
                         lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
@@ -1217,7 +1184,7 @@ void ui_home(framebuffer_t *f)
                         play_index = g;
                         run_page(play_selected);
                     }
-                } else if (row == G_SEND) {
+                } else if (row == LIB_ROW_SEND) {
                     char gp[80];
                     ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
                     market_send_setup(gp, games[g].title, games[g].author);
@@ -1347,6 +1314,7 @@ void ui_home(framebuffer_t *f)
                 }
             } else if ((p & PAD_X) && shown == TAB_GAMES && n > 0) {
                 gopt = *s;                      /* X: the game's options (the Pi's C) */
+                lib_panel_open(&games[gopt]);
                 gopt_sel = 0;
             } else if (p & pad_ok) {
                 char gp[80] = "";

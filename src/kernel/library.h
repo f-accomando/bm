@@ -12,6 +12,7 @@
 #include "bm/gfx16.h"
 #include "fs/fat.h"
 #include "fiber.h"
+#include "home.h"
 
 #define LIB_MAX 64              /* cartridges in the library (the SD card and the built-in ones) */
 
@@ -44,7 +45,21 @@ typedef struct {
     void (*add_builtins)(void);
     /* Before the list changes: the jobs that hold a cartridge of it stop. */
     void (*stop_background)(void);
+    unsigned panel;                     /* LIB_CAP_*: the rows of a cartridge's panel this console has */
 } lib_backend_t;
+
+/* The rows a console may have in a cartridge's panel (lib_backend_t.panel). Play, Close, Export, the info rows
+ * and the deletes are on every console. */
+#define LIB_CAP_SDK     1u      /* Open in the SDK */
+#define LIB_CAP_TOOLS   2u      /* Open in bm Code, the Sound editor, bm Studio, bm Animator, bm Mesh, bm Pixel */
+#define LIB_CAP_COPY    4u      /* Make an editable copy */
+#define LIB_CAP_PUBLISH 8u      /* Publish to the Market */
+#define LIB_CAP_SEND    16u     /* Send to a nearby console */
+
+/* The row ids of a cartridge's panel (home_row id; lib_panel and lib_act). */
+enum { LIB_ROW_PLAY = 100, LIB_ROW_CLOSE, LIB_ROW_SDK, LIB_ROW_SOUND, LIB_ROW_STUDIO, LIB_ROW_AUTHOR, LIB_ROW_FILE,
+       LIB_ROW_SIZE, LIB_ROW_TYPE, LIB_ROW_SAVE, LIB_ROW_DEL_SAVE, LIB_ROW_DELETE, LIB_ROW_CODE, LIB_ROW_MESH,
+       LIB_ROW_PIXEL, LIB_ROW_ANIMATOR, LIB_ROW_PUBLISH, LIB_ROW_SEND, LIB_ROW_COPY, LIB_ROW_BUILD_B16 };
 
 typedef struct {
     lib_game_t g[LIB_MAX];
@@ -54,6 +69,8 @@ typedef struct {
     int sd_ok;                  /* the card is mounted */
     char susp_path[FAT_NAME_MAX + 10];  /* the cartridge frozen in memory (Start + Select), "" if none */
     const lib_backend_t *be;
+    long panel_save;            /* the save data of the cartridge whose panel is open: bytes, -1 if none */
+    int panel_slots;            /* ... in how many slots */
     fiber_job_t cover_job;      /* the covers, read in the menu's free time */
     int cover_dev;              /* the list the menu shows: 1 Dev, 0 Games, -1 another (its covers first) */
     int cover_sel;              /* the cartridge under the cursor, or -1 */
@@ -115,6 +132,13 @@ int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t
 long lib_save_size(const lib_game_t *g, int *slots);
 /* Deletes every slot: 0, or -1 and the first error in note. */
 int lib_save_delete(const lib_game_t *g, char *note, size_t n);
+
+/* ---- the panel of a cartridge (X on its cover): the options as rows, like the Settings */
+
+/* The panel of this cartridge opens: its save data is read (not on every frame). */
+void lib_panel_open(const lib_game_t *g);
+/* Builds the rows for this cartridge. */
+void lib_panel(const lib_game_t *g, home_panel_t *p);
 
 /* ---- the covers
  *
