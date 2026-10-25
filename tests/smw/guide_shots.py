@@ -38,7 +38,7 @@ def main():
                         "--input", inp, "--shots", tmp, "--quiet"], check=True, capture_output=True)
         shutil.copy(tmp + "/s.png", "%s/%s-%s.png" % (OUT, PREFIX, name))
         if name == "03-run-pmeter":          # the HUD line, two times bigger
-            im = Image.open(tmp + "/s.png").convert("RGB").crop((0, 0, 180, 30))
+            im = Image.open(tmp + "/s.png").convert("RGB").crop((44, 22, 312, 60))
             im.resize((im.width * 4, im.height * 4), Image.NEAREST).save("%s/%s-08-hud.png" % (OUT, PREFIX))
         shutil.rmtree(tmp)
         print("wrote", name)

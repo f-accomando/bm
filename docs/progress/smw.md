@@ -108,22 +108,5 @@ the finished cartridge stay on the user's machine and SD card.
 - Frame time: Select shows the overlay (ms, fps, Lua KB, instructions) and logs a `bench` line every 5
   seconds. On the PC the level takes 0.05 ms a frame on average, 1-2 ms at the worst frame (a restart).
   Run it on the RGB30 and read the log: the number is not known yet.
-- Write the PDF guide (EN and IT, with `bm-manuals`): how the `.bme` is built, which APIs it
-  uses, the game structure, and the asset pipeline. Use original diagrams and code excerpts
-  and the real screenshots of the user, for personal use. Do not commit that PDF.
+- The PDF guide (`manuals/content/{en,it}/smw-guide.md`) and the guide edition: see [smw-guide.md](smw-guide.md).
 - Run `python scripts/consistency.py check` at closure.
-
-## Guide edition
-
-- It is the same game on the same level. The Map16 grid, the collision layer, the camera, and
-  the physics are the real ones. Only the pixels change.
-- `carts/smw/guide/build.py` reads the files of `scripts/smw_map16.py`. From the level picture it
-  keeps the shape and a colour role (green, earth, yellow, red, blue, light, grey, dark). It paints
-  each role with its own colours, light, shadow, and earth speckle. No ROM pixel reaches the
-  output. It builds `build/smw-guide/guide.b16`.
-- `tests/smw/guide_shots.py` plays input scripts in `bmhost` and writes
-  `manuals/shots/smw-guide-NN-name.png`. Use these images only if the PDF is shared. The real build
-  (`carts/smw/build/build.py`) stays for the benchmark. `--real` writes the real screenshots
-  of the same scenes to `carts/smw/extracted/shots/` (ignored by git).
-- Open: restyle Mario's real sprites the same way when they are captured. The two-tone bush
-  becomes one green.
