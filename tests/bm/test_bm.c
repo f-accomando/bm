@@ -1426,6 +1426,72 @@ static void test_compat(void)
     free(lua);
 }
 
+/* the compatibility block from the INFO keys of bm.info (bm_compat_from_info, W5 and W6 of
+ * docs/design/b16-removal.md): the same text and the same bytes as tests/tools/test_mkbm_compat.py */
+static uint8_t *cart_with_info(const char *info, size_t *n)
+{
+    static const char code[] = "function _draw() cls(0) end\n";
+    bm_put_t put = { BM_SEC_INFO, (const uint8_t *)info, (uint32_t)strlen(info) };
+    return bm_rewrite_with(NULL, 0, code, sizeof code - 1, "Info", "t", 640, &put, 1, n);
+}
+
+static void test_compat_info(void)
+{
+    char err[96];
+    bm_compat_t c;
+    size_t n;
+    uint8_t *d = cart_with_info("name: Keys\ntargets: pi, rgb30\ninput: pad,keyboard\naspect: square\nneeds: 3d\n"
+                                "min_ram: 300\nmin_spec: 4\nmin_width: 640\n", &n);
+    CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == 1, "info: all the keys give a block (%s)", err);
+    if (d) {
+        uint8_t head[BM_HEADER_SIZE];
+        memcpy(head, d, sizeof head);
+        bm_compat_write(head, &c);
+        static const uint8_t want[8] = { 3, 3, 2, 1, 300 & 255, 300 >> 8, 4, 40 };
+        CHECK((head[18] & BM_FLAG_COMPAT) && !memcmp(head + 120, want, 8),
+              "info: the bytes 120..127 are those of mkbm.py (3 3 2 1 44 1 4 40)");
+    }
+    free(d);
+
+    d = cart_with_info("name: T\ntargets: RGB30\n", &n);
+    CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == 1 && c.declared && c.targets == BM_TARGET_RGB30 &&
+          !c.input && !c.aspect && !c.needs && !c.min_ram_mib && !c.min_spec && !c.min_w16,
+          "info: targets alone (any case), the other fields 0");
+    free(d);
+
+    d = cart_with_info("name: Plain\ndesc: nothing\n", &n);
+    CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == 0 && !c.declared,
+          "info: no key of the block: 0, the file's own bytes stay");
+    free(d);
+    d = cart_with_info("name: Plain\n[sprite a]\ntargets: pi\n", &n);
+    CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == 0, "info: a key inside a [part] block is not the cartridge's");
+    free(d);
+    d = cart_with_info("targets:\ninput:\n", &n);
+    CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == 0, "info: a key with no value is not there");
+    free(d);
+    d = bm_rewrite(NULL, 0, "x=1", 3, "No info", "t", 640, &n);
+    CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == 0, "info: a cartridge with no INFO: 0");
+    free(d);
+
+    static const char *const bad[] = {
+        "input: pad\n", "aspect: wide\n", "needs: 3d\n", "min_ram: 64\n", "min_spec: 3\n", "min_width: 320\n",
+        "targets: moon\n", "targets: pi\ninput: joystick\n", "targets: pi\nmin_ram: many\n",
+        "targets: pi\nmin_spec: 256\n", "targets: pi\nmin_ram: 65536\n", "targets: pi\nmin_width: 4081\n",
+        "targets: pi\nneeds: 3d,vr\n", "targets: pi\nmin_ram: -5\n",
+    };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        d = cart_with_info(bad[i], &n);
+        err[0] = 0;
+        CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == -1 && err[0],
+              "info: an error with a message for \"%.20s\"", bad[i]);
+        free(d);
+    }
+    d = cart_with_info("targets: pi\nmin_width: 4080\nmin_ram: 65535\nmin_spec: 255\n", &n);
+    CHECK(d && bm_compat_from_info(d, n, &c, err, sizeof err) == 1 && c.min_w16 == 255 && c.min_ram_mib == 65535 &&
+          c.min_spec == 255, "info: the largest values");
+    free(d);
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -1441,6 +1507,7 @@ int main(int argc, char **argv)
     test_cover_peek();
     test_type_bits();
     test_compat();
+    test_compat_info();
     test_sheet8();
     test_mesh();
     test_pixel();

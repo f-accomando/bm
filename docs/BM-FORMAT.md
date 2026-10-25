@@ -55,7 +55,7 @@ The menus (Pi, RGB30) act on the block: `bm_compat_classify` applies `docs/spec/
 
 Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MB] [--min-spec N] [--min-width PX]`
 (or the INFO keys `targets`, `input`, `aspect`, `needs`, `min_ram`, `min_spec` and `min_width` of `bm.info`, with the same syntax; a flag wins),
-and `bm_compat_write`. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
+and `bm_compat_write`. The SDK build of a `.bme` (`bm_build`, `src/bm/project.c`) reads the same INFO keys (`bm_compat_from_info`, `src/bm/format.c`) and writes the block of the `.bm`; a project whose INFO has no `targets` keeps the bytes it has. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
 bytes 104..119 (`bm_set_built_from`), `mkbm.py --from` clears only bytes 104..119, `bmres.py` and `bmmesh.py` copy the header.
 
 ## File size
