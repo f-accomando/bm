@@ -375,6 +375,13 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   GPU_TILER_FEATURES 0x00c). Verified on device (report 80d62d1e): inside
   and outside pixels pass.
 
+- **7.9** (2026-10-25): **Mali flat colours 3D Bench**: with `mali3d=1`, the 3D
+  Bench on RGB30 runs flat-colour scenes (`spheres`, `spheres_smooth`, `spheres_unlit`,
+  `spheres_baked`, `spheres_shine`, `heroes`, `split`, `queue`, `gpu2d`) on Mali-G52
+  hardware, while textured scenes fall back to ARM. Verified on hardware (report `94aae9dd`,
+  `3d0017.txt`). Multi-draw batching in `mali_frame` requires alignment fix for subsequent
+  draw tiler jobs.
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).

@@ -579,9 +579,9 @@ rgb30 = "the 3D is the ARM's; with mali3d=1 the Mali draws flat-colour triangles
 cause = "todo"
 priority = 3
 status = "open"
-note = "H1 (triangle bringup) verified on hardware 25 Oct 2026 (report 80d62d1e): Primitive Size Constant = 1.0f and hierarchy mask 0x28 fixed DATA_INVALID_FAULT; vertex, tiler and fragment jobs passed. The Mali has no textured shader yet; mali_backend is in src/rgb30/mali.c."
+note = "H1 (triangle bringup) and H6 (3D Bench flat colours) verified on hardware 25 Oct 2026 (reports 80d62d1e and 94aae9dd): with mali3d=1 flat-colour scenes ran on Mali-G52 GPU (bm3d 2.1) and textured scenes fell back to ARM. Next: batching multi-draw fix in Phase 2, BM_VS3 in Phase 3, and queue in Phase 4."
 evidence = "src/rgb30/bm_port.c:30-55; src/rgb30/mali.c"
-action = "run 3D Bench on the console, then decide if mali3d becomes the default"
+action = "fix batching multi-draw in mali_frame, then evaluate default decision for mali3d"
 
 [[divergence]]
 id = "D51"

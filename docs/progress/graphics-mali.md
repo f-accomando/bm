@@ -66,16 +66,31 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 - **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
 ## Open work
-Hardware verified on RGB30: Triangle bringup H1 verified on 25 Oct 2026 (`step2-triangle-hw.txt`, report commit `80d62d1e`).
+Hardware verified on RGB30:
+- Triangle bringup H1 verified on 25 Oct 2026 (`step2-triangle-hw.txt`, report commit `80d62d1e`).
+- 3D Bench flat colours H6 verified on 25 Oct 2026 (`step3-bench3d-flat.txt`, report commit `94aae9dd`, `3d0017.txt`).
+
+Hardware Results (3D Bench 25 Oct 2026, 640x360):
+| Test Scene | RGB30 ARM (0.2) tri @ 60 fps (ms) | RGB30 Mali-G52 (2.1) tri @ 60 fps (ms) | Pi Zero W V3D (2.1/VSQ) tri @ 60 fps (ms) |
+| :--- | :--- | :--- | :--- |
+| `spheres` | 13,433 tri (15.2 ms) | 3,165 tri (16.1 ms) | 78,000 tri (15.9 ms) |
+| `spheres_smooth` | 6,845 tri (15.0 ms) | 2,894 tri (16.5 ms) | ~70,000 tri |
+| `spheres_unlit` | 15,800 tri (16.1 ms) | 3,465 tri (15.1 ms) | ~85,000 tri |
+| `spheres_baked` | 7,805 tri (14.9 ms) | 3,213 tri (16.1 ms) | ~75,000 tri |
+| `spheres_shine` | 5,715 tri (15.3 ms) | 2,738 tri (9.6 ms) | ~65,000 tri |
+| `heroes` | 10,620 tri (15.2 ms) | 2,845 tri (8.6 ms) | 104,945 tri (15.9 ms) |
+| `split` | 8,326 tri (13.5 ms) | 1,419 tri (13.6 ms) | ~20,000 tri |
+| `queue` | N/A | 2,360 tri (13.9 ms) | ~50,000 tri |
+| `gpu2d` | 576 tri (16.3 ms) | 576 tri (14.6 ms) | ~15,000 tri |
+| `mix` | 10,272 tri (13.5 ms) | [ARM fallback: textures] | ~45,000 tri |
+
 Next hardware steps:
-1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW. Temporary entry point: `mali_probe=1` in `bm/config.txt` runs probe at boot; disabled by default (`mali_probe=0`).
-2. 3D Bench with flat colours (H6): With `mali3d=1` in `bm/config.txt`, run 3D Bench (Settings > Screen > 3D Bench); flat-colour scenes show GPU row, textured scenes stay on ARM.
-3. Phases written, to benchmark:
-   - Phase 2: `mali_backend` (flat colours, far-to-near sorting, key `0xFF00FF`).
-   - Phase 3: `BM_VS3` (vertex shader transforming geometry with 4x4 MVP matrix pushed via UBO 0).
-   - Phase 4: `mali_frame_submit` (multi-buffering with 2 sets `MALI_SET_BASE(0)` and `(1)`).
-4. After verification: evaluate `mali3d` default decision (D45) and bm3d version promotion.
-5. Textures and lit faces: write textured fragment shader, remove `colour_only`.
+1. [DONE 25 Oct] Triangle bringup (H1): Primitive Size Constant = 1.0f and HIERARCHY_MASK 0x28 applied. Passed pixel check on HW.
+2. [DONE 25 Oct] 3D Bench with flat colours (H6): With `mali3d=1` in `bm/config.txt`, ran 3D Bench (Settings > Screen > 3D Bench); flat-colour scenes ran on GPU (bm3d 2.1), textured scenes stayed on ARM. Report `94aae9dd`.
+3. Multi-draw batching fix (Phase 2): In `mali_frame`, subsequent draws (`draw[1].TJOB`) hit DATA_INVALID_FAULT when multiple draws are chained in a single frame. Ensure tiler job and descriptor alignment for draws > 0.
+4. Vertex shader transformation (Phase 3): Benchmark `BM_VS3` (vertex shader transforming geometry with 4x4 MVP matrix pushed via UBO 0).
+5. Asynchronous queue & multi-buffering (Phase 4): `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)`.
+6. Textures and lit faces: write textured fragment shader, remove `colour_only` fallback.
 
 ## Mali vs Pi V3D Architectural Equivalence & Feature Parity (API-5)
 
