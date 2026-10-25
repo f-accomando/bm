@@ -82,6 +82,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |
 | `bmweb`, `herocart` | `bm.info`; `src/` holds the modules and `build/` the build script |
+| `kratos` | `bm.info`; `build/glb2parts.py` writes the PARTS table into `main.lua` (between the DATA lines); the `.bme` is built with the `.bm` |
 | `demo`, `stress`, `texroom` | `bm.info` used by their rule (`--info`); the kernel embeds them. `sheet.png` and `map.csv` are in `assets/`; `make_assets.py` and `mkassets.py` are in `build/` |
 | `sdk_b16`, `titan_ex` | `bm.info`; the `.b16` editions use it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
 

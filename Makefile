@@ -258,6 +258,12 @@ $(BUILD)/carts/bmweb.bm $(BUILD)/carts/bmweb.bme: $(BUILD)/carts/bmweb.%: $(BUIL
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/bmweb/bm.info --cover carts/bmweb/cover.png
 
+# Kratos Build (carts/kratos): a mesh built part by part by a virtual pointer. One Lua file whose
+# PARTS table is made by carts/kratos/build/glb2parts.py. The .bme is the source, the .bm the cartridge.
+$(BUILD)/carts/kratos.bm $(BUILD)/carts/kratos.bme: $(BUILD)/carts/kratos.%: carts/kratos/main.lua scripts/mkbm.py carts/kratos/bm.info
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kratos/bm.info
+
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
 TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
