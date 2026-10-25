@@ -484,450 +484,519 @@ static void ctl_step(int i, int dir)
 #endif
 }
 
+/* The first page of Settings: one row for each section. */
+static void panel_settings(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings");
+    int pads = popcount(bt_pads());
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_SUB, R_CONTROLLERS, "Controllers",
+             "Pads, keyboards, mice, the buttons",
+             pads ? "built in + %d" : "built in", pads);
+#else
+    home_row(p, MENU_ROW_SUB, R_CONTROLLERS, "Controllers",
+             "Pads, keyboards, mice, the buttons",
+             pads ? "%d connected" : "none connected", pads);
+#endif
+    home_row(p, MENU_ROW_SUB, R_CONTROLS, "Controls",
+             "Which button does what in the games and the menus", "remap");
+    home_row(p, MENU_ROW_SUB, R_WIFI, wireless() ? "WiFi and network" : "Network",
+             "The link, the address, a test", "%s", net_word());
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
+             "Screen modes, 3D Bench, battery icon", "360x360 x2");
+#else
+    home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
+             "Drawing, 3D, menu size, test pattern", "%s%s",
+             gpu3d_choice(),
+             strcmp(gpu3d_choice(), "GPU") == 0 && vs_on() ? (vs_on() == 1 ? "+VS1" : "+VS") : "");
+#endif
+    home_row(p, MENU_ROW_SUB, R_SOUNDMENU, "Sound",
+             "Volume, style, bit depth, test", "vol %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+    home_row(p, MENU_ROW_SUB, R_UPDATES, "Updates",
+             "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
+    reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
+    home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
+             "Direct kernel and app updates without staging", "%s",
+             dev_mode() ? "On" : "Off");
+    home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
+             "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
+             rec_mode() ? "On" : "Off");
+    home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
+             "Version, memory, the log", "%s, spec %s", bm_version, bm_spec);
+    /* the last two, on every system (the user's request, 2026-10-04) */
+    home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down", "Turns the console off", NULL);
+#else
+    home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down",
+             "Stops the Pi: it starts again when its power is plugged back", NULL);
+#endif
+}
+
+/* Settings > Controllers: the players, the keyboard, the mouse and how to pair them. */
+static void panel_controllers(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_INFO, R_PAD1, "Player 1",
+             "The console's buttons and sticks, with a Bluetooth pad if one is on",
+             bt_pads() ? "built in + Bluetooth" : "built in");
+    home_row(p, MENU_ROW_INFO, R_BT, "Bluetooth", "Starts when a row below needs it",
+             "%s", bt_started() ? "on" : "off");
+#else
+    int local = input_local_player(), ble = input_ble_player();
+    for (int s = 0; s < BT_PADS; s++) {
+        char addr[18], label[16];
+        int on = bt_pad_addr(s, addr);
+        ksnprintf(label, sizeof label, "Player %d", s + 1);
+        if (addr[0] && on)
+            home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "A Bluetooth pad, connected",
+                     "%s on", addr);
+        else if (s == ble)
+            home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "The Bluetooth keyboard plays here",
+                     "Bluetooth keyboard");
+        else if (s == local)
+            home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "The USB keyboard or gamepad plays here",
+                     "%s", local_devices());
+        else if (addr[0])
+            home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "Paired: press its PS button to connect",
+                     "%s off", addr);
+        else
+            home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "Free: pair a controller", "-");
+    }
+#endif
+    home_row(p, MENU_ROW_INFO, R_KEYBOARD, "Bluetooth keyboard",
+             bt_keyboard() ? "Connected: it types, and plays as its own player" :
+             bt_keyboard_paired() ? "Paired: press a key on it to connect" : "None paired",
+             "%s", bt_keyboard() ? "on" : bt_keyboard_paired() ? "off" : "-");
+    {
+        unsigned mice = pointer_devices();
+        if (!pointer_enabled())
+            home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
+                     "mouse=off in bm/config.txt: no pointer anywhere", "off");
+        else
+            home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
+                     mice ? "Connected: it moves the pointer in the menu" :
+                     bt_mouse_paired() ? "Paired: move it or click to connect" :
+                     "USB or Bluetooth: only a mouse moves the pointer",
+                     "%s", mice == (POINTER_USB | POINTER_BLUETOOTH) ? "USB + Bluetooth" :
+                     mice & POINTER_USB ? "USB" : mice ? "Bluetooth on" :
+                     bt_mouse_paired() ? "Bluetooth off" : "-");
+    }
+    home_row(p, MENU_ROW_ACTION, R_PAIR, "Pair a new controller",
+             "DS4: hold Share + PS until the light flashes", NULL);
+    home_row(p, MENU_ROW_ACTION, R_PAIR_KBD, "Pair a keyboard",
+             "Bluetooth LE (MX Keys: hold an Easy-Switch key 3 s)", NULL);
+    home_row(p, MENU_ROW_ACTION, R_PAIR_MOUSE, "Pair a mouse",
+             "Bluetooth LE or classic: put the mouse in pairing mode first", NULL);
+    home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
+#ifdef BM_RGB30
+             "Every button and both sticks, live (Start + Select: back)", NULL);
+#else
+             "The buttons each player holds, for 10 s", NULL);
+#endif
+    home_row(p, MENU_ROW_CHOICE, R_LAYOUT, "Keyboard layout",
+             "Layout of the USB or Bluetooth keyboard", "%s",
+             hid_layout()[0] == 'i' ? "Italian" : "US");
+    home_row(p, MENU_ROW_CHOICE, R_PROMPTS, "Button icons",
+             "DS4 buttons in the hints: white or in colour", "%s",
+             home_prompts_colour() ? "Colour" : "White");
+#ifndef BM_RGB30
+    home_row(p, MENU_ROW_ACTION, R_USB, "Scan the USB again",
+             "The port and the hub: keyboards, pads, mice, Ethernet", NULL);
+#endif
+    home_row(p, MENU_ROW_ACTION, R_FORGET, "Forget all controllers",
+             "Removes every pairing; pair them again after", NULL);
+}
+
+/* Settings > Controls: the four kinds of game and the reset. */
+static void panel_controls(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > Controls");
+    home_row(p, MENU_ROW_SUB, R_CTL_SCROLLER, "Scroller games", "Platformers and side-scrollers: actions 1 to 4",
+             "%d changed", ctl_changed("scroller"));
+    home_row(p, MENU_ROW_SUB, R_CTL_TOPDOWN, "Top-down games", "Adventures seen from above: actions 1 to 4",
+             "%d changed", ctl_changed("topdown"));
+    home_row(p, MENU_ROW_SUB, R_CTL_STICK, "Stick games", "Twin-stick shooters: actions 1 to 8",
+             "%d changed", ctl_changed("stick"));
+    home_row(p, MENU_ROW_SUB, R_CTL_SYSTEM, "Pause and menus", "Pause, and the menus' OK and Cancel",
+             "%d changed", ctl_changed("system"));
+    home_row(p, MENU_ROW_INFO, R_CTL_KEYS, "Keyboard", "Fixed for now: Enter is OK, Esc goes back and pauses",
+             "Enter, Esc");
+    home_row(p, MENU_ROW_ACTION, R_CTL_RESET, "Reset all", "Every action back to the game's own button", NULL);
+}
+
+/* Settings > Controls > one kind of game: a row for each action. */
+static void panel_control_buttons(home_panel_t *p, int id)
+{
+    const char *scheme = id == HOME_CTL_SCROLLER ? "scroller" : id == HOME_CTL_TOPDOWN ? "topdown" :
+                         id == HOME_CTL_STICK ? "stick" : "system";
+    ksnprintf(p->title, sizeof p->title, "Settings > Controls > %s",
+              id == HOME_CTL_SCROLLER ? "Scroller games" : id == HOME_CTL_TOPDOWN ? "Top-down games" :
+              id == HOME_CTL_STICK ? "Stick games" : "Pause and menus");
+    for (int i = 0; i < controls_count(); i++) {
+        if (strcmp(controls_scheme(i), scheme))
+            continue;
+#ifndef BM_RGB30
+        if (!strcmp(controls_code(i), "mo") || !strcmp(controls_code(i), "mc"))
+            continue;               /* the Pi's menus keep their buttons */
+#endif
+        const char *b = controls_get(i);
+        if (b)
+            home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
+                     "%s", ctl_button(b));
+        else
+            home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
+                     "Default (%s)", ctl_button(controls_default(i)));
+    }
+}
+
+/* Settings > WiFi and network (Network on a board with Ethernet). */
+static void panel_wifi(home_panel_t *p)
+{
+    /* the Pi Zero W and the RGB30 have WiFi, the Pi 1 B / B+ an Ethernet port */
+    int wl = wireless();
+    ksnprintf(p->title, sizeof p->title, "Settings > %s", wl ? "WiFi and network" : "Network");
+    const char *ssid = config_get("wifi_ssid"), *pw = config_get("net_password");
+    if (wl) {
+        home_row(p, MENU_ROW_INFO, R_NETWORK, "Network", "The saved network (bm/config.txt)",
+                 "%s", ssid && ssid[0] ? ssid : "none saved");
+        home_row(p, MENU_ROW_INFO, R_STATE, "State", "The link to the access point",
+                 "%s", wifi_linked() || net_link_kind() == NET_LINK_WIFI ? "connected" : "not connected");
+        home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
+#ifdef BM_RGB30
+                 "Lists the networks, joins wifi_ssid of bm/config.txt", NULL);
+#else
+                 "Lists the networks; the USB keyboard types the password", NULL);
+#endif
+    }
+#ifndef BM_RGB30
+    else {
+        home_row(p, MENU_ROW_INFO, R_STATE, "Ethernet", "The cable to the router",
+                 "%s", net_link_kind() == NET_LINK_ETHERNET ? "connected" :
+                 board()->ethernet ? "no cable" : "none on this board");
+    }
+#endif
+    home_row(p, MENU_ROW_INFO, R_IP, "Address", "From the router (DHCP)", "%s", net_ip_text());
+    home_row(p, MENU_ROW_INFO, R_TIME, "Time", "From the network (SNTP)", "%s", net_time_text());
+    home_row(p, MENU_ROW_INFO, R_CONSOLE, "Network console",
+             "From the PC: tools/bm_net.py ADDRESS", "port 3333");
+    home_row(p, MENU_ROW_INFO, R_PASSWORD, "Console password",
+             "net_password in bm/config.txt", "%s", pw && pw[0] ? pw : "made when the network starts");
+    if (wl) {
+        home_row(p, MENU_ROW_CHOICE, R_BOOT, "Connect at boot",
+                 "Join the saved network when the console starts", "%s",
+                 wifi_at_boot() ? "On" : "Off");
+    }
+    home_row(p, MENU_ROW_ACTION, R_NETTEST, "Test the connection",
+             "Gets a web page over HTTPS: status, size, speed", NULL);
+#ifndef BM_RGB30
+    if (board()->ethernet)
+        home_row(p, MENU_ROW_ACTION, R_ETH, "Ethernet details",
+                 "The link, the counters and the chip's registers", NULL);
+#endif
+}
+
+/* Settings > Screen. */
+static void panel_screen(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > Screen");
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_ACTION, R_MODES, "Screen modes",
+             "The modes for games and the GPU, each with a test image", "%s", plat_display_info());
+#else
+    home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
+             "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
+    home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
+             "Auto: 360p, the HDMI scaler enlarges it. Applies at the next start", "%s", menu_size_choice());
+#endif
+    home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
+             "Exact as before, or fast: one matrix a model, light in its axes", "%s",
+             config_on("r3d_fast") ? "Fast" : "Exact");
+    if (board_is_pi1()) {
+        home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
+                 "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
+                 crt_choice());
+#ifndef BM_RGB30
+        home_row(p, MENU_ROW_CHOICE, R_VIDEO_OUT, "Video output",
+                 "Select display port: Auto (HDMI fallback to RCA), RCA only, HDMI only", "%s",
+                 video_out_choice());
+        home_row(p, MENU_ROW_CHOICE, R_LCD_POWER, "GPIO LCD screen",
+                 "Turn off GPIO screen backlight when using TV/monitor", "%s",
+                 lcd_gpio_is_off() ? "Off (power save)" : "On");
+        home_row(p, MENU_ROW_ACTION, R_GPIOSCREEN, "GPIO screen",
+                 "3.5\" SPI TFT on the Pi 1: a tiny robot at its computer", NULL);
+#endif
+    }
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
+             "A small red battery over games and tools at 20% or less", "%s",
+             battery_icon_on() ? "On" : "Off");
+#else
+    home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
+             "HDMI colour bars; any button returns", NULL);
+#endif
+    for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
+        if (home_util_group(i) == 1)
+            home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+}
+
+/* Settings > Sound. */
+static void panel_sound(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > Sound");
+#ifdef BM_RGB30
+    /* the speaker, or the headphones (the console switches by itself) */
+    home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
+    home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
+             "Sound of the games and tools (the + and - keys too)",
+             "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+    home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
+             "Hi-fi, or the 8-bit chip of the first versions", "%s", audio_retro_on() ? "8-bit" : "Hi-fi");
+    home_row(p, MENU_ROW_CHOICE, R_DEPTH, "Bit depth",
+             "Each sample: 16, 24 or 32 bits (the codec converts 24)", "%s", depth_choice());
+    home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
+             "The sound's state and a test tune", NULL);
+#else
+    home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
+    if (board_is_pi1()) {
+        home_row(p, MENU_ROW_CHOICE, R_AUDIO_OUT, "Audio output",
+                 "Sound routing: Auto (HDMI/3.5mm), 3.5mm Jack (PWM), HDMI only", "%s", audio_out_choice());
+    }
+    home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
+             "Sound of the games and tools (games can change it in their pause menu)",
+             "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+    home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
+             "Hi-fi (stereo, room), or the 8-bit chip of the first versions", "%s",
+             audio_retro_on() ? "8-bit" : "Hi-fi");
+    home_row(p, MENU_ROW_CHOICE, R_DEPTH, "Bit depth",
+             "Each sample: 16, 24 or 32 bits (HDMI carries 24)", "%s", depth_choice());
+    home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
+             "HDMI sound status and a test tune", NULL);
+#endif
+}
+
+/* Settings > Updates. */
+static void panel_updates(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > Updates");
+    home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
+    home_row(p, MENU_ROW_ACTION, R_UPDATE, "Check for updates",
+             "The latest release on GitHub, signed: what would change", "%s", update_state());
+    if (netxfer_has_staged_kernel()) {
+        home_row(p, MENU_ROW_ACTION, R_INSTALL_STAGED, "Apply staged kernel",
+                 "Written to SD card, old kernel backed up, restarts", "%s", netxfer_staged_kernel_desc());
+    }
+    if (update_ready()) {
+        home_row(p, MENU_ROW_ACTION, R_INSTALL, "Install the update",
+                 "Keeps the old kernels in /bm/backup, restarts", "%s", update_install_state());
+        /* what it would write (the check runs in the background: the
+         * text console no longer shows its list) */
+        static char sizes[HOME_ROWS_MAX][24];
+        const char *path, *what;
+        uint32_t size;
+        for (int i = 0; p->n < HOME_ROWS_MAX && update_changes(i, &path, &what, &size); i++) {
+            ksnprintf(sizes[i], sizeof sizes[i], "%lu KB", (unsigned long)((size + 1023) / 1024));
+            home_row(p, MENU_ROW_INFO, R_CHANGE, path, sizes[i], "%s", what);
+        }
+    }
+}
+
+/* Settings > Reports. */
+static void panel_reports(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > Reports");
+    reports_row(p, MENU_ROW_INFO, R_WAITING, "On the SD card", "In bm/reports, until they are sent");
+    reports_row(p, MENU_ROW_ACTION, R_REPORTS, "Send the reports",
+                "The tests' reports on the SD card, to GitHub (github_token)");
+    home_row(p, MENU_ROW_ACTION, R_REPORT_LOG, "Report the log",
+             "Everything printed since boot, as a report (Send the reports)", NULL);
+}
+
+/* Settings > System. */
+static void panel_system(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > System");
+    uint32_t s = timer_ticks() / 1000000;
+    home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_INFO, R_BOARD, "Board", "The console", "%s", PLAT_NAME);
+#else
+    home_row(p, MENU_ROW_INFO, R_BOARD, "Board", "From the firmware's revision code",
+             "Raspberry %s", board()->name);
+#endif
+    home_row(p, MENU_ROW_INFO, R_UPTIME, "Uptime", "Since the console was turned on",
+             "%02lu:%02lu:%02lu", s / 3600, s / 60 % 60, s % 60);
+#ifdef BM_RGB30
+    home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
+             "%lu of %lu MB", (uint32_t)((heap_brk() - heap_start()) >> 20),
+             (uint32_t)((heap_end() - heap_start()) >> 20));
+    {
+        uint64_t midr;
+        __asm__ volatile("mrs %0, midr_el1" : "=r"(midr));
+        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "The processor", "%s",
+                 ((midr >> 4) & 0xfff) == 0xd05 ? "Cortex-A55" : "ARMv8");
+    }
+#else
+    {
+        struct mallinfo mi = mallinfo();
+        uint32_t temp[2] = { 0, 0 };
+        prop_query(PROP_GET_TEMPERATURE, temp, 2);
+        home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
+                 "%lu of %lu MB", (uint32_t)mi.uordblks >> 20,
+                 (uint32_t)((heap_end() - heap_start()) >> 20));
+        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "Processor, clock and chip temperature",
+                 "%s, %lu MHz, %lu.%lu C", sysinfo_cpu(), prop_clock_rate(CLOCK_ARM) / 1000000,
+                 temp[1] / 1000, temp[1] % 1000 / 100);
+    }
+#endif
+    home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
+             "%s", fat_describe());
+    home_row(p, MENU_ROW_SUB, R_SDMAP, "SD map", "What is on the card, by folder", "%s", sdmap_state_name());
+#ifdef BM_RGB30
+    {
+        int mv, charge;
+        if (plat_battery(&mv, &charge) == 0)
+            home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
+                     "%d%%, %d.%02d V%s", battery_percent(mv), mv / 1000, mv % 1000 / 10,
+                     charge == 2 ? ", full" : charge == 1 ? ", charging" : "");
+        else
+            home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
+                     "unknown");
+    }
+    /* the value is short (the row is narrow); the help line is the backend's own text (bm_port.c) */
+    home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", gpu3d_status(), "%s", gpu3d_ready() ? "Mali" : "ARM");
+#else
+    {
+        /* the drivers' version, and the one the 3D settings reproduce */
+        const int gpu = gpu3d_on() && !gpu3d_failed() && v3d_init() == 0;
+        home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", "bm3d version (block); the games' 3D now",
+                 "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK,
+                 bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
+    }
+#endif
+    if (util_count(0) > 0)                  /* no empty page */
+        home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks and tests", "%d", util_count(0));
+    home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
+             "Direct kernel and app updates without staging", "%s",
+             dev_mode() ? "On" : "Off");
+    home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
+             "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
+             rec_mode() ? "On" : "Off");
+    home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
+             "Everything printed since the console started", NULL);
+#ifndef BM_RGB30
+    home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
+             "The text console with every command", NULL);
+#endif
+}
+
+/* Settings > System > Utilities. */
+static void panel_utilities(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > System > Utilities");
+    for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)
+        if (home_util_group(i) == 0)
+            home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+    if (util_count(0) == 0)
+        home_row(p, MENU_ROW_INFO, R_UTILS, "none", "This console has no utility yet", NULL);
+}
+
+/* Settings > System > SD map: the bar and the folders. */
+static void panel_sdmap(home_panel_t *p)
+{
+    static uint16_t parts[7];
+    static const uint32_t col[7] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xC678DD, 0x56B6C2, 0xE5C07B, 0x4A5060 };
+    static const char *const name[7] = { "Kernel", "bm (games)", "bme (projects)", "glb (models)", "bmm (models)", "Other", "Free" };
+    ksnprintf(p->title, sizeof p->title, "Settings > System > SD map");
+    sdmap_request();
+    const sdmap_t *m = sdmap_result();
+    const uint64_t v[7] = { m->kernel, m->bm, m->bme, m->glb, m->bmm, m->other, m->free };
+    for (int i = 0; i < 7; i++)
+        parts[i] = m->total ? (uint16_t)(v[i] * 1000 / m->total) : 0;
+    home_row(p, MENU_ROW_BAR, R_SDBAR, "SD card", "Kernel, games, projects, models, other files and free space", NULL);
+    p->rows[p->n - 1].bar = parts;
+    for (int i = 0; i < 7; i++) {
+        char sz[24];
+        fmt_size(sz, sizeof sz, v[i]);
+        home_row(p, MENU_ROW_INFO, R_SDINFO, name[i], "The colour of the bar", "%s", sz);
+        p->rows[p->n - 1].swatch = col[i];
+    }
+    home_row(p, MENU_ROW_INFO, R_SDINFO, "Scan", "The menu reads the card while it is idle",
+             "%s %d%%", sdmap_state_name(), sdmap_permille() / 10);
+    for (int i = 0; i < m->ndirs; i++)
+        home_row(p, MENU_ROW_INFO, R_SDINFO, m->dirs[i].path, "Files directly in this folder",
+                 "%lu files, %lu KB", (unsigned long)m->dirs[i].files, (unsigned long)m->dirs[i].kb);
+    home_row(p, MENU_ROW_SUB, R_SDFILES, "Other files", "Files the menu cannot show, largest first",
+             "%d", m->nfiles);
+}
+
+/* Settings > System > SD map > Other files. */
+static void panel_sdfiles(home_panel_t *p)
+{
+    ksnprintf(p->title, sizeof p->title, "Settings > System > SD map > Other files");
+    const sdmap_t *m = sdmap_result();
+    for (int i = 0; i < m->nfiles; i++) {
+        const char *path = m->files[i].path;
+        size_t len = strlen(path);
+        char lab[32];
+        if (len > 31)
+            ksnprintf(lab, sizeof lab, "..%s", path + len - 29);
+        else
+            ksnprintf(lab, sizeof lab, "%s", path);
+        uint32_t kb = m->files[i].bytes / 1024;
+        if (kb == 0 && m->files[i].bytes)
+            kb = 1;
+        home_row(p, MENU_ROW_INFO, R_SDINFO, lab, "Its path and size", "%lu KB", (unsigned long)kb);
+    }
+    if (m->nfiles == 0)
+        home_row(p, MENU_ROW_INFO, R_SDINFO, "none", "Every file on the card is shown by the menu", NULL);
+}
+
 void home_panel(int id, home_panel_t *p)
 {
     memset(p, 0, sizeof *p);
     switch (id) {
-    case HOME_SETTINGS: {
-        ksnprintf(p->title, sizeof p->title, "Settings");
-        int pads = popcount(bt_pads());
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_SUB, R_CONTROLLERS, "Controllers",
-                 "Pads, keyboards, mice, the buttons",
-                 pads ? "built in + %d" : "built in", pads);
-#else
-        home_row(p, MENU_ROW_SUB, R_CONTROLLERS, "Controllers",
-                 "Pads, keyboards, mice, the buttons",
-                 pads ? "%d connected" : "none connected", pads);
-#endif
-        home_row(p, MENU_ROW_SUB, R_CONTROLS, "Controls",
-                 "Which button does what in the games and the menus", "remap");
-        home_row(p, MENU_ROW_SUB, R_WIFI, wireless() ? "WiFi and network" : "Network",
-                 "The link, the address, a test", "%s", net_word());
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
-                 "Screen modes, 3D Bench, battery icon", "360x360 x2");
-#else
-        home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
-                 "Drawing, 3D, menu size, test pattern", "%s%s",
-                 gpu3d_choice(),
-                 strcmp(gpu3d_choice(), "GPU") == 0 && vs_on() ? (vs_on() == 1 ? "+VS1" : "+VS") : "");
-#endif
-        home_row(p, MENU_ROW_SUB, R_SOUNDMENU, "Sound",
-                 "Volume, style, bit depth, test", "vol %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
-        home_row(p, MENU_ROW_SUB, R_UPDATES, "Updates",
-                 "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
-        reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
-        home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
-                 "Direct kernel and app updates without staging", "%s",
-                 dev_mode() ? "On" : "Off");
-        home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
-                 "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
-                 rec_mode() ? "On" : "Off");
-        home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
-                 "Version, memory, the log", "%s, spec %s", bm_version, bm_spec);
-        /* the last two, on every system (the user's request, 2026-10-04) */
-        home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down", "Turns the console off", NULL);
-#else
-        home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down",
-                 "Stops the Pi: it starts again when its power is plugged back", NULL);
-#endif
+    case HOME_SETTINGS:
+        panel_settings(p);
         break;
-    }
-    case HOME_CONTROLLERS: {
-        ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_INFO, R_PAD1, "Player 1",
-                 "The console's buttons and sticks, with a Bluetooth pad if one is on",
-                 bt_pads() ? "built in + Bluetooth" : "built in");
-        home_row(p, MENU_ROW_INFO, R_BT, "Bluetooth", "Starts when a row below needs it",
-                 "%s", bt_started() ? "on" : "off");
-#else
-        int local = input_local_player(), ble = input_ble_player();
-        for (int s = 0; s < BT_PADS; s++) {
-            char addr[18], label[16];
-            int on = bt_pad_addr(s, addr);
-            ksnprintf(label, sizeof label, "Player %d", s + 1);
-            if (addr[0] && on)
-                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "A Bluetooth pad, connected",
-                         "%s on", addr);
-            else if (s == ble)
-                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "The Bluetooth keyboard plays here",
-                         "Bluetooth keyboard");
-            else if (s == local)
-                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "The USB keyboard or gamepad plays here",
-                         "%s", local_devices());
-            else if (addr[0])
-                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "Paired: press its PS button to connect",
-                         "%s off", addr);
-            else
-                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "Free: pair a controller", "-");
-        }
-#endif
-        home_row(p, MENU_ROW_INFO, R_KEYBOARD, "Bluetooth keyboard",
-                 bt_keyboard() ? "Connected: it types, and plays as its own player" :
-                 bt_keyboard_paired() ? "Paired: press a key on it to connect" : "None paired",
-                 "%s", bt_keyboard() ? "on" : bt_keyboard_paired() ? "off" : "-");
-        {
-            unsigned mice = pointer_devices();
-            if (!pointer_enabled())
-                home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
-                         "mouse=off in bm/config.txt: no pointer anywhere", "off");
-            else
-                home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
-                         mice ? "Connected: it moves the pointer in the menu" :
-                         bt_mouse_paired() ? "Paired: move it or click to connect" :
-                         "USB or Bluetooth: only a mouse moves the pointer",
-                         "%s", mice == (POINTER_USB | POINTER_BLUETOOTH) ? "USB + Bluetooth" :
-                         mice & POINTER_USB ? "USB" : mice ? "Bluetooth on" :
-                         bt_mouse_paired() ? "Bluetooth off" : "-");
-        }
-        home_row(p, MENU_ROW_ACTION, R_PAIR, "Pair a new controller",
-                 "DS4: hold Share + PS until the light flashes", NULL);
-        home_row(p, MENU_ROW_ACTION, R_PAIR_KBD, "Pair a keyboard",
-                 "Bluetooth LE (MX Keys: hold an Easy-Switch key 3 s)", NULL);
-        home_row(p, MENU_ROW_ACTION, R_PAIR_MOUSE, "Pair a mouse",
-                 "Bluetooth LE or classic: put the mouse in pairing mode first", NULL);
-        home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
-#ifdef BM_RGB30
-                 "Every button and both sticks, live (Start + Select: back)", NULL);
-#else
-                 "The buttons each player holds, for 10 s", NULL);
-#endif
-        home_row(p, MENU_ROW_CHOICE, R_LAYOUT, "Keyboard layout",
-                 "Layout of the USB or Bluetooth keyboard", "%s",
-                 hid_layout()[0] == 'i' ? "Italian" : "US");
-        home_row(p, MENU_ROW_CHOICE, R_PROMPTS, "Button icons",
-                 "DS4 buttons in the hints: white or in colour", "%s",
-                 home_prompts_colour() ? "Colour" : "White");
-#ifndef BM_RGB30
-        home_row(p, MENU_ROW_ACTION, R_USB, "Scan the USB again",
-                 "The port and the hub: keyboards, pads, mice, Ethernet", NULL);
-#endif
-        home_row(p, MENU_ROW_ACTION, R_FORGET, "Forget all controllers",
-                 "Removes every pairing; pair them again after", NULL);
+    case HOME_CONTROLLERS:
+        panel_controllers(p);
         break;
-    }
-    case HOME_CONTROLS: {
-        ksnprintf(p->title, sizeof p->title, "Settings > Controls");
-        home_row(p, MENU_ROW_SUB, R_CTL_SCROLLER, "Scroller games", "Platformers and side-scrollers: actions 1 to 4",
-                 "%d changed", ctl_changed("scroller"));
-        home_row(p, MENU_ROW_SUB, R_CTL_TOPDOWN, "Top-down games", "Adventures seen from above: actions 1 to 4",
-                 "%d changed", ctl_changed("topdown"));
-        home_row(p, MENU_ROW_SUB, R_CTL_STICK, "Stick games", "Twin-stick shooters: actions 1 to 8",
-                 "%d changed", ctl_changed("stick"));
-        home_row(p, MENU_ROW_SUB, R_CTL_SYSTEM, "Pause and menus", "Pause, and the menus' OK and Cancel",
-                 "%d changed", ctl_changed("system"));
-        home_row(p, MENU_ROW_INFO, R_CTL_KEYS, "Keyboard", "Fixed for now: Enter is OK, Esc goes back and pauses",
-                 "Enter, Esc");
-        home_row(p, MENU_ROW_ACTION, R_CTL_RESET, "Reset all", "Every action back to the game's own button", NULL);
+    case HOME_CONTROLS:
+        panel_controls(p);
         break;
-    }
-    case HOME_CTL_SCROLLER: case HOME_CTL_TOPDOWN: case HOME_CTL_STICK: case HOME_CTL_SYSTEM: {
-        const char *scheme = id == HOME_CTL_SCROLLER ? "scroller" : id == HOME_CTL_TOPDOWN ? "topdown" :
-                             id == HOME_CTL_STICK ? "stick" : "system";
-        ksnprintf(p->title, sizeof p->title, "Settings > Controls > %s",
-                  id == HOME_CTL_SCROLLER ? "Scroller games" : id == HOME_CTL_TOPDOWN ? "Top-down games" :
-                  id == HOME_CTL_STICK ? "Stick games" : "Pause and menus");
-        for (int i = 0; i < controls_count(); i++) {
-            if (strcmp(controls_scheme(i), scheme))
-                continue;
-#ifndef BM_RGB30
-            if (!strcmp(controls_code(i), "mo") || !strcmp(controls_code(i), "mc"))
-                continue;               /* the Pi's menus keep their buttons */
-#endif
-            const char *b = controls_get(i);
-            if (b)
-                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
-                         "%s", ctl_button(b));
-            else
-                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
-                         "Default (%s)", ctl_button(controls_default(i)));
-        }
+    case HOME_CTL_SCROLLER: case HOME_CTL_TOPDOWN: case HOME_CTL_STICK: case HOME_CTL_SYSTEM:
+        panel_control_buttons(p, id);
         break;
-    }
-    case HOME_WIFI: {
-        /* the Pi Zero W and the RGB30 have WiFi, the Pi 1 B / B+ an Ethernet port */
-        int wl = wireless();
-        ksnprintf(p->title, sizeof p->title, "Settings > %s", wl ? "WiFi and network" : "Network");
-        const char *ssid = config_get("wifi_ssid"), *pw = config_get("net_password");
-        if (wl) {
-            home_row(p, MENU_ROW_INFO, R_NETWORK, "Network", "The saved network (bm/config.txt)",
-                     "%s", ssid && ssid[0] ? ssid : "none saved");
-            home_row(p, MENU_ROW_INFO, R_STATE, "State", "The link to the access point",
-                     "%s", wifi_linked() || net_link_kind() == NET_LINK_WIFI ? "connected" : "not connected");
-            home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
-#ifdef BM_RGB30
-                     "Lists the networks, joins wifi_ssid of bm/config.txt", NULL);
-#else
-                     "Lists the networks; the USB keyboard types the password", NULL);
-#endif
-        }
-#ifndef BM_RGB30
-        else {
-            home_row(p, MENU_ROW_INFO, R_STATE, "Ethernet", "The cable to the router",
-                     "%s", net_link_kind() == NET_LINK_ETHERNET ? "connected" :
-                     board()->ethernet ? "no cable" : "none on this board");
-        }
-#endif
-        home_row(p, MENU_ROW_INFO, R_IP, "Address", "From the router (DHCP)", "%s", net_ip_text());
-        home_row(p, MENU_ROW_INFO, R_TIME, "Time", "From the network (SNTP)", "%s", net_time_text());
-        home_row(p, MENU_ROW_INFO, R_CONSOLE, "Network console",
-                 "From the PC: tools/bm_net.py ADDRESS", "port 3333");
-        home_row(p, MENU_ROW_INFO, R_PASSWORD, "Console password",
-                 "net_password in bm/config.txt", "%s", pw && pw[0] ? pw : "made when the network starts");
-        if (wl) {
-            home_row(p, MENU_ROW_CHOICE, R_BOOT, "Connect at boot",
-                     "Join the saved network when the console starts", "%s",
-                     wifi_at_boot() ? "On" : "Off");
-        }
-        home_row(p, MENU_ROW_ACTION, R_NETTEST, "Test the connection",
-                 "Gets a web page over HTTPS: status, size, speed", NULL);
-#ifndef BM_RGB30
-        if (board()->ethernet)
-            home_row(p, MENU_ROW_ACTION, R_ETH, "Ethernet details",
-                     "The link, the counters and the chip's registers", NULL);
-#endif
+    case HOME_WIFI:
+        panel_wifi(p);
         break;
-    }
     case HOME_GRAPHICS:
-        ksnprintf(p->title, sizeof p->title, "Settings > Screen");
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_ACTION, R_MODES, "Screen modes",
-                 "The modes for games and the GPU, each with a test image", "%s", plat_display_info());
-#else
-        home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
-                 "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
-        home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
-                 "Auto: 360p, the HDMI scaler enlarges it. Applies at the next start", "%s", menu_size_choice());
-#endif
-        home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
-                 "Exact as before, or fast: one matrix a model, light in its axes", "%s",
-                 config_on("r3d_fast") ? "Fast" : "Exact");
-        if (board_is_pi1()) {
-            home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
-                     "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
-                     crt_choice());
-#ifndef BM_RGB30
-            home_row(p, MENU_ROW_CHOICE, R_VIDEO_OUT, "Video output",
-                     "Select display port: Auto (HDMI fallback to RCA), RCA only, HDMI only", "%s",
-                     video_out_choice());
-            home_row(p, MENU_ROW_CHOICE, R_LCD_POWER, "GPIO LCD screen",
-                     "Turn off GPIO screen backlight when using TV/monitor", "%s",
-                     lcd_gpio_is_off() ? "Off (power save)" : "On");
-            home_row(p, MENU_ROW_ACTION, R_GPIOSCREEN, "GPIO screen",
-                     "3.5\" SPI TFT on the Pi 1: a tiny robot at its computer", NULL);
-#endif
-        }
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
-                 "A small red battery over games and tools at 20% or less", "%s",
-                 battery_icon_on() ? "On" : "Off");
-#else
-        home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
-                 "HDMI colour bars; any button returns", NULL);
-#endif
-        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
-            if (home_util_group(i) == 1)
-                home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+        panel_screen(p);
         break;
     case HOME_SOUND:
-        ksnprintf(p->title, sizeof p->title, "Settings > Sound");
-#ifdef BM_RGB30
-        /* the speaker, or the headphones (the console switches by itself) */
-        home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
-        home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
-                 "Sound of the games and tools (the + and - keys too)",
-                 "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
-        home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
-                 "Hi-fi, or the 8-bit chip of the first versions", "%s", audio_retro_on() ? "8-bit" : "Hi-fi");
-        home_row(p, MENU_ROW_CHOICE, R_DEPTH, "Bit depth",
-                 "Each sample: 16, 24 or 32 bits (the codec converts 24)", "%s", depth_choice());
-        home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
-                 "The sound's state and a test tune", NULL);
-#else
-        home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
-        if (board_is_pi1()) {
-            home_row(p, MENU_ROW_CHOICE, R_AUDIO_OUT, "Audio output",
-                     "Sound routing: Auto (HDMI/3.5mm), 3.5mm Jack (PWM), HDMI only", "%s", audio_out_choice());
-        }
-        home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
-                 "Sound of the games and tools (games can change it in their pause menu)",
-                 "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
-        home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
-                 "Hi-fi (stereo, room), or the 8-bit chip of the first versions", "%s",
-                 audio_retro_on() ? "8-bit" : "Hi-fi");
-        home_row(p, MENU_ROW_CHOICE, R_DEPTH, "Bit depth",
-                 "Each sample: 16, 24 or 32 bits (HDMI carries 24)", "%s", depth_choice());
-        home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
-                 "HDMI sound status and a test tune", NULL);
-#endif
+        panel_sound(p);
         break;
     case HOME_UPDATES:
-        ksnprintf(p->title, sizeof p->title, "Settings > Updates");
-        home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
-        home_row(p, MENU_ROW_ACTION, R_UPDATE, "Check for updates",
-                 "The latest release on GitHub, signed: what would change", "%s", update_state());
-        if (netxfer_has_staged_kernel()) {
-            home_row(p, MENU_ROW_ACTION, R_INSTALL_STAGED, "Apply staged kernel",
-                     "Written to SD card, old kernel backed up, restarts", "%s", netxfer_staged_kernel_desc());
-        }
-        if (update_ready()) {
-            home_row(p, MENU_ROW_ACTION, R_INSTALL, "Install the update",
-                     "Keeps the old kernels in /bm/backup, restarts", "%s", update_install_state());
-            /* what it would write (the check runs in the background: the
-             * text console no longer shows its list) */
-            static char sizes[HOME_ROWS_MAX][24];
-            const char *path, *what;
-            uint32_t size;
-            for (int i = 0; p->n < HOME_ROWS_MAX && update_changes(i, &path, &what, &size); i++) {
-                ksnprintf(sizes[i], sizeof sizes[i], "%lu KB", (unsigned long)((size + 1023) / 1024));
-                home_row(p, MENU_ROW_INFO, R_CHANGE, path, sizes[i], "%s", what);
-            }
-        }
+        panel_updates(p);
         break;
     case HOME_REPORTS:
-        ksnprintf(p->title, sizeof p->title, "Settings > Reports");
-        reports_row(p, MENU_ROW_INFO, R_WAITING, "On the SD card", "In bm/reports, until they are sent");
-        reports_row(p, MENU_ROW_ACTION, R_REPORTS, "Send the reports",
-                    "The tests' reports on the SD card, to GitHub (github_token)");
-        home_row(p, MENU_ROW_ACTION, R_REPORT_LOG, "Report the log",
-                 "Everything printed since boot, as a report (Send the reports)", NULL);
+        panel_reports(p);
         break;
-    case HOME_SYSTEM: {
-        ksnprintf(p->title, sizeof p->title, "Settings > System");
-        uint32_t s = timer_ticks() / 1000000;
-        home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_INFO, R_BOARD, "Board", "The console", "%s", PLAT_NAME);
-#else
-        home_row(p, MENU_ROW_INFO, R_BOARD, "Board", "From the firmware's revision code",
-                 "Raspberry %s", board()->name);
-#endif
-        home_row(p, MENU_ROW_INFO, R_UPTIME, "Uptime", "Since the console was turned on",
-                 "%02lu:%02lu:%02lu", s / 3600, s / 60 % 60, s % 60);
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
-                 "%lu of %lu MB", (uint32_t)((heap_brk() - heap_start()) >> 20),
-                 (uint32_t)((heap_end() - heap_start()) >> 20));
-        {
-            uint64_t midr;
-            __asm__ volatile("mrs %0, midr_el1" : "=r"(midr));
-            home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "The processor", "%s",
-                     ((midr >> 4) & 0xfff) == 0xd05 ? "Cortex-A55" : "ARMv8");
-        }
-#else
-        {
-            struct mallinfo mi = mallinfo();
-            uint32_t temp[2] = { 0, 0 };
-            prop_query(PROP_GET_TEMPERATURE, temp, 2);
-            home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
-                     "%lu of %lu MB", (uint32_t)mi.uordblks >> 20,
-                     (uint32_t)((heap_end() - heap_start()) >> 20));
-            home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "Processor, clock and chip temperature",
-                     "%s, %lu MHz, %lu.%lu C", sysinfo_cpu(), prop_clock_rate(CLOCK_ARM) / 1000000,
-                     temp[1] / 1000, temp[1] % 1000 / 100);
-        }
-#endif
-        home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
-                 "%s", fat_describe());
-        home_row(p, MENU_ROW_SUB, R_SDMAP, "SD map", "What is on the card, by folder", "%s", sdmap_state_name());
-#ifdef BM_RGB30
-        {
-            int mv, charge;
-            if (plat_battery(&mv, &charge) == 0)
-                home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
-                         "%d%%, %d.%02d V%s", battery_percent(mv), mv / 1000, mv % 1000 / 10,
-                         charge == 2 ? ", full" : charge == 1 ? ", charging" : "");
-            else
-                home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
-                         "unknown");
-        }
-        /* the value is short (the row is narrow); the help line is the backend's own text (bm_port.c) */
-        home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", gpu3d_status(), "%s", gpu3d_ready() ? "Mali" : "ARM");
-#else
-        {
-            /* the drivers' version, and the one the 3D settings reproduce */
-            const int gpu = gpu3d_on() && !gpu3d_failed() && v3d_init() == 0;
-            home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", "bm3d version (block); the games' 3D now",
-                     "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK,
-                     bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
-        }
-#endif
-        if (util_count(0) > 0)                  /* no empty page */
-            home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks and tests", "%d", util_count(0));
-        home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
-                 "Direct kernel and app updates without staging", "%s",
-                 dev_mode() ? "On" : "Off");
-        home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
-                 "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
-                 rec_mode() ? "On" : "Off");
-        home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
-                 "Everything printed since the console started", NULL);
-#ifndef BM_RGB30
-        home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
-                 "The text console with every command", NULL);
-#endif
+    case HOME_SYSTEM:
+        panel_system(p);
         break;
-    }
-    case HOME_UTILITIES: {
-        ksnprintf(p->title, sizeof p->title, "Settings > System > Utilities");
-        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)
-            if (home_util_group(i) == 0)
-                home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
-        if (util_count(0) == 0)
-            home_row(p, MENU_ROW_INFO, R_UTILS, "none", "This console has no utility yet", NULL);
+    case HOME_UTILITIES:
+        panel_utilities(p);
         break;
-    }
-    case HOME_SDMAP: {
-        static uint16_t parts[7];
-        static const uint32_t col[7] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xC678DD, 0x56B6C2, 0xE5C07B, 0x4A5060 };
-        static const char *const name[7] = { "Kernel", "bm (games)", "bme (projects)", "glb (models)", "bmm (models)", "Other", "Free" };
-        ksnprintf(p->title, sizeof p->title, "Settings > System > SD map");
-        sdmap_request();
-        const sdmap_t *m = sdmap_result();
-        const uint64_t v[7] = { m->kernel, m->bm, m->bme, m->glb, m->bmm, m->other, m->free };
-        for (int i = 0; i < 7; i++)
-            parts[i] = m->total ? (uint16_t)(v[i] * 1000 / m->total) : 0;
-        home_row(p, MENU_ROW_BAR, R_SDBAR, "SD card", "Kernel, games, projects, models, other files and free space", NULL);
-        p->rows[p->n - 1].bar = parts;
-        for (int i = 0; i < 7; i++) {
-            char sz[24];
-            fmt_size(sz, sizeof sz, v[i]);
-            home_row(p, MENU_ROW_INFO, R_SDINFO, name[i], "The colour of the bar", "%s", sz);
-            p->rows[p->n - 1].swatch = col[i];
-        }
-        home_row(p, MENU_ROW_INFO, R_SDINFO, "Scan", "The menu reads the card while it is idle",
-                 "%s %d%%", sdmap_state_name(), sdmap_permille() / 10);
-        for (int i = 0; i < m->ndirs; i++)
-            home_row(p, MENU_ROW_INFO, R_SDINFO, m->dirs[i].path, "Files directly in this folder",
-                     "%lu files, %lu KB", (unsigned long)m->dirs[i].files, (unsigned long)m->dirs[i].kb);
-        home_row(p, MENU_ROW_SUB, R_SDFILES, "Other files", "Files the menu cannot show, largest first",
-                 "%d", m->nfiles);
+    case HOME_SDMAP:
+        panel_sdmap(p);
         break;
-    }
-    case HOME_SDFILES: {
-        ksnprintf(p->title, sizeof p->title, "Settings > System > SD map > Other files");
-        const sdmap_t *m = sdmap_result();
-        for (int i = 0; i < m->nfiles; i++) {
-            const char *path = m->files[i].path;
-            size_t len = strlen(path);
-            char lab[32];
-            if (len > 31)
-                ksnprintf(lab, sizeof lab, "..%s", path + len - 29);
-            else
-                ksnprintf(lab, sizeof lab, "%s", path);
-            uint32_t kb = m->files[i].bytes / 1024;
-            if (kb == 0 && m->files[i].bytes)
-                kb = 1;
-            home_row(p, MENU_ROW_INFO, R_SDINFO, lab, "Its path and size", "%lu KB", (unsigned long)kb);
-        }
-        if (m->nfiles == 0)
-            home_row(p, MENU_ROW_INFO, R_SDINFO, "none", "Every file on the card is shown by the menu", NULL);
+    case HOME_SDFILES:
+        panel_sdfiles(p);
         break;
-    }
     }
 }
 
