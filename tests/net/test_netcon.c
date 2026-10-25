@@ -40,6 +40,7 @@ const char bm_version_tag[] = "bmVER=test";
 static const char *cfg_pw = "secret";
 static char saved_pw[40];
 const char *config_get(const char *key) { return strcmp(key, "net_password") ? NULL : cfg_pw; }
+int dev_mode(void) { return 0; }                     /* the kernel's dev mode (config.c): off in this test */
 void config_set(const char *key, const char *value) { (void)key; snprintf(saved_pw, sizeof saved_pw, "%s", value); }
 void config_save(void) {}
 /* netxfer's C: the lines it got; "bad" in them is a wrong line */
