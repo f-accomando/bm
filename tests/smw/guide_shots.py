@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Screenshots of the guide edition (original art only) for the PDF guide.
+"""Screenshots of the guide edition (the real level, redrawn graphics) for the PDF guide.
 
     python3 tests/smw/guide_shots.py
 
-Builds carts/smw/guide (build/smw-guide/guide.b16), plays a few input scripts in bmhost
+Builds carts/smw/guide/build.py (build/smw-guide/guide.b16), plays a few input scripts in bmhost
 (make build/host/bmhost-bin first) and writes manuals/shots/smw-guide-NN-name.png."""
 import os, shutil, subprocess, sys, tempfile
 from PIL import Image

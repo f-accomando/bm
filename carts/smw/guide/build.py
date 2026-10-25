@@ -1,178 +1,148 @@
 #!/usr/bin/env python3
-"""Builds the guide edition: the same game code, with an original tile sheet and level.
+"""Builds the guide edition: the same level, the same game code, redrawn graphics.
 
-    python3 carts/smw/guide/build.py [OUT_DIR]
+    python3 carts/smw/guide/build.py [EXTRACTED_DIR] [OUT_DIR]
 
-Everything here is drawn and laid out by this script (flat colour shapes, a small hand-made
-level of 4 screens). It reads no ROM and nothing from carts/smw/extracted, so its screenshots
-can go into the PDF guide. physics.lua and game.lua are joined unchanged, as in
-carts/smw/build/build.py. Default output: build/smw-guide (guide.b16, guide.bme)."""
-import os, subprocess, sys
-from PIL import Image, ImageDraw
+The level is the real one: the Map16 grid, the collision layer, the camera and the physics are
+identical to carts/smw/build/build.py (it reads the same files of scripts/smw_map16.py, so it
+needs the player's ROM once). Only the pixels change. From the level picture this script keeps
+the shape (where a pixel is opaque) and a coarse colour role (green, earth, yellow, red, blue,
+light, grey, dark), then paints each role with its own flat colours and its own light and
+shadow from the shape. The shading and the earth speckle are made here. No pixel of the ROM
+reaches the output. Run it for screenshots of the PDF guide; the real build is for the
+benchmark. Default output: build/smw-guide (guide.b16, guide.bme)."""
+import colorsys, importlib.util, json, os, subprocess, sys
+from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-COLS, ROWS = 64, 27                  # the level in 16x16 tiles: 4 screens of 16, 27 rows as the game expects
-SKY = 0x6CB6FF
+spec = importlib.util.spec_from_file_location("smw_real_build", ROOT + "/carts/smw/build/build.py")
+real = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(real)
+
+# role -> (light, base, shadow)
+PAINT = {
+    "green": ((0x7BE07B), (0x3FA83F), (0x2A7A2A)),
+    "earth": ((0xB8844A), (0x9C6B3A), (0x7B5128)),
+    "yellow": ((0xFFE060), (0xF0C020), (0xB08810)),
+    "red": ((0xF06850), (0xD04030), (0x982818)),
+    "blue": ((0x6890F0), (0x4068D8), (0x2848A0)),
+    "light": ((0xFFFFFF), (0xE8E8E8), (0xB0B0B0)),
+    "grey": ((0xB0B0B0), (0x909090), (0x606060)),
+    "dark": ((0x305030), (0x203020), (0x102010)),
+}
 
 
-def rgb(h):
-    return ((h >> 16) & 255, (h >> 8) & 255, h & 255, 255)
+def role(px):
+    """A coarse colour role from one source pixel. Its brightness is thrown away."""
+    r, g, b, a = px
+    if a < 128:
+        return None
+    h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+    h *= 360
+    if v < 0.22:
+        return "dark"
+    if s < 0.18:
+        return "light" if v > 0.75 else "grey"
+    if 65 <= h < 170:
+        return "green"
+    if 15 <= h < 48 and s < 0.85 and v < 0.85:
+        return "earth"
+    if 40 <= h < 70:
+        return "yellow"
+    if h < 15 or h >= 330:
+        return "red"
+    if 170 <= h < 270:
+        return "blue"
+    return "earth"
 
 
-# ---- the 16x16 tiles, drawn with flat shapes ------------------------------------------------
-def tile_grass():
-    t = Image.new("RGBA", (16, 16), rgb(0x9C6B3A)); d = ImageDraw.Draw(t)
-    d.rectangle([0, 0, 15, 5], fill=rgb(0x3FA83F)); d.rectangle([0, 0, 15, 1], fill=rgb(0x6BD66B))
-    for x in range(0, 16, 4):
-        d.polygon([(x, 6), (x + 3, 6), (x + 1, 9)], fill=rgb(0x3FA83F))
-    d.point([(3, 12), (10, 11), (13, 14), (6, 14)], fill=rgb(0x7B5128))
-    return t
-
-
-def tile_dirt():
-    t = Image.new("RGBA", (16, 16), rgb(0x9C6B3A)); d = ImageDraw.Draw(t)
-    d.point([(2, 3), (9, 2), (12, 8), (5, 9), (14, 13), (3, 14), (8, 12)], fill=rgb(0x7B5128))
-    return t
-
-
-def tile_brick():
-    t = Image.new("RGBA", (16, 16), rgb(0xC8502A)); d = ImageDraw.Draw(t)
-    for y in (0, 5, 10, 15):
-        d.line([(0, y), (15, y)], fill=rgb(0x5A1E0E))
-    for y, off in ((0, 4), (5, 0), (10, 4)):
-        for x in (off, off + 8):
-            d.line([(x, y), (x, y + 5)], fill=rgb(0x5A1E0E))
-    return t
-
-
-def tile_question():
-    t = Image.new("RGBA", (16, 16), rgb(0xF0B820)); d = ImageDraw.Draw(t)
-    d.rectangle([0, 0, 15, 15], outline=rgb(0x8A5A00))
-    for p in ((2, 2), (13, 2), (2, 13), (13, 13)):
-        d.point(p, fill=rgb(0x8A5A00))
-    for p in ((5, 4), (6, 3), (7, 3), (8, 3), (9, 4), (9, 5), (8, 6), (7, 7), (7, 8), (7, 10)):
-        d.point(p, fill=rgb(0x7A3E00))
-    return t
-
-
-def tile_pipe(top, right):
-    t = Image.new("RGBA", (16, 16), rgb(0x2FA84F)); d = ImageDraw.Draw(t)
-    d.rectangle([0, 0, 15, 15], fill=rgb(0x2FA84F))
-    edge = 15 if right else 0
-    d.line([(edge, 0), (edge, 15)], fill=rgb(0x145A28))
-    hi = 12 if not right else 3
-    d.line([(hi, 0), (hi, 15)], fill=rgb(0x7BE59B))
-    if top:
-        d.line([(0, 0), (15, 0)], fill=rgb(0x145A28)); d.line([(0, 15), (15, 15)], fill=rgb(0x145A28))
-    return t
-
-
-def tile_cloud(right):
-    t = Image.new("RGBA", (16, 16), (0, 0, 0, 0)); d = ImageDraw.Draw(t)
-    d.ellipse([-4 if not right else 2, 4, 14 if not right else 20, 22], fill=rgb(0xFFFFFF))
-    d.rectangle([0, 10, 15, 16], fill=rgb(0xFFFFFF))
-    d.line([(0, 15), (15, 15)], fill=rgb(0xC8DCF0))
-    return t
-
-
-def tile_bush(right):
-    t = Image.new("RGBA", (16, 16), (0, 0, 0, 0)); d = ImageDraw.Draw(t)
-    d.ellipse([-6 if not right else 0, 4, 16 if not right else 22, 26], fill=rgb(0x2E8B2E))
-    d.ellipse([-2 if not right else 4, 8, 10 if not right else 18, 24], fill=rgb(0x46B546))
-    return t
-
-
-def tile_coin():
-    t = Image.new("RGBA", (16, 16), (0, 0, 0, 0)); d = ImageDraw.Draw(t)
-    d.ellipse([4, 2, 11, 13], fill=rgb(0xFFD030), outline=rgb(0xA87000))
-    d.line([(7, 5), (7, 10)], fill=rgb(0xA87000))
-    return t
-
-
-TILES = [("grass", tile_grass()), ("dirt", tile_dirt()), ("brick", tile_brick()), ("question", tile_question()),
-         ("pipe_tl", tile_pipe(True, False)), ("pipe_tr", tile_pipe(True, True)),
-         ("pipe_bl", tile_pipe(False, False)), ("pipe_br", tile_pipe(False, True)),
-         ("cloud_l", tile_cloud(False)), ("cloud_r", tile_cloud(True)),
-         ("bush_l", tile_bush(False)), ("bush_r", tile_bush(True)), ("coin", tile_coin())]
-SOLID = {"grass", "dirt", "brick", "question", "pipe_tl", "pipe_tr", "pipe_bl", "pipe_br"}
-
-
-def build_sheet():
-    """Cell 0 is empty. Each tile takes 4 cells in the order the map wants: TL, BL, TR, BR."""
-    ncells = 1 + 4 * len(TILES) + 1                  # empty + tiles + the collision marker
-    cols = 16
-    rows = (ncells + cols - 1) // cols
-    sheet = Image.new("RGBA", (cols * 8, rows * 8), (0, 0, 0, 0))
-    ids, n = {}, 1
-    for name, img in TILES:
-        quad = []
-        for (cx, cy) in ((0, 0), (0, 1), (1, 0), (1, 1)):     # TL, BL, TR, BR
-            sheet.paste(img.crop((cx * 8, cy * 8, cx * 8 + 8, cy * 8 + 8)), ((n % cols) * 8, (n // cols) * 8))
-            quad.append(n)
-            n += 1
-        ids[name] = quad
-    return sheet, ids, n                              # n is the collision marker cell (left transparent)
-
-
-# ---- the level ---------------------------------------------------------------------------------
-def build_level():
-    g = [[None] * COLS for _ in range(ROWS)]
-
-    def put(x, y, name):
-        if 0 <= x < COLS and 0 <= y < ROWS:
-            g[y][x] = name
-
-    pit = range(28, 31)
-    for x in range(COLS):
-        if x in pit:
-            continue
-        put(x, 24, "grass"); put(x, 25, "dirt"); put(x, 26, "dirt")
-    for x, name in zip(range(10, 15), ("brick", "question", "brick", "question", "brick")):
-        put(x, 20, name)
-    for x in range(16, 20):                           # a higher ledge of bricks
-        put(x, 17, "brick")
-    put(17, 16, "coin"); put(18, 16, "coin")
-    put(22, 22, "pipe_tl"); put(23, 22, "pipe_tr"); put(22, 23, "pipe_bl"); put(23, 23, "pipe_br")
-    for i, x in enumerate(range(36, 40)):             # a staircase of bricks
-        for y in range(23 - i, 24):
-            put(x, y, "brick")
-    for x in range(44, 49):
-        put(x, 21, "grass")
-    put(45, 20, "coin"); put(46, 20, "coin"); put(47, 20, "coin")
-    for x in (3, 26, 52, 58):
-        put(x, 8, "cloud_l"); put(x + 1, 8, "cloud_r")
-    for x in (5, 33, 55):
-        put(x, 23, "bush_l"); put(x + 1, 23, "bush_r")
-    return g
+def restyle(src):
+    w, h = src.size
+    px = src.load()
+    roles = [[role(px[x, y]) for x in range(w)] for y in range(h)]
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    o = out.load()
+    for y in range(h):
+        for x in range(w):
+            rl = roles[y][x]
+            if rl is None:
+                continue
+            up = roles[y - 1][x] if y else None
+            dn = roles[y + 1][x] if y + 1 < h else rl
+            lf = roles[y][x - 1] if x else None
+            rt = roles[y][x + 1] if x + 1 < w else rl
+            light, base, shade = PAINT[rl]
+            c = base
+            if up != rl and rl != "dark":
+                c = light                                    # a lit top edge
+            elif dn != rl or rt != rl:
+                c = shade                                    # the shadow side
+            if rl == "earth" and c == base and ((x * 7 + y * 13) % 11 == 0 or (x % 16 * 5 + y % 16 * 3) % 17 == 0):
+                c = shade                                    # the speckle of the earth
+            o[x, y] = ((c >> 16) & 255, (c >> 8) & 255, c & 255, 255)
+    return out
 
 
 def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else ROOT + "/build/smw-guide"
+    ex = sys.argv[1] if len(sys.argv) > 1 else ROOT + "/carts/smw/extracted"
+    out = sys.argv[2] if len(sys.argv) > 2 else ROOT + "/build/smw-guide"
     os.makedirs(out, exist_ok=True)
-    sheet, ids, col = build_sheet()
-    sheet.save(out + "/sheet.png")
-    grid = build_level()
+    defs = {int(k, 16): v for k, v in json.load(open(ex + "/map16.json")).items()}
+    defs[0x025] = (0, 0, 0, 0)
+    level = json.load(open(ex + "/level.json"))
+    sheet = Image.open(ex + "/sheet.png").convert("RGBA")
+    cols = sheet.width // 8
+    cell_img = lambda n: sheet.crop(((n % cols) * 8, (n // cols) * 8, (n % cols) * 8 + 8, (n // cols) * 8 + 8))
+    W, H = len(level[0]) * 16, len(level) * 16
+    pic = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    for y, row in enumerate(level):
+        for x, k in enumerate(row):
+            tl, bl, tr, br = defs.get(k, (0, 0, 0, 0))
+            for n, (dx, dy) in zip((tl, bl, tr, br), ((0, 0), (0, 8), (8, 0), (8, 8))):
+                if n:
+                    pic.paste(cell_img(n), (x * 16 + dx, y * 16 + dy))
+    new = restyle(pic)
+    cells, cell_list = {}, []
     main_rows, col_rows = [], []
-    for row in grid:
-        top, bot, ctop, cbot = [], [], [], []
-        for name in row:
-            tl, bl, tr, br = ids[name] if name else (0, 0, 0, 0)
-            top += [tl, tr]; bot += [bl, br]
-            c = col if name in SOLID else 0
-            ctop += [c, c]; cbot += [c, c]
-        main_rows += [top, bot]; col_rows += [ctop, cbot]
+    col_n = None
+    for cy in range(len(level) * 2):
+        mrow, crow = [], []
+        for cx in range(len(level[0]) * 2):
+            im = new.crop((cx * 8, cy * 8, cx * 8 + 8, cy * 8 + 8))
+            key = im.tobytes()
+            if im.getchannel("A").getbbox() is None:
+                mrow.append(0)
+            else:
+                if key not in cells:
+                    cells[key] = len(cells) + 1
+                    cell_list.append(im)
+                mrow.append(cells[key])
+        main_rows.append(mrow)
+    col_n = len(cell_list) + 1
+    for y, row in enumerate(level):
+        for half in (0, 1):
+            crow = []
+            for k in row:
+                c = col_n if real.solid(k) else 0
+                crow += [c, c]
+            col_rows.append(crow)
+    n_cells = len(cell_list) + 2
+    sh = Image.new("RGBA", (128, ((n_cells + 15) // 16) * 8), (0, 0, 0, 0))
+    for i, im in enumerate(cell_list, 1):
+        sh.paste(im, ((i % 16) * 8, (i // 16) * 8))
+    sh.save(out + "/sheet.png")
     for name, rows in (("map_main.csv", main_rows), ("map_col.csv", col_rows)):
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
-    open(out + "/flags.csv", "w").write("%d=1\n" % col)          # flag 0 = solid, on the marker cell only
+    open(out + "/flags.csv", "w").write("%d=1\n" % col_n)
     lua = open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
-    lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % SKY)
+    lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % real.backdrop(ex))
     open(out + "/main.lua", "w").write(lua)
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", out + "/sheet.png",
             "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--flags", out + "/flags.csv",
             "--info", ROOT + "/carts/smw/bm.info", "--title", "SMW Guide Edition", "--targets", "rgb30", "--input", "pad"]
     subprocess.run(base + ["-o", out + "/guide.b16", "--b16"], check=True)
     subprocess.run(base + ["-o", out + "/guide.bme"], check=True)
-    print("built", out + "/guide.b16")
+    print("built", out + "/guide.b16", len(cell_list), "cells")
 
 
 if __name__ == "__main__":

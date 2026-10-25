@@ -45,8 +45,14 @@ the finished cartridge stay on the user's machine and SD card.
 
 ## Guide edition
 
-- `carts/smw/guide/build.py` builds `build/smw-guide/guide.b16` with an original tile sheet and a
-  hand-made level of 4 screens. It reads no ROM data. It joins `physics.lua` and `game.lua`
-  unchanged.
+- It is the same game on the same level. The Map16 grid, the collision layer, the camera, and
+  the physics are the real ones. Only the pixels change.
+- `carts/smw/guide/build.py` reads the files of `scripts/smw_map16.py`. From the level picture it
+  keeps the shape and a colour role (green, earth, yellow, red, blue, light, grey, dark). It paints
+  each role with its own colours, light, shadow, and earth speckle. No ROM pixel reaches the
+  output. It builds `build/smw-guide/guide.b16`.
 - `tests/smw/guide_shots.py` plays input scripts in `bmhost` and writes
-  `manuals/shots/smw-guide-NN-name.png`. Use these images in the PDF guide.
+  `manuals/shots/smw-guide-NN-name.png`. Use these images in the PDF guide. The real build
+  (`carts/smw/build/build.py`) stays for the benchmark.
+- Open: restyle Mario's real sprites the same way when they are captured. The two-tone bush
+  becomes one green.
