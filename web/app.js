@@ -222,7 +222,9 @@ function App() {
     e("button", {
       className: "tab-button " + (activeTab === "sounds" ? "active" : ""),
       onClick: () => changeTab("sounds")
-    }, "Sounds")
+    }, "Sounds"),
+    // A plain page (no script): the test catalog of .bmm models that bm Web can download
+    e("a", { className: "tab-button", href: "models/index.html" }, "Models (test)")
   );
 
   const renderStart = () => {

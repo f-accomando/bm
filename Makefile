@@ -728,9 +728,11 @@ WEB_PLAYER := $(BUILD)/web/player
 $(WEB_PLAYER)/bmweb.js: web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
 	@mkdir -p $(WEB_PLAYER)
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sENVIRONMENT=web,node -sMODULARIZE -sEXPORT_NAME=createBmWeb 	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_bmweb_start,_bmweb_input,_bmweb_quit -lidbfs.js -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,FS,IDBFS 	    -o $@ web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
-web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/*) $(BUILD)/carts/kitchen.bm $(BUILD)/carts/stages3d.bm
+web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/* web/models/*) $(BUILD)/carts/kitchen.bm $(BUILD)/carts/stages3d.bm
 	cp web/index.html web/style.css web/app.js web/bmcart.js web/bmring.js web/player.js $(WEB_PLAYER)/
 	cp -r web/assets $(WEB_PLAYER)/
+	rm -rf $(WEB_PLAYER)/models && mkdir -p $(WEB_PLAYER)/models
+	cp web/models/*.html web/models/*.bmm web/models/*.png web/models/robots.txt $(WEB_PLAYER)/models/
 	cp $(BUILD)/carts/kitchen.bm $(WEB_PLAYER)/kitchen.bm
 	cp $(BUILD)/carts/stages3d.bm $(WEB_PLAYER)/stages3d.bm
 # the 3D cartridge of the stages (the ARM rasterizer): its frames in wasm equal the PC build's

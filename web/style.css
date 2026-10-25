@@ -125,6 +125,11 @@ nav.tab-bar {
   transition: color 0.15s ease;
 }
 
+a.tab-button {
+  text-decoration: none;
+  font-family: inherit;
+}
+
 .tab-button:hover {
   color: var(--text-color);
 }
