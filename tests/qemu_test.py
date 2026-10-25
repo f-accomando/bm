@@ -5159,7 +5159,9 @@ def test_picture_model(b, opts):
         keys("s", "s", "s", "s", "\r")
         screen(["build", "models", "TOOLS", "model 1/8: ground"])
         keys(F2)
-        screen(["MODELS 8", "picture"])
+        # (the hint row shows as many chips as fit, src/script/bmui.lua
+        # U.hint_row: at 640 wide "picture" is cut; "m" is tried just below)
+        screen(["MODELS 8", "reduce"])
         # the outline, made here: the model hero
         keys("m")
         screen(["cutout: the picture's outline", "lathe:", "meshy.ai:"])
