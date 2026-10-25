@@ -1,0 +1,83 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1654-ga2e63306
+branch: claude/pi-hw-results-2-25oct
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-a5b915_freeze_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+
+the Pi froze (the watchdog restarted it) while: monitor line "reboot", frame 0, 777 s after boot, kernel v0.2.5-1654-ga2e63306, ring 19105, sink on
+--- the last lines printed ---
+report: 20261025-110750_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt saved as bm/reports/rpt00001.txt
+report: sending 20261025-110750_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-2-25oct/20261025-110750_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+: send 
+sent: reports/claude-pi-hw-results-2-25oct/20261025-110750_bench3d_pi-zero-w_v0.2.5-1654-ga2e63; 0 waiting on the SD card
+the line is done
+> 
+net: console closed
+net: receiving settings (12 bytes)...
+config: gpu3d_qpu=1
+net: settings from the PC: 1 changed in bm/config.txt
+
+net: console opened from 192.168.1.97
+> :
+:reboot
+: reboot 
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+DRAM 400 MHz, 43.3 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261025-110556_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt saved as bm/reports/rpt00005.txt
+report: sending 20261025-110556_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-2-25oct/20261025-110556_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+: send 
+report: sending session_3d-bench_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-25oct/session_3d-bench_pi-zero-w.txt
+report: sending session_pong_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-25oct/session_pong_pi-zero-w.txt
+report: sending nodate-56ff57_freeze_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-2-25oct/nodate-56ff57_freeze_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+report: sending session_pong_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-2-25oct/session_pong_pi-zero-w.txt
+sent: reports/claude-pi-hw-results-2-25oct/session_pong_pi-zero-w.txt; 0 waiting on the SD card
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:set gpu3d_later=1; b3d tests=herotris,heroes profiles=GPU+VS+Q,GPU+VS+Q2; send
+: set gpu3d_later=1
+set gpu3d_later=1 (until a restart; save keeps it)
+: b3d tests=herotris,heroes profiles=GPU+VS+Q,GPU+VS+Q2
+3D Bench: done (ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 42.7 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261025-110702_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt saved as bm/reports/rpt00001.txt
+report: sending 20261025-110702_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-2-25oct/20261025-110702_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+: send 
+sent: reports/claude-pi-hw-results-2-25oct/20261025-110702_bench3d_pi-zero-w_v0.2.5-1654-ga2e63; 0 waiting on the SD card
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:set gpu3d_later=0; b3d tests=herotris,heroes profiles=GPU+VS+Q,GPU+VS+S; send
+: set gpu3d_later=0
+set gpu3d_later=0 (until a restart; save keeps it)
+: b3d tests=herotris,heroes profiles=GPU+VS+Q,GPU+VS+S
+3D Bench: done (ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 42.7 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261025-110728_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt saved as bm/reports/rpt00001.txt
+report: sending 20261025-110728_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pi-hw-results-2-25oct/20261025-110728_bench3d_pi-zero-w_v0.2.5-1654-ga2e63306.txt
+: send 
+sent: reports/claude-pi-hw-results-2-25oct/20261025-110728_bench3d_pi-zero-w_v0.2.5-1654-ga2e63; 0 waiting on the SD card
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:b3d tests=heroes profiles=GPU+VS,GPU+VS+S; send
+: b3d tests=heroes profiles=GPU+VS,GPU+VS+S
