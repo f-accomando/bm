@@ -56,8 +56,14 @@ typedef struct {
     void (*text)(framebuffer_t *fb);                /* HOME_TEXT */
     int wait;                   /* HOME_TEXT: then "A: back to the menu" */
     int own;                    /* HOME_TEXT: it draws its own screen, not the console (the RGB30) */
-    char note[96];              /* a line for the menu's footer, if not empty */
+    char note[96];              /* what the row did, if not empty: a line for the console log */
+    int fail;                   /* the row failed: `note` is the reason, and the menu shows it in the notice box */
 } home_do_t;
+
+/* The result of a row, after home_act (or the like): `note` goes to the
+ * console log; a failure goes to the notice box too (notice_fail). The
+ * menu's bottom bar shows the key chips only. */
+void home_report(const home_do_t *d);
 
 /* Settings > Controllers > Button icons: the DS4's face buttons in the
  * hints white (0) or in their colours (1); kept in config.txt. */
@@ -89,7 +95,6 @@ void home_util_start(int i, home_do_t *d);              /* fills d as home_act d
 void home_init(void);
 int  home_tools(void);
 const char *home_tool_title(int i);
-const char *home_tool_about(int i);
 const g16_sheet_t *home_tool_cover(int i);
 void home_tool_start(int i, home_do_t *d);
 int  home_tool_is_utility(int i);   /* tool i is a utility (not shown in Dev); home.c */

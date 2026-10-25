@@ -205,8 +205,10 @@ void publish_act(int row, int how, home_do_t *d)
         break;
     case P_SEND:
         if (job.busy) {
+            d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "publishing %s: wait", pub.title);
         } else if (!has_token()) {
+            d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "no github_token in bm/config.txt");
         } else if (how == 0) {
             d->what = HOME_ASK;
@@ -218,6 +220,7 @@ void publish_act(int row, int how, home_do_t *d)
             ksnprintf(pub.state, sizeof pub.state, "sending...");
             ksnprintf(d->note, sizeof d->note, "publishing %s...", pub.title);
         } else if (how == HOME_YES) {
+            d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "out of memory");
         }
         break;

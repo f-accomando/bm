@@ -965,18 +965,18 @@ def test_sd_cartridges(b, opts):
         q.send("M")
         q.expect("cartridge menu")
         wait_menu(q)
-        want = ("Games", "Astro Wing", "/Il mio gioco lungo.bm")
+        want = ("Games", "Astro Wing")
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         screen = "\n".join(text)
         for s_ in want:
             assert s_ in screen, screen
-        q.send("d")                           # the next cover: its title and file
-        want = ("Pong", "/carts/demo2.bm")
+        q.send("d")                           # the next cover: its title (the file is in the console list above)
+        want = ("Pong",)
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         screen = "\n".join(text)
         assert all(w in screen for w in want), screen
         q.send("a")
-        want = ("Astro Wing", "/Il mio gioco lungo.bm")   # the cover is back before Enter starts it
+        want = ("Astro Wing",)   # the cover is back before Enter starts it
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         assert all(any(w in l for l in text) for w in want), "\n".join(text)
         q.send("\r")                          # SD cartridges come first, by title
@@ -988,7 +988,7 @@ def test_sd_cartridges(b, opts):
         assert '"Astro Wing"' in out, out
         wait_menu(q)                          # the menu is back (the game is suspended) before the keys
         q.send("d")                           # next: /carts/demo2.bm
-        want = ("Pong", "/carts/demo2.bm")
+        want = ("Pong",)
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         assert all(any(w in l for l in text) for w in want), "\n".join(text)
         q.send("\r")
@@ -1238,7 +1238,7 @@ def test_home_ui(b, opts):
         q.send("\x1b[A")                        # up: Exit bm SDK (one sequence)
         time.sleep(0.3)
         keys("\r")
-        screen(["Games", "AAA saver", "last: SDK on saver.bm"])
+        screen(["Games", "AAA saver", "Options"])         # back on the menu (the bar shows key chips only)
 
         # the other cartridge leaves the SD card
         keys("d")
@@ -1275,7 +1275,7 @@ def test_home_ui(b, opts):
         before = "Italian" if "Italian" in line else "US"
         keys("\r")                              # Enter changes it (Settings has no left/right on a choice)
         after = "US" if before == "Italian" else "Italian"
-        screen([after, "keyboard layout: "])
+        screen([after])
         keys("\r")                              # Enter again: back as it was
         screen([before])
         keys("q")
@@ -1324,24 +1324,24 @@ def test_home_ui(b, opts):
         screen(["Settings > Sound", "Volume", "10 / 10"])
         keys("s")                               # the page starts on the Sound status row: down to the volume
         keys("\r")                              # the volume: Enter goes round (10, 0, 1, ...), saved
-        screen(["0 / 10", "volume: 0 / 10"])
+        screen(["0 / 10"])
         for _ in range(10):
             keys("\r")
-        screen(["10 / 10", "volume: 10 / 10"])
+        screen(["10 / 10"])
         keys("s")                               # the sound style: hi-fi, 8-bit (M46), saved
         screen(["Sound style", "Hi-fi"])
         keys("\r")
-        screen(["8-bit", "sound: 8-bit"])
+        screen(["8-bit"])
         keys("\r")
-        screen(["Hi-fi", "sound: hi-fi"])
+        screen(["Hi-fi"])
         keys("s")                               # the depth (2026-10-10): 24, 32, 16 and back, saved
         screen(["Bit depth", "24-bit", "Each sample: 16, 24 or 32"])
         keys("\r")
-        screen(["32-bit", "depth: 32 bits"])
+        screen(["32-bit"])
         keys("\r")
-        screen(["16-bit", "depth: 16 bits"])
+        screen(["16-bit"])
         keys("\r")
-        screen(["24-bit", "depth: 24 bits"])
+        screen(["24-bit"])
         keys("s")
         screen(["Test the sound", "HDMI sound status"])
         keys("q")
@@ -1420,26 +1420,26 @@ def test_home_ui(b, opts):
 
         # the Dev tab: a tool on the text console, then A goes back
         keys("3")
-        screen(["bm SDK", "editor (built-in)"])
+        screen(["bm SDK"])
         keys("d")                               # the covers' names are on pictures: the pill
-        screen(["bm Sound", "sound (built-in)"])
+        screen(["bm Sound"])
         keys("d")
-        screen(["bm Studio", "studio (built-in)"])
+        screen(["bm Studio"])
         keys("d")
-        screen(["bm Animator", "animator (built-in)"])
+        screen(["bm Animator"])
         keys("d")
-        screen(["bm Mesh", "mesh (built-in)"])
+        screen(["bm Mesh"])
         keys("d")
-        screen(["bm Pixel", "pixel (built-in)"])
+        screen(["bm Pixel"])
         keys("d")
-        screen(["Code", "code editor: tabs, two pages"])
+        screen(["Code"])
         keys("d")
-        screen(["Assistant", "help with code and sprites"])
+        screen(["Assistant"])
         keys("d")
-        screen(["Monitor", "the text console with every command"])
+        screen(["Monitor"])
         shot("dev")
         keys("d")
-        screen(["Lua", "Lua 5.4 prompt"])       # the last tool of the tab: the utilities are in Settings
+        screen(["Lua"])     # the last tool of the tab: the utilities are in Settings
         keys("a")                               # the monitor, as a tool
         keys("\r")
         q.expect("back to the monitor", timeout=10)
@@ -3642,12 +3642,12 @@ def test_menu_tabs(b, opts):
         state(["Settings"], ["Button icons", "White"])
         assert not red_hint(False), "white button icons drawn red"
         press(buttons=0x08 | 0x20)          # A: Colour
-        state(["Settings"], ["Colour", "button icons: colour"])
+        state(["Settings"], ["Colour"])
         assert red_hint(), "no red circle for Back"
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "home-button-icons.png"))
         press(buttons=0x08 | 0x20)          # A: White
-        state(["Settings"], ["White", "button icons: white"])
+        state(["Settings"], ["White"])
         assert not red_hint(False), "the circle stayed red"
         press(buttons=0x08 | 0x40)          # B: back to Settings
         state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])
@@ -3791,7 +3791,7 @@ def test_b16_on_pi(b, opts):
 
 def test_grey_cart_on_pi(b, opts):
     """A cartridge whose header lists only the RGB30 is not hidden on the Pi (docs/spec/compat-policy.toml): the
-    details line says why, the start asks first ('Start it anyway?', the reason), back cancels, the confirm key
+    cover says "Not here", the start asks first ('Start it anyway?', the reason), back cancels, the confirm key
     starts it. A .b16 and an old .bm start with no question (test_b16_on_pi, test_stages_template)."""
     tmp = tempfile.mkdtemp(prefix="bm-grey-")
     try:
@@ -3815,7 +3815,7 @@ def test_grey_cart_on_pi(b, opts):
         try:
             q.expect(MENU, timeout=30)
             time.sleep(0.8)
-            screen_has("RGB30 only", "Not here: made for the RGB30 only")
+            screen_has("RGB30 only", "Not here")
             q.send("\r")                                # the first game: the question, it does not start
             text = screen_has("Start it anyway?", "made for the RGB30 only", "Start")
             time.sleep(1.0)
@@ -3929,7 +3929,6 @@ def test_market(b, opts):
             # nearest the selection first (Snake's is the third)
             screen(["Snake"], tries=10)
             shot("placeholders")
-            screen(["4 games, 2026-10-01"])
             q.expect("market: cover of mtest", timeout=10)
 
             # another tab: nothing loads; back on the Market, the covers go on
@@ -4755,7 +4754,7 @@ def test_studio_animator(b, opts):
         keys(UP, "\r", gap=0.6)                 # up from Continue: Exit bm Animator
         screen(["unsaved changes"])
         keys("\r")
-        screen(["Games", "last: bm Animator on testkit"])
+        screen(["Games", "Monitor"])                # back on the menu (the bar shows key chips only)
     finally:
         q.close()
     try:
@@ -5281,7 +5280,7 @@ def test_mesh(b, opts):
         keys(ESC, gap=0.6)
         screen(["bm Mesh", "Exit bm Mesh"])
         keys(UP, "\r")                          # up from Continue: Exit bm Mesh
-        screen(["Games", "last: bm Mesh on astrowing.bm"])
+        screen(["Games", "Monitor"])                # back on the menu (the bar shows key chips only)
     finally:
         q.close()
     try:
@@ -5685,7 +5684,7 @@ def test_pixel(b, opts):
         keys(ESC, gap=0.6)
         screen(["bm Pixel", "Exit bm Pixel"])
         keys(UP, "\r")                          # up from Continue: Exit bm Pixel
-        screen(["Games", "last: bm Pixel on testkit.bm"])
+        screen(["Games", "Monitor"])                # back on the menu (the bar shows key chips only)
     finally:
         q.close()
     try:
@@ -5776,7 +5775,7 @@ def test_pixel_big(b, opts):
         keys(ESC, gap=0.6)
         screen(["bm Pixel", "Exit bm Pixel"])
         keys(UP, "\r")
-        screen(["Games", "last: bm Pixel on titan.bm"])
+        screen(["Games", "Monitor"])                # back on the menu (the bar shows key chips only)
     finally:
         q.close()
     try:
@@ -9496,7 +9495,7 @@ def test_projects(b, opts):
         keys("\x1b[A", gap=0.3)                  # up from the first: Exit
         keys("\r", gap=1.0)                       # "not saved": (bm Code's 6x12 font)
         keys("k", gap=0.3)                        # keep the change for later
-        screen(["Games", "last: bm Code on pong.bm"], tries=80)
+        screen(["Games", "Monitor"], tries=80)
         # the options' copy: a project in Dev
         screen(["Games", "Pong"])
         keys("x")
@@ -9506,7 +9505,7 @@ def test_projects(b, opts):
         screen(["Make an editable copy"])
         keys("\r", gap=1.0)
         q.expect("menu: copied /carts/pong.bm to /bme/pong.bme", timeout=20)
-        screen(["pong.bme is a project"])
+        q.expect("menu: pong.bme is a project", timeout=10)      # the note goes to the log, not to the screen
         keys("3", gap=0.6)                        # Dev: the tools only, no row for the project
         screen(["bm SDK"])
         shot("dev")
@@ -9524,7 +9523,7 @@ def test_projects(b, opts):
         keys("\x1b", gap=0.6)
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK
         keys("\r", gap=0.5)
-        screen(["last: SDK"], tries=80)
+        screen(["Games", "Monitor"], tries=80)
         # the walk of the old test (8 down, 8 right) ends on the project when the tab lists it: here on a tool
         for _ in range(8):
             keys("s", gap=0.15)

@@ -19,7 +19,7 @@
 #               size_over_mib = N                    the file is larger than N MB
 #               declared = true | false              the header has the compatibility block (flag bit 4)
 #               kernel_not_listed = true | false     the block is there and its targets do not list this kernel
-# A reason is read on a small screen: at most 31 characters (the RGB30 details line is 41 characters; "Not here: " takes 10).
+# A reason is read on a small screen: at most 31 characters (it shows in the question "Start it anyway?" and in the log).
 
 [[kernel]]
 id = "pi-zero-w"

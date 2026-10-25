@@ -240,7 +240,7 @@ def down_until(q, want, limit=24):
 
 def open_settings_screen(q):
     """From the Games tab: the Settings tab, its Screen section opened (the Screen modes row selected)."""
-    press(q, "r", ["build and try"])            # the Dev tab: the bm SDK
+    press(q, "r", ["bm SDK"])            # the Dev tab: the bm SDK
     press(q, "r", ["Controllers", "built in"])  # the Settings tab
     press(q, "s", ["Which button does what"])   # Controls
     press(q, "s", ["The link, the address"])    # WiFi
@@ -430,7 +430,7 @@ def test_menu_games_and_hidden_bm(b, opts):
         boot(q)
         time.sleep(0.5)
         text = screen_all(q.screendump())
-        assert "No games yet" in text and "1 Pi cartridge (.bm) hidden by show_bm=0" in text, text
+        assert "No games yet" in text and "1 .bm hidden by show_bm=0" in text, text
     finally:
         q.close()
     sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64)})
@@ -506,7 +506,7 @@ def test_update_from_sd(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        press(q, "r", ["build and try"])        # the Dev tab
+        press(q, "r", ["bm SDK"])        # the Dev tab
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
         press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi
@@ -645,7 +645,7 @@ def test_wifi_page_without_chip(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        press(q, "r", ["build and try"])                # the Dev tab
+        press(q, "r", ["bm SDK"])                # the Dev tab
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
         press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi and network
@@ -821,7 +821,7 @@ def test_bm_cartridge(b, opts):
     try:
         boot(q)
         time.sleep(0.4)
-        assert "picart.bm" in screen_all(q.screendump())
+        assert "Pi cart" in screen_all(q.screendump())
         q.send("\r")                            # confirm: play
         q.expect("play: /bm/picart.bm", timeout=10)
         q.expect("bm: loaded", timeout=30)      # the system's splash, then the game
@@ -848,7 +848,7 @@ def test_bm_cartridge(b, opts):
 
 def test_grey_cart_and_confirm(b, opts):
     """A cartridge that is not made for the RGB30 (an old .bm, or a header that lists the Pi only) is not hidden:
-    its cover is grey with the pill 'Not here', the details line says why, and the start asks first
+    its cover is grey with the pill 'Not here', and the start asks first, with the reason
     ('Start it anyway?', the reason); back cancels, the confirm button starts it (docs/spec/compat-policy.toml).
     A cartridge made for both starts with no question."""
     tmp = mktmp(prefix="bm64grey-")
@@ -861,9 +861,9 @@ def test_grey_cart_and_confirm(b, opts):
     try:
         boot(q)
         text = wait_screen(q, ["Both"])                     # sorted by title: Both, Old Pi cart, Pi only
-        assert "Not here:" not in text, text                # the first cover is made for both: no reason
+        assert text.count("Not here") == 2, text            # the pill on the two covers made for the Pi only, none on Both
         keys(q, "d")                                        # Old Pi cart: an old .bm is for the Pi only
-        text = wait_screen(q, ["Not here: made for the Pi Zero W"])
+        text = wait_screen(q, ["Old Pi cart"])
         keys(q, "\r")                                       # confirm: the question, the game does not start
         text = wait_screen(q, ["Start it anyway?", "made for the Pi Zero W only", "Start"])
         assert b"play: /bm/old.bm" not in q.buf, "it started before the answer"
@@ -872,7 +872,7 @@ def test_grey_cart_and_confirm(b, opts):
         assert "Start it anyway?" not in text, text
         assert b"play: /bm/old.bm" not in q.buf, "back must not start it"
         keys(q, "d")                                        # Pi only: the header lists the Pi alone
-        wait_screen(q, ["Not here: made for the Pi Zero W"])
+        wait_screen(q, ["Pi only"])
         keys(q, "\r")
         wait_screen(q, ["Start it anyway?"])
         keys(q, "\r")                                       # yes: it starts (grey is not a lock)
@@ -886,7 +886,7 @@ def test_grey_cart_and_confirm(b, opts):
             if "bm/both.bm" in screen_all(q.screendump()):
                 break
             keys(q, "a", pause=0.6)
-        wait_screen(q, ["bm/both.bm"])                      # Both: made for the RGB30, so only the question about the frozen game
+        wait_screen(q, ["Both"])                             # Both: made for the RGB30, so only the question about the frozen game
         keys(q, "\r")
         text = wait_screen(q, ["Close Pi only?"])
         assert "Start it anyway?" not in text, text
@@ -986,7 +986,7 @@ def test_sdk_stages_build(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        press(q, "r", ["build and try"])        # Dev: the bm SDK, the only item
+        press(q, "r", ["bm SDK"])        # Dev: the bm SDK, the only item
         q.buf = b""
         press_serial(q, "\r", "bm SDK\r\n", tries=3, wait=60.0)
         # Ctrl+N: new project from a template (sent again until the SDK is ready to read it)
@@ -1028,7 +1028,7 @@ def test_frozen_game_menu(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        wait_screen(q, ["b_alpha.bm"])          # the first cover is Alpha (b_alpha.bm), not a_zulu.bm: sorted by title
+        wait_screen(q, ["Alpha"])               # the first cover is Alpha (b_alpha.bm), not a_zulu.bm: sorted by title
         q.send("\r")                            # the first cover: Alpha
         q.expect("play: /bm/b_alpha.bm", timeout=10)
         q.expect("bm: loaded", timeout=30)
@@ -1081,7 +1081,8 @@ def test_tool_not_a_game(b, opts):
 
 
 def test_cover_details_perf(b, opts):
-    """Cover details show author, size, path and performance note after a game (D12)."""
+    """The bottom bar shows the key chips only (2026-10-25): no author, size or path line under the covers, and no
+    performance note after a game. The speed of the game still goes to the console log."""
     import shutil
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/picart.bm": mkbm.pack(PI_CART.encode(), title="Pi cart", author="tests",
@@ -1091,7 +1092,8 @@ def test_cover_details_perf(b, opts):
         boot(q)
         time.sleep(0.6)
         text = screen_all(q.screendump())
-        assert "tests" in text and "KB" in text, text
+        assert "Play" in text, text
+        assert "KB" not in text and "tests   bm" not in text, "no details line under the covers:" + chr(10) + text
         q.send("\r")
         q.expect("play: /bm/picart.bm", timeout=10)
         q.expect("bm: loaded", timeout=30)
@@ -1100,16 +1102,9 @@ def test_cover_details_perf(b, opts):
         q.expect("suspended", timeout=10)
         time.sleep(1)
         text = screen_all(q.screendump())
-        # the narrow screen shows the note on the details line (cut at 41 characters), as the Pi's "last:" note
-        assert re.search(r"last: picart.bm, \d+\.\d fps, update\+draw", text), text
-        assert "tests   bm" not in text, "the details wait while the note shows:" + chr(10) + text
-        keys(q, "r")                            # Dev: another tab, the note is over
-        time.sleep(0.5)
-        keys(q, "l")                            # back to Games
-        time.sleep(0.6)
-        text = screen_all(q.screendump())
-        assert "last: picart.bm" not in text, text
-        assert "picart.bm: frozen" in text, "the details are back (the game is frozen):" + chr(10) + text
+        assert "Resume" in text, "the chip says Resume (the game is frozen):" + chr(10) + text
+        assert "fps" not in text and "last:" not in text and "frozen" not in text, \
+            "no note under the covers:" + chr(10) + text
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1169,7 +1164,7 @@ def test_menu_input_page(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        press(q, "r", ["build and try"])        # Dev tab
+        press(q, "r", ["bm SDK"])        # Dev tab
         press(q, "r", ["Controllers", "built in"])      # Settings
         press(q, "\r", ["Settings > Controllers"])
         down_until(q, ["Every button and both sticks"])  # Test the buttons
@@ -1195,7 +1190,7 @@ def test_dev_tab_utilities(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        text = press(q, "r", ["bm SDK", "build and try"])       # the Dev tab
+        text = press(q, "r", ["bm SDK"])       # the Dev tab
         for gone in ("3D Bench", "Render bench", "Input test", "Boot log", "Display"):
             assert gone not in text, f"{gone!r} is not a Dev item:\n{text}"
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
@@ -1246,8 +1241,8 @@ def test_cart_type_dev(b, opts):
         wait_screen(q, ["Typed game", "Games", "Dev"])
         text = press(q, "r", ["bm SDK"])         # Dev: the SDK first, then the app
         assert "Typed game" not in text, text
-        text = press(q, "d", ["tests   app"])    # the details line: author, type, size, file
-        assert "bm/typedapp.bm" in text, text
+        text = press(q, "d", ["Typed app", "Play"])    # the app's title on the pill and the Play chip
+        assert "tests   app" not in text and "bm/typedapp.bm" not in text, text   # no details line (bottom bar: chips only)
         q.buf = b""
         q.send("\r")
         line = q.expect("play: /bm/typedapp.bm", timeout=10).decode(errors="replace")

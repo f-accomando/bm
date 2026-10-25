@@ -47,10 +47,6 @@ int  market_refresh(void);
 int  market_items(menu_item_t *items, int max);
 /* A line instead of a game's title ("Loading the Market..."), or NULL. */
 const char *market_banner(void);
-/* The footer line: the catalog, the last download. */
-const char *market_status(void);
-/* The details line of game i (author, version, license, format, size). */
-void market_details(int i, char *buf, size_t n);
 
 /* What A does on game i. */
 enum { MARKET_NONE, MARKET_GET, MARKET_PLAY, MARKET_UPDATE, MARKET_BUSY };
