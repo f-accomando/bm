@@ -1,0 +1,15 @@
+
+bm kernel dev - RGB30 (AArch64)
+CPU: Cortex-A55 r2p0, EL1, counter 24000000 Hz
+RAM: kernel at 10000000, heap 692 MiB, framebuffers at 3c000000; device tree at 3cf17000
+SD: FAT32, 240 MiB, label BM (sdmmc0)
+config: /bm/config.txt, layout it, .bm drawing direct, volume 3/10
+display: starting
+display: DSI link and panel starting
+display: panel on
+display: VPLL set, dclk 36562 kHz, VOP 40158023; DSI version 3133302a, PHY locked, panel on, errors 0 80
+IRQ on: timer 1000 Hz (measured 1000 Hz)
+audio: RK817 codec, 48 kHz
+Lua: Lua 5.4, 2^10 = 1024.0
+Lua: fib(25) = 75025 in 54 ms
+ready

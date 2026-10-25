@@ -1,0 +1,62 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-1667-g4e3466bb
+branch: claude/rgb30-hw-results-25oct
+board: RGB30
+date: 2026-10-25 13:48:14
+file: 20261025-134814_bench3d_rgb30_v0.2.5-1667-g4e3466bb.txt
+
+options bm3d 7.7 gpu3d=off 3d=arm later=0 2d=0 impostor=0 fast=0
+bm 3D Bench (Lua edition)
+drivers bm3d 7.7
+gpu no GPU driver on the RGB30 yet
+probes none
+size 640x360 (the page and the render)
+vsprobe gpu3d_vshader=0 (0 none, 1 scenery, 2 heroes)
+options bm3d 7.7 gpu3d=off 3d=arm later=0 2d=0 impostor=0 fast=0 (at the start; each profile sets its own)
+counters none (a cartridge has no PMU: instr, wait_instr, dmiss, cycles, core_mhz, gpu_mhz are 0)
+previous none
+only tests all, profiles ARM
+notes the frame is the runtime's stat(1) (_update + _draw, 3D included), not the copy to the screen; the ramp has 1 warm and 3 measured frames a step and n grows by half of n; the logic of herotris and stress is 15 Lua steps a thousand of b3d.c's (an estimate); models are cartridge models (texture light of a map piece is one per face); the overlay line is inside the measured frame
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us
+R,spheres,ARM,0.2,122.6,338.3,0,14.4,14.4,9024,3682,5264,158489,0,0.0,0.0,0,0,0,0,1,11774,4806,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,heroes,ARM,0.2,6.7,15.3,0,15.5,15.5,9216,3752,5376,63794,0,0.0,0.0,0,0,0,0,0,10234,4169,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,heroes_skin,ARM,0.2,5.4,12.5,0,12.2,12.2,6144,2537,3584,34091,0,0.0,0.0,0,0,0,0,0,8276,3409,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,heroes_shadow,ARM,0.2,1.0,5.8,0,16.6,16.7,3584,1718,1246,145478,0,0.0,0.0,0,0,0,0,0,3620,1733,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,tiny,ARM,0.2,26.3,58.2,0,12.6,12.7,9728,9728,5491,6100,0,0.0,0.0,0,0,0,0,1,13469,13469,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,draws,ARM,0.2,615.7,1539.6,0,14.1,14.2,5688,2584,3520,144811,0,0.0,0.0,0,0,0,0,1,7388,3270,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,quad_flat,ARM,0.2,15.4,33.1,0,14.4,14.4,26,26,52,748800,0,0.0,0.0,0,0,0,0,0,31,31,0,0,0.0,0.0,0,0,0,748800,-1,16.36,-1,0,0
+R,quad_tex,ARM,0.2,5.6,12.0,0,12.5,12.6,8,8,16,230400,0,0.0,0.0,0,0,0,0,1,11,11,0,0,0.0,0.0,0,0,0,230400,-1,45.10,-1,0,0
+R,quad_alpha,ARM,0.2,5.7,12.3,0,12.3,12.3,8,8,16,215680,0,0.0,0.0,0,0,0,0,1,11,11,0,0,0.0,0.0,0,0,0,230400,-1,44.01,-1,0,0
+R,cel_lit,ARM,0.2,5.4,12.6,0,12.1,12.1,6144,2509,3584,33237,0,0.0,0.0,0,0,0,0,0,8328,3393,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,cel,ARM,0.2,5.4,12.5,0,12.1,12.1,6144,2509,3584,33237,0,0.0,0.0,0,0,0,0,0,8324,3391,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,cel_outline,ARM,0.2,3.8,7.7,0,12.7,12.7,9216,4127,5376,29874,0,0.0,0.0,0,0,0,0,0,11654,5212,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,map8,ARM,0.2,6.0,6.0,1,7.6,7.7,39936,17817,23296,119330,0,0.0,0.0,0,0,0,0,0,39936,17817,0,0,0.0,0.0,0,0,0,1036714,-1,7.33,-1,0,0
+R,sprites,ARM,0.2,2264.7,3079.0,1,15.3,15.3,0,0,0,0,0,0.0,0.0,0,0,0,0,1,0,0,0,0,0.0,0.0,0,0,0,525568,-1,25.26,-1,0,0
+R,stack,ARM,0.2,118.7,239.2,0,13.2,13.3,0,0,0,0,0,0.0,0.0,0,0,0,0,1,0,0,0,0,0.0,0.0,0,0,0,462336,-1,28.03,-1,0,0
+R,fade,ARM,0.2,29.7,63.0,1,16.0,16.0,16144,12533,7912,126641,0,0.0,0.0,0,0,0,0,0,16144,12533,0,0,0.0,0.0,0,0,0,230400,-1,-1,-1,0,0
+R,light,ARM,0.2,63.0,63.0,1,14.4,14.4,16144,12533,7912,126641,0,0.0,0.0,0,0,0,0,0,16144,12533,0,0,0.0,0.0,0,0,0,230400,-1,-1,-1,0,0
+R,herotris,ARM,0.2,-1,1.6,0,25.3,25.3,8072,5711,4100,117906,0,0.0,0.0,0,0,0,0,0,5319,3763,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,ht_p100,ARM,0.2,-1,1.6,0,25.2,25.2,8072,5711,4100,117906,0,0.0,0.0,0,0,0,0,0,5331,3772,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,ht_p100m,ARM,0.2,-1,1.6,0,25.2,25.3,8072,5711,4100,117906,0,0.0,0.0,0,0,0,0,0,5334,3774,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,ht_p10m,ARM,0.2,-1,1.5,0,25.5,25.5,8072,6261,3956,117906,0,0.0,0.0,0,0,0,0,0,5285,4099,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_flat,ARM,-1,16.36,-1,-1,-1,-1,3.77,15.08,33.93
+P,quad_tex,ARM,-1,45.10,-1,-1,-1,-1,10.39,41.57,93.52
+P,quad_alpha,ARM,-1,44.01,-1,-1,-1,-1,10.14,40.56,91.26
+P,map8,ARM,-1,7.33,-1,-1,-1,-1,1.69,6.76,15.21
+P,sprites,ARM,-1,25.26,-1,-1,-1,-1,5.82,23.28,52.38
+P,stack,ARM,-1,28.03,-1,-1,-1,-1,6.46,25.83,58.12
+P,fade,ARM,-1,-1,-1,-1,-1,-1,-1,-1,-1
+P,light,ARM,-1,-1,-1,-1,-1,-1,-1,-1,-1
+hero triangles at 60 fps (640x360; a set is a hero of 1536 triangles, its shadow and a map of 5000)
+columns H,test,profile,sets60,hero_tris60,hero_shadow_tris60,submitted60,drawn60,ms,gpu_ms,arm_ms,mesh,probe_gltris,probe_meshes,vs_probe,later_submitted60,later_drawn60
+H,herotris,ARM,0.66,1012,2024,5319,3763,25.3,0.0,25.3,NA,0,-1,0,-,-
+cel cost: the same n heroes (1536 triangles each, lit by the sun), ms a frame; cel = 4 bands, floor 0.35; nd = dither off (not in this edition: -1); outline = hull 0.03, colour 0x2030A0, no bands
+columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,outline,cel_over_lit,cel_nd_over_lit_nd,outline_over_lit
+C,ARM,1,3072,3.25,3.22,-1,-1,3.89,0.99,-1,1.20
+C,ARM,2,6144,5.55,5.52,-1,-1,7.51,0.99,-1,1.35
+C,ARM,3,9216,8.78,8.82,-1,-1,12.65,1.00,-1,1.44
+C,ARM,4,12288,12.08,12.07,-1,-1,17.71,1.00,-1,1.47
+total 21 s

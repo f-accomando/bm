@@ -1,0 +1,9 @@
+bm: "Yharnam" 6588 frames, 57.4 fps, 27 dropped
+     update+draw avg 10.22 ms (61% of frame), max 1050.52 ms, Lua 2164 KB
+     copy to screen 1.31 ms per frame
+     dev kit: Lua peak 4104 KB, data 41256 KB, busiest frame 1617k instructions, 25 frames over 16.7 ms, 101869 tokens
+report: session_yharnam_rgb30.txt saved as bm/reports/rpt00002.txt
+fiber: netxfer did not yield: 156.6 ms past its slice
+menu idle: 258/300 frames, 806 of 3441 ms taken, 157.0 ms past a frame; covers 556 ms (+97.3, stk 2.9/16K), netxfer 1738 ms (+156.6, stk 3.1/64K, stop 94.1); min slack -205084 us, paced 1
+menu stalls: tls handshake 4x last 292.2 worst 341.1 ms
+menu frame: 1x, a frame averages draw 30050 us, enlarge 0 us, flip 13794 us, free time used 2687 us (300 frames)

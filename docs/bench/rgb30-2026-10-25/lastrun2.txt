@@ -1,0 +1,79 @@
+
+bm kernel dev - RGB30 (AArch64)
+CPU: Cortex-A55 r2p0, EL1, counter 24000000 Hz
+RAM: kernel at 10000000, heap 692 MiB, framebuffers at 3c000000; device tree at 3cf17000
+SD: FAT32, 240 MiB, label BM (sdmmc0)
+config: /bm/config.txt, layout it, .bm drawing direct, volume 3/10
+display: starting
+display: DSI link and panel starting
+display: panel on
+display: VPLL set, dclk 36562 kHz, VOP 40158023; DSI version 3133302a, PHY locked, panel on, errors 0 80
+IRQ on: timer 1000 Hz (measured 1000 Hz)
+audio: RK817 codec, 48 kHz
+Lua: Lua 5.4, 2^10 = 1024.0
+Lua: fib(25) = 75025 in 54 ms
+ready
+boot log saved to bm/bootlog.txt
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: powering the RTL8821CS (GPIO0_A0, 32 kHz from the RK817, WL_REG_ON GPIO4_A2)
+wifi: SDIO card ready (sdmmc2, 4-bit, function 1, 512-byte blocks)
+wifi: chip cut 14, firmware 24.11.0 running, RFE 2, package 0
+wifi: MAC address 98:03:cf:e5:60:a1
+wifi: radio tables loaded (2907 writes, RFE 2, antenna shared with Bluetooth)
+wifi: radio on (2.4 GHz, channel 1)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 6, -78 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (140 ms, fail mask 00)
+wifi: authenticated
+wifi: associated, AID 31
+wifi: WPA2 keys in (pairwise CCMP, group CCMP, key 1)
+net: asking for an address (DHCP)...
+cartridge menu: 8 games
+net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.233
+net: time 2026-10-25 13:17 UTC
+play: /bm/LOPO.B16 (171480 bytes)
+bm: loaded in 254 ms, the splash over at 1813 ms
+bm: the 3D is drawn by the ARM as bm3d 0.2: the page is a square inside the screen
+bm: "Lopo Kratos" suspended (A on its cover resumes it)
+bm: "Lopo Kratos" 700 frames, 59.9 fps, 0 dropped
+     update+draw avg 6.86 ms (41% of frame), max 10.13 ms, Lua 89 KiB
+     dev kit: Lua peak 89 KiB, data 703 KiB, busiest frame 1k instructions, 0 frames over 16.7 ms, 1500 tokens
+report: session_lopo-kratos_rgb30.txt saved as bm/reports/RPT00001.TXT
+tls: 21 root certificates
+report: sending session_lopo-kratos_rgb30.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_lopo-kratos_rgb30.txt
+menu idle: 298/300 frames, 0 of 3862 ms taken, 0.0 ms past a frame; no job; min slack -38714 us, paced 1
+menu idle: 298/300 frames, 0 of 3819 ms taken, 0.0 ms past a frame; no job; min slack -45146 us, paced 1
+net: transfer with a wrong password from 192.168.1.97
+net: transfer with a wrong password from 192.168.1.97
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+net: receiving settings (6 bytes)...
+config: dev=1
+net: settings from the PC: 1 changed in bm/config.txt
+net: receiving a new kernel (2373568 bytes)...
+net: kernel 0% (0 of 2317 KiB)
+net: kernel 10% (233 of 2317 KiB)
+net: kernel 20% (469 of 2317 KiB)
+net: kernel 30% (702 of 2317 KiB)
+net: kernel 40% (935 of 2317 KiB)
+net: kernel 50% (1167 of 2317 KiB)
+net: kernel 60% (1400 of 2317 KiB)
+net: kernel 70% (1627 of 2317 KiB)
+net: kernel 80% (1858 of 2317 KiB)
+net: kernel 90% (2088 of 2317 KiB)
+net: kernel received (2373568 bytes): written on the SD card from the menu
+menu idle: 253/300 frames, 46 of 2682 ms taken, 10.9 ms past a frame; netxfer 1324 ms (+115.0); min slack -118234 us, paced 1
+net: saved kernel8.img on the SD card (2373568 bytes)
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12" (restarting)
+restarting: this run's log in bm/lastrun.txt
