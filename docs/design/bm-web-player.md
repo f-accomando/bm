@@ -86,7 +86,7 @@ generated C array instead.
 | 3 | Canvas, input, sound (done) | `make web-player` writes `build/web/player/`; the page plays a `.bm` from the file input: canvas, keyboard, Gamepad API, AudioWorklet | stage 2 |
 | 4 | Check of sound and speed (clock and sound queue tested in Node; listening and the visible-tab rate left) | `web/bmring.js` holds the 60 Hz clock (`BmPacer`) and the worklet queue (`BmRing`); `make test-webplayer` tests both with a fake clock. Listen to `sfx()` and `music()` and read `bmLauncher.stats` in a visible tab | the user, or a visible browser |
 | 5 | Storage and 3D (done) | IndexedDB saves; a 3D cartridge on `r3d.c` | stage 4 |
-| 6 | Release page (done) | SRI on cdnjs React, size check (5 MB total with 3 cartridges), preset selector (Chaos Kitchen, bm Demo, Stages 3D), WebAudio synthesizer previews, clean build in `build/web/player/` | static server / GitHub Pages |
+| 6 | Release page (done) | SRI on cdnjs React, size check (5 MB total with 3 cartridges), preset selector (Chaos Kitchen, bm Demo, Stages 3D; Stages 3D was replaced by Hero Stress on 25 Oct), WebAudio synthesizer previews, clean build in `build/web/player/` | static server / GitHub Pages |
 
 ## 6. Risks
 
@@ -135,7 +135,7 @@ build. It skips when Node is missing. Run result on 22 Oct: ok, equal to the PC 
   3 s and when the cartridge ends. Checked in the built-in browser with `tests/webplayer/save.lua`: the file
   `5B2B419C.SAV` was written, a reload of the page gave `runs=2` (it was 1), and a press of A saved 102. This
   check is by hand: IDBFS needs a browser.
-- 3D: `make test-wasm-3d` plays the 3D stages cartridge (`tests/stages3d/input.txt`, 20 s) on the PC build and
+- 3D: `make test-wasm-3d` played the 3D stages cartridge (Stages 3D, removed 25 Oct; the rule now plays `herocart.bm` for 10 s with no input script, not run: no emcc) on the PC build and
   on the wasm build and compares one frame in 60: 20 frames, all byte-equal. So `r3d.c` and the float maths
   give the same pixels in wasm. The speed of 3D in wasm is not measured.
 

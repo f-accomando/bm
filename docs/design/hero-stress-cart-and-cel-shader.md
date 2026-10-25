@@ -1,5 +1,7 @@
 # Hero stress cart and cel shader
 
+> Removed 25 Oct: `carts/stages3d`, named below as the model of the layout, was deleted (user decision). The body is history.
+
 > Design only. No code is written by this page. Written 2026-10-22 from `bm-core` at `993ae1f7`.
 > Everything that says "proposal" is a decision for the owner. Everything that says "not verified" was not run.
 

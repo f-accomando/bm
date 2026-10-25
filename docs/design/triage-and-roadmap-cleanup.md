@@ -1,5 +1,7 @@
 # Triage of failing tests and roadmap cleanup list
 
+> Removed 25 Oct: `carts/stages3d` and its tests, named below, were deleted (user decision). The body is history.
+
 Date: 2026-10-22. Base: `origin/bm-core` at 993ae1f7. Documents only. No code was built or changed.
 Data comes from `gh run view --log-failed`, `gh pr view`, `gh pr diff` and from reading
 `tests/qemu_test.py`, `tests/rgb30/qemu_test.py`, `Makefile` and `src/kernel/config.c`.

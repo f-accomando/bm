@@ -90,7 +90,6 @@ Inizia un nuovo progetto con **Ctrl+N**, con *New project...* nel menu (Esc), op
 | Online 2D | da due a quattro console in rete: una lobby e lockstep |
 | 3D scene | pavimento, cubi, una palla con la sua ombra, una camera che segue |
 | 3D with models | i modelli di bm Studio, animati (bm Animator) |
-| Stages 2D | un titolo, tre livelli, un finale e un miglior tempo salvato |
 
 Un nuovo progetto non è ancora salvato: la pagina del progetto dice `not saved yet` finché non usi **Save as**. Se hai modifiche non salvate, l'SDK dice `unsaved changes: choose the template again to leave them`: scegli di nuovo il template per confermare.
 
@@ -179,26 +178,6 @@ I numeri casuali del gioco vengono dal seme della partita (`lib.rng`), mai da `m
 2. Premi **Ctrl+N** e scegli **3D with models**.
 3. Premi **Esc**, **Save as...**, scrivi un nome e premi Invio.
 4. Premi **F5**. I modelli del progetto girano su un piedistallo; con uno scheletro (bm Animator) eseguono la loro prima animazione. Sinistra e destra cambiano il modello, su e giù lo zoom. Senza modelli si vede un cubo.
-
-## Tutorial: Stages 2D
-
-Un piccolo gioco completo: una schermata del titolo, tre livelli, un finale e un miglior tempo salvato. L'eroe corre e salta come in Platform 2D.
-
-1. Premi **Ctrl+N**. *Stages 2D* è l'ultima riga della lista: premi **su** una volta dalla prima riga, poi **Invio**. La riga di stato dice `new project (Stages 2D)`.
-2. Premi **Esc**, **Save as...**, scrivi un nome e premi **Invio**.
-3. Premi **F3** due volte per vedere la mappa. I tre livelli sono tre fasce di 48 righe una sotto l'altra (righe 0-47, 48-95, 96-143). In ogni fascia il terreno ha dei buchi, ci sono delle assi, e l'uscita (tile 7, una bandiera) è a destra.
-4. Premi **F5**. Il titolo mostra **NEW GAME**; su e giù scelgono, **A** avvia. Quando hai raggiunto il livello 2 o 3, compare una seconda riga **CONTINUE STAGE**.
-5. Gioca: sinistra e destra camminano, **A** salta, **giù** scende attraverso un'asse. In alto a sinistra compaiono il livello, le vite e il tempo.
-6. Cadi in un buco: perdi una vita (ne hai 3) e il livello ricomincia. Senza vite compare **GAME OVER** e **A** torna al titolo.
-7. Raggiungi la bandiera: `STAGE 1 CLEAR`, poi **A** per il livello successivo. Dopo il livello 3 il finale mostra `ALL CLEAR` con il tuo tempo e il miglior tempo. Solo una partita iniziata con **NEW GAME** può stabilire il miglior tempo.
-
-::: note
-Il gioco conserva il miglior tempo e il livello raggiunto con `save()`. Come funzionano i salvataggi è nel manuale dell'API.
-:::
-
-::: try
-Avvicina all'inizio la bandiera del livello 1 (una tile 7 sulla mappa), oppure aggiungi un'asse sopra il primo buco, e premi di nuovo F5.
-:::
 
 # L'editor di mappe
 
@@ -346,7 +325,7 @@ Ctrl+Shift+B    export .b16
 - Il pad: **L1 / R1** cambiano pagina, **Start** apre il menu, **X** apre la lista delle azioni della pagina, **L2 / R2** il colore o la tile precedente o successiva, **ok** e **back** sono B e A (`confirm=a` li scambia).
 - Il testo si scrive con la tastiera su schermo (`padtype`); una tastiera funziona come sul Pi.
 - Un nuovo progetto è 360x360 con il target `.b16`.
-- I template sono gli stessi, *Stages 2D* compreso.
+- I template sono gli stessi.
 - **Try**: Start + Select (o Ctrl+Esc) esce dal gioco e l'SDK ritorna.
 - I programmi bm Code, Pixel, Studio, Animator, Mesh e Sound non sono sull'RGB30, quindi *Open in ...* non viene offerto.
 ::: warn

@@ -3,7 +3,7 @@
 Cut from [tools](tools.md): the suite and its editors. Open work and rules stay in tools.
 
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
-  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models, Stages 2D), budgets (tokens, Lua, assets),
+  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
   the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`,
   or builds a real `.b16` when `target = "b16"`) and `Export .b16` (`Ctrl+Shift+B`,
   `cart_build(path, "b16")`). Map page (`P.map`): layers, flags, `z` a 16×16 brush (2×2 cells,
@@ -11,7 +11,7 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   placeholder tile (`>= 1024`) when switching to the `objects` layer, zoom in/out (`-`/`+`: 1, 2,
   4, 8, 16 px/cell), `m` (*Overview*) full 256×256 map at 1 px/cell with viewport box and
   click/arrow jump, `Tab` compact palette of used 16×16 tiles (`z` toggles full sheet), Home/End
-  and PgUp/PgDn a page. Template *Stages 2D* as on the RGB30: `test_sdk_stages_pi`.
+  and PgUp/PgDn a page. Build flow of a template: `test_sdk_template_pi` (the same on the RGB30: `test_sdk_template_build`).
   Tiled import (R11, both SDKs): menu *Import a Tiled map*, a `.tmj`/`.json` in `/docs`;
   `bm3d.tiled_import` and `tiled_apply` (`src/script/bm3d.lua`): orthogonal, CSV layers, 8x8 or
   16x16 tiles (a 16x16 tile is 2x2 cells), groups, boolean tile properties to flags 0-4, add or
@@ -23,7 +23,7 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
   tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
   `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
-  `/bm/` so it appears immediately in Games). Template *Stages 2D* (3 stages in map bands, record in slot 1): `test_stages_template`, `test_sdk_stages_build`.
+  `/bm/` so it appears immediately in Games). The Stages 2D template was removed on 25 Oct (user decision).
 - **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
   `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/carts` or
   `/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be

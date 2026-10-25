@@ -164,7 +164,7 @@ Sources: `docs/design/bm-web-player.md` (stages, section 8), `web/README.md`, `d
   is `canvas#bm-canvas`. Without `bmweb.js` the launcher says the runtime is not built (`web/README.md`).
 - **Size.** The limit is 16 MB for a page with its cartridges (`ROADMAP.md` WEB-1). The release in `build/web/player/` is 5 MB
   with 3 cartridges; the wasm module is 1.5 MB (0.57 MB gzip) (`bm-web-player.md` section 5, stages 2 and 6).
-- **What runs.** Chaos Kitchen, Stages 3D and a local `.bm` from a file input. Checks: `make test-wasm` (frames equal to the PC
+- **What runs.** Chaos Kitchen, Hero Stress (it replaced Stages 3D, removed 25 Oct) and a local `.bm` from a file input. Checks: `make test-wasm` (frames equal to the PC
   build), `make test-wasm-3d`, `make test-webplayer`. All other cartridges: not verified.
 - **Rendering.** 60 Hz pacing (`BmPacer`), integer scaling on a canvas. 3D uses the ARM rasterizer `r3d.c`. Its speed in wasm is not measured.
 - **Controls.** Keyboard: arrows, Space or J = A, K or X = B, U = X, I = Y, Enter = Start, Backspace or right Shift = Select, Q and

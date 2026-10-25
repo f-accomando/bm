@@ -42,7 +42,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `battery()` / `battery_low()` in Lua (`nil`/`false` on the Pi). Low from 20% off the
   charger until 23%: a red icon drawn by the runtime over games and tools (`battery_draw()`
   in `runtime.c`, after `flush3d`, outside lockstep); `battery_icon=0` turns it off. QEMU:
-  `test_battery_low_game` (`tests/rgb30/qemu_test.py`); `test_stages3d_b16` (Stages 3D `.b16`: three stages by keys, `-k stages3d`).
+  `test_battery_low_game` (`tests/rgb30/qemu_test.py`).
 - WiFi RTL8821CS over SDIO (`rtw_*.c`, `wpa.c`), Bluetooth RTL8821CS on UART1 (`rk_bt.c`,
   H5).
 - Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + last 4 KB printed),
@@ -96,7 +96,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 - RGB30 QEMU tests (22 Oct). The menu reads a serial key as held for `PAD_SERIAL_MS` (120 ms, `src/rgb30/pad.c`): a
   frame longer than that, as under load, loses the key. Use `press`, `press_serial` and `wait_screen` in
   `tests/rgb30/qemu_test.py`, no blind keys or fixed sleeps. Fixed so: `test_update_from_sd`, `test_gpu_test` (removed on 24 Oct 2026),
-  `test_menu_input_page` (sends X again until a screen shows `held: 00000040`), `test_sdk_stages_build`,
+  `test_menu_input_page` (sends X again until a screen shows `held: 00000040`), `test_sdk_template_build`,
   `test_wifi_page_without_chip`: 5 of 5 alone, 3 of 3 with 14 busy loops (load 16 on 8 cores). Still blind:
   `test_bluetooth_page_without_chip`, `test_games_in_carts`, `test_menu_games_and_hidden_bm`, `test_screen_console`.
   A full `/tmp` (tmpfs) in WSL fails any test that writes an SD image: delete `/tmp/bm64*` or set `TMPDIR`.

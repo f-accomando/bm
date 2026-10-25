@@ -75,8 +75,8 @@
  "api-core": {
   "chapters": {
    "1": {
-    "en": "cafb740a691a",
-    "it": "604938eeed7f",
+    "en": "a963c31dd5d1",
+    "it": "aa31fff5de2f",
     "title": "How a cartridge works"
    },
    "10": {
@@ -127,7 +127,7 @@
   },
   "sources": {
    "docs/API.md": "213900352f27",
-   "docs/GAME-GUIDE.md": "b75e600e2b72",
+   "docs/GAME-GUIDE.md": "398125798aee",
    "docs/api/draw.md": "a9b2da1f4789",
    "docs/api/input.md": "4a75b07df3da",
    "docs/api/system.md": "583f94063149"
@@ -750,8 +750,8 @@
     "title": "The screen"
    },
    "4": {
-    "en": "aa174f94f36f",
-    "it": "d265ca2dca96",
+    "en": "5d5ae178acd1",
+    "it": "f443dfe48f52",
     "title": "Creating a project from a template"
    },
    "5": {
@@ -765,8 +765,8 @@
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "f3fb3c3e9598",
-    "it": "3d324e02f9d7",
+    "en": "ea7c30cc1120",
+    "it": "3723ae49dbb5",
     "title": "Building and exporting"
    },
    "8": {
@@ -781,10 +781,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "197c47f05b65",
+   "carts/editor/main.lua": "7a27e161fc74",
    "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
-   "docs/progress/tools.md": "a38752d0a2e5",
+   "docs/progress/tools.md": "56f590f44203",
    "sdk/README.md": "70140108556f"
   }
  },
@@ -994,13 +994,13 @@
  "levels": {
   "chapters": {
    "1": {
-    "en": "bec175b43299",
-    "it": "5c337177c840",
+    "en": "b7a272059dcd",
+    "it": "462b636eb170",
     "title": "What a level is in bm"
    },
    "10": {
-    "en": "5597984ee246",
-    "it": "4463d1324cb3",
+    "en": "c11f7ead3c33",
+    "it": "5b13328b1447",
     "title": "Tips and limits"
    },
    "2": {
@@ -1039,23 +1039,23 @@
     "title": "Several stages in a 3D game"
    },
    "9": {
-    "en": "4b35fdfcd141",
-    "it": "5fc5f2ec1da1",
+    "en": "5eb4cfc94e2b",
+    "it": "9038cd44ab1b",
     "title": "Switching levels in the game"
    }
   },
   "sources": {
-   "carts/editor/main.lua": "72d73fc9f49e",
-   "docs/GAME-GUIDE.md": "4694b2066d99",
-   "docs/ROADMAP.md": "cc63d5e861be",
-   "docs/api/bmlib.md": "1da0c71742dc",
-   "docs/api/draw.md": "bc14d3e027f6",
-   "docs/api/light3d.md": "e598e3265d36",
-   "docs/design/games-architecture.md": "41e1f6da4bed",
-   "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/graphics.md": "0450059d63f3",
-   "docs/progress/tools.md": "b6f6f3e87bee",
-   "docs/progress/v3d.md": "48d60c944c2d",
+   "carts/editor/main.lua": "7a27e161fc74",
+   "docs/GAME-GUIDE.md": "398125798aee",
+   "docs/ROADMAP.md": "179f05ee7fd5",
+   "docs/api/bmlib.md": "2f34defc42b8",
+   "docs/api/draw.md": "a9b2da1f4789",
+   "docs/api/light3d.md": "09cb11aea0e1",
+   "docs/design/games-architecture.md": "38d1cf8a4cc1",
+   "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
+   "docs/progress/graphics.md": "c811700bb7b6",
+   "docs/progress/tools.md": "56f590f44203",
+   "docs/progress/v3d.md": "20081adc0057",
    "src/bm/map3d.c": "83e5e8666802"
   }
  },

@@ -90,7 +90,6 @@ Start a new project with **Ctrl+N**, with *New project...* in the menu (Esc), or
 | Online 2D | two to four consoles on the network: a lobby and lockstep |
 | 3D scene | floor, cubes, a ball with its shadow, a camera that follows |
 | 3D with models | the models of bm Studio, animated (bm Animator) |
-| Stages 2D | a title, three stages, an ending and a saved best time |
 
 A new project is not saved yet: the project page says `not saved yet` until you use **Save as**. If you have unsaved changes, the SDK says `unsaved changes: choose the template again to leave them`: choose the template again to confirm.
 
@@ -179,26 +178,6 @@ The game's random numbers come from the match's seed (`lib.rng`), never from `ma
 2. Press **Ctrl+N** and choose **3D with models**.
 3. Press **Esc**, **Save as...**, type a name and press Enter.
 4. Press **F5**. The models of the project turn on a stand; with a skeleton (bm Animator) they play their first animation. Left and right change the model, up and down the zoom. With no model, a cube is shown.
-
-## Tutorial: Stages 2D
-
-A whole small game: a title screen, three stages, an ending and a saved best time. The hero runs and jumps like in Platform 2D.
-
-1. Press **Ctrl+N**. *Stages 2D* is the last row of the list: press **up** once from the first row, then **Enter**. The status line says `new project (Stages 2D)`.
-2. Press **Esc**, **Save as...**, type a name and press **Enter**.
-3. Press **F3** twice to see the map. The three stages are three bands of 48 rows one under the other (rows 0-47, 48-95, 96-143). In each band the ground has gaps, there are planks, and the exit (tile 7, a flag) is at the right.
-4. Press **F5**. The title shows **NEW GAME**; up and down choose, **A** starts. Once you have reached stage 2 or 3, a second row **CONTINUE STAGE** appears.
-5. Play: left and right walk, **A** jumps, **down** drops through a plank. The top left shows the stage, the lives and the time.
-6. Fall down a gap: you lose a life (you have 3) and the stage starts again. With no lives left, **GAME OVER** appears and **A** goes back to the title.
-7. Reach the flag: `STAGE 1 CLEAR`, then **A** for the next stage. After stage 3 the ending shows `ALL CLEAR` with your time and the best time. Only a game started with **NEW GAME** can set the best time.
-
-::: note
-The game keeps the best time and the stage you reached with `save()`. How saves work is in the API manual.
-:::
-
-::: try
-Move the flag of stage 1 closer to the start (a tile 7 on the map), or add a plank over the first gap, and press F5 again.
-:::
 
 # The map editor
 
@@ -346,7 +325,7 @@ Ctrl+Shift+B    export .b16
 - The pad: **L1 / R1** change page, **Start** opens the menu, **X** opens the list of the actions of the page, **L2 / R2** the previous or next colour or tile, **ok** and **back** are B and A (`confirm=a` swaps them).
 - Text is typed with the on-screen keyboard (`padtype`); a keyboard works as on the Pi.
 - A new project is 360x360 with the target `.b16`.
-- The templates are the same, *Stages 2D* included.
+- The templates are the same.
 - **Try**: Start + Select (or Ctrl+Esc) leaves the game and the SDK comes back.
 - The programs bm Code, Pixel, Studio, Animator, Mesh and Sound are not on the RGB30, so *Open in ...* is not offered.
 ::: warn

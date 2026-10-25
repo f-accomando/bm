@@ -62,7 +62,7 @@ The rule is in the Makefile, section "Cartridges: one data-driven recipe".
 | `layers_<id> := a b` | map layers, the files `map_a.csv`, `map_b.csv`, in this order |
 | `extra_<id>` | more `mkbm.py` flags, at the end |
 
-A second edition of a cart (for example `.b16`) has its own key (`stages3d_b16`). Its rule names the key:
+A second edition of a cart (for example `.b16`) has its own key (`overbit_b16`). Its rule names the key:
 `$(call CART_RECIPE,<key>)`. A `.bme` project (`BME_CARTS`) uses the same recipe.
 Special builds keep their own rules: the `.b16` made with `--from`, the Overbit variants (reel, match), the test carts.
 
@@ -114,8 +114,6 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `bmweb`, `herocart` | `bm.info`; `src/` holds the modules and `build/` the build script |
 | `kratos` | `bm.info`; `build/glb2parts.py` writes the PARTS table into `main.lua` (between the DATA lines); the `.bme` is built with the `.bm` |
 | `sdk_b16`, `titan_ex` | `bm.info`; the `.b16` editions use it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
-
-`stages3d` is not a project of this layout. It has one front per edition, and each front has its own `bm.info` (`bm/bm.info` and `b16/bm.info`). Logic is in `common/`, assets are shared, and `build.py` joins an edition's sources ([stages3d](progress/stages3d.md)). The tool does not list it.
 
 ## Files the console writes on the SD card
 
