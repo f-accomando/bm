@@ -102,11 +102,6 @@ int rec_due(void)
     return R.on && (int32_t)(timer_ticks() - R.next_due) >= 0;
 }
 
-const rec_stats_t *rec_stats(void)
-{
-    return &R.st;
-}
-
 /* the next free run number: one more than the highest Rnnn in /bm/rec */
 static uint32_t next_run(void)
 {

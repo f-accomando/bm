@@ -55,7 +55,6 @@ void rec_pump(uint32_t until);
 /* The game is writing to the card (a save, a screenshot): no new chunk is started for a while. */
 void rec_note_game_io(void);
 
-const rec_stats_t *rec_stats(void);
 /* "REC 123 d0": for the corner of the screen. */
 void rec_overlay_text(char *buf, int n);
 

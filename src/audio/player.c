@@ -1188,14 +1188,6 @@ int player_at_waiting(const player_t *p, int tag)
     return n;
 }
 
-void player_release(player_t *p, int voice)
-{
-    if (voice >= 0 && voice < AU_TRACKS) {
-        gate_off(p, voice);
-        p->v[voice].gate_left = 0;
-    }
-}
-
 void player_lua_note(player_t *p, int voice, float hz, uint32_t ms)
 {
     if (voice < 0 || voice >= AU_TRACKS)
