@@ -75,10 +75,10 @@ note = "bytes 120..127 and flag bit 4: targets, input, aspect, needs, min RAM, m
 [[item]]
 id = "compat-policy"
 since = 4
-status = "partial"
+status = "implemented"
 platforms = "all"
 where = ["docs/spec/compat-policy.toml", "scripts/mkcompat.py", "src/bm/compat_table.h", "src/bm/format.c", "src/kernel/carts.c", "src/rgb30/ui.c", "src/kernel/market.c"]
-note = "one table says per kernel whether a cartridge shows, greys or hides; the C table is made from it. The Pi and RGB30 menus grey a not-compatible cartridge with a reason and ask before the start; the Market list greys by the file name. Open: the Market targets line, the load-time message, the RGB30 Market default for .bm"
+note = "one table says per kernel whether a cartridge shows, greys or hides; the C table is made from it. The Pi and RGB30 menus grey a not-compatible cartridge with a reason and ask before the start; the Market list greys by the file name. The Market reads the catalog line `targets N` (catalog.c, market.c entry_grey); every start path prints the message made for the ... only (runtime.c); the RGB30 Market lists .bm and greys them, market_bm=0 hides them. Proved 25 Oct 2026 by RGB30 QEMU test_market_bm_key and test_grey_cart_and_confirm, Pi QEMU test_market and test_grey_cart_on_pi, host make test-catalog (targets parse). RGB30 test_market_b16 fails on a step about the Installed page, not on this policy"
 
 [[item]]
 id = "info-keys"
@@ -150,7 +150,7 @@ since = 3
 status = "partial"
 platforms = "all"
 where = ["src/bm/project.h", "scripts/mkbm.py", "src/kernel/settings.c", "src/kernel/home.h"]
-note = "docs/BM-FORMAT.md. Done: the type bits in the header (project.h), written by mkbm.py from bm.info. Not done: no kernel code calls bm_type_of_head(), so the menu does not group by type (Games = game, Dev = app, Settings > System > Utilities = utility); home_utils() is a weak stub that returns 0 (settings.c:122) and home_tool_is_utility() has no definition (home.h:89)"
+note = "docs/BM-FORMAT.md. Done: the type bits in the header (project.h), written by mkbm.py from bm.info. Pi: carts.c reads bm_type_of_head (carts.c:131) and lists app and utility cartridges outside Games; home.c defines home_utils() and home_tool_is_utility(). Not done: the RGB30 does not read the type (D51) and its Dev tab holds Settings rows (D52); settings.c has only a weak home_utils() stub for it"
 
 [[item]]
 id = "folders-bm-bme"

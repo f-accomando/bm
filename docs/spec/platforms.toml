@@ -30,11 +30,15 @@ what = "the RGB30's screen is square 720x720; the Pi's is a 16:9 TV"
 
 [[capability]]
 id = "pad-only"
-what = "the RGB30 has only its pad: confirm is B and back is A (confirm=a swaps), buttons are the letters printed on it"
+what = "the RGB30 has only its pad: the menus confirm with B and go back with Y (confirm=a makes A confirm; mo and mc of controls= remap them), buttons are the letters printed on it"
 
 [[capability]]
 id = "no-keyboard"
 what = "no USB host and no on-screen keyboard on the RGB30: keys such as F11, F12, Ctrl+Esc exist only with a Bluetooth keyboard"
+
+[[capability]]
+id = "multicore"
+what = "the RK3566 has four cores and the Pi Zero W has one: RGB30 multitasking may be optimised further (SYS-10 phase 6)"
 
 [[capability]]
 id = "storage-path"
