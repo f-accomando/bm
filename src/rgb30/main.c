@@ -47,6 +47,7 @@
 #include "bm/runtime.h"
 #include "audio/audio.h"
 #include "rk_display.h"
+#include "mali_hw.h"
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -269,6 +270,11 @@ void kernel_main(uintptr_t dtb)
     kprintf("ready\n");
     sdlog_boot(1);
     booting = 0;
+    if (config_get("mali_probe") && !strcmp(config_get("mali_probe"), "1")) {
+        reports_begin("gpu");
+        rgb30_mali_probe_triangle(&fb);
+        reports_end();
+    }
     wifi_boot();
     if (bt_paired() && bt_start() != 0)     /* a paired pad, keyboard or mouse comes back by itself, as on the Pi */
         kprintf("bt: not started: a paired pad will not reconnect (Settings > Controllers starts it)\n");

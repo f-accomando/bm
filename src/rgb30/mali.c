@@ -27,6 +27,7 @@
 #define GPU_INT_MASK        0x028
 #define GPU_CMD             0x030
 #define GPU_FAULT_STATUS    0x03c
+#define GPU_FAULT_ADDRESS   0x040
 #define GPU_THREAD_MAX      0x0a0
 #define GPU_SHADER_PRESENT  0x100   /* _LO; _HI at + 4 */
 #define GPU_TILER_PRESENT   0x110
@@ -47,6 +48,9 @@
 #define JOB_INT_CLEAR       0x1004
 #define JOB_INT_MASK        0x1008
 #define JS(n, r)            (0x1800 + (n) * 0x80 + (r))
+#define JS_HEAD             0x00    /* _LO; _HI at + 4 */
+#define JS_TAIL             0x08    /* _LO; _HI at + 4 */
+#define JS_CONFIG           0x18
 #define JS_STATUS           0x24
 #define JS_HEAD_NEXT        0x40    /* _LO; _HI at + 4 */
 #define JS_AFFINITY_NEXT    0x50
@@ -110,7 +114,7 @@ enum { JOB_WRITE_VALUE = 2, JOB_CACHE_FLUSH = 3 };
 #define MEM_RESULT          0x3400
 
 static const mali_hw_t *H;
-static char line[160];
+static char line[256];
 
 static uint32_t gr(uint32_t r)              { return H->rd(MALI_GPU_BASE + r); }
 static void gw(uint32_t r, uint32_t v)      { H->wr(MALI_GPU_BASE + r, v); }
@@ -411,10 +415,85 @@ static int job_poll(int js, uint32_t *status, uint32_t *raw)
     return *raw & done && !(*raw & failed) ? 1 : -1;
 }
 
+static void addr_map(uint64_t a, char *buf, size_t sz)
+{
+    if (!a) {
+        ksnprintf(buf, sz, "none");
+        return;
+    }
+    if (H && a >= H->mem_pa && a < H->mem_pa + H->mem_size) {
+        uint32_t off = (uint32_t)(a - H->mem_pa);
+        if (off < MALI_SET_BASE(0)) {
+            if (off == MEM_L0) ksnprintf(buf, sz, "PT_L0");
+            else if (off == MEM_L1) ksnprintf(buf, sz, "PT_L1");
+            else if (off == MEM_L2) ksnprintf(buf, sz, "PT_L2");
+            else if (off == MEM_JOBS) ksnprintf(buf, sz, "MEM_JOBS");
+            else if (off == MEM_RESULT) ksnprintf(buf, sz, "MEM_RESULT");
+            else if (off == 0x3800) ksnprintf(buf, sz, "MEM_FJOB");
+            else if (off == 0x3900) ksnprintf(buf, sz, "MEM_FBD");
+            else if (off == 0x3a00) ksnprintf(buf, sz, "MEM_SAMPLES");
+            else if (off >= 0x10000 && off < 0x20000) ksnprintf(buf, sz, "MEM_SURF+0x%x", off - 0x10000);
+            else ksnprintf(buf, sz, "mem+0x%x", off);
+            return;
+        }
+        int s = (off >= MALI_SET_BASE(1)) ? 1 : 0;
+        uint32_t base = MALI_SET_BASE(s);
+        uint32_t rel = off - base;
+        if (rel == SO_FJOB) ksnprintf(buf, sz, "s%d.FJOB", s);
+        else if (rel == SO_FBD) ksnprintf(buf, sz, "s%d.FBD", s);
+        else if (rel == SO_SAMPLES) ksnprintf(buf, sz, "s%d.SAMPLES", s);
+        else if (rel == SO_HEAPD) ksnprintf(buf, sz, "s%d.HEAPD", s);
+        else if (rel == SO_TCTX) ksnprintf(buf, sz, "s%d.TCTX", s);
+        else if (rel == SO_VRSD) ksnprintf(buf, sz, "s%d.VRSD", s);
+        else if (rel == SO_LS) ksnprintf(buf, sz, "s%d.LS", s);
+        else if (rel == SO_VIEWPORT) ksnprintf(buf, sz, "s%d.VIEWPORT", s);
+        else if (rel == SO_ATTR) ksnprintf(buf, sz, "s%d.ATTR", s);
+        else if (rel == SO_VATTR) ksnprintf(buf, sz, "s%d.VATTR", s);
+        else if (rel == SO_VS) ksnprintf(buf, sz, "s%d.VS", s);
+        else if (rel == SO_FS) ksnprintf(buf, sz, "s%d.FS", s);
+        else if (rel == SO_VS3) ksnprintf(buf, sz, "s%d.VS3", s);
+        else if (rel >= 0x10000 && rel < 0x20000) ksnprintf(buf, sz, "s%d.VERTS+0x%x", s, rel - 0x10000);
+        else if (rel >= 0x20000 && rel < 0x30000) ksnprintf(buf, sz, "s%d.POSITIONS+0x%x", s, rel - 0x20000);
+        else if (rel >= 0x30000 && rel < 0x38000) ksnprintf(buf, sz, "s%d.PUSH+0x%x", s, rel - 0x30000);
+        else if (rel >= 0x38000 && rel < 0x40000) ksnprintf(buf, sz, "s%d.VPUSH+0x%x", s, rel - 0x38000);
+        else if (rel >= SO_DRAWS && rel < SO_HEAP) {
+            uint32_t doff = rel - SO_DRAWS;
+            uint32_t d = doff / MEM_DRAW_SIZE;
+            uint32_t r = doff % MEM_DRAW_SIZE;
+            if (r == D_VJOB) ksnprintf(buf, sz, "s%d.draw[%u].VJOB", s, d);
+            else if (r == D_TJOB) ksnprintf(buf, sz, "s%d.draw[%u].TJOB", s, d);
+            else if (r == D_FRSD) ksnprintf(buf, sz, "s%d.draw[%u].FRSD", s, d);
+            else if (r == D_ABUFS) ksnprintf(buf, sz, "s%d.draw[%u].ABUFS", s, d);
+            else if (r == D_VBUFS) ksnprintf(buf, sz, "s%d.draw[%u].VBUFS", s, d);
+            else if (r == D_UBO) ksnprintf(buf, sz, "s%d.draw[%u].UBO", s, d);
+            else if (r == D_COLOUR) ksnprintf(buf, sz, "s%d.draw[%u].COLOUR", s, d);
+            else if (r == D_VUBO) ksnprintf(buf, sz, "s%d.draw[%u].VUBO", s, d);
+            else if (r == D_VRSD) ksnprintf(buf, sz, "s%d.draw[%u].VRSD", s, d);
+            else ksnprintf(buf, sz, "s%d.draw[%u]+0x%x", s, d, r);
+        }
+        else if (rel >= SO_HEAP && rel < SO_SURF) ksnprintf(buf, sz, "s%d.HEAP+0x%x", s, rel - SO_HEAP);
+        else if (rel >= SO_SURF) ksnprintf(buf, sz, "s%d.SURF+0x%x", s, rel - SO_SURF);
+        else ksnprintf(buf, sz, "s%d+0x%x", s, rel);
+        return;
+    }
+    if (H && H->screen_pa && a >= H->screen_pa && a < H->screen_pa + (uint64_t)H->screen_pitch * H->screen_h) {
+        uint32_t off = (uint32_t)(a - H->screen_pa);
+        ksnprintf(buf, sz, "screen+0x%x", off);
+        return;
+    }
+    ksnprintf(buf, sz, "outside");
+}
+
 /* the lines for a chain that failed (raw without the slot's bits: it never ended) */
 static void job_fail(int js, const char *what, uint32_t status, uint32_t raw)
 {
     const uint32_t mmu_raw = gr(MMU_INT_RAWSTAT);
+    const uint64_t head = (uint64_t)gr(JS(js, JS_HEAD)) | ((uint64_t)gr(JS(js, JS_HEAD + 4)) << 32);
+    const uint64_t tail = (uint64_t)gr(JS(js, JS_TAIL)) | ((uint64_t)gr(JS(js, JS_TAIL + 4)) << 32);
+    char hbuf[48], tbuf[48];
+    addr_map(head, hbuf, sizeof hbuf);
+    addr_map(tail, tbuf, sizeof tbuf);
+
     if (!(raw & (1u << js | 1u << (16 + js))))
         ksnprintf(line, sizeof line, "mali: %s: no end after 100 ms (JS_STATUS %02x %s, job raw %08x)", what,
                   (unsigned)status, mali_exception(status), (unsigned)raw);
@@ -422,10 +501,29 @@ static void job_fail(int js, const char *what, uint32_t status, uint32_t raw)
         ksnprintf(line, sizeof line, "mali: %s: failed, JS_STATUS %02x %s", what, (unsigned)status,
                   mali_exception(status));
     say();
+
+    ksnprintf(line, sizeof line, "mali: %s: JS%d head %08x%08x [%s], tail %08x%08x [%s]",
+              what, js, (unsigned)(head >> 32), (unsigned)head, hbuf,
+              (unsigned)(tail >> 32), (unsigned)tail, tbuf);
+    say();
+
+    const uint32_t gfs = gr(GPU_FAULT_STATUS);
+    const uint64_t gfa = (uint64_t)gr(GPU_FAULT_ADDRESS) | ((uint64_t)gr(GPU_FAULT_ADDRESS + 4) << 32);
+    if (gfs || gfa) {
+        char gbuf[48];
+        addr_map(gfa, gbuf, sizeof gbuf);
+        ksnprintf(line, sizeof line, "mali: %s: GPU fault %08x at %08x%08x [%s]",
+                  what, (unsigned)gfs, (unsigned)(gfa >> 32), (unsigned)gfa, gbuf);
+        say();
+    }
+
     if (mmu_raw & 0x10001u) {
         const uint32_t fs = gr(AS(0, AS_FAULTSTATUS));
-        ksnprintf(line, sizeof line, "mali: %s: MMU fault %08x (%s) at %08x%08x", what, (unsigned)fs,
-                  mali_exception(fs), (unsigned)gr(AS(0, AS_FAULTADDRESS) + 4), (unsigned)gr(AS(0, AS_FAULTADDRESS)));
+        const uint64_t fa = (uint64_t)gr(AS(0, AS_FAULTADDRESS)) | ((uint64_t)gr(AS(0, AS_FAULTADDRESS) + 4) << 32);
+        char abuf[48];
+        addr_map(fa, abuf, sizeof abuf);
+        ksnprintf(line, sizeof line, "mali: %s: MMU fault %08x (%s) at %08x%08x [%s]", what, (unsigned)fs,
+                  mali_exception(fs), (unsigned)(fa >> 32), (unsigned)fa, abuf);
         say();
     }
     gw(MMU_INT_CLEAR, 0xffffffffu);
@@ -851,8 +949,11 @@ static int triangle(mali_info_t *in)
     if (tri_try(in, -1, &st) != 0) {
         ksnprintf(line, sizeof line, "mali: variant base: JS_STATUS 0x%02x", (unsigned)st);
         say();
-        if (tri_recover(in) != 0)
+        if (tri_recover(in) != 0) {
+            ksnprintf(line, sizeof line, "mali: tri_recover failed after base failure");
+            say();
             return -1;
+        }
         for (int n = 0; n < MV_COUNT; n++) {
             const int bad = tri_try(in, n, &st) != 0;
             if (bad)
@@ -861,8 +962,11 @@ static int triangle(mali_info_t *in)
             else
                 ksnprintf(line, sizeof line, "mali: variant %d %s: ok", n, mv_table[n].name);
             say();
-            if (bad && tri_recover(in) != 0)
+            if (bad && tri_recover(in) != 0) {
+                ksnprintf(line, sizeof line, "mali: tri_recover failed after variant %d (%s)", n, mv_table[n].name);
+                say();
                 return -1;
+            }
             if (!bad && pick < 0 && !(mv_table[n].flags & MV_ISOLATE))
                 pick = n;
         }
