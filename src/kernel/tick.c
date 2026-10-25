@@ -11,7 +11,6 @@ static uint32_t period_us;
 static uint32_t hz;
 static uint32_t next;
 static volatile uint32_t ticks;
-static volatile uint32_t late;
 static void (*tick_hook)(uint32_t);
 
 static void tick_irq(void *arg)
@@ -20,12 +19,12 @@ static void tick_irq(void *arg)
     mmio_write(ST_CS, ST_M1);           /* acknowledge */
 
     /* Advance by whole periods, so the average rate stays exact even if
-     * this handler runs late; count skipped periods. */
+     * this handler runs late. */
     uint32_t now = mmio_read(ST_CLO);
     do {
         next += period_us;
         ticks++;
-    } while ((int32_t)(now - next) >= 0 && ++late);
+    } while ((int32_t)(now - next) >= 0);
     mmio_write(ST_C1, next);
     /* If the counter got past `next` while it was being written, the
      * compare would match again only after the 32-bit wrap (71 minutes):
@@ -33,7 +32,6 @@ static void tick_irq(void *arg)
     while ((int32_t)(mmio_read(ST_CLO) - next) >= 0) {
         next += period_us;
         ticks++;
-        late++;
         mmio_write(ST_C1, next);
     }
 
@@ -55,7 +53,6 @@ void tick_init(uint32_t rate_hz)
 
 uint32_t tick_hz(void)      { return hz; }
 uint32_t tick_count(void)   { return ticks; }
-uint32_t tick_late(void)    { return late; }
 
 uint32_t tick_ms(void)
 {

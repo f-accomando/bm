@@ -52,7 +52,6 @@ void timer_delay_ms(uint32_t ms)
 static uint32_t hz;
 static uint64_t period, next;
 static volatile uint32_t ticks;
-static volatile uint32_t late;
 static void (*tick_hook)(uint32_t);
 
 static void tick_irq(void *arg)
@@ -62,7 +61,7 @@ static void tick_irq(void *arg)
     do {
         next += period;
         ticks++;
-    } while (now >= next && ++late);
+    } while (now >= next);
     write_sysreg(cntp_cval_el0, next);
     if (tick_hook)
         tick_hook(ticks);
@@ -82,7 +81,6 @@ void tick_init(uint32_t rate_hz)
 
 uint32_t tick_hz(void)      { return hz; }
 uint32_t tick_count(void)   { return ticks; }
-uint32_t tick_late(void)    { return late; }
 
 uint32_t tick_ms(void)
 {

@@ -12,6 +12,5 @@ static inline void dcache_clean_range(const volatile void *a, uint32_t n) { (voi
 static inline void dcache_clean_invalidate_range(const volatile void *a, uint32_t n) { (void)a; (void)n; }
 static inline void dcache_clean_all(void) { }
 static inline void dcache_clean_invalidate_all(void) { }
-static inline void icache_invalidate_all(void) { }
 
 #endif

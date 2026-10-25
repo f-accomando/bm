@@ -14,6 +14,5 @@ static inline void irq_cpu_enable(void) { }
 static inline void irq_cpu_disable(void) { }
 static inline uint32_t irq_save(void) { return 0; }
 static inline void irq_restore(uint32_t cpsr) { (void)cpsr; }
-uint32_t irq_count(void);
 
 #endif

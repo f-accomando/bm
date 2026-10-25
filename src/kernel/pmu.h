@@ -14,7 +14,6 @@
  */
 void pmu_start(void);
 void pmu_stop(void);
-int pmu_on(void);
 
 typedef struct { uint32_t cycles, instr, dmiss; } pmu_t;
 

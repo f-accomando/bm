@@ -110,11 +110,6 @@ void uart_use_mini(void)
         (void)mmio_read(MU_IO);
 }
 
-int uart_is_mini(void)
-{
-    return mini;
-}
-
 void uart_putc(char c)
 {
     if (mini) {

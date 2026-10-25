@@ -50,6 +50,4 @@ void dcache_clean_all(void);
 /* The same, then drops every line (before a device writes cached RAM). */
 void dcache_clean_invalidate_all(void);
 
-void icache_invalidate_all(void);
-
 #endif

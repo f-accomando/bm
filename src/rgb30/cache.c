@@ -61,8 +61,3 @@ void dcache_clean_invalidate_all(void)
 {
     dcache_setway(1);
 }
-
-void icache_invalidate_all(void)
-{
-    __asm__ volatile("dsb sy\n ic iallu\n dsb sy\n isb" ::: "memory");
-}

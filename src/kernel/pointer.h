@@ -22,7 +22,6 @@ int  pointer_enabled(void);
 /* The screen that has the pointer now, w x h pixels; on = 0: nobody (the
  * position is kept, in proportion, for the next one). */
 void pointer_env(int on, int w, int h);
-int  pointer_env_on(void);
 
 typedef struct {
     int x, y;                   /* in the screen's pixels */

@@ -11,7 +11,6 @@
 
 void uart_init(void)            { plat_uart_init(); }
 void uart_use_mini(void)        { }
-int  uart_is_mini(void)         { return 0; }
 uint32_t uart_clock(void)       { return 0; }
 void uart_putc(char c)          { plat_uart_putc(c); }
 
@@ -65,16 +64,6 @@ void uart_flush(void)
 void led_init(void)             { }
 void led_init_board(void)       { }
 void led_set(int on)            { plat_led(on, -1); }
-
-void led_blink_forever(unsigned on_ms, unsigned off_ms)
-{
-    for (;;) {
-        plat_led(-1, 1);
-        timer_delay_ms(on_ms);
-        plat_led(-1, 0);
-        timer_delay_ms(off_ms);
-    }
-}
 
 /* the red LED: n short blinks, a pause, forever */
 void led_blink_code(unsigned n)

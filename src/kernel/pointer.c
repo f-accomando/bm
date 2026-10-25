@@ -58,11 +58,6 @@ void pointer_env(int on, int w, int h)
     hid_mouse_take(&old);                       /* what the mice did elsewhere */
 }
 
-int pointer_env_on(void)
-{
-    return pt.on;
-}
-
 unsigned pointer_devices(void)
 {
     if (!pt.enabled)
