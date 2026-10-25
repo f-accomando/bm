@@ -5,7 +5,7 @@ State of 25 Oct 2026 (plan only; nothing of this is built, except where a line s
 ## Facts (from the code)
 
 - The Pi already boxes a square header: `bm_video_enter` (`src/bm/runtime.c`) puts 360x360 in 640x360, which gives bars of 140 pixels on each side.
-- The RGB30 already letterboxes any header: `fb_init_game` fills with the same shape (`src/rgb30/fb.c`), so 640x360 shows as 720x405. The centring is not verified.
+- The RGB30 already letterboxes any header: `fb_init_game` fills with the same shape (`src/rgb30/fb.c`), so 640x360 shows as 720x405. The centring is verified on the RGB30 hardware (25 Oct): 157 and 158 pixels of black above and below the 720x405 band (docs/bench/rgb30-2026-10-25/summary.md).
 - The `screen()` list on a square panel (`square_modes`) had no 16:9 entry: W2 added 720x405 as the third. `safe_area()` and `aspect()` exist since W3.
 - The compat block, the menu greying and the Market `targets` line exist. A `.b16` gets Pi plus RGB30 only through the extension and flag fallback (`src/bm/format.c`). So a rename to `.bm` without `targets` would make the game Pi only.
 - No `bm.info` declares `targets:` today and no Makefile rule passes `--targets`.
