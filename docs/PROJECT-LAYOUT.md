@@ -27,7 +27,14 @@ carts/<id>/bm.info` copies it into the cartridge.
 | `author` | author | default of `--author` |
 | `resolution` | `640x360`, `480x270`, `320x180`, `256x256`, `360x360`, `720x720` | default of `--res` |
 | `type` | `game`, `app` or `utility` (no key = game) | bits 2-3 of the header flags (`mkbm.py`) |
+| `targets` | the kernels the cartridge runs on: `pi`, `rgb30` or `pi,rgb30` | default of `--targets` (the compatibility block, bytes 120..127) |
+| `input`, `aspect`, `needs` | lists of names, as the flags `--input` (`pad,keyboard,text,mouse,mouse_optional`), `--aspect` (`wide,square,any,safe_area`) and `--needs` (`3d,audio,net,mouse_hw`) | defaults of the flags of the same name |
+| `min_ram` (MB), `min_spec`, `min_width` (pixels) | numbers, as `--min-ram`, `--min-spec` and `--min-width` | defaults of the flags of the same name |
 | `desc`, `license` (SPDX id), `version`, `tags`, `date` | as in `bm.h` | stored only |
+
+The keys of the compatibility block use the syntax of the flags. A flag wins over the key. A key of the block
+(`input`, `aspect`, `needs`, `min_ram`, `min_spec` or `min_width`) without `targets` is an error, as the flag
+without `--targets` is. A `.bme` carries the same keys: the SDK build writes the block from them.
 
 Unknown keys are kept in the cartridge. The binary `.bm` format does not change: an
 older kernel ignores INFO.

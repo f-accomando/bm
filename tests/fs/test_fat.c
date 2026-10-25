@@ -385,6 +385,51 @@ static void test_project(void)
     snprintf(want, sizeof want, "%s/oldg.bm", bm_games_dir());
     CHECK(!strcmp(out, want));
     CHECK(bm_build("/bme/PONGX.BM", out, sizeof out, err, sizeof err) != 0);     /* only a project is built */
+
+    /* W6 of docs/design/b16-removal.md: the INFO keys of a project give the compatibility block of the game */
+    {
+        static const char info[] = "name: Both\ntargets: pi,rgb30\ninput: pad,keyboard\naspect: square\nneeds: 3d\n"
+                                   "min_ram: 300\nmin_spec: 4\nmin_width: 640\n";
+        uint8_t withinfo[BM_HEADER_SIZE + 16 + sizeof info];
+        memcpy(withinfo, cart, BM_HEADER_SIZE);
+        memset(withinfo + BM_HEADER_SIZE, 0, 16 + sizeof info);
+        withinfo[17] = 1;                                   /* one section: INFO */
+        withinfo[BM_HEADER_SIZE] = BM_SEC_INFO;
+        withinfo[BM_HEADER_SIZE + 4] = BM_HEADER_SIZE + 16;
+        withinfo[BM_HEADER_SIZE + 8] = sizeof info - 1;
+        memcpy(withinfo + BM_HEADER_SIZE + 16, info, sizeof info - 1);
+        withinfo[120] = 1;                                  /* the project had a block of its own: the keys replace it */
+        withinfo[18] |= BM_FLAG_COMPAT;
+        CHECK(fat_write_file("/bme", "WITHKEYS.BME", withinfo, BM_HEADER_SIZE + 16 + sizeof info - 1) == 0);
+        CHECK(bm_build("/bme/WITHKEYS.BME", out, sizeof out, err, sizeof err) == 0);
+        uint8_t *g;
+        size_t gl;
+        fat_entry_t ge;
+        CHECK(fat_find(out, &ge) == 0 && fat_load(&ge, &g, &gl) == 0);
+        static const uint8_t want[8] = { 3, 3, 2, 1, 44, 1, 4, 40 };
+        CHECK(!memcmp(g + 120, want, 8) && (g[18] & BM_FLAG_COMPAT) && !(g[18] & 1));   /* as mkbm.py */
+        free(g);
+
+        /* no targets key: the block of the project stays */
+        withinfo[120] = 2;
+        withinfo[121] = 8;
+        memset(withinfo + BM_HEADER_SIZE + 16, ' ', sizeof info - 1);
+        memcpy(withinfo + BM_HEADER_SIZE + 16, "name: Keep\n", 11);
+        CHECK(fat_write_file("/bme", "KEEPBLK.BME", withinfo, BM_HEADER_SIZE + 16 + sizeof info - 1) == 0);
+        CHECK(bm_build("/bme/KEEPBLK.BME", out, sizeof out, err, sizeof err) == 0);
+        CHECK(fat_find(out, &ge) == 0 && fat_load(&ge, &g, &gl) == 0 && g[120] == 2 && g[121] == 8 &&
+              (g[18] & BM_FLAG_COMPAT));       /* no targets key: the block stays */
+        free(g);
+
+        /* a key of the block without targets: the build stops and says why */
+        static const char bad[] = "name: Bad\ninput: pad\n";
+        uint8_t badcart[BM_HEADER_SIZE + 16 + sizeof bad];
+        memcpy(badcart, withinfo, BM_HEADER_SIZE + 16);
+        memcpy(badcart + BM_HEADER_SIZE + 16, bad, sizeof bad - 1);
+        badcart[BM_HEADER_SIZE + 8] = sizeof bad - 1;
+        CHECK(fat_write_file("/bme", "BADKEYS.BME", badcart, BM_HEADER_SIZE + 16 + sizeof bad - 1) == 0);
+        CHECK(bm_build("/bme/BADKEYS.BME", out, sizeof out, err, sizeof err) != 0 && strstr(err, "targets"));
+    }
 }
 
 /* A new name is stored as an 8.3 entry in capitals with the NT lowercase

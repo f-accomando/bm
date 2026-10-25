@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Unit test for scripts/mkbm.py b16_lint: the sheet of a .b16 has at
-most 256 colours, its Lua warns on the system calls of B16_LUA_CHECKS, and
+most 256 colours, the Lua of a .b16 or of a cartridge that lists the RGB30 warns on the
+system calls of B16_LUA_CHECKS, any screen size and any list of kernels is quiet, and
 the CLI (--from X.bm --b16) leaves the .bm untouched.
 """
 import contextlib
@@ -116,24 +117,25 @@ class B16LintTest(unittest.TestCase):
             self.assertIn(mkbm.SEC_SHEET8, types)
             self.assertNotIn(mkbm.SEC_SHEET, types)
 
-    def test_profile_screen_other_than_360_or_720_warns(self):
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            mkbm.b16_lint(mkbm.pack(b"local a = 1\n", res=(640, 360)), "x.b16")
-        self.assertIn("warning: x.b16: screen 640x360", err.getvalue())
-
-    def test_profile_screens_360_and_720_are_quiet(self):
-        for side in (360, 720):
+    def test_profile_any_screen_is_quiet(self):
+        """bars make any size valid (W4 of docs/design/b16-removal.md): no warning for the size"""
+        for res in ((640, 360), (480, 270), (360, 360), (720, 720), (256, 256)):
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
-                mkbm.b16_lint(mkbm.pack(b"local a = 1\n", res=(side, side)), "x.b16")
-            self.assertEqual(err.getvalue(), "", side)
+                mkbm.b16_lint(mkbm.pack(b"local a = 1\n", res=res), "x.b16")
+            self.assertEqual(err.getvalue(), "", res)
 
-    def test_profile_targets_of_one_kernel_warn(self):
-        for targets, who in ((1, "the Pi"), (2, "the RGB30")):
+    def test_profile_targets_of_one_kernel_are_quiet(self):
+        for targets in (1, 2, 3):
             data = mkbm.mark_compat(mkbm.pack(b"", res=(360, 360)), targets)
-            self.assertEqual(len(mkbm.b16_profile_warnings(data)), 1)
-            self.assertIn("only " + who, mkbm.b16_profile_warnings(data)[0])
+            self.assertEqual(mkbm.b16_profile_warnings(data), [], targets)
+
+    def test_lists_rgb30(self):
+        plain = mkbm.pack(b"", res=(360, 360))
+        self.assertFalse(mkbm.lists_rgb30(plain))
+        self.assertFalse(mkbm.lists_rgb30(mkbm.mark_compat(plain, 1)))
+        self.assertTrue(mkbm.lists_rgb30(mkbm.mark_compat(plain, 2)))
+        self.assertTrue(mkbm.lists_rgb30(mkbm.mark_compat(plain, 3)))
 
     def test_profile_both_targets_are_quiet(self):
         data = mkbm.mark_compat(mkbm.pack(b"", res=(360, 360)), 3, input_=1, aspect=2)
@@ -143,17 +145,42 @@ class B16LintTest(unittest.TestCase):
         data = mkbm.mark_compat(mkbm.pack(b"", res=(360, 360)), 3, needs=8)
         self.assertIn("mouse_hw", mkbm.b16_profile_warnings(data)[0])
 
-    def test_cli_warns_after_the_compat_block(self):
+    def build(self, tmp, out, *flags, lua=b"local x = math.random(3)\n"):
+        src = os.path.join(tmp, "m.lua")
+        with open(src, "wb") as f:
+            f.write(lua)
+        return subprocess.run(
+            [sys.executable, MKBM_PATH, "--lua", src, "--res", "360x360", *flags, "-o", os.path.join(tmp, out)],
+            capture_output=True, text=True, cwd=ROOT)
+
+    def test_cli_lint_runs_for_a_bm_that_lists_the_rgb30(self):
         with tempfile.TemporaryDirectory() as tmp:
-            dst = os.path.join(tmp, "X.b16")
-            lua = os.path.join(tmp, "m.lua")
-            with open(lua, "wb") as f:
-                f.write(b"local x = 1\n")
-            proc = subprocess.run(
-                [sys.executable, MKBM_PATH, "--lua", lua, "--res", "360x360", "--targets", "pi", "-o", dst],
-                capture_output=True, text=True, cwd=ROOT)
+            for flags in (("--targets", "rgb30"), ("--targets", "pi,rgb30")):
+                proc = self.build(tmp, "X.bm", *flags)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertIn("math.random", proc.stderr, flags)
+
+    def test_cli_lint_is_quiet_for_a_bm_of_the_pi_or_with_no_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for flags in (("--targets", "pi"), ()):
+                proc = self.build(tmp, "X.bm", *flags)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertNotIn("warning", proc.stderr, flags)
+
+    def test_cli_b16_output_still_lints_and_does_not_warn_for_the_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = self.build(tmp, "X.b16", "--targets", "pi", lua=b"local x = 1\n")
             self.assertEqual(proc.returncode, 0, proc.stderr)
-            self.assertIn("targets list only the Pi", proc.stderr)
+            self.assertEqual(proc.stderr, "")
+            proc = self.build(tmp, "Y.b16")
+            self.assertIn("math.random", proc.stderr)
+
+    def test_bm_with_a_true_colour_sheet_is_not_refused(self):
+        data = mkbm.mark_compat(mkbm.pack(b"", sheet=sheet_of(300), res=(360, 360)), 3)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            mkbm.b16_lint(data, "x.bm")
+        self.assertEqual(err.getvalue(), "")
 
     def test_cli_leaves_bm_untouched(self):
         with tempfile.TemporaryDirectory() as tmp:

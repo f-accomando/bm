@@ -53,8 +53,9 @@ Reading (`bm_compat_read`, and `bm_cart_t.compat` after `bm_parse`): a file with
 An old `.bm` reads as targets = Pi. An old `.b16` (flag bit 1) reads as targets = Pi + RGB30. `declared` is 0 for both.
 The menus (Pi, RGB30) act on the block: `bm_compat_classify` applies `docs/spec/compat-policy.toml` and greys a cartridge that does not list the kernel, with a reason and a question before the start. The Market list uses the file name (it has no header yet). The load check in `runtime.c` does not read the block yet.
 
-Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MB] [--min-spec N] [--min-width PX]`,
-and `bm_compat_write`. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
+Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MB] [--min-spec N] [--min-width PX]`
+(or the INFO keys `targets`, `input`, `aspect`, `needs`, `min_ram`, `min_spec` and `min_width` of `bm.info`, with the same syntax; a flag wins),
+and `bm_compat_write`. The SDK build of a `.bme` (`bm_build`, `src/bm/project.c`) reads the same INFO keys (`bm_compat_from_info`, `src/bm/format.c`) and writes the block of the `.bm`; a project whose INFO has no `targets` keeps the bytes it has. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
 bytes 104..119 (`bm_set_built_from`), `mkbm.py --from` clears only bytes 104..119, `bmres.py` and `bmmesh.py` copy the header.
 
 ## File size

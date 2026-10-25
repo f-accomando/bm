@@ -90,8 +90,8 @@
     "title": "Your first game"
    },
    "3": {
-    "en": "3e0141fd10ad",
-    "it": "e583adc95ba9",
+    "en": "95a2ae9e5b81",
+    "it": "acae98f0f857",
     "title": "Drawing"
    },
    "4": {
@@ -128,7 +128,7 @@
   "sources": {
    "docs/API.md": "213900352f27",
    "docs/GAME-GUIDE.md": "b75e600e2b72",
-   "docs/api/draw.md": "bc14d3e027f6",
+   "docs/api/draw.md": "a9b2da1f4789",
    "docs/api/input.md": "4a75b07df3da",
    "docs/api/system.md": "583f94063149"
   }

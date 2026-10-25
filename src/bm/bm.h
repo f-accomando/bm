@@ -392,6 +392,12 @@ int bm_is_cart(const void *head8);
 void bm_compat_read(const uint8_t *head, bm_compat_t *out);
 /* Writes `in` into a header (at least 128 bytes): the bytes 120..127 and flag bit 4. A `declared` of 0 clears both. */
 void bm_compat_write(uint8_t *head, const bm_compat_t *in);
+/* The compatibility block from the INFO keys of the cartridge file `data` (the keys of bm.info: targets, input,
+ * aspect, needs, min_ram, min_spec, min_width; the same syntax and rules as scripts/mkbm.py). Returns 1 and fills
+ * `out` (declared = 1) if the INFO has `targets`; 0 and a zeroed `out` if it has none of the keys (the caller keeps the
+ * block of the file); -1 and a message in `err` for a bad name or number, or a key of the block without `targets`.
+ * Reads the section table only: no CRC, no parse. */
+int bm_compat_from_info(const uint8_t *data, size_t len, bm_compat_t *out, char *err, size_t errlen);
 /* 1 if a cartridge with these targets may run on the kernel `kernel` (BM_TARGET_PI or BM_TARGET_RGB30). */
 static inline int bm_compat_runs_on(const bm_compat_t *c, unsigned kernel) { return (c->targets & kernel) != 0; }
 

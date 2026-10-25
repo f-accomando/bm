@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The compatibility block of the .bm header (bytes 120..127, flag bit 4):
-mkbm.py writes it, keeps it on --from, and a cartridge above 8 MB is built (no 8 MB limit)."""
+mkbm.py writes it from the flags or from the keys of bm.info (a flag wins), keeps it on --from, and a
+cartridge above 8 MB is built (no 8 MB limit)."""
 import os
 import struct
 import subprocess
@@ -79,6 +80,70 @@ class Compat(unittest.TestCase):
                 r = run("-o", out, "--lua", lua)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 self.assertGreater(os.path.getsize(out), 8 << 20)
+
+    def build_with_info(self, tmp, info, *flags):
+        lua = os.path.join(tmp, "main.lua")
+        inf = os.path.join(tmp, "bm.info")
+        out = os.path.join(tmp, "g.bm")
+        open(lua, "w").write("function _draw() cls(0) end\n")
+        open(inf, "w").write(info)
+        r = run("-o", out, "--lua", lua, "--info", inf, *flags)
+        return r, out
+
+    def test_info_keys_write_the_block(self):
+        info = ("name: Keys\ntargets: pi, rgb30\ninput: pad,keyboard\naspect: square\nneeds: 3d\n"
+                "min_ram: 300\nmin_spec: 4\nmin_width: 640\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self.build_with_info(tmp, info)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            d = open(out, "rb").read()
+            self.assertEqual(d[120:128], bytes([3, 3, 2, 1, 300 & 255, 300 >> 8, 4, 40]))
+            self.assertEqual(struct.unpack_from("<H", d, 18)[0] & 16, 16)
+
+    def test_info_targets_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self.build_with_info(tmp, "name: T\ntargets: rgb30\n")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(open(out, "rb").read()[120:128], bytes([2, 0, 0, 0, 0, 0, 0, 0]))
+
+    def test_flag_wins_over_info_key(self):
+        info = "targets: pi\ninput: pad\naspect: wide\nmin_ram: 100\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self.build_with_info(tmp, info, "--targets", "rgb30", "--input", "keyboard",
+                                          "--min-ram", "200")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            # targets, input, min RAM from the flags; aspect from the key
+            self.assertEqual(open(out, "rb").read()[120:128], bytes([2, 2, 1, 0, 200, 0, 0, 0]))
+
+    def test_info_key_without_targets_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for info in ("input: pad\n", "aspect: wide\n", "needs: 3d\n", "min_ram: 64\n",
+                         "min_spec: 3\n", "min_width: 320\n"):
+                r, _ = self.build_with_info(tmp, info)
+                self.assertNotEqual(r.returncode, 0, info)
+            r, out = self.build_with_info(tmp, "input: pad\n", "--targets", "pi")    # the flag gives the targets
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(open(out, "rb").read()[120:122], bytes([1, 1]))
+
+    def test_info_without_block_keys_writes_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self.build_with_info(tmp, "name: Plain\n")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            d = open(out, "rb").read()
+            self.assertEqual(d[120:128], b"\0" * 8)
+            self.assertEqual(struct.unpack_from("<H", d, 18)[0] & 16, 0)
+
+    def test_info_bad_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for info in ("targets: moon\n", "targets: pi\nmin_ram: many\n", "targets: pi\ninput: joystick\n"):
+                r, _ = self.build_with_info(tmp, info)
+                self.assertNotEqual(r.returncode, 0, info)
+
+    def test_info_text_is_kept_in_the_cartridge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self.build_with_info(tmp, "name: Kept\ntargets: pi,rgb30\n")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn(b"targets: pi,rgb30", open(out, "rb").read())
 
 
 if __name__ == "__main__":

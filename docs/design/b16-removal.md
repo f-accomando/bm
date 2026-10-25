@@ -6,7 +6,7 @@ State of 25 Oct 2026 (plan only; nothing of this is built, except where a line s
 
 - The Pi already boxes a square header: `bm_video_enter` (`src/bm/runtime.c`) puts 360x360 in 640x360, which gives bars of 140 pixels on each side.
 - The RGB30 already letterboxes any header: `fb_init_game` fills with the same shape (`src/rgb30/fb.c`), so 640x360 shows as 720x405. The centring is not verified.
-- Only the `screen()` list on a square panel (`square_modes`) has no 16:9 entry. `safe_area()` and `aspect()` do not exist.
+- The `screen()` list on a square panel (`square_modes`) had no 16:9 entry: W2 added 720x405 as the third. `safe_area()` and `aspect()` exist since W3.
 - The compat block, the menu greying and the Market `targets` line exist. A `.b16` gets Pi plus RGB30 only through the extension and flag fallback (`src/bm/format.c`). So a rename to `.bm` without `targets` would make the game Pi only.
 - No `bm.info` declares `targets:` today and no Makefile rule passes `--targets`.
 - 1453 hits of `b16` in 237 files (counted without build, dist and .git): the Makefile (63), `rgb30.mk`, `scripts/mkbm.py`, `mkmarket.py`, `mklint.py`, the kernel menus (`carts.c`, `market.c`, `devtool.c`, `src/rgb30/ui.c`), `format.c`, `project.c`, `lint.c`, `catalog.c`, the editors (`carts/editor`, `carts/sdk_b16`), the games (Overbit, Titan EX, Stages 3D, Yharnam), the tests, the specs (`compat-policy.toml`, `lint-rules.toml`, `config-keys.toml`), the web player (`web/bmcart.js`, `app.js`), the bm-forge skill, the docs and the manuals (en and it). CI has none.
@@ -20,12 +20,12 @@ State of 25 Oct 2026 (plan only; nothing of this is built, except where a line s
 
 | Order | What | Verification | Needs |
 |---|---|---|---|
-| W1 | Inventory table and key facts into `docs/progress/b16.md` | docs audit | none |
-| W2 | `screen()` gets the 720x405 mode on a square panel (third entry; `screen(1)` stays 360x360, `screen(2)` 720x720 because Overbit indexes the list) | H: `tests/host/screen_modes.lua`; Q: screendump test on the RGB30 virt build | none |
-| W3 | Lua `safe_area()` and `aspect()` (`rt.design_w/h` from the header) | H: the same cart, 360x360 design at 640x360 gives 140,0,360,360 | none |
-| W4 | The build lint runs for any cart whose compat block lists the RGB30; the "a .b16 is 360x360 or 720x720" and "targets list only ..." warnings go (bars make any size valid) | H: `make test-lint`, `test_mkbm_b16`, `test_mklint` | none |
-| W5 | `mkbm.py` reads `targets`, `input`, `aspect`, `needs`, `min_ram`, `min_spec`, `min_width` from `bm.info` (a flag wins; a key without `targets` is an error) | H: `test_mkbm_compat` | none |
-| W6 | A `.bme` carries `targets`; `bm_build` writes the compat block into the `.bm` | H: `make test-bm` | W5 first |
+| W1 (done 25 Oct) | Inventory table and key facts into `docs/progress/b16.md` | docs audit | none |
+| W2 (done 25 Oct) | `screen()` gets the 720x405 mode on a square panel (third entry; `screen(1)` stays 360x360, `screen(2)` 720x720 because Overbit indexes the list) | H: `tests/host/screen_modes.lua`; Q: screendump test on the RGB30 virt build | none |
+| W3 (done 25 Oct) | Lua `safe_area()` and `aspect()` (`rt.design_w/h` from the header) | H: the same cart, 360x360 design at 640x360 gives 140,0,360,360 | none |
+| W4 (done 25 Oct) | The build lint runs for any cart whose compat block lists the RGB30; the "a .b16 is 360x360 or 720x720" and "targets list only ..." warnings go (bars make any size valid) | H: `make test-lint`, `test_mkbm_b16`, `test_mklint` | none |
+| W5 (done 25 Oct) | `mkbm.py` reads `targets`, `input`, `aspect`, `needs`, `min_ram`, `min_spec`, `min_width` from `bm.info` (a flag wins; a key without `targets` is an error) | H: `test_mkbm_compat` | none |
+| W6 (done 25 Oct) | A `.bme` carries `targets`; `bm_build` writes the compat block into the `.bm` | H: `make test-bm` | W5 first |
 | W7 | Yharnam, Titan EX and Stages 3D become single `.bm` for both kernels (G1 bars): `targets: pi,rgb30`, key config redone to ok/back | Q: `test_yharnam_bars` (Pi screendump: columns 0-139 and 500-639 black), RGB30 start without confirm; D: a 5 minute hunt on both kernels | W5; user device run |
 | W8 | Market: one entry per id; `catalog.c` dedupes by id only; delete `show_b16` and `want_b16`; `market-seed` adds `.bm` for overbit, yharnam, titanex, stages3d | H/Q: `test-catalog`, `run_catalog_test.py`, Market QEMU tests; the fixture `pocket.b16` still lists | W7 |
 | W9 | Remove "Export .b16" and the edition labels from both menus; the RGB30 lists `.bm` always (compat greys them); the Type row shows the targets | Q: RGB30 and Pi menu tests (change the asserts on `racer.b16`, keep one legacy test) | W5 |
@@ -36,7 +36,7 @@ State of 25 Oct 2026 (plan only; nothing of this is built, except where a line s
 | W14 | Docs, the `CLAUDE.md` rule ("One cartridge type, `.bm`. The header declares the kernels."), `docs/B16.md` to the archive, manuals en and it, `src/ai/kb/guide_sdk.txt` and `make ai-model` | docs audit, `manuals.py check`, `make test-ai`, `consistency.py check` and `gate` | W12 |
 | W15 | The user deletes the `.b16` files from `bm-market` one release after W8 | `mkmarket.py ... --check` returns 0 | the user |
 
-W1 to W5 are independent and safe. Order: W1-W5, then W6, then W7, W9, W11, then W8, W12, then W13, W14, then W15.
+W1 to W6 are done (25 Oct). W1 to W5 were independent and safe. Order: W1-W5, then W6, then W7, W9, W11, then W8, W12, then W13, W14, then W15.
 
 ## Decisions of the user (recommended default first)
 

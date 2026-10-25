@@ -182,6 +182,15 @@ static int built_from(const char *path, const char *from)
     return bm_is_cart(head) && was[0] && strcasecmp(was, from) == 0;
 }
 
+/* one lint warning of a build: on the serial console, like the other build messages */
+static void lint_say(void *ctx, int line, const char *msg)
+{
+    if (line)
+        kprintf("bm: warning: %s:%d: %s\n", (const char *)ctx, line, msg);
+    else
+        kprintf("bm: warning: %s: %s\n", (const char *)ctx, msg);
+}
+
 int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
 {
     if (!bm_is_project(project))
@@ -201,6 +210,21 @@ int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
             *p = (char)(*p + 32);
     set_flags(data, 0);
     bm_set_built_from(data, from);
+    {                                   /* the INFO keys targets, input, ... give the compatibility block; with
+                                         * no targets key the bytes 120..127 of the project stay */
+        bm_compat_t cc;
+        char why[96];
+        const int r = bm_compat_from_info(data, len, &cc, why, sizeof why);
+        if (r < 0) {
+            free(data);
+            return say(err, en, why);
+        }
+        if (r > 0) {
+            bm_compat_write(data, &cc);
+            if (cc.targets & BM_TARGET_RGB30)
+                bm_cart_lint(data, len, lint_say, from);    /* warnings only: the build goes on */
+        }
+    }
     /* the game it built before, else the first free name */
     int k, found = 0;
     for (k = 0; k < 10 && !found; k++) {
@@ -214,15 +238,6 @@ int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
     int r = found ? store(out, data, len, err, en) : say(err, en, "no free name for the game");
     free(data);
     return r;
-}
-
-/* one lint warning of the .b16 export: on the serial console, like the other build messages */
-static void lint_say(void *ctx, int line, const char *msg)
-{
-    if (line)
-        kprintf("bm: warning: %s:%d: %s\n", (const char *)ctx, line, msg);
-    else
-        kprintf("bm: warning: %s: %s\n", (const char *)ctx, msg);
 }
 
 int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
@@ -254,7 +269,7 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
         data[14] = 360 & 0xff; data[15] = 360 >> 8;
     }
     bm_set_built_from(data, from);
-    bm_b16_lint(data, len, lint_say, from);     /* warnings only: the build goes on */
+    bm_cart_lint(data, len, lint_say, from);     /* warnings only: the build goes on */
     int k, found = 0;
     for (k = 0; k < 10 && !found; k++) {
         candidate(dir, base, ".b16", k, out, n);

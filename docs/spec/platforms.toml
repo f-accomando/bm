@@ -16,7 +16,7 @@ battery = "none"
 [platform.rgb30]
 kernel = "kernel8.img (TARGET=rgb30)"
 cpu = "RK3566, Cortex-A55 (one core used)"
-screen = "square 720x720 DSI panel (menu 360x360 shown twice as big)"
+screen = "square 720x720 DSI panel (menu 360x360 shown twice as big; a 16:9 page is centred with bars)"
 input = "built-in pad (18 buttons, 2 sticks) plus Bluetooth; no USB host; no on-screen keyboard yet"
 gpu = "Mali-G52 present, the 3D is drawn by the ARM"
 audio = "I2S codec: speaker or headphones, hardware volume keys"

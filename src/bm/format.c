@@ -926,6 +926,157 @@ void bm_compat_write(uint8_t *head, const bm_compat_t *in)
     head[19] = (uint8_t)(flags >> 8);
 }
 
+/* ---- the compatibility block from the INFO keys (docs/PROJECT-LAYOUT.md, bm.info) ---- */
+
+typedef struct { const char *name; unsigned bit; } compat_name_t;
+/* the same names and bits as COMPAT_BITS in scripts/mkbm.py (tests/bm/test_bm.c and tests/tools/test_mkbm_compat.py
+ * build the same cartridge from the same INFO text) */
+static const compat_name_t cn_targets[] = { { "pi", BM_TARGET_PI }, { "rgb30", BM_TARGET_RGB30 }, { 0, 0 } };
+static const compat_name_t cn_input[] = { { "pad", BM_IN_PAD }, { "keyboard", BM_IN_KEYBOARD }, { "text", BM_IN_TEXT },
+                                          { "mouse", BM_IN_MOUSE }, { "mouse_optional", BM_IN_MOUSE_OPT }, { 0, 0 } };
+static const compat_name_t cn_aspect[] = { { "wide", BM_ASPECT_WIDE }, { "square", BM_ASPECT_SQUARE },
+                                           { "any", BM_ASPECT_ANY }, { "safe_area", BM_ASPECT_SAFE }, { 0, 0 } };
+static const compat_name_t cn_needs[] = { { "3d", BM_NEED_3D }, { "audio", BM_NEED_AUDIO }, { "net", BM_NEED_NET },
+                                          { "mouse_hw", BM_NEED_MOUSE_HW }, { 0, 0 } };
+
+static int compat_key_error(char *err, size_t n, const char *key, const char *what)
+{
+    char m[96];
+    size_t k = 0;
+    for (const char *p = "bm.info: "; *p && k < sizeof m - 1;) m[k++] = *p++;
+    for (const char *p = key; *p && k < sizeof m - 1;) m[k++] = *p++;
+    for (const char *p = ": "; *p && k < sizeof m - 1;) m[k++] = *p++;
+    for (const char *p = what; *p && k < sizeof m - 1;) m[k++] = *p++;
+    m[k] = 0;
+    return fail(err, n, m);
+}
+
+/* "pad, keyboard" -> bits; 0 and *bits, or -1 for a name that is not in `t` */
+static int compat_list(const char *text, const compat_name_t *t, unsigned *bits)
+{
+    *bits = 0;
+    for (const char *p = text; *p;) {
+        while (*p == ' ' || *p == '\t' || *p == ',')
+            p++;
+        const char *q = p;
+        while (*q && *q != ',')
+            q++;
+        const char *e = q;
+        while (e > p && (e[-1] == ' ' || e[-1] == '\t'))
+            e--;
+        if (e > p) {
+            int found = 0;
+            for (const compat_name_t *c = t; c->name; c++) {
+                size_t l = strlen(c->name);
+                if ((size_t)(e - p) == l) {
+                    int same = 1;
+                    for (size_t i = 0; i < l; i++) {
+                        char ch = p[i];
+                        if (ch >= 'A' && ch <= 'Z')
+                            ch = (char)(ch + 32);
+                        same &= ch == c->name[i];
+                    }
+                    if (same) {
+                        *bits |= c->bit;
+                        found = 1;
+                    }
+                }
+            }
+            if (!found)
+                return -1;
+        }
+        p = q;
+    }
+    return 0;
+}
+
+/* a whole number 0..max in `text`; -1 if it is not one */
+static long compat_number(const char *text, long max)
+{
+    while (*text == ' ' || *text == '\t')
+        text++;
+    if (!*text)
+        return -1;
+    long v = 0;
+    for (; *text >= '0' && *text <= '9'; text++) {
+        v = v * 10 + (*text - '0');
+        if (v > max)
+            return -1;
+    }
+    while (*text == ' ' || *text == '\t')
+        text++;
+    return *text ? -1 : v;
+}
+
+int bm_compat_from_info(const uint8_t *data, size_t len, bm_compat_t *out, char *err, size_t errlen)
+{
+    memset(out, 0, sizeof *out);
+    if (len < BM_HEADER_SIZE || !bm_is_cart(data))
+        return 0;
+    bm_cart_t c;
+    memset(&c, 0, sizeof c);
+    for (unsigned i = 0, count = data[17]; i < count && BM_HEADER_SIZE + (size_t)(i + 1) * 16 <= len; i++) {
+        const uint8_t *e = data + BM_HEADER_SIZE + i * 16;
+        uint32_t off = rd32(e + 4), size = rd32(e + 8);
+        if (rd32(e) == BM_SEC_INFO && (uint64_t)off + size <= len) {
+            c.info = data + off;
+            c.info_size = size;
+            break;
+        }
+    }
+    /* a key with no value is as if it were not there (mkbm.py does the same) */
+    char targets[64], input[96], aspect[96], needs[96], ram[24], spec[24], width[24];
+    const int has_targets = bm_info_get(&c, NULL, NULL, "targets", targets, sizeof targets) && targets[0];
+    const int has_input = bm_info_get(&c, NULL, NULL, "input", input, sizeof input) && input[0];
+    const int has_aspect = bm_info_get(&c, NULL, NULL, "aspect", aspect, sizeof aspect) && aspect[0];
+    const int has_needs = bm_info_get(&c, NULL, NULL, "needs", needs, sizeof needs) && needs[0];
+    const int has_ram = bm_info_get(&c, NULL, NULL, "min_ram", ram, sizeof ram) && ram[0];
+    const int has_spec = bm_info_get(&c, NULL, NULL, "min_spec", spec, sizeof spec) && spec[0];
+    const int has_width = bm_info_get(&c, NULL, NULL, "min_width", width, sizeof width) && width[0];
+    if (!has_targets) {
+        if (has_input || has_aspect || has_needs || has_ram || has_spec || has_width)
+            return compat_key_error(err, errlen, "input, aspect, needs and the minimums", "go with targets");
+        return 0;
+    }
+    unsigned bits;
+    if (compat_list(targets, cn_targets, &bits) != 0 || !(bits & BM_TARGET_ALL))
+        return compat_key_error(err, errlen, "targets", "name pi, rgb30 or both");
+    out->declared = 1;
+    out->targets = (uint8_t)bits;
+    if (has_input) {
+        if (compat_list(input, cn_input, &bits) != 0)
+            return compat_key_error(err, errlen, "input", "an unknown name");
+        out->input = (uint8_t)bits;
+    }
+    if (has_aspect) {
+        if (compat_list(aspect, cn_aspect, &bits) != 0)
+            return compat_key_error(err, errlen, "aspect", "an unknown name");
+        out->aspect = (uint8_t)bits;
+    }
+    if (has_needs) {
+        if (compat_list(needs, cn_needs, &bits) != 0)
+            return compat_key_error(err, errlen, "needs", "an unknown name");
+        out->needs = (uint8_t)bits;
+    }
+    long v;
+    if (has_ram) {
+        if ((v = compat_number(ram, 65535)) < 0)
+            return compat_key_error(err, errlen, "min_ram", "0 to 65535 MB");
+        out->min_ram_mib = (uint16_t)v;
+    }
+    if (has_spec) {
+        if ((v = compat_number(spec, 255)) < 0)
+            return compat_key_error(err, errlen, "min_spec", "0 to 255");
+        out->min_spec = (uint8_t)v;
+    }
+    if (has_width) {
+        if ((v = compat_number(width, 4080)) < 0)
+            return compat_key_error(err, errlen, "min_width", "0 to 4080 pixels");
+        out->min_w16 = (uint8_t)((v + 15) / 16);
+    }
+    return 1;
+}
+
 /* ---- the compatibility policy (docs/spec/compat-policy.toml) ---- */
 
 typedef struct {

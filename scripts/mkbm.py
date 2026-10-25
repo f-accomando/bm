@@ -552,33 +552,33 @@ def lua_code_only(text):
     return "".join(out)
 
 
+def lists_rgb30(data):
+    """True when the compatibility block of the cartridge lists the RGB30 (header byte 120, bit 1)"""
+    return bool(struct.unpack_from("<H", data, 18)[0] & FLAG_COMPAT and data[COMPAT_AT] & 2)
+
+
 def b16_profile_warnings(data):
-    """the header facts that break the .b16 profile (a .b16 is the same on the Pi and the RGB30,
-    docs/B16.md): a list of messages, empty when the profile holds. Warnings only"""
+    """the header facts that do not suit the RGB30: a list of messages, empty when none. Warnings only.
+    Any screen size is valid (the RGB30 shows a 16:9 or other page with black bars), so the size and the
+    list of kernels are not checked any more (docs/design/b16-removal.md, W4)"""
     out = []
-    w, h = struct.unpack_from("<HH", data, 12)
-    if (w, h) not in ((360, 360), (720, 720)):
-        out.append(f"screen {w}x{h}: a .b16 is 360x360 or 720x720")
     if struct.unpack_from("<H", data, 18)[0] & FLAG_COMPAT:
-        targets, _inp, _asp, needs = data[COMPAT_AT:COMPAT_AT + 4]
-        if targets & 3 != 3:
-            only = "the Pi" if targets & 1 else "the RGB30"
-            out.append(f"targets list only {only}: a .b16 runs on the Pi and the RGB30")
+        needs = data[COMPAT_AT + 3]
         if needs & COMPAT_BITS["needs"]["mouse_hw"]:
             out.append("needs mouse_hw: the RGB30 has no mouse")
     return out
 
 
 def b16_lint(data, label):
-    """checks of a .b16 cartridge: raises SystemExit for a sheet of
-    more than 256 colours, prints a warning (first occurrence only) for
-    each system call of B16_LUA_CHECKS in its Lua"""
+    """checks of a cartridge that runs on the RGB30 (a .b16, or a compatibility block that lists it):
+    prints a warning (first occurrence only) for each system call of B16_LUA_CHECKS in its Lua; raises
+    SystemExit for a sheet of more than 256 colours in a .b16 only (a .bm may have a true-colour sheet)"""
     secs = bmmesh.cart_sections(data)
     types = {t for t, _ in secs}
     for msg in b16_profile_warnings(data):
         print(f"warning: {label}: {msg}", file=sys.stderr)
     sheet = next((body for t, body in secs if t == SEC_SHEET), None)
-    if sheet is not None and SEC_SHEET8 not in types:
+    if sheet is not None and SEC_SHEET8 not in types and label.lower().endswith(".b16"):
         w, h = struct.unpack_from("<HH", sheet, 0)
         rgba = sheet[4:]
         colours = set()
@@ -680,7 +680,8 @@ def main():
     ap.add_argument("--author", default="")
     ap.add_argument("--info", help="bm.info of the project (INFO section, docs/PROJECT-LAYOUT.md): "
                                    "key: value lines; name, author and resolution are the defaults of "
-                                   "--title, --author and --res")
+                                   "--title, --author and --res; targets, input, aspect, needs, min_ram, "
+                                   "min_spec and min_width are the defaults of the flags of the same name")
     ap.add_argument("--res", default=None, choices=RESOLUTIONS)
     a = ap.parse_args()
     info_body, info = read_info(a.info) if a.info else (None, None)
@@ -692,6 +693,17 @@ def main():
         a.res = a.res or info.get("resolution")
         if a.res and a.res not in RESOLUTIONS:
             ap.error(f"{a.info}: resolution {a.res} is not one of {', '.join(RESOLUTIONS)}")
+        # the compatibility block: the same names as the flags; a flag wins over the key
+        a.targets = a.targets or info.get("targets")
+        a.input = a.input or info.get("input", "")
+        a.aspect = a.aspect or info.get("aspect", "")
+        a.needs = a.needs or info.get("needs", "")
+        for dest, key in (("min_ram", "min_ram"), ("min_spec", "min_spec"), ("min_width", "min_width")):
+            if not getattr(a, dest) and info.get(key):
+                try:
+                    setattr(a, dest, int(info[key]))
+                except ValueError:
+                    ap.error(f"{a.info}: {key}: {info[key]!r} is not a number")
     a.res_set = a.res is not None
     if not a.res:
         a.res = "360x360" if a.b16 else "640x360"
@@ -758,8 +770,9 @@ def main():
                            compat_bits("aspect", a.aspect), compat_bits("needs", a.needs), a.min_ram,
                            a.min_spec, (a.min_width + 15) // 16)
     elif a.input or a.aspect or a.needs or a.min_ram or a.min_spec or a.min_width:
-        ap.error("--input, --aspect, --needs and the minimums go with --targets")
-    if a.b16 or a.output.lower().endswith(".b16"):
+        ap.error("--input, --aspect, --needs and the minimums (or the keys input, aspect, needs, min_ram, "
+                 "min_spec and min_width of bm.info) go with --targets (or the key targets)")
+    if a.b16 or a.output.lower().endswith(".b16") or lists_rgb30(data):
         b16_lint(data, a.output)            # after the compatibility block: the lint reads it
     if a.output and os.path.dirname(a.output):
         os.makedirs(os.path.dirname(os.path.abspath(a.output)), exist_ok=True)

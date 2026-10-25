@@ -133,51 +133,13 @@ static int line_hits(const bm_lint_rule_t *r, const char *t, size_t s, size_t e)
     return 0;
 }
 
-static void put_num(char *out, size_t n, size_t *pos, unsigned v)
-{
-    char d[12];
-    int k = 0;
-    do
-        d[k++] = (char)('0' + v % 10);
-    while ((v /= 10) != 0);
-    while (k && *pos + 1 < n)
-        out[(*pos)++] = d[--k];
-    out[*pos] = 0;
-}
-
-static void put_str(char *out, size_t n, size_t *pos, const char *s)
-{
-    while (*s && *pos + 1 < n)
-        out[(*pos)++] = *s++;
-    out[*pos] = 0;
-}
-
-/* the header facts that break the .b16 profile (b16_profile_warnings in scripts/mkbm.py) */
+/* the header facts that do not suit the RGB30 (b16_profile_warnings in scripts/mkbm.py): any screen size and
+ * any list of kernels is valid, only a need for a mouse is a warning */
 static int profile(const uint8_t *c, bm_lint_fn warn, void *ctx)
 {
-    char m[96];
-    size_t pos = 0;
     int n = 0;
-    unsigned w = rd16(c + 12), h = rd16(c + 14);
-    if (!((w == 360 && h == 360) || (w == 720 && h == 720))) {
-        put_str(m, sizeof m, &pos, "screen ");
-        put_num(m, sizeof m, &pos, w);
-        put_str(m, sizeof m, &pos, "x");
-        put_num(m, sizeof m, &pos, h);
-        put_str(m, sizeof m, &pos, ": a .b16 is 360x360 or 720x720");
-        warn(ctx, 0, m);
-        n++;
-    }
     if (rd16(c + 18) & BM_FLAG_COMPAT) {
-        unsigned targets = c[BM_COMPAT_AT], needs = c[BM_COMPAT_AT + 3];
-        if ((targets & BM_TARGET_ALL) != BM_TARGET_ALL) {
-            pos = 0;
-            put_str(m, sizeof m, &pos, "targets list only ");
-            put_str(m, sizeof m, &pos, (targets & BM_TARGET_PI) ? "the Pi" : "the RGB30");
-            put_str(m, sizeof m, &pos, ": a .b16 runs on the Pi and the RGB30");
-            warn(ctx, 0, m);
-            n++;
-        }
+        unsigned needs = c[BM_COMPAT_AT + 3];
         if (needs & 8) {
             warn(ctx, 0, "needs mouse_hw: the RGB30 has no mouse");
             n++;
@@ -186,7 +148,7 @@ static int profile(const uint8_t *c, bm_lint_fn warn, void *ctx)
     return n;
 }
 
-int bm_b16_lint(const uint8_t *cart, size_t len, bm_lint_fn warn, void *ctx)
+int bm_cart_lint(const uint8_t *cart, size_t len, bm_lint_fn warn, void *ctx)
 {
     if (len < BM_HEADER_SIZE || (memcmp(cart, "BMCART\0\0", 8) != 0 && memcmp(cart, "BM33CART", 8) != 0))
         return -1;
