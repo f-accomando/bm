@@ -92,6 +92,8 @@ def main():
         lua = lua.replace("  --TRACE--", "  log(string.format('T %d %.2f %.2f %.2f %.2f %s %.1f', gtick, mario.x, mario.y, mario.vx, mario.vy, state, mario.pm))")
     if os.environ.get("SMW_GOD"):          # damage does nothing: the run can be compared with an emulator run that cannot die
         lua = lua.replace("  --GOD--", "  if true then return end")
+    if os.environ.get("SMW_VINE"):          # the vine is grown from the start: a test of the climb without the bump
+        lua = lua.replace("  --VINE--", "  vine = { cx = 200, cy = 16, head = -1 }")
     if os.environ.get("SMW_START"):         # a test start, "x,y": the shots of a block or an enemy without the walk
         lua = lua.replace("local START_X, START_Y = 16, 352", "local START_X, START_Y = " + os.environ["SMW_START"])
     open(out + "/main.lua", "w").write(lua)

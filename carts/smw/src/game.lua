@@ -26,6 +26,9 @@ local bench = false                       -- Select shows the frame cost and log
 local b_sum, b_max, b_n, b_ms, b_peak = 0, 0, 0, 0, 0
 local bumping = {}                        -- blocks jumping up: {cx, cy, t, used}
 local pops = {}                           -- coins thrown up by a block: {x, y, t}
+local vine                            -- the vine of the 0x11A block: {cx, cy, head}; its head climbs 1 pixel a tick
+local climb_cool = 0                  -- ticks after a jump off the vine in which he cannot grab it again
+local climb_d = 0                     -- climbed distance, for the two pictures
 local BUMP_Y = { -2, -4, -5, -6, -5, -4, -2, 0 }
 local camx, camy = 0, 192
 local backdrop = 0xFF0000
@@ -91,6 +94,20 @@ local function draw16(d, x, y)
   end
 end
 
+local points = {}                      -- the numbers that float up from a hit: {x, y, t, text}
+local chain = 0                           -- stomps in a row without touching the ground: 100, 200, 400, 800 ... 1-up
+
+local function award(n, x, y)
+  score = score + n
+  points[#points + 1] = { x = x, y = y, t = 0, text = tostring(n) }
+end
+
+local function add_coin(x, y)
+  coins = coins + 1
+  if coins >= 100 then coins = coins - 100; lives = lives + 1 end       -- a hundred coins: a 1-up
+  score = score + 50
+end
+
 local function hit_block(cx, cy)
   local k = L16[cy + 1][cx + 1]
   local kind = KIND[k]
@@ -100,10 +117,12 @@ local function hit_block(cx, cy)
   set16(cx, cy, { 0, 0, 0, 0 })
   bumping[#bumping + 1] = { cx = cx, cy = cy, t = 0 }
   if kind == "coin" then
-    coins = coins + 1
+    add_coin()
     pops[#pops + 1] = { x = cx * 16, y = cy * 16 - 16, t = 0 }
   elseif kind == "egg" then
     eggs[#eggs + 1] = { cx = cx, cy = cy, t = 0 }
+  elseif kind == "vine" then
+    vine = { cx = cx, cy = cy, head = cy * 16 - 1 }
   end
 end
 
@@ -122,14 +141,14 @@ local function pick_coins()
           set16(cx, yy, { 0, 0, 0, 0 })
         end
         dragons = dragons + 1
-        score = score + 1000
+        award(1000, cx * 16, cy * 16 - 16)
         if dragons % 5 == 0 then lives = lives + 1 end             -- five dragon coins: a 1-up
       elseif row and COINS[id] then
         row[cx + 1] = 0x25
         changed[#changed + 1] = { cx, cy }
         set16(cx, cy, { 0, 0, 0, 0 })
-        coins = coins + 1
-        score = score + 200
+        add_coin()
+        score = score + 150
       end
     end
   end
@@ -304,6 +323,8 @@ restart_level = function()
     put16(c[1], c[2], L0[c[2] + 1][c[1] + 1])
   end
   changed, bumping, pops, eggs, bits, swapped, psw_t = {}, {}, {}, {}, {}, {}, 0
+  vine, climb_cool, climb_d, points, chain = nil, 0, 0, {}, 0
+  --VINE--
   spawn_foes()
   mario = Phys.new(START_X, START_Y)
   prev = { x = mario.x, y = mario.y }
@@ -351,6 +372,7 @@ local WALK_FRAME = 122                      -- speed units a walk frame lasts: 5
 
 local function pose_of(m, inp)
   local ax = math.abs(m.vx)
+  if m.climb then return "mario_climb", (climb_d // 7) % 2 + 1 end
   if m.ground then
     spinning = false
     if inp.down then return "mario_duck", 1 end
@@ -366,10 +388,48 @@ local function pose_of(m, inp)
   return m.vy < 0 and "mario_jump" or "mario_fall", 1
 end
 
+-- Climbing the vine (traces of smw_vine.py): up and down 16 units a tick (about 1.15 pixels), left and
+-- right slide on the vine and let go at half a tile, a jump gives -73 and the vine cannot be grabbed for a while.
+local function climb_tick(inp)
+  local v = vine
+  if not v then mario.climb = false; return false end
+  if v.head > -1 then v.head = v.head - 1 end
+  if climb_cool > 0 then climb_cool = climb_cool - 1 end
+  local vx0 = v.cx * 16
+  local m = mario
+  if not m.climb then
+    local mid = math.floor(m.y) + 24
+    if inp.up and climb_cool == 0 and math.abs(math.floor(m.x) + 8 - (vx0 + 8)) <= 6 and mid >= v.head + 8 and mid < v.cy * 16 then
+      m.climb, m.x, m.vx, m.vy, m.ground, m.face = true, vx0, 0, 0, false, 1
+      m.held = inp.jump
+    else
+      return false
+    end
+  end
+  local dy = ((inp.down and 1 or 0) - (inp.up and 1 or 0)) * Phys.KY
+  local dx = (inp.right and 1 or 0) - (inp.left and 1 or 0)
+  m.y = math.max(v.head - 16, math.max(-16, m.y + dy))
+  climb_d = climb_d + math.abs(dy) * 6
+  m.x = m.x + dx
+  if inp.down and solid(math.floor(m.x) + 8, math.floor(m.y) + 32) then      -- the ground: he steps off
+    m.y = math.floor(m.y)
+    while solid(math.floor(m.x) + 8, math.floor(m.y) + 32) do m.y = m.y - 1 end
+    m.climb, m.ground, climb_cool = false, true, 8
+  elseif math.abs(m.x - vx0) > 8 then
+    m.climb, m.ground, climb_cool = false, false, 10
+    m.vx = dx * 16
+  elseif inp.jump and not m.held then
+    m.climb, m.ground, m.vy, climb_cool = false, false, -73, 12
+    m.vx = dx * 16
+  end
+  m.held = inp.jump
+  return true
+end
+
 local function play_tick(inp)
   prev.x, prev.y = mario.x, mario.y
   local was_ground, vy0, spin0 = mario.ground, mario.vy, spinning
-  Phys.step(mario, inp, solid, platform)
+  if not climb_tick(inp) then Phys.step(mario, inp, solid, platform) end
   if was_ground and not mario.ground and mario.vy < 0 then spinning = inp.spin end
   if state == "play" then
     if mario.bump then
@@ -408,6 +468,11 @@ local function play_tick(inp)
     b.t = b.t + 1
     if b.t > #BUMP_Y then set16(b.cx, b.cy, USED); table.remove(bumping, i) end
   end
+  for i = #points, 1, -1 do
+    points[i].t = points[i].t + 1
+    if points[i].t > 40 then table.remove(points, i) end
+  end
+  if mario.ground or mario.climb then chain = 0 end
   for i = #pops, 1, -1 do
     pops[i].t = pops[i].t + 1
     if pops[i].t > 24 then table.remove(pops, i) end
@@ -446,7 +511,10 @@ local function play_tick(inp)
         FOE[k.kind].stomp(k)
         mario.vy = last_inp.jump and -88 or -48
         mario.ground = false
-        score = score + 100
+        local STOMP = { 100, 200, 400, 800, 1000, 2000, 4000, 8000 }
+        chain = chain + 1
+        if chain > #STOMP then lives = lives + 1; points[#points + 1] = { x = k.x, y = k.y - 16, t = 0, text = '1UP' }
+        else award(STOMP[chain], k.x, k.y - 16) end
       elseif c.hit.kind == "touch" and k.kind == "koopa" and k.state == "shell" and not stomped[k] then
         stomped[k] = true
         k.state, k.vx, k.t = "slide", (mario.x + 8 < k.x + 8) and 60 or -60, 0
@@ -463,7 +531,7 @@ local function play_tick(inp)
         end
       elseif c.to ~= mario and k.state == "slide" and c.to.kind == "koopa" and c.to.state == "walk" then
         c.to.state, c.to.vy = "dead", -40
-        score = score + 200
+        award(200, c.to.x, c.to.y - 16)
       end
     end
   end
@@ -581,6 +649,12 @@ function _draw()
     end
     zspr(zn, VX + x0 - camx, VY + y - camy, fr)
   end
+  if vine then                                       -- the vine: leaves from the block up to its head
+    for r = 0, vine.cy - 1 do
+      if r * 16 > vine.head then zspr("vine_body", VX + vine.cx * 16 - camx, VY + r * 16 - camy) end
+    end
+    zspr("vine_head", VX + vine.cx * 16 - camx, VY + vine.head - camy)
+  end
   for _, d in ipairs(DECOR) do                      -- flowers and tufts: they only turn, a frame every 16 ticks
     if d[2] > camx - 32 and d[2] < camx + VIEW_W + 32 then
       zspr(d[1], VX + d[2] - camx, VY + d[3] - camy, (gtick // 16) % (d[1] == "flower" and 4 or 3) + 1)
@@ -595,6 +669,7 @@ function _draw()
       if k.kind == "plant" then clip(VX, VY, VIEW_W, VIEW_H) end
     end
   end
+  for _, p in ipairs(points) do print(p.text, VX + math.floor(p.x) - camx, VY + math.floor(p.y) - p.t // 2 - camy, 0xFFFFFF) end
   for _, b in ipairs(bits) do
     sspr((b.cell % 16) * 8, (b.cell // 16) * 8, 8, 8, VX + math.floor(b.x) - camx, VY + math.floor(b.y) - camy)
   end

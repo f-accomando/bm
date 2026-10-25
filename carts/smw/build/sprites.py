@@ -46,6 +46,15 @@ def pack_zones(ex, tiles_png, out_png, out_txt, restyle=None):
         zones.append((name, 32, 48, frames, (-8, -8),
                       ["hurt * 10 24 12 16", "box 3 * 10 36 12 4", "box 4 * 10 24 12 16"]))
 
+    climb = []                                   # climbing: his back, one picture and its twin
+    for key in ("15_0", "15_1"):
+        m = meta[key]
+        climb.append((Image.open(ex + "/mario/" + m["file"]).convert("RGBA"), m["ox"] + 8, m["oy"] + 8))
+    zones.append(("mario_climb", 32, 48, climb, (-8, -8), ["hurt * 10 24 12 16", "box 3 * 10 36 12 4", "box 4 * 10 24 12 16"]))
+    vh = json.load(open(ex + "/vine/head.json"))
+    zones.append(("vine_body", 16, 16, [(Image.open(ex + "/vine/body.png").convert("RGBA"), 0, 0)], (0, 0), []))
+    zones.append(("vine_head", 16, 24, [(Image.open(ex + "/vine/head.png").convert("RGBA"), vh["ox"], vh["oy"])], (0, 0), []))
+
     en = json.load(open(ex + "/enemies/pics.json"))
     for name, pics in KOOPA:
         frames = [(Image.open(ex + "/enemies/" + en[p]["file"]).convert("RGBA"), en[p]["ox"], en[p]["oy"] + 16) for p in pics]

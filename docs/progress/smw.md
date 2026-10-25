@@ -87,9 +87,13 @@ the finished cartridge stay on the user's machine and SD card.
 - Note: `mkbm.py` warns `require: not for a .b16` for `require "bmlib"`. The runtime has it.
 - Done: the messages, the spin jump that breaks turn blocks (four pieces fly), the blue P switch (stomp: it goes
   flat, a puff; for 704 ticks turn blocks are coins and coins are turn blocks, then they go back).
-- Open: the vine, the Chuck's other moves (hops, the clap, the slide when hit), the shell sprites 00 and 04 of the level.
-- Open: riding Yoshi (poses and eating), the vine of 0x11A (growth and climbing poses), big Mario,
-  power-ups, the turn block breaking when Mario is big.
+- Done: the vine of block 0x11A (`scripts/smw_vine.py`): the head rises 1 pixel a tick to y -1, Mario grabs it
+  with Up, climbs up and down 16 units a tick, slides left and right and lets go at 8 pixels, a jump gives
+  -73. Pictures: Mario's back (pose 0x15, two frames), the leaf cell (Map16 $006) and the head (sprite 0x79).
+  Test: `SMW_VINE=1 SMW_START=3200,224` grows it at the start.
+- Done: score pop-ups, the stomp chain (100 to 8000, then a 1-up), a 1-up at 100 coins.
+- Open: the Chuck's other moves (hops, the clap, the slide when hit).
+- Open: riding Yoshi (poses and eating), big Mario, power-ups, the turn block breaking when Mario is big.
 - Done: the goal tape and the course clear banner, 5 lives, the clock, death (hop and fall), game over,
   restart of the level (blocks and coins put back), score for coins, stomps, and the time bonus.
 - Done: Koopa Troopas (walk, turn, stomp, kick, slide, kill each other), Mario dies on touch.
@@ -98,7 +102,7 @@ the finished cartridge stay on the user's machine and SD card.
   and the P switch as solid or still sprites.
 - Enemies still open: the level has sprites 00, 01, 04, 05 (Koopas), 3E (P switch), 4D, 4E (Monty Mole),
   4F (jumping piranha plant), 91 (Chargin' Chuck), B9 (message), 7B (goal). `spawns.json` has the
-  places. Bonus by the tape height, the end screen of SMW, the overworld, 1-ups at 100 coins.
+  places. Bonus by the tape height, the end screen of SMW, the overworld.
 - More levels. Map16 for other tilesets comes from the ROM table at `$0D8000`.
 - Sound: SPC700. Music last.
 - Frame time: Select shows the overlay (ms, fps, Lua KB, instructions) and logs a `bench` line every 5
