@@ -207,6 +207,7 @@ Benchmarks and log lines only. Never a live game. For a frame number, use a cart
 4. **Range.** `Accept-Ranges` and `206` from the catalog host and the release CDN. Open item in `multitasking.md`.
 5. **Cover reads.** The count of sdhost read timeouts per 100 cover reads. The time of one `menu_load_cover`. The worst `stop` time of `menu idle:`.
 6. **Longest frame during a queued write.** A bench cart queues a 4 MB `file_write` and logs the largest `timer_ticks` gap between frames. Open item in `multitasking.md`.
+   - Result of 25 Oct (Pi Zero W, `pi_bench.lua`, 2048 KB): sync call 656 ms; queued: done in 1240 ms, worst frame 682.0 ms. The 682 ms was a bench error: the frame clock was not restarted after the sync call (656 + 26 ms). Host check (`make test-fat-queue`): no step of the queued write writes more than 74 sectors (4 KB clusters) or 68 (32 KB clusters). The bench is fixed. The corrected worst frame is **not measured**: the user runs the bench again.
 7. **GC pause.** The longest `lua_gc` step in a bench cart that allocates like a game. Use the session report's longest frames.
 8. **Load profile.** Stop time, SD read of the file, `bm_parse`, `load_assets`, `new_cart_state`, `enter_mode`, time to the first `present()`. For a 1 MB, a 6 MB and a 12 MB cart.
 9. **Free time per frame.** Milliseconds left at `pace()` for three bench loads (light, medium, heavy). This is the budget for G.

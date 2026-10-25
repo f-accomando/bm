@@ -781,7 +781,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
-        test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
+        test-fat test-fat-queue test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-anim-ease test-qemu test-vid
@@ -960,7 +960,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
-HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
@@ -992,6 +992,14 @@ test-fat: $(BUILD)/host/test_fat
 $(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h src/kernel/sdmap_core.c src/kernel/sdmap.h src/bm/project.c src/bm/project.h src/bm/lint.c src/bm/lint.h src/bm/lint_table.h src/bm/format.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c src/kernel/sdmap_core.c src/bm/project.c src/bm/lint.c src/bm/format.c src/lib/crc32.c
+
+# the steps of a queued file_write: sectors between two ticks of a 2048 KB write
+test-fat-queue: $(BUILD)/host/test_fat_queue
+	$(PYTHON) tests/fs/run_queue.py $<
+
+$(BUILD)/host/test_fat_queue: tests/fs/test_fat_queue.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat_queue.c src/fs/fat.c
 
 # Network console on lwIP's loopback interface (the WiFi chip is not in QEMU),
 # then lwIP on the Pi 1 B's Ethernet with a simulated LAN9512 and a DHCP peer
