@@ -1,0 +1,8 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: Kratos Build
+desc: Kratos built part by part with a pointer and bm Mesh's tools. Record it with rec=on.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: demo, 3d, mesh
+resolution: 480x270

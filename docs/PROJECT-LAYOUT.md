@@ -103,7 +103,9 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `overbit` | `bm.info`; `build.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). The `.b16` rules keep `--title`/`--res` |
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |
+| `bench3d` | `bm.info`; `build/mkassets.py` builds the models and the sprite sheet at build time (no binary in git) |
 | `bmweb`, `herocart` | `bm.info`; `src/` holds the modules and `build/` the build script |
+| `kratos` | `bm.info`; `build/glb2parts.py` writes the PARTS table into `main.lua` (between the DATA lines); the `.bme` is built with the `.bm` |
 | `sdk_b16`, `titan_ex` | `bm.info`; the `.b16` editions use it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
 
 `stages3d` is not a project of this layout. It has one front per edition, and each front has its own `bm.info` (`bm/bm.info` and `b16/bm.info`). Logic is in `common/`, assets are shared, and `build.py` joins an edition's sources ([stages3d](progress/stages3d.md)). The tool does not list it.

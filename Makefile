@@ -189,12 +189,12 @@ GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
 # The 3D Bench (Lua edition): its models with bones and baked light, its sprite sheet and the 8 map layers
-# of the test map8 are made by carts/bench3d/mkassets.py (no binary in the repository)
+# of the test map8 are made by carts/bench3d/build/mkassets.py (no binary in the repository)
 models_bench3d := $(BUILD)/bench3d/models.bm
 extra_bench3d := $(foreach l,1 2 3 4 5 6 7 8,--map l$(l)=$(BUILD)/bench3d/map_l$(l).csv)
-$(BUILD)/bench3d/models.bm: carts/bench3d/mkassets.py scripts/bmmesh.py scripts/mkbm.py
+$(BUILD)/bench3d/models.bm: carts/bench3d/build/mkassets.py scripts/bmmesh.py scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) carts/bench3d/mkassets.py $(dir $@)
+	$(PYTHON) carts/bench3d/build/mkassets.py $(dir $@)
 # Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/assets/map_ground.csv, map_overlay.csv and
 # map_objects.csv (the placeholders of the houses, trees, lamps... it places)
 # (carts/yharnam/build/mkmap.py makes the first one, and takes it back from the console)
@@ -228,6 +228,12 @@ $(BUILD)/bmweb/main.lua: $(BMWEB_SRC) carts/bmweb/build/build.py
 	$(PYTHON) carts/bmweb/build/build.py $@
 
 lua_bmweb := $(BUILD)/bmweb/main.lua
+
+# Kratos Build (carts/kratos): a mesh built part by part by a virtual pointer. One Lua file whose
+# PARTS table is made by carts/kratos/build/glb2parts.py. The .bme is the source, the .bm the cartridge.
+$(BUILD)/carts/kratos.bm $(BUILD)/carts/kratos.bme: $(BUILD)/carts/kratos.%: carts/kratos/main.lua scripts/mkbm.py carts/kratos/bm.info
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kratos/bm.info
 
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)

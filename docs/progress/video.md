@@ -19,6 +19,7 @@ Study: [video-feasibility-2026-10.md](../bench/video-feasibility-2026-10.md). PC
 * VID-FMT slice 3 is open: the clip's audio (a PCM stream voice in the mixer), clips inside the cartridge, a frame read on demand for long clips.
 * Decoder guard: `jpeg_decode565` checks the picture size against the buffer after the scan. A hostile frame that declares a huge size makes it allocate its planes first. Check the size from the SOF header before the scan.
 * VID-REC slice 1 is done (below): the recorder, off by default. The RLE565 encoder is done (lossless, host-tested round trip, QEMU tests). The Pi numbers of the encoder are measured (below). Open: a palette (8-bit) format with a real palette (it needs a palette per frame or per clip and a quantizer: a separate slice), a Dev tab switch, audio in the recording, recording from a cartridge's own call, a delta against the previous frame if the Pi numbers show that intra frames are still too big.
+* Kratos Build demo (`carts/kratos`, branch `claude/kratos-mesh-pointer-demo`): a recording target for the recorder. Not run on the Pi Zero W yet. Open: run it with `rec=on` (480x270, 15 fps), read the `rec:` report lines, check frame time (2164 faces on screen at the end).
 
 ## Screen recorder (VID-REC)
 Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `rec_fps` (1 to 30, default 15), `rec_size` (WxH, default 320x180), `rec_format` (`rle565` default, `rgb565`, or `rgb332`), `rec_ring_mb` (1 to 256, default 64).

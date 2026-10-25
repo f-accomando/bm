@@ -128,7 +128,7 @@ end
 
 -- ---------------------------------------------------------------- models and meshes (b3d.c: meshes_make)
 
--- Models with bones and baked light come from the cartridge (carts/bench3d/mkassets.py, MESH and ANIM
+-- Models with bones and baked light come from the cartridge (carts/bench3d/build/mkassets.py, MESH and ANIM
 -- sections): hero, hero_tex, hero_skin and hero_h (16 bones, 1536 faces; the clip "walk" is b3d.c's pose()),
 -- tile (32 faces), tile_a and tile_b (50 faces, the map pieces of herotris), slab10a and slab10b (500 faces).
 -- The sprite sheet (384 x 160): sheet 0 (128 x 128 checker) at x 0, sheet 1 (holes) at x 128, sheet 2 at
