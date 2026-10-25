@@ -194,7 +194,7 @@ If the list does not show a game's keys, the game did not declare any. [TO FILL:
 
 # The monitor
 
-The monitor is bm's text console. It has a prompt `>`, takes one key per command, and prints on the screen, on the serial port and on the network console.
+The monitor is bm's text console. It has a prompt `>` and takes one key per command. It also takes typed commands at the `bm>` prompt. It prints on the screen, on the serial port and on the network console.
 
 ## How to open it
 
@@ -202,46 +202,61 @@ The monitor is bm's text console. It has a prompt `>`, takes one key per command
 - Or choose Settings > System > *Open the monitor*.
 - Or connect from the PC: `python3 tools/bm_net.py IP` shows the monitor of a console on the network.
 
-Type `h` for help. `M` goes back to the menu; `Esc` alone does nothing at the prompt.
+Type `h` for help. The help is made from the table of commands in the kernel, so it always lists every command. `M` goes back to the menu; `Esc` alone does nothing at the prompt.
 
 ## Commands
 
-The help of the monitor lists many keys. These are the ones that matter to a first-time user:
+Each command has a word. The key is a shortcut for the word. The help of the monitor lists all of them. These are the ones that matter to a first-time user:
+
+| Key | Word | What it does |
+|---|---|---|
+| `h` or `?` | `help [NAME]` | the help, or the help of one command |
+| `M` | `menu` | the cartridge menu |
+| `f` / `F` | `carts list` / `carts rescan` | list cartridges / read the SD card again |
+| `i` | `sys info` | system information |
+| `m` | `sys heap` | heap usage |
+| `c` | `sys clear` | clear the screen |
+| `l` | `lua` | Lua prompt (`Esc`, `Ctrl-D` or `exit()` returns) |
+| `L` | `sys layout [it\|us]` | keyboard layout, Italian or US |
+| `V` | `sys via-ram [on\|off]` | `.bm` drawing, direct on screen or via RAM |
+| `y` / `Y` | `sys usb` / `sys input` | USB scan / input test |
+| `T` `K` `O` | `bt pair pad` / `kbd` / `mouse` | Bluetooth: pair a pad, a keyboard, a mouse |
+| `P` | `bt forget` | Bluetooth: forget all paired devices (asks first) |
+| `W` | `wifi`, `wifi list`, `wifi join NAME [PASSWORD]`, `wifi forget` | WiFi: start, list networks, join one, forget it |
+| `u` | `update` | update from GitHub (asks first) |
+| `o` | `sys dmesg` | everything printed since boot |
+| `Z` | `report log` | the log since boot, as a report |
+| `r` | `sys reboot` | reboot |
+| `X` | `sys crash [KIND]` | crash tests: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
+
+Other keys run tests and benchmarks: `k`, `p`, `D` and `j` are `bench cpu`, `bench render`, `bench dma` and `bench 3d`. `d` is `demo`, `t` is `sys test-pattern`, `a` is `sys audio`. `E` is `net eth`, `G` is `net get URL`, `z` is `report send`, `U` is `upload`. Other keys open the editors: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` are `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
+
+## The bm> prompt
+
+Type `:` and then `Enter`. The prompt `bm> ` opens and stays open. Type `exit` to leave it, or press `Esc`, or press `Ctrl-D` on an empty line.
 
 | Key | What it does |
 |---|---|
-| `h` or `?` | the help |
-| `M` | the cartridge menu |
-| `f` / `F` | list cartridges / read the SD card again |
-| `i` | system information |
-| `m` | heap usage |
-| `c` | clear the screen |
-| `l` | Lua prompt (`Esc`, `Ctrl-D` or `exit()` returns) |
-| `L` | keyboard layout, Italian or US |
-| `V` | `.bm` drawing, direct on screen or via RAM |
-| `y` / `Y` | USB scan / input test |
-| `T` `K` `O` | Bluetooth: pair a pad, a keyboard, a mouse |
-| `P` | Bluetooth: forget all paired devices (asks first) |
-| `W` | WiFi: start, list networks, join one |
-| `u` | update from GitHub (asks first) |
-| `o` | everything printed since boot |
-| `Z` | the log since boot, as a report |
-| `r` | reboot |
-| `X` | crash tests: then `u`, `a`, `b`, `s` or `f` |
+| `Tab` | complete a command, a subcommand or a `set` key; two or more choices are listed |
+| `Up` / `Down` | the last 16 lines |
+| `Left` / `Right`, `Home` / `End` | move in the line |
+| `Backspace` / `Del` | delete a character |
+| `Ctrl-U` | delete the text before the cursor |
+| `Ctrl-C` | drop the line |
 
-Other keys run tests and benchmarks: `k`, `p`, `D`, `g`, `j`, `R`, `s`, `d`, `t`, `a`, `b`. Others open the editors: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I`.
+It works with a USB keyboard, on the serial port and on the network console. Quotes keep spaces in a word: `wifi join "my net" "a password"`. A typo gets a hint: `sned` says `did you mean: send`.
 
 ## A line of commands
 
-Type `:` and then commands separated by `;`. They run one after the other, and the line stops at the first one that fails.
+Type `:` and then commands separated by `;`. They run one after the other, and the line stops at the first one that fails. The line runs once, as it always did. The PC tools use it (`bm_net.py IP --line "..."`).
 
 | Command | What it does |
 |---|---|
-| `b3d tests=a,b profiles=P` | the 3D Bench, all or part |
+| `bench 3d tests=a,b profiles=P` | the 3D Bench, all or part (`b3d` still works) |
 | `play NAME` | start a game by name |
-| `set key=value ...` | change `bm/config.txt` keys until a restart |
+| `set key=value ...` | change `bm/config.txt` keys until a restart (`set` alone lists them) |
 | `save` | write `bm/config.txt` |
-| `render`, `room`, `log`, `send`, `reboot` | benchmarks, the log as a report, send the waiting reports, reboot |
+| `bench render`, `report log`, `report send`, `sys reboot` | benchmark, the log as a report, send the waiting reports, reboot (`render`, `log`, `send`, `reboot` still work) |
 
 ::: copy
 :set volume=5; save

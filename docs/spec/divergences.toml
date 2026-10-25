@@ -267,7 +267,7 @@ cause = "hardware"
 capability = "no-keyboard"
 priority = 6
 status = "open"
-note = "RGB30 has no monitor console by design (no USB host / no keyboard; serial line has a Lua REPL)."
+note = "RGB30 has no monitor console by design (no USB host / no keyboard; serial line has a Lua REPL). 25 Oct 2026: the Pi monitor is now a table of commands with a prompt, history and Tab (src/kernel/monitor.c); the core (src/kernel/monitor_cmd.c: tokenizer, dispatcher, help, completion, line editor) has no hardware dependency and is shared code. It is wired into the Pi monitor only; the RGB30 still has no monitor, and the wiring waits for this decision."
 evidence = "src/rgb30/ui.c:946; src/kernel/settings.c:652"
 action = "the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse"
 
@@ -554,7 +554,7 @@ cause = "hardware"
 capability = "no-keyboard"
 priority = 6
 status = "accepted"
-note = "Accepted 2026-10-23 (BETA-6 round 2): the crc is a monitor line, and the RGB30 has no monitor by design (D22: no USB host, no keyboard). The RGB30 tests read the screen through the QEMU screendump (tests/rgb30/qemu_test.py screen_text) and the console owner sees the screen. A serial crc command for the RGB30 can come with the terminal monitor that D22 plans."
+note = "Accepted 2026-10-23 (BETA-6 round 2): the crc is a monitor line, and the RGB30 has no monitor by design (D22: no USB host, no keyboard). The RGB30 tests read the screen through the QEMU screendump (tests/rgb30/qemu_test.py screen_text) and the console owner sees the screen. A serial crc command for the RGB30 can come with the terminal monitor that D22 plans: the command core src/kernel/monitor_cmd.c is shared, and only a new table of commands and the serial input are missing."
 evidence = "src/kernel/monitor.c; tests/qemu_test.py:test_monitor_crc"
 action = "none; with the terminal monitor of D22"
 

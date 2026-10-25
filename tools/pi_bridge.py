@@ -34,12 +34,12 @@ KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch
 MONITOR_ONLY = {"crash-dabt", "crash-undef", "crash-prefetch", "freeze", "freeze-irq", "reboot"}
 # the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only, in any case)
 LOGS = {"bootprev": "bootprev.txt", "bootlog": "bootlog.txt", "lastrun": "lastrun.txt"}
-# the monitor commands the line operation passes (src/kernel/monitor.c:291 lists them all; set, save and play are left out:
+# the monitor commands the line operation passes (the old words of the table `commands` in src/kernel/monitor.c; set, save and play are left out:
 # set writes any config key, wifi_psk and net_password included; play is the bridge's play FILE)
 LINE_CMDS = ("b3d", "render", "log", "err", "crc", "send", "reboot")
 # letters, digits, space and _ , = ; only (a control character would end the line early: bm_net.py closes it with a carriage return)
 LINE_CHARS = set(string.ascii_letters + string.digits + " _,=;")
-# b3d reads tests= and profiles= only (monitor.c:225-232); their names are [A-Za-z0-9_] (src/bm/b3d.c prof_short, test names)
+# b3d (bench 3d) reads tests= and profiles= only (c_bench_3d in monitor.c); their names are [A-Za-z0-9_] (src/bm/b3d.c prof_short, test names)
 B3D_ARG = re.compile(r"(tests|profiles)=[A-Za-z0-9_,]+")
 
 
