@@ -147,10 +147,10 @@ note = "bm.info + assets/ + res/ + build/. Every project in carts/ has bm.info (
 [[item]]
 id = "cart-type"
 since = 3
-status = "partial"
+status = "implemented"
 platforms = "all"
 where = ["src/bm/project.h", "scripts/mkbm.py", "src/kernel/settings.c", "src/kernel/home.h"]
-note = "docs/BM-FORMAT.md. Done: the type bits in the header (project.h), written by mkbm.py from bm.info. Pi: carts.c reads bm_type_of_head (carts.c:131) and lists app and utility cartridges outside Games; home.c defines home_utils() and home_tool_is_utility(). Not done: the RGB30 does not read the type (D51) and its Dev tab holds Settings rows (D52); settings.c has only a weak home_utils() stub for it"
+note = "docs/BM-FORMAT.md. The type bits are in the header (project.h), written by mkbm.py from bm.info. Pi: carts.c reads bm_type_of_head and lists app and utility cartridges in Dev, with no splash; home.c defines the utilities. RGB30: src/rgb30/ui.c does the same (D51, QEMU test_cart_type_dev) and defines its utilities (D52). Not seen on the RGB30 panel"
 
 [[item]]
 id = "folders-bm-bme"

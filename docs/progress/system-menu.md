@@ -16,7 +16,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
   subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
   `.b16` format badges on cards and details panel. The title bar shows the name only.
-- The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). The
+- The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). On the RGB30 (`src/rgb30/ui.c`) it holds the bm SDK, then the cartridges of type app or utility (D51, D52); its utilities are the 3D Bench (Settings > Screen) and the Render bench (Settings > System > Utilities); the Utilities row is hidden when the count is 0 (D53); Settings > System has the "3D driver" row (D15a). The
   benchmarks and tests are utilities (`home_utils()`): the 3D Bench in Settings > Screen;
   DMA test in Settings > System > Utilities. Input test, Audio test, Test pattern, System and Log are
   Settings rows. The GPU test, Texture Room, Video bench, Stack bench and Diagnostics (with the CPU

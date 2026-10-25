@@ -228,6 +228,26 @@ def press_serial(q, k, needle, tries=6, wait=10.0):
     raise AssertionError(f"key {k!r}: {needle!r} never came on the serial port:\n" + q.buf.decode(errors="replace"))
 
 
+def down_until(q, want, limit=24):
+    """Press the down key until all the words of `want` (a row's help) are on the screen."""
+    for _ in range(limit):
+        try:
+            return press(q, "s", want, tries=1, wait=1.5)
+        except AssertionError:
+            pass
+    raise AssertionError(f"down {limit} times: {want} never came:\n" + screen_all(q.screendump()))
+
+
+def open_settings_screen(q):
+    """From the Games tab: the Settings tab, its Screen section opened (the Screen modes row selected)."""
+    press(q, "r", ["build and try"])            # the Dev tab: the bm SDK
+    press(q, "r", ["Controllers", "built in"])  # the Settings tab
+    press(q, "s", ["Which button does what"])   # Controls
+    press(q, "s", ["The link, the address"])    # WiFi
+    press(q, "s", ["Screen modes, 3D Bench"])   # Screen
+    return press(q, "\r", ["Settings > Screen"])
+
+
 def walk_until(q, key, needle, limit=120.0):
     """Send `key` (one press every 0.2 s) until `needle` shows on the serial port; returns the serial text seen."""
     end = time.time() + limit
@@ -269,11 +289,12 @@ def test_screen_console(b, opts):
             assert needle in text, f"{needle!r} not on screen:\n{text}"
         # the Dev tab: three square covers a row, the selected one's name on the pill
         # (no Lua on the RGB30's Dev tab: the Pi's only; ` on the serial port opens it)
-        for k, name in (("r", "3D Bench"), ("s", "Input test"), ("d", "Boot log"), ("d", "bm SDK"),
-                        ("w", "Display"), ("s", "bm SDK")):
-            keys(q, k)
-            text = screen_all(q.screendump())
-            assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
+        # (the bm SDK alone: the benchmarks and tests are Settings rows, D52)
+        keys(q, "r")
+        text = screen_all(q.screendump())
+        assert "bm SDK" in text and in_menu(text), f"bm SDK not selected on the Dev tab:\n{text}"
+        for gone in ("3D Bench", "Render bench", "Input test", "Boot log", "Display"):
+            assert gone not in text, f"{gone!r} is not a Dev item:\n{text}"
         keys(q, "r")                            # Settings: its panel, the Pi's sections (settings.c)
         text = screen_all(q.screendump())
         for needle in ("Controllers", "Controls", "WiFi and network", "Screen", "Sound", "Updates"):   # Reports and System are below the sixth row
@@ -485,11 +506,11 @@ def test_update_from_sd(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        press(q, "r", ["3D Bench"])             # the Dev tab
+        press(q, "r", ["build and try"])        # the Dev tab
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
         press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi
-        press(q, "s", ["Screen modes, battery icon"])    # Screen
+        press(q, "s", ["Screen modes, 3D Bench"])       # Screen
         press(q, "s", ["The latest bm from GitHub"])    # Updates
         press(q, "\r", ["Settings > Updates"])
         press(q, "s", ["The latest release on GitHub"])  # Check for updates
@@ -624,7 +645,7 @@ def test_wifi_page_without_chip(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        press(q, "r", ["every 3D test"])                # the Dev tab
+        press(q, "r", ["build and try"])                # the Dev tab
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
         press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi and network
@@ -640,13 +661,13 @@ def test_wifi_page_without_chip(b, opts):
 
 
 def test_display_modes(b, opts):
-    """The Display page: the modes a game or the GPU can use, each with its
+    """Settings > Screen > Screen modes: the modes a game or the GPU can use, each with its
     test image (QEMU shows the image 1:1: the screen takes its size), the
     GPU's layout (rows of 64 bytes); B goes back to the menu's 360x360."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rdd")                          # Dev tab: 3D Bench, Render bench, Display
+        open_settings_screen(q)                 # Settings > Screen: Screen modes first
         q.send("\r")
         q.expect("720x720 x1 sharp: on", timeout=10)
         time.sleep(0.5)
@@ -697,7 +718,9 @@ def test_confirm_button(b, opts):
             assert "Open" in rows[21] and "Back" in rows[21], "\n".join(rows)
             chips[ok] = (hint_chip(img, rows, "Open"), hint_chip(img, rows, "Back"))
             assert chips[ok][0] != chips[ok][1], "the same chip for Open and Back"
-            keys(q, "\x7fs")                   # back to Dev; down a row: Input test
+            # (the sections again, the first row selected: Controllers)
+            press(q, "\r", ["Settings > Controllers"])
+            down_until(q, ["Every button and both sticks"])     # Test the buttons
             q.send("\r")                       # confirm
             time.sleep(0.6)
             q.send("\r")                       # Enter: the confirm button, held
@@ -891,7 +914,7 @@ def test_menu_tab_keys(b, opts):
     def tab_now():
         text = screen_all(q.screendump())
         return ("Settings" if "Controllers" in text and "Updates" in text else
-                "Dev" if "3D Bench" in text else
+                "Dev" if "bm SDK" in text else
                 "Games" if "No games yet" in text else
                 "Market" if "Market" in text else "?")
 
@@ -955,10 +978,7 @@ def test_sdk_stages_build(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        press(q, "r", ["every 3D test"])        # Dev
-        press(q, "s", ["both sticks"])          # the second row: Input test
-        press(q, "d", ["since boot"])           # Boot log
-        press(q, "d", ["build and try"])        # bm SDK, the last
+        press(q, "r", ["build and try"])        # Dev: the bm SDK, the only item
         q.buf = b""
         press_serial(q, "\r", "bm SDK\r\n", tries=3, wait=60.0)
         # Ctrl+N: new project from a template (sent again until the SDK is ready to read it)
@@ -1088,7 +1108,7 @@ def test_cover_details_perf(b, opts):
 
 
 def test_bench3d(b, opts):
-    """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
+    """Settings > Screen > 3D Bench (src/bm/b3d.c) at 640x360: every test on the
     ARM, the report on the serial port, in bm/bench on the SD card and in
     bm/reports for GitHub; the back button returns to the menu's 360x360."""
     tmp = mktmp(prefix="bm64sd-")
@@ -1098,7 +1118,10 @@ def test_bench3d(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        keys(q, "r")                            # Dev tab: 3D Bench
+        open_settings_screen(q)                 # Settings > Screen: 3D Bench is its last row
+        press(q, "s", ["Exact as before"])        # 3D on the ARM
+        press(q, "s", ["small red battery"])    # Low battery icon
+        press(q, "s", ["every 3D test"])        # 3D Bench
         q.send("\r")
         q.expect("b3d spheres ARM n=1 ", timeout=30)
         img = q.screendump()
@@ -1134,12 +1157,14 @@ def test_bench3d(b, opts):
 
 
 def test_menu_input_page(b, opts):
-    """The Dev tab's input test: the serial port presses buttons."""
+    """Settings > Controllers > Test the buttons: the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        press(q, "r", ["every 3D test"])        # Dev tab
-        press(q, "s", ["both sticks"])          # down a row: Input test
+        press(q, "r", ["build and try"])        # Dev tab
+        press(q, "r", ["Controllers", "built in"])      # Settings
+        press(q, "\r", ["Settings > Controllers"])
+        down_until(q, ["Every button and both sticks"])  # Test the buttons
         press(q, "\r", ["held: "])              # the page
         for i in range(60):                     # X is held for 120 ms: a screen taken too early or too late
             q.send("x")                         # misses it (the frame has not read it, or it is let go); send again
@@ -1150,9 +1175,81 @@ def test_menu_input_page(b, opts):
         assert "Input test" in text, text
         assert "held: 00000040" in text, text
         text = press(q, "\t ", ["Games", "Dev", "Settings"])     # Select + Start: back
-        assert in_menu(text) and "Input test" in text, text
+        assert in_menu(text) and "Test the buttons" in text, text
     finally:
         q.close()
+
+
+def test_dev_tab_utilities(b, opts):
+    """D52, D53, D15a: the Dev tab holds the bm SDK (and the installed tools), not the benchmarks and tests: the 3D
+    Bench is a row of Settings > Screen, the Render bench is in Settings > System > Utilities, which has content, and
+    Settings > System has the '3D driver' row (the backend text of bm_port.c)."""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+    try:
+        boot(q)
+        text = press(q, "r", ["bm SDK", "build and try"])       # the Dev tab
+        for gone in ("3D Bench", "Render bench", "Input test", "Boot log", "Display"):
+            assert gone not in text, f"{gone!r} is not a Dev item:\n{text}"
+        press(q, "r", ["Controllers", "built in"])      # the Settings tab
+        press(q, "s", ["Which button does what"])       # Controls
+        press(q, "s", ["The link, the address"])        # WiFi
+        press(q, "s", ["Screen modes, 3D Bench"])       # Screen
+        text = press(q, "\r", ["Settings > Screen"])
+        assert "3D Bench" in text and "Screen modes" in text, text
+        keys(q, "\x7f")                         # back to the sections: Screen is selected
+        down_until(q, ["Version, memory, the log"])             # System
+        text = press(q, "\r", ["Settings > System"])
+        down_until(q, ["Benchmarks and tests"])                 # the Utilities row (not hidden: it has content)
+        text = press(q, "\r", ["Settings > System > Utilities"])
+        assert "Render bench" in text and "none" not in text, text
+        keys(q, "\x7f")                         # back to System: Utilities is selected
+        keys(q, "w")                             # up one row: the 3D driver
+        text = wait_screen(q, ["3D driver", "ARM"])
+        assert "no GPU driver on the RGB30 yet" in text, text   # its help: gpu3d_status() with mali3d off
+    finally:
+        q.close()
+
+
+QUIT_CART = r"""
+function _init() log("typed cart runs") quit() end
+function _draw() cls(1) end
+"""
+
+
+def test_cart_type_dev(b, opts):
+    """D51, as the Pi (carts.c is_dev): a cartridge whose header says type app is not on the Games tab but in Dev,
+    after the bm SDK, and starts with no splash; a game starts with the splash."""
+    tmp = mktmp(prefix="bm64sd-")
+    app = mkbm.mark_type(mkbm.pack(QUIT_CART.encode(), title="Typed app", author="tests", res=(360, 360)), "app")
+    game = mkbm.pack(QUIT_CART.encode(), title="Typed game", author="tests", res=(360, 360))
+    sd = make_sd(tmp, {"bm/typedapp.bm": app, "bm/typedgame.bm": game})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "cartridge menu: 1 games" in out, out        # the app is not counted as a game
+        text = wait_screen(q, ["Typed game"])
+        assert "Typed app" not in text, text
+        q.buf = b""
+        q.send("\r")                            # the game: with the splash
+        line = q.expect("play: /bm/typedgame.bm", timeout=10).decode(errors="replace")
+        line += q.expect("\n", timeout=5).decode(errors="replace")
+        assert "no splash" not in line, line
+        q.expect("typed cart runs", timeout=30)
+        wait_screen(q, ["Typed game", "Games", "Dev"])
+        text = press(q, "r", ["bm SDK"])         # Dev: the SDK first, then the app
+        assert "Typed game" not in text, text
+        text = press(q, "d", ["tests   app"])    # the details line: author, type, size, file
+        assert "bm/typedapp.bm" in text, text
+        q.buf = b""
+        q.send("\r")
+        line = q.expect("play: /bm/typedapp.bm", timeout=10).decode(errors="replace")
+        line += q.expect("\n", timeout=5).decode(errors="replace")
+        assert "no splash" in line, line
+        q.expect("typed cart runs", timeout=30)
+        wait_screen(q, ["Games", "Dev", "Settings"])
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 B16_GAME = r"""
@@ -1319,8 +1416,7 @@ def test_sdk_tool(b, opts):
         q.send("\x1c")                          # Ctrl+\ (Ctrl+Esc): leave the SDK
         text = screen(["Games", "Dev", "Settings"])
         assert in_menu(text), text
-        keys(q, "r")                            # Dev: 3D Bench
-        keys(q, "sdd")                          # the second row, third column: bm SDK, the last
+        keys(q, "r")                            # Dev: the bm SDK, the only item
         text = screen(["bm SDK", "Dev"])
         assert in_menu(text), text
         q.buf = b""
@@ -1422,9 +1518,7 @@ def sdk_open(q):
     boot(q)
     time.sleep(1.0)
     keys(q, "r")                                # Dev
-    sdk_screen(q, ["3D Bench", "Dev"])
-    keys(q, "sdd")                              # the second row, third column: bm SDK
-    text = sdk_screen(q, ["bm SDK", "Dev"])
+    text = sdk_screen(q, ["bm SDK", "Dev"])      # the bm SDK, the only item
     assert in_menu(text), text
     q.buf = b""
     q.send("\r")
@@ -2149,7 +2243,7 @@ def test_stages3d_b16(b, opts):
         time.sleep(0.5)
         wait_screen(q, ["Stages 3D"])
         keys(q, "r")
-        text = wait_screen(q, ["3D Bench"])
+        text = wait_screen(q, ["bm SDK"])
         assert in_menu(text), text
         keys(q, "l")
         wait_screen(q, ["Stages 3D"])

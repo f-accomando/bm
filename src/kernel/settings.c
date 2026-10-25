@@ -34,6 +34,7 @@
 #include "rgb30/pad.h"
 #include "rgb30/plat.h"
 #include "rgb30/ui.h"
+#include "gpu/gpu3d.h"            /* gpu3d_status: Settings > System > 3D driver */
 
 /* the RGB30 is no Pi 1: the rows and the CRT filter of the Pi 1 stay off */
 static inline int board_is_pi1(void)
@@ -504,7 +505,7 @@ void home_panel(int id, home_panel_t *p)
                  "The link, the address, a test", "%s", net_word());
 #ifdef BM_RGB30
         home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
-                 "Screen modes, battery icon", "360x360 x2");
+                 "Screen modes, 3D Bench, battery icon", "360x360 x2");
 #else
         home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
                  "Drawing, 3D, menu size, test pattern", "%s%s",
@@ -843,6 +844,8 @@ void home_panel(int id, home_panel_t *p)
                 home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
                          "unknown");
         }
+        /* the value is short (the row is narrow); the help line is the backend's own text (bm_port.c) */
+        home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", gpu3d_status(), "%s", gpu3d_ready() ? "Mali" : "ARM");
 #else
         {
             /* the drivers' version, and the one the 3D settings reproduce */
@@ -852,7 +855,8 @@ void home_panel(int id, home_panel_t *p)
                      bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
 #endif
-        home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks and tests", "%d", util_count(0));
+        if (util_count(0) > 0)                  /* no empty page */
+            home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks and tests", "%d", util_count(0));
         home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
                  "Direct kernel and app updates without staging", "%s",
                  dev_mode() ? "On" : "Off");

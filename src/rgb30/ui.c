@@ -184,12 +184,15 @@ struct game {
     char dir[8];                                        /* "/bm" or "/carts" */
     uint32_t size;
     int is_bm;
+    uint8_t type;                   /* BM_TYPE_* of the header (bm.info `type:`): not a game goes to Dev, with no splash */
     uint8_t grey;                   /* not made for this kernel (bm_compat_classify): faded, starts after a question */
     const char *why;                /* the reason of the grey, a short static text */
     g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
 };
 static struct game games[MAX_GAMES];
-static int n_games, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
+/* games[] holds the cartridges of the card: first the games (BM_TYPE_GAME, the Games tab: n_games), then the
+ * apps and utilities (the Dev tab after its fixed items); n_all is the count of both */
+static int n_games, n_all, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
 static const char *sd_state = "not read";
 
 /* a .bm's title and cover (its COVER section) as on the Pi's menu; a
@@ -200,6 +203,7 @@ static void load_cover(int i)
     ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
     ksnprintf(games[i].title, sizeof games[i].title, "%s", games[i].name);
     games[i].author[0] = 0;
+    games[i].type = BM_TYPE_GAME;
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
@@ -225,6 +229,8 @@ static void load_cover(int i)
         t[32] = 0;
         ksnprintf(games[i].author, sizeof games[i].author, "%s", t);
     }
+    if (data && len >= BM_HEADER_SIZE && bm_is_cart(data))
+        games[i].type = (uint8_t)bm_type_of_head(data);
     bm_save_path(games[i].title, games[i].author, games[i].save, sizeof games[i].save);
     games[i].grey = 0;
     games[i].why = "";
@@ -255,7 +261,7 @@ static void scan_dir(const char *open, const char *dir)
     int show_bm = !show || strcmp(show, "0") != 0;     /* for testing: shown unless show_bm=0 */
     if (fat_opendir(&d, open) != 0)
         return;
-    while (fat_readdir(&d, &e) == 1 && n_games < MAX_GAMES) {
+    while (fat_readdir(&d, &e) == 1 && n_all < MAX_GAMES) {
         if (e.is_dir)
             continue;
         const char *dot = strrchr(e.name, '.');
@@ -269,26 +275,37 @@ static void scan_dir(const char *open, const char *dir)
             n_hidden++;
         if (!is_b16 && !(is_bm && show_bm))
             continue;               /* .bm: for the Pi, hidden here */
-        ksnprintf(games[n_games].name, sizeof games[0].name, "%s", e.name);
-        ksnprintf(games[n_games].dir, sizeof games[0].dir, "%s", dir);
-        games[n_games].size = e.size;
-        games[n_games].is_bm = is_bm;
-        n_games++;
+        ksnprintf(games[n_all].name, sizeof games[0].name, "%s", e.name);
+        ksnprintf(games[n_all].dir, sizeof games[0].dir, "%s", dir);
+        games[n_all].size = e.size;
+        games[n_all].is_bm = is_bm;
+        n_all++;
     }
 }
 
 static void scan_games(void)
 {
-    for (int i = 0; i < n_games; i++)
+    for (int i = 0; i < n_all; i++)
         g16_sheet_free(&games[i].cover);
-    n_games = n_hidden = 0;
+    n_games = n_all = n_hidden = 0;
     fat_dir_t d;
     sd_state = fat_opendir(&d, "bm") == 0 ? "bm/" : "no bm/ folder on the SD card";
     scan_dir("bm", "/bm");
     scan_dir("/carts", "/carts");
-    for (int i = 0; i < n_games; i++)
+    for (int i = 0; i < n_all; i++)
         load_cover(i);
-    qsort(games, (size_t)n_games, sizeof games[0], title_cmp);
+    qsort(games, (size_t)n_all, sizeof games[0], title_cmp);
+    /* the games first, the apps and utilities after them (each part keeps the order by title) */
+    static struct game rest[MAX_GAMES];
+    int nr = 0;
+    for (int i = 0; i < n_all; i++) {
+        if (games[i].type == BM_TYPE_GAME)
+            games[n_games++] = games[i];
+        else
+            rest[nr++] = games[i];
+    }
+    for (int i = 0; i < nr; i++)
+        games[n_games + i] = rest[i];
 }
 
 /* what the Market asks of the games on the card (carts.h, as carts.c on the
@@ -301,7 +318,7 @@ static int same_ci(const char *a, const char *b)
 const char *carts_find_title(const char *title, const char *author)
 {
     static char path[80];
-    for (int i = 0; i < n_games; i++)
+    for (int i = 0; i < n_all; i++)
         if (same_ci(games[i].title, title) && same_ci(games[i].author, author)) {
             ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
             return path;
@@ -311,7 +328,7 @@ const char *carts_find_title(const char *title, const char *author)
 
 static int game_of_path(const char *path)
 {
-    for (int i = 0; i < n_games; i++) {
+    for (int i = 0; i < n_all; i++) {
         char full[80];
         ksnprintf(full, sizeof full, "%s/%s", games[i].dir, games[i].name);
         if (same_ci(full, path))
@@ -411,7 +428,8 @@ static void play_bm(int i)
     uint8_t *data = NULL;
     size_t len = 0;
     wifi_auto_stop();                              /* a WiFi try of the menu's: not under a game */
-    loading_begin(fb);                             /* the retro intro while it loads */
+    if (games[i].type == BM_TYPE_GAME)              /* the splash is for games; an app or a utility opens with none (the Pi, carts.c) */
+        loading_begin(fb);                          /* the retro intro while it loads */
     fat_load_tick = load_tick;
     bm_parse_tick = load_tick;
     if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
@@ -420,7 +438,7 @@ static void play_bm(int i)
         page_message("Game", lines, 4);
         return;
     }
-    kprintf("play: %s (%lu bytes)\n", path, (uint32_t)len);
+    kprintf("play: %s (%lu bytes)%s\n", path, (uint32_t)len, games[i].type == BM_TYPE_GAME ? "" : ", no splash");
     if (bm_run(fb, data, len, PLAY_SECS, &st, 1) == BM_SUSPENDED)
         ksnprintf(susp_name, sizeof susp_name, "%s", games[i].name);
     free(data);
@@ -497,7 +515,7 @@ static void draw_stick(int cx, int cy, int16_t ax, int16_t ay, const char *name)
 }
 
 /* every button and both sticks, live; Start + Select together to leave
- * (Dev > Input test, Settings > Controllers > Test the buttons) */
+ * (Settings > Controllers > Test the buttons) */
 void ui_input_test(void)
 {
     uint32_t idle_since = timer_ticks();
@@ -526,8 +544,7 @@ void ui_input_test(void)
     pad_pressed();
 }
 
-/* the console with everything printed since boot (Dev > Boot log,
- * Settings > System > Log since boot) */
+/* the console with everything printed since boot (Settings > System > Log since boot) */
 void ui_show_log(void)
 {
     fb_show(fb, 0);
@@ -589,7 +606,7 @@ static void test_image(int i)
     fb_show(fb, 0);
 }
 
-/* Dev > Display, Settings > Screen > Screen modes */
+/* Settings > Screen > Screen modes */
 void ui_screen_modes(void)
 {
     int n = (int)(sizeof modes / sizeof modes[0]);
@@ -704,19 +721,40 @@ typedef struct {
     const uint8_t *cart, *cart_end; /* a tool built in: its cartridge's COVER instead */
 } item_t;
 
-/* the Dev tab, with the covers of the same tools on the Pi (home.c); the
- * SDK last (the tests find it by its place) */
+/* The Dev tab, as on the Pi: the bm SDK first (the tests find it by its place), then the installed tools: the
+ * cartridges of type app or utility on the card (games[n_games...]). The benchmarks and tests are not here: they are
+ * Settings rows (the utilities below), as the Pi's DMA test and 3D Bench. */
 static const item_t dev_items[] = {
-    { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d, MENU_ICON_GAUGE, 0x2A6A8A, NULL, NULL },
-    { "Render bench", "map, sprites and text, 640x360", page_render, MENU_ICON_TRIANGLES, 0x5A3AA0, NULL, NULL },
-    { "Display", "the screen modes for games and the GPU", ui_screen_modes, MENU_ICON_BARS, 0x404050, NULL, NULL },
-    { "Input test", "every button and both sticks, live", ui_input_test, MENU_ICON_PAD, 0x8A3A8A, NULL, NULL },
-    { "Boot log", "everything printed since boot", ui_show_log, MENU_ICON_LOG, 0x6A6A7A, NULL, NULL },
     { "bm SDK", "code, sprites, map, 3D; build and try", page_sdk, MENU_ICON_CODE, 0x1E8A5A,
       bm_sdk_cart, bm_sdk_cart_end },
 };
 #define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
 static g16_sheet_t dev_covers[N_DEV];
+
+/* The utilities of this console, listed as the Pi's (home.h): group 1 is in Settings > Screen, group 0 in
+ * Settings > System > Utilities. Display, Input test and Boot log are not here: Settings has the rows
+ * "Screen modes", "Test the buttons" and "Log since boot". */
+typedef struct { const char *name, *help; void (*run)(framebuffer_t *); int group; } util_t;
+static void util_bench3d(framebuffer_t *f) { (void)f; page_bench3d(); }
+static void util_render(framebuffer_t *f) { (void)f; page_render(); }
+static const util_t utils[] = {
+    { "3D Bench", "every 3D test: bars, report in bm/bench", util_bench3d, 1 },
+    { "Render bench", "map, sprites and text, 640x360", util_render, 0 },
+};
+#define N_UTILS ((int)(sizeof utils / sizeof utils[0]))
+
+int home_utils(void) { return N_UTILS; }
+const char *home_util_title(int i) { return utils[i].name; }
+const char *home_util_about(int i) { return utils[i].help; }
+int home_util_group(int i) { return utils[i].group; }
+
+void home_util_start(int i, home_do_t *d)
+{
+    memset(d, 0, sizeof *d);
+    d->what = HOME_TEXT;
+    d->text = utils[i].run;
+    d->own = 1;                     /* the page shows its own screen and waits for its own end */
+}
 
 /* Market first, off the screen at the left until it is the tab (as on the
  * Pi); Settings the last, its panel */
@@ -958,6 +996,44 @@ static void menu_idle(uint32_t until)
     fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
 }
 
+/* a cartridge of the card on the Games tab or in Dev */
+static menu_item_t game_item(int g)
+{
+    char gp[80];
+    ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
+    const int up = netxfer_updating(gp);                /* a file from the PC on its way */
+    return (menu_item_t){ .title = games[g].title, .kind = games[g].is_bm ? "bm" : "b16",
+                          .size = games[g].size, .cover = &games[g].cover, .path = games[g].name, .grey = games[g].grey,
+                          .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating",
+                          .running = is_suspended(games[g].name) };
+}
+
+/* the line under the covers for cartridge g; *label is the confirm button's word */
+static void game_details(int g, char *buf, size_t n, const char **label)
+{
+    const int frozen = is_suspended(games[g].name);
+    *label = frozen ? "Resume" : "Play";
+    if (frozen)
+        ksnprintf(buf, n, "%s/%s: frozen, %s resumes it", games[g].dir + 1, games[g].name, pad_ok_name());
+    else if (games[g].grey)
+        ksnprintf(buf, n, "Not here: %s", games[g].why);
+    else
+        ksnprintf(buf, n, "%s   %s   %lu KB   %s/%s", games[g].author[0] ? games[g].author : "-",
+                  games[g].type != BM_TYPE_GAME ? bm_type_name(games[g].type) : games[g].is_bm ? "bm" : "b16",
+                  (unsigned long)(games[g].size + 1023) / 1024, games[g].dir + 1, games[g].name);
+}
+
+/* the cartridge under the cursor: a game on the Games tab, an app or a utility in Dev after the fixed items; -1 if
+ * none (the fixed tools) */
+static int cart_at(int shown, int sel)
+{
+    if (shown == TAB_GAMES)
+        return sel < n_games ? sel : -1;
+    if (shown == TAB_DEV && sel >= N_DEV)
+        return n_games + sel - N_DEV < n_all ? n_games + sel - N_DEV : -1;
+    return -1;
+}
+
 void ui_home(framebuffer_t *f)
 {
     fb = f;
@@ -1061,7 +1137,7 @@ void ui_home(framebuffer_t *f)
             reports_send_pending();
             ksnprintf(note, sizeof note, "report %s", reports_last());
         }
-        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV;
+        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV + (n_all - n_games);
         int *s = &sel[shown];
         if (*s >= n) *s = n - 1;
         if (*s < 0) *s = 0;
@@ -1069,13 +1145,9 @@ void ui_home(framebuffer_t *f)
             market_select(*s);
         for (int i = 0; i < n && shown != TAB_MARKET; i++) {
             if (shown == TAB_GAMES) {
-                char gp[80];
-                ksnprintf(gp, sizeof gp, "%s/%s", games[i].dir, games[i].name);
-                const int up = netxfer_updating(gp);        /* a file from the PC on its way */
-                items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
-                                          .size = games[i].size, .cover = &games[i].cover, .path = games[i].name, .grey = games[i].grey,
-                                          .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating",
-                                          .running = is_suspended(games[i].name) };
+                items[i] = game_item(i);
+            } else if (i >= N_DEV) {
+                items[i] = game_item(cart_at(shown, i));
             } else {
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
             }
@@ -1111,20 +1183,8 @@ void ui_home(framebuffer_t *f)
                           n_hidden > 1 ? "s" : "");
             else if (strcmp(sd_state, "bm/") != 0)
                 ksnprintf(details, sizeof details, "%s", sd_state);
-        } else if (shown == TAB_GAMES) {
-            const int frozen = is_suspended(games[*s].name);
-            v.a_label = frozen ? "Resume" : "Play";
-            if (frozen)
-                ksnprintf(details, sizeof details, "%s/%s: frozen, %s resumes it",
-                          games[*s].dir + 1, games[*s].name, pad_ok_name());
-            else if (games[*s].grey)
-                ksnprintf(details, sizeof details, "Not here: %s", games[*s].why);
-            else
-                ksnprintf(details, sizeof details, "%s   %s   %lu KB   %s/%s",
-                          games[*s].author[0] ? games[*s].author : "-",
-                          games[*s].is_bm ? "bm" : "b16",
-                          (unsigned long)(games[*s].size + 1023) / 1024,
-                          games[*s].dir + 1, games[*s].name);
+        } else if (cart_at(shown, *s) >= 0) {
+            game_details(cart_at(shown, *s), details, sizeof details, &v.a_label);
         } else {
             ksnprintf(details, sizeof details, "%s", dev_items[*s].help);
         }
@@ -1475,20 +1535,21 @@ void ui_home(framebuffer_t *f)
                 gopt_sel = 0;
             } else if (p & pad_ok) {
                 char gp[80] = "";
-                if (shown == TAB_GAMES)
-                    ksnprintf(gp, sizeof gp, "%s/%s", games[*s].dir, games[*s].name);
-                if (shown == TAB_GAMES && netxfer_updating(gp)) {
+                const int cg = cart_at(shown, *s);      /* a game, or an app or utility in Dev */
+                if (cg >= 0)
+                    ksnprintf(gp, sizeof gp, "%s/%s", games[cg].dir, games[cg].name);
+                if (cg >= 0 && netxfer_updating(gp)) {
                     ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
-                } else if (shown == TAB_GAMES && compat_question(*s, ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
-                                                                 sizeof ask_y)) {
-                    ask_compat = *s;
+                } else if (cg >= 0 && compat_question(cg, ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
+                                                      sizeof ask_y)) {
+                    ask_compat = cg;
                     asking = ASK_COMPAT;
-                } else if (shown == TAB_GAMES && need_switch(games[*s].name)) {
-                    ask_switch = *s;
+                } else if (cg >= 0 && need_switch(games[cg].name)) {
+                    ask_switch = cg;
                     asking = ASK_SWITCH;
                     switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
-                } else if (shown == TAB_GAMES) {
-                    play_index = *s;
+                } else if (cg >= 0) {
+                    play_index = cg;
                     run_page(play_selected);
                 } else {
                     run_page(dev_items[*s].run);

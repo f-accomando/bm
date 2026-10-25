@@ -176,12 +176,13 @@ action = "the DMA test: port when the RGB30 needs it"
 id = "D15"
 area = "Settings > System"
 pi = "CPU clock and temperature; 3D driver row; open the monitor"
-rgb30 = "CPU name only"
+rgb30 = "CPU name; the 3D driver row since 25 Oct 2026 (D15a); no clock or temperature yet (D15b)"
 cause = "todo"
 priority = 6
 status = "open"
-evidence = "src/kernel/settings.c:605-649"
-action = "add what the RK3566 can report"
+note = "D15a done: Settings > System > 3D driver shows ARM or Mali, its help line is gpu3d_status() (QEMU test_dev_tab_utilities). D15b (the RK3566 TSADC and clock) waits for the owner's decision 9."
+evidence = "src/kernel/settings.c:605-649,850"
+action = "add the clock and the temperature the RK3566 can report"
 
 [[divergence]]
 id = "D16"
@@ -596,13 +597,13 @@ action = "run the triangle test and the 3D Bench on the console, then decide if 
 id = "D51"
 area = "menu / cartridge type"
 pi = "a cartridge whose header declares type app or utility (bm.info `type:`) is listed in Dev and opens with no splash"
-rgb30 = "it is listed in Games (a .bm is hidden unless show_bm) and opens with the splash: the Dev tab is a fixed list of built-in items"
-cause = "todo"
+rgb30 = "same since 25 Oct 2026: scan_games reads bm_type_of_head, the apps and utilities are listed in Dev after the bm SDK, play_bm skips loading_begin for them"
+cause = "history"
 priority = 4
-status = "open"
-note = "Pi: src/kernel/carts.c is_dev() reads the type bits of the header (bm_type_of_head). RGB30: src/rgb30/ui.c has no dynamic Dev list; bm Web (type app) is a .bm, and the RGB30 runs the .b16 edition. Compiled with a host syntax check only; not tried on a Pi."
-evidence = "src/kernel/carts.c:600; src/rgb30/ui.c:737"
-action = "give the RGB30 Dev tab a list of SD apps, or skip the splash for type app and utility there"
+status = "untested"
+note = "Done 25 Oct 2026 (src/rgb30/ui.c: struct game type, cart_at, play_bm). QEMU test_cart_type_dev: a type app cartridge is not on the Games tab, is in Dev, and the log says 'no splash'; a game starts with the splash. Not seen on the panel. An app in Dev has no options panel (X) yet."
+evidence = "src/kernel/carts.c:627; src/rgb30/ui.c; tests/rgb30/qemu_test.py:test_cart_type_dev"
+action = "look at it on the console"
 
 [[divergence]]
 id = "D54"
@@ -629,3 +630,27 @@ status = "accepted"
 note = "KEEP (25 Oct 2026). The test pattern is for an HDMI TV; the RGB30 has a square DSI panel with several modes, so it shows the modes with test images (capability square-panel). The low battery icon needs a battery (capability battery). Both are behind BM_RGB30 in src/kernel/settings.c."
 evidence = "src/kernel/settings.c:695-697,723-729; src/rgb30/ui.c:549-592"
 action = "none"
+
+[[divergence]]
+id = "D52"
+area = "Dev tab content"
+pi = "Dev holds tools only; the 3D Bench is in Settings > Screen"
+rgb30 = "Dev holds the bm SDK, then the cartridges of type app or utility; the 3D Bench is a Settings > Screen row, the Render bench a Settings > System > Utilities row; Display, Input test and Boot log are gone from Dev (Settings has Screen modes, Test the buttons and Log since boot)"
+cause = "history"
+priority = 4
+status = "untested"
+note = "Done 25 Oct 2026 through an RGB30 home_util_* table in src/rgb30/ui.c. QEMU test_dev_tab_utilities, test_bench3d, test_display_modes, test_menu_input_page. Not seen on the panel."
+evidence = "src/rgb30/ui.c; src/kernel/settings.c:855"
+action = "look at it on the console"
+
+[[divergence]]
+id = "D53"
+area = "Settings > System > Utilities"
+pi = "lists the DMA test"
+rgb30 = "lists the Render bench; the row is hidden when the count is 0"
+cause = "history"
+priority = 4
+status = "untested"
+note = "Done 25 Oct 2026 (settings.c util_count check). QEMU test_dev_tab_utilities. Not seen on the panel."
+evidence = "src/kernel/settings.c:855; src/rgb30/ui.c"
+action = "look at it on the console"
