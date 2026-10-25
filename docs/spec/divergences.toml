@@ -579,9 +579,9 @@ rgb30 = "the Mali draws flat-colour triangles and untextured BM_VS3 meshes by de
 cause = "todo"
 priority = 3
 status = "open"
-note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader + mali_backend.mesh), Phase 4 (async queue via mali_frame_submit and gpu3d_submit/sync), cached 2 MB resolve surface (dc civac, 8-pixel resolve, 8192-tri merge-sorted batching), and default mali3d=1 with 4 MB single-pass GPU arena (1024 draws, L1-cached descriptor packing) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd, 7509aa08, e259a8c8, b3cab428; games score 192 -> 247, GPU score 14 -> 228). Next: API-5 textured faces (requires Mesa Bifrost compiler build tree)."
+note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader + mali_backend.mesh), Phase 4 (async queue via mali_frame_submit and gpu3d_submit/sync), cached 2 MB resolve surface (dc civac, 8-pixel resolve, 8192-tri merge-sorted batching), and default mali3d=1 with 4 MB single-pass GPU arena (1024 draws, L1-cached descriptor packing) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd, 7509aa08, e259a8c8, b3cab428; games score 192 -> 247, GPU score 14 -> 228). Future roadmap: (1) API-5 textured faces on GPU (Mesa Bifrost compiler build tree + Texture/Sampler descriptors) and (2) hardware Z-buffer attachment (MFBD md_zs_crc_ext Early-Z)."
 evidence = "src/rgb30/bm_port.c; src/rgb30/mali.c; src/rgb30/mmu.c; docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt"
-action = "add textured fragment shader when Mesa Bifrost build tree is available"
+action = "future: add textured fragment shader (Mesa Bifrost build tree + Texture/Sampler descriptors) and hardware ZS attachment (MFBD md_zs_crc_ext)"
 
 [[divergence]]
 id = "D51"
