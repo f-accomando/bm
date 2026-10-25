@@ -30,7 +30,7 @@ Power on and the console boots straight into the games menu. Games are written i
 ## ✨ Key Features
 
 - **True Bare Metal Architecture**:
-  - `kernel.img` (C, ARM assembly, and Lua 5.4) communicates directly with hardware registers.
+  - `kernel.img` (C, ARM assembly, and Lua 5.4) communicates directly with hardware registers. Size on 25 Oct 2026: about 4.5 MB for the Pi (`kernel.img`, with the editors built in) and about 2.3 MB for the RGB30 (`kernel8.img`).
   - No Linux kernel, background daemons, or OS scheduler: the 1 GHz core and the ARM share of the 512 MB RAM belong to your game frame (the share is read from the firmware: 448 MB with `gpu_mem=64`, see [`docs/HARDWARE.md`](docs/HARDWARE.md)).
 - **Hardware & Peripherals**:
   - **Video**: HDMI output at 640×360, 480×270, 320×180, 256×256, 360×360 or 720×720 per cartridge, scaled up by the HDMI scaler ([`docs/RISOLUZIONI.md`](docs/RISOLUZIONI.md)).
