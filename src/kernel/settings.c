@@ -1214,16 +1214,9 @@ static void ask(home_do_t *d, const char *q, const char *detail, const char *yes
     ksnprintf(d->ask_yes, sizeof d->ask_yes, "%s", yes);
 }
 
-void home_act(int id, int row, int how, home_do_t *d)
+/* A row that opens the panel of a section. 1 if the row is one of them. */
+static int act_open(int row, home_do_t *d)
 {
-    memset(d, 0, sizeof *d);
-    d->what = HOME_STAY;
-    (void)id;
-    if (row >= R_UTIL_BASE && row < R_UTIL_BASE + HOME_ROWS_MAX) {
-        if (how == 0 && row - R_UTIL_BASE < home_utils())
-            home_util_start(row - R_UTIL_BASE, d);
-        return;
-    }
     switch (row) {
     case R_CONTROLS: case R_CTL_SCROLLER: case R_CTL_TOPDOWN: case R_CTL_STICK: case R_CTL_SYSTEM:
     case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB: case R_UTILS:
@@ -1231,6 +1224,16 @@ void home_act(int id, int row, int how, home_do_t *d)
         d->what = HOME_OPEN;
         d->panel = home_sub_panel(row);
         break;
+    default:
+        return 0;
+    }
+    return 1;
+}
+
+/* The rows of Controllers and Controls. 1 if the row is one of them. */
+static int act_controls(int row, int how, home_do_t *d)
+{
+    switch (row) {
     case R_CTL ... R_CTL + CONTROLS_COUNT - 1: {
         const int i = row - R_CTL;
         ctl_step(i, how < 0 ? -1 : 1);
@@ -1243,35 +1246,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "keyboard layout: %s", hid_layout());
         break;
-#ifdef BM_RGB30
-    case R_BATTERY_ICON:
-        config_set("battery_icon", battery_icon_on() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "low battery icon: %s", battery_icon_on() ? "on" : "off");
-        break;
-#endif
     case R_PROMPTS:
         config_set("prompts", home_prompts_colour() ? "white" : "colour");
         config_save();
         ksnprintf(d->note, sizeof d->note, "button icons: %s", home_prompts_colour() ? "colour" : "white");
         break;
-    case R_BOOT:
-        config_set("wifi_boot", wifi_at_boot() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "WiFi at boot: %s", wifi_at_boot() ? "on" : "off");
-        break;
-    case R_DEV: {
-        int on = how < 0 ? 0 : how > 0 ? 1 : !dev_mode();
-        dev_set_mode(on);
-        ksnprintf(d->note, sizeof d->note, "dev mode: %s", on ? "on (direct install)" : "off (staging)");
-        break;
-    }
-    case R_REC: {
-        int on = how < 0 ? 0 : how > 0 ? 1 : !rec_mode();
-        rec_set_mode(on);
-        ksnprintf(d->note, sizeof d->note, "recorder: %s (/bm/rec, RLE565 15 fps)", on ? "on" : "off");
-        break;
-    }
     case R_PAIR:
         if (how == 0) text(d, x_pair, 1, 0);
         break;
@@ -1287,15 +1266,6 @@ void home_act(int id, int row, int how, home_do_t *d)
 #else
         if (how == 0) text(d, x_test, 1, 0);
 #endif
-        break;
-    case R_CONNECT:
-        if (how == 0) text(d, x_connect, 1, 0);
-        break;
-    case R_NETTEST:
-        if (how == 0) text(d, x_nettest, 1, 0);
-        break;
-    case R_LOG:
-        if (how == 0) text(d, x_log, 0, 1);
         break;
     case R_CTL_RESET:
         if (how == HOME_YES) {
@@ -1313,120 +1283,23 @@ void home_act(int id, int row, int how, home_do_t *d)
             ask(d, "Forget all controllers?", "Pads, keyboard and mouse: pair them again.", "Forget");
         }
         break;
-    case R_RESTART:
-        if (how == HOME_YES) {
-            kprintf("rebooting...\n");
-            wifi_auto_stop();
-#ifdef BM_RGB30
-            wifi_leave();               /* the AP told: it does not hold the old association */
-            plat_reset();
-#else
-            crumbs_restart(0);
-#endif
-        } else if (how == 0) {
-            ask(d, "Restart the console?", "A game left suspended is closed.", "Restart");
-        }
-        break;
-    case R_POWEROFF:
-        if (how == HOME_YES) {
-            kprintf("shutting down\n");
-#ifdef BM_RGB30
-            plat_poweroff();
-#else
-            wifi_auto_stop();
-            crumbs_restart(1);
-#endif
-        } else if (how == 0) {
-#ifdef BM_RGB30
-            ask(d, "Shut the console down?", "A game left suspended is closed.", "Shut down");
-#else
-            ask(d, "Shut the console down?", "To start it again, plug its power back in.", "Shut down");
-#endif
-        }
-        break;
-    case R_UPDATE:
-        /* in the menu's background (update.c): the row says how it goes */
-        if (how == 0 && update_start(0) == 0)
-            ksnprintf(d->note, sizeof d->note, "checking for updates...");
-        else if (how == 0) {
-            d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
-        }
-        break;
-    case R_REPORTS:
-        if (how == 0) text(d, t_send_reports, 1, 0);
-        break;
-    case R_REPORT_LOG:
-        if (how == 0) text(d, t_report_log, 1, 0);
-        break;
-    case R_INSTALL:
-        if (how == HOME_YES) {
-            /* in the menu's background: a box over the menu, then the restart */
-            if (update_start(1) == 0)
-                ksnprintf(d->note, sizeof d->note, "installing bm %s: the console restarts when it is done",
-                          update_ready());
-            else {
-                d->fail = 1;
-                ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
-            }
-        } else if (how == 0 && update_busy()) {
-            d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy());
-        } else if (how == 0 && update_ready()) {
-            char q[64];
-            ksnprintf(q, sizeof q, "Install bm %s?", update_ready());
-            ask(d, q, "The console restarts when it is done.", "Install");
-        }
-        break;
-    case R_INSTALL_STAGED:
-        if (how == HOME_YES) {
-            if (netxfer_apply_staged_kernel() == 0) {
-                ksnprintf(d->note, sizeof d->note, "Applying kernel: restarting in 3 seconds");
-            } else {
-                d->fail = 1;
-                ksnprintf(d->note, sizeof d->note, "Failed to apply staged kernel");
-            }
-        } else if (how == 0) {
-            ask(d, "Apply downloaded kernel?", "The old kernel is backed up in /bm/backup. Restarts when done.", "Apply & Restart");
-        }
-        break;
-    case R_VOLUME: {
-        int v = audio_volume() + (how ? how : 1);
-        if (how == 0 && v > AUDIO_VOLUME_MAX)
-            v = 0;                              /* A goes round */
-        audio_set_volume(v);
-        config_save();
-        audio_note(0, 880, 70, 4, 36);          /* a soft beep at the new volume */
-        ksnprintf(d->note, sizeof d->note, "volume: %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
-        break;
+    default:
+        return 0;
     }
-    case R_AUDIO:
-        if (how == 0) text(d, x_audio, 1, 0);
-        break;
-    case R_STYLE: {
-        int retro = !audio_retro_on();
-        audio_retro(AUDIO_RETRO_USER, retro);
-        config_set("sound", retro ? "8bit" : "hifi");
+    return 1;
+}
+
+/* The rows of Screen (and the boards' own output rows). 1 if the row is one of them. */
+static int act_screen(int row, int how, home_do_t *d)
+{
+    switch (row) {
+#ifdef BM_RGB30
+    case R_BATTERY_ICON:
+        config_set("battery_icon", battery_icon_on() ? "0" : "1");
         config_save();
-        audio_play_sound(0, &au_presets[au_preset_find(retro ? "chip" : "epiano")].s, 72, 220, 300);
-        ksnprintf(d->note, sizeof d->note, "sound: %s", retro ? "8-bit" : "hi-fi");
+        ksnprintf(d->note, sizeof d->note, "low battery icon: %s", battery_icon_on() ? "on" : "off");
         break;
-    }
-    case R_DEPTH: {
-        unsigned b = audio_depth();             /* 16 -> 24 -> 32 -> 16 (left: the other way) */
-        if (how < 0)
-            b = b == 16 ? 32 : b == 24 ? 16 : 24;
-        else
-            b = b == 16 ? 24 : b == 24 ? 32 : 16;
-        audio_set_depth(b);
-        char v[4];
-        ksnprintf(v, sizeof v, "%u", b);
-        config_set("sound_depth", v);
-        config_save();
-        audio_play_sound(0, &au_presets[au_preset_find("epiano")].s, 72, 220, 300);
-        ksnprintf(d->note, sizeof d->note, "depth: %u bits", b);
-        break;
-    }
+#endif
 #ifdef BM_RGB30
     case R_MODES:
         if (how == 0) text(d, x_modes, 0, 1);
@@ -1512,7 +1385,203 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D on the ARM of the next game: %s",
                   config_on("r3d_fast") ? "fast" : "exact");
         break;
+    default:
+        return 0;
     }
+    return 1;
+}
+
+/* The rows of WiFi and network. 1 if the row is one of them. */
+static int act_network(int row, int how, home_do_t *d)
+{
+    switch (row) {
+    case R_BOOT:
+        config_set("wifi_boot", wifi_at_boot() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "WiFi at boot: %s", wifi_at_boot() ? "on" : "off");
+        break;
+    case R_CONNECT:
+        if (how == 0) text(d, x_connect, 1, 0);
+        break;
+    case R_NETTEST:
+        if (how == 0) text(d, x_nettest, 1, 0);
+        break;
+    default:
+        return 0;
+    }
+    return 1;
+}
+
+/* The rows of System, Restart and Shut down. 1 if the row is one of them. */
+static int act_system(int row, int how, home_do_t *d)
+{
+    switch (row) {
+    case R_DEV: {
+        int on = how < 0 ? 0 : how > 0 ? 1 : !dev_mode();
+        dev_set_mode(on);
+        ksnprintf(d->note, sizeof d->note, "dev mode: %s", on ? "on (direct install)" : "off (staging)");
+        break;
+    }
+    case R_REC: {
+        int on = how < 0 ? 0 : how > 0 ? 1 : !rec_mode();
+        rec_set_mode(on);
+        ksnprintf(d->note, sizeof d->note, "recorder: %s (/bm/rec, RLE565 15 fps)", on ? "on" : "off");
+        break;
+    }
+    case R_LOG:
+        if (how == 0) text(d, x_log, 0, 1);
+        break;
+    case R_RESTART:
+        if (how == HOME_YES) {
+            kprintf("rebooting...\n");
+            wifi_auto_stop();
+#ifdef BM_RGB30
+            wifi_leave();               /* the AP told: it does not hold the old association */
+            plat_reset();
+#else
+            crumbs_restart(0);
+#endif
+        } else if (how == 0) {
+            ask(d, "Restart the console?", "A game left suspended is closed.", "Restart");
+        }
+        break;
+    case R_POWEROFF:
+        if (how == HOME_YES) {
+            kprintf("shutting down\n");
+#ifdef BM_RGB30
+            plat_poweroff();
+#else
+            wifi_auto_stop();
+            crumbs_restart(1);
+#endif
+        } else if (how == 0) {
+#ifdef BM_RGB30
+            ask(d, "Shut the console down?", "A game left suspended is closed.", "Shut down");
+#else
+            ask(d, "Shut the console down?", "To start it again, plug its power back in.", "Shut down");
+#endif
+        }
+        break;
+    default:
+        return 0;
+    }
+    return 1;
+}
+
+/* The rows of Updates and Reports. 1 if the row is one of them. */
+static int act_updates(int row, int how, home_do_t *d)
+{
+    switch (row) {
+    case R_UPDATE:
+        /* in the menu's background (update.c): the row says how it goes */
+        if (how == 0 && update_start(0) == 0)
+            ksnprintf(d->note, sizeof d->note, "checking for updates...");
+        else if (how == 0) {
+            d->fail = 1;
+            ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
+        }
+        break;
+    case R_REPORTS:
+        if (how == 0) text(d, t_send_reports, 1, 0);
+        break;
+    case R_REPORT_LOG:
+        if (how == 0) text(d, t_report_log, 1, 0);
+        break;
+    case R_INSTALL:
+        if (how == HOME_YES) {
+            /* in the menu's background: a box over the menu, then the restart */
+            if (update_start(1) == 0)
+                ksnprintf(d->note, sizeof d->note, "installing bm %s: the console restarts when it is done",
+                          update_ready());
+            else {
+                d->fail = 1;
+                ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
+            }
+        } else if (how == 0 && update_busy()) {
+            d->fail = 1;
+            ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy());
+        } else if (how == 0 && update_ready()) {
+            char q[64];
+            ksnprintf(q, sizeof q, "Install bm %s?", update_ready());
+            ask(d, q, "The console restarts when it is done.", "Install");
+        }
+        break;
+    case R_INSTALL_STAGED:
+        if (how == HOME_YES) {
+            if (netxfer_apply_staged_kernel() == 0) {
+                ksnprintf(d->note, sizeof d->note, "Applying kernel: restarting in 3 seconds");
+            } else {
+                d->fail = 1;
+                ksnprintf(d->note, sizeof d->note, "Failed to apply staged kernel");
+            }
+        } else if (how == 0) {
+            ask(d, "Apply downloaded kernel?", "The old kernel is backed up in /bm/backup. Restarts when done.", "Apply & Restart");
+        }
+        break;
+    default:
+        return 0;
+    }
+    return 1;
+}
+
+/* The rows of Sound. 1 if the row is one of them. */
+static int act_sound(int row, int how, home_do_t *d)
+{
+    switch (row) {
+    case R_VOLUME: {
+        int v = audio_volume() + (how ? how : 1);
+        if (how == 0 && v > AUDIO_VOLUME_MAX)
+            v = 0;                              /* A goes round */
+        audio_set_volume(v);
+        config_save();
+        audio_note(0, 880, 70, 4, 36);          /* a soft beep at the new volume */
+        ksnprintf(d->note, sizeof d->note, "volume: %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+        break;
+    }
+    case R_AUDIO:
+        if (how == 0) text(d, x_audio, 1, 0);
+        break;
+    case R_STYLE: {
+        int retro = !audio_retro_on();
+        audio_retro(AUDIO_RETRO_USER, retro);
+        config_set("sound", retro ? "8bit" : "hifi");
+        config_save();
+        audio_play_sound(0, &au_presets[au_preset_find(retro ? "chip" : "epiano")].s, 72, 220, 300);
+        ksnprintf(d->note, sizeof d->note, "sound: %s", retro ? "8-bit" : "hi-fi");
+        break;
+    }
+    case R_DEPTH: {
+        unsigned b = audio_depth();             /* 16 -> 24 -> 32 -> 16 (left: the other way) */
+        if (how < 0)
+            b = b == 16 ? 32 : b == 24 ? 16 : 24;
+        else
+            b = b == 16 ? 24 : b == 24 ? 32 : 16;
+        audio_set_depth(b);
+        char v[4];
+        ksnprintf(v, sizeof v, "%u", b);
+        config_set("sound_depth", v);
+        config_save();
+        audio_play_sound(0, &au_presets[au_preset_find("epiano")].s, 72, 220, 300);
+        ksnprintf(d->note, sizeof d->note, "depth: %u bits", b);
+        break;
+    }
+    default:
+        return 0;
+    }
+    return 1;
+}
+
+void home_act(int id, int row, int how, home_do_t *d)
+{
+    memset(d, 0, sizeof *d);
+    d->what = HOME_STAY;
+    (void)id;
+    if (row >= R_UTIL_BASE && row < R_UTIL_BASE + HOME_ROWS_MAX) {
+        if (how == 0 && row - R_UTIL_BASE < home_utils())
+            home_util_start(row - R_UTIL_BASE, d);
+        return;
+    }
+    (void)(act_open(row, d) || act_controls(row, how, d) || act_screen(row, how, d) || act_network(row, how, d) || act_system(row, how, d) || act_updates(row, how, d) || act_sound(row, how, d));
 }
 
 void home_report(const home_do_t *d)
