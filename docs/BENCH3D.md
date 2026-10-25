@@ -2,7 +2,7 @@
 
 
 
-bm's single benchmark of its 3D capabilities: *Dev > 3D Bench*, or the `j` key of the
+bm's single benchmark of its 3D capabilities: *Settings > System > Utilities* on the Pi (the Dev tab on the RGB30), or the `j` key of the
 monitor. Code: `src/bm/b3d.c` (portable), `src/kernel/b3dpi.c` (the Pi),
 `tests/bm/b3d_host.c` (the PC, `make test-b3d`).
 

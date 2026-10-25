@@ -21,26 +21,26 @@
 
 ## 🚀 Overview
 
-**bm** (BareMetal) is an open-source games console and development environment running on the **Raspberry Pi Zero W** (and Zero 2 W) with **no underlying operating system**.
+**bm** (BareMetal) is an open-source games console and development environment. It runs on the **Raspberry Pi Zero W** (main target, also the other Pi 1 boards) and on the **PowKiddy RGB30** (`make TARGET=rgb30`) with **no underlying operating system**. The Pi Zero 2 W kernel (`kernel7.img`) is off in the default build.
 
-Power on and the console boots straight into the games menu in **~2 seconds**. Games are written in Lua 5.4, powered by a custom bare-metal runtime with full 2D and 3D pipelines, hardware-accelerated V3D rendering, polyphonic synthesizer, network multiplayer, and an on-device creative suite.
+Power on and the console boots straight into the games menu. Games are written in Lua 5.4, powered by a custom bare-metal runtime with 2D and 3D pipelines, V3D hardware rendering on the Pi, a polyphonic synthesizer, network multiplayer, and an on-device creative suite.
 
 ---
 
 ## ✨ Key Features
 
 - **True Bare Metal Architecture**:
-  - `kernel.img` (~2 MB of C, ARM assembly, and Lua 5.4) communicates directly with hardware registers.
-  - No Linux kernel, background daemons, or OS scheduler: the entire 1 GHz core and 448 MB RAM belong exclusively to your game frame.
-  - Zero boot wait: boots directly into interactive gameplay in under 2 seconds.
+  - `kernel.img` (C, ARM assembly, and Lua 5.4) communicates directly with hardware registers.
+  - No Linux kernel, background daemons, or OS scheduler: the 1 GHz core and the ARM share of the 512 MB RAM belong to your game frame (the share is read from the firmware: 448 MB with `gpu_mem=64`, see [`docs/HARDWARE.md`](docs/HARDWARE.md)).
 - **Hardware & Peripherals**:
-  - **Video**: Crisp HDMI output (640×360, 480×270, 320×180, or 360×360 square scaled up to 720p/1080p).
+  - **Video**: HDMI output at 640×360, 480×270, 320×180, 256×256, 360×360 or 720×720 per cartridge, scaled up by the HDMI scaler ([`docs/RISOLUZIONI.md`](docs/RISOLUZIONI.md)).
   - **Audio**: 8-voice polyphonic synthesizer with HDMI digital audio output.
-  - **Inputs**: Plug-and-play USB keyboards, gamepads, mice, and Bluetooth (up to 4 DualShock 4 controllers + BLE peripherals).
+  - **Inputs**: USB keyboards, gamepads and mice, and Bluetooth (up to 4 DualShock 4 controllers, a BLE keyboard, a mouse).
   - **Connectivity**: WiFi with HTTPS, local UDP multiplayer, and FAT32 SD card file system.
-- **Cartridge System (`.bm` & `.b16`)**:
-  - Single standalone cartridge files encapsulating Lua source, sprite sheets, tile maps, 3D meshes, skeletal animations, and sound banks.
-  - Compatible with PICO-8 carts (`.p8`, `.p8.png`) through the built-in `nano8` emulator.
+- **Cartridge System (`.bm`)**:
+  - A cartridge is one file in the `bm/` folder of the SD card: Lua source, sprite sheets, tile maps, 3D meshes, skeletal animations and sound banks ([`docs/BM-FORMAT.md`](docs/BM-FORMAT.md)).
+  - The `.b16` is a second edition (360×360, same container) that runs on the Pi and on the RGB30. Today Yharnam, Overbit, Titan Clash EX and the RGB30 SDK ship as `.b16`. The plan to end it and keep one `.bm` is in [`docs/NEXT.md`](docs/NEXT.md) and [`docs/design/single-bm-and-adaptive-screen.md`](docs/design/single-bm-and-adaptive-screen.md). It is not built yet.
+  - PICO-8 carts (`.p8`, `.p8.png`) play through the built-in `nano8` cartridge.
 - **On-Console Creative Suite**:
   - Code, draw, sculpt 3D models, rig skeletons, compose music, and test games directly on the console with no PC required.
 
@@ -61,51 +61,53 @@ end
 
 ## ⚡ Performance Highlights
 
-Hardware target: **Raspberry Pi Zero W** (ARM1176 @ 1.0 GHz, VideoCore IV V3D GPU).
+Hardware target: **Raspberry Pi Zero W** (ARM1176 @ 1.0 GHz, VideoCore IV V3D GPU). All numbers are from the 3D Bench reports of 22 and 24 Oct 2026, at 640×360 RGB565, and show what one 60 fps frame (16.6 ms) holds. The full tables, with the report of each number, are in [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET.md). RGB30: not verified on hardware with the current drivers.
 
-| Test Scenario (at 640×360 RGB565) | 60 FPS | 30 FPS |
-|---|---:|---:|
-| **16×16 Sprites (Native C)** | **4,482** | 9,255 |
-| **32×32 Sprites (Native C)** | **1,513** | 3,130 |
-| **2D Triangles (~170 px each)** | **2,594** | 5,368 |
-| **3D Spheres (V3D GPU hardware)** | **7,142** | 15,346 |
-| **3D Spheres (ARM software rasterizer)** | **2,700** | 8,914 |
-| **16×16 Sprites (from Lua `spr()` calls)** | **1,829** | 3,774 |
-| **3D Triangles (from Lua `draw3d()`)** | **1,115** | 4,692 |
+| Thing | One 60 fps frame holds |
+|---|---:|
+| Map layer, opaque, full screen (8×8 tiles) | 5 layers (3.08 ms each) |
+| Sprites 16×16, ARM | 2,574 |
+| Sprites 16×16, GPU in the 2D job | 3,569 or more |
+| Hero of 1,536 triangles, GPU with vertex shader | 66 |
+| Spheres of 96 faces, GPU with vertex shader | 783 |
+| Draw calls (one cube each), GPU with vertex shader | 1,386 |
+| Hero sets with map, 2D and logic (`herotris`), GPU + vertex shader + queue | 49,956 triangles (13.7 ms) |
+| Hero Stress, 640×360, animated heroes | 50 heroes, 52,992 triangles (59-60 fps) |
+| Hero Stress, 1080p | 24 heroes, 27,408 triangles (60 fps) |
+
+The same `herotris` scene on the ARM rasterizer holds 2,385 triangles (40.8 ms).
 
 ### 🚀 3D Engine & Architecture (bm3d & V3D Driver)
-bm integrates **bm3d** (v7.2+), a custom dual-path 3D engine:
-- **GPU Path (V3D Hardware - Default)**: The ARM core performs vertex transforms, lighting, and clipping, while the VideoCore IV V3D GPU fills pixels via custom QPU assembly shaders (`tools/qpuasm.py`) at **811 Mpixel/s** with 24-bit depth and optional 4× MSAA. CPU pixel-drawing instructions drop by **up to 89%**.
-- **ARM Fallback Rasterizer**: Highly optimized fixed-point 32.32 software rasterizer with per-face LOD, screen-door transparency, and planar shadows when GPU is absent or in emulators.
+bm integrates **bm3d** (version 7.7 in [`src/gpu/version3d.h`](src/gpu/version3d.h)), a dual-path 3D engine:
+- **GPU Path (V3D Hardware - Default)** (`gpu3d`): the V3D fills pixels with custom QPU assembly shaders (`tools/qpuasm.py`) at **811 Mpixel/s** (full-screen render only). The vertex shader (`gpu3d_vs`, default 2) places the corners on the GPU. 4× MSAA is available (`gpu3d_aa`, off by default). The 2D draws in the same GPU job (`gpu3d_2d`, on by default).
+- **ARM Fallback Rasterizer** (`r3d`): software rasterizer with per-face LOD, screen-door transparency, and planar shadows, used when the GPU is absent or in emulators.
+- **Settings > Screen** shows two graphics rows: *3D of the games* (`gpu3d`) and *3D on the ARM* (`r3d_fast`). Every other graphics key is set in `config.txt` ([`docs/progress/v3d-flags.md`](docs/progress/v3d-flags.md)).
 
-### 🎯 Real-World Game Benchmarks
-- **Overbit (3D Hero Shooter, 10 Bots, Partenope map at 480×270 / 1080p scaled)**:
-  - ARM instructions reduced by **23% to 32% per frame** across all visual presets.
-  - GPU unlocks real-time planar hero shadows, smooth Gouraud shading, textured fog, dynamic explosion lighting, and 24-bit depth.
-  - Frame rates on Pi Zero W jump from ~36 fps up to **~50 fps (LOW)**, ~34 to **~45 fps (MEDIUM)**, and ~30 to **~36 fps (HIGH)**.
-  - Budget: ~6,000 triangles at 60 fps; hero models feature up to 1,394 triangles at full LOD.
-- **Texture Room HD (640×360, 32 Crates)**: **5.8 ms/frame (solid 60 fps)** on V3D GPU vs 25–26 ms on software ARM (measured in Oct 2026; the Texture Room was removed from the kernel on 24 Oct 2026).
-- **Chaos Kitchen (3D Co-op)**: **6.8 ms/frame (60 fps)** on V3D GPU vs 14.1 ms on software ARM.
-- **Astro Wing (3D Flight Combat)**: **6.3 ms/frame (solid 60 fps)**.
+### 🎯 Measure it yourself
+- **3D Bench** (C, in the kernel: *Settings > System > Utilities* on the Pi, the Dev tab on the RGB30, or the `j` key of the monitor) runs every 3D test with every driver and saves a report on the SD card ([`docs/BENCH3D.md`](docs/BENCH3D.md)).
+- **3D Bench for the Market** (`carts/bench3d`): a Lua edition. It has its own numbers, not comparable with the C bench.
+- **Hero Stress** (`carts/herocart`): a plaza with walking heroes. Change the hero count, the polygon level and the 3D options in real time, and read the cost.
+- **bm Web** (`carts/bmweb`): 723 frames at 59.6 fps on the Pi Zero W, no late frame (report of 24 Oct, [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET.md)).
 
-> Read the full performance breakdown in [`docs/GPU-BENCHMARK-REPORT.md`](docs/GPU-BENCHMARK-REPORT.md) and [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+> Older measurements (Sep-Oct 2026) stay as history in [`docs/GPU-BENCHMARK-REPORT.md`](docs/GPU-BENCHMARK-REPORT.md), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) and [`docs/STRESS.md`](docs/STRESS.md). The tools they used (stress test, Texture Room, Stack bench, GPU test) were removed from the kernel on 24 Oct 2026.
 
 ---
 
 ## 🛠️ The Creative Suite
 
-Everything in a cartridge can be created using bm's built-in editors in the **Dev** menu:
+Everything in a cartridge can be created with the bm editors. They are built into the kernel or installed from *Market > Apps*, and open from the **Dev** tab (next to bm Code, the Assistant, the Monitor and the Lua prompt):
 
 | Tool | Focus | Capabilities |
 |---|---|---|
-| **bm SDK** | Project Hub | Templates (platformer, shooter, 3D), asset management, token & memory monitor, quick-launch into suite editors. |
-| **bm Code** | IDE | Dual-column editor with 6×12 font, auto-completion, keyword prediction, and syntax help. |
-| **bm Pixel** | 2D Art | Sprite sheet editor, 256-color palettes, multi-frame animation with onion skinning. |
-| **bm Studio** | 3D Modeling | Box modeling, vertex tweaking, UV tile painting, and mesh creation right on the console. |
-| **bm Animator** | Animation | Bone hierarchies, skeletal rigging, timeline tracks, and baking into 2D sprite sheets. |
-| **bm Mesh** | Geometry | Vertex, edge, and face inspection for procedural and static 3D meshes. |
-| **Sound Editor** | Audio | 8-voice synth, custom instrument presets, sound effects, and music pattern sequencers. |
-| **AI Assistant** | Assistant | On-device INT8 assistant answering API questions, generating sprite sketches, and building low-poly meshes. |
+| **bm SDK** | Project Hub | Templates (2D platformer, top-down, shooter, versus, online, stages; 3D scene, 3D with models), maps, tiles, budgets (tokens, Lua, assets), build of the game. |
+| **bm Code** | IDE | Lua editor with tabs, two pages, 6×12, 8×14 and 8×16 fonts, completion, API help and API lint on save. |
+| **bm Pixel** | 2D Art | Sprite sheet editor with palette, sprite stacks and onion skin. |
+| **bm Studio** | 3D Modeling | Models from tiles and blocks, with vertex editing, right on the console. |
+| **bm Animator** | Animation | Skeletons and animations for the models, with IK on a two-bone handle. |
+| **bm Mesh** | Geometry | The meshes of a `.bm`, its models and those its code builds. |
+| **bm Sound** | Audio | 8-voice synth: instruments, sound effects, patterns and songs. |
+| **bm Write** | Documents | Word processor for styled documents on A4 pages; exports to MD, HTML, TXT and PDF. |
+| **AI Assistant** | Assistant | On-device INT8 assistant answering questions about bm, with recipes for sprites and low-poly models with skeletons. |
 
 <p align="center">
   <img src="docs/img/code.png" width="48%" alt="bm Code on the console">
@@ -132,19 +134,20 @@ Everything in a cartridge can be created using bm's built-in editors in the **De
   <img src="docs/img/yharnam.png" width="24%" alt="Yharnam">
 </p>
 
-- **Overbit**: 3D first-person hero shooter featuring 8 heroes (Rally, Kaiju, Sarge, Frost, Fuse, Rail, Orbit, Akari), control point mode, baked lighting, and 10-player lockstep netplay.
-- **Astro Wing**: High-speed 3D flight combat with procedural terrain and lighting.
-- **Titan Clash**: Giant fighting mechas with large sprite sheets and 2-player combat.
-- **Chaos Kitchen**: Cooperative 3D cooking party game for 1 to 4 players.
-- **Yharnam**: Gothic nighttime action RPG at 360×360 (.b16 screen) with 27 hunter animations, trick weapons, gun parries, visceral attacks, stamina management, and 4 district boss fights.
-- **bm Market**: Integrated online catalog downloading free cartridges with cryptographic SHA-256 verification directly to the SD card.
+- **Overbit**: 3D hero shooter with 8 heroes (Rally, Kaiju, Sarge, Frost, Fuse, Rail, Orbit, Akari), a control point mode, AI bots, baked lighting on the Partenope map, and lockstep netplay.
+- **Astro Wing**: a polygon space fighter in the style of the SNES classics.
+- **Titan Clash**: a fighting game of giant robots, 1 or 2 players.
+- **Chaos Kitchen**: a cooperative cooking game for 1 to 4 players on one screen.
+- **Yharnam**: an endless gothic town at night, seen from above, at 360×360 (`.b16`).
+- **Also in the repository**: Pong, Snake, Star Shooter, KO-II (a keyboard groovebox), `nano8` (PICO-8 carts), Pad Typing, bm Write, bm Web (a web browser for HTML5, CSS and JavaScript pages, https only), Hero Stress and the 3D Bench. The covers are drawn by `scripts/mkartcovers.py`.
+- **bm Market**: an online catalog with a Games page and an Apps page (the editors, bm Write, Pad Typing, the 3D Bench). It downloads free cartridges to the SD card and checks each file with its SHA-256 ([`market/README.md`](market/README.md)).
 
 ---
 
 ## 📦 Quick Start
 
 ### Build Prerequisites
-Requires `arm-none-eabi-gcc`, Python 3, `dosfstools`, `mtools`, and QEMU (for emulation tests):
+Requires `arm-none-eabi-gcc`, Python 3, `dosfstools`, `mtools`, and QEMU (for emulation tests). This is the package list of the CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). The RGB30 kernel needs `aarch64-linux-gnu-gcc` and picolibc ([`docs/RGB30.md`](docs/RGB30.md)).
 
 ```bash
 # Ubuntu / Debian
@@ -154,18 +157,20 @@ sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-n
 
 ### Build & Run
 ```bash
-# 1. Build the complete bootable disk image (kernel + firmware + carts)
+# 1. Fetch the Pi firmware once, then build the bootable disk image (dist/bm.img)
 make firmware && make image
 
-# 2. Run unit tests and full QEMU regression tests
+# 2. Run the host tests and the QEMU regression tests (all of them)
 make test
 
-# 3. Launch QEMU emulator directly
+# 3. Launch the Pi kernel in QEMU
 make qemu
 ```
 
+`make` builds the kernel and the game cartridges. Run only the tests a change affects, for example `python3 tests/qemu_test.py --build build -k <name>` or `make test-b3d`. A cartridge is built by one rule in the Makefile: add a `carts/<id>/` folder and its name to `GAMES` ([`docs/PROJECT-LAYOUT.md`](docs/PROJECT-LAYOUT.md)). Change a game or app in its `.bme` project, then build the `.bm` from it.
+
 ### Flashing to Hardware
-1. Flash `dist/bm.img` to a microSD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (*"Use Custom"*), balenaEtcher, or `dd`.
+1. Flash `dist/bm.img` to a microSD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (*"Use Custom"*), balenaEtcher, or `dd`. From WSL, `./easy_install.sh` also updates the kernel on a card or over the network.
 2. Connect HDMI to a display and plug in a USB keyboard or gamepad via OTG adapter.
 3. Insert the card into your Raspberry Pi Zero W and power on.
 
@@ -177,7 +182,8 @@ make qemu
 - **Lua API Reference**: [`docs/API.md`](docs/API.md) *(complete draw, input, audio, 3D, and netplay reference)*.
 - **Game Authoring Guide**: [`docs/GAME-GUIDE.md`](docs/GAME-GUIDE.md) (Italian: [`docs/GUIDA-GIOCHI.md`](docs/GUIDA-GIOCHI.md)).
 - **Architecture & Design RFCs**: [`docs/design/`](docs/design/).
-- **Performance & Drivers**: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/DRIVERS.md`](docs/DRIVERS.md), and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+- **Performance & Drivers**: [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET.md) *(what a frame holds)*, [`docs/BENCH3D.md`](docs/BENCH3D.md), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/DRIVERS.md`](docs/DRIVERS.md), and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+- **Next tasks**: [`docs/NEXT.md`](docs/NEXT.md) and the plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **OS Capabilities**: [`docs/OS-CAPABILITIES.md`](docs/OS-CAPABILITIES.md) *(what bm can and cannot do, compared with Linux and Windows)*.
 - **AI Agent Guidelines**: [`CLAUDE.md`](CLAUDE.md) and [`GEMINI.md`](GEMINI.md).
 
