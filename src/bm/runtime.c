@@ -1124,6 +1124,40 @@ static int l_screen(lua_State *L)
     return 1;
 }
 
+/* safe_area() -> x, y, w, h: the part of the screen that has the aspect the cartridge was made for (its
+ * header size), in the middle: the whole screen if the aspect is the same; a design wider than the screen
+ * takes the whole width and the middle of the height; any other takes the whole height and the middle of
+ * the width (a 360x360 game on 640x360: 140, 0, 360, 360). A cartridge made for another aspect lays its
+ * HUD out in this area. */
+static int l_safe_area(lua_State *L)
+{
+    const int sw = rt.g.w, sh = rt.g.h, dw = rt.design_w, dh = rt.design_h;
+    int x = 0, y = 0, w = sw, h = sh;
+    if (dw > 0 && dh > 0) {
+        if ((long)dw * sh > (long)dh * sw) {            /* wider than the screen */
+            h = (int)((long)sw * dh / dw);
+            y = (sh - h) / 2;
+        } else if ((long)dw * sh < (long)dh * sw) {     /* narrower */
+            w = (int)((long)sh * dw / dh);
+            x = (sw - w) / 2;
+        }
+    }
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    lua_pushinteger(L, w);
+    lua_pushinteger(L, h);
+    return 4;
+}
+
+/* aspect() -> the screen's width / height, and "wide" (wider than tall), "square" or "tall" */
+static int l_aspect(lua_State *L)
+{
+    const int w = rt.g.w, h = rt.g.h;
+    lua_pushnumber(L, h > 0 ? (lua_Number)w / (lua_Number)h : 1);
+    lua_pushstring(L, w > h ? "wide" : w == h ? "square" : "tall");
+    return 2;
+}
+
 /* saved([slot]): the saved table, or nil. (Not "load": that is Lua's code
  * loader, which the sandbox removes.) */
 char perm_title[49];             /* the game asking */
@@ -1847,7 +1881,7 @@ static const luaL_Reg api[] = {
     { "map3d_height", l_map3d_height }, { "map3d_blocked", l_map3d_blocked },
     { "map3d_objects", l_map3d_objects }, { "map3d_size", l_map3d_size },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "gpu3d_opt", l_gpu3d_opt }, { "gpu3d_stats", l_gpu3d_stats }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "gpu3d_opt", l_gpu3d_opt }, { "gpu3d_stats", l_gpu3d_stats }, { "screen", l_screen }, { "safe_area", l_safe_area }, { "aspect", l_aspect },{ "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controls", l_controls }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
@@ -6775,6 +6809,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         cart.width = cur.w;
         cart.height = cur.h;
     }
+    rt.design_w = (int)cart.width;      /* before the mode is entered: safe_area(), aspect() */
+    rt.design_h = (int)cart.height;
     memcpy(st->title, cart.title, sizeof st->title);
     perm_fb = fb;
     ksnprintf(perm_title, sizeof perm_title, "%s", cart.title);

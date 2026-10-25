@@ -142,6 +142,7 @@ typedef struct {
     int reports;                /* report() calls in this run */
     pointer_t ptr;              /* the pointer this frame */
     int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
+    int design_w, design_h;     /* the size the cartridge was made for (its header): safe_area(), aspect() */
     int gpu3d_boxed;            /* the GPU not started: the page was a square inside the screen */
     int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
     uint16_t cls_colour;

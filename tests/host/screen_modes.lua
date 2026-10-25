@@ -1,5 +1,6 @@
 -- screen(): the list of modes of a square panel (bmhost --square) and of a TV
--- (bmhost), and the size after the change. The cartridge's header is 360x360.
+-- (bmhost), the size after the change, and safe_area() and aspect() for a
+-- 360x360 design in each. The cartridge's header is 360x360.
 -- Run by `make test-screen-modes`; each run prints "screen_modes: N/N checks passed".
 
 local checks, fails = 0, 0
@@ -16,6 +17,20 @@ end
 
 local f, square = 0, false
 
+local function area(label, x, y, w, h)
+  local ax, ay, aw, ah = safe_area()
+  log(string.format("screen_modes: %s safe_area %d,%d,%d,%d", label, ax, ay, aw, ah))
+  check(ax == x and ay == y and aw == w and ah == h,
+        string.format("%s: safe_area is %d,%d,%d,%d (got %d,%d,%d,%d)", label, x, y, w, h, ax, ay, aw, ah))
+end
+
+local function shape(label, kind)
+  local r, k = aspect()
+  local w, h = screen()
+  log(string.format("screen_modes: %s aspect %.3f %s", label, r, k))
+  check(k == kind and math.abs(r - w / h) < 0.001, label .. ": aspect is " .. kind)
+end
+
 function _init()
   square = (screen(1)) == 360
   log("screen_modes: panel " .. (square and "square" or "16:9"))
@@ -26,6 +41,8 @@ function _update()
   if f == 1 then
     local w, h = size("header")
     check(w == 360 and h == 360, "the header size is 360x360")
+    area("header", 0, 0, 360, 360)
+    shape("header", "square")
     if square then
       -- Overbit indexes this list: the first two entries never move
       local a, b = screen(1)
@@ -55,17 +72,23 @@ function _update()
       check(SCREEN_W == 720 and SCREEN_H == 405, "SCREEN_W and SCREEN_H follow")
       local a, b = screen(1)
       check(a == 360 and b == 360, "screen(1) stays 360x360 in the wide mode")
+      area("720x405", 157, 0, 405, 405)
+      shape("720x405", "wide")
       screen(360, 360)
     else
       check(w == 640 and h == 360, "the size is 640x360 after screen(640, 360)")
+      area("640x360", 140, 0, 360, 360)
+      shape("640x360", "wide")
       screen(320, 180)
     end
   elseif f == 7 then
     local w, h = size("back")
     if square then
       check(w == 360 and h == 360, "back to 360x360")
+      area("back", 0, 0, 360, 360)
     else
       check(w == 320 and h == 180, "back to 320x180")
+      area("320x180", 70, 0, 180, 180)
     end
     log(string.format("screen_modes: %d/%d checks passed", checks - fails, checks))
     quit()

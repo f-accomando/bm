@@ -149,7 +149,9 @@ Tutto ciò che sta sullo schermo: forme, testo, sprite e mappa di tile.
 | `cls([c])` | riempie lo schermo (nero se manca `c`). Con il 3D sulla GPU l'ARM non lo riempie: il job della GPU pulisce la pagina a quel colore (gratis anche a 1080p); se il 2D viene prima del 3D l'ARM riempie come sempre |
 | `screen(w, h)` | imposta la risoluzione della cartuccia dal fotogramma successivo: `true`, oppure `false` se non è una delle dimensioni qui sotto |
 | `screen()` | restituisce larghezza e altezza di adesso |
-| `screen(i)` | restituisce la i-esima dimensione della lista (da 1), oppure `nil` |
+| `screen(i)` | restituisce la i-esima dimensione della lista (da 1), oppure `nil`. Su RGB30 (schermo quadrato) la lista è 360×360, 720×720 e 720×405 (16:9, centrata, con barre nere) |
+| `safe_area()` | restituisce `x, y, w, h`: la parte dello schermo che ha le proporzioni della dimensione nell'header della cartuccia, al centro (un gioco 360×360 su 640×360 dà `140, 0, 360, 360`). Disponi l'HUD lì dentro |
+| `aspect()` | restituisce larghezza divisa per altezza dello schermo, e `"wide"`, `"square"` oppure `"tall"` |
 | `pset(x, y, c)` | scrive un pixel |
 | `pget(x, y)` | legge un pixel: `0xRRGGBB`, oppure `nil` fuori dallo schermo |
 | `line(x0, y0, x1, y1, c)` | una linea |
