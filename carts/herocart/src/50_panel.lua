@@ -4,12 +4,15 @@ do
   local TEXT, CUR, DIM, NUM = 0xE0E0E0, 0xFFE060, 0x707880, 0x90E0A0
   local rep = {}
 
-  -- true on the press, then again every 4 frames after 20 frames held
+  -- true on the press, then again every 4 updates once the key is held longer than
+  -- a serial key press can be: 10 polls (HOLD_FRAMES) of up to MAX_SKIP updates each
+  -- (a slow machine runs more updates per poll, and a short press must not repeat)
+  local REPEAT_AFTER = 10 * MAX_SKIP
   local function press(name)
     if btn(name) then
       local c = (rep[name] or 0) + 1
       rep[name] = c
-      return c == 1 or (c > 20 and c % 4 == 0)
+      return c == 1 or (c > REPEAT_AFTER and c % 4 == 0)
     end
     rep[name] = 0
     return false
