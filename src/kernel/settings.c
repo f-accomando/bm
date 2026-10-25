@@ -116,9 +116,6 @@ enum {
     R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR,
-#ifdef BM_RGB30
-    R_PERF,
-#endif
     R_UPDATE, R_INSTALL, R_INSTALL_STAGED, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_GPIOSCREEN, R_AUDIO, R_LOG, R_BT,
     R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FAST3D,
@@ -185,15 +182,6 @@ static int wireless(void)
     return board()->wireless;
 #endif
 }
-
-#ifdef BM_RGB30
-/* the dev kit's overlay: Settings > Screen (RGB30 only; the Pi has F11 and perf= in config.txt) */
-static const char *perf_name(void)
-{
-    static const char *const n[3] = { "Off", "Top", "Bottom" };
-    return n[bm_perf()];
-}
-#endif
 
 #ifdef BM_RGB30
 /* the low battery over the games and tools (runtime.c battery_draw): on
@@ -484,7 +472,7 @@ void home_panel(int id, home_panel_t *p)
                  "The link, the address, a test", "%s", net_word());
 #ifdef BM_RGB30
         home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
-                 "Screen modes, performance overlay, battery icon", "360x360 x2");
+                 "Screen modes, battery icon", "360x360 x2");
 #else
         home_row(p, MENU_ROW_SUB, R_SCREEN, "Screen",
                  "Drawing, 3D, menu size, test pattern", "%s%s",
@@ -684,11 +672,6 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
                  "Exact as before, or fast: one matrix a model, light in its axes", "%s",
                  config_on("r3d_fast") ? "Fast" : "Exact");
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
-                 "fps, ms, CPU and GPU bars (F11 too)", "%s",
-                 perf_name());
-#endif
         if (board_is_pi1()) {
             home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
                      "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
@@ -1155,11 +1138,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "keyboard layout: %s", hid_layout());
         break;
 #ifdef BM_RGB30
-    case R_PERF:
-        bm_set_perf((bm_perf() + 1) % 3);       /* top, bottom, off */
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "performance overlay: %s", perf_name());
-        break;
     case R_BATTERY_ICON:
         config_set("battery_icon", battery_icon_on() ? "0" : "1");
         config_save();

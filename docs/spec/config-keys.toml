@@ -449,7 +449,7 @@ scope = "all"
 values = "off or 0 = off; bottom = bottom overlay; anything else (top, 1, 2, 3) = top"
 default = "off"
 meaning = "The dev kit's performance overlay."
-settings = "Settings > Screen > Performance overlay (RGB30 only; the Pi has F11 and this key)"
+settings = ""
 read_in = "src/kernel/config.c:107"
 
 [[key]]

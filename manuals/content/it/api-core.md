@@ -545,7 +545,7 @@ Numeri casuali: `math.random`. Per giochi diversi a ogni avvio, inizializza il g
 
 ## Il dev kit e il profiler
 
-Il **dev kit** è un overlay di prestazioni sopra qualsiasi gioco, **spento di default**. Accendilo con `perf=top` o `perf=bottom` in `bm/config.txt` (su RGB30 anche da Settings > Screen > "Performance overlay": Off, Top, Bottom), con F11 sulla tastiera (un tasto di sistema, anche negli strumenti), con `p` dalla linea seriale o con `devkit(mode)` dal gioco: una volta in alto a destra, un'altra in basso a destra, un'altra spento. F11, `p` e `devkit()` durano un'esecuzione: ogni gioco parte (e riprende) come dice l'impostazione salvata. È un piccolo blocco:
+Il **dev kit** è un overlay di prestazioni sopra qualsiasi gioco, **spento di default**. Accendilo con `perf=top` o `perf=bottom` in `bm/config.txt` (la RGB30 non ha F11: lì usa `perf=`), con F11 sulla tastiera (un tasto di sistema, anche negli strumenti), con `p` dalla linea seriale o con `devkit(mode)` dal gioco: una volta in alto a destra, un'altra in basso a destra, un'altra spento. F11, `p` e `devkit()` durano un'esecuzione: ogni gioco parte (e riprende) come dice l'impostazione salvata. È un piccolo blocco:
 
 ```text
 60fps 8.2ms           fotogrammi al secondo; ms di lavoro in un fotogramma (le parti sotto)
