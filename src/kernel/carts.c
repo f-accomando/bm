@@ -299,11 +299,6 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
     }
 }
 
-/* a project (.bme): not listed in the tabs; the editors open it (Open) */
-static int is_project(const lib_game_t *c)
-{
-    return !c->builtin && bm_is_project(c->name);
-}
 
 /* The tools a tool can open on its file with lib_game_tool(name, path) (bm
  * Studio's "Open in bm Animator" and back). */
@@ -529,10 +524,7 @@ static void draw(int sel, int top, int rows)
  * for tool n. */
 static int tab_items(int tab, int *idx)
 {
-    int n = 0;
-    for (int i = 0; i < library.n; i++)
-        if (lib_is_dev(&library.g[i]) == (tab == TAB_DEV) && !is_project(&library.g[i]))
-            idx[n++] = i;
+    int n = lib_tab_items(tab == TAB_DEV, idx);
     if (tab == TAB_DEV) {               /* the projects are not listed: the editors open them (Open) */
         for (int t = 0; t < home_tools() && n < LIB_MAX + 16; t++)
             idx[n++] = -1 - t;
@@ -1256,14 +1248,14 @@ void carts_menu(framebuffer_t *fb)
                 go_wait = d.wait;
             } else if (gfx && lib_is_suspended(&library.g[i]) && netxfer_updating(library.g[i].path)) {
                 ask = ASK_UPDATE_SUSPENDED;
-                ask_go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
+                ask_go = lib_is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
                 ask_cart = i;
             } else if (gfx && lib_need_switch(&library.g[i])) {
                 ask = ASK_SWITCH;
-                ask_go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
+                ask_go = lib_is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
                 ask_cart = i;
             } else {
-                go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;     /* a project opens in the SDK */
+                go = lib_is_project(&library.g[i]) ? GO_SDK : GO_PLAY;     /* a project opens in the SDK */
                 go_cart = i;
             }
         }

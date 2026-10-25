@@ -180,9 +180,10 @@ static void frame_end(void)
 /* --- games on the SD card --- */
 
 static lib_game_t *const games = library.g;     /* the library (kernel/library.h) */
-/* games[] holds the cartridges of the card: first the games (BM_TYPE_GAME, the Games tab: n_games), then the
- * apps and utilities (the Dev tab after its fixed items); library.n is the count of both */
-static int n_games;                         /* the games (BM_TYPE_GAME): games[0..n_games); library.hidden: .bm hidden by show_bm=0 */
+/* games[] holds the cartridges of the card (library.n); the tabs list them by lib_tab_items: the games on the Games
+ * tab, the apps and utilities in Dev after its fixed items. library.hidden: .bm hidden by show_bm=0 */
+static int game_idx[LIB_MAX], n_games;      /* the Games tab: the library indexes of the games */
+static int dev_idx[LIB_MAX], n_dev;         /* the Dev tab after its fixed items: apps and utilities */
 static const char *sd_state = "not read";
 
 /* --- the covers, in the background (D10, as the Pi's carts.c: a fiber job in the menu's free time, the covers on
@@ -232,18 +233,8 @@ static void scan_games(void)
     fat_dir_t d;
     sd_state = fat_opendir(&d, "bm") == 0 ? "bm/" : "no bm/ folder on the SD card";
     lib_scan(&library);
-    n_games = 0;
-    /* the games first, the apps and utilities after them (each part keeps the order by title) */
-    static lib_game_t rest[LIB_MAX];
-    int nr = 0;
-    for (int i = 0; i < library.n; i++) {
-        if (games[i].type == BM_TYPE_GAME)
-            games[n_games++] = games[i];
-        else
-            rest[nr++] = games[i];
-    }
-    for (int i = 0; i < nr; i++)
-        games[n_games + i] = rest[i];
+    n_games = lib_tab_items(0, game_idx);           /* the games, then the apps and utilities: each keeps the order by title */
+    n_dev = lib_tab_items(1, dev_idx);
 }
 
 /* what the Market asks of the games on the card (carts.h, as carts.c on the
@@ -575,7 +566,7 @@ typedef struct {
 } item_t;
 
 /* The Dev tab, as on the Pi: the bm SDK first (the tests find it by its place), then the installed tools: the
- * cartridges of type app or utility on the card (games[n_games...]). The benchmarks and tests are not here: they are
+ * cartridges of type app or utility on the card (dev_idx[]). The benchmarks and tests are not here: they are
  * Settings rows (the utilities below), as the Pi's DMA test and 3D Bench. */
 static const item_t dev_items[] = {
     { "bm SDK", page_sdk, MENU_ICON_CODE, 0x1E8A5A,
@@ -757,9 +748,9 @@ static menu_item_t game_item(int g)
 static int cart_at(int shown, int sel)
 {
     if (shown == TAB_GAMES)
-        return sel < n_games ? sel : -1;
+        return sel < n_games ? game_idx[sel] : -1;
     if (shown == TAB_DEV && sel >= N_DEV)
-        return n_games + sel - N_DEV < library.n ? n_games + sel - N_DEV : -1;
+        return sel - N_DEV < n_dev ? dev_idx[sel - N_DEV] : -1;
     return -1;
 }
 
@@ -865,7 +856,7 @@ void ui_home(framebuffer_t *f)
             reports_send_pending();
             kprintf("report %s\n", reports_last());
         }
-        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV + (library.n - n_games);
+        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV + n_dev;
         int *s = &sel[shown];
         if (*s >= n) *s = n - 1;
         if (*s < 0) *s = 0;
@@ -875,7 +866,7 @@ void ui_home(framebuffer_t *f)
                         cart_at(shown, *s));
         for (int i = 0; i < n && shown != TAB_MARKET; i++) {
             if (shown == TAB_GAMES) {
-                items[i] = game_item(i);
+                items[i] = game_item(game_idx[i]);
             } else if (i >= N_DEV) {
                 items[i] = game_item(cart_at(shown, i));
             } else {
@@ -925,7 +916,7 @@ void ui_home(framebuffer_t *f)
                                      mopt_sel >= MENU_PANEL_ROWS ? mopt_sel - MENU_PANEL_ROWS + 1 : 0,
                                      mpb.n ? mpb.help[mopt_sel] : NULL };
             v.panel = &mpanel;
-        } else if (gopt >= 0 && gopt < n_games) {
+        } else if (gopt >= 0 && gopt < library.n) {
             if (gsend)
                 market_send_panel(&gpb);
             else
@@ -1242,7 +1233,7 @@ void ui_home(framebuffer_t *f)
                     }
                 }
             } else if ((p & PAD_X) && shown == TAB_GAMES && n > 0) {
-                gopt = *s;                      /* X: the game's options (the Pi's C) */
+                gopt = game_idx[*s];            /* X: the game's options (the Pi's C) */
                 lib_panel_open(&games[gopt]);
                 gopt_sel = 0;
             } else if (p & pad_ok) {

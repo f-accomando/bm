@@ -500,6 +500,20 @@ int lib_act(lib_game_t *c, int row, int how, home_do_t *d)
     return 0;
 }
 
+int lib_is_project(const lib_game_t *g)
+{
+    return !g->builtin && bm_is_project(g->name);
+}
+
+int lib_tab_items(int dev, int *idx)
+{
+    int n = 0;
+    for (int i = 0; i < library.n; i++)
+        if (lib_is_dev(&library.g[i]) == dev && !lib_is_project(&library.g[i]))
+            idx[n++] = i;
+    return n;
+}
+
 /* ---------------------------------------------------------------- covers */
 
 /* The cover from the .bm COVER section, or a label with the title. */

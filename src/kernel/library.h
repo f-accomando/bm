@@ -111,6 +111,13 @@ void lib_add_builtin(lib_t *l, const char *name, const char *tool, const uint8_t
  * cartridge that declares type app or utility in its bm.info are listed in Dev; the rest are games. */
 int lib_is_dev(const lib_game_t *g);
 
+/* A project (.bme): the editors open it; the tabs do not list it. */
+int lib_is_project(const lib_game_t *g);
+
+/* The cartridges a tab lists: the library indexes of the games (dev 0) or of the development tools and apps
+ * (dev 1), in the order of the library (by title), no project. Returns how many (idx holds LIB_MAX at most). */
+int lib_tab_items(int dev, int *idx);
+
 /* The SD card cartridge with this path (case ignored), or -1. */
 int lib_find_path(const lib_t *l, const char *path);
 
