@@ -34,6 +34,12 @@
 #include "rgb30/pad.h"
 #include "rgb30/plat.h"
 #include "rgb30/ui.h"
+
+/* the RGB30 is no Pi 1: the rows and the CRT filter of the Pi 1 stay off */
+static inline int board_is_pi1(void)
+{
+    return 0;
+}
 #else
 #include "crumbs.h"
 #include "input.h"
@@ -390,6 +396,32 @@ static int lcd_gpio_is_off(void)
 {
     const char *v = config_get("lcd_gpio");
     return v && strcmp(v, "0") == 0;
+}
+#endif
+
+#ifdef BM_RGB30
+/* no CRT filter on the RGB30 (a Pi 1 feature): the same calls, always off */
+int crt_mode(void)
+{
+    return 1;
+}
+
+const char *crt_choice(void)
+{
+    return "Off";
+}
+
+int crt_filter_is_active(void)
+{
+    return 0;
+}
+
+void crt_apply_filter(void *pixels, int w, int h, int pitch_bytes)
+{
+    (void)pixels;
+    (void)w;
+    (void)h;
+    (void)pitch_bytes;
 }
 #endif
 
