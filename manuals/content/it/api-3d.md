@@ -343,7 +343,7 @@ Una cartuccia sceglie ciò che il giocatore vede. Per questo non serve una chiav
 - **Luci**: `light3d` (il sole e la luce ambiente), `lamp3d` (quattro luci puntiformi), i flag di `draw3d` (2 senza luce, 4 luce liscia).
 - **Luce cel e contorno**: `cel3d` e i flag 256 e 512 di `draw3d`.
 
-Le altre chiavi sono solo della console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter` e `gpu3d_merge`. Un gioco non può cambiarle.
+Le altre chiavi sono solo della console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter` e `gpu3d_merge`. Un gioco non le imposta per il giocatore. Un benchmark può cambiarle una per una con `gpu3d_opt(nome, on)`, che restituisce `in_force, available` (senza GPU restituisce `false, false`).
 
 ::: note
 Non ancora costruiti (SYS-9b): un benchmark all'avvio di un gioco che sceglie i valori per la console, e un menu di scelte grafiche in ogni gioco. Oggi sceglie il gioco, oppure il giocatore modifica `bm/config.txt`.

@@ -343,7 +343,7 @@ A cartridge chooses what the player sees. It does not need a console key for thi
 - **Lights**: `light3d` (the sun and the ambient light), `lamp3d` (four point lights), the flags of `draw3d` (2 no light, 4 smooth light).
 - **Cel light and outline**: `cel3d` and the `draw3d` flags 256 and 512.
 
-The other keys are only for the console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter` and `gpu3d_merge`. A game cannot change them.
+The other keys are only for the console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter` and `gpu3d_merge`. A game does not set them for the player. A benchmark can switch each one with `gpu3d_opt(name, on)`, which returns `in_force, available` (it returns `false, false` with no GPU).
 
 ::: note
 Not built yet (SYS-9b): a benchmark at the start of a game that picks the values for the console, and a menu of graphics choices in each game. Today the game chooses, or the player edits `bm/config.txt`.
