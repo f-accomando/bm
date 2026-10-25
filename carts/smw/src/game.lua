@@ -24,21 +24,55 @@ local function solid(px, py)
   return mflags(px, py, 1, 1, "col") & 1 ~= 0
 end
 
+local last_inp = {}
 local function inputs()
   return {
-    left = btn("left"), right = btn("right"),
+    left = btn("left"), right = btn("right"), up = btn("up"), down = btn("down"),
     run = btn("y") or btn("x"),
     jump = btn("b") or btn("a"),
+    spin = btn("a") and not btn("b"),
   }
+end
+
+-- The pose of Mario, from his state. The numbers are SMW's own pose numbers; the rules come from
+-- scripts/smw_sprites.py (frames.csv): a walk cycle of two poses that goes faster with speed,
+-- a skid, a duck, a look up, a jump going up, a fall, the run-jump with arms up and the spin.
+local anim, spin_t, spinning = 0, 0, false
+local WALK_FRAME = 122                      -- speed units a walk frame lasts: 5 ticks at walking speed
+
+local function pose_of(m, inp)
+  local ax = math.abs(m.vx)
+  if m.ground then
+    spinning = false
+    if inp.down then return 0x3C end
+    local dir = (inp.right and 1 or 0) - (inp.left and 1 or 0)
+    if dir ~= 0 and m.vx * dir < -1 then return 0x0D end
+    if ax < 1 then return inp.up and 0x03 or 0x00 end
+    if inp.run and m.pm >= Phys.PM_FULL then
+      return (anim // WALK_FRAME) % 2 == 0 and 0x07 or 0x08
+    end
+    return (anim // WALK_FRAME) % 2 == 0 and 0x00 or 0x01
+  end
+  if spinning then
+    local cycle = { 0x25, 0x00, 0x0F, 0x00 }
+    return cycle[(spin_t // 2) % 4 + 1]
+  end
+  if ax >= 56 and inp.run then return 0x0C end
+  return m.vy < 0 and 0x0B or 0x24
 end
 
 function _update()
   acc = acc + 50 / 60
   local inp = inputs()
+  last_inp = inp
   while acc >= 1 do
     acc = acc - 1
     prev.x, prev.y = mario.x, mario.y
+    local was_ground = mario.ground
     Phys.step(mario, inp, solid)
+    if was_ground and not mario.ground and mario.vy < 0 then spinning = inp.spin end
+    anim = mario.ground and anim + math.abs(mario.vx) or 0
+    spin_t = spin_t + 1
     if mario.y > LEVEL_H + 32 then          -- fell out of the level
       mario = Phys.new(START_X, START_Y)
       prev.x, prev.y = mario.x, mario.y
@@ -46,18 +80,18 @@ function _update()
   end
 end
 
+local cur_pose = 0
 local function draw_mario(x, y)
-  -- placeholder until the sprites are captured from the ROM: a 12x16 body on the real box
-  local f = mario.face
-  rectfill(x + 2, y + 16, 12, 16, 0xE03020)
-  rectfill(x + 2, y + 16, 12, 5, 0xE03020)
-  rectfill(x + 3, y + 21, 10, 5, 0xF8C090)
-  rectfill(x + (f > 0 and 9 or 3), y + 22, 3, 2, 0x202020)
-  rectfill(x + 2, y + 26, 12, 6, 0x3050D0)
+  local p = POSES[cur_pose] or POSES[0]
+  local ox = p[5]
+  local flip = mario.face < 0
+  if flip then ox = 16 - ox - p[3] end
+  sspr(p[1], p[2], p[3], p[4], x + ox, y + p[6], flip)
 end
 
 function _draw()
   cls(0)
+  cur_pose = pose_of(mario, last_inp)
   local a = acc
   local x = prev.x + (mario.x - prev.x) * a
   local y = prev.y + (mario.y - prev.y) * a

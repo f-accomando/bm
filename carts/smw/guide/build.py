@@ -130,11 +130,12 @@ def main():
     sh = Image.new("RGBA", (128, ((n_cells + 15) // 16) * 8), (0, 0, 0, 0))
     for i, im in enumerate(cell_list, 1):
         sh.paste(im, ((i % 16) * 8, (i // 16) * 8))
-    sh.save(out + "/sheet.png")
+    sh.save(out + "/tiles.png")
     for name, rows in (("map_main.csv", main_rows), ("map_col.csv", col_rows)):
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
     open(out + "/flags.csv", "w").write("%d=1\n" % col_n)
-    lua = open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
+    poses_lua = real.pack_poses(ex, out + "/tiles.png", out + "/sheet.png", restyle=restyle)
+    lua = poses_lua + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % real.backdrop(ex))
     open(out + "/main.lua", "w").write(lua)
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", out + "/sheet.png",

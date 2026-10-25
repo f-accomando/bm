@@ -12,6 +12,9 @@ the finished cartridge stay on the user's machine and SD card.
 - `scripts/smw_trace.py`: records Mario's physics for five input scripts (CSV, per frame).
 - `scripts/smw_map16.py`: runs the first level and collects the Map16 grid, the four tile
   words of each Map16 (VRAM tilemap `$5000`, characters at `$0000`), and the 8x8 sheet.
+- `scripts/smw_sprites.py`: plays random input and rebuilds Mario's picture each frame from OAM
+  and VRAM. The palette comes from the screenshot pixels. It writes one PNG per pose and facing,
+  `poses.json`, and `frames.csv` (pose against speed, air, and keys). 30 poses of small Mario.
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
 - `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.b16`
@@ -30,7 +33,8 @@ the finished cartridge stay on the user's machine and SD card.
 
 - Solidity: the table is a guess (`0x100`-`0x1BF`, dirt `0x3F`-`0x41`). Read the real
   "acts like" table from the ROM.
-- Mario sprites: the game draws a placeholder. Capture the frames (OAM and VRAM) per pose.
+- Mario poses: small Mario only. Capture big, fire, cape, Yoshi, swim, climb, death, and the
+  walk speed steps. The animation rate is one rule (`anim += speed`, a frame per 122).
 - Background layer 2 (parallax forest): the game uses one colour. The TM mirror poke does not
   hide layers. Read the BG2 tilemap from VRAM or stitch it from frames.
 - Camera: use the SMW scroll rules. Now `x - 108`.

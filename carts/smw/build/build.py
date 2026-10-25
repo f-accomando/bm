@@ -25,6 +25,36 @@ def backdrop(ex):
     return (r << 16) | (g << 8) | b
 
 
+def pack_poses(ex, tiles_png, out_png, restyle=None):
+    """Appends Mario's poses (scripts/smw_sprites.py) under the tile cells, 32x32 each, facing right.
+    Returns the Lua table POSES = {[pose] = {sx, sy, w, h, ox, oy}} (ox, oy from Mario's x, y)."""
+    from PIL import Image
+    sheet = Image.open(tiles_png).convert("RGBA")
+    meta = json.load(open(ex + "/mario/poses.json"))
+    ids = sorted({m["pose"] for m in meta.values()})
+    rows = (len(ids) + 3) // 4
+    big = Image.new("RGBA", (sheet.width, sheet.height + rows * 32), (0, 0, 0, 0))
+    big.paste(sheet, (0, 0))
+    lines = []
+    for i, pose in enumerate(ids):
+        m = meta.get("%02X_1" % pose)
+        mirror = m is None
+        if mirror:
+            m = meta["%02X_0" % pose]
+        im = Image.open(ex + "/mario/" + m["file"]).convert("RGBA")
+        ox = m["ox"]
+        if mirror:
+            im = im.transpose(Image.FLIP_LEFT_RIGHT)
+            ox = 16 - m["ox"] - m["w"]
+        if restyle:
+            im = restyle(im)
+        sx, sy = (i % 4) * 32, sheet.height + (i // 4) * 32
+        big.paste(im, (sx, sy))
+        lines.append("  [%d] = { %d, %d, %d, %d, %d, %d }," % (pose, sx, sy, m["w"], m["h"], ox, m["oy"]))
+    big.save(out_png)
+    return "local POSES = {\n" + "\n".join(lines) + "\n}\n"
+
+
 def main():
     ex = sys.argv[1] if len(sys.argv) > 1 else ROOT + "/carts/smw/extracted"
     out = sys.argv[2] if len(sys.argv) > 2 else ROOT + "/build/smw"
@@ -49,10 +79,12 @@ def main():
     for name, rows in (("map_main.csv", main_rows), ("map_col.csv", col_rows)):
         open(out + "/" + name, "w").write("\n".join(",".join(map(str, r)) for r in rows) + "\n")
     open(out + "/flags.csv", "w").write("%d=1\n" % col)
-    lua = open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
+    sheet_png = out + "/sheet.png"
+    poses_lua = pack_poses(ex, ex + "/sheet.png", sheet_png)
+    lua = poses_lua + open(ROOT + "/carts/smw/src/physics.lua").read() + "\n" + open(ROOT + "/carts/smw/src/game.lua").read()
     lua = lua.replace("local backdrop = 0xFF0000", "local backdrop = 0x%06X" % backdrop(ex))
     open(out + "/main.lua", "w").write(lua)
-    base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", ex + "/sheet.png",
+    base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", sheet_png,
             "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--flags", out + "/flags.csv",
             "--info", ROOT + "/carts/smw/bm.info", "--targets", "rgb30", "--input", "pad"]
     subprocess.run(base + ["-o", out + "/smw.b16", "--b16"], check=True)

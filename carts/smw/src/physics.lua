@@ -33,6 +33,7 @@ end
 -- inp: left, right, run, jump (booleans). One 50 Hz tick.
 function Phys.step(m, inp, solid)
   local dir = (inp.right and 1 or 0) - (inp.left and 1 or 0)
+  if inp.down and m.ground then dir = 0 end      -- ducking: no push, the speed runs out
   if dir ~= 0 then m.face = dir end
   local fast = m.ground and inp.run and math.abs(m.vx) >= 42
   if fast then m.pm = math.min(Phys.PM_FULL, m.pm + Phys.PM_RATE)
