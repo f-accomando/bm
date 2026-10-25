@@ -275,41 +275,6 @@ static void page_message(const char *title, const char *lines[], int n)
  * from the same frame, another game closes it (bm_close_suspended). */
 #define PLAY_SECS (24u * 3600u)
 
-static char susp_name[48];                         /* the frozen game's file in bm/ ("" none) */
-
-static int is_suspended(const char *name)
-{
-    return susp_name[0] && strcmp(susp_name, name) == 0 && bm_suspended(NULL, 0);
-}
-
-/* another game is frozen in memory: starting this one would lose it, so the menu asks first (as on the Pi) */
-static int need_switch(const char *name)
-{
-    return bm_suspended(NULL, 0) && !is_suspended(name);
-}
-
-/* the words of that question */
-static void switch_question(char *q, size_t qn, char *d, size_t dn, char *y, size_t yn)
-{
-    char t[49];
-    bm_suspended(t, sizeof t);
-    ksnprintf(q, qn, "Close %s?", t);
-    ksnprintf(d, dn, "It is suspended: what was not saved is lost.");
-    ksnprintf(y, yn, "Close it");
-}
-
-/* A game that is not made for this kernel (docs/spec/compat-policy.toml) asks first: 1 and the words of the
- * question, or 0 (nothing to ask). Grey is not a lock: the confirm button starts the game. */
-static int compat_question(int g, char *q, size_t qn, char *d, size_t dn, char *y, size_t yn)
-{
-    if (!games[g].grey || is_suspended(games[g].name))
-        return 0;
-    ksnprintf(q, qn, "Start it anyway?");
-    ksnprintf(d, dn, "%s", games[g].why);
-    ksnprintf(y, yn, "Start");
-    return 1;
-}
-
 /* the reads and the CRC of a big game: the loading screen goes on */
 static int load_tick(void)
 {
@@ -321,15 +286,14 @@ static void play_bm(int i)
 {
     char path[80];
     bm_stats_t st;
-    if (is_suspended(games[i].name)) {              /* frozen by Start + Select: continue */
+    if (lib_is_suspended(&games[i])) {              /* frozen by Start + Select: continue */
         wifi_auto_stop();
         kprintf("resuming %s\n", games[i].name);
         if (bm_resume(fb, PLAY_SECS, &st) != BM_SUSPENDED)
-            susp_name[0] = 0;
+            lib_suspend_clear();
         goto back;
     }
-    bm_close_suspended();                           /* another game: the frozen one's memory is freed */
-    susp_name[0] = 0;
+    lib_suspend_close();                           /* another game: the frozen one's memory is freed */
     ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
     fat_entry_t e;
     uint8_t *data = NULL;
@@ -347,7 +311,7 @@ static void play_bm(int i)
     }
     kprintf("play: %s (%lu bytes)%s\n", path, (uint32_t)len, games[i].type == BM_TYPE_GAME ? "" : ", no splash");
     if (bm_run(fb, data, len, PLAY_SECS, &st, 1) == BM_SUSPENDED)
-        ksnprintf(susp_name, sizeof susp_name, "%s", games[i].name);
+        lib_suspend_set(&games[i]);
     free(data);
 back:
     console_suspend(1);                             /* the menu draws itself */
@@ -373,8 +337,7 @@ static size_t net_play_len;
 
 static void play_net(void)
 {
-    bm_close_suspended();                           /* another game: the frozen one's memory is freed */
-    susp_name[0] = 0;
+    lib_suspend_close();                           /* another game: the frozen one's memory is freed */
     wifi_auto_stop();
     if (net_play_len < 8 || !bm_is_cart(net_play_buf)) {
         kprintf("unknown cartridge format\n");
@@ -741,28 +704,11 @@ static void play_market(int i)
 
 enum { G_PLAY = 100, G_SDK, G_BUILD_B16, G_SEND, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE, G_CLOSE };
 
-/* the save slots of game `i`: bytes in all, -1 if none */
-static long game_save_bytes(int i, int *slots)
-{
-    long bytes = -1;
-    *slots = 0;
-    for (int slot = 1; games[i].save[0] && slot <= BM_SAVE_SLOTS; slot++) {
-        char path[sizeof games[i].save];
-        fat_entry_t e;
-        bm_save_slot(games[i].save, slot, path, sizeof path);
-        if (fat_find(path, &e) == 0) {
-            bytes = (bytes < 0 ? 0 : bytes) + (long)e.size;
-            (*slots)++;
-        }
-    }
-    return bytes;
-}
-
 static void game_panel(int i, home_panel_t *p)
 {
     memset(p, 0, sizeof *p);
     ksnprintf(p->title, sizeof p->title, "%s", games[i].title);
-    const int frozen = is_suspended(games[i].name);
+    const int frozen = lib_is_suspended(&games[i]);
     home_row(p, MENU_ROW_ACTION, G_PLAY, frozen ? "Resume" : "Play",
              frozen ? "Back to the point where the game was left" : "Start the game", NULL);
     if (frozen)
@@ -779,7 +725,7 @@ static void game_panel(int i, home_panel_t *p)
     home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
              games[i].author[0] ? games[i].author : "-");
     int slots;
-    const long save = game_save_bytes(i, &slots);
+    const long save = lib_save_size(&games[i], &slots);
     if (save >= 0 && slots > 1)
         home_row(p, MENU_ROW_INFO, G_SAVE, "Save data", "Its records", "%ld bytes in %d slots", save, slots);
     else if (save >= 0)
@@ -797,8 +743,7 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
     if (row == G_CLOSE) {
-        bm_close_suspended();
-        susp_name[0] = 0;
+        lib_suspend_close();
         ksnprintf(d->note, sizeof d->note, "closed %s", games[i].name);
         return;
     }
@@ -834,19 +779,13 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
                 ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
                 return;
             }
-            if (is_suspended(games[i].name)) {      /* the frozen copy of it goes too */
-                bm_close_suspended();
-                susp_name[0] = 0;
+            if (lib_is_suspended(&games[i])) {      /* the frozen copy of it goes too */
+                lib_suspend_close();
             }
             err = fat_delete(path) != 0;
             *gone = !err;
         } else {
-            for (int slot = 1; slot <= BM_SAVE_SLOTS; slot++) {
-                bm_save_slot(games[i].save, slot, path, sizeof path);
-                fat_entry_t e;
-                if (fat_find(path, &e) == 0 && fat_delete(path) != 0)
-                    err = 1;
-            }
+            err = lib_save_delete(&games[i], d->note, sizeof d->note) != 0;
         }
         if (err) {
             d->fail = 1;
@@ -912,7 +851,7 @@ static menu_item_t game_item(int g)
     return (menu_item_t){ .title = games[g].title, .kind = lib_kind(&games[g]),
                           .cover = games[g].cover.px ? &games[g].cover : NULL, .loading = !games[g].cover_read, .path = games[g].name, .grey = games[g].grey,
                           .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating",
-                          .running = is_suspended(games[g].name) };
+                          .running = lib_is_suspended(&games[g]) };
 }
 
 /* the cartridge under the cursor: a game on the Games tab, an app or a utility in Dev after the fixed items; -1 if
@@ -1078,7 +1017,7 @@ void ui_home(framebuffer_t *f)
             v.banner = empty;
             v.a_label = "";
         } else if (cart_at(shown, *s) >= 0) {
-            v.a_label = is_suspended(games[cart_at(shown, *s)].name) ? "Resume" : "Play";
+            v.a_label = lib_is_suspended(&games[cart_at(shown, *s)]) ? "Resume" : "Play";
         }
         menu_panel_t panel, sections, mpanel;
         if (mopt >= 0) {
@@ -1207,10 +1146,10 @@ void ui_home(framebuffer_t *f)
             } else if ((p & pad_ok) && kind == ASK_COMPAT && ask_compat >= 0) {
                 const int cg = ask_compat;          /* yes: the other questions go on */
                 ask_compat = -1;
-                if (need_switch(games[cg].name)) {
+                if (lib_need_switch(&games[cg])) {
                     ask_switch = cg;
                     asking = ASK_SWITCH;
-                    switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
+                    lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                 } else {
                     play_index = cg;
                     run_page(play_selected);
@@ -1266,14 +1205,14 @@ void ui_home(framebuffer_t *f)
                     } else if (row == G_SDK) {
                         sdk_open = gp;              /* the SDK on the game: its project next to it */
                         run_page(page_sdk);
-                    } else if (row == G_PLAY && compat_question(g, ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
+                    } else if (row == G_PLAY && lib_compat_question(&games[g], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
                                                                  sizeof ask_y)) {
                         ask_compat = g;
                         asking = ASK_COMPAT;
-                    } else if (row == G_PLAY && need_switch(games[g].name)) {
+                    } else if (row == G_PLAY && lib_need_switch(&games[g])) {
                         ask_switch = g;
                         asking = ASK_SWITCH;
-                        switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
+                        lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                     } else {
                         play_index = g;
                         run_page(play_selected);
@@ -1314,13 +1253,13 @@ void ui_home(framebuffer_t *f)
                 if (row == M_PLAY) {
                     mopt = -1;
                     const int mg = game_of_path(market_path(game));
-                    if (mg >= 0 && compat_question(mg, ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y)) {
+                    if (mg >= 0 && lib_compat_question(&games[mg], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y)) {
                         ask_compat = mg;
                         asking = ASK_COMPAT;
-                    } else if (mg >= 0 && need_switch(games[mg].name)) {
+                    } else if (mg >= 0 && lib_need_switch(&games[mg])) {
                         ask_switch = mg;
                         asking = ASK_SWITCH;
-                        switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
+                        lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                     } else {
                         play_market(game);
                     }
@@ -1395,13 +1334,13 @@ void ui_home(framebuffer_t *f)
                     ask_game = *s;
                 } else if ((p & pad_ok) && a == MARKET_PLAY) {
                     const int mg = game_of_path(market_path(*s));
-                    if (mg >= 0 && compat_question(mg, ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y)) {
+                    if (mg >= 0 && lib_compat_question(&games[mg], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y)) {
                         ask_compat = mg;
                         asking = ASK_COMPAT;
-                    } else if (mg >= 0 && need_switch(games[mg].name)) {
+                    } else if (mg >= 0 && lib_need_switch(&games[mg])) {
                         ask_switch = mg;
                         asking = ASK_SWITCH;
-                        switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
+                        lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                     } else {
                         play_market(*s);
                     }
@@ -1416,14 +1355,14 @@ void ui_home(framebuffer_t *f)
                     ksnprintf(gp, sizeof gp, "%s/%s", games[cg].dir, games[cg].name);
                 if (cg >= 0 && netxfer_updating(gp)) {
                     notice_fail("Updating, wait for the end of the download");
-                } else if (cg >= 0 && compat_question(cg, ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
+                } else if (cg >= 0 && lib_compat_question(&games[cg], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y,
                                                       sizeof ask_y)) {
                     ask_compat = cg;
                     asking = ASK_COMPAT;
-                } else if (cg >= 0 && need_switch(games[cg].name)) {
+                } else if (cg >= 0 && lib_need_switch(&games[cg])) {
                     ask_switch = cg;
                     asking = ASK_SWITCH;
-                    switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
+                    lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                 } else if (cg >= 0) {
                     play_index = cg;
                     run_page(play_selected);

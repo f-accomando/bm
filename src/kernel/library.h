@@ -52,6 +52,7 @@ typedef struct {
     int nsd;                    /* the ones from the SD card (the built-in ones follow) */
     int hidden;                 /* files that want() left out on purpose */
     int sd_ok;                  /* the card is mounted */
+    char susp_path[FAT_NAME_MAX + 10];  /* the cartridge frozen in memory (Start + Select), "" if none */
     const lib_backend_t *be;
     fiber_job_t cover_job;      /* the covers, read in the menu's free time */
     int cover_dev;              /* the list the menu shows: 1 Dev, 0 Games, -1 another (its covers first) */
@@ -89,6 +90,31 @@ int lib_is_dev(const lib_game_t *g);
 
 /* The SD card cartridge with this path (case ignored), or -1. */
 int lib_find_path(const lib_t *l, const char *path);
+
+/* ---- the game frozen in memory (a .bm left with Start + Select stays suspended and the menu comes back) */
+
+/* This cartridge is the frozen one. */
+int lib_is_suspended(const lib_game_t *g);
+/* Another game is frozen: starting this one would lose it, so the menu asks first. */
+int lib_need_switch(const lib_game_t *g);
+/* The game that was started returned suspended: remember which one. */
+void lib_suspend_set(const lib_game_t *g);
+/* The frozen game is gone (it ended): forget it. */
+void lib_suspend_clear(void);
+/* Close the frozen game (its memory is freed) and forget it. */
+void lib_suspend_close(void);
+/* The words of the question "close the frozen game?" (q: question, d: detail, y: the yes button). */
+void lib_switch_question(char *q, size_t qn, char *d, size_t dn, char *y, size_t yn);
+/* A game that is not made for this console (docs/spec/compat-policy.toml) asks first: 1 and the words of the
+ * question, or 0 (nothing to ask). Grey is not a lock: the confirm button starts the game. */
+int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t dn, char *y, size_t yn);
+
+/* ---- the save data of a cartridge */
+
+/* Its save slots: the bytes in all and (slots) how many are used; -1 if there is no save data. */
+long lib_save_size(const lib_game_t *g, int *slots);
+/* Deletes every slot: 0, or -1 and the first error in note. */
+int lib_save_delete(const lib_game_t *g, char *note, size_t n);
 
 /* ---- the covers
  *

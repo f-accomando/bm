@@ -214,6 +214,85 @@ int lib_is_dev(const lib_game_t *g)
     return g->tool != NULL || (!g->builtin && g->type != BM_TYPE_GAME);
 }
 
+/* ---------------------------------------------------------------- suspended game, save data */
+
+int lib_is_suspended(const lib_game_t *g)
+{
+    return library.susp_path[0] && strcmp(library.susp_path, g->path) == 0 && bm_suspended(NULL, 0);
+}
+
+int lib_need_switch(const lib_game_t *g)
+{
+    return bm_suspended(NULL, 0) && !lib_is_suspended(g);
+}
+
+void lib_suspend_set(const lib_game_t *g)
+{
+    ksnprintf(library.susp_path, sizeof library.susp_path, "%s", g->path);
+}
+
+void lib_suspend_clear(void)
+{
+    library.susp_path[0] = 0;
+}
+
+void lib_suspend_close(void)
+{
+    bm_close_suspended();
+    library.susp_path[0] = 0;
+}
+
+void lib_switch_question(char *q, size_t qn, char *d, size_t dn, char *y, size_t yn)
+{
+    char t[49];
+    t[0] = 0;
+    bm_suspended(t, sizeof t);
+    ksnprintf(q, qn, "Close %s?", t);
+    ksnprintf(d, dn, "It is suspended: what was not saved is lost.");
+    ksnprintf(y, yn, "Close it");
+}
+
+int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t dn, char *y, size_t yn)
+{
+    if (!g->grey || lib_is_suspended(g))
+        return 0;
+    ksnprintf(q, qn, "Start it anyway?");
+    ksnprintf(d, dn, "%s", g->why);
+    ksnprintf(y, yn, "Start");
+    return 1;
+}
+
+long lib_save_size(const lib_game_t *g, int *slots)
+{
+    long bytes = -1;
+    *slots = 0;
+    for (int slot = 1; library.sd_ok && g->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
+        char path[sizeof g->save];
+        fat_entry_t e;
+        bm_save_slot(g->save, slot, path, sizeof path);
+        if (fat_find(path, &e) == 0) {
+            bytes = (bytes < 0 ? 0 : bytes) + (long)e.size;
+            (*slots)++;
+        }
+    }
+    return bytes;
+}
+
+int lib_save_delete(const lib_game_t *g, char *note, size_t n)
+{
+    int err = 0;
+    for (int slot = 1; g->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
+        char path[sizeof g->save];
+        fat_entry_t e;
+        bm_save_slot(g->save, slot, path, sizeof path);
+        if (fat_find(path, &e) == 0 && fat_delete(path) != 0 && !err) {
+            ksnprintf(note, n, "cannot delete %s: %s", path, fat_error());
+            err = -1;
+        }
+    }
+    return err;
+}
+
 /* ---------------------------------------------------------------- covers */
 
 /* The cover from the .bm COVER section, or a label with the title. */

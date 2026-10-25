@@ -57,7 +57,6 @@ extern const uint8_t bm_pixel_cart[], bm_pixel_cart_end[];
 
 static char last_msg[96];
 static char perf_msg[80];          /* speed of the last .bm game */
-static char susp_path[FAT_NAME_MAX + 10];   /* the cartridge frozen in memory, "" if none */
 
 /* the Pi's supply too low now (bit 0 of the firmware's GET_THROTTLED): the
  * LED blinks while it is (ledstate.h); asked every 5 s */
@@ -415,7 +414,7 @@ const char *carts_animator(framebuffer_t *fb)
 
 static void play(framebuffer_t *fb, const lib_game_t *c)
 {
-    if (susp_path[0] && strcmp(susp_path, c->path) == 0 && bm_suspended(NULL, 0)) {
+    if (lib_is_suspended(c)) {
         kprintf("\nresuming %s\n", c->name);
         crumb("playing", c->title[0] ? c->title : c->name);
         bm_stats_t st;
@@ -423,13 +422,12 @@ static void play(framebuffer_t *fb, const lib_game_t *c)
         bm_print_stats(&st);
         perf_line(&st);
         if (r != BM_SUSPENDED)
-            susp_path[0] = 0;
+            lib_suspend_clear();
         ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
         crumb("cartridge menu", NULL);
         return;
     }
-    bm_close_suspended();              /* the menu asked first */
-    susp_path[0] = 0;
+    lib_suspend_close();               /* the menu asked first */
     const char *tid = tool_id_of(c);
     if (tid) {
         const char *w;
@@ -460,7 +458,7 @@ static void play(framebuffer_t *fb, const lib_game_t *c)
     crumb("playing", c->title[0] ? c->title : c->name);
     if (c->builtin) {
         if (run_buffer(fb, c->builtin, c->size, 1) == BM_SUSPENDED)
-            ksnprintf(susp_path, sizeof susp_path, "%s", c->path);
+            lib_suspend_set(c);
         ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
         crumb("cartridge menu", NULL);
         return;
@@ -475,7 +473,7 @@ static void play(framebuffer_t *fb, const lib_game_t *c)
         return;
     }
     if (run_buffer(fb, data, len, 1) == BM_SUSPENDED)
-        ksnprintf(susp_path, sizeof susp_path, "%s", c->path);
+        lib_suspend_set(c);
     free(data);
     ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
     crumb("cartridge menu", NULL);
@@ -579,11 +577,6 @@ static int tab_items(int tab, int *idx)
     return n;
 }
 
-static int is_suspended(const lib_game_t *c)
-{
-    return susp_path[0] && strcmp(susp_path, c->path) == 0 && bm_suspended(NULL, 0);
-}
-
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
        C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR, C_PUBLISH, C_SEND, C_COPY,
@@ -594,44 +587,12 @@ static int opt_market;          /* the game of the HOME_MARKET panel */
 static long opt_save;           /* its save slots: bytes in all, -1 if none */
 static int opt_slots;           /* how many slots it uses */
 
-static long save_size(const lib_game_t *c)
-{
-    long bytes = -1;
-    opt_slots = 0;
-    for (int slot = 1; library.sd_ok && c->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
-        char path[sizeof c->save];
-        fat_entry_t e;
-        bm_save_slot(c->save, slot, path, sizeof path);
-        if (fat_find(path, &e) == 0) {
-            bytes = (bytes < 0 ? 0 : bytes) + (long)e.size;
-            opt_slots++;
-        }
-    }
-    return bytes;
-}
-
-/* every slot of the cartridge: 0, or -1 and the first error in note */
-static int save_delete(const lib_game_t *c, char *note, size_t n)
-{
-    int err = 0;
-    for (int slot = 1; c->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
-        char path[sizeof c->save];
-        fat_entry_t e;
-        bm_save_slot(c->save, slot, path, sizeof path);
-        if (fat_find(path, &e) == 0 && fat_delete(path) != 0 && !err) {
-            ksnprintf(note, n, "cannot delete %s: %s", path, fat_error());
-            err = -1;
-        }
-    }
-    return err;
-}
-
 static void cart_panel(home_panel_t *p)
 {
     const lib_game_t *c = &library.g[opt_cart];
     memset(p, 0, sizeof *p);
     ksnprintf(p->title, sizeof p->title, "%s", c->title);
-    int susp = is_suspended(c);        /* the tabs list no project (D44): a panel is always a game's */
+    int susp = lib_is_suspended(c);        /* the tabs list no project (D44): a panel is always a game's */
     home_row(p, MENU_ROW_ACTION, C_PLAY, susp ? "Resume" : "Play",
              susp ? "Back to the point where the game was left" : "Start the game", NULL);
     if (susp)
@@ -695,8 +656,7 @@ static void cart_act(int row, int how, home_do_t *d)
     d->what = HOME_STAY;
     switch (row) {
     case C_CLOSE:
-        bm_close_suspended();
-        susp_path[0] = 0;
+        lib_suspend_close();
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
         break;
     case C_COPY:
@@ -739,11 +699,11 @@ static void cart_act(int row, int how, home_do_t *d)
             ksnprintf(d->ask_detail, sizeof d->ask_detail, "Records and progress start again.");
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
         } else if (how == HOME_YES) {
-            if (save_delete(c, d->note, sizeof d->note) == 0)
+            if (lib_save_delete(c, d->note, sizeof d->note) == 0)
                 ksnprintf(d->note, sizeof d->note, "save data deleted");
             else
                 d->fail = 1;
-            opt_save = save_size(c);
+            opt_save = lib_save_size(c, &opt_slots);
         }
         break;
     case C_DELETE:
@@ -756,9 +716,8 @@ static void cart_act(int row, int how, home_do_t *d)
             d->fail = 1;
             ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
         } else if (how == HOME_YES) {
-            if (is_suspended(c)) {
-                bm_close_suspended();
-                susp_path[0] = 0;
+            if (lib_is_suspended(c)) {
+                lib_suspend_close();
             }
             char path[sizeof c->path];
             ksnprintf(path, sizeof path, "%s", c->path);
@@ -878,7 +837,7 @@ void carts_menu(framebuffer_t *fb)
                 const lib_game_t *c = &library.g[idx[i]];
                 items[i] = (menu_item_t){ .title = c->title, .path = c->path, .kind = lib_kind(c),
                                           .cover = c->cover.px ? &c->cover : NULL,
-                                          .loading = !c->cover_read, .running = is_suspended(c),
+                                          .loading = !c->cover_read, .running = lib_is_suspended(c),
                                           .badge = NULL, .grey = c->grey,
                                           .update = market_has_update(c->path) };
                 /* a file from the PC on its way (bm_net.py --send) */
@@ -962,11 +921,11 @@ void carts_menu(framebuffer_t *fb)
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
                   : link == NET_LINK_WIFI ? MENU_NET_WIFI : MENU_NET_NONE;
             v.net_wait = !net_ip();
-            if (ask == ASK_SWITCH && bm_suspended(susp_title, sizeof susp_title)) {
-                ksnprintf(ask_q, sizeof ask_q, "Close %s?", susp_title);
+            if (ask == ASK_SWITCH && bm_suspended(NULL, 0)) {
+                lib_switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                 v.ask = ask_q;
-                v.ask_detail = "It is suspended: what was not saved is lost.";
-                v.ask_yes = "Close it";
+                v.ask_detail = ask_d;
+                v.ask_yes = ask_y;
             } else if (ask == ASK_UPDATE_SUSPENDED && bm_suspended(susp_title, sizeof susp_title)) {
                 ksnprintf(ask_q, sizeof ask_q, "Update %s?", susp_title);
                 v.ask = ask_q;
@@ -1195,7 +1154,7 @@ void carts_menu(framebuffer_t *fb)
                 compat_ok = -1;
             } else if (yes && ask == ASK_COMPAT) {
                 compat_ok = ask_cart;           /* the user knows: the other questions go on */
-                if (bm_suspended(NULL, 0) && !is_suspended(&library.g[ask_cart])) {
+                if (lib_need_switch(&library.g[ask_cart])) {
                     ask = ASK_SWITCH;
                 } else {
                     ask = ASK_NONE;
@@ -1211,14 +1170,12 @@ void carts_menu(framebuffer_t *fb)
                 notice_fail(last_msg);
             } else if (yes && ask == ASK_UPDATE_SUSPENDED) {
                 ask = ASK_NONE;
-                bm_close_suspended();
-                susp_path[0] = 0;
+                lib_suspend_close();
                 go = ask_go;
                 go_cart = ask_cart;
             } else if (yes && ask == ASK_SWITCH) {
                 ask = ASK_NONE;
-                bm_close_suspended();
-                susp_path[0] = 0;
+                lib_suspend_close();
                 go = ask_go;
                 go_cart = ask_cart;
             } else if (yes && ask == ASK_MARKET) {
@@ -1231,9 +1188,8 @@ void carts_menu(framebuffer_t *fb)
                     cart_act(ask_row, HOME_YES, &d);
                 } else if (id == HOME_MARKET) {
                     int c = lib_find_path(&library, market_path(opt_market));
-                    if (ask_row == M_DELETE && c >= 0 && is_suspended(&library.g[c])) {
-                        bm_close_suspended();
-                        susp_path[0] = 0;
+                    if (ask_row == M_DELETE && c >= 0 && lib_is_suspended(&library.g[c])) {
+                        lib_suspend_close();
                     }
                     market_act(opt_market, ask_row, HOME_YES, &d);
                 } else if (id == HOME_PUBLISH) {
@@ -1269,7 +1225,7 @@ void carts_menu(framebuffer_t *fb)
                 int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : row == C_SOUND ? GO_SOUND :
                         row == C_CODE ? GO_CODE : row == C_MESH ? GO_MESH : row == C_PIXEL ? GO_PIXEL :
                         row == C_ANIMATOR ? GO_ANIMATOR : GO_STUDIO;
-                if (bm_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
+                if (bm_suspended(NULL, 0) && !(g == GO_PLAY && lib_is_suspended(c))) {
                     ask = ASK_SWITCH;           /* another game is frozen: ask first */
                     ask_go = g;
                     ask_cart = opt_cart;
@@ -1282,7 +1238,7 @@ void carts_menu(framebuffer_t *fb)
                 if (c < 0) {
                     ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(opt_market));
                     notice_fail(last_msg);
-                } else if (bm_suspended(NULL, 0) && !is_suspended(&library.g[c])) {
+                } else if (lib_need_switch(&library.g[c])) {
                     ask = ASK_SWITCH;
                     ask_go = GO_PLAY;
                     ask_cart = c;
@@ -1385,7 +1341,7 @@ void carts_menu(framebuffer_t *fb)
                 built = -1;
             } else if (opts && !on_gear && tab != TAB_MARKET && n && idx[tsel[tab]] >= 0) {
                 opt_cart = idx[tsel[tab]];
-                opt_save = save_size(&library.g[opt_cart]);
+                opt_save = lib_save_size(&library.g[opt_cart], &opt_slots);
                 stack[0].id = HOME_CART;
                 stack[0].sel = stack[0].top = 0;
                 depth = 1;
@@ -1402,7 +1358,7 @@ void carts_menu(framebuffer_t *fb)
         size_t net_len = 0;
         /* a new copy of the game frozen in memory arrived: keep it suspended until
          * the user chooses to close and update (ASK_UPDATE_SUSPENDED) */
-        if (susp_path[0] && netxfer_updating(susp_path) >= NETXFER_QUEUED && bm_suspended(NULL, 0)) {
+        if (library.susp_path[0] && netxfer_updating(library.susp_path) >= NETXFER_QUEUED && bm_suspended(NULL, 0)) {
             /* do not kill suspended game: prompt on launch */
         }
         if (netxfer_saves() != seen_saves) {
@@ -1449,7 +1405,7 @@ void carts_menu(framebuffer_t *fb)
                 if (c < 0) {
                     ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(i));
                     notice_fail(last_msg);
-                } else if (bm_suspended(NULL, 0) && !is_suspended(&library.g[c])) {
+                } else if (lib_need_switch(&library.g[c])) {
                     ask = ASK_SWITCH;
                     ask_go = GO_PLAY;
                     ask_cart = c;
@@ -1469,11 +1425,11 @@ void carts_menu(framebuffer_t *fb)
                 go = GO_TEXT;
                 go_text = d.text;
                 go_wait = d.wait;
-            } else if (gfx && is_suspended(&library.g[i]) && netxfer_updating(library.g[i].path)) {
+            } else if (gfx && lib_is_suspended(&library.g[i]) && netxfer_updating(library.g[i].path)) {
                 ask = ASK_UPDATE_SUSPENDED;
                 ask_go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
                 ask_cart = i;
-            } else if (gfx && bm_suspended(NULL, 0) && !is_suspended(&library.g[i])) {
+            } else if (gfx && lib_need_switch(&library.g[i])) {
                 ask = ASK_SWITCH;
                 ask_go = is_project(&library.g[i]) ? GO_SDK : GO_PLAY;
                 ask_cart = i;
@@ -1487,10 +1443,8 @@ void carts_menu(framebuffer_t *fb)
          * one about a suspended game. It is not a lock: yes starts it. */
         {
             const int gi = ask == ASK_SWITCH && ask_go == GO_PLAY ? ask_cart : go == GO_PLAY ? go_cart : -1;
-            if (gfx && gi >= 0 && library.g[gi].grey && compat_ok != gi && !is_suspended(&library.g[gi])) {
-                ksnprintf(ask_q, sizeof ask_q, "Start it anyway?");
-                ksnprintf(ask_d, sizeof ask_d, "%s", library.g[gi].why);
-                ksnprintf(ask_y, sizeof ask_y, "Start");
+            if (gfx && gi >= 0 && compat_ok != gi &&
+                lib_compat_question(&library.g[gi], ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y)) {
                 ask = ASK_COMPAT;
                 ask_go = GO_PLAY;
                 ask_cart = gi;
@@ -1522,8 +1476,7 @@ void carts_menu(framebuffer_t *fb)
              * loads, never the log (2026-10-04); a suspended game comes back
              * at once */
             const int app = go >= GO_PLAY && go <= GO_PIXEL;
-            const int resume = go == GO_PLAY && go_cart >= 0 && susp_path[0] &&
-                               strcmp(susp_path, library.g[go_cart].path) == 0 && bm_suspended(NULL, 0);
+            const int resume = go == GO_PLAY && go_cart >= 0 && lib_is_suspended(&library.g[go_cart]);
             if (gfx && app)
                 menu_ui_close_quiet(fb);
             else if (gfx)
@@ -1545,8 +1498,7 @@ void carts_menu(framebuffer_t *fb)
                 break;
             case GO_SDK:
             case GO_SOUND:
-                bm_close_suspended();
-                susp_path[0] = 0;
+                lib_suspend_close();
                 ksnprintf(last_msg, sizeof last_msg, "last: %s on %s",
                           editor_session(fb, gpath, go == GO_SDK ? bm_editor_cart : bm_sound_cart,
                                          go == GO_SDK ? bm_editor_cart_end : bm_sound_cart_end),
@@ -1556,8 +1508,7 @@ void carts_menu(framebuffer_t *fb)
                 rescan();                       /* it may have saved new files */
                 break;
             case GO_CODE:
-                bm_close_suspended();
-                susp_path[0] = 0;
+                lib_suspend_close();
                 ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", carts_code(fb, gpath),
                           gname);
                 crumb("cartridge menu", NULL);
@@ -1566,8 +1517,7 @@ void carts_menu(framebuffer_t *fb)
                 break;
             case GO_STUDIO:
             case GO_ANIMATOR:
-                bm_close_suspended();
-                susp_path[0] = 0;
+                lib_suspend_close();
                 ksnprintf(last_msg, sizeof last_msg, "last: %s on %s",
                           go == GO_STUDIO ? studio_session(fb, gpath)
                                           : animator_session(fb, gpath),
@@ -1577,8 +1527,7 @@ void carts_menu(framebuffer_t *fb)
                 rescan();
                 break;
             case GO_MESH:
-                bm_close_suspended();
-                susp_path[0] = 0;
+                lib_suspend_close();
                 ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", mesh_session(fb, gpath),
                           gname);
                 crumb("cartridge menu", NULL);
@@ -1586,8 +1535,7 @@ void carts_menu(framebuffer_t *fb)
                 rescan();
                 break;
             case GO_PIXEL:
-                bm_close_suspended();
-                susp_path[0] = 0;
+                lib_suspend_close();
                 ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", pixel_session(fb, gpath),
                           gname);
                 crumb("cartridge menu", NULL);
