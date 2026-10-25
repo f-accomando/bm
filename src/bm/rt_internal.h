@@ -413,6 +413,18 @@ int l_echo(lua_State *L);
 int l_chorus(lua_State *L);
 int l_retro(lua_State *L);
 
+/* light (api_light.c) */
+void sync3d(void);              /* the waiting 3D drawn first (defined in runtime.c) */
+int l_light_begin(lua_State *L);
+int l_light(lua_State *L);
+int l_light_end(lua_State *L);
+int l_fades(lua_State *L);
+int l_dark_begin(lua_State *L);
+int l_online(lua_State *L);
+int l_glow(lua_State *L);
+int l_dark_end(lua_State *L);
+int l_quit(lua_State *L);
+
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
 int l_profile(lua_State *L);

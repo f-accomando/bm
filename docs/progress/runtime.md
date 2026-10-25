@@ -1,6 +1,6 @@
 # runtime.c: where things are
 
-`src/bm/runtime.c` is ~330 KB and 8584 lines: never read it whole. Find the section here,
+`src/bm/runtime.c` is ~324 KB and 8433 lines: never read it whole. Find the section here,
 then `python scripts/cindex.py src/bm/runtime.c <word>` for the line, then `Read` with
 `offset`/`limit` on that stretch only. Line numbers are not kept here: they go stale; the
 banner text does not. What the runtime does and its rules: [lua](lua.md) (*Runtime*).
@@ -26,7 +26,7 @@ Order in the file. Sizes are a guide: `editor` and `the debugger` are the big on
 - `prompts`: on-screen prompts and dialogs used by the system.
 - `3D (software rasterizer`: `l_*` for meshes, camera, `flush3d`, `draw2d`; GPU hand-off.
 - `the web`: `web_get`, `image_load`, `file_write` for a browser cart.
-- `keys`, `light`: key/pad/mouse reading, nano8 light.
+- `keys`: key, pad and mouse reading.
 - `video clips (.bmv)`: clip player and recorder clips (`vid.c`, `rec.c`).
 - `state`, `input`, `typing`: game state, input, typing.
 - `loading`: cartridge load, `.bm` sections, resources.
@@ -56,6 +56,7 @@ Each file holds one banner range of `runtime.c`, moved as it was. It shares the 
 - `src/bm/api_shot.c`: `shot()` and the PNG save (`docs/SCREENSHOTS.md`), `config()`, and `saved()`, `saves()` and `delsave()`.
 - `src/bm/api_docs.c`: `/docs` files for bm Write (`doc_list`, `doc_read`, `doc_write`, `doc_delete`).
 - `src/bm/api_sound.c`: audio bindings (`note`, `sfx`, `music`, `tone`, `play`, `reverb`, the bank).
+- `src/bm/api_light.c`: nano8 light and fades (`light_begin`, `light_end`, `fades`, `dark_begin`, `dark_end`, `glow`), and `online()` and `quit()`.
 
 ## Other big files
 
