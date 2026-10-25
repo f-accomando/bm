@@ -19,12 +19,16 @@ from smw_capture import *
 POSE, FACE = 0x13E0, 0x76
 
 
-def sprites(w, v):
-    """Every visible OAM entry: (x, y, size, tile, attr) with the size in pixels."""
+def sprites(w, v, oam=None):
+    """Every visible OAM entry: (index, x, y, size, tile, attr) with the size in pixels.
+    The table is 128 entries of 4 bytes then 32 bytes of high bits: x bit 8 and the size, two bits an entry.
+    Without `oam` it is read from the game's copy in WRAM ($0300); with it, from the PPU's own 544 bytes."""
+    if oam is None:
+        oam = bytes(w[0x300:0x300 + 544])
     out = []
     for i in range(128):
-        x, y, t, a = w[0x300 + i * 4:0x300 + i * 4 + 4]
-        hi = (w[0x400 + i // 4] >> ((i % 4) * 2)) & 3
+        x, y, t, a = oam[i * 4:i * 4 + 4]
+        hi = (oam[512 + i // 4] >> ((i % 4) * 2)) & 3
         x |= (hi & 1) << 8
         if x >= 256:
             x -= 512
@@ -32,6 +36,13 @@ def sprites(w, v):
             continue
         out.append((i, x, y, 32 if hi & 2 else 16, t, a))
     return out
+
+
+PPU_OAM = 2258          # where the PPU block of the savestate keeps its 544 bytes of sprite table
+
+
+def ppu_oam(blocks):
+    return bytes(blocks["PPU"][PPU_OAM:PPU_OAM + 544])
 
 
 def tile_index(v, o, px, py):
@@ -97,7 +108,7 @@ def main():
         if not mine or key in poses:
             continue
         px = {}
-        for e in mine:
+        for e in reversed(mine):                     # a lower entry is in front of a higher one
             px.update(draw(e, v))
         # the palette: the colour on the screenshot under each index of Mario's tiles (small Mario)
         shot = g.e.get_screen()

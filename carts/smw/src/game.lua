@@ -13,6 +13,7 @@ local coins, score, dragons = 0, 0, 0
 local eggs = {}                           -- eggs from the 0x126 block: {cx, cy, t}; Yoshi hatches from them
 local state = "play"                      -- play, dying, clear, over
 local lives, time_left, time_acc = 5, 400, 0
+local gtick = 0                           -- ticks since the start, for the decorations
 local st_t = 0                            -- ticks since the state began
 local tape_t = 0
 local changed = {}                        -- level cells the player changed: {cx, cy}, put back on a restart
@@ -103,6 +104,12 @@ local H = lib.hits()                           -- the boxes of a tick, and who h
 
 spawn_foes = function()
   foes = {}
+  for _, c in ipairs(CHUCKS) do
+    foes[#foes + 1] = { kind = "chuck", x = c[1], y = c[2], w = 16, h = 16, vx = 0, vy = 0, face = -1, hp = 3, state = "idle", t = 0, turn = 0 }
+  end
+  for _, a in ipairs(PLANT_AT) do
+    foes[#foes + 1] = { kind = "plant", x = a[1], y = PLANT_PATH[1], w = 24, h = 16, vx = 0, vy = 0, face = 1, state = "walk", t = 0, turn = 0 }
+  end
   for _, k in ipairs(KOOPAS) do
     foes[#foes + 1] = { kind = "koopa", x = k[1], y = k[2], w = 16, h = 16, vx = k[4] == 1 and 0 or (k[3] == 1 and -8 or 8), vy = 0,
                             face = k[3] == 1 and -1 or 1, state = k[4] == 1 and "shell" or "walk", t = 0, turn = 0 }
@@ -149,7 +156,65 @@ local function koopa_stomp(k)
   elseif k.state == "shell" then k.state, k.vx = "slide", (mario.x + 8 < k.x + 8) and 60 or -60 end
 end
 
-FOE.koopa = { step = koopa_step, zone = koopa_zone, stomp = koopa_stomp }
+FOE.koopa = { step = koopa_step, zone = koopa_zone, stomp = koopa_stomp,
+              hurts = function(k, mx) return k.state == "walk" or (k.state == "slide" and k.t >= 8 and (k.vx > 0) == (mx + 8 > k.x + 8)) end }
+
+-- The jumping plant (sprite 4F) of the pipe at x 4368: it goes up and comes back along the path the game gave it
+-- (PLANT_PATH, one y a tick), waits, and goes again. It cannot be stomped.
+local function plant_step(k)
+  k.t = k.t + 1
+  local n = #PLANT_PATH
+  local u = k.t % (n * 2 + 60)
+  if u < n then k.y = PLANT_PATH[u + 1]
+  elseif u < n * 2 then k.y = PLANT_PATH[n - (u - n)]
+  else k.y = PLANT_PATH[1] end
+end
+
+FOE.plant = { step = plant_step, zone = function(k) return "plant", (k.t // 6) % 2 + 1, false, false end,
+              stomp = function() end, hurts = function() return true end }
+
+-- The Chargin' Chuck (sprite 91). It looks at Mario and, when he is near, runs at him for 18 ticks at speed 24, waits,
+-- and does it again. Three stomps beat it: after each it squashes for a moment. Pictures facing left; the frames and
+-- the 18-tick charge come from scripts/smw_diff.py (seq.csv).
+local function chuck_step(k)
+  k.t = k.t + 1
+  k.vy = math.min(k.vy + 4, 64)
+  local _, hy = lib.move(k, 0, k.vy / 16 * 1.2)
+  if hy ~= 0 then k.vy = 0 end
+  if k.state == "dead" then k.y = k.y + k.vy / 16 * 1.2; return end
+  if k.state ~= "charge" and k.state ~= "hurt" then k.face = (mario.x + 8 < k.x + 8) and -1 or 1 end
+  if k.state == "idle" then
+    if k.t > 40 and math.abs(mario.x - k.x) < 112 then k.state, k.t, k.vx = "charge", 0, k.face * 24 end
+  elseif k.state == "charge" then
+    if lib.move(k, k.vx / 16, 0) ~= 0 then k.vx = -k.vx; k.face = -k.face end
+    if k.t >= 18 then k.state, k.t, k.vx = "wait", 0, 0 end
+  elseif k.state == "wait" then
+    if k.t >= 40 then k.state, k.t = "idle", 0 end
+  elseif k.state == "hurt" then
+    if k.t >= 14 then k.state, k.t = "wait", 0 end
+  end
+end
+
+local function chuck_zone(k)
+  local flip = k.face > 0
+  if k.state == "dead" then return "chuck_hurt", 3, flip, true end
+  if k.state == "charge" then return "chuck_run", (k.t // 4) % 4 + 1, flip, false end
+  if k.state == "hurt" then return "chuck_hurt", math.min(3, k.t // 5 + 1), flip, false end
+  if k.state == "wait" then return "chuck_wait", (k.t // 8) % 2 + 1, flip, false end
+  return "chuck_idle", (k.t // 8) % 2 + 1, flip, false
+end
+
+local function chuck_stomp(k)
+  if k.state == "hurt" or k.state == "dead" then return end
+  k.hp = k.hp - 1
+  log("chuck stomped, hp", k.hp)
+  k.t = 0
+  k.vx = 0
+  if k.hp <= 0 then k.state, k.vy = "dead", -40 else k.state = "hurt" end
+end
+
+FOE.chuck = { step = chuck_step, zone = chuck_zone, stomp = chuck_stomp,
+              hurts = function(k) return k.state == "idle" or k.state == "charge" or k.state == "wait" end }
 
 local function foe_step(k) FOE[k.kind].step(k) end
 local function foe_zone(k) return FOE[k.kind].zone(k) end
@@ -184,6 +249,9 @@ end
 local function solid(px, py)
   if px < 0 or px >= level_w then return true end
   if py < 0 then return false end
+  for _, m in ipairs(MSGS) do                         -- the message blocks are solid sprites
+    if px >= m[1] and px < m[1] + 16 and py >= m[2] and py < m[2] + 16 then return true end
+  end
   return lib.solid(px, py)
 end
 
@@ -290,7 +358,7 @@ local function play_tick(inp)
     if k ~= mario and k.state ~= "dead" and not stomped[k] then
       if c.to == mario and state == "play" then
         -- a walking Koopa hurts; a shell hurts only what it runs into, not the one behind it
-        if k.state == "walk" or (k.state == "slide" and k.t >= 8 and (k.vx > 0) == (mario.x + 8 > k.x + 8)) then
+        if FOE[k.kind].hurts(k, mario.x) then
           die()                                                    -- small Mario has no second chance
         end
       elseif c.to ~= mario and k.state == "slide" and c.to.kind == "koopa" and c.to.state == "walk" then
@@ -305,6 +373,7 @@ end
 
 local function tick(inp)
   st_t = st_t + 1
+  gtick = gtick + 1
   if state == "play" then
     tape_t = tape_t + 1
     time_acc = time_acc + 1
@@ -400,10 +469,19 @@ function _draw()
     end
     zspr(zn, VX + x0 - camx, VY + y - camy, fr)
   end
+  for _, d in ipairs(DECOR) do                      -- flowers and tufts: they only turn, a frame every 16 ticks
+    if d[2] > camx - 32 and d[2] < camx + VIEW_W + 32 then
+      zspr(d[1], VX + d[2] - camx, VY + d[3] - camy, (gtick // 16) % (d[1] == "flower" and 4 or 3) + 1)
+    end
+  end
+  for _, m in ipairs(MSGS) do zspr("msg", VX + m[1] - camx, VY + m[2] - camy, (gtick // 32) % 2 + 1) end
+  for _, m in ipairs(PSWITCHES) do zspr("pswitch", VX + m[1] - camx, VY + m[2] - camy) end
   for _, k in ipairs(foes) do
     if k.y < LEVEL_H + 32 then
       local zn, fr, fx, fy = foe_zone(k)
+      if k.kind == "plant" then clip(VX, VY, VIEW_W, math.max(0, 336 - camy)) end    -- it comes out of the pipe
       zspr(zn, VX + math.floor(k.x) + ZA[zn][1] - camx, VY + math.floor(k.y) + ZA[zn][2] - camy, fr, fx, fy)
+      if k.kind == "plant" then clip(VX, VY, VIEW_W, VIEW_H) end
     end
   end
   zspr("tape", VX + TAPE_X + ZA.tape[1] - camx, VY + math.floor(tape_y(tape_t)) + ZA.tape[2] - camy)

@@ -37,7 +37,7 @@ def main():
                 start = before[0x15EA + i] // 4
                 ents = [e for e in sprites(before, v) if start <= e[0] < start + 3]  # the tape is three entries
                 px = {}
-                for e in ents:
+                for e in reversed(ents):             # a lower entry is in front of a higher one
                     px.update(draw(e, v))
                 mirror = before[0x703:0x703 + 512]                  # the game's palette copy: sprite rows start at 0x100
                 col = {}

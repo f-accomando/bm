@@ -47,12 +47,13 @@ def main():
         for n, (start, i) in enumerate(starts):
             end = starts[n + 1][0] if n + 1 < len(starts) else 128
             sx, sy = w[0xE4 + i] | w[0x14E0 + i] << 8, w[0xD8 + i] | w[0x14D4 + i] << 8
-            mine = [e for e in ents if start <= e[0] < end]
+            scx, scy = sx - cx, sy - cy
+            mine = [e for e in ents if start <= e[0] < end and scx - 32 <= e[1] <= scx + 32 and scy - 40 <= e[2] <= scy + 40]
             px = {}
-            for e in mine:
+            for e in reversed(mine):                 # a lower entry is in front of a higher one
                 px.update(draw(e, v))
             name = ""
-            if px and 0 <= sx - cx < 256 and (max(q[0] for q in px) - min(q[0] for q in px) < 40) and (max(q[1] for q in px) - min(q[1] for q in px) < 40):
+            if px and 0 <= sx - cx < 256 and (max(q[0] for q in px) - min(q[0] for q in px) < 64) and (max(q[1] for q in px) - min(q[1] for q in px) < 64):
                 mx0, my0 = min(q[0] for q in px), min(q[1] for q in px)
                 key = hashlib.md5(repr(sorted(((a - mx0, b - my0), v) for (a, b), v in px.items())).encode()).hexdigest()[:8]
                 name = "%02X_%X_%s" % (w[0x9E + i], w[0x14C8 + i], key)

@@ -25,6 +25,10 @@ the finished cartridge stay on the user's machine and SD card.
 - `scripts/smw_goal.py`: the goal tape picture. Measured: the tape (sprite 0x7B at x 4832) goes up
   one pixel a tick from y 368 to 244 and back (248 ticks). Touching it starts the end: Mario walks right.
   The clock drops one every 35 ticks from 400. Mario starts with 5 lives.
+- `scripts/smw_diff.py`: the exact picture of a sprite, taken out of the screen: it plays two frames twice from
+  the same state, once with the sprite's slot cleared, and keeps the pixels that differ. Used for the jumping
+  plant (4F), the Chargin' Chuck (91), the P switch (3E), the flowers and tufts (4E, 4D), and the message block
+  (B9). The sprite table and the graphics of a savestate do not always match the screen (dynamic graphics).
 - `scripts/smw_items.py`: bumps a block kind and records the sprites that appear. 0x126 gives an egg
   (sprite 0x2C, 58 ticks) that hatches into Yoshi (0x35); 0x11A gives a growing vine (0x79).
 - `scripts/smw_solid.py`: tests every Map16 number for solidity from above, the side, and below.
@@ -71,11 +75,16 @@ the finished cartridge stay on the user's machine and SD card.
 - Mario's own collision stays in `physics.lua` (it matches the traces). The Koopas use `lib.move`;
   the map uses `lib.tiles` and `lib.solid`.
 - Note: `mkbm.py` warns `require: not for a .b16` for `require "bmlib"`. The runtime has it.
+- Open: what the message blocks say (hit from below), the P switch (stomp: coins turn to blocks, the timer), the
+  vine, the Chuck's other moves (hops, the clap, the slide when hit), the shell sprites 00 and 04 of the level.
 - Open: riding Yoshi (poses and eating), the vine of 0x11A (growth and climbing poses), big Mario,
   power-ups, the turn block breaking when Mario is big.
 - Done: the goal tape and the course clear banner, 5 lives, the clock, death (hop and fall), game over,
   restart of the level (blocks and coins put back), score for coins, stomps, and the time bonus.
 - Done: Koopa Troopas (walk, turn, stomp, kick, slide, kill each other), Mario dies on touch.
+- Done: the jumping plant (rises along the game's own path from the pipe at x 4368), two Chargin' Chucks
+  (look, charge 18 ticks at speed 24, wait, three stomps), the animated flowers and tufts, the message blocks
+  and the P switch as solid or still sprites.
 - Enemies still open: the level has sprites 00, 01, 04, 05 (Koopas), 3E (P switch), 4D, 4E (Monty Mole),
   4F (jumping piranha plant), 91 (Chargin' Chuck), B9 (message), 7B (goal). `spawns.json` has the
   places. Bonus by the tape height, the end screen of SMW, the overworld, 1-ups at 100 coins.

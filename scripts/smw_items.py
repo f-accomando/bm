@@ -65,7 +65,7 @@ def main():
                 start = before[0x15EA + i] // 4
                 ents = [e for e in sprites(before, v) if start <= e[0] < start + 4]
                 px = {}
-                for e in ents:
+                for e in reversed(ents):             # a lower entry is in front of a higher one
                     px.update(draw(e, v))
                 if not px or max(q[0] for q in px) - min(q[0] for q in px) > 40:
                     continue
