@@ -276,11 +276,6 @@ int h5_open(uint32_t timeout_ms)
     return 0;
 }
 
-int h5_active(void)
-{
-    return h.state == ACTIVE;
-}
-
 int h5_peer_config(void)
 {
     return h.peer_config;

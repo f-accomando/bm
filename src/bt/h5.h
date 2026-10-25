@@ -11,7 +11,6 @@
 
 /* 0 when the link is active; -1 no answer, -2 SYNC answered but no CONFIG */
 int  h5_open(uint32_t timeout_ms);
-int  h5_active(void);
 /* config byte the controller sent in CONFIG RESP (-1: none) */
 int  h5_peer_config(void);
 void h5_stats(unsigned *retransmits, unsigned *crc_errors, unsigned *bad_headers);
