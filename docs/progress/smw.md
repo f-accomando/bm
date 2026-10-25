@@ -42,3 +42,11 @@ the finished cartridge stay on the user's machine and SD card.
   uses, the game structure, and the asset pipeline. Use original diagrams and code excerpts
   only. Do not include extracted images.
 - Run `python scripts/consistency.py check` at closure.
+
+## Guide edition
+
+- `carts/smw/guide/build.py` builds `build/smw-guide/guide.b16` with an original tile sheet and a
+  hand-made level of 4 screens. It reads no ROM data. It joins `physics.lua` and `game.lua`
+  unchanged.
+- `tests/smw/guide_shots.py` plays input scripts in `bmhost` and writes
+  `manuals/shots/smw-guide-NN-name.png`. Use these images in the PDF guide.
