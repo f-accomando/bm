@@ -23,7 +23,7 @@ def check(cond, msg):
         print("FAIL", msg)
 
 
-names = ["house", "tree", "crate", "walker"]
+names = ["house", "tree", "crate", "walker", "fox"]
 for n in names:
     check(re.fullmatch(r"[a-z0-9_-]{1,8}", n) is not None, n + ": name rule")
     data = open(os.path.join(MODELS, n + ".bmm"), "rb").read()
@@ -49,7 +49,7 @@ for p, text in pages.items():
 for n in names:
     check('<a href="%s.bmm">Download</a>' % n in pages[n + ".html"], n + ": plain Download link")
     check('<img src="%s.png"' % n in pages[n + ".html"], n + ": preview")
-    check("CC0" in pages[n + ".html"], n + ": licence note")
+    check("Licence:" in pages[n + ".html"], n + ": licence note")
     check('href="%s.html"' % n in pages["index.html"], n + ": in the index")
 robots = open(os.path.join(MODELS, "robots.txt")).read()
 check("crawl-delay" not in robots.lower(), "robots.txt: no Crawl-delay")

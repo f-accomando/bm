@@ -184,7 +184,7 @@ Sources: `docs/design/bm-web-player.md` (stages, section 8), `web/README.md`, `d
 
 - `web/`: a React mock page (React 18.3.1 from cdnjs with SRI), 24 placeholder PNG previews in `web/assets` (3 groups of 8:
   `2d_*`, `3d_*`, `snd_*`, 128x128), and the launcher contract (`web/README.md`). Previews and text are placeholders.
-- Test assets for bm Web: `web/models/` holds an index page, four model pages (house, tree, crate, walker) with a `.bmm` and a 256x256 PNG preview each, and a `robots.txt` without a delay; `build.py` makes them (`--check` proves they are deterministic). They are the test fixture of this design: they let a Pi open an index page, load previews and save a `.bmm` to `/bmm`. Check them against section 4: the previews are 256x256 (the cart cuts a picture to 160x120), so make 160x120 previews for the site.
+- Test assets for bm Web: `web/models/` holds an index page, five model pages (house, tree, crate, walker, and fox, a rigged 168 KB model that is a committed file, not made by build.py) with a `.bmm` and a 256x256 PNG preview each, and a `robots.txt` without a delay; `build.py` makes them (`--check` proves they are deterministic). They are the test fixture of this design: they let a Pi open an index page, load previews and save a `.bmm` to `/bmm`. Check them against section 4: the previews are 256x256 (the cart cuts a picture to 160x120), so make 160x120 previews for the site.
 - Test of the player: section 5. Test of bm Web: `make test-web`.
 
 ## 7. Open decisions

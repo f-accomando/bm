@@ -79,6 +79,13 @@ MODELS = [
     ("walker", "Robot walker", ROBOT, "A robot with a head, two arms and two feet, standing still."),
 ]
 
+# Models that are not made from boxes: the .bmm is committed here as it is, build.py makes only the preview and the pages.
+# name, title, text, licence
+EXTERNAL = [
+    ("fox", "Fox", "A rigged fox (17 bones, clips idle, run, jump, fall, hurt, spin and win). The only model with a skeleton in this test catalog.",
+     "Test file given by the bm owner, licence not set"),
+]
+
 STYLE = """body{font-family:sans-serif;max-width:40em;margin:1em auto;padding:0 1em;color:#222;background:#fff}
 a{color:#0645ad}img{border:1px solid #999}
 .card{display:inline-block;width:9em;margin:0 1em 1em 0;vertical-align:top}"""
@@ -109,23 +116,30 @@ def build(out):
             bmm = os.path.join(out, name + ".bmm")
             run("mesh", src, "-o", bmm, "--title", title, "--author", AUTHOR)
             run("preview", bmm, "-o", os.path.join(out, name + ".png"), "--size", "256x256")
-            info[name] = (os.path.getsize(bmm), 12 * len(boxes))
+            info[name] = (os.path.getsize(bmm), "%d" % (12 * len(boxes)))
+        for name, title, text, lic in EXTERNAL:
+            bmm = os.path.join(out, name + ".bmm")
+            if os.path.abspath(out) != HERE:
+                shutil.copyfile(os.path.join(HERE, name + ".bmm"), bmm)
+            run("preview", bmm, "-o", os.path.join(out, name + ".png"), "--size", "256x256")
+            info[name] = (os.path.getsize(bmm), "1445")
+        allm = [(n, t, x, LICENCE, True) for n, t, b, x in MODELS] + [(n, t, x, l, False) for n, t, x, l in EXTERNAL]
         cards = []
-        for name, title, boxes, text in MODELS:
+        for name, title, text, lic, mock in allm:
             cards.append("<div class=\"card\"><a href=\"%s.html\"><img src=\"%s.png\" width=\"128\" height=\"128\" "
                          "alt=\"%s\"></a><br><a href=\"%s.html\">%s</a></div>\n"
                          % (name, name, html.escape(title), name, html.escape(title)))
         idx = ("<h1>Models (test)</h1>\n<p>Test models for bm Web. %s. They are not real content.</p>\n%s"
                "<p><a href=\"../index.html\">Back to the bm web player</a></p>\n" % (LICENCE, "".join(cards)))
         write(os.path.join(out, "index.html"), page("Models (test)", idx))
-        for name, title, boxes, text in MODELS:
+        for name, title, text, lic, mock in allm:
             size, faces = info[name]
             body = ("<h1>%s</h1>\n<p><img src=\"%s.png\" width=\"256\" height=\"256\" alt=\"%s\"></p>\n"
-                    "<p>%s</p>\n<ul>\n<li>File: %s.bmm</li>\n<li>Size: %d bytes</li>\n<li>Faces: %d</li>\n"
+                    "<p>%s</p>\n<ul>\n<li>File: %s.bmm</li>\n<li>Size: %d bytes</li>\n<li>Faces: %s</li>\n"
                     "<li>Licence: %s</li>\n</ul>\n<p><a href=\"%s.bmm\">Download</a></p>\n"
                     "<p><a href=\"index.html\">All models</a></p>\n"
                     % (html.escape(title), name, html.escape(title), html.escape(text), name, size, faces,
-                       LICENCE, name))
+                       html.escape(lic), name))
             write(os.path.join(out, name + ".html"), page(title, body))
         write(os.path.join(out, "robots.txt"), "User-agent: *\nAllow: /\n")
     finally:
