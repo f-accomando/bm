@@ -1,0 +1,85 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1759-g512a22d2
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-233e3c_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 48 s after boot, kernel v0.2.5-1759-g512a22d2, ring 5366, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 5 networks
+   1   -67 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -72 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+   3   -79 dBm  ch 11  WPA2  FASTWEB-5j5SAq
+   4   -81 dBm  ch  6  WPA2  Wind3 HUB - ED4188_EXT
+   5   -81 dBm  ch 11  WPA2  TIM-27163036
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fiber: covers did not yield: 29.9 ms past its slice
+covers: all 8 read
+menu idle: 300/300 frames, 85 of 2832 ms taken, 29.7 ms past a frame; covers 75 ms (+29.9, stk 0.8/16K); min slack -9441 us, paced 0; sd 2 retried, 2 timed out
+menu idle: sd sites: rdend 2; first word <1ms 101 <3ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 5906 us, enlarge 0 us, flip 91 us, free time used 285 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 11.8 ms past its slice
+net: time 2026-10-26 08:56 UTC
+fiber: reports did not yield: 97.9 ms past its slice
+report: sending nodate-729ab0_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-729ab0_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt
+menu idle: 300/300 frames, 1359 of 2956 ms taken, 100.4 ms past a frame; reports 1341 ms (+97.9, stk 7.6/128K); min slack 1544 us, paced 0
+menu idle: sd first word <1ms 35 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 265.1 worst 265.1 ms
+menu frame: 1x, a frame averages draw 5181 us, enlarge 0 us, flip 91 us, free time used 4530 us (300 frames)
+menu frame: 1x, a frame averages draw 5275 us, enlarge 0 us, flip 91 us, free time used 26 us (300 frames)
+menu idle: sd first word <1ms 20 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 7083 us, enlarge 0 us, flip 90 us, free time used 23 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8602 us, enlarge 0 us, flip 94 us, free time used 10 us (300 frames)
+menu: menu size at the next start: 2x (720p)
+menu idle: sd first word <1ms 65 <3ms 3 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8689 us, enlarge 0 us, flip 93 us, free time used 10 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 15.9 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+fiber: market did not yield: 59.6 ms past its slice
+menu idle: 300/300 frames, 482 of 1937 ms taken, 57.0 ms past a frame; market 471 ms (+59.6, stk 4.0/128K); min slack -14525 us, paced 0
+menu idle: sd first word <1ms 186 (max 1.5 ms)
+menu stalls: tls handshake 1x last 144.8 worst 144.8 ms
+menu frame: 1x, a frame averages draw 8648 us, enlarge 0 us, flip 91 us, free time used 1609 us (300 frames)
