@@ -174,8 +174,8 @@ static int parse_header(void)
     return 0;
 }
 
-/* G: a file of bm/shots (one level, no ".."), or one of the three logs the PC reads after a crash
- * (exact names). The kernel masks the secrets when it writes them (sdlog.c), and G masks them again
+/* G: a file of bm/shots (one level, no ".."), one of the three logs the PC reads after a crash
+ * (exact names), or a battery log (bm/batNN.csv). The kernel masks the secrets when it writes them (sdlog.c), and G masks them again
  * when it reads a log (reports_mask_secrets): a log written by an older kernel has the password in clear. */
 static int get_allowed(const char *p)
 {
@@ -183,6 +183,10 @@ static int get_allowed(const char *p)
     for (unsigned i = 0; i < sizeof logs / sizeof logs[0]; i++)
         if (strcasecmp(p, logs[i]) == 0)
             return 1;
+    /* the battery log of the RGB30 (battery.c): bm/bat00.csv ... bm/bat99.csv */
+    if (strncasecmp(p, "bm/bat", 6) == 0 && p[6] >= '0' && p[6] <= '9' && p[7] >= '0' && p[7] <= '9' &&
+        strcasecmp(p + 8, ".csv") == 0)
+        return 1;
     return strncasecmp(p, "bm/shots/", 9) == 0 && p[9] && !strchr(p + 9, '/') && !strstr(p, "..");
 }
 

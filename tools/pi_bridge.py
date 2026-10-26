@@ -155,7 +155,9 @@ def run(host, pw, req, board="pi"):
         cmd = base + ["--game-exit"]
     elif op == "keys" and arg in KEYS:
         cmd = base + (["--in-monitor"] if arg in MONITOR_ONLY else []) + ["--keys", KEYS[arg]]
-    elif op == "logs" and arg in LOGS:
+    elif op == "logs" and (arg in LOGS or re.fullmatch(r"bat[0-9]{2}", arg)):
+        if arg not in LOGS:
+            LOGS[arg] = arg + ".csv"        # the RGB30's battery log (battery.c): bm/bat00.csv ... bm/bat99.csv
         out_file = os.path.join(ROOT, "out", "pi_" + (DEV + "_" if DEV else "") + LOGS[arg])
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         cmd = base + ["--get", "bm/" + LOGS[arg], out_file]

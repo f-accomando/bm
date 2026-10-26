@@ -324,6 +324,12 @@ def main():
         for name, f in (("bootprev", "bootprev.txt"), ("bootlog", "bootlog.txt"), ("lastrun", "lastrun.txt")):
             pi_bridge.run("1.2.3.4", "s3cret", "logs " + name)
             check(seen[-1][-3] == "--get" and seen[-1][-2] == "bm/" + f, f"bridge: logs {name} -> --get bm/{f}")
+        pi_bridge.run("1.2.3.4", "s3cret", "logs bat00")
+        check(seen[-1][-3] == "--get" and seen[-1][-2] == "bm/bat00.csv", "bridge: logs bat00 -> --get bm/bat00.csv")
+        n = len(seen)
+        pi_bridge.run("1.2.3.4", "s3cret", "logs bat0")
+        pi_bridge.run("1.2.3.4", "s3cret", "logs bat00x")
+        check(len(seen) == n, "bridge: logs bat0 and bat00x are refused before any child starts")
         def put_log(cmd, **kw):         # bm_net --get wrote the log, the password in it
             seen.append(cmd)
             with open(cmd[-1], "w") as f:

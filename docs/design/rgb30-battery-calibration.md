@@ -51,6 +51,10 @@ The console reports numbers to the `reports` branch without a serial line. Use t
 - Battery log: `battery_log=1` in `bm/config.txt` writes `bm/bat00.csv` (first free name) once a minute: `sec,mV,mA,mAh,plug,charge`. Code in `src/rgb30/battery.c`. The log has no backlight column yet.
 - The current offset calibration of the PMIC is not done (read only). A small constant offset in mA at idle is expected.
 
+## First run (2026-10-26)
+
+Kernel built on the merged `bm-core` (bridge gate commit) went to the console through the bridge, with `battery_log=1`. The charger came out at 83%, 4.04 V. The log is on the SD (`bm/bat00.csv` or the next free name). The bridge cannot read SD files, so the file is read from the card.
+
 ## Work items (in order)
 
 1. Run on the console: check the sign and scale of mA (plug the charger: mA must turn positive).
