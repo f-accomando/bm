@@ -1,9 +1,22 @@
 /* The Mali-G52's descriptors for a draw (see mali_desc.h). Places from Mesa's v7.xml (MIT). */
 #include "mali_desc.h"
 
+typedef uint32_t __attribute__((may_alias)) md_u32;
+
 void md_bits(uint8_t *p, unsigned start, unsigned size, uint64_t v)
 {
-    /* a byte (or the part of it the field covers) at a time, not a bit: 16 us a draw before (G3 report of 26 Oct) */
+    /* a field in one or two 32-bit words when it fits and p is word aligned (a descriptor is); else a byte at a time.
+     * The bit loop took 16 us a draw (G3 report of 26 Oct), the byte loop 2.6 us (kernel 1801, b2_us). */
+    const unsigned sh = start & 31;
+    const uint64_t mask = size >= 64 ? ~0ull : (1ull << size) - 1ull;
+    if (((uintptr_t)p & 3) == 0 && sh + size <= 64) {
+        md_u32 *w = (md_u32 *)p + (start >> 5);
+        const uint64_t t = (v & mask) << sh;
+        w[0] |= (uint32_t)t;
+        if (sh + size > 32)
+            w[1] |= (uint32_t)(t >> 32);
+        return;
+    }
     while (size) {
         const unsigned off = start & 7, n = size < 8 - off ? size : 8 - off;
         p[start >> 3] |= (uint8_t)(((uint32_t)v & ((1u << n) - 1u)) << off);
