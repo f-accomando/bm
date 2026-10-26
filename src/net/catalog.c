@@ -3,6 +3,7 @@
  * the market's key built into the kernel), the records, the files.
  */
 #include "catalog.h"
+#include "sha_job.h"
 
 #include "mbedtls/pk.h"
 #include "mbedtls/sha256.h"
@@ -297,6 +298,8 @@ int catalog_check_file(const catalog_file_t *f, const uint8_t *data, size_t len)
     unsigned char hash[32];
     if (!f->size || len != f->size)
         return -1;
+    if (sha_offload(data, len, hash, catalog_hash_tick) == 0)       /* a worker core hashed it */
+        return memcmp(hash, f->sha256, sizeof hash) == 0 ? 0 : -1;
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
     int rc = mbedtls_sha256_starts(&ctx, 0);

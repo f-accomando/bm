@@ -1089,7 +1089,7 @@ $(BUILD)/host/test_catalog: tests/net/test_catalog.c src/net/catalog.c src/net/c
                             src/bm/png.c src/bm/png.h $(MBEDTLS_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
-		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_catalog.c src/net/catalog.c \
+		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_catalog.c src/net/catalog.c src/kernel/offload.c \
 		src/bm/png.c $(MBEDTLS_SRCS) -lm
 
 # Games between consoles on the home network (M24): src/net/lan.c on lwIP's

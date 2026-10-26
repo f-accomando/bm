@@ -2,7 +2,7 @@
  * Release manifests (M19): the signature (ECDSA P-256 over SHA-256, the
  * key built into the kernel), the lines of the manifest, the files.
  */
-#include "kernel/offload.h"
+#include "sha_job.h"
 #include "release.h"
 
 #include "mbedtls/pk.h"
@@ -227,40 +227,13 @@ void (*release_hash_tick)(void);
 
 #define HASH_PIECE (16u << 10)
 
-/* the whole-buffer hash as a pure job for a worker core (kernel/offload.h): 56 bytes of block */
-typedef struct {
-    const uint8_t *data;
-    size_t len;
-    unsigned char hash[32];
-    int rc;
-} sha_job_t;
-
-static void sha_job(void *blk)
-{
-    sha_job_t *j = blk;
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
-    int rc = mbedtls_sha256_starts(&ctx, 0);
-    if (rc == 0)
-        rc = mbedtls_sha256_update(&ctx, j->data, j->len);
-    if (rc == 0)
-        rc = mbedtls_sha256_finish(&ctx, j->hash);
-    mbedtls_sha256_free(&ctx);
-    j->rc = rc;
-}
-
-#define OFFLOAD_MIN (64u << 10)
-
 int release_check_file(const release_file_t *f, const uint8_t *data, size_t len)
 {
     unsigned char hash[32];
     if (len != f->size)
         return -1;
-    if (len >= OFFLOAD_MIN) {
-        sha_job_t j = { data, len, { 0 }, -1 };
-        if (offload_run(sha_job, &j, sizeof j, release_hash_tick) == 0)
-            return j.rc == 0 && memcmp(j.hash, f->sha256, sizeof j.hash) == 0 ? 0 : -1;
-    }
+    if (sha_offload(data, len, hash, release_hash_tick) == 0)       /* a worker core hashed it */
+        return memcmp(hash, f->sha256, sizeof hash) == 0 ? 0 : -1;
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
     int rc = mbedtls_sha256_starts(&ctx, 0);
