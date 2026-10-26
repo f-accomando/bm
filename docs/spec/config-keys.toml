@@ -678,3 +678,21 @@ default = "64 (smaller if memory is short)"
 meaning = "RAM that holds the chunks that wait for the card."
 settings = ""
 read_in = "src/bm/rec.c"
+
+[[key]]
+name = "r3d_bands"
+scope = "rgb30"
+values = "0 = off; anything else, or absent = on"
+default = "on with cores=4"
+meaning = "The ARM raster of a mesh by bands of rows, one band a core (docs/progress/multicore.md, V1). 0 draws on core 0 only."
+settings = ""
+read_in = "src/rgb30/main.c:smp_boot"
+
+[[key]]
+name = "dev"
+scope = "both"
+values = "1 = old bridge switch; read once"
+default = "absent"
+meaning = "Retired. A kernel of an older build wrote dev=1; the first boot turns it into bridge=fast in bm/bridge.txt and removes the key."
+settings = "Settings > Bridge"
+read_in = "src/kernel/config.c:config_load"

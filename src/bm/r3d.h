@@ -312,6 +312,9 @@ float r3d_cel_cut(const r3d_t *r, float dd);
 /* the ARM raster's 4x4 ordered dither: on (default) or off (a constant half step instead);
  * returns the old state. Reset by r3d_init. */
 int r3d_dither(int on);
+/* Raster by bands on worker cores (RGB30): workers() = cores free now, par = run blocks at once (kernel/offload.h offload_par); on = 0 turns it off.
+ * With NULL hooks, or no worker, the ARM draws as before. */
+void r3d_bands_set(int (*workers)(void), int (*par)(void (*fn)(void *), void *const *, unsigned), int on);
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags);
 

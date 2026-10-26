@@ -801,6 +801,154 @@ void g16_tri_gouraud(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2,
 
 /* ---------------------------------------------------------------- 3D */
 
+/* ---- a mesh on the cores (RGB30; docs/progress/multicore.md, V1) ----
+ * Two steps, each on every core at once (the kernel gives the hooks, r3d_bands_set; without them, or with no worker, the ARM draws as
+ * it always did):
+ *   1. the faces: the cores share the range of faces; each one lights, culls and projects its faces and writes the triangles it
+ *      would draw into a list of its own (rq_cmd_t); the counters, and the table of the Gouraud colours, are its own too. Only a mesh
+ *      with no texture, on the ARM (no backend), takes this step.
+ *   2. the pixels: each core takes a band of rows (a copy of the surface with the clip narrowed to the band, so raster() and
+ *      raster_gouraud() clip to it as they always do) and draws all the lists, the first core's list first. A pixel is drawn by one core,
+ *      in the order of the single core: the picture is the same.
+ * A mesh that does not take step 1 still takes step 2 (its triangles go in one list as the faces are done). */
+#ifdef BM_RGB30
+#define RQ_CAP 2048                     /* triangles of one list */
+#define RQ_BANDS 4
+#else
+#define RQ_CAP 4                        /* the Pi and the host have no worker: the tables are as small as they can be (about 1 MB less) */
+#define RQ_BANDS 1
+#endif
+#define RQ_MIN_FACES 24
+#define RQ_PAR_MIN_FACES 64             /* the faces on every core from here: a step has a cost of its own (a few us) */
+typedef struct {
+    uint8_t kind, screen;               /* RQ_FLAT, RQ_GOURAUD, RQ_TEX */
+    uint16_t color;
+    int fog;                            /* RQ_TEX */
+    uint32_t fog_rgb;
+    const uint8_t *lrgb;
+    const g16_sheet_t *tex;
+    union { struct { sv_t a, b, c; } f; struct { gv_t a, b, c; } g; struct { tv_t a, b, c; } t; } v;
+} rq_cmd_t;
+enum { RQ_FLAT, RQ_GOURAUD, RQ_TEX };
+typedef struct rqc {
+    rq_cmd_t *cmd;
+    int n;
+} rqc_t;
+static rq_cmd_t rq_cmds[RQ_BANDS][RQ_CAP];
+static rqc_t rq_list[RQ_BANDS];         /* the lists of the cores; list 0 is the one of a mesh that is not shared */
+static int rq_nlist;                    /* lists in use */
+static int (*rq_workers)(void);
+static int (*rq_par)(void (*fn)(void *), void *const *, unsigned);
+static int rq_enable = 1;
+
+void r3d_bands_set(int (*workers)(void), int (*par)(void (*fn)(void *), void *const *, unsigned), int on)
+{
+    rq_workers = workers;
+    rq_par = par;
+    rq_enable = on;
+}
+
+typedef struct {
+    const rqc_t *lists;
+    int nlists;
+    uint32_t pixels;
+    uint16_t *zbuf;
+    g16_t g;
+} __attribute__((aligned(64))) rq_band_t;
+static rq_band_t rq_band[RQ_BANDS];
+
+static void rq_band_run(void *p)
+{
+    rq_band_t *j = p;
+    uint32_t px = 0;
+    for (int l = 0; l < j->nlists; l++)
+        for (int i = 0; i < j->lists[l].n; i++) {
+            const rq_cmd_t *c = &j->lists[l].cmd[i];
+            if (c->kind == RQ_GOURAUD)
+                px += raster_gouraud(&j->g, j->zbuf, c->v.g.a, c->v.g.b, c->v.g.c, c->screen);
+            else if (c->kind == RQ_TEX)
+                px += raster_tex(&j->g, j->zbuf, c->v.t.a, c->v.t.b, c->v.t.c, c->tex, c->screen, c->lrgb, c->fog_rgb, c->fog);
+            else
+                px += raster(&j->g, j->zbuf, c->v.f.a, c->v.f.b, c->v.f.c, c->color, c->screen);
+        }
+    j->pixels = px;
+}
+
+/* step 2: the lists drawn by bands; then they are empty */
+static void rq_flush(r3d_t *r, uint16_t *zbuf)
+{
+    int any = 0;
+    for (int l = 0; l < rq_nlist; l++)
+        any |= rq_list[l].n;
+    if (any) {
+        int nb = (rq_workers ? rq_workers() : 0) + 1;
+        if (nb > RQ_BANDS)
+            nb = RQ_BANDS;
+        const int y0 = r->g->cy0, rows = r->g->cy1 - r->g->cy0;
+        void *blks[RQ_BANDS];
+        for (int i = 0; i < nb; i++) {
+            rq_band_t *j = &rq_band[i];
+            j->lists = rq_list;
+            j->nlists = rq_nlist;
+            j->pixels = 0;
+            j->zbuf = zbuf;
+            j->g = *r->g;
+            j->g.cy0 = y0 + rows * i / nb;
+            j->g.cy1 = y0 + rows * (i + 1) / nb;
+            blks[i] = j;
+        }
+        if (nb > 1 && rq_par)
+            rq_par(rq_band_run, blks, (unsigned)nb);
+        else
+            rq_band_run(blks[0]);       /* (nb is 1: the one band is the whole surface) */
+        for (int i = 0; i < nb; i++)
+            r->pixels += rq_band[i].pixels;
+    }
+    for (int l = 0; l < rq_nlist; l++)
+        rq_list[l].n = 0;
+}
+
+/* the lists are full: they are drawn and emptied (a list that fills up in step 1 cannot, so step 1 checks the room first) */
+static inline void rq_flat(rqc_t *q, sv_t a, sv_t b, sv_t c, uint16_t color, int screen)
+{
+    rq_cmd_t *e = &q->cmd[q->n++];
+    e->kind = RQ_FLAT;
+    e->screen = (uint8_t)screen;
+    e->color = color;
+    e->v.f.a = a;
+    e->v.f.b = b;
+    e->v.f.c = c;
+}
+
+static inline void rq_gouraud(rqc_t *q, gv_t a, gv_t b, gv_t c, int screen)
+{
+    rq_cmd_t *e = &q->cmd[q->n++];
+    e->kind = RQ_GOURAUD;
+    e->screen = (uint8_t)screen;
+    e->v.g.a = a;
+    e->v.g.b = b;
+    e->v.g.c = c;
+}
+
+static inline void rq_tex(rqc_t *q, tv_t a, tv_t b, tv_t c, const g16_sheet_t *tex, int screen, const uint8_t *lrgb, uint32_t fog_rgb, int fog)
+{
+    rq_cmd_t *e = &q->cmd[q->n++];
+    e->kind = RQ_TEX;
+    e->screen = (uint8_t)screen;
+    e->tex = tex;
+    e->lrgb = lrgb;
+    e->fog_rgb = fog_rgb;
+    e->fog = fog;
+    e->v.t.a = a;
+    e->v.t.b = b;
+    e->v.t.c = c;
+}
+
+/* the rasters of the faces: held in the list q when there is one (the answer is 0 then: the pixels are counted at the flush), else drawn at once */
+#define RQ_RASTER(q, r, zbuf, a, b, c, color, screen) do {         if (q)             rq_flat((q), (a), (b), (c), (color), (screen));         else             (r)->pixels += raster((r)->g, (zbuf), (a), (b), (c), (color), (screen));     } while (0)
+#define RQ_TEX(q, r, zbuf, a, b, c, tex, screen, lrgb, fog_rgb, fog) do {         if (q)             rq_tex((q), (a), (b), (c), (tex), (screen), (lrgb), (fog_rgb), (fog));         else             (r)->pixels += raster_tex((r)->g, (zbuf), (a), (b), (c), (tex), (screen), (lrgb), (fog_rgb), (fog));     } while (0)
+#define RQ_GOURAUD(q, r, zbuf, a, b, c, screen) do {         if (q)             rq_gouraud((q), (a), (b), (c), (screen));         else             (r)->pixels += raster_gouraud((r)->g, (zbuf), (a), (b), (c), (screen));     } while (0)
+
 int r3d_init(r3d_t *r, g16_t *g)
 {
     MG_SYNC();
@@ -1517,7 +1665,7 @@ static inline __attribute__((always_inline)) void lamps_add(const lamps_t *L, fl
  * in camera space and on the screen, nin of them in front of the near
  * plane): to the backend, or Gouraud on the ARM (one colour for a few
  * pixels). 0 if nothing of it is left after clipping. */
-static inline __attribute__((always_inline)) int face_colours(r3d_t *r, const view_t *v, uint16_t *zbuf,
+static inline __attribute__((always_inline)) int face_colours(r3d_t *r, rqc_t *q, const view_t *v, uint16_t *zbuf,
                                                               const cv_t *const c[3], const sv_t *const s[3],
                                                               int nin, const float (*col)[3], float zmul,
                                                               int screen, int inside)
@@ -1534,12 +1682,12 @@ static inline __attribute__((always_inline)) int face_colours(r3d_t *r, const vi
             uint32_t rr = (uint32_t)((col[0][0] + col[1][0] + col[2][0]) * (1.0f / 3)),
                      gg = (uint32_t)((col[0][1] + col[1][1] + col[2][1]) * (1.0f / 3)),
                      bb = (uint32_t)((col[0][2] + col[1][2] + col[2][2]) * (1.0f / 3));
-            r->pixels += raster(r->g, zbuf, *s[0], *s[1], *s[2], g16_rgb(rr, gg, bb), screen);
+            RQ_RASTER(q, r, zbuf, *s[0], *s[1], *s[2], g16_rgb(rr, gg, bb), screen);
         } else {
             gv_t g0 = { s[0]->x, s[0]->y, s[0]->z, col[0][0], col[0][1], col[0][2] };
             gv_t g1 = { s[1]->x, s[1]->y, s[1]->z, col[1][0], col[1][1], col[1][2] };
             gv_t g2 = { s[2]->x, s[2]->y, s[2]->z, col[2][0], col[2][1], col[2][2] };
-            r->pixels += raster_gouraud(r->g, zbuf, g0, g1, g2, screen);
+            RQ_GOURAUD(q, r, zbuf, g0, g1, g2, screen);
         }
         return 1;
     }
@@ -1566,9 +1714,9 @@ static inline __attribute__((always_inline)) int face_colours(r3d_t *r, const vi
     gv_t gv[4];
     for (int i = 0; i < np; i++)
         gv[i] = (gv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].r, cl[i].g, cl[i].b };
-    r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[1], gv[2], screen);
+    RQ_GOURAUD(q, r, zbuf, gv[0], gv[1], gv[2], screen);
     if (np == 4)
-        r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[2], gv[3], screen);
+        RQ_GOURAUD(q, r, zbuf, gv[0], gv[2], gv[3], screen);
     return 1;
 }
 
@@ -1944,6 +2092,11 @@ typedef struct {
     shine_t sh, sho;
     int bx0, by0, bx1, by1;             /* R3D_FRONT: screen box */
     int nv, nfront;
+    rqc_t *q;                           /* the list the triangles go to (NULL: drawn at once) */
+    int q_flush;                        /* 1: the list is the one of the faces done in turn: drawn and emptied when full */
+    float (*vc)[3];                     /* Gouraud: the colour table of the faces of this struct (df_vc, or the one of its core) */
+    uint32_t *vkey;
+    uint32_t c_in, c_drawn;             /* tris_in and tris_drawn of the faces of this struct (added to r at the end) */
 } dfc_t;
 
 /* one face, as the triangle loop found it */
@@ -2270,7 +2423,7 @@ static inline __attribute__((always_inline)) void df_face_baked(dfc_t *d, const 
         vertex_rgb(&tmp, rgb, &L, 0, r->fog_rgb, ff);
         col[k][0] = tmp.r; col[k][1] = tmp.g; col[k][2] = tmp.b;
     }
-    r->tris_drawn += (uint32_t)face_colours(r, &d->v, d->zbuf, cs, f->ss, f->nin, (const float (*)[3])col, d->zmul,
+    d->c_drawn += (uint32_t)face_colours(r, d->q, &d->v, d->zbuf, cs, f->ss, f->nin, (const float (*)[3])col, d->zmul,
                                             f->screen, d->inside);
 }
 
@@ -2286,8 +2439,8 @@ static inline __attribute__((always_inline)) void df_face_gouraud(dfc_t *d, cons
     float col[3][3];
     for (int k = 0; k < 3; k++) {
         const int i = fc[k];
-        if (df_vkey[i] != key) {
-            df_vkey[i] = key;
+        if (d->vkey[i] != key) {
+            d->vkey[i] = key;
             lit_t L;
             if (emissive)
                 L = df_full;
@@ -2302,11 +2455,11 @@ static inline __attribute__((always_inline)) void df_face_gouraud(dfc_t *d, cons
             }
             cv_t tmp;
             vertex_rgb(&tmp, rgb, &L, glossy, r->fog_rgb, ff);
-            df_vc[i][0] = tmp.r; df_vc[i][1] = tmp.g; df_vc[i][2] = tmp.b;
+            d->vc[i][0] = tmp.r; d->vc[i][1] = tmp.g; d->vc[i][2] = tmp.b;
         }
-        col[k][0] = df_vc[i][0]; col[k][1] = df_vc[i][1]; col[k][2] = df_vc[i][2];
+        col[k][0] = d->vc[i][0]; col[k][1] = d->vc[i][1]; col[k][2] = d->vc[i][2];
     }
-    r->tris_drawn += (uint32_t)face_colours(r, &d->v, d->zbuf, cs, f->ss, f->nin, (const float (*)[3])col, d->zmul,
+    d->c_drawn += (uint32_t)face_colours(r, d->q, &d->v, d->zbuf, cs, f->ss, f->nin, (const float (*)[3])col, d->zmul,
                                             f->screen, d->inside);
 }
 
@@ -2373,16 +2526,16 @@ static inline __attribute__((always_inline)) void df_face_tex(dfc_t *d, const df
         const uint32_t key = rgb & 0x7FFFFFFFu;
         for (int i = 0; i < 3; i++) {
             const int vi = fc[i];
-            if (df_vkey[vi] != key) {
-                df_vkey[vi] = key;
+            if (d->vkey[vi] != key) {
+                d->vkey[vi] = key;
                 lit_t Lv;
                 if (objlight)
                     light_obj(r, &d->lamps, &d->sho, df_vn[vi], df_cv[vi].x, df_cv[vi].y, df_cv[vi].z, 0, &Lv);
                 else
                     light_fast(r, &d->lamps, &d->sh, df_vn[vi], df_cv[vi].x, df_cv[vi].y, df_cv[vi].z, 0, &Lv);
-                df_vc[vi][0] = lit_grey(&Lv);
+                d->vc[vi][0] = lit_grey(&Lv);
             }
-            gk[i] = df_vc[vi][0];
+            gk[i] = d->vc[vi][0];
         }
     }
     const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
@@ -2464,10 +2617,10 @@ static inline __attribute__((always_inline)) void df_face_tex(dfc_t *d, const df
         float ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
         tf = ff <= 0 ? 0 : ff >= 1 ? 256 : (int)(ff * 256);
     }
-    r->pixels += raster_tex(r->g, zbuf, tv[0], tv[1], tv[2], m->tex, screen, lrgb, r->fog_rgb, tf);
+    RQ_TEX(d->q, r, zbuf, tv[0], tv[1], tv[2], m->tex, screen, lrgb, r->fog_rgb, tf);
     if (np == 4)
-        r->pixels += raster_tex(r->g, zbuf, tv[0], tv[2], tv[3], m->tex, screen, lrgb, r->fog_rgb, tf);
-    r->tris_drawn++;
+        RQ_TEX(d->q, r, zbuf, tv[0], tv[2], tv[3], m->tex, screen, lrgb, r->fog_rgb, tf);
+    d->c_drawn++;
 }
 
 /* a flat face in one colour */
@@ -2514,27 +2667,29 @@ static inline __attribute__((always_inline)) void df_face_plain(dfc_t *d, const 
         return;
     }
     const uint16_t col = shade(rgb, &k, r->fog_rgb, ff);
-    r->pixels += raster(r->g, zbuf, *ps[0], *ps[1], *ps[2], col, screen);
+    RQ_RASTER(d->q, r, zbuf, *ps[0], *ps[1], *ps[2], col, screen);
     if (np == 4)
-        r->pixels += raster(r->g, zbuf, *ps[0], *ps[2], *ps[3], col, screen);
-    r->tris_drawn++;
+        RQ_RASTER(d->q, r, zbuf, *ps[0], *ps[2], *ps[3], col, screen);
+    d->c_drawn++;
 }
 
-/* the triangle loop: culling per face, then the step of the face's kind */
-static void df_faces(dfc_t *d)
+/* the faces [t0, t1) of the mesh: culling per face, then the step of the face's kind (d->q: the list the triangles go to) */
+static void df_faces_range(dfc_t *d, int t0, int t1)
 {
     r3d_t *r = d->r;
     const r3d_mesh_t *m = d->m;
     const uint32_t *fcol = d->fcol;
     const unsigned detail = d->detail;
     const int all_front = d->all_front, smooth = d->smooth, unlit = d->unlit;
-    for (int t = 0; t < m->nfaces; t++) {
+    for (int t = t0; t < t1; t++) {
         const uint32_t rgb = fcol ? fcol[t] : m->colors[t];
         if (!R3D_LOD_SHOWS(rgb, detail))
             continue;
+        if (d->q_flush && d->q->n > RQ_CAP - 2)
+            rq_flush(r, d->zbuf);               /* a list that is full: drawn, then empty */
         const uint16_t *fc = m->faces + t * 3;
         const cv_t *c0 = &df_cv[fc[0]], *c1 = &df_cv[fc[1]], *c2 = &df_cv[fc[2]];
-        r->tris_in++;
+        d->c_in++;
         const int nin = all_front ? 3 : (c0->z >= NEAR) + (c1->z >= NEAR) + (c2->z >= NEAR);
         if (nin == 0)
             continue;
@@ -2568,6 +2723,92 @@ static void df_faces(dfc_t *d)
     }
 }
 
+typedef struct {
+    dfc_t d;
+    int t0, t1;
+} __attribute__((aligned(64))) df_job_t;
+static df_job_t df_job[RQ_BANDS];
+#ifdef BM_RGB30
+#define RQ_VERTS 4096                   /* a mesh of more vertices does not take step 1 with Gouraud colours (a table a core) */
+#else
+#define RQ_VERTS 1
+#endif
+static float df_jvc[RQ_BANDS][RQ_VERTS][3];
+static uint32_t df_jvkey[RQ_BANDS][RQ_VERTS];
+
+static void df_faces_job(void *p)
+{
+    df_job_t *j = p;
+    for (int i = 0; i < j->d.m->nverts; i++)
+        j->d.vkey[i] = 0xFFFFFFFFu;             /* no colour yet, as df_transform does for the one table */
+    df_faces_range(&j->d, j->t0, j->t1);
+}
+
+/* 1 if every face of the mesh can be done on any core: on the ARM, and the Gouraud colours of its vertices fit the table of a core
+ * (RQ_VERTS; the tables df_vc and df_vkey are one a core). */
+static int df_shareable(const dfc_t *d)
+{
+    return !d->r->backend && !(d->smooth && d->m->nverts > RQ_VERTS);
+}
+
+/* the triangle loop; on the cores when there are some (see "a mesh on the cores") */
+static void df_faces(dfc_t *d)
+{
+    r3d_t *r = d->r;
+    const int nf = d->m->nfaces;
+    int nb = 1;
+    if (rq_workers && rq_enable && !r->backend && nf >= RQ_MIN_FACES && r->g->cy1 - r->g->cy0 >= 32) {
+        nb = rq_workers() + 1;
+        if (nb > RQ_BANDS)
+            nb = RQ_BANDS;
+    }
+    d->c_in = d->c_drawn = 0;
+    if (nb == 1) {                              /* one core, the triangles drawn as they come */
+        d->q = NULL;
+        d->q_flush = 0;
+        df_faces_range(d, 0, nf);
+        r->tris_in += d->c_in;
+        r->tris_drawn += d->c_drawn;
+        return;
+    }
+    if (nf >= RQ_PAR_MIN_FACES && 2 * ((nf + nb - 1) / nb) <= RQ_CAP && df_shareable(d)) {
+        void *blks[RQ_BANDS];                   /* step 1 on every core, then step 2 */
+        for (int i = 0; i < nb; i++) {
+            df_job_t *j = &df_job[i];
+            j->d = *d;
+            rq_list[i].cmd = rq_cmds[i];
+            rq_list[i].n = 0;
+            j->d.q = &rq_list[i];
+            j->d.q_flush = 0;
+            j->d.vc = df_jvc[i];
+            j->d.vkey = df_jvkey[i];
+            j->d.c_in = j->d.c_drawn = 0;
+            j->t0 = nf * i / nb;
+            j->t1 = nf * (i + 1) / nb;
+            blks[i] = j;
+        }
+        rq_nlist = nb;
+        rq_par(df_faces_job, blks, (unsigned)nb);
+        for (int i = 0; i < nb; i++) {
+            r->tris_in += df_job[i].d.c_in;
+            r->tris_drawn += df_job[i].d.c_drawn;
+        }
+        rq_flush(r, d->zbuf);
+        return;
+    }
+    rq_list[0].cmd = rq_cmds[0];                /* the triangles of this core in a list; the pixels by bands */
+    rq_list[0].n = 0;
+    rq_nlist = 1;
+    d->q = &rq_list[0];
+    d->q_flush = 1;
+    df_faces_range(d, 0, nf);
+    rq_flush(r, d->zbuf);
+    r->tris_in += d->c_in;
+    r->tris_drawn += d->c_drawn;
+    d->q = NULL;
+    d->q_flush = 0;
+}
+
 static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                        float scale, unsigned flags)
 {
@@ -2596,6 +2837,8 @@ static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry
         return;
     }
     d.zbuf = (flags & R3D_NOZ) ? NULL : r->zbuf;
+    d.vc = df_vc;
+    d.vkey = df_vkey;
     d.unlit = (flags & R3D_UNLIT) != 0;
     d.smooth = (flags & R3D_SMOOTH) && m->vnormals;
     d.front = (flags & R3D_FRONT) != 0;

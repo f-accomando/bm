@@ -49,6 +49,8 @@
 #include "kernel/reports.h"
 #include "kernel/sdlog.h"
 #include "bm/runtime.h"
+#include "bm/r3d.h"
+#include "kernel/offload.h"
 #include "audio/audio.h"
 #include "rk_display.h"
 #include "mali_hw.h"
@@ -95,6 +97,64 @@ static void smp_selftest_offload(void)
             smp_offload_count() - before, "\n");
     free(buf);
 }
+#ifdef PLAT_VIRT
+/* V1: the same scene drawn by one core and by bands on the workers must give the same pixels */
+static void smp_selftest_raster(void)
+{
+    enum { W = 160, H = 120 };
+    uint16_t *px[2] = { malloc(W * H * 2), malloc(W * H * 2) };
+    uint32_t drawn[2] = { 0, 0 };
+    if (!px[0] || !px[1]) {
+        free(px[0]);
+        free(px[1]);
+        return;
+    }
+    r3d_mesh_t m, mt;
+    g16_sheet_t sheet;
+    if (r3d_mesh_sphere(&m, 10, 14, 0xFF8040, 0x40A0FF) != 0 || r3d_mesh_sphere(&mt, 10, 14, 0, 0) != 0 ||
+        r3d_mesh_alloc_uv(&mt) != 0 || g16_sheet_alloc(&sheet, 32, 32) != 0) {
+        free(px[0]);
+        free(px[1]);
+        return;
+    }
+    for (int y = 0; y < 32; y++)
+        for (int x = 0; x < 32; x++)
+            g16_sheet_set(&sheet, x, y, (uint16_t)(x * 2000 + y * 31 + ((x ^ y) & 4) * 900), 1);
+    for (int f = 0; f < mt.nfaces; f++) {
+        mt.colors[f] = R3D_TEXTURED;
+        for (int i = 0; i < 3; i++) {
+            mt.uv[f * 6 + i * 2] = (float)((mt.faces[f * 3 + i] * 5) % 32);
+            mt.uv[f * 6 + i * 2 + 1] = (float)((mt.faces[f * 3 + i] * 3) % 32);
+        }
+    }
+    mt.tex = &sheet;
+    for (int pass = 0; pass < 2; pass++) {
+        g16_t g = { .px = px[pass], .stride = W, .w = W, .h = H, .cx0 = 0, .cy0 = 0, .cx1 = W, .cy1 = H };
+        memset(px[pass], 0, W * H * 2);
+        r3d_bands_set(offload_workers, offload_par, pass);       /* pass 0: one core; pass 1: bands */
+        r3d_t r;
+        if (r3d_init(&r, &g) != 0)
+            continue;
+        r3d_camera(&r, 0, 0, -7, 0, 0, 60);
+        for (int i = 0; i < 5; i++) {
+            const v3_t p = { -2.4f + 1.2f * (float)i, 0.8f * (float)((i * 5) % 3 - 1), (float)(i % 2) };
+            r3d_draw_flags(&r, i == 2 ? &mt : &m, p, 0.3f * (float)i, 0.5f, 0, 1.2f, i & 1 ? R3D_SMOOTH : 0);
+        }
+        r3d_flush(&r);
+        drawn[pass] = r.pixels;
+        r3d_free(&r);
+    }
+    r3d_bands_set(offload_workers, offload_par, 1);
+    kprintf("smp: raster bands %s (%lu pixels by one core, %lu by bands)\n",
+            memcmp(px[0], px[1], W * H * 2) == 0 && drawn[0] == drawn[1] && drawn[0] > 0 ? "ok" : "FAILED",
+            (unsigned long)drawn[0], (unsigned long)drawn[1]);
+    r3d_mesh_free(&m);
+    r3d_mesh_free(&mt);
+    g16_sheet_free(&sheet);
+    free(px[0]);
+    free(px[1]);
+}
+#endif
 #endif
 
 static void smp_boot(void)
@@ -108,8 +168,11 @@ static void smp_boot(void)
     if (!on)
         return;
     if (smp_start() > 0 && smp_selftest() == 0) {
+        const char *rb = config_get("r3d_bands");
+        r3d_bands_set(offload_workers, offload_par, !(rb && rb[0] == '0'));    /* V1: the ARM raster by bands */
 #ifdef PLAT_VIRT
         smp_selftest_offload();
+        smp_selftest_raster();
         smp_selftest_faults();              /* QEMU only: it loses two cores on purpose */
 #endif
     }

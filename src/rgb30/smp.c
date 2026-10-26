@@ -178,6 +178,52 @@ int smp_offload_count(void) { return (int)offload_count; }
 
 static uint8_t offload_blk[SMP_MAX][OFFLOAD_BLK] __attribute__((aligned(64)));
 
+int offload_workers(void)
+{
+    int n = 0;
+    for (int c = 1; c < SMP_MAX; c++)
+        if (core_state[c] == 1 && !slot[c].fn)
+            n++;
+    return n;
+}
+
+int offload_par(void (*fn)(void *blk), void *const *blks, unsigned n)
+{
+    int core[SMP_MAX] = { 0 };          /* the worker of block i, 0 for the caller */
+    int c = 1, ran = 0;
+    for (unsigned i = 1; i < n && i < SMP_MAX; i++) {
+        while (c < SMP_MAX && (core_state[c] != 1 || slot[c].fn))
+            c++;
+        if (c >= SMP_MAX)
+            break;
+        if (smp_post(c, fn, blks[i]) == 0)
+            core[i] = c;
+        c++;
+    }
+    for (unsigned i = 0; i < n; i++)    /* block 0, and the blocks no worker took */
+        if (i >= SMP_MAX || !core[i])
+            fn(blks[i]);
+    for (unsigned i = 1; i < n && i < SMP_MAX; i++) {
+        if (!core[i])
+            continue;
+        int r;
+        const uint32_t t0 = timer_ticks();      /* a tight poll: smp_wait sleeps 10 us a step, a band lasts about 20 us */
+        while (!(r = smp_poll(core[i])) && timer_ticks() - t0 < 200000)
+            __asm__ volatile("yield");
+        if (r == 1) {
+            ran++;
+            continue;
+        }
+        if (smp_poll(core[i]) == 0 && core_state[core[i]] == 1) {
+            core_state[core[i]] = SMP_HUNG;
+            kprintf("smp: core %d HUNG (offload_par)\n", core[i]);
+        }
+        fn(blks[i]);                    /* the worker faulted or hung: the same block, again, here */
+    }
+    offload_count += ran;
+    return ran;
+}
+
 int offload_run(void (*fn)(void *blk), void *blk, unsigned size, void (*idle)(void))
 {
     if (size > OFFLOAD_BLK)

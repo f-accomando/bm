@@ -68,6 +68,7 @@ Game backlog (user, 25 Oct 2026): Overbit on the RGB30 (item 1 below) is not a k
 - **Completion criterion**: On the RGB30 Overbit runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
 ## Open work
+ARM raster on four cores (V1, 26 Oct, kernel 1812; details in `multicore.md`): 3D Bench RGB30 games 451, GPU 433, ARM 601. On heroes, baked, shine and split the ARM path now beats the Mali path again; the Mali draw build (about 4 us a draw) stays the cost to cut.
 Hardware verified on RGB30 (`bm3d 7.8`..`7.15`, 25 Oct 2026): H1 triangle (`80d62d1e`), H6 flat-colour 3D Bench (`94aae9dd`), Phase 2 multi-draw batching (`fcfd2933`), Phase 3 `BM_VS3` probe (`b041b71a`), Phase 4 async 2-set queue probe (`9e4652bd`), `BM_VS3` mesh path + async queue (`7509aa08`), cached 2 MB resolve (`dc civac`) + 8192-triangle merge-sorted batching (`e259a8c8`), and default `mali3d=1` + 4 MB single-pass GPU arena (`1024` draws, L1-cached descriptor packing, report `b3cab428`, `docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`).
 
 Hardware Results (3D Bench 25 Oct 2026, 640x360, `bm3d 7.15`, report `b3cab428`, games score **247** vs **192**, GPU score **228** vs **14** in `7.10`):
