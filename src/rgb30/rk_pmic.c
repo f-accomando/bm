@@ -163,6 +163,39 @@ int rk817_battery_mv(void)
     return raw < 0 ? -1 : k * raw / 1000 + b;
 }
 
+/*
+ * The fuel gauge's current and charge counter (read only; registers and
+ * scale from the public Linux driver, rk817_charger.c). The current ADC is
+ * switched on with the others in rk817_battery_mv (0x50). One count of the
+ * current is 172 uA and one count of the charge is 172 uA / 3600 per second,
+ * both divided by RK817_SENSE_DIV (2 for a 20 mOhm sense resistor, 1 for
+ * 10 mOhm). The RGB30 value is not checked yet: compare the counter after a
+ * full run-down with the 4100 mAh of the cell (docs/design/rgb30-battery-calibration.md).
+ */
+#define RK817_SENSE_DIV 1
+
+/* the battery current in mA: negative = the battery gives, positive = it takes; INT_MIN on an error */
+int rk817_battery_ma(void)
+{
+    int raw = be16(0x7a);
+    if (raw < 0)
+        return INT32_MIN;
+    return (int)((int16_t)raw) * 172 / RK817_SENSE_DIV / 1000;
+}
+
+/* the charge counter in uAh since the gauge started counting; -1 on an error */
+int64_t rk817_charge_uah(void)
+{
+    int b[4];
+    for (int i = 0; i < 4; i++) {
+        b[i] = rk817_read((uint8_t)(0x74 + i));
+        if (b[i] < 0)
+            return -1;
+    }
+    const uint32_t q = (uint32_t)b[0] << 24 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 8 | (uint32_t)b[3];
+    return (int64_t)(q / 3600) * 172 / RK817_SENSE_DIV;
+}
+
 int rk817_charge_state(void)
 {
     int v = rk817_read(0xeb);

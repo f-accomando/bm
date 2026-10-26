@@ -21,6 +21,15 @@ settings = ""
 read_in = "src/bm/runtime.c:4897"
 
 [[key]]
+name = "battery_log"
+scope = "rgb30"
+values = "1 = on; anything else = off"
+default = "off"
+meaning = "One line a minute (seconds, mV, mA, mAh, plug, charge) in bm/bat00.csv (first free name to bat99), for the battery calibration."
+settings = ""
+read_in = "src/rgb30/battery.c"
+
+[[key]]
 name = "battery_icon"
 scope = "rgb30"
 values = "0 = off; anything else = on"

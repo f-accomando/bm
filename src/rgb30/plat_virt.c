@@ -222,6 +222,14 @@ int plat_battery(int *mv, int *charge)
     return 0;
 }
 
+/* no gauge in QEMU */
+int plat_battery_gauge(int *ma, int64_t *uah)
+{
+    *ma = 0;
+    *uah = 0;
+    return -1;
+}
+
 /* the cable: in when test_battery gives a charger state (1 charging, 2 full) */
 int plat_power_in(void)
 {

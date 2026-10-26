@@ -456,7 +456,7 @@ CMD(c_update) { update_monitor(); return 0; }
 /* the keys of bm/config.txt that Tab completes after "set" (docs/spec/config-keys.toml; a key
  * that is not here is set all the same) */
 static const char *const set_keys[] = {
-    "assist_lang=", "battery_icon=", "bm_scale=", "bm_smooth=", "confirm=", "controls=", "dev=",
+    "assist_lang=", "battery_icon=", "battery_log=","bm_scale=", "bm_smooth=", "confirm=", "controls=", "dev=",
     "dma_zclear=", "draw=", "game_buttons=", "game_intro=", "gpu3d=", "gpu3d_2d=", "gpu3d_aa=",
     "gpu3d_attr=", "gpu3d_etc1=", "gpu3d_filter=", "gpu3d_fs2=", "gpu3d_later=", "gpu3d_merge=",
     "gpu3d_qpu=", "gpu3d_queue=", "gpu3d_sort=", "gpu3d_tex16=", "gpu3d_vs=", "gpu3d_wc=", "layout=",

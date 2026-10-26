@@ -48,6 +48,13 @@ int plat_battery(int *mv, int *charge)
     return *mv < 0 ? -1 : 0;
 }
 
+int plat_battery_gauge(int *ma, int64_t *uah)
+{
+    *ma = rk817_battery_ma();
+    *uah = rk817_charge_uah();
+    return *ma == INT32_MIN || *uah < 0 ? -1 : 0;
+}
+
 int plat_power_in(void)
 {
     return rk817_plugged();                 /* SYS_STS bit 6: PLUG_IN_STS */

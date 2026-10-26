@@ -79,6 +79,10 @@ void plat_sticks(int16_t axes[4]);
 /* battery voltage in mV (-1: unknown) and charger state (-1 unknown,
  * 0 not charging, 1 charging, 2 full) */
 int plat_battery(int *mv, int *charge);
+/* the fuel gauge: current in mA (negative = discharge) and the charge
+ * counter in uAh; 0, or -1 when the console cannot read them (read only,
+ * for the battery log, src/rgb30/battery.c) */
+int plat_battery_gauge(int *ma, int64_t *uah);
 /* the charger's cable: 1 in, 0 out, -1 unknown (one byte from the PMIC:
  * cheap enough to ask a few times a second, src/rgb30/battery.c) */
 int plat_power_in(void);
