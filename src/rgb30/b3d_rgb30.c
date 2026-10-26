@@ -148,7 +148,7 @@ static int load_last(char **text, char *name, size_t n)
     return 0;
 }
 
-void rgb30_bench3d_part(framebuffer_t *fb, const char *only_tests)
+void rgb30_bench3d_part(framebuffer_t *fb, const char *only_tests, int no_wait)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     static char machine[128];
@@ -184,6 +184,7 @@ void rgb30_bench3d_part(framebuffer_t *fb, const char *only_tests)
         .date = net_time() ? net_time_text() : "",
         .stop = syskeys_test_stop,          /* Start+Select (syskeys.h) */
         .only_tests = only_tests,
+        .no_wait = no_wait,                 /* the summary 3 s, no key: a run started from the bridge (bench3d_boot) */
     };
     syskeys_test_begin();
     free(sent);
@@ -208,5 +209,5 @@ void rgb30_bench3d_part(framebuffer_t *fb, const char *only_tests)
 
 void rgb30_bench3d(framebuffer_t *fb)
 {
-    rgb30_bench3d_part(fb, NULL);
+    rgb30_bench3d_part(fb, NULL, 0);
 }

@@ -124,7 +124,7 @@ name = "bench3d_boot"
 scope = "rgb30"
 values = "test ids with '.' or '-' between (spheres.draws), or all"
 default = "absent: no bench at boot"
-meaning = "One 3D Bench run of those tests at the next boot, then the key is removed (set through the bridge: the RGB30 has no monitor line)."
+meaning = "One 3D Bench run of those tests at the next boot, then the key is removed (set through the bridge: the RGB30 has no monitor line). With dev=1 the bench closes by itself after its summary (3 s) and the report is sent at once."
 settings = ""
 read_in = "src/rgb30/main.c:kernel_main"
 

@@ -336,7 +336,8 @@ void kernel_main(uintptr_t dtb)
         kprintf("bench3d_boot: %s\n", tests);
         fb_show(&fb, 0);
         console_suspend(0);
-        rgb30_bench3d_part(&fb, strcmp(tests, "all") ? tests : NULL);
+        /* dev mode (dev=1): the bench closes by itself at its end (summary 3 s) and the report goes at once */
+        rgb30_bench3d_part(&fb, strcmp(tests, "all") ? tests : NULL, dev_mode());
         console_suspend(1);
         /* the report goes now, not at the menu's next idle: wait for the network (up to 90 s), then send what waits */
         for (int t = 0; t < 900 && reports_pending() > 0; t++) {
