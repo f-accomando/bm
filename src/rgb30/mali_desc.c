@@ -3,16 +3,13 @@
 
 void md_bits(uint8_t *p, unsigned start, unsigned size, uint64_t v)
 {
-    if (!(start & 7) && !(size & 7)) {          /* the usual case (addresses, 32-bit words): a byte at a time, not a bit */
-        p += start >> 3;
-        for (unsigned i = 0; i < size; i += 8)
-            *p++ |= (uint8_t)(v >> i);
-        return;
-    }
-    for (unsigned i = 0; i < size; i++) {
-        const unsigned b = start + i;
-        if (v >> i & 1)
-            p[b >> 3] |= (uint8_t)(1u << (b & 7));
+    /* a byte (or the part of it the field covers) at a time, not a bit: 16 us a draw before (G3 report of 26 Oct) */
+    while (size) {
+        const unsigned off = start & 7, n = size < 8 - off ? size : 8 - off;
+        p[start >> 3] |= (uint8_t)(((uint32_t)v & ((1u << n) - 1u)) << off);
+        v >>= n;
+        start += n;
+        size -= n;
     }
 }
 
