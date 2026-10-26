@@ -1,0 +1,8 @@
+# Line endings: LF in the index and in every working tree, on every OS.
+* text=auto eol=lf
+# Windows scripts need CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+# bmhost writes its trace with CRLF: keep the goldens byte-exact for `cmp`.
+tests/gamekit/*.golden -text
