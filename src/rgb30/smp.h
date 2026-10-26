@@ -46,6 +46,7 @@ int smp_poll(int core);
 int smp_wait(int core, uint32_t us);
 
 /* the check at boot: every core adds to one counter, with atomics and under a lock; returns 0 when exact */
+int smp_offload_count(void);            /* jobs that kernel/offload.h ran on a worker */
 int smp_selftest(void);
 int smp_selftest_faults(void);          /* QEMU: a faulting job and a looping job, then the cores are lost, as designed */
 void smp_worker_fault(uint64_t type, uint64_t esr, uint64_t elr, uint64_t far_);

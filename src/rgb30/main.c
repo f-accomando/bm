@@ -39,6 +39,8 @@
 #include "ui.h"
 #include "battery.h"
 #include "smp.h"
+#include "net/release.h"
+#include "mbedtls/sha256.h"
 #include "pad.h"
 #include "kernel/ledstate.h"
 #include "kernel/splash.h"
@@ -72,6 +74,28 @@ static void heartbeat(uint32_t tick)
 extern char _start[];
 
 /* the other cores: on in QEMU; on the console only with cores=4 in bm/config.txt (not yet proven there, docs/progress/multicore.md M1) */
+#ifdef PLAT_VIRT
+/* M5: release_check_file hashes a big buffer on a worker; a changed byte is still refused */
+static void smp_selftest_offload(void)
+{
+    enum { N = 256 << 10 };
+    uint8_t *buf = malloc(N);
+    if (!buf)
+        return;
+    for (int i = 0; i < N; i++)
+        buf[i] = (uint8_t)(i * 31 + (i >> 8));
+    release_file_t f = { .size = N };
+    mbedtls_sha256(buf, N, f.sha256, 0);
+    int before = smp_offload_count();
+    int good = release_check_file(&f, buf, N);
+    buf[N / 2] ^= 1;
+    int bad = release_check_file(&f, buf, N);
+    kprintf("smp: offload sha256 %s (%d jobs on workers)%s", good == 0 && bad == -1 ? "ok" : "FAILED",
+            smp_offload_count() - before, "\n");
+    free(buf);
+}
+#endif
+
 static void smp_boot(void)
 {
 #ifdef PLAT_VIRT
@@ -84,6 +108,7 @@ static void smp_boot(void)
         return;
     if (smp_start() > 0 && smp_selftest() == 0) {
 #ifdef PLAT_VIRT
+        smp_selftest_offload();
         smp_selftest_faults();              /* QEMU only: it loses two cores on purpose */
 #endif
     }

@@ -3,6 +3,8 @@
 #include "plat.h"
 #include "drivers/timer.h"
 #include "lib/printf.h"
+#include "kernel/offload.h"
+#include <string.h>
 
 extern void smp_entry(void);
 
@@ -168,4 +170,40 @@ int smp_selftest_faults(void)
     kprintf("smp: fault test %s (core 2 %d, core 3 %d)\n",
             a == -1 && b == 0 && smp_core_state(2) == SMP_FAULTED && smp_core_state(3) == SMP_HUNG ? "ok" : "FAILED", a, b);
     return 0;
+}
+
+/* kernel/offload.h: the block of each worker is a static copy, so a stopped caller leaves no pointer to its stack */
+static volatile uint32_t offload_count;
+int smp_offload_count(void) { return (int)offload_count; }
+
+static uint8_t offload_blk[SMP_MAX][OFFLOAD_BLK] __attribute__((aligned(64)));
+
+int offload_run(void (*fn)(void *blk), void *blk, unsigned size, void (*idle)(void))
+{
+    if (size > OFFLOAD_BLK)
+        return -1;
+    for (int c = 1; c < SMP_MAX; c++) {
+        if (core_state[c] != 1 || slot[c].fn)
+            continue;
+        memcpy(offload_blk[c], blk, size);
+        if (smp_post(c, fn, offload_blk[c]) != 0)
+            continue;
+        int r = 0;
+        for (uint32_t t = 0; t < 2000000 && !(r = smp_poll(c)); t += 100) {
+            if (idle)
+                idle();
+            timer_delay_us(100);
+        }
+        if (r != 1) {                       /* faulted, or over 2 s: the core is lost, the caller runs fn itself */
+            if (r == 0 && core_state[c] == 1) {
+                core_state[c] = SMP_HUNG;
+                kprintf("smp: core %d HUNG (offload)\n", c);
+            }
+            return -1;
+        }
+        memcpy(blk, offload_blk[c], size);
+        offload_count++;
+        return 0;
+    }
+    return -1;
 }

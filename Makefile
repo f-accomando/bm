@@ -1074,10 +1074,10 @@ $(BUILD)/host/test_https: tests/net/test_https.c tests/net/stream_posix.c src/ne
 test-release: $(BUILD)/host/test_release
 	$(PYTHON) tests/net/run_release_test.py $(BUILD)/host/test_release
 
-$(BUILD)/host/test_release: tests/net/test_release.c src/net/release.c src/net/release.h $(MBEDTLS_SRCS)
+$(BUILD)/host/test_release: tests/net/test_release.c src/net/release.c src/net/release.h src/kernel/offload.c $(MBEDTLS_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
-		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_release.c src/net/release.c $(MBEDTLS_SRCS)
+		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_release.c src/net/release.c src/kernel/offload.c $(MBEDTLS_SRCS)
 
 # The Market's catalog (M25): scripts/mkmarket.py checks and signs a folder
 # of games with a test key, src/net/catalog.c checks signature, records and
