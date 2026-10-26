@@ -770,6 +770,7 @@ static uint32_t rd32(const uint8_t *p)
 /* where the ARM's time goes in the backend (G3 of docs/progress/multicore.md): counter ticks, in us at the stats read.
  * flush includes the job and its wait; resolve is inside flush (a frame's own resolve) */
 static uint64_t t_mesh, t_flush, t_resolve, t_sort, t_build, t_jobs, t_b1, t_b2, t_b3;
+#define BE_HW_MAX_DRAWS_SH 1024                 /* the fast path's draws (BE_HW_MAX_DRAWS) */
 #if defined(__aarch64__)
 static inline uint64_t cnt_now(void) { uint64_t v; __asm__ volatile("isb\n mrs %0, cntvct_el0" : "=r"(v)); return v; }
 static inline uint64_t cnt_freq(void) { uint64_t f; __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f)); return f; }
@@ -787,6 +788,28 @@ static inline void copy_nc16(void *dst, const void *src, size_t n)
     const u128 *s = src;
     for (size_t i = 0; i < n / 16; i++)
         d[i] = s[i];
+}
+
+/* What each draw slot of the fast path's arena holds (the arena is Normal non-cacheable: a store costs far more than a compare in
+ * the cache; 6.8 us of 15 per draw in the G3 report of 26 Oct). Only frame_build_ex writes those slots. A line goes to the
+ * arena when it differs from what the slot held, or when the slot was never written. */
+static uint8_t slot_shadow[BE_HW_MAX_DRAWS_SH][0x540] __attribute__((aligned(64)));
+static uint8_t slot_ok[BE_HW_MAX_DRAWS_SH];
+
+static void copy_slot(uint8_t *dst, const uint8_t *loc, uint32_t d)
+{
+    if (d >= BE_HW_MAX_DRAWS_SH) {
+        copy_nc16(dst, loc, 0x540);
+        return;
+    }
+    uint8_t *sh = slot_shadow[d];
+    for (unsigned line = 0; line < 0x540 / 64; line++) {
+        if (slot_ok[d] && memcmp(sh + 64 * line, loc + 64 * line, 64) == 0)
+            continue;
+        copy_nc16(dst + 64 * line, loc + 64 * line, 64);
+        memcpy(sh + 64 * line, loc + 64 * line, 64);
+    }
+    slot_ok[d] = 1;
 }
 
 static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndraws, uint32_t w, uint32_t h,
@@ -898,7 +921,10 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         md_tiler_job(loc + D_TJOB, &prim, pa + sb + SO_TCTX, &td);
         const uint64_t tb2 = cnt_now();
         t_b2 += tb2 - tb1;
-        copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
+        if (fast_pack)
+            copy_slot(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, d);
+        else
+            copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
         t_b3 += cnt_now() - tb2;
         first += (nv + 3) & ~3u;                        /* 64-byte alignment: 4 vertices per step for D_ABUFS/td.position */
     }

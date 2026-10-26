@@ -338,6 +338,16 @@ void kernel_main(uintptr_t dtb)
         console_suspend(0);
         rgb30_bench3d_part(&fb, strcmp(tests, "all") ? tests : NULL);
         console_suspend(1);
+        /* the report goes now, not at the menu's next idle: wait for the network (up to 90 s), then send what waits */
+        for (int t = 0; t < 900 && reports_pending() > 0; t++) {
+            net_poll();
+            if (reports_auto_due()) {
+                reports_send_pending();
+                kprintf("report %s\n", reports_last());
+                break;
+            }
+            timer_delay_ms(100);
+        }
     }
     if (bt_paired() && bt_start() != 0)     /* a paired pad, keyboard or mouse comes back by itself, as on the Pi */
         kprintf("bt: not started: a paired pad will not reconnect (Settings > Controllers starts it)\n");
