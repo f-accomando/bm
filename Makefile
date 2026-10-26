@@ -1134,11 +1134,11 @@ $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/gith
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # the games that go to the Market as .b16 (the optimized release, if there is a rule);
-# Overbit has a .bm too (the Pi's), Yharnam and Titan Clash EX only their .b16
+# Overbit and Yharnam have a .bm too (Yharnam's runs on the Pi and the RGB30), Titan Clash EX only its .b16
 # (MARKET_NO_BM: no .bm in the Market); the last one is not in GAMES (no .bm for the
 # Pi's card): MARKET_ONLY. The tools are in the kernels, not here.
 MARKET_B16 := overbit yharnam titanex editor
-MARKET_NO_BM := yharnam titanex
+MARKET_NO_BM := titanex
 MARKET_ONLY := titanex
 # The Market has its own list of games: GAMES minus MARKET_APPS_OF_GAMES.
 # typing, write and bench3d are apps: they go to the apps/ folder of the Market.

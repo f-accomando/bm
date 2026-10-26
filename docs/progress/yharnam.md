@@ -57,3 +57,10 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 - Map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground,lamps/barricades/gates/bosses on `objects`,
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
   stays in its 16×16-tile block.
+
+## 5. Controls and editions
+- One `.bm` runs on the Pi Zero W and on the RGB30 (`targets: pi,rgb30`, `input: pad,keyboard`, `aspect: square` in `bm.info`). The Market `.bm` is made by `make market-seed`.
+- The keyboard is a controller for `btn()`. Move: arrows or W A S D. A (Space, Z, J): saw cleaver, light a lamp. B (X, K): run, backstep. X (C, L): pistol. Y (V, I): open or close the saw cleaver. Start (Enter): pause. Menus use "ok" (Space) and "back" (X).
+- The hints on the screen come from `prompt()`: they show the key of the controller in use.
+- Not verified: the frame rate on the Pi Zero W (see 2.A), and the keyboard on the device.
+- The `.b16` of Yharnam stays as it is (`B16_AS_BM`: the same bytes as the `.bm`, flag bit 1). The user checks the `.b16` editions separately.

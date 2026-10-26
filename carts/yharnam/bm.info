@@ -6,3 +6,6 @@ license: LicenseRef-BM-Community-1.0
 version: 1.0
 tags: game, action
 resolution: 360x360
+targets: pi,rgb30
+input: pad,keyboard
+aspect: square
