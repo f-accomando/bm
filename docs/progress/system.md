@@ -77,6 +77,7 @@ Detail of `src/kernel/` (menu loop, settings, Market, update, services): [system
 - **Network and bmnet multiplayer**: Test two Pi consoles on the *Online 2D* model (also through a relay). Port the Overbit network protocol to the unified `bmnet` library.
 
 ## Rules (do not break)
+- The bridge gate (26 Oct): `bm/bridge.txt` holds one word: `off` (default), `on` or `fast`. `off` refuses every operation of the transfer port (S, P, K, C, T, G; answer `BO`). `on` accepts them and stages a kernel. `fast` writes a kernel and a file at once (`dev_mode()`, the old `dev=1`). Only the user sets it: Settings > Bridge, or the file put on the SD card from a PC. `config_merge` refuses the keys `dev` and `bridge` (`BF`), and the transfer refuses any file named `bridge.txt` in any folder (`BF`). Do not add a network way to write this file.
 
 - The bottom bar of the menu shows the key chips only. Put a failure of a user action in the notice box (`notice_fail()`) and any other message in the console log. Add no text line to the bar.
 - A menu card shows only the cover. The cover of a game or an app comes from `scripts/mkartcovers.py` (88x88, one art style); the bm editors keep the covers of `scripts/mkcovers.py`.

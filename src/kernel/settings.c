@@ -499,9 +499,9 @@ static void panel_settings(home_panel_t *p)
     home_row(p, MENU_ROW_SUB, R_UPDATES, "Updates",
              "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
     reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
-    home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
-             "Direct kernel and app updates without staging", "%s",
-             dev_mode() ? "On" : "Off");
+    home_row(p, MENU_ROW_CHOICE, R_DEV, "Bridge",
+             "PC tools: off, on (staged), fast (direct)", "%s",
+             bridge_label(bridge_mode()));
     home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
              "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
              rec_mode() ? "On" : "Off");
@@ -852,9 +852,9 @@ static void panel_system(home_panel_t *p)
 #endif
     if (util_count(0) > 0)                  /* no empty page */
         home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks and tests", "%d", util_count(0));
-    home_row(p, MENU_ROW_CHOICE, R_DEV, "Dev mode",
-             "Direct kernel and app updates without staging", "%s",
-             dev_mode() ? "On" : "Off");
+    home_row(p, MENU_ROW_CHOICE, R_DEV, "Bridge",
+             "PC tools: off, on (staged), fast (direct)", "%s",
+             bridge_label(bridge_mode()));
     home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
              "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
              rec_mode() ? "On" : "Off");
@@ -1373,9 +1373,13 @@ static int act_system(int row, int how, home_do_t *d)
 {
     switch (row) {
     case R_DEV: {
-        int on = how < 0 ? 0 : how > 0 ? 1 : !dev_mode();
-        dev_set_mode(on);
-        ksnprintf(d->note, sizeof d->note, "dev mode: %s", on ? "on (direct install)" : "off (staging)");
+        int m = bridge_mode();
+        m = how < 0 ? (m > BRIDGE_OFF ? m - 1 : m) : how > 0 ? (m < BRIDGE_FAST ? m + 1 : m) : (m + 1) % 3;
+        if (bridge_set(m) != 0)
+            ksnprintf(d->note, sizeof d->note, "bridge: cannot save on the SD card");
+        else
+            ksnprintf(d->note, sizeof d->note, "bridge: %s%s", bridge_label(m),
+                      m == BRIDGE_FAST ? " (kernel and files written at once)" : m == BRIDGE_ON ? " (a kernel waits for the menu)" : " (no PC tool)");
         break;
     }
     case R_REC: {

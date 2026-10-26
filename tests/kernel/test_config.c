@@ -44,22 +44,35 @@ int pointer_enabled(void) { return 1; }
 static char file[8192];
 static size_t file_len;
 static int has_file, writes;
+static char bfile[16];                  /* /bm/bridge.txt */
+static int has_bridge, on_bridge;       /* on_bridge: the last fat_find was the bridge file */
 int fat_find(const char *path, fat_entry_t *e)
 {
     (void)e;
+    on_bridge = strcmp(path, "/bm/bridge.txt") == 0;
+    if (on_bridge)
+        return has_bridge ? 0 : -1;
     return has_file && strcmp(path, "/bm/config.txt") == 0 ? 0 : -1;
 }
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
 {
     (void)e;
-    *data = malloc(file_len + 1);
-    memcpy(*data, file, file_len);
-    *len = file_len;
+    const char *src = on_bridge ? bfile : file;
+    const size_t n = on_bridge ? strlen(bfile) : file_len;
+    *data = malloc(n + 1);
+    memcpy(*data, src, n);
+    *len = n;
     return 0;
 }
 int fat_mkdirs(const char *path) { (void)path; return 0; }
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
 {
+    if (strcmp(dir, "/bm") == 0 && strcmp(name, "bridge.txt") == 0) {
+        memcpy(bfile, data, len);
+        bfile[len] = 0;
+        has_bridge = 1;
+        return 0;
+    }
     check(strcmp(dir, "/bm") == 0 && strcmp(name, "config.txt") == 0, "written as /bm/config.txt");
     memcpy(file, data, len);
     file[len] = 0;
@@ -173,6 +186,43 @@ int main(void)
     perf = 2;
     config_save();
     check(strstr(file, "perf=bottom\n") != NULL, "  saved as a word");
+
+    /* the bridge gate: bm/bridge.txt, off by default, never set by the PC */
+    check(bridge_mode() == BRIDGE_OFF && !dev_mode(), "bridge: off with no file");
+    has_bridge = 1;
+    strcpy(bfile, "on\n");
+    config_load();
+    check(bridge_mode() == BRIDGE_ON && !dev_mode(), "  the file says on");
+    strcpy(bfile, "fast\r\n");
+    config_load();
+    check(bridge_mode() == BRIDGE_FAST && dev_mode(), "  fast is the old dev mode");
+    strcpy(bfile, "banana");
+    config_load();
+    check(bridge_mode() == BRIDGE_OFF, "  an unknown word is off");
+    check(bridge_set(BRIDGE_FAST) == 0 && bridge_mode() == BRIDGE_FAST && strcmp(bfile, "fast\n") == 0,
+          "  Settings sets fast and the file says it");
+    check(bridge_set(7) == -1 && bridge_mode() == BRIDGE_FAST, "  a wrong mode changes nothing");
+    char bout[256];
+    const char *dev1 = "dev=1\n", *br = "volume=3\nBridge=fast\n";
+    check(config_merge(dev1, strlen(dev1), bout, sizeof bout) == -3, "  the PC cannot set dev");
+    check(config_merge(br, strlen(br), bout, sizeof bout) == -3 && volume != 3, "  nor bridge, and nothing else changes");
+    check(config_get("dev") == NULL, "  and dev is not a key");
+    check(bridge_file_name("bm/bridge.txt") && bridge_file_name("/BM/Bridge.TXT") && bridge_file_name("bm/../bm/bridge.txt") &&
+          bridge_file_name("bm33/bridge.txt") && bridge_file_name("bridge.txt"), "  the file name is refused in any spelling");
+    check(!bridge_file_name("bm/config.txt") && !bridge_file_name("bm/bridge.bm") && !bridge_file_name("bm/mybridge.txt2"),
+          "  other names pass");
+    /* a kernel before the gate left dev=1 in config.txt: bridge fast, once, only without a bridge file */
+    has_bridge = 0;
+    strcpy(file, "volume=4\ndev=1\n");
+    file_len = strlen(file);
+    config_load();
+    check(bridge_mode() == BRIDGE_FAST && has_bridge && strstr(bfile, "fast") != NULL, "  dev=1 of an older kernel becomes fast");
+    check(strstr(file, "dev=") == NULL, "  and the key goes away");
+    strcpy(bfile, "off\n");
+    strcpy(file, "volume=4\ndev=1\n");
+    file_len = strlen(file);
+    config_load();
+    check(bridge_mode() == BRIDGE_OFF && strstr(file, "dev=") == NULL, "  with a bridge file, dev=1 is only dropped");
 
     if (fails) {
         printf("config: %d of %d FAILED\n", fails, checks);

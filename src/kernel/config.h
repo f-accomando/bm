@@ -47,9 +47,15 @@ int config_secret(const char *key);
  * "bottom" 2; the old 1, 2, 3 (simple, detailed, functions) are the top */
 int config_perf(const char *v);
 
-/* dev mode: 1 if dev=1 / dev=on in bm/config.txt (direct kernel & app deployment) */
+/* The bridge gate (bm/bridge.txt: off, on or fast; config.c says who may write it).
+ * dev_mode(): 1 when the bridge is fast (a kernel and a file are written at once). */
+enum { BRIDGE_OFF, BRIDGE_ON, BRIDGE_FAST };
+int bridge_load(void);                      /* config_load calls it; 1 if bm/bridge.txt was there */
+int bridge_mode(void);
+const char *bridge_label(int mode);         /* "off", "on", "fast" */
+int bridge_set(int mode);                   /* Settings only: writes the file; 0, or -1 */
+int bridge_file_name(const char *path);     /* 1 if a path names the bridge file */
 int dev_mode(void);
-void dev_set_mode(int on);
 
 /* screen recorder: 1 if rec=1 / rec=on in bm/config.txt */
 int rec_mode(void);

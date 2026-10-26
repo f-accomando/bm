@@ -49,6 +49,8 @@ PORT = 3333
 XFER_PORT = 3334
 ANSWERS = {b"OK": "ok", b"PW": "wrong password", b"SZ": "file too big (or no memory)",
            b"BH": "bad request", b"CE": "damaged in transit (crc)",
+           b"BO": "the bridge is off: set Settings > Bridge to on or fast on the console",
+           b"BF": "refused: dev and bridge are the user's (Settings > Bridge)",
            b"WE": "could not write on the SD card",
            b"QD": "received: the console writes it from its menu (a game that is open is "
                   "replaced when it is closed)",
@@ -448,7 +450,7 @@ def main():
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
                          "KEY= removes it")
     ap.add_argument("--dev", choices=["on", "off", "1", "0"],
-                    help="set dev mode on or off in bm/config.txt (direct kernel/app debug without staging)")
+                    help="no longer works: the bridge gate is set on the console (Settings > Bridge)")
     ap.add_argument("--shot", metavar="OUT",
                     help="screenshot of the running game, written to OUT (a PNG)")
     ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
@@ -463,11 +465,8 @@ def main():
         return config(args, args.password or getpass.getpass("password: "))
 
     if args.dev is not None:
-        val = "1" if args.dev in ("on", "1") else "0"
-        pw = args.password or getpass.getpass("password: ")
-        rc = config(args, pw, [f"dev={val}"])
-        if rc != 0 and not any([args.send, args.play, args.kernel]):
-            return rc
+        sys.exit("the bridge gate is the user's: set Settings > Bridge (off, on, fast) on the console, "
+                 "or put bm/bridge.txt with one of those words on its SD card")
 
     jobs = [(b"S", args.send), (b"P", args.play), (b"K", args.kernel)]
     jobs = [(op, f) for op, f in jobs if f]

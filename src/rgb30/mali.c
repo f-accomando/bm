@@ -816,7 +816,8 @@ static void copy_slot(uint8_t *dst, const uint8_t *loc, uint32_t d)
     }
     uint8_t *sh = slot_shadow[d];
     for (unsigned line = 0; line < 0x540 / 64; line++) {
-        if (slot_ok[d] && memcmp(sh + 64 * line, loc + 64 * line, 64) == 0)
+        const int job_line = 64 * line == D_VJOB || 64 * line == D_TJOB;   /* the GPU writes the job headers' first 16 bytes */
+        if (slot_ok[d] && !job_line && memcmp(sh + 64 * line, loc + 64 * line, 64) == 0)
             continue;
         copy_nc16(dst + 64 * line, loc + 64 * line, 64);
         memcpy(sh + 64 * line, loc + 64 * line, 64);
