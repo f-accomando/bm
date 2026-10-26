@@ -1616,6 +1616,13 @@ static void sheet8_set(void *ctx, int x, int y, const uint8_t rgba[4])
     g16_sheet_set(&rt.sheet, x, y, g16_rgb(rgba[0], rgba[1], rgba[2]), rgba[3] >= 128);
 }
 
+int rt_tokens(void)
+{
+    if (rt.tokens < 0)
+        rt.tokens = rt.tokens_src ? lua_tokens(rt.tokens_src, rt.tokens_len) : 0;
+    return rt.tokens;
+}
+
 int load_assets(const bm_cart_t *c)
 {
     int has = c->sheet_rgba || c->sheet8;
@@ -1640,7 +1647,9 @@ int load_assets(const bm_cart_t *c)
         for (int i = 0; i < cells; i++)
             rt.cell_dirty[i] = 1;
         rt.sheet_dirty = 1;
+        loading_tick();
         sheet_commit();
+        loading_tick();
     }
 
     if (c->mesh) {
@@ -1657,6 +1666,7 @@ int load_assets(const bm_cart_t *c)
         memcpy(rt.anim, c->anim, c->anim_size);
         rt.anim_size = c->anim_size;
     }
+    loading_tick();
 
     rt.map.w = c->map_cells ? c->map_w : 256;
     rt.map.h = c->map_cells ? c->map_h : 256;
@@ -1670,8 +1680,11 @@ int load_assets(const bm_cart_t *c)
         rt.layer[l] = calloc((size_t)rt.map.w * rt.map.h, 2);
         if (!rt.layer[l])
             return -1;
-        for (uint32_t i = 0; src && i < (uint32_t)rt.map.w * rt.map.h; i++)
+        for (uint32_t i = 0; src && i < (uint32_t)rt.map.w * rt.map.h; i++) {
             rt.layer[l][i] = (uint16_t)(src[i * 2] | src[i * 2 + 1] << 8);
+            if ((i & 16383) == 16383)
+                loading_tick();
+        }
     }
     rt.map.cells = rt.layer[0];
 
@@ -1680,8 +1693,11 @@ int load_assets(const bm_cart_t *c)
     rt.flags = calloc((size_t)cells, 1);
     if (!rt.flags)
         return -1;
-    for (int i = 0; c->flags && i < cells; i++)
+    for (int i = 0; c->flags && i < cells; i++) {
         rt.flags[i] = bm_cell_flags(c, i % per, i / per);
+        if ((i & 4095) == 4095)
+            loading_tick();
+    }
     rt.flags_dirty = 0;
 
     if (c->sprites && c->zones) {
@@ -3366,7 +3382,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     st->assets_kb = assets_kb();
     st->instr_k_max = rt.instr_k_max;
     st->slow = rt.slow_frames - slow0;
-    st->tokens = (uint32_t)rt.tokens;
+    st->tokens = (uint32_t)rt_tokens();
     st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
     st->left = left;
     sess.w = rt.g.w;
@@ -3425,7 +3441,7 @@ static const char *read_chunk(lua_State *L, void *ud, size_t *size)
         return NULL;
     }
     loading_tick();
-    const size_t n = r->left < 16384 ? r->left : 16384;
+    const size_t n = r->left < 2048 ? r->left : 2048;       /* small: the splash goes on between the chunks */
     const char *p = r->p;
     r->p += n;
     r->left -= n;
@@ -3532,10 +3548,14 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
             kprintf("\x1b[91mbm: sound bank not loaded: %s\x1b[0m\n", aerr);
         set_copy(&own_audio, &own_audio_len, cart.audio, cart.audio_size);
     }
+    loading_tick();
     const uint32_t ld_audio = timer_ticks();
     rt.start_us = ld_audio;
     rt.hook_count = 0;
-    rt.tokens = lua_tokens(cart.lua, cart.lua_size);
+    rt.tokens = -1;
+    rt.tokens_src = cart.lua;
+    rt.tokens_len = cart.lua_size;
+    loading_tick();
     sess_reset();                       /* the session report: this cartridge's frames only */
     perf_on = perf_user;                /* the overlay as Settings has it */
     dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */

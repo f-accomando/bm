@@ -18,6 +18,7 @@
 #include "bm.h"
 #include "gfx16.h"
 #include "r3d.h"
+#include "loading.h"
 #include "map3d.h"
 #include "platform.h"
 #include "drivers/fb.h"
@@ -100,7 +101,9 @@ typedef struct {
     uint32_t hook_count;
     uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
     /* the dev kit: the tokens of the code, and the most of this run */
-    int tokens;
+    int tokens;                         /* -1: not counted yet (rt_tokens() counts at the first read: the count is 28 ms on a big script) */
+    const char *tokens_src;
+    size_t tokens_len;
     uint32_t instr_k_max;       /* Lua instructions (thousands) of the busiest frame */
     size_t lua_peak;            /* bytes of Lua memory, seen at the end of a frame */
     uint32_t slow_frames;       /* frames over 16.7 ms (_update + _draw) */
@@ -190,6 +193,8 @@ static inline void sheet_commit(void)
         if (rt.cell_dirty[i]) {
             g16_sheet_update_cell(&rt.sheet, i % per_row, i / per_row);
             rt.cell_dirty[i] = 0;
+            if ((i & 127) == 127)
+                loading_tick();                 /* a big sheet: the loading screen goes on */
         }
     rt.sheet_dirty = 0;
 }
@@ -325,6 +330,7 @@ extern dbg_next_t dbg_next;
 extern char last_error[512];            /* the error the last run stopped with (bm_last_error) */
 int load_assets(const bm_cart_t *c);
 void free_assets(void);
+int rt_tokens(void);
 const luaL_Reg *rt_api(void);           /* api[] of runtime.c */
 void set_copy(uint8_t **dst, uint32_t *dlen, const void *src, uint32_t len);
 void extras_free(void);

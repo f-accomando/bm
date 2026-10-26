@@ -672,7 +672,7 @@ int l_stat(lua_State *L)
     case 8: lua_pushnumber(L, (timer_ticks() - rt.frame_t0) / 1000.0); break;
     case 9: lua_pushinteger(L, rt.r3d_ready && rt.r3d.backend); break;
     case 10: lua_pushinteger(L, (lua_Integer)rt.last_instr_k * 1000); break;
-    case 11: lua_pushinteger(L, rt.tokens); break;
+    case 11: lua_pushinteger(L, rt_tokens()); break;
     case 12: {
         size_t now = luavm_mem();
         lua_pushinteger(L, (lua_Integer)((now > rt.lua_peak ? now : rt.lua_peak) / 1024));

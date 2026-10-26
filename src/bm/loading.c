@@ -39,6 +39,9 @@ static struct {
     int retro;                  /* the chip's jingle */
     uint8_t used[J_VOICES];     /* the voices it took, */
     uint8_t regs[J_VOICES][SYNTH_VOICE_BYTES]; /* as it left them */
+    uint32_t tick_t, gap_max, gap_at, frames;
+    const void *gap_from, *gap_to;             /* the callers of the two ticks around the longest gap */
+    const void *tick_from;  /* loading_tick: the last call, the longest gap (us) and when (ms), the frames drawn */
 } ld;
 
 /* The jingle (ours: C major up, then the high C over the low one), from the
@@ -314,9 +317,20 @@ void loading_tick(void)
 {
     if (!ld.on)
         return;
+    const uint32_t tt = timer_ticks();
+    if (ld.tick_t && tt - ld.tick_t > ld.gap_max) {
+        ld.gap_max = tt - ld.tick_t;
+        ld.gap_at = now_ms();
+        ld.gap_from = ld.tick_from;
+        ld.gap_to = __builtin_return_address(0);
+    }
+    ld.tick_t = tt;
+    ld.tick_from = __builtin_return_address(0);
     play_jingle(now_ms());
-    if (timer_ticks() - ld.last >= ld.every)
+    if (timer_ticks() - ld.last >= ld.every) {
         frame();
+        ld.frames++;
+    }
 }
 
 void loading_end(void)
@@ -332,6 +346,8 @@ void loading_end(void)
     free_voices();
     /* the game's first frame comes next: the tests wait for this line */
     kprintf("bm: loaded in %lu ms, the splash over at %lu ms\n", (unsigned long)loaded, (unsigned long)now_ms());
+    kprintf("bm: splash ticks: %lu frames, longest gap %lu us at %lu ms (between %p and %p)\n", (unsigned long)ld.frames,
+            (unsigned long)ld.gap_max, (unsigned long)ld.gap_at, ld.gap_from, ld.gap_to);
 }
 
 void loading_stop(void)
