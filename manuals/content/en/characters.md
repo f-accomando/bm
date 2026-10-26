@@ -169,13 +169,37 @@ Five directions are drawn (S, SE, E, NE, N). The other three (SW, W, NW) are the
 
 ::: copy
 -- the frame on screen: the drawn direction, mirrored for SW W NW
-local function frame(o)
-  local d = o.dir
-  return o.def.a[o.anim].d[d <= 4 and d + 1 or 9 - d][o.f], d > 4
+function ANIM.frame(o, set, dir)
+  local d = set[o.anim].d
+  if #d == 8 then return d[dir + 1][o.f], false end   -- 8 drawn: no mirror
+  return d[dir <= 4 and dir + 1 or 9 - dir][o.f], dir > 4
 end
 :::
 
 The game draws the frame with `sspr(..., flip)`. Each frame carries an anchor (the point between the feet), so a mirrored frame is placed with the anchor mirrored too: the game computes `x - (width - anchor_x)` for a flipped frame.
+
+## One module for all the animations
+
+*Yharnam* plays the animations of the hunter and of every creature with one small module, `ANIM` (the module `anim` in `carts/yharnam/main.lua`). Copy it into a game that has actors with directions.
+
+An actor is a table with `anim` (the name that plays), `f` (the frame, 1 is the first), `ft` (the ticks the frame has been on screen), `newf` (true in the tick a frame began) and `rev` (true when it plays backwards). A set holds, for each name, `t` (the ticks each frame lasts), `loop` and `d` (the frames of each direction).
+
+| Call | What it does |
+|---|---|
+| `ANIM.play(o, set, name, [rev])` | starts an animation; with `rev` it starts from the last frame and goes backwards |
+| `ANIM.step(o, set, [rate], [carry])` | goes on by `rate` ticks (1 if missing); gives `true` when an animation that does not loop is over; with `carry` the ticks a frame did not need go to the next one |
+| `ANIM.frame(o, set, dir)` | the frame to draw for the direction `dir` (0 S, 1 SE ... 7 SW) and `true` when it is to be drawn mirrored |
+
+::: copy
+ANIM.play(hunter, HUNT, "slash1")                  -- start a blow
+if ANIM.step(hunter, HUNT, 1, true) then           -- once per tick
+  ANIM.play(hunter, HUNT, "idle")                  -- the blow is over
+end
+local fr, flip = ANIM.frame(hunter, HUNT, hunter.dir)
+sspr(fr[1], fr[2], fr[3], fr[4], x, y, flip)
+:::
+
+The game reads `newf` and `f` to know when a blow lands (the frame number `hit` of the animation).
 
 ## From the keys to the direction
 

@@ -40,6 +40,7 @@ end
 Entities (player, enemies, projectiles, particles) share a unified table structure:
 - **Position & Physics**: `x, y, vx, vy, w, h, ground, facing`
 - **Animation & Timers**: `anim, frame, tick, anim_speed, loop`
+  - *Yharnam* plays these fields with one module, `ANIM` (`play`, `step`, `frame`), for the hunter and for every creature (`carts/yharnam/main.lua`, module `anim`; manual *characters*). Copy it into a game with actors that have directions.
 - **Combat & Hit Points**: `hp, max_hp, invuln, state, swing, team`
 - **Collisions**: bounding box and lists of hurtboxes/hitboxes for the current frame.
 
@@ -100,8 +101,8 @@ When trying to build complex games like *Yharnam* or *Titan Clash* solely with t
 - Doing this "by eye" or measuring pixels with a ruler is extremely slow and error-prone. In bm Pixel hitboxes can only be displayed (toggle `j`), not drawn or edited interactively frame by frame.
 
 ### 3. Handling Monolithic Code in bm Code
-- **bm Code** manages tabs of different cartridges, but does not readily support a **multi-module** structure within the same project without external concatenation scripts (like `build.py` in Titan Clash).
-- Result: projects like *Yharnam* end up with a single **5,500-line** Lua file, hard to navigate, maintain and debug on the console.
+- **bm Code** shows the lines `--@module name` of a project as tabs (a second row of tabs). The project still has one code section. The SDK code page does not show modules yet.
+- *Yharnam* has a single **5,700-line** Lua file. It has 10 `--@module` markers, so bm Code shows 11 tabs. The tabs `foes` (1,684 lines) and `chunks` (1,090 lines) are still long.
 
 ### 4. Placement of Entities and Parameters on the Map
 - In **bm SDK** (map page F3), the map handles matrices of cell numbers and flags 0–7.

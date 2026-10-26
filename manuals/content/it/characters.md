@@ -169,13 +169,37 @@ Cinque direzioni sono disegnate (S, SE, E, NE, N). Le altre tre (SW, W, NW) sono
 
 ::: copy
 -- il fotogramma a schermo: la direzione disegnata, specchiata per SW W NW
-local function frame(o)
-  local d = o.dir
-  return o.def.a[o.anim].d[d <= 4 and d + 1 or 9 - d][o.f], d > 4
+function ANIM.frame(o, set, dir)
+  local d = set[o.anim].d
+  if #d == 8 then return d[dir + 1][o.f], false end   -- 8 disegnate: nessuno specchio
+  return d[dir <= 4 and dir + 1 or 9 - dir][o.f], dir > 4
 end
 :::
 
 Il gioco disegna il fotogramma con `sspr(..., flip)`. Ogni fotogramma ha un'àncora (il punto tra i piedi), quindi un fotogramma specchiato si posiziona con l'àncora specchiata a sua volta: il gioco calcola `x - (width - anchor_x)` per un fotogramma capovolto.
+
+## Un modulo per tutte le animazioni
+
+*Yharnam* fa partire le animazioni del cacciatore e di ogni creatura con un piccolo modulo, `ANIM` (il modulo `anim` in `carts/yharnam/main.lua`). Copialo in un gioco che ha attori con direzioni.
+
+Un attore è una tabella con `anim` (il nome che parte), `f` (il fotogramma, 1 è il primo), `ft` (i tick da cui il fotogramma è a schermo), `newf` (vero nel tick in cui è iniziato un fotogramma) e `rev` (vero quando va all'indietro). Un set ha, per ogni nome, `t` (i tick che dura ogni fotogramma), `loop` e `d` (i fotogrammi di ogni direzione).
+
+| Chiamata | Cosa fa |
+|---|---|
+| `ANIM.play(o, set, name, [rev])` | fa partire un'animazione; con `rev` parte dall'ultimo fotogramma e va all'indietro |
+| `ANIM.step(o, set, [rate], [carry])` | avanza di `rate` tick (1 se manca); dà `true` quando un'animazione che non ripete è finita; con `carry` i tick che un fotogramma non ha usato passano al successivo |
+| `ANIM.frame(o, set, dir)` | il fotogramma da disegnare per la direzione `dir` (0 S, 1 SE ... 7 SW) e `true` quando va disegnato specchiato |
+
+::: copy
+ANIM.play(hunter, HUNT, "slash1")                  -- parte un colpo
+if ANIM.step(hunter, HUNT, 1, true) then           -- una volta per tick
+  ANIM.play(hunter, HUNT, "idle")                  -- il colpo è finito
+end
+local fr, flip = ANIM.frame(hunter, HUNT, hunter.dir)
+sspr(fr[1], fr[2], fr[3], fr[4], x, y, flip)
+:::
+
+Il gioco legge `newf` e `f` per sapere quando un colpo arriva a segno (il numero di fotogramma `hit` dell'animazione).
 
 ## Dai tasti alla direzione
 

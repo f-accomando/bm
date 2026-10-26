@@ -1372,6 +1372,57 @@ local function pick(r, t) return t[floor(r() * #t) + 1] end
 local function key2(a, b) return a * 1000003 + b end
 local function fdiv(a, b) return floor(a) // b end   -- an integer, from pixels that may not be
 
+--@module anim
+----------------------------------------------------------------- animations
+-- ANIM plays the animations of one actor: the hunter (P, with the set HUNT) or a creature (o, with
+-- the set o.def.a). The two share one way to go on, so there is one place to read it.
+--
+--   An actor holds   anim   the name of the animation that plays
+--                    f      the number of the frame on screen (1 is the first)
+--                    ft     the ticks that frame has been on screen
+--                    newf   true in the tick a frame began (a blow lands, a foot sounds)
+--                    rev    true when the animation plays backwards
+--   A set holds, for each name:   t     the ticks each frame lasts, { 3, 3, 4, ... }
+--                                 loop  true: it starts again; false: it stops on its last frame
+--                                 d     the frames of each direction; a frame is a row of numbers,
+--                                       the first four are its place on the sheet (x, y, w, h)
+--   Directions go 0 S, 1 SE, 2 E, 3 NE, 4 N, 5 NW, 6 W, 7 SW. A set keeps 8 of them (the hunter)
+--   or 5, S to N (a creature): then NW, W and SW are the mirror images of NE, E and SE.
+--
+--   ANIM.play(o, set, name, [rev])      start an animation (rev: from its last frame backwards)
+--   ANIM.step(o, set, [rate], [carry])  go on by rate ticks (1 if missing). It gives true when an
+--                                       animation that does not loop is over (it stays on its last
+--                                       frame). carry: the ticks a frame did not need go to the next
+--   ANIM.frame(o, set, dir)             the frame to draw for the direction dir, and true when it
+--                                       is to be drawn mirrored
+local ANIM = {}
+
+function ANIM.play(o, set, name, rev)
+  o.anim, o.rev, o.ft, o.newf = name, rev or false, 0, true
+  o.f = rev and #set[name].t or 1
+end
+
+function ANIM.step(o, set, rate, carry)
+  local a = set[o.anim]
+  o.newf = false
+  o.ft = o.ft + (rate or 1)
+  if o.ft < a.t[o.f] then return false end
+  local left = carry and o.ft - a.t[o.f] or 0
+  if o.rev then
+    if o.f > 1 then o.f, o.ft, o.newf = o.f - 1, left, true; return false end
+    return true
+  end
+  if o.f < #a.t then o.f, o.ft, o.newf = o.f + 1, left, true; return false end
+  if a.loop then o.f, o.ft, o.newf = 1, left, true; return false end
+  return true
+end
+
+function ANIM.frame(o, set, dir)
+  local d = set[o.anim].d
+  if #d == 8 then return d[dir + 1][o.f], false end
+  return d[dir <= 4 and dir + 1 or 9 - dir][o.f], dir > 4
+end
+
 --@module plan
 ----------------------------------------------------------------- the street plan
 -- Streets run between the chunks, from corner to corner: every chunk is a
@@ -3338,28 +3389,11 @@ local near_lamp
 
 local function lamp_at(key) return lamp_state[key] end
 
-local function play(name, rev)
-  local a = HUNT[name]
-  P.anim, P.rev, P.ft, P.newf = name, rev or false, 0, true
-  P.f = rev and #a.t or 1
-end
+local function play(name, rev) ANIM.play(P, HUNT, name, rev) end
 
--- one tick of the animation (rate: ticks per tick); true when a one-shot
--- animation has just ended (it stays on its last frame)
-local function step_anim(rate)
-  local a = HUNT[P.anim]
-  P.newf = false
-  P.ft = P.ft + (rate or 1)
-  if P.ft >= a.t[P.f] then
-    local over = P.ft - a.t[P.f]            -- what is left of the tick goes on (a quicker rate counts)
-    if P.rev then
-      if P.f > 1 then P.f, P.ft, P.newf = P.f - 1, over, true else return true end
-    elseif P.f < #a.t then P.f, P.ft, P.newf = P.f + 1, over, true
-    elseif a.loop then P.f, P.ft, P.newf = 1, over, true
-    else return true end                    -- ended: it stays so
-  end
-  return false
-end
+-- one tick of the hunter's animation (rate: ticks per tick); true when a one-shot animation has just
+-- ended (it stays on its last frame); what is left of a tick goes on (a quicker rate counts)
+local function step_anim(rate) return ANIM.step(P, HUNT, rate, true) end
 
 local function xname(n) return P.ext and n .. "_x" or n end
 
@@ -3529,7 +3563,7 @@ end
 
 -- the shot: a flash at the muzzle, a light, a trail to the first wall
 local function fire()
-  local fr = HUNT[P.anim].d[P.dir + 1][P.f]
+  local fr = ANIM.frame(P, HUNT, P.dir)
   local mx, my = P.x + fr[9], P.y + fr[10]
   -- when locked on, shoot exactly toward the target (not the nearest 8-dir snap)
   local v
@@ -3647,10 +3681,7 @@ do
   FOE.dir_to = dir_to
 
   -- the frame on screen: the drawn direction, mirrored for SW W NW
-  local function frame(o)
-    local d = o.dir
-    return o.def.a[o.anim].d[d <= 4 and d + 1 or 9 - d][o.f], d > 4
-  end
+  local function frame(o) return ANIM.frame(o, o.def.a, o.dir) end
   FOE.frame = frame
   local function point(o, k)
     local fr, flip = frame(o)
@@ -3659,22 +3690,10 @@ do
   end
   FOE.point = point
 
-  local function play(o, name)
-    o.anim, o.f, o.ft, o.newf = name, 1, 0, true
-  end
+  local function play(o, name) ANIM.play(o, o.def.a, name) end
   FOE.play = play
   -- one tick (rate ticks); true when a one-shot animation has ended
-  local function step(o, rate)
-    local a = o.def.a[o.anim]
-    o.newf = false
-    o.ft = o.ft + (rate or 1)
-    if o.ft >= a.t[o.f] then
-      if o.f < #a.t then o.f, o.ft, o.newf = o.f + 1, 0, true
-      elseif a.loop then o.f, o.ft, o.newf = 1, 0, true
-      else return true end
-    end
-    return false
-  end
+  local function step(o, rate) return ANIM.step(o, o.def.a, rate) end
   FOE.step = step
   local function has(list_, f)
     if not list_ then return false end
@@ -5396,7 +5415,7 @@ local function draw_scene()
     elseif o == P then
       -- after a blow he blinks while he cannot be hurt
       if not (P.act == nil and P.inv > 0 and P.inv < 50 and (P.inv // 3) % 2 == 1) then
-        local fr = HUNT[P.anim].d[P.dir + 1][P.f]
+        local fr = ANIM.frame(P, HUNT, P.dir)
         sspr(fr[1], fr[2], fr[3], fr[4], floor(P.x) - fr[5], floor(P.y) - fr[6])
       end
     else
@@ -5459,7 +5478,7 @@ local function draw_scene()
   glow(P.x, P.y - 14, 42, 4, 0.7)               -- what the hunter's eyes make out
   FOE.lights()
   if flash > 0 then
-    local fr = HUNT[P.anim].d[P.dir + 1][P.f]
+    local fr = ANIM.frame(P, HUNT, P.dir)
     glow(P.x + fr[9], P.y + fr[10], 30 + flash * 9, 7, 0.4)
   end
   dark_end()
@@ -5472,7 +5491,7 @@ local function draw_scene()
     if b[3] > 5 then line(a[1], a[2] + 1, b[1], b[2] + 1, 0x9090A0) end
   end
   if flash > 0 then
-    local fr = HUNT[P.anim].d[P.dir + 1][P.f]
+    local fr = ANIM.frame(P, HUNT, P.dir)
     local mx, my = P.x + fr[9], P.y + fr[10]
     local v = DIRV[P.dir + 1]
     circfill(mx, my, flash > 3 and 3 or 2, 0xF8C050)
@@ -5596,7 +5615,7 @@ local function draw_gallery()
     name = g.anim .. "  " .. GDIR[P.dir + 1] .. "  " .. o.f .. "/" .. #g.def.a[g.anim].t
     print(name, (256 - #name * 8) // 2 // 8 * 8, 32, 0xE8C878)
   else
-    local fr = HUNT[P.anim].d[P.dir + 1][P.f]
+    local fr = ANIM.frame(P, HUNT, P.dir)
     sspr(fr[1], fr[2], fr[3], fr[4], 128 - fr[5] * 2, 186 - fr[6] * 2, false, false, 2)
     name = g.anim .. "  " .. GDIR[P.dir + 1] .. "  " .. P.f .. "/" .. #HUNT[P.anim].t
     print(name, (256 - #name * 8) // 2 // 8 * 8, 16, 0xE8C878)
@@ -5771,7 +5790,7 @@ function _draw()
     dark_mask(floor(P.x - cam_x), floor(P.y - cam_y) - 14, r)
     -- the hunter stays at full brightness over the mask
     if not (P.act == nil and P.inv > 0 and P.inv < 50 and (P.inv // 3) % 2 == 1) then
-      local fr = HUNT[P.anim].d[P.dir + 1][P.f]
+      local fr = ANIM.frame(P, HUNT, P.dir)
       camera(cam_x, cam_y)
       sspr(fr[1], fr[2], fr[3], fr[4], floor(P.x) - fr[5], floor(P.y) - fr[6])
       camera()

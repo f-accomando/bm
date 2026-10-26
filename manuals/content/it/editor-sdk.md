@@ -227,6 +227,7 @@ L'SDK RGB30 ha lo stesso pennello. Premi **t** nella pagina mappa, oppure scegli
 - Con il mouse: il tasto sinistro piazza la tile, quello centrale la prende, il destro o il centrale trascinato sposta la vista, la rotella la fa scorrere.
 - Nella pagina del codice, trascina il tasto sinistro per selezionare il testo e fai doppio clic per selezionare una parola; Ctrl+C e Ctrl+X usano la selezione, e una lettera o Backspace la sostituisce. In una riga di dialogo, un clic vi mette il cursore. Nella pagina dei suoni dell'RGB30 la rotella su un campo o su un passo lo cambia, un doppio clic lo suona e un clic su un messaggio lungo lo nasconde.
 - Quando passi a un layer chiamato `objects`, il pennello diventa 16x16 e viene scelta la prima tile segnaposto (1024 o più). I segnaposto sono etichette che il gioco non disegna: il gioco le legge e costruisce lì le cose.
+- **Anteprime degli sprite.** Sul layer `objects`, **p** mostra lo sprite vero sopra ogni segnaposto, oppure lo nasconde. Un'anteprima ha bisogno di una zona chiamata `pv<cell>` nella pagina degli sprite, dove `<cell>` è il numero della tile del segnaposto; la zona è il rettangolo dello sprite sullo sheet. Lo sprite sta al centro in basso della tile 16x16. Le anteprime si vedono con zoom 8 o più. Un progetto fatto da uno script di build può portare le sue zone (Yharnam lo fa).
 - I flag appartengono alla **tile** dello sheet, non a un punto della mappa. Impostali nella pagina degli sprite con i tasti da `0` a `7`.
 
 ## Attenzione

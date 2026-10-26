@@ -459,8 +459,8 @@
     "title": "Top-down characters, 4 directions"
    },
    "6": {
-    "en": "1c32544d5967",
-    "it": "0c63658c5126",
+    "en": "e278daa87c18",
+    "it": "2885e5d16441",
     "title": "Top-down characters, 8 directions"
    },
    "7": {
@@ -485,15 +485,15 @@
    "carts/pixel/main.lua": "ff4d7d19619e",
    "carts/studio/main.lua": "597711e5f5c8",
    "carts/titan/build/mkrobot.py": "72c7aff21afd",
-   "carts/yharnam/build/mkassets.py": "efc8086470ce",
-   "docs/api/draw.md": "bc14d3e027f6",
-   "docs/api/light3d.md": "6dc8f3b69098",
+   "carts/yharnam/build/mkassets.py": "86bfe9f06612",
+   "docs/api/draw.md": "c0ab8355c549",
+   "docs/api/light3d.md": "aeaffdf9073f",
    "docs/design/games-architecture.md": "38d1cf8a4cc1",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/design/suite-pixel.md": "14bcb5f6aee2",
-   "docs/progress/graphics.md": "267ed2b8c0bc",
-   "docs/progress/tools.md": "7219aec6478f",
-   "docs/progress/yharnam.md": "2b2e4072a162",
+   "docs/design/suite-pixel.md": "bbfd8d899dda",
+   "docs/progress/graphics.md": "5cc49dae1257",
+   "docs/progress/tools.md": "59fa40bbade7",
+   "docs/progress/yharnam.md": "48e2247af437",
    "tools/cutout2mesh.py": "a2a57f9737c1",
    "tools/img2mesh.py": "db3364221d4a"
   }
@@ -765,8 +765,8 @@
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "2e65909fce9a",
-    "it": "989b295b1869",
+    "en": "720cdc0056aa",
+    "it": "b2ab3478731d",
     "title": "The map editor"
    },
    "6": {
@@ -791,10 +791,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "7a27e161fc74",
+   "carts/editor/main.lua": "b7a9731d8bb8",
    "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
-   "docs/progress/tools.md": "56f590f44203",
+   "docs/progress/tools.md": "59fa40bbade7",
    "sdk/README.md": "70140108556f"
   }
  },
