@@ -26,12 +26,16 @@ KINDS = [('house7', 'house', 'H7'), ('house8', 'house', 'H8'), ('chapel', 'house
          ('coffin', 'thing', 'CO'), ('cage', 'thing', 'CA'), ('bollard', 'thing', 'BO'),
          ('carriage', 'thing', 'CG'), ('roof', 'house', None),
          ('shrine', 'fire', 'SH'), ('barricade', 'thing', 'BA'), ('gate', 'thing', 'GA'),
-         ('boss', 'grave', 'BS')]
+         ('boss', 'grave', 'BS'),
+         ('wall_h', 'thing', 'W-'), ('wall_v', 'thing', 'W|'), ('rocks', 'thing', 'RK'), ('treeline', 'plant', 'TL'),
+         ('iron_gate_h', 'thing', 'I-'), ('iron_gate_v', 'thing', 'I|'), ('passage_h', 'thing', 'P-'),
+         ('passage_v', 'thing', 'P|'), ('deadfall', 'plant', 'DF')]
 
 # letters of 3 x 5 pixels
 FONT = {
     'A': ('.x.', 'x.x', 'xxx', 'x.x', 'x.x'), 'B': ('xx.', 'x.x', 'xx.', 'x.x', 'xx.'),
-    'C': ('.xx', 'x..', 'x..', 'x..', '.xx'), 'E': ('xxx', 'x..', 'xx.', 'x..', 'xxx'),
+    'C': ('.xx', 'x..', 'x..', 'x..', '.xx'), 'D': ('xx.', 'x.x', 'x.x', 'x.x', 'xx.'),
+    'I': ('xxx', '.x.', '.x.', '.x.', 'xxx'), 'K': ('x.x', 'x.x', 'xx.', 'x.x', 'x.x'), 'E': ('xxx', 'x..', 'xx.', 'x..', 'xxx'),
     'F': ('xxx', 'x..', 'xx.', 'x..', 'x..'), 'G': ('.xx', 'x..', 'x.x', 'x.x', '.xx'),
     'H': ('x.x', 'x.x', 'xxx', 'x.x', 'x.x'), 'L': ('x..', 'x..', 'x..', 'x..', 'xxx'),
     'M': ('x.x', 'xxx', 'xxx', 'x.x', 'x.x'), 'O': ('.x.', 'x.x', 'x.x', 'x.x', '.x.'),
@@ -64,3 +68,11 @@ def tag(family, letters, band=False):
 
 
 TILES = {k: tag(f, t, k == 'roof') for k, f, t in KINDS}
+
+# kind -> name in the game's SPR atlas (main.lua): the sprite the SDK draws over the placeholder
+PREVIEW = {k: k for k in ('tree', 'bush', 'lamp', 'brazier', 'pyre', 'mausoleum', 'angel', 'fountain', 'well', 'bench',
+                          'crates', 'coffin', 'cage', 'bollard', 'carriage', 'shrine',
+                          'wall_h', 'wall_v', 'rocks', 'iron_gate_h', 'iron_gate_v', 'passage_h', 'passage_v',
+                          'deadfall')}
+PREVIEW.update({'grave': 'grave_cross', 'fence_h': 'fence_x', 'fence_v': 'fence_y', 'barricade': 'crates',
+                'gate': 'crates', 'treeline': 'tree2'})

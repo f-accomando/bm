@@ -566,6 +566,125 @@ def _scatter(a, n, rad, size, mat, seed, z=0.35, group='plank', spread=0.9):
           mat, '%s%d' % (group, k), tex=tex_planks(0, 1.6, seed=k))
 
 
+def wall(axis='x', crack=False):
+    """a length of brick wall with coping stones: 16 px along its axis, no overhang, so the tiles meet with no gap.
+    crack: a dark split runs from the top down (a passage that can be opened)"""
+    m = Model()
+    a = m.add
+    L = 4.0 if axis == 'x' else 8.0             # half length: 8 units across the screen, 16 along the depth
+    T = 1.7                                     # half thickness
+    rot = (lambda q: q) if axis == 'x' else (lambda q: np.stack([q[:, 1], q[:, 0], q[:, 2]], 1))
+
+    def body(q):
+        r = rot(q)
+        d = sd_box(r - np.array([0, 0, 10.5]), (L, T, 10.5))
+        if crack:                               # a jagged split: it leans and narrows towards the ground
+            x, z = r[:, 0] - (0.4 + 0.5 * np.sin(r[:, 2] * 0.9)) - (r[:, 2] - 10.0) * 0.08, r[:, 2]
+            d = np.maximum(d, -(np.maximum(np.abs(x) - 0.3 - z * 0.05, np.abs(r[:, 1]) - T - 1.0)))
+        return d
+    a('root', body, BRICK, 'wall', brick_mat)
+    a('root', lambda q: sd_box(rot(q) - np.array([0, 0, 0.5]), (L, T + 0.35, 0.5)), STONE, 'foot')
+    for k in range(2):                          # the coping: two stones, flat at the ends
+        x = (k - 0.5) * L
+        a('root', (lambda x: lambda q: sd_box(rot(q) - np.array([x, 0, 21.7]), (L / 2 - 0.12, T + 0.55, 0.7)))(x),
+          STONE, 'coping%d' % k)
+    if crack:
+        a('root', lambda q: sd_box(rot(q) - np.array([0.4, 0, 11.0]), (0.25, 0.4, 7.5)), DGLASS, 'gap')
+    return m, ((0, 0, 11), 13 if axis == 'x' else 15), (32, 48, 16, 40)
+
+
+def wall_rubble(axis='x', seed=2):
+    """what is left of a wall that was broken open: low heaps of brick and stone"""
+    m = Model()
+    a = m.add
+    rng = np.random.default_rng(seed)
+    L = 4.0                                     # a heap, not a full tile: low in both directions
+    rot = (lambda q: q) if axis == 'x' else (lambda q: np.stack([q[:, 1], q[:, 0], q[:, 2]], 1))
+    a('root', lambda q: sd_box(rot(q) - np.array([0, 0, 0.5]), (L, 2.0, 0.5)), STONE, 'foot')
+    for k in range(7):
+        x = -L + (k + 0.5) * 2 * L / 7 + rng.uniform(-0.5, 0.5)
+        y = rng.uniform(-1.6, 1.6)
+        sz = (rng.uniform(0.9, 1.6), rng.uniform(0.8, 1.3), rng.uniform(0.7, 1.4))
+        yaw = rng.uniform(0, 3)
+        mat = BRICK if k % 2 else STONE
+        z = 1.0 + sz[2] * (k % 3 == 0)
+        c = (x, y, z) if axis == 'x' else (y, x, z)
+        a('root', _plank(c, sz, yaw, rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3)), mat, 'rub%d' % k)
+    return m, ((0, 0, 2), 9), (32, 24, 16, 16)
+
+
+def iron_gate(axis='x', spikes=True):
+    """a closed gate of iron bars with spiked tops, 16 px along its axis, with a stone sill"""
+    m = Model()
+    a = m.add
+    L = 4.0 if axis == 'x' else 8.0
+    rot = (lambda q: q) if axis == 'x' else (lambda q: np.stack([q[:, 1], q[:, 0], q[:, 2]], 1))
+    n = 4 if axis == 'x' else 8
+    for k in range(n):
+        x = -L + (k + 0.5) * 2 * L / n
+        a('root', (lambda x: lambda q: sd_cyl(rot(q), (x, 0), 0.38, 0, 21.0))(x), IRON, 'bar%d' % k)
+        a('root', (lambda x: lambda q: sd_cone(rot(q) - np.array([x, 0, 0]), 21.0, 24.0, 0.85, 0.05))(x), IRON,
+          'bar%d' % k)
+    for z in (4.0, 12.0, 19.0):
+        a('root', (lambda z: lambda q: sd_box(rot(q) - np.array([0, 0, z]), (L, 0.45, 0.55)))(z), IRON, 'rail')
+    a('root', lambda q: sd_box(rot(q) - np.array([0, 0, 0.7]), (L, 1.5, 0.7)), STONE, 'sill')
+    return m, ((0, 0, 12), 14), (32, 48, 16, 40)
+
+
+def iron_gate_open(axis='x'):
+    """the gate swung open: the sill, and two leaves folded back at its ends"""
+    m = Model()
+    a = m.add
+    L = 4.0                                     # the sill and the folded leaves: low in both directions
+    rot = (lambda q: q) if axis == 'x' else (lambda q: np.stack([q[:, 1], q[:, 0], q[:, 2]], 1))
+    a('root', lambda q: sd_box(rot(q) - np.array([0, 0, 0.7]), (L, 1.5, 0.7)), STONE, 'sill')
+    for sx in (-1, 1):                          # a leaf folded flat against the sill: bars lying on the ground
+        for k in range(3):
+            y = -1.0 + k * 1.0
+            a('root', (lambda sx, y: lambda q: sd_capsule(rot(q), (sx * (L - 0.6), y, 1.8), (sx * (L * 0.35), y, 1.8),
+                                                         0.3))(sx, y), IRON, 'leaf')
+    return m, ((0, 0, 1.5), 9), (32, 24, 16, 16)
+
+
+def rocks(seed=0):
+    """a heap of boulders"""
+    m = Model()
+    a = m.add
+    rng = np.random.default_rng(seed)
+    spec = [(-2.4, 0.6, 2.8, 2.4, 3.0), (2.4, -0.4, 2.6, 2.2, 2.6), (0.0, 1.8, 2.2, 2.0, 3.6), (0.2, -1.6, 2.0, 1.8, 2.2)]
+    for k, (x, y, rx_, ry_, rz_) in enumerate(spec):
+        r = np.array([rx_, ry_, rz_]) * rng.uniform(0.9, 1.1)
+        a('root', (lambda x, y, r, k: lambda q: sd_ellipsoid(q - np.array([x, y, r[2] * 0.8]), tuple(r)) +
+                   0.3 * np.sin(q[:, 0] * 1.7 + k) * np.sin(q[:, 1] * 1.4 - k))(x, y, r, k),
+          STONE if k % 2 == 0 else GSTONE, 'rock%d' % k)
+    a('root', lambda q: sd_ellipsoid(q - np.array([-0.6, 0.6, 0.4]), (4.8, 3.6, 0.4)), MOSS, 'moss')
+    return m, ((0, 0, 3), 10), (40, 32, 20, 24)
+
+
+def deadfall(seed=1):
+    """felled trunks piled across the path"""
+    m = Model()
+    a = m.add
+    for k, (y, z, dz) in enumerate(((-2.0, 1.9, 0.3), (1.9, 1.9, -0.2))):
+        a('root', (lambda y, z, dz: lambda q: sd_capsule(q, (-3.4, y, z + dz), (3.4, y + dz, z - dz), 1.9))(y, z, dz),
+          BARK, 'log%d' % k)
+    a('root', lambda q: sd_capsule(q, (-3.0, -0.6, 5.7), (3.2, 1.0, 5.2), 1.7), BARK, 'log2')
+    a('root', lambda q: sd_capsule(q, (-1.6, -2.0, 4.0), (2.4, 3.0, 8.0), 0.8), BARK, 'limb0')
+    a('root', lambda q: sd_capsule(q, (0.6, 0.4, 6.6), (-2.4, 2.0, 10.6), 0.6), BARK, 'limb1')
+    return m, ((0, 0, 5), 10), (40, 40, 20, 30)
+
+
+def deadfall_broken():
+    """the trunks cut and rolled aside: short low pieces"""
+    m = Model()
+    a = m.add
+    a('root', lambda q: sd_capsule(q, (-5.0, -2.4, 1.1), (-1.4, -2.0, 1.0), 1.1), BARK, 'p0')
+    a('root', lambda q: sd_capsule(q, (1.6, 2.4, 1.1), (5.0, 1.6, 1.0), 1.1), BARK, 'p1')
+    a('root', lambda q: sd_capsule(q, (-2.0, 1.0, 0.7), (1.2, 0.4, 0.7), 0.7), BARK, 'p2')
+    a('root', lambda q: sd_capsule(q, (2.0, -2.0, 0.6), (4.6, -3.4, 0.6), 0.6), BARK, 'p3')
+    return m, ((0, 0, 1.5), 8), (40, 24, 20, 16)
+
+
 def barrel_broken():
     m = Model()
     a = m.add
@@ -690,6 +809,20 @@ PROPS = {
     'bench_broken': bench_broken,
     'coffin_broken': lambda: coffin_broken(0),
     'coffin_up_broken': lambda: coffin_broken(3),
+    'wall_h': lambda: wall('x'),
+    'wall_v': lambda: wall('y'),
+    'rocks': lambda: rocks(0),
+    'rocks2': lambda: rocks(5),
+    'iron_gate_h': lambda: iron_gate('x'),
+    'iron_gate_v': lambda: iron_gate('y'),
+    'iron_gate_h_open': lambda: iron_gate_open('x'),
+    'iron_gate_v_open': lambda: iron_gate_open('y'),
+    'passage_h': lambda: wall('x', True),
+    'passage_v': lambda: wall('y', True),
+    'passage_h_open': lambda: wall_rubble('x', 2),
+    'passage_v_open': lambda: wall_rubble('y', 3),
+    'deadfall': deadfall,
+    'deadfall_broken': deadfall_broken,
 }
 
 
@@ -704,6 +837,9 @@ SCALE = {
     'shrine': 1.5, 'shrine_lit': 1.5,
     'barrel_broken': 2.0, 'crate_broken': 2.0, 'crates_broken': 2.0, 'bench_broken': 2.2, 'coffin_broken': 2.6,
     'coffin_up_broken': 2.6,
+    'wall_h': 2.0, 'wall_v': 2.0, 'rocks': 2.0, 'rocks2': 2.0, 'iron_gate_h': 2.0, 'iron_gate_v': 2.0,
+    'iron_gate_h_open': 2.0, 'iron_gate_v_open': 2.0, 'passage_h': 2.0, 'passage_v': 2.0,
+    'passage_h_open': 2.0, 'passage_v_open': 2.0, 'deadfall': 2.0, 'deadfall_broken': 2.0,
 }
 
 

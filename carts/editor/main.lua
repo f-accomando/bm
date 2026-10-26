@@ -1680,6 +1680,10 @@ do
   local big, mini, zoom = false, false, 8
   local used, used_mode, used_rev = {}, false, -1
   local cell_col, row_runs, col_rev = {}, {}, -1
+  -- preview: the real sprite over each placeholder of the layer "objects" that has a zone "pv<cell>"
+  -- (cached per edit); pv_ext: the tallest of them, in cells
+  local preview = true
+  local pv_cache, pv_rev, pv_ext = {}, -1, 0
   local m_undo, m_stroke = {}, nil
   local VIEW_Y = 48
   local function view_cw() return W // 8 end
@@ -1758,6 +1762,28 @@ do
     col = n > 0 and ((r // n) << 16 | (g // n) << 8 | (b // n)) or false
     cell_col[c] = col
     return col or nil
+  end
+
+  -- the zone "pv<v>" as { x, y, w, h }, or false; resets the cache (and pv_ext) when the cart was edited
+  local function preview_of(v)
+    if pv_rev ~= S.edits then
+      pv_cache, pv_rev, pv_ext = {}, S.edits, 0
+      local maxh = 0
+      for _, n in ipairs(zones()) do
+        if n:match("^pv%d+$") then
+          local _, _, _, h = zone(n)
+          if h and h > maxh then maxh = h end
+        end
+      end
+      pv_ext = min(16, (maxh + 7) // 8)
+    end
+    local p = pv_cache[v]
+    if p == nil then
+      local x, y, w, h = zone("pv" .. v)
+      p = x and { x, y, w, h } or false
+      pv_cache[v] = p
+    end
+    return p
   end
 
   -- horizontal runs { x0, len, col } for map row y (cached per edit and layer mode)
@@ -2245,6 +2271,7 @@ do
     elseif a == "layer" then next_layer()
     elseif a == "newlayer" then next_layer(true)
     elseif a == "only" then only = not only; say(only and "this layer only" or "every layer")
+    elseif a == "preview" then preview = not preview; say(preview and "sprite previews on" or "sprite previews off")
     elseif a == "flags" then show_flags = not show_flags; say(show_flags and "the flags of the tiles (fget)" or "flags hidden")
     elseif a == "mini" then
       if zoom == 1 then
@@ -2394,6 +2421,25 @@ do
           print("+ / - : zoom in / out", lx, VIEW_Y + 68, C.DIM)
           print("m     : back to 1:1 (8 px)", lx, VIEW_Y + 84, C.DIM)
           print("click : jump & paint", lx, VIEW_Y + 100, C.DIM)
+        end
+      end
+    end
+    if preview and zoom >= 8 then             -- the sprite of each placeholder, on its tile's bottom centre
+      local oi
+      for i, n in ipairs(names) do if n == "objects" then oi = i end end
+      if oi and (not only or layer == oi) then
+        preview_of(0)                          -- (fills pv_ext after an edit)
+        if pv_ext > 0 then
+          for cy = 0, ch - 1 + pv_ext do
+            for cx = 0, cw - 1 do
+              local v = mget(vx0 + cx, vy0 + cy, oi)
+              local p = v > 0 and preview_of(v)
+              if p then
+                local dw, dh = p[3] * zoom // 8, p[4] * zoom // 8
+                sspr(p[1], p[2], p[3], p[4], cx * zoom + zoom - dw // 2, VIEW_Y + cy * zoom + 2 * zoom - dh, dw, dh)
+              end
+            end
+          end
         end
       end
     end
@@ -2624,6 +2670,7 @@ do
               mx, my, vx0, vy0, m_undo, m_stroke, picking = 0, 0, 0, 0, {}, nil, false
               layer, only, show_flags, big, mini, zoom = 1, false, false, false, false, 8
               used, used_mode, used_rev, col_rev = {}, false, -1, -1
+              preview, pv_cache, pv_rev, pv_ext = true, {}, -1, 0
               tool_mode, tool_p1, path_width, obj_rev, terrain = nil, nil, 1, -1, nil
             end }
 end
@@ -3277,7 +3324,7 @@ local function page_key(k)
     if k ~= " " then P.sprite.stop() end
   else
     local a = ({ ["+"] = "zoom_in", ["="] = "zoom_in", ["-"] = "zoom_out", l = "layer", L = "newlayer", o = "only",
-                 c = "flags", m = "mini", t = "terrain", home = "pgleft", ["end"] = "pgright",
+                 c = "flags", p = "preview", m = "mini", t = "terrain", home = "pgleft", ["end"] = "pgright",
                  v = "view3d", r = "rename_layer", R = "rename_layer", T = "map3d_template",
                  P = "tool_path", W = "cycle_width", A = "tool_apples", C = "tool_crates", O = "tool_lamps",
                  S = "tool_start", G = "tool_goal" })[k] or SPRITE_KEYS[k]

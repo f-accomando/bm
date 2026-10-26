@@ -126,12 +126,20 @@ frame x y w h`, or `box kind frame x y w h` for a kind of the game; the names `h
 `map_<name>.csv` (in order with `layers_<game> := name ...` in the `Makefile`),
 `flags.csv` and `sprites.txt` in the game's folder are enough. On the console, on the
 SDK's map page `l` goes to the next layer, Shift+L adds one (also from the menu, *New map
-layer*), `o` shows that one alone, `c` the flags of the tiles; on the sprite page keys
+layer*), `o` shows that one alone, `c` the flags of the tiles, `p` the sprite previews; on the sprite page keys
 `0`–`7` turn the cell's flags on; bm Pixel and `scripts/bmres.py` make zones (`bmres.py`
 carries the boxes with their zones). `cart_save` and `cart_load` carry layers, flags, zones
 and boxes with the cartridge. Format: the LAYERS (12), FLAGS (13), SPRITES (11) and BOXES
 (14) sections in `src/bm/bm.h`; a kernel of before draws the first layer and ignores the
 rest.
+
+Sprite previews: the map page can draw a real sprite over a placeholder tile. The layer must be
+named `objects`. Name a zone `pv<cell>`, where `<cell>` is the number of the placeholder's tile
+(its first 8x8 cell on the sheet). The zone is the sprite's rectangle on the sheet. The page draws
+the sprite with its bottom centre on the bottom centre of the 16x16 tile. Key `p` turns the
+previews on and off (they start on). The previews show at zoom 1:1 and 2x, and only when `o` is
+off or the layer `objects` is the layer you edit. Yharnam's `mkassets.py` writes these zones
+into `sprites.txt`.
 
 The map comes from `--map map.csv` (one row of comma-separated numbers per row of the
 map; each number is a cell of the sheet). Without a map it is 256×256 empty cells, one

@@ -31,6 +31,7 @@ import ast
 import hashlib
 import os
 import pickle
+import re
 import sys
 from multiprocessing import Pool
 
@@ -144,6 +145,26 @@ def place_line(place):
     return 'local PLACE = { %s }' % ', '.join('%s = %d' % (k, v) for k, v in place.items())
 
 
+def write_preview(place, spr, out=None):
+    """assets/sprites.txt, the zones of the SDK's sprite preview: one "pv<cell> x y w h" per kind of placeholder
+    (places.PREVIEW), cell = its tile's first map cell, x y w h = the sprite's box on the sheet (SPR[name][:4]).
+    The map page draws zone("pv" .. cell) over each placeholder of the layer "objects". A kind whose sprite is
+    not in spr (an atlas older than props.py) is left out."""
+    lines = ['# written by mkassets.py: do not edit by hand',
+             '# pv<cell> x y w h: the sprite the SDK draws over the placeholder whose tile is <cell>']
+    skip = []
+    for kind, name in places.PREVIEW.items():
+        if kind not in place:
+            skip.append(kind)
+        elif name not in spr:
+            skip.append('%s (%s)' % (kind, name))
+        else:
+            lines.append('pv%d %d %d %d %d' % ((place[kind],) + tuple(int(v) for v in spr[name][:4])))
+    path = out or os.path.join(ASSETS, 'sprites.txt')
+    open(path, 'w').write('\n'.join(lines) + '\n')
+    print('sprites.txt: %d previews%s' % (len(lines) - 2, ', left out: ' + ', '.join(skip) if skip else ''))
+
+
 def places_only():
     """the placeholders into the sheet.png and the atlas there are, where the whole run puts them: the tiles
     after the roofs (the same numbering as tile() in main()), the frames and the palette untouched"""
@@ -174,6 +195,9 @@ def places_only():
     at = next(i for i, l in enumerate(atlas) if l.startswith('local FIRE_ANIM = {'))
     atlas.insert(at, place_line(place))
     open(os.path.join(GAME, 'main.lua'), 'w').write(src[:a] + '\n'.join(atlas) + src[b:])
+    spr = {m.group(1): [int(v) for v in m.group(2).split(',')] for m in
+           re.finditer(r'^  (\w+) = \{ ([\d, ]+) \},?$', src[src.index('local SPR = {'):b].split('\n}')[0], re.M)}
+    write_preview(place, spr)
     print('sheet.png and main.lua: %d placeholders from tile %d (cell %d)' % (len(place), n0, min(place.values())))
 
 
@@ -370,6 +394,7 @@ def main():
     b = src.index('-- [atlas end]') + len('-- [atlas end]')
     open(path, 'w').write(src[:a] + '\n'.join(out) + src[b:])
     print('main.lua: atlas written')
+    write_preview(place, spr)
 
 
 if __name__ == '__main__':
