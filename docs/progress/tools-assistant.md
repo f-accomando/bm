@@ -57,7 +57,7 @@ Split from [tools](tools.md); open work and rules stay there.
   a unit or gameplay object stays where its placeholder is, goes without it, and a placeholder no
   unit took makes one (hash of its tile). `ch.kind` (road, pave, grass) is derived from the drawn
   ground tiles in `map_ground.csv` so creature spawning follows edits made in the SDK. Beyond the
-  edge lies the ring (`MAP.ring`). `carts/yharnam/build/mkmap.py` makes the first map from the plan
+  edge lies the ring (`MAP.ring`; the camera stops at the edge, there is no mist since 26 Oct; the edge and the area borders are walls, tree lines and gates, see [yharnam](yharnam.md)). The kinds `wall_h`, `wall_v`, `rocks`, `treeline`, `iron_gate_h`, `iron_gate_v`, `passage_h`, `passage_v` and `deadfall` are appended to `KINDS`; `mkassets.py` writes `assets/sprites.txt` (zones `pv<cell>`) for the SDK's sprite previews. `carts/yharnam/build/mkmap.py` makes the first map from the plan
   (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the drawn one), takes it back
   (`--from YHARNAM.BME`), draws it (`--png`).
 - `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
