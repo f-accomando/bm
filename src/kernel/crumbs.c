@@ -271,6 +271,7 @@ void crumbs_clean_exit(void)
 void crumbs_restart(int halt)
 {
     wifi_leave();
+    watchdog_run_before_reboot();       /* the log to the SD: while the run still counts as running */
     crumbs_clean_exit();
     uart_flush();
     if (halt)

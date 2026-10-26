@@ -318,32 +318,51 @@ int lan_take(uint8_t **data, size_t *len, lan_offer_t *o)
 
 /* ---------------------------------------------------------------- on, off */
 
+static int start_error;
+
+int lan_last_error(void)
+{
+    return start_error;
+}
+
+/* the step that failed, times 100, plus lwIP's error number (0 when the step has none) */
+static int start_failed(int step, err_t e)
+{
+    start_error = step * 100 + (e < 0 ? -e : 0);
+    if (listener)
+        tcp_close(listener);
+    if (hello_pcb)
+        udp_remove(hello_pcb);
+    hello_pcb = NULL;
+    listener = NULL;
+    return -1;
+}
+
 int lan_start(const char *name)
 {
     if (hello_pcb)
         return 0;
     snprintf(my_name, sizeof my_name, "%s", name);
+    start_error = 0;
     hello_pcb = udp_new();
+    if (!hello_pcb)
+        return start_failed(1, 0);                       /* no UDP block left */
     listener = tcp_new();
-    if (!hello_pcb || !listener || udp_bind(hello_pcb, IP_ADDR_ANY, LAN_HELLO_PORT) != ERR_OK ||
-        tcp_bind(listener, IP_ADDR_ANY, LAN_PORT) != ERR_OK) {
-        if (listener)
-            tcp_close(listener);
-        if (hello_pcb)
-            udp_remove(hello_pcb);
-        hello_pcb = NULL;
-        listener = NULL;
-        return -1;
-    }
+    if (!listener)
+        return start_failed(2, 0);                       /* no TCP block left */
+    err_t e = udp_bind(hello_pcb, IP_ADDR_ANY, LAN_HELLO_PORT);
+    if (e != ERR_OK)
+        return start_failed(3, e);
+    /* a game received a moment ago leaves its connection in TIME_WAIT on this port for 2 minutes: the
+     * listener may share it (the connection takes the option from the listener, SO_REUSE in lwipopts.h) */
+    ip_set_option(listener, SOF_REUSEADDR);
+    e = tcp_bind(listener, IP_ADDR_ANY, LAN_PORT);
+    if (e != ERR_OK)
+        return start_failed(4, e);
     udp_recv(hello_pcb, on_hello, NULL);
     struct tcp_pcb *l = tcp_listen(listener);
-    if (!l) {
-        tcp_close(listener);
-        udp_remove(hello_pcb);
-        hello_pcb = NULL;
-        listener = NULL;
-        return -1;
-    }
+    if (!l)
+        return start_failed(5, 0);                       /* no listening block left */
     listener = l;
     tcp_accept(listener, on_accept);
     hello_at = timer_ticks() - HELLO_US;    /* the first hello at once */

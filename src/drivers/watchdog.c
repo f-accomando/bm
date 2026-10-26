@@ -1,4 +1,5 @@
 #include "watchdog.h"
+#include <stddef.h>
 #include "arch/cache.h"
 #include "mmio.h"
 #include "prop.h"
@@ -120,10 +121,17 @@ void watchdog_before_reboot(void (*fn)(void))
     before_reboot = fn;
 }
 
+void watchdog_run_before_reboot(void)
+{
+    void (*fn)(void) = before_reboot;
+    before_reboot = NULL;                       /* once: crumbs_restart runs it first, watchdog_reboot again */
+    if (fn)
+        fn();
+}
+
 void watchdog_reboot(void)
 {
-    if (before_reboot)
-        before_reboot();
+    watchdog_run_before_reboot();
     dmb();
     mmio_write(PM_WDOG, PM_PASSWORD | 10);      /* ~150 us */
     mmio_write(PM_RSTC, PM_PASSWORD

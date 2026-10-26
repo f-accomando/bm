@@ -85,22 +85,9 @@ void sdlog_lastrun(void)
     kprintf("restarting: this run's log in bm/lastrun.txt\n");
     const char *log = klog_text();
     size_t n = strlen(log);
-    char *buf = NULL;
-    if (n >= 60 * 1024) {                       /* the log is full: its end from the ring */
-        static const char cut[] = "\n--- (the log is full) the last lines printed ---\n";
-        buf = malloc(n + sizeof cut + 4096 + 1);
-        if (buf) {
-            memcpy(buf, log, n);
-            memcpy(buf + n, cut, sizeof cut - 1);
-            n += sizeof cut - 1;
-            n += crumbs_ring_copy(buf + n, 4096 + 1);
-        }
-    } else {
-        buf = malloc(n + 1);
-        if (buf) {
-            memcpy(buf, log, n + 1);
-        }
-    }
+    char *buf = malloc(n + 1);              /* the log keeps the last lines (printf.c bootlog_trim) */
+    if (buf)
+        memcpy(buf, log, n + 1);
     if (!buf) {
         kprintf("cannot write bm/lastrun.txt (no memory)\n");
         return;

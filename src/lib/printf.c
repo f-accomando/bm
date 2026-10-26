@@ -2,6 +2,7 @@
 #include "drivers/uart.h"
 
 #include <stdint.h>
+#include <string.h>
 
 static int emit_padded(putc_fn out, void *ctx, const char *s, int len,
                        int width, int left, char pad)
@@ -144,7 +145,7 @@ void kprintf_set_tap(void (*tap)(char c))
 }
 
 /* Everything printed since boot, without the colour escapes, for the
- * monitor's 'o' (the first 64 KB). */
+ * monitor's 'o': the first 12 KB and the last lines, 64 KB in all (bootlog_trim). */
 #define BOOTLOG_SIZE (64 * 1024)
 static char bootlog[BOOTLOG_SIZE];
 static unsigned bootlog_len;
@@ -166,6 +167,39 @@ void *klog_ring_get(void)
     return (void *)log_ring;
 }
 
+/* The log is 64 KB. When it is full the oldest lines after the boot go, so a report shows how the run ended and
+ * not only how it began (26 Oct 2026: the log was full after the first minutes of a 3 hour run). The first
+ * BOOTLOG_HEAD bytes stay (the kernel, the board, the network); a marker line says where lines are left out. */
+#define BOOTLOG_HEAD 12288
+#define BOOTLOG_DROP 16384
+static unsigned bootlog_cut_at;             /* 0, or where the lines after the marker begin */
+static const char bootlog_cut[] = "--- (older lines left out) ---\n";
+
+static unsigned line_end(unsigned from)     /* the first byte after the next newline at or after `from` */
+{
+    while (from < bootlog_len && bootlog[from] != '\n')
+        from++;
+    return from < bootlog_len ? from + 1 : bootlog_len;
+}
+
+static void bootlog_trim(void)
+{
+    const unsigned n = sizeof bootlog_cut - 1;
+    if (!bootlog_cut_at) {
+        const unsigned head = line_end(BOOTLOG_HEAD);
+        const unsigned drop_end = line_end(head + BOOTLOG_DROP);          /* more than n bytes go */
+        memmove(bootlog + head + n, bootlog + drop_end, bootlog_len - drop_end);
+        memcpy(bootlog + head, bootlog_cut, n);
+        bootlog_len = head + n + (bootlog_len - drop_end);
+        bootlog_cut_at = head + n;
+    } else {
+        const unsigned drop_end = line_end(bootlog_cut_at + BOOTLOG_DROP);
+        memmove(bootlog + bootlog_cut_at, bootlog + drop_end, bootlog_len - drop_end);
+        bootlog_len -= drop_end - bootlog_cut_at;
+    }
+    bootlog[bootlog_len] = 0;
+}
+
 static void bootlog_putc(char c)
 {
     if (bootlog_esc) {                          /* ESC [ ... letter */
@@ -182,7 +216,7 @@ static void bootlog_putc(char c)
     if (log_ring)
         log_ring(c);
     if (bootlog_len + 1 >= BOOTLOG_SIZE)
-        return;
+        bootlog_trim();
     bootlog[bootlog_len++] = c;
     bootlog[bootlog_len] = 0;
 }

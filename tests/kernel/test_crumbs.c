@@ -8,6 +8,7 @@
  */
 #include "../../src/kernel/crumbs.c"
 
+#include <setjmp.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -26,8 +27,11 @@ const char bm_version_tag[] = "bmVER=testver";
 void dcache_clean_range(const volatile void *addr, uint32_t len) { (void)addr; (void)len; }
 void uart_putc(char c) { (void)c; }
 void uart_flush(void) {}
+static jmp_buf restart_jmp;
+static int hook_ran, magic_at_hook = -1, reboots;
 void watchdog_halt(void) { for (;;) ; }
-void watchdog_reboot(void) { for (;;) ; }
+void watchdog_reboot(void) { reboots++; longjmp(restart_jmp, 1); }
+void watchdog_run_before_reboot(void) { hook_ran = 1; magic_at_hook = cr.magic == MAGIC; }
 void watchdog_progress(void) {}
 void wifi_leave(void) {}
 
@@ -84,6 +88,15 @@ int main(void)
     ring_putc('z');
     crumb_tick(900);
     check(cr.ring_at == at_crash, "after the crash flush leaves the ring state alone");
+
+    /* a planned restart: the log goes to the SD (the hook) while the run still counts as running, then the run is
+     * marked as ended; a hang inside the hook is a freeze report, not a lost clean end */
+    cr.magic = MAGIC;
+    if (setjmp(restart_jmp) == 0)
+        crumbs_restart(0);
+    check(reboots == 1 && hook_ran, "crumbs_restart runs the before-reboot hook and then resets");
+    check(magic_at_hook == 1, "the hook runs before the run is marked as ended");
+    check(cr.magic == 0, "then the run is marked as ended");
 
     printf("crumbs: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;

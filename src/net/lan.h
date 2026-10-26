@@ -41,6 +41,9 @@ typedef struct {
 
 /* Hello and the server on, with this console's name; 0, or -1. */
 int  lan_start(const char *name);
+/* Why the last lan_start failed: step * 100 + lwIP's error number (1 no UDP block, 2 no TCP block, 3 UDP port, 4 TCP
+ * port, 5 no listening block); 0 after a start that worked. */
+int  lan_last_error(void);
 /* Everything off: a transfer in progress is dropped. */
 void lan_stop(void);
 int  lan_running(void);

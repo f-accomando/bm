@@ -3,6 +3,7 @@
  * watchdog only while the main code makes progress. The decision is watchdog_fresh(); this test
  * replays a boot and a hang with the real constant and a counter that wraps.
  */
+#include "../../src/drivers/mbox.h"
 #include "../../src/drivers/watchdog.h"
 
 #include <stdio.h>
@@ -73,6 +74,9 @@ int main(void)
     check(watchdog_fresh(0x00000100u, mark, L), "wrap: 4 ms after the mark is fresh");
     check(!watchdog_fresh(0x00000100u + L, mark, L), "wrap: past the limit is stale");
 
+    /* the firmware that does not answer: one or two timeouts are not a verdict, three in a row are (6 s) */
+    check(!mbox_is_dead(0) && !mbox_is_dead(1) && !mbox_is_dead(MBOX_DEAD_TIMEOUTS - 1), "one or two mailbox timeouts: alive");
+    check(mbox_is_dead(MBOX_DEAD_TIMEOUTS) && mbox_is_dead(10), "three mailbox timeouts in a row: dead");
     need_mark("src/kernel/fiber.c", "void fiber_slice(void)");
     need_mark("src/net/net.c", "int net_wait_step(void)");
     need_mark("src/net/netxfer.c", "static int keep_net(void)");

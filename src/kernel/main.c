@@ -41,6 +41,7 @@
 #include "crumbs.h"
 #include "kernel/sdlog.h"
 #include "reports.h"
+#include "drivers/mbox.h"
 #include "drivers/watchdog.h"
 #include "drivers/dma.h"
 #include "version.h"
@@ -130,6 +131,17 @@ static void memory_init(void)
     heap_init(mem_end);
     prop_clock_set_max(CLOCK_ARM);
     mmu_init(mem_end, sdram_end(mem_end));
+}
+
+/* The VideoCore firmware stopped answering (MBOX_DEAD_TIMEOUTS timeouts in a row): no mode change, no flip, the
+ * screen stays as it is while the network lives (26 Oct 2026, 3 hours after boot). Nothing here can revive it.
+ * The reset is not a planned one: the run is not marked as ended, so the next boot sends a freeze report with the
+ * last lines printed and this crumb. */
+static void firmware_dead(void)
+{
+    crumb("VideoCore firmware does not answer (mailbox)", NULL);
+    kprintf("\x1b[91mthe VideoCore firmware does not answer: restarting\x1b[0m\n");
+    watchdog_reboot();
 }
 
 static void pi_lastrun(void)
@@ -224,6 +236,7 @@ void kernel_main(uint32_t atags)
     }
     sdlog_prev();
     watchdog_before_reboot(pi_lastrun);
+    mbox_set_dead_hook(firmware_dead);
     sdlog_boot(0);
     {
         /* v3d_clock=max in bm/config.txt: the GPU at the highest clock the

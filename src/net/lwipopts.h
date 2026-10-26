@@ -31,6 +31,8 @@
 #define MEMP_MEM_MALLOC         1
 #define MEM_ALIGNMENT           4
 #define PBUF_POOL_SIZE          32
+/* a port in TIME_WAIT after a received game may be bound again (the listener of src/net/lan.c, SOF_REUSEADDR) */
+#define SO_REUSE                1
 #define MEMP_NUM_TCP_PCB        8
 #define MEMP_NUM_TCP_PCB_LISTEN 4
 #define MEMP_NUM_UDP_PCB        6

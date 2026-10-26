@@ -1156,17 +1156,35 @@ static void keep_received(uint8_t *d, size_t len, const lan_offer_t *o)
     say("%s received from %s", o->title, o->from);
 }
 
+/* When the listening cannot start it is tried again every 5 s, not every frame, and said once (26 Oct 2026: the
+ * message came every frame and filled the log, and the listening stayed off after a game received a moment ago). */
+#define LAN_RETRY_US 5000000u
+static int lan_retry_set, lan_fail_said;
+static uint32_t lan_retry_at;
+
 void market_lan(int on)
 {
     if (on && !lan_running() && net_ip()) {
-        char name[24];
-        lan_name(name, sizeof name);
-        if (lan_start(name) == 0)
-            kprintf("market: nearby consoles: listening as %s\n", name);
-        else
-            kprintf("market: cannot listen for nearby consoles\n");
-    } else if (!on && lan_running()) {
-        lan_stop();
+        const uint32_t now = timer_ticks();
+        if (!lan_retry_set || (int32_t)(now - lan_retry_at) >= 0) {
+            char name[24];
+            lan_name(name, sizeof name);
+            if (lan_start(name) == 0) {
+                kprintf("market: nearby consoles: listening as %s\n", name);
+                lan_retry_set = lan_fail_said = 0;
+            } else {
+                if (!lan_fail_said)
+                    kprintf("market: cannot listen for nearby consoles (lan error %d), trying again every 5 s\n",
+                            lan_last_error());
+                lan_fail_said = 1;
+                lan_retry_set = 1;
+                lan_retry_at = now + LAN_RETRY_US;
+            }
+        }
+    } else if (!on) {
+        lan_retry_set = lan_fail_said = 0;
+        if (lan_running())
+            lan_stop();
     }
     if (!lan_running())
         return;
