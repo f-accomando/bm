@@ -28,7 +28,7 @@ Starts when M and G are done. Step V0 is a review with the user; the later steps
 - V0 - Review. Measure where a frame spends time on the RGB30 (3D Bench `draws`, `spheres`, a game with Lua load). Choose from the list below and rank by the measured gain.
 - V1 - Graphics (CPU raster on four cores: done 26 Oct, see Open work). Left: the Mali draw build on workers (`frame_build_ex` by draw); the Mali queue fill on a worker.
 - V2 - Games: opt-in API for a game to post a pure job (`job_run(name, data)`) and read it back next frame (pathfinding, particles, mesh skinning). No shared Lua state: a worker never touches the Lua heap. Lockstep games (Overbit, bmnet) stay on one core.
-- V3 - Audio: mixer on a worker, so a long frame never starves the sound.
+- V3 - Audio: dropped (26 Oct). Measured on the console: the mixer costs 309 us for a 5333 us chunk with 8 voices (5.8% of core 0). A worker mixer would share the synth and player state with the game's API calls for that gain at most. Reopen if a game shows `stat(17)` above 15% of a frame.
 - V4 - Apps and system: Market download and SD write on a worker core (the SD driver lives on that core), cover decode, hashes, TLS handshakes. The menu pointer stays on core 0.
 - V5 - Scheduler policy and a `config.txt` key (`cores=1..4`), measured gain per workload in the docs.
 
