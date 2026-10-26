@@ -6,7 +6,7 @@ import numpy as np
 
 import foeparts as fp
 from foeparts import (BANDAGE, BELT, BLACK, BLOOD, BOOT, COAT_BLUE, COAT_BROWN, COAT_GREEN, DSTEEL, GREY_HAIR,
-                      HAIR, LEATHER, LINEN, SACK, SHAWL, SKIN, STEEL, TROUSERS)
+                      HAIR, LEATHER, LINEN, SACK, SHAWL, SKIN, STEEL, TROUSERS, WOOD)
 from rig import (DEATH, DEATH_BACK, HUMAN, HURT, POSE, Creature, keyed, pose, reach, skel_of, standing,
                  walk_cycle)
 from sdf import Model, hash2, sd_box, sd_ellipsoid, sd_roundcone
