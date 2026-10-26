@@ -1329,6 +1329,7 @@ assert((W + 2 * MARGIN - 1) // CPX + 2 <= RING and (H + 2 * MARGIN - 1) // CPX +
 local floor, sin, cos, sqrt, abs, min, max = math.floor, math.sin, math.cos, math.sqrt, math.abs, math.min, math.max
 local PI = math.pi
 
+--@module numbers
 ----------------------------------------------------------------- numbers
 
 local function hash(a, b, c)
@@ -1357,6 +1358,7 @@ local function pick(r, t) return t[floor(r() * #t) + 1] end
 local function key2(a, b) return a * 1000003 + b end
 local function fdiv(a, b) return floor(a) // b end   -- an integer, from pixels that may not be
 
+--@module plan
 ----------------------------------------------------------------- the street plan
 -- Streets run between the chunks, from corner to corner: every chunk is a
 -- block with a street on each side (a few are missing), winding, of its own
@@ -1772,6 +1774,7 @@ local function road_at(tx, ty, ne)
   return 0
 end
 
+--@module chunks
 ----------------------------------------------------------------- chunks
 
 local K_FREE, K_ROAD, K_WALK, K_HOUSE, K_YARD, K_GRASS, K_PATH = 0, 1, 2, 3, 4, 5, 6
@@ -2862,6 +2865,7 @@ local function stream()
   end
 end
 
+--@module hunter
 ----------------------------------------------------------------- the hunter
 
 local DIRS = { [-1] = { [-1] = 5, [0] = 4, [1] = 3 }, [0] = { [-1] = 6, [0] = 0, [1] = 2 },
@@ -2936,6 +2940,7 @@ local function place_player()
 end
 
 
+--@module particles
 ----------------------------------------------------------------- particles
 
 local parts = {}
@@ -3127,6 +3132,7 @@ local function update_parts()
   end
 end
 
+--@module sound
 ----------------------------------------------------------------- sound
 
 local function sfx_step() note(0, 70 + math.random(30), 45, NOISE, 22) end
@@ -3166,6 +3172,7 @@ local function update_sound(fire_near)
   end
 end
 
+--@module frame
 ----------------------------------------------------------------- the frame
 
 
@@ -3225,6 +3232,7 @@ local function forward(d)
   walk_by(v[1] * d, v[2] * d)
 end
 
+--@module actions
 ----------------------------------------------------------------- what the hunter does
 
 local function sfx_swing(heavy)
@@ -3421,6 +3429,7 @@ local function hurt(amount, heavy)
   end
 end
 
+--@module foes
 ----------------------------------------------------------------- the creatures of the night
 
 -- The creatures (FOES, drawn by mkassets.py in 5 directions: SW W NW are SE
@@ -5105,6 +5114,7 @@ function _update()
   update_parts()
 end
 
+--@module drawing
 ----------------------------------------------------------------- drawing
 
 local draw_map
