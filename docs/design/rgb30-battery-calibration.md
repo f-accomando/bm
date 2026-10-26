@@ -55,6 +55,14 @@ The console reports numbers to the `reports` branch without a serial line. Use t
 
 Kernel built on the merged `bm-core` (bridge gate commit) went to the console through the bridge, with `battery_log=1`. The charger came out at 83%, 4.04 V. The log is on the SD (`bm/bat00.csv` or the next free name). The bridge cannot read SD files, so the file is read from the card.
 
+## First data (2026-10-26, from `logs batNN` through the bridge)
+
+- Sign and scale: off the charger about -660 mA, and the counter falls about 11 mAh a minute (660 mA x 1 min = 11 mAh), so `RK817_SENSE_DIV = 1` is right. On the charger the current is positive (+830 mA first, falling to +510 mA at 4.21 V) and the counter rises.
+- The load of the first discharge segment (bat02, 6 minutes) is not known: the menu or a game. -660 mA is a lot for the menu and fits the 1 h run time the user saw (4100 mAh / 660 mA = 6.2 h in theory; the user saw 1 h for 30 min, so a game or WiFi drew more).
+- The counter has no absolute meaning (about 103800 mAh at start); use differences.
+- The log starts a new file at each game start (`play`); read the newest `batNN`.
+- Overbit title screen, started with `play` through the bridge, is the planned constant load; the console stayed on the charger, so the first run-down is still to do.
+
 ## Work items (in order)
 
 1. Run on the console: check the sign and scale of mA (plug the charger: mA must turn positive).
