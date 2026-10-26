@@ -454,6 +454,12 @@ yharnam-video: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharn
 yharnam-map: $(BUILD)/host/luahost
 	$(PYTHON) carts/yharnam/build/mkmap.py --luahost $<
 
+# Yharnam's map checks: the street plan as a drawn map, then the borders (walls, gates, lamps, bosses)
+test-yharnam: $(BUILD)/host/luahost
+	@mkdir -p $(BUILD)/yharnam-map
+	$< tests/yharnam/mapgen.lua carts/yharnam/main.lua $(BUILD)/yharnam-map
+	$< tests/yharnam/borders.lua carts/yharnam/main.lua
+
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 	@mkdir -p $(dir $@)
@@ -798,7 +804,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
         test-music music-model \
         test-fat test-fat-queue test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-monitor-cmd test-hyp test-zero2 \
-        showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
+        showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map test-yharnam \
         test-catalog test-github test-lan market-seed test-host test-anim-ease test-qemu test-vid
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)

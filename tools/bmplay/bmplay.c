@@ -165,7 +165,22 @@ static int l_lastinput(lua_State *L) { lua_pushstring(L, "pad"); return 1; }
 /* no typed keys on the PC's bot */
 static int l_keyp(lua_State *L) { lua_pushnil(L); return 1; }
 
-static int btn_index(lua_State *L) { return (int)luaL_checkinteger(L, 1); }
+/* a button is a number, or its name from docs/api/input.md; "ok" is A and "back" is B (the
+   RGB30 and keyboard mapping). An unknown name is -1: the button is never down */
+static int btn_index(lua_State *L)
+{
+    static const char *const names[] = { "left", "right", "up", "down", "a", "b", "x", "y",
+                                         "start", "select", "l1", "r1" };
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        const char *s = lua_tostring(L, 1);
+        if (!strcmp(s, "ok")) return 4;
+        if (!strcmp(s, "back")) return 5;
+        for (int i = 0; i < 12; i++)
+            if (!strcmp(s, names[i])) return i;
+        return -1;
+    }
+    return (int)luaL_checkinteger(L, 1);
+}
 
 static int l_btn(lua_State *L)
 {
