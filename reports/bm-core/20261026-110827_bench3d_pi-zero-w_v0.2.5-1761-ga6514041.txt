@@ -1,0 +1,92 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-1761-ga6514041
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-26 11:08:27
+file: 20261026-110827_bench3d_pi-zero-w_v0.2.5-1761-ga6514041.txt
+
+options bm3d 7.15 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=1 sort=0 attr=0 etc1=0 3d=arm later=0 2d=0 impostor=0 fast=0
+bm 3D Bench (Lua edition)
+drivers bm3d 7.15
+gpu bm3d 7.15 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes)
+probes before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+size 640x360 (the page and the render)
+vsprobe gpu3d_vshader=0 (0 none, 1 scenery, 2 heroes)
+options bm3d 7.15 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 attr=1 etc1=0 3d=gpu later=0 2d=1 impostor=32 fast=0 (at the start; each profile sets its own)
+counters none (a cartridge has no PMU: instr, wait_instr, dmiss, cycles, core_mhz, gpu_mhz are 0)
+previous none
+notes the frame is the runtime's stat(1) (_update + _draw, 3D included), not the copy to the screen; the ramp has 1 warm and 3 measured frames a step and n grows by half of n; the logic of herotris and stress is 15 Lua steps a thousand of b3d.c's (an estimate); models are cartridge models (texture light of a map piece is one per face); the overlay line is inside the measured frame
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us
+R,spheres,ARM,0.2,50.2,154.6,0,14.8,15.3,4032,1629,2352,144998,0,0.0,0.0,0,0,0,0,1,4821,1950,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0
+R,spheres,GPU+VS+Q,7.7,541.0,1091.1,0,14.3,14.3,45504,45504,0,0,45504,1.0,5.0,0,0,0,0,1,51938,51938,0,0,0.0,0.0,66,0,0,0,-1,-1,-1,0,5011
+R,heroes,ARM,0.2,3.7,7.7,0,13.3,13.6,4608,1880,2688,21260,0,0.0,0.0,0,0,0,0,0,5755,2350,0,0,0.0,0.0,82,0,0,0,-1,-1,-1,0,0
+R,heroes,GPU+VS+Q,7.7,57.4,112.0,0,12.9,13.1,64512,64512,0,0,64512,2.0,7.4,0,0,0,0,1,88236,88236,0,0,0.0,0.0,110,0,0,0,-1,-1,-1,2471,4935
+R,heroes_skin,ARM,0.2,3.3,6.0,0,14.8,14.8,4608,1904,2688,21057,0,0.0,0.0,0,0,0,0,0,5017,2073,0,0,0.0,0.0,110,0,0,0,-1,-1,-1,0,0
+R,heroes_skin,GPU+VS+Q,7.7,38.0,74.7,0,11.6,11.7,43008,43008,0,0,43008,2.0,5.4,0,0,0,0,0,58358,58358,0,0,0.0,0.0,110,0,0,0,-1,-1,-1,959,4503
+R,heroes_shadow,ARM,0.2,-1,1.6,0,29.4,29.4,3584,1718,1246,145478,0,0.0,0.0,0,0,0,0,0,2032,974,0,0,0.0,0.0,110,0,0,0,-1,-1,-1,0,0
+R,heroes_shadow,GPU+VS+Q,7.7,32.5,67.0,0,14.9,14.9,86528,86464,0,0,86464,2.0,9.2,0,0,0,0,1,100309,100245,0,0,0.0,0.0,126,0,0,0,-1,-1,-1,3142,6032
+R,tiny,ARM,0.2,13.6,29.0,0,16.0,16.5,6656,6656,3757,4015,0,0.0,0.0,0,0,0,0,0,6975,6975,0,0,0.0,0.0,126,0,0,0,-1,-1,-1,0,0
+R,tiny,GPU+VS+Q,7.7,178.0,367.3,0,13.2,13.2,72192,71168,0,0,71168,1.0,10.3,0,0,0,0,1,91161,89595,0,0,0.0,0.0,126,0,0,0,-1,-1,-1,0,10304
+R,draws,ARM,0.2,256.6,818.1,0,15.1,15.3,2532,1228,1688,146544,0,0.0,0.0,0,0,0,0,1,3080,1513,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,draws,GPU+VS+Q,7.7,736.0,1514.6,0,16.2,16.3,8532,7500,0,0,7500,2.0,3.1,0,0,0,0,1,8832,7784,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,426,2639
+R,quad_flat,ARM,0.2,10.0,21.1,0,15.2,15.2,18,18,36,518400,0,0.0,0.0,0,0,0,0,0,20,20,0,0,0.0,0.0,398,0,0,518400,-1,26.26,-1,0,0
+R,quad_flat,GPU+VS+Q,7.7,94.3,192.1,0,16.6,16.6,188,188,0,0,188,1.0,14.8,0,0,0,0,1,189,189,0,0,0.0,0.0,398,0,0,5414400,-1,2.93,-1,0,14809
+R,quad_tex,ARM,0.2,3.4,7.1,0,14.9,15.8,6,6,12,172800,0,0.0,0.0,0,0,0,0,0,7,7,0,0,0.0,0.0,398,0,0,172800,-1,78.05,-1,0,0
+R,quad_tex,GPU+VS+Q,7.7,120.9,246.9,0,13.1,13.2,188,188,0,0,188,1.0,11.3,0,0,0,0,1,242,242,0,0,0.0,0.0,398,0,0,5414400,-1,2.29,-1,0,11343
+R,quad_alpha,ARM,0.2,3.4,7.3,0,15.1,15.3,6,6,12,161920,0,0.0,0.0,0,0,0,0,0,7,7,0,0,0.0,0.0,398,0,0,172800,-1,75.80,-1,0,0
+R,quad_alpha,GPU+VS+Q,7.7,120.6,246.6,0,13.2,13.2,188,188,0,0,188,1.0,11.3,0,0,0,0,1,241,241,0,0,0.0,0.0,398,0,0,5414400,-1,2.29,-1,0,11337
+R,cel_lit,ARM,0.2,3.3,6.1,0,15.1,15.3,4608,1880,2688,19673,0,0.0,0.0,0,0,0,0,0,5019,2049,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,cel_lit,GPU+VS+Q,7.7,63.0,63.0,1,16.4,16.5,96768,96768,0,0,96768,2.0,8.1,0,0,0,0,0,96768,96768,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,1722,6406
+R,cel,ARM,0.2,3.2,5.9,0,15.2,15.3,4608,1880,2688,19673,0,0.0,0.0,0,0,0,0,0,4952,2021,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,cel,GPU+VS+Q,7.7,63.0,63.0,1,16.6,16.6,96768,96768,0,0,96768,2.0,8.2,0,0,0,0,0,96768,96768,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,1676,6546
+R,cel_outline,ARM,0.2,2.4,4.1,0,12.4,12.6,6144,2744,3584,9432,0,0.0,0.0,0,0,0,0,0,7425,3321,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,cel_outline,GPU+VS+Q,7.7,41.0,63.0,1,12.4,12.4,86016,86016,0,0,86016,2.0,6.6,0,0,0,0,0,125986,125986,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,1727,4876
+R,map8,ARM,0.2,6.0,6.0,1,16.3,16.3,193536,193536,0,0,0,0.0,0.0,0,0,0,0,0,193536,193536,0,0,0.0,0.0,398,0,0,1036714,-1,14.47,-1,0,0
+R,sprites,ARM,0.2,1182.1,2591.9,1,13.5,14.3,0,0,0,0,0,0.0,0.0,0,0,0,0,1,0,0,0,0,0.0,0.0,398,0,0,233728,-1,48.05,-1,0,0
+R,sprites,GPU+VS+Q,7.7,1190.5,2523.2,0,13.2,13.3,0,0,0,0,0,0.0,0.0,0,0,0,0,1,0,0,0,0,0.0,0.0,398,0,0,233728,-1,49.21,-1,0,0
+R,stack,ARM,0.2,51.7,107.3,0,13.8,13.8,0,0,0,0,0,0.0,0.0,0,0,0,0,1,0,0,0,0,0.0,0.0,398,0,0,207872,-1,60.46,-1,0,0
+R,fade,ARM,0.2,10.9,40.7,0,15.6,15.6,102436,96086,0,0,0,0.0,0.0,0,0,0,0,1,102436,96086,0,0,0.0,0.0,398,0,0,230400,-1,-1,-1,0,0
+R,light,ARM,0.2,-1,63.0,1,21.7,21.7,102436,96086,0,0,0,0.0,0.0,0,0,0,0,1,78654,73778,0,0,0.0,0.0,398,0,0,230400,-1,-1,-1,0,0
+R,herotris,ARM,0.2,-1,-1,0,45.2,45.2,8072,5711,4100,117906,0,0.0,0.0,0,0,0,0,0,2978,2107,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,herotris,GPU+VS+Q,7.7,6.8,13.2,0,15.2,55.1,48432,45132,0,0,45132,1.0,9.0,0,0,0,0,1,54638,50915,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,8800
+R,ht_p100,ARM,0.2,-1,-1,0,45.0,45.0,8072,5711,4100,117906,0,0.0,0.0,0,0,0,0,0,2993,2117,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,ht_p100,GPU+VS+Q,7.7,5.7,12.1,0,12.9,12.9,32288,30088,0,0,30088,1.0,5.5,0,0,0,0,0,46106,42964,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,ht_p100m,ARM,0.2,-1,-1,0,45.0,45.1,8072,5711,4100,117906,0,0.0,0.0,0,0,0,0,0,2989,2115,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,ht_p100m,GPU+VS+Q,7.7,6.7,13.2,0,15.3,54.9,48432,45132,0,0,45132,1.0,8.8,0,0,0,0,1,54032,50350,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,8670
+R,ht_p10m,ARM,0.2,-1,-1,0,44.8,44.9,8072,6261,3956,117906,0,0.0,0.0,0,0,0,0,0,3001,2328,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,0
+R,ht_p10m,GPU+VS+Q,7.7,11.0,21.9,0,14.4,14.4,72648,72648,0,0,72648,1.0,10.0,0,0,0,0,1,88846,88846,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,10005
+R,stress,GPU+VS+Q,7.7,25.3,45.2,0,13.4,49.1,39110,36560,0,0,36560,1.0,7.4,0,0,0,0,1,51323,47860,0,0,0.0,0.0,398,0,0,0,-1,-1,-1,0,7277
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_flat,ARM,-1,26.26,-1,-1,-1,-1,6.05,24.21,54.46
+P,quad_flat,GPU+VS+Q,-1,2.93,-1,-1,-1,-1,0.68,2.70,6.08
+P,quad_tex,ARM,-1,78.05,-1,-1,-1,-1,17.98,71.93,161.85
+P,quad_tex,GPU+VS+Q,-1,2.29,-1,-1,-1,-1,0.53,2.11,4.74
+P,quad_alpha,ARM,-1,75.80,-1,-1,-1,-1,17.47,69.86,157.19
+P,quad_alpha,GPU+VS+Q,-1,2.29,-1,-1,-1,-1,0.53,2.11,4.75
+P,map8,ARM,-1,14.47,-1,-1,-1,-1,3.33,13.33,30.00
+P,sprites,ARM,-1,48.05,-1,-1,-1,-1,11.07,44.29,99.65
+P,sprites,GPU+VS+Q,-1,49.21,-1,-1,-1,-1,11.34,45.35,102.03
+P,stack,ARM,-1,60.46,-1,-1,-1,-1,13.93,55.72,125.37
+P,fade,ARM,-1,-1,-1,-1,-1,-1,-1,-1,-1
+P,light,ARM,-1,-1,-1,-1,-1,-1,-1,-1,-1
+hero triangles at 60 fps (640x360; a set is a hero of 1536 triangles, its shadow and a map of 5000)
+columns H,test,profile,sets60,hero_tris60,hero_shadow_tris60,submitted60,drawn60,ms,gpu_ms,arm_ms,mesh,probe_gltris,probe_meshes,vs_probe,later_submitted60,later_drawn60
+H,herotris,ARM,0.37,567,1133,2978,2107,45.2,0.0,45.2,NA,0,-1,0,-,-
+H,herotris,GPU+VS+Q,6.77,10397,20794,54638,50915,15.2,9.0,11.7,ACCEPTED,1536,-1,2,-,-
+cel cost: the same n heroes (1536 triangles each, lit by the sun), ms a frame; cel = 4 bands, floor 0.35; nd = dither off (not in this edition: -1); outline = hull 0.03, colour 0x2030A0, no bands
+columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,outline,cel_over_lit,cel_nd_over_lit_nd,outline_over_lit
+C,ARM,1,3072,3.83,3.83,-1,-1,6.22,1.00,-1,1.62
+C,ARM,2,6144,8.27,8.26,-1,-1,12.42,1.00,-1,1.50
+C,ARM,3,9216,15.13,15.23,-1,-1,22.61,1.01,-1,1.49
+C,ARM,4,12288,20.86,21.66,-1,-1,32.04,1.04,-1,1.54
+C,GPU+VS+Q,1,3072,1.05,1.11,-1,-1,1.18,1.06,-1,1.12
+C,GPU+VS+Q,2,6144,1.30,1.30,-1,-1,1.58,1.00,-1,1.22
+C,GPU+VS+Q,3,9216,1.57,1.60,-1,-1,2.06,1.02,-1,1.31
+C,GPU+VS+Q,4,12288,1.89,1.82,-1,-1,2.34,0.96,-1,1.24
+stress path=GPU+VS+Q n60=25.3 (quarter sets: 4 are one herotris set of 8036 triangles) frames=24 each
+columns T,profile,load,n,tris_in,frames,secs,ms,worst,drops,arm_ms,gpu_ms,jobs,pool_kb,ovf_kb,ovf_jobs,v3d_failed
+T,GPU+VS+Q,1x,25,52754,24,0.6,23.6,139.3,24,19.9,9.1,1.0,398,0,0,0
+T,GPU+VS+Q,2x,50,102436,24,1.1,44.4,253.5,24,33.4,16.6,1.1,398,0,0,0
+total 38 s
