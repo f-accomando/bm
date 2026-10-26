@@ -1,0 +1,55 @@
+bm report
+kind: session
+kernel: v0.2.5-1761-ga6514041
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-26 11:13:14
+file: session_yharnam_pi-zero-w.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+options bm3d 7.15 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=1 sort=0 attr=0 etc1=0 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 1577 frames in 26.7 s, 59.0 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 13.4 ms, max 212.9 ms, 3 frames over 16.7 ms
+memory: Lua peak 3600 KB, data 41256 KB; code 100972 tokens; busiest frame 1599k Lua instructions
+frames that were shown after more than 1.5 frames: 4
+the game says: on the spot 8
+the game says: in time 0
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    1511
+  <= 25 ms             62
+  <= 34 ms (30 fps)    1
+  <= 50 ms             2
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 1576 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.6    4%
+  draw (no 3D)    14.8   89%
+  3D calls         0.0    0%
+  audio            0.1    0%
+  GPU wait         0.0    0%
+  all             15.6   94%
+audio interrupt: 0.8% of the CPU's time (mean), 0.8% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+    841    14.5    40.7   13.2   0.5   12.7   0.0   1.8    25.6       14     2839        1
+   1345    23.1    38.8   35.9   0.5   35.4   0.0   1.9     0.9       14     1801        1
+    159     3.1    29.9   27.7   0.5   27.1   0.0   1.8     0.3       14     1802        1
+    930    16.0    18.2   13.3   0.6   12.7   0.0   1.9     2.9       14     2972        1
+    945    16.3    18.1   13.3   0.6   12.6   0.0   1.9     2.8       14     2995        1
+    975    16.8    18.1   13.4   0.6   12.7   0.0   1.9     2.7       14     3041        1
+   1056    18.2    18.1   13.3   0.6   12.6   0.0   1.9     2.8       14     3164        1
+    858    14.8    18.1   13.3   0.5   12.7   0.0   1.9     2.7       15     2864        1
+   1050    18.1    18.1   13.4   0.6   12.7   0.0   1.8     2.7       15     3155        1
+    866    14.9    18.1   13.2   0.5   12.7   0.0   1.9     2.8       14     2876        1
+    919    15.8    18.1   13.2   0.6   12.6   0.0   1.9     2.8       13     2956        1
+    954    16.5    18.1   13.3   0.6   12.6   0.0   1.9     2.8       13     3009        1
+
+GPU 3D: 859 jobs, 445 triangles a frame, 2.8 ms a frame, longest job seen to its end 6.6 ms
+binner memory: at most 48 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
