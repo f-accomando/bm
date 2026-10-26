@@ -239,6 +239,16 @@ static void psci(uint32_t fn)
     __asm__ volatile("hvc #0" : "+r"(x0) :: "x1", "x2", "x3", "memory");
 }
 
+long plat_cpu_on(uint64_t mpidr, uint64_t entry, uint64_t ctx)
+{
+    register uint64_t x0 __asm__("x0") = 0xc4000003u;   /* CPU_ON (SMC64) */
+    register uint64_t x1 __asm__("x1") = mpidr;
+    register uint64_t x2 __asm__("x2") = entry;
+    register uint64_t x3 __asm__("x3") = ctx;
+    __asm__ volatile("hvc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x3) : "memory");
+    return (long)(int32_t)x0;
+}
+
 void plat_reset(void)
 {
     psci(0x84000009u);          /* SYSTEM_RESET */

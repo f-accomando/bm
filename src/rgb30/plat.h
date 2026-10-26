@@ -18,6 +18,7 @@
 #define PLAT_GICR       0xfd460000u
 #define PLAT_FB_START   0x3c000000u     /* display and GPU memory: top 64 MB, uncached */
 #define PLAT_HEAP_END   PLAT_FB_START
+#define PLAT_CORE_MPIDR(i) ((uint64_t)(i) << 8)     /* RK3568: Aff1 = core */
 #elif defined(PLAT_VIRT)
 #define PLAT_NAME       "QEMU virt"
 #define PLAT_RAM_START  0x40000000u
@@ -28,6 +29,7 @@
 #define PLAT_GICR       0x080a0000u
 #define PLAT_FB_START   0x5e000000u
 #define PLAT_HEAP_END   0x50000000u     /* above: the SD image (sd_virt.c) */
+#define PLAT_CORE_MPIDR(i) ((uint64_t)(i))          /* QEMU virt: Aff0 = core */
 #else
 #error "PLAT_RK3566 or PLAT_VIRT"
 #endif
@@ -99,6 +101,8 @@ static inline int battery_percent(int mv)
 /* PSCI through TF-A (SMC) on the RGB30, QEMU's PSCI (HVC) in the tests */
 /* the display off (before a restart; the RGB30's panel and backlight) */
 void plat_display_off(void);
+/* PSCI CPU_ON: the secondary core starts at entry with x0 = ctx; returns the PSCI status */
+long plat_cpu_on(uint64_t mpidr, uint64_t entry, uint64_t ctx);
 void plat_reset(void) __attribute__((noreturn));
 void plat_poweroff(void) __attribute__((noreturn));
 

@@ -38,6 +38,7 @@
 #include "bt/bt.h"
 #include "ui.h"
 #include "battery.h"
+#include "smp.h"
 #include "pad.h"
 #include "kernel/ledstate.h"
 #include "kernel/splash.h"
@@ -213,6 +214,7 @@ void kernel_main(uintptr_t dtb)
 
     kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - %s (AArch64)\n", bm_version, PLAT_NAME);
     print_cpu();
+    smp_start();
     /* the SD card before the screen: if the display hangs, bm/bootlog.txt
      * says so (and the LEDs say where, docs/RGB30.md) */
     sd_boot();

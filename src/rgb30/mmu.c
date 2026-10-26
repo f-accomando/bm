@@ -33,6 +33,7 @@
 static uint64_t l1[512] __attribute__((aligned(4096), section(".pagetables")));
 static uint64_t l2[4][512] __attribute__((aligned(4096), section(".pagetables")));
 static int mmu_on;
+static uint64_t tcr_value;
 
 static void map_range(uint64_t start, uint64_t end, uint64_t flags)
 {
@@ -55,14 +56,14 @@ void mmu_init(uint32_t arm_mem_end, uint32_t ram_end)
     map_range(PLAT_DEV_START, PLAT_DEV_END, D_ATTR(ATTR_DEVICE) | D_PXN | D_UXN);
 
     write_sysreg(mair_el1, MAIR_VALUE);
-    write_sysreg(tcr_el1,
-                 32ull                  /* T0SZ: 4 GB */
+    tcr_value = (32ull                  /* T0SZ: 4 GB */
                  | (1ull << 8)          /* IRGN0: WB WA */
                  | (1ull << 10)         /* ORGN0: WB WA */
                  | (3ull << 12)         /* SH0: inner shareable */
                  | (0ull << 14)         /* TG0: 4 KB */
                  | (1ull << 23)         /* EPD1: no TTBR1 walks */
                  | (2ull << 32));       /* IPS: 40 bits */
+    write_sysreg(tcr_el1, tcr_value);
     write_sysreg(ttbr0_el1, (uintptr_t)l1);
     dsb_sy();
     isb();
@@ -74,6 +75,22 @@ void mmu_init(uint32_t arm_mem_end, uint32_t ram_end)
     write_sysreg(sctlr_el1, sctlr);
     isb();
     mmu_on = 1;
+}
+
+/* A secondary core: the same tables and attributes as core 0, then its MMU and caches on */
+void mmu_attach(void)
+{
+    write_sysreg(mair_el1, MAIR_VALUE);
+    write_sysreg(tcr_el1, tcr_value);
+    write_sysreg(ttbr0_el1, (uintptr_t)l1);
+    dsb_sy();
+    isb();
+    __asm__ volatile("tlbi vmalle1\n dsb sy\n ic iallu\n dsb sy\n isb" ::: "memory");
+    uint64_t sctlr = read_sysreg(sctlr_el1);
+    sctlr |= (1u << 0) | (1u << 2) | (1u << 12);
+    sctlr &= ~(uint64_t)(1u << 1);
+    write_sysreg(sctlr_el1, sctlr);
+    isb();
 }
 
 int mmu_enabled(void)

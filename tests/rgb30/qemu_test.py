@@ -262,6 +262,18 @@ def test_boot_banner(b, opts):
         q.close()
 
 
+def test_smp_cores_up(b, opts):
+    """M1 of docs/progress/multicore.md: PSCI CPU_ON brings cores 1-3 up on the same page tables."""
+    q = Qemu(os.path.join(b, "kernel.elf"), extra=("-smp", "4"))
+    try:
+        out = boot(q)
+        for core in (1, 2, 3):
+            assert f"smp: core {core} up" in out, f"core {core} not up:\n{out}"
+        assert "IRQ on: timer 1000 Hz" in out, out      # core 0 goes on to boot
+    finally:
+        q.close()
+
+
 def test_screen_console(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:

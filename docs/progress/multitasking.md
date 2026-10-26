@@ -76,6 +76,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
 
 
 ## Considerations
+- Schedule of multicore (RGB30 quad core), the end of the Mali work and the use of four cores: [`multicore.md`](multicore.md).
 - Triage of the failing tests (cause, evidence, owner) and the roadmap cleanup list for open PRs 80-100: [`docs/design/triage-and-roadmap-cleanup.md`](../design/triage-and-roadmap-cleanup.md).
 - Best approach per workload (SD writes, downloads, covers, game freezes, app load and close), ranked, with what to measure first and what only multicore can do (ROADMAP SYS-10): [`docs/design/multitasking-report.md`](../design/multitasking-report.md).
 - SD stall plan for covers, background downloads and app open/close on one core (layers A bound, B park, C gate; stages S0-S5): [`docs/design/sd-stall-plan.md`](../design/sd-stall-plan.md).

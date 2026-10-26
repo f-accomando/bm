@@ -18,6 +18,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 |---|---|---|
 | [system](progress/system.md) (+ [net](progress/system-net.md), [beta1-c4-diag](progress/beta1-c4-diag.md), [menu and services](progress/system-menu.md)) | boot, MMU, IRQ, fibers, crash reports, USB, SD/FAT, Bluetooth, WiFi, network, menu and kernel services | `src/boot/`, `src/arch/`, `src/kernel/`, `src/drivers/`, `src/usb/`, `src/fs/`, `src/bt/`, `src/wifi/`, `src/net/` |
 | [multitasking](progress/multitasking.md) | cooperative fibers of the menu, shares, background jobs, measurements; later multicore | `src/kernel/fiber.c`, `src/arch/fiber.S` |
+| [multicore](progress/multicore.md) | RGB30 quad core schedule: secondary cores (M), Mali bm3D end (G), use of four cores (V) | `src/rgb30/start.S`, `src/rgb30/mmu.c` |
 | [multitasking-stages](progress/multitasking-stages.md) | stages 1-5: measurement, hash steps, SD writer lock, keep-alive, Range resume | `src/fs/sdlock.c`, `src/bm/webfile.c`, `src/net/http.c` |
 | [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/` |
 | [herocart](progress/herocart.md) | Hero Stress cart: heroes in a plaza, live 3D options, cost panel | `carts/herocart/`, `tests/herocart/` |
