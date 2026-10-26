@@ -8,6 +8,7 @@ Read files in small slices (`grep`, or `offset` and `limit`). The current state 
 
 | Need | Command or file |
 |---|---|
+| State of `bm-core` (fetch, ahead/behind, clean tree) | `scripts/sync-core.sh` (`--ff` to fast-forward `bm-core`); a session hook already fetches once at start, so do not run `git fetch` again |
 | What is left to do in an area | `grep -n -A 15 '^## \(Open work\|To do\)' docs/progress/<area>.md` |
 | Binding rules of an area | `grep -n -A 20 '^## Rules' docs/progress/<area>.md` |
 | Code in `runtime.c` (350 KB) | `python scripts/cindex.py src/bm/runtime.c <symbol>` |
