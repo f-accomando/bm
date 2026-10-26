@@ -242,13 +242,6 @@ static const char *gpu3d_choice(void)
 }
 #endif
 
-/* a key of bm/config.txt set to 1 */
-static int config_on(const char *key)
-{
-    const char *v = config_get(key);
-    return v && strcmp(v, "1") == 0;
-}
-
 #ifndef BM_RGB30
 /* menu_scale: no key or 1 = 360p drawn by the ARM; 2 = 720p and 3 = 1080p drawn by the GPU */
 static const char *menu_size_choice(void)
@@ -693,14 +686,9 @@ static void panel_screen(home_panel_t *p)
     home_row(p, MENU_ROW_ACTION, R_MODES, "Screen modes",
              "The modes for games and the GPU, each with a test image", "%s", plat_display_info());
 #else
-    home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
-             "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
     home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
              "360p on the ARM, or 720p / 1080p by the GPU. Next start", "%s", menu_size_choice());
 #endif
-    home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
-             "Exact as before, or fast: one matrix a model, light in its axes", "%s",
-             config_on("r3d_fast") ? "Fast" : "Exact");
     if (board_is_pi1()) {
         home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
                  "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
@@ -1289,14 +1277,6 @@ static int act_screen(int row, int how, home_do_t *d)
         if (how == 0) text(d, x_modes, 0, 1);
         break;
 #else
-    case R_GPU3D:
-        config_set("gpu3d", gpu3d_on() ? "0" : "1");
-        config_save();
-        if (gpu3d_on() && gpu3d_failed())
-            ksnprintf(d->note, sizeof d->note, "GPU: %s", gpu3d_status());
-        else
-            ksnprintf(d->note, sizeof d->note, "the 3D of the next game: %s", gpu3d_choice());
-        break;
     case R_MENUSIZE: {
         const char *v = config_get("menu_scale");
         if (!v || !*v || v[0] == '1')
@@ -1361,12 +1341,6 @@ static int act_screen(int row, int how, home_do_t *d)
         break;
     }
 #endif
-    case R_FAST3D:
-        config_set("r3d_fast", config_on("r3d_fast") ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D on the ARM of the next game: %s",
-                  config_on("r3d_fast") ? "fast" : "exact");
-        break;
     default:
         return 0;
     }

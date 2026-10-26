@@ -197,7 +197,7 @@ scope = "pi"
 values = "0 = the ARM draws the 3D; anything else = the V3D GPU (a game's own setting can override)"
 default = "GPU"
 meaning = "GPU or ARM for the 3D of the games."
-settings = "Settings > Screen > 3D of the games"
+settings = ""
 read_in = "src/bm/runtime.c:1852"
 
 [[key]]
@@ -455,10 +455,10 @@ read_in = "src/kernel/settings.c:146"
 [[key]]
 name = "r3d_fast"
 scope = "all"
-values = "1 = fast (one matrix a model); anything else = exact"
-default = "exact"
+values = "0 = exact; anything else = fast (one matrix a model, light in its axes)"
+default = "fast (since 26 Oct 2026; best for speed)"
 meaning = "Mode of the ARM 3D (r3d)."
-settings = "Settings > Screen > 3D on the ARM"
+settings = ""
 read_in = "src/bm/runtime.c:1915"
 
 [[key]]

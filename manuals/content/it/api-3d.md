@@ -29,7 +29,7 @@ Una mesh si disegna con `draw3d()`, da una camera che posizioni con `camera3d()`
 
 ## Chi disegna: la GPU o l'ARM
 
-La GPU del Pi (VideoCore IV / V3D) disegna i triangoli. Con l'impostazione *Settings > Screen > 3D of the games* su `ARM` (`gpu3d=0` in `bm/config.txt`), e in QEMU, li disegna l'ARM in software. Le funzioni sono le stesse, quindi una cartuccia non cambia.
+La GPU del Pi (VideoCore IV / V3D) disegna i triangoli. Con l'impostazione `gpu3d=0` in `bm/config.txt`), e in QEMU, li disegna l'ARM in software. Le funzioni sono le stesse, quindi una cartuccia non cambia.
 
 - Senza vertex shader, l'ARM trasforma, illumina e ritaglia i triangoli prima dell'invio alla GPU.
 - Con il **Vertex Shader attivo** (`gpu3d_vs=2` o `vs=2` in `gpu3d()`), sono le QPU della GPU ad eseguire trasformazione di vertici, proiezione, illuminazione sole/lampade e clipping hardware su piano vicino. Questo libera interamente la CPU ARM per logica e gameplay.
@@ -303,8 +303,6 @@ La console ha una chiave in `bm/config.txt` per ogni opzione grafica. Il giocato
 
 Settings, *Screen*, per il giocatore:
 
-- *3D of the games*: la GPU o l'ARM disegna il 3D (`gpu3d`).
-- *3D on the ARM*: esatto o veloce (`r3d_fast`).
 - *Menu size* e, sul Pi 1, le righe CRT, video e GPIO screen.
 
 Queste chiavi non hanno una riga e un valore fisso se mancano: `gpu3d_aa` spento, `gpu3d_filter` nearest, `r3d_impostor` spento. Si impostano in `bm/config.txt`.
@@ -317,7 +315,7 @@ La tabella dà, per ogni chiave, cosa fa, quanto costa, il predefinito e il risu
 | `gpu3d_vs` | La GPU posiziona i vertici. `0` ARM, `1` scenario, `2` tutti i modelli. | Niente. Lo controlla il test all'avvio. | `2` | GPU+VS 3,85 set contro GPU 0,56 (x6,9). |
 | `gpu3d_queue` | La GPU disegna un frame mentre gira il prossimo `_update`. `2`: due lavori in volo. `0`: spento. | Un `_update` che disegna 3D gira dopo il frame. | `1` | Da 3,85 a 6,74 set (x1,75). Test `queue`: +11,2%. `2` dà 6,74, come `1`. |
 | `gpu3d_later` | La console mostra ogni frame un frame dopo. Richiede `gpu3d_queue=2`. | Un frame di ritardo dell'input. | spento | Nessun guadagno: 51 222,8 triangoli disegnati contro 50 755 (+0,9%), gli stessi set (6,74). |
-| `gpu3d_aa` | MSAA 4x. | Più lavoro della GPU in ogni tile (32x32 pixel, 4 campioni). Vale solo nei lavori senza z-buffer conservato. | spento | Non misurato. |
+| `gpu3d_aa` | MSAA 4x. | Più lavoro della GPU in ogni tile (32x32 pixel, 4 campioni). Vale solo nei lavori senza z-buffer conservato. | acceso (`r3d_fast=0` lo spegne) | Non misurato. |
 | `gpu3d_filter` | Texture bilineari. L'aspetto cambia. | Un pixel filtrato costa di più. | spento (nearest) | Passata a tutto schermo: 2,3 ns a pixel contro 1,65 nearest. |
 | `gpu3d_fs2` | Pixel shader con texture a due thread. | Niente. | acceso (`0` lo spegne) | `quad_tex`: 148 quad contro 121 (+22%). |
 | `gpu3d_2d` | La GPU disegna il 2D sopra il 3D nel suo lavoro. | Le forme che la GPU non sa disegnare chiudono il lavoro. | acceso (1) | Test `gpu2d`: GPU+2D 2013 sprite, GPU 1886 (+6,7%). Test `sprites`: 3569 o più, ARM 2574. Attivo per default. |
@@ -329,7 +327,7 @@ La tabella dà, per ogni chiave, cosa fa, quanto costa, il predefinito e il risu
 | `gpu3d_merge` | Molti piccoli pezzi fermi con luce precalcolata e un solo foglio diventano un solo disegno. | Una serie di almeno 32 pezzi con in media 150 facce o meno. | acceso (`0` lo spegne) | 100 pezzi da 50 facce +24%. 10 pezzi da 500 facce -26%, quindi una serie più piccola non si unisce. |
 | `gpu3d_qpu` | Una verifica: i programmi QPU girano contro le versioni ARM. | Un 3D Bench più lungo. | spento | Particelle: QPU 47 us, ARM 158 us. Dissolvenza: QPU 9,3 ms, ARM 20,4 ms. |
 | `r3d_impostor` | Un modello piccolo lontano è un solo quadrato. Un numero di pixel (da 2 a 64) di uno schermo da 1080 righe. | Il modello perde il dettaglio. | spento | 8 pixel: nessun effetto (57,7 fps, 8588 triangoli). 16 e 32: non misurato. |
-| `r3d_fast` | Il 3D su ARM usa una matrice per modello e la luce nello spazio del modello. | I pixel non sono più identici al bit. | spento | Non misurato. |
+| `r3d_fast` | Il 3D su ARM usa una matrice per modello e la luce nello spazio del modello. | I pixel non sono più identici al bit. | acceso (`r3d_fast=0` lo spegne) | Non misurato. |
 
 Le fonti sono `docs/progress/v3d.md`, `docs/design/triangle-throughput.md`, `docs/PERF-BUDGET.md` e `docs/DRIVERS.md`. Il Mali (RGB30) non ha chiavi `gpu3d_*`. Legge `r3d_fast` e `r3d_impostor`.
 

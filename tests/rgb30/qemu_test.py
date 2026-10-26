@@ -1090,7 +1090,6 @@ def test_bench3d(b, opts):
     try:
         boot(q)
         open_settings_screen(q)                 # Settings > Screen: 3D Bench is its last row
-        press(q, "s", ["Exact as before"])        # 3D on the ARM
         press(q, "s", ["small red battery"])    # Low battery icon
         press(q, "s", ["every 3D test"])        # 3D Bench
         q.send("\r")

@@ -224,7 +224,7 @@ bm ha due modi di disegnare il 3D, dietro le stesse funzioni. La tua cartuccia n
 | Situazione | Chi disegna |
 |---|---|
 | Un V3D risponde e `gpu3d` non è 0 | la GPU (predefinito) |
-| `gpu3d=0` in `bm/config.txt`, o *Settings > Screen > 3D of the games: ARM* | l'ARM |
+| `gpu3d=0` in `bm/config.txt` | l'ARM |
 | QEMU | l'ARM |
 | La GPU va in timeout o una prova all'avvio fallisce | l'ARM subentra da solo, con una riga nel log |
 | 2D che la GPU non sa riprodurre esattamente (elenco sopra) | l'ARM, dopo il job |
@@ -258,7 +258,7 @@ Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga
 | `r3d_fast` | renderer ARM: una matrice e la luce nello spazio del modello (i pixel non sono più identici bit a bit) | `r3d_fast=1` per attivarlo |
 | `r3d_impostor` | modelli lontani come un solo quad (da 2 a 64 pixel di uno schermo di 1080 righe) | spento |
 
-Nelle Settings le righe grafiche sono *3D of the games*, *3D on the ARM* e *Menu size* (e, sul Pi 1, le righe CRT, video e GPIO screen) (fonte: `src/kernel/settings.c`). Le altre chiavi `gpu3d_*` non hanno una riga. Il manuale 3D (volume 3, *Le chiavi grafiche della console*) dà per ogni chiave cosa fa, quanto costa e il risultato sul Pi.
+Nelle Settings le righe grafiche sono *Menu size* (e, sul Pi 1, le righe CRT, video e GPIO screen) (fonte: `src/kernel/settings.c`). Le altre chiavi `gpu3d_*` non hanno una riga. Il manuale 3D (volume 3, *Le chiavi grafiche della console*) dà per ogni chiave cosa fa, quanto costa e il risultato sul Pi.
 
 La luce cel di `cel3d` (vedi il volume 3D) gira anche sulla GPU del Pi: con `gpu3d_vs=2` i programmi dei vertici con luce dividono la luce nelle stesse fasce. Il gioco disegna la stessa immagine con la luce ARM quando `gpu3d_vs` è 0 o 1, o quando il test all'avvio vede fallire i programmi cel.
 

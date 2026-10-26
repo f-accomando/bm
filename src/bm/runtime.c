@@ -696,7 +696,7 @@ r3d_t *r3d(lua_State *L)
             luaL_error(L, "not enough memory for the z-buffer");
         rt.r3d_ready = 1;
         const char *fast = config_get("r3d_fast");
-        rt.r3d.fast = fast && strcmp(fast, "1") == 0;   /* bm3d 4.9: one matrix, light in the object's axes */
+        rt.r3d.fast = !(fast && strcmp(fast, "0") == 0);   /* bm3d 4.9: one matrix, light in the object's axes; on unless r3d_fast=0 (26 Oct 2026) */
         const char *imp = config_get("r3d_impostor");
         rt.r3d.impostor = imp ? impostor_px(atoi(imp)) : 0;   /* far small meshes as one quad: hidden key (SYS-9) */
         gpu3d_maybe();

@@ -224,7 +224,7 @@ It is the driver bm3d 0.2. It draws everything when `gpu3d=0`, in QEMU, when the
 | Situation | Who draws |
 |---|---|
 | A V3D answers and `gpu3d` is not 0 | the GPU (default) |
-| `gpu3d=0` in `bm/config.txt`, or *Settings > Screen > 3D of the games: ARM* | the ARM |
+| `gpu3d=0` in `bm/config.txt` | the ARM |
 | QEMU | the ARM |
 | The GPU times out or a boot probe fails | the ARM takes over by itself, with a line in the log |
 | 2D that the GPU cannot reproduce exactly (list above) | the ARM, after the job |
@@ -258,7 +258,7 @@ Each option is a key in `bm/config.txt`. Only five keys have a row in *Settings 
 | `r3d_fast` | ARM renderer: one matrix and light in model space (pixels no longer bit-identical) | `r3d_fast=1` to turn on |
 | `r3d_impostor` | far models as one quad (2 to 64 pixels of a 1080-line screen) | off |
 
-In the Settings the graphics rows are *3D of the games*, *3D on the ARM* and *Menu size* (and, on the Pi 1, the CRT, video and GPIO screen rows) (source: `src/kernel/settings.c`). The other `gpu3d_*` keys have no row. The 3D manual (volume 3, *The graphics keys of the console*) gives for each key what it does, what it costs and the Pi result.
+In the Settings the graphics rows are *Menu size* (and, on the Pi 1, the CRT, video and GPIO screen rows) (source: `src/kernel/settings.c`). The other `gpu3d_*` keys have no row. The 3D manual (volume 3, *The graphics keys of the console*) gives for each key what it does, what it costs and the Pi result.
 
 The cel light of `cel3d` (see the 3D volume) also runs on the Pi's GPU: with `gpu3d_vs=2` the lit vertex programs cut the light into the same bands. The game draws the same picture with the ARM lighting when `gpu3d_vs` is 0 or 1, or when the boot test sees the cel programs fail.
 

@@ -29,7 +29,7 @@ You draw a mesh with `draw3d()`, from a camera you place with `camera3d()`.
 
 ## Who draws: the GPU or the ARM
 
-The Pi's GPU (VideoCore IV / V3D) draws the triangles. With the setting *Settings > Screen > 3D of the games* on `ARM` (`gpu3d=0` in `bm/config.txt`), and in QEMU, the ARM draws them via software rasterization. The functions are the same, so a cartridge does not change.
+The Pi's GPU (VideoCore IV / V3D) draws the triangles. With `gpu3d=0` in `bm/config.txt`, and in QEMU, the ARM draws them via software rasterization. The functions are the same, so a cartridge does not change.
 
 - Without vertex shader, the ARM transforms, lights and clips the triangles before sending them to the GPU.
 - With the **Vertex Shader active** (`gpu3d_vs=2` or `vs=2` in `gpu3d()`), the VideoCore IV QPUs execute vertex transformation, projection, lighting (sun & lamps) and hardware near-plane clipping directly on the graphics chip, freeing the ARM CPU completely for game logic.
@@ -303,8 +303,6 @@ The console has one key in `bm/config.txt` for each graphics option. A player se
 
 Settings, *Screen*, for the player:
 
-- *3D of the games*: the GPU or the ARM draws the 3D (`gpu3d`).
-- *3D on the ARM*: exact or fast (`r3d_fast`).
 - *Menu size* and, on the Pi 1, the CRT, video and GPIO screen rows.
 
 These keys have no row and a fixed value when unset: `gpu3d_aa` off, `gpu3d_filter` nearest, `r3d_impostor` off. Set them in `bm/config.txt`.
@@ -329,7 +327,7 @@ The table gives, for each key, what it does, what it costs, the default, and the
 | `gpu3d_merge` | Many small static pieces with baked light and one sheet become one draw. | A run of at least 32 pieces with 150 faces or fewer on average. | on (`0` turns it off) | 100 pieces of 50 faces +24%. 10 pieces of 500 faces -26%, so a smaller run is not merged. |
 | `gpu3d_qpu` | A check: the QPU programs run against the ARM versions. | A longer 3D Bench. | off | Particles: QPU 47 us, ARM 158 us. Fade: QPU 9.3 ms, ARM 20.4 ms. |
 | `r3d_impostor` | A far small model is one quad. A number of pixels (2 to 64) of a 1080-line screen. | The model loses its detail. | off | 8 pixels: no effect (57.7 fps, 8588 triangles). 16 and 32: not measured. |
-| `r3d_fast` | The ARM 3D uses one matrix for a model and the light in model space. | The pixels are no longer bit-identical. | off | Not measured. |
+| `r3d_fast` | The ARM 3D uses one matrix for a model and the light in model space. | The pixels are no longer bit-identical. | on (`r3d_fast=0` turns it off) | Not measured. |
 
 The sources are `docs/progress/v3d.md`, `docs/design/triangle-throughput.md`, `docs/PERF-BUDGET.md` and `docs/DRIVERS.md`. The Mali (RGB30) has no `gpu3d_*` keys. It reads `r3d_fast` and `r3d_impostor`.
 

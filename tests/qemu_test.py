@@ -1303,18 +1303,17 @@ def test_home_ui(b, opts):
         keys("q")
         keys("s")
         keys("\r")                              # Screen
-        text = screen(["Settings > Screen", "3D of the games", "ARM (no GPU)"])   # QEMU has no V3D
+        text = screen(["Settings > Screen", "Menu size", "360p (ARM)"])
+        # 26 Oct 2026: the 3D of the games and the 3D on the ARM are hidden keys too (defaults: GPU, fast)
+        for name in ("3D of the games", "3D on the ARM"):
+            assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         # the rows of drawing, anti-aliasing, textures, impostors and the overlay are hidden keys on the Pi
         # (0a): no row; config.txt still sets them
         for name in ("Game drawing", "3D anti-aliasing", "3D textures", "3D impostors", "Performance overlay"):
             assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
-        keys("s")
-        screen(["Menu size", "360p (ARM)"])
         # SYS-9: the performance flags are hidden keys too, with no row (still read from config.txt)
         hidden_rows = ("3D vertices", "3D frame queue", "3D frame shown", "2D over the 3D", "3D job memory",
                        "3D pixel shaders", "3D draw order", "3D corners")
-        keys("s")
-        text = screen(["3D on the ARM", "Exact"])
         for name in hidden_rows:
             assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         keys("s")
