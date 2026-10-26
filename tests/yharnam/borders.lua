@@ -90,7 +90,7 @@ for i, a in ipairs(M.areas) do
   end
 end
 
--- (b) with the gates open, the start reaches the 4 bosses and the 8 shrines
+-- (b) (and (g): the cuts are in the map) with the gates open, the start reaches the 4 bosses and the 8 shrines
 do
   local seen = fill(8, 12, function(x, y) return not solid[y * N + x] end)
   local miss = 0
@@ -140,6 +140,50 @@ do
     end
   end
   if close > 0 then fail("(e) " .. close .. " pairs of shrines closer than 2 chunks") end
+end
+
+-- (f) a cut is a closed wall except its gate: in the strip of its tile range, a fill from one side
+-- does not reach the other side with the gate blocked, and does with the gate open. Its gate tiles
+-- are all of its gate. (g) every boss and shrine is reached from the start with the cuts in place:
+-- the fill of (b) runs over the map made with the cuts.
+for _, c in ipairs(M.cuts) do
+  local function tile(along, across) if c.vert then return across, along end return along, across end
+  local seed
+  for t = c.lo, c.hi do
+    local x, y = tile(t, c.at - 1)
+    if not solid[y * N + x] and not gate_tile[y * N + x] then seed = { x, y }; break end
+  end
+  if not seed then
+    fail("(f) cut " .. c.id .. ": no free tile on the start side")
+  else
+    local function strip(x, y)
+      local along = c.vert and y or x
+      return along >= c.lo and along <= c.hi
+    end
+    local function crossed(seen)
+      local n = 0
+      for k in pairs(seen) do
+        local x, y = k % N, k // N
+        if (c.vert and x or y) > c.at then n = n + 1 end
+      end
+      return n
+    end
+    local closed = fill(seed[1], seed[2], function(x, y)
+      return strip(x, y) and not solid[y * N + x] and not gate_tile[y * N + x]
+    end)
+    local opened = fill(seed[1], seed[2], function(x, y) return strip(x, y) and not solid[y * N + x] end)
+    local n = crossed(closed)
+    if n > 0 then fail("(f) cut " .. c.id .. ": closed, the fill crosses the line on " .. n .. " tiles") end
+    if crossed(opened) == 0 then fail("(f) cut " .. c.id .. ": open, the fill does not cross the line") end
+    local gates = 0
+    for t = c.lo, c.hi do
+      local x, y = tile(t, c.at)
+      if gate_at[y * N + x] == c.g then gates = gates + 1 end
+    end
+    if gates ~= c.gate[2] - c.gate[1] + 1 then
+      fail("(f) cut " .. c.id .. ": " .. gates .. " gate tiles, " .. (c.gate[2] - c.gate[1] + 1) .. " expected")
+    end
+  end
 end
 
 if fails > 0 then print("borders: " .. fails .. " checks failed"); os.exit(1) end

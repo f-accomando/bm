@@ -1455,6 +1455,17 @@ local MAP = {
       from = "forbidden", pair = { 9, 8, 9, 9 }, look = "passage" },
   },
   lamp = {}, horde = {},
+  -- the cuts: a wall inside one area, on the tile column (vert) or row (at) from lo to hi, with one gap
+  -- (gap: first and last tile along the line) and the gate in its middle (gate: first and last tile).
+  -- The rest of the gap is wall like the line. Each cut has a gate of its own (cut.g, made at load).
+  cuts = {
+    { id = "central_hidden", area = "central", vert = true, at = 31, lo = 0, hi = 55, gap = { 16, 23 },
+      gate = { 19, 20 }, type = "breakable", look = "passage" },
+    { id = "cathedral_deadfall", area = "cathedral", vert = true, at = 87, lo = 0, hi = 39, gap = { 16, 23 },
+      gate = { 18, 21 }, type = "horde+breakable", look = "deadfall" },
+    { id = "forbidden_hidden", area = "forbidden", vert = false, at = 95, lo = 80, hi = 127, gap = { 96, 103 },
+      gate = { 99, 100 }, type = "breakable", look = "passage" },
+  },
   -- what closes a border (a segment of 8 tiles between two cells of different areas, key "low,high" by
   -- the area numbers) and the edge of the map (by the area of the edge cell)
   wall = { ["1,3"] = "wall", ["1,2"] = "treeline", ["2,4"] = "rocks", ["3,4"] = "wall",
@@ -1512,6 +1523,27 @@ do
       local p = g.pair
       MAP.horde[key2(p[1] // 2, p[2] // 2)] = g
       MAP.horde[key2(p[3] // 2, p[4] // 2)] = g
+    end
+  end
+  -- the cuts: a gate record for each (like a gate of MAP.gates, with no pair), the kinds of its tiles,
+  -- and its horde: the chunks of the gap and the 4 chunks next to them inside the map
+  for _, c in ipairs(MAP.cuts) do
+    local a = ix[c.area]
+    c.g = { id = c.id, a = a, b = a, type = c.type, look = c.look, cut = c }
+    c.gk = c.look == "deadfall" and c.look or c.look .. (c.vert and "_v" or "_h")
+    c.wk = c.vert and "wall_v" or "wall_h"
+    if c.type:find("horde", 1, true) then
+      local function tile(t) return c.vert and c.at or t, c.vert and t or c.at end
+      local fx, fy = tile(c.gap[1])
+      local lx, ly = tile(c.gap[2])
+      for cy = fy // 16, ly // 16 do
+        for cx = fx // 16, lx // 16 do
+          for _, d in ipairs({ { 0, 0 }, { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+            local nx, ny = cx + d[1], cy + d[2]
+            if nx >= 0 and nx < MAP.size and ny >= 0 and ny < MAP.size then MAP.horde[key2(nx, ny)] = c.g end
+          end
+        end
+      end
     end
   end
   -- checks at load: the map must be what the rules above say
@@ -1601,6 +1633,13 @@ function MAP.gate_at(ax, ay, bx, by)
     local p = g.pair
     if p[1] == ax and p[2] == ay and p[3] == bx and p[4] == by
        or p[1] == bx and p[2] == by and p[3] == ax and p[4] == ay then return g end
+  end
+end
+-- the gate of a cut on the tile (tx, ty) (a tile of the gate, not of the wall); nil if none
+function MAP.cut_gate_at(tx, ty)
+  for _, c in ipairs(MAP.cuts) do
+    local along, across = c.vert and ty or tx, c.vert and tx or ty
+    if across == c.at and along >= c.gate[1] and along <= c.gate[2] then return c.g end
   end
 end
 -- the gate nearest to the cell (hx, hy), by the Chebyshev distance to the cells of its pair (a tie:
@@ -2474,6 +2513,7 @@ local function gen(ch)
     if lx < 0 or ly < 0 or lx >= CS or ly >= CS or bdone[i] or kind[i] == K_HOUSE or solid[i] then return end
     if cx == 0 and cy == 0 and abs(lx - 8) <= 2 and abs(ly - 12) <= 2 then return end
     if ch.shrine and ch.shrine.u and ch.shrine.u.lx == lx and ch.shrine.u.ly == ly then return end
+    if GATE_KIND[k] then g = MAP.cut_gate_at(tx0 + lx, ty0 + ly) or g end     -- a cut's gate goes by the tile
     bdone[i] = true
     drop_tile_unit(lx, ly)
     local u = unit(k, lx, ly)
@@ -2549,6 +2589,20 @@ local function gen(ch)
           if hy == 15 then seg(true, wk, nil, dec("s"), ox, 15) end
           if hx == 0 then seg(false, wk, nil, dec("w"), 0, oy) end
           if hx == 15 then seg(false, wk, nil, dec("e"), 15, oy) end
+        end
+      end
+    end
+  end
+
+  -- the cuts (a drawn map has them as placeholders): the line of each, the gate in its gap
+  if not (MAP.objects and inside(cx, cy)) then
+    for _, c in ipairs(MAP.cuts) do
+      for t = c.lo, c.hi do
+        local tx, ty = c.vert and c.at or t, c.vert and t or c.at
+        local lx, ly = tx - tx0, ty - ty0
+        if lx >= 0 and lx < CS and ly >= 0 and ly < CS then
+          local g = MAP.cut_gate_at(tx, ty)
+          add_border(g and c.gk or c.wk, lx, ly, g)
         end
       end
     end
