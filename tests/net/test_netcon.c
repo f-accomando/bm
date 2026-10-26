@@ -41,6 +41,15 @@ static const char *cfg_pw = "secret";
 static char saved_pw[40];
 const char *config_get(const char *key) { return strcmp(key, "net_password") ? NULL : cfg_pw; }
 int dev_mode(void) { return 0; }                     /* the kernel's dev mode (config.c): off in this test */
+static int test_bridge = 1;                          /* the bridge gate (config.c): 0 off, 1 on, 2 fast */
+int bridge_mode(void) { return test_bridge; }
+int bridge_file_name(const char *p)                  /* config.c has the real one (tests/kernel/test_config.c) */
+{
+    for (const char *c = p; *c; c++)
+        if (strncasecmp(c, "bridge.txt", 10) == 0)
+            return 1;
+    return 0;
+}
 void config_set(const char *key, const char *value) { (void)key; snprintf(saved_pw, sizeof saved_pw, "%s", value); }
 void config_save(void) {}
 /* netxfer's C: the lines it got; "bad" in them is a wrong line */
@@ -654,7 +663,20 @@ int main(int argc, char **argv)
         { 'K', "secret", "kernel7.img", 0, "OKKA", "the Pi Zero 2 W's kernel refused", "bmK7", 0 },
         { 'K', "secret", "kernel8.img", 0, "OKKA", "the RGB30's kernel refused", "\x10\0\0\x14", 1 },
         { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received", "bmK6", 0 },
+        { 'S', "secret", "bm/bridge.txt", 0, "BF", "the bridge file refused", NULL, 0 },
+        { 'S', "secret", "bm/../BM/Bridge.TXT", 0, "BF", "the bridge file refused (other spelling)", NULL, 0 },
     };
+    test_bridge = 0;                    /* the bridge off: every operation refused, BO */
+    {
+        client_t x;
+        xfer(&x, 'S', "secret", "carts/pong.bm", file, sizeof file, 0, 2);
+        check(strcmp(x.got, "BO") == 0, "  bridge off: S refused (BO)");
+        xfer(&x, 'K', "secret", "kernel.img", file, sizeof file, 0, 2);
+        check(strcmp(x.got, "BO") == 0, "  bridge off: K refused (BO)");
+        xfer(&x, 'T', "secret", "", NULL, 0, 0, 2);
+        check(strcmp(x.got, "BO") == 0, "  bridge off: T refused (BO)");
+    }
+    test_bridge = 1;
     for (unsigned t = 0; t < sizeof cases / sizeof cases[0]; t++) {
         w_name[0] = 0;
         if (cases[t].op == 'K' && strcmp(cases[t].answer, "OKOK") == 0) {

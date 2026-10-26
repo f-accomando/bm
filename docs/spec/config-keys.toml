@@ -124,7 +124,7 @@ name = "bench3d_boot"
 scope = "rgb30"
 values = "test ids with '.' or '-' between (spheres.draws), or all"
 default = "absent: no bench at boot"
-meaning = "One 3D Bench run of those tests at the next boot, then the key is removed (set through the bridge: the RGB30 has no monitor line). With dev=1 the bench closes by itself after its summary (3 s) and the report is sent at once."
+meaning = "One 3D Bench run of those tests at the next boot, then the key is removed (set through the bridge: the RGB30 has no monitor line). With the bridge on fast (Settings > Bridge) the bench closes by itself after its summary (3 s) and the report is sent at once."
 settings = ""
 read_in = "src/rgb30/main.c:kernel_main"
 
@@ -136,15 +136,6 @@ default = "empty: every action on the game's own button"
 meaning = "The player's remap of the game buttons (CONTROLS-1); mo wins over confirm=."
 settings = "Settings > Controls"
 read_in = "src/kernel/controls.c:controls_get"
-
-[[key]]
-name = "dev"
-scope = "all"
-values = "1, on, yes or true = on; anything else = off"
-default = "off"
-meaning = "Dev mode: direct kernel and app updates for debugging (dev_mode, dev_set_mode)."
-settings = "Settings > Dev mode"
-read_in = "src/kernel/config.c:102"
 
 [[key]]
 name = "dma_zclear"
@@ -676,7 +667,7 @@ scope = "all"
 values = "on or 1 = record every game run to /bm/rec; anything else = off"
 default = "off"
 meaning = "Screen recorder (VID-REC): the game's frames go to .bmv chunk files (RLE565, 15 fps); the report is printed when the game ends."
-settings = "Settings > Dev mode / System > Screen recorder"
+settings = "System > Screen recorder"
 read_in = "src/bm/rec.c, src/kernel/settings.c"
 
 [[key]]
