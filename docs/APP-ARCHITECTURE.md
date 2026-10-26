@@ -52,7 +52,7 @@ menu / RGB30 ui / monitor / bmhost
 **How a tool is embedded** (`Makefile:101-103,131-174`, `src/script/embed.S`, `src/kernel/carts.c:49-55,449-460`):
 `mkbm.py --lua carts/<t>/main.lua --cover icon.png --title "bm X"` builds `build/<t>.bm`; `embed.S` `.incbin`s it as
 `bm_<t>_cart`; `carts.c` lists it in the Dev tab; `tool_id_of` maps the symbol or an SD file name to a tool id. A
-`CLEAN_KERNEL=1` build leaves them out. The RGB30 kernel embeds only `sdk_b16`.
+`CLEAN_KERNEL=1` build leaves them out. The kernel that ships (`make sdcard`, `image`, `release`) is a clean build in `build-clean/`; `SHIP_KERNEL=build/kernel.img` ships the complete one. The RGB30 kernel embeds only `sdk_b16`.
 
 **The tool session** (`src/kernel/devtool.c:53-128`): look for an SD copy of the tool (`/carts/<name>.bm`, or `/bm/...` on
 the RGB30), which **replaces the embedded one**; `bm_set_tool(1)`; `bm_play`; `bm_set_tool(0)`. Then, in a loop:

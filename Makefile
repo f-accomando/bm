@@ -856,18 +856,28 @@ firmware:
 # the firmware start kernel7.img on a Pi Zero 2 W and kernel.img on the
 # other boards, so one card works in every Pi bm runs on.
 KERNEL ?= kernel
+# The kernel that ships (card, image, release) is built clean (CLEAN_KERNEL=1) in its own
+# folder: the bm suite and the Assistant come from the Market. The kernel for the tests and
+# for the QEMU runs stays complete in $(BUILD). SHIP_KERNEL=build/kernel.img ships the complete one.
+SHIP_BUILD  := build-clean
+SHIP_KERNEL ?= $(SHIP_BUILD)/kernel.img
+SHIP_IMG    := $(if $(filter kernel,$(KERNEL)),$(SHIP_KERNEL),$(BUILD)/$(KERNEL).img)
+ifeq ($(BUILD),build)
+$(SHIP_BUILD)/kernel.img: FORCE
+	$(MAKE) BUILD=$(SHIP_BUILD) CLEAN_KERNEL=1 $(SHIP_BUILD)/kernel.img
+endif
 SD_CARTS := $(GAME_CARTS)
 # the WiFi and Bluetooth chips' firmware (make firmware), in bm/: the Zero
 # W's BCM43438, then the Zero 2 W's CYW43436 (two versions of the chip)
 RADIO_FW := BCM43430A1.hcd brcmfmac43430-sdio.bin brcmfmac43430-sdio.txt brcmfmac43430-sdio.clm_blob \
             SYN43430A1.hcd SYN43430B0.hcd brcmfmac43436-sdio.bin brcmfmac43436-sdio.txt \
             brcmfmac43436-sdio.clm_blob brcmfmac43436s-sdio.bin brcmfmac43436s-sdio.txt
-sdcard: $(BUILD)/$(KERNEL).img $(K7) $(SD_CARTS)
+sdcard: $(SHIP_IMG) $(K7) $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)/carts $(DIST)/bm
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
 	cp boot/config.txt $(DIST)/
-	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
+	cp $(SHIP_IMG) $(DIST)/kernel.img
 	$(if $(K7),cp $(K7) $(DIST)/kernel7.img,rm -f $(DIST)/kernel7.img)
 	rm -f $(DIST)/carts/*.bm       # the games were in carts/ before 25 Oct 2026: they are in bm/ now
 	rm -f $(DIST)/carts/*.cart     # the old .cart format: bm no longer plays it
@@ -887,18 +897,18 @@ sdcard: $(BUILD)/$(KERNEL).img $(K7) $(SD_CARTS)
 # the B / B+ the network is the Ethernet).
 IMAGE_FILES = $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
               $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
-              $(BUILD)/kernel.img=kernel.img \
+              $(SHIP_KERNEL)=kernel.img \
               $(foreach c,$(SD_CARTS),$(c)=bm/$(notdir $(c))) \
               $(foreach r,$(NANO8_ROMS),$(r)=carts/nano8/$(notdir $(r))) \
               boot/ca.pem=bm/ca.pem
-image: $(BUILD)/kernel.img $(K7) $(SD_CARTS)
+image: $(SHIP_KERNEL) $(K7) $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)
 	$(PYTHON) scripts/mksd.py $(DIST)/bm.img --size-mib 64 --label BM $(IMAGE_FILES) \
 	    $(if $(K7),$(K7)=kernel7.img) \
 	    $(foreach f,$(RADIO_FW),$(if $(wildcard $(FW_DIR)/$(f)),$(FW_DIR)/$(f)=bm/$(f)))
 
-image-pi1: $(BUILD)/kernel.img $(SD_CARTS)
+image-pi1: $(SHIP_KERNEL) $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)
 	$(PYTHON) scripts/mksd.py $(DIST)/bm-pi1.img --size-mib 64 --label BM $(IMAGE_FILES)
@@ -916,11 +926,11 @@ RELEASE_PUB ?= keys/release-pub.pem
 # the RGB30's manifest-rgb30 (kernel8.img, bm/ca.pem) in the same release,
 # for its System > Updates
 RGB30_KERNEL ?=
-# The release ships the kernels bare: no games (D20; the bm editor suite is inside kernel.img)
-release: $(BUILD)/kernel.img $(K7)
+# The release ships the kernels bare: no games and, since 26 Oct 2026, no bm suite (they are in the Market)
+release: $(SHIP_KERNEL) $(K7)
 	rm -rf $(RELEASE_DIR)
 	$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --version $(VERSION) --commit $$(git rev-parse HEAD) \
-	    --file $(BUILD)/kernel.img:/kernel.img $(if $(K7),--file $(K7):/kernel7.img) \
+	    --file $(SHIP_KERNEL):/kernel.img $(if $(K7),--file $(K7):/kernel7.img) \
 	    --file boot/ca.pem:/bm/ca.pem --pub $(RELEASE_PUB) $(RELEASE_FLAGS)
 	$(if $(RGB30_KERNEL),$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --manifest manifest-rgb30 \
 	    --version $(VERSION) --commit $$(git rev-parse HEAD) --file $(RGB30_KERNEL):/kernel8.img \
@@ -1137,7 +1147,7 @@ MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
 # the SDK as .b16 (carts/sdk_b16, its own sources) under the id "editor".
-MARKET_APPS := editor code pixel studio animator mesh sound
+MARKET_APPS := editor code pixel studio animator mesh sound assistant
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
 $(BUILD)/carts/editor.b16: $(BUILD)/carts/sdk_b16.bm
 	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@

@@ -45,7 +45,7 @@ Decisions of the user, 25 Oct 2026 (`docs/design/kernel8-alignment.md`). Each it
   - Decide on four support files that only a test or a doc names: `scripts/config_readin.py`, `scripts/make-ca.sh`, `tools/pi_soak.py`, `tools/bm_robot.py`.
   - The Pi menu still scans the root `/`, `/bm` and `/bme`; the user may want the root scan gone.
   - A grey cartridge starts with no question in the text-only Pi menu, the Monitor `play` command and net-play.
-  - Idea, not decided (user: not now): build the Pi kernel with `CLEAN_KERNEL=1` by default so the editors (about 1 MB) and the assistant come from the Market or the SD card. The risk is a first boot with no Wi-Fi.
+  - Decided 26 Oct 2026 (user): the Pi kernel that ships (card, image, release) is built with `CLEAN_KERNEL=1` in `build-clean/`. The editors and the Assistant (about 1 MB) come from the Market. The kernel for tests and QEMU stays complete in `build/`. Open: the first boot with no Wi-Fi has no editors (put the apps on the card first); the Assistant data (`assist.bin`, `words.lua`, 1.2 MB) stays in the kernel; publish `assistant` in `bm-market/apps` (`make market-seed`); run the QEMU tests on a clean kernel.
   - The fox model in `web/models/` has no licence set; the 3D Bench stays at 640x360 (user decision).
   - Touched manuals (menu library, layout API): rebuild the PDFs. The locked worktree `agent-a95a9bc95a2fcfc68` is not from this session.
 
