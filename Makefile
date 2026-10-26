@@ -308,10 +308,8 @@ title_overbit := Overbit
 OVERBIT_RES := 480x270
 # the .bm (for the Pi and the RGB30): three screens on a TV, 640x360 on the ARM, 640x360,
 # 1280x720 and 1920x1080 on the GPU (85_quality); the RGB30 offers its square modes
-OVERBIT_BM_DEFS := --define OVERBIT_TV_BM=true
 $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm
-	$(PYTHON) carts/overbit/build/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua \
-	    $(OVERBIT_BM_DEFS)
+	$(PYTHON) carts/overbit/build/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua
 
 $(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
 	@mkdir -p $(dir $@)
@@ -1112,11 +1110,11 @@ MARKET_HELD := titanex
 MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES) $(MARKET_HELD),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
-# its SDK (carts/sdk_b16, its own sources, targets: rgb30) under the id "sdk-rgb30".
+# the RGB30's SDK is not in the Market for now (the new SDK .bm for both kernels comes later).
 MARKET_APPS := editor code pixel studio animator mesh sound assistant
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
 MKMARKET_ADD = $(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add
-market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS) $(BUILD)/carts/sdk_b16.bm
+market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS)
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows $(MARKET)/games $(MARKET)/apps
 	cp market/README.md market/.gitignore $(MARKET)/
@@ -1130,7 +1128,6 @@ market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS) $(BUILD)/carts/sdk_b16.bm
 	for a in $(MARKET_APPS); do \
 		$(MKMARKET_ADD) $(BUILD)/$$a.bm --id $$a --kind app --version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
 	done
-	$(MKMARKET_ADD) $(BUILD)/carts/sdk_b16.bm --id sdk-rgb30 --kind app --version $(MARKET_VERSION) --about-file market/about.txt
 	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --check
 # kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:
 # start.S and vectors.S in QEMU's virt machine with the virtualization

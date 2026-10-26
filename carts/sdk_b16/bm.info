@@ -7,6 +7,3 @@ license: LicenseRef-BM-Community-1.0
 version: 1.0
 tags: app, tool, sdk
 resolution: 360x360
-targets: rgb30
-input: pad
-aspect: square

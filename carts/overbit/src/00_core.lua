@@ -27,8 +27,8 @@ end
 local function grandom_seed(s) rng = (s % 4294967295) + 1 end
 local DT = 1 / 60
 
--- The screen: the cartridge's resolution (480x270 from the .bm's header,
--- 360x360 from the .b16's; then the game's own with screen(), 85_quality:
+-- The screen: the cartridge's resolution (480x270 from the header;
+-- then the game's own with screen(), 85_quality:
 -- 640x360 or 1920x1080 on a TV, 360x360 or 720x720 on the RGB30).
 --  SW, SH    its pixels
 --  ZOOM      how many of them make one of the 320x180 the game was first

@@ -17,7 +17,6 @@
 -- The screens, the console's own (screen(i), the runtime's list):
 --   a TV (the Pi)                640x360 and 1920x1080: the GPU draws both,
 --                                the ARM only 640x360 (its pixels cost it);
---                                the .bm (OVERBIT_TV_BM, set by the Makefile):
 --                                640x360 on the ARM, 640x360, 1280x720 and
 --                                1920x1080 on the GPU (its 640x360 the
 --                                spare: see gpu_spare);
@@ -29,9 +28,9 @@
 -- triangles count.
 --
 -- The renderers: the ARM, or the GPU as the console's Settings start it
--- (anti-aliasing, vertex shader, frame queue: its name in 84_bench). The
--- .b16 is 360x360 in its header: on a TV that square page is left for a
--- whole 16:9 one at the start (the GPU draws only whole pages).
+-- (anti-aliasing, vertex shader, frame queue: its name in 84_bench). A
+-- square page on a TV is left for a whole 16:9 one at the start (the GPU
+-- draws only whole pages).
 --
 -- The scale of the calibration, from the lightest: the smallest screen at
 -- levels 0..4, then the other at levels 1..4 (the .bm: 720p, then 1080p;
@@ -48,7 +47,7 @@ local since = 0             -- seconds since the last change
 local over = 0              -- seconds the frames have run long
 local KEEP = 20.0           -- seconds a setting holds before it becomes the default
 local prefs = {}            -- what was saved: res "WxH", q, r (the renderer's name), fps, fixed
-local leave_t = 0           -- frames waited for the whole 16:9 page (a .b16 on a TV)
+local leave_t = 0           -- frames waited for the whole 16:9 page (a square page on a TV)
 
 -- the frame the governor keeps (ms), and below which it tries a level up
 local function budget() return Quality.fps == 30 and 32.0 or 16.0 end
@@ -73,7 +72,6 @@ end
 -- the square panel both
 function Quality.arm_ok(w, h)
   if w == h then return true end
-  if OVERBIT_TV_BM then return w * h <= 640 * 360 end
   return w * h <= 640 * 360
 end
 
@@ -88,15 +86,12 @@ end
 -- not hold 60 fps (84_bench: the same length as before otherwise); the
 -- menu's RESOLUTION, the governor and the flags (res:640) have it always
 function Quality.gpu_spare(w, h)
-  return OVERBIT_TV_BM and w ~= h and w * h < 1280 * 720 or false
+  return w ~= h and w * h < 1280 * 720
 end
 
 -- the screens of a TV this game offers (the .bm has three)
 local function tv_mode(w, h)
-  if OVERBIT_TV_BM then
-    return (w == 640 and h == 360) or (w == 1280 and h == 720) or (w == 1920 and h == 1080)
-  end
-  return (w == 640 and h == 360) or (w == 1920 and h == 1080)
+  return (w == 640 and h == 360) or (w == 1280 and h == 720) or (w == 1920 and h == 1080)
 end
 
 -- the console's screen is square (the RGB30's panel: screen() offers only
@@ -221,7 +216,7 @@ end
 
 -- at the start of the game, once the GPU is up (stat(9)): the saved renderer
 -- and screen if this console offers it, else the best one. false: a frame
--- more (a .b16's square page on a TV goes to 640x360 first, where the GPU
+-- more (a square page on a TV goes to 640x360 first, where the GPU
 -- can start as the console's Settings say)
 function Quality.start()
   local B = Modes.list.bench

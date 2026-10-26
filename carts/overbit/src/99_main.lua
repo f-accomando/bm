@@ -18,7 +18,7 @@ function _update()
   G.gpu = stat(9) == 1          -- the GPU draws the 3D: some things cost less (40_actor)
   if SCREEN_W ~= SW or SCREEN_H ~= SH then screen_size() end      -- screen() took effect
   -- the saved screen and renderer, from the second frame (the GPU has started
-  -- by now: stat(9); a frame or two more for a .b16's square page on a TV)
+  -- by now: stat(9); a frame or two more for a square page on a TV)
   if not Quality.started and G.frame >= 2 and G.mode ~= "bench" then
     Quality.started = Quality.start()
     -- the benchmark asked for with flags (the monitor line, easy_install bench)

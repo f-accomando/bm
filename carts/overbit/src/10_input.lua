@@ -17,7 +17,7 @@
 -- dev kit    Share (Select)      Tab
 -- hero       down (in spawn)     H
 --
--- The .bm (OVERBIT_TV_BM) also has the mouse: the left button fires, the right
+-- With a mouse (the Pi; the RGB30 has none): the left button fires, the right
 -- one is the secondary fire, and moving it turns the view in the hero's first
 -- person (with the arrows and the stick; mouse_look below). The pointer is
 -- hidden while playing and shows in the pause menu (86_pause).
@@ -62,7 +62,7 @@ local named = false               -- btn("ok") exists (a runtime from before 202
 
 function Input.init()
   rawkeys(true)                   -- the keyboard is read key by key (keydown)
-  if OVERBIT_TV_BM then pcall(mouse, true, false) end     -- the buttons; the arrow only in the pause menu
+  pcall(mouse, true, false)       -- the buttons; the arrow only in the pause menu (no mouse: nothing)
   named = pcall(btn, "ok")
 end
 
@@ -75,7 +75,7 @@ end
 -- the console's arrow over the frame: on in the pause menu, off while playing
 local arrow = false
 function Input.arrow(on)
-  if not OVERBIT_TV_BM or on == arrow then return end
+  if on == arrow then return end
   arrow = on
   pcall(mouse, true, on)
 end
@@ -140,10 +140,11 @@ function Input.read()
   local pj, pc, pu, pr = PB.A, PB.B, PB.Y, PB.X          -- jump, crouch, ultimate, reload
   if nintendo then pj, pc, pu, pr = PB.B, PB.A, PB.X, PB.Y end
   local function b(bit) return p & bit ~= 0 end
-  -- the mouse (.bm): buttons held (1 left, 2 right) and the pointer in the HUD's pixels
+  -- the mouse: buttons held (1 left, 2 right) and the pointer in the HUD's pixels
   local mb, mlx, mly = 0, 0, 0
-  if OVERBIT_TV_BM then
-    local px, py, bt = mouse()
+  do
+    local ok, px, py, bt = pcall(mouse)
+    if not ok then px = nil end
     if px then
       mb = bt or 0
       cmd.ptr_x, cmd.ptr_y = px // UI, py // UI

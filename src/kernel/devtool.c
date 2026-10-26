@@ -25,10 +25,8 @@ static uint8_t *load_sd_tool(const char *name, size_t *len)
     char paths[6][40];
     int np = 0;
 #ifdef BM_RGB30
-    if (!strcmp(name, "sdk")) {
-        ksnprintf(paths[np++], sizeof paths[0], "/bm/sdk-rgb3.bm");
+    if (!strcmp(name, "sdk"))
         ksnprintf(paths[np++], sizeof paths[0], "/bm/sdk_b16.b16");
-    }
     ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.b16", name);
     ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.bm", name);
     if (alt) {

@@ -15,7 +15,6 @@ yharnam: BM Community License 1.0 | An endless gothic town at night, built while
 typing: BM Community License 1.0 | Write with the controller: practice in Italian, English or Lua, and beat your own records.
 write: BM Community License 1.0 | bm Write: letters and documents on an A4 page, with styles, saved in /docs and exported to PDF.
 editor: BM Community License 1.0 | bm SDK: make a game on the console - code, sprites, tilemap, sound, cover and build.
-sdk-rgb30: BM Community License 1.0 | bm SDK for the RGB30: make a game with the pad - code, sprites, tilemap, sound and build.
 code: BM Community License 1.0 | bm Code: write and edit Lua scripts on the console, with syntax highlighting and live test run.
 pixel: BM Community License 1.0 | bm Pixel: draw sprites, tiles, palettes and animations, and export to PNG or .bme projects.
 studio: BM Community License 1.0 | bm Studio: model and paint 3D scenes with primitives, textures, lights and .bmm export.

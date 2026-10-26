@@ -298,7 +298,7 @@ end
 
 -- the first frame: the GPU is up (stat(9)), the console's modes are known
 function Bench.setup()
-  -- a .b16's square page on a TV: a whole 16:9 one first (the GPU draws only those)
+  -- a square page on a TV: a whole 16:9 one first (the GPU draws only those)
   if SW == SH and not Quality.square() and not Bench.left then
     Bench.left = true
     local m = Quality.modes("arm")[1]

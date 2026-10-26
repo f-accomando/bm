@@ -723,7 +723,6 @@ static void play_market(int i)
 {
     const char *mp = market_path(i);
     if (strcasecmp(mp, "/bm/SDK.B16") == 0 || strcasecmp(mp, "/bm/SDK_B16.B16") == 0 ||
-        strcasecmp(mp, "/bm/SDK-RGB3.BM") == 0 ||
         strcasecmp(mp, "/bm/SDK.BM") == 0) {
         run_page(page_sdk);
         return;

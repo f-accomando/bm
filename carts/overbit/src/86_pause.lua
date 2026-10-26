@@ -1,8 +1,8 @@
--- The pause menu of the .bm (OVERBIT_TV_BM): Enter / Options in a solo match or
+-- The pause menu: Enter / Options in a solo match or
 -- on the training range stops the game and opens RESUME, CONTROLS (the list
 -- of the keys, the mouse and the pad) and LEAVE. Up, down and ok, or the mouse
 -- (move and left click). A network match cannot stop: there the menu button
--- leaves, as before (the .b16 too).
+-- leaves, as before.
 
 Pause = { on = false, sel = 1, page = "main" }
 
@@ -43,7 +43,7 @@ local function chips(list, x, y)
 end
 
 function Pause.enabled(net)
-  return OVERBIT_TV_BM and not net
+  return not net
 end
 
 function Pause.open()
