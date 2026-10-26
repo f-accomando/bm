@@ -71,6 +71,24 @@ static void heartbeat(uint32_t tick)
 
 extern char _start[];
 
+/* the other cores: on in QEMU; on the console only with cores=4 in bm/config.txt (not yet proven there, docs/progress/multicore.md M1) */
+static void smp_boot(void)
+{
+#ifdef PLAT_VIRT
+    int on = 1;
+#else
+    const char *c = config_get("cores");
+    int on = c && c[0] == '4';
+#endif
+    if (!on)
+        return;
+    if (smp_start() > 0 && smp_selftest() == 0) {
+#ifdef PLAT_VIRT
+        smp_selftest_faults();              /* QEMU only: it loses two cores on purpose */
+#endif
+    }
+}
+
 static void print_cpu(void)
 {
     uint64_t midr = read_sysreg(midr_el1);
@@ -214,10 +232,10 @@ void kernel_main(uintptr_t dtb)
 
     kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - %s (AArch64)\n", bm_version, PLAT_NAME);
     print_cpu();
-    smp_start();
     /* the SD card before the screen: if the display hangs, bm/bootlog.txt
      * says so (and the LEDs say where, docs/RGB30.md) */
     sd_boot();
+    smp_boot();
     kprintf("display: starting\n");
     sdlog_boot(0);
 

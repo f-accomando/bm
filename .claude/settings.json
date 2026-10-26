@@ -1,4 +1,5 @@
 {
+  "attribution": false,
   "skillOverrides": {
     "anthropic-skills:built-in-browser": "off",
     "anthropic-skills:chrome-browser": "off",

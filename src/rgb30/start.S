@@ -84,6 +84,8 @@ relocated:
     /* 2. EL2 -> EL1 */
     mrs     x0, CurrentEL
     lsr     x0, x0, #2
+    ldr     x1, =a64_boot_el        /* the EL we were started at: QEMU's PSCI conduit is SMC at EL2, HVC at EL1 */
+    str     x0, [x1]
     cmp     x0, #2
     b.ne    at_el1
     mov     x0, #(1 << 31)          /* HCR_EL2.RW: EL1 runs AArch64 */
@@ -140,3 +142,9 @@ at_el1:
     b       3b
 
     .ltorg
+
+    .section .data
+    .globl  a64_boot_el
+    .balign 8
+a64_boot_el:
+    .quad   0

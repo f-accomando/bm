@@ -5,6 +5,7 @@
  * for a minute, then the board restarts and the next boot files the crash
  * as a report (src/kernel/crumbs.c); before that, it blinks forever.
  */
+#include "smp.h"
 #include "a64.h"
 #include "plat.h"
 #include "kernel/exceptions.h"
@@ -91,6 +92,8 @@ void a64_exception(uint64_t type, a64_frame_t *f)
     static const char *const names[] = { "?", "synchronous exception", "IRQ", "FIQ", "SError" };
     uint32_t ec = (uint32_t)(f->esr >> 26) & 0x3f;
 
+    if (smp_core_id() != 0)                 /* a worker: park it, core 0 goes on (smp.c) */
+        smp_worker_fault(type, f->esr, f->elr, f->far);
     panic_screen();
     kprintf("\n*** EXCEPTION: %s", type < 5 ? names[type] : "?");
     if (type == 1 || type == 4)

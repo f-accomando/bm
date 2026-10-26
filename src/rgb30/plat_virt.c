@@ -239,13 +239,18 @@ static void psci(uint32_t fn)
     __asm__ volatile("hvc #0" : "+r"(x0) :: "x1", "x2", "x3", "memory");
 }
 
+extern uint64_t a64_boot_el;
+
 long plat_cpu_on(uint64_t mpidr, uint64_t entry, uint64_t ctx)
 {
     register uint64_t x0 __asm__("x0") = 0xc4000003u;   /* CPU_ON (SMC64) */
     register uint64_t x1 __asm__("x1") = mpidr;
     register uint64_t x2 __asm__("x2") = entry;
     register uint64_t x3 __asm__("x3") = ctx;
-    __asm__ volatile("hvc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x3) : "memory");
+    if (a64_boot_el == 2)               /* QEMU with virtualization=on: the conduit is SMC */
+        __asm__ volatile("smc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x3) : "memory");
+    else
+        __asm__ volatile("hvc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x3) : "memory");
     return (long)(int32_t)x0;
 }
 

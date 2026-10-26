@@ -269,6 +269,9 @@ def test_smp_cores_up(b, opts):
         out = boot(q)
         for core in (1, 2, 3):
             assert f"smp: core {core} up" in out, f"core {core} not up:\n{out}"
+        assert "smp: selftest ok (4 cores, 400000)" in out, out    # atomics and a lock, 4 cores
+        assert "smp: core 2 FAULT" in out and "smp: core 3 HUNG" in out, out
+        assert "smp: fault test ok" in out, out         # a faulting and a looping job do not stop core 0
         assert "IRQ on: timer 1000 Hz" in out, out      # core 0 goes on to boot
     finally:
         q.close()
