@@ -459,6 +459,7 @@ test-yharnam: $(BUILD)/host/luahost
 	@mkdir -p $(BUILD)/yharnam-map
 	$< tests/yharnam/mapgen.lua carts/yharnam/main.lua $(BUILD)/yharnam-map
 	$< tests/yharnam/borders.lua carts/yharnam/main.lua
+	$< tests/yharnam/borders.lua carts/yharnam/main.lua --drawn
 
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py

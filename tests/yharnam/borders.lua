@@ -6,8 +6,15 @@
 -- All the checks run, so one run shows every failure.
 local B = dofile((arg[0]:match("^(.*/)") or "") .. "fakebm.lua")
 local SRC = arg[1]
-assert(SRC, "luahost tests/yharnam/borders.lua carts/yharnam/main.lua")
+assert(SRC, "luahost tests/yharnam/borders.lua carts/yharnam/main.lua [--drawn]")
+-- --drawn: the game reads the map drawn in the SDK (carts/yharnam/assets/map_*.csv), as on the console
+if arg[2] == "--drawn" then
+  local A = (arg[0]:match("^(.*/)") or "") .. "../../carts/yharnam/assets/"
+  B.load_map({ { "ground", A .. "map_ground.csv" }, { "overlay", A .. "map_overlay.csv" },
+               { "objects", A .. "map_objects.csv" } })
+end
 local Y = B.load(SRC)
+if arg[2] == "--drawn" then assert(Y.MAP.drawn and Y.MAP.objects, "the drawn map was not taken") end
 local M, CS = Y.MAP, Y.CS
 local TS = 16
 local N = M.size * CS                         -- tiles across the map
