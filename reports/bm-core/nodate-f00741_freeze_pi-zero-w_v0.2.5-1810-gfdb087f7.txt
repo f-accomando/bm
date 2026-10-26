@@ -1,0 +1,57 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1810-gfdb087f7
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-f00741_freeze_pi-zero-w_v0.2.5-1810-gfdb087f7.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 7669 s after boot, kernel v0.2.5-1810-gfdb087f7, ring 60981, sink on
+--- the last lines printed ---
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 98 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 48862 us, enlarge 0 us, flip 99 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 48861 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 100 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48863 us, enlarge 0 us, flip 100 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48864 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48865 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 48875 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+menu frame: 2x, a frame averages draw 48866 us, enlarge 0 us, flip 99 us, free time used 30 us (300 frames)
+
+net: console opened from 192.168.1.115
+> fb_init_depth: mbox_call failed
+back to the monitor
+
+type 'h' for help
+> :
+:b3d
+: b3d
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
