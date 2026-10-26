@@ -1,0 +1,41 @@
+bm report
+kind: session
+kernel: v0.2.5-1800-gbe0a0c4d
+branch: bm-core
+board: RGB30
+date: 2026-10-26 15:41:26
+file: session_yharnam_rgb30.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+options bm3d 7.15 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 85 frames in 1.5 s, 54.8 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 12.8 ms, max 78.3 ms, 2 frames over 16.7 ms
+memory: Lua peak 2779 KB, data 41353 KB; code 103964 tokens; busiest frame 608k Lua instructions
+frames that were shown after more than 1.5 frames: 2
+the game says: on the spot 3
+the game says: in time 0
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    83
+  <= 25 ms             0
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            1
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 84 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.9    5%
+  draw (no 3D)    17.0  102%
+  3D calls         0.0    0%
+  audio            0.1    0%
+  GPU wait         0.0    0%
+  all             18.1  108%
+audio interrupt: 0.8% of the CPU's time (mean), 0.8% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+      3     0.6    66.7   49.3   0.1   49.1   0.0   1.2    16.1       14     2021        1
