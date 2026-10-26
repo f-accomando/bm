@@ -196,6 +196,7 @@ typedef struct {
     uint32_t clean_cyc, inval_cyc;  /* ARM cycles of the whole-cache clean before jobs, invalidate after (PMU on) */
     uint32_t pool_max, ovf_max;     /* the most bytes of the binner's pool (JOB_ALLOC) and overflow a job used */
     uint32_t ovf_jobs;              /* jobs whose binner went into the overflow area */
+    uint32_t b1_us, b2_us, b3_us;               /* inside build: vertex data, packing the draw's tables, the copy to the GPU memory */
     uint32_t sort_us, build_us, jobs_us;        /* inside the flush: the sort, frame_build, the two job waits */
     uint32_t mesh_us, flush_us, resolve_us;     /* the Mali backend's ARM time: be_mesh, be_flush_mode (with its job), be_resolve (inside the flush) */
     uint32_t draws;                 /* draws (runs of one colour and matrix) of the Mali backend's jobs: G3 of docs/progress/multicore.md */

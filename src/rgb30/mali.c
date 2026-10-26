@@ -767,6 +767,17 @@ static uint32_t rd32(const uint8_t *p)
 
 /* Everything for the frame in the GPU memory: the draws (valid, checked by the caller) into a w x h surface at target_pa,
  * cleared to `clear` first. The jobs are chained from draws_pa (the first Vertex job); the Fragment job is at the set's SO_FJOB. */
+/* where the ARM's time goes in the backend (G3 of docs/progress/multicore.md): counter ticks, in us at the stats read.
+ * flush includes the job and its wait; resolve is inside flush (a frame's own resolve) */
+static uint64_t t_mesh, t_flush, t_resolve, t_sort, t_build, t_jobs, t_b1, t_b2, t_b3;
+#if defined(__aarch64__)
+static inline uint64_t cnt_now(void) { uint64_t v; __asm__ volatile("isb\n mrs %0, cntvct_el0" : "=r"(v)); return v; }
+static inline uint64_t cnt_freq(void) { uint64_t f; __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f)); return f; }
+#else                                           /* the host test builds this file too */
+static inline uint64_t cnt_now(void) { return 0; }
+static inline uint64_t cnt_freq(void) { return 0; }
+#endif
+
 /* A copy into the GPU's memory (Normal non-cacheable): 16 bytes a store. The library's memcpy went byte by byte there when
  * a pointer was not aligned (G3 report of 26 Oct: 25 us a draw in frame_build_ex, 10 ms of a 15 ms frame at 400 draws). */
 static inline void copy_nc16(void *dst, const void *src, size_t n)
@@ -839,6 +850,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         const uint32_t nv = 3 * draws[d].n;
         const uint32_t rgb = draws[d].rgb;
 
+        const uint64_t tb0 = cnt_now();
         /* the data: the positions as (x y z 1), the colour twice (the buffer and the pushed words 4-7) */
         for (uint32_t i = 0; i < nv; i++) {
             float v4[4] = { draws[d].xyz[i][0], draws[d].xyz[i][1], draws[d].xyz[i][2], 1.0f };
@@ -849,6 +861,8 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         memcpy(loc + D_COLOUR, col, 16);
         memcpy(push_m + 64 * (size_t)d + 16, col, 16);   /* BM_FS_push says ubo 0 offsets 0, 4, 8, 12 */
 
+        const uint64_t tb1 = cnt_now();
+        t_b1 += tb1 - tb0;
         /* the draw's tables */
         memcpy(loc + D_FRSD, frs_buf, sizeof frs_buf);
         md_attribute_buffer(loc + D_ABUFS, verts_pa + 16 * (uint64_t)first, 16, 16 * nv);
@@ -882,7 +896,10 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
                    d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
         md_tiler_job(loc + D_TJOB, &prim, pa + sb + SO_TCTX, &td);
+        const uint64_t tb2 = cnt_now();
+        t_b2 += tb2 - tb1;
         copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
+        t_b3 += cnt_now() - tb2;
         first += (nv + 3) & ~3u;                        /* 64-byte alignment: 4 vertices per step for D_ABUFS/td.position */
     }
 
@@ -1366,16 +1383,6 @@ static int be_n, be_nmvp;
 static int be_vs_on = 2, be_q_on = 1;
 static gpu3d_stats_t be_stats;
 
-/* where the ARM's time goes in the backend (G3 of docs/progress/multicore.md): counter ticks, in us at the stats read.
- * flush includes the job and its wait; resolve is inside flush (a frame's own resolve) */
-static uint64_t t_mesh, t_flush, t_resolve, t_sort, t_build, t_jobs;
-#if defined(__aarch64__)
-static inline uint64_t cnt_now(void) { uint64_t v; __asm__ volatile("isb\n mrs %0, cntvct_el0" : "=r"(v)); return v; }
-static inline uint64_t cnt_freq(void) { uint64_t f; __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f)); return f; }
-#else                                           /* the host test builds this file too */
-static inline uint64_t cnt_now(void) { return 0; }
-static inline uint64_t cnt_freq(void) { return 0; }
-#endif
 static uint32_t be_wait_us;
 static int be_pend;
 static g16_t *be_pend_g;
@@ -1411,10 +1418,13 @@ void mali_backend_stats(gpu3d_stats_t *s, int reset)
         s->sort_us = (uint32_t)(t_sort * 1000000u / f);
         s->build_us = (uint32_t)(t_build * 1000000u / f);
         s->jobs_us = (uint32_t)(t_jobs * 1000000u / f);
+        s->b1_us = (uint32_t)(t_b1 * 1000000u / f);
+        s->b2_us = (uint32_t)(t_b2 * 1000000u / f);
+        s->b3_us = (uint32_t)(t_b3 * 1000000u / f);
     }
     if (reset) {
         memset(&be_stats, 0, sizeof be_stats);
-        t_mesh = t_flush = t_resolve = t_sort = t_build = t_jobs = 0;
+        t_mesh = t_flush = t_resolve = t_sort = t_build = t_jobs = t_b1 = t_b2 = t_b3 = 0;
         be_wait_us = 0;
     }
 }
