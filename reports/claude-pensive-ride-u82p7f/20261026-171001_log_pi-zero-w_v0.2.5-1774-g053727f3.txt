@@ -1,0 +1,885 @@
+bm report
+kind: log
+kernel: v0.2.5-1774-g053727f3
+branch: claude/pensive-ride-u82p7f
+board: Pi Zero W
+date: 2026-10-26 17:10:01
+file: 20261026-171001_log_pi-zero-w_v0.2.5-1774-g053727f3.txt
+
+
+bm kernel v0.2.5-1774-g053727f3 - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 40.0 C
+ARM1176 from SVC, MMU+caches on, heap 433 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+IRQ on: timer 1000 Hz (measured 999 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 3 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 8/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 6 networks
+   1   -61 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -76 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+   3   -85 dBm  ch  6  WPA2  Wind3 HUB - ED4188_EXT
+   4   -87 dBm  ch  1  WPA2  WINDTRE - 73DE22
+   5   -88 dBm  ch  1  WPA2  Samsung Fridge_E50AJTRB006V
+   6   -89 dBm  ch 11  WPA2  TIM-27163036
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1280x720, drawn by the GPU
+fiber: covers did not yield: 30.0 ms past its slice
+covers: all 9 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-10-26 14:09 UTC
+menu idle: 300/300 frames, 123 of 899 ms taken, 29.8 ms past a frame; covers 109 ms (+30.0, stk 0.8/16K); min slack -31160 us, paced 0; sd 3 retried, 3 timed out
+menu idle: sd sites: rdend 3; first word <1ms 84 <3ms 8 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 27614 us, enlarge 0 us, flip 98 us, free time used 411 us (300 frames)
+menu frame: 2x, a frame averages draw 26869 us, enlarge 0 us, flip 97 us, free time used 29 us (300 frames)
+menu frame: 2x, a frame averages draw 26869 us, enlarge 0 us, flip 98 us, free time used 28 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 20.1 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+fiber: market did not yield: 57.9 ms past its slice
+market: catalog 20261026112447, 21 games
+market: cover of astrowing
+fiber: market did not yield: 84.7 ms past its slice
+market: cover of kitchen
+market: cover of nano8
+market: cover of titan
+market: cover of snake
+market: nearby consoles: listening as bm-108
+market: cover of snake
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 627 of 899 ms taken, 87.2 ms past a frame; market 614 ms (+84.7, stk 4.0/128K, stop 0.2); min slack -42684 us, paced 0
+menu idle: sd first word <1ms 171 <3ms 12 (max 1.5 ms)
+menu stalls: tls handshake 1x last 232.8 worst 232.8 ms
+menu frame: 2x, a frame averages draw 34729 us, enlarge 0 us, flip 97 us, free time used 2091 us (300 frames)
+market: cover of snake
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 80 of 899 ms taken, 53.7 ms past a frame; market 75 ms (+56.0, stk 4.0/128K, stop 0.1); min slack -52869 us, paced 0
+menu idle: sd first word <1ms 72 (max 1.5 ms)
+menu stalls: tls handshake 1x last 219.0 worst 219.0 ms
+menu frame: 2x, a frame averages draw 33775 us, enlarge 0 us, flip 95 us, free time used 268 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: cover of snake
+menu idle: 300/300 frames, 119 of 899 ms taken, 54.2 ms past a frame; market 112 ms (+56.4, stk 4.0/128K); min slack -42776 us, paced 0
+menu idle: sd first word <1ms 42 <3ms 1 (max 1.5 ms)
+menu stalls: tls handshake 1x last 230.4 worst 230.4 ms
+menu frame: 2x, a frame averages draw 40377 us, enlarge 0 us, flip 98 us, free time used 399 us (300 frames)
+market: cover of titanex
+fiber: market did not yield: 87.4 ms past its slice
+market: cover of shooter
+market: cover of yharnam
+market: cover of ko2
+market: cover of overbit
+market: cover of pong
+market: cover of bmweb
+market: cover of typing
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 619 of 899 ms taken, 89.9 ms past a frame; market 611 ms (+87.4, stk 4.0/128K); min slack -44008 us, paced 0
+menu idle: sd first word <1ms 264 <3ms 18 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 44536 us, enlarge 0 us, flip 98 us, free time used 2063 us (300 frames)
+market: downloading games/astrowing/astrowing.bm (54468 bytes)
+fiber: market did not yield: 90.8 ms past its slice
+market: games/astrowing/astrowing.bm -> /bm/astrowin.bm
+market: Astro Wing installed
+covers: all 10 read
+market: nearby consoles: listening as bm-108
+market: downloading games/kitchen/kitchen.bm (895588 bytes)
+market: games/kitchen/kitchen.bm -> /bm/kitchen.bm
+market: Chaos Kitchen installed
+covers: all 11 read
+menu idle: 300/300 frames, 909 of 899 ms taken, 91.0 ms past a frame; covers 68 ms (+28.9, stk 0.8/16K), market 833 ms (+90.8, stk 4.0/128K); min slack -44850 us, paced 0; sd 5 retried, 5 timed out
+menu idle: sd sites: rdend 5; first word <1ms 126 <3ms 9 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 47518 us, enlarge 0 us, flip 102 us, free time used 3030 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: downloading games/overbit/overbit.bm (2374032 bytes)
+menu idle: 300/300 frames, 436 of 899 ms taken, 0.1 ms past a frame; market 428 ms (+2.3, stk 4.0/128K); min slack -38061 us, paced 0
+menu frame: 2x, a frame averages draw 33240 us, enlarge 0 us, flip 97 us, free time used 1455 us (300 frames)
+
+playing astrowin.bm
+play: /bm/astrowin.bm (54468 bytes)
+load: Astro Wing 39 ms (close 0, parse 5, assets+state 2, mode 5, audio 0, lua 25)
+bm: loaded in 82 ms, the splash over at 1800 ms
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.15 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+bm: "Astro Wing" suspended (A on its cover resumes it)
+bm: "Astro Wing" 107 frames, 59.2 fps, 1 dropped
+     update+draw avg 4.32 ms (25% of frame), max 35.05 ms, Lua 148 KB
+     dev kit: Lua peak 148 KB, data 772 KB, busiest frame 1k instructions, 1 frames over 16.7 ms, 5028 tokens
+     GPU 3D 107 jobs, 622 triangles a frame, 1.02 ms a frame (bin 0%), max job 1240 us
+report: session_astro-wing_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1280x720, drawn by the GPU
+fiber: reports did not yield: 9.1 ms past its slice
+fiber: reports did not yield: 103.6 ms past its slice
+market: nearby consoles: listening as bm-108
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer
+menu idle: 300/300 frames, 1029 of 899 ms taken, 104.1 ms past a frame; market 882 ms (+1.9, stk 4.0/128K), reports 118 ms (+103.6, stk 7.6/128K, stop 13.1); min slack -37668 us, paced 0; sd 1 retried, 1 timed out
+menu idle: sd sites: rdend 1; first word <1ms 47 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 334.8 worst 334.8 ms
+menu frame: 2x, a frame averages draw 39083 us, enlarge 0 us, flip 99 us, free time used 3432 us (300 frames)
+report: sending session_astro-wing_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pensive-ride-u82p7f/session_astro-wing_pi-zero-w.txt
+market: nearby consoles: listening as bm-108
+market: download failed: connection lost after 1708372 bytes
+market: downloading games/titan/titan.bm (1713280 bytes)
+menu idle: 300/300 frames, 1084 of 899 ms taken, 100.3 ms past a frame; market 933 ms (+54.7, stk 4.0/128K), reports 143 ms (+102.4, stk 7.6/128K); min slack -49104 us, paced 0
+menu idle: sd first word <1ms 31 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 2x last 195.9 worst 346.0 ms
+menu frame: 2x, a frame averages draw 43187 us, enlarge 0 us, flip 100 us, free time used 3615 us (300 frames)
+market: games/titan/titan.bm -> /bm/titan.bm
+market: Titan Clash installed
+market: downloading games/overbit/overbit.bm (2374032 bytes)
+covers: all 12 read
+menu idle: 300/300 frames, 1338 of 899 ms taken, 70.9 ms past a frame; covers 34 ms (+29.0, stk 0.8/16K), market 1299 ms (+73.2, stk 4.0/128K); min slack -39016 us, paced 0; sd 4 retried, 4 timed out
+menu idle: sd sites: rdend 4; first word <1ms 106 <3ms 4 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 41237 us, enlarge 0 us, flip 101 us, free time used 4462 us (300 frames)
+bm: "Astro Wing" closed, memory freed
+menu: closed astrowin.bm
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 91.0 ms past its slice
+menu idle: 300/300 frames, 1374 of 899 ms taken, 91.2 ms past a frame; market 1365 ms (+91.0, stk 4.0/128K); min slack -40768 us, paced 0; sd 3 retried, 3 timed out
+menu idle: sd sites: rdend 3; first word <1ms 117 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 35679 us, enlarge 0 us, flip 97 us, free time used 4580 us (300 frames)
+market: games/overbit/overbit.bm -> /bm/overbit.bm
+market: Overbit installed
+market: nearby consoles: listening as bm-108
+covers: all 13 read
+market: nearby consoles: listening as bm-108
+market: downloading games/yharnam/yharnam.b16 (6406828 bytes)
+menu idle: 300/300 frames, 277 of 899 ms taken, 73.2 ms past a frame; covers 34 ms (+29.0, stk 0.8/16K), market 236 ms (+75.4, stk 4.0/128K); min slack -47370 us, paced 0; sd 1 retried, 1 timed out
+menu idle: sd sites: rdend 1; first word <1ms 48 <3ms 4 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 52893 us, enlarge 0 us, flip 101 us, free time used 926 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 904 of 899 ms taken, 0.5 ms past a frame; market 899 ms (+1.1, stk 4.0/128K); min slack -49076 us, paced 0
+menu frame: 2x, a frame averages draw 53892 us, enlarge 0 us, flip 101 us, free time used 3016 us (300 frames)
+menu idle: 300/300 frames, 911 of 899 ms taken, 0.9 ms past a frame; market 906 ms (+1.1, stk 4.0/128K); min slack -46304 us, paced 0
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 52605 us, enlarge 0 us, flip 100 us, free time used 3038 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 1691 of 899 ms taken, 83.9 ms past a frame; market 1688 ms (+86.1, stk 4.0/128K); min slack -47057 us, paced 0; sd 5 retried, 5 timed out
+menu idle: sd sites: rdend 5; first word <1ms 177 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 53153 us, enlarge 0 us, flip 102 us, free time used 5639 us (300 frames)
+market: games/yharnam/yharnam.b16 -> /bm/yharnam.b16
+market: Yharnam installed
+covers: all 13 read
+market: nearby consoles: listening as bm-108
+market: downloading games/ko2/ko2.bm (85244 bytes)
+market: games/ko2/ko2.bm -> /bm/ko2.bm
+market: KO-II installed
+covers: all 14 read
+
+playing webbench.bm
+play: /bm/webbench.bm (4704 bytes)
+load: Web bench 40 ms (close 0, parse 0, assets+state 1, mode 5, audio 0, lua 31)
+bm: loaded in 78 ms, the splash over at 1800 ms
+bm: "Web bench" suspended (A on its cover resumes it)
+bm: "Web bench" 154 frames, 59.9 fps, 0 dropped
+     update+draw avg 1.20 ms (7% of frame), max 1.64 ms, Lua 2087 KB
+     dev kit: Lua peak 2087 KB, data 322 KB, busiest frame 1k instructions, 0 frames over 16.7 ms, 558 tokens
+     GPU 3D 4557 jobs, 22979 triangles a frame, 207.41 ms a frame (bin 1%), max job 14598 us
+report: session_web-bench_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1280x720, drawn by the GPU
+report: sending session_web-bench_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/claude-pensive-ride-u82p7f/session_web-bench_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/claude-pensive-ride-u82p7f/session_w
+bm: "Web bench" closed, memory freed
+menu: deleted /bm/webbench.bm
+report: sending session_web-bench_pi-zero-w.txt
+menu idle: 300/300 frames, 909 of 899 ms taken, 102.2 ms past a frame; covers 68 ms (+29.0, stk 0.8/16K), market 404 ms (+31.2, stk 4.0/128K), reports 404 ms (+102.2, stk 7.6/128K, stop 19.4); min slack -56322 us, paced 0; sd 5 retried, 5 timed out
+menu idle: sd sites: rdend 5; first word <1ms 251 <3ms 13 (max 1.5 ms)
+menu stalls: tls handshake 2x last 314.0 worst 314.0 ms
+menu frame: 2x, a frame averages draw 52753 us, enlarge 0 us, flip 101 us, free time used 3030 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/claude-pensive-ride-u82p7f/session_web-bench_pi-zero-w.txt
+menu idle: 300/300 frames, 39 of 899 ms taken, 20.0 ms past a frame; reports 31 ms (+20.0, stk 7.6/128K); min slack -44445 us, paced 0
+menu idle: sd first word <1ms 67 <3ms 3 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 46476 us, enlarge 0 us, flip 100 us, free time used 130 us (300 frames)
+menu frame: 2x, a frame averages draw 49847 us, enlarge 0 us, flip 103 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 102 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49861 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49857 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49811 us, enlarge 0 us, flip 102 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49821 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49820 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49802 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49818 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 100 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49855 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49831 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 103 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49862 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 105 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49833 us, enlarge 0 us, flip 102 us, free time used 35 us (300 frames)
+menu frame: 2x, a frame averages draw 49851 us, enlarge 0 us, flip 103 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49837 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49833 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 105 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49837 us, enlarge 0 us, flip 105 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49810 us, enlarge 0 us, flip 101 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49807 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49860 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49853 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49857 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49853 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49836 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49853 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49838 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49835 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49853 us, enlarge 0 us, flip 101 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 101 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49825 us, enlarge 0 us, flip 105 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49850 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49800 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49828 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 105 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49840 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 106 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49863 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49827 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49840 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49855 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49855 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49838 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 101 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49850 us, enlarge 0 us, flip 101 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 102 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49840 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49824 us, enlarge 0 us, flip 105 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49832 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49862 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49830 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49858 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49833 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49859 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49852 us, enlarge 0 us, flip 100 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49838 us, enlarge 0 us, flip 102 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49835 us, enlarge 0 us, flip 103 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49831 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 104 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49851 us, enlarge 0 us, flip 105 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49837 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49855 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 103 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49847 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49859 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 100 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 101 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49833 us, enlarge 0 us, flip 98 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49854 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49774 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49761 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49757 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49805 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49794 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49797 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49818 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49831 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49805 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49822 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49778 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49797 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49809 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49814 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49814 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49831 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49826 us, enlarge 0 us, flip 98 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49828 us, enlarge 0 us, flip 101 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49830 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49794 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49811 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49812 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49767 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49812 us, enlarge 0 us, flip 98 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49838 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49856 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49855 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49856 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49856 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49850 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49837 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 98 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 99 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49846 us, enlarge 0 us, flip 96 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49800 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49816 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49768 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49812 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49812 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49835 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49835 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49826 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49860 us, enlarge 0 us, flip 96 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49862 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49810 us, enlarge 0 us, flip 96 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49819 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49825 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49856 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49856 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49847 us, enlarge 0 us, flip 97 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49834 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49847 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49813 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49779 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49799 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49816 us, enlarge 0 us, flip 96 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49816 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49830 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49855 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49808 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49834 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49856 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49818 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49825 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49816 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49855 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49847 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49847 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49826 us, enlarge 0 us, flip 98 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 49819 us, enlarge 0 us, flip 98 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49833 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49814 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49781 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49748 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49795 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49811 us, enlarge 0 us, flip 98 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49819 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49801 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49825 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49841 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49852 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49844 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49812 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49827 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49850 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49850 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49843 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49835 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49809 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49794 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49826 us, enlarge 0 us, flip 98 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49813 us, enlarge 0 us, flip 99 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49827 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49793 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49755 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49732 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49725 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49735 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49782 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49796 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49782 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49816 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49831 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49796 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49819 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49782 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49792 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49778 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49814 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49781 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49842 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49822 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49829 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49814 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49801 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49787 us, enlarge 0 us, flip 97 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49814 us, enlarge 0 us, flip 97 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49840 us, enlarge 0 us, flip 98 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49820 us, enlarge 0 us, flip 102 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49764 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49751 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49721 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49692 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49745 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49793 us, enlarge 0 us, flip 96 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49782 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49811 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49823 us, enlarge 0 us, flip 97 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49806 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49835 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49798 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49825 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49755 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49791 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49798 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 98 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49808 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49838 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49810 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49815 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49804 us, enlarge 0 us, flip 98 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49789 us, enlarge 0 us, flip 99 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49820 us, enlarge 0 us, flip 98 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49813 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49785 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49727 us, enlarge 0 us, flip 99 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49748 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49739 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49782 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49789 us, enlarge 0 us, flip 97 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49799 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49792 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49819 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49820 us, enlarge 0 us, flip 96 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49850 us, enlarge 0 us, flip 97 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49851 us, enlarge 0 us, flip 96 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49821 us, enlarge 0 us, flip 96 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49818 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49811 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49838 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49816 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49819 us, enlarge 0 us, flip 97 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49839 us, enlarge 0 us, flip 97 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49860 us, enlarge 0 us, flip 96 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 31 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49849 us, enlarge 0 us, flip 97 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49848 us, enlarge 0 us, flip 97 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 49794 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 49845 us, enlarge 0 us, flip 100 us, free time used 32 us (300 frames)
+market: nearby consoles: listening as bm-108
+menu frame: 2x, a frame averages draw 50781 us, enlarge 0 us, flip 99 us, free time used 29 us (300 frames)
+lan: bm-233 offers Titan Clash EX (1723888 bytes)
+market: receiving Titan Clash EX
+menu frame: 2x, a frame averages draw 53725 us, enlarge 0 us, flip 97 us, free time used 18 us (300 frames)
+market: Titan Clash EX from bm-233 -> /bm/titan-cl.bm
+market: Titan Clash EX received from bm-233
+covers: all 14 read
+menu idle: 300/300 frames, 40 of 899 ms taken, 26.2 ms past a frame; covers 34 ms (+28.9, stk 0.8/16K); min slack -436650 us, paced 0; sd 2 retried, 2 timed out
+menu idle: sd sites: rdend 2; first word <1ms 91 <3ms 2 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 54689 us, enlarge 0 us, flip 98 us, free time used 134 us (300 frames)
+menu frame: 2x, a frame averages draw 52882 us, enlarge 0 us, flip 97 us, free time used 19 us (300 frames)
+menu frame: 2x, a frame averages draw 52881 us, enlarge 0 us, flip 97 us, free time used 19 us (300 frames)
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+menu idle: sd first word <1ms 10 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 54136 us, enlarge 0 us, flip 97 us, free time used 25 us (300 frames)
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot listen for nearby consoles
+market: cannot lis
