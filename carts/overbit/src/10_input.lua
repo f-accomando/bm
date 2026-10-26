@@ -22,10 +22,10 @@
 -- person (with the arrows and the stick; mouse_look below). The pointer is
 -- hidden while playing and shows in the pause menu (86_pause).
 --
--- The .b16 on the RGB30 (Nintendo layout: X top, A right, B bottom, Y left, and
+-- On the RGB30 (Nintendo layout: X top, A right, B bottom, Y left, and
 -- the game gets the letters printed on the console): the four face buttons
 -- sit where the DS4's do, so jump is B (bottom), crouch A (right), reload Y
--- (left) and the ultimate X (top). The .bm keeps the DS4's bits.
+-- (left) and the ultimate X (top). Any other pad keeps the DS4's bits.
 --
 -- The menus (title, hero select, lobby, benchmark) confirm and go back with
 -- the system's buttons, btn("ok") and btn("back"): cross and circle on the
@@ -55,7 +55,7 @@ Input.sens = 1.0                  -- look speed (dev menu)
 
 local function held(name) return cmd[name] end
 
-local nintendo = false            -- the .b16 on the console's own buttons: the face buttons by position
+local nintendo = false            -- the RGB30's own buttons: the face buttons by position
 Input.nintendo = false
 
 local named = false               -- btn("ok") exists (a runtime from before 2026-10-04: frames.py --root)
@@ -68,7 +68,7 @@ end
 
 local function layout_check()
   local ok, c = pcall(controller, 1)
-  nintendo = not OVERBIT_TV_BM and ok and type(c) == "table" and c.layout == "nintendo"
+  nintendo = ok and type(c) == "table" and c.layout == "nintendo"
   Input.nintendo = nintendo
 end
 

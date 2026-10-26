@@ -7,3 +7,7 @@ license: LicenseRef-BM-Community-1.0
 version: 1.0
 tags: game, fighting, 2-players
 resolution: 640x360
+targets: pi,rgb30
+input: pad
+aspect: wide
+needs: audio

@@ -27,6 +27,9 @@ local ROWS = {
   { "PAUSE", { "enter" }, { "START" } },
 }
 
+-- the RGB30 prints its face buttons by position (10_input): a pad's letter changes there
+local NINTENDO = { Y = "X", A = "B", B = "A", X = "Y" }
+
 -- a row of keys from x, the top at y (16 px high)
 local function chips(list, x, y)
   for _, n in ipairs(list) do
@@ -101,7 +104,9 @@ function Pause.draw()
       local y = y0 + 4 + i * 17
       uprint(r[1], x0, y + 2, 0xD8DCE2)
       chips(r[2], x0 + 112, y)
-      chips(r[3], x0 + 262, y)
+      local pad = r[3]
+      if Input.nintendo and NINTENDO[pad[1]] then pad = { NINTENDO[pad[1]] } end
+      chips(pad, x0 + 262, y)
     end
     uprint("ENTER OR CLICK: BACK", cx - 60, LH - 14, 0x9AA2AC)
     font()

@@ -15,7 +15,7 @@ local KEYS = {
   pad = { fire = "R2", fire2 = "L2", ab1 = "L1", ab2 = "R1", ult = "Y", jump = "A", melee = "R3", reload = "X" },
   kbd = { fire = "j", fire2 = "k", ab1 = "shift", ab2 = "e", ult = "q", jump = "space", melee = "v", reload = "r" },
 }
-local NINTENDO = { ult = "X", jump = "B", reload = "Y" }     -- the RGB30's .b16 (10_input)
+local NINTENDO = { ult = "X", jump = "B", reload = "Y" }     -- the RGB30's (10_input)
 function Hud.key(action)
   -- the .bm with a mouse in use: its buttons fire (10_input)
   if OVERBIT_TV_BM and not Input.cmd.pad and Input.cmd.ptr_x then

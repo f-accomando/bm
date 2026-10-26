@@ -4,6 +4,7 @@ function _init()
   log("titan build " .. tostring(TITAN_BUILD))
   math.randomseed(stat(3) + floor(time() * 1000))
   Snd.init()
+  set_layout()
   Scr.go("title")
 end
 
@@ -12,6 +13,7 @@ local perf = { n = 0, sum = 0, max = 0 }
 
 function _update()
   G.frame = G.frame + 1
+  set_layout()
   -- Select shows the frame time (to check the speed on the Pi)
   if btnp(BSELECT) then G.debug = not G.debug end
   Scr.cur.update()

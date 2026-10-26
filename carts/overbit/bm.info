@@ -7,3 +7,7 @@ license: LicenseRef-BM-Community-1.0
 version: 1.0
 tags: game, 3d, shooter
 resolution: 480x270
+targets: pi,rgb30
+input: pad,keyboard,mouse_optional
+aspect: wide
+needs: 3d,audio

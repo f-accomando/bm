@@ -5,6 +5,7 @@ game any more (removed upstream); a change needs `make market-seed MARKET=<clone
 
 ## Backlog
 
+- RGB30 `.bm` (26 Oct 2026): `bm.info` has `targets: pi,rgb30`; the pad uses the Nintendo layout by position (`Input.nintendo`, also in the pause CONTROLS page). Not verified on the device: the user runs a match on the RGB30 and sends a report.
 - Overbit in `.b16` on the RGB30 at 360×360 and 720×720, with an ARM benchmark: see the roadmap in [graphics-mali](graphics-mali.md). It was divergence D24 until 25 Oct 2026.
 
 ## How it is today

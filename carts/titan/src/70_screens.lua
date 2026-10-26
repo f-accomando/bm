@@ -64,6 +64,9 @@ local MOVES = {
   { "HIT, THEN STRONGER", "COMBO: IT CANCELS" },
 }
 function Scr.moves_panel(y)
+  MOVES[4][1] = BN.lp .. "  /  " .. BN.hp
+  MOVES[5][1] = BN.lk .. "  /  " .. BN.hk
+  MOVES[8][1] = BN.hp .. " + " .. BN.hk
   panel(40, y, 560, #MOVES * 20 + 44, 0x0C0E16, 0x8A96B0)
   text_c("MOVES", 320, y + 8, 0xFFD040)
   for k, m in ipairs(MOVES) do
@@ -394,7 +397,7 @@ function H.draw()
   else
     rectfill(HALF - 150, 327, 300, 28, 0x08090C)
     text_c("UP/DOWN: CHOOSE  LEFT/RIGHT: CHANGE", HALF, 330, 0x9AA4B8)
-    text_c("A: READY   B: BACK", HALF, 343, 0x9AA4B8)
+    text_c(BN.ok .. ": READY   " .. BN.back .. ": BACK", HALF, 343, 0x9AA4B8)
   end
 end
 

@@ -20,6 +20,21 @@ local GRAV = 0.5            -- pixels per frame per frame
 -- B (right) heavy kick
 local BL, BR, BU, BD, BA, BB, BX, BY, BSTART, BSELECT = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 
+-- The RGB30 prints its letters the Nintendo way (A right, B bottom, X top, Y left), so
+-- there the four buttons are taken by position: the bits swap and the texts follow.
+-- BN says what to print for each action (set_layout runs every frame: a pad can change).
+local BN = { lp = "X", hp = "Y", lk = "A", hk = "B", ok = "A", back = "B" }
+local function set_layout()
+  local ok, c = pcall(controller, 1)
+  if ok and type(c) == "table" and c.layout == "nintendo" then
+    BA, BB, BX, BY = 5, 4, 7, 6
+    BN.lp, BN.hp, BN.lk, BN.hk, BN.ok, BN.back = "Y", "X", "B", "A", "B", "A"
+  else
+    BA, BB, BX, BY = 4, 5, 6, 7
+    BN.lp, BN.hp, BN.lk, BN.hk, BN.ok, BN.back = "X", "Y", "A", "B", "A", "B"
+  end
+end
+
 -- the modules (each file fills one)
 local Data, Fighter, Fx, Stage, Hud, Cpu, Scr, Snd = {}, {}, {}, {}, {}, {}, {}, {}
 local G = { frame = 0, shake = 0, debug = false,
