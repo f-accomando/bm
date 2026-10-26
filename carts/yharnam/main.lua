@@ -1863,7 +1863,7 @@ local chunks, slots = {}, {}
 -- run into them, a creature's blow or slam, a shot breaks them: they stop
 -- blocking the way. Broken, they stay so (gone: by chunk and object) until
 -- the town fills again (FOE.reset: a lamp, a death)
-local banner, banner_t = nil, 0
+local barred_cd = 0                       -- cooldown of the "barred" sound (no written banners)
 local BRK = { kinds = { barrel = "barrel_broken", crate = "crate_broken", crates = "crates_broken",
                         bench = "bench_broken", coffin = "coffin_broken", coffin_up = "coffin_up_broken",
                         iron_gate_h = "iron_gate_h_open", iron_gate_v = "iron_gate_v_open",
@@ -3162,7 +3162,7 @@ function BRK.smash(x, y, vx, vy, reach, cone, feel)
     end
   end)
   -- the hunter's blow on a barricade that holds: it says why (feel)
-  if feel and n == 0 and banner_t < 60 then
+  if feel and n == 0 and barred_cd < 60 then
     local why
     BRK.each_barred(x, y, function(o)
       local dx, dy = o.x - x, o.y - y
@@ -3172,7 +3172,7 @@ function BRK.smash(x, y, vx, vy, reach, cone, feel)
         return true
       end
     end)
-    if why then banner, banner_t = why, 90; note(2, 110, 90, SQUARE, 50); note(1, 640, 60, METAL, 30) end
+    if why then barred_cd = 90; note(2, 110, 90, SQUARE, 50); note(1, 640, 60, METAL, 30) end
   end
   return n
 end
@@ -3206,7 +3206,6 @@ function MAP.open(g)
       if o.gate == g and not o.broken then BRK.wreck(o) end
     end
   end
-  banner, banner_t = "A WAY IS OPEN", 150
 end
 -- something (r wide) running into one at (x, y) moving (vx, vy) breaks it
 function BRK.touch(x, y, vx, vy, r)
@@ -3869,9 +3868,6 @@ do
         FOE.won, FOE.won_t = o.def.title, 0
         if FOE.boss == o then FOE.boss = nil end
         G.bosses[o.name] = true                           -- the gates that wait for it give way to a blow
-        for _, g in ipairs(MAP.gates) do
-          if g.requires == o.name and not G.gates[g.id] then banner, banner_t = "A WAY GIVES", 200 end
-        end
         if o.name == "watcher" then G.done = true end     -- the last: the night is over
         sfx_roar()
       end
@@ -4697,8 +4693,35 @@ do
     if FOE.won then
       local k = FOE.won_t
       UI.c()
-      print("PREY SLAUGHTERED", 1, 113, 0x000000, 2)            -- no bar behind it: the town stays in view
-      print("PREY SLAUGHTERED", 0, 112, k > 20 and 0xE8C878 or 0x786040, 2)
+      -- blood: red letters, with drips that run down; from k = 120 all of it slides away
+      local dim = k > 120 and max(0, 1 - (k - 120) / 90) or 1
+      local off = k > 120 and floor((k - 120) ^ 2 / 60) or 0
+      local function tone(c)
+        local r, g, b = (c >> 16) * dim, ((c >> 8) & 255) * dim, (c & 255) * dim
+        return (floor(r) << 16) | (floor(g) << 8) | floor(b)
+      end
+      if off < 160 then
+        local m = min(1, k / 120)
+        local lr = floor(0xD0 + (0x98 - 0xD0) * m)
+        local lc = (lr << 16) | (floor(0x28 - 0x10 * m) << 8) | floor(0x28 - 0x10 * m)
+        print("PREY SLAUGHTERED", 1, 113 + off, tone(0x000000), 2)
+        print("PREY SLAUGHTERED", 0, 112 + off, tone(k > 20 and lc or 0x902020), 2)
+        for i = 1, 40 do
+          local h = ((i * 73856093) ~ (i * 19349663)) % 1000
+          local x = floor(i * 6.4 - 3 + h % 5)
+          if x < 80 or x > 95 then                        -- no drips under the space
+            local sp = 2 + h % 4
+            local mx = 8 + h * 52 // 1000
+            local len = min(mx, floor(max(0, k - i % 7 * 4) * sp / 10))
+            if len > 0 then
+              local c = tone(h % 3 == 0 and 0x7A1010 or h % 3 == 1 and 0xA01818 or 0xC02020)
+              local w = 1 + (h // 5) % 2
+              rectfill(x, 124 + off, w, len + 4, c)
+              if len >= mx then circfill(x + (w == 2 and 1 or 0), 128 + off + len, 1 + h % 2, c) end
+            end
+          end
+        end
+      end
       camera()
     end
   end
@@ -4861,7 +4884,6 @@ local function update_play()
           local a = math.random() * 2 * PI
           spawn(shrine.x, shrine.y - 40, cos(a) * 0.9, sin(a) * 0.9 - 0.6, 30 + math.random(24), 4)
         end
-        banner, banner_t = "LAMP LIT", 150
       end
       G.spawn = { shrine.x, shrine.y + 16 }
       P.hp, P.rally, P.st = P.hpmax, 0, P.stmax
@@ -5078,7 +5100,7 @@ local function update_play()
   cam_x = cam_x + (tx - cam_x) * 0.12
   cam_y = cam_y + (ty - cam_y) * 0.12
   clamp_cam()
-  if banner_t > 0 then banner_t = banner_t - 1 end
+  if barred_cd > 0 then barred_cd = barred_cd - 1 end
   for i = #G.popups, 1, -1 do
     local pp = G.popups[i]
     pp.t, pp.y = pp.t - 1, pp.y - 0.4
@@ -5094,7 +5116,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             HUNT = HUNT, STA = STA, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
             G = G, MAP = MAP, PATHS = PATHS, menu = menu,
             apply_paths = apply_paths, path_weights = path_weights, BLADE = BLADE, parts = parts, BRK = BRK,
-            REGION = REGION, state = function() return state end, banner = function() return banner end,
+            REGION = REGION, state = function() return state end,
             teleport = function(x, y)
               P.x, P.y = x, y
               cam_x, cam_y = x - W / 2, y - H * 0.62
@@ -5147,8 +5169,8 @@ function _init()
     for k = 0, LEVELS - 1 do
       local o = c
       if not GLOWING[c] then
-        local nr, ng, nb = r * 0.13 + lum * 0.03, g * 0.14 + lum * 0.05, b * 0.20 + lum * 0.12
-        if k == 0 then nr, ng, nb = nr * 0.45, ng * 0.45, nb * 0.55 end
+        local nr, ng, nb = r * 0.17 + lum * 0.02, g * 0.22 + lum * 0.05, b * 0.36 + lum * 0.14
+        if k == 0 then nr, ng, nb = nr * 0.7, ng * 0.7, nb * 0.8 end
         local wr, wg, wb = min(255, r * 1.10 + 8), min(255, g * 0.97 + 2), b * 0.76
         local f = k <= 1 and 0 or ((k - 1) / (LEVELS - 2)) ^ 1.15
         local fr, fg, fb = nr + (wr - nr) * f, ng + (wg - ng) * f, nb + (wb - nb) * f
@@ -5351,11 +5373,9 @@ local function draw_scene()
       end
     end
   end
-  if state ~= "title" or t <= 150 then
-    n = n + 1
-    vis[n] = P
-    P.z = P.y
-  end
+  n = n + 1
+  vis[n] = P
+  P.z = P.y
   for _, o in ipairs(FOE.list) do
     if o.x > x0 and o.x < x1 and o.y > y0 and o.y < y1 then n = n + 1; vis[n] = o end
   end
@@ -5413,7 +5433,9 @@ local function draw_scene()
     for _, l in ipairs(ch.lamps) do
       if lamp_state[l.key] then
         local rr = 74 + sin(t * 0.05 + l.x) * 1.0
-        if l.x + rr > cam_x and l.x - rr < cam_x + W and l.y + rr > cam_y and l.y - rr < cam_y + H then
+        local rr2 = 120 + sin(t * 0.03 + l.x) * 1.5
+        if l.x + rr2 > cam_x and l.x - rr2 < cam_x + W and l.y + rr2 > cam_y and l.y - rr2 < cam_y + H then
+          glow(l.x, l.y - 6, rr2, 3, 0.6)        -- a wide faint ring first, the strong light on top
           glow(l.x, l.y - 6, rr, 7, 0.3)        -- concentric discs, as in Dank Tomb
         end
       end
@@ -5747,6 +5769,13 @@ function _draw()
       r = 22 + (DARK_RMAX - 22) * k
     end
     dark_mask(floor(P.x - cam_x), floor(P.y - cam_y) - 14, r)
+    -- the hunter stays at full brightness over the mask
+    if not (P.act == nil and P.inv > 0 and P.inv < 50 and (P.inv // 3) % 2 == 1) then
+      local fr = HUNT[P.anim].d[P.dir + 1][P.f]
+      camera(cam_x, cam_y)
+      sspr(fr[1], fr[2], fr[3], fr[4], floor(P.x) - fr[5], floor(P.y) - fr[6])
+      camera()
+    end
     if state == "title" then
       UI.f()
       prompt("ok", (256 - (UI.hint_w("ok", "") - 4)) // 2, 216, false, 1, 1)   -- only the chip of the controller in use
@@ -5756,12 +5785,6 @@ function _draw()
     -- drawn by draw_gallery
   else
     update_sound(fire_near)
-    if banner_t > 0 and banner then
-      local w = #banner * 8
-      local x = (W - w) // 2 // 8 * 8
-      rectfill(x - 8, 16, w + 16, 16, 0x000000)
-      print(banner, x, 16, banner_t > 30 and 0xD8C8A0 or 0x786850)
-    end
     local sh = P.shrine
     UI.f()
     if sh and state == "play" then
