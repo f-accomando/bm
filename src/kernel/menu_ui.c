@@ -298,6 +298,48 @@ done:
     return r;
 }
 
+
+int menu_make_cover(g16_sheet_t *s, const char *title)
+{
+    if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
+        return -1;
+    uint32_t h = 2166136261u;
+    for (const char *p = title; *p; p++)
+        h = (h ^ (uint8_t)*p) * 16777619u;
+    g16_t cg;
+    g16_target(&cg, s->px, (uint32_t)s->w, s->w, s->h, &font_console_8x16);
+    uint32_t r = 40 + (h & 63), gg = 40 + (h >> 6 & 63), b = 70 + (h >> 12 & 95);
+    for (int y = 0; y < s->h; y++) {
+        uint32_t k = 100 + (uint32_t)y * 160 / (uint32_t)s->h;
+        g16_rectfill(&cg, 0, y, s->w, 1, g16_rgb(r * k / 160, gg * k / 160, b * k / 160));
+    }
+    /* the title on up to four lines of 10 characters, split at spaces */
+    enum { LINE = 10 };
+    char lines[4][LINE + 1] = { "", "", "", "" };
+    int n = 0;
+    const char *p = title;
+    while (*p && n < 4) {
+        while (*p == ' ') p++;
+        int len = (int)strlen(p);
+        int take = len <= LINE ? len : LINE;
+        if (len > LINE)
+            for (int i = LINE; i > 0; i--)
+                if (p[i] == ' ') { take = i; break; }
+        memcpy(lines[n], p, (size_t)take);
+        lines[n][take] = 0;
+        n++;
+        p += take;
+    }
+    int y0 = (s->h - n * 16) / 2 - 6;
+    for (int i = 0; i < n; i++) {
+        int x = (s->w - (int)strlen(lines[i]) * 8) / 2;
+        g16_text(&cg, x + 1, y0 + i * 16 + 1, lines[i], 0);
+        g16_text(&cg, x, y0 + i * 16, lines[i], g16_rgb(255, 230, 120));
+    }
+    memset(s->alpha, 1, (size_t)s->w * s->h);
+    return 0;
+}
+
 /* ---------------------------------------------------------------- tool covers */
 
 /* filled triangle, for the small icons (edge functions over the box) */
