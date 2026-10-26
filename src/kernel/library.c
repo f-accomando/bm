@@ -549,6 +549,8 @@ void lib_menu_idle(uint32_t until)
 /* ---------------------------------------------------------------- covers */
 
 /* The cover from the .bm COVER section, or a label with the title. */
+#define COVER_QUIET_US 250000           /* no new cover read or decoded until the selection rested this long */
+
 static void read_cover(lib_game_t *c)
 {
     const uint8_t *rgba = NULL;
@@ -577,6 +579,10 @@ static void read_cover(lib_game_t *c)
     if (r == 1)
         menu_load_cover(&s, rgba, w, h);
     free(data);
+    if (fiber_cancelled()) {            /* stopped in the decode: it left nothing; read it next time */
+        g16_sheet_free(&s);
+        return;
+    }
     if (!s.px)
         menu_make_cover(&s, c->title);
     c->cover = s;
@@ -624,7 +630,9 @@ static void covers_main(void *arg)
 {
     (void)arg;
     int i;
-    while (!fiber_cancelled() && (i = next_cover(&library)) >= 0) {
+    /* a new cover only while the selection is still (menu_ui_still): when the user moves, the job ends
+     * and lib_covers_tick starts it again once the menu has rested */
+    while (!fiber_cancelled() && menu_ui_still(COVER_QUIET_US) && (i = next_cover(&library)) >= 0) {
         read_cover(&library.g[i]);
         fiber_slice();
     }
@@ -635,7 +643,7 @@ static void covers_main(void *arg)
 void lib_covers_tick(uint32_t until)
 {
     if (!library.cover_job.busy) {
-        if (next_cover(&library) < 0 || fiber_job_start(&library.cover_job, 16 * 1024, covers_main, NULL) != 0)
+        if (!menu_ui_still(COVER_QUIET_US) || next_cover(&library) < 0 || fiber_job_start(&library.cover_job, 16 * 1024, covers_main, NULL) != 0)
             return;
     }
     fiber_job_run(&library.cover_job, until);

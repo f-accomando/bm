@@ -40,8 +40,9 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
   stage 5 in `market.c` (catalog SHA-256 checks the whole) and a `FIBER_TOOL` call
   in `runtime.c` `present()` before its vsync wait, RAM for 128 KB stacks. Games: opt-in only, never lockstep.
 - Still holding the CPU: TLS handshake (one per HTTPS request), ECDSA verify of a catalog or
-  release (needs mbedTLS restartable ECC), a decoded cover, a directory growing by one
-  cluster (written sector by sector).
+  release (needs mbedTLS restartable ECC), a directory growing by one
+  cluster (written sector by sector). A decoded cover now yields every 4 rows and the cover jobs wait for
+  250 ms of still selection (26 Oct 2026, `menu_ui_still`): measure `covers +x` and `market +x` on the Pi.
 - TLS session reuse for a new connection (proposal: 2-4 `mbedtls_ssl_session` cached
   by host:port in `tls.c`, `MBEDTLS_SSL_SESSION_TICKETS`, ~60+40 lines). Keep-alive is in; do it only if the handshake time
   per new connection on the Pi justifies it.

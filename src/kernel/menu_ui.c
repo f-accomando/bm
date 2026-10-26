@@ -198,10 +198,23 @@ static inline void m_pointer(framebuffer_t *fb)
 
 /* ---------------------------------------------------------------- covers */
 
+/* A decode of a cover runs in a fiber job (covers, Market): it gives the CPU back every COVER_BAND rows
+ * (fiber_slice: cheap before the slice ends, nothing outside a fiber) and stops when the job is cancelled.
+ * 1: stop, the result is not wanted. The two buffers are the call's own: another job runs in the gaps. */
+#define COVER_BAND  4
+
+static int cover_band(int y)
+{
+    if ((y & (COVER_BAND - 1)) != COVER_BAND - 1)
+        return 0;
+    fiber_slice();
+    return fiber_cancelled();
+}
+
 /* the box (cx, cy, cw, ch) of rgba (w wide) into out (CARD_W wide, RGB)
- * at (dx, dy) dw x dh: each pixel the average of what falls on it */
-static void area_scale(const uint8_t *rgba, int w, int cx, int cy, int cw, int ch,
-                       uint8_t *out, int dx, int dy, int dw, int dh)
+ * at (dx, dy) dw x dh: each pixel the average of what falls on it; 1 if cancelled */
+static int area_scale(const uint8_t *rgba, int w, int cx, int cy, int cw, int ch,
+                      uint8_t *out, int dx, int dy, int dw, int dh)
 {
     for (int y = 0; y < dh; y++) {
         int sy0 = cy + y * ch / dh, sy1 = cy + (y + 1) * ch / dh;
@@ -219,23 +232,31 @@ static void area_scale(const uint8_t *rgba, int w, int cx, int cy, int cw, int c
             uint8_t *o = out + ((size_t)(dy + y) * CARD_W + dx + x) * 3;
             o[0] = (uint8_t)(acc[0] / n); o[1] = (uint8_t)(acc[1] / n); o[2] = (uint8_t)(acc[2] / n);
         }
+        if (cover_band(y))
+            return 1;
     }
+    return 0;
 }
 
 int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
 {
     if (w <= 0 || h <= 0 || w > 1024 || h > 1024)
         return -1;
-    static uint8_t out[CARD_W * CARD_H * 3];
+    enum { LO = 8 };
+    uint8_t *out = malloc((size_t)CARD_W * CARD_H * 3);
+    uint8_t *lo = malloc((size_t)LO * CARD_W * 3);
+    int r = -1;
+    if (!out || !lo)
+        goto done;
     if (w * 10 >= h * 9 && h * 10 >= w * 9) {
-        area_scale(rgba, w, 0, 0, w, h, out, 0, 0, CARD_W, CARD_H);     /* (nearly) a square */
+        if (area_scale(rgba, w, 0, 0, w, h, out, 0, 0, CARD_W, CARD_H))     /* (nearly) a square */
+            goto done;
     } else {
         /* the middle square in 8x8 blocks, stretched smooth and darker:
          * the rest of the card; the picture whole over it */
-        enum { LO = 8 };
-        static uint8_t lo[LO * CARD_W * 3];
         const int c = w < h ? w : h;
-        area_scale(rgba, w, (w - c) / 2, (h - c) / 2, c, c, lo, 0, 0, LO, LO);
+        if (area_scale(rgba, w, (w - c) / 2, (h - c) / 2, c, c, lo, 0, 0, LO, LO))
+            goto done;
         for (int y = 0; y < CARD_H; y++) {
             float v = (y + 0.5f) * LO / CARD_H - 0.5f;
             int j0 = v < 0 ? 0 : (int)v, j1 = j0 + 1 < LO ? j0 + 1 : LO - 1;
@@ -251,59 +272,30 @@ int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
                     out[(y * CARD_W + x) * 3 + k] = (uint8_t)((top + (bot - top) * fy) * 0.45f);
                 }
             }
+            if (cover_band(y))
+                goto done;
         }
         const int fw = w >= h ? CARD_W : CARD_W * w / h, fh = w >= h ? CARD_H * h / w : CARD_H;
-        area_scale(rgba, w, 0, 0, w, h, out, (CARD_W - fw) / 2, (CARD_H - fh) / 2, fw, fh);
+        if (area_scale(rgba, w, 0, 0, w, h, out, (CARD_W - fw) / 2, (CARD_H - fh) / 2, fw, fh))
+            goto done;
     }
     if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
-        return -1;
-    for (int y = 0; y < CARD_H; y++)
+        goto done;
+    for (int y = 0; y < CARD_H; y++) {
         for (int x = 0; x < CARD_W; x++) {
             const uint8_t *p = out + (y * CARD_W + x) * 3;
             g16_sheet_set(s, x, y, g16_rgb(p[0], p[1], p[2]), 1);
         }
-    return 0;
-}
-
-int menu_make_cover(g16_sheet_t *s, const char *title)
-{
-    if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
-        return -1;
-    uint32_t h = 2166136261u;
-    for (const char *p = title; *p; p++)
-        h = (h ^ (uint8_t)*p) * 16777619u;
-    g16_t cg;
-    g16_target(&cg, s->px, (uint32_t)s->w, s->w, s->h, &font_console_8x16);
-    uint32_t r = 40 + (h & 63), gg = 40 + (h >> 6 & 63), b = 70 + (h >> 12 & 95);
-    for (int y = 0; y < s->h; y++) {
-        uint32_t k = 100 + (uint32_t)y * 160 / (uint32_t)s->h;
-        g16_rectfill(&cg, 0, y, s->w, 1, g16_rgb(r * k / 160, gg * k / 160, b * k / 160));
+        if (cover_band(y)) {
+            g16_sheet_free(s);
+            goto done;
+        }
     }
-    /* the title on up to four lines of 10 characters, split at spaces */
-    enum { LINE = 10 };
-    char lines[4][LINE + 1] = { "", "", "", "" };
-    int n = 0;
-    const char *p = title;
-    while (*p && n < 4) {
-        while (*p == ' ') p++;
-        int len = (int)strlen(p);
-        int take = len <= LINE ? len : LINE;
-        if (len > LINE)
-            for (int i = LINE; i > 0; i--)
-                if (p[i] == ' ') { take = i; break; }
-        memcpy(lines[n], p, (size_t)take);
-        lines[n][take] = 0;
-        n++;
-        p += take;
-    }
-    int y0 = (s->h - n * 16) / 2 - 6;
-    for (int i = 0; i < n; i++) {
-        int x = (s->w - (int)strlen(lines[i]) * 8) / 2;
-        g16_text(&cg, x + 1, y0 + i * 16 + 1, lines[i], 0);
-        g16_text(&cg, x, y0 + i * 16, lines[i], g16_rgb(255, 230, 120));
-    }
-    memset(s->alpha, 1, (size_t)s->w * s->h);
-    return 0;
+    r = 0;
+done:
+    free(out);
+    free(lo);
+    return r;
 }
 
 /* ---------------------------------------------------------------- tool covers */
@@ -1892,11 +1884,25 @@ static void frame_flip_and_wait(framebuffer_t *fb, const menu_view_t *v, uint32_
     frame_end = now;
 }
 
+/* when the selection or the tab last changed (menu_ui_still); 0: not yet */
+static uint32_t moved_at;
+static int moved_sel = -1, moved_tab = -1;
+
+int menu_ui_still(uint32_t us)
+{
+    return !moved_at || (uint32_t)(timer_ticks() - moved_at) >= us;
+}
+
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 {
     by_enter = v->on_gear;
     if (!ready)
         return;
+    if (v->sel != moved_sel || v->tab != moved_tab) {
+        moved_sel = v->sel;
+        moved_tab = v->tab;
+        moved_at = timer_ticks() | 1;           /* 0 means "never moved" */
+    }
     frame_target(fb);
     float t = (float)(timer_ticks() - t0) * 1e-6f;
     const menu_item_t *cur = v->sel >= 0 && v->sel < v->n ? &v->items[v->sel] : NULL;

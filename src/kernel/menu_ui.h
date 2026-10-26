@@ -169,6 +169,9 @@ int menu_ui_pointer(menu_ptr_t *io);
 int  menu_ui_open(framebuffer_t *fb);
 /* One frame: draws and shows it, waits for the next frame time. */
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v);
+/* 1 if the selection and the tab have not changed for `us` microseconds (also before the first change).
+ * The background jobs start a new cover only then: while the user moves, they leave the CPU to the menu. */
+int  menu_ui_still(uint32_t us);
 /* Back to the console mode. */
 void menu_ui_close(framebuffer_t *fb);
 /* The same, the console left suspended: a game's loading screen takes the

@@ -2,6 +2,7 @@
 #include "carts.h"
 #include "config.h"
 #include "fiber.h"
+#include "menu_ui.h"
 #include "notice.h"
 #include "bm/bm.h"
 #include "bm/png.h"
@@ -71,6 +72,7 @@ static int cur_page;            /* MARKET_PAGE_GAMES or MARKET_PAGE_APPS */
 static int delay_ms;            /* market_delay in bm/config.txt: slows a source down (tests) */
 
 static fiber_job_t work = { .name = "market" };
+#define COVER_QUIET_US 250000           /* a cover job starts only after the selection rested this long (menu_ui_still) */
 enum { JOB_CACHE, JOB_INDEX, JOB_COVER, JOB_GET };
 static int job, job_game;
 static int finishing;           /* a game checked and being written: not stopped off the tab */
@@ -599,6 +601,8 @@ static void job_cover(int i)
     int w = 0, h = 0;
     if (d && png_rgba(d, len, &rgba, &w, &h) == 0 && menu_load_cover(&s->cover, rgba, w, h) == 0) {
         s->cover_state = COVER_READY;
+    } else if (fiber_cancelled()) {     /* stopped in the decode: the file is in the cache, decode it next time */
+        s->cover_state = COVER_WAIT;
     } else if (++s->cover_tries >= 2 || d) {
         /* broken or unreachable: the title on a label, as for games without one */
         if (menu_make_cover(&s->cover, g->title) == 0)
@@ -757,7 +761,7 @@ static int start_job(void)
         job_game = i;
     } else if (!fetched && !net_failed && online()) {
         job = JOB_INDEX;
-    } else if ((i = pick_cover()) >= 0) {
+    } else if (menu_ui_still(COVER_QUIET_US) && (i = pick_cover()) >= 0) {
         job = JOB_COVER;
         job_game = i;
     } else {

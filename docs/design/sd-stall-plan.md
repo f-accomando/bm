@@ -72,6 +72,8 @@ C3. Cancel at the selection. When the user presses A on a game (or holds the cur
 
 C4. Idle-aware shares. `fiber_share_run` takes one table per context. Add a second table per context for "user idle for 2 s". The active table keeps the small shares of today. The idle table gives the large share to the job the user waits for.
 
+C6. Cover gate (done 26 Oct 2026, not measured on a device). The covers job and the Market cover job start a new cover only when the selection and the tab have rested 250 ms (`menu_ui_still`, `COVER_QUIET_US`). The covers job ends between two covers when the user moves again.
+
 C5. Back-off for a bad cover. A cover whose read failed twice goes to the end of the queue and waits 2 s. The job takes the next cover.
 
 ## 5. The three workloads
@@ -84,7 +86,7 @@ C5. Back-off for a bad cover. A cover whose read failed twice goes to the end of
 | Pointer jump during a read | C2 |
 | Handshake of the reports (100-300 ms) in the same time as covers | C1 |
 | Same cover read again after a failure | C5 |
-| Decode of a cover (time not measured) | decode in bands like `menu_bg_step`, only if S0 shows over 5 ms |
+| Decode of a cover | done 26 Oct 2026: `menu_load_cover` gives the CPU back every 4 rows (`cover_band`) and stops on cancel; C6 holds new covers while the user moves. Measure `covers +x` on the device. |
 | Many small reads | one cover cache file, only if S0 shows reads are the cost |
 
 ### 5.2 Background downloads
