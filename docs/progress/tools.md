@@ -55,6 +55,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **Native hardware mouse in nano8**: `mouse(true)` support for `.p8` cartridges that enable the pointer with `poke(0x5f2d, 1)`, exporting coordinates and wheel on `stat(32)`–`stat(36)`.
 
 ## Rules (do not break)
+- Line endings: `.gitattributes` sets LF for all text files on every OS. Give a Windows script (`.cmd`, `.bat`, `.ps1`) CRLF. Mark a golden file that a test compares with `cmp` as `-text` when its bytes include CR (`tests/gamekit/*.golden`: bmhost writes CRLF).
 - Makefile, carts: one recipe (`CART_RECIPE`) builds every cart and tool. Add a cart with its folder and, where it differs, the variables `cdir_`, `lua_`, `bminfo_`, `cover_`, `sheet_`, `sheet8_`, `layers_`, `models_`, `audio_`, `extra_` (`docs/PROJECT-LAYOUT.md`, section *Add a cart to the Makefile*). Use the recipe for a new cart. A copied `mkbm.py` line drifts from it.
 - bm Mesh main chunk: 200 locals is the limit and the chunk is at it. Put new state and functions in the fields of `ed`, `lp` or `UA` (the undo helpers), not in new `local`s.
 - bm Mesh hide: a hidden vertex is a number in `it.hid`. Any code that deletes or renumbers vertices must call `compact(it)` (it renumbers `it.hid` with `T.G.compact(it, sv, extra)`) and push the undo step with `begin_edit` or `UA.push`; the snapshot stores the set.

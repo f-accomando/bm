@@ -17,7 +17,7 @@ wsl bash -lc 'cd /mnt/c/Users/Utente/Documents/GitHub/<worktree> && export TMPDI
 ```
 - `make -k` runs every target even after a failure; `-j2` or `-j3` keeps the disk of `/mnt/c` from distorting timings.
 - Set `TMPDIR` on disk: `/tmp` in WSL is a 3.9 GB tmpfs that other operators' `qemu_test.py` runs can fill ("No space left on device" then is the environment).
-- Checkout with `core.autocrlf=false` (or a Linux checkout): with CRLF, `test-qpu` (`cmp build/shaders.h src/gpu/shaders.h`) and `test-nano8` fail only locally.
+- Check the line endings: `.gitattributes` gives LF on every OS. A working tree checked out before it can keep CRLF. Then `test-qpu` (`cmp build/shaders.h src/gpu/shaders.h`) and `test-nano8` fail only locally. Refresh it once with `git rm -r -q --cached . && git reset --hard` (commit or stash first).
 - A target killed by the 25-minute timeout is a speed problem; list the targets after it as not confirmed and run them alone.
 
 ## 3. Classify every failure (one row each)
