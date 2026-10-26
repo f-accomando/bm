@@ -790,6 +790,18 @@ static inline void copy_nc16(void *dst, const void *src, size_t n)
         d[i] = s[i];
 }
 
+/* Zero n bytes (16-aligned, n a multiple of 16): 16 bytes a store. The library's memset is a byte loop (a draw's 1344 bytes
+ * cost 3.4 us: 5 of the 10 ms of frame_build_ex at 1480 draws, G3 report of 26 Oct). */
+static inline void zero16(void *dst, size_t n)
+{
+    typedef unsigned __int128 u128;
+    u128 *d = dst;
+    for (size_t i = 0; i < n / 16; i++) {
+        d[i] = 0;
+        __asm__ volatile("" ::: "memory");   /* the compiler keeps the loop (it would turn it into memset) */
+    }
+}
+
 /* What each draw slot of the fast path's arena holds (the arena is Normal non-cacheable: a store costs far more than a compare in
  * the cache; 6.8 us of 15 per draw in the G3 report of 26 Oct). Only frame_build_ex writes those slots. A line goes to the
  * arena when it differs from what the slot held, or when the slot was never written. */
@@ -868,7 +880,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     uint32_t first = 0;                         /* the draw's first vertex, in the frame's arrays */
     for (uint32_t d = 0; d < ndraws; d++) {
         uint8_t loc[0x540] __attribute__((aligned(16)));
-        memset(loc, 0, sizeof loc);
+        zero16(loc, sizeof loc);
         const uint64_t dpa = draws_pa + (uint64_t)MEM_DRAW_SIZE * d;
         const uint32_t nv = 3 * draws[d].n;
         const uint32_t rgb = draws[d].rgb;
