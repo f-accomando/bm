@@ -964,6 +964,9 @@ int l_gpu3d_stats(lua_State *L)
 #define STAT(name, v) (lua_pushinteger(L, (lua_Integer)(v)), lua_setfield(L, -2, name))
     STAT("jobs", s.jobs);
     STAT("draws", s.draws);
+    STAT("mesh_us", s.mesh_us);
+    STAT("flush_us", s.flush_us);
+    STAT("resolve_us", s.resolve_us);
     STAT("bin_us", s.bin_us);
     STAT("render_us", s.render_us);
     STAT("gltris", s.gltris);

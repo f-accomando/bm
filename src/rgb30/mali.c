@@ -1354,6 +1354,11 @@ static float be_mvps[BE_MAX_MVPS][16];
 static int be_n, be_nmvp;
 static int be_vs_on = 2, be_q_on = 1;
 static gpu3d_stats_t be_stats;
+
+/* where the ARM's time goes in the backend (G3 of docs/progress/multicore.md): counter ticks, in us at the stats read.
+ * flush includes the job and its wait; resolve is inside flush (a frame's own resolve) */
+static uint64_t t_mesh, t_flush, t_resolve;
+static inline uint64_t cnt_now(void) { uint64_t v; __asm__ volatile("isb\n mrs %0, cntvct_el0" : "=r"(v)); return v; }
 static uint32_t be_wait_us;
 static int be_pend;
 static g16_t *be_pend_g;
@@ -1378,10 +1383,19 @@ uint32_t mali_backend_wait_us(void)     { return be_wait_us; }
 
 void mali_backend_stats(gpu3d_stats_t *s, int reset)
 {
-    if (s)
+    if (s) {
         *s = be_stats;
+        uint64_t f;
+        __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f));
+        if (!f)
+            f = 24000000u;
+        s->mesh_us = (uint32_t)(t_mesh * 1000000u / f);
+        s->flush_us = (uint32_t)(t_flush * 1000000u / f);
+        s->resolve_us = (uint32_t)(t_resolve * 1000000u / f);
+    }
     if (reset) {
         memset(&be_stats, 0, sizeof be_stats);
+        t_mesh = t_flush = t_resolve = 0;
         be_wait_us = 0;
     }
 }
@@ -1414,7 +1428,15 @@ void mali_backend_drop(void)
 }
 
 /* the pixels of the surface that are not the key, into the page (8 pixels at a time via 64-bit loads) */
+static void be_resolve_impl(const g16_t *g, const uint8_t *surf, uint32_t pitch);
 static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
+{
+    const uint64_t t0 = cnt_now();
+    be_resolve_impl(g, surf, pitch);
+    t_resolve += cnt_now() - t0;
+}
+
+static void be_resolve_impl(const g16_t *g, const uint8_t *surf, uint32_t pitch)
 {
     const uint64_t key2 = (uint64_t)BE_KEY | ((uint64_t)BE_KEY << 32);
     const uint64_t mask = 0x00FFFFFF00FFFFFFull;
@@ -1630,7 +1652,16 @@ static void sort_tris(int *idx, int *tmp, int n, int (*after)(const be_tri_t *, 
         memcpy(idx, src, (size_t)n * sizeof(int));
 }
 
+static int be_flush_mode_impl(const g16_t *g, int async);
 static int be_flush_mode(const g16_t *g, int async)
+{
+    const uint64_t t0 = cnt_now();
+    const int r = be_flush_mode_impl(g, async);
+    t_flush += cnt_now() - t0;
+    return r;
+}
+
+static int be_flush_mode_impl(const g16_t *g, int async)
 {
     static float vbuf[BE_MAX_TRIS * 3][3];
     static mali_draw_t dr[BE_HW_MAX_DRAWS];
@@ -1780,8 +1811,19 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
     t->mvp = NULL;
 }
 
+static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
+                        int nbones, const r3d_env_t *env, int depth);
 static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                    int nbones, const r3d_env_t *env, int depth)
+{
+    const uint64_t t0 = cnt_now();
+    const int r = be_mesh_impl(ctx, g, m, M, N, nbones, env, depth);
+    t_mesh += cnt_now() - t0;
+    return r;
+}
+
+static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
+                        int nbones, const r3d_env_t *env, int depth)
 {
     (void)ctx;
     if (!be_vs_on || (env->lit && be_vs_on < 2) || depth != R3D_DEPTH_WRITE || !m ||

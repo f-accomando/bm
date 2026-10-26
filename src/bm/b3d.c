@@ -1367,6 +1367,7 @@ typedef struct {
     float ms, worst;                    /* a frame, with the copy to the screen */
     float gpu_ms, wait_ms;              /* the V3D's work; the ARM waiting for it */
     float jobs;
+    float draws, mesh_us, flush_us, resolve_us;     /* the Mali backend: draws a frame, the ARM's time in it (us a frame) */
     float bin_us, rnd_us;               /* the binner's and the renderer's time of the jobs, a frame */
     float instr, wait_instr, dmiss, cycles;  /* the ARM's counters, a frame */
     float tris_in, tris, verts, pixels, gltris;
@@ -1629,6 +1630,10 @@ static void ramp(int ti, int pf)
         a.jobs = (float)st.jobs * k;
         a.bin_us = (float)st.bin_us * k;
         a.rnd_us = (float)st.render_us * k;
+        a.draws = (float)st.draws * k;
+        a.mesh_us = (float)st.mesh_us * k;
+        a.flush_us = (float)st.flush_us * k;
+        a.resolve_us = (float)st.resolve_us * k;
         a.gltris = (float)st.gltris * k;
         a.clean_kcyc = (float)st.clean_cyc * k / 1000.0f;
         a.inval_kcyc = (float)st.inval_cyc * k / 1000.0f;
@@ -2169,7 +2174,7 @@ static void report(void)
             P->only_profiles ? P->only_profiles : "all");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
         "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,"
-        "ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us\n");
+        "ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us\n");
     char a[16], b[16], c[16], d[16], e[16], f[16], g1[16], g2[16];
     for (int ti = 0; ti < NTESTS; ti++) {
         const test_t *t = &tests[ti];
@@ -2184,7 +2189,7 @@ static void report(void)
             const sample_t *s = &r->at;
             char h1[16], h2[16], h3[16];
             put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d,%lu,%lu,%s,%s,%lu,%lu,%lu,"
-                "%lu,%s,%s,%s,%lu,%lu\n",
+                "%lu,%s,%s,%s,%lu,%lu,%lu,%lu,%lu,%lu\n",
                 t->id, prof[pf].name,
                 prof_version(pf), f1(a, r->n60), f1(b, r->n30), r->over, f1(c, s->ms), f1(d, s->worst),
                 (int)s->tris_in, (int)s->tris, (int)s->verts, (int)s->pixels, (int)s->gltris, f1(e, s->jobs),
@@ -2193,7 +2198,8 @@ static void report(void)
                 (unsigned long)s->core_mhz, (unsigned long)s->gpu_mhz, f1(g1, s->clean_kcyc), f1(g2, s->inval_kcyc),
                 (unsigned long)s->pool_kb, (unsigned long)s->ovf_kb, (unsigned long)s->ovf_jobs,
                 (unsigned long)s->fill, f2(h1, r->ns_gpu), f2(h2, r->ns_ms), f2(h3, r->gpu0_ms),
-                (unsigned long)(s->bin_us + 0.5f), (unsigned long)(s->rnd_us + 0.5f));
+                (unsigned long)(s->bin_us + 0.5f), (unsigned long)(s->rnd_us + 0.5f), (unsigned long)(s->draws + 0.5f),
+                (unsigned long)(s->mesh_us + 0.5f), (unsigned long)(s->flush_us + 0.5f), (unsigned long)(s->resolve_us + 0.5f));
         }
     }
     /* the cost of a pixel (the fills and the 2D): ns a pixel = ms a Mpixel,
