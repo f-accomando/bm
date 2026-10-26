@@ -86,15 +86,13 @@ with the F keys (Y + left/right on the gamepad), Esc the menu, **F12** held the 
 - **F1, the project**: on the left *OPEN IN* (1 bm Code, 2 bm Pixel, 3 bm Studio, 4 bm
   Animator, 5 bm Mesh, 6 bm Sound: the SDK saves and opens the program on the same file; in
   its menu **Back to bm SDK** saves and returns) and *PROJECT* (t title, a author, r screen, b
-  target `.bm`/`.b16`, n a template). On the right what is in the file: lines, KB and **tokens**
+  target Pi, RGB30 or both, n a template). On the right what is in the file: lines, KB and **tokens**
   of the code, the drawn cells of the sheet, those of the map, the models, the
   skeletons and the animations, the sound bank; the numbers of the last test run; how to ask
   the assistant.
 - **F1 again, the dev kit**: the tokens and the biggest functions, the memory the game's
   data takes while it runs (sheet, map, models, skeletons, sounds, z-buffer: the
-  same sum as `stat(13)`; Lua is added on top), the saved file against the **8 MB**
-  of a `.b16` ([docs/B16.md](../docs/B16.md) §8.5) and, with the `.b16` target, the lines that
-  format won't have (`math.random`, `time()`, files...). After a test run (**F5**) its
+  same sum as `stat(13)`; Lua is added on top) and the size of the saved file. After a test run (**F5**) its
   numbers: fps, average and maximum ms of `_update` + `_draw`, frames over 16.7 ms,
   the maximum RAM (Lua + data), the instructions of the heaviest frame, the triangles and
   who drew the 3D (`cart_arg().run`). In games the time of a frame comes from F11
@@ -137,24 +135,24 @@ goes back as it was: a big sheet stays small).
 
 **Projects and games** (`src/bm/project.h`, `docs/API.md`): all the tools of the suite
 (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound) change only **projects**
-(`.bme`); a **game** (`.bm`, `.b16`) they only read. With a game open, the first
+(`.bme`); a **game** (`.bm`) they only read. With a game open, the first
 save asks *Save an editable copy: NAME.BME?* and from there the tool works on the copy
 (the second value of `cart_save`/`cart_write`/`cart_put_audio`); a new project is
 `GAME.BME`. *Build the game .bm* (`cart_build`) writes the project's game in `/carts` and
-replaces it at every build. In the bm menu projects are in Dev with the label "Project".
+replaces it at every build. *Publish to the Market...* (`cart_publish(path)`) builds the .bm, then the Publish panel opens a pull request that the Market owner approves. In the bm menu projects are in Dev with the label "Project".
 The stand-ins of the PC tests follow the same rules (`tests/studio/project_rules.lua`). Tests: `tests/studio/sdk_host.lua` (in `make
 test-studio`: every game template runs 400 frames on the stand-ins), QEMU
 `test_editor` and `test_sdk_suite` (the test kit: the 3D page, the
 assistant's saved model, bm Studio and back).
 
-## On the RGB30: bm SDK (RGB30), the `.b16` edition
+## On the RGB30: bm SDK (RGB30)
 
-**bm SDK (RGB30)** (`carts/sdk_b16/`) is a separate edition of the SDK for the RGB30's 360×360
+**bm SDK (RGB30)** (`carts/sdk_b16/`) is a separate version of the SDK for the RGB30's 360×360
 screen and its pad, **built into the RGB30's kernel** (`kernel8.img`) as a tool, as the Pi's SDK
 is built into the Pi's: the **Dev** tab has it (its last cover, **bm SDK**), and a game's options
 (**X** on its cover in Games) have **Open in bm SDK**. It has its own sources and build rules:
 the Pi's bm SDK (`carts/editor`, in the Pi's kernel) does not change with it, the Pi's kernel
-does not have it, and neither replaces the other. It is not in the Market.
+does not have it, and neither replaces the other. It is not in the Market. It has no Publish panel.
 
 - **The screen**: 360×360 (×2 on the panel), 45 columns and 22 rows of 8×16 text: the tabs on
   top, the hint row and the status bar at the bottom (a long message takes both). The pages are
@@ -177,9 +175,9 @@ does not have it, and neither replaces the other. It is not in the Market.
   the menu. A name (title, file) is typed with padtype's keyboard: Start takes it, back deletes
   and, on an empty line, closes. A keyboard works as on the Pi (F1–F4, Esc, Ctrl+S, F12).
 - **What it can do**, as a tool (the Pi's tool session, `src/kernel/devtool.c`): open any
-  `.bm`, `.bme` or `.b16` (in `/carts`, `bm/` and the root) and save its project where it is, one
+  `.bm` or `.bme` (in `/carts`, `bm/` and the root) and save its project where it is, one
   of an earlier session too (Save as: `/carts`). A game is read only: saving it, the console asks
-  and makes its editable copy next to it (`bm/TESTKIT.B16` → `bm/TESTKIT.BME`). **Build** (Ctrl+B,
+  and makes its editable copy next to it (`bm/TESTKIT.BM` → `bm/TESTKIT.BME`). **Build** (Ctrl+B,
   X > *Build the game .bm*) makes the project's game next to it: from a project in `bm/` the
   Games tab shows it, from `/carts` it does not (that tab lists `bm/`). **Try** (F5, X > *Try the
   game*) saves, then the console plays the game: Start + Select (or Ctrl+Esc) leaves it and the
@@ -187,8 +185,7 @@ does not have it, and neither replaces the other. It is not in the Market.
   error. The suite's other programs (bm Code, Pixel, Studio, Animator, Mesh, Sound) are the Pi's:
   the RGB30's kernel has none, so it does not offer them (*Open in ...*). The assistant answers
   where the kernel has its knowledge (not on the RGB30).
-- A new project is 360×360 with the target `.b16`; the dev kit lists what the `.b16` profile
-  leaves out ([docs/B16.md](../docs/B16.md) §0: files, `math.random`, `screen()`...).
+- A new project is 360×360 with the target Pi plus RGB30.
 
 Build: `make TARGET=rgb30` (`rgb30.mk` joins it, packs it as `build/rgb30/sdk_b16.bm` and
 `src/rgb30/bm_embed.S` takes it into `kernel8.img`). Tests: `make test-sdk-b16`
@@ -513,7 +510,7 @@ stay identical byte for byte; `test_pixel_big` does the same with the sheet of T
 
 ```
 carts/editor/main.lua        bm SDK, the hub of the project (built into the kernel, Dev tab)
-carts/sdk_b16/               bm SDK (RGB30), the .b16 edition (built into kernel8, its Dev tab)
+carts/sdk_b16/               bm SDK (RGB30) (built into kernel8, its Dev tab)
 src/kernel/devtool.c         the tool session (a tool, its games, cart_tool): the Pi's and the RGB30's
 carts/studio/main.lua        bm Studio (built into the kernel, Dev tab)
 carts/animator/main.lua      bm Animator (built into the kernel, Dev tab)

@@ -183,7 +183,7 @@ function App() {
       cartCover ? e("img", { src: cartCover, alt: "Cartridge cover", width: 88, height: 88 }) : null,
       e("div", null,
         e("strong", null, cart.title || cart.fileName),
-        e("p", null, (cart.author ? "by " + cart.author + " — " : "") + (cart.width ? cart.width + "×" + cart.height : "Native") + (cart.b16 ? " (.b16)" : "") + ", " + cart.size + " bytes"),
+        e("p", null, (cart.author ? "by " + cart.author + " — " : "") + (cart.width ? cart.width + "×" + cart.height : "Native") + ", " + cart.size + " bytes"),
         cart.sections && cart.sections.length ? e("p", null, "Sections: " + cart.sections.map((x) => x.name).join(", ")) : null,
         cart.crcOk === false ? e("p", { className: "notice" }, "The CRC-32 does not match: the file may be damaged.") : null
       )
@@ -258,7 +258,7 @@ function App() {
             onClick: handleStart
           }, isRunning ? "■ Stop bm (Esc)" : "▶ Start bm"),
           e("label", { className: "file-btn" }, "Open custom .bm file: ",
-            e("input", { type: "file", accept: ".bm,.b16", onChange: handleCartFile })),
+            e("input", { type: "file", accept: ".bm", onChange: handleCartFile })),
           launcherNotice ? e("p", { className: "notice" }, launcherNotice) : null
         ),
         e("div", { className: "preset-bar" },

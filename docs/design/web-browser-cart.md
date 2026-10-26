@@ -258,7 +258,7 @@ stage 1b, optional).
 - Q3. Decided: develop the kernel API: `web_get`, `image_load`, `file_write` (new Lua API, with docs and specs).
 - Q4. Decided: develop the WebP decoder (about 1 200 lines of C, host-tested).
 - Q5. Decided: one Pi Zero W run per stage 2 and stage 5. The assistant does not use the Pi password: the user runs these Pi checks and copies the numbers back.
-- Q6. Decided: name `bmweb`; `.bm` edition first. With a single `.bm` (PR 101) no separate `.b16` is planned.
+- Q6. Decided: name `bmweb`; one `.bm` for the Pi and the RGB30.
 
 ## 7. Evidence log
 
@@ -284,7 +284,7 @@ It is a generic browser: no site name is in the code. The user types or picks an
 | `robots.lua` | Parser: group `bm`, else `*`; longest rule wins, `*` and `$` in a path; `Crawl-delay`. |
 | `browser.lua` | State: history (32), bookmarks (32, in `save` slot 1), focus on links and fields, GET forms, the body laid out in slices of 6 ms a frame, pictures on demand, the download prompt. |
 | `view.lua` | Screen 640x360 with the 6x12 font; input by pad, keyboard and mouse; an on-screen keyboard for the address and for text fields. |
-| `files.lua` | Response kind (HTML, text, picture, file) from the Content-Type or the first bytes; the 8.3 name of a saved file (`STEM6` + 2 hash characters + `.EXT`, never `.BM`, `.BME` or `.B16`); the note text. |
+| `files.lua` | Response kind (HTML, text, picture, file) from the Content-Type or the first bytes; the 8.3 name of a saved file (`STEM6` + 2 hash characters + `.EXT`, never `.BM` or `.BME`); the note text. |
 | `atlas.lua` | 16 picture slots of 160x128 on a 640x512 sheet (`cart_sheet`). A picture is cut to 160x120. |
 | `cp437.lua` | UTF-8 to code page 437, one byte per code point. |
 

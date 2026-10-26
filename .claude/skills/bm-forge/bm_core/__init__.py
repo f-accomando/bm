@@ -1,4 +1,4 @@
-"""bm_core: headless read / write / check of bm cartridges (.bm Pi, .b16 RGB30,
+"""bm_core: headless read / write / check of bm cartridges (.bm,
 .bme projects, BMRES files) and of their MESH (8) and ANIM (9) sections.
 
 Python >= 3.8, standard library only, no network. See README.md.

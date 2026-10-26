@@ -15,17 +15,16 @@ footer: manuali bm - api-tools
 
 # Il file cartuccia
 
-Un gioco su bm è un solo file. Lo stesso contenitore ha tre forme, e conta quali strumenti possono modificarlo.
+Un gioco su bm è un solo file. Lo stesso contenitore ha due forme, e conta quali strumenti possono modificarlo.
 
 | Estensione | Che cos'è | Gli strumenti di bm possono modificarlo? |
 |---|---|---|
 | `.bm` | un **gioco**: sta nella scheda Giochi del menu | No. Gli strumenti lo leggono e ne prendono codice e asset |
-| `.b16` | anche un **gioco**: l'edizione a risorse limitate per i portatili | No, come per il `.bm` |
 | `.bme` | un **progetto**: lo stesso contenitore, quello che gli strumenti modificano | Sì |
 
 ## Che cosa fa
 
-Un progetto è un `.bme` con il bit 0 dell'u16 all'offset 18 dell'intestazione acceso. Un `.b16` è segnato con il bit 1 dello stesso u16. Nient'altro nel contenitore cambia. Un progetto produce il suo gioco con una compilazione; un gioco produce una copia modificabile di sé stesso.
+Un progetto è un `.bme` con il bit 0 dell'u16 all'offset 18 dell'intestazione acceso. Nient'altro nel contenitore cambia. Un progetto produce il suo gioco con una compilazione; un gioco produce una copia modificabile di sé stesso.
 
 ## Perché conta
 
@@ -37,14 +36,8 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 - Nel menu, *Make an editable copy* è nelle opzioni di un gioco. Il progetto non è nelle schede del menu: aprilo dall'SDK con *Open* (**Ctrl+O**).
 - *Build the game (.bm)* è nelle opzioni di un progetto. Nell'SDK il tasto è **Ctrl+B**.
 - Una compilazione di un progetto in `/bme` scrive il gioco nella cartella dei giochi (`/carts` sul Pi, `/bm` sull'RGB30); un progetto accanto al suo gioco compila accanto. Il gioco ha il nome del progetto salvato all'offset 104 dell'intestazione. La compilazione successiva sostituisce quel gioco e solo quello. Un gioco con lo stesso nome che non è stato compilato dal progetto resta, e il nuovo prende una cifra (`pong1.bm`).
-- Il `.bm` e il `.b16` sono edizioni separate. Un `.b16` non sostituisce mai il `.bm`, e i sorgenti del `.bm` non vengono mai sovrascritti per fare il `.b16`.
-- Un file `.b16` non ha un limite di dimensione proprio: gli strumenti di build non rifiutano più un file grande. Il Market accetta fino a 100 MB a file. Il suo schermo è 360x360 (o 720x720, lo dice il profilo), uguale su Pi e su RGB30.
+- Un `.bm` gira sul Pi Zero W e sull'RGB30. La sua intestazione dice per quali kernel è fatto (la chiave `targets` di `bm.info`: `pi`, `rgb30`). Il Market accetta fino a 100 MB a file.
 - Le altre cartucce scrivono in `/carts` solo file `.bm` e `.bme`, e solo quelli che hanno creato nella stessa esecuzione.
-
-## Attenzione
-
-- [DA COMPLETARE: stato del profilo `.b16`. `docs/B16.md` dice che il profilo è deciso ma non ancora implementato, e il §3 descrive un contenitore `B16CART` diverso che il §0 sostituisce con il contenitore `.bm`; `src/bm/project.h` e `scripts/mkbm.py` segnano ed esportano già i file `.b16` (bit 1 all'offset 18, controllo degli 8 MB). Dire quale delle due è quella attuale.]
-- Le voci *Build .bm* ed *Export .b16* dell'SDK chiamano `bm_build_b16`; **Ctrl+Shift+B** nell'SDK di bm esporta sempre un `.b16`.
 
 ## Provalo, passo per passo
 
@@ -62,15 +55,11 @@ Compila due volte lo stesso progetto. La seconda compilazione sostituisce il pri
 
 ## Dal PC
 
-`mkbm.py` scrive il tipo di file in base all'estensione di `-o`: `.bm`, `.bme` o `.b16`.
+`mkbm.py` scrive il tipo di file in base all'estensione di `-o`: `.bm` o `.bme`.
 
 ::: copy
 python3 scripts/mkbm.py -o ball.bme --lua carts/ball/main.lua --title "Ball" --author "me"
-python3 scripts/mkbm.py --from ball.bm --b16
-:::
-
-::: warn
-Nessun controllo rifiuta un `.b16` grande in fase di build. Con `--from` e `--b16` e senza `-o`, il file viene scritto accanto al sorgente con l'estensione `.b16`.
+python3 scripts/mkbm.py -o ball.bm --lua carts/ball/main.lua --title "Ball" --author "me"
 :::
 
 # Le sezioni di una cartuccia
@@ -85,7 +74,7 @@ Una cartuccia è un'intestazione di 128 byte, una tabella delle sezioni e i corp
 | 12 | u16 larghezza, u16 altezza: 640x360, 480x270, 320x180, 256x256, 360x360 |
 | 16 | u8 formato pixel (1 = RGB565) |
 | 17 | u8 numero di sezioni |
-| 18 | u16 flag: bit 0 progetto, bit 1 `.b16` |
+| 18 | u16 flag: bit 0 progetto |
 | 20 | u32 CRC-32 di tutto ciò che segue l'intestazione |
 | 24 | char[48] titolo |
 | 72 | char[32] autore |
@@ -119,7 +108,7 @@ Una cartuccia è un'intestazione di 128 byte, una tabella delle sezioni e i corp
 
 # L'API per gli strumenti
 
-Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di sviluppo (gli editor della suite). I giochi non ne hanno bisogno, e il progetto in `docs/B16.md` dice che il profilo `.b16` lascia fuori dalla sandbox le funzioni `cart_*` e `ls`; la console non lo applica ancora.
+Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di sviluppo (gli editor della suite). I giochi non ne hanno bisogno.
 
 ## Giochi e progetti nell'API
 
@@ -143,7 +132,8 @@ Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di svi
 | `cart_sheet([w, h])` | la dimensione del foglio di sprite del progetto; con `w` e `h` (multipli di 8, da 8 a 4096) lo ridimensiona: i pixel che ci stanno restano, i nuovi sono trasparenti, i flag restano con il loro tile |
 | `cart_new()` | un foglio di sprite e una mappa vuoti (256x256, un livello), senza flag, zone, box o modelli |
 | `cart_save(path, {title, author, res, lua})` | scrive un `.bm` con il codice dato e il foglio, i flag, le zone, i box, la mappa, i livelli, la copertina, il banco dei suoni, i modelli e gli scheletri correnti. Un nome 8.3, per esempio `"/bme/game.bme"`. Restituisce `true` (e il file scritto quando non è `path`), oppure `false` e un messaggio |
-| `cart_build(project)` | compila il gioco di un progetto (`.bme`) in un `.BM` nella cartella dei giochi (accanto ad esso per un progetto che non è in `/bme`). Restituisce `true` e il percorso del gioco, oppure `false` e un messaggio |
+| `cart_build(project)` | compila il gioco di un progetto (`.bme`) in un `.BM` nella cartella dei giochi (accanto ad esso per un progetto che non è in `/bme`). Non ha un secondo argomento. Restituisce `true` e il percorso del gioco, oppure `false` e un messaggio |
+| `cart_publish(path)` | per gli strumenti di bm. Esce dallo strumento e apre il pannello Publish sul gioco in `path`. Sull'RGB30 risponde `false` e il motivo |
 | `cart_read(path)` | il codice e l'intestazione di un `.bm`: `{title, author, res, lua, size}`, senza toccare foglio e mappa del chiamante. Per gli editor con più file aperti |
 | `cart_write(path, {[lua, title, author, res, from, sections]})` | cambia solo il codice (e i campi dati) di un `.bm`; foglio, mappa, copertina, banco dei suoni e sezioni sconosciute restano. Senza `lua` il codice resta. `from`: le altre sezioni vengono da un altro file ("salva con nome"); `from = false`: una cartuccia nuova. `sections`: `{[8] = byte MESH, [9] = byte ANIM}` (`false` le toglie), controllati prima. `sheet = true`: il foglio di sprite del progetto prende il posto di quello del file, come SHEET8 se ha al massimo 256 colori, con i colori di `palette` (`{0xRRGGBB, ...}`) per primi. Restituisce come `cart_save` |
 | `cart_data(kind, [bytes])` | le sezioni MESH (`kind` 8), ANIM (9), SPRITES (11) e BOXES (14) del progetto come stringhe nel formato di `src/bm/bm.h`. Senza `bytes` le restituisce (`nil` se non ci sono); con `bytes` le sostituisce (`nil` o `""` le toglie) e restituisce `true`, oppure `false` e il motivo |
@@ -288,7 +278,7 @@ Un file di risorse usa lo stesso contenitore di un `.bm`, con il magic `BMRES` e
 
 - Il menu non ha una scheda per i file di risorse (la scheda Lib è stata rimossa). Apri un file di risorse da un editor.
 - Le app che aprono ogni tipo di file di risorse non sono ancora pronte.
-- `bmres.py add` con una cartuccia `.bme` e senza `-o` scrive il `.bme` sul posto. Con un `.bm` o un `.b16` e senza `-o` si rifiuta di cambiare il gioco ("is a game, read only") e scrive una copia con lo stesso nome e l'estensione `.bme`. Un'uscita `.bme` è segnata come progetto.
+- `bmres.py add` con una cartuccia `.bme` e senza `-o` scrive il `.bme` sul posto. Con un `.bm` e senza `-o` si rifiuta di cambiare il gioco ("is a game, read only") e scrive una copia con lo stesso nome e l'estensione `.bme`. Un'uscita `.bme` è segnata come progetto.
 - [DA COMPLETARE: `docs/RISORSE.md` dice che `mkbm.py --res FILE` integra le risorse in fase di compilazione, ma in `scripts/mkbm.py` l'opzione `--res` sceglie la risoluzione dello schermo. Dire quale strumento fa l'integrazione in compilazione.]
 
 ## Che cosa fa l'integrazione

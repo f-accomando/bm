@@ -101,10 +101,10 @@ class CliBuild(unittest.TestCase):
             self.assertIn("triangles", stderr)
 
     def test_mesh_bad_ext(self):
-        """mesh -o x.b16 exits with code 2 (invalid extension)."""
+        """mesh -o x.xyz exits with code 2 (invalid extension)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             boxes_path = os.path.join(C.SKILL, "examples", "humanoid_boxes.json")
-            out_path = os.path.join(tmpdir, "out.b16")
+            out_path = os.path.join(tmpdir, "out.xyz")
 
             code, stdout, stderr = C.run_cli(["mesh", boxes_path, "-o", out_path])
 

@@ -524,7 +524,7 @@ test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/in
 	grep -q "^gameapi: \([0-9]*\)/\1 checks passed" $(BUILD)/gameapi-test.log
 
 # screen(): the modes of a square panel (bmhost --square: 360x360, 720x720, 720x405) and of a TV
-# (bmhost), the size after a change, safe_area() and aspect() (W2, W3 of docs/design/b16-removal.md)
+# (bmhost), the size after a change, safe_area() and aspect()
 $(BUILD)/screen-modes.bm: tests/host/screen_modes.lua scripts/mkbm.py
 	@mkdir -p $(BUILD)
 	@printf 'name: screen modes\nspec: 5\n' > $(BUILD)/screen-modes.info
@@ -1509,7 +1509,7 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/mapkit.bm $(BUILD)/host/luahos
 	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
 	$(BUILD)/host/test_bm $(BUILD)/carts/mapkit.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/bme/blocks.bme
 
-# bm SDK (RGB30), the .b16 edition, on the PC: its layout, every frame inside
+# bm SDK (RGB30) on the PC: its layout, every frame inside
 # 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves,
 # build and try of the RGB30's kernel tool, none of the Pi's other programs. Not in
 # HOST_TESTS (the Pi's): run it when the edition changes.

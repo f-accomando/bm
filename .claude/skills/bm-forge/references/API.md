@@ -1,6 +1,6 @@
 # bm-forge reference: the game author's API and pipeline
 
-What a generator of bm games (`.bm` for the Pi, `.b16` for the RGB30) and of their assets
+What a generator of bm games (`.bm`) and of their assets
 has to know. Every claim cites `file:line`; anything inferred and not seen in code or docs
 is marked **NON VERIFICATO**. Source of truth: `docs/API.md` (index) and `docs/api/<area>.md`.
 
@@ -44,15 +44,12 @@ carts/<game>/models.bm       optional 3D models + skeletons + animations (or mod
   wrapped in `do ... end` to dodge Lua's 200-locals limit; a `.map` file maps output lines
   back to sources (`carts/titan_ex/build/build.py:3-12,22-41`). Such games get an explicit rule
   (`Makefile:248-257` titan, `Makefile:238-246` kitchen).
-- **`.bm` vs `.b16` are separate editions with separate sources** (`CLAUDE.md`, *Non fare*):
+- **One `.bm` for both consoles.** The header says which kernels it is for (`targets`: pi, rgb30).
   `carts/titan/src/*.lua` → `titan.bm` (`Makefile:250-257`); `carts/titan_ex/src/*.lua` →
   `titanex.bm` at `--res 360x360`, sharing `carts/titan/assets/sheet.png` and cover
-  (`Makefile:259-268`), then copied byte for byte to `titanex.b16` (`Makefile:369-372`).
-  `carts/titan_ex/` also holds a `main.lua` and `titan_ex.b16` in the tree (Glob); whether
-  they are stale build outputs is **NON VERIFICATO**.
+  (`Makefile:253-261`).
 - Generated-asset games: Overbit builds `build/overbit/models.bm` from Python
-  (`carts/overbit/art/models.py`, `Makefile:311-314`) and its `.b16` from a minified script
-  (`Makefile:355-364`).
+  (`carts/overbit/art/models.py`, `Makefile:311-314`).
 - bm-forge writes this layout (`main.lua`, `models.bm`, optional `cover.png`, `make.txt` as a
   note only) with `bm_core/export.py` `export_folder` (`export.py:232-308`).
 
@@ -94,7 +91,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 
 ## 4. Screen and shapes (docs/api/draw.md)
 
-`cls([c])`, `screen(w,h)` (16:9 list; on the RGB30 only 360×360 and 720×720),
+`cls([c])`, `screen(w,h)` (16:9 list on a TV; on the RGB30 the list is 360×360, 720×720 and 720×405),
 `pset/pget`, `line`, `rect/rectfill(x,y,w,h,c)`, `circ/circfill(x,y,r,c)`,
 `tri(x0,y0,x1,y1,x2,y2,c,[c1,c2])`, `print(text,x,y,[c,scale])` (8×16 font, returns x),
 `font([name])`, `prompt(name,x,y,[small,scale,player,menu])` (button chip), `camera([x,y])`,
@@ -270,7 +267,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 
 ## 14. Projects (.bme) and cart_build (console tools)
 
-- A `.bm`/`.b16` is a game; tools edit a `.bme` project (same container, bit 0 of the u16
+- A `.bm` is a game; tools edit a `.bme` project (same container, bit 0 of the u16
   at header offset 18); saving a game asks and writes `NAME.BME` (`docs/api/tools.md:7-18`).
 - `cart_build(project)`: builds the project's game as `.BM` next to it, keeping the project
   name at offset 104; returns `true, path` or `false, msg`; SDK Ctrl+B
@@ -282,40 +279,30 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 - `cart_data(kind, [bytes])`: MESH 8, ANIM 9, SPRITES 11, BOXES 14, read or replace in memory
   (`docs/api/tools.md:46`; `src/bm/runtime.c:6798-6803`); see section 10.
 
-## 15. .bm vs .b16 profile
+## 15. Compatibility block
 
-- Same container as `.bm` (`BMCART`), `.b16` extension (`docs/B16.md:20-23`). Today the
-  `.b16` is the `.bm` bytes copied (`Makefile:366-372`); the profile field and
-  `mkbm.py --b16` do **not** exist yet (`docs/progress/lua.md:63`; no b16 option in
-  `scripts/mkbm.py:428-443`).
-- Screen 360×360 or 720×720, fixed, no `screen()` (`docs/B16.md:24-27`); build with
-  `--res 360x360` (`Makefile:268`).
-- Decided profile (`docs/B16.md:28-49`): 256-colour palette (SHEET8, use `--sheet8`); Lua
-  4 MB; one 1024×1024 graphics bank resident; map ≤8 levels, world ≤8×8 screens; 8 voices;
-  save 64 KB; per-frame CPU budget with drop to 30 fps; 3D allowed with a triangle cap;
-  SNES pad + stick; no files (`cart_*`, `ls`), seeded `rnd()`; **8 MB** file cap; no token
-  limit.
-- Enforced today: only the 8 MB size check in the Makefile (`Makefile:364,372`). The SDK's
-  `.b16` target only lists reminders (math.random, time(), saves, ls/cart_*, udp_*,
-  require, load, screen(), 3D) (`docs/B16.md:609-618`). Memory, CPU and sandbox limits are
-  **NON VERIFICATO** as enforced (no b16 check found in `src/bm/runtime.c`, Grep).
-- Where they show: Pi shows `.bm` and `.b16`; RGB30 only `.b16` (`docs/B16.md:50-51`).
-  `market/README.md:23-24` says the Pi lists `.bm` (inconsistent with B16.md; Overbit's `.b16`
-  is "for the Pi and the RGB30", `Makefile:348`).
+- A `.bm` says in its header which kernels it is for. Flag bit 4 says the block is present.
+  Bytes 120..127 hold `targets` (bit 0 Pi, bit 1 RGB30), `input`, `aspect`, `needs`, `min_ram`,
+  `min_spec` and `min_width` (`docs/BM-FORMAT.md`, "Compatibility block").
+- Write it with `scripts/mkbm.py --targets pi,rgb30` (or the INFO key `targets` of `bm.info`).
+  bm-forge writes it with `export cart --targets` and `export.export_cart(..., targets=...)`.
+- The menus grey a cartridge that does not list the kernel, with a reason and a question before the
+  start (`docs/BM-FORMAT.md`).
+- Screen: the header gives the design size (`360x360` is accepted). The RGB30 panel is square.
+  Lay the HUD out in `safe_area()` (`docs/api/draw.md`).
+- The kernel has no size limit of its own for a cartridge (`docs/BM-FORMAT.md`, "File size").
 
 ## 16. Market and manifests
 
 - `market/about.txt`: one line per game `id: license | about` (≤120 chars), license
   required (`market/about.txt:1-3`; `CLAUDE.md`, *Build*).
-- `make market-seed MARKET=<clone>` adds every `GAMES` `.bm` and the `.b16` of
-  `MARKET_B16 := overbit yharnam titanex`; `MARKET_NO_BM` skips the `.bm`; `MARKET_ONLY`
-  adds games not in `GAMES` (`Makefile:968-982`).
-- Market repo layout: `games/<id>/<id>.bm`, optional `<id>.b16`, `info.txt` (`version:`,
+- `make market-seed MARKET=<clone>` adds the Market games and apps as `.bm` (`Makefile:1104-1122`).
+- Market repo layout: `games/<id>/<id>.bm`, `info.txt` (`version:`,
   `license:`, `about:`); id `a-z0-9-`, ≤23 chars, never changes (`market/README.md:15-36`).
 - `manifest-rgb30` is the **kernel release manifest** (kernel8.img, `bm/ca.pem`), not a
   game manifest (`Makefile:760-769`; `src/kernel/update.c:32`; `scripts/mkrelease.py:15`).
   A game needs no manifest entry (**NON VERIFICATO** beyond these reads).
-- bm-forge writes the Market folder (`<id>.bm` / `<id>.b16`, `info.txt`) with
+- bm-forge writes the Market folder (`<id>.bm`, `info.txt`) with
   `bm_core/export.py` `export_market` (`export.py:311-402`) and the `about.txt` line with
   `about_line` (`export.py:405-416`).
 
@@ -328,8 +315,8 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   `:340-341`). The test cart `tests/fixtures/mktestkit.py` makes (the Makefile builds it as
   `build/carts/testkit.bm`) is a small cart with 8 models and one skeleton (`walker`).
 - Inline snippets: `sdk/README.md:25-37` (model), `docs/GAME-GUIDE.md:405-415` (animate).
-- `.bm` / `.b16` twin: `carts/titan/src/*.lua` + `carts/titan/build/build.py` and
-  `carts/titan_ex/src/*.lua` + `carts/titan_ex/build/build.py` (`Makefile:248-268,369`).
+- Two builds of one game family: `carts/titan/src/*.lua` + `carts/titan/build/build.py` and
+  `carts/titan_ex/src/*.lua` + `carts/titan_ex/build/build.py` (`Makefile:248-261`).
 - API test cart: `tests/gameapi/cart.lua` (`docs/GAME-GUIDE.md:896`; `make test-gameapi`,
   `docs/api/bmlib.md:303-304`).
 
@@ -337,15 +324,12 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 
 1. Does `mkbm.py --models X.glb` import skeleton and animations, or only mesh + texture?
    (Only the mesh path is visible at `scripts/mkbm.py:468-478`.)
-2. Are any `.b16` limits (Lua 4 MB, CPU budget, sandbox, triangle cap) enforced at runtime
-   yet, or is the 8 MB Makefile check the only one?
-3. How do RGB30 games draw 3D today (ARM software only?), and at what triangle budget?
-4. Are `carts/titan_ex/main.lua` and `carts/titan_ex/titan_ex.b16` stale outputs or
-   sources a generator must keep?
-5. `docs/RISORSE.md:351` (`mkbm.py --res FILE`) conflicts with `--res` as resolution: is
+2. Which `targets` should a generated game declare when it draws 3D? How the RGB30 draws 3D
+   today (ARM software only?) and at what triangle budget is **NON VERIFICATO**.
+3. Is `carts/titan_ex/main.lua` a stale output or a source a generator must keep?
+4. `docs/RISORSE.md:351` (`mkbm.py --res FILE`) conflicts with `--res` as resolution: is
    build-time resource integration planned, and under which flag?
-6. Does the Pi Market list `.b16` games? `market/README.md:23-24` and `docs/B16.md:50` disagree.
-7. Should bm-forge-generated games use `"ok"`/`"back"` and `--sheet8` by default for both
-   editions, so a later `.b16` edition is easy?
-8. May a non-tool game (one in the Market) call `cart_data`? `l_cart_data` has no tool gate
+5. Should bm-forge-generated games use `"ok"`/`"back"` and `--sheet8` by default, so a
+   `targets: pi,rgb30` cartridge is easy?
+6. May a non-tool game (one in the Market) call `cart_data`? `l_cart_data` has no tool gate
    (`src/bm/runtime.c:6798-6928`); any Market sandbox rule is NON VERIFICATO.

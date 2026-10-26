@@ -7,12 +7,12 @@
 [[revision]]
 rev = 1
 date = "2026-10-11"
-what = "the baseline: container v1 (sections 1-14), resource files, projects (.bme), the .b16 marker, the 16:9 and square cartridge sizes up to 360x360, the API of docs/api as of the repository's first commit (the older history was reset on this date)"
+what = "the baseline: container v1 (sections 1-14), resource files, projects (.bme), the 16:9 and square cartridge sizes up to 360x360, the API of docs/api as of the repository's first commit (the older history was reset on this date)"
 
 [[revision]]
 rev = 2
 date = "2026-10-13"
-what = "720x720 cartridges, shot() and the screenshot keys, the INFO key spec, tool names reserved against games, the .b16 flag set by every build, bm.info as the project's metadata"
+what = "720x720 cartridges, shot() and the screenshot keys, the INFO key spec, tool names reserved against games, bm.info as the project's metadata"
 
 [[revision]]
 rev = 3
@@ -60,14 +60,6 @@ status = "implemented"
 platforms = "all"
 where = ["src/bm/project.h", "src/bm/project.c"]
 note = ".bme: bit 0 of the flags at offset 18; the extension tells the kind, nothing reads the bit"
-
-[[item]]
-id = "b16-edition"
-since = 1
-status = "implemented"
-platforms = "all"
-where = ["docs/B16.md", "src/bm/project.h", "scripts/mkbm.py"]
-note = "by decision (2026-10-13) a target (360x360 or 720x720), not a sandbox: same runtime as .bm. The 8 MB build check is removed"
 
 [[item]]
 id = "compat-header"

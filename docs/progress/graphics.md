@@ -11,7 +11,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 - Mailbox framebuffer, RGB565; virtual height = height × buffers (1..3), page flip with
   `SET_VIRT_OFFSET`. The HDMI scaler enlarges to the TV mode at no CPU cost.
 - Cartridge resolutions (header): 640×360 (default), 480×270, 320×180, and the square
-  256×256 and 360×360 (the `.b16` screen), boxed in the middle of 16:9 on the Pi.
+  256×256 and 360×360 boxed in the middle of 16:9 on the Pi.
 - `screen(w, h)` switches at run time among `screen_modes[]` (320×180 … 1920×1080, 16:9,
   whole pixels on 1080p); a square cartridge keeps its screen.
 - Menu: 360p (640x360) on the ARM by default, the HDMI scaler enlarges it. `menu_scale` 2 (720p) or 3 (1080p) (Settings > Screen > Menu size) makes the V3D draw the menu at that size (quads, blit, 24x48 text at 1080p, enlarge 0 us; 1080p verified on the Pi Zero W, 720p not yet). The ARM never enlarges the menu: if the GPU cannot start, the menu stays at 360p on the ARM (26 Oct 2026; the `menu_gpu` key is removed).

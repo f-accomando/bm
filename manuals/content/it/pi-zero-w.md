@@ -150,7 +150,7 @@ QEMU va circa 2 volte più piano del Pi negli sprite (2133 contro 4482 a 60 fps)
 
 ## Risoluzioni e scaler
 
-Le risoluzioni delle cartucce sono 640x360 (predefinita), 480x270 e 320x180, più i quadrati 256x256 e 360x360 dell'edizione `.b16`. `screen(w, h)` cambia a run time fra 320x180, 384x216, 480x270, 640x360, 960x540, 1280x720 e 1920x1080 (fonti: `docs/progress/graphics.md`, `docs/api/draw.md`).
+Le risoluzioni delle cartucce sono 640x360 (predefinita), 480x270 e 320x180, più i quadrati 256x256 e 360x360. `screen(w, h)` cambia a run time fra 320x180, 384x216, 480x270, 640x360, 960x540, 1280x720 e 1920x1080 (fonti: `docs/progress/graphics.md`, `docs/api/draw.md`).
 
 Lo scaler HVS ingrandisce l'immagine fino alla TV. `scaling_kernel` in `config.txt` (nella radice della SD) sceglie il suo filtro (fonte: `docs/progress/v3d.md`):
 

@@ -9,7 +9,7 @@ download `.bm` files and assets for the editors (`.bmm` and others). Respect the
 bm Web can reach these resources.
 
 See also: [bm-web-player.md](bm-web-player.md) (the browser player), [web-browser-cart.md](web-browser-cart.md) (bm Web),
-[single-bm-and-adaptive-screen.md](single-bm-and-adaptive-screen.md) (the end of `.b16`), [../RISORSE.md](../RISORSE.md)
+[single-bm-and-adaptive-screen.md](single-bm-and-adaptive-screen.md) (the single `.bm`), [../RISORSE.md](../RISORSE.md)
 (resource files), [../../web/README.md](../../web/README.md) (the mock page).
 
 ## 1. Goal and users
@@ -22,7 +22,7 @@ See also: [bm-web-player.md](bm-web-player.md) (the browser player), [web-browse
 
 Two ways reach a device. They differ:
 
-- **The Market** (`src/kernel/market.c`) lists games and apps only. It installs a `.bm` or a `.b16` and a PNG cover. It reads
+- **The Market** (`src/kernel/market.c`) lists games and apps only. It installs a `.bm` and a PNG cover. It reads
   the catalog `index.txt` and `index.sig` under the base address (`market.c:23`, key `market_url` in
   `docs/spec/config-keys.toml`; today a GitHub Pages address). The catalog is signed with ECDSA P-256 over SHA-256. The
   public key is built into the kernel (`keys/market-pub.pem`, `src/net/catalog.c:1-4`); `bm/market.pem` on the SD card adds
@@ -33,10 +33,8 @@ Two ways reach a device. They differ:
 - **bm Web** opens any `https://` page and saves a file in `bm/web` after the user presses A (section 3). It checks nothing
   beyond the rules of the kernel.
 
-The Market has two channels today: `.bm` (the Pi) and `.b16` (the RGB30). The same `id` may exist once per kind
-(`catalog.c`: `finish()`). The plan is to end `.b16`: one `.bm` format with a `targets` header (`docs/NEXT.md`, Queue,
-"Remove the `.b16` system"; `single-bm-and-adaptive-screen.md`, section 6 step 6 and section 7). After that, the site
-has one channel. Until then, the site must offer both editions of a game that has both (Overbit).
+The Market has one entry per game id (`catalog.c`: `finish()`). The entry is a `.bm`. Its header has a `targets` key that lists the kernels
+(`single-bm-and-adaptive-screen.md`, section 6 step 6). The site has one channel.
 
 ## 2. Asset types and where they go
 
@@ -47,7 +45,6 @@ Sources: `docs/BM-FORMAT.md` (resource files, `BMRES`), `docs/RISORSE.md` sectio
 | Type | Ext | Card folder | Who validates | Editors | Size limit |
 |---|---|---|---|---|---|
 | Game or app | `.bm` | `bm/` (both consoles since 25 Oct 2026; `market.c`); the Pi menu scans `/`, `/bm`, `/bme`, the RGB30 menu `/bm` | Kernel loader (header, CRC-32); Market: size and SHA-256 | none (a game is run) | None in the kernel; 100 MB in the Market |
-| Game, RGB30 edition | `.b16` | `bm/` | as `.bm`; ends with SYS-8 | none | 8 MB when built (`single-bm...md` 2.1) |
 | Project | `.bme` | `/bme` | The tool that opens it | The editors open the projects (`PROJECT-LAYOUT.md`) | not verified |
 | Model | `.bmm` | `/bmm` | `res_write`: MESH needed, each section parsed as the loader does; `BMRES` | bm Mesh (`bm3d.lua:1523-1531`); bm Studio and bm Animator (plan in `RISORSE.md` 3) | up to 256 models per file; Lib reads files up to 8 MB (`lib.c:13`) |
 | Image, sprites | `.bmi` | `/bm/lib` (no tab reads it now) | `BMRES` parse in `format.c` | bm Pixel, bm Studio (plan in `RISORSE.md` 3) | as above |
@@ -71,7 +68,7 @@ What bm Web can save today (`webpolicy.c:86-98`, `system.md` `file_write`, `cart
 
 - Only into `bm/web`, by `file_write`, as an 8.3 name. The cart builds the name: up to 6 characters of the file name, 2
   characters of a hash and a 3-letter extension (`files.lua:name`). A `.bmm` keeps the extension `bmm`.
-- Never `.bm`, `.bme` or `.b16`. A `.bm` must come by the Market. The site cannot give a `.bm` to bm Web.
+- Never `.bm` or `.bme`. A `.bm` must come by the Market. The site cannot give a `.bm` to bm Web.
 - At most 8 MB per file (`file_write_max_kib`, up to 32 MB) and 128 files in the folder.
 - bm Web opens a link as a page with a cap of 1 MB (`browser.lua:18` and `:293`). A larger file ends in an error. This is a real
   limit for downloads in bm Web. Keep each asset under 1 MB, or the cap must change (not decided).
@@ -176,7 +173,7 @@ Sources: `docs/design/bm-web-player.md` (stages, section 8), `web/README.md`, `d
   network answer fails in the browser. Fibers need Asyncify.
 - **Hosting of the cartridge.** `start(url)` fetches the `.bm` by the page's own origin or with CORS. The site must send
   CORS headers if the `.bm` is on another host (not verified; not tested).
-- **Screens and `.b16`.** A `.b16` is 360x360. The player draws any listed size. The adaptive screen is decided
+- **Screens.** A cartridge can be 360x360. The player draws any listed size. The adaptive screen is decided
   (`single-bm-and-adaptive-screen.md` section 8, question 10): a game for 360x360 such as Yharnam runs at 640x360 with black bars of 140
   pixels on each side. A web page must show these bars too, until the screen modes (720x405, `safe_area()`, `aspect()`) exist.
 
@@ -193,7 +190,7 @@ For the user. Nothing here is decided.
 
 1. **Hosting.** GitHub Pages (the Market already uses it: `market.c:23`; the player is "ready for GitHub Pages") or another host. The
    host must give a root from `boot/ca.pem`, Range requests, and control of `robots.txt` and `Content-Type`.
-2. **Licence policy.** Which licences the site accepts, and who checks them (`FORMATS-AUDIT.md:152-159`: "Who owns the table?").
+2. **Licence policy.** Which licences the site accepts, and who checks them (`FORMATS-AUDIT.md:106-111`: "Who owns the table?").
 3. **Accounts and uploads.** None for now. The site is static.
 4. **Signing of assets.** Only SHA-256 on the page, or a signed manifest like the Market (key, tool, who holds it).
 5. **Catalog format.** The Market lines (`catalog.c`) with new kinds (`model`, `image`...), or a separate JSON file.
@@ -209,7 +206,7 @@ For the user. Nothing here is decided.
 |---|---|---|
 | 1. Static site with test assets | Static pages with the test `.bmm` and PNG previews (`web/models/`), served over HTTPS with a root from `boot/ca.pem`, no `Crawl-delay`, section 4 rules 1-10 | A Pi opens the index in bm Web, loads at least 4 previews and saves a `.bmm` in `bm/web`. Not started; needs the Pi (D50) |
 | 2. Real assets with licences | Decisions 1, 2, 4 and 6 taken; assets with SPDX licence and SHA-256; index per type; short names | Every asset has a licence, a stable URL and a hash; `python3 scripts/bmres.py list FILE` reads each resource file without error |
-| 3. Player page with the full catalog | The player page lists the catalog and starts any `.bm` of it; downloads for `.bm` link to the Market flow; one channel after `.b16` ends | A listed `.bm` plays in a browser from a click, and the same `.bm` installs from the Market |
+| 3. Player page with the full catalog | The player page lists the catalog and starts any `.bm` of it; downloads for `.bm` link to the Market flow | A listed `.bm` plays in a browser from a click, and the same `.bm` installs from the Market |
 
 The poly.pizza findings (`docs/NEXT.md`, "bm Web and poly.pizza") apply to stage 1: a slow `Crawl-delay`, a missing root,
 a refused user agent, more than 16 images and a client-rendered page are the causes of a failed load. The site avoids each one by section 4.
@@ -218,6 +215,6 @@ a refused user agent, more than 16 images and a client-rendered page are the cau
 
 - Any load of a real site on the Pi or the RGB30 (D50). Page load times and the 48 s estimate.
 - CORS for the player when the cartridge is on another host.
-- That each editor opens each type (`RISORSE.md` is a plan; `FORMATS-AUDIT.md:119-120` says some openings are not built).
+- That each editor opens each type (`RISORSE.md` is a plan; `FORMATS-AUDIT.md:75-76` says some openings are not built).
 - A POST form in bm Web (no code found; not tested).
 - The `.bmm` save in `/bmm` and the files in `web/models/` on a device (host tests only).

@@ -8,7 +8,7 @@ All integers **little endian** (`src/bm/bm.h:2`, `src/bm/format.c:13-14`). Float
 
 | Format | C (kernel) | Python (PC) | Lua (console tools) |
 |---|---|---|---|
-| Container `.bm`/`.b16`/`.bme`/BMRES | `bm_parse`, `bm_parse_any`, `bm_rewrite_with` (`src/bm/format.c:525,760,765,874`) | `mkbm.pack` (`scripts/mkbm.py:364`), `bmres.load/dump/write` (`scripts/bmres.py:133,230,257`), `bmmesh.cart_sections/rewrite_cart` (`scripts/bmmesh.py:179,196`) | `cart_write` (`src/bm/runtime.c:6337-6350`), `cart_data` (`src/bm/runtime.c:6794`) |
+| Container `.bm`/`.bme`/BMRES | `bm_parse`, `bm_parse_any`, `bm_rewrite_with` (`src/bm/format.c:525,760,765,874`) | `mkbm.pack` (`scripts/mkbm.py:364`), `bmres.load/dump/write` (`scripts/bmres.py:133,230,257`), `bmmesh.cart_sections/rewrite_cart` (`scripts/bmmesh.py:179,196`) | `cart_write` (`src/bm/runtime.c:6337-6350`), `cart_data` (`src/bm/runtime.c:6794`) |
 | MESH (8) | `bm_mesh_check/model/inset`, `bm_model_vertex/face/face_light` (`src/bm/format.c:136-233`) | `bmmesh.encode/decode` (`scripts/bmmesh.py:30,160`), `bmres.mesh_parse/mesh_build` (`scripts/bmres.py:553,576`) | `T.encode_mesh/split_mesh/decode_model` (`src/script/bm3d.lua:148,224,290`), bm Mesh `encode_model` (`carts/mesh/main.lua:130`) |
 | ANIM (9) | `bm_anim_check/rig`, `bm_rig_read/bone/clip`, `bm_clip_key` (`src/bm/format.c:245-407`), `pose_at`, `skin` (`src/bm/runtime.c:2230,2283`) | `bmmesh.encode_anim/decode_anim` (`scripts/bmmesh.py:100,124`), `bmres.anim_parse/anim_build` (`scripts/bmres.py:610,631`) | `T.encode_anim/split_anim/decode_rig` (`src/script/bm3d.lua:195,238,256`), bm Mesh `encode_rig` (`carts/mesh/main.lua:152`) |
 | AUDIO (6) | `au_parse` (`src/audio/player.h:169`) | `bmaudio.pack/unpack` (`scripts/bmaudio.py:416,479`) | bm Sound (`carts/sound/main.lua:176,216`) |
@@ -27,12 +27,12 @@ Spec: `src/bm/bm.h:1-19`. Parser: `parse()` `src/bm/format.c:525-758`.
 | 14 | u16 | height | allowed pairs: 640x360, 480x270, 320x180, 256x256, 360x360 (`src/bm/format.c:552-555`) |
 | 16 | u8 | pixel format | must be 1 = RGB565 (2 = XRGB8888 reserved, rejected) (`src/bm/bm.h:140-141`, `src/bm/format.c:556-557`) |
 | 17 | u8 | section count | max 255 by type; `bm_rewrite_with` keeps at most 32 (`src/bm/format.c:879`) |
-| 18 | u16 | flags | "reserved (0)" in `bm.h:13`; bit 0 = project `.bme` (`src/bm/project.h:15`) |
+| 18 | u16 | flags | bit 0 = project `.bme` (`src/bm/project.h:15`); bit 4 = the compatibility block at 120 is present; the other bits are kept by writers (`docs/BM-FORMAT.md`) |
 | 20 | u32 | CRC-32 | of every byte from 128 to EOF (table + bodies + padding) (`src/bm/bm.h:15`, `src/bm/format.c:532-541`). zlib CRC-32 (poly `0xEDB88320`, `src/lib/crc32.c:27,54-57`; Python uses `zlib.crc32`, `scripts/mkbm.py:242-243`) |
 | 24 | char[48] | title | writers put at most 47 bytes + NUL (`src/bm/format.c:960`, `scripts/mkbm.py:413`); bmres up to 47 + NUL, no cut UTF-8 (`scripts/bmres.py:122-130,248`) |
 | 72 | char[32] | author | at most 31 bytes (`src/bm/format.c:961`, `scripts/mkbm.py:414`) |
 | 104 | char[16] | built-from | project file name a game was built from (`src/bm/project.h:16`); else zero |
-| 120..127 | | reserved 0 | (`src/bm/bm.h:18`) |
+| 120..127 | 8 bytes | compatibility block | valid only when flag bit 4 is set; see "Compatibility block" below |
 
 **Section table** at 128: `count x {u32 type, u32 offset, u32 size, u32 reserved}` (`src/bm/bm.h:19`,
 `src/bm/format.c:565-569`). Offsets absolute. Bodies are written one after another, each padded with
@@ -204,18 +204,22 @@ Not a file format. Three meanings in the repo:
    (`src/script/bm3d.lua:1-7,133-340`).
 3. The 3D Bench `src/bm/b3d.c` (`src/bm/b3d.h:4-17`): benchmark, not a format.
 
-## `.b16`
+## Compatibility block
 
-Today a `.b16` is **the same `BMCART` container** with the `.b16` extension (`docs/B16.md:20-23`).
-Screen 360x360 or 720x720 per `docs/B16.md:24-27`, but the parser accepts only the five pairs incl.
-360x360, not 720x720 (`src/bm/format.c:552-555`). B16.md says the container has "a field that states the
-profile", but no such field exists in `bm.h` or `format.c`; the sample `carts/titan_ex/titan_ex.b16` has
-bytes 18..19 and 104..127 all zero (checked with Python). Detection is by extension only
-(`src/kernel/market.c:306-311`, `src/rgb30/ui.c:249`, `scripts/mkmarket.py:68`). Profile rules (Lua 4 MB,
-256-colour SHEET8, 8 MB cap, sandbox) are runtime/build policy, not bytes (`docs/B16.md:28-49`).
-The `B16CART` 256-byte header with 24-byte section entries (`docs/B16.md:226-367`) is a **design not
-implemented**: no code mentions `B16CART` (grep over *.c/*.h/*.py/*.lua). `.b16` and `.bm` are separate
-editions with separate sources (CLAUDE.md "Non fare").
+Flag bit 4 (value 16) says bytes 120..127 are present (`docs/BM-FORMAT.md`). The CRC does not cover the header.
+
+| Byte | Field | Values |
+|---|---|---|
+| 120 | targets | bit 0 Pi Zero W, bit 1 RGB30. Zero with bit 4 set is invalid |
+| 121 | input | bit 0 pad, 1 keyboard, 2 text, 3 mouse, 4 mouse optional. Zero = not declared |
+| 122 | aspect | bit 0 wide, 1 square, 2 any, 3 uses `safe_area()`. Zero = not declared |
+| 123 | needs | bit 0 3D, 1 audio, 2 network, 3 mouse device |
+| 124-125 | min RAM | u16, MB. Zero = none |
+| 126 | min spec | zero = none |
+| 127 | min width | units of 16 pixels. Zero = none |
+
+bm-forge writes `targets` (`container.compat_block`, `export cart --targets`) and keeps the other bytes of a header it reads.
+A file without the block is an old file: it reads as a Pi cartridge.
 
 ## BMRES resource files (`.bmm .bmi .bms .bmt .bmc .bmk`)
 
@@ -253,7 +257,7 @@ colour i (`docs/RISORSE.md:79-110`). Integration/extraction rules: `docs/RISORSE
 ## `.bme` project
 
 `src/bm/project.h:1-16`, `src/bm/project.c`. A `.bme` is a `BMCART` file with **bit 0 of the u16 at 18**
-set (`BM_FLAG_PROJECT`); recognized by extension `.bme` (`src/bm/project.c:19-22`), games are `.bm`/`.b16`
+set (`BM_FLAG_PROJECT`); recognized by extension `.bme` (`src/bm/project.c:19-22`), games are `.bm`
 (`src/bm/project.c:24-27`). The flag is outside the CRC (CRC starts at 128), so setting it needs no CRC
 update (`src/bm/runtime.c:6467-6468` sets it after `bm_rewrite_with` computed the CRC).
 
@@ -275,7 +279,6 @@ update (`src/bm/runtime.c:6467-6468` sets it after `bm_rewrite_with` computed th
 - `tests/golden/village_models.bm` (a frozen copy of the model data of the removed `tests/fixtures/village`): BMCART 320x180, 4 sections LUA, SHEET8, MESH (8 models, inset 64 = 0.25,
   untextured-material bits all 0), ANIM (rig `villager`, 7 bones, 112 verts, clips idle/walk/wave, mode 1,
   loop) (decoded with `bmmesh`).
-- `carts/titan_ex/titan_ex.b16`: BMCART 360x360, COVER + LUA + SHEET8 (1.7 MB).
 - `video/0{2..7}-*/start.bm`: tiny carts (e.g. `video/02-sdk/start.bm`: SHEET8 + LUA, 640x360).
 - `carts/kitchen/models/chef{1..4}.glb`: glTF inputs for `bmmesh.models_from_file` / `src/bm/glb.c`.
 - No `.bme` or BMRES file is tracked; tests build them: `tests/res/test_bmres.py`, `tests/bm/test_res.c`,
@@ -292,13 +295,10 @@ update (`src/bm/runtime.c:6467-6468` sets it after `bm_rewrite_with` computed th
    "lit" quando ricodificano un modello: bm-forge deve preservarli sempre?
 4. Unicita' dei nomi modello: dichiarata in `bm.h:41` ma non controllata da `bm_mesh_check`; idem
    nomi di ossa e clip (nessun controllo). Rifiutare in bm-forge?
-5. `.b16`: B16.md §0 parla di un campo di profilo nell'header che non esiste nel codice. Va aggiunto
-   (dove? byte 18 bit 1? 104?) o l'estensione basta?
-6. 720x720 per `.b16` (`docs/B16.md:24`) non e' tra le risoluzioni accettate da `format.c:552-555`.
-7. `bm_rewrite_with` non sa scrivere 480x270 (diventa 640x360, `format.c:956-957`) e azzera 104..127:
+5. `bm_rewrite_with` non sa scrivere 480x270 (diventa 640x360, `format.c:956-957`) e azzera 104..127:
    bm-forge deve preservare l'header originale come fa `bmmesh.rewrite_cart` (`scripts/bmmesh.py:209`)?
-8. Sezioni duplicate: C tiene l'ultima, `bmres` rifiuta. Quale comportamento imitare?
-9. ANIM con 0 rig (size 8) e' valido per C: un writer deve ometterlo (bm Mesh scrive `false`,
+6. Sezioni duplicate: C tiene l'ultima, `bmres` rifiuta. Quale comportamento imitare?
+7. ANIM con 0 rig (size 8) e' valido per C: un writer deve ometterlo (bm Mesh scrive `false`,
    `carts/mesh/main.lua:468`)?
-10. Il CRC copre il padding a 4 byte: il padding deve essere sempre zero (tutti i writer lo fanno) ma il
+8. Il CRC copre il padding a 4 byte: il padding deve essere sempre zero (tutti i writer lo fanno) ma il
     reader non lo verifica; ok come regola "writer"?

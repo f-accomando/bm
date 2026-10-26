@@ -24,13 +24,13 @@ bm (BareMetal) è una console per giochi e un ambiente di sviluppo che gira sul 
 
 ## Cosa fa
 
-Il kernel parte, mostra un menu e lancia le **cartucce**: singoli file (`.bm`, e `.b16` sull'RGB30) che contengono il codice Lua 5.4, gli sprite, le mappe, le mesh 3D, le animazioni e i suoni di un gioco. Lo stesso menu apre anche gli editor della suite (la scheda **Dev**), il Market e le Impostazioni.
+Il kernel parte, mostra un menu e lancia le **cartucce**: singoli file (`.bm`) che contengono il codice Lua 5.4, gli sprite, le mappe, le mesh 3D, le animazioni e i suoni di un gioco. Lo stesso menu apre anche gli editor della suite (la scheda **Dev**), il Market e le Impostazioni.
 
 ## Da sapere
 
 - Un solo menu serve entrambe le schede (`src/kernel/menu_ui.c`): sul Pi è 640x360, sull'RGB30 è 360x360 mostrato al doppio della grandezza.
 - Il repository dice che il codice del Pi Zero 2 W resta nell'albero ma è spento nella build normale.
-- Un `.b16` non sostituisce mai un `.bm`: sono due edizioni separate di un gioco.
+- Un `.bm` gira sul Pi Zero W e sull'RGB30. La sua intestazione elenca i kernel per cui è fatto (la chiave `targets` di `bm.info`: `pi`, `rgb30`).
 
 # La catena di avvio
 
@@ -133,7 +133,7 @@ Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the
 ## Da sapere
 
 - Sull'RGB30, **B** conferma e **A** torna indietro. Imposta `confirm=a` in `bm/config.txt` per scambiarli, oppure usa Settings > Controllers > *Confirm button*.
-- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Games elenca i file `.b16` e mostra i `.bm` per le prove: `show_bm=0` li nasconde. Il Market elenca i file `.b16` e `.bm`. Un `.bm` non fatto per l'RGB30 è grigio e ne dice il motivo. `market_bm=0` nasconde i `.bm`.
+- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Games e il Market elencano i file `.bm`. Un gioco fatto per il Pi ha la copertina sbiadita (cambio di colore e vignetta, il disegno resta). Play allora chiede *This edition is for the Pi* con OK e Cancel. `show_bm=0` nasconde i `.bm` in Games e `market_bm=0` li nasconde nel Market.
 - Gli editor lavorano solo sui progetti. Un `.bm` è in sola lettura; Ctrl+B in un editor costruisce il `.bm` definitivo.
 
 ## Impostazioni

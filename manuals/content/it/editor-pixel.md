@@ -49,7 +49,7 @@ Parti dalla scheda **Dev** del menu, oppure premi **X** sulla copertina di un gi
 ## Progetti e giochi
 
 - Un **progetto** è un file `.bme`. Gli editor cambiano i progetti e li salvano dove sono.
-- Un **gioco** è un file `.bm` (o `.b16`). È di sola lettura. Quando ne apri uno, lo schermo dice `a game: saving makes its copy`, e salvando si scrive una copia `.BME` modificabile, mai il gioco stesso.
+- Un **gioco** è un file `.bm`. È di sola lettura. Quando ne apri uno, lo schermo dice `a game: saving makes its copy`, e salvando si scrive una copia `.BME` modificabile, mai il gioco stesso.
 - Nel file salvato cambiano solo lo sheet e la palette: codice, mappa, copertina, suoni e modelli restano come erano.
 
 ## Il menu (Esc)

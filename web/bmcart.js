@@ -92,7 +92,7 @@
       ok: true,
       title: text(u8, 24, 72), author: text(u8, 72, 104), builtFrom: text(u8, 104, 120),
       width: width, height: height, flags: flags,
-      project: !!(flags & 1), b16: !!(flags & 2), kind: ["game", "app", "utility", "game"][(flags >> 2) & 3],
+      project: !!(flags & 1), kind: ["game", "app", "utility", "game"][(flags >> 2) & 3],
       extension: ext ? ext[1].toLowerCase() : "",
       size: len, crcStored: crcStored, crcActual: crcActual, crcOk: crcStored === crcActual,
       sections: sections, info: {}, cover: null, lua: null

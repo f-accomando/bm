@@ -41,7 +41,7 @@ bm Studio costruisce modelli 3D con blocchi e tessere, direttamente sulla consol
 
 # Aprire un progetto o un gioco
 
-bm Studio modifica **progetti** (`.bme`). Un **gioco** (`.bm` o `.b16`) è solo letto: puoi aprirlo per guardare i suoi modelli, e il primo salvataggio crea una copia modificabile.
+bm Studio modifica **progetti** (`.bme`). Un **gioco** (`.bm`) è solo letto: puoi aprirlo per guardare i suoi modelli, e il primo salvataggio crea una copia modificabile.
 
 ## Modi per iniziare
 

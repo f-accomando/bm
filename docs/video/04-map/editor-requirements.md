@@ -23,7 +23,7 @@ Verificato con Grep/lettura nei file citati.
 | Pagina 3D dell'SDK (`F4`): anteprima dei modelli e animazioni del progetto; `i` scrive il codice di caricamento | `manuals/content/en/editor-sdk.md` riga 77 e tabella "Keys" | è già un contesto di rendering 3D nell'editor |
 | API 3D per l'anteprima: `light3d`, `sky3d`, `lamp3d` (1-4), `fog3d`, `shadow3d`, `visible3d`, `draw3d`, `model` | `docs/api/light3d.md` righe 71-96 | |
 | Modelli `PICO`, `APPLE`, `CRATE` nella MESH (video 1-3) | `docs/video/PIANO.md` §2 e §4 | |
-| Edizione RGB30 dell'SDK come cartuccia separata | `carts/sdk_b16`; `SYNC.md` AGY-04 | non si modifica prima della registrazione del video 4 |
+| Versione RGB30 dell'SDK come cartuccia separata | `carts/sdk_b16`; `SYNC.md` AGY-04 | non si modifica prima della registrazione del video 4 |
 
 ## 2. Cosa manca
 
@@ -54,7 +54,7 @@ Ogni criterio ha un comando o un'osservazione verificabile. Sigla: `bmhost --too
 | R7 | **Salvataggio nel `.bm`**: i layer `floor`, `height`, `walls`, `objects` (nomi minuscoli esatti) stanno in LAYERS/MAP; MESH, ANIM e il resto non cambiano | `Ctrl+S` poi `Ctrl+B`; `bmres.check(f)` senza errori; `bmres.layers_get(f)` elenca i quattro nomi; le sezioni MESH e ANIM sono identiche byte per byte a `chain/03-animator.bm` |
 | R8 | **Anteprima 3D con lo stesso costruttore del gioco**: `v` commuta 2D/3D e chiama `map3d_build`/`map3d_draw`, la stessa funzione che userà il gioco | lo stesso layer costruito dal codice del gioco (`map3d_build`) e dall'editor dà lo stesso numero di triangoli; il test di AGY-02 verifica che l'immagine 3D differisca dalla 2D e che non ci siano errori Lua |
 | R9 | **Prestazioni**: 60 fps a 480×270 con la mappa di 9 × 96 tessere in anteprima; il mondo si ricostruisce solo quando la mappa cambia (flag sporco) | `bmhost` con la mappa vera per 10 s: nessun frame oltre 16,7 ms `[DA VERIFICARE: come si misura il frame time in bmhost; PIANO.md §6 punto 5]`; la barra di stato mostra i triangoli ≤ 6000 visibili |
-| R10 | **Edizione**: prima Pi (`carts/editor`), poi RGB30 (`carts/sdk_b16`, AGY-04) | `make test-map3d` per Pi; per RGB30 `python scripts/consistency.py check` ok e `make TARGET=rgb30` compila |
+| R10 | **Versione**: prima Pi (`carts/editor`), poi RGB30 (`carts/sdk_b16`, AGY-04) | `make test-map3d` per Pi; per RGB30 `python scripts/consistency.py check` ok e `make TARGET=rgb30` compila |
 | R11 | **Compatibilità 2D**: le mappe 2D esistenti non cambiano (tile e flag come negli invarianti: 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male) | aprire `carts/` con mappa 2D, salvare senza modifiche: il file resta identico byte per byte (come "A file opened and saved with no changes stays identical" dei manuali) |
 | R12 | **Tasti documentati**: `manuals/content/en/editor-sdk.md` ("3D maps") e `docs/progress/tools.md` aggiornati; la riga del video 4 della shot-list si sblocca | `python scripts/consistency.py check` senza nuovi errori; `shot-list.md` senza righe `PROVVISORIO` |
 

@@ -1,10 +1,9 @@
-"""Opt-in: runs the forgedemo editions in the console's real runtime (bmhost).
+"""Opt-in: runs the forgedemo cartridge in the console's real runtime (bmhost).
 
 Needs BM_FORGE_HOST=1, a POSIX host (WSL) and <repo>/build/host/bmhost-bin
 (`make build/host/bmhost-bin`; rebuild it when bm-core moved, it may be stale).
 Source of the command line: tests/host/bmhost.c (--seconds, --input, --shots,
---square), Makefile test-gameapi (greps a log() line). The b16 run uses
---square; how bmhost plays a 360x360 cart is NON VERIFICATO beyond this run.
+--square), Makefile test-gameapi (greps a log() line).
 Never replaces a console check: bmhost is the real runtime on a PC, not the Pi.
 """
 import importlib.util
@@ -60,9 +59,6 @@ class BmhostDemo(unittest.TestCase):
             with open(os.path.join(shots, name + ".png"), "rb") as f:
                 data.append(f.read())
         self.assertEqual(len(set(data)), 3, "the three clip shots must differ")
-
-    def test_b16_runs_square(self):
-        self.run_cart("b16", ["--square"])
 
 
 if __name__ == "__main__":

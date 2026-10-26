@@ -1,16 +1,15 @@
-"""The container: 128-byte header, section table, CRC-32, for `.bm` (Pi),
-`.b16` (RGB30), `.bme` projects and `BMRES` resource files.
+"""The container: 128-byte header, section table, CRC-32, for `.bm` cartridges,
+`.bme` projects and `BMRES` resource files.
 
 Spec src/bm/bm.h:1-19, parser parse() src/bm/format.c:525-758, Python
 writers scripts/mkbm.py:pack, scripts/bmmesh.py:rewrite_cart, scripts/bmres.py:dump.
-Reference: references/FORMATS.md "Container", "BMRES", ".bme", ".b16".
+Reference: references/FORMATS.md "Container", "Compatibility block", "BMRES", ".bme".
 
 Rules of bm-forge on top of the C parser (strict choices, see
 references/OPEN_QUESTIONS.md): duplicate known sections are refused (C keeps
 the last), a broken INFO/SPRITES/BOXES is refused also in a cartridge (C drops
 it), a section must not overlap the header or the table, a rig must fit its
-MESH model. `.bm` and `.b16` are separate editions: nothing here converts one
-into the other.
+MESH model. The header `targets` (pi, rgb30) says which kernels a `.bm` is for.
 """
 import os
 import struct
@@ -29,9 +28,10 @@ MAGIC_OLD = b"BM33CART"                         # still read (src/bm/format.c:8-
 MAGIC_RES = b"BMRES\0\0\0"                      # src/bm/format.c:411-414
 FMT_RGB565 = 1                                  # bm.h:140
 FLAG_PROJECT = 1                                # src/bm/project.h:15
+FLAG_COMPAT = 16                                # flag bit 4: the compatibility block is present (docs/BM-FORMAT.md)
+COMPAT_AT = 120                                 # compatibility block: bytes 120..127
+TARGETS = {"pi": 1, "rgb30": 2}                 # byte 120, BM_TARGET_*
 RESOLUTIONS = {(640, 360), (480, 270), (320, 180), (256, 256), (360, 360)}   # src/bm/format.c:552-555
-PI_RESOLUTIONS = {(640, 360), (480, 270), (320, 180), (256, 256)}           # bm.h:12-14, TOOLS.md §8
-B16_RESOLUTION = (360, 360)                                                 # bm.h:9-11, docs/B16.md:24-27
 
 # BMRES kinds, bm.h:167-168; extensions scripts/bmres.py:54
 RES_MODEL, RES_IMAGE, RES_SOUND, RES_MAP, RES_PALETTE, RES_KIT = 1, 2, 3, 4, 5, 6
@@ -86,6 +86,7 @@ class Header:
     header_size: int = HEADER_SIZE
     crc: int = 0
     raw: Optional[bytes] = None
+    compat: Optional[bytes] = None      # 8 bytes for 120..127; None keeps the bytes of raw
 
     @property
     def is_res(self):
@@ -287,6 +288,11 @@ def _header_bytes(hd, count, crc):
     out[17] = count
     need(0 <= hd.flags <= 0xFFFF, "flags out of u16", "header")
     struct.pack_into("<HI", out, 18, hd.flags, crc)
+    if hd.compat is not None:
+        need(len(hd.compat) == 8 and hd.compat[0] & 3, "compatibility block: 8 bytes, targets names pi, rgb30 or both",
+             "header")
+        out[COMPAT_AT:COMPAT_AT + 8] = hd.compat
+        struct.pack_into("<H", out, 18, hd.flags | FLAG_COMPAT)
     for off, n, text, what in ((24, 48, hd.title, "title"), (72, 32, hd.author, "author"),
                                (104, 16, hd.built_from, "built-from name")):
         if fresh or _cstr(bytes(out[off:off + n])) != text:
@@ -319,30 +325,42 @@ def new_cart(lua, width=640, height=360, title="", author=""):
 # ------------------------------------------------------------------ editions and files
 
 def edition_of(path):
-    """'bm' (Pi game), 'b16' (RGB30 game), 'bme' (project of either), 'res' (BMRES)
-    by extension: the kernel detects a .b16 only by its extension
-    (src/kernel/market.c:306-311, src/bm/project.c:19-27)"""
+    """'bm' (game), 'bme' (project), 'res' (BMRES) by extension
+    (src/bm/project.c:19-27)"""
     ext = os.path.splitext(path)[1].lower()
-    if ext in (".bm", ".b16", ".bme"):
+    if ext in (".bm", ".bme"):
         return ext[1:]
     if ext in RES_EXT:
         return "res"
-    raise ValidationError(f"unknown extension {ext!r}: .bm, .b16, .bme or a resource file", path)
+    raise ValidationError(f"unknown extension {ext!r}: .bm, .bme or a resource file", path)
 
 
 def edition_of_cart(cart):
-    """'b16' for 360x360 (docs/B16.md:24-27), 'bm' otherwise; 'res' for BMRES.
-    NON VERIFICATO that no Pi .bm uses 360x360 (mkbm --res allows it,
-    scripts/mkbm.py:443): bm-forge treats 360x360 as the RGB30 edition."""
-    if cart.header.is_res:
-        return "res"
-    return "b16" if (cart.header.width, cart.header.height) == B16_RESOLUTION else "bm"
+    """'bm' for a cartridge, 'res' for BMRES"""
+    return "res" if cart.header.is_res else "bm"
+
+
+def compat_block(targets, input_=0, aspect=0, needs=0, min_ram=0, min_spec=0, min_width16=0):
+    """the 8 bytes of the compatibility block (docs/BM-FORMAT.md, bytes 120..127).
+    targets: 'pi', 'rgb30', 'pi,rgb30' (or an iterable of those names, or a bit set 1..3)."""
+    if isinstance(targets, str):
+        targets = [t.strip() for t in targets.split(",") if t.strip()]
+    if not isinstance(targets, int):
+        bits = 0
+        for t in targets:
+            need(t in TARGETS, f"unknown target {t!r}: pi or rgb30", "targets")
+            bits |= TARGETS[t]
+        targets = bits
+    need(1 <= targets <= 3, "targets must name pi, rgb30 or both", "targets")
+    need(0 <= min_ram <= 0xFFFF, "min_ram out of u16", "targets")
+    return struct.pack("<BBBBHBB", targets, input_ & 255, aspect & 255, needs & 255, min_ram, min_spec & 255,
+                       min_width16 & 255)
 
 
 def check_path(path, cart):
-    """the file name must match the bytes: .b16 -> 360x360, .bm -> a Pi
-    resolution, .bme -> project bit set, .bm/.b16 -> bit clear
-    (src/bm/project.c:19-27), resource extension -> its kind (bm-forge strict:
+    """the file name must match the bytes: .bm -> a cartridge resolution,
+    .bme -> project bit set, .bm -> bit clear (src/bm/project.c:19-27),
+    resource extension -> its kind (bm-forge strict:
     C lets the kind win, docs/RISORSE.md:133-134)"""
     ed = edition_of(path)
     hd = cart.header
@@ -352,10 +370,8 @@ def check_path(path, cart):
         need(hd.kind == want, f"extension says kind {want}, header says {hd.kind}", path)
         return
     need(not hd.is_res, "a BMRES file with a cartridge extension", path)
-    if ed == "b16":
-        need((hd.width, hd.height) == B16_RESOLUTION, f"a .b16 is 360x360, not {hd.width}x{hd.height}", path)
     if ed == "bm":
-        need((hd.width, hd.height) in PI_RESOLUTIONS, f"a .bm (Pi) is not {hd.width}x{hd.height}", path)
+        need((hd.width, hd.height) in RESOLUTIONS, f"a .bm is not {hd.width}x{hd.height}", path)
     need(hd.project == (ed == "bme"), "project bit (u16 at 18, bit 0) must be set exactly for .bme", path)
 
 
@@ -367,14 +383,9 @@ def read_file(path, kernel_limits=False):
     return cart
 
 
-def write_file(path, cart, source_edition=None, kernel_limits=False):
-    """build and write. With source_edition ('bm' / 'b16', e.g. edition_of_cart of
-    the file read) the target must be the same edition: a .bm never becomes a
-    .b16 or the reverse (CLAUDE.md "Non fare")."""
+def write_file(path, cart, kernel_limits=False):
+    """check the name against the bytes, build and write"""
     check_path(path, cart)
-    if source_edition:
-        need(edition_of_cart(cart) == source_edition,
-             f"{source_edition} -> {edition_of_cart(cart)}: editions are never converted", path)
     data = build(cart, True, kernel_limits)
     with open(path, "wb") as f:
         f.write(data)

@@ -7,7 +7,7 @@ folder layout of a game is in [PROJECT-LAYOUT.md](PROJECT-LAYOUT.md).
 
 ## 1. One runtime for everything
 
-Games, tools, `.b16` and `bmhost` (the PC host) all run through the same runtime, `bm_run` (`src/bm/runtime.c:9188`).
+Games, tools and `bmhost` (the PC host) all run through the same runtime, `bm_run` (`src/bm/runtime.c:9188`).
 A program is a cartridge: a Lua chunk with optional assets, no native code.
 
 ```
@@ -43,7 +43,7 @@ menu / RGB30 ui / monitor / bmhost
 
 | | Games | Tools and apps |
 |---|---|---|
-| What | `.bm` / `.b16` cartridges in `/carts` (Pi) or `/bm` (RGB30), from the Market or by hand | ordinary cartridges written in Lua, **embedded in the kernel** |
+| What | `.bm` cartridges in `/carts` (Pi) or `/bm` (RGB30), from the Market or by hand | ordinary cartridges written in Lua, **embedded in the kernel** |
 | Examples | pong, kitchen, yharnam, Overbit... | bm SDK, Sound, Studio, Animator, Mesh, Pixel, Code, Assistant |
 | Where they run | the **Games** tab (cover, suspend/resume) | the **Dev** tab (the tools only; the project files `.bme` are not listed: the editors open them) |
 | `tool_mode` | 0 | 1 |
@@ -70,8 +70,7 @@ models with the file's), `cart_read`, `cart_audio`, `cart_data(type[, bytes])` (
 
 **Project and game.** A `.bme` is the same container with bit 0 set. A tool writing to a game path makes an **editable
 copy** (`.bme`, after the question "Save an editable copy?"); `cart_build` copies a project to a game `.BM` next to it
-(the project's name goes to offset 104; a rebuild replaces only that file); `cart_build "b16"` writes a `.B16`, never
-touching the `.bm` (`project.c`).
+(the project's name goes to offset 104; a rebuild replaces only that file); `cart_build` takes no target argument (`project.c`).
 
 ## 3. Shared libraries
 
@@ -105,7 +104,7 @@ A game **cannot `require` its own files**: there is no module system for cartrid
 
 - Game parts go into sections by `mkbm.py` flags (`--sheet --map --flags --sprites --models --audio --cover`). Resource files
   (`BMRES`) are made and merged by `scripts/bmres.py`; no cartridge in `carts/` uses them and the game has no API to read
-  them ([FORMATS-AUDIT.md](FORMATS-AUDIT.md) section 4).
+  them ([FORMATS-AUDIT.md](FORMATS-AUDIT.md) section 3).
 - Metadata: the **header** (title, author, resolution) is what the menu shows; the **INFO** section (`bm.info`) holds
   `name desc author license version tags date` and is read by the runtime only for its `spec` key (`bm_info_get`).
 
@@ -116,12 +115,12 @@ carts/<id>/ (main.lua, assets/, bm.info)  --mkbm.py-->  build/carts/X.bm  --copy
 carts/<tool>/main.lua                      --mkbm.py-->  build/<t>.bm      --embed.S--> kernel.img (Dev tab)
 
 tool (tool_mode)  --cart_load/save/write/data/audio--> .bme on the SD   (editable copy of a game: bm_make_copy)
-.bme  --cart_build-->  X.BM        .bme/.bm  --cart_build "b16"-->  X.B16
+.bme  --cart_build-->  X.BM
 tool  --cart_run(path)--> game (tool_mode 0) --exit--> cart_arg() back into the tool
 tool  --cart_tool(name, path)--> another tool (cart_arg().from = the caller)
 
 resource files  <--bmres.py extract/add/convert-->  .bm/.bme       the editors open them
-Market: repo bm-market  games/<id>/{id.bm, id.b16, info.txt} --CI: mkmarket.py--> index.txt (SHA-256) signed ECDSA P-256
+Market: repo bm-market  games/<id>/{id.bm, info.txt} --CI: mkmarket.py--> index.txt (SHA-256) signed ECDSA P-256
         console: verifies the signature (keys/market-pub.pem) then each file's SHA-256, then writes /carts or /bm
         Apps page: installs tools on the SD, which override the embedded ones (load_sd_tool)
 monitor (UART/keyboard): play NAME, set key=value (bm/config.txt)
@@ -150,7 +149,7 @@ a game from another source is not.
 
 | Option | Pros | Cons | Breaks? |
 |---|---|---|---|
-| S1a Refuse the reserved tool names in `write_target` (also `.b16`, 8.3 aliases such as `assistan`) | a few lines; closes the hole | a list to keep in step with the tools (see 2) | no |
+| S1a Refuse the reserved tool names in `write_target` (8.3 aliases such as `assistan`) | a few lines; closes the hole | a list to keep in step with the tools (see 2) | no |
 | S1b A header flag `BM_FLAG_TOOL` (bit 2 at offset 18) set only by `mkbm.py --tool` and by the build of the embedded tools, checked by the runtime | the right travels with the file | a new bit; the SD copies of the tools must be rebuilt | no (old kernels ignore it) but old SD tools lose their rights until rebuilt |
 | S1c Run an SD copy as a tool only if its SHA-256 is in the signed Market catalog | no format change | needs a trust store on the console | no |
 

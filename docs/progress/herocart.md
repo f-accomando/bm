@@ -4,7 +4,7 @@ A separate cart, `carts/herocart/`: 64 heroes walk in a plaza. The player change
 
 ## How it is today (stages 1 and 2)
 
-- Build: `make build/carts/herocart.bm`. The cart is not in `GAMES`. It has no `.b16` edition.
+- Build: `make build/carts/herocart.bm`. The cart is not in `GAMES`.
 - Sources: `carts/herocart/src/*.lua`, joined by `build/build.py`. Assets are committed in `carts/herocart/assets/`. `build/mkheroes.py` makes `models.bm`. `build/mkplaza.py` makes `sheet.png` and the three map layers.
 - Hero: the bm-forge `charkit` preset `rango` with the bm-forge walk clip (984 triangles, flat colours). Levels `hero0` to `hero3`: 984, 492, 246, 97 triangles (quadric reducer). Hulls `hero0_o` to `hero3_o` for the outline row.
 - Every face of every hero model has its three corners on one bone (`one_bone_faces` in `mkheroes.py` splits the vertices at the joints). The vertex shader of the console takes a plain lit face only on one bone. With the first models (216 faces of `hero0` on two bones) every hero went back to the ARM, one triangle at a time, whatever Vertex shader said. The split opens a thin gap at a joint in some poses, as the rigid parts of the bench hero do.
@@ -49,7 +49,7 @@ Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. To check the verte
 - The `options` line of the console (`tex16`, `fs2`) is not read by Lua. `report()` adds it. The panel shows the 3D driver version.
 - Free camera: the arrow keys also move the row cursor.
 - The Pi has not run the models with one bone for each face: not verified on hardware.
-- Stage 5 (RGB30 edition): see the design. Stages 3 and 4 (cel in the V3D vertex programs, outline by the inverted hull, bm3D 7.5) are built and tested on the V3D emulator only. The 3D Bench of 22 Oct measured on the Pi: the probe says `cel light yes`, cel at `vs` 2 costs +10% over lit, the hull (flag 512) costs +31% over lit (under the +60% gate: the distance limit is not needed). Not verified on the Pi: the same costs in the cart itself (the sweep of `HEROCART.TXT`).
+- Stage 5 (RGB30 panels): see the design. Stages 3 and 4 (cel in the V3D vertex programs, outline by the inverted hull, bm3D 7.5) are built and tested on the V3D emulator only. The 3D Bench of 22 Oct measured on the Pi: the probe says `cel light yes`, cel at `vs` 2 costs +10% over lit, the hull (flag 512) costs +31% over lit (under the +60% gate: the distance limit is not needed). Not verified on the Pi: the same costs in the cart itself (the sweep of `HEROCART.TXT`).
 - Cel and dither costs are measured by the 3D Bench (22 Oct: dither off equals dither on within 0.1 ms). The cart sweep with `Cel bands` on and `Dither` off (runs 3 and 4 of the design) is still open.
 - `dither3d(false)` adds a constant half step. It saves no fill time. The ARM fill saving of the design is not real; the row shows the look only.
 - Row 19 `Outline` has three values: off, hull (baked), flag 512. The printed line has `out0` to `out2` (0 off, 1 baked, 2 flag).
@@ -63,5 +63,4 @@ Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. To check the verte
 - `stat(16)` to `stat(18)` are read only for display and the printed line. No quality governor.
 - The shadows (row 16) are drawn in a first pass, before all the heroes, so a foot is never darkened: the animation runs twice for each hero while the row is on (`anim` shows both). With bm3D 7.7 the GPU shadow darkens as the ARM's.
 - `_init` calls `frameskip(4)`. A frame over budget is not drawn: up to 4 `_update` run before the next `_draw`. `stat(15) - 1` counts the frames not drawn. The panel (`skip`) and the printed line (`skip=`) show them for each second.
-- The `.b16` edition, when it comes, is built from its own sources.
 - Keep the `hkeys f= row=` line. `tests/qemu_test.py` test_herocart reads it. `tests/herocart/check.py` ignores it.

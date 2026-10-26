@@ -8,7 +8,7 @@ This document is the fixed reference for device-specific input controls, menu be
 |---|---|---|---|
 | Panel size | 720×720 square DSI panel (Sitronix ST7703) | `docs/RGB30.md:6,160`, `docs/progress/platforms.md:33` | implemented |
 | Menu resolution | 360×360 shown ×2 (fills 720×720 panel); 3 covers per row | `docs/RGB30.md:14,206`, `docs/spec/divergences.toml:333` | implemented |
-| Default game resolution | 360×360 shown ×2 for `.b16` (or 720×720 native); `screen()` offers 360×360 and 720×720 | `docs/RGB30.md:14,175`, `docs/spec/divergences.toml:344` | implemented |
+| Default game resolution | 360×360 shown ×2 (or 720×720 native); `screen()` offers 360×360 and 720×720 | `docs/RGB30.md:14,175`, `docs/spec/divergences.toml:344` | implemented |
 | Scaling rule | Video controller (VOP2) hardware scaling ×2 (`bm_scale`, `bm_smooth`), sharp or smoothed | `docs/RGB30.md:175-176`, `docs/spec/divergences.toml:344` | implemented |
 | Confirm button | B = OK / confirm (bottom button); `confirm=a` in `bm/config.txt` swaps to A | `docs/RGB30.md:166-167,220`, `docs/progress/platforms.md:35`, `docs/spec/divergences.toml:355` | implemented |
 | Back button | Y = cancel / back (A is no second back); `mc=` of `controls=` in `bm/config.txt` sets another button (Settings > Controls) | user decision 2026-10-19; `src/rgb30/pad.c`; `docs/spec/divergences.toml` D49 | implemented |

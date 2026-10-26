@@ -2,7 +2,7 @@
 
 Entry: `python .claude/skills/bm-forge/scripts/bm_forge.py <sub> ...` (`build_parser`, `scripts/bm_forge.py:28`).
 Paths below are relative to `.claude/skills/bm-forge`; `<ABS>` is an absolute directory. Errors go to
-stderr as `error: ...`. Cart editions (`.bm`, `.b16`, `.bme`) are never converted.
+stderr as `error: ...`. Cart editions (`.bm`, `.bme`) are never converted.
 Launchers `scripts/bm-forge` (sh) and `scripts/bm-forge.cmd` (Windows) run `doctor` (checked 2026-10-13: WSL and Windows).
 
 ## mesh
@@ -66,27 +66,28 @@ python .claude/skills/bm-forge/scripts/bm_forge.py anim examples/idle.json examp
 ```
 export models FROM -o OUT.bm [--title T] [--author A]
 export bmm    FROM -o OUT.bmm [--model NAME ...]
-export cart   FROM --lua MAIN.lua -o OUT.bm|OUT.b16 --title T [--author A] [--res WxH] [--cover-model NAME]
-              [--draw NAME=COUNT ...] [--budget N]
+export cart   FROM --lua MAIN.lua -o OUT.bm --title T [--author A] [--res WxH] [--cover-model NAME]
+              [--draw NAME=COUNT ...] [--budget N] [--targets pi|rgb30|pi,rgb30]
 export folder FROM --lua MAIN.lua --root DIR --game ID --title T [--author A] [--res WxH] [--cover-model NAME] [--overwrite]
-export market --root DIR --id ID --version V --license L --about TEXT [--bm PATH] [--b16 PATH]
+export market --root DIR --id ID --version V --license L --about TEXT --bm PATH
 ```
 
-- `FROM` is a cart (`.bm`/`.b16`/`.bme`) with MESH (and ANIM, carried over). No MESH: exit 1.
+- `FROM` is a cart (`.bm`/`.bme`) with MESH (and ANIM, carried over). No MESH: exit 1.
 - `models`: `wrote OUT: N models, T triangles` (`bm_forge.py:518`). `bmm`: same line; `--model` filters models and their rigs.
-- `cart`: default `--res` 360x360 for `.b16`, 320x180 otherwise (`bm_forge.py:628-631`). `--draw` lists how many times each
-  model is drawn a frame; the budget defaults to `export.TRI_BUDGET_B16` / `TRI_BUDGET_PI`. `--cover-model` renders an 88x88
-  cover. Output line: `wrote OUT: bm|b16 WxH, T triangles a frame (budget B)`.
+- `cart`: default `--res` 320x180. `--draw` lists how many times each
+  model is drawn a frame; the budget defaults to `export.TRI_BUDGET_PI`. `--cover-model` renders an 88x88
+  cover. `--targets` writes the compatibility block (bytes 120..127, flag bit 4) with the kernels the cartridge is for;
+  without it the header has no block. Output line: `wrote OUT: bm WxH, T triangles a frame (budget B)`.
 - `folder`: repo layout, one path per line; `--game` is lowercase alphanumeric/underscore; existing folder needs `--overwrite`. Default `--res` 320x180.
-- `market`: Market layout from existing `--bm` / `--b16` files; prints one path per line then `about.txt line: ...`.
+- `market`: Market layout from an existing `--bm` file; prints one path per line then `about.txt line: ...`.
 - Exit: 0; 1 validation or no MESH; 2 usage, missing file, malformed `--res` or `--draw`.
 
 ```
-python .claude/skills/bm-forge/scripts/bm_forge.py export cart <ABS>/anim.bm --lua examples/game_demo/b16/main.lua -o <ABS>/forgedemo.b16 --title "Forge Demo" --cover-model humanoid
+python .claude/skills/bm-forge/scripts/bm_forge.py export cart <ABS>/anim.bm --lua examples/game_demo/bm/main.lua -o <ABS>/forgedemo.bm --res 360x360 --targets pi,rgb30 --title "Forge Demo" --cover-model humanoid
 ```
 
 (The model must exist in `anim.bm`, and the demo Lua expects its `humanoid` + `ground` models and `--draw`; for a ready
-two-edition build use `python examples/game_demo/build.py --out <ABS>/demo`.)
+build use `python examples/game_demo/build.py --out <ABS>/demo`.)
 
 ## check
 

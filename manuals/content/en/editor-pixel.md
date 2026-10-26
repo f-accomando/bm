@@ -49,7 +49,7 @@ Start from the **Dev** tab of the menu, or press **X** on the cover of a game an
 ## Projects and games
 
 - A **project** is a `.bme` file. The editors change projects and save them where they are.
-- A **game** is a `.bm` (or `.b16`) file. It is read only. When you open one, the screen says `a game: saving makes its copy`, and saving writes an editable `.BME` copy, never the game itself.
+- A **game** is a `.bm` file. It is read only. When you open one, the screen says `a game: saving makes its copy`, and saving writes an editable `.BME` copy, never the game itself.
 - Only the sheet and the palette change in the saved file: the code, the map, the cover, the sounds and the models stay as they were.
 
 ## The menu (Esc)

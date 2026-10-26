@@ -34,7 +34,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 | Kernel scripts (boot script, REPL) | Lua 5.4.7, full standard libraries | on the device | `src/script/luavm.c:66`, `third_party/lua/linit.c:43-52` |
 | Host tools (Mkbm, Market, converters, tests) | Python 3 | on the PC only | `scripts/`, `tools/` |
 | QPU programs (VideoCore IV) | QPU assembly, assembled by `tools/qpuasm.py` into C arrays | built into the Pi kernel | `tools/qpuprogs.py:1-16`, `src/gpu/qpuprog.h:1-8` |
-| Data | `.bm`, `.b16`, `BMRES` resource files (sections: Lua, sheet, map, audio, mesh, anim, ...) | on the device | `src/bm/bm.h:154-167` |
+| Data | `.bm`, `BMRES` resource files (sections: Lua, sheet, map, audio, mesh, anim, ...) | on the device | `src/bm/bm.h:154-167` |
 
 - The Lua build has 64-bit integers and double floats. `LUA_32BITS` is 0. [code, `third_party/lua/luaconf.h:125`]
 - Two changes to Lua exist: a cheaper count hook and a profiler hook for C functions. [code, `third_party/lua/README.bm`]
@@ -206,7 +206,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 | File dates | the SNTP time (UTC) when the network has set it. Else fixed at 2026-01-01. The kernel registers the clock with `fat_set_clock(net_time)` after the card is mounted. | `src/fs/fat.c` (`fat_stamp`), `src/kernel/carts.c` (`carts_init`), `src/rgb30/main.c` |
 | Reading a file | the whole file goes into a `malloc` buffer. | `src/fs/fat.c:409` |
 | File size | 32-bit size field in FAT. A transfer is limited to 100 MB. A Market file is limited to 100 MB. | `src/net/netxfer.c:44`, `src/net/catalog.h:19` |
-| `.b16` size | no limit. The 8 MB build check is removed. | `docs/BM-FORMAT.md` (File size) |
+| `.bm` size | no limit in the kernel. | `docs/BM-FORMAT.md` (File size) |
 | `.bm` size | no limit in the loader except RAM and the 100 MB transfer limit | `src/net/netxfer.c:44` |
 | Nano8 cart | 4 MB | `src/bm/runtime.c:4904` |
 | Save | `/bm/save`, 32 KB per slot, up to 8 slots (`BM_SAVE_SLOTS`) | `src/bm/runtime.c:3382-3384`, `src/bm/runtime.h:150` |
@@ -281,7 +281,7 @@ A cartridge **can**: [code]
 - Draw, play sound, read input, read the clock. Use the 3D API.
 - Save its own data in `/bm/save` (32 KB per slot).
 - Read and write documents in `/docs` if the player allows it. `src/bm/runtime.c:3747`
-- Fetch `https://` pages with `web_get` if the player allows the network. Write files in `/bm/web` with `file_write` (a bare 8.3 name, never `.bm`, `.bme` or `.b16`, at most 128 files). `src/bm/runtime.c` (`l_file_write`), `src/bm/webpolicy.c`
+- Fetch `https://` pages with `web_get` if the player allows the network. Write files in `/bm/web` with `file_write` (a bare 8.3 name, never `.bm` or `.bme`, at most 128 files). `src/bm/runtime.c` (`l_file_write`), `src/bm/webpolicy.c`
 - Write a **model** with `file_write("NAME.bmm", bytes)`: the file goes to `/bmm/NAME.bmm`. The kernel checks the bytes as a BMRES model first. It never replaces a model that is there. It asks the player nothing more. `src/bm/runtime.c` (`file_write_model`)
 - Use UDP if the player allows it. `src/bm/runtime.c:3297`
 - Send a report to GitHub if the player allows it. `src/bm/runtime.c:3255`
@@ -402,10 +402,9 @@ Legend: **measured**, **from code**, **estimate**.
 
 ## Where code and documents disagree
 
-- `docs/progress/b16.md` section 1 said the `.b16` Lua heap is **4 MB**, the save **64 KB** and that there is a sandbox. The code gives every cartridge **64 MB**, saves of **32 KB**, and no sandbox (`src/script/luavm.c:13`, `src/bm/runtime.c:3566`). The section is fixed from the code.
+- The code gives every cartridge a Lua heap of **64 MB**, saves of **32 KB**, and no sandbox (`src/script/luavm.c:13`, `src/bm/runtime.c:3566`).
 - `README.md:26` and `README.md:35` say the console boots in about 2 seconds. No document records a measurement. The code has fixed waits in USB start-up (`src/usb/dwc2.c:93-175`, `src/usb/usb.c:453,513`). The claim stays an estimate.
 - `README.md:34` says "448 MB RAM". The code reads the real split from the firmware (`src/kernel/main.c:125-139`). `boot/config.txt` sets no `gpu_mem`. `docs/HARDWARE.md:34` gives 448 MB with `gpu_mem=64`. The number depends on the firmware default of the card used.
-- The 8 MB `.b16` check is removed. `BM_B16_MAX` no longer exists.
 - The user-facing description of the RGB30 as "720x720" is the panel size. The menu framebuffer is **360 x 360** (`src/rgb30/main.c:55-56`). Games choose their own size and the display scales it.
 - `README.md:40` says "FAT32 SD card file system". The code also handles FAT16 (`src/fs/fat.c:2`).
 - `CLAUDE.md` says the `kernel7` target is disabled. The Makefile agrees (`Makefile:45-47`).

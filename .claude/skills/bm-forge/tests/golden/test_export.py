@@ -1,4 +1,4 @@
-"""Export of models, animations and game cartridges: models.bm, .bmm (BMRES), .bm/.b16 with cover."""
+"""Export of models, animations and game cartridges: models.bm, .bmm (BMRES), .bm with cover."""
 import os
 import subprocess
 import sys
@@ -104,27 +104,27 @@ class ModelsCart(unittest.TestCase):
 
 class CartValidation(unittest.TestCase):
     def test_editions(self):
-        """export_cart enforces edition constraints: .b16 360x360, .bm Pi resolution."""
+        """export_cart writes a .bm at any cartridge resolution, refuses .bme and other extensions."""
         mesh, anim = C.forge_assets()
         lua = "function _draw() end\n"
 
-        # .b16 at 360x360: ok
+        # .bm at 360x360: ok
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "test.b16")
+            path = os.path.join(tmpdir, "test.bm")
             export.export_cart(path, lua, mesh, anim, "T", "A", res=(360, 360))
             self.assertTrue(os.path.exists(path))
 
-        # .b16 at 320x180: error
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "test.b16")
-            with self.assertRaises(ValidationError):
-                export.export_cart(path, lua, mesh, anim, "T", "A", res=(320, 180))
-
-        # .bm at 360x360: error
+        # .bm at an unknown resolution: error
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.bm")
             with self.assertRaises(ValidationError):
-                export.export_cart(path, lua, mesh, anim, "T", "A", res=(360, 360))
+                export.export_cart(path, lua, mesh, anim, "T", "A", res=(300, 200))
+
+        # An unknown extension: error
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.xyz")
+            with self.assertRaises(ValidationError):
+                export.export_cart(path, lua, mesh, anim, "T", "A")
 
         # .bme (project): error
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -344,15 +344,16 @@ class MarketFolders(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 export.export_market(tmpdir, "forgedemo", "1.0", "MIT", long_about, bm_path=src_bm)
 
-            # Invalid: bm_path points to a .b16
-            src_b16 = os.path.join(tmpdir, "source.b16")
-            export.export_cart(src_b16, "function _draw() end\n", mesh, anim, "Test", res=(360, 360))
+            # Invalid: no bm_path
             with self.assertRaises(ValidationError):
-                export.export_market(tmpdir, "forgedemo", "1.0", "MIT", "About", bm_path=src_b16)
+                export.export_market(tmpdir, "forgedemo", "1.0", "MIT", "About")
 
-            # Invalid: b16_path points to a .bm
+            # Invalid: bm_path is not a .bm
+            bad = os.path.join(tmpdir, "source.xyz")
+            with open(bad, "wb") as f:
+                f.write(b"x")
             with self.assertRaises(ValidationError):
-                export.export_market(tmpdir, "forgedemo", "1.0", "MIT", "About", b16_path=src_bm)
+                export.export_market(tmpdir, "forgedemo", "1.0", "MIT", "About", bm_path=bad)
 
 
 class AboutLine(unittest.TestCase):

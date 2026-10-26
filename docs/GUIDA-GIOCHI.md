@@ -11,7 +11,7 @@ centro della bm Suite. Con una tastiera USB (e se vuoi un gamepad):
 
 | Tasto | Pagina |
 |---|---|
-| **F1** | il progetto: titolo, autore, schermo, target (`.bm` o `.b16`), che cosa contiene il file (codice e token, sprite, flag, zone, livelli della mappa, modelli, suoni) e gli altri programmi della suite (`1`–`6`: bm Code, bm Pixel, bm Studio, bm Animator, bm Mesh, bm Sound). **F1 di nuovo**: il dev kit (fps, ms, RAM e token dell'ultima prova) |
+| **F1** | il progetto: titolo, autore, schermo, target (Pi, RGB30 o entrambi), che cosa contiene il file (codice e token, sprite, flag, zone, livelli della mappa, modelli, suoni) e gli altri programmi della suite (`1`–`6`: bm Code, bm Pixel, bm Studio, bm Animator, bm Mesh, bm Sound). **F1 di nuovo**: il dev kit (fps, ms, RAM e token dell'ultima prova) |
 | **F2** | il codice (Ctrl+X o Ctrl+K taglia la riga, Ctrl+C / Ctrl+V, Ctrl+D duplica, Ctrl+G va all'errore, F9 l'assistente lo spiega) |
 | **F3** | gli sprite: frecce, spazio disegna, `x` preleva il colore, `f` riempie, `,` `.` colore, Tab sceglie sullo sheet, `z` 8×8/16×16, `h`/`v` specchia, `u` annulla, `0`–`7` accendono e spengono i **flag** della tile (sotto: muro, piattaforma...). **F3 di nuovo**: la mappa: spazio piazza la tile, `x` la preleva, `f` riempie, Tab sceglie la tile, `l` il **livello** dopo, Shift+L ne aggiunge uno (anche *New map layer* nel menu), `o` solo quel livello, `c` mostra i flag |
 | **F4** | il 3D: i modelli e le animazioni del progetto che girano; `i` scrive il codice per disegnarli, Invio li apre in bm Studio |
@@ -71,7 +71,7 @@ Risoluzione: **640×360** (predefinita), **480×270** con `--res 480x270` (il co
 per il 3D con texture), **320×180** con `--res 320x180` (pixel più grossi, stile 16
 bit, e più tempo per fotogramma) **256×256** quadrata con `--res 256x256` (al centro
 dello schermo, ingrandita 4× su 1080p, bordi neri) oppure **360×360** quadrata con
-`--res 360x360` (lo schermo del `.b16`: ×2 esatto sul pannello 720×720 della RGB30, al
+`--res 360x360` (×2 esatto sul pannello 720×720 della RGB30, al
 centro di uno schermo 640×360 sul Pi). Colori: `0xRRGGBB`, lo schermo è a
 16 bit (RGB565).
 

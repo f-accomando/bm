@@ -102,8 +102,8 @@
   - Light test: 63.0 fps submitted at 14.4 ms frame time.
   - Report saved to `bench3d-report.txt` and committed to GitHub `reports` branch.
 
-- **E2. Yharnam .b16 (6 MB)**: **OK**
-  - Loaded `build/carts/yharnam.b16` (6411612 bytes, 6.11 MB) in 2089 ms.
+- **E2. Yharnam (6 MB)**: **OK**
+  - Loaded Yharnam (6411612 bytes, 6.11 MB) in 2089 ms.
   - Played for 114.5 s across 6588 frames with directional and action button input.
   - Average frame rate: 57.4 fps (average update+draw: 10.22 ms, copy: 1.31 ms).
   - Exited cleanly via Ctrl-Esc back to the menu.

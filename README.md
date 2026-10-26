@@ -39,7 +39,7 @@ Power on and the console boots straight into the games menu. Games are written i
   - **Connectivity**: WiFi with HTTPS, local UDP multiplayer, and FAT32 SD card file system.
 - **Cartridge System (`.bm`)**:
   - A cartridge is one file in the `bm/` folder of the SD card: Lua source, sprite sheets, tile maps, 3D meshes, skeletal animations and sound banks ([`docs/BM-FORMAT.md`](docs/BM-FORMAT.md)).
-  - The `.b16` is a second edition (360×360, same container) that runs on the Pi and on the RGB30. Today Yharnam, Overbit, Titan Clash EX and the RGB30 SDK ship as `.b16`. The plan to end it and keep one `.bm` is in [`docs/NEXT.md`](docs/NEXT.md) and [`docs/design/single-bm-and-adaptive-screen.md`](docs/design/single-bm-and-adaptive-screen.md). It is not built yet.
+  - A `.bm` runs on the Pi Zero W and on the RGB30. Its header lists the kernels it runs on (the `targets` key in `bm.info`). A cartridge made for the other device shows a faded cover. The design is in [`docs/design/single-bm-and-adaptive-screen.md`](docs/design/single-bm-and-adaptive-screen.md).
   - PICO-8 carts (`.p8`, `.p8.png`) play through the built-in `nano8` cartridge.
 - **On-Console Creative Suite**:
   - Code, draw, sculpt 3D models, rig skeletons, compose music, and test games directly on the console with no PC required.
@@ -138,7 +138,7 @@ Everything in a cartridge can be created with the bm editors. They are built int
 - **Astro Wing**: a polygon space fighter in the style of the SNES classics.
 - **Titan Clash**: a fighting game of giant robots, 1 or 2 players.
 - **Chaos Kitchen**: a cooperative cooking game for 1 to 4 players on one screen.
-- **Yharnam**: an endless gothic town at night, seen from above, at 360×360 (`.b16`).
+- **Yharnam**: an endless gothic town at night, seen from above, at 360×360.
 - **Also in the repository**: Pong, Snake, Star Shooter, KO-II (a keyboard groovebox), `nano8` (PICO-8 carts), Pad Typing, bm Write, bm Web (a web browser for HTML5, CSS and JavaScript pages, https only), Hero Stress and the 3D Bench. The covers are drawn by `scripts/mkartcovers.py`.
 - **bm Market**: an online catalog with a Games page and an Apps page (the editors, bm Write, Pad Typing, the 3D Bench). It downloads free cartridges to the SD card and checks each file with its SHA-256 ([`market/README.md`](market/README.md)).
 

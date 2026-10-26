@@ -178,7 +178,7 @@ name = "game_buttons"
 scope = "rgb30"
 values = "position = B A Y X swapped as a quarter turn; anything else = by letter"
 default = "by letter"
-meaning = "Button mapping of the .b16 games' face buttons on the RGB30."
+meaning = "Button mapping of the games' face buttons on the RGB30."
 settings = ""
 read_in = "src/rgb30/bm_input.c:34"
 

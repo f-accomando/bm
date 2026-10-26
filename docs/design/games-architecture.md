@@ -12,7 +12,7 @@ The cartridge catalog (`carts/` and `video/`) shows several technological and st
 
 | Game / Project | Genre | Resolution & Style | Code Architecture | Graphics Pipeline & Animations |
 |---|---|---|---|---|
-| **Titan Clash** (`carts/titan`) | 2D Versus fighter | 640×360 (and 360×360 on `.b16`) | Modular multi-file (11 Lua files concatenated via `build.py`) | Orthographic 3D pre-rendering with solids and skeleton (`mkrobot.py`), automatic hitbox/hurtbox computation from bones |
+| **Titan Clash** (`carts/titan`) | 2D Versus fighter | 640×360 (and 360×360) | Modular multi-file (11 Lua files concatenated via `build.py`) | Orthographic 3D pre-rendering with solids and skeleton (`mkrobot.py`), automatic hitbox/hurtbox computation from bones |
 | **Yharnam** (`carts/yharnam`) | Gothic 3/4 Action RPG | 360×360 (RGB30 panel) | Procedural monolith (5573 lines in `main.lua`) | Procedural SDF 3D pre-rendering (`mkassets.py`), over 5000 frames across 8 directions, Hermite curves, chunked CSV map streaming |
 | **Skyvale World** (`video/`) | 16-bit 2D Platformer | 640×360 | Sequential, tutorial-style (`lib.tiles`, `lib.step`) | Hand-made pixel art in bm Pixel (`skyvale.bm`), tiles and multi-layer maps in the SDK, collision flags |
 | **Star Shooter** (`carts/shooter`) | Wave-based shmup | 640×360 | Monolith (339 lines) | Inline procedural: sprites generated at runtime from text strings with `sset()`, no PNG |

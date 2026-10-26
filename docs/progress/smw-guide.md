@@ -22,7 +22,7 @@ Part of [smw.md](smw.md).
 - `carts/smw/guide/build.py` reads the files of `scripts/smw_map16.py`. From the level picture it
   keeps the shape and a colour role (green, earth, yellow, red, blue, light, grey, dark). It paints
   each role with its own colours, light, shadow, and earth speckle. No ROM pixel reaches the
-  output. It builds `build/smw-guide/guide.b16`.
+  output. It builds `build/smw-guide/guide.bm`.
 - `tests/smw/guide_shots.py` plays input scripts in `bmhost` and writes
   `manuals/shots/smw-guide-NN-name.png`. Use these images only if the PDF is shared. The real build
   (`carts/smw/build/build.py`) stays for the benchmark. `--real` writes the real screenshots

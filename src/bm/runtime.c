@@ -994,8 +994,8 @@ static const uint16_t screen_modes[][2] = {
     { 320, 180 }, { 384, 216 }, { 480, 270 }, { 640, 360 }, { 960, 540 }, { 1280, 720 }, { 1920, 1080 },
 };
 #define SCREEN_MODES (int)(sizeof screen_modes / sizeof screen_modes[0])
-/* On a square panel (the RGB30's 720x720) the modes are the .b16's two
- * (docs/B16.md §0): 360x360 shown twice as big and 720x720, whole pixels
+/* On a square panel (the RGB30's 720x720) the modes are two:
+ * 360x360 shown twice as big and 720x720, whole pixels
  * both; there a page is never boxed (bm_video_enter). The third is the 16:9
  * page 720x405, in the middle of the panel with black bars above and below
  * (the display centres it). The order is fixed: Overbit indexes the list.

@@ -75,13 +75,13 @@
  "api-core": {
   "chapters": {
    "1": {
-    "en": "a963c31dd5d1",
-    "it": "aa31fff5de2f",
+    "en": "f7cdbc81c139",
+    "it": "29ccc7f8b808",
     "title": "How a cartridge works"
    },
    "10": {
-    "en": "6fbfe8aa5ea0",
-    "it": "75cf7b837f9a",
+    "en": "e92bebde12a6",
+    "it": "cbe91df68bf0",
     "title": "The web"
    },
    "2": {
@@ -90,8 +90,8 @@
     "title": "Your first game"
    },
    "3": {
-    "en": "efb4543b3101",
-    "it": "869fe768ee28",
+    "en": "42d56151f647",
+    "it": "e4b3fc99e15a",
     "title": "Drawing"
    },
    "4": {
@@ -100,8 +100,8 @@
     "title": "Input"
    },
    "5": {
-    "en": "f176cad099e3",
-    "it": "12abf8cfe428",
+    "en": "c4d3eca43797",
+    "it": "772e5d2a2d3e",
     "title": "Time and system"
    },
    "6": {
@@ -126,9 +126,9 @@
    }
   },
   "sources": {
-   "docs/API.md": "213900352f27",
-   "docs/GAME-GUIDE.md": "0388ba895be8",
-   "docs/api/draw.md": "6b9fc59e0ab4",
+   "docs/API.md": "66c39baad549",
+   "docs/GAME-GUIDE.md": "64ef243e68cb",
+   "docs/api/draw.md": "c0ab8355c549",
    "docs/api/input.md": "4a75b07df3da",
    "docs/api/system.md": "583f94063149"
   }
@@ -298,23 +298,23 @@
  "api-tools": {
   "chapters": {
    "1": {
-    "en": "53a4b8799e40",
-    "it": "eb0321f04540",
+    "en": "97e63767823b",
+    "it": "ca31e0c05fd8",
     "title": "The cartridge file"
    },
    "2": {
-    "en": "0b45a0b1bbd4",
-    "it": "f57f600cb081",
+    "en": "e435dc90ffe3",
+    "it": "6c68034e1070",
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "e24a7033d7f6",
-    "it": "fefbdd9555c0",
+    "en": "ff9db1d3dc54",
+    "it": "c8cccf3817ca",
     "title": "The API for tools"
    },
    "4": {
-    "en": "dc08b5165e1e",
-    "it": "4cbdc48527e3",
+    "en": "2a408c816dcc",
+    "it": "c97eeb6cd646",
     "title": "Resource files and sharing assets"
    },
    "5": {
@@ -329,17 +329,17 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "73e0d4cf6c20",
+   "docs/PROJECT-LAYOUT.md": "46e3a15b75ac",
    "docs/RISORSE.md": "69354ea59894",
    "docs/SCREENSHOTS.md": "819c2580bb7d",
-   "docs/api/tools.md": "5f4905aa4832"
+   "docs/api/tools.md": "e6bef351acd2"
   }
  },
  "boot-os": {
   "chapters": {
    "1": {
-    "en": "72bdba132f4a",
-    "it": "56127a0985cc",
+    "en": "fe9f8a125396",
+    "it": "594870455fc3",
     "title": "What bm is"
    },
    "10": {
@@ -373,8 +373,8 @@
     "title": "What the kernel does at start"
    },
    "4": {
-    "en": "c3afe9c509f5",
-    "it": "e807460a0da2",
+    "en": "aabec566f6ac",
+    "it": "f6ca5fe4a2da",
     "title": "The menu and its tabs"
    },
    "5": {
@@ -398,8 +398,8 @@
     "title": "The files on the SD card"
    },
    "9": {
-    "en": "579b5f21b662",
-    "it": "bb0641e83854",
+    "en": "c8374589bc91",
+    "it": "c2a93ff12eae",
     "title": "Settings and config.txt"
    }
   },
@@ -414,13 +414,13 @@
  "characters": {
   "chapters": {
    "1": {
-    "en": "e1c1c6536e60",
-    "it": "777341ee4a7b",
+    "en": "d6b5121b6d8e",
+    "it": "2e5b629a945d",
     "title": "What this manual covers"
    },
    "10": {
-    "en": "a2d380932907",
-    "it": "b80ed9257eef",
+    "en": "8d19367eb772",
+    "it": "36590adeadea",
     "title": "3D models"
    },
    "11": {
@@ -487,13 +487,13 @@
    "carts/titan/build/mkrobot.py": "72c7aff21afd",
    "carts/yharnam/build/mkassets.py": "86bfe9f06612",
    "docs/api/draw.md": "c0ab8355c549",
-   "docs/api/light3d.md": "aeaffdf9073f",
-   "docs/design/games-architecture.md": "38d1cf8a4cc1",
+   "docs/api/light3d.md": "b3d47843af0f",
+   "docs/design/games-architecture.md": "ebbc5540d40e",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/design/suite-pixel.md": "bbfd8d899dda",
    "docs/progress/graphics.md": "5cc49dae1257",
    "docs/progress/tools.md": "59fa40bbade7",
-   "docs/progress/yharnam.md": "48e2247af437",
+   "docs/progress/yharnam.md": "bcb01bd06c3f",
    "tools/cutout2mesh.py": "a2a57f9737c1",
    "tools/img2mesh.py": "db3364221d4a"
   }
@@ -511,8 +511,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "07615c9c7316",
-    "it": "3cc20b5fedfb",
+    "en": "d2752f12b6b9",
+    "it": "5559fb96404e",
     "title": "Opening"
    },
    "3": {
@@ -536,8 +536,8 @@
     "title": "Hitboxes and baking sprites (F4)"
    },
    "7": {
-    "en": "a226edd1d640",
-    "it": "92eba590bbb8",
+    "en": "efbfdddfc974",
+    "it": "2353336df7f0",
     "title": "Saving and exporting"
    },
    "8": {
@@ -553,10 +553,10 @@
   },
   "sources": {
    "carts/animator/main.lua": "4c4eafda795f",
-   "docs/RISORSE.md": "46d80064fc62",
+   "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "7219aec6478f",
-   "sdk/README.md": "9405dd4d3479"
+   "docs/progress/tools.md": "59fa40bbade7",
+   "sdk/README.md": "3c71bfdd808e"
   }
  },
  "editor-code": {
@@ -628,8 +628,8 @@
     "title": "What bm Mesh is"
    },
    "2": {
-    "en": "16dc963d03e7",
-    "it": "e6fd0d268749",
+    "en": "4c9ce9800f12",
+    "it": "6678e4d94c5d",
     "title": "Opening"
    },
    "3": {
@@ -658,17 +658,17 @@
     "title": "Tutorials"
    },
    "8": {
-    "en": "ffdc771faee8",
-    "it": "d889f3c84bdd",
+    "en": "03691327eef0",
+    "it": "06b18e7228cc",
     "title": "Tips and limits"
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "920e1936d817",
-   "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "carts/mesh/main.lua": "e108e7248bac",
+   "docs/RISORSE.md": "69354ea59894",
+   "docs/design/suite-studio-mesh.md": "fb92e52de055",
+   "docs/progress/tools.md": "59fa40bbade7",
+   "sdk/README.md": "3c71bfdd808e"
   }
  },
  "editor-pixel": {
@@ -694,8 +694,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "0db2e1f8fc7d",
-    "it": "7a99f60fbe4a",
+    "en": "2c3da57489d4",
+    "it": "cf14465f8cda",
     "title": "Opening a file"
    },
    "3": {
@@ -738,15 +738,15 @@
    "carts/pixel/main.lua": "ff4d7d19619e",
    "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-pixel.md": "bbfd8d899dda",
-   "docs/progress/tools.md": "a38752d0a2e5",
-   "sdk/README.md": "70140108556f"
+   "docs/progress/tools.md": "59fa40bbade7",
+   "sdk/README.md": "3c71bfdd808e"
   }
  },
  "editor-sdk": {
   "chapters": {
    "1": {
-    "en": "893d051be079",
-    "it": "1911515f9ac2",
+    "en": "4a81130ab22b",
+    "it": "fdd5c59c5702",
     "title": "What bm SDK is"
    },
    "2": {
@@ -755,8 +755,8 @@
     "title": "Opening bm SDK"
    },
    "3": {
-    "en": "ba2678b9e581",
-    "it": "e244473f3e70",
+    "en": "03c037ba1b40",
+    "it": "3e1bb3d3061c",
     "title": "The screen"
    },
    "4": {
@@ -770,32 +770,32 @@
     "title": "The map editor"
    },
    "6": {
-    "en": "d5a97340afd6",
-    "it": "efaa77f8a076",
+    "en": "9c0dae4bb1f6",
+    "it": "d7f62aec19c4",
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "ea7c30cc1120",
-    "it": "3723ae49dbb5",
-    "title": "Building and exporting"
+    "en": "890dab043b81",
+    "it": "1a06f0e9a673",
+    "title": "Building and publishing"
    },
    "8": {
-    "en": "1fb9a6f919e5",
-    "it": "20dc249e8760",
+    "en": "91737a29c9ae",
+    "it": "2c80a5573e23",
     "title": "Keys"
    },
    "9": {
-    "en": "cf62bc1fe27c",
-    "it": "fc6f44acc254",
+    "en": "bc48be9ac3f4",
+    "it": "58fca50a2827",
     "title": "Tips and troubleshooting"
    }
   },
   "sources": {
-   "carts/editor/main.lua": "b7a9731d8bb8",
+   "carts/editor/main.lua": "2d8b69f38f9b",
    "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
    "docs/progress/tools.md": "59fa40bbade7",
-   "sdk/README.md": "70140108556f"
+   "sdk/README.md": "3c71bfdd808e"
   }
  },
  "editor-sound": {
@@ -852,13 +852,13 @@
     "title": "What bm Studio is"
    },
    "10": {
-    "en": "c197a3f9f4a5",
-    "it": "2d669c9c1fcc",
+    "en": "31cf2c1f55b2",
+    "it": "75ed520295a2",
     "title": "Tips and limits"
    },
    "2": {
-    "en": "0eb4a1ed3d01",
-    "it": "482605650039",
+    "en": "64f2a4244f0b",
+    "it": "bbf2797fd2cb",
     "title": "Opening a project or a game"
    },
    "3": {
@@ -877,8 +877,8 @@
     "title": "Painting a model"
    },
    "6": {
-    "en": "9d34cf870cfb",
-    "it": "788ed6ca2fed",
+    "en": "377c3d1aafcf",
+    "it": "3cfdf6281fdc",
     "title": "The models page and mesh reduction"
    },
    "7": {
@@ -892,17 +892,17 @@
     "title": "Using the model in a game"
    },
    "9": {
-    "en": "d023d2b14919",
+    "en": "c6a53fb0fc3c",
     "it": "a9231ec78c6c",
     "title": "Guided tutorials"
    }
   },
   "sources": {
-   "carts/studio/main.lua": "285ae16f1382",
-   "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "carts/studio/main.lua": "597711e5f5c8",
+   "docs/RISORSE.md": "69354ea59894",
+   "docs/design/suite-studio-mesh.md": "fb92e52de055",
+   "docs/progress/tools.md": "59fa40bbade7",
+   "sdk/README.md": "3c71bfdd808e"
   }
  },
  "editor-write": {
@@ -953,8 +953,8 @@
  "install-sd": {
   "chapters": {
    "1": {
-    "en": "7dced84a1ddd",
-    "it": "db10940e0883",
+    "en": "d953d9dd4b08",
+    "it": "a364b20eed6c",
     "title": "What you need"
    },
    "2": {
@@ -978,13 +978,13 @@
     "title": "Updating the kernel"
    },
    "6": {
-    "en": "1029628cb0ac",
-    "it": "c669796ed0c4",
+    "en": "57b24c47b1e7",
+    "it": "41dd0e16caa7",
     "title": "The Market and getting games"
    },
    "7": {
-    "en": "411ef64f6074",
-    "it": "a17be36934eb",
+    "en": "9e1637f40162",
+    "it": "de4afab0db97",
     "title": "The config.txt keys that matter"
    },
    "8": {
@@ -994,9 +994,9 @@
    }
   },
   "sources": {
-   "docs/RGB30.md": "ed82a2adc0d4",
-   "docs/progress/platforms.md": "287876036d31",
-   "easy_install.sh": "0c4ada007b75",
+   "docs/RGB30.md": "b2c40e2dd765",
+   "docs/progress/platforms.md": "d3fa20322e57",
+   "easy_install.sh": "f36554fc78cc",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "d149ff6c9295"
   }
@@ -1034,8 +1034,8 @@
     "title": "3D levels"
    },
    "6": {
-    "en": "05c65c1e45fc",
-    "it": "c1ddb94a8382",
+    "en": "25722a94fc7d",
+    "it": "1718d6312a64",
     "title": "Building a game with the suite"
    },
    "7": {
@@ -1055,16 +1055,16 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "7a27e161fc74",
-   "docs/GAME-GUIDE.md": "398125798aee",
-   "docs/ROADMAP.md": "179f05ee7fd5",
-   "docs/api/bmlib.md": "2f34defc42b8",
-   "docs/api/draw.md": "a9b2da1f4789",
-   "docs/api/light3d.md": "09cb11aea0e1",
-   "docs/design/games-architecture.md": "38d1cf8a4cc1",
+   "carts/editor/main.lua": "2d8b69f38f9b",
+   "docs/GAME-GUIDE.md": "64ef243e68cb",
+   "docs/ROADMAP.md": "12404fa28b16",
+   "docs/api/bmlib.md": "6556c00f9b36",
+   "docs/api/draw.md": "c0ab8355c549",
+   "docs/api/light3d.md": "b3d47843af0f",
+   "docs/design/games-architecture.md": "ebbc5540d40e",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
-   "docs/progress/graphics.md": "c811700bb7b6",
-   "docs/progress/tools.md": "56f590f44203",
+   "docs/progress/graphics.md": "5cc49dae1257",
+   "docs/progress/tools.md": "59fa40bbade7",
    "docs/progress/v3d.md": "20081adc0057",
    "src/bm/map3d.c": "83e5e8666802"
   }
@@ -1082,13 +1082,13 @@
     "title": "ARM11 performance, as measured"
    },
    "3": {
-    "en": "7deff1b7686b",
-    "it": "0184018cfb15",
+    "en": "f6d63d22a105",
+    "it": "d2d13f1e35e4",
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "c43d9bc01ae4",
-    "it": "479af182ed05",
+    "en": "f03317264ac0",
+    "it": "9b853fe8dfe5",
     "title": "The GPU and the 3D"
    },
    "5": {
@@ -1113,11 +1113,11 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "7d1bf309f26f",
-   "docs/DRIVERS.md": "f8ce7a5600de",
+   "docs/BENCH3D.md": "43763bf3dc03",
+   "docs/DRIVERS.md": "ea1b61f9d9bd",
    "docs/HARDWARE.md": "6bfcdeee8616",
    "docs/PERFORMANCE.md": "5adf533c20fd",
-   "docs/progress/graphics.md": "654cf451bb6f",
+   "docs/progress/graphics.md": "5cc49dae1257",
    "docs/progress/v3d.md": "20081adc0057"
   }
  },

@@ -106,12 +106,12 @@ end
 ```
 
 ### Proposal 6: 3D Maps in the Map page (decided, to be developed; no external tool)
-The most suitable suite for 3D game maps is **bm SDK**: it already has layers, flags, the `objects` layer, `.bme` projects and `.bm`/`.b16` builds, in both editions. Studio/Mesh remain for props. Overbit currently has its map generated in Python (`carts/overbit/art/partenope.py`, `mapgeo.py`): no editor, migration optional and later.
+The most suitable suite for 3D game maps is **bm SDK**: it already has layers, flags, the `objects` layer, `.bme` projects and `.bm` builds, in both versions. Studio/Mesh remain for props. Overbit currently has its map generated in Python (`carts/overbit/art/partenope.py`, `mapgeo.py`): no editor, migration optional and later.
 - **A single format, in the cartridge**: grid layers (floor, height, walls/ceiling, objects) in the `LAYERS` and `FLAGS` sections, at most one new section for height. Tiles and flags stay those of the invariants, so existing 2D maps do not break.
 - **A single geometry builder in the runtime** (C, not in the suites' Lua): layers → mesh + collisions. Game and editor call the same function, so the preview matches the game.
 - **Editor**: a key in the Map page to switch from 2D view (drawing) to 3D view (preview, `bm3d`).
 - **Props**: MESH models made in Studio/Mesh, referenced by name from the `objects` layer.
-- **Two editions**: `carts/editor` (Pi) and `carts/sdk_b16` (RGB30) must both be modified; the builder lives in the runtime to avoid duplicating logic.
+- **Two versions**: `carts/editor` (Pi) and `carts/sdk_b16` (RGB30) must both be modified; the builder lives in the runtime to avoid duplicating logic.
 - **Known limit**: a grid with heights = interiors, arenas, block cities; no arbitrary slopes or arches.
 - **To decide before starting** (go through `bm-planner`): initial target (corridor/arena FPS like Overbit or 3D city/terrain); height per cell (steps) or per vertex (soft terrain). Proposed branch: `claude/map3d`.
 
@@ -122,4 +122,4 @@ The most suitable suite for 3D game maps is **bm SDK**: it already has layers, f
 Done: the Tiled import (R11, menu *Import a Tiled map*, see [`progress/tools-suite.md`](../progress/tools-suite.md)), the overview and the used-tiles palette of big maps (R37, keys `m` and `Tab`) and the assistant entries for big maps (R38, `map_big` and `map_tiled` in `src/ai/kb/howto_map.txt`).
 
 - **720x720 SDK Interface on RGB30 (R39)**:
-  - Extension of the `carts/sdk_b16` layout with an 8x16 grid logical scale: on the native 720x720 display it allows placing the side panel and map view side by side, as on the Raspberry Pi edition. Not started: it changes every page of `carts/sdk_b16`. Plan: [`sdk-720.md`](sdk-720.md).
+  - Extension of the `carts/sdk_b16` layout with an 8x16 grid logical scale: on the native 720x720 display it allows placing the side panel and map view side by side, as on the Raspberry Pi version. Not started: it changes every page of `carts/sdk_b16`. Plan: [`sdk-720.md`](sdk-720.md).

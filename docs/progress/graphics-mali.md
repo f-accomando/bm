@@ -50,11 +50,11 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   undeclared), the descriptors are invented (placeholder shaders, a made-up tiler job)
   and its `gpu3d.c` edit is the V3D driver, which the RGB30 does not build.
 
-## Roadmap: Mali GPU & Overbit in `.b16` (RGB30)
+## Roadmap: Mali GPU & Overbit (RGB30)
 
-Game backlog (user, 25 Oct 2026): Overbit in `.b16` on the RGB30 (item 1 below) is not a kernel divergence any more. D24 left `docs/spec/divergences.toml`.
+Game backlog (user, 25 Oct 2026): Overbit on the RGB30 (item 1 below) is not a kernel divergence any more. D24 left `docs/spec/divergences.toml`.
 
-1. **Overbit in `.b16` on RGB30**:
+1. **Overbit on RGB30**:
    - Runs at **360×360** (doubled ×2 by the hardware video controller) and native **720×720**, selectable in the *RESOLUTION* menu.
    - Adaptation with `screen()` for square modes (`fb_init_mode`: 64-byte rows and tiles of 16).
    - In Overbit: adapt the HUD, menus, sky and field of view 1:1 (`SW`, `SH`, `LW`×`LH` and `UI` of `00_core.lua`).
@@ -65,7 +65,7 @@ Game backlog (user, 25 Oct 2026): Overbit in `.b16` on the RGB30 (item 1 below) 
    - *Phase 2*: `r3d` backend with batching and one color per draw (verified on hardware, `bm3d 7.9` and `7.10`).
    - *Phase 3*: vertex shader for the geometry transforms on the GPU (`BM_VS3` and `mali_backend.mesh`, verified on hardware, `bm3d 7.11` and `7.13`).
    - *Phase 4*: asynchronous job queue with multi-buffering support (`mali_frame_submit` and `mali_backend_submit`, verified on hardware, `bm3d 7.12` and `7.13`).
-- **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
+- **Completion criterion**: On the RGB30 Overbit runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
 ## Open work
 Hardware verified on RGB30 (`bm3d 7.8`..`7.15`, 25 Oct 2026): H1 triangle (`80d62d1e`), H6 flat-colour 3D Bench (`94aae9dd`), Phase 2 multi-draw batching (`fcfd2933`), Phase 3 `BM_VS3` probe (`b041b71a`), Phase 4 async 2-set queue probe (`9e4652bd`), `BM_VS3` mesh path + async queue (`7509aa08`), cached 2 MB resolve (`dc civac`) + 8192-triangle merge-sorted batching (`e259a8c8`), and default `mali3d=1` + 4 MB single-pass GPU arena (`1024` draws, L1-cached descriptor packing, report `b3cab428`, `docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`).

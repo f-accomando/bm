@@ -29,7 +29,6 @@ Today the RGB30 draws 3D with the ARM raster (`src/bm/r3d.c`): the Mali triangle
 | Polygon reducer | `src/bm/decimate.c`, `scripts/bmdecimate.py`, `tools/bmreduce.py` | Quadric edge collapse. Skeleton and texture seams follow. Needs `libbmdecimate.so` (`make`, WSL). |
 | Hero rig and walk clip | `.claude/skills/bm-forge/examples/charkit`, `walk.json` | Organic skin, one bone per vertex. |
 | Cost per hero, per LOD (host) | `tests/bm/herobench.c`, `tests/bm/herocost.py` | ARM instructions under `qemu-arm`, LOD 0-3, ARM and GPU backend. Reuse it. |
-| Cart layout with two editions | `carts/stages3d` (branch `claude/stages3d-port`, PR 95) | `common/` + `bm/` + `b16/`, `build/build.py`, not in `GAMES`. Reuse it. |
 | Dev kit numbers | [system.md](../api/system.md) `stat()` | 1 ms, 2 fps, 4 triangles, 7 vertices, 10 Lua instructions, 16 GPU ms, 18 ARM wait ms. |
 | Saving text from Lua | `doc_write(name, bytes)`, `report(kind, text)` | `doc_write` writes in `/docs`. `report` writes in `bm/reports`. **No Lua call writes in `bm/bench/`** today. |
 
@@ -37,7 +36,7 @@ Today the RGB30 draws 3D with the ARM raster (`src/bm/r3d.c`): the Mali triangle
 
 ### 2.1 Name and sources
 
-- Name: **Hero Stress** (`bm.info` name), folder `carts/herocart/`. The file is `herocart.bm` on the Pi. The `.b16` comes in stage 5 from its own sources (rule: the two editions never share a build).
+- Name: **Hero Stress** (`bm.info` name), folder `carts/herocart/`. The file is `herocart.bm`. The RGB30 panels come in stage 5 in the same `.bm`.
 - Layout (as `carts/stages3d`):
 
 ```
@@ -51,7 +50,7 @@ carts/herocart/
   bm/50_front.lua         panel layout 640x360, key map
   bm/bm.info
   assets/                 plaza tiles (sheet.png, map_*.csv), hero models (made by build/)
-  build/build.py          joins common/ + <edition>/ into src/ (as stages3d)
+  build/build.py          joins common/ + bm/ into src/ (as stages3d)
   build/mkplaza.py        tilemap
   build/mkheroes.py       hero + 4 LODs + 4 hulls (section 3)
 ```
@@ -271,7 +270,7 @@ Way A details:
 
 ### 4.5 Mali and RGB30
 
-- Today the RGB30 runs the ARM raster. Stages 2 and 4 run there with no extra work. The `.b16` cart gets the options that exist on that kernel (no `vs`, no queue, no AA rows).
+- Today the RGB30 runs the ARM raster. Stages 2 and 4 run there with no extra work. The cart gets the options that exist on that kernel (no `vs`, no queue, no AA rows).
 - When the Mali backend draws triangles it takes the same corner data as the V3D backend (a lit colour or a grey `k` per corner). Way A needs **no Mali shader**: the cut is in the ARM lighting stage.
 - If Mali ever gets a vertex-shader lighting stage, the rule is: cut the light in that shader as in 4.3, and until it does, a cel draw is lit on the ARM. The result must match the ARM picture (same bands). A test compares them (section 7).
 - The 720x720 mode pays the fill on the ARM ([draw.md](../api/draw.md)): it is not a cel cost. Document, do not fix.
@@ -287,7 +286,7 @@ Built as described below, with these differences: one hero (`charkit` rango, 984
 
 Scope:
 
-- `carts/herocart/` as in 2.1, `.bm` edition only, rows 1-11 and 13-18 live, row 19 with the baked hull, rows 12 and 20 greyed.
+- `carts/herocart/` as in 2.1, 640x360 panel only, rows 1-11 and 13-18 live, row 19 with the baked hull, rows 12 and 20 greyed.
 - Hero + 4 LODs + 4 hulls in `assets/`, made by `build/mkheroes.py` (bm-forge `charkit` + `bmdecimate`).
 - Sweep, panel, 1 s line, `doc_write` + `report`.
 - `Makefile` target `build/carts/herocart.bm` (not in `GAMES`), `docs/progress/herocart.md` (new, linked from `graphics.md`).
@@ -348,9 +347,9 @@ Built as the inverted hull in `r3d.c` for every backend: `hull_get` makes a seco
 - Tests: host unit test (the outline pixels are the outline colour, only on the silhouette side; a mesh seen from inside draws none); `herocost.py` ratio against the stage 1 hull; `test-b3d` `heroes_cel` with outline.
 - Pi numbers: runs 3 and 6 with the real flag against the baked hull.
 
-### Stage 5: RGB30 edition (after the Mali alignment)
+### Stage 5: RGB30 panels (after the Mali alignment)
 
-- `carts/herocart/b16/` front, 360x360 and 720x720 panels, rows the kernel offers. `.b16` is built from its own sources; the `.bm` sources do not change.
+- RGB30 front in `carts/herocart/`: 360x360 and 720x720 panels, rows the kernel offers. The `targets` key lists the RGB30.
 - Not verified on hardware until the owner runs it.
 
 ## 6. Risks

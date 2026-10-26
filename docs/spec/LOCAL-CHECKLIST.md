@@ -21,7 +21,7 @@ syntax-checked.
 ## Try on hardware (`./easy_install.sh`)
 - RGB30: D01, D02, D06, D07, D08, D13, D16 (see `python3 scripts/consistency.py report`)
 - Screenshot: Print Screen (host) / Select held 3 s (RGB30) -> `bm/shots/`
-- Pi: a 720x720 `.b16` (boxed on 1280x720)
+- Pi: a 720x720 `.bm` (boxed on 1280x720)
 
 ## Not done on purpose
 No PR, no tag (`v0.3.0` baseline awaits a yes). D03/D05 suspended

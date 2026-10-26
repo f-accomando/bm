@@ -1,6 +1,6 @@
 /*
  * player.js: the web player (docs/design/bm-web-player.md, stage 3). It defines window.bmLauncher:
- *   bmLauncher.start(cartUrl)           fetch a .bm or .b16 and play it
+ *   bmLauncher.start(cartUrl)           fetch a .bm and play it
  *   bmLauncher.startBytes(bytes, name)  play a cartridge already in memory (ArrayBuffer or Uint8Array)
  *   bmLauncher.stop()                   leave the cartridge
  * bmweb.js and bmweb.wasm (make web-player) are loaded when the first cartridge starts.

@@ -3742,8 +3742,7 @@ function _draw() cls(1) print("pocket", 8, 8, 7) end
 
 
 def test_b16_on_pi(b, opts):
-    """A .b16 (the handhelds' cartridge: the same container, docs/B16.md
-    Â§0) is listed on the Pi with the .bm and plays the same way (the user,
+    """An old .b16 (the same container) is listed on the Pi with the .bm and plays the same way (the user,
     2026-10-05)"""
     tmp = tempfile.mkdtemp(prefix="bm-b16-")
     try:

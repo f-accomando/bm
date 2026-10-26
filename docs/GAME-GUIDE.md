@@ -12,7 +12,7 @@ monitor), the hub of the bm Suite. With a USB keyboard (and, if you like, a game
 
 | Key | Page |
 |---|---|
-| **F1** | the project: title, author, screen, target (`.bm` or `.b16`), what the file holds (code and tokens, sprites, flags, zones, map layers, models, sounds) and the suite's other programs (`1`–`6`: bm Code, bm Pixel, bm Studio, bm Animator, bm Mesh, bm Sound). **F1 again**: the dev kit (fps, ms, RAM and tokens of the last try) |
+| **F1** | the project: title, author, screen, target (Pi, RGB30, or both), what the file holds (code and tokens, sprites, flags, zones, map layers, models, sounds) and the suite's other programs (`1`–`6`: bm Code, bm Pixel, bm Studio, bm Animator, bm Mesh, bm Sound). **F1 again**: the dev kit (fps, ms, RAM and tokens of the last try) |
 | **F2** | the code (Ctrl+X or Ctrl+K cuts the line, Ctrl+C / Ctrl+V, Ctrl+D duplicates, Ctrl+G goes to the error, F9 the assistant explains it) |
 | **F3** | the sprites: arrows, space draws, `x` picks the colour, `f` fills, `,` `.` colour, Tab chooses on the sheet, `z` 8×8/16×16, `h`/`v` mirror, `u` undoes, `0`–`7` turn the tile's **flags** on and off (below: wall, platform...). **F3 again**: the map: space places the tile, `x` picks it, `f` fills, Tab chooses the tile, `z` 8×8/16×16 (a tile of 2×2 cells, on even cells), PgUp/PgDn and Home/End a page, `l` the next **layer**, Shift+L adds one (also *New map layer* in the menu), `o` that layer alone, `c` shows the flags |
 | **F4** | 3D: the project's models and animations, turning; `i` writes the code that draws them, Enter opens them in bm Studio |
@@ -70,8 +70,7 @@ A `.bm` cartridge is one file that holds:
 Resolution: **640×360** (default), **480×270** with `--res 480x270` (the compromise for
 textured 3D), **320×180** with `--res 320x180` (bigger pixels, 16-bit style, and more time
 per frame) **256×256** square with `--res 256x256` (in the middle of the screen, 4×
-bigger on 1080p, black borders) or **360×360** square with `--res 360x360` (the `.b16`'s
-screen: ×2 exactly on the RGB30's 720×720 panel, in the middle of a 640×360 screen on the Pi). Colours: `0xRRGGBB`, the screen is 16-bit (RGB565).
+bigger on 1080p, black borders) or **360×360** square with `--res 360x360` (×2 exactly on the RGB30's 720×720 panel, in the middle of a 640×360 screen on the Pi). Colours: `0xRRGGBB`, the screen is 16-bit (RGB565).
 
 ## 2. The smallest game
 

@@ -2,7 +2,7 @@
 
 Models.bm: a cartridge with Lua stub + MESH + ANIM (if rigs).
 .bmm: a BMRES file with MESH + ANIM (if rigs).
-Game carts (.bm / .b16): with optional cover, budget checks, section order from scripts/mkbm.py:364-415.
+Game carts (.bm): with optional cover, budget checks, section order from scripts/mkbm.py:364-415.
 Game folders and Market layouts: repo structure and market catalog folders.
 
 Python >= 3.8, standard library only.
@@ -19,8 +19,6 @@ from . import imageio
 from .errors import ValidationError, need
 
 TRI_BUDGET_PI = 1200                            # docs/GAME-GUIDE.md:321
-TRI_BUDGET_B16 = 1200                           # NON VERIFICATO, docs/B16.md:28-49
-B16_MAX_BYTES = 8 << 20                         # scripts/mkmarket.py:67
 MODELS_LUA = b"-- models only (bm-forge export)\nfunction _draw() cls(0) end\n"
 
 
@@ -163,11 +161,12 @@ def export_bmm(path, mesh, anim=None, title="", author="", kernel_limits=False):
     return C.write_file(path, cart, kernel_limits=kernel_limits)
 
 
-def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180), cover=None, draws=None, budget=None):
-    """Export a game cartridge (.bm or .b16).
+def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180), cover=None, draws=None, budget=None,
+                targets=None):
+    """Export a game cartridge (.bm).
 
     Args:
-        path: str, must end .bm or .b16 (case-insensitive), not .bme.
+        path: str, must end .bm (case-insensitive), not .bme.
         lua: str (UTF-8 encoded to bytes) or bytes, the Lua code.
         mesh: Mesh object.
         anim: optional Anim object.
@@ -176,7 +175,9 @@ def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180),
         res: tuple (width, height), default (320, 180).
         cover: optional imageio.Image for the COVER section.
         draws: dict {model_name: times_drawn_per_frame}, default {name: 1 for every model}.
-        budget: int, triangle budget; default TRI_BUDGET_B16 for .b16, TRI_BUDGET_PI otherwise.
+        budget: int, triangle budget; default TRI_BUDGET_PI.
+        targets: optional, the kernels the cartridge is for: "pi", "rgb30" or "pi,rgb30". When given, the
+            header holds the compatibility block (bytes 120..127). When None, the header has no block.
 
     Returns:
         bytes written to file.
@@ -187,9 +188,8 @@ def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180),
     # Validate title
     need(title, "title must be non-empty (Market requires it)", "title")
 
-    # Determine edition and check path
-    ed = C.edition_of(path)
-    need(ed in ("bm", "b16"), "path must end .bm or .b16, not .bme", "path")
+    # Check the extension
+    need(C.edition_of(path) == "bm", "path must end .bm, not .bme", "path")
 
     # Encode Lua
     if isinstance(lua, str):
@@ -206,6 +206,8 @@ def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180),
 
     # Mesh and Anim
     cart = C.Cart(C.Header(C.MAGIC_CART, res[0], res[1], 0, C.FMT_RGB565, 0, title, author), sections)
+    if targets is not None:
+        cart.header.compat = C.compat_block(targets)
     cart.set_mesh(mesh)
     if anim is not None and anim.rigs:
         cart.set_anim(anim)
@@ -214,16 +216,11 @@ def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180),
     if draws is None:
         draws = {m.name: 1 for m in mesh.models}
     if budget is None:
-        budget = TRI_BUDGET_B16 if ed == "b16" else TRI_BUDGET_PI
+        budget = TRI_BUDGET_PI
     check_budget(mesh, draws, budget)
 
     # Check path constraints (resolution, edition bit)
     C.check_path(path, cart)
-
-    # Build and size check for .b16
-    data = C.build(cart)
-    if ed == "b16":
-        need(len(data) <= B16_MAX_BYTES, f"cart {len(data)} bytes, .b16 max {B16_MAX_BYTES}", "size")
 
     # Write file
     return C.write_file(path, cart)
@@ -308,8 +305,8 @@ def export_folder(root, game, lua, mesh, anim=None, title="", author="", res=(32
     return result
 
 
-def export_market(root, game_id, version, license, about, bm_path=None, b16_path=None):
-    """Export game cartridge(s) to Market folder layout.
+def export_market(root, game_id, version, license, about, bm_path=None):
+    """Export a game cartridge to Market folder layout.
 
     Args:
         root: str, an existing directory where root/<id>/ will be created.
@@ -317,15 +314,14 @@ def export_market(root, game_id, version, license, about, bm_path=None, b16_path
         version: str, version matching ^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$.
         license: str, 1-40 printable ASCII characters (32-126).
         about: str, 0-120 printable ASCII characters (32-126).
-        bm_path: optional str, path to a .bm file (edition must be 'bm').
-        b16_path: optional str, path to a .b16 file (edition must be 'b16').
+        bm_path: str, path to a .bm file.
 
     Returns:
-        dict with keys: "info.txt", "<game_id>.bm" (if bm_path given), "<game_id>.b16" (if b16_path given).
+        dict with keys: "info.txt", "bm" (the copied <game_id>.bm).
         Values are absolute paths to created files.
 
     Raises:
-        ValidationError for invalid inputs, edition mismatches, or missing at least one cart path.
+        ValidationError for invalid inputs, or a bm_path that is not a .bm file.
     """
     # Validate game_id
     need(re.match(r"^[a-z0-9][a-z0-9-]{0,22}$", game_id), "game_id must match ^[a-z0-9][a-z0-9-]{0,22}$", "game_id")
@@ -341,17 +337,9 @@ def export_market(root, game_id, version, license, about, bm_path=None, b16_path
     need(0 <= len(about) <= 120, "about must be 0-120 characters", "about")
     need(all(32 <= ord(c) <= 126 for c in about), "about must be printable ASCII", "about")
 
-    # At least one path
-    need(bm_path is not None or b16_path is not None, "at least one of bm_path or b16_path must be given", "paths")
-
-    # Check for edition conversions
-    if bm_path is not None:
-        ed = C.edition_of(bm_path)
-        need(ed == "bm", "bm_path must end with .bm, not .b16 or other", "bm_path")
-
-    if b16_path is not None:
-        ed = C.edition_of(b16_path)
-        need(ed == "b16", "b16_path must end with .b16, not .bm or other", "b16_path")
+    # The cartridge path
+    need(bm_path is not None, "bm_path must be given", "paths")
+    need(C.edition_of(bm_path) == "bm", "bm_path must end with .bm", "bm_path")
 
     # Create target directory and check for .bme project
     target_dir = os.path.join(root, game_id)
@@ -364,33 +352,14 @@ def export_market(root, game_id, version, license, about, bm_path=None, b16_path
     # Read and validate source files
     result = {}
 
-    if bm_path is not None:
-        cart = C.read_file(bm_path)
-        # Validate header title is non-empty
-        need(cart.header.title, "cartridge title must be non-empty", "title")
-        # Read source bytes
-        with open(bm_path, "rb") as f:
-            bm_data = f.read()
-        # Check B16 size limit doesn't apply to .bm but let's be thorough
-        # Write to target
-        bm_target = os.path.join(target_dir, f"{game_id}.bm")
-        with open(bm_target, "wb") as f:
-            f.write(bm_data)
-        result["bm"] = bm_target
-
-    if b16_path is not None:
-        cart = C.read_file(b16_path)
-        # Validate header title is non-empty
-        need(cart.header.title, "cartridge title must be non-empty", "title")
-        # Check B16 size limit
-        with open(b16_path, "rb") as f:
-            b16_data = f.read()
-        need(len(b16_data) <= B16_MAX_BYTES, f"b16 cartridge {len(b16_data)} bytes, max {B16_MAX_BYTES}", "b16_size")
-        # Write to target
-        b16_target = os.path.join(target_dir, f"{game_id}.b16")
-        with open(b16_target, "wb") as f:
-            f.write(b16_data)
-        result["b16"] = b16_target
+    cart = C.read_file(bm_path)
+    need(cart.header.title, "cartridge title must be non-empty", "title")
+    with open(bm_path, "rb") as f:
+        bm_data = f.read()
+    bm_target = os.path.join(target_dir, f"{game_id}.bm")
+    with open(bm_target, "wb") as f:
+        f.write(bm_data)
+    result["bm"] = bm_target
 
     # Write info.txt
     info_path = os.path.join(target_dir, "info.txt")

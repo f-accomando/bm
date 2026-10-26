@@ -46,7 +46,7 @@ the finished cartridge stay on the user's machine and SD card.
   `hurt` (head), `hit` (body). The Lua gets the offset of each zone from `ZA` (the suite has no anchors).
 - `carts/smw/src/physics.lua`: movement at 50 Hz ticks. `scripts/smw_physics_check.py`
   scores it against the traces in `bmhost`. First jump: error under 3 pixels.
-- `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.b16`
+- `carts/smw/src/game.lua` and `carts/smw/build/build.py`: the playable level, 360x360 `.bm`
   and `.bme` for the RGB30. Output goes to `build/smw/` (ignored by git).
 
 ## Rules (do not break)
@@ -59,7 +59,7 @@ the finished cartridge stay on the user's machine and SD card.
 - Do not upload the cartridge to the Market. Do not put Nintendo assets in the repository.
   The PDF guide of the user uses real screenshots as a personal reference
   (`tests/smw/guide_shots.py --real`, into `carts/smw/extracted/shots/`). Keep that PDF out of git.
-- Start each change from the `.bme`. Build the `.b16` from it (RGB30 edition, 360x360).
+- Start each change from the `.bme`. Build the `.bm` from it (360x360, for the RGB30).
 - Measure the fidelity of the physics against the emulator trace, frame by frame.
 
 ## Open work
@@ -84,7 +84,6 @@ the finished cartridge stay on the user's machine and SD card.
   a 1-up for five).
 - Mario's own collision stays in `physics.lua` (it matches the traces). The Koopas use `lib.move`;
   the map uses `lib.tiles` and `lib.solid`.
-- Note: `mkbm.py` warns `require: not for a .b16` for `require "bmlib"`. The runtime has it.
 - Done: the messages, the spin jump that breaks turn blocks (four pieces fly), the blue P switch (stomp: it goes
   flat, a puff; for 704 ticks turn blocks are coins and coins are turn blocks, then they go back).
 - Done: the vine of block 0x11A (`scripts/smw_vine.py`): the head rises 1 pixel a tick to y -1, Mario grabs it

@@ -85,7 +85,7 @@ NET_SRCS += src/net/stream.c src/net/tls.c src/net/http.c src/net/http_kernel.c 
             src/kernel/update.c
 # the reports to a git repository (src/kernel/reports.c, as on the Pi)
 NET_SRCS += src/net/github.c src/net/report.c src/kernel/reports.c
-# the Market (its .b16 games) and the nearby consoles, in fibers as on the Pi
+# the Market and the nearby consoles, in fibers as on the Pi
 NET_SRCS += src/net/catalog.c src/net/lan.c src/kernel/market.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is

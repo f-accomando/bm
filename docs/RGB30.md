@@ -12,12 +12,7 @@ Decisions (2026-10-01, user):
 - **true bare metal**, as on the Pi: no Linux; U-Boot boots the kernel from the SD;
 - **1:1 format**: the menu was **512×512**, centred on the panel with no scaling; since
   2026-10-03 (user) it is **360×360 scaled ×2** and fills the panel's 720×720;
-- RGB30 games and apps will use a new format, **`.b16`** (formerly `.s16`: the limited-resource cartridge for
-  handheld consoles, `docs/B16.md`), still to be defined: the menu
-  lists them but does not launch them;
-- the Pi's **`.bm` cartridges were hidden** (`show_bm=1` only listed them); since 2026-10-03
-  (user), for testing, the menu shows and launches them (`show_bm=0` in `bm/config.txt`
-  hides them);
+- RGB30 games and apps use the `.bm` cartridge. The header says the kernels (`targets`, `docs/BM-FORMAT.md`);
 - first milestone: base + **Bluetooth + WiFi** (audio and saves later).
 
 ## Building
@@ -196,7 +191,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   **to be tested on the console.**
 - Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
   below).
-- **bm SDK (RGB30)** (`carts/sdk_b16`): the SDK's own edition for 360×360 and the pad
+- **bm SDK (RGB30)** (`carts/sdk_b16`): the SDK's own version for 360×360 and the pad
   ([sdk/README.md](../sdk/README.md)), **built into `kernel8.img`** (`rgb30.mk`,
   `src/rgb30/bm_embed.S`, about 164 KB), not in the Market. The **Dev** tab opens it as a tool
   (the Pi's tool session, `src/kernel/devtool.c`), and a game's options (X) have **Open in bm
@@ -209,9 +204,9 @@ was powered on again `bootprev.txt` has the log of the black boot.
   (`src/kernel/menu_ui.c`: bar with pill tabs and icons, square 88×88 covers, three per
   row, panels, button hints). Tabs **Market** (since 2026-10-05, the first, off
   screen to the left until it is the current tab: the same Market as the Pi, but only the
-  catalogue's `.b16` games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
-  play, download again, delete), **Games** (`.b16` games and the `.bm` ones, with their
-  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (the bm SDK, then the installed tools: the cartridges whose header says type app or utility, which start with no splash; the 3D Bench is in Settings > Screen and the Render bench in Settings > System > Utilities; the Lua prompt is on the serial port) and **Settings**, the last, a page of its own:
+  catalogue's games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
+  play, download again, delete), **Games** (the `.bm` games, with their
+  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file), **Dev** (the bm SDK, then the installed tools: the cartridges whose header says type app or utility, which start with no splash; the 3D Bench is in Settings > Screen and the Render bench in Settings > System > Utilities; the Lua prompt is on the serial port) and **Settings**, the last, a page of its own:
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
   layout, icons), WiFi and network (saved network, address, network console, connecting,
@@ -280,12 +275,9 @@ are plugged in the console switches to them by itself, and the headphones are mo
 
 ## Pi cartridges (`.bm`) for testing
 
-For testing (user decision, 2026-10-03: "for the time being") the Games tab lists the
-`.bm` cartridges in `bm/` and **launches** them, without settings; `show_bm=0` in `bm/config.txt`
-hides them. The **Market** lists the `.b16` games and the `.bm` ones. A cartridge not made for the RGB30 is grey with its reason
-(`docs/spec/compat-policy.toml`; the catalog line `targets` tells the kernel, an entry without it follows the file name).
-`market_bm=0` hides the `.bm` cartridges there (its own key: `show_bm` is only the Games tab). A tool
-installed from Market > Apps (`sdk_b16.b16`...) is not a game: it stays out of the Games tab, as on the Pi. The runtime is the Pi's (`src/bm`), the same code compiled for
+The Games tab lists the
+`.bm` cartridges in `bm/` and **launches** them. The **Market** lists one entry per game id (a `.bm`). A cartridge not made for the RGB30 shows a faded cover (colour change and vignette, drawing kept). Play asks "This edition is for the Pi" with OK and Cancel (`docs/spec/compat-policy.toml`; the header `targets` tells the kernel). A tool
+installed from Market > Apps (`sdk_b16.bm`...) is not a game: it stays out of the Games tab, as on the Pi. The runtime is the Pi's (`src/bm`), the same code compiled for
 64 bit; what the Pi has and this does not is replaced by `src/rgb30/bm_port.c` (3D drawn
 by the ARM, no DMA) and `src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above), and so is
 `nnet()` (`src/ai/net.c`, Overbit's bots: the same integers as the Pi, a lockstep need). In the SD image there is
@@ -342,8 +334,8 @@ branch and board: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
 
 ## Games from the network
 
-`python3 tools/bm_net.py <ip> --send gioco.b16` (or `./easy_install.sh`, item 5): a `.bm` /
-`.b16` for `/carts` (the default) ends up in `bm/`, the folder the menu lists. The console
+`python3 tools/bm_net.py <ip> --send gioco.bm` (or `./easy_install.sh`, item 5): a `.bm`
+for `/carts` (the default) ends up in `bm/`, the folder the menu lists. The console
 replies as soon as the file has arrived whole (`QD`) and writes it to the SD from the menu, one chunk per
 frame in a fiber: the game has the *Updating* label and does not start until it is written; the
 top bar shows the KB written. If a game is open the file waits in memory and goes to the SD

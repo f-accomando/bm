@@ -16,7 +16,7 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 | D15b | CPU clock and temperature | `prop_query` | CPU name only | ASK 9 | read the RK3566 TSADC and the clock | M | device |
 | D17 | WiFi password | typed on a keyboard | `config.txt` only | PORT (blocked) | after the on-screen keyboard (R1, R2) | L | QEMU, device |
 | D23 | 3D on the GPU | V3D | `mali3d=1` path exists | done 25 Oct: closed, merged into D45 | close D23 as merged into D45 | L | device |
-| D24 | Overbit `.b16`, Mali benchmark | | superseded by decisions 9 and 10 of the single-bm design | ASK 5 (default remove) | move to the game backlog (`docs/progress/graphics-mali.md`) | S | |
+| D24 | Overbit on the RGB30, Mali benchmark | | superseded by decisions 9 and 10 of the single-bm design | ASK 5 (default remove) | move to the game backlog (`docs/progress/graphics-mali.md`) | S | |
 | D51 | cartridge type app/utility | `is_dev()`, no splash | no type field; `loading_begin` always runs | done 25 Oct (QEMU) | store `bm_type_of_head` during the header read; list non-game types in Dev, not in Games; skip the splash | S-M | QEMU |
 | spec compat-policy | targets line, load message, RGB30 `market_bm` | | all three exist (`market.c`, `runtime.c`) | done 25 Oct: `implemented` | run the tests, then `implemented` | S | QEMU Market tests |
 | spec cart-type | type grouping | | note fixed 25 Oct | done 25 Oct: `implemented` | set `implemented` after D51 | S | QEMU |
@@ -68,7 +68,7 @@ the RGB30 menu behaviour may change in the merge). The functions that existed tw
 | `tab_items`, `cart_at`, `is_dev`, `is_project`, `kind_of` | `lib_tab_items`, `lib_is_dev`, `lib_is_project`, `lib_kind` |
 
 What each console gives (`lib_backend_t`): the folders (Pi: `/`, `/carts`, `/bm`, `/bme`; RGB30: `/bm`, `/carts`), the compat target,
-`want` (RGB30: `.b16`, `.bm` unless `show_bm=0`, no tool cartridge), `add_builtins` (Pi: the built-in tools), `stop_background`,
+`want` (RGB30: `.bm`, no tool cartridge), `add_builtins` (Pi: the built-in tools), `stop_background`,
 `panel` (`LIB_CAP_*`), `jobs` with their shares, `write_waits`, `before_jobs`, `play_begin`.
 
 Where the Pi and the RGB30 differed, the Pi won, except for a hardware need. The decisions:
@@ -91,7 +91,7 @@ Where the Pi and the RGB30 differed, the Pi won, except for a hardware need. The
 10. The shares of the menu's free time stay as each console had them (not measured on a device).
 
 What stays different on purpose: the folders; the tool cartridges (listed in Dev on the Pi, kept out of Games on the RGB30 and opened
-through its own pages); `show_bm`; the panel rows by `LIB_CAP_*`; the job shares; the splash call (`play_begin` on the RGB30, the
+through its own pages); the panel rows by `LIB_CAP_*`; the job shares; the splash call (`play_begin` on the RGB30, the
 launch step on the Pi); the main loops (`carts_menu` with the steps `cm_*`, `ui_home` with `uh_*`).
 
 Settings: `settings.c` asks the console through small functions (`home_wireless`, `home_restart`, `home_poweroff`,

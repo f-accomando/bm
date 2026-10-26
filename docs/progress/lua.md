@@ -22,8 +22,7 @@ here.
   many ran). `stat()` indices are documented above `l_stat`.
 - `bm_stats_t` (`runtime.h`) is what a run returns: times, slow frames, Lua peak, assets,
   tokens, `left` (the player left, not an error).
-- Tokens (`src/bm/tokens.c`, `stat(11)`, `code_tokens()`): information only, never a limit
-  (`docs/B16.md` §2.4).
+- Tokens (`src/bm/tokens.c`, `stat(11)`, `code_tokens()`): information only, never a limit.
 - Square cartridges (256×256, 360×360) are boxed on the 16:9 screen; `bm_video_enter` /
   `bm_video_leave` give the console's screen back as it was (`console_suspended()`).
 - Projects and games (M47): `.bme` projects in `src/bm/project.c`; in `runtime.c`
@@ -67,11 +66,10 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   templates are merged. Open: migrate the existing games one by one (list: `python scripts/input_inventory.py --games`);
   open decisions in the standard, section 7. Keys decided 19 Oct: menus B ok / Y cancel; keyboard Enter = ok, Esc = back and pause.
 - Controls (Settings > Controls > Pause and menus): the Cancel row shows "Default (Y)" when `mc` is unset. Y is the default Cancel and the only back button (PAD-Y-1, `docs/spec/ui-reference.md`). `pad_config` (`src/rgb30/pad.c`) uses A as the Cancel only when OK is Y, or when `mc` equals `mo`. Open: show "Default (A)" in those two cases and warn when `mo` equals `mc`.
-- **CONTROLS-1** (planned, deferred to the next session): bindings mappable through an API
-  from the menu Controls; three default schemes per game (pad, stick, 2D scroller / top-down)
-  as written in the CONTROLS-1 work order on the sync branch.
-- **`.b16` profile**: it is a target, not a sandbox (decision 2026-10-13, D1-D6 confirmed 2026-10-15):
-  header flag and `mkbm.py --b16` done; remaining: lint warnings (SDK + `mkbm.py`), Yharnam check.
+- **CONTROLS-1** (roadmap SYS-15, to do): custom controls from the game's options menu (X on a game),
+  saved per game; three default schemes per game (pad, stick, 2D scroller / top-down). It is no
+  longer a Settings item.
+- **Targets**: a `.bm` has targets, not a sandbox (decision 2026-10-13, D1-D6 confirmed 2026-10-15). The header says the kernels. Remaining: Yharnam check on both kernels.
 - **Lua speed, step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
 - **M47** projects: done on the PC, to verify on the Pi.
 - Yharnam checks without a milestone ("Da fare" in the roadmap): frame cost on Pi and RGB30

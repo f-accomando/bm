@@ -58,7 +58,7 @@ Se l'elenco dei file è vuoto, lo schermo dice `no .bm files: make models in bm 
 | File | Cos'è | Cosa ne fa bm Animator |
 |---|---|---|
 | `.bme` | un progetto | lo apre, lo modifica, lo salva al suo posto |
-| `.bm`, `.b16` | un gioco | lo legge soltanto |
+| `.bm` | un gioco | lo legge soltanto |
 
 Con un gioco aperto, il primo salvataggio chiede `Save an editable copy: name.bme?`. Rispondi sì: da lì lavori sulla copia, in `/bme`. Il gioco non viene mai modificato.
 
@@ -405,7 +405,7 @@ Rinomina un osso in `sword` in F2, rifai il bake e guarda l'anteprima: il suo bo
 
 - Un file aperto e salvato senza modifiche resta identico.
 - **Salva con nome** (`Ctrl+Shift+S`) chiede un nome 8.3; il file va in `/bme` con l'estensione `.BME`.
-- Un gioco (`.bm`, `.b16`) non viene mai sovrascritto: il primo salvataggio crea una copia `.BME`.
+- Un gioco (`.bm`) non viene mai sovrascritto: il primo salvataggio crea una copia `.BME`.
 - **F5** salva prima e avvia il progetto. Start + Select (o Ctrl+Esc) esce dal gioco e ti riporta alla stessa pagina.
 - Per creare il gioco finito usa **bm SDK** (Build, `Ctrl+B`): scrive il `.bm`. Il menu di bm Animator non ha una voce di build.
 - Quando l'animazione è per un gioco tenuto nel repository, modelli e scheletri vengono salvati dalla console e messi in `carts/<game>/` come `models.bm`; `make` li porta nella cartuccia.

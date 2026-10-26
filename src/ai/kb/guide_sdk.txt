@@ -956,8 +956,8 @@ I token misurano quanto codice c'è: ogni nome, parola chiave, numero,
 stringa e operatore conta uno; le virgole, i punti, le parentesi che si
 chiudono, end e local non contano (come sulle console fantasy).
 
-Sono un'informazione, non un limite: bm non mette un tetto ai token, e
-nemmeno il .b16 lo farà (conta la memoria e il tempo per fotogramma).
+Sono un'informazione, non un limite: bm non mette un tetto ai token
+(conta la memoria e il tempo per fotogramma).
 
 Li vedi nella pagina del progetto, nel dev kit dell'SDK e con
 stat(11); code_tokens(testo) li conta per un pezzo di codice.
@@ -966,43 +966,47 @@ Tokens measure how much code there is: every name, keyword, number,
 string and operator counts one; commas, dots, closing brackets, end and
 local do not count (as on fantasy consoles).
 
-They are information, not a limit: bm puts no ceiling on tokens, and
-neither will the .b16 (what counts is memory and time per frame).
+They are information, not a limit: bm puts no ceiling on tokens
+(what counts is memory and time per frame).
 
 You see them on the project page, in the SDK's dev kit
 and with stat(11); code_tokens(text) counts them for a piece of code.
 code:
 print(stat(11) .. " token", 8, 8)
 
-== guide.b16
+== guide.rgb30
 kind: guide
-title: Guida: preparare un gioco per la RGB30 (.b16)
-title_en: Guide: preparing a game for the RGB30 (.b16)
-ask: gioco per la rgb30 | formato b16 | cartuccia per la console portatile
-ask: prepare my game for the rgb30 | limite di 8 mb | portare il gioco sulla powkiddy
-ask: guida b16 | che cos'è il b16 | s16 cartridge
-keys: b16, rgb30, portatile, 8mb
+title: Guida: un gioco per la Pi e per la RGB30
+title_en: Guide: a game for the Pi and the RGB30
+ask: gioco per la rgb30 | cartuccia per la console portatile | targets del gioco
+ask: prepare my game for the rgb30 | portare il gioco sulla powkiddy | which console is my game for
+ask: guida rgb30 | che cos'è targets | bm.info targets
+keys: rgb30, powkiddy, portatile, targets
 see: guide.devkit, guide.ram
 text:
-Il .b16 è la cartuccia a risorse limitate per le portatili come la RGB30:
-lo stesso file gira sul Pi e sulla RGB30, la specifica è in docs/B16.md.
+Un gioco è un file .bm e gira sulla Pi e sulla RGB30. L'intestazione dice
+per quali console è fatto: in bm.info la riga "targets: pi,rgb30" (o solo
+"pi", o solo "rgb30"). Una console per cui il gioco non è fatto mostra la
+copertina sbiadita e prima di avviarlo chiede OK o Annulla.
 
-Le regole già note: nessun limite di dimensione suo; lo stesso gioco dà gli
-stessi pixel su ogni macchina (niente math.random di sistema né orologio:
-un tuo generatore); niente file, rete, require o load.
+Lo schermo può avere qualsiasi misura: sulla RGB30 una pagina 16:9 sta in
+mezzo con le bande nere. Lo stesso gioco dà gli stessi pixel su ogni
+macchina se usi un generatore tuo al posto di math.random di sistema.
 
-Nell'SDK, b sulla pagina del progetto mette il target .b16: il dev kit
-mostra le righe che il .b16 non avrà.
+Con i tasti del pad guarda btn("ok") e btn("back"): sono giusti su ogni
+console.
 text_en:
-The .b16 is the cartridge with limited resources for handhelds like the
-RGB30: the same file runs on the Pi and the RGB30, the specification is in docs/B16.md.
+A game is one .bm file and it runs on the Pi and the RGB30. The header says
+which consoles it is made for: in bm.info the line "targets: pi,rgb30" (or
+only "pi", or only "rgb30"). A console the game is not made for shows a
+faded cover and asks OK or Cancel before it starts.
 
-The rules already known: no size limit of its own; the same game gives the
-same pixels on every machine (no system math.random and no clock: a
-generator of your own); no files, network, require or load.
+The screen can have any size: on the RGB30 a 16:9 page sits in the middle
+with black bars. The same game gives the same pixels on every machine if
+you use a generator of your own instead of the system math.random.
 
-In the SDK, b on the project page sets the .b16 target: the dev kit
-shows the lines the .b16 will not have.
+For the pad's buttons use btn("ok") and btn("back"): they are right on every
+console.
 code:
 -- un generatore tuo, lo stesso su ogni macchina
 local seed = 12345

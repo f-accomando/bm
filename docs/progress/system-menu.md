@@ -26,8 +26,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   adopt, the copy on the card); a game's SHA-256 in 64 KB pieces (`catalog_hash_tick`);
   a game checked and being written (`finishing`) goes on off the tab, nothing else does.
   Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
-  subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
-  `.b16` format badges on cards and details panel. The title bar shows the name only.
+  subtabs on `TITLE_ROW`), tracks one entry per game id, and shows the format badge on cards and details panel. The title bar shows the name only.
 - The bottom bar of the menu shows the key chips only (user request, 25 Oct 2026), on the Pi and the
   RGB30. It has no details line, no last-game note, no status and no counters. `menu_view_t` has no
   `details` and no `note`. A failed action shows its reason in the notice box (`notice_fail()`,

@@ -147,7 +147,7 @@ PR 94 (QPU step 3 rest: Yharnam fade behind `gpu3d_qpu`; base PR 93)
 
 PR 95 (Stages 3D port, frame budget and quality governor)
 - [ ] ROADMAP BETA-5 (`a multi-stage 3D game runs on the GPU within the budget`), PARTIAL. The cart, the host tests, the RGB30 QEMU test and the governor are in. The run on the Pi and the RGB30 is open. Keep the row.
-- [ ] Open work `stages3d.md` (new file): the one bullet is the `.b16` run on the RGB30. Keep it. `platforms.md` Open work has no item for it.
+- [ ] Open work `stages3d.md` (new file): the one bullet is the run on the RGB30. Keep it. `platforms.md` Open work has no item for it.
 - [ ] NEXT: in "Useful commits", delete the line for `claude/stages3d-qemu-test` and `claude/stages3d-budget`. Delete both branches by name after the merge (go needed). Merge order item 4.
 
 PR 96 (manuals refresh)

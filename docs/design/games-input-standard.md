@@ -1,4 +1,4 @@
-# Input Standard for Games (bm and b16)
+# Input Standard for Games (bm)
 
 One set of logical actions for every game, so the same game reads the same on the Pi keyboard, a Pi pad and the RGB30. The input layer already exists (`keymap()`, the `"ok"` / `"back"` names, `controller().ok`, `prompt()`: [`docs/api/input.md`](../api/input.md) lines 9-12); this standard only fixes which action goes on which button. Per-device keys and screen reference: `docs/spec/ui-reference.md` (planned, written by another operator).
 
@@ -38,7 +38,7 @@ A game that needs a different binding declares it with `lib.input({ scheme = "to
 
 ## 4. On-Screen Hints
 
-Show hints with `prompt("act1", x, y)`, which draws the right symbol for the player's controller (`lastinput()` tells which: `docs/api/input.md:98`). Write hints through `prompt()` so key names never appear as literal text. `.b16` sources carry no `prompt()` keyboard words: `.b16` games get RGB30 pad bindings only.
+Show hints with `prompt("act1", x, y)`, which draws the right symbol for the player's controller (`lastinput()` tells which: `docs/api/input.md:98`). Write hints through `prompt()` so key names never appear as literal text. A cartridge that lists the RGB30 carries no keyboard words in `prompt()`. It gets RGB30 pad bindings.
 
 ## 5. Editors
 

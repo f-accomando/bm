@@ -319,8 +319,7 @@ static void play_bm(int i)
     }
 }
 
-/* a .b16 is the .bm container (docs/B16.md §0, 2026-10-05): it plays the
- * same way; its profile's limits are not applied yet */
+/* a cartridge plays the same way on both kernels */
 static void page_game(int i)
 {
     play_bm(i);

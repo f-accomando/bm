@@ -86,7 +86,7 @@ see `references/OPEN_QUESTIONS.md` items 19-22.
   `skel`, `anim` (reports, duplicate clips with/without `--replace`), `kernel_limits` through
   `export_models`/`export_bmm`, editions kept, same in/out path and missing input exit 2, no stray files.
 - `test_cli_export.py`: CLI `export` models, bmm (`--model` subset), cart (`.bm` 320x180 with COVER,
-  `.b16` 360x360, `--budget`, `.bme` refused), folder (second run without `--overwrite` fails), market.
+  `--targets`, `--budget`, `.bme` refused), folder (second run without `--overwrite` fails), market.
 - `test_cli_check.py`: CLI `check` on goldens (exit 0), luahost `.bme` and corrupt CRC (exit 1), missing
   file (exit 2), `--budget`, `--kernel-limits`, reference model/PNG IoU (`--min-iou`, exit 3), `--json`, drift (exit 0 or 4).
 - `test_cli_preview.py`: CLI `preview` (still PNG, clip GIF, contact-sheet PNG, turntable, `--mask` then

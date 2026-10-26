@@ -4,7 +4,7 @@ Each item: the doubt, what bm_core does now (the safest choice, usually a strict
 refusal), and where it is in code. Items closed by the decisions of phase 1a
 (15-byte names, tool limits 4096/16384, material bits and `lit` kept, duplicate
 names and sections refused, ANIM omitted with 0 rigs, zero padding, original
-header kept, `.bm`/`.b16` never converted, no profile field) are not repeated.
+header kept, `.bm` never converted to `.bme`) are not repeated.
 
 ## Format: reading stricter than the kernel
 
@@ -44,12 +44,12 @@ header kept, `.bm`/`.b16` never converted, no profile field) are not repeated.
 
 ## Editions and paths (`bm_core/container.py` `check_path`)
 
-16. **360x360 is treated as the `.b16` edition**: a `.bm` at 360x360 is refused, a `.b16`
-    must be 360x360. But `mkbm.py --res 360x360` makes a `.bm` (`scripts/mkbm.py:443`)
-    and the parser accepts 360x360 for any cartridge. Is a 360x360 `.bm` legitimate?
+16. **360x360 is a cartridge resolution**: `check_path` accepts it for a `.bm`, as the parser and
+    `mkbm.py --res 360x360` do (`scripts/mkbm.py:443`). The header `targets` says which kernels
+    the cartridge is for.
 17. **BMRES extension vs kind**: a mismatch is refused; C lets the kind win
     (`docs/RISORSE.md:133-134`).
-18. 720x720 for `.b16` (`docs/B16.md:24`) is still refused, as by the parser.
+18. 720x720 is refused for a cartridge, as by the parser.
 
 ## Golden files and tools
 
@@ -162,10 +162,10 @@ Nothing generated here was run on the kernel or opened in bm Animator: checks ar
 
 47. **bmhost-bin may be stale vs bm-core**: a prebuilt bmhost used by the opt-in test may not
     match the current `src/bm/runtime.c`. NON VERIFICATO.
-48. **B16 triangle cap unknown**: `TRI_BUDGET_B16 = 1200` is the Pi figure reused
-    (`bm_core/export.py:21-22`; `docs/B16.md:28-49` only says "a triangle cap").
-49. **RGB30 3D path**: how the RGB30 draws 3D, and whether `forgedemo`'s `.b16` runs there, is
-    NON VERIFICATO (see API.md open question 3).
+48. **RGB30 triangle cap unknown**: `TRI_BUDGET_PI = 1200` is the only budget bm-forge knows
+    (`bm_core/export.py:21`). A `.bm` with `targets: rgb30` uses the same figure.
+49. **RGB30 3D path**: how the RGB30 draws 3D, and whether `forgedemo` with `targets: rgb30`
+    runs there, is NON VERIFICATO (see API.md open question 2).
 50. **`stat(4)` under bmhost** is logged by the demo, not checked: NON VERIFICATO what it reports.
 51. **`cart_data` for games**: may a non-tool game call it? `l_cart_data` has no tool gate
     (`src/bm/runtime.c:6798-6928`); Market sandbox rules NON VERIFICATO. Export never uses it.
@@ -178,7 +178,7 @@ Nothing generated here was run on the kernel or opened in bm Animator: checks ar
 
 ## Verified in the real runtime (bmhost, 2026-10-13)
 
-- `forgedemo.bm` and `forgedemo.b16` (`--square`) run in `build/host/bmhost-bin`
+- `forgedemo.bm` runs in `build/host/bmhost-bin`
   (rebuilt that day with `make build/host/bmhost-bin`): `forgedemo: 7/7 checks passed`, exit 0,
   420 frames. The checks cover `model`, `models`, `bones3d`, `clips` (names, loop flags, lengths),
   `animate` and `bone3d`. The three clip shots differ; the walk shot shows the generated humanoid

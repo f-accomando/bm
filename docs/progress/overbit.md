@@ -6,12 +6,12 @@ game any more (removed upstream); a change needs `make market-seed MARKET=<clone
 ## Backlog
 
 - RGB30 `.bm` (26 Oct 2026): `bm.info` has `targets: pi,rgb30`; the pad uses the Nintendo layout by position (`Input.nintendo`, also in the pause CONTROLS page). Not verified on the device: the user runs a match on the RGB30 and sends a report.
-- Overbit in `.b16` on the RGB30 at 360×360 and 720×720, with an ARM benchmark: see the roadmap in [graphics-mali](graphics-mali.md). It was divergence D24 until 25 Oct 2026.
+- Overbit on the RGB30 at 360×360 and 720×720, with an ARM benchmark: see the roadmap in [graphics-mali](graphics-mali.md). It was divergence D24 until 25 Oct 2026.
 
 ## How it is today
 
 - Quality and screen (`src/85_quality.lua`): the `.bm` on a TV offers 640×360 (ARM or GPU),
-  720p and 1080p (GPU); `OVERBIT_TV_BM` from the Makefile. The `.b16` on a TV: 640×360 (ARM)
+  720p and 1080p (GPU); `OVERBIT_TV_BM` from the Makefile. On the RGB30: 640×360 (ARM)
   and 1080p (GPU). The game picks the rest (calibration, governor); quality and screen never
   touch the simulation (lockstep).
 - Bench with flags: `cart_config("overbit_bench")`, `./easy_install.sh bench FLAGS` (flags in

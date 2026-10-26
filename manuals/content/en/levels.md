@@ -295,7 +295,7 @@ The builder always reads the layer named `objects` for the placeholders. Do not 
 ## The project and the build
 
 - The project is a `.bme` file: sheet, map with layers, flags, zones, boxes, models and the code. Save it with **Ctrl+S**.
-- **Ctrl+B** builds the `.bm` of the project (or the `.b16` for the RGB30, according to the target the SDK shows). The `.b16` is a separate edition with its own build.
+- **Ctrl+B** builds the `.bm` of the project. The `.bm` runs on the Pi Zero W and on the RGB30.
 - The sheet, the map and the flags go into the cartridge in the sections 11, 12, 13 and 14, so `cart_load` and `cart_save` carry them.
 - For a game that lives in the repository, the build takes files: `mkbm.py --sheet sheet.png --map map.csv`, and one more layer for each `--map name=file.csv` (up to 8, in the order given).
 

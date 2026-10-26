@@ -66,7 +66,7 @@ Il gioco e' `out/06-sdk.bm` (il progetto senza flag progetto, scritto da `record
 ## Tasti nuovi in questo video
 
 Rispetto alla serie (fonte: tabella "Keys" del manuale dell'SDK): `Ctrl+N` (nuovo da template), `r` (dimensione schermo), `F3` due volte (mappa), `F4` (modelli, `↑ ↓ ← →`), `Ctrl+S` (salva il progetto),
-`F5` (solo sovrimpressione), `Ctrl+B` (build, solo tasto in R3), `F1` due volte (dev kit); in F2 `End`, `Enter`, frecce per il codice. Non usati: `F6` (assistente), `F9`, `b` (target `.b16`), `Ctrl+Shift+B`, `Ctrl+Shift+S`.
+`F5` (solo sovrimpressione), `Ctrl+B` (build, solo tasto in R3), `F1` due volte (dev kit); in F2 `End`, `Enter`, frecce per il codice. Non usati: `F6` (assistente), `F9`, `b` (target), `Ctrl+Shift+B`, `Ctrl+Shift+S`.
 
 ## Da misurare
 

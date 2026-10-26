@@ -41,7 +41,7 @@ bm Studio builds 3D models out of blocks and tiles, right on the console. You pl
 
 # Opening a project or a game
 
-bm Studio changes **projects** (`.bme`). A **game** (`.bm` or `.b16`) is only read: you can open it to look at its models, and the first save makes an editable copy.
+bm Studio changes **projects** (`.bme`). A **game** (`.bm`) is only read: you can open it to look at its models, and the first save makes an editable copy.
 
 ## Ways to start
 

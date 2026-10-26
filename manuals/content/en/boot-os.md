@@ -24,13 +24,13 @@ bm (BareMetal) is a games console and a development environment that runs on the
 
 ## What it does
 
-The kernel starts, shows a menu, and runs **cartridges**: single files (`.bm`, and `.b16` on the RGB30) that hold the Lua 5.4 code, sprites, maps, 3D meshes, animations and sounds of a game. The same menu also opens the editors of the suite (the **Dev** tab), the Market and the Settings.
+The kernel starts, shows a menu, and runs **cartridges**: single files (`.bm`) that hold the Lua 5.4 code, sprites, maps, 3D meshes, animations and sounds of a game. The same menu also opens the editors of the suite (the **Dev** tab), the Market and the Settings.
 
 ## Good to know
 
 - One menu serves both boards (`src/kernel/menu_ui.c`): on the Pi it is 640x360, on the RGB30 it is 360x360 shown twice as large.
 - The repository says the Pi Zero 2 W code stays in the tree but is switched off in the normal build.
-- A `.b16` never replaces a `.bm`: they are two separate editions of a game.
+- A `.bm` runs on the Pi Zero W and on the RGB30. Its header lists the kernels it is made for (the `targets` key of `bm.info`: `pi`, `rgb30`).
 
 # The boot chain
 
@@ -133,7 +133,7 @@ Game options (`c`) show the bytes of the saves and a *Delete the save data* row.
 ## Good to know
 
 - On the RGB30, **B** confirms and **A** goes back. Set `confirm=a` in `bm/config.txt` to swap them, or use Settings > Controllers > *Confirm button*.
-- On the RGB30 the top bar shows only WiFi and battery. Games lists `.b16` files, and shows `.bm` files for testing: `show_bm=0` hides them. The Market lists the `.b16` and the `.bm` files. A `.bm` that is not made for the RGB30 is grey with its reason. `market_bm=0` hides the `.bm` files.
+- On the RGB30 the top bar shows only WiFi and battery. Games and the Market list the `.bm` files. A game made for the Pi shows a faded cover (a colour change and a vignette, the drawing stays). Play then asks *This edition is for the Pi* with OK and Cancel. `show_bm=0` hides the `.bm` files in Games and `market_bm=0` hides them in the Market.
 - The editors work on projects only. A `.bm` is read-only; Ctrl+B in an editor builds the final `.bm`.
 
 ## Settings

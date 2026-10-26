@@ -2066,7 +2066,7 @@ function _draw() cls(0x2040C0) end
 
 
 def test_screen_wide_mode(b, opts):
-    """screen(720, 405) on the square panel (W2 of docs/design/b16-removal.md): the 16:9 picture is
+    """screen(720, 405) on the square panel: the 16:9 picture is
     centred on the 720x720 panel, black above and below. QEMU's ramfb does not scale, so test_panel=1
     makes plat_virt.c scale and centre the image as rk_display.c window() does on the console."""
     tmp = mktmp(prefix="bm64wide-")

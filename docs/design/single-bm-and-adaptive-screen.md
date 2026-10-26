@@ -5,74 +5,24 @@ Author's note: this document is the answer to four requests from the user. Decis
 
 The four topics:
 
-1. Remove the `.b16` edition. Keep one cartridge type, `.bm`. First step: remove the 8 MB limit and review the other format limits.
+1. Keep one cartridge type, `.bm`. The kernel has no size limit. Review the other format limits.
 2. A `.bm` declares its input profile (pad, keyboard and mouse, or both). The kernel adapts.
 3. One game or app must work on the Pi (640x360, 16:9) and on the RGB30 (720x720, 1:1).
 4. A compatibility header in the `.bm`. An app made for one kernel must not run on a kernel that cannot run it.
 
-Related: [B16 sheet](../progress/b16.md), [BM-FORMAT.md](../BM-FORMAT.md), [B16.md](../B16.md), [ui-reference.md](../spec/ui-reference.md), [input API](../api/input.md), games input standard (`docs/design/games-input-standard.md` on branch `claude/games-input-standard-pr`, PR 86, not yet in `bm-core`).
-
----
-
-## 0. Rule that must change
-
-`CLAUDE.md` section 2 says: "A `.bm` and a `.b16` are different editions. Each edition has its own Market channel and its own build." This rule is wrong for the target. The rule must change to: "There is one cartridge type, `.bm`. A cartridge declares the kernels it runs on in its header." The same rule appears in `docs/progress/b16.md` (Rules: "A `.b16` never overwrites ... the `.bm`") and in `src/bm/project.h:2,53`. Do this change in the stage that removes the second edition (stage 6 below), not before. This PR does not edit `CLAUDE.md`.
-
----
-
-## 1. Facts: what `.b16` is today
-
-| Fact | Where |
-|---|---|
-| A `.b16` is the `.bm` container with flag bit 1 set. "Nothing reads" the flag. The kernel tells the kind by the file extension. | `src/bm/bm.h:14-16`, `docs/B16.md:8` |
-| The flag is written by `bm_build_b16`, `mkbm.py --b16`, `Makefile` targets. | `src/bm/project.c:219`, `scripts/mkbm.py:609`, `Makefile:348-371` |
-| `bm_build_b16` forces a non-square cartridge to 360x360. | `src/bm/project.c:220-224` |
-| The runtime applies no `.b16` profile. "its profile's limits are not applied yet". | `src/rgb30/ui.c:426-427`, `docs/progress/b16.md:46` |
-| The Pi lists `.bm` and `.b16`. The RGB30 lists `.b16` by default and `.bm` only with `show_bm`. | `src/kernel/carts.c:154-157`, `src/rgb30/ui.c:245-261` |
-| The Market tells the edition by the path extension. The RGB30 filter keeps `.b16` unless `market_bm=1`. The Pi keeps the `.bm` when a game has both, unless `show_b16=1`. | `src/kernel/market.c:233-241`, `:352-381`, `src/net/catalog.c:136-166` |
-| `mkmarket.py` allows at most one `.bm` and one `.b16` per game. It prints the badges ".b16 RGB30" and ".bm Pi". | `scripts/mkmarket.py:206-207`, `:273-274` |
-| Carts with both editions today: Overbit (`.bm` and `.b16`). `.b16` only: Yharnam, Titan Clash EX, `sdk_b16`. | `docs/B16.md`, `Makefile:348-371`, `carts/titan_ex/titan_ex.b16` |
-| The header has 24 reserved bytes (104..127) after the 16-byte "built from" field. Flags bits 4..15 are free and "kept as they are by every writer". | `src/bm/bm.h:14-23` |
-| The header is not covered by the CRC. `project.c` patches it in place. | `docs/BM-FORMAT.md:30` |
-| `bm_build_b16` and the `.bm` build clear bytes 104..127 with `memset`. Any new header field there is lost unless this code changes. | `src/bm/project.c:143,178,225` (the `memset(data + BM_BUILT_FROM, 0, ...)`) |
-| A cartridge already says what it needs with the INFO key `spec: N`. The kernel refuses a newer one with a message. | `src/bm/runtime.c:9382-9390`, `src/bm/bm.h:138-145` (`BM_SPEC_REV 3`) |
-| The menu reads only the first 48 KB of a file (header, table, cover). | `src/kernel/carts.c:204`, `src/rgb30/ui.c:206` |
-
-Conclusion: `.b16` is a name, a flag nobody reads, an 8 MB build check and a 360x360 size. It is not a runtime profile. Removing it is cheap in the kernel. Most of the work is in tools, Market and docs.
+Related: [BM-FORMAT.md](../BM-FORMAT.md), [ui-reference.md](../spec/ui-reference.md), [input API](../api/input.md), games input standard (`docs/design/games-input-standard.md` on branch `claude/games-input-standard-pr`, PR 86, not yet in `bm-core`).
 
 ---
 
 ## 2. Topic 1: limits (current -> proposed)
 
-### 2.1 Where the 8 MB limit lives
-
-The kernel has **no** 8 MB limit when it loads a cartridge. The limit exists only when a `.b16` is built, published or described.
-
-| Place | What | Action |
-|---|---|---|
-| `src/bm/project.h:17` `BM_B16_MAX (8u << 20)` | constant | delete with the `.b16` build |
-| `src/bm/project.c:203-205` | `bm_build_b16` refuses a file over 8 MB | delete with the `.b16` build |
-| `scripts/mkbm.py:700-701` | `--b16` size check | delete the check |
-| `Makefile:363`, `:371` | `test ... -le 8388608` for `overbit.b16` and `%.b16` | delete the two lines |
-| `scripts/mkmarket.py:67`, `:121-126`, `:226` | `MAX_B16`, `check_b16` | replace with the catalog limit (100 MB) |
-| `src/kernel/carts.c:926`, `src/rgb30/ui.c:825`, `src/kernel/market.c:1008` | text "up to 8 MB", "8 MB ceiling" | change text |
-| `src/ai/kb/guide_sdk.txt:881,897,991,996,1001,1006`, `docs/API.md:176`, `docs/B16.md:10,57,418-422,445,621,707,713,728`, `docs/progress/b16.md:17,31,38,48` | docs and assistant knowledge base | change text. The assistant weights (`src/ai/assist.weights`) must be rebuilt after a change of `src/ai/kb/*`. |
-| `src/net/catalog.h:19` `CATALOG_MAX_FILE (100u << 20)` | Market file limit. GitHub refuses files over 100 MB. | keep. It is the real ceiling for the Market. |
-| `src/kernel/monitor.c:152` | 8 MB download buffer of the monitor. Not a cartridge limit. | keep, out of scope |
-
-Search command used: `grep -rn '8 MB\|8u << 20\|8388608\|BM_B16_MAX' src scripts Makefile docs`. The pattern `8 \*` in the request matches thousands of unrelated lines, so it was not used.
-
-**Consequence of removing it on the Pi Zero W.** The kernel loads the whole file into RAM (`carts_play_buffer(fb, data, len)`, `src/kernel/carts.c:559`). It computes CRC-32 over the whole file in 64 KB pieces (`src/bm/format.c:541-548`). Then it decodes sheets to RGB565. The Pi Zero W has 512 MB RAM. The GPU split and the real free heap are not measured in this study (`not verified`). A 100 MB cartridge would still fit in RAM, but would use a large part of the heap and take seconds to read from the SD card and to check. CRC time on the ARM1176 is not measured (`not verified`).
-
-Recommendation: no hard kernel limit. Add a **soft check** in the SDK and `mkbm.py`: a warning above 32 MB ("slow to load on the Pi Zero W"), an error above 100 MB (the Market ceiling). The kernel already reports "out of memory" if the load fails.
-
-### 2.2 Other limits of the format and the runtime
+### 2.1 Limits of the format and the runtime
 
 All values found in the code. "Keep" means: no known game needs more, the cost of raising is real.
 
 | Limit | Current | Where | Proposed | Pi Zero W / RGB30 consequence |
 |---|---|---|---|---|
-| Cartridge file size | 8 MB (`.b16` only) | see 2.1 | none in kernel; SDK warn 32 MB; Market 100 MB | RAM + CRC time, see 2.1 |
+| Cartridge file size | none in the kernel | `src/bm/format.c` | keep; Market 100 MB | RAM + CRC time |
 | Sheet width and height | 4096 each | `bm.h:180`, `format.c:626,634` | keep 4096 | 4096x4096 is 64 MB as RGBA and 32 MB as RGB565 after decode. Larger would hurt the Pi. |
 | SHEET8 colours | 1..256 | `format.c:634`, `BM-FORMAT.md:55` | keep. Use the true-colour `SHEET` (RGBA, no palette) when a game needs more. | The output is RGB565 (65536 colours). No 32-bit colour for now (decision 2026-10-21). More palette entries gain nothing on screen. |
 | Palette resource `.bmc` | a SHEET8 of N x 1, N <= 256 | `BM-FORMAT.md` resource kinds | keep | same |
@@ -94,13 +44,13 @@ All values found in the code. "Keep" means: no known game needs more, the cost o
 | `bm_rewrite_with` / `cart_save` extra sections | 32 old + 8 new / 16 extra | `BM-FORMAT.md:86`, `runtime.c:5392` (`PROJ_EXTRA_MAX 16`) | raise when a new section type (section 15, see 5) needs it. Not before. | |
 | Title / author / name | 47 / 31 bytes; names 16 bytes | `BM-FORMAT.md:31-32` | keep | |
 | Header sizes | width x height from a list: 640x360, 480x270, 320x180, 256x256, 360x360, 720x720 | `bm.h:9-11` | add 960x540 and 1280x720 only if a cart needs a fixed size. `screen()` already offers them at run time. | |
-| Lua heap | 64 MB | `src/script/luavm.c:13` | keep. `docs/progress/b16.md:16` says 4 MB; that line is out of date (decision D6 keeps 64 MB). Fix the line in stage 1. | |
-| Save | 32 KB (`SAVE_MAX`) | `runtime.c:3383` | keep. `docs/progress/b16.md:18` says 64 KB; out of date. | |
+| Lua heap | 64 MB | `src/script/luavm.c:13` | keep (decision D6). | |
+| Save | 32 KB (`SAVE_MAX`) | `runtime.c:3383` | keep. | |
 | Document read | 4 MB (`DOC_MAX`) | `runtime.c:3714` | keep | not a cartridge limit |
 | Tokens | none | `src/bm/tokens.h:9` | keep | |
 | Market catalog | 256 games, 256 KB index, 100 MB per file | `catalog.h:15-19` | keep. Check the index size after compatibility lines are added (5.5). | RAM of the catalog on the Pi |
 
-Summary: the only limit that must go is the 8 MB `.b16` check. The audio PCM cap is the only format limit worth raising now. The palette needs no change. **Proposed, not decided.**
+Summary: the audio PCM cap is the only format limit worth raising now. The palette needs no change. **Proposed, not decided.**
 
 ---
 
@@ -252,25 +202,23 @@ Opt 3: INFO keys only. Smallest change, weakest check.
 
 Kernel id: each kernel has a constant (`BM_TARGET_PI = 1`, `BM_TARGET_RGB30 = 2`). A cart runs if `targets & kernel_id`. A cart with flag bit 4 clear (old) counts as `targets = Pi` (**Decided**).
 
-### 5.4 Replacing the `.b16`/`.bm` split
+### 5.4 One cartridge for many kernels
 
-One cartridge, `targets` lists the kernels it supports. A game that needs a different payload per kernel (Overbit: today a `.bm` and a `.b16`) has two ways:
+One cartridge, `targets` lists the kernels it supports. A game that needs a different payload per kernel has two ways:
 
 | Way | Idea | Size cost | Notes |
 |---|---|---|---|
-| T1 (recommended) **One payload, adaptive** | One Lua and one set of assets. The code reads `SCREEN_W/H`, `controller()`, `stat()`. | none | Matches the `.b16` today: the runtime is the same. |
+| T1 (recommended) **One payload, adaptive** | One Lua and one set of assets. The code reads `SCREEN_W/H`, `controller()`, `stat()`. | none | The runtime is the same on both kernels. |
 | T2 **Per-target sections** | Two sets of sections (for example a 720x720 sheet and a 360x360 sheet) in one file; the kernel picks by target. | the sum of both sets | Needs a loader change (section selection by target). Only for the few games with big art differences. Not in the first stages. |
 
-Migration of old carts:
+Old files:
 
-| Old file | New meaning |
+| Old file | Meaning |
 |---|---|
 | `.bm`, no compatibility block | Pi only (**Decided**) |
-| `.b16` (flag bit 1 set) | targets = Pi + RGB30 (kernel8). **Decided** (user, 22 Oct, option 1). The Pi plays `.b16` today (`carts.c:154-157`) and the RGB30 plays it by default. |
-| Overbit `.bm` + `.b16` | one `overbit.bm` with targets Pi + RGB30 when T1 works; else keep two files until T2 |
-| Yharnam, Titan Clash EX, `sdk_b16` (`.b16` only) | rebuilt as `.bm` with targets Pi + RGB30 |
+| Yharnam, Titan Clash EX, `sdk_b16`, Overbit | one `.bm` with targets Pi + RGB30 when T1 works; else keep two files until T2 |
 
-On the RGB30 the old `.bm` files now show greyed (Pi only), so `show_bm` and `market_bm` become unneeded. The RGB30 may still play a greyed `.bm` after a confirm ("not made for this device") if the user wants it. **Open question 4.**
+On the RGB30 an old `.bm` shows a faded cover (Pi only). Play asks "This edition is for the Pi" with OK and Cancel. **Open question 4.**
 
 ### 5.5 Market
 
@@ -284,8 +232,8 @@ Proposal:
 | Filter | **Client side** (opt 1). `adopt()` in `market.c` keeps entries where `targets & kernel_id`. An entry with no `targets` line counts as Pi only (**Decided**). One signed index for all kernels. |
 | Alternative (opt 2) | `mkmarket.py` writes one signed index per kernel (`index-pi.txt`, `index-rgb30.txt`). Smaller index on each device (the index limit is 256 KB, `catalog.h:16`). More files and keys to publish. |
 | Signature and SHA-256 | Unchanged in form. The signature covers `index.txt`, which now includes the `targets` line. The SHA-256 covers the cart bytes. If the build tool writes the block into the cart, the SHA is computed after that. The tool always derives the catalog line from the cart, so they match. |
-| One cart, many targets | One entry, one `file` line, one card. The badge shows the device list ("Pi, RGB30"). The two-edition rule in `mkmarket.py:206-207` and `catalog.c:166` (same id and same kind) is deleted. |
-| `ids` | `owned_find(id, is_b16)` in `market.c:247, 302, 607, 1045` uses the edition as part of the key. After the change the key is the id only. Installed records need a migration (7). |
+| One cart, many targets | One entry, one `file` line, one card. The badge shows the device list ("Pi, RGB30"). `mkmarket.py` and `catalog.c` allow one entry per game id. |
+| `ids` | `owned_find(id)` in `market.c` uses the id only as the key. |
 | Conflict with "grey" | The local menu greys. The Market hides incompatible items (**as decided**). Possible conflict: a user cannot discover on the Market what exists for other devices, and cannot download a Pi game to copy it by hand. **Open question 1.** |
 
 ### 5.6 Risks
@@ -307,13 +255,12 @@ Each stage is one small PR. A stage can ship without the next one.
 
 | Stage | Content | Size | Check |
 |---|---|---|---|
-| 1 | **Remove the 8 MB limits** (table 2.1): delete `BM_B16_MAX`, the `project.c` check, the `mkbm.py` check, the two `Makefile` lines; `mkmarket.py` uses 100 MB; fix the texts; SDK/`mkbm.py` soft warning at 32 MB; fix the stale lines in `docs/progress/b16.md` (heap, save). Raise `AU_PCM_MAX` in a separate commit. | small | host tests for `project.c`, `mkbm.py` check, `consistency.py check` |
+| 1 | **Format limits** (table 2.1): no size limit in the kernel; `mkmarket.py` uses 100 MB. Raise `AU_PCM_MAX` in a separate commit. | small | host tests for `project.c`, `mkbm.py` check, `consistency.py check` |
 | 2 | **Format reservation**: document the 8-byte block and flag bit 4 in `BM-FORMAT.md`; add the constants to `bm.h`; spec revision 4 (`specs.toml`). No behaviour. | small | docs, `consistency.py gate` |
 | 3 | **Writers keep the block**: fix the three `memset` calls in `project.c`; all writers preserve bytes 120..127; host test. `mkbm.py --targets pi,rgb30 --input pad,keyboard`. | small | host test |
 | 4 | **Check and grey-out**: parse in `read_header`; grey cover and reason in the Pi menu and the RGB30 list; load-time message. Old file = Pi. | medium | QEMU test for Pi and RGB30 menu; one grey cover |
-| 5 | **Market**: `targets` line in `mkmarket.py`; client filter in `adopt()`; remove the edition key from `owned_find`; badge text. | medium | catalog host test; sign and verify test |
-| 6 | **Retire `.b16`**: rebuild Yharnam, Titan Clash EX, `sdk_b16`, Overbit as `.bm` with targets; accept `.b16` files for read only (rename on the SD card); delete `bm_build_b16`, "Export .b16" and the Market channel; change the rule in `CLAUDE.md` and `docs/progress/b16.md`. | medium | `make`, QEMU tests, Market sample |
-| 7 | **Migration of installed records and the Market channel**: `owned` records get the id key; the old `.b16` channel stays listed for one release as a redirect to the `.bm`. | small | host test |
+| 5 | **Market**: `targets` line in `mkmarket.py`; client filter in `adopt()`; key `owned_find` by the id; badge text. | medium | catalog host test; sign and verify test |
+| 6 | **One `.bm` for all games**: build Yharnam, Titan Clash EX, `sdk_b16` and Overbit as `.bm` with targets. | medium | `make`, QEMU tests, Market sample |
 | 8 | **Layout**: `lib.layout` from `sdk_b16/layout.lua`; `on_resize`; `safe_area()`; `aspect()`. One suite (Pixel) as the first user. | medium | host test, QEMU screenshot of both sizes |
 | 9 | **Input**: profile bits honoured; the pad cursor for `mouse` carts on the RGB30; later the on-screen keyboard. | medium | QEMU test on the RGB30 |
 | 10 | **RGB30 wide mode** (720x405 letterbox in `screen()` list) and elastic suites on the RGB30. | medium | RGB30 QEMU; `not verified on hardware` |
@@ -322,21 +269,10 @@ Hardware: nothing here is verified on a Pi or an RGB30. QEMU does not prove hard
 
 ---
 
-## 7. Migration of the Market channels
-
-1. Stage 5 adds the `targets` line. The `.b16` entries stay. The client filter treats a `.b16` path as `targets = rgb30 + pi`.
-2. Stage 6 publishes the `.bm` for each game that had a `.b16`, with the new block. The catalog then has one entry per game id.
-3. Stage 7 keeps the old `.b16` entry for one release. Old kernels (before stage 5) still find a `.b16` and a `.bm` they know. New kernels show one card.
-4. After one release the `.b16` files are removed from the Market repository (`f-accomando/bm-market`). The user must do the delete of any branch or file in that repository. This study deletes nothing.
-5. Installed `.b16` files on SD cards keep working: the kernel reads them as `.bm` with targets Pi + RGB30. The user can rename them.
-
----
-
 ## 8. Open questions for the user
 
 1. **Market and grey.** Decided (user, 22 Oct, option 1 for now): the Market lists incompatible items greyed, with the reason ("for the RGB30 only"). The rule is data, not code: one editable table (a compat policy file) says, per kernel, whether an item shows, greys, or hides. A new kernel changes the table, not the client.
 2. **Soft limit.** Decided (user, 22 Oct, option 2): no size warning. The Market ceiling stays at 100 MB. The user wants a developer kit instead: (a) a weight report of a `.bme` or `.bm` (bytes per section, per asset, biggest items first), and (b) a performance analysis of the game during development (frame time, draw and 3D cost, memory, SD reads) to guide optimization. Both reuse the dev kit and the benchmark tools. Staged in section 6.
-3. **Old `.b16` files.** Decided (user, 22 Oct, option 1): an old `.b16` gets targets Pi + RGB30 (kernel8), because the Pi plays `.b16` today and the RGB30 was the main target. Old `.bm` files stay Pi only.
 4. **Start a greyed cart?** Decided (user, 22 Oct, option 1): grey is not a lock. The user may start the cart after a confirm ("not made for this device").
 5. **Audio.** Decided (user, 22 Oct, option 1): raise `AU_PCM_MAX` to 8M values in stage 1, with the other limits.
 6. **Pad cursor.** Decided (user, 22 Oct, option 1): the kernel emulates the mouse with the right stick for carts that declare `mouse_optional`.

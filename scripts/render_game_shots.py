@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 render_game_shots.py - Renders high-quality pixel-perfect in-game screenshots
-of Titan Clash EX (.b16 for RGB30) using the real Lua engine and game assets.
+of Titan Clash EX (RGB30) using the real Lua engine and game assets.
 """
 import math
 import os

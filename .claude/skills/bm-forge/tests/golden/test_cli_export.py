@@ -20,7 +20,6 @@ class CliExport(unittest.TestCase):
         # Get the Lua files from examples
         self.ex = os.path.join(C.SKILL, "examples")
         self.bm_lua_path = os.path.join(self.ex, "game_demo", "bm", "main.lua")
-        self.b16_lua_path = os.path.join(self.ex, "game_demo", "b16", "main.lua")
 
         # Build a temp models file for use as --from
         self.temp_models_path = None
@@ -120,32 +119,48 @@ class CliExport(unittest.TestCase):
                     break
             self.assertIsNotNone(cover_section, "COVER section not found")
 
-    def test_export_cart_b16(self):
-        """export cart for .b16 has 360x360 resolution by default."""
+    def test_export_cart_targets(self):
+        """export cart --targets pi,rgb30 writes the compatibility block (bytes 120..127, flag bit 4)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             from_path = self._make_temp_models_file()
-            out_path = os.path.join(tmpdir, "test.b16")
+            out_path = os.path.join(tmpdir, "test.bm")
 
             code, stdout, stderr = C.run_cli([
                 "export", "cart", from_path,
-                "--lua", self.b16_lua_path,
+                "--lua", self.bm_lua_path,
                 "-o", out_path,
+                "--title", "Test Game",
+                "--targets", "pi,rgb30"
+            ])
+            self.assertEqual(code, 0, f"stderr: {stderr}")
+
+            with open(out_path, "rb") as f:
+                raw = f.read(128)
+            self.assertTrue(struct.unpack_from("<H", raw, 18)[0] & 16)
+            self.assertEqual(raw[120], 3)
+            container.read_file(out_path)
+
+            # An unknown target is refused
+            code, stdout, stderr = C.run_cli([
+                "export", "cart", from_path,
+                "--lua", self.bm_lua_path,
+                "-o", out_path,
+                "--title", "Test Game",
+                "--targets", "psp"
+            ])
+            self.assertEqual(code, 1, f"stderr: {stderr}")
+
+    def test_export_cart_rejects_other_name(self):
+        """export cart refuses an output name that is not .bm."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from_path = self._make_temp_models_file()
+            code, stdout, stderr = C.run_cli([
+                "export", "cart", from_path,
+                "--lua", self.bm_lua_path,
+                "-o", os.path.join(tmpdir, "test.xyz"),
                 "--title", "Test Game"
             ])
-
-            self.assertEqual(code, 0, f"stderr: {stderr}")
-            self.assertTrue(os.path.exists(out_path))
-
-            # Verify resolution
-            hd = container.read_file(out_path).header
-            width, height = hd.width, hd.height
-            self.assertEqual(width, 360)
-            self.assertEqual(height, 360)
-
-            # Verify edition
-            cart = container.read_file(out_path)
-            ed = container.edition_of_cart(cart)
-            self.assertEqual(ed, "b16")
+            self.assertEqual(code, 1, f"stderr: {stderr}")
 
     def test_export_cart_budget(self):
         """export cart --budget 10 rejects if triangles exceed budget (exit code 1)."""
@@ -222,21 +237,13 @@ class CliExport(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             from_path = self._make_temp_models_file()
 
-            # First build .bm and .b16 via export cart
+            # First build the .bm via export cart
             bm_path = os.path.join(tmpdir, "game.bm")
-            b16_path = os.path.join(tmpdir, "game.b16")
 
             C.run_cli([
                 "export", "cart", from_path,
                 "--lua", self.bm_lua_path,
                 "-o", bm_path,
-                "--title", "Test Game"
-            ])
-
-            C.run_cli([
-                "export", "cart", from_path,
-                "--lua", self.b16_lua_path,
-                "-o", b16_path,
                 "--title", "Test Game"
             ])
 
@@ -251,8 +258,7 @@ class CliExport(unittest.TestCase):
                 "--version", "1.0",
                 "--license", "MIT",
                 "--about", "Test game",
-                "--bm", bm_path,
-                "--b16", b16_path
+                "--bm", bm_path
             ])
 
             self.assertEqual(code, 0, f"stderr: {stderr}")

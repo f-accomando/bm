@@ -1,6 +1,6 @@
 ---
 name: bm-forge
-description: Headless stdlib Python toolkit for bm 3D assets and games. Use it to build MESH models from box JSON or untextured .glb, generate skeletons and animation clips from JSON, export models.bm / .bmm / .bm (Pi) and .b16 (RGB30) carts and repo/Market folders, validate any .bm/.b16/.bme or BMRES file (.bmm .bmi .bms .bmt .bmc .bmk), render PNG/GIF previews, and compare a model to a reference silhouette. Not for kernel, GPU or Lua runtime changes.
+description: Headless stdlib Python toolkit for bm 3D assets and games. Use it to build MESH models from box JSON or untextured .glb, generate skeletons and animation clips from JSON, export models.bm / .bmm / .bm carts and repo/Market folders, validate any .bm/.bme or BMRES file (.bmm .bmi .bms .bmt .bmc .bmk), render PNG/GIF previews, and compare a model to a reference silhouette. Not for kernel, GPU or Lua runtime changes.
 ---
 
 # bm-forge
@@ -19,8 +19,8 @@ example games without the console, a GPU or any third-party package.
   `examples/charkit/` (presets crash, rango); `references/CHARACTERS.md`, `references/LESSONS.md` L7.
 - Default limits 4096 vertices / 16384 triangles a model; `--kernel-limits` raises them to 65535.
 - Validation is strict: stricter than the kernel reader on purpose (`references/OPEN_QUESTIONS.md`).
-- `.bm` (Pi) and `.b16` (RGB30) are never converted: separate editions, separate sources.
-  `skel`/`anim` refuse an output edition different from the input (`scripts/bm_forge.py:336`).
+- A `.bm` cartridge says in its header (`targets`: pi, rgb30) which kernels it is for. `export cart --targets` writes it.
+  `skel`/`anim` refuse an output kind different from the input (`.bm` to `.bme`) (`scripts/bm_forge.py:336`).
 - Something not checked is written NON VERIFICATO, never stated as fact.
 - No network, no third-party tool needed (`doctor` lists the optional ones).
 - Always pass absolute `-o` paths. Never write outputs to the repo root.
@@ -36,7 +36,7 @@ Details, syntax and output lines: `references/CLI.md`.
 - `mesh` boxes `.json` / untextured `.glb` -> models `.bm` or `.bmm`.
 - `skel` skeleton `.json` + a cart with the model -> cart with a bound rig.
 - `anim` clip `.json` files + a cart with a rig -> cart with the clips.
-- `export` `models | bmm | cart | folder | market`: models cart, BMRES model, game `.bm`/`.b16`, repo folder, Market layout.
+- `export` `models | bmm | cart | folder | market`: models cart, BMRES model, game `.bm`, repo folder, Market layout.
 - `check` validate files; budget, drift, `--reference` silhouette similarity, `--json`.
 - `preview` render PNG/GIF (still, `--turntable`, `--clip`, `--mask`, `--compare`).
 - `doctor` report optional tools and bm_core drift.
@@ -86,10 +86,10 @@ VERIFICA: anim examples/walk.json --in <ABS>/rig.bm -o <ABS>/anim.bm; preview --
 ```
 
 ```
-COSA: a .b16 cart for RGB30 from the animated model
-VINCOLI: 360x360, lua examples/game_demo/b16/main.lua, never converted from the .bm
-OUTPUT: <ABS>/forgedemo.b16
-VERIFICA: export cart <ABS>/anim.bm --lua ... -o <ABS>/forgedemo.b16 --title "Forge Demo"; check <ABS>/forgedemo.b16
+COSA: a .bm cart for Pi and RGB30 from the animated model
+VINCOLI: 360x360, lua examples/game_demo/bm/main.lua, targets pi,rgb30
+OUTPUT: <ABS>/forgedemo.bm
+VERIFICA: export cart <ABS>/anim.bm --lua ... -o <ABS>/forgedemo.bm --res 360x360 --targets pi,rgb30 --title "Forge Demo"; check <ABS>/forgedemo.bm
 ```
 
 ```
@@ -100,10 +100,10 @@ VERIFICA: check .claude/skills/bm-forge/tests/golden/village_models.bm --kernel-
 ```
 
 ```
-COSA: build the example game in both editions
-VINCOLI: .bm and .b16 from their own Lua sources (bm/main.lua, b16/main.lua)
-OUTPUT: <ABS>/demo/ (forgedemo.bm, forgedemo.b16, HUMANOID.BMM, repo/, market/, previews)
-VERIFICA: python examples/game_demo/build.py --out <ABS>/demo; check <ABS>/demo/forgedemo.bm <ABS>/demo/forgedemo.b16
+COSA: build the example game
+VINCOLI: .bm from its Lua source (bm/main.lua)
+OUTPUT: <ABS>/demo/ (forgedemo.bm, HUMANOID.BMM, repo/, market/, previews)
+VERIFICA: python examples/game_demo/build.py --out <ABS>/demo; check <ABS>/demo/forgedemo.bm
 ```
 
 ## Keep in sync

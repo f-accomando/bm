@@ -15,17 +15,16 @@ footer: bm manuals - api-tools
 
 # The cartridge file
 
-A game on bm is one file. The same container comes in three shapes, and what matters is which tools may change it.
+A game on bm is one file. The same container comes in two shapes, and what matters is which tools may change it.
 
 | Extension | What it is | Can bm's tools change it? |
 |---|---|---|
 | `.bm` | a **game**: it is in the Games tab of the menu | No. Tools read it and take its code and assets |
-| `.b16` | a **game** too: the limited-resource edition for handhelds | No, as for `.bm` |
 | `.bme` | a **project**: the same container, the one tools edit | Yes |
 
 ## What it does
 
-A project is a `.bme` with bit 0 of the u16 at offset 18 of the header set. A `.b16` is marked with bit 1 of the same u16. Nothing else in the container changes. A project makes its game with a build; a game makes an editable copy of itself.
+A project is a `.bme` with bit 0 of the u16 at offset 18 of the header set. Nothing else in the container changes. A project makes its game with a build; a game makes an editable copy of itself.
 
 ## Why it matters
 
@@ -37,14 +36,8 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 - In the menu, *Make an editable copy* is in a game's options. The project is not listed in the menu tabs: open it from the SDK with *Open* (**Ctrl+O**).
 - *Build the game (.bm)* is in a project's options. In the SDK the key is **Ctrl+B**.
 - A build of a project in `/bme` writes the game in the games folder (`/carts` on the Pi, `/bm` on the RGB30); a project next to its game builds next to it. The game has the project's name stored at offset 104 of the header. The next build replaces that game and only that one. A game of the same name that it did not build stays, and the new one takes a digit (`pong1.bm`).
-- The `.bm` and the `.b16` are separate editions. A `.b16` never replaces the `.bm`, and the `.bm` sources are never overwritten to make a `.b16`.
-- A `.b16` file has no size limit of its own: the build tools no longer refuse a large file. The Market takes up to 100 MB a file. Its screen is 360x360 (or 720x720, the profile says), the same on the Pi and on the RGB30.
+- A `.bm` runs on the Pi Zero W and on the RGB30. Its header says the kernels it is made for (the `targets` key of `bm.info`: `pi`, `rgb30`). The Market takes up to 100 MB a file.
 - Other cartridges write only `.bm` and `.bme` files in `/carts`, and only ones they made in the same run.
-
-## Caveats
-
-- [TO FILL: status of the `.b16` profile. `docs/B16.md` says the profile is decided but not yet implemented, and §3 describes a different `B16CART` container that §0 replaces with the `.bm` container; `src/bm/project.h` and `scripts/mkbm.py` already mark and export `.b16` files (bit 1 at offset 18, 8 MB check). Say which one is current.]
-- The SDK's *Build .bm* and *Export .b16* entries call `bm_build_b16`; **Ctrl+Shift+B** in the bm SDK always exports a `.b16`.
 
 ## Try it, step by step
 
@@ -62,15 +55,11 @@ Build the same project twice. The second build replaces the first game: you do n
 
 ## From the PC
 
-`mkbm.py` writes the kind of file from the extension of `-o`: `.bm`, `.bme` or `.b16`.
+`mkbm.py` writes the kind of file from the extension of `-o`: `.bm` or `.bme`.
 
 ::: copy
 python3 scripts/mkbm.py -o ball.bme --lua carts/ball/main.lua --title "Ball" --author "me"
-python3 scripts/mkbm.py --from ball.bm --b16
-:::
-
-::: warn
-Nothing refuses a large `.b16` at build time. With `--from` and `--b16` and no `-o`, the file is written next to the source with the `.b16` extension.
+python3 scripts/mkbm.py -o ball.bm --lua carts/ball/main.lua --title "Ball" --author "me"
 :::
 
 # The sections of a cartridge
@@ -85,7 +74,7 @@ A cartridge is a 128-byte header, a section table and the section bodies. Everyt
 | 12 | u16 width, u16 height: 640x360, 480x270, 320x180, 256x256, 360x360 |
 | 16 | u8 pixel format (1 = RGB565) |
 | 17 | u8 section count |
-| 18 | u16 flags: bit 0 project, bit 1 `.b16` |
+| 18 | u16 flags: bit 0 project |
 | 20 | u32 CRC-32 of everything after the header |
 | 24 | char[48] title |
 | 72 | char[32] author |
@@ -119,7 +108,7 @@ A cartridge is a 128-byte header, a section table and the section bodies. Everyt
 
 # The API for tools
 
-Part of the game API. These functions are meant for the development tools (the editors of the suite). Games do not need them, and the design in `docs/B16.md` says the `.b16` profile leaves the `cart_*` functions and `ls` out of the sandbox; the console does not enforce it yet.
+Part of the game API. These functions are meant for the development tools (the editors of the suite). Games do not need them.
 
 ## Games and projects in the API
 
@@ -143,7 +132,8 @@ Part of the game API. These functions are meant for the development tools (the e
 | `cart_sheet([w, h])` | the size of the project's sprite sheet; with `w` and `h` (multiples of 8, from 8 to 4096) it resizes it: pixels that fit stay, new ones are transparent, flags stay with their tile |
 | `cart_new()` | an empty sprite sheet and map (256x256, one layer), no flags, zones, boxes or models |
 | `cart_save(path, {title, author, res, lua})` | writes a `.bm` with the code given and the current sheet, flags, zones, boxes, map, layers, cover, sound bank, models and skeletons. An 8.3 name, for example `"/bme/game.bme"`. Returns `true` (and the file written when it is not `path`), or `false` and a message |
-| `cart_build(project)` | builds the game of a project (`.bme`) into a `.BM` in the games folder (next to it for a project that is not in `/bme`). Returns `true` and the game's path, or `false` and a message |
+| `cart_build(project)` | builds the game of a project (`.bme`) into a `.BM` in the games folder (next to it for a project that is not in `/bme`). It has no second argument. Returns `true` and the game's path, or `false` and a message |
+| `cart_publish(path)` | for bm's tools. Leaves the tool and opens the Publish panel on the game at `path`. On the RGB30 it answers `false` and the reason |
 | `cart_read(path)` | the code and header of a `.bm`: `{title, author, res, lua, size}`, without touching the caller's sheet and map. For editors with several files open |
 | `cart_write(path, {[lua, title, author, res, from, sections]})` | changes only the code (and the data fields) of a `.bm`; sheet, map, cover, sound bank and unknown sections stay. Without `lua` the code stays. `from`: the other sections come from another file ("save as"); `from = false`: a new cartridge. `sections`: `{[8] = MESH bytes, [9] = ANIM bytes}` (`false` takes them away), checked first. `sheet = true`: the project's sprite sheet replaces the file's, as SHEET8 when it has at most 256 colours, with the colours of `palette` (`{0xRRGGBB, ...}`) first. Returns like `cart_save` |
 | `cart_data(kind, [bytes])` | the project's MESH (`kind` 8), ANIM (9), SPRITES (11) and BOXES (14) sections as strings in the format of `src/bm/bm.h`. Without `bytes` it returns them (`nil` if none); with `bytes` it replaces them (`nil` or `""` removes them) and returns `true`, or `false` and the reason |
@@ -288,7 +278,7 @@ A resource file uses the same container as a `.bm`, with the magic `BMRES` and t
 
 - The menu has no tab for resource files (the Lib tab is removed). Open a resource file from an editor.
 - The apps that open every kind of resource file are not done yet.
-- `bmres.py add` with a `.bme` cart and no `-o` writes the `.bme` in place. With a `.bm` or `.b16` and no `-o` it refuses to change the game ("is a game, read only") and writes a copy with the same name and the `.bme` extension. A `.bme` output is marked as a project.
+- `bmres.py add` with a `.bme` cart and no `-o` writes the `.bme` in place. With a `.bm` and no `-o` it refuses to change the game ("is a game, read only") and writes a copy with the same name and the `.bme` extension. A `.bme` output is marked as a project.
 - [TO FILL: `docs/RISORSE.md` says `mkbm.py --res FILE` integrates resources at build time, but in `scripts/mkbm.py` the option `--res` chooses the screen resolution. Say which tool does the build-time integration.]
 
 ## What integration does

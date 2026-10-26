@@ -42,7 +42,7 @@ When bm Web downloads a `.bmm`, the kernel checks the bytes as a BMRES model fil
 
 ## Cartridge reader (stage 1)
 
-`bmcart.js` reads a `.bm` or `.b16` file in the page (header, CRC-32, sections, INFO lines, cover). The Start tab has an "Open a .bm file" input that shows the result. The file stays in the browser. Test: `node tests/webplayer/test_bmcart.js`. The plan is in `docs/design/bm-web-player.md`.
+`bmcart.js` reads a `.bm` file in the page (header, CRC-32, sections, INFO lines, cover). The Start tab has an "Open a .bm file" input that shows the result. The file stays in the browser. Test: `node tests/webplayer/test_bmcart.js`. The plan is in `docs/design/bm-web-player.md`.
 
 ## Clock and sound queue
 

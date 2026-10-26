@@ -3,10 +3,10 @@
 One section per area. Remove an item when it is decided and record the result in the
 document of the area.
 
-## Formats (`.bm`, `.b16`, `.bme`)
+## Formats (`.bm`, `.bme`)
 Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [BM-FORMAT.md](BM-FORMAT.md). Decided 2026-10-13:
 - **720x720**: accepted by the kernel (for the RGB30 panel and its GPU); on the Pi it is shown in the middle of a 1280x720 screen (not tried on a Pi). Done in `format.c`, `runtime.c`, `bm.h`; `test_bm` checks it.
-- **`.b16` is a target** (360x360 or 720x720, 8 MB), not a sandbox: `B16.md` now says so; Yharnam and Titan EX are built with `mkbm.py --from X.bm --b16` (flag set). A packaging lint of the forbidden APIs (B3b) stays possible, not done.
+- **A `.bm` has targets** (Pi, RGB30, or both), not a sandbox. The header says them (`docs/BM-FORMAT.md`).
 - **Sharing assets is free**: no licence blocking. The licence is information that travels (`bmres.py extract` now keeps the source's `license`, `version`, `tags`); credits in `bm.info` with `credit:` lines (see PROJECT-LAYOUT.md). A `res:` list with hashes is only for reproducible builds, never a check that refuses.
 - Still open: header integrity (second CRC in the reserved bytes, F3a); the bigger writer unification (F6).
 
@@ -32,7 +32,6 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Assets
 - `res:` list in `bm.info` with SHA-256 and a licence check in `mkbm.py`: approved in
   principle, not yet specified.
-- Resources and the `.b16` limits (256 colours, 8 MB): to verify.
 
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
@@ -43,22 +42,21 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - bm Pixel only SHOWS zones and boxes (toggle `j`, commits of 2026-10-12); it does not make them. Zones and boxes are made by bm Animator's bake and by `mkbm.py --sprites` / `bmres.py`; `docs/design/suite-pixel.md` proposes the editing tools (F4 zones page, box editor), not built yet. (`GAME-GUIDE.md` and `GUIDA-GIOCHI.md` said Pixel makes zones: fixed.)
 - `sdk/README.md` says bm Studio and bm Animator do not use the mouse (they do) and gives Animator's copy/paste as `c` `v` (it is Ctrl+C / Ctrl+V).
 - `docs/RISORSE.md` says `mkbm.py --res FILE` integrates resources at build time: `--res` is the resolution there.
-- `src/bm/bm.h` comments: COVER 128x80 (it is 88x88) and offsets 18 and 104 "reserved" (used by the project and `.b16` flags).
-- `docs/B16.md` "not yet implemented" against `project.h`, `mkbm.py` and a committed `titan_ex.b16`.
+- `src/bm/bm.h` comments: COVER 128x80 (it is 88x88) and offsets 18 and 104 "reserved" (used by the project flag).
 - LED of the RGB30: solid green (`docs/RGB30.md`) or blinking (`boot/rgb30/LEGGIMI.txt`).
-- `sdk.b16` in the Market: `sdk/README.md` says no, `docs/progress/tools.md` says yes.
+- `sdk_b16.bm` in the Market: `sdk/README.md` says no, `docs/progress/tools.md` says yes.
 - The 5 api manuals list the gaps the repository cannot answer; each manual's last chapter ("Open points" / "Punti aperti") has them.
 
 ## Consistency and 1.0.0 ([spec/CONSISTENCY.md](spec/CONSISTENCY.md))
 - Everything converges before 1.0.0: `python3 scripts/consistency.py gate` lists the blockers (27 on 2026-10-13: differences between the Pi and the RGB30 that are not hardware, 2 accepted drifts and 2 specification items); 5 more are fixed in the code and wait for a try on an RGB30 (D01, D02, D06, D07, D08).
 - A baseline tag for the current line (`v0.3.0`?) and `v1.0.0` when `gate` is empty: waiting for a yes (a tag is outward-facing).
-- D03/D05 (RGB30 multiplayer and menu pointer): decided 25 Oct 2026 (PORT) and written; to try on the console. D16 (`show_bm`/`show_b16`), D13 (tools from Market > Apps on the RGB30).
+- D03/D05 (RGB30 multiplayer and menu pointer): decided 25 Oct 2026 (PORT) and written; to try on the console. D13 (tools from Market > Apps on the RGB30).
 
 ## Postponed on purpose (to do in the future, decided 2026-10-13)
 - Manual for the Assistant app (`carts/assistant`).
 - Manual of the specifications (the `docs/spec/` registry as a PDF).
 - Asset exchange on the console (sharing resources between games from the console itself; the PC side, `bmres.py`, exists).
-- Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select held 3 s on the RGB30) and a `.b16` 720x720 on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.
+- Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select held 3 s on the RGB30) and a 720x720 `.bm` on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.
 - Test carts `demo`, `stress`: to be removed later (`texroom` is removed), not migrated to the common layout.
 - Formats F3 (header integrity, variant (a): a second CRC in bytes 120..127, checked only when nonzero) and F6 (one writer in C and one in Python): do them when a header change is needed, not before; F6 must keep the bytes identical (`test_bm.c`, `test_bmres.py`).
 - D09: both kernels scan `/bm` and not `/carts` (25 Oct 2026); `.bme` projects in Dev are still to do.

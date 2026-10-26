@@ -28,7 +28,7 @@ function build(opts) {
   head.write("BMCART\0\0", 0, "latin1");
   head.writeUInt16LE(1, 8); head.writeUInt16LE(128, 10);
   head.writeUInt16LE(opts.w || 360, 12); head.writeUInt16LE(opts.h || 360, 14);
-  head[16] = 1; head[17] = bodies.length; head.writeUInt16LE(opts.flags || 2, 18);
+  head[16] = 1; head[17] = bodies.length; head.writeUInt16LE(opts.flags || 0, 18);
   head.write("Test Title", 24, "utf8"); head.write("Ada", 72, "utf8");
   const file = Buffer.concat([head, table, ...blobs]);
   file.writeUInt32LE((bmCart.crc32(file, 128, file.length) ^ (opts.badCrc ? 1 : 0)) >>> 0, 20);
@@ -38,12 +38,12 @@ function build(opts) {
 // CRC-32 check value
 assert.strictEqual(bmCart.crc32(Buffer.from("123456789"), 0, 9), 0xCBF43926);
 
-let c = bmCart.parse(build(), "test.b16");
+let c = bmCart.parse(build(), "test.bm");
 assert.ok(c.ok, c.error);
 assert.strictEqual(c.title, "Test Title");
 assert.strictEqual(c.author, "Ada");
 assert.strictEqual(c.width + "x" + c.height, "360x360");
-assert.ok(c.b16 && !c.project && c.kind === "game" && c.extension === "b16");
+assert.ok(!c.project && c.kind === "game" && c.extension === "bm");
 assert.ok(c.crcOk);
 assert.deepStrictEqual(c.sections.map((s) => s.name), ["COVER", "LUA", "INFO"]);
 assert.strictEqual(c.info.license, "MIT");

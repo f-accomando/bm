@@ -150,7 +150,7 @@ QEMU runs about 2 times slower than the Pi on sprites (2133 against 4482 at 60 f
 
 ## Resolutions and the scaler
 
-The cartridge resolutions are 640x360 (default), 480x270 and 320x180, plus the square 256x256 and 360x360 of the `.b16` edition. `screen(w, h)` switches at run time among 320x180, 384x216, 480x270, 640x360, 960x540, 1280x720 and 1920x1080 (sources: `docs/progress/graphics.md`, `docs/api/draw.md`).
+The cartridge resolutions are 640x360 (default), 480x270 and 320x180, plus the square 256x256 and 360x360. `screen(w, h)` switches at run time among 320x180, 384x216, 480x270, 640x360, 960x540, 1280x720 and 1920x1080 (sources: `docs/progress/graphics.md`, `docs/api/draw.md`).
 
 The HVS scaler enlarges the picture to the TV. `scaling_kernel` in `config.txt` (at the root of the SD) picks its filter (source: `docs/progress/v3d.md`):
 

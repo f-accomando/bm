@@ -5,14 +5,13 @@ original comments, `src/bm/format.c` the parser). Where the header comment of `b
 disagree, this page follows the code and says so. The problems found and what to do about them are in
 [FORMATS-AUDIT.md](FORMATS-AUDIT.md). Items the audit could not confirm are marked **UNVERIFIED**.
 
-One container serves four kinds of file; the kind is told by the **file extension**, not by the content:
+One container serves three kinds of file; the kind is told by the **file extension**, not by the content:
 
-| Extension | What | Bit 0 of the flags (`project`) | Bit 1 (`b16`) |
-|---|---|---|---|
-| `.bm` | game | 0 | 0 |
-| `.bme` | editable project (only the tools edit it) | 1 | 0 |
-| `.b16` | game, 360x360 edition for the handhelds | 0 | 1 (when made by the tools) |
-| `.bmm .bmi .bms .bmt .bmc .bmk` | resource file, magic `BMRES` | - | - |
+| Extension | What | Bit 0 of the flags (`project`) |
+|---|---|---|
+| `.bm` | game or app, for the Pi, the RGB30, or both | 0 |
+| `.bme` | editable project (only the tools edit it) | 1 |
+| `.bmm .bmi .bms .bmt .bmc .bmk` | resource file, magic `BMRES` | - |
 
 All numbers are little endian.
 
@@ -26,7 +25,7 @@ All numbers are little endian.
 | 12, 14 | u16, u16 | width, height | cartridge: only 640x360, 480x270, 320x180, 256x256, 360x360. In a resource file offset 12 is the **kind** (1..6) |
 | 16 | u8 | pixel format | only 1 (RGB565); 2 is reserved and refused |
 | 17 | u8 | number of sections | up to 255 |
-| 18 | u16 | flags | bit 0 project, bit 1 `.b16`, bits 2-3 the type declared in `bm.info` (0 game, 1 app, 2 utility, 3 reserved = game), bit 4 `BM_FLAG_COMPAT`: the compatibility block at 120 is present (bm.h); defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)". `mkbm.py` writes the type bits and `bm_type_of_head()` reads them; no kernel uses them for the menu yet (D09). The project/`.b16` kind still comes from the extension. Writers keep the other bits |
+| 18 | u16 | flags | bit 0 project, bit 1 reserved, bits 2-3 the type declared in `bm.info` (0 game, 1 app, 2 utility, 3 reserved = game), bit 4 `BM_FLAG_COMPAT`: the compatibility block at 120 is present (bm.h); defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)". `mkbm.py` writes the type bits and `bm_type_of_head()` reads them; no kernel uses them for the menu yet (D09). The project kind still comes from the extension. Writers keep the other bits |
 | 20 | u32 | CRC-32 | of the bytes from 128 to the end of the file. The **header is not covered** |
 | 24 | 48 | title | UTF-8, up to 47 bytes + NUL; shown by the menu |
 | 72 | 32 | author | up to 31 bytes + NUL |
@@ -50,7 +49,7 @@ Flag bit 4 (`BM_FLAG_COMPAT`, value 16) says the block is present. The header is
 | 127 | min width | minimum screen width in units of 16 pixels. Zero = none |
 
 Reading (`bm_compat_read`, and `bm_cart_t.compat` after `bm_parse`): a file with bit 4 clear is an old file.
-An old `.bm` reads as targets = Pi. An old `.b16` (flag bit 1) reads as targets = Pi + RGB30. `declared` is 0 for both.
+An old `.bm` reads as targets = Pi. `declared` is 0 for an old file. The kernels still read an old `.b16` file on an SD card (flag bit 1) as a cartridge made for the Pi and the RGB30.
 The menus (Pi, RGB30) act on the block: `bm_compat_classify` applies `docs/spec/compat-policy.toml` and greys a cartridge that does not list the kernel, with a reason and a question before the start. The Market list uses the file name (it has no header yet). The load check in `runtime.c` does not read the block yet.
 
 Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MB] [--min-spec N] [--min-width PX]`
@@ -63,7 +62,6 @@ bytes 104..119 (`bm_set_built_from`), `mkbm.py --from` clears only bytes 104..11
 The kernel has no cartridge size limit of its own. It reads the whole file into RAM and checks the CRC in 64 KB pieces.
 The hard ceiling is the Market: 100 MB a file (`CATALOG_MAX_FILE`, `src/net/catalog.h`), which GitHub also enforces.
 A cartridge of 100 MB must fit in the heap of the device. Load time on the Pi Zero W is `not verified`.
-The old 8 MB check of the `.b16` is removed from `mkbm.py`, `project.c`, the Makefile and `mkmarket.py`.
 The sound bank holds at most 8,388,608 PCM values (`AU_PCM_MAX`, 16 MB decoded).
 
 ## Section table and bodies
@@ -119,4 +117,4 @@ Sheet at most 4096 per side; cover at most 512; the map and the flags have no up
 ## Not verified
 
 Direct pointer casts of section data in the runtime or the GPU code (alignment); the inside of the sound bank;
-whether a shipped cartridge has duplicate sections; the Lua side of the `.b16` flag.
+whether a shipped cartridge has duplicate sections.

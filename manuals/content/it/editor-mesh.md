@@ -55,7 +55,7 @@ L'elenco segna ogni mesh con una lettera.
 
 ## Progetti e giochi
 
-Tutti gli strumenti della suite modificano solo **progetti** (`.bme`). Un **gioco** (`.bm` o `.b16`) lo possono solo leggere.
+Tutti gli strumenti della suite modificano solo **progetti** (`.bme`). Un **gioco** (`.bm`) lo possono solo leggere.
 
 - Se apri un gioco, bm Mesh lo legge e puoi modificare. Il primo salvataggio crea una copia modificabile, con il nome del gioco e l'estensione `.BME`, e da lì lavori sulla copia.
 - La barra di stato ti dice quando hai aperto un gioco: `a game: saving makes its copy`.

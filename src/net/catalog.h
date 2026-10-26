@@ -15,7 +15,7 @@
 #define CATALOG_MAX     256             /* games */
 #define CATALOG_MAX_LEN (256 * 1024)    /* bytes of index.txt */
 /* a file of the catalog: GitHub refuses files over 100 MB, its limit and not
- * bm's (a .bm has none; the .b16 will have its own, docs/B16.md) */
+ * bm's (a .bm has none) */
 #define CATALOG_MAX_FILE (100u << 20)
 
 typedef struct {

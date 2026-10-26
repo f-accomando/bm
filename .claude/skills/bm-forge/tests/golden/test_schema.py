@@ -47,7 +47,7 @@ class Schema(unittest.TestCase):
                 self.assertEqual([s.type for s in cart.sections], types)
                 self.assertEqual([s.stored_type for s in cart.sections], types)        # no legacy 6/7
                 self.assertTrue(all(s.reserved == 0 for s in cart.sections))
-                self.assertEqual(edition_of_cart(cart), "bm")                          # no .b16 golden
+                self.assertEqual(edition_of_cart(cart), "bm")
                 m = cart.mesh()
                 self.assertEqual([(x.name, len(x.verts), len(x.faces)) for x in m.models], models)
                 for x in m.models:

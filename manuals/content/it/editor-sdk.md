@@ -26,12 +26,12 @@ bm SDK è il programma in cui nasce un gioco. Tiene in un solo file il codice, g
 ## Le regole della suite
 
 ::: warn
-Gli editor modificano solo i **progetti** (`.bme`). Un **gioco** (`.bm`, `.b16`) è di sola lettura. Se salvi mentre è aperto un gioco, la console chiede *Save an editable copy: name.bme?* e da lì in poi lavori sulla copia.
+Gli editor modificano solo i **progetti** (`.bme`). Un **gioco** (`.bm`) è di sola lettura. Se salvi mentre è aperto un gioco, la console chiede *Save an editable copy: name.bme?* e da lì in poi lavori sulla copia.
 :::
 
-- **Ctrl+B** costruisce il gioco del progetto: un `.bm`, oppure un `.b16` quando il target è `.b16`.
-- **Ctrl+Shift+B** esporta il `.b16` (l'edizione RGB30).
-- Un `.b16` non sostituisce mai il `.bm`: sono due edizioni, ognuna con la sua build.
+- **Ctrl+B** costruisce il gioco del progetto: un `.bm`.
+- Sul Pi, *Publish to the Market...* nel menu (Esc) costruisce il `.bm` e apre il pannello Publish.
+- Un `.bm` gira sul Pi Zero W e sull'RGB30.
 
 # Aprire bm SDK
 
@@ -62,7 +62,7 @@ L'SDK somiglia a bm Studio e bm Animator: un pannello a sinistra con le liste, d
 Il pannello a sinistra ha due gruppi.
 
 - **OPEN IN**: `1` bm Code, `2` bm Pixel, `3` bm Studio, `4` bm Animator, `5` bm Mesh, `6` bm Sound.
-- **PROJECT**: `t` il titolo, `a` l'autore, `r` lo schermo, `b` il target (`.bm` o `.b16`), `n` un nuovo progetto da un template.
+- **PROJECT**: `t` il titolo, `a` l'autore, `r` lo schermo, `n` un nuovo progetto da un template.
 
 Ti muovi con su e giù, esegui con Invio, oppure premi il tasto della riga. Il tasto `r` scorre le misure `640x360`, `480x270`, `320x180`, `256x256`, `360x360` e poi torna a `640x360`.
 
@@ -268,7 +268,6 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 - **CODE**: token, righe, KB, numero di funzioni e le più grandi.
 - **DATA IN MEMORY WHILE IT RUNS**: sheet, mappa, modelli, scheletri, suono e z-buffer, e il totale. Il Lua si aggiunge sopra. È la stessa somma di `stat(13)`.
 - **CARTRIDGE FILE**: la dimensione del file salvato rispetto al segno di 100 MB, il massimo che il Market accetta per un file. Il segno è solo una guida: la build non rifiuta un file più grande e il kernel non ha un tetto di dimensione. Prima del primo salvataggio dice `not saved yet: Save as, then the size of the file`.
-- Con il target `.b16`: le righe del codice che il `.b16` non avrà (`math.random`, `time()`, file...). Con `.bm`: `.bm has no cap`.
 - **LAST TRY (F5)**: fps, millisecondi medi e massimi di un frame, frame oltre 16,7 ms, la RAM di picco (Lua e dati), le istruzioni del frame più pesante, token, triangoli, e se il 3D è stato disegnato dalla GPU o dall'ARM.
 
 ![Il dev kit dopo una prova](shots/editor-sdk-devkit.png)
@@ -283,23 +282,22 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 1. Apri un progetto e premi **F5**.
 2. Torna nell'SDK e premi **F1**: **LAST TRY** mostra i numeri.
 3. Premi di nuovo **F1**: il dev kit mostra la memoria e la dimensione del file.
-4. Premi **b** per portare il target su `.b16` e vedere cosa l'edizione RGB30 non accetterebbe.
 
-# Costruire ed esportare
+# Costruire e pubblicare
 
 ## Cosa fa
 
-- **Ctrl+B**, o *Build the game .bm* nel menu: costruisce il gioco del progetto. Quando il target è `.b16`, costruisce il `.b16` e la voce di menu lo dice.
-- **Ctrl+Shift+B**, o *Export .b16*: esporta il `.b16` qualunque sia il target.
+- **Ctrl+B**, o *Build the game .bm (Ctrl+B)* nel menu (Esc): costruisce il gioco del progetto.
+- Sul Pi, *Publish to the Market...* nel menu: costruisce il `.bm`, poi apre il pannello Publish. Nel pannello imposti id, versione e licenza. Il pannello invia una pull request, e il proprietario del Market la approva. Serve `github_token` in `bm/config.txt`.
 - Un progetto sta in `/bme`; il suo gioco viene scritto nella cartella dei giochi: `/carts` sul Pi, `/bm` sull'RGB30. La scheda **Games** elenca quella cartella. Un progetto accanto al suo gioco su una scheda vecchia compila accanto.
 - Se va a buon fine l'SDK dice `built /carts/name.bm: it is in Games` (il percorso del gioco).
 
 ## Da sapere
 
 - Un gioco si costruisce dal suo progetto. Se è aperto un gioco, l'SDK ne salva prima la copia modificabile.
-- Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e mostra la dimensione del file rispetto al segno di 100 MB. Il segno è una guida, non un limite.
-- Il target viene ricordato per ogni file di progetto.
-- Sull'RGB30, esportare un `.b16` da `/carts` lo copia anche in `/bm/`, così compare subito in Games. Sull'RGB30 la scheda Games elenca `/bm/` e `/carts`; se il gioco è scritto altrove, la riga di stato aggiunge `(not in the Games tab)`.
+- Il `.bm` che costruisci gira sul Pi e sull'RGB30. La sua intestazione dice per quali kernel è fatto. Un gioco fatto per l'altro dispositivo ha la copertina sbiadita in Games, e Play chiede *This edition is for the RGB30* (o *for the Pi*) con OK e Cancel.
+- L'RGB30 non ha la voce *Publish to the Market...*.
+- Sull'RGB30 la scheda Games elenca `/bm/` e `/carts`; se il gioco è scritto altrove, la riga di stato aggiunge `(not in the Games tab)`.
 
 ## Attenzione
 
@@ -314,8 +312,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 4. Esci dall'SDK (Esc, **Exit bm SDK**) e apri la scheda **Games**: il tuo gioco è lì.
 
 ::: copy
-Ctrl+B          build the game (.bm, or .b16 when the target is .b16)
-Ctrl+Shift+B    export .b16
+Ctrl+B          build the game (.bm)
 :::
 
 ## L'edizione RGB30
@@ -325,7 +322,7 @@ Ctrl+Shift+B    export .b16
 - Le pagine sono quelle del Pi, ridisposte per 360x360.
 - Il pad: **L1 / R1** cambiano pagina, **Start** apre il menu, **X** apre la lista delle azioni della pagina, **L2 / R2** il colore o la tile precedente o successiva, **ok** e **back** sono B e A (`confirm=a` li scambia).
 - Il testo si scrive con la tastiera su schermo (`padtype`); una tastiera funziona come sul Pi.
-- Un nuovo progetto è 360x360 con il target `.b16`.
+- Un nuovo progetto è 360x360.
 - I template sono gli stessi.
 - **Try**: Start + Select (o Ctrl+Esc) esce dal gioco e l'SDK ritorna.
 - I programmi bm Code, Pixel, Studio, Animator, Mesh e Sound non sono sull'RGB30, quindi *Open in ...* non viene offerto.
@@ -381,14 +378,12 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 | Ctrl+S | ovunque | salva |
 | Ctrl+Shift+S | ovunque | salva con nome |
 | Ctrl+B | ovunque | costruisce il gioco del progetto |
-| Ctrl+Shift+B | ovunque | esporta il .b16 |
 | F5 o Ctrl+R | ovunque | prova il gioco |
 | F6 | ovunque | l'assistente |
 | F9 | ovunque | l'assistente spiega l'ultimo errore |
 | 1 - 6 | progetto | apre in bm Code, Pixel, Studio, Animator, Mesh, Sound |
 | t / a | progetto | titolo / autore |
 | r | progetto | la misura dello schermo |
-| b | progetto | target .bm o .b16 |
 | n | progetto | un template |
 | Ctrl+G | codice | va all'errore dell'ultima prova |
 | Ctrl+X o Ctrl+K | codice | taglia la riga |
@@ -438,10 +433,9 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 
 - **F5 chiede un nome.** Un progetto che non ha ancora un file va salvato prima: F5 apre la casella **Save as**; scegli un nome e premi Invio. Il messaggio `no name yet: use Save as` compare solo quando usi il semplice **Save** su un progetto senza nome.
 - **`unsaved changes: choose again to confirm`.** Uscire, aprire o iniziare un nuovo progetto con modifiche non salvate chiede due volte: ripeti l'azione per confermare.
-- **`no .bm or .bme files on the SD card`.** *Open...* non ha trovato nulla in `/bme`, in `/carts` né nella radice. Elenca i file `.bm`, `.bme` e `.b16`.
+- **`no .bm or .bme files on the SD card`.** *Open...* non ha trovato nulla in `/bme`, in `/carts` né nella radice. Elenca i file `.bm` e `.bme`.
 - **`cannot measure: ...` nella pagina del progetto.** L'SDK non è riuscito a leggere i numeri del file; salvalo e leggi il messaggio.
 - **`no error to explain`.** F9 funziona solo dopo una prova finita con un errore. **Ctrl+G** nel codice porta alla riga.
 - **Il mio gioco è lento.** Guarda il dev kit dopo una prova: i frame oltre 16,7 ms, il frame più pesante e la memoria ti dicono dove.
-- **Un `.b16` non avrà alcune cose.** Con il target `.b16`, il dev kit le elenca per riga.
 - **Una mappa grande.** Una mappa grande di tile 16x16 conviene farla con uno script e ritoccarla nell'SDK, con `z` e la panoramica `m`.
 - **Dov'è il mio gioco?** Nella scheda **Games**. Se non c'è, controlla il messaggio dopo Ctrl+B.

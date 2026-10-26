@@ -170,15 +170,28 @@ class Editions(unittest.TestCase):
     def setUp(self):
         self.cart = container.parse(C.load("anim_figure.bm"))      # 640x360 game
 
-    def test_b16_must_be_360(self):
-        with self.assertRaises(ValidationError):
-            container.check_path("x.b16", self.cart)
-
-    def test_bm_not_360(self):
+    def test_bm_resolution(self):
         self.cart.header.width = self.cart.header.height = 360
+        container.check_path("x.bm", self.cart)
+        self.cart.header.width, self.cart.header.height = 300, 200
         with self.assertRaises(ValidationError):
             container.check_path("x.bm", self.cart)
-        container.check_path("x.b16", self.cart)
+
+    def test_unknown_extension(self):
+        with self.assertRaises(ValidationError):
+            container.check_path("x.xyz", self.cart)
+
+    def test_compat_block(self):
+        self.cart.header.compat = container.compat_block("pi,rgb30")
+        data = container.build(self.cart)
+        self.assertEqual(data[120], 3)
+        self.assertTrue(data[18] & container.FLAG_COMPAT)
+        again = container.parse(data)
+        self.assertEqual(container.build(again), data)
+        with self.assertRaises(ValidationError):
+            container.compat_block("psp")
+        with self.assertRaises(ValidationError):
+            container.compat_block([])
 
     def test_project_bit(self):
         with self.assertRaises(ValidationError):
@@ -188,13 +201,13 @@ class Editions(unittest.TestCase):
         with self.assertRaises(ValidationError):
             container.check_path("x.bm", self.cart)
 
-    def test_never_convert(self):
+    def test_write_file(self):
         with tempfile.TemporaryDirectory() as d:
-            container.write_file(os.path.join(d, "a.bm"), self.cart, source_edition="bm")
-            self.cart.header.width = self.cart.header.height = 360
+            container.write_file(os.path.join(d, "a.bm"), self.cart)
+            self.assertTrue(os.path.exists(os.path.join(d, "a.bm")))
             with self.assertRaises(ValidationError):
-                container.write_file(os.path.join(d, "a.b16"), self.cart, source_edition="bm")
-            self.assertFalse(os.path.exists(os.path.join(d, "a.b16")))
+                container.write_file(os.path.join(d, "a.xyz"), self.cart)
+            self.assertFalse(os.path.exists(os.path.join(d, "a.xyz")))
 
     def test_res_kind(self):
         raw = bytearray(C.load("anim_figure.bm"))

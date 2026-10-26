@@ -3,7 +3,7 @@
 
     python examples/game_demo/build.py [--out DIR]
 
-Outputs .bm/.b16 cartridges, .bmm model file, preview images, and repo/Market folders.
+Outputs the .bm cartridge, .bmm model file, preview images, and repo/Market folders.
 """
 import argparse
 import os
@@ -76,15 +76,11 @@ def main(out):
     # Read Lua source files
     with open(os.path.join(HERE, "bm", "main.lua"), "rb") as f:
         bm_lua = f.read()
-    with open(os.path.join(HERE, "b16", "main.lua"), "rb") as f:
-        b16_lua = f.read()
 
     # Build cartridges
     bm_path = os.path.join(out, f"{GAME}.bm")
-    export.export_cart(bm_path, bm_lua, mesh, anim, TITLE, AUTHOR, res=(320, 180), cover=cover, draws=draws)
-
-    b16_path = os.path.join(out, f"{GAME}.b16")
-    export.export_cart(b16_path, b16_lua, mesh, anim, TITLE, AUTHOR, res=(360, 360), cover=cover, draws=draws)
+    export.export_cart(bm_path, bm_lua, mesh, anim, TITLE, AUTHOR, res=(320, 180), cover=cover, draws=draws,
+                       targets="pi")
 
     # Export HUMANOID.BMM
     humanoid_model = mesh.get("humanoid")
@@ -101,7 +97,7 @@ def main(out):
     os.makedirs(market_dir, exist_ok=True)
     market_result = export.export_market(market_dir, GAME, "1.0", "MIT",
                                          "bm-forge example: a generated humanoid with idle, walk and jump clips.",
-                                         bm_path, b16_path)
+                                         bm_path)
 
     # Render animation previews
     rig = anim.rigs[0]
@@ -120,7 +116,6 @@ def main(out):
     # Assemble return dict
     result = {
         f"{GAME}.bm": bm_path,
-        f"{GAME}.b16": b16_path,
         "HUMANOID.BMM": bmm_path,
         "cover.png": cover_path,
     }

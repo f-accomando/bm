@@ -30,7 +30,7 @@ The Texture Room cartridge was removed from the kernel on 24 Oct 2026. The numbe
 | **GPU Architecture** | Unused | Custom bare-metal driver: 12 QPUs, TMU texturing, 24-bit tiled depth buffer |
 | **Software Rasterizer** | Float edges, single branchy loop | 32.32 Fixed-point edges, specialized span loops, early bounding-sphere culling |
 | **Z-Buffer Clear** | Synchronous CPU `memset` | Asynchronous DMA z-clear during frame transition |
-| **Resolution Modes** | 640×360, 320×180 | Adds **480×270** (exact 4× integer scale to 1080p) and square 360×360 (.b16) |
+| **Resolution Modes** | 640×360, 320×180 | Adds **480×270** (exact 4× integer scale to 1080p) and square 360×360 |
 | **Interleaved 2D/3D Depth**| Not supported | Preserved via V3D tiled depth reload when required |
 | **Fault Recovery** | System crash | Automatic fallback to ARM software renderer on GPU timeout with kernel log trace |
 | **Benchmarking Tools** | Basic stress test | `make bench3d`, `make count-insns`, `tools/qpuasm.py`, V3D emulator, and `make test-gpu3d` |

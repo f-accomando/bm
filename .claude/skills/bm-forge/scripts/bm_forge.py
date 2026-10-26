@@ -42,7 +42,7 @@ def build_parser():
     # skel
     skel_parser = subparsers.add_parser("skel", help="Bind a skeleton to a model")
     skel_parser.add_argument("skeleton", help="Skeleton description .json")
-    skel_parser.add_argument("--in", dest="in_file", required=True, help="Input cartridge file (.bm/.b16/.bme)")
+    skel_parser.add_argument("--in", dest="in_file", required=True, help="Input cartridge file (.bm/.bme)")
     skel_parser.add_argument("-o", "--out", required=True, help="Output cartridge file")
     skel_parser.add_argument("--strategy", default="nearest_bone_part",
                            choices=["nearest_bone", "nearest_bone_part"],
@@ -62,32 +62,33 @@ def build_parser():
 
     # export models
     export_models_p = export_subs.add_parser("models", help="Export a models cartridge")
-    export_models_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_models_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.bme)")
     export_models_p.add_argument("-o", "--out", required=True, help="Output .bm file")
     export_models_p.add_argument("--title", default="", help="Cartridge title")
     export_models_p.add_argument("--author", default="", help="Cartridge author")
 
     # export bmm
     export_bmm_p = export_subs.add_parser("bmm", help="Export a BMRES model file")
-    export_bmm_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_bmm_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.bme)")
     export_bmm_p.add_argument("-o", "--out", required=True, help="Output .bmm file")
     export_bmm_p.add_argument("--model", action="append", dest="models", help="Model name to include (repeatable)")
 
     # export cart
     export_cart_p = export_subs.add_parser("cart", help="Export a game cartridge")
-    export_cart_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_cart_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.bme)")
     export_cart_p.add_argument("--lua", required=True, help="Main Lua file")
-    export_cart_p.add_argument("-o", "--out", required=True, help="Output .bm or .b16 file")
+    export_cart_p.add_argument("-o", "--out", required=True, help="Output .bm file")
     export_cart_p.add_argument("--title", required=True, help="Cartridge title")
     export_cart_p.add_argument("--author", default="", help="Cartridge author")
-    export_cart_p.add_argument("--res", help="Resolution WxH (default 360x360 for .b16 else 320x180)")
+    export_cart_p.add_argument("--res", help="Resolution WxH (default 320x180)")
     export_cart_p.add_argument("--cover-model", help="Model name to render for cover")
     export_cart_p.add_argument("--draw", action="append", dest="draws", help="Model draw count (repeatable, NAME=COUNT)")
     export_cart_p.add_argument("--budget", type=int, help="Triangle budget")
+    export_cart_p.add_argument("--targets", help="Compatibility block: the kernels the cartridge is for (pi, rgb30 or pi,rgb30)")
 
     # export folder
     export_folder_p = export_subs.add_parser("folder", help="Export a game folder")
-    export_folder_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_folder_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.bme)")
     export_folder_p.add_argument("--lua", required=True, help="Main Lua file")
     export_folder_p.add_argument("--root", required=True, help="Root directory for game folder")
     export_folder_p.add_argument("--game", required=True, help="Game ID (lowercase, alphanumeric and underscores)")
@@ -104,12 +105,11 @@ def build_parser():
     export_market_p.add_argument("--version", required=True, help="Version string")
     export_market_p.add_argument("--license", required=True, help="License string")
     export_market_p.add_argument("--about", required=True, help="About text")
-    export_market_p.add_argument("--bm", help="Path to .bm file to include")
-    export_market_p.add_argument("--b16", help="Path to .b16 file to include")
+    export_market_p.add_argument("--bm", required=True, help="Path to .bm file to include")
 
     # check
     check_parser = subparsers.add_parser("check", help="Validate files; report limits, budget, drift, similarity")
-    check_parser.add_argument("files", nargs="+", metavar="FILE", help="Cartridges (.bm/.b16/.bme) or BMRES files")
+    check_parser.add_argument("files", nargs="+", metavar="FILE", help="Cartridges (.bm/.bme) or BMRES files")
     check_parser.add_argument("--kernel-limits", action="store_true", help="Use kernel limits (65535 verts/faces)")
     check_parser.add_argument("--budget", type=int, help="Triangle budget a frame (enforced when given)")
     check_parser.add_argument("--draw", action="append", dest="draws", help="Model draw count (repeatable, NAME=COUNT); enforces the budget")
@@ -123,7 +123,7 @@ def build_parser():
 
     # preview
     preview_parser = subparsers.add_parser("preview", help="Render a model to PNG or GIF (headless); --compare checks it")
-    preview_parser.add_argument("input", metavar="FILE", help="Cartridge (.bm/.b16/.bme)")
+    preview_parser.add_argument("input", metavar="FILE", help="Cartridge (.bm/.bme)")
     preview_parser.add_argument("-o", "--out", required=True, help="Output .png or .gif")
     preview_parser.add_argument("--model", help="Model name (default the first)")
     preview_parser.add_argument("--clip", help="Animation clip to render (the model needs a rig)")
@@ -336,7 +336,7 @@ def cmd_skel(args):
             if source_edition != out_edition:
                 print(f"error: editions are never converted", file=sys.stderr)
                 return 2
-            container.write_file(args.out, cart, source_edition=source_edition)
+            container.write_file(args.out, cart)
             print(f"wrote {args.out}: rig {rig.model}, {len(rig.bones)} bones, root {rig.bones[0].name}")
             return 0
         except ValidationError as e:
@@ -450,7 +450,7 @@ def cmd_anim(args):
             if source_edition != out_edition:
                 print(f"error: editions are never converted", file=sys.stderr)
                 return 2
-            container.write_file(args.out, cart, source_edition=source_edition)
+            container.write_file(args.out, cart)
             print(f"wrote {args.out}: rig {rig.model}, {len(rig.clips)} clips")
             return 0
         except ValidationError as e:
@@ -589,7 +589,7 @@ def _export_bmm(args):
 
 
 def _export_cart(args):
-    """export cart FROM --lua MAIN.lua -o OUT.bm|OUT.b16 --title T [--author A] [--res WxH] [--cover-model NAME] [--draw NAME=COUNT ...] [--budget N]"""
+    """export cart FROM --lua MAIN.lua -o OUT.bm --title T [--author A] [--res WxH] [--cover-model NAME] [--draw NAME=COUNT ...] [--budget N]"""
     try:
         # Load cartridge
         if not os.path.exists(args.from_file):
@@ -626,9 +626,6 @@ def _export_cart(args):
 
         # Parse resolution
         res = (320, 180)  # default for .bm
-        out_ed = container.edition_of(args.out)
-        if out_ed == "b16":
-            res = (360, 360)  # default for .b16
         if args.res:
             try:
                 parts = args.res.split("x")
@@ -671,15 +668,15 @@ def _export_cart(args):
 
         # Export
         try:
-            export.export_cart(args.out, lua, mesh, anim, args.title, args.author, res=res, cover=cover, draws=draws, budget=args.budget)
+            export.export_cart(args.out, lua, mesh, anim, args.title, args.author, res=res, cover=cover, draws=draws, budget=args.budget,
+                               targets=args.targets)
 
             # Print info
-            ed = "b16" if out_ed == "b16" else "bm"
             if draws is None:
                 draws = {m.name: 1 for m in mesh.models}
             frame_tris = export.frame_triangles(mesh, draws)
-            actual_budget = args.budget or (export.TRI_BUDGET_B16 if ed == "b16" else export.TRI_BUDGET_PI)
-            print(f"wrote {args.out}: {ed} {res[0]}x{res[1]}, {frame_tris} triangles a frame (budget {actual_budget})")
+            actual_budget = args.budget or export.TRI_BUDGET_PI
+            print(f"wrote {args.out}: bm {res[0]}x{res[1]}, {frame_tris} triangles a frame (budget {actual_budget})")
             return 0
         except ValidationError as e:
             print(f"error: {e}", file=sys.stderr)
@@ -773,11 +770,11 @@ def _export_folder(args):
 
 
 def _export_market(args):
-    """export market --root DIR --id ID --version V --license L --about TEXT [--bm P] [--b16 P]"""
+    """export market --root DIR --id ID --version V --license L --about TEXT [--bm P]"""
     try:
         # Export
         try:
-            result = export.export_market(args.root, args.id, args.version, args.license, args.about, args.bm, args.b16)
+            result = export.export_market(args.root, args.id, args.version, args.license, args.about, args.bm)
             for name, path in result.items():
                 print(path)
             # Print about.txt line
@@ -932,8 +929,8 @@ def cmd_check(args):
                     lines.append(f"  rig {r.model}: {len(r.bones)} bones, clips {clips_txt}")
 
             ok = True
-            if mesh is not None and ed in ("bm", "b16"):
-                default = export.TRI_BUDGET_B16 if ed == "b16" else export.TRI_BUDGET_PI
+            if mesh is not None and ed == "bm":
+                default = export.TRI_BUDGET_PI
                 budget = default if args.budget is None else args.budget
                 entry["budget"] = budget
                 draw_map = draws if draws is not None else {m.name: 1 for m in mesh.models}

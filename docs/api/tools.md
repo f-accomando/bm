@@ -4,7 +4,7 @@ Part of the game API. Index and basics: [API.md](../API.md).
 
 ### Keyboard and files (for tools such as the editors)
 
-**Games and projects** (2026-10-06): a `.bm` (and a `.b16`) is a **game**: bm's tools read it
+**Games and projects** (2026-10-06): a `.bm` is a **game**: bm's tools read it
 and take its code and its assets, but never change it. What they change is a **project**, a
 `.bme`: the same container, with bit 0 of the u16 at offset 18 of the header set
 (`src/bm/project.h`). A tool that saves a game asks first (*Save an editable copy: name.bme?*,

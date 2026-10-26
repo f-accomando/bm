@@ -31,7 +31,7 @@ A character in bm is one of three things: a **sprite** in the sprite sheet, a se
 
 ## Good to know
 
-- Pixel, Studio, Animator and Mesh work on the same file: a **project** (`.bme`). A game (`.bm`, `.b16`) is read only, and the first save makes an editable `.BME` copy.
+- Pixel, Studio, Animator and Mesh work on the same file: a **project** (`.bme`). A game (`.bm`) is read only, and the first save makes an editable `.BME` copy.
 - The sprite sheet is shared: bm Pixel draws it, bm Studio uses pieces of it as textures, bm Animator puts baked sprites into it.
 - The pad and keys of each editor are in its own manual (`editor-pixel`, `editor-studio`, `editor-animator`, `editor-mesh`). Here only what a character needs.
 
@@ -472,7 +472,7 @@ The names have a use: `.L` and `.R` for the two sides; `sword`, `fist` and the l
 
 ## Models outside the console
 
-- **bm-forge** (`.claude/skills/bm-forge`): builds MESH models from box JSON or untextured `.glb`, skeletons and clips from JSON, and exports `.bm` (Pi) and `.b16` (RGB30). A person or character is one continuous skin with shared vertices at the joints, rigged, never loose boxes. The template `examples/charkit/` has two presets.
+- **bm-forge** (`.claude/skills/bm-forge`): builds MESH models from box JSON or untextured `.glb`, skeletons and clips from JSON, and exports `.bm`. A person or character is one continuous skin with shared vertices at the joints, rigged, never loose boxes. The template `examples/charkit/` has two presets.
 - A local `.glb` from the SD card does not open in the editors yet; importing it in the suite is planned (APP-9). Today the console gets a `.glb` only from the picture-to-3D service (`picture3d`), and bm Studio then takes it as a model. On the PC, `python3 scripts/bmres.py convert IN.glb OUT.bmm` converts a `.glb` to a `.bmm`; `tools/meshy2mesh.py`, `tools/local2mesh.py` and `tools/cutout2mesh.py` make models from other sources. For a game of the repository, the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first) and puts the models in the `.bm`. `carts/village/assets` holds `models.bm`, not a `.glb`.
 - **[IN DEVELOPMENT]** Saving and opening `.bmm` model files from the console's bm Studio. Today the program saves only the project; on the PC `scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` makes one.
 

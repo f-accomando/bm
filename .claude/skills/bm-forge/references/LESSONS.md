@@ -31,7 +31,7 @@ default and pass with `kernel_limits=True`.
 ## L4 The bmhost real-runtime run passed
 
 **Lesson**: the example game runs in the repo's own runtime on the PC.
-**Case**: `forgedemo: 7/7 checks passed`, exit 0, 420 frames, for `.bm` and `.b16` (`--square`),
+**Case**: `forgedemo: 7/7 checks passed`, exit 0, 420 frames, for the `.bm`,
 2026-10-13 (`references/OPEN_QUESTIONS.md`, section "Verified in the real runtime").
 **Rule**: it proves the PC runtime, not the console look (NON VERIFICATO); rebuild
 `build/host/bmhost-bin` when bm-core moves.

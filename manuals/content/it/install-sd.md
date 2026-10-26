@@ -31,7 +31,7 @@ bm non ha un installatore da scaricare e avviare con un doppio clic: la scheda s
 - Il Pi Zero W parte solo da una scheda FAT. bm usa FAT32.
 - Il Pi e l'RGB30 usano schede **diverse**: non mettere mai la scheda di una scheda madre nell'altra.
 - L'RGB30 tiene il suo sistema (ROCKNIX) sull'altra scheda. bm va su una scheda di scorta, così puoi tornare indietro rimettendo la vecchia scheda.
-- I giochi `.bm` sono per il Pi; l'RGB30 gioca i `.b16` e, per prova, i `.bm` del Pi.
+- I giochi `.bm` girano sul Pi e sull'RGB30. L'intestazione di un gioco dice per quali kernel è fatto.
 
 ## Prepara il PC
 
@@ -280,7 +280,7 @@ Il Market è il catalogo dei giochi gratuiti. Niente account e niente pagamenti.
 4. La console controlla la firma del catalogo e lo SHA-256 di ogni file prima di scrivere qualcosa sulla scheda. Aspetta che il gioco sia scritto.
 5. Apri la scheda **Games**. Dovresti vedere il gioco; selezionalo per giocare.
 
-Sul Pi il gioco va in `carts/`. Sull'RGB30 va in `bm/`, la cartella che il suo menu elenca. Il Pi elenca i giochi `.bm` del Market e l'RGB30 quelli `.b16`.
+Sul Pi il gioco va in `carts/`. Sull'RGB30 va in `bm/`, la cartella che il suo menu elenca. Entrambi i dispositivi elencano i giochi `.bm` del Market. Un gioco fatto per l'altro dispositivo ha la copertina sbiadita.
 
 ## Dal PC
 

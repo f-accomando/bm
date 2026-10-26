@@ -129,12 +129,12 @@ action = "time it on the console (the menu log line: menu idle ... covers N ms)"
 [[divergence]]
 id = "D11"
 area = "game options (X / C)"
-pi = "Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close"
-rgb30 = "Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete"
+pi = "Open in the tools, editable copy, Build, Publish, Send to a nearby console, Close"
+rgb30 = "Play, Open in bm SDK, Send to a nearby console, info, delete save, delete"
 cause = "history"
 priority = 6
 status = "accepted"
-note = "Accepted 2026-10-22 (BETA-6): Publish stays off on the RGB30 by the owner's decision (docs/progress/platforms.md Open work). The tool rows of the Pi (Open in the tools, editable copy, Build) are 'Open in bm SDK' and 'Export .b16' on the RGB30: the SDK is the only tool with a pad edition (D13). Close is 'Close the game' on both (D07). Decision of the user, 25 Oct 2026: owner decision: Publish stays off on the RGB30 (first made on 22 Oct). Accepted."
+note = "Accepted 2026-10-22 (BETA-6): Publish stays off on the RGB30 by the owner's decision (docs/progress/platforms.md Open work). The tool rows of the Pi (Open in the tools, editable copy, Build) is 'Open in bm SDK' on the RGB30: the SDK is the only tool with a pad edition (D13). Close is 'Close the game' on both (D07). Decision of the user, 25 Oct 2026: owner decision: Publish stays off on the RGB30 (first made on 22 Oct). Accepted."
 evidence = "src/kernel/carts.c:913-956; src/rgb30/ui.c:722-746; docs/progress/platforms.md"
 action = "none"
 

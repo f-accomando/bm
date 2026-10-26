@@ -39,7 +39,7 @@ Metti la logica e l'input in `_update`, e solo il disegno in `_draw`. Lo schermo
 | `--res 480x270` | 480 × 270 |
 | `--res 320x180` | 320 × 180 |
 | `--res 256x256` | 256 × 256 |
-| `--res 360x360` | 360 × 360 (lo schermo del `.b16`) |
+| `--res 360x360` | 360 × 360 (lo schermo dell'RGB30) |
 
 La cartuccia può cambiare la risoluzione mentre gira con `screen(w, h)` (vedi Grafica): dal fotogramma successivo valgono le nuove dimensioni.
 
@@ -175,7 +175,7 @@ La lista è 16:9: 320×180, 384×216, 480×270, 640×360, 960×540, 1280×720, 1
 
 - `SCREEN_W` e `SCREEN_H` cambiano quando lo fai; lo z-buffer, la camera 3D e i buffer di luce seguono, il font e `camera()` restano, `clip()` torna a tutto lo schermo.
 - Se la console non può dare la dimensione, resta quella di prima.
-- Sull'**RGB30** (un pannello quadrato) la lista è invece le due dimensioni del `.b16`: 360×360 (mostrata grande il doppio) e 720×720, entrambe a pixel interi.
+- Sull'**RGB30** (un pannello quadrato) la lista è invece di due dimensioni: 360×360 (mostrata grande il doppio) e 720×720, entrambe a pixel interi.
 - Una cartuccia quadrata (256×256, 360×360) cambia come le altre: sul Pi allora riempie la TV, e la GPU può disegnarvi il 3D (nel riquadro al centro lo disegna l'ARM).
 - Il rasterizzatore dell'ARM paga ogni pixel: sul Pi sopra 640×360 serve la GPU.
 
@@ -504,7 +504,7 @@ local x, y = stick(1)                     -- lo stick del giocatore 1, da -1 a 1
 | `devinfo(line, ...)` | fino a 4 righe del gioco nel report di sessione del dev kit ("the game says:", a fine esecuzione: la sua qualità, i suoi attori…), 18 caratteri ciascuna; `devinfo()` nessuna. Richiamala quando cambiano |
 | `battery()` | la batteria della console: la carica `0`–`100` e `true` se è sul caricabatterie (`local pct, plugged = battery()`); `nil` senza batteria (il Pi). Sull'RGB30 la carica viene dalla tensione (un'indicazione: cala sotto sforzo e sale sul caricabatterie); il caricabatterie si vede entro un quarto di secondo |
 | `battery_low()` | `true` finché la batteria è scarica: 20% o meno fuori dal caricabatterie (fino al 23%). Allora il sistema disegna da solo una piccola batteria rossa in alto a destra sopra il fotogramma (a sinistra dell'overlay del dev kit quando è in alto), in ogni gioco e strumento; *Settings > Screen > Low battery icon* (`battery_icon=0` in `bm/config.txt`) spegne quell'icona, non `battery_low()`. Solo informazione: ogni console ha la sua batteria, quindi nel lockstep (`bmnet`) non cambia mai ciò che il gioco simula; usala per mostrare qualcosa o per salvare |
-| `code_tokens(text)` | i **token** di un pezzo di codice Lua, contati come fanno `stat(11)` e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore è uno; commenti, spazi, `,` `.` `:` `;` `::`, parentesi di chiusura (`)` `]` `}`), `end` e `local` non contano, né il segno meno davanti a un numero (`-1` è un token). Informazione, non un limite: bm non mette un tetto ai token (nemmeno il `.b16`) |
+| `code_tokens(text)` | i **token** di un pezzo di codice Lua, contati come fanno `stat(11)` e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore è uno; commenti, spazi, `,` `.` `:` `;` `::`, parentesi di chiusura (`)` `]` `}`), `end` e `local` non contano, né il segno meno davanti a un numero (`-1` è un token). Informazione, non un limite: bm non mette un tetto ai token |
 | `log(...)` | scrive nel log del kernel (linea seriale e console), non sullo schermo del gioco |
 | `report(kind, text)` | un report per chi sviluppa bm: salvato in `bm/reports` sulla scheda SD con kernel, branch, scheda e data (e una prima riga `options`: le opzioni 3D in vigore), poi inviato al repository dei report se ci sono `github_token` e la rete (`src/kernel/reports.h`); al massimo 8 per esecuzione, 256 KB ciascuno; `true` se salvato. `kind` è una stringa obbligatoria, un'etichetta di categoria a testo libero: viene messa in minuscolo con `-` tra gli altri caratteri e finisce nell'intestazione del report e nel nome del file inviato; con `kind == "session"` l'invio sostituisce il file precedente (Overbit usa `"overbit-bench"`). La prima volta che un gioco lo chiama si chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
 | `shot([prefix])` | salva il fotogramma in disegno come PNG (vedi il capitolo Schermate) |
@@ -579,7 +579,7 @@ Quando un gioco finisce il dev kit scrive un file per gioco nei report, `reports
 
 - In `bm/config.txt`: `session_report=0` mai, `=1` sempre; senza la riga, solo con un `github_token`.
 - Dal codice usi `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(16)`, `devkit()` e `profile()`. Il limite è 20 milioni di istruzioni per chiamata.
-- Il **dev kit dell'SDK** (F1 due volte) ha gli stessi numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file contro il segno degli 8 MB di un `.b16` (una guida, non un limite) e i numeri dell'ultima prova (F5).
+- Il **dev kit dell'SDK** (F1 due volte) ha gli stessi numeri per il progetto: token, le funzioni più grandi, la memoria dei dati e i numeri dell'ultima prova (F5).
 - A fine esecuzione la linea seriale scrive anche la riga `dev kit: Lua peak ... KB, data ... KB, busiest frame ...k instructions, ... frames over 16.7 ms, ... tokens`.
 
 ## Esempi
@@ -761,7 +761,7 @@ Per una cartuccia che mostra pagine web. Una richiesta gira in background: il gi
 | `web_body(id)` | il corpo come stringa, o `nil` e il motivo. Copia i byte nella memoria di Lua: per decodificare un'immagine o scrivere un file, dai l'`id` a `image_load` o `file_write` |
 | `web_cancel(id)` | ferma la richiesta e libera il risultato |
 | `img = image_load(bytes_or_id, sx, sy, [maxw, maxh])` | decodifica un JPEG baseline, PNG o WebP nello sprite sheet con l'angolo in alto a sinistra in `(sx, sy)`. JPEG progressivi e immagini sopra i 4 megapixel sono rifiutati. Restituisce `{x =, y =, w =, h =}`, o `nil` e il motivo. Disegnala con `sspr`. Se serve, ingrandisci prima lo sheet con `cart_sheet(w, h)` |
-| `file_write(name, bytes_or_id, [async])` | scrive un file in `bm/web` sulla scheda SD. `name` è un nome 8.3 semplice. Mai un file `.bm`, `.bme` o `.b16`. Al massimo 8 MB (`file_write_max_kib`, fino a 32768) e 128 file nella cartella. Con `async = true` i dati vanno in coda, fino a 4 file aspettano, e i pezzi (fino a 32 KB) vanno sulla scheda mentre la cartuccia chiama `web_poll` o `file_state` |
+| `file_write(name, bytes_or_id, [async])` | scrive un file in `bm/web` sulla scheda SD. `name` è un nome 8.3 semplice. Mai un file `.bm` o `.bme`. Al massimo 8 MB (`file_write_max_kib`, fino a 32768) e 128 file nella cartella. Con `async = true` i dati vanno in coda, fino a 4 file aspettano, e i pezzi (fino a 32 KB) vanno sulla scheda mentre la cartuccia chiama `web_poll` o `file_state` |
 | `state, info = file_state(name)` | l'ultima scrittura in coda con quel nome: `"queued"`, `"writing"`, `"done"` o `"error"`. Chiamala una volta a fotogramma mentre una scrittura è in coda |
 
 ```lua

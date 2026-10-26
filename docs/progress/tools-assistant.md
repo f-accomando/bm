@@ -41,8 +41,8 @@ Split from [tools](tools.md); open work and rules stay there.
   (`models.py --meshy`) builds them again. `make overbit-heroes`: each hero as `.bmm` in
   `build/overbit/heroes/` for bm Mesh / bm Animator. Skeletons and clips are still written by `rig.py`,
   not made in Animator.
-- `scripts/mkbm.py`: builds a `.bm` or `.b16` (`--lua --sheet --sheet8 --map --flags --sprites --audio
-  --cover --models --res --from <cart> --b16`…); header `BMCART` with CRC-32 (`src/bm/bm.h`).
+- `scripts/mkbm.py`: builds a `.bm` (`--lua --sheet --sheet8 --map --flags --sprites --audio
+  --cover --models --res --from <cart>`…); header `BMCART` with CRC-32 (`src/bm/bm.h`).
 - `scripts/bmres.py`: extract/convert `BMRES` resources. `scripts/bmaudio.py`: sound banks.
   `scripts/bmmesh.py`, `bmdecimate.py`, `tools/bmreduce.py` (quadric collapse, same code as
   `src/bm/decimate.c`).

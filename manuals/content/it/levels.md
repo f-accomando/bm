@@ -295,7 +295,7 @@ Il costruttore legge sempre il layer chiamato `objects` per i segnaposto. Non ri
 ## Il progetto e la build
 
 - Il progetto è un file `.bme`: sheet, mappa con i layer, flag, zone, box, modelli e il codice. Salvalo con **Ctrl+S**.
-- **Ctrl+B** costruisce il `.bm` del progetto (o il `.b16` per l'RGB30, secondo il target che l'SDK mostra). Il `.b16` è un'edizione separata con la sua build.
+- **Ctrl+B** costruisce il `.bm` del progetto. Il `.bm` gira sul Pi Zero W e sull'RGB30.
 - Sheet, mappa e flag entrano nella cartuccia nelle sezioni 11, 12, 13 e 14, quindi `cart_load` e `cart_save` li portano con sé.
 - Per un gioco che vive nel repository, la build prende dei file: `mkbm.py --sheet sheet.png --map map.csv`, e un layer in più per ogni `--map nome=file.csv` (fino a 8, nell'ordine dato).
 

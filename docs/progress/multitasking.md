@@ -72,7 +72,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
 - Market Lazy Loading: Il Market non viene mai caricato o indicizzato all'accensione (boot), ma unicamente in modo lazy dopo che l'utente accede alla tab Market (`active = 1`, `start_job` sorvegliato).
 - Market Persistence & Manual Refresh: Una volta caricato, il Market mantiene i dati in memoria e non si ricarica all'uscita/rientro nella tab. Il refresh è manuale tramite pulsante dedicato (tasto R / Select / click mouse); quando premuto, il pulsante rimane disabilitato (grigio) durante il caricamento e per 10s dopo la fine del caricamento.
 - Suspended Game Protection: When an update arrives for a cartridge currently frozen in memory (`BM_SUSPENDED`), the running session is preserved. The menu prompts the user (`ASK_UPDATE_SUSPENDED`) upon selecting the game to confirm closing the suspended session and applying the update.
-- The limits of the web API stay: https only, 3 redirects, 1 s per host, 4 MB `web_get`, 8 MB `file_write`, 128 files (a part file counts), no `.bm`/`.bme`/`.b16`.
+- The limits of the web API stay: https only, 3 redirects, 1 s per host, 4 MB `web_get`, 8 MB `file_write`, 128 files (a part file counts), no `.bm`/`.bme`.
 - Work in the menu frame (drawing, a new selection) stays below one frame. The pointer position is read once per frame, so a long frame is one jump of the pointer. Make long work in bands (`menu_bg_step`) or in a job.
 
 

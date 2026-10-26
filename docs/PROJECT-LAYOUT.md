@@ -40,7 +40,7 @@ Unknown keys are kept in the cartridge. The binary `.bm` format does not change:
 older kernel ignores INFO.
 
 `mkbm.py` mirrors `type` in bits 2-3 of the u16 flags at offset 18 of the header (`docs/BM-FORMAT.md`), so the menu
-groups a cartridge without reading its INFO. On the SD, `.bm` and `.b16` games live in `/bm` and `.bme` projects in `/bme`.
+groups a cartridge without reading its INFO. On the SD, `.bm` games live in `/bm` and `.bme` projects in `/bme`.
 
 ## Add a cart to the Makefile
 
@@ -62,9 +62,9 @@ The rule is in the Makefile, section "Cartridges: one data-driven recipe".
 | `layers_<id> := a b` | map layers, the files `map_a.csv`, `map_b.csv`, in this order |
 | `extra_<id>` | more `mkbm.py` flags, at the end |
 
-A second edition of a cart (for example `.b16`) has its own key (`overbit_b16`). Its rule names the key:
+A variant of a cart has its own key. Its rule names the key:
 `$(call CART_RECIPE,<key>)`. A `.bme` project (`BME_CARTS`) uses the same recipe.
-Special builds keep their own rules: the `.b16` made with `--from`, the Overbit variants (reel, match), the test carts.
+Special builds keep their own rules: the Overbit variants (reel, match), the test carts.
 
 ## Where projects live on the SD card
 
@@ -86,7 +86,7 @@ Special builds keep their own rules: the `.b16` made with `--from`, the Overbit 
 
 ## File names the system writes
 
-- The system writes names and extensions in lowercase: `/bme/name.bme`, `/carts/name.bm`, `name.b16`, `bm/config.txt`, `bm/reports/rptNNNNN.txt`, `bm/bench/3dNNNN.txt`, `bm/shots/pongNNNN.png`, `bm/rec/rNNNNNNN.bmv`, `bm/save/xxxxxxxx.sav`, `bm/web/name.prt`.
+- The system writes names and extensions in lowercase: `/bme/name.bme`, `/carts/name.bm`, `bm/config.txt`, `bm/reports/rptNNNNN.txt`, `bm/bench/3dNNNN.txt`, `bm/shots/pongNNNN.png`, `bm/rec/rNNNNNNN.bmv`, `bm/save/xxxxxxxx.sav`, `bm/web/name.prt`.
 - The FAT driver writes an 8.3 entry in capitals with the NT lowercase flags (`fat.c`, `to_83()`). Windows, Linux and the console show the name in lowercase.
 - A name typed by the user is lowercased too. A project name is the lowercase of what the user typed (up to 8 characters).
 - Every lookup ignores case. A file of an old card, in capitals, is still read and replaced in place. The system never renames or deletes it.
@@ -113,13 +113,13 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `snake`, `shooter`, `astrowing`, `typing`, `write`, `ko2` | `bm.info` (their `title_<id>` lines left the Makefile) |
 | `kitchen`, `titan` | `bm.info`; `sheet.png` in `assets/`; `build.py`, `mkassets.py` and the other scripts (`import_chefs.py`, `mkrobot.py`, `art.py`) in `build/`; `titan_ex` shares `titan/assets/sheet.png` |
 | `nano8` | `bm.info`; `build.py` and `mkdemo.py` in `build/` |
-| `overbit` | `bm.info`; `build.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). The `.b16` rules keep `--title`/`--res` |
+| `overbit` | `bm.info`; `build.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). |
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |
 | `bench3d` | `bm.info`; `build/mkassets.py` builds the models and the sprite sheet at build time (no binary in git) |
 | `bmweb`, `herocart` | `bm.info`; `src/` holds the modules and `build/` the build script |
 | `kratos` | `bm.info`; `build/glb2parts.py` writes the PARTS table into `main.lua` (between the DATA lines); the `.bme` is built with the `.bm` |
-| `sdk_b16`, `titan_ex` | `bm.info`; the `.b16` editions use it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
+| `sdk_b16`, `titan_ex` | `bm.info`; `sdk_b16` uses it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
 
 ## Files the console writes on the SD card
 

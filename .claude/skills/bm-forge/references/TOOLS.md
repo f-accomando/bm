@@ -135,7 +135,6 @@ the repo root. Builds and tests run in WSL through `scripts/wsl-run.ps1` (skill 
 | `test-img2mesh` | `img2mesh.py` from recorded replies, `meshy2mesh.py` on a test .glb, `local2mesh` | `Makefile:1223-1232` |
 | `test-ai` | assistant incl. `meshview sheet` of all 3D recipes | `Makefile:1212-1218` |
 | `test-b3d` | the 3D Bench (the only GPU test to run in development, `CLAUDE.md`, *Come si lavora*) | `Makefile:1337` |
-| `test-sdk-b16` | the RGB30 SDK at 360x360; not in `HOST_TESTS` | `Makefile:1264-1267` |
 
 - `test-host` = `HOST_TESTS` minus `HOST_SKIP` (`Makefile:825-836`); `test-studio`,
   `test-bm`, `test-res`, `test-ai` are in it (`Makefile:825-828`).
@@ -211,15 +210,12 @@ All standard library only unless noted.
 | CPU | ARM1176JZF-S, 1 core, raised to 1 GHz (`README.md:64`) | RK3566, 4× Cortex-A55 (`docs/RGB30.md:5-6`) |
 | RAM | 512 MB, 448 MB to the ARM (`README.md:67`) | 1 GB LPDDR4 (`docs/RGB30.md:6`) |
 | Memory bandwidth | memcpy ~100 MB/s, fill ~430 MB/s, "the real limit" (`README.md:68-69`) | — |
-| Screen (game) | 640x360, 480x270, 320x180, 256x256 (`src/bm/bm.h:12-14`; `README.md:70-71`) | 720x720 panel (`docs/RGB30.md:6`); `.b16` games 360x360 (`bm.h:9-11`) |
+| Screen (game) | 640x360, 480x270, 320x180, 256x256 (`src/bm/bm.h:12-14`; `README.md:70-71`) | 720x720 panel (`docs/RGB30.md:6`); games 360x360 (`bm.h:9-11`) |
 | 3D | V3D GPU fills pixels, ARM transforms (`README.md:70-73`); ARM-only in QEMU | software `r3d` ("The 3D on the RGB30 is `r3d`", `docs/progress/graphics-mali.md:11`) |
-| Lua memory | — (not found as a number) | `.b16` profile: Lua 4 MB, one 1024x1024 graphics bank, 8 voices, 64 KB save (`docs/B16.md:30-33`) |
+| Lua memory | — (not found as a number) | — (not found as a number) |
 
 - Triangle budget: "about 1200 triangles drawn at 60 fps" (`docs/GAME-GUIDE.md:321-322`).
 - Per-frame budget 16.7 ms for `_update` + `_draw` (`docs/GAME-GUIDE.md:179`).
-- `.b16`: a cap on triangles per frame counted toward the CPU (`docs/B16.md:41-42`),
-  fixed Lua instruction budget, drop to 30 fps when over (`docs/B16.md:34-40`); reference
-  1 000 000 instructions per tick as a loop guard (`docs/B16.md:489-492`).
 - Mesh hard limits: 65535 vertices and faces per mesh (`src/bm/r3d.c:1058`,
   `src/bm/bm.h:175-176`, `docs/api/light3d.md:69`); 256 models, 64 bones, 255 clips, 1024 keys
   (`bm.h:177-181`); sheet up to 4096 px (`bm.h:169`). Tool editors: 4096 / 16384
@@ -262,9 +258,8 @@ All standard library only unless noted.
    real `cart_write` writes them? That is a code change outside this skill's file.
 2. Should the Python core cap models at the tools' 4096/16384 (`bm3d.lua:34`) or the
    kernel's 65535 (`bm.h:175-176`)? Files above 4096 may not be re-saved by the tools.
-3. Which target the skill aims at: Pi `.bm` (640x360, ~1200 tris) or RGB30 `.b16`
-   (360x360, CPU-counted triangle cap not yet a number in `docs/B16.md:41-42`)? Two
-   editions, never one replacing the other (`CLAUDE.md`, *Non fare*).
+3. Which `targets` the skill aims at by default: Pi (640x360, ~1200 tris), RGB30 (360x360, no
+   triangle cap known) or both? `export cart --targets` lets the author choose.
 4. Is byte equality between `bmmesh.encode` and `T.encode_mesh` required for the same
    model (inset, vertex dedup differ)? Not tested anywhere I found.
 5. QEMU is missing in this WSL: should the skill avoid QEMU entirely (CI only) or ask to

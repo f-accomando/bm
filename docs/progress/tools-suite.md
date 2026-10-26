@@ -5,8 +5,7 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
   Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
   the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`,
-  or builds a real `.b16` when `target = "b16"`) and `Export .b16` (`Ctrl+Shift+B`,
-  `cart_build(path, "b16")`). Map page (`P.map`): layers, flags, `z` a 16×16 brush (2×2 cells,
+  `cart_build(path)`) and `Publish to the Market...` (`cart_publish(path)`: builds the .bm, then the Publish panel opens a pull request that the Market owner approves). Map page (`P.map`): layers, flags, `z` a 16×16 brush (2×2 cells,
   cursor and tile on even cells; fill on whole tiles), automatic 16×16 brush and first object
   placeholder tile (`>= 1024`) when switching to the `objects` layer, zoom in/out (`-`/`+`: 1, 2,
   4, 8, 16 px/cell), `m` (*Overview*) full 256×256 map at 1 px/cell with viewport box and
@@ -17,13 +16,11 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   16x16 tiles (a 16x16 tile is 2x2 cells), groups, boolean tile properties to flags 0-4, add or
   replace; host tests in `sdk_host.lua` and `sdk_b16_host.lua`. Not undoable (reopen the project).
 - **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
-  published as `editor.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
+  published as `editor.bm` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
   the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
   Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, page `snd` (F7: Sounds with 7 fields and Lib import `i`, Effects with 32 steps; QEMU `test_sdk_pad_*` drive it by keyboard), map zoom in/out
   (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
-  tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
-  `Export .b16` (`Ctrl+Shift+B`; exporting a `.b16` from a game left in `/carts` writes it in
-  `/bm/` so it appears immediately in Games). The Stages 2D template was removed on 25 Oct (user decision).
+  tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`). The Stages 2D template was removed on 25 Oct (user decision).
 - **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
   `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
   built clean with `CLEAN_KERNEL=1`.
@@ -51,8 +48,7 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   resource files `.bmm .bmi .bms .bmt .bmc .bmk`.
 - Shared Lua: `bm3d` (Studio/Animator; Mesh loads it only for the pure geometry `T.G`: `model_item`, `encode_model`, `orient`, `compact`... on the shape `{v, f, vb}`), `bmui` (mouse: zones registered while drawing,
   chips that press keys, `U.press` before `keyp()`, a context menu of keys).
-- Projects (M47): tools edit `.bme` in `/bme`, never a `.bm`/`.b16`; saving a game asks for a copy. `bm_build` and
-  `bm_build_b16` build from a `.bme` or a `.bm` into the games folder, never over the other edition. Layout, pickers and
+- Projects (M47): tools edit `.bme` in `/bme`, never a `.bm`; saving a game asks for a copy. `bm_build` builds from a `.bme` or a `.bm` into the games folder. Layout, pickers and
   old cards: [`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md). Runtime side in [lua](lua.md).
 
 ## Editor additions of 23 Oct (APP-17 to APP-28)

@@ -50,7 +50,7 @@ generated C array instead.
 3. Fibers. `src/kernel/fiber.c` is cooperative and uses its own stacks. wasm cannot switch stacks without
    Asyncify. bmhost runs a cartridge's `_update` and `_draw` loop without fibers, so games are not blocked.
    Calls that wait (SD reads, `net_wait_step`) need a stub or Asyncify.
-4. A loader. The page reads a `.bm` or `.b16` (file input, drag and drop, or `fetch`) and copies it to the
+4. A loader. The page reads a `.bm` (file input, drag and drop, or `fetch`) and copies it to the
    runtime's memory. Stage 1 reads the container in JavaScript (`web/bmcart.js`).
 5. Input mapping, audio output and a canvas scaler in JavaScript.
 6. A licence policy for cartridges that the site hosts (the SPDX `license` key of the INFO section).
@@ -62,7 +62,7 @@ generated C array instead.
   runtime. The runtime parses them again with `format.c`: the C parser stays the single authority.
 - **Rendering.** A cartridge is 640x360, 480x270, 320x180, 256x256 or 360x360 in RGB565. The page converts
   each frame to RGBA in a typed array and draws it on `canvas#bm-canvas` with integer scaling and
-  `image-rendering: pixelated`. The first target is a `.b16` cartridge (360x360), as in the ROADMAP row.
+  `image-rendering: pixelated`. The first target is a 360x360 cartridge, as in the ROADMAP row.
 - **Input.** Keyboard and Gamepad API map to the `HID_*` bits of `src/usb/hid.h` (D-pad, A, B, X, Y, L1,
   R1, L2, R2, Start, Select). Keys per device are in `docs/spec/ui-reference.md`.
 - **Audio.** The runtime mixes at 48 kHz in blocks of `AUDIO_CHUNK` (256) samples. An AudioWorklet reads a
@@ -103,8 +103,8 @@ generated C array instead.
 ## 7. Test plan
 
 Stage 1 (done): `node tests/webplayer/test_bmcart.js`, or `make test-webplayer` (it skips when Node is
-missing). The test checks the CRC-32 check value, a cartridge built in memory (title, author, size, `.b16`
-flag, sections, INFO lines, cover, Lua), a bad magic, a resource file, a short file, a missing LUA section, a
+missing). The test checks the CRC-32 check value, a cartridge built in memory (title, author, size, flags,
+sections, INFO lines, cover, Lua), a bad magic, a resource file, a short file, a missing LUA section, a
 wrong size, a wrong CRC, and a cartridge packed by `scripts/mkbm.py`. The page was also loaded in the
 browser pane, and a file was opened through the file input.
 

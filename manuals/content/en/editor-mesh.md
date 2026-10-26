@@ -55,7 +55,7 @@ The list marks each mesh with a letter.
 
 ## Projects and games
 
-All the tools of the suite change only **projects** (`.bme`). A **game** (`.bm` or `.b16`) they only read.
+All the tools of the suite change only **projects** (`.bme`). A **game** (`.bm`) they only read.
 
 - If you open a game, bm Mesh reads it and you can edit. The first save makes an editable copy, named after the game with the extension `.BME`, and from then on you work on the copy.
 - The status bar tells you when you opened a game: `a game: saving makes its copy`.
