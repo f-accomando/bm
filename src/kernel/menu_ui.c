@@ -45,6 +45,7 @@ static inline const font_t *menu_font(int sc)
     return sc == 3 ? &font_console_24x48 : sc == 2 ? &font_console_16x32 : &font_console_8x16;
 }
 #define FRAME_US 16667
+#define IDLE_MIN_US 2500                /* the least free time a late frame gives the jobs (Pi) */
 
 /* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
  * read the screen back) */
@@ -1878,6 +1879,13 @@ static void frame_flip_and_wait(framebuffer_t *fb, const menu_view_t *v, uint32_
          * margin for the flip), then the wait */
         until = deadline - 1500;
         gave = v->idle && (int32_t)(until - timer_ticks()) > 0;
+        if (v->idle && !gave) {
+            /* a frame that took its whole time (menu_scale 2 or 3: the ARM enlarges each frame) left no time:
+             * the Market and the covers never ran (Pi log of 25 Oct: 0/300 frames given). A late frame gives the
+             * jobs a small slice anyway; the menu drops frames, the work goes on. */
+            until = timer_ticks() + IDLE_MIN_US;
+            gave = 1;
+        }
     }
     if (gave) {
         const uint32_t from = timer_ticks();
