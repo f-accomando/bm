@@ -64,3 +64,5 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 - The hints on the screen come from `prompt()`: they show the key of the controller in use.
 - Not verified: the frame rate on the Pi Zero W (see 2.A), and the keyboard on the device.
 - The `.b16` of Yharnam stays as it is (`B16_AS_BM`: the same bytes as the `.bm`, flag bit 1). The user checks the `.b16` editions separately.
+- Start: the title is the town in the dark with a small light round the hunter and only the chip of the controller in use (`prompt("ok")`, no bar, no text). After the press the state is `intro` for 150 frames (`INTRO_LEN`): the light grows from the hunter to the screen edges (`dark_mask`, a stippled rim), the controls do not work, then the state is `play`. Checked on the PC with `bmplay` (frames saved as pictures); not checked on a device.
+- A boss slain: "PREY SLAUGHTERED" has no black bar. The "A WAY GIVES" banner keeps its small bar.

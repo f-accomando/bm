@@ -3104,6 +3104,7 @@ end
 
 
 local state = "title"
+local intro_t, INTRO_LEN = 0, 150          -- the light that spreads from the hunter after the title
 local t = 0
 local near_lamp
 
@@ -4465,7 +4466,7 @@ do
     if FOE.won then
       local k = FOE.won_t
       UI.c()
-      rectfill(-UI.x, 104, W, 48, 0x080604)
+      print("PREY SLAUGHTERED", 1, 113, 0x000000, 2)            -- no bar behind it: the town stays in view
       print("PREY SLAUGHTERED", 0, 112, k > 20 and 0xE8C878 or 0x786040, 2)
       camera()
     end
@@ -4934,7 +4935,7 @@ function _update()
   if state == "title" then
     -- the camera stays where the hunter is: the hunt begins when A is pressed
     if btnp(4) or btnp(5) then
-      state = "play"
+      state, intro_t = "intro", 0          -- the light spreads from the hunter, then the hunt is his
       new_hunt()
     elseif keyp() == "g" then              -- the animation viewer: a keyboard's key, for whoever draws
       state, gal.i = "gallery", 1
@@ -4944,6 +4945,12 @@ function _update()
     if P.anim ~= "idle" then play("idle") end
     step_anim()
     FOE.update(true)
+  elseif state == "intro" then
+    intro_t = intro_t + 1
+    if P.anim ~= "idle" then play("idle") end
+    step_anim()
+    FOE.update(true)
+    if intro_t >= INTRO_LEN then state = "play" end
   elseif state == "lamp" then
     -- at a hunter's lamp: rest, take a path with echoes, or leave
     local n = #PATHS + 2
@@ -5495,6 +5502,27 @@ local function draw_end()
   camera()
 end
 
+-- black over the whole screen but a disc of radius r round (cx, cy): its edge is stippled (each pair of rows
+-- ends at its own distance), so the light has no hard rim
+local DARK_RMAX = floor(sqrt(W * W + H * H)) + 25
+local DARK_STEP = { 0, 9, 4, 13 }
+local function dark_mask(cx, cy, r)
+  camera()
+  for y = 0, H - 1, 2 do
+    local rr = r + DARK_STEP[(y // 2) % 4 + 1]
+    local dy = y + 1 - cy
+    local d = rr * rr - dy * dy
+    if d <= 0 then
+      rectfill(0, y, W, 2, 0x000000)
+    else
+      local dx = floor(sqrt(d))
+      local x0, x1 = cx - dx, cx + dx
+      if x0 > 0 then rectfill(0, y, x0, 2, 0x000000) end
+      if x1 < W then rectfill(x1, y, W - x1, 2, 0x000000) end
+    end
+  end
+end
+
 function _draw()
   if state == "gallery" then
     draw_gallery()
@@ -5508,17 +5536,22 @@ function _draw()
   end
   emit()
   local fire_near = draw_scene()
-  if state == "title" then
-    if t <= 150 then
-      UI.c()
-      rectfill(-UI.x, 16, W, 48, 0x000000)
-      print("YHARNAM", 96, 16, 0xE8C878)
-      print("a town of endless night", 40, 32, 0x8890A0)
+  if state == "title" or state == "intro" then
+    -- the town is dark but for the hunter; at the start the light spreads from him to the edges
+    local r
+    if state == "title" then
+      r = 22 + 2 * sin(t / 24)
+    else
+      local k = min(1, intro_t / INTRO_LEN)
+      k = k * k * (3 - 2 * k)
+      r = 22 + (DARK_RMAX - 22) * k
     end
-    UI.f()
-    rectfill(-UI.x, 208, W, 16, 0x000000)
-    UI.hint("ok", "START", (256 - UI.hint_w("ok", "START")) // 2, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
-    camera()
+    dark_mask(floor(P.x - cam_x), floor(P.y - cam_y) - 14, r)
+    if state == "title" then
+      UI.f()
+      prompt("ok", (256 - (UI.hint_w("ok", "") - 4)) // 2, 216, false, 1, 1)   -- only the chip of the controller in use
+      camera()
+    end
   elseif state == "gallery" then
     -- drawn by draw_gallery
   else

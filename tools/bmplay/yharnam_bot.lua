@@ -310,6 +310,7 @@ function bot(frame)
   if st == "title" then
     return (frame % 150 == 120) and A or 0
   end
+  if st == "intro" then return 0 end
   if st == "lost" then
     S.lost = true
     log(string.format("bot: the hunt is lost at frame %d", frame))
