@@ -1,0 +1,156 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1774-g053727f3
+branch: claude/pensive-ride-u82p7f
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-16c85e_freeze_pi-zero-w_v0.2.5-1774-g053727f3.txt
+
+the Pi froze (the watchdog restarted it) while: monitor line "reboot", frame 0, 11192 s after boot, kernel v0.2.5-1774-g053727f3, ring 139997, sink on
+--- the last lines printed ---
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+fb_init_depth: mbox_call failed
+bm: cannot set 640x360 RGB565
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 2x, 360p on the ARM
+fb_init_depth: mbox_call failed
+fb_init_depth: mbox_call failed
+
+playing bench3d.bm
+play: /bm/bench3d.bm (451932 bytes)
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+fb_init_depth: mbox_call failed
+bm: cannot set 640x360 RGB565
+
+playing bench3d.bm
+play: /bm/bench3d.bm (451932 bytes)
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+fb_init_depth: mbox_call failed
+bm: cannot set 640x360 RGB565
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   mouse link lost after 224 ms: it closed the link (switched off, or another console) (reason 13)
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+bt:   report map 140 bytes: mouse found, report ID 2
+bt: mouse df:0e:42:84:a7:2d connected, it moves the pointer
+bt: mouse disconnected after 5903 ms: it closed the link (switched off, or another console) (reason 13)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+type 'h' for help
+> :
+:report log
+: report log
+report: 20261026-171001_log_pi-zero-w_v0.2.5-1774-g053727f3.txt saved as bm/reports/rpt00001.txt
+report: sending 20261026-171001_log_pi-zero-w_v0.2.5-1774-g053727f3.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pensive-ride-u82p7f/20261026-171001_log_pi-zero-w_v0.2.5-1774-g053727f3.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:net status
+: net status
+net: wifi linked, ethernet none, IP 192.168.1.108, time 2026-10-26 17:10 UTC
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:dmesg
+: dmesg
+'dmesg': not a command of the line ('help' lists the commands)
+the line is done
+> 
+net: console closed
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+
+net: console opened from 192.168.1.115
+> s
+unknown command (0x73), 'h' for help
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> M
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 2x, 360p on the ARM
+fb_init_depth: mbox_call failed
+fb_init_depth: mbox_call failed
+
+net: console closed
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> back to the monitor
+> :
+:report log
+: report log
+report: 20261026-171610_log_pi-zero-w_v0.2.5-1774-g053727f3.txt saved as bm/reports/rpt00001.txt
+report: sending 20261026-171610_log_pi-zero-w_v0.2.5-1774-g053727f3.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pensive-ride-u82p7f/20261026-171610_log_pi-zero-w_v0.2.5-1774-g053727f3.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:net status
+: net status
+net: wifi linked, ethernet none, IP 192.168.1.108, time 2026-10-26 17:16 UTC
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:net status
+: net status
+net: wifi linked, ethernet none, IP 192.168.1.108, time 2026-10-26 17:16 UTC
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:crash freeze
+: crash freeze
+'crash': not a command of the line ('help' lists the commands)
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:reboot
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
