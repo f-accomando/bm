@@ -1386,65 +1386,90 @@ local function quarter_pave(i, j, reg)
   return P[hash(i // 3, j // 3, 41) % #P + 1]
 end
 
--- The hunt (2026-10-10, the user's map): the map is 8 x 8 chunks in four quarters, the
--- areas, each with its boss in a district of its kind and two hunter's lamps (one half
--- way, one before the boss). No hub and no mist inside: the mist is only round the map.
--- A border between two areas is a barricade of crates all along it: a gate where a few
--- of its chunks are listed (edge), sealed everywhere else. A gate gives way to a blow
--- once its boss is slain (requires), at once if it needs none; "oneway" only to a hunter
--- on the side it opens from; "horde" crowds its chunks with prey until it has given
--- way. Once broken a gate stays open (G.gates) for the whole hunt, whatever else the
--- town does again. Echoes: what the slain leave; they heal, they buy strength at a
--- lamp, a death costs some, and without them the hunt is lost.
+-- The hunt (2026-10-10, the user's map): the map is 8 x 8 chunks in four areas, each with its
+-- boss in a district of its kind and two hunter's lamps (one half way, one before the boss). No
+-- hub and no mist inside: the mist is only round the map. The areas are drawn on a grid of
+-- 16 x 16 half-chunk cells (MAP.grid: a cell is 8 x 8 tiles, 128 px; a chunk is 2 x 2 cells),
+-- so a border may run through the middle of a chunk. A border between two areas is a barricade
+-- of crates all along it: a gate where a gate's pair of cells sits on it, sealed everywhere
+-- else. A gate gives way to a blow once its boss is slain (requires), at once if it needs
+-- none; "oneway" only to a hunter on the side it opens from; "horde" crowds its chunks with
+-- prey until it has given way. Once broken a gate stays open (G.gates) for the whole hunt,
+-- whatever else the town does again. Echoes: what the slain leave; they heal, they buy
+-- strength at a lamp, a death costs some, and without them the hunt is lost.
 -- (carts/yharnam/map_schema.lua of the branch yharnam-nonlinear-map-schema, with its geometry
--- put right: the forest and the cathedral do not touch, nor are two gates to share a border chunk.)
+-- put right: the forest and the cathedral do not touch, nor are two gates to share a border cell.)
 local MAP = {
   size = 8,
+  -- the areas in order: 1 central (C), 2 forest (F), 3 cathedral (K), 4 forbidden (X)
   areas = {
-    { id = "central", name = "Central Yharnam", x0 = 0, y0 = 0, x1 = 3, y1 = 3, boss = "butcher",
-      bc = { 2, 2 }, lamps = { { 1, 1 }, { 2, 1 } },
-      -- the old town: squares along the way up to the pyre (the start, the lamp, the Butcher's),
-      -- a park by the cathedral's gate, a graveyard in the corner
-      layout = { "sttc", "tstt", "ttBp", "pttt" } },
-    { id = "forest", name = "Forest", x0 = 0, y0 = 4, x1 = 3, y1 = 7, boss = "hound",
-      bc = { 1, 6 }, lamps = { { 2, 5 }, { 1, 5 } },
-      -- woods with two clearings, the Hound's in the south, and two old graveyards in the trees
-      layout = { "wwww", "wwlw", "cBww", "wwwc" } },
-    { id = "cathedral", name = "Cathedral Ward", x0 = 4, y0 = 0, x1 = 7, y1 = 3, boss = "father",
-      bc = { 6, 1 }, lamps = { { 5, 1 }, { 6, 0 } },
-      -- the ward: chapels and graveyards round the Father's, a square between the lamps
-      layout = { "tthc", "tcBc", "tsct", "tttt" } },
-    { id = "forbidden", name = "Forbidden Quarter", x0 = 4, y0 = 4, x1 = 7, y1 = 7, boss = "watcher",
-      bc = { 5, 6 }, lamps = { { 6, 5 }, { 5, 5 } },
-      -- the forbidden quarter: chapels in a ring, graveyards, one more pyre
-      layout = { "tccy", "chhc", "tBcy", "ctht" } },
+    { id = "central", name = "Central Yharnam", boss = "butcher", bc = { 2, 2 }, lamps = { { 0, 2 }, { 2, 1 } } },
+    { id = "forest", name = "Forest", boss = "hound", bc = { 1, 6 }, lamps = { { 3, 6 }, { 1, 5 } } },
+    { id = "cathedral", name = "Cathedral Ward", boss = "father", bc = { 6, 1 }, lamps = { { 5, 3 }, { 5, 1 } } },
+    { id = "forbidden", name = "Forbidden Quarter", boss = "watcher", bc = { 5, 6 }, lamps = { { 7, 4 }, { 5, 5 } } },
   },
-  -- a, b: the two areas; edge: the chunks (of either side) it is in; type: "breakable", "oneway",
-  -- "horde+breakable"; requires: the boss to slay first; from: the area a oneway gate opens from
+  -- the area of each half-chunk cell, 16 rows north to south of 16 letters west to east
+  grid = {
+    "CCCCCCCCKKKKKKKK", "CCCCCCCCKKKKKKKK", "CCCCCCCCCKKKKKKK", "CCCCCCCCCKKKKKKK",
+    "CCCCCCCCCCKKKKKK", "CCCCCCCCCKKKKKKK", "CCCCCCCCCKKKKKKK", "CCCCCCCCKKKKKKKK",
+    "FFFFFCCCKKKXXXXX", "FFFFFFFFXXXXXXXX", "FFFFFFFFFXXXXXXX", "FFFFFFFFFFXXXXXX",
+    "FFFFFFFFFXXXXXXX", "FFFFFFFFFFXXXXXX", "FFFFFFFFXXXXXXXX", "FFFFFFFFXXXXXXXX",
+  },
+  -- the kind of each chunk (letters of MAP.kinds, B the boss's arena), 8 rows north to south:
+  -- the old town with a park by the cathedral's gate, woods with two clearings, the ward's
+  -- chapels and graveyards, the forbidden quarter's chapels in a ring and one more pyre
+  layout = { "sttctthc", "tstttcBc", "ttBptsct", "pttttttt", "wwwwtccy", "wwlwwhhc", "cBwwwBcy", "wwwcctht" },
+  -- pair: the two cells (ax, ay, bx, by), 4-adjacent, one in each area; look: how the barricade looks;
+  -- type: "breakable", "oneway", "horde+breakable"; requires: the boss to slay first; from: the area
+  -- a oneway gate opens from
   gates = {
-    { id = "central_forest", a = "central", b = "forest", type = "horde+breakable", edge = { { 1, 3 }, { 2, 3 } } },
+    { id = "central_forest", a = "central", b = "forest", type = "horde+breakable", pair = { 3, 7, 3, 8 },
+      look = "deadfall" },
     { id = "central_cathedral", a = "central", b = "cathedral", type = "breakable", requires = "butcher",
-      edge = { { 3, 1 }, { 3, 2 } } },
+      pair = { 8, 2, 9, 2 }, look = "iron_gate" },
     { id = "forest_forbidden_oneway", a = "forest", b = "forbidden", type = "oneway", requires = "hound",
-      from = "forest", edge = { { 3, 4 }, { 3, 5 } } },
+      from = "forest", pair = { 8, 10, 9, 10 }, look = "passage" },
     { id = "forest_forbidden", a = "forest", b = "forbidden", type = "breakable", requires = "hound",
-      edge = { { 3, 6 }, { 3, 7 } } },
+      pair = { 7, 14, 8, 14 }, look = "iron_gate" },
     { id = "cathedral_forbidden", a = "cathedral", b = "forbidden", type = "horde+breakable", requires = "father",
-      edge = { { 5, 3 }, { 6, 3 } } },
+      pair = { 12, 7, 12, 8 }, look = "iron_gate" },
     { id = "cathedral_central", a = "central", b = "cathedral", type = "oneway", from = "cathedral",
-      edge = { { 4, 3 } } },
+      pair = { 8, 6, 9, 6 }, look = "passage" },
     { id = "forbidden_cathedral", a = "cathedral", b = "forbidden", type = "oneway", requires = "watcher",
-      from = "forbidden", edge = { { 4, 4 } } },
+      from = "forbidden", pair = { 9, 8, 9, 9 }, look = "passage" },
   },
   lamp = {}, horde = {},
   -- the letters of a layout (rows north to south, one to a chunk); B is the boss's arena
   kinds = { t = "town", s = "square", p = "park", c = "cemetery", y = "pyre", w = "woods", l = "clearing",
             h = "chapel" },
 }
--- the area (its number) a chunk is in; nil outside the map
+-- the area (its number) of a half-chunk cell (8 x 8 tiles); nil outside 0..15
+local AREA_LETTER = { C = 1, F = 2, K = 3, X = 4 }
+function MAP.cell_area(hx, hy)
+  local row = MAP.grid[hy + 1]
+  if hx < 0 or hx > 15 or not row then return nil end
+  return AREA_LETTER[row:sub(hx + 1, hx + 1)]
+end
+-- the area at a pixel of the world
+function MAP.area_px(x, y) return MAP.cell_area(fdiv(x, 128), fdiv(y, 128)) end
+-- the area (its number) a chunk is in: the most of its 4 cells, on a 2-2 tie the south west one;
+-- worked out once at load; nil outside the map
+local CHUNK_AREA = {}
 function MAP.area_of(cx, cy)
-  for i, a in ipairs(MAP.areas) do
-    if cx >= a.x0 and cx <= a.x1 and cy >= a.y0 and cy <= a.y1 then return i end
+  if cx < 0 or cx > 7 or cy < 0 or cy > 7 then return nil end
+  return CHUNK_AREA[cy * 8 + cx]
+end
+for cy = 0, 7 do
+  for cx = 0, 7 do
+    local n, best = {}, 0
+    for _, o in ipairs({ { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } }) do
+      local a = MAP.cell_area(2 * cx + o[1], 2 * cy + o[2])
+      n[a] = (n[a] or 0) + 1
+      if n[a] > best then best = n[a] end
+    end
+    local top, many = nil, 0
+    for a, c in pairs(n) do if c == best then top, many = a, many + 1 end end
+    CHUNK_AREA[cy * 8 + cx] = many == 1 and top or MAP.cell_area(2 * cx, 2 * cy + 1)
   end
 end
 -- the region of a chunk (outside the map: of the nearest)
@@ -1461,19 +1486,57 @@ do
   end
   for _, g in ipairs(MAP.gates) do
     g.a, g.b, g.from = ix[g.a], ix[g.b], g.from and ix[g.from]
-    if g.type:find("horde", 1, true) then            -- its chunks, and the ones across the border
-      for _, e in ipairs(g.edge) do
-        MAP.horde[key2(e[1], e[2])] = g
+    if g.type:find("horde", 1, true) then            -- the chunks of the two cells of its pair
+      local p = g.pair
+      MAP.horde[key2(p[1] // 2, p[2] // 2)] = g
+      MAP.horde[key2(p[3] // 2, p[4] // 2)] = g
+    end
+  end
+  -- checks at load: the map must be what the rules above say
+  assert(#MAP.grid == 16, "MAP.grid: 16 rows")
+  for hy = 0, 15 do
+    assert(#MAP.grid[hy + 1] == 16 and not MAP.grid[hy + 1]:find("[^CFKX]"), "MAP.grid: 16 letters of CFKX in row " .. hy)
+  end
+  assert(#MAP.layout == 8, "MAP.layout: 8 rows")
+  for cy = 0, 7 do assert(#MAP.layout[cy + 1] == 8, "MAP.layout: 8 letters in row " .. cy) end
+  for hy = 0, 15 do
+    for hx = 0, 15 do
+      if MAP.cell_area(hx, hy) == 2 then
         for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
-          local ia, ib = MAP.area_of(e[1], e[2]), MAP.area_of(e[1] + d[1], e[2] + d[2])
-          if ib and ib ~= ia and (ia == g.a and ib == g.b or ia == g.b and ib == g.a) then
-            MAP.horde[key2(e[1] + d[1], e[2] + d[2])] = g
-          end
+          assert(MAP.cell_area(hx + d[1], hy + d[2]) ~= 3, "MAP.grid: forest cell next to a cathedral cell at " .. hx .. "," .. hy)
         end
       end
     end
   end
+  for _, g in ipairs(MAP.gates) do
+    local p = g.pair
+    assert(abs(p[1] - p[3]) + abs(p[2] - p[4]) == 1, "gate " .. g.id .. ": the pair is not 4-adjacent")
+    local ia, ib = MAP.cell_area(p[1], p[2]), MAP.cell_area(p[3], p[4])
+    assert(ia and ib and ia ~= ib and (ia == g.a and ib == g.b or ia == g.b and ib == g.a),
+           "gate " .. g.id .. ": the pair is not across the border of its two areas")
+  end
+  -- a chunk is pure when its 4 cells are of one area
+  local function pure(cx, cy, a, what)
+    for _, o in ipairs({ { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } }) do
+      assert(MAP.cell_area(2 * cx + o[1], 2 * cy + o[2]) == a, what .. " chunk " .. cx .. "," .. cy .. " is not pure")
+    end
+  end
+  local all = {}
+  for i, a in ipairs(MAP.areas) do
+    pure(a.bc[1], a.bc[2], i, a.id .. " boss")
+    for k, l in ipairs(a.lamps) do
+      pure(l[1], l[2], i, a.id .. " lamp " .. k)
+      all[#all + 1] = l
+    end
+  end
+  assert(#all == 8, "MAP: 8 lamps")
+  for i = 1, #all do
+    for j = i + 1, #all do
+      assert(max(abs(all[i][1] - all[j][1]), abs(all[i][2] - all[j][2])) >= 2, "MAP: two lamps too near")
+    end
+  end
 end
+
 -- The map drawn by hand (the SDK's map page, F3 F3; in the repository carts/yharnam/map_ground.csv,
 -- map_overlay.csv and map_objects.csv, the first ones made by carts/yharnam/mkmap.py from the streets below): the
 -- whole hunt, MAP.size x MAP.size chunks of CS x CS tiles of 2 x 2 cells (256 x 256 cells). Its first layer is
@@ -1510,27 +1573,24 @@ do
                coffin_up = "coffin", grave_cross = "grave", grave_broken = "grave", grave_round = "grave" }
 end
 
--- the gate on the border between chunks (ax, ay) and (bx, by) (two areas): nil, sealed
+-- the gate on the border between the cells (ax, ay) and (bx, by): nil, sealed
 function MAP.gate_at(ax, ay, bx, by)
-  local ia, ib = MAP.area_of(ax, ay), MAP.area_of(bx, by)
   for _, g in ipairs(MAP.gates) do
-    if g.a == ia and g.b == ib or g.a == ib and g.b == ia then
-      for _, e in ipairs(g.edge) do
-        if e[1] == ax and e[2] == ay or e[1] == bx and e[2] == by then return g end
-      end
-    end
+    local p = g.pair
+    if p[1] == ax and p[2] == ay and p[3] == bx and p[4] == by
+       or p[1] == bx and p[2] == by and p[3] == ax and p[4] == ay then return g end
   end
 end
-function MAP.gate_near(cx, cy)
-  for _, d in ipairs({ { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 } }) do
-    local g = MAP.gate_at(cx, cy, cx + d[1], cy + d[2])
-    if g then return g end
-  end
-  local ia = MAP.area_of(cx, cy)
+-- the gate nearest to the cell (hx, hy), by the Chebyshev distance to the cells of its pair (a tie:
+-- the first in MAP.gates); nil if none is within 1 cell
+function MAP.gate_near(hx, hy)
+  local best, bd = nil, 2
   for _, g in ipairs(MAP.gates) do
-    if g.a == ia or g.b == ia then return g end
+    local p = g.pair
+    local d = min(max(abs(p[1] - hx), abs(p[2] - hy)), max(abs(p[3] - hx), abs(p[4] - hy)))
+    if d < bd then best, bd = g, d end
   end
-  return MAP.gates[1]
+  return best
 end
 local G = { echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {}, time = 0, deaths = 0,
             slain = 0, done = false, bosses = {}, gates = {},
@@ -1630,8 +1690,7 @@ local function district(cx, cy)
   local kind, bossy = reg.wild and "woods" or "town", false
   local ai = MAP.area_of(cx, cy)
   if ai then
-    local a = MAP.areas[ai]
-    local c = a.layout[cy - a.y0 + 1]:sub(cx - a.x0 + 1, cx - a.x0 + 1)
+    local c = MAP.layout[cy + 1]:sub(cx + 1, cx + 1)
     kind = c == "B" and reg.boss or MAP.kinds[c]
     bossy = c == "B"
   end
@@ -2379,23 +2438,30 @@ local function gen(ch)
     ch.unit = nil
   end
 
-  -- the borders with another area, east and south of this chunk: a barricade of crates all
-  -- along (a gate, or sealed: MAP). Its colliders overlap: no gap to slip through
+  -- TEMPORARY: the borders between the cells of two areas, east and south of each cell of this
+  -- chunk: a barricade of crates all along it (a gate, or sealed: MAP), on the last column or row
+  -- of the west or north cell. Its colliders overlap: no gap to slip through. A later change
+  -- puts walls here.
   local bdone = {}
-  for _, dir in ipairs({ { 1, 0 }, { 0, 1 } }) do
-    local nx, ny = cx + dir[1], cy + dir[2]
-    local ia, ib = MAP.area_of(cx, cy), MAP.area_of(nx, ny)
-    if ia and ib and ia ~= ib then
-      local g = MAP.gate_at(cx, cy, nx, ny)
-      local bk = g and "gate" or "barricade"
-      for step = 0, CS - 1 do
-        local lx = dir[1] == 1 and (CS - 1) or step
-        local ly = dir[2] == 1 and (CS - 1) or step
-        local i = ly * CS + lx + 1
-        if not bdone[i] and kind[i] ~= K_HOUSE and not solid[i] then
-          bdone[i] = true
-          drop_tile_unit(lx, ly)
-          add_barrier(bk, lx, ly, g)
+  for hy = cy * 2, cy * 2 + 1 do
+    for hx = cx * 2, cx * 2 + 1 do
+      local ia = MAP.cell_area(hx, hy)
+      for _, dir in ipairs({ { 1, 0 }, { 0, 1 } }) do
+        local nx, ny = hx + dir[1], hy + dir[2]
+        local ib = MAP.cell_area(nx, ny)
+        if ia and ib and ia ~= ib then
+          local g = MAP.gate_at(hx, hy, nx, ny)
+          local bk = g and "gate" or "barricade"
+          for step = 0, 7 do
+            local lx = dir[1] == 1 and ((hx % 2) * 8 + 7) or ((hx % 2) * 8 + step)
+            local ly = dir[2] == 1 and ((hy % 2) * 8 + 7) or ((hy % 2) * 8 + step)
+            local i = ly * CS + lx + 1
+            if not bdone[i] and kind[i] ~= K_HOUSE and not solid[i] then
+              bdone[i] = true
+              drop_tile_unit(lx, ly)
+              add_barrier(bk, lx, ly, g)
+            end
+          end
         end
       end
     end
@@ -2522,7 +2588,7 @@ local function gen(ch)
         add_shrine(lx, ly, lamp and lamp.a or MAP.area_of(cx, cy) or 1, lamp and lamp.k or ((cx + cy) % 8 + 1))
         return
       elseif k == "barricade" or k == "gate" then
-        local g = k == "gate" and (MAP.gate_near(cx, cy) or { id = 1, area = (MAP.area_of(cx, cy) or 1) + 1 }) or nil
+        local g = k == "gate" and MAP.gate_near((tx0 + lx) // 8, (ty0 + ly) // 8) or nil     -- nil: sealed
         add_barrier(k, lx, ly, g)
         return
       elseif k == "boss" then
@@ -2967,7 +3033,7 @@ end
 function MAP.can(g)
   if G.gates[g.id] then return true end
   if g.requires and not G.bosses[g.requires] then return false, "A BOSS HOLDS THE WAY" end
-  if g.from and MAP.area_of(fdiv(P.x, CPX), fdiv(P.y, CPX)) ~= g.from then return false, "BARRED FROM THIS SIDE" end
+  if g.from and MAP.area_px(P.x, P.y) ~= g.from then return false, "BARRED FROM THIS SIDE" end
   return true
 end
 -- broken: the whole gate is open, in every chunk, for the rest of the hunt
@@ -3532,7 +3598,7 @@ do
         local k = ch.kind[ly * CS + lx + 1]
         local x, y = (cx * CS + lx) * TS + 8, (cy * CS + ly) * TS + 8
         if (k == K_ROAD or k == K_WALK or k == K_FREE or d.wild and k == K_GRASS) and not ch.solid[ly * CS + lx + 1]
-           and not stuck(x, y, 8) then
+           and MAP.area_px(x, y) == area + 1 and not stuck(x, y, 8) then
           return x, y
         end
       end

@@ -387,7 +387,8 @@ function bot(frame)
     end
   end
   local dd = abs(g.x - P.x) + abs(g.y - P.y)
-  if g.kind == "lamp" and dd < 14 and not P.act then
+  -- at the lamp: near its spot, or anywhere the game lets a hunter light it (a house may stand south of it)
+  if g.kind == "lamp" and (dd < 14 or P.shrine == g.sh) and not P.act then
     return (frame % 10 == 0) and A or 0
   end
   if P.hp < P.hpmax * 0.6 and G.echoes >= 400 and not P.act then
