@@ -1404,11 +1404,11 @@ end
 
 -- The hunt (2026-10-10, the user's map): the map is 8 x 8 chunks in four areas, each with its
 -- boss in a district of its kind and two hunter's lamps (one half way, one before the boss). No
--- hub and no mist inside: the mist is only round the map. The areas are drawn on a grid of
+-- hub inside, and walls, rocks and trees round the map. The areas are drawn on a grid of
 -- 16 x 16 half-chunk cells (MAP.grid: a cell is 8 x 8 tiles, 128 px; a chunk is 2 x 2 cells),
--- so a border may run through the middle of a chunk. A border between two areas is a barricade
--- of crates all along it: a gate where a gate's pair of cells sits on it, sealed everywhere
--- else. A gate gives way to a blow once its boss is slain (requires), at once if it needs
+-- so a border may run through the middle of a chunk. A border between two areas is a wall (or
+-- rocks, or a line of trees: MAP.wall) all along it: a gate in it where a gate's pair of cells sits
+-- there, sealed everywhere else. A gate gives way to a blow once its boss is slain (requires), at once if it needs
 -- none; "oneway" only to a hunter on the side it opens from; "horde" crowds its chunks with
 -- prey until it has given way. Once broken a gate stays open (G.gates) for the whole hunt,
 -- whatever else the town does again. Echoes: what the slain leave; they heal, they buy
@@ -1435,7 +1435,7 @@ local MAP = {
   -- the old town with a park by the cathedral's gate, woods with two clearings, the ward's
   -- chapels and graveyards, the forbidden quarter's chapels in a ring and one more pyre
   layout = { "sttctthc", "tstttcBc", "ttBptsct", "pttttttt", "wwwwtccy", "wwlwwhhc", "cBwwwBcy", "wwwcctht" },
-  -- pair: the two cells (ax, ay, bx, by), 4-adjacent, one in each area; look: how the barricade looks;
+  -- pair: the two cells (ax, ay, bx, by), 4-adjacent, one in each area; look: how the gate looks;
   -- type: "breakable", "oneway", "horde+breakable"; requires: the boss to slay first; from: the area
   -- a oneway gate opens from
   gates = {
@@ -1455,6 +1455,12 @@ local MAP = {
       from = "forbidden", pair = { 9, 8, 9, 9 }, look = "passage" },
   },
   lamp = {}, horde = {},
+  -- what closes a border (a segment of 8 tiles between two cells of different areas, key "low,high" by
+  -- the area numbers) and the edge of the map (by the area of the edge cell)
+  wall = { ["1,3"] = "wall", ["1,2"] = "treeline", ["2,4"] = "rocks", ["3,4"] = "wall",
+           edge = { "wall", "treeline", "wall", "wall" } },
+  -- closed iron gates for show on the edge of the map (cell, side): sealed, not to be broken
+  decor = { { 2, 0, "n" }, { 0, 2, "w" }, { 13, 0, "n" }, { 15, 2, "e" }, { 15, 13, "e" }, { 13, 15, "s" } },
   -- the letters of a layout (rows north to south, one to a chunk); B is the boss's arena
   kinds = { t = "town", s = "square", p = "park", c = "cemetery", y = "pyre", w = "woods", l = "clearing",
             h = "chapel" },
@@ -1559,8 +1565,8 @@ end
 -- "ground", then what lies on it ("overlay": kerbs, grass edges, puddles, leaves) and any layer added in the SDK,
 -- all drawn under the objects (MAP.drawn: their numbers). "objects" is not drawn: its placeholders (PLACE, a
 -- 16x16 tile each, art/places.py) say where the houses, trees, lamps, graves and things stand (MAP.objects; gen
--- makes them there). The hunter's lamps, the barricades and their gates, the bosses' arenas and the areas stay
--- MAP's. Beyond the map (behind the mist, never walked) and without a drawn map (a cartridge built without one,
+-- makes them there). The hunter's lamps, the borders and their gates, the bosses' arenas and the areas stay
+-- MAP's. Beyond the map (never seen, never walked) and without a drawn map (a cartridge built without one,
 -- the PC tests) the ground is made with the chunks, into a ring of RING x RING chunks, a layer of its own after
 -- the others (MAP.ring: nil if there is no room, 8 layers); without "objects" the things are the plan's. (A
 -- player with no layers, tools/bmplay, has no msize: the ring.)
@@ -1702,7 +1708,7 @@ local function district(cx, cy)
   if d then return d end
   local h = hash(cx, cy, 7)
   local reg = REGION.of(cx, cy)
-  -- what the layout of its area says (outside the map, where only the mist is: the area's own ground)
+  -- what the layout of its area says (outside the map, never seen: the area's own ground)
   local kind, bossy = reg.wild and "woods" or "town", false
   local ai = MAP.area_of(cx, cy)
   if ai then
@@ -1820,7 +1826,10 @@ local chunks, slots = {}, {}
 -- the town fills again (FOE.reset: a lamp, a death)
 local banner, banner_t = nil, 0
 local BRK = { kinds = { barrel = "barrel_broken", crate = "crate_broken", crates = "crates_broken",
-                        bench = "bench_broken", coffin = "coffin_broken", coffin_up = "coffin_up_broken" },
+                        bench = "bench_broken", coffin = "coffin_broken", coffin_up = "coffin_up_broken",
+                        iron_gate_h = "iron_gate_h_open", iron_gate_v = "iron_gate_v_open",
+                        passage_h = "passage_h_open", passage_v = "passage_v_open",
+                        deadfall = "deadfall_broken" },
               gone = {}, count = 0 }
 
 -- objects: { s = sprite, x, y (the base, world pixels), z = sort key, ... }; u: the unit being made (ch.unit,
@@ -2455,30 +2464,91 @@ local function gen(ch)
     ch.unit = nil
   end
 
-  -- TEMPORARY: the borders between the cells of two areas, east and south of each cell of this
-  -- chunk: a barricade of crates all along it (a gate, or sealed: MAP), on the last column or row
-  -- of the west or north cell. Its colliders overlap: no gap to slip through. A later change
-  -- puts walls here.
+  -- A tile of a border between areas or round the map. Wall, rocks, treeline: solid ground with a
+  -- sprite and no collider. A gate kind (iron_gate_*, passage_*, deadfall): a collider; g is its gate
+  -- (MAP.gates), nil is sealed. A house, a solid tile, a tile done, the start and a lamp's shrine are left.
+  local GATE_KIND = { iron_gate_h = true, iron_gate_v = true, passage_h = true, passage_v = true, deadfall = true }
   local bdone = {}
-  for hy = cy * 2, cy * 2 + 1 do
-    for hx = cx * 2, cx * 2 + 1 do
-      local ia = MAP.cell_area(hx, hy)
-      for _, dir in ipairs({ { 1, 0 }, { 0, 1 } }) do
-        local nx, ny = hx + dir[1], hy + dir[2]
-        local ib = MAP.cell_area(nx, ny)
-        if ia and ib and ia ~= ib then
-          local g = MAP.gate_at(hx, hy, nx, ny)
-          local bk = g and "gate" or "barricade"
-          for step = 0, 7 do
-            local lx = dir[1] == 1 and ((hx % 2) * 8 + 7) or ((hx % 2) * 8 + step)
-            local ly = dir[2] == 1 and ((hy % 2) * 8 + 7) or ((hy % 2) * 8 + step)
-            local i = ly * CS + lx + 1
-            if not bdone[i] and kind[i] ~= K_HOUSE and not solid[i] then
-              bdone[i] = true
-              drop_tile_unit(lx, ly)
-              add_barrier(bk, lx, ly, g)
+  local function add_border(k, lx, ly, g)
+    local i = ly * CS + lx + 1
+    if lx < 0 or ly < 0 or lx >= CS or ly >= CS or bdone[i] or kind[i] == K_HOUSE or solid[i] then return end
+    if cx == 0 and cy == 0 and abs(lx - 8) <= 2 and abs(ly - 12) <= 2 then return end
+    if ch.shrine and ch.shrine.u and ch.shrine.u.lx == lx and ch.shrine.u.ly == ly then return end
+    bdone[i] = true
+    drop_tile_unit(lx, ly)
+    local u = unit(k, lx, ly)
+    take(lx, ly)
+    local x, y = wx(lx), wy(ly) + 4
+    if GATE_KIND[k] then
+      local o = add_obj(ch, k, x, y, nil, { 10, 10 })
+      o.gate, o.sealed = g, not g
+      if g and MAP.G.gates[g.id] then BRK.wreck(o) end
+      if (lx + ly) % 3 == 1 and not (g and MAP.G.gates[g.id]) then
+        add_light(ch, x, y - 10, g and 56 or 44, g and 4 or 3, 0, 0.7)
+      end
+    else
+      solid[i], u.solid = true, true
+      local rr = newrng(hash(tx0 + lx, ty0 + ly, 73))
+      if k == "rocks" then
+        add_obj(ch, pick(rr, { "rocks", "rocks2" }), x, y)
+      elseif k == "treeline" then
+        add_obj(ch, pick(rr, { "tree", "tree2", "tree3" }), x + irange(rr, -3, 3), y)
+      else
+        add_obj(ch, k, x, y)
+      end
+    end
+    ch.unit = nil
+  end
+
+  -- The plan's borders (a drawn map has them as placeholders): 8 tiles between two 4-adjacent cells of
+  -- different areas, on the last column or row of the west or north cell, and the outer line of the
+  -- map. A gate sits in the middle of its segment (a deadfall is wider), a decor gate is sealed.
+  -- horiz: the segment runs along x; wk: wall, rocks or treeline.
+  local function seg(horiz, wk, g, decor, lx0, ly0)
+    local gk, lo, hi
+    if g or decor then
+      local look = g and g.look or "iron_gate"
+      gk = look == "deadfall" and look or look .. (horiz and "_h" or "_v")
+      lo, hi = 3, 4
+      if look == "deadfall" then lo, hi = 2, 5 end
+    end
+    if wk == "wall" then wk = horiz and "wall_h" or "wall_v" end
+    for st = 0, 7 do
+      local lx, ly = lx0 + (horiz and st or 0), ly0 + (horiz and 0 or st)
+      if gk and st >= lo and st <= hi then add_border(gk, lx, ly, g) else add_border(wk, lx, ly) end
+    end
+  end
+  if not (MAP.objects and inside(cx, cy)) then
+    for hy = cy * 2, cy * 2 + 1 do
+      for hx = cx * 2, cx * 2 + 1 do
+        local ia = MAP.cell_area(hx, hy)
+        local ox, oy = (hx % 2) * 8, (hy % 2) * 8
+        for _, dir in ipairs({ { 1, 0 }, { 0, 1 } }) do
+          local nx, ny = hx + dir[1], hy + dir[2]
+          local ib = MAP.cell_area(nx, ny)
+          if ia and ib and ia ~= ib then
+            local wk = MAP.wall[min(ia, ib) .. "," .. max(ia, ib)] or "wall"
+            local g = MAP.gate_at(hx, hy, nx, ny)
+            if dir[1] == 1 then seg(false, wk, g, false, ox + 7, oy) else seg(true, wk, g, false, ox, oy + 7) end
+          end
+        end
+      end
+    end
+    for hy = cy * 2, cy * 2 + 1 do
+      for hx = cx * 2, cx * 2 + 1 do
+        local ia = MAP.cell_area(hx, hy)
+        local ox, oy = (hx % 2) * 8, (hy % 2) * 8
+        if ia then
+          local wk = MAP.wall.edge[ia]
+          local function dec(side)
+            for _, e in ipairs(MAP.decor) do
+              if e[1] == hx and e[2] == hy and e[3] == side then return true end
             end
           end
+          if hy == 0 then seg(true, wk, nil, dec("n"), ox, 0) end
+          if hy == 15 then seg(true, wk, nil, dec("s"), ox, 15) end
+          if hx == 0 then seg(false, wk, nil, dec("w"), 0, oy) end
+          if hx == 15 then seg(false, wk, nil, dec("e"), 15, oy) end
         end
       end
     end
@@ -2583,6 +2653,7 @@ local function gen(ch)
       if ch.boss and ch.boss.u and ch.boss.u.gone then ch.boss = nil end
       -- the ground a house or a mausoleum gone made solid: walkable again (a yard)
       for _, u in ipairs(ch.units) do
+        if u.gone and u.solid then solid[u.ly * CS + u.lx + 1] = false end
         if u.gone and u.w then
           for y = u.ly, u.ly + u.h - 1 do
             for x = u.lx, u.lx + u.w - 1 do kind[y * CS + x + 1], solid[y * CS + x + 1] = K_YARD, false end
@@ -2593,6 +2664,8 @@ local function gen(ch)
       end
     end
     -- the placeholders no unit took: their things, each from its own numbers (not the plan's)
+    local BORDER = { wall_h = true, wall_v = true, rocks = true, treeline = true, iron_gate_h = true,
+                     iron_gate_v = true, passage_h = true, passage_v = true, deadfall = true }
     local function make(k, lx, ly)
       local x, y = wx(lx), wy(ly)
       if k == "house7" or k == "house8" or k == "chapel" then
@@ -2607,6 +2680,10 @@ local function gen(ch)
       elseif k == "barricade" or k == "gate" then
         local g = k == "gate" and MAP.gate_near((tx0 + lx) // 8, (ty0 + ly) // 8) or nil     -- nil: sealed
         add_barrier(k, lx, ly, g)
+        return
+      elseif BORDER[k] then
+        local g = GATE_KIND[k] and MAP.gate_near((tx0 + lx) // 8, (ty0 + ly) // 8) or nil     -- nil: sealed
+        add_border(k, lx, ly, g)
         return
       elseif k == "boss" then
         add_boss(lx, ly)
@@ -2839,14 +2916,21 @@ local function ensure(cx, cy)
 end
 
 local cam_x, cam_y = 0, 0
+-- the camera stays on the map: the walls are its edge, nothing is seen beyond
+local function clamp_cam()
+  cam_x = min(max(cam_x, 0), MAP.size * CPX - W)
+  cam_y = min(max(cam_y, 0), MAP.size * CPX - H)
+end
 
 local function stream()
   -- what is on screen has to be there now
   for cy = fdiv(cam_y, CPX), fdiv(cam_y + H - 1, CPX) do
     for cx = fdiv(cam_x, CPX), fdiv(cam_x + W - 1, CPX) do
-      local c = chunk(cx, cy)
-      if not (c and c.ready) then G.sync = G.sync + 1 end
-      ensure(cx, cy)
+      if inside(cx, cy) then
+        local c = chunk(cx, cy)
+        if not (c and c.ready) then G.sync = G.sync + 1 end
+        ensure(cx, cy)
+      end
     end
   end
   if job then
@@ -2861,8 +2945,8 @@ local function stream()
   local mx, my = cam_x + W / 2, cam_y + H / 2
   for cy = fdiv(cam_y - MARGIN, CPX), fdiv(cam_y + H + MARGIN, CPX) do
     for cx = fdiv(cam_x - MARGIN, CPX), fdiv(cam_x + W + MARGIN, CPX) do
-      local ch = chunk(cx, cy)
-      if not (ch and ch.ready) then
+      local ch = inside(cx, cy) and chunk(cx, cy)
+      if inside(cx, cy) and not (ch and ch.ready) then
         local dx, dy = (cx + 0.5) * CPX - mx, (cy + 0.5) * CPX - my
         local dd = dx * dx + dy * dy
         if not bd or dd < bd then best, bd = { cx, cy }, dd end
@@ -2979,12 +3063,16 @@ function BRK.smash_one(o, ux, uy)
   BRK.gone[o.key] = true
   BRK.count = BRK.count + 1
   if o.gate then MAP.open(o.gate) end
+  -- splinters by the look of the thing: iron, stone, else wood
+  local cols = { 0x684028, 0x8C6038, 0x4A2C1C, 0xA07848 }
+  if o.name:find("^iron_gate") then cols = { 0x50585C, 0x707880, 0x30343A, 0x8A9098 }
+  elseif o.name:find("^passage") then cols = { 0x6A6660, 0x8A857C, 0x4A4642, 0xA09A90 } end
   for _ = 1, 14 do
     local p = spawn(o.x + math.random(-5, 5), o.y - math.random(2, 12), ux * 1.3 + (math.random() - 0.5) * 2.2,
                     uy * 0.6 - 0.8 - math.random() * 1.6, 80 + math.random(70), 8)
     if p then
       p.gy = o.y + math.random(-5, 6)
-      p.c = ({ 0x684028, 0x8C6038, 0x4A2C1C, 0xA07848 })[math.random(4)]
+      p.c = cols[math.random(4)]
     end
   end
   for _ = 1, 5 do
@@ -4570,6 +4658,7 @@ local function respawn()
   P.hp, P.act, P.inv, P.dir, P.rally, P.st, P.lock, P.vic = P.hpmax, nil, 90, 0, 0, P.stmax, nil, nil
   play(xname("idle"))
   cam_x, cam_y = P.x - W / 2, P.y - H * 0.62
+  clamp_cam()
 end
 
 -- echoes are dear: a little blood costs a good part of an area's prey, a
@@ -4934,6 +5023,7 @@ local function update_play()
   local tx, ty = P.x - W / 2, P.y - H * 0.62
   cam_x = cam_x + (tx - cam_x) * 0.12
   cam_y = cam_y + (ty - cam_y) * 0.12
+  clamp_cam()
   if banner_t > 0 then banner_t = banner_t - 1 end
   for i = #G.popups, 1, -1 do
     local pp = G.popups[i]
@@ -4954,6 +5044,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             teleport = function(x, y)
               P.x, P.y = x, y
               cam_x, cam_y = x - W / 2, y - H * 0.62
+              clamp_cam()
               state = "play"
             end }
 
@@ -5163,7 +5254,7 @@ do
     if ax <= bx and ay <= by then
       for _, l in ipairs(MAP.drawn) do map(ax * 2, ay * 2, ax * TS, ay * TS, (bx - ax + 1) * 2, (by - ay + 1) * 2, l) end
     end
-    -- beyond its edge, behind the mist: the ground of the chunks there, as without a drawn map
+    -- beyond its edge (the camera stays inside): the ground of the chunks there, as without a drawn map
     if ty0 < 0 then ring(tx0, ty0, tx1, min(ty1, -1)) end
     if ty1 > n then ring(tx0, max(ty0, n + 1), tx1, ty1) end
     if ay <= by then
@@ -5184,40 +5275,6 @@ local function visible_chunks(margin)
     end
   end
   return out
-end
-
--- the edge of the map: a drifting wall of mist
-local MIST = { 0xC8D0D8, 0x8890A0, 0x585C68 }
-local function draw_edge()
-  local x1, y1 = MAP.size * CPX, MAP.size * CPX
-  local ya, yb = max(0, cam_y - 4), min(y1, cam_y + H + 4)
-  local xa, xb = max(0, cam_x - 4), min(x1, cam_x + W + 4)
-  for _, e in ipairs({ { 0, 1 }, { x1, -1 } }) do
-    local x = e[1]
-    if x > cam_x - 12 and x < cam_x + W + 12 then
-      for k = 0, 2 do
-        local xx, c = x + e[2] * k * 3, MIST[k + 1]
-        local y = ya - (t * (k + 1) // 2) % 20
-        while y < yb do
-          line(xx, max(ya, y), xx, min(yb, y + 6 + (k * 5 + y // 20) % 8), c)
-          y = y + 20
-        end
-      end
-    end
-  end
-  for _, e in ipairs({ { 0, 1 }, { y1, -1 } }) do
-    local y = e[1]
-    if y > cam_y - 12 and y < cam_y + H + 12 then
-      for k = 0, 2 do
-        local yy, c = y + e[2] * k * 3, MIST[k + 1]
-        local x = xa - (t * (k + 1) // 2) % 20
-        while x < xb do
-          line(max(xa, x), yy, min(xb, x + 6 + (k * 5 + x // 20) % 8), yy, c)
-          x = x + 20
-        end
-      end
-    end
-  end
 end
 
 local function draw_scene()
@@ -5353,7 +5410,6 @@ local function draw_scene()
     line(tracer[1], tracer[2], tracer[3], tracer[4], tracer[5] > 3 and 0xF8E8A0 or 0x907050)
   end
   FOE.fx()
-  draw_edge()
   if P.lock and state == "play" then FOE.mark(P.lock, FOE.visceral_target() and 0xF8F8E8 or 0xE04030) end
   -- flames and embers make their own light: drawn after it. Every fire is
   -- a loop of frames (art/fire.py: a bed of embers and tongues of flame,
