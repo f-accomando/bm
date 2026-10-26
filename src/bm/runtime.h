@@ -115,6 +115,8 @@ void bm_set_arg(const char *path, const char *error);
 int  bm_take_run(char *path, size_t n);
 /* the tool a tool asked for with cart_tool(name, path) (the path: bm_take_run) */
 int  bm_take_tool(char *name, size_t n);
+/* the game a tool asked to publish with cart_publish(path): the menu opens its Publish panel */
+int  bm_take_publish(char *path, size_t n);
 const char *bm_last_error(void);
 /* cart_arg().back: the editor comes back from trying a game (1), or opens
  * the file it was given from the menu (0). */

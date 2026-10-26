@@ -1,4 +1,4 @@
--- bm SDK (RGB30): the .b16 edition of the bm SDK, for the RGB30's 360x360
+-- bm SDK (RGB30): the edition of the bm SDK for the RGB30's 360x360
 -- screen and its pad. A separate edition with its own sources (this
 -- folder) and build rules, built into the RGB30's kernel as a tool of its
 -- Dev tab (rgb30.mk, src/rgb30/ui.c): the Pi's bm SDK (carts/editor, built
@@ -136,7 +136,6 @@ local S = {
   sndview = "sounds",                     -- or "sfx": the sounds page's other view
   snd = nil, snd_edited = false,          -- the sound bank (P.bank), false: not readable
   proj = { title = "New game", author = "", res = "360x360" },   -- path: opened; save: 8.3 written
-  target = "b16",                         -- or "bm": the Pi's cartridge (docs/B16.md)
   lines = { "" }, edits = 0, dirty = false,
   msg = nil, msg_c = C.TEXT, msg_t = 0, frame = 0,
   err_text = nil, err_line = nil,
@@ -763,15 +762,6 @@ end
 local reset_pages                        -- (the pages, below)
 local go                                 -- (the keys, below)
 
--- the target remembered for the file, else by its screen: square .b16
-local function target_of(path, res)
-  local t = saved()
-  local mine = t and t.targets and path and t.targets[path:upper()]
-  if mine then return mine end
-  local w, h = tostring(res or ""):match("(%d+)x(%d+)")
-  return w and w == h and "b16" or "bm"
-end
-
 local function remember_last(path)
   local t = saved() or {}
   t.last = path
@@ -785,7 +775,6 @@ local function load_project(path)
              palette = p.palette }
   S.lines = split_lines(p.lua)
   S.sheet_w, S.sheet_h, S.map_w, S.map_h = p.sheet_w, p.sheet_h, p.map_w, p.map_h
-  S.target = target_of(S.proj.save, p.res)
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
   S.snd, S.snd_edited = nil, false
   S.err_text, S.err_line = nil, nil
@@ -799,7 +788,7 @@ local function load_project(path)
   return true
 end
 
--- a new project from a template: its code, sprites and map; 360x360, a .b16
+-- a new project from a template: its code, sprites and map; 360x360
 local function new_project(tp)
   tp = tp or TEMPLATES[1]
   cart_new()
@@ -807,7 +796,6 @@ local function new_project(tp)
   S.proj = { title = tp.id == "empty" and "New game" or tp.name, author = "", res = "360x360" }
   S.lines = split_lines(tp.code)
   if tp.paint then tp.paint() end
-  S.target = "b16"
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
   S.snd, S.snd_edited = nil, false
   S.err_text, S.err_line = nil, nil
@@ -955,7 +943,7 @@ do
 end
 
 local D = {}                             -- the dialogs: ask (a line of text), choose (a list)
-local store_target, save_as
+local save_as
 
 -- saves the project, then after() (a tool: the file is written where it
 -- is, a project of an earlier session too)
@@ -978,20 +966,10 @@ local function save_project(after)
       return false
     end
   end
-  store_target()
   remember_last(S.proj.save)
   say(U.saved_text(S.proj.save), C.ACC)
   if after then after() end
   return true
-end
-
--- the project's target, remembered for its file (the SDK's saved())
-function store_target()
-  if not S.proj.save then return end
-  local sv = saved() or {}
-  sv.targets = sv.targets or {}
-  sv.targets[S.proj.save:upper()] = S.target
-  save(sv)
 end
 
 function save_as(after, def)
@@ -1010,17 +988,16 @@ local function save_then(after)
   else save_project(after) end
 end
 
--- Build .bm (Ctrl+B) or Export .b16 (Ctrl+Shift+B): the game of the project,
+-- Build the .bm (Ctrl+B): the game of the project,
 -- in the games folder (/carts on the Pi, bm/ on the RGB30) for a project in
 -- /bme; next to it for an old project. The Games tab lists that folder: F5 tries it
-local function build_project(b16)
+local function build_project()
   local function build()
     if not is_project(S.proj.save) then
       say("build: a game is built from its project (save it first)", C.ERR)
       return
     end
-    local ok, e
-    if b16 then ok, e = cart_build(S.proj.save, "b16") else ok, e = cart_build(S.proj.save) end
+    local ok, e = cart_build(S.proj.save)
     if ok then
       say("built " .. e .. ((e:upper():find("^/BM/") or e:upper():find("^/CARTS/")) and ": it is in Games" or " (not in the Games tab)"), C.ACC, 400)
     else
@@ -1065,19 +1042,11 @@ end
 -- the project's numbers, measured a piece at a time (timeslice) while the
 -- project page shows them: the code, the sheet and the map in use, the
 -- models, the sound bank, the memory the game's data takes, the file, the
--- biggest functions and, for a .b16, what the profile leaves out
-local B16_LIMIT = 8 * 1024                -- KB: the cap of a .b16 cartridge (docs/B16.md 5.1)
-local B16_CHECKS = {                     -- the sandbox of docs/B16.md §0 (whole names: %f)
-  { "%f[%w_]math%.random", "math.random: rnd() with a seed" },
-  { "%f[%w_.:]time%(", "time(): no clock, count frames" },
-  { "%f[%w_.:]ls%(", "ls(): no files in a .b16" },
-  { "%f[%w_.:]cart_%w+%(", "cart_*: no files in a .b16" },
-  { "%f[%w_.:]load%(", "load(): not in the sandbox" },
-  { "%f[%w_.:]screen%(", "screen(): the screen is fixed" },
-}
+-- biggest functions
+local FILE_LIMIT = 100 * 1024              -- KB: the Market ceiling for one file (docs/BM-FORMAT.md, File size)
 
 local function measure()
-  local I = { lines = #S.lines, bytes = 0, funcs = {}, nfuncs = 0, b16 = {} }
+  local I = { lines = #S.lines, bytes = 0, funcs = {}, nfuncs = 0 }
   for _, l in ipairs(S.lines) do I.bytes = I.bytes + #l + 1 end
   I.tokens = tokens_now()
   -- the biggest functions: a top-level function goes on to the next one
@@ -1094,13 +1063,6 @@ local function measure()
     end
     close(#S.lines)
     table.sort(I.funcs, function(a, b) return a[2] > b[2] end)
-  end
-  -- what a .b16 will not have
-  for _, ck in ipairs(B16_CHECKS) do
-    for i, l in ipairs(S.lines) do
-      local code = l:gsub("%-%-.*$", "")
-      if code:find(ck[1]) then I.b16[#I.b16 + 1] = { i, ck[2] }; break end
-    end
   end
   coroutine.yield()
   -- the sheet's cells with something drawn (a big sheet is not counted)
@@ -3427,30 +3389,18 @@ local function needs_confirm(what, text)
   return true
 end
 
-local function set_target(t)
-  S.target = t
-  store_target()
-  if t == "b16" then
-    local w, h = S.proj.res:match("(%d+)x(%d+)")
-    if w ~= h then S.proj.res = "360x360"; touched() end
-    say("target .b16 (RGB30): the dev kit shows its 8 MB and what the profile leaves out", C.ACC, 400)
-  else
-    say("target .bm: the Pi's cartridge", C.ACC)
-  end
-end
-
 -- at 360x360: the strip, the project's rows across the screen (key, name,
 -- value), under them the contents and the last try; the dev kit takes the
 -- whole page
 do
   local HUB = { { head = "PROJECT" }, { key = "t", act = "title" }, { key = "a", act = "author" },
-                { key = "r", act = "res" }, { key = "b", act = "target" }, { key = "n", act = "new" } }
+                { key = "r", act = "res" }, { key = "n", act = "new" } }
   local row = 2
   local RES_NEXT = { ["360x360"] = "640x360", ["640x360"] = "480x270", ["480x270"] = "320x180", ["320x180"] = "256x256",
                      ["256x256"] = "360x360" }
 
   local function label(h)
-    return ({ title = "title", author = "author", res = "screen", target = "target", new = "new from a template",
+    return ({ title = "title", author = "author", res = "screen", new = "new from a template",
               tools = "open in" })[h.act]
   end
 
@@ -3458,7 +3408,6 @@ do
     if h.act == "title" then return S.proj.title end
     if h.act == "author" then return S.proj.author ~= "" and S.proj.author or "-" end
     if h.act == "res" then return S.proj.res end
-    if h.act == "target" then return "." .. S.target .. (S.target == "b16" and " (RGB30, 8 MB)" or " (the Pi)") end
     if h.act == "tools" then return "bm Code, Pixel, Studio..." end
     return ""
   end
@@ -3477,7 +3426,6 @@ do
     elseif h.act == "author" then
       D.ask("author", S.proj.author, function(t) S.proj.author = t; touched() end)
     elseif h.act == "res" then S.proj.res = RES_NEXT[S.proj.res] or "360x360"; touched()
-    elseif h.act == "target" then set_target(S.target == "bm" and "b16" or "bm")
     elseif h.act == "new" then choose_template()
     elseif h.act == "tools" then open_tools() end
   end
@@ -3487,10 +3435,7 @@ do
   end
 
   local function key(k)
-    if S.hubview == "devkit" then
-      if k == "b" then set_target(S.target == "bm" and "b16" or "bm") end
-      return
-    end
+    if S.hubview == "devkit" then return end
     if k == "up" then move(-1)
     elseif k == "down" then move(1)
     elseif k == "\n" or k == "ok" then act(HUB[row])
@@ -3568,7 +3513,7 @@ do
   local function draw_hub()
     local p, I = S.proj, S.info
     strip(R.strip, p.title, p.author ~= "" and ("by " .. p.author) or "",
-          base_name(p.save or "not saved yet") .. (S.dirty and " *" or "") .. "  " .. p.res .. "  ." .. S.target)
+          base_name(p.save or "not saved yet") .. (S.dirty and " *" or "") .. "  " .. p.res)
     local panel = LY.rect(0, R.view.y, W, #HUB * 16)
     draw_panel(panel)
     local o = rows_from(panel.y + panel.h)
@@ -3601,8 +3546,7 @@ do
 
   local function draw_devkit()
     local I, r = S.info, S.run
-    strip(R.strip, "dev kit", "performance, memory, tokens",
-          "target ." .. S.target .. (S.target == "b16" and "  (RGB30, 8 MB: docs/B16.md)" or "  (the Pi: no cap)"))
+    strip(R.strip, "dev kit", "performance, memory, tokens", "F11 in a game: the overlay")
     local o = rows_from(R.view.y)
     if not I or I.error then
       o.line(nil, I and I.error and ("cannot measure: " .. I.error) or "measuring...", I and C.ERR or C.DIM)
@@ -3616,22 +3560,15 @@ do
       o.line(nil, string.format("models %s  skeletons %s  sound %s", kib(I.mesh_kb), kib(I.anim_kb), kib(I.audio_kb)))
       o.line(nil, string.format("z-buffer %s   in all %s (Lua on top)", kib(I.zbuf_kb), kib(I.data_kb)), C.ACC)
       if I.file_kb then
-        local frac = I.file_kb / B16_LIMIT
+        local frac = I.file_kb / FILE_LIMIT
         if o.y + 16 <= HINT_Y then
           print("file", 8, o.y, C.DIM)
           bar(56, o.y, 136, frac, frac > 1 and C.ERR or frac > 0.75 and C.ACC or C.OK)
-          print(kib(I.file_kb) .. " of 8M (.b16)", 200, o.y, frac > 1 and C.ERR or C.TEXT)
+          print(kib(I.file_kb) .. " of 100M", 200, o.y, frac > 1 and C.ERR or C.TEXT)
           o.y = o.y + 16
         end
       else
         o.line("file", "not saved yet: Save as, then its size", C.DIM)
-      end
-      if S.target == "b16" then
-        o.line(nil, #I.b16 == 0 and "nothing the .b16 sandbox leaves out" or (#I.b16 .. " things a .b16 will not have:"),
-               #I.b16 == 0 and C.OK or C.ACC)
-        for k = 1, min(3, #I.b16) do o.line(nil, "line " .. I.b16[k][1] .. ": " .. I.b16[k][2], C.ACC) end
-      else
-        o.line(nil, ".bm has no cap; b: the target .b16", C.DIM)
       end
     end
     local a, b = try_lines()
@@ -3650,7 +3587,7 @@ do
 
   local function hints()
     if S.hubview == "devkit" then
-      return { { "f1", "Y UPDOWN", "the project" }, { "b", nil, "target" }, { nil, "X", "more" },
+      return { { "f1", "Y UPDOWN", "the project" }, { nil, "X", "more" },
                { "f6", nil, "assistant" }, { nil, "START", "menu" } }
     end
     local list = { { "up", "UPDOWN", "choose" }, { "enter", "ok", "do it" }, { nil, "X", "more" },
@@ -3677,8 +3614,6 @@ do
                     for _, h in ipairs(HUB) do
                       if h.key then list[#list + 1] = { label(h):gsub("^%l", string.upper), h.key } end
                     end
-                  else
-                    list[#list + 1] = { "Target .bm / .b16", "b" }
                   end
                   list[#list + 1] = "-"
                   list[#list + 1] = { S.hubview == "devkit" and "The project" or "The dev kit", "f1" }
@@ -4073,7 +4008,6 @@ do
       { "Save", function() save_project() end, "ctrl s" },
       { "Save as...", function() save_as() end, "ctrl shift s" },
       { "Build the game .bm", function() build_project() end, "ctrl b" },
-      { "Export .b16", function() build_project(true) end, "ctrl shift b" },
       { "Try the game", run_project, "f5" },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Import a Tiled map (.tmj)...", import_tiled },
@@ -4217,7 +4151,6 @@ local function global_key(k)
   elseif k == "^s" then save_project()
   elseif k == "^S" then save_as()
   elseif k == "^b" then build_project()
-  elseif k == "^B" then build_project(true)
   elseif k == "^o" then P.menu_open()
   elseif k == "^n" then choose_template()
   elseif k == "^r" or k == "f5" then run_project()
@@ -4264,7 +4197,6 @@ end
 local function global_items()
   local list = { { "Save", "^s" }, { "Save as...", "^S" }, { "Open...", "^o" }, { "New from a template...", "^n" } }
   list[#list + 1] = { "Build the game .bm", "^b" }
-  list[#list + 1] = { "Export .b16", "^B" }
   list[#list + 1] = { "Try the game", "f5" }
   if assistant_here() then list[#list + 1] = { "Assistant", "f6" } end
   list[#list + 1] = { "Menu", "esc" }
@@ -4319,7 +4251,6 @@ local HELP = {
     { "enter", "do it" },
     { "t / a", "title / author" },
     { "r", "the screen" },
-    { "b", "target: .b16 (RGB30) or .bm" },
     { "n", "a template" },
   },
   code = {

@@ -60,11 +60,11 @@ class Compat(unittest.TestCase):
     def test_from_keeps_block_and_clears_built_from(self):
         with tempfile.TemporaryDirectory() as tmp:
             src = os.path.join(tmp, "X.bm")
-            dst = os.path.join(tmp, "X.b16")
+            dst = os.path.join(tmp, "Y.bm")
             raw = bytearray(mkbm.mark_compat(mkbm.pack(b"x\n"), 2, 1, 0, 0, 0, 4, 0))
             raw[104:112] = b"PONG.BME"
             open(src, "wb").write(raw)
-            r = run("--from", src, "--b16", "-o", dst)
+            r = run("--from", src, "-o", dst)
             self.assertEqual(r.returncode, 0, r.stderr)
             d = open(dst, "rb").read()
             self.assertEqual(d[104:120], b"\0" * 16)
@@ -75,7 +75,7 @@ class Compat(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             lua = os.path.join(tmp, "main.lua")
             open(lua, "w").write("-- " + "x" * (9 << 20) + "\n")
-            for name in ("big.bm", "big.b16"):
+            for name in ("big.bm",):
                 out = os.path.join(tmp, name)
                 r = run("-o", out, "--lua", lua)
                 self.assertEqual(r.returncode, 0, r.stderr)

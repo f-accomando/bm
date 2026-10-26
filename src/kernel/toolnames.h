@@ -19,6 +19,7 @@ typedef struct {
 
 static const toolname_t bm_toolnames[] = {
     { "sdk", "sdk" }, { "editor", "sdk" }, { "sdk_b16", "sdk" },
+    { "sdk-rgb3", "sdk" }, { "sdk-rgb30", "sdk" },      /* (the RGB30's SDK in the Market; 8.3: the id cut at 8) */
     { "sound", "sound" }, { "studio", "studio" }, { "animator", "animator" }, { "mesh", "mesh" },
     { "pixel", "pixel" }, { "code", "code" },
     { "assistant", "assistant" }, { "assistan", "assistant" },      /* (8.3: the old short name) */

@@ -402,48 +402,37 @@ def test_lua_repl(b, opts):
         q.close()
 
 
-def test_menu_games_and_hidden_bm(b, opts):
-    """.b16 files in bm/ are the games; the .bm cartridges are listed too,
-    for testing, unless show_bm=0 in bm/config.txt (then the Games tab says
-    how many are hidden)."""
+def test_menu_games_bm_and_b16(b, opts):
+    """The Games tab lists the .bm cartridges and the old .b16 ones in bm/; no key hides any of them
+    (show_bm is gone). With no game it says where to put them."""
     tmp = mktmp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
-                       "bm/notes.txt": b"hello", "bm/config.txt": b"show_bm=0\n"})
+                       "bm/notes.txt": b"hello"})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
         assert "SD: FAT32" in out and "ramdisk" in out, out
-        assert "cartridge menu: 1 games" in out, out
+        assert "cartridge menu: 2 games" in out, out
         time.sleep(0.5)
         text = screen_all(q.screendump())
-        assert "racer.b16" in text.lower(), text
-        assert "pong" not in text.lower(), text
-        out = q.expect("\n", timeout=5).decode(errors="replace")
-        assert "(1 .bm hidden by show_bm=0" in out, out
+        first = ("racer.b16" in text.lower(), "pong" in text.lower())
+        assert first.count(True) == 1, text         # the carousel shows one title: the first game
+        keys(q, "d")
+        time.sleep(0.5)
+        text2 = screen_all(q.screendump())
+        assert ("racer.b16" in text2.lower(), "pong" in text2.lower()) == first[::-1], text2   # the other one
         keys(q, "rr")                           # R1 twice: Settings, its panel over the covers
         text = screen_all(q.screendump())
         assert "Controllers" in text and "WiFi and network" in text and "racer" not in text.lower(), text
     finally:
         q.close()
-    sd = make_sd(tmp, {"bm/pong.bm": b"BMCART" + bytes(64), "bm/config.txt": b"show_bm=0\n"})
+    sd = make_sd(tmp, {"bm/notes.txt": b"hello"})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
         time.sleep(0.5)
         text = screen_all(q.screendump())
-        assert "No games yet" in text and "1 .bm hidden by show_bm=0" in text, text
-    finally:
-        q.close()
-    sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64)})
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
-    try:
-        out = boot(q)
-        assert "cartridge menu: 2 games" in out, out
-        time.sleep(0.5)
-        text = screen_all(q.screendump())
-        keys(q, "d")                            # the other cover
-        text += screen_all(q.screendump())
-        assert "pong.bm" in text.lower() and "racer.b16" in text.lower(), text
+        assert "No games yet" in text and "put .bm games in bm/" in text, text
     finally:
         q.close()
 
@@ -851,8 +840,8 @@ def test_bm_cartridge(b, opts):
 
 def test_grey_cart_and_confirm(b, opts):
     """A cartridge that is not made for the RGB30 (an old .bm, or a header that lists the Pi only) is not hidden:
-    its cover is grey with the pill 'Not here', and the start asks first, with the reason
-    ('Start it anyway?', the reason); back cancels, the confirm button starts it (docs/spec/compat-policy.toml).
+    its cover is faded (no pill, no info row), and the start asks first: the reason is the question
+    ('This edition is for the Pi'), with OK and Cancel; back cancels, OK starts it (docs/spec/compat-policy.toml).
     A cartridge made for both starts with no question."""
     tmp = mktmp(prefix="bm64grey-")
     old = mkbm.pack(PI_CART.encode(), title="Old Pi cart", author="tests", res=(360, 360))
@@ -864,27 +853,27 @@ def test_grey_cart_and_confirm(b, opts):
     try:
         boot(q)
         text = wait_screen(q, ["Both"])                     # sorted by title: Both, Old Pi cart, Pi only
-        assert text.count("Not here") == 2, text            # the pill on the two covers made for the Pi only, none on Both
+        assert "Not here" not in text, text                 # no pill on any cover
         keys(q, "d")                                        # Old Pi cart: an old .bm is for the Pi only
         text = wait_screen(q, ["Old Pi cart"])
-        keys(q, "x")                                        # X: the options say why the cover is grey (a row 'Not here')
+        keys(q, "x")                                        # X: the options have no 'Not here' row
         text = wait_screen(q, ["Open in the SDK", "Author"])
-        assert "Not here" in text and "made for the Pi Zero W" in text, text      # the row and its reason
+        assert "Not here" not in text, text
         keys(q, "y")                                        # back: the covers
         text = wait_screen(q, ["Old Pi cart"])
         assert "Open in the SDK" not in text, text
         keys(q, "\r")                                       # confirm: the question, the game does not start
-        text = wait_screen(q, ["Start it anyway?", "made for the Pi Zero W only", "Start"])
+        text = wait_screen(q, ["This edition is for the Pi", "OK"])
         assert b"play: /bm/old.bm" not in q.buf, "it started before the answer"
         keys(q, "y")                                        # back: no
         text = wait_screen(q, ["Old Pi cart"])
-        assert "Start it anyway?" not in text, text
+        assert "This edition is for the Pi" not in text, text
         assert b"play: /bm/old.bm" not in q.buf, "back must not start it"
         keys(q, "d")                                        # Pi only: the header lists the Pi alone
         wait_screen(q, ["Pi only"])
         keys(q, "\r")
-        wait_screen(q, ["Start it anyway?"])
-        keys(q, "\r")                                       # yes: it starts (grey is not a lock)
+        wait_screen(q, ["This edition is for the Pi"])
+        keys(q, "\r")                                       # OK: it starts (a faded cover is not a lock)
         q.expect("play: /bm/pionly.bm", timeout=10)
         q.expect("made for the Pi Zero W only, it may not run well here", timeout=10)   # the load-time message
         time.sleep(1.5)
@@ -898,7 +887,7 @@ def test_grey_cart_and_confirm(b, opts):
         wait_screen(q, ["Both"])                             # Both: made for the RGB30, so only the question about the frozen game
         keys(q, "\r")
         text = wait_screen(q, ["Close Pi only?"])
-        assert "Start it anyway?" not in text, text
+        assert "This edition is for" not in text, text
         keys(q, "\r")
         q.expect("play: /bm/both.bm", timeout=10)
     finally:
@@ -1310,11 +1299,11 @@ def test_market_b16(b, opts):
     """The Market tab, as on the Pi (src/kernel/market.c in fibers, the
     AArch64 ones of src/rgb30/fiber.S), with a catalog on the SD card
     (market_url=sd:/market/, slowed by market_delay): first, off the screen
-    until it is the tab, nothing loads before; of the catalog only the .b16
-    (the user's choice for the RGB30); one downloads after a question, goes
+    until it is the tab, nothing loads before; the catalog lists the .bm (faded cover)
+    and the old .b16; one downloads after a question, goes
     to bm/ as POCKET.B16, plays, and the Games tab has it."""
     tmp = mktmp(prefix="bm64mk-")
-    sd = market_sd(tmp, b"market_bm=0\n")      # the default lists the .bm too, greyed (test_market_bm_key)
+    sd = market_sd(tmp)                         # the .bm is listed too, with a faded cover (test_market_lists_bm_and_b16)
     size = os.path.getsize(sd)
     dump = os.path.join(tmp, "after.img")
 
@@ -1335,8 +1324,10 @@ def test_market_b16(b, opts):
         assert "Games" in text and "Market" not in text, text      # off the screen at the left
         keys(q, "l")                            # L1 from Games: the Market
         q.expect("market: catalog 20261005120000", timeout=20)
-        text = screen(["Market", "Pocket"])
-        assert "Big Pi Game" not in text, text  # the .bm is for the Pi
+        text = screen(["Market", "Big Pi Game"])   # the carousel shows one cover: the .bm (for the Pi) comes first
+        assert "Not here" not in text, text     # no pill on the faded cover
+        keys(q, "d")                            # right: Pocket
+        screen(["Pocket"], gone=["Big Pi Game"])
         keys(q, "\r")                           # confirm: a question first
         screen(["Download Pocket?", "free, license MIT"])
         keys(q, "\r")
@@ -1374,25 +1365,30 @@ def test_market_b16(b, opts):
     assert owned.startswith("pocket ") and owned.rstrip().endswith(" /bm/pocket.b16"), owned
 
 
-def test_market_bm_key(b, opts):
-    """D16 and SYS-8: the Market of the RGB30 lists the .bm cartridges too (greyed by compat-policy.toml); only
-    market_bm=0 hides them. show_bm is the Games tab's key and does not touch the Market."""
-    for extra, bm_listed in ((b"", True), (b"show_bm=0\n", True), (b"show_bm=1\nmarket_bm=0\n", False)):
-        tmp = mktmp(prefix="bm64mkbm-")
-        q = Qemu(os.path.join(b, "kernel.elf"), sd=market_sd(tmp, extra))
-        try:
-            boot(q)
-            keys(q, "l")
-            q.expect("market: catalog 20261005120000", timeout=20)
-            for _ in range(40):
-                text = screen_all(q.screendump())
-                if "Pocket" in text or "Big Pi Game" in text:      # the carousel shows one cover: Big Pi Game comes first
-                    break
-                time.sleep(0.2)
-            assert "Pocket" in text or "Big Pi Game" in text, text
-            assert ("Big Pi Game" in text) == bm_listed, (extra, text)
-        finally:
-            q.close()
+def test_market_lists_bm_and_b16(b, opts):
+    """The Market of the RGB30 lists the .bm cartridges and the old .b16 ones (D16 closed, 26 Oct 2026): a
+    cartridge for the Pi has a faded cover and no pill; no config key hides it."""
+    tmp = mktmp(prefix="bm64mkbm-")
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=market_sd(tmp))
+    try:
+        boot(q)
+        keys(q, "l")
+        q.expect("market: catalog 20261005120000", timeout=20)
+        for _ in range(40):
+            text = screen_all(q.screendump())
+            if "Big Pi Game" in text:          # the carousel shows one cover: Big Pi Game comes first
+                break
+            time.sleep(0.2)
+        assert "Big Pi Game" in text and "Not here" not in text, text
+        keys(q, "d")
+        for _ in range(40):
+            text = screen_all(q.screendump())
+            if "Pocket" in text:
+                break
+            time.sleep(0.2)
+        assert "Pocket" in text, text
+    finally:
+        q.close()
 
 
 TRY_ME = r"""
@@ -1478,7 +1474,7 @@ def test_game_send(b, opts):
         screen(["Try me"])
         keys(q, "x")                           # X: its options
         screen(["Open in the SDK", "Play"])
-        keys(q, "ss")                           # down: Open in the SDK, then Send (no Export .b16 for a .b16)
+        keys(q, "ss")                           # down: Open in the SDK, then Send
         screen(["Send to a nearby console", "To a console on this network"])
         q.send("\r")                           # confirm: the consoles nearby
         screen(["Send > Try me", "This console", "No console nearby yet"])
@@ -1510,18 +1506,6 @@ def test_games_in_bm_only(b, opts):
         time.sleep(0.5)
         text += screen_all(q.screendump())
         assert "Built in bm" in text and "Try me" in text and "Left in carts" not in text, text
-    finally:
-        q.close()
-    sd2 = make_sd(tmp, {"bm/config.txt": b"game_intro=0\nshow_bm=0\n",
-                        "bm/tryme.b16": tryme_b16,
-                        "bm/built.bm": built_bm,
-                        "carts/old.bm": old_bm})
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd2)
-    try:
-        out = boot(q)
-        assert "cartridge menu: 1 games" in out, out
-        out += q.expect("\n", timeout=5).decode(errors="replace")
-        assert "(1 .bm hidden by show_bm=0" in out, out
     finally:
         q.close()
 
@@ -1912,7 +1896,7 @@ def test_sdk_layers_b16(b, opts):
 def test_sdk_pad_build(b, opts):
     """The whole game with the keyboard (the pad's actions, as the others):
     a pixel, a tile, 'do end ', a sine, Ctrl+S, Ctrl+B builds MYGAME.BM
-    next to the project, the menu's Export .b16 puts MYGAME.B16 in bm/. The
+    next to the project; the menu has no Export .b16 any more. The
     game has the project's LUA, SHEET, MAP and AUDIO."""
     tmp = mktmp(prefix="bm64kb-")
     q, size = sdk_session(b, tmp)
@@ -1950,13 +1934,10 @@ def test_sdk_pad_build(b, opts):
         sdk_save_default(q)
         q.send("\x02")                         # Ctrl+B: the game next to the project
         sdk_screen(q, ["built /bm/mygame.bm"])
-        q.send("\x1b")                         # Esc: the menu; Export .b16 is the seventh row
-        for _ in range(6):
-            q.send(DOWN)
-            time.sleep(0.3)
-        sdk_screen(q, ["Export .b16"])
-        q.send("\r")
-        sdk_screen(q, [".b16"])
+        q.send("\x1b")                         # Esc: the menu has Build the game .bm and no Export .b16
+        text = sdk_screen(q, ["Build the game .bm"])
+        assert "Export .b16" not in text, text
+        q.send("\x1b")
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
@@ -1974,9 +1955,7 @@ def test_sdk_pad_build(b, opts):
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     listing = subprocess.run(["mdir", "-i", f"{dump}@@{1024 * 1024}", "-b", "::/bm"], capture_output=True,
                              env=env, check=True).stdout.decode().upper()
-    assert "MYGAME.B16" in listing, listing
-    b16 = sd_read(dump, "/bm/MYGAME.B16")
-    assert struct.unpack_from("<H", b16, 18)[0] & 2, b16[16:24].hex()
+    assert "MYGAME.BM" in listing and "MYGAME.B16" not in listing, listing
 
 
 def test_battery_icon(b, opts):

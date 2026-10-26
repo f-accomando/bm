@@ -175,7 +175,7 @@ local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
 local mapc = {}               -- the map: [y * 4096 + x] = cell (layer 1)
 local lnames, mlay, flg = { "main" }, {}, {}   -- the layers' names, layers 2.., the tiles' flags
-local ran, tooled, saves, last_save, built = nil, nil, 0, nil, nil
+local ran, tooled, saves, last_save, built, published = nil, nil, 0, nil, nil, nil
 
 local function add_file(path)
   local dir, name = path:match("^(.*)/([^/]+)$")
@@ -280,6 +280,7 @@ local function new_env(arg)
   E.cart_arg = function() return arg_t end
   E.cart_run = function(p) ran = p end
   E.cart_tool = function(name, p) tooled = { name, p } end
+  E.cart_publish = function(p) published = p end        -- (the console leaves the SDK for its Publish panel)
   E.timeslice = function() end
   -- (the real count is the kernel's, tried by tests/bm/test_tokens.c)
   E.code_tokens = function(s)
@@ -495,10 +496,10 @@ local function new_env(arg)
     if moved then return true, path end
     return true
   end
-  -- cart_build: the project's game next to it (.bm, or .b16 when kind == "b16")
-  E.cart_build = function(path, kind)
+  -- cart_build: the project's game next to it (.bm)
+  E.cart_build = function(path)
     if not path:lower():match("%.bme$") then return false, "only a project (.bme) is built" end
-    local ext = kind == "b16" and ".b16" or ".bm"
+    local ext = ".bm"
     local game = path:gsub("%.[Bb][Mm][Ee]$", ext)
     if path:match("^/bme/") then game = game:gsub("^/bme/", "/bm/") end   -- a project in /bme builds into the games folder
     local fi, fo = assert(io.open(host(path), "rb")), assert(io.open(host(game), "wb"))
@@ -623,7 +624,7 @@ end
 run_sdk(nil)
 frames(30)
 check(sees("OPEN IN") and sees("bm Code") and sees("bm Animator") and sees("bm Sound"), "the hub: the suite's programs")
-check(sees("PROJECT") and sees("screen 640x360") and sees("target .bm"), "the hub: the project's settings")
+check(sees("PROJECT") and sees("screen 640x360") and not sees("target"), "the hub: the project's settings")
 check(sees("CONTENTS") and sees("tokens"), "the hub: the contents measured")
 check(sees("New game") and sees("bm SDK"), "the hub: the title and the program's name")
 check(keyhelp_title == "bm SDK" and keyhelp_list, "F12: the keys of the page")
@@ -850,31 +851,25 @@ key("f1", "f1")
 frames(5)
 check(sees("59.9 fps") and sees("RAM 510k peak"), "the dev kit: the last try")
 
--- the target .b16: the cap and what the format will not have (the shooter
--- uses math.random); .b16 profile, step 4: sets square 360x360 and Ctrl+B builds .b16
-run_sdk({ path = "/bme/t4.bme" })
-frames(10)
-check(sees("Shooter 2D"), "the shooter opened")
-key("b")
-check(status():find("target .b16", 1, true) and sees("screen 360x360"), "b: the target .b16 and 360x360 screen")
-key("^b")
-check(built == "/bm/t4.b16" and status():find("built /bm/t4.b16", 1, true), "Ctrl+B with target .b16 builds .B16: " .. status())
-key("f1")
-frames(5)
-check(sees("of 100M (Market)") and sees("math.random"), "the dev kit for a .b16: the cap, math.random")
-check(saved_t.targets and saved_t.targets["/BME/T4.BME"] == "b16", "the target remembered for the file")
-
 -- an error in the game: the code page on its line
 run_sdk({ path = "/bme/t1.bme", back = true, error = "main.lua:3: boom" })
 frames(2)
 check(sees("main.lua:3: boom") or status():find("the game stopped", 1, true), "the error shown")
 check(status():find("the game stopped", 1, true) or status():find("boom", 1, true), "back from an error: " .. status())
 
--- Ctrl+B: the game of the project (cart_build), next to it; Ctrl+Shift+B: exports .b16
+-- Ctrl+B: the game of the project (cart_build), next to it; Ctrl+Shift+B does nothing (no .b16)
 key("^b")
 check(built == "/bm/t1.bm" and status():find("built /bm/t1.bm", 1, true), "Ctrl+B builds the game: " .. status())
 key("^B")
-check(built == "/bm/t1.b16" and status():find("built /bm/t1.b16", 1, true), "Ctrl+Shift+B exports .b16: " .. status())
+check(built == "/bm/t1.bm", "Ctrl+Shift+B builds nothing more: " .. tostring(built))
+
+-- Publish to the Market (Esc menu): builds the game, then the console is asked for its Publish panel
+key("esc")
+for _ = 1, 6 do key("down") end
+check(sees("Publish to the Market"), "the menu offers Publish to the Market")
+key("\n")
+check(published == "/bm/t1.bm", "Publish builds the game and asks the console to publish it: " .. tostring(published))
+key("esc")
 
 -- projects live in /bme: Ctrl+O lists them there, and an old project next to its game
 -- (/carts/OLD.BME) is still found; Save writes where the project is, and says so
@@ -971,11 +966,6 @@ end
 
 run_sdk({ path = "/carts/testkit.bm" })
 frames(400)
--- the project page: a click chooses a row, a second click does it (target)
-click(40, 16 + 12 * 16 + 8)
-click(40, 16 + 12 * 16 + 8)
-check(sees("target .b16"), "mouse: the project page, the target by clicking twice")
-click(40, 16 + 12 * 16 + 8)
 -- the tabs: 2D (sprites), drawing, a colour, a flag, the sheet
 local mx, my = at("2D", nil, 0)
 click(mx, my)

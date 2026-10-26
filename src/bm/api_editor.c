@@ -123,7 +123,7 @@ static int extras_keep(const uint8_t *d)
     }
     return 0;
 }
-static char run_request[64], tool_request[16];
+static char run_request[64], tool_request[16], publish_request[96];
 static char arg_path[64], arg_error[512];
 static int arg_back = 1;
 
@@ -247,6 +247,15 @@ static int wrote(lua_State *L, const char *path, const char *to)
         return 1;
     lua_pushstring(L, to);
     return 2;
+}
+
+int bm_take_publish(char *path, size_t n)
+{
+    if (!publish_request[0])
+        return 0;
+    ksnprintf(path, n, "%s", publish_request);
+    publish_request[0] = 0;
+    return 1;
 }
 
 int bm_take_tool(char *name, size_t n)
@@ -801,23 +810,19 @@ int l_cart_save(lua_State *L)
     return 2;
 }
 
-/* cart_build(project, [target]) -> true and the game's path, or false and a
- * message: the .bm of a project (.bme), or its .b16 when target is "b16" (from
- * a .bme or .bm), next to it, the one it built before replaced (project.h).
- * bm's tools only (the SDK's "Build .bm" / "Export .b16"). */
+/* cart_build(project) -> true and the game's path, or false and a message:
+ * the .bm of a project (.bme) next to it, the one it built before replaced
+ * (project.h). bm's tools only (the SDK's "Build .bm"). */
 int l_cart_build(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
-    const char *target = luaL_optstring(L, 2, NULL);
-    int b16 = target && strcasecmp(target, "b16") == 0;
     char out[96], err[64];
     if (!tool_mode) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, "only bm's tools build a game");
         return 2;
     }
-    if ((b16 ? bm_build_b16(path, out, sizeof out, err, sizeof err)
-             : bm_build(path, out, sizeof out, err, sizeof err)) != 0) {
+    if (bm_build(path, out, sizeof out, err, sizeof err) != 0) {
         lua_pushboolean(L, 0);
         lua_pushfstring(L, "%s: %s", path, err);
         return 2;
@@ -1687,6 +1692,28 @@ int l_cart_tool(lua_State *L)
     ksnprintf(run_request, sizeof run_request, "%s", luaL_optstring(L, 2, ""));
     rt.quit = 1;
     return 0;
+}
+
+/* cart_publish(path): leaves the tool and opens the console's Publish panel on that game (a .bm: the SDK builds it
+ * first): the id, the version, the license, then the pull request to the Market. On the RGB30 there is no panel
+ * yet: false and the reason, the tool goes on. */
+int l_cart_publish(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    if (!tool_mode) {           /* as cart_run: a request nobody takes would run in the next tool session */
+        rt.quit = 1;
+        return 0;
+    }
+#ifdef BM_RGB30
+    (void)path;
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, "Publish is on the Pi only for now: copy the .bm to a Pi, or use a PC");
+    return 2;
+#else
+    ksnprintf(publish_request, sizeof publish_request, "%s", path);
+    rt.quit = 1;
+    return 0;
+#endif
 }
 
 int l_cart_arg(lua_State *L)

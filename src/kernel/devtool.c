@@ -25,8 +25,10 @@ static uint8_t *load_sd_tool(const char *name, size_t *len)
     char paths[6][40];
     int np = 0;
 #ifdef BM_RGB30
-    if (!strcmp(name, "sdk"))
+    if (!strcmp(name, "sdk")) {
+        ksnprintf(paths[np++], sizeof paths[0], "/bm/sdk-rgb3.bm");
         ksnprintf(paths[np++], sizeof paths[0], "/bm/sdk_b16.b16");
+    }
     ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.b16", name);
     ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.bm", name);
     if (alt) {
@@ -48,6 +50,18 @@ static uint8_t *load_sd_tool(const char *name, size_t *len)
             return d;
     }
     return NULL;
+}
+
+/* the game a tool asked to publish (cart_publish), kept for the menu that opened the session */
+static char publish_path[96];
+
+int devtool_take_publish(char *path, size_t n)
+{
+    if (!publish_path[0])
+        return 0;
+    ksnprintf(path, n, "%s", publish_path);
+    publish_path[0] = 0;
+    return 1;
 }
 
 const char *devtool_session(framebuffer_t *fb, const devtools_t *set, const uint8_t *cart, size_t cart_len,
@@ -87,6 +101,8 @@ const char *devtool_session(framebuffer_t *fb, const devtools_t *set, const uint
         bm_set_arg_from(NULL);
         if (set->after_run)
             set->after_run();
+        if (bm_take_publish(publish_path, sizeof publish_path))
+            break;                      /* cart_publish: the menu opens the Publish panel on that game */
         if (bm_take_tool(tool, sizeof tool)) {
             /* the tool that asks: the next one finds it in cart_arg().from */
             from[0] = 0;

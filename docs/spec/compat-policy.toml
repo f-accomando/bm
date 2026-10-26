@@ -53,13 +53,13 @@ reason = "a project: the editors open it"
 kernel = "pi-zero-w"
 kernel_not_listed = true
 action = "grey"
-reason = "made for the RGB30 only"
+reason = "This edition is for the RGB30"
 
 [[rule]]
 kernel = "rgb30"
 kernel_not_listed = true
 action = "grey"
-reason = "made for the Pi Zero W only"
+reason = "This edition is for the Pi"
 
 # An old .bm is for the Pi only (decided 22 Oct). Grey, with the reason; the user can start it after a confirm.
 [[rule]]
@@ -68,7 +68,7 @@ edition = "bm"
 declared = false
 action = "grey"
 market_action = "grey"
-reason = "made for the Pi Zero W only"
+reason = "This edition is for the Pi"
 
 # The sound bank limit of the kernel: 8,388,608 PCM values (16 MB, AU_PCM_MAX).
 [[rule]]

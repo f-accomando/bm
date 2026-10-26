@@ -376,39 +376,20 @@ static void refresh_slots(void)
  * are kept. */
 static void adopt(catalog_t *nc)
 {
-#ifdef BM_RGB30
-    /* The Market lists the .bm cartridges too: the policy greys the ones not made for this kernel (compat-policy.toml).
-     * market_bm=0 in bm/config.txt hides them (the Games tab has its own key, show_bm). */
-    const char *mkt = config_get("market_bm");
-    const int want_bm = !(mkt && strcmp(mkt, "0") == 0);
-    if (!want_bm) {
-        int k = 0;
-        for (int i = 0; i < nc->n; i++)
-            if (is_b16(nc->games[i].file.path))
-                nc->games[k++] = nc->games[i];
-        nc->n = k;
-    }
-#else
-    /* the Pi runs both .bm and .b16 cartridges; when a game has both in the
-     * catalog (Overbit) and show_b16 is not enabled, keep its .bm so the Pi's
-     * edition is listed without duplicating the same game, while .b16-only
-     * titles (Yharnam, Titan Clash EX) or show_b16=1 are shown with their badge */
-    const char *show_b16 = config_get("show_b16");
-    if (!show_b16 || strcmp(show_b16, "1") != 0) {
-        int k = 0;
-        for (int i = 0; i < nc->n; i++) {
-            int dup_bm = 0;
-            if (is_b16(nc->games[i].file.path)) {
-                for (int j = 0; j < nc->n; j++)
-                    if (j != i && strcmp(nc->games[j].id, nc->games[i].id) == 0 && !is_b16(nc->games[j].file.path))
-                        dup_bm = 1;
-            }
-            if (!dup_bm)
-                nc->games[k++] = nc->games[i];
+    /* One entry per id on both kernels: when the catalog has a .bm and an old .b16 of the same game, the .bm is
+     * listed. A cartridge made for the other kernel stays in the list with a faded cover (compat-policy.toml). */
+    int k = 0;
+    for (int i = 0; i < nc->n; i++) {
+        int dup_bm = 0;
+        if (is_b16(nc->games[i].file.path)) {
+            for (int j = 0; j < nc->n; j++)
+                if (j != i && strcmp(nc->games[j].id, nc->games[i].id) == 0 && !is_b16(nc->games[j].file.path))
+                    dup_bm = 1;
         }
-        nc->n = k;
+        if (!dup_bm)
+            nc->games[k++] = nc->games[i];
     }
-#endif
+    nc->n = k;
     slot_t *ns = calloc(nc->n ? (size_t)nc->n : 1, sizeof *ns);
     if (!ns) {
         catalog_free(nc);
@@ -1032,7 +1013,7 @@ void market_panel(int i, home_panel_t *p)
     home_row(p, MENU_ROW_INFO, M_FILE, "File", s->path[0] ? "On the SD card" : "Not on the SD card yet",
              "%s", s->path[0] ? s->path : "-");
     home_row(p, MENU_ROW_INFO, M_TYPE, "Format",
-             is_b16(g->file.path) ? "Handheld edition (.b16)" : "Native cartridge (.bm)",
+             is_b16(g->file.path) ? "An old edition (.b16)" : "A cartridge (.bm)",
              "%s (%s)", kind_of(g), g->is_app ? "app" : "game");
     if (s->path[0] && !s->busy)
         home_row(p, MENU_ROW_ACTION, M_DELETE, "Delete from the SD card",

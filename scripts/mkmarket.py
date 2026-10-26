@@ -17,15 +17,17 @@ half, keys/market-pub.pem, is built into the kernel).
                                        "id: license | about" lines (the project's
                                        games, make market-seed)
 
-APPS is optional: a second folder with the same layout (apps/<id>/<id>.bm,
-.b16 and info.txt). Each item of APPS is an app (kind app), whatever its
+APPS is optional: a second folder with the same layout (apps/<id>/<id>.bm
+and info.txt). Each item of APPS is an app (kind app), whatever its
 info.txt says. An id must not exist in both folders. Without --apps, GAMES
 alone works as before (an item there is an app with "kind: app" in info.txt,
 or by its id in APP_IDS).
 
 GAMES has one folder per game, named by its id (a-z, 0-9 and '-', at most
-23 characters), with its cartridges (one .bm, one .b16, or both: Overbit has
-both, the Pi lists the .bm and the RGB30 the .b16) and info.txt:
+23 characters), with its cartridge (one .bm; the header says which kernels it is
+for: both kernels list it, and the one it is not for fades its cover) and info.txt.
+A .b16 of an old release is still read (the kernels play it as Pi plus RGB30) but
+--add writes .bm only:
   games/snake/snake.bm
   games/snake/info.txt      version: 1.2
                             license: MIT            (required)
@@ -35,9 +37,8 @@ shows and what names the save file, so two games cannot share both.
 
 OUT gets:
   index.txt, index.sig     the catalog and its signature (DER)
-  games/<id>/<name>.bm     the cartridges (apps of APPS: apps/<id>/...) (or <name>.b16: the handhelds' ones,
-                           the same container; the RGB30 lists only these,
-                           the Pi only the .bm; a game with both is two records with one id)
+  games/<id>/<name>.bm     the cartridge (apps of APPS: apps/<id>/...); an old <name>.b16 is
+                           listed only when the id has no .bm
   games/<id>/cover.png     the cover (88x88; 128x80 in older cartridges), when it has one
   index.html               the same catalog for a browser
 
@@ -80,7 +81,7 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,22}$")
 FILE_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._-]{0,39}\.(bm|b16)$")
 VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$")
 LIMITS = {"license": 40, "about": 120}
-APP_IDS = {"sdk", "editor", "sdk-b16", "code", "pixel", "studio", "animator", "mesh", "sound", "assistant", "write", "typing", "bmweb"}
+APP_IDS = {"sdk", "editor", "sdk-b16", "sdk-rgb30", "code", "pixel", "studio", "animator", "mesh", "sound", "assistant", "write", "typing", "bmweb"}
 
 
 def die(msg):
@@ -294,8 +295,8 @@ def _render_cards(items):
         b16 = g["name"].lower().endswith(".b16")
         t_bits = g.get("targets") or (3 if b16 else 1)
         who = {1: "Pi", 2: "RGB30", 3: "Pi + RGB30"}[t_bits]
-        fmt = (f'<span class="badge b16">.b16 &middot; {who}</span>' if b16
-               else f'<span class="badge bm">.bm &middot; {who}</span>')
+        fmt = (f'<span class="badge b16">.b16 (old) &middot; {who}</span>' if b16
+               else f'<span class="badge bm">{who}</span>')
         img = (f'<img src="{g["sub"]}/{g["id"]}/cover.png" width="176" height="176" alt="">' if g["cover"]
                else f'<div class="nocover">{t}</div>')
         rows.append(f"""<li>{img}<div><h2>{t} {fmt}</h2><p class="by">{a} &middot; v{html.escape(g["version"].decode())}
@@ -333,7 +334,7 @@ li img, .nocover {{ border-radius:8px; image-rendering:pixelated; width:176px; h
 a {{ color:var(--accent); }} code {{ background:#000; padding:2px 6px; border-radius:4px; }}
 </style></head><body><main>
 <h1>bm Market</h1>
-<p class="lead">Free games and apps for bm (Raspberry Pi Zero, <code>.bm</code>) and bm16 (Powkiddy RGB30, <code>.b16</code>).
+<p class="lead">Free games and apps for bm: the Raspberry Pi Zero W and the Powkiddy RGB30 (<code>.bm</code>).
 On the console: the <b>Market</b> tab of the menu (<b>Games</b> / <b>Apps</b>). From a PC: download a cartridge, then
 <code>tools/bm_net.py IP --send game.bm</code>. Catalog {serial}, {len(play)} games, {len(apps)} apps.</p>
 {chr(10).join(sections)}
@@ -389,9 +390,10 @@ def add(games, path, gid, version, lic, about, kind=None, apps=None):
     d = os.path.join(apps if to_apps else games, gid)
     os.makedirs(d, exist_ok=True)
     name = os.path.basename(path)
-    # the other kind (a .bm next to a .b16, Overbit or bm SDK) stays
-    b16 = name.lower().endswith(".b16")
-    old = [n for n in os.listdir(d) if n.lower().endswith(CART_EXT) and n.lower().endswith(".b16") == b16]
+    if name.lower().endswith(".b16"):
+        die(f"{path}: a .b16 is not published any more; build the .bm (its header says the kernels)")
+    # one cartridge per id: the new .bm replaces the old .bm and any old .b16 of the same game
+    old = [n for n in os.listdir(d) if n.lower().endswith(CART_EXT)]
     info_path = os.path.join(d, "info.txt")
     info = read_info(info_path) if os.path.exists(info_path) else {}
     same = old == [name] and open(os.path.join(d, name), "rb").read() == data

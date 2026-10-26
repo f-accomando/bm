@@ -20,13 +20,11 @@ lists the apps in the **Apps** page of the Market.
 Open a pull request that adds one folder to `games/` (or to `apps/`):
 
 ```
-games/my-game/my-game.bm     the cartridge (a .bm for the Pi)
-games/my-game/my-game.b16    optional: a .b16 for the RGB30 (the same game, a second version)
+games/my-game/my-game.bm     the cartridge (a .bm)
 games/my-game/info.txt       version, license, about
 ```
 
-At most one `.bm` and one `.b16` per folder. The Pi lists the `.bm` games, the
-RGB30 the `.b16` ones.
+One `.bm` per folder. Its header says which kernels it is for (`targets`). Both consoles list it; the one it is not for shows a faded cover and asks OK or Cancel before it starts.
 
 - **The folder's name is the game's id**: `a-z`, `0-9` and `-`, at most 23
   characters. It never changes: the console recognises updates by it. An id

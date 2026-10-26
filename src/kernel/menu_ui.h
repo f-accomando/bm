@@ -25,8 +25,8 @@ typedef struct {
     int loading;                /* no cover yet (the Market): a placeholder with the title */
     const char *badge;          /* a pill on the cover ("Retry"), or NULL */
     int busy, percent;          /* downloading: a bar on the cover */
-    int grey;                   /* not made for this device (bm_compat_classify): a faded cover and a "Not here" pill;
-                                 * the caller asks before it starts, with the reason in the question */
+    int grey;                   /* not made for this device (bm_compat_classify): a faded cover, no pill;
+                                 * the caller asks before it starts: the reason as the question, OK and Cancel */
 } menu_item_t;
 
 /* the covers: squares (2026-10-04, the bm Suite's icons; 128x80 before),

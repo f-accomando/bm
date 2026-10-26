@@ -1,9 +1,13 @@
 # bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
 # section of a .bm: mkbm.py --info copies it in.
 name: Titan Clash EX
-desc: The second edition (.b16) of Titan Clash at 360x360, with its own sources.
+desc: Titan Clash EX at 360x360, with its own sources.
 author: bm
 license: LicenseRef-BM-Community-1.0
 version: 1.0
 tags: game, fighting, 2-players
 resolution: 360x360
+targets: pi,rgb30
+input: pad
+aspect: square
+needs: audio

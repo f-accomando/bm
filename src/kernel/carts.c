@@ -1121,6 +1121,20 @@ static void cm_panel_input(cmenu_t *m)
     m->dx = m->dy = m->opts = 0;
 }
 
+/* A tool asked to publish a game (cart_publish) before it ended: the menu opens the Publish panel on it. */
+static void open_publish_asked(cmenu_t *m)
+{
+    char pp[96];
+    const int pc = devtool_take_publish(pp, sizeof pp) ? lib_find_path(&library, pp) : -1;
+    if (pc < 0)
+        return;
+    publish_setup(library.g[pc].path, library.g[pc].title, library.g[pc].author);
+    m->stack[0].id = HOME_PUBLISH;
+    m->stack[0].sel = m->stack[0].top = 0;
+    m->depth = 1;
+    m->built = -1;
+}
+
 /* What a row asked for (HOME_OPEN, HOME_BACK, HOME_ASK, HOME_TEXT, HOME_MONITOR). */
 static void cm_row_result(cmenu_t *m)
 {
@@ -1380,6 +1394,7 @@ static void cm_launch(cmenu_t *m)
     case GO_PLAY:
         play(m->fb, &library.g[m->go_cart]);
         m->depth = 0;
+        open_publish_asked(m);          /* a tool (the SDK of the Dev tab) may have asked for it */
         break;
     case GO_SDK:
     case GO_SOUND:
@@ -1391,6 +1406,7 @@ static void cm_launch(cmenu_t *m)
         crumb("cartridge menu", NULL);
         m->depth = 0;
         rescan();                       /* it may have saved new files */
+        open_publish_asked(m);
         break;
     case GO_CODE:
         lib_suspend_close();

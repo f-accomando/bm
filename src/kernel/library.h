@@ -43,7 +43,7 @@ typedef struct {
 typedef struct {
     const char *const *dirs;            /* the folders to read, in this order; NULL at the end */
     int target;                         /* BM_TARGET_PI or BM_TARGET_RGB30: the compatibility policy */
-    /* Is the file listed? 1 yes, 0 no, -1 left out on purpose (counted in lib_t.hidden). NULL: lib_ext_ok. */
+    /* Is the file listed? 1 yes, 0 no. NULL: lib_ext_ok. */
     int (*want)(const char *name);
     /* The built-in cartridges, added after the files (sorted by title before them). NULL: none. */
     void (*add_builtins)(void);
@@ -70,14 +70,12 @@ typedef struct {
 /* The row ids of a cartridge's panel (home_row id; lib_panel and lib_act). */
 enum { LIB_ROW_PLAY = 100, LIB_ROW_CLOSE, LIB_ROW_SDK, LIB_ROW_SOUND, LIB_ROW_STUDIO, LIB_ROW_AUTHOR, LIB_ROW_FILE,
        LIB_ROW_SIZE, LIB_ROW_TYPE, LIB_ROW_SAVE, LIB_ROW_DEL_SAVE, LIB_ROW_DELETE, LIB_ROW_CODE, LIB_ROW_MESH,
-       LIB_ROW_PIXEL, LIB_ROW_ANIMATOR, LIB_ROW_PUBLISH, LIB_ROW_SEND, LIB_ROW_COPY, LIB_ROW_BUILD_B16,
-       LIB_ROW_COMPAT };
+       LIB_ROW_PIXEL, LIB_ROW_ANIMATOR, LIB_ROW_PUBLISH, LIB_ROW_SEND, LIB_ROW_COPY };
 
 typedef struct {
     lib_game_t g[LIB_MAX];
     int n;                      /* cartridges in g[] */
     int nsd;                    /* the ones from the SD card (the built-in ones follow) */
-    int hidden;                 /* files that want() left out on purpose */
     int sd_ok;                  /* the card is mounted */
     char susp_path[FAT_NAME_MAX + 10];  /* the cartridge frozen in memory (Start + Select), "" if none */
     const lib_backend_t *be;
@@ -142,10 +140,10 @@ void lib_suspend_close(void);
 /* The words of the question "close the frozen game?" (q: question, d: detail, y: the yes button). */
 void lib_switch_question(char *q, size_t qn, char *d, size_t dn, char *y, size_t yn);
 /* A game that is not made for this console (docs/spec/compat-policy.toml) asks first: 1 and the words of the
- * question, or 0 (nothing to ask). Grey is not a lock: the confirm button starts the game. */
+ * question (its reason, "This edition is for the RGB30"), or 0 (nothing to ask). OK starts the game, Cancel not. */
 int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t dn, char *y, size_t yn);
 /* The questions before a game starts, in their order: LIB_ASK_COMPAT (the game is not made for this console, so
- * "Start it anyway?" with the reason), then LIB_ASK_SWITCH (a game is frozen: close it first). Fills q, d and y
+ * the reason as the question, OK and Cancel), then LIB_ASK_SWITCH (a game is frozen: close it first). Fills q, d and y
  * with the first question that applies and returns its kind, or LIB_ASK_NONE: the game starts. compat_known = 1
  * skips the first one (the player said yes to it). */
 enum { LIB_ASK_NONE, LIB_ASK_COMPAT, LIB_ASK_SWITCH };
@@ -175,7 +173,7 @@ void lib_panel_open(const lib_game_t *g);
 /* Builds the rows for this cartridge. */
 void lib_panel(const lib_game_t *g, home_panel_t *p);
 
-/* A row of the cartridge's panel that stays in the menu (Close, the editable copy, Export .b16, Send, the
+/* A row of the cartridge's panel that stays in the menu (Close, the editable copy, Send, the
  * deletes). `how`: 0 (confirm) or HOME_YES (the question was answered yes). Fills `d` (it is cleared first);
  * HOME_BACK means the list changed: the menu reads the card again. Returns 0 for a row it does not own
  * (Play and the Open in rows: the menu starts those; Publish: the Pi's). */

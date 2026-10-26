@@ -2,7 +2,6 @@
  * project (project.h). */
 #include "project.h"
 #include "bm.h"
-#include "lint.h"
 
 #include "fs/fat.h"
 #include "lib/printf.h"
@@ -178,15 +177,6 @@ static int built_from(const char *path, const char *from)
     return bm_is_cart(head) && was[0] && strcasecmp(was, from) == 0;
 }
 
-/* one lint warning of a build: on the serial console, like the other build messages */
-static void lint_say(void *ctx, int line, const char *msg)
-{
-    if (line)
-        kprintf("bm: warning: %s:%d: %s\n", (const char *)ctx, line, msg);
-    else
-        kprintf("bm: warning: %s: %s\n", (const char *)ctx, msg);
-}
-
 int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
 {
     if (!bm_is_project(project))
@@ -215,11 +205,8 @@ int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
             free(data);
             return say(err, en, why);
         }
-        if (r > 0) {
+        if (r > 0)
             bm_compat_write(data, &cc);
-            if (cc.targets & BM_TARGET_RGB30)
-                bm_cart_lint(data, len, lint_say, from);    /* warnings only: the build goes on */
-        }
     }
     /* the game it built before, else the first free name */
     int k, found = 0;
@@ -232,48 +219,6 @@ int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
         found = !exists(out);
     }
     int r = found ? store(out, data, len, err, en) : say(err, en, "no free name for the game");
-    free(data);
-    return r;
-}
-
-int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
-{
-    if (!bm_is_project(src) && !ends_ci(src, ".bm"))
-        return say(err, en, "only a project (.bme) or game (.bm) is exported to .b16");
-    size_t len;
-    uint8_t *data = load(src, &len, err, en);
-    if (!data)
-        return -1;
-    char dir[64], base[9], from[17];
-    split(src, dir, sizeof dir, base);
-    if (in_projects_dir(dir))
-        ksnprintf(dir, sizeof dir, "%s", bm_games_dir());
-    else if (strcasecmp(dir, "/carts") == 0 && exists("/bm"))      /* a game of an old card */
-        ksnprintf(dir, sizeof dir, "/bm");
-    const char *slash = strrchr(src, '/');
-    ksnprintf(from, sizeof from, "%s", slash ? slash + 1 : src);
-    for (char *p = from; *p; p++)
-        if (*p >= 'A' && *p <= 'Z')
-            *p = (char)(*p + 32);
-    set_flags(data, 0);
-    data[18] |= BM_FLAG_B16;
-    unsigned w = data[12] | data[13] << 8, h = data[14] | data[15] << 8;
-    if (w != h) {
-        data[12] = 360 & 0xff; data[13] = 360 >> 8;
-        data[14] = 360 & 0xff; data[15] = 360 >> 8;
-    }
-    bm_set_built_from(data, from);
-    bm_cart_lint(data, len, lint_say, from);     /* warnings only: the build goes on */
-    int k, found = 0;
-    for (k = 0; k < 10 && !found; k++) {
-        candidate(dir, base, ".b16", k, out, n);
-        found = built_from(out, from);
-    }
-    for (k = 0; k < 10 && !found; k++) {
-        candidate(dir, base, ".b16", k, out, n);
-        found = !exists(out);
-    }
-    int r = found ? store(out, data, len, err, en) : say(err, en, "no free name for the .b16");
     free(data);
     return r;
 }

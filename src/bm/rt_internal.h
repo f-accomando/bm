@@ -582,6 +582,7 @@ int l_cart_save(lua_State *L);
 int l_cart_build(lua_State *L);
 int l_cart_run(lua_State *L);
 int l_cart_tool(lua_State *L);
+int l_cart_publish(lua_State *L);
 int l_cart_arg(lua_State *L);
 int l_cart_audio(lua_State *L);
 int l_cart_put_audio(lua_State *L);

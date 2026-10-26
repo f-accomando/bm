@@ -47,7 +47,6 @@ import zlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bmaudio  # noqa: E402
 import bmmesh  # noqa: E402
-import mklint  # noqa: E402
 
 # 6 is the sound bank; MESH and ANIM were 6 and 7 in the first bm Studio
 # files (bmmesh.cart_sections reads those as 8 and 9)
@@ -458,13 +457,10 @@ def mark_project(data):
     return bytes(out)
 
 
-def mark_b16(data):
-    """a .b16 cartridge: bit 1 of the u16 at 18, square screen"""
+def mark_type(data, name):
+    """bits 2-3 of the u16 at 18: the type of bm.info (game 0, app 1, utility 2; src/bm/project.h)"""
     out = bytearray(data)
-    struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~1) | 2)
-    w, h = struct.unpack_from("<HH", out, 12)
-    if w != h:
-        struct.pack_into("<HH", out, 12, 360, 360)
+    struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~12) | (TYPES[name] << 2))
     return bytes(out)
 
 
@@ -509,93 +505,16 @@ def mark_type(data, name):
     return bytes(out)
 
 
-# the Lua rules of the .b16 lint: docs/spec/lint-rules.toml, the same list as the C table of the SDK export (scripts/mklint.py)
-B16_LUA_CHECKS = mklint.python_checks("b16")
-
-
-def lua_code_only(text):
-    """`text` with the comments and the insides of the strings blanked, line
-    numbers kept (so a "--" or a name inside a string is not code)"""
-    out, i, n = [], 0, len(text)
-
-    def blank(chunk):
-        return "".join(c if c == "\n" else " " for c in chunk)
-    while i < n:
-        c = text[i]
-        m = None
-        if c == "-" and text.startswith("--", i):
-            m = re.match(r"--\[(=*)\[", text[i:])
-            if m:
-                end = text.find("]" + m.group(1) + "]", i + len(m.group(0)))
-                end = n if end < 0 else end + len(m.group(1)) + 2
-            else:
-                end = text.find("\n", i)
-                end = n if end < 0 else end
-            out.append(blank(text[i:end]))
-            i = end
-        elif c == "[" and (m := re.match(r"\[(=*)\[", text[i:])):
-            end = text.find("]" + m.group(1) + "]", i + len(m.group(0)))
-            end = n if end < 0 else end + len(m.group(1)) + 2
-            out.append(blank(text[i:end]))
-            i = end
-        elif c in "\"'":
-            j = i + 1
-            while j < n and text[j] != c and text[j] != "\n":
-                j += 2 if text[j] == "\\" else 1
-            end = min(j + 1, n)             # j is the closing quote, the line end or n
-            closed = end <= n and text[end - 1] == c and end - 1 > i
-            out.append(c + blank(text[i + 1:end - 1 if closed else end]) + (c if closed else ""))
-            i = end
-        else:
-            out.append(c)
-            i += 1
-    return "".join(out)
-
-
 def lists_rgb30(data):
     """True when the compatibility block of the cartridge lists the RGB30 (header byte 120, bit 1)"""
     return bool(struct.unpack_from("<H", data, 18)[0] & FLAG_COMPAT and data[COMPAT_AT] & 2)
 
 
-def b16_profile_warnings(data):
-    """the header facts that do not suit the RGB30: a list of messages, empty when none. Warnings only.
-    Any screen size is valid (the RGB30 shows a 16:9 or other page with black bars), so the size and the
-    list of kernels are not checked any more (docs/design/b16-removal.md, W4)"""
-    out = []
+def rgb30_warnings(data, label):
+    """a cartridge that lists the RGB30 and needs a mouse device: a warning on stderr (the build goes on)"""
     if struct.unpack_from("<H", data, 18)[0] & FLAG_COMPAT:
-        needs = data[COMPAT_AT + 3]
-        if needs & COMPAT_BITS["needs"]["mouse_hw"]:
-            out.append("needs mouse_hw: the RGB30 has no mouse")
-    return out
-
-
-def b16_lint(data, label):
-    """checks of a cartridge that runs on the RGB30 (a .b16, or a compatibility block that lists it):
-    prints a warning (first occurrence only) for each system call of B16_LUA_CHECKS in its Lua; raises
-    SystemExit for a sheet of more than 256 colours in a .b16 only (a .bm may have a true-colour sheet)"""
-    secs = bmmesh.cart_sections(data)
-    types = {t for t, _ in secs}
-    for msg in b16_profile_warnings(data):
-        print(f"warning: {label}: {msg}", file=sys.stderr)
-    sheet = next((body for t, body in secs if t == SEC_SHEET), None)
-    if sheet is not None and SEC_SHEET8 not in types and label.lower().endswith(".b16"):
-        w, h = struct.unpack_from("<HH", sheet, 0)
-        rgba = sheet[4:]
-        colours = set()
-        for i in range(min(w * h, len(rgba) // 4)):
-            p = rgba[i * 4:i * 4 + 4]
-            colours.add(bytes(p) if p[3] >= 128 else b"\0\0\0\0")
-            if len(colours) > 256:
-                raise SystemExit(f"{label}: a .b16 sheet has more than 256 colours (use --sheet8)")
-    lua = b"\n".join(body for t, body in secs if t == SEC_LUA)
-    if lua:
-        lines = lua_code_only(lua.decode("utf-8", errors="replace")).split("\n")
-        for pattern, msg in B16_LUA_CHECKS:
-            rx = re.compile(pattern)
-            for n, line in enumerate(lines, 1):
-                if rx.search(line):
-                    print(f"warning: {label}:{n}: {msg}", file=sys.stderr)
-                    break
+        if data[COMPAT_AT + 3] & COMPAT_BITS["needs"]["mouse_hw"]:
+            print(f"warning: {label}: needs mouse_hw: the RGB30 has no mouse", file=sys.stderr)
 
 
 def export_from(src, a, out):
@@ -605,12 +524,8 @@ def export_from(src, a, out):
     w, h = struct.unpack_from("<HH", raw, 12)
     title = raw[24:72].split(b"\0", 1)[0].decode("utf-8", "replace")
     author = raw[72:104].split(b"\0", 1)[0].decode("utf-8", "replace")
-    is_b16 = a.b16 or out.lower().endswith(".b16")
     if a.res_set:
         w, h = (int(v) for v in a.res.split("x"))
-        struct.pack_into("<HH", raw, 12, w, h)
-    elif is_b16 and w != h:
-        w, h = 360, 360
         struct.pack_into("<HH", raw, 12, w, h)
     if a.title:
         title = a.title
@@ -619,8 +534,6 @@ def export_from(src, a, out):
         author = a.author
         raw[72:72 + 32] = author.encode("utf-8")[:31].ljust(32, b"\0")
     flags = struct.unpack_from("<H", raw, 18)[0] & ~(1 | 2)
-    if is_b16:
-        flags |= 2
     struct.pack_into("<H", raw, 18, flags)
     raw[104:120] = b"\0" * 16               # built from; the compatibility block at 120..127 stays
     if a.sheet8:
@@ -653,9 +566,8 @@ def export_from(src, a, out):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("-o", "--output", help="output cartridge (.bm, .bme, or .b16)")
-    ap.add_argument("--from", dest="src", help="source .bm or .bme to export or repack (e.g. to .b16)")
-    ap.add_argument("--b16", action="store_true", help="export a .b16 edition (360x360 header)")
+    ap.add_argument("-o", "--output", help="output cartridge (.bm or .bme)")
+    ap.add_argument("--from", dest="src", help="source .bm or .bme to repack")
     ap.add_argument("--targets", help="compatibility block: the kernels the cartridge runs on, pi,rgb30 "
                                       "(flag bit 4, bytes 120..127). Needed by the options below")
     ap.add_argument("--input", default="", help="pad,keyboard,text,mouse,mouse_optional")
@@ -706,12 +618,11 @@ def main():
                     ap.error(f"{a.info}: {key}: {info[key]!r} is not a number")
     a.res_set = a.res is not None
     if not a.res:
-        a.res = "360x360" if a.b16 else "640x360"
-    if not a.output and a.src and a.b16:
-        base, _ = os.path.splitext(a.src)
-        a.output = base + ".b16"
+        a.res = "640x360"
     if not a.output or (not a.lua and not a.src):
-        ap.error("specify -o and --lua (or --from SRC [--b16] [-o OUT])")
+        ap.error("specify -o and --lua (or --from SRC -o OUT)")
+    if a.output.lower().endswith(".b16"):
+        ap.error("a .b16 is not written any more: one cartridge type, .bm (its header says the kernels)")
     if a.src and not a.lua:
         data, title, res_str = export_from(a.src, a, a.output)
     else:
@@ -757,8 +668,6 @@ def main():
                     sprites, boxes)
         if a.output.lower().endswith(".bme"):
             data = mark_project(data)
-        elif a.b16 or a.output.lower().endswith(".b16"):
-            data = mark_b16(data)
         if info and info.get("type"):
             if info["type"] not in TYPES:
                 raise SystemExit(f"{a.info}: type: {info['type']!r} must be game, app or utility")
@@ -772,8 +681,8 @@ def main():
     elif a.input or a.aspect or a.needs or a.min_ram or a.min_spec or a.min_width:
         ap.error("--input, --aspect, --needs and the minimums (or the keys input, aspect, needs, min_ram, "
                  "min_spec and min_width of bm.info) go with --targets (or the key targets)")
-    if a.b16 or a.output.lower().endswith(".b16") or lists_rgb30(data):
-        b16_lint(data, a.output)            # after the compatibility block: the lint reads it
+    if lists_rgb30(data):
+        rgb30_warnings(data, a.output)      # after the compatibility block: it reads it
     if a.output and os.path.dirname(a.output):
         os.makedirs(os.path.dirname(os.path.abspath(a.output)), exist_ok=True)
     open(a.output, "wb").write(data)

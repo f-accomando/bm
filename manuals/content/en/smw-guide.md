@@ -6,7 +6,7 @@ subtitle: How one real game is built as a bm project: the .bme, the APIs it uses
 footer: bm manuals - smw-guide
 
 ::: readme
-**What this is.** A guided tour of `carts/smw/`, a personal port of the first level of a classic 16-bit platformer to the RGB30 (360x360, `.b16`). It is an example of a complete game written as a bm project: map layers with flags, sprite zones with boxes, `bmlib`, a fixed-rate game loop and a measured physics.
+**What this is.** A guided tour of `carts/smw/`, a personal port of the first level of a classic 16-bit platformer to the RGB30 (360x360, `.bm`). It is an example of a complete game written as a bm project: map layers with flags, sprite zones with boxes, `bmlib`, a fixed-rate game loop and a measured physics.
 
 **How to use it.** Read the first three chapters to see the shape of the project. Then read the chapter of the part you want to copy: movement, enemies, blocks, assets.
 
@@ -27,7 +27,7 @@ The port has two aims. It is a **benchmark**: the same level, the same physics a
 |---|---|
 | `carts/smw/src/game.lua` | the game: states, enemies, blocks, camera, drawing |
 | `carts/smw/src/physics.lua` | Mario's movement, with the constants measured on the original |
-| `carts/smw/build/build.py` | turns the extracted data into the `.bme` and the `.b16` |
+| `carts/smw/build/build.py` | turns the extracted data into the `.bme` and the `.bm` |
 | `carts/smw/build/sprites.py` | cuts the sprite zones and their boxes |
 | `carts/smw/build/bg.py` | cuts the background layer |
 | `carts/smw/bm.info` | the metadata: name, `360x360`, target `rgb30`, input `pad` |
@@ -41,15 +41,15 @@ The ROM, the files it produces and the real graphics are kept out of git (`.giti
 
 ## How a cartridge is made
 
-A `.bme` is the project of a game: the Lua code, the sprite sheet, the map layers and the zones in one file. A `.b16` is the same content for the RGB30. `scripts/mkbm.py` makes both from the same inputs; the build calls it twice:
+A `.bme` is the project of a game: the Lua code, the sprite sheet, the map layers and the zones in one file. A `.bm` is the same content as a game; its header says it is for the RGB30. `scripts/mkbm.py` makes both from the same inputs; the build calls it twice:
 
 ```
 python3 scripts/mkbm.py --lua main.lua --sheet sheet.png --sprites sprites.txt \
   --map map_main.csv --map col=map_col.csv --map bg=map_bg.csv --flags flags.csv \
-  --info carts/smw/bm.info --targets rgb30 --input pad -o smw.b16 --b16
+  --info carts/smw/bm.info --targets rgb30 --input pad -o smw.bm
 ```
 
-`python3 scripts/bmres.py info smw.b16` lists what is inside: the Lua size, the sheet, the map (640x54 cells), the three layers `main`, `col` and `bg`, the flags and the 40 sprite zones.
+`python3 scripts/bmres.py info smw.bm` lists what is inside: the Lua size, the sheet, the map (640x54 cells), the three layers `main`, `col` and `bg`, the flags and the 40 sprite zones.
 
 # The level as a map
 
@@ -263,7 +263,7 @@ The background has 637 distinct cells. `bg.py` folds the picture to its period, 
 
 # Try it
 
-1. Build the guide edition: `python3 carts/smw/guide/build.py`. It writes `build/smw-guide/guide.b16`.
+1. Build the guide edition: `python3 carts/smw/guide/build.py`. It writes `build/smw-guide/guide.bm`.
 2. Run it in `bmhost` and take pictures: `python3 tests/smw/guide_shots.py`. The shots go to `manuals/shots/`.
 3. Open `carts/smw/src/physics.lua` and change `GRAV_HOLD` from 3.4 to 6.8. Build again and jump: the button no longer changes the height.
 4. Open `game.lua`, find `FOE.koopa` and change what `hurts` returns for a walking Koopa. Build and walk into one.

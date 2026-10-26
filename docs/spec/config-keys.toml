@@ -372,15 +372,6 @@ settings = ""
 read_in = "src/rgb30/main.c:273"
 
 [[key]]
-name = "market_bm"
-scope = "rgb30"
-values = "0 = hide the .bm cartridges of the Market; anything else = list them"
-default = "listed (SYS-8: the compat policy greys a cartridge not made for the RGB30)"
-meaning = "The Market of the RGB30: whether the Pi's .bm cartridges are listed next to the .b16 ones."
-settings = ""
-read_in = "src/kernel/market.c:adopt"
-
-[[key]]
 name = "market_delay"
 scope = "all"
 values = "milliseconds (strtol)"
@@ -523,24 +514,6 @@ default = "on if github_token is set, else off"
 meaning = "A report with the frames of a game run, when it ends (30 frames or more)."
 settings = ""
 read_in = "src/bm/runtime.c:9462"
-
-[[key]]
-name = "show_b16"
-scope = "pi"
-values = "1 = list the .b16 even when the game has a .bm; anything else = keep the .bm"
-default = "a game that has both editions shows only its .bm; .b16-only games are always shown"
-meaning = "Shows the .b16 editions in the Pi's catalog."
-settings = ""
-read_in = "src/kernel/market.c:368"
-
-[[key]]
-name = "show_bm"
-scope = "rgb30"
-values = "0 = hide the .bm cartridges; anything else = show them"
-default = "shown (the Games tab lists .bm for testing, user's decision 2026-10-03)"
-meaning = "The Games tab of the RGB30: whether the Pi's .bm cartridges are listed. The Market has its own key, market_bm."
-settings = ""
-read_in = "src/rgb30/ui.c:245"
 
 [[key]]
 name = "sound"

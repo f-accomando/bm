@@ -130,8 +130,6 @@ static void scan_dir(lib_t *l, const char *path)
         if (e.is_dir || e.name[0] == '.')
             continue;
         const int want = l->be->want ? l->be->want(e.name) : lib_ext_ok(e.name);
-        if (want < 0)
-            l->hidden++;
         if (want <= 0)
             continue;
         lib_game_t *c = &l->g[l->n++];
@@ -181,7 +179,6 @@ void lib_scan(lib_t *l)
         }
     }
     l->n = 0;
-    l->hidden = 0;
     if (l->sd_ok) {
         for (const char *const *d = l->be->dirs; *d; d++)
             scan_dir(l, *d);
@@ -260,9 +257,9 @@ int lib_compat_question(const lib_game_t *g, char *q, size_t qn, char *d, size_t
 {
     if (!g->grey || lib_is_suspended(g))
         return 0;
-    ksnprintf(q, qn, "Start it anyway?");
-    ksnprintf(d, dn, "%s", g->why);
-    ksnprintf(y, yn, "Start");
+    ksnprintf(q, qn, "%s", g->why);
+    ksnprintf(d, dn, "It may not run well here.");
+    ksnprintf(y, yn, "OK");
     return 1;
 }
 
@@ -390,9 +387,6 @@ void lib_panel(const lib_game_t *c, home_panel_t *p)
         if (cap & LIB_CAP_COPY)
             home_row(p, MENU_ROW_ACTION, LIB_ROW_COPY, "Make an editable copy",
                      "Games are read only: open the copy (.bme) from an editor", NULL);
-        if (strcmp(lib_kind(c), "b16") != 0)
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_BUILD_B16, "Export .b16",
-                     "Exports a .b16 edition without changing the .bm", NULL);
         if (cap & LIB_CAP_PUBLISH)
             home_row(p, MENU_ROW_ACTION, LIB_ROW_PUBLISH, "Publish to the Market",
                      "A pull request with your GitHub token: everyone can get it", NULL);
@@ -400,8 +394,6 @@ void lib_panel(const lib_game_t *c, home_panel_t *p)
             home_row(p, MENU_ROW_ACTION, LIB_ROW_SEND, "Send to a nearby console",
                      "To a console on this network with the Market tab open", NULL);
     }
-    if (c->grey)                                /* the reason of the grey cover, before Play asks */
-        home_row(p, MENU_ROW_INFO, LIB_ROW_COMPAT, "Not here", "Play asks before it starts this game", "%s", c->why);
     home_row(p, MENU_ROW_INFO, LIB_ROW_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
     home_row(p, MENU_ROW_INFO, LIB_ROW_FILE, "File", c->builtin ? "Built into the kernel" : "On the SD card",
@@ -409,7 +401,7 @@ void lib_panel(const lib_game_t *c, home_panel_t *p)
     home_row(p, MENU_ROW_INFO, LIB_ROW_SIZE, "Size", "The whole cartridge",
              "%lu KB", (c->size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, LIB_ROW_TYPE, "Type", "Lua 5.4 on bm", "%s",
-             !strcmp(lib_kind(c), "b16") ? "b16 (handheld)" : "bm (native)");
+             !strcmp(lib_kind(c), "b16") ? "b16 (old edition)" : "bm");
     char v[40];
     if (library.panel_save >= 0 && library.panel_slots > 1)
         ksnprintf(v, sizeof v, "%ld bytes in %d slots", library.panel_save, library.panel_slots);
@@ -443,26 +435,22 @@ int lib_act(lib_game_t *c, int row, int how, home_do_t *d)
         lib_suspend_close();
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
         return 1;
-    case LIB_ROW_COPY:
-    case LIB_ROW_BUILD_B16: {
+    case LIB_ROW_COPY: {
         char to[96], err[64];
         stop_background();
-        int r = row == LIB_ROW_COPY ? bm_copy_name(c->path, to, sizeof to) : 0;
+        int r = bm_copy_name(c->path, to, sizeof to);
         if (r != 0)
             ksnprintf(err, sizeof err, "no free name");
-        else if (row == LIB_ROW_COPY)
-            r = bm_make_copy(c->path, to, err, sizeof err);
         else
-            r = bm_build_b16(c->path, to, sizeof to, err, sizeof err);
+            r = bm_make_copy(c->path, to, err, sizeof err);
         if (r == 0) {
             const char *slash = strrchr(to, '/');
-            ksnprintf(d->note, sizeof d->note, row == LIB_ROW_COPY ? "%s is a project (SDK: Open)" : "%s is in Games",
-                      slash ? slash + 1 : to);
-            kprintf("menu: %s %s to %s\n", row == LIB_ROW_COPY ? "copied" : "built", c->path, to);
+            ksnprintf(d->note, sizeof d->note, "%s is a project (SDK: Open)", slash ? slash + 1 : to);
+            kprintf("menu: copied %s to %s\n", c->path, to);
             d->what = HOME_BACK;            /* the menu reads the SD card again */
         } else {
             d->fail = 1;
-            ksnprintf(d->note, sizeof d->note, "%s: %s", row == LIB_ROW_COPY ? "cannot copy" : "cannot build", err);
+            ksnprintf(d->note, sizeof d->note, "cannot copy: %s", err);
         }
         return 1;
     }

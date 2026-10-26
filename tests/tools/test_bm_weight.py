@@ -58,7 +58,9 @@ class WeightTest(unittest.TestCase):
         self.assertEqual(bm_weight.parse(self.data, "x.b16")["edition"], "b16")
         self.assertEqual(bm_weight.parse(self.data, "x.bme")["edition"], "project")
         self.assertEqual(bm_weight.parse(mkbm.mark_project(self.data))["edition"], "project")
-        self.assertEqual(bm_weight.parse(mkbm.mark_b16(self.data))["edition"], "b16")
+        legacy = bytearray(self.data)               # an old .b16: bit 1 of the u16 at 18 (read, never written now)
+        legacy[18] = (legacy[18] & ~1) | 2
+        self.assertEqual(bm_weight.parse(bytes(legacy))["edition"], "b16")
 
     def test_not_a_cartridge(self):
         with self.assertRaises(ValueError):
@@ -147,9 +149,9 @@ class PolicyTest(unittest.TestCase):
             self.assertEqual(bm_weight.classify(both, k, self.policy)[0], "show")
         self.assertEqual(bm_weight.classify(pi_only, "pi-zero-w", self.policy)[0], "show")
         act, why, _ = bm_weight.classify(pi_only, "rgb30", self.policy)
-        self.assertEqual((act, why), ("grey", "made for the Pi Zero W only"))
+        self.assertEqual((act, why), ("grey", "This edition is for the Pi"))
         act, why, _ = bm_weight.classify(rgb_only, "pi-zero-w", self.policy)
-        self.assertEqual((act, why), ("grey", "made for the RGB30 only"))
+        self.assertEqual((act, why), ("grey", "This edition is for the RGB30"))
         self.assertEqual(bm_weight.classify(self.facts(declared=False, targets=1), "rgb30", self.policy)[0], "grey")
 
     def test_reason_is_short(self):

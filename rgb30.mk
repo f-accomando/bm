@@ -120,7 +120,7 @@ $(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem keys/market-pub.pem src/
                                     $(BUILD)/sdk_b16.bm
 FORCE:
 
-# bm SDK (RGB30) (carts/sdk_b16: the SDK's .b16 edition, 360x360 and the pad), built
+# bm SDK (RGB30) (carts/sdk_b16: the SDK for the RGB30, 360x360 and the pad), built
 # into this kernel as the Pi's SDK is into its own: the Dev tab opens it as a tool
 # (src/rgb30/ui.c, src/kernel/devtool.c). Its two Lua files joined by its build.py,
 # then the cartridge, which bm_embed.S takes with .incbin. Not in the Pi's kernel.
@@ -131,7 +131,8 @@ SDK_B16_RES ?= 360x360
 $(BUILD)/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
-	    --title "bm SDK (RGB30)" --author bm --res $(SDK_B16_RES)
+	    --title "bm SDK (RGB30)" --author bm --res $(SDK_B16_RES) \
+	    --targets rgb30 --input pad --aspect square
 
 .DEFAULT_GOAL := all
 .PHONY: all test test-bt test-wifi test-audio test-mali qemu clean firmware image sdcard FORCE

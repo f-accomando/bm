@@ -142,7 +142,7 @@ $(BUILD)/words.lua: $(WORDS_SRC)
 #   sheet8_<k> := 1            the sheet with a palette and runs (up to 256 colours, much smaller)
 #   layers_<k> := name ...     the map layers, files map_<name>.csv, in this order
 #   extra_<k>   more mkbm.py flags, at the end
-# The key <k> is the cart name; a second edition has its own key (overbit_b16).
+# The key <k> is the cart name.
 c_dir    = $(or $(cdir_$(1)),carts/$(1))
 c_asset  = $(firstword $(wildcard $(call c_dir,$(1))/assets/$(2) $(call c_dir,$(1))/$(2)))
 c_lua    = $(or $(lua_$(1)),$(call c_dir,$(1))/main.lua)
@@ -184,7 +184,7 @@ $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) scripts/mkbm.py $
 	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 bench3d
+GAMES := pong snake shooter astrowing kitchen titan titanex nano8 overbit yharnam typing write ko2 bench3d
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
@@ -249,8 +249,8 @@ $(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build/build.py
 lua_titan := $(BUILD)/titan/main.lua
 sheet8_titan := 1
 
-# Titan Clash EX (RGB30, .b16 only): the same game's second edition, 360x360 (1:1),
-# with its own sources in carts/titan_ex/ (the Pi's .bm stays in carts/titan/)
+# Titan Clash EX: the same game's second edition, 360x360 (1:1), with its own sources in
+# carts/titan_ex/ (a .bm for the Pi and the RGB30; Titan Clash stays in carts/titan/)
 TITAN_EX_SRC := $(sort $(wildcard carts/titan_ex/src/*.lua))
 $(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) carts/titan_ex/build/build.py
 	$(PYTHON) carts/titan_ex/build/build.py $@ --map $(BUILD)/titan_ex/main.map
@@ -306,9 +306,8 @@ OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_MESHY),--meshy)
 title_overbit := Overbit
 # its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
 OVERBIT_RES := 480x270
-# the .bm (the Pi's, in the Market next to the .b16): three screens on a TV,
-# 640x360 on the ARM, 640x360, 1280x720 and 1920x1080 on the GPU (85_quality); the
-# .b16 has not the flag and keeps its own (640x360 and 1080p)
+# the .bm (for the Pi and the RGB30): three screens on a TV, 640x360 on the ARM, 640x360,
+# 1280x720 and 1920x1080 on the GPU (85_quality); the RGB30 offers its square modes
 OVERBIT_BM_DEFS := --define OVERBIT_TV_BM=true
 $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm
 	$(PYTHON) carts/overbit/build/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua \
@@ -347,33 +346,6 @@ $(BUILD)/overbit/sounds.json: carts/overbit/art/sounds.py
 lua_overbit := $(BUILD)/overbit/main.lua
 models_overbit := $(BUILD)/overbit/models.bm
 audio_overbit := $(BUILD)/overbit/sounds.json
-
-# the optimized release, the .b16 of the Market for the Pi and the RGB30 (the
-# same container, docs/B16.md §0): the script without comment
-# and blank lines, 360x360 in the header (a .b16's size). The game sets its own
-# screen, quality and renderer (85_quality): on the RGB30 360x360 or 720x720,
-# on the Pi's TV 1080p on the GPU or 640x360 (the square page left at the
-# start); the title's RESOLUTION and RENDERER, saved; BENCHMARK recalibrates.
-OVERBIT_B16_RES := 360x360
-$(BUILD)/overbit/main.min.lua: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm
-	$(PYTHON) carts/overbit/build/build.py $@ --minify --extra $(BUILD)/overbit/21_map.lua
-
-cdir_overbit_b16 := carts/overbit
-lua_overbit_b16 := $(BUILD)/overbit/main.min.lua
-noinfo_overbit_b16 := 1
-title_overbit_b16 := $(title_overbit)
-res_overbit_b16 := $(OVERBIT_B16_RES)
-models_overbit_b16 := $(BUILD)/overbit/models.bm
-audio_overbit_b16 := $(BUILD)/overbit/sounds.json
-$(BUILD)/carts/overbit.b16: $$(call c_lua,overbit_b16) scripts/mkbm.py $$(call c_deps,overbit_b16)
-	$(call CART_RECIPE,overbit_b16)
-
-# the .b16 that is the .bm's very bytes (docs/B16.md §0: the same container): a
-# 360x360 or 720x720 game, built as its .bm (Yharnam: 360x360,
-# its menus on "ok" / "back", the RGB30's B and A)
-B16_AS_BM := yharnam titanex
-$(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/carts/%.bm
-	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
 
 # variants that start in a mode: the reel (for docs/img) and the benchmark
 $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
@@ -662,14 +634,6 @@ test-compat: $(BUILD)/host/test_compat docs/spec/compat-policy.toml
 	$(BUILD)/host/test_compat
 	$(PYTHON) tests/tools/test_compat_policy.py $(BUILD)/host/test_compat
 
-test-lint: $(BUILD)/host/test_lint docs/spec/lint-rules.toml
-	$(PYTHON) scripts/mklint.py --check
-	$(PYTHON) tests/tools/test_mklint.py $(BUILD)/host/test_lint
-
-$(BUILD)/host/test_lint: tests/bm/test_lint.c src/bm/lint.c src/bm/lint.h src/bm/lint_table.h src/bm/bm.h
-	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/bm/test_lint.c src/bm/lint.c
-
 $(BUILD)/host/test_compat: tests/bm/test_compat.c src/bm/format.c src/bm/compat_table.h src/lib/crc32.c src/bm/bm.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/test_compat.c src/bm/format.c src/lib/crc32.c
@@ -701,7 +665,7 @@ BMHOST_RT := src/bm/runtime.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_ne
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
              src/bm/decimate.c src/bm/cutout.c \
              src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/vid.c src/bm/loading.c src/bm/loading_logo.c \
-             src/bm/profile.c src/bm/project.c src/bm/lint.c src/bm/shot.c src/bm/webp.c src/bm/webimg.c src/bm/webpolicy.c
+             src/bm/profile.c src/bm/project.c src/bm/shot.c src/bm/webp.c src/bm/webimg.c src/bm/webpolicy.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
@@ -993,7 +957,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
-HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-compat test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-crumbs test-monitor-cmd test-vid $(if $(K7),test-hyp)
@@ -1022,9 +986,9 @@ $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/for
 test-fat: $(BUILD)/host/test_fat
 	$(PYTHON) tests/fs/run.py $<
 
-$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h src/kernel/sdmap_core.c src/kernel/sdmap.h src/bm/project.c src/bm/project.h src/bm/lint.c src/bm/lint.h src/bm/lint_table.h src/bm/format.c
+$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h src/kernel/sdmap_core.c src/kernel/sdmap.h src/bm/project.c src/bm/project.h src/bm/format.c
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c src/kernel/sdmap_core.c src/bm/project.c src/bm/lint.c src/bm/format.c src/lib/crc32.c
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c src/kernel/sdmap_core.c src/bm/project.c src/bm/format.c src/lib/crc32.c
 
 # the steps of a queued file_write: sectors between two ticks of a 2048 KB write
 test-fat-queue: $(BUILD)/host/test_fat_queue
@@ -1140,31 +1104,33 @@ $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/gith
 # A game's version is the day its bytes changed.
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
-# the games that go to the Market as .b16: none (Overbit, Yharnam and Titan Clash EX left on 26 Oct 2026;
-# their .bm runs on the Pi and the RGB30). The RGB30's SDK keeps its .b16 under the id "editor".
-MARKET_B16 := editor
-MARKET_NO_BM :=
-MARKET_ONLY :=
 # The Market has its own list of games: GAMES minus MARKET_APPS_OF_GAMES.
 # typing, write and bench3d are apps: they go to the apps/ folder of the Market.
 MARKET_APPS_OF_GAMES := typing write bench3d
-MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES),$(GAMES))
+# titanex is held back: built as a .bm, not in the Market until the owner says so (26 Oct 2026).
+MARKET_HELD := titanex
+MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES) $(MARKET_HELD),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
-# the SDK as .b16 (carts/sdk_b16, its own sources) under the id "editor".
+# its SDK (carts/sdk_b16, its own sources, targets: rgb30) under the id "sdk-rgb30".
 MARKET_APPS := editor code pixel studio animator mesh sound assistant
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
-$(BUILD)/carts/editor.b16: $(BUILD)/carts/sdk_b16.bm
-	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
-market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
+MKMARKET_ADD = $(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add
+market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS) $(BUILD)/carts/sdk_b16.bm
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows $(MARKET)/games $(MARKET)/apps
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
-	for g in $(MARKET_GAMES) $(MARKET_ONLY); do 		case " $(MARKET_NO_BM) " in *" $$g "*) ;; *) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/$$g.bm --id $$g 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; 		case " $(MARKET_B16) " in *" $$g "*) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/$$g.b16 --id $$g 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; 	done
-	for a in $(MARKET_APPS_OF_GAMES); do 		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/$$a.bm --id $$a --kind app 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; 	done
-	for a in $(MARKET_APPS); do 		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/$$a.bm --id $$a --kind app 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; 	done
-	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/editor.b16 --id editor --kind app 		--version $(MARKET_VERSION) --about-file market/about.txt
+	for g in $(MARKET_GAMES); do \
+		$(MKMARKET_ADD) $(BUILD)/carts/$$g.bm --id $$g --version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
+	done
+	for a in $(MARKET_APPS_OF_GAMES); do \
+		$(MKMARKET_ADD) $(BUILD)/carts/$$a.bm --id $$a --kind app --version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
+	done
+	for a in $(MARKET_APPS); do \
+		$(MKMARKET_ADD) $(BUILD)/$$a.bm --id $$a --kind app --version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
+	done
+	$(MKMARKET_ADD) $(BUILD)/carts/sdk_b16.bm --id sdk-rgb30 --kind app --version $(MARKET_VERSION) --about-file market/about.txt
 	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --check
 # kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:
 # start.S and vectors.S in QEMU's virt machine with the virtualization

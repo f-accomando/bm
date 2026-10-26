@@ -2,10 +2,9 @@
  * The RGB30's menu: the Pi's (src/kernel/menu_ui.c, the same drawing and
  * bar) at 360x360, shown twice as big (the whole 720x720 panel, every pixel
  * a 2x2 square), two covers a row. Tabs as on the Pi: Market (the catalog's
- * .b16 games, src/kernel/market.c in fibers as on the Pi; they go to bm/),
- * Games (the .b16 files in bm/ on the SD card, the handhelds' cartridges:
- * the .bm container, docs/B16.md §0, they play; and for testing the Pi's
- * .bm cartridges, which run; show_bm=0 hides them), Dev
+ * games (.bm; the old .b16 too), src/kernel/market.c in fibers as on the Pi; they go to bm/),
+ * Games (the .bm files in bm/ on the SD card; a cartridge made for the Pi only has a faded cover and asks OK or
+ * Cancel before it starts), Dev
  * (the 3D Bench, the render bench, the display modes, the input test, the
  * boot log, Lua) and Settings, whose panel opens when it is the tab
  * (Bluetooth, WiFi, updates from GitHub, the console's state, reboot, power
@@ -182,7 +181,7 @@ static void frame_end(void)
 
 static lib_game_t *const games = library.g;     /* the library (kernel/library.h) */
 /* games[] holds the cartridges of the card (library.n); the tabs list them by lib_tab_items: the games on the Games
- * tab, the apps and utilities in Dev after its fixed items. library.hidden: .bm hidden by show_bm=0 */
+ * tab, the apps and utilities in Dev after its fixed items. */
 static int game_idx[LIB_MAX], n_games;      /* the Games tab: the library indexes of the games */
 static int dev_idx[LIB_MAX], n_dev;         /* the Dev tab after its fixed items: apps and utilities */
 static const char *sd_state = "not read";
@@ -193,21 +192,17 @@ enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
  * read in the background (D10: a fiber job in the menu's free time, the covers on screen first, stopped before a
  * game or a page starts and before the list changes) --- */
 
-/* What the RGB30 lists: .b16 always, .bm unless show_bm=0 (they are for the Pi, listed for testing), no tool
- * cartridge (a tool installed from Market > Apps, the SDK: Dev, not Games), no project. */
+/* What the RGB30 lists: .bm and the old .b16, no tool cartridge (a tool installed from Market > Apps, the SDK: Dev,
+ * not Games), no project. A .bm made for the Pi only is greyed (compat-policy.toml). */
 static int rgb_want(const char *name)
 {
     const char *dot = strrchr(name, '.');
     if (!dot)
         return 0;
-    const char *show = config_get("show_bm");
-    const int show_bm = !show || strcmp(show, "0") != 0;     /* for testing: shown unless show_bm=0 */
     const int is_b16 = strcasecmp(dot, ".b16") == 0;
     const int is_bm = strcasecmp(dot, ".bm") == 0;
     if (bm_tool_id_of_file(name))
         return 0;                   /* a tool installed from Market > Apps (the SDK): Dev, not Games (as on the Pi) */
-    if (is_bm && !show_bm)
-        return -1;                  /* .bm: for the Pi, hidden here */
     return is_b16 || is_bm;
 }
 
@@ -728,6 +723,7 @@ static void play_market(int i)
 {
     const char *mp = market_path(i);
     if (strcasecmp(mp, "/bm/SDK.B16") == 0 || strcasecmp(mp, "/bm/SDK_B16.B16") == 0 ||
+        strcasecmp(mp, "/bm/SDK-RGB3.BM") == 0 ||
         strcasecmp(mp, "/bm/SDK.BM") == 0) {
         run_page(page_sdk);
         return;
@@ -852,8 +848,6 @@ static void uh_open(uhome_t *m, framebuffer_t *f)
             menu_make_tool_cover(&dev_covers[i], dev_items[i].name, dev_items[i].icon, dev_items[i].rgb);
     }
     kprintf("cartridge menu: %d games", n_games);
-    if (library.hidden)
-        kprintf(" (%d .bm hidden by show_bm=0 in bm/config.txt)", library.hidden);
     kprintf("\n");
     menu_reopen();
 
@@ -998,12 +992,10 @@ static void uh_draw(uhome_t *m)
     } else if (m->shown == TAB_GAMES && m->n == 0) {
         /* nothing to list: the title pill says why (the bottom bar has the key chips only) */
         static char empty[72];
-        if (library.hidden)
-            ksnprintf(empty, sizeof empty, "No games yet: %d .bm hidden by show_bm=0", library.hidden);
-        else if (strcmp(sd_state, "bm/") != 0)
+        if (strcmp(sd_state, "bm/") != 0)
             ksnprintf(empty, sizeof empty, "No games yet: no bm/ folder");
         else
-            ksnprintf(empty, sizeof empty, "No games yet: put .b16 games in bm/");
+            ksnprintf(empty, sizeof empty, "No games yet: put .bm games in bm/");
         v.banner = empty;
         v.a_label = "";
     } else if (cart_at(m->shown, *m->s) >= 0) {

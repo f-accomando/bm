@@ -109,9 +109,9 @@ int main(int argc, char **argv)
 
     /* rule 3 and 4: a header that does not list the kernel greys the cartridge, with the reason */
     CHECK(verdict(ED_BM, 640, 360, R, 0, none, none, 1000, P, 0, &rule, &why) == BM_ACT_GREY && rule == 3);
-    CHECK(!strcmp(why, "made for the RGB30 only"));
+    CHECK(!strcmp(why, "This edition is for the RGB30"));
     CHECK(verdict(ED_BM, 640, 360, P, 0, none, none, 1000, R, 0, &rule, &why) == BM_ACT_GREY && rule == 4);
-    CHECK(!strcmp(why, "made for the Pi Zero W only"));
+    CHECK(!strcmp(why, "This edition is for the Pi"));
     CHECK(verdict(ED_B16, 360, 360, P, 0, none, none, 1000, R, 1, &rule, &why) == BM_ACT_GREY && rule == 4);
 
     /* a header that lists the kernel shows it; the old-.bm rule (5) does not apply to a declared file */
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
     /* rule 5: an old .bm (no block) is for the Pi only: grey on the RGB30, in the menu and in the Market */
     CHECK(verdict(ED_BM, 640, 360, 0, 0, none, none, 1000, R, 0, &rule, &why) == BM_ACT_GREY && rule == 5);
     CHECK(verdict(ED_BM, 640, 360, 0, 0, none, none, 1000, R, 1, &rule, &why) == BM_ACT_GREY && rule == 5);
-    CHECK(!strcmp(why, "made for the Pi Zero W only"));
+    CHECK(!strcmp(why, "This edition is for the Pi"));
 
     /* rule 6 and 7: a sound bank over 16 MB (8,388,608 values) is grey */
     {

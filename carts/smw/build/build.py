@@ -100,9 +100,9 @@ def main():
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", sheet_png, "--sprites", out + "/sprites.txt",
             "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--map", "bg=" + out + "/map_bg.csv", "--flags", out + "/flags.csv",
             "--info", ROOT + "/carts/smw/bm.info", "--targets", "rgb30", "--input", "pad"]
-    subprocess.run(base + ["-o", out + "/smw.b16", "--b16"], check=True)
+    subprocess.run(base + ["-o", out + "/smw.bm"], check=True)
     subprocess.run(base + ["-o", out + "/smw.bme"], check=True)
-    print("built", out + "/smw.b16")
+    print("built", out + "/smw.bm")
 
 
 if __name__ == "__main__":

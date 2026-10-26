@@ -188,14 +188,14 @@ action = "write the RK3566 TSADC temperature and the clock readback (device-test
 
 [[divergence]]
 id = "D16"
-area = "Market formats and show_bm / show_b16"
-pi = "shows .bm; .b16 only without a .bm twin, or show_b16=1"
-rgb30 = "shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default"
+area = "Market formats (.bm and the old .b16)"
+pi = "one entry per id: the .bm; an old .b16 only without a .bm twin; a cartridge for the RGB30 has a faded cover"
+rgb30 = "the same rule; a cartridge for the Pi only has a faded cover; no show_bm, show_b16 or market_bm key (removed 26 Oct 2026)"
 cause = "history"
 priority = 3
 status = "resolved"
-note = "src/kernel/market.c: the Market of the RGB30 has its own key market_bm (SYS-8: the default lists the .bm too, grey by the compat policy; market_bm=0 hides them); show_bm is only the Games tab. Documented in docs/RGB30.md and config-keys.toml. Proved in QEMU by test_market_bm_key (default, show_bm=0, market_bm=0) and test_market_b16 (market_bm=0 lists .b16 only). Not verified on hardware."
-evidence = "src/kernel/market.c:351-380; src/rgb30/ui.c:237; tests/rgb30/qemu_test.py:test_market_bm_key"
+note = "26 Oct 2026: both kernels list one entry per id (the .bm; an old .b16 only when no .bm exists) and fade the cover of a cartridge made for the other kernel; the keys show_bm, show_b16 and market_bm are gone. Proved in QEMU by test_grey_cart_and_confirm and test_market. Not verified on hardware."
+evidence = "src/kernel/market.c:adopt; src/rgb30/ui.c:rgb_want"
 action = "none"
 
 [[divergence]]

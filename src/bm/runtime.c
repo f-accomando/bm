@@ -1164,7 +1164,7 @@ static const luaL_Reg api[] = {
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
-    { "cart_save", l_cart_save }, { "cart_build", l_cart_build }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
+    { "cart_save", l_cart_save }, { "cart_build", l_cart_build }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_publish", l_cart_publish }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
     { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d }, { "glb3d", l_glb3d }, { "res_write", l_res_write }, { "res_read", l_res_read },

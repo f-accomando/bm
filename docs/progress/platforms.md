@@ -98,7 +98,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `tests/rgb30/qemu_test.py`, no blind keys or fixed sleeps. Fixed so: `test_update_from_sd`, `test_gpu_test` (removed on 24 Oct 2026),
   `test_menu_input_page` (sends X again until a screen shows `held: 00000040`), `test_sdk_template_build`,
   `test_wifi_page_without_chip`: 5 of 5 alone, 3 of 3 with 14 busy loops (load 16 on 8 cores). Still blind:
-  `test_bluetooth_page_without_chip`, `test_games_in_bm_only`, `test_menu_games_and_hidden_bm`, `test_screen_console`.
+  `test_bluetooth_page_without_chip`, `test_games_in_bm_only`, `test_menu_games_bm_and_b16`, `test_screen_console`.
   A full `/tmp` (tmpfs) in WSL fails any test that writes an SD image: delete `/tmp/bm64*` or set `TMPDIR`.
 
 ## Rules (do not break)

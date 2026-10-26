@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as tmp:
         f.write("function _draw() cls(0) end\n")
     cases = [("type: app\n", 1), ("type: utility\n", 2), ("type: game\n", 0), ("", 0)]
     # extension: (resolution, bits kept from the kind)
-    for ext, res, kind in ((".bm", "640x360", 0), (".bme", "640x360", 1), (".b16", "360x360", 2)):
+    for ext, res, kind in ((".bm", "640x360", 0), (".bme", "640x360", 1)):
         for line, t in cases:
             out = "t" + ext
             r = build(tmp, out, line, res)

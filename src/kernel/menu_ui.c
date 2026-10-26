@@ -693,6 +693,23 @@ static void round_ring(int x, int y, int w, int h, int r, int t, uint16_t c)
     }
 }
 
+/* A cover made for the other device: the drawing stays, the colour changes (mostly grey with a cool tint)
+ * and a vignette darkens it towards the corners. v: 256 = no darkening, 0 = black. */
+static uint16_t cover_grey(uint16_t p, int v)
+{
+    int r = p >> 11 & 31, g = (p >> 6 & 31), b = p & 31;       /* (g: its top 5 of 6 bits) */
+    int l = (r * 77 + g * 150 + b * 29) >> 8;
+    r = (l * 160 + r * 96) >> 8;
+    g = (l * 160 + g * 96) >> 8;
+    b = (l * 160 + b * 96) >> 8;
+    r = r > 0 ? r - 1 : 0;                              /* the cool tint */
+    b = b < 30 ? b + 2 : 31;
+    r = r * v >> 8;
+    g = g * v >> 8;
+    b = b * v >> 8;
+    return (uint16_t)(r << 11 | g << 6 | b);
+}
+
 /* the cover with rounded corners, clipped to the grid rows */
 static void card(const g16_sheet_t *s, int x, int y, int grey)
 {
@@ -707,6 +724,7 @@ static void card(const g16_sheet_t *s, int x, int y, int grey)
         }
         return;
     }
+    const int hw = CARD_W / 2, hh = CARD_H / 2, far2 = hw * hw + hh * hh;
     for (int j = 0; j < CARD_H; j++) {
         int yy = y + j;
         if (yy < g.cy0 || yy >= g.cy1)
@@ -718,8 +736,16 @@ static void card(const g16_sheet_t *s, int x, int y, int grey)
             memcpy(dst, s->px + j * s->w + in, (size_t)(CARD_W - 2 * in) * 2);
         } else if (s && s->px && s->w >= CARD_W && s->h >= CARD_H) {
             const uint16_t *src = s->px + j * s->w + in;
-            for (int i = 0; i < CARD_W - 2 * in; i++)
-                dst[i] = half(src[i]);
+            for (int i = 0; i < CARD_W - 2 * in; i++) {
+                if (grey) {
+                    int ddx = i + in - hw, ddy = j - hh;
+                    int v = 240 - 95 * (ddx * ddx + ddy * ddy) / far2;      /* 240 in the middle, 145 at the corners */
+                    uint16_t c = cover_grey(src[i], v);
+                    dst[i] = dim ? half(c) : c;
+                } else {
+                    dst[i] = half(src[i]);
+                }
+            }
         } else {
             for (int i = 0; i < CARD_W - 2 * in; i++)
                 dst[i] = fade ? half(c16(0x303040)) : c16(0x303040);
@@ -1594,8 +1620,6 @@ static void frame_grid(const menu_view_t *v, float t)
             cover_progress(x, y, it->percent);
         } else if (it->badge) {
             cover_badge(x, y, it->badge, 0);
-        } else if (it->grey) {
-            cover_badge(x, y, "Not here", 0);
         }
         if (it->running)
             cover_star(x, y);

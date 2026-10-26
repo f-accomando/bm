@@ -1173,8 +1173,8 @@
  "smw-guide": {
   "chapters": {
    "1": {
-    "en": "14364baebf2b",
-    "it": "e24077b4bfbc",
+    "en": "53a2e07a33c7",
+    "it": "127e10f0488f",
     "title": "The project"
    },
    "2": {
@@ -1203,8 +1203,8 @@
     "title": "The assets pipeline"
    },
    "7": {
-    "en": "e147db851b0b",
-    "it": "d61f4658bfc4",
+    "en": "705f4ebe4be7",
+    "it": "4b7423d6b0da",
     "title": "Try it"
    },
    "8": {
@@ -1214,7 +1214,7 @@
    }
   },
   "sources": {
-   "carts/smw/build/build.py": "ef12ef48cc29",
+   "carts/smw/build/build.py": "d1275707cddf",
    "carts/smw/build/sprites.py": "b3b81909be57",
    "carts/smw/src/game.lua": "8aa9a97bd662",
    "carts/smw/src/physics.lua": "113cafbf10ca",

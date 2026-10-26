@@ -35,5 +35,8 @@ typedef struct {
  * start on, or NULL. Returns the `what` of the last tool. */
 const char *devtool_session(framebuffer_t *fb, const devtools_t *set, const uint8_t *cart, size_t cart_len,
                             const char *what, const char *open);
+/* The game a tool asked to publish with cart_publish(path) before its session ended: 1 and its path (once), or 0.
+ * The menu that started the session opens the Publish panel on it. */
+int devtool_take_publish(char *path, size_t n);
 
 #endif

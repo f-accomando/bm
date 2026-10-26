@@ -33,7 +33,7 @@ Read files in small slices (`grep`, or `offset` and `limit`). The current state 
 
 **Licenses and security.** Bare-metal sources contain only original code or code with a permissive license. You can use GPU structures from Mesa (MIT). Keep secrets, such as `*_KEY` and tokens, outside the repository.
 
-**`.bm` and `.b16` editions.** A `.bm` and a `.b16` are different editions. Each edition has its own Market channel and its own build. Build the `.b16` from its own sources. Leave the `.bm` sources unchanged.
+**One cartridge type.** The only cartridge type is `.bm`. The header says the kernels (`targets` in `bm.info`). Do not write a `.b16`. The kernels read an old `.b16` as a cartridge for the Pi and the RGB30.
 
 **Projects.** Change only `.bme` projects. `.bm` files are read-only.
 

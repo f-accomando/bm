@@ -3778,8 +3778,8 @@ def test_b16_on_pi(b, opts):
 
 def test_grey_cart_on_pi(b, opts):
     """A cartridge whose header lists only the RGB30 is not hidden on the Pi (docs/spec/compat-policy.toml): the
-    cover says "Not here", the start asks first ('Start it anyway?', the reason), back cancels, the confirm key
-    starts it. A .b16 and an old .bm start with no question (test_b16_on_pi)."""
+    cover is faded (no pill), the start asks first (the reason is the question, OK and Cancel), back cancels, the
+    confirm key starts it. An old .b16 starts with no question (test_b16_on_pi)."""
     tmp = tempfile.mkdtemp(prefix="bm-grey-")
     try:
         cfg = os.path.join(tmp, "config.txt")
@@ -3802,19 +3802,20 @@ def test_grey_cart_on_pi(b, opts):
         try:
             q.expect(MENU, timeout=30)
             time.sleep(0.8)
-            screen_has("RGB30 only", "Not here")
+            screen_has("RGB30 only")
+            assert "Not here" not in "\n".join(settled_screen(q, lambda i, t: True)[1]), "no pill on the cover"
             q.send("\r")                                # the first game: the question, it does not start
-            text = screen_has("Start it anyway?", "made for the RGB30 only", "Start")
+            text = screen_has("This edition is for the RGB30", "OK")
             time.sleep(1.0)
             assert b"the b16 runs" not in q.buf, "it started before the answer"
             q.send("q")                                 # no
-            _, text = settled_screen(q, lambda i, t: not any("Start it anyway?" in l for l in t))
-            assert "Start it anyway?" not in "\n".join(text), text
+            _, text = settled_screen(q, lambda i, t: not any("This edition is for the RGB30" in l for l in t))
+            assert "This edition is for the RGB30" not in "\n".join(text), text
             time.sleep(0.5)
             assert b"the b16 runs" not in q.buf, "back must not start it"
             q.send("\r")
-            screen_has("Start it anyway?")
-            q.send("\r")                                # yes: it starts (grey is not a lock)
+            screen_has("This edition is for the RGB30")
+            q.send("\r")                                # OK: it starts (a faded cover is not a lock)
             q.expect("made for the RGB30 only, it may not run well here", timeout=30)   # the load-time message
             q.expect("the b16 runs", timeout=30)
         finally:
@@ -4142,7 +4143,7 @@ def test_publish(b, opts):
             time.sleep(0.5)
             keys("x")                               # the options of My Game
             screen(["My Game", "Play"])
-            keys("ssssssssss")                      # after the seven "Open in", the copy and Export .b16
+            keys("sssssssss")                       # after the seven "Open in" and the copy
             screen(["Publish to the Market", "A pull request with your GitHub token"])
             keys("\r")
             screen(["Publish > My Game", "games/my-game", "License", "MIT", "GitHub token", "set",
@@ -9671,9 +9672,14 @@ def test_projects(b, opts):
         keys("\x02", gap=1.5)                     # again: the same one
         screen(["built /bm/pong1.bm"], tries=80)
         shot("sdk")
-        keys("\x1b", gap=0.6)
-        keys("\x1b[A", gap=0.3)                  # Exit bm SDK
-        keys("\r", gap=0.5)
+        keys("\x1b", gap=0.6)                    # the SDK's menu
+        screen(["Build the game .bm", "Publish to the Market"], tries=40)
+        assert "Export .b16" not in "\n".join(settled_screen(q, lambda i, t: True)[1]), "no Export .b16 in the menu"
+        for _ in range(6):                        # Continue, New, Open, Save, Save as, Build, then Publish
+            keys("\x1b[B", gap=0.3)
+        keys("\r", gap=1.5)                      # builds the game, then leaves the SDK for the Publish panel
+        screen(["Publish > ", "Folder in the Market", "Send the pull request"], tries=80)
+        keys("q", gap=0.6)                        # back from the panel
         screen(["Games", "Monitor"], tries=80)
         # the walk of the old test (8 down, 8 right) ends on the project when the tab lists it: here on a tool
         for _ in range(8):

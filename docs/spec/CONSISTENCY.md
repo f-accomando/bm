@@ -36,7 +36,6 @@ today the kernel version is a commit hash; revision 1 is the baseline of that da
 | `docs/spec/specs.toml` | the revisions and the items of the specification, each with its revision, status (`implemented`, `partial`, `planned`), files and platforms |
 | `docs/spec/config-keys.toml` | every key of `bm/config.txt` the kernel reads (60 keys and 3 patterns): scope, values, default, the Settings row |
 | `docs/spec/platforms.toml` | the two platforms and the **capabilities** in which they really differ |
-| `docs/spec/lint-rules.toml` | the Lua calls the `.b16` build lint warns about; read by `scripts/mkbm.py` and, as the C table `src/bm/lint_table.h` (`scripts/mklint.py --check`), by the SDK export `bm_build_b16`; see [b16](../progress/b16.md) |
 | `docs/spec/compat-policy.toml` | per kernel, whether a cartridge shows, greys or hides (editable rows); read by `scripts/bm_weight.py` and, as the C table `src/bm/compat_table.h` (`scripts/mkcompat.py --check`), by both kernels; see [devkit-weight](../progress/devkit-weight.md) |
 | `docs/spec/divergences.toml` | every known difference between the kernels, with its cause: `hardware`, `history`, `todo` or `unknown` |
 | `docs/spec/known.toml` | the differences found by the automatic rules that are accepted for now, with a reason |
@@ -97,7 +96,7 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D16 | resolved | history | Market formats and show_bm / show_b16 | Pi: shows .bm; .b16 only without a .bm twin, or show_b16=1. RGB30: shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default | one key, one default; document it in RGB30.md and B16.md |
+| D16 | resolved | history | Market formats and show_bm / show_b16 | Both kernels: one entry per id, the .bm; an old .b16 only without a .bm twin (keys removed 26 Oct 2026) | one key, one default; document it in RGB30.md and B16.md |
 
 **4. Developer workflow**
 
@@ -161,5 +160,5 @@ Resource files and the common project layout are `implemented` since BETA-6 roun
 - Version numbering: a baseline tag for the current line (for example `v0.3.0`) and `v1.0.0` when `gate` is empty. Tagging is
   outward-facing: waiting for a yes.
 - D49 is accepted (BETA-6 round 2): the Pi menus keep A and B (D32); only the RGB30 remaps the menus' OK and Cancel with `mo` and `mc`. If you want the Pi menus to follow them, say so: the entry goes back to `todo`.
-- D16 is decided: `show_bm` is the Games tab, `market_bm` the Market (RGB30), `show_b16` the Market (Pi).
+- D16 is closed (26 Oct 2026): the keys `show_bm`, `market_bm` and `show_b16` are removed; both kernels list one entry per id.
 - The Lib tab: removed from the Pi kernel on 2026-10-25 (owner's decision; it was hidden since 2026-10-06). Both kernels have the same tabs. The tools on the RGB30 come from Market > Apps and are recognised as tools (D13).

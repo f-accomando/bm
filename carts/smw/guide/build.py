@@ -10,7 +10,7 @@ the shape (where a pixel is opaque) and a coarse colour role (green, earth, yell
 light, grey, dark), then paints each role with its own flat colours and its own light and
 shadow from the shape. The shading and the earth speckle are made here. No pixel of the ROM
 reaches the output. Run it for screenshots of the PDF guide; the real build is for the
-benchmark. Default output: build/smw-guide (guide.b16, guide.bme)."""
+benchmark. Default output: build/smw-guide (guide.bm, guide.bme)."""
 import colorsys, importlib.util, json, os, subprocess, sys
 from PIL import Image
 
@@ -153,9 +153,9 @@ def main():
     base = [sys.executable, ROOT + "/scripts/mkbm.py", "--lua", out + "/main.lua", "--sheet", out + "/sheet.png", "--sprites", out + "/sprites.txt",
             "--map", out + "/map_main.csv", "--map", "col=" + out + "/map_col.csv", "--map", "bg=" + out + "/map_bg.csv", "--flags", out + "/flags.csv",
             "--info", ROOT + "/carts/smw/bm.info", "--title", "SMW Guide Edition", "--targets", "rgb30", "--input", "pad"]
-    subprocess.run(base + ["-o", out + "/guide.b16", "--b16"], check=True)
+    subprocess.run(base + ["-o", out + "/guide.bm"], check=True)
     subprocess.run(base + ["-o", out + "/guide.bme"], check=True)
-    print("built", out + "/guide.b16", len(cell_list), "cells")
+    print("built", out + "/guide.bm", len(cell_list), "cells")
 
 
 if __name__ == "__main__":

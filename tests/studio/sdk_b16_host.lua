@@ -439,9 +439,9 @@ local function new_env(arg, o)
   E.cart_build = function(path, kind)
     if not path:upper():match("%.BME$") then return false, path .. ": only a project (.bme) is built" end
     local dir, base = path:match("^(.*)/([^/.]+)%.[^.]*$")
-    local ext = kind == "b16" and ".b16" or ".bm"
+    local ext = ".bm"
     if dir == "/bme" then dir = "/bm" end                 -- a project in /bme builds into the games folder (RGB30: /bm)
-    local game = dir .. "/" .. base:lower() .. ext       -- bm_build / bm_build_b16: its 8.3 name
+    local game = dir .. "/" .. base:lower() .. ext       -- bm_build: its 8.3 name
     local d = assert(read_file(host(path)))
     local f = assert(io.open(host(game), "wb")); f:write(d); f:close()
     add_file(game)
@@ -752,13 +752,14 @@ end
 ----------------------------------------------------------------- the checks
 
 -- a fresh start on the RGB30: no file, the project page of a new game,
--- 360x360 and the target .b16
+-- 360x360
 saved_t = nil
 run_sdk(nil)
 tag = "project"
 frames(30)
 check(sees("PROJECT") and sees("title") and sees("New game"), "the hub: the project's rows")
-check(sees("360x360") and sees(".b16"), "a new project: 360x360, the target .b16")
+check(sees("360x360"), "a new project: 360x360")
+check(not sees(".b16") and not sees("target"), "no target row: one cartridge type, .bm")
 check(sees("CONTENTS") and sees("tokens"), "the hub: the contents measured")
 check(not sees("OPEN IN") and not sees("bm Code"), "no programs of the suite: the RGB30's kernel has none")
 check(tabs():find("[L1]", 1, true) and tabs():find("project", 1, true) and tabs():find("[R1]", 1, true),
@@ -1276,7 +1277,7 @@ check(built == "/bm/keep.bm", "Ctrl+B builds the game: " .. tostring(built))
 check(status():find("built /bm/keep.bm", 1, true) and status():find("it is in Games", 1, true),
       "Ctrl+B says where the game is: " .. status())
 key("^B")
-check(built == "/bm/keep.b16", "Ctrl+Shift+B exports .b16: " .. tostring(built))
+check(built == "/bm/keep.bm" and not sees("Export"), "Ctrl+Shift+B does nothing: no .b16 export")
 check(not quitted and not ran, "building does not leave the SDK")
 key("f5")
 check(ran == "/bme/keep.bme" and quitted, "F5 tries the project (the SDK leaves for it): " .. tostring(ran))
@@ -1311,7 +1312,7 @@ run_sdk(nil)
 frames(3)
 key("^o")
 check(sees("/bm/TESTKIT.B16"), "Open: the games in bm/")
-press("down"); press("down")                     -- (/bm/ first: KEEP.B16 and KEEP.BM built above, then TESTKIT.B16)
+press("down")                                    -- (/bm/ first: KEEP.BM built above, then TESTKIT.B16)
 press("ok")
 frames(2)
 check(sees("Test Kit"), "the game opened")
@@ -1511,18 +1512,6 @@ local function msg_rows() local n = 0; for _, t in ipairs(texts) do if t[3] == 3
 check(msg_rows() == 1, "a long message is on the hint row")
 click(100, 328)
 check(msg_rows() == 0, "mouse: a click on a long message hides it")
-
--- the dev kit of a .b16 that uses what the profile leaves out (the shooter:
--- math.random), every row of it inside the page
-run_sdk(nil)
-frames(2)
-key("^n")
-for _ = 1, 3 do press("down") end
-press("ok")
-tag = "devkit shooter"
-with("y", "down")
-frames(30)
-check(sees("math.random") and sees("things a .b16 will not have"), "the dev kit: what a .b16 leaves out")
 
 -- back from a try (a tool session): the numbers on the project page and in
 -- the dev kit; an error: the code page on its line

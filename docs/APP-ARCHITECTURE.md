@@ -64,7 +64,7 @@ the RGB30), which **replaces the embedded one**; `bm_set_tool(1)`; `bm_play`; `b
 
 **The API of the tools** (`runtime.c`, [api/tools.md](api/tools.md)): `cart_load` (replaces the caller's sheet, map,
 models with the file's), `cart_read`, `cart_audio`, `cart_data(type[, bytes])` (types 8, 9, 11, 14), `cart_sheet`,
-`cart_new`, `cart_save`, `cart_write` (MESH, ANIM, `lua`, `sheet`, `title`, `from`), `cart_put_audio`, `cart_build(project[, "b16"])`,
+`cart_new`, `cart_save`, `cart_write` (MESH, ANIM, `lua`, `sheet`, `title`, `from`), `cart_put_audio`, `cart_build(project)`,
 `cart_run`, `cart_tool`, `cart_arg`, `cart_config`. `cart_load`, `cart_read`, `cart_audio`, `cart_data`, `cart_sheet` have no
 `tool_mode` check (UNVERIFIED for the last three).
 
