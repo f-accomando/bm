@@ -90,6 +90,14 @@ Next hardware steps:
 4. [DONE 25 Oct] Vertex shader transformation (Phase 3): Verified `BM_VS3` on hardware (`mali_probe_vs3`, report `b041b71a`): 4x4 matrix pushed via UBO 0 (`MALI_FRAME_VPUSH`) transforms model-space vertices (`41000000 42b00000 3f000000 3f800000`) and renders alongside `BM_VS` draws in 16 + 27 us.
 5. [DONE 25 Oct] Asynchronous queue & multi-buffering (Phase 4): Verified `mali_frame_submit` with sets `MALI_SET_BASE(0)` and `(1)` in flight on hardware (`mali_probe_async`, report `9e4652bd`): 2 frames submitted back-to-back complete in 204 us with exact pixel checks (`s0 40e080/102050`, `s1 e040a0/301040`).
 6. [DONE 25 Oct] `mali_backend` `BM_VS3` mesh path + async queue + cached resolve + single-pass 4 MB arena (`bm3d 7.13`–`7.15`, reports `7509aa08`, `e259a8c8`, `b3cab428`): Wired `mali_backend.mesh` (`be_mesh`), async Slot 0 Fragment Job overlap, cached 2 MB resolve (`dc civac`), 8192-triangle merge-sorted batching, L1-cached descriptor packing (`frame_build_ex`), 4 MB single-pass GPU arena (`1,024` draws), and enabled `mali3d=1` by default (`gpu3d_vs=2`, `gpu3d_queue=1`, `gpu3d_merge=1`). Games score rose from `192` to **`247`**; GPU score rose **16.3x** (`14` -> `228`); `quad_flat` (`211.3` @ 60 fps) and `gpu2d` (`1,849.2` @ 60 fps) beat Pi Zero W V3D.
+Queue to align bm3D on Mali with the Pi driver (26 Oct 2026, order of work; detail in [multicore](multicore.md) track G):
+- Q1. Read the new `mesh_us` / `flush_us` / `resolve_us` / `draws` columns of the C 3D Bench (kernel 1771 and later) and name the cost of the lit scenes.
+- Q2. Lighting per face off the ARM: in the vertex shader (as the Pi's V3D does) or, as a shortcut, on worker cores (multicore V1).
+- Q3. Textures on the GPU (item 7 below).
+- Q4. Hardware Z-buffer (item 8 below), then drop `sort_tris` on the GPU path.
+- Q5. The other `gpu3d_*` options of the Pi driver: check one by one which Mali ignores (list in `docs/BENCH3D.md`).
+Needs the Mesa Bifrost compiler (`tools/mali/README.md`) for Q2 (shader), Q3 and Q4.
+
 7. [FUTURE] Textures on GPU: compile textured fragment shader (`BM_FS_TEX`) + UV varying vertex shader with Mesa Bifrost compiler (`tools/mali/mkshader.c`), add Bifrost `Texture` and `Sampler` descriptors in `mali_desc.c`, and remove `colour_only` fallback.
 8. [FUTURE] Hardware Z-Buffer / Early-Z: attach a 16/24-bit Depth/Stencil (`ZS`) buffer via MFBD `md_zs_crc_ext` and enable hardware depth test (`Z_FUNC = LESS`) to eliminate CPU far-to-near `sort_tris` and reduce pixel overdraw.
 

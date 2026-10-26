@@ -39,6 +39,7 @@
 #include "ui.h"
 #include "battery.h"
 #include "smp.h"
+#include "b3d_rgb30.h"
 #include "net/release.h"
 #include "mbedtls/sha256.h"
 #include "pad.h"
@@ -321,6 +322,23 @@ void kernel_main(uintptr_t dtb)
         reports_end();
     }
     wifi_boot();
+    /* bench3d_boot=spheres.draws (set through the bridge: config bench3d_boot=...): one run of those tests at this
+     * boot, the key removed first so a freeze does not loop; the bridge allows no comma in a value, '.' and '-' stand for it */
+    const char *bb = config_get("bench3d_boot");
+    if (bb && bb[0] && err == 0) {
+        static char tests[96];
+        size_t n = 0;
+        for (; bb[n] && n < sizeof tests - 1; n++)
+            tests[n] = (bb[n] == '.' || bb[n] == '-') ? ',' : bb[n];
+        tests[n] = 0;
+        config_unset("bench3d_boot");
+        config_save();
+        kprintf("bench3d_boot: %s\n", tests);
+        fb_show(&fb, 0);
+        console_suspend(0);
+        rgb30_bench3d_part(&fb, strcmp(tests, "all") ? tests : NULL);
+        console_suspend(1);
+    }
     if (bt_paired() && bt_start() != 0)     /* a paired pad, keyboard or mouse comes back by itself, as on the Pi */
         kprintf("bt: not started: a paired pad will not reconnect (Settings > Controllers starts it)\n");
     bm_set_notice(notice_now);              /* the games show a kernel arriving */

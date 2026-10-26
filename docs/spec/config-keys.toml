@@ -120,6 +120,15 @@ settings = ""
 read_in = "src/rgb30/main.c:smp_boot"
 
 [[key]]
+name = "bench3d_boot"
+scope = "rgb30"
+values = "test ids with '.' or '-' between (spheres.draws), or all"
+default = "absent: no bench at boot"
+meaning = "One 3D Bench run of those tests at the next boot, then the key is removed (set through the bridge: the RGB30 has no monitor line)."
+settings = ""
+read_in = "src/rgb30/main.c:kernel_main"
+
+[[key]]
 name = "controls"
 scope = "both"
 values = "space-separated code:button pairs: c1-c4 (scroller), t1-t4 (top-down), s1-s8 (stick), pa (pause), mo and mc (the RGB30 menus' OK and Cancel: a b x y); buttons a b x y l1 r1 l2 r2 st se"

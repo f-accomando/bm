@@ -6,5 +6,7 @@
 #include "plat.h"
 
 void rgb30_bench3d(framebuffer_t *fb);
+/* only the tests listed (ids, commas between), all profiles; NULL = the whole bench (a part is not compared with the old reports) */
+void rgb30_bench3d_part(framebuffer_t *fb, const char *only_tests);
 
 #endif
