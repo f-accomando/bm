@@ -3,6 +3,12 @@
 
 void md_bits(uint8_t *p, unsigned start, unsigned size, uint64_t v)
 {
+    if (!(start & 7) && !(size & 7)) {          /* the usual case (addresses, 32-bit words): a byte at a time, not a bit */
+        p += start >> 3;
+        for (unsigned i = 0; i < size; i += 8)
+            *p++ |= (uint8_t)(v >> i);
+        return;
+    }
     for (unsigned i = 0; i < size; i++) {
         const unsigned b = start + i;
         if (v >> i & 1)

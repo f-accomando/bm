@@ -1369,7 +1369,13 @@ static gpu3d_stats_t be_stats;
 /* where the ARM's time goes in the backend (G3 of docs/progress/multicore.md): counter ticks, in us at the stats read.
  * flush includes the job and its wait; resolve is inside flush (a frame's own resolve) */
 static uint64_t t_mesh, t_flush, t_resolve, t_sort, t_build, t_jobs;
+#if defined(__aarch64__)
 static inline uint64_t cnt_now(void) { uint64_t v; __asm__ volatile("isb\n mrs %0, cntvct_el0" : "=r"(v)); return v; }
+static inline uint64_t cnt_freq(void) { uint64_t f; __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f)); return f; }
+#else                                           /* the host test builds this file too */
+static inline uint64_t cnt_now(void) { return 0; }
+static inline uint64_t cnt_freq(void) { return 0; }
+#endif
 static uint32_t be_wait_us;
 static int be_pend;
 static g16_t *be_pend_g;
@@ -1396,8 +1402,7 @@ void mali_backend_stats(gpu3d_stats_t *s, int reset)
 {
     if (s) {
         *s = be_stats;
-        uint64_t f;
-        __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f));
+        uint64_t f = cnt_freq();
         if (!f)
             f = 24000000u;
         s->mesh_us = (uint32_t)(t_mesh * 1000000u / f);
