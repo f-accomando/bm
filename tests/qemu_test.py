@@ -1309,7 +1309,7 @@ def test_home_ui(b, opts):
         for name in ("Game drawing", "3D anti-aliasing", "3D textures", "3D impostors", "Performance overlay"):
             assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         keys("s")
-        screen(["Menu size", "Auto"])
+        screen(["Menu size", "360p (ARM)"])
         # SYS-9: the performance flags are hidden keys too, with no row (still read from config.txt)
         hidden_rows = ("3D vertices", "3D frame queue", "3D frame shown", "2D over the 3D", "3D job memory",
                        "3D pixel shaders", "3D draw order", "3D corners")
@@ -6487,9 +6487,8 @@ def test_crash_report(b, opts):
 
 
 def test_menu_scale(b, opts):
-    """menu_scale=3 in bm/config.txt (2026-10-04): the menu at 1920x1080,
-    the same layout as at 640x360, every pixel 3x3 (the ARM enlarges it;
-    the GPU will draw it there one day)."""
+    """menu_scale=3 in bm/config.txt (26 Oct 2026): the menu asks for 1080p, which only the GPU draws. QEMU has no
+    V3D, so the menu stays at 360p on the ARM (640x360, no ARM enlarge) and says so in the log."""
     tmp = tempfile.mkdtemp(prefix="bm-scale-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -6499,25 +6498,17 @@ def test_menu_scale(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
+        q.expect("the GPU cannot draw 3x, 360p on the ARM", timeout=10)
         for _ in range(30):
-            big = q.screendump()
-            w, h, px = big
-            small = bytes(px[((y * 3) * w + x * 3) * 3 + k] for y in range(h // 3) for x in range(w // 3)
-                          for k in range(3))
-            text = screen_text((w // 3, h // 3, small))
-            if (w, h) == (1920, 1080) and "Settings" in text[1] and "Astro Wing" in text[4]:
+            w, h, px = q.screendump()
+            text = screen_text((w, h, px))
+            if "Settings" in text[1] and "Astro Wing" in text[4]:
                 break
             time.sleep(0.3)
-        assert (w, h) == (1920, 1080), f"screen {w}x{h}"
+        assert (w, h) == (640, 360), f"screen {w}x{h}"
         assert "Games" in text[1] and "Settings" in text[1] and "Astro Wing" in text[4], "\n".join(text)
-        # every 3x3 block one colour: the layout enlarged, not drawn again
-        for y in range(0, 1080, 37 * 3):
-            for x in range(0, 1920, 41 * 3):
-                block = {px[((y + j) * w + x + i) * 3:((y + j) * w + x + i) * 3 + 3] for j in range(3)
-                         for i in range(3)}
-                assert len(block) == 1, f"the 3x3 block at {x},{y}: {block}"
         if opts.shots:
-            _save_png(big, os.path.join(opts.shots, "menu-1080.png"))
+            _save_png((w, h, px), os.path.join(opts.shots, "menu-360-fallback.png"))
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

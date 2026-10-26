@@ -390,19 +390,10 @@ settings = ""
 read_in = "src/kernel/market.c:438"
 
 [[key]]
-name = "menu_gpu"
-scope = "pi"
-values = "1 = the V3D draws the 1080p layout directly (1:1 with 24x48 font, 0 us enlarge copy); anything else = the ARM"
-default = "off (ARM). With menu_gpu=1 on Pi Zero W, renders 1920x1080 directly with V3D."
-meaning = "Who draws the menu layout. With menu_gpu=1, the GPU draws the 1080p layout directly at 1:1, eliminating the ARM enlarge frame copy. When off, the ARM draws at 1x (or manual menu_scale)."
-settings = ""
-read_in = "src/kernel/menu_ui.c"
-
-[[key]]
 name = "menu_scale"
 scope = "pi"
-values = "1, 2 or 3 = menu at that size (the first character is read); no key = 1"
-default = "1 (640x360; the HDMI scaler enlarges it for free). 2 and 3 are copied by the ARM, about a frame at 2x."
+values = "1 = 360p drawn by the ARM; 2 = 1280x720 and 3 = 1920x1080, both drawn by the GPU (the first character is read); no key = 1"
+default = "1 (640x360 on the ARM; the HDMI scaler enlarges it for free). The ARM never enlarges the menu: when the GPU cannot draw 2 or 3, the menu stays at 360p."
 meaning = "Size of the menu on the Pi."
 settings = "Settings > Screen > Menu size"
 read_in = "src/kernel/menu_ui.c:1208"

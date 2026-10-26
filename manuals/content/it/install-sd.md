@@ -340,7 +340,7 @@ La console lo scrive quando cambi un'impostazione. Puoi anche modificarlo dal PC
 | `confirm` | `a`: A conferma (RGB30) |
 | `show_bm` | `0`: niente `.bm` nella scheda Games dell'RGB30 (di base si vedono, per le prove) |
 | `market_bm` | `0`: nessun `.bm` nel Market dell'RGB30 (di base li elenca, in grigio se non sono fatti per l'RGB30) |
-| `menu_scale` | `1`, `2` o `3`: il menu del Pi a 640x360, 1280x720 (default con la GPU) o 1920x1080 |
+| `menu_scale` | `1`, `2` o `3`: il menu del Pi a 360p su ARM (default), o 720p / 1080p disegnato dalla GPU (360p se la GPU non parte) |
 | `github_token` | un token GitHub per i rapporti di test |
 
 ## Imposta il WiFi dal PC

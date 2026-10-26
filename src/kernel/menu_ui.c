@@ -1282,9 +1282,10 @@ int menu_ui_cols(void)
 }
 
 /* the screen of the layout: on the RGB30 360x360 shown 2x (the display
- * controller enlarges it); on the Pi 640x360 by default
- * (the HDMI scaler enlarges it; the ARM enlarges it at each flip for menu_scale 2 or 3); menu_scale in bm/config.txt sets 1 to 3
- * and menu_gpu=1 lets the GPU enlarge it */
+ * controller enlarges it); on the Pi 640x360 drawn by the ARM (the HDMI
+ * scaler enlarges it). menu_scale in bm/config.txt (Settings > Screen > Menu size) asks for more:
+ * 2 is 1280x720 and 3 is 1920x1080, both drawn by the GPU at their own size. The ARM never enlarges the
+ * menu: when the GPU cannot draw it, the menu stays at 360p on the ARM. */
 static int screen_open(framebuffer_t *fb)
 {
 #ifdef BM_RGB30
@@ -1295,37 +1296,21 @@ static int screen_open(framebuffer_t *fb)
     return fb_init_mode(fb, (uint32_t)sw, (uint32_t)sh, 3, 16, 2, 0);
 #else
     const char *ms = config_get("menu_scale");
-    const char *mg = config_get("menu_gpu");
-    const int want_gpu = mg && mg[0] == '1';
     sw = 640;
     gpu_draw = 0;
     gpu_big = 0;
-    if (want_gpu) {
-        /* With menu_gpu=1: default to scale 3 (1080p, 1:1 GPU drawing), or manual menu_scale (1, 2, or 3) */
-        scale = ms && ms[0] == '1' ? 1 : ms && ms[0] == '2' ? 2 : 3;
-        if (scale > 1) {
-            if (fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) == 0 &&
-                fb->pitch == fb->width * 2 && gpu3d_init() == 0) {
-                gpu3d_set_fb(fb->mem, fb->size, fb->bus);
-                gpu3d_set_size((int)fb->width, (int)fb->height);
-                gpu_draw = 1;
-                kprintf("menu: %lux%lu, drawn by the GPU\n", fb->width, fb->height);
-                return 0;
-            }
-            kprintf("menu: GPU init failed, falling back to 1x on ARM\n");
-            scale = 1;
-        }
-    } else {
-        /* menu_gpu=0: default scale 1 (the HDMI scaler enlarges it at no CPU cost), or manual menu_scale 2/3 */
-        scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '2' ? 2 : 1;
-        if (scale > 1 && !frame)
-            frame = malloc(MAX_W * MAX_H * 2);
-        if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
-            scale = 1;
-        if (scale > 1) {
-            kprintf("menu: %lux%lu, the layout enlarged by the ARM\n", fb->width, fb->height);
+    scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '2' ? 2 : 1;
+    if (scale > 1) {
+        if (fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) == 0 &&
+            fb->pitch == fb->width * 2 && gpu3d_init() == 0) {
+            gpu3d_set_fb(fb->mem, fb->size, fb->bus);
+            gpu3d_set_size((int)fb->width, (int)fb->height);
+            gpu_draw = 1;
+            kprintf("menu: %lux%lu, drawn by the GPU\n", (unsigned long)fb->width, (unsigned long)fb->height);
             return 0;
         }
+        kprintf("menu: the GPU cannot draw %dx, 360p on the ARM\n", scale);
+        scale = 1;
     }
     return fb_init_depth(fb, (uint32_t)sw, (uint32_t)sh, 3, 16);
 #endif

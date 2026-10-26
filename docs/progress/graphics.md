@@ -14,7 +14,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   256×256 and 360×360 (the `.b16` screen), boxed in the middle of 16:9 on the Pi.
 - `screen(w, h)` switches at run time among `screen_modes[]` (320×180 … 1920×1080, 16:9,
   whole pixels on 1080p); a square cartridge keeps its screen.
-- Menu: 1x (640x360) by default, the HDMI scaler enlarges it (`menu_scale` sets 1, 2 or 3; Settings > Screen > Menu size). `menu_gpu=1` enables 1080p 1:1 GPU rendering (V3D quads, blit, 24x48 text, enlarge 0 us; verified on the Pi Zero W). With `menu_gpu=0`, the ARM falls back to 1x (or manual `menu_scale` ARM pixel copy).
+- Menu: 360p (640x360) on the ARM by default, the HDMI scaler enlarges it. `menu_scale` 2 (720p) or 3 (1080p) (Settings > Screen > Menu size) makes the V3D draw the menu at that size (quads, blit, 24x48 text at 1080p, enlarge 0 us; 1080p verified on the Pi Zero W, 720p not yet). The ARM never enlarges the menu: if the GPU cannot start, the menu stays at 360p on the ARM (26 Oct 2026; the `menu_gpu` key is removed).
 
 ### 2D (`src/bm/gfx16.c`, `gfx16.h`)
 - All 2D in C (Lua only logic): primitives, `spr`/`sspr`, `map()` with up to 8 layers
@@ -76,7 +76,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 ## Open work (`docs/ROADMAP.md`)
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
-- Menu 1080p GPU drawing on the Pi Zero W: done with `menu_gpu=1` (24 Oct: 1920x1080 1:1 drawn by V3D, font 24x48, enlarge 0 us, tested and verified on Pi Zero W hardware).
+- Menu 1080p GPU drawing on the Pi Zero W: done with `menu_scale=3` (24 Oct, then `menu_gpu=1`: 1920x1080 1:1 drawn by V3D, font 24x48, enlarge 0 us, tested and verified on Pi Zero W hardware).
 - Mali-G52 driver: [graphics-mali](graphics-mali.md) (the variant probe has no entry point since the GPU test page was removed on 24 Oct 2026; then the 3D Bench with `mali3d=1` on the device).
 - 3D Bench, Lua edition for the Market (`carts/bench3d`, [BENCH3D](../BENCH3D.md) *Lua edition*; the C bench stays): B3D-1 `gpu3d_opt()`, B3D-2 `gpu3d_stats()`, B3D-3 (the ramp, the report) and B3D-4a/b/c (the tests) are done and tested on the V3D emulator (`make test-gpu3d-opt test-bench3d test-bench3d-all`). Scope of 25 Oct (second decision): bm3D 7.7 only and light. Profiles: ARM and GPU+VS+Q by default, GPU+VS+Q2 (frame later) on request. 22 tests: spheres, heroes (plain, skin, shadow), tiny, draws, quad_flat/tex/alpha, cel (lit, 4 bands, outline), the 2D scenes (map8, sprites, stack, fade, light), herotris, the htmap pair for merging (ht_p100, ht_p100m, ht_p10m) and stress. Models with bones and baked light come from `carts/bench3d/build/mkassets.py` at build time. The default run is about 400 steps of 4 frames (estimate 40 to 60 s on the Pi). Left: B3D-8 Market and docs; a Pi run to check the estimate and the logic loop (`WORK_STEPS`); an RGB30 run. Not run on the Pi or the RGB30.
 - Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). `stackv` (the same call with the slices one under the other; zone line `stackv name x y w h n`, bit 0 of byte 27 of the SPRITES zone) is done. The mesh conversion is a host tool: `tools/stack2mesh.py` (see [tools](tools.md)). The bm Pixel Stack page is done (see [tools](tools.md)). Not done: a button for the conversion in bm Pixel and bm Studio, the Pi speed.

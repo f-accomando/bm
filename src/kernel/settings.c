@@ -250,13 +250,11 @@ static int config_on(const char *key)
 }
 
 #ifndef BM_RGB30
-/* menu_scale: no key = Auto (1x: the HDMI scaler enlarges it) */
+/* menu_scale: no key or 1 = 360p drawn by the ARM; 2 = 720p and 3 = 1080p drawn by the GPU */
 static const char *menu_size_choice(void)
 {
     const char *v = config_get("menu_scale");
-    if (!v || !*v)
-        return "Auto";
-    return v[0] == '3' ? "3x (1080p)" : v[0] == '2' ? "2x (720p)" : "1x (360p)";
+    return v && v[0] == '3' ? "1080p (GPU)" : v && v[0] == '2' ? "720p (GPU)" : "360p (ARM)";
 }
 
 /* CRT filter mode: 1 = off, 2 = rca (default for Pi 1), 3 = hdmi, 4 = on */
@@ -698,7 +696,7 @@ static void panel_screen(home_panel_t *p)
     home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
              "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
     home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
-             "Auto: 360p, the HDMI scaler enlarges it. Applies at the next start", "%s", menu_size_choice());
+             "360p on the ARM, or 720p / 1080p by the GPU. Next start", "%s", menu_size_choice());
 #endif
     home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
              "Exact as before, or fast: one matrix a model, light in its axes", "%s",
@@ -1301,9 +1299,7 @@ static int act_screen(int row, int how, home_do_t *d)
         break;
     case R_MENUSIZE: {
         const char *v = config_get("menu_scale");
-        if (!v || !*v)
-            config_set("menu_scale", "1");
-        else if (v[0] == '1')
+        if (!v || !*v || v[0] == '1')
             config_set("menu_scale", "2");
         else if (v[0] == '2')
             config_set("menu_scale", "3");

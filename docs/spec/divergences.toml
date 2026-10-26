@@ -335,7 +335,7 @@ action = "none: games are in /bm on both kernels"
 [[divergence]]
 id = "D30"
 area = "screen"
-pi = "16:9 HDMI: menu 640x360 (the HDMI scaler enlarges it; menu_gpu=1 draws 1080p 1:1 via V3D), 6 covers a row, menu_scale"
+pi = "16:9 HDMI: menu 640x360 (the HDMI scaler enlarges it; menu_scale 2 or 3 makes the V3D draw 720p or 1080p, else 360p on the ARM), 6 covers a row, menu_scale"
 rgb30 = "square 720x720 panel: menu 360x360 shown x2, 3 covers a row"
 cause = "hardware"
 capability = "square-panel"

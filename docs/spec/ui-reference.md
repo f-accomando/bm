@@ -30,7 +30,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | Panel / display | 16:9 HDMI output | `docs/spec/divergences.toml:332`, `docs/progress/platforms.md:10` | implemented |
 | Menu resolution | 640×360 native layout, 6 covers per row | `docs/spec/divergences.toml:332` | implemented |
 | Default game resolution | 640×360 16:9; square cartridges (e.g. 360×360) are boxed in 16:9 black | `docs/spec/divergences.toml:343` | implemented |
-| Scaling rule | 1x (640x360) by default, the HDMI scaler enlarges it; `menu_gpu=1` draws 1080p 1:1 via V3D; `menu_scale` (1, 2, 3) in `bm/config.txt` sets manual ARM scaling | `docs/spec/divergences.toml:332` | implemented |
+| Scaling rule | 360p (640x360) on the ARM by default, the HDMI scaler enlarges it; `menu_scale` 2 or 3 in `bm/config.txt` (Settings > Screen > Menu size) makes the V3D draw 720p or 1080p; if the GPU cannot, 360p on the ARM | `docs/spec/divergences.toml:332` | implemented |
 | Confirm button | A confirms (action in menu, gamepad button 0 / DS4 Cross, USB keyboard Enter/Space) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
 | Back button | B cancels / goes back (gamepad button 1 / DS4 Circle, USB keyboard Esc/Backspace) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
 | X button | Opens cartridge options / details (gamepad button 2 / DS4 Square, keyboard X) | `src/kernel/menu_ui.c:722`, `src/kernel/carts.c:1386` | implemented |
