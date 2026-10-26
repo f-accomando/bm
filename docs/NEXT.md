@@ -35,11 +35,20 @@ Rules for this list:
 - Pi run, pointer over the covers (the user does it): in the menu with a USB mouse, move the pointer across the covers, fast and slow, with all covers loaded and while they load. The pointer must follow the hand with no jump. If it still jumps, send the `menu idle:` lines of the run (`+x` and `sd retried/timed out`): the next causes are in `docs/design/multitasking-report.md` section 7 (no `usb_poll` in a cover read, the gain of `accel()` on a large sum).
 - Yharnam `.b16` on the Pi and on the RGB30: run the same `.b16` on both and send the reports (screen, input, sound, a 5 minute hunt). Not verified on hardware. The lint of `mkbm.py` (and of the SDK export, same rule list) gives one warning for Yharnam (`math.random`, line 2898).
 
-## Code work from these decisions (to do after the menu library merge)
+## Code work from these decisions (the menu library is merged; D03, D05, /carts, DMA test and grey carts are done)
 
 Decisions of the user, 25 Oct 2026 (`docs/design/kernel8-alignment.md`). Each item is a later work order.
 - D15b: write the RK3566 TSADC temperature and the clock readback. Test on the device.
 - `gpu3d_qpu`: make it ON by default on the Pi (ARM fallback) after the 10 minute Yharnam soak of the user.
+- Small leftovers (26 Oct 2026, none blocks the 1.0.0 gate):
+  - Add KB entries for `screen_modes`, `_screen`, `lib.view`, `lib.anchor`, `lib.safe_clip`, `lib.fit` in `src/ai/kb/*.txt` and run `make ai-model` (rule in `docs/progress/lua.md`).
+  - Remove `irq_count` and `irq_busy_us` (dead). First make `test_code_modules` robust: it reads the editor status text and fails when the QEMU frame rate is higher.
+  - Decide on four support files that only a test or a doc names: `scripts/config_readin.py`, `scripts/make-ca.sh`, `tools/pi_soak.py`, `tools/bm_robot.py`.
+  - The Pi menu still scans the root `/`, `/bm` and `/bme`; the user may want the root scan gone.
+  - A grey cartridge starts with no question in the text-only Pi menu, the Monitor `play` command and net-play.
+  - Idea, not decided (user: not now): build the Pi kernel with `CLEAN_KERNEL=1` by default so the editors (about 1 MB) and the assistant come from the Market or the SD card. The risk is a first boot with no Wi-Fi.
+  - The fox model in `web/models/` has no licence set; the 3D Bench stays at 640x360 (user decision).
+  - Touched manuals (menu library, layout API): rebuild the PDFs. The locked worktree `agent-a95a9bc95a2fcfc68` is not from this session.
 
 ## Queue (development, in order)
 -0. RGB30 hardware run of 25 Oct (kernel `4e3466b`, `docs/bench/rgb30-2026-10-25/summary.md`): OK: boot log, tabs without Lib, bottom bar with key chips only, Dev tab (SDK and installed apps), "3D driver" row, 3D Bench and Render bench in Settings, resume chip, screen modes list, wide mode 720x405 centred (157 and 158 px of black), screenshots over the network, report upload by HTTPS, Lua 3D Bench (21 tests in 21 s, ARM profile, no crash in `fade` and `light`), Yharnam `.b16` (6588 frames, 57.4 fps average). Not verified (needs the user at the console): the "Not done" box (cut the WiFi), cover load time with 20 or more games (D10), volume keys and the button test (B1, B2), Bluetooth pad and keyboard (D01, D02), crash screen (D18).
