@@ -825,6 +825,110 @@ static void copy_slot(uint8_t *dst, const uint8_t *loc, uint32_t d)
     slot_ok[d] = 1;
 }
 
+#define MALI_BUILD_CORES 4
+#define MALI_PAR_MIN_DRAWS 32                   /* a step on the cores has a cost of its own (a few us) */
+static int (*mp_workers)(void);
+static int (*mp_par)(void (*fn)(void *), void *const *, unsigned);
+void mali_par_set(int (*workers)(void), int (*par)(void (*fn)(void *), void *const *, unsigned))
+{
+    mp_workers = workers;
+    mp_par = par;
+}
+
+typedef struct {                                /* what every core reads while it builds draws */
+    const mali_draw_t *draws;
+    uint32_t ndraws;
+    uint64_t pa, dpa0;
+    uint32_t sb;
+    uint8_t *verts_m, *push_m, *vpush_m, *draws_m;
+    uint64_t verts_pa, pos_pa, push_pa, vpush_pa;
+    const uint8_t *frs_buf, *vrs3_buf;
+    int fast_pack;
+} bctx_t;
+
+typedef struct {                                /* the block of one core: its draws and its own counters */
+    const bctx_t *c;
+    uint32_t d0, d1, first;                     /* draws [d0, d1); first: the first vertex of draw d0 */
+    uint64_t t1, t2, t3;
+} __attribute__((aligned(64))) bblk_t;
+
+static void build_draws(void *p)
+{
+    bblk_t *k = p;
+    const bctx_t *c = k->c;
+    const mali_draw_t *draws = c->draws;
+    const uint32_t ndraws = c->ndraws, sb = c->sb;
+    const uint64_t pa = c->pa, verts_pa = c->verts_pa, pos_pa = c->pos_pa, push_pa = c->push_pa, vpush_pa = c->vpush_pa;
+    uint8_t *verts_m = c->verts_m, *push_m = c->push_m, *vpush_m = c->vpush_m, *draws_m = c->draws_m;
+    const uint8_t *frs_buf = c->frs_buf, *vrs3_buf = c->vrs3_buf;
+    const uint64_t draws_pa = c->dpa0;
+    const int fast_pack = c->fast_pack;
+    uint32_t first = k->first;                  /* the draw's first vertex, in the frame's arrays */
+    k->t1 = k->t2 = k->t3 = 0;
+    for (uint32_t d = k->d0; d < k->d1; d++) {
+        uint8_t loc[0x540] __attribute__((aligned(16)));
+        zero16(loc, sizeof loc);
+        const uint64_t dpa = draws_pa + (uint64_t)MEM_DRAW_SIZE * d;
+        const uint32_t nv = 3 * draws[d].n;
+        const uint32_t rgb = draws[d].rgb;
+
+        const uint64_t tb0 = cnt_now();
+        /* the data: the positions as (x y z 1), the colour twice (the buffer and the pushed words 4-7) */
+        for (uint32_t i = 0; i < nv; i++) {
+            float v4[4] = { draws[d].xyz[i][0], draws[d].xyz[i][1], draws[d].xyz[i][2], 1.0f };
+            memcpy(verts_m + 16 * (size_t)(first + i), v4, 16);
+        }
+        const float col[4] = { (float)(rgb >> 16 & 0xff) / 255.0f, (float)(rgb >> 8 & 0xff) / 255.0f,
+                               (float)(rgb & 0xff) / 255.0f, 1.0f };
+        memcpy(loc + D_COLOUR, col, 16);
+        memcpy(push_m + 64 * (size_t)d + 16, col, 16);   /* BM_FS_push says ubo 0 offsets 0, 4, 8, 12 */
+
+        const uint64_t tb1 = cnt_now();
+        k->t1 += tb1 - tb0;
+        /* the draw's tables */
+        memcpy(loc + D_FRSD, frs_buf, 80);
+        md_attribute_buffer(loc + D_ABUFS, verts_pa + 16 * (uint64_t)first, 16, 16 * nv);
+        md_attribute_buffer(loc + D_VBUFS, 0, 0, 0);
+        md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
+        md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
+        md_uniform_buffer(loc + D_UBO, dpa + D_COLOUR, 1);
+        if (draws[d].mvp) {   /* phase 3: BM_VS3 with the matrix pushed (BM_VS3_push: words 0..15 are bytes 0..60 of ubo 0) */
+            memcpy(loc + D_VRSD, vrs3_buf, 64);
+            float vp[16];
+            for (int k = 0; k < 16; k++)
+                vp[BM_VS3_push[k][1] >> 2] = draws[d].mvp[k];
+            memcpy(vpush_m + 64 * (size_t)d, vp, 64);
+            md_uniform_buffer(loc + D_VUBO, vpush_pa + 64 * (uint64_t)d, 4);
+        }
+
+        /* the jobs: Vertex 2d + 1 (after the previous Tiler job), Tiler 2d + 2 (after its Vertex job) */
+        md_draw_t vd = { .state = pa + sb + SO_VRSD, .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
+                         .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR, .thread_storage = pa + sb + SO_LS };
+        if (draws[d].mvp) {
+            vd.state = dpa + D_VRSD;
+            vd.uniform_buffers = dpa + D_VUBO;
+            vd.push_uniforms = vpush_pa + 64 * (uint64_t)d;
+        }
+        job_header(loc + D_VJOB, MD_JOB_VERTEX, 2 * (int)d + 1, d ? 2 * (int)d : 0, dpa + D_TJOB);
+        md_vertex_job(loc + D_VJOB, nv, &vd);
+        md_draw_t td = { .position = pos_pa + 16 * (uint64_t)first, .state = dpa + D_FRSD,
+                         .viewport = pa + sb + SO_VIEWPORT, .uniform_buffers = dpa + D_UBO,
+                         .push_uniforms = push_pa + 64 * (uint64_t)d, .thread_storage = pa + sb + SO_LS };
+        md_primitive_t prim = { .mode = MD_TRIANGLES, .index_count = nv };
+        job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
+                   d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
+        md_tiler_job(loc + D_TJOB, &prim, pa + sb + SO_TCTX, &td);
+        const uint64_t tb2 = cnt_now();
+        k->t2 += tb2 - tb1;
+        if (fast_pack)
+            copy_slot(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, d);
+        else
+            copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
+        k->t3 += cnt_now() - tb2;
+        first += (nv + 3) & ~3u;                        /* 64-byte alignment: 4 vertices per step for D_ABUFS/td.position */
+    }
+}
+
 static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndraws, uint32_t w, uint32_t h,
                            uint64_t target_pa, uint32_t pitch, uint32_t clear,
                            uint8_t *verts_m, uint64_t verts_pa, uint64_t pos_pa,
@@ -878,68 +982,37 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     memset(vrs3_buf, 0, sizeof vrs3_buf);
     md_renderer_state(vrs3_buf, &vrs3);
 
-    uint32_t first = 0;                         /* the draw's first vertex, in the frame's arrays */
-    for (uint32_t d = 0; d < ndraws; d++) {
-        uint8_t loc[0x540] __attribute__((aligned(16)));
-        zero16(loc, sizeof loc);
-        const uint64_t dpa = draws_pa + (uint64_t)MEM_DRAW_SIZE * d;
-        const uint32_t nv = 3 * draws[d].n;
-        const uint32_t rgb = draws[d].rgb;
-
-        const uint64_t tb0 = cnt_now();
-        /* the data: the positions as (x y z 1), the colour twice (the buffer and the pushed words 4-7) */
-        for (uint32_t i = 0; i < nv; i++) {
-            float v4[4] = { draws[d].xyz[i][0], draws[d].xyz[i][1], draws[d].xyz[i][2], 1.0f };
-            memcpy(verts_m + 16 * (size_t)(first + i), v4, 16);
-        }
-        const float col[4] = { (float)(rgb >> 16 & 0xff) / 255.0f, (float)(rgb >> 8 & 0xff) / 255.0f,
-                               (float)(rgb & 0xff) / 255.0f, 1.0f };
-        memcpy(loc + D_COLOUR, col, 16);
-        memcpy(push_m + 64 * (size_t)d + 16, col, 16);   /* BM_FS_push says ubo 0 offsets 0, 4, 8, 12 */
-
-        const uint64_t tb1 = cnt_now();
-        t_b1 += tb1 - tb0;
-        /* the draw's tables */
-        memcpy(loc + D_FRSD, frs_buf, sizeof frs_buf);
-        md_attribute_buffer(loc + D_ABUFS, verts_pa + 16 * (uint64_t)first, 16, 16 * nv);
-        md_attribute_buffer(loc + D_VBUFS, 0, 0, 0);
-        md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
-        md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
-        md_uniform_buffer(loc + D_UBO, dpa + D_COLOUR, 1);
-        if (draws[d].mvp) {   /* phase 3: BM_VS3 with the matrix pushed (BM_VS3_push: words 0..15 are bytes 0..60 of ubo 0) */
-            memcpy(loc + D_VRSD, vrs3_buf, sizeof vrs3_buf);
-            float vp[16];
-            for (int k = 0; k < 16; k++)
-                vp[BM_VS3_push[k][1] >> 2] = draws[d].mvp[k];
-            memcpy(vpush_m + 64 * (size_t)d, vp, 64);
-            md_uniform_buffer(loc + D_VUBO, vpush_pa + 64 * (uint64_t)d, 4);
-        }
-
-        /* the jobs: Vertex 2d + 1 (after the previous Tiler job), Tiler 2d + 2 (after its Vertex job) */
-        md_draw_t vd = { .state = pa + sb + SO_VRSD, .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
-                         .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR, .thread_storage = pa + sb + SO_LS };
-        if (draws[d].mvp) {
-            vd.state = dpa + D_VRSD;
-            vd.uniform_buffers = dpa + D_VUBO;
-            vd.push_uniforms = vpush_pa + 64 * (uint64_t)d;
-        }
-        job_header(loc + D_VJOB, MD_JOB_VERTEX, 2 * (int)d + 1, d ? 2 * (int)d : 0, dpa + D_TJOB);
-        md_vertex_job(loc + D_VJOB, nv, &vd);
-        md_draw_t td = { .position = pos_pa + 16 * (uint64_t)first, .state = dpa + D_FRSD,
-                         .viewport = pa + sb + SO_VIEWPORT, .uniform_buffers = dpa + D_UBO,
-                         .push_uniforms = push_pa + 64 * (uint64_t)d, .thread_storage = pa + sb + SO_LS };
-        md_primitive_t prim = { .mode = MD_TRIANGLES, .index_count = nv };
-        job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
-                   d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
-        md_tiler_job(loc + D_TJOB, &prim, pa + sb + SO_TCTX, &td);
-        const uint64_t tb2 = cnt_now();
-        t_b2 += tb2 - tb1;
-        if (fast_pack)
-            copy_slot(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, d);
-        else
-            copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
-        t_b3 += cnt_now() - tb2;
-        first += (nv + 3) & ~3u;                        /* 64-byte alignment: 4 vertices per step for D_ABUFS/td.position */
+    bctx_t bc = { .draws = draws, .ndraws = ndraws, .pa = pa, .dpa0 = draws_pa, .sb = sb, .verts_m = verts_m,
+                  .push_m = push_m, .vpush_m = vpush_m, .draws_m = draws_m, .verts_pa = verts_pa, .pos_pa = pos_pa,
+                  .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .vrs3_buf = vrs3_buf,
+                  .fast_pack = fast_pack };
+    static bblk_t blk[MALI_BUILD_CORES];
+    void *blks[MALI_BUILD_CORES];
+    unsigned nb = 1;
+    if (mp_par && mp_workers && fast_pack && ndraws >= MALI_PAR_MIN_DRAWS) {
+        nb = (unsigned)mp_workers() + 1;
+        if (nb > MALI_BUILD_CORES)
+            nb = MALI_BUILD_CORES;
+    }
+    uint32_t first = 0;
+    for (unsigned i = 0, d = 0; i < nb; i++) {
+        blk[i].c = &bc;
+        blk[i].d0 = d;
+        blk[i].first = first;
+        const uint32_t d1 = ndraws * (i + 1) / nb;
+        for (; d < d1; d++)
+            first += (3 * draws[d].n + 3) & ~3u;
+        blk[i].d1 = d1;
+        blks[i] = &blk[i];
+    }
+    if (nb > 1)
+        mp_par(build_draws, blks, nb);
+    else
+        build_draws(blks[0]);
+    for (unsigned i = 0; i < nb; i++) {
+        t_b1 += blk[i].t1;
+        t_b2 += blk[i].t2;
+        t_b3 += blk[i].t3;
     }
 
     /* the fragment job: the clear's descriptor with the tiler's context */

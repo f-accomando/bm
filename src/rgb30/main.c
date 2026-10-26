@@ -54,6 +54,7 @@
 #include "audio/audio.h"
 #include "rk_display.h"
 #include "mali_hw.h"
+#include "mali.h"
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -170,6 +171,8 @@ static void smp_boot(void)
     if (smp_start() > 0 && smp_selftest() == 0) {
         const char *rb = config_get("r3d_bands");
         r3d_bands_set(offload_workers, offload_par, !(rb && rb[0] == '0'));    /* V1: the ARM raster by bands */
+        const char *mp = config_get("mali_par");
+        mali_par_set(offload_workers, (mp && mp[0] == '0') ? NULL : offload_par);    /* the Mali draw build on the cores */
 #ifdef PLAT_VIRT
         smp_selftest_offload();
         smp_selftest_raster();

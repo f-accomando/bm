@@ -696,3 +696,12 @@ default = "absent"
 meaning = "Retired. A kernel of an older build wrote dev=1; the first boot turns it into bridge=fast in bm/bridge.txt and removes the key."
 settings = "Settings > Bridge"
 read_in = "src/kernel/config.c:config_load"
+
+[[key]]
+name = "mali_par"
+scope = "rgb30"
+values = "0 = off; anything else, or absent = on"
+default = "on with cores=4"
+meaning = "The Mali draw build of a frame on all cores, a block of draws a core (docs/progress/multicore.md). 0 builds on core 0 only."
+settings = ""
+read_in = "src/rgb30/main.c:smp_boot"
