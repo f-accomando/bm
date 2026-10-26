@@ -767,6 +767,17 @@ static uint32_t rd32(const uint8_t *p)
 
 /* Everything for the frame in the GPU memory: the draws (valid, checked by the caller) into a w x h surface at target_pa,
  * cleared to `clear` first. The jobs are chained from draws_pa (the first Vertex job); the Fragment job is at the set's SO_FJOB. */
+/* A copy into the GPU's memory (Normal non-cacheable): 16 bytes a store. The library's memcpy went byte by byte there when
+ * a pointer was not aligned (G3 report of 26 Oct: 25 us a draw in frame_build_ex, 10 ms of a 15 ms frame at 400 draws). */
+static inline void copy_nc16(void *dst, const void *src, size_t n)
+{
+    typedef unsigned __int128 u128;
+    u128 *d = dst;
+    const u128 *s = src;
+    for (size_t i = 0; i < n / 16; i++)
+        d[i] = s[i];
+}
+
 static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndraws, uint32_t w, uint32_t h,
                            uint64_t target_pa, uint32_t pitch, uint32_t clear,
                            uint8_t *verts_m, uint64_t verts_pa, uint64_t pos_pa,
@@ -822,7 +833,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
 
     uint32_t first = 0;                         /* the draw's first vertex, in the frame's arrays */
     for (uint32_t d = 0; d < ndraws; d++) {
-        uint8_t loc[0x540];
+        uint8_t loc[0x540] __attribute__((aligned(16)));
         memset(loc, 0, sizeof loc);
         const uint64_t dpa = draws_pa + (uint64_t)MEM_DRAW_SIZE * d;
         const uint32_t nv = 3 * draws[d].n;
@@ -871,7 +882,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
                    d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
         md_tiler_job(loc + D_TJOB, &prim, pa + sb + SO_TCTX, &td);
-        memcpy(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
+        copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
         first += (nv + 3) & ~3u;                        /* 64-byte alignment: 4 vertices per step for D_ABUFS/td.position */
     }
 
@@ -1357,7 +1368,7 @@ static gpu3d_stats_t be_stats;
 
 /* where the ARM's time goes in the backend (G3 of docs/progress/multicore.md): counter ticks, in us at the stats read.
  * flush includes the job and its wait; resolve is inside flush (a frame's own resolve) */
-static uint64_t t_mesh, t_flush, t_resolve;
+static uint64_t t_mesh, t_flush, t_resolve, t_sort, t_build, t_jobs;
 static inline uint64_t cnt_now(void) { uint64_t v; __asm__ volatile("isb\n mrs %0, cntvct_el0" : "=r"(v)); return v; }
 static uint32_t be_wait_us;
 static int be_pend;
@@ -1392,10 +1403,13 @@ void mali_backend_stats(gpu3d_stats_t *s, int reset)
         s->mesh_us = (uint32_t)(t_mesh * 1000000u / f);
         s->flush_us = (uint32_t)(t_flush * 1000000u / f);
         s->resolve_us = (uint32_t)(t_resolve * 1000000u / f);
+        s->sort_us = (uint32_t)(t_sort * 1000000u / f);
+        s->build_us = (uint32_t)(t_build * 1000000u / f);
+        s->jobs_us = (uint32_t)(t_jobs * 1000000u / f);
     }
     if (reset) {
         memset(&be_stats, 0, sizeof be_stats);
-        t_mesh = t_flush = t_resolve = 0;
+        t_mesh = t_flush = t_resolve = t_sort = t_build = t_jobs = 0;
         be_wait_us = 0;
     }
 }
@@ -1556,19 +1570,25 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
     if (H->map_pa > 0 && H->mem_pa >= H->map_pa + (6u << 20)) {
         uint8_t *ab = H->mem - (6u << 20);
         const uint64_t apa = H->mem_pa - (6u << 20);
+        const uint64_t tb = cnt_now();
         frame_build_ex(0, dr, nd, sw, sh, pa, pitch, BE_KEY,
                        ab + 0x000000, apa + 0x000000, apa + 0x080000,
                        ab + 0x100000, apa + 0x100000, ab + 0x110000, apa + 0x110000,
                        ab + 0x120000, apa + 0x120000, 1);
+        t_build += cnt_now() - tb;
         vt_head = apa + 0x120000;
     } else
 #endif
     {
+        const uint64_t tb = cnt_now();
         frame_build(0, dr, nd, sw, sh, pa, pitch, BE_KEY);
+        t_build += cnt_now() - tb;
     }
     uint32_t us = 0, st = 0, us2 = 0;
+    const uint64_t tj0 = cnt_now();
     if (run_on(1, vt_head, &us, &st, "the vertex and tiler jobs of a frame") != 0)
         return -1;
+    t_jobs += cnt_now() - tj0;
     if (async && be_q_on) {
         gw(MMU_INT_CLEAR, 0xffffffffu);
         be_pend_t0 = H->us();
@@ -1581,8 +1601,10 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         be_pend_tris = btris;
         return 0;
     }
+    const uint64_t tj1 = cnt_now();
     if (run_on(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB, &us2, &st, "the fragment job of a frame") != 0)
         return -1;
+    t_jobs += cnt_now() - tj1;
     be_stats.jobs++;
     be_stats.draws += nd;
     be_stats.tris += btris;
@@ -1695,7 +1717,9 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         if (be_tris[i].mvp)
             any_mvp = 1;
     }
+    const uint64_t ts = cnt_now();
     sort_tris(idx, tmp_idx, n, tri_after_mvp);
+    t_sort += cnt_now() - ts;
     if (any_mvp) {
         int runs = 1;
         for (int i = 1; i < n; i++) {
@@ -1722,7 +1746,9 @@ static int be_flush_mode_impl(const g16_t *g, int async)
                 }
                 t->mvp = NULL;
             }
+            const uint64_t ts2 = cnt_now();
             sort_tris(idx, tmp_idx, n, tri_after_rgb);
+            t_sort += cnt_now() - ts2;
         }
     }
     uint8_t *surf = hw->mem + surf_off;

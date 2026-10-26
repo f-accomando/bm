@@ -30,7 +30,7 @@ def check_2d(d):
         ok = need <= set(got)
         for r in got.values():
             # ms, worst, gpu_ms, clean_kcyc, inval_kcyc, fill_px, ns_px_frame (the PC has no ARM counters: instr is 0)
-            ok = ok and len(r) == 40 and 0 <= float(r[7]) <= float(r[8]) and float(r[15]) >= 0
+            ok = ok and len(r) == 43 and 0 <= float(r[7]) <= float(r[8]) and float(r[15]) >= 0
             ok = ok and float(r[25]) >= 0 and float(r[26]) >= 0 and float(r[32]) >= -1
             if not t.startswith("cel"):             # the cel tests draw no 2D: no pixels counted
                 ok = ok and int(r[30]) > 0
@@ -149,7 +149,7 @@ def main():
     check(all(int(vs[t][11]) < int(gpu[t][11]) or int(gpu[t][11]) == 0 for t in ("spheres", "heroes", "heroes_tex", "heroes_skin") if t in vs),
           "GPU+VS: r3d places fewer vertices than GPU")
     check(all(float(r[4]) >= 0 or r[4] == "-1" for r in rows), "loads at 60 fps")
-    check(all(len(r) == 40 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
+    check(all(len(r) == 43 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
     # the cost of a pixel: a P line for every fill test and gpu2d, the GPU's for every GPU profile
     pix = {(r[1], r[2]): r for r in (l.split(",") for l in lines if l.startswith("P,"))}
     want = [(r[1], r[2]) for r in rows if r[1].startswith("quad_") or r[1] in ("bilinear", "gpu2d")]
