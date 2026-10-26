@@ -46,4 +46,5 @@ Starts when M and G are done. Step V0 is a review with the user; the later steps
 - 26 Oct: the draw build is the ARM's cost on the GPU path (about 3 us a draw). V1 as one job on the workers: split `frame_build_ex` by draw (each draw owns its slot), not `be_mesh` (1.5 ms). Not started.
 - Cover decode of the menu (`menu_ui.c`, 25183aac) now yields on one core; a worker is a later gain.
 - Last item to check (user, 26 Oct): starting a game from the menu, the splash screen start glitches the audio and the video. An earlier session blamed a stutter at the change from the ARM to the GPU. Check it after the rest of this list.
+- Pi `memcpy` (26 Oct): the Pi's libc already copies aligned words 16 bytes a step; only a block with source and destination out of step goes byte by byte. A `memcpy` of 32 bytes aligned and 16 bytes shifted gave the same 3D Bench (kernels from the same commit, Pi Zero W: games 3410 -> 3416, GPU 905 -> 902, ARM 165 -> 165: noise). Not integrated; the Pi keeps the libc one. The RGB30 gain (ARM 387 -> 466) came from byte loops that the Pi does not have.
 - M2-M7 above are done in QEMU; M7 and the rest of M5 (cover decode), G1-G4, V0-V5 as above.
