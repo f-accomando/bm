@@ -93,7 +93,7 @@ static void log_step(uint32_t now)
         return;
     if (!log_at)
         log_at = now | 1;
-    if (now - log_at < LOG_US)
+    if ((int32_t)(now - log_at) < (int32_t)LOG_US)      /* signed: log_at is now|1, a hair ahead of now */
         return;
     if (fat_writing() || log_len + 64 > LOG_MAX)
         return;
