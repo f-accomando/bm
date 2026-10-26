@@ -1,0 +1,63 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1761-ga6514041
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-da8a73_freeze_pi-zero-w_v0.2.5-1761-ga6514041.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 924 s after boot, kernel v0.2.5-1759-g512a22d2, ring 14616, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+nu frame: 3x, a frame averages draw 7771 us, enlarge 37112 us, flip 95 us, free time used 17 us (300 frames)
+menu frame: 3x, a frame averages draw 7778 us, enlarge 37107 us, flip 95 us, free time used 17 us (300 frames)
+net: receiving a new kernel (4772300 bytes)...
+net: kernel 0% (0 of 4660 KB)
+net: kernel 10% (471 of 4660 KB)
+net: kernel 20% (933 of 4660 KB)
+net: kernel 30% (1406 of 4660 KB)
+fiber: reports did not yield: 8.0 ms past its slice
+menu idle: 300/300 frames, 28 of 1799 ms taken, 4.7 ms past a frame; reports 16 ms (+8.0, stk 6.5/128K); min slack -33812 us, paced 0
+menu idle: sd first word <1ms 16 (max 1.4 ms)
+menu frame: 3x, a frame averages draw 8899 us, enlarge 37111 us, flip 96 us, free time used 94 us (300 frames)
+fiber: reports did not yield: 101.3 ms past its slice
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer
+net: kernel 40% (1872 of 4660 KB)
+fiber: reports did not yield: 103.1 ms past its slice
+market: nearby consoles: listening as bm-108
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR CODE (004C)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR 
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR CODE (004C)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR 
+net: kernel 50% (2335 of 4660 KB)
+net: kernel 60% (2801 of 4660 KB)
+net: kernel 70% (3269 of 4660 KB)
+report: sending nodate-aa7110_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt
+market: nearby consoles: listening as bm-108
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-aa7110_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-aa7110_freeze_pi-zero
+net: kernel 80% (3733 of 4660 KB)
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer
+market: nearby consoles: listening as bm-108
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR CODE (004C)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR 
+net: kernel 90% (4202 of 4660 KB)
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer
+net: dev mode: kernel received (4772300 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 98.1 ms past its slice
+menu idle: 300/300 frames, 1402 of 1799 ms taken, 105.7 ms past a frame; reports 1098 ms (+103.1, stk 7.6/128K, stop 18.9), netxfer 170 ms (+98.1, stk 1.2/64K); min slack -111961 us, paced 0; sd 2 retried, 2 timed out
+menu idle: sd sites: rdend 2; first word <1ms 213 <3ms 1 (max 1.4 ms)
+menu stalls: tls handshake 4x last 317.3 worst 364.2 ms
+menu frame: 3x, a frame averages draw 12689 us, enlarge 37118 us, flip 96 us, free time used 4673 us (300 frames)
+net: saved kernel.img on the SD card (4772300 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 2 cartridges; clusters 32 KB; 15 retried, 15 timed out
+report: sending nodate-aa7110_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+report: nodate-aa7110_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt was there already
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-aa7110_freeze_pi-zero-w_v0.2.5-1759-g512a22d2.txt
