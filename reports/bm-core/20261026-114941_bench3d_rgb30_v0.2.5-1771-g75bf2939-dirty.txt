@@ -1,0 +1,42 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-1771-g75bf2939-dirty
+branch: bm-core
+board: RGB30
+date: 2026-10-26 11:49:41
+file: 20261026-114941_bench3d_rgb30_v0.2.5-1771-g75bf2939-dirty.txt
+
+bm 3D Bench
+kernel v0.2.5-1771-g75bf2939-dirty
+drivers bm3d 7.15 (Mali)
+date unknown (no network time)
+machine RGB30, Cortex-A55, the 3D on the ARM (Mali: flat colours on the GPU, textures on the ARM)
+gpu the Mali draws flat colours (mali3d=1)
+probes none
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.15 gpu3d=off (at the start; each profile sets its own)
+counters Cortex-A55 PMU
+previous bm/bench/3d0023.txt
+only tests spheres,spheres_unlit,draws, profiles all
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us
+R,spheres,ARM,0.2,139.8,375.2,0,15.2,15.2,11232,4562,6552,171980,0,0.0,0.0,11572799,0,14260,12403168,3,13424,5465,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0
+R,spheres,GPU,2.1,13.5,27.6,0,16.1,16.3,1248,482,728,0,0,1.0,2.6,15665022,0,2422,13135186,2,1299,504,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1277,1277,456,1,15406,1581
+R,spheres,GPU+VS,3.4,22.0,141.9,0,15.0,16.3,2112,2112,0,0,892,1.0,2.9,14696646,0,7316,13062504,3,2206,2206,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1631,1261,398,414,15384,1637
+R,spheres,GPU+VS+S,5.4,22.0,141.0,0,15.0,16.3,2112,2112,0,0,892,1.0,2.9,14689144,0,7212,13059656,3,2205,2205,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1632,1264,398,402,15392,1644
+R,spheres_unlit,ARM,0.2,164.8,435.7,0,16.1,16.2,14976,6105,8736,152915,0,0.0,0.0,12350716,0,13222,13165275,3,15817,6451,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0
+R,spheres_unlit,GPU,2.1,22.6,46.9,0,16.2,16.5,2112,825,1232,0,0,1.0,3.2,14808204,0,6510,13249931,2,2167,849,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1144,2098,409,1,15372,1651
+R,spheres_unlit,GPU+VS1,3.0,103.0,212.5,0,14.1,14.2,8448,8448,0,0,3767,1.0,3.4,10242714,0,29779,11513291,2,9983,9983,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,795,2593,176,1052,12709,1635
+R,spheres_unlit,GPU+VS,3.4,104.0,212.5,0,14.1,14.2,8448,8448,0,0,3767,1.0,3.4,10262288,0,29335,11520188,2,9985,9985,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,795,2592,176,1043,12727,1655
+R,draws,ARM,0.2,754.6,1896.9,0,15.3,15.4,7872,3712,4992,147702,0,0.0,0.0,11528786,0,11713,12446914,3,9055,4139,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0
+R,draws,GPU,2.1,116.9,220.1,0,12.8,13.3,1056,511,704,0,0,1.0,1.9,12294006,0,2664,10423095,2,1403,681,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,929,947,332,4,11885,1680
+R,draws,GPU+VS,3.4,533.8,745.0,0,13.3,13.4,5904,5628,0,0,2777,1.0,2.1,8477966,0,34431,10844070,3,6405,6102,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,241,1888,41,1331,9323,1855
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+score 83 (bm3d 7.15 as the games get it, 3 of 24 tests, a part of the bench), GPU bm3d 2.1 83, ARM bm3d 0.2 652; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.15,83,3,0
+S,GPU,2.1,83,3,0
+S,ARM,0.2,652,3,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 2167 (spheres_unlit)
+total 32 s
