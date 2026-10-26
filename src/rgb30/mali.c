@@ -1522,6 +1522,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         if (be_frame(be_hw, surf, pa, pitch, sw, sh, BE_KEY, dr, nd) < 0)   /* 0 and 1 both count as done */
             return -1;
         be_stats.jobs++;
+        be_stats.draws += nd;
         be_stats.tris += btris;
         be_resolve(g, surf, pitch);
         return 0;
@@ -1561,6 +1562,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
     if (run_on(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB, &us2, &st, "the fragment job of a frame") != 0)
         return -1;
     be_stats.jobs++;
+    be_stats.draws += nd;
     be_stats.tris += btris;
     be_stats.bin_us += us;
     be_stats.render_us += us2;

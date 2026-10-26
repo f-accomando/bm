@@ -196,6 +196,7 @@ typedef struct {
     uint32_t clean_cyc, inval_cyc;  /* ARM cycles of the whole-cache clean before jobs, invalidate after (PMU on) */
     uint32_t pool_max, ovf_max;     /* the most bytes of the binner's pool (JOB_ALLOC) and overflow a job used */
     uint32_t ovf_jobs;              /* jobs whose binner went into the overflow area */
+    uint32_t draws;                 /* draws (runs of one colour and matrix) of the Mali backend's jobs: G3 of docs/progress/multicore.md */
     /* a job's time (bin_us + render_us, max_us): from its start to the end
      * the ARM saw. Started jobs (the queue) that had ended before the ARM
      * looked are not timed: untimed of them, late_us their start to the

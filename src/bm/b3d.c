@@ -1640,10 +1640,10 @@ static void ramp(int ti, int pf)
         s[ns++] = a;
         char line[224];
         ksnprintf(line, sizeof line, "b3d %s %s n=%d %d.%02d ms worst %d.%02d, %d tri, %d vtx, %lu instr, "
-                  "GPU %d.%02d ms, %d jobs, %d meshes, core %lu GPU %lu MHz", t->id, prof[pf].name, n, (int)a.ms,
+                  "GPU %d.%02d ms, %d jobs, %d draws, %d meshes, core %lu GPU %lu MHz", t->id, prof[pf].name, n, (int)a.ms,
                   (int)(a.ms * 100) % 100, (int)a.worst, (int)(a.worst * 100) % 100, (int)a.tris, (int)a.verts,
                   (unsigned long)a.instr, (int)a.gpu_ms, (int)(a.gpu_ms * 100) % 100, (int)a.jobs,
-                  (int)((float)st.glmeshes * k + 0.5f), (unsigned long)a.core_mhz, (unsigned long)a.gpu_mhz);
+                  (int)((float)st.draws * k + 0.5f), (int)((float)st.glmeshes * k + 0.5f), (unsigned long)a.core_mhz, (unsigned long)a.gpu_mhz);
         if (P->log)
             P->log(line);
         if (a.ms > LIMIT_MS || P->us() - t0 > RAMP_US || (R.backend && gpu3d_failed()))

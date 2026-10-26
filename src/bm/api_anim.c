@@ -950,7 +950,7 @@ int l_gpu3d_opt(lua_State *L)
 }
 
 /* gpu3d_stats() -> table: the GPU driver's totals since the last read of the session's report (they are not
- * reset here: gpu3d_peek_stats), for benchmarks. Fields (integers): jobs, bin_us, render_us, gltris, clean_cyc,
+ * reset here: gpu3d_peek_stats), for benchmarks. Fields (integers): jobs, draws (the Mali backend), bin_us, render_us, gltris, clean_cyc,
  * inval_cyc, pool_max, ovf_max, ovf_jobs, busy_us (the GPU's time, gpu3d_busy_us), tris_in (the triangles r3d was
  * given since the last zclear()); strings: status (gpu3d_status), probes (gpu3d_probe_log), options
  * (options_line: the line the reports start with). The 3D waiting is drawn first. All zero and empty without a GPU. */
@@ -963,6 +963,7 @@ int l_gpu3d_stats(lua_State *L)
     lua_createtable(L, 0, 14);
 #define STAT(name, v) (lua_pushinteger(L, (lua_Integer)(v)), lua_setfield(L, -2, name))
     STAT("jobs", s.jobs);
+    STAT("draws", s.draws);
     STAT("bin_us", s.bin_us);
     STAT("render_us", s.render_us);
     STAT("gltris", s.gltris);
