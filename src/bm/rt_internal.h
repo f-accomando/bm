@@ -98,6 +98,8 @@ typedef struct {
     uint32_t update_us, draw_us;    /* this frame's: all its _update, its _draw (the dev kit) */
     uint32_t light_us;          /* this frame's: dark_begin, glow and dark_end, inside draw_us */
     uint32_t fade_us;           /* of light_us: the fade of dark_end alone (QPU or ARM) */
+    uint32_t op_us[8];          /* this frame's _draw: the time in each kind of 2D call (OP_MAP ...), and */
+    uint32_t op_n[8];           /* how many calls; they include the time of a call that is recorded or goes to the GPU */
     char devinfo[4][19];        /* devinfo(): the game's lines in the session report */
     int ndevinfo;
     uint32_t hook_count;
@@ -503,6 +505,7 @@ void gpu2d_submit(void);          /* starts the frame job on the GPU now (the AR
 int draw2d(int op, uint32_t words, int32_t **a);
 void stack_draw(const int32_t v[7], const float f[3], int vert);
 int sheet_cells(void);
+enum { OP_MAP, OP_SPR, OP_SSPR, OP_STACK, OP_TEXT, OP_SHAPE, OP_N };    /* the kinds of 2D call the session report times */
 int l_map(lua_State *L);
 int l_mget(lua_State *L);
 int l_mset(lua_State *L);

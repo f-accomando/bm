@@ -1227,15 +1227,31 @@ int shot_net;                    /* asked over the network (bm_shot_ask): plan i
 int shot_res;                    /* its answer: 2 waiting for the frame, 1 saved, -1 not saved, 0 none asked */
 char shot_net_file[13];          /* the name of the file it saved */
 
+/* the 2D calls of _draw, timed for the session report (the cost of each kind, in microseconds and calls) */
+#define TIMED(name, kind, fn)     static int name(lua_State *L)     {         const uint32_t t0 = timer_ticks();         const int r = fn(L);         rt.op_us[kind] += timer_ticks() - t0;         rt.op_n[kind]++;         return r;     }
+TIMED(t_map, OP_MAP, l_map)
+TIMED(t_spr, OP_SPR, l_spr)
+TIMED(t_sspr, OP_SSPR, l_sspr)
+TIMED(t_stack, OP_STACK, l_stack)
+TIMED(t_stackv, OP_STACK, l_stackv)
+TIMED(t_zstack, OP_STACK, l_zstack)
+TIMED(t_print, OP_TEXT, l_print)
+TIMED(t_rect, OP_SHAPE, l_rect)
+TIMED(t_rectfill, OP_SHAPE, l_rectfill)
+TIMED(t_line, OP_SHAPE, l_line)
+TIMED(t_circ, OP_SHAPE, l_circ)
+TIMED(t_circfill, OP_SHAPE, l_circfill)
+TIMED(t_pset, OP_SHAPE, l_pset)
+
 static const luaL_Reg api[] = {
     { "video_open", l_video_open },
-    { "cls", l_cls }, { "pset", l_pset }, { "pget", l_pget }, { "line", l_line },
-    { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
-    { "spr", l_spr }, { "sspr", l_sspr }, { "stack", l_stack }, { "stackv", l_stackv }, { "zstack", l_zstack }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
+    { "cls", l_cls }, { "pset", t_pset }, { "pget", l_pget }, { "line", t_line },
+    { "rect", t_rect }, { "rectfill", t_rectfill }, { "circ", t_circ }, { "circfill", t_circfill },
+    { "spr", t_spr }, { "sspr", t_sspr }, { "stack", t_stack }, { "stackv", t_stackv }, { "zstack", t_zstack }, { "map", t_map }, { "mget", l_mget }, { "mset", l_mset },
     { "fget", l_fget }, { "fset", l_fset }, { "mflags", l_mflags }, { "msize", l_msize },
     { "mlayers", l_mlayers }, { "zone", l_zone }, { "zones", l_zones }, { "zspr", l_zspr },
     { "zboxes", l_zboxes },
-    { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
+    { "sget", l_sget }, { "sset", l_sset }, { "print", t_print }, { "font", l_font }, { "camera", l_camera },
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
@@ -2904,6 +2920,7 @@ static struct {
     uint64_t wall_us;                   /* the frames measured, from start to start */
     uint64_t light_us, fade_us;         /* the light's part of the draws (dark_begin, glow, dark_end), summed; its fade alone */
     uint32_t light_frames;              /* the frames with light */
+    uint64_t op_us[OP_N], op_n[OP_N];   /* the 2D calls of the draws, summed (t_map ...): time and calls */
     uint32_t measured, gpu_bound;       /* frames measured; those the GPU set the pace of */
     uint32_t audio_max10;               /* the audio's most of a second, tenths of % of the CPU's time */
     prof_row_t fn[SESS_FUNCS];          /* profile(true): the costliest functions as the run ended */
@@ -3413,12 +3430,18 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             perf_mark(&pf.m1);
         const uint32_t td = timer_ticks();
         rt.light_us = rt.fade_us = 0;
+        memset(rt.op_us, 0, sizeof rt.op_us);
+        memset(rt.op_n, 0, sizeof rt.op_n);
         gpu2d_only_frame();
         if (call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
         }
         rt.draw_us = timer_ticks() - td;
+        for (int k = 0; k < OP_N; k++) {
+            sess.op_us[k] += rt.op_us[k];
+            sess.op_n[k] += rt.op_n[k];
+        }
         if (rt.light_us) {
             sess.light_us += rt.light_us;
             sess.fade_us += rt.fade_us;
@@ -3885,6 +3908,23 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
             PUT("  of the draw: light %lu.%lu ms (dark_begin, glow, dark_end; in %lu%% of the frames; the fade of "
                 "dark_end alone %lu.%lu ms), the rest %lu.%lu ms (map, sprites, text, Lua)\n", MS1(lm),
                 (unsigned long)lf, MS1(fm), MS1(seg[SEG_DRAW] > lm ? seg[SEG_DRAW] - lm : 0));
+        }
+        {
+            static const char *const kinds[OP_N] = { "map", "spr", "sspr", "stack", "print", "shapes" };
+            uint64_t sum = 0, calls = 0;
+            for (int k = 0; k < OP_N; k++) {
+                sum += sess.op_us[k];
+                calls += sess.op_n[k];
+            }
+            if (calls) {
+                PUT("the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):\n");
+                for (int k = 0; k < OP_N; k++)
+                    PUT("  %-8s %3lu.%lu ms  %lu.%lu calls\n", kinds[k], MS1((uint32_t)(sess.op_us[k] / m)),
+                        (unsigned long)(sess.op_n[k] / m), (unsigned long)(sess.op_n[k] * 10 / m % 10));
+                PUT("  %-8s %3lu.%lu ms  %lu.%lu calls (of the draw's %lu.%lu ms: the rest is Lua, the light, the 3D)\n", "all",
+                    MS1((uint32_t)(sum / m)), (unsigned long)(calls / m), (unsigned long)(calls * 10 / m % 10),
+                    MS1(seg[SEG_DRAW]));
+            }
         }
         const uint32_t a10 = sess.wall_us ? (uint32_t)(sess.seg_us[SEG_AUDIO] * 1000u / sess.wall_us) : 0;
         PUT("audio interrupt: %lu.%lu%% of the CPU's time (mean), %lu.%lu%% at most in a second\n",
