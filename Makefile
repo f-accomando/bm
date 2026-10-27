@@ -431,6 +431,10 @@ test-yharnam: $(BUILD)/host/luahost
 	$< tests/yharnam/borders.lua carts/yharnam/main.lua
 	$< tests/yharnam/borders.lua carts/yharnam/main.lua --drawn
 
+# Yharnam's autoplay on the host: 7200 frames with no key, then quit(); the run must end by itself
+test-yharnam-autoplay: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm
+	YHARNAM_AUTOPLAY=1 $< $(BUILD)/carts/yharnam.bm --frames 20000 2>&1 | tee $(BUILD)/yharnam-autoplay.log | grep '^autoplay: 7200 frames, 0 deaths'
+
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 	@mkdir -p $(dir $@)
@@ -778,7 +782,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
         test-music music-model \
         test-fat test-fat-queue test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-klog test-monitor-cmd test-hyp test-zero2 \
-        showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map test-yharnam \
+        showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map test-yharnam test-yharnam-autoplay \
         test-catalog test-github test-lan market-seed test-host test-anim-ease test-qemu test-vid
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
