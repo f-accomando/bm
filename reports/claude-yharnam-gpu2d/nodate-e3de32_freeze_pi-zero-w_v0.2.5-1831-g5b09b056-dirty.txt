@@ -1,0 +1,68 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1831-g5b09b056-dirty
+branch: claude/yharnam-gpu2d
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-e3de32_freeze_pi-zero-w_v0.2.5-1831-g5b09b056-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor line "reboot", frame 0, 668 s after boot, kernel v0.2.5-1831-g5b09b056-dirty, ring 16062, sink on
+--- the last lines printed ---
+:reboot
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ us (300 frames)
+menu frame: 1x, a frame averages draw 6563 us, enlarge 1 us, flip 92 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6610 us, enlarge 1 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6524 us, enlarge 1 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6437 us, enlarge 1 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6613 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6593 us, enlarge 0 us, flip 93 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6507 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6423 us, enlarge 0 us, flip 93 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6654 us, enlarge 0 us, flip 93 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6581 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6494 us, enlarge 1 us, flip 92 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6455 us, enlarge 0 us, flip 93 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6650 us, enlarge 0 us, flip 95 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6563 us, enlarge 0 us, flip 96 us, free time used 28 us (300 frames)
+
+playing yharnam.bm
+play: /bm/yharnam.bm (6430312 bytes)
+load: Yharnam 3535 ms (close 0, parse 407, assets+state 2878, mode 6, audio 0, lua 241)
+bm: loaded in 3977 ms, the splash over at 3977 ms
+bm: splash ticks: 104 frames, longest gap 110455 us at 956 ms (between 0xa2da8 and 0xdfd28)
+bm: "Yharnam" suspended (A on its cover resumes it)
+bm: "Yharnam" 7464 frames, 49.0 fps, 169 dropped
+     update+draw avg 17.60 ms (105% of frame), max 93.01 ms, Lua 3107 KB
+     copy to screen 2.01 ms per frame
+     dev kit: Lua peak 3517 KB, data 41353 KB, busiest frame 608k instructions, 5031 frames over 16.7 ms, 103227 tokens
+report: session_yharnam_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+fiber: reports did not yield: 9.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 102.0 ms past its slice
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer
+menu idle: 300/300 frames, 591 of 2370 ms taken, 104.6 ms past a frame; reports 561 ms (+102.0, stk 7.6/128K, stop 12.9); min slack -9491 us, paced 0
+menu idle: sd first word <1ms 278 <3ms 3 (max 1.4 ms)
+menu stalls: tls handshake 1x last 288.9 worst 288.9 ms
+menu frame: 1x, a frame averages draw 7304 us, enlarge 0 us, flip 98 us, free time used 1970 us (300 frames)
+bm: "Yharnam" closed, memory freed
+menu: closed yharnam.bm
+report: sending session_yharnam_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-yharnam-gpu2d/session_yharnam_pi-zero-w.txt
+menu idle: 300/300 frames, 1303 of 2407 ms taken, 100.1 ms past a frame; reports 1294 ms (+100.1, stk 7.6/128K); min slack -17790 us, paced 0
+menu idle: sd first word <1ms 44 <3ms 2 (max 1.4 ms)
+menu stalls: tls handshake 1x last 299.0 worst 299.0 ms
+menu frame: 1x, a frame averages draw 7086 us, enlarge 0 us, flip 93 us, free time used 4346 us (300 frames)
+menu frame: 1x, a frame averages draw 6600 us, enlarge 0 us, flip 95 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6512 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6424 us, enlarge 0 us, flip 94 us, free time used 30 us (300 frames)
+net: receiving settings (13 bytes)...
+config: gpu2d_only=1
+net: settings from the PC: 1 changed in bm/config.txt
+
+net: console opened from 192.168.1.115
+> back to the monito
