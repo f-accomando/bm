@@ -5317,8 +5317,11 @@ function autoplay_start()
   local visits, last_tile = {}, nil
 
   -- The streets of the 3 x 3 chunks round the hunter: the way to the goal,
-  -- or to the tile nearest to it. Tiles walked often weigh more.
-  local function replan(gx, gy)
+  -- or to the tile nearest to it. Tiles walked often weigh more. It is a job
+  -- of many frames (a coroutine that gives way every PLAN_WORK tiles): one search
+  -- at once was 150 to 300 ms of Lua on the Pi, a stop in the picture every 90 frames.
+  local PLAN_WORK = 30
+  local function replan_job(gx, gy)
     local ptx, pty = floor(P.x / TS2), floor(P.y / TS2)
     local pcx, pcy = floor(P.x / CPX2), floor(P.y / CPX2)
     for cy = pcy - 1, pcy + 1 do for cx = pcx - 1, pcx + 1 do Y.ensure(cx, cy) end end
@@ -5329,9 +5332,12 @@ function autoplay_start()
     local parent = { [tkey(ptx, pty)] = false }
     local qx, qy, head = { ptx }, { pty }, 1
     local bx, by, bh = ptx, pty, math.huge
+    local work = 0
     while head <= #qx do
       local tx, ty = qx[head], qy[head]
       head = head + 1
+      work = work + 1
+      if work >= PLAN_WORK then work = 0; coroutine.yield() end
       local h = sqrt((tx - gtx) ^ 2 + (ty - gty) ^ 2) * TS2 + (visits[tkey(tx, ty)] or 0) * 20
       if h < bh then bx, by, bh = tx, ty, h end
       if tx == gtx and ty == gty then bx, by = tx, ty; break end
@@ -5354,6 +5360,23 @@ function autoplay_start()
       tx, ty = k // 8192 - 4096, k % 8192 - 4096
     end
     plan.path, plan.i, plan.age = path, 1, 0
+  end
+
+  local planner
+  local function replan(gx, gy)
+    if not planner then
+      planner = coroutine.create(replan_job)
+      local ok, err = coroutine.resume(planner, gx, gy)
+      if not ok then error(err) end
+      if coroutine.status(planner) == "dead" then planner = nil end
+    end
+  end
+  -- one slice of the search in each frame
+  local function plan_step()
+    if not planner then return end
+    local ok, err = coroutine.resume(planner)
+    if not ok then error(err) end
+    if coroutine.status(planner) == "dead" then planner = nil end
   end
 
   local function towards(x, y, slack)
@@ -5382,7 +5405,9 @@ function autoplay_start()
       return stuck.dir
     end
     plan.age = plan.age + 1
+    plan_step()
     if not plan.path or plan.i > #plan.path or plan.age > 90 then replan(gx, gy) end
+    if not plan.path then return towards(gx, gy) end        -- the search is not done: straight on
     local p = plan.path[plan.i]
     while p and abs(p[1] - P.x) + abs(p[2] - P.y) < 6 do
       plan.i = plan.i + 1
