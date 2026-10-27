@@ -63,6 +63,14 @@ Kernel built on the merged `bm-core` (bridge gate commit) went to the console th
 - The log starts a new file at each game start (`play`); read the newest `batNN`.
 - Overbit title screen, started with `play` through the bridge, is the planned constant load; the console stayed on the charger, so the first run-down is still to do.
 
+## Analysis of 2026-10-27 (bat08, console on the battery, backlight and settings as the user left them)
+
+- **Current**: charger on, fast charge +1855 mA at 4.07 V; the counter rises 31 mAh a minute (1855 mA x 1 min), so the scale of the counter is right at both ends. On the battery, the menu draws about -735 mA and Overbit's title screen about -745 mA over 5 minutes: the load does not depend on what is on the screen. The base load (backlight, four cores, display, radios) is what costs.
+- **Run time**: 4100 mAh / 740 mA = about 5.5 h, inside the 5 to 7 h of the Linux firmware. The console does not use too much power. The percent shown is what misleads.
+- **Voltage sag**: the cable pulled out at 4083 mV (+1855 mA) and the voltage fell at once to 3761 mV (-709 mA). The step is 322 mV for 2.56 A, so the internal resistance is about 0.126 ohm (cell, protection, wiring). On the battery at 740 mA the voltage is 0.09 V under the rest voltage. `battery_percent()` reads a table of rest voltages: it shows too little charge under load. Example: at 3698 mV on load the bar says about 12%, the voltage plus 0.126 ohm x 0.74 A (about 3790 mV at rest) says about 36%, and the counter (full about 104175, now 102867: 1308 mAh used of 4100) says about 68%. The three do not agree yet: the full point of the counter is not proven.
+- **User's 30 min test**: 30 min at 740 mA is about 370 mAh, 9% of 4100 mAh. The drop to "half" in 30 min is mostly the sag and the table, not the use.
+- **Bug found**: `bat07` has 57 lines in 4 minutes of real time, so the column `sec` is not real seconds there. A boot of the older kernel (before the timer fix) wrote it. The fixed kernel writes every 60 s (bat08: lines 60 s apart, counter agrees).
+
 ## Work items (in order)
 
 1. Run on the console: check the sign and scale of mA (plug the charger: mA must turn positive).
