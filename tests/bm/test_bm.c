@@ -390,6 +390,29 @@ static void test_fade(void)
             g16_fade_apply(&gb, &full_map);
             CHECK(memcmp(pa, pb, sizeof pa) == 0, "the apply of step 2 equals the apply of its flushed map");
         }
+        /* the lamps' tables do not change a level: the same map with them off, at step 2 and at step 1 */
+        uint8_t *kept = malloc((size_t)m.w2 * m.h2);
+        memcpy(kept, m.lv2, (size_t)m.w2 * m.h2);
+        g16_glow_cache(0);
+        g16_fade_clear(&m, 1);
+        for (int i = 0; i < 4; i++)
+            g16_fade_glow(&m, lamps[i][0], lamps[i][1], lamps[i][2], lamps[i][3], 256);
+        CHECK(memcmp(kept, m.lv2, (size_t)m.w2 * m.h2) == 0, "step 2: the same levels with and without the tables (%dx%d)", w, h);
+        g16_fade_set_step(&m, 1);
+        g16_fade_clear(&m, 1);
+        for (int i = 0; i < 4; i++)
+            g16_fade_glow(&m, lamps[i][0], lamps[i][1], lamps[i][2], lamps[i][3], 256);
+        uint8_t *direct_map = malloc((size_t)w * h);
+        memcpy(direct_map, m.lv, (size_t)w * h);
+        g16_glow_cache(1);
+        g16_fade_clear(&m, 1);
+        for (int i = 0; i < 4; i++)
+            g16_fade_glow(&m, lamps[i][0], lamps[i][1], lamps[i][2], lamps[i][3], 256);
+        CHECK(memcmp(direct_map, m.lv, (size_t)w * h) == 0, "step 1: the same levels with and without the tables (%dx%d)", w, h);
+        CHECK(memcmp(direct_map, full, (size_t)w * h) == 0, "the table of a lamp found again gives the same levels (%dx%d)", w, h);
+        free(kept);
+        free(direct_map);
+        g16_fade_set_step(&m, 2);
         CHECK(worst <= 2, "step 2 is at most 2 levels from step 1 (%dx%d: %d)", w, h, worst);
         CHECK(sum * 10 < (long)w * h, "step 2 differs on few pixels (%dx%d: %ld of %d)", w, h, sum, w * h);
         g16_fade_set_step(&m, 1);

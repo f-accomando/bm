@@ -3747,6 +3747,9 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         PUT("GPU wait: %lu.%lu%% of the frames' work; the GPU set the pace (the ARM waited more than %lu ms for "
             "it) in %lu.%lu%% of the frames\n", (unsigned long)(w10 / 10), (unsigned long)(w10 % 10),
             (unsigned long)(PERF_GPU_BOUND_US / 1000), (unsigned long)(b10 / 10), (unsigned long)(b10 % 10));
+        if (g16_glow_stats.hits || g16_glow_stats.builds || g16_glow_stats.direct)
+            PUT("glow tables: %lu found, %lu made, %lu lamps without a table (radius over 128)\n", (unsigned long)g16_glow_stats.hits,
+                (unsigned long)g16_glow_stats.builds, (unsigned long)g16_glow_stats.direct);
         if (qpu_stats.runs || qpu_stats.fade_arm_align || qpu_stats.fade_arm_shape)
             PUT("QPU (gpu3d_qpu=1): %lu runs, %lu on the QPUs, %lu on the ARM, %lu failed; the fade met a picture off a 64-byte "
                 "line %lu times, another shape %lu times\n", (unsigned long)qpu_stats.runs,

@@ -158,6 +158,11 @@ void g16_fade_clear(g16_fade_t *f, int ambient);
  * 0..256 is how much of each ring edge is mixed (0 = sharp rings, 256 = a
  * smooth ordered-dither ramp). */
 void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dither);
+/* The lamps' tables (the profile of a radius and level, kept between frames): on by default; 0 computes every pixel
+ * (the same levels: a test compares the two). The counters: tables found, made, and lamps too large for a table. */
+void g16_glow_cache(int on);
+typedef struct { uint32_t hits, builds, direct; } g16_glow_stats_t;
+extern g16_glow_stats_t g16_glow_stats;
 void g16_fade_apply(g16_t *g, const g16_fade_t *f);
 
 /* Sheet helpers */
