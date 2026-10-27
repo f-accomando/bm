@@ -427,7 +427,7 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   does not take (circles, slanted lines, stacks) is recorded and drawn after the job, in order, as in a game with 3D. The RAM page is on a 64-byte line
   (`shadow_alloc`). The F11 overlay shows a row `2D: GPU wait x.y` and the session report a line `2D: GPU`.
   Check: `make test-gpu2d-only` (V3D emulated: a plain cart, a cart with light and Yharnam, the same pictures with the key on and off, pixel for pixel),
-  `make test-gpu3d`, `test-queue2d`, `test-v3d`, `test-b3d`. Not measured on the Pi.
+  `make test-gpu3d`, `test-queue2d`, `test-v3d`, `test-b3d`. Pi (27 Oct, Yharnam): the GPU 2D works for what a texture can hold; the sheet of 4096 x 3400 is over the 2048 limit of `tex_get`, so only rectangles reached the GPU (29 quads a frame) and the draw was 17.0 ms against 16.4 on the ARM.
 
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the

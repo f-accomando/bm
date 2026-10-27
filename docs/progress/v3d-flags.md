@@ -13,7 +13,7 @@ Rule: the Settings *Screen* page shows only choices a player can judge by sight:
 | `gpu3d_aa` | off | 3D Bench GPU+AA; hidden | not measured |
 | `gpu3d_filter` | off (nearest) | 3D Bench `bilinear`; hidden | full-screen pass 2.3 ns/px against 1.65 nearest (cost, look changes) |
 | `gpu3d_fs2` | on | 3D Bench GPU+FS2; hidden | quad_tex 148 against 121 quads, +22% |
-| `gpu2d_only` | off | Yharnam on the Pi (hidden) | bm3d 7.16: the 2D of a game with no 3D on the V3D; host: the same pictures as the ARM (`make test-gpu2d-only`); Pi: not measured |
+| `gpu2d_only` | off | Yharnam on the Pi (hidden) | bm3d 7.16: the 2D of a game with no 3D on the V3D; host: the same pictures as the ARM (`make test-gpu2d-only`); Pi (27 Oct, Yharnam): no gain, the sheet is over 2048 so only rectangles went to the GPU |
 | `gpu3d_2d` | on | 3D Bench GPU+2D; hidden | gpu2d test 2013 sprites against GPU 1886, +6.7%; sprites test 3569+ against ARM 2574 (22 Oct, PERF-BUDGET); on since 24 Oct; `gpu3d_2d=0` turns it off |
 | `gpu3d_wc` | off | 3D Bench GPU+WC; hidden | no gain: misses -72%, load 199 against 200 |
 | `gpu3d_sort` | off | 3D Bench GPU+VS+S; hidden | heroes GPU+VS 104 945 triangles at 15.9 ms against GPU+VS+S 95 089 at 14.2 ms; the `pixels` field was 0 in both, so the gain is not shown (25 Oct, run 2; emulator: 99 960 against 416 546 shaded pixels) |
