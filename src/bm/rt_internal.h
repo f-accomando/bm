@@ -157,6 +157,10 @@ typedef struct {
     int gpu2d_only;             /* bm3d 7.16: a game with no 3D has its 2D drawn by the GPU too (gpu2d_only=1, off by default) */
     int gpu2d_only_checked;     /* the key read for this run */
     uint32_t gpu_quads_frame;   /* the 2D quads the GPU took in the last frame (the overlay's "2D" row) */
+    int gwin_on;                /* gpu2d_sheet(): the window of the sheet the GPU's 2D draws from (a copy, gwin) */
+    int gw_x, gw_y, gw_w, gw_h; /* the window in the sheet, on the 8-pixel cells */
+    g16_sheet_t gwin;
+    uint32_t gw_ver;            /* the sheet's version the copy was made from */
     int later;                  /* bm3d 6.9: each frame shown a frame later asked for (gpu3d_later=1,
                                  * gpu3d()): later_on() says when it is */
     int online;                 /* online(true): played over the network, PS asks first */
@@ -494,6 +498,7 @@ int l_quit(lua_State *L);
 void settle_reads(void);      /* defined in runtime.c: 2D reads the page */
 int gpu2d(int op, const int32_t *v);
 int gpu2d_open(void);
+int l_gpu2d_sheet(lua_State *L);
 void gpu2d_submit(void);          /* starts the frame job on the GPU now (the ARM goes on: dark_begin) */
 int draw2d(int op, uint32_t words, int32_t **a);
 void stack_draw(const int32_t v[7], const float f[3], int vert);

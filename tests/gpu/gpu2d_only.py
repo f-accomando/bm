@@ -8,6 +8,7 @@ sprite stack, the light of dark_begin .. dark_end) and Yharnam's first seconds.
   tests/gpu/gpu2d_only.py BUILD_DIR
 """
 import os
+import struct
 import subprocess
 import sys
 
@@ -57,6 +58,55 @@ end
 """
 
 
+# A sheet of 4096 x 64 (over the 2048 texels of a V3D texture): tiles in its left half, sprites in its right half. With
+# gpu2d_sheet(0, 0, 2048, 64) the map cells and the sprites of the left half go to the GPU, those of the right half stay
+# on the ARM, in the order they are drawn; without it the sheet is no texture and everything but rectangles is the ARM's.
+BIGCART = r"""
+WIN = %s
+local t = 0
+function _init()
+  if WIN and gpu2d_sheet then assert(gpu2d_sheet(0, 0, 2048, 64)) end
+end
+function _update() t = t + 1 end
+function _draw()
+  cls(0x102030)
+  map(0, 0, 0, 0, 24, 8, 1)
+  map(0, 0, 0, 0, 24, 8, 2)                      -- a layer over the first one: the order stays
+  spr(256 + t %% 20, 200, 20)                    -- from the right half: the ARM, over the map
+  spr(5 + t %% 7, 40, 100, 2, 1, true, false)    -- the left half: the GPU
+  sspr(2048 + 8, 0, 16, 16, 100, 100, false, false, 2)
+  sspr(8 * 3, 0, 16, 8, 150, 100, true, false)
+  rectfill(60, 70, 120, 90, 0x2040FF)
+  spr(260, 70, 75)                               -- the ARM again, over the rectangle
+  print("big " .. t, 4, 170, 0xFFFFFF)
+end
+"""
+
+
+def bigsheet():
+    """(w, h, rgba), layers: the 4096 x 64 sheet and two map layers of 24 x 8 cells"""
+    w, h = 4096, 64
+    px = bytearray(w * h * 4)
+
+    def put(x, y, r, g, b, a):
+        i = (y * w + x) * 4
+        px[i:i + 4] = bytes((r, g, b, a))
+
+    for c in range(1, 41):                          # the tiles: cell c at (c * 8, 0), some texels clear
+        for y in range(8):
+            for x in range(8):
+                clear = c % 3 == 0 and (x + y) % 4 == 0
+                put(c * 8 + x, y, (c * 37) % 256, (c * 91 + x * 9) % 256, (c * 53 + y * 17) % 256, 0 if clear else 255)
+    for k in range(40):                             # the sprites: cell 256 + k at (2048 + k * 8, 0)
+        for y in range(8):
+            for x in range(8):
+                solid = (x + y + k) % 3 != 0
+                put(2048 + k * 8 + x, y, 255 - k * 5, 128 + (x * 12) % 128, (k * 29 + y * 20) % 256, 255 if solid else 0)
+    cells1 = b"".join(struct.pack("<H", 1 + (x + y * 3) % 40) for y in range(8) for x in range(24))
+    cells2 = b"".join(struct.pack("<H", 1 + (x * 5 + y) % 40 if (x + y) % 2 == 0 else 0) for y in range(8) for x in range(24))
+    return (w, h, bytes(px)), [("ground", 24, 8, cells1), ("over", 24, 8, cells2)]
+
+
 def run(host, cart, shots, key, extra=""):
     os.makedirs(shots, exist_ok=True)
     for f in os.listdir(shots):
@@ -88,6 +138,13 @@ def main():
         with open(cart, "wb") as f:
             f.write(mkbm.pack((CART % light).encode(), title=f"gpu2d_only {name}", author="bm", res=(320, 180)))
         carts.append((name, cart))
+    sheet, layers = bigsheet()
+    for name, win in (("bigsheet-nowin", "false"), ("bigsheet-win", "true")):
+        cart = os.path.join(out, f"{name}.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack((BIGCART % win).encode(), sheet=sheet, layers=layers, title=f"gpu2d_only {name}", author="bm",
+                              res=(320, 180)))
+        carts.append((name, cart))
     yharnam = os.path.join(build, "carts", "yharnam.bm")
     if os.path.exists(yharnam):
         carts.append(("yharnam", yharnam))
@@ -102,7 +159,8 @@ def main():
         check("gpu2d_only=1" in logs[1], f"{name}: the key is seen", logs[1])
         check("did not start" not in logs[1], f"{name}: the GPU started", logs[1])
         quads = [l for l in logs[1].splitlines() if "2D on the GPU:" in l]
-        check(quads and float(quads[0].split("GPU:")[1].split()[0]) > 1, f"{name}: the GPU drew quads "
+        check(quads and (name == "bigsheet-nowin" or float(quads[0].split("GPU:")[1].split()[0]) > 1),
+              f"{name}: the GPU drew quads "
               f"({quads[0].strip() if quads else 'no line'})", logs[1])
         check(not any("2D on the GPU:" in l for l in logs[0].splitlines()), f"{name}: no quad with the key off", logs[0])
         shots = sorted(os.listdir(dirs[0]))
@@ -118,6 +176,14 @@ def main():
                 differ.append(s)
         check(len(shots) >= 8 and not differ, f"{name}: {len(shots)} pictures, the same with the GPU's 2D "
               f"({len(differ)} differ: {' '.join(differ[:5])})", logs[0][-400:] + logs[1][-400:])
+    quads = {}
+    for name in ("bigsheet-nowin", "bigsheet-win"):
+        code, log = run(host, os.path.join(out, f"{name}.bm"), os.path.join(out, f"{name}-1"), 1)
+        line = [l for l in log.splitlines() if "2D on the GPU:" in l]
+        quads[name] = float(line[0].split("GPU:")[1].split()[0]) if line else 0.0
+    check(quads["bigsheet-win"] > 60 and quads["bigsheet-win"] > 5 * max(quads["bigsheet-nowin"], 1),
+          f"gpu2d_sheet: the cells of the window go to the GPU ({quads['bigsheet-win']} quads a frame, "
+          f"{quads['bigsheet-nowin']} without the window)")
     print("gpu2d_only:", "all ok" if not fails else f"{fails} failed")
     return 1 if fails else 0
 

@@ -291,6 +291,70 @@ static int sheet_rect(int *sx, int *sy, int *sw, int *sh)
     return *sw > 0 && *sh > 0;
 }
 
+/* gpu2d_sheet(sx, sy, w, h): a sheet over 2048 pixels is not a texture of the V3D; the 2D drawn from a window of it (up to 2048
+ * x 2048, a copy kept in gwin and made again when the sheet changes) is. A source inside the window is the GPU's, the others
+ * the ARM's (recorded after the job, in order). Returns the sheet to draw from with (*sx, *sy) in it, or NULL. */
+static const g16_sheet_t *gwin_for(int *sx, int *sy, int sw, int sh)
+{
+    if (!rt.gwin_on)
+        return &rt.sheet;
+    if (*sx < rt.gw_x || *sy < rt.gw_y || *sx + sw > rt.gw_x + rt.gw_w || *sy + sh > rt.gw_y + rt.gw_h)
+        return NULL;
+    if (!rt.gwin.px || rt.gw_ver != rt.sheet.version) {
+        if (rt.gw_x + rt.gw_w > rt.sheet.w || rt.gw_y + rt.gw_h > rt.sheet.h) {
+            rt.gwin_on = 0;             /* the sheet is another one now: no window */
+            return NULL;
+        }
+        if (!rt.gwin.px && g16_sheet_alloc(&rt.gwin, rt.gw_w, rt.gw_h) != 0)
+            return NULL;
+        for (int y = 0; y < rt.gw_h; y++) {
+            const size_t so = (size_t)(rt.gw_y + y) * (size_t)rt.sheet.w + (size_t)rt.gw_x, wo = (size_t)y * (size_t)rt.gw_w;
+            memcpy(rt.gwin.px + wo, rt.sheet.px + so, (size_t)rt.gw_w * sizeof *rt.gwin.px);
+            memcpy(rt.gwin.alpha + wo, rt.sheet.alpha + so, (size_t)rt.gw_w);
+        }
+        const int per_row = rt.sheet.w / G16_CELL, wcells = rt.gw_w / G16_CELL;
+        for (int cy = 0; cy < rt.gw_h / G16_CELL; cy++)
+            memcpy(rt.gwin.cell_opaque + cy * wcells,
+                   rt.sheet.cell_opaque + (rt.gw_y / G16_CELL + cy) * per_row + rt.gw_x / G16_CELL, (size_t)wcells);
+        rt.gwin.version++;
+        rt.gw_ver = rt.sheet.version;
+    }
+    *sx -= rt.gw_x;
+    *sy -= rt.gw_y;
+    return &rt.gwin;
+}
+
+/* gpu2d_sheet(sx, sy, w, h) -> true if the GPU's 2D can use that window (cells of 8 pixels, up to 2048 x 2048, inside the
+ * sheet); gpu2d_sheet() or a window of no size ends it */
+int l_gpu2d_sheet(lua_State *L)
+{
+    if (rt.gwin.px)
+        g16_sheet_free(&rt.gwin);
+    rt.gwin_on = 0;
+    if (lua_gettop(L) < 4 || lua_tointeger(L, 3) <= 0 || lua_tointeger(L, 4) <= 0) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    int x = (int)luaL_checkinteger(L, 1), y = (int)luaL_checkinteger(L, 2);
+    int w = (int)luaL_checkinteger(L, 3), h = (int)luaL_checkinteger(L, 4);
+    const int x1 = (x + w + G16_CELL - 1) / G16_CELL * G16_CELL, y1 = (y + h + G16_CELL - 1) / G16_CELL * G16_CELL;
+    x = x < 0 ? 0 : x / G16_CELL * G16_CELL;
+    y = y < 0 ? 0 : y / G16_CELL * G16_CELL;
+    w = x1 - x;
+    h = y1 - y;
+    if (!rt.sheet.px || w < G16_CELL || h < G16_CELL || w > 2048 || h > 2048 || x + w > rt.sheet.w || y + h > rt.sheet.h) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    rt.gw_x = x;
+    rt.gw_y = y;
+    rt.gw_w = w;
+    rt.gw_h = h;
+    rt.gwin_on = 1;
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 int gpu2d(int op, const int32_t *v)
 {
     if (!gpu2d_open())
@@ -330,13 +394,15 @@ int gpu2d(int op, const int32_t *v)
             sh = v[4] * G16_CELL;
         if (!sheet_rect(&sx, &sy, &sw, &sh))
             return 1;
-        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[1] - cx, v[2] - cy, 1, v[5], v[6]);
+        const g16_sheet_t *ws = gwin_for(&sx, &sy, sw, sh);
+        return ws && gpu3d_blit2d(g, ws, sx, sy, sw, sh, v[1] - cx, v[2] - cy, 1, v[5], v[6]);
     }
     case D2_SSPR: {
         int sx = v[0], sy = v[1], sw = v[2], sh = v[3];
         if (!sheet_rect(&sx, &sy, &sw, &sh))
             return 1;
-        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[4] - cx, v[5] - cy, 1, v[6], v[7]);
+        const g16_sheet_t *ws = gwin_for(&sx, &sy, sw, sh);
+        return ws && gpu3d_blit2d(g, ws, sx, sy, sw, sh, v[4] - cx, v[5] - cy, 1, v[6], v[7]);
     }
     case D2_SSPR_ZOOM: {
         float zoom;
@@ -351,7 +417,8 @@ int gpu2d(int op, const int32_t *v)
             return 1;
         if (k < 1 || dw != k * sw || dh != k * sh)
             return 0;
-        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[4] - cx, v[5] - cy, k, v[6], v[7]);
+        const g16_sheet_t *ws = gwin_for(&sx, &sy, sw, sh);
+        return ws && gpu3d_blit2d(g, ws, sx, sy, sw, sh, v[4] - cx, v[5] - cy, k, v[6], v[7]);
     }
     case D2_STACK:
     case D2_STACKV:
@@ -364,6 +431,24 @@ int gpu2d(int op, const int32_t *v)
             return 1;
         const int per_row = rt.sheet.w / G16_CELL, ncells = per_row * (rt.sheet.h / G16_CELL);
         const int x = v[2] - cx, y = v[3] - cy;
+        if (rt.gwin_on) {               /* all the cells in the window, or none: a layer drawn half by each would change the order */
+            for (int my = 0; my < v[5]; my++) {
+                const int row = v[1] + my, py = y + my * G16_CELL;
+                if (row < 0 || row >= rt.map.h || py >= g->cy1 || py + G16_CELL <= g->cy0)
+                    continue;
+                for (int mx = 0; mx < v[4]; mx++) {
+                    const int c = v[0] + mx, px = x + mx * G16_CELL;
+                    if (c < 0 || c >= rt.map.w || px >= g->cx1 || px + G16_CELL <= g->cx0)
+                        continue;
+                    const int n = cells[row * rt.map.w + c];
+                    if (n == 0 || n >= ncells || (mask && !(rt.flags[n] & mask)))
+                        continue;
+                    const int tx = n % per_row * G16_CELL, ty = n / per_row * G16_CELL;
+                    if (tx < rt.gw_x || ty < rt.gw_y || tx + G16_CELL > rt.gw_x + rt.gw_w || ty + G16_CELL > rt.gw_y + rt.gw_h)
+                        return 0;
+                }
+            }
+        }
         for (int my = 0; my < v[5]; my++) {
             const int row = v[1] + my, py = y + my * G16_CELL;
             if (row < 0 || row >= rt.map.h || py >= g->cy1 || py + G16_CELL <= g->cy0)
@@ -375,8 +460,9 @@ int gpu2d(int op, const int32_t *v)
                 const int n = cells[row * rt.map.w + c];
                 if (n == 0 || n >= ncells || (mask && !(rt.flags[n] & mask)))
                     continue;
-                if (!gpu3d_blit2d(g, &rt.sheet, n % per_row * G16_CELL, n / per_row * G16_CELL, G16_CELL, G16_CELL,
-                                  px, py, 1, 0, 0))
+                int tx = n % per_row * G16_CELL, ty = n / per_row * G16_CELL;
+                const g16_sheet_t *ws = gwin_for(&tx, &ty, G16_CELL, G16_CELL);
+                if (!ws || !gpu3d_blit2d(g, ws, tx, ty, G16_CELL, G16_CELL, px, py, 1, 0, 0))
                     return 0;           /* the ARM draws it all again after the job: the same pixels */
             }
         }
@@ -1154,7 +1240,7 @@ static const luaL_Reg api[] = {
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
-    { "devinfo", l_devinfo }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
+    { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "battery", l_battery }, { "battery_low", l_battery_low },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
@@ -2208,6 +2294,9 @@ static void release(lua_State *L)
     rt.r3d_ready = 0;
     rt.gpu3d_boxed = 0;
     rt.gpu2d_only = rt.gpu2d_only_checked = 0;
+    rt.gwin_on = 0;
+    if (rt.gwin.px)
+        g16_sheet_free(&rt.gwin);
     free_assets();
 }
 

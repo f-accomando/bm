@@ -5145,6 +5145,9 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             end }
 
 function _init()
+  -- the map cells are all in the strip x 16..1504, y 0..32 of the sheet: a window the GPU's 2D (gpu2d_only=1) can draw from
+  -- (the sheet is 4096 x 3400, over the 2048 of a V3D texture); the sprites stay on the ARM
+  if gpu2d_sheet then gpu2d_sheet(0, 0, 1536, 32) end
   -- the fade tables: every colour of the sheet at the 8 light levels.
   -- Level 1 is the night (dim, blue: the twilight of a dead town), 7 the
   -- warm light under a lamp; glass of lit windows, flames and embers keep
