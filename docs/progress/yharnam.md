@@ -36,6 +36,8 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 - Pi Zero W, 28 Oct 2026, autoplay with `gpu3d_light=1` (`reports/claude-gpu-light2d/`): the light by the GPU (`docs/progress/graphics.md` Rules): 54.4 fps against 36.2 (`LIGHT_STEP` 1), draw 10.7 ms against 22.0, light 2.3 ms against 12.9 (the ARM sets the job up and waits), GPU 1.9 ms a frame, 6953 of 7199 pictures within 18 ms. The ARM's `glow` and fade are gone (8.3 + 4.6 ms). The look: smooth light, lamps add up, the tables per colour are replaced by one tint (ambient row and top row of `fades()`). Left: 94 frames over 100 ms (150 to 300 ms each, 13% of the time) when the player crosses into new ground: the cause is in the cartridge (chunk generation in Lua), not in the draw.
 
+- Pi Zero W, 28 Oct 2026, two ideas that did not pay (Yharnam autoplay, `gpu3d_light=1`, 56.8 fps with the light waited for): (1) the picture copy into the framebuffer (`bm_video_present`, 1.8 ms) by the DMA in 2D mode: 3.1 ms, slower than the ARM's rows; (2) the light's job not waited for at `dark_end` (the next `_update` and the HUD run while the GPU draws): 55.1 fps, the draw 10.6 -> 11.5 ms and the copy 1.8 -> 3.1 ms: the ARM and the GPU share the SDRAM and the ARM gets slower while the job runs. Keep the wait.
+
 ### A2. Not checked on a device
 - The look of the walls, gates, hidden passages and the deadfall with its horde in the game (checked on the PC only: `bmplay` pictures and `make test-yharnam`).
 - The start fade, the blood on the boss text, the colder shadows and the keyboard.
