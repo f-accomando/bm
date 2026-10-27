@@ -24,21 +24,30 @@
 #define LOW_ON      20              /* the icon over the games from 20%... */
 #define LOW_OFF     23              /* ...until 23% (the voltage sags under load) */
 
-static int known, pct, charging, low, plug = -2;
+#define LED_REST_MV 3500            /* the LED: about 4% left, 40 minutes before the cliff */
+#define DEAD_READS  3               /* empty this many reads (30 s) in a row: switch off */
+
+static int known, pct, charging, low, plug = -2, dead;
 static uint32_t at_full, at_plug, next_full = FULL_US;
 
 static void read_all(void)
 {
-    int mv, charge;
+    int mv, charge, ma = 0;
+    int64_t uah;
     known = plat_battery(&mv, &charge) == 0 && mv > 0;
     if (!known)
         return;
+    const int gauge = plat_battery_gauge(&ma, &uah) == 0;
+    if (!gauge)
+        ma = 0;
+    const int rest = battery_rest_mv(mv, ma);
     const int in = plat_power_in();
     plug = in;
     /* on the charger: the plug when the PMIC says it, its state if not */
     const int on = in >= 0 ? in : charge >= 1;
-    ledstate_set(LED_POWER, mv < 3450 && !on);
-    pct = charge == 2 ? 100 : battery_percent(mv);         /* full: four bars */
+    ledstate_set(LED_POWER, rest < LED_REST_MV && !on);
+    dead = gauge && !on && rest < BAT_EMPTY_MV ? dead + 1 : 0;
+    pct = charge == 2 ? 100 : battery_curve_pct(rest);     /* full: four bars */
     charging = on && charge != 2;
     if (on)
         low = 0;
@@ -125,6 +134,13 @@ int battery_state(int *p, int *c, int *l)
             at_full = now | 1;
             next_full = SETTLE_US;          /* and the voltage once it settles */
         }
+    }
+    /* empty (3.3 V under 700 mA): switch off while the card is quiet, not at
+     * 2.9 V in the middle of a write (the run-down of 2026-10-27 went on 36
+     * minutes after the LED, down to 2.88 V) */
+    if (dead >= DEAD_READS && !fat_writing()) {
+        kprintf("battery empty: power off\n");
+        plat_poweroff();
     }
     if (p) *p = pct;
     if (c) *c = charging;

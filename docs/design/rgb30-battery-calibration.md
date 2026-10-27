@@ -108,6 +108,13 @@ The console ran from the full charge (4212 mV, charge ended at 241 mA, counter 1
 - **The old table** gives 58% at 3864 mV (real 65%), 31% at 3757 mV (real 37%), 7% at 3664 mV (real 19%), 3% at 3553 mV (real 10%). It is low over the whole range, and it is applied to the loaded voltage: with the menu the bar reads 20 to 30 points low (red at 54% real).
 - **Charger.** The charger takes up to 1.85 A with the good supply. The old supply gave about 1.4 A. Charge ends at about 240 mA at 4215 mV (0.05C).
 
+## Built (2026-10-27, not tried on the console)
+
+- `src/rgb30/battery_curve.h`: rest voltage = voltage - mA x 0.126 (mA negative on the battery), and the table of the run-down. `battery_percent(mv, ma)` in `plat.h` uses it. The bars keep 75/50/25/10%.
+- `battery.c`: the current is read with the voltage (every 10 s). The LED lights below 3500 mV at rest. Off the charger, 3 reads in a row below 3400 mV at rest and no write to the card: `plat_poweroff()`. If the gauge cannot be read the count stays at 0.
+- Tests: `make test-battery-curve` (rows of bat09, 22 checks) and `tests/rgb30/qemu_test.py -k battery` (the QEMU values changed: 3880 mV is 66%, 3500 mV is red, 3650 mV is 17%).
+- To check on the console: the bars at the same load, the LED, and the switch-off (a second run-down, with `battery_log=1`).
+
 ## Work items (in order)
 
 1. Run on the console: check the sign and scale of mA (plug the charger: mA must turn positive).

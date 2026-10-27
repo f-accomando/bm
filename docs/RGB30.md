@@ -77,7 +77,7 @@ its link address (0x10000000), drops to EL1 and calls `kernel_main`.
 |---|---|
 | red on | booting (stuck like this: the kernel hung early) |
 | solid green | bm is running and nothing is wrong (since 2026-10-04: `src/kernel/ledstate.c`) |
-| green blinking slowly (1 s on, 1 s off) | something else: boot not finished, the SD is missing or unreadable, the battery is low (below 3.45 V, without charger), a kernel is arriving or an update is being installed |
+| green blinking slowly (1 s on, 1 s off) | something else: boot not finished, the SD is missing or unreadable, the battery is low (below 3.50 V at rest, without charger), a kernel is arriving or an update is being installed |
 | solid red + green blinking | the screen had problems: read `bm/bootlog.txt` |
 | red blinking N times, pause | fatal exception N (1 synchronous, 4 SError, 9 panic) |
 
@@ -221,8 +221,10 @@ was powered on again `bootprev.txt` has the log of the black boot.
   (B, or A with `confirm=a`); after a Bluetooth pad the apps show its own. On the right of the bar only the network and the **battery** (since 2026-10-05; no icons
   for controllers, mice and keyboards, user decision): four
   notches from 75% up, one fewer every 25%, empty and red below 10%, a lightning bolt on the
-  charger; the charge comes from the voltage (0% at 3.45 V, when the LED warns, 100% at 4.18 V),
-  also shown in *Settings > System > Battery*. On the charger the voltage rises: there the
+  charger; the charge comes from the voltage at rest (2026-10-27: the voltage plus the drop of the
+  current, 0.126 ohm; 0% at 3.40 V at rest, 100% at 4.21 V; the LED warns at 3.50 V at rest),
+  also shown in *Settings > System > Battery*. Off the charger, 30 s at 0% switch the console off
+  (about 3.3 V under 700 mA, never in the middle of a write to the card). On the charger the
   percentage is only an indication. The lightning bolt follows the cable at once (2026-10-10: the RK817
   bit read 4 times a second, `src/rgb30/battery.c`; before, everything every 10 s). At 20% or
   less, off the charger, a small red battery also appears over games and tools

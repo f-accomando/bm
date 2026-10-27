@@ -7,6 +7,7 @@
 #define PLAT_H
 
 #include <stdint.h>
+#include "battery_curve.h"
 
 #if defined(PLAT_RK3566)
 #define PLAT_NAME       "RGB30"
@@ -87,19 +88,13 @@ int plat_battery_gauge(int *ma, int64_t *uah);
  * cheap enough to ask a few times a second, src/rgb30/battery.c) */
 int plat_power_in(void);
 
-/* the charge (0..100) of the RGB30's Li-ion cell from its voltage: a
- * table, linear in between, 0 at 3.45 V (the LED's low battery); on the
- * charger the voltage reads higher, an indication only */
-static inline int battery_percent(int mv)
+/* the charge (0..100) of the RGB30's Li-ion cell from its voltage and its
+ * current (ma: negative = discharge, 0 if unknown): the voltage at rest
+ * against a table (battery_curve.h). On the charger it reads a little high,
+ * an indication only */
+static inline int battery_percent(int mv, int ma)
 {
-    static const short v[] = { 3450, 3610, 3690, 3730, 3770, 3800, 3840, 3870, 3950, 4020, 4110, 4180 };
-    static const short pc[] = { 0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
-    if (mv <= v[0])
-        return 0;
-    for (int i = 1; i < (int)(sizeof v / sizeof v[0]); i++)
-        if (mv < v[i])
-            return pc[i - 1] + (pc[i] - pc[i - 1]) * (mv - v[i - 1]) / (v[i] - v[i - 1]);
-    return 100;
+    return battery_curve_pct(battery_rest_mv(mv, ma));
 }
 
 /* PSCI through TF-A (SMC) on the RGB30, QEMU's PSCI (HVC) in the tests */

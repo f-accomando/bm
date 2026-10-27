@@ -1944,12 +1944,12 @@ def test_battery_icon(b, opts):
 
     full = look(b"test_battery=4150\n")
     mid = look(b"test_battery=3880\n", settings=True)
-    low = look(b"test_battery=3600\n")
+    low = look(b"test_battery=3500\n")                  # 3%: the curve of 2026-10-27
     plug = look(b"test_battery=3900,1\n")
     assert full[0] > mid[0] > 0 and not full[1] and not mid[1], (full, mid)       # bars
     assert low[1] > 0 and low[0] == 0, low                                         # red, empty
     assert plug[2] > 0 and not full[2] and not mid[2] and not plug[1], plug        # the bolt
-    assert "Battery" in mid[3] and "61%, 3.88 V" in mid[3], mid[3]
+    assert "Battery" in mid[3] and "66%, 3.88 V" in mid[3], mid[3]
 
 
 LOW_CART = r"""
@@ -1990,12 +1990,12 @@ def test_battery_low_game(b, opts):
         finally:
             q.close()
 
-    low = run(b"test_battery=3650\n")                   # 7%
+    low = run(b"test_battery=3650\n")                   # 17%
     plug = run(b"test_battery=3650,1\n")
     off = run(b"test_battery=3650\nbattery_icon=0\n")
-    assert low[0] == "7 false true" and low[1] > 20, low
-    assert plug[0] == "7 true false" and plug[1] == 0, plug
-    assert off[0] == "7 false true" and off[1] == 0, off
+    assert low[0] == "17 false true" and low[1] > 20, low
+    assert plug[0] == "17 true false" and plug[1] == 0, plug
+    assert off[0] == "17 false true" and off[1] == 0, off
 
 
 WIDE_CART = r"""

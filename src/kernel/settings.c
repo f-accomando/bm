@@ -827,12 +827,15 @@ static void panel_system(home_panel_t *p)
     home_row(p, MENU_ROW_SUB, R_SDMAP, "SD map", "What is on the card, by folder", "%s", sdmap_state_name());
 #ifdef BM_RGB30
     {
-        int mv, charge;
-        if (plat_battery(&mv, &charge) == 0)
+        int mv, charge, ma = 0;
+        int64_t uah;
+        if (plat_battery(&mv, &charge) == 0) {
+            if (plat_battery_gauge(&ma, &uah) != 0)
+                ma = 0;
             home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
-                     "%d%%, %d.%02d V%s", battery_percent(mv), mv / 1000, mv % 1000 / 10,
+                     "%d%%, %d.%02d V%s", battery_percent(mv, ma), mv / 1000, mv % 1000 / 10,
                      charge == 2 ? ", full" : charge == 1 ? ", charging" : "");
-        else
+        } else
             home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
                      "unknown");
     }

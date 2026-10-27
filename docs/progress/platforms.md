@@ -43,6 +43,9 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   charger until 23%: a red icon drawn by the runtime over games and tools (`battery_draw()`
   in `runtime.c`, after `flush3d`, outside lockstep); `battery_icon=0` turns it off. QEMU:
   `test_battery_low_game` (`tests/rgb30/qemu_test.py`).
+  The percent is the rest voltage (voltage plus 0.126 ohm times the current) against the
+  table in `battery_curve.h`, from the run-down of 27 Oct 2026 ([calibration](../design/rgb30-battery-calibration.md)).
+  Off the charger, 3 reads (30 s) at 0% switch the console off. PC test: `make test-battery-curve`.
 - WiFi RTL8821CS over SDIO (`rtw_*.c`, `wpa.c`), Bluetooth RTL8821CS on UART1 (`rk_bt.c`,
   H5).
 - Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + last 4 KB printed),
@@ -72,6 +75,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   - Written, not tried on a console: D01, D02, D18, D26, D10, D51, D52, D53. compat-policy is `implemented` (25 Oct 2026). cart-type is `implemented` (25 Oct 2026: D51, D52, D53 done, QEMU only). Specification item still partial: `/bme` folder. Resource files and project layout are `implemented` (round 2: every `carts/` project has `bm.info`).
 - RGB30 menu keys, user decision 19 Oct 2026 (done, `src/rgb30/pad.c:11-37`): B confirms and Y goes back by default. A is not a second back. Settings > Controls (`mo`, `mc`) remaps them. Per-device key reference: branch `claude/ui-reference` (file ui-reference.md under docs/spec there, UI-REF-1, reviewed, not merged).
 - RGB30 game options (X): the panel is the Pi's (`lib_panel` in `src/kernel/library.c`), with the rows the console has in its backend (`LIB_CAP_SDK | LIB_CAP_SEND`): Play or Resume, Close, Open in the SDK, Send to a nearby console, the info rows (Author, File, Size, Type, Save data) and the deletes. "Send to a nearby console" works (same code as the Pi; not verified on hardware). Publish stays off by decision; the editors and the editable copy are not offered (no keyboard; divergence D11 accepted). The menu code is shared with the Pi since 25 Oct 2026 (`lib_*`: scan, covers, frozen game, panel, row actions, play, menu idle); not tried on a console.
+- RGB30 battery: the new curve and the clean switch-off are built and pass the PC and QEMU tests, not tried on the console. To check: the bars, the red at 10%, the switch-off at about 3.3 V in a second run-down. Then the power savings, one at a time ([calibration](../design/rgb30-battery-calibration.md)).
 - **Mali-G52 driver** (RGB30): Overbit at 360×360 and 720×720, ARM benchmark and Mali driver (details in [graphics-mali](graphics-mali.md)).
 - **Handheld shell for the Pi Zero**: support for handheld setups based on the Pi Zero (reading keys and pad directly on GPIO pins, compact display on a DPI or SPI bus).
 - RGB30 runs on one core (no PSCI `CPU_ON`), fibers in the menu only; multicore: [multitasking](multitasking.md).

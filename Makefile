@@ -478,6 +478,13 @@ test-herocart: $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm tests/herocar
 	$(MAKE) $(BUILD)/host/test_herocart_mesh
 	$(BUILD)/host/test_herocart_mesh carts/herocart/assets/models.bm
 
+# The RGB30's charge from the voltage and the current (rows of the run-down of 2026-10-27)
+test-battery-curve: tests/rgb30/test_battery_curve.c src/rgb30/battery_curve.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $(BUILD)/host/test_battery_curve tests/rgb30/test_battery_curve.c
+	$(BUILD)/host/test_battery_curve | tee $(BUILD)/battery-curve-test.log
+	grep -q "^battery_curve: \([0-9]*\)/\1 checks passed" $(BUILD)/battery-curve-test.log
+
 # The player's remap of the game buttons (CONTROLS-1): controls= of the config
 test-controls: $(BUILD)/host/bmhost-bin $(BUILD)/controls-test.bm tests/controls/input.txt
 	BMHOST_CONFIG="controls=c1:x t2:l1 s1:y pa:se mc:x" $< $(BUILD)/controls-test.bm --input tests/controls/input.txt --seconds 4 2>&1 | tee $(BUILD)/controls-test.log | grep "^controls"
@@ -763,7 +770,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-web test-web-bmm test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
-        run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
+        run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
         test-fat test-fat-queue test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-klog test-monitor-cmd test-hyp test-zero2 \
