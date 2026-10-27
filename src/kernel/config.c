@@ -106,7 +106,7 @@ int config_perf(const char *v)
 
 /* The bridge gate (the PC's tools: bm_net.py, tools/pi.py): one word, off, on or fast, in /bm/bridge.txt, a file of its own.
  * Nothing the network gives can write it: config_merge refuses the keys dev and bridge, and the file transfer refuses the
- * name (bridge_file_name). The user sets it in Settings > Bridge, or puts the file on the SD card from a PC.
+ * name (bridge_file_name). The user sets it in Settings > System > Bridge, or puts the file on the SD card from a PC.
  * off: no transfer, setting, kernel, screenshot or file read is accepted (the default); on: they are, a kernel is staged
  * and the menu asks; fast: a kernel and a file are written at once (the old dev mode). */
 static int bridge_state;
@@ -232,7 +232,7 @@ void config_load(void)
     if (old_dev) {
         if (!had_bridge && (!strcmp(old_dev, "1") || !strcmp(old_dev, "on") || !strcmp(old_dev, "yes") || !strcmp(old_dev, "true"))
             && bridge_set(BRIDGE_FAST) == 0)
-            kprintf("bridge: fast, from dev=1 of an older kernel (Settings > Bridge)\n");
+            kprintf("bridge: fast, from dev=1 of an older kernel (Settings > System > Bridge)\n");
         config_unset("dev");
         config_save();
     }

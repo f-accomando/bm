@@ -165,7 +165,7 @@ static int parse_header(void)
     if (pl != strlen(pw) || memcmp(hdr + 6, pw, pl) != 0)
         return -2;
     if (bridge_mode() == BRIDGE_OFF)
-        return -3;                      /* the bridge is off (Settings > Bridge): nothing is accepted */
+        return -3;                      /* the bridge is off (Settings > System > Bridge): nothing is accepted */
     memcpy(path, hdr + 6 + pl + 1, fl);
     path[fl] = 0;
     size = le32(hdr + n - 8);
@@ -227,7 +227,7 @@ static void feed(const uint8_t *p, unsigned len)
                     kprintf("\x1b[91mnet: transfer with a wrong password from %s\x1b[0m\n",
                             ipaddr_ntoa(&peer->remote_ip));
                 if (r == -3)
-                    kprintf("net: refused, the bridge is off (Settings > Bridge)\n");
+                    kprintf("net: refused, the bridge is off (Settings > System > Bridge)\n");
                 fail(r == -2 ? "PW" : r == -3 ? "BO" : "BH");
                 return;
             }
@@ -248,7 +248,7 @@ static void feed(const uint8_t *p, unsigned len)
             if (op == 'S')
                 to_menu_folder();
             if (op == 'S' && bridge_file_name(path)) {
-                kprintf("net: refused, the bridge file is the user's (Settings > Bridge)\n");
+                kprintf("net: refused, the bridge file is the user's (Settings > System > Bridge)\n");
                 fail("BF");
                 return;
             }
@@ -669,7 +669,7 @@ void netxfer_poll(void)
                 reply("SZ");
             } else if (r == -3) {
                 reply("BF");
-                kprintf("net: settings refused (dev and bridge are the user's: Settings > Bridge), nothing changed\n");
+                kprintf("net: settings refused (dev and bridge are the user's: Settings > System > Bridge), nothing changed\n");
             } else if (r < 0) {
                 reply("KV");
                 kprintf("\x1b[91mnet: settings refused (not key=value lines), nothing changed\x1b[0m\n");

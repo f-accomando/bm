@@ -499,9 +499,6 @@ static void panel_settings(home_panel_t *p)
     home_row(p, MENU_ROW_SUB, R_UPDATES, "Updates",
              "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
     reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
-    home_row(p, MENU_ROW_CHOICE, R_DEV, "Bridge",
-             "PC tools: off, on (staged), fast (direct)", "%s",
-             bridge_label(bridge_mode()));
     home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
              "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
              rec_mode() ? "On" : "Off");
