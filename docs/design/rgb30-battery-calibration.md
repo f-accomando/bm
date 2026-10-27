@@ -71,10 +71,19 @@ Kernel built on the merged `bm-core` (bridge gate commit) went to the console th
 - **User's 30 min test**: 30 min at 740 mA is about 370 mAh, 9% of 4100 mAh. The drop to "half" in 30 min is mostly the sag and the table, not the use.
 - **Open**: `bat07` has 57 lines but only about 4 minutes passed after the kernel was sent. The cause is not known (an earlier boot may have written it). `bat08` is consistent: the lines are 60 s apart and the counter agrees with the current.
 
+## Data read by hand (2026-10-27, bat05 to bat08)
+
+- **The counter stops.** In bat08 the `mAh` column falls to 102601 at 2520 s and stays there for 64 minutes while the current reads about -750 mA. Do not use the register for the charge left. Sum the current (mA x time) instead.
+- **Full point.** The charge ends at about 214 mA (0.05C) at 4212 mV. The counter reads 104175 there. Use it as 100%.
+- **Plugged, charge ended.** The current goes to about -118 mA and the voltage falls from 4176 to 4157 mV in 24 minutes with the cable in. The cause is not known.
+- **Three estimates agree now** (cell of 4100 mAh, load resistance 0.126 ohm): at the start of bat08 the counter says 65% and the rest voltage (4071 - 0.126 x 1.855 = 3837 mV) says 55 to 65%. At the end of bat08 (97 min on the battery, about 1200 mAh summed) the sum says about 42% and the rest voltage is 3671 mV. `battery_percent()` says 9% at 3671 mV and 17% at 3576 mV: the table is low even after the load correction.
+- **Decision.** Do not change `battery_percent()` before a full run-down: a table fitted on one partial run could show too much and the console would stop early. The log has all the columns needed; the backlight is fixed (no setting), so no backlight column.
+- **Next run.** Charge to full, pull the cable, run the menu with `battery_log=1` until the console switches off. Sum the current to get the capacity and the voltage-to-charge curve.
+
 ## Work items (in order)
 
 1. Run on the console: check the sign and scale of mA (plug the charger: mA must turn positive).
-2. Add the backlight level and the state name (menu, game) to the log lines.
+2. Done as not needed: the backlight is fixed.
 3. Run the measurement table. Fix the biggest consumer first.
 4. Replace the percent table by a curve from the run-down test. Optionally add a load correction from the current.
 5. Candidate savings, each measured alone: `wfi` in the idle path, lower CPU clock in the menu, GPU clock gate when idle, dim and screen-off timeout, radio off when unused.
