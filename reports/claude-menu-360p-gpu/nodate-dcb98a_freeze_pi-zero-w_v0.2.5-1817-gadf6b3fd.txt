@@ -1,0 +1,86 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1817-gadf6b3fd
+branch: claude/menu-360p-gpu
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-dcb98a_freeze_pi-zero-w_v0.2.5-1817-gadf6b3fd.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 74 s after boot, kernel v0.2.5-1817-gadf6b3fd, ring 5680, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 3 networks
+   1   -63 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -73 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+   3   -82 dBm  ch  6  WPA2  Wind3 HUB - ED4188_EXT
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+fiber: covers did not yield: 29.8 ms past its slice
+covers: all 14 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.0 ms past its slice
+tls: 21 root certificates
+net: time 2026-10-27 10:00 UTC
+fiber: reports did not yield: 11.5 ms past its slice
+fiber: reports did not yield: 99.4 ms past its slice
+report: sending session_titan-clash_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-sd-r1-with-reinit/session_titan-clash_pi-zero-w.txt
+report: sending nodate-3d95ae_freeze_pi-zero-w_v0.2.5-1817-gadf6b3fd.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-menu-360p-gpu/nodate-3d95ae_freeze_pi-zero-w_v0.2.5-1817-gadf6b3fd.txt
+net: receiving a new kernel (4781260 bytes)...
+net: kernel 0% (0 of 4669 KB)
+menu idle: 300/300 frames, 709 of 1799 ms taken, 101.9 ms past a frame; covers 175 ms (+29.8, stk 0.8/16K), reports 511 ms (+99.4, stk 7.6/128K); min slack -69465 us, paced 0; sd 4 retried, 4 timed out
+menu idle: sd sites: rdend 4; first word <1ms 180 <3ms 15 (max 1.5 ms)
+menu stalls: tls handshake 1x last 345.1 worst 345.1 ms
+menu frame: 3x, a frame averages draw 74268 us, enlarge 0 us, flip 104 us, free time used 2363 us (300 frames)
+net: kernel 10% (476 of 4669 KB)
+net: kernel 20% (937 of 4669 KB)
+net: kernel 30% (1400 of 4669 KB)
+net: kernel 40% (1872 of 4669 KB)
+net: kernel 50% (2338 of 4669 KB)
+net: kernel 60% (2801 of 4669 KB)
+menu frame: 3x, a frame averages draw 76822 us, enlarge 0 us, flip 105 us, free time used 33 us (300 frames)
+net: kernel 70% (3278 of 4669 KB)
+net: kernel 80% (3741 of 4669 KB)
+net: kernel 90% (4204 of 4669 KB)
+net: dev mode: kernel received (4781260 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 27.9 ms past its slice
+fiber: netxfer did not yield: 30.6 ms past its slice
+fiber: netxfer did not yield: 30.6 ms past its slice
+fiber: netxfer did not yield: 30.6 ms past its slice
+fiber: netxfer did not yield: 30.6 ms past its slice
+net: saved kernel.img on the SD card (4781260 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 8 cartridges; clusters 32 KB; 28 retried, 28 timed out
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
