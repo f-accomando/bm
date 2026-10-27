@@ -240,6 +240,23 @@ static void test_map_equiv(void)
         }
         for (int i = 0; i < TH * TW; i++)
             if (bb[i] != (uint16_t)(i * 7 + 1)) { drawn++; break; }
+        /* the packed cells (a cache of the sheet): drawn again from the cache, then after a cell changed */
+        for (int again = 0; again < 2; again++) {
+            if (again) {
+                int c = (int)(rnd() % (unsigned)nc);
+                for (int yy = 0; yy < 8; yy++)
+                    for (int xx = 0; xx < 8; xx++)
+                        g16_sheet_set(&s, c % per_row * 8 + xx, c / per_row * 8 + yy, (uint16_t)rnd(), 1);
+                g16_sheet_update_cell(&s, c % per_row, c / per_row);
+            }
+            for (int i = 0; i < TH * TW + 4; i++) ba[i] = bb[i] = (uint16_t)(i * 7 + 1);
+            ref_map_mask(&ga, &s, &map, mx, my, x, y, mw, mh, fl, mask);
+            g16_map_mask(&gb, &s, &map, mx, my, x, y, mw, mh, fl, mask);
+            if (memcmp(ba, bb, sizeof ba) != 0) {
+                bad++;
+                printf("map case %d differs on the %s draw\n", it, again ? "after a change" : "second");
+            }
+        }
         g16_sheet_free(&s);
     }
     CHECK(bad == 0, "map() matches the reference on %d random cases (%d differ)", CASES, bad);
@@ -253,6 +270,50 @@ static void test_map_equiv(void)
             if ((uint32_t)(((uint64_t)n * r) >> 32) != n / d) rbad++;
     }
     CHECK(rbad == 0, "n / per_row by reciprocal is exact (%d wrong)", rbad);
+}
+
+/* sspr() with transparency (alpha read four pixels at a time) draws what a pixel by pixel copy draws, for any rectangle, offset and clip */
+static void test_sspr_equiv(void)
+{
+    enum { TW = 70, TH = 50, CASES = 400 };
+    static uint16_t ba[TH * TW], bb[TH * TW];
+    int bad = 0;
+    g16_sheet_t s;
+    if (g16_sheet_alloc(&s, 96, 64) != 0) { CHECK(0, "sheet alloc"); return; }
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 96; x++) {
+            int run = (x / 7 + y / 5) % 3;                      /* clear runs, solid runs and mixed ones */
+            g16_sheet_set(&s, x, y, (uint16_t)(x + y * 96 + 1), run == 0 ? 0 : run == 1 ? 1 : (int)(rnd() & 1));
+        }
+    for (int it = 0; it < CASES; it++) {
+        int sx = (int)(rnd() % 80), sy = (int)(rnd() % 50), sw = 1 + (int)(rnd() % 40), sh = 1 + (int)(rnd() % 30);
+        int dx = (int)(rnd() % 90) - 20, dy = (int)(rnd() % 70) - 15;
+        for (int i = 0; i < TH * TW; i++) ba[i] = bb[i] = (uint16_t)(i * 5 + 3);
+        g16_t ga, gb;
+        g16_target(&ga, ba, TW, TW, TH, &font);
+        g16_target(&gb, bb, TW, TW, TH, &font);
+        if (rnd() % 2) {
+            int cx = (int)(rnd() % 20), cy = (int)(rnd() % 20), cw = 1 + (int)(rnd() % 50), ch = 1 + (int)(rnd() % 30);
+            g16_clip(&gb, cx, cy, cw, ch);
+            g16_clip(&ga, cx, cy, cw, ch);
+        }
+        g16_sspr(&gb, &s, sx, sy, sw, sh, dx, dy, 0, 0);
+        int w = sx + sw > 96 ? 96 - sx : sw, h = sy + sh > 64 ? 64 - sy : sh;   /* the reference: pixel by pixel */
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) {
+                int px = dx + x, py = dy + y;
+                if (px < ga.cx0 || py < ga.cy0 || px >= ga.cx1 || py >= ga.cy1)
+                    continue;
+                if (s.alpha[(sy + y) * 96 + sx + x])
+                    ba[py * TW + px] = s.px[(sy + y) * 96 + sx + x];
+            }
+        if (memcmp(ba, bb, sizeof ba) != 0) {
+            bad++;
+            printf("sspr case %d differs (%d,%d %dx%d at %d,%d)\n", it, sx, sy, sw, sh, dx, dy);
+        }
+    }
+    g16_sheet_free(&s);
+    CHECK(bad == 0, "sspr() with alpha matches a pixel by pixel copy on %d random cases (%d differ)", CASES, bad);
 }
 
 static void test_text(void)
@@ -1551,6 +1612,7 @@ int main(int argc, char **argv)
     test_primitives();
     test_sprites();
     test_map_equiv();
+    test_sspr_equiv();
     test_text();
     test_light();
     test_fade();

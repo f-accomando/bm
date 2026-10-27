@@ -19,6 +19,14 @@ typedef struct {
     uint8_t *cell_opaque;       /* per 8x8 cell: 1 if every pixel is opaque */
     uint32_t version;           /* changes with every g16_sheet_set / _update_cell, and is
                                  * new for every sheet allocated (copies, e.g. a GPU texture) */
+    /* g16_map: the opaque cells it draws, packed one after the other (128 bytes a cell, 8 rows of 16 bytes). A cell of a wide
+     * sheet is 8 rows 8 KB apart, so reading it costs 8 cache misses; a packed cell costs 4 lines in a row. Made when a cell is
+     * first drawn, dropped when the sheet changes (tver != version); a sheet that changes every frame turns it off (toff). */
+    uint16_t *tpool;            /* tcap cells of 64 pixels */
+    uint16_t *tslot;            /* per cell: its place in tpool + 1, 0 = not packed */
+    uint32_t *tcell;            /* per place: the cell it holds */
+    uint32_t tn, tcap, tver;
+    uint8_t toff, tresets;
 } g16_sheet_t;
 
 typedef struct {

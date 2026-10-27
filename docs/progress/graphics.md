@@ -94,6 +94,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
   5. The same variable exists in `rgb30.mk`; a dry run shows `-O3` on the listed files, nothing else was tried there.
 
 ## Rules (do not break)
+- `map()` reads the opaque cells of the sheet from a packed copy (`tile_packed` in `src/bm/gfx16.c`: 128 bytes a cell, one after the other, made when a cell is first drawn). Reason: in a wide sheet the 8 rows of a cell are 8 KB apart and cost 8 cache misses on the Pi; packed, they cost 4 lines in a row (Yharnam on the Pi, 27 Oct: `map` 2.9 -> 2.0 ms, 34.9 -> 36.2 fps). The copy is dropped when `s->version` changes. Write the sheet only through `g16_sheet_set` and `g16_sheet_update_cell` (they change the version), or the copy shows old pixels. A sheet that changes more than 16 times turns the copy off. Reading alpha four pixels at a time in `blit` gave nothing on the Pi (`sspr` 1.7 -> 1.8 ms): the cost of `spr` and `sspr` is the cache misses, not the branches.
 
 - Visible face: the side where the vertices are clockwise (`r3d.c`). Toward glTF z flips
   sign and the order reverses.

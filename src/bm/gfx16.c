@@ -185,6 +185,8 @@ void g16_circfill(g16_t *g, int cx, int cy, int r, uint16_t c)
     }
 }
 
+typedef uint32_t __attribute__((may_alias)) g16_w32;
+
 /* Core blit: sheet rectangle -> screen position (screen coords), clipped. */
 static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                  int dx, int dy, int flip_x, int flip_y, int opaque)
@@ -369,8 +371,6 @@ void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
 
 /* Copy one 8-px row of an opaque tile: 4 words when both ends are 4-byte
  * aligned (the common case), memcpy otherwise. Same bytes either way. */
-typedef uint32_t __attribute__((may_alias)) g16_w32;
-
 static inline void copy_row8(uint16_t *dst, const uint16_t *src)
 {
     if ((((uintptr_t)dst | (uintptr_t)src) & 3) == 0) {
@@ -381,6 +381,56 @@ static inline void copy_row8(uint16_t *dst, const uint16_t *src)
     } else {
         memcpy(dst, src, G16_CELL * 2);
     }
+}
+
+#define TILE_CAP 4096           /* cells packed at most (512 KB) */
+#define TILE_RESETS 16          /* a sheet that changes more often than this stays as it is */
+
+/* The packed copy of opaque cell n (64 pixels in a row), or NULL: the caller reads the sheet. */
+static const uint16_t *tile_packed(const g16_sheet_t *cs, int n, int ncells)
+{
+    g16_sheet_t *s = (g16_sheet_t *)cs;     /* (a cache: the pixels it holds are the sheet's) */
+    if (s->toff)
+        return NULL;
+    if (!s->tslot) {
+        s->tslot = calloc((size_t)ncells, sizeof *s->tslot);
+        s->tpool = aligned_alloc(64, (size_t)TILE_CAP * G16_CELL * G16_CELL * 2);
+        s->tcell = malloc((size_t)TILE_CAP * sizeof *s->tcell);
+        if (!s->tslot || !s->tpool || !s->tcell) {
+            free(s->tslot); free(s->tpool); free(s->tcell);
+            s->tslot = NULL; s->tpool = NULL; s->tcell = NULL;
+            s->toff = 1;
+            return NULL;
+        }
+        s->tcap = TILE_CAP;
+        s->tn = 0;
+        s->tver = s->version;
+    } else if (s->tver != s->version) {
+        for (uint32_t i = 0; i < s->tn; i++)
+            s->tslot[s->tcell[i]] = 0;
+        s->tn = 0;
+        s->tver = s->version;
+        if (++s->tresets > TILE_RESETS) {
+            free(s->tslot); free(s->tpool); free(s->tcell);
+            s->tslot = NULL; s->tpool = NULL; s->tcell = NULL;
+            s->toff = 1;
+            return NULL;
+        }
+    }
+    unsigned k = s->tslot[n];
+    if (!k) {
+        if (s->tn >= s->tcap)
+            return NULL;
+        k = ++s->tn;
+        const int per_row = s->w / G16_CELL;
+        const uint16_t *src = s->px + (size_t)(n / per_row) * G16_CELL * s->w + (size_t)(n % per_row) * G16_CELL;
+        uint16_t *dst = s->tpool + (size_t)(k - 1) * (G16_CELL * G16_CELL);
+        for (int r = 0; r < G16_CELL; r++, src += s->w, dst += G16_CELL)
+            memcpy(dst, src, G16_CELL * 2);
+        s->tcell[k - 1] = (uint32_t)n;
+        s->tslot[n] = (uint16_t)k;
+    }
+    return s->tpool + (size_t)(k - 1) * (G16_CELL * G16_CELL);
 }
 
 void g16_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
@@ -416,10 +466,16 @@ void g16_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
             ty *= G16_CELL;
             if (s->cell_opaque[n] && ydone && px >= g->cx0 && px + G16_CELL <= g->cx1) {
                 /* whole tile inside the clip: 8 inline row copies */
-                const uint16_t *src = s->px + (size_t)ty * s->w + tx;
                 uint16_t *dst = g->px + (size_t)py * g->stride + px;
-                for (int r = 0; r < G16_CELL; r++, src += s->w, dst += g->stride)
-                    copy_row8(dst, src);
+                const uint16_t *pk = tile_packed(s, n, ncells);
+                if (pk) {
+                    for (int r = 0; r < G16_CELL; r++, pk += G16_CELL, dst += g->stride)
+                        copy_row8(dst, pk);
+                } else {
+                    const uint16_t *src = s->px + (size_t)ty * s->w + tx;
+                    for (int r = 0; r < G16_CELL; r++, src += s->w, dst += g->stride)
+                        copy_row8(dst, src);
+                }
             } else {
                 blit(g, s, tx, ty, G16_CELL, G16_CELL, px, py, 0, 0, s->cell_opaque[n]);
             }
@@ -500,6 +556,9 @@ void g16_sheet_free(g16_sheet_t *s)
     free(s->px);
     free(s->alpha);
     free(s->cell_opaque);
+    free(s->tpool);
+    free(s->tslot);
+    free(s->tcell);
     memset(s, 0, sizeof *s);
 }
 

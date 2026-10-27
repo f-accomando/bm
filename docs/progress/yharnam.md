@@ -32,6 +32,8 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 - Pi Zero W, 27 Oct 2026, autoplay (`yharnam_autoplay=1`, 7200 frames, 206 s) on a kernel with the 2D call timers (`reports/claude-2d-cost-counters/`), all ARM, `LIGHT_STEP` 1: 34.9 fps, update 2.9 ms, draw 23.0 ms, audio 2.0 ms. Of the draw: light 13.0 ms (fade 4.6, `glow` 8.4), 2D calls 5.7 ms, Lua and the rest 4.3 ms. The 2D calls a frame: `map` 2.9 ms (2 calls, one for each layer), `sspr` 1.7 ms (74 calls), `spr` 0.9 ms (99 calls), shapes 0.1 ms (112 calls), `print` and `stack` about 0. So the map is the largest 2D cost (half of the 5.7 ms); the sprites together 2.6 ms.
 
+- Pi Zero W, 27 Oct 2026, autoplay, `map()` from a packed copy of the cells (`docs/progress/graphics.md` Rules): `map` 2.9 -> 2.0 ms (2650 cells a frame, 0.75 us a cell), draw 23.0 -> 22.0 ms, 34.9 -> 36.2 fps (`LIGHT_STEP` 1). `spr` 0.9 ms and `sspr` 1.7 ms unchanged. What is left of the 2D calls: `sspr` 1.7 ms (74 calls, 23 us each, rectangles of the 4096 x 3400 sheet), `spr` 0.9 ms (99 calls), `map` 2.0 ms (the page is written 2 times: the two layers). Open: a sprite is read from two arrays (pixels and alpha) of the wide sheet; one packed array with the alpha in it would halve the misses.
+
 ### A2. Not checked on a device
 - The look of the walls, gates, hidden passages and the deadfall with its horde in the game (checked on the PC only: `bmplay` pictures and `make test-yharnam`).
 - The start fade, the blood on the boss text, the colder shadows and the keyboard.
