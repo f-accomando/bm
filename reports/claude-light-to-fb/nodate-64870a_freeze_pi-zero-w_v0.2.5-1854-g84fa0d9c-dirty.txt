@@ -1,0 +1,61 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1854-g84fa0d9c-dirty
+branch: claude/light-to-fb
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-64870a_freeze_pi-zero-w_v0.2.5-1854-g84fa0d9c-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 5499, 1324 s after boot, kernel v0.2.5-1851-ge88cb1b4-dirty, ring 28375, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ frame: 1x, a frame averages draw 6638 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6732 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6646 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6559 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6690 us, enlarge 1 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6713 us, enlarge 1 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6628 us, enlarge 1 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6543 us, enlarge 1 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6737 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6698 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6611 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6538 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6772 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6684 us, enlarge 1 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6597 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6566 us, enlarge 1 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6753 us, enlarge 1 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6663 us, enlarge 1 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6576 us, enlarge 1 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6617 us, enlarge 1 us, flip 96 us, free time used 29 us (300 frames)
+net: receiving settings (14 bytes)...
+config: dma_present=1
+net: settings from the PC: 1 changed in bm/config.txt
+menu idle: sd first word <1ms 6 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 6824 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6650 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+net: receiving yharnam.bm (6448068 bytes)...
+menu frame: 1x, a frame averages draw 8304 us, enlarge 1 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 8271 us, enlarge 1 us, flip 93 us, free time used 30 us (300 frames)
+net: cartridge received, starting it
+load: Yharnam 3036 ms (close 0, parse 345, assets+state 2448, mode 4, audio 0, lua 237)
+bm: gpu3d_light=1: the light of dark_end is made by the GPU
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.16 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders no, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+bm: Screenshot saved: bm/shots/yhar0005.png
+net: receiving a new kernel (4793580 bytes)...
+net: kernel 0% (0 of 4681 KB)
+net: kernel 10% (473 of 4681 KB)
+net: kernel 20% (936 of 4681 KB)
+net: kernel 30% (1408 of 4681 KB)
+net: kernel 40% (1876 of 4681 KB)
+net: kernel 50% (2347 of 4681 KB)
+net: kernel 60% (2813 of 4681 KB)
+net: kernel 70% (3287 of 4681 KB)
+net: kernel 80% (3750 of 4681 KB)
+net: kernel 90% (4213 of 4681 KB)
+net: saved kernel.img on the SD card (4793580 bytes)
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
