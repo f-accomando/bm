@@ -23,8 +23,8 @@ fibers probably off or used differently (job per core, real threads for download
 ## Measured on the Pi (Pi Zero W, SDHC 7.4 GB; 2026-10-11)
 - Market download goes on in the background with ~1 ms overruns. Before the FAT work a 6.5 MB
   install froze the menu 30 s. Reports cost ~100 ms per TLS handshake (3 per report).
-- Covers +500 ms = one sdhost read timeout + retry (counters; cause unknown). A 0.1 s read timeout +
-  controller reset in `sdhost.c` was tried and reverted: the Pi became unusable; one change per test.
+- Covers +500 ms = one sdhost read timeout + retry (site `rdend`). A 0.1 s read timeout +
+  controller reset in `sdhost.c` was tried and reverted: the Pi became unusable; one change per test. 27 Oct: R1 (`CMD12` before the idle wait) gave no `rdend`, no retry and no SD error in three Pi runs, menu on the GPU and on the ARM (one run 3791 s). Kernels without R1 showed `rdend 8`-`21` per window. Full history: [sd-read-timeout](../design/sd-read-timeout.md).
   First catalog write +338 ms. QEMU only: Market first work 3.6 -> 0.3 s (56 games), install +26 -> +0.2 s.
 - To re-measure after the FAT work: Overbit install (new and update) and the market job's `+x ms`;
   the `sd:` boot line (cluster size); any "sectors in one write failed or came back wrong" (CMD25);
@@ -35,6 +35,7 @@ fibers probably off or used differently (job per core, real threads for download
 Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Range resume (5) are done. The detail, the tests and the Pi numbers still to collect are in [multitasking-stages](multitasking-stages.md). The rules they add are in `## Rules (do not break)` below.
 
 ## Open
+- SD `rdend`: R1 needs a longer soak on the Pi (a day of use, a game load each hour). If `rdend` or `SD read error` comes back, do R2-R4 of [sd-read-end](../design/sd-read-end.md).
 - A download inside a tool or game (jobs stop before an app: `background_stop`, `market_set_active(0)`;
   the Market fetch starts at byte 0 and has no `Range` yet; wall-clock read timeouts): needs the part file of
   stage 5 in `market.c` (catalog SHA-256 checks the whole) and a `FIBER_TOOL` call
@@ -54,7 +55,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
   Open: the user runs the bench again (`docs/NEXT.md`); the worst frame must be under about 20 ms. The copy of 2048 KB at the call is
   not measured on the Pi (the bench now prints the call time); if it is above 15 ms, the copy is the next cost.
 ## Rules (do not break)
-- SD `rdend` stall (Pi): change R1 sends `CMD12` before the idle wait, as Linux, Circle and the BSDs do. Run it on the Pi and read `sd sites:`. Next steps R2-R4 and DMA: [`docs/design/sd-read-end.md`](../design/sd-read-end.md). History of the fault: [`docs/design/sd-read-timeout.md`](../design/sd-read-timeout.md).
+- SD read (Pi): `read_blocks` in `sdhost.c` sends `CMD12` before the idle wait (R1). Keep this order. If `sd_read` or a single-block `sd_write` fails twice, `sd.c` starts SDHOST again once (`restart_sdhost`) before the card moves to the Arasan controller, which the WiFi needs. Do not shorten the retry wait. Sources and next steps R2-R4: [`sd-read-end`](../design/sd-read-end.md); history: [`sd-read-timeout`](../design/sd-read-timeout.md).
 - Every SD write from a cartridge, the settings or a fiber that gives the CPU back goes through `sd_writer_begin` /
   `sd_writer_end` (or `sd_write_file`). A writer that gives the CPU back registers a pause hook and is safe to stop at
   any tick; it starts again from its first byte.
