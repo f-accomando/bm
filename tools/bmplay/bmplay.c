@@ -26,6 +26,7 @@
  * console need: drawing, map, text, lighting, buttons, notes; prompt()
  * draws a plain chip. timeslice() does nothing: a coroutine runs through.
  */
+#include <time.h>
 #include "bm/bm.h"
 #include "bm/gfx16.h"
 #include "audio/synth.h"
@@ -366,10 +367,23 @@ static int l_fades(lua_State *L)
     return 1;
 }
 
+/* the host time of a frame's parts: the draw, and inside it the light (dark_begin, glow, dark_end) */
+static double now_us(void)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec * 1e6 + (double)t.tv_nsec / 1e3;
+}
+static double t_draw, t_light, t_fade;
+static long n_glow, n_lit;
+
 static int l_dark_begin(lua_State *L)
 {
+    const double t0 = now_us();
     fade_ready(L);
     g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
+    n_lit++;
+    t_light += now_us() - t0;
     return 0;
 }
 
@@ -377,17 +391,23 @@ static int l_glow(lua_State *L)
 {
     if (!rt.fade.lv)
         return luaL_error(L, "glow() before dark_begin()");
+    const double t0 = now_us();
     const float d = fnum(L, 5, 0.5f);
+    n_glow++;
     g16_fade_glow(&rt.fade, (int)floorf(fnum(L, 1, 0)) - rt.g.cam_x, (int)floorf(fnum(L, 2, 0)) - rt.g.cam_y,
                   (int)fnum(L, 3, 32), (int)luaL_checkinteger(L, 4), (int)(d * 256));
+    t_light += now_us() - t0;
     return 0;
 }
 
 static int l_dark_end(lua_State *L)
 {
     (void)L;
+    const double t0 = now_us();
     if (rt.fade.lv)
         g16_fade_apply(&rt.g, &rt.fade);
+    t_fade += now_us() - t0;
+    t_light += now_us() - t0;
     return 0;
 }
 
@@ -593,7 +613,10 @@ int main(int argc, char **argv)
         rt.raw = held & 0xC00;
         for (int b = 0; b < 10; b++)
             if (held >> b & 1) rt.raw |= 1u << to_pad[b];
-        if (call(L, "_update") != 0 || call(L, "_draw") != 0) return 1;
+        if (call(L, "_update") != 0) return 1;
+        const double td = now_us();
+        if (call(L, "_draw") != 0) return 1;
+        t_draw += now_us() - td;
         for (int k = 0; k < RATE / FPS; k += BLOCK) {
             unsigned m = RATE / FPS - k < BLOCK ? (unsigned)(RATE / FPS - k) : BLOCK;
             player_advance(&rt.player, m);
@@ -620,6 +643,11 @@ int main(int argc, char **argv)
         }
     }
     fprintf(stderr, "bmplay: %ld frames\n", rt.frame);
+    if (rt.frame > 0)
+        fprintf(stderr, "bmplay: host time a frame: draw %.0f us, of it light %.0f us (fade %.0f us), the rest %.0f us; "
+                "%.1f glow a frame, light in %.0f%% of the frames\n", t_draw / rt.frame, t_light / rt.frame,
+                t_fade / rt.frame, (t_draw - t_light) / rt.frame, (double)n_glow / rt.frame,
+                100.0 * n_lit / rt.frame);
     if (png) {
         FILE *f = fopen(png, "wb");
         if (f) {

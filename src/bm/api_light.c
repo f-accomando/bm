@@ -147,10 +147,12 @@ int l_fades(lua_State *L)
  * dark_end() (the cartridge draws into RAM from now on) */
 int l_dark_begin(lua_State *L)
 {
+    const uint32_t t0 = timer_ticks();
     fade_ready(L);
     if (video_to_ram(&rt.g) != 0)
         return luaL_error(L, "not enough memory for lighting");
     g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
+    rt.light_us += timer_ticks() - t0;
     return 0;
 }
 
@@ -181,9 +183,11 @@ int l_glow(lua_State *L)
 {
     if (!rt.fade.lv)
         return luaL_error(L, "glow() before dark_begin()");
+    const uint32_t t0 = timer_ticks();
     const float d = fnum(L, 5, 0.5f);
     g16_fade_glow(&rt.fade, (int)floorf(fnum(L, 1, 0)) - rt.g.cam_x, (int)floorf(fnum(L, 2, 0)) - rt.g.cam_y,
                   (int)fnum(L, 3, 32), (int)luaL_checkinteger(L, 4), (int)(d * 256));
+    rt.light_us += timer_ticks() - t0;
     return 0;
 }
 
@@ -192,6 +196,7 @@ int (*bm_fade_accel)(g16_t *g, const g16_fade_t *f) = NULL;
 int l_dark_end(lua_State *L)
 {
     (void)L;
+    const uint32_t t0 = timer_ticks();
     if (rt.fade.lv) {
         sync3d();                       /* it reads the page: the 3D (and a cls) on it first */
         if (bm_fade_accel)
@@ -199,6 +204,7 @@ int l_dark_end(lua_State *L)
         else
             g16_fade_apply(&rt.g, &rt.fade);
     }
+    rt.light_us += timer_ticks() - t0;
     return 0;
 }
 
