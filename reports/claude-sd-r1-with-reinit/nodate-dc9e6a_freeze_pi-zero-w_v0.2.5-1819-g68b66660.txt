@@ -1,0 +1,68 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1819-g68b66660
+branch: claude/sd-r1-with-reinit
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-dc9e6a_freeze_pi-zero-w_v0.2.5-1819-g68b66660.txt
+
+the Pi froze (the watchdog restarted it) while: carttor line "log; reboot", frame 0, 3791 s after boot, kernel v0.2.5-1819-g68b66660, ring 91630, sink on
+--- the last lines printed ---
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ng as bm-108
+menu idle: sd first word <1ms 78 <3ms 1 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 9095 us, enlarge 0 us, flip 92 us, free time used 16 us (300 frames)
+menu frame: 1x, a frame averages draw 9352 us, enlarge 0 us, flip 91 us, free time used 16 us (300 frames)
+menu frame: 1x, a frame averages draw 9214 us, enlarge 0 us, flip 92 us, free time used 15 us (300 frames)
+report: sending session_ko-ii_pi-zero-w.txt
+market: nearby consoles: listening as bm-108
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/claude-sd-r1-with-reinit/session_ko-ii_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/claude-sd-r1-with-reinit/session_ko-
+menu idle: 300/300 frames, 448 of 1628 ms taken, 98.1 ms past a frame; reports 424 ms (+98.1, stk 7.6/128K, stop 16.4); min slack -7708 us, paced 0
+menu idle: sd first word <1ms 21 (max 8.2 ms)
+menu stalls: tls handshake 1x last 282.3 worst 282.3 ms
+menu frame: 1x, a frame averages draw 9789 us, enlarge 0 us, flip 93 us, free time used 1496 us (300 frames)
+market: nearby consoles: listening as bm-108
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR CODE (004C)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR 
+menu idle: 300/300 frames, 199 of 1871 ms taken, 12.0 ms past a frame; reports 176 ms (+7.9, stk 7.6/128K, stop 15.3); min slack -5433 us, paced 0
+menu idle: sd first word <1ms 21 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 8911 us, enlarge 0 us, flip 89 us, free time used 664 us (300 frames)
+bm: "Overbit" closed, memory freed
+
+playing kitchen.bm
+play: /bm/kitchen.bm (895588 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+load: Chaos Kitchen 297 ms (close 0, parse 18, assets+state 17, mode 5, audio 0, lua 253)
+bm: loaded in 369 ms, the splash over at 1800 ms
+bm: splash ticks: 49 frames, longest gap 14934 us at 101 ms (between 0xa25d8 and 0x9ec38)
+bm: "Chaos Kitchen" suspended (A on its cover resumes it)
+bm: "Chaos Kitchen" 8 frames, 60.1 fps, 1 dropped
+     update+draw avg 13.58 ms (81% of frame), max 26.15 ms, Lua 1382 KB
+     dev kit: Lua peak 1382 KB, data 966 KB, busiest frame 62k instructions, 1 frames over 16.7 ms, 61497 tokens
+market: nearby consoles: listening as bm-108
+report: sending session_ko-ii_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-sd-r1-with-reinit/session_ko-ii_pi-zero-w.txt
+menu idle: 300/300 frames, 969 of 1832 ms taken, 103.2 ms past a frame; reports 960 ms (+103.2, stk 7.6/128K); min slack -4754 us, paced 0
+menu idle: sd first word <1ms 64 <3ms 2 (max 8.2 ms)
+menu stalls: tls handshake 1x last 292.5 worst 292.5 ms
+menu frame: 1x, a frame averages draw 9157 us, enlarge 0 us, flip 94 us, free time used 3230 us (300 frames)
+menu frame: 1x, a frame averages draw 6969 us, enlarge 0 us, flip 91 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6613 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6853 us, enlarge 0 us, flip 91 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6763 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6676 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6678 us, enlarge 0 us, flip 91 us, free time used 28 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+type 'h' for help
+> :
+:log; reboot
+: log
+report: 20261027-111718_log_pi-zero-w_v0.2.5-1819-g68b66660.txt saved as bm/reports/rpt00001.txt
+report: sending 20261027-111718_log_pi-zero-w_v0.2.5-1819-g68b66660.txt
