@@ -90,3 +90,4 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 - A change to the plan (areas, streets, borders, lamps): run `make yharnam-map`, then `make test-yharnam` (it checks the plan and the drawn map), then rebuild the `.bm` and the `.bme`. Without a new map the game shows the old things.
 - The `.bme` is made from the `.bm`: `python3 scripts/mkbm.py --from build/carts/yharnam.bm -o carts/yharnam/yharnam.bme`. Check it with `mkmap.py --from carts/yharnam/yharnam.bme --out DIR`: the three CSV files must be the same.
 - Run `mkassets.py` without `YH_DRAFT`; it rewrites the atlas in `main.lua` and keeps the `--@module` lines.
+- Read the keys only with `btn()` and `btnp()`. Do not call `keyp()`. Harm: `keyp()` turns on typing, and then the keyboard is not a gamepad (Space does not start the hunt).

@@ -5143,38 +5143,6 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
               state = "play"
             end }
 
--- the animation viewer of the title screen: every animation of the hunter
--- and of every creature, every direction
-local GALLERY = {}
-for _, n in ipairs({ "idle", "walk", "shoot", "slash1", "slash2", "slash3", "backstep", "hurt1", "hurt2", "hurt3",
-                     "down", "getup", "death", "open", "idle_x", "walk_x", "shoot_x", "xslash1", "xslash2",
-                     "xslash3", "backstep_x", "hurt1_x", "hurt2_x", "hurt3_x", "down_x", "getup_x",
-                     "death_x" }) do
-  GALLERY[#GALLERY + 1] = { anim = n }
-end
-for _, f in ipairs(FOES) do
-  -- shown twice as big, if it fits
-  local tall = 0
-  for _, a in pairs(f.a) do
-    for _, d in ipairs(a.d) do
-      for _, fr in ipairs(d) do tall = max(tall, fr[6]) end
-    end
-  end
-  f.zoom = tall <= 66 and 2 or 1
-  for _, n in ipairs(f.order) do GALLERY[#GALLERY + 1] = { def = f, anim = n } end
-end
-local gal = { i = 1, wait = 0, o = { def = FOES[1], anim = "idle", f = 1, ft = 0, dir = 0, x = 0, y = 0 } }
-local function gal_start()
-  local g = GALLERY[gal.i]
-  gal.wait = 0
-  if g.def then
-    gal.o.def = g.def
-    FOE.play(gal.o, g.anim)
-  else
-    play(g.anim)
-  end
-end
-
 function _init()
   -- the fade tables: every colour of the sheet at the 8 light levels.
   -- Level 1 is the night (dim, blue: the twilight of a dead town), 7 the
@@ -5212,10 +5180,6 @@ function _update()
     if btnp(4) or btnp(5) then
       state, intro_t = "intro", 0          -- the light spreads from the hunter, then the hunt is his
       new_hunt()
-    elseif keyp() == "g" then              -- the animation viewer: a keyboard's key, for whoever draws
-      state, gal.i = "gallery", 1
-      P.dir = 0
-      gal_start()
     end
     if P.anim ~= "idle" then play("idle") end
     step_anim()
@@ -5280,30 +5244,6 @@ function _update()
       state, t = "title", 0
       new_hunt()
     end
-  elseif state == "gallery" then
-    if btnp(0) then P.dir = (P.dir + 1) % 8 end
-    if btnp(1) then P.dir = (P.dir + 7) % 8 end
-    if btnp(2) or btnp(3) then
-      gal.i = (gal.i + (btnp(3) and 0 or -2)) % #GALLERY + 1
-      gal_start()
-    elseif btnp(7) then
-      -- Y: the next creature, at its first animation
-      local cur = GALLERY[gal.i].def
-      repeat gal.i = gal.i % #GALLERY + 1 until GALLERY[gal.i].def ~= cur
-      gal_start()
-    end
-    local g = GALLERY[gal.i]
-    gal.o.dir = P.dir
-    if btnp(5) or btnp(6) then
-      state, t = "title", 0
-      play("idle")
-    elseif gal.wait > 0 then
-      gal.wait = gal.wait - 1
-      if gal.wait == 0 then gal_start() end
-    elseif (g.def and FOE.step(gal.o)) or (not g.def and step_anim()) then
-      gal.wait = 40
-    end
-    return
   else
     update_play()
   end
@@ -5595,37 +5535,6 @@ local function shadow_print(s, x, y, c)
   print(s, x, y, c)
 end
 
-local GDIR = { "S", "SE", "E", "NE", "N", "NW", "W", "SW" }
-
-local function draw_gallery()
-  cls(0x101018)
-  UI.c()
-  circfill(128, 186, 30, 0x1C1C28)
-  rectfill(98, 182, 61, 9, 0x1C1C28)
-  local g = GALLERY[gal.i]
-  local name
-  rectfill(-UI.x, 16, W, 32, 0x000000)
-  if g.def then
-    local o, z = gal.o, g.def.zoom
-    local fr, flip = FOE.frame(o)
-    local x = flip and 128 - (fr[3] - fr[5]) * z or 128 - fr[5] * z
-    sspr(fr[1], fr[2], fr[3], fr[4], x, 186 - fr[6] * z, flip, false, z)
-    local title = g.def.title
-    print(title, (256 - #title * 8) // 2 // 8 * 8, 16, g.def.boss and 0xE07050 or 0xD8C8A0)
-    name = g.anim .. "  " .. GDIR[P.dir + 1] .. "  " .. o.f .. "/" .. #g.def.a[g.anim].t
-    print(name, (256 - #name * 8) // 2 // 8 * 8, 32, 0xE8C878)
-  else
-    local fr = ANIM.frame(P, HUNT, P.dir)
-    sspr(fr[1], fr[2], fr[3], fr[4], 128 - fr[5] * 2, 186 - fr[6] * 2, false, false, 2)
-    name = g.anim .. "  " .. GDIR[P.dir + 1] .. "  " .. P.f .. "/" .. #HUNT[P.anim].t
-    print(name, (256 - #name * 8) // 2 // 8 * 8, 16, 0xE8C878)
-  end
-  rectfill(-UI.x, 224, W, 32 + UI.p, 0x000000)
-  print("left right: turn  Y: next", 24, 224, 0x8890A0)
-  print("up down: animation  B: back", 16, 240, 0x8890A0)
-  camera()
-end
-
 -- the lamp's menu: rest, the paths (with what the next one costs), leave
 local function draw_menu()
   UI.c()
@@ -5765,10 +5674,7 @@ local function dark_mask(cx, cy, r)
 end
 
 function _draw()
-  if state == "gallery" then
-    draw_gallery()
-    return
-  elseif state == "lost" then
+  if state == "lost" then
     draw_lost()
     return
   elseif state == "end" then
@@ -5800,8 +5706,6 @@ function _draw()
       prompt("ok", (256 - (UI.hint_w("ok", "") - 4)) // 2, 216, false, 1, 1)   -- only the chip of the controller in use
       camera()
     end
-  elseif state == "gallery" then
-    -- drawn by draw_gallery
   else
     update_sound(fire_near)
     local sh = P.shrine
