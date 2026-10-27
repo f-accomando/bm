@@ -1,0 +1,61 @@
+bm report
+kind: session
+kernel: v0.2.5-1849-g0a0ea292
+branch: claude/2d-cost-counters
+board: Pi Zero W
+date: 2026-10-27 21:46:01
+file: session_yharnam_pi-zero-w.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+options bm3d 7.16 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 7200 frames in 206.0 s, 34.9 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 25.9 ms, max 330.9 ms, 7200 frames over 16.7 ms
+memory: Lua peak 3697 KB, data 41353 KB; code 106535 tokens; busiest frame 2037k Lua instructions
+frames that were shown after more than 1.5 frames: 6563
+the game says: on the spot 3
+the game says: in time 8
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    0
+  <= 25 ms             637
+  <= 34 ms (30 fps)    6447
+  <= 50 ms             14
+  <= 100 ms            7
+  > 100 ms (a freeze)  94
+
+the frame in its parts (as the overlay, 7199 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           2.9   17%
+  draw (no 3D)    23.0  138%
+  3D calls         0.0    0%
+  audio            2.0   12%
+  GPU wait         0.0    0%
+  all             28.0  168%
+  of the draw: light 13.0 ms (dark_begin, glow, dark_end; in 100% of the frames; the fade of dark_end alone 4.6 ms), the rest 10.0 ms (map, sprites, text, Lua)
+the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
+  map        2.9 ms  2.0 calls
+  spr        0.9 ms  98.8 calls
+  sspr       1.7 ms  73.8 calls
+  stack      0.0 ms  0.0 calls
+  print      0.0 ms  2.2 calls
+  shapes     0.1 ms  112.1 calls
+  all        5.7 ms  289.1 calls (of the draw's 23.0 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 7.3% of the CPU's time (mean), 10.1% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+   5663   162.3   333.7  330.9 307.8   23.0   0.0   2.2     0.5     2037     2417        1
+    181     4.5   298.3  295.9 274.8   21.1   0.0   1.8     0.4     1861     2079        1
+   5754   165.2   248.1  245.9 222.7   23.2   0.0   1.8     0.3     1372     2671        1
+   5845   167.8   237.0  233.7 211.5   22.1   0.0   2.1     1.1     1369     2868        1
+   6286   181.5   205.7  203.4 178.5   24.9   0.0   1.8     0.4     1084     2536        1
+   6273   180.9   203.8  200.9 175.5   25.3   0.0   1.8     1.0     1085     2892        1
+   6386   184.5   194.9  192.6 170.0   22.5   0.0   1.8     0.5     1085     2753        1
+   3399    97.3   185.7  182.5 160.3   22.1   0.0   2.2     0.9     1061     2298        1
+   5936   170.7   181.7  179.4 154.3   25.0   0.0   1.8     0.4      955     2715        1
+   6182   178.0   178.4  175.9 151.4   24.5   0.0   2.2     0.1      949     2674        1
+    896    26.2   165.2  162.3 135.7   26.6   0.0   2.3     0.4      856     3610        1
+    805    23.2   164.9  161.5 134.0   27.4   0.0   2.2     1.0      857     3407        1
