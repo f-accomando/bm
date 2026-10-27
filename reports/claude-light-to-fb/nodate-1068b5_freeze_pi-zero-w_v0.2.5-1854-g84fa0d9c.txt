@@ -1,0 +1,64 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1854-g84fa0d9c
+branch: claude/light-to-fb
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-1068b5_freeze_pi-zero-w_v0.2.5-1854-g84fa0d9c.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 7199, 708 s after boot, kernel v0.2.5-1854-g84fa0d9c-dirty, ring 18410, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ yes))
+autoplay: 7200 frames, 0 deaths, 0 hunts lost, 1 lamps, 5 goals, 0 slain, 4 districts: Ash Way, Black Court, Bone Square, Mourn Street
+bm: "Yharnam" 7199 frames, 55.1 fps, 9 dropped
+     update+draw avg 13.88 ms (83% of frame), max 199.78 ms, Lua 2539 KB
+     copy to screen 3.16 ms per frame
+     dev kit: Lua peak 3667 KB, data 41607 KB, busiest frame 1324k instructions, 1243 frames over 16.7 ms, 106645 tokens
+     GPU 3D 7199 jobs, 0 triangles a frame, 1.99 ms a frame (bin 0%), max job 2564 us
+report: session_yharnam_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+report: sending session_yharnam_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-light-to-fb/session_yharnam_pi-zero-w.txt
+menu idle: 300/300 frames, 1251 of 2368 ms taken, 99.8 ms past a frame; reports 1240 ms (+99.8, stk 7.6/128K); min slack -3791 us, paced 0
+menu idle: sd first word <1ms 48 <3ms 6 (max 1.4 ms)
+menu stalls: tls handshake 1x last 293.2 worst 293.2 ms
+menu frame: 1x, a frame averages draw 7239 us, enlarge 0 us, flip 93 us, free time used 4172 us (300 frames)
+menu frame: 1x, a frame averages draw 6665 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6577 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6624 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6738 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6652 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6566 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6665 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6721 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6636 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6548 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6713 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6708 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6621 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6541 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6764 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+net: receiving a new kernel (4792820 bytes)...
+net: kernel 0% (0 of 4680 KB)
+menu frame: 1x, a frame averages draw 6849 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+net: kernel 10% (473 of 4680 KB)
+net: kernel 20% (944 of 4680 KB)
+net: kernel 30% (1405 of 4680 KB)
+net: kernel 40% (1879 of 4680 KB)
+net: kernel 50% (2345 of 4680 KB)
+net: kernel 60% (2810 of 4680 KB)
+menu frame: 1x, a frame averages draw 8170 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+net: kernel 70% (3284 of 4680 KB)
+net: kernel 80% (3747 of 4680 KB)
+net: kernel 90% (4221 of 4680 KB)
+net: dev mode: kernel received (4792820 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 27.8 ms past its slice
+net: saved kernel.img on the SD card (4792820 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 8 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 410 of 1770 ms taken, 30.3 ms past a frame; netxfer 769 ms (+27.8, stk 1.7/64K); min slack -75985 us, paced 0
+menu idle: sd first word <1ms 201 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9556 us, enlarge 0 us, flip 91 us, free time used 1368 us (300 frames)
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
