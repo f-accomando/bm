@@ -6513,6 +6513,31 @@ def test_menu_scale(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_menu_scale_360_gpu(b, opts):
+    """menu_scale=4 (360p drawn by the GPU): QEMU has no V3D, so the ARM draws the 640x360 menu and the log says so."""
+    tmp = tempfile.mkdtemp(prefix="bm-scale4-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nmenu_scale=4\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "bm/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        q.expect("the GPU cannot draw 360p, the ARM does", timeout=10)
+        for _ in range(30):
+            w, h, px = q.screendump()
+            text = screen_text((w, h, px))
+            if "Settings" in text[1] and "Astro Wing" in text[4]:
+                break
+            time.sleep(0.3)
+        assert (w, h) == (640, 360), f"screen {w}x{h}"
+        assert "Games" in text[1] and "Settings" in text[1] and "Astro Wing" in text[4], "\n".join(text)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_screen_modes(b, opts):
     """screen(w, h): a cartridge changes its resolution between frames
     (640x360, 1920x1080, 320x180, 960x540): the screen has the new size,

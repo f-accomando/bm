@@ -1344,8 +1344,8 @@ int menu_ui_cols(void)
 /* the screen of the layout: on the RGB30 360x360 shown 2x (the display
  * controller enlarges it); on the Pi 640x360 drawn by the ARM (the HDMI
  * scaler enlarges it). menu_scale in bm/config.txt (Settings > Screen > Menu size) asks for more:
- * 2 is 1280x720 and 3 is 1920x1080, both drawn by the GPU at their own size. The ARM never enlarges the
- * menu: when the GPU cannot draw it, the menu stays at 360p on the ARM. */
+ * 2 is 1280x720 and 3 is 1920x1080, both drawn by the GPU at their own size; 4 is 640x360 drawn by the
+ * GPU. The ARM never enlarges the menu: when the GPU cannot draw it, the menu stays at 360p on the ARM. */
 static int screen_open(framebuffer_t *fb)
 {
 #ifdef BM_RGB30
@@ -1360,7 +1360,7 @@ static int screen_open(framebuffer_t *fb)
     gpu_draw = 0;
     gpu_big = 0;
     scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '2' ? 2 : 1;
-    if (scale > 1) {
+    if (scale > 1 || (ms && ms[0] == '4')) {        /* 4: 360p drawn by the GPU */
         if (fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) == 0 &&
             fb->pitch == fb->width * 2 && gpu3d_init() == 0) {
             gpu3d_set_fb(fb->mem, fb->size, fb->bus);
@@ -1369,7 +1369,10 @@ static int screen_open(framebuffer_t *fb)
             kprintf("menu: %lux%lu, drawn by the GPU\n", (unsigned long)fb->width, (unsigned long)fb->height);
             return 0;
         }
-        kprintf("menu: the GPU cannot draw %dx, 360p on the ARM\n", scale);
+        if (scale > 1)
+            kprintf("menu: the GPU cannot draw %dx, 360p on the ARM\n", scale);
+        else
+            kprintf("menu: the GPU cannot draw 360p, the ARM does\n");
         scale = 1;
     }
     return fb_init_depth(fb, (uint32_t)sw, (uint32_t)sh, 3, 16);

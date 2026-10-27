@@ -120,6 +120,6 @@ the conditions of section 4.
 - The menu is **a single one** (`src/kernel/menu_ui.c`) for the Pi and the RGB30: same bar, same
   covers and panels. The height is 360 for all; the width decides the columns.
 - **Pi, default** (`menu_scale=1` or no key): the 640×360 layout drawn by the ARM, enlarged by the HDMI scaler (no CPU cost).
-- **Pi, `menu_scale=2` or `3`** in `bm/config.txt` (Settings > Screen > Menu size): the GPU (V3D) draws the menu at 1280×720 or 1920×1080, 1:1, with 24x48 text at 1080p and no enlarge copy (1080p verified on Pi Zero W hardware, 24 Oct; 720p not yet). The ARM never enlarges the menu. If the GPU cannot start, the menu stays at 360p on the ARM.
+- **Pi, `menu_scale=2`, `3` or `4`** in `bm/config.txt` (Settings > Screen > Menu size): the GPU (V3D) draws the menu at 1280×720, 1920×1080 or (4) 640×360, 1:1, with 24x48 text at 1080p and no enlarge copy (1080p verified on Pi Zero W hardware, 24 Oct; 720p not yet). The ARM never enlarges the menu. If the GPU cannot start, the menu stays at 360p on the ARM.
 - **RGB30**: 360×360 RGB565, scaled 2× by the video controller onto the 720×720 panel (integer
   pixels, no CPU cost); 2 covers per row.

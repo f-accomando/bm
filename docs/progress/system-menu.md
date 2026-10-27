@@ -53,7 +53,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   The monitor's `u` runs `update_check`/`update_install` straight through.
 - Menu resolution and scaling (`menu_ui.c`): 1x (640x360) by default on the Pi Zero W,
   enlarged by the HDMI scaler with zero CPU cost. The ARM draws only this 360p menu and never enlarges it.
-  `menu_scale=2` (1280x720) or `3` (1920x1080), Settings > Screen > Menu size, make the GPU (V3D) draw the menu
+  `menu_scale=4` (640x360), `2` (1280x720) or `3` (1920x1080), Settings > Screen > Menu size, make the GPU (V3D) draw the menu
   at that size, 1:1 with `font_console_24x48` at 3 and intermediate primitives
   (`m_rect`, `m_text`, `hspan`, `round_rect`, `round_ring`, `card`, `put_background`,
   `put_icon`, `put_prompt`, `m_pointer`), with no frame copy (`enlarge 0 us`, ~35.8 ms draw at 1080p, verified on hardware;
