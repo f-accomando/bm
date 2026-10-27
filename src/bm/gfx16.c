@@ -737,6 +737,12 @@ void g16_fade_flush(g16_fade_t *f)
             continue;
         }
         const uint8_t *src = f->lv2 + (size_t)(y >> 1) * f->w2;
+        if (!(f->w & 1)) {              /* a halfword for each level: half the stores */
+            uint16_t *d16 = (uint16_t *)dst;
+            for (int i = 0; i < f->w2; i++)
+                d16[i] = (uint16_t)(src[i] * 0x0101);
+            continue;
+        }
         for (int i = 0; i < f->w2; i++) {
             dst[2 * i] = src[i];
             if (2 * i + 1 < f->w)

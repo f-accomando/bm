@@ -34,6 +34,7 @@
 #include "audio/lua_tone.h"
 #include "drivers/dma.h"
 #include "gpu/gpu3d.h"
+#include "gpu/qpu.h"
 #include "gpu/version3d.h"
 #include "arch/cache.h"
 #include "n8lua.h"
@@ -1800,6 +1801,12 @@ static int via_ram;
 static int dma_frames;          /* copy by DMA: off until the DMA test passes on the Pi */
 static uint16_t *shadow;
 
+/* on a 64-byte line: the QPU fade (qpu_fade_apply) reads the picture by DMA and falls back to the ARM when it is not */
+static uint16_t *shadow_alloc(int w, int h)
+{
+    return aligned_alloc(64, ((size_t)w * (size_t)h * 2 + 63) & ~(size_t)63);
+}
+
 void bm_set_via_ram(int on) { via_ram = on; }
 
 /* Switches a running cartridge to the RAM buffer (keeps clip and camera). */
@@ -1807,7 +1814,7 @@ int video_to_ram(g16_t *g)
 {
     if (shadow)
         return 0;
-    shadow = malloc((size_t)g->w * (size_t)g->h * 2);
+    shadow = shadow_alloc(g->w, g->h);
     if (!shadow)
         return -1;
     memset(shadow, 0, (size_t)g->w * (size_t)g->h * 2);
@@ -1876,7 +1883,7 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
         memset(fb->mem, 0, (size_t)fb->pitch * fb->height * fb->buffers);
     }
     if (via_ram) {
-        shadow = malloc((size_t)w * (size_t)h * 2);
+        shadow = shadow_alloc(w, h);
         if (!shadow)
             return -1;
         memset(shadow, 0, (size_t)w * (size_t)h * 2);
@@ -3137,7 +3144,7 @@ static int screen_apply(framebuffer_t *fb, lua_State *L)
         g16_light_free(&rt.light);
     }
     if (rt.fade.lv) {                   /* the levels of the new size, the colours kept */
-        uint8_t *lv = malloc((size_t)nw * (size_t)nh);
+        uint8_t *lv = aligned_alloc(64, ((size_t)nw * (size_t)nh + 63) & ~(size_t)63);   /* (the QPU fade: 64-byte line) */
         if (!lv)
             return -1;
         free(rt.fade.lv);
@@ -3740,6 +3747,11 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         PUT("GPU wait: %lu.%lu%% of the frames' work; the GPU set the pace (the ARM waited more than %lu ms for "
             "it) in %lu.%lu%% of the frames\n", (unsigned long)(w10 / 10), (unsigned long)(w10 % 10),
             (unsigned long)(PERF_GPU_BOUND_US / 1000), (unsigned long)(b10 / 10), (unsigned long)(b10 % 10));
+        if (qpu_stats.runs || qpu_stats.fade_arm_align || qpu_stats.fade_arm_shape)
+            PUT("QPU (gpu3d_qpu=1): %lu runs, %lu on the QPUs, %lu on the ARM, %lu failed; the fade met a picture off a 64-byte "
+                "line %lu times, another shape %lu times\n", (unsigned long)qpu_stats.runs,
+                (unsigned long)qpu_stats.on_qpu, (unsigned long)qpu_stats.on_arm, (unsigned long)qpu_stats.failures,
+                (unsigned long)qpu_stats.fade_arm_align, (unsigned long)qpu_stats.fade_arm_shape);
     }
     if (sess.n) {
         PUT("\nthe longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:\n"
