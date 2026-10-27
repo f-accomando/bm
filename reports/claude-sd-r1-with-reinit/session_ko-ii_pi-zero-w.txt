@@ -1,0 +1,50 @@
+bm report
+kind: session
+kernel: v0.2.5-1819-g68b66660
+branch: claude/sd-r1-with-reinit
+board: Pi Zero W
+date: 2026-10-27 11:16:10
+file: session_ko-ii_pi-zero-w.txt
+
+session of "KO-II" (the last one: the next run of this game replaces this file)
+options bm3d 7.15 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 1280x720, 87 frames in 2.7 s, 31.1 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 31.3 ms, max 91.8 ms, 87 frames over 16.7 ms
+memory: Lua peak 439 KB, data 1680 KB; code 10066 tokens; busiest frame 316k Lua instructions
+frames that were shown after more than 1.5 frames: 87
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    0
+  <= 25 ms             0
+  <= 34 ms (30 fps)    82
+  <= 50 ms             4
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 86 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.2    1%
+  draw (no 3D)    29.8  179%
+  3D calls         0.0    0%
+  audio            1.4    8%
+  GPU wait         0.0    0%
+  all             31.5  189%
+audio interrupt: 4.5% of the CPU's time (mean), 7.2% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+     51     3.3    44.5   43.3   0.1   43.2   0.0   0.0     1.1       94      362        1
+      2     1.8    35.7   30.6   0.3   30.2   0.0   0.0     5.1       46      233        1
+     29     2.6    35.5   34.3   0.2   34.0   0.0   0.0     1.1       47      228        1
+     65     3.7    34.2   33.5   0.1   33.3   0.0   0.0     0.6       49      226        1
+     52     3.3    32.3   31.7   0.1   31.6   0.0   0.0     0.5       49      368        1
+      4     1.8    32.2   31.5   0.5   31.0   0.0   0.0     0.7       52      246        1
+     26     2.5    32.1   31.0   0.4   30.5   0.0   0.0     1.0       47      380        1
+     55     3.4    32.0   31.7   0.1   31.6   0.0   0.0     0.2       49      386        1
+     16     2.2    32.0   30.8   0.3   30.5   0.0   0.0     1.1       46      319        1
+     23     2.4    32.0   30.9   0.3   30.5   0.0   0.0     1.1       46      361        1
+     56     3.5    32.0   31.8   0.1   31.6   0.0   0.0     0.2       49      392        1
+     58     3.5    32.0   31.8   0.1   31.6   0.0   0.0     0.2       49      404        1
