@@ -419,6 +419,16 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   - `src/rgb30/mali.c`: Added `frame_build_ex()` with L1-cached stack buffers (`hdr[0x1000]`, `loc[0x540]`, `frs_buf[80]`, `vrs3_buf[64]`) eliminating uncached `ATTR_NC` byte read-modify-writes, plus a 4 MB single-pass GPU arena at `H->mem - (6u << 20)` (`1,024` draws and `8,192` triangles in 1 Fragment Job and 1 `be_resolve` per frame).
   - Verified on RGB30 hardware in 3D Bench (`docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`, report `b3cab428`): overall `games` score rose from `192` to **`247`**, `GPU` score rose **16.3x** (`14` in `7.10` -> `138` in `7.14` -> **`228`** in `7.15`), `draws` (`GPU+VS`) reached `533.8` @ 60 fps (`1 job`), `spheres` (`GPU+VS`) reached `22.9` @ 60 fps (`141.5` @ 30 fps), and `gpu2d` reached `1,849.2` @ 60 fps (`5,354.8` @ 30 fps).
 
+- **7.16** (2026-10-27): **`gpu2d_only=1`: the 2D of a game with no 3D on the GPU** (hidden key, off by default; the default stays what the Pi verified).
+  Until 7.15 the 2D went to the V3D only when a 3D call had opened the job (`gpu3d_pending()`), so a 2D game (Yharnam) was all ARM.
+  With the key, `gpu2d_only_frame()` (`runtime.c`) makes the 3D state and the GPU at the first frame whose page is whole (a game drawing via RAM: after
+  `dark_begin`), `gpu2d_open()` takes the quad of a rectangle, a sprite, a map cell or a row of a line with no job open (the job opens with the quad), and
+  `dark_begin()` starts the job (`gpu2d_submit`) so the GPU draws the frame while the ARM makes the lights; `dark_end()` waits for it before the fade. What the GPU
+  does not take (circles, slanted lines, stacks) is recorded and drawn after the job, in order, as in a game with 3D. The RAM page is on a 64-byte line
+  (`shadow_alloc`). The F11 overlay shows a row `2D: GPU wait x.y` and the session report a line `2D: GPU`.
+  Check: `make test-gpu2d-only` (V3D emulated: a plain cart, a cart with light and Yharnam, the same pictures with the key on and off, pixel for pixel),
+  `make test-gpu3d`, `test-queue2d`, `test-v3d`, `test-b3d`. Not measured on the Pi.
+
 - **7.7** (2026-10-23): **shadows that darken on the GPU**. Until 7.6 the GPU drew the shadow (`draw3d` flag 8) as
   black on every other pixel, because a fragment shader could not read the screen. `fs_shadow` (`tools/qpuasm.py`) uses the
   colour load signal of `fs_zclear` to read the pixel and keeps 5/8 of each channel, as the ARM's style 0 (`(p >> 1) + (p >> 3)`).

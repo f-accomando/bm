@@ -219,6 +219,15 @@ settings = ""
 read_in = "src/bm/runtime.c:1852"
 
 [[key]]
+name = "gpu2d_only"
+scope = "pi"
+values = "1 = a game with no 3D has its 2D (rectangles, sprites, map, rows) drawn by the V3D; anything else = ARM"
+default = "off (0). The default is what the Pi verified: Yharnam measured on the Pi is pending (docs/progress/yharnam.md)."
+meaning = "The GPU draws the 2D of a game that never calls the 3D (bm3d 7.16). The job opens with the first quad; dark_begin starts it. Hidden key, no Settings row."
+settings = ""
+read_in = "src/bm/runtime.c:gpu2d_only_frame"
+
+[[key]]
 name = "gpu3d_2d"
 scope = "pi"
 values = "1 = the 2D over the 3D is drawn by the GPU in its job; 0 = ARM"

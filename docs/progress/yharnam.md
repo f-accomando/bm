@@ -25,6 +25,9 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 - Compare the parameters with the 60 fps budget on the RGB30.
 - Numbers so far: 25 Oct session, 59.0 fps, 15.6 ms a frame, 14.8 ms of it drawing (the light on the ARM). The fade on the QPU (`gpu3d_qpu=1`) costs 8.6 ms against 20.4 ms on the ARM at 640×360 (`docs/PERF-BUDGET.md`). Open: a 10 minute run on the Pi with `set gpu3d_qpu=1`, then `all`, `on the spot` and `in time` of the report.
 
+- Pi Zero W, 27 Oct 2026 (360x360, sessions in `reports/claude-yharnam-gpu2d/`): all ARM, 36.6 to 39.4 fps, draw 21.8 to 23.4 ms (light 12.6 to 13.6 ms: `glow` 8.6, fade 4.0 to 4.6; the rest 9.1 to 9.8 ms). `dark_begin(ambient, 2)` (`LIGHT_STEP = 2` in `main.lua`, a level for each 2x2 pixels): 50.5 fps, draw 16.4 ms, light 6.3 ms (`glow` 2.2, fade 4.1). Not a gain on the Pi: `gpu3d_qpu=1` (fade 4.6 ms against 4.1 on the ARM, the QPUs ran: 5631 of 5631) and a table of the lamp's profile by squared distance (`glow` 2.2 ms as before, 98% of the tables found).
+- Open: `LIGHT_STEP` is 1 in the cartridge until the picture is judged on the Pi at step 2. Open: `gpu2d_only=1` (bm3d 7.16, hidden key, off): measure on the Pi, 2 minutes of play each, in four runs: all keys off; `gpu3d_qpu=1`; `gpu2d_only=1`; both. The session report has the lines `2D: GPU` and the light's share; the overlay (F11) has a row `2D: GPU wait`. Host: the same pictures as the ARM (`make test-gpu2d-only`). Default on only after the Pi shows it pays.
+
 ### A2. Not checked on a device
 - The look of the walls, gates, hidden passages and the deadfall with its horde in the game (checked on the PC only: `bmplay` pictures and `make test-yharnam`).
 - The start fade, the blood on the boss text, the colder shadows and the keyboard.

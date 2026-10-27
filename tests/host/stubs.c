@@ -434,6 +434,19 @@ static void arena_check(void)
 }
 #endif
 
+#ifdef BMHOST_GPU
+/* the RAM page of a game drawing via RAM (dark_begin) where the emulated V3D reaches it too; the arena gives nothing back */
+void *bm_ram_alloc(size_t bytes)
+{
+    return test_aligned_alloc(64, bytes);
+}
+
+void bm_ram_free(void *p)
+{
+    (void)p;
+}
+#endif
+
 int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers, uint32_t depth)
 {
 #ifdef BMHOST_GPU

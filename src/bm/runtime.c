@@ -272,7 +272,13 @@ static void d2_early(int begin)
  * before (draw2d), after the job. */
 int gpu2d_open(void)
 {
-    return rt.gpu2d && rt.r3d.backend && !d2.on && !rt.early && gpu3d_pending();
+    /* gpu2d_only: a game with no 3D opens the job with its first quad */
+    return rt.gpu2d && rt.r3d.backend && !d2.on && !rt.early && (gpu3d_pending() || rt.gpu2d_only);
+}
+
+void gpu2d_submit(void)
+{
+    submit3d();
 }
 
 /* sspr's source rectangle inside the sheet, as gfx16 cuts it */
@@ -690,11 +696,14 @@ int impostor_px(int px)
     return px <= 0 ? 0 : px < 2 ? 2 : px > 64 ? 64 : px;
 }
 
-r3d_t *r3d(lua_State *L)
+/* the 3D's state made: the z-buffer, the options, and the GPU as the keys say (the first 3D call, or gpu2d_only) */
+static int r3d_boot(void)
 {
-    if (!rt.r3d_ready) {
+    if (rt.r3d_ready)
+        return 0;
+    {
         if (r3d_init(&rt.r3d, &rt.g) != 0)
-            luaL_error(L, "not enough memory for the z-buffer");
+            return -1;
         rt.r3d_ready = 1;
         const char *fast = config_get("r3d_fast");
         rt.r3d.fast = !(fast && strcmp(fast, "0") == 0);   /* bm3d 4.9: one matrix, light in the object's axes; on unless r3d_fast=0 (26 Oct 2026) */
@@ -702,6 +711,13 @@ r3d_t *r3d(lua_State *L)
         rt.r3d.impostor = imp ? impostor_px(atoi(imp)) : 0;   /* far small meshes as one quad: hidden key (SYS-9) */
         gpu3d_maybe();
     }
+    return 0;
+}
+
+r3d_t *r3d(lua_State *L)
+{
+    if (!rt.r3d_ready && r3d_boot() != 0)
+        luaL_error(L, "not enough memory for the z-buffer");
     if (rt.cls_pending && !rt.r3d.backend)
         cls_settle();                   /* the GPU stopped: the ARM's 3D goes on the cleared page */
     return &rt.r3d;
@@ -1802,9 +1818,19 @@ static int dma_frames;          /* copy by DMA: off until the DMA test passes on
 static uint16_t *shadow;
 
 /* on a 64-byte line: the QPU fade (qpu_fade_apply) reads the picture by DMA and falls back to the ARM when it is not */
+__attribute__((weak)) void *bm_ram_alloc(size_t bytes)    /* (the host tests with the V3D emulated: its arena) */
+{
+    return aligned_alloc(64, bytes);
+}
+
+__attribute__((weak)) void bm_ram_free(void *p)
+{
+    free(p);
+}
+
 static uint16_t *shadow_alloc(int w, int h)
 {
-    return aligned_alloc(64, ((size_t)w * (size_t)h * 2 + 63) & ~(size_t)63);
+    return bm_ram_alloc(((size_t)w * (size_t)h * 2 + 63) & ~(size_t)63);
 }
 
 void bm_set_via_ram(int on) { via_ram = on; }
@@ -1850,7 +1876,7 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
         con_was = console_suspended();
     }
     console_suspend(1);
-    free(shadow);
+    bm_ram_free(shadow);
     shadow = NULL;
 #ifdef BM_RGB30
     /* the cartridge's own size, made as big as the panel by the display
@@ -1934,7 +1960,7 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
 
 void bm_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
-    free(shadow);
+    bm_ram_free(shadow);
     shadow = NULL;
     box = 0;
     fb_init(fb, w, h, 2);
@@ -2181,6 +2207,7 @@ static void release(lua_State *L)
         r3d_free(&rt.r3d);
     rt.r3d_ready = 0;
     rt.gpu3d_boxed = 0;
+    rt.gpu2d_only = rt.gpu2d_only_checked = 0;
     free_assets();
 }
 
@@ -2886,6 +2913,30 @@ static perf_phase_t perf_phase(const perf_mark_t *a, const perf_mark_t *b, const
 /* stat(16): the GPU's job time the driver accounted since the frame before
  * (the jobs that ended, with the queue a frame's may end in the next one).
  * The totals zeroed meanwhile (a game's start, a resume): from zero */
+/* gpu2d_only=1 (hidden key, off): a game that has not called the 3D has its 2D drawn by the GPU: the 3D state and the
+ * GPU are made once the page is a whole one (a game drawing via RAM: its first frames show the page as a square in the
+ * screen, then it is whole) and the job opens with the first quad (gpu2d_open). What the GPU does not draw (gpu2d)
+ * is recorded after the job, as when a game has 3D. */
+/* the host tests link this file without the QPU code: counters of zero then (qpu.c's own are the ones that count) */
+__attribute__((weak)) qpu_stats_t qpu_stats;
+
+static void gpu2d_only_frame(void)
+{
+    if (!rt.gpu2d_only_checked) {
+        const char *v = config_get("gpu2d_only");
+        rt.gpu2d_only_checked = 1;
+        rt.gpu2d_only = v && v[0] == '1';
+        if (rt.gpu2d_only)
+            kprintf("bm: gpu2d_only=1: the 2D of a game with no 3D goes to the GPU (as bm3d %s)\n", bm3d_mode(0, 0));
+    }
+    if (!rt.gpu2d_only || rt.r3d_ready || rt.g.stride != (uint32_t)rt.g.w)
+        return;
+    if (r3d_boot() != 0 || !rt.r3d.backend) {
+        kprintf("bm: gpu2d_only: the GPU did not start, the ARM draws the 2D\n");
+        rt.gpu2d_only = 0;
+    }
+}
+
 static void gpu_frame_account(void)
 {
     gpu3d_stats_t g, d;
@@ -2903,6 +2954,7 @@ static void gpu_frame_account(void)
         d.late_us = g.late_us - p->late_us;
     }
     rt.gpu_frame_us = gpu3d_busy_us(&d);    /* (the ARM's 3D: no jobs, 0) */
+    rt.gpu_quads_frame = g.quads2d >= p->quads2d ? g.quads2d - p->quads2d : g.quads2d;
     rt.gpu_prev = g;
     /* stat(17), stat(18): the audio interrupt's time and the ARM's wait
      * for the GPU since the frame before (a total that went back: from zero) */
@@ -3071,7 +3123,8 @@ void perf_frame(void)
     const int z = g->w >= 1280 ? g->w / 640 : 1;
     const int x = g->w - 144 * z;                 /* the text on the 8 x 16 grid (read by the tests) */
     const int gpu = rt.r3d_ready && rt.r3d.backend;
-    const int rows = gpu ? 3 : 2, rowh = 16 * z;
+    const int two_d = rt.gpu2d_only && gpu;           /* the 2D row: "2D: GPU" (gpu2d_only) */
+    const int rows = (gpu ? 3 : 2) + two_d, rowh = 16 * z;
     int y = 0;
     if (perf_on == 2) {
         y = (g->h / rowh - rows) * rowh;
@@ -3097,6 +3150,12 @@ void perf_frame(void)
     if (gpu) {
         const uint16_t busy = g16_rgb(190, 120, 255);
         perf_bar(g, x, y + 2 * rowh, z, "gpu", &pw.gpu_us, &busy, 1, 0);
+    }
+    if (two_d) {
+        char t2[32];
+        ksnprintf(t2, sizeof t2, "2D: %s wait %lu.%lu", rt.gpu_quads_frame ? "GPU" : "ARM",
+                  (unsigned long)(rt.gpuwait_frame_us / 1000), (unsigned long)(rt.gpuwait_frame_us / 100 % 10));
+        g16_text_scaled(g, x, y + 3 * rowh, t2, g16_rgb(232, 232, 216), z);
     }
     *g = keep;
 }
@@ -3265,6 +3324,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             perf_mark(&pf.m1);
         const uint32_t td = timer_ticks();
         rt.light_us = rt.fade_us = 0;
+        gpu2d_only_frame();
         if (call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
@@ -3700,6 +3760,8 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         (unsigned long)(ms / 1000), (unsigned long)(ms % 1000 / 100), (unsigned long)(fps10 / 10),
         (unsigned long)(fps10 % 10));
     PUT("3D: %s\n", st->gpu3d ? "GPU" : "ARM or none");
+    if (rt.gpu2d_only)
+        PUT("2D: %s (gpu2d_only=1)\n", g && g->quads2d ? "GPU" : "ARM, the GPU took no quad");
     PUT("\ntime of _update + _draw (+ the 3D's wait): avg %lu.%lu ms, max %lu.%lu ms, %lu frames over 16.7 ms\n",
         MS1(avg), MS1(st->cpu_us_max), (unsigned long)st->slow);
     PUT("memory: Lua peak %lu KB, data %lu KB; code %lu tokens; busiest frame %luk Lua instructions\n",

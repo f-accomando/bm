@@ -150,9 +150,13 @@ int l_dark_begin(lua_State *L)
 {
     const uint32_t t0 = timer_ticks();
     fade_ready(L);
+    if (!bm_video_uses_ram())
+        sync3d();                       /* the 2D the GPU holds goes on the page it was drawn for, before the RAM page takes over */
     if (video_to_ram(&rt.g) != 0 || g16_fade_set_step(&rt.fade, (int)luaL_optinteger(L, 2, 1)) != 0)
         return luaL_error(L, "not enough memory for lighting");
     g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
+    if (rt.gpu2d_only && rt.r3d.backend)
+        gpu2d_submit();                 /* the GPU draws what the frame has so far while the ARM makes the lights */
     rt.light_us += timer_ticks() - t0;
     return 0;
 }
