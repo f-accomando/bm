@@ -1,0 +1,62 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1826-ge61584ab-dirty
+branch: claude/yharnam-gpu2d
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-4448a4_freeze_pi-zero-w_v0.2.5-1826-ge61584ab-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: carttor line "reboot", frame 0, 1491 s after boot, kernel v0.2.5-1826-ge61584ab-dirty, ring 20062, sink on
+--- the last lines printed ---
+type 'h' for help
+> :
+:reboot
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ ms per frame
+     dev kit: Lua peak 3826 KB, data 41353 KB, busiest frame 608k instructions, 8252 frames over 16.7 ms, 103227 tokens
+report: session_yharnam_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu idle: 300/300 frames, 320 of 2490 ms taken, 100.9 ms past a frame; reports 307 ms (+100.9, stk 7.6/128K); min slack 3080 us, paced 0
+menu idle: sd first word <1ms 239 <3ms 2 (max 1.6 ms)
+menu stalls: tls handshake 1x last 282.5 worst 282.5 ms
+menu frame: 1x, a frame averages draw 6864 us, enlarge 0 us, flip 94 us, free time used 1067 us (300 frames)
+report: sending session_yharnam_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/claude-yharnam-gpu2d/session_yharnam_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/claude-yharnam-gpu2d/session_yharnam
+bm: "Yharnam" closed, memory freed
+menu: closed yharnam.bm
+report: sending session_yharnam_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-yharnam-gpu2d/session_yharnam_pi-zero-w.txt
+menu idle: 300/300 frames, 1671 of 2269 ms taken, 94.4 ms past a frame; reports 1642 ms (+94.4, stk 7.6/128K, stop 18.9); min slack -21439 us, paced 0
+menu idle: sd first word <1ms 81 <3ms 2 (max 1.6 ms)
+menu stalls: tls handshake 1x last 292.9 worst 292.9 ms
+menu frame: 1x, a frame averages draw 7605 us, enlarge 0 us, flip 91 us, free time used 5570 us (300 frames)
+menu frame: 1x, a frame averages draw 6750 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6766 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6679 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6596 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6809 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6755 us, enlarge 0 us, flip 91 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6668 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6595 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6824 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6736 us, enlarge 0 us, flip 91 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6648 us, enlarge 0 us, flip 90 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6631 us, enlarge 0 us, flip 91 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6807 us, enlarge 0 us, flip 91 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6720 us, enlarge 0 us, flip 91 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6633 us, enlarge 0 us, flip 91 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6693 us, enlarge 0 us, flip 92 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6793 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6707 us, enlarge 0 us, flip 93 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6619 us, enlarge 0 us, flip 92 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6730 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6773 us, enlarge 0 us, flip 93 us, free time used 28 us (300 frames)
+menu frame: 1x, a frame averages draw 6688 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+net: receiving settings (12 bytes)...
+config: gpu3d_qpu=1
+net: settings from the PC: 1 changed in bm/config.txt
+
+net: console opened from 192.168.1.1
