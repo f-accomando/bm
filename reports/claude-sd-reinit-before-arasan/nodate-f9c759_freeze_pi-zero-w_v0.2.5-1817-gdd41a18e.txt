@@ -1,0 +1,72 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1817-gdd41a18e
+branch: claude/sd-reinit-before-arasan
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-f9c759_freeze_pi-zero-w_v0.2.5-1817-gdd41a18e.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 847 s after boot, kernel v0.2.5-1816-g988772b3, ring 19364, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+fiber: reports did not yield: 237.9 ms past its slice
+net: address lost
+net: restarting with the new kernel...
+ us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29987 us, enlarge 0 us, flip 96 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29987 us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29990 us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29987 us, enlarge 0 us, flip 96 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29988 us, enlarge 0 us, flip 96 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29989 us, enlarge 0 us, flip 97 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29986 us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29987 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29989 us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29986 us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29986 us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 29989 us, enlarge 0 us, flip 97 us, free time used 12 us (300 frames)
+net: receiving a new kernel (4781492 bytes)...
+net: kernel 0% (0 of 4669 KB)
+net: kernel 10% (468 of 4669 KB)
+menu idle: sd first word <1ms 55 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 30647 us, enlarge 0 us, flip 96 us, free time used 12 us (300 frames)
+net: kernel 20% (939 of 4669 KB)
+net: kernel 30% (1405 of 4669 KB)
+net: kernel 40% (1876 of 4669 KB)
+net: kernel 50% (2342 of 4669 KB)
+net: kernel 60% (2808 of 4669 KB)
+menu idle: sd first word <1ms 50 (max 18.0 ms)
+menu frame: 2x, a frame averages draw 31552 us, enlarge 0 us, flip 94 us, free time used 12 us (300 frames)
+net: kernel 70% (3277 of 4669 KB)
+net: kernel 80% (3735 of 4669 KB)
+net: kernel 90% (4210 of 4669 KB)
+net: dev mode: kernel received (4781492 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 129.7 ms past its slice
+net: saved kernel.img on the SD card (4781492 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 8 cartridges; clusters 32 KB; 17 retried, 17 timed out
+fiber: reports did not yield: 7.8 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 12.2 ms past its slice
+fiber: reports did not yield: 100.8 ms past its slice
+menu idle: 300/300 frames, 1002 of 899 ms taken, 132.3 ms past a frame; netxfer 1645 ms (+129.7, stk 1.7/64K), reports 146 ms (+100.8, stk 7.7/128K); min slack -124120 us, paced 0; sd 8 retried, 8 timed out
+menu idle: sd sites: rdend 8; first word <1ms 95 <3ms 170 <25ms 1 (max 18.0 ms)
+menu stalls: tls handshake 1x last 316.0 worst 316.0 ms
+menu frame: 2x, a frame averages draw 35147 us, enlarge 0 us, flip 95 us, free time used 3341 us (300 frames)
+net: restarting with the new kernel in 2 s
+report: sending nodate-a96468_freeze_pi-zero-w_v0.2.5-1816-g988772b3.txt
+net: restarting with the new kernel in 1 s
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-a96468_freeze_pi-zero-w_v0.2.5-1816-g988772b3.txt
