@@ -106,24 +106,7 @@ Needs the Mesa Bifrost compiler (`tools/mali/README.md`) for Q2 (shader), Q3 and
 
 7. [FUTURE] Textures on GPU: compile textured fragment shader (`BM_FS_TEX`) + UV varying vertex shader with Mesa Bifrost compiler (`tools/mali/mkshader.c`), add Bifrost `Texture` and `Sampler` descriptors in `mali_desc.c`, and remove `colour_only` fallback.
 8. [FUTURE] Hardware Z-Buffer / Early-Z: attach a 16/24-bit Depth/Stencil (`ZS`) buffer via MFBD `md_zs_crc_ext` and enable hardware depth test (`Z_FUNC = LESS`) to eliminate CPU far-to-near `sort_tris` and reduce pixel overdraw.
-
-## Mali vs Pi V3D Architectural Equivalence & Feature Parity (API-5)
-
-Mapping of Mali-G52 developments against reference Pi V3D driver:
-
-| Pipeline Stage / Feature | Pi Zero W (V3D 2.1) | PowKiddy RGB30 (Mali-G52) | Parity Status & Notes |
-|---|---|---|---|
-| **Framebuffer / Clear** | FBD (Framebuffer Descriptor) / Tile setup in RGB565/RGBA8888 | SFBD / MFBD (Single/Multi FB Descriptor) in linear XRGB8888 | **Full Parity** (HW verified; 64x64 clear & screen presentation pass) |
-| **Vertex Processing** | Coordinate / Vertex Shaders on QPU (`vs_colour`, `vs_lit_tex`) | Compute Job on slot 1 with Bifrost vertex shader (`BM_VS`, `BM_VS3`) | **Full Parity** (HW verified in `mali_backend.mesh` with `gpu3d_vshader=1/2`) |
-| **Binning / Tiling** | Binner Job (`BPOA` / `BPOS`), tile allocator pool with overflow | Tiler Job on slot 1 (`SO_HEAP`, `SO_HEAPD`, `SO_TCTX`, mask 0x28) | **Full Parity** (HW verified; Primitive Size 1.0f fixed fault) |
-| **Fragment / Raster** | QPU Fragment Shaders (`fs_colour`, `fs_tex_lit`, `fs_cel`) | Fragment Job on slot 0 (`BM_FS` with pushed color words 4-7) | **Flat Colour Parity** (HW verified; textured shader pending Mesa build tree) |
-| **State Management** | NV Shader State Record / Blend configuration | `Renderer State` (`md_renderer_state_t`) + `Blend` per target | **Full Parity** (Descriptors from Mesa `v7.xml`) |
-| **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | CPU far-to-near merge sort (`be_tris`), cached 64-bit resolve `0xFF00FF` | **Missing on Mali**: Hardware Z-buffer attachment (currently software sort) |
-| **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | Per-face lighting/cel/fog in `be_mesh`; textures stay on ARM (`colour_only = 1`) | **Partial Parity**: Untextured lit/cel/fog meshes on GPU; textures on ARM |
-| **Cel Shading** | `fs_cel` on QPU with 64-entry quant table and inverted hull outline | Per-face cel quantization (`cel_step`) in `be_mesh` | **Partial Parity**: Flat-shaded cel quant on GPU; smooth per-pixel cel on ARM |
-| **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`) + async Slot 0 Fragment Job (`mali_backend_submit`) | **Full Parity** (HW verified in 3D Bench `GPU+VS+Q` / `GPU+VS+Q2`) |
-| **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | 4 MB single-pass arena (`1,024` draws) + screen-space merge (`>1,024` draws) | **Full Parity** (HW verified; merges up to `1,024` draws in 1 GPU pass) |
-| **Config & Safety** | `gpu3d=1` default, automatic fallback to ARM | `mali3d=1` default (`bm3d 7.15`), clean ARM fallback on any fault | **Full Parity** (`gpu3d_init` verifies Mali and falls back to ARM) |
+Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-parity.md).
 
 ## Rules (do not break)
 - The draw slots of the arena: `copy_slot` always writes the two job-header lines of a slot (D_VJOB, D_TJOB). The GPU writes the first 16 bytes of a job header; a skipped line gives black frames.
