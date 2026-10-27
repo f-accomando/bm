@@ -766,49 +766,6 @@ static int isqrt32(uint32_t v)
     return (int)r;
 }
 
-/* The profile of a lamp, level * (1 - sqrt(d2 / r2)) x 256, for every squared distance d2 = 0..r2: the lamps of a
- * game come back every frame with the same radius and level, so the tables are kept (the last GLOW_TABS used) and a
- * pixel is an addition, a table read, the dither and the compare. */
-#define GLOW_TABS 40
-#define GLOW_TAB_MAX_R 128              /* r2 + 1 entries: 32 KB at most; a larger lamp is computed per pixel */
-static struct { int radius, level; uint32_t used; uint16_t *tab; } glow_tab[GLOW_TABS];
-static uint32_t glow_clock;
-static int glow_cache_on = 1;
-g16_glow_stats_t g16_glow_stats;
-
-void g16_glow_cache(int on)
-{
-    glow_cache_on = on;
-}
-
-static const uint16_t *glow_table(int radius, int level, uint32_t r2, uint32_t inv)
-{
-    int victim = 0;
-    for (int i = 0; i < GLOW_TABS; i++) {
-        if (glow_tab[i].tab && glow_tab[i].radius == radius && glow_tab[i].level == level) {
-            glow_tab[i].used = ++glow_clock;
-            g16_glow_stats.hits++;
-            return glow_tab[i].tab;
-        }
-        if (!glow_tab[i].tab || glow_tab[i].used < glow_tab[victim].used)
-            victim = i;
-    }
-    uint16_t *t = realloc(glow_tab[victim].tab, ((size_t)r2 + 1) * sizeof *t);
-    if (!t)
-        return NULL;
-    for (uint32_t d2 = 0; d2 <= r2; d2++) {
-        uint32_t k = d2 * inv >> 16;
-        if (k > 1024) k = 1024;
-        t[d2] = (uint16_t)(level * fade_root[k]);
-    }
-    glow_tab[victim].tab = t;
-    glow_tab[victim].radius = radius;
-    glow_tab[victim].level = level;
-    glow_tab[victim].used = ++glow_clock;
-    g16_glow_stats.builds++;
-    return t;
-}
-
 void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dither)
 {
     if (radius <= 0 || level <= 0)
@@ -832,9 +789,6 @@ void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dithe
     for (int j = 0; j < 4; j++)
         for (int i = 0; i < 4; i++)
             off[j][i] = 128 + (((int)bayer[j][i] + 8 - 128) * dither) / 256;
-    const uint16_t *lt = glow_cache_on && radius <= GLOW_TAB_MAX_R ? glow_table(radius, level, r2, inv) : NULL;
-    if (!lt)
-        g16_glow_stats.direct++;
     if (half) {
         /* a level for each 2x2 pixels, taken at the block's middle (2 * bx + 1, 2 * by + 1) */
         for (int by = y0 >> 1; by <= y1 >> 1 && by < f->h2; by++) {
@@ -848,19 +802,6 @@ void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dithe
             if (bx1 >= f->w2) bx1 = f->w2 - 1;
             uint8_t *row = f->lv2 + (size_t)by * f->w2;
             const int *o = off[by & 3];
-            if (lt) {                   /* d2 grows by 4 * dx + 4 from a block to the next one */
-                int dx = 2 * bx0 + 1 - x;
-                uint32_t d2 = (uint32_t)(dx * dx) + dy2;
-                int step = 4 * dx + 4;
-                for (int bx = bx0; bx <= bx1; bx++) {
-                    const int lv = (lt[d2] + o[bx & 3]) >> 8;
-                    if (lv > row[bx])
-                        row[bx] = (uint8_t)lv;
-                    d2 += (uint32_t)step;
-                    step += 8;
-                }
-                continue;
-            }
             for (int bx = bx0; bx <= bx1; bx++) {
                 const int dx = 2 * bx + 1 - x;
                 uint32_t t = ((uint32_t)(dx * dx) + dy2) * inv >> 16;
@@ -883,19 +824,6 @@ void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dithe
         if (x1 >= f->w) x1 = f->w - 1;
         uint8_t *row = f->lv + (size_t)py * f->w;
         const int *o = off[py & 3];
-        if (lt) {                       /* d2 grows by 2 * dx + 1 from a pixel to the next one */
-            int dx = x0 - x;
-            uint32_t d2 = (uint32_t)(dx * dx) + dy2;
-            int step = 2 * dx + 1;
-            for (int px = x0; px <= x1; px++) {
-                const int lv = (lt[d2] + o[px & 3]) >> 8;
-                if (lv > row[px])
-                    row[px] = (uint8_t)lv;
-                d2 += (uint32_t)step;
-                step += 2;
-            }
-            continue;
-        }
         for (int px = x0; px <= x1; px++) {
             const int dx = px - x;
             uint32_t t = ((uint32_t)(dx * dx) + dy2) * inv >> 16;
