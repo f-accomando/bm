@@ -34,6 +34,8 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 - Pi Zero W, 27 Oct 2026, autoplay, `map()` from a packed copy of the cells (`docs/progress/graphics.md` Rules): `map` 2.9 -> 2.0 ms (2650 cells a frame, 0.75 us a cell), draw 23.0 -> 22.0 ms, 34.9 -> 36.2 fps (`LIGHT_STEP` 1). `spr` 0.9 ms and `sspr` 1.7 ms unchanged. What is left of the 2D calls: `sspr` 1.7 ms (74 calls, 23 us each, rectangles of the 4096 x 3400 sheet), `spr` 0.9 ms (99 calls), `map` 2.0 ms (the page is written 2 times: the two layers). Open: a sprite is read from two arrays (pixels and alpha) of the wide sheet; one packed array with the alpha in it would halve the misses.
 
+- Pi Zero W, 28 Oct 2026, autoplay with `gpu3d_light=1` (`reports/claude-gpu-light2d/`): the light by the GPU (`docs/progress/graphics.md` Rules): 54.4 fps against 36.2 (`LIGHT_STEP` 1), draw 10.7 ms against 22.0, light 2.3 ms against 12.9 (the ARM sets the job up and waits), GPU 1.9 ms a frame, 6953 of 7199 pictures within 18 ms. The ARM's `glow` and fade are gone (8.3 + 4.6 ms). The look: smooth light, lamps add up, the tables per colour are replaced by one tint (ambient row and top row of `fades()`). Left: 94 frames over 100 ms (150 to 300 ms each, 13% of the time) when the player crosses into new ground: the cause is in the cartridge (chunk generation in Lua), not in the draw.
+
 ### A2. Not checked on a device
 - The look of the walls, gates, hidden passages and the deadfall with its horde in the game (checked on the PC only: `bmplay` pictures and `make test-yharnam`).
 - The start fade, the blood on the boss text, the colder shadows and the keyboard.
