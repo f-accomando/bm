@@ -130,6 +130,9 @@ typedef struct {
     int levels;                 /* 2..G16_FADE_LEVELS */
     int ncol;                   /* colours with a table */
     uint8_t *lv;                /* w x h levels */
+    int step;                   /* 1 (0): a level for each pixel; 2: the glows work on lv2, a level for each 2x2 pixels (g16_fade_set_step) */
+    int w2, h2;                 /* lv2's size: (w + 1) / 2 x (h + 1) / 2 */
+    uint8_t *lv2;               /* step 2: the half-size map the glows fill; g16_fade_flush copies it to lv */
     uint8_t *index;             /* 65536: RGB565 -> its table, 255 = none */
     uint16_t *tab;              /* G16_FADE_LEVELS x 256: the colour at each level */
     uint16_t from[256];         /* the colour of each table */
@@ -145,6 +148,11 @@ void g16_fade_reset(g16_fade_t *f, int levels);
 int  g16_fade_colour(g16_fade_t *f, uint16_t from, const uint16_t *to);
 /* After the tables: the scale of the colours without one. */
 void g16_fade_done(g16_fade_t *f);
+/* step 2: the glows and the clear work on a quarter of the pixels (light with the granularity of 2 pixels, a
+ * quarter of the time); step 1 (the default) is the full-size map. Returns -1 when there is no memory. */
+int  g16_fade_set_step(g16_fade_t *f, int step);
+/* At step 2 the half-size map is copied to lv, 2x2 pixels a level (g16_fade_apply reads lv2 itself; the QPU fade reads lv). At step 1: nothing. */
+void g16_fade_flush(g16_fade_t *f);
 void g16_fade_clear(g16_fade_t *f, int ambient);
 /* A lamp at screen (x, y): `level` at the centre, 0 at `radius`; dither
  * 0..256 is how much of each ring edge is mixed (0 = sharp rings, 256 = a

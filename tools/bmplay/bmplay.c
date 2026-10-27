@@ -381,6 +381,8 @@ static int l_dark_begin(lua_State *L)
 {
     const double t0 = now_us();
     fade_ready(L);
+    if (g16_fade_set_step(&rt.fade, (int)luaL_optinteger(L, 2, 1)) != 0)
+        return luaL_error(L, "not enough memory for lighting");
     g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
     n_lit++;
     t_light += now_us() - t0;

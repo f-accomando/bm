@@ -649,9 +649,10 @@ int g16_fade_init(g16_fade_t *f, int w, int h)
 void g16_fade_free(g16_fade_t *f)
 {
     free(f->lv);
+    free(f->lv2);
     free(f->index);
     free(f->tab);
-    f->lv = f->index = NULL;
+    f->lv = f->lv2 = f->index = NULL;
     f->tab = NULL;
 }
 
@@ -696,11 +697,52 @@ void g16_fade_done(g16_fade_t *f)
     }
 }
 
+int g16_fade_set_step(g16_fade_t *f, int step)
+{
+    step = step >= 2 ? 2 : 1;
+    if (step == 2) {
+        const int w2 = (f->w + 1) >> 1, h2 = (f->h + 1) >> 1;
+        if (!f->lv2 || f->w2 != w2 || f->h2 != h2) {
+            uint8_t *m = malloc((size_t)w2 * h2);
+            if (!m)
+                return -1;
+            free(f->lv2);
+            f->lv2 = m;
+            f->w2 = w2;
+            f->h2 = h2;
+        }
+    }
+    f->step = step;
+    return 0;
+}
+
 void g16_fade_clear(g16_fade_t *f, int ambient)
 {
     if (ambient < 0) ambient = 0;
     if (ambient >= f->levels) ambient = f->levels - 1;
-    memset(f->lv, ambient, (size_t)f->w * f->h);
+    if (f->step == 2)
+        memset(f->lv2, ambient, (size_t)f->w2 * f->h2);
+    else
+        memset(f->lv, ambient, (size_t)f->w * f->h);
+}
+
+void g16_fade_flush(g16_fade_t *f)
+{
+    if (f->step != 2)
+        return;
+    for (int y = 0; y < f->h; y++) {
+        uint8_t *dst = f->lv + (size_t)y * f->w;
+        if (y & 1) {                    /* the same levels as the row above */
+            memcpy(dst, dst - f->w, (size_t)f->w);
+            continue;
+        }
+        const uint8_t *src = f->lv2 + (size_t)(y >> 1) * f->w2;
+        for (int i = 0; i < f->w2; i++) {
+            dst[2 * i] = src[i];
+            if (2 * i + 1 < f->w)
+                dst[2 * i + 1] = src[i];
+        }
+    }
 }
 
 /* 1 - sqrt(i / 1024), x 256 */
@@ -730,6 +772,7 @@ void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dithe
     if (radius > 1024) radius = 1024;
     if (dither < 0) dither = 0;
     if (dither > 256) dither = 256;
+    const int half = f->step == 2;
     const uint32_t r2 = (uint32_t)radius * radius;
     const uint32_t inv = (1024u << 16) / r2;       /* d2 * inv >> 16: 0..1024 */
     int y0 = y - radius + 1, y1 = y + radius - 1;
@@ -740,6 +783,30 @@ void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dithe
     for (int j = 0; j < 4; j++)
         for (int i = 0; i < 4; i++)
             off[j][i] = 128 + (((int)bayer[j][i] + 8 - 128) * dither) / 256;
+    if (half) {
+        /* a level for each 2x2 pixels, taken at the block's middle (2 * bx + 1, 2 * by + 1) */
+        for (int by = y0 >> 1; by <= y1 >> 1 && by < f->h2; by++) {
+            const int dy = 2 * by + 1 - y;
+            const uint32_t dy2 = (uint32_t)(dy * dy);
+            if (dy2 >= r2)
+                continue;
+            const int hw = isqrt32(r2 - dy2);
+            int bx0 = (x - hw) >> 1, bx1 = (x + hw - 1) >> 1;
+            if (bx0 < 0) bx0 = 0;
+            if (bx1 >= f->w2) bx1 = f->w2 - 1;
+            uint8_t *row = f->lv2 + (size_t)by * f->w2;
+            const int *o = off[by & 3];
+            for (int bx = bx0; bx <= bx1; bx++) {
+                const int dx = 2 * bx + 1 - x;
+                uint32_t t = ((uint32_t)(dx * dx) + dy2) * inv >> 16;
+                if (t > 1024) t = 1024;
+                int lv = (level * fade_root[t] + o[bx & 3]) >> 8;
+                if (lv > row[bx])
+                    row[bx] = (uint8_t)lv;
+            }
+        }
+        return;
+    }
     for (int py = y0; py <= y1; py++) {
         const int dy = py - y;
         const uint32_t dy2 = (uint32_t)(dy * dy);
@@ -765,12 +832,13 @@ void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dithe
 void g16_fade_apply(g16_t *g, const g16_fade_t *f)
 {
     const int w = g->w < f->w ? g->w : f->w, h = g->h < f->h ? g->h : f->h;
+    const int half = f->step == 2;      /* step 2: the level of 2x2 pixels, read from lv2 */
     for (int y = 0; y < h; y++) {
         uint16_t *row = g->px + (uint32_t)y * g->stride;
-        const uint8_t *lv = f->lv + (size_t)y * f->w;
+        const uint8_t *lv = half ? f->lv2 + (size_t)(y >> 1) * f->w2 : f->lv + (size_t)y * f->w;
         for (int x = 0; x < w; x++) {
             const uint16_t c = row[x];
-            const int k = lv[x], i = f->index[c];
+            const int k = lv[x >> half], i = f->index[c];
             if (i != 255) {
                 row[x] = f->tab[k * 256 + i];
             } else {

@@ -346,6 +346,60 @@ static void test_fade(void)
     }
     CHECK(lv1 > 0 && lv0 > 0, "dithered edge: %d at level 1, %d at 0", lv1, lv0);
     g16_fade_free(&f);
+
+    /* step 2: the lamps work on a level for each 2x2 pixels; the map stays near the full-size one (odd sizes too) */
+    static const int lamps[][4] = { { 20, 30, 24, 3 }, { 45, 40, 18, 2 }, { 60, -4, 20, 3 }, { -6, 62, 14, 2 } };
+    const int sizes[][2] = { { 64, 64 }, { 65, 63 } };
+    for (int s = 0; s < 2; s++) {
+        const int w = sizes[s][0], h = sizes[s][1];
+        g16_fade_t m;
+        CHECK(g16_fade_init(&m, w, h) == 0, "fade init %dx%d", w, h);
+        uint8_t *full = malloc((size_t)w * h);
+        g16_fade_set_step(&m, 1);
+        g16_fade_clear(&m, 1);
+        for (int i = 0; i < 4; i++)
+            g16_fade_glow(&m, lamps[i][0], lamps[i][1], lamps[i][2], lamps[i][3], 256);
+        memcpy(full, m.lv, (size_t)w * h);
+        CHECK(g16_fade_set_step(&m, 2) == 0, "step 2");
+        g16_fade_clear(&m, 1);
+        for (int i = 0; i < 4; i++)
+            g16_fade_glow(&m, lamps[i][0], lamps[i][1], lamps[i][2], lamps[i][3], 256);
+        g16_fade_flush(&m);
+        int worst = 0;
+        long sum = 0;
+        for (int i = 0; i < w * h; i++) {
+            const int d = abs((int)m.lv[i] - (int)full[i]);
+            worst = d > worst ? d : worst;
+            sum += d;
+        }
+        if (s == 0) {                   /* the apply reads lv2: the same picture as from the flushed full-size map */
+            static uint16_t pa[64 * 64], pb[64 * 64];
+            const uint16_t gr = g16_rgb(128, 128, 128);
+            const uint16_t t4[4] = { 0, g16_rgb(16, 16, 48), gr, g16_rgb(248, 216, 160) };
+            g16_t ga, gb;
+            g16_target(&ga, pa, 64, 64, 64, &font);
+            g16_target(&gb, pb, 64, 64, 64, &font);
+            g16_fade_reset(&m, 4);
+            g16_fade_colour(&m, gr, t4);
+            g16_fade_done(&m);
+            g16_cls(&ga, gr);
+            g16_cls(&gb, gr);
+            g16_fade_apply(&ga, &m);
+            g16_fade_t full_map = m;
+            full_map.step = 1;
+            g16_fade_apply(&gb, &full_map);
+            CHECK(memcmp(pa, pb, sizeof pa) == 0, "the apply of step 2 equals the apply of its flushed map");
+        }
+        CHECK(worst <= 2, "step 2 is at most 2 levels from step 1 (%dx%d: %d)", w, h, worst);
+        CHECK(sum * 10 < (long)w * h, "step 2 differs on few pixels (%dx%d: %ld of %d)", w, h, sum, w * h);
+        g16_fade_set_step(&m, 1);
+        g16_fade_clear(&m, 1);
+        for (int i = 0; i < 4; i++)
+            g16_fade_glow(&m, lamps[i][0], lamps[i][1], lamps[i][2], lamps[i][3], 256);
+        CHECK(memcmp(full, m.lv, (size_t)w * h) == 0, "back to step 1: the same map as before (%dx%d)", w, h);
+        free(full);
+        g16_fade_free(&m);
+    }
 }
 
 /* a backend that draws flat colours only (colour_only, M41): flat meshes reach it, textures and effects go to the ARM */

@@ -143,13 +143,14 @@ int l_fades(lua_State *L)
     return 1;
 }
 
-/* dark_begin([ambient level]): everything drawn so far will be lit by
- * dark_end() (the cartridge draws into RAM from now on) */
+/* dark_begin([ambient level [, step]]): everything drawn so far will be lit by
+ * dark_end() (the cartridge draws into RAM from now on); step 2: the lamps
+ * work on a quarter of the pixels, a level for each 2x2 */
 int l_dark_begin(lua_State *L)
 {
     const uint32_t t0 = timer_ticks();
     fade_ready(L);
-    if (video_to_ram(&rt.g) != 0)
+    if (video_to_ram(&rt.g) != 0 || g16_fade_set_step(&rt.fade, (int)luaL_optinteger(L, 2, 1)) != 0)
         return luaL_error(L, "not enough memory for lighting");
     g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
     rt.light_us += timer_ticks() - t0;
@@ -200,9 +201,10 @@ int l_dark_end(lua_State *L)
     if (rt.fade.lv) {
         sync3d();                       /* it reads the page: the 3D (and a cls) on it first */
         const uint32_t tf = timer_ticks();
-        if (bm_fade_accel)
+        if (bm_fade_accel) {
+            g16_fade_flush(&rt.fade);       /* the QPU reads the full-size map */
             bm_fade_accel(&rt.g, &rt.fade);
-        else
+        } else
             g16_fade_apply(&rt.g, &rt.fade);
         rt.fade_us += timer_ticks() - tf;
     }

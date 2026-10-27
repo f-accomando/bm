@@ -1337,6 +1337,7 @@ local RT = RING * CS                     -- ... that is 64 x 64 tiles
 local SW8 = SHEET_W // 8                 -- map cells per sheet row
 local SEED = 1887
 local LEVELS, AMBIENT = 8, 1
+local LIGHT_STEP = 1                   -- 2: the lamps work on a level for each 2x2 pixels (a quarter of the time on the Pi Zero)
 local MARGIN = 112                       -- chunks this close to the view are made ahead
 -- the map holds RING x RING chunks: the view and its margin must fit
 assert((W + 2 * MARGIN - 1) // CPX + 2 <= RING and (H + 2 * MARGIN - 1) // CPX + 2 <= RING, "RING too small for the screen")
@@ -5377,7 +5378,7 @@ local function draw_scene()
     end
   end
   -- the lights
-  dark_begin(AMBIENT + (REGION.of(fdiv(cam_x + W / 2, CPX), fdiv(cam_y + H / 2, CPX)).wild and 1 or 0))   -- moonlight in the forest
+  dark_begin(AMBIENT + (REGION.of(fdiv(cam_x + W / 2, CPX), fdiv(cam_y + H / 2, CPX)).wild and 1 or 0), LIGHT_STEP)   -- moonlight in the forest
   local fire_near
   for _, ch in ipairs(near) do
     for _, l in ipairs(ch.lights) do

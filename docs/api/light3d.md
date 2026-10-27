@@ -46,7 +46,7 @@ lamps orange, staying on the colours of its own palette. All in C (`g16_fade_*` 
 | Function | Description |
 |---|---|
 | `fades(tables)` | the tables: `{ {colour, l0, l1, ...}, ... }`, for each colour of the palette what it becomes at level 0 (the darkest), 1, ...; all rows have the same number of levels (2–16, up to 255 colours). The colours without a table are scaled as the average of the tables. Returns the number of levels |
-| `dark_begin([ambient])` | starts the frame: every pixel at level `ambient` (default 0); from here the cartridge draws in RAM |
+| `dark_begin([ambient [, step]])` | starts the frame: every pixel at level `ambient` (default 0); from here the cartridge draws in RAM. `step` 1 (default): a light level for each pixel. `step` 2: a level for each 2x2 pixels, so `glow` and `dark_end` work on a quarter of the pixels (the light has the granularity of 2 pixels: use it when the lamps take a large part of the frame time) |
 | `glow(x, y, radius, level, [dither])` | a lamp in world coordinates (`camera` holds): `level` in the middle, 0 at `radius`; `dither` 0–1 (default 0.5) is how much the rings' edges mix (0 sharp rings, 1 a continuous dithered shade) |
 | `dark_end()` | applies the levels to everything drawn; what you draw after (flames, sparks, HUD) stays as it is and "shines" |
 
