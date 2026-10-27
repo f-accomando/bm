@@ -41,14 +41,13 @@ ritrova). Tutto il resto di questa guida vale anche per l'SDK.
 `/carts` con un nome 8.3 (es. `miogioco.bme`). Non è nelle schede del menu: lo aprono gli editor
 (*Open* dell'SDK, Ctrl+O). Un `.bm` è un **gioco**, in Games: gli strumenti lo aprono
 per leggerlo e prenderne codice, sprite, modelli e suoni, ma non lo cambiano. Salvandolo
-chiedono di farne la **copia modificabile** (`nome.bme`, accanto); la copia c'è anche nelle
-opzioni di un gioco (X), *Make an editable copy*. Quando il progetto è pronto, **Ctrl+B**
-nell'SDK (o *Build the game (.bm)* nelle sue opzioni) fa il suo gioco: `MIOGIOCO.BM` in Games,
+chiedono di farne la **copia modificabile** (`nome.bme`, accanto). Quando il progetto è pronto, **Ctrl+B**
+nell'SDK fa il suo gioco: `MIOGIOCO.BM` in Games,
 sostituito a ogni build.
 
 Per i modelli 3D: **bm Studio**; per scheletri, animazioni e sprite pre-renderizzati: **bm
-Animator** ([sdk/README.md](../sdk/README.md)). Sono sulla console, nella scheda Dev (X sulla
-copertina di un gioco, *Open in bm Studio* / *Open in bm Animator*): costruiscono a blocchi e
+Animator** ([sdk/README.md](../sdk/README.md)). Sono sulla console, nella scheda Dev (aprono un
+progetto con il loro *Open*): costruiscono a blocchi e
 tessere, scelgono e spostano facce e angoli, dipingono sul modello, fanno scheletri,
 animazioni e sprite, salvano e provano il gioco, con la tastiera o il gamepad. L'SDK,
 quando salva, tiene i modelli e le animazioni; **bm Pixel** disegna lo sprite sheet.

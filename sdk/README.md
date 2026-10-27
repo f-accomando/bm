@@ -477,9 +477,7 @@ file (`cart_tool`): bones, mirror, names, parent, skin, keyframes, onion, animat
 sprites into the sheet, saving. The files are reread by Python
 (`tests/studio/check_files.py`: the block's faces turned outward, the red tile on the
 floor and the one on the wall, the skeleton and the animation) and by the kernel's parser
-(`test_bm`). In QEMU, `test_studio_animator` opens the test kit in bm Studio from the game's
-options, tries the tools, builds, saves, tries the game, switches to bm Animator,
-animates, saves and puts the walker's sprites into the sheet.
+(`test_bm`).
 
 bm Mesh has its own test bench on the PC (`tests/studio/mesh_host.lua`, in `make
 test-studio`): `cart_meshes()` replaced by a `load` of the game code with the same
@@ -489,9 +487,7 @@ moves, undo, subdivision, mirror, new faces, merging, color, extrusion,
 duplication, the walker with the skeleton after moved and deleted vertices, save as).
 The files it writes are reread by `check_files.py`, by `bmmesh.py` and by the kernel
 (`test_meshcap`: each skeleton matches its model). `test_meshcap` also tests the
-real capture (`src/bm/meshcap.c`) on Astro Wing and Chaos Kitchen. In QEMU,
-`test_mesh` opens Astro Wing from the options, copies the ship as a model, moves its vertices,
-copies it as code and saves.
+real capture (`src/bm/meshcap.c`) on Astro Wing and Chaos Kitchen.
 
 bm Pixel has its own test bench on the PC (`tests/studio/pixel_host.lua`, in `make
 test-studio`): the sheet in a table with the colors as the kernel keeps them, a `cart_write`
@@ -501,10 +497,7 @@ mirroring, rotating, scrolling, undo and redo, the assistant, the palette, the t
 sheet, save, reopen, new sheet, try the game). The files are reread by `check_files.py`
 (the pixels not redrawn with their 24 bits, the palette, models and skeletons intact) and
 by the kernel (`test_meshcap`); `test_bm` tests the kernel's SHEET8 packer, the sheet in place
-of the old one in `bm_rewrite_with` and the enlarged `sspr`. In QEMU, `test_pixel` opens the test
-kit from the options, draws and saves: in the file only the drawn pixels change, the others
-stay identical byte for byte; `test_pixel_big` does the same with the sheet of Titan Clash
-(2048×3448): it changes a single pixel and the palette stays the same.
+of the old one in `bm_rewrite_with` and the enlarged `sspr`.
 
 ## Structure
 

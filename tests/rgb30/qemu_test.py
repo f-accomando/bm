@@ -858,11 +858,11 @@ def test_grey_cart_and_confirm(b, opts):
         keys(q, "d")                                        # Old Pi cart: an old .bm is for the Pi only
         text = wait_screen(q, ["Old Pi cart"])
         keys(q, "x")                                        # X: the options have no 'Not here' row
-        text = wait_screen(q, ["Open in the SDK", "Author"])
+        text = wait_screen(q, ["Play", "Author"])
         assert "Not here" not in text, text
         keys(q, "y")                                        # back: the covers
         text = wait_screen(q, ["Old Pi cart"])
-        assert "Open in the SDK" not in text, text
+        assert "Author" not in text, text
         keys(q, "\r")                                       # confirm: the question, the game does not start
         text = wait_screen(q, ["This edition is for the Pi", "OK"])
         assert b"play: /bm/old.bm" not in q.buf, "it started before the answer"
@@ -1398,60 +1398,6 @@ function _draw() cls(1) print("try me", 8, 8, 7) end
 """
 
 
-def test_sdk_tool(b, opts):
-    """bm SDK (RGB30) (carts/sdk_b16), the tool built into this kernel, as
-    the Pi's SDK in its own (src/kernel/devtool.c): a game's options (X)
-    open it on the game ("Open in the SDK"); F5 tries it, the console plays
-    it ('q' stops it) and the SDK comes back with the run's numbers;
-    Ctrl+\\ (Ctrl+Esc) leaves it for the menu. The Dev tab has it last; it
-    opens on the file of the last time."""
-    tmp = mktmp(prefix="bm64sdk-")
-    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
-                       "bm/tryme.b16": mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))})
-
-    def screen(want, tries=80):
-        for _ in range(tries):
-            text = screen_all(q.screendump())
-            if all(w in text for w in want):
-                return text
-            time.sleep(0.25)
-        raise AssertionError(f"want {want} on the screen:\n{text}")
-
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
-    try:
-        boot(q)
-        time.sleep(0.5)
-        screen(["Try me"])                      # Games: the only one
-        keys(q, "x")                            # X: its options
-        screen(["Open in the SDK", "Play"])
-        keys(q, "s")                            # down: Open in the SDK
-        q.send("\r")                            # confirm
-        q.expect("bm SDK on /bm/", timeout=10)    # (the name as the card has it)
-        screen(["PROJECT", "Try me", "project", "code"])   # the SDK's project page, its tabs
-        q.send("\x1b[15~")                      # F5: try it (a game: as it is, no copy)
-        q.expect("tryme runs", timeout=30)
-        time.sleep(1.5)
-        q.send("q")                             # the game stops
-        out = q.expect('bm: "Try me"', timeout=20).decode(errors="replace")
-        assert "stopped with an error" not in out, out
-        screen(["back from the game"])          # the SDK again, the run's numbers
-        q.send("\x1c")                          # Ctrl+\ (Ctrl+Esc): leave the SDK
-        text = screen(["Games", "Dev", "Settings"])
-        assert in_menu(text), text
-        keys(q, "r")                            # Dev: the bm SDK, the only item
-        text = screen(["bm SDK", "Dev"])
-        assert in_menu(text), text
-        q.buf = b""
-        q.send("\r")
-        q.expect("bm SDK\r\n", timeout=10)      # on no file (page_sdk's line)
-        screen(["PROJECT", "Try me"])           # the file of the last time
-        q.send("\x1c")
-        text = screen(["Games", "Dev", "Settings"])
-        assert in_menu(text), text
-    finally:
-        q.close()
-
-
 def test_game_send(b, opts):
     """A game's options (X) have "Send to a nearby console" (D11, as the Pi): it
     opens the list of the consoles nearby, the shared code of src/kernel/market.c;
@@ -1474,13 +1420,13 @@ def test_game_send(b, opts):
         time.sleep(0.5)
         screen(["Try me"])
         keys(q, "x")                           # X: its options
-        screen(["Open in the SDK", "Play"])
-        keys(q, "ss")                           # down: Open in the SDK, then Send
+        screen(["Send to a nearby console", "Play"])
+        keys(q, "s")                            # down: Send
         screen(["Send to a nearby console", "To a console on this network"])
         q.send("\r")                           # confirm: the consoles nearby
         screen(["Send > Try me", "This console", "No console nearby yet"])
         keys(q, "x")                            # back: the options
-        screen(["Open in the SDK", "Play"])
+        screen(["Send to a nearby console", "Play"])
     finally:
         q.close()
 
@@ -1528,7 +1474,7 @@ def sdk_screen(q, want, tries=80):
 
 
 def sdk_open(q):
-    """Boot and open bm SDK from the Dev tab (as test_sdk_tool)."""
+    """Boot and open bm SDK from the Dev tab."""
     boot(q)
     time.sleep(1.0)
     keys(q, "r")                                # Dev

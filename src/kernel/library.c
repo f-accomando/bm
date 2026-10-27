@@ -367,29 +367,6 @@ void lib_panel(const lib_game_t *c, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, LIB_ROW_CLOSE, "Close the game",
                  "Ends the suspended game: what was not saved is lost", NULL);
     if (!c->builtin) {
-        if (cap & LIB_CAP_SDK)
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_SDK, "Open in the SDK",
-                     "Code, sprites and map of this cartridge", NULL);
-        if (cap & LIB_CAP_TOOLS) {
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_CODE, "Open in bm Code",
-                     "Its code in tabs, small font; sprites, map and sounds stay as they are", NULL);
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_SOUND, "Open in the Sound editor",
-                     "Sounds, sound effects and music of this cartridge", NULL);
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_STUDIO, "Open in bm Studio",
-                     "Its 3D models: build them with tiles and blocks, choose, move, paint", NULL);
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_ANIMATOR, "Open in bm Animator",
-                     "Its models' skeletons and animations: play, rig, animate, sprites", NULL);
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_MESH, "Open in bm Mesh",
-                     "Its meshes, also those its code builds: vertices, faces; to models or to code", NULL);
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_PIXEL, "Open in bm Pixel",
-                     "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
-        }
-        if (cap & LIB_CAP_COPY)
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_COPY, "Make an editable copy",
-                     "Games are read only: open the copy (.bme) from an editor", NULL);
-        if (cap & LIB_CAP_PUBLISH)
-            home_row(p, MENU_ROW_ACTION, LIB_ROW_PUBLISH, "Publish to the Market",
-                     "A pull request with your GitHub token: everyone can get it", NULL);
         if (cap & LIB_CAP_SEND)
             home_row(p, MENU_ROW_ACTION, LIB_ROW_SEND, "Send to a nearby console",
                      "To a console on this network with the Market tab open", NULL);
@@ -434,6 +411,7 @@ int lib_act(lib_game_t *c, int row, int how, home_do_t *d)
     case LIB_ROW_CLOSE:
         lib_suspend_close();
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
+        d->what = HOME_BACK;            /* the panel of the closed game goes too */
         return 1;
     case LIB_ROW_COPY: {
         char to[96], err[64];

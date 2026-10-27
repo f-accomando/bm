@@ -42,13 +42,12 @@ again). Everything else in this guide holds for the SDK too.
 8.3 name (e.g. `mygame.bme`). It is not listed in the menu tabs: the editors open it (the SDK's
 *Open*, Ctrl+O). A `.bm` is a **game**, in Games: the tools open it to read it and take its
 code, sprites, models and sounds, but do not change it. Saving one, they ask to make its
-**editable copy** (`/bme/name.bme`); the copy is also in a game's options (X), *Make an
-editable copy*. When the project is ready, **Ctrl+B** in the SDK (or *Build the game (.bm)*
-in its options) makes its game: `mygame.bm` in Games, replaced at every build.
+**editable copy** (`/bme/name.bme`). When the project is ready, **Ctrl+B** in the SDK
+makes its game: `mygame.bm` in Games, replaced at every build.
 
 For 3D models: **bm Studio**; for skeletons, animations and pre-rendered sprites: **bm
-Animator** ([sdk/README.md](../sdk/README.md)). They are on the console, in the Dev tab (X on
-a game's cover, *Open in bm Studio* / *Open in bm Animator*): they build with blocks and
+Animator** ([sdk/README.md](../sdk/README.md)). They are on the console, in the Dev tab (they
+open a project with their own *Open*): they build with blocks and
 tiles, choose and move faces and corners, paint on the model, make skeletons, animations
 and sprites, save and try the game, with the keyboard or the gamepad. The SDK, when it
 saves, keeps the models and the animations; **bm Pixel** draws the sprite sheet.

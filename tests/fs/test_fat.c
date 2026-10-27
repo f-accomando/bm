@@ -277,6 +277,30 @@ static void test_clock(void)
     free(buf);
 }
 
+/* Settings > System > Bridge writes /bm/bridge.txt over the file a PC put there: the new word is what the next boot reads
+ * (the user's report of 27 Oct: the card still said off after fast) */
+static void test_bridge_file(void)
+{
+    CHECK(fat_mkdirs("/bm") == 0);
+    CHECK(fat_write_file("/bm", "bridge.txt", "off\n", 4) == 0);
+    CHECK(fat_write_file("/bm", "bridge.txt", "fast\n", 5) == 0);
+    CHECK(fat_write_file("/bm", "bridge.txt", "on\n", 3) == 0);
+    CHECK(fat_write_file("/bm", "bridge.txt", "fast\n", 5) == 0);
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    CHECK(fat_find("/bm/bridge.txt", &e) == 0 && fat_load(&e, &data, &len) == 0);
+    CHECK(len == 5 && data && memcmp(data, "fast\n", 5) == 0);
+    free(data);
+    int same = 0;                       /* one entry only: no second "bridge.txt" for fat_find to meet first */
+    fat_dir_t d;
+    CHECK(fat_opendir(&d, "/bm") == 0);
+    while (fat_readdir(&d, &e))
+        if (!strcasecmp(e.name, "bridge.txt"))
+            same++;
+    CHECK(same == 1);
+}
+
 static void test_sdmap(void)
 {
     uint8_t *buf = pattern(5000, 5);
@@ -529,6 +553,7 @@ int main(int argc, char **argv)
     }
     test_free_count();
     test_sdmap();
+    test_bridge_file();
     test_project();
     test_clock();
     test_lowercase();
