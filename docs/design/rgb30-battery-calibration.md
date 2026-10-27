@@ -80,6 +80,34 @@ Kernel built on the merged `bm-core` (bridge gate commit) went to the console th
 - **Decision.** Do not change `battery_percent()` before a full run-down: a table fitted on one partial run could show too much and the console would stop early. The log has all the columns needed; the backlight is fixed (no setting), so no backlight column.
 - **Next run.** Charge to full, pull the cable, run the menu with `battery_log=1` until the console switches off. Sum the current to get the capacity and the voltage-to-charge curve.
 
+## Full run-down (2026-10-27, bat09, menu only, backlight fixed)
+
+The console ran from the full charge (4212 mV, charge ended at 241 mA, counter 105660) to the switch-off. The cable came out at 10380 s. The load is the menu: -633 mA at 4.09 V, -680 mA at 3.67 V, -707 mA at 3.45 V, -800 mA at 2.9 V (the current rises as the voltage falls: constant power).
+
+- **Capacity.** From the cable out to the last log line (2876 mV, 30900 s): 5 h 42 min and about 3860 mAh. To 3300 mV under load (30060 s): 5 h 28 min and about 3680 mAh. The 4100 mAh of the label is 90 to 94% usable.
+- **Counter.** It stops at 102601 (3059 mAh under the full point) at 26880 s and 3559 mV, as in bat08. The value is the same in both runs: a fixed floor of the register. Sum the current instead.
+- **Switch-off.** There is no clean shut-down. The kernel only lights the LED at 3450 mV (28740 s). The console runs 36 more minutes, and the voltage falls from 3450 to 2876 mV, where the log ends. The knee: 3.35 V at 29940 s, 3.13 V at 30600 s, 2.88 V at 30900 s.
+- **Rest voltage** (loaded mV + 0.126 ohm x A) against the charge left (100% = full, 0% = 3300 mV under load = 3700 mAh used):
+
+| Used (mAh) | Left | Rest mV |
+|---|---|---|
+| 14 | 100% | 4172 |
+| 332 | 91% | 4089 |
+| 653 | 82% | 4014 |
+| 977 | 74% | 3943 |
+| 1307 | 65% | 3864 |
+| 1642 | 56% | 3813 |
+| 1980 | 46% | 3777 |
+| 2320 | 37% | 3757 |
+| 2661 | 28% | 3728 |
+| 3005 | 19% | 3664 |
+| 3346 | 10% | 3553 |
+| 3545 | 4% | 3506 |
+| 3665 | 1% | 3435 |
+
+- **The old table** gives 58% at 3864 mV (real 65%), 31% at 3757 mV (real 37%), 7% at 3664 mV (real 19%), 3% at 3553 mV (real 10%). It is low over the whole range, and it is applied to the loaded voltage: with the menu the bar reads 20 to 30 points low (red at 54% real).
+- **Charger.** The charger takes up to 1.85 A with the good supply. The old supply gave about 1.4 A. Charge ends at about 240 mA at 4215 mV (0.05C).
+
 ## Work items (in order)
 
 1. Run on the console: check the sign and scale of mA (plug the charger: mA must turn positive).
