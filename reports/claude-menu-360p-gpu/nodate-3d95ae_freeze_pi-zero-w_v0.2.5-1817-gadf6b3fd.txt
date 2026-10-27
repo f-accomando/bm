@@ -1,0 +1,84 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1817-gadf6b3fd
+branch: claude/menu-360p-gpu
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-3d95ae_freeze_pi-zero-w_v0.2.5-1817-gadf6b3fd.txt
+
+the Pi froze (the watchdog restarted it) while: carttor, waiting for a key, frame 0, 537 s after boot, kernel v0.2.5-1818-gbf3ce89f, ring 14660, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+_pi-zero-w.txt
+
+playing titan.bm
+play: /bm/titan.bm (1713280 bytes)
+titan build 91f4d15
+load: Titan Clash 1644 ms (close 0, parse 131, assets+state 1429, mode 6, audio 0, lua 75)
+bm: loaded in 1774 ms, the splash over at 1800 ms
+bm: splash ticks: 46 frames, longest gap 51935 us at 309 ms (between 0xa25d8 and 0x99694)
+bm: "Titan Clash" suspended (A on its cover resumes it)
+bm: "Titan Clash" 916 frames, 59.9 fps, 0 dropped
+     update+draw avg 11.26 ms (67% of frame), max 22.59 ms, Lua 571 KB
+     dev kit: Lua peak 974 KB, data 21032 KB, busiest frame 88k instructions, 3 frames over 16.7 ms, 28404 tokens
+     GPU 3D 134 jobs, 103 triangles a frame, 1.73 ms a frame (bin 1%), max job 12319 us
+report: session_titan-clash_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+report: sending session_titan-clash_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-sd-r1-with-reinit/session_titan-clash_pi-zero-w.txt
+market: nearby consoles: listening as bm-108
+market: Checking for new games...
+menu idle: 300/300 frames, 1076 of 1730 ms taken, 99.0 ms past a frame; reports 1040 ms (+99.0, stk 7.6/128K, stop 19.1); min slack -82174 us, paced 0
+menu idle: sd first word <1ms 968 <3ms 13 (max 8.2 ms)
+menu stalls: tls handshake 3x last 418.8 worst 419.1 ms
+menu frame: 3x, a frame averages draw 76076 us, enlarge 0 us, flip 104 us, free time used 3588 us (300 frames)
+market: nearby consoles: listening as bm-108
+
+resuming titan.bm
+bm: "Titan Clash" resumed
+bm: "Titan Clash" suspended (A on its cover resumes it)
+bm: "Titan Clash" 137 frames, 60.0 fps, 0 dropped
+     update+draw avg 12.36 ms (74% of frame), max 14.08 ms, Lua 538 KB
+     dev kit: Lua peak 974 KB, data 21032 KB, busiest frame 88k instructions, 0 frames over 16.7 ms, 28404 tokens
+report: session_titan-clash_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+market: nearby consoles: listening as bm-108
+market: nearby consoles: listening as bm-108
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR CODE (004C)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR 
+market: nearby consoles: listening as bm-108
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer
+menu idle: 300/300 frames, 423 of 1799 ms taken, 98.8 ms past a frame; reports 274 ms (+98.8, stk 7.6/128K, stop 15.4), market 108 ms (+55.7, stk 4.0/128K); min slack -69994 us, paced 0
+menu idle: sd first word <1ms 86 <3ms 2 (max 8.2 ms)
+menu stalls: tls handshake 2x last 347.9 worst 347.9 ms
+menu frame: 3x, a frame averages draw 70582 us, enlarge 0 us, flip 103 us, free time used 1410 us (300 frames)
+menu frame: 3x, a frame averages draw 74869 us, enlarge 0 us, flip 108 us, free time used 19 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+> :
+:log
+: log
+report: 20261027-094801_log_pi-zero-w_v0.2.5-1818-gbf3ce89f.txt saved as bm/reports/rpt00002.txt
+report: sending 20261027-094801_log_pi-zero-w_v0.2.5-1818-gbf3ce89f.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-sd-r1-with-reinit/20261027-094801_log_pi-zero-w_v0.2.5-1818-gbf3ce89f.txt
+the line is done
+> 
+net: console closed
+net: receiving a new kernel (4781260 bytes)...
+net: kernel 0% (0 of 4669 KB)
+net: kernel 10% (471 of 4669 KB)
+net: kernel 20% (934 of 4669 KB)
+net: kernel 30% (1410 of 4669 KB)
+net: kernel 40% (1868 of 4669 KB)
+net: kernel 50% (2342 of 4669 KB)
+net: kernel 60% (2803 of 4669 KB)
+net: kernel 70% (3268 of 4669 KB)
+net: kernel 80% (3739 of 4669 KB)
+net: kernel 90% (4203 of 4669 KB)
