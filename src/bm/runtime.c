@@ -2779,7 +2779,7 @@ static struct {
     int want;                          /* the report is written (session_wanted): measure the parts */
     uint64_t seg_us[SEG_USED];          /* the frames' parts, summed (perf_account) */
     uint64_t wall_us;                   /* the frames measured, from start to start */
-    uint64_t light_us;                  /* the light's part of the draws (dark_begin, glow, dark_end), summed */
+    uint64_t light_us, fade_us;         /* the light's part of the draws (dark_begin, glow, dark_end), summed; its fade alone */
     uint32_t light_frames;              /* the frames with light */
     uint32_t measured, gpu_bound;       /* frames measured; those the GPU set the pace of */
     uint32_t audio_max10;               /* the audio's most of a second, tenths of % of the CPU's time */
@@ -3257,7 +3257,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         if (pf.on)
             perf_mark(&pf.m1);
         const uint32_t td = timer_ticks();
-        rt.light_us = 0;
+        rt.light_us = rt.fade_us = 0;
         if (call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
@@ -3265,6 +3265,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         rt.draw_us = timer_ticks() - td;
         if (rt.light_us) {
             sess.light_us += rt.light_us;
+            sess.fade_us += rt.fade_us;
             sess.light_frames++;
         }
         updated = 0;
@@ -3722,9 +3723,10 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         if (sess.light_frames) {
             /* inside the draw: dark_begin + glow + dark_end (the fade, the 3D sync); the rest is map, sprites, text */
             const uint32_t lm = (uint32_t)(sess.light_us / m), lf = sess.light_frames * 100u / m;
-            PUT("  of the draw: light %lu.%lu ms (dark_begin, glow, dark_end; in %lu%% of the frames), the rest "
-                "%lu.%lu ms (map, sprites, text, Lua)\n", MS1(lm), (unsigned long)lf,
-                MS1(seg[SEG_DRAW] > lm ? seg[SEG_DRAW] - lm : 0));
+            const uint32_t fm = (uint32_t)(sess.fade_us / m);
+            PUT("  of the draw: light %lu.%lu ms (dark_begin, glow, dark_end; in %lu%% of the frames; the fade of "
+                "dark_end alone %lu.%lu ms), the rest %lu.%lu ms (map, sprites, text, Lua)\n", MS1(lm),
+                (unsigned long)lf, MS1(fm), MS1(seg[SEG_DRAW] > lm ? seg[SEG_DRAW] - lm : 0));
         }
         const uint32_t a10 = sess.wall_us ? (uint32_t)(sess.seg_us[SEG_AUDIO] * 1000u / sess.wall_us) : 0;
         PUT("audio interrupt: %lu.%lu%% of the CPU's time (mean), %lu.%lu%% at most in a second\n",

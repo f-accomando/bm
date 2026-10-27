@@ -97,6 +97,7 @@ typedef struct {
     uint32_t updates;           /* the _update that ran before this frame's _draw (stat(15)) */
     uint32_t update_us, draw_us;    /* this frame's: all its _update, its _draw (the dev kit) */
     uint32_t light_us;          /* this frame's: dark_begin, glow and dark_end, inside draw_us */
+    uint32_t fade_us;           /* of light_us: the fade of dark_end alone (QPU or ARM) */
     char devinfo[4][19];        /* devinfo(): the game's lines in the session report */
     int ndevinfo;
     uint32_t hook_count;

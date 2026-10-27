@@ -199,10 +199,12 @@ int l_dark_end(lua_State *L)
     const uint32_t t0 = timer_ticks();
     if (rt.fade.lv) {
         sync3d();                       /* it reads the page: the 3D (and a cls) on it first */
+        const uint32_t tf = timer_ticks();
         if (bm_fade_accel)
             bm_fade_accel(&rt.g, &rt.fade);
         else
             g16_fade_apply(&rt.g, &rt.fade);
+        rt.fade_us += timer_ticks() - tf;
     }
     rt.light_us += timer_ticks() - t0;
     return 0;
