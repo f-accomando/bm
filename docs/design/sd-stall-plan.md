@@ -16,6 +16,8 @@ Goal: no menu frame, no game start and no game close loses more than one frame (
 - `rescan()` in `src/kernel/carts.c` keeps the loaded covers (`c->cover`, `c->cover_read = 1`) across scans. Going back to the menu after a game does no SD cover read.
 - Left: report jobs still yield up to 100 ms in a TLS handshake (stages S3 and S5).
 
+History of the attempts on this fault, the WiFi loss of 27 Oct and the rules for the next one: [sd-read-timeout](sd-read-timeout.md).
+
 ## 1. Why the fiber did not fix the 500 ms
 
 The fiber yields only between calls. The 500 ms is inside one call: `read_blocks` in `src/drivers/sdhost.c` spins on `timer_ticks() - t0 > 500000`. The hardware timeout (`SDTOUT`, `set_clock`) is also half a second. A fiber cannot give the CPU back from inside the spin. A smaller share does not help.

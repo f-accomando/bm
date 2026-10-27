@@ -6,6 +6,7 @@
  */
 #include "sd.h"
 #include "sd_backend.h"
+#include "lib/printf.h"
 
 static int use_emmc;
 static int inited;
@@ -32,11 +33,33 @@ static int fall_back(void)
     return !use_emmc && inited && init_emmc() == 0;
 }
 
+/* SDHOST gave a transfer up. The card moves to the Arasan controller for
+ * good, and the WiFi chip needs that controller. So SDHOST starts again first
+ * (one try); the caller repeats the transfer when this returns 1. The line
+ * says why it failed: the text of the error and the sites that moved (the
+ * SD file log cannot be written when the SD fails, so it goes to the RAM log). */
+static int restart_sdhost(const char *what)
+{
+    if (use_emmc || !inited)
+        return 0;
+    char sites[96];
+    sdhost_stats_line(sites, sizeof sites);
+    kprintf("sd: sdhost %s failed (%s) %s\n", what, sdhost_error(), sites);
+    if (sdhost_init() != 0) {
+        kprintf("sd: sdhost does not start again (%s): the Arasan controller\n", sdhost_error());
+        return 0;
+    }
+    kprintf("sd: sdhost started again\n");
+    return 1;
+}
+
 int sd_read(uint32_t lba, uint32_t count, void *buf)
 {
     if (use_emmc)
         return emmc_sd_read(lba, count, buf);
     if (sdhost_read(lba, count, buf) == 0)
+        return 0;
+    if (restart_sdhost("read") && sdhost_read(lba, count, buf) == 0)
         return 0;
     return fall_back() ? emmc_sd_read(lba, count, buf) : -1;
 }
@@ -52,6 +75,8 @@ int sd_write(uint32_t lba, uint32_t count, const void *buf)
      * itself; fat.c writes them again one at a time, which still may */
     if (count > 1)
         return -1;
+    if (restart_sdhost("write") && sdhost_write(lba, count, buf) == 0)
+        return 0;
     return fall_back() ? emmc_sd_write(lba, count, buf) : -1;
 }
 
