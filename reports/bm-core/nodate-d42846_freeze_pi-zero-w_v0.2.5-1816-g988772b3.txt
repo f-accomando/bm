@@ -1,0 +1,62 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1816-g988772b3
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-d42846_freeze_pi-zero-w_v0.2.5-1816-g988772b3.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 673 s after boot, kernel v0.2.5-1816-g988772b3, ring 9612, sink on
+--- the last lines printed ---
+ Connect tries again)
+fiber: wifi did not yield: 12.6 ms past its slice
+menu idle: 300/300 frames, 21 of 899 ms taken, 12.6 ms past a frame; wifi 12 ms (+12.6, stk 1.0/64K); min slack -24552 us, paced 0
+menu frame: 2x, a frame averages draw 37294 us, enlarge 0 us, flip 94 us, free time used 71 us (300 frames)
+config: cannot save (SD read error)
+menu: menu size at the next start: 1080p (GPU)
+config: cannot save (SD read error)
+menu: menu size at the next start: 360p (ARM)
+menu frame: 2x, a frame averages draw 38343 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+bm > Connect to a network (B cancels)
+
+wifi: the SD card is on the Arasan controller (SDHOST failed): no controller left for WiFi
+
+A, Esc or any key: back to the menu
+bm > Connect to a network (B cancels)
+
+wifi: the SD card is on the Arasan controller (SDHOST failed): no controller left for WiFi
+
+A, Esc or any key: back to the menu
+menu frame: 1x, a frame averages draw 17214 us, enlarge 0 us, flip 92 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 8661 us, enlarge 0 us, flip 91 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8825 us, enlarge 0 us, flip 90 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8740 us, enlarge 0 us, flip 90 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8652 us, enlarge 0 us, flip 90 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8712 us, enlarge 0 us, flip 90 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8814 us, enlarge 0 us, flip 90 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8727 us, enlarge 0 us, flip 90 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8640 us, enlarge 0 us, flip 90 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 8753 us, enlarge 0 us, flip 90 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 8795 us, enlarge 0 us, flip 90 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8709 us, enlarge 0 us, flip 91 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 8622 us, enlarge 0 us, flip 90 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 8796 us, enlarge 0 us, flip 91 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 8780 us, enlarge 0 us, flip 92 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8693 us, enlarge 0 us, flip 92 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8610 us, enlarge 0 us, flip 92 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 8845 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8769 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8682 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8638 us, enlarge 0 us, flip 91 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8836 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8749 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8663 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8685 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8819 us, enlarge 0 us, flip 90 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 7851 us, enlarge 0 us, flip 90 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 8343 us, enlarge 0 us, flip 90 us, free time used 18 us (300 frames)
+bm > Connect to a network (B cancels)
+
+wifi: the SD card is on the Arasan controller (SDHOST failed): no controller left for WiFi
+
+A, Esc or any key: back to the menu
