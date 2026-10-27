@@ -533,6 +533,8 @@ int main(int argc, char **argv)
                         "GPU drew the one before\n", (unsigned)st.later, (double)g.overlapped / (double)run.frame);
     if (g.quads2d && run.frame > 0)     /* bm3d 4.8: the 2D over the 3D in the GPU's job */
         fprintf(stderr, "bmhost: 2D on the GPU: %.1f quads a frame\n", (double)g.quads2d / (double)run.frame);
+    if (g.light2d && run.frame > 0)     /* bm3d 7.17: the light of dark_end by the GPU */
+        fprintf(stderr, "bmhost: light on the GPU: %u frames\n", (unsigned)g.light2d);
     if (g.glmeshes && run.frame > 0)
         fprintf(stderr, "bmhost: vertex shader: %.0f meshes and %.0f triangles a frame\n",
                 (double)g.glmeshes / (double)run.frame, (double)g.gltris / (double)run.frame);

@@ -158,6 +158,11 @@ typedef struct {
     int gpu2d;                  /* bm3d 4.8: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1) */
     int gpu2d_only;             /* bm3d 7.16: a game with no 3D has its 2D drawn by the GPU too (gpu2d_only=1, off by default) */
     int gpu2d_only_checked;     /* the key read for this run */
+    int light_checked, light_key;   /* gpu3d_light (bm3d 7.17): the key read, and on */
+    int light_defer;            /* this frame's lamps are recorded, lit by the GPU at dark_end */
+    int light_amb;              /* the ambient level of dark_begin */
+    int light_n;                /* the lamps recorded */
+    struct { int x, y, r, lv, dither; } lamp[64];   /* glow() as it was asked: x, y in the page */
     uint32_t gpu_quads_frame;   /* the 2D quads the GPU took in the last frame (the overlay's "2D" row) */
     int gwin_on;                /* gpu2d_sheet(): the window of the sheet the GPU's 2D draws from (a copy, gwin) */
     int gw_x, gw_y, gw_w, gw_h; /* the window in the sheet, on the 8-pixel cells */
@@ -500,6 +505,8 @@ int l_quit(lua_State *L);
 void settle_reads(void);      /* defined in runtime.c: 2D reads the page */
 int gpu2d(int op, const int32_t *v);
 int gpu2d_open(void);
+int light_gpu_wanted(void);       /* gpu3d_light=1 and the GPU there: dark_begin records the lamps */
+int light_gpu_run(void);          /* dark_end: the GPU lights the page; 0 if it did not (the ARM does) */
 int l_gpu2d_sheet(lua_State *L);
 void gpu2d_submit(void);          /* starts the frame job on the GPU now (the ARM goes on: dark_begin) */
 int draw2d(int op, uint32_t words, int32_t **a);

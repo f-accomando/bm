@@ -281,6 +281,77 @@ void gpu2d_submit(void)
     submit3d();
 }
 
+static int r3d_boot(void);
+
+/* bm3d 7.17, gpu3d_light=1 (hidden key, off): the light of dark_begin .. dark_end made by the GPU. glow() only records
+ * the lamp; at dark_end one quad over the page (fs_light) multiplies each pixel by the colour of the ambient plus the
+ * lamps' (a lamp's reach 1 - d2 / r2, squared, times its level between the ambient and the top level of fades()).
+ * The pictures are not the ARM's: the light is smooth, between the ambient and the top row of the tables, and lamps
+ * add up (the ARM keeps the highest). Does the GPU draw it: 1 if the key is on and the GPU runs. */
+int light_gpu_wanted(void)
+{
+    if (!rt.light_checked) {
+        const char *v = config_get("gpu3d_light");
+        rt.light_checked = 1;
+        rt.light_key = v && v[0] == '1';
+        if (rt.light_key)
+            kprintf("bm: gpu3d_light=1: the light of dark_end is made by the GPU\n");
+    }
+    if (!rt.light_key)
+        return 0;
+    if (rt.g.stride != (uint32_t)rt.g.w)
+        return 0;
+    if (!rt.r3d.backend && (r3d_boot() != 0 || !rt.r3d.backend)) {
+        kprintf("bm: gpu3d_light: the GPU did not start, the ARM makes the light\n");
+        rt.light_key = 0;
+        return 0;
+    }
+    return 1;
+}
+
+int light_gpu_run(void)
+{
+    if (!rt.r3d.backend || !rt.fade.lv)
+        return 0;
+    sync3d();                               /* what the GPU holds goes on the page first; the page is not one colour */
+    if (!rt.r3d.backend)
+        return 0;
+    const g16_fade_t *f = &rt.fade;
+    const int top = f->levels - 1;
+    int amb = rt.light_amb;
+    amb = amb < 0 ? 0 : amb > top ? top : amb;
+    float u[GPU_LIGHT_UNIFORMS] = { 0 };
+    for (int c = 0; c < 3; c++) {
+        const float a = f->mul[amb][c] / 256.0f;
+        u[c] = a * 0.5f;                    /* (the shader doubles the product) */
+        u[3 + c] = (f->mul[top][c] / 256.0f - a) * 0.5f;
+    }
+    /* the strongest lamps: the shader has room for GPU_LIGHT_LAMPS */
+    uint8_t taken[64] = { 0 };
+    for (int k = 0; k < GPU_LIGHT_LAMPS; k++) {
+        int best = -1;
+        for (int i = 0; i < rt.light_n; i++)
+            if (!taken[i] && rt.lamp[i].r > 0 && rt.lamp[i].lv > amb && (best < 0 || rt.lamp[i].lv > rt.lamp[best].lv))
+                best = i;
+        if (best < 0)
+            break;
+        taken[best] = 1;
+        float *l = u + 6 + 4 * k;
+        const float r = (float)rt.lamp[best].r;
+        l[0] = (float)rt.lamp[best].x;
+        l[1] = (float)rt.lamp[best].y;
+        l[2] = 1.0f / (r * r);
+        l[3] = top > amb ? (float)(rt.lamp[best].lv - amb) / (float)(top - amb) : 0.0f;
+    }
+    if (gpu3d_light2d(&rt.g, u) != 0) {
+        if (gpu3d_failed())
+            rt.r3d.backend = NULL;
+        return 0;
+    }
+    flush3d(0);                             /* the job runs, waited for: the page is lit */
+    return rt.r3d.backend != NULL;
+}
+
 /* sspr's source rectangle inside the sheet, as gfx16 cuts it */
 static int sheet_rect(int *sx, int *sy, int *sw, int *sh)
 {

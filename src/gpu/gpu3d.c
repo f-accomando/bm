@@ -19,7 +19,7 @@
 #define JOB_RCL      (128u << 10)   /* up to 44 bytes a tile: 2040 tiles (1080p with MSAA) */
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (48u << 10)    /* the shaders: 1 KB each, 2 KB for a vertex shader */
+#define JOB_CODE     (52u << 10)    /* the shaders: 1 KB each, 2 KB for a vertex shader and for the light's */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -56,7 +56,9 @@ typedef struct {
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
        SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_SHADOW, SH_TEX_T, SH_TEX_RGB_T,
-       SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
+       SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T,
+       SH_LIGHT,                        /* bm3d 7.17: the light of dark_end (2 KB: the slot after it is its) */
+       SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (bm3d 3.0); GV_LIT_TEX2: faces on two bones (a
  * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (bm3d 7.1,
@@ -65,7 +67,7 @@ enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA,
  * the cel light takes them in place of the others (cel_vs), they are never in a mesh */
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8,
        GV_LIT_CEL, GV_LIT_TEX_CEL, GV_LIT_TEX2_CEL, GV_LIT8_CEL, GV_COUNT };
-#define CODE_CS SH_COUNT                /* the coordinate shader's kilobyte of G.code */
+#define CODE_CS (SH_COUNT + 1)          /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS (CODE_CS + 1)           /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
 #define CODE_CS2 (CODE_SHADOW + 3)      /* on two bones: the coordinate shader, the shadow's two */
@@ -76,7 +78,7 @@ _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs
                sizeof vs_baked8 <= 2048 && sizeof vs_lit8 <= 2048 && sizeof vs_lit_cel <= 2048 &&
                sizeof vs_lit_tex_cel <= 2048 && sizeof vs_lit_tex2_cel <= 2048 && sizeof vs_lit8_cel <= 2048 &&
                sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 && sizeof cs_colour2 <= 1024 &&
-               sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 &&
+               sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 && sizeof fs_light <= 2048 &&
                CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
 
 /* discard: the shader may write no pixel (early z off); near: the texture
@@ -100,6 +102,7 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t, 2, 3, 1, 0 },
     { fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t, 2, 8, 1, 0 },
     { fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t, 2, 8, 1, 0 },
+    { fs_light, sizeof fs_light, GPU_LIGHT_UNIFORMS, 0, 0, 0 },     /* bm3d 7.17: its uniforms are the lamps' */
 };
 
 /* a sprite sheet as a texture: RGBA32R (raster order, 32 bits a texel) in
@@ -863,7 +866,7 @@ static inline int fs_code(int shader)
  * 2026-10-05) */
 static inline uint8_t fs_flags(int code)
 {
-    return code >= SH_TEX_T ? 0 : 1;            /* the _T shaders are the last ones */
+    return code >= SH_TEX_T && code != SH_LIGHT ? 0 : 1;   /* the _T shaders are the last ones, then the light's */
 }
 
 /* 0, or -1 if the job is full */
@@ -1191,6 +1194,46 @@ static int zclear_quad(const g16_t *g)
     G.vbytes += 6 * G.b_stride;
     G.st.zinjob++;
     G.zc = 1;                           /* the batches after it: without early z */
+    return 0;
+}
+
+/* bm3d 7.17: the light of dark_end as a quad over the page (fs_light): u is the shader's uniforms,
+ * GPU_LIGHT_UNIFORMS floats (gpu3d.h). The pixel the page holds is multiplied by the colour they make; the job
+ * loads the page, so what the ARM drew in the RAM page is what is lit. 0, or -1 if the GPU failed or the job is
+ * full (nothing was added). */
+int gpu3d_light2d(const g16_t *g, const float *u)
+{
+    if (G.failed)
+        return -1;
+    batch_close();                      /* its own batch: the record points to these uniforms */
+    g16_t all = *g;                     /* the whole page, whatever the clip rectangle */
+    all.cx0 = all.cy0 = 0;
+    all.cx1 = g->w;
+    all.cy1 = g->h;
+    if (batch_for(&all, SH_LIGHT, R3D_DEPTH_NONE, NULL) != 0)
+        return -1;
+    if (G.unif_next + GPU_LIGHT_UNIFORMS + 16 > G.unif + JOB_UNIF / 4) {
+        batch_close();
+        return -1;
+    }
+    uint32_t *ub = (uint32_t *)(((uintptr_t)G.unif_next + 15) & ~(uintptr_t)15);
+    memcpy(ub, u, GPU_LIGHT_UNIFORMS * sizeof *ub);
+    G.unif_next = ub + GPU_LIGHT_UNIFORMS;
+    const uint32_t a = v3d_bus(ub);
+    memcpy(G.rec_next - 16 + 8, &a, 4);         /* the record batch_open just made: the uniforms' address */
+    const int16_t x1 = (int16_t)(g->w * 16), y1 = (int16_t)(g->h * 16);
+    const int16_t xy[6][2] = { { 0, 0 }, { x1, 0 }, { x1, y1 }, { 0, 0 }, { x1, y1 }, { 0, y1 } };
+    uint8_t *o = G.verts + G.vbytes;
+    for (int i = 0; i < 6; i++, o += G.b_stride) {
+        gvert_t *v = (gvert_t *)o;
+        v->x = xy[i][0];
+        v->y = xy[i][1];
+        v->z = 0.5f;
+        v->inv_w = 1.0f;
+    }
+    G.vbytes += 6 * G.b_stride;
+    batch_close();
+    G.st.light2d++;
     return 0;
 }
 

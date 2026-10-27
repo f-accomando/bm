@@ -169,6 +169,12 @@ const char *gpu3d_probe_log(void);
  * g16_text_scaled, in g's font. 1 if the GPU took it, 0 if it cannot (the
  * ARM draws it, after the job). */
 int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c);
+/* bm3d 7.17: the light of dark_end (fs_light): the page's pixels times a colour made from the ambient and the lamps.
+ * u: ambient (3) and tint (3) (both halved: the shader doubles the product), then for each of GPU_LIGHT_LAMPS lamps its
+ * x, y (in the page), 1 / r^2 and level (0: no lamp), all floats. 0, or -1 if the GPU failed. */
+#define GPU_LIGHT_LAMPS 12
+#define GPU_LIGHT_UNIFORMS (6 + 4 * GPU_LIGHT_LAMPS)
+int gpu3d_light2d(const g16_t *g, const float *u);
 int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
                  int flip_x, int flip_y);
 int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale);
@@ -189,6 +195,7 @@ typedef struct {
     uint32_t queued;                /* jobs started and waited for later (bm3d 4.1) */
     uint32_t zinjob;                /* zclear() inside a job (bm3d 4.1) */
     uint32_t quads2d;               /* 2D drawn by the GPU over the 3D (bm3d 4.8) */
+    uint32_t light2d;               /* the light of dark_end drawn by the GPU (bm3d 7.17) */
     uint32_t glverts;               /* corners the vertex shader is given (bm3d 5.0: indexed, once each) */
     uint32_t overlapped;            /* jobs filled while the one before was drawn (bm3d 5.1, two blocks) */
     uint32_t sorted;                /* mesh draws moved by the nearest-first order (bm3d 5.4) */

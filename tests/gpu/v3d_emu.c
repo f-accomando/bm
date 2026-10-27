@@ -527,7 +527,7 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
 /* ---------------------------------------------------------------- binning */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
-       SH_TEX_RGB_SCREEN, SH_TEXT, SH_SHADOW };
+       SH_TEX_RGB_SCREEN, SH_TEXT, SH_SHADOW, SH_LIGHT };
 
 typedef struct { float x, y, z, iw, v[8]; } evert_t;
 
@@ -751,6 +751,7 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha)) return SH_TEX_RGB_ALPHA;
     if (!memcmp(code, fs_zclear, sizeof fs_zclear)) return SH_ZCLEAR;
     if (!memcmp(code, fs_shadow, sizeof fs_shadow)) return SH_SHADOW;     /* bm3d 7.7 */
+    if (!memcmp(code, fs_light, sizeof fs_light)) return SH_LIGHT;        /* bm3d 7.17 */
     if (!memcmp(code, fs_tex_lit_screen, sizeof fs_tex_lit_screen)) return SH_TEX_SCREEN;
     if (!memcmp(code, fs_tex_rgb_screen, sizeof fs_tex_rgb_screen)) return SH_TEX_RGB_SCREEN;
     if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
@@ -1019,15 +1020,16 @@ static int bin(uint32_t start, uint32_t end)
             if (threaded_check(rec) != 0)
                 return -1;
             const int colour = sh == SH_COLOUR || sh == SH_SCREEN || sh == SH_ZCLEAR || sh == SH_SHADOW,
+                      light = sh == SH_LIGHT,
                       rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA || sh == SH_TEX_RGB_SCREEN;
             int stride = rec[1], nvary = rec[3];
             if (sh == SH_ZCLEAR && emu_hang_zclear)
                 return err("fs_zclear: the job does not end (emu_hang_zclear)", 0, 0);
-            if (nvary != (rgb ? 8 : sh == SH_ZCLEAR ? 0 : sh == SH_TEXT ? 5 : 3) || stride != 12 + 4 * nvary ||
-                rec[2] != (colour ? 0 : 2))
+            if (nvary != (rgb ? 8 : sh == SH_ZCLEAR || light ? 0 : sh == SH_TEXT ? 5 : 3) || stride != 12 + 4 * nvary ||
+                rec[2] != (light ? 54 : colour ? 0 : 2))
                 return err("shader record: stride %u, varyings %u", stride, nvary);
             const uint8_t *vb = ptr(rd32(rec + 12));
-            const uint32_t *params = colour ? NULL : ptr(rd32(rec + 8));
+            const uint32_t *params = colour ? NULL : ptr(rd32(rec + 8));    /* (the light's: its 54 uniforms) */
             if (!vb || (!colour && !params) || (rd32(rec + 12) & 3))
                 return err("vertices %08x, uniforms %08x", rd32(rec + 12), rd32(rec + 8));
             for (uint32_t i = 0; i < n; i += 3) {
@@ -1369,6 +1371,26 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                     if (pr->shader == SH_ZCLEAR) {  /* fs_zclear: the colour loaded and written back */
                         if (pr->z_update)
                             tz[i] = zz;
+                        continue;
+                    }
+                    if (pr->shader == SH_LIGHT) {   /* fs_light: the pixel's colour times the lamps' light, in the shader's float order */
+                        const uint32_t *u = pr->params;
+                        float un[54];
+                        for (int k = 0; k < 54; k++)
+                            memcpy(&un[k], &u[k], 4);
+                        const float fx = (float)x, fy = (float)y;
+                        float sum = 0.0f;
+                        for (int l = 0; l < 12; l++) {
+                            const float *lp = un + 6 + 4 * l;
+                            const float dx = fx - lp[0], dy = fy - lp[1];
+                            float f = 1.0f - (dx * dx + dy * dy) * lp[2];
+                            f = f > 0.0f ? f : 0.0f;
+                            sum += f * f * lp[3];
+                        }
+                        for (int k = 0; k < 3; k++) {
+                            const uint8_t m = unit8(sum * un[3 + k] + un[k]);
+                            tcol[i][k] = adds(muld(tcol[i][k], m), muld(tcol[i][k], m));
+                        }
                         continue;
                     }
                     if (pr->shader == SH_SHADOW) {  /* fs_shadow: the pixel's colour times 0.5, plus times 0.125 */

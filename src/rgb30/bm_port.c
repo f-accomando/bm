@@ -123,6 +123,11 @@ int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, i
     (void)flip_y;
     return 0;
 }
+int gpu3d_light2d(const g16_t *g, const float *u)
+{
+    (void)g; (void)u;
+    return -1;
+}
 int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale)
 {
     (void)g; (void)x; (void)y; (void)str; (void)c; (void)scale;

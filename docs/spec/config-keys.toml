@@ -228,6 +228,15 @@ settings = ""
 read_in = "src/bm/runtime.c:gpu2d_only_frame"
 
 [[key]]
+name = "gpu3d_light"
+scope = "pi"
+values = "1 = the light of dark_begin .. dark_end (fades, glow) is made by the V3D at dark_end; anything else = ARM"
+default = "off (0) until the Pi measures it."
+meaning = "The GPU lights the page: one quad over it multiplies each pixel by the ambient plus the lamps' colour (bm3d 7.17). The look is smooth and lamps add up; the ARM's is in levels and keeps the highest. Hidden key, no Settings row."
+settings = ""
+read_in = "src/bm/runtime.c:light_gpu_wanted"
+
+[[key]]
 name = "gpu3d_2d"
 scope = "pi"
 values = "1 = the 2D over the 3D is drawn by the GPU in its job; 0 = ARM"

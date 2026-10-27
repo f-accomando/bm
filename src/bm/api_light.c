@@ -154,7 +154,11 @@ int l_dark_begin(lua_State *L)
         sync3d();                       /* the 2D the GPU holds goes on the page it was drawn for, before the RAM page takes over */
     if (video_to_ram(&rt.g) != 0 || g16_fade_set_step(&rt.fade, (int)luaL_optinteger(L, 2, 1)) != 0)
         return luaL_error(L, "not enough memory for lighting");
-    g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
+    rt.light_amb = (int)luaL_optinteger(L, 1, 0);
+    rt.light_n = 0;
+    rt.light_defer = light_gpu_wanted();    /* bm3d 7.17: the GPU lights the page at dark_end from the lamps */
+    if (!rt.light_defer)
+        g16_fade_clear(&rt.fade, rt.light_amb);
     if (rt.gpu2d_only && rt.r3d.backend)
         gpu2d_submit();                 /* the GPU draws what the frame has so far while the ARM makes the lights */
     rt.light_us += timer_ticks() - t0;
@@ -190,8 +194,20 @@ int l_glow(lua_State *L)
         return luaL_error(L, "glow() before dark_begin()");
     const uint32_t t0 = timer_ticks();
     const float d = fnum(L, 5, 0.5f);
-    g16_fade_glow(&rt.fade, (int)floorf(fnum(L, 1, 0)) - rt.g.cam_x, (int)floorf(fnum(L, 2, 0)) - rt.g.cam_y,
-                  (int)fnum(L, 3, 32), (int)luaL_checkinteger(L, 4), (int)(d * 256));
+    const int x = (int)floorf(fnum(L, 1, 0)) - rt.g.cam_x, y = (int)floorf(fnum(L, 2, 0)) - rt.g.cam_y;
+    const int r = (int)fnum(L, 3, 32), lv = (int)luaL_checkinteger(L, 4), dither = (int)(d * 256);
+    if (rt.light_defer) {
+        if (rt.light_n < 64) {
+            rt.lamp[rt.light_n].x = x;
+            rt.lamp[rt.light_n].y = y;
+            rt.lamp[rt.light_n].r = r;
+            rt.lamp[rt.light_n].lv = lv;
+            rt.lamp[rt.light_n].dither = dither;
+            rt.light_n++;
+        }
+    } else {
+        g16_fade_glow(&rt.fade, x, y, r, lv, dither);
+    }
     rt.light_us += timer_ticks() - t0;
     return 0;
 }
@@ -205,6 +221,18 @@ int l_dark_end(lua_State *L)
     if (rt.fade.lv) {
         sync3d();                       /* it reads the page: the 3D (and a cls) on it first */
         const uint32_t tf = timer_ticks();
+        if (rt.light_defer) {
+            rt.light_defer = 0;
+            if (light_gpu_run()) {
+                rt.fade_us += timer_ticks() - tf;
+                rt.light_us += timer_ticks() - t0;
+                return 0;
+            }
+            /* the GPU did not light it: the lamps go to the level map and the ARM applies it */
+            g16_fade_clear(&rt.fade, rt.light_amb);
+            for (int i = 0; i < rt.light_n; i++)
+                g16_fade_glow(&rt.fade, rt.lamp[i].x, rt.lamp[i].y, rt.lamp[i].r, rt.lamp[i].lv, rt.lamp[i].dither);
+        }
         if (bm_fade_accel) {
             g16_fade_flush(&rt.fade);       /* the QPU reads the full-size map */
             bm_fade_accel(&rt.g, &rt.fade);

@@ -1793,6 +1793,40 @@ def same(got, words):
     return True
 
 
+# bm3d 7.17: the light of dark_end on the GPU. One quad over the page: for each pixel the light it gets from
+# LIGHT_LAMPS lamps is added up, S = sum of level * (1 - d2 / r2)^2 (0 outside the lamp), the colour factor is
+# M = A + S * W per channel (A the ambient's, W the lamps' tint; halved by the ARM: M / 2 is in 0..1), and the
+# pixel the colour load signal reads from the tile buffer is multiplied by it (v8muld, then doubled with a
+# saturating add). Uniforms: A (3), W (3), then for each lamp: x, y, 1 / r2, level (floats; level 0 = no lamp).
+LIGHT_LAMPS = 12
+
+
+def _fs_light():
+    t = ["nop ; nop", "nop ; nop", "itof ra0, x_coord ; nop", "itof rb0, y_coord ; nop",
+         "mov ra2, unif ; nop", "mov ra3, unif ; nop", "mov ra4, unif ; nop",
+         "mov rb2, unif ; nop", "mov rb3, unif ; nop", "mov rb4, unif ; nop", "mov r2, 0 ; nop"]
+    for _ in range(LIGHT_LAMPS):
+        t += ["fsub r0, ra0, unif ; nop",          # dx
+              "fsub r1, rb0, unif ; nop",          # dy
+              "nop ; fmul r0, r0, r0",
+              "nop ; fmul r1, r1, r1",
+              "fadd r0, r0, r1 ; nop",             # d2
+              "nop ; fmul r0, r0, unif",           # d2 / r2
+              "fsub r0, 1.0, r0 ; nop",
+              "fmax r0, r0, 0 ; nop",              # 1 - d2 / r2, 0 outside
+              "nop ; fmul r0, r0, r0",
+              "nop ; fmul r0, r0, unif",           # times the level
+              "fadd r2, r2, r0 ; nop"]             # S
+    for c, b in enumerate("abc"):
+        t += ["nop ; fmul r0, r2, rb%d" % (2 + c), "fadd r0, r0, ra%d ; nop" % (2 + c), "nop ; mov r1.8%s, r0" % b]
+    t += ["nop ; mov r1.8d, 1.0", "nop ; nop ; sbwait", "nop ; nop ; loadc",
+          "nop ; v8muld r0, r4, r1", "v8adds r0, r0, r0 ; nop", "mov tlb_z, rb15 ; nop",
+          "mov tlbc, r0 ; nop ; thrend", "nop ; nop", "nop ; nop ; sbdone"]
+    return "\n".join("        " + x for x in t) + "\n    "
+
+
+SHADERS["fs_light"] = _fs_light()
+
 # bm3d 6.3: a fragment shader run for one pixel on its encoded words, to
 # check that a two-thread shader (name_t) writes what its one-thread
 # original writes: the same depth and colour, or neither, for random
