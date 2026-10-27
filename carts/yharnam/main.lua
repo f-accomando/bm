@@ -5172,6 +5172,7 @@ function _init()
   place_player()
   P.home = { P.x, P.y }
   cam_x, cam_y = P.x - W / 2, P.y - H * 0.62
+  autoplay_start()
 end
 
 function _update()
@@ -5253,6 +5254,435 @@ function _update()
   -- the dev kit's page and the session report: how often the view waited for a chunk
   if t % 30 == 0 and devinfo then devinfo("on the spot " .. G.sync, "in time " .. G.bg) end
   update_parts()
+end
+
+--@module autoplay
+----------------------------------------------------------------- autoplay (for the benchmarks)
+-- Autoplay: the hunter plays by itself on a fixed route, then the game closes.
+-- It is off. The key yharnam_autoplay=1 in bm/config.txt turns it on.
+-- This layer makes a mask of buttons in each frame. It replaces btn, btnp and pad.
+-- The game logic and the drawing do not know about it: they run as for a person.
+-- The route is the same in each run. Its dice are its own (AUTO_SEED).
+AUTO_FRAMES = 7200           -- the run: 7200 frames, 2 minutes at 60 fps (the route may end sooner)
+local AUTO_SEED = 12345
+
+local function autoplay_wanted()
+  if not cart_config then return false end
+  local ok, v = pcall(cart_config, "yharnam_autoplay")
+  return ok and v ~= nil and v ~= "" and v ~= "0" and v ~= "off"
+end
+
+function autoplay_start()
+  if not autoplay_wanted() then return end
+  local Y = YHARNAM
+  local P, F, G = Y.player, Y.FOE, Y.G
+  local TS2, CPX2 = Y.TS, Y.TS * Y.CS
+  local LEFT, RIGHT, UP, DOWN, A, BB, X, YB, SELECT, L1 = 1, 2, 4, 8, 16, 32, 64, 128, 512, 1024
+  local RANGE = F.ai.RANGE
+  local seed = AUTO_SEED
+  local function rnd()
+    seed = (seed * 1103515245 + 12345) % 2147483648
+    return seed / 2147483648
+  end
+  local S = { frame = 0, deaths = 0, lost = 0, goal = 1, goals = 0, lamps = 0, paths = 0,
+              districts = {}, ndist = 0, hunts = 1, done = false }
+  AUTO = S
+
+  ---------------------------------------------------------------- the way
+  local function tkey(tx, ty) return (tx + 4096) * 8192 + (ty + 4096) end
+  local fires = {}
+  local function gather_fires()
+    for k = #fires, 1, -1 do fires[k] = nil end
+    local pcx, pcy = floor(P.x / CPX2), floor(P.y / CPX2)
+    for cy = pcy - 1, pcy + 1 do
+      for cx = pcx - 1, pcx + 1 do
+        for _, f in ipairs(Y.ensure(cx, cy).fires) do
+          fires[#fires + 1] = { x = f.x, y = f.y + (f.big and 10 or 25), r = (f.big and 26 or 16) + 12 }
+        end
+      end
+    end
+  end
+  local function in_fire(x, y, k)
+    for _, f in ipairs(fires) do
+      local ex, ey = (x - f.x) / (f.r * k), (y - f.y) / (f.r * k * 0.6)
+      if ex * ex + ey * ey < 1 then return f end
+    end
+  end
+  local function walkable(tx, ty)
+    local x, y = tx * TS2 + 8, ty * TS2 + 8
+    return not Y.blocked(x, y) and not in_fire(x, y, 1)
+  end
+  local N4 = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
+  local plan = { path = nil, i = 1, age = 0 }
+  local visits, last_tile = {}, nil
+
+  -- The streets of the 3 x 3 chunks round the hunter: the way to the goal,
+  -- or to the tile nearest to it. Tiles walked often weigh more.
+  local function replan(gx, gy)
+    local ptx, pty = floor(P.x / TS2), floor(P.y / TS2)
+    local pcx, pcy = floor(P.x / CPX2), floor(P.y / CPX2)
+    for cy = pcy - 1, pcy + 1 do for cx = pcx - 1, pcx + 1 do Y.ensure(cx, cy) end end
+    gather_fires()
+    local CS2 = Y.CS
+    local x0, y0, x1, y1 = (pcx - 1) * CS2, (pcy - 1) * CS2, (pcx + 2) * CS2 - 1, (pcy + 2) * CS2 - 1
+    local gtx, gty = floor(gx / TS2), floor(gy / TS2)
+    local parent = { [tkey(ptx, pty)] = false }
+    local qx, qy, head = { ptx }, { pty }, 1
+    local bx, by, bh = ptx, pty, math.huge
+    while head <= #qx do
+      local tx, ty = qx[head], qy[head]
+      head = head + 1
+      local h = sqrt((tx - gtx) ^ 2 + (ty - gty) ^ 2) * TS2 + (visits[tkey(tx, ty)] or 0) * 20
+      if h < bh then bx, by, bh = tx, ty, h end
+      if tx == gtx and ty == gty then bx, by = tx, ty; break end
+      for _, d in ipairs(N4) do
+        local nx, ny = tx + d[1], ty + d[2]
+        if nx >= x0 and nx <= x1 and ny >= y0 and ny <= y1 then
+          local k = tkey(nx, ny)
+          if parent[k] == nil and walkable(nx, ny) then
+            parent[k] = tkey(tx, ty)
+            qx[#qx + 1], qy[#qy + 1] = nx, ny
+          end
+        end
+      end
+    end
+    local path, k = {}, tkey(bx, by)
+    local tx, ty = bx, by
+    while parent[k] do
+      table.insert(path, 1, { tx * TS2 + 8, ty * TS2 + 8 })
+      k = parent[k]
+      tx, ty = k // 8192 - 4096, k % 8192 - 4096
+    end
+    plan.path, plan.i, plan.age = path, 1, 0
+  end
+
+  local function towards(x, y, slack)
+    slack = slack or 2
+    local dx, dy = x - P.x, y - P.y
+    local b = 0
+    if dx < -slack then b = b | LEFT elseif dx > slack then b = b | RIGHT end
+    if dy < -slack then b = b | UP elseif dy > slack then b = b | DOWN end
+    return b
+  end
+  local function away(x, y)
+    local dx, dy = P.x - x, P.y - y
+    local b = 0
+    if dx < -1 then b = b | LEFT elseif dx > 1 then b = b | RIGHT end
+    if dy < -1 then b = b | UP elseif dy > 1 then b = b | DOWN end
+    if b == 0 then b = RIGHT end
+    return b
+  end
+
+  local stuck = { x = 0, y = 0, t = 0, wiggle = 0, dir = 0 }
+  local function follow(gx, gy)
+    local tile = tkey(floor(P.x / TS2), floor(P.y / TS2))
+    if tile ~= last_tile then visits[tile] = (visits[tile] or 0) + 1; last_tile = tile end
+    if stuck.wiggle > 0 then
+      stuck.wiggle = stuck.wiggle - 1
+      return stuck.dir
+    end
+    plan.age = plan.age + 1
+    if not plan.path or plan.i > #plan.path or plan.age > 90 then replan(gx, gy) end
+    local p = plan.path[plan.i]
+    while p and abs(p[1] - P.x) + abs(p[2] - P.y) < 6 do
+      plan.i = plan.i + 1
+      p = plan.path[plan.i]
+    end
+    if not p then return towards(gx, gy) end
+    local q = plan.path[plan.i + 1]
+    if q and (q[1] == p[1] or q[2] == p[2]) then p = q end
+    -- not moving for a while: a step aside, and another way
+    stuck.t = stuck.t + 1
+    if stuck.t >= 30 then
+      if abs(P.x - stuck.x) + abs(P.y - stuck.y) < 4 then
+        stuck.wiggle = 18
+        stuck.dir = ({ LEFT, RIGHT, UP, DOWN })[1 + floor(rnd() * 4)]
+        visits[tile] = (visits[tile] or 0) + 6
+        plan.path = nil
+      end
+      stuck.x, stuck.y, stuck.t = P.x, P.y, 0
+    end
+    return towards(p[1], p[2])
+  end
+
+  ---------------------------------------------------------------- the fight
+  local OTHER = { hurt = true, stagger = true, rage = true, held = true, dead = true }
+  local EVENTS = { "hit", "fire", "slam", "throw", "beam", "howl" }
+
+  -- ticks until the creature's next blow lands, if it is coming
+  local function coming(o)
+    if not o.act or OTHER[o.act] then return nil end
+    local a = o.def.a[o.anim]
+    local next_f
+    for _, ev in ipairs(EVENTS) do
+      for _, f in ipairs(a[ev] or {}) do
+        if (f > o.f or (f == o.f and o.ft == 0 and o.newf)) and (not next_f or f < next_f) then next_f = f end
+      end
+    end
+    if not next_f then return nil end
+    local left = -o.ft
+    for k = o.f, next_f - 1 do left = left + a.t[k] end
+    local rate = (o.style.rate or 1) * (o.agg or 1) * (o.fury and 1.25 or 1)
+    return max(0, left) / rate + (o.hold or 0), o.anim
+  end
+
+  local function nearest_foe()
+    local best, bd
+    for _, o in ipairs(F.list) do
+      if o.act ~= "dead" then
+        local d = sqrt((o.x - P.x) ^ 2 + (o.y - P.y) ^ 2)
+        local range = o.boss and (o.awake and 260 or 0) or (o.alert and 140 or 64)
+        if d < range and (not bd or d < bd) then best, bd = o, d end
+      end
+    end
+    return best, bd
+  end
+
+  local fight = { combo = 0, back = 0, side = 1, held_b = 0, dodge_dir = 0, parried = nil, shots = 0, window = 0,
+                  was = nil, circle = 1, circle_t = 0 }
+
+  local function dodge(o)
+    local dx, dy = o.x - P.x, o.y - P.y
+    local b
+    if P.lock then
+      fight.side = -fight.side
+      local px, py = -dy * fight.side, dx * fight.side
+      b = towards(P.x + px, P.y + py, 0.5)
+    else
+      b = away(o.x, o.y)
+    end
+    fight.dodge_dir, fight.held_b = b, 2
+  end
+
+  local function fight_frame(o, d)
+    if fight.held_b > 0 then
+      fight.held_b = fight.held_b - 1
+      return fight.dodge_dir | (fight.held_b > 0 and BB or 0)
+    end
+    if not P.lock and not P.act and d < 120 and S.frame % 2 == 0 then return L1 end
+    if F.visceral_target() and not P.act then return (S.frame % 2 == 0) and A or 0 end
+    local reach = (P.ext and 34 or 26) + o.st.r - 6
+    local left, move = coming(o)
+    local danger = left and d < (RANGE[move] or o.st.reach) + 18
+    if danger and (move == "slam" or move == "throw" or move == "blast" or move == "pounce") and d < 90 then
+      if left < 14 and not P.act and P.st > 15 then dodge(o); return fight.dodge_dir end
+      return away(o.x, o.y)
+    end
+    for _, s in ipairs(F.shots) do
+      if s.kind == "bomb" and abs(s.tx - P.x) + abs(s.ty - P.y) < 40 then return away(s.tx, s.ty) end
+    end
+    for _, bu in ipairs(F.burns) do
+      if abs(bu.x - P.x) < 22 and abs(bu.y - P.y) < 14 then return away(bu.x, bu.y) end
+    end
+    if danger then
+      if not P.act and left >= 16 and left <= 40 and (move == "attack" or move:sub(1, 5) == "combo") and
+         fight.parried ~= o.f + 1000 * #o.anim and rnd() < (o.boss and 0.55 or 0.35) then
+        fight.parried = o.f + 1000 * #o.anim
+        fight.shots = fight.shots + 1
+        return X
+      end
+      if left <= 12 and (not P.act or P.act == "attack") and P.st > 12 then
+        dodge(o)
+        return fight.dodge_dir
+      end
+    end
+    if fight.back > 0 then
+      fight.back = fight.back - 1
+      return away(o.x, o.y)
+    end
+    if P.st < 22 then
+      fight.back = 20
+      return away(o.x, o.y)
+    end
+    if P.hp <= 4 and G.echoes >= 120 and not P.act and (not left or left > 40) and d > 40 then
+      return S.frame % 2 == 0 and SELECT or 0
+    end
+    if o.boss then
+      local moving = o.act and not OTHER[o.act]
+      if fight.was and not moving then fight.window = 70 end
+      fight.was = moving and o.act or nil
+      if o.act == "stagger" or o.act == "rage" or o.act == "held" then fight.window = max(fight.window, 20) end
+      if fight.window > 0 then fight.window = fight.window - 1 end
+      if fight.window <= 0 and not moving then
+        fight.circle_t = fight.circle_t + 1
+        if fight.circle_t > 90 then fight.circle, fight.circle_t = -fight.circle, 0 end
+        local dx, dy = o.x - P.x, o.y - P.y
+        local k = (d - 56) / max(d, 1)
+        return towards(P.x + dx * k - dy / max(d, 1) * 12 * fight.circle, P.y + dy * k + dx / max(d, 1) * 12 * fight.circle, 1)
+      end
+      if moving and not danger then return away(o.x, o.y) end
+    end
+    if d > reach then
+      fight.combo = 0
+      return towards(o.x, o.y, 1)
+    end
+    if not left or left > 22 then
+      if P.act == "attack" and P.combo >= (o.boss and 3 or 2 + floor(rnd() * 2)) then
+        fight.back = o.boss and 26 or 12
+        return 0
+      end
+      if o.boss and P.act == "attack" and P.combo == 2 and rnd() < 0.04 then return YB end
+      return (S.frame % 2 == 0) and A or 0
+    end
+    return 0
+  end
+
+  ---------------------------------------------------------------- the route
+  -- Goals in order. A goal is a chunk (cx, cy) of the central area: the hunter
+  -- walks to a free spot near the middle of it. "lamp" lights the lamp of the chunk.
+  -- "boss" is the Butcher's arena. The first lap goes along the north streets
+  -- and back along the south streets. The second lap crosses the squares, the
+  -- park and the cemetery the other way round. The Butcher is the last goal.
+  local ROUTE = {
+    { 0, 2, "lamp" }, { 0, 0 }, { 1, 0 }, { 2, 0 }, { 3, 0 }, { 3, 1 }, { 2, 1, "lamp" }, { 1, 1 }, { 0, 1 },
+    { 0, 3 }, { 1, 3 }, { 2, 3 }, { 3, 3 }, { 3, 2 }, { 1, 2 },
+    { 1, 1 }, { 3, 1 }, { 3, 0 }, { 0, 0 }, { 0, 3 }, { 3, 3 }, { 3, 2 }, { 2, 3 }, { 1, 3 },
+    { 2, 2, "boss" },
+  }
+  local RING = { { 0, 0 }, { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } }
+  local function spot(cx, cy)
+    Y.ensure(cx, cy)
+    local mx, my = cx * CPX2 + CPX2 / 2, cy * CPX2 + CPX2 / 2
+    for r = 0, 112, 16 do
+      for _, o in ipairs(RING) do
+        local x, y = mx + o[1] * r, my + o[2] * r
+        if not Y.blocked(x, y) then return x, y end
+      end
+    end
+    return mx, my
+  end
+  local cur, goal_t = nil, 0
+  local function next_goal()
+    S.goal, S.goals, cur, goal_t = S.goal + 1, S.goals + 1, nil, 0
+    plan.path = nil
+  end
+
+  local lamp_t, was_dead, won_at = 0, false, nil
+  local function reset_route()
+    S.goal, cur, goal_t, won_at = 1, nil, 0, nil
+    plan.path, last_tile = nil, nil
+    for k in pairs(visits) do visits[k] = nil end
+    lamp_t, was_dead = 0, false
+  end
+
+  -- the buttons for this frame
+  local function decide(frame)
+    S.frame = frame
+    local st = Y.state()
+    if st == "title" then
+      if not S.titled then S.titled = true; S.hunts = S.hunts + 1; reset_route() end
+      return (frame % 30 == 0) and A or 0
+    end
+    S.titled = false
+    if st == "intro" then return 0 end
+    if st == "lost" then
+      if not S.was_lost then S.was_lost = true; S.lost = S.lost + 1 end
+      return (frame % 20 == 0) and A or 0
+    end
+    S.was_lost = false
+    if st == "lamp" then
+      -- at a lamp: a path when the echoes are enough, then away
+      lamp_t = lamp_t + 1
+      local k = #G.slots + 1
+      local costs = { 800, 1200, 1600, 2000 }
+      if lamp_t > 40 and costs[k] and G.echoes >= costs[k] and not S.bought then
+        if Y.menu.i ~= 6 then return (lamp_t % 8 == 0) and DOWN or 0 end
+        if lamp_t % 8 == 0 then S.bought, S.paths = true, S.paths + 1; return A end
+        return 0
+      end
+      if lamp_t > 70 then return (lamp_t % 8 == 0) and BB or 0 end
+      return 0
+    end
+    lamp_t, S.bought = 0, false
+    if st ~= "play" then return 0 end
+    if frame % 60 == 0 then
+      local d = Y.district(floor(P.x / CPX2), floor(P.y / CPX2))
+      if d and d.name and not S.districts[d.name] then S.districts[d.name] = frame; S.ndist = S.ndist + 1 end
+    end
+    if P.act == "dead" then
+      if not was_dead then S.deaths, was_dead = S.deaths + 1, true end
+      return 0
+    end
+    was_dead = false
+    if F.won or won_at then
+      -- the Butcher slain: a few seconds, then the route is over
+      won_at = won_at or frame
+      if frame - won_at > 360 then S.done = true end
+      return 0
+    end
+    if frame % 30 == 0 then gather_fires() end
+    local burn = in_fire(P.x, P.y, 0.9)
+    if burn then return away(burn.x, burn.y) end
+    local o, d = nearest_foe()
+    if o then return fight_frame(o, d) end
+    if P.lock and frame % 2 == 0 then return L1 end
+    fight.combo, fight.back = 0, 0
+    -- the next goal; after the last one the route is over
+    local g = ROUTE[S.goal]
+    if not g then S.done = true; return 0 end
+    if not cur then
+      if g[3] == "lamp" then
+        local lx, ly = Y.MAP.lamp_chunk(1, g[2] == 2 and 1 or 2)
+        local sh = Y.ensure(lx, ly).shrine
+        cur = { x = sh.x, y = sh.y + 16, sh = sh, lamp = true }
+      else
+        local gx, gy = spot(g[1], g[2])
+        cur = { x = gx, y = gy, boss = g[3] == "boss" }
+      end
+    end
+    goal_t = goal_t + 1
+    if cur.lamp and G.lit[cur.sh.key] then S.lamps = S.lamps + 1; next_goal(); return 0 end
+    if cur.boss then
+      for _, b in ipairs(F.list) do
+        if b.boss and b.act ~= "dead" then cur.x, cur.y = b.x, b.y + 20 end
+      end
+    end
+    local dd = abs(cur.x - P.x) + abs(cur.y - P.y)
+    if cur.lamp and (dd < 14 or P.shrine == cur.sh) and not P.act then
+      return (frame % 10 == 0) and A or 0
+    end
+    if not cur.lamp and not cur.boss and dd < 40 then next_goal(); return 0 end
+    -- a goal not reached in 25 seconds: the next one
+    if goal_t > 1500 and not cur.boss then next_goal(); return 0 end
+    if P.hp < P.hpmax * 0.6 and G.echoes >= 400 and not P.act then
+      return (frame % 10 == 0) and SELECT or 0
+    end
+    local b = follow(cur.x, cur.y)
+    if P.st > 70 and not P.act and dd > 60 and not cur.boss then b = b | BB end
+    return b
+  end
+
+  ---------------------------------------------------------------- the input
+  -- btn, btnp and pad read the mask. A string is the menus' "ok" (A) or "back" (B).
+  local mask, prev = 0, 0
+  btn = function(i)
+    if type(i) ~= "number" then return false end
+    return (mask >> i) & 1 == 1
+  end
+  btnp = function(i)
+    if i == "ok" then i = 4 elseif i == "back" then i = 5 end
+    if type(i) ~= "number" then return false end
+    return (mask >> i) & 1 == 1 and (prev >> i) & 1 == 0
+  end
+  pad = function() return mask & 0xC00 end
+
+  local real_update = _update
+  function _update()
+    local f = S.frame + 1
+    prev = mask
+    mask = decide(f)
+    if S.done or f >= AUTO_FRAMES then
+      local names = {}
+      for n in pairs(S.districts) do names[#names + 1] = n end
+      table.sort(names)
+      local msg = string.format("autoplay: %d frames, %d deaths, %d hunts lost, %d lamps, %d goals, %d slain, %d districts: %s",
+                                f, S.deaths, S.lost, S.lamps, S.goals, G.slain or 0, S.ndist, table.concat(names, ", "))
+      if log then log(msg) end
+      quit()
+      mask = 0
+    end
+    real_update()
+  end
 end
 
 --@module drawing

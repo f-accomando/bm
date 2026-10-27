@@ -87,6 +87,14 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 ---
 
+## Autoplay (benchmarks)
+
+- Autoplay plays Yharnam with no button pressed, for 7200 frames (2 minutes at 60 fps), then calls `quit()`. It is off by default.
+- Switch on: `yharnam_autoplay=1` in `bm/config.txt` (read with `cart_config`, no kernel change). From the bridge: `tools/pi.py --dev pizero config yharnam_autoplay=1` (or `--dev rgb30`). Switch off: `config yharnam_autoplay=0`. On the host: `YHARNAM_AUTOPLAY=1 build/host/bmplay build/carts/yharnam.bm`; `make test-yharnam-autoplay`.
+- Code: the module `autoplay` of `main.lua`. It makes a mask of buttons each frame and replaces `btn`, `btnp` and `pad`, so the game logic and the drawing run as for a person. It is the bot of `tools/bmplay/yharnam_bot.lua` with a route. Its dice have a fixed seed, so each run is the same.
+- Route: Central Yharnam. It lights the lamp of chunk (0,2) (1 lamp in the host run), walks the north streets, goes for the lamp of chunk (2,1), then crosses the squares, the cemetery and the park, and fights what it meets. If the hunter dies, it respawns and goes on. If the hunt is lost, it starts a new hunt and the route begins again. The frame cap ends the run (`AUTO_FRAMES`); the end writes one `autoplay:` line (frames, deaths, lamps, districts) with `log`.
+- Host result: 7200 frames, 0 deaths, 8 districts (Ash Way, Black Court, Bone Square, Fog Yard, Gloam Hill, Mourn Street, Saint Agnes Yard, The Wither Pyre), the same in two runs. Not run on a device. A slow console plays the same frames in more time.
+
 ## Rules (do not break)
 
 - `MAP.grid` has one area for each cell. A forest cell never touches a cathedral cell along a side (a load-time check stops the game).

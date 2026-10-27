@@ -239,6 +239,20 @@ static int l_log(lua_State *L)
 
 static int l_quit(lua_State *L) { (void)L; rt.quit = 1; return 0; }
 static int l_nothing(lua_State *L) { (void)L; return 0; }
+/* cart_config(key): the keys of bm/config.txt come from the environment here (yharnam_autoplay: YHARNAM_AUTOPLAY) */
+static int l_cart_config(lua_State *L)
+{
+    char name[96];
+    size_t n = 0;
+    for (const char *k = luaL_checkstring(L, 1); *k && n < sizeof name - 1; k++)
+        name[n++] = (*k >= 'a' && *k <= 'z') ? (char)(*k - 32) : *k;
+    name[n] = 0;
+    const char *v = getenv(name);
+    if (v && *v) lua_pushstring(L, v);
+    else lua_pushnil(L);
+    return 1;
+}
+
 
 /* ---- sound */
 static unsigned voice_arg(lua_State *L) { return (unsigned)luaL_checkinteger(L, 1) % SYNTH_VOICES; }
@@ -436,7 +450,7 @@ static const luaL_Reg api[] = {
     { "clip", l_clip }, { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget },
     { "mset", l_mset }, { "print", l_print }, { "font", l_font }, { "prompt", l_prompt },
     { "lastinput", l_lastinput }, { "keyp", l_keyp }, { "btn", l_btn }, { "btnp", l_btnp }, { "pad", l_pad }, { "time", l_time },
-    { "stat", l_stat }, { "log", l_log }, { "quit", l_quit }, { "timeslice", l_nothing },
+    { "stat", l_stat }, { "log", l_log }, { "quit", l_quit }, { "cart_config", l_cart_config }, { "timeslice", l_nothing },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq }, { "envelope", l_envelope },
     { "duty", l_duty }, { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },
     { "instrument", au_lua_instrument },
