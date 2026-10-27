@@ -345,10 +345,15 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
         }
         t0 = timer_ticks();
     }
-    if (wait_transfer_complete(0))
-        goto fail;
+    /* Every word is in. A multi-block read is open-ended (CMD18 without
+     * CMD23): the card goes on sending until CMD12, so the state machine
+     * may not reach idle before the stop. Linux, Circle, FreeBSD and NetBSD
+     * send CMD12 at once here; the idle wait comes after it (site rdend,
+     * docs/design/sd-read-end.md). */
     if (count > 1 && stop())
         return -1;
+    if (wait_transfer_complete(0))
+        goto fail;
     mmio_write(SDHSTS, HSTS_CLEAR);
     return 0;
 fail:

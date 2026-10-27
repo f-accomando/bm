@@ -54,6 +54,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
   Open: the user runs the bench again (`docs/NEXT.md`); the worst frame must be under about 20 ms. The copy of 2048 KB at the call is
   not measured on the Pi (the bench now prints the call time); if it is above 15 ms, the copy is the next cost.
 ## Rules (do not break)
+- SD `rdend` stall (Pi): change R1 sends `CMD12` before the idle wait, as Linux, Circle and the BSDs do. Run it on the Pi and read `sd sites:`. Next steps R2-R4 and DMA: [`docs/design/sd-read-end.md`](../design/sd-read-end.md). History of the fault: [`docs/design/sd-read-timeout.md`](../design/sd-read-timeout.md).
 - Every SD write from a cartridge, the settings or a fiber that gives the CPU back goes through `sd_writer_begin` /
   `sd_writer_end` (or `sd_write_file`). A writer that gives the CPU back registers a pause hook and is safe to stop at
   any tick; it starts again from its first byte.
