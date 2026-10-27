@@ -68,10 +68,13 @@ static int oval(lua_State *L, int idx, int def) { return lua_isnoneornil(L, idx)
 static float fnum(lua_State *L, int idx, float def) { return (float)luaL_optnumber(L, idx, def); }
 
 static int l_cls(lua_State *L)      { g16_cls(&rt.g, col(L, 1, 0)); return 0; }
-static int l_pset(lua_State *L)     { g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
-static int l_line(lua_State *L)     { g16_line(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rect(lua_State *L)     { g16_rect(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rectfill(lua_State *L) { g16_rectfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
+/* what a frame asks of the 2D (for the GPU's share of the draw): the calls, and the pixels of rectangles and sprites */
+static long c_shape, c_rectfill, c_rect_px, c_spr, c_spr_px, c_sspr, c_sspr_px, c_map_calls, c_map_tiles, c_text, c_chars;
+
+static int l_pset(lua_State *L)     { c_shape++; g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
+static int l_line(lua_State *L)     { c_shape++; g16_line(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
+static int l_rect(lua_State *L)     { c_shape++; g16_rect(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
+static int l_rectfill(lua_State *L) { c_rectfill++; c_rect_px += (long)ival(L, 3) * ival(L, 4); g16_rectfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
 static int l_circ(lua_State *L)     { g16_circ(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
 static int l_circfill(lua_State *L) { g16_circfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
 static int l_camera(lua_State *L)   { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
@@ -87,6 +90,8 @@ static int l_pget(lua_State *L)
 
 static int l_spr(lua_State *L)
 {
+    c_spr++;
+    c_spr_px += (long)oval(L, 4, 1) * oval(L, 5, 1) * 64;
     g16_spr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1),
             lua_toboolean(L, 6), lua_toboolean(L, 7));
     return 0;
@@ -94,6 +99,8 @@ static int l_spr(lua_State *L)
 
 static int l_sspr(lua_State *L)
 {
+    c_sspr++;
+    c_sspr_px += (long)ival(L, 3) * ival(L, 4);
     lua_Number zoom = luaL_optnumber(L, 9, 1);
     if (zoom == 1)
         g16_sspr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
@@ -106,6 +113,14 @@ static int l_sspr(lua_State *L)
 
 static int l_map(lua_State *L)
 {
+    c_map_calls++;
+    {
+        const int cx = ival(L, 1), cy = ival(L, 2), cw = oval(L, 5, rt.map.w), ch = oval(L, 6, rt.map.h);
+        for (int yy = cy; yy < cy + ch; yy++)
+            for (int xx = cx; xx < cx + cw; xx++)
+                if (xx >= 0 && yy >= 0 && xx < rt.map.w && yy < rt.map.h && rt.map.cells[yy * rt.map.w + xx])
+                    c_map_tiles++;
+    }
     g16_map(&rt.g, &rt.sheet, &rt.map, ival(L, 1), ival(L, 2), oval(L, 3, 0), oval(L, 4, 0),
             oval(L, 5, rt.map.w), oval(L, 6, rt.map.h));
     return 0;
@@ -133,6 +148,8 @@ static int l_print(lua_State *L)
     int scale = oval(L, 5, 1);
     if (scale > 8) scale = 8;
     const char *s = luaL_tolstring(L, 1, NULL);
+    c_text++;
+    c_chars += (long)strlen(s);
     lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
     return 1;
 }
@@ -645,6 +662,13 @@ int main(int argc, char **argv)
         }
     }
     fprintf(stderr, "bmplay: %ld frames\n", rt.frame);
+    if (rt.frame > 0)
+        fprintf(stderr, "bmplay: 2D a frame: %.0f map tiles (%.1f map calls), %.0f spr (%.0f px), %.0f sspr (%.0f px), "
+                "%.0f rectfill (%.0f px), %.0f other shapes, %.0f print (%.0f chars)\n", (double)c_map_tiles / rt.frame,
+                (double)c_map_calls / rt.frame, (double)c_spr / rt.frame, (double)c_spr_px / rt.frame,
+                (double)c_sspr / rt.frame, (double)c_sspr_px / rt.frame, (double)c_rectfill / rt.frame,
+                (double)c_rect_px / rt.frame, (double)c_shape / rt.frame, (double)c_text / rt.frame,
+                (double)c_chars / rt.frame);
     if (rt.frame > 0)
         fprintf(stderr, "bmplay: host time a frame: draw %.0f us, of it light %.0f us (fade %.0f us), the rest %.0f us; "
                 "%.1f glow a frame, light in %.0f%% of the frames\n", t_draw / rt.frame, t_light / rt.frame,
