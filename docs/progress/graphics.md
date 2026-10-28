@@ -73,6 +73,21 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 `b3d_platform_t.stop`, `bm_stats_t.left`); a stopped test leaves no report
 (`reports_drop`). Tests: `make test-b3d` (`--stop`), QEMU `test_bench_stop`.
 
+### 2D capabilities on the Pi Zero W (28 Oct 2026)
+Yharnam on the Pi went from 34.9 to 57.6 fps with the four items below. Each item says what it does and how a game uses it.
+
+- **GPU light (`gpu3d_light`).** The V3D lights the page that `dark_begin` .. `dark_end` makes. The ARM then only records the lamps.
+  - Use: write the normal game code (`fades()`, `dark_begin(ambient)`, `glow()`, `dark_end()`; [light3d.md](../api/light3d.md)). Draw the scene after `dark_begin`.
+  - Switch: the hidden key `gpu3d_light` in `bm/config.txt` (default 0). Set it from the PC: `python3 tools/pi.py --dev pizero config gpu3d_light=1`. The kernel reads it at the next start.
+  - Cost on Yharnam: light 12.9 ms on the ARM, 1.7 ms with the key on; GPU 1.2 ms a frame.
+  - Look: the light is continuous and the lamps add up. The ARM light has levels, the strongest lamp wins, and it has a dither. The two pictures differ on purpose.
+  - Limits: 12 lamps for a tile of 64 x 64 pixels (the strongest ones); `dither` and `step` of the call do not change the GPU light. The RGB30 and a failed GPU job use the ARM light.
+- **Packed tile pool for `map()`.** No switch and no code in the game. `map()` copies each opaque cell once to a pool of 128 bytes a cell. Use a sheet of any width; keep the cells opaque (no colour key) to use the pool. Yharnam: `map` 2.9 -> 2.0 ms.
+- **Cost of each 2D call.** The session report lists "the 2D calls of the draw" (`map`, `spr`, `sspr`, `print`, shapes: count and ms). Use it to find the call that costs most before you change a game.
+- **Function profile.** The cart key `yharnam_profile=1` is the model: a cart reads a key with `cart_config` and turns the profiler on for the session report.
+
+What the GPU does not take (measured on the Pi): the copy to the framebuffer (DMA 3.1 ms against 1.8 ms on the ARM), the 2D draws as quads (`gpu2d_only`, slower than the ARM on a big map), and a light job that overlaps ARM work (slower: GPU and ARM share the SDRAM).
+
 ## Open work (`docs/ROADMAP.md`)
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).

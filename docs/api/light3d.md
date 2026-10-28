@@ -60,6 +60,8 @@ dark_end()
 spr(FLAME, fx, fy)                           -- the flames are not darkened
 ```
 
+On the Pi Zero W the light can run on the GPU: the user sets `gpu3d_light=1` in `bm/config.txt`. The game code does not change. The GPU light is continuous and the lamps add up; `dither` and `step` do not apply. Details: [graphics](../progress/graphics.md).
+
 Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_test.py` (a lamp on a 256×256 cartridge).
 
 ### 3D (software)
