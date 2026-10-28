@@ -78,6 +78,7 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - SYS-17 - P2 - to do - USB hotplug on the Pi: `usb_poll` watches the port, a new device is enumerated, an unplugged one is cleared, a failed enumeration is tried again with a pause. [system](progress/system.md) `Open work`
 - SYS-18 - P2 - idea - Covers in a better resolution: the cartridge carries a larger cover, the menu scales it for the screen (360p, 720p, 1080p) and the native menu layout keeps its sizes. [system-menu](progress/system-menu.md) `Open work`
 - SYS-19 - P2 - in progress - The monitor as a shell, headless like DOS/Unix with Lua: (1) the bm> prompt as the way in (`monitor_keys=0`) and `hotkey` for single keys, done; (2) file commands on the SD (`ls`, `cat`, `cd`, `cp`, `rm`, `mkdir`); (3) `lua FILE`, `lua -e`, and `sh("cmd")` in Lua that returns the output; (4) graphics for boot menus in the shell's Lua (`cls`, `rect`, `text`, `flip`, keys); (5) `boot=shell` with no menu and `autoexec.lua`. [system](progress/system.md) `Open work`
+- SYS-20 - P2 - in progress - The Assistant data out of the kernel: the dictionaries (`words.lua`, 501 KB) and the assistant's file (`assist.bin`, 754 KB) go into an app of their own (the Assistant, with a data section in the `.bm`), published on the Market; the shipped kernel loses 1.25 MB and loads them from the installed app. [system](progress/system.md) `Open work`
 
 ## Tools and SDK
 
