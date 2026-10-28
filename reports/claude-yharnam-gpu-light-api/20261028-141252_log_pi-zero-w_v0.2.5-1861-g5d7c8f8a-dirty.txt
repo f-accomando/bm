@@ -1,0 +1,545 @@
+bm report
+kind: log
+kernel: v0.2.5-1861-g5d7c8f8a-dirty
+branch: claude/yharnam-gpu-light-api
+board: Pi Zero W
+date: 2026-10-28 14:12:52
+file: 20261028-141252_log_pi-zero-w_v0.2.5-1861-g5d7c8f8a-dirty.txt
+
+
+bm kernel v0.2.5-1861-g5d7c8f8a-dirty - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 39.0 C
+ARM1176 from SVC, MMU+caches on, heap 433 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+the Pi froze last time and the watchdog restarted it:
+  doing: boot, frame 7200, 816 s after boot, kernel v0.2.5-1861-g5d7c8f8a-dirty
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 8 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 8/10
+report: nodate-a073e3_freeze_pi-zero-w_v0.2.5-1861-g5d7c8f8a-dirty.txt saved as bm/reports/rpt00001.txt
+report: on the SD card: no network
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 3 networks
+   1   -60 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -80 dBm  ch  1  WPA2  FASTWEB-5j5SAq
+   3   -87 dBm  ch  1  WPA2  WINDTRE - 73DE22
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+covers: all 14 read
+menu idle: 300/300 frames, 74 of 2412 ms taken, 0.6 ms past a frame; covers 65 ms (+2.3, stk 0.8/16K); min slack -766 us, paced 0
+menu idle: sd first word <1ms 121 <3ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 7292 us, enlarge 0 us, flip 94 us, free time used 247 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 12.0 ms past its slice
+net: time 2026-10-28 09:45 UTC
+fiber: reports did not yield: 95.5 ms past its slice
+report: sending nodate-a073e3_freeze_pi-zero-w_v0.2.5-1861-g5d7c8f8a-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-yharnam-gpu-light-api/nodate-a073e3_freeze_pi-zero-w_v0.2.5-1861-g5d7c8f8a-dirty.txt
+menu idle: 300/300 frames, 1277 of 2453 ms taken, 98.0 ms past a frame; reports 1259 ms (+95.5, stk 7.6/128K); min slack -8221 us, paced 0
+menu idle: sd first word <1ms 35 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 255.1 worst 255.1 ms
+menu frame: 1x, a frame averages draw 6775 us, enlarge 0 us, flip 94 us, free time used 4259 us (300 frames)
+net: receiving yharnam.bm (6449592 bytes)...
+menu frame: 1x, a frame averages draw 7827 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 8032 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+net: cartridge received, starting it
+light: asked true, ok=true gpu=true can=true
+load: Yharnam 3032 ms (close 0, parse 345, assets+state 2442, mode 4, audio 0, lua 238)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.16 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+autoplay: 7200 frames, 0 deaths, 0 hunts lost, 1 lamps, 5 goals, 0 slain, 4 districts: Ash Way, Black Court, Bone Square, Mourn Street
+bm: "Yharnam" 7199 frames, 50.1 fps, 893 dropped
+     update+draw avg 17.05 ms (102% of frame), max 254.63 ms, Lua 2547 KB
+     copy to screen 2.04 ms per frame
+     dev kit: Lua peak 3673 KB, data 41607 KB, busiest frame 1325k instructions, 2771 frames over 16.7 ms, 106780 tokens
+     GPU 3D 7199 jobs, 0 triangles a frame, 1.29 ms a frame (bin 1%), max job 1988 us
+report: session_yharnam_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+fiber: reports did not yield: 103.1 ms past its slice
+menu idle: 300/300 frames, 285 of 2204 ms taken, 97.8 ms past a frame; reports 270 ms (+103.1, stk 7.6/128K); min slack 731 us, paced 0
+menu idle: sd first word <1ms 40 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 269.6 worst 269.6 ms
+menu frame: 1x, a frame averages draw 7807 us, enlarge 0 us, flip 94 us, free time used 951 us (300 frames)
+report: sending session_yharnam_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-yharnam-gpu-light-api/session_yharnam_pi-zero-w.txt
+menu idle: 300/300 frames, 1152 of 2552 ms taken, 14.5 ms past a frame; reports 1144 ms (+14.5, stk 7.6/128K); min slack -4335 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 6535 us, enlarge 0 us, flip 94 us, free time used 3841 us (300 frames)
+menu frame: 1x, a frame averages draw 6753 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6663 us, enlarge 0 us, flip 95 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6576 us, enlarge 0 us, flip 94 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6621 us, enlarge 0 us, flip 95 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6735 us, enlarge 0 us, flip 98 us, free time used 30 us (300 frames)
+net: receiving settings (37 bytes)...
+config: yharnam_autoplay=0
+config: yharnam_profile=0
+net: settings from the PC: 2 changed in bm/config.txt
+menu idle: sd first word <1ms 7 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 6732 us, enlarge 0 us, flip 96 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6544 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6713 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6702 us, enlarge 0 us, flip 98 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6614 us, enlarge 0 us, flip 97 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6534 us, enlarge 0 us, flip 97 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6765 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6689 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6603 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6571 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6763 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6674 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6587 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6607 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6744 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6658 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6571 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6668 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6732 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6644 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6557 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6697 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6709 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6623 us, enlarge 0 us, flip 95 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6536 us, enlarge 0 us, flip 94 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6739 us, enlarge 0 us, flip 97 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6694 us, enlarge 0 us, flip 97 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6606 us, enlarge 0 us, flip 97 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6543 us, enlarge 0 us, flip 98 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6770 us, enlarge 0 us, flip 94 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6681 us, enlarge 0 us, flip 95 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6594 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6593 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6754 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6667 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6577 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6634 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6735 us, enlarge 1 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6650 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6567 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6680 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+--- (older lines left out) ---
+menu frame: 1x, a frame averages draw 6538 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6771 us, enlarge 1 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6684 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6596 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6580 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6755 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6666 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6579 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6634 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6737 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6651 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6567 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6670 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6725 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6638 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6550 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6725 us, enlarge 1 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6702 us, enlarge 0 us, flip 94 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6617 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6533 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6757 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6687 us, enlarge 0 us, flip 98 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6600 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6556 us, enlarge 0 us, flip 96 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6763 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6676 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6590 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6605 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6748 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6660 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6573 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6653 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6730 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6644 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6559 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6694 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6718 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6630 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6543 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6747 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6697 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6611 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6537 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6771 us, enlarge 1 us, flip 95 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6683 us, enlarge 1 us, flip 96 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6595 us, enlarge 1 us, flip 96 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6583 us, enlarge 0 us, flip 96 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6757 us, enlarge 1 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6670 us, enlarge 1 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6584 us, enlarge 0 us, flip 94 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6630 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6739 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6652 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6565 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6671 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6720 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6634 us, enlarge 1 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6552 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6712 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6710 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6622 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6535 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6762 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6689 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6604 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6562 us, enlarge 1 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6762 us, enlarge 1 us, flip 97 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6674 us, enlarge 1 us, flip 97 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6586 us, enlarge 1 us, flip 97 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6603 us, enlarge 1 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6747 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6662 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6575 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6646 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6730 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6643 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6556 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6690 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6713 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6627 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6545 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6734 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6702 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6614 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6548 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6770 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6683 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6595 us, enlarge 1 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6585 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6755 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6665 us, enlarge 1 us, flip 97 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6579 us, enlarge 1 us, flip 95 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6623 us, enlarge 1 us, flip 95 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6740 us, enlarge 2 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6654 us, enlarge 1 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6568 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6675 us, enlarge 1 us, flip 94 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6723 us, enlarge 0 us, flip 94 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6635 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6552 us, enlarge 0 us, flip 94 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6708 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6706 us, enlarge 0 us, flip 94 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6620 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6543 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6761 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6696 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6608 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6562 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6766 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6680 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6592 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6606 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6752 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6665 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6580 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6652 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6738 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6653 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6565 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6692 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6718 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6631 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6543 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6740 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6701 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6615 us, enlarge 0 us, flip 90 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6537 us, enlarge 0 us, flip 90 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6777 us, enlarge 0 us, flip 92 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6687 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6601 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6581 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6756 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6670 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6581 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6634 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6739 us, enlarge 1 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6653 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6568 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6673 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6724 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6639 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6552 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6705 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6706 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6619 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6532 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6755 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6691 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6604 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6557 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6766 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6678 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6591 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6598 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6746 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6659 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6572 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6640 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6730 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6642 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6562 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6686 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6717 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6631 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6544 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6731 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6697 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6610 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6530 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6771 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6683 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6596 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6583 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6758 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6670 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6583 us, enlarge 0 us, flip 92 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6617 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6737 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6651 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6565 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6662 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6724 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6637 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6552 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6715 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6713 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6627 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6539 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6751 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6694 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6607 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6556 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6766 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6678 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6591 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6598 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6753 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6665 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6578 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6643 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6733 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6648 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6561 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6687 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6719 us, enlarge 0 us, flip 94 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6631 us, enlarge 0 us, flip 94 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6551 us, enlarge 0 us, flip 95 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6733 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6706 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6619 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6533 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6771 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6686 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6598 us, enlarge 1 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6576 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6758 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6672 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6583 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6624 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6745 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6657 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6570 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6658 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6725 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6640 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6553 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6707 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6711 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6623 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6540 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6760 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6699 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6612 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6548 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6766 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6679 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6591 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6588 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6749 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6662 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6575 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6650 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6736 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6650 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6565 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6682 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6718 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6632 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6544 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6728 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6701 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6615 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6545 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6778 us, enlarge 0 us, flip 92 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6690 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6603 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6569 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6757 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6670 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6582 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6607 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6740 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6656 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6572 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6669 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6730 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6642 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6558 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6706 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6710 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6624 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6536 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6743 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6694 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6606 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6561 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6769 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6682 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6594 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6595 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6750 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6662 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6575 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6639 us, enlarge 0 us, flip 91 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6732 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6647 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6563 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6680 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6721 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6634 us, enlarge 0 us, flip 95 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6546 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6718 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6702 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6616 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6531 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6766 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6687 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6600 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6574 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6766 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6677 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6595 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6615 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6748 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6659 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6571 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6662 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6731 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6644 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6560 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6709 us, enlarge 0 us, flip 89 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6715 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6628 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6541 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6744 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6697 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6610 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6542 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6769 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6680 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6592 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6599 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6753 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6667 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6580 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6633 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6733 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6646 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6559 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6675 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6717 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6631 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6547 us, enlarge 0 us, flip 90 us, free time used 31 us (300 frames)
+menu frame: 1x, a frame averages draw 6729 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6704 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6616 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6529 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6763 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6686 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6599 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6562 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6759 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6671 us, enlarge 0 us, flip 93 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6583 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6614 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6745 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6659 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6572 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6651 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6725 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6638 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6550 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6697 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6710 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6623 us, enlarge 0 us, flip 91 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6540 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu idle: sd first word <1ms 4 <3ms 1 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 6773 us, enlarge 0 us, flip 92 us, free time used 29 us (300 frames)
+menu frame: 1x, a frame averages draw 6697 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6610 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6539 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6765 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 6679 us, enlarge 0 us, flip 92 us, free time used 31 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+type 'h' for help
+> :
+:log
+: log
