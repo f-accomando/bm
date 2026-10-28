@@ -12,7 +12,7 @@ Rules for this list:
 Plan sheets: [multicore](progress/multicore.md) (M, G, V tracks), [graphics-mali](progress/graphics-mali.md), [graphics-vector](progress/graphics-vector.md) (2D). Order agreed with the user: V1, then G2 and G1, then V2 and V4.
 
 Done:
-- V1: the 3D mesh runs on four cores (faces, then bands of rows), RGB30 games 375 -> 451. Same for the Mali draw build.
+- V1: the 3D mesh runs on four cores (faces, then bands of rows), RGB30 games 375 -> 451. The Mali draw build runs on the cores too. Scores: games 491, GPU 513, ARM 602.
 - G1: opaque textures on the Mali (bm3d 7.17).
 - G3: the Mali 3D Bench R lines carry `draws`, `mesh_us`, `flush_us`, `resolve_us`.
 - Yharnam light by the GPU on the Pi: `gpu3d_opt("light", on)`, a Light row in the pause menu. Autoplay 31.6 -> 50.1 fps. Market version `2026.10.28b`.
@@ -23,13 +23,14 @@ In progress:
 - G2, hardware Z-buffer and early-Z on the Mali (`mali.c`, `mali_desc.c`). Session `mali-g1-textures`, new branch `claude/mali-hw-zbuffer` from `bm-core`. The RGB30 belongs to that session: send no kernel from another session. The old local branch `claude/mali-textures-zbuffer` holds no work: delete it.
 
 To do, in this order:
-1. G1 on the screen: the user looks at the textured scenes on the RGB30 (`mali_tex`).
-2. G4: update the table and the roadmap when G2 ends.
+1. G1 on the console: the pixel check between GPU and ARM exists, the comparison on the console is not finished. The user looks at the textured scenes on the RGB30 (`mali_tex`).
+2. G4: update the table and the roadmap when G2 ends. The Mesa Bifrost compiler is in WSL (`/tmp/mb`); after a WSL restart build it again (`tools/mali/README.md`).
 3. Q2: lighting per face in the Mali vertex shader (needs the Mesa Bifrost build, `tools/mali/README.md`).
-4. V1 leftovers: look at the scenes with the bands on; move the Mali queue fill to a worker core.
+4. Multitasking: the cooperative fibres in the menu stay as they are. The link with the cores goes through V4.
+   V1 leftovers: look at the scenes with the bands on; move the Mali queue fill to a worker core.
 5. V2 (`job_run` API), V4 (Market, SD and cover decode on a worker), V5 (`cores=1..4` key), M7 (`multicore` capability), M5 (check `smp: offload` in a boot log).
 6. 2D on the ARM first: scaled blit, `g16_text`, `sspr_zoom`, `fade_apply`, RGB30 bands. Then `rectgrad`, `rrect`, `ellipse`, `radgrad`, `sspr_affine`, real alpha, paths and stroke, vector fonts, blur. Mali 2D only for big layers, after G1.
-7. Yharnam: Mali light only if the RGB30 runs under 60 fps (autoplay measure when the console is free). Look at the GPU light on the Pi (the lamps add up, the ARM light does not). Judge `LIGHT_STEP` 2 by eye. Check by ear the jingle that `audio_reset()` cuts at the splash.
+7. Yharnam: the Mali has no equivalent of the V3D light shader, so the light stays on the ARM there. Mali light only after G1 and only if the RGB30 runs under 60 fps (autoplay measure when the console is free). Look at the GPU light on the Pi (the lamps add up, the ARM light does not). Judge `LIGHT_STEP` 2 by eye. Check by ear the jingle that `audio_reset()` cuts at the splash.
 
 Chores:
 - Split `docs/progress/graphics.md` by topic (about 133 lines, limit 120).
