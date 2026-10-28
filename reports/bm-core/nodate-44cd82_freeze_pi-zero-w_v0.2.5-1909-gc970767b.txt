@@ -1,0 +1,100 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1909-gc970767b
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-44cd82_freeze_pi-zero-w_v0.2.5-1909-gc970767b.txt
+
+the Pi froze (the watchdog restarted it) while: monitor command "M", frame 0, 914 s after boot, kernel v0.2.5-1909-gc970767b, ring 97828, sink on
+--- the last lines printed ---
+nero
+bm> 
+bm> bm> lua -e "bm.color(10) print('nero')"bm> lua -e "bm.color(10) print('ner')"bm> lua -e "bm.color(10) print('ne')"bm> lua -e "bm.color(10) print('n')"bm> lua -e "bm.color(10) print('')"bm> lua -e "bm.color(10) print('b')"bm> lua -e "bm.color(10) print('bi')"bm> lua -e "bm.color(10) print('bia')"bm> lua -e "bm.color(10) print('bian')"bm> lua -e "bm.color(10) print('bianc')"bm> lua -e "bm.color(10) print('bianco')"0bm> lua -e "bm.color(1) print('bianco')"bm> lua -e "bm.color(15) print('bianco')"
+bianco
+bm> bm> lua -e "bm.color(15) print('bianco')")bm> lua -e "bm.color(1) print('bianco')"bm> lua -e "bm.color(13) print('bianco')"bm> lua -e "bm.color(1) print('bianco')"bm> lua -e "bm.color(14) print('bianco')"
+bianco
+bm> bm> lua -e "bm.color(14) print('bianco')")bm> lua -e "bm.color(1) print('bianco')"bm> lua -e "bm.color(13) print('bianco')"
+bianco
+bm> bm> lua -e "bm.color(13) print('bianco')"3bm> lua -e "bm.color(1) print('bianco')"bm> lua -e "bm.color() print('bianco')"bm> lua -e "bm.color(0) print('bianco')"
+bianco
+bm> bm> lua -e "bm.color(0) print('bianco')"bm> lua -e "bm.color(13) print('bianco')"bm> lua -e "bm.color(14) print('bianco')"bm> lua -e "bm.color(15) print('bianco')"c
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: the GPU cannot draw 2x, 360p on the ARM
+menu frame: 1x, a frame averages draw 6561 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+back to the monitor
+> s
+unknown command (0x73), 'h' for help
+> s
+unknown command (0x73), 'h' for help
+> s
+unknown command (0x73), 'h' for help
+> 
+> \
+unknown command (0x5c), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> :
+:
+the prompt stays: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves
+bm> ddd
+'ddd': not a command of the line ('help' lists the commands)
+bm> cls
+'cls': not a command of the line; did you mean: crc, cd, cat, cp ('help' lists the commands)
+bm> 
+> 
+> 
+> 
+> M
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: the GPU cannot draw 2x, 360p on the ARM
+menu frame: 1x, a frame averages draw 7003 us, enlarge 0 us, flip 90 us, free time used 29 us (300 frames)
+menu idle: sd first word <1ms 81 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8272 us, enlarge 0 us, flip 90 us, free time used 12 us (300 frames)
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
