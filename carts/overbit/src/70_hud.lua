@@ -22,8 +22,11 @@ function Hud.key(action)
     if action == "fire" then return "mouse_l" elseif action == "fire2" then return "mouse_r" end
   end
   if Input.cmd.pad and Input.nintendo and NINTENDO[action] then return NINTENDO[action] end
-  local set = Input.cmd.pad and KEYS.pad or KEYS.kbd
-  return set[action]
+  if not Input.cmd.pad then
+    if Input.binds[action] then return Input.keynames(action)[1] end     -- the player's key (87_keys)
+    return KEYS.kbd[action]
+  end
+  return KEYS.pad[action]
 end
 
 local function bar_segments(x, y, a)

@@ -167,8 +167,8 @@ end
 -- ---------------------------------------------------------------- the title menu
 
 local Menu = { sel = 1, t = 0 }
-local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "RESOLUTION", "RENDERER",
-                "ANIMATION REEL", "BENCHMARK" }
+local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "COMMANDS", "RESOLUTION",
+                "RENDERER", "ANIMATION REEL", "BENCHMARK" }
 
 -- Two graphics options only (2026-10-10, the user's choice): RESOLUTION, the
 -- console's two screens (360x360 and 720x720 on the RGB30, 640x360 and 1080p
@@ -200,6 +200,7 @@ end
 
 function Menu.start()
   clear_match()
+  Menu.keys = false
   Menu.hero = nil
   menu_hero()
   Menu.t = 0
@@ -228,6 +229,10 @@ end
 function Menu.update()
   Menu.t = Menu.t + DT
   local c = Input.cmd
+  if Menu.keys then                      -- the COMMANDS page (87_keys)
+    if Keys.update() == "close" then Menu.keys = false Input.arrow(false) end
+    return
+  end
   if c.up_p then Menu.sel = (Menu.sel - 2) % #ITEMS + 1 Snd.play("ui") end
   if c.down_p then Menu.sel = Menu.sel % #ITEMS + 1 Snd.play("ui") end
   if ITEMS[Menu.sel] == "HERO" and (c.left_p or c.right_p) then
@@ -259,6 +264,7 @@ function Menu.update()
     elseif it == "TRAINING RANGE" then Modes.start("range")
     elseif it == "HERO" then next_hero(1)
     elseif it == "BOTS" then G.bot_diff = G.bot_diff % 3 + 1
+    elseif it == "COMMANDS" then Menu.keys = true Keys.open() Input.arrow(true)
     elseif it == "RESOLUTION" then next_screen(1)
     elseif it == "RENDERER" then next_renderer()
     elseif it == "ANIMATION REEL" then Modes.start("reel")
@@ -267,6 +273,7 @@ function Menu.update()
 end
 
 function Menu.draw()
+  if Menu.keys then Keys.draw() return end
   local a = Menu.hero
   local t = Menu.t
   if OVERBIT_COVER then                  -- carts/overbit/tools/mkcover.py: the hero alone (a number: the camera's yaw)
@@ -287,7 +294,7 @@ function Menu.draw()
   font("6x12")
   uprint("a hero shooter for bm", cx - 21 * 3, small and 38 or 54, 0xFFE070)
   local top, step = small and 54 or 80, small and 12 or 15
-  if small then top, step = 50, 11 end            -- (nine rows on 180 lines)
+  if small then top, step = 50, 11 end            -- (ten rows on 180 lines)
   for i, it in ipairs(ITEMS) do
     local s = it
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
