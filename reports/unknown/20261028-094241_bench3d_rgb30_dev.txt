@@ -1,0 +1,55 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: RGB30
+date: 2026-10-28 09:42:41
+file: 20261028-094241_bench3d_rgb30_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.16 (Mali)
+date unknown (no network time)
+machine RGB30, Cortex-A55, the 3D on the ARM (Mali: flat colours on the GPU, textures on the ARM)
+gpu the Mali draws flat colours (mali3d=1)
+probes none
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.16 gpu3d=off (at the start; each profile sets its own)
+counters Cortex-A55 PMU
+previous bm/bench/3d0065.txt
+only tests quad_tex, profiles all
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us,sort_us,build_us,jobs_us,b1_us,b2_us,b3_us
+R,quad_tex,ARM,0.2,6.5,13.0,0,15.5,15.5,12,12,24,345600,0,0.0,0.0,12761334,0,12108,12644714,1,13,13,0,0,0.0,0.0,0,0,0,345600,-1,44.15,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,quad_tex,GPU,2.1,2648.7,3680.0,1,12.5,12.6,4140,4140,8280,0,0,1.0,0.6,7848491,0,29493,10234633,3,5297,5297,0,0,0.0,0.0,0,0,0,119232000,0.00,0.10,0.30,324,299,1,99,4042,586,1892,154,624,0,129,3
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_tex,ARM,-1,44.15,-1,-1,-1,-1,10.17,40.69,91.55
+P,quad_tex,GPU,0.00,0.10,0.30,0.00,0.00,0.01,0.02,0.09,0.21
+pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that differ, big: by more than 2 steps of a channel, max: the largest step)
+columns K,test,profile,pixels,diff,big,max
+KG,quad_tex,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,0 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,1 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,2 de07 de07 de07 de07 de07 de07 de07 de07 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,3 de07 de07 de07 de07 de07 de07 de07 de07 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+K,quad_tex,GPU,230400,57600,57600,26
+KD,quad_tex,GPU,box 0 0 319 179,gpu/arm first 0843/1ad8 centre 0843/1ad8 top-left 0843/1ad8 bottom-right 0843/1ad8 top-middle 0843/de07
+score 22072 (bm3d 7.16 as the games get it, 1 of 24 tests, a part of the bench), GPU bm3d 2.1 22072, ARM bm3d 0.2 54; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.16,22072,1,0
+S,GPU,2.1,22072,1,0
+S,ARM,0.2,54,1,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 5297 (quad_tex)
+total 5 s
