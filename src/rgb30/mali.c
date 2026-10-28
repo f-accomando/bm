@@ -1758,7 +1758,7 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
 #define BE_SURF_OFF     0x200000    /* the surface in hw->mem when it does not fit set 0's (frames are never in flight then) */
 #define BE_KEY          0xFF00FF    /* "not covered" */
 #define BE_MAX_TRIS     32768
-#define BE_MAX_MVPS     512
+#define BE_MAX_MVPS     2048
 /* G1, textures: the arena's tail (after the draw slots, 0x320000) holds the textured draws' vertices (32 bytes each: position
  * and u v k) and varyings (16 bytes each), BE_TEXV_MAX vertices (slots of the frame's vertex index) at most; the sheets'
  * texture blocks go to a pool of 2 MB below the arena. */
@@ -1802,7 +1802,7 @@ static uint32_t be_rm_used;
 static float be_rm_pool[BE_RM_POOL] __attribute__((aligned(64)));
 static be_inst_t be_insts[BE_INST_MAX];
 static int be_ninst;
-#define BE_VIS_MAX      12288                   /* visible faces of the cached meshes in a batch (a frame holds 10922) */
+#define BE_VIS_MAX      65536                   /* the faces of the cached meshes in a batch (a frame holds 10922 visible ones: the flush splits) */
 static uint16_t be_vis[BE_VIS_MAX];
 static uint32_t be_nvis;
 static int be_res_on = 1;                       /* mali_res=0: no face cache */
@@ -2473,6 +2473,17 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             nd = nv = btri = slots = lu_used = 0;
         }
         be_zfr = 1;
+        /* Far to near: when the meshes need more than one frame, a later frame has no depth of the earlier ones and the nearer
+         * meshes must come last. m[15] is the depth of the mesh origin (insertion sort: a stable order for the same depth). */
+        for (int ii = 1; ii < ninst; ii++) {
+            const be_inst_t t = be_insts[ii];
+            int jj = ii;
+            while (jj > 0 && be_insts[jj - 1].mvp[15] < t.mvp[15]) {
+                be_insts[jj] = be_insts[jj - 1];
+                jj--;
+            }
+            be_insts[jj] = t;
+        }
         for (int ii = 0; ii < ninst; ii++) {
             const be_inst_t *q = &be_insts[ii];
             const uint32_t need = be_lit_bytes(q->kind, q->nb), sl = (3 * q->nvis + 3) & ~3u;

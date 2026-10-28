@@ -37,8 +37,6 @@ Plan sheets: [multicore](progress/multicore.md) (M, G, V tracks), [graphics-mali
 
 Done:
 - V1: the 3D mesh runs on four cores (faces, then bands of rows), RGB30 games 375 -> 451. The Mali draw build runs on the cores too. Scores: games 491, GPU 513, ARM 602.
-- G1: opaque textures on the Mali (bm3d 7.17). G2: hardware depth test (`mali_z`, bm3d 7.18). G4: score table updated. Q2: the light of rigid and skinned meshes in the Mali vertex shader (`mali_lit`, bm3d 7.21; `spheres` GPU+VS 102.5 -> 132.0, `spheres_shine` 48.5 -> 125.7, `heroes` 3.4 -> 6.8). Scores: games 639, GPU 755, ARM 601.
-- G3: the Mali 3D Bench R lines carry `draws`, `mesh_us`, `flush_us`, `resolve_us`.
 - Yharnam light by the GPU on the Pi: `gpu3d_opt("light", on)`, a Light row in the pause menu. Autoplay 31.6 -> 50.1 fps. Market version `2026.10.28b`.
 - RGB30 UX: one-line screenshot banner for 1 s at the top centre; small dev kit with L1+R1 together; Give up the hunt closes the game.
 - OpenVG and VGU survey with the 2D "do better" list ([graphics-vector](progress/graphics-vector.md)).
@@ -46,7 +44,17 @@ Done:
 To do, in this order:
 1. G1 on the console: the pixel check between GPU and ARM exists, the comparison on the console is not finished. The user looks at the textured scenes on the RGB30 (`mali_tex`).
 2. The scenes of G2 (`spheres`, `split`) by eye on the console, with the user. The old local branch `claude/mali-textures-zbuffer` holds no work: delete it.
-3. Q5 is done (the option table is in `docs/progress/mali-parity.md`). Mali options to build, one at a time: a faster resolve for scattered coverage (a NEON resolve halved the `sprites` test but slowed partial-coverage scenes: see mali-parity; a hybrid by block type is the open idea); a faster sprite fragment (`gpu2d`: 3.2 ms; sprites 5.1 ms for 3569); text on the GPU (a font atlas). Bilinear textures (bm3d 7.22) and 2D rectangles and sprites (bm3d 7.23, off) are done. Cel in the Mali vertex shader is done (bm3d 7.24) with the 3D Bench scenes `cel_flat_lit` and `cel_flat` (`tests=cel`); they ran on the Pi on 28 Oct (GPU+VS 43.2 and 42.9 heroes against ARM 5.3; the RGB30 GPU+VS is 6.8 against ARM 21.6): the Pi keeps the meshes resident in the GPU, the Mali sends the vertices of the faces every frame. The Mali now keeps the faces of a lit mesh in a cache (bm3d 7.26: `spheres` GPU+VS 257 against ARM 199, `heroes` 13.7 against 15.8). Culling on the GPU was tried and is slower (see mali-parity); heroes are at 13.7 against 15.8 on the ARM and bound by the GPU (7.9 ms of jobs; a frame holds 5461 faces, so 13 heroes make about four frames, each with its clear and resolve): the bigger frame is done for the cached meshes (bm3d 7.27: heroes 14.8); rows of heroes that still look wrong in some `heroes` scenes are open (see mali-parity); the same for the other draws is not needed now: no 3D Bench scene fills a frame of triangles (8192) or of 2D (16384 vertices; `spheres_tex` has 4562 textured triangles of 5461). Q2 next steps: cel levels in the vertex shader; read the `heroes` report columns (`mesh_us`, `flush_us`: 6.8 against 15.8 on the ARM) and name the next cost. The Mesa Bifrost build is in `~/mb` (WSL); `tools/mali/README.md` has the steps and `~/mesa-bifrost` the tree.
+3. Mali, suspended on 29 Oct (the work done is in `docs/DRIVERS.md` 7.17 to 7.28 and `docs/progress/mali-parity.md`):
+   - Run the full 3D Bench (`bench3d_boot=all`) on the RGB30 with the kernel of the heroes fix (batch of 2048 matrices `BE_MAX_MVPS`, all heroes in the face cache `BE_VIS_MAX` 65536, cached meshes sorted far to near). It was not run: the console was off. Expect scores near games 636 and GPU 750 and no `KC` of 0.
+   - By eye, once, at the end: the scenes on the console with and without `mali_msaa=1` (the edges of the MSAA were never looked at); `heroes` iterations 3 and 4 at a high n were right at the last check.
+   - `make test-b3d` fails on the host with "51 pages drawn" (it failed before these changes too): find the cause.
+   - MSAA resolve: the ARM takes 2.6 ms against 1.5 ms without MSAA; count the blocks of each kind to find why.
+   - A faster sprite fragment is not the cost of `gpu2d` (the GPU job is 0.8 ms of about 2 ms; the rest is the ARM resolve and the wait). A hybrid resolve by block type is the open idea. Text on the GPU (a font atlas) is not started.
+   - Indexed vertices are not built (see mali-parity: a gain of 10% at best, and the light would be smooth).
+   - Yharnam on the RGB30 is not measured; its sheet of 4096 x 3400 is larger than the 2 MB texture pool. The `cel_flat` scenes are not measured after the face cache.
+   - The framebuffer stops 13 MB below the GPU memory and `be_arena` needs 15 MB: check the 1080p configuration.
+   - The Mesa Bifrost build is in `~/mb` (WSL); `tools/mali/README.md` has the steps and `~/mesa-bifrost` the tree.
+   - Bridge: the RGB30 bridge runs from `~/bmk_r` (a copy of `tools/`, started on 29 Oct); `~/bm33` is on another session's branch. The new `restart` op restarts the console with the same kernel: `pi.py --dev rgb30 config bench3d_boot=...` (twice, the first call after a restart often fails), then `pi.py --dev rgb30 restart`. `shot OUT.png` works in the 3D Bench now.
 4. Multitasking: the cooperative fibres in the menu stay as they are. The link with the cores goes through V4.
    V1 leftovers: look at the scenes with the bands on; move the Mali queue fill to a worker core.
 5. V2 (`job_run` API), V4 (Market, SD and cover decode on a worker), V5 (`cores=1..4` key), M7 (`multicore` capability), M5 (check `smp: offload` in a boot log).
@@ -56,7 +64,7 @@ To do, in this order:
 Chores:
 - Split `docs/progress/graphics.md` by topic (about 133 lines, limit 120).
 - Check that the online Market index lists Yharnam `2026.10.28b`.
-- Delete by hand the empty folder `.claude/worktrees/mali-gpu-textures-1ec2f2` (a shell holds it).
+- Delete by hand the folders `.claude/worktrees/mali-gpu-textures-1ec2f2` (it has an untracked `shots` folder) and `mali-hw-zbuffer` (a shell holds them), and the local branch `claude/mali-textures-zbuffer`.
 
 ## Waiting for the user (decisions and Pi runs)
 - Look at the native menu on the TV (720p, `menu_scale=2`, `menu_layout=1`) and decide if it becomes the default at 720p and 1080p.
