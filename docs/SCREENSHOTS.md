@@ -43,7 +43,8 @@ python3 tools/pi_test.py --cart build/carts/pong.bm --shot out.png
 
 The console saves the PNG in `bm/shots/` as with the key, then sends it. A game must be
 drawing frames: with none, the request fails after 3 s (`NG`). Only files of `bm/shots/` (one
-level) can be fetched. Not yet proved on the RGB30.
+level) can be fetched. The RGB30 works (28 Oct).
+The 3D Bench has no game loop. After each frame it shows, it calls `bm_shot_page` (`src/bm/api_shot.c`): a request from the PC saves the page as `bm/shots/B3Dnnnn.png`. Send the requests while a scene runs (for example with `bench3d_boot=heroes_tex`). A request between two scenes waits for the next frame.
 
 ## Names and format
 

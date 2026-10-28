@@ -72,6 +72,7 @@ int  bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st);
 /* 1 if a cartridge is suspended (its title in `title`). */
 int  bm_suspended(char *title, size_t n);
 void bm_shot_ask(void);                         /* a screenshot of the next frame drawn (netxfer op T) */
+int  bm_shot_page(const uint16_t *px, int stride, int w, int h);   /* the 3D Bench: save the page now if the PC asked */
 void bm_shot_cancel(void);                      /* the PC stopped waiting */
 int  bm_shot_done(char *name, size_t n);        /* 0 waiting, 1 saved (name), -1 not written */
 /* Closes the suspended cartridge and frees its memory. */

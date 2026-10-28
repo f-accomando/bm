@@ -109,6 +109,27 @@ void bm_shot_ask(void)
     shot_net_file[0] = 0;
 }
 
+/* The 3D Bench has no game loop: it calls this after each frame it shows. If the PC asked (bm_shot_ask), the page is saved as
+ * bm/shots/B3Dnnnn.png and the answer is ready for bm_shot_done. 1 if it saved one. */
+int bm_shot_page(const uint16_t *px, int stride, int w, int h)
+{
+    if (shot_net != 1)
+        return 0;
+    shot_net = 0;
+    if (shot_plan("b3d") != 0) {
+        shot_res = -1;
+        return 0;
+    }
+    shot_req = 0;
+    size_t n = 0;
+    uint8_t *png = shot_png(px, stride, w, h, &n);
+    const int ok = png && fat_mkdirs(SHOT_DIR) == 0 && fat_write_file(SHOT_DIR, shot_file, png, n) == 0;
+    free(png);
+    shot_res = ok ? 1 : -1;
+    memcpy(shot_net_file, shot_file, sizeof shot_net_file);
+    return ok;
+}
+
 /* The PC gave up (3 s with no frame): a later game does not answer it. */
 void bm_shot_cancel(void)
 {

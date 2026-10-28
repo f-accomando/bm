@@ -47,6 +47,13 @@ static const char *pmu_name(void)
 
 static r3d_t R;
 static g16_t *g;
+/* the kernels have it (api_shot.c); the host test does not: a null pointer then */
+int bm_shot_page(const uint16_t *px, int stride, int w, int h) __attribute__((weak));
+static void shot_page(void)
+{
+    if (bm_shot_page && g)
+        bm_shot_page(g->px, g->stride, g->w, g->h);
+}
 
 /* ---------------------------------------------------------------- profiles */
 
@@ -1704,6 +1711,7 @@ static void ramp(int ti, int pf)
             a.pixels += (float)R.pixels;
             overlay(t, pf, n, a.ms / (float)(f > 1 ? f - 1 : 1), ti);
             const uint32_t show = P->present();
+            shot_page();
             const float ms = (float)(u1 - u0 + show) / 1000.0f;
             a.ms += ms;
             fms[f - 1] = ms;
@@ -1901,6 +1909,7 @@ static void stress_run(int ti, int pf, int n, stress_t *o)
         o->tris_in += (float)R.tris_in;
         overlay(t, pf, n, sum_ms / (float)(f > 1 ? f - 1 : 1), ti);
         const float ms = (float)(u1 - u0 + P->present()) / 1000.0f;
+        shot_page();
         sum_ms += ms;
         if (ms > o->worst)
             o->worst = ms;
