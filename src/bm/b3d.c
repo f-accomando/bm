@@ -994,6 +994,21 @@ static void cel_scene(int n, int f)
     scene_light();
 }
 
+/* The flat hero (no textures, no smooth shading) with the same lights: a mesh the Mali's vertex shader can light (bm3d 7.24),
+ * lit or with 4 cel bands. Rows ARM, GPU and GPU+VS on the Pi and on the RGB30. */
+static void cel_flat_scene(int n, int f)
+{
+    cls3d();
+    r3d_camera(&R, 0, 2.2f, -4, 0, -0.18f, 60);
+    shine_light();
+    for (int i = 0; i < n; i++) {
+        const float x = -4.2f + 1.2f * (float)(i % 8) + 0.6f * (float)((i / 8) % 2), z = 1.0f + 1.5f * (float)(i / 8);
+        pose((float)f * 0.05f + (float)i);
+        r3d_draw_flags(&R, &hero, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, cel_bands ? R3D_CEL : 0u);
+    }
+    scene_light();
+}
+
 /* ------------------------------------------------- the 2D scenes (opt-in)
  * Tests to measure 2D work (map, sprites, stacks, fade, light) on the Pi
  * Zero W. They run only when `tests=` names them (`optin`), so the default
@@ -1313,6 +1328,10 @@ static const test_t tests[] = {
       0, 1, NULL, "cel" },
     { "cel_nd", "cel: 4 bands, dither off", "heroes", 1, 64, M_ARM | M_VS, cel_setup_cel_nd, cel_scene, cel_free, NULL, 0, 0, 1,
       NULL, "cel" },
+    { "cel_flat_lit", "cel: flat hero, lit (reference)", "heroes", 1, 64, M_LIT, cel_setup_lit, cel_flat_scene, cel_free, NULL, 0, 0, 1,
+      NULL, "cel" },
+    { "cel_flat", "cel: flat hero, 4 bands", "heroes", 1, 64, M_LIT, cel_setup_cel, cel_flat_scene, cel_free, NULL, 0, 0, 1, NULL,
+      "cel" },
     { "cel_outline", "cel: lit hero with the outline (inverted hull)", "heroes", 1, 64, M_ARM | M_VS, cel_setup_outline, cel_scene,
       cel_free, NULL, 0, 0, 1, NULL, "cel" },
 };

@@ -323,6 +323,16 @@ int main(int argc, char **argv)
         nir_def *zero = nir_imm_float(&b, 0.0f), *one = nir_imm_float(&b, 1.0f);
         nir_def *d = nir_fdot3(&b, n, sun);
         nir_def *dd = nir_fmax(&b, d, zero);
+        /* cel levels (misc.y levels, misc.w floor): dd in steps, as be_mesh quantizes it */
+        nir_def *celn = nir_channel(&b, misc, 1), *cfl = nir_channel(&b, misc, 3);
+        nir_def *cel_on = nir_flt(&b, nir_imm_float(&b, 0.5f), celn);
+        nir_def *ci = nir_fmin(&b, nir_ffloor(&b, nir_fmul(&b, dd, nir_imm_float(&b, 64.0f))), nir_imm_float(&b, 63.0f));
+        nir_def *cb = nir_ffloor(&b, nir_fmul(&b, nir_fmul(&b, ci, celn), nir_imm_float(&b, 1.0f / 64.0f)));
+        nir_def *cm1 = nir_fmax(&b, nir_fsub(&b, celn, one), one);
+        nir_def *cv = nir_fadd(&b, cfl, nir_fmul(&b, nir_fmul(&b, nir_fsub(&b, one, cfl), cb), nir_frcp(&b, cm1)));
+        nir_def *ddc = nir_fmul(&b, nir_ffloor(&b, nir_fadd(&b, nir_fmul(&b, cv, nir_imm_float(&b, 255.0f)),
+                                                            nir_imm_float(&b, 0.5f))), nir_imm_float(&b, 1.0f / 255.0f));
+        dd = nir_bcsel(&b, cel_on, ddc, dd);
         nir_def *ny = nir_fdot3(&b, n, up);
         nir_def *e = nir_fsub(&b, one, nir_fmax(&b, nir_fdot3(&b, n, view), zero));
         nir_def *ee = nir_fmul(&b, e, e);
@@ -345,6 +355,7 @@ int main(int argc, char **argv)
             nh = nir_bcsel(&b, nir_flt(&b, nir_imm_float(&b, (float)i), kq), nir_fmul(&b, nh, nh), nh);
         nir_def *glossy = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, base, 3));
         nir_def *spec_on = nir_iand(&b, glossy, nir_iand(&b, nir_flt(&b, zero, d), nir_flt(&b, zero, nh0)));
+        nh = nir_bcsel(&b, cel_on, nir_bcsel(&b, nir_flt(&b, nir_imm_float(&b, 0.5f), nh), one, zero), nh);   /* cel: a step */
         nir_def *emi = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, nrm, 3));
         nir_def *fog_on = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, misc, 2));
         nir_def *ff = skin ? nir_channel(&b, UBN(176), 0) : nir_channel(&b, fog, 3);

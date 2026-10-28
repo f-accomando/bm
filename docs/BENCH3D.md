@@ -351,13 +351,14 @@ rows of 8. Profiles: `ARM` and `GPU+VS` (and `GPU+VS+FS2`, the driver as games g
 | `cel_lit_nd` | the sun, no cel | off (`r3d_dither(0)`) |
 | `cel_nd` | cel, 4 bands | off |
 | `cel_outline` | the sun, no cel, outline: flag `R3D_OUTLINE`, colour 0x2030A0, width 0.03 (the inverted hull) | on |
+| `cel_flat_lit`, `cel_flat` | the flat hero (no texture, no smooth), the shine lights: lit, or 4 bands | on |
 
 ```
 ./easy_install.sh line "b3d tests=cel; send"
 ```
 
 `tests=cel` runs the five. Since bm3d 7.5 the vertex programs of `GPU+VS` cut the light, so the cel hero keeps the mesh path there.
-`cel_outline` draws the mesh again as a hull: its ms against `cel_lit` is the cost of the outline. The `ARM` rows are the ARM raster.
+`cel_flat_lit` and `cel_flat` (bm3d 7.24) have rows ARM, GPU and GPU+VS on the Pi and the RGB30: the Mali's vertex shader lights the flat hero, with or without bands. `cel_outline` draws the mesh again as a hull: its ms against `cel_lit` is the cost of the outline. The `ARM` rows are the ARM raster.
 After the `H` lines the report has the `C` lines, one for each profile and n from 1 to 4 (the same steps in the five tests):
 
 ```

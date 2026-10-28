@@ -2628,7 +2628,8 @@ static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
 }
 
 /* the light block of a bone: the uniform buffer of BM_VS_LITX after the matrix, in floats (vec4 each): sun 0, up 4, view 8, half 12,
- * A 16, B 20, D 24, rim R 28, gloss S 32, fog (colour * 255, amount) 36, misc 40 (x: squarings of the gloss power, z: fog on), the
+ * A 16, B 20, D 24, rim R 28, gloss S 32, fog (colour * 255, amount) 36, misc 40 (x: squarings of the gloss power, y: cel levels,
+ * z: fog on, w: cel floor), the
  * camera matrix (3 rows) 44, four lamps 56 (position and 1 / r^2, colour). BM_VS_LIT reads sun, up, A, B, D from the same places. */
 static void be_set_light(const float *mvp, const r3d_env_t *env, v3_t sun, v3_t up, v3_t view, v3_t half, const float *Mb, float cz)
 {
@@ -2655,6 +2656,8 @@ static void be_set_light(const float *mvp, const r3d_env_t *env, v3_t sun, v3_t 
     for (float p = 1.0f; p < env->spec_p && k < 8; p *= 2.0f)
         k++;
     L[40] = (float)k;
+    L[41] = (float)env->cel;                    /* cel levels (0: none) and the floor */
+    L[43] = env->cel_floor;
     memcpy(L + 44, Mb, 12 * sizeof(float));
     for (int i = 0; i < env->nlamps && i < 4; i++) {
         memcpy(L + 56 + 8 * i, env->lamp[i], 4 * sizeof(float));        /* x y z and 1 / r^2 */
@@ -2703,8 +2706,8 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();
     /* Q2: the vertex shader lights the faces when the light is the sun and the ambient light of a rigid mesh */
-    int vlit = be_lit_on && be_arena() && env->lit && N && !env->cel;
-    int vx = env->nlamps > 0 || env->fog_k > 0.0f || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f;
+    int vlit = be_lit_on && be_arena() && env->lit && N;
+    int vx = env->cel > 0 || env->nlamps > 0 || env->fog_k > 0.0f || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f;
     if (vlit && (env->S[0] > 0.0f || env->S[1] > 0.0f || env->S[2] > 0.0f))
         for (int t = 0; t < m->nfaces && !vx; t++)
             if (R3D_LOD_SHOWS(m->colors[t], env->detail) && (m->colors[t] & R3D_GLOSSY))
