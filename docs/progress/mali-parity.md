@@ -87,3 +87,9 @@ The face cache keeps 3 vertices a face. A mesh with shared vertices would keep a
 The gain has a limit. In `heroes` (GPU+VS, RGB30) the bin job takes 3.2 ms and the render job 4.3 ms. The vertex work is a part of the 3.2 ms, so at best 10% of the 14 ms frame.
 The look would change. A shared vertex has one normal, so the light is smooth. The Mali meshes are lit flat, one colour a face (and `cel_flat` needs it). Flat light needs unshared vertices or a flat varying from a provoking vertex, and both give back the gain.
 Build it only for a smooth-lit mesh (`spheres_smooth`) and measure it first with a test mesh. The cost: an index buffer in the Draw descriptor, the cache of the visible faces as indices, and a new pixel check.
+
+## One batch of 32768 faces (bm3d 7.28, 28 Oct)
+
+A batch ended at 8192 triangles and each batch was a frame of its own. A frame has no depth of the one before. In `heroes_tex` and `heroes_skin` (12288 faces a hero row, three rows) the far row came in the second batch and covered the near rows.
+The batch holds 32768 triangles now (`BE_MAX_TRIS`). The sort runs on the whole batch, so the frames come in far-to-near order. A frame of flat triangles ends at 32768 vertex slots (the area at the start of the arena): a larger batch without this limit wrote over the next area and the GPU drew nothing in `quad_flat`, `draws` and `queue`.
+Checked on the RGB30: scores 636 and 750 as before, the pixel check holds, and the far row of `heroes_tex` stays behind. The frame that holds more faces than the slots still needs the sort: a scene with more than 10922 lit faces and a gap in depth between frames is open.

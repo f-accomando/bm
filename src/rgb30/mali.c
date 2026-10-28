@@ -1757,7 +1757,7 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
  * game logic in parallel until mali_backend_sync resolves the surface. */
 #define BE_SURF_OFF     0x200000    /* the surface in hw->mem when it does not fit set 0's (frames are never in flight then) */
 #define BE_KEY          0xFF00FF    /* "not covered" */
-#define BE_MAX_TRIS     8192
+#define BE_MAX_TRIS     32768
 #define BE_MAX_MVPS     512
 /* G1, textures: the arena's tail (after the draw slots, 0x320000) holds the textured draws' vertices (32 bytes each: position
  * and u v k) and varyings (16 bytes each), BE_TEXV_MAX vertices (slots of the frame's vertex index) at most; the sheets'
@@ -2416,7 +2416,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         const uint32_t next_slots = (nd > 0 && dr[nd - 1].rgb == t->rgb && dr[nd - 1].mvp == t->mvp)
                                         ? slots - dslots + ((3 * (dr[nd - 1].n + 1) + 3) & ~3u)
                                         : slots + 4;
-        if (btri == max_tris || (tex && next_slots > BE_TEXV_MAX)) {
+        if (btri == max_tris || next_slots > (tex ? BE_TEXV_MAX : 32768u)) {   /* (flat vertices: 32768 slots at the arena start) */
             if (be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
                 return -1;
             nd = 0;
