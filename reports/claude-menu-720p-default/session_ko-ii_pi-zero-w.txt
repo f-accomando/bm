@@ -1,0 +1,61 @@
+bm report
+kind: session
+kernel: v0.2.5-1881-gde1e513b-dirty
+branch: claude/menu-720p-default
+board: Pi Zero W
+date: 2026-10-28 16:46:13
+file: session_ko-ii_pi-zero-w.txt
+
+session of "KO-II" (the last one: the next run of this game replaces this file)
+options bm3d 7.22 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 3d=none later=0 2d=0 impostor=0 fast=0
+screen 1280x720, 531 frames in 17.3 s, 30.5 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 31.8 ms, max 92.7 ms, 531 frames over 16.7 ms
+memory: Lua peak 437 KB, data 1680 KB; code 10066 tokens; busiest frame 316k Lua instructions
+frames that were shown after more than 1.5 frames: 531
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    0
+  <= 25 ms             0
+  <= 34 ms (30 fps)    476
+  <= 50 ms             53
+  <= 100 ms            1
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 530 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.2    1%
+  draw (no 3D)    29.0  174%
+  3D calls         0.0    0%
+  audio            2.7   16%
+  GPU wait         0.0    0%
+  all             32.0  192%
+the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
+  map        0.0 ms  0.0 calls
+  spr        0.0 ms  0.0 calls
+  sspr       2.0 ms  340.7 calls
+  stack      0.0 ms  0.0 calls
+  print      0.0 ms  0.0 calls
+  shapes    14.7 ms  689.2 calls
+  all       16.8 ms  1030.0 calls (of the draw's 29.0 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 8.5% of the CPU's time (mean), 13.7% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+    393    14.4    62.6   61.5  27.8   33.6   0.0   0.0     1.1       57      234        1
+    309    11.7    36.8   35.7   0.3   35.3   0.0   0.0     1.0       51      253        1
+    270    10.3    36.7   35.6   0.3   35.2   0.0   0.0     1.0       56      241        1
+      2     1.8    36.4   31.2   0.3   30.8   0.0   0.0     5.2       46      233        1
+    282    10.7    36.3   35.9   0.3   35.5   0.0   0.0     0.3       53      272        1
+     92     4.6    36.0   35.2   0.3   34.8   0.0   0.0     0.8       55      252        1
+    310    11.7    35.5   34.8   1.1   33.6   0.0   0.0     0.7       47      258        1
+     66     3.7    35.5   34.6   0.2   34.3   0.0   0.0     0.9       46      223        1
+    311    11.7    35.3   34.2   0.2   33.9   0.0   0.0     1.1       46      264        1
+     58     3.5    35.3   35.0   0.4   34.6   0.0   0.0     0.2       62      396        1
+    241     9.4    35.2   34.2   0.4   33.8   0.0   0.0     1.0       52      249        1
+    313    11.8    35.2   34.6   0.2   34.4   0.0   0.0     0.6       46      233        1
+
+GPU 3D: 4236 jobs, 11405 triangles a frame, 35.0 ms a frame, longest job seen to its end 6.2 ms
+binner memory: at most 52 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
