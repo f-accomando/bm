@@ -56,5 +56,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   `menu_scale=4` (640x360), `2` (1280x720) or `3` (1920x1080), Settings > Screen > Menu size, make the GPU (V3D) draw the menu
   at that size, 1:1 with `font_console_24x48` at 3 and intermediate primitives
   (`m_rect`, `m_text`, `hspan`, `round_rect`, `round_ring`, `card`, `put_background`,
-  `put_icon`, `put_prompt`, `m_pointer`), with no frame copy (`enlarge 0 us`, ~35.8 ms draw at 1080p, verified on hardware;
+  `put_icon`, `put_prompt`, `m_pointer`), with no frame copy (`enlarge 0 us`, 35.8 ms draw at 1080p in the first test; 73.5 ms on 28 Oct on the cover grid, see below;
   720p not yet verified). When the GPU cannot start, the menu stays at 360p on the ARM (26 Oct 2026; `menu_gpu` is gone).
+
+- **Menu at 1080p, cost of each layer (Pi Zero W, 28 Oct 2026, [`docs/bench/menu-1080p-probe/`](../bench/menu-1080p-probe/README.md)).** The cover grid draws in 73.5 ms a frame (360p on the ARM: 6.6 ms). The ARM work is 4 ms. The GPU part is mostly cover blits (41.6 ms), background (26.6 ms) and text (22.7 ms); rectangles are about 1 ms. The layers overlap, so they do not add up. To do: cut the fill (clear the page colour instead of a full-screen rect; draw the background only where it shows; no reload of the background sheet outside the fade; blit the covers at the size they show; draw the text from a glyph atlas in one pass; redraw only what changes). Measure again with the same method.
