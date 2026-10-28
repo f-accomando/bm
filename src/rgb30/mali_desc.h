@@ -77,8 +77,12 @@ typedef struct {
     uint64_t preload_regs;      /* the compiler's preload bit mask (info.preload) */
     uint32_t push_count;        /* pushed words: the uniform count is half of it, rounded up */
     int pixel_kill, zs_update;  /* MD_KILL_*, fragment only */
+    int depth_func;             /* MD_FUNC_*; 0 is the default: always */
+    int depth_write;            /* the test writes the depth buffer */
     int wait6, wait7;           /* shader wait dependency 6 and 7 (info.bifrost.wait_6, wait_7), fragment only */
 } md_renderer_state_t;
+/* the depth functions of Renderer State (0 means MD_FUNC_ALWAYS in md_renderer_state_t) */
+enum { MD_FUNC_NEVER = 1, MD_FUNC_LESS, MD_FUNC_EQUAL, MD_FUNC_LEQUAL, MD_FUNC_GREATER, MD_FUNC_NOTEQUAL, MD_FUNC_GEQUAL };
 void md_renderer_state(uint8_t *p, const md_renderer_state_t *s);
 
 /* Blend (16 bytes, 16-aligned) for a render target written as it is: mode Opaque, 4 components, the

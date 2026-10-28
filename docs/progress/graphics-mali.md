@@ -99,12 +99,11 @@ What was found: `frame_build_ex` took 15-25 us a draw on the ARM (10 ms of a 15 
 Queue to align bm3D on Mali with the Pi driver (26 Oct 2026, order of work; detail in [multicore](multicore.md) track G):
 - Q1. [DONE 26 Oct, see the result above] Read the new `mesh_us` / `flush_us` / `resolve_us` / `draws` columns of the C 3D Bench (kernel 1771 and later) and name the cost of the lit scenes.
 - Q2. Lighting per face off the ARM: in the vertex shader (as the Pi's V3D does) or, as a shortcut, on worker cores (multicore V1).
-- Q4. Hardware Z-buffer (item 8 below), then drop `sort_tris` on the GPU path.
 - Q5. The other `gpu3d_*` options of the Pi driver: check one by one which Mali ignores (list in `docs/BENCH3D.md`).
 Needs the Mesa Bifrost compiler (`tools/mali/README.md`) for Q2 (shader), Q3 and Q4.
 
 7. [DONE 28 Oct] Opaque textures on the GPU: `BM_FS_TEX` and `BM_VS_TEX` (`tools/mali/mkshader.c`), `Texture`, `Surface` and `Sampler` descriptors (`mali_desc.c`), a 2 MB texture pool. RGB30 3D Bench, same kernel: `mali_tex=0` games 482, GPU 495; `mali_tex=1` games 530, GPU 570. `quad_tex` 6.4 -> 126.3, `spheres_tex` 52 -> 105.3. The pixel check (K lines) shows rounding differences against the ARM: `quad_tex` 640 of 57600 pixels differ by more than 2 steps. Still open: alpha, screen-space and bilinear textures stay on the ARM; the first look by eye on the console is not done.
-8. [FUTURE] Hardware Z-Buffer / Early-Z: attach a 16/24-bit Depth/Stencil (`ZS`) buffer via MFBD `md_zs_crc_ext` and enable hardware depth test (`Z_FUNC = LESS`) to eliminate CPU far-to-near `sort_tris` and reduce pixel overdraw.
+8. [DONE 28 Oct] Hardware depth test (`mali_z=1`, default): the tile buffer tests "less or equal" and clears to 1; no ZS surface is written back. Each vertex has z = 1 - R3D_NEAR / depth (mesh: row 2 of the matrix). `sort_tris` is skipped when one frame holds all the triangles (up to 1024 draws, tex slots). RGB30 3D Bench, same kernel: `mali_z=0` games 531, GPU 571; `mali_z=1` games 639, GPU 755 (ARM 601). `spheres` n60: GPU 46.0 -> 91.3, GPU+VS 81.1 -> 102.6. Pixel check equal to `mali_z=0` (`split` GPU+VS nearer to the ARM). Still open: look at the scenes by eye; the lit smooth scenes (`spheres_smooth`, `spheres_shine`) differ from the ARM by shading.
 Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-parity.md).
 
 ## Rules (do not break)
@@ -113,6 +112,7 @@ Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-p
 - `src/rgb30/memops.c` holds the kernel's `memcpy`, `memmove`, `memset` and `memcmp`. Device memory goes through volatile accessors, not through them.
 - `mali3d` is on by default (`bm3d 7.15`). With `mali3d=0`, `gpu3d=0`, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).
 - The Mali draws flat colours, untextured lit/cel/fog meshes and opaque textures. `r3d` hands alpha textures, screen textures, bilinear textures and effects to the ARM. `mali_tex=0` sends all textures to the ARM.
+- Depth values: a triangle of `be_tri` carries 1/depth in z; the backend writes z = 1 - R3D_NEAR / depth. A mesh matrix has z/w = 1 - R3D_NEAR / depth (row 2 = row 3 minus R3D_NEAR). All triangles of a frame must be in one pass: a second frame has no depth of the first.
 - The texture pool (2 MB) sits at `mem - 8 MB`; `fb.c` stops the framebuffer 8 MB lower. Move both together.
 - Write textured vertices with volatile stores (a 128-bit float copy breaks strict aliasing). `BM_FS_TEX` keeps blue at 1/255 or more: `0xFF00FF` is the key colour.
 - A frame uses one of two sets of the GPU memory (`MALI_SET_BASE`); the layout macros (`SO_*`, `D_*`) are in `mali_variants.h` and the variant patches use them. Change a layout macro and `make TARGET=rgb30 test-mali` must still pass.

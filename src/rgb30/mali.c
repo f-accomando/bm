@@ -657,6 +657,8 @@ static void fbd(uint8_t *f, uint64_t samples_pa, uint32_t w, uint32_t h, uint64_
     put32(f + 44, 0u /* 1 sample */ | TIE_MINUS_180_IN_0_OUT << 6 | 8u << 9 /* 16 x 16 */ |
                       0u << 19 /* 1 target */ | 1u << 24 /* 1 KB of colour a tile */);
     put32(f + 48, ZFMT_D24 << 16);
+    const float zclear = 1.0f;                              /* the far plane: the depth test is "less or equal" */
+    memcpy(f + 52, &zclear, 4);
     uint8_t *rt = f + FBD_SIZE;
     put32(rt, CBUF_R8G8B8A8 << 26);
     put32(rt + 4, 1u /* write */ | COLOR_R8G8B8A8 << 3 | BLOCK_LINEAR << 8 | 1u << 15 /* dither */ |
@@ -846,6 +848,7 @@ typedef struct {                                /* what every core reads while i
     uint8_t *tv_m;                              /* textured draws: vertices of 32 bytes (position, u v k), varyings of 16 */
     uint64_t tv_pa, tvy_pa;
     int fast_pack;
+    int zbuf;                                   /* G2: the frame has a depth test: z = 1 - near / depth (see be_mesh) */
 } bctx_t;
 
 typedef struct {                                /* the block of one core: its draws and its own counters */
@@ -883,7 +886,7 @@ static void build_draws(void *p)
                 /* clip position (x w, y w, z w, w) with w = depth: the shader divides by w, the varyings are interpolated
                  * with perspective */
                 const float z = draws[d].xyz[i][2], w = z > 1e-9f ? 1.0f / z : 1e9f;
-                const float v8[8] __attribute__((aligned(16))) = { draws[d].xyz[i][0] * w, draws[d].xyz[i][1] * w, 0.5f * w, w,
+                const float v8[8] __attribute__((aligned(16))) = { draws[d].xyz[i][0] * w, draws[d].xyz[i][1] * w, c->zbuf ? w - R3D_NEAR : 0.5f * w, w,
                                                                    uvk[i][0], uvk[i][1], uvk[i][2], 0.0f };
                 volatile float *tvp = (volatile float *)(void *)(tv_m + 32 * (size_t)(first + i));
                 for (int q = 0; q < 8; q++)
@@ -924,7 +927,10 @@ static void build_draws(void *p)
         const uint64_t tb0 = cnt_now();
         /* the data: the positions as (x y z 1), the colour twice (the buffer and the pushed words 4-7) */
         for (uint32_t i = 0; i < nv; i++) {
-            float v4[4] = { draws[d].xyz[i][0], draws[d].xyz[i][1], draws[d].xyz[i][2], 1.0f };
+            float zv = draws[d].xyz[i][2];
+            if (!draws[d].mvp)                  /* the screen-space z is 1/depth (nearer is larger): the depth buffer wants 0 near, 1 far */
+                zv = c->zbuf ? 1.0f - R3D_NEAR * zv : zv;
+            float v4[4] = { draws[d].xyz[i][0], draws[d].xyz[i][1], zv, 1.0f };
             memcpy(verts_m + 16 * (size_t)(first + i), v4, 16);
         }
         const float col[4] = { (float)(rgb >> 16 & 0xff) / 255.0f, (float)(rgb >> 8 & 0xff) / 255.0f,
@@ -983,7 +989,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                            uint8_t *verts_m, uint64_t verts_pa, uint64_t pos_pa,
                            uint8_t *push_m, uint64_t push_pa, uint8_t *vpush_m, uint64_t vpush_pa,
                            uint8_t *draws_m, uint64_t draws_pa, int fast_pack,
-                           uint8_t *tv_m, uint64_t tv_pa, uint64_t tvy_pa)
+                           uint8_t *tv_m, uint64_t tv_pa, uint64_t tvy_pa, int zbuf)
 {
     const uint32_t sb = MALI_SET_BASE(set);
     uint8_t *m = H->mem;
@@ -1022,7 +1028,8 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                 .varying_count = BM_FS_VARYING_COUNT, .ubo_count = BM_FS_UBO_COUNT,
                                 .work_regs = BM_FS_WORK_REGS, .preload_regs = BM_FS_PRELOAD,
                                 .push_count = BM_FS_PUSH_COUNT, .pixel_kill = MD_KILL_WEAK_EARLY,
-                                .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_WAIT6, .wait7 = BM_FS_WAIT7 };
+                                .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_WAIT6, .wait7 = BM_FS_WAIT7,
+                                .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = zbuf };
     md_local_storage(hdr + SO_LS);
     md_viewport(hdr + SO_VIEWPORT, 0, 0, w, h, 0, 0, w - 1, h - 1);
     md_attribute(hdr + SO_ATTR, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 0, 1);
@@ -1052,14 +1059,16 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                  .sampler_count = 1, .texture_count = 1,
                                  .work_regs = BM_FS_TEX_WORK_REGS, .preload_regs = BM_FS_TEX_PRELOAD,
                                  .push_count = BM_FS_TEX_PUSH_COUNT, .pixel_kill = MD_KILL_WEAK_EARLY,
-                                 .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_TEX_WAIT6, .wait7 = BM_FS_TEX_WAIT7 };
+                                 .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_TEX_WAIT6, .wait7 = BM_FS_TEX_WAIT7,
+                                 .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = zbuf };
     md_renderer_state(frst_buf, &frst);
     md_blend_opaque(frst_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
 
     bctx_t bc = { .draws = draws, .ndraws = ndraws, .pa = pa, .dpa0 = draws_pa, .sb = sb, .verts_m = verts_m,
                   .push_m = push_m, .vpush_m = vpush_m, .draws_m = draws_m, .verts_pa = verts_pa, .pos_pa = pos_pa,
                   .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .vrs3_buf = vrs3_buf,
-                  .frst_buf = frst_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack };
+                  .frst_buf = frst_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
+                  .zbuf = zbuf };
     static bblk_t blk[MALI_BUILD_CORES];
     void *blks[MALI_BUILD_CORES];
     unsigned nb = 1;
@@ -1110,7 +1119,7 @@ static void frame_build(uint32_t set, const mali_draw_t *draws, uint32_t ndraws,
     frame_build_ex(set, draws, ndraws, w, h, target_pa, pitch, clear,
                    m + verts, pa + verts, pa + positions,
                    m + push, pa + push, m + vpush, pa + vpush,
-                   m + sb + SO_DRAWS, pa + sb + SO_DRAWS, 0, NULL, 0, 0);
+                   m + sb + SO_DRAWS, pa + sb + SO_DRAWS, 0, NULL, 0, 0, 0);
 }
 
 #define TRI_X0      ((H->screen_w - 112) & ~15u)
@@ -1569,12 +1578,15 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
 #define BE_TPOOL_SIZE   (2u << 20)
 #define BE_TEX_SLOTS    16
 
-typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float uvk[3][3]; uint64_t tex_pa; } be_tri_t;
+typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float uvk[3][3]; uint64_t tex_pa; int proj; } be_tri_t;
 
 static be_tri_t be_tris[BE_MAX_TRIS];
 static float be_mvps[BE_MAX_MVPS][16];
 static int be_n, be_nmvp;
 static int be_vs_on = 2, be_q_on = 1;
+static int be_z_on;                             /* mali_z=1: the hardware depth buffer replaces sort_tris (G2) */
+static int be_zfr;                              /* the frame being run has the depth test */
+void mali_backend_set_zbuffer(int on)   { be_z_on = on != 0; }
 static gpu3d_stats_t be_stats;
 
 static uint32_t be_wait_us;
@@ -1783,7 +1795,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         frame_build_ex(0, dr, nd, sw, sh, pa, pitch, BE_KEY,
                        ab + 0x000000, apa + 0x000000, apa + 0x080000,
                        ab + 0x100000, apa + 0x100000, ab + 0x110000, apa + 0x110000,
-                       ab + 0x120000, apa + 0x120000, 1, ab + BE_TV_OFF, apa + BE_TV_OFF, apa + BE_TVY_OFF);
+                       ab + 0x120000, apa + 0x120000, 1, ab + BE_TV_OFF, apa + BE_TV_OFF, apa + BE_TVY_OFF, be_zfr);
         t_build += cnt_now() - tb;
         vt_head = apa + 0x120000;
     } else
@@ -1844,6 +1856,13 @@ static int tri_after_rgb(const be_tri_t *a, const be_tri_t *b)
     return a->rgb > b->rgb;
 }
 
+static int tri_after_rgbonly(const be_tri_t *a, const be_tri_t *b)
+{
+    if (a->rgb != b->rgb)
+        return a->rgb > b->rgb;
+    return a->mvp > b->mvp;
+}
+
 static void sort_tris(int *idx, int *tmp, int n, int (*after)(const be_tri_t *, const be_tri_t *))
 {
     if (n <= 32) {
@@ -1881,6 +1900,58 @@ static void sort_tris(int *idx, int *tmp, int n, int (*after)(const be_tri_t *, 
     }
     if (src != idx)
         memcpy(idx, src, (size_t)n * sizeof(int));
+}
+
+/* G2: the depth test works when the backend has the arena (the frame tables of 6 MB) */
+static int be_zmode(void)
+{
+#ifdef PLAT_RK3566
+    return be_z_on && !be_frame && be_hw && be_hw->map_pa > 0 && be_hw->mem_pa >= be_hw->map_pa + (6u << 20);
+#else
+    return 0;
+#endif
+}
+
+/* the triangles with a matrix go to screen space (x, y, 1/depth): same-colour triangles of different meshes can merge */
+static void be_project_mvp(int n)
+{
+    for (int i = 0; i < n; i++) {
+        be_tri_t *t = &be_tris[i];
+        const float *m = t->mvp;
+        if (!m)
+            continue;
+        for (int k = 0; k < 3; k++) {
+            const float vx = t->v[k][0], vy = t->v[k][1], vz = t->v[k][2];
+            const float wc = m[12] * vx + m[13] * vy + m[14] * vz + m[15];
+            const float iw = wc != 0.0f ? 1.0f / wc : 1.0f;
+            t->v[k][0] = (m[0] * vx + m[1] * vy + m[2] * vz + m[3]) * iw;
+            t->v[k][1] = (m[4] * vx + m[5] * vy + m[6] * vz + m[7]) * iw;
+            t->v[k][2] = iw;                        /* 1/depth, as the triangles of be_tri */
+        }
+        t->mvp = NULL;
+        t->proj = 1;
+    }
+}
+
+/* the triangles in the order idx fit one frame: the draws (runs of one colour and matrix), the vertex slots */
+static int z_fits(const int *idx, int n, uint32_t max_draws)
+{
+    uint32_t runs = 0, slots = 0, run_n = 0;
+    int tex = 0;
+    for (int i = 0; i < n; i++) {
+        const be_tri_t *t = &be_tris[idx[i]];
+        const be_tri_t *p = i ? &be_tris[idx[i - 1]] : NULL;
+        tex |= t->tex_pa != 0;
+        if (p && p->rgb == t->rgb && p->mvp == t->mvp) {
+            slots -= (3 * run_n + 3) & ~3u;
+            run_n++;
+        } else {
+            runs++;
+            run_n = 1;
+        }
+        slots += (3 * run_n + 3) & ~3u;
+    }
+    return runs <= max_draws && (!tex || slots <= BE_TEXV_MAX);
 }
 
 static int be_flush_mode_impl(const g16_t *g, int async);
@@ -1924,13 +1995,36 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     int any_mvp = 0;
     for (int i = 0; i < n; i++) {
         idx[i] = i;
+        be_tris[i].proj = 0;
         if (be_tris[i].mvp)
             any_mvp = 1;
     }
+    /* G2: with the depth buffer the order of the triangles does not matter, but one frame has to hold them all (a second
+     * frame has no depth of the first). Try the order as it came, then grouped by colour; else sort far to near. */
+    int zfr = 0;
+    if (be_zmode()) {
+        zfr = z_fits(idx, n, max_draws);
+        if (!zfr) {
+            be_project_mvp(n);
+            any_mvp = 0;
+            const uint64_t tz = cnt_now();
+            sort_tris(idx, tmp_idx, n, tri_after_rgbonly);
+            t_sort += cnt_now() - tz;
+            zfr = z_fits(idx, n, max_draws);
+            if (!zfr)                           /* back to the sort: the projected triangles had z = 0.5 before */
+                for (int i = 0; i < n; i++)
+                    if (be_tris[i].proj)
+                        for (int k = 0; k < 3; k++)
+                            be_tris[i].v[k][2] = 0.5f;
+        }
+    }
+    be_zfr = zfr;
+    if (!zfr) {
     const uint64_t ts = cnt_now();
     sort_tris(idx, tmp_idx, n, tri_after_mvp);
     t_sort += cnt_now() - ts;
-    if (any_mvp) {
+    }
+    if (any_mvp && !zfr) {
         int runs = 1;
         for (int i = 1; i < n; i++) {
             const be_tri_t *p = &be_tris[idx[i - 1]], *c = &be_tris[idx[i]];
@@ -1941,21 +2035,11 @@ static int be_flush_mode_impl(const g16_t *g, int async)
          * projecting their vertices into screen space lets same-colour triangles merge across meshes into one
          * GPU frame instead of running multiple full-surface clear + resolve passes. */
         if (runs > (int)max_draws) {
-            for (int i = 0; i < n; i++) {
-                be_tri_t *t = &be_tris[i];
-                const float *m = t->mvp;
-                if (!m)
-                    continue;
-                for (int k = 0; k < 3; k++) {
-                    const float vx = t->v[k][0], vy = t->v[k][1], vz = t->v[k][2];
-                    const float wc = m[12] * vx + m[13] * vy + m[14] * vz + m[15];
-                    const float iw = wc != 0.0f ? 1.0f / wc : 1.0f;
-                    t->v[k][0] = (m[0] * vx + m[1] * vy + m[2] * vz + m[3]) * iw;
-                    t->v[k][1] = (m[4] * vx + m[5] * vy + m[6] * vz + m[7]) * iw;
-                    t->v[k][2] = 0.5f;
-                }
-                t->mvp = NULL;
-            }
+            be_project_mvp(n);
+            for (int i = 0; i < n; i++)
+                if (be_tris[i].proj)
+                    for (int k = 0; k < 3; k++)
+                        be_tris[i].v[k][2] = 0.5f;
             const uint64_t ts2 = cnt_now();
             sort_tris(idx, tmp_idx, n, tri_after_rgb);
             t_sort += cnt_now() - ts2;
@@ -2225,6 +2309,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     if (be_n + m->nfaces > cap || be_nmvp + nb > BE_MAX_MVPS)
         be_flush(g);
     const float zmul = env->front ? 0.1f : 1.0f;
+    const int zmode = be_zmode();
     float mvp_local[32][16];
     float cam_s2[32], cam_at[32][3], cz_bone[32];
     v3_t l_sun[32], l_up[32], l_view[32], l_half[32];
@@ -2235,7 +2320,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         for (int j = 0; j < 4; j++) {
             mvp[0 + j]  = env->f * Mb[0 + j] + env->cx * Mb[8 + j];
             mvp[4 + j]  = -env->f * Mb[4 + j] + env->cy * Mb[8 + j];
-            mvp[8 + j]  = 0.5f * Mb[8 + j];
+            mvp[8 + j]  = zmode ? Mb[8 + j] - (j == 3 ? R3D_NEAR : 0.0f) : 0.5f * Mb[8 + j];  /* z / w = 1 - near / depth */
             mvp[12 + j] = Mb[8 + j];
         }
         if (be_nmvp < BE_MAX_MVPS) {

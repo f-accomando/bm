@@ -148,6 +148,7 @@ void mali_backend_drop(void);                   /* forgets what waits */
 void mali_backend_set_vshader(int on);          /* 0 off (be_tri), 1 unlit meshes, 2 lit meshes too (default 2) */
 int mali_backend_vshader(void);
 void mali_backend_set_bilinear(int on);         /* 1: the scene asks for filtered textures, which the Mali does not do: textures go to the ARM */
+void mali_backend_set_zbuffer(int on);          /* 1: the Mali uses its depth buffer, not the far-to-near sort (config key mali_z) */
 void mali_backend_set_textures(int on);         /* 0: opaque textures go to the ARM, not the Mali (config key mali_tex; default 1) */
 void mali_backend_set_queue(int on);            /* 0 synchronous flush, 1..2 async submit/sync (default 1) */
 int mali_backend_queue(void);

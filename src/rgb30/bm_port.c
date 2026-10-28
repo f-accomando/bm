@@ -35,6 +35,8 @@ int gpu3d_init(void)
     const char *k = config_get("mali3d");
     const char *kt = config_get("mali_tex");
     mali_backend_set_textures(!(kt && !strcmp(kt, "0")));
+    const char *kz = config_get("mali_z");
+    mali_backend_set_zbuffer(!(kz && !strcmp(kz, "0")));    /* G2: on by default */
     if (k && !strcmp(k, "0")) {
         if (mali_be)
             mali_backend_drop();
@@ -56,7 +58,7 @@ const char *gpu3d_status(void)
 {
     if (!mali_be && rgb30_mali_hw())
         (void)gpu3d_init();
-    return mali_be ? "the Mali draws flat colours and opaque textures (mali3d=1, mali_tex=1)" : "no GPU driver on the RGB30 yet";
+    return mali_be ? "the Mali draws flat colours and opaque textures with its depth buffer (mali3d=1, mali_tex=1, mali_z=1)" : "no GPU driver on the RGB30 yet";
 }
 int gpu3d_ready(void)
 {

@@ -85,7 +85,8 @@ void md_renderer_state(uint8_t *p, const md_renderer_state_t *s)
     W(p, 8, 0, 16, 0xffff);
     W(p, 8, 19, 1, 1);                          /* fixed-function depth range fixed */
     W(p, 8, 20, 1, 1);                          /* shader depth range fixed */
-    W(p, 8, 24, 3, 7);                          /* depth function: always */
+    W(p, 8, 24, 3, s->depth_func ? (uint32_t)s->depth_func - 1 : 7);    /* depth function (default: always) */
+    W(p, 8, 27, 1, (uint32_t)(s->depth_write != 0));    /* depth write mask */
     W(p, 8, 28, 1, 1);                          /* fixed-function near discard */
     W(p, 8, 29, 1, 1);                          /* fixed-function far discard */
     W(p, 9, 21, 3, 7);                          /* Stencil Mask, Misc: alpha test function always */

@@ -53,6 +53,13 @@ int main(void)
     md_renderer_state(b, &fs);
     same("renderer state (fragment)", b, golden_renderer_state_fs, sizeof golden_renderer_state_fs);
 
+    md_renderer_state_t fsz = fs;
+    fsz.depth_func = MD_FUNC_LEQUAL;
+    fsz.depth_write = 1;
+    memset(b, 0, sizeof b);
+    md_renderer_state(b, &fsz);
+    same("renderer state (depth test less or equal, write)", b, golden_renderer_state_fs_z, sizeof golden_renderer_state_fs_z);
+
     md_renderer_state_t fst = { .fragment = 1, .shader = 0x987654300ull, .varying_count = 1, .sampler_count = 1,
                                 .texture_count = 1, .work_regs = 32, .preload_regs = 1ull << 60, .push_count = 4,
                                 .pixel_kill = MD_KILL_WEAK_EARLY, .zs_update = MD_KILL_WEAK_EARLY };

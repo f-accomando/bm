@@ -381,6 +381,15 @@ settings = ""
 read_in = "src/rgb30/bm_port.c:35"
 
 [[key]]
+name = "mali_z"
+scope = "rgb30"
+values = "0 = far-to-near sort on the ARM; anything else = the Mali depth buffer (with mali3d=1)"
+default = "1"
+meaning = "G2: the Mali tests depth in the tile buffer (less or equal, cleared to 1) and the backend does not sort the triangles. A frame that does not fit one pass (over 1024 draws) goes back to the sort. Read at every gpu3d init."
+settings = ""
+read_in = "src/rgb30/bm_port.c:38"
+
+[[key]]
 name = "mali_tex"
 scope = "rgb30"
 values = "0 = opaque textures stay on the ARM; anything else = the Mali draws them (with mali3d=1)"

@@ -565,13 +565,13 @@ action = "run docs/api/system.md example against a real https server on a Pi Zer
 id = "D45"
 area = "3D drawn by a GPU"
 pi = "the V3D draws the 3D by default (gpu3d), with the QPU programs of M44 where they landed"
-rgb30 = "the Mali draws flat-colour triangles and untextured BM_VS3 meshes and opaque textures by default (mali3d=1, mali_tex=1, gpu3d_vs=2, gpu3d_queue=1, gpu3d_merge=1; bm3d 7.17), alpha, screen and bilinear textures stay on the ARM"
+rgb30 = "the Mali draws flat-colour triangles and untextured BM_VS3 meshes and opaque textures by default (mali3d=1, mali_tex=1, mali_z=1, gpu3d_vs=2, gpu3d_queue=1, gpu3d_merge=1; bm3d 7.18), alpha, screen and bilinear textures stay on the ARM"
 cause = "todo"
 priority = 3
 status = "open"
-note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader + mali_backend.mesh), Phase 4 (async queue via mali_frame_submit and gpu3d_submit/sync), cached 2 MB resolve surface (dc civac, 8-pixel resolve, 8192-tri merge-sorted batching), and default mali3d=1 with 4 MB single-pass GPU arena (1024 draws, L1-cached descriptor packing) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd, 7509aa08, e259a8c8, b3cab428; games score 192 -> 247, GPU score 14 -> 228). Opaque textures on GPU: 28 Oct 2026 (G1). Future roadmap: hardware Z-buffer attachment (MFBD md_zs_crc_ext Early-Z)."
+note = "H1 (triangle bringup), H6 (3D Bench flat colours), Phase 2 (multi-draw batching), Phase 3 (BM_VS3 4x4 matrix vertex shader + mali_backend.mesh), Phase 4 (async queue via mali_frame_submit and gpu3d_submit/sync), cached 2 MB resolve surface (dc civac, 8-pixel resolve, 8192-tri merge-sorted batching), and default mali3d=1 with 4 MB single-pass GPU arena (1024 draws, L1-cached descriptor packing) verified on hardware 25 Oct 2026 (reports 80d62d1e, 94aae9dd, fcfd2933, b041b71a, 9e4652bd, 7509aa08, e259a8c8, b3cab428; games score 192 -> 247, GPU score 14 -> 228). Opaque textures on GPU: 28 Oct 2026 (G1). Hardware depth test in the tile buffer: 28 Oct 2026 (G2, mali_z=1; games 531 -> 639, GPU 571 -> 755)."
 evidence = "src/rgb30/bm_port.c; src/rgb30/mali.c; src/rgb30/mmu.c; docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt"
-action = "future: hardware ZS attachment (MFBD md_zs_crc_ext)"
+action = "future: alpha, screen and bilinear textures on the GPU"
 
 [[divergence]]
 id = "D51"

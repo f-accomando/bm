@@ -120,6 +120,12 @@ def vectors(x):
             "Varying count": 1, "Uniform buffer count": 0, "Shader register allocation": 2,
             "Allow forward pixel to be killed": 1, "Pixel kill operation": 2, "ZS update operation": 2,
             "Coverage": 1, "Uniform count": 2}), 64),
+        "renderer_state_fs_z": pack(x, "Renderer State", dict(ms, **{
+            "Shader": 0x0000_0009_8765_4300, "Attribute count": 0, "Varying count": 0,
+            "Uniform buffer count": 1, "Shader register allocation": 2, "Allow forward pixel to be killed": 1,
+            "Pixel kill operation": 2, "ZS update operation": 2, "Shader wait dependency 6": 1,
+            "Shader wait dependency 7": 1, "Coverage": 1, "Uniform count": 4,
+            "Depth function": 3, "Depth write mask": 1}), 64),
         "attribute_buffer": pack(x, "Attribute Buffer", {
             "Type": 1, "Pointer": 0x0000_0003_c012_3400, "Stride": 16, "Size": 4800, "Divisor": 1}, 16),
     }

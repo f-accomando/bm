@@ -419,6 +419,9 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   - `src/rgb30/mali.c`: Added `frame_build_ex()` with L1-cached stack buffers (`hdr[0x1000]`, `loc[0x540]`, `frs_buf[80]`, `vrs3_buf[64]`) eliminating uncached `ATTR_NC` byte read-modify-writes, plus a 4 MB single-pass GPU arena at `H->mem - (6u << 20)` (`1,024` draws and `8,192` triangles in 1 Fragment Job and 1 `be_resolve` per frame).
   - Verified on RGB30 hardware in 3D Bench (`docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`, report `b3cab428`): overall `games` score rose from `192` to **`247`**, `GPU` score rose **16.3x** (`14` in `7.10` -> `138` in `7.14` -> **`228`** in `7.15`), `draws` (`GPU+VS`) reached `533.8` @ 60 fps (`1 job`), `spheres` (`GPU+VS`) reached `22.9` @ 60 fps (`141.5` @ 30 fps), and `gpu2d` reached `1,849.2` @ 60 fps (`5,354.8` @ 30 fps).
 
+- **7.18** (2026-10-28): **Hardware depth test on the Mali** (RGB30, key `mali_z`, default 1). The tile buffer tests "less or equal" against a depth cleared to 1. Each vertex has z = 1 - near / depth.
+  The backend does not sort the triangles when one frame holds all of them. RGB30 3D Bench, same kernel: `mali_z=0` games 531, GPU 571; `mali_z=1` games 639, GPU 755.
+
 - **7.17** (2026-10-28): **Opaque textures on the Mali** (RGB30). `BM_VS_TEX` and `BM_FS_TEX` (`tools/mali/mkshader.c`) draw a textured face with a nearest sample of a RGB565 page. `mali_tex=0` sends textures back to the ARM.
   A 2 MB texture pool sits at `mem - 8 MB`. The 3D Bench has a pixel check: the GPU frame against an ARM redraw (report lines `K`, `KD`, `KG`).
   RGB30, same kernel, `bench=all`: `mali_tex=0` games 482, GPU 495; `mali_tex=1` games 530, GPU 570. Alpha, screen and bilinear textures stay on the ARM.
