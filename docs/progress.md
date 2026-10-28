@@ -23,6 +23,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/` |
 | [herocart](progress/herocart.md) | Hero Stress cart: heroes in a plaza, live 3D options, cost panel | `carts/herocart/`, `tests/herocart/` |
 | [graphics-mali](progress/graphics-mali.md) | the RGB30's Mali-G52: bring-up, descriptors, shaders, triangle | `src/rgb30/mali.c`, `src/rgb30/mali_desc.c`, `tools/mali/` |
+| [graphics-vector](progress/graphics-vector.md) | OpenVG/VGU capabilities: what bm has, how to build the rest on the Pi and the RGB30 | `src/bm/gfx16.c`, `src/bm/r3d.c` |
 | [mali-parity](progress/mali-parity.md) | Mali-G52 against Pi V3D, stage by stage (parity table) | `src/rgb30/mali.c` |
 | [v3d](progress/v3d.md) (+ [notes](progress/v3d-notes.md), [graphics keys](progress/v3d-flags.md), [formats](progress/v3d-formats.md), [Pi measurements](progress/v3d-pi-measurements.md)) | V3D driver on the Pi Zero W: async jobs, cache, binner memory, open work and Pi measurements | `src/gpu/v3d.c`, `src/gpu/gpu3d.c`, `src/bm/runtime.c` |
 | [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `third_party/lua/`, `src/bm/runtime.c`, `src/bm/require.c`, `src/script/`, `src/bm/profile.c` |
