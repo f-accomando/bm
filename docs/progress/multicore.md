@@ -21,7 +21,7 @@ Open items of `graphics-mali.md`, in this order. Each step is verified on the co
 - G1 - [DONE 28 Oct] Textures on GPU (item 7): `BM_FS_TEX` and UV varying with `tools/mali/mkshader.c`, `Texture` and `Sampler` descriptors in `mali_desc.c`, remove the `colour_only` fallback. Done when `quad_tex` and the textured scenes run on the GPU with the pixel check equal to the ARM result.
 - G2 - [DONE 28 Oct] Hardware Z-buffer (item 8): depth test in the tile buffer, `sort_tris` skipped. Games score 531 -> 639, GPU 571 -> 755 (`mali_z=0` against `mali_z=1`).
 - G3 - Lit and smooth scenes (`spheres`, `spheres_smooth`, `split`): the numbers of the table show the GPU path below ARM (22.9 fps against 140 n60). Find the cause (vertex count, VS cost, resolve) and fix or document it. [DONE 26 Oct: the cost was the draw build on the ARM, see [graphics-mali](graphics-mali.md); real score 247 -> 375, GPU 229 -> 417, ARM 387 -> 466 with the fast `mem*`.]
-- G4 - Close: games score, GPU score and the table of `graphics-mali.md` updated; roadmap API-5 items removed when done.
+- G4 - [DONE 28 Oct] Close: the table of `graphics-mali.md` has the scores of `bm3d 7.18` (games 639, GPU 755, ARM 601). API-5 keeps the lit vertex shader (Q2), the other `gpu3d_*` options (Q5) and alpha, screen and bilinear textures.
 
 ## Track V: take advantage of four cores (design first, then build)
 Starts when M and G are done. Step V0 is a review with the user; the later steps follow its decision.
