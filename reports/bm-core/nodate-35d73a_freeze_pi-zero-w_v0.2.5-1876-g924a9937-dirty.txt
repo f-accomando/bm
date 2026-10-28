@@ -1,0 +1,10 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1876-g924a9937-dirty
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-35d73a_freeze_pi-zero-w_v0.2.5-1876-g924a9937-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boottor, waiting for a key, frame 0, 51 s after boot, kernel v0.2.5-1875-g1f18ac52-dirty, ring 4911, sink on
+--- the last lines printed ---
