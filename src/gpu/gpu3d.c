@@ -138,7 +138,7 @@ enum { TF_32, TF_565, TF_5551, TF_ETC1 };
 
 /* bm3d 4.1: up to 8 sheets in a job (bm3d 4.6; 2 before: a third ended the
  * job, the 3D Bench's texswap ran slower on the GPU than on the ARM) */
-#define NTEX 8
+#define NTEX 32
 
 /* bm3d 3.0: a mesh whose vertices the V3D places. Its corners (3 a face) in
  * memory the V3D reads, made again when the mesh changes (its version):

@@ -14,3 +14,15 @@ Kernel `v0.2.5-1871-gdd990ace` with a test key `menu_probe` (the patch is `menu_
 For comparison, the menu at 360p on the ARM (`menu_scale` unset): 6.6 ms.
 
 Reading: the ARM work in the menu is 4 ms. The GPU spends about 69 ms. The cover blits cost 41.6 ms, the background 26.6 ms, the text 22.7 ms, the rectangles about 1 ms. The parts add up to 92 ms, more than the 69 ms: the layers overlap in the GPU, so they are not additive.
+
+## After the fix (same day)
+
+The cause was the texture cache of the V3D (8 slots, `NTEX`): the menu uses more sheets, so the textures were made again every frame. `NTEX` is 32 and the background sheet is copied only when it changes. Draw time a frame on the cover grid:
+
+| Menu size | Before | After |
+|---|---|---|
+| 360p (GPU, `menu_scale=4`) | 31.9 ms | 2.9 ms |
+| 720p | 47.8 ms | 6.3 ms |
+| 1080p | 73.5 ms | 12.5 ms |
+
+The measure at 360p of the ARM menu (default) is 6.6 ms.

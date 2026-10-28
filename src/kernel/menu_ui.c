@@ -39,6 +39,7 @@ static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else t
 static int gpu_draw;                    /* the GPU draws the 1080p layout directly (menu_gpu=1) */
 static g16_sheet_t bg_sheet;
 static int bg_sheet_alloced;
+static uintptr_t bg_sig;                /* what the background sheet holds: the picture's address, bit 0 dim (0: nothing yet) */
 
 static inline const font_t *menu_font(int sc)
 {
@@ -553,17 +554,25 @@ static void put_background(void)
             }
             fade--;
             bg_sheet.version++;
+            bg_sig = 0;                         /* the next still frame copies the picture whole */
         } else {
-            for (int y = 0; y < SH; y++) {
-                uint16_t *o = bg_sheet.px + (uint32_t)y * bg_sheet.w;
-                const uint16_t *q = (bg_building ? bg_prev : bg_cur) + y * SW;
-                if (!dim || y < BAR_H || y >= FOOT_Y)
-                    memcpy(o, q, SW * 2);
-                else
-                    for (int x = 0; x < SW; x++)
-                        o[x] = half(q[x]);
+            /* a still picture is copied, and the GPU makes its texture again, only when what shows changed:
+             * 28 Oct 2026, on the Pi at 360p this was 20 ms a frame (the copy, then the texture made again) */
+            const uint16_t *src = bg_building ? bg_prev : bg_cur;
+            const uintptr_t sig = (uintptr_t)src | (dim ? 1u : 0u);
+            if (sig != bg_sig) {
+                bg_sig = sig;
+                for (int y = 0; y < SH; y++) {
+                    uint16_t *o = bg_sheet.px + (uint32_t)y * bg_sheet.w;
+                    const uint16_t *q = src + y * SW;
+                    if (!dim || y < BAR_H || y >= FOOT_Y)
+                        memcpy(o, q, SW * 2);
+                    else
+                        for (int x = 0; x < SW; x++)
+                            o[x] = half(q[x]);
+                }
+                bg_sheet.version++;
             }
-            bg_sheet.version++;
         }
         if (bg_sheet_alloced)
             gpu3d_blit2d(&g, &bg_sheet, 0, 0, SW, SH, 0, 0, scale, 0, 0);
@@ -1410,6 +1419,7 @@ int menu_ui_open(framebuffer_t *fb)
     ready = 1;
     bg_valid = 0;
     bg_building = 0;
+    bg_sig = 0;
     fade = 0;
     nzones = 0;
     pointer_env(1, SW, SH);
@@ -1574,6 +1584,7 @@ static void frame_background(const menu_item_t *cur)
     } else if (key != bg_key) {
         if (!bg_building) {                     /* the picture on screen is kept in bg_prev */
             uint16_t *s = bg_prev; bg_prev = bg_cur; bg_cur = s;
+            bg_sig = 0;
         }
         fade = 0;
         bg_building = 1;
