@@ -881,10 +881,14 @@ static uint32_t over(uint32_t b, uint32_t c, int a)
 }
 
 /* a prompt of prompts.c over the bar's colour at (x, y); returns its right edge */
+static int chips_dry;                   /* the key chips are measured, not drawn (to centre them) */
+
 static int put_prompt(const prompt_t *p, int x, int y)
 {
     if (!p)
         return x;
+    if (chips_dry)
+        return x + p->w;
     if (gpu_draw) {
         for (int j = 0; j < PROMPT_H; j++) {
             for (int i = 0; i < p->w; i++) {
@@ -994,17 +998,19 @@ static int hint_btn(const menu_view_t *v, int col, int row, int b, const char *l
         if (i) {
             x += 2;
             if (join[0]) {
-                m_text(x, y, join, c16(enabled ? C_TEXT : C_DIM));
+                if (!chips_dry)
+                    m_text(x, y, join, c16(enabled ? C_TEXT : C_DIM));
                 x += 8 * (int)strlen(join) + 2;
             }
         }
         x = put_prompt(p[i], x, y);
     }
     int lc = (x + 4 + 7) / 8;
-    m_text(lc * 8, y, label, c16(enabled ? C_TEXT : C_DIM));
+    if (!chips_dry)
+        m_text(lc * 8, y, label, c16(enabled ? C_TEXT : C_DIM));
     /* the pointer (M32) clicks it: A, B, X; "Change" is A on a choice row; R for refresh */
     static const char letter[] = { 'A', 'B', 'X', 'A', 0, 'Y', 'R' };
-    if (!hints_dead && enabled && letter[b])
+    if (!chips_dry && !hints_dead && enabled && letter[b])
         zone(col * 8 - 8, y - 4, (lc + (int)strlen(label)) * 8 - (col * 8 - 8) + 4, 24,
              MENU_HIT_BUTTON, letter[b], 1);
     return lc + (int)strlen(label) + 3;
@@ -1764,36 +1770,29 @@ static void frame_title(const menu_view_t *v, const menu_item_t *cur)
     }
 }
 
-/* The bottom bar: the key chips. */
-static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
+/* The key chips from text column `hc`; the column after the last one. */
+static int hints_run(const menu_view_t *v, const menu_item_t *cur, int hc)
 {
-    int col;
-    /* bottom bar: the key chips only (2026-10-25, the user's request); what
-     * went wrong goes to the notice box, the rest to the console log */
-    hints_dead = v->ask != NULL;
-    m_rect(0, FOOT_Y, SW, SH - FOOT_Y, c16(C_BAR));
-    m_rect(16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
-    const int hc = WIDE ? 32 : 2;               /* where the hints start */
+    int col = hc;
     /* the hints of a panel, or of the Settings page's focused list */
     const menu_panel_t *hp = v->panel ? v->panel
                            : v->page ? (v->page->focus && v->page->rows ? v->page->rows : v->page->sections) : NULL;
     if (hp) {
         const menu_row_t *r = hp->sel >= 0 && hp->sel < hp->n ? &hp->rows[hp->sel] : NULL;
-        col = WIDE ? 40 : hc;
+        col = WIDE ? hc + 8 : hc;
         if (r && r->kind == MENU_ROW_CHOICE)
             col = hint(v, col, HROW, v->on_gear ? BTN_A : BTN_CHANGE, "Change");
         else if (r && r->kind != MENU_ROW_INFO && r->kind != MENU_ROW_BAR)
             col = hint(v, col, HROW, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
-        hint(v, WIDE && col < 55 ? 55 : col, HROW, BTN_B, "Back");
+        col = hint(v, WIDE && col < hc + 23 ? hc + 23 : col, HROW, BTN_B, "Back");
     } else if (v->on_gear) {
         col = hint(v, hc, HROW, BTN_A, "Settings");
         if (!v->no_monitor)
-            hint(v, col, HROW, BTN_MONITOR, "Monitor");
+            col = hint(v, col, HROW, BTN_MONITOR, "Monitor");
     } else {
         const char *a = v->a_label ? v->a_label
                       : cur && cur->kind && (!strcmp(cur->kind, "tool") || !strcmp(cur->kind, "bme")) ? "Open"
                                                                                                           : "Play";
-        col = hc;
         if (a[0])
             col = hint(v, col, HROW, BTN_A, a);
         if (cur && cur->kind && strcmp(cur->kind, "market") == 0 && cur->title && cur->title[0])
@@ -1804,9 +1803,30 @@ static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
             col = hint(v, col, HROW, BTN_Y, v->y_label);
         if (v->refresh_label && v->refresh_label[0])
             col = hint_btn(v, col, HROW, BTN_REFRESH, v->refresh_label, v->refresh_enabled);
-        if (!v->no_monitor && (!WIDE || col <= (v->prompts == MENU_PROMPTS_KEYBOARD ? 60 : 66)))
-            hint(v, col, HROW, BTN_MONITOR, "Monitor");
+        if (!v->no_monitor && (!WIDE || col <= hc + (v->prompts == MENU_PROMPTS_KEYBOARD ? 28 : 34)))
+            col = hint(v, col, HROW, BTN_MONITOR, "Monitor");
     }
+    return col;
+}
+
+/* The bottom bar: the key chips. */
+static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
+{
+    /* bottom bar: the key chips only (2026-10-25, the user's request); what
+     * went wrong goes to the notice box, the rest to the console log */
+    hints_dead = v->ask != NULL;
+    m_rect(0, FOOT_Y, SW, SH - FOOT_Y, c16(C_BAR));
+    m_rect(16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
+    int hc = WIDE ? 32 : 2;                     /* where the hints start */
+    if (bgz > 1) {                              /* the native layouts: the chips in the middle of the bar */
+        chips_dry = 1;
+        const int width = hints_run(v, cur, 0) - 3;
+        chips_dry = 0;
+        hc = (SW / 8 - width) / 2;
+        if (hc < 2)
+            hc = 2;
+    }
+    hints_run(v, cur, hc);
 }
 
 /* A question in a panel over everything. */

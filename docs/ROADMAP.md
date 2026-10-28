@@ -76,6 +76,7 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - SYS-14 - P2 - to do - RGB30 multiplayer on one screen: more Bluetooth pads (players 2-4) and games with split screen or shared screen (the `lib` players' screen and split screen already exist: `docs/GAME-GUIDE.md`). Needs SYS-12 for a big shared screen, and a test with 2-4 real pads. Done when two pads play a split-screen game on the RGB30 and on an HDMI TV. [platforms](progress/platforms.md)
 - SYS-16 - P3 - idea - File layout by type: `src/core/` for system code, `src/bm/` for the format files; one SD folder per file type for media, games and apps (`/bm` and `/bme` exist; the other types are to do); downloads, `send` and app output go to the folder of their type, open dialogs start there; retire `carts/` step by step; SD scan reports space per resource. [system](progress/system.md) `Open work`
 - SYS-17 - P2 - to do - USB hotplug on the Pi: `usb_poll` watches the port, a new device is enumerated, an unplugged one is cleared, a failed enumeration is tried again with a pause. [system](progress/system.md) `Open work`
+- SYS-18 - P2 - idea - Covers in a better resolution: the cartridge carries a larger cover, the menu scales it for the screen (360p, 720p, 1080p) and the native menu layout keeps its sizes. [system-menu](progress/system-menu.md) `Open work`
 
 ## Tools and SDK
 
