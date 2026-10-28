@@ -492,9 +492,13 @@ static void mouse_attach(usb_dev_t *d, const mouse_pick_t *m)
     memcpy(info.mouse_name, d->name, sizeof info.mouse_name);
 }
 
-int usb_init(void)
+/* Forgets every device: no endpoint is polled, no key or mouse button stays held. */
+static void usb_forget(void)
 {
-    static uint8_t cfg[256];
+    if (info.kind == USB_KEYBOARD) {
+        static const uint8_t none[8];
+        hid_report(USB_KEYBOARD, none, sizeof none);    /* an empty report: the keys go up */
+    }
     memset(&info, 0, sizeof info);
     ds4 = 0;
     memset(&hid_ep, 0, sizeof hid_ep);
@@ -506,9 +510,19 @@ int usb_init(void)
     hid_dev = NULL;
     mouse_dev = NULL;
     hid_mouse_clear(HID_MOUSE_USB);
+}
+
+static int hp_ready;                /* the controller started: the port can be watched */
+
+int usb_init(void)
+{
+    static uint8_t cfg[256];
+    usb_forget();
     eth_detach();
+    hp_ready = 0;
     if (dwc2_init() != 0)
         return USB_NONE;
+    hp_ready = 1;
     if (!dwc2_port_connected()) {
         timer_delay_ms(300);                    /* some devices are slow to show up */
         if (!dwc2_port_connected())
@@ -593,9 +607,49 @@ static uint32_t poll_ep(usb_dev_t *d, intr_ep_t *e)
     return 0;
 }
 
+/* Hotplug (SYS-17), a device on the root port: every 250 ms the port's connect bit is read. Unplugged: the
+ * device is forgotten at once (its keys go up). The search runs only while no keyboard is connected (and no
+ * pad is in use): the whole enumeration, tried again every 2 s up to 5 times; then it waits for the next
+ * plug. A hub on the root port (the Ethernet of the Pi 1) is never touched: usb_init() would drop the
+ * network. */
+#define HP_CHECK_US   250000u
+#define HP_RETRY_US   2000000u
+#define HP_TRIES      5
+
+static void hotplug(void)
+{
+    static uint32_t last, tried;
+    static int tries;
+    const uint32_t now = timer_ticks();
+    if (!hp_ready || now - last < HP_CHECK_US)
+        return;
+    last = now;
+    if (!dwc2_port_connected()) {
+        if (info.kind != USB_NONE || ndevs) {
+            kprintf("usb: unplugged\n");
+            usb_forget();
+        }
+        tries = 0;
+        return;
+    }
+    if ((info.kind != USB_NONE && info.kind != USB_OTHER) || hub || tries >= HP_TRIES)
+        return;                                 /* a keyboard (or a pad) is in use: no search */
+    if (tries && now - tried < HP_RETRY_US)
+        return;
+    tries++;
+    tried = now;
+    kprintf("usb: device found, enumerating (try %d)\n", tries);
+    const int kind = usb_init();
+    if (kind != USB_NONE)
+        usb_print();
+    if (kind != USB_NONE && kind != USB_OTHER)
+        tries = 0;                              /* found one to use (an unusable device keeps counting) */
+}
+
 void usb_poll(void)
 {
     uint32_t got;
+    hotplug();
     if (hid_ep.active && hid_dev && (got = poll_ep(hid_dev, &hid_ep)) != 0)
         hid_report(info.kind, report, got);
     if (mouse_ep.active && mouse_dev && (got = poll_ep(mouse_dev, &mouse_ep)) != 0)

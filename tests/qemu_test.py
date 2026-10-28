@@ -740,6 +740,35 @@ def sendkeys(q, keys, gap=0.15):
         time.sleep(gap)
 
 
+def qemu_monitor(q, line):
+    """One command on QEMU's monitor (device_add, device_del)."""
+    with socket.socket(socket.AF_UNIX) as s:
+        s.connect(q.mon_path)
+        s.sendall(f"{line}\n".encode())
+        time.sleep(0.2)
+
+
+def test_usb_hotplug(b, opts):
+    """SYS-17: a keyboard plugged after the boot is found and used, one unplugged is forgotten, and
+    the search stops while a keyboard is connected."""
+    q = Qemu(b("kernel.img"), [])
+    try:
+        out = q.expect(MENU, timeout=30)
+        assert b"usb: nothing attached" in out, out
+        qemu_monitor(q, "device_add usb-kbd,id=hpk,port=1")
+        q.expect("usb: device found, enumerating", timeout=15)
+        q.expect("usb: keyboard 0627:0001 'QEMU USB Keyboard'", timeout=15)
+        time.sleep(1.5)
+        q.buf += q.port.read(0.5)
+        assert q.buf.count(b"device found") <= 1, "the search goes on while a keyboard is connected"
+        qemu_monitor(q, "device_del hpk")
+        q.expect("usb: unplugged", timeout=15)
+        qemu_monitor(q, "device_add usb-kbd,id=hpk2,port=1")      # and again: found a second time
+        q.expect("usb: keyboard 0627:0001 'QEMU USB Keyboard'", timeout=15)
+    finally:
+        q.close()
+
+
 def test_usb_keyboard(b, opts):
     q = Qemu(b("kernel.img"), USB_KBD)
     try:
