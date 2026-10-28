@@ -26,3 +26,7 @@ The cause was the texture cache of the V3D (8 slots, `NTEX`): the menu uses more
 | 1080p | 73.5 ms | 12.5 ms |
 
 The measure at 360p of the ARM menu (default) is 6.6 ms.
+
+## Yharnam with 8 and 32 texture slots (28 Oct 2026, Pi Zero W, autoplay 139 s)
+
+Same kernel except `NTEX` (`yharnam-ntex8.txt`, `yharnam-ntex32.txt`): 51.6 and 52.3 fps, average frame 16.8 and 16.4 ms, frames over 16.7 ms 2631 and 2402, GPU wait 6% in both, Lua and data memory the same. The 32 slots do not slow the game. Free memory was not read.
