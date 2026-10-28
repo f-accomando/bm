@@ -57,3 +57,17 @@ Limits: a sheet has to fit the 2 MB texture pool (a sheet of 4096 x 3400 does no
 The ARM resolve (surface to page, 4.8 ms for 3569 sprites): the GPU cannot write the page itself, because the game's page is not in the 64 MB window of the GPU. A NEON resolve was tried (28 Oct): it halves the resolve of the `sprites` test (4811 to 2448 us, same pixels) but slows the scenes that cover part of the screen (`spheres` -5%, `draws` -18%, `split` -16%; games 635 to 617, GPU 749 to 717), because the scalar loop skips empty blocks and predicts full ones. Not kept; the scalar resolve stays.
 
 Yharnam: not applicable on the RGB30 today. Its sheet is over the pool, so only its rectangles would go to the GPU; on the Pi the GPU 2D of the map was slower than the ARM ([yharnam](yharnam.md)). The 3D work of the Mali (textures, depth, lit meshes, cel) does not touch a 2D game. What helps Yharnam on the Pi is the light by the GPU (`gpu3d_opt("light")`): the Mali has no light shader, so it stays on the ARM and the pause menu hides the entry.
+
+## The meshes: the Pi and the Mali (28 Oct 2026)
+
+| | Pi Zero W (V3D, `mesh_get` in `src/gpu/gpu3d.c`, bm3d 3.0) | RGB30 (Mali, face cache, bm3d 7.26) |
+|---|---|---|
+| What is kept | the corners of the mesh, in the GPU memory, indexed (a vertex once) | the vertices of every face (3 a face), in the kernel RAM |
+| A frame sends | the matrices | the matrices, the light and the numbers of the visible faces; the ARM copies their blocks to the GPU memory |
+| Back faces | the binner of the V3D throws them away | the ARM tests every face (`(s2 v0 + at) . n`) |
+| Light | in the vertex shader | in the vertex shader (flat, per face) |
+| Key | `gpu3d_vs` | `mali_res` (default 1) |
+
+Why not the same: the Mali's flat light needs one normal and one colour a face, so the vertices cannot be shared between faces.
+
+Culling on the GPU was tried (28 Oct): the cached blocks live in the GPU memory (a 3 MB area below the lit area), the whole mesh is one draw and the Draw descriptor culls back faces. With the front face clockwise on the screen (`front_ccw` 0) the pictures are the same as the ARM's (pixel check equal); `front_ccw` 1 culls every face. It is slower: `spheres` 246 against 257 with the ARM culling, `heroes` 12.6 against 13.5, `spheres_shine` 186 against 209. The vertex shader runs on every vertex, twice as many, and the ARM's test costs little. Not kept. The idea left is indexed vertices with the light computed in a way that shares them (a normal from the positions), which is a change of the picture to measure first.
