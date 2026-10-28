@@ -478,22 +478,6 @@ def test_demo_60fps(b, opts):
         q.close()
 
 
-def test_demo_monitor_key_stops(b, opts):
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("d")
-        time.sleep(1.5)
-        assert any(screen_text(q.screendump())[0].startswith(" bm M4 demo")
-                   for _ in range(5)), "demo not on screen"
-        q.send(" ")
-        out = q.expect("dropped", timeout=5).decode(errors="replace")
-        secs = float(re.search(r"frames in ([\d.]+) s", out).group(1))
-        assert secs < 5, f"demo did not stop on key ({secs} s)"
-    finally:
-        q.close()
-
-
 def test_lua_repl(b, opts):
     q = Qemu(b("kernel.img"))
     try:
@@ -4994,7 +4978,7 @@ def test_monitor_help_table(b, opts):
             q.expect("> ", timeout=5)
             assert "commands (games:" in text and "help [COMMAND]" in text, text[-600:]
             keys = set(re.findall(r"^  (\S)  \S", text, re.M))
-            want = set("hMfFlUimcoyYLVatXrTKOPWEGkpjdzZu3456eACI")
+            want = set("hMfFlUimcoyYLVatXrTKOPWEGpjzZu3456eACI")
             assert want <= keys, f"keys missing in the help: {sorted(want - keys)}"
             assert "old words that still work: b3d=bench 3d," in text, text[-500:]
             assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
@@ -5008,6 +4992,36 @@ def _prompt_line(q, text, timeout=10):
     what it printed, up to the next prompt"""
     q.send(text + "\r")
     return _plain(q.expect("\nbm> ", timeout=timeout))
+
+
+def test_monitor_prompt_first(b, opts):
+    """monitor_keys=0 (2026-10-28): the monitor opens at the bm> prompt, a key typed there is
+    text and runs nothing, 'hotkey' turns the single keys on, Enter then goes back to the
+    prompt, 'exit' leaves to the menu."""
+    tmp = tempfile.mkdtemp(prefix="bm-promptfirst-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\nmonitor_keys=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("the bm> prompt:", timeout=10)
+        q.expect("\nbm> ", timeout=10)
+        out = _prompt_line(q, "i")                  # a key is text here: 'i' is not a command
+        assert "not a command" in out, out
+        q.send("hotkey\r")
+        q.expect("hotkeys on", timeout=5)
+        q.send("i")                                 # now 'i' is sys info
+        q.expect("board", timeout=5)
+        q.send("\r")                                # Enter: back to the prompt
+        q.expect("\nbm> ", timeout=10)
+        q.send("exit\r")
+        q.expect(MENU, timeout=15)                  # exit leaves to the menu
+    finally:
+        q.close()
 
 
 def test_monitor_prompt(b, opts):

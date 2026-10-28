@@ -77,6 +77,7 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - SYS-16 - P3 - idea - File layout by type: `src/core/` for system code, `src/bm/` for the format files; one SD folder per file type for media, games and apps (`/bm` and `/bme` exist; the other types are to do); downloads, `send` and app output go to the folder of their type, open dialogs start there; retire `carts/` step by step; SD scan reports space per resource. [system](progress/system.md) `Open work`
 - SYS-17 - P2 - to do - USB hotplug on the Pi: `usb_poll` watches the port, a new device is enumerated, an unplugged one is cleared, a failed enumeration is tried again with a pause. [system](progress/system.md) `Open work`
 - SYS-18 - P2 - idea - Covers in a better resolution: the cartridge carries a larger cover, the menu scales it for the screen (360p, 720p, 1080p) and the native menu layout keeps its sizes. [system-menu](progress/system-menu.md) `Open work`
+- SYS-19 - P2 - in progress - The monitor as a shell, headless like DOS/Unix with Lua: (1) the bm> prompt as the way in (`monitor_keys=0`) and `hotkey` for single keys, done; (2) file commands on the SD (`ls`, `cat`, `cd`, `cp`, `rm`, `mkdir`); (3) `lua FILE`, `lua -e`, and `sh("cmd")` in Lua that returns the output; (4) graphics for boot menus in the shell's Lua (`cls`, `rect`, `text`, `flip`, keys); (5) `boot=shell` with no menu and `autoexec.lua`. [system](progress/system.md) `Open work`
 
 ## Tools and SDK
 

@@ -8,8 +8,6 @@
  */
 #include <stdint.h>
 
-#include "bench.h"
-#include "demo.h"
 #include "irq.h"
 #include "tick.h"
 #include "exceptions.h"

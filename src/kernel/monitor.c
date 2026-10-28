@@ -1,7 +1,5 @@
 #include "monitor.h"
 #include "monitor_cmd.h"
-#include "bench.h"
-#include "demo.h"
 #include "bm/runtime.h"
 #include "upload.h"
 #include "update.h"
@@ -380,16 +378,6 @@ CMD(c_net_eth)
 
 CMD(c_net_get) { return net_get_test(argc > 1 ? argv[1] : NULL); }
 
-CMD(c_bench_cpu)
-{
-    bench_t b;
-    reports_begin("cpu");
-    bench_run(&b, console_framebuffer(), "now");
-    bench_print(&b, 1);
-    reports_end();
-    return 0;
-}
-
 CMD(c_bench_render)
 {
     home_report_begin("render");
@@ -430,13 +418,6 @@ CMD(c_bench_3d)
     return 0;
 }
 
-CMD(c_demo)
-{
-    demo_stats_t st;
-    demo_run(console_framebuffer(), 60, &st);
-    demo_print(&st);
-    return 0;
-}
 
 CMD(c_report_send)
 {
@@ -460,7 +441,7 @@ static const char *const set_keys[] = {
     "dma_zclear=", "draw=", "game_buttons=", "game_intro=", "gpu3d=", "gpu3d_2d=", "gpu3d_aa=",
     "gpu3d_attr=", "gpu3d_etc1=", "gpu3d_filter=", "gpu3d_fs2=", "gpu3d_later=", "gpu3d_merge=",
     "gpu3d_qpu=", "gpu3d_queue=", "gpu3d_sort=", "gpu3d_tex16=", "gpu3d_vs=", "gpu3d_wc=", "layout=",
-    "mali3d=", "market_delay=", "menu_scale=", "mouse=", "name=", "perf=",
+    "mali3d=", "market_delay=", "menu_scale=", "monitor_keys=", "mouse=", "name=", "perf=",
     "prompts=", "r3d_fast=", "r3d_impostor=", "rec=", "rec_fps=", "rec_format=", "report_upload=",
     "session_report=", "sound=", "sound_depth=", "v3d_clock=", "volume=",
     "web_max_kib=", "wifi_boot=",
@@ -557,6 +538,17 @@ CMD(c_exit)
     return 0;
 }
 
+/* single keys run commands (the key loop); Enter or Esc there goes back to the prompt */
+static int hot;                         /* 1: the key loop; 0: the bm> prompt */
+static int hot_sticky;                  /* no monitor_keys=0: the key loop is the way in */
+CMD(c_hotkey)
+{
+    hot = 1;
+    want_exit = 1;                      /* the prompt ends; the key loop runs */
+    kprintf("hotkeys on: a key runs its command; Enter or Esc: back to the prompt\n");
+    return 0;
+}
+
 /* ------------------------------------------------------------------ table */
 
 static const mcmd_t carts_sub[] = {
@@ -621,7 +613,6 @@ static const mcmd_t net_sub[] = {
 };
 
 static const mcmd_t bench_sub[] = {
-    { .name = "cpu", .help = "CPU benchmark", .key = 'k', .fn = c_bench_cpu },
     { .name = "render", .help = "rendering benchmark 640x360 RGB565", .key = 'p', .fn = c_bench_render },
     { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, bars and a saved report", .key = 'j', .fn = c_bench_3d },
     { NULL }
@@ -645,7 +636,6 @@ static const mcmd_t commands[] = {
     { .name = "wifi", .help = "start, scan, join (saved in config.txt)", .key = 'W', .fn = c_wifi, .sub = wifi_sub },
     { .name = "net", .help = "the network", .sub = net_sub },
     { .name = "bench", .help = "benchmarks", .sub = bench_sub },
-    { .name = "demo", .help = "animation demo (60 fps; any key stops it)", .key = 'd', .fn = c_demo },
     { .name = "report", .help = "the reports of the tests", .sub = report_sub },
     { .name = "update", .help = "update from GitHub (asks first)", .key = 'u', .fn = c_update },
     { .name = "set", .args = "[KEY=VALUE ...]", .help = "bm/config.txt keys until a restart", .fn = c_set, .cand = cand_set },
@@ -653,7 +643,8 @@ static const mcmd_t commands[] = {
     { .name = "play", .args = "NAME", .help = "play a game by its title", .fn = c_play },
     { .name = "err", .help = "the last runtime error, the game running", .fn = c_err },
     { .name = "crc", .help = "CRC32 of the page on screen", .fn = c_crc },
-    { .name = "exit", .help = "leave the bm> prompt", .fn = c_exit },
+    { .name = "exit", .help = "leave the bm> prompt (to the menu)", .fn = c_exit },
+    { .name = "hotkey", .help = "single keys run commands (the keys of the first column of help)", .fn = c_hotkey },
     /* the words of before: same syntax, same output */
     { .name = "b3d", .alias = "bench 3d" },
     { .name = "render", .alias = "bench render" },
@@ -846,9 +837,20 @@ static int run_key(int c)
 
 void monitor_run(void)
 {
-    kprintf("\ntype 'h' for help\n");
+    const char *mk = config_get("monitor_keys");
+    hot = hot_sticky = !(mk && mk[0] == '0');      /* monitor_keys=0: the bm> prompt is the way in */
+    if (hot)
+        kprintf("\ntype 'h' for help\n");
+    else
+        kprintf("\nthe bm> prompt: 'help' lists the commands, 'hotkey' makes a key run one, 'exit' leaves\n");
 
     for (;;) {
+        if (!hot) {                             /* the bm> prompt is the way in */
+            prompt_mode();
+            if (!hot)
+                carts_menu(console_framebuffer());      /* exit, Esc, Ctrl-D or PS: the menu */
+            continue;
+        }
         console_suspend(0);                     /* (a stopped test left it hidden: bm_video_leave) */
         netcon_focus(MON_FOCUS, "> ");
         kprintf("> ");
@@ -873,8 +875,11 @@ void monitor_run(void)
         else if (c == 'J')
             c = 'j';
         switch (c) {
-        case '\r': case '\n': break;
-        case 0x1B: break;               /* Esc alone: already at the monitor */
+        case '\r': case '\n':
+        case 0x1B:                      /* Esc alone: already at the monitor; with the prompt as the way in, back to it */
+            if (!hot_sticky)
+                hot = 0;
+            break;
         case ':':
             if (line_commands())
                 carts_menu(console_framebuffer());

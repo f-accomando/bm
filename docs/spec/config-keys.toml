@@ -471,6 +471,15 @@ settings = "Settings > Screen > Menu size"
 read_in = "src/kernel/menu_ui.c:1208"
 
 [[key]]
+name = "monitor_keys"
+scope = "pi"
+values = "0 = the monitor opens at the bm> prompt and a key is text; the command hotkey turns the single keys on (Enter or Esc: back to the prompt); exit leaves to the menu. Anything else, or no key = the monitor opens with the single keys on, as before"
+default = "no key (single keys on)"
+meaning = "How the monitor opens on the Pi."
+settings = ""
+read_in = "src/kernel/monitor.c"
+
+[[key]]
 name = "menu_layout"
 scope = "pi"
 values = "1 = with menu_scale 2 or 3, the menu is laid out at the screen's own size (1280x720 or 1920x1080): 8 covers in a row and more rows, in the middle of the screen, the key chips in the bottom bar, the covers and the fonts keep their size in pixels; no key = the 640x360 layout drawn 2x or 3x bigger"
