@@ -69,6 +69,13 @@ void md_rs_texture_count(uint8_t *p, uint32_t n)
     W(p, 2, 16, 16, n);
 }
 
+static int md_msaa;
+
+void md_set_msaa(int on)
+{
+    md_msaa = on != 0;
+}
+
 void md_renderer_state(uint8_t *p, const md_renderer_state_t *s)
 {
     A(p, 0, s->shader);                         /* Shader: address (words 0-1) */
@@ -88,6 +95,8 @@ void md_renderer_state(uint8_t *p, const md_renderer_state_t *s)
     }
     /* Multisample, Misc: all samples, no depth test (function Always), the depth range as the shader gives it */
     W(p, 8, 0, 16, 0xffff);
+    if (md_msaa)
+        W(p, 8, 16, 1, 1);                      /* multisample enable */
     W(p, 8, 19, 1, 1);                          /* fixed-function depth range fixed */
     W(p, 8, 20, 1, 1);                          /* shader depth range fixed */
     W(p, 8, 24, 3, s->depth_func ? (uint32_t)s->depth_func - 1 : 7);    /* depth function (default: always) */

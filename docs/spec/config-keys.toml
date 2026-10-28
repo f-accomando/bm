@@ -390,6 +390,15 @@ settings = ""
 read_in = "src/rgb30/bm_port.c:38"
 
 [[key]]
+name = "mali_msaa"
+scope = "rgb30"
+values = "1 = 4x MSAA; anything else = off"
+default = "0"
+meaning = "The Mali tile buffer holds 4 samples and the triangle edges are smooth. The surface keeps the coverage in its alpha byte and the ARM blends the edge pixels with the page. About 8% slower on spheres. Read at every gpu3d init."
+settings = ""
+read_in = "src/rgb30/bm_port.c:40"
+
+[[key]]
 name = "mali_res"
 scope = "rgb30"
 values = "0 = no cache of the faces of a lit mesh; anything else = the Mali keeps them (with mali3d=1, mali_lit=1, mali_z=1)"

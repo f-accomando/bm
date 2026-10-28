@@ -633,40 +633,51 @@ enum { JOB_FRAGMENT = 9 };
 #define BLOCK_LINEAR    2
 #define SWZ(r, g, b, a) ((uint32_t)(r) | (uint32_t)(g) << 3 | (uint32_t)(b) << 6 | (uint32_t)(a) << 9)
 
+static int be_aa_frame;                         /* the frame being built is 4x MSAA (the resolve reads it too) */
+
 static void put32(uint8_t *p, uint32_t v)
 {
     memcpy(p, &v, 4);
 }
 
 /* the sample positions of one sample (1/256 of a pixel, the middle) */
-static void samples(uint8_t *p)
+static void samples(uint8_t *p, int aa)
 {
     memset(p, 0, 256);
-    put32(p, 128u | 128u << 16);
+    if (aa) {                                   /* the rotated 4x grid (Mesa pan_samples.c), 1/256 of a pixel */
+        put32(p, 96u | 32u << 16);
+        put32(p + 4, 224u | 96u << 16);
+        put32(p + 8, 32u | 160u << 16);
+        put32(p + 12, 160u | 224u << 16);
+    } else {
+        put32(p, 128u | 128u << 16);
+    }
     put32(p + 32 * 4, 128u | 128u << 16);   /* the origin */
 }
 
 /* a framebuffer descriptor and its render target at f: w x h pixels at
  * base (row stride, the colour 0xRRGGBB) */
-static void fbd(uint8_t *f, uint64_t samples_pa, uint32_t w, uint32_t h, uint64_t base, uint32_t stride, uint32_t rgb)
+/* aa: 4x MSAA. The tile holds 4 samples a pixel and the write-back averages them. The surface is cleared to 0 (alpha 0) and
+ * keeps the alpha: it is the share of the samples a triangle covered, and the colour is premultiplied by it. */
+static void fbd(uint8_t *f, uint64_t samples_pa, uint32_t w, uint32_t h, uint64_t base, uint32_t stride, uint32_t rgb, int aa)
 {
     memset(f, 0, FBD_SIZE + RT_SIZE);
     put64(f + 16, samples_pa);                              /* sample locations */
     put32(f + 32, (w - 1) | (h - 1) << 16);                 /* width, height */
     put32(f + 40, (w - 1) | (h - 1) << 16);                 /* bound max (min 0, 0) */
-    put32(f + 44, 0u /* 1 sample */ | TIE_MINUS_180_IN_0_OUT << 6 | 8u << 9 /* 16 x 16 */ |
-                      0u << 19 /* 1 target */ | 1u << 24 /* 1 KB of colour a tile */);
+    put32(f + 44, (aa ? 2u | 2u << 3 : 0u) /* 4 samples, rotated grid, or 1 sample */ | TIE_MINUS_180_IN_0_OUT << 6 | 8u << 9 /* 16 x 16 */ |
+                      0u << 19 /* 1 target */ | (aa ? 4u : 1u) << 24 /* 4 KB or 1 KB of colour a tile */);
     put32(f + 48, ZFMT_D24 << 16);
     const float zclear = 1.0f;                              /* the far plane: the depth test is "less or equal" */
     memcpy(f + 52, &zclear, 4);
     uint8_t *rt = f + FBD_SIZE;
     put32(rt, CBUF_R8G8B8A8 << 26);
     put32(rt + 4, 1u /* write */ | COLOR_R8G8B8A8 << 3 | BLOCK_LINEAR << 8 | 1u << 15 /* dither */ |
-                  SWZ(2, 1, 0, 4) << 16 | 1u << 31 /* clean pixels written */);
+                  SWZ(2, 1, 0, aa ? 3 : 4) << 16 | (aa ? 1u << 12 : 0u) /* average the samples */ | 1u << 31 /* clean pixels written */);
     put64(rt + 32, base);
     put32(rt + 40, stride);
     put32(rt + 44, stride * h);
-    const uint32_t c = (rgb >> 16 & 255) | (rgb & 0xff00) | (rgb & 255) << 16 | 0xffu << 24;   /* R G B A */
+    const uint32_t c = aa ? 0u : (rgb >> 16 & 255) | (rgb & 0xff00) | (rgb & 255) << 16 | 0xffu << 24;   /* R G B A */
     for (int i = 0; i < 4; i++)
         put32(rt + 48 + 4 * i, c);
 }
@@ -695,7 +706,7 @@ static int square(uint32_t rgb)
     const uint64_t pa = H->mem_pa;
     const uint32_t x0 = (H->screen_w - 80) & ~15u, y0 = 16;
     const uint64_t base = H->screen_pa + (uint64_t)y0 * H->screen_pitch + x0 * 4;
-    fbd(m + MEM_FBD, pa + MEM_SAMPLES, SURF, SURF, base, H->screen_pitch, rgb);
+    fbd(m + MEM_FBD, pa + MEM_SAMPLES, SURF, SURF, base, H->screen_pitch, rgb, 0);
     job_fragment(m + MEM_FJOB, SURF, SURF, pa + MEM_FBD);
     uint32_t us, st;
     if (run_on(0, pa + MEM_FJOB, &us, &st, "a square on the screen") != 0)
@@ -712,9 +723,9 @@ static int fragment(mali_info_t *in)
     volatile uint32_t *s = (volatile uint32_t *)(void *)(m + MEM_SURF);
     for (int i = 0; i < SURF * SURF + 64; i++)
         s[i] = 0xdeadbeefu;
-    samples(m + MEM_SAMPLES);
+    samples(m + MEM_SAMPLES, 0);
     const uint32_t rgb = 0x20c060;
-    fbd(m + MEM_FBD, pa + MEM_SAMPLES, SURF, SURF, pa + MEM_SURF, SURF * 4, rgb);
+    fbd(m + MEM_FBD, pa + MEM_SAMPLES, SURF, SURF, pa + MEM_SURF, SURF * 4, rgb, 0);
     job_fragment(m + MEM_FJOB, SURF, SURF, pa + MEM_FBD);
     uint32_t st;
     if (run_on(0, pa + MEM_FJOB, &in->frag_us, &st, "a fragment job (a clear)") != 0)
@@ -1275,8 +1286,8 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     }
 
     /* the fragment job: the clear's descriptor with the tiler's context */
-    samples(hdr + SO_SAMPLES);
-    fbd(hdr + SO_FBD, pa + sb + SO_SAMPLES, w, h, target_pa, pitch, clear);
+    samples(hdr + SO_SAMPLES, be_aa_frame);
+    fbd(hdr + SO_FBD, pa + sb + SO_SAMPLES, w, h, target_pa, pitch, clear, be_aa_frame);
     put64(hdr + SO_FBD + 56, pa + sb + SO_TCTX);
     job_fragment(hdr + SO_FJOB, w, h, pa + sb + SO_FBD);
     memcpy(m + sb, hdr, sizeof hdr);
@@ -1792,6 +1803,8 @@ static int be_ninst;
 static uint16_t be_vis[BE_VIS_MAX];
 static uint32_t be_nvis;
 static int be_res_on = 1;                       /* mali_res=0: no face cache */
+static int be_msaa;                             /* mali_msaa=1: 4x MSAA */
+void mali_backend_set_msaa(int on)      { be_msaa = on != 0; md_set_msaa(be_msaa); }
 void mali_backend_set_res(int on)       { be_res_on = on != 0; }
 
 static float be_lit[BE_MAX_TRIS][12];             /* Q2: the face data of a lit triangle (normal, emissive, base colour), by triangle */
@@ -1896,10 +1909,19 @@ void mali_backend_drop(void)
 
 /* the pixels of the surface that are not the key, into the page (8 pixels at a time via 64-bit loads) */
 static void be_resolve_impl(const g16_t *g, const uint8_t *surf, uint32_t pitch);
+static void be_resolve_aa(const g16_t *g, const uint8_t *surf, uint32_t pitch);
+static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch);
+static void be_resolve_x(const g16_t *g, const uint8_t *surf, uint32_t pitch)
+{
+    if (be_aa_frame)
+        be_resolve_aa(g, surf, pitch);
+    else
+        be_resolve_impl(g, surf, pitch);
+}
 static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
 {
     const uint64_t t0 = cnt_now();
-    be_resolve_impl(g, surf, pitch);
+    be_resolve_x(g, surf, pitch);
     t_resolve += cnt_now() - t0;
 }
 
@@ -1967,6 +1989,73 @@ static void be_resolve_impl(const g16_t *g, const uint8_t *surf, uint32_t pitch)
     }
 }
 
+/* 4x MSAA: byte 3 of a surface pixel is the coverage (0: not covered, 255: covered), the colour is premultiplied by it: a pixel
+ * on an edge is the colour plus the page's pixel times what is left */
+static inline void be_aa_pixel(uint16_t *d, uint32_t p)
+{
+    const uint32_t a = p >> 24;
+    if (!a)
+        return;
+    if (a >= 254) {
+        *d = (uint16_t)((p >> 19 & 31) << 11 | (p >> 10 & 63) << 5 | (p >> 3 & 31));
+        return;
+    }
+    const uint32_t q = *d, inv = 255 - a;
+    const uint32_t pr = (q >> 11) << 3 | (q >> 13), pg = (q >> 5 & 63) << 2 | (q >> 9 & 3), pb = (q & 31) << 3 | (q >> 2 & 7);
+    uint32_t r = (p >> 16 & 255) + (pr * inv + 127) / 255;
+    uint32_t gg = (p >> 8 & 255) + (pg * inv + 127) / 255;
+    uint32_t b = (p & 255) + (pb * inv + 127) / 255;
+    r = r > 255 ? 255 : r;
+    gg = gg > 255 ? 255 : gg;
+    b = b > 255 ? 255 : b;
+    *d = (uint16_t)((r >> 3) << 11 | (gg >> 2) << 5 | (b >> 3));
+}
+
+static void be_resolve_aa(const g16_t *g, const uint8_t *surf, uint32_t pitch)
+{
+    const int w = g->w, h = g->h, w8 = w & ~7;
+#ifdef PLAT_RK3566
+    if (H && surf < H->mem) {
+        const uintptr_t s0 = (uintptr_t)surf & ~63ull;
+        const uintptr_t s1 = ((uintptr_t)surf + (size_t)pitch * (size_t)h + 63ull) & ~63ull;
+        __asm__ volatile("dsb sy" ::: "memory");
+        for (uintptr_t a = s0; a < s1; a += 64)
+            __asm__ volatile("dc civac, %0" :: "r"(a) : "memory");
+        __asm__ volatile("dsb sy" ::: "memory");
+    }
+#endif
+    const uint64_t amask = 0xFF000000FF000000ull;
+    for (int y = 0; y < h; y++) {
+        const uint8_t *row = surf + (size_t)y * pitch;
+        uint16_t *dst = g->px + (size_t)y * g->stride;
+        int x = 0;
+        for (; x < w8; x += 8) {
+            uint64_t v[4];
+            memcpy(&v[0], row + 4 * (size_t)x, 8);
+            memcpy(&v[1], row + 4 * (size_t)x + 8, 8);
+            memcpy(&v[2], row + 4 * (size_t)x + 16, 8);
+            memcpy(&v[3], row + 4 * (size_t)x + 24, 8);
+            if (!((v[0] | v[1] | v[2] | v[3]) & amask))
+                continue;
+            if (((v[0] & v[1] & v[2] & v[3]) & amask) == amask) {
+                /* every pixel is fully covered (alpha 255): no tests */
+                for (int k = 0; k < 4; k++) {
+                    const uint32_t lo = (uint32_t)v[k], hi = (uint32_t)(v[k] >> 32);
+                    dst[x + 2 * k] = (uint16_t)((lo >> 19 & 31) << 11 | (lo >> 10 & 63) << 5 | (lo >> 3 & 31));
+                    dst[x + 2 * k + 1] = (uint16_t)((hi >> 19 & 31) << 11 | (hi >> 10 & 63) << 5 | (hi >> 3 & 31));
+                }
+                continue;
+            }
+            for (int k = 0; k < 4; k++) {
+                be_aa_pixel(dst + x + 2 * k, (uint32_t)v[k]);
+                be_aa_pixel(dst + x + 2 * k + 1, (uint32_t)(v[k] >> 32));
+            }
+        }
+        for (; x < w; x++)
+            be_aa_pixel(dst + x, rd32(row + 4 * (size_t)x));
+    }
+}
+
 int mali_backend_sync(void)
 {
     if (!be_pend)
@@ -2024,6 +2113,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         uint8_t *ab = H->mem - (6u << 20);
         const uint64_t apa = H->mem_pa - (6u << 20);
         const uint64_t tb = cnt_now();
+        be_aa_frame = be_msaa;
         frame_build_ex(0, dr, nd, sw, sh, pa, pitch, BE_KEY,
                        ab + 0x000000, apa + 0x000000, apa + 0x080000,
                        ab + 0x100000, apa + 0x100000, ab + 0x110000, apa + 0x110000,
@@ -2034,6 +2124,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
 #endif
     {
         const uint64_t tb = cnt_now();
+        be_aa_frame = 0;
         frame_build(0, dr, nd, sw, sh, pa, pitch, BE_KEY);
         t_build += cnt_now() - tb;
     }

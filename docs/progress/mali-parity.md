@@ -32,7 +32,7 @@ Checked in `src/rgb30/bm_port.c`. The Pi flags are in [v3d-flags](v3d-flags.md).
 | `gpu3d_wc`, `gpu3d_tex16`, `gpu3d_fs2`, `gpu3d_attr` | not needed | they answer V3D limits (write combining, texture size, QPU threads, vertex bytes); the Mali arena is already write-merged and its textures are RGB565 |
 | `gpu3d_queue2`, `gpu3d_later`, `gpu3d_qpu` | not developed | `gpu3d_queue2()` returns 0; the Mali has no QPU programs |
 | `gpu3d_filter` (bilinear) | honoured (bm3d 7.22) | the Sampler of each sheet filters; the 3D Bench `bilinear` test runs at 126.6 against the ARM's nearest quads |
-| `gpu3d_aa` (MSAA) | not developed | the tile buffer can do 4 samples; the Mali ignores the key |
+| `gpu3d_aa` (MSAA) | `gpu3d_aa=1`, 4 samples | `mali_msaa=1` (default 0, bm3d 7.28): the tile buffer holds 4 samples, the ARM resolve blends the edges (see below) |
 | `gpu3d_etc1` | not developed | the Mali reads ETC1 textures; the driver has no encoder call |
 | `gpu3d_2d` | rectangles and sprites done (`mali_2d=1`, bm3d 7.23), off by default | the 3D Bench `gpu2d` test: 2573 sprites against 2999 with the ARM drawing them (-14%): the sprite fragment (texture, alpha kill) costs 3.2 ms for 2568 sprites. The ARM instructions fall 25%. `text2d` returns 0 |
 | `gpu3d_light`, `gpu3d_enlarge` | not developed | `light2d` and `enlarge` return -1: the ARM does them |
@@ -71,3 +71,11 @@ Yharnam: not applicable on the RGB30 today. Its sheet is over the pool, so only 
 Why not the same: the Mali's flat light needs one normal and one colour a face, so the vertices cannot be shared between faces.
 
 Culling on the GPU was tried (28 Oct): the cached blocks live in the GPU memory (a 3 MB area below the lit area), the whole mesh is one draw and the Draw descriptor culls back faces. With the front face clockwise on the screen (`front_ccw` 0) the pictures are the same as the ARM's (pixel check equal); `front_ccw` 1 culls every face. It is slower: `spheres` 246 against 257 with the ARM culling, `heroes` 12.6 against 13.5, `spheres_shine` 186 against 209. The vertex shader runs on every vertex, twice as many, and the ARM's test costs little. Not kept. A packed array for the culling test (32 bytes a face, in a row) gave nothing either (`heroes` 13.6 against 13.5, `spheres` 259 against 257): the ARM test is not the limit. `heroes` is bound by the GPU (7.9 ms of jobs for 19968 triangles, 13 heroes in about four frames: a frame holds 5461 faces by its vertex arrays). The idea left is indexed vertices with the light computed in a way that shares them (a normal from the positions), which is a change of the picture to measure first.
+
+## 4x MSAA on the Mali (bm3d 7.28, `mali_msaa=1`)
+
+The tile buffer keeps 4 samples a pixel (rotated grid) and the write-back averages them. The frame descriptor has sample count 4 and 4 KB of colour a tile. The Renderer States have the multisample bit.
+The resolve model changes. The key colour does not work: the average of a covered sample and a key sample is a wrong colour. The surface is cleared to 0 and the alpha byte is the coverage. The colour is premultiplied. The ARM skips alpha 0, copies alpha 255 and blends the rest with the page: colour + page * (255 - alpha) / 255.
+Measured on the RGB30 (28 Oct), GPU+VS, `mali_msaa=1` against 0: `spheres` 238 against 258 (-8%), `heroes` 14.1 against 14.8, `queue` 168 against 200. The GPU time does not change (7.5 ms of jobs). The cost is the ARM resolve: 2.7 ms against 1.5 ms. Scores: games 581 against 635, GPU 655 against 748.
+The pixel check holds: `KC` is 203615 against 203348 ink pixels (the edge pixels add ink). The `K` line has 963 big differences with a maximum of 13: the smooth edges.
+An 8-pixel block with all alpha 0 is skipped and a block with all alpha 255 is packed with no tests. A scalar version took 3.7 ms.

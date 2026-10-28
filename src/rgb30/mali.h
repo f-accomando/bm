@@ -171,7 +171,8 @@ void mali_backend_set_zbuffer(int on);          /* 1: the Mali uses its depth bu
 int mali_backend_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c);   /* 1: taken; 0: the ARM draws it */
 int mali_backend_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
                         int flip_x, int flip_y);
-void mali_backend_set_res(int on);             /* 0: no cache of the faces of a lit mesh (config key mali_res; default 1) */
+void mali_backend_set_res(int on);
+void mali_backend_set_msaa(int on);              /* 4x MSAA in the tile buffer (config key mali_msaa); read before the first frame */             /* 0: no cache of the faces of a lit mesh (config key mali_res; default 1) */
 void mali_backend_set_2d(int on);               /* 1: the Mali draws the 2D (config key mali_2d; default 0) */
 void mali_backend_set_lit(int on, int min_px);  /* 0: lit meshes are lit by the ARM (mali_lit); faces smaller than min_px on average stay on the ARM (mali_lit_min) */
 void mali_backend_set_textures(int on);         /* 0: opaque textures go to the ARM, not the Mali (config key mali_tex; default 1) */
