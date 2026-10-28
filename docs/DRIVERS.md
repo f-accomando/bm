@@ -419,6 +419,10 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   - `src/rgb30/mali.c`: Added `frame_build_ex()` with L1-cached stack buffers (`hdr[0x1000]`, `loc[0x540]`, `frs_buf[80]`, `vrs3_buf[64]`) eliminating uncached `ATTR_NC` byte read-modify-writes, plus a 4 MB single-pass GPU arena at `H->mem - (6u << 20)` (`1,024` draws and `8,192` triangles in 1 Fragment Job and 1 `be_resolve` per frame).
   - Verified on RGB30 hardware in 3D Bench (`docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`, report `b3cab428`): overall `games` score rose from `192` to **`247`**, `GPU` score rose **16.3x** (`14` in `7.10` -> `138` in `7.14` -> **`228`** in `7.15`), `draws` (`GPU+VS`) reached `533.8` @ 60 fps (`1 job`), `spheres` (`GPU+VS`) reached `22.9` @ 60 fps (`141.5` @ 30 fps), and `gpu2d` reached `1,849.2` @ 60 fps (`5,354.8` @ 30 fps).
 
+- **7.17** (2026-10-28): **Opaque textures on the Mali** (RGB30). `BM_VS_TEX` and `BM_FS_TEX` (`tools/mali/mkshader.c`) draw a textured face with a nearest sample of a RGB565 page. `mali_tex=0` sends textures back to the ARM.
+  A 2 MB texture pool sits at `mem - 8 MB`. The 3D Bench has a pixel check: the GPU frame against an ARM redraw (report lines `K`, `KD`, `KG`).
+  RGB30, same kernel, `bench=all`: `mali_tex=0` games 482, GPU 495; `mali_tex=1` games 530, GPU 570. Alpha, screen and bilinear textures stay on the ARM.
+
 - **7.16** (2026-10-27): **`gpu2d_only=1`: the 2D of a game with no 3D on the GPU** (hidden key, off by default; the default stays what the Pi verified).
   Until 7.15 the 2D went to the V3D only when a 3D call had opened the job (`gpu3d_pending()`), so a 2D game (Yharnam) was all ARM.
   With the key, `gpu2d_only_frame()` (`runtime.c`) makes the 3D state and the GPU at the first frame whose page is whole (a game drawing via RAM: after

@@ -158,7 +158,7 @@ void rgb30_bench3d_part(framebuffer_t *fb, const char *only_tests, int no_wait)
     if (mali == 1)
         ksnprintf(ms, sizeof ms, "not tested");
     else if (mali == MALI_OK)
-        ksnprintf(ms, sizeof ms, "flat colours on the GPU, textures on the ARM");
+        ksnprintf(ms, sizeof ms, "flat colours, opaque textures on the GPU");
     else
         ksnprintf(ms, sizeof ms, "stopped at step %d", -mali);
     char keep[8];                                   /* mali3d as it was (a copy: config_set may move the string) */

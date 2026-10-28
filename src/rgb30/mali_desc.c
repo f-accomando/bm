@@ -52,6 +52,8 @@ void md_draw(uint8_t *p, const md_draw_t *s)
     /* instance size and instance primitive size: 1, "padded" 1 is stored as 0 */
     A(p, 4, s->position);
     A(p, 6, s->uniform_buffers);
+    A(p, 8, s->textures);
+    A(p, 10, s->samplers);
     A(p, 12, s->push_uniforms);
     A(p, 14, s->state);
     A(p, 16, s->attribute_buffers);
@@ -65,6 +67,8 @@ void md_draw(uint8_t *p, const md_draw_t *s)
 void md_renderer_state(uint8_t *p, const md_renderer_state_t *s)
 {
     A(p, 0, s->shader);                         /* Shader: address (words 0-1) */
+    W(p, 2, 0, 16, s->sampler_count);
+    W(p, 2, 16, 16, s->texture_count);
     W(p, 3, 0, 16, s->attribute_count);
     W(p, 3, 16, 16, s->varying_count);
     /* Properties */
@@ -210,4 +214,40 @@ void md_vertex_job(uint8_t *j, uint32_t vertices, const md_draw_t *d)
     md_invocation(j + 32, vertices);
     W(j + MD_VJ_PARAMETERS, 0, 26, 4, 5);       /* job task split */
     md_draw(j + MD_VJ_DRAW, d);
+}
+
+void md_texture(uint8_t *p, uint32_t w, uint32_t h, uint32_t format, uint64_t surfaces)
+{
+    W(p, 0, 0, 4, 2);                           /* type */
+    W(p, 0, 4, 2, 2);                           /* dimension: 2D */
+    W(p, 0, 10, 22, format);
+    W(p, 1, 0, 16, w - 1);
+    W(p, 1, 16, 16, h - 1);
+    W(p, 2, 0, 12, 0 | 1 << 3 | 2 << 6 | 3 << 9);   /* swizzle R G B A */
+    W(p, 2, 12, 4, 2);                          /* texel ordering: linear */
+    /* levels 1, minimum level 0, LODs 0, sample count 1, array size 1, depth 1: "minus 1" and log2 store 0 */
+    A(p, 4, surfaces);
+}
+
+void md_surface(uint8_t *p, uint64_t pointer, uint32_t row_stride, uint32_t surface_stride)
+{
+    A(p, 0, pointer);
+    W(p, 2, 0, 32, row_stride);
+    W(p, 3, 0, 32, surface_stride);
+}
+
+void md_sampler_nearest(uint8_t *p)
+{
+    W(p, 0, 0, 4, 1);                           /* type */
+    W(p, 0, 8, 4, 9);                           /* wrap R, T, S: clamp to edge */
+    W(p, 0, 12, 4, 9);
+    W(p, 0, 16, 4, 9);
+    W(p, 0, 21, 1, 1);                          /* round to nearest even */
+    W(p, 0, 23, 1, 1);                          /* seamless cube map */
+    W(p, 0, 25, 1, 1);                          /* normalised coordinates */
+    W(p, 0, 26, 1, 1);                          /* clamp integer array indices */
+    W(p, 0, 27, 1, 1);                          /* minify nearest */
+    W(p, 0, 28, 1, 1);                          /* magnify nearest */
+    W(p, 0, 30, 2, 1);                          /* mipmap mode: none */
+    /* LODs 0, compare function never, LOD bias 0, anisotropy 1 ("minus 1"), isotropic, border colour 0 */
 }

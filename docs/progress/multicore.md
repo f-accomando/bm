@@ -4,7 +4,7 @@ Schedule of 26 Oct 2026. Three tracks, in this order: **M** (secondary cores), *
 ## State now
 - The RGB30 kernel (`kernel8`) runs on core 0 only. The other three Cortex-A55 cores stay in the firmware (TF-A) and no code calls PSCI `CPU_ON`. The reason is not written anywhere: M1 finds it.
 - `src/rgb30/start.S` starts one core. `src/rgb30/mmu.c` builds one identity map (RAM normal, inner shareable; framebuffers non-cacheable; devices nGnRE). `src/rgb30/gic.c` sets up one core.
-- Mali (`graphics-mali.md`): triangle, batching, `BM_VS3`, async queue, 4 MB arena and `mali3d=1` by default are done on hardware (`bm3d 7.15`). Textures on GPU and hardware Z-buffer are open.
+- Mali (`graphics-mali.md`): triangle, batching, `BM_VS3`, async queue, 4 MB arena and `mali3d=1` by default are done on hardware (`bm3d 7.15`). Opaque textures on GPU are done (G1, 28 Oct). The hardware Z-buffer is open.
 
 ## Track M: secondary cores
 Each step ends with a QEMU test (`qemu-system-aarch64 -M virt -smp 4`) and, where it says so, a report from the console.
@@ -18,7 +18,7 @@ Each step ends with a QEMU test (`qemu-system-aarch64 -M virt -smp 4`) and, wher
 
 ## Track G: bm3D on Mali (end of the graphics work)
 Open items of `graphics-mali.md`, in this order. Each step is verified on the console with 3D Bench (benchmarks, never a live game).
-- G1 - Textures on GPU (item 7): `BM_FS_TEX` and UV varying with `tools/mali/mkshader.c`, `Texture` and `Sampler` descriptors in `mali_desc.c`, remove the `colour_only` fallback. Done when `quad_tex` and the textured scenes run on the GPU with the pixel check equal to the ARM result.
+- G1 - [DONE 28 Oct] Textures on GPU (item 7): `BM_FS_TEX` and UV varying with `tools/mali/mkshader.c`, `Texture` and `Sampler` descriptors in `mali_desc.c`, remove the `colour_only` fallback. Done when `quad_tex` and the textured scenes run on the GPU with the pixel check equal to the ARM result.
 - G2 - Hardware Z-buffer and early-Z (item 8): `ZS` buffer in the MFBD, `Z_FUNC = LESS`, remove `sort_tris` on the GPU path. Done when the `spheres` scenes keep the picture and the games score rises.
 - G3 - Lit and smooth scenes (`spheres`, `spheres_smooth`, `split`): the numbers of the table show the GPU path below ARM (22.9 fps against 140 n60). Find the cause (vertex count, VS cost, resolve) and fix or document it. [DONE 26 Oct: the cost was the draw build on the ARM, see [graphics-mali](graphics-mali.md); real score 247 -> 375, GPU 229 -> 417, ARM 387 -> 466 with the fast `mem*`.]
 - G4 - Close: games score, GPU score and the table of `graphics-mali.md` updated; roadmap API-5 items removed when done.

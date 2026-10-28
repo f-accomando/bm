@@ -20,6 +20,7 @@
 #define SO_HEAPD        0x0800      /* Tiler Heap */
 #define SO_TCTX         0x0880      /* Tiler Context */
 #define SO_VRSD         0x0a00      /* the vertex shader's Renderer State */
+#define SO_VRSDT        0x0a40      /* the textured draws' vertex Renderer State (BM_VS_TEX) */
 #define SO_LS           0x0b00      /* Local Storage */
 #define SO_VIEWPORT     0x0b40
 #define SO_ATTR         0x0bc0
@@ -27,6 +28,8 @@
 #define SO_VS           0x8000      /* BM_VS */
 #define SO_VS3          0x8400      /* BM_VS3 (0x1a0 bytes; 0x8100 would run into SO_FS) */
 #define SO_FS           0x8200
+#define SO_VS_TEX       0x8600      /* BM_VS_TEX (0x120 bytes) */
+#define SO_FS_TEX       0x8800      /* BM_FS_TEX (0xd0 bytes) */
 #define SO_HEAP         0x80000
 #define SO_DRAWS        0x40000
 #define SO_SURF         MALI_SET_SURFACE

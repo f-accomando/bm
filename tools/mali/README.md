@@ -44,6 +44,9 @@ Mesa's postprocess.
 - Fragment shader (`BM_FS`, 160 bytes): writes one colour per draw, a vec4 of floats at offset 0 of
   uniform buffer 0, pushed: 8 push words, the colour is words 4-7 (`BM_FS_push`), words 0-3 (ubo 1) are
   unused and the draw's push buffer is 32 bytes with them zero.
+- Textured shaders: `BM_VS_TEX` passes the position and a (u, v, k) varying (u and v divided by depth).
+  `BM_FS_TEX` samples texture 0 with sampler 0 (`txl`, level 0), multiplies the texel by k and keeps blue at 1/255 or more (the key colour is `0xFF00FF`).
+  Both inputs need `driver_location`. `BIFROST_MESA_DEBUG=nopreload` stops the message preload fields.
 - Compiled without IDVS (`no_idvs`): a Vertex job (type 5, a Compute Job layout) then a Tiler job.
   With IDVS these inputs give an empty shader.
 - Colour per vertex (a varying) was tried first: the vertex shader dropped the colour store and the

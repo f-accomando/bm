@@ -40,7 +40,8 @@ int main(void)
                     .state = 0x222200000080ull, .attribute_buffers = 0x3333000000c0ull,
                     .attributes = 0x444400000100ull, .varying_buffers = 0x555500000140ull,
                     .varyings = 0x666600000180ull, .viewport = 0x7777000001c0ull,
-                    .thread_storage = 0x888800000200ull };
+                    .thread_storage = 0x888800000200ull, .textures = 0xbbbb00000300ull,
+                    .samplers = 0xcccc00000340ull };
     memset(b, 0, sizeof b);
     md_draw(b, &d);
     same("draw", b, golden_draw, sizeof golden_draw);
@@ -51,6 +52,25 @@ int main(void)
     memset(b, 0, sizeof b);
     md_renderer_state(b, &fs);
     same("renderer state (fragment)", b, golden_renderer_state_fs, sizeof golden_renderer_state_fs);
+
+    md_renderer_state_t fst = { .fragment = 1, .shader = 0x987654300ull, .varying_count = 1, .sampler_count = 1,
+                                .texture_count = 1, .work_regs = 32, .preload_regs = 1ull << 60, .push_count = 4,
+                                .pixel_kill = MD_KILL_WEAK_EARLY, .zs_update = MD_KILL_WEAK_EARLY };
+    memset(b, 0, sizeof b);
+    md_renderer_state(b, &fst);
+    same("renderer state (textured fragment)", b, golden_renderer_state_fs_tex, sizeof golden_renderer_state_fs_tex);
+
+    memset(b, 0, sizeof b);
+    md_texture(b, 128, 128, MD_FMT_RGB565, 0x3f400040ull);
+    same("texture", b, golden_texture, sizeof golden_texture);
+
+    memset(b, 0, sizeof b);
+    md_surface(b, 0x3f4000c0ull, 256, 32768);
+    same("surface with stride", b, golden_surface, sizeof golden_surface);
+
+    memset(b, 0, sizeof b);
+    md_sampler_nearest(b);
+    same("sampler", b, golden_sampler, sizeof golden_sampler);
 
     md_renderer_state_t vs = { .shader = 0x987654400ull, .attribute_count = 1, .varying_count = 1, .work_regs = 32,
                                .preload_regs = 3ull << 61 };

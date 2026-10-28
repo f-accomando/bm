@@ -78,7 +78,7 @@ def vectors(x):
             "Uniform buffers": 0x9999_0000_0240, "Push uniforms": 0xaaaa_0000_0280,
             "State": 0x2222_0000_0080, "Attribute buffers": 0x3333_0000_00c0, "Attributes": 0x4444_0000_0100,
             "Varying buffers": 0x5555_0000_0140, "Varyings": 0x6666_0000_0180, "Viewport": 0x7777_0000_01c0,
-            "Thread Storage": 0x8888_0000_0200}),
+            "Thread Storage": 0x8888_0000_0200, "Textures": 0xbbbb_0000_0300, "Samplers": 0xcccc_0000_0340}),
         "renderer_state_fs": pack(x, "Renderer State", dict(ms, **{
             "Shader": 0x0000_0009_8765_4300, "Attribute count": 0, "Varying count": 0,
             "Uniform buffer count": 1, "Shader register allocation": 2, "Allow forward pixel to be killed": 1,
@@ -105,6 +105,21 @@ def vectors(x):
         "tiler_context": pack(x, "Tiler Context", {
             "Hierarchy Mask": 0x28, "FB Width": 360, "FB Height": 360, "Heap": 0x0000_0003_c000_8000}),
         "attribute": pack(x, "Attribute", {"Buffer index": 3, "Offset enable": 1, "Format": 0x3ab5, "Offset": -4}, 8),
+        "texture": pack(x, "Texture", {
+            "Type": 2, "Dimension": 2, "Format": (64 << 12) | 20, "Width": 128, "Height": 128,
+            "Swizzle": 0 | 1 << 3 | 2 << 6 | 3 << 9, "Texel ordering": 2, "Levels": 1, "Sample count": 1,
+            "Surfaces": 0x0000_0000_3f40_0040, "Array size": 1, "Depth": 1}, 32),
+        "surface": pack(x, "Surface With Stride", {
+            "Pointer": 0x0000_0000_3f40_00c0, "Row stride": 256, "Surface stride": 32768}, 16),
+        "sampler": pack(x, "Sampler", {
+            "Type": 1, "Wrap Mode R": 9, "Wrap Mode T": 9, "Wrap Mode S": 9, "Round to nearest even": 1,
+            "Seamless Cube Map": 1, "Normalized Coordinates": 1, "Clamp integer array indices": 1,
+            "Minify nearest": 1, "Magnify nearest": 1, "Mipmap Mode": 1, "Maximum anisotropy": 1}, 32),
+        "renderer_state_fs_tex": pack(x, "Renderer State", dict(ms, **{
+            "Shader": 0x0000_0009_8765_4300, "Sampler count": 1, "Texture count": 1, "Attribute count": 0,
+            "Varying count": 1, "Uniform buffer count": 0, "Shader register allocation": 2,
+            "Allow forward pixel to be killed": 1, "Pixel kill operation": 2, "ZS update operation": 2,
+            "Coverage": 1, "Uniform count": 2}), 64),
         "attribute_buffer": pack(x, "Attribute Buffer", {
             "Type": 1, "Pointer": 0x0000_0003_c012_3400, "Stride": 16, "Size": 4800, "Divisor": 1}, 16),
     }

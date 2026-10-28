@@ -136,6 +136,9 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: mkshader OUT.h\n");
         return 1;
     }
+    /* no message preload (the textured fragment shader would preload its varying): it needs the Renderer State's
+     * message_preload fields, a plain LD_VAR does not. Read once, at the first compile. */
+    setenv("BIFROST_MESA_DEBUG", "nopreload", 1);
     FILE *out = fopen(argv[1], "w");
     if (!out)
         return 1;
@@ -181,6 +184,41 @@ int main(int argc, char **argv)
         nir_store_var(&b, ocol, c, 0xf);
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
         compile("BM_FS", b.shader, out, &fi, 0);
+    }
+    {   /* textured vertex: position (attribute 0) and (u, v, k, 0) (attribute 1, the same buffer 16 bytes on) to varying 0 */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, opt, "bm_vs_tex");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        nir_variable *ipos = var(&b, nir_var_shader_in, "pos", VERT_ATTRIB_GENERIC0, INTERP_MODE_NONE);
+        nir_variable *iuv = var(&b, nir_var_shader_in, "uvk", VERT_ATTRIB_GENERIC1, INTERP_MODE_NONE);
+        iuv->data.driver_location = 1;      /* the attribute's index: lowered I/O takes it as `base` */
+        nir_variable *opos = var(&b, nir_var_shader_out, "gl_Position", VARYING_SLOT_POS, INTERP_MODE_NONE);
+        nir_variable *ouv = var(&b, nir_var_shader_out, "uvk_out", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
+        ouv->data.driver_location = 1;
+        nir_store_var(&b, opos, nir_load_var(&b, ipos), 0xf);
+        nir_store_var(&b, ouv, nir_load_var(&b, iuv), 0xf);
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_VS_TEX", b.shader, out, &vi, 1);
+    }
+    {   /* textured fragment: colour 0 = texel (texture 0, sampler 0, normalised coordinates, level 0) * k, alpha 1 */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, opt, "bm_fs_tex");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        nir_variable *iuv = var(&b, nir_var_shader_in, "uvk", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
+        nir_variable *ocol = var(&b, nir_var_shader_out, "color", FRAG_RESULT_DATA0, INTERP_MODE_NONE);
+        nir_def *uvk = nir_load_var(&b, iuv);
+        nir_def *uv = nir_trim_vector(&b, uvk, 2);
+        nir_def *k = nir_channel(&b, uvk, 2);
+        nir_def *texel = nir_build_tex(&b, nir_texop_txl, .coord = uv, .lod = nir_imm_float(&b, 0.0f),
+                                       .texture_index = 0, .sampler_index = 0, .dim = GLSL_SAMPLER_DIM_2D,
+                                       .dest_type = nir_type_float32);
+        nir_def *rgb = nir_fmul(&b, nir_trim_vector(&b, texel, 3), k);
+        /* blue at least 1/255: a pixel of the key colour 0xFF00FF means "not covered" to the resolve, and blue 0 and 1
+         * are the same 5 bits of the RGB565 page */
+        nir_def *bl = nir_fmax(&b, nir_channel(&b, rgb, 2), nir_imm_float(&b, 1.0f / 255.0f));
+        nir_store_var(&b, ocol, nir_vec4(&b, nir_channel(&b, rgb, 0), nir_channel(&b, rgb, 1), bl,
+                                         nir_imm_float(&b, 1.0f)), 0xf);
+        b.shader->info.num_textures = 1;
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_FS_TEX", b.shader, out, &fi, 0);
     }
     fclose(out);
     return 0;

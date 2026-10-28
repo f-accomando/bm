@@ -783,7 +783,7 @@ static inline uint64_t cnt_freq(void) { return 0; }
  * a pointer was not aligned (G3 report of 26 Oct: 25 us a draw in frame_build_ex, 10 ms of a 15 ms frame at 400 draws). */
 static inline void copy_nc16(void *dst, const void *src, size_t n)
 {
-    typedef unsigned __int128 u128;
+    typedef unsigned __int128 __attribute__((may_alias)) u128;   /* the callers pass floats too */
     u128 *d = dst;
     const u128 *s = src;
     for (size_t i = 0; i < n / 16; i++)
@@ -794,7 +794,7 @@ static inline void copy_nc16(void *dst, const void *src, size_t n)
  * cost 3.4 us: 5 of the 10 ms of frame_build_ex at 1480 draws, G3 report of 26 Oct). */
 static inline void zero16(void *dst, size_t n)
 {
-    typedef unsigned __int128 u128;
+    typedef unsigned __int128 __attribute__((may_alias)) u128;   /* the callers pass floats too */
     u128 *d = dst;
     for (size_t i = 0; i < n / 16; i++) {
         d[i] = 0;
@@ -842,7 +842,9 @@ typedef struct {                                /* what every core reads while i
     uint32_t sb;
     uint8_t *verts_m, *push_m, *vpush_m, *draws_m;
     uint64_t verts_pa, pos_pa, push_pa, vpush_pa;
-    const uint8_t *frs_buf, *vrs3_buf;
+    const uint8_t *frs_buf, *vrs3_buf, *frst_buf;
+    uint8_t *tv_m;                              /* textured draws: vertices of 32 bytes (position, u v k), varyings of 16 */
+    uint64_t tv_pa, tvy_pa;
     int fast_pack;
 } bctx_t;
 
@@ -860,7 +862,9 @@ static void build_draws(void *p)
     const uint32_t ndraws = c->ndraws, sb = c->sb;
     const uint64_t pa = c->pa, verts_pa = c->verts_pa, pos_pa = c->pos_pa, push_pa = c->push_pa, vpush_pa = c->vpush_pa;
     uint8_t *verts_m = c->verts_m, *push_m = c->push_m, *vpush_m = c->vpush_m, *draws_m = c->draws_m;
-    const uint8_t *frs_buf = c->frs_buf, *vrs3_buf = c->vrs3_buf;
+    const uint8_t *frs_buf = c->frs_buf, *vrs3_buf = c->vrs3_buf, *frst_buf = c->frst_buf;
+    uint8_t *tv_m = c->tv_m;
+    const uint64_t tv_pa = c->tv_pa, tvy_pa = c->tvy_pa;
     const uint64_t draws_pa = c->dpa0;
     const int fast_pack = c->fast_pack;
     uint32_t first = k->first;                  /* the draw's first vertex, in the frame's arrays */
@@ -871,6 +875,51 @@ static void build_draws(void *p)
         const uint64_t dpa = draws_pa + (uint64_t)MEM_DRAW_SIZE * d;
         const uint32_t nv = 3 * draws[d].n;
         const uint32_t rgb = draws[d].rgb;
+
+        if (draws[d].uvk && tv_m) {              /* G1: a textured draw */
+            const uint64_t tx0 = cnt_now();
+            const float (*uvk)[3] = draws[d].uvk;
+            for (uint32_t i = 0; i < nv; i++) {
+                /* clip position (x w, y w, z w, w) with w = depth: the shader divides by w, the varyings are interpolated
+                 * with perspective */
+                const float z = draws[d].xyz[i][2], w = z > 1e-9f ? 1.0f / z : 1e9f;
+                const float v8[8] __attribute__((aligned(16))) = { draws[d].xyz[i][0] * w, draws[d].xyz[i][1] * w, 0.5f * w, w,
+                                                                   uvk[i][0], uvk[i][1], uvk[i][2], 0.0f };
+                volatile float *tvp = (volatile float *)(void *)(tv_m + 32 * (size_t)(first + i));
+                for (int q = 0; q < 8; q++)
+                    tvp[q] = v8[q];
+            }
+            zero16(push_m + 64 * (size_t)d, 32);
+            memcpy(loc + D_FRSD, frst_buf, 80);
+            md_attribute_buffer(loc + D_ABUFS, tv_pa + 32 * (uint64_t)first, 32, 32 * nv);
+            md_attribute_buffer(loc + D_ABUFS + 16, 0, 0, 0);
+            md_attribute_buffer(loc + D_VBUFS, tvy_pa + 16 * (uint64_t)first, 16, 16 * nv);
+            md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
+            md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
+            md_draw_t tvd = { .state = pa + sb + SO_VRSDT, .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
+                              .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR,
+                              .thread_storage = pa + sb + SO_LS };
+            job_header(loc + D_VJOB, MD_JOB_VERTEX, 2 * (int)d + 1, d ? 2 * (int)d : 0, dpa + D_TJOB);
+            md_vertex_job(loc + D_VJOB, nv, &tvd);
+            md_draw_t ttd = { .position = pos_pa + 16 * (uint64_t)first, .state = dpa + D_FRSD,
+                              .viewport = pa + sb + SO_VIEWPORT, .push_uniforms = push_pa + 64 * (uint64_t)d,
+                              .thread_storage = pa + sb + SO_LS, .varying_buffers = dpa + D_VBUFS,
+                              .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE, .textures = draws[d].tex_pa,
+                              .samplers = draws[d].tex_pa + 0x80 };
+            md_primitive_t tprim = { .mode = MD_TRIANGLES, .index_count = nv };
+            job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
+                       d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
+            md_tiler_job(loc + D_TJOB, &tprim, pa + sb + SO_TCTX, &ttd);
+            const uint64_t tx1 = cnt_now();
+            k->t2 += tx1 - tx0;
+            if (fast_pack)
+                copy_slot(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, d);
+            else
+                copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
+            k->t3 += cnt_now() - tx1;
+            first += (nv + 3) & ~3u;
+            continue;
+        }
 
         const uint64_t tb0 = cnt_now();
         /* the data: the positions as (x y z 1), the colour twice (the buffer and the pushed words 4-7) */
@@ -933,7 +982,8 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                            uint64_t target_pa, uint32_t pitch, uint32_t clear,
                            uint8_t *verts_m, uint64_t verts_pa, uint64_t pos_pa,
                            uint8_t *push_m, uint64_t push_pa, uint8_t *vpush_m, uint64_t vpush_pa,
-                           uint8_t *draws_m, uint64_t draws_pa, int fast_pack)
+                           uint8_t *draws_m, uint64_t draws_pa, int fast_pack,
+                           uint8_t *tv_m, uint64_t tv_pa, uint64_t tvy_pa)
 {
     const uint32_t sb = MALI_SET_BASE(set);
     uint8_t *m = H->mem;
@@ -950,6 +1000,13 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
             memcpy(m + sb + SO_VS3, BM_VS3_bin, sizeof BM_VS3_bin);
             break;
         }
+    int any_tex = 0;
+    for (uint32_t d = 0; d < ndraws && !any_tex; d++)
+        any_tex = draws[d].uvk != NULL && tv_m != NULL;
+    if (any_tex) {
+        memcpy(m + sb + SO_VS_TEX, BM_VS_TEX_bin, sizeof BM_VS_TEX_bin);
+        memcpy(m + sb + SO_FS_TEX, BM_FS_TEX_bin, sizeof BM_FS_TEX_bin);
+    }
 
     /* tiler: the heap and the context */
     md_tiler_heap(hdr + SO_HEAPD, pa + sb + SO_HEAP, HEAP_SIZE);
@@ -970,6 +1027,8 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     md_viewport(hdr + SO_VIEWPORT, 0, 0, w, h, 0, 0, w - 1, h - 1);
     md_attribute(hdr + SO_ATTR, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 0, 1);
     md_attribute(hdr + SO_VATTR, 1, MD_FMT_SNAP4 | MD_ORDER_RGBA, 0, 0);
+    md_attribute(hdr + SO_ATTR + MD_ATTRIBUTE_SIZE, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 16, 1);  /* BM_VS_TEX: (u v k) */
+    md_attribute(hdr + SO_VATTR + MD_ATTRIBUTE_SIZE, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 0, 0); /* its varying 0 */
 
     uint8_t frs_buf[80], vrs3_buf[64];
     memset(frs_buf, 0, sizeof frs_buf);
@@ -981,11 +1040,26 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                  .push_count = BM_VS3_PUSH_COUNT };
     memset(vrs3_buf, 0, sizeof vrs3_buf);
     md_renderer_state(vrs3_buf, &vrs3);
+    md_renderer_state_t vrst = { .shader = pa + sb + SO_VS_TEX, .attribute_count = BM_VS_TEX_ATTRIBUTE_COUNT,
+                                 .varying_count = BM_VS_TEX_VARYING_COUNT, .ubo_count = BM_VS_TEX_UBO_COUNT,
+                                 .work_regs = BM_VS_TEX_WORK_REGS, .preload_regs = BM_VS_TEX_PRELOAD,
+                                 .push_count = BM_VS_TEX_PUSH_COUNT };
+    md_renderer_state(hdr + SO_VRSDT, &vrst);
+    uint8_t frst_buf[80];
+    memset(frst_buf, 0, sizeof frst_buf);
+    md_renderer_state_t frst = { .fragment = 1, .shader = pa + sb + SO_FS_TEX, .attribute_count = BM_FS_TEX_ATTRIBUTE_COUNT,
+                                 .varying_count = BM_FS_TEX_VARYING_COUNT, .ubo_count = BM_FS_TEX_UBO_COUNT,
+                                 .sampler_count = 1, .texture_count = 1,
+                                 .work_regs = BM_FS_TEX_WORK_REGS, .preload_regs = BM_FS_TEX_PRELOAD,
+                                 .push_count = BM_FS_TEX_PUSH_COUNT, .pixel_kill = MD_KILL_WEAK_EARLY,
+                                 .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_TEX_WAIT6, .wait7 = BM_FS_TEX_WAIT7 };
+    md_renderer_state(frst_buf, &frst);
+    md_blend_opaque(frst_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
 
     bctx_t bc = { .draws = draws, .ndraws = ndraws, .pa = pa, .dpa0 = draws_pa, .sb = sb, .verts_m = verts_m,
                   .push_m = push_m, .vpush_m = vpush_m, .draws_m = draws_m, .verts_pa = verts_pa, .pos_pa = pos_pa,
                   .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .vrs3_buf = vrs3_buf,
-                  .fast_pack = fast_pack };
+                  .frst_buf = frst_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack };
     static bblk_t blk[MALI_BUILD_CORES];
     void *blks[MALI_BUILD_CORES];
     unsigned nb = 1;
@@ -1036,7 +1110,7 @@ static void frame_build(uint32_t set, const mali_draw_t *draws, uint32_t ndraws,
     frame_build_ex(set, draws, ndraws, w, h, target_pa, pitch, clear,
                    m + verts, pa + verts, pa + positions,
                    m + push, pa + push, m + vpush, pa + vpush,
-                   m + sb + SO_DRAWS, pa + sb + SO_DRAWS, 0);
+                   m + sb + SO_DRAWS, pa + sb + SO_DRAWS, 0, NULL, 0, 0);
 }
 
 #define TRI_X0      ((H->screen_w - 112) & ~15u)
@@ -1486,8 +1560,16 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
 #define BE_KEY          0xFF00FF    /* "not covered" */
 #define BE_MAX_TRIS     8192
 #define BE_MAX_MVPS     512
+/* G1, textures: the arena's tail (after the draw slots, 0x320000) holds the textured draws' vertices (32 bytes each: position
+ * and u v k) and varyings (16 bytes each), BE_TEXV_MAX vertices (slots of the frame's vertex index) at most; the sheets'
+ * texture blocks go to a pool of 2 MB below the arena. */
+#define BE_TV_OFF       0x320000
+#define BE_TVY_OFF      0x3a0000
+#define BE_TEXV_MAX     16384
+#define BE_TPOOL_SIZE   (2u << 20)
+#define BE_TEX_SLOTS    16
 
-typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; } be_tri_t;
+typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float uvk[3][3]; uint64_t tex_pa; } be_tri_t;
 
 static be_tri_t be_tris[BE_MAX_TRIS];
 static float be_mvps[BE_MAX_MVPS][16];
@@ -1701,7 +1783,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         frame_build_ex(0, dr, nd, sw, sh, pa, pitch, BE_KEY,
                        ab + 0x000000, apa + 0x000000, apa + 0x080000,
                        ab + 0x100000, apa + 0x100000, ab + 0x110000, apa + 0x110000,
-                       ab + 0x120000, apa + 0x120000, 1);
+                       ab + 0x120000, apa + 0x120000, 1, ab + BE_TV_OFF, apa + BE_TV_OFF, apa + BE_TVY_OFF);
         t_build += cnt_now() - tb;
         vt_head = apa + 0x120000;
     } else
@@ -1813,6 +1895,7 @@ static int be_flush_mode(const g16_t *g, int async)
 static int be_flush_mode_impl(const g16_t *g, int async)
 {
     static float vbuf[BE_MAX_TRIS * 3][3];
+    static float uvbuf[BE_MAX_TRIS * 3][3];
     static mali_draw_t dr[BE_HW_MAX_DRAWS];
     static int idx[BE_MAX_TRIS], tmp_idx[BE_MAX_TRIS];
     if (be_pend && mali_backend_sync() != 0)
@@ -1886,18 +1969,27 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         pa = hw->mem_pa - (2u << 20);
     }
 #endif
-    uint32_t nd = 0, nv = 0, btri = 0;
+    uint32_t nd = 0, nv = 0, btri = 0, slots = 0;   /* slots: the frame's vertex index (draws padded to 4 vertices) */
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
-        if (btri == max_tris) {
+        const int tex = t->tex_pa != 0;
+        /* a textured draw's vertices live in arrays of BE_TEXV_MAX slots: the frame ends before it passes them */
+        const uint32_t dslots = nd > 0 && dr[nd - 1].n ? (3 * dr[nd - 1].n + 3) & ~3u : 0;
+        const uint32_t next_slots = (nd > 0 && dr[nd - 1].rgb == t->rgb && dr[nd - 1].mvp == t->mvp)
+                                        ? slots - dslots + ((3 * (dr[nd - 1].n + 1) + 3) & ~3u)
+                                        : slots + 4;
+        if (btri == max_tris || (tex && next_slots > BE_TEXV_MAX)) {
             if (be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
                 return -1;
             nd = 0;
             nv = 0;
             btri = 0;
+            slots = 0;
         }
         if (nd > 0 && dr[nd - 1].rgb == t->rgb && dr[nd - 1].mvp == t->mvp) {
+            slots -= (3 * dr[nd - 1].n + 3) & ~3u;
             dr[nd - 1].n++;
+            slots += (3 * dr[nd - 1].n + 3) & ~3u;
         } else {
             if (nd == max_draws) {                  /* a full frame: draw it synchronously, go on with a fresh one */
                 if (be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
@@ -1905,14 +1997,20 @@ static int be_flush_mode_impl(const g16_t *g, int async)
                 nd = 0;
                 nv = 0;
                 btri = 0;
+                slots = 0;
             }
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
             dr[nd].n = 1;
             dr[nd].rgb = t->rgb;
             dr[nd].mvp = t->mvp;
+            dr[nd].uvk = tex ? (const float (*)[3])uvbuf[nv] : NULL;
+            dr[nd].tex_pa = t->tex_pa;
             nd++;
+            slots += 4;
         }
         memcpy(vbuf[nv], t->v, sizeof t->v);
+        if (tex)
+            memcpy(uvbuf[nv], t->uvk, sizeof t->uvk);
         nv += 3;
         btri++;
     }
@@ -1934,16 +2032,130 @@ int mali_backend_submit(g16_t *g)
     return be_flush_mode(g, 1);
 }
 
+/* --- G1: sheets as textures. A sheet (opaque, RGB565) is copied to the pool as a block of 64-byte alignment: the Texture
+ * descriptor at +0x00, a Surface With Stride at +0x40, the Sampler at +0x80, the texels at +0xc0. A sheet with transparent
+ * texels, a pool that cannot hold it, or any other platform than the RGB30's arena stays on the ARM (tex_ok says 0). */
+typedef struct {
+    const g16_sheet_t *sheet;
+    uint32_t version;
+    int ok;
+    uint64_t pa;
+    float iw, ih;
+} be_texslot_t;
+
+static be_texslot_t be_texs[BE_TEX_SLOTS];
+static int be_ntex;
+static uint32_t be_tpool_used;
+
+static int be_tex_on = 1;                           /* mali_tex=0 (bm_port.c): textures stay on the ARM */
+void mali_backend_set_textures(int on)  { be_tex_on = on != 0; }
+static int be_bilinear;
+void mali_backend_set_bilinear(int on)  { be_bilinear = on != 0; }
+
+static int be_arena(void)
+{
+#ifdef PLAT_RK3566
+    return !be_frame && H && H->map_pa > 0 && H->mem_pa >= H->map_pa + (10u << 20);
+#else
+    return 0;
+#endif
+}
+
+/* the slot of a sheet (uploaded now if new or changed), or -1: the ARM draws it */
+static int be_tex_find(const g16_t *g, const g16_sheet_t *sh)
+{
+    if (!sh || !sh->px || !be_tex_on || be_bilinear || !be_arena())
+        return -1;
+    for (int i = be_ntex - 1; i >= 0; i--)
+        if (be_texs[i].sheet == sh) {
+            if (be_texs[i].version == sh->version)
+                return be_texs[i].ok ? i : -1;
+            break;                                  /* the sheet changed: a new block */
+        }
+    const uint32_t w = (uint32_t)sh->w, h = (uint32_t)sh->h;
+    int ok = w >= 8 && h >= 8 && w <= 4096 && h <= 4096 && (w & 7) == 0;
+    if (ok) {                                       /* no transparent texel: the Mali's shader draws every texel */
+        if (sh->cell_opaque) {
+            for (uint32_t c = 0; c < (w / 8) * (h / 8) && ok; c++)
+                ok = sh->cell_opaque[c] != 0;
+        } else if (sh->alpha) {
+            for (uint32_t i = 0; i < w * h && ok; i++)
+                ok = sh->alpha[i] != 0;
+        }
+    }
+    const uint32_t size = ok ? ((0xc0u + w * h * 2u + 63u) & ~63u) : 0;
+    if (ok && size > BE_TPOOL_SIZE)
+        ok = 0;
+    if (ok && (be_tpool_used + size > BE_TPOOL_SIZE || be_ntex == BE_TEX_SLOTS)) {
+        be_flush(g);                                /* what is waiting uses the pool: draw it before the blocks go */
+        be_ntex = 0;
+        be_tpool_used = 0;
+    }
+    if (be_ntex == BE_TEX_SLOTS)
+        be_ntex = 0;
+    be_texslot_t *t = &be_texs[be_ntex];
+    t->sheet = sh;
+    t->version = sh->version;
+    t->ok = ok;
+    if (ok) {
+        uint8_t *blk = H->mem - (8u << 20) + be_tpool_used;
+        const uint64_t bpa = H->mem_pa - (8u << 20) + be_tpool_used;
+        uint8_t hdr[0xc0] __attribute__((aligned(16)));
+        zero16(hdr, sizeof hdr);
+        md_texture(hdr, w, h, MD_FMT_RGB565, bpa + 0x40);
+        md_surface(hdr + 0x40, bpa + 0xc0, w * 2, w * h * 2);
+        md_sampler_nearest(hdr + 0x80);
+        copy_nc16(blk, hdr, sizeof hdr);
+        copy_nc16(blk + 0xc0, sh->px, (size_t)w * h * 2);
+        __asm__ volatile("dsb sy" ::: "memory");
+        t->pa = bpa;
+        t->iw = 1.0f / (float)w;
+        t->ih = 1.0f / (float)h;
+        be_tpool_used += size;
+    }
+    be_ntex++;
+    return ok ? be_ntex - 1 : -1;
+}
+
+static int be_tex_ok(void *ctx, const g16_t *g, const g16_sheet_t *sh)
+{
+    (void)ctx;
+    return be_tex_find(g, sh) >= 0;
+}
+
 static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex, int depth)
 {
     (void)ctx;
-    (void)tex;
-    if ((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR || depth != R3D_DEPTH_WRITE)    /* r3d sends nothing else (colour_only): the guard */
+    const int textured = (kind & ~R3D_INSIDE) == R3D_KIND_TEXTURE;
+    if (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) || depth != R3D_DEPTH_WRITE)  /* r3d sends nothing else (colour_only): the guard */
+        return;
+    int ts = -1;
+    if (textured && (ts = be_tex_find(g, tex)) < 0)
         return;
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
-    if (be_n == cap)
+    if (be_n == cap) {
         be_flush(g);                                /* (g16_t holds the page by pointer: const does not stop the copy) */
+        if (textured && (ts = be_tex_find(g, tex)) < 0)
+            return;
+    }
     be_tri_t *t = &be_tris[be_n++];
+    if (textured) {
+        const be_texslot_t *sl = &be_texs[ts];
+        for (int i = 0; i < 3; i++) {
+            t->v[i][0] = v[i].x;
+            t->v[i][1] = v[i].y;
+            t->v[i][2] = v[i].z;                    /* 1/depth */
+            t->uvk[i][0] = v[i].a * sl->iw;
+            t->uvk[i][1] = v[i].b * sl->ih;
+            t->uvk[i][2] = v[i].c;
+        }
+        t->rgb = 0x01000000u | (uint32_t)ts;        /* a colour no flat draw has: the draws of one texture merge */
+        t->key = (v[0].z + v[1].z + v[2].z) / 3;
+        t->mvp = NULL;
+        t->tex_pa = sl->pa;
+        return;
+    }
+    t->tex_pa = 0;
     float r = 0, gr = 0, b = 0, z = 0;
     for (int i = 0; i < 3; i++) {
         t->v[i][0] = v[i].x;
@@ -2186,6 +2398,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         tr->rgb = rgb;
         tr->key = zmul / cz_bone[b];
         tr->mvp = mvp_bone[b];
+        tr->tex_pa = 0;
         nsent++;
     }
     be_stats.glmeshes++;
@@ -2204,7 +2417,7 @@ static void be_zclear(void *ctx, const g16_t *g)
 const r3d_backend_t *mali_backend(const mali_hw_t *hw)
 {
     static const r3d_backend_t be = {
-        .tri = be_tri, .mesh = be_mesh, .zclear = be_zclear,
+        .tri = be_tri, .mesh = be_mesh, .zclear = be_zclear, .tex_ok = be_tex_ok,
         .guard = 2048.0f, .cel = 1, .colour_only = 1,
     };
     if (!probed_ok || hw != H)

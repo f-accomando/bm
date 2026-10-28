@@ -95,6 +95,13 @@ spent waiting for the GPU (and those separately), instructions per triangle and 
 data **cache misses**. The instructions and the misses come from the ARM1176 counters
 (`src/kernel/pmu.c`), only on the real Pi (QEMU does not have them).
 
+## The pixel check (RGB30)
+
+For each GPU row, the 3D Bench draws the first frame on the GPU, redraws it on the ARM and compares the two.
+Report line `K`: pixels of the scene, pixels that differ, pixels that differ by more than 2 steps, largest step.
+Line `KD` gives the box of the differences and sample pixels. Lines `KG` give a grid of 16 by 8 pixels, GPU and ARM.
+Light rounding makes small differences. Do not trust a GPU score without its `K` line.
+
 ## The score
 
 The first page at the end (user's request, 2026-10-06). Two numbers:

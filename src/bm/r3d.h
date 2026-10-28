@@ -179,6 +179,9 @@ typedef struct {
      * pre(pctx) at the start of each of its other entry points. Returns 1 if the backend takes a
      * merged mesh now (it places meshes and clips them), else 0 (the draws go at once). */
     int (*merge)(void *ctx, void (*pre)(void *), void *pctx);
+    /* G1, optional, for a colour_only backend: 1 if it draws textured faces of this sheet (R3D_KIND_TEXTURE, depth written, not
+     * screen-door) itself: the sheet is opaque and the backend holds it as a texture; else the face goes to the ARM */
+    int (*tex_ok)(void *ctx, const g16_t *g, const g16_sheet_t *tex);
     void *ctx;
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
     int tex_screen;             /* draws textured screen-door faces (R3D_TEX_SCREEN, M34); else

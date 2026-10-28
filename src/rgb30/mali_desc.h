@@ -62,6 +62,8 @@ typedef struct {
     uint64_t varying_buffers, varyings;
     uint64_t viewport;
     uint64_t thread_storage;    /* Local Storage */
+    uint64_t textures;          /* an array of Texture descriptors (Bifrost: the descriptors themselves, 32 bytes each) */
+    uint64_t samplers;          /* an array of Sampler descriptors (32 bytes each) */
 } md_draw_t;
 void md_draw(uint8_t *p, const md_draw_t *s);
 
@@ -70,6 +72,7 @@ typedef struct {
     int fragment;               /* else a vertex shader */
     uint64_t shader;            /* the shader's address */
     uint32_t attribute_count, varying_count, ubo_count;
+    uint32_t sampler_count, texture_count;  /* the shader's samplers and textures (Shader struct, word 2) */
     uint32_t work_regs;         /* <= 32: 32 per thread, else 64 */
     uint64_t preload_regs;      /* the compiler's preload bit mask (info.preload) */
     uint32_t push_count;        /* pushed words: the uniform count is half of it, rounded up */
@@ -105,6 +108,15 @@ void md_tiler_context(uint8_t *p, uint32_t w, uint32_t h, uint32_t hierarchy_mas
 /* Attribute (8 bytes) and Attribute Buffer (16 bytes, 32-aligned): a 1D buffer of vertices `stride` apart */
 void md_attribute(uint8_t *p, uint32_t buffer, uint32_t format, int32_t offset, int offset_enable);
 void md_attribute_buffer(uint8_t *p, uint64_t pointer, uint32_t stride, uint32_t size);
+
+/* Texture (32 bytes, 32-aligned): a 2D texture of w x h texels of RGB565 (Pixel Format RGB565, component order BGR1), one level,
+ * linear, with the Surface With Stride array at `surfaces` */
+#define MD_FMT_RGB565       ((64u << 12) | 20u)   /* order BGR1: the Mali's RGB565 holds blue in the high bits; a page texel has red there */
+void md_texture(uint8_t *p, uint32_t w, uint32_t h, uint32_t format, uint64_t surfaces);
+/* Surface With Stride (16 bytes, 16-aligned) */
+void md_surface(uint8_t *p, uint64_t pointer, uint32_t row_stride, uint32_t surface_stride);
+/* Sampler (32 bytes, 32-aligned): normalised coordinates, the nearest texel, clamped to the edge, one level */
+void md_sampler_nearest(uint8_t *p);
 
 /* the Tiler Job's pieces at j (256 bytes, zeroed first): the header is the caller's (mali.c job_header),
  * p the Primitive, tiler the Tiler Context's address, d the Draw */

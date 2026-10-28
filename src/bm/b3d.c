@@ -1401,6 +1401,12 @@ typedef struct {
     float ms_n[4], tris_n[4];
     /* the vertex shader's mesh path on one hero alone (a test with a probe): the triangles and meshes it placed */
     int probed, probe_gl, probe_meshes, vs_probe;
+    /* G1 pixel check (a Mali row): the first frame of the ramp drawn by the GPU and again by the ARM; pixels of the page,
+     * pixels that differ, pixels that differ by more than 2 steps of a channel (RGB565), the largest step */
+    int chk, chk_px, chk_diff, chk_big, chk_max;
+    int chk_box[4];                     /* the box of the pixels that differ: x0 y0 x1 y1 */
+    uint16_t chk_gpu[5], chk_arm[5];
+    uint16_t chk_grid[2][8][16];        /* [0] GPU, [1] ARM: every 40th pixel of every 45th row */    /* five pixels: the first that differs, and the box's centre, corners... */
 } result_t;
 
 static result_t res[NTESTS][NPROF];
@@ -1536,6 +1542,67 @@ static void prof_off(void)
     gpu3d_set_attr(0);
 }
 
+/* the page after the GPU's frame against the ARM's frame of the same scene (the page was drawn by the GPU just now) */
+static void pixel_check(const test_t *t, int n, result_t *r)
+{
+    const size_t np = (size_t)g->w * (size_t)g->h;
+    uint16_t *a = malloc(np * 2);
+    if (!a)
+        return;
+    for (int y = 0; y < g->h; y++)
+        memcpy(a + (size_t)y * g->w, g->px + (size_t)y * g->stride, (size_t)g->w * 2);
+    const r3d_backend_t *be = R.backend;
+    gpu3d_drop();
+    R.backend = NULL;
+    t->frame(n, 0);
+    R.backend = be;
+    r->chk = 1;
+    r->chk_px = (int)np;
+    r->chk_box[0] = r->chk_box[1] = 1 << 20;
+    r->chk_box[2] = r->chk_box[3] = -1;
+    for (int y = 0; y < g->h; y++)
+        for (int x = 0; x < g->w; x++) {
+            const uint16_t p = a[(size_t)y * g->w + x], q = g->px[(size_t)y * g->stride + x];
+            if (p == q)
+                continue;
+            int d = abs((p >> 11) - (q >> 11));
+            const int dg = abs(((p >> 5) & 63) - ((q >> 5) & 63)) / 2, db = abs((p & 31) - (q & 31));
+            if (dg > d) d = dg;
+            if (db > d) d = db;
+            if (!r->chk_diff) {
+                r->chk_gpu[0] = p;
+                r->chk_arm[0] = q;
+            }
+            r->chk_diff++;
+            if (x < r->chk_box[0]) r->chk_box[0] = x;
+            if (y < r->chk_box[1]) r->chk_box[1] = y;
+            if (x > r->chk_box[2]) r->chk_box[2] = x;
+            if (y > r->chk_box[3]) r->chk_box[3] = y;
+            if (d > 2)
+                r->chk_big++;
+            if (d > r->chk_max)
+                r->chk_max = d;
+        }
+    for (int gy = 0; gy < 8; gy++)
+        for (int gx = 0; gx < 16; gx++) {
+            const int x = gx * (g->w / 16) + g->w / 32, y = gy * (g->h / 8) + g->h / 16;
+            r->chk_grid[0][gy][gx] = a[(size_t)y * g->w + x];
+            r->chk_grid[1][gy][gx] = g->px[(size_t)y * g->stride + x];
+        }
+    if (r->chk_diff) {                  /* the box's centre and three of its points, both renders */
+        const int px[4][2] = { { (r->chk_box[0] + r->chk_box[2]) / 2, (r->chk_box[1] + r->chk_box[3]) / 2 },
+                               { r->chk_box[0], r->chk_box[1] }, { r->chk_box[2], r->chk_box[3] },
+                               { (r->chk_box[0] + r->chk_box[2]) / 2, r->chk_box[1] } };
+        for (int k = 0; k < 4; k++) {
+            r->chk_gpu[k + 1] = a[(size_t)px[k][1] * g->w + px[k][0]];
+            r->chk_arm[k + 1] = g->px[(size_t)px[k][1] * g->stride + px[k][0]];
+        }
+    }
+    free(a);
+    t->frame(n, 0);                     /* the GPU's frame again, as the ramp expects */
+    gpu3d_flush(g, 0);
+}
+
 static void ramp(int ti, int pf)
 {
     const test_t *t = &tests[ti];
@@ -1566,6 +1633,8 @@ static void ramp(int ti, int pf)
         t->frame(n, 0);                 /* warm: textures, corners, caches */
         if (R.backend)
             gpu3d_flush(g, 0);
+        if (colour_only && R.backend && !r->chk && !t->frame2d)
+            pixel_check(t, n, r);
         if (t->frame2d)
             t->frame2d(n, 0);
         gpu3d_set_queue(prof[pf].queue);
@@ -2237,6 +2306,30 @@ static void report(void)
                 f2(v[1], r->ns_ms), f2(v[2], r->gpu0_ms), v[3], v[4], v[5], v[6], v[7], v[8]);
         }
     }
+    put("pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that "
+        "differ, big: by more than 2 steps of a channel, max: the largest step)\n");
+    put("columns K,test,profile,pixels,diff,big,max\n");
+    for (int ti = 0; ti < NTESTS; ti++)
+        for (int pf = 0; pf < NPROF; pf++)
+            if (res[ti][pf].chk)
+            {
+                const result_t *rk = &res[ti][pf];
+                for (int w = 0; w < 2; w++)
+                    for (int gy = 0; gy < 8; gy++) {
+                        put("KG,%s,%s,%s,%d", tests[ti].id, prof[pf].name, w ? "arm" : "gpu", gy);
+                        for (int gx = 0; gx < 16; gx++)
+                            put(" %04x", rk->chk_grid[w][gy][gx]);
+                        put("\n");
+                    }
+                put("K,%s,%s,%d,%d,%d,%d\n", tests[ti].id, prof[pf].name, rk->chk_px, rk->chk_diff, rk->chk_big,
+                    rk->chk_max);
+                if (rk->chk_diff)
+                    put("KD,%s,%s,box %d %d %d %d,gpu/arm first %04x/%04x centre %04x/%04x top-left %04x/%04x "
+                        "bottom-right %04x/%04x top-middle %04x/%04x\n", tests[ti].id, prof[pf].name, rk->chk_box[0],
+                        rk->chk_box[1], rk->chk_box[2], rk->chk_box[3], rk->chk_gpu[0], rk->chk_arm[0], rk->chk_gpu[1],
+                        rk->chk_arm[1], rk->chk_gpu[2], rk->chk_arm[2], rk->chk_gpu[3], rk->chk_arm[3], rk->chk_gpu[4],
+                        rk->chk_arm[4]);
+            }
     report_hero();
     report_cel();
     report_stress();

@@ -27,7 +27,7 @@
  * (shadow3d(0); shadow3d(1) is the screen-door of 7.6) 7.7. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.16"
+#define BM3D_VERSION "7.17"
 #define BM3D_BLOCK   "Mali"
 
 typedef struct {
@@ -92,6 +92,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.14", "Mali", "2026-10-25", "RGB30: cached 2 MB resolve surface (dc civac), 8-pixel resolve, and 8192-triangle merge-sorted scene batching in mali_backend" },
         { "7.15", "Mali", "2026-10-25", "RGB30: mali3d on by default, 4 MB 1024-draw / 8192-triangle single-pass GPU arena and L1-cached descriptor packing" },
         { "7.16", "Mali", "2026-10-27", "gpu2d_only (hidden, off): a game with no 3D has its 2D drawn by the V3D; the job opens with the first quad; dark_begin starts it" },
+        { "7.17", "Mali", "2026-10-28", "Opaque textures on the Mali (BM_FS_TEX, mali_tex=1); 3D Bench pixel check (K lines)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

@@ -1253,9 +1253,12 @@ static inline void corner(r3d_corner_t *q, float x, float y, float z, float a, f
 
 /* a backend that draws flat colours only (colour_only, the Mali): anything but a flat colour with depth written
  * makes r3d hand over to the ARM; 0 if it did (the caller draws nothing more of this) */
-static int colour_ok(r3d_t *r, int kind, int depth, const char *why)
+static int colour_ok(r3d_t *r, int kind, int depth, const g16_sheet_t *tex, const char *why)
 {
     if (r->backend->colour_only && ((kind & 3) != R3D_KIND_COLOUR || depth != R3D_DEPTH_WRITE)) {
+        if ((kind & 3) == R3D_KIND_TEXTURE && !(kind & R3D_TEX_SCREEN) && depth == R3D_DEPTH_WRITE && r->backend->tex_ok &&
+            r->backend->tex_ok(r->backend->ctx, r->g, tex))
+            return 1;
         to_arm(r, why);
         return 0;
     }
@@ -1265,7 +1268,7 @@ static int colour_ok(r3d_t *r, int kind, int depth, const char *why)
 /* a triangle, or the two of a quad left by the near plane, to the backend */
 static void emit(r3d_t *r, const r3d_corner_t *q, int np, int kind, const g16_sheet_t *tex, int nodepth)
 {
-    if (!colour_ok(r, kind, nodepth, "textures, screen-door faces or effects (the Mali draws flat colours)"))
+    if (!colour_ok(r, kind, nodepth, tex, "textures with holes, light in colour, screen-door faces or effects (the Mali draws flat colours and opaque textures)"))
         return;
     r->backend->tri(r->backend->ctx, r->g, q, kind, tex, nodepth);
     if (np == 4) {
@@ -2909,7 +2912,7 @@ static void fog_unit(const r3d_t *r, uint32_t rgb, float depth, float out[3])
  * counted in tris_drawn: the effects are not triangles on the ARM) */
 static void emit_fan(r3d_t *r, const r3d_corner_t *q, int n, int kind, const g16_sheet_t *tex)
 {
-    if (!colour_ok(r, kind, R3D_DEPTH_TEST, "textures, screen-door faces or effects (the Mali draws flat colours)"))
+    if (!colour_ok(r, kind, R3D_DEPTH_TEST, NULL, "textures, screen-door faces or effects (the Mali draws flat colours)"))
         return;
     for (int i = 1; i + 1 < n; i++) {
         const r3d_corner_t t[3] = { q[0], q[i], q[i + 1] };

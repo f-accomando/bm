@@ -98,6 +98,12 @@ typedef struct {
     const float (*xyz)[3];
     uint32_t n, rgb;
     const float *mvp;   /* NULL: xyz are pixels (phase 2); else a 4x4 matrix by rows, xyz are model-space and the GPU transforms them (phase 3) */
+    /* G1, textures: uvk non-NULL makes a textured draw (the fast path's arena only; mvp NULL; rgb unused): xyz are then x and y
+     * in pixels and z = 1/depth (> 0), uvk = u and v (0..1 over the texture, the nearest texel, clamped) and the light k (the
+     * texel times k) of each vertex; tex_pa is the GPU address of the texture block (mali_backend's pool: Texture at +0x00,
+     * Sampler at +0x80). The GPU interpolates u, v and k with perspective. */
+    const float (*uvk)[3];
+    uint64_t tex_pa;
 } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);
@@ -141,6 +147,8 @@ int mali_backend_inflight(void);                /* 1 while a submitted frame has
 void mali_backend_drop(void);                   /* forgets what waits */
 void mali_backend_set_vshader(int on);          /* 0 off (be_tri), 1 unlit meshes, 2 lit meshes too (default 2) */
 int mali_backend_vshader(void);
+void mali_backend_set_bilinear(int on);         /* 1: the scene asks for filtered textures, which the Mali does not do: textures go to the ARM */
+void mali_backend_set_textures(int on);         /* 0: opaque textures go to the ARM, not the Mali (config key mali_tex; default 1) */
 void mali_backend_set_queue(int on);            /* 0 synchronous flush, 1..2 async submit/sync (default 1) */
 int mali_backend_queue(void);
 void mali_backend_stats(gpu3d_stats_t *s, int reset);

@@ -381,6 +381,15 @@ settings = ""
 read_in = "src/rgb30/bm_port.c:35"
 
 [[key]]
+name = "mali_tex"
+scope = "rgb30"
+values = "0 = opaque textures stay on the ARM; anything else = the Mali draws them (with mali3d=1)"
+default = "1"
+meaning = "G1: the Mali draws textured faces of opaque RGB565 sheets (BM_VS_TEX and BM_FS_TEX); 0 sends them to the ARM, as before. Read at every gpu3d init."
+settings = ""
+read_in = "src/rgb30/bm_port.c:36"
+
+[[key]]
 name = "mali_probe"
 scope = "rgb30"
 values = "1 = run the Mali triangle probe at boot; anything else = off"

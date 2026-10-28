@@ -42,7 +42,7 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   - Host test: `make TARGET=rgb30 test-mali` (the patches and the log lines; the simulated GPU has no tiler).
 - State (verified on Mali-G52 hardware 25 Oct 2026, `bm3d 7.8`..`7.13`):
   - Phase 2 (W12, W13a, W13b): `mali_frame` draws N draws of one colour into an XRGB surface; `mali_backend` (flat colours and untextured lit/cel/fog meshes, sorted far to near,
-    resolved into the page by the key colour `0xFF00FF`, "not covered", 4 pixels per 64-bit pair); `r3d` hands textured faces to the ARM (`colour_only`).
+    resolved into the page by the key colour `0xFF00FF`, "not covered", 4 pixels per 64-bit pair); `r3d` draws opaque textured faces on the GPU (G1, 28 Oct) and hands the rest to the ARM.
   - Phase 4 (W16): two buffer sets in the GPU memory (`MALI_SET_SIZE` 0x190000: a 368 x 368 surface with a 64-aligned pitch is 0x84400 bytes),
     `mali_frame_submit` / `mali_frame_busy` / `mali_frame_wait`; `mali_backend_submit` kicks Slot 0 Fragment Job asynchronously so ARM logic overlaps GPU rasterization (`gpu3d_queue=1/2`).
   - Phase 3 (W15, `BM_VS3`, a 4x4 matrix pushed per draw, from the Bifrost compiler; `BM_VS` built with the full viewport scale): `mali_backend.mesh` (`be_mesh`) culls back faces in object space, computes per-face sun/sky/rim/specular/lamp/cel/fog lighting, and emits `BM_VS3` draws (`gpu3d_vshader=1/2`).
@@ -99,12 +99,11 @@ What was found: `frame_build_ex` took 15-25 us a draw on the ARM (10 ms of a 15 
 Queue to align bm3D on Mali with the Pi driver (26 Oct 2026, order of work; detail in [multicore](multicore.md) track G):
 - Q1. [DONE 26 Oct, see the result above] Read the new `mesh_us` / `flush_us` / `resolve_us` / `draws` columns of the C 3D Bench (kernel 1771 and later) and name the cost of the lit scenes.
 - Q2. Lighting per face off the ARM: in the vertex shader (as the Pi's V3D does) or, as a shortcut, on worker cores (multicore V1).
-- Q3. Textures on the GPU (item 7 below).
 - Q4. Hardware Z-buffer (item 8 below), then drop `sort_tris` on the GPU path.
 - Q5. The other `gpu3d_*` options of the Pi driver: check one by one which Mali ignores (list in `docs/BENCH3D.md`).
 Needs the Mesa Bifrost compiler (`tools/mali/README.md`) for Q2 (shader), Q3 and Q4.
 
-7. [FUTURE] Textures on GPU: compile textured fragment shader (`BM_FS_TEX`) + UV varying vertex shader with Mesa Bifrost compiler (`tools/mali/mkshader.c`), add Bifrost `Texture` and `Sampler` descriptors in `mali_desc.c`, and remove `colour_only` fallback.
+7. [DONE 28 Oct] Opaque textures on the GPU: `BM_FS_TEX` and `BM_VS_TEX` (`tools/mali/mkshader.c`), `Texture`, `Surface` and `Sampler` descriptors (`mali_desc.c`), a 2 MB texture pool. RGB30 3D Bench, same kernel: `mali_tex=0` games 482, GPU 495; `mali_tex=1` games 530, GPU 570. `quad_tex` 6.4 -> 126.3, `spheres_tex` 52 -> 105.3. The pixel check (K lines) shows rounding differences against the ARM: `quad_tex` 640 of 57600 pixels differ by more than 2 steps. Still open: alpha, screen-space and bilinear textures stay on the ARM; the first look by eye on the console is not done.
 8. [FUTURE] Hardware Z-Buffer / Early-Z: attach a 16/24-bit Depth/Stencil (`ZS`) buffer via MFBD `md_zs_crc_ext` and enable hardware depth test (`Z_FUNC = LESS`) to eliminate CPU far-to-near `sort_tris` and reduce pixel overdraw.
 Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-parity.md).
 
@@ -113,7 +112,9 @@ Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-p
 - Check the pixels of a GPU scene by eye before you trust a faster 3D Bench number (26 Oct: a faster score came from black frames).
 - `src/rgb30/memops.c` holds the kernel's `memcpy`, `memmove`, `memset` and `memcmp`. Device memory goes through volatile accessors, not through them.
 - `mali3d` is on by default (`bm3d 7.15`). With `mali3d=0`, `gpu3d=0`, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).
-- The Mali draws flat colours and untextured lit/cel/fog meshes. `r3d` hands textures and effects to the ARM (`colour_only`).
+- The Mali draws flat colours, untextured lit/cel/fog meshes and opaque textures. `r3d` hands alpha textures, screen textures, bilinear textures and effects to the ARM. `mali_tex=0` sends all textures to the ARM.
+- The texture pool (2 MB) sits at `mem - 8 MB`; `fb.c` stops the framebuffer 8 MB lower. Move both together.
+- Write textured vertices with volatile stores (a 128-bit float copy breaks strict aliasing). `BM_FS_TEX` keeps blue at 1/255 or more: `0xFF00FF` is the key colour.
 - A frame uses one of two sets of the GPU memory (`MALI_SET_BASE`); the layout macros (`SO_*`, `D_*`) are in `mali_variants.h` and the variant patches use them. Change a layout macro and `make TARGET=rgb30 test-mali` must still pass.
 - The variant probe runs only after the base jobs fail. It resets the GPU between variants.
 - Report hardware behaviour only from a report file. Without one, write `not verified on hardware`.

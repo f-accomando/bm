@@ -33,6 +33,8 @@ static const r3d_backend_t *mali_be;
 int gpu3d_init(void)
 {
     const char *k = config_get("mali3d");
+    const char *kt = config_get("mali_tex");
+    mali_backend_set_textures(!(kt && !strcmp(kt, "0")));
     if (k && !strcmp(k, "0")) {
         if (mali_be)
             mali_backend_drop();
@@ -54,7 +56,7 @@ const char *gpu3d_status(void)
 {
     if (!mali_be && rgb30_mali_hw())
         (void)gpu3d_init();
-    return mali_be ? "the Mali draws flat colours (mali3d=1)" : "no GPU driver on the RGB30 yet";
+    return mali_be ? "the Mali draws flat colours and opaque textures (mali3d=1, mali_tex=1)" : "no GPU driver on the RGB30 yet";
 }
 int gpu3d_ready(void)
 {
@@ -95,7 +97,7 @@ int gpu3d_inflight(void)                                { return mali_be ? mali_
 void gpu3d_set_queue(int on)                            { mali_backend_set_queue(on); }
 int gpu3d_queue(void)                                   { return mali_be ? mali_backend_queue() : 0; }
 void gpu3d_set_wc(int on)                               { (void)on; }
-void gpu3d_set_bilinear(int on)                         { (void)on; }
+void gpu3d_set_bilinear(int on)                         { mali_backend_set_bilinear(on); }   /* the Mali samples the nearest texel: filtered faces go to the ARM */
 void gpu3d_set_tex16(int on)                            { (void)on; }
 int gpu3d_tex16(void)                                   { return 0; }
 void gpu3d_set_etc1(int on)                             { (void)on; }
