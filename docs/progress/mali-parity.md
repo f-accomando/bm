@@ -14,8 +14,24 @@ Mapping of Mali-G52 developments against reference Pi V3D driver:
 | **Fragment / Raster** | QPU Fragment Shaders (`fs_colour`, `fs_tex_lit`, `fs_cel`) | Fragment Job on slot 0 (`BM_FS` with pushed color words 4-7) | **Flat Colour Parity** (HW verified; textured shader done: `BM_FS_TEX`) |
 | **State Management** | NV Shader State Record / Blend configuration | `Renderer State` (`md_renderer_state_t`) + `Blend` per target | **Full Parity** (Descriptors from Mesa `v7.xml`) |
 | **Depth & Sorting** | Hardware Early-Z / Late-Z buffer attachment and depth test | Depth test in the tile buffer (`mali_z=1`, less or equal, cleared to 1); sort only when a frame does not fit one pass | **Parity**: hardware depth test, no ZS writeback |
-| **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | Opaque textures on GPU (`mali_tex=1`); sun, ambient, rim, lamps, gloss and fog in the vertex shader for rigid and skinned meshes (`mali_lit=1`); cel and alpha, screen and bilinear textures stay on ARM | **Partial Parity**: textures and lit meshes on GPU |
+| **Textures & Lighting** | TMU texturing (nearest, bilinear), lit faces, ETC1, 16-bit sheets | Opaque textures on GPU (`mali_tex=1`); sun, ambient, rim, lamps, gloss and fog in the vertex shader for rigid and skinned meshes (`mali_lit=1`); cel and alpha and screen textures stay on ARM | **Partial Parity**: textures and lit meshes on GPU |
 | **Cel Shading** | `fs_cel` on QPU with 64-entry quant table and inverted hull outline | Per-face cel quantization (`cel_step`) in `be_mesh` | **Partial Parity**: Flat-shaded cel quant on GPU; smooth per-pixel cel on ARM |
 | **Job Queue & Async** | `queue=1`/`queue=2` (`JOB_BLOCK`/`JOB2_BLOCK`), ARM/GPU overlap | 2 memory sets (`MALI_SET_SIZE`) + async Slot 0 Fragment Job (`mali_backend_submit`) | **Full Parity** (HW verified in 3D Bench `GPU+VS+Q` / `GPU+VS+Q2`) |
 | **Draw Merging** | `gpu3d_merge` (bm3d 7.6, world-space multi-mesh batching) | 4 MB single-pass arena (`1,024` draws) + screen-space merge (`>1,024` draws) | **Full Parity** (HW verified; merges up to `1,024` draws in 1 GPU pass) |
 | **Config & Safety** | `gpu3d=1` default, automatic fallback to ARM | `mali3d=1` default (`bm3d 7.15`), clean ARM fallback on any fault | **Full Parity** (`gpu3d_init` verifies Mali and falls back to ARM) |
+
+## The `gpu3d_*` options on the Mali (Q5, 28 Oct 2026)
+
+Checked in `src/rgb30/bm_port.c`. The Pi flags are in [v3d-flags](v3d-flags.md).
+
+| Option | On the Mali | Why |
+|---|---|---|
+| `gpu3d`, `gpu3d_vs`, `gpu3d_queue` | honoured (`mali3d=0` also turns it off) | `gpu3d_vs` reads 0 to 2; the Mali always draws meshes with level 2 |
+| `gpu3d_merge` | honoured | the draw merge is in `r3d`, not in the driver |
+| `gpu3d_sort` | replaced | the depth test (`mali_z`) does the job; the key is ignored |
+| `gpu3d_wc`, `gpu3d_tex16`, `gpu3d_fs2`, `gpu3d_attr` | not needed | they answer V3D limits (write combining, texture size, QPU threads, vertex bytes); the Mali arena is already write-merged and its textures are RGB565 |
+| `gpu3d_queue2`, `gpu3d_later`, `gpu3d_qpu` | not developed | `gpu3d_queue2()` returns 0; the Mali has no QPU programs |
+| `gpu3d_filter` (bilinear) | honoured (bm3d 7.22) | the Sampler of each sheet filters; the 3D Bench `bilinear` test runs at 126.6 against the ARM's nearest quads |
+| `gpu3d_aa` (MSAA) | not developed | the tile buffer can do 4 samples; the Mali ignores the key |
+| `gpu3d_etc1` | not developed | the Mali reads ETC1 textures; the driver has no encoder call |
+| `gpu3d_2d`, `gpu3d_light`, `gpu3d_enlarge` | not developed | `rect2d`, `blit2d`, `text2d` return 0, `light2d` and `enlarge` return -1: the ARM draws the 2D |

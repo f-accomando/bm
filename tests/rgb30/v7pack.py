@@ -115,6 +115,10 @@ def vectors(x):
             "Type": 1, "Wrap Mode R": 9, "Wrap Mode T": 9, "Wrap Mode S": 9, "Round to nearest even": 1,
             "Seamless Cube Map": 1, "Normalized Coordinates": 1, "Clamp integer array indices": 1,
             "Minify nearest": 1, "Magnify nearest": 1, "Mipmap Mode": 1, "Maximum anisotropy": 1}, 32),
+        "sampler_linear": pack(x, "Sampler", {
+            "Type": 1, "Wrap Mode R": 9, "Wrap Mode T": 9, "Wrap Mode S": 9, "Round to nearest even": 1,
+            "Seamless Cube Map": 1, "Normalized Coordinates": 1, "Clamp integer array indices": 1,
+            "Minify nearest": 0, "Magnify nearest": 0, "Mipmap Mode": 1, "Maximum anisotropy": 1}, 32),
         "renderer_state_fs_tex": pack(x, "Renderer State", dict(ms, **{
             "Shader": 0x0000_0009_8765_4300, "Sampler count": 1, "Texture count": 1, "Attribute count": 0,
             "Varying count": 1, "Uniform buffer count": 0, "Shader register allocation": 2,

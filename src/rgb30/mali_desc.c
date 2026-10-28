@@ -239,6 +239,11 @@ void md_surface(uint8_t *p, uint64_t pointer, uint32_t row_stride, uint32_t surf
 
 void md_sampler_nearest(uint8_t *p)
 {
+    md_sampler(p, 0);
+}
+
+void md_sampler(uint8_t *p, int linear)
+{
     W(p, 0, 0, 4, 1);                           /* type */
     W(p, 0, 8, 4, 9);                           /* wrap R, T, S: clamp to edge */
     W(p, 0, 12, 4, 9);
@@ -247,8 +252,8 @@ void md_sampler_nearest(uint8_t *p)
     W(p, 0, 23, 1, 1);                          /* seamless cube map */
     W(p, 0, 25, 1, 1);                          /* normalised coordinates */
     W(p, 0, 26, 1, 1);                          /* clamp integer array indices */
-    W(p, 0, 27, 1, 1);                          /* minify nearest */
-    W(p, 0, 28, 1, 1);                          /* magnify nearest */
+    W(p, 0, 27, 1, linear ? 0 : 1);             /* minify nearest */
+    W(p, 0, 28, 1, linear ? 0 : 1);             /* magnify nearest */
     W(p, 0, 30, 2, 1);                          /* mipmap mode: none */
     /* LODs 0, compare function never, LOD bias 0, anisotropy 1 ("minus 1"), isotropic, border colour 0 */
 }

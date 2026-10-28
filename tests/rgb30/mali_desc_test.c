@@ -78,6 +78,9 @@ int main(void)
     memset(b, 0, sizeof b);
     md_sampler_nearest(b);
     same("sampler", b, golden_sampler, sizeof golden_sampler);
+    memset(b, 0, sizeof b);
+    md_sampler(b, 1);
+    same("sampler (bilinear)", b, golden_sampler_linear, sizeof golden_sampler_linear);
 
     md_renderer_state_t vs = { .shader = 0x987654400ull, .attribute_count = 1, .varying_count = 1, .work_regs = 32,
                                .preload_regs = 3ull << 61 };

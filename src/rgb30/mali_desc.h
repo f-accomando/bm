@@ -121,6 +121,7 @@ void md_texture(uint8_t *p, uint32_t w, uint32_t h, uint32_t format, uint64_t su
 void md_surface(uint8_t *p, uint64_t pointer, uint32_t row_stride, uint32_t surface_stride);
 /* Sampler (32 bytes, 32-aligned): normalised coordinates, the nearest texel, clamped to the edge, one level */
 void md_sampler_nearest(uint8_t *p);
+void md_sampler(uint8_t *p, int linear);       /* clamp to edge, normalised coordinates, no mipmaps: nearest texel or bilinear */
 
 /* the Tiler Job's pieces at j (256 bytes, zeroed first): the header is the caller's (mali.c job_header),
  * p the Primitive, tiler the Tiler Context's address, d the Draw */

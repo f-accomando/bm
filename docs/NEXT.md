@@ -22,7 +22,7 @@ Done:
 To do, in this order:
 1. G1 on the console: the pixel check between GPU and ARM exists, the comparison on the console is not finished. The user looks at the textured scenes on the RGB30 (`mali_tex`).
 2. The scenes of G2 (`spheres`, `split`) by eye on the console, with the user. The old local branch `claude/mali-textures-zbuffer` holds no work: delete it.
-3. Q2 next steps: cel levels in the vertex shader; read the `heroes` report columns (`mesh_us`, `flush_us`: 6.8 against 15.8 on the ARM) and name the next cost. The Mesa Bifrost build is in `~/mb` (WSL); `tools/mali/README.md` has the steps and `~/mesa-bifrost` the tree.
+3. Q5 is done (the option table is in `docs/progress/mali-parity.md`). Mali options to build, one at a time: 4x MSAA in the tile buffer, the 2D on the GPU (bilinear textures are done, bm3d 7.22). Q2 next steps: cel levels in the vertex shader; read the `heroes` report columns (`mesh_us`, `flush_us`: 6.8 against 15.8 on the ARM) and name the next cost. The Mesa Bifrost build is in `~/mb` (WSL); `tools/mali/README.md` has the steps and `~/mesa-bifrost` the tree.
 4. Multitasking: the cooperative fibres in the menu stay as they are. The link with the cores goes through V4.
    V1 leftovers: look at the scenes with the bands on; move the Mali queue fill to a worker core.
 5. V2 (`job_run` API), V4 (Market, SD and cover decode on a worker), V5 (`cores=1..4` key), M7 (`multicore` capability), M5 (check `smp: offload` in a boot log).

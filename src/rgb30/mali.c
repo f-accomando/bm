@@ -2290,7 +2290,22 @@ static uint32_t be_tpool_used;
 static int be_tex_on = 1;                           /* mali_tex=0 (bm_port.c): textures stay on the ARM */
 void mali_backend_set_textures(int on)  { be_tex_on = on != 0; }
 static int be_bilinear;
-void mali_backend_set_bilinear(int on)  { be_bilinear = on != 0; }
+void mali_backend_set_bilinear(int on)
+{
+    on = on != 0;
+    if (on == be_bilinear)
+        return;
+    be_bilinear = on;
+    if (be_pend)
+        (void)mali_backend_sync();              /* the GPU reads the samplers: wait for it */
+    for (int i = 0; i < be_ntex; i++)           /* the sheets uploaded filter the new way */
+        if (be_texs[i].ok && H) {
+            uint8_t blk[32] __attribute__((aligned(16)));
+            zero16(blk, sizeof blk);
+            md_sampler(blk, on);
+            copy_nc16(H->mem + (be_texs[i].pa - H->mem_pa) + 0x80, blk, sizeof blk);
+        }                                       /* (the barrier before the next job makes the writes visible) */
+}
 
 static int be_arena(void)
 {
@@ -2304,7 +2319,7 @@ static int be_arena(void)
 /* the slot of a sheet (uploaded now if new or changed), or -1: the ARM draws it */
 static int be_tex_find(const g16_t *g, const g16_sheet_t *sh)
 {
-    if (!sh || !sh->px || !be_tex_on || be_bilinear || !be_arena())
+    if (!sh || !sh->px || !be_tex_on || !be_arena())
         return -1;
     for (int i = be_ntex - 1; i >= 0; i--)
         if (be_texs[i].sheet == sh) {
@@ -2344,7 +2359,7 @@ static int be_tex_find(const g16_t *g, const g16_sheet_t *sh)
         zero16(hdr, sizeof hdr);
         md_texture(hdr, w, h, MD_FMT_RGB565, bpa + 0x40);
         md_surface(hdr + 0x40, bpa + 0xc0, w * 2, w * h * 2);
-        md_sampler_nearest(hdr + 0x80);
+        md_sampler(hdr + 0x80, be_bilinear);
         copy_nc16(blk, hdr, sizeof hdr);
         copy_nc16(blk + 0xc0, sh->px, (size_t)w * h * 2);
         __asm__ volatile("dsb sy" ::: "memory");
