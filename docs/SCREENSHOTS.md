@@ -14,7 +14,7 @@ also feed the PDF manuals.
 Hold Select alone. Another button, or letting go, starts the count again. One hold takes one
 picture: let go of Select before the next one.
 
-A box says `Screenshot saved` and the file name for two seconds. The picture is the game's
+A small banner at the top centre says `Screenshot saved` for one second (the file name is in the serial log). The picture is the game's
 own screen as it was drawn: the dev kit's overlays, the battery icon, the pointer and that box
 are **not** in it. Games and apps run by bm's menu take it; the menu's own screens do not yet
 ([open decisions](open-decisions.md)).

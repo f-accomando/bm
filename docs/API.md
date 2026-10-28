@@ -127,7 +127,9 @@ The reference is split by area. **Read only the file you need** (and grep inside
 - The **dev kit**: the performance overlay over any game, **off by default**. It is turned
   on with `perf=top` or `perf=bottom` in `bm/config.txt`, with F11 on the keyboard (a system key, also in the tools), with `p` from the
   serial line or with `devkit(mode)` from the game: once at the top right, again at the
-  bottom right, again off. F11, `p` and `devkit()` last one run: every game starts (and
+  bottom right, again off. On a pad (the RGB30 has no F11), hold Start and then press L1 and R1
+  together: a smaller block (two rows: `60fps 8.2ms`, `c49% g31%` for the CPU and the GPU) at the top right; the same
+  chord hides it. F11, `p`, the chord and `devkit()` last one run: every game starts (and
   resumes) as Settings says. One small block:
 
       60fps 8.2ms           frames a second; ms of work in a frame (the parts below)

@@ -5225,7 +5225,7 @@ function _update()
       end
     end
   elseif state == "pause" then
-    -- the pause: resume, the controls, or give the hunt up
+    -- the pause: resume, the controls, or give the hunt up (closes the cartridge)
     if menu.page then
       if btnp("ok") or btnp("back") or btnp(8) then menu.page = nil end
     else
@@ -5236,8 +5236,7 @@ function _update()
       elseif btnp("ok") and menu.i == 2 then
         menu.page = "controls"
       elseif btnp("ok") and menu.i == 3 then
-        state, t = "title", 0
-        new_hunt()
+        quit()                                        -- give up the hunt: the cartridge closes
       end
     end
     return

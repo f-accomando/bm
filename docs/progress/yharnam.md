@@ -97,6 +97,7 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 ## Autoplay (benchmarks)
 
+- The pause menu entry "Give up the hunt" calls `quit()`: it closes the cartridge and returns to the menu (28 Oct 2026). Before, it started a new hunt at the title.
 - Autoplay plays Yharnam with no button pressed, for 7200 frames (2 minutes at 60 fps), then calls `quit()`. It is off by default.
 - Switch on: `yharnam_autoplay=1` in `bm/config.txt` (read with `cart_config`, no kernel change). From the bridge: `tools/pi.py --dev pizero config yharnam_autoplay=1` (or `--dev rgb30`). Switch off: `config yharnam_autoplay=0`. On the host: `YHARNAM_AUTOPLAY=1 build/host/bmplay build/carts/yharnam.bm`; `make test-yharnam-autoplay`.
 - Code: the module `autoplay` of `main.lua`. It makes a mask of buttons each frame and replaces `btn`, `btnp` and `pad`, so the game logic and the drawing run as for a person. It is the bot of `tools/bmplay/yharnam_bot.lua` with a route. Its dice have a fixed seed, so each run is the same.

@@ -2207,7 +2207,7 @@ static void shot_grab(void)
         ksnprintf(shot_line[1], sizeof shot_line[1], "%s", png ? fat_error() : "not enough memory");
     }
     kprintf("bm: %s: %s\n", shot_line[0], shot_line[1]);
-    shot_note = 120;
+    shot_note = 60;
 }
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
@@ -2414,6 +2414,7 @@ static int vol_start;                   /* the volume when the cartridge started
 #define PERF_MODES 3                    /* off, top, bottom */
 static int perf_on;                     /* 0 off, 1 top, 2 bottom: now */
 static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
+static int perf_small;                  /* 1: the small block (Start held, then L1 + R1 on a pad): top right, two rows */
 
 /* KB of the cartridge's data in memory, besides its Lua: the sprite sheet
  * (RGB565 + alpha + the cells), the map, the models and skeletons, the sound
@@ -2435,7 +2436,7 @@ static int perf_level(int level) { return level <= 0 ? 0 : level == 2 ? 2 : 1; }
 /* Settings' choice: every game and tool starts (or resumes) with it. F11,
  * 'p' and devkit() change the overlay of the run only: one game that turned
  * it on (Overbit's Select) left it on in the next ones (2026-10-05). */
-void bm_set_perf(int level) { perf_on = perf_user = perf_level(level); }
+void bm_set_perf(int level) { perf_on = perf_user = perf_level(level); perf_small = 0; }
 int bm_perf(void) { return perf_user; }
 
 /* devkit([mode]) -> the dev kit's overlay: 0 off, 1 top right, 2 bottom
@@ -2444,8 +2445,10 @@ int bm_perf(void) { return perf_user; }
 int l_devkit(lua_State *L)
 {
     const int old = perf_on;
-    if (!lua_isnoneornil(L, 1))
+    if (!lua_isnoneornil(L, 1)) {
         perf_on = perf_level(ival(L, 1));
+        perf_small = 0;
+    }
     lua_pushinteger(L, old);
     return 1;
 }
@@ -2701,7 +2704,8 @@ void notice_draw(void)
     sys_box(lines, 2, 0, 0, progress);
 }
 
-/* the box that says a screenshot was saved, for 2 seconds */
+/* the small banner that says a screenshot was saved: the top centre, one line,
+ * 1 second (60 frames). It is small so that it does not hide the game. */
 void shot_note_draw(void)
 {
     if (rec_active()) {                 /* not in the recording: it is drawn after the frame was taken */
@@ -2712,8 +2716,19 @@ void shot_note_draw(void)
     if (shot_note <= 0)
         return;
     shot_note--;
-    const char *lines[2] = { shot_line[0], shot_line[1] };
-    sys_box(lines, 2, 1, 0, -1);
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    g->font = &font_console_6x12;
+    const int z = g->w >= 1280 ? g->w / 640 : 1;
+    const int len = (int)strlen(shot_line[0]);
+    const int tw = len * 6 * z, bw = tw + 8 * z, bh = 12 * z + 4 * z;
+    const int bx = (g->w - bw) / 2, by = 2 * z;
+    g16_rectfill(g, bx, by, bw, bh, g16_rgb(12, 14, 22));
+    g16_rect(g, bx, by, bw, bh, g16_rgb(255, 176, 64));
+    g16_text_scaled(g, bx + 4 * z, by + 2 * z, shot_line[0], g16_rgb(232, 232, 236), z);
+    *g = keep;
 }
 
 /* The console's battery (2026-10-10, a handheld's habit): from the kernel
@@ -3286,6 +3301,54 @@ static void perf_bar(g16_t *g, int x, int y, int z, const char *name, const uint
     g16_text_scaled(g, x + 14 * 8 * z, y, t, c, z);  /* columns 14 to 17 */
 }
 
+/* The small dev kit: two rows on the 6x12 font at the top right, for a screen
+ * that cannot spare the full block (the RGB30). "60fps 8.2ms", then the CPU
+ * and the GPU in % of a 60 Hz frame, in the colours of the full block. */
+static void perf_small_draw(void)
+{
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    g->font = &font_console_6x12;
+    const int z = g->w >= 1280 ? g->w / 640 : 1;
+    const int gpu = rt.r3d_ready && rt.r3d.backend;
+    static const uint8_t order[5] = { SEG_UPDATE, SEG_DRAW, SEG_3D, SEG_AUDIO, SEG_WAIT };
+    uint32_t used = 0, cpu = 0;
+    for (int i = 0; i < SEG_USED; i++)
+        used += pw.seg[i];
+    for (int i = 0; i < 5; i++)
+        cpu += pw.seg[order[i]];
+    uint32_t cpct = (cpu * 100 + FRAME_US / 2) / FRAME_US, gpct = (pw.gpu_us * 100 + FRAME_US / 2) / FRAME_US;
+    if (cpct > 999)
+        cpct = 999;
+    if (gpct > 999)
+        gpct = 999;
+    char l1[24], l2[24];
+    ksnprintf(l1, sizeof l1, "%lufps %lu.%lums", (unsigned long)rt.fps, (unsigned long)(used / 1000),
+              (unsigned long)(used / 100 % 10));
+    if (gpu)
+        ksnprintf(l2, sizeof l2, "c%lu%% g%lu%%", (unsigned long)cpct, (unsigned long)gpct);
+    else
+        ksnprintf(l2, sizeof l2, "c%lu%%", (unsigned long)cpct);
+    const int cols = (int)strlen(l1) > (int)strlen(l2) ? (int)strlen(l1) : (int)strlen(l2);
+    const int bw = (cols * 6 + 4) * z, bh = (2 * 12 + 2) * z, bx = g->w - bw - 2 * z, by = 2 * z;
+    g16_rectfill(g, bx, by, bw, bh, g16_rgb(8, 8, 16));
+    g16_text_scaled(g, bx + 2 * z, by + z, l1, g16_rgb(232, 232, 216), z);
+    const uint16_t cc = perf_colour(cpct, pw.skip);
+    const int cx = g16_text_scaled(g, bx + 2 * z, by + 13 * z, l2, cc, z);
+    if (gpu) {                          /* the GPU part of the row in its own colour */
+        char head[12];
+        ksnprintf(head, sizeof head, "c%lu%% ", (unsigned long)cpct);
+        const int gx = bx + 2 * z + (int)strlen(head) * 6 * z;
+        char gt[12];
+        ksnprintf(gt, sizeof gt, "g%lu%%", (unsigned long)gpct);
+        g16_rectfill(g, gx, by + 13 * z, cx - gx, 12 * z, g16_rgb(8, 8, 16));
+        g16_text_scaled(g, gx, by + 13 * z, gt, perf_colour(gpct, 0), z);
+    }
+    *g = keep;
+}
+
 /* The overlay (perf_on: 1 top right, 2 bottom right), after the frame is
  * drawn; and the profiler of functions kept in step */
 void perf_frame(void)
@@ -3294,6 +3357,10 @@ void perf_frame(void)
     prof_frame();
     if (!perf_on)
         return;
+    if (perf_small) {
+        perf_small_draw();
+        return;
+    }
     g16_t *g = &rt.g;
     const g16_t keep = *g;
     g16_camera(g, 0, 0);
@@ -3449,10 +3516,30 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         /* F11, or 'p' from the serial line: the dev kit's overlay (a system
          * key: also while typing) */
         int f11 = hid_usage_held(0x44);
-        if ((f11 && !rt.f11_held) || rt.perf_key)
-            perf_on = (perf_on + 1) % PERF_MODES;   /* top, bottom, off */
+        if ((f11 && !rt.f11_held) || rt.perf_key) {
+            if (perf_small)
+                perf_on = 0;            /* the small block was on: off, then the full ones again */
+            else
+                perf_on = (perf_on + 1) % PERF_MODES;   /* top, bottom, off */
+            perf_small = 0;
+        }
         rt.f11_held = f11;
         rt.perf_key = 0;
+        /* a pad has no F11: Start held, then L1 + R1 together shows the small
+         * block, and the same again hides it */
+        {
+            const uint32_t pad = hid_buttons();
+            const int chord = (pad & HID_START) && (pad & HID_L1) && (pad & HID_R1);
+            if (chord && !rt.pad_chord_held) {
+                if (perf_on && perf_small) {
+                    perf_on = 0;
+                } else {
+                    perf_on = 1;
+                    perf_small = 1;
+                }
+            }
+            rt.pad_chord_held = chord;
+        }
         /* frameskip(n): the 1/60 s that went by since the last frame, each
          * an _update (up to n; past n the time is let go: the game slows
          * down rather than never drawing) */
@@ -3819,6 +3906,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     loading_tick();
     sess_reset();                       /* the session report: this cartridge's frames only */
     perf_on = perf_user;                /* the overlay as Settings has it */
+    perf_small = 0;
     dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", "t") != LUA_OK ||
@@ -3888,6 +3976,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     audio_pause(0);
     vol_start = audio_volume();
     perf_on = perf_user;                /* the overlay as Settings has it, as at the start */
+    perf_small = 0;
     sess_reset();                       /* the session report: this run's frames, as the time and GPU's */
     sess.resumed = 1;
     {

@@ -44,7 +44,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 [audio](audio.md)), `predict`, `padtype`, `assist` (see [tools](tools.md)).
 
 ### Dev kit (`runtime.c`, `src/bm/profile.c`)
-- Overlay (off by default): F11 off → top → bottom; `devkit(mode)` 0/1/2 (3 = top). One
+- Overlay (off by default): F11 off → top → bottom; on a pad Start held + L1 + R1 shows the small block (`perf_small`, two rows on the 6x12 font: fps and ms, then c%/g%), the same chord hides it; `devkit(mode)` 0/1/2 (3 = top). One
   block: fps + ms, CPU bar (update, draw, 3D calls, audio, GPU wait, free), GPU bar; % of
   16.7 ms, 1 s means (`perf_begin`/`perf_account`). Audio = `audio_busy_us` (audio.c, two
   timer reads per render), GPU wait = `v3d_wait_us` (v3d.c); both taken out of the phase
