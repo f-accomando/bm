@@ -93,3 +93,9 @@ Build it only for a smooth-lit mesh (`spheres_smooth`) and measure it first with
 A batch ended at 8192 triangles and each batch was a frame of its own. A frame has no depth of the one before. In `heroes_tex` and `heroes_skin` (12288 faces a hero row, three rows) the far row came in the second batch and covered the near rows.
 The batch holds 32768 triangles now (`BE_MAX_TRIS`). The sort runs on the whole batch, so the frames come in far-to-near order. A frame of flat triangles ends at 32768 vertex slots (the area at the start of the arena): a larger batch without this limit wrote over the next area and the GPU drew nothing in `quad_flat`, `draws` and `queue`.
 Checked on the RGB30: scores 636 and 750 as before, the pixel check holds, and the far row of `heroes_tex` stays behind. The frame that holds more faces than the slots still needs the sort: a scene with more than 10922 lit faces and a gap in depth between frames is open.
+
+## Open: the rows of the heroes scenes (28 Oct)
+
+On the RGB30 the rows of heroes still look wrong in some of the `heroes` scenes, after the batch of 32768 faces. It is not known which scene or which profile. What was seen: the third row (the far one) covered the heroes at the sides of the second row; with the batch of 32768 faces `heroes_tex` was right.
+What was ruled out: the order of the cached meshes (a sort far to near changed nothing), `BE_VIS_MAX`, `mali_res=0`. The pixel check cannot see it: `heroes` GPU+VS has 8257 big differences against the ARM since the first report, and `K` does not change.
+Next step: a screenshot of each `heroes` scene. The bridge refuses `shot` outside a game ("no game drew a frame"): let the 3D Bench keep its last frame on the screen, or draw it in a game, then compare the rows by eye.
