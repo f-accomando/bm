@@ -1,0 +1,9 @@
+bm report
+kind: render
+kernel: v0.2.5-1886-g4735944e-dirty
+branch: claude/monitor-prompt-first
+board: Pi Zero W
+date: 2026-10-28 17:53:29
+file: 20261028-175329_render_pi-zero-w_v0.2.5-1886-g4735944e-dirty.txt
+
+bm bench (map + 256 sprites): direct 6.70 ms, via RAM 10.48 ms
