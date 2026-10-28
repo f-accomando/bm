@@ -105,3 +105,8 @@ sources = ["carts/editor/main.lua", "src/bm/map3d.c", "docs/api/draw.md", "docs/
 id = "smw-guide"
 order = 20
 sources = ["carts/smw/src/game.lua", "carts/smw/src/physics.lua", "carts/smw/build/build.py", "carts/smw/build/sprites.py", "docs/progress/smw.md"]
+
+[[manual]]
+id = "graphics-techniques"
+order = 21
+sources = ["docs/PERF-BUDGET.md", "docs/progress/graphics.md", "docs/progress/graphics-mali.md", "docs/progress/graphics-vector.md", "docs/progress/multicore.md", "docs/progress/mali-parity.md", "docs/DRIVERS.md"]

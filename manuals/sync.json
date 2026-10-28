@@ -950,6 +950,64 @@
    "sdk/README.md": "92eb56a84487"
   }
  },
+ "graphics-techniques": {
+  "chapters": {
+   "1": {
+    "en": "bc58ec86ef42",
+    "it": "d76b4ced0b65",
+    "title": "How to read the tables"
+   },
+   "2": {
+    "en": "694b5ea91239",
+    "it": "778a7237af72",
+    "title": "3D on the CPU (ARM rasteriser)"
+   },
+   "3": {
+    "en": "bf8bc5d552ee",
+    "it": "62a60d37b574",
+    "title": "3D on the V3D (Pi Zero W)"
+   },
+   "4": {
+    "en": "ee428527a763",
+    "it": "5865a4528450",
+    "title": "3D on the Mali-G52 (RGB30)"
+   },
+   "5": {
+    "en": "18f9322a4898",
+    "it": "24ee187891be",
+    "title": "2D on the CPU"
+   },
+   "6": {
+    "en": "d9cffa4cc3c3",
+    "it": "5011a002211a",
+    "title": "2D on the GPUs"
+   },
+   "7": {
+    "en": "478c69300492",
+    "it": "4acdb55c08e6",
+    "title": "The OpenVG and VGU list (2D vector)"
+   },
+   "8": {
+    "en": "8c28d44cb307",
+    "it": "d36ba2328ca0",
+    "title": "What the other APIs have that bm does not"
+   },
+   "9": {
+    "en": "f9f8838df42c",
+    "it": "0336b449ca8c",
+    "title": "Open points"
+   }
+  },
+  "sources": {
+   "docs/DRIVERS.md": "c9ad72f2ded6",
+   "docs/PERF-BUDGET.md": "e8c38e6619d4",
+   "docs/progress/graphics-mali.md": "29a9e33391f5",
+   "docs/progress/graphics-vector.md": "5fef996d733c",
+   "docs/progress/graphics.md": "fe012f24feec",
+   "docs/progress/mali-parity.md": "85ace43a82a8",
+   "docs/progress/multicore.md": "72affa06fc65"
+  }
+ },
  "install-sd": {
   "chapters": {
    "1": {
