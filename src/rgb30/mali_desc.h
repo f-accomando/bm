@@ -115,6 +115,7 @@ void md_attribute_buffer(uint8_t *p, uint64_t pointer, uint32_t stride, uint32_t
 
 /* Texture (32 bytes, 32-aligned): a 2D texture of w x h texels of RGB565 (Pixel Format RGB565, component order BGR1), one level,
  * linear, with the Surface With Stride array at `surfaces` */
+#define MD_FMT_RGB5A1       ((65u << 12) | 0u)    /* order RGBA of the Mali: red in the low bits (R 4:0, G 9:5, B 14:10, A 15) */
 #define MD_FMT_RGB565       ((64u << 12) | 20u)   /* order BGR1: the Mali's RGB565 holds blue in the high bits; a page texel has red there */
 void md_texture(uint8_t *p, uint32_t w, uint32_t h, uint32_t format, uint64_t surfaces);
 /* Surface With Stride (16 bytes, 16-aligned) */

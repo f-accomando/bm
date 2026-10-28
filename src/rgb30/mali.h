@@ -113,6 +113,9 @@ typedef struct {
                              * 2: a skinned mesh, BM_VS_LITB: litv[i][11] is the bone, mvp and light are those of bone 0 and the next
                              * nbones - 1 (16 and 88 floats each) */
     int nbones;
+    /* 2D (the arena only), drawn after the 3D without a depth test: 1 rectangles (uvk is the colour 0..1 of each vertex), 2 sprites
+     * (uvk is u, v, 1; tex_pa the sheet); xyz are pixels with z = 1 */
+    int d2;
     uint32_t uoff;          /* the draw's uniform words, in bytes from the start of the lit area (the arena only) */
 } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
@@ -159,6 +162,10 @@ void mali_backend_set_vshader(int on);          /* 0 off (be_tri), 1 unlit meshe
 int mali_backend_vshader(void);
 void mali_backend_set_bilinear(int on);         /* 1: the scene asks for filtered textures, which the Mali does not do: textures go to the ARM */
 void mali_backend_set_zbuffer(int on);          /* 1: the Mali uses its depth buffer, not the far-to-near sort (config key mali_z) */
+int mali_backend_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c);   /* 1: taken; 0: the ARM draws it */
+int mali_backend_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
+                        int flip_x, int flip_y);
+void mali_backend_set_2d(int on);               /* 1: the Mali draws the 2D (config key mali_2d; default 0) */
 void mali_backend_set_lit(int on, int min_px);  /* 0: lit meshes are lit by the ARM (mali_lit); faces smaller than min_px on average stay on the ARM (mali_lit_min) */
 void mali_backend_set_textures(int on);         /* 0: opaque textures go to the ARM, not the Mali (config key mali_tex; default 1) */
 void mali_backend_set_queue(int on);            /* 0 synchronous flush, 1..2 async submit/sync (default 1) */

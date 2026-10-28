@@ -419,6 +419,9 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   - `src/rgb30/mali.c`: Added `frame_build_ex()` with L1-cached stack buffers (`hdr[0x1000]`, `loc[0x540]`, `frs_buf[80]`, `vrs3_buf[64]`) eliminating uncached `ATTR_NC` byte read-modify-writes, plus a 4 MB single-pass GPU arena at `H->mem - (6u << 20)` (`1,024` draws and `8,192` triangles in 1 Fragment Job and 1 `be_resolve` per frame).
   - Verified on RGB30 hardware in 3D Bench (`docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`, report `b3cab428`): overall `games` score rose from `192` to **`247`**, `GPU` score rose **16.3x** (`14` in `7.10` -> `138` in `7.14` -> **`228`** in `7.15`), `draws` (`GPU+VS`) reached `533.8` @ 60 fps (`1 job`), `spheres` (`GPU+VS`) reached `22.9` @ 60 fps (`141.5` @ 30 fps), and `gpu2d` reached `1,849.2` @ 60 fps (`5,354.8` @ 30 fps).
 
+- **7.23** (2026-10-28): **2D rectangles and sprites on the Mali** (RGB30, key `mali_2d`, default 0). `gpu3d_rect2d` and `gpu3d_blit2d` queue quads that the frame draws after the 3D without a depth test; `BM_FS_SPR` samples the sheet (RGB565, or RGB5A1 for a sheet with transparent texels) and kills the transparent texels. The page keeps the same RGB565.
+  3D Bench `gpu2d`: 2573 sprites with the key, 2999 without (the ARM draws them faster here). Text, the light of dark_end and the enlarge stay on the ARM.
+
 - **7.22** (2026-10-28): **Bilinear textures on the Mali** (RGB30, `gpu3d_filter`). The Sampler of each sheet filters (four texels a pixel) when the scene asks for it; before, those faces went to the ARM. 3D Bench `bilinear` test: 126.6 (quads of 320 x 180).
   The option table of the Mali (`gpu3d_*`) is in `docs/progress/mali-parity.md`.
 

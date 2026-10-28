@@ -34,4 +34,5 @@ Checked in `src/rgb30/bm_port.c`. The Pi flags are in [v3d-flags](v3d-flags.md).
 | `gpu3d_filter` (bilinear) | honoured (bm3d 7.22) | the Sampler of each sheet filters; the 3D Bench `bilinear` test runs at 126.6 against the ARM's nearest quads |
 | `gpu3d_aa` (MSAA) | not developed | the tile buffer can do 4 samples; the Mali ignores the key |
 | `gpu3d_etc1` | not developed | the Mali reads ETC1 textures; the driver has no encoder call |
-| `gpu3d_2d`, `gpu3d_light`, `gpu3d_enlarge` | not developed | `rect2d`, `blit2d`, `text2d` return 0, `light2d` and `enlarge` return -1: the ARM draws the 2D |
+| `gpu3d_2d` | rectangles and sprites done (`mali_2d=1`, bm3d 7.23), off by default | the 3D Bench `gpu2d` test: 2573 sprites against 2999 with the ARM drawing them (-14%): the sprite fragment (texture, alpha kill) costs 3.2 ms for 2568 sprites. The ARM instructions fall 25%. `text2d` returns 0 |
+| `gpu3d_light`, `gpu3d_enlarge` | not developed | `light2d` and `enlarge` return -1: the ARM does them |

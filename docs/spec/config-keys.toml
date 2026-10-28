@@ -390,6 +390,15 @@ settings = ""
 read_in = "src/rgb30/bm_port.c:38"
 
 [[key]]
+name = "mali_2d"
+scope = "rgb30"
+values = "1 = the Mali draws rectangles and sprites over the 3D (with mali3d=1); anything else = the ARM draws the 2D"
+default = "0"
+meaning = "The 2D over the 3D (gpu3d_rect2d, gpu3d_blit2d) goes into the frame of the Mali, after the 3D and without a depth test. Text, the light of dark_end and the enlarge stay on the ARM. Off by default: on the RGB30 the ARM draws the sprites faster. Read at every gpu3d init."
+settings = ""
+read_in = "src/rgb30/bm_port.c:38"
+
+[[key]]
 name = "mali_lit_min"
 scope = "rgb30"
 values = "pixels: the smallest average face a mesh needs to be lit by the Mali; default 100"

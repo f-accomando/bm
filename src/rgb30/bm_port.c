@@ -35,6 +35,8 @@ int gpu3d_init(void)
     const char *k = config_get("mali3d");
     const char *kt = config_get("mali_tex");
     mali_backend_set_textures(!(kt && !strcmp(kt, "0")));
+    const char *k2 = config_get("mali_2d");
+    mali_backend_set_2d(k2 && !strcmp(k2, "1"));
     const char *kl = config_get("mali_lit");
     const char *km = config_get("mali_lit_min");
     int lit_min = 0;
@@ -123,15 +125,12 @@ int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *pag
 }
 int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
 {
-    (void)g; (void)x0; (void)y0; (void)x1; (void)y1; (void)c;
-    return 0;
+    return mali_be ? mali_backend_rect2d(g, x0, y0, x1, y1, c) : 0;
 }
 int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
                  int flip_x, int flip_y)
 {
-    (void)g; (void)s; (void)sx; (void)sy; (void)sw; (void)sh; (void)dx; (void)dy; (void)zoom; (void)flip_x;
-    (void)flip_y;
-    return 0;
+    return mali_be ? mali_backend_blit2d(g, s, sx, sy, sw, sh, dx, dy, zoom, flip_x, flip_y) : 0;
 }
 int gpu3d_light2d(const g16_t *g, const float *amb, const gpu_lamp_t *lamp, int n)
 {

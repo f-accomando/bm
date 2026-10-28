@@ -850,7 +850,7 @@ typedef struct {                                /* what every core reads while i
     int fast_pack;
     uint8_t *lv_m, *litp_m;                     /* Q2: lit vertices of 48 bytes, the uniform words of a lit draw (448 each) */
     uint64_t lv_pa, litp_pa;
-    const uint8_t *frsl_buf;
+    const uint8_t *frsl_buf, *frsd_buf, *frsp_buf;   /* the 2D rectangles' and sprites' fragment states (no depth test) */
     int zbuf;                                   /* G2: the frame has a depth test: z = 1 - near / depth (see be_mesh) */
 } bctx_t;
 
@@ -972,7 +972,7 @@ static void build_draws(void *p)
                     tvp[q] = v8[q];
             }
             zero16(push_m + 64 * (size_t)d, 32);
-            memcpy(loc + D_FRSD, frst_buf, 80);
+            memcpy(loc + D_FRSD, draws[d].d2 == 1 ? c->frsd_buf : draws[d].d2 == 2 ? c->frsp_buf : frst_buf, 80);
             md_attribute_buffer(loc + D_ABUFS, tv_pa + 32 * (uint64_t)first, 32, 32 * nv);
             md_attribute_buffer(loc + D_ABUFS + 16, 0, 0, 0);
             md_attribute_buffer(loc + D_VBUFS, tvy_pa + 16 * (uint64_t)first, 16, 16 * nv);
@@ -987,7 +987,7 @@ static void build_draws(void *p)
                               .viewport = pa + sb + SO_VIEWPORT, .push_uniforms = push_pa + 64 * (uint64_t)d,
                               .thread_storage = pa + sb + SO_LS, .varying_buffers = dpa + D_VBUFS,
                               .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE, .textures = draws[d].tex_pa,
-                              .samplers = draws[d].tex_pa + 0x80 };
+                              .samplers = draws[d].tex_pa ? draws[d].tex_pa + 0x80 : 0 };
             md_primitive_t tprim = { .mode = MD_TRIANGLES, .index_count = nv };
             job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
                        d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
@@ -1098,10 +1098,17 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     int any_litx = 0;
     for (uint32_t d = 0; d < ndraws && !any_litx; d++)
         any_litx = draws[d].litv != NULL && draws[d].litx && tv_m != NULL;
-    if (any_lit) {
-        memcpy(m + sb + SO_VS_LIT, BM_VS_LIT_bin, sizeof BM_VS_LIT_bin);
-        memcpy(m + sb + SO_FS_VCOL, BM_FS_VCOL_bin, sizeof BM_FS_VCOL_bin);
+    int any_d2r = 0, any_d2s = 0;
+    for (uint32_t d = 0; d < ndraws; d++) {
+        any_d2r |= draws[d].d2 == 1 && tv_m != NULL;
+        any_d2s |= draws[d].d2 == 2 && tv_m != NULL;
     }
+    if (any_lit)
+        memcpy(m + sb + SO_VS_LIT, BM_VS_LIT_bin, sizeof BM_VS_LIT_bin);
+    if (any_lit || any_d2r)
+        memcpy(m + sb + SO_FS_VCOL, BM_FS_VCOL_bin, sizeof BM_FS_VCOL_bin);
+    if (any_d2s)
+        memcpy(m + sb + SO_FS_SPR, BM_FS_SPR_bin, sizeof BM_FS_SPR_bin);
     int any_litb = 0;
     for (uint32_t d = 0; d < ndraws && !any_litb; d++)
         any_litb = draws[d].litv != NULL && draws[d].litx == 2 && tv_m != NULL;
@@ -1175,6 +1182,21 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                  .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = zbuf };
     md_renderer_state(frsl_buf, &frsl);
     md_blend_opaque(frsl_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
+    uint8_t frsd_buf[80], frsp_buf[80];         /* the 2D: the colour shader and the sprite shader, neither tests or writes depth */
+    memset(frsd_buf, 0, sizeof frsd_buf);
+    memset(frsp_buf, 0, sizeof frsp_buf);
+    frsl.depth_func = 0;
+    frsl.depth_write = 0;
+    md_renderer_state(frsd_buf, &frsl);
+    md_blend_opaque(frsd_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
+    md_renderer_state_t frsp = { .fragment = 1, .shader = pa + sb + SO_FS_SPR, .attribute_count = BM_FS_SPR_ATTRIBUTE_COUNT,
+                                 .varying_count = BM_FS_SPR_VARYING_COUNT, .ubo_count = BM_FS_SPR_UBO_COUNT,
+                                 .sampler_count = 1, .texture_count = 1,
+                                 .work_regs = BM_FS_SPR_WORK_REGS, .preload_regs = BM_FS_SPR_PRELOAD,
+                                 .push_count = BM_FS_SPR_PUSH_COUNT, .pixel_kill = MD_KILL_WEAK_EARLY,
+                                 .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_SPR_WAIT6, .wait7 = BM_FS_SPR_WAIT7 };
+    md_renderer_state(frsp_buf, &frsp);
+    md_blend_opaque(frsp_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
     uint8_t frst_buf[80];
     memset(frst_buf, 0, sizeof frst_buf);
     md_renderer_state_t frst = { .fragment = 1, .shader = pa + sb + SO_FS_TEX, .attribute_count = BM_FS_TEX_ATTRIBUTE_COUNT,
@@ -1193,7 +1215,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                   .frst_buf = frst_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
                   .lv_m = tv_m ? tv_m - 0x720000 + 0x80000 : NULL, .lv_pa = tv_pa - 0x720000 + 0x80000,   /* BE_LIT_FROM_TV, BE_LIT_V_OFF */
                   .litp_m = tv_m ? tv_m - 0x720000 : NULL, .litp_pa = tv_pa - 0x720000,
-                  .frsl_buf = frsl_buf, .zbuf = zbuf };
+                  .frsl_buf = frsl_buf, .frsd_buf = frsd_buf, .frsp_buf = frsp_buf, .zbuf = zbuf };
     static bblk_t blk[MALI_BUILD_CORES];
     void *blks[MALI_BUILD_CORES];
     unsigned nb = 1;
@@ -1718,6 +1740,18 @@ static int be_lit_on = 1;                        /* mali_lit=0: the ARM lights t
 static float be_lit_min = 100.0f;                 /* mali_lit_min: the smallest average face (pixels) lit by the vertex shader */
 void mali_backend_set_lit(int on, int min_px) { be_lit_on = on != 0; be_lit_min = min_px > 0 ? (float)min_px : 100.0f; }
 static int be_n, be_nmvp;
+static int be_2d_on;                            /* mali_2d=1: the Mali draws the 2D over the 3D (off: the ARM is faster at it) */
+void mali_backend_set_2d(int on)        { be_2d_on = on != 0; }
+#define BE_2D_MAX       3072
+typedef struct {                                /* an item of the 2D over the 3D: a rectangle or a sprite */
+    int kind;                                   /* 1 rectangle, 2 sprite */
+    float x0, y0, x1, y1;                       /* the page's pixels, cut to the clip rectangle */
+    float r, g, b;                              /* a rectangle's colour 0..1; a sprite's u0, v0, u1 .. see v1 */
+    float u0, v0, u1, v1;
+    uint64_t tex_pa;
+} be_2d_t;
+static be_2d_t be_2ds[BE_2D_MAX];
+static int be_n2d;
 static int be_vs_on = 2, be_q_on = 1;
 static int be_z_on;                             /* mali_z=1: the hardware depth buffer replaces sort_tris (G2) */
 static int be_zfr;                              /* the frame being run has the depth test */
@@ -1772,7 +1806,7 @@ void mali_backend_stats(gpu3d_stats_t *s, int reset)
 
 int mali_backend_pending(void)
 {
-    return be_n;
+    return be_n + be_n2d;
 }
 
 /* drains any in-flight slot 0 fragment job without resolving */
@@ -1794,6 +1828,7 @@ void mali_backend_drop(void)
 {
     be_drain_pend();
     be_n = 0;
+    be_n2d = 0;
     be_nmvp = 0;
 }
 
@@ -2116,10 +2151,11 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     static int idx[BE_MAX_TRIS], tmp_idx[BE_MAX_TRIS];
     if (be_pend && mali_backend_sync() != 0)
         return -1;
-    const int n = be_n;
-    if (n == 0)
+    const int n = be_n, n2 = be_n2d;
+    if (n == 0 && n2 == 0)
         return 0;
     be_n = 0;
+    be_n2d = 0;
     be_nmvp = 0;
     const mali_hw_t *hw = be_hw;
     const uint32_t sw = ((uint32_t)g->w + 15) & ~15u, sh = ((uint32_t)g->h + 15) & ~15u;
@@ -2231,6 +2267,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
                 lu_used = 0;
             }
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
+            dr[nd].d2 = 0;
             dr[nd].n = 1;
             dr[nd].rgb = t->rgb;
             dr[nd].mvp = t->mvp;
@@ -2254,6 +2291,57 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         nv += 3;
         btri++;
     }
+    /* the 2D, in the order called, after the 3D and without a depth test: the quads of one colour kind or one sheet make a draw */
+    for (int i = 0; i < n2; i++) {
+        const be_2d_t *q = &be_2ds[i];
+        int same = nd > 0 && dr[nd - 1].d2 == q->kind && dr[nd - 1].tex_pa == q->tex_pa;
+        uint32_t nslots = same ? slots - ((3 * dr[nd - 1].n + 3) & ~3u) + ((3 * (dr[nd - 1].n + 2) + 3) & ~3u) : slots + 8;
+        if (btri + 2 > max_tris || nslots > BE_TEXV_MAX || (!same && nd == max_draws)) {   /* a full frame: the 2D has no depth to keep */
+            if (nd > 0 && be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
+                return -1;
+            nd = nv = btri = slots = lu_used = 0;
+            same = 0;
+            nslots = 8;
+        }
+        if (same) {
+            dr[nd - 1].n += 2;
+        } else {
+            dr[nd].xyz = (const float (*)[3])vbuf[nv];
+            dr[nd].n = 2;
+            dr[nd].rgb = 0x05000000u | (uint32_t)q->kind;
+            dr[nd].mvp = NULL;
+            dr[nd].uvk = (const float (*)[3])uvbuf[nv];
+            dr[nd].tex_pa = q->tex_pa;
+            dr[nd].litv = NULL;
+            dr[nd].light = NULL;
+            dr[nd].litx = 0;
+            dr[nd].nbones = 0;
+            dr[nd].d2 = q->kind;
+            nd++;
+        }
+        slots = nslots;
+        const float xs[6] = { q->x0, q->x1, q->x1, q->x0, q->x1, q->x0 }, ys[6] = { q->y0, q->y0, q->y1, q->y0, q->y1, q->y1 };
+        const float us[6] = { q->u0, q->u1, q->u1, q->u0, q->u1, q->u0 }, vs[6] = { q->v0, q->v0, q->v1, q->v0, q->v1, q->v1 };
+        for (int k = 0; k < 6; k++) {
+            vbuf[nv + k][0] = xs[k];
+            vbuf[nv + k][1] = ys[k];
+            vbuf[nv + k][2] = 1.0f;
+            if (q->kind == 1) {
+                uvbuf[nv + k][0] = q->r;
+                uvbuf[nv + k][1] = q->g;
+                uvbuf[nv + k][2] = q->b;
+            } else {
+                uvbuf[nv + k][0] = us[k];
+                uvbuf[nv + k][1] = vs[k];
+                uvbuf[nv + k][2] = 1.0f;
+            }
+        }
+        nv += 6;
+        btri += 2;
+        be_stats.quads2d++;
+    }
+    if (nd == 0)
+        return 0;
     return be_run(g, surf, pa, pitch, sw, sh, dr, nd, async);
 }
 
@@ -2275,10 +2363,11 @@ int mali_backend_submit(g16_t *g)
 /* --- G1: sheets as textures. A sheet (opaque, RGB565) is copied to the pool as a block of 64-byte alignment: the Texture
  * descriptor at +0x00, a Surface With Stride at +0x40, the Sampler at +0x80, the texels at +0xc0. A sheet with transparent
  * texels, a pool that cannot hold it, or any other platform than the RGB30's arena stays on the ARM (tex_ok says 0). */
+
 typedef struct {
     const g16_sheet_t *sheet;
     uint32_t version;
-    int ok;
+    int ok, spr;                                    /* spr: the block is for the 2D (texels with alpha, nearest) */
     uint64_t pa;
     float iw, ih;
 } be_texslot_t;
@@ -2299,7 +2388,7 @@ void mali_backend_set_bilinear(int on)
     if (be_pend)
         (void)mali_backend_sync();              /* the GPU reads the samplers: wait for it */
     for (int i = 0; i < be_ntex; i++)           /* the sheets uploaded filter the new way */
-        if (be_texs[i].ok && H) {
+        if (be_texs[i].ok && !be_texs[i].spr && H) {
             uint8_t blk[32] __attribute__((aligned(16)));
             zero16(blk, sizeof blk);
             md_sampler(blk, on);
@@ -2316,27 +2405,31 @@ static int be_arena(void)
 #endif
 }
 
-/* the slot of a sheet (uploaded now if new or changed), or -1: the ARM draws it */
-static int be_tex_find(const g16_t *g, const g16_sheet_t *sh)
+/* the slot of a sheet (uploaded now if new or changed), or -1: the ARM draws it. The 3D takes opaque sheets as RGB565; the 2D
+ * (spr) takes any sheet: with transparent texels as RGB5A1 (green loses its last bit), else as RGB565 */
+static int be_tex_find_ex(const g16_t *g, const g16_sheet_t *sh, int spr)
 {
-    if (!sh || !sh->px || !be_tex_on || !be_arena())
+    if (!sh || !sh->px || !(spr ? be_2d_on : be_tex_on) || !be_arena())
         return -1;
     for (int i = be_ntex - 1; i >= 0; i--)
-        if (be_texs[i].sheet == sh) {
+        if (be_texs[i].sheet == sh && be_texs[i].spr == spr) {
             if (be_texs[i].version == sh->version)
                 return be_texs[i].ok ? i : -1;
             break;                                  /* the sheet changed: a new block */
         }
     const uint32_t w = (uint32_t)sh->w, h = (uint32_t)sh->h;
     int ok = w >= 8 && h >= 8 && w <= 4096 && h <= 4096 && (w & 7) == 0;
-    if (ok) {                                       /* no transparent texel: the Mali's shader draws every texel */
+    int opaque = 1;                                 /* no transparent texel: the Mali's shader draws every texel */
+    if (ok) {
         if (sh->cell_opaque) {
-            for (uint32_t c = 0; c < (w / 8) * (h / 8) && ok; c++)
-                ok = sh->cell_opaque[c] != 0;
+            for (uint32_t c = 0; c < (w / 8) * (h / 8) && opaque; c++)
+                opaque = sh->cell_opaque[c] != 0;
         } else if (sh->alpha) {
-            for (uint32_t i = 0; i < w * h && ok; i++)
-                ok = sh->alpha[i] != 0;
+            for (uint32_t i = 0; i < w * h && opaque; i++)
+                opaque = sh->alpha[i] != 0;
         }
+        if (!spr)
+            ok = opaque;
     }
     const uint32_t size = ok ? ((0xc0u + w * h * 2u + 63u) & ~63u) : 0;
     if (ok && size > BE_TPOOL_SIZE)
@@ -2352,16 +2445,30 @@ static int be_tex_find(const g16_t *g, const g16_sheet_t *sh)
     t->sheet = sh;
     t->version = sh->version;
     t->ok = ok;
+    t->spr = spr;
     if (ok) {
         uint8_t *blk = H->mem - (8u << 20) + be_tpool_used;
         const uint64_t bpa = H->mem_pa - (8u << 20) + be_tpool_used;
         uint8_t hdr[0xc0] __attribute__((aligned(16)));
         zero16(hdr, sizeof hdr);
-        md_texture(hdr, w, h, MD_FMT_RGB565, bpa + 0x40);
+        const int a5 = spr && !opaque;
+        md_texture(hdr, w, h, a5 ? MD_FMT_RGB5A1 : MD_FMT_RGB565, bpa + 0x40);
         md_surface(hdr + 0x40, bpa + 0xc0, w * 2, w * h * 2);
-        md_sampler(hdr + 0x80, be_bilinear);
+        md_sampler(hdr + 0x80, spr ? 0 : be_bilinear);
         copy_nc16(blk, hdr, sizeof hdr);
-        copy_nc16(blk + 0xc0, sh->px, (size_t)w * h * 2);
+        if (a5) {                                   /* R 4:0, G 9:5, B 14:10, A 15 from R 15:11, G 10:5, B 4:0 and the alpha plane */
+            uint16_t row[4096] __attribute__((aligned(16)));
+            for (uint32_t y = 0; y < h; y++) {
+                for (uint32_t x = 0; x < w; x++) {
+                    const uint16_t c = sh->px[(size_t)y * w + x];
+                    const int op = sh->alpha ? sh->alpha[(size_t)y * w + x] != 0 : 1;
+                    row[x] = (uint16_t)((c >> 11) | ((c >> 6 & 31) << 5) | ((c & 31) << 10) | (op ? 0x8000 : 0));
+                }
+                copy_nc16(blk + 0xc0 + (size_t)y * w * 2, row, (size_t)w * 2);
+            }
+        } else {
+            copy_nc16(blk + 0xc0, sh->px, (size_t)w * h * 2);
+        }
         __asm__ volatile("dsb sy" ::: "memory");
         t->pa = bpa;
         t->iw = 1.0f / (float)w;
@@ -2370,6 +2477,80 @@ static int be_tex_find(const g16_t *g, const g16_sheet_t *sh)
     }
     be_ntex++;
     return ok ? be_ntex - 1 : -1;
+}
+
+static int be_tex_find(const g16_t *g, const g16_sheet_t *sh)
+{
+    return be_tex_find_ex(g, sh, 0);
+}
+
+/* a colour of the page as the GPU draws it: the 8-bit values that the resolve truncates back to the same RGB565 */
+static void be_565_to_f(uint16_t c, float *r, float *g, float *b)
+{
+    const uint32_t r5 = c >> 11, g6 = c >> 5 & 63, b5 = c & 31;
+    const uint32_t r8 = (r5 << 3) | (r5 >> 2), b8 = (b5 << 3) | (b5 >> 2);
+    uint32_t g8 = (g6 << 2) | (g6 >> 4);
+    if (r8 == 255 && g8 == 0 && b8 == 255)
+        g8 = 1;                                     /* not the key colour */
+    *r = (float)r8 / 255.0f;
+    *g = (float)g8 / 255.0f;
+    *b = (float)b8 / 255.0f;
+}
+
+int mali_backend_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
+{
+    if (!be_2d_on || !be_arena() || !be_hw)
+        return 0;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x1 <= x0 || y1 <= y0)
+        return 1;                                   /* nothing to draw */
+    if (be_n2d == BE_2D_MAX)
+        be_flush(g);
+    be_2d_t *q = &be_2ds[be_n2d++];
+    q->kind = 1;
+    q->x0 = (float)x0; q->y0 = (float)y0; q->x1 = (float)x1; q->y1 = (float)y1;
+    be_565_to_f(c, &q->r, &q->g, &q->b);
+    q->u0 = q->v0 = q->u1 = q->v1 = 0.0f;
+    q->tex_pa = 0;
+    return 1;
+}
+
+int mali_backend_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
+                        int flip_x, int flip_y)
+{
+    if (!be_2d_on || !be_arena() || !be_hw || !s || zoom < 1 || sw <= 0 || sh <= 0 || sx < 0 || sy < 0 || sx + sw > s->w ||
+        sy + sh > s->h)
+        return 0;
+    const int slot = be_tex_find_ex(g, s, 1);
+    if (slot < 0)
+        return 0;
+    const int dw = sw * zoom, dh = sh * zoom;
+    int x0 = dx, y0 = dy, x1 = dx + dw, y1 = dy + dh;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x1 <= x0 || y1 <= y0)
+        return 1;
+    if (be_n2d == BE_2D_MAX)
+        be_flush(g);
+    const be_texslot_t *t = &be_texs[slot];
+    /* the source texels along the destination: u(x) = ul + (x - dx) / dw * (ur - ul), the texel of a pixel centre */
+    const float ul = (float)(flip_x ? sx + sw : sx), ur = (float)(flip_x ? sx : sx + sw);
+    const float vt = (float)(flip_y ? sy + sh : sy), vb = (float)(flip_y ? sy : sy + sh);
+    be_2d_t *q = &be_2ds[be_n2d++];
+    q->kind = 2;
+    q->x0 = (float)x0; q->y0 = (float)y0; q->x1 = (float)x1; q->y1 = (float)y1;
+    q->u0 = (ul + (float)(x0 - dx) / (float)dw * (ur - ul)) * t->iw;
+    q->u1 = (ul + (float)(x1 - dx) / (float)dw * (ur - ul)) * t->iw;
+    q->v0 = (vt + (float)(y0 - dy) / (float)dh * (vb - vt)) * t->ih;
+    q->v1 = (vt + (float)(y1 - dy) / (float)dh * (vb - vt)) * t->ih;
+    q->r = q->g = q->b = 0.0f;
+    q->tex_pa = t->pa;
+    return 1;
 }
 
 static int be_tex_ok(void *ctx, const g16_t *g, const g16_sheet_t *sh)
@@ -2384,6 +2565,8 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
     const int textured = (kind & ~R3D_INSIDE) == R3D_KIND_TEXTURE;
     if (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) || depth != R3D_DEPTH_WRITE)  /* r3d sends nothing else (colour_only): the guard */
         return;
+    if (be_n2d)                                     /* a 3D face after 2D: the job so far has to end, the 2D is under it */
+        be_flush(g);
     int ts = -1;
     if (textured && (ts = be_tex_find(g, tex)) < 0)
         return;
@@ -2515,7 +2698,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         }
     }
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
-    if (be_n + m->nfaces > cap || be_nmvp + nb > BE_MAX_MVPS)
+    if (be_n2d || be_n + m->nfaces > cap || be_nmvp + nb > BE_MAX_MVPS)
         be_flush(g);
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();

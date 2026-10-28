@@ -37,6 +37,7 @@
 #define SO_FS_VCOL      0x9000      /* BM_FS_VCOL (0xc0 bytes) */
 #define SO_VS_LITX      0x9200      /* BM_VS_LITX (0xad0 bytes) */
 #define SO_VS_LITB      0xa000      /* BM_VS_LITB (0xbb0 bytes) */
+#define SO_FS_SPR       0xb000      /* BM_FS_SPR (the 2D sprites) */
 #define SO_HEAP         0x80000
 #define SO_DRAWS        0x40000
 #define SO_SURF         MALI_SET_SURFACE

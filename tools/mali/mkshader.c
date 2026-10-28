@@ -394,6 +394,24 @@ int main(int argc, char **argv)
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
         compile("BM_FS_VCOL", b.shader, out, &fi, 0);
     }
+    {   /* sprite fragment (2D): the texel of texture 0 at the varying (u, v); killed when its alpha is under 1/2; green at least
+         * 1/255 (the key colour is 0xFF00FF and green 0 and 1 are the same 6 bits of the RGB565 page) */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, opt, "bm_fs_spr");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        nir_variable *iuv = var(&b, nir_var_shader_in, "uvk", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
+        nir_variable *ocol = var(&b, nir_var_shader_out, "color", FRAG_RESULT_DATA0, INTERP_MODE_NONE);
+        nir_def *uv = nir_trim_vector(&b, nir_load_var(&b, iuv), 2);
+        nir_def *texel = nir_build_tex(&b, nir_texop_txl, .coord = uv, .lod = nir_imm_float(&b, 0.0f),
+                                       .texture_index = 0, .sampler_index = 0, .dim = GLSL_SAMPLER_DIM_2D,
+                                       .dest_type = nir_type_float32);
+        nir_discard_if(&b, nir_flt(&b, nir_channel(&b, texel, 3), nir_imm_float(&b, 0.5f)));
+        nir_def *g = nir_fmax(&b, nir_channel(&b, texel, 1), nir_imm_float(&b, 1.0f / 255.0f));
+        nir_store_var(&b, ocol, nir_vec4(&b, nir_channel(&b, texel, 0), g, nir_channel(&b, texel, 2),
+                                         nir_imm_float(&b, 1.0f)), 0xf);
+        b.shader->info.num_textures = 1;
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_FS_SPR", b.shader, out, &fi, 0);
+    }
     fclose(out);
     return 0;
 }
