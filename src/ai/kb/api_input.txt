@@ -225,7 +225,7 @@ controls("scroller" | "topdown" | "stick") dice quale schema usa il gioco
 (lib.input lo fa da solo): i tasti del giocatore per quello schema
 sostituiscono quelli del gioco in keymap().
 text_en:
-controls() reads the player's choices (Settings > Controls) as a table
+controls() reads the player's choices (`controls=` in `bm/config.txt`; no Settings page) as a table
 { scheme, c1..c4, t1..t4, s1..s8, pa, mo, mc }: "default" or a button.
 controls("scroller" | "topdown" | "stick") says which scheme the game uses
 (lib.input does it by itself): the player's buttons for that scheme replace

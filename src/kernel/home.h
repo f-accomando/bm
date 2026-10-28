@@ -35,7 +35,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
  * by market.c, HOME_PUBLISH (sending a game to the Market) by publish.c. */
 enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_GRAPHICS, HOME_MARKET,
        HOME_PUBLISH, HOME_SEND, HOME_UPDATES, HOME_REPORTS, HOME_UTILITIES, HOME_SDMAP, HOME_SDFILES,
-       HOME_CONTROLS, HOME_CTL_SCROLLER, HOME_CTL_TOPDOWN, HOME_CTL_STICK, HOME_CTL_SYSTEM, HOME_SOUND };
+       HOME_SOUND };
 
 /* What a row asks of the menu. */
 enum {
@@ -101,7 +101,6 @@ const char *home_poweroff_detail(void);         /* the second line of its questi
 const char *home_test_help(void);               /* the help line of the row "Test the buttons" */
 const char *home_connect_help(void);            /* the help line of the row "Connect to a network" */
 int  home_has_battery(void);                    /* the console has a battery: the row "Low battery icon" (else "Test pattern") */
-void home_controls_changed(void);               /* a button of Controls changed: the console reads them again */
 
 /* The tools of the Dev tab (after the SDK), with their covers: the editors, the assistant, the monitor, Lua. */
 void home_init(void);

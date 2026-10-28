@@ -263,7 +263,3 @@ int home_has_battery(void)
 {
     return 0;
 }
-
-void home_controls_changed(void)
-{
-}

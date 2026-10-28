@@ -341,7 +341,7 @@ static int named_button(lua_State *L, int pressed)
  * with prompt("action"); the game remaps by calling it again (its options
  * menu, saved with save()). keymap() gives the table back, keymap(nil)
  * forgets it. */
-/* The player's remap (Settings > Controls, kernel/controls.c): an action of
+/* The player's remap (controls= in bm/config.txt, kernel/controls.c): an action of
  * the game's scheme (or the pause) the player set to a button takes that
  * button instead of the game's own; the others keep the game's. Run again
  * when keymap() or controls() changes something and when the game resumes. */

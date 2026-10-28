@@ -11,7 +11,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | Default game resolution | 360×360 shown ×2 (or 720×720 native); `screen()` offers 360×360 and 720×720 | `docs/RGB30.md:14,175`, `docs/spec/divergences.toml:344` | implemented |
 | Scaling rule | Video controller (VOP2) hardware scaling ×2 (`bm_scale`, `bm_smooth`), sharp or smoothed | `docs/RGB30.md:175-176`, `docs/spec/divergences.toml:344` | implemented |
 | Confirm button | B = OK / confirm (bottom button); `confirm=a` in `bm/config.txt` swaps to A | `docs/RGB30.md:166-167,220`, `docs/progress/platforms.md:35`, `docs/spec/divergences.toml:355` | implemented |
-| Back button | Y = cancel / back (A is no second back); `mc=` of `controls=` in `bm/config.txt` sets another button (Settings > Controls) | user decision 2026-10-19; `src/rgb30/pad.c`; `docs/spec/divergences.toml` D49 | implemented |
+| Back button | Y = cancel / back (A is no second back); `mc=` of `controls=` in `bm/config.txt` sets another button (set by hand; no Settings page since 28 Oct 2026) | user decision 2026-10-19; `src/rgb30/pad.c`; `docs/spec/divergences.toml` D49 | implemented |
 | X button | Opens cartridge options in menu (play, open in bm SDK, send to a nearby console, type, size, author, save data, delete) | `docs/RGB30.md:210,212`, `docs/progress/platforms.md:36` | implemented |
 | Y button | Cancel / back in menus, prompts and dialogs; on the top level of the Market tab it switches Apps and Games | user decision 2026-10-19; `src/rgb30/pad.c`, `src/rgb30/ui.c` | implemented |
 | L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) without wrapping | `docs/RGB30.md:219`, `docs/progress/platforms.md:36` | implemented |

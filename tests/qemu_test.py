@@ -1239,7 +1239,7 @@ def test_home_ui(b, opts):
         # keyboard layout changes and is saved; the submenus
         keys("4")
         net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
-        screen(["Settings", "Controllers", "Controls", net, "Screen", "Sound", "Updates"])    # System is below the fold with the Controls row
+        screen(["Settings", "Controllers", net, "Screen", "Sound", "Updates"])
         shot("settings")
         keys("\r")                              # Controllers
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
@@ -1258,15 +1258,6 @@ def test_home_ui(b, opts):
         screen([before])
         keys("q")
         keys("s")
-        keys("\r")                              # Controls (CONTROLS-1; the RGB30 has the test of its panels)
-        screen(["Settings > Controls", "Scroller games", "Top-down games", "Stick games", "Pause and menus", "Reset all"])
-        keys("sss")
-        keys("\r")                              # Pause and menus (D49): the Pi menus keep A and B, so only Pause is a row
-        text = screen(["Settings > Controls > Pause and menus", "Pause"])
-        assert "Cancel" not in text, text
-        keys("q")
-        keys("q")
-        keys("s")
         keys("\r")
         if KERNEL7:
             screen(["Settings > Network", "Ethernet", "no cable", "port 3333"])
@@ -1280,7 +1271,7 @@ def test_home_ui(b, opts):
         keys("q")
         keys("s")
         keys("\r")                              # Screen
-        text = screen(["Settings > Screen", "Menu size", "360p (ARM)"])
+        text = screen(["Settings > Screen", "Menu size", "720p (GPU)"])      # 720p by the GPU is the default (28 Oct 2026)
         # 26 Oct 2026: the 3D of the games and the 3D on the ARM are hidden keys too (defaults: GPU, fast)
         for name in ("3D of the games", "3D on the ARM"):
             assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
@@ -4022,7 +4013,7 @@ def test_update(b, opts):
             time.sleep(0.5)
             keys("4")                               # Settings, then Updates
             screen(["Settings", "Controllers", "Updates"])
-            keys("sssss")                             # Controllers, Controls, WiFi, Screen, Sound, Updates
+            keys("ssss")                              # Controllers, WiFi, Screen, Sound, Updates
             keys("\r")
             screen(["Settings > Updates", "Version"])
             keys("s")

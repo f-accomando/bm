@@ -1,4 +1,4 @@
-/* The player's remap of the game buttons (Settings > Controls, CONTROLS-1).
+/* The player's remap of the game buttons (CONTROLS-1; no Settings page since 28 Oct 2026, the player writes controls= in bm/config.txt).
  *
  * One key of bm/config.txt, controls=, holds the changed actions as
  * space-separated code:button pairs (e.g. "c1:x s2:l1 mc:y"); a missing action

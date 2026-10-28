@@ -65,8 +65,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   `lib.input` with the schemes scroller, topdown and stick): the library, the docs, the kb and the
   templates are merged. Open: migrate the existing games one by one (list: `python scripts/input_inventory.py --games`);
   open decisions in the standard, section 7. Keys decided 19 Oct: menus B ok / Y cancel; keyboard Enter = ok, Esc = back and pause.
-- Controls (Settings > Controls > Pause and menus): the Cancel row shows "Default (Y)" when `mc` is unset. Y is the default Cancel and the only back button (PAD-Y-1, `docs/spec/ui-reference.md`). `pad_config` (`src/rgb30/pad.c`) uses A as the Cancel only when OK is Y, or when `mc` equals `mo`. Open: show "Default (A)" in those two cases and warn when `mo` equals `mc`.
-- **CONTROLS-1** (roadmap SYS-15, to do): custom controls from the game's options menu (X on a game),
+- **CONTROLS-1** (roadmap SYS-15, to do; Overbit has its COMMANDS page since 28 Oct 2026, the pattern is in `docs/api/input.md`): custom controls from the game's options menu (X on a game),
   saved per game; three default schemes per game (pad, stick, 2D scroller / top-down). It is no
   longer a Settings item.
 - **Targets**: a `.bm` has targets, not a sandbox (decision 2026-10-13, D1-D6 confirmed 2026-10-15). The header says the kernels. Remaining: Yharnam check on both kernels.

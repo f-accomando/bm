@@ -11,7 +11,7 @@
 /* the menus: B confirms (A with confirm=a), Y goes back; A is no second back */
 uint32_t pad_ok = PAD_B, pad_back = PAD_Y;
 
-/* the face button a controls= code (mo, mc: Settings > Controls) names, or 0 */
+/* the face button a controls= code (mo, mc of controls= in bm/config.txt) names, or 0 */
 static uint32_t face(const char *b)
 {
     if (b && b[0] && !b[1])

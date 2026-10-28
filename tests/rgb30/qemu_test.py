@@ -242,7 +242,6 @@ def open_settings_screen(q):
     """From the Games tab: the Settings tab, its Screen section opened (the Screen modes row selected)."""
     press(q, "r", ["bm SDK"])            # the Dev tab: the bm SDK
     press(q, "r", ["Controllers", "built in"])  # the Settings tab
-    press(q, "s", ["Which button does what"])   # Controls
     press(q, "s", ["The link, the address"])    # WiFi
     press(q, "s", ["Screen modes, 3D Bench"])   # Screen
     return press(q, "\r", ["Settings > Screen"])
@@ -299,7 +298,7 @@ def test_screen_console(b, opts):
             assert gone not in text, f"{gone!r} is not a Dev item:\n{text}"
         keys(q, "r")                            # Settings: its panel, the Pi's sections (settings.c)
         text = screen_all(q.screendump())
-        for needle in ("Controllers", "Controls", "WiFi and network", "Screen", "Sound", "Updates"):   # Reports and System are below the sixth row
+        for needle in ("Controllers", "WiFi and network", "Screen", "Sound", "Updates"):   # Reports and System are below the sixth row
             assert needle in text, f"{needle!r} not in Settings:\n{text}"
         keys(q, "w")                            # up from the first row: round to the last
         text = screen_all(q.screendump())
@@ -499,7 +498,6 @@ def test_update_from_sd(b, opts):
         boot(q)
         press(q, "r", ["bm SDK"])        # the Dev tab
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
-        press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi
         press(q, "s", ["Screen modes, 3D Bench"])       # Screen
         press(q, "s", ["The latest bm from GitHub"])    # Updates
@@ -640,7 +638,6 @@ def test_wifi_page_without_chip(b, opts):
         boot(q)
         press(q, "r", ["bm SDK"])                # the Dev tab
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
-        press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi and network
         press(q, "\r", ["Settings > WiFi and network"])
         press(q, "s", ["The link to the access point"])  # State
@@ -725,67 +722,6 @@ def test_confirm_button(b, opts):
     assert chips["B"][0] != chips["A"][0], "confirm=a does not change the chip of Open"
     assert chips["B"][1] == chips["A"][1], "the chip of Back (Y) is the same in both settings"
     assert chips["X"][0] != chips["B"][0] and chips["X"][1] != chips["B"][1], "controls=mo:x mc:a: the chips of Open (X) and Back (A) change"
-
-
-def test_controls_menu(b, opts):
-    """Settings > Controls (CONTROLS-1): a scheme's actions show the button the
-    config sets (controls= in bm/config.txt) or Default with the game's own;
-    Enter changes the button of the row (X -> Y here; in Settings a choice has
-    no arrows, Enter changes it: docs/progress/graphics.md, Rules) and Reset
-    all (asked) puts every action back on Default."""
-    def value(text, label):
-        # the row's value, at the right of its label ("X", "Y", "Default (B)")
-        for l in text.split("\n"):
-            if label in l:
-                return l.split(label, 1)[1].strip(" ?\u2502|")
-        return None
-
-    def open_scroller(q):
-        for _ in range(6):                      # to the Settings tab
-            if "Controllers" in screen_all(q.screendump()):
-                break
-            keys(q, "r", 0.5)
-        keys(q, "s")                            # Controllers -> Controls
-        q.send("\r")
-        time.sleep(0.5)
-        text = screen_all(q.screendump())
-        assert "Settings > Controls" in text and "Stick games" in text and "Reset all" in text, text
-        q.send("\r")                            # Scroller games
-        time.sleep(0.5)
-        return screen_all(q.screendump())
-
-    tmp = tempfile.mkdtemp(prefix="bm64sd-")
-    sd = make_sd(tmp, {"bm/config.txt": b"layout=us\ncontrols=c1:x\n"})
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
-    try:
-        boot(q)
-        text = open_scroller(q)
-        assert "Settings > Controls > Scroller games" in text, text
-        a1 = [l for l in text.split("\n") if "Action 1" in l]
-        a2 = [l for l in text.split("\n") if "Action 2" in l]
-        assert a1 and value(text, "Action 1 (jump)") == "X", text
-        assert a2 and "Default (Y)" in a2[0], text
-        q.send("\r")                            # Enter: X -> Y on the first row
-        time.sleep(0.4)
-        text = screen_all(q.screendump())
-        assert value(text, "Action 1 (jump)") == "Y", text
-        q.send("\x7f")                          # back, then Reset all
-        time.sleep(0.4)
-        keys(q, "w")                            # up from the first row: the last, Reset all
-        q.send("\r")
-        time.sleep(0.4)
-        assert "Reset all the controls?" in screen_all(q.screendump())
-        q.send("\r")                            # yes
-        time.sleep(0.4)
-        assert "0 changed" in screen_all(q.screendump())
-        keys(q, "wwwww")                        # up to Scroller games
-        q.send("\r")
-        time.sleep(0.4)
-        text = screen_all(q.screendump())
-        a1 = [l for l in text.split("\n") if "Action 1" in l]
-        assert a1 and "Default (B)" in a1[0], text
-    finally:
-        q.close()
 
 
 PI_CART = r"""
@@ -1167,7 +1103,6 @@ def test_dev_tab_utilities(b, opts):
         for gone in ("3D Bench", "Render bench", "Input test", "Boot log", "Display"):
             assert gone not in text, f"{gone!r} is not a Dev item:\n{text}"
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
-        press(q, "s", ["Which button does what"])       # Controls
         press(q, "s", ["The link, the address"])        # WiFi
         press(q, "s", ["Screen modes, 3D Bench"])       # Screen
         text = press(q, "\r", ["Settings > Screen"])

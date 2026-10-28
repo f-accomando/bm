@@ -622,11 +622,6 @@ int home_has_battery(void)
 {
     return 1;
 }
-
-void home_controls_changed(void)
-{
-    pad_config();
-}
 int home_util_group(int i) { return utils[i].group; }
 
 void home_util_start(int i, home_do_t *d)

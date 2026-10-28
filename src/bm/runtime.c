@@ -3959,7 +3959,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
 {
     if (!susp.active)
         return BM_ENDED;
-    keymap_apply_controls();                    /* the player may have changed Settings > Controls meanwhile */
+    keymap_apply_controls();                    /* the player may have changed controls= meanwhile */
     memset(st, 0, sizeof *st);
     memcpy(st->title, susp.title, sizeof st->title);
     perm_fb = fb;

@@ -10,7 +10,6 @@
 #include "home.h"
 #include "notice.h"
 #include "config.h"
-#include "controls.h"
 #include "pointer.h"
 #include "reports.h"
 #include "update.h"
@@ -129,10 +128,8 @@ enum {
     R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FAST3D,
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
-    R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
     R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
     R_DEV, R_REC,
-    R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
 
@@ -429,44 +426,6 @@ static void reports_row(home_panel_t *p, int kind, int id, const char *label, co
         home_row(p, kind, id, label, help, "none waiting");
 }
 
-/* Settings > Controls */
-static const char *ctl_button(const char *b)
-{
-    static const struct { const char *code, *name; } n[] = {
-        { "a", "A" }, { "b", "B" }, { "x", "X" }, { "y", "Y" }, { "l1", "L1" }, { "r1", "R1" },
-        { "l2", "L2" }, { "r2", "R2" }, { "st", "Start" }, { "se", "Select" },
-    };
-    for (unsigned k = 0; k < sizeof n / sizeof n[0]; k++)
-        if (!strcmp(b, n[k].code))
-            return n[k].name;
-    return b;
-}
-
-static int ctl_changed(const char *scheme)
-{
-    int c = 0;
-    for (int i = 0; i < controls_count(); i++)
-        if (!strcmp(controls_scheme(i), scheme) && controls_get(i))
-            c++;
-    return c;
-}
-
-/* the next (dir 1) or previous (-1) of: Default, a, b, x, y, l1, r1, l2, r2, st, se */
-static void ctl_step(int i, int dir)
-{
-    static const char *const cycle[] = { NULL, "a", "b", "x", "y", "l1", "r1", "l2", "r2", "st", "se" };
-    const int menu = !strcmp(controls_scheme(i), "system") && strcmp(controls_code(i), "pa");
-    const int n = menu ? 5 : (int)(sizeof cycle / sizeof cycle[0]);        /* the menus' OK and Cancel: a face button */
-    const char *now = controls_get(i);
-    int at = 0;
-    for (int k = 1; now && k < n; k++)
-        if (!strcmp(now, cycle[k]))
-            at = k;
-    at = (at + dir + n) % n;
-    controls_set(i, cycle[at]);
-    home_controls_changed();
-}
-
 /* The first page of Settings: one row for each section. */
 static void panel_settings(home_panel_t *p)
 {
@@ -481,8 +440,6 @@ static void panel_settings(home_panel_t *p)
              "Pads, keyboards, mice, the buttons",
              pads ? "%d connected" : "none connected", pads);
 #endif
-    home_row(p, MENU_ROW_SUB, R_CONTROLS, "Controls",
-             "Which button does what in the games and the menus", "remap");
     home_row(p, MENU_ROW_SUB, R_WIFI, wireless() ? "WiFi and network" : "Network",
              "The link, the address, a test", "%s", net_word());
 #ifdef BM_RGB30
@@ -590,48 +547,6 @@ static void panel_controllers(home_panel_t *p)
 #endif
     home_row(p, MENU_ROW_ACTION, R_FORGET, "Forget all controllers",
              "Removes every pairing; pair them again after", NULL);
-}
-
-/* Settings > Controls: the four kinds of game and the reset. */
-static void panel_controls(home_panel_t *p)
-{
-    ksnprintf(p->title, sizeof p->title, "Settings > Controls");
-    home_row(p, MENU_ROW_SUB, R_CTL_SCROLLER, "Scroller games", "Platformers and side-scrollers: actions 1 to 4",
-             "%d changed", ctl_changed("scroller"));
-    home_row(p, MENU_ROW_SUB, R_CTL_TOPDOWN, "Top-down games", "Adventures seen from above: actions 1 to 4",
-             "%d changed", ctl_changed("topdown"));
-    home_row(p, MENU_ROW_SUB, R_CTL_STICK, "Stick games", "Twin-stick shooters: actions 1 to 8",
-             "%d changed", ctl_changed("stick"));
-    home_row(p, MENU_ROW_SUB, R_CTL_SYSTEM, "Pause and menus", "Pause, and the menus' OK and Cancel",
-             "%d changed", ctl_changed("system"));
-    home_row(p, MENU_ROW_INFO, R_CTL_KEYS, "Keyboard", "Fixed for now: Enter is OK, Esc goes back and pauses",
-             "Enter, Esc");
-    home_row(p, MENU_ROW_ACTION, R_CTL_RESET, "Reset all", "Every action back to the game's own button", NULL);
-}
-
-/* Settings > Controls > one kind of game: a row for each action. */
-static void panel_control_buttons(home_panel_t *p, int id)
-{
-    const char *scheme = id == HOME_CTL_SCROLLER ? "scroller" : id == HOME_CTL_TOPDOWN ? "topdown" :
-                         id == HOME_CTL_STICK ? "stick" : "system";
-    ksnprintf(p->title, sizeof p->title, "Settings > Controls > %s",
-              id == HOME_CTL_SCROLLER ? "Scroller games" : id == HOME_CTL_TOPDOWN ? "Top-down games" :
-              id == HOME_CTL_STICK ? "Stick games" : "Pause and menus");
-    for (int i = 0; i < controls_count(); i++) {
-        if (strcmp(controls_scheme(i), scheme))
-            continue;
-#ifndef BM_RGB30
-        if (!strcmp(controls_code(i), "mo") || !strcmp(controls_code(i), "mc"))
-            continue;               /* the Pi's menus keep their buttons */
-#endif
-        const char *b = controls_get(i);
-        if (b)
-            home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
-                     "%s", ctl_button(b));
-        else
-            home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Enter: another button; Default is the game's own",
-                     "Default (%s)", ctl_button(controls_default(i)));
-    }
 }
 
 /* Settings > WiFi and network (Network on a board with Ethernet). */
@@ -938,12 +853,6 @@ void home_panel(int id, home_panel_t *p)
     case HOME_CONTROLLERS:
         panel_controllers(p);
         break;
-    case HOME_CONTROLS:
-        panel_controls(p);
-        break;
-    case HOME_CTL_SCROLLER: case HOME_CTL_TOPDOWN: case HOME_CTL_STICK: case HOME_CTL_SYSTEM:
-        panel_control_buttons(p, id);
-        break;
     case HOME_WIFI:
         panel_wifi(p);
         break;
@@ -987,11 +896,6 @@ int home_sub_panel(int row)
     case R_UTILS: return HOME_UTILITIES;
     case R_SDMAP: return HOME_SDMAP;
     case R_SDFILES: return HOME_SDFILES;
-    case R_CONTROLS: return HOME_CONTROLS;
-    case R_CTL_SCROLLER: return HOME_CTL_SCROLLER;
-    case R_CTL_TOPDOWN: return HOME_CTL_TOPDOWN;
-    case R_CTL_STICK: return HOME_CTL_STICK;
-    case R_CTL_SYSTEM: return HOME_CTL_SYSTEM;
     }
     return 0;
 }
@@ -1192,7 +1096,6 @@ static void ask(home_do_t *d, const char *q, const char *detail, const char *yes
 static int act_open(int row, home_do_t *d)
 {
     switch (row) {
-    case R_CONTROLS: case R_CTL_SCROLLER: case R_CTL_TOPDOWN: case R_CTL_STICK: case R_CTL_SYSTEM:
     case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB: case R_UTILS:
     case R_SDMAP: case R_SDFILES: case R_SOUNDMENU:
         d->what = HOME_OPEN;
@@ -1204,17 +1107,10 @@ static int act_open(int row, home_do_t *d)
     return 1;
 }
 
-/* The rows of Controllers and Controls. 1 if the row is one of them. */
-static int act_controls(int row, int how, home_do_t *d)
+/* The rows of Controllers. 1 if the row is one of them. */
+static int act_controllers(int row, int how, home_do_t *d)
 {
     switch (row) {
-    case R_CTL ... R_CTL + CONTROLS_COUNT - 1: {
-        const int i = row - R_CTL;
-        ctl_step(i, how < 0 ? -1 : 1);
-        const char *b = controls_get(i);
-        ksnprintf(d->note, sizeof d->note, "%s: %s", controls_label(i), b ? ctl_button(b) : "the game's own button");
-        break;
-    }
     case R_LAYOUT:
         hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
         config_save();
@@ -1240,14 +1136,6 @@ static int act_controls(int row, int how, home_do_t *d)
 #else
         if (how == 0) text(d, x_test, 1, 0);
 #endif
-        break;
-    case R_CTL_RESET:
-        if (how == HOME_YES) {
-            controls_reset();
-            ksnprintf(d->note, sizeof d->note, "every action is back on the game's own button");
-        } else if (how == 0) {
-            ask(d, "Reset all the controls?", "Every action goes back to the game's own button.", "Reset");
-        }
         break;
     case R_FORGET:
         if (how == HOME_YES) {
@@ -1530,7 +1418,7 @@ void home_act(int id, int row, int how, home_do_t *d)
             home_util_start(row - R_UTIL_BASE, d);
         return;
     }
-    (void)(act_open(row, d) || act_controls(row, how, d) || act_screen(row, how, d) || act_network(row, how, d) || act_system(row, how, d) || act_updates(row, how, d) || act_sound(row, how, d));
+    (void)(act_open(row, d) || act_controllers(row, how, d) || act_screen(row, how, d) || act_network(row, how, d) || act_system(row, how, d) || act_updates(row, how, d) || act_sound(row, how, d));
 }
 
 void home_report(const home_do_t *d)

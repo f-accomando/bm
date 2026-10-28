@@ -30,8 +30,8 @@ game any more (removed upstream); a change needs `make market-seed MARKET=<clone
   game keeps Enter, Space and Backspace in the menus, the arrows and F1-F6. RESET TO DEFAULT asks first (NO is the
   default answer). The keys are in the game's slot 1 as `keys = { fire = { 0x0D } }`, only the actions that differ
   from the default. `Hud.key` shows the player's key. Checked in `bmhost` with a script of key presses (remap, swap,
-  reset, the pause path); not checked on a Pi or an RGB30. The system's Settings > Controls (`controls=`) does not
-  touch Overbit: it reads the keys with `keydown`.
+  reset, the pause path); not checked on a Pi or an RGB30. The system's `controls=` (no Settings page since 28 Oct 2026)
+  does not touch Overbit: it reads the keys with `keydown`.
 - The V3D side (queue, impostors, measurements): [v3d](v3d.md).
 - Overbit's mech pilots from pictures (D.Va `ref/rally_pilot.png`, D.Mon `ref/kaiju_pilot.png`):
   run `tools/meshy_text.py` with your own key (the `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
