@@ -85,6 +85,14 @@ Detail of `src/kernel/` (menu loop, settings, Market, update, services): [system
   - Cost of the source move: 201 files cite `src/bm` (Makefile, `rgb30.mk`, scripts, tests, `.claude/skills`, docs, manuals, `CLAUDE.md`); 54 C files include `"bm/..."`. Use `git mv`, then a scripted replace, then build Pi and RGB30, `docs_audit.py` and `consistency.py`.
   - To decide before work: the SD folder name of each other type (`.glb`, images, sounds) and the default folder of each open dialog; the migration of the repository `carts/` content.
 
+- **USB hotplug on the Pi (SYS-17, to do).** Today `usb_init()` (`src/usb/usb.c`) enumerates once at boot; Settings > *Scan the USB again* and the monitor's `usb` call it by hand. On 28 Oct 2026 a warm restart gave `usb: no answer from the device (-3)` and no keyboard until a second restart. Plan:
+  - In `usb_poll` read `dwc2_port_connected()` (HPRT, one register) about every 250 ms.
+  - Port connected and no device attached: call `usb_init()` (100-300 ms, one long frame; in a game, at a quiet moment).
+  - Unplugged: clear `hid_ep`, `mouse_ep`, `hid_dev`, `info.kind` and the held keys.
+  - Connected but the enumeration fails: try again every 2-3 s a few times, never every frame.
+  - Behind a hub the children do not change HPRT: read the hub's port status (`port_status`) as well, one control transfer per round.
+  - Test on the Pi: keyboard, mouse and hub plugged and unplugged, also with a game open. Cost when idle: one register read.
+
 ## Rules (do not break)
 - The bridge gate (26 Oct): `bm/bridge.txt` holds one word: `off` (default), `on` or `fast`. `off` refuses every operation of the transfer port (S, P, K, C, T, G; answer `BO`). `on` accepts them and stages a kernel. `fast` writes a kernel and a file at once (`dev_mode()`, the old `dev=1`). Only the user sets it: Settings > System > Bridge, or the file put on the SD card from a PC. `config_merge` refuses the keys `dev` and `bridge` (`BF`), and the transfer refuses any file named `bridge.txt` in any folder (`BF`). Do not add a network way to write this file.
 

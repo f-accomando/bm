@@ -1279,14 +1279,15 @@ static int act_screen(int row, int how, home_do_t *d)
 #else
     case R_MENUSIZE: {
         const char *v = config_get("menu_scale");
-        if (!v || !*v || v[0] == '2')
-            config_set("menu_scale", "3");
-        else if (v[0] == '3')
+        /* the order of the choices: 360p ARM (1), 360p GPU (4), 720p GPU (2, no key), 1080p GPU (3), then 360p ARM again */
+        if (v && v[0] == '1')
             config_set("menu_scale", "4");
-        else if (v[0] == '4')
-            config_set("menu_scale", "1");
-        else
+        else if (v && v[0] == '4')
             config_unset("menu_scale");
+        else if (!v || !*v || v[0] == '2')
+            config_set("menu_scale", "3");
+        else
+            config_set("menu_scale", "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "menu size at the next start: %s", menu_size_choice());
         break;
