@@ -8,7 +8,7 @@ fixed operations without ever seeing the password.
   python3 tools/pi.py line crc                          # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.txt and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, freeze-irq (IRQs on: the guard restarts the Pi in about 23 s), reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only b3d tests=.. profiles=.., log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.txt and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, freeze-irq (IRQs on: the guard restarts the Pi in about 23 s), reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only b3d tests=.. profiles=.., log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, restart (the console restarts, the same kernel: a bench3d_boot or a setting takes effect), shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
 One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.txt.
 The board decides the kernel file kernel FILE takes (pi: any name, as before; zero2: kernel7.img, rgb30: kernel8.img); the RGB30 has no monitor, so its crash, freeze and reboot keys answer "not for this board".
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
@@ -151,6 +151,8 @@ def run(host, pw, req, board="pi"):
         cmd = base + ["--" + op, os.path.realpath(arg)]
     elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
         cmd = base + ["--shot", os.path.realpath(arg)]
+    elif op == "restart" and not arg:
+        cmd = base + ["--restart"]
     elif op == "keys" and arg == "game-exit":
         cmd = base + ["--game-exit"]
     elif op == "keys" and arg in KEYS:

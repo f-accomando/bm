@@ -220,6 +220,15 @@ def get_file(args, path, out, password):
     return rc if data is None else save(out, data)
 
 
+def restart(args, password):
+    """--restart: the console restarts (R), with the same kernel"""
+    sock, a = open_request(args, b"R", "", b"", password)
+    sock.close()
+    if a != b"OK":
+        return refused(a)
+    return wait_reboot(args.host)
+
+
 def shot(args, out, password):
     """--shot: a screenshot of the running game (T), then its file (G)"""
     sock, a = open_request(args, b"T", "", b"", password)
@@ -451,12 +460,15 @@ def main():
                          "KEY= removes it")
     ap.add_argument("--dev", choices=["on", "off", "1", "0"],
                     help="no longer works: the bridge gate is set on the console (Settings > System > Bridge)")
+    ap.add_argument("--restart", action="store_true", help="restart the console (the same kernel)")
     ap.add_argument("--shot", metavar="OUT",
                     help="screenshot of the running game, written to OUT (a PNG)")
     ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
                     help="a file of bm/shots on the console (PATH, e.g. bm/shots/pong0007.png) written to OUT")
     args = ap.parse_args()
 
+    if args.restart:
+        return restart(args, args.password or getpass.getpass("password: "))
     if args.shot is not None:
         return shot(args, args.shot, args.password or getpass.getpass("password: "))
     if args.get is not None:

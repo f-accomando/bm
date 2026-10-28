@@ -148,7 +148,7 @@ static int parse_header(void)
     if (hdr_len < n)
         return 1;
     if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K' && hdr[4] != 'C' &&
-                           hdr[4] != 'T' && hdr[4] != 'G'))
+                           hdr[4] != 'T' && hdr[4] != 'G' && hdr[4] != 'R'))
         return -1;
     unsigned pl = hdr[5];
     n += pl + 1;
@@ -233,6 +233,19 @@ static void feed(const uint8_t *p, unsigned len)
                 if (r == -3)
                     kprintf("net: refused, the bridge is off (Settings > System > Bridge)\n");
                 fail(r == -2 ? "PW" : r == -3 ? "BO" : "BH");
+                return;
+            }
+            if (op == 'R') {                    /* restart the console: the answer first, the restart 0.3 s later (as after a kernel) */
+                if (size || crc) {
+                    fail("BH");
+                    return;
+                }
+                reply("OK");
+                reboot_after = 1;
+                restart_at = timer_ticks() + 300000u;
+                said = -1;
+                st = REPLIED;
+                close_at = timer_ticks();
                 return;
             }
             if (op == 'T' || op == 'G') {
