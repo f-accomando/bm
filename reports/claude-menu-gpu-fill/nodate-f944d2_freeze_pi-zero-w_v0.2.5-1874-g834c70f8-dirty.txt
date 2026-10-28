@@ -1,0 +1,86 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1874-g834c70f8-dirty
+branch: claude/menu-gpu-fill
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-f944d2_freeze_pi-zero-w_v0.2.5-1874-g834c70f8-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor, waiting for a key, frame 0, inside IRQ 21, 57 s after boot, kernel v0.2.5-1874-g834c70f8-dirty, ring 5453, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ WINDTRE - 73DE22
+   8   -89 dBm  ch  2  WPA2  (hidden)
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 640x360, drawn by the GPU
+covers: all 14 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 12.3 ms past its slice
+net: time 2026-10-28 14:56 UTC
+fiber: reports did not yield: 101.1 ms past its slice
+report: sending nodate-0fa6c8_freeze_pi-zero-w_v0.2.5-1874-g834c70f8-dirty.txt
+menu idle: 300/300 frames, 360 of 899 ms taken, 103.6 ms past a frame; covers 66 ms (+2.9, stk 0.8/16K), reports 274 ms (+101.1, stk 7.6/128K); min slack -31169 us, paced 0
+menu idle: sd first word <1ms 140 <3ms 11 (max 1.4 ms)
+menu stalls: tls handshake 1x last 286.6 worst 286.6 ms
+menu frame: 1x, a frame averages draw 23662 us, enlarge 0 us, flip 90 us, free time used 1202 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/claude-menu-gpu-fill/nodate-0fa6c8_freeze_pi-zero-w_v0.2.5-1874-g834c70f8-dirty.txt
+menu idle: 300/300 frames, 133 of 899 ms taken, 22.8 ms past a frame; reports 124 ms (+22.8, stk 7.6/128K); min slack -23445 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 22910 us, enlarge 0 us, flip 92 us, free time used 444 us (300 frames)
+menu frame: 1x, a frame averages draw 22882 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 22890 us, enlarge 0 us, flip 90 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 22883 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+menu frame: 1x, a frame averages draw 22909 us, enlarge 0 us, flip 91 us, free time used 30 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+type 'h' for help
+> :
+:log
+: log
+report: 20261028-145650_log_pi-zero-w_v0.2.5-1874-g834c70f8-dirty.txt saved as bm/reports/rpt00001.txt
+report: sending 20261028-145650_log_pi-zero-w_v0.2.5-1874-g834c70f8-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-menu-gpu-fill/20261028-145650_log_pi-zero-w_v0.2.5-1874-g834c70f8-dirty.txt
+the line is done
+> 
+net: console closed
+net: receiving settings (26 bytes)...
+config: menu_scale=2
+config: menu_probe=0
+net: settings from the PC: 2 changed in bm/config.txt
+net: receiving a new kernel (4802596 bytes)...
+net: kernel 0% (0 of 4690 KB)
+net: kernel 10% (478 of 4690 KB)
+net: kernel 20% (938 of 4690 KB)
+net: kernel 30% (1408 of 4690 KB)
+net: kernel 40% (1878 of 4690 KB)
+net: kernel 50% (2351 of 4690 KB)
+net: kernel 60% (2814 of 4690 KB)
+net: kernel 70% (3288 of 4690 KB)
+net: kernel 80% (3757 of 4690 KB)
+net: kernel 90% (4224 of 4690 KB)
