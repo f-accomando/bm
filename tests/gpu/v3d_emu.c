@@ -535,6 +535,8 @@ typedef struct {
     evert_t v[3];
     int shader, nvary;
     const uint32_t *params;
+    int lamps;                      /* fs_light: the lamps of its variant */
+    int tie;                        /* a pixel exactly on an edge is drawn by this triangle (the other one of a light quad: no) */
     int depth_func, z_update;
     int early;                          /* CONFIGURATION_BITS: bit 0 early z, bit 1 its updates */
     int oversample;                     /* CONFIGURATION_BITS: 1 = 4x (MSAA) */
@@ -751,7 +753,11 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha)) return SH_TEX_RGB_ALPHA;
     if (!memcmp(code, fs_zclear, sizeof fs_zclear)) return SH_ZCLEAR;
     if (!memcmp(code, fs_shadow, sizeof fs_shadow)) return SH_SHADOW;     /* bm3d 7.7 */
-    if (!memcmp(code, fs_light, sizeof fs_light)) return SH_LIGHT;        /* bm3d 7.17 */
+    if (!memcmp(code, fs_light0, sizeof fs_light0) || !memcmp(code, fs_light1, sizeof fs_light1) ||
+        !memcmp(code, fs_light2, sizeof fs_light2) || !memcmp(code, fs_light4, sizeof fs_light4) ||
+        !memcmp(code, fs_light6, sizeof fs_light6) || !memcmp(code, fs_light8, sizeof fs_light8) ||
+        !memcmp(code, fs_light12, sizeof fs_light12))
+        return SH_LIGHT;                                                      /* bm3d 7.17: by the lamps' count in the record */
     if (!memcmp(code, fs_tex_lit_screen, sizeof fs_tex_lit_screen)) return SH_TEX_SCREEN;
     if (!memcmp(code, fs_tex_rgb_screen, sizeof fs_tex_rgb_screen)) return SH_TEX_RGB_SCREEN;
     if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
@@ -1002,6 +1008,8 @@ static int bin(uint32_t start, uint32_t end)
                         pr->shader = sh;
                         pr->nvary = nvary;
                         pr->params = params;
+                        pr->lamps = 0;
+                        pr->tie = 1;
                         pr->depth_func = depth_func;
                         pr->z_update = z_update;
                         pr->early = early;
@@ -1026,7 +1034,7 @@ static int bin(uint32_t start, uint32_t end)
             if (sh == SH_ZCLEAR && emu_hang_zclear)
                 return err("fs_zclear: the job does not end (emu_hang_zclear)", 0, 0);
             if (nvary != (rgb ? 8 : sh == SH_ZCLEAR || light ? 0 : sh == SH_TEXT ? 5 : 3) || stride != 12 + 4 * nvary ||
-                rec[2] != (light ? 54 : colour ? 0 : 2))
+                (light ? (rec[2] < 6 || (rec[2] - 6) % 4) : rec[2] != (colour ? 0 : 2)))
                 return err("shader record: stride %u, varyings %u", stride, nvary);
             const uint8_t *vb = ptr(rd32(rec + 12));
             const uint32_t *params = colour ? NULL : ptr(rd32(rec + 8));    /* (the light's: its 54 uniforms) */
@@ -1058,6 +1066,8 @@ static int bin(uint32_t start, uint32_t end)
                 pr->shader = sh;
                 pr->nvary = nvary;
                 pr->params = params;
+                pr->lamps = light ? (rec[2] - 6) / 4 : 0;
+                pr->tie = !light || (i / 3) % 2 == 0;   /* a quad's two triangles: a pixel on the diagonal is the first's only */
                 pr->depth_func = depth_func;
                 pr->z_update = z_update;
                 pr->early = early;
@@ -1353,7 +1363,7 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                     float px = x + sp[s][0], py = y + sp[s][1];
                     float w0 = edge(&v[1], &v[2], px, py) / area, w1 = edge(&v[2], &v[0], px, py) / area,
                           w2 = edge(&v[0], &v[1], px, py) / area;
-                    if (w0 < 0 || w1 < 0 || w2 < 0)
+                    if (w0 < 0 || w1 < 0 || w2 < 0 || (!pr->tie && (w0 == 0 || w1 == 0 || w2 == 0)))
                         continue;
                     float zs = w0 * v[0].z + w1 * v[1].z + w2 * v[2].z;
                     uint32_t zz = (uint32_t)(zs <= 0 ? 0 : zs >= 1 ? 0xFFFFFF : zs * 16777215.0f);
@@ -1376,11 +1386,11 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                     if (pr->shader == SH_LIGHT) {   /* fs_light: the pixel's colour times the lamps' light, in the shader's float order */
                         const uint32_t *u = pr->params;
                         float un[54];
-                        for (int k = 0; k < 54; k++)
+                        for (int k = 0; k < 6 + 4 * pr->lamps; k++)
                             memcpy(&un[k], &u[k], 4);
                         const float fx = (float)x, fy = (float)y;
                         float sum = 0.0f;
-                        for (int l = 0; l < 12; l++) {
+                        for (int l = 0; l < pr->lamps; l++) {
                             const float *lp = un + 6 + 4 * l;
                             const float dx = fx - lp[0], dy = fy - lp[1];
                             float f = 1.0f - (dx * dx + dy * dy) * lp[2];

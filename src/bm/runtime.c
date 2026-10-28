@@ -318,32 +318,35 @@ int light_gpu_run(void)
         return 0;
     const g16_fade_t *f = &rt.fade;
     const int top = f->levels - 1;
-    int amb = rt.light_amb;
-    amb = amb < 0 ? 0 : amb > top ? top : amb;
-    float u[GPU_LIGHT_UNIFORMS] = { 0 };
+    int amb_l = rt.light_amb;
+    amb_l = amb_l < 0 ? 0 : amb_l > top ? top : amb_l;
+    float amb[6];
     for (int c = 0; c < 3; c++) {
-        const float a = f->mul[amb][c] / 256.0f;
-        u[c] = a * 0.5f;                    /* (the shader doubles the product) */
-        u[3 + c] = (f->mul[top][c] / 256.0f - a) * 0.5f;
+        const float a = f->mul[amb_l][c] / 256.0f;
+        amb[c] = a * 0.5f;                  /* (the shader doubles the product) */
+        amb[3 + c] = (f->mul[top][c] / 256.0f - a) * 0.5f;
     }
-    /* the strongest lamps: the shader has room for GPU_LIGHT_LAMPS */
+    /* the lamps, strongest first (a tile takes the first 12 that reach it) */
+    gpu_lamp_t lamp[64];
+    int nl = 0;
     uint8_t taken[64] = { 0 };
-    for (int k = 0; k < GPU_LIGHT_LAMPS; k++) {
+    for (int k = 0; k < rt.light_n; k++) {
         int best = -1;
         for (int i = 0; i < rt.light_n; i++)
-            if (!taken[i] && rt.lamp[i].r > 0 && rt.lamp[i].lv > amb && (best < 0 || rt.lamp[i].lv > rt.lamp[best].lv))
+            if (!taken[i] && rt.lamp[i].r > 0 && rt.lamp[i].lv > amb_l && (best < 0 || rt.lamp[i].lv > rt.lamp[best].lv))
                 best = i;
         if (best < 0)
             break;
         taken[best] = 1;
-        float *l = u + 6 + 4 * k;
         const float r = (float)rt.lamp[best].r;
-        l[0] = (float)rt.lamp[best].x;
-        l[1] = (float)rt.lamp[best].y;
-        l[2] = 1.0f / (r * r);
-        l[3] = top > amb ? (float)(rt.lamp[best].lv - amb) / (float)(top - amb) : 0.0f;
+        lamp[nl].x = (float)rt.lamp[best].x;
+        lamp[nl].y = (float)rt.lamp[best].y;
+        lamp[nl].r = r;
+        lamp[nl].inv_r2 = 1.0f / (r * r);
+        lamp[nl].level = top > amb_l ? (float)(rt.lamp[best].lv - amb_l) / (float)(top - amb_l) : 0.0f;
+        nl++;
     }
-    if (gpu3d_light2d(&rt.g, u) != 0) {
+    if (gpu3d_light2d(&rt.g, amb, lamp, nl) != 0) {
         if (gpu3d_failed())
             rt.r3d.backend = NULL;
         return 0;

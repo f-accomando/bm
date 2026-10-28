@@ -3112,7 +3112,430 @@ static const uint32_t vs_lit_tex2_cel[414] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
-static const uint32_t fs_light[322] __attribute__((aligned(8))) = {
+static const uint32_t fs_light0[58] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x08a67d80, 0x10020027,     /* itof ra0, x_coord ; nop */
+    0x089e9fc0, 0x10021027,     /* itof rb0, y_coord ; nop */
+    0x15827d80, 0x100200a7,     /* mov ra2, unif ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif ; nop */
+    0x15827d80, 0x10020127,     /* mov ra4, unif ; nop */
+    0x15827d80, 0x100210a7,     /* mov rb2, unif ; nop */
+    0x15827d80, 0x100210e7,     /* mov rb3, unif ; nop */
+    0x15827d80, 0x10021127,     /* mov rb4, unif ; nop */
+    0x159c0fc0, 0xd00208a7,     /* mov r2, 0 ; nop */
+    0x209c2017, 0x100049e0,     /* nop ; fmul r0, r2, rb2 */
+    0x010a7180, 0x10020827,     /* fadd r0, r0, ra2 ; nop */
+    0x809e7000, 0x114049e1,     /* nop ; mov r1.8a, r0 */
+    0x209c3017, 0x100049e0,     /* nop ; fmul r0, r2, rb3 */
+    0x010e7180, 0x10020827,     /* fadd r0, r0, ra3 ; nop */
+    0x809e7000, 0x115049e1,     /* nop ; mov r1.8b, r0 */
+    0x209c4017, 0x100049e0,     /* nop ; fmul r0, r2, rb4 */
+    0x01127180, 0x10020827,     /* fadd r0, r0, ra4 ; nop */
+    0x809e7000, 0x116049e1,     /* nop ; mov r1.8c, r0 */
+    0x809e003f, 0xd17049e1,     /* nop ; mov r1.8d, 1.0 */
+    0x009e7000, 0x400009e7,     /* nop ; nop ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop ; nop ; loadc */
+    0x609e7021, 0x100049e0,     /* nop ; v8muld r0, r4, r1 */
+    0xc09e7000, 0x100049e0,     /* v8adds r0, r0, r0 ; nop */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15 ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0 ; nop ; thrend */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x500009e7,     /* nop ; nop ; sbdone */
+};
+
+static const uint32_t fs_light1[80] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x08a67d80, 0x10020027,     /* itof ra0, x_coord ; nop */
+    0x089e9fc0, 0x10021027,     /* itof rb0, y_coord ; nop */
+    0x15827d80, 0x100200a7,     /* mov ra2, unif ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif ; nop */
+    0x15827d80, 0x10020127,     /* mov ra4, unif ; nop */
+    0x15827d80, 0x100210a7,     /* mov rb2, unif ; nop */
+    0x15827d80, 0x100210e7,     /* mov rb3, unif ; nop */
+    0x15827d80, 0x10021127,     /* mov rb4, unif ; nop */
+    0x159c0fc0, 0xd00208a7,     /* mov r2, 0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x209c2017, 0x100049e0,     /* nop ; fmul r0, r2, rb2 */
+    0x010a7180, 0x10020827,     /* fadd r0, r0, ra2 ; nop */
+    0x809e7000, 0x114049e1,     /* nop ; mov r1.8a, r0 */
+    0x209c3017, 0x100049e0,     /* nop ; fmul r0, r2, rb3 */
+    0x010e7180, 0x10020827,     /* fadd r0, r0, ra3 ; nop */
+    0x809e7000, 0x115049e1,     /* nop ; mov r1.8b, r0 */
+    0x209c4017, 0x100049e0,     /* nop ; fmul r0, r2, rb4 */
+    0x01127180, 0x10020827,     /* fadd r0, r0, ra4 ; nop */
+    0x809e7000, 0x116049e1,     /* nop ; mov r1.8c, r0 */
+    0x809e003f, 0xd17049e1,     /* nop ; mov r1.8d, 1.0 */
+    0x009e7000, 0x400009e7,     /* nop ; nop ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop ; nop ; loadc */
+    0x609e7021, 0x100049e0,     /* nop ; v8muld r0, r4, r1 */
+    0xc09e7000, 0x100049e0,     /* v8adds r0, r0, r0 ; nop */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15 ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0 ; nop ; thrend */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x500009e7,     /* nop ; nop ; sbdone */
+};
+
+static const uint32_t fs_light2[102] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x08a67d80, 0x10020027,     /* itof ra0, x_coord ; nop */
+    0x089e9fc0, 0x10021027,     /* itof rb0, y_coord ; nop */
+    0x15827d80, 0x100200a7,     /* mov ra2, unif ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif ; nop */
+    0x15827d80, 0x10020127,     /* mov ra4, unif ; nop */
+    0x15827d80, 0x100210a7,     /* mov rb2, unif ; nop */
+    0x15827d80, 0x100210e7,     /* mov rb3, unif ; nop */
+    0x15827d80, 0x10021127,     /* mov rb4, unif ; nop */
+    0x159c0fc0, 0xd00208a7,     /* mov r2, 0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x209c2017, 0x100049e0,     /* nop ; fmul r0, r2, rb2 */
+    0x010a7180, 0x10020827,     /* fadd r0, r0, ra2 ; nop */
+    0x809e7000, 0x114049e1,     /* nop ; mov r1.8a, r0 */
+    0x209c3017, 0x100049e0,     /* nop ; fmul r0, r2, rb3 */
+    0x010e7180, 0x10020827,     /* fadd r0, r0, ra3 ; nop */
+    0x809e7000, 0x115049e1,     /* nop ; mov r1.8b, r0 */
+    0x209c4017, 0x100049e0,     /* nop ; fmul r0, r2, rb4 */
+    0x01127180, 0x10020827,     /* fadd r0, r0, ra4 ; nop */
+    0x809e7000, 0x116049e1,     /* nop ; mov r1.8c, r0 */
+    0x809e003f, 0xd17049e1,     /* nop ; mov r1.8d, 1.0 */
+    0x009e7000, 0x400009e7,     /* nop ; nop ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop ; nop ; loadc */
+    0x609e7021, 0x100049e0,     /* nop ; v8muld r0, r4, r1 */
+    0xc09e7000, 0x100049e0,     /* v8adds r0, r0, r0 ; nop */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15 ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0 ; nop ; thrend */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x500009e7,     /* nop ; nop ; sbdone */
+};
+
+static const uint32_t fs_light4[146] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x08a67d80, 0x10020027,     /* itof ra0, x_coord ; nop */
+    0x089e9fc0, 0x10021027,     /* itof rb0, y_coord ; nop */
+    0x15827d80, 0x100200a7,     /* mov ra2, unif ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif ; nop */
+    0x15827d80, 0x10020127,     /* mov ra4, unif ; nop */
+    0x15827d80, 0x100210a7,     /* mov rb2, unif ; nop */
+    0x15827d80, 0x100210e7,     /* mov rb3, unif ; nop */
+    0x15827d80, 0x10021127,     /* mov rb4, unif ; nop */
+    0x159c0fc0, 0xd00208a7,     /* mov r2, 0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x209c2017, 0x100049e0,     /* nop ; fmul r0, r2, rb2 */
+    0x010a7180, 0x10020827,     /* fadd r0, r0, ra2 ; nop */
+    0x809e7000, 0x114049e1,     /* nop ; mov r1.8a, r0 */
+    0x209c3017, 0x100049e0,     /* nop ; fmul r0, r2, rb3 */
+    0x010e7180, 0x10020827,     /* fadd r0, r0, ra3 ; nop */
+    0x809e7000, 0x115049e1,     /* nop ; mov r1.8b, r0 */
+    0x209c4017, 0x100049e0,     /* nop ; fmul r0, r2, rb4 */
+    0x01127180, 0x10020827,     /* fadd r0, r0, ra4 ; nop */
+    0x809e7000, 0x116049e1,     /* nop ; mov r1.8c, r0 */
+    0x809e003f, 0xd17049e1,     /* nop ; mov r1.8d, 1.0 */
+    0x009e7000, 0x400009e7,     /* nop ; nop ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop ; nop ; loadc */
+    0x609e7021, 0x100049e0,     /* nop ; v8muld r0, r4, r1 */
+    0xc09e7000, 0x100049e0,     /* v8adds r0, r0, r0 ; nop */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15 ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0 ; nop ; thrend */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x500009e7,     /* nop ; nop ; sbdone */
+};
+
+static const uint32_t fs_light6[190] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x08a67d80, 0x10020027,     /* itof ra0, x_coord ; nop */
+    0x089e9fc0, 0x10021027,     /* itof rb0, y_coord ; nop */
+    0x15827d80, 0x100200a7,     /* mov ra2, unif ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif ; nop */
+    0x15827d80, 0x10020127,     /* mov ra4, unif ; nop */
+    0x15827d80, 0x100210a7,     /* mov rb2, unif ; nop */
+    0x15827d80, 0x100210e7,     /* mov rb3, unif ; nop */
+    0x15827d80, 0x10021127,     /* mov rb4, unif ; nop */
+    0x159c0fc0, 0xd00208a7,     /* mov r2, 0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x209c2017, 0x100049e0,     /* nop ; fmul r0, r2, rb2 */
+    0x010a7180, 0x10020827,     /* fadd r0, r0, ra2 ; nop */
+    0x809e7000, 0x114049e1,     /* nop ; mov r1.8a, r0 */
+    0x209c3017, 0x100049e0,     /* nop ; fmul r0, r2, rb3 */
+    0x010e7180, 0x10020827,     /* fadd r0, r0, ra3 ; nop */
+    0x809e7000, 0x115049e1,     /* nop ; mov r1.8b, r0 */
+    0x209c4017, 0x100049e0,     /* nop ; fmul r0, r2, rb4 */
+    0x01127180, 0x10020827,     /* fadd r0, r0, ra4 ; nop */
+    0x809e7000, 0x116049e1,     /* nop ; mov r1.8c, r0 */
+    0x809e003f, 0xd17049e1,     /* nop ; mov r1.8d, 1.0 */
+    0x009e7000, 0x400009e7,     /* nop ; nop ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop ; nop ; loadc */
+    0x609e7021, 0x100049e0,     /* nop ; v8muld r0, r4, r1 */
+    0xc09e7000, 0x100049e0,     /* v8adds r0, r0, r0 ; nop */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15 ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0 ; nop ; thrend */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x500009e7,     /* nop ; nop ; sbdone */
+};
+
+static const uint32_t fs_light8[234] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x08a67d80, 0x10020027,     /* itof ra0, x_coord ; nop */
+    0x089e9fc0, 0x10021027,     /* itof rb0, y_coord ; nop */
+    0x15827d80, 0x100200a7,     /* mov ra2, unif ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif ; nop */
+    0x15827d80, 0x10020127,     /* mov ra4, unif ; nop */
+    0x15827d80, 0x100210a7,     /* mov rb2, unif ; nop */
+    0x15827d80, 0x100210e7,     /* mov rb3, unif ; nop */
+    0x15827d80, 0x10021127,     /* mov rb4, unif ; nop */
+    0x159c0fc0, 0xd00208a7,     /* mov r2, 0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x02020dc0, 0x10020827,     /* fsub r0, ra0, unif ; nop */
+    0x02800f80, 0x10020867,     /* fsub r1, rb0, unif ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x209e7009, 0x100049e1,     /* nop ; fmul r1, r1, r1 */
+    0x019e7040, 0x10020827,     /* fadd r0, r0, r1 ; nop */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x029e0e00, 0xd0020827,     /* fsub r0, 1.0, r0 ; nop */
+    0x049c01c0, 0xd0020827,     /* fmax r0, r0, 0 ; nop */
+    0x209e7000, 0x100049e0,     /* nop ; fmul r0, r0, r0 */
+    0x20827006, 0x100049e0,     /* nop ; fmul r0, r0, unif */
+    0x019e7400, 0x100208a7,     /* fadd r2, r2, r0 ; nop */
+    0x209c2017, 0x100049e0,     /* nop ; fmul r0, r2, rb2 */
+    0x010a7180, 0x10020827,     /* fadd r0, r0, ra2 ; nop */
+    0x809e7000, 0x114049e1,     /* nop ; mov r1.8a, r0 */
+    0x209c3017, 0x100049e0,     /* nop ; fmul r0, r2, rb3 */
+    0x010e7180, 0x10020827,     /* fadd r0, r0, ra3 ; nop */
+    0x809e7000, 0x115049e1,     /* nop ; mov r1.8b, r0 */
+    0x209c4017, 0x100049e0,     /* nop ; fmul r0, r2, rb4 */
+    0x01127180, 0x10020827,     /* fadd r0, r0, ra4 ; nop */
+    0x809e7000, 0x116049e1,     /* nop ; mov r1.8c, r0 */
+    0x809e003f, 0xd17049e1,     /* nop ; mov r1.8d, 1.0 */
+    0x009e7000, 0x400009e7,     /* nop ; nop ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop ; nop ; loadc */
+    0x609e7021, 0x100049e0,     /* nop ; v8muld r0, r4, r1 */
+    0xc09e7000, 0x100049e0,     /* v8adds r0, r0, r0 ; nop */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15 ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0 ; nop ; thrend */
+    0x009e7000, 0x100009e7,     /* nop ; nop */
+    0x009e7000, 0x500009e7,     /* nop ; nop ; sbdone */
+};
+
+static const uint32_t fs_light12[322] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop ; nop */
     0x009e7000, 0x100009e7,     /* nop ; nop */
     0x08a67d80, 0x10020027,     /* itof ra0, x_coord ; nop */

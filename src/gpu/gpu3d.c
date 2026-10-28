@@ -19,7 +19,7 @@
 #define JOB_RCL      (128u << 10)   /* up to 44 bytes a tile: 2040 tiles (1080p with MSAA) */
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (52u << 10)    /* the shaders: 1 KB each, 2 KB for a vertex shader and for the light's */
+#define JOB_CODE     (60u << 10)    /* the shaders: 1 KB each, 2 KB for a vertex shader and for the light's */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -57,8 +57,11 @@ typedef struct {
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
        SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_SHADOW, SH_TEX_T, SH_TEX_RGB_T,
        SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T,
-       SH_LIGHT,                        /* bm3d 7.17: the light of dark_end (2 KB: the slot after it is its) */
+       /* bm3d 7.17: the light of dark_end, by tiles of the page: the variant with the lamps the tile needs (the last takes
+        * 2 KB: the slot after it is its) */
+       SH_LIGHT0, SH_LIGHT1, SH_LIGHT2, SH_LIGHT4, SH_LIGHT6, SH_LIGHT8, SH_LIGHT12,
        SH_COUNT };
+#define SH_LIGHT_FIRST SH_LIGHT0
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (bm3d 3.0); GV_LIT_TEX2: faces on two bones (a
  * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (bm3d 7.1,
@@ -78,7 +81,7 @@ _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs
                sizeof vs_baked8 <= 2048 && sizeof vs_lit8 <= 2048 && sizeof vs_lit_cel <= 2048 &&
                sizeof vs_lit_tex_cel <= 2048 && sizeof vs_lit_tex2_cel <= 2048 && sizeof vs_lit8_cel <= 2048 &&
                sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 && sizeof cs_colour2 <= 1024 &&
-               sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 && sizeof fs_light <= 2048 &&
+               sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 && sizeof fs_light12 <= 2048 && sizeof fs_light8 <= 1024 &&
                CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
 
 /* discard: the shader may write no pixel (early z off); near: the texture
@@ -102,7 +105,14 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t, 2, 3, 1, 0 },
     { fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t, 2, 8, 1, 0 },
     { fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t, 2, 8, 1, 0 },
-    { fs_light, sizeof fs_light, GPU_LIGHT_UNIFORMS, 0, 0, 0 },     /* bm3d 7.17: its uniforms are the lamps' */
+    /* bm3d 7.17: the light's uniforms are the ambient (6 words) and the lamps' (4 each) */
+    { fs_light0, sizeof fs_light0, 6, 0, 0, 0 },
+    { fs_light1, sizeof fs_light1, 10, 0, 0, 0 },
+    { fs_light2, sizeof fs_light2, 14, 0, 0, 0 },
+    { fs_light4, sizeof fs_light4, 22, 0, 0, 0 },
+    { fs_light6, sizeof fs_light6, 30, 0, 0, 0 },
+    { fs_light8, sizeof fs_light8, 38, 0, 0, 0 },
+    { fs_light12, sizeof fs_light12, 54, 0, 0, 0 },
 };
 
 /* a sprite sheet as a texture: RGBA32R (raster order, 32 bits a texel) in
@@ -866,7 +876,7 @@ static inline int fs_code(int shader)
  * 2026-10-05) */
 static inline uint8_t fs_flags(int code)
 {
-    return code >= SH_TEX_T && code != SH_LIGHT ? 0 : 1;   /* the _T shaders are the last ones, then the light's */
+    return code >= SH_TEX_T && code < SH_LIGHT_FIRST ? 0 : 1;   /* the _T shaders, then the light's (one thread) */
 }
 
 /* 0, or -1 if the job is full */
@@ -1197,42 +1207,72 @@ static int zclear_quad(const g16_t *g)
     return 0;
 }
 
-/* bm3d 7.17: the light of dark_end as a quad over the page (fs_light): u is the shader's uniforms,
- * GPU_LIGHT_UNIFORMS floats (gpu3d.h). The pixel the page holds is multiplied by the colour they make; the job
- * loads the page, so what the ARM drew in the RAM page is what is lit. 0, or -1 if the GPU failed or the job is
- * full (nothing was added). */
-int gpu3d_light2d(const g16_t *g, const float *u)
+/* bm3d 7.17: the light of dark_end by the GPU (fs_light*): the page in tiles of 64 x 64 pixels, each with one quad whose
+ * shader holds the lamps that reach it (0, 1, 2, 4, 6, 8 or 12; the first lamps of the list when more reach it: it is
+ * sorted by level, strongest first). amb: the ambient (3) and the tint (3), halved. The pixel the page holds is
+ * multiplied by the colour they make; the job loads the page, so what the ARM drew in the RAM page is what is lit.
+ * 0, or -1 if the GPU failed or the job is full (a tile may be left unlit: the caller then lights it all by the ARM). */
+int gpu3d_light2d(const g16_t *g, const float *amb, const gpu_lamp_t *lamp, int n)
 {
+    static const uint8_t slot[] = { SH_LIGHT0, SH_LIGHT1, SH_LIGHT2, SH_LIGHT4, SH_LIGHT6, SH_LIGHT8, SH_LIGHT12 };
+    static const uint8_t cap[] = { 0, 1, 2, 4, 6, 8, 12 };
     if (G.failed)
         return -1;
-    batch_close();                      /* its own batch: the record points to these uniforms */
     g16_t all = *g;                     /* the whole page, whatever the clip rectangle */
     all.cx0 = all.cy0 = 0;
     all.cx1 = g->w;
     all.cy1 = g->h;
-    if (batch_for(&all, SH_LIGHT, R3D_DEPTH_NONE, NULL) != 0)
-        return -1;
-    if (G.unif_next + GPU_LIGHT_UNIFORMS + 16 > G.unif + JOB_UNIF / 4) {
-        batch_close();
-        return -1;
-    }
-    uint32_t *ub = (uint32_t *)(((uintptr_t)G.unif_next + 15) & ~(uintptr_t)15);
-    memcpy(ub, u, GPU_LIGHT_UNIFORMS * sizeof *ub);
-    G.unif_next = ub + GPU_LIGHT_UNIFORMS;
-    const uint32_t a = v3d_bus(ub);
-    memcpy(G.rec_next - 16 + 8, &a, 4);         /* the record batch_open just made: the uniforms' address */
-    const int16_t x1 = (int16_t)(g->w * 16), y1 = (int16_t)(g->h * 16);
-    const int16_t xy[6][2] = { { 0, 0 }, { x1, 0 }, { x1, y1 }, { 0, 0 }, { x1, y1 }, { 0, y1 } };
-    uint8_t *o = G.verts + G.vbytes;
-    for (int i = 0; i < 6; i++, o += G.b_stride) {
-        gvert_t *v = (gvert_t *)o;
-        v->x = xy[i][0];
-        v->y = xy[i][1];
-        v->z = 0.5f;
-        v->inv_w = 1.0f;
-    }
-    G.vbytes += 6 * G.b_stride;
-    batch_close();
+    for (int ty = 0; ty < g->h; ty += 64)
+        for (int tx = 0; tx < g->w; tx += 64) {
+            const int x1 = tx + 64 < g->w ? tx + 64 : g->w, y1 = ty + 64 < g->h ? ty + 64 : g->h;
+            const gpu_lamp_t *mine[12];
+            int k = 0;
+            for (int i = 0; i < n && k < 12; i++)
+                if (lamp[i].x + lamp[i].r >= (float)tx && lamp[i].x - lamp[i].r <= (float)x1 &&
+                    lamp[i].y + lamp[i].r >= (float)ty && lamp[i].y - lamp[i].r <= (float)y1)
+                    mine[k++] = &lamp[i];
+            int v = 0;
+            while (cap[v] < k)
+                v++;
+            batch_close();              /* a batch of its own: the record points to this tile's uniforms */
+            if (batch_for(&all, slot[v], R3D_DEPTH_NONE, NULL) != 0)
+                return -1;
+            const int nu = 6 + 4 * cap[v];
+            if (G.unif_next + nu + 16 > G.unif + JOB_UNIF / 4) {
+                batch_close();
+                return -1;
+            }
+            uint32_t *ub = (uint32_t *)(((uintptr_t)G.unif_next + 15) & ~(uintptr_t)15);
+            float *u = (float *)ub;
+            for (int c = 0; c < 6; c++)
+                u[c] = amb[c];
+            for (int l = 0; l < cap[v]; l++) {
+                float *d = u + 6 + 4 * l;
+                if (l < k) {
+                    d[0] = mine[l]->x;
+                    d[1] = mine[l]->y;
+                    d[2] = mine[l]->inv_r2;
+                    d[3] = mine[l]->level;
+                } else {                /* padding: a lamp with no light */
+                    d[0] = d[1] = d[2] = d[3] = 0.0f;
+                }
+            }
+            G.unif_next = ub + nu;
+            const uint32_t a = v3d_bus(ub);
+            memcpy(G.rec_next - 16 + 8, &a, 4);         /* the record batch_open just made: the uniforms' address */
+            const int16_t xa = (int16_t)(tx * 16), ya = (int16_t)(ty * 16), xb = (int16_t)(x1 * 16), yb = (int16_t)(y1 * 16);
+            const int16_t xy[6][2] = { { xa, ya }, { xb, ya }, { xb, yb }, { xa, ya }, { xb, yb }, { xa, yb } };
+            uint8_t *o = G.verts + G.vbytes;
+            for (int i = 0; i < 6; i++, o += G.b_stride) {
+                gvert_t *vv = (gvert_t *)o;
+                vv->x = xy[i][0];
+                vv->y = xy[i][1];
+                vv->z = 0.5f;
+                vv->inv_w = 1.0f;
+            }
+            G.vbytes += 6 * G.b_stride;
+            batch_close();
+        }
     G.st.light2d++;
     return 0;
 }

@@ -169,12 +169,14 @@ const char *gpu3d_probe_log(void);
  * g16_text_scaled, in g's font. 1 if the GPU took it, 0 if it cannot (the
  * ARM draws it, after the job). */
 int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c);
-/* bm3d 7.17: the light of dark_end (fs_light): the page's pixels times a colour made from the ambient and the lamps.
- * u: ambient (3) and tint (3) (both halved: the shader doubles the product), then for each of GPU_LIGHT_LAMPS lamps its
- * x, y (in the page), 1 / r^2 and level (0: no lamp), all floats. 0, or -1 if the GPU failed. */
-#define GPU_LIGHT_LAMPS 12
-#define GPU_LIGHT_UNIFORMS (6 + 4 * GPU_LIGHT_LAMPS)
-int gpu3d_light2d(const g16_t *g, const float *u);
+/* bm3d 7.17: the light of dark_end (fs_light*): the page's pixels times a colour made from the ambient and the lamps,
+ * by tiles of 64 x 64 pixels (each with the lamps that reach it, 12 at most). amb: the ambient (3) and the tint (3),
+ * both halved (the shader doubles the product). lamp: n lamps, strongest first. 0, or -1 if the GPU failed. */
+typedef struct {
+    float x, y, r;                  /* in the page; the reach in pixels */
+    float inv_r2, level;            /* 1 / r^2; the weight (0..1) between the ambient and the top level */
+} gpu_lamp_t;
+int gpu3d_light2d(const g16_t *g, const float *amb, const gpu_lamp_t *lamp, int n);
 int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
                  int flip_x, int flip_y);
 int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale);

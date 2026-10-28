@@ -1793,19 +1793,19 @@ def same(got, words):
     return True
 
 
-# bm3d 7.17: the light of dark_end on the GPU. One quad over the page: for each pixel the light it gets from
-# LIGHT_LAMPS lamps is added up, S = sum of level * (1 - d2 / r2)^2 (0 outside the lamp), the colour factor is
+# bm3d 7.17: the light of dark_end on the GPU. One quad over a tile of the page: for each pixel the light it gets
+# from the lamps of the variant is added up, S = sum of level * (1 - d2 / r2)^2 (0 outside the lamp), the colour factor is
 # M = A + S * W per channel (A the ambient's, W the lamps' tint; halved by the ARM: M / 2 is in 0..1), and the
 # pixel the colour load signal reads from the tile buffer is multiplied by it (v8muld, then doubled with a
 # saturating add). Uniforms: A (3), W (3), then for each lamp: x, y, 1 / r2, level (floats; level 0 = no lamp).
-LIGHT_LAMPS = 12
+LIGHT_VARIANTS = (0, 1, 2, 4, 6, 8, 12)      # lamps unrolled: a tile of the page takes the smallest one that holds its lamps
 
 
-def _fs_light():
+def _fs_light(lamps):
     t = ["nop ; nop", "nop ; nop", "itof ra0, x_coord ; nop", "itof rb0, y_coord ; nop",
          "mov ra2, unif ; nop", "mov ra3, unif ; nop", "mov ra4, unif ; nop",
          "mov rb2, unif ; nop", "mov rb3, unif ; nop", "mov rb4, unif ; nop", "mov r2, 0 ; nop"]
-    for _ in range(LIGHT_LAMPS):
+    for _ in range(lamps):
         t += ["fsub r0, ra0, unif ; nop",          # dx
               "fsub r1, rb0, unif ; nop",          # dy
               "nop ; fmul r0, r0, r0",
@@ -1825,7 +1825,8 @@ def _fs_light():
     return "\n".join("        " + x for x in t) + "\n    "
 
 
-SHADERS["fs_light"] = _fs_light()
+for _n in LIGHT_VARIANTS:
+    SHADERS["fs_light%d" % _n] = _fs_light(_n)
 
 # bm3d 6.3: a fragment shader run for one pixel on its encoded words, to
 # check that a two-thread shader (name_t) writes what its one-thread

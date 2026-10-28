@@ -572,9 +572,9 @@ void gpu3d_set_sort(int on) { (void)on; }
 int gpu3d_sort(void) { return 0; }
 void gpu3d_set_attr(int on) { (void)on; }
 int gpu3d_attr(void) { return 0; }
-int gpu3d_light2d(const g16_t *g, const float *u)
+int gpu3d_light2d(const g16_t *g, const float *amb, const gpu_lamp_t *lamp, int n)
 {
-    (void)g; (void)u;
+    (void)g; (void)amb; (void)lamp; (void)n;
     return -1;
 }
 int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
