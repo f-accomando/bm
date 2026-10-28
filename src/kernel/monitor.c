@@ -7,6 +7,8 @@
 #include "home.h"
 #include "input.h"
 #include "script/repl.h"
+#include "script/luavm.h"
+#include "fs/fat.h"
 #include "sysinfo.h"
 #include "syskeys.h"
 #include "testpattern.h"
@@ -165,7 +167,44 @@ CMD(c_help)
 }
 
 CMD(c_menu) { carts_menu(console_framebuffer()); return 0; }
-CMD(c_lua) { repl_run(); return 0; }
+/* lua: no word, the REPL; lua -e CODE, one chunk; lua FILE, a script of the SD card */
+CMD(c_lua)
+{
+    if (argc < 2) {
+        repl_run();
+        return 0;
+    }
+    if (!luavm_init())
+        return 1;                               /* (the state is made on first use) */
+    if (!strcmp(argv[1], "-e")) {
+        if (argc < 3) {
+            kprintf("lua -e needs the code\n");
+            return 1;
+        }
+        char code[512];
+        code[0] = 0;
+        for (int i = 2; i < argc; i++) {
+            strncat(code, argv[i], sizeof code - strlen(code) - 1);
+            strncat(code, " ", sizeof code - strlen(code) - 1);
+        }
+        return luavm_run(code, strlen(code), "=lua") != 0;
+    }
+    char path[128];
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    if (mfs_path(argv[1], path, sizeof path) != 0 || fat_find(path, &e) != 0 || e.is_dir) {
+        kprintf("lua: %s: not a file\n", argv[1]);
+        return 1;
+    }
+    if (fat_load(&e, &data, &len) != 0) {
+        kprintf("lua: %s: %s\n", path, fat_error());
+        return 1;
+    }
+    int r = luavm_run((const char *)data, len, path);
+    free(data);
+    return r != 0;
+}
 CMD(c_upload) { upload_and_play(console_framebuffer()); return 0; }
 CMD(c_carts_list) { carts_list(); return 0; }
 CMD(c_carts_rescan) { carts_init(); carts_list(); return 0; }
@@ -624,7 +663,7 @@ static const mcmd_t commands[] = {
     { .name = "help", .args = "[COMMAND]", .help = "this list, or one command", .key = 'h', .fn = c_help, .cand = cand_help },
     { .name = "menu", .help = "cartridge menu, or PS on a pad", .key = 'M', .fn = c_menu },
     { .name = "carts", .help = "the cartridges (SD: / and /bm)", .sub = carts_sub },
-    { .name = "lua", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .key = 'l', .fn = c_lua },
+    { .name = "lua", .args = "[FILE | -e CODE]", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .key = 'l', .fn = c_lua },
     { .name = "upload", .help = "receive a cartridge over serial, play it", .key = 'U', .fn = c_upload },
     { .name = "sys", .help = "the system", .sub = sys_sub },
     { .name = "tool", .help = "the tools of a .bm cartridge", .sub = tool_sub },
@@ -767,15 +806,25 @@ static void line_error(const char *msg)
     kprintf("%s\n", msg);
 }
 
-static void line_run(const char *text, int quiet)
+static int line_run(const char *text, int quiet)
 {
-    static char line[MEDIT_LINE_MAX];
+    char line[MEDIT_LINE_MAX];                  /* not static: a Lua script (bm.sh) runs a line inside a line */
     static const mcmd_hooks_t hooks = { line_before, line_error };
     snprintf(line, sizeof line, "%s", text);
     crumb("monitor line", line);
     quiet_line = quiet;
-    mcmd_run_line(commands, line, &hooks);
+    int r = mcmd_run_line(commands, line, &hooks);
     quiet_line = 0;
+    return r;
+}
+
+/* bm.sh in the shell's Lua: one line, what it printed in out */
+static int monitor_sh(const char *text, char *out, size_t cap)
+{
+    klog_capture(out, cap);
+    int r = line_run(text, 1);
+    klog_capture(NULL, 0);
+    return r;
 }
 
 /* the bm> prompt: lines until 'exit', Esc or Ctrl-D. 1 if the PS button asked for the menu */
@@ -839,6 +888,7 @@ static int run_key(int c)
 
 void monitor_run(void)
 {
+    bm_set_sh(monitor_sh);
     const char *mk = config_get("monitor_keys");
     hot = hot_sticky = !(mk && mk[0] == '0');      /* monitor_keys=0: the bm> prompt is the way in */
     if (hot)

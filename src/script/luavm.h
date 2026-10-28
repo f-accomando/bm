@@ -26,4 +26,8 @@ size_t luavm_mem_peak(void);
 /* Registers the `bm` module (script/lib_bm.c). */
 int luaopen_bm(lua_State *L);
 
+/* The monitor gives bm.sh(line) its runner: runs a line, puts what it printed in out; 0 if it went
+ * well. No runner (the RGB30): bm.sh says there is no monitor. */
+void bm_set_sh(int (*fn)(const char *line, char *out, size_t cap));
+
 #endif

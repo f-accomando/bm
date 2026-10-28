@@ -5067,6 +5067,49 @@ def test_monitor_files(b, opts):
         q.close()
 
 
+def test_monitor_lua_shell(b, opts):
+    """The shell's Lua (2026-10-28, SYS-19): lua -e and lua FILE at the bm> prompt; bm.sh returns the
+    output of a monitor line; bm.write, bm.read and bm.ls on the card; the drawing calls run; boot=shell
+    starts at the monitor, autoexec=1 runs /bm/autoexec.lua once at boot (and the PC tools cannot set
+    that key)."""
+    tmp = tempfile.mkdtemp(prefix="bm-luashell-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    hello = os.path.join(tmp, "hello.lua")
+    auto = os.path.join(tmp, "autoexec.lua")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\nmonitor_keys=0\nboot=shell\nautoexec=1\n")
+    with open(hello, "w") as f:
+        f.write('local ok, out = bm.sh("pwd")\n'
+                'print("sh gave " .. tostring(ok) .. " " .. out:gsub("%s+", ""))\n'
+                'assert(bm.write("/bm/made.txt", "abc"))\n'
+                'print("read " .. bm.read("/bm/made.txt"))\n'
+                'local n = 0\nfor _ in ipairs(bm.ls("/bm")) do n = n + 1 end\n'
+                'print("ls " .. (n >= 3 and "many" or "few"))\n'
+                'local w, h = bm.size()\nbm.fill(0x101020)\nbm.rect(10, 10, 40, 20, 0xFF0000)\n'
+                'bm.text(10, 40, "shell", 0xFFFFFF)\nprint("size " .. (w > 0 and h > 0 and "ok" or "bad"))\n')
+    with open(auto, "w") as f:
+        f.write('print("AUTOEXEC-RAN")\n')
+    mksd.build(img, [(cfg, "bm/config.txt"), (hello, "bm/hello.lua"), (auto, "bm/autoexec.lua")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        out = q.expect("the shell:", timeout=30).decode(errors="replace")
+        assert "autoexec: /bm/autoexec.lua" in out and "AUTOEXEC-RAN" in out, out
+        assert "cartridge menu" not in out, out
+        q.expect("\nbm> ", timeout=10)
+        out = _prompt_line(q, "lua -e print(1+2)")
+        assert "\n3\n" in out, out
+        out = _prompt_line(q, "cd bm; lua hello.lua")
+        assert "sh gave true /bm" in out, out
+        assert "read abc" in out and "ls many" in out and "size ok" in out, out
+        out = _prompt_line(q, "lua nosuch.lua")
+        assert "not a file" in out, out
+        out = _prompt_line(q, "lua -e error('boom')")
+        assert "boom" in out, out
+    finally:
+        q.close()
+
+
 def test_monitor_prompt(b, opts):
     """The persistent line mode (2026-10-25): ':' and Enter open the bm> prompt, which stays
     until 'exit' or Esc. Commands and subcommands, a suggestion for an unknown word, 'set'

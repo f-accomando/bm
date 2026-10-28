@@ -15,4 +15,7 @@ int mfs_mkdir(int argc, char **argv);
  * (the root is "/"). 0, or -1 if it does not fit. */
 int mfs_resolve(const char *base, const char *arg, char *out, unsigned cap);
 
+/* The path of a word from the current folder, as the commands read it. 0, or -1 if it does not fit. */
+int mfs_path(const char *word, char *out, unsigned cap);
+
 #endif

@@ -54,6 +54,7 @@
 #include "home.h"
 #include "bm/runtime.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 
@@ -109,6 +110,27 @@ static uint32_t sdram_end(uint32_t arm_end)
  * bm/config.txt turns it off), two tries; if it fails the menu tries
  * again by itself (net/wifi_auto.c). The address comes later, in the
  * background, and shows in the status line. */
+/* autoexec=1 in bm/config.txt: /bm/autoexec.lua runs once at boot, before the menu or the shell (SYS-19).
+ * A file of the card is code: it runs only when the owner turned the key on, and the PC and the bridge
+ * cannot set the key (config_merge). An error is printed and the boot goes on. */
+static void autoexec_run(void)
+{
+    const char *v = config_get("autoexec");
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    if (!v || v[0] != '1' || fat_find("/bm/autoexec.lua", &e) != 0 || e.is_dir)
+        return;
+    if (fat_load(&e, &data, &len) != 0) {
+        kprintf("autoexec: /bm/autoexec.lua: %s\n", fat_error());
+        return;
+    }
+    kprintf("autoexec: /bm/autoexec.lua\n");
+    if (luavm_init())                           /* (the state is made on first use) */
+        luavm_run((const char *)data, len, "=autoexec");
+    free(data);
+}
+
 static void wifi_boot(void)
 {
     wifi_auto_boot();
@@ -263,6 +285,13 @@ void kernel_main(uint32_t atags)
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
     bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: the LED stays on if all is well */
+    autoexec_run();
+    const char *boot_to = config_get("boot");
+    if (boot_to && !strcmp(boot_to, "shell")) {         /* boot=shell: the monitor first; its 'menu' opens the cartridges */
+        kprintf("the shell: 'menu' opens the cartridge menu\n");
+        sdlog_boot(1);
+        monitor_run();
+    }
     kprintf("cartridge menu\n");
     sdlog_boot(1);
     carts_menu(&fb);

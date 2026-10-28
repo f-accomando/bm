@@ -78,6 +78,11 @@ static int path_of(const char *word, char *out, unsigned cap)
     return 0;
 }
 
+int mfs_path(const char *word, char *out, unsigned cap)
+{
+    return mfs_resolve(cwd, word, out, cap);
+}
+
 int mfs_pwd(int argc, char **argv)
 {
     (void)argc;

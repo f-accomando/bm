@@ -206,6 +206,8 @@ int main(void)
     const char *dev1 = "dev=1\n", *br = "volume=3\nBridge=fast\n";
     check(config_merge(dev1, strlen(dev1), bout, sizeof bout) == -3, "  the PC cannot set dev");
     check(config_merge(br, strlen(br), bout, sizeof bout) == -3 && volume != 3, "  nor bridge, and nothing else changes");
+    const char *ae = "volume=3\nAutoExec=1\n";
+    check(config_merge(ae, strlen(ae), bout, sizeof bout) == -3 && volume != 3, "  nor autoexec (a script that runs at boot)");
     check(config_get("dev") == NULL, "  and dev is not a key");
     check(bridge_file_name("bm/bridge.txt") && bridge_file_name("/BM/Bridge.TXT") && bridge_file_name("bm/../bm/bridge.txt") &&
           bridge_file_name("bm33/bridge.txt") && bridge_file_name("bridge.txt"), "  the file name is refused in any spelling");

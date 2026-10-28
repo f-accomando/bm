@@ -489,6 +489,24 @@ settings = ""
 read_in = "src/kernel/monitor.c"
 
 [[key]]
+name = "boot"
+scope = "pi"
+values = "shell = the Pi starts at the monitor (the bm> prompt, or the single keys, see monitor_keys) and the command menu opens the cartridge menu; anything else, or no key = the cartridge menu first"
+default = "no key (the cartridge menu)"
+meaning = "What the Pi starts with."
+settings = ""
+read_in = "src/kernel/main.c"
+
+[[key]]
+name = "autoexec"
+scope = "pi"
+values = "1 = /bm/autoexec.lua runs once at boot, before the menu or the shell (a Lua script with the bm module: bm.sh, bm.read, bm.write, bm.ls, bm.fill, bm.rect, bm.text, bm.key); no key = it does not run. The PC tools and the bridge cannot set this key"
+default = "no key"
+meaning = "A script of the card that runs at boot."
+settings = ""
+read_in = "src/kernel/main.c"
+
+[[key]]
 name = "menu_layout"
 scope = "pi"
 values = "1 = with menu_scale 2 or 3, the menu is laid out at the screen's own size (1280x720 or 1920x1080): 8 covers in a row and more rows, in the middle of the screen, the key chips in the bottom bar, the covers and the fonts keep their size in pixels; no key = the 640x360 layout drawn 2x or 3x bigger"

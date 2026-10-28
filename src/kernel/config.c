@@ -324,7 +324,8 @@ int config_merge(const char *text, size_t len, char *out, size_t out_len)
         size_t kl = (size_t)(eq - (text + s)), vl = e - s - kl - 1;
         if (kl == 0 || kl >= sizeof kv[0].key || vl >= sizeof kv[0].value)
             return -1;
-        if ((kl == 3 && strncasecmp(text + s, "dev", 3) == 0) || (kl == 6 && strncasecmp(text + s, "bridge", 6) == 0))
+        if ((kl == 3 && strncasecmp(text + s, "dev", 3) == 0) || (kl == 6 && strncasecmp(text + s, "bridge", 6) == 0) ||
+            (kl == 8 && strncasecmp(text + s, "autoexec", 8) == 0))
             return -3;                          /* the bridge gate is not a setting of the PC */
         for (size_t i = s; i < e; i++) {
             const char c = text[i];
