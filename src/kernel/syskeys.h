@@ -26,7 +26,7 @@ const syskey_t *syskey(int i);
  * it. The others (Esc, Ctrl+S...) a tool lists when it says what they do there. */
 int syskeys_reserved(const char *keys);
 
-/* The rendering tests (3D Bench, Render bench;
+/* The rendering tests (the 3D Bench;
  * 2026-10-10) stop on the keys that leave a game: Start+Select (or
  * Ctrl+Shift+Esc), Ctrl+Esc, the PS button. No key of their own: these.
  * syskeys_test_begin() at the start of a test (reports_begin's callers and

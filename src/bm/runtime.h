@@ -78,13 +78,6 @@ int  bm_shot_done(char *name, size_t n);        /* 0 waiting, 1 saved (name), -1
 void bm_close_suspended(void);
 void bm_print_stats(const bm_stats_t *st);
 
-/* Pure C worst case: full-screen map + 256 16x16 sprites + text, at
- * 640x360 RGB565. Shows it on screen for `frames` frames; returns the
- * average drawing time in microseconds. */
-uint32_t bm_bench(framebuffer_t *fb, uint32_t frames);
-/* bm_bench drawing directly and via RAM; prints one line. */
-void bm_bench_report(framebuffer_t *fb, uint32_t frames);
-
 /* Switches the screen to w x h RGB565 double buffered and points g at the
  * back page, or at a cached RAM buffer when "via RAM" is on (console
  * suspended); present shows the frame; leave restores the w x h console. */

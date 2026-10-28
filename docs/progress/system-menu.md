@@ -38,7 +38,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   Settings rows. The GPU test, Texture Room, Video bench, Stack bench and Diagnostics (with the CPU
   bench, the libc and fiber self-tests, the boot demo and the Lua boot script) were removed on 24 Oct 2026.
   The monitor keys `b`, `g` and `R`, and the line words `gpu`, `room`, `video` and `stack`, went with them.
-  The monitor key `p` (render bench) stays; `k` (CPU bench) and `d` (animation demo) were removed on 28 Oct 2026 with `bench.c` and `demo.c`.
+  The monitor keys `k` (CPU bench), `d` (animation demo) and `p` (render bench) were removed on 28 Oct 2026 with `bench.c`, `demo.c` and `bm_bench` (the RGB30 Settings row *Render bench* went too).
   The monitor is a table of commands (`commands` in `src/kernel/monitor.c`). Each single key is the shortcut of a
   word (`i` is `sys info`, `W` is `wifi`, `j` is `bench 3d`). The `bm>` prompt (`:` and Enter) stays open and
   has history, Tab and line editing (`src/kernel/monitor_cmd.c`). The old line words stay as aliases.

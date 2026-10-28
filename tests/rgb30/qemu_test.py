@@ -1158,7 +1158,7 @@ def test_menu_input_page(b, opts):
 
 def test_dev_tab_utilities(b, opts):
     """D52, D53, D15a: the Dev tab holds the bm SDK (and the installed tools), not the benchmarks and tests: the 3D
-    Bench is a row of Settings > Screen, the Render bench is in Settings > System > Utilities, which has content, and
+    Bench is a row of Settings > Screen, Settings > System > Utilities is hidden now (the Render bench was removed, 28 Oct 2026), and
     Settings > System has the '3D driver' row (the backend text of bm_port.c)."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
@@ -1175,11 +1175,8 @@ def test_dev_tab_utilities(b, opts):
         keys(q, "\x7f")                         # back to the sections: Screen is selected
         down_until(q, ["Version, memory, the log"])             # System
         text = press(q, "\r", ["Settings > System"])
-        down_until(q, ["Benchmarks and tests"])                 # the Utilities row (not hidden: it has content)
-        text = press(q, "\r", ["Settings > System > Utilities"])
-        assert "Render bench" in text and "none" not in text, text
-        keys(q, "\x7f")                         # back to System: Utilities is selected
-        keys(q, "w")                             # up one row: the 3D driver
+        assert "Benchmarks and tests" not in text, text         # no utility is left: the row is hidden
+        down_until(q, ["3D driver"])
         text = wait_screen(q, ["3D driver", "ARM"])
         assert "no GPU driver on the RGB30 yet" in text, text   # its help: gpu3d_status() with mali3d off
     finally:

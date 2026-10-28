@@ -5,7 +5,7 @@
  * games (.bm; the old .b16 too), src/kernel/market.c in fibers as on the Pi; they go to bm/),
  * Games (the .bm files in bm/ on the SD card; a cartridge made for the Pi only has a faded cover and asks OK or
  * Cancel before it starts), Dev
- * (the 3D Bench, the render bench, the display modes, the input test, the
+ * (the 3D Bench, the display modes, the input test, the
  * boot log, Lua) and Settings, whose panel opens when it is the tab
  * (Bluetooth, WiFi, updates from GitHub, the console's state, reboot, power
  * off). The controller drives it: L1 / R1 the tabs, the D-pad the covers,
@@ -485,7 +485,7 @@ void ui_screen_modes(void)
     fb_init(fb, W, H, 2);                           /* the menu's mode again */
 }
 
-/* the 3D Bench (src/bm/b3d.c) and the render bench, in the console */
+/* the 3D Bench (src/bm/b3d.c), in the console */
 static void page_bench3d(void)
 {
     fb_show(fb, 0);
@@ -495,26 +495,6 @@ static void page_bench3d(void)
     while (pad_state())
         timer_delay_ms(10);
     pad_pressed();
-}
-
-static void page_render(void)
-{
-    fb_show(fb, 0);
-    console_suspend(0);
-    reports_begin("render");
-    kprintf("\n\x1b[1mRender bench\x1b[0m: map, 256 sprites and text at 640x360 RGB565\n");
-    bm_bench_report(fb, 120);               /* Start+Select stops it: no report (syskeys.h) */
-    if (syskeys_test_stopped()) {
-        reports_drop();
-        while (pad_state())                 /* straight back to the menu, the buttons let go */
-            timer_delay_ms(10);
-        pad_pressed();
-    } else {
-        reports_end();
-        kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
-        wait_back();
-    }
-    console_suspend(1);
 }
 
 /* --- bm SDK (RGB30): the Dev tab's tool --- */
@@ -591,10 +571,8 @@ static g16_sheet_t dev_covers[N_DEV];
  * "Screen modes", "Test the buttons" and "Log since boot". */
 typedef struct { const char *name, *help; void (*run)(framebuffer_t *); int group; } util_t;
 static void util_bench3d(framebuffer_t *f) { (void)f; page_bench3d(); }
-static void util_render(framebuffer_t *f) { (void)f; page_render(); }
 static const util_t utils[] = {
     { "3D Bench", "every 3D test: bars, report in bm/bench", util_bench3d, 1 },
-    { "Render bench", "map, sprites and text, 640x360", util_render, 0 },
 };
 #define N_UTILS ((int)(sizeof utils / sizeof utils[0]))
 

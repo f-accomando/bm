@@ -316,7 +316,7 @@ mixed WPA2/WPA3); not WPA3 only, WPA1, WEP, enterprise.
 
 ## Test reports
 
-*Settings > Reports*: the test reports (3D Bench, Render bench, the log) wait in
+*Settings > Reports*: the test reports (3D Bench, the log) wait in
 `bm/reports` on the SD and go to the `reports` branch of `f-accomando/bm` with `github_token` in
 `bm/config.txt` and WiFi; *Send the reports* sends them, *Report the log* makes a report of the log. The name gives kernel,
 branch and board: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.

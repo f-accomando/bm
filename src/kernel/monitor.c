@@ -378,18 +378,6 @@ CMD(c_net_eth)
 
 CMD(c_net_get) { return net_get_test(argc > 1 ? argv[1] : NULL); }
 
-CMD(c_bench_render)
-{
-    home_report_begin("render");
-    bm_bench_report(console_framebuffer(), 120);
-    home_report_end();
-    if (!from_key && syskeys_test_stopped()) {  /* Start+Select, Ctrl+Esc, PS: the line ends too */
-        kprintf("%s: stopped; the rest of the line is not run\n", argv[0]);
-        return -1;
-    }
-    return 0;
-}
-
 /* j: the 3D Bench with its pages. In a line: all or a part (tests=a,b profiles=P), no waiting on pages */
 CMD(c_bench_3d)
 {
@@ -613,7 +601,6 @@ static const mcmd_t net_sub[] = {
 };
 
 static const mcmd_t bench_sub[] = {
-    { .name = "render", .help = "rendering benchmark 640x360 RGB565", .key = 'p', .fn = c_bench_render },
     { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, bars and a saved report", .key = 'j', .fn = c_bench_3d },
     { NULL }
 };
@@ -647,7 +634,6 @@ static const mcmd_t commands[] = {
     { .name = "hotkey", .help = "single keys run commands (the keys of the first column of help)", .fn = c_hotkey },
     /* the words of before: same syntax, same output */
     { .name = "b3d", .alias = "bench 3d" },
-    { .name = "render", .alias = "bench render" },
     { .name = "log", .alias = "report log" },
     { .name = "send", .alias = "report send" },
     { .name = "reboot", .alias = "sys reboot" },

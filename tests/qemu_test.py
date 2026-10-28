@@ -5200,8 +5200,7 @@ def test_reports(b, opts):
     one of the log, saved as bm/reports/rpt00001.txt with its header (kernel,
     branch, board, date, the long name with kernel and branch), the token
     masked where the log had it (the repository may be public); with a token
-    but no network (QEMU) it waits on the card, and z says so; p (the
-    render bench) makes its own of what it printed."""
+    but no network (QEMU) it waits on the card, and z says so."""
     tmp = tempfile.mkdtemp(prefix="bm-reports-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -5231,10 +5230,6 @@ def test_reports(b, opts):
         out = q.expect("waiting on the SD card", timeout=20).decode(errors="replace")
         assert "on the SD card: no network; 1 waiting" in out, out
         q.expect("> ")
-        q.send("p")                             # the render bench: a report of its printout
-        out = q.expect("rpt00002.txt", timeout=120).decode(errors="replace")
-        assert re.search(r"report: nodate-[0-9a-f]{6}_render_", out), out
-        q.expect("> ")
         time.sleep(0.5)
     finally:
         q.close()
@@ -5245,8 +5240,6 @@ def test_reports(b, opts):
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     log = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/rpt00001.txt"], capture_output=True, text=True,
                          env=env).stdout
-    render = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/rpt00002.txt"], capture_output=True, text=True,
-                            env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head = log.split("\n\n", 1)[0].splitlines()
     assert head[0] == "bm report" and "kind: log" in head and f"file: {name}" in head, log[:600]
@@ -5256,8 +5249,6 @@ def test_reports(b, opts):
     assert name.endswith(f"_{kernel.lower()}.txt"), (name, kernel)
     assert "cartridge menu" in log.split("\n\n", 1)[1], "the log's body"
     assert "test-token-4242" not in log and "the token is ***************" in log, "the token masked"
-    assert "kind: render" in render and "Rendering benchmark" not in render.split("\n\n", 1)[0], render[:400]
-    assert "sprites" in render.split("\n\n", 1)[1], render[:800]
 
 
 def test_crash_report(b, opts):
