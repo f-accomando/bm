@@ -116,6 +116,8 @@ typedef struct {
     /* 2D (the arena only), drawn after the 3D without a depth test: 1 rectangles (uvk is the colour 0..1 of each vertex), 2 sprites
      * (uvk is u, v, 1; tex_pa the sheet); xyz are pixels with z = 1 */
     int d2;
+    const uint64_t *texs;   /* sprites: the texture blocks of the draw (up to 16), uvk[i][2] is the index in this list */
+    uint32_t ntex;
     uint32_t uoff;          /* the draw's uniform words, in bytes from the start of the lit area (the arena only) */
 } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,

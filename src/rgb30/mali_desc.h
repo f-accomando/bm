@@ -84,6 +84,7 @@ typedef struct {
 /* the depth functions of Renderer State (0 means MD_FUNC_ALWAYS in md_renderer_state_t) */
 enum { MD_FUNC_NEVER = 1, MD_FUNC_LESS, MD_FUNC_EQUAL, MD_FUNC_LEQUAL, MD_FUNC_GREATER, MD_FUNC_NOTEQUAL, MD_FUNC_GEQUAL };
 void md_renderer_state(uint8_t *p, const md_renderer_state_t *s);
+void md_rs_texture_count(uint8_t *p, uint32_t n);   /* the texture count of a built Renderer State (a draw with fewer sheets) */
 
 /* Blend (16 bytes, 16-aligned) for a render target written as it is: mode Opaque, 4 components, the
  * colour converted from `reg_format` (MD_REG_*) to the memory format `mem_format` */

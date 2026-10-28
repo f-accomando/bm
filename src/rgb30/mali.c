@@ -850,6 +850,10 @@ typedef struct {                                /* what every core reads while i
     int fast_pack;
     uint8_t *lv_m, *litp_m;                     /* Q2: lit vertices of 48 bytes, the uniform words of a lit draw (448 each) */
     uint64_t lv_pa, litp_pa;
+    uint8_t *texa_m;                            /* sprites: the texture descriptors of a draw (576 bytes each) */
+    uint64_t texa_pa;
+    const uint8_t *mem;                         /* the GPU memory as the ARM sees it, and its address for the GPU */
+    uint64_t mem_pa;
     const uint8_t *frsl_buf, *frsd_buf, *frsp_buf;   /* the 2D rectangles' and sprites' fragment states (no depth test) */
     int zbuf;                                   /* G2: the frame has a depth test: z = 1 - near / depth (see be_mesh) */
 } bctx_t;
@@ -973,6 +977,16 @@ static void build_draws(void *p)
             }
             zero16(push_m + 64 * (size_t)d, 32);
             memcpy(loc + D_FRSD, draws[d].d2 == 1 ? c->frsd_buf : draws[d].d2 == 2 ? c->frsp_buf : frst_buf, 80);
+            uint64_t draw_tex = draws[d].tex_pa, draw_smp = draws[d].tex_pa ? draws[d].tex_pa + 0x80 : 0;
+            if (draws[d].d2 == 2 && draws[d].ntex) {    /* sprites: the Texture descriptors of the sheets in a row, the sampler of the first */
+                uint8_t *ta = c->texa_m + 576 * (size_t)d;
+                for (uint32_t kx = 0; kx < draws[d].ntex; kx++)
+                    copy_nc16(ta + 32 * kx, c->mem + (draws[d].texs[kx] - c->mem_pa), 32);
+                copy_nc16(ta + 512, c->mem + (draws[d].texs[0] - c->mem_pa) + 0x80, 32);
+                draw_tex = c->texa_pa + 576 * (uint64_t)d;
+                draw_smp = draw_tex + 512;
+                md_rs_texture_count((uint8_t *)(void *)(loc + D_FRSD), draws[d].ntex);
+            }
             md_attribute_buffer(loc + D_ABUFS, tv_pa + 32 * (uint64_t)first, 32, 32 * nv);
             md_attribute_buffer(loc + D_ABUFS + 16, 0, 0, 0);
             md_attribute_buffer(loc + D_VBUFS, tvy_pa + 16 * (uint64_t)first, 16, 16 * nv);
@@ -986,8 +1000,8 @@ static void build_draws(void *p)
             md_draw_t ttd = { .position = pos_pa + 16 * (uint64_t)first, .state = dpa + D_FRSD,
                               .viewport = pa + sb + SO_VIEWPORT, .push_uniforms = push_pa + 64 * (uint64_t)d,
                               .thread_storage = pa + sb + SO_LS, .varying_buffers = dpa + D_VBUFS,
-                              .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE, .textures = draws[d].tex_pa,
-                              .samplers = draws[d].tex_pa ? draws[d].tex_pa + 0x80 : 0 };
+                              .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE, .textures = draw_tex,
+                              .samplers = draw_smp };
             md_primitive_t tprim = { .mode = MD_TRIANGLES, .index_count = nv };
             job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
                        d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
@@ -1215,6 +1229,8 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                   .frst_buf = frst_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
                   .lv_m = tv_m ? tv_m - 0x720000 + 0x80000 : NULL, .lv_pa = tv_pa - 0x720000 + 0x80000,   /* BE_LIT_FROM_TV, BE_LIT_V_OFF */
                   .litp_m = tv_m ? tv_m - 0x720000 : NULL, .litp_pa = tv_pa - 0x720000,
+                  .texa_m = tv_m ? tv_m - 0x720000 + 0x180000 : NULL, .texa_pa = tv_pa - 0x720000 + 0x180000,   /* after the lit area's 0x180000 bytes */
+                  .mem = m, .mem_pa = pa,
                   .frsl_buf = frsl_buf, .frsd_buf = frsd_buf, .frsp_buf = frsp_buf, .zbuf = zbuf };
     static bblk_t blk[MALI_BUILD_CORES];
     void *blks[MALI_BUILD_CORES];
@@ -2149,6 +2165,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     static float litbuf[BE_MAX_TRIS * 3][12];
     static mali_draw_t dr[BE_HW_MAX_DRAWS];
     static int idx[BE_MAX_TRIS], tmp_idx[BE_MAX_TRIS];
+    static uint64_t spr_tex[BE_HW_MAX_DRAWS][16];     /* the sheets of the sprite draws */
     if (be_pend && mali_backend_sync() != 0)
         return -1;
     const int n = be_n, n2 = be_n2d;
@@ -2268,6 +2285,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             }
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
             dr[nd].d2 = 0;
+            dr[nd].ntex = 0;
             dr[nd].n = 1;
             dr[nd].rgb = t->rgb;
             dr[nd].mvp = t->mvp;
@@ -2294,17 +2312,30 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     /* the 2D, in the order called, after the 3D and without a depth test: the quads of one colour kind or one sheet make a draw */
     for (int i = 0; i < n2; i++) {
         const be_2d_t *q = &be_2ds[i];
-        int same = nd > 0 && dr[nd - 1].d2 == q->kind && dr[nd - 1].tex_pa == q->tex_pa;
+        int same = nd > 0 && dr[nd - 1].d2 == q->kind;
+        int li = -1;                            /* the sprite's sheet in the draw's list */
+        if (same && q->kind == 2) {
+            for (uint32_t kx = 0; kx < dr[nd - 1].ntex; kx++)
+                if (spr_tex[nd - 1][kx] == q->tex_pa)
+                    li = (int)kx;
+            if (li < 0 && dr[nd - 1].ntex >= 16)
+                same = 0;                       /* the list is full: a new draw */
+        }
         uint32_t nslots = same ? slots - ((3 * dr[nd - 1].n + 3) & ~3u) + ((3 * (dr[nd - 1].n + 2) + 3) & ~3u) : slots + 8;
-        if (btri + 2 > max_tris || nslots > BE_TEXV_MAX || (!same && nd == max_draws)) {   /* a full frame: the 2D has no depth to keep */
+        if (btri + 2 > max_tris || nslots > BE_TEXV_MAX || (!same && (nd == max_draws || (q->kind == 2 && nd >= 880)))) {   /* a full frame: the 2D has no depth to keep */
             if (nd > 0 && be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
                 return -1;
             nd = nv = btri = slots = lu_used = 0;
             same = 0;
+            li = -1;
             nslots = 8;
         }
         if (same) {
             dr[nd - 1].n += 2;
+            if (q->kind == 2 && li < 0) {
+                li = (int)dr[nd - 1].ntex++;
+                spr_tex[nd - 1][li] = q->tex_pa;
+            }
         } else {
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
             dr[nd].n = 2;
@@ -2317,6 +2348,13 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             dr[nd].litx = 0;
             dr[nd].nbones = 0;
             dr[nd].d2 = q->kind;
+            dr[nd].ntex = 0;
+            dr[nd].texs = spr_tex[nd];
+            if (q->kind == 2) {
+                spr_tex[nd][0] = q->tex_pa;
+                dr[nd].ntex = 1;
+                li = 0;
+            }
             nd++;
         }
         slots = nslots;
@@ -2333,7 +2371,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             } else {
                 uvbuf[nv + k][0] = us[k];
                 uvbuf[nv + k][1] = vs[k];
-                uvbuf[nv + k][2] = 1.0f;
+                uvbuf[nv + k][2] = (float)li;
             }
         }
         nv += 6;

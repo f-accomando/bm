@@ -27,7 +27,7 @@
  * (shadow3d(0); shadow3d(1) is the screen-door of 7.6) 7.7. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.24"
+#define BM3D_VERSION "7.25"
 #define BM3D_BLOCK   "Mali"
 
 typedef struct {
@@ -94,6 +94,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.16", "Mali", "2026-10-27", "gpu2d_only (hidden, off): a game with no 3D has its 2D drawn by the V3D; the job opens with the first quad; dark_begin starts it" },
         { "7.17", "Mali", "2026-10-28", "Opaque textures on the Mali (BM_FS_TEX, mali_tex=1); 3D Bench pixel check (K lines)" },
         { "7.18", "Mali", "2026-10-28", "Hardware depth test on the Mali (mali_z=1): no far-to-near sort, one frame holds all the triangles" },
+        { "7.25", "Mali", "2026-10-28", "Sprites of up to 16 sheets share a 2D draw on the Mali (BM_FS_SPR picks the texture): sprites test 1702 -> 3569" },
         { "7.24", "Mali", "2026-10-28", "Cel levels in the Mali vertex shader; 3D Bench tests cel_flat_lit and cel_flat (flat hero, the Pi and the RGB30)" },
         { "7.23", "Mali", "2026-10-28", "2D rectangles and sprites on the Mali (mali_2d=1, off: gpu2d -14% on the ARM-fast RGB30)" },
         { "7.22", "Mali", "2026-10-28", "Bilinear textures on the Mali (gpu3d_filter): the Sampler filters; 3D Bench bilinear 126.6" },

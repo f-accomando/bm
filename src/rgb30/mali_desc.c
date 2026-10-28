@@ -64,6 +64,11 @@ void md_draw(uint8_t *p, const md_draw_t *s)
     A(p, 28, s->thread_storage);
 }
 
+void md_rs_texture_count(uint8_t *p, uint32_t n)
+{
+    W(p, 2, 16, 16, n);
+}
+
 void md_renderer_state(uint8_t *p, const md_renderer_state_t *s)
 {
     A(p, 0, s->shader);                         /* Shader: address (words 0-1) */

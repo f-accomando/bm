@@ -48,10 +48,10 @@ What it costs and gives (3D Bench, RGB30, same kernel, 28 Oct):
 | Test | ARM draws the 2D | Mali draws the 2D | Why |
 |---|---|---|---|
 | `gpu2d` (sprites of one sheet over 3D) | 2999 sprites at 60 fps | 2573 | 133 draws; the fragment of the sprites takes 3.2 ms |
-| `sprites` (two sheets in turn) | 3569 (the test maximum) | 1702 | 1506 draws: only sprites in a row of one sheet share a draw; each draw costs a vertex and a tiler job |
+| `sprites` (two sheets in turn) | 3569 (the test maximum) | 3569 (1702 before bm3d 7.25) | 3 draws: the sprites of up to 16 sheets in a row share a draw (a texture index a vertex); before, 1506 draws, each a vertex and a tiler job |
 
-The ARM instructions of a frame fall (`gpu2d`: 13.2 M to 9.1 M). So the GPU 2D pays only when the ARM is the limit for other work and the sprites come in long rows of one sheet. Where the ARM has free time it draws the 2D faster.
+The ARM instructions of a frame fall (`gpu2d`: 13.2 M to 9.1 M). So the GPU 2D pays only when the ARM is the limit for other work. With 3569 sprites the Mali takes 14.0 ms of a frame (GPU 5.7 ms, the ARM's resolve of the covered pixels 4.8 ms, draw build 2.0 ms) against 12.6 ms for the ARM drawing them: where the ARM has free time it draws the 2D as fast or faster.
 
-Limits: a sheet has to fit the 2 MB texture pool (a sheet of 4096 x 3400 does not: its sprites stay on the ARM); the order of the calls is the order of the picture, so the Mali does not reorder sprites to share draws; text, the light of `dark_end` and the enlarge stay on the ARM; a sheet with transparent texels keeps 5 bits of green.
+Limits: a sheet has to fit the 2 MB texture pool (a sheet of 4096 x 3400 does not: its sprites stay on the ARM); the order of the calls is the order of the picture, so the Mali does not reorder sprites: a draw takes the sprites in a row, from up to 16 sheets (a 17th sheet starts a draw); text, the light of `dark_end` and the enlarge stay on the ARM; a sheet with transparent texels keeps 5 bits of green.
 
 Yharnam: not applicable on the RGB30 today. Its sheet is over the pool, so only its rectangles would go to the GPU; on the Pi the GPU 2D of the map was slower than the ARM ([yharnam](yharnam.md)). The 3D work of the Mali (textures, depth, lit meshes, cel) does not touch a 2D game. What helps Yharnam on the Pi is the light by the GPU (`gpu3d_opt("light")`): the Mali has no light shader, so it stays on the ARM and the pause menu hides the entry.

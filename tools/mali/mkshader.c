@@ -411,15 +411,18 @@ int main(int argc, char **argv)
         b.shader->info.first_ubo_is_default_ubo = true;
         nir_variable *iuv = var(&b, nir_var_shader_in, "uvk", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
         nir_variable *ocol = var(&b, nir_var_shader_out, "color", FRAG_RESULT_DATA0, INTERP_MODE_NONE);
-        nir_def *uv = nir_trim_vector(&b, nir_load_var(&b, iuv), 2);
+        nir_def *uvk = nir_load_var(&b, iuv);
+        nir_def *uv = nir_trim_vector(&b, uvk, 2);
+        /* the third value is the sheet of the draw (0..15): sprites of several sheets share a draw */
+        nir_def *sheet = nir_f2u32(&b, nir_fadd(&b, nir_channel(&b, uvk, 2), nir_imm_float(&b, 0.5f)));
         nir_def *texel = nir_build_tex(&b, nir_texop_txl, .coord = uv, .lod = nir_imm_float(&b, 0.0f),
-                                       .texture_index = 0, .sampler_index = 0, .dim = GLSL_SAMPLER_DIM_2D,
-                                       .dest_type = nir_type_float32);
+                                       .texture_index = 0, .texture_offset = sheet, .sampler_index = 0,
+                                       .dim = GLSL_SAMPLER_DIM_2D, .dest_type = nir_type_float32);
         nir_discard_if(&b, nir_flt(&b, nir_channel(&b, texel, 3), nir_imm_float(&b, 0.5f)));
         nir_def *g = nir_fmax(&b, nir_channel(&b, texel, 1), nir_imm_float(&b, 1.0f / 255.0f));
         nir_store_var(&b, ocol, nir_vec4(&b, nir_channel(&b, texel, 0), g, nir_channel(&b, texel, 2),
                                          nir_imm_float(&b, 1.0f)), 0xf);
-        b.shader->info.num_textures = 1;
+        b.shader->info.num_textures = 16;
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
         compile("BM_FS_SPR", b.shader, out, &fi, 0);
     }
