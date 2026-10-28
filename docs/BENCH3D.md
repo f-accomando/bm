@@ -358,7 +358,7 @@ rows of 8. Profiles: `ARM` and `GPU+VS` (and `GPU+VS+FS2`, the driver as games g
 ```
 
 `tests=cel` runs the five. Since bm3d 7.5 the vertex programs of `GPU+VS` cut the light, so the cel hero keeps the mesh path there.
-`cel_flat_lit` and `cel_flat` (bm3d 7.24) have rows ARM, GPU and GPU+VS on the Pi and the RGB30: the Mali's vertex shader lights the flat hero, with or without bands. `cel_outline` draws the mesh again as a hull: its ms against `cel_lit` is the cost of the outline. The `ARM` rows are the ARM raster.
+`cel_flat_lit` and `cel_flat` (bm3d 7.24) have rows ARM, GPU and GPU+VS on the Pi and the RGB30 (heroes at 60 fps, 28 Oct 2026; Pi Zero W: ARM 5.3 and 5.3, GPU 8.5 and 8.4, GPU+VS 43.2 and 42.9, report `reports/claude-remove-render-bench/20261028-181729_bench3d_pi-zero-w_v0.2.5-1889-ga9b7ef79-dirty.txt`; RGB30: ARM 21.6, GPU 2.7, GPU+VS 6.8 for both): the Mali's vertex shader lights the flat hero, with or without bands. `cel_outline` draws the mesh again as a hull: its ms against `cel_lit` is the cost of the outline. The `ARM` rows are the ARM raster.
 After the `H` lines the report has the `C` lines, one for each profile and n from 1 to 4 (the same steps in the five tests):
 
 ```
