@@ -97,7 +97,6 @@ Detail of `src/kernel/` (menu loop, settings, Market, update, services): [system
 
 
 - Check the Assistant app (SYS-20) on the Pi hardware: install it from the Market (`apps/assistant`, 1.2 MB, with the DATA section, published 28 Oct 2026) on a clean kernel. The QEMU test `assistant_app` runs the clean kernel with the app on the card.
-- `make market-seed` makes `bench3d` without a license line: the catalog check fails. Add the license to its `bm.info`. Then the seed can run for all apps.
 
 ## Rules (do not break)
 - The Assistant's data (SYS-20, 28 Oct 2026): the dictionaries (`words.lua`) and the knowledge file (`assist.bin`) are not in the clean (shipped) kernel. They are blobs of the DATA section (type 15) of `assistant.bm` (`mkbm.py --data NAME=FILE`, `make build/assistant.bm`). `src/kernel/appdata.c` (`appdata_get`) reads them from `/bm/assistant.bm` at first use and keeps the file in memory. Without the app, `require "words"` and `ai.*` raise "the Assistant app is not installed" and the monitor key `I` prints "assistant: not installed". The complete kernel (`CLEAN_KERNEL=0`) still embeds them, for the tests. Do not embed them in the clean kernel. The clean Pi kernel is 2.4 MB (3.75 MB before). Test: `tests/qemu_test.py -k assistant_app` (builds `build-clean/` on the first run). The RGB30 kernel has no `words`; it is unchanged.
