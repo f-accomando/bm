@@ -104,6 +104,11 @@ typedef struct {
      * Sampler at +0x80). The GPU interpolates u, v and k with perspective. */
     const float (*uvk)[3];
     uint64_t tex_pa;
+    /* Q2, lit meshes (the arena only; mvp set): litv non-NULL makes a draw whose vertex shader lights the faces. xyz are model-space,
+     * litv[i] is the face normal in model space, an emissive flag (1: no light) and the base r g b in 0..255 of vertex i; light is
+     * 20 floats: sun, up (vec3 + 1), then A, B, D per channel (vec3 + 1): light = A + B (n . up) + D max(n . sun, 0). */
+    const float (*litv)[8];
+    const float *light;
 } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);
@@ -149,6 +154,7 @@ void mali_backend_set_vshader(int on);          /* 0 off (be_tri), 1 unlit meshe
 int mali_backend_vshader(void);
 void mali_backend_set_bilinear(int on);         /* 1: the scene asks for filtered textures, which the Mali does not do: textures go to the ARM */
 void mali_backend_set_zbuffer(int on);          /* 1: the Mali uses its depth buffer, not the far-to-near sort (config key mali_z) */
+void mali_backend_set_lit(int on, int min_px);  /* 0: lit meshes are lit by the ARM (mali_lit); faces smaller than min_px on average stay on the ARM (mali_lit_min) */
 void mali_backend_set_textures(int on);         /* 0: opaque textures go to the ARM, not the Mali (config key mali_tex; default 1) */
 void mali_backend_set_queue(int on);            /* 0 synchronous flush, 1..2 async submit/sync (default 1) */
 int mali_backend_queue(void);

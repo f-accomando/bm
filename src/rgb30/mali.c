@@ -848,6 +848,9 @@ typedef struct {                                /* what every core reads while i
     uint8_t *tv_m;                              /* textured draws: vertices of 32 bytes (position, u v k), varyings of 16 */
     uint64_t tv_pa, tvy_pa;
     int fast_pack;
+    uint8_t *lv_m, *litp_m;                     /* Q2: lit vertices of 48 bytes, the pushed words of a lit draw (192 each) */
+    uint64_t lv_pa, litp_pa;
+    const uint8_t *frsl_buf;
     int zbuf;                                   /* G2: the frame has a depth test: z = 1 - near / depth (see be_mesh) */
 } bctx_t;
 
@@ -878,6 +881,56 @@ static void build_draws(void *p)
         const uint64_t dpa = draws_pa + (uint64_t)MEM_DRAW_SIZE * d;
         const uint32_t nv = 3 * draws[d].n;
         const uint32_t rgb = draws[d].rgb;
+
+        if (draws[d].litv && c->lv_m) {         /* Q2: a lit mesh: the vertex shader lights the faces */
+            const uint64_t lx0 = cnt_now();
+            const float (*litv)[8] = draws[d].litv;
+            for (uint32_t i = 0; i < nv; i++) {
+                const float v12[12] __attribute__((aligned(16))) = { draws[d].xyz[i][0], draws[d].xyz[i][1], draws[d].xyz[i][2], 1.0f,
+                                                                     litv[i][0], litv[i][1], litv[i][2], litv[i][3],
+                                                                     litv[i][4], litv[i][5], litv[i][6], 0.0f };
+                volatile float *lvp = (volatile float *)(void *)(c->lv_m + 48 * (size_t)(first + i));
+                for (int q = 0; q < 12; q++)
+                    lvp[q] = v12[q];
+            }
+            /* the pushed words in the order the compiler chose: word q is the word BM_VS_LIT_push[q] of uniform buffer 0 */
+            volatile float *lpp = (volatile float *)(void *)(c->litp_m + 192 * (size_t)d);
+            for (unsigned q = 0; q < 36; q++) {
+                const unsigned wi = q < BM_VS_LIT_PUSH_COUNT ? BM_VS_LIT_push[q][1] >> 2 : 0;
+                lpp[q] = q >= BM_VS_LIT_PUSH_COUNT ? 0.0f : wi < 16 ? draws[d].mvp[wi] : draws[d].light[wi - 16];
+            }
+            zero16(push_m + 64 * (size_t)d, 32);
+            memcpy(loc + D_FRSD, c->frsl_buf, 80);
+            md_attribute_buffer(loc + D_ABUFS, c->lv_pa + 48 * (uint64_t)first, 48, 48 * nv);
+            md_attribute_buffer(loc + D_ABUFS + 16, 0, 0, 0);
+            md_attribute_buffer(loc + D_VBUFS, tvy_pa + 16 * (uint64_t)first, 16, 16 * nv);
+            md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
+            md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
+            md_uniform_buffer(loc + D_VUBO, c->litp_pa + 192 * (uint64_t)d, 9);
+            md_draw_t lvd = { .state = pa + sb + SO_VRSDL, .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
+                              .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR,
+                              .uniform_buffers = dpa + D_VUBO, .push_uniforms = c->litp_pa + 192 * (uint64_t)d,
+                              .thread_storage = pa + sb + SO_LS };
+            job_header(loc + D_VJOB, MD_JOB_VERTEX, 2 * (int)d + 1, d ? 2 * (int)d : 0, dpa + D_TJOB);
+            md_vertex_job(loc + D_VJOB, nv, &lvd);
+            md_draw_t ltd = { .position = pos_pa + 16 * (uint64_t)first, .state = dpa + D_FRSD,
+                              .viewport = pa + sb + SO_VIEWPORT, .push_uniforms = push_pa + 64 * (uint64_t)d,
+                              .thread_storage = pa + sb + SO_LS, .varying_buffers = dpa + D_VBUFS,
+                              .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE };
+            md_primitive_t lprim = { .mode = MD_TRIANGLES, .index_count = nv };
+            job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
+                       d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
+            md_tiler_job(loc + D_TJOB, &lprim, pa + sb + SO_TCTX, &ltd);
+            const uint64_t lx1 = cnt_now();
+            k->t2 += lx1 - lx0;
+            if (fast_pack)
+                copy_slot(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, d);
+            else
+                copy_nc16(draws_m + (size_t)MEM_DRAW_SIZE * d, loc, sizeof loc);
+            k->t3 += cnt_now() - lx1;
+            first += (nv + 3) & ~3u;
+            continue;
+        }
 
         if (draws[d].uvk && tv_m) {              /* G1: a textured draw */
             const uint64_t tx0 = cnt_now();
@@ -1013,6 +1066,13 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         memcpy(m + sb + SO_VS_TEX, BM_VS_TEX_bin, sizeof BM_VS_TEX_bin);
         memcpy(m + sb + SO_FS_TEX, BM_FS_TEX_bin, sizeof BM_FS_TEX_bin);
     }
+    int any_lit = 0;
+    for (uint32_t d = 0; d < ndraws && !any_lit; d++)
+        any_lit = draws[d].litv != NULL && tv_m != NULL;
+    if (any_lit) {
+        memcpy(m + sb + SO_VS_LIT, BM_VS_LIT_bin, sizeof BM_VS_LIT_bin);
+        memcpy(m + sb + SO_FS_VCOL, BM_FS_VCOL_bin, sizeof BM_FS_VCOL_bin);
+    }
 
     /* tiler: the heap and the context */
     md_tiler_heap(hdr + SO_HEAPD, pa + sb + SO_HEAP, HEAP_SIZE);
@@ -1036,6 +1096,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     md_attribute(hdr + SO_VATTR, 1, MD_FMT_SNAP4 | MD_ORDER_RGBA, 0, 0);
     md_attribute(hdr + SO_ATTR + MD_ATTRIBUTE_SIZE, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 16, 1);  /* BM_VS_TEX: (u v k) */
     md_attribute(hdr + SO_VATTR + MD_ATTRIBUTE_SIZE, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 0, 0); /* its varying 0 */
+    md_attribute(hdr + SO_ATTR + 2 * MD_ATTRIBUTE_SIZE, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 32, 1);  /* BM_VS_LIT: the base colour */
 
     uint8_t frs_buf[80], vrs3_buf[64];
     memset(frs_buf, 0, sizeof frs_buf);
@@ -1052,6 +1113,21 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                  .work_regs = BM_VS_TEX_WORK_REGS, .preload_regs = BM_VS_TEX_PRELOAD,
                                  .push_count = BM_VS_TEX_PUSH_COUNT };
     md_renderer_state(hdr + SO_VRSDT, &vrst);
+    md_renderer_state_t vrsl = { .shader = pa + sb + SO_VS_LIT, .attribute_count = BM_VS_LIT_ATTRIBUTE_COUNT,
+                                 .varying_count = BM_VS_LIT_VARYING_COUNT, .ubo_count = BM_VS_LIT_UBO_COUNT,
+                                 .work_regs = BM_VS_LIT_WORK_REGS, .preload_regs = BM_VS_LIT_PRELOAD,
+                                 .push_count = BM_VS_LIT_PUSH_COUNT };
+    md_renderer_state(hdr + SO_VRSDL, &vrsl);
+    uint8_t frsl_buf[80];
+    memset(frsl_buf, 0, sizeof frsl_buf);
+    md_renderer_state_t frsl = { .fragment = 1, .shader = pa + sb + SO_FS_VCOL, .attribute_count = BM_FS_VCOL_ATTRIBUTE_COUNT,
+                                 .varying_count = BM_FS_VCOL_VARYING_COUNT, .ubo_count = BM_FS_VCOL_UBO_COUNT,
+                                 .work_regs = BM_FS_VCOL_WORK_REGS, .preload_regs = BM_FS_VCOL_PRELOAD,
+                                 .push_count = BM_FS_VCOL_PUSH_COUNT, .pixel_kill = MD_KILL_WEAK_EARLY,
+                                 .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_VCOL_WAIT6, .wait7 = BM_FS_VCOL_WAIT7,
+                                 .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = zbuf };
+    md_renderer_state(frsl_buf, &frsl);
+    md_blend_opaque(frsl_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
     uint8_t frst_buf[80];
     memset(frst_buf, 0, sizeof frst_buf);
     md_renderer_state_t frst = { .fragment = 1, .shader = pa + sb + SO_FS_TEX, .attribute_count = BM_FS_TEX_ATTRIBUTE_COUNT,
@@ -1068,7 +1144,9 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                   .push_m = push_m, .vpush_m = vpush_m, .draws_m = draws_m, .verts_pa = verts_pa, .pos_pa = pos_pa,
                   .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .vrs3_buf = vrs3_buf,
                   .frst_buf = frst_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
-                  .zbuf = zbuf };
+                  .lv_m = tv_m ? tv_m - 0x720000 + 0x40000 : NULL, .lv_pa = tv_pa - 0x720000 + 0x40000,   /* BE_LIT_FROM_TV, BE_LIT_V_OFF */
+                  .litp_m = tv_m ? tv_m - 0x720000 : NULL, .litp_pa = tv_pa - 0x720000,
+                  .frsl_buf = frsl_buf, .zbuf = zbuf };
     static bblk_t blk[MALI_BUILD_CORES];
     void *blks[MALI_BUILD_CORES];
     unsigned nb = 1;
@@ -1575,13 +1653,23 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
 #define BE_TV_OFF       0x320000
 #define BE_TVY_OFF      0x3a0000
 #define BE_TEXV_MAX     16384
+/* Q2: the lit meshes' data is in 2 MB below the texture pool, [mem - 10 MB, mem - 8 MB): the pushed words of the draws, 192 bytes
+ * each (1024 draws, 0x30000), then the vertices, 48 bytes each (BE_TEXV_MAX slots, 0xc0000). The arena stops at mem - 2 MB, where
+ * the resolve surface starts. build_draws gets the area as offsets from the textured vertices (tv_m = arena + BE_TV_OFF). */
+#define BE_LIT_FROM_TV  0x720000    /* the lit area is this many bytes below tv_m: 4 MB + BE_TV_OFF */
+#define BE_LIT_V_OFF    0x40000     /* the vertices after the pushed words */
 #define BE_TPOOL_SIZE   (2u << 20)
 #define BE_TEX_SLOTS    16
 
-typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float uvk[3][3]; uint64_t tex_pa; int proj; } be_tri_t;
+typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float uvk[3][3]; uint64_t tex_pa; int proj; const float *light; } be_tri_t;
 
 static be_tri_t be_tris[BE_MAX_TRIS];
 static float be_mvps[BE_MAX_MVPS][16];
+static float be_lit[BE_MAX_TRIS][8];             /* Q2: the face data of a lit triangle (normal, emissive, base colour), by triangle */
+static float be_lights[BE_MAX_MVPS][20];         /* Q2: the light of the bone with the matrix be_mvps[i] */
+static int be_lit_on = 1;                        /* mali_lit=0: the ARM lights the faces */
+static float be_lit_min = 100.0f;                 /* mali_lit_min: the smallest average face (pixels) lit by the vertex shader */
+void mali_backend_set_lit(int on, int min_px) { be_lit_on = on != 0; be_lit_min = min_px > 0 ? (float)min_px : 100.0f; }
 static int be_n, be_nmvp;
 static int be_vs_on = 2, be_q_on = 1;
 static int be_z_on;                             /* mali_z=1: the hardware depth buffer replaces sort_tris (G2) */
@@ -1918,7 +2006,7 @@ static void be_project_mvp(int n)
     for (int i = 0; i < n; i++) {
         be_tri_t *t = &be_tris[i];
         const float *m = t->mvp;
-        if (!m)
+        if (!m || t->light)                     /* a lit triangle has no colour of its own: the shader makes it */
             continue;
         for (int k = 0; k < 3; k++) {
             const float vx = t->v[k][0], vy = t->v[k][1], vz = t->v[k][2];
@@ -1941,7 +2029,7 @@ static int z_fits(const int *idx, int n, uint32_t max_draws)
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
         const be_tri_t *p = i ? &be_tris[idx[i - 1]] : NULL;
-        tex |= t->tex_pa != 0;
+        tex |= t->tex_pa != 0 || t->light != NULL;
         if (p && p->rgb == t->rgb && p->mvp == t->mvp) {
             slots -= (3 * run_n + 3) & ~3u;
             run_n++;
@@ -1967,6 +2055,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
 {
     static float vbuf[BE_MAX_TRIS * 3][3];
     static float uvbuf[BE_MAX_TRIS * 3][3];
+    static float litbuf[BE_MAX_TRIS * 3][8];
     static mali_draw_t dr[BE_HW_MAX_DRAWS];
     static int idx[BE_MAX_TRIS], tmp_idx[BE_MAX_TRIS];
     if (be_pend && mali_backend_sync() != 0)
@@ -2056,8 +2145,8 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     uint32_t nd = 0, nv = 0, btri = 0, slots = 0;   /* slots: the frame's vertex index (draws padded to 4 vertices) */
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
-        const int tex = t->tex_pa != 0;
-        /* a textured draw's vertices live in arrays of BE_TEXV_MAX slots: the frame ends before it passes them */
+        const int tex = t->tex_pa != 0 || t->light != NULL;
+        /* a textured or lit draw's vertices live in arrays of BE_TEXV_MAX slots: the frame ends before it passes them */
         const uint32_t dslots = nd > 0 && dr[nd - 1].n ? (3 * dr[nd - 1].n + 3) & ~3u : 0;
         const uint32_t next_slots = (nd > 0 && dr[nd - 1].rgb == t->rgb && dr[nd - 1].mvp == t->mvp)
                                         ? slots - dslots + ((3 * (dr[nd - 1].n + 1) + 3) & ~3u)
@@ -2089,12 +2178,17 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             dr[nd].mvp = t->mvp;
             dr[nd].uvk = tex ? (const float (*)[3])uvbuf[nv] : NULL;
             dr[nd].tex_pa = t->tex_pa;
+            dr[nd].litv = t->light ? (const float (*)[8])litbuf[nv] : NULL;
+            dr[nd].light = t->light;
             nd++;
             slots += 4;
         }
         memcpy(vbuf[nv], t->v, sizeof t->v);
-        if (tex)
+        if (t->tex_pa)
             memcpy(uvbuf[nv], t->uvk, sizeof t->uvk);
+        if (t->light)
+            for (int q = 0; q < 3; q++)
+                memcpy(litbuf[nv + q], be_lit[idx[i]], sizeof be_lit[0]);
         nv += 3;
         btri++;
     }
@@ -2139,7 +2233,7 @@ void mali_backend_set_bilinear(int on)  { be_bilinear = on != 0; }
 static int be_arena(void)
 {
 #ifdef PLAT_RK3566
-    return !be_frame && H && H->map_pa > 0 && H->mem_pa >= H->map_pa + (10u << 20);
+    return !be_frame && H && H->map_pa > 0 && H->mem_pa >= H->map_pa + (12u << 20);
 #else
     return 0;
 #endif
@@ -2237,9 +2331,11 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
         t->key = (v[0].z + v[1].z + v[2].z) / 3;
         t->mvp = NULL;
         t->tex_pa = sl->pa;
+        t->light = NULL;
         return;
     }
     t->tex_pa = 0;
+    t->light = NULL;
     float r = 0, gr = 0, b = 0, z = 0;
     for (int i = 0; i < 3; i++) {
         t->v[i][0] = v[i].x;
@@ -2271,6 +2367,21 @@ static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
     return r;
 }
 
+/* the light block of a bone, in the order BM_VS_LIT reads it: sun, up, A, B, D (vec3 and a pad each) */
+static void be_set_light(const float *mvp, const r3d_env_t *env, v3_t sun, v3_t up)
+{
+    float *L = be_lights[(const float (*)[16])mvp - be_mvps];
+    L[0] = sun.x; L[1] = sun.y; L[2] = sun.z; L[3] = 0.0f;
+    L[4] = up.x;  L[5] = up.y;  L[6] = up.z;  L[7] = 0.0f;
+    for (int c = 0; c < 3; c++) {
+        L[8 + c] = env->A[c];
+        L[12 + c] = env->B[c];
+        L[16 + c] = env->D[c];
+    }
+    L[11] = L[15] = L[19] = 0.0f;
+}
+
+static int be_arena(void);
 static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                         int nbones, const r3d_env_t *env, int depth)
 {
@@ -2310,6 +2421,13 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         be_flush(g);
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();
+    /* Q2: the vertex shader lights the faces when the light is the sun and the ambient light of a rigid mesh */
+    int vlit = be_lit_on && be_arena() && env->lit && N && !skinned && !env->cel && env->nlamps == 0 && env->fog_k <= 0.0f &&
+               env->R[0] <= 0.0f && env->R[1] <= 0.0f && env->R[2] <= 0.0f;
+    if (vlit && (env->S[0] > 0.0f || env->S[1] > 0.0f || env->S[2] > 0.0f))
+        for (int t = 0; t < m->nfaces && vlit; t++)
+            if (R3D_LOD_SHOWS(m->colors[t], env->detail) && (m->colors[t] & R3D_GLOSSY))
+                vlit = 0;
     float mvp_local[32][16];
     float cam_s2[32], cam_at[32][3], cz_bone[32];
     v3_t l_sun[32], l_up[32], l_view[32], l_half[32];
@@ -2352,6 +2470,17 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                                 Nb[2] * env->half[0] + Nb[5] * env->half[1] + Nb[8] * env->half[2] };
         }
     }
+    if (vlit && m->nfaces < 16)                 /* a draw costs 15-25 us on the ARM: a mesh of a few faces is lit by the ARM */
+        vlit = 0;
+    if (vlit) {                                 /* many tiny faces cost more to send than to light: the ARM keeps them */
+        const float rpx = m->radius > 0.0f ? m->radius * env->f / cz_bone[0] : 1e9f;
+        if (3.14f * rpx * rpx < be_lit_min * 0.5f * (float)m->nfaces)
+            vlit = 0;
+    }
+    if (vlit)
+        for (int b = 0; b < nb; b++)
+            if (mvp_bone[b])
+                be_set_light(mvp_bone[b], env, l_sun[b], l_up[b]);
     if (skinned) {
         int bcnt[32] = { 0 };
         float bsum[32] = { 0 };
@@ -2388,11 +2517,13 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             for (int kb = 0; kb < nb; kb++) {
                 memcpy(be_mvps[be_nmvp], mvp_local[kb], sizeof mvp_local[kb]);
                 mvp_bone[kb] = be_mvps[be_nmvp++];
+                if (vlit)
+                    be_set_light(mvp_bone[kb], env, l_sun[kb], l_up[kb]);
             }
         }
         uint32_t rgb = c & 0xFFFFFFu;
         const int emissive = env->unlit || (c & R3D_EMISSIVE) != 0;
-        if (!emissive && env->lit) {
+        if (!vlit && !emissive && env->lit) {
             const float d = n.x * l_sun[b].x + n.y * l_sun[b].y + n.z * l_sun[b].z;
             const float ny = n.x * l_up[b].x + n.y * l_up[b].y + n.z * l_up[b].z;
             float dd = d > 0.0f ? d : 0.0f;
@@ -2484,6 +2615,16 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         tr->key = zmul / cz_bone[b];
         tr->mvp = mvp_bone[b];
         tr->tex_pa = 0;
+        tr->light = NULL;
+        if (vlit && mvp_bone[b]) {              /* Q2: the vertex shader lights this face */
+            tr->light = be_lights[(const float (*)[16])mvp_bone[b] - be_mvps];
+            float *lf = be_lit[tr - be_tris];
+            lf[0] = n.x; lf[1] = n.y; lf[2] = n.z;
+            lf[3] = emissive ? 1.0f : 0.0f;
+            lf[4] = (float)(c >> 16 & 255); lf[5] = (float)(c >> 8 & 255); lf[6] = (float)(c & 255);
+            lf[7] = 0.0f;
+            tr->rgb = 0x02000000u;              /* a colour no flat draw has: the faces of one mesh merge */
+        }
         nsent++;
     }
     be_stats.glmeshes++;

@@ -220,6 +220,73 @@ int main(int argc, char **argv)
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
         compile("BM_FS_TEX", b.shader, out, &fi, 0);
     }
+    {   /* lit vertex (Q2): gl_Position = M * pos; the colour of a flat-lit face, the same on its three vertices, to varying 0.
+         * Attributes: 0 = pos (x y z 1), 1 = (face normal in model space, emissive flag), 2 = (base r g b in 0..255, 0).
+         * Uniform buffer 0 (pushed): M by rows (words 0..15), sun and up directions in model space (vec4 at bytes 64, 80),
+         * the light A, B, D per channel (vec4 at bytes 96, 112, 128). Light = A + B * (n . up) + D * max(n . sun, 0); the colour
+         * is base * light rounded to 8 bits then to the RGB565 page's 5 / 6 / 5 bits, as be_mesh does on the ARM. */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, opt, "bm_vs_lit");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        b.shader->info.num_ubos = 1;
+        nir_variable *ipos = var(&b, nir_var_shader_in, "pos", VERT_ATTRIB_GENERIC0, INTERP_MODE_NONE);
+        nir_variable *inrm = var(&b, nir_var_shader_in, "nrm", VERT_ATTRIB_GENERIC1, INTERP_MODE_NONE);
+        nir_variable *icol = var(&b, nir_var_shader_in, "col", VERT_ATTRIB_GENERIC2, INTERP_MODE_NONE);
+        inrm->data.driver_location = 1;
+        icol->data.driver_location = 2;
+        nir_variable *opos = var(&b, nir_var_shader_out, "gl_Position", VARYING_SLOT_POS, INTERP_MODE_NONE);
+        nir_variable *ocol = var(&b, nir_var_shader_out, "col_out", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
+        ocol->data.driver_location = 1;
+        nir_def *p = nir_load_var(&b, ipos);
+        nir_def *r[4];
+        for (int i = 0; i < 4; i++) {
+            nir_def *row = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 16 * i), .align_mul = 16,
+                                        .align_offset = 0, .range_base = 0, .range = 144);
+            r[i] = nir_fdot4(&b, row, p);
+        }
+        nir_store_var(&b, opos, nir_vec4(&b, r[0], r[1], r[2], r[3]), 0xf);
+        nir_def *nrm = nir_load_var(&b, inrm), *base = nir_load_var(&b, icol);
+        nir_def *u[5];
+        for (int i = 0; i < 5; i++)
+            u[i] = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 64 + 16 * i), .align_mul = 16,
+                                .align_offset = 0, .range_base = 0, .range = 144);
+        nir_def *n = nir_trim_vector(&b, nrm, 3);
+        nir_def *d = nir_fmax(&b, nir_fdot3(&b, n, nir_trim_vector(&b, u[0], 3)), nir_imm_float(&b, 0.0f));
+        nir_def *ny = nir_fdot3(&b, n, nir_trim_vector(&b, u[1], 3));
+        nir_def *emi = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, nrm, 3));
+        nir_def *rgb[3];
+        for (int c = 0; c < 3; c++) {
+            nir_def *l = nir_fadd(&b, nir_channel(&b, u[2], c),
+                                  nir_fadd(&b, nir_fmul(&b, nir_channel(&b, u[3], c), ny),
+                                           nir_fmul(&b, nir_channel(&b, u[4], c), d)));
+            nir_def *v = nir_fmin(&b, nir_fmul(&b, nir_channel(&b, base, c), l), nir_imm_float(&b, 255.0f));
+            v = nir_ffloor(&b, nir_fadd(&b, v, nir_imm_float(&b, 0.5f)));
+            nir_def *q;
+            if (c == 1) {                       /* 6 bits: q * 4 + q / 16 */
+                nir_def *g6 = nir_ffloor(&b, nir_fmul(&b, v, nir_imm_float(&b, 0.25f)));
+                q = nir_fadd(&b, nir_fmul(&b, g6, nir_imm_float(&b, 4.0f)),
+                             nir_ffloor(&b, nir_fmul(&b, g6, nir_imm_float(&b, 1.0f / 16.0f))));
+            } else {                            /* 5 bits: q * 8 + q / 4 */
+                nir_def *q5 = nir_ffloor(&b, nir_fmul(&b, v, nir_imm_float(&b, 0.125f)));
+                q = nir_fadd(&b, nir_fmul(&b, q5, nir_imm_float(&b, 8.0f)),
+                             nir_ffloor(&b, nir_fmul(&b, q5, nir_imm_float(&b, 0.25f))));
+            }
+            rgb[c] = nir_fmul(&b, nir_bcsel(&b, emi, nir_channel(&b, base, c), q), nir_imm_float(&b, 1.0f / 255.0f));
+        }
+        nir_store_var(&b, ocol, nir_vec4(&b, rgb[0], rgb[1], rgb[2], nir_imm_float(&b, 1.0f)), 0xf);
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_VS_LIT", b.shader, out, &vi, 1);
+    }
+    {   /* fragment of the lit meshes: colour 0 = the interpolated varying 0, blue at least 1/255 (the key colour, as BM_FS_TEX) */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, opt, "bm_fs_vcol");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        nir_variable *icol = var(&b, nir_var_shader_in, "col", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
+        nir_variable *ocol = var(&b, nir_var_shader_out, "color", FRAG_RESULT_DATA0, INTERP_MODE_NONE);
+        nir_def *c = nir_load_var(&b, icol);
+        nir_def *bl = nir_fmax(&b, nir_channel(&b, c, 2), nir_imm_float(&b, 1.0f / 255.0f));
+        nir_store_var(&b, ocol, nir_vec4(&b, nir_channel(&b, c, 0), nir_channel(&b, c, 1), bl, nir_imm_float(&b, 1.0f)), 0xf);
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_FS_VCOL", b.shader, out, &fi, 0);
+    }
     fclose(out);
     return 0;
 }

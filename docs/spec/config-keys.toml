@@ -381,6 +381,24 @@ settings = ""
 read_in = "src/rgb30/bm_port.c:35"
 
 [[key]]
+name = "mali_lit"
+scope = "rgb30"
+values = "0 = the ARM lights the faces of a mesh; anything else = the Mali vertex shader lights them (with mali3d=1)"
+default = "1"
+meaning = "Q2: a rigid lit mesh with sun and ambient light only (no cel, fog, lamps, rim or gloss) is one draw: BM_VS_LIT lights each face, flat. Read at every gpu3d init."
+settings = ""
+read_in = "src/rgb30/bm_port.c:38"
+
+[[key]]
+name = "mali_lit_min"
+scope = "rgb30"
+values = "pixels: the smallest average face a mesh needs to be lit by the Mali; default 100"
+default = "100"
+meaning = "Q2: a mesh with faces smaller than this (estimated from its radius and distance) is lit by the ARM, as many tiny faces cost more to send to the GPU than to light. Read at every gpu3d init."
+settings = ""
+read_in = "src/rgb30/bm_port.c:38"
+
+[[key]]
 name = "mali_z"
 scope = "rgb30"
 values = "0 = far-to-near sort on the ARM; anything else = the Mali depth buffer (with mali3d=1)"

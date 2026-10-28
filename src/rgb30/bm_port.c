@@ -35,6 +35,12 @@ int gpu3d_init(void)
     const char *k = config_get("mali3d");
     const char *kt = config_get("mali_tex");
     mali_backend_set_textures(!(kt && !strcmp(kt, "0")));
+    const char *kl = config_get("mali_lit");
+    const char *km = config_get("mali_lit_min");
+    int lit_min = 0;
+    for (const char *q = km; q && *q >= '0' && *q <= '9'; q++)
+        lit_min = lit_min * 10 + (*q - '0');
+    mali_backend_set_lit(!(kl && !strcmp(kl, "0")), lit_min);
     const char *kz = config_get("mali_z");
     mali_backend_set_zbuffer(!(kz && !strcmp(kz, "0")));    /* G2: on by default */
     if (k && !strcmp(k, "0")) {
