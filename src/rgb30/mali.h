@@ -116,6 +116,10 @@ typedef struct {
     /* 2D (the arena only), drawn after the 3D without a depth test: 1 rectangles (uvk is the colour 0..1 of each vertex), 2 sprites
      * (uvk is u, v, 1; tex_pa the sheet); xyz are pixels with z = 1 */
     int d2;
+    /* face cache (a lit mesh the Mali has seen before): the blocks of the faces (3 vertices of 48 or 64 bytes each, as the vertex shader
+     * reads them) and the indices of the visible ones; n is their number. xyz and litv are not read. */
+    const float *res_blk;
+    const uint16_t *res_idx;
     const uint64_t *texs;   /* sprites: the texture blocks of the draw (up to 16), uvk[i][2] is the index in this list */
     uint32_t ntex;
     uint32_t uoff;          /* the draw's uniform words, in bytes from the start of the lit area (the arena only) */
@@ -167,6 +171,7 @@ void mali_backend_set_zbuffer(int on);          /* 1: the Mali uses its depth bu
 int mali_backend_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c);   /* 1: taken; 0: the ARM draws it */
 int mali_backend_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
                         int flip_x, int flip_y);
+void mali_backend_set_res(int on);             /* 0: no cache of the faces of a lit mesh (config key mali_res; default 1) */
 void mali_backend_set_2d(int on);               /* 1: the Mali draws the 2D (config key mali_2d; default 0) */
 void mali_backend_set_lit(int on, int min_px);  /* 0: lit meshes are lit by the ARM (mali_lit); faces smaller than min_px on average stay on the ARM (mali_lit_min) */
 void mali_backend_set_textures(int on);         /* 0: opaque textures go to the ARM, not the Mali (config key mali_tex; default 1) */

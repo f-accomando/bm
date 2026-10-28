@@ -35,6 +35,8 @@ int gpu3d_init(void)
     const char *k = config_get("mali3d");
     const char *kt = config_get("mali_tex");
     mali_backend_set_textures(!(kt && !strcmp(kt, "0")));
+    const char *kr = config_get("mali_res");
+    mali_backend_set_res(!(kr && !strcmp(kr, "0")));
     const char *k2 = config_get("mali_2d");
     mali_backend_set_2d(k2 && !strcmp(k2, "1"));
     const char *kl = config_get("mali_lit");

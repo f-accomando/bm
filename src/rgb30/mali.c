@@ -890,7 +890,13 @@ static void build_draws(void *p)
             const uint64_t lx0 = cnt_now();
             const float (*litv)[12] = draws[d].litv;
             const int litx = draws[d].litx, vstride = litx ? 64 : 48;
-            for (uint32_t i = 0; i < nv; i++) {
+            if (draws[d].res_blk) {             /* the face cache: the blocks of the visible faces, copied as they are */
+                const size_t fs = (size_t)vstride * 3;
+                for (uint32_t kx = 0; kx < draws[d].n; kx++)
+                    copy_nc16(c->lv_m + (size_t)vstride * first + fs * kx,
+                              (const uint8_t *)draws[d].res_blk + fs * draws[d].res_idx[kx], fs);
+            }
+            for (uint32_t i = 0; i < nv && !draws[d].res_blk; i++) {
                 const float v16[16] __attribute__((aligned(16))) = { draws[d].xyz[i][0], draws[d].xyz[i][1], draws[d].xyz[i][2], 1.0f,
                                                                      litv[i][0], litv[i][1], litv[i][2], litv[i][3],
                                                                      litv[i][4], litv[i][5], litv[i][6], litv[i][7],
@@ -1750,6 +1756,36 @@ typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float
 
 static be_tri_t be_tris[BE_MAX_TRIS];
 static float be_mvps[BE_MAX_MVPS][16];
+/* the face cache: the vertices of the faces of a lit mesh made once (the mesh, its version, the detail, the kind of light and the colours
+ * name the entry), so a frame only tests the faces and copies the visible ones. Kind 0 (sun and ambient light) has vertices of 12
+ * floats, kinds 1 and 2 (the effects, the skeleton) of 16. A block is the 3 vertices of a face. */
+#define BE_RM_SLOTS     12
+#define BE_RM_POOL      (3u << 18)              /* floats: 3 MB */
+#define BE_INST_MAX     256
+typedef struct {
+    const r3d_mesh_t *m;
+    uint32_t version, colsum;
+    int nfaces, detail, kind, unlit;
+    uint32_t nshown;
+    float *blk;
+} be_rm_t;
+typedef struct {
+    const be_rm_t *rm;
+    const float *mvp, *light;
+    int kind, nb;
+    uint32_t nvis, vis0;
+} be_inst_t;
+static be_rm_t be_rms[BE_RM_SLOTS];
+static int be_nrm;
+static uint32_t be_rm_used;
+static float be_rm_pool[BE_RM_POOL] __attribute__((aligned(64)));
+static be_inst_t be_insts[BE_INST_MAX];
+static int be_ninst;
+static uint16_t be_vis[BE_MAX_TRIS];
+static uint32_t be_nvis;
+static int be_res_on = 1;                       /* mali_res=0: no face cache */
+void mali_backend_set_res(int on)       { be_res_on = on != 0; }
+
 static float be_lit[BE_MAX_TRIS][12];             /* Q2: the face data of a lit triangle (normal, emissive, base colour), by triangle */
 static float be_lights[BE_MAX_MVPS][88];         /* Q2: the light of the bone with the matrix be_mvps[i] */
 static int be_lit_on = 1;                        /* mali_lit=0: the ARM lights the faces */
@@ -1822,7 +1858,7 @@ void mali_backend_stats(gpu3d_stats_t *s, int reset)
 
 int mali_backend_pending(void)
 {
-    return be_n + be_n2d;
+    return be_n + be_n2d + be_ninst;
 }
 
 /* drains any in-flight slot 0 fragment job without resolving */
@@ -1845,6 +1881,8 @@ void mali_backend_drop(void)
     be_drain_pend();
     be_n = 0;
     be_n2d = 0;
+    be_ninst = 0;
+    be_nvis = 0;
     be_nmvp = 0;
 }
 
@@ -2127,10 +2165,10 @@ static uint32_t be_lit_bytes(int litx, int nb)
 }
 
 /* the triangles in the order idx fit one frame: the draws (runs of one colour and matrix), the vertex slots */
-static int z_fits(const int *idx, int n, uint32_t max_draws)
+static int z_fits(const int *idx, int n, uint32_t max_draws, uint32_t x_runs, uint32_t x_slots, uint32_t x_lu)
 {
-    uint32_t runs = 0, slots = 0, run_n = 0, lu = 0;
-    int tex = 0;
+    uint32_t runs = x_runs, slots = x_slots, run_n = 0, lu = x_lu;
+    int tex = x_runs != 0;
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
         const be_tri_t *p = i ? &be_tris[idx[i - 1]] : NULL;
@@ -2168,11 +2206,13 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     static uint64_t spr_tex[BE_HW_MAX_DRAWS][16];     /* the sheets of the sprite draws */
     if (be_pend && mali_backend_sync() != 0)
         return -1;
-    const int n = be_n, n2 = be_n2d;
-    if (n == 0 && n2 == 0)
+    const int n = be_n, n2 = be_n2d, ninst = be_ninst;
+    if (n == 0 && n2 == 0 && ninst == 0)
         return 0;
     be_n = 0;
     be_n2d = 0;
+    be_ninst = 0;
+    be_nvis = 0;
     be_nmvp = 0;
     const mali_hw_t *hw = be_hw;
     const uint32_t sw = ((uint32_t)g->w + 15) & ~15u, sh = ((uint32_t)g->h + 15) & ~15u;
@@ -2200,15 +2240,20 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     /* G2: with the depth buffer the order of the triangles does not matter, but one frame has to hold them all (a second
      * frame has no depth of the first). Try the order as it came, then grouped by colour; else sort far to near. */
     int zfr = 0;
+    uint32_t x_slots = 0, x_lu = 0;                 /* what the cached meshes take of a frame */
+    for (int ii = 0; ii < ninst; ii++) {
+        x_slots += (3 * be_insts[ii].nvis + 3) & ~3u;
+        x_lu += be_lit_bytes(be_insts[ii].kind, be_insts[ii].nb);
+    }
     if (be_zmode()) {
-        zfr = z_fits(idx, n, max_draws);
+        zfr = z_fits(idx, n, max_draws, (uint32_t)ninst, x_slots, x_lu);
         if (!zfr) {
             be_project_mvp(n);
             any_mvp = 0;
             const uint64_t tz = cnt_now();
             sort_tris(idx, tmp_idx, n, tri_after_rgbonly);
             t_sort += cnt_now() - tz;
-            zfr = z_fits(idx, n, max_draws);
+            zfr = z_fits(idx, n, max_draws, (uint32_t)ninst, x_slots, x_lu);
             if (!zfr)                           /* back to the sort: the projected triangles had z = 0.5 before */
                 for (int i = 0; i < n; i++)
                     if (be_tris[i].proj)
@@ -2285,6 +2330,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             }
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
             dr[nd].d2 = 0;
+            dr[nd].res_blk = NULL;
             dr[nd].ntex = 0;
             dr[nd].n = 1;
             dr[nd].rgb = t->rgb;
@@ -2308,6 +2354,43 @@ static int be_flush_mode_impl(const g16_t *g, int async)
                 memcpy(litbuf[nv + q], be_lit[idx[i]], sizeof be_lit[0]);
         nv += 3;
         btri++;
+    }
+    /* the cached meshes: a draw each, with the depth test (the frame has it) */
+    if (ninst) {
+        if (!zfr && nd > 0) {                       /* the sorted triangles end their frames first */
+            if (be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
+                return -1;
+            nd = nv = btri = slots = lu_used = 0;
+        }
+        be_zfr = 1;
+        for (int ii = 0; ii < ninst; ii++) {
+            const be_inst_t *q = &be_insts[ii];
+            const uint32_t need = be_lit_bytes(q->kind, q->nb), sl = (3 * q->nvis + 3) & ~3u;
+            if (nd == max_draws || slots + sl > BE_TEXV_MAX || btri + q->nvis > max_tris || lu_used + need > BE_LIT_V_OFF) {
+                if (nd > 0 && be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
+                    return -1;
+                nd = nv = btri = slots = lu_used = 0;
+            }
+            dr[nd].xyz = (const float (*)[3])vbuf[0];       /* (not read) */
+            dr[nd].n = q->nvis;
+            dr[nd].rgb = 0x06000000u;
+            dr[nd].mvp = q->mvp;
+            dr[nd].uvk = NULL;
+            dr[nd].tex_pa = 0;
+            dr[nd].litv = (const float (*)[12])litbuf[0];   /* (not read: marks a lit draw) */
+            dr[nd].light = q->light;
+            dr[nd].litx = q->kind;
+            dr[nd].nbones = q->nb;
+            dr[nd].d2 = 0;
+            dr[nd].ntex = 0;
+            dr[nd].uoff = lu_used;
+            dr[nd].res_blk = q->rm->blk;
+            dr[nd].res_idx = be_vis + q->vis0;
+            lu_used += need;
+            slots += sl;
+            btri += q->nvis;
+            nd++;
+        }
     }
     /* the 2D, in the order called, after the 3D and without a depth test: the quads of one colour kind or one sheet make a draw */
     for (int i = 0; i < n2; i++) {
@@ -2348,6 +2431,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             dr[nd].litx = 0;
             dr[nd].nbones = 0;
             dr[nd].d2 = q->kind;
+            dr[nd].res_blk = NULL;
             dr[nd].ntex = 0;
             dr[nd].texs = spr_tex[nd];
             if (q->kind == 2) {
@@ -2704,6 +2788,63 @@ static void be_set_light(const float *mvp, const r3d_env_t *env, v3_t sun, v3_t 
 }
 
 static int be_arena(void);
+
+/* the cache entry of a lit mesh, made now if there is none, or NULL (the faces go one by one) */
+static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int kind, int skinned)
+{
+    uint32_t cs = 0;
+    for (int t = 0; t < m->nfaces; t++)
+        cs = (cs << 1 | cs >> 31) ^ m->colors[t];
+    const int unlit = env->unlit != 0;
+    for (int i = 0; i < be_nrm; i++) {
+        const be_rm_t *r = &be_rms[i];
+        if (r->m == m && r->version == m->version && r->nfaces == m->nfaces && r->detail == env->detail && r->kind == kind &&
+            r->unlit == unlit && r->colsum == cs)
+            return r;
+    }
+    const unsigned stride = kind ? 16 : 12;
+    uint32_t shown = 0;
+    for (int t = 0; t < m->nfaces; t++)
+        shown += R3D_LOD_SHOWS(m->colors[t], env->detail) ? 1 : 0;
+    const uint32_t need = shown * 3 * stride;
+    if (need > BE_RM_POOL || !shown)
+        return NULL;
+    if (be_nrm == BE_RM_SLOTS || be_rm_used + need > BE_RM_POOL) {
+        if (be_ninst)
+            return NULL;                        /* the batch waiting holds blocks: this mesh goes one face at a time */
+        be_nrm = 0;                             /* the pool is full: start again (a frame copies its blocks when it is built) */
+        be_rm_used = 0;
+    }
+    be_rm_t *r = &be_rms[be_nrm++];
+    float *o = be_rm_pool + be_rm_used;
+    be_rm_used += need;
+    for (int t = 0; t < m->nfaces; t++) {
+        const uint32_t c = m->colors[t];
+        if (!R3D_LOD_SHOWS(c, env->detail))
+            continue;
+        const uint16_t *fc = m->faces + t * 3;
+        const v3_t v[3] = { m->verts[fc[0]], m->verts[fc[1]], m->verts[fc[2]] }, n = m->normals[t];
+        const float emi = (env->unlit || (c & R3D_EMISSIVE)) ? 1.0f : 0.0f;
+        const float cx = (v[0].x + v[1].x + v[2].x) * (1.0f / 3.0f), cy = (v[0].y + v[1].y + v[2].y) * (1.0f / 3.0f),
+                    cz = (v[0].z + v[1].z + v[2].z) * (1.0f / 3.0f);
+        for (int k = 0; k < 3; k++) {
+            float *q = o + k * stride;
+            q[0] = v[k].x; q[1] = v[k].y; q[2] = v[k].z; q[3] = 1.0f;
+            q[4] = n.x; q[5] = n.y; q[6] = n.z; q[7] = emi;
+            q[8] = (float)(c >> 16 & 255); q[9] = (float)(c >> 8 & 255); q[10] = (float)(c & 255);
+            q[11] = (c & R3D_GLOSSY) ? 1.0f : 0.0f;
+            if (kind) {
+                q[12] = cx; q[13] = cy; q[14] = cz;
+                q[15] = skinned ? (float)m->vbone[fc[0]] : 0.0f;
+            }
+        }
+        o += 3 * stride;
+    }
+    r->m = m; r->version = m->version; r->nfaces = m->nfaces; r->detail = env->detail; r->kind = kind; r->unlit = unlit;
+    r->colsum = cs; r->nshown = shown; r->blk = be_rm_pool + be_rm_used - need;
+    return r;
+}
+
 static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                         int nbones, const r3d_env_t *env, int depth)
 {
@@ -2739,7 +2880,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         }
     }
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
-    if (be_n2d || be_n + m->nfaces > cap || be_nmvp + nb > BE_MAX_MVPS)
+    if (be_n2d || be_n + (int)be_nvis + m->nfaces > cap || be_nmvp + nb > BE_MAX_MVPS || be_ninst >= BE_INST_MAX)
         be_flush(g);
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();
@@ -2827,6 +2968,37 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     if (vlit)
         for (int b = 0; b < nb; b++)
             be_set_light(mvp_bone[b], env, l_sun[b], l_up[b], l_view[b], l_half[b], M[b], cz_bone[b]);
+    if (vlit && be_res_on && zmode) {           /* the face cache: only the visible faces' numbers go on */
+        const int kind = vx == 2 ? 2 : vx ? 1 : 0;
+        const be_rm_t *rm = be_rm_get(m, env, kind, skinned);
+        if (rm) {
+            const unsigned stride = kind ? 16 : 12;
+            const uint32_t vis0 = be_nvis;
+            for (uint32_t j = 0; j < rm->nshown; j++) {
+                const float *f = rm->blk + (size_t)j * 3 * stride;
+                const int b = skinned ? (int)f[15] : 0;
+                const float s2 = cam_s2[b], *at = cam_at[b];
+                if ((s2 * f[0] + at[0]) * f[4] + (s2 * f[1] + at[1]) * f[5] + (s2 * f[2] + at[2]) * f[6] >= 0.0f)
+                    continue;
+                be_vis[be_nvis++] = (uint16_t)j;
+            }
+            const uint32_t nvis = be_nvis - vis0;
+            if (nvis) {
+                be_inst_t *q = &be_insts[be_ninst++];
+                q->rm = rm;
+                q->mvp = mvp_bone[0];
+                q->light = be_lights[(const float (*)[16])mvp_bone[0] - be_mvps];
+                q->kind = kind;
+                q->nb = nb;
+                q->nvis = nvis;
+                q->vis0 = vis0;
+            }
+            be_stats.glmeshes++;
+            be_stats.gltris += nvis;
+            be_stats.glverts += (uint32_t)m->nverts;
+            return 1;
+        }
+    }
     uint32_t nsent = 0;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];

@@ -390,6 +390,15 @@ settings = ""
 read_in = "src/rgb30/bm_port.c:38"
 
 [[key]]
+name = "mali_res"
+scope = "rgb30"
+values = "0 = no cache of the faces of a lit mesh; anything else = the Mali keeps them (with mali3d=1, mali_lit=1, mali_z=1)"
+default = "1"
+meaning = "A lit mesh the Mali has seen before is drawn from the vertices of its faces kept in a cache: a frame only tests the faces (back faces stay out) and copies the visible ones. The pictures do not change. Read at every gpu3d init."
+settings = ""
+read_in = "src/rgb30/bm_port.c:38"
+
+[[key]]
 name = "mali_2d"
 scope = "rgb30"
 values = "1 = the Mali draws rectangles and sprites over the 3D (with mali3d=1); anything else = the ARM draws the 2D"
