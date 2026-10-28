@@ -394,7 +394,7 @@ name = "mali_res"
 scope = "rgb30"
 values = "0 = no cache of the faces of a lit mesh; anything else = the Mali keeps them (with mali3d=1, mali_lit=1, mali_z=1)"
 default = "1"
-meaning = "A lit mesh the Mali has seen before is drawn from the vertices of its faces kept in a cache: a frame only tests the faces (back faces stay out) and copies the visible ones. The pictures do not change. Read at every gpu3d init."
+meaning = "A lit mesh the Mali has seen before (a frame holds 10922 of their faces) is drawn from the vertices of its faces kept in a cache: a frame only tests the faces (back faces stay out) and copies the visible ones. The pictures do not change. Read at every gpu3d init."
 settings = ""
 read_in = "src/rgb30/bm_port.c:38"
 

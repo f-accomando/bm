@@ -837,6 +837,10 @@ void mali_par_set(int (*workers)(void), int (*par)(void (*fn)(void *), void *con
     mp_par = par;
 }
 
+/* The area R2, 3 MB at [mem - 13 MB, mem - 10 MB): the varyings (0x80000 bytes, 32768 vertices of 16) and the vertices (2 MB, 32768 of
+ * up to 64 bytes) of the cached meshes, so a frame holds 10922 faces of them; the other draws keep the 16384 vertices of the arena. */
+#define BE_R2_BELOW     (13u << 20)
+
 typedef struct {                                /* what every core reads while it builds draws */
     const mali_draw_t *draws;
     uint32_t ndraws;
@@ -850,6 +854,8 @@ typedef struct {                                /* what every core reads while i
     int fast_pack;
     uint8_t *lv_m, *litp_m;                     /* Q2: lit vertices of 48 bytes, the uniform words of a lit draw (448 each) */
     uint64_t lv_pa, litp_pa;
+    uint8_t *lv2_m;                             /* the vertices of the cached meshes (the area R2) */
+    uint64_t lv2_pa, tvy2_pa;
     uint8_t *texa_m;                            /* sprites: the texture descriptors of a draw (576 bytes each) */
     uint64_t texa_pa;
     const uint8_t *mem;                         /* the GPU memory as the ARM sees it, and its address for the GPU */
@@ -893,7 +899,7 @@ static void build_draws(void *p)
             if (draws[d].res_blk) {             /* the face cache: the blocks of the visible faces, copied as they are */
                 const size_t fs = (size_t)vstride * 3;
                 for (uint32_t kx = 0; kx < draws[d].n; kx++)
-                    copy_nc16(c->lv_m + (size_t)vstride * first + fs * kx,
+                    copy_nc16(c->lv2_m + (size_t)vstride * first + fs * kx,
                               (const uint8_t *)draws[d].res_blk + fs * draws[d].res_idx[kx], fs);
             }
             for (uint32_t i = 0; i < nv && !draws[d].res_blk; i++) {
@@ -937,9 +943,9 @@ static void build_draws(void *p)
             }
             zero16(push_m + 64 * (size_t)d, 32);
             memcpy(loc + D_FRSD, c->frsl_buf, 80);
-            md_attribute_buffer(loc + D_ABUFS, c->lv_pa + (uint64_t)vstride * first, vstride, vstride * nv);
+            md_attribute_buffer(loc + D_ABUFS, (draws[d].res_blk ? c->lv2_pa : c->lv_pa) + (uint64_t)vstride * first, vstride, vstride * nv);
             md_attribute_buffer(loc + D_ABUFS + 16, 0, 0, 0);
-            md_attribute_buffer(loc + D_VBUFS, tvy_pa + 16 * (uint64_t)first, 16, 16 * nv);
+            md_attribute_buffer(loc + D_VBUFS, (draws[d].res_blk ? c->tvy2_pa : tvy_pa) + 16 * (uint64_t)first, 16, 16 * nv);
             md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
             md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
             md_uniform_buffer(loc + D_VUBO, c->litp_pa + draws[d].uoff, ubo_entries);
@@ -1236,6 +1242,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                   .lv_m = tv_m ? tv_m - 0x720000 + 0x80000 : NULL, .lv_pa = tv_pa - 0x720000 + 0x80000,   /* BE_LIT_FROM_TV, BE_LIT_V_OFF */
                   .litp_m = tv_m ? tv_m - 0x720000 : NULL, .litp_pa = tv_pa - 0x720000,
                   .texa_m = tv_m ? tv_m - 0x720000 + 0x180000 : NULL, .texa_pa = tv_pa - 0x720000 + 0x180000,   /* after the lit area's 0x180000 bytes */
+                  .lv2_m = tv_m ? m - BE_R2_BELOW + 0x80000 : NULL, .lv2_pa = pa - BE_R2_BELOW + 0x80000, .tvy2_pa = pa - BE_R2_BELOW,
                   .mem = m, .mem_pa = pa,
                   .frsl_buf = frsl_buf, .frsd_buf = frsd_buf, .frsp_buf = frsp_buf, .zbuf = zbuf };
     static bblk_t blk[MALI_BUILD_CORES];
@@ -1781,7 +1788,8 @@ static uint32_t be_rm_used;
 static float be_rm_pool[BE_RM_POOL] __attribute__((aligned(64)));
 static be_inst_t be_insts[BE_INST_MAX];
 static int be_ninst;
-static uint16_t be_vis[BE_MAX_TRIS];
+#define BE_VIS_MAX      12288                   /* visible faces of the cached meshes in a batch (a frame holds 10922) */
+static uint16_t be_vis[BE_VIS_MAX];
 static uint32_t be_nvis;
 static int be_res_on = 1;                       /* mali_res=0: no face cache */
 void mali_backend_set_res(int on)       { be_res_on = on != 0; }
@@ -2242,7 +2250,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     int zfr = 0;
     uint32_t x_slots = 0, x_lu = 0;                 /* what the cached meshes take of a frame */
     for (int ii = 0; ii < ninst; ii++) {
-        x_slots += (3 * be_insts[ii].nvis + 3) & ~3u;
+        /* (the vertices of the cached meshes are in the area R2: 32768 of them, checked where the draws are made) */
         x_lu += be_lit_bytes(be_insts[ii].kind, be_insts[ii].nb);
     }
     if (be_zmode()) {
@@ -2366,7 +2374,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         for (int ii = 0; ii < ninst; ii++) {
             const be_inst_t *q = &be_insts[ii];
             const uint32_t need = be_lit_bytes(q->kind, q->nb), sl = (3 * q->nvis + 3) & ~3u;
-            if (nd == max_draws || slots + sl > BE_TEXV_MAX || btri + q->nvis > max_tris || lu_used + need > BE_LIT_V_OFF) {
+            if (nd == max_draws || slots + sl > 32768u || btri + q->nvis > BE_VIS_MAX || lu_used + need > BE_LIT_V_OFF) {
                 if (nd > 0 && be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
                     return -1;
                 nd = nv = btri = slots = lu_used = 0;
@@ -2521,7 +2529,7 @@ void mali_backend_set_bilinear(int on)
 static int be_arena(void)
 {
 #ifdef PLAT_RK3566
-    return !be_frame && H && H->map_pa > 0 && H->mem_pa >= H->map_pa + (12u << 20);
+    return !be_frame && H && H->map_pa > 0 && H->mem_pa >= H->map_pa + (15u << 20);
 #else
     return 0;
 #endif
@@ -2880,7 +2888,8 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         }
     }
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
-    if (be_n2d || be_n + (int)be_nvis + m->nfaces > cap || be_nmvp + nb > BE_MAX_MVPS || be_ninst >= BE_INST_MAX)
+    if (be_n2d || be_n + m->nfaces > cap || (int)be_nvis + m->nfaces > BE_VIS_MAX || be_nmvp + nb > BE_MAX_MVPS ||
+        be_ninst >= BE_INST_MAX)
         be_flush(g);
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();
