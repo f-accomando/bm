@@ -113,7 +113,7 @@ typedef struct {
     uint32_t slow_frames;       /* frames over 16.7 ms (_update + _draw) */
     int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
     int f11_held;
-    int pad_chord_held;         /* Start + L1 + R1 on a pad was down last frame (the small dev kit) */
+    int pad_chord_held;         /* L1 + R1 on a pad were down last frame (the small dev kit) */
     int prof_want;              /* profile(true): the profiler of functions on without its page */
     int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
     int help_page;              /* the page of the keys shown while F12 is held */

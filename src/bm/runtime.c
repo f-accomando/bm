@@ -2414,7 +2414,7 @@ static int vol_start;                   /* the volume when the cartridge started
 #define PERF_MODES 3                    /* off, top, bottom */
 static int perf_on;                     /* 0 off, 1 top, 2 bottom: now */
 static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
-static int perf_small;                  /* 1: the small block (Start held, then L1 + R1 on a pad): top right, two rows */
+static int perf_small;                  /* 1: the small block (L1 + R1 on a pad): top right, two rows */
 
 /* KB of the cartridge's data in memory, besides its Lua: the sprite sheet
  * (RGB565 + alpha + the cells), the map, the models and skeletons, the sound
@@ -3525,11 +3525,13 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         }
         rt.f11_held = f11;
         rt.perf_key = 0;
-        /* a pad has no F11: Start held, then L1 + R1 together shows the small
-         * block, and the same again hides it */
+        /* a pad has no F11: L1 and R1 pressed together show the small block, and
+         * the same again hides it. The buttons are the frame's own (raw_all, the
+         * console's pad included): hid_buttons() has not the built-in pad and
+         * clears the latches the game reads. */
         {
-            const uint32_t pad = hid_buttons();
-            const int chord = (pad & HID_START) && (pad & HID_L1) && (pad & HID_R1);
+            const uint32_t pad = rt.raw_all;
+            const int chord = (pad & HID_L1) && (pad & HID_R1);
             if (chord && !rt.pad_chord_held) {
                 if (perf_on && perf_small) {
                     perf_on = 0;
