@@ -1,0 +1,74 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: RGB30
+date: 2026-10-28 16:55:08
+file: 20261028-165508_bench3d_rgb30_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.23 (Mali)
+date unknown (no network time)
+machine RGB30, Cortex-A55, the 3D on the ARM (Mali: flat colours, opaque textures on the GPU)
+gpu the Mali draws flat colours and opaque textures with its depth buffer (mali3d=1, mali_tex=1, mali_z=1)
+probes none
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.23 gpu3d=off (at the start; each profile sets its own)
+counters Cortex-A55 PMU
+previous bm/bench/3d0114.txt
+only tests cel_flat_lit, profiles all
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us,sort_us,build_us,jobs_us,b1_us,b2_us,b3_us
+R,cel_flat_lit,ARM,0.2,21.6,42.4,1,13.0,13.1,26112,10715,15232,90843,0,0.0,0.0,6861420,0,13511,10632882,2,33251,13638,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,cel_flat_lit,GPU,2.1,2.7,5.0,0,11.9,11.0,3072,1257,1792,0,0,2.0,4.6,5298138,0,38644,9716035,1,4217,1726,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,3254,1320,1256,0,9850,1188,1869,1491,4576,240,2452,1946
+R,cel_flat_lit,GPU+VS,3.4,6.8,10.9,0,11.4,11.4,9216,9216,0,0,4297,1.0,3.6,5735763,0,22241,9285101,1,10488,10488,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1504,2085,6,2997,8088,992,0,1757,3590,0,1700,16
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that differ, big: by more than 2 steps of a channel, max: the largest step)
+columns K,test,profile,pixels,diff,big,max
+KG,cel_flat_lit,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,gpu,2 0843 0843 a226 0843 0843 0843 2a4e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,gpu,3 194a 0843 2aee 3942 0843 228c 2aad 19ca 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,gpu,4 2189 0843 7a04 61e3 0843 0843 230c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,gpu,5 29aa 0843 0843 59c3 0843 0843 234e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,gpu,6 0843 0843 0843 1165 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,2 0843 0843 a226 0843 0843 0843 2a4e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,3 194a 0843 2aee 3942 0843 228c 22ad 19ca 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,4 2189 0843 7a04 61c3 0843 0843 1b0c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,5 29aa 0843 0843 59a3 0843 0843 234e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,6 0843 0843 0843 1165 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,cel_flat_lit,GPU,29690,29690
+K,cel_flat_lit,GPU,230400,7662,559,30
+KD,cel_flat_lit,GPU,box 0 99 312 322,gpu/arm first 3b35/3b15 centre 11a9/11a9 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,cel_flat_lit,GPU+VS,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,gpu,2 0843 0843 a226 0843 0843 0843 2a4e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,gpu,3 194a 0843 2aee 3942 0843 228c 2aad 19ca 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,gpu,4 2189 0843 7a04 61e3 0843 0843 230c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,gpu,5 29aa 0843 0843 59c3 0843 0843 234e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,gpu,6 0843 0843 0843 1165 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,2 0843 0843 a226 0843 0843 0843 2a4e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,3 194a 0843 2aee 3942 0843 228c 22ad 19ca 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,4 2189 0843 7a04 61c3 0843 0843 1b0c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,5 29aa 0843 0843 59a3 0843 0843 234e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,6 0843 0843 0843 1165 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,cel_flat_lit,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,cel_flat_lit,GPU+VS,29690,29690
+K,cel_flat_lit,GPU+VS,230400,7150,14,19
+KD,cel_flat_lit,GPU+VS,box 0 99 312 322,gpu/arm first 3b35/3b15 centre 11a9/11a9 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+score 0 (bm3d 7.23 as the games get it, 0 of 24 tests, a part of the bench), GPU bm3d 2.1 0, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.23,0,0,0
+S,GPU,2.1,0,0,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 4217 (cel_flat_lit)
+total 5 s
