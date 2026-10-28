@@ -90,6 +90,7 @@ ignored. If a type is repeated, the **last** one wins in the kernel (the Python 
 | 12 | LAYERS | u16 w, h, nlayers (2..8, MAP counted), u16 reserved, names (16 each), cells of layers 2..n | needs MAP of the same size; **fatal** when wrong. Without it the map has one layer, `main` |
 | 13 | FLAGS | u16 per_row, u16 rows, bytes | size exact; **fatal** when wrong; not compared with the sheet |
 | 14 | BOXES | u16 n (1..4096), u16 reserved, 28-byte boxes | each box names a zone of SPRITES and a valid frame. A broken one is dropped, not fatal, in a cartridge |
+| 15 | DATA | u16 n (1..64), u16 reserved, n entries of 24 bytes (`name[16]` NUL-ended, u32 offset from the start of the section, u32 size), then the blobs | names unique and nonempty; every blob inside the section; **fatal** when wrong. Only a cartridge may hold it. The game cannot read it. The kernel reads a blob of an installed app with `bm_data_find` (the Assistant app: `assist.bin`, `words.lua`). An older kernel ignores the section |
 
 Tile flags of the standard library `bmlib`: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts.
 

@@ -463,7 +463,7 @@ static const uint32_t res_allowed[BM_RES_KINDS] = {
 #define KNOWN_SECTIONS (BIT(BM_SEC_LUA) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_MAP) | BIT(BM_SEC_COVER) | \
                         BIT(BM_SEC_SHEET8) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_OLD_ANIM) | BIT(BM_SEC_MESH) | \
                         BIT(BM_SEC_ANIM) | BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_LAYERS) | \
-                        BIT(BM_SEC_FLAGS) | BIT(BM_SEC_BOXES))
+                        BIT(BM_SEC_FLAGS) | BIT(BM_SEC_BOXES) | BIT(BM_SEC_DATA))
 
 /* A SPRITES section: the number of zones, or -1 if it is broken. */
 static int sprites_check(const uint8_t *p, uint32_t size)
@@ -509,6 +509,56 @@ int bm_sprites_check(const uint8_t *p, uint32_t size)
 int bm_boxes_check(const uint8_t *p, uint32_t size)
 {
     return boxes_check(p, size);
+}
+
+/* A DATA section: u16 n (1..64), u16 reserved, n entries of 24 bytes (name[16], u32 offset from the start of the
+ * section, u32 size), then the blobs. The number of blobs, or -1 if it is broken. */
+int bm_data_check(const uint8_t *p, uint32_t size)
+{
+    if (size < 4)
+        return -1;
+    const unsigned n = rd16(p);
+    if (!n || n > BM_DATA_MAX || 4 + (uint64_t)n * BM_DATA_ENTRY > size)
+        return -1;
+    for (unsigned i = 0; i < n; i++) {
+        const uint8_t *e = p + 4 + i * BM_DATA_ENTRY;
+        const uint32_t off = rd32(e + 16), sz = rd32(e + 20);
+        if (!e[0] || memchr(e, 0, BM_DATA_NAME) == NULL || off < 4 + n * BM_DATA_ENTRY || (uint64_t)off + sz > size)
+            return -1;
+        for (unsigned j = 0; j < i; j++)
+            if (!strncmp((const char *)e, (const char *)p + 4 + j * BM_DATA_ENTRY, BM_DATA_NAME))
+                return -1;
+    }
+    return (int)n;
+}
+
+int bm_data_find(const uint8_t *d, size_t len, const char *name, const uint8_t **blob, uint32_t *blob_len)
+{
+    if (len < BM_HEADER_SIZE || !bm_is_cart(d))
+        return -1;
+    const unsigned count = d[17];
+    if (BM_HEADER_SIZE + (uint64_t)count * 16 > len)
+        return -1;
+    for (unsigned i = 0; i < count; i++) {
+        const uint8_t *e = d + BM_HEADER_SIZE + i * 16;
+        const uint32_t off = rd32(e + 4), size = rd32(e + 8);
+        if (rd32(e) != BM_SEC_DATA)
+            continue;
+        if ((uint64_t)off + size > len)
+            return -1;
+        const uint8_t *p = d + off;
+        const int n = bm_data_check(p, size);
+        for (int k = 0; k < n; k++) {
+            const uint8_t *b = p + 4 + k * BM_DATA_ENTRY;
+            if (strncmp((const char *)b, name, BM_DATA_NAME))
+                continue;
+            *blob = p + rd32(b + 16);
+            *blob_len = rd32(b + 20);
+            return 0;
+        }
+        return -1;
+    }
+    return -1;
 }
 
 /* A LAYERS section (without the map's size, checked after): the number of
@@ -616,6 +666,10 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
             c->nboxes = (uint16_t)n;
             break;
         }
+        case BM_SEC_DATA:
+            if (bm_data_check(p, size) < 0)
+                return fail(err, errlen, "bad data (DATA)");
+            break;
         case BM_SEC_LUA:
             c->lua = (const char *)p;
             c->lua_size = size;

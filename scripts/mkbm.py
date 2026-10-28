@@ -52,7 +52,7 @@ import bmmesh  # noqa: E402
 # files (bmmesh.cart_sections reads those as 8 and 9)
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
 SEC_MESH, SEC_ANIM = bmmesh.SEC_MESH, bmmesh.SEC_ANIM
-SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES = 11, 12, 13, 14
+SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES, SEC_DATA = 11, 12, 13, 14, 15
 
 
 SEC_INFO = 10
@@ -156,6 +156,22 @@ def read_layers(specs):
     if len(out) > LAYERS_MAX:
         raise SystemExit(f"--map: at most {LAYERS_MAX} layers")
     return out
+
+
+def data_section(items):
+    """[(name, bytes)] -> the DATA section (src/bm/bm.h): named blobs the kernel reads from an installed app"""
+    if not 1 <= len(items) <= 64:
+        raise SystemExit("--data: 1 to 64 blobs")
+    names = [n for n, _ in items]
+    if len(set(names)) != len(names) or any(not n or len(n.encode()) > 15 for n in names):
+        raise SystemExit("--data: names unique, 1 to 15 bytes")
+    head = struct.pack("<HH", len(items), 0)
+    off = 4 + 24 * len(items)
+    table, bodies = b"", b""
+    for n, blob in items:
+        table += n.encode().ljust(16, b"\0") + struct.pack("<II", off + len(bodies), len(blob))
+        bodies += blob + b"\0" * ((-len(blob)) % 4)
+    return head + table + bodies
 
 
 def layers_section(layers):
@@ -588,6 +604,8 @@ def main():
     ap.add_argument("--cover", help="picture for the menu (PNG, any size: 88x88; not square: fitted)")
     ap.add_argument("--models", help="3D models: a .glb from bm Studio, or a .bm with models")
     ap.add_argument("--uv-inset", type=float, help="texture inset of the models, sheet pixels (default 0.25)")
+    ap.add_argument("--data", action="append", default=[], metavar="NAME=FILE",
+                    help="a named blob in the DATA section (the kernel reads it from the installed app)")
     ap.add_argument("--title", default="")
     ap.add_argument("--author", default="")
     ap.add_argument("--info", help="bm.info of the project (INFO section, docs/PROJECT-LAYOUT.md): "
@@ -636,6 +654,9 @@ def main():
         mesh, extra = None, []
         if info is not None:
             extra.append((SEC_INFO, info_body))
+        if a.data:
+            extra.append((SEC_DATA, data_section([(d.split("=", 1)[0], open(d.split("=", 1)[1], "rb").read())
+                                                  for d in a.data])))
         if a.models and a.models.endswith(".bm"):
             secs = dict(bmmesh.cart_sections(open(a.models, "rb").read()))
             if SEC_MESH not in secs:

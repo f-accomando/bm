@@ -38,6 +38,13 @@ static const struct {
 
 #define LOADED "bm.loaded"
 
+/* A blob of an installed app (src/kernel/appdata.c, the kernels with a card); none in the host builds. */
+__attribute__((weak)) const uint8_t *appdata_get(const char *app, const char *blob, uint32_t *len)
+{
+    (void)app; (void)blob; (void)len;
+    return NULL;
+}
+
 /* For riff's live code (riff.code): Lua text, never bytecode, compiled
  * with env as its globals. The sandbox has no load(): a cartridge can run
  * only text, which is what it could write in its own code. Returns the
@@ -73,7 +80,16 @@ static int l_require(lua_State *L)
             continue;
         char chunk[40];
         snprintf(chunk, sizeof chunk, "=%s", name);
-        if (luaL_loadbufferx(L, (const char *)libs[i].src, (size_t)(libs[i].end - libs[i].src), chunk, "t") != LUA_OK)
+        const uint8_t *src = libs[i].src;
+        size_t n = (size_t)(libs[i].end - libs[i].src);
+        if (!n && !strcmp(name, "words")) {     /* a clean kernel: the dictionaries are in the Assistant app */
+            uint32_t len;
+            src = appdata_get("assistant", "words.lua", &len);
+            if (!src)
+                return luaL_error(L, "the Assistant app is not installed (Market > Apps): no dictionaries");
+            n = len;
+        }
+        if (luaL_loadbufferx(L, (const char *)src, n, chunk, "t") != LUA_OK)
             return lua_error(L);
         lua_pushstring(L, name);
         int nargs = 1;

@@ -1607,6 +1607,54 @@ static void test_compat_info(void)
     free(d);
 }
 
+/* The DATA section: named blobs of an app, found by name (bm_data_find) and checked by the parser. */
+static void le32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
+
+static void test_data(void)
+{
+    uint8_t sec[4 + 2 * BM_DATA_ENTRY + 8] = { 2, 0, 0, 0 };
+    memcpy(sec + 4, "words.lua", 9);
+    le32(sec + 4 + 16, 4 + 2 * BM_DATA_ENTRY);
+    le32(sec + 4 + 20, 5);
+    memcpy(sec + 4 + BM_DATA_ENTRY, "assist.bin", 10);
+    le32(sec + 4 + BM_DATA_ENTRY + 16, 4 + 2 * BM_DATA_ENTRY + 8);
+    le32(sec + 4 + BM_DATA_ENTRY + 20, 0);
+    memcpy(sec + 4 + 2 * BM_DATA_ENTRY, "hello", 5);
+    CHECK(bm_data_check(sec, sizeof sec) == 2, "data: two blobs");
+    const char lua[] = "x=1";
+    const unsigned lua_pad = 4, off_data = BM_HEADER_SIZE + 32 + lua_pad;
+    static uint8_t cart[BM_HEADER_SIZE + 32 + 4 + sizeof sec];
+    memset(cart, 0, sizeof cart);
+    memcpy(cart, "BMCART\0\0", 8);
+    cart[8] = 1;
+    cart[10] = BM_HEADER_SIZE;
+    cart[12] = 0x80; cart[13] = 0x02; cart[14] = 0x68; cart[15] = 0x01;         /* 640x360 */
+    cart[16] = BM_FMT_RGB565;
+    cart[17] = 2;
+    le32(cart + BM_HEADER_SIZE, BM_SEC_LUA);
+    le32(cart + BM_HEADER_SIZE + 4, BM_HEADER_SIZE + 32);
+    le32(cart + BM_HEADER_SIZE + 8, sizeof lua - 1);
+    le32(cart + BM_HEADER_SIZE + 16, BM_SEC_DATA);
+    le32(cart + BM_HEADER_SIZE + 20, off_data);
+    le32(cart + BM_HEADER_SIZE + 24, sizeof sec);
+    memcpy(cart + BM_HEADER_SIZE + 32, lua, sizeof lua - 1);
+    memcpy(cart + off_data, sec, sizeof sec);
+    le32(cart + 20, crc32(cart + BM_HEADER_SIZE, sizeof cart - BM_HEADER_SIZE));
+    const uint8_t *b = NULL;
+    uint32_t n = 0;
+    CHECK(bm_data_find(cart, sizeof cart, "words.lua", &b, &n) == 0 && n == 5 && !memcmp(b, "hello", 5), "data: find by name");
+    CHECK(bm_data_find(cart, sizeof cart, "assist.bin", &b, &n) == 0 && n == 0, "data: an empty blob");
+    CHECK(bm_data_find(cart, sizeof cart, "nothing", &b, &n) < 0, "data: unknown name");
+    CHECK(bm_data_find(cart, sizeof cart - 4, "words.lua", &b, &n) < 0, "data: truncated file");
+    bm_cart_t c;
+    char err[128];
+    CHECK(bm_parse(cart, sizeof cart, &c, err, sizeof err) == 0, "data: the parser accepts it: %s", err);
+    le32(cart + off_data + 4 + 20, 9999);                                       /* a blob out of the section */
+    le32(cart + 20, crc32(cart + BM_HEADER_SIZE, sizeof cart - BM_HEADER_SIZE));
+    CHECK(bm_data_find(cart, sizeof cart, "words.lua", &b, &n) < 0, "data: a blob out of bounds");
+    CHECK(bm_parse(cart, sizeof cart, &c, err, sizeof err) != 0, "data: the parser refuses it");
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -1627,6 +1675,7 @@ int main(int argc, char **argv)
     test_sheet8();
     test_mesh();
     test_pixel();
+    test_data();
     if (argc > 2)
         test_anim_cart(argv[2]);
     if (argc > 3)

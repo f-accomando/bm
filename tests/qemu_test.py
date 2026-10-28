@@ -69,7 +69,7 @@ SLOW = {
     "test_web_api": 83,
     "test_chainloader": 70,
     "test_home_ui": 66, "test_pad_typing": 48,
-    "test_editor": 39, "test_code_completion": 38,
+    "test_editor": 39, "test_code_completion": 38, "test_assistant_app": 30,
     "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_code_modules": 45, "test_update": 22, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_rle": 60, "test_video_rec_drops": 40, "test_bench_stop": 35,
@@ -7622,6 +7622,81 @@ def test_code_api(b, opts):
                 break
             time.sleep(0.25)
         assert not red_gutter(), "lint: the gutter mark is still there after an edit"
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _clean_build(opts):
+    """The folder of the clean kernel (CLEAN_KERNEL=1, the one that ships) with the Assistant and bm Code as apps; made
+    on the first use, next to the build folder."""
+    d = os.path.join(os.path.dirname(os.path.abspath(opts.build)), "build-clean")
+    need = [os.path.join(d, n) for n in ("kernel.img", "assistant.bm", "code.bm")]
+    if not all(os.path.exists(n) for n in need):
+        subprocess.run(["make", "-j4", "BUILD=" + d, "CLEAN_KERNEL=1"] + need, check=True,
+                       cwd=os.path.join(HERE, ".."))
+    return d
+
+
+def test_assistant_app(b, opts):
+    """SYS-20: the shipped kernel has no dictionaries and no knowledge file of the Assistant: they are the DATA section
+    of the Assistant app (/bm/assistant.bm). Without the app the Assistant says so. With it on the card the Assistant
+    answers (the network gives the integers of the Python reference) and bm Code completes words."""
+    d = _clean_build(opts)
+    clean = lambda n: os.path.join(d, n)
+    assert os.path.getsize(clean("kernel.img")) < 3 * 1024 * 1024, "the clean kernel still holds the Assistant's data"
+    q = Qemu(clean("kernel.img"))
+    try:
+        q.boot()
+        q.send("I")
+        q.expect("assistant: not installed", timeout=20)
+    finally:
+        q.close()
+    tmp = tempfile.mkdtemp(prefix="bm-assist-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(clean("assistant.bm"), "bm/assistant.bm"), (clean("code.bm"), "bm/code.bm")])
+    q = Qemu(clean("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.05):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def see(words, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in words), tries=2)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def see_code(words, tries=60):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("I")
+        out = q.expect("sprite recipes", timeout=30).decode(errors="replace")
+        assert re.search(r"assistant: ready, \d+ entries, \d+ sprite recipes", out), out
+        q.expect("assistant: checksum ", timeout=10)
+        got = q.expect("\n", timeout=5).decode().strip()
+        assert got == _assist_checksum("come muovo il personaggio con le frecce"), got
+        see(["Assistant", "type a question"])
+        k("come muovo il personaggio con le frecce")
+        see(["Muovere un personaggio con le frecce"])
+        k("\x1c", 0.5)                                      # Ctrl+Esc: back to the monitor
+        q.expect("> ", timeout=10)
+        k("C")                                              # bm Code, from the card, with the dictionaries
+        q.expect("code: ready", timeout=30)
+        see_code(["keys"])
+        k("\x14", 0.4)                                      # Ctrl+T: an empty tab
+        k("f", 0.4)
+        see_code(["  1 function", "Tab: function"])              # the word completion reads the words.lua of the app
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

@@ -182,7 +182,7 @@ syllable starts and ends).
 
 - `src/ai/predict.lua` (`require "predict"`): words, dictionaries, suggestions.
 - `src/ai/words/`: the Italian and English texts written for bm and the Italian lexicon
-  (`README.md`); `scripts/mkwords.py` → `build/words.lua` (`require "words"`, in the kernel,
+  (`README.md`); `scripts/mkwords.py` → `build/words.lua` (`require "words"`, in the complete kernel and in the Assistant app (DATA section); not in the clean kernel,
   ~360 KB of text).
 - `carts/code/main.lua`: completion in bm Code (`place_at` picks code, comment, string or
   `#entry:`); `src/ai/assist.lua`: the question's one.

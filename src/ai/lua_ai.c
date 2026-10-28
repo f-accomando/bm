@@ -61,11 +61,24 @@ extern const uint8_t bm_assist_bin[], bm_assist_bin_end[];
 #define BLOB_LEN ((uint32_t)(bm_assist_bin_end - bm_assist_bin))
 #endif
 
+#ifndef BM_HOST_TEST
+#include "kernel/appdata.h"
+#endif
+
 static void ready(lua_State *L)
 {
     if (ai_is_open())
         return;
-    int r = ai_open(BLOB, BLOB_LEN);
+    const uint8_t *blob = BLOB;
+    uint32_t blob_len = BLOB_LEN;
+#ifndef BM_HOST_TEST
+    if (!blob_len) {            /* a clean kernel: the knowledge file is in the Assistant app */
+        blob = appdata_get("assistant", "assist.bin", &blob_len);
+        if (!blob)
+            luaL_error(L, "the Assistant app is not installed (Market > Apps)");
+    }
+#endif
+    int r = ai_open(blob, blob_len);
     if (r)
         luaL_error(L, "assistant: %s", ai_error(r));
 }

@@ -170,6 +170,7 @@
 #define BM_SEC_LAYERS      12
 #define BM_SEC_FLAGS       13
 #define BM_SEC_BOXES       14
+#define BM_SEC_DATA        15              /* named blobs of an app: the kernel reads them (bm_data_find) */
 #define BM_SEC_OLD_ANIM    7               /* the first files of bm Studio (see above) */
 #define BM_LAYERS_MAX      8               /* map layers, the MAP section counted */
 #define BM_LAYER_NAME      16              /* bytes of a layer's name in LAYERS */
@@ -179,6 +180,9 @@
 #define BM_FRAMES_MAX      16
 #define BM_BOXES_MAX       4096            /* boxes of a BOXES section */
 #define BM_BOX_SIZE        28              /* bytes of a box */
+#define BM_DATA_MAX        64              /* blobs of a DATA section */
+#define BM_DATA_NAME       16              /* bytes of a blob's name in DATA */
+#define BM_DATA_ENTRY      24              /* bytes of a blob's entry: name[16], u32 offset, u32 size */
 
 /* the kinds of resource file (offset 12 of a "BMRES" header) */
 enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES_PALETTE, BM_RES_KIT,
@@ -316,6 +320,13 @@ int bm_box(const bm_cart_t *c, int i, bm_box_t *b);
 int bm_sprites_check(const uint8_t *p, uint32_t size);
 /* Checks a BOXES section: number of boxes (1..4096), or -1 if broken. */
 int bm_boxes_check(const uint8_t *p, uint32_t size);
+
+/* Checks a DATA section: the number of blobs (1..64), or -1 if it is broken. */
+int bm_data_check(const uint8_t *p, uint32_t size);
+
+/* The blob `name` of the DATA section of the .bm file d (len bytes): 0 and its place, or -1 (no such blob, no DATA
+ * section, a broken file). It does not check the CRC of the file: the caller owns the file. */
+int bm_data_find(const uint8_t *d, size_t len, const char *name, const uint8_t **blob, uint32_t *blob_len);
 /* A value of INFO: `key` in the block of the part "[type name]", else on
  * the file's own lines (type NULL: only those). 1 if found, the value in
  * out (cut to n - 1 bytes). */

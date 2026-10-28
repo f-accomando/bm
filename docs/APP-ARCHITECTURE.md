@@ -85,7 +85,7 @@ copy** (`.bme`, after the question "Save an editable copy?"); `cart_build` copie
 | `bmui` | `src/script/bmui.lua` | the editors (mouse, menus) |
 | `riff` | `src/script/riff.lua` | Code (Ctrl+Enter), Sound, games with music |
 | `assist`, `predict`, `padtype` | `src/ai/*.lua` | the assistant, completion, typing with the pad |
-| `words` | `build/words.lua` (generated) | dictionaries |
+| `words` | `build/words.lua` (generated; in the clean kernel it is read from the Assistant app) | dictionaries |
 
 A game **cannot `require` its own files**: there is no module system for cartridges (nothing like `package`).
 

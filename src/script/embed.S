@@ -18,12 +18,14 @@ bm_sound_cart:
 bm_sound_cart_end:
 
 /* the development assistant (M30): knowledge base and network, built by
- * scripts/mkassist.py; its panel, a Lua library (require "assist") */
+ * scripts/mkassist.py (a clean kernel has none: the Assistant app carries it, src/kernel/appdata.c); its panel, a Lua library (require "assist") */
     .section .rodata
     .balign 4
     .globl bm_assist_bin, bm_assist_bin_end
 bm_assist_bin:
+#ifndef BM_CLEAN_KERNEL
     .incbin "assist.bin"
+#endif
 bm_assist_bin_end:
 
     .section .rodata
@@ -46,7 +48,9 @@ bm_lib_predict_end:
     .balign 4
     .globl bm_lib_words, bm_lib_words_end
 bm_lib_words:
+#ifndef BM_CLEAN_KERNEL
     .incbin "words.lua"
+#endif
 bm_lib_words_end:
 
 /* typing with the pad: compose and the on-screen keyboard (require "padtype") */

@@ -178,6 +178,9 @@ endef
 TOOL_BMS := code assistant editor sound studio animator mesh pixel
 $(foreach t,$(TOOL_BMS),$(eval cover_$(t) := carts/$(t)/icon.png))
 cover_assistant := carts/code/icon.png
+# the Assistant app carries the dictionaries and the knowledge file (DATA section): a clean kernel has none
+extra_assistant := --data words.lua=$(BUILD)/words.lua --data assist.bin=$(BUILD)/assist.bin
+$(BUILD)/assistant.bm: $(BUILD)/words.lua $(BUILD)/assist.bin
 audio_sound := carts/sound/demo.json
 sheet8_studio := 1
 $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) scripts/mkbm.py $$(call c_deps,$$*)
