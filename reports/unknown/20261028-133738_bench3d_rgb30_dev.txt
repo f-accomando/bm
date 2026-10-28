@@ -1,0 +1,91 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: RGB30
+date: 2026-10-28 13:37:38
+file: 20261028-133738_bench3d_rgb30_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.18 (Mali)
+date unknown (no network time)
+machine RGB30, Cortex-A55, the 3D on the ARM (Mali: flat colours, opaque textures on the GPU)
+gpu the Mali draws flat colours and opaque textures with its depth buffer (mali3d=1, mali_tex=1, mali_z=1)
+probes none
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.18 gpu3d=off (at the start; each profile sets its own)
+counters Cortex-A55 PMU
+previous bm/bench/3d0092.txt
+only tests spheres, profiles all
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us,sort_us,build_us,jobs_us,b1_us,b2_us,b3_us
+R,spheres,ARM,0.2,199.5,461.2,0,13.9,13.9,14976,6105,8736,152915,0,0.0,0.0,6933863,0,13349,11323643,3,19155,7823,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,spheres,GPU,2.1,85.8,164.1,0,13.2,13.2,6336,2540,3696,0,0,1.0,4.6,6043686,0,57279,10739312,2,8241,3355,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1236,3372,425,5,10134,1473,2143,579,4609,312,836,715
+R,spheres,GPU+VS,3.4,108.7,145.3,0,14.4,14.0,8448,8448,0,0,3767,1.0,8.5,5750324,0,17579,11483086,2,10438,10438,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,779,7685,88,1397,12298,1863,0,501,8466,0,1521,238
+R,spheres,GPU+VS+S,5.4,107.3,146.5,0,14.3,14.8,8448,8448,0,0,3767,1.0,8.7,5772791,0,16659,11588416,2,10300,10300,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,781,7917,88,1399,12423,1849,0,496,8699,0,1513,234
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that differ, big: by more than 2 steps of a channel, max: the largest step)
+columns K,test,profile,pixels,diff,big,max
+KG,spheres,GPU,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,spheres,GPU,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,spheres,GPU,arm,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU,arm,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU,arm,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU,arm,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 ac25
+KG,spheres,GPU,arm,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,arm,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,arm,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,arm,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+K,spheres,GPU,230400,48207,2,23
+KD,spheres,GPU,box 233 0 628 170,gpu/arm first b425/ac25 centre b425/ac25 top-left 3b9c/3b9c bottom-right b425/ac25 top-middle b425/ac25
+KG,spheres,GPU+VS,gpu,0 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,gpu,1 0000 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,gpu,2 0000 0000 0000 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,gpu,3 0000 0000 0000 0000 0000 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,gpu,4 0843 0843 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,gpu,5 0843 0843 0843 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,gpu,6 0843 0843 0843 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,gpu,7 0843 0843 0843 0843 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS,arm,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS,arm,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS,arm,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS,arm,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 ac25
+KG,spheres,GPU+VS,arm,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,arm,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,arm,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,arm,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+K,spheres,GPU+VS,230400,207835,207835,30
+KD,spheres,GPU+VS,box 0 0 639 359,gpu/arm first 0000/0843 centre 0843/abe5 top-left 0000/0843 bottom-right 0843/0843 top-middle 0843/3b9c
+KG,spheres,GPU+VS+S,gpu,0 0000 0843 0843 0843 0843 0843 0843 0843 0843 0000 0000 0000 0000 0000 0843 0843
+KG,spheres,GPU+VS+S,gpu,1 0843 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS+S,gpu,2 d4e6 0843 0000 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS+S,gpu,3 d4e6 0843 0843 0000 0000 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS+S,gpu,4 0843 0843 0843 0843 0000 0000 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS+S,gpu,5 0843 0843 0843 0843 0843 0000 0000 0000 0843 0843 0843 0843 0843 0843 0843 0843
+KG,spheres,GPU+VS+S,gpu,6 0843 0843 0843 0843 0843 0843 0000 0000 0843 0843 0843 49c2 0843 0843 0843 0843
+KG,spheres,GPU+VS+S,gpu,7 0843 0843 0843 0843 0843 0843 0000 0000 0843 0843 0843 49c2 49c2 0843 0843 0843
+KG,spheres,GPU+VS+S,arm,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS+S,arm,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS+S,arm,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS+S,arm,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 ac25
+KG,spheres,GPU+VS+S,arm,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,arm,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,arm,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,arm,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+K,spheres,GPU+VS+S,230400,206129,206129,30
+KD,spheres,GPU+VS+S,box 0 0 639 359,gpu/arm first 0000/0843 centre 0000/abe5 top-left 0000/0843 bottom-right 0843/0843 top-middle 0000/3b9c
+score 413 (bm3d 7.18 as the games get it, 1 of 24 tests, a part of the bench), GPU bm3d 2.1 413, ARM bm3d 0.2 959; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.18,413,1,0
+S,GPU,2.1,413,1,0
+S,ARM,0.2,959,1,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 8241 (spheres)
+total 11 s
