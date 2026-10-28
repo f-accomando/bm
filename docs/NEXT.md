@@ -8,6 +8,30 @@ Rules for this list:
 - A task that needs the Pi: prepare it, put the exact steps in "Waiting for the user", go on. Only one session uses the Pi. The Pi bridge reads the password from the owner's 0600 file `~/.pi_bridge.pw` or from `BM_PASSWORD`. No agent reads or prints it.
 - The user does the RGB30 tests and the Pi runs. Write the results into the sheets when the user gives them.
 
+## System, menu and Overbit: tracker (28 Oct 2026)
+Done, all in `bm-core`:
+- Menu cost on the Pi: the V3D texture cache `NTEX` went from 8 to 32 and the menu background is copied only when it changes. Menu 1080p 73 -> 12.5 ms, 720p 6.3 ms, 360p GPU 2.9 ms. The default is 720p by the GPU. The order in Settings is 360p ARM, 360p GPU, 720p, 1080p.
+- Native menu layout (`menu_scale=2`, `menu_layout=1`, both set on the Pi now): 8 covers a row, the grid and the key chips centred. It is not the default yet.
+- The monitor as a shell (SYS-19 steps 1-5): `monitor_keys=0`, `hotkey`, file commands, `lua FILE` and `lua -e`, the `bm` Lua module, `boot=shell`, `autoexec=1`. The user checked it on the Pi Zero W.
+- Removed: the demo, the CPU bench, the Render bench (also in Settings of the RGB30) and the bridge command `render`.
+- SYS-20: the Assistant data are in `assistant.bm` (DATA section). The clean kernel is 2.49 MB. The app `assistant` is on the Market (28 Oct).
+- SYS-17: USB hotplug on the Pi (`hotplug` in `src/usb/usb.c`). The user checked it on the Pi Zero W.
+- Overbit: the COMMANDS page (title and pause menus) changes the keyboard keys, swaps a key that is taken, resets to default with a question. On the Market as `2026.10.28`. Settings > Controls is gone on both consoles; `controls=` stays in `bm/config.txt`. The pattern for a game is in `docs/api/input.md`.
+- `market/about.txt` has the `bench3d` line, so `make market-seed` passes its check.
+
+To do, in this order:
+1. The native layout for Settings, the panels, the title and the tabs (the grid and the chips are done).
+2. SYS-18 (covers in a better resolution), SYS-16 (file layout by type), the headless mode of the shell, SYS-15 (the remap in the other games, with the Overbit pattern).
+3. 3D Bench and free memory with 32 texture slots: only Yharnam is measured.
+4. SYS-17 leftovers: a keyboard behind a hub plugged later (read `port_status`), a mouse alone.
+
+Chores:
+- Split `docs/progress/system.md` (136 lines), `graphics.md` and `graphics-mali.md` (limit 120).
+- `test_sd_sdhc_and_usb_menu` builds a 4 GB image and the WSL `/tmp` is 3.9 GB: run it with a larger temporary folder. Clean `/tmp/bm-*` after a series of tests.
+- Delete by hand the folder `.claude/worktrees/assistant-data-app-292007` (a session held it) and that session.
+- The running Pi bridge is an old process (it still lists `render`): restart it.
+- Publish `bench3d` to the Market only with the user's OK.
+
 ## Graphics, Mali and cores: tracker (28 Oct 2026)
 Plan sheets: [multicore](progress/multicore.md) (M, G, V tracks), [graphics-mali](progress/graphics-mali.md), [graphics-vector](progress/graphics-vector.md) (2D). Order agreed with the user: V1, then G2 and G1, then V2 and V4.
 
@@ -35,6 +59,9 @@ Chores:
 - Delete by hand the empty folder `.claude/worktrees/mali-gpu-textures-1ec2f2` (a shell holds it).
 
 ## Waiting for the user (decisions and Pi runs)
+- Look at the native menu on the TV (720p, `menu_scale=2`, `menu_layout=1`) and decide if it becomes the default at 720p and 1080p.
+- Try the clean kernel (`CLEAN_KERNEL=1`, `build-clean/`, 2.49 MB) with the Assistant installed from the Market (`apps/assistant`). The QEMU test `assistant_app` passes; the Pi is not tried.
+- Overbit, COMMANDS on the Pi and the RGB30 (only tried in `bmhost`): change a key, swap, reset; play with the new keys.
 - Yharnam on the Pi Zero W: decide `LIGHT_STEP` in `carts/yharnam/main.lua` (1 now). At 2 the light has the granularity of 2 pixels (`dark_begin(ambient, 2)`): 50.5 fps against 37 to 39 on the ARM light. The GPU light (28 Oct, on by itself) is already 50.1 fps at step 1. Look at both on the Pi and say 1 or 2; at 2 the `.bme` is made again from the `.bm` (`docs/progress/yharnam.md` Rules). `gpu2d_only` and `gpu3d_qpu` are 0 in the Pi `config.txt`.
 - The bridge hangs after `python3 tools/pi.py line reboot` or a kernel send (the Pi restarts, the client waits): `status` says "the bridge is not running", `pi_bridge.py --detach 192.168.1.108` says "Address already in use". Stop the hung one by its process id (`ps -eo pid,etimes,args | grep pi_bridge`, `kill -INT`, then `kill -TERM`; leave the RGB30 and pizero ones), start it again. Cause not found.
 - Pi, `bm/bridge.txt`: on 27 Oct the card said `off` after Settings > System > Bridge was set to `fast`. The host test (`test_bridge_file` in `tests/fs/test_fat.c`) shows that writing over the file works, so the cause is not the FAT code (a write that failed on the card is the guess). Check the note "cannot save on the SD card" after the next change of that row.
