@@ -5274,6 +5274,9 @@ end
 
 function autoplay_start()
   if not autoplay_wanted() then return end
+  -- yharnam_profile=1: the profiler of functions runs, its costliest ten are in the session report at the end
+  local okp, pv = pcall(cart_config, "yharnam_profile")
+  if okp and pv ~= nil and pv ~= "" and pv ~= "0" and profile then profile(true) end
   local Y = YHARNAM
   local P, F, G = Y.player, Y.FOE, Y.G
   local TS2, CPX2 = Y.TS, Y.TS * Y.CS
