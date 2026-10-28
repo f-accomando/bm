@@ -11,6 +11,9 @@
 #include "mali_variants.h"
 
 #include <string.h>
+#ifdef PLAT_RK3566
+#include <arm_neon.h>
+#endif
 
 #include "lib/printf.h"
 
@@ -2000,11 +2003,11 @@ static inline void be_aa_pixel(uint16_t *d, uint32_t p)
         *d = (uint16_t)((p >> 19 & 31) << 11 | (p >> 10 & 63) << 5 | (p >> 3 & 31));
         return;
     }
-    const uint32_t q = *d, inv = 255 - a;
+    const uint32_t q = *d, inv = 256 - a;        /* (x * inv) >> 8: within 1 of the exact blend, and no division */
     const uint32_t pr = (q >> 11) << 3 | (q >> 13), pg = (q >> 5 & 63) << 2 | (q >> 9 & 3), pb = (q & 31) << 3 | (q >> 2 & 7);
-    uint32_t r = (p >> 16 & 255) + (pr * inv + 127) / 255;
-    uint32_t gg = (p >> 8 & 255) + (pg * inv + 127) / 255;
-    uint32_t b = (p & 255) + (pb * inv + 127) / 255;
+    uint32_t r = (p >> 16 & 255) + ((pr * inv) >> 8);
+    uint32_t gg = (p >> 8 & 255) + ((pg * inv) >> 8);
+    uint32_t b = (p & 255) + ((pb * inv) >> 8);
     r = r > 255 ? 255 : r;
     gg = gg > 255 ? 255 : gg;
     b = b > 255 ? 255 : b;
@@ -2024,7 +2027,7 @@ static void be_resolve_aa(const g16_t *g, const uint8_t *surf, uint32_t pitch)
         __asm__ volatile("dsb sy" ::: "memory");
     }
 #endif
-    const uint64_t amask = 0xFF000000FF000000ull;
+    const uint64_t amask = 0xFF000000FF000000ull, abit = 0x0100000001000000ull;
     for (int y = 0; y < h; y++) {
         const uint8_t *row = surf + (size_t)y * pitch;
         uint16_t *dst = g->px + (size_t)y * g->stride;
@@ -2037,13 +2040,21 @@ static void be_resolve_aa(const g16_t *g, const uint8_t *surf, uint32_t pitch)
             memcpy(&v[3], row + 4 * (size_t)x + 24, 8);
             if (!((v[0] | v[1] | v[2] | v[3]) & amask))
                 continue;
-            if (((v[0] & v[1] & v[2] & v[3]) & amask) == amask) {
-                /* every pixel is fully covered (alpha 255): no tests */
+            if ((((v[0] | abit) & (v[1] | abit) & (v[2] | abit) & (v[3] | abit)) & amask) == amask) {
+                /* every pixel is covered (alpha 254 or 255, the same as be_aa_pixel): no tests */
+#ifdef PLAT_RK3566
+                const uint8x8x4_t q = vld4_u8(row + 4 * (size_t)x);        /* B G R A of 8 pixels */
+                const uint16x8_t o = vorrq_u16(vorrq_u16(vshlq_n_u16(vmovl_u8(vshr_n_u8(q.val[2], 3)), 11),
+                                                         vshlq_n_u16(vmovl_u8(vshr_n_u8(q.val[1], 2)), 5)),
+                                               vmovl_u8(vshr_n_u8(q.val[0], 3)));
+                vst1q_u16(dst + x, o);
+#else
                 for (int k = 0; k < 4; k++) {
                     const uint32_t lo = (uint32_t)v[k], hi = (uint32_t)(v[k] >> 32);
                     dst[x + 2 * k] = (uint16_t)((lo >> 19 & 31) << 11 | (lo >> 10 & 63) << 5 | (lo >> 3 & 31));
                     dst[x + 2 * k + 1] = (uint16_t)((hi >> 19 & 31) << 11 | (hi >> 10 & 63) << 5 | (hi >> 3 & 31));
                 }
+#endif
                 continue;
             }
             for (int k = 0; k < 4; k++) {
