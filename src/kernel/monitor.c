@@ -17,6 +17,7 @@
 #include "drivers/watchdog.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
+#include "monitor_fs.h"
 #include "usb/hid.h"
 #include "usb/usb.h"
 #include "usb/smsc95xx.h"
@@ -520,6 +521,14 @@ CMD(c_crc)
     return 0;
 }
 
+CMD(c_ls) { return mfs_ls(argc, argv); }
+CMD(c_cd) { return mfs_cd(argc, argv); }
+CMD(c_pwd) { return mfs_pwd(argc, argv); }
+CMD(c_cat) { return mfs_cat(argc, argv); }
+CMD(c_cp) { return mfs_cp(argc, argv); }
+CMD(c_rm) { return mfs_rm(argc, argv); }
+CMD(c_mkdir) { return mfs_mkdir(argc, argv); }
+
 CMD(c_exit)
 {
     want_exit = 1;
@@ -630,6 +639,13 @@ static const mcmd_t commands[] = {
     { .name = "play", .args = "NAME", .help = "play a game by its title", .fn = c_play },
     { .name = "err", .help = "the last runtime error, the game running", .fn = c_err },
     { .name = "crc", .help = "CRC32 of the page on screen", .fn = c_crc },
+    { .name = "ls", .args = "[PATH]", .help = "list a folder of the SD card", .fn = c_ls },
+    { .name = "cd", .args = "[PATH]", .help = "go to a folder (no path: the root)", .fn = c_cd },
+    { .name = "pwd", .help = "the current folder", .fn = c_pwd },
+    { .name = "cat", .args = "FILE", .help = "show a text file (the first 16 KB)", .fn = c_cat },
+    { .name = "cp", .args = "FILE TO", .help = "copy a file (a new name is 8.3)", .fn = c_cp },
+    { .name = "rm", .args = "FILE", .help = "remove a file", .fn = c_rm },
+    { .name = "mkdir", .args = "PATH", .help = "make a folder (8.3 names)", .fn = c_mkdir },
     { .name = "exit", .help = "leave the bm> prompt (to the menu)", .fn = c_exit },
     { .name = "hotkey", .help = "single keys run commands (the keys of the first column of help)", .fn = c_hotkey },
     /* the words of before: same syntax, same output */

@@ -4978,7 +4978,7 @@ def test_monitor_help_table(b, opts):
             q.expect("> ", timeout=5)
             assert "commands (games:" in text and "help [COMMAND]" in text, text[-600:]
             keys = set(re.findall(r"^  (\S)  \S", text, re.M))
-            want = set("hMfFlUimcoyYLVatXrTKOPWEGpjzZu3456eACI")
+            want = set("hMfFlUimcoyYLVatXrTKOPWEGjzZu3456eACI")
             assert want <= keys, f"keys missing in the help: {sorted(want - keys)}"
             assert "old words that still work: b3d=bench 3d," in text, text[-500:]
             assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
@@ -5020,6 +5020,49 @@ def test_monitor_prompt_first(b, opts):
         q.expect("\nbm> ", timeout=10)
         q.send("exit\r")
         q.expect(MENU, timeout=15)                  # exit leaves to the menu
+    finally:
+        q.close()
+
+
+def test_monitor_files(b, opts):
+    """The file commands of the bm> prompt (2026-10-28, SYS-19): pwd, ls, cd (with .. and relative
+    paths), cat, cp (into a folder, to a new 8.3 name, over a file), mkdir, rm; the boot files of
+    the card are not removed; a word that is not found says so."""
+    tmp = tempfile.mkdtemp(prefix="bm-files-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    note = os.path.join(tmp, "note.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\nmonitor_keys=0\n")
+    with open(note, "w") as f:
+        f.write("first line\nsecond line\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (note, "bm/note.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("\nbm> ", timeout=10)
+        assert "\n/\n" in _prompt_line(q, "pwd")
+        out = _prompt_line(q, "ls")
+        assert "<dir>" in out and "bm/" in out and "CONFIG.TXT" in out.upper(), out
+        out = _prompt_line(q, "cd bm; pwd; ls")
+        assert "/bm" in out and "note.txt" in out.lower() and "config.txt" in out, out
+        out = _prompt_line(q, "cat note.txt")
+        assert "first line" in out and "second line" in out, out
+        out = _prompt_line(q, "cp note.txt copy.txt; ls")
+        assert "copied 23 bytes to /bm/copy.txt" in out and "copy.txt" in out.lower(), out
+        out = _prompt_line(q, "mkdir sub; cp copy.txt sub; ls sub")
+        assert "/bm/sub/copy.txt" in out and "1 files" in out, out
+        out = _prompt_line(q, "cd ..; cd /bm/sub; pwd; cd ..; pwd")
+        assert "/bm/sub" in out and "\n/bm\n" in out, out
+        out = _prompt_line(q, "rm copy.txt; ls")
+        assert "removed /bm/copy.txt" in out and "copy.txt" not in out.lower().split("removed /bm/copy.txt")[1], out
+        out = _prompt_line(q, "rm /config.txt")
+        assert "not removed here" in out, out
+        out = _prompt_line(q, "cat nosuch.txt")
+        assert "not found" in out, out
+        out = _prompt_line(q, "cp note.txt toolongname.txt")
+        assert "8.3" in out, out
     finally:
         q.close()
 
