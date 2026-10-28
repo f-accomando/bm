@@ -1,0 +1,968 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: RGB30
+date: 2026-10-28 17:43:06
+file: 20261028-174306_bench3d_rgb30_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.25 (Mali)
+date unknown (no network time)
+machine RGB30, Cortex-A55, the 3D on the ARM (Mali: flat colours, opaque textures on the GPU)
+gpu the Mali draws flat colours and opaque textures with its depth buffer (mali3d=1, mali_tex=1, mali_z=1)
+probes none
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.25 gpu3d=off (at the start; each profile sets its own)
+counters Cortex-A55 PMU
+previous bm/bench/3d0120.txt
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us,sort_us,build_us,jobs_us,b1_us,b2_us,b3_us
+R,spheres,ARM,0.2,199.6,461.1,0,13.9,13.9,14976,6105,8736,152915,0,0.0,0.0,6929913,0,13741,11322835,3,19159,7825,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,spheres,GPU,2.1,86.3,165.9,0,13.6,13.6,6336,2540,3696,0,0,1.0,4.6,5229651,0,49493,11058966,2,8281,3372,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1235,3371,425,4,10519,2016,2097,628,4607,313,837,696
+R,spheres,GPU+VS,3.4,127.8,185.5,0,12.1,12.2,11232,11232,0,0,4989,1.0,4.3,4676393,0,25035,9890213,2,12267,12267,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1036,3222,117,2203,9463,2446,0,714,4260,0,2231,289
+R,spheres,GPU+VS+S,5.4,127.7,185.3,0,12.1,12.2,11232,11232,0,0,4989,1.0,4.3,4687995,0,25234,9887442,2,12262,12262,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1036,3221,117,2201,9451,2453,0,723,4258,0,2249,293
+R,spheres_smooth,ARM,0.2,107.2,377.9,0,14.6,14.7,8448,3443,4928,166485,0,0.0,0.0,7584161,0,11517,11929159,3,10289,4183,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,spheres_smooth,GPU,2.1,69.1,145.0,0,16.1,16.2,6336,2540,3696,0,0,1.0,6.3,5923991,0,55280,13164444,2,6630,2666,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1444,4880,499,4,12432,2007,2153,735,6325,319,986,816
+R,spheres_smooth,GPU+VS,3.4,127.8,185.2,0,12.1,12.2,11232,11232,0,0,4989,1.0,4.3,4677669,0,25291,9904926,2,12268,12268,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1035,3222,117,2216,9467,2447,0,714,4258,0,2229,287
+R,spheres_tex,ARM,0.2,52.2,184.7,0,16.4,16.4,4800,1933,2800,145252,0,0.0,0.0,8063001,0,14152,13364830,3,5011,2017,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,spheres_tex,GPU,2.1,120.6,154.5,0,14.9,14.9,11232,4562,6552,0,0,1.0,3.5,7236045,0,19212,12140050,2,11581,4706,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,359,3096,1,6,8508,2456,0,1334,3456,0,1302,4
+R,spheres_unlit,ARM,0.2,215.1,499.7,0,16.2,16.3,19968,8157,11648,144130,0,0.0,0.0,8158481,0,16980,13231220,3,20647,8438,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,spheres_unlit,GPU,2.1,122.8,226.4,0,15.8,15.9,11232,4562,6552,0,0,1.0,3.3,6781467,0,65290,12884710,2,11792,4793,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,223,3083,2,7,11649,2454,3568,464,3307,425,8,5
+R,spheres_unlit,GPU+VS1,3.0,121.9,207.4,0,15.8,15.9,11232,11232,0,0,4989,1.0,3.3,5950069,0,67549,12878086,3,11700,11700,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,242,3084,2,1568,13788,2454,4088,501,3327,463,7,5
+R,spheres_unlit,GPU+VS,3.4,121.9,207.2,0,15.8,15.9,11232,11232,0,0,4989,1.0,3.3,5947738,0,67728,12897186,3,11704,11704,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,242,3084,2,1573,13813,2464,4094,506,3327,468,7,5
+R,spheres_baked,ARM,0.2,118.8,444.9,0,16.6,16.6,11232,4562,6552,183719,0,0.0,0.0,8509569,0,11276,13540147,3,11402,4632,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,spheres_baked,GPU,2.1,102.3,182.4,0,14.2,14.2,8448,3443,4928,0,0,1.0,3.1,5942022,0,69777,11574926,3,9822,3996,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,225,2839,20,6,10492,2350,3002,442,3066,330,44,35
+R,spheres_baked,GPU+VS1,3.0,102.4,182.6,0,14.2,14.3,8448,3443,4928,0,0,1.0,3.1,5941221,0,69416,11565071,3,9834,4000,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,227,2839,20,7,10482,2347,2996,439,3067,326,44,35
+R,spheres_baked,GPU+VS,3.4,102.4,182.4,0,14.2,14.3,8448,3443,4928,0,0,1.0,3.1,5941140,0,69325,11566800,3,9828,3998,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,224,2838,20,7,10488,2343,3005,442,3064,328,45,36
+R,spheres_shine,ARM,0.2,96.9,312.3,0,15.6,15.7,8448,3443,4928,166485,0,0.0,0.0,8036037,0,11565,12761854,3,9300,3785,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,spheres_shine,GPU,2.1,32.5,67.0,0,15.3,15.4,2784,1111,1624,0,0,2.0,5.0,5681971,0,35433,12493330,2,3120,1245,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,3103,2850,1111,2,12871,3247,1646,1405,5955,215,2173,1743
+R,spheres_shine,GPU+VS,3.4,122.0,167.4,0,14.0,14.0,11232,11232,0,0,4989,1.0,5.8,5166673,0,25117,11439879,2,11805,11805,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,2582,3222,117,2443,11074,2444,0,786,5805,0,2517,285
+R,heroes,ARM,0.2,15.6,31.6,0,14.1,14.1,19968,8186,11648,104663,0,0.0,0.0,7147061,0,17615,11527926,1,24004,9848,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,heroes,GPU,2.1,2.5,4.6,0,13.3,13.4,3072,1257,1792,0,0,2.0,4.6,5378341,0,41746,10840508,1,3821,1564,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,3257,1319,1258,0,10514,1762,1895,1547,4579,248,2455,1909
+R,heroes,GPU+VS,3.4,6.7,10.2,0,12.1,12.1,9216,9216,0,0,4297,1.0,3.6,5308492,0,24799,9874415,2,10291,10291,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1502,2086,6,3154,8650,1537,0,1767,3588,0,1710,14
+R,heroes,GPU+VS+S,5.4,6.7,10.3,0,12.0,12.1,9216,9216,0,0,4297,1.0,3.6,5306337,0,24476,9825320,2,10298,10298,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1502,2085,6,3127,8617,1529,0,1750,3588,0,1693,14
+R,heroes_tex,ARM,0.2,12.7,26.1,0,13.1,13.1,15360,6292,8960,70185,0,0.0,0.0,6268576,0,12779,10666727,2,19499,7994,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,heroes_tex,GPU,2.1,8.0,9.8,0,16.6,16.7,12288,5027,7168,0,0,1.0,2.7,8349097,0,33197,13561180,1,12292,5029,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,394,2292,1,1,7302,1615,0,1478,2688,0,1446,3
+R,heroes_tex,GPU+VS,3.4,8.0,9.8,0,16.6,16.7,12288,5027,7168,0,0,1.0,2.7,8347389,0,33283,13555408,1,12296,5031,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,395,2292,1,2,7276,1614,0,1473,2688,0,1441,4
+R,heroes_skin,ARM,0.2,12.6,25.0,0,13.2,13.3,15360,6353,8960,71662,0,0.0,0.0,6344969,0,12036,10784222,2,19350,7986,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,heroes_skin,GPU,2.1,7.9,9.8,0,13.2,13.2,9216,3805,5376,0,0,1.0,2.4,6569059,0,25108,10758162,1,12206,5043,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,304,2108,1,0,6166,1568,0,1126,2414,0,1095,4
+R,heroes_skin,GPU+VS,3.4,7.0,9.8,0,13.2,13.3,9216,3805,5376,0,0,1.0,2.4,6565243,0,25467,10776569,1,12236,5055,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,303,2108,1,1,6189,1563,0,1145,2413,0,1113,3
+R,heroes_shadow,ARM,0.2,3.7,11.0,0,15.0,15.1,9728,4600,3038,173084,0,0.0,0.0,6931491,0,9396,12255348,2,11843,5555,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,clip,ARM,0.2,698.6,3015.8,1,16.3,16.4,26240,4141,4895,179935,0,0.0,0.0,8099014,0,8672,13321996,3,27941,4394,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,tiny,ARM,0.2,42.5,91.5,0,14.9,15.1,19456,19456,10982,11472,0,0.0,0.0,8359675,0,18548,12192434,2,21784,21784,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,tiny,GPU,2.1,17.5,36.8,0,16.3,16.4,8704,8704,4913,0,0,2.0,4.1,8354765,0,22750,13332862,2,8939,8939,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,419,3720,2,2,9077,1783,0,876,4141,816,8,7
+R,tiny,GPU+VS,3.4,24.5,48.9,0,15.1,15.1,11264,11264,0,0,11264,2.0,4.9,6689649,0,21943,12268858,2,12531,12531,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,697,4213,22,11894,10592,1802,0,855,4912,688,66,42
+R,draws,ARM,0.2,878.1,2025.2,0,16.6,16.7,10488,4655,6272,148368,0,0.0,0.0,11203278,0,12101,13549004,3,10537,4676,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,draws,GPU,2.1,502.7,1082.3,0,16.4,16.4,5904,2777,3752,0,0,1.0,2.8,6712012,0,46637,13362103,3,6032,2838,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,617,2214,188,24,10882,4386,2167,370,2833,288,372,307
+R,draws,GPU+VS,3.4,536.3,1218.9,0,14.9,14.9,5904,5628,0,0,2777,1.0,2.1,5938869,0,45549,12157550,3,6436,6131,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,241,1888,41,1603,10678,4405,2145,200,2130,261,82,83
+R,quad_flat,ARM,0.2,17.7,35.6,0,16.1,16.1,34,34,68,979200,0,0.0,0.0,15267524,0,18874,13097004,2,35,35,0,0,0.0,0.0,0,0,0,979200,-1,16.15,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,quad_flat,GPU,2.1,219.6,466.6,0,15.9,15.9,416,416,832,0,0,1.0,13.1,3991439,0,1778,12964092,3,439,439,0,0,0.0,0.0,0,0,0,11980800,1.09,1.17,0.02,35,13021,1,11,14937,1722,0,67,13057,38,4,3
+R,quad_flat,GPU+VS,3.4,194.8,409.9,0,13.7,13.7,312,312,0,0,312,1.0,11.0,3562010,0,2261,11150967,3,390,390,0,0,0.0,0.0,0,0,0,8985600,1.25,1.36,0.00,652,10369,156,217,13044,1719,0,218,11022,38,353,235
+R,quad_smooth,ARM,0.2,10.6,21.3,0,15.8,15.8,20,20,40,576000,0,0.0,0.0,15681710,0,12426,12860896,2,21,21,0,0,0.0,0.0,0,0,0,576000,-1,26.94,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,quad_smooth,GPU,2.1,217.1,461.1,0,16.0,16.1,416,416,832,0,0,1.0,13.1,4065336,0,3397,13092815,3,434,434,0,0,0.0,0.0,0,0,0,11980800,1.09,1.19,0.02,35,13022,1,10,14928,1718,0,67,13058,39,3,3
+R,quad_smooth,GPU+VS,3.4,194.9,409.9,0,13.7,13.7,312,312,0,0,312,1.0,11.0,3562440,0,2271,11149110,3,390,390,0,0,0.0,0.0,0,0,0,8985600,1.25,1.36,0.00,652,10369,156,218,13041,1716,0,222,11022,38,355,237
+R,quad_tex,ARM,0.2,6.5,12.0,0,15.5,15.5,12,12,24,345600,0,0.0,0.0,12760255,0,12181,12653454,1,13,13,0,0,0.0,0.0,0,0,0,345600,-1,44.20,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,quad_tex,GPU,2.1,130.7,278.8,0,15.1,15.1,234,234,468,0,0,1.0,12.6,3727492,0,1644,12339871,2,261,261,0,0,0.0,0.0,0,0,0,6739200,1.86,1.96,0.07,34,12556,1,6,14464,1712,0,101,12591,0,72,4
+R,quad_alpha,ARM,0.2,6.6,13.3,0,15.1,15.2,12,12,24,323120,0,0.0,0.0,12404447,0,12688,12358930,1,13,13,0,0,0.0,0.0,0,0,0,345600,-1,43.15,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,quad_screen,ARM,0.2,30.5,61.4,0,15.9,15.9,58,58,116,835200,0,0.0,0.0,13275403,0,31475,12944023,2,61,61,0,0,0.0,0.0,0,0,0,1670400,-1,9.35,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,quad_texscreen,ARM,0.2,7.0,16.1,0,12.6,12.6,12,12,24,161560,0,0.0,0.0,12575859,0,11955,10253523,2,16,16,0,0,0.0,0.0,0,0,0,345600,-1,35.68,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,texswap,ARM,0.2,1229.4,4676.5,0,16.3,16.3,2330,2046,4092,135856,0,0.0,0.0,11324615,0,27516,13256574,4,2459,2160,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,split,ARM,0.2,28.0,58.7,0,12.8,12.9,8448,3283,4928,254939,0,0.0,0.0,6230081,0,10158,10468177,2,11132,4324,0,0,0.0,0.0,0,0,0,8800,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,split,GPU,2.1,8.2,16.4,0,16.4,16.4,3072,1202,1792,0,0,8.0,5.6,7033017,0,9593,13360423,2,3130,1225,0,0,0.0,0.0,0,0,0,3200,-1,-1,-1,1955,3660,694,4,14698,7755,0,1020,5621,203,1356,1227
+R,split,GPU+VS,3.4,10.3,20.7,0,16.2,16.3,3840,3840,0,0,1575,10.0,3.9,7466369,0,14357,13239042,2,3948,3948,0,0,0.0,0.0,0,0,0,4000,-1,-1,-1,434,3429,40,826,15059,9692,0,998,3873,0,648,82
+R,split,GPU+VS+Q,4.1,10.3,20.7,0,16.2,16.3,3840,3840,0,0,1575,10.0,3.9,7466325,0,14307,13237995,2,3947,3947,0,0,0.0,0.0,0,0,0,4000,-1,-1,-1,433,3433,40,820,15059,9686,0,1003,3874,0,643,87
+R,split,GPU+Q,4.1,8.1,16.4,0,16.4,16.5,3072,1202,1792,0,0,8.0,5.6,7036416,0,9574,13372374,2,3121,1221,0,0,0.0,0.0,0,0,0,3200,-1,-1,-1,1954,3657,694,4,14703,7764,0,1018,5619,200,1356,1237
+R,split,GPU+2D,4.8,8.1,16.4,0,16.4,16.4,3072,1202,1792,0,0,8.0,5.6,7032824,0,9650,13363956,2,3124,1223,0,0,0.0,0.0,0,0,0,3200,-1,-1,-1,1955,3656,694,3,14697,7748,0,1019,5618,203,1362,1223
+R,split,GPU+VS+Q2,5.1,10.3,20.7,0,16.2,16.2,3840,3840,0,0,1575,10.0,3.9,7468989,0,14384,13235543,2,3946,3946,0,0,0.0,0.0,0,0,0,4000,-1,-1,-1,434,3430,40,820,15054,9689,0,997,3873,0,645,85
+R,match,ARM,0.2,2.5,11.5,0,15.7,15.7,10880,5587,4438,151518,0,0.0,0.0,7378221,0,7724,12804016,2,12475,6307,0,0,0.0,0.0,0,0,0,7208,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,mix,ARM,0.2,5.0,11.0,0,16.7,16.7,17200,7802,5627,103658,0,0.0,0.0,7976449,0,21341,13576976,2,17217,7810,0,0,0.0,0.0,0,0,0,7056,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,queue,GPU,2.1,44.4,125.9,0,15.5,15.7,3648,1454,2128,0,0,1.0,4.2,9250155,0,30358,12694083,2,4264,1711,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1241,2946,436,3,8522,1950,1108,594,4188,197,853,682
+R,queue,GPU+VS,3.4,113.6,155.8,0,14.4,14.5,8448,8448,0,0,3767,1.0,3.2,8993052,0,19285,11760406,2,10907,10907,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,785,2440,88,1669,7519,2307,0,531,3227,0,1656,215
+R,queue,GPU+VS+Q,4.1,123.0,160.6,0,13.8,13.8,11232,11232,0,0,4989,1.0,5.9,9369245,0,25268,11224935,2,11812,11812,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1037,4847,0,2202,3812,2443,0,720,1038,0,2263,292
+R,queue,GPU+Q,4.1,68.0,145.9,0,16.1,16.3,6336,2540,3696,0,0,1.0,6.3,10352734,0,55283,13174390,2,6622,2663,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1444,4881,0,4,5546,2015,2152,735,1445,326,983,820
+R,queue,GPU+VS+Q2,5.1,123.1,160.9,0,13.7,13.8,11232,11232,0,0,4989,1.0,5.9,9367662,0,25343,11218948,2,11815,11815,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,1036,4843,0,2206,3809,2438,0,724,1037,0,2254,292
+R,big,ARM,0.2,-1,-1,0,40.0,41.0,24192,18488,12337,158503,0,0.0,0.0,20486048,0,29236,33429800,0,9837,7518,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,big_logic,ARM,0.2,-1,-1,0,45.8,45.9,24192,18488,12337,158503,0,0.0,0.0,25710512,0,29332,37383040,0,8799,6724,0,0,0.0,0.0,0,0,0,0,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,gpu2d,ARM,0.2,3238.7,6541.0,1,14.4,14.5,576,227,336,43826,0,0.0,0.0,12161448,0,23069,11749528,3,576,227,0,0,0.0,0.0,0,0,0,1678080,-1,7.83,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,gpu2d,GPU,2.1,2877.7,6350.4,1,16.1,16.2,576,227,336,0,0,1.0,0.8,12803971,0,24941,13124691,3,576,227,0,0,0.0,0.0,0,0,0,1678080,-1,7.90,-1,369,469,133,0,2332,1245,0,185,839,40,259,221
+R,gpu2d,GPU+2D,4.8,2867.1,6324.6,1,16.2,16.2,576,227,336,0,0,1.0,0.8,12893596,0,24905,13179223,3,576,227,0,0,0.0,0.0,0,0,0,1678080,-1,7.94,-1,369,470,133,1,2334,1246,0,184,839,39,258,216
+R,bilinear,GPU,2.1,130.6,278.7,0,15.1,15.1,234,234,468,0,0,1.0,12.6,3731634,0,1709,12347103,2,261,261,0,0,0.0,0.0,0,0,0,6739200,1.86,1.96,0.07,34,12555,1,6,14469,1716,0,104,12590,0,76,3
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_flat,ARM,-1,16.15,-1,-1,-1,-1,3.72,14.88,33.48
+P,quad_flat,GPU,1.09,1.17,0.02,0.25,1.01,2.26,0.27,1.08,2.43
+P,quad_flat,GPU+VS,1.25,1.36,0.00,0.29,1.15,2.59,0.31,1.25,2.81
+P,quad_smooth,ARM,-1,26.94,-1,-1,-1,-1,6.21,24.83,55.87
+P,quad_smooth,GPU,1.09,1.19,0.02,0.25,1.01,2.26,0.27,1.09,2.46
+P,quad_smooth,GPU+VS,1.25,1.36,0.00,0.29,1.15,2.59,0.31,1.25,2.81
+P,quad_tex,ARM,-1,44.20,-1,-1,-1,-1,10.18,40.74,91.66
+P,quad_tex,GPU,1.86,1.96,0.07,0.43,1.71,3.86,0.45,1.81,4.06
+P,quad_alpha,ARM,-1,43.15,-1,-1,-1,-1,9.94,39.77,89.47
+P,quad_screen,ARM,-1,9.35,-1,-1,-1,-1,2.16,8.62,19.40
+P,quad_texscreen,ARM,-1,35.68,-1,-1,-1,-1,8.22,32.89,74.00
+P,gpu2d,ARM,-1,7.83,-1,-1,-1,-1,1.81,7.22,16.25
+P,gpu2d,GPU,-1,7.90,-1,-1,-1,-1,1.82,7.28,16.39
+P,gpu2d,GPU+2D,-1,7.94,-1,-1,-1,-1,1.83,7.31,16.46
+P,bilinear,GPU,1.86,1.96,0.07,0.43,1.71,3.86,0.45,1.81,4.06
+pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that differ, big: by more than 2 steps of a channel, max: the largest step)
+columns K,test,profile,pixels,diff,big,max
+KG,spheres,GPU,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,spheres,GPU,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,spheres,GPU,arm,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU,arm,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU,arm,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU,arm,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 ac25
+KG,spheres,GPU,arm,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,arm,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,arm,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU,arm,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KC,spheres,GPU,203348,203348
+K,spheres,GPU,230400,48207,2,23
+KD,spheres,GPU,box 233 0 628 170,gpu/arm first b425/ac25 centre b425/ac25 top-left 3b9c/3b9c bottom-right b425/ac25 top-middle b425/ac25
+KG,spheres,GPU+VS,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU+VS,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU+VS,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU+VS,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,spheres,GPU+VS,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,spheres,GPU+VS,arm,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS,arm,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS,arm,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS,arm,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 ac25
+KG,spheres,GPU+VS,arm,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,arm,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,arm,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS,arm,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KC,spheres,GPU+VS,203348,203348
+K,spheres,GPU+VS,230400,48207,2,23
+KD,spheres,GPU+VS,box 233 0 628 170,gpu/arm first b425/ac25 centre b425/ac25 top-left 3b9c/3b9c bottom-right b425/ac25 top-middle b425/ac25
+KG,spheres,GPU+VS+S,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU+VS+S,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU+VS+S,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres,GPU+VS+S,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,spheres,GPU+VS+S,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,spheres,GPU+VS+S,arm,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS+S,arm,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS+S,arm,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 0843
+KG,spheres,GPU+VS+S,arm,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c ac25 ac25 ac25 ac25 ac25 ac25 ac25 ac25
+KG,spheres,GPU+VS+S,arm,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,arm,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,arm,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres,GPU+VS+S,arm,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KC,spheres,GPU+VS+S,203348,203348
+K,spheres,GPU+VS+S,230400,48207,2,23
+KD,spheres,GPU+VS+S,box 233 0 628 170,gpu/arm first b425/ac25 centre b425/ac25 top-left 3b9c/3b9c bottom-right b425/ac25 top-middle b425/ac25
+KG,spheres_smooth,GPU,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3339 3339 3339 c486 c486 c486 c486 c486 9384 9384 0843
+KG,spheres_smooth,GPU,gpu,1 0843 3b9c 3b9c 3339 3339 3339 3339 3339 c486 c486 c486 9384 9384 9384 9384 0843
+KG,spheres_smooth,GPU,gpu,2 0843 3b9c 3339 3339 3339 3339 3339 3339 c486 c486 9384 9384 9384 9384 9384 0843
+KG,spheres_smooth,GPU,gpu,3 3b9c 3339 3339 3339 3339 3339 3339 3339 9384 9384 9384 9384 9384 9384 9384 9384
+KG,spheres_smooth,GPU,gpu,4 ac05 ac05 ac05 ac05 ac05 ac05 ac05 8b44 2210 2210 2210 2210 2210 2210 2210 0843
+KG,spheres_smooth,GPU,gpu,5 0843 ac05 ac05 ac05 ac05 ac05 8b44 8b44 2210 2210 2210 2210 2210 198b 198b 0843
+KG,spheres_smooth,GPU,gpu,6 0843 ac05 ac05 ac05 8b44 8b44 8b44 8b44 2210 2210 2210 2210 198b 198b 198b 0843
+KG,spheres_smooth,GPU,gpu,7 0843 ac05 ac05 8b44 8b44 8b44 8b44 8b44 2210 2210 2210 198b 198b 198b 0843 0843
+KG,spheres_smooth,GPU,arm,0 0843 3bbd 3b9c 3b9c 3b7b 3b7b 337b 335a d4e6 c4a6 bc66 b425 ac05 a3a5 9364 0843
+KG,spheres_smooth,GPU,arm,1 0843 3b9c 3b9c 3b7b 3b7b 3b7b 3b5a 3b5a ccc7 c486 bc46 b406 a3c5 9b85 9345 0843
+KG,spheres_smooth,GPU,arm,2 0843 335a 335a 3339 3339 3339 3318 3318 bc65 b445 abe5 9ba4 9364 8b24 82e3 0843
+KG,spheres_smooth,GPU,arm,3 3b5a 3b59 3b39 3339 3338 3318 3318 3318 bc46 b405 a3c5 9b85 9345 8304 7ac4 7284
+KG,spheres_smooth,GPU,arm,4 bc66 bc66 bc45 bc45 b425 b425 b425 ac05 2ab5 2a73 2252 2231 21ef 19ce 19ad 0843
+KG,spheres_smooth,GPU,arm,5 0843 b426 b406 ac06 abe6 abe6 abe5 a3c5 2a94 2a52 2a31 2210 21ce 21ad 198c 0843
+KG,spheres_smooth,GPU,arm,6 0843 9ba4 9ba4 9b84 9384 9384 9364 9364 2231 2210 19ce 19ad 198c 196b 116b 0843
+KG,spheres_smooth,GPU,arm,7 0843 9365 9365 9345 8b45 8b45 8b44 8b24 2210 21ef 21cd 19ad 198c 196b 0843 0843
+KC,spheres_smooth,GPU,203348,203348
+K,spheres_smooth,GPU,230400,178229,35941,18
+KD,spheres_smooth,GPU,box 11 0 628 359,gpu/arm first 3b9c/3bbd centre 8b44/b445 top-left 0843/0843 bottom-right 0843/0843 top-middle 3339/3b7b
+KG,spheres_smooth,GPU+VS,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres_smooth,GPU+VS,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres_smooth,GPU+VS,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,spheres_smooth,GPU+VS,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,spheres_smooth,GPU+VS,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres_smooth,GPU+VS,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres_smooth,GPU+VS,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,spheres_smooth,GPU+VS,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,spheres_smooth,GPU+VS,arm,0 0843 3bbd 3b9c 3b9c 3b7b 3b7b 337b 335a d4e6 c4a6 bc66 b425 ac05 a3a5 9364 0843
+KG,spheres_smooth,GPU+VS,arm,1 0843 3b9c 3b9c 3b7b 3b7b 3b7b 3b5a 3b5a ccc7 c486 bc46 b406 a3c5 9b85 9345 0843
+KG,spheres_smooth,GPU+VS,arm,2 0843 335a 335a 3339 3339 3339 3318 3318 bc65 b445 abe5 9ba4 9364 8b24 82e3 0843
+KG,spheres_smooth,GPU+VS,arm,3 3b5a 3b59 3b39 3339 3338 3318 3318 3318 bc46 b405 a3c5 9b85 9345 8304 7ac4 7284
+KG,spheres_smooth,GPU+VS,arm,4 bc66 bc66 bc45 bc45 b425 b425 b425 ac05 2ab5 2a73 2252 2231 21ef 19ce 19ad 0843
+KG,spheres_smooth,GPU+VS,arm,5 0843 b426 b406 ac06 abe6 abe6 abe5 a3c5 2a94 2a52 2a31 2210 21ce 21ad 198c 0843
+KG,spheres_smooth,GPU+VS,arm,6 0843 9ba4 9ba4 9b84 9384 9384 9364 9364 2231 2210 19ce 19ad 198c 196b 116b 0843
+KG,spheres_smooth,GPU+VS,arm,7 0843 9365 9365 9345 8b45 8b45 8b44 8b24 2210 21ef 21cd 19ad 198c 196b 0843 0843
+KC,spheres_smooth,GPU+VS,203348,203348
+K,spheres_smooth,GPU+VS,230400,191527,83267,18
+KD,spheres_smooth,GPU+VS,box 11 0 628 359,gpu/arm first 3b9c/3bbd centre abe5/b445 top-left 0843/0843 bottom-right 0843/0843 top-middle 3b9c/3b7b
+KG,spheres_tex,GPU,gpu,0 0843 dde7 dde7 dde7 dde7 dde7 1ab8 dde7 1212 ac85 1212 1212 1212 ac85 1212 0843
+KG,spheres_tex,GPU,gpu,1 0843 dde7 dde7 dde7 dde7 dde7 1ab8 dde7 1212 ac85 ac85 1212 1212 ac85 1212 0843
+KG,spheres_tex,GPU,gpu,2 0843 1ab8 1ab8 dde7 dde7 dde7 1ab8 dde7 1212 ac85 ac85 1212 1212 ac85 1212 0843
+KG,spheres_tex,GPU,gpu,3 dde7 1ab8 1ab8 dde7 1ab8 dde7 1ab8 dde7 1212 1212 ac85 1212 1212 ac85 ac85 1212
+KG,spheres_tex,GPU,gpu,4 a445 1211 1211 a445 a445 a445 1211 a445 096c 096c 7303 096c 096c 7303 7303 0843
+KG,spheres_tex,GPU,gpu,5 0843 1211 a445 a445 a445 1211 1211 a445 096c 096c 7303 096c 096c 7303 096c 0843
+KG,spheres_tex,GPU,gpu,6 0843 a445 a445 1211 a445 1211 1211 a445 096c 7303 7303 096c 096c 7303 096c 0843
+KG,spheres_tex,GPU,gpu,7 0843 a445 1211 1211 a445 1211 1211 a445 096c 7303 7303 096c 096c 7303 0843 0843
+KG,spheres_tex,GPU,arm,0 0843 d5c7 d5c7 d5c7 d5c7 d5c7 1ab7 d5c7 1211 a465 1211 1211 1211 a465 1211 0843
+KG,spheres_tex,GPU,arm,1 0843 d5c7 d5c7 d5c7 d5c7 d5c7 1ab7 d5c7 1211 a465 a465 1211 1211 a465 1211 0843
+KG,spheres_tex,GPU,arm,2 0843 1ab7 1ab7 d5c7 d5c7 d5c7 1ab7 d5c7 1211 a465 a465 1211 1211 a465 1211 0843
+KG,spheres_tex,GPU,arm,3 d5c7 1ab7 1ab7 d5c7 1ab7 d5c7 1ab7 d5c7 1211 1211 a465 1211 1211 a465 a465 1211
+KG,spheres_tex,GPU,arm,4 9c45 11f1 11f1 9c45 9c45 9c45 11f1 9c45 094b 094b 6ae3 094b 094b 6ae3 6ae3 0843
+KG,spheres_tex,GPU,arm,5 0843 11f1 9c45 9c45 9c45 11f1 11f1 9c45 094b 094b 6ae3 094b 094b 6ae3 094b 0843
+KG,spheres_tex,GPU,arm,6 0843 9c45 9c45 11f1 9c45 11f1 11f1 9c45 094b 6ae3 6ae3 094b 094b 6ae3 094b 0843
+KG,spheres_tex,GPU,arm,7 0843 9c45 11f1 11f1 9c45 11f1 11f1 9c45 094b 6ae3 6ae3 094b 094b 6ae3 0843 0843
+KC,spheres_tex,GPU,203348,203348
+K,spheres_tex,GPU,230400,203348,244,24
+KD,spheres_tex,GPU,box 11 0 628 359,gpu/arm first dde7/d5c7 centre a445/9c45 top-left 0843/0843 bottom-right 0843/0843 top-middle dde7/d5c7
+KG,spheres_unlit,GPU,gpu,0 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU,gpu,1 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU,gpu,2 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU,gpu,3 441f 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08
+KG,spheres_unlit,GPU,gpu,4 fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU,gpu,5 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU,gpu,6 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU,gpu,7 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 0843 0843
+KG,spheres_unlit,GPU,arm,0 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU,arm,1 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU,arm,2 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU,arm,3 441f 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08
+KG,spheres_unlit,GPU,arm,4 fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU,arm,5 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU,arm,6 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU,arm,7 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 0843 0843
+KC,spheres_unlit,GPU,203348,203348
+K,spheres_unlit,GPU,230400,2,2,23
+KD,spheres_unlit,GPU,box 233 169 406 169,gpu/arm first fe08/441f centre fe08/fe08 top-left fe08/441f bottom-right 441f/fe08 top-middle fe08/fe08
+KG,spheres_unlit,GPU+VS1,gpu,0 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS1,gpu,1 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS1,gpu,2 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS1,gpu,3 441f 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08
+KG,spheres_unlit,GPU+VS1,gpu,4 fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS1,gpu,5 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS1,gpu,6 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS1,gpu,7 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 0843 0843
+KG,spheres_unlit,GPU+VS1,arm,0 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS1,arm,1 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS1,arm,2 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS1,arm,3 441f 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08
+KG,spheres_unlit,GPU+VS1,arm,4 fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS1,arm,5 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS1,arm,6 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS1,arm,7 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 0843 0843
+KC,spheres_unlit,GPU+VS1,203348,203348
+K,spheres_unlit,GPU+VS1,230400,2,2,23
+KD,spheres_unlit,GPU+VS1,box 233 169 406 169,gpu/arm first fe08/441f centre fe08/fe08 top-left fe08/441f bottom-right 441f/fe08 top-middle fe08/fe08
+KG,spheres_unlit,GPU+VS,gpu,0 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS,gpu,1 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS,gpu,2 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS,gpu,3 441f 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08
+KG,spheres_unlit,GPU+VS,gpu,4 fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS,gpu,5 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS,gpu,6 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS,gpu,7 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 0843 0843
+KG,spheres_unlit,GPU+VS,arm,0 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS,arm,1 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS,arm,2 0843 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 0843
+KG,spheres_unlit,GPU+VS,arm,3 441f 441f 441f 441f 441f 441f 441f 441f fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08
+KG,spheres_unlit,GPU+VS,arm,4 fe08 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS,arm,5 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS,arm,6 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 441f 0843
+KG,spheres_unlit,GPU+VS,arm,7 0843 fe08 fe08 fe08 fe08 fe08 fe08 fe08 441f 441f 441f 441f 441f 441f 0843 0843
+KC,spheres_unlit,GPU+VS,203348,203348
+K,spheres_unlit,GPU+VS,230400,2,2,23
+KD,spheres_unlit,GPU+VS,box 233 169 406 169,gpu/arm first fe08/441f centre fe08/fe08 top-left fe08/441f bottom-right 441f/fe08 top-middle fe08/fe08
+KG,spheres_baked,GPU,gpu,0 0843 4c3f 4c3f 4c3f 4c3f 453e 453e 453e ee89 ee89 ee89 ee89 ee89 fe89 fe89 0843
+KG,spheres_baked,GPU,gpu,1 0843 4c3f 4c3f 453e 453e 453e 453e 453e ee89 ee89 ee89 fe89 fe89 fe89 fe89 0843
+KG,spheres_baked,GPU,gpu,2 0843 4c3f 453e 453e 453e 453e 453e 453e ee89 ee89 fe89 fe89 fe89 fe89 fe89 0843
+KG,spheres_baked,GPU,gpu,3 4c3f 453e 453e 453e 453e 453e 453e 453e fe89 fe89 fe89 fe89 fe89 fe89 fe89 fe89
+KG,spheres_baked,GPU,gpu,4 f5aa f5aa f5aa f5aa f5aa f5aa f5aa ff08 3cfd 3cfd 3cfd 3cfd 3cfd 3cfd 3cfd 0843
+KG,spheres_baked,GPU,gpu,5 0843 f5aa f5aa f5aa f5aa f5aa ff08 ff08 3cfd 3cfd 3cfd 3cfd 3cfd 4c1f 4c1f 0843
+KG,spheres_baked,GPU,gpu,6 0843 f5aa f5aa f5aa ff08 ff08 ff08 ff08 3cfd 3cfd 3cfd 3cfd 4c1f 4c1f 4c1f 0843
+KG,spheres_baked,GPU,gpu,7 0843 f5aa f5aa ff08 ff08 ff08 ff08 ff08 3cfd 3cfd 3cfd 4c1f 4c1f 4c1f 0843 0843
+KG,spheres_baked,GPU,arm,0 0843 4cfe 4c9e 4c1e 53be 3d1e 3cfe 3cde f668 ee89 e6a9 dea9 dec9 f748 f728 0843
+KG,spheres_baked,GPU,arm,1 0843 549f 5c3f 4d7f 4d5f 455f 453e 451e fee8 f709 ef09 ff0a ff0a fec9 fec9 0843
+KG,spheres_baked,GPU,arm,2 0843 53fe 459e 457e 455e 455d 453d 3d1d f727 ef47 f689 f689 f649 f649 f629 0843
+KG,spheres_baked,GPU,arm,3 5c1f 4ddf 4dbf 4dbe 4d9e 4d7e 4d7d 455d fe6b fe4b fe2a fe0a fdea fdca fdaa fd8a
+KG,spheres_baked,GPU,arm,4 f509 f529 f549 f569 f589 f5a9 f5ca f787 349e 349e 3cbd 3cdc 3cdc 3cfb 3d1b 0843
+KG,spheres_baked,GPU,arm,5 0843 f5aa f5ca f5ea f60b f62b ff48 ffa8 44df 44fe 451e 451d 453d 53ff 5bdf 0843
+KG,spheres_baked,GPU,arm,6 0843 e5ea e60a e62a f668 f6c8 f728 f787 3cfe 3d1d 3d3d 453c 4c1e 53fe 53de 0843
+KG,spheres_baked,GPU,arm,7 0843 de6b de8b fe29 fe89 fee9 ff49 ffa8 455f 457e 4d7e 4c5f 543f 5c3f 0843 0843
+KC,spheres_baked,GPU,203348,203348
+K,spheres_baked,GPU,230400,194975,16790,24
+KD,spheres_baked,GPU,box 11 0 628 359,gpu/arm first 4c3f/4d3e centre ff08/ffa7 top-left 0843/0843 bottom-right 0843/0843 top-middle 453e/3cde
+KG,spheres_baked,GPU+VS1,gpu,0 0843 4c3f 4c3f 4c3f 4c3f 453e 453e 453e ee89 ee89 ee89 ee89 ee89 fe89 fe89 0843
+KG,spheres_baked,GPU+VS1,gpu,1 0843 4c3f 4c3f 453e 453e 453e 453e 453e ee89 ee89 ee89 fe89 fe89 fe89 fe89 0843
+KG,spheres_baked,GPU+VS1,gpu,2 0843 4c3f 453e 453e 453e 453e 453e 453e ee89 ee89 fe89 fe89 fe89 fe89 fe89 0843
+KG,spheres_baked,GPU+VS1,gpu,3 4c3f 453e 453e 453e 453e 453e 453e 453e fe89 fe89 fe89 fe89 fe89 fe89 fe89 fe89
+KG,spheres_baked,GPU+VS1,gpu,4 f5aa f5aa f5aa f5aa f5aa f5aa f5aa ff08 3cfd 3cfd 3cfd 3cfd 3cfd 3cfd 3cfd 0843
+KG,spheres_baked,GPU+VS1,gpu,5 0843 f5aa f5aa f5aa f5aa f5aa ff08 ff08 3cfd 3cfd 3cfd 3cfd 3cfd 4c1f 4c1f 0843
+KG,spheres_baked,GPU+VS1,gpu,6 0843 f5aa f5aa f5aa ff08 ff08 ff08 ff08 3cfd 3cfd 3cfd 3cfd 4c1f 4c1f 4c1f 0843
+KG,spheres_baked,GPU+VS1,gpu,7 0843 f5aa f5aa ff08 ff08 ff08 ff08 ff08 3cfd 3cfd 3cfd 4c1f 4c1f 4c1f 0843 0843
+KG,spheres_baked,GPU+VS1,arm,0 0843 4cfe 4c9e 4c1e 53be 3d1e 3cfe 3cde f668 ee89 e6a9 dea9 dec9 f748 f728 0843
+KG,spheres_baked,GPU+VS1,arm,1 0843 549f 5c3f 4d7f 4d5f 455f 453e 451e fee8 f709 ef09 ff0a ff0a fec9 fec9 0843
+KG,spheres_baked,GPU+VS1,arm,2 0843 53fe 459e 457e 455e 455d 453d 3d1d f727 ef47 f689 f689 f649 f649 f629 0843
+KG,spheres_baked,GPU+VS1,arm,3 5c1f 4ddf 4dbf 4dbe 4d9e 4d7e 4d7d 455d fe6b fe4b fe2a fe0a fdea fdca fdaa fd8a
+KG,spheres_baked,GPU+VS1,arm,4 f509 f529 f549 f569 f589 f5a9 f5ca f787 349e 349e 3cbd 3cdc 3cdc 3cfb 3d1b 0843
+KG,spheres_baked,GPU+VS1,arm,5 0843 f5aa f5ca f5ea f60b f62b ff48 ffa8 44df 44fe 451e 451d 453d 53ff 5bdf 0843
+KG,spheres_baked,GPU+VS1,arm,6 0843 e5ea e60a e62a f668 f6c8 f728 f787 3cfe 3d1d 3d3d 453c 4c1e 53fe 53de 0843
+KG,spheres_baked,GPU+VS1,arm,7 0843 de6b de8b fe29 fe89 fee9 ff49 ffa8 455f 457e 4d7e 4c5f 543f 5c3f 0843 0843
+KC,spheres_baked,GPU+VS1,203348,203348
+K,spheres_baked,GPU+VS1,230400,194975,16790,24
+KD,spheres_baked,GPU+VS1,box 11 0 628 359,gpu/arm first 4c3f/4d3e centre ff08/ffa7 top-left 0843/0843 bottom-right 0843/0843 top-middle 453e/3cde
+KG,spheres_baked,GPU+VS,gpu,0 0843 4c3f 4c3f 4c3f 4c3f 453e 453e 453e ee89 ee89 ee89 ee89 ee89 fe89 fe89 0843
+KG,spheres_baked,GPU+VS,gpu,1 0843 4c3f 4c3f 453e 453e 453e 453e 453e ee89 ee89 ee89 fe89 fe89 fe89 fe89 0843
+KG,spheres_baked,GPU+VS,gpu,2 0843 4c3f 453e 453e 453e 453e 453e 453e ee89 ee89 fe89 fe89 fe89 fe89 fe89 0843
+KG,spheres_baked,GPU+VS,gpu,3 4c3f 453e 453e 453e 453e 453e 453e 453e fe89 fe89 fe89 fe89 fe89 fe89 fe89 fe89
+KG,spheres_baked,GPU+VS,gpu,4 f5aa f5aa f5aa f5aa f5aa f5aa f5aa ff08 3cfd 3cfd 3cfd 3cfd 3cfd 3cfd 3cfd 0843
+KG,spheres_baked,GPU+VS,gpu,5 0843 f5aa f5aa f5aa f5aa f5aa ff08 ff08 3cfd 3cfd 3cfd 3cfd 3cfd 4c1f 4c1f 0843
+KG,spheres_baked,GPU+VS,gpu,6 0843 f5aa f5aa f5aa ff08 ff08 ff08 ff08 3cfd 3cfd 3cfd 3cfd 4c1f 4c1f 4c1f 0843
+KG,spheres_baked,GPU+VS,gpu,7 0843 f5aa f5aa ff08 ff08 ff08 ff08 ff08 3cfd 3cfd 3cfd 4c1f 4c1f 4c1f 0843 0843
+KG,spheres_baked,GPU+VS,arm,0 0843 4cfe 4c9e 4c1e 53be 3d1e 3cfe 3cde f668 ee89 e6a9 dea9 dec9 f748 f728 0843
+KG,spheres_baked,GPU+VS,arm,1 0843 549f 5c3f 4d7f 4d5f 455f 453e 451e fee8 f709 ef09 ff0a ff0a fec9 fec9 0843
+KG,spheres_baked,GPU+VS,arm,2 0843 53fe 459e 457e 455e 455d 453d 3d1d f727 ef47 f689 f689 f649 f649 f629 0843
+KG,spheres_baked,GPU+VS,arm,3 5c1f 4ddf 4dbf 4dbe 4d9e 4d7e 4d7d 455d fe6b fe4b fe2a fe0a fdea fdca fdaa fd8a
+KG,spheres_baked,GPU+VS,arm,4 f509 f529 f549 f569 f589 f5a9 f5ca f787 349e 349e 3cbd 3cdc 3cdc 3cfb 3d1b 0843
+KG,spheres_baked,GPU+VS,arm,5 0843 f5aa f5ca f5ea f60b f62b ff48 ffa8 44df 44fe 451e 451d 453d 53ff 5bdf 0843
+KG,spheres_baked,GPU+VS,arm,6 0843 e5ea e60a e62a f668 f6c8 f728 f787 3cfe 3d1d 3d3d 453c 4c1e 53fe 53de 0843
+KG,spheres_baked,GPU+VS,arm,7 0843 de6b de8b fe29 fe89 fee9 ff49 ffa8 455f 457e 4d7e 4c5f 543f 5c3f 0843 0843
+KC,spheres_baked,GPU+VS,203348,203348
+K,spheres_baked,GPU+VS,230400,194975,16790,24
+KD,spheres_baked,GPU+VS,box 11 0 628 359,gpu/arm first 4c3f/4d3e centre ff08/ffa7 top-left 0843/0843 bottom-right 0843/0843 top-middle 453e/3cde
+KG,spheres_shine,GPU,gpu,0 0843 543d 543d 543d 543d 5c3a 5c3a 5c3a d52a d52a d52a d52a d52a 9bc8 9bc8 0843
+KG,spheres_shine,GPU,gpu,1 0843 543d 543d 5c3a 5c3a 5c3a 5c3a 5c3a d52a d52a d52a 9bc8 9bc8 9bc8 9bc8 0843
+KG,spheres_shine,GPU,gpu,2 0843 543d 5c3a 5c3a 5c3a 5c3a 5c3a 5c3a d52a d52a 9bc8 9bc8 9bc8 9bc8 9bc8 0843
+KG,spheres_shine,GPU,gpu,3 543d 5c3a 5c3a 5c3a 5c3a 5c3a 5c3a 5c3a 9bc8 9bc8 9bc8 9bc8 9bc8 9bc8 9bc8 9bc8
+KG,spheres_shine,GPU,gpu,4 bc47 bc47 bc47 bc47 bc47 bc47 bc47 8305 3231 3231 3231 3231 3231 3231 3231 0843
+KG,spheres_shine,GPU,gpu,5 0843 bc47 bc47 bc47 bc47 bc47 8305 8305 3231 3231 3231 3231 3231 110b 110b 0843
+KG,spheres_shine,GPU,gpu,6 0843 bc47 bc47 bc47 8305 8305 8305 8305 3231 3231 3231 3231 110b 110b 110b 0843
+KG,spheres_shine,GPU,gpu,7 0843 bc47 bc47 8305 8305 8305 8305 8305 3231 3231 3231 110b 110b 110b 0843 0843
+KG,spheres_shine,GPU,arm,0 0843 4c3d 543d 543c 543c 5c5c 645c 647c e5cb dd6a cd09 bca9 b448 9be7 8b66 0843
+KG,spheres_shine,GPU,arm,1 0843 543c 5c3c 5c3c 645c 645c 6c7c 6c9c e5ab dd4b cd0a bc89 ac29 93a8 8327 0843
+KG,spheres_shine,GPU,arm,2 0843 53fa 53fa 541a 5c3a 5c3a 645a 6479 dd6b cd2a bca9 ac28 93c8 8347 72c6 0843
+KG,spheres_shine,GPU,arm,3 53da 5bf9 5c19 6419 6439 6c59 6c59 7479 dd6c cceb b46a a409 9388 7b07 6aa7 5a26
+KG,spheres_shine,GPU,arm,4 e4e6 dce7 dce7 d4e8 d4e8 cce9 ccea ccea 5bb6 5355 42f5 3a94 2a34 21b3 1153 0843
+KG,spheres_shine,GPU,arm,5 0843 c446 bc47 bc47 bc48 b449 b449 b449 5333 42d3 3a72 3212 21b2 1951 1930 0843
+KG,spheres_shine,GPU,arm,6 0843 9b64 9b65 9365 9366 9366 9386 9386 3a8f 320f 21af 194e 110d 110c 08eb 0843
+KG,spheres_shine,GPU,arm,7 0843 82c4 7ac4 7ac5 7ac5 7ac5 7ae5 7ae5 320d 218d 192c 110b 110a 10e9 0843 0843
+KC,spheres_shine,GPU,203348,203348
+K,spheres_shine,GPU,230400,195385,86046,17
+KD,spheres_shine,GPU,box 11 0 628 359,gpu/arm first 543d/4c3e centre 8305/dd4b top-left 0843/0843 bottom-right 0843/0843 top-middle 5c3a/6c9d
+KG,spheres_shine,GPU+VS,gpu,0 0843 ae9c ae9c ae9c ae9c ae3c ae3c ae3c 93c8 93c8 93c8 93c8 93c8 9469 9469 0843
+KG,spheres_shine,GPU+VS,gpu,1 0843 ae9c ae9c ae3c ae3c ae3c ae3c ae3c 93c8 93c8 93c8 9469 9469 9469 9469 0843
+KG,spheres_shine,GPU+VS,gpu,2 0843 ae9c ae3c ae3c ae3c ae3c ae3c ae3c 93c8 93c8 9469 9469 9469 9469 9469 0843
+KG,spheres_shine,GPU+VS,gpu,3 ae9c ae3c ae3c ae3c ae3c ae3c ae3c ae3c 9469 9469 9469 9469 9469 9469 9469 9469
+KG,spheres_shine,GPU+VS,gpu,4 a42a a42a a42a a42a a42a a42a a42a a42a 320c 320c 320c 320c 320c 320c 320c 0843
+KG,spheres_shine,GPU+VS,gpu,5 0843 a42a a42a a42a a42a a42a a42a a42a 320c 320c 320c 320c 320c 320c 320c 0843
+KG,spheres_shine,GPU+VS,gpu,6 0843 a42a a42a a42a a42a a42a a42a a42a 320c 320c 320c 320c 320c 320c 320c 0843
+KG,spheres_shine,GPU+VS,gpu,7 0843 a42a a42a a42a a42a a42a a42a a42a 320c 320c 320c 320c 320c 320c 0843 0843
+KG,spheres_shine,GPU+VS,arm,0 0843 4c3d 543d 543c 543c 5c5c 645c 647c e5cb dd6a cd09 bca9 b448 9be7 8b66 0843
+KG,spheres_shine,GPU+VS,arm,1 0843 543c 5c3c 5c3c 645c 645c 6c7c 6c9c e5ab dd4b cd0a bc89 ac29 93a8 8327 0843
+KG,spheres_shine,GPU+VS,arm,2 0843 53fa 53fa 541a 5c3a 5c3a 645a 6479 dd6b cd2a bca9 ac28 93c8 8347 72c6 0843
+KG,spheres_shine,GPU+VS,arm,3 53da 5bf9 5c19 6419 6439 6c59 6c59 7479 dd6c cceb b46a a409 9388 7b07 6aa7 5a26
+KG,spheres_shine,GPU+VS,arm,4 e4e6 dce7 dce7 d4e8 d4e8 cce9 ccea ccea 5bb6 5355 42f5 3a94 2a34 21b3 1153 0843
+KG,spheres_shine,GPU+VS,arm,5 0843 c446 bc47 bc47 bc48 b449 b449 b449 5333 42d3 3a72 3212 21b2 1951 1930 0843
+KG,spheres_shine,GPU+VS,arm,6 0843 9b64 9b65 9365 9366 9366 9386 9386 3a8f 320f 21af 194e 110d 110c 08eb 0843
+KG,spheres_shine,GPU+VS,arm,7 0843 82c4 7ac4 7ac5 7ac5 7ac5 7ae5 7ae5 320d 218d 192c 110b 110a 10e9 0843 0843
+KC,spheres_shine,GPU+VS,203348,203348
+K,spheres_shine,GPU+VS,230400,203337,189460,17
+KD,spheres_shine,GPU+VS,box 11 0 628 359,gpu/arm first ae9c/4c3e centre a42a/dd4b top-left 0843/0843 bottom-right 0843/0843 top-middle ae3c/6c9d
+KG,heroes,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,gpu,2 0843 0843 aa47 0843 0843 0843 328f 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,gpu,3 194a 0843 2acd 5983 0843 1a4b 2a8c 1989 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,gpu,4 2189 0843 7a25 7a24 0843 0843 234e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,gpu,5 29aa 0843 0843 7203 0843 0843 2b90 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,gpu,6 0843 0843 0843 11a7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,2 0843 0843 aa48 0843 0843 0843 3af0 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,3 216a 0843 224b 4963 0843 222a 4390 1968 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,4 2169 0843 7a04 61c3 0843 0843 2b90 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,5 2169 0843 0843 61e4 0843 0843 2bb0 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,6 0843 0843 0843 11a7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,heroes,GPU,29690,29690
+K,heroes,GPU,230400,21632,3112,26
+KD,heroes,GPU,box 0 99 311 322,gpu/arm first 3b59/3b39 centre 120c/19ea top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,heroes,GPU+VS,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,gpu,2 0843 0843 a226 0843 0843 0843 2a4e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,gpu,3 194a 0843 2aee 3942 0843 228c 2aad 19ca 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,gpu,4 2189 0843 7a04 61e3 0843 0843 230c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,gpu,5 29aa 0843 0843 59c3 0843 0843 234e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,gpu,6 0843 0843 0843 1165 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,2 0843 0843 aa48 0843 0843 0843 3af0 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,3 216a 0843 224b 4963 0843 222a 4390 1968 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,4 2169 0843 7a04 61c3 0843 0843 2b90 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,5 2169 0843 0843 61e4 0843 0843 2bb0 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,6 0843 0843 0843 11a7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,heroes,GPU+VS,29690,29690
+K,heroes,GPU+VS,230400,27896,8257,21
+KD,heroes,GPU+VS,box 0 99 312 322,gpu/arm first 32f6/3b39 centre 11a9/11ea top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,heroes,GPU+VS+S,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,gpu,2 0843 0843 a226 0843 0843 0843 2a4e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,gpu,3 194a 0843 2aee 3942 0843 228c 2aad 19ca 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,gpu,4 2189 0843 7a04 61e3 0843 0843 230c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,gpu,5 29aa 0843 0843 59c3 0843 0843 234e 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,gpu,6 0843 0843 0843 1165 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,2 0843 0843 aa48 0843 0843 0843 3af0 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,3 216a 0843 224b 4963 0843 222a 4390 1968 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,4 2169 0843 7a04 61c3 0843 0843 2b90 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,5 2169 0843 0843 61e4 0843 0843 2bb0 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,6 0843 0843 0843 11a7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes,GPU+VS+S,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,heroes,GPU+VS+S,29690,29690
+K,heroes,GPU+VS+S,230400,27896,8257,21
+KD,heroes,GPU+VS+S,box 0 99 312 322,gpu/arm first 32f6/3b39 centre 11a9/11ea top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,heroes_tex,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,gpu,2 0843 0843 1af9 0843 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,gpu,3 092a 0843 11ae 62a3 0843 116c 1211 5242 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,gpu,4 094b 0843 1a53 8bc4 0843 0843 1a75 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,gpu,5 094b 0843 0843 8384 0843 0843 1a54 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,gpu,6 0843 0843 0843 0929 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,2 0843 0843 1ad8 0843 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,3 092a 0843 118d 62a3 0843 096c 11f0 5242 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,4 094b 0843 1233 83a4 0843 0843 1a74 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,5 094b 0843 0843 8384 0843 0843 1a53 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,6 0843 0843 0843 0909 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,heroes_tex,GPU,29690,29690
+K,heroes_tex,GPU,230400,23005,39,27
+KD,heroes_tex,GPU,box 0 99 312 322,gpu/arm first 22fa/1af9 centre 094b/094b top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,heroes_tex,GPU+VS,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,gpu,2 0843 0843 1af9 0843 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,gpu,3 092a 0843 11ae 62a3 0843 116c 1211 5242 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,gpu,4 094b 0843 1a53 8bc4 0843 0843 1a75 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,gpu,5 094b 0843 0843 8384 0843 0843 1a54 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,gpu,6 0843 0843 0843 0929 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,2 0843 0843 1ad8 0843 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,3 092a 0843 118d 62a3 0843 096c 11f0 5242 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,4 094b 0843 1233 83a4 0843 0843 1a74 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,5 094b 0843 0843 8384 0843 0843 1a53 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,6 0843 0843 0843 0909 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_tex,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,heroes_tex,GPU+VS,29690,29690
+K,heroes_tex,GPU+VS,230400,23005,39,27
+KD,heroes_tex,GPU+VS,box 0 99 312 322,gpu/arm first 22fa/1af9 centre 094b/094b top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,heroes_skin,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,gpu,2 0843 0843 0843 11af 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,gpu,3 092a 0843 1ab8 08e8 0843 116c 1211 8384 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,gpu,4 118d 0843 1a53 62a3 0843 0843 1a75 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,gpu,5 7324 0843 0843 b4c6 0843 0843 1a33 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,gpu,6 1212 0843 0843 0929 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,2 0843 0843 0843 11ae 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,3 092a 0843 1ab7 08e8 0843 096c 11f1 7b64 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,4 118d 0843 1233 62a3 0843 0843 1a74 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,5 7303 0843 0843 aca5 0843 0843 1232 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,6 1211 0843 0843 0909 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,heroes_skin,GPU,30001,30000
+K,heroes_skin,GPU,230400,23280,33,25
+KD,heroes_skin,GPU,box 0 101 312 322,gpu/arm first 22fa/1af9 centre 6ae3/6ae3 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,heroes_skin,GPU+VS,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,gpu,2 0843 0843 0843 11af 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,gpu,3 092a 0843 1ab8 08e8 0843 116c 1211 8384 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,gpu,4 118d 0843 1a53 62a3 0843 0843 1a75 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,gpu,5 7324 0843 0843 b4c6 0843 0843 1a33 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,gpu,6 1212 0843 0843 0929 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,2 0843 0843 0843 11ae 0843 0843 11ae 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,3 092a 0843 1ab7 08e8 0843 096c 11f1 7b64 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,4 118d 0843 1233 62a3 0843 0843 1a74 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,5 7303 0843 0843 aca5 0843 0843 1232 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,6 1211 0843 0843 0909 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,heroes_skin,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,heroes_skin,GPU+VS,30001,30000
+K,heroes_skin,GPU+VS,230400,23280,33,25
+KD,heroes_skin,GPU+VS,box 0 101 312 322,gpu/arm first 22fa/1af9 centre 6ae3/6ae3 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,tiny,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,tiny,GPU,240,240
+K,tiny,GPU,230400,240,0,0
+KD,tiny,GPU,box 310 143 329 154,gpu/arm first a534/a514 centre a534/a514 top-left a534/a514 bottom-right a534/a514 top-middle a534/a514
+KG,tiny,GPU+VS,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,tiny,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,tiny,GPU+VS,240,240
+K,tiny,GPU+VS,230400,240,0,0
+KD,tiny,GPU+VS,box 310 143 329 154,gpu/arm first a534/a514 centre a534/a514 top-left a534/a514 bottom-right a534/a514 top-middle a534/a514
+KG,draws,GPU,gpu,0 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,gpu,1 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,gpu,2 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,gpu,3 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,gpu,4 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,gpu,5 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,gpu,6 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,gpu,7 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,0 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,1 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,2 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,3 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,4 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,5 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,6 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU,arm,7 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KC,draws,GPU,181440,181440
+K,draws,GPU,230400,0,0,0
+KG,draws,GPU+VS,gpu,0 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,gpu,1 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,gpu,2 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,gpu,3 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,gpu,4 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,gpu,5 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,gpu,6 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,gpu,7 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,0 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,1 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,2 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,3 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,4 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,5 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,6 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KG,draws,GPU+VS,arm,7 0843 0843 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 4448 0843 0843
+KC,draws,GPU+VS,181440,181440
+K,draws,GPU+VS,230400,0,0,0
+KG,quad_flat,GPU,gpu,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,gpu,1 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,gpu,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,gpu,3 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,1 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,3 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,quad_flat,GPU,172800,172800
+K,quad_flat,GPU,230400,0,0,0
+KG,quad_flat,GPU+VS,gpu,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,gpu,1 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,gpu,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,gpu,3 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,1 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,3 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_flat,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,quad_flat,GPU+VS,172800,172800
+K,quad_flat,GPU+VS,230400,0,0,0
+KG,quad_smooth,GPU,gpu,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,gpu,1 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,gpu,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,gpu,3 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,1 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,3 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,quad_smooth,GPU,172800,216000
+K,quad_smooth,GPU,230400,43200,0,1
+KD,quad_smooth,GPU,box 0 0 319 179,gpu/arm first 759d/7d9e centre 759d/7d9d top-left 759d/759d bottom-right 759d/7d9d top-middle 759d/7d9e
+KG,quad_smooth,GPU+VS,gpu,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,gpu,1 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,gpu,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,gpu,3 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,0 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,1 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,2 759d 759d 759d 759d 759d 759d 759d 759d 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,3 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 7dbe 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_smooth,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,quad_smooth,GPU+VS,172800,216000
+K,quad_smooth,GPU+VS,230400,43200,0,1
+KD,quad_smooth,GPU+VS,box 0 0 319 179,gpu/arm first 759d/7d9e centre 759d/7d9d top-left 759d/759d bottom-right 759d/7d9d top-middle 759d/7d9e
+KG,quad_tex,GPU,gpu,0 e607 e607 e607 e607 e607 e607 e607 e607 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,1 e607 e607 e607 e607 e607 e607 e607 e607 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,2 e607 e607 e607 e607 e607 e607 e607 e607 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,3 e607 e607 e607 e607 e607 e607 e607 e607 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,0 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,1 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,2 de07 de07 de07 de07 de07 de07 de07 de07 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,3 de07 de07 de07 de07 de07 de07 de07 de07 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,quad_tex,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,quad_tex,GPU,201600,201600
+K,quad_tex,GPU,230400,29120,640,25
+KD,quad_tex,GPU,box 0 0 319 179,gpu/arm first e607/de07 centre 1ad8/1ad8 top-left 1ad8/1ad8 bottom-right 1ad8/1ad8 top-middle e607/de07
+KG,texswap,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,texswap,GPU,gpu,1 0843 1a33 b4a5 1a33 b4a5 b4a5 1a33 b4a5 1a33 b4a5 1a33 1a33 b4a5 1a33 b4a5 0843
+KG,texswap,GPU,gpu,2 0843 1a33 b4a5 1a33 b4a5 b4a5 1a33 b4a5 1a33 b4a5 1a33 1a33 b4a5 1a33 b4a5 0843
+KG,texswap,GPU,gpu,3 0843 1a33 b4a5 1a33 b4a5 b4a5 1a33 b4a5 1a33 b4a5 1a33 1a33 b4a5 1a33 b4a5 0843
+KG,texswap,GPU,gpu,4 0843 b4a5 1a33 b4a5 1a33 1a33 b4a5 1a33 b4a5 1a33 b4a5 b4a5 1a33 b4a5 1a33 0843
+KG,texswap,GPU,gpu,5 0843 b4a5 1a33 b4a5 1a33 1a33 b4a5 1a33 b4a5 1a33 b4a5 b4a5 1a33 b4a5 1a33 0843
+KG,texswap,GPU,gpu,6 0843 b4a5 1a33 b4a5 1a33 1a33 b4a5 1a33 b4a5 1a33 b4a5 b4a5 1a33 b4a5 1a33 0843
+KG,texswap,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,texswap,GPU,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,texswap,GPU,arm,1 0843 1232 aca5 1232 aca5 aca5 1232 aca5 1232 aca5 1232 1232 aca5 1232 aca5 0843
+KG,texswap,GPU,arm,2 0843 1232 aca5 1232 aca5 aca5 1232 aca5 1232 aca5 1232 1232 aca5 1232 aca5 0843
+KG,texswap,GPU,arm,3 0843 1232 aca5 1232 aca5 aca5 1232 aca5 1232 aca5 1232 1232 aca5 1232 aca5 0843
+KG,texswap,GPU,arm,4 0843 aca5 1232 aca5 1232 1232 aca5 1232 aca5 1232 aca5 aca5 1232 aca5 1232 0843
+KG,texswap,GPU,arm,5 0843 aca5 1232 aca5 1232 1232 aca5 1232 aca5 1232 aca5 aca5 1232 aca5 1232 0843
+KG,texswap,GPU,arm,6 0843 aca5 1232 aca5 1232 1232 aca5 1232 aca5 1232 aca5 aca5 1232 aca5 1232 0843
+KG,texswap,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,texswap,GPU,172848,172848
+K,texswap,GPU,230400,172848,189,20
+KD,texswap,GPU,box 43 24 596 335,gpu/arm first 1a33/1232 centre 1a33/1232 top-left 1a33/1232 bottom-right 1a33/1232 top-middle b4a5/aca5
+KG,split,GPU,gpu,0 0843 fde8 0843 bc66 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,gpu,1 0843 19ce 196b 6243 9384 1129 198c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,0 0843 fde7 0843 bc65 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,1 0843 19ce 116b 6243 9384 1129 198b 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,split,GPU,230000,230000
+K,split,GPU,230400,3818,112,23
+KD,split,GPU,box 41 19 282 84,gpu/arm first dd06/d506 centre 9384/9384 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,split,GPU+VS,gpu,0 0843 fde8 0843 bc66 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,gpu,1 0843 19ce 196b 6243 9384 1129 198c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,0 0843 fde7 0843 bc65 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,1 0843 19ce 116b 6243 9384 1129 198b 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,split,GPU+VS,230000,230000
+K,split,GPU+VS,230400,3707,1,12
+KD,split,GPU+VS,box 41 19 282 84,gpu/arm first dd06/d506 centre 9384/9384 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,split,GPU+VS+Q,gpu,0 0843 fde8 0843 bc66 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,gpu,1 0843 19ce 196b 6243 9384 1129 198c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,0 0843 fde7 0843 bc65 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,1 0843 19ce 116b 6243 9384 1129 198b 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,split,GPU+VS+Q,230000,230000
+K,split,GPU+VS+Q,230400,3707,1,12
+KD,split,GPU+VS+Q,box 41 19 282 84,gpu/arm first dd06/d506 centre 9384/9384 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,split,GPU+Q,gpu,0 0843 fde8 0843 bc66 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,gpu,1 0843 19ce 196b 6243 9384 1129 198c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,0 0843 fde7 0843 bc65 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,1 0843 19ce 116b 6243 9384 1129 198b 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+Q,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,split,GPU+Q,230000,230000
+K,split,GPU+Q,230400,3818,112,23
+KD,split,GPU+Q,box 41 19 282 84,gpu/arm first dd06/d506 centre 9384/9384 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,split,GPU+2D,gpu,0 0843 fde8 0843 bc66 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,gpu,1 0843 19ce 196b 6243 9384 1129 198c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,0 0843 fde7 0843 bc65 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,1 0843 19ce 116b 6243 9384 1129 198b 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+2D,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,split,GPU+2D,230000,230000
+K,split,GPU+2D,230400,3818,112,23
+KD,split,GPU+2D,box 41 19 282 84,gpu/arm first dd06/d506 centre 9384/9384 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,split,GPU+VS+Q2,gpu,0 0843 fde8 0843 bc66 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,gpu,1 0843 19ce 196b 6243 9384 1129 198c 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,gpu,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,gpu,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,0 0843 fde7 0843 bc65 0843 0843 335a 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,1 0843 19ce 116b 6243 9384 1129 198b 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,2 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,3 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,split,GPU+VS+Q2,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,split,GPU+VS+Q2,230000,230000
+K,split,GPU+VS+Q2,230400,3707,1,12
+KD,split,GPU+VS+Q2,box 41 19 282 84,gpu/arm first dd06/d506 centre 9384/9384 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,queue,GPU,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3339 3339 3339 c486 c486 c486 c486 c486 9384 9384 0843
+KG,queue,GPU,gpu,1 0843 3b9c 3b9c 3339 3339 3339 3339 3339 c486 c486 c486 9384 9384 9384 9384 0843
+KG,queue,GPU,gpu,2 0843 3b9c 3339 3339 3339 3339 3339 3339 c486 c486 9384 9384 9384 9384 9384 0843
+KG,queue,GPU,gpu,3 3b9c 3339 3339 3339 3339 3339 3339 3339 9384 9384 9384 9384 9384 9384 9384 9384
+KG,queue,GPU,gpu,4 ac05 ac05 ac05 ac05 ac05 ac05 ac05 8b44 2210 2210 2210 2210 2210 2210 2210 0843
+KG,queue,GPU,gpu,5 0843 ac05 ac05 ac05 ac05 ac05 8b44 8b44 2210 2210 2210 2210 2210 198b 198b 0843
+KG,queue,GPU,gpu,6 0843 ac05 ac05 ac05 8b44 8b44 8b44 8b44 2210 2210 2210 2210 198b 198b 198b 0843
+KG,queue,GPU,gpu,7 0843 ac05 ac05 8b44 8b44 8b44 8b44 8b44 2210 2210 2210 198b 198b 198b 0843 0843
+KG,queue,GPU,arm,0 0843 3bbd 3b9c 3b9c 3b7b 3b7b 337b 335a d4e6 c4a6 bc66 b425 ac05 a3a5 9364 0843
+KG,queue,GPU,arm,1 0843 3b9c 3b9c 3b7b 3b7b 3b7b 3b5a 3b5a ccc7 c486 bc46 b406 a3c5 9b85 9345 0843
+KG,queue,GPU,arm,2 0843 335a 335a 3339 3339 3339 3318 3318 bc65 b445 abe5 9ba4 9364 8b24 82e3 0843
+KG,queue,GPU,arm,3 3b5a 3b59 3b39 3339 3338 3318 3318 3318 bc46 b405 a3c5 9b85 9345 8304 7ac4 7284
+KG,queue,GPU,arm,4 bc66 bc66 bc45 bc45 b425 b425 b425 ac05 2ab5 2a73 2252 2231 21ef 19ce 19ad 0843
+KG,queue,GPU,arm,5 0843 b426 b406 ac06 abe6 abe6 abe5 a3c5 2a94 2a52 2a31 2210 21ce 21ad 198c 0843
+KG,queue,GPU,arm,6 0843 9ba4 9ba4 9b84 9384 9384 9364 9364 2231 2210 19ce 19ad 198c 196b 116b 0843
+KG,queue,GPU,arm,7 0843 9365 9365 9345 8b45 8b45 8b44 8b24 2210 21ef 21cd 19ad 198c 196b 0843 0843
+KC,queue,GPU,203348,203348
+K,queue,GPU,230400,178229,35941,18
+KD,queue,GPU,box 11 0 628 359,gpu/arm first 3b9c/3bbd centre 8b44/b445 top-left 0843/0843 bottom-right 0843/0843 top-middle 3339/3b7b
+KG,queue,GPU+VS,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,queue,GPU+VS,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,queue,GPU+VS,arm,0 0843 3bbd 3b9c 3b9c 3b7b 3b7b 337b 335a d4e6 c4a6 bc66 b425 ac05 a3a5 9364 0843
+KG,queue,GPU+VS,arm,1 0843 3b9c 3b9c 3b7b 3b7b 3b7b 3b5a 3b5a ccc7 c486 bc46 b406 a3c5 9b85 9345 0843
+KG,queue,GPU+VS,arm,2 0843 335a 335a 3339 3339 3339 3318 3318 bc65 b445 abe5 9ba4 9364 8b24 82e3 0843
+KG,queue,GPU+VS,arm,3 3b5a 3b59 3b39 3339 3338 3318 3318 3318 bc46 b405 a3c5 9b85 9345 8304 7ac4 7284
+KG,queue,GPU+VS,arm,4 bc66 bc66 bc45 bc45 b425 b425 b425 ac05 2ab5 2a73 2252 2231 21ef 19ce 19ad 0843
+KG,queue,GPU+VS,arm,5 0843 b426 b406 ac06 abe6 abe6 abe5 a3c5 2a94 2a52 2a31 2210 21ce 21ad 198c 0843
+KG,queue,GPU+VS,arm,6 0843 9ba4 9ba4 9b84 9384 9384 9364 9364 2231 2210 19ce 19ad 198c 196b 116b 0843
+KG,queue,GPU+VS,arm,7 0843 9365 9365 9345 8b45 8b45 8b44 8b24 2210 21ef 21cd 19ad 198c 196b 0843 0843
+KC,queue,GPU+VS,203348,203348
+K,queue,GPU+VS,230400,191527,83267,18
+KD,queue,GPU+VS,box 11 0 628 359,gpu/arm first 3b9c/3bbd centre abe5/b445 top-left 0843/0843 bottom-right 0843/0843 top-middle 3b9c/3b7b
+KG,queue,GPU+VS+Q,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS+Q,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS+Q,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS+Q,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,queue,GPU+VS+Q,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS+Q,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS+Q,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS+Q,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,queue,GPU+VS+Q,arm,0 0843 3bbd 3b9c 3b9c 3b7b 3b7b 337b 335a d4e6 c4a6 bc66 b425 ac05 a3a5 9364 0843
+KG,queue,GPU+VS+Q,arm,1 0843 3b9c 3b9c 3b7b 3b7b 3b7b 3b5a 3b5a ccc7 c486 bc46 b406 a3c5 9b85 9345 0843
+KG,queue,GPU+VS+Q,arm,2 0843 335a 335a 3339 3339 3339 3318 3318 bc65 b445 abe5 9ba4 9364 8b24 82e3 0843
+KG,queue,GPU+VS+Q,arm,3 3b5a 3b59 3b39 3339 3338 3318 3318 3318 bc46 b405 a3c5 9b85 9345 8304 7ac4 7284
+KG,queue,GPU+VS+Q,arm,4 bc66 bc66 bc45 bc45 b425 b425 b425 ac05 2ab5 2a73 2252 2231 21ef 19ce 19ad 0843
+KG,queue,GPU+VS+Q,arm,5 0843 b426 b406 ac06 abe6 abe6 abe5 a3c5 2a94 2a52 2a31 2210 21ce 21ad 198c 0843
+KG,queue,GPU+VS+Q,arm,6 0843 9ba4 9ba4 9b84 9384 9384 9364 9364 2231 2210 19ce 19ad 198c 196b 116b 0843
+KG,queue,GPU+VS+Q,arm,7 0843 9365 9365 9345 8b45 8b45 8b44 8b24 2210 21ef 21cd 19ad 198c 196b 0843 0843
+KC,queue,GPU+VS+Q,203348,203348
+K,queue,GPU+VS+Q,230400,191527,83267,18
+KD,queue,GPU+VS+Q,box 11 0 628 359,gpu/arm first 3b9c/3bbd centre abe5/b445 top-left 0843/0843 bottom-right 0843/0843 top-middle 3b9c/3b7b
+KG,queue,GPU+Q,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3339 3339 3339 c486 c486 c486 c486 c486 9384 9384 0843
+KG,queue,GPU+Q,gpu,1 0843 3b9c 3b9c 3339 3339 3339 3339 3339 c486 c486 c486 9384 9384 9384 9384 0843
+KG,queue,GPU+Q,gpu,2 0843 3b9c 3339 3339 3339 3339 3339 3339 c486 c486 9384 9384 9384 9384 9384 0843
+KG,queue,GPU+Q,gpu,3 3b9c 3339 3339 3339 3339 3339 3339 3339 9384 9384 9384 9384 9384 9384 9384 9384
+KG,queue,GPU+Q,gpu,4 ac05 ac05 ac05 ac05 ac05 ac05 ac05 8b44 2210 2210 2210 2210 2210 2210 2210 0843
+KG,queue,GPU+Q,gpu,5 0843 ac05 ac05 ac05 ac05 ac05 8b44 8b44 2210 2210 2210 2210 2210 198b 198b 0843
+KG,queue,GPU+Q,gpu,6 0843 ac05 ac05 ac05 8b44 8b44 8b44 8b44 2210 2210 2210 2210 198b 198b 198b 0843
+KG,queue,GPU+Q,gpu,7 0843 ac05 ac05 8b44 8b44 8b44 8b44 8b44 2210 2210 2210 198b 198b 198b 0843 0843
+KG,queue,GPU+Q,arm,0 0843 3bbd 3b9c 3b9c 3b7b 3b7b 337b 335a d4e6 c4a6 bc66 b425 ac05 a3a5 9364 0843
+KG,queue,GPU+Q,arm,1 0843 3b9c 3b9c 3b7b 3b7b 3b7b 3b5a 3b5a ccc7 c486 bc46 b406 a3c5 9b85 9345 0843
+KG,queue,GPU+Q,arm,2 0843 335a 335a 3339 3339 3339 3318 3318 bc65 b445 abe5 9ba4 9364 8b24 82e3 0843
+KG,queue,GPU+Q,arm,3 3b5a 3b59 3b39 3339 3338 3318 3318 3318 bc46 b405 a3c5 9b85 9345 8304 7ac4 7284
+KG,queue,GPU+Q,arm,4 bc66 bc66 bc45 bc45 b425 b425 b425 ac05 2ab5 2a73 2252 2231 21ef 19ce 19ad 0843
+KG,queue,GPU+Q,arm,5 0843 b426 b406 ac06 abe6 abe6 abe5 a3c5 2a94 2a52 2a31 2210 21ce 21ad 198c 0843
+KG,queue,GPU+Q,arm,6 0843 9ba4 9ba4 9b84 9384 9384 9364 9364 2231 2210 19ce 19ad 198c 196b 116b 0843
+KG,queue,GPU+Q,arm,7 0843 9365 9365 9345 8b45 8b45 8b44 8b24 2210 21ef 21cd 19ad 198c 196b 0843 0843
+KC,queue,GPU+Q,203348,203348
+K,queue,GPU+Q,230400,178229,35941,18
+KD,queue,GPU+Q,box 11 0 628 359,gpu/arm first 3b9c/3bbd centre 8b44/b445 top-left 0843/0843 bottom-right 0843/0843 top-middle 3339/3b7b
+KG,queue,GPU+VS+Q2,gpu,0 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS+Q2,gpu,1 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS+Q2,gpu,2 0843 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 0843
+KG,queue,GPU+VS+Q2,gpu,3 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c 3b9c b425 b425 b425 b425 b425 b425 b425 b425
+KG,queue,GPU+VS+Q2,gpu,4 abe5 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS+Q2,gpu,5 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS+Q2,gpu,6 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 19ce 0843
+KG,queue,GPU+VS+Q2,gpu,7 0843 abe5 abe5 abe5 abe5 abe5 abe5 abe5 19ce 19ce 19ce 19ce 19ce 19ce 0843 0843
+KG,queue,GPU+VS+Q2,arm,0 0843 3bbd 3b9c 3b9c 3b7b 3b7b 337b 335a d4e6 c4a6 bc66 b425 ac05 a3a5 9364 0843
+KG,queue,GPU+VS+Q2,arm,1 0843 3b9c 3b9c 3b7b 3b7b 3b7b 3b5a 3b5a ccc7 c486 bc46 b406 a3c5 9b85 9345 0843
+KG,queue,GPU+VS+Q2,arm,2 0843 335a 335a 3339 3339 3339 3318 3318 bc65 b445 abe5 9ba4 9364 8b24 82e3 0843
+KG,queue,GPU+VS+Q2,arm,3 3b5a 3b59 3b39 3339 3338 3318 3318 3318 bc46 b405 a3c5 9b85 9345 8304 7ac4 7284
+KG,queue,GPU+VS+Q2,arm,4 bc66 bc66 bc45 bc45 b425 b425 b425 ac05 2ab5 2a73 2252 2231 21ef 19ce 19ad 0843
+KG,queue,GPU+VS+Q2,arm,5 0843 b426 b406 ac06 abe6 abe6 abe5 a3c5 2a94 2a52 2a31 2210 21ce 21ad 198c 0843
+KG,queue,GPU+VS+Q2,arm,6 0843 9ba4 9ba4 9b84 9384 9384 9364 9364 2231 2210 19ce 19ad 198c 196b 116b 0843
+KG,queue,GPU+VS+Q2,arm,7 0843 9365 9365 9345 8b45 8b45 8b44 8b24 2210 21ef 21cd 19ad 198c 196b 0843 0843
+KC,queue,GPU+VS+Q2,203348,203348
+K,queue,GPU+VS+Q2,230400,191527,83267,18
+KD,queue,GPU+VS+Q2,box 11 0 628 359,gpu/arm first 3b9c/3bbd centre abe5/b445 top-left 0843/0843 bottom-right 0843/0843 top-middle 3b9c/3b7b
+KG,gpu2d,GPU,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,gpu,2 0843 0843 0843 0843 3339 0843 0843 0843 3bde 335a 0843 0843 0843 3359 eda7 0843
+KG,gpu2d,GPU,gpu,3 0843 b425 114a 2210 116b 0843 3bde 2252 9384 198c 0843 fde7 3318 8b44 8304 0843
+KG,gpu2d,GPU,gpu,4 0843 19ce 49c2 0843 0843 0843 9384 49c2 0843 0843 0843 19ce 49c2 0843 0843 0843
+KG,gpu2d,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,arm,2 0843 0843 0843 0843 3339 0843 0843 0843 3bde 335a 0843 0843 0843 3339 ed87 0843
+KG,gpu2d,GPU,arm,3 0843 ac25 114a 2210 116b 0843 3bde 2252 9364 198b 0843 fdc7 3318 8b44 8304 0843
+KG,gpu2d,GPU,arm,4 0843 19ce 49c2 0843 0843 0843 9384 49c2 0843 0843 0843 19cd 49c2 0843 0843 0843
+KG,gpu2d,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,gpu2d,GPU,44959,44958
+K,gpu2d,GPU,230400,10673,12,27
+KD,gpu2d,GPU,box 28 101 611 215,gpu/arm first bc66/bc65 centre 0843/0843 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,gpu2d,GPU+2D,gpu,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,gpu,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,gpu,2 0843 0843 0843 0843 3339 0843 0843 0843 3bde 335a 0843 0843 0843 3359 eda7 0843
+KG,gpu2d,GPU+2D,gpu,3 0843 b425 114a 2210 116b 0843 3bde 2252 9384 198c 0843 fde7 3318 8b44 8304 0843
+KG,gpu2d,GPU+2D,gpu,4 0843 19ce 49c2 0843 0843 0843 9384 49c2 0843 0843 0843 19ce 49c2 0843 0843 0843
+KG,gpu2d,GPU+2D,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,arm,0 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,arm,1 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,arm,2 0843 0843 0843 0843 3339 0843 0843 0843 3bde 335a 0843 0843 0843 3339 ed87 0843
+KG,gpu2d,GPU+2D,arm,3 0843 ac25 114a 2210 116b 0843 3bde 2252 9364 198b 0843 fdc7 3318 8b44 8304 0843
+KG,gpu2d,GPU+2D,arm,4 0843 19ce 49c2 0843 0843 0843 9384 49c2 0843 0843 0843 19cd 49c2 0843 0843 0843
+KG,gpu2d,GPU+2D,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,gpu2d,GPU+2D,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,gpu2d,GPU+2D,44959,44958
+K,gpu2d,GPU+2D,230400,10673,12,27
+KD,gpu2d,GPU+2D,box 28 101 611 215,gpu/arm first bc66/bc65 centre 0843/0843 top-left 0843/0843 bottom-right 0843/0843 top-middle 0843/0843
+KG,bilinear,GPU,gpu,0 8470 8470 8470 8470 8470 8470 8470 8470 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,gpu,1 8470 8470 8470 8470 8470 8470 8470 8470 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,gpu,2 8470 8470 8470 8470 8470 8470 8470 8470 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,gpu,3 8470 8470 8470 8470 8470 8470 8470 8470 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,gpu,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,gpu,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,gpu,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,gpu,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,0 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,1 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 1ad8 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,2 de07 de07 de07 de07 de07 de07 de07 de07 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,3 de07 de07 de07 de07 de07 de07 de07 de07 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,4 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,5 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,6 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KG,bilinear,GPU,arm,7 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843 0843
+KC,bilinear,GPU,206910,201600
+K,bilinear,GPU,230400,34110,10620,13
+KD,bilinear,GPU,box 0 0 319 179,gpu/arm first 5bd3/1ad8 centre 6412/1ad8 top-left 1ad8/1ad8 bottom-right 1ad8/1ad8 top-middle ad0c/de07
+score 618 (bm3d 7.25 as the games get it, 24 of 24 tests), GPU bm3d 2.1 719, ARM bm3d 0.2 600; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.25,618,24,1
+S,GPU,2.1,719,16,0
+S,ARM,0.2,600,24,1
+triangles at 60 fps 17217 in the mix (7810 drawn), the most 27941 (clip)
+total 185 s
