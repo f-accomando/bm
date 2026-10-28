@@ -243,11 +243,11 @@ static const char *gpu3d_choice(void)
 #endif
 
 #ifndef BM_RGB30
-/* menu_scale: no key or 1 = 360p drawn by the ARM; 4 = 360p drawn by the GPU; 2 = 720p and 3 = 1080p drawn by the GPU */
+/* menu_scale: no key or 2 = 720p drawn by the GPU; 3 = 1080p; 4 = 360p drawn by the GPU; 1 = 360p drawn by the ARM */
 static const char *menu_size_choice(void)
 {
     const char *v = config_get("menu_scale");
-    return v && v[0] == '3' ? "1080p (GPU)" : v && v[0] == '2' ? "720p (GPU)" : v && v[0] == '4' ? "360p (GPU)" : "360p (ARM)";
+    return v && v[0] == '3' ? "1080p (GPU)" : v && v[0] == '4' ? "360p (GPU)" : v && v[0] == '1' ? "360p (ARM)" : "720p (GPU)";
 }
 
 /* CRT filter mode: 1 = off, 2 = rca (default for Pi 1), 3 = hdmi, 4 = on */
@@ -1279,12 +1279,12 @@ static int act_screen(int row, int how, home_do_t *d)
 #else
     case R_MENUSIZE: {
         const char *v = config_get("menu_scale");
-        if (!v || !*v || v[0] == '1')
+        if (!v || !*v || v[0] == '2')
+            config_set("menu_scale", "3");
+        else if (v[0] == '3')
             config_set("menu_scale", "4");
         else if (v[0] == '4')
-            config_set("menu_scale", "2");
-        else if (v[0] == '2')
-            config_set("menu_scale", "3");
+            config_set("menu_scale", "1");
         else
             config_unset("menu_scale");
         config_save();

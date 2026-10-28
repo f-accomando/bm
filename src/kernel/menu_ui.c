@@ -1368,8 +1368,9 @@ static int screen_open(framebuffer_t *fb)
     sw = 640;
     gpu_draw = 0;
     gpu_big = 0;
-    scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '2' ? 2 : 1;
-    if (scale > 1 || (ms && ms[0] == '4')) {        /* 4: 360p drawn by the GPU */
+    /* no key: 720p drawn by the GPU (28 Oct 2026); 1: 360p on the ARM; 4: 360p drawn by the GPU */
+    scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '1' ? 1 : ms && ms[0] == '4' ? 1 : 2;
+    if (scale > 1 || (ms && ms[0] == '4')) {
         if (fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) == 0 &&
             fb->pitch == fb->width * 2 && gpu3d_init() == 0) {
             gpu3d_set_fb(fb->mem, fb->size, fb->bus);
