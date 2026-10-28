@@ -1,0 +1,92 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1874-g834c70f8-dirty
+branch: claude/menu-gpu-fill
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-d2ab05_freeze_pi-zero-w_v0.2.5-1874-g834c70f8-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boottor, waiting for a key, frame 0, 55 s after boot, kernel v0.2.5-1871-gdd990ace-dirty, ring 4852, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+...
+wifi: 7 networks
+   1   -56 dBm  ch  6  WPA2  FASTWEB-36AB12
+   2   -75 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+   3   -79 dBm  ch  1  WPA2  Samsung Fridge_E50AJTRB006V
+   4   -82 dBm  ch  2  WPA2  FASTWEB-325YFF
+   5   -84 dBm  ch  1  WPA2  FASTWEB-5j5SAq
+   6   -85 dBm  ch  3  WPA2  ASUS_30
+   7   -87 dBm  ch  2  WPA2  (hidden)
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 14 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.2 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 10.1 ms past its slice
+net: time 2026-10-28 14:23 UTC
+fiber: reports did not yield: 98.7 ms past its slice
+report: sending nodate-94a4b4_freeze_pi-zero-w_v0.2.5-1871-gdd990ace-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-menu-gpu-fill-profile/nodate-94a4b4_freeze_pi-zero-w_v0.2.5-1871-gdd990ace-dirty.txt
+menu idle: 300/300 frames, 585 of 1799 ms taken, 101.3 ms past a frame; covers 67 ms (+2.6, stk 0.8/16K), reports 498 ms (+98.7, stk 7.6/128K); min slack -34054 us, paced 0
+menu idle: sd first word <1ms 156 <3ms 12 (max 1.5 ms)
+menu stalls: tls handshake 1x last 252.9 worst 252.9 ms
+menu frame: 3x, a frame averages draw 32767 us, enlarge 0 us, flip 96 us, free time used 1953 us (300 frames)
+menu frame: 3x, a frame averages draw 31866 us, enlarge 0 us, flip 96 us, free time used 33 us (300 frames)
+menu frame: 3x, a frame averages draw 31870 us, enlarge 0 us, flip 95 us, free time used 33 us (300 frames)
+menu frame: 3x, a frame averages draw 31870 us, enlarge 0 us, flip 95 us, free time used 32 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+type 'h' for help
+> :
+:log
+: log
+report: 20261028-142357_log_pi-zero-w_v0.2.5-1871-gdd990ace-dirty.txt saved as bm/reports/rpt00001.txt
+report: sending 20261028-142357_log_pi-zero-w_v0.2.5-1871-gdd990ace-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-menu-gpu-fill-profile/20261028-142357_log_pi-zero-w_v0.2.5-1871-gdd990ace-dirty.txt
+the line is done
+> 
+net: console closed
+net: receiving settings (26 bytes)...
+config: menu_scale=1
+config: menu_probe=0
+net: settings from the PC: 2 changed in bm/config.txt
+net: receiving settings (26 bytes)...
+config: menu_scale=4
+net: settings from the PC: 1 changed in bm/config.txt
+net: receiving a new kernel (4802596 bytes)...
+net: kernel 0% (0 of 4690 KB)
+net: kernel 10% (470 of 4690 KB)
+net: kernel 20% (939 of 4690 KB)
+net: kernel 30% (1410 of 4690 KB)
+net: kernel 40% (1876 of 4690 KB)
+net: kernel 50% (2350 of 4690 KB)
+net: kernel 60% (2815 of 4690 KB)
+net: kernel 70% (3283 of 4690 KB)
+net: kernel 80% (3752 of 4690 KB)
+net: kernel 90% (4223 of 4690 KB)
