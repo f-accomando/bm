@@ -76,6 +76,12 @@ Detail of `src/kernel/` (menu loop, settings, Market, update, services): [system
 - **HDMI-CEC remote control**: Use the direction arrows and the Select/OK key of the TV remote to move in the console menus without a controller.
 - **Network and bmnet multiplayer**: Test two Pi consoles on the *Online 2D* model (also through a relay). Port the Overbit network protocol to the unified `bmnet` library.
 
+- **Source layout (SYS-16, idea, not started).** Today `src/bm/` (82 files) holds the runtime and also the cartridge formats. Plan:
+  - Move to `src/core/`: `runtime.c`, `rt_internal.h`, `api_*.c`, `b3d`, `r3d`, `world3d`, `map3d`, `meshcap`, `decimate`, `cutout`, `glb`, `gfx16`, `png`, `jpeg`, `webp`, `webimg`, `web*`, `vid`, `rec`, `shot`, `loading`, `profile`, `require`, `tokens`, `json`.
+  - Keep in `src/bm/`: files of the `.bm` and `.bme` formats (`format.c`, `project.c`, `n8cart`, loaders) and files with no section yet.
+  - Cost: 201 files cite `src/bm` (Makefile, `rgb30.mk`, scripts, tests, `.claude/skills`, docs, manuals, `CLAUDE.md`); 54 C files include `"bm/..."`. Use `git mv`, then a scripted replace, then build Pi and RGB30, `docs_audit.py` and `consistency.py`.
+  - Open question: no `bme/` folder exists. The 17 `.bme` files are in `video/3d/`, `carts/kratos`, `carts/yharnam` and `.claude/skills`. `carts/` is not marked deprecated in the docs. Decide the target folders for `.bme` and for the cartridges first.
+
 ## Rules (do not break)
 - The bridge gate (26 Oct): `bm/bridge.txt` holds one word: `off` (default), `on` or `fast`. `off` refuses every operation of the transfer port (S, P, K, C, T, G; answer `BO`). `on` accepts them and stages a kernel. `fast` writes a kernel and a file at once (`dev_mode()`, the old `dev=1`). Only the user sets it: Settings > System > Bridge, or the file put on the SD card from a PC. `config_merge` refuses the keys `dev` and `bridge` (`BF`), and the transfer refuses any file named `bridge.txt` in any folder (`BF`). Do not add a network way to write this file.
 
