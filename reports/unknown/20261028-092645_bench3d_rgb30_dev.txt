@@ -1,0 +1,38 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: RGB30
+date: 2026-10-28 09:26:45
+file: 20261028-092645_bench3d_rgb30_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.16 (Mali)
+date unknown (no network time)
+machine RGB30, Cortex-A55, the 3D on the ARM (Mali: flat colours on the GPU, textures on the ARM)
+gpu the Mali draws flat colours (mali3d=1)
+probes none
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.16 gpu3d=off (at the start; each profile sets its own)
+counters Cortex-A55 PMU
+previous bm/bench/3d0059.txt
+only tests quad_tex, profiles all
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us,sort_us,build_us,jobs_us,b1_us,b2_us,b3_us
+R,quad_tex,ARM,0.2,6.5,13.1,0,15.4,15.4,12,12,24,345600,0,0.0,0.0,12760150,0,10505,12596398,1,13,13,0,0,0.0,0.0,0,0,0,345600,-1,43.96,-1,0,0,0,0,0,0,0,0,0,0,0,0
+R,quad_tex,GPU,2.1,2643.1,3680.0,1,12.6,12.6,4140,4140,8280,0,0,1.0,0.6,7818425,0,29485,10264836,3,5286,5286,0,0,0.0,0.0,0,0,0,119232000,0.00,0.10,0.30,326,298,1,103,4091,585,1965,152,625,0,129,4
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_tex,ARM,-1,43.96,-1,-1,-1,-1,10.13,40.51,91.15
+P,quad_tex,GPU,0.00,0.10,0.30,0.00,0.00,0.01,0.02,0.09,0.21
+pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that differ, big: by more than 2 steps of a channel, max: the largest step)
+columns K,test,profile,pixels,diff,big,max
+K,quad_tex,GPU,230400,57600,57600,26
+score 22026 (bm3d 7.16 as the games get it, 1 of 24 tests, a part of the bench), GPU bm3d 2.1 22026, ARM bm3d 0.2 54; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.16,22026,1,0
+S,GPU,2.1,22026,1,0
+S,ARM,0.2,54,1,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 5286 (quad_tex)
+total 4 s
