@@ -5,10 +5,10 @@ fixed operations without ever seeing the password.
   python3 tools/pi_bridge.py 192.168.1.108          # asks for the password, then waits (Ctrl-C to stop)
   python3 tools/pi_bridge.py --detach 192.168.1.108  # the same, then in the background (the shell may be closed)
   python3 tools/pi_bridge.py --board rgb30 IP        # the board: pi (default), zero2, rgb30 (easy_install.sh bridge [profile] passes it)
-  python3 tools/pi.py line render                       # the client (another shell, or Claude)
+  python3 tools/pi.py line crc                          # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.txt and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, freeze-irq (IRQs on: the guard restarts the Pi in about 23 s), reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only b3d tests=.. profiles=.., render, log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.txt and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, freeze-irq (IRQs on: the guard restarts the Pi in about 23 s), reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only b3d tests=.. profiles=.., log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
 One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.txt.
 The board decides the kernel file kernel FILE takes (pi: any name, as before; zero2: kernel7.img, rgb30: kernel8.img); the RGB30 has no monitor, so its crash, freeze and reboot keys answer "not for this board".
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
@@ -36,7 +36,7 @@ MONITOR_ONLY = {"crash-dabt", "crash-undef", "crash-prefetch", "freeze", "freeze
 LOGS = {"bootprev": "bootprev.txt", "bootlog": "bootlog.txt", "lastrun": "lastrun.txt"}
 # the monitor commands the line operation passes (the old words of the table `commands` in src/kernel/monitor.c; set, save and play are left out:
 # set writes any config key, wifi_psk and net_password included; play is the bridge's play FILE)
-LINE_CMDS = ("b3d", "render", "log", "err", "crc", "send", "reboot")
+LINE_CMDS = ("b3d", "log", "err", "crc", "send", "reboot")
 # letters, digits, space and _ , = ; only (a control character would end the line early: bm_net.py closes it with a carriage return)
 LINE_CHARS = set(string.ascii_letters + string.digits + " _,=;")
 # b3d (bench 3d) reads tests= and profiles= only (c_bench_3d in monitor.c); their names are [A-Za-z0-9_] (src/bm/b3d.c prof_short, test names)
@@ -56,7 +56,7 @@ def check_line(text):
         if not words:
             return None, "empty command between ';'"
         if words[0] not in LINE_CMDS:
-            return None, "'%s' is not allowed (allowed: b3d, render, log, err, crc, send, reboot)" % words[0]
+            return None, "'%s' is not allowed (allowed: b3d, log, err, crc, send, reboot)" % words[0]
         if words[0] != "b3d" and len(words) > 1:
             return None, "'%s' takes no arguments" % words[0]
         for w in words[1:]:

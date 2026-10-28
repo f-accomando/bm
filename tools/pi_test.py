@@ -2,7 +2,7 @@
 """Runs a short test on a Pi through the bridge (tools/pi_bridge.py must be running: the owner types the console password there).
 
   python3 tools/pi_test.py --cart build/carts/pong.bm [--wait 15] [--bench] [--kernel build/kernel.img] [--restore build/kernel.img]
-  python3 tools/pi_test.py --line "render"          # any monitor line
+  python3 tools/pi_test.py --line "crc"          # any monitor line
 
 Steps, in this order, each one printed with its answer:  kernel (then the reboot is waited for), cart (--play), wait, err, shot, bench, restore.
 A step fails when the answer has a refusal ("refused", "wrong password", "No such file", "not a kernel", "file too big") or when the bridge is down.

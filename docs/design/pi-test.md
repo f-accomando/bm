@@ -9,7 +9,7 @@
 
 | Request | Does | Limits |
 |---|---|---|
-| `line TEXT` | monitor commands separated by `;`: `gpu`, `b3d tests=.. profiles=..`, `render`, `room`, `log`, `err`, `crc` (read-only CRC32 of the screen page), `send`, `reboot` | first word of each command from `LINE_CMDS` of `pi_bridge.py` (case-sensitive); only `b3d` takes arguments (`tests=`/`profiles=` with `A-Z a-z 0-9 _ ,`); characters `A-Z a-z 0-9 space _ , = ;` only, fewer than 200; `set`, `save`, `play` and the rest answer `refused: line: <why>` |
+| `line TEXT` | monitor commands separated by `;`: `b3d tests=.. profiles=..`, `log`, `err`, `crc` (read-only CRC32 of the screen page), `send`, `reboot` | first word of each command from `LINE_CMDS` of `pi_bridge.py` (case-sensitive); only `b3d` takes arguments (`tests=`/`profiles=` with `A-Z a-z 0-9 _ ,`); characters `A-Z a-z 0-9 space _ , = ;` only, fewer than 200; `set`, `save`, `play` and the rest answer `refused: line: <why>` |
 | `send FILE` / `play FILE` | the cartridge to the SD card / played at once | FILE is a file inside the repo or in `~/bmk*` |
 | `kernel FILE` | a kernel written as `kernel.img`, then the Pi reboots (waited for) | same |
 | `shot OUT.png` | a screenshot of the running game (op `T`, then `G`), saved as OUT.png | OUT is a `.png` in a folder of the repo or in `~/bmk*` |
