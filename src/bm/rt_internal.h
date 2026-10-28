@@ -507,6 +507,8 @@ void settle_reads(void);      /* defined in runtime.c: 2D reads the page */
 int gpu2d(int op, const int32_t *v);
 int gpu2d_open(void);
 int light_gpu_wanted(void);       /* gpu3d_light=1 and the GPU there: dark_begin records the lamps */
+int light_gpu_available(void);   /* the GPU has a light shader (the V3D: yes, the Mali: not yet) */
+int light_gpu_set(int on);       /* gpu3d_opt("light", on): the key by hand; returns the switch now */
 int light_gpu_run(void);          /* dark_end: the GPU lights the page; 0 if it did not (the ARM does) */
 int l_gpu2d_sheet(lua_State *L);
 void gpu2d_submit(void);          /* starts the frame job on the GPU now (the ARM goes on: dark_begin) */

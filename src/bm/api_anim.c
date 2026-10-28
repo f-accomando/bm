@@ -883,16 +883,25 @@ int l_zclear(lua_State *L)
 
 /* gpu3d_opt(name [, on]) -> in_force, available: one of the GPU driver's switches, by name (the 3D Bench's
  * profiles use them): "wc", "tex16" (or "t16"), "etc1", "fs2", "sort", "attr", "filter" (or "bilinear"),
- * "2d" (the 2D drawn in the GPU's job) and "merge" (draws of static meshes merged). With on (true or false) it
+ * "2d" (the 2D drawn in the GPU's job), "merge" (draws of static meshes merged) and "light" (the light of
+ * dark_begin .. dark_end made by the GPU, as the key gpu3d_light; available on the Pi only; set it between frames). With on (true or false) it
  * asks for the switch; in_force is what holds afterwards (a switch the GPU cannot do stays false). available
  * is whether the GPU can do it: exact when asked with on true, else the same as in_force. The 3D waiting
  * is drawn first. Without a GPU backend: false, false. An unknown name is an error. */
 int l_gpu3d_opt(lua_State *L)
 {
     static const char *const names[] = { "wc", "tex16", "t16", "etc1", "fs2", "sort", "attr", "filter", "bilinear",
-                                         "2d", "merge", NULL };
-    enum { O_WC, O_T16, O_T16B, O_ETC1, O_FS2, O_SORT, O_ATTR, O_FILTER, O_FILTERB, O_2D, O_MERGE };
+                                         "2d", "merge", "light", NULL };
+    enum { O_WC, O_T16, O_T16B, O_ETC1, O_FS2, O_SORT, O_ATTR, O_FILTER, O_FILTERB, O_2D, O_MERGE, O_LIGHT };
     const int o = luaL_checkoption(L, 1, NULL, names);
+    if (o == O_LIGHT) {                 /* the GPU's light of dark_end: before r3d() (it would start the 3D while the page is
+                                         * not a whole screen yet: the GPU then stays off); it starts at dark_begin */
+        if (!lua_isnoneornil(L, 2))
+            light_gpu_set(lua_toboolean(L, 2));
+        lua_pushboolean(L, rt.light_key);
+        lua_pushboolean(L, light_gpu_available());
+        return 2;
+    }
     r3d_t *r = r3d(L);
     r3d_flush(r);
     if (!r->backend) {

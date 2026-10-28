@@ -309,6 +309,24 @@ int light_gpu_wanted(void)
     return 1;
 }
 
+/* gpu3d_opt("light", on): the same switch as the key gpu3d_light, asked by the cartridge. The light shader is the
+ * V3D's: the RGB30 has none yet (light_gpu_available() is 0 there and the ARM lights the page). */
+int light_gpu_available(void)
+{
+#ifdef BM_RGB30
+    return 0;
+#else
+    return 1;
+#endif
+}
+
+int light_gpu_set(int on)
+{
+    rt.light_checked = 1;               /* the key is not read after this */
+    rt.light_key = on && light_gpu_available();
+    return rt.light_key;
+}
+
 int light_gpu_run(void)
 {
     if (!rt.r3d.backend || !rt.fade.lv)

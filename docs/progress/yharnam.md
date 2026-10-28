@@ -97,6 +97,7 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 ## Autoplay (benchmarks)
 
+- The light by the GPU is on by itself on the Pi (28 Oct 2026): `_init` calls `gpu3d_opt("light", true)` (the switch of the hidden key `gpu3d_light`, no `config.txt` edit). The pause menu has an entry "Light: GPU" / "Light: ARM" to change it in the run. The entry is hidden where `available` is false (the RGB30: no Mali light shader yet, the ARM lights the page). Pi Zero W autoplay with the profiler on, no config key: 31.6 -> 50.1 fps, light 14.0 -> 1.8 ms a frame, `gpu3d=on 2d=1` in the options line. `gpu3d_opt` must run before `r3d()` starts the 3D: the call in `_init` came first and left the GPU off (page not a whole screen yet), so "light" is handled before it in `l_gpu3d_opt`.
 - The pause menu entry "Give up the hunt" calls `quit()`: it closes the cartridge and returns to the menu (28 Oct 2026). Before, it started a new hunt at the title.
 - Autoplay plays Yharnam with no button pressed, for 7200 frames (2 minutes at 60 fps), then calls `quit()`. It is off by default.
 - Switch on: `yharnam_autoplay=1` in `bm/config.txt` (read with `cart_config`, no kernel change). From the bridge: `tools/pi.py --dev pizero config yharnam_autoplay=1` (or `--dev rgb30`). Switch off: `config yharnam_autoplay=0`. On the host: `YHARNAM_AUTOPLAY=1 build/host/bmplay build/carts/yharnam.bm`; `make test-yharnam-autoplay`.

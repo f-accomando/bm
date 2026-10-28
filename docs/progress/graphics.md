@@ -78,7 +78,7 @@ Yharnam on the Pi went from 34.9 to 57.6 fps with the four items below. Each ite
 
 - **GPU light (`gpu3d_light`).** The V3D lights the page that `dark_begin` .. `dark_end` makes. The ARM then only records the lamps.
   - Use: write the normal game code (`fades()`, `dark_begin(ambient)`, `glow()`, `dark_end()`; [light3d.md](../api/light3d.md)). Draw the scene after `dark_begin`.
-  - Switch: the hidden key `gpu3d_light` in `bm/config.txt` (default 0). Set it from the PC: `python3 tools/pi.py --dev pizero config gpu3d_light=1`. The kernel reads it at the next start.
+  - Switch: the hidden key `gpu3d_light` in `bm/config.txt` (default 0), or a cartridge: `gpu3d_opt("light", true)` (Yharnam does it in `_init`; `available` is false on the RGB30). Set it from the PC: `python3 tools/pi.py --dev pizero config gpu3d_light=1`. The kernel reads it at the next start.
   - Cost on Yharnam: light 12.9 ms on the ARM, 1.7 ms with the key on; GPU 1.2 ms a frame.
   - Look: the light is continuous and the lamps add up. The ARM light has levels, the strongest lamp wins, and it has a dither. The two pictures differ on purpose.
   - Limits: 12 lamps for a tile of 64 x 64 pixels (the strongest ones); `dither` and `step` of the call do not change the GPU light. The RGB30 and a failed GPU job use the ARM light.

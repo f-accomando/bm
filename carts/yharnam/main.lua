@@ -4794,6 +4794,22 @@ local PATHS = {
 local ROMAN = { "I", "II", "III", "IV" }
 local menu = { i = 1, page = nil }
 
+-- the light of the night made by the GPU (the Pi's V3D): a smooth light, and the ARM spared 10 ms a frame.
+-- The consoles that cannot (the RGB30 has no light shader yet) keep the ARM's light and hide the entry.
+local light_gpu, light_can = false, false
+local function light_set(on)
+  local ok, now, can = pcall(gpu3d_opt, "light", on)    -- (a kernel before this switch: pcall catches the unknown name)
+  if ok then light_gpu, light_can = now and true or false, can and true or false end
+end
+
+-- the pause menu's entries: Resume, Controls, [Light], Give up the hunt
+local function pause_items()
+  local t = { "Resume", "Controls" }
+  if light_can then t[#t + 1] = light_gpu and "Light: GPU" or "Light: ARM" end
+  t[#t + 1] = "Give up the hunt"
+  return t
+end
+
 -- the weight of each path in the hunter: every taking as the curve of its
 -- path (how many times taken) and the discord (how many paths before it)
 local function path_weights(slots)
@@ -5145,6 +5161,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             end }
 
 function _init()
+  light_set(true)                          -- the GPU lights the night where it can (the pause menu turns it off)
   -- the fade tables: every colour of the sheet at the 8 light levels.
   -- Level 1 is the night (dim, blue: the twilight of a dead town), 7 the
   -- warm light under a lamp; glass of lit windows, flames and embers keep
@@ -5229,13 +5246,17 @@ function _update()
     if menu.page then
       if btnp("ok") or btnp("back") or btnp(8) then menu.page = nil end
     else
-      if btnp(2) then menu.i = (menu.i - 2) % 3 + 1 end
-      if btnp(3) then menu.i = menu.i % 3 + 1 end
+      local items = pause_items()
+      local n = #items
+      if btnp(2) then menu.i = (menu.i - 2) % n + 1 end
+      if btnp(3) then menu.i = menu.i % n + 1 end
       if btnp("back") or btnp(8) or (btnp("ok") and menu.i == 1) then
         state = "play"
       elseif btnp("ok") and menu.i == 2 then
         menu.page = "controls"
-      elseif btnp("ok") and menu.i == 3 then
+      elseif btnp("ok") and light_can and menu.i == 3 then
+        light_set(not light_gpu)                      -- the light by the GPU or by the ARM
+      elseif btnp("ok") and menu.i == n then
         quit()                                        -- give up the hunt: the cartridge closes
       end
     end
@@ -6068,7 +6089,7 @@ local function draw_pause()
     return
   end
   print("PAUSE", 104, 48, 0xE8C878)
-  for i, name in ipairs({ "Resume", "Controls", "Give up the hunt" }) do
+  for i, name in ipairs(pause_items()) do
     local y = 96 + (i - 1) * 32
     local sel = i == menu.i
     if sel then print(">", 40, y, 0xE8C878) end
