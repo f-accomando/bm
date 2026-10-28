@@ -109,7 +109,11 @@ typedef struct {
      * 20 floats: sun, up (vec3 + 1), then A, B, D per channel (vec3 + 1): light = A + B (n . up) + D max(n . sun, 0). */
     const float (*litv)[12];
     const float *light;     /* 88 floats, see be_set_light */
-    int litx;               /* the draw has rim, lamps, gloss or fog: BM_VS_LITX, vertices of 64 bytes (litv[i][8..10]: the face centre) */
+    int litx;               /* 1: the draw has rim, lamps, gloss or fog: BM_VS_LITX, vertices of 64 bytes (litv[i][8..10]: the face centre);
+                             * 2: a skinned mesh, BM_VS_LITB: litv[i][11] is the bone, mvp and light are those of bone 0 and the next
+                             * nbones - 1 (16 and 88 floats each) */
+    int nbones;
+    uint32_t uoff;          /* the draw's uniform words, in bytes from the start of the lit area (the arena only) */
 } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);

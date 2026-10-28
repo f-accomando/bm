@@ -890,13 +890,32 @@ static void build_draws(void *p)
                 const float v16[16] __attribute__((aligned(16))) = { draws[d].xyz[i][0], draws[d].xyz[i][1], draws[d].xyz[i][2], 1.0f,
                                                                      litv[i][0], litv[i][1], litv[i][2], litv[i][3],
                                                                      litv[i][4], litv[i][5], litv[i][6], litv[i][7],
-                                                                     litv[i][8], litv[i][9], litv[i][10], 0.0f };
+                                                                     litv[i][8], litv[i][9], litv[i][10], litv[i][11] };
                 volatile float *lvp = (volatile float *)(void *)(c->lv_m + (size_t)vstride * (first + i));
                 for (int q = 0; q < vstride / 4; q++)
                     lvp[q] = v16[q];
             }
-            volatile float *lpp = (volatile float *)(void *)(c->litp_m + 448 * (size_t)d);
-            if (litx) {                         /* BM_VS_LITX reads uniform buffer 0 as it is: the matrix, then the light block */
+            volatile float *lpp = (volatile float *)(void *)(c->litp_m + draws[d].uoff);
+            uint32_t ubo_entries = litx == 2 ? 15u + 12u * (uint32_t)draws[d].nbones : litx ? 26u : 9u;
+            if (litx == 2) {                    /* BM_VS_LITB: the mesh block, then a block a bone */
+                const float *L0 = draws[d].light;
+                static const unsigned mesh_from[15] = { 16, 20, 24, 28, 32, 36, 40, 56, 60, 64, 68, 72, 76, 80, 84 };
+                for (unsigned q = 0; q < 15; q++)
+                    for (unsigned e = 0; e < 4; e++)
+                        lpp[4 * q + e] = L0[mesh_from[q] + e];
+                for (uint32_t bn = 0; bn < (uint32_t)draws[d].nbones; bn++) {
+                    const float *bl = draws[d].light + 88 * bn, *mv = draws[d].mvp + 16 * bn;
+                    volatile float *bp = lpp + 60 + 48 * bn;
+                    for (unsigned q = 0; q < 16; q++)
+                        bp[q] = mv[q];
+                    for (unsigned q = 0; q < 16; q++)       /* sun, up, view, half */
+                        bp[16 + q] = bl[q];
+                    for (unsigned q = 0; q < 12; q++)       /* the camera matrix */
+                        bp[32 + q] = bl[44 + q];
+                    bp[44] = bl[39];                        /* fog amount */
+                    bp[45] = bp[46] = bp[47] = 0.0f;
+                }
+            } else if (litx) {                         /* BM_VS_LITX reads uniform buffer 0 as it is: the matrix, then the light block */
                 for (unsigned q = 0; q < 104; q++)
                     lpp[q] = q < 16 ? draws[d].mvp[q] : draws[d].light[q - 16];
             } else {                            /* BM_VS_LIT: the pushed words in the order the compiler chose: word q is the word
@@ -913,10 +932,10 @@ static void build_draws(void *p)
             md_attribute_buffer(loc + D_VBUFS, tvy_pa + 16 * (uint64_t)first, 16, 16 * nv);
             md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
             md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
-            md_uniform_buffer(loc + D_VUBO, c->litp_pa + 448 * (uint64_t)d, litx ? 26 : 9);
-            md_draw_t lvd = { .state = pa + sb + (litx ? SO_VRSDX : SO_VRSDL), .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
+            md_uniform_buffer(loc + D_VUBO, c->litp_pa + draws[d].uoff, ubo_entries);
+            md_draw_t lvd = { .state = pa + sb + (litx == 2 ? SO_VRSDB : litx ? SO_VRSDX : SO_VRSDL), .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
                               .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR,
-                              .uniform_buffers = dpa + D_VUBO, .push_uniforms = c->litp_pa + 448 * (uint64_t)d,
+                              .uniform_buffers = dpa + D_VUBO, .push_uniforms = c->litp_pa + draws[d].uoff,
                               .thread_storage = pa + sb + SO_LS };
             job_header(loc + D_VJOB, MD_JOB_VERTEX, 2 * (int)d + 1, d ? 2 * (int)d : 0, dpa + D_TJOB);
             md_vertex_job(loc + D_VJOB, nv, &lvd);
@@ -1083,8 +1102,13 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         memcpy(m + sb + SO_VS_LIT, BM_VS_LIT_bin, sizeof BM_VS_LIT_bin);
         memcpy(m + sb + SO_FS_VCOL, BM_FS_VCOL_bin, sizeof BM_FS_VCOL_bin);
     }
+    int any_litb = 0;
+    for (uint32_t d = 0; d < ndraws && !any_litb; d++)
+        any_litb = draws[d].litv != NULL && draws[d].litx == 2 && tv_m != NULL;
     if (any_litx)
         memcpy(m + sb + SO_VS_LITX, BM_VS_LITX_bin, sizeof BM_VS_LITX_bin);
+    if (any_litb)
+        memcpy(m + sb + SO_VS_LITB, BM_VS_LITB_bin, sizeof BM_VS_LITB_bin);
 
     /* tiler: the heap and the context */
     md_tiler_heap(hdr + SO_HEAPD, pa + sb + SO_HEAP, HEAP_SIZE);
@@ -1136,6 +1160,11 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                   .work_regs = BM_VS_LITX_WORK_REGS, .preload_regs = BM_VS_LITX_PRELOAD,
                                   .push_count = BM_VS_LITX_PUSH_COUNT };
     md_renderer_state(hdr + SO_VRSDX, &vrslx);
+    md_renderer_state_t vrslb = { .shader = pa + sb + SO_VS_LITB, .attribute_count = BM_VS_LITB_ATTRIBUTE_COUNT,
+                                  .varying_count = BM_VS_LITB_VARYING_COUNT, .ubo_count = BM_VS_LITB_UBO_COUNT,
+                                  .work_regs = BM_VS_LITB_WORK_REGS, .preload_regs = BM_VS_LITB_PRELOAD,
+                                  .push_count = BM_VS_LITB_PUSH_COUNT };
+    md_renderer_state(hdr + SO_VRSDB, &vrslb);
     uint8_t frsl_buf[80];
     memset(frsl_buf, 0, sizeof frsl_buf);
     md_renderer_state_t frsl = { .fragment = 1, .shader = pa + sb + SO_FS_VCOL, .attribute_count = BM_FS_VCOL_ATTRIBUTE_COUNT,
@@ -1679,7 +1708,7 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
 #define BE_TPOOL_SIZE   (2u << 20)
 #define BE_TEX_SLOTS    16
 
-typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float uvk[3][3]; uint64_t tex_pa; int proj; const float *light; } be_tri_t;
+typedef struct { float v[3][3]; float key; uint32_t rgb; const float *mvp; float uvk[3][3]; uint64_t tex_pa; uint8_t proj, nb; const float *light; } be_tri_t;
 
 static be_tri_t be_tris[BE_MAX_TRIS];
 static float be_mvps[BE_MAX_MVPS][16];
@@ -2039,10 +2068,17 @@ static void be_project_mvp(int n)
     }
 }
 
+/* the bytes of a lit draw's uniform words (64-aligned): the push order of BM_VS_LIT and the 416 bytes of BM_VS_LITX take 448, a skinned
+ * mesh takes its mesh block (240) and 192 a bone */
+static uint32_t be_lit_bytes(int litx, int nb)
+{
+    return litx == 2 ? (240u + 192u * (uint32_t)nb + 63u) & ~63u : 448u;
+}
+
 /* the triangles in the order idx fit one frame: the draws (runs of one colour and matrix), the vertex slots */
 static int z_fits(const int *idx, int n, uint32_t max_draws)
 {
-    uint32_t runs = 0, slots = 0, run_n = 0;
+    uint32_t runs = 0, slots = 0, run_n = 0, lu = 0;
     int tex = 0;
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
@@ -2054,10 +2090,12 @@ static int z_fits(const int *idx, int n, uint32_t max_draws)
         } else {
             runs++;
             run_n = 1;
+            if (t->light)
+                lu += be_lit_bytes(t->rgb == 0x03000000u ? 1 : t->rgb == 0x04000000u ? 2 : 0, t->nb);
         }
         slots += (3 * run_n + 3) & ~3u;
     }
-    return runs <= max_draws && (!tex || slots <= BE_TEXV_MAX);
+    return runs <= max_draws && (!tex || slots <= BE_TEXV_MAX) && lu <= BE_LIT_V_OFF;
 }
 
 static int be_flush_mode_impl(const g16_t *g, int async);
@@ -2161,6 +2199,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     }
 #endif
     uint32_t nd = 0, nv = 0, btri = 0, slots = 0;   /* slots: the frame's vertex index (draws padded to 4 vertices) */
+    uint32_t lu_used = 0;                           /* bytes of the lit area's uniform words used by the draws */
     for (int i = 0; i < n; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
         const int tex = t->tex_pa != 0 || t->light != NULL;
@@ -2182,13 +2221,14 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             dr[nd - 1].n++;
             slots += (3 * dr[nd - 1].n + 3) & ~3u;
         } else {
-            if (nd == max_draws) {                  /* a full frame: draw it synchronously, go on with a fresh one */
+            if (nd == max_draws || (t->light && lu_used + be_lit_bytes(t->rgb == 0x03000000u ? 1 : t->rgb == 0x04000000u ? 2 : 0, t->nb) > BE_LIT_V_OFF)) {   /* a full frame: draw it synchronously, go on with a fresh one */
                 if (be_run(g, surf, pa, pitch, sw, sh, dr, nd, 0) != 0)
                     return -1;
                 nd = 0;
                 nv = 0;
                 btri = 0;
                 slots = 0;
+                lu_used = 0;
             }
             dr[nd].xyz = (const float (*)[3])vbuf[nv];
             dr[nd].n = 1;
@@ -2197,7 +2237,10 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             dr[nd].uvk = tex ? (const float (*)[3])uvbuf[nv] : NULL;
             dr[nd].tex_pa = t->tex_pa;
             dr[nd].litv = t->light ? (const float (*)[12])litbuf[nv] : NULL;
-            dr[nd].litx = t->rgb == 0x03000000u;
+            dr[nd].litx = t->rgb == 0x03000000u ? 1 : t->rgb == 0x04000000u ? 2 : 0;
+            dr[nd].nbones = t->nb;
+            dr[nd].uoff = lu_used;
+            lu_used += t->light ? be_lit_bytes(dr[nd].litx, t->nb) : 0;
             dr[nd].light = t->light;
             nd++;
             slots += 4;
@@ -2462,7 +2505,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();
     /* Q2: the vertex shader lights the faces when the light is the sun and the ambient light of a rigid mesh */
-    int vlit = be_lit_on && be_arena() && env->lit && N && !skinned && !env->cel;
+    int vlit = be_lit_on && be_arena() && env->lit && N && !env->cel;
     int vx = env->nlamps > 0 || env->fog_k > 0.0f || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f;
     if (vlit && (env->S[0] > 0.0f || env->S[1] > 0.0f || env->S[2] > 0.0f))
         for (int t = 0; t < m->nfaces && !vx; t++)
@@ -2510,17 +2553,6 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                                 Nb[2] * env->half[0] + Nb[5] * env->half[1] + Nb[8] * env->half[2] };
         }
     }
-    if (vlit && m->nfaces < 16)                 /* a draw costs 15-25 us on the ARM: a mesh of a few faces is lit by the ARM */
-        vlit = 0;
-    if (vlit) {                                 /* many tiny faces cost more to send than to light: the ARM keeps them */
-        const float rpx = m->radius > 0.0f ? m->radius * env->f / cz_bone[0] : 1e9f;
-        if (3.14f * rpx * rpx < be_lit_min * 0.5f * (float)m->nfaces)
-            vlit = 0;
-    }
-    if (vlit)
-        for (int b = 0; b < nb; b++)
-            if (mvp_bone[b])
-                be_set_light(mvp_bone[b], env, l_sun[b], l_up[b], l_view[b], l_half[b], M[b], cz_bone[b]);
     if (skinned) {
         int bcnt[32] = { 0 };
         float bsum[32] = { 0 };
@@ -2540,6 +2572,22 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             cz_bone[b] = cz;
         }
     }
+    if (vlit && m->nfaces < 16)                 /* a draw costs 15-25 us on the ARM: a mesh of a few faces is lit by the ARM */
+        vlit = 0;
+    if (vlit && !skinned) {                     /* many tiny faces cost more to send than to light: the ARM keeps them (a skinned mesh is 16 draws otherwise) */
+        const float rpx = m->radius > 0.0f ? m->radius * env->f / cz_bone[0] : 1e9f;
+        if (3.14f * rpx * rpx < be_lit_min * 0.5f * (float)m->nfaces)
+            vlit = 0;
+    }
+    if (vlit)
+        for (int b = 0; b < nb; b++)
+            if (!mvp_bone[b])                   /* the bones\' matrices have to be in a row */
+                vlit = 0;
+    if (vlit && skinned)
+        vx = 2;
+    if (vlit)
+        for (int b = 0; b < nb; b++)
+            be_set_light(mvp_bone[b], env, l_sun[b], l_up[b], l_view[b], l_half[b], M[b], cz_bone[b]);
     uint32_t nsent = 0;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
@@ -2656,16 +2704,19 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         tr->mvp = mvp_bone[b];
         tr->tex_pa = 0;
         tr->light = NULL;
-        if (vlit && mvp_bone[b]) {              /* Q2: the vertex shader lights this face */
-            tr->light = be_lights[(const float (*)[16])mvp_bone[b] - be_mvps];
+        if (vlit) {                             /* Q2: the vertex shader lights this face */
+            if (skinned)
+                tr->mvp = mvp_bone[0];          /* one draw a mesh: the vertex shader picks the bone's matrix */
+            tr->light = be_lights[(const float (*)[16])tr->mvp - be_mvps];
+            tr->nb = (uint8_t)nb;
             float *lf = be_lit[tr - be_tris];
             lf[0] = n.x; lf[1] = n.y; lf[2] = n.z;
             lf[3] = emissive ? 1.0f : 0.0f;
             lf[4] = (float)(c >> 16 & 255); lf[5] = (float)(c >> 8 & 255); lf[6] = (float)(c & 255);
             lf[7] = (c & R3D_GLOSSY) ? 1.0f : 0.0f;
             lf[8] = (v0.x + v1.x + v2.x) * (1.0f / 3.0f); lf[9] = (v0.y + v1.y + v2.y) * (1.0f / 3.0f);
-            lf[10] = (v0.z + v1.z + v2.z) * (1.0f / 3.0f); lf[11] = 0.0f;
-            tr->rgb = vx ? 0x03000000u : 0x02000000u;   /* a colour no flat draw has: the faces of one mesh merge */
+            lf[10] = (v0.z + v1.z + v2.z) * (1.0f / 3.0f); lf[11] = skinned ? (float)b : 0.0f;
+            tr->rgb = vx == 2 ? 0x04000000u : vx ? 0x03000000u : 0x02000000u;   /* a colour no flat draw has: the faces of one mesh merge */
         }
         nsent++;
     }

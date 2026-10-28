@@ -1404,6 +1404,7 @@ typedef struct {
     /* G1 pixel check (a Mali row): the first frame of the ramp drawn by the GPU and again by the ARM; pixels of the page,
      * pixels that differ, pixels that differ by more than 2 steps of a channel (RGB565), the largest step */
     int chk, chk_px, chk_diff, chk_big, chk_max;
+    int chk_ink_gpu, chk_ink_arm;       /* pixels that differ from the corner pixel: a blank frame proves nothing */
     int chk_box[4];                     /* the box of the pixels that differ: x0 y0 x1 y1 */
     uint16_t chk_gpu[5], chk_arm[5];
     uint16_t chk_grid[2][8][16];        /* [0] GPU, [1] ARM: every 40th pixel of every 45th row */    /* five pixels: the first that differs, and the box's centre, corners... */
@@ -1543,7 +1544,7 @@ static void prof_off(void)
 }
 
 /* the page after the GPU's frame against the ARM's frame of the same scene (the page was drawn by the GPU just now) */
-static void pixel_check(const test_t *t, int n, result_t *r)
+static void pixel_check_once(const test_t *t, int n, result_t *r)
 {
     const size_t np = (size_t)g->w * (size_t)g->h;
     uint16_t *a = malloc(np * 2);
@@ -1563,6 +1564,8 @@ static void pixel_check(const test_t *t, int n, result_t *r)
     for (int y = 0; y < g->h; y++)
         for (int x = 0; x < g->w; x++) {
             const uint16_t p = a[(size_t)y * g->w + x], q = g->px[(size_t)y * g->stride + x];
+            r->chk_ink_gpu += p != a[0];
+            r->chk_ink_arm += q != g->px[0];
             if (p == q)
                 continue;
             int d = abs((p >> 11) - (q >> 11));
@@ -1601,6 +1604,21 @@ static void pixel_check(const test_t *t, int n, result_t *r)
     free(a);
     t->frame(n, 0);                     /* the GPU's frame again, as the ramp expects */
     gpu3d_flush(g, 0);
+}
+
+/* a first frame with nothing in it (a hero alone is off the screen) proves nothing: try again with four times the load */
+static void pixel_check(const test_t *t, int n, result_t *r)
+{
+    for (int tries = 0; tries < 4; tries++) {
+        r->chk_diff = r->chk_big = r->chk_max = 0;
+        r->chk_ink_gpu = r->chk_ink_arm = 0;
+        pixel_check_once(t, n, r);
+        if (r->chk_ink_gpu || r->chk_ink_arm || n * 4 > t->max)
+            break;
+        n *= 4;
+        t->frame(n, 0);
+        gpu3d_flush(g, 0);
+    }
 }
 
 static void ramp(int ti, int pf)
@@ -2321,6 +2339,7 @@ static void report(void)
                             put(" %04x", rk->chk_grid[w][gy][gx]);
                         put("\n");
                     }
+                put("KC,%s,%s,%d,%d\n", tests[ti].id, prof[pf].name, rk->chk_ink_gpu, rk->chk_ink_arm);
                 put("K,%s,%s,%d,%d,%d,%d\n", tests[ti].id, prof[pf].name, rk->chk_px, rk->chk_diff, rk->chk_big,
                     rk->chk_max);
                 if (rk->chk_diff)

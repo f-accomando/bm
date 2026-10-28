@@ -100,6 +100,7 @@ data **cache misses**. The instructions and the misses come from the ARM1176 cou
 For each GPU row, the 3D Bench draws the first frame on the GPU, redraws it on the ARM and compares the two.
 Report line `K`: pixels of the scene, pixels that differ, pixels that differ by more than 2 steps, largest step.
 Line `KD` gives the box of the differences and sample pixels. Lines `KG` give a grid of 16 by 8 pixels, GPU and ARM.
+Line `KC` gives the pixels that are not the corner colour, GPU and ARM: with `KC` 0 0 the frame is blank and the check tries four times the load.
 Light rounding makes small differences. Do not trust a GPU score without its `K` line.
 
 ## The score
