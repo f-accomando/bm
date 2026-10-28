@@ -34,6 +34,10 @@ static int sw = 640, sh = 360, cols = MENU_COLS;
 /* the screen is the layout `scale` times bigger (2 on the Pi by default: 1280x720;
  * menu_scale=3: 1920x1080), drawn in `frame` and enlarged at the flip */
 static int scale = 1;
+static int foot_y = 316, nrows = 2, grid_y0 = 112;     /* the bottom bar; the whole rows of covers (2 at 360 high, more in the native layout) */
+static int bgz = 1;                     /* the background is made at 640x360 and drawn bgz times bigger (native layout) */
+#define BGW (SW / bgz)
+#define BGH (SH / bgz)
 static uint16_t *frame;
 static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else the ARM) */
 static int gpu_draw;                    /* the GPU draws the 1080p layout directly (menu_gpu=1) */
@@ -58,16 +62,17 @@ static inline const font_t *menu_font(int sc)
 #define GAP_X       6
 #define PITCH_Y     (CARD_H + GAP_X)
 #define GRID_X0     ((SW - (cols * CARD_W + (cols - 1) * GAP_X)) / 2)
-#define FOOT_Y      316             /* bottom bar, text rows 20-21 */
+#define FOOT_Y      foot_y          /* bottom bar (316 at 360 high), text rows 20-21 */
 #define GRID_BOT    FOOT_Y          /* grid clip */
+#define HROW        ((FOOT_Y + 20) / 16)    /* the text row of the key chips in the bottom bar (21 at 360 high) */
 /* two whole rows, and the top of the next one showing: there is more below */
 #define PEEK        16
-#define GRID_Y0     (GRID_BOT - PEEK - 2 * PITCH_Y)     /* first row of covers */
+#define GRID_Y0     grid_y0     /* first row of covers */
 #define GRID_TOP    (GRID_Y0 - 8)   /* the selection ring is 6 px out (3 gap + 3 line) */
 /* scroll bar in the right margin, along the two whole rows */
 #define SBAR_W      4
 #define SBAR_X      (SW - GRID_X0 / 2 - SBAR_W / 2)
-#define SBAR_H      (2 * PITCH_Y - GAP_X)
+#define SBAR_H      (nrows * PITCH_Y - GAP_X)
 #define FADE_FRAMES 10
 
 #define C_BAR       0x16161C
@@ -535,17 +540,17 @@ static void put_background(void)
 {
     if (gpu_draw) {
         if (!bg_sheet_alloced) {
-            if (g16_sheet_alloc(&bg_sheet, SW, SH) == 0) {
+            if (g16_sheet_alloc(&bg_sheet, BGW, BGH) == 0) {
                 memset(bg_sheet.alpha, 1, (size_t)bg_sheet.w * bg_sheet.h);
                 bg_sheet_alloced = 1;
             }
         }
         if (fade > 0 && !bg_building) {
             uint32_t a = (uint32_t)(FADE_FRAMES - fade) * 32 / FADE_FRAMES;     /* 0..32 of the new */
-            for (int y = 0; y < SH; y++) {
-                const uint16_t *p = bg_prev + y * SW, *q = bg_cur + y * SW;
+            for (int y = 0; y < BGH; y++) {
+                const uint16_t *p = bg_prev + y * BGW, *q = bg_cur + y * BGW;
                 uint16_t *o = bg_sheet.px + (uint32_t)y * bg_sheet.w;
-                for (int x = 0; x < SW; x++) {
+                for (int x = 0; x < BGW; x++) {
                     uint32_t A = (p[x] | (uint32_t)p[x] << 16) & 0x07E0F81Fu;
                     uint32_t B = (q[x] | (uint32_t)q[x] << 16) & 0x07E0F81Fu;
                     uint32_t m = (A * (32 - a) + B * a) >> 5 & 0x07E0F81Fu;
@@ -562,20 +567,20 @@ static void put_background(void)
             const uintptr_t sig = (uintptr_t)src | (dim ? 1u : 0u);
             if (sig != bg_sig) {
                 bg_sig = sig;
-                for (int y = 0; y < SH; y++) {
+                for (int y = 0; y < BGH; y++) {
                     uint16_t *o = bg_sheet.px + (uint32_t)y * bg_sheet.w;
-                    const uint16_t *q = src + y * SW;
-                    if (!dim || y < BAR_H || y >= FOOT_Y)
-                        memcpy(o, q, SW * 2);
+                    const uint16_t *q = src + y * BGW;
+                    if (!dim || y * bgz < BAR_H || y * bgz >= FOOT_Y)
+                        memcpy(o, q, BGW * 2);
                     else
-                        for (int x = 0; x < SW; x++)
+                        for (int x = 0; x < BGW; x++)
                             o[x] = half(q[x]);
                 }
                 bg_sheet.version++;
             }
         }
         if (bg_sheet_alloced)
-            gpu3d_blit2d(&g, &bg_sheet, 0, 0, SW, SH, 0, 0, scale, 0, 0);
+            gpu3d_blit2d(&g, &bg_sheet, 0, 0, BGW, BGH, 0, 0, scale * bgz, 0, 0);
         return;
     }
     if (fade > 0 && !bg_building) {
@@ -662,10 +667,10 @@ static void round_rect(int x, int y, int w, int h, int r, uint16_t c)
  * rows scrolled out at the top are not taken for gone. */
 static void scroll_bar(int rows, float first)
 {
-    int th = SBAR_H * 2 / rows;
+    int th = SBAR_H * nrows / rows;
     if (th < 24)
         th = 24;
-    float k = first / (float)(rows - 2);
+    float k = first / (float)(rows - nrows);
     k = k < 0 ? 0 : k > 1 ? 1 : k;
     int ty = GRID_Y0 + (int)lroundf(k * (float)(SBAR_H - th));
     uint16_t track = c16(C_LINE), thumb = c16(C_TEXT);
@@ -1366,11 +1371,20 @@ static int screen_open(framebuffer_t *fb)
 #else
     const char *ms = config_get("menu_scale");
     sw = 640;
+    sh = 360;
+    bgz = 1;
     gpu_draw = 0;
     gpu_big = 0;
     /* no key: 720p drawn by the GPU (28 Oct 2026); 1: 360p on the ARM; 4: 360p drawn by the GPU */
     scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '1' ? 1 : ms && ms[0] == '4' ? 1 : 2;
-    if (scale > 1 || (ms && ms[0] == '4')) {
+    const char *ml = config_get("menu_layout");
+    if (scale > 1 && ml && ml[0] == '1') {      /* a layout of its own size: more covers, the same sizes */
+        sw = 640 * scale;
+        sh = 360 * scale;
+        bgz = scale;
+        scale = 1;
+    }
+    if (sw > 640 || scale > 1 || (ms && ms[0] == '4')) {
         if (fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) == 0 &&
             fb->pitch == fb->width * 2 && gpu3d_init() == 0) {
             gpu3d_set_fb(fb->mem, fb->size, fb->bus);
@@ -1379,11 +1393,14 @@ static int screen_open(framebuffer_t *fb)
             kprintf("menu: %lux%lu, drawn by the GPU\n", (unsigned long)fb->width, (unsigned long)fb->height);
             return 0;
         }
-        if (scale > 1)
-            kprintf("menu: the GPU cannot draw %dx, 360p on the ARM\n", scale);
+        if (scale > 1 || sw > 640)
+            kprintf("menu: the GPU cannot draw %dx, 360p on the ARM\n", scale > 1 ? scale : bgz);
         else
             kprintf("menu: the GPU cannot draw 360p, the ARM does\n");
         scale = 1;
+        sw = 640;
+        sh = 360;
+        bgz = 1;
     }
     return fb_init_depth(fb, (uint32_t)sw, (uint32_t)sh, 3, 16);
 #endif
@@ -1410,13 +1427,20 @@ int menu_ui_open(framebuffer_t *fb)
     }
     if (gpu_draw) {
         if (!bg_sheet_alloced) {
-            if (g16_sheet_alloc(&bg_sheet, SW, SH) == 0) {
+            if (g16_sheet_alloc(&bg_sheet, BGW, BGH) == 0) {
                 memset(bg_sheet.alpha, 1, (size_t)bg_sheet.w * bg_sheet.h);
                 bg_sheet_alloced = 1;
             }
         }
     }
-    cols = (SW - 16) / (CARD_W + GAP_X);    /* 6 at 640, 3 at 360 */
+    cols = bgz > 1 ? 8 : (SW - 16) / (CARD_W + GAP_X);    /* 6 at 640, 3 at 360, 8 in the native layouts */
+    foot_y = SH - 44;                       /* 316 at 360 high */
+    nrows = (foot_y - PEEK - 100) / PITCH_Y;    /* 2 at 360 high: the same as before */
+    if (nrows < 2)
+        nrows = 2;
+    grid_y0 = foot_y - PEEK - nrows * PITCH_Y;
+    if (bgz > 1)                                /* the native layouts: the grid in the middle of the room it has */
+        grid_y0 -= ((foot_y - PEEK - 100) - nrows * PITCH_Y) / 2;
     ready = 1;
     bg_valid = 0;
     bg_building = 0;
@@ -1577,8 +1601,8 @@ static void frame_background(const menu_item_t *cur)
     const g16_sheet_t *key = cur ? cur->cover : NULL;
     const uint16_t *kpx = key && key->px && key->w >= 16 && key->h >= 10 ? key->px : NULL;
     if (!bg_valid) {
-        menu_bg_begin(&bgb, kpx, key ? key->w : 0, key ? key->h : 0, SW, SH);
-        menu_bg_step(&bgb, bg_cur, SH);         /* the first one: nothing to show meanwhile */
+        menu_bg_begin(&bgb, kpx, key ? key->w : 0, key ? key->h : 0, BGW, BGH);
+        menu_bg_step(&bgb, bg_cur, BGH);         /* the first one: nothing to show meanwhile */
         bg_key = key;
         bg_valid = 1;
         bg_building = 0;
@@ -1589,7 +1613,7 @@ static void frame_background(const menu_item_t *cur)
         }
         fade = 0;
         bg_building = 1;
-        menu_bg_begin(&bgb, kpx, key ? key->w : 0, key ? key->h : 0, SW, SH);
+        menu_bg_begin(&bgb, kpx, key ? key->w : 0, key ? key->h : 0, BGW, BGH);
         bg_key = key;
     }
     if (bg_building && menu_bg_step(&bgb, bg_cur, BG_ROWS)) {
@@ -1602,10 +1626,10 @@ static void frame_background(const menu_item_t *cur)
 /* The grid of covers (or the Settings page), with the pointer zones. */
 static void frame_grid(const menu_view_t *v, float t)
 {
-    /* grid: keep the selected row among the two fully visible ones */
+    /* grid: keep the selected row among the fully visible ones */
     int sel_row = v->sel / cols;
     if (sel_row < first_row) first_row = sel_row;
-    if (sel_row > first_row + 1) first_row = sel_row - 1;
+    if (sel_row > first_row + nrows - 1) first_row = sel_row - (nrows - 1);
     if (first_row < 0) first_row = 0;
     scroll += ((float)first_row - scroll) * 0.25f;
     if (fabsf(scroll - (float)first_row) < 0.01f) scroll = (float)first_row;
@@ -1642,7 +1666,7 @@ static void frame_grid(const menu_view_t *v, float t)
             cover_update(x, y);
     }
     m_clip(0, 0, 0, 0);
-    if (!v->page && v->n > 2 * cols)
+    if (!v->page && v->n > nrows * cols)
         scroll_bar((v->n + cols - 1) / cols, scroll);
     if (v->page)
         draw_page(v->page, v->ask != NULL);
@@ -1757,31 +1781,31 @@ static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
         const menu_row_t *r = hp->sel >= 0 && hp->sel < hp->n ? &hp->rows[hp->sel] : NULL;
         col = WIDE ? 40 : hc;
         if (r && r->kind == MENU_ROW_CHOICE)
-            col = hint(v, col, 21, v->on_gear ? BTN_A : BTN_CHANGE, "Change");
+            col = hint(v, col, HROW, v->on_gear ? BTN_A : BTN_CHANGE, "Change");
         else if (r && r->kind != MENU_ROW_INFO && r->kind != MENU_ROW_BAR)
-            col = hint(v, col, 21, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
-        hint(v, WIDE && col < 55 ? 55 : col, 21, BTN_B, "Back");
+            col = hint(v, col, HROW, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
+        hint(v, WIDE && col < 55 ? 55 : col, HROW, BTN_B, "Back");
     } else if (v->on_gear) {
-        col = hint(v, hc, 21, BTN_A, "Settings");
+        col = hint(v, hc, HROW, BTN_A, "Settings");
         if (!v->no_monitor)
-            hint(v, col, 21, BTN_MONITOR, "Monitor");
+            hint(v, col, HROW, BTN_MONITOR, "Monitor");
     } else {
         const char *a = v->a_label ? v->a_label
                       : cur && cur->kind && (!strcmp(cur->kind, "tool") || !strcmp(cur->kind, "bme")) ? "Open"
                                                                                                           : "Play";
         col = hc;
         if (a[0])
-            col = hint(v, col, 21, BTN_A, a);
+            col = hint(v, col, HROW, BTN_A, a);
         if (cur && cur->kind && strcmp(cur->kind, "market") == 0 && cur->title && cur->title[0])
-            col = hint(v, col, 21, BTN_X, "Details");
+            col = hint(v, col, HROW, BTN_X, "Details");
         else if (v->n && v->items[v->sel].path && v->items[v->sel].path[0])
-            col = hint(v, col, 21, BTN_X, "Options");
+            col = hint(v, col, HROW, BTN_X, "Options");
         if (v->y_label && v->y_label[0])
-            col = hint(v, col, 21, BTN_Y, v->y_label);
+            col = hint(v, col, HROW, BTN_Y, v->y_label);
         if (v->refresh_label && v->refresh_label[0])
-            col = hint_btn(v, col, 21, BTN_REFRESH, v->refresh_label, v->refresh_enabled);
+            col = hint_btn(v, col, HROW, BTN_REFRESH, v->refresh_label, v->refresh_enabled);
         if (!v->no_monitor && (!WIDE || col <= (v->prompts == MENU_PROMPTS_KEYBOARD ? 60 : 66)))
-            hint(v, col, 21, BTN_MONITOR, "Monitor");
+            hint(v, col, HROW, BTN_MONITOR, "Monitor");
     }
 }
 
