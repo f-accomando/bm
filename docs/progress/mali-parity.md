@@ -36,3 +36,22 @@ Checked in `src/rgb30/bm_port.c`. The Pi flags are in [v3d-flags](v3d-flags.md).
 | `gpu3d_etc1` | not developed | the Mali reads ETC1 textures; the driver has no encoder call |
 | `gpu3d_2d` | rectangles and sprites done (`mali_2d=1`, bm3d 7.23), off by default | the 3D Bench `gpu2d` test: 2573 sprites against 2999 with the ARM drawing them (-14%): the sprite fragment (texture, alpha kill) costs 3.2 ms for 2568 sprites. The ARM instructions fall 25%. `text2d` returns 0 |
 | `gpu3d_light`, `gpu3d_enlarge` | not developed | `light2d` and `enlarge` return -1: the ARM does them |
+
+## The 2D on the GPU of the RGB30 (28 Oct 2026)
+
+How a game gets it. The cartridge does not change. Two system keys decide:
+- `mali_2d=1` (hidden, default 0) lets the Mali take `rectfill`, `rect`, `pset`, straight `line`, `spr`, `sspr` and `map` cells.
+- The runtime sends the 2D to the GPU only while a 3D job is open (3D waits in it), or from the first 2D call when `gpu2d_only=1` (hidden, default 0). `gpu3d_2d` (default 1) is the runtime switch; `gpu3d_opt("2d", on)` changes it in a run. `mali_2d` is read at the GPU start only.
+
+What it costs and gives (3D Bench, RGB30, same kernel, 28 Oct):
+
+| Test | ARM draws the 2D | Mali draws the 2D | Why |
+|---|---|---|---|
+| `gpu2d` (sprites of one sheet over 3D) | 2999 sprites at 60 fps | 2573 | 133 draws; the fragment of the sprites takes 3.2 ms |
+| `sprites` (two sheets in turn) | 3569 (the test maximum) | 1702 | 1506 draws: only sprites in a row of one sheet share a draw; each draw costs a vertex and a tiler job |
+
+The ARM instructions of a frame fall (`gpu2d`: 13.2 M to 9.1 M). So the GPU 2D pays only when the ARM is the limit for other work and the sprites come in long rows of one sheet. Where the ARM has free time it draws the 2D faster.
+
+Limits: a sheet has to fit the 2 MB texture pool (a sheet of 4096 x 3400 does not: its sprites stay on the ARM); the order of the calls is the order of the picture, so the Mali does not reorder sprites to share draws; text, the light of `dark_end` and the enlarge stay on the ARM; a sheet with transparent texels keeps 5 bits of green.
+
+Yharnam: not applicable on the RGB30 today. Its sheet is over the pool, so only its rectangles would go to the GPU; on the Pi the GPU 2D of the map was slower than the ARM ([yharnam](yharnam.md)). The 3D work of the Mali (textures, depth, lit meshes, cel) does not touch a 2D game. What helps Yharnam on the Pi is the light by the GPU (`gpu3d_opt("light")`): the Mali has no light shader, so it stays on the ARM and the pause menu hides the entry.
