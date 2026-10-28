@@ -80,3 +80,10 @@ Measured on the RGB30 (28 Oct), GPU+VS, `mali_msaa=1` against 0: `spheres` 238 a
 The pixel check holds: `KC` is 203615 against 203348 ink pixels (the edge pixels add ink). The `K` line has 963 big differences with a maximum of 13: the smooth edges.
 An 8-pixel block with all alpha 0 is skipped and a block with all alpha 254 or 255 is packed with no tests (NEON on the RGB30). The blend of an edge pixel has no division. A scalar version took 3.7 ms, this one 2.6 ms.
 Tried and not kept: no cache invalidation (2.55 ms, so it is 0.1 ms), NEON for the full blocks alone (2.66 ms), and a test for alpha 254 (no change). The ARM still takes 1.1 ms more than without MSAA, and the cause is not found: the edge pixels are about 30000, so they do not explain it. The next idea is to count the blocks of each kind.
+
+## Indexed vertices on the Mali: not built (28 Oct)
+
+The face cache keeps 3 vertices a face. A mesh with shared vertices would keep about 0.6 vertices a face and the vertex shader would run less.
+The gain has a limit. In `heroes` (GPU+VS, RGB30) the bin job takes 3.2 ms and the render job 4.3 ms. The vertex work is a part of the 3.2 ms, so at best 10% of the 14 ms frame.
+The look would change. A shared vertex has one normal, so the light is smooth. The Mali meshes are lit flat, one colour a face (and `cel_flat` needs it). Flat light needs unshared vertices or a flat varying from a provoking vertex, and both give back the gain.
+Build it only for a smooth-lit mesh (`spheres_smooth`) and measure it first with a test mesh. The cost: an index buffer in the Draw descriptor, the cache of the visible faces as indices, and a new pixel check.
