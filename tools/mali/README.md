@@ -48,6 +48,7 @@ Mesa's postprocess.
   `BM_FS_TEX` samples texture 0 with sampler 0 (`txl`, level 0), multiplies the texel by k and keeps blue at 1/255 or more (the key colour is `0xFF00FF`).
   Both inputs need `driver_location`. `BIFROST_MESA_DEBUG=nopreload` stops the message preload fields.
 - Lit meshes (Q2): `BM_VS_LIT` has three attributes (position, face normal and emissive flag, base colour 0..255), the matrix by rows (words 0..15), the sun and up directions and the light A, B, D (vec4 at bytes 64..143) in uniform buffer 0, and gives the lit colour of a face as varying 0 (the colour is rounded to the RGB565 steps, as `be_mesh`). `BM_FS_VCOL` writes that varying. The compiler pushes the words in its own order (`BM_VS_LIT_push`): the driver writes word q of the push buffer from the uniform word `push[q]`.
+- `BM_VS_LITX` adds rim light, four lamps, gloss and fog: it reads uniform buffer 0 from memory (416 bytes, no pushed words) and has a fourth attribute, the face centre (lamps use the face centre). `BM_VS_LIT` reads sun, up and A, B, D from the same offsets.
 - Build here: `~/mesa-bifrost` (the tree) and `~/mb` (the build, kept across WSL restarts); `bash tools/mali/bld.sh` builds it; `bash tools/mali/mk.sh OUT.h` (from the repository root, OUT relative) builds `mkshader` and writes the header.
 - Compiled without IDVS (`no_idvs`): a Vertex job (type 5, a Compute Job layout) then a Tiler job.
   With IDVS these inputs give an empty shader.

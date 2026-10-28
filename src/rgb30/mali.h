@@ -107,8 +107,9 @@ typedef struct {
     /* Q2, lit meshes (the arena only; mvp set): litv non-NULL makes a draw whose vertex shader lights the faces. xyz are model-space,
      * litv[i] is the face normal in model space, an emissive flag (1: no light) and the base r g b in 0..255 of vertex i; light is
      * 20 floats: sun, up (vec3 + 1), then A, B, D per channel (vec3 + 1): light = A + B (n . up) + D max(n . sun, 0). */
-    const float (*litv)[8];
-    const float *light;
+    const float (*litv)[12];
+    const float *light;     /* 88 floats, see be_set_light */
+    int litx;               /* the draw has rim, lamps, gloss or fog: BM_VS_LITX, vertices of 64 bytes (litv[i][8..10]: the face centre) */
 } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);

@@ -419,6 +419,9 @@ driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), 
   - `src/rgb30/mali.c`: Added `frame_build_ex()` with L1-cached stack buffers (`hdr[0x1000]`, `loc[0x540]`, `frs_buf[80]`, `vrs3_buf[64]`) eliminating uncached `ATTR_NC` byte read-modify-writes, plus a 4 MB single-pass GPU arena at `H->mem - (6u << 20)` (`1,024` draws and `8,192` triangles in 1 Fragment Job and 1 `be_resolve` per frame).
   - Verified on RGB30 hardware in 3D Bench (`docs/bench/mali-2026-10-25/step9-bench3d-singlepass-default.txt`, report `b3cab428`): overall `games` score rose from `192` to **`247`**, `GPU` score rose **16.3x** (`14` in `7.10` -> `138` in `7.14` -> **`228`** in `7.15`), `draws` (`GPU+VS`) reached `533.8` @ 60 fps (`1 job`), `spheres` (`GPU+VS`) reached `22.9` @ 60 fps (`141.5` @ 30 fps), and `gpu2d` reached `1,849.2` @ 60 fps (`5,354.8` @ 30 fps).
 
+- **7.20** (2026-10-28): **Rim light, lamps, gloss and fog in the Mali vertex shader** (RGB30, key `mali_lit`). A rigid lit mesh with any of them is one draw with `BM_VS_LITX` (the light block is read from the uniform buffer, 64-byte vertices with the face centre).
+  RGB30 3D Bench: `spheres_shine` 48.5 -> 125.7; the other scenes and the pixel checks do not change. Cel levels and skinned meshes stay on the ARM.
+
 - **7.19** (2026-10-28): **Sun and ambient light in the Mali vertex shader** (RGB30, keys `mali_lit` default 1 and `mali_lit_min` default 100). A rigid lit mesh with only the sun and the ambient light is one draw: `BM_VS_LIT` lights each face (flat) and `BM_FS_VCOL` writes the colour.
   RGB30 3D Bench: `spheres` GPU+VS 102.5 -> 132.0, `queue` 71.9 -> 119.7, `split` 9.2 -> 12.9; the pixel check is the same as with the light on the ARM. Rim light, lamps, gloss, cel, fog and skinned meshes stay on the ARM.
 

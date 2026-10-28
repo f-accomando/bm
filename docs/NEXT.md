@@ -13,7 +13,7 @@ Plan sheets: [multicore](progress/multicore.md) (M, G, V tracks), [graphics-mali
 
 Done:
 - V1: the 3D mesh runs on four cores (faces, then bands of rows), RGB30 games 375 -> 451. The Mali draw build runs on the cores too. Scores: games 491, GPU 513, ARM 602.
-- G1: opaque textures on the Mali (bm3d 7.17). G2: hardware depth test (`mali_z`, bm3d 7.18). G4: score table updated. Q2: sun and ambient light in the Mali vertex shader (`mali_lit`, bm3d 7.19; `spheres` GPU+VS 102.5 -> 132.0). Scores: games 639, GPU 755, ARM 601.
+- G1: opaque textures on the Mali (bm3d 7.17). G2: hardware depth test (`mali_z`, bm3d 7.18). G4: score table updated. Q2: the light of rigid meshes in the Mali vertex shader (`mali_lit`, bm3d 7.20; `spheres` GPU+VS 102.5 -> 132.0, `spheres_shine` 48.5 -> 125.7). Scores: games 639, GPU 755, ARM 601.
 - G3: the Mali 3D Bench R lines carry `draws`, `mesh_us`, `flush_us`, `resolve_us`.
 - Yharnam light by the GPU on the Pi: `gpu3d_opt("light", on)`, a Light row in the pause menu. Autoplay 31.6 -> 50.1 fps. Market version `2026.10.28b`.
 - RGB30 UX: one-line screenshot banner for 1 s at the top centre; small dev kit with L1+R1 together; Give up the hunt closes the game.
@@ -22,7 +22,7 @@ Done:
 To do, in this order:
 1. G1 on the console: the pixel check between GPU and ARM exists, the comparison on the console is not finished. The user looks at the textured scenes on the RGB30 (`mali_tex`).
 2. The scenes of G2 (`spheres`, `split`) by eye on the console, with the user. The old local branch `claude/mali-textures-zbuffer` holds no work: delete it.
-3. Q2 next steps, one at a time with a 3D Bench measure: rim light, lamps, gloss, cel and fog in `BM_VS_LIT`; skinned meshes. The Mesa Bifrost build is in `~/mb` (WSL); `tools/mali/README.md` has the steps and `~/mesa-bifrost` the tree.
+3. Q2 next step: skinned meshes in the vertex shader (a bone palette in the uniform buffer; `heroes`), then cel. The Mesa Bifrost build is in `~/mb` (WSL); `tools/mali/README.md` has the steps and `~/mesa-bifrost` the tree.
 4. Multitasking: the cooperative fibres in the menu stay as they are. The link with the cores goes through V4.
    V1 leftovers: look at the scenes with the bands on; move the Mali queue fill to a worker core.
 5. V2 (`job_run` API), V4 (Market, SD and cover decode on a worker), V5 (`cores=1..4` key), M7 (`multicore` capability), M5 (check `smp: offload` in a boot log).

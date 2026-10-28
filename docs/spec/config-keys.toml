@@ -385,7 +385,7 @@ name = "mali_lit"
 scope = "rgb30"
 values = "0 = the ARM lights the faces of a mesh; anything else = the Mali vertex shader lights them (with mali3d=1)"
 default = "1"
-meaning = "Q2: a rigid lit mesh with sun and ambient light only (no cel, fog, lamps, rim or gloss) is one draw: BM_VS_LIT lights each face, flat. Read at every gpu3d init."
+meaning = "Q2: a rigid lit mesh (no cel levels, no bones) is one draw: BM_VS_LIT (sun and ambient light) or BM_VS_LITX (also rim, lamps, gloss, fog) lights each face, flat. Read at every gpu3d init."
 settings = ""
 read_in = "src/rgb30/bm_port.c:38"
 

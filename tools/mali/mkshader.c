@@ -25,6 +25,8 @@ static int glsl_size(const struct glsl_type *t, bool bindless)
     return glsl_count_attribute_slots(t, false);
 }
 
+static unsigned g_pushable = 1;               /* uniform buffer 0 is pushed (1) or read from memory (0) */
+
 static nir_variable *var(nir_builder *b, nir_variable_mode mode, const char *name, int loc, int interp)
 {
     nir_variable *v = nir_variable_create(b->shader, mode, glsl_vec4_type(), name);
@@ -84,7 +86,7 @@ static void compile(const char *name, nir_shader *s, FILE *out, struct pan_shade
     }
     if (getenv("MKSHADER_NIR"))
         nir_print_shader(s, stderr);
-    struct pan_compile_inputs inputs = { .gpu_id = GPU_ID, .no_idvs = true, .pushable_ubos = 1 };
+    struct pan_compile_inputs inputs = { .gpu_id = GPU_ID, .no_idvs = true, .pushable_ubos = g_pushable };
     if (s->info.stage == MESA_SHADER_FRAGMENT)
         inputs.fixed_varying_mask = 0;
     struct util_dynarray bin;
@@ -240,15 +242,16 @@ int main(int argc, char **argv)
         nir_def *r[4];
         for (int i = 0; i < 4; i++) {
             nir_def *row = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 16 * i), .align_mul = 16,
-                                        .align_offset = 0, .range_base = 0, .range = 144);
+                                        .align_offset = 0, .range_base = 0, .range = 416);
             r[i] = nir_fdot4(&b, row, p);
         }
         nir_store_var(&b, opos, nir_vec4(&b, r[0], r[1], r[2], r[3]), 0xf);
         nir_def *nrm = nir_load_var(&b, inrm), *base = nir_load_var(&b, icol);
         nir_def *u[5];
+        static const int off[5] = { 64, 80, 128, 144, 160 };      /* sun, up, A, B, D in the layout of BM_VS_LITX */
         for (int i = 0; i < 5; i++)
-            u[i] = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 64 + 16 * i), .align_mul = 16,
-                                .align_offset = 0, .range_base = 0, .range = 144);
+            u[i] = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, off[i]), .align_mul = 16,
+                                .align_offset = 0, .range_base = 0, .range = 416);
         nir_def *n = nir_trim_vector(&b, nrm, 3);
         nir_def *d = nir_fmax(&b, nir_fdot3(&b, n, nir_trim_vector(&b, u[0], 3)), nir_imm_float(&b, 0.0f));
         nir_def *ny = nir_fdot3(&b, n, nir_trim_vector(&b, u[1], 3));
@@ -275,6 +278,97 @@ int main(int argc, char **argv)
         nir_store_var(&b, ocol, nir_vec4(&b, rgb[0], rgb[1], rgb[2], nir_imm_float(&b, 1.0f)), 0xf);
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
         compile("BM_VS_LIT", b.shader, out, &vi, 1);
+    }
+    {   /* lit vertex with every effect (Q2b): the lighting of be_mesh for a rigid mesh without cel levels, read from uniform
+         * buffer 0 (not pushed; 416 bytes, vec4 each): M by rows at 0, sun 64, up 80, view 96, half 112, A 128, B 144, D 160,
+         * rim R 176, gloss S 192, fog (colour * 255, fog amount) 208, misc 224 (x: squarings of the gloss power, z: fog on),
+         * the camera matrix (3 rows) 240, four lamps 288 (position and 1 / r^2, then colour). Attributes: position, (face normal,
+         * emissive), (base colour 0..255, glossy), (face centre, 0). Output varying 0: the colour of the face. */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, opt, "bm_vs_litx");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        b.shader->info.num_ubos = 1;
+        nir_variable *ipos = var(&b, nir_var_shader_in, "pos", VERT_ATTRIB_GENERIC0, INTERP_MODE_NONE);
+        nir_variable *inrm = var(&b, nir_var_shader_in, "nrm", VERT_ATTRIB_GENERIC1, INTERP_MODE_NONE);
+        nir_variable *icol = var(&b, nir_var_shader_in, "col", VERT_ATTRIB_GENERIC2, INTERP_MODE_NONE);
+        nir_variable *icen = var(&b, nir_var_shader_in, "cen", VERT_ATTRIB_GENERIC3, INTERP_MODE_NONE);
+        inrm->data.driver_location = 1;
+        icol->data.driver_location = 2;
+        icen->data.driver_location = 3;
+        nir_variable *opos = var(&b, nir_var_shader_out, "gl_Position", VARYING_SLOT_POS, INTERP_MODE_NONE);
+        nir_variable *ocol = var(&b, nir_var_shader_out, "col_out", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
+        ocol->data.driver_location = 1;
+#define UX(off) nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, (off)), .align_mul = 16, .align_offset = 0, \
+                             .range_base = 0, .range = 416)
+        nir_def *p = nir_load_var(&b, ipos);
+        nir_def *r[4];
+        for (int i = 0; i < 4; i++)
+            r[i] = nir_fdot4(&b, UX(16 * i), p);
+        nir_store_var(&b, opos, nir_vec4(&b, r[0], r[1], r[2], r[3]), 0xf);
+        nir_def *nrm = nir_load_var(&b, inrm), *base = nir_load_var(&b, icol), *cen = nir_load_var(&b, icen);
+        nir_def *n = nir_trim_vector(&b, nrm, 3);
+        nir_def *sun = nir_trim_vector(&b, UX(64), 3), *up = nir_trim_vector(&b, UX(80), 3);
+        nir_def *view = nir_trim_vector(&b, UX(96), 3), *half = nir_trim_vector(&b, UX(112), 3);
+        nir_def *A = UX(128), *B = UX(144), *D = UX(160), *R = UX(176), *S = UX(192), *fog = UX(208), *misc = UX(224);
+        nir_def *zero = nir_imm_float(&b, 0.0f), *one = nir_imm_float(&b, 1.0f);
+        nir_def *d = nir_fdot3(&b, n, sun);
+        nir_def *dd = nir_fmax(&b, d, zero);
+        nir_def *ny = nir_fdot3(&b, n, up);
+        nir_def *e = nir_fsub(&b, one, nir_fmax(&b, nir_fdot3(&b, n, view), zero));
+        nir_def *ee = nir_fmul(&b, e, e);
+        /* the lamps: the face centre in the camera's space against each lamp */
+        nir_def *c4 = nir_vec4(&b, nir_channel(&b, cen, 0), nir_channel(&b, cen, 1), nir_channel(&b, cen, 2), one);
+        nir_def *m3 = nir_vec3(&b, nir_fdot4(&b, UX(240), c4), nir_fdot4(&b, UX(256), c4), nir_fdot4(&b, UX(272), c4));
+        nir_def *lk[4], *lcol[4];
+        for (int i = 0; i < 4; i++) {
+            nir_def *lp = UX(288 + 32 * i);
+            nir_def *dv = nir_fsub(&b, m3, nir_trim_vector(&b, lp, 3));
+            nir_def *d2 = nir_fmul(&b, nir_fdot3(&b, dv, dv), nir_channel(&b, lp, 3));
+            lk[i] = nir_bcsel(&b, nir_flt(&b, d2, one), nir_fsub(&b, one, d2), zero);
+            lcol[i] = UX(304 + 32 * i);
+        }
+        /* the gloss: nh to the power 2^K, only on a glossy face lit by the sun */
+        nir_def *nh0 = nir_fdot3(&b, n, half), *nh = nh0;
+        nir_def *kq = nir_channel(&b, misc, 0);
+        for (int i = 0; i < 8; i++)
+            nh = nir_bcsel(&b, nir_flt(&b, nir_imm_float(&b, (float)i), kq), nir_fmul(&b, nh, nh), nh);
+        nir_def *glossy = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, base, 3));
+        nir_def *spec_on = nir_iand(&b, glossy, nir_iand(&b, nir_flt(&b, zero, d), nir_flt(&b, zero, nh0)));
+        nir_def *emi = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, nrm, 3));
+        nir_def *fog_on = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, misc, 2));
+        nir_def *ff = nir_channel(&b, fog, 3);
+        nir_def *rgb[3];
+        for (int c = 0; c < 3; c++) {
+            nir_def *l = nir_fadd(&b, nir_channel(&b, A, c),
+                                  nir_fadd(&b, nir_fmul(&b, nir_channel(&b, B, c), ny), nir_fmul(&b, nir_channel(&b, D, c), dd)));
+            l = nir_fadd(&b, l, nir_fmul(&b, ee, nir_channel(&b, R, c)));
+            for (int i = 0; i < 4; i++)
+                l = nir_fadd(&b, l, nir_fmul(&b, lk[i], nir_channel(&b, lcol[i], c)));
+            nir_def *sp = nir_bcsel(&b, spec_on, nir_fmul(&b, nh, nir_channel(&b, S, c)), zero);
+            nir_def *v = nir_fmin(&b, nir_fadd(&b, nir_fmul(&b, nir_channel(&b, base, c), l),
+                                               nir_fmul(&b, nir_imm_float(&b, 255.0f), sp)), nir_imm_float(&b, 255.0f));
+            nir_def *pre = nir_bcsel(&b, emi, nir_channel(&b, base, c), v);
+            nir_def *mixed = nir_fadd(&b, pre, nir_fmul(&b, nir_fsub(&b, nir_channel(&b, fog, c), pre), ff));
+            nir_def *v8 = nir_ffloor(&b, nir_fadd(&b, mixed, nir_imm_float(&b, 0.5f)));
+            nir_def *q;
+            if (c == 1) {
+                nir_def *g6 = nir_ffloor(&b, nir_fmul(&b, v8, nir_imm_float(&b, 0.25f)));
+                q = nir_fadd(&b, nir_fmul(&b, g6, nir_imm_float(&b, 4.0f)),
+                             nir_ffloor(&b, nir_fmul(&b, g6, nir_imm_float(&b, 1.0f / 16.0f))));
+            } else {
+                nir_def *q5 = nir_ffloor(&b, nir_fmul(&b, v8, nir_imm_float(&b, 0.125f)));
+                q = nir_fadd(&b, nir_fmul(&b, q5, nir_imm_float(&b, 8.0f)),
+                             nir_ffloor(&b, nir_fmul(&b, q5, nir_imm_float(&b, 0.25f))));
+            }
+            /* an emissive face without fog is not quantized here: the resolve does it */
+            nir_def *raw = nir_iand(&b, emi, nir_inot(&b, fog_on));
+            rgb[c] = nir_fmul(&b, nir_bcsel(&b, raw, nir_channel(&b, base, c), q), nir_imm_float(&b, 1.0f / 255.0f));
+        }
+        nir_store_var(&b, ocol, nir_vec4(&b, rgb[0], rgb[1], rgb[2], one), 0xf);
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        g_pushable = 0;                         /* the uniforms stay in memory: 104 words are more than the pushed ones */
+        compile("BM_VS_LITX", b.shader, out, &vi, 1);
+        g_pushable = 1;
+#undef UX
     }
     {   /* fragment of the lit meshes: colour 0 = the interpolated varying 0, blue at least 1/255 (the key colour, as BM_FS_TEX) */
         nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, opt, "bm_fs_vcol");
