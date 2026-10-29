@@ -20,4 +20,8 @@ Moved from [system](system.md) on 29 Oct 2026 to keep that sheet under 120 lines
   - Write: a download, a `send` (transfer port) and a file made by an app go to the folder of its type. Read: the open dialogs start in the default folder of the type.
   - Space: the SD scan (`sdmap`, `src/kernel/sdmap*.c`) already counts bytes for `bm`, `bme`, `glb`, `bmm` and other. Extend it to report the space of each resource by type folder.
   - Cost of the source move: 201 files cite `src/bm` (Makefile, `rgb30.mk`, scripts, tests, `.claude/skills`, docs, manuals, `CLAUDE.md`); 54 C files include `"bm/..."`. Use `git mv`, then a scripted replace, then build Pi and RGB30, `docs_audit.py` and `consistency.py`.
-  - To decide before work: the SD folder name of each other type (`.glb`, images, sounds) and the default folder of each open dialog; the migration of the repository `carts/` content.
+  - SD folder names, decided 29 Oct 2026 (at the root of the SD card, one folder per type; only for media, editors and apps; redefine when needed):
+    `/bm` games and apps, `/bme` projects, `/bmk` kits (bm Studio writes them), `/bmm` 3D models (bm Mesh, bm Studio, bm Animator), `/bmd` bm Write documents, `/glb` glTF models, `/png` PNG images, `/jpg` JPEG images (`/pics` today holds both), `/snp` system snapshots (screenshots; today `/bm/shots`).
+    Names kept for the editors, made when the editor saves there: `/bmi` (bm Pixel images and sprites), `/bms` (bm Sound). No folder for `.bmt` (maps travel in a `.bmk`) or `.bmc` (a palette is inside the sheet), and none for `.bmv` yet.
+    Each folder is made when the first file is saved (`fat_mkdirs`). Moving `/pics` to `/png` and `/jpg`, and the screenshots to `/snp`, touches the runtime (`SHOT_DIR`), the transfer port (`bm/shots/`) and the PC tools: do it as its own step.
+  - To decide before work: the default folder of each open dialog; the migration of the repository `carts/` content.
