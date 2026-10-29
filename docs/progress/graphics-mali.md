@@ -17,29 +17,7 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   colour per draw, pushed: words 4-7). Without IDVS: a Vertex job, then a Tiler job whose Draw
   `position` is the buffer the vertex job wrote (varying buffer 1; an attribute buffer of binding n is
   entry 2n; a Renderer State is followed by one Blend per render target).
-- Hardware bringup breakthrough (25 Oct 2026, report `80d62d1e`):
-  - Root cause of DATA_INVALID_FAULT (0x58): Tiler Job offset 64 holds Primitive Size (Constant float 32-bit).
-    Mesa sets Constant = line_width = 1.0f (0x3f800000) for all non-point primitives. md_tiler_job had left it 0.0f,
-    causing immediate tiler hardware failure. Set Constant to 1.0f in `src/rgb30/mali_desc.c`.
-  - Bifrost hierarchy mask: RK3566 GPU_TILER_FEATURES register (0x00c) returns `0x00000209` (`max_levels = 2`, `bin_size = 9`).
-    The hardware enforces bitcount(hierarchy_mask) <= max_levels. Fixed HIERARCHY_MASK to 0x28 (levels 3 and 5), matching Mesa
-    pan_cs.c and v7pack.py.
-  - Device verification: `mali: a triangle (vertex, tiler and fragment jobs): drawn by the GPU` (inside ff8019, outside 102050).
-- Variant probe (`src/rgb30/mali_variants.h`, `triangle()` in `mali.c`): the base jobs (set 0, draw 0 of
-  `frame_build`) run first. If they fail, the probe resets the GPU and runs 8 variants of the jobs, each built
-  again with one patch (`mv_table`: block, first bit, bit count, value). One run of the probe gives all the results (no entry point since the GPU test page was removed on 24 Oct 2026).
-  Read the log lines `mali: variant N <name>: ok` or `mali: variant N <name>: JS_STATUS 0x..`:
-  - 0 `vertex-only` (the vertex job alone) and 1 `tiler-only` (the CPU writes the positions, the tiler
-    job alone, no dependency) isolate the failing job. They never count as the one that works.
-    0 ok and 1 fail: the tiler job or its tables are wrong. 0 fail: the vertex job is wrong.
-  - 2 `heap-bottom64` (heap bottom = base + 64), 3 `vary0-copy` (varying buffer 0 = the position entry),
-    4 `mask-ff` (hierarchy mask 0xff), 5 `no-depth-cull`, 6 `tiler-vrsd` (tiler job state = the vertex
-    shader's), 7 `provoke-0` (first provoking vertex = 0). The first of these that is `ok` goes on to the
-    fragment job (`mali: variant N <name> goes on to the fragment job`) and the pixel check.
-  - All 8 fail with the same status: the fault is not in these fields. Other guesses: the Blend's memory
-    format order (RGBA; the screen is XRGB), the fragment's pixel kill/ZS update (Weak Early), the heap size,
-    no message preload.
-  - Host test: `make TARGET=rgb30 test-mali` (the patches and the log lines; the simulated GPU has no tiler).
+- Hardware bringup (25 Oct 2026) and the variant probe: [graphics-mali-bringup](graphics-mali-bringup.md).
 - State (verified on Mali-G52 hardware 25 Oct 2026, `bm3d 7.8`..`7.13`):
   - Phase 2 (W12, W13a, W13b): `mali_frame` draws N draws of one colour into an XRGB surface; `mali_backend` (flat colours and untextured lit/cel/fog meshes, sorted far to near,
     resolved into the page by the key colour `0xFF00FF`, "not covered", 4 pixels per 64-bit pair); `r3d` draws opaque textured faces on the GPU (G1, 28 Oct) and hands the rest to the ARM.
@@ -119,6 +97,4 @@ Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-p
 - The face cache (3 MB of floats in the kernel, 12 entries) names a mesh by its address, `version`, face count, detail, kind of light and a hash of the colours; a mesh edited without a new `version` and the same colours shows the old faces. A full cache starts again only when no cached mesh waits in the batch.
 - The texture pool (2 MB) sits at `mem - 8 MB`; `fb.c` stops the framebuffer 8 MB lower. Move both together.
 - Write textured vertices with volatile stores (a 128-bit float copy breaks strict aliasing). `BM_FS_TEX` keeps blue at 1/255 or more: `0xFF00FF` is the key colour.
-- A frame uses one of two sets of the GPU memory (`MALI_SET_BASE`); the layout macros (`SO_*`, `D_*`) are in `mali_variants.h` and the variant patches use them. Change a layout macro and `make TARGET=rgb30 test-mali` must still pass.
-- The variant probe runs only after the base jobs fail. It resets the GPU between variants.
 - Report hardware behaviour only from a report file. Without one, write `not verified on hardware`.

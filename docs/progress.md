@@ -21,8 +21,10 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [multicore](progress/multicore.md) | RGB30 quad core schedule: secondary cores (M), Mali bm3D end (G), use of four cores (V) | `src/rgb30/start.S`, `src/rgb30/mmu.c` |
 | [multitasking-stages](progress/multitasking-stages.md) | stages 1-5: measurement, hash steps, SD writer lock, keep-alive, Range resume | `src/fs/sdlock.c`, `src/bm/webfile.c`, `src/net/http.c` |
 | [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/` |
+| [graphics-2d](progress/graphics-2d.md) | 2D on the Pi Zero W: GPU light, packed tile pool, 2D call costs, sprite stacking, 2D benchmarks, speed checks, 2D API gaps against the LOVE API | `src/bm/gfx16.c`, `src/gpu/` |
 | [herocart](progress/herocart.md) | Hero Stress cart: heroes in a plaza, live 3D options, cost panel | `carts/herocart/`, `tests/herocart/` |
 | [graphics-mali](progress/graphics-mali.md) | the RGB30's Mali-G52: bring-up, descriptors, shaders, triangle | `src/rgb30/mali.c`, `src/rgb30/mali_desc.c`, `tools/mali/` |
+| [graphics-mali-bringup](progress/graphics-mali-bringup.md) | Mali-G52 bringup (the first triangle, 25 Oct 2026 root causes) and the variant probe of `mali.c` | `src/rgb30/mali.c`, `tools/mali/` |
 | [graphics-vector](progress/graphics-vector.md) | OpenVG/VGU capabilities: what bm has, how to build the rest on the Pi and the RGB30 | `src/bm/gfx16.c`, `src/bm/r3d.c` |
 | [mali-parity](progress/mali-parity.md) | Mali-G52 against Pi V3D, stage by stage (parity table) | `src/rgb30/mali.c` |
 | [v3d](progress/v3d.md) (+ [notes](progress/v3d-notes.md), [graphics keys](progress/v3d-flags.md), [formats](progress/v3d-formats.md), [Pi measurements](progress/v3d-pi-measurements.md)) | V3D driver on the Pi Zero W: async jobs, cache, binner memory, open work and Pi measurements | `src/gpu/v3d.c`, `src/gpu/gpu3d.c`, `src/bm/runtime.c` |
@@ -44,7 +46,7 @@ Open the file of the area and `Grep -n '^##'` it; read only the section you need
 file ends with *Open work* and *Rules (do not break)*.
 
 - Boot, MMU, cache, IRQ, fibers, crashes, USB, SD/FAT, Bluetooth, WiFi, menu: [system](progress/system.md).
-- Framebuffer, 2D, software 3D (`r3d`), V3D, rendering tests: [graphics](progress/graphics.md); Mali: [graphics-mali](progress/graphics-mali.md).
+- Framebuffer, 2D, software 3D (`r3d`), V3D, rendering tests: [graphics](progress/graphics.md); Mali: [graphics-mali](progress/graphics-mali.md); 2D on the Pi: [graphics-2d](progress/graphics-2d.md); Mali bringup: [graphics-mali-bringup](progress/graphics-mali-bringup.md).
 - Menu fibers, shares, background jobs, SD/network measurements: [multitasking](progress/multitasking.md).
 - V3D driver on the Pi (async jobs, cache, binner memory, Pi measurements): [v3d](progress/v3d.md).
 - VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).

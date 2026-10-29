@@ -26,7 +26,6 @@ To do, in this order:
 4. SYS-17 leftovers: a keyboard behind a hub plugged later (read `port_status`), a mouse alone.
 
 Chores:
-- `graphics.md` and `graphics-mali.md` (limit 120).
 - `test_sd_sdhc_and_usb_menu` builds a 4 GB image and the WSL `/tmp` is 3.9 GB: run it with a larger temporary folder. Clean `/tmp/bm-*` after a series of tests.
 - Delete by hand the folder `.claude/worktrees/assistant-data-app-292007` (a session held it) and that session.
 - The running Pi bridge is an old process (it still lists `render`): restart it.
@@ -60,7 +59,6 @@ To do, in this order:
 7. Yharnam: the Mali has no equivalent of the V3D light shader, so the light stays on the ARM there. Mali light only after G1 and only if the RGB30 runs under 60 fps (autoplay measure when the console is free). Look at the GPU light on the Pi (the lamps add up, the ARM light does not). Judge `LIGHT_STEP` 2 by eye. Check by ear the jingle that `audio_reset()` cuts at the splash.
 
 Chores:
-- Split `docs/progress/graphics.md` by topic (about 133 lines, limit 120).
 - Check that the online Market index lists Yharnam `2026.10.28b`.
 - Delete by hand the folders `.claude/worktrees/mali-gpu-textures-1ec2f2` (it has an untracked `shots` folder) and `mali-hw-zbuffer` (a shell holds them), and the local branch `claude/mali-textures-zbuffer`.
 
