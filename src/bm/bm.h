@@ -174,6 +174,7 @@
 #define BM_SEC_FLAGS       13
 #define BM_SEC_BOXES       14
 #define BM_SEC_DATA        15              /* named blobs of an app: the kernel reads them (bm_data_find) */
+#define BM_SEC_PREVIEW     16              /* a turning picture of a resource file (below); a kernel that does not know it ignores it */
 #define BM_SEC_OLD_ANIM    7               /* the first files of bm Studio (see above) */
 #define BM_LAYERS_MAX      8               /* map layers, the MAP section counted */
 #define BM_LAYER_NAME      16              /* bytes of a layer's name in LAYERS */
@@ -195,6 +196,10 @@ enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES
  * 2026-10-04 (mkbm.py writes 88x88, the menu's card), 128x80 before: the
  * menu fits any shape (menu_load_cover) */
 #define BM_COVER_SIZE      88
+/* PREVIEW (16), only in a resource file (a COVER is the still picture): u16 frame w, u16 frame h, u16 frames
+ * (1..64), u16 fps, u16 colours (1..256), u16 reserved (0), colours x { u8 r, g, b } (colour 0 is clear), then
+ * frames x w x h palette numbers, frame after frame, row by row. A model turns once round in `frames`. Frames
+ * up to 256x256. */
 #define BM_MODEL_NAME      16              /* bytes of a model name in MESH */
 #define BM_MODEL_VERTS     65535           /* bm3d 5.0: 4096 and 16384 before */
 #define BM_MODEL_FACES     65535

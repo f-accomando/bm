@@ -79,7 +79,7 @@ ignored. If a type is repeated, the **last** one wins in the kernel (the Python 
 | 1 | LUA | UTF-8 source | required for a cartridge; any size |
 | 2 | SHEET | u16 w, u16 h, RGBA8888 | w, h 1..4096; size exact |
 | 3 | MAP | u16 w, u16 h, w*h u16 cells | w, h nonzero; size exact (no upper bound) |
-| 4 | COVER | u16 w, u16 h, RGBA | w, h 1..512; `mkbm.py` writes 88x88 |
+| 4 | COVER | u16 w, u16 h, RGBA | w, h 1..512; `mkbm.py` writes 88x88. A resource file (`.bmm`, `.bmi`, `.bmt`, `.bmk`) may hold one too: the still picture of what it holds (`bmpreview.py add`) |
 | 5 | SHEET8 | u16 w, h, ncol (1..256), u16 reserved, palette (RGBA), RLE indices | decoded to the exact end. Not together with SHEET ("two sheets") |
 | 6 | AUDIO | the sound bank `BMAU` (`player.h`) | starts with `BMAU` and size >= 16; the inside is not checked here. Without `BMAU` it is read as a legacy MESH |
 | 7 | (old ANIM) | read as ANIM | |
@@ -90,6 +90,7 @@ ignored. If a type is repeated, the **last** one wins in the kernel (the Python 
 | 12 | LAYERS | u16 w, h, nlayers (2..8, MAP counted), u16 reserved, names (16 each), cells of layers 2..n | needs MAP of the same size; **fatal** when wrong. Without it the map has one layer, `main` |
 | 13 | FLAGS | u16 per_row, u16 rows, bytes | size exact; **fatal** when wrong; not compared with the sheet |
 | 14 | BOXES | u16 n (1..4096), u16 reserved, 28-byte boxes | each box names a zone of SPRITES and a valid frame. A broken one is dropped, not fatal, in a cartridge |
+| 16 | PREVIEW | u16 frame w, u16 frame h (each 1..256), u16 frames (1..64), u16 fps, u16 colours (1..256), u16 reserved, colours x RGB (colour 0 is clear), then frames x w x h colour numbers, frame after frame | A turntable picture of a resource file (`.bmm`, `.bmk`): the model turns once round in `frames`. Only a picture: an older kernel ignores the section (unknown type), the Python tools check it and keep it. Written by `bmpreview.py` |
 | 15 | DATA | u16 n (1..64), u16 reserved, n entries of 24 bytes (`name[16]` NUL-ended, u32 offset from the start of the section, u32 size), then the blobs | names unique and nonempty; every blob inside the section; **fatal** when wrong. Only a cartridge may hold it. The game cannot read it. The kernel reads a blob of an installed app with `bm_data_find` (the Assistant app: `assist.bin`, `words.lua`). An older kernel ignores the section |
 
 Tile flags of the standard library `bmlib`: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts, 5 trigger.

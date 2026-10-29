@@ -744,6 +744,43 @@ def tile_flags():
 
 # ---------------------------------------------------------------- the kit
 
+def scene_model(models):
+    """the island with its things, merged into one model (for the picture inside the file only; it is not in the
+    kit): the islet scaled up, the objects on it. Same sheet, so the textures hold."""
+    by = {m["name"]: m for m in models}
+    top = ((0.0, 0.34), (0.22, 0.31), (0.42, 0.24), (0.56, 0.14), (0.62, 0.05), (0.66, 0.0), (1.0, -0.04))
+
+    def height(r):                                           # the surface of the islet at r (of its radius 1)
+        for (r0, h0), (r1, h1) in zip(top, top[1:]):
+            if r <= r1:
+                return h0 + (h1 - h0) * (r - r0) / (r1 - r0)
+        return -0.04
+    R = 6.0
+    verts, faces = [], []
+
+    def put(name, x, y, z, k=1.0, turn=0.0):
+        m = by[name]
+        c, s = math.cos(turn), math.sin(turn)
+        base = len(verts)
+        for px, py, pz in m["verts"]:
+            verts.append((x + k * (px * c + pz * s), y + k * py, z + k * (-px * s + pz * c)))
+        for a, b, c2, col, uv in m["faces"]:
+            faces.append((a + base, b + base, c2 + base, col, uv))
+
+    put("islet", 0, 0, 0, R)
+    def at(r, a): return (r * R * math.cos(a), height(r) * R, r * R * math.sin(a))
+    put("campfire", 0, height(0) * R, 0, 0.8)
+    for name, r, a, k in (("palm", 0.42, 0.5, 1.0), ("palm2", 0.46, 2.3, 1.0), ("palm3", 0.4, 4.1, 1.0),
+                          ("chest", 0.2, 5.6, 0.9), ("bush", 0.3, 1.4, 1.0), ("bush", 0.36, 3.3, 1.0),
+                          ("bush", 0.33, 5.0, 1.0), ("rock", 0.58, 0.0, 1.1), ("rock", 0.6, 3.0, 0.9),
+                          ("rock", 0.57, 4.6, 1.0), ("grass", 0.3, 0.9, 1.4), ("grass", 0.34, 2.7, 1.4)):
+        x, y, z = at(r, a)
+        put(name, x, y, z, k, turn=a * 1.7)
+    x, y, z = at(0.93, 2.0)
+    put("boat", x, -0.15, z, 1.3, turn=-2.0 + 1.57)
+    return {"name": "scene", "verts": verts, "faces": faces, "flags": 0}
+
+
 def build_island():
     sh = Sheet()
     zones = paint_sheet(sh)
@@ -866,6 +903,7 @@ def main():
     a = sub.add_parser("island")
     a.add_argument("out")
     a.add_argument("--png")
+    a.add_argument("--no-preview", action="store_true", help="no COVER and PREVIEW (the picture inside the file)")
     a.add_argument("--quality", choices=sorted(QUALITIES), default="hi", help="hi poly first, cut down after (default hi)")
     for c in ("check", "list"):
         sub.add_parser(c).add_argument("file")
@@ -875,6 +913,12 @@ def main():
             global QUALITY
             QUALITY = args.quality
             f = build_island()
+            if not args.no_preview:                         # the picture inside the file (scripts/bmpreview.py)
+                import bmpreview
+                sheet = bmres.File(bmres.KIT, "scene", "bm", [s for s in f.sections if s[0] in bmres.SHEETS])
+                scene = bmres.File(bmres.KIT, "scene", "bm", sheet.sections +
+                                   [[bmres.SEC_MESH, bmmesh.encode([m().model() for m in MODELS] + [scene_model([m().model() for m in MODELS])])]])
+                bmpreview.embed(f, "scene", source=scene)
             bmres.write(args.out, f)
             print(f"{args.out}: {os.path.getsize(args.out)} bytes")
             if args.png:

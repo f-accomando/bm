@@ -251,6 +251,14 @@ where = ["src/script/bmlib.lua", "docs/api/draw.md", "docs/BM-FORMAT.md", "scrip
 note = "tile flag 5, trigger (32, lib.TRIGGER): an area that starts something. A convention of bmlib like the flags 0-4: the FLAGS section and mflags() already carry any bit, so no kernel change and no revision. The island kit marks its campfire tile with it. Not verified on hardware"
 
 [[item]]
+id = "file-preview"
+since = 6
+status = "partial"
+platforms = "all"
+where = ["src/bm/bm.h", "src/bm/format.c", "docs/BM-FORMAT.md", "docs/RISORSE.md", "scripts/bmres.py", "scripts/bmpreview.py", "tests/bm/test_res.c"]
+note = "a picture inside a resource file: COVER (4) is now allowed in .bmm, .bmi, .bmt and .bmk (the kernel reads it, bm_parse_any); PREVIEW (16, a turntable with an 8-bit palette) is a new section that an older kernel ignores as unknown. Built: the format, the kernel's parser, bmpreview.py (add, show, drop), the island kit. Not built: the console drawing the cover or the turning picture in lists and choosers. An old kernel refused a .bmk with a COVER (a section the kind does not have): files with a picture need a kernel from this change. Host tests test_res and test_bmres; not verified on hardware"
+
+[[item]]
 id = "map-kit"
 since = 6
 status = "partial"

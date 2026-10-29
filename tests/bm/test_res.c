@@ -78,6 +78,14 @@ int main(int argc, char **argv)
         CHECK(bm_zone(&c, 1, &z) != 0, "no second zone");
         free(d);
     }
+    if (open_any(dir, "SHOW.bmk", &c, &d, &len) == 0) {
+        /* a kit with a picture inside: COVER (the still) is read by the parser; PREVIEW (type 16) is ignored */
+        CHECK(c.kind == BM_RES_KIT && c.cover_rgba && c.cover_w == 32 && c.cover_h == 32, "SHOW.bmk: a 32x32 cover");
+        CHECK(c.models == 1, "SHOW.bmk: its model");
+        d[12] = BM_RES_SOUND;
+        CHECK(bm_parse_any(d, len, &c, err, sizeof err) != 0, "a sounds file has no cover");
+        free(d);
+    }
     if (open_any(dir, "HERO.bmi", &c, &d, &len) == 0) {
         /* a zone with its hitbox and hurtbox (BOXES) */
         bm_box_t b;

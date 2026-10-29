@@ -141,6 +141,15 @@ place, so the readers share the code.
 - The limits are those of the `.bm`: sheet up to 4096×4096, 256 models, 64 bones, the sound
   bank as it is.
 
+### The picture inside a file (COVER and PREVIEW)
+- A resource file may hold a **COVER** (the still picture, RGBA, up to 512x512; the kernel reads it) and, a
+  model file or a kit, a **PREVIEW** (a turntable: 1 to 64 frames, 8-bit palette; section 16, in
+  [BM-FORMAT](BM-FORMAT.md)). The plan: a list or a chooser shows the cover, and the chosen file turns.
+- `python scripts/bmpreview.py add FILE [--model NAME]` writes both; `show FILE OUT.png|OUT.gif` saves them; `drop`
+  takes them away. A change of the model makes the picture old: run `add` again. `bmres.py extract` does not copy
+  the cover of a game into a kit (it is the game's card).
+- Not built yet: the console does not draw the PREVIEW in its lists and choosers.
+
 ## 5. New sections
 
 ### INFO (10)

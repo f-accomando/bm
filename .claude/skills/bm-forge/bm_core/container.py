@@ -39,12 +39,12 @@ RES_EXT = {".bmm": RES_MODEL, ".bmi": RES_IMAGE, ".bms": RES_SOUND, ".bmt": RES_
            ".bmk": RES_KIT}
 _SHEETS = {S.SHEET, S.SHEET8}
 RES_ALLOWED = {                                  # src/bm/format.c:450-462, scripts/bmres.py:56 ALLOWED
-    RES_MODEL: {S.INFO, S.MESH, S.ANIM} | _SHEETS,
-    RES_IMAGE: {S.INFO, S.SPRITES, S.FLAGS, S.BOXES} | _SHEETS,
+    RES_MODEL: {S.INFO, S.COVER, S.MESH, S.ANIM} | _SHEETS,          # COVER: a picture inside the file (2026-10-29)
+    RES_IMAGE: {S.INFO, S.COVER, S.SPRITES, S.FLAGS, S.BOXES} | _SHEETS,
     RES_SOUND: {S.INFO, S.AUDIO},
-    RES_MAP: {S.INFO, S.MAP, S.LAYERS, S.FLAGS} | _SHEETS,
+    RES_MAP: {S.INFO, S.COVER, S.MAP, S.LAYERS, S.FLAGS} | _SHEETS,
     RES_PALETTE: {S.INFO, S.SHEET8},
-    RES_KIT: {S.INFO, S.MESH, S.ANIM, S.SPRITES, S.AUDIO, S.MAP, S.LAYERS, S.FLAGS, S.BOXES} | _SHEETS,
+    RES_KIT: {S.INFO, S.COVER, S.MESH, S.ANIM, S.SPRITES, S.AUDIO, S.MAP, S.LAYERS, S.FLAGS, S.BOXES} | _SHEETS,
 }
 
 

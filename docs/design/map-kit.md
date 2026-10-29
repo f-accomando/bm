@@ -41,6 +41,13 @@ A `.bmk` is a `BMRES` file of type 6 ([RISORSE](../RISORSE.md), section 4). It u
 - `map3d_objects` returns only the kernel kinds today. A kit object needs a later change of `map3d.c`: not done.
 - Floor ids: tile at (x, y) in 16-pixel units has the id `y * 2 * (sheet width / 8) + x * 2`.
 
+## The picture inside the kit
+
+`island.bmk` carries a COVER (128x128) and a PREVIEW (12 frames of 96x96) of the whole island: the islet with palms,
+fire, chest, bushes, rocks and boat merged into one model that is not kept in the kit (`scene_model` in
+`scripts/bmkit.py`). `--no-preview` leaves both out and the file is 177 KB smaller. See
+[RISORSE](../RISORSE.md), "The picture inside a file".
+
 ## Folder on the SD
 
 `/bmk`, the same pattern as `/bmm` (one folder per extension). Nothing on the console scans it yet.

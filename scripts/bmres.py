@@ -43,10 +43,13 @@ MAGIC_RES = b"BMRES\0\0\0"
 MAGIC_CART = (b"BMCART\0\0", b"BM33CART")
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
 SEC_MESH, SEC_ANIM, SEC_INFO, SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES = 8, 9, 10, 11, 12, 13, 14
+SEC_PREVIEW = 16
 SEC_NAMES = {SEC_LUA: "LUA", SEC_SHEET: "SHEET", SEC_MAP: "MAP", SEC_COVER: "COVER", SEC_SHEET8: "SHEET8",
              SEC_AUDIO: "AUDIO", SEC_MESH: "MESH", SEC_ANIM: "ANIM", SEC_INFO: "INFO", SEC_SPRITES: "SPRITES",
-             SEC_LAYERS: "LAYERS", SEC_FLAGS: "FLAGS", SEC_BOXES: "BOXES"}
+             SEC_LAYERS: "LAYERS", SEC_FLAGS: "FLAGS", SEC_BOXES: "BOXES", SEC_PREVIEW: "PREVIEW"}
 KNOWN = set(SEC_NAMES) | {7}
+COVER_MAX = 512
+PREVIEW_FRAMES_MAX, PREVIEW_SIZE_MAX = 64, 256
 
 CART, MODEL, IMAGE, SOUND, MAP, PALETTE, KIT = range(7)
 KIND_NAMES = {CART: "cartridge", MODEL: "models", IMAGE: "image", SOUND: "sounds", MAP: "map",
@@ -54,12 +57,13 @@ KIND_NAMES = {CART: "cartridge", MODEL: "models", IMAGE: "image", SOUND: "sounds
 EXTENSIONS = {".bmm": MODEL, ".bmi": IMAGE, ".bms": SOUND, ".bmt": MAP, ".bmc": PALETTE, ".bmk": KIT}
 SHEETS = {SEC_SHEET, SEC_SHEET8}
 ALLOWED = {
-    MODEL: {SEC_INFO, SEC_MESH, SEC_ANIM} | SHEETS,
-    IMAGE: {SEC_INFO, SEC_SPRITES, SEC_BOXES, SEC_FLAGS} | SHEETS,
+    MODEL: {SEC_INFO, SEC_COVER, SEC_PREVIEW, SEC_MESH, SEC_ANIM} | SHEETS,
+    IMAGE: {SEC_INFO, SEC_COVER, SEC_SPRITES, SEC_BOXES, SEC_FLAGS} | SHEETS,
     SOUND: {SEC_INFO, SEC_AUDIO},
-    MAP: {SEC_INFO, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
+    MAP: {SEC_INFO, SEC_COVER, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
     PALETTE: {SEC_INFO, SEC_SHEET8},
-    KIT: {SEC_INFO, SEC_MESH, SEC_ANIM, SEC_SPRITES, SEC_BOXES, SEC_AUDIO, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
+    KIT: {SEC_INFO, SEC_COVER, SEC_PREVIEW, SEC_MESH, SEC_ANIM, SEC_SPRITES, SEC_BOXES, SEC_AUDIO, SEC_MAP, SEC_LAYERS,
+          SEC_FLAGS} | SHEETS,
 }
 
 INFO_MAX = 16 * 1024
@@ -206,6 +210,10 @@ def check(f, where="file"):
             flags_get(f)
         if f.get(SEC_INFO) is not None:
             info_parse(f.get(SEC_INFO))
+        if f.get(SEC_COVER) is not None:
+            cover_get(f)
+        if f.get(SEC_PREVIEW) is not None:
+            preview_get(f)
         zones = []
         if f.get(SEC_SPRITES) is not None:
             zones = sprites_decode(f.get(SEC_SPRITES))
@@ -642,6 +650,39 @@ def anim_build(rigs):
 
 
 # ------------------------------------------------------------------ MAP
+
+def cover_get(f):
+    """COVER -> (w, h, RGBA bytes)"""
+    body = f.get(SEC_COVER)
+    w, h = struct.unpack_from("<HH", body, 0)
+    if not 1 <= w <= COVER_MAX or not 1 <= h <= COVER_MAX or len(body) != 4 + 4 * w * h:
+        raise ResError("bad cover size (COVER)")
+    return w, h, bytes(body[4:])
+
+
+def preview_body(fw, fh, fps, palette, frames):
+    """PREVIEW (src/bm/bm.h): palette = [(r, g, b)] with colour 0 clear, frames = [bytes of fw*fh palette numbers]"""
+    head = struct.pack("<6H", fw, fh, len(frames), fps, len(palette), 0)
+    return head + b"".join(bytes(c) for c in palette) + b"".join(frames)
+
+
+def preview_get(f):
+    """PREVIEW -> (fw, fh, fps, palette [(r, g, b)], frames [bytes])"""
+    body = f.get(SEC_PREVIEW)
+    if len(body) < 12:
+        raise ResError("bad PREVIEW")
+    fw, fh, n, fps, nc, _ = struct.unpack_from("<6H", body, 0)
+    if not (1 <= fw <= PREVIEW_SIZE_MAX and 1 <= fh <= PREVIEW_SIZE_MAX and 1 <= n <= PREVIEW_FRAMES_MAX and 1 <= nc <= 256):
+        raise ResError("bad PREVIEW size")
+    if len(body) != 12 + 3 * nc + n * fw * fh:
+        raise ResError("bad PREVIEW length")
+    pal = [tuple(body[12 + 3 * i:15 + 3 * i]) for i in range(nc)]
+    base = 12 + 3 * nc
+    frames = [bytes(body[base + i * fw * fh:base + (i + 1) * fw * fh]) for i in range(n)]
+    if any(max(fr) >= nc for fr in frames):
+        raise ResError("PREVIEW: a colour number is out of the palette")
+    return fw, fh, fps, pal, frames
+
 
 def map_get(f):
     body = f.get(SEC_MAP)
@@ -1172,7 +1213,7 @@ def extract_palette(src):
 def extract_kit(src):
     out = File(KIT, name=src.name, author=src.author)
     for t, b in src.sections:
-        if t in ALLOWED[KIT]:
+        if t in ALLOWED[KIT] and t not in (SEC_COVER, SEC_PREVIEW):      # the game's cover is the game's card
             out.sections.append([t, b])
     if not [t for t, _ in out.sections if t != SEC_INFO]:
         raise ResError("the cartridge has no resources")

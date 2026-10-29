@@ -194,6 +194,12 @@ def test_models(kit, sample, out):
     check([n for n, _ in bmres.mesh_parse(house.get(bmres.SEC_MESH))[1]] == ["house", "walker"], "two models")
     check(house.get(bmres.SEC_ANIM) is not None, "the skeleton goes with its model")
     bmres.write(os.path.join(out, "HOUSE.bmm"), house)
+    # a picture inside the file (COVER and PREVIEW, scripts/bmpreview.py): the kernel's parser reads it (test_res)
+    import bmpreview  # noqa: E402
+    shown = bmpreview.embed(roundtrip(bmres.extract_models(kit, ["house"])), cover=32, size=24, frames=6)
+    shown.kind = bmres.KIT
+    bmres.write(os.path.join(out, "SHOW.bmk"), shown)
+    check(roundtrip(shown).get(bmres.SEC_COVER) == shown.get(bmres.SEC_COVER), "a picture inside a file: the cover stays")
 
     # into a cartridge with its own sheet and map: nothing of it changes
     cart = roundtrip(sample)
