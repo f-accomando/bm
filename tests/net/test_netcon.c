@@ -309,9 +309,16 @@ static err_t c_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 static void c_err(void *arg, err_t err) { client_t *c = arg; (void)err; c->closed = 1; c->pcb = NULL; }
 static err_t c_conn(void *arg, struct tcp_pcb *pcb, err_t err) { (void)pcb; ((client_t *)arg)->connected = err == ERR_OK; return ERR_OK; }
 
+static client_t *watch_x;               /* V: when this client has `change_at` bytes, a pixel of the shown page changes */
+static size_t change_at;
+
 static void spin(int rounds)
 {
     for (int i = 0; i < rounds; i++) {
+        if (change_at && watch_x && watch_x->len >= change_at) {
+            change_at = 0;
+            fb_mem[2 * 16] ^= 0x55;
+        }
         netif_poll_all();
         sys_check_timeouts();
         netcon_poll();
@@ -636,6 +643,36 @@ int main(int argc, char **argv)
         static const uint8_t junk[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
         xfer(&x, 'F', "secret", "", junk, sizeof junk, 0, 2);
         check(strcmp(x.got, "BH") == 0, "  F with data: BH");
+    }
+
+    /* V: the stream. 4x2 pixels from the 4x2 page: the first frame has them all (a literal of 8 pixels), then nothing
+     * changes (a frame of length 0 every 2 s), and after a pixel changes only that pixel is sent */
+    {
+        client_t x;
+        for (unsigned y = 0; y < 2; y++)
+            for (unsigned i = 0; i < 8; i++)
+                fb_mem[2 * 16 + y * 16 + i] = (uint8_t)(y * 8 + i + 1);
+        watch_x = &x;
+        change_at = 2 + 8 + 18 + 8;                  /* after the keepalive: OK, the frame, the "nothing changed" */
+        xfer(&x, 'V', "secret", "4x2@40", NULL, 0, 0, 2 + 26 + 8 + 12);
+        watch_x = NULL;
+        const uint8_t *d = (const uint8_t *)x.got;
+        check(x.len >= 2 + 26 + 8 + 12 && strncmp(x.got, "OK", 2) == 0, "  V: OK");
+        check(d[2] == 4 && d[3] == 0 && d[4] == 2 && d[5] == 0 && d[6] == 18 && d[7] == 0 && d[8] == 0 && d[9] == 0,
+              "  V: the first frame: 4x2, 18 bytes of tokens");
+        check(d[10] == 0x08 && d[11] == 0x40 && d[12] == 1 && d[13] == 2 && d[26] == 0x0F && d[27] == 0x10,
+              "  V: one token, 8 literal pixels, the page row by row");
+        check(d[28] == 4 && d[30] == 2 && d[32] == 0 && d[33] == 0 && d[34] == 0 && d[35] == 0,
+              "  V: nothing changed: a frame with no tokens");
+        check(d[36] == 4 && d[38] == 2 && d[40] == 4 && d[41] == 0 && d[42] == 0 && d[43] == 0 && d[44] == 1 && d[45] == 0x40 && d[46] == (1 ^ 0x55) && d[47] == 2,
+              "  V: a pixel changed: a token of one literal pixel, nothing else");
+        static const uint8_t junk8[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+        xfer(&x, 'V', "secret", "4x2@40", junk8, sizeof junk8, 0, 2);
+        check(strcmp(x.got, "BH") == 0, "  V with data: BH");
+        xfer(&x, 'V', "secret", "999x2", NULL, 0, 0, 2);
+        check(strcmp(x.got, "BH") == 0, "  V too wide: BH");
+        xfer(&x, 'V', "nope", "4x2", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PW") == 0, "  V with a wrong password: PW");
     }
 
     /* T and G (R-NET2): a screenshot of the running game, and the file back */

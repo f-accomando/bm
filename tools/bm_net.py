@@ -271,6 +271,27 @@ def frame_file(args, out, password):
     return 0
 
 
+def view_test(args, password):
+    """--view: the stream (V) for args.view seconds, no drawing: how many frames and bytes the console sent"""
+    import bm_watch
+    w, h = 120, 68
+    t0, frames, changed, nbytes = time.time(), 0, 0, 0
+    try:
+        for _px, ch, n in bm_watch.stream_frames(args.host, password, w, h, 100):
+            frames += 1
+            changed += ch
+            nbytes += n
+            if time.time() - t0 >= args.view:
+                break
+    except (RuntimeError, OSError, ValueError) as e:
+        print(e)
+        return 1
+    dt = max(time.time() - t0, 0.001)
+    print(f"stream {w}x{h}: {frames} frames ({changed} with changes) and {nbytes} bytes in {dt:.1f} s: "
+          f"{frames / dt:.1f} frames/s, {nbytes / 1024 / dt:.1f} KB/s")
+    return 0
+
+
 def restart(args, password):
     """--restart: the console restarts (R), with the same kernel"""
     sock, a = open_request(args, b"R", "", b"", password)
@@ -516,12 +537,16 @@ def main():
                     help="screenshot of the running game, written to OUT (a PNG)")
     ap.add_argument("--frame", metavar="OUT",
                     help="the page on the screen now (the menu, the monitor or a game), written to OUT (a PPM); tools/bm_watch.py repeats it")
+    ap.add_argument("--view", type=float, metavar="SECONDS",
+                    help="the stream (V) for SECONDS, not drawn: the frames and the bytes counted (tools/bm_watch.py draws it)")
     ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
                     help="a file of bm/shots on the console (PATH, e.g. bm/shots/pong0007.png) written to OUT")
     args = ap.parse_args()
 
     if args.restart:
         return restart(args, args.password or getpass.getpass("password: "))
+    if args.view is not None:
+        return view_test(args, args.password or getpass.getpass("password: "))
     if args.frame is not None:
         return frame_file(args, args.frame, args.password or getpass.getpass("password: "))
     if args.shot is not None:

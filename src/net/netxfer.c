@@ -56,7 +56,7 @@
 #define CONFIG_REPLY (8u << 10)         /* the settings after it: under TCP_SND_BUF */
 
 static struct tcp_pcb *listener, *peer;
-static enum { IDLE, HEADER, DATA, DONE, WRITING, REPLIED, SHOT, GETFILE, SENDING, FRAME } st;
+static enum { IDLE, HEADER, DATA, DONE, WRITING, REPLIED, SHOT, GETFILE, SENDING, FRAME, STREAMING } st;
 static uint8_t hdr[4 + 1 + 1 + 64 + 1 + 64 + 8];
 static unsigned hdr_len, need;
 static char op, path[65];
@@ -156,7 +156,7 @@ static int parse_header(void)
     if (hdr_len < n)
         return 1;
     if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K' && hdr[4] != 'C' &&
-                           hdr[4] != 'T' && hdr[4] != 'G' && hdr[4] != 'R' && hdr[4] != 'F'))
+                           hdr[4] != 'T' && hdr[4] != 'G' && hdr[4] != 'R' && hdr[4] != 'F' && hdr[4] != 'V'))
         return -1;
     unsigned pl = hdr[5];
     n += pl + 1;
@@ -221,6 +221,232 @@ static void to_menu_folder(void)
     }
 }
 
+/* V (29 Oct 2026): the stream. The path is "WxH" or "WxH@ms": the picture the PC wants (at most 320x180; the page on
+ * the screen is averaged down to it, 2x2 samples for each pixel) and the least time between two frames (40 to 5000 ms,
+ * 100 if missing). The answer is OK, then frames until the PC closes: u16 width, u16 height, u32 length, then the
+ * tokens (below) that turn the last picture into this one; a length of 0 is "nothing changed" (sent every 2 s, so the
+ * PC knows the console lives). Tokens, u16 each, the top two bits say what: 0 skip n pixels (they are as before),
+ * 1 n pixels follow, 2 the one pixel that follows n times; the pixels are RGB565. The end of the tokens leaves the rest
+ * of the picture as it was. The first frame has nothing before it. A frame is made only when the last one has been
+ * handed to TCP (its send buffer is small), so a slow link slows the stream and does not fill the memory. */
+#define VIEW_MAX_W 320u
+#define VIEW_MAX_H 180u
+#define VIEW_KEEPALIVE_US 2000000u
+static unsigned view_w, view_h, view_ms;
+static uint16_t *view_cur, *view_prev;
+static uint8_t *view_out;               /* the header and the tokens of the frame being sent */
+static uint32_t view_len, view_sent, view_next, view_alive;
+static int view_have;                   /* view_prev holds a picture already sent */
+
+static int view_num(const char **s, unsigned *v)
+{
+    unsigned n = 0, d = 0;
+    while (**s >= '0' && **s <= '9' && d < 5) {
+        n = n * 10 + (unsigned)(**s - '0');
+        (*s)++;
+        d++;
+    }
+    *v = n;
+    return d > 0;
+}
+
+static int view_start(const char *p)
+{
+    unsigned w, h, ms = 100;
+    if (!view_num(&p, &w) || *p++ != 'x' || !view_num(&p, &h))
+        return 0;
+    if (*p == '@') {
+        p++;
+        if (!view_num(&p, &ms))
+            return 0;
+    }
+    if (*p || w < 2 || h < 2 || w > VIEW_MAX_W || h > VIEW_MAX_H)
+        return 0;
+    ms = ms < 40 ? 40 : ms > 5000 ? 5000 : ms;
+    const size_t n = (size_t)w * h;
+    free(buf);
+    buf = malloc(n * 2 * 2 + n * 2 + 128);
+    if (!buf)
+        return 0;
+    view_w = w;
+    view_h = h;
+    view_ms = ms;
+    view_cur = (uint16_t *)buf;
+    view_prev = view_cur + n;
+    view_out = (uint8_t *)(view_prev + n);
+    view_len = view_sent = 0;
+    view_have = 0;
+    view_next = timer_ticks();
+    view_alive = timer_ticks();
+    sent_at = timer_ticks();
+    return 1;
+}
+
+/* the colour of the pixel (x, y) of a page, 8 bits each */
+static void view_rgb(const framebuffer_t *fb, const uint8_t *page, uint32_t x, uint32_t y,
+                     unsigned *r, unsigned *g, unsigned *b)
+{
+    if (fb->depth == 16) {
+        const unsigned v = *(const uint16_t *)(page + (size_t)y * fb->pitch + (size_t)x * 2);
+        const unsigned rr = (v >> 11) & 31, gg = (v >> 5) & 63, bb = v & 31;
+        *r = rr << 3 | rr >> 2;
+        *g = gg << 2 | gg >> 4;
+        *b = bb << 3 | bb >> 2;
+    } else {
+        const uint32_t v = *(const uint32_t *)(page + (size_t)y * fb->pitch + (size_t)x * 4);
+        const unsigned lo = v & 255, mid = (v >> 8) & 255, hi = (v >> 16) & 255;
+        *r = fb->is_rgb ? lo : hi;
+        *g = mid;
+        *b = fb->is_rgb ? hi : lo;
+    }
+}
+
+/* the page on the screen in w x h pixels: each one is the mean of four samples inside its box of the page */
+static void view_grab(const framebuffer_t *fb, uint16_t *out, unsigned w, unsigned h)
+{
+    const uint8_t *page = fb->mem + (size_t)fb->shown * fb->height * fb->pitch;
+    for (unsigned ty = 0; ty < h; ty++) {
+        const uint32_t ya = (ty * 4u * fb->height + fb->height) / (4u * h);
+        const uint32_t yb = (ty * 4u * fb->height + 3u * fb->height) / (4u * h);
+        for (unsigned tx = 0; tx < w; tx++) {
+            const uint32_t xa = (tx * 4u * fb->width + fb->width) / (4u * w);
+            const uint32_t xb = (tx * 4u * fb->width + 3u * fb->width) / (4u * w);
+            const uint32_t xs[4] = { xa, xb, xa, xb }, ys[4] = { ya, ya, yb, yb };
+            unsigned sr = 0, sg = 0, sb = 0;
+            for (int k = 0; k < 4; k++) {
+                unsigned r, g, b;
+                view_rgb(fb, page, xs[k] < fb->width ? xs[k] : fb->width - 1, ys[k] < fb->height ? ys[k] : fb->height - 1,
+                         &r, &g, &b);
+                sr += r;
+                sg += g;
+                sb += b;
+            }
+            out[ty * w + tx] = (uint16_t)(((sr >> 2) >> 3) << 11 | ((sg >> 2) >> 2) << 5 | ((sb >> 2) >> 3));
+        }
+    }
+}
+
+static void put16(uint8_t *p, unsigned v)
+{
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+}
+
+/* the tokens that turn prev into cur (prev is ignored without `have`); returns their length in bytes */
+static uint32_t view_encode(uint8_t *out, const uint16_t *cur, const uint16_t *prev, int have, uint32_t n)
+{
+    uint32_t o = 0, i = 0;
+    while (i < n) {
+        uint32_t j = i;
+        if (have)
+            while (j < n && cur[j] == prev[j])
+                j++;
+        if (j > i) {
+            if (j == n)
+                break;                          /* the rest is as it was: nothing to say */
+            for (uint32_t k = j - i; k;) {
+                const uint32_t t = k > 16383 ? 16383 : k;
+                put16(out + o, (unsigned)t);
+                o += 2;
+                k -= t;
+            }
+            i = j;
+        }
+        uint32_t r = i + 1;                     /* a run of one colour: 4 or more are worth a token */
+        while (r < n && cur[r] == cur[i])
+            r++;
+        if (r - i >= 4) {
+            for (uint32_t k = r - i; k;) {
+                const uint32_t t = k > 16383 ? 16383 : k;
+                put16(out + o, 0x8000u | (unsigned)t);
+                put16(out + o + 2, cur[i]);
+                o += 4;
+                k -= t;
+            }
+            i = r;
+            continue;
+        }
+        uint32_t e = i;                         /* pixels that follow: changed ones, with the short gaps between them */
+        while (e < n && e - i < 16383) {
+            uint32_t run = 1;
+            while (e + run < n && run < 4 && cur[e + run] == cur[e])
+                run++;
+            if (e > i && run >= 4)
+                break;                          /* a run starts here: its own token */
+            if (!have || cur[e] != prev[e]) {
+                e++;
+                continue;
+            }
+            uint32_t g = 0;
+            while (e + g < n && cur[e + g] == prev[e + g])
+                g++;
+            if (g <= 2 && e + g < n) {
+                e += g;                         /* a gap of 2 pixels costs the same as a new token: kept */
+                continue;
+            }
+            break;
+        }
+        put16(out + o, 0x4000u | (unsigned)(e - i));
+        o += 2;
+        for (uint32_t k = i; k < e; k++) {
+            put16(out + o, cur[k]);
+            o += 2;
+        }
+        i = e;
+    }
+    return o;
+}
+
+/* one round of the stream, from netxfer_poll: what is left of the last frame goes on; else, when it is time, the next */
+static void view_step(void)
+{
+    if (!peer)
+        return;
+    const uint32_t now = timer_ticks();
+    if (view_sent < view_len) {
+        u32_t room = tcp_sndbuf(peer);
+        uint32_t n = view_len - view_sent < room ? view_len - view_sent : room;
+        if (n > 0xFFFFu)
+            n = 0xFFFFu;
+        if (n && tcp_write(peer, view_out + view_sent, (u16_t)n, TCP_WRITE_FLAG_COPY) == ERR_OK) {
+            view_sent += n;
+            sent_at = now;
+            tcp_output(peer);
+        } else if (now - sent_at > 10000000u) {
+            kprintf("net: stream stalled, given up\n");
+            drop_peer();
+            reset();
+        }
+    } else if ((int32_t)(now - view_next) >= 0) {
+        const framebuffer_t *fb = console_framebuffer();
+        const uint32_t bpp = fb ? fb->depth / 8 : 0;
+        if (!fb || !fb->mem || (bpp != 2 && bpp != 4) || !fb->width || !fb->height) {
+            view_next = now + 500000u;          /* no picture to read now: try again */
+            return;
+        }
+        view_next = now + view_ms * 1000u;
+        const uint32_t n = (uint32_t)view_w * view_h;
+        view_grab(fb, view_cur, view_w, view_h);
+        const uint32_t used = view_encode(view_out + 8, view_cur, view_prev, view_have, n);
+        if (used == 0 && view_have && now - view_alive < VIEW_KEEPALIVE_US)
+            return;                             /* nothing changed */
+        put16(view_out, view_w);
+        put16(view_out + 2, view_h);
+        view_out[4] = (uint8_t)used;
+        view_out[5] = (uint8_t)(used >> 8);
+        view_out[6] = (uint8_t)(used >> 16);
+        view_out[7] = (uint8_t)(used >> 24);
+        view_len = 8 + used;
+        view_sent = 0;
+        view_alive = now;
+        sent_at = now;
+        uint16_t *t = view_prev;                /* the picture just made is the one the next frame follows */
+        view_prev = view_cur;
+        view_cur = t;
+        view_have = 1;
+    }
+}
+
 static void feed(const uint8_t *p, unsigned len)
 {
     while (len && (st == HEADER || st == DATA)) {
@@ -254,6 +480,15 @@ static void feed(const uint8_t *p, unsigned len)
                 said = -1;
                 st = REPLIED;
                 close_at = timer_ticks();
+                return;
+            }
+            if (op == 'V') {                    /* the stream: the picture's size and pace are in the path */
+                if (size || crc || !view_start(path)) {
+                    fail("BH");
+                    return;
+                }
+                reply("OK");
+                st = STREAMING;
                 return;
             }
             if (op == 'T' || op == 'G' || op == 'F') {
@@ -605,7 +840,9 @@ void netxfer_poll(void)
             free(d);
         }
     }
-    if ((st == SHOT || st == GETFILE || st == SENDING || st == FRAME) && !peer) {
+    if (st == STREAMING)
+        view_step();
+    if ((st == SHOT || st == GETFILE || st == SENDING || st == FRAME || st == STREAMING) && !peer) {
         if (st == SHOT)
             bm_shot_cancel();
         reset();                        /* the PC went away */

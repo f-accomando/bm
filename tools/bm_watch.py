@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
-"""The screen of a console in the terminal, a frame every second or so (op F of the transfer port).
+"""The screen of a console in the terminal, live (op V of the transfer port).
 
-  python3 tools/bm_watch.py 192.168.1.108                 # a frame a second, Ctrl-C stops
-  python3 tools/bm_watch.py 192.168.1.108 --fps 0.5       # slower
-  python3 tools/bm_watch.py 192.168.1.108 --once          # one frame
-  python3 tools/bm_watch.py 192.168.1.108 --ppm shot.ppm  # one frame saved as a PPM, no drawing
+  python3 tools/bm_watch.py 192.168.1.108                 # as big as the terminal, up to 10 frames a second
+  python3 tools/bm_watch.py 192.168.1.108 --fps 5         # fewer frames, less traffic
+  python3 tools/bm_watch.py 192.168.1.108 --cols 80       # a smaller picture (less traffic still)
+  python3 tools/bm_watch.py 192.168.1.108 --once          # one frame, then stop
+  python3 tools/bm_watch.py 192.168.1.108 --ppm shot.ppm  # one full frame (op F) saved as a PPM, no drawing
 
 The password is the console's (BM_PASSWORD, or -p, or asked). The bridge must be on (Settings > System > Bridge: on or
 fast). The picture is the page on the screen now: the menu, the monitor or a game. Nothing is written on the SD card.
-It needs a terminal with 24-bit colour (Windows Terminal, iTerm2, most Linux terminals). One frame is 460 KB at 640x360
-(RGB565), so over WiFi a second or two for each.
+It needs a terminal with 24-bit colour (Windows Terminal, iTerm2, most Linux terminals).
+
+How it is light for a Pi Zero W: the console averages the screen down to the size of your terminal (one pixel for each
+half cell, so 120 columns are 120x68 pixels, about 16 KB), sends only the pixels that changed since the last frame
+(skips, runs of one colour, literals: see netxfer.c) and nothing at all when the screen does not change. This tool draws
+only the cells that changed. Ctrl-C stops. If the terminal changes size the stream starts again for the new size.
 """
 import argparse
 import getpass
 import os
 import shutil
+import socket
+import struct
 import sys
 import time
 
@@ -22,67 +29,165 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bm_net  # noqa: E402
 
 
-fetch_frame, pixel = bm_net.fetch_frame, bm_net.frame_pixel
+def recv_all(sock, n):
+    """exactly n bytes, or b"" when the console closed"""
+    data = b""
+    while len(data) < n:
+        chunk = sock.recv(n - len(data))
+        if not chunk:
+            return b""
+        data += chunk
+    return data
 
 
-def draw(frame, cols, rows):
-    """the frame in cols x rows terminal cells: each cell is two pixels one above the other (the half block)"""
-    w, h = frame[0], frame[1]
-    lines = []
-    for cy in range(rows):
-        out = []
-        for cx in range(cols):
-            x = min(w - 1, (cx * w + w // 2) // cols)
-            ya = min(h - 1, ((2 * cy) * h + h // 2) // (2 * rows))
-            yb = min(h - 1, ((2 * cy + 1) * h + h // 2) // (2 * rows))
-            ra, ga, ba = pixel(frame, x, ya)
-            rb, gb, bb = pixel(frame, x, yb)
-            out.append(f"\x1b[38;2;{ra};{ga};{ba};48;2;{rb};{gb};{bb}m▀")
-        lines.append("".join(out) + "\x1b[0m")
-    return "\n".join(lines)
+def decode(pixels, w, h, payload):
+    """the tokens of a frame applied to pixels (a list of w*h RGB565 values, changed in place)"""
+    n, i, pos = w * h, 0, 0
+    while i < len(payload):
+        if i + 2 > len(payload):
+            raise ValueError("a cut token")
+        tok = payload[i] | payload[i + 1] << 8
+        kind, cnt = tok >> 14, tok & 0x3FFF
+        i += 2
+        if kind == 0:
+            pos += cnt
+        elif kind == 1:
+            if i + 2 * cnt > len(payload) or pos + cnt > n:
+                raise ValueError("literal pixels out of the frame")
+            for k in range(cnt):
+                pixels[pos + k] = payload[i + 2 * k] | payload[i + 2 * k + 1] << 8
+            i += 2 * cnt
+            pos += cnt
+        elif kind == 2:
+            if i + 2 > len(payload) or pos + cnt > n:
+                raise ValueError("a run out of the frame")
+            v = payload[i] | payload[i + 1] << 8
+            i += 2
+            pixels[pos:pos + cnt] = [v] * cnt
+            pos += cnt
+        else:
+            raise ValueError("an unknown token")
+
+
+def stream_frames(host, password, w, h, ms):
+    """connect (op V) and yield (pixels, changed): pixels the picture so far (a list of w*h RGB565 values, the same list
+    every time), changed False for a "nothing changed" frame. Ends when the console closes."""
+    sock, a = bm_net.open_request(argparse.Namespace(host=host), b"V", f"{w}x{h}@{ms}", b"", password)
+    if a != b"OK":
+        sock.close()
+        raise RuntimeError("refused: " + bm_net.ANSWERS.get(a, (a or b"no answer").decode(errors="replace")) +
+                           (" (a kernel from before op V answers BH)" if a == b"BH" else ""))
+    sock.settimeout(8)
+    pixels = [0] * (w * h)
+    try:
+        while True:
+            head = recv_all(sock, 8)
+            if not head:
+                return
+            fw, fh, used = struct.unpack("<HHI", head)
+            if (fw, fh) != (w, h):
+                raise RuntimeError(f"the console sent {fw}x{fh}, not {w}x{h}")
+            payload = recv_all(sock, used) if used else b""
+            if used and not payload:
+                return
+            if used:
+                decode(pixels, w, h, payload)
+            yield pixels, used > 0, 8 + used
+    except socket.timeout:
+        raise RuntimeError("the console stopped answering")
+    finally:
+        sock.close()
+
+
+def rgb(v):
+    r, g, b = (v >> 11) & 31, (v >> 5) & 63, v & 31
+    return r << 3 | r >> 2, g << 2 | g >> 4, b << 3 | b >> 2
+
+
+def render(pixels, prev, w, h):
+    """the cells whose two pixels changed since prev (None: all), as terminal text; cell (x, y) is at row y + 1, column
+    x + 1 and shows the pixel 2y above the pixel 2y + 1 (the half block: ink on top, paper below)"""
+    out, here, last = [], None, None
+    for cy in range(h // 2):
+        ia, ib = 2 * cy * w, (2 * cy + 1) * w
+        for x in range(w):
+            a, b = pixels[ia + x], pixels[ib + x]
+            if prev is not None and prev[ia + x] == a and prev[ib + x] == b:
+                continue
+            if here != (cy, x):
+                out.append(f"\x1b[{cy + 1};{x + 1}H")
+            if last != (a, b):
+                ra, ga, ba = rgb(a)
+                rb, gb, bb = rgb(b)
+                out.append(f"\x1b[38;2;{ra};{ga};{ba};48;2;{rb};{gb};{bb}m")
+                last = (a, b)
+            out.append("▀")
+            here = (cy, x + 1)
+    return "".join(out)
+
+
+def pick_size(cols_arg, fps_limit=None):
+    """the picture for this terminal: width in cells, height in pixels (two for each row), 16:9"""
+    size = shutil.get_terminal_size((100, 40))
+    cols = min(cols_arg or size.columns, size.columns, 320)
+    rows = min(size.lines - 2, 90)
+    cols = max(16, min(cols, int(rows * 2 * 16 / 9)))
+    h = max(4, int(cols * 9 / 16) // 2 * 2)
+    return cols, h
+
+
+def watch(a, pw):
+    out = sys.stdout
+    out.write("\x1b[?1049h\x1b[?25l\x1b[2J")
+    try:
+        while True:
+            w, h = pick_size(a.cols)
+            size = shutil.get_terminal_size((100, 40))
+            ms = int(1000 / a.fps) if a.fps > 0 else 100
+            prev, frames, bytes_in, t0 = None, 0, 0, time.time()
+            fps_text = ""
+            out.write("\x1b[0m\x1b[2J")
+            for pixels, changed, nbytes in stream_frames(a.host, pw, w, h, ms):
+                bytes_in += nbytes
+                if changed or prev is None:
+                    out.write(render(pixels, prev, w, h))
+                    prev = list(pixels)
+                    frames += 1
+                now = time.time()
+                if now - t0 >= 1.0:
+                    fps_text = f"{w}x{h}  {frames / (now - t0):.1f} frames/s  {bytes_in / 1024 / (now - t0):.1f} KB/s  Ctrl-C stops"
+                    frames, bytes_in, t0 = 0, 0, now
+                    out.write(f"\x1b[0m\x1b[{h // 2 + 1};1H{fps_text}\x1b[K")
+                out.flush()
+                if a.once:
+                    return 0
+                if shutil.get_terminal_size((100, 40)) != size:
+                    break                       # the terminal changed size: a new picture for it
+            else:
+                return 0                        # the console closed the stream
+    except KeyboardInterrupt:
+        return 0
+    except (RuntimeError, OSError, ValueError) as e:
+        out.write(f"\x1b[0m\x1b[?1049l\x1b[?25h{e}\n")
+        return 1
+    finally:
+        out.write("\x1b[0m\x1b[?25h\x1b[?1049l")
+        out.flush()
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("host")
     ap.add_argument("-p", "--password", default=os.environ.get("BM_PASSWORD"))
-    ap.add_argument("--fps", type=float, default=1.0, help="frames a second (default 1; the link sets the limit)")
+    ap.add_argument("--fps", type=float, default=10.0, help="the most frames a second (default 10; the link may give fewer)")
     ap.add_argument("--once", action="store_true", help="one frame, then stop")
-    ap.add_argument("--ppm", metavar="OUT", help="save one frame as a PPM file instead of drawing it")
+    ap.add_argument("--ppm", metavar="OUT", help="save one full frame (op F) as a PPM file instead of drawing")
     ap.add_argument("--cols", type=int, help="width in terminal cells (default: the terminal's)")
     a = ap.parse_args()
     pw = a.password or getpass.getpass("password: ")
     if a.ppm:
         return bm_net.frame_file(argparse.Namespace(host=a.host), a.ppm, pw)
-    size = shutil.get_terminal_size((100, 40))
-    first = True
-    period = 1.0 / a.fps if a.fps > 0 else 1.0
-    try:
-        while True:
-            t0 = time.time()
-            try:
-                frame = fetch_frame(a.host, pw)
-            except (RuntimeError, OSError) as e:
-                print(f"\x1b[91m{e}\x1b[0m")
-                if a.once:
-                    return 1
-                time.sleep(2)
-                continue
-            size = shutil.get_terminal_size((100, 40))
-            cols = max(20, min(a.cols or size.columns, size.columns))
-            rows = max(5, min(size.lines - 2, int(cols * frame[1] / frame[0] / 2 + 0.5)))
-            text = draw(frame, cols, rows)
-            sys.stdout.write(("\x1b[2J" if first else "") + "\x1b[H" + text + "\n")
-            sys.stdout.write(f"\x1b[0m{frame[0]}x{frame[1]} {time.time() - t0:.1f} s  Ctrl-C stops\x1b[K")
-            sys.stdout.flush()
-            first = False
-            if a.once:
-                print()
-                return 0
-            time.sleep(max(0.0, period - (time.time() - t0)))
-    except KeyboardInterrupt:
-        print("\x1b[0m")
-        return 0
+    return watch(a, pw)
 
 
 if __name__ == "__main__":

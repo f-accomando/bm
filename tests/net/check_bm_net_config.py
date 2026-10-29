@@ -30,6 +30,12 @@ FAKE_PNG = b"\x89PNG\r\n\x1a\n" + bytes((i * 7 + 3) & 0xFF for i in range(1992))
 # F: a frame of 4x2 pixels in RGB565 (red, green, blue, white; black, red, green, blue), as the console sends it
 FRAME_PIXELS = [0xF800, 0x07E0, 0x001F, 0xFFFF, 0x0000, 0xF800, 0x07E0, 0x001F]
 FAKE_FRAME = struct.pack("<HHBBH", 4, 2, 16, 0, 0) + b"".join(struct.pack("<H", v) for v in FRAME_PIXELS)
+# V: frames of 4x2 pixels: a run of 4 red pixels and 4 literals; nothing changed; skip 1 and a literal pixel
+VIEW_FRAMES = [
+    struct.pack("<HH", 0x8004, 0xF800) + struct.pack("<H", 0x4004) + struct.pack("<4H", 0x07E0, 0x001F, 0xFFFF, 0x0000),
+    b"",
+    struct.pack("<HHH", 0x0001, 0x4001, 0x1234),
+]
 fails = 0
 
 
@@ -82,7 +88,7 @@ class Console:
         tag, op = self.recv(c, 4), self.recv(c, 1)
         if tag != b"BMXF" or op not in ((b"S", b"P", b"K") + ((b"C",) if self.knows_c else ())
                                         + ((b"T", b"G") if self.knows_tg else ())
-                                        + ((b"F",) if self.knows_f else ())):
+                                        + ((b"F", b"V") if self.knows_f else ())):
             c.sendall(b"BH")
             return
         pw = self.recv(c, self.recv(c, 1)[0]).decode()
@@ -94,6 +100,11 @@ class Console:
         if op == b"T":
             name = b"PONG0001.PNG"
             c.sendall(b"NG" if self.no_game else b"OK" + struct.pack("<I", len(name)) + name)
+            return
+        if op == b"V":                      # the stream: a first frame, a "nothing changed", one pixel changed, then closed
+            c.sendall(b"OK")
+            for payload in VIEW_FRAMES:
+                c.sendall(struct.pack("<HHI", 4, 2, len(payload)) + payload)
             return
         if op == b"F":
             c.sendall(b"OK" + struct.pack("<II", len(FAKE_FRAME), zlib.crc32(FAKE_FRAME) & 0xFFFFFFFF) + FAKE_FRAME)
@@ -276,11 +287,27 @@ def main():
     os.remove(ppm)
     rc, out = run(Console(knows_f=False), job=("--frame", ppm))
     check(rc == 1 and not os.path.exists(ppm), "--frame to a console without F: BH, no file")
+    # the stream (V): frames decoded, the cells that changed drawn
     import bm_watch
-    frame = (4, 2, 16, 0, FAKE_FRAME[8:])
-    shown = bm_watch.draw(frame, 4, 1)
-    check(shown.count("▀") == 4 and "38;2;255;0;0;48;2;0;0;0" in shown and "38;2;255;255;255;48;2;0;0;255" in shown,
-          "bm_watch draws a frame in half blocks: top pixel as ink, bottom as paper")
+    bm_net.XFER_PORT = con.port
+    got = [(list(px), ch) for px, ch, _n in bm_watch.stream_frames("127.0.0.1", PASSWORD, 4, 2, 100)]
+    check(len(got) == 3 and got[0][0] == [0xF800] * 4 + [0x07E0, 0x001F, 0xFFFF, 0x0000] and got[0][1],
+          "bm_watch: the first frame (a run, then literals)")
+    check(got[1][0] == got[0][0] and not got[1][1], "bm_watch: a frame with no tokens changes nothing")
+    check(got[2][0] == [0xF800, 0x1234] + [0xF800] * 2 + [0x07E0, 0x001F, 0xFFFF, 0x0000] and got[2][1],
+          "bm_watch: skip one pixel, a literal one")
+    first = bm_watch.render(got[0][0], None, 4, 2)
+    check(first.count("▀") == 4 and "38;2;255;0;0;48;2;0;255;0" in first and "[1;1H" in first,
+          "bm_watch: the first picture draws every cell (red above green)")
+    delta = bm_watch.render(got[2][0], got[0][0], 4, 2)
+    check(delta.count("▀") == 1 and "[1;2H" in delta, "bm_watch: only the cell that changed is drawn")
+    check(bm_watch.render(got[1][0], got[0][0], 4, 2) == "", "bm_watch: no change, nothing drawn")
+    try:
+        bm_net.XFER_PORT = Console(knows_f=False).port
+        list(bm_watch.stream_frames("127.0.0.1", PASSWORD, 4, 2, 100))
+        check(False, "bm_watch: a console without V is refused")
+    except RuntimeError as e:
+        check("BH" in str(e) or "bad request" in str(e), "bm_watch: a console without V is refused")
     rc, out = run(Console(no_game=True), job=("--shot", png))
     check(rc == 1 and "no game drew a frame" in out and not os.path.exists(png), "--shot with no game: NG")
     rc, out = run(Console(knows_tg=False), job=("--shot", png))

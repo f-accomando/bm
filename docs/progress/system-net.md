@@ -55,7 +55,13 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   yet proved there. `F` (29 Oct 2026, `bm_net.py --frame`, `tools/bm_watch.py`, bridge `frame`): the page on the screen now
   (the shown page of `console_framebuffer()`), answer `OK` + len32 + crc32 + 8 bytes (width, height, depth, is_rgb, 2 zero) +
   the pixels; nothing is written on the SD card. Proved on the host (`test_netcon`, `check_bm_net_config.py`); not on a Pi
-  yet: check that the page is the right one in a game and in the menu at 720p.
+  yet: check that the page is the right one in a game and in the menu at 720p. `V` (the stream, `tools/bm_watch.py`,
+  bridge `view`): the path is "WxH" or "WxH@ms" (at most 320x180, 40 to 5000 ms, default 100); the answer is `OK`, then
+  frames of u16 width, u16 height, u32 length and tokens (skip n, n literal RGB565 pixels, one pixel n times) that turn
+  the last picture into the new one; length 0 is "nothing changed" (every 2 s). A frame is made only when the last one
+  has gone to TCP (`TCP_SND_BUF` is 8 segments). The screen is averaged to the size asked (4 samples for each pixel).
+  Proved on the host (`test_netcon`: the bytes of three frames; `check_bm_net_config.py`: the decoder and the drawing);
+  the Pi's numbers (frames a second, KB a second, the cost of a frame on the ARM) are in the next line when measured.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
   `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
   `net fetch URL [NAME] [replace]` (`src/kernel/netfetch.c`, Pi only: the RGB30 has no Monitor): a `.bm` into `/bm` or a
