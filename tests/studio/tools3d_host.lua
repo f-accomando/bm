@@ -857,6 +857,7 @@ check(status():find("block: cube", 1, true), "k again: the cube block")
 key("^z", "^z", "^z", "^z", "^z", "^z", "^z", "^z", "^z")
 check(m1().nf == 12, "undo: the shaped blocks go, one block stays (" .. m1().nf .. ")")
 key("left", "left", "left")
+key("left", "left", "left", "left", "left", "left")                  -- the six soft shapes went one cell each
 
 -- tiles: a red floor and a grass wall in the next cell (the colour first)
 key("right", "2", "\t")

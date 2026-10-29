@@ -243,6 +243,14 @@ where = ["src/bm/bm.h", "docs/BM-FORMAT.md", "src/script/bm3d.lua", "scripts/bmm
 note = "bits 1-3 of the u32 flags of a MESH model: the map class (2 solid, 4 floor, 8 decor). bm Studio sets it (c on the models page) and writes it; no kernel reads it yet (a kit says it to the 3D map); an old reader ignores it, so no revision is needed. Host test tools3d_host.lua. Not verified on hardware"
 
 [[item]]
+id = "map-kit"
+since = 6
+status = "partial"
+platforms = "none"
+where = ["docs/design/map-kit.md", "scripts/bmkit.py", "tests/tools/test_bmkit.py"]
+note = "a .bmk map kit: MESH with map classes, one sheet, SPRITES, the layers floor height walls objects, FLAGS and the object table in INFO ([object NAME]: id, model, sprite, mode, scale, class, radius; ids 1040 and up). Built and checked on the PC (bmkit.py island, example island.bmk). No kernel and no editor reads the object table yet, the folder /bmk is not scanned, and the owner gives the final kit rules later. No change of the container, so no revision"
+
+[[item]]
 id = "lib-view"
 since = 5
 status = "implemented"

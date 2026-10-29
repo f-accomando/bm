@@ -108,6 +108,8 @@ Every file also has INFO.
 - A set of resources of different types with **a single shared sheet**, for example a
   character with model, animations, sprites and sounds.
 - The editors list a kit and its parts.
+- A map kit (3D map, models, sprites, object table in INFO): [design/map-kit](design/map-kit.md),
+  tool `scripts/bmkit.py`. SD folder: `/bmk` (not scanned by the console yet).
 
 ## 4. The `BMRES` container
 
