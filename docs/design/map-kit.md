@@ -9,6 +9,18 @@ One file holds a map for the 3D map page of bm SDK, with all the elements that g
 an island in the ocean with a campfire in the middle. It becomes a graphics benchmark like `herocart` (3D and 2D
 elements, flat colours and textures). Day, night, rain, snow and fog are not in the kit: the future `.bm` does them.
 
+## Two looks: texture and flat
+
+Every model is in the kit twice, with the same triangles: the textured one (`palm`) and the flat one (`palm_f`, colours
+only). The object table has both names: `model` (textured) and `model_flat`. A game picks one by its options (as the
+Texture row of `herocart`). `--look texture|flat` on `bmkit.py island` makes a kit with one look only (the names of the
+flat look then end in `_f`).
+
+- Textures are in the shared sheet, row 1 (y = 16) bark, leaf, stone, wood and row 2 (y = 32) grass, sand, water, soil.
+  The palm leaves, bushes, rocks, fire stones, logs, island and sea use them.
+- The map floor is drawn from the sheet by `map3d` and has no flat look of its own. The INFO block `[map island]` has the key
+  `flat floor colours` (the colour of each floor tile) for a game that draws a flat floor.
+
 ## The island: size and sea
 
 - The map is 72 x 72 tiles (144 x 144 cells, 1 unit a tile). The land is about 48 units across. Its middle is

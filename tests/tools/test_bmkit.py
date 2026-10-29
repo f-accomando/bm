@@ -67,6 +67,31 @@ class IslandKitTest(unittest.TestCase):
         self.assertEqual(flags[(t * 2, 0)], 8)
         self.assertEqual(flags[(bmkit.TILES["stones"] * 2, 1)], 32)           # the campfire tile: trigger
 
+    def test_both_looks_flat_and_texture(self):
+        _, recs = bmres.mesh_parse(self.back.get(bmres.SEC_MESH))
+        by = dict(recs)
+
+        def tri(rec):
+            nv, nf = struct.unpack_from("<HH", rec, 16)
+            base = 24 + 12 * nv
+            return nf, sum(1 for i in range(nf) if struct.unpack_from("<I", rec, base + 24 * i + 8)[0] & 0x80000000)
+        for name in ("palm", "bush", "rock", "campfire", "islet", "sea", "chest"):
+            nf, textured = tri(by[name])
+            flat_nf, flat_textured = tri(by[name + bmkit.FLAT_SUFFIX])
+            self.assertEqual(nf, flat_nf, name)                              # the same triangles
+            self.assertGreater(textured, 0, name)                            # the look with texture shows the sheet
+            self.assertEqual(flat_textured, 0, name)                         # the flat look has colours only
+        infos = {it[1]: dict(it[2]) for it in bmres.info_of(self.back)["items"] if it[0] == "object"}
+        self.assertEqual(infos["palm"]["model_flat"], "palm_f")
+        self.assertEqual(dict(bmres.info_of(self.back)["file"])["looks"], "texture, flat")
+
+    def test_one_look_only(self):
+        for look in ("texture", "flat"):
+            kit = bmkit.build_island((look,))
+            _, recs = bmres.mesh_parse(kit.get(bmres.SEC_MESH))
+            self.assertEqual(len(recs), len(bmkit.MODELS))
+            self.assertEqual(bmkit.describe(kit)[1], [])
+
     def test_quality_cuts_the_triangles_and_keeps_the_names(self):
         def count(q):
             bmkit.QUALITY = q

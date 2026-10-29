@@ -33,7 +33,7 @@ import bmres  # noqa: E402
 TEX = bmmesh.TEXTURED
 SOLID, FLOOR, DECOR = 2, 4, 8                       # the map class, bits 1-3 of the model flags (bm.h)
 CLASS_NAMES = {0: "none", SOLID: "solid", FLOOR: "floor", DECOR: "decor"}
-OBJECT_KEYS = ("id", "model", "sprite", "mode", "scale", "class", "radius")
+OBJECT_KEYS = ("id", "model", "model_flat", "sprite", "mode", "scale", "class", "radius")
 OBJECT_MODES = ("3d", "2d")                         # what the object is at first; the game may swap (a tree 3D near, 2D far)
 FIRST_KIT_ID = 1040
 LAYER_NAMES = ("floor", "height", "walls", "objects")
@@ -44,6 +44,12 @@ LAYER_NAMES = ("floor", "height", "walls", "objects")
 def _sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
 def _cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 def _dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+# Two looks of every model, the same triangles: "texture" (the faces that have a texture rectangle show the sheet)
+# and "flat" (colours only; the name ends in FLAT_SUFFIX). A kit holds both; the object table links them.
+LOOK = "texture"
+FLAT_SUFFIX = "_f"
 
 
 class Solid:
@@ -78,14 +84,15 @@ class Solid:
                 a, b, c = ids[t[0]], ids[t[1]], ids[t[2]]
                 if len({a, b, c}) < 3:
                     continue
-                if tex:
+                if tex and LOOK == "texture":
                     x, y, w, h = tex
                     corner = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
                     uv = tuple(v for j in t for v in corner[j])
                     tris.append((a, b, c, TEX, uv))
                 else:
                     tris.append((a, b, c, colour, None))
-        return {"name": self.name, "verts": verts, "faces": tris, "flags": self.flags}
+        return {"name": self.name + (FLAT_SUFFIX if LOOK == "flat" else ""), "verts": verts, "faces": tris,
+                "flags": self.flags}
 
 
 def ring(cx, y, cz, rx, rz, n, phase=0.0):
@@ -110,7 +117,7 @@ def cylinder(s, cx, y0, cz, r0, r1, h, n, colour, tex=None, caps=True, hint=None
             s.add(mid, [(cx, y0, cz), lo[i], lo[j]], c)
 
 
-def sphere(s, cx, cy, cz, rx, ry, rz, n, rings, colour, top_only=False, jitter=None, amp=0.18):
+def sphere(s, cx, cy, cz, rx, ry, rz, n, rings, colour, top_only=False, jitter=None, amp=0.18, tex=None):
     last = rings
     span = math.pi / 2 if top_only else math.pi
     rows = []
@@ -136,15 +143,15 @@ def sphere(s, cx, cy, cz, rx, ry, rz, n, rings, colour, top_only=False, jitter=N
             j = (i + 1) % n
             c = colour(r, i) if callable(colour) else colour
             if len(A) == 1:
-                s.add(hint, [A[0], B[i], B[j]], c)
+                s.add(hint, [A[0], B[i], B[j]], c, tex)
             elif len(B) == 1:
-                s.add(hint, [A[i], A[j], B[0]], c)
+                s.add(hint, [A[i], A[j], B[0]], c, tex)
             else:
-                s.add(hint, [A[i], A[j], B[j], B[i]], c)
+                s.add(hint, [A[i], A[j], B[j], B[i]], c, tex)
     if top_only:
         base = rows[last]
         for i in range(n):
-            s.add((cx, cy + 1, cz), [(cx, cy, cz), base[i], base[(i + 1) % n]], colour(last, i) if callable(colour) else colour)
+            s.add((cx, cy + 1, cz), [(cx, cy, cz), base[i], base[(i + 1) % n]], colour(last, i) if callable(colour) else colour, tex)
 
 
 def box(s, x0, y0, z0, x1, y1, z1, colour, tex=None):
@@ -225,8 +232,9 @@ class Sheet:
 
 # the floor tiles, in the sheet's row 0 (tile 0 is "no floor" for the map). x in tiles of 16 pixels.
 TILES = {"water": 1, "sand": 2, "grass": 3, "dirt": 4, "rock": 5, "shore": 6, "stones": 7}
-# little textures of the models, in row 1 (y = 16): bark, leaf, rock, wood
-TEXTURES = {"bark": (0, 16, 16, 16), "leaf": (16, 16, 16, 16), "stone": (32, 16, 16, 16), "wood": (48, 16, 16, 16)}
+# little textures of the models: row 1 (y = 16) bark, leaf, stone, wood; row 2 (y = 32) grass, sand, water, soil
+TEXTURES = {"bark": (0, 16, 16, 16), "leaf": (16, 16, 16, 16), "stone": (32, 16, 16, 16), "wood": (48, 16, 16, 16),
+            "grass": (0, 32, 16, 16), "sand": (16, 32, 16, 16), "water": (32, 32, 16, 16), "soil": (48, 32, 16, 16)}
 SPRITE_Y = 64
 
 
@@ -243,8 +251,25 @@ def paint_sheet(sh):
     for i in range(16):
         c = [0x7A4C28, 0x6A3F20, 0x8A5A33][rnd.randrange(3)]
         sh.rect(0 + i, 16, 1, 16, c)
-    sh.noise(16, 16, 16, 16, [0x3E8F2A, 0x4CA336, 0x358024], 9)
-    sh.noise(32, 16, 16, 16, [0x8D9096, 0x80838A, 0x9A9DA3], 10)
+    sh.noise(16, 16, 16, 16, [0x3E8F2A, 0x4CA336, 0x358024], 9)        # leaf: a midrib and side veins
+    sh.rect(23, 16, 2, 16, 0x2F7A20)
+    for k in range(3, 16, 4):
+        for d in range(1, 6):
+            sh.put(23 - d, 16 + k + d // 2, 0x2F7A20)
+            sh.put(24 + d, 16 + k + d // 2, 0x2F7A20)
+    sh.noise(32, 16, 16, 16, [0x8D9096, 0x80838A, 0x9A9DA3], 10)        # stone: blotches and a crack
+    for k in range(10):
+        sh.put(32 + 3 + k, 16 + 4 + (k * 3) % 7, 0x5E6167)
+    sh.noise(0, 32, 16, 16, [0x56A235, 0x5FAE3C, 0x4E962F], 11)         # grass: dark blades
+    for k in range(0, 16, 3):
+        sh.rect(k, 32 + (k * 5) % 9, 1, 4, 0x3E8F2A)
+    sh.noise(16, 32, 16, 16, [0xE8D190, 0xEED89C, 0xE2C985], 12)        # sand: ripples
+    for k in range(0, 16, 5):
+        sh.rect(16 + 2, 32 + k, 10, 1, 0xD2B778)
+    sh.noise(32, 32, 16, 16, [0x2D6FB5, 0x3A80C8, 0x2860A5], 13)        # water: light wave marks
+    for k in range(0, 16, 6):
+        sh.rect(32 + (k * 3) % 8, 32 + k, 6, 1, 0x6AAAE8)
+    sh.noise(48, 32, 16, 16, [0x7E5030, 0x6F4529, 0x8A5A33, 0x5E3A20], 14)   # soil: dark clods
     for j in range(4):                                    # wood: planks
         sh.rect(48, 16 + j * 4, 16, 3, [0xA06A3A, 0x94602F][j % 2])
         sh.rect(48, 19 + j * 4, 16, 1, 0x6B4423)
@@ -376,7 +401,7 @@ def limb(s, a, b, r0, r1, n, colour, tex=None, caps=True):
             s.add(mid, [b, hi[i], hi[j]], c)
 
 
-def blade(s, base, direction, length, width, bend, colour, bseg, hint, ribbed=True, droop=None):
+def blade(s, base, direction, length, width, bend, colour, bseg, hint, ribbed=True, droop=None, tex=None):
     """a leaf or a blade of grass: a strip along direction (a unit vector in the x-z plane), arching up by
     bend then drooping, tapering to a point; two-sided; the middle raised a little (a fold) when ribbed"""
     dx, dz = direction
@@ -392,8 +417,8 @@ def blade(s, base, direction, length, width, bend, colour, bseg, hint, ribbed=Tr
     for i in range(bseg):
         L0, C0, R0 = st[i]
         L1, C1, R1 = st[i + 1]
-        s.add(hint, [L0, L1, C1, C0], colour(i, 0) if callable(colour) else colour, both=True)
-        s.add(hint, [C0, C1, R1, R0], colour(i, 1) if callable(colour) else colour, both=True)
+        s.add(hint, [L0, L1, C1, C0], colour(i, 0) if callable(colour) else colour, tex, both=True)
+        s.add(hint, [C0, C1, R1, R0], colour(i, 1) if callable(colour) else colour, tex, both=True)
 
 
 PALM_VARIANTS = (                                  # name, lean, height, blades fewer by, leaf length, trunk radius
@@ -428,7 +453,8 @@ def m_palm(variant=0):
     for b in range(nb):
         a = b / nb * 2 * math.pi + 0.3 + variant
         blade(s, (lean, h + 0.02, 0), (math.cos(a), math.sin(a)), leaf + 0.15 * (b % 2), 0.55, 0.45 - 0.1 * (b % 2),
-              lambda i, side, b=b: (0x4CA336, 0x3E8F2A, 0x5CB83F)[(b + side) % 3], q["bseg"], (lean, h - 1, 0), droop=0.95)
+              lambda i, side, b=b: (0x4CA336, 0x3E8F2A, 0x5CB83F)[(b + side) % 3], q["bseg"], (lean, h - 1, 0), droop=0.95,
+              tex=TEXTURES["leaf"])
     for k in range(4 if q["detail"] else 2):                              # coconuts
         a = k / 4 * 2 * math.pi
         sphere(s, lean + 0.15 * math.cos(a), h - 0.12, 0.15 * math.sin(a), 0.1, 0.1, 0.1, max(5, n // 2), max(3, q["ring"] - 2), 0x6B3A1E)
@@ -444,7 +470,8 @@ def m_bush():
         d = 0.0 if k == 0 else 0.28 + 0.06 * rnd.random()
         r = 0.4 if k == 0 else 0.22 + 0.08 * rnd.random()
         sphere(s, d * math.cos(a), 0.08 + r * 0.7 + (0.12 if k == 0 else 0), d * math.sin(a), r, r * 0.85, r, max(5, q["side"] // 2),
-               max(3, q["ring"] - 1), lambda row, i, k=k: (0x3E8F2A, 0x4CA336, 0x56A235, 0x6BAE3A)[(i + row + k) % 4], jitter=40 + k)
+               max(3, q["ring"] - 1), lambda row, i, k=k: (0x3E8F2A, 0x4CA336, 0x56A235, 0x6BAE3A)[(i + row + k) % 4], jitter=40 + k,
+               tex=TEXTURES["leaf"])
     return s
 
 
@@ -452,7 +479,7 @@ def m_rock():
     q = Q()
     s = Solid("rock", SOLID)
     sphere(s, 0, 0.3, 0, 0.55, 0.38, 0.45, max(5, q["side"] // 2 + 1), max(3, q["ring"] - 2),
-           lambda row, i: (0x80838A, 0x8D9096, 0x73767C, 0x9A9DA3)[(i * 2 + row) % 4], jitter=7, amp=0.3)
+           lambda row, i: (0x80838A, 0x8D9096, 0x73767C, 0x9A9DA3)[(i * 2 + row) % 4], jitter=7, amp=0.3, tex=TEXTURES["stone"])
     return s
 
 
@@ -539,12 +566,13 @@ def m_campfire():
     for i in range(n):
         a = (i + 0.5) / n * 2 * math.pi
         sphere(s, 0.72 * math.cos(a), 0.09, 0.72 * math.sin(a), 0.14, 0.09, 0.14, 5, 2,
-               lambda r, j, i=i: (0x80838A, 0x8D9096)[(i + j) % 2], jitter=70 + i, amp=0.25)
+               lambda r, j, i=i: (0x80838A, 0x8D9096)[(i + j) % 2], jitter=70 + i, amp=0.25, tex=TEXTURES["stone"])
     logs = 6 if q["detail"] else 4
     for i in range(logs):                                              # lying nearly flat, the high end at the middle
         a = i / logs * 2 * math.pi + 0.3
         ca, sa = math.cos(a), math.sin(a)
-        limb(s, (0.62 * ca, 0.07, 0.62 * sa), (0.1 * ca, 0.24, 0.1 * sa), 0.075, 0.065, max(5, q["side"] // 2), 0x7A4C28)
+        limb(s, (0.62 * ca, 0.07, 0.62 * sa), (0.1 * ca, 0.24, 0.1 * sa), 0.075, 0.065, max(5, q["side"] // 2), 0x7A4C28,
+             TEXTURES["bark"])
     flame = (0xE8541E, 0xF08A24, 0xF6C23C)
     shards = ((0.0, 0.0, 0.0, 0.2, 1.15, 0.0, 0.1), (0.1, 0.06, 0.13, 0.15, 0.85, 0.1, 0.0), (-0.1, 0.1, -0.1, 0.15, 0.75, -0.1, 0.05),
               (0.05, -0.12, 0.1, 0.13, 0.6, 0.1, -0.1), (-0.12, -0.05, 0.1, 0.12, 0.55, -0.1, -0.05),
@@ -605,7 +633,7 @@ def m_sea():
             a, b, c, d = pts[i][j], pts[i + 1][j], pts[i + 1][j + 1], pts[i][j + 1]
             lift = (a[1] + b[1] + c[1] + d[1]) / 4 + 0.03
             col = blues[min(3, max(0, int((lift + 0.02) / 0.016) + (i + j) % 2))]
-            s.add((0, -1, 0), [a, d, c, b], col)           # the hint is under the water: the facets look up
+            s.add((0, -1, 0), [a, d, c, b], col, TEXTURES["water"])   # the hint is under the water: the facets look up
     return s
 
 
@@ -637,13 +665,14 @@ def m_islet():
     for i in range(len(prof) - 1):
         A0, B0 = pts[i], pts[i + 1]
         cols = prof[i][3]
+        tex = TEXTURES[{id(GRASS): "grass", id(SOIL): "soil", id(SAND): "sand"}.get(id(cols), "sand")]
         for j in range(A):
             k = (j + 1) % A
             c = cols[(j + i) % len(cols)]
             if len(A0) == 1:
-                s.add(hint, [A0[0], B0[j], B0[k]], c)
+                s.add(hint, [A0[0], B0[j], B0[k]], c, tex)
             else:
-                s.add(hint, [A0[j], A0[k], B0[k], B0[j]], c)
+                s.add(hint, [A0[j], A0[k], B0[k], B0[j]], c, tex)
     under = pts[-1]
     for j in range(A):                                       # the bottom, closed
         s.add((0, 0.5, 0), [(0, -0.14, 0), under[j], under[(j + 1) % A]], UNDER[0])
@@ -785,7 +814,7 @@ def scene_model(models):
     verts, faces = [], []
 
     def put(name, x, y, z, k=1.0, turn=0.0):
-        m = by[name]
+        m = by.get(name) or by[name + FLAT_SUFFIX]
         c, s = math.cos(turn), math.sin(turn)
         base = len(verts)
         for px, py, pz in m["verts"]:
@@ -810,10 +839,29 @@ def scene_model(models):
     return {"name": "scene", "verts": verts, "faces": faces, "flags": 0}
 
 
-def build_island():
+# the colour of each floor tile for a flat look of the map (map3d draws the floor from the sheet; a game that wants
+# flat floors draws them with these)
+FLAT_TILE_COLOURS = {"water": 0x2D6FB5, "sand": 0xE8D190, "grass": 0x5FAE3C, "dirt": 0x8A5A33, "rock": 0x8D9096,
+                     "shore": 0xC9B27A, "stones": 0x6C6F75}
+
+
+def make_models(look):
+    """every model of the kit in one look ("texture" or "flat"); the flat ones have FLAT_SUFFIX at the end of the name"""
+    global LOOK
+    old, LOOK = LOOK, look
+    try:
+        return [m().model() for m in MODELS]
+    finally:
+        LOOK = old
+
+
+def build_island(looks=("texture", "flat")):
     sh = Sheet()
     zones = paint_sheet(sh)
-    models = [m().model() for m in MODELS]
+    models = []
+    for look in looks:
+        models += make_models(look)
+    flat_first = looks[0] == "flat"
     f = bmres.File(bmres.KIT, "Island", "bm")
     f.sections.append([bmres.SEC_MESH, bmmesh.encode(models, inset=0.25)])
     bmres.sheet_set(f, SW, SH, bytes(sh.px), seed=())
@@ -825,16 +873,21 @@ def build_island():
                      ("tags", "map, 3d, island, benchmark, kit"), ("quality", QUALITY),
                      ("desc", "An island in the ocean with a campfire in the middle: 3D map, models and 2D sprites that swap with them")],
             "items": []}
+    info["file"].append(("looks", ", ".join(looks)))
     for name, oid, model, sprite, mode, scale, radius in OBJECTS:
-        cls = CLASS_NAMES[next(m for m in models if m["name"] == model)["flags"] & 14]
-        bmres.info_item(info, "object", name, True)[2].extend([("id", str(oid)), ("model", model), ("sprite", sprite),
-                                                              ("mode", mode), ("scale", f"{scale:g}"), ("class", cls),
-                                                              ("radius", f"{radius:g}")])
+        first = model + (FLAT_SUFFIX if flat_first else "")
+        cls = CLASS_NAMES[next(m for m in models if m["name"] == first)["flags"] & 14]
+        keys = [("id", str(oid)), ("model", first)]
+        if len(looks) == 2:                                   # the same triangles in the other look
+            keys.append(("model_flat", model + FLAT_SUFFIX))
+        keys += [("sprite", sprite), ("mode", mode), ("scale", f"{scale:g}"), ("class", cls), ("radius", f"{radius:g}")]
+        bmres.info_item(info, "object", name, True)[2].extend(keys)
     bmres.info_item(info, "object", "player_start", True)[2].extend([("id", str(PLAYER_START)), ("mode", "none")])
     bmres.info_item(info, "map", "island", True)[2].extend([
         ("layers", ",".join(LAYER_NAMES)), ("tile", "16x16 pixels = 2x2 cells"), ("size", f"{MAP_TILES}x{MAP_TILES} tiles"),
         ("floor tiles", ", ".join(f"{k}={v}" for k, v in TILES.items())),
-        ("height step", "0.25 world units (map3d_build step)"), ("sea level", "height 0")])
+        ("height step", "0.25 world units (map3d_build step)"), ("sea level", "height 0"),
+        ("flat floor colours", ", ".join(f"{k}={v:06X}" for k, v in FLAT_TILE_COLOURS.items()))])
     bmres.info_store(f, info)
     bmres.check(f, "island.bmk")
     return f
@@ -881,8 +934,9 @@ def describe(f, strict=True):
         if v not in ids and v not in (1024, 1026, 1028, 1030, 1032, 1034):
             problems.append(f"objects layer: id {v} is not in the object table (INFO)")
     for n, o in objs.items():
-        if o.get("model") and o["model"] not in names:
-            problems.append(f"object {n}: no model {o['model']}")
+        for key in ("model", "model_flat"):
+            if o.get(key) and o[key] not in names:
+                problems.append(f"object {n}: no model {o[key]}")
         if o.get("sprite") and o["sprite"] not in zones:
             problems.append(f"object {n}: no sprite {o['sprite']}")
         if o.get("mode") not in OBJECT_MODES + ("none", None):
@@ -934,6 +988,8 @@ def main():
     a.add_argument("--png")
     a.add_argument("--no-preview", action="store_true", help="no COVER and PREVIEW (the picture inside the file)")
     a.add_argument("--quality", choices=sorted(QUALITIES), default="hi", help="hi poly first, cut down after (default hi)")
+    a.add_argument("--look", choices=("both", "texture", "flat"), default="both",
+                   help="both: every model twice, textured and flat (name + _f); default both")
     for c in ("check", "list"):
         sub.add_parser(c).add_argument("file")
     args = ap.parse_args()
@@ -941,12 +997,14 @@ def main():
         if args.cmd == "island":
             global QUALITY
             QUALITY = args.quality
-            f = build_island()
+            looks = ("texture", "flat") if args.look == "both" else (args.look,)
+            f = build_island(looks)
             if not args.no_preview:                         # the picture inside the file (scripts/bmpreview.py)
                 import bmpreview
                 sheet = bmres.File(bmres.KIT, "scene", "bm", [s for s in f.sections if s[0] in bmres.SHEETS])
+                first = make_models(looks[0])
                 scene = bmres.File(bmres.KIT, "scene", "bm", sheet.sections +
-                                   [[bmres.SEC_MESH, bmmesh.encode([m().model() for m in MODELS] + [scene_model([m().model() for m in MODELS])])]])
+                                   [[bmres.SEC_MESH, bmmesh.encode(first + [scene_model(first)])]])
                 bmpreview.embed(f, "scene", source=scene)
             bmres.write(args.out, f)
             print(f"{args.out}: {os.path.getsize(args.out)} bytes")
