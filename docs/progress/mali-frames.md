@@ -38,14 +38,11 @@ Fix: `gpu3d_page(1, c)` marks the page, the first resolve after it fills the pag
 With the panel off the run had no GPU job at all (`jobs` 0, `ms` 9.0 with the ARM raster): not explained, check it before the next probe.
 Next development: a textured variant of the cached mesh path (UV in the vertex, `BM_VS_TEX` with a matrix), so the plaza costs the ARM what a hero does. Expected: `d_map` from 5.9 ms to under 1 ms, and a 3D game with a textured map gains the same.
 
-## Plan: textured meshes in the vertex shader (29 Oct)
+## Textured meshes in the vertex shader (bm3d 7.32, 29 Oct)
 
-What the code does today (read, not changed):
-- `be_mesh_impl` (`src/rgb30/mali.c`) returns 0 for a face with `R3D_TEXTURED` or `R3D_SCREEN`, so r3d draws the mesh one face at a time and sends each one to `be_tri` as `R3D_KIND_TEXTURE`. A textured face is three corners `x y 1/depth u v k` (k is the light of the face). `be_tri` scales `u v` by the sheet's `iw` and `ih` and puts the face in a draw of its sheet (`rgb = 0x01000000 | slot`, `tex_pa`).
-- The shaders of a textured draw are `BM_VS_TEX` (position and `u v k` as they come) and `BM_FS_TEX` (texel times k, blue at least 1/255). The cached lit mesh path has `BM_VS_LIT`, `BM_VS_LITX`, `BM_VS_LITB` (matrix by rows in uniform buffer 0; the light from the face normal) and the face cache `be_rm_get`.
-- The shader toolchain is in WSL: `~/mesa-bifrost` and `~/mb`; `bash tools/mali/mk.sh src/rgb30/mali_shaders.h` from the root of the repository makes the header (`tools/mali/mkshader.c`).
-Steps:
-1. A shader `BM_VS_TEXM`: attributes position (x y z 1), normal and flag, `u v` of the vertex; the matrix by rows as `BM_VS_LIT`; varying 0 = `u v k` with k from the light of `BM_VS_LIT` (one value, the mean of the channels as r3d does). Check that r3d's k and the u v interpolation (perspective or not) give the same pixels as the ARM path.
-2. A face cache entry for a textured mesh (`be_rm_get` with the u v and the sheet slot), a draw kind for it in `build_draws`, and the guard of `be_mesh_impl` for `R3D_TEXTURED` (not `R3D_SCREEN`) when the sheet has a slot (`be_tex_find`) and the mesh is not cut by the near plane.
-3. Checks: the pixel check of the 3D Bench (`spheres_tex`, `heroes_tex`) with `KC` equal to the ARM result, `herocart` at 0 heroes (`d_map` 5.9 ms now; the target is under 1 ms), the full suite with K and KC, and the shots of the scenes.
-Do not start from the shader alone: the order of 2 and 3 decides how the near plane and the depth test behave.
+Built. `be_mesh_impl` (`src/rgb30/mali.c`) takes a rigid mesh when every shown face has `R3D_TEXTURED`, the mesh has `uv` and one sheet with a slot (`be_tex_find`), and the light is the sun and the sky. It goes through the face cache as kind 3 (12 floats a vertex: position, normal and emissive flag, `u v` scaled by the sheet). `build_draws` draws it with the shader `BM_VS_TEXM` and `BM_FS_TEX`; the draw has `tex_pa` and `litx` 0.
+- The light: r3d gives a textured face k = the grey of the light (`lit_grey`), with no fog. `BM_VS_TEXM` computes the same value from the face normal (`R3D_SMOOTH`: from the vertex normal, as r3d does; a face with `R3D_FLAT` keeps the face normal). An unlit mesh and an emissive face have k = 1.
+- The ARM keeps the mesh with cel, lamps, rim, a skeleton, `R3D_FRONT`, a face without a texture or with `R3D_SCREEN`, fewer than 16 faces, or small faces (`mali_lit_min`), and with `mali_res=0`.
+- Result (RGB30, 29 Oct): `herocart`, 0 heroes, the plaza (3036 triangles): `map3d_draw` 5.8 ms -> 0.6 ms, frame 12.6 -> 6.1 ms (panel on, GPU 2.0 ms). The screen is the same pixel for pixel as with `mali_res=0` (only the stats text and 3 pixels differ). 3D Bench `spheres_tex` now runs `GPU+VS`: n60 254 (GPU 122, ARM 52), K and KC equal to `GPU`. Full suite: games 633, GPU 743, ARM 601, no KC at 0.
+- `herocart` with the panel off had no GPU job (frame 8.8 ms, `gpu` 0.0) before this change too. Not explained: check it before the next probe (the cart is not changed).
+- The near plane: a mesh with a vertex behind the near plane goes to the ARM unless the camera is inside its box (`env->inside`: the GPU clips it, as for a flat mesh). No scene has shown a fault.

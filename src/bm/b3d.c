@@ -1256,7 +1256,7 @@ typedef struct {
 static const test_t tests[] = {
     { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS | M_VSA, sp_flat, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
-    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16 | M_ETC1 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
+    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_VS | M_T16 | M_ETC1 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
       0 },
     { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },

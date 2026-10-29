@@ -279,6 +279,52 @@ int main(int argc, char **argv)
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
         compile("BM_VS_LIT", b.shader, out, &vi, 1);
     }
+    {   /* textured mesh vertex: BM_VS_LIT with the texture. Attributes: 0 = pos, 1 = (face normal, emissive flag), 2 = (u, v) in
+         * the sheet's 0..1 (the third and fourth value are not read). Uniform buffer 0 as BM_VS_LIT. Varying 0 = (u, v, k, 0) for
+         * BM_FS_TEX, with k = the grey of the light (the mean of the three channels, at most 1; 1 for an emissive face), as r3d
+         * gives a textured face (lit_grey). */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, opt, "bm_vs_texm");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        b.shader->info.num_ubos = 1;
+        nir_variable *ipos = var(&b, nir_var_shader_in, "pos", VERT_ATTRIB_GENERIC0, INTERP_MODE_NONE);
+        nir_variable *inrm = var(&b, nir_var_shader_in, "nrm", VERT_ATTRIB_GENERIC1, INTERP_MODE_NONE);
+        nir_variable *iuv = var(&b, nir_var_shader_in, "uv", VERT_ATTRIB_GENERIC2, INTERP_MODE_NONE);
+        inrm->data.driver_location = 1;
+        iuv->data.driver_location = 2;
+        nir_variable *opos = var(&b, nir_var_shader_out, "gl_Position", VARYING_SLOT_POS, INTERP_MODE_NONE);
+        nir_variable *ouv = var(&b, nir_var_shader_out, "uvk_out", VARYING_SLOT_VAR0, INTERP_MODE_SMOOTH);
+        ouv->data.driver_location = 1;
+        nir_def *p = nir_load_var(&b, ipos);
+        nir_def *r[4];
+        for (int i = 0; i < 4; i++) {
+            nir_def *row = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 16 * i), .align_mul = 16,
+                                        .align_offset = 0, .range_base = 0, .range = 416);
+            r[i] = nir_fdot4(&b, row, p);
+        }
+        nir_store_var(&b, opos, nir_vec4(&b, r[0], r[1], r[2], r[3]), 0xf);
+        nir_def *nrm = nir_load_var(&b, inrm), *uv = nir_load_var(&b, iuv);
+        nir_def *u[5];
+        static const int off[5] = { 64, 80, 128, 144, 160 };
+        for (int i = 0; i < 5; i++)
+            u[i] = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, off[i]), .align_mul = 16,
+                                .align_offset = 0, .range_base = 0, .range = 416);
+        nir_def *n = nir_trim_vector(&b, nrm, 3);
+        nir_def *d = nir_fmax(&b, nir_fdot3(&b, n, nir_trim_vector(&b, u[0], 3)), nir_imm_float(&b, 0.0f));
+        nir_def *ny = nir_fdot3(&b, n, nir_trim_vector(&b, u[1], 3));
+        nir_def *emi = nir_flt(&b, nir_imm_float(&b, 0.5f), nir_channel(&b, nrm, 3));
+        nir_def *sum = NULL;
+        for (int c = 0; c < 3; c++) {
+            nir_def *l = nir_fadd(&b, nir_channel(&b, u[2], c),
+                                  nir_fadd(&b, nir_fmul(&b, nir_channel(&b, u[3], c), ny),
+                                           nir_fmul(&b, nir_channel(&b, u[4], c), d)));
+            sum = sum ? nir_fadd(&b, sum, l) : l;
+        }
+        nir_def *k = nir_fmin(&b, nir_fmul(&b, sum, nir_imm_float(&b, 1.0f / 3.0f)), nir_imm_float(&b, 1.0f));
+        k = nir_bcsel(&b, emi, nir_imm_float(&b, 1.0f), k);
+        nir_store_var(&b, ouv, nir_vec4(&b, nir_channel(&b, uv, 0), nir_channel(&b, uv, 1), k, nir_imm_float(&b, 0.0f)), 0xf);
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_VS_TEXM", b.shader, out, &vi, 1);
+    }
     for (int skin = 0; skin < 2; skin++) {
         /* lit vertex with every effect (Q2b): the lighting of be_mesh for a mesh without cel levels, read from uniform buffer 0
          * (not pushed). Attributes: position, (face normal, emissive), (base colour 0..255, glossy), (face centre, bone).

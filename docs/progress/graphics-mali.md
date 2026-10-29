@@ -63,7 +63,7 @@ Hardware Results (3D Bench 28 Oct 2026, `bm3d 7.18`, report `20261028-114152_ben
 | `queue` | - | 47.8 / 131.4 | 71.9 / 156.5 | 631.1 (+Q) |
 | `gpu2d` | 3239.2 / 6541.0 | 2982.6 / 6456.4 | - | ~1,200 |
 | `quad_tex` | 6.5 / 13.0 | 126.5 / 274.9 | - | - |
-| `spheres_tex` | 52.3 / 184.5 | 123.6 / 168.3 | - | - |
+| `spheres_tex` | 52.3 / 184.5 | 123.6 / 168.3 | 254.3 / 531.8 (bm3d 7.32) | - |
 | `heroes` | 15.6 / 31.6 | 2.7 / 4.9 | 3.4 / 5.4 | - |
 | `heroes_tex` | 12.7 / 26.1 | 8.1 / 10.4 | 8.1 / 10.4 | - |
 | `heroes_skin` | 12.6 / 26.0 | 8.1 / 10.3 | 8.1 / 10.3 | - |
@@ -91,7 +91,7 @@ Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-p
 - Check the pixels of a GPU scene by eye before you trust a faster 3D Bench number (26 Oct: a faster score came from black frames).
 - `src/rgb30/memops.c` holds the kernel's `memcpy`, `memmove`, `memset` and `memcmp`. Device memory goes through volatile accessors, not through them.
 - `mali3d` is on by default (`bm3d 7.15`). With `mali3d=0`, `gpu3d=0`, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).
-- The Mali draws flat colours, untextured lit/cel/fog meshes and opaque textures. `r3d` hands alpha textures, screen textures, bilinear textures and effects to the ARM. `mali_tex=0` sends all textures to the ARM.
+- The Mali draws flat colours, untextured lit/cel/fog meshes, opaque textures and (bm3d 7.32) textured rigid meshes in the vertex shader (`BM_VS_TEXM`, face cache kind 3). `r3d` hands alpha textures, screen textures, bilinear textures and effects to the ARM. `mali_tex=0` sends all textures to the ARM.
 - Depth values: a triangle of `be_tri` carries 1/depth in z; the backend writes z = 1 - R3D_NEAR / depth. A mesh matrix has z/w = 1 - R3D_NEAR / depth (row 2 = row 3 minus R3D_NEAR). All triangles of a frame must be in one pass: a second frame has no depth of the first.
 - Lit meshes use 2 MB at `mem - 10 MB` (pushed words of the draws, then the vertices). The arena ends at `mem - 2 MB`: the resolve surface starts there. Data past it gives an empty picture and no error (28 Oct). `fb.c` stops the framebuffer 10 MB lower; `be_arena` needs 12 MB. The uniform words of the lit draws take 0x80000 bytes of the area, each draw its own `uoff`. Pushed words go in the compiler's order: word q of the push buffer is the word `X_push[q]` of the uniform buffer. `BM_VS3` pushes in uniform order, other shaders do not.
 - The 2D of `mali_2d=1` goes after the 3D of a batch, without a depth test, one draw for the rectangles in a row (a colour a vertex) and one for the sprites in a row of up to 16 sheets (the third value of the varying is the sheet; the draw has an array of the Texture descriptors, 576 bytes a draw at the end of the lit area). A 3D face after pending 2D ends the job first. A sheet with transparent texels is RGB5A1 (green loses its last bit); colour 0xF81F is drawn with green 1, as the key colour is 0xFF00FF.

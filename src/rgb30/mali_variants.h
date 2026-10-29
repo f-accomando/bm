@@ -24,6 +24,7 @@
 #define SO_VRSDL        0x0a80      /* the lit meshes' vertex Renderer State (BM_VS_LIT) */
 #define SO_VRSDX        0x0ac0      /* the same with every effect (BM_VS_LITX) */
 #define SO_VRSDB        0x0400      /* the skinned meshes' vertex Renderer State (BM_VS_LITB) */
+#define SO_VRSDM        0x0c80      /* the textured meshes' vertex Renderer State (BM_VS_TEXM) */
 #define SO_LS           0x0b00      /* Local Storage */
 #define SO_VIEWPORT     0x0b40
 #define SO_ATTR         0x0bc0
@@ -37,6 +38,7 @@
 #define SO_FS_VCOL      0x9000      /* BM_FS_VCOL (0xc0 bytes) */
 #define SO_VS_LITX      0x9200      /* BM_VS_LITX (0xad0 bytes) */
 #define SO_VS_LITB      0xa000      /* BM_VS_LITB (0xbb0 bytes) */
+#define SO_VS_TEXM      0xac00      /* BM_VS_TEXM (0x2a0 bytes) */
 #define SO_FS_SPR       0xb000      /* BM_FS_SPR (the 2D sprites) */
 #define SO_HEAP         0x80000
 #define SO_DRAWS        0x40000

@@ -910,6 +910,7 @@ static void build_draws(void *p)
             const uint64_t lx0 = cnt_now();
             const float (*litv)[12] = draws[d].litv;
             const int litx = draws[d].litx, vstride = litx ? 64 : 48;
+            const int tm = draws[d].tex_pa != 0;    /* a textured mesh: BM_VS_TEXM and the texture shader (the cache entry has u v) */
             if (draws[d].res_blk) {             /* the face cache: the blocks of the visible faces, copied as they are */
                 const size_t fs = (size_t)vstride * 3;
                 for (uint32_t kx = 0; kx < draws[d].n; kx++)
@@ -950,20 +951,21 @@ static void build_draws(void *p)
                     lpp[q] = q < 16 ? draws[d].mvp[q] : draws[d].light[q - 16];
             } else {                            /* BM_VS_LIT: the pushed words in the order the compiler chose: word q is the word
                                                  * BM_VS_LIT_push[q] of uniform buffer 0 */
+                const unsigned npush = tm ? BM_VS_TEXM_PUSH_COUNT : BM_VS_LIT_PUSH_COUNT;
                 for (unsigned q = 0; q < 36; q++) {
-                    const unsigned wi = q < BM_VS_LIT_PUSH_COUNT ? BM_VS_LIT_push[q][1] >> 2 : 0;
-                    lpp[q] = q >= BM_VS_LIT_PUSH_COUNT ? 0.0f : wi < 16 ? draws[d].mvp[wi] : draws[d].light[wi - 16];
+                    const unsigned wi = q < npush ? (tm ? BM_VS_TEXM_push[q][1] : BM_VS_LIT_push[q][1]) >> 2 : 0;
+                    lpp[q] = q >= npush ? 0.0f : wi < 16 ? draws[d].mvp[wi] : draws[d].light[wi - 16];
                 }
             }
             zero16(push_m + 64 * (size_t)d, 32);
-            memcpy(loc + D_FRSD, c->frsl_buf, 80);
+            memcpy(loc + D_FRSD, tm ? frst_buf : c->frsl_buf, 80);
             md_attribute_buffer(loc + D_ABUFS, (draws[d].res_blk ? c->lv2_pa : c->lv_pa) + (uint64_t)vstride * first, vstride, vstride * nv);
             md_attribute_buffer(loc + D_ABUFS + 16, 0, 0, 0);
             md_attribute_buffer(loc + D_VBUFS, (draws[d].res_blk ? c->tvy2_pa : tvy_pa) + 16 * (uint64_t)first, 16, 16 * nv);
             md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
             md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
             md_uniform_buffer(loc + D_VUBO, c->litp_pa + draws[d].uoff, ubo_entries);
-            md_draw_t lvd = { .state = pa + sb + (litx == 2 ? SO_VRSDB : litx ? SO_VRSDX : SO_VRSDL), .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
+            md_draw_t lvd = { .state = pa + sb + (litx == 2 ? SO_VRSDB : litx ? SO_VRSDX : tm ? SO_VRSDM : SO_VRSDL), .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
                               .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR,
                               .uniform_buffers = dpa + D_VUBO, .push_uniforms = c->litp_pa + draws[d].uoff,
                               .thread_storage = pa + sb + SO_LS };
@@ -972,7 +974,8 @@ static void build_draws(void *p)
             md_draw_t ltd = { .position = pos_pa + 16 * (uint64_t)first, .state = dpa + D_FRSD,
                               .viewport = pa + sb + SO_VIEWPORT, .push_uniforms = push_pa + 64 * (uint64_t)d,
                               .thread_storage = pa + sb + SO_LS, .varying_buffers = dpa + D_VBUFS,
-                              .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE };
+                              .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE,
+                              .textures = tm ? draws[d].tex_pa : 0, .samplers = tm ? draws[d].tex_pa + 0x80 : 0 };
             md_primitive_t lprim = { .mode = MD_TRIANGLES, .index_count = nv };
             job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
                        d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
@@ -1127,7 +1130,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         }
     int any_tex = 0;
     for (uint32_t d = 0; d < ndraws && !any_tex; d++)
-        any_tex = draws[d].uvk != NULL && tv_m != NULL;
+        any_tex = (draws[d].uvk != NULL || (draws[d].litv != NULL && draws[d].tex_pa)) && tv_m != NULL;
     if (any_tex) {
         memcpy(m + sb + SO_VS_TEX, BM_VS_TEX_bin, sizeof BM_VS_TEX_bin);
         memcpy(m + sb + SO_FS_TEX, BM_FS_TEX_bin, sizeof BM_FS_TEX_bin);
@@ -1152,6 +1155,11 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     int any_litb = 0;
     for (uint32_t d = 0; d < ndraws && !any_litb; d++)
         any_litb = draws[d].litv != NULL && draws[d].litx == 2 && tv_m != NULL;
+    int any_tm = 0;
+    for (uint32_t d = 0; d < ndraws && !any_tm; d++)
+        any_tm = draws[d].litv != NULL && draws[d].tex_pa && tv_m != NULL;
+    if (any_tm)
+        memcpy(m + sb + SO_VS_TEXM, BM_VS_TEXM_bin, sizeof BM_VS_TEXM_bin);
     if (any_litx)
         memcpy(m + sb + SO_VS_LITX, BM_VS_LITX_bin, sizeof BM_VS_LITX_bin);
     if (any_litb)
@@ -1207,6 +1215,11 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                   .work_regs = BM_VS_LITX_WORK_REGS, .preload_regs = BM_VS_LITX_PRELOAD,
                                   .push_count = BM_VS_LITX_PUSH_COUNT };
     md_renderer_state(hdr + SO_VRSDX, &vrslx);
+    md_renderer_state_t vrsm = { .shader = pa + sb + SO_VS_TEXM, .attribute_count = BM_VS_TEXM_ATTRIBUTE_COUNT,
+                                 .varying_count = BM_VS_TEXM_VARYING_COUNT, .ubo_count = BM_VS_TEXM_UBO_COUNT,
+                                 .work_regs = BM_VS_TEXM_WORK_REGS, .preload_regs = BM_VS_TEXM_PRELOAD,
+                                 .push_count = BM_VS_TEXM_PUSH_COUNT };
+    md_renderer_state(hdr + SO_VRSDM, &vrsm);
     md_renderer_state_t vrslb = { .shader = pa + sb + SO_VS_LITB, .attribute_count = BM_VS_LITB_ATTRIBUTE_COUNT,
                                   .varying_count = BM_VS_LITB_VARYING_COUNT, .ubo_count = BM_VS_LITB_UBO_COUNT,
                                   .work_regs = BM_VS_LITB_WORK_REGS, .preload_regs = BM_VS_LITB_PRELOAD,
@@ -1779,7 +1792,8 @@ static be_tri_t be_tris[BE_MAX_TRIS];
 static float be_mvps[BE_MAX_MVPS][16];
 /* the face cache: the vertices of the faces of a lit mesh made once (the mesh, its version, the detail, the kind of light and the colours
  * name the entry), so a frame only tests the faces and copies the visible ones. Kind 0 (sun and ambient light) has vertices of 12
- * floats, kinds 1 and 2 (the effects, the skeleton) of 16. A block is the 3 vertices of a face. */
+ * floats, kinds 1 and 2 (the effects, the skeleton) of 16. Kind 3 (a textured mesh, BM_VS_TEXM) has 12 floats: position, normal and
+ * emissive flag, then u v of the sheet in 0..1. A block is the 3 vertices of a face. */
 #define BE_RM_SLOTS     12
 #define BE_RM_POOL      (3u << 18)              /* floats: 3 MB */
 #define BE_INST_MAX     256
@@ -1789,12 +1803,16 @@ typedef struct {
     int nfaces, detail, kind, unlit;
     uint32_t nshown;
     float *blk;
+    const void *tex;                            /* kind 3: the sheet, and the scale of its u v */
+    float iw, ih;
+    int smooth;                                 /* kind 3: the normals are the vertices' (Gouraud light) */
 } be_rm_t;
 typedef struct {
     const be_rm_t *rm;
     const float *mvp, *light;
     int kind, nb;
     uint32_t nvis, vis0;
+    uint64_t tex_pa;                            /* kind 3: the sheet's descriptor */
 } be_inst_t;
 static be_rm_t be_rms[BE_RM_SLOTS];
 static int be_nrm;
@@ -2550,10 +2568,10 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             dr[nd].rgb = 0x06000000u;
             dr[nd].mvp = q->mvp;
             dr[nd].uvk = NULL;
-            dr[nd].tex_pa = 0;
+            dr[nd].tex_pa = q->tex_pa;
             dr[nd].litv = (const float (*)[12])litbuf[0];   /* (not read: marks a lit draw) */
             dr[nd].light = q->light;
-            dr[nd].litx = q->kind;
+            dr[nd].litx = q->kind == 3 ? 0 : q->kind;
             dr[nd].nbones = q->nb;
             dr[nd].d2 = 0;
             dr[nd].ntex = 0;
@@ -2964,19 +2982,20 @@ static void be_set_light(const float *mvp, const r3d_env_t *env, v3_t sun, v3_t 
 static int be_arena(void);
 
 /* the cache entry of a lit mesh, made now if there is none, or NULL (the faces go one by one) */
-static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int kind, int skinned)
+static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int kind, int skinned, const be_texslot_t *sl)
 {
     uint32_t cs = 0;
     for (int t = 0; t < m->nfaces; t++)
         cs = (cs << 1 | cs >> 31) ^ m->colors[t];
     const int unlit = env->unlit != 0;
+    const int smooth = sl && env->smooth && m->vnormals;
     for (int i = 0; i < be_nrm; i++) {
         const be_rm_t *r = &be_rms[i];
         if (r->m == m && r->version == m->version && r->nfaces == m->nfaces && r->detail == env->detail && r->kind == kind &&
-            r->unlit == unlit && r->colsum == cs)
+            r->unlit == unlit && r->colsum == cs && r->smooth == smooth && r->tex == (sl ? (const void *)m->tex : NULL) && (!sl || (r->iw == sl->iw && r->ih == sl->ih)))
             return r;
     }
-    const unsigned stride = kind ? 16 : 12;
+    const unsigned stride = (kind == 1 || kind == 2) ? 16 : 12;
     uint32_t shown = 0;
     for (int t = 0; t < m->nfaces; t++)
         shown += R3D_LOD_SHOWS(m->colors[t], env->detail) ? 1 : 0;
@@ -3004,10 +3023,16 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
         for (int k = 0; k < 3; k++) {
             float *q = o + k * stride;
             q[0] = v[k].x; q[1] = v[k].y; q[2] = v[k].z; q[3] = 1.0f;
-            q[4] = n.x; q[5] = n.y; q[6] = n.z; q[7] = emi;
-            q[8] = (float)(c >> 16 & 255); q[9] = (float)(c >> 8 & 255); q[10] = (float)(c & 255);
-            q[11] = (c & R3D_GLOSSY) ? 1.0f : 0.0f;
-            if (kind) {
+            const v3_t nk = (smooth && !(c & R3D_FLAT)) ? m->vnormals[fc[k]] : n;   /* (r3d lights a textured corner from its vertex) */
+            q[4] = nk.x; q[5] = nk.y; q[6] = nk.z; q[7] = emi;
+            if (sl) {
+                q[8] = m->uv[t * 6 + 2 * k] * sl->iw; q[9] = m->uv[t * 6 + 2 * k + 1] * sl->ih;
+                q[10] = q[11] = 0.0f;
+            } else {
+                q[8] = (float)(c >> 16 & 255); q[9] = (float)(c >> 8 & 255); q[10] = (float)(c & 255);
+                q[11] = (c & R3D_GLOSSY) ? 1.0f : 0.0f;
+            }
+            if (kind == 1 || kind == 2) {
                 q[12] = cx; q[13] = cy; q[14] = cz;
                 q[15] = skinned ? (float)m->vbone[fc[0]] : 0.0f;
             }
@@ -3016,6 +3041,8 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
     }
     r->m = m; r->version = m->version; r->nfaces = m->nfaces; r->detail = env->detail; r->kind = kind; r->unlit = unlit;
     r->colsum = cs; r->nshown = shown; r->blk = be_rm_pool + be_rm_used - need;
+    r->smooth = smooth;
+    r->tex = sl ? (const void *)m->tex : NULL; r->iw = sl ? sl->iw : 0.0f; r->ih = sl ? sl->ih : 0.0f;
     return r;
 }
 
@@ -3029,12 +3056,17 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     const int skinned = m->bones && m->nbones > 0 && m->vbone;
     const int nb = skinned ? (nbones < 32 ? nbones : 32) : 1;
     const unsigned dbit = 1u << env->detail;
+    int ntexf = 0, nflatf = 0;                  /* the shown faces with and without a texture */
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
         if (!R3D_LOD_SHOWS(c, env->detail))
             continue;
-        if (c & (R3D_TEXTURED | R3D_SCREEN))
+        if (c & R3D_SCREEN)
             return 0;
+        if (c & R3D_TEXTURED)
+            ntexf++;
+        else
+            nflatf++;
         if (skinned) {
             const uint16_t *fc = m->faces + t * 3;
             const uint8_t b0 = m->vbone[fc[0]];
@@ -3052,6 +3084,18 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             if (cz < R3D_NEAR)
                 return 0;
         }
+    }
+    /* a textured mesh: the cache and the vertex shader light it as r3d does a textured face (the grey of the sun and sky light, no fog),
+     * so the faces all have the texture and the light is the sun and sky alone */
+    const be_texslot_t *tsl = NULL;
+    if (ntexf) {
+        if (nflatf || skinned || env->front || !m->uv || !m->tex || !be_res_on || !be_zmode() || !be_arena() ||
+            m->nfaces < 16 || (env->lit && (!N || env->cel > 0 || env->nlamps > 0 || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f)))
+            return 0;
+        const int ts = be_tex_find(g, m->tex);
+        if (ts < 0)
+            return 0;
+        tsl = &be_texs[ts];
     }
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
     if (be_n2d || be_n + m->nfaces > cap || (int)be_nvis + m->nfaces > BE_VIS_MAX || be_nmvp + nb > BE_MAX_MVPS ||
@@ -3143,11 +3187,21 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     if (vlit)
         for (int b = 0; b < nb; b++)
             be_set_light(mvp_bone[b], env, l_sun[b], l_up[b], l_view[b], l_half[b], M[b], cz_bone[b]);
-    if (vlit && be_res_on && zmode) {           /* the face cache: only the visible faces' numbers go on */
-        const int kind = vx == 2 ? 2 : vx ? 1 : 0;
-        const be_rm_t *rm = be_rm_get(m, env, kind, skinned);
+    if (tsl) {                                  /* a textured mesh: one matrix, the light block of BM_VS_TEXM (sun, up, A, B, D) */
+        vlit = 0;
+        const float rpx = m->radius > 0.0f ? m->radius * env->f / cz_bone[0] : 1e9f;
+        if (!mvp_bone[0] || 3.14f * rpx * rpx < be_lit_min * 0.5f * (float)m->nfaces)
+            return 0;                           /* (the ARM draws the faces one by one) */
+        if (env->lit)
+            be_set_light(mvp_bone[0], env, l_sun[0], l_up[0], l_view[0], l_half[0], M[0], cz_bone[0]);
+        else
+            memset(be_lights[(const float (*)[16])mvp_bone[0] - be_mvps], 0, 88 * sizeof(float));
+    }
+    if ((vlit || tsl) && be_res_on && zmode) {  /* the face cache: only the visible faces' numbers go on */
+        const int kind = tsl ? 3 : vx == 2 ? 2 : vx ? 1 : 0;
+        const be_rm_t *rm = be_rm_get(m, env, kind, skinned, tsl);
         if (rm) {
-            const unsigned stride = kind ? 16 : 12;
+            const unsigned stride = (kind == 1 || kind == 2) ? 16 : 12;
             const uint32_t vis0 = be_nvis;
             for (uint32_t j = 0; j < rm->nshown; j++) {
                 const float *f = rm->blk + (size_t)j * 3 * stride;
@@ -3167,6 +3221,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                 q->nb = nb;
                 q->nvis = nvis;
                 q->vis0 = vis0;
+                q->tex_pa = tsl ? tsl->pa : 0;
             }
             be_stats.glmeshes++;
             be_stats.gltris += nvis;
@@ -3174,6 +3229,8 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             return 1;
         }
     }
+    if (tsl)
+        return 0;                               /* no cache entry: r3d draws the faces one by one */
     uint32_t nsent = 0;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
