@@ -1,0 +1,151 @@
+bm report
+kind: log
+kernel: v0.2.5-1774-g053727f3-dirty
+branch: claude/pensive-ride-u82p7f
+board: Pi Zero W
+date: 2026-10-29 07:59:32
+file: 20261029-075932_log_pi-zero-w_v0.2.5-1774-g053727f3-dirty.txt
+
+
+bm kernel v0.2.5-1774-g053727f3-dirty - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 44.3 C
+ARM1176 from SVC, MMU+caches on, heap 433 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 8 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 8/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 3 networks
+   1   -59 dBm  ch 11  WPA2  FASTWEB-36AB12
+   2   -74 dBm  ch  6  WPA2  FASTWEB-5j5SAq
+   3   -79 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fiber: covers did not yield: 29.4 ms past its slice
+covers: all 14 read
+menu idle: 300/300 frames, 238 of 2474 ms taken, 26.8 ms past a frame; covers 226 ms (+29.4, stk 0.8/16K); min slack -194 us, paced 0; sd 6 retried, 6 timed out
+menu idle: sd sites: rdend 6; first word <1ms 102 <3ms 8 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 7084 us, enlarge 1 us, flip 95 us, free time used 795 us (300 frames)
+menu frame: 1x, a frame averages draw 6524 us, enlarge 0 us, flip 94 us, free time used 31 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-10-29 07:57 UTC
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 6475 us, enlarge 1 us, flip 94 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 6527 us, enlarge 1 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6595 us, enlarge 1 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6509 us, enlarge 1 us, flip 94 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6423 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6571 us, enlarge 1 us, flip 93 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6577 us, enlarge 1 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6492 us, enlarge 1 us, flip 91 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6404 us, enlarge 1 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6608 us, enlarge 0 us, flip 95 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6563 us, enlarge 1 us, flip 95 us, free time used 33 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 15.5 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+fiber: market did not yield: 59.2 ms past its slice
+menu idle: 300/300 frames, 230 of 1874 ms taken, 59.6 ms past a frame; market 217 ms (+59.2, stk 3.2/128K, stop 0.2); min slack -9858 us, paced 0
+menu idle: sd first word <1ms 52 (max 1.5 ms)
+menu stalls: tls handshake 1x last 179.2 worst 179.2 ms
+menu frame: 1x, a frame averages draw 8914 us, enlarge 1 us, flip 92 us, free time used 767 us (300 frames)
+menu idle: sd first word <1ms 98 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 7688 us, enlarge 1 us, flip 91 us, free time used 12 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: catalog 20261028204358, 21 games
+menu idle: 300/300 frames, 457 of 2078 ms taken, 50.4 ms past a frame; market 449 ms (+55.5, stk 4.0/128K); min slack -14320 us, paced 0
+menu idle: sd first word <1ms 184 <3ms 4 (max 1.5 ms)
+menu stalls: tls handshake 1x last 148.4 worst 148.4 ms
+menu frame: 1x, a frame averages draw 8132 us, enlarge 1 us, flip 93 us, free time used 1524 us (300 frames)
+
+playing kitchen.bm
+play: /bm/kitchen.bm (895588 bytes)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+gpu3d: the V3D did not finish:
+CT0CS   00000000  CT0CA   4231809a  CT0EA   4231809a  CT1CS   00000000
+CT1CA   42358033  CT1EA   42358033  PCS     00000004  BFC     00000000
+RFC     00000000  INTCTL  0000000f  BPCA    4151a080  BPCS    003fd000
+BPOA    41918000  BPOS    00200000  ERRSTAT 00001030  DBGE    00000000
+FDBGO   00000006  FDBGB   1c00001d  FDBGR   595d68fd  FDBGS   1246f1ef
+gpu3d: the GPU did not finish a frame (registers in the log); the 3D is drawn by the ARM again
+gpu3d: the V3D did not finish:
+CT0CS   00000000  CT0CA   4231809a  CT0EA   4231809a  CT1CS   00000000
+CT1CA   42358027  CT1EA   42358027  PCS     00000004  BFC     00000000
+RFC     00000000  INTCTL  0000000f  BPCA    4151a080  BPCS    003fd000
+BPOA    41918000  BPOS    00200000  ERRSTAT 00001030  DBGE    00000000
+FDBGO   00000006  FDBGB   1c00001d  FDBGR   595d68fd  FDBGS   1246f1ef
+gpu3d: the GPU stopped answering after a probe (registers in the log); the 3D is drawn by the ARM again
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+load: Chaos Kitchen 2841 ms (close 0, parse 13, assets+state 17, mode 8, audio 1, lua 2800)
+bm: loaded in 2945 ms, the splash over at 2945 ms
+fb_init_depth: mbox_call failed
+bm: "Chaos Kitchen" suspended (A on its cover resumes it)
+bm: "Chaos Kitchen" 9 frames, 0.4 fps, 9 dropped
+     update+draw avg 12.94 ms (77% of frame), max 25.71 ms, Lua 1408 KB
+     dev kit: Lua peak 1408 KB, data 966 KB, busiest frame 62k instructions, 1 frames over 16.7 ms, 61497 tokens
+     GPU 3D 24 jobs, 5 triangles a frame, 0.04 ms a frame (bin 11%), max job 37 us
+fb_init_depth: mbox_call failed
+fb_init_depth: mbox_call failed
+back to the monitor
+
+type 'h' for help
+> 
+net: console opened from 192.168.1.115
+> :
+:log
+: log
