@@ -1,0 +1,61 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1974-g5c17d02b-dirty
+branch: claude/menu-char-width
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-0efd10_freeze_pi-zero-w_v0.2.5-1974-g5c17d02b-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 3439 s after boot, kernel v0.2.5-1974-g5c17d02b-dirty, ring 78748, sink on
+--- the last lines printed ---
+back to the monitor
+
+type 'h' for help
+> 
+> 
+> 
+> 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 2x, 360p on the ARM
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+ us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6966 us, enlarge 0 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6879 us, enlarge 0 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6872 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7037 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6951 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6862 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6902 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7022 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6935 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6848 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6952 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7004 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6916 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6833 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6992 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6994 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6906 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6823 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7034 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6973 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6885 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6836 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 7048 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6960 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6872 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 17.9 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+fiber: market did not yield: 59.9 ms past its slice
+menu idle: 300/300 frames, 403 of 1862 ms taken, 58.2 ms past a frame; market 390 ms (+59.9, stk 4.0/128K); min slack -22002 us, paced 0
+menu idle: sd first word <1ms 133 (max 8.2 ms)
+menu stalls: tls handshake 1x last 170.8 worst 170.8 ms
+menu frame: 2x, a frame averages draw 10819 us, enlarge 0 us, flip 93 us, free time used 1343 us (300 frames)
+menu idle: 300/300 frames, 118 of 2320 ms taken, 3.8 ms past a frame; market 112 ms (+3.9, stk 4.0/128K); min slack -19666 us, paced 0
+menu idle: sd first word <1ms 72 (max 8.2 ms)
+menu frame: 2x, a frame averages draw 8084 us, enlarge 0 us, flip 93 us, free time used 395 
