@@ -100,3 +100,6 @@ Cover grid, the `menu frame: draw` line (300 frames each; reports on the `report
 
 The native layout is cheaper at 1080p (10.6 ms against 17 ms). It prints `1x` in the line. The 1080p row of 28 Oct (12.5 ms) was lower than the 16 to 18 ms seen now; the cause is not known.
 
+### Step 2 started: the bm font family (29 Oct 2026)
+
+Style chosen by the user (variant C3): light, soft, condensed, fixed width. Choices: `a` with a hook on top, `l` with a tail, `0` with a bar, `1` without a base. Cells: 12x32 at 720p (pen 1.4) and 18x48 at 1080p (pen 2.1), each drawn at its own size. `scripts/bmfont.py` draws the glyphs from strokes and writes `src/gfx/font_bm12x32.c` and `src/gfx/font_bm18x48.c` in the `font_t` format (`--check` finds files that are out of date; `--sheet OUT.png` makes a picture). Done: ASCII 32 to 126, the files, the two names in `font.h`. Not done: the 161 other entries of the code page 437 table (the menu draws some of them), the 8x16, 8x14 and 6x12 fonts, the files in the build lists (`Makefile`, `rgb30.mk`), the menu and the shell on the new cells (they count columns with `font_t`), a test of the screen and the Pi.
