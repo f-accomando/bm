@@ -1,0 +1,50 @@
+bm report
+kind: session
+kernel: v0.2.5-1774-g053727f3-dirty
+branch: claude/pensive-ride-u82p7f
+board: Pi Zero W
+date: 2026-10-29 08:01:21
+file: session_ko-ii_pi-zero-w.txt
+
+session of "KO-II" (the last one: the next run of this game replaces this file)
+options bm3d 7.15 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 1280x720, 380 frames in 11.9 s, 31.9 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 30.5 ms, max 91.5 ms, 380 frames over 16.7 ms
+memory: Lua peak 441 KB, data 1680 KB; code 10066 tokens; busiest frame 323k Lua instructions
+frames that were shown after more than 1.5 frames: 380
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    0
+  <= 25 ms             0
+  <= 34 ms (30 fps)    378
+  <= 50 ms             1
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 379 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.3    1%
+  draw (no 3D)    28.4  170%
+  3D calls         0.0    0%
+  audio            1.9   11%
+  GPU wait         0.0    0%
+  all             30.7  184%
+audio interrupt: 6.2% of the CPU's time (mean), 8.4% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+      2     1.7    35.8   30.9   0.8   30.0   0.0   0.0     4.9       47      271        1
+    363    13.0    33.6   32.2   0.3   31.9   0.0   0.0     1.4       47      225        1
+    175     7.0    33.5   32.4   0.4   31.9   0.0   0.0     1.1       47      225        1
+    173     6.9    33.3   31.2   0.3   30.9   0.0   0.0     2.0       47      259        1
+    298    10.9    33.2   32.3   0.3   32.0   0.0   0.0     0.9       47      225        1
+    238     9.0    33.1   32.0   0.4   31.5   0.0   0.0     1.1       47      256        1
+    302    11.0    33.1   32.0   0.4   31.5   0.0   0.0     1.1       47      249        1
+    365    13.0    33.1   32.0   0.4   31.6   0.0   0.0     1.0       47      237        1
+    301    11.0    33.0   31.8   0.2   31.5   0.0   0.0     1.1       47      243        1
+    300    10.9    32.9   31.8   0.9   30.9   0.0   0.0     1.1       47      237        1
+    237     8.9    32.9   31.8   0.3   31.5   0.0   0.0     1.1       47      249        1
+    236     8.9    32.9   31.8   0.2   31.5   0.0   0.0     1.0       46      243        1
