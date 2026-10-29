@@ -116,7 +116,10 @@ Un blocco è un cubo di una unità. Due blocchi affiancati non hanno una parete 
 | `PgUp` / `PgDn` | Muovono il cursore di un livello su / giù |
 | `Space` | Mette un blocco |
 | `Backspace` o `Del` | Toglie il blocco |
-| `k` | Cambia il tipo di blocco: cube, ramp, corner, rounded |
+| `k` | Cambia il tipo di blocco: cube, ramp, corner, rounded, cylinder, cone, sphere, dome, tube, arch |
+| `n` | Forme morbide: scegli la misura da cambiare: x, y o z |
+| `u` / `j` | Forme morbide: più grande / più piccola su quell'asse (da 1 a 8 celle) |
+| `,` / `.` | Forme morbide: meno / più lati (da 4 a 16) |
 
 Sul gamepad: **A** mette, **B** toglie, **X + su/giù** cambia livello.
 
@@ -132,6 +135,10 @@ Premi **k** (con lo strumento block o tile) per cambiare il tipo di blocco che i
 | rounded | una colonna a otto lati: i quattro spigoli verticali sono tagliati per 0.3 | 28 |
 
 La rampa e l'angolo salgono **lontano dalla camera**. Gira la vista con **q** ed **e** (45 gradi) per girare il blocco: lontano e destra seguono la vista, a passi di 90 gradi. Ogni faccia prende il pennello (un colore o una tessera). **Backspace** toglie il blocco della cella, di qualunque tipo, e annulla lo riporta. Le pareti di un vicino che guardano dentro la cella restano.
+
+### Forme morbide
+
+I tipi dopo *rounded* sono tondi: **cylinder** (cilindro), **cone**, **sphere** (sfera), **dome** (mezza sfera su una base piana), **tube** (un cilindro con un foro di 0,6 del suo raggio) e **arch** (un mezzo anello su due piedi, lungo l'asse x). Una forma morbida riempie un riquadro che parte dalla cella del cursore. **n** sceglie l'asse (x, y o z), **u** e **j** allungano o accorciano quel lato di una cella (da 1 a 8), **,** e **.** cambiano i lati (da 4 a 16, all'inizio 8). Il riquadro del cursore mostra la misura. Ogni faccia guarda fuori e prende il pennello (un colore o una tessera). **Backspace** toglie una forma morbida intera se la misura sullo schermo è quella con cui l'hai messa. Sul Pi Zero W usa pochi lati: una sfera da 8 lati ha 48 triangoli, un tubo 64, un arco 68.
 
 ## Lo strumento tile
 
@@ -176,7 +183,10 @@ Le frecce portano il puntatore sulla faccia più vicina in quella direzione sull
 | `n` | Mostra l'altro lato della faccia |
 | `Enter` | Mette sulle facce la tessera del pennello |
 | `u` | Ruota la texture |
-| `,` / `.` | Grande la metà / grande il doppio |
+| `,` / `.` | Grande la metà / grande il doppio (sull'asse scelto con `p`) |
+| `p` | Scegli l'asse della scala: tutti, x, y o z |
+| `l` | Copia speculare: le facce scelte si copiano oltre il piano della cella del cursore (simmetria) |
+| `f` | Gira la diagonale di un quadrato (i due triangoli lo tagliano all'altro modo) |
 | `d` | Copia e sposta la copia |
 | `Del` | Cancella le facce |
 | `o` | Sposta le facce in un nuovo modello |
@@ -233,6 +243,7 @@ Premi **F2**. L'elenco a sinistra contiene i modelli del file. Sopra la vista, t
 | `PgUp` / `PgDn` | Cambia l'ordine |
 | `-` | Riduce i triangoli |
 | `m` | Crea un modello da un'immagine |
+| `c` | Classe mappa del modello: non detta, solid, floor o decor (i flag del modello, per un kit di mappa) |
 | `i` | Margine della texture: 0, 0.125, 0.25, 0.5 pixel |
 
 ![La pagina models: l'elenco, i conteggi e il modello che gira](shots/editor-studio-models.png)

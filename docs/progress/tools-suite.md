@@ -30,7 +30,9 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   breakpoints, Ctrl+Enter plays riff.
 - **bm Pixel** (`carts/pixel`): F1 draw, F2 sheet, F3 palette, F4 stack (stack zones, both layouts `stack` and `stackv`: slices one by one, the stack turning, make or change a zone, draw a slice on F1, onion skin `k`, copy a slice to the next `c` (one undo step), delete a zone `Del` twice; mouse: pick zone or slice, wheel, drag on the view turns it, click stops or starts it, right menu; save writes SPRITES with `cart_write` `sections[11]`, the layout is bit 0 of byte 27 of the zone). The page keeps its state in the table `sp` (the main chunk has 200 locals at most). Host test: the end of `tests/studio/pixel_host.lua` (`make test-studio`); hitboxes of BOXES on the canvas, previews and sheet view (toggle j).
 - **bm Studio** (`carts/studio`): models from tiles and blocks (block, tile, select, vertex,
-  paint), reduce. **bm Animator** (`carts/animator`): rig and skin (`t` test pose: [tools-assistant](tools-assistant.md)), keyframes, sprites from an
+  paint), reduce. Blocks: cube, ramp, corner, rounded and the soft shapes cylinder, cone, sphere, dome, tube, arch (size and sides by
+  key); select: scale by axis, mirror copy, flip a quad's diagonal; models page: the map class (solid, floor, decor) in the model flags.
+  Map kits `.bmk`: [map-kit](../design/map-kit.md). **bm Animator** (`carts/animator`): rig and skin (`t` test pose: [tools-assistant](tools-assistant.md)), keyframes, sprites from an
   animation (F4: bone hitboxes previewed and baked into SPRITES and BOXES). **bm Mesh** (`carts/mesh`): vertices and faces of MESH models and of meshes the
   game builds (`cart_meshes()`).
 - **bm Sound** (`carts/sound`): SOUNDS, SFX, PATTERN, SONG pages; music assistant on F6

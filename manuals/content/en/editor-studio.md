@@ -116,7 +116,10 @@ A block is a cube of one unit. Two blocks side by side have no wall between them
 | `PgUp` / `PgDn` | Move the cursor one level up / down |
 | `Space` | Put a block |
 | `Backspace` or `Del` | Remove the block |
-| `k` | Change the kind of block: cube, ramp, corner, rounded |
+| `k` | Change the kind of block: cube, ramp, corner, rounded, cylinder, cone, sphere, dome, tube, arch |
+| `n` | Soft shapes: pick the size to change: x, y or z |
+| `u` / `j` | Soft shapes: bigger / smaller along that axis (1 to 8 cells) |
+| `,` / `.` | Soft shapes: fewer / more sides (4 to 16) |
 
 On the gamepad: **A** puts, **B** removes, **X + up/down** changes level.
 
@@ -132,6 +135,10 @@ Press **k** (with the block or tile tool) to change the kind of block the next *
 | rounded | an eight-sided column: the four vertical edges are cut 0.3 deep | 28 |
 
 The ramp and the corner rise **away from the camera**. Turn the view with **q** and **e** (45 degrees) to turn the block: far and right follow the view, in steps of 90 degrees. Every face takes the brush (a colour or a tile). **Backspace** removes the block of the cell, of any kind, and undo takes it back. The walls of a neighbour that look into the cell stay.
+
+### Soft shapes
+
+The kinds after *rounded* are round: **cylinder**, **cone**, **sphere**, **dome** (half a sphere on a flat base), **tube** (a cylinder with a hole of 0.6 of its radius) and **arch** (a half ring that stands on two feet and spans the x axis). A soft shape fills a box that starts at the cursor cell. **n** picks the axis (x, y or z), **u** and **j** make that side one cell longer or shorter (1 to 8), and **,** and **.** change the number of sides (4 to 16, 8 at first). The cursor box shows the size. Every face looks out and takes the brush (a colour or a tile). **Backspace** removes a soft shape whole when the size on the screen is the size it was put with. Use few sides for the Pi Zero W: a sphere of 8 sides has 48 triangles, a tube 64, an arch 68.
 
 ## The tile tool
 
@@ -176,7 +183,10 @@ The arrows bring the pointer to the nearest face in that direction on screen.
 | `n` | Show the other side of the face |
 | `Enter` | Put the brush's tile on the faces |
 | `u` | Turn the texture |
-| `,` / `.` | Half as big / twice as big |
+| `,` / `.` | Half as big / twice as big (on the axis that `p` picked) |
+| `p` | Pick the axis of the scale: all, x, y or z |
+| `l` | Mirror copy: the chosen faces are copied across the plane of the cursor cell (symmetry) |
+| `f` | Flip the diagonal of a quad (the two triangles cut it the other way) |
 | `d` | Copy and move the copy |
 | `Del` | Delete the faces |
 | `o` | Move the faces into a new model |
@@ -233,6 +243,7 @@ Press **F2**. The list on the left holds the models of the file. Over the view, 
 | `PgUp` / `PgDn` | Change the order |
 | `-` | Reduce the triangles |
 | `m` | Make a model from a picture |
+| `c` | Map class of the model: not said, solid, floor or decor (the flags of the model, for a map kit) |
 | `i` | Texture margin: 0, 0.125, 0.25, 0.5 pixels |
 
 ![The models page: the list, the counts and the model turning](shots/editor-studio-models.png)
