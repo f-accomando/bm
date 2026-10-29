@@ -233,7 +233,7 @@ end
 local build, models_page
 do
 
-local bd = { cell = { 0, 0, 0 }, tool = 1, side = 1, grid = true, view = 1, back = false, kind = 1, ext = { 1, 1, 1 }, axis = 1, sides = 8,
+local bd = { cell = { 0, 0, 0 }, tool = 1, side = 1, grid = true, view = 1, back = false, kind = 1, saxis = 0, ext = { 1, 1, 1 }, axis = 1, sides = 8,
              cam = { yaw = 0, pitch = -0.6, dist = 8, tx = 0.5, ty = 0.5, tz = 0.5 }, yaw_to = 0,
              hot = nil, sel = {}, pts = nil, hotp = nil, psel = {}, move = nil, paint = nil,
              back_mesh = nil, back_for = nil }
@@ -718,10 +718,14 @@ local function sel_mirror(list)
   for _, f in ipairs(list) do reverse(f) end
 end
 
-local function sel_scale(list, k)
+-- scale by k round the middle of the list; axis 1-3 (x, y, z) scales only that axis, 0 all three
+local function sel_scale(list, k, axis)
   local c = pivot(list)
+  axis = axis or 0
   each_corner(list, function(p)
-    return { c[1] + (p[1] - c[1]) * k, c[2] + (p[2] - c[2]) * k, c[3] + (p[3] - c[3]) * k }
+    local q = {}
+    for i = 1, 3 do q[i] = (axis == 0 or axis == i) and c[i] + (p[i] - c[i]) * k or p[i] end
+    return q
   end)
 end
 
@@ -742,6 +746,30 @@ local function copy_face(f)
   if f.uv then o.uv = {}; for k, q in ipairs(f.uv) do o.uv[k] = { q[1], q[2] } end end
   if f.b then o.b = {}; for k, b in ipairs(f.b) do o.b[k] = b end end
   return o
+end
+
+-- symmetry: copies of the chosen faces mirrored across the plane of the cursor cell (on the view's right
+-- axis, the cell's near edge); the copies look out and are the choice
+local function sel_mirror_copy()
+  local list = chosen_faces()
+  if #list == 0 then say("nothing chosen", C.DIM, 60); return end
+  local _, _, ra = T.view_axes(bd.yaw_to)
+  local plane = bd.cell[ra]
+  local m = M()
+  T.begin_edit()
+  bd.sel = {}
+  for _, f in ipairs(list) do
+    local o = copy_face(f)
+    for _, q in ipairs(o.p) do q[ra] = 2 * plane - q[ra] end
+    reverse(o)
+    m.faces[#m.faces + 1] = o
+    bd.sel[o] = true
+  end
+  m.dirty = true
+  T.sync()
+  T.commit()
+  changed()
+  say("mirror copy across " .. ("xyz"):sub(ra, ra) .. " = " .. plane .. ": " .. #list .. " faces", C.ACC, 120)
 end
 
 -- moving the chosen faces or corners: arrows, PgUp / PgDn; Tab the step;
@@ -862,8 +890,12 @@ local function select_key(k)
   elseif k == "n" then sel_op("the other side", function(l) for _, f in ipairs(l) do reverse(f) end end)
   elseif k == "\n" then sel_op("new texture", function(l) for _, f in ipairs(l) do texture(f, brush) end end)
   elseif k == "u" then sel_op("texture turned", sel_texture_turn)
-  elseif k == "." then sel_op("twice as big", function(l) sel_scale(l, 2) end)
-  elseif k == "," then sel_op("half as big", function(l) sel_scale(l, 0.5) end)
+  elseif k == "." then sel_op("twice as big" .. (bd.saxis > 0 and (" along " .. ("xyz"):sub(bd.saxis, bd.saxis)) or ""), function(l) sel_scale(l, 2, bd.saxis) end)
+  elseif k == "," then sel_op("half as big" .. (bd.saxis > 0 and (" along " .. ("xyz"):sub(bd.saxis, bd.saxis)) or ""), function(l) sel_scale(l, 0.5, bd.saxis) end)
+  elseif k == "p" then
+    bd.saxis = (bd.saxis + 1) % 4
+    say("scale: " .. (bd.saxis == 0 and "all axes" or ("only " .. ("xyz"):sub(bd.saxis, bd.saxis))) .. " (, . scale)", C.ACC, 120)
+  elseif k == "l" then sel_mirror_copy()
   elseif k == "d" or k == "^d" then
     local list = chosen_faces()
     if #list == 0 then say("nothing chosen", C.DIM, 60); return end
@@ -1505,6 +1537,7 @@ function build.menu_items()
     end
   elseif t == 3 then
     list = { { "Choose", " " }, { "All / none", "a" }, { "All joined", "c" }, { "Move", "g" }, { "Copy", "d" },
+             { "Bigger", "." }, { "Smaller", "," }, { "Scale axis: all/x/y/z", "p" }, { "Mirror copy (symmetry)", "l" },
              { "Turn", "r" }, { "Mirror", "m" }, { "New texture", "\n" }, { "Delete", "\b" } }
   elseif t == 4 then
     list = { { "Choose", " " }, { "All / none", "a" }, { "Move", "g" }, { "Join", "m" } }

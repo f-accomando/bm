@@ -910,6 +910,27 @@ key("^z")
 check(m1().nf == 16, "undo: all back")
 key("a")
 
+-- scale along one axis (p picks it) and the mirror copy (l)
+local function span(i) local lo, hi = 1e9, -1e9; for _, v in ipairs(m1().verts) do lo, hi = math.min(lo, v[i]), math.max(hi, v[i]) end; return hi - lo end
+local sy, sx = span(2), span(1)
+key("p", "p")
+check(status():find("only y", 1, true) or sees("only y"), "p p: scale only along y")
+key(".")
+check(math.abs(span(2) - 2 * sy) < 1e-6 and math.abs(span(1) - sx) < 1e-6, "., on y only: twice as tall, as wide as before (" .. span(2) .. ", " .. span(1) .. ")")
+key("^z")
+check(math.abs(span(2) - sy) < 1e-6, "undo: the height is back")
+key("p", "p")                                          -- z, then all axes
+check(sees("all axes"), "p wraps to all axes")
+key(".")
+check(math.abs(span(2) - 2 * sy) < 1e-6 and math.abs(span(1) - 2 * sx) < 1e-6, "., on all axes: twice as big")
+key("^z")
+local nf_before = m1().nf
+key("l")
+check(m1().nf == 2 * nf_before, "l: a mirror copy, the faces look out (" .. m1().nf .. ")")
+key("^z")
+check(m1().nf == nf_before, "undo: no mirror copy")
+key("a")
+
 -- vertex: the corner under the pointer one up
 local function sumy() local t = 0; for _, v in ipairs(m1().verts) do t = t + v[2] end; return t end
 local sy0 = sumy()
