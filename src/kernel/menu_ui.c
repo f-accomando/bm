@@ -1030,8 +1030,11 @@ static void scroll_mark(int cx, int cy, int dir, uint16_t c)
 
 /* panel geometry: text rows 4 (title), 6..16 every other one (the rows),
  * 18 (help); columns 10-70 on the Pi, 2-43 on the narrow layout */
-#define PANEL_X     (WIDE ? 10 * 8 : 2 * 8)
-#define PANEL_W     (SW - 2 * PANEL_X)
+#define PANEL_X0    (WIDE ? 10 * 8 : 2 * 8)
+/* the native layouts (720p, 1080p: bgz > 1) have 8x16 text on a screen 2 or 3 times wider: the box is half of what it
+ * was and sits in the middle (29 Oct 2026) */
+#define PANEL_W     (bgz > 1 ? (SW - 2 * PANEL_X0) / 2 : SW - 2 * PANEL_X0)
+#define PANEL_X     (bgz > 1 ? (SW - PANEL_W) / 2 : PANEL_X0)
 #define PANEL_Y     52
 #define PANEL_H     (310 - PANEL_Y)
 #define PANEL_ROW0  6
@@ -1132,17 +1135,22 @@ static void draw_page(const menu_page_t *pg, int faded)
     m_rect(0, BAR_H, SW, FOOT_Y - BAR_H, c16(C_PAGE));
     if (WIDE) {
         /* the help of the focused list under the rows (the wide box) */
-        const int rx = 2 * 8 + SECTIONS_W + 8;
+        int sx = 2 * 8, rw = SW - 2 * 8 - (sx + SECTIONS_W + 8);
+        if (bgz > 1) {                          /* the native layouts: the submenu half as wide, both boxes in the middle */
+            rw /= 2;
+            sx = (SW - (SECTIONS_W + 8 + rw)) / 2;
+        }
+        const int rx = sx + SECTIONS_W + 8;
         menu_panel_t sec = *pg->sections;
         sec.help = NULL;
-        draw_list(&sec, 2 * 8, SECTIONS_W, faded || pg->focus != 0,
+        draw_list(&sec, sx, SECTIONS_W, faded || pg->focus != 0,
                   pg->focus ? MENU_HIT_SECTION : MENU_HIT_ROW, 0);
         if (pg->rows) {
             menu_panel_t rows = *pg->rows;
             if (!pg->focus)
                 rows.help = pg->sections->help;
-            zone(rx - 2, PANEL_Y - 2, SW - 2 * 8 - rx + 4, PANEL_H + 4, MENU_HIT_PANEL, 0, 1);
-            draw_list(&rows, rx, SW - 2 * 8 - rx, faded || pg->focus != 1,
+            zone(rx - 2, PANEL_Y - 2, rw + 4, PANEL_H + 4, MENU_HIT_PANEL, 0, 1);
+            draw_list(&rows, rx, rw, faded || pg->focus != 1,
                       pg->focus ? MENU_HIT_ROW : MENU_HIT_PANEL, 1);
         }
     } else {
