@@ -47,7 +47,9 @@ A `.bmk` is a `BMRES` file of type 6 ([RISORSE](../RISORSE.md), section 4). It u
 
 ## Tools
 
-- `python scripts/bmkit.py island OUT.bmk [--png PREVIEW.png]` builds the example.
+- `python scripts/bmkit.py island OUT.bmk [--quality hi|med|low] [--png PREVIEW.png]` builds the example. The
+  models are made hi poly first (`hi`, the default: palm 696 triangles) and cut down later (`med`, `low`: palm 140).
+  The names and the map classes do not change with the quality. The map and the sprites do not change.
 - `python scripts/bmkit.py check FILE.bmk` reads a kit and checks the models, the layers and the object table.
 - To put a kit in a game or a project: `python scripts/bmres.py add GAME.bm FILE.bmk -o OUT.bm`. A model whose name is
   taken gets a new name (`bush` becomes `bush2`): read the names after the merge.

@@ -66,6 +66,22 @@ class IslandKitTest(unittest.TestCase):
         t = bmkit.TILES["water"]
         self.assertEqual(flags[(t * 2, 0)], 8)
 
+    def test_quality_cuts_the_triangles_and_keeps_the_names(self):
+        def count(q):
+            bmkit.QUALITY = q
+            try:
+                kit = bmkit.build_island()
+            finally:
+                bmkit.QUALITY = "hi"
+            _, recs = bmres.mesh_parse(kit.get(bmres.SEC_MESH))
+            return {n: struct.unpack_from("<HH", r, 16)[1] for n, r in recs}, bmkit.describe(kit)[1]
+        hi, med, low = count("hi"), count("med"), count("low")
+        for q in (hi, med, low):
+            self.assertEqual(q[1], [])
+        self.assertEqual(list(hi[0]), list(low[0]))
+        self.assertGreater(sum(hi[0].values()), sum(med[0].values()))
+        self.assertGreater(sum(med[0].values()), sum(low[0].values()))
+
     def test_a_rock_without_class_bits_still_reads(self):
         # the map class is the free bits of the model flags: a model with 0 reads as before
         m = {"name": "x", "verts": [(0, 0, 0), (1, 0, 0), (0, 1, 0)], "faces": [(0, 1, 2, 0xFFFFFF, None)]}
