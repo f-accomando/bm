@@ -296,6 +296,16 @@ def main():
     check(got[1][0] == got[0][0] and not got[1][1], "bm_watch: a frame with no tokens changes nothing")
     check(got[2][0] == [0xF800, 0x1234] + [0xF800] * 2 + [0x07E0, 0x001F, 0xFFFF, 0x0000] and got[2][1],
           "bm_watch: skip one pixel, a literal one")
+    sx = bm_watch.render_sixel([0xF800] * 8 + [0x001F] * 8, None, 4, 4, 1)
+    check(sx.startswith(chr(27) + "[1;1H" + chr(27) + "P0;1;0q\"1;1;4;4#") and sx.endswith(chr(27) + chr(92)) and "#224!4B" in sx and "#3!4K" in sx and
+          sx.count("-") == 0, "bm_watch sixel: a 4x4 image, one band, red rows 0-1, blue rows 2-3")
+    band2 = bm_watch.render_sixel([1] * 4 * 12, None, 4, 12, 1)
+    moved = [1] * 4 * 12
+    moved[11 * 4] = 2
+    delta2 = bm_watch.render_sixel(moved, [1] * 4 * 12, 4, 12, 1)
+    bands = re.sub(r"#[0-9]+;2;[0-9]+;[0-9]+;[0-9]+", "", delta2.split("q\"1;1;4;12", 1)[1]).rstrip("\\").split("-")
+    check(band2.count("-") == 1 and len(bands) == 2 and bands[0] == "" and bands[1] != "",
+          "bm_watch sixel: a band with nothing new is left empty, the one that changed has its pixels")
     first = bm_watch.render(got[0][0], None, 4, 2)
     check(first.count("▀") == 4 and "38;2;255;0;0;48;2;0;255;0" in first and "[1;1H" in first,
           "bm_watch: the first picture draws every cell (red above green)")

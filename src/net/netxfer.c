@@ -221,7 +221,7 @@ static void to_menu_folder(void)
     }
 }
 
-/* V (29 Oct 2026): the stream. The path is "WxH" or "WxH@ms": the picture the PC wants (at most 320x180; the page on
+/* V (29 Oct 2026): the stream. The path is "WxH" or "WxH@ms": the picture the PC wants (at most 640x360; the page on
  * the screen is averaged down to it, 2x2 samples for each pixel) and the least time between two frames (40 to 5000 ms,
  * 100 if missing). The answer is OK, then frames until the PC closes: u16 width, u16 height, u32 length, then the
  * tokens (below) that turn the last picture into this one; a length of 0 is "nothing changed" (sent every 2 s, so the
@@ -229,8 +229,8 @@ static void to_menu_folder(void)
  * 1 n pixels follow, 2 the one pixel that follows n times; the pixels are RGB565. The end of the tokens leaves the rest
  * of the picture as it was. The first frame has nothing before it. A frame is made only when the last one has been
  * handed to TCP (its send buffer is small), so a slow link slows the stream and does not fill the memory. */
-#define VIEW_MAX_W 320u
-#define VIEW_MAX_H 180u
+#define VIEW_MAX_W 640u
+#define VIEW_MAX_H 360u
 #define VIEW_KEEPALIVE_US 2000000u
 static unsigned view_w, view_h, view_ms;
 static uint16_t *view_cur, *view_prev;
@@ -305,6 +305,15 @@ static void view_rgb(const framebuffer_t *fb, const uint8_t *page, uint32_t x, u
 static void view_grab(const framebuffer_t *fb, uint16_t *out, unsigned w, unsigned h)
 {
     const uint8_t *page = fb->mem + (size_t)fb->shown * fb->height * fb->pitch;
+    if (fb->width == w && fb->height == h) {            /* the screen's own size: each pixel as it is (one read, not four) */
+        for (unsigned ty = 0; ty < h; ty++)
+            for (unsigned tx = 0; tx < w; tx++) {
+                unsigned r, g, b;
+                view_rgb(fb, page, tx, ty, &r, &g, &b);
+                out[ty * w + tx] = (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3));
+            }
+        return;
+    }
     for (unsigned ty = 0; ty < h; ty++) {
         const uint32_t ya = (ty * 4u * fb->height + fb->height) / (4u * h);
         const uint32_t yb = (ty * 4u * fb->height + 3u * fb->height) / (4u * h);

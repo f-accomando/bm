@@ -274,7 +274,7 @@ def frame_file(args, out, password):
 def view_test(args, password):
     """--view: the stream (V) for args.view seconds, no drawing: how many frames and bytes the console sent"""
     import bm_watch
-    w, h = 120, 68
+    w, h = (int(v) for v in (args.view_size or "120x68").split("x"))
     t0, frames, changed, nbytes = time.time(), 0, 0, 0
     try:
         for _px, ch, n in bm_watch.stream_frames(args.host, password, w, h, 100):
@@ -539,6 +539,7 @@ def main():
                     help="the page on the screen now (the menu, the monitor or a game), written to OUT (a PPM); tools/bm_watch.py repeats it")
     ap.add_argument("--view", type=float, metavar="SECONDS",
                     help="the stream (V) for SECONDS, not drawn: the frames and the bytes counted (tools/bm_watch.py draws it)")
+    ap.add_argument("--view-size", metavar="WxH", help="with --view: the picture asked of the console (default 120x68)")
     ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
                     help="a file of bm/shots on the console (PATH, e.g. bm/shots/pong0007.png) written to OUT")
     args = ap.parse_args()
