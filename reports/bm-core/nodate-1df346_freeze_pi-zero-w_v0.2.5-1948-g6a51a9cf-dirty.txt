@@ -1,0 +1,73 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1948-g6a51a9cf-dirty
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-1df346_freeze_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boottor line "reboot", frame 0, 103 s after boot, kernel v0.2.5-1948-g6a51a9cf-dirty, ring 6377, sink on
+--- the last lines printed ---
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261029-150210_log_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
+the line is done
+> 
+net: console closed
+net: receiving settings (27 bytes)...
+config: menu_scale=4
+net: settings from the PC: 1 changed in bm/config.txt
+
+net: console opened from 192.168.1.115
+> :
+:reboot
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+0002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+gpu3d: the two-thread shaders: 1 pixels differ with fs_tex_rgb and its alpha and screen-door shaders (they stay off)
+menu: 1280x720, drawn by the GPU
+covers: all 16 read
+menu idle: 300/300 frames, 89 of 2348 ms taken, 1.7 ms past a frame; covers 79 ms (+2.4, stk 0.8/16K); min slack -21128 us, paced 0
+menu idle: sd first word <1ms 131 <3ms 10 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 8477 us, enlarge 0 us, flip 94 us, free time used 298 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.2 ms past its slice
+net: time 2026-10-29 15:00 UTC
+fiber: reports did not yield: 103.5 ms past its slice
+report: sending nodate-fca3bf_freeze_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-fca3bf_freeze_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
+menu idle: 300/300 frames, 1452 of 2377 ms taken, 98.5 ms past a frame; reports 1432 ms (+103.5, stk 7.6/128K); min slack -7444 us, paced 0
+menu idle: sd first word <1ms 41 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 297.6 worst 297.6 ms
+menu frame: 2x, a frame averages draw 7019 us, enlarge 0 us, flip 93 us, free time used 4840 us (300 frames)
+menu frame: 2x, a frame averages draw 7030 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6971 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6886 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6829 us, enlarge 0 us, flip 116 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 7045 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6957 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6869 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6873 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 7026 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6938 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x,ã-†orame averages draw 6852 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6918 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 7008 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6923 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6839 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 2x, a frame averages draw 6959 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frame×Ånet: console opened from 192.168.1.115
+> fb_init_depth: mbox_call failed
+back to the monitor
+
+type 'h' for help
+> :
+:log
+: log
+report: 20261029-150210_log_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt saved as bm/reports/rpt00001.txt
