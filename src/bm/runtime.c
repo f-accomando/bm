@@ -2334,7 +2334,11 @@ static void later_hold(framebuffer_t *fb)
     held.on = 1;
     if (!held.frames++)
         kprintf("bm: each frame shown a frame later (gpu3d_later): the next _draw runs while the GPU draws it\n");
+#ifdef BM_RGB30
+    const uint32_t page = fb->size / fb->buffers;   /* (the pages of the RGB30 are aligned: more than height x pitch) */
+#else
     const uint32_t page = fb->height * fb->pitch;
+#endif
     const uint32_t i = (uint32_t)((const uint8_t *)held.px - box - fb->mem) / page;
     rt.g.px = (uint16_t *)(fb->mem + (i + 1) % fb->buffers * page + box);
     gpu3d_page(0, 0);                   /* another page: what it holds is not known */

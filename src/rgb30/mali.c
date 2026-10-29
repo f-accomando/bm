@@ -1935,6 +1935,15 @@ static void be_resolve_x(const g16_t *g, const uint8_t *surf, uint32_t pitch)
  * page, and the fill would cover them. */
 static int be_page_u, be_page_cleared;
 static uint16_t be_page_c;
+static int be_pend_u, be_res_u;                 /* the clear of the frame in flight, and of the frame being resolved: a request belongs to its frame */
+static uint16_t be_pend_c, be_res_c;
+
+static void be_take_page(void)
+{
+    be_res_u = be_page_u;
+    be_res_c = be_page_c;
+    be_page_u = 0;
+}
 
 void mali_backend_page(int uniform, uint16_t c)
 {
@@ -1953,10 +1962,11 @@ int mali_backend_cleared(void)
 static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
 {
     const uint64_t t0 = cnt_now();
-    if (be_page_u) {
-        g16_cls((g16_t *)g, be_page_c);
-        be_page_u = 0;
-        be_page_cleared = 1;
+    if (be_res_u) {
+        g16_cls((g16_t *)g, be_res_c);
+        be_res_u = 0;
+        if (!be_page_u)                         /* (a newer request, for the next page, is not answered by this one) */
+            be_page_cleared = 1;
     }
     be_resolve_x(g, surf, pitch);
     t_resolve += cnt_now() - t0;
@@ -2128,6 +2138,9 @@ int mali_backend_sync(void)
     if (be_pend_us + us2 > be_stats.max_us)
         be_stats.max_us = be_pend_us + us2;
     be_wait_us += be_pend_us + wait;
+    be_res_u = be_pend_u;
+    be_res_c = be_pend_c;
+    be_pend_u = 0;
     be_resolve(be_pend_g, be_pend_surf, be_pend_pitch);
     return 0;
 }
@@ -2147,6 +2160,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         be_stats.jobs++;
         be_stats.draws += nd;
         be_stats.tris += btris;
+        be_take_page();
         be_resolve(g, surf, pitch);
         return 0;
     }
@@ -2183,6 +2197,9 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         be_pend_t0 = H->us();
         job_kick(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB);
         be_pend = 1;
+        be_pend_u = be_page_u;
+        be_pend_c = be_page_c;
+        be_page_u = 0;
         be_pend_gc = *g;
         be_pend_g = &be_pend_gc;
         be_pend_surf = surf;
@@ -2203,6 +2220,7 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
     if (us + us2 > be_stats.max_us)
         be_stats.max_us = us + us2;
     be_wait_us += us + us2;
+    be_take_page();
     be_resolve(g, surf, pitch);
     return 0;
 }

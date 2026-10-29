@@ -106,9 +106,9 @@ int gpu3d_submit(const g16_t *g, int keep)
 }
 int gpu3d_sync(void)                                    { return mali_be ? mali_backend_sync() : 0; }
 int gpu3d_sync_page(const void *px)                     { return mali_be ? mali_backend_sync_page(px) : 0; }
-/* 0 on the Mali: the runtime's "each frame shown a frame later" (gpu3d_later) flickered in herocart on the RGB30 (29 Oct) and stays off.
+/* the runtime's "each frame shown a frame later" (gpu3d_later) needs the queue at 2.
  * gpu3d_pipelined(): the queue at 2 leaves the frame in flight for the next submit (the 3D Bench's GPU+VS+Q2) */
-int gpu3d_queue2(void)                                  { return 0; }
+int gpu3d_queue2(void)                                  { return mali_be && mali_backend_queue() == 2; }
 int gpu3d_pipelined(void)                               { return mali_be && mali_backend_queue() == 2; }
 int gpu3d_inflight(void)                                { return mali_be ? mali_backend_inflight() : 0; }
 void gpu3d_set_queue(int on)                            { mali_backend_set_queue(on); }

@@ -30,7 +30,8 @@ Checked in `src/rgb30/bm_port.c`. The Pi flags are in [v3d-flags](v3d-flags.md).
 | `gpu3d_merge` | honoured | the draw merge is in `r3d`, not in the driver |
 | `gpu3d_sort` | replaced | the depth test (`mali_z`) does the job; the key is ignored |
 | `gpu3d_wc`, `gpu3d_tex16`, `gpu3d_fs2`, `gpu3d_attr` | not needed | they answer V3D limits (write combining, texture size, QPU threads, vertex bytes); the Mali arena is already write-merged and its textures are RGB565 |
-| `gpu3d_queue2`, `gpu3d_later`, `gpu3d_qpu` | not developed | `gpu3d_queue2()` returns 0; the Mali has no QPU programs |
+| `gpu3d_queue2`, `gpu3d_later` | done (bm3d 7.31) | `gpu3d_queue2()` is on with the queue at 2; the game shows each frame a frame later |
+| `gpu3d_qpu` | not developed | the Mali has no QPU programs |
 | `gpu3d_filter` (bilinear) | honoured (bm3d 7.22) | the Sampler of each sheet filters; the 3D Bench `bilinear` test runs at 126.6 against the ARM's nearest quads |
 | `gpu3d_aa` (MSAA) | `gpu3d_aa=1`, 4 samples | `mali_msaa=1` (default 0, bm3d 7.28): the tile buffer holds 4 samples, the ARM resolve blends the edges (see below) |
 | `gpu3d_etc1` | not developed | the Mali reads ETC1 textures; the driver has no encoder call |
