@@ -42,6 +42,7 @@ python3 tools/pi_test.py --cart build/carts/pong.bm --shot out.png
 python tools/bm_net.py IP --frame out.ppm                   # the page on the screen now (menu, monitor or game), a PPM
 python tools/bm_watch.py IP                                 # the screen in the terminal, live (up to 10 frames a second)
 python tools/bm_watch.py IP --mode sixel                    # real pixels, 640x360: the text of the menu is legible
+./easy_install.sh watch [profile] [sixel|blocks]      # the same from the installer: key w in its menu, a saved profile and code
 ```
 
 `--frame` uses op `F` of the transfer port (29 Oct 2026): the kernel copies the page on the screen and sends it whole

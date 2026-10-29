@@ -31,6 +31,10 @@
 #                           zero2 or rgb30): you type the password, NET and AGY
 #                           then run tools/pi.py without seeing it;
 #                           ./easy_install.sh bridge [profile]
+#   w  [NET] screen         a console's screen live in this terminal (tools/bm_watch.py,
+#                           op V of the transfer port): sixel (real pixels, 640x360, the
+#                           text is legible: Windows Terminal 1.22 or later, WezTerm, foot)
+#                           or blocks (shapes only); Ctrl-C stops
 #   r  release              a new version on GitHub (scripts/release.sh --no-sd:
 #                           the tag, the CI tests it and publishes it); the
 #                           consoles take it from Settings > Updates
@@ -46,7 +50,7 @@
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
-# | bench [FLAGS] [profile] (the Overbit benchmark on a console, see below) | send FILE [profile] | monitor [profile] | line "b3d; send" [profile] (a monitor
+# | bench [FLAGS] [profile] (the Overbit benchmark on a console, see below) | send FILE [profile] | monitor [profile] | watch [profile] [sixel|blocks] | line "b3d; send" [profile] (a monitor
 # line run, its output shown: bm_net.py --line) | config [profile] | config-sd | release [vX.Y.Z] | rollback [vX.Y.Z]
 # | market.
 # bench: Overbit's benchmark (about a minute) on a console, its report sent to the reports'
@@ -620,6 +624,35 @@ job_monitor() {
     save_conf
 }
 
+# a console's screen on this PC (tools/bm_watch.py): live in the terminal, Ctrl-C stops. The second argument says how it is
+# drawn: sixel (real pixels, 640x360: Windows Terminal 1.22 or later, WezTerm, foot) or blocks (shapes only); asked if missing
+job_watch() {
+    PICK_Q="Which console to watch"
+    pick_profile "${1:-}" || return 0
+    local p=${PROFILES[$PICK]} name ip code board old x rc mode=${2:-}
+    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
+    code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
+    reach_console
+    if [ -z "$mode" ]; then
+        mode=blocks
+        [ -z "${WT_SESSION:-}" ] || mode=sixel          # (Windows Terminal says so)
+        read -r -p "Draw it as sixel (real pixels, legible text) or blocks (shapes only) [$mode]: " x || x=
+        case $x in s*|S*) mode=sixel ;; b*|B*) mode=blocks ;; esac
+    fi
+    [ "$mode" = sixel ] || mode=blocks
+    while :; do
+        rc=0
+        say "The screen of $name ($ip, bm $old), $mode: Ctrl-C stops"
+        python3 tools/bm_watch.py "$ip" -p "$code" --mode "$mode" || rc=$?
+        [ "$rc" = 1 ] || break                  # 1: not let in, or no stream (a kernel before op V)
+        read -r -p "It did not let you in? The Console password now (6 digits, Enter: stop): " x || x=
+        [[ $x =~ ^[0-9]{6}$ ]] || break
+        code=$x
+    done
+    PROFILES[PICK]="$name|$ip|$code|$board|$(profile_field "$p" 4)"     # IP and code as they work now
+    save_conf
+}
+
 # The bridge for NET and AGY: pi_bridge.py asks the password once, never this script (the saved code stays unused)
 job_bridge() {
     PICK_Q="Which one to open the bridge for"
@@ -1133,6 +1166,7 @@ case ${1:-} in
     send) job_send "${2:-}" "${3:-}"; exit 0 ;;
     monitor) job_monitor "${2:-}"; exit 0 ;;
     bridge) job_bridge "${2:-}"; exit 0 ;;
+    watch) job_watch "${2:-}" "${3:-}"; exit 0 ;;
     line) [ -n "${2:-}" ] || die "line \"b3d; send\" [profile]: the line is missing"
           job_monitor "${3:-}" "$2"; exit 0 ;;
     bench) job_monitor "${3:-}" "set overbit_bench=${2:-auto}; play overbit; send"; exit 0 ;;
@@ -1142,7 +1176,7 @@ case ${1:-} in
     rollback) job_rollback "${2:-}" ;;
     market) job_market; exit 0 ;;
     "") ;;
-    *) die "unknown: $1 (kernel, install, image, net [profile], bench [FLAGS] [profile], send FILE [profile], monitor [profile], bridge [profile], \
+    *) die "unknown: $1 (kernel, install, image, net [profile], bench [FLAGS] [profile], send FILE [profile], monitor [profile], watch [profile] [sixel|blocks], bridge [profile], \
 line \"LINE\" [profile], config [profile], config-sd, release [vX.Y.Z], rollback [vX.Y.Z], market, or nothing for the menu)" ;;
 esac
 
@@ -1158,6 +1192,7 @@ while :; do
   7  [NET] config          (a console's bm/config.txt: shown, keys set or removed)
   8   [SD] config          (bm/config.txt on the card in the reader)
   9  [NET] bridge          (pi_bridge.py for a console's profile: you type the password, NET and AGY use pi.py)
+  w  [NET] screen          (a console's screen live here: sixel, real pixels, or blocks; Ctrl-C stops)
   r  release               (a new version on GitHub: release.sh --no-sd; the consoles update)
   o  older release         (an older signed release on the card: checked first, old kernels in bm/backup)
   m  market                (the games in the bm Market: market.sh; the first time its setup)
@@ -1176,12 +1211,13 @@ MENU
         7) job_config ;;
         8) job_config_sd ;;
         9) job_bridge ;;
+        w|W) job_watch ;;
         r|R) job_release ;;
         o|O) job_rollback ;;
         m|M) job_market ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;
-        *) warn "1 to 9, r, o, m, b, p or q" ;;
+        *) warn "1 to 9, w, r, o, m, b, p or q" ;;
     esac
 done
