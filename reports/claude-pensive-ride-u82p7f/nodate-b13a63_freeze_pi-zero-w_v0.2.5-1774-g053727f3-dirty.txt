@@ -1,0 +1,89 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1774-g053727f3-dirty
+branch: claude/pensive-ride-u82p7f
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-b13a63_freeze_pi-zero-w_v0.2.5-1774-g053727f3-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor line "reboot", frame 0, 170 s after boot, kernel v0.2.5-1774-g053727f3-dirty, ring 8204, sink on
+--- the last lines printed ---
+> :
+:reboot
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ps://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+fiber: market did not yield: 59.2 ms past its slice
+menu idle: 300/300 frames, 230 of 1874 ms taken, 59.6 ms past a frame; market 217 ms (+59.2, stk 3.2/128K, stop 0.2); min slack -9858 us, paced 0
+menu idle: sd first word <1ms 52 (max 1.5 ms)
+menu stalls: tls handshake 1x last 179.2 worst 179.2 ms
+menu frame: 1x, a frame averages draw 8914 us, enlarge 1 us, flip 92 us, free time used 767 us (300 frames)
+menu idle: sd first word <1ms 98 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 7688 us, enlarge 1 us, flip 91 us, free time used 12 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: catalog 20261028204358, 21 games
+menu idle: 300/300 frames, 457 of 2078 ms taken, 50.4 ms past a frame; market 449 ms (+55.5, stk 4.0/128K); min slack -14320 us, paced 0
+menu idle: sd first word <1ms 184 <3ms 4 (max 1.5 ms)
+menu stalls: tls handshake 1x last 148.4 worst 148.4 ms
+menu frame: 1x, a frame averages draw 8132 us, enlarge 1 us, flip 93 us, free time used 1524 us (300 frames)
+
+playing kitchen.bm
+play: /bm/kitchen.bm (895588 bytes)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+gpu3d: the V3D did not finish:
+CT0CS   00000000  CT0CA   4231809a  CT0EA   4231809a  CT1CS   00000000
+CT1CA   42358033  CT1EA   42358033  PCS     00000004  BFC     00000000
+RFC     00000000  INTCTL  0000000f  BPCA    4151a080  BPCS    003fd000
+BPOA    41918000  BPOS    00200000  ERRSTAT 00001030  DBGE    00000000
+FDBGO   00000006  FDBGB   1c00001d  FDBGR   595d68fd  FDBGS   1246f1ef
+gpu3d: the GPU did not finish a frame (registers in the log); the 3D is drawn by the ARM again
+gpu3d: the V3D did not finish:
+CT0CS   00000000  CT0CA   4231809a  CT0EA   4231809a  CT1CS   00000000
+CT1CA   42358027  CT1EA   42358027  PCS     00000004  BFC     00000000
+RFC     00000000  INTCTL  0000000f  BPCA    4151a080  BPCS    003fd000
+BPOA    41918000  BPOS    00200000  ERRSTAT 00001030  DBGE    00000000
+FDBGO   00000006  FDBGB   1c00001d  FDBGR   595d68fd  FDBGS   1246f1ef
+gpu3d: the GPU stopped answering after a probe (registers in the log); the 3D is drawn by the ARM again
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+load: Chaos Kitchen 2841 ms (close 0, parse 13, assets+state 17, mode 8, audio 1, lua 2800)
+bm: loaded in 2945 ms, the splash over at 2945 ms
+fb_init_depth: mbox_call failed
+bm: "Chaos Kitchen" suspended (A on its cover resumes it)
+bm: "Chaos Kitchen" 9 frames, 0.4 fps, 9 dropped
+     update+draw avg 12.94 ms (77% of frame), max 25.71 ms, Lua 1408 KB
+     dev kit: Lua peak 1408 KB, data 966 KB, busiest frame 62k instructions, 1 frames over 16.7 ms, 61497 tokens
+     GPU 3D 24 jobs, 5 triangles a frame, 0.04 ms a frame (bin 11%), max job 37 us
+fb_init_depth: mbox_call failed
+fb_init_depth: mbox_call failed
+back to the monitor
+
+type 'h' for help
+> 
+net: console opened from 192.168.1.115
+> :
+:log
+: log
+report: 20261029-075932_log_pi-zero-w_v0.2.5-1774-g053727f3-dirty.txt saved as bm/reports/rpt00001.txt
+report: sending 20261029-075932_log_pi-zero-w_v0.2.5-1774-g053727f3-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-pensive-ride-u82p7f/20261029-075932_log_pi-zero-w_v0.2.5-1774-g053727f3-dirty.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:err
+: err
+err: none
+running: Chaos Kitchen
+the line is done
+> 
+net: console closed
+
