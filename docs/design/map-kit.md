@@ -71,6 +71,11 @@ fire, chest, bushes, rocks and boat merged into one model that is not kept in th
 `scripts/bmkit.py`). `--no-preview` leaves both out and the file is 177 KB smaller. See
 [RISORSE](../RISORSE.md), "The picture inside a file".
 
+## Not a Market item
+
+A `.bmk` is a resource (like `.bmm`, `.bmi`, `.bms`), not a game or an app. It does not go to the Market (owner, 2026-10-29).
+It travels with a project: `bmres.py add` puts it in a game, or the file is copied to `/bmk` on the SD.
+
 ## Folder on the SD
 
 `/bmk`, the same pattern as `/bmm` (one folder per extension). Nothing on the console scans it yet.
