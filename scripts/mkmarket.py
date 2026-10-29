@@ -81,7 +81,7 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,22}$")
 FILE_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._-]{0,39}\.(bm|b16)$")
 VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$")
 LIMITS = {"license": 40, "about": 120}
-APP_IDS = {"sdk", "editor", "sdk-b16", "code", "pixel", "studio", "animator", "mesh", "sound", "assistant", "write", "typing", "bmweb"}
+APP_IDS = {"sdk", "editor", "sdk-b16", "code", "pixel", "studio", "animator", "mesh", "sound", "assistant", "write", "typing", "bmweb", "agent"}
 
 
 def die(msg):

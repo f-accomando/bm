@@ -41,6 +41,14 @@ Split from [tools](tools.md); open work and rules stay there.
   (`models.py --meshy`) builds them again. `make overbit-heroes`: each hero as `.bmm` in
   `build/overbit/heroes/` for bm Mesh / bm Animator. Skeletons and clips are still written by `rig.py`,
   not made in Animator.
+- bm Agent (`carts/agent`, `.bme` and `.bm` from `make build/carts/agent.bme`, Market id `agent`, spec 6): a chat with a cloud
+  model through `ai_ask` ([ai-agent](../design/ai-agent.md)). Keyboard or pad (`padtype`, on with the first pad button);
+  `/new`, `/save` (`bm/web/chat.txt`), `/model NAME`; a `<<<file NAME.EXT ... >>>` block in an answer becomes a proposal that
+  `file_write` saves into `bm/web` only after `y` or ok. Test: `make test-agent` (bmhost, a fake model in
+  `tests/agent/prelude.lua`).
+- `tools/bm_agent_relay.py`: the subscription path. `cert` makes a P-256 CA, a certificate for the PC's IP and a token;
+  `serve` answers `POST /v1/chat/completions` with one run of `claude -p`, `codex exec`, `gemini` or `--cmd`, under the user's
+  own login, one request at a time. Test: `make test-agent-relay`.
 - `scripts/mkbm.py`: builds a `.bm` (`--lua --sheet --sheet8 --map --flags --sprites --audio
   --cover --models --res --from <cart>`…); header `BMCART` with CRC-32 (`src/bm/bm.h`).
 - `scripts/bmres.py`: extract/convert `BMRES` resources. `scripts/bmaudio.py`: sound banks.

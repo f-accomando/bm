@@ -724,6 +724,12 @@ int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const cha
     (void)stem;
     return web_start(url, max, timeout_ms, err, en);
 }
+int web_start_post(const char *url, const char *headers, const void *body, size_t body_len, size_t max,
+                   uint32_t timeout_ms, char *err, size_t en)
+{
+    (void)headers; (void)body; (void)body_len;
+    return web_start(url, max, timeout_ms, err, en);
+}
 
 /* file_write (src/bm/webfile.c) queues in a fiber: bmhost writes at once, the host folder is the card */
 #include "webfile.h"

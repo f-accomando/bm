@@ -580,6 +580,10 @@ int l_sheet_gif(lua_State *L);
 int l_image_file(lua_State *L);
 int l_file_write(lua_State *L);
 int l_file_state(lua_State *L);
+/* a chat model through the web (api_web.c, aichat.c): the key stays in the kernel */
+int l_ai_ask(lua_State *L);
+int l_ai_reply(lua_State *L);
+int l_ai_info(lua_State *L);
 
 /* video clips (api_video.c) */
 int l_video_open(lua_State *L);

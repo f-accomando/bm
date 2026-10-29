@@ -45,6 +45,11 @@ typedef struct {
     long long resume_from;      /* the "Range" that was sent, 0 if none */
     int restart;                /* the server refused the range: start again from byte 0 */
     uint32_t url_hash;          /* of the address as asked: the part file belongs to it */
+    /* a POST (ai_ask): the body and the extra header lines (the key: wiped when the slot ends) */
+    char *post;
+    size_t post_len;
+    char *headers;
+    int hops;                   /* connections opened: a POST follows no redirect */
 } web_req_t;
 
 /* Starts a request: its id (> 0), or -1 with the reason in err (bad address, one request
@@ -57,6 +62,11 @@ int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_
  * the server said it accepts "Range" and the size; it is deleted when the request is done with a
  * 2xx. The caller checks the whole file (a SHA-256 or its size). */
 int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const char *stem, char *err, size_t en);
+/* A POST of body (copied) with extra header lines (each ending "\r\n", copied; they may hold a key:
+ * the copy is wiped when the request ends). No redirect is followed: an answer 3xx is the result.
+ * No resume. The rest as web_start. */
+int web_start_post(const char *url, const char *headers, const void *body, size_t body_len, size_t max,
+                   uint32_t timeout_ms, char *err, size_t en);
 /* Runs the request a little (about 4 ms): its state, WEB_FREE for an id that is not there. */
 web_state_t web_poll(int id);
 /* The slot of id, or NULL. */

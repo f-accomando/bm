@@ -10,6 +10,7 @@
 #include "webget.h"
 #include "webimg.h"
 #include "webpolicy.h"
+#include "aichat.h"
 #include "kernel/fiber.h"
 #include "net/http.h"
 #include "net/net.h"
@@ -218,6 +219,37 @@ static int fetch(const char *path, size_t max, result_t *out)
             break;
     }
     out->took_ms = (timer_ticks() - t0) / 1000;
+    const web_req_t *r = web_find(id);
+    if (r) {
+        out->r = *r;
+        if (r->body && r->size < sizeof out->body)
+            memcpy(out->body, r->body, r->size + 1);
+    }
+    web_cancel(id);
+    return id;
+}
+
+/* the same with a POST (ai_ask's request) */
+static int post(const char *path, const char *headers, const char *body, result_t *out)
+{
+    char url[256], err[200];
+    snprintf(url, sizeof url, "%s%s", base, path);
+    memset(out, 0, sizeof *out);
+    const int id = web_start_post(url, headers, body, strlen(body), AI_REPLY_MAX, 15000, err, sizeof err);
+    if (id < 0) {
+        printf("     start: %s\n", err);
+        return -1;
+    }
+    const uint32_t t0 = timer_ticks();
+    for (;;) {
+        out->state = web_poll(id);
+        out->polls++;
+        if (out->state == WEB_DONE || out->state == WEB_ERROR || out->state == WEB_FREE)
+            break;
+        usleep(1000);
+        if (timer_ticks() - t0 > 20u * 1000000u)
+            break;
+    }
     const web_req_t *r = web_find(id);
     if (r) {
         out->r = *r;
@@ -786,6 +818,70 @@ static void test_resume(void)
     free(want);
 }
 
+/* ai_ask: the JSON of aichat.c, and the POST of webget.c against the server's fake model */
+static void test_ai(void)
+{
+    char out[600], err[200];
+    CHECK(ai_endpoint("https://api.groq.com/openai/v1/", out, sizeof out, err, sizeof err) == 0 &&
+              strcmp(out, "https://api.groq.com/openai/v1/chat/completions") == 0, "endpoint from a base: %s", out);
+    CHECK(ai_endpoint("https://x.org/v1/chat/completions", out, sizeof out, err, sizeof err) == 0 &&
+              strcmp(out, "https://x.org/v1/chat/completions") == 0, "a full endpoint is kept: %s", out);
+    CHECK(ai_endpoint(NULL, out, sizeof out, err, sizeof err) == -1 && strstr(err, "ai_url"), "no ai_url: %s", err);
+    CHECK(ai_model_ok("openai/gpt-oss-20b:free") == 0 && ai_model_ok("a b") == -1 && ai_model_ok("") == -1,
+          "model names: letters, digits and -_.:/@ only");
+
+    const char tricky[] = "say \"hi\"\\\n\ttab \x01 caf\xc3\xa9";
+    ai_msg_t m[3] = { { "system", "be short", 8 }, { "user", tricky, sizeof tricky - 1 }, { "bot", "x", 1 } };
+    size_t len = 0;
+    char *j = ai_request_json("m-1", m, 2, 0, 0.7, &len, err, sizeof err);
+    const char want[] = "{\"model\":\"m-1\",\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"be short\"},"
+                        "{\"role\":\"user\",\"content\":\"say \\\"hi\\\"\\\\\\n\\ttab \\u0001 caf\xc3\xa9\"}],"
+                        "\"max_tokens\":1024,\"temperature\":0.70}";
+    CHECK(j && len == strlen(j) && strcmp(j, want) == 0, "request JSON escaped:\n       %s", j ? j : err);
+    CHECK(ai_request_json("m-1", m, 3, 10, -1, &len, err, sizeof err) == NULL && strstr(err, "role"), "a bad role: %s", err);
+    free(j);
+
+    ai_reply_t a;
+    const char parts[] = "{\"choices\":[{\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"a\"},{\"type\":\"text\",\"text\":\"b\"}]}}]}";
+    CHECK(ai_reply_parse(200, parts, sizeof parts - 1, &a, err, sizeof err) == 0 && strcmp(a.text, "ab") == 0 &&
+              a.prompt_tokens == -1, "content as parts is joined");
+    ai_reply_free(&a);
+    const char gem[] = "[{\"error\":{\"code\":429,\"message\":\"Resource exhausted\"}}]";
+    CHECK(ai_reply_parse(429, gem, sizeof gem - 1, &a, err, sizeof err) == -1 && strcmp(err, "HTTP 429: Resource exhausted") == 0,
+          "Gemini's error list: %s", err);
+    CHECK(ai_reply_parse(502, "<html>", 6, &a, err, sizeof err) == -1 && strcmp(err, "HTTP 502 from the AI server") == 0,
+          "an error without JSON: %s", err);
+
+    /* the round trip: the server checks the key and answers with the last user message */
+    const char key[] = "Content-Type: application/json\r\nAuthorization: Bearer sk-test\r\n";
+    j = ai_request_json("m-1", m, 2, 64, -1, &len, err, sizeof err);
+    result_t r;
+    web_gap_reset();
+    int id = post("/v1/chat/completions", key, j, &r);
+    CHECK(r.state == WEB_DONE && r.r.status == 200, "POST 200 (%d, %s)", r.r.status, r.r.error);
+    CHECK(r.r.headers == NULL && r.r.post == NULL, "the key's copy is freed when the request ends");
+    CHECK(ai_reply_parse(r.r.status, r.body, strlen(r.body), &a, err, sizeof err) == 0 && a.text &&
+              strncmp(a.text, "echo: ", 6) == 0 && strcmp(a.text + 6, tricky) == 0 && strcmp(a.finish, "stop") == 0 &&
+              a.prompt_tokens == 7 && a.completion_tokens == 3,
+          "the reply: the server read the same text back (%s)", a.text ? a.text : err);
+    ai_reply_free(&a);
+
+    web_gap_reset();
+    post("/v1/chat/completions", "Content-Type: application/json\r\nAuthorization: Bearer wrong\r\n", j, &r);
+    CHECK(r.state == WEB_DONE && r.r.status == 401 && ai_reply_parse(401, r.body, strlen(r.body), &a, err, sizeof err) == -1 &&
+              strcmp(err, "HTTP 401: Invalid API Key") == 0, "a wrong key: %s", err);
+
+    web_gap_reset();
+    post("/post-redirect", key, j, &r);
+    CHECK(r.state == WEB_ERROR && strstr(r.r.error, "a POST follows none"), "a POST follows no redirect: %s", r.r.error);
+
+    web_gap_reset();
+    fetch("/postseen", 1 << 20, &r);
+    CHECK(r.state == WEB_DONE && strcmp(r.body, "2") == 0, "the redirect target got no POST (%s posts)", r.body);
+    free(j);
+    (void)id;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 3) {
@@ -799,6 +895,7 @@ int main(int argc, char **argv)
     test_keepalive();
     test_filewrite();
     test_resume();
+    test_ai();
     printf("%s\n", fails ? "FAILED" : "all passed");
     return fails ? 1 : 0;
 }

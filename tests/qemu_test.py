@@ -2055,6 +2055,18 @@ function _init()
   log("wi", web_info(99))
   log("wb", web_body(99))
   log("wc", web_cancel(99))
+
+  -- ai_ask: the server and the key come from bm/config.txt; a cartridge never reads the key
+  local ai = ai_info()
+  local fields = {}
+  for k, v in pairs(ai) do fields[#fields + 1] = k .. "=" .. tostring(v) end
+  table.sort(fields)
+  log("aiinfo", table.concat(fields, ","))
+  log("ai1", ai_ask({}))
+  log("ai2", ai_ask("hi", { model = "bad model" }))
+  log("ai3", ai_ask({ { role = "user" } }))
+  log("ai4", ai_ask("hi"))
+  log("ai5", ai_reply(99))
   log("end")
   quit()
 end
@@ -2064,14 +2076,15 @@ end
 def test_web_api(b, opts):
     """bm3D 7.x web API for a browser cart: image_load (JPEG, PNG, WebP into the sprite sheet),
     file_write (only a bare 8.3 name in bm/web, never .bm/.bme/.b16, capped, 128 files) and the
-    web_get address rules. The QEMU machine has no network: web_get stops at "no network" (the
-    request itself is tested on the PC by make test-webapi)."""
+    web_get address rules; ai_info and ai_ask's checks with the key in bm/config.txt (never in the log).
+    The QEMU machine has no network: web_get and ai_ask stop at "no network" (the requests are
+    tested on the PC by make test-webapi and make test-https)."""
     import zlib
     tmp = tempfile.mkdtemp(prefix="bm-webapi-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
-        f.write("layout=us\nwifi_boot=0\n")
+        f.write("layout=us\nwifi_boot=0\nai_url=https://relay.test:8443/v1\nai_model=default\nai_key=bmr-secret-123\n")
     mksd.build(img, [(cfg, "bm/config.txt")])
     fx = {
         "jpg": _web_fixture(os.path.join(WEB_FIX, "block_32x24.jpg")),
@@ -2148,6 +2161,13 @@ def test_web_api(b, opts):
     assert line("wp")[0] == "nil" and "no such request" in line("wp")[1], line("wp")
     assert line("wi")[0] == "nil" and line("wb")[0] == "nil", (line("wi"), line("wb"))
     assert line("wc") == ["false"], line("wc")
+    assert line("aiinfo") == ["host=relay.test,key=true,model=default,ready=true"], line("aiinfo")
+    assert line("ai1")[0] == "nil" and "1 to 64 messages" in line("ai1")[1], line("ai1")
+    assert line("ai2")[0] == "nil" and "model name" in line("ai2")[1], line("ai2")
+    assert line("ai3")[0] == "nil" and "two strings" in line("ai3")[1], line("ai3")
+    assert line("ai4") == ["nil", "no network"], line("ai4")
+    assert line("ai5")[0] == "nil" and "no such request" in line("ai5")[1], line("ai5")
+    assert "bmr-secret" not in text, "the key reached the log"
 
     try:
         part = os.path.join(tmp, "part.img")

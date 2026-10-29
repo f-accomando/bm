@@ -43,6 +43,7 @@
 #include "webget.h"
 #include "webimg.h"
 #include "webpolicy.h"
+#include "aichat.h"
 #include "require.h"
 #include "meshcap.h"
 #include "tokens.h"
@@ -585,5 +586,170 @@ int l_file_state(lua_State *L)
         lua_pushstring(L, err);
     else
         lua_pushinteger(L, (lua_Integer)done);
+    return 2;
+}
+
+/* ---- a chat model (ai_ask, ai_reply, ai_info): POST <ai_url>/chat/completions in the
+ * OpenAI-compatible format, the key of bm/config.txt (ai_key) added by the kernel. A cartridge
+ * never reads the key and never chooses the server: the player sets both. The request is a
+ * web request: web_poll, web_info and web_cancel work on its id. aichat.c has the JSON. ---- */
+
+/* the server and the model of bm/config.txt: 0, or -1 and why */
+static int ai_config(char *url, size_t un, char *host, size_t hn, char *err, size_t en)
+{
+    if (ai_endpoint(config_get("ai_url"), url, un, err, en))
+        return -1;
+    if (web_url_check(url, host, hn, err, en))
+        return -1;
+    if (ai_model_ok(config_get("ai_model"))) {
+        snprintf(err, en, "no model: put ai_model in bm/config.txt");
+        return -1;
+    }
+    return 0;
+}
+
+/* ai_info() -> { ready = bool, host =, model =, why = }: the key is never in it */
+int l_ai_info(lua_State *L)
+{
+    char url[WEB_URL_MAX + 1], host[128], err[160];
+    const int ok = ai_config(url, sizeof url, host, sizeof host, err, sizeof err) == 0;
+    lua_createtable(L, 0, 4);
+    lua_pushboolean(L, ok);
+    lua_setfield(L, -2, "ready");
+    if (ok) {
+        lua_pushstring(L, host);
+        lua_setfield(L, -2, "host");
+        lua_pushstring(L, config_get("ai_model"));
+        lua_setfield(L, -2, "model");
+        const char *k = config_get("ai_key");
+        lua_pushboolean(L, k && k[0]);
+        lua_setfield(L, -2, "key");
+    } else {
+        lua_pushstring(L, err);
+        lua_setfield(L, -2, "why");
+    }
+    return 1;
+}
+
+/* ai_ask(messages, [{system =, model =, max_tokens =, temperature =, timeout =}]) -> id, or nil and why.
+ * messages: a string (one user message) or { {role =, content =}, ... }. */
+int l_ai_ask(lua_State *L)
+{
+    char url[WEB_URL_MAX + 1], host[128], err[200];
+    if (ai_config(url, sizeof url, host, sizeof host, err, sizeof err))
+        return web_nil(L, err);
+    char model_buf[AI_MODEL_MAX + 1];
+    snprintf(model_buf, sizeof model_buf, "%s", config_get("ai_model"));    /* ai_config checked it */
+    const char *model = model_buf;
+    int max_tokens = AI_TOKENS_DEFAULT;
+    double temperature = -1;
+    uint32_t timeout = AI_TIMEOUT_DEFAULT;
+    ai_msg_t m[AI_MSGS_MAX];
+    int n = 0;
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "model");
+        if (lua_type(L, -1) == LUA_TSTRING)
+            model = lua_tostring(L, -1);        /* stays on the stack: the string lives until the call returns */
+        lua_getfield(L, 2, "max_tokens");
+        if (lua_isnumber(L, -1))
+            max_tokens = (int)lua_tonumber(L, -1);
+        lua_getfield(L, 2, "temperature");
+        if (lua_isnumber(L, -1))
+            temperature = lua_tonumber(L, -1) < 0 ? 0 : lua_tonumber(L, -1);
+        lua_getfield(L, 2, "timeout");
+        if (lua_isnumber(L, -1)) {
+            const lua_Number t = lua_tonumber(L, -1);
+            timeout = (uint32_t)(t < 1000 ? 1000 : t > AI_TIMEOUT_LIMIT ? AI_TIMEOUT_LIMIT : t);
+        }
+        lua_pop(L, 3);
+        lua_getfield(L, 2, "system");
+        if (lua_type(L, -1) == LUA_TSTRING) {
+            m[n].role = "system";
+            m[n].content = lua_tolstring(L, -1, &m[n].len);
+            n++;
+        }
+    }
+    if (ai_model_ok(model))
+        return web_nil(L, "a model name has 1 to 96 of a-z A-Z 0-9 - _ . : / @");
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        m[n].role = "user";
+        m[n].content = lua_tolstring(L, 1, &m[n].len);
+        n++;
+    } else {
+        luaL_checktype(L, 1, LUA_TTABLE);
+        const int cnt = (int)lua_rawlen(L, 1);
+        if (cnt < 1 || cnt + n > AI_MSGS_MAX)
+            return web_nil(L, "1 to 64 messages");
+        lua_checkstack(L, cnt * 3 + 4);
+        for (int i = 1; i <= cnt; i++) {
+            lua_rawgeti(L, 1, i);               /* kept on the stack: the strings stay alive */
+            if (!lua_istable(L, -1))
+                return web_nil(L, "each message is {role =, content =}");
+            lua_getfield(L, -1, "role");
+            lua_getfield(L, -2, "content");
+            if (lua_type(L, -2) != LUA_TSTRING || lua_type(L, -1) != LUA_TSTRING)
+                return web_nil(L, "each message is {role =, content =} with two strings");
+            m[n].role = lua_tostring(L, -2);
+            m[n].content = lua_tolstring(L, -1, &m[n].len);
+            n++;
+        }
+    }
+    if (!cartnet_ip())
+        return web_nil(L, "no network");
+    if (!perm_allowed(PERM_NET))
+        return web_nil(L, "the player did not allow this game the network");
+    const char *key = config_get("ai_key");
+    char headers[512];
+    int hl = snprintf(headers, sizeof headers, "Content-Type: application/json\r\n");
+    if (key && key[0]) {
+        for (const char *p = key; *p; p++)
+            if (*p <= ' ' || *p > '~')
+                return web_nil(L, "ai_key in bm/config.txt has a space or a control character");
+        hl += snprintf(headers + hl, sizeof headers - (size_t)hl, "Authorization: Bearer %s\r\n", key);
+    }
+    if (hl >= (int)sizeof headers)
+        return web_nil(L, "ai_key in bm/config.txt is too long");
+    size_t len = 0;
+    char *body = ai_request_json(model, m, n, max_tokens, temperature, &len, err, sizeof err);
+    int id = -1;
+    if (body)
+        id = web_start_post(url, headers, body, len, AI_REPLY_MAX, timeout, err, sizeof err);
+    for (volatile char *p = headers; *p; p++)
+        *p = 0;
+    free(body);
+    if (id < 0)
+        return web_nil(L, err);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+/* ai_reply(id) -> the text and { finish =, prompt_tokens =, completion_tokens =, status = },
+ * or nil and why (not finished, the request failed, or the server's own error message) */
+int l_ai_reply(lua_State *L)
+{
+    const web_req_t *r = web_find((int)luaL_checkinteger(L, 1));
+    if (!r)
+        return web_nil(L, "no such request");
+    if (r->state != WEB_DONE)
+        return web_nil(L, r->state == WEB_ERROR ? r->error : "the request is not finished");
+    ai_reply_t a;
+    char err[240];
+    if (ai_reply_parse(r->status, (const char *)r->body, r->size, &a, err, sizeof err))
+        return web_nil(L, err);
+    lua_pushstring(L, a.text);
+    lua_createtable(L, 0, 4);
+    lua_pushstring(L, a.finish);
+    lua_setfield(L, -2, "finish");
+    if (a.prompt_tokens >= 0) {
+        lua_pushinteger(L, a.prompt_tokens);
+        lua_setfield(L, -2, "prompt_tokens");
+    }
+    if (a.completion_tokens >= 0) {
+        lua_pushinteger(L, a.completion_tokens);
+        lua_setfield(L, -2, "completion_tokens");
+    }
+    lua_pushinteger(L, r->status);
+    lua_setfield(L, -2, "status");
+    ai_reply_free(&a);
     return 2;
 }

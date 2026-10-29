@@ -30,6 +30,13 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   [multitasking](multitasking.md)). Tests: `make test-webapi`
   (PC, ucontext fibers, local server), QEMU `test_web_api`. Not tried on a Pi or an RGB30 with a
   real server (divergence D50). Not done: PNG/JPEG decoding in bands, progressive JPEG.
+- A chat model for cartridges (spec 6; [docs/api/system.md](../api/system.md), "A chat model"; design in
+  [ai-agent](../design/ai-agent.md)): `ai_ask` / `ai_reply` / `ai_info` in `src/bm/api_web.c`, the JSON in `src/bm/aichat.c`,
+  the POST in `webget.c` (`web_start_post`: method, body and header lines copied, no redirect, the header copy wiped at the end).
+  Config keys `ai_url`, `ai_model`, `ai_key` (secret). Tests: `make test-webapi` (the JSON, a fake OpenAI-compatible server,
+  401, the refused redirect), `make test-https` (the relay's CA appended to `boot/ca.pem`, a POST to an IP address over TLS),
+  QEMU `test_web_api` (`ai_info`, the argument checks, the key not in the log). Not tried on a Pi or an RGB30 with a real
+  provider (D50).
 - PC link (`netcon.c` console, `netxfer.c` files) for `tools/bm_net.py`: a file is answered
   `QD` once received and checked, written from the menu in a fiber
   (`netxfer_write_tick`); one at a time, another gets `BY`. An open or suspended game is

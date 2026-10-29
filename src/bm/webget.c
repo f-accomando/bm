@@ -182,6 +182,10 @@ static int before(void *ctx, const char *url, char *err, size_t en)
     char host[128];
     if (web_url_check(url, host, sizeof host, err, en))
         return 1;
+    if (r->post && r->hops++) {
+        snprintf(err, en, "the server answered with a redirect: a POST follows none");
+        return 1;
+    }
     for (;;) {
         const uint32_t left = web_gap_left_us(host, timer_ticks());
         if (!left)
@@ -195,6 +199,18 @@ static int before(void *ctx, const char *url, char *err, size_t en)
     r->state = WEB_BUSY;
     web_gap_mark(host, timer_ticks());
     return 0;
+}
+
+/* the POST's copies: the header lines may hold a key, so they are wiped before they are freed */
+static void free_post(web_req_t *r)
+{
+    if (r->headers)
+        for (volatile char *p = r->headers; *p; p++)
+            *p = 0;
+    free(r->headers);
+    free(r->post);
+    r->headers = r->post = NULL;
+    r->post_len = 0;
 }
 
 static void run(void *arg)
@@ -212,6 +228,12 @@ static void run(void *arg)
     q.keep_alive = 1;
     q.on_headers = on_headers;
     q.on_headers_ctx = r;
+    if (r->post) {
+        q.method = "POST";
+        q.body = r->post;
+        q.body_len = r->post_len;
+        q.headers = r->headers;
+    }
     if (r->part[0])
         part_load(r);
     int st;
@@ -245,10 +267,12 @@ static void run(void *arg)
     } else {
         r->state = WEB_DONE;
     }
+    free_post(r);
 }
 
 static void free_slot(web_req_t *r)
 {
+    free_post(r);
     free(r->body);
     memset(r, 0, sizeof *r);
 }
@@ -260,30 +284,19 @@ static void end_fiber(void)
     running = NULL;
 }
 
-int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
+/* the checks, then a free slot cleared (not yet running, its id still 0), or NULL and why */
+static web_req_t *claim(const char *url, char *err, size_t en)
 {
-    return web_start_resume(url, max, timeout_ms, NULL, err, en);
-}
-
-int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const char *stem, char *err, size_t en)
-{
-    char host[128], part[13] = "";
-    if (stem) {
-        char name[13];
-        if (web_file_name(stem, name, err, en))
-            return -1;
-        const char *dot = strchr(name, '.');
-        snprintf(part, sizeof part, "%.*s.prt", (int)(dot ? (size_t)(dot - name) : strlen(name)), name);
-    }
+    char host[128];
     if (web_url_check(url, host, sizeof host, err, en))
-        return -1;
+        return NULL;
     if (fiber_current()) {
         snprintf(err, en, "web_get cannot start from a background job");
-        return -1;
+        return NULL;
     }
     if (running) {
         snprintf(err, en, "a request is running: poll it or cancel it first");
-        return -1;
+        return NULL;
     }
     web_req_t *r = NULL;
     for (int i = 0; i < WEB_SLOTS && !r; i++)
@@ -291,25 +304,74 @@ int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const cha
             r = &slots[i];
     if (!r) {
         snprintf(err, en, "no free slot: web_cancel an old result first");
-        return -1;
+        return NULL;
     }
     memset(r, 0, sizeof *r);
+    r->length = -1;
+    r->total = -1;
+    r->url_hash = hash_url(url);
+    snprintf(r->url, sizeof r->url, "%s", url);
+    return r;
+}
+
+/* the claimed slot gets its id and its fiber: the request runs from the next web_poll */
+static int launch(web_req_t *r, size_t max, uint32_t timeout_ms, char *err, size_t en)
+{
     if (!(fib_stack = malloc(WEB_STACK))) {
+        free_slot(r);
         snprintf(err, en, "not enough memory");
         return -1;
     }
     r->id = ++next_id > 0 ? next_id : (next_id = 1);
     r->state = WEB_BUSY;
     r->max = max;
-    r->length = -1;
     r->timeout_ms = timeout_ms;
-    r->total = -1;
-    snprintf(r->part, sizeof r->part, "%s", part);
-    r->url_hash = hash_url(url);
-    snprintf(r->url, sizeof r->url, "%s", url);
     running = r;
     fiber_prepare(&fib, fib_stack, WEB_STACK, run, r);
     return r->id;
+}
+
+int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
+{
+    return web_start_resume(url, max, timeout_ms, NULL, err, en);
+}
+
+int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const char *stem, char *err, size_t en)
+{
+    char part[13] = "";
+    if (stem) {
+        char name[13];
+        if (web_file_name(stem, name, err, en))
+            return -1;
+        const char *dot = strchr(name, '.');
+        snprintf(part, sizeof part, "%.*s.prt", (int)(dot ? (size_t)(dot - name) : strlen(name)), name);
+    }
+    web_req_t *r = claim(url, err, en);
+    if (!r)
+        return -1;
+    snprintf(r->part, sizeof r->part, "%s", part);
+    return launch(r, max, timeout_ms, err, en);
+}
+
+int web_start_post(const char *url, const char *headers, const void *body, size_t body_len, size_t max,
+                   uint32_t timeout_ms, char *err, size_t en)
+{
+    web_req_t *r = claim(url, err, en);
+    if (!r)
+        return -1;
+    const size_t hl = headers ? strlen(headers) : 0;
+    r->headers = malloc(hl + 1);
+    r->post = malloc(body_len ? body_len : 1);
+    if (!r->headers || !r->post) {
+        free_slot(r);
+        snprintf(err, en, "not enough memory");
+        return -1;
+    }
+    memcpy(r->headers, headers ? headers : "", hl + 1);
+    if (body_len)
+        memcpy(r->post, body, body_len);
+    r->post_len = body_len;
+    return launch(r, max, timeout_ms, err, en);
 }
 
 web_state_t web_poll(int id)

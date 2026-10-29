@@ -1,0 +1,14 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+# carts/agent/main.lua is the whole app; the .bme project and the .bm are built from it (BME_CARTS).
+name: bm Agent
+desc: A chat with a cloud AI model: a free API or your own subscription through the relay on your PC. The model can propose files; each one is saved into bm/web only after you say yes.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, assistant, web
+type: app
+resolution: 640x360
+targets: pi,rgb30
+input: keyboard,pad,text
+needs: net
+spec: 6

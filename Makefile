@@ -218,7 +218,7 @@ $(BUILD)/carts/%.bm: $$(call c_lua,$$*) scripts/mkbm.py scripts/bmmesh.py $$(cal
 	$(call CART_RECIPE,$*)
 
 # The projects (.bme) of the carts the Dev tab edits: the same cartridge, built the same way
-BME_CARTS := kitchen bmweb
+BME_CARTS := kitchen bmweb agent
 $(BME_CARTS:%=$(BUILD)/carts/%.bme): $(BUILD)/carts/%.bme: $$(call c_lua,$$*) scripts/mkbm.py $$(call c_deps,$$*)
 	$(call CART_RECIPE,$*)
 
@@ -677,7 +677,7 @@ BMHOST_RT := src/bm/runtime.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_ne
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
              src/bm/decimate.c src/bm/cutout.c \
              src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/vid.c src/bm/loading.c src/bm/loading_logo.c \
-             src/bm/profile.c src/bm/project.c src/bm/shot.c src/bm/webp.c src/bm/webimg.c src/bm/webpolicy.c
+             src/bm/profile.c src/bm/project.c src/bm/shot.c src/bm/webp.c src/bm/webimg.c src/bm/webpolicy.c src/bm/aichat.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
@@ -783,7 +783,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-web-bmm test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
@@ -980,7 +980,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-compat test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
-	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-crumbs test-klog test-monitor-cmd test-vid $(if $(K7),test-hyp)
+	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm $(BUILD)/carts/mapkit.bm $(BUILD)/carts/testkit.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1206,6 +1206,14 @@ $(BUILD)/host/test_webp: tests/webp/test_webp.c src/bm/webp.c src/bm/webp.h
 test-webapi: $(BUILD)/host/test_webget
 	$(PYTHON) tests/web/run_webget_test.py $(BUILD)/host/test_webget
 
+# bm Agent (carts/agent, ai_ask in docs/api/system.md): the cart in bmhost with a fake model before its
+# main.lua (tests/agent/prelude.lua), and tools/bm_agent_relay.py over TLS with a fake program (needs openssl).
+# The kernel side of ai_ask is in test-webapi (the JSON, the POST) and test-https (the relay's certificate).
+test-agent: $(BUILD)/host/bmhost-bin tests/agent/run_agent_test.py tests/agent/prelude.lua carts/agent/main.lua carts/agent/bm.info
+	$(PYTHON) tests/agent/run_agent_test.py $(BUILD)/host/bmhost-bin scripts/mkbm.py $(BUILD)/agent-test
+test-agent-relay:
+	$(PYTHON) tests/tools/test_bm_agent_relay.py
+
 # file_write of a .bmm (docs/api/system.md): the model goes to /bmm/NAME.bmm after the kernel's own check of the
 # bytes; broken files, other names and the .bm/.bme/.b16 rule on the host card. The committed models of
 # web/models: web/models/build.py --check (the same bytes as the tools make) and the BMRES validator (bmres.py)
@@ -1216,9 +1224,9 @@ test-web-bmm: $(BUILD)/host/bmhost-bin $(BUILD)/web-bmm-test.bm tests/web/run_bm
 	$(PYTHON) tests/web/test_models.py
 	$(PYTHON) tests/web/run_bmm_test.py $(BUILD)/host/bmhost-bin $(BUILD)/web-bmm-test.bm $(BUILD)/web-bmm
 
-$(BUILD)/host/test_webget: tests/web/test_webget.c tests/web/run_webget_test.py src/bm/webget.c src/bm/webget.h src/bm/webfile.c src/bm/webfile.h src/fs/sdlock.c src/fs/sdlock.h src/bm/webpolicy.c                            src/bm/webpolicy.h src/bm/webimg.c src/bm/webimg.h src/bm/jpeg.c src/bm/png.c src/bm/webp.c                            src/net/http.c src/net/http.h
+$(BUILD)/host/test_webget: tests/web/test_webget.c tests/web/run_webget_test.py src/bm/webget.c src/bm/webget.h src/bm/aichat.c src/bm/aichat.h src/bm/webfile.c src/bm/webfile.h src/fs/sdlock.c src/fs/sdlock.h src/bm/webpolicy.c                            src/bm/webpolicy.h src/bm/webimg.c src/bm/webimg.h src/bm/jpeg.c src/bm/png.c src/bm/webp.c                            src/net/http.c src/net/http.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -DBM_HOST_TEST 		-DHTTP_USER_AGENT='"test"' -Isrc -Isrc/bm -Isrc/net -Ithird_party/lua -o $@ tests/web/test_webget.c src/bm/webget.c src/bm/webfile.c src/fs/sdlock.c src/bm/webpolicy.c 		src/bm/webimg.c src/bm/jpeg.c src/bm/png.c src/bm/webp.c src/net/http.c -lm
+	$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -DBM_HOST_TEST 		-DHTTP_USER_AGENT='"test"' -Isrc -Isrc/bm -Isrc/net -Ithird_party/lua -o $@ tests/web/test_webget.c src/bm/webget.c src/bm/webfile.c src/fs/sdlock.c src/bm/webpolicy.c src/bm/aichat.c src/bm/json.c 		src/bm/webimg.c src/bm/jpeg.c src/bm/png.c src/bm/webp.c src/net/http.c -lm
 
 # the .bmv reader (src/bm/vid.c), jpeg_decode565 and scripts/mkvid.py
 test-vid: $(BUILD)/host/test_vid scripts/mkvid.py tests/video/run_vid_test.py
@@ -1768,18 +1776,18 @@ test-spec: $(BUILD)/host/bmhost-bin tests/spec/cart.lua scripts/mkbm.py
 	@mkdir -p $(BUILD)/spec
 	@printf 'name: spec test\nspec: 1\n' > $(BUILD)/spec/ok.info
 	@printf 'name: spec test\nspec: 999\n' > $(BUILD)/spec/new.info
-	@printf 'name: spec test\nspec: 5\n' > $(BUILD)/spec/five.info
 	@printf 'name: spec test\nspec: 6\n' > $(BUILD)/spec/six.info
-	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/five.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/five.info > /dev/null
+	@printf 'name: spec test\nspec: 7\n' > $(BUILD)/spec/seven.info
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/six.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/six.info > /dev/null
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/seven.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/seven.info > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/ok.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/ok.info > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/none.bm --lua tests/spec/cart.lua --title none > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/new.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/new.info > /dev/null
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/ok.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 1 did not run"; exit 1; }
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/none.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "no spec did not run"; exit 1; }
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/new.bm --seconds 1 2>&1 | grep -q "needs revision 999" || { echo "spec 999 was not refused"; exit 1; }
-	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/five.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 5 did not run"; exit 1; }
-	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/six.bm --seconds 1 2>&1 | grep -q "needs revision 6" || { echo "spec 6 was not refused"; exit 1; }
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/six.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 6 did not run"; exit 1; }
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/seven.bm --seconds 1 2>&1 | grep -q "needs revision 7" || { echo "spec 7 was not refused"; exit 1; }
 	@echo "spec: 5/5 checks passed"
 # A cartridge's code is Lua text: a section that starts with the bytecode signature is refused (mode "t" in lua_load)
 test-luatext: $(BUILD)/host/bmhost-bin scripts/mkbm.py

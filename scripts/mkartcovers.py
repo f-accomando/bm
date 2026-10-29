@@ -451,6 +451,24 @@ def bmweb(a):
     a.over(lay)
 
 
+def agent(a):
+    a.glow(44, 32, 36, 0xB080FF, 0.55)
+
+    def bubble(dr, c):                                       # a chat bubble with its tail at the bottom left
+        dr.rounded_rectangle(P([(12, 12), (76, 50)])[0] + P([(12, 12), (76, 50)])[1], 8 * S, fill=c)
+        dr.polygon(P([(22, 48), (18, 62), (36, 48)]), fill=c)
+    a.shadow(bubble)
+    lay, d = a.draw()
+    bubble(d, (240, 244, 252, 255))
+    for i, c in enumerate((0x7060E0, 0x9070F0, 0xB080FF)):  # three dots: the model is typing
+        x = 30 + i * 14
+        d.ellipse(P([(x - 4, 27), (x + 4, 35)])[0] + P([(x - 4, 27), (x + 4, 35)])[1], fill=rgb(c) + (255,))
+    sx, sy = 70, 14                                          # a spark at the top right
+    d.polygon(P([(sx, sy - 9), (sx + 2.5, sy - 2.5), (sx + 9, sy), (sx + 2.5, sy + 2.5), (sx, sy + 9),
+                 (sx - 2.5, sy + 2.5), (sx - 9, sy), (sx - 2.5, sy - 2.5)]), fill=(255, 210, 90, 255))
+    a.over(lay)
+
+
 def bench3d(a):
     a.glow(44, 30, 36, 0x60E0FF, 0.5)
     lay, d = a.draw()                                        # the bars of a chart, rising to the right
@@ -482,6 +500,7 @@ COVERS = {
     "herocart": ("Hero Stress", 0x141A3A, 0x2A4A9A, herocart),
     "bmweb": ("bm Web", 0x0E2850, 0x2078B0, bmweb),
     "bench3d": ("3D Bench", 0x0A1A2E, 0x1E4A6E, bench3d),
+    "agent": ("bm Agent", 0x1A1240, 0x4A3A9A, agent),
 }
 
 

@@ -115,6 +115,53 @@ function _draw()
 end
 ```
 
+### A chat model (ai_ask, ai_reply, ai_info)
+
+A cartridge asks a cloud chat model through the player's own server and key. The kernel sends
+`POST <ai_url>/chat/completions` in the OpenAI-compatible format. Gemini (its OpenAI-compatible endpoint),
+Groq, OpenRouter, Mistral and `tools/bm_agent_relay.py` accept it. The app that uses it is `carts/agent` (bm Agent).
+The design and the providers' terms are in [ai-agent](../design/ai-agent.md).
+
+- **The player sets the server.** `bm/config.txt` has `ai_url` (a base such as `https://api.groq.com/openai/v1`, or the full
+  endpoint), `ai_model` and `ai_key`. Each value has at most 127 characters. `ai_key` is a secret: the logs and `config_list` hide it.
+- **The key stays in the kernel.** The kernel adds `Authorization: Bearer <ai_key>` to the request. No call gives the key
+  to a cartridge. A cartridge cannot choose the server: only `ai_url` is used. Without `ai_key` no `Authorization` is sent.
+- **The rules of `web_get` apply.** https only, the certificate chains to `bm/ca.pem`, the player allows the network, a pause of
+  1 s per host, one request at a time, 3 results kept. The answer's cap is 1 MB.
+- **No redirect.** A POST follows no redirect: a 3xx answer ends in `"error"`.
+- **The request is a web request.** Advance it with `web_poll(id)` once a frame. Free it with `web_cancel(id)`. `web_info(id)` and
+  `web_body(id)` work on it too.
+- **bmhost.** `ai_ask` returns `nil` and a reason, as `web_get`.
+
+| Function | Description |
+|---|---|
+| `info = ai_info()` | the setup in `bm/config.txt`: `{ready = true, host =, model =, key = bool}`, or `{ready = false, why =}`. `key` says only whether `ai_key` is set |
+| `id = ai_ask(messages, [opts])` | starts a request. `messages` is a string (one user message) or a list `{ {role =, content =}, ... }` of 1 to 64 messages, `role` `"system"`, `"user"` or `"assistant"`, at most 192 KB of text. `opts`: `system` (a system message put first), `model` (instead of `ai_model`: 1 to 96 of `a-z A-Z 0-9 - _ . : / @`), `max_tokens` (1 to 32768, default 1024), `temperature` (0 to 2; the server's default if missing), `timeout` (milliseconds for one read, 1000 to 180000, default 60000). Returns the request `id`, or `nil` and the reason (no `ai_url`, a bad message, no network, the player said no, a request already runs) |
+| `text, info = ai_reply(id)` | the answer of a finished request: the text of the first choice, and `{finish =, prompt_tokens =, completion_tokens =, status =}` (the tokens if the server gave them). `nil` and the reason if the request is not finished, failed, or the server answered an error (`"HTTP 429: ..."` with the server's own message) |
+
+```lua
+local req, answer
+function _update()
+  if btnp("ok") and not req then
+    req = ai_ask({ { role = "user", content = "Name three 8-bit consoles." } }, { max_tokens = 200 })
+  end
+  if req then
+    local state = web_poll(req)
+    if state == "done" or state == "error" then
+      local text, info = ai_reply(req)
+      answer = text or ("no answer: " .. info)
+      web_cancel(req)
+      req = nil
+    end
+  end
+end
+
+function _draw()
+  cls(0)
+  print(answer or (req and "thinking..." or "press ok"), 8, 8)
+end
+```
+
 ### Saves
 
 | Function | Description |

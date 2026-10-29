@@ -29,6 +29,11 @@ rev = 5
 date = "2026-10-25"
 what = "safe_area() and aspect() (the part of the screen that has the aspect of the cartridge, and the shape of the screen) and the 720x405 mode of screen(); a cartridge that calls them says spec: 5"
 
+[[revision]]
+rev = 6
+date = "2026-10-29"
+what = "a chat model for cartridges: ai_ask, ai_reply and ai_info (POST <ai_url>/chat/completions in the OpenAI-compatible format, the key added by the kernel and never given to Lua, no redirect for a POST); the config keys ai_url, ai_model and ai_key; a cartridge that calls them says spec: 6"
+
 [[item]]
 id = "container-v1"
 since = 1
@@ -236,3 +241,11 @@ status = "implemented"
 platforms = "all"
 where = ["src/script/bmlib.lua", "docs/api/bmlib.md", "tests/host/layout.lua"]
 note = "lib.view(), lib.anchor(), lib.safe_clip() and lib.fit(): the safe area as a table, the nine places in it, clip to it, and the fit of a layer made for another size. Tested by make test-layout"
+
+[[item]]
+id = "api-ai-chat"
+since = 6
+status = "implemented"
+platforms = "all"
+where = ["src/bm/aichat.c", "src/bm/api_web.c", "src/bm/webget.c", "docs/api/system.md"]
+note = "ai_ask, ai_reply and ai_info (docs/api/system.md, A chat model): the server, the model and the key of bm/config.txt; the key is added by the kernel and never reaches Lua; a POST follows no redirect. Tested on the PC by make test-webapi (the JSON, the POST, the key's copy wiped), make test-https (the relay's certificate on an IP address, the POST over TLS) and make test-agent; in QEMU by test_web_api (the checks, the key not in the log). Not tried on a Pi or an RGB30 with a real provider (as divergence D50)"

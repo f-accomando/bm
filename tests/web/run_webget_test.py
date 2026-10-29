@@ -7,6 +7,7 @@ The server has the pages the test asks for: a short page, a 404, a chunked body,
 150 ms apart), a 3 MB body and redirects (a chain of 3, a chain of 4, to https, relative).
 """
 import http.server
+import json
 import os
 import socket
 import socketserver
@@ -20,6 +21,7 @@ BIG = bytes((i * 31 + (i >> 12)) & 0xFF for i in range(3 << 20))
 PART = bytes((i * 7 + 3) & 0xFF for i in range(200000))      # the file of the Range tests
 CUT_AT = 80000                                              # bytes sent before a cut connection
 conns = [0]                                                 # connections accepted (keep-alive tests)
+posts = [0]                                                 # POSTs that reached the fake model
 seen = {}                                                   # path -> the Range header of its last request
 firsts = set()                                              # paths already asked once
 
@@ -95,6 +97,8 @@ class H(http.server.BaseHTTPRequestHandler):
                 self.close_connection = True
             elif p in ("/cut", "/cutlie", "/cut416", "/cutchg", "/cutn"):
                 self.range_page(p)
+            elif p == "/postseen":
+                self.send(200, str(posts[0]).encode())
             elif p.startswith("/lastrange"):
                 self.send(200, str(seen.get(p[10:])).encode())
             elif p in chain:
@@ -125,6 +129,29 @@ class H(http.server.BaseHTTPRequestHandler):
                 self.send(404, b"not here")
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    def do_POST(self):
+        """/v1/chat/completions: a fake OpenAI-compatible model (ai_ask). It wants the key sk-test and
+        answers "echo: " and the last user message. /post-redirect: a 302 that a POST must not follow."""
+        n = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(n)
+        if self.path == "/post-redirect":
+            self.send(302, b"", extra=[("Location", "/v1/chat/completions")])
+            return
+        if self.path != "/v1/chat/completions":
+            self.send(404, b"not here")
+            return
+        posts[0] += 1
+        if self.headers.get("Authorization") != "Bearer sk-test":
+            err = {"error": {"message": "Invalid API Key", "type": "invalid_request_error"}}
+            self.send(401, json.dumps(err).encode(), "application/json")
+            return
+        req = json.loads(body)
+        last = [m["content"] for m in req["messages"] if m["role"] == "user"][-1]
+        out = {"choices": [{"index": 0, "message": {"role": "assistant", "content": "echo: " + last},
+                            "finish_reason": "stop"}],
+               "usage": {"prompt_tokens": 7, "completion_tokens": 3}}
+        self.send(200, json.dumps(out).encode(), "application/json")
 
 
 class S(socketserver.ThreadingMixIn, http.server.HTTPServer):
