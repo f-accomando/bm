@@ -99,3 +99,11 @@ Checked on the RGB30: scores 636 and 750 as before, the pixel check holds, and t
 At a high load the far rows of `heroes` covered the near ones. The pixel check cannot see it. The screenshot of the 3D Bench (`bm_shot_page`) shows it.
 The cause: a batch held 512 matrices (`BE_MAX_MVPS`) and a hero takes 16, so after 32 heroes the batch ended and the next heroes (the far rows) came in a new frame, over the first one. Two other limits had the same effect: `BE_VIS_MAX` (the faces of the cached meshes: 12288, so only 8 heroes were cached and the others were plain triangles in a frame of their own) and the order of the cached meshes in a frame.
 Now `BE_MAX_MVPS` is 2048, `BE_VIS_MAX` 65536, and the cached meshes are sorted far to near (the depth of the origin, `m[15]`) so that a frame split keeps the near meshes last. Checked by eye on the RGB30 (iterations 3 and 4 of `heroes`). The full 3D Bench was not run with these limits: the console was off.
+
+## The queue on heroes (29 Oct): no gain, and why
+
+The queue profiles `GPU+VS+Q` and `GPU+VS+Q2` ran on `heroes` and `heroes_tex` (RGB30, kernel of 29 Oct). The 3D Bench did not keep them for these scenes.
+`heroes`: the jobs time in the flush fell from 7.5 ms to 3.2 ms and the flush from 10.2 ms to 4.8 ms. The frame stayed at 14.1 ms (n60 15.2 in both). `heroes_tex`: n60 8.1 in both. The pixel check was the same.
+The cause: the queue overlaps the GPU with the work of the same frame only. `heroes` has no work after the submit, so `mali_backend_sync` at the present waits for the GPU (about 4.3 ms). The mesh of the next frame (3.4 ms) and the draw build (1.5 ms) start after that wait.
+A worker core does not change this: the wait only moves to another core. The gain needs a pipeline across frames. The ARM does the mesh and the build of frame N+1 while the GPU draws frame N. A worker core does the wait, the resolve (1.2 ms) and the present of frame N. In `heroes` the ARM needs about 6 ms and the GPU 7.5 ms, so a frame could take about 9 ms instead of 14 (n60 about 23).
+The pipeline needs: two pages (the resolve of frame N writes one page while the game draws into the other), a present one frame late, and a `sync` before any 2D draw on the page of the frame in flight. It adds one frame of latency.
