@@ -65,3 +65,22 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
 - **Native menu layout (trial, 28 Oct 2026, key `menu_layout=1`, with `menu_scale` 2 or 3).** The layout has the screen's own size (1280x720 or 1920x1080) instead of the 640x360 layout drawn bigger: covers and fonts keep their size in pixels, 8 covers a row (6 at 360p), as many rows as fit, the grid centred, the key chips centred in the bottom bar. The background is still made at 640x360 and drawn bigger (`bgz`). Not done in the native layout: the Settings page and the panels (positions written for 360 high), the title and the tabs (left aligned). Decide the default after a look on the TV. On 29 Oct 2026 the options box of a cartridge and the submenu of Settings are half as wide there and in the middle (`PANEL_W`, `PANEL_X` and `draw_page` in `menu_ui.c`; the 360p layout is unchanged). Checked only at 360p in QEMU (it has no V3D, so it never draws the native layout): look at it on the TV. The question boxes (`ask`) are still wide.
 - **Covers in a better resolution (SYS-18, idea).** Today a cover is `MENU_CARD` x `MENU_CARD` (88 x 88) in the cartridge. Plan: the cartridge carries a larger cover (for example 256 x 256); the menu makes the size for the screen from it (88 at 360p, a larger size at 720p and 1080p) and keeps the small one for the lists; the Market and the SD scan give the same cover. Check the cost in the cartridge size and in the cover loader (`covers` job) on the Pi Zero W before the format changes (`docs/BM-FORMAT.md`).
 
+
+## Restyle plan (SYS-27)
+
+Roadmap line: SYS-27 ([ROADMAP](../ROADMAP.md)). Goal: one look for the menu, the shell and the games' text at 360p,
+720p and 1080p, on the Pi and on the RGB30. The Pi Zero W is the benchmark. The user guides the style choices; Claude
+makes the drafts and the tools. Do one step, get the user's decision, then go to the next.
+
+| Step | What | Done when |
+|---|---|---|
+| 1 | Measure. Frame time of the menu at 360p, 720p and 1080p on the Pi Zero W and in QEMU; pixels redrawn for each key press; cover decode time. | A table of numbers is in this sheet. |
+| 2 | One font family. All five fonts (`6x12`, `8x14`, `8x16`, `16x32`, `24x48`) come from one source and one script. The `font_t` format stays. The 16x32 and 24x48 fonts are drawn at their size, not scaled up from 8x16. Check the licence (`docs/LICENSE.font`). | The menu, the shell and `print()` use the new family; the screen tests are made again. |
+| 3 | Chips and glyphs. A sharper key chip and a clearer set of symbols at each size. | The user approves the chips at the three sizes. |
+| 4 | HD covers (SYS-18). The cartridge carries one larger cover; the menu makes the 1x, 2x and 3x sizes from it. | A cover looks sharp at 1080p and the decode cost is measured on the Pi. |
+| 5 | Layout at the screen's size (SYS-21). The Market tab, the panels, the title and the question boxes. | No cut text at 720p and 1080p. |
+| 6 | Icons in place of the tab names. | The user approves the icon set; tabs work with the pad and the mouse. |
+
+Facts to keep in mind. The 720p and 1080p menu is drawn by the V3D on the Pi (the first 1080p test: 35.8 ms; 73.5 ms on
+the cover grid, 28 Oct 2026). The 360p menu stays the default on the Pi Zero W. A new font changes every glyph, so
+the tests that compare screens need new references.
