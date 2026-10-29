@@ -9,6 +9,17 @@ One file holds a map for the 3D map page of bm SDK, with all the elements that g
 an island in the ocean with a campfire in the middle. It becomes a graphics benchmark like `herocart` (3D and 2D
 elements, flat colours and textures). Day, night, rain, snow and fog are not in the kit: the future `.bm` does them.
 
+## The island: size and sea
+
+- The map is 72 x 72 tiles (144 x 144 cells, 1 unit a tile). The land is about 48 units across. Its middle is
+  flat (height 2) and more than 32 units across, the size of the plaza of `herocart` (32 x 32 cells), so the same
+  crowd of models fits. One step (height 1) and a beach (height 0, the sea level) go down to the water.
+- The map holds 24 palms, 40 bushes, 60 grass tufts, 22 rocks, the campfire in the middle, a chest, a boat and the
+  player start (about 144 objects).
+- The sea is an object: the model `sea` (a square of radius 1, wave facets in four blues, 1152 triangles at `hi`),
+  scale 72 in the object table (144 units across, as the map), sprite `sea2d`. The water tiles of the map stay under it
+  (flag 3). The `islet` model (scale 30) is the whole island seen from far.
+
 ## What is in the file
 
 A `.bmk` is a `BMRES` file of type 6 ([RISORSE](../RISORSE.md), section 4). It uses the sections that exist:

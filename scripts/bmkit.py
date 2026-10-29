@@ -324,6 +324,13 @@ def paint_sprites(sh):
     sh.disc(x + 24, y + 8, 3, 0x4CA336)
     sh.rect(x + 23, y + 8, 2, 6, 0x8A5A33)
     zone("islet2d", x, y, 48, 24)
+    # sea 32 x 16: a strip of water with wave marks, joins with itself left to right
+    x, y = 48, SPRITE_Y + 48
+    sh.rect(x, y, 32, 16, 0x2D6FB5)
+    for wx, wy in ((2, 3), (14, 6), (24, 2), (6, 10), (20, 12), (28, 9)):
+        sh.rect(x + wx, y + wy, 5, 1, 0x4C92D8)
+        sh.rect(x + wx + 1, y + wy + 1, 3, 1, 0x2860A5)
+    zone("sea2d", x, y, 32, 16)
     return zones
 
 
@@ -578,6 +585,30 @@ def m_cloud():
     return s
 
 
+def m_sea():
+    """the sea: a square of radius 1 (the object table scales it), a grid of facets with low waves, in four blues.
+    One side only, looking up; the surface lies a little under the sea level of the map (y = -0.03)."""
+    q = Q()
+    G = {"hi": 24, "med": 16, "low": 8}[QUALITY]
+    s = Solid("sea", DECOR)
+    rnd = random.Random(8)
+    blues = (0x2D6FB5, 0x2860A5, 0x3A80C8, 0x4C92D8)
+
+    def y(i, j):                                           # the wave height at a grid point (shared by its facets)
+        x, z = i / G * 2 - 1, j / G * 2 - 1
+        return -0.03 + 0.012 * (math.sin(6 * x + 1.0) + math.sin(5 * z + 2.0) + 0.6 * math.sin(9 * (x + z)))
+
+    pts = [[(i / G * 2 - 1, y(i, j) + (rnd.uniform(-0.004, 0.004) if 0 < i < G and 0 < j < G else 0), j / G * 2 - 1)
+            for j in range(G + 1)] for i in range(G + 1)]
+    for i in range(G):
+        for j in range(G):
+            a, b, c, d = pts[i][j], pts[i + 1][j], pts[i + 1][j + 1], pts[i][j + 1]
+            lift = (a[1] + b[1] + c[1] + d[1]) / 4 + 0.03
+            col = blues[min(3, max(0, int((lift + 0.02) / 0.016) + (i + j) % 2))]
+            s.add((0, -1, 0), [a, d, c, b], col)           # the hint is under the water: the facets look up
+    return s
+
+
 def m_islet():
     """the whole island as one model of radius 1 (a far impostor, scaled by the object table): a sand skirt with an
     irregular rim, a ring of dark soil, a dome of grass. Flat colours, no texture."""
@@ -591,9 +622,9 @@ def m_islet():
         return 1 + 0.16 * math.sin(3 * a + phase[0]) + 0.08 * math.sin(5 * a + phase[1]) + 0.05 * math.sin(8 * a + phase[2])
     noise = [rnd.uniform(-0.04, 0.04) for _ in range(A)]
     # (radius, height, how much of the outline it follows, colours of the quads that start at this ring)
-    prof = [(0.0, 0.34, 0.0, GRASS), (0.22, 0.31, 0.2, GRASS), (0.42, 0.24, 0.5, GRASS), (0.56, 0.14, 0.7, GRASS),
-            (0.62, 0.05, 0.8, SOIL), (0.66, 0.0, 0.85, SAND), (0.82, -0.01, 0.95, SAND), (1.0, -0.04, 1.0, SAND),
-            (0.88, -0.14, 1.0, UNDER)]
+    prof = [(0.0, 0.08, 0.0, GRASS), (0.3, 0.08, 0.3, GRASS), (0.6, 0.075, 0.6, GRASS), (0.78, 0.07, 0.8, GRASS),
+            (0.8, 0.03, 0.85, SOIL), (0.83, 0.0, 0.9, SAND), (0.93, -0.01, 0.97, SAND), (1.0, -0.03, 1.0, SAND),
+            (0.9, -0.1, 1.0, UNDER)]
     pts = []
     for i, (r, y, f, _) in enumerate(prof):
         row = []
@@ -625,7 +656,7 @@ SAND = (0xE8D190, 0xDFC684, 0xEED89C)
 UNDER = (0xB89A5E,)
 
 MODELS = (m_palm, m_bush, m_rock, m_chest, m_boat, m_campfire, m_grass, m_cloud,
-          lambda: m_palm(1), lambda: m_palm(2), m_islet)
+          lambda: m_palm(1), lambda: m_palm(2), m_islet, m_sea)
 
 # the object table: id on the objects layer, the model, the 2D sprite, the first mode, the scale, the radius of its
 # collision (world units; 0: none)
@@ -641,13 +672,17 @@ OBJECTS = (
     ("palm2", FIRST_KIT_ID + 16, "palm2", "palm2d", "3d", 1.0, 0.25),
     ("palm3", FIRST_KIT_ID + 18, "palm3", "palm2d", "3d", 1.0, 0.25),
     ("islet", FIRST_KIT_ID + 20, "islet", "islet2d", "3d", 30.0, 0.0),      # the whole island seen from far
+    ("sea", FIRST_KIT_ID + 22, "sea", "sea2d", "3d", 72.0, 0.0),            # the sea round it: 144 units across, as the map
 )
 PLAYER_START = 1024
 
 
 # ---------------------------------------------------------------- the map
 
-MAP_TILES = 48                                            # 48 x 48 tiles of 16 x 16 pixels = 96 x 96 cells
+# 72 x 72 tiles of 16 x 16 pixels = 144 x 144 cells (1 unit a tile). The land is about 48 units across; its flat middle
+# is more than 32 across, the size of herocart's plaza (32 x 32 cells), so the same crowd of models fits.
+MAP_TILES = 72
+PLATEAU = 0.78                                            # the flat middle: this part of the radius, at height 2
 
 
 def tile_id(name):
@@ -667,17 +702,17 @@ def build_map():
             for dx in (0, 1):
                 layers[layer][(tz * 2 + dz) * W + tx * 2 + dx] = v if (dx == 0 and dz == 0) or layer != "objects" else 0
 
-    def edge(th): return 14.5 + 2.2 * math.sin(3 * th + 0.5) + 1.3 * math.sin(5 * th + 1.0)
-    objects = []
+    def edge(th): return 24 + 2.6 * math.sin(3 * th + 0.5) + 1.4 * math.sin(5 * th + 1.0)
     for tz in range(MAP_TILES):
         for tx in range(MAP_TILES):
             dx, dz = tx + 0.5 - c, tz + 0.5 - c
             d, th = math.hypot(dx, dz), math.atan2(dz, dx)
             R = edge(th)
             if d < R - 0.5:
-                h = max(1, min(6, int((R - d) / R * 9)))
-                name = "sand" if d > R * 0.78 else "grass"
-                if d < 2.4:
+                # flat in the middle (height 2), one step down (1) over the beach slope, the sea level (0) at the rim
+                h = 2 if d <= R * PLATEAU else 1 if d < R - 2.5 else 0
+                name = "grass" if d <= R * PLATEAU else "sand"
+                if d < 3.2:
                     name = "dirt"
                 if d < 1.2:
                     name = "stones"
@@ -697,34 +732,25 @@ def build_map():
 
     place(OBJECTS[5][1], c, c)                                       # the campfire, in the middle
     place(OBJECTS[3][1], c + 3, c - 1)                               # the chest, next to it
-    place(PLAYER_START, c, c + 11)                                   # the player starts on the south beach
     ids = {o[0]: o[1] for o in OBJECTS}
     palms = [ids["palm"], ids["palm2"], ids["palm3"]]
-    for i in range(8):                                               # palms in a loose ring
-        a = i / 8 * 2 * math.pi + rnd.uniform(-0.2, 0.2)
-        r = rnd.uniform(6, 9)
-        tx, tz = int(c + r * math.cos(a)), int(c + r * math.sin(a))
-        if free(tx, tz):
-            place(palms[i % 3], tx, tz)
-    for _ in range(14):
-        a, r = rnd.uniform(0, 2 * math.pi), rnd.uniform(3, 11)
-        tx, tz = int(c + r * math.cos(a)), int(c + r * math.sin(a))
-        if free(tx, tz):
-            place(ids["bush"], tx, tz)
-    for _ in range(10):
-        a, r = rnd.uniform(0, 2 * math.pi), rnd.uniform(9, 14)
-        tx, tz = int(c + r * math.cos(a)), int(c + r * math.sin(a))
-        if free(tx, tz):
-            place(ids["rock"], tx, tz)
-    for _ in range(16):
-        a, r = rnd.uniform(0, 2 * math.pi), rnd.uniform(3, 12)
-        tx, tz = int(c + r * math.cos(a)), int(c + r * math.sin(a))
-        if free(tx, tz):
-            place(ids["grass"], tx, tz)
-    for k in range(3):                                               # clouds, high over the water (a sky layer: y by the game)
-        place(ids["cloud"], 4 + k * 17, 5 + (k * 7) % 11)
-    for tz in range(c + 9, c + 20):                                  # the boat, on the shore of the south beach
-        tx = c + 4
+
+    def scatter(name, count, r0, r1, pick=None):
+        for i in range(count):
+            a, r = rnd.uniform(0, 2 * math.pi), rnd.uniform(r0, r1)
+            tx, tz = int(c + r * math.cos(a)), int(c + r * math.sin(a))
+            if free(tx, tz):
+                place(pick(i) if pick else ids[name], tx, tz)
+    scatter("palm", 24, 6, 18, lambda i: palms[i % 3])                # palms over the flat middle
+    scatter("bush", 40, 3, 19)
+    scatter("grass", 60, 3, 19)
+    scatter("rock", 22, 16, 25)                                       # rocks toward the rim
+    for k in range(3):                                                # clouds, high over the water (a sky layer: y by the game)
+        place(ids["cloud"], 6 + k * 24, 6 + (k * 11) % 17)
+    south = [tz for tz in range(c, MAP_TILES) if layers["floor"][(tz * 2) * W + c * 2] == tile_id("sand")]
+    place(PLAYER_START, c, south[0] if south else c + 20)              # the player starts where the beach begins, south
+    for tz in range(c + 20, MAP_TILES):                               # the boat, on the shore of the south beach
+        tx = c + 5
         if layers["floor"][(tz * 2) * W + tx * 2] == tile_id("shore"):
             place(ids["boat"], tx, tz)
             break
@@ -748,7 +774,7 @@ def scene_model(models):
     """the island with its things, merged into one model (for the picture inside the file only; it is not in the
     kit): the islet scaled up, the objects on it. Same sheet, so the textures hold."""
     by = {m["name"]: m for m in models}
-    top = ((0.0, 0.34), (0.22, 0.31), (0.42, 0.24), (0.56, 0.14), (0.62, 0.05), (0.66, 0.0), (1.0, -0.04))
+    top = ((0.0, 0.08), (0.6, 0.075), (0.78, 0.07), (0.8, 0.03), (0.83, 0.0), (1.0, -0.03))
 
     def height(r):                                           # the surface of the islet at r (of its radius 1)
         for (r0, h0), (r1, h1) in zip(top, top[1:]):
@@ -767,13 +793,16 @@ def scene_model(models):
         for a, b, c2, col, uv in m["faces"]:
             faces.append((a + base, b + base, c2 + base, col, uv))
 
+    put("sea", 0, 0, 0, R * 1.5)                             # the sea under and round the island
     put("islet", 0, 0, 0, R)
     def at(r, a): return (r * R * math.cos(a), height(r) * R, r * R * math.sin(a))
     put("campfire", 0, height(0) * R, 0, 0.8)
-    for name, r, a, k in (("palm", 0.42, 0.5, 1.0), ("palm2", 0.46, 2.3, 1.0), ("palm3", 0.4, 4.1, 1.0),
-                          ("chest", 0.2, 5.6, 0.9), ("bush", 0.3, 1.4, 1.0), ("bush", 0.36, 3.3, 1.0),
-                          ("bush", 0.33, 5.0, 1.0), ("rock", 0.58, 0.0, 1.1), ("rock", 0.6, 3.0, 0.9),
-                          ("rock", 0.57, 4.6, 1.0), ("grass", 0.3, 0.9, 1.4), ("grass", 0.34, 2.7, 1.4)):
+    for name, r, a, k in (("palm", 0.5, 0.5, 1.0), ("palm2", 0.55, 2.3, 1.0), ("palm3", 0.52, 4.1, 1.0),
+                          ("palm2", 0.3, 1.5, 0.9), ("palm", 0.35, 3.4, 0.9), ("palm3", 0.62, 5.5, 1.0),
+                          ("chest", 0.17, 5.6, 0.9), ("bush", 0.38, 1.0, 1.0), ("bush", 0.45, 3.0, 1.0),
+                          ("bush", 0.4, 4.8, 1.0), ("bush", 0.6, 2.0, 1.0), ("rock", 0.72, 0.0, 1.1),
+                          ("rock", 0.74, 3.0, 0.9), ("rock", 0.7, 4.6, 1.0), ("rock", 0.76, 1.7, 0.8),
+                          ("grass", 0.25, 0.9, 1.4), ("grass", 0.42, 2.6, 1.4), ("grass", 0.55, 4.0, 1.4)):
         x, y, z = at(r, a)
         put(name, x, y, z, k, turn=a * 1.7)
     x, y, z = at(0.93, 2.0)
