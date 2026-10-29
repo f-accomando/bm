@@ -86,6 +86,7 @@ Parity table (Pi V3D 2.1 against Mali-G52, stage by stage): [mali-parity](mali-p
 ## Rules (do not break)
 - The draw slots of the arena: `copy_slot` always writes the two job-header lines of a slot (D_VJOB, D_TJOB). The GPU writes the first 16 bytes of a job header; a skipped line gives black frames.
 - The 3D Bench pixel check ends with a `KC` line (pixels that are not the corner colour, GPU and ARM). A frame with `KC` 0 0 proves nothing: the check tries four times the load then.
+- The first resolve after `gpu3d_page(1, c)` fills the page with `c` and `gpu3d_cleared()` says 1. Keep it: a frame split in jobs resolves its first jobs before the runtime would fill the page for the cls.
 - A frame in flight keeps its own copy of the page descriptor (`be_pend_gc`), and `gpu3d_sync_page(px)` waits only for the frame that draws into `px`. Keep both: with each frame shown a frame later the live page moves to the next buffer at once.
 - Check the pixels of a GPU scene by eye before you trust a faster 3D Bench number (26 Oct: a faster score came from black frames).
 - `src/rgb30/memops.c` holds the kernel's `memcpy`, `memmove`, `memset` and `memcmp`. Device memory goes through volatile accessors, not through them.

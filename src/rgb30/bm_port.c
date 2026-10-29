@@ -86,8 +86,8 @@ void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus)
 }
 void gpu3d_set_size(int w, int h)                       { (void)w; (void)h; }
 int gpu3d_pending(void)                                 { return mali_be ? mali_backend_pending() : 0; }
-void gpu3d_page(int uniform, uint16_t c)                { (void)uniform; (void)c; }
-int gpu3d_cleared(void)                                 { return 0; }
+void gpu3d_page(int uniform, uint16_t c)                { if (mali_be) mali_backend_page(uniform, c); }
+int gpu3d_cleared(void)                                 { return mali_be ? mali_backend_cleared() : 0; }
 void gpu3d_drop(void)
 {
     if (mali_be)

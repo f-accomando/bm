@@ -27,7 +27,7 @@
  * (shadow3d(0); shadow3d(1) is the screen-door of 7.6) 7.7. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.29"
+#define BM3D_VERSION "7.30"
 #define BM3D_BLOCK   "Mali"
 
 typedef struct {
@@ -94,6 +94,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.16", "Mali", "2026-10-27", "gpu2d_only (hidden, off): a game with no 3D has its 2D drawn by the V3D; the job opens with the first quad; dark_begin starts it" },
         { "7.17", "Mali", "2026-10-28", "Opaque textures on the Mali (BM_FS_TEX, mali_tex=1); 3D Bench pixel check (K lines)" },
         { "7.18", "Mali", "2026-10-28", "Hardware depth test on the Mali (mali_z=1): no far-to-near sort, one frame holds all the triangles" },
+        { "7.30", "Mali", "2026-10-29", "A cls() with the 3D on the GPU: the first resolve fills the page, so a frame split in jobs keeps its first jobs (herocart showed no map, 50 heroes, 6 visible)" },
         { "7.29", "Mali", "2026-10-29", "Each frame shown a frame later on the Mali (gpu3d_queue=2, gpu3d_later=1): the ARM draws the next frame while the GPU works; heroes 14.1 -> 8.5 ms" },
         { "7.28", "Mali", "2026-10-28", "4x MSAA in the Mali tile buffer (mali_msaa=1, off): the edges of the triangles are smooth, spheres -8%" },
         { "7.27", "Mali", "2026-10-28", "A frame holds 10922 faces of cached meshes (area R2): heroes 13.7 -> 14.8, queue +14%" },

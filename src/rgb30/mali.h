@@ -158,6 +158,8 @@ int mali_frame_wait(uint32_t timeout_us);       /* until none is: 0, -1 timeout 
 /* M41 phase 2: the r3d backend of the Mali: flat colour triangles only (r3d hands everything else to the ARM: W13b).
  * `hw` must be the one a good mali_probe used. NULL if not probed. */
 const r3d_backend_t *mali_backend(const mali_hw_t *hw);
+void mali_backend_page(int uniform, uint16_t c);   /* the page is one colour (a cls): the next resolve fills it first */
+int mali_backend_cleared(void);                 /* the backend filled the page since the cls: the ARM does not */
 int mali_backend_pending(void);                 /* triangles waiting */
 int mali_backend_flush(g16_t *g);               /* draws them, copies the covered pixels into g->px; 0, or -1 (the ARM must draw this frame) */
 int mali_backend_submit(g16_t *g);              /* starts the frame on the GPU so the ARM can work meanwhile; mali_backend_sync resolves it */

@@ -1930,9 +1930,34 @@ static void be_resolve_x(const g16_t *g, const uint8_t *surf, uint32_t pitch)
     else
         be_resolve_impl(g, surf, pitch);
 }
+/* A cls() with the GPU drawing the 3D leaves the page to the backend (runtime.c cls_settle): the first resolve after it fills the page
+ * with the colour, then copies the covered pixels. A frame split in several jobs resolves its first jobs before the ARM would fill the
+ * page, and the fill would cover them. */
+static int be_page_u, be_page_cleared;
+static uint16_t be_page_c;
+
+void mali_backend_page(int uniform, uint16_t c)
+{
+    be_page_u = uniform != 0;
+    be_page_c = c;
+}
+
+int mali_backend_cleared(void)
+{
+    const int r = be_page_cleared;
+    be_page_cleared = 0;
+    be_page_u = 0;                              /* (the caller fills the page itself when this says 0) */
+    return r;
+}
+
 static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
 {
     const uint64_t t0 = cnt_now();
+    if (be_page_u) {
+        g16_cls((g16_t *)g, be_page_c);
+        be_page_u = 0;
+        be_page_cleared = 1;
+    }
     be_resolve_x(g, surf, pitch);
     t_resolve += cnt_now() - t0;
 }
