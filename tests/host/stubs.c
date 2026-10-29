@@ -731,6 +731,43 @@ int web_start_post(const char *url, const char *headers, const void *body, size_
     return web_start(url, max, timeout_ms, err, en);
 }
 
+int web_start_lan(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
+{
+    return web_start(url, max, timeout_ms, err, en);
+}
+
+/* bm/ai.txt (src/net/aiconf.c): bmhost reads BMHOST_CONFIG's ai_url, ai_model and ai_key instead */
+#include "net/aiconf.h"
+const char *ai_conf_get(const char *name)
+{
+    char k[16];
+    snprintf(k, sizeof k, "ai_%s", name);
+    return config_get(k);
+}
+int ai_conf_set(const char *url, const char *model, const char *key) { (void)url; (void)model; (void)key; return 0; }
+
+/* ai_pair (src/net/aipair.c) needs mbedTLS: bmhost has none, the code is refused before the network */
+#include "net/aipair.h"
+int ai_pair_code(const char *typed, char out[AI_PAIR_CODE_LEN + 1], char *err, size_t en)
+{
+    (void)typed;
+    out[0] = 0;
+    snprintf(err, en, "ai_pair does not run in bmhost");
+    return -1;
+}
+int ai_pair_check(const char *pem, size_t len, const char *code, char *err, size_t en)
+{
+    (void)pem; (void)len; (void)code;
+    snprintf(err, en, "ai_pair does not run in bmhost");
+    return -1;
+}
+int ai_pair_install(const char *pem, size_t len, char *err, size_t en)
+{
+    (void)pem; (void)len;
+    snprintf(err, en, "ai_pair does not run in bmhost");
+    return -1;
+}
+
 /* file_write (src/bm/webfile.c) queues in a fiber: bmhost writes at once, the host folder is the card */
 #include "webfile.h"
 #include "webpolicy.h"

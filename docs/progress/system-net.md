@@ -33,9 +33,13 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 - A chat model for cartridges (spec 6; [docs/api/system.md](../api/system.md), "A chat model"; design in
   [ai-agent](../design/ai-agent.md)): `ai_ask` / `ai_reply` / `ai_info` in `src/bm/api_web.c`, the JSON in `src/bm/aichat.c`,
   the POST in `webget.c` (`web_start_post`: method, body and header lines copied, no redirect, the header copy wiped at the end).
-  Config keys `ai_url`, `ai_model`, `ai_key` (secret). Tests: `make test-webapi` (the JSON, a fake OpenAI-compatible server,
+  The settings are in `bm/ai.txt` (`src/net/aiconf.c`; protected; the old `ai_*` keys of `config.txt` move there).
+  `ai_setup` saves them after `sys_ask`; `ai_pair` / `ai_pair_finish` fetch a relay's CA over plain http on the LAN only
+  (`web_start_lan`, `web_lan_url_check`), check it against the pairing code (`src/net/aipair.c`) and keep it in
+  `bm/ca-user.pem`, which `tls_load_roots` reads after `bm/ca.pem`. Tests: `make test-webapi` (the JSON, a fake OpenAI-compatible server,
   401, the refused redirect), `make test-https` (the relay's CA appended to `boot/ca.pem`, a POST to an IP address over TLS),
-  QEMU `test_web_api` (`ai_info`, the argument checks, the key not in the log). Not tried on a Pi or an RGB30 with a real
+  QEMU `test_web_api` (`ai_info`, the checks of `ai_ask`, `ai_setup` and `ai_pair`, the key not in the log, `config.txt`'s
+  `ai_*` keys moved to `bm/ai.txt` on the card); the pairing code from Python checked by the C code in `make test-https`. Not tried on a Pi or an RGB30 with a real
   provider (D50).
 - PC link (`netcon.c` console, `netxfer.c` files) for `tools/bm_net.py`: a file is answered
   `QD` once received and checked, written from the menu in a fiber

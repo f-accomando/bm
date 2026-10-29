@@ -123,6 +123,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 
 ## Files the console writes on the SD card
 
+- `bm/ai.txt` holds the AI settings of bm Agent (`url=`, `model=`, `key=`), apart from `bm/config.txt`. `bm/ca-user.pem` holds the roots the user added (the relay's CA). The kernel writes both only after its own question. A release update never changes them.
 - `bm/sdmap.txt` is the cache of the SD map (Settings > System > SD map), rewritten by the console after each scan. The SD map lists `/glb` and `/bmm` as folders of their own, like `/bm` and `/bme`.
 
 ## What breaks

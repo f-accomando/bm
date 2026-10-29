@@ -7,6 +7,7 @@
  */
 #include "net/http.h"
 #include "net/tls.h"
+#include "net/aipair.h"
 
 #include "mbedtls/entropy.h"
 #include "mbedtls/platform_time.h"
@@ -174,6 +175,40 @@ int main(int argc, char **argv)
         check(st == 200 && strstr(sink_buf, "relay says hi"), "POST to the relay on an IP address over TLS");
         if (st != 200)
             printf("     %d %s %s\n", st, info.error, sink_buf);
+    }
+
+    /* ai_pair: the code the relay printed (Python) checked by the kernel's code (C) on the relay's CA */
+    if (argc >= 12) {
+        char code[AI_PAIR_CODE_LEN + 1], err[160];
+        size_t cl, sl;
+        char *ca_pem = slurp(argv[7], &cl), *srv_pem = slurp(argv[11], &sl);
+        check(ai_pair_code(argv[10], code, err, sizeof err) == 0, "the relay's pairing code reads (20 characters)");
+        check(ai_pair_check(ca_pem, cl, code, err, sizeof err) == 0, "the relay's CA matches its code");
+        if (ai_pair_check(ca_pem, cl, code, err, sizeof err))
+            printf("     %s\n", err);
+        char typed[40];
+        snprintf(typed, sizeof typed, "%s", argv[10]);
+        for (char *p = typed; *p; p++)
+            *p = (char)(*p >= 'A' && *p <= 'Z' ? *p - 'A' + 'a' : *p);
+        check(ai_pair_code(typed, code, err, sizeof err) == 0 && ai_pair_check(ca_pem, cl, code, err, sizeof err) == 0,
+              "the code typed in lower case works too");
+        code[3] = code[3] == '7' ? '8' : '7';
+        check(ai_pair_check(ca_pem, cl, code, err, sizeof err) == -1 && strstr(err, "does not match"),
+              "one wrong character of the fingerprint: refused");
+        ai_pair_code(argv[10], code, err, sizeof err);
+        check(ai_pair_check(srv_pem, sl, code, err, sizeof err) == -1 && strstr(err, "not a CA"),
+              "the relay's server certificate (not a CA): refused");
+        char *two = malloc(cl * 2 + 2);
+        memcpy(two, ca_pem, cl);
+        memcpy(two + cl, ca_pem, cl);
+        check(ai_pair_check(two, cl * 2, code, err, sizeof err) == -1 && strstr(err, "more than one"),
+              "two certificates: refused");
+        check(ai_pair_code("ABCD-EFGH", code, err, sizeof err) == -1 && ai_pair_code("UUUU-UUUU-UUUU-UUUU-UUUU", code, err, sizeof err) == -1,
+              "a short code and the letter U: refused");
+        check(ai_pair_check("hello", 5, code, err, sizeof err) == -1, "no certificate: refused");
+        free(two);
+        free(ca_pem);
+        free(srv_pem);
     }
 
     printf(fails ? "\n%d FAILED\n" : "\nhttps: all passed\n", fails);

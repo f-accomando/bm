@@ -87,6 +87,8 @@ NET_SRCS += src/net/stream.c src/net/tls.c src/net/http.c src/net/http_kernel.c 
 NET_SRCS += src/net/github.c src/net/report.c src/kernel/reports.c
 # the Market and the nearby consoles, in fibers as on the Pi
 NET_SRCS += src/net/catalog.c src/net/lan.c src/kernel/market.c
+# ai_pair (bm Agent): the relay CA checked against the pairing code
+NET_SRCS += src/net/aipair.c src/net/aiconf.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is
 # the Pi's (menu_ui.c, its icons) at 360x360

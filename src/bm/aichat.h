@@ -3,7 +3,7 @@
  * OpenAI-compatible endpoints share ("POST <ai_url>/chat/completions"): Gemini's compatible
  * endpoint, Groq, OpenRouter, Mistral, Cloudflare Workers AI and tools/bm_agent_relay.py.
  * Plain C, no kernel calls: the kernel and the PC tests use the same code. The request runs
- * in webget.c (web_start_post); the key comes from bm/config.txt and never reaches Lua.
+ * in webget.c (web_start_post); the key comes from bm/ai.txt (src/net/aiconf.c) and never reaches Lua.
  */
 #ifndef AICHAT_H
 #define AICHAT_H
@@ -37,7 +37,7 @@ int ai_role_ok(const char *role);
 /* 0 if name is a model name the kernel sends: 1 to AI_MODEL_MAX of letters, digits and "-_.:/@". */
 int ai_model_ok(const char *name);
 
-/* The endpoint from the config value ai_url: "<base>/chat/completions" (a base that already
+/* The endpoint from the url of bm/ai.txt: "<base>/chat/completions" (a base that already
  * ends in "/chat/completions" is kept as it is, a "/" at the end is dropped). 0, or -1 and the
  * reason in err. The https rule is checked by the caller (web_url_check). */
 int ai_endpoint(const char *base, char *out, size_t n, char *err, size_t en);

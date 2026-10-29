@@ -44,6 +44,8 @@
 #include "webimg.h"
 #include "webpolicy.h"
 #include "aichat.h"
+#include "net/aipair.h"
+#include "net/aiconf.h"
 #include "require.h"
 #include "meshcap.h"
 #include "tokens.h"
@@ -590,25 +592,25 @@ int l_file_state(lua_State *L)
 }
 
 /* ---- a chat model (ai_ask, ai_reply, ai_info): POST <ai_url>/chat/completions in the
- * OpenAI-compatible format, the key of bm/config.txt (ai_key) added by the kernel. A cartridge
+ * OpenAI-compatible format, the key of bm/ai.txt added by the kernel (src/net/aiconf.c). A cartridge
  * never reads the key and never chooses the server: the player sets both. The request is a
  * web request: web_poll, web_info and web_cancel work on its id. aichat.c has the JSON. ---- */
 
-/* the server and the model of bm/config.txt: 0, or -1 and why */
+/* the server and the model of bm/ai.txt: 0, or -1 and why */
 static int ai_config(char *url, size_t un, char *host, size_t hn, char *err, size_t en)
 {
-    if (ai_endpoint(config_get("ai_url"), url, un, err, en))
+    if (ai_endpoint(ai_conf_get("url"), url, un, err, en))
         return -1;
     if (web_url_check(url, host, hn, err, en))
         return -1;
-    if (ai_model_ok(config_get("ai_model"))) {
-        snprintf(err, en, "no model: put ai_model in bm/config.txt");
+    if (ai_model_ok(ai_conf_get("model"))) {
+        snprintf(err, en, "no model: run /setup in bm Agent (bm/ai.txt)");
         return -1;
     }
     return 0;
 }
 
-/* ai_info() -> { ready = bool, host =, model =, why = }: the key is never in it */
+/* ai_info() -> { ready = bool, host =, model =, key = bool, why = }: the key itself is never in it */
 int l_ai_info(lua_State *L)
 {
     char url[WEB_URL_MAX + 1], host[128], err[160];
@@ -619,9 +621,9 @@ int l_ai_info(lua_State *L)
     if (ok) {
         lua_pushstring(L, host);
         lua_setfield(L, -2, "host");
-        lua_pushstring(L, config_get("ai_model"));
+        lua_pushstring(L, ai_conf_get("model"));
         lua_setfield(L, -2, "model");
-        const char *k = config_get("ai_key");
+        const char *k = ai_conf_get("key");
         lua_pushboolean(L, k && k[0]);
         lua_setfield(L, -2, "key");
     } else {
@@ -639,7 +641,7 @@ int l_ai_ask(lua_State *L)
     if (ai_config(url, sizeof url, host, sizeof host, err, sizeof err))
         return web_nil(L, err);
     char model_buf[AI_MODEL_MAX + 1];
-    snprintf(model_buf, sizeof model_buf, "%s", config_get("ai_model"));    /* ai_config checked it */
+    snprintf(model_buf, sizeof model_buf, "%s", ai_conf_get("model"));    /* ai_config checked it */
     const char *model = model_buf;
     int max_tokens = AI_TOKENS_DEFAULT;
     double temperature = -1;
@@ -698,17 +700,17 @@ int l_ai_ask(lua_State *L)
         return web_nil(L, "no network");
     if (!perm_allowed(PERM_NET))
         return web_nil(L, "the player did not allow this game the network");
-    const char *key = config_get("ai_key");
+    const char *key = ai_conf_get("key");
     char headers[512];
     int hl = snprintf(headers, sizeof headers, "Content-Type: application/json\r\n");
     if (key && key[0]) {
         for (const char *p = key; *p; p++)
             if (*p <= ' ' || *p > '~')
-                return web_nil(L, "ai_key in bm/config.txt has a space or a control character");
+                return web_nil(L, "the key in bm/ai.txt has a space or a control character");
         hl += snprintf(headers + hl, sizeof headers - (size_t)hl, "Authorization: Bearer %s\r\n", key);
     }
     if (hl >= (int)sizeof headers)
-        return web_nil(L, "ai_key in bm/config.txt is too long");
+        return web_nil(L, "the key in bm/ai.txt is too long");
     size_t len = 0;
     char *body = ai_request_json(model, m, n, max_tokens, temperature, &len, err, sizeof err);
     int id = -1;
@@ -752,4 +754,170 @@ int l_ai_reply(lua_State *L)
     lua_setfield(L, -2, "status");
     ai_reply_free(&a);
     return 2;
+}
+
+/* ---- the setup of the chat model from a cartridge (bm Agent's wizard). A cartridge never writes
+ * bm/ai.txt itself: the kernel asks the player with its own question, then saves. A new server needs
+ * its key in the same call, so a cartridge cannot send the saved key somewhere else. ---- */
+
+static void copy_field(lua_State *L, int t, const char *name, char *out, size_t n, int *has)
+{
+    lua_getfield(L, t, name);
+    *has = lua_type(L, -1) == LUA_TSTRING;
+    if (*has)
+        snprintf(out, n, "%s", lua_tostring(L, -1));
+    lua_pop(L, 1);
+}
+
+static int key_ok(const char *k)
+{
+    if (!k[0] || strlen(k) > 127)
+        return 0;
+    for (const char *p = k; *p; p++)
+        if (*p <= ' ' || *p > '~')
+            return 0;
+    return 1;
+}
+
+static void wipe(char *s, size_t n)
+{
+    for (volatile char *p = s; n--; p++)
+        *p = 0;
+}
+
+/* ai_setup({url =, model =, key =}) -> true, or nil and why. Fields left out stay as they are. */
+int l_ai_setup(lua_State *L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    char url[160], model[AI_MODEL_MAX + 8], key[160], ep[WEB_URL_MAX + 1], host[128] = "", err[160];
+    int has_url, has_model, has_key;
+    copy_field(L, 1, "url", url, sizeof url, &has_url);
+    copy_field(L, 1, "model", model, sizeof model, &has_model);
+    copy_field(L, 1, "key", key, sizeof key, &has_key);
+    const char *cur = ai_conf_get("url");
+    const char *why = NULL;
+    if (has_url && strlen(url) > 127)
+        why = "the server's address is over 127 characters";
+    else if (has_url && (ai_endpoint(url, ep, sizeof ep, err, sizeof err) || web_url_check(ep, host, sizeof host, err, sizeof err)))
+        why = err;
+    else if (!has_url && !cur)
+        why = "give the server: url =";
+    else if (has_model && ai_model_ok(model))
+        why = "a model name has 1 to 96 of a-z A-Z 0-9 - _ . : / @";
+    else if (has_key && !key_ok(key))
+        why = "the key has 1 to 127 characters, no space";
+    else if (has_url && (!cur || strcmp(cur, url)) && !has_key)
+        why = "a new server needs its key in the same call (key =)";
+    if (why) {
+        wipe(key, sizeof key);
+        return web_nil(L, why);
+    }
+    if (!has_url && ai_endpoint(cur, ep, sizeof ep, err, sizeof err) == 0)
+        web_url_check(ep, host, sizeof host, err, sizeof err);
+    if (!has_url && !has_model && !has_key) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    char l_server[48], l_model[48], l_key[48];
+    snprintf(l_server, sizeof l_server, "server: %.38s", host);
+    snprintf(l_model, sizeof l_model, "model: %.39s", has_model ? model : (ai_conf_get("model") ? ai_conf_get("model") : "-"));
+    if (has_key)
+        snprintf(l_key, sizeof l_key, "key: ...%s", key + (strlen(key) > 4 ? strlen(key) - 4 : 0));
+    else
+        snprintf(l_key, sizeof l_key, "key: unchanged");
+    const char *lines[5] = { perm_title[0] ? perm_title : "This app", "wants to save the AI settings:", l_server,
+                             l_model, l_key };
+    kprintf("bm: ai_setup asks to save the AI settings (server %s)\n", host);
+    if (!sys_ask(lines, 5, "Save", "No")) {
+        wipe(key, sizeof key);
+        return web_nil(L, "the player said no");
+    }
+    const int w = ai_conf_set(has_url ? url : NULL, has_model ? model : NULL, has_key ? key : NULL);
+    wipe(key, sizeof key);
+    if (w)
+        return web_nil(L, "bm/ai.txt cannot be written");
+    kprintf("bm: AI settings saved (server %s)\n", host);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/* the pairing that runs: one at a time */
+static struct {
+    int id;
+    char host[16];
+    unsigned port;
+    char code[AI_PAIR_CODE_LEN + 1];
+} pairing;
+
+/* ai_pair(address, code) -> id, or nil and why. address: "192.168.1.20" or "192.168.1.20:8443" (the relay's
+ * port; its CA is at the next port, over plain http). Poll the id with web_poll, then ai_pair_finish(id). */
+int l_ai_pair(lua_State *L)
+{
+    const char *addr = luaL_checkstring(L, 1);
+    const char *typed = luaL_checkstring(L, 2);
+    char code[AI_PAIR_CODE_LEN + 1], err[160], url[64], host[16];
+    unsigned b[4], port = 8443;
+    int used = 0;
+    if (ai_pair_code(typed, code, err, sizeof err))
+        return web_nil(L, err);
+    if (!(sscanf(addr, "%u.%u.%u.%u%n", &b[0], &b[1], &b[2], &b[3], &used) == 4 &&
+          (!addr[used] || (addr[used] == ':' && sscanf(addr + used, ":%u", &port) == 1))) ||
+        b[0] > 255 || b[1] > 255 || b[2] > 255 || b[3] > 255 || port < 1 || port > 65534)
+        return web_nil(L, "the address is four numbers, and a port if not 8443 (192.168.1.20:8443)");
+    snprintf(host, sizeof host, "%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
+    snprintf(url, sizeof url, "http://%s:%u/ca.pem", host, port + 1);
+    if (web_lan_url_check(url, err, sizeof err))
+        return web_nil(L, err);
+    if (!cartnet_ip())
+        return web_nil(L, "no network");
+    if (!perm_allowed(PERM_NET))
+        return web_nil(L, "the player did not allow this game the network");
+    const int id = web_start_lan(url, 16384, 15000, err, sizeof err);
+    if (id < 0)
+        return web_nil(L, err);
+    pairing.id = id;
+    snprintf(pairing.host, sizeof pairing.host, "%s", host);
+    pairing.port = port;
+    memcpy(pairing.code, code, sizeof code);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+/* ai_pair_finish(id) -> true, or nil and why: the certificate checked against the code, the player's yes,
+ * then bm/ca-user.pem and bm/ai.txt saved. */
+int l_ai_pair_finish(lua_State *L)
+{
+    const int id = (int)luaL_checkinteger(L, 1);
+    const web_req_t *r = web_find(id);
+    char err[160];
+    if (!r || id != pairing.id)
+        return web_nil(L, "no such pairing");
+    if (r->state != WEB_DONE)
+        return web_nil(L, r->state == WEB_ERROR ? r->error : "the request is not finished");
+    if (r->status != 200) {
+        snprintf(err, sizeof err, "the relay answered HTTP %d: is bm_agent_relay.py serve running?", r->status);
+        return web_nil(L, err);
+    }
+    if (ai_pair_check((const char *)r->body, r->size, pairing.code, err, sizeof err))
+        return web_nil(L, err);
+    char l_at[48], l_code[48];
+    snprintf(l_at, sizeof l_at, "at %s:%u. Its certificate", pairing.host, pairing.port);
+    snprintf(l_code, sizeof l_code, "matches %.4s-%.4s-%.4s. Trust it?", pairing.code, pairing.code + 4, pairing.code + 8);
+    const char *lines[5] = { perm_title[0] ? perm_title : "This app", "wants to pair with the AI relay", l_at, l_code,
+                             "The AI settings are replaced." };
+    kprintf("bm: ai_pair asks to trust the relay at %s:%u\n", pairing.host, pairing.port);
+    if (!sys_ask(lines, 5, "Pair", "No"))
+        return web_nil(L, "the player said no");
+    if (ai_pair_install((const char *)r->body, r->size, err, sizeof err))
+        return web_nil(L, err);
+    char url[64];
+    snprintf(url, sizeof url, "https://%s:%u/v1", pairing.host, pairing.port);
+    const int w = ai_conf_set(url, "default", pairing.code + AI_PAIR_FP_LEN);
+    wipe(pairing.code, sizeof pairing.code);
+    pairing.id = 0;
+    if (w)
+        return web_nil(L, "bm/ai.txt cannot be written");
+    kprintf("bm: paired with the AI relay at %s:%u\n", pairing.host, pairing.port);
+    lua_pushboolean(L, 1);
+    return 1;
 }

@@ -26,6 +26,12 @@
  * reason in err. */
 int web_url_check(const char *url, char *host, size_t hn, char *err, size_t en);
 
+/* 0 if url is the one plain-http address the kernel fetches for ai_pair: "http://A.B.C.D:PORT/ca.pem" with
+ * A.B.C.D a private LAN address (10/8, 172.16/12, 192.168/16) and PORT 1-65535. Nothing else goes without TLS:
+ * the certificate that comes back is checked against the pairing code the user typed (src/net/aipair.c).
+ * Else -1 and the reason in err. */
+int web_lan_url_check(const char *url, char *err, size_t en);
+
 /* 0 if path names a file a cartridge may write: a bare 8.3 name ("model.glb"), or the
  * same after "web/", "bm/web/" or "/bm/web/". No "..", no other folder,
  * no backslash, no leading dot, and not a .bm, .bme or .b16 file. out gets the name in

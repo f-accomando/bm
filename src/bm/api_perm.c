@@ -117,7 +117,7 @@ static void perm_set(int what, int yes)
  * permission, the editable copy of a game): the lines in a box, the first
  * the title and the last one dim, with the hints of the yes and of the back
  * in their words. 1 yes, 0 no. */
-static int sys_ask(const char *const *lines, int n, const char *yes, const char *no)
+int sys_ask(const char *const *lines, int n, const char *yes, const char *no)
 {
     later_flush();                          /* the frame held first: the question turns the pages */
     sync3d();                               /* nothing of the GPU's left to land on the page */

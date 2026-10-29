@@ -10,7 +10,10 @@ again before you change this design: their free tiers and terms change often.
 - WiFi, lwIP, mbedTLS 3.6 (TLS 1.2, ECDSA P-256 and P-384, RSA) and `http.c` (GET, POST, PUT, extra headers).
 - The web API for cartridges (`web_get`): https only, the roots in `bm/ca.pem`, a pause per host, a body cap.
 - `ai_ask`, `ai_reply`, `ai_info` (spec 6, [docs/api/system.md](../api/system.md), "A chat model"). The kernel sends
-  `POST <ai_url>/chat/completions` in the OpenAI-compatible format. It adds `ai_key` itself. Lua never reads the key.
+  `POST <url>/chat/completions` in the OpenAI-compatible format. It adds the key itself. Lua never reads the key.
+- `bm/ai.txt`: the AI settings (`url=`, `model=`, `key=`), apart from `bm/config.txt`, which stays for the system.
+  The file is protected (`src/net/aiconf.c`): no Lua access, the network transfer refuses it, the kernel writes it only
+  after its own question (`ai_setup`, `ai_pair_finish`).
 - `tools/bm_agent_relay.py`: the same API on the user's PC, answered by the official agent program.
 - `carts/agent` (bm Agent): the chat app. It saves a file that the model proposes only after the user says yes.
 
@@ -30,9 +33,10 @@ again before you change this design: their free tiers and terms change often.
 
 ### 1. A free API key (no PC)
 
-Use a provider with an OpenAI-compatible endpoint and a free tier. Put three lines in `bm/config.txt`.
+Use a provider with an OpenAI-compatible endpoint and a free tier. In bm Agent, type `/setup` (it starts by itself the
+first time), choose the provider and type the key. The kernel asks you, then saves `bm/ai.txt`.
 
-| Provider | `ai_url` | Free tier (Oct 2026, check it) | Notes |
+| Provider | `url` | Free tier (Oct 2026, check it) | Notes |
 |---|---|---|---|
 | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | Flash models, a few requests a minute, a daily cap; Pro models need billing | Free-tier prompts can train Google's models. Commercial use of the free tier is excluded in the EU/EEA, UK and Switzerland. Key from AI Studio |
 | Groq | `https://api.groq.com/openai/v1` | about 30 requests a minute and 1000 a day per model (gpt-oss, Qwen) | No card |
@@ -47,11 +51,16 @@ A Claude, ChatGPT or Google subscription has no API key. Its quota works only in
 Run that program on your own PC or server, signed in with your own account. `bm_agent_relay.py` gives each
 request from the console to one run of the program.
 
-1. On the PC: `python3 tools/bm_agent_relay.py cert --ip <the PC's LAN address>`. Keep the output.
-2. Put the printed `ai_url`, `ai_model` and `ai_key` lines in `bm/config.txt`.
-3. Add the printed CA at the end of `bm/ca.pem` on the SD card. Keep the lines that are there.
-4. On the PC: `python3 tools/bm_agent_relay.py serve --backend claude` (or `codex`, `gemini`, `cmd`).
-5. Open bm Agent on the console.
+1. On the PC: `python3 tools/bm_agent_relay.py cert --ip <the PC's LAN address>`.
+2. On the PC: `python3 tools/bm_agent_relay.py serve --ip <the same address> --backend claude` (or `codex`, `gemini`, `cmd`).
+   It prints the pairing code, 20 characters.
+3. In bm Agent: `/setup`, `5` (Relay), the PC's address, the code. The kernel fetches the relay's CA on the LAN, checks it
+   against the code, asks you, and saves the CA in `bm/ca-user.pem` and the settings in `bm/ai.txt`.
+
+The pairing code: the first 12 characters are the CA's fingerprint (60 bits of SHA-256 of its DER, Crockford base32).
+Another PC on the LAN cannot answer with its own CA: it would need one with the same fingerprint. The last 8 characters
+are the relay's token. The relay refuses every request for 10 minutes after 20 wrong tokens. Updates rewrite
+`bm/ca.pem`; they never touch `bm/ca-user.pem`.
 
 The relay runs `claude -p --output-format json --tools "" --no-session-persistence` in an empty folder.
 Do not add `--bare`: it reads only `ANTHROPIC_API_KEY`, never the subscription login.
@@ -79,8 +88,10 @@ Rules for this design:
 
 ## Security
 
-- The key lives in `bm/config.txt` (a secret: the logs and `config_list` hide it). The kernel copies it into the
-  request's header lines and wipes the copy when the request ends (`webget.c`, `free_post`).
+- The key lives in `bm/ai.txt`, not in `bm/config.txt`. No Lua call and no network operation reads or writes the file.
+  The kernel copies the key into the request's header lines and wipes the copy when the request ends (`webget.c`, `free_post`).
+- A cartridge changes the settings only through `ai_setup` / `ai_pair_finish`, and the kernel asks the player first. A new
+  server needs its key in the same call, so a cartridge cannot send the saved key to another server.
 - A cartridge cannot choose the server or read the key. A POST follows no redirect, so the key goes to `ai_url`'s host only.
 - The relay checks the token in constant time. It keeps a usage log (time, sizes, status), never the text.
 - The relay's tools are off (`claude --tools ""`) or read-only in an empty folder (`codex --sandbox read-only`).

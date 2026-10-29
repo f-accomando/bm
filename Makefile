@@ -1053,12 +1053,12 @@ test-https: $(BUILD)/host/test_https
 	$(PYTHON) tests/net/run_https_test.py $(BUILD)/host/test_https
 
 $(BUILD)/host/test_https: tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
-                          src/net/http_kernel.c src/net/*.h $(MBEDTLS_SRCS) boot/ca.pem
+                          src/net/http_kernel.c src/net/aipair.c src/net/*.h $(MBEDTLS_SRCS) boot/ca.pem tools/bm_agent_relay.py
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
 		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -DHTTP_USER_AGENT='"test"' -o $@ \
 		tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
-		src/net/http_kernel.c $(MBEDTLS_SRCS)
+		src/net/http_kernel.c src/net/aipair.c $(MBEDTLS_SRCS)
 
 # Release manifests (M19): scripts/mkrelease.py signs with a test key made
 # by openssl, src/net/release.c checks signature, lines and files

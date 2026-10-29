@@ -49,6 +49,34 @@ check("fake: ask 1, 1 messages, system yes, model nil, raw false" in log, "the f
 check("fake: ask 2, 3 messages" in log and "raw true" in log, "the second question sends the history with the raw file block")
 check(all(os.path.exists(os.path.join(out, n + ".png")) for n in ("proposal", "chat")), "screenshots proposal.png and chat.png")
 
+# the wizard: not set up at the start; Groq with a key, then /setup again and the relay by its code
+wiz = os.path.join(out, "agent_wizard.lua")
+with open(wiz, "w") as f:
+    f.write("FAKE_UNSET = true\n")
+    f.write(open(os.path.join(HERE, "prelude.lua")).read())
+    f.write("\n")
+    f.write(open(os.path.join(ROOT, "carts", "agent", "main.lua")).read())
+wcart = os.path.join(out, "agent_wizard.bm")
+subprocess.run([sys.executable, mkbm, "-o", wcart, "--lua", wiz, "--info", os.path.join(ROOT, "carts", "agent", "bm.info")],
+               check=True, stdout=subprocess.DEVNULL)
+with open(script, "w") as f:
+    f.write("10 source keyboard\n15 shot wizard\n20 type 1\\n\n30 type gsk_secret_key_9876\n35 shot key\n"
+            "40 type \\n\n50 type \\n\n80 shot tested\n"
+            "100 type /setup\\n\n110 type 5\\n\n120 type 192.168.1.20\\n\n"
+            "130 type 7k3m-q9tb-xw2d-h4pa-r8nf\\n\n170 shot paired\n180 quit\n")
+r = subprocess.run([host, wcart, "--sd", os.path.join(out, "sd"), "--seconds", "4", "--input", script, "--shots", out],
+                   capture_output=True, text=True)
+log = r.stdout + r.stderr
+check(r.returncode == 0 and "ok," in log, "the wizard runs without a Lua error")
+check("fake: ai_setup url https://api.groq.com/openai/v1 model openai/gpt-oss-20b key ...9876" in log,
+      "Groq: ai_setup gets the preset's address, the default model and the typed key")
+check("gsk_secret_key" not in log, "the key is not in the log")
+check("fake: ask 1, 1 messages, system no" in log, "after saving, one test question")
+check("fake: ai_pair 192.168.1.20 7k3m-q9tb-xw2d-h4pa-r8nf" in log and "fake: ai_pair_finish 43" in log,
+      "relay: ai_pair with the address and the code, then ai_pair_finish")
+check(all(os.path.exists(os.path.join(out, n + ".png")) for n in ("wizard", "key", "tested", "paired")),
+      "screenshots wizard, key, tested, paired")
+
 real = os.path.join(out, "agent_real.bm")
 shutil.copy(os.path.join(ROOT, "build", "carts", "agent.bm") if os.path.exists(os.path.join(ROOT, "build", "carts", "agent.bm")) else cart, real)
 with open(script, "w") as f:

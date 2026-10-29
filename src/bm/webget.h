@@ -50,6 +50,7 @@ typedef struct {
     size_t post_len;
     char *headers;
     int hops;                   /* connections opened: a POST follows no redirect */
+    int lan;                    /* ai_pair's plain-http GET of a relay's ca.pem on the LAN (web_start_lan) */
 } web_req_t;
 
 /* Starts a request: its id (> 0), or -1 with the reason in err (bad address, one request
@@ -67,6 +68,9 @@ int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const cha
  * No resume. The rest as web_start. */
 int web_start_post(const char *url, const char *headers, const void *body, size_t body_len, size_t max,
                    uint32_t timeout_ms, char *err, size_t en);
+/* ai_pair's only plain-http request: a GET of "http://<LAN address>:PORT/ca.pem" (web_lan_url_check), no
+ * redirect. The caller checks the certificate that comes back against the user's pairing code. */
+int web_start_lan(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en);
 /* Runs the request a little (about 4 ms): its state, WEB_FREE for an id that is not there. */
 web_state_t web_poll(int id);
 /* The slot of id, or NULL. */

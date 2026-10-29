@@ -826,7 +826,7 @@ static void test_ai(void)
               strcmp(out, "https://api.groq.com/openai/v1/chat/completions") == 0, "endpoint from a base: %s", out);
     CHECK(ai_endpoint("https://x.org/v1/chat/completions", out, sizeof out, err, sizeof err) == 0 &&
               strcmp(out, "https://x.org/v1/chat/completions") == 0, "a full endpoint is kept: %s", out);
-    CHECK(ai_endpoint(NULL, out, sizeof out, err, sizeof err) == -1 && strstr(err, "ai_url"), "no ai_url: %s", err);
+    CHECK(ai_endpoint(NULL, out, sizeof out, err, sizeof err) == -1 && strstr(err, "/setup"), "no server: %s", err);
     CHECK(ai_model_ok("openai/gpt-oss-20b:free") == 0 && ai_model_ok("a b") == -1 && ai_model_ok("") == -1,
           "model names: letters, digits and -_.:/@ only");
 
@@ -880,6 +880,33 @@ static void test_ai(void)
     CHECK(r.state == WEB_DONE && strcmp(r.body, "2") == 0, "the redirect target got no POST (%s posts)", r.body);
     free(j);
     (void)id;
+
+    /* ai_pair's only plain-http request: a relay's ca.pem on the LAN */
+    const char *lan_ok[] = { "http://192.168.1.20:8444/ca.pem", "http://10.0.0.5:1/ca.pem", "http://172.31.255.1:65535/ca.pem" };
+    const char *lan_bad[] = { "http://8.8.8.8:8444/ca.pem", "http://172.32.0.1:8444/ca.pem", "http://192.168.1.20:8444/other",
+                              "http://192.168.1.20/ca.pem", "https://192.168.1.20:8444/ca.pem", "http://192.168.1.20:8444/ca.pem?x",
+                              "http://192.168.1.300:8444/ca.pem", "http://example.org:8444/ca.pem" };
+    int good = 1;
+    for (size_t i = 0; i < sizeof lan_ok / sizeof lan_ok[0]; i++)
+        good &= web_lan_url_check(lan_ok[i], err, sizeof err) == 0;
+    for (size_t i = 0; i < sizeof lan_bad / sizeof lan_bad[0]; i++)
+        good &= web_lan_url_check(lan_bad[i], err, sizeof err) == -1;
+    CHECK(good, "the LAN address rule: private IPv4 and a port, the path /ca.pem only");
+    char url[96];
+    snprintf(url, sizeof url, "%s/ca.pem", base);
+    web_gap_reset();
+    id = web_start_lan(url, 16384, 15000, err, sizeof err);
+    int st = WEB_BUSY;
+    for (int k = 0; id > 0 && k < 5000 && (st == WEB_BUSY || st == WEB_WAIT); k++) {
+        st = web_poll(id);
+        usleep(1000);
+    }
+    const web_req_t *q = web_find(id);
+    CHECK(q && st == WEB_DONE && q->status == 200 && q->size > 20 && !memcmp(q->body, "-----BEGIN", 10),
+          "web_start_lan fetches the relay's ca.pem over plain http (%s)", q ? q->error : err);
+    web_cancel(id);
+    CHECK(web_start_lan("http://8.8.8.8:8444/ca.pem", 16384, 15000, err, sizeof err) == -1 && strstr(err, "LAN"),
+          "web_start_lan refuses an internet address: %s", err);
 }
 
 int main(int argc, char **argv)

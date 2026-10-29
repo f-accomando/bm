@@ -1372,6 +1372,7 @@ static const luaL_Reg api[] = {
     { "web_get", l_web_get }, { "web_poll", l_web_poll }, { "web_info", l_web_info }, { "web_body", l_web_body },
     { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "image_file", l_image_file }, { "sheet_png", l_sheet_png }, { "sheet_gif", l_sheet_gif }, { "file_write", l_file_write }, { "file_state", l_file_state },
     { "ai_ask", l_ai_ask }, { "ai_reply", l_ai_reply }, { "ai_info", l_ai_info },
+    { "ai_setup", l_ai_setup }, { "ai_pair", l_ai_pair }, { "ai_pair_finish", l_ai_pair_finish },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },

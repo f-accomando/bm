@@ -97,6 +97,8 @@ class H(http.server.BaseHTTPRequestHandler):
                 self.close_connection = True
             elif p in ("/cut", "/cutlie", "/cut416", "/cutchg", "/cutn"):
                 self.range_page(p)
+            elif p == "/ca.pem":            # what a relay serves for ai_pair (any PEM: the test checks the fetch)
+                self.send(200, b"-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n", "application/x-pem-file")
             elif p == "/postseen":
                 self.send(200, str(posts[0]).encode())
             elif p.startswith("/lastrange"):

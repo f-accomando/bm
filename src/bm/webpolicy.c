@@ -174,6 +174,25 @@ void web_gap_reset(void)
     gap_next = 0;
 }
 
+int web_lan_url_check(const char *url, char *err, size_t en)
+{
+    unsigned b[4], port;
+    char tail[16];
+    int used = 0;
+    if (!url || sscanf(url, "http://%u.%u.%u.%u:%u%15s%n", &b[0], &b[1], &b[2], &b[3], &port, tail, &used) != 6 ||
+        url[used] || strcmp(tail, "/ca.pem") || b[0] > 255 || b[1] > 255 || b[2] > 255 || b[3] > 255 || !port ||
+        port > 65535)
+        return fail(err, en, "the relay's address is four numbers and a port (192.168.1.20:8443)");
+    const int lan = b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168);
+#ifdef BM_HOST_TEST
+    if (allow_http && b[0] == 127)
+        return 0;                                   /* the PC tests' server */
+#endif
+    if (!lan)
+        return fail(err, en, "the relay must be on your LAN (10.x, 172.16-31.x or 192.168.x)");
+    return 0;
+}
+
 size_t web_cap_bytes(const char *kib_text, unsigned def, unsigned limit)
 {
     unsigned long k = def;

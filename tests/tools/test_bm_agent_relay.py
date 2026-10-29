@@ -4,9 +4,11 @@ as the backend (no provider is called). Needs the openssl program.
 
   python3 tests/tools/test_bm_agent_relay.py
 """
+import hashlib
 import http.client
 import json
 import os
+import re
 import ssl
 import subprocess
 import sys
@@ -47,13 +49,13 @@ class RelayTest(unittest.TestCase):
         port_file = os.path.join(cls.tmp.name, "port")
         cls.proc = subprocess.Popen([sys.executable, RELAY, "serve", "--backend", "cmd", "--cmd",
                                      "%s %s" % (sys.executable, fake), "--bind", "127.0.0.1", "--port", "0",
-                                     "--gap", "0.5", "--dir", cls.dir, "--port-file", port_file],
+                                     "--gap", "0.5", "--dir", cls.dir, "--port-file", port_file, "--ca-port", "0"],
                                     stdout=subprocess.DEVNULL)
         for _ in range(100):
             if os.path.exists(port_file) and read(port_file):
                 break
             time.sleep(0.05)
-        cls.port = int(read(port_file))
+        cls.port, cls.ca_port = map(int, read(port_file).split())
         cls.ctx = ssl.create_default_context(cafile=os.path.join(cls.dir, "ca.pem"))   # checks the IP in the certificate
 
     @classmethod
@@ -78,8 +80,17 @@ class RelayTest(unittest.TestCase):
         return self.call("POST", "/v1/chat/completions", dict(model="default", messages=msgs), **kw)
 
     def test_cert_output(self):
-        self.assertIn("ai_url=https://127.0.0.1:8443/v1", self.cert_out)
-        self.assertIn("ai_key=" + self.token, self.cert_out)
+        self.assertIn("url=https://127.0.0.1:8443/v1", self.cert_out)
+        self.assertIn("key=" + self.token, self.cert_out)
+        self.assertRegex(self.token, r"^[0-9A-HJKMNP-TV-Z]{8}$")
+        code = re.search(r"code:\s+(\S+)", self.cert_out).group(1)
+        self.assertRegex(code, r"^([0-9A-HJKMNP-TV-Z]{4}-){4}[0-9A-HJKMNP-TV-Z]{4}$")
+        self.assertEqual(code.replace("-", "")[12:], self.token, "the code ends with the token")
+        der = subprocess.run(["openssl", "x509", "-in", os.path.join(self.dir, "ca.pem"), "-outform", "DER"],
+                             capture_output=True, check=True).stdout
+        bits = int.from_bytes(hashlib.sha256(der).digest()[:8], "big")
+        fp = "".join("0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(bits >> (59 - 5 * i)) & 31] for i in range(12))
+        self.assertEqual(code.replace("-", "")[:12], fp, "the code starts with the CA's fingerprint (openssl's DER)")
         self.assertIn("BEGIN CERTIFICATE", self.cert_out)
         self.assertEqual(os.stat(os.path.join(self.dir, "token")).st_mode & 0o077, 0, "the token is private")
 
@@ -117,6 +128,22 @@ class RelayTest(unittest.TestCase):
         self.chat([{"role": "user", "content": "first"}])
         st, d = self.call("POST", "/v1/chat/completions", dict(messages=[{"role": "user", "content": "at once"}]))
         self.assertEqual(st, 429)
+
+    def test_ca_port(self):
+        c = http.client.HTTPConnection("127.0.0.1", self.ca_port, timeout=10)
+        c.request("GET", "/ca.pem")
+        r = c.getresponse()
+        self.assertEqual((r.status, r.read().decode()), (200, read(os.path.join(self.dir, "ca.pem"))))
+        c.request("GET", "/token")
+        r = c.getresponse()
+        r.read()
+        self.assertEqual(r.status, 404, "the plain port gives the CA only")
+        c.close()
+
+    def test_zzz_lockout(self):
+        for _ in range(20):
+            self.assertEqual(self.call("GET", "/v1/models", token="WRONG")[0], 401)
+        self.assertEqual(self.call("GET", "/v1/models")[0], 401, "after 20 wrong tokens the right one waits too")
 
     def test_zz_log_has_no_text(self):
         log = read(os.path.join(self.dir, "usage.log"))

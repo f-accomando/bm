@@ -665,6 +665,8 @@ int main(int argc, char **argv)
         { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received", "bmK6", 0 },
         { 'S', "secret", "bm/bridge.txt", 0, "BF", "the bridge file refused", NULL, 0 },
         { 'S', "secret", "bm/../BM/Bridge.TXT", 0, "BF", "the bridge file refused (other spelling)", NULL, 0 },
+        { 'S', "secret", "bm/ai.txt", 0, "BF", "the AI settings refused (set on the console)", NULL, 0 },
+        { 'S', "secret", "BM/CA-USER.PEM", 0, "BF", "the user's roots refused (other spelling)", NULL, 0 },
     };
     test_bridge = 0;                    /* the bridge off: every operation refused, BO */
     {

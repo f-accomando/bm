@@ -122,10 +122,14 @@ A cartridge asks a cloud chat model through the player's own server and key. The
 Groq, OpenRouter, Mistral and `tools/bm_agent_relay.py` accept it. The app that uses it is `carts/agent` (bm Agent).
 The design and the providers' terms are in [ai-agent](../design/ai-agent.md).
 
-- **The player sets the server.** `bm/config.txt` has `ai_url` (a base such as `https://api.groq.com/openai/v1`, or the full
-  endpoint), `ai_model` and `ai_key`. Each value has at most 127 characters. `ai_key` is a secret: the logs and `config_list` hide it.
-- **The key stays in the kernel.** The kernel adds `Authorization: Bearer <ai_key>` to the request. No call gives the key
-  to a cartridge. A cartridge cannot choose the server: only `ai_url` is used. Without `ai_key` no `Authorization` is sent.
+- **The player sets the server.** The settings are in `bm/ai.txt`, apart from `bm/config.txt` (the system's): `url=` (a base
+  such as `https://api.groq.com/openai/v1`, or the full endpoint), `model=` and `key=`. Each value has at most 127 characters.
+  bm Agent's `/setup` writes them through `ai_setup` or `ai_pair` (below). The user can also write the file on the SD card from a PC.
+- **The file is protected.** No call reads or writes `bm/ai.txt` or `bm/ca-user.pem`. The kernel writes them only after the
+  player says yes to the kernel's own question. The network transfer from a PC refuses both names (`BF`). Keys `ai_url`,
+  `ai_model` and `ai_key` found in `bm/config.txt` (the first version) move to `bm/ai.txt` at the first read.
+- **The key stays in the kernel.** The kernel adds `Authorization: Bearer <key>` to the request. No call gives the key
+  to a cartridge. A cartridge cannot choose the server: only `url` is used. Without `key` no `Authorization` is sent.
 - **The rules of `web_get` apply.** https only, the certificate chains to `bm/ca.pem`, the player allows the network, a pause of
   1 s per host, one request at a time, 3 results kept. The answer's cap is 1 MB.
 - **No redirect.** A POST follows no redirect: a 3xx answer ends in `"error"`.
@@ -135,8 +139,11 @@ The design and the providers' terms are in [ai-agent](../design/ai-agent.md).
 
 | Function | Description |
 |---|---|
-| `info = ai_info()` | the setup in `bm/config.txt`: `{ready = true, host =, model =, key = bool}`, or `{ready = false, why =}`. `key` says only whether `ai_key` is set |
-| `id = ai_ask(messages, [opts])` | starts a request. `messages` is a string (one user message) or a list `{ {role =, content =}, ... }` of 1 to 64 messages, `role` `"system"`, `"user"` or `"assistant"`, at most 192 KB of text. `opts`: `system` (a system message put first), `model` (instead of `ai_model`: 1 to 96 of `a-z A-Z 0-9 - _ . : / @`), `max_tokens` (1 to 32768, default 1024), `temperature` (0 to 2; the server's default if missing), `timeout` (milliseconds for one read, 1000 to 180000, default 60000). Returns the request `id`, or `nil` and the reason (no `ai_url`, a bad message, no network, the player said no, a request already runs) |
+| `info = ai_info()` | the setup in `bm/ai.txt`: `{ready = true, host =, model =, key = bool}`, or `{ready = false, why =}`. `key` says only whether a key is set |
+| `id = ai_ask(messages, [opts])` | starts a request. `messages` is a string (one user message) or a list `{ {role =, content =}, ... }` of 1 to 64 messages, `role` `"system"`, `"user"` or `"assistant"`, at most 192 KB of text. `opts`: `system` (a system message put first), `model` (instead of `ai_model`: 1 to 96 of `a-z A-Z 0-9 - _ . : / @`), `max_tokens` (1 to 32768, default 1024), `temperature` (0 to 2; the server's default if missing), `timeout` (milliseconds for one read, 1000 to 180000, default 60000). Returns the request `id`, or `nil` and the reason (no server set, a bad message, no network, the player said no, a request already runs) |
+| `ok = ai_setup({url =, model =, key =})` | saves the settings in `bm/ai.txt` after the kernel's question (server, model, the last 4 characters of the key). A field left out stays. A new `url` needs its `key` in the same call. Returns `true`, or `nil` and the reason (a bad field, the player said no) |
+| `id = ai_pair(address, code)` | starts the pairing with `tools/bm_agent_relay.py`: `address` is the PC's LAN address (`"192.168.1.20"`, or with `:port` if not 8443), `code` the 20 characters the relay prints. The kernel fetches the relay's CA over plain http at the next port, on a private LAN address only. Poll the `id` with `web_poll`. Returns the `id`, or `nil` and the reason |
+| `ok = ai_pair_finish(id)` | after `web_poll` says `"done"`: checks the CA against the code (the first 12 characters are its fingerprint, SHA-256 of the DER), asks the player, then saves the CA in `bm/ca-user.pem` and `url`, `model=default` and `key` (the last 8 characters of the code) in `bm/ai.txt`. Returns `true`, or `nil` and the reason. Free the request with `web_cancel(id)` |
 | `text, info = ai_reply(id)` | the answer of a finished request: the text of the first choice, and `{finish =, prompt_tokens =, completion_tokens =, status =}` (the tokens if the server gave them). `nil` and the reason if the request is not finished, failed, or the server answered an error (`"HTTP 429: ..."` with the server's own message) |
 
 ```lua

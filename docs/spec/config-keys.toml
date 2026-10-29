@@ -831,30 +831,3 @@ default = "on with cores=4"
 meaning = "The Mali draw build of a frame on all cores, a block of draws a core (docs/progress/multicore.md). 0 builds on core 0 only."
 settings = ""
 read_in = "src/rgb30/main.c:smp_boot"
-
-[[key]]
-name = "ai_url"
-scope = "all"
-values = "https://host[:port]/path: the base of an OpenAI-compatible API (\"/chat/completions\" is added), or the full endpoint; at most 127 characters"
-default = "missing: ai_ask returns nil and \"no AI server: put ai_url in bm/config.txt\""
-meaning = "Server of ai_ask() (docs/api/system.md, A chat model): a free provider or tools/bm_agent_relay.py on the user's PC. A cartridge cannot choose another server."
-settings = ""
-read_in = "src/bm/api_web.c:600"
-
-[[key]]
-name = "ai_model"
-scope = "all"
-values = "a model name: 1 to 96 of a-z A-Z 0-9 - _ . : / @ (\"default\" for the relay)"
-default = "missing: ai_ask returns nil and \"no model: put ai_model in bm/config.txt\""
-meaning = "Model of ai_ask(); a cartridge can name another one with opts.model."
-settings = ""
-read_in = "src/bm/api_web.c:604"
-
-[[key]]
-name = "ai_key"
-scope = "all"
-values = "the API key of the provider, or the relay's token; printable characters, no space; at most 127 characters; secret"
-default = "missing: no Authorization header (a server that needs none)"
-meaning = "Key that the kernel adds to each ai_ask() request as Authorization: Bearer. A cartridge never reads it (secret: ends in _key)."
-settings = ""
-read_in = "src/bm/api_web.c:701"

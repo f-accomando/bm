@@ -180,12 +180,14 @@ static int before(void *ctx, const char *url, char *err, size_t en)
 {
     web_req_t *r = ctx;
     char host[128];
-    if (web_url_check(url, host, sizeof host, err, en))
+    if (r->lan ? web_lan_url_check(url, err, en) : web_url_check(url, host, sizeof host, err, en))
         return 1;
-    if (r->post && r->hops++) {
-        snprintf(err, en, "the server answered with a redirect: a POST follows none");
+    if ((r->post || r->lan) && r->hops++) {
+        snprintf(err, en, "the server answered with a redirect: %s follows none", r->post ? "a POST" : "a pairing");
         return 1;
     }
+    if (r->lan)
+        snprintf(host, sizeof host, "%.*s", (int)strcspn(url + 7, ":"), url + 7);
     for (;;) {
         const uint32_t left = web_gap_left_us(host, timer_ticks());
         if (!left)
@@ -285,10 +287,10 @@ static void end_fiber(void)
 }
 
 /* the checks, then a free slot cleared (not yet running, its id still 0), or NULL and why */
-static web_req_t *claim(const char *url, char *err, size_t en)
+static web_req_t *claim(const char *url, int lan, char *err, size_t en)
 {
     char host[128];
-    if (web_url_check(url, host, sizeof host, err, en))
+    if (lan ? web_lan_url_check(url, err, en) : web_url_check(url, host, sizeof host, err, en))
         return NULL;
     if (fiber_current()) {
         snprintf(err, en, "web_get cannot start from a background job");
@@ -346,7 +348,7 @@ int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const cha
         const char *dot = strchr(name, '.');
         snprintf(part, sizeof part, "%.*s.prt", (int)(dot ? (size_t)(dot - name) : strlen(name)), name);
     }
-    web_req_t *r = claim(url, err, en);
+    web_req_t *r = claim(url, 0, err, en);
     if (!r)
         return -1;
     snprintf(r->part, sizeof r->part, "%s", part);
@@ -356,7 +358,7 @@ int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const cha
 int web_start_post(const char *url, const char *headers, const void *body, size_t body_len, size_t max,
                    uint32_t timeout_ms, char *err, size_t en)
 {
-    web_req_t *r = claim(url, err, en);
+    web_req_t *r = claim(url, 0, err, en);
     if (!r)
         return -1;
     const size_t hl = headers ? strlen(headers) : 0;
@@ -371,6 +373,15 @@ int web_start_post(const char *url, const char *headers, const void *body, size_
     if (body_len)
         memcpy(r->post, body, body_len);
     r->post_len = body_len;
+    return launch(r, max, timeout_ms, err, en);
+}
+
+int web_start_lan(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
+{
+    web_req_t *r = claim(url, 1, err, en);
+    if (!r)
+        return -1;
+    r->lan = 1;
     return launch(r, max, timeout_ms, err, en);
 }
 

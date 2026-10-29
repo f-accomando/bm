@@ -38,7 +38,7 @@ int ai_endpoint(const char *base, char *out, size_t n, char *err, size_t en)
     while (bl && base[bl - 1] == '/')
         bl--;
     if (!bl) {
-        say(err, en, "no AI server: put ai_url in bm/config.txt");
+        say(err, en, "no AI server: run /setup in bm Agent (bm/ai.txt)");
         return -1;
     }
     const size_t tl = sizeof tail - 1;
@@ -116,7 +116,7 @@ char *ai_request_json(const char *model, const ai_msg_t *m, int n, int max_token
                       size_t *len, char *err, size_t en)
 {
     if (ai_model_ok(model)) {
-        say(err, en, "no model, or a bad one: put ai_model in bm/config.txt");
+        say(err, en, "no model, or a bad one: run /setup in bm Agent (bm/ai.txt)");
         return NULL;
     }
     if (n < 1 || n > AI_MSGS_MAX) {

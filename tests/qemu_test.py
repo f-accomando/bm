@@ -2067,6 +2067,14 @@ function _init()
   log("ai3", ai_ask({ { role = "user" } }))
   log("ai4", ai_ask("hi"))
   log("ai5", ai_reply(99))
+  -- ai_setup and ai_pair refuse before any question to the player
+  log("as1", ai_setup({ url = "https://other.example/v1" }))
+  log("as2", ai_setup({ url = "http://x.org/v1", key = "k" }))
+  log("as3", ai_setup({ model = "bad model" }))
+  log("as4", ai_setup({}))
+  log("ap1", ai_pair("8.8.8.8", "0000-0000-0000-0000-0000"))
+  log("ap2", ai_pair("192.168.1.20", "short"))
+  log("ap3", ai_pair_finish(99))
   log("end")
   quit()
 end
@@ -2076,7 +2084,8 @@ end
 def test_web_api(b, opts):
     """bm3D 7.x web API for a browser cart: image_load (JPEG, PNG, WebP into the sprite sheet),
     file_write (only a bare 8.3 name in bm/web, never .bm/.bme/.b16, capped, 128 files) and the
-    web_get address rules; ai_info and ai_ask's checks with the key in bm/config.txt (never in the log).
+    web_get address rules; ai_info, ai_ask, ai_setup and ai_pair checks; the ai_* keys of bm/config.txt moved to
+    bm/ai.txt (the key never in the log).
     The QEMU machine has no network: web_get and ai_ask stop at "no network" (the requests are
     tested on the PC by make test-webapi and make test-https)."""
     import zlib
@@ -2168,6 +2177,14 @@ def test_web_api(b, opts):
     assert line("ai4") == ["nil", "no network"], line("ai4")
     assert line("ai5")[0] == "nil" and "no such request" in line("ai5")[1], line("ai5")
     assert "bmr-secret" not in text, "the key reached the log"
+    assert line("as1")[0] == "nil" and "needs its key" in line("as1")[1], line("as1")
+    assert line("as2")[0] == "nil" and "https" in line("as2")[1], line("as2")
+    assert line("as3")[0] == "nil" and "model name" in line("as3")[1], line("as3")
+    assert line("as4") == ["true"], line("as4")
+    assert line("ap1")[0] == "nil" and "LAN" in line("ap1")[1], line("ap1")
+    assert line("ap2")[0] == "nil" and "20 characters" in line("ap2")[1], line("ap2")
+    assert line("ap3")[0] == "nil" and "no such pairing" in line("ap3")[1], line("ap3")
+    assert "moved from bm/config.txt to bm/ai.txt" in text, "the ai_* keys of config.txt were not moved"
 
     try:
         part = os.path.join(tmp, "part.img")
@@ -2183,6 +2200,10 @@ def test_web_api(b, opts):
         assert "::/BM/WEB/HELLO.TXT" in names and "::/BM/WEB/MODEL.GLB" in names, names[:5]
         hello = subprocess.run(["mtype", "-i", part, "::/BM/WEB/HELLO.TXT"], capture_output=True, env=env).stdout
         assert hello == b"hi again", hello
+        ai = subprocess.run(["mtype", "-i", part, "::/BM/AI.TXT"], capture_output=True, env=env).stdout.decode()
+        assert "url=https://relay.test:8443/v1" in ai and "key=bmr-secret-123" in ai, ai
+        conf = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True, env=env).stdout.decode()
+        assert "ai_" not in conf, conf
         glb = subprocess.run(["mtype", "-i", part, "::/BM/WEB/MODEL.GLB"], capture_output=True, env=env).stdout
         assert glb == b"x" * 100000, len(glb)
         root = subprocess.run(["mdir", "-b", "-i", part, "::/"], capture_output=True, text=True, env=env).stdout.upper()

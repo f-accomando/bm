@@ -19,6 +19,7 @@
  * file of bm/shots (OK, length, crc, the data): both with size 0, crc 0.
  */
 #include "netxfer.h"
+#include "aiconf.h"
 #include "netcon.h"
 #include "net.h"
 #include "kernel/config.h"
@@ -266,6 +267,11 @@ static void feed(const uint8_t *p, unsigned len)
                 to_menu_folder();
             if (op == 'S' && bridge_file_name(path)) {
                 kprintf("net: refused, the bridge file is the user's (Settings > System > Bridge)\n");
+                fail("BF");
+                return;
+            }
+            if (op == 'S' && ai_protected_name(path)) {
+                kprintf("net: refused, the AI settings and their certificate are set on the console (bm Agent: /setup)\n");
                 fail("BF");
                 return;
             }

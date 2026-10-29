@@ -292,6 +292,8 @@ int  l_sspr(lua_State *L);
 const prompt_t *prompt_for(const char *n, int small, int player);
 uint32_t assets_kb(void);
 int perm_allowed(int what);
+/* a question of the system over the game (api_perm.c): lines[0] the title; 1 yes, 0 no */
+int sys_ask(const char *const *lines, int n, const char *yes, const char *no);
 void ser(lua_State *L, int idx, int depth);
 int video_to_ram(g16_t *g);
 void dbg_line(lua_State *L, lua_Debug *ar);
@@ -584,6 +586,9 @@ int l_file_state(lua_State *L);
 int l_ai_ask(lua_State *L);
 int l_ai_reply(lua_State *L);
 int l_ai_info(lua_State *L);
+int l_ai_setup(lua_State *L);
+int l_ai_pair(lua_State *L);
+int l_ai_pair_finish(lua_State *L);
 
 /* video clips (api_video.c) */
 int l_video_open(lua_State *L);

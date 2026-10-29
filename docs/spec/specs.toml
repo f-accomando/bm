@@ -32,7 +32,7 @@ what = "safe_area() and aspect() (the part of the screen that has the aspect of 
 [[revision]]
 rev = 6
 date = "2026-10-29"
-what = "a chat model for cartridges: ai_ask, ai_reply and ai_info (POST <ai_url>/chat/completions in the OpenAI-compatible format, the key added by the kernel and never given to Lua, no redirect for a POST); the config keys ai_url, ai_model and ai_key; a cartridge that calls them says spec: 6"
+what = "a chat model for cartridges: ai_ask, ai_reply and ai_info (POST <url>/chat/completions in the OpenAI-compatible format, the key added by the kernel and never given to Lua, no redirect for a POST); ai_setup, ai_pair and ai_pair_finish (saved after the kernel's own question); the protected files bm/ai.txt (url, model, key; not bm/config.txt) and bm/ca-user.pem (the user's roots, read after bm/ca.pem); a cartridge that calls them says spec: 6"
 
 [[item]]
 id = "container-v1"
@@ -247,5 +247,5 @@ id = "api-ai-chat"
 since = 6
 status = "implemented"
 platforms = "all"
-where = ["src/bm/aichat.c", "src/bm/api_web.c", "src/bm/webget.c", "docs/api/system.md"]
-note = "ai_ask, ai_reply and ai_info (docs/api/system.md, A chat model): the server, the model and the key of bm/config.txt; the key is added by the kernel and never reaches Lua; a POST follows no redirect. Tested on the PC by make test-webapi (the JSON, the POST, the key's copy wiped), make test-https (the relay's certificate on an IP address, the POST over TLS) and make test-agent; in QEMU by test_web_api (the checks, the key not in the log). Not tried on a Pi or an RGB30 with a real provider (as divergence D50)"
+where = ["src/bm/aichat.c", "src/bm/api_web.c", "src/bm/webget.c", "src/net/aiconf.c", "src/net/aipair.c", "docs/api/system.md"]
+note = "ai_ask, ai_reply, ai_info, ai_setup, ai_pair and ai_pair_finish (docs/api/system.md, A chat model): the server, the model and the key of bm/ai.txt (src/net/aiconf.c, protected: no Lua access, refused by the network transfer; the old ai_* keys of bm/config.txt move there); the key is added by the kernel and never reaches Lua; a POST follows no redirect; the relay's CA checked against its pairing code (src/net/aipair.c) and kept in bm/ca-user.pem. Tested on the PC by make test-webapi (the JSON, the POST, the key's copy wiped), make test-https (the relay's certificate on an IP address, the POST over TLS) and make test-agent; in QEMU by test_web_api (the checks, the key not in the log). Not tried on a Pi or an RGB30 with a real provider (as divergence D50)"

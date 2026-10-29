@@ -11,8 +11,9 @@ each request with one run of the official program, unmodified, under your own lo
   bm_agent_relay.py cert --ip 192.168.1.20      # once: a CA, a certificate and a token
   bm_agent_relay.py serve --backend claude      # then: serve on port 8443
 
-`cert` prints the three lines for bm/config.txt and the CA to add at the end of
-bm/ca.pem on the SD card. The relay never reads, stores or sends your provider login:
+`cert` and `serve` print a pairing code: in bm Agent, /setup > Relay, type the PC's address
+and the code. The console downloads the relay's CA over the LAN (the next port, plain http),
+checks it against the code, asks you, and saves it (bm/ca-user.pem) with the three settings. The relay never reads, stores or sends your provider login:
 the official program does its own sign-in. Keep the relay for your own use. A subscription
 covers one person's ordinary use: do not share the token, the address or the answers'
 quota with other people (Anthropic's and OpenAI's terms; docs/design/ai-agent.md).
@@ -28,6 +29,7 @@ the console's agent writes files itself, after you confirm them.
 Python 3.8+, standard library only. `cert` needs the openssl program.
 """
 import argparse
+import hashlib
 import hmac
 import http.server
 import json
@@ -48,6 +50,22 @@ PROMPT_MAX = 256 * 1024          # bytes of the joined messages (the kernel send
 RUN_TIMEOUT = 170                # s: the kernel waits at most 180 s for a read (AI_TIMEOUT_LIMIT)
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/@-]{1,96}$")
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".bm-relay")
+CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+TOKEN_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{8}$")
+LOCK_AFTER, LOCK_SECONDS = 20, 600   # wrong tokens before the relay refuses everyone, and for how long
+
+
+def fingerprint(ca_pem):
+    """The first 60 bits of SHA-256 of the CA (DER), 12 Crockford characters: as src/net/aipair.c."""
+    h = hashlib.sha256(ssl.PEM_cert_to_DER_cert(ca_pem)).digest()
+    bits = int.from_bytes(h[:8], "big")
+    return "".join(CROCKFORD[(bits >> (59 - 5 * i)) & 31] for i in range(12))
+
+
+def pairing_code(d):
+    with open(os.path.join(d, "ca.pem")) as f:
+        code = fingerprint(f.read()) + read_token(d)
+    return "-".join(code[i:i + 4] for i in range(0, 20, 4))
 
 
 # ---- the certificate and the token ----
@@ -78,9 +96,13 @@ def make_cert(d, ips, names):
     for n in ("ca.key", "server.key"):
         os.chmod(os.path.join(d, n), 0o600)
     tok = os.path.join(d, "token")
-    if not os.path.exists(tok):
-        with open(os.open(tok, os.O_WRONLY | os.O_CREAT, 0o600), "w") as f:
-            f.write("bmr-" + secrets.token_urlsafe(32) + "\n")
+    try:
+        old = read_token(d)
+    except OSError:
+        old = ""
+    if not TOKEN_RE.match(old):          # 8 characters: the last part of the pairing code (40 bits, locked after 20 misses)
+        with open(os.open(tok, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+            f.write("".join(secrets.choice(CROCKFORD) for _ in range(8)) + "\n")
     with open(os.path.join(d, "ca.pem")) as f:
         return f.read()
 
@@ -177,6 +199,7 @@ class Relay:
         self.backend, self.ask, self.token, self.gap, self.log_path = backend, ask, token, gap, log_path
         self.busy = threading.Lock()
         self.last = 0.0
+        self.misses, self.locked_until = 0, 0.0
 
     def log(self, **kv):
         """One line per request: time, backend, sizes, seconds and status. Never the text."""
@@ -204,15 +227,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.reply(status, {"error": {"message": message, "type": "relay_error", "code": status}})
 
     def authorized(self):
+        relay = self.server.relay
+        if time.time() < relay.locked_until:
+            return False
         got = self.headers.get("Authorization", "")
-        want = "Bearer " + self.server.relay.token
-        return hmac.compare_digest(got.encode(), want.encode())
+        ok = hmac.compare_digest(got.encode(), ("Bearer " + relay.token).encode())
+        if not ok:
+            relay.misses += 1
+            if relay.misses >= LOCK_AFTER:
+                relay.misses, relay.locked_until = 0, time.time() + LOCK_SECONDS
+                print("bm agent relay: %d wrong tokens: locked for %d s" % (LOCK_AFTER, LOCK_SECONDS), flush=True)
+        return ok
 
     def do_GET(self):
         if self.path == "/health":
             return self.reply(200, {"ok": True, "backend": self.server.relay.backend})
         if not self.authorized():
-            return self.fail(401, "wrong or missing token (ai_key in bm/config.txt)")
+            return self.fail(401, "wrong or missing token (bm Agent: /setup)")
         if self.path == "/v1/models":
             return self.reply(200, {"object": "list", "data": [{"id": self.server.relay.backend, "object": "model"}]})
         self.fail(404, "not here")
@@ -230,7 +261,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path.rstrip("/") not in ("/v1/chat/completions", "/chat/completions"):
             return self.fail(404, "not here")
         if not self.authorized():
-            return self.fail(401, "wrong or missing token (ai_key in bm/config.txt)")
+            return self.fail(401, "wrong or missing token (bm Agent: /setup)")
         try:
             req = json.loads(raw)
             msgs = req["messages"]
@@ -277,6 +308,22 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
 
 
+class CaHandler(http.server.BaseHTTPRequestHandler):
+    """Plain http, the next port: only GET /ca.pem, for ai_pair. The console checks it against the code."""
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        body, st = (self.server.ca, 200) if self.path == "/ca.pem" else (b"not here", 404)
+        self.send_response(st)
+        self.send_header("Content-Type", "application/x-pem-file" if st == 200 else "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
 def serve(a):
     d = a.dir
     if a.backend == "cmd":
@@ -297,11 +344,18 @@ def serve(a):
     srv = Server((a.bind, a.port), Handler)
     srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
     srv.relay = Relay(a.backend, ask, token, a.gap, None if a.no_log else os.path.join(d, "usage.log"))
-    print("bm agent relay: https://%s:%d/v1 (backend %s). Your own use only: keep the token private."
-          % (a.bind, srv.server_address[1], a.backend), flush=True)
+    port = srv.server_address[1]
+    ca_srv = Server((a.bind, port + 1 if a.ca_port is None else a.ca_port), CaHandler)
+    with open(os.path.join(d, "ca.pem"), "rb") as f:
+        ca_srv.ca = f.read()
+    threading.Thread(target=ca_srv.serve_forever, daemon=True).start()
+    print("bm agent relay: https://%s:%d/v1 (backend %s). Your own use only: keep the code private."
+          % (a.bind, port, a.backend), flush=True)
+    print("Pair the console: bm Agent > /setup > Relay, address %s, code %s"
+          % (", ".join(a.ip_hint) if a.ip_hint else "<this PC's LAN address>:%d" % port, pairing_code(d)), flush=True)
     if a.port_file:
         with open(a.port_file, "w") as f:
-            f.write(str(srv.server_address[1]))
+            f.write("%d %d" % (port, ca_srv.server_address[1]))
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -325,17 +379,23 @@ def main():
     s.add_argument("--dir", default=DEFAULT_DIR)
     s.add_argument("--no-log", action="store_true", help="no usage.log")
     s.add_argument("--port-file", help=argparse.SUPPRESS)
+    s.add_argument("--ca-port", type=int, help=argparse.SUPPRESS)          # tests: 0 = any free port
+    s.add_argument("--ip", dest="ip_hint", action="append", default=[], help="the PC's LAN address, shown with the code")
     a = ap.parse_args()
     if a.what == "cert":
         if not a.ip and not a.name:
             sys.exit("cert: give --ip (the address the console uses to reach this PC)")
         ca = make_cert(a.dir, a.ip, a.name)
         host = (a.ip or a.name)[0]
-        print("Put these lines in bm/config.txt on the SD card:\n")
-        print("ai_url=https://%s:%d/v1" % (host, a.port))
-        print("ai_model=default")
-        print("ai_key=%s\n" % read_token(a.dir))
-        print("Then add this CA at the end of bm/ca.pem on the SD card (keep the lines that are there):\n")
+        print("Start the relay: bm_agent_relay.py serve --ip %s\n" % host)
+        print("On the console: bm Agent > /setup > Relay")
+        print("  address: %s%s" % (host, "" if a.port == 8443 else ":%d" % a.port))
+        print("  code:    %s\n" % pairing_code(a.dir))
+        print("Or by hand on the SD card: the file bm/ai.txt with these lines,\n")
+        print("url=https://%s:%d/v1" % (host, a.port))
+        print("model=default")
+        print("key=%s\n" % read_token(a.dir))
+        print("and this CA as the file bm/ca-user.pem (updates never change it):\n")
         print(ca)
         return
     serve(a)
