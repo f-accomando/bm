@@ -114,4 +114,6 @@ The runtime of the games has each frame shown a frame later since bm3d 6.9 (`gpu
 Three changes: the frame in flight keeps a copy of the page descriptor; `gpu3d_sync_page(px)` waits only for the frame of that page; the 3D Bench profile `GPU+VS+Q2` leaves the frame in flight until the next submit.
 RGB30, `heroes`, 13 heroes: 14.1 ms a frame, 8.5 ms with the pipeline (mesh 3.4 + build 1.5 + vertex job 3.2). `heroes_tex`: 15.9 ms to 12.6 ms. K and KC are the same as `GPU+VS`.
 n60 grows less (heroes 15.2 -> 16.5, heroes_tex 8.1 -> 8.4). A frame holds 10922 faces, so a heavier load splits in two jobs and the second job waits for the first. A second arena would remove this wait. It costs about 4 MB of the GPU memory.
-Open: a live game with the option (herocart: `gpu3d_queue=2`, `gpu3d_later=1`, `mali_msaa=0`); a worker core for the wait and the resolve (1.2 ms).
+herocart on the RGB30 (29 Oct, `gpu3d_queue=2`, `gpu3d_later=1`): the menus flickered left and right and the frame rate was 15. The runtime keeps `gpu3d_queue2()` at 0, so the option cannot start. The pictures of the shots were right. The cause is not found.
+Ruled out by reading: the display flip (`plat_display_wait_vsync` waits until the new address is taken), the page of the frame in flight (a copy), the order of the resolve and the show.
+Open: find the cause with a log of the page and the frame number at the submit, the resolve and the show; a worker core for the wait and the resolve (1.2 ms).
