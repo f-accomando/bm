@@ -827,9 +827,34 @@ key("k")
 check(status():find("block: rounded", 1, true), "k again: the rounded block")
 key("right", " ")
 check(m1().nf == 54, "a rounded block: 14 quads, 28 triangles (" .. m1().nf .. ")")
+-- soft shapes: cylinder, cone, sphere, dome, tube, arch (8 sides): the triangles each adds
+local soft = { { "cylinder", 32 }, { "cone", 16 }, { "sphere", 48 }, { "dome", 32 }, { "tube", 64 }, { "arch", 68 } }
+local before = m1().nf
+for _, e in ipairs(soft) do
+  key("k")
+  check(status():find("block: " .. e[1], 1, true), "k: the " .. e[1] .. " (" .. status() .. ")")
+  key("right", " ")
+  check(m1().nf == before + e[2], e[1] .. ": " .. e[2] .. " triangles (" .. m1().nf - before .. ")")
+  before = m1().nf
+end
+key("\b")
+check(m1().nf == before - 68, "backspace removes the arch whole (" .. m1().nf - before .. ")")
+key("^z")
+check(m1().nf == before, "undo: the arch is back")
+-- size and sides: the sides 8 to 10 and the size 2 along x change the cursor box and the shape
+key(".")
+check(status():find("10 sides", 1, true), "., : more sides (" .. status() .. ")")
+key("u")
+check(status():find("size 2x1x1", 1, true), "u : two cells along x (" .. status() .. ")")
+key("n", "u")
+check(status():find("size 2x2x1", 1, true), "n u : two cells along y (" .. status() .. ")")
+key("j", "n", "j", ",")
+check(status():find("size 2x1x1", 1, true) and status():find("8 sides", 1, true), "j n j , : back to 2x1x1 and 8 sides (" .. status() .. ")")
+key("n", "n")                                         -- x again
+key("j")
 key("k")
 check(status():find("block: cube", 1, true), "k again: the cube block")
-key("^z", "^z", "^z")
+key("^z", "^z", "^z", "^z", "^z", "^z", "^z", "^z", "^z")
 check(m1().nf == 12, "undo: the shaped blocks go, one block stays (" .. m1().nf .. ")")
 key("left", "left", "left")
 

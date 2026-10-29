@@ -3129,6 +3129,25 @@ do
     local lo = 1
     for _, f in ipairs(r) do for _, p in ipairs(f.p) do if p[2] == 1 then lo = math.min(lo, p[3]) end end end
     check(hi == 1 and lo == 1, "block shape: the ramp's top edge is on the far side (z = 1)")
+    -- soft shapes (T.solid_shape): closed, the faces look out (positive volume), inside the box
+    for kind = 5, 10 do
+      for _, n in ipairs({ 4, 8, 16 }) do
+        local faces = T.solid_shape(kind, { 2, 3, -1 }, 2, 3, 1.5, n)
+        local it = tri_mesh(faces)
+        local ok, euler = closed(it)
+        local name = T.BLOCK_KINDS[kind] .. " with " .. n .. " sides"
+        check(ok and euler == (kind == 9 and 0 or 2), "soft shape " .. name .. ": closed, Euler " .. tostring(euler))
+        check(volume(it) > 0.1, "soft shape " .. name .. ": looks out, volume " .. volume(it))
+        local inside = true
+        for _, p in ipairs(it.v) do
+          if p[1] < 2 - 1e-6 or p[1] > 4 + 1e-6 or p[2] < 3 - 1e-6 or p[2] > 6 + 1e-6 or p[3] < -1 - 1e-6 or p[3] > 0.5 + 1e-6 then inside = false end
+        end
+        check(inside, "soft shape " .. name .. ": inside its box")
+      end
+    end
+    check(T.solid_shape(2, { 0, 0, 0 }, 1, 1, 1, 8) == nil, "soft shape: ramp is block_shape's")
+    local cyl = tri_mesh(T.solid_shape(5, { 0, 0, 0 }, 2, 2, 2, 16))
+    check(math.abs(volume(cyl) - 0.5 * 16 * math.sin(2 * math.pi / 16) * 2) < 1e-6, "soft shape: cylinder volume is the polygon area times height (" .. volume(cyl) .. ")")
   end
 
   ---------------------------------------------------------------- in the editor

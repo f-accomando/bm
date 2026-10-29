@@ -233,7 +233,7 @@ end
 local build, models_page
 do
 
-local bd = { cell = { 0, 0, 0 }, tool = 1, side = 1, grid = true, view = 1, back = false, kind = 1,
+local bd = { cell = { 0, 0, 0 }, tool = 1, side = 1, grid = true, view = 1, back = false, kind = 1, ext = { 1, 1, 1 }, axis = 1, sides = 8,
              cam = { yaw = 0, pitch = -0.6, dist = 8, tx = 0.5, ty = 0.5, tz = 0.5 }, yaw_to = 0,
              hot = nil, sel = {}, pts = nil, hotp = nil, psel = {}, move = nil, paint = nil,
              back_mesh = nil, back_for = nil }
@@ -434,19 +434,20 @@ end
 
 -- the faces of a ramp, corner or rounded block (T.block_shape) in the cell c: all their corners in the box
 -- of the cell, and not the wall of a neighbour (on a side of the box, looking into the cell)
-local function shaped_faces(faces, c)
+local function shaped_faces(faces, c, ext)
   local out = {}
+  ext = ext or { 1, 1, 1 }
   for i, f in ipairs(faces) do
     local inside = true
     for _, p in ipairs(f.p) do
-      for k = 1, 3 do if p[k] < c[k] - 1e-3 or p[k] > c[k] + 1 + 1e-3 then inside = false end end
+      for k = 1, 3 do if p[k] < c[k] - 1e-3 or p[k] > c[k] + ext[k] + 1e-3 then inside = false end end
     end
     if inside then
       local n, m = T.face_normal(f), T.face_center(f)
       local own = true
       for k = 1, 3 do
         if abs(m[k] - c[k]) < 1e-3 and n[k] > 0.9 then own = false end
-        if abs(m[k] - (c[k] + 1)) < 1e-3 and n[k] < -0.9 then own = false end
+        if abs(m[k] - (c[k] + ext[k])) < 1e-3 and n[k] < -0.9 then own = false end
       end
       if own then out[#out + 1] = i end
     end
@@ -474,12 +475,25 @@ local function build_action(erase)
       T.begin_edit()
       if bd.kind == 1 then
         place_faces(m.faces, block_faces(c, one_tile(brush)), true)
+      elseif bd.kind >= 5 then
+        local shape = T.solid_shape(bd.kind, c, bd.ext[1], bd.ext[2], bd.ext[3], bd.sides)
+        for _, f in ipairs(shape) do texture(f, brush) end
+        place_faces(m.faces, shape, true)
       else
         local fa, fs, ra, rs = T.view_axes(bd.yaw_to)
         local shape = T.block_shape(bd.kind, c, fa, fs, ra, rs)
         for _, f in ipairs(shape) do texture(f, brush) end
         place_faces(m.faces, shape, true)
       end
+      T.commit()
+      return
+    end
+    if bd.kind >= 5 then
+      -- a soft shape goes whole: every face in its box (the size on the screen)
+      local list = shaped_faces(m.faces, c, bd.ext)
+      if #list == 0 then say("no shape of this size here", C.DIM, 60); return end
+      T.begin_edit()
+      m.faces = remove_faces(m.faces, list)
       T.commit()
       return
     end
@@ -1276,7 +1290,16 @@ function build.key(k)
   if k == "h" then brush.flip = not brush.flip; return end
   if k == "k" and tool <= 2 then
     bd.kind = bd.kind % #T.BLOCK_KINDS + 1
-    say("block: " .. T.BLOCK_KINDS[bd.kind] .. (bd.kind == 2 and " (rises away from the camera; q e turn the view)" or ""), C.ACC, 120)
+    say("block: " .. T.BLOCK_KINDS[bd.kind] .. (bd.kind == 2 and " (rises away from the camera; q e turn the view)" or "") ..
+        (bd.kind >= 5 and " (n u j size, , . sides)" or ""), C.ACC, 120)
+    return
+  end
+  if tool <= 2 and bd.kind >= 5 and (k == "u" or k == "j" or k == "," or k == "." or k == "n") then
+    -- the size of a soft shape: n picks x, y or z, u j change it (cells), , . change the sides
+    if k == "n" then bd.axis = bd.axis % 3 + 1
+    elseif k == "u" or k == "j" then bd.ext[bd.axis] = clamp(bd.ext[bd.axis] + (k == "u" and 1 or -1), 1, 8)
+    else bd.sides = clamp(bd.sides + (k == "." and 2 or -2), 4, 16) end
+    say(string.format("%s: size %dx%dx%d cells (editing %s), %d sides", T.BLOCK_KINDS[bd.kind], bd.ext[1], bd.ext[2], bd.ext[3], ("xyz"):sub(bd.axis, bd.axis), bd.sides), C.ACC, 120)
     return
   end
   if k == "x" and tool <= 2 then
@@ -1471,6 +1494,15 @@ function build.menu_items()
              { "Pick the tile", "x" }, { "Turn the brush", "r" }, { "Mirror the brush", "h" },
              { "Tiles and colours...", "\t" } }
     if t == 2 then list[#list + 1] = { "Next side", "f" } end
+    if t == 1 then
+      table.insert(list, 2, { "Next shape (soft ones too)", "k" })
+      if bd.kind >= 5 then
+        for i, e in ipairs({ { "Size: pick x / y / z", "n" }, { "Size bigger", "u" }, { "Size smaller", "j" },
+                             { "More sides", "." }, { "Fewer sides", "," } }) do
+          table.insert(list, 2 + i, e)
+        end
+      end
+    end
   elseif t == 3 then
     list = { { "Choose", " " }, { "All / none", "a" }, { "All joined", "c" }, { "Move", "g" }, { "Copy", "d" },
              { "Turn", "r" }, { "Mirror", "m" }, { "New texture", "\n" }, { "Delete", "\b" } }
@@ -1515,6 +1547,7 @@ function build.draw()
     -- the cursor: the cell, and the side the tile tool works on
     local x0, y0, z0 = c[1], c[2], c[3]
     local x1, y1, z1 = x0 + 1, y0 + 1, z0 + 1
+    if tool == 1 and bd.kind >= 5 then x1, y1, z1 = x0 + bd.ext[1], y0 + bd.ext[2], z0 + bd.ext[3] end
     local P = { { x0, y0, z0 }, { x1, y0, z0 }, { x1, y0, z1 }, { x0, y0, z1 },
                 { x0, y1, z0 }, { x1, y1, z0 }, { x1, y1, z1 }, { x0, y1, z1 } }
     local E = { { 1, 2 }, { 2, 3 }, { 3, 4 }, { 4, 1 }, { 5, 6 }, { 6, 7 }, { 7, 8 }, { 8, 5 }, { 1, 5 }, { 2, 6 }, { 3, 7 }, { 4, 8 } }

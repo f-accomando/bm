@@ -2601,7 +2601,7 @@ end
 -- edge, a far wall, 2 triangular sides. Corner: a pyramid on the cell floor whose top is the far right top
 -- corner (5 faces; the sloped sides meet a ramp's slope). Rounded: an octagon prism (the 4 vertical edges
 -- cut 0.3 deep), 14 faces. The cube is not here: bm Studio builds it with block_faces.
-T.BLOCK_KINDS = { "cube", "ramp", "corner", "rounded" }
+T.BLOCK_KINDS = { "cube", "ramp", "corner", "rounded", "cylinder", "cone", "sphere", "dome", "tube", "arch" }
 function T.block_shape(kind, c, fa, fs, ra, rs)
   local function at(lr, lf, h)
     local p = {}
@@ -2657,6 +2657,138 @@ function T.block_shape(kind, c, fa, fs, ra, rs)
       f.p = r
     end
     for i, q in ipairs(f.p) do f.p[i] = { q[1], q[2], q[3] } end    -- no corner shared between faces
+  end
+  return faces
+end
+
+-- Soft shapes of bm Studio. T.solid_shape(kind, c, w, h, d, n) gives the faces ({ p = corners }, 3 or 4
+-- corners, the faces look out) of kind (5 cylinder, 6 cone, 7 sphere, 8 dome, 9 tube, 10 arch, the
+-- numbers of T.BLOCK_KINDS) in the box that starts at the cell c and is w, h, d cells (x, y, z). n is the
+-- number of sides, 4 to 16. A tube has a hole of 0.6 of its radius. An arch spans x, is d deep, and
+-- stands on its two feet. Every face is turned away from a point behind it (the hint), so the
+-- shapes that are not convex are right too. Returns nil for another kind.
+function T.solid_shape(kind, c, w, h, d, n)
+  if kind < 5 or kind > 10 then return nil end
+  n = max(4, min(16, floor(n or 8)))
+  w, h, d = max(0.25, w or 1), max(0.25, h or 1), max(0.25, d or 1)
+  local cx, cz = c[1] + w / 2, c[3] + d / 2
+  local rx, rz, y0, y1 = w / 2, d / 2, c[2], c[2] + h
+  local faces = {}
+  local function add(hint, ...)
+    local f = { p = { ... } }
+    local nn, m = T.face_normal(f), T.face_center(f)
+    if nn[1] * (m[1] - hint[1]) + nn[2] * (m[2] - hint[2]) + nn[3] * (m[3] - hint[3]) < 0 then
+      local r = {}
+      for i = #f.p, 1, -1 do r[#r + 1] = f.p[i] end
+      f.p = r
+    end
+    faces[#faces + 1] = f
+  end
+  local function ring(y, k, f)
+    local out = {}
+    for i = 0, n - 1 do
+      local a = i / n * 2 * pi
+      out[i + 1] = { cx + rx * k * cos(a), y, cz + rz * k * sin(a) }
+    end
+    return out
+  end
+  local mid = { cx, (y0 + y1) / 2, cz }
+  local function wrap(i) return i % n + 1 end
+  if kind == 5 or kind == 6 then
+    local lo, hi = ring(y0, 1), ring(y1, 1)
+    local bc, tc = { cx, y0, cz }, { cx, y1, cz }
+    for i = 1, n do
+      local j = wrap(i)
+      if kind == 5 then
+        add(mid, lo[i], lo[j], hi[j], hi[i])
+        add(mid, tc, hi[i], hi[j])
+      else
+        add(mid, lo[i], lo[j], tc)
+      end
+      add(mid, bc, lo[i], lo[j])
+    end
+  elseif kind == 7 or kind == 8 then
+    local rings = max(2, n // 2)
+    if kind == 8 then rings = max(2, n // 4) end
+    -- latitude 0 = the top pole; the sphere ends at the bottom pole, the dome at the equator (the base)
+    local last = rings                                 -- steps of pi (sphere) or pi/2 (dome)
+    local span = (kind == 7) and pi or pi / 2
+    local cy = (kind == 7) and (y0 + y1) / 2 or y0
+    local ry = (kind == 7) and h / 2 or h
+    local rows = {}
+    for r = 0, last do
+      local a = r / last * span
+      local row = {}
+      if r == 0 then
+        row[1] = { cx, cy + ry, cz }
+      elseif r == last and kind == 7 then
+        row[1] = { cx, cy - ry, cz }
+      else
+        for i = 0, n - 1 do
+          local b = i / n * 2 * pi
+          row[i + 1] = { cx + rx * sin(a) * cos(b), cy + ry * cos(a), cz + rz * sin(a) * sin(b) }
+        end
+      end
+      rows[r] = row
+    end
+    local hint = { cx, cy, cz }
+    for r = 0, last - 1 do
+      local A, B = rows[r], rows[r + 1]
+      for i = 1, n do
+        local j = wrap(i)
+        if #A == 1 then add(hint, A[1], B[i], B[j])
+        elseif #B == 1 then add(hint, A[i], A[j], B[1])
+        else add(hint, A[i], A[j], B[j], B[i]) end
+      end
+    end
+    if kind == 8 then
+      local base, bc = rows[last], { cx, cy, cz }
+      for i = 1, n do add({ cx, cy + 1, cz }, bc, base[i], base[wrap(i)]) end
+    end
+  elseif kind == 9 then
+    local k = 0.6
+    local lo, hi, ilo, ihi = ring(y0, 1), ring(y1, 1), ring(y0, k), ring(y1, k)
+    for i = 1, n do
+      local j = wrap(i)
+      add({ cx, (y0 + y1) / 2, cz }, lo[i], lo[j], hi[j], hi[i])
+      -- the hint of the inner wall lies out in the wall, so the face looks into the hole
+      local out = { cx + rx * (1 + k) / 2 * cos((i - 0.5) / n * 2 * pi), (y0 + y1) / 2, cz + rz * (1 + k) / 2 * sin((i - 0.5) / n * 2 * pi) }
+      add(out, ilo[i], ilo[j], ihi[j], ihi[i])
+      -- the bottom ring looks down, the top ring looks up: the hint is on the other side
+      add({ cx, y0 + 1, cz }, lo[i], lo[j], ilo[j], ilo[i])
+      add({ cx, y1 - 1, cz }, hi[i], hi[j], ihi[j], ihi[i])
+    end
+  else
+    -- arch: a half ring in the x-y plane (y is the height), extruded along z
+    local k = 0.6
+    local function arc(kk)
+      local out = {}
+      for i = 0, n do
+        local a = i / n * pi
+        out[i + 1] = { cx + rx * kk * cos(a), y0 + h * kk * sin(a) }
+      end
+      return out
+    end
+    local ou, inn = arc(1), arc(k)
+    local zf, zb = c[3], c[3] + d
+    local function P(q, z) return { q[1], q[2], z } end
+    local hint = { cx, y0, cz }
+    for i = 1, n do
+      add(hint, P(ou[i], zf), P(ou[i + 1], zf), P(ou[i + 1], zb), P(ou[i], zb))
+      -- the inner face looks into the opening: the hint is out in the wall
+      local a = (i - 0.5) / n * pi
+      local wall = { cx + rx * (1 + k) / 2 * cos(a), y0 + h * (1 + k) / 2 * sin(a), cz }
+      add(wall, P(inn[i], zf), P(inn[i + 1], zf), P(inn[i + 1], zb), P(inn[i], zb))
+      add({ cx, y0 + h / 2, zf + 1 }, P(inn[i], zf), P(inn[i + 1], zf), P(ou[i + 1], zf), P(ou[i], zf))
+      add({ cx, y0 + h / 2, zb - 1 }, P(inn[i], zb), P(inn[i + 1], zb), P(ou[i + 1], zb), P(ou[i], zb))
+    end
+    -- the feet: the end of the half ring on each side, looking down
+    for _, e in ipairs({ { ou[1], inn[1] }, { ou[n + 1], inn[n + 1] } }) do
+      add({ cx, y0 + 1, cz }, P(e[1], zf), P(e[2], zf), P(e[2], zb), P(e[1], zb))
+    end
+  end
+  for _, f in ipairs(faces) do
+    for i, q in ipairs(f.p) do f.p[i] = { q[1], q[2], q[3] } end
   end
   return faces
 end
