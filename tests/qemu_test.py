@@ -4910,7 +4910,8 @@ def test_monitor_line(b, opts):
     """The monitor's ':' line (2026-10-05): commands one after the other,
     ';' between them; set changes a key until a restart, b3d runs a part of
     the 3D Bench without waiting on its pages, a word not known stops the
-    line and says so, err reports runtime errors. Typed in the menu (as
+    line and says so, err reports runtime errors, net fetch checks its address, name and an existing
+    file before the network. Typed in the menu (as
     bm_net.py --line does it, or a paste in easy_install's monitor), the ':'
     takes the line to the monitor."""
     tmp = tempfile.mkdtemp(prefix="bm-line-")
@@ -4931,6 +4932,16 @@ def test_monitor_line(b, opts):
         assert "err: none" in out, out
         assert "running: menu" in out, out
         q.expect("> ")
+        # net fetch (src/kernel/netfetch.c): the checks before the network; QEMU has no network
+        for line, want in ((":net fetch\r", "net fetch URL [NAME] [replace]"),
+                           (":net fetch http://example.org/x.bm\r", "only https"),
+                           (":net fetch https://example.org/readme.txt\r", ".bm cartridge or a .bme"),
+                           (":net fetch https://example.org/bad.bm\r", "/bm/bad.bm is there already"),
+                           (":net fetch gh:o/r/new.bm@main\r", "no network")):
+            q.send(line)
+            out = q.expect("the line is done", timeout=10).decode(errors="replace")
+            assert "fetch: " in out and want in out, (line, out)
+            q.expect("> ")
         q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
         q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
         q.expect("set gpu3d_sort=1", timeout=10)

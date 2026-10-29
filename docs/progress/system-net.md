@@ -55,6 +55,11 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   yet proved there.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
   `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
+  `net fetch URL [NAME] [replace]` (`src/kernel/netfetch.c`, Pi only: the RGB30 has no Monitor): a `.bm` into `/bm` or a
+  `.bme` into `/bme` from `https://` or `gh:OWNER/REPO/PATH[@BRANCH]` (raw.githubusercontent.com; `github_token` sent only
+  there, no redirect off that host), at most 64 MB, checked by `bm_parse_any` (a resource file refused), an existing file
+  replaced only with `replace`, then `carts_init()`. Tests: `make test-netfetch`, QEMU `test_monitor_line` (the checks before
+  the network). Not tried on a Pi with a real download.
   The `err` command (R-NET1) prints the last cartridge error (`err: <text>` or `err: none`,
   via `bm_last_error()`) and any suspended cartridge (`running: <title>`), allowing remote
   tests to distinguish a running/clean state from an execution halted with error.

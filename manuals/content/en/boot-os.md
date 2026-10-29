@@ -256,6 +256,7 @@ Type `:` and then commands separated by `;`. They run one after the other, and t
 | `play NAME` | start a game by name |
 | `set key=value ...` | change `bm/config.txt` keys until a restart (`set` alone lists them) |
 | `save` | write `bm/config.txt` |
+| `net fetch URL [NAME] [replace]` | download a `.bm` into `/bm` or a `.bme` into `/bme`. `URL` is `https://...` or `gh:OWNER/REPO/PATH[@BRANCH]` (a file of a GitHub repository; a private one needs `github_token`). `NAME` is an 8.3 name instead of the file's own. A file that is there is replaced only with `replace`. The bytes must be a cartridge |
 | `bench render`, `report log`, `report send`, `sys reboot` | benchmark, the log as a report, send the waiting reports, reboot (`render`, `log`, `send`, `reboot` still work) |
 
 ::: copy

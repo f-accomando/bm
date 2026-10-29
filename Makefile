@@ -783,12 +783,12 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
         test-fat test-fat-queue test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-klog test-monitor-cmd test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-klog test-monitor-cmd test-netfetch test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map test-yharnam test-yharnam-autoplay \
         test-catalog test-github test-lan market-seed test-host test-anim-ease test-qemu test-vid
 
@@ -1414,6 +1414,14 @@ test-crumbs: $(BUILD)/host/test_crumbs $(BUILD)/host/test_wdguard
 # The Monitor's command core (src/kernel/monitor_cmd.c): tokenizer, dispatcher, help, Tab, editor, history
 test-monitor-cmd: $(BUILD)/host/test_monitor_cmd
 	$(BUILD)/host/test_monitor_cmd
+
+# "net fetch" (src/kernel/netfetch.c): the address, the gh: short form, the name and the folder
+test-netfetch: $(BUILD)/host/test_netfetch
+	$(BUILD)/host/test_netfetch
+
+$(BUILD)/host/test_netfetch: tests/kernel/test_netfetch.c src/kernel/netfetch.c src/kernel/netfetch.h src/bm/webpolicy.c src/bm/webpolicy.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_netfetch.c src/kernel/netfetch.c src/bm/webpolicy.c
 
 $(BUILD)/host/test_monitor_cmd: tests/kernel/test_monitor_cmd.c src/kernel/monitor_cmd.c src/kernel/monitor_cmd.h
 	@mkdir -p $(dir $@)

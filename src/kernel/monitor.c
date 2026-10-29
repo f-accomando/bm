@@ -32,6 +32,8 @@
 #include "net/http.h"
 #include "net/netxfer.h"
 #include "net/netcon.h"
+#include "netfetch.h"
+#include "bm/bm.h"
 #include "pager.h"
 #include "reports.h"
 #include "audio/audio.h"
@@ -418,6 +420,123 @@ CMD(c_net_eth)
 
 CMD(c_net_get) { return net_get_test(argc > 1 ? argv[1] : NULL); }
 
+/* "net fetch": a .bm or .bme from the web onto the card (src/kernel/netfetch.h). The bytes come into
+ * memory, are checked as a cartridge (bm_parse_any, a resource file refused), then written: a file that is
+ * there is replaced only with the word "replace" (a line never waits for a key). github_token goes only to
+ * raw.githubusercontent.com, and then no redirect leaves that host. */
+typedef struct {
+    uint8_t *data;
+    size_t len, cap, shown;
+    int too_big;
+} fetch_buf_t;
+
+static int fetch_sink(void *ctx, const uint8_t *d, size_t n)
+{
+    fetch_buf_t *b = ctx;
+    if (b->len + n > FETCH_MAX) {
+        b->too_big = 1;
+        return 1;
+    }
+    if (b->len + n > b->cap) {
+        size_t c = b->cap ? b->cap : 256u << 10;
+        while (c < b->len + n)
+            c *= 2;
+        uint8_t *q = realloc(b->data, c);
+        if (!q)
+            return 1;
+        b->data = q;
+        b->cap = c;
+    }
+    memcpy(b->data + b->len, d, n);
+    b->len += n;
+    if (b->len - b->shown >= (1u << 20)) {
+        b->shown = b->len;
+        kprintf("\rfetch: %lu KB", (unsigned long)(b->len >> 10));
+    }
+    return 0;
+}
+
+static int fetch_gh_only(void *ctx, const char *url, char *err, size_t en)
+{
+    (void)ctx;
+    static const char want[] = "https://" FETCH_GH_HOST "/";
+    if (strncmp(url, want, sizeof want - 1)) {
+        snprintf(err, en, "a redirect away from " FETCH_GH_HOST " refused (the token goes nowhere else)");
+        return 1;
+    }
+    return 0;
+}
+
+CMD(c_net_fetch)
+{
+    int replace = argc > 2 && !strcmp(argv[argc - 1], "replace");
+    const int words = argc - replace;
+    fetch_plan_t p;
+    char err[200];
+    if (words < 2 || words > 3 || fetch_plan(argv[1], words == 3 ? argv[2] : NULL, &p, err, sizeof err)) {
+        kprintf("fetch: %s\n", words < 2 ? "net fetch URL [NAME] [replace]  (URL: https://... or gh:OWNER/REPO/PATH[@BRANCH])" : err);
+        return 1;
+    }
+    fat_entry_t e;
+    const int there = fat_find(p.path, &e) == 0;
+    if (there && !replace) {
+        kprintf("fetch: %s is there already: add the word replace to write over it\n", p.path);
+        return 1;
+    }
+    if (!net_ip()) {
+        kprintf("fetch: no network (net status)\n");
+        return 1;
+    }
+    const char *tok = p.github ? config_get("github_token") : NULL;
+    char headers[200] = "";
+    if (tok && *tok)
+        snprintf(headers, sizeof headers, "Authorization: Bearer %s\r\n", tok);
+    http_req_t q;
+    memset(&q, 0, sizeof q);
+    q.headers = headers[0] ? headers : NULL;
+    q.same_scheme = 1;
+    q.timeout_ms = 30000;
+    if (headers[0])
+        q.before = fetch_gh_only;
+    fetch_buf_t b = { 0 };
+    http_info_t info;
+    kprintf("fetch: %s\n", p.url);
+    const uint32_t t0 = timer_ticks();
+    const int st = http_request(p.url, &q, fetch_sink, &b, &info);
+    for (volatile char *c = headers; *c; c++)
+        *c = 0;
+    const uint32_t ms = (timer_ticks() - t0) / 1000;
+    if (b.shown)
+        kprintf("\n");
+    int r = 1;
+    if (st < 0 || b.too_big) {
+        kprintf("fetch: %s\n", b.too_big ? "over 64 MB" : info.error);
+    } else if (st != 200) {
+        kprintf("fetch: HTTP %d%s\n", st, st == 404 && p.github && !(tok && *tok)
+                ? " (a private repository needs github_token in bm/config.txt)" : "");
+    } else {
+        bm_cart_t c;
+        if (b.len < BM_HEADER_SIZE) {
+            kprintf("fetch: %lu bytes: not a cartridge, nothing written\n", (unsigned long)b.len);
+        } else if (bm_is_res(b.data) || bm_parse_any(b.data, b.len, &c, err, sizeof err)) {
+            kprintf("fetch: not a cartridge (%s): nothing written\n", bm_is_res(b.data) ? "a resource file" : err);
+        } else {
+            fat_mkdirs(p.dir);
+            const int w = there ? fat_replace(p.path, b.data, b.len) : fat_write_file(p.dir, p.name, b.data, b.len);
+            if (w) {
+                kprintf("fetch: %s: %s\n", p.path, fat_error());
+            } else {
+                kprintf("fetch: %s, %lu KB in %lu ms%s\n", p.path, (unsigned long)(b.len >> 10), (unsigned long)ms,
+                        there ? " (replaced)" : "");
+                carts_init();                   /* the menu lists it */
+                r = 0;
+            }
+        }
+    }
+    free(b.data);
+    return r;
+}
+
 /* j: the 3D Bench with its pages. In a line: all or a part (tests=a,b profiles=P), no waiting on pages */
 CMD(c_bench_3d)
 {
@@ -645,6 +764,7 @@ static const mcmd_t net_sub[] = {
     { .name = "status", .help = "WiFi, Ethernet, IP address, time", .fn = c_net_status },
     { .name = "eth", .help = "Ethernet (Pi 1 B / B+): link, counters", .key = 'E', .fn = c_net_eth },
     { .name = "get", .args = "URL", .help = "get a web address: status, size, speed", .key = 'G', .fn = c_net_get },
+    { .name = "fetch", .args = "URL [NAME] [replace]", .help = "a .bm/.bme from https or gh: to the card", .fn = c_net_fetch },
     { NULL }
 };
 
