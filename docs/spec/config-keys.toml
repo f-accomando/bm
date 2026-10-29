@@ -122,9 +122,9 @@ read_in = "src/rgb30/pad.c:pad_config"
 [[key]]
 name = "cores"
 scope = "rgb30"
-values = "4 starts cores 1-3 (PSCI CPU_ON) for worker jobs; anything else = one core"
-default = "one core on the console (not yet proven there); QEMU always starts them"
-meaning = "Secondary cores of the RGB30 (docs/progress/multicore.md, M1-M5)."
+values = "2, 3 or 4 = that many cores in all (PSCI CPU_ON for the others, worker jobs); 1, anything else, or absent = one core"
+default = "one core on the console; QEMU always starts four"
+meaning = "Number of cores of the RGB30 kernel (docs/progress/multicore.md, M1-M5, V5). The loop over the workers uses the cores that came up."
 settings = ""
 read_in = "src/rgb30/main.c:smp_boot"
 

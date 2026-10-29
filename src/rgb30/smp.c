@@ -105,10 +105,10 @@ int smp_wait(int core, uint32_t us)
     return r;
 }
 
-int smp_start(void)
+int smp_start(int cores)
 {
     core_state[0] = 1;
-    for (int i = 1; i < SMP_MAX; i++) {
+    for (int i = 1; i < SMP_MAX && i < cores; i++) {
         kprintf("smp: core %d: CPU_ON\n", i);
         long r = plat_cpu_on(PLAT_CORE_MPIDR(i), (uint64_t)(uintptr_t)smp_entry, (uint64_t)i);
         if (r != 0) {

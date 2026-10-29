@@ -38,7 +38,7 @@ what = "no USB host and no on-screen keyboard on the RGB30: keys such as F11, F1
 
 [[capability]]
 id = "multicore"
-what = "the RK3566 has four cores and the Pi Zero W has one: RGB30 multitasking may be optimised further (SYS-10 phase 6)"
+what = "the RK3566 has four cores and the Pi Zero W has one: the RGB30 kernel runs worker jobs on the other cores with cores=2 to 4 (docs/progress/multicore.md); the Pi runs the same job on core 0"
 
 [[capability]]
 id = "storage-path"

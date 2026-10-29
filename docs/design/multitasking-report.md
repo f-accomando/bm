@@ -216,7 +216,7 @@ Benchmarks and log lines only. Never a live game. For a frame number, use a cart
 
 ## 9. What only new multicore hardware can do
 
-The RGB30 has four Cortex-A55 cores. The kernel uses one. `platforms.md` says there is no PSCI `CPU_ON`. The reason is not written there. Check it first: it decides everything below.
+The RGB30 has four Cortex-A55 cores. `CPU_ON` works (checked on the console, 26 Oct). With `cores=2` to `4` in `config.txt` the kernel starts the other cores as pure workers. Without the key it uses one. The state is in `docs/progress/multicore.md`.
 The Pi Zero W has one core. Nothing here helps it.
 
 Only another core can:

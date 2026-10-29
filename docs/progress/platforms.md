@@ -78,7 +78,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 - RGB30 battery: the new curve and the clean switch-off are built and pass the PC and QEMU tests, not tried on the console. To check: the bars, the red at 10%, the switch-off at about 3.3 V in a second run-down. Then the power savings, one at a time ([calibration](../design/rgb30-battery-calibration.md)).
 - **Mali-G52 driver** (RGB30): Overbit at 360×360 and 720×720, ARM benchmark and Mali driver (details in [graphics-mali](graphics-mali.md)).
 - **Handheld shell for the Pi Zero**: support for handheld setups based on the Pi Zero (reading keys and pad directly on GPIO pins, compact display on a DPI or SPI bus).
-- RGB30 runs on one core (no PSCI `CPU_ON`), fibers in the menu only; multicore: [multitasking](multitasking.md).
+- RGB30 runs on one core by default. With `cores=2` to `4` in `config.txt` the other cores take worker jobs (PSCI `CPU_ON` works). Fibers run in the menu only. Details: [multicore](multicore.md), [multitasking](multitasking.md).
 - RGB30 panel after a warm restart: confirmed OK on hardware on 21 Oct 2026. Watch for a regression (`src/rgb30/rk_dsi.c`):
   1. The black screen after a restart or an update may come back now that the boot power
      cycle is withdrawn (power off/on recovers it). If it does: cut and restore the supply

@@ -288,7 +288,7 @@ action = "Mali driver"
 id = "D25"
 area = "multicore, fibers"
 pi = "-"
-rgb30 = "RGB30: cores 1-3 run pure worker jobs with cores=4 (SHA-256 of a release file; QEMU proven); fibers in the menu only"
+rgb30 = "RGB30: with cores=2 to 4 the other cores run pure worker jobs (Mali draw build, ARM raster by bands, SHA-256 of a release file, job_run); fibers in the menu only"
 cause = "hardware"
 capability = "multicore"
 priority = 6

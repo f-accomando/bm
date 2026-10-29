@@ -78,7 +78,7 @@ static void heartbeat(uint32_t tick)
 
 extern char _start[];
 
-/* the other cores: on in QEMU; on the console only with cores=4 in bm/config.txt (not yet proven there, docs/progress/multicore.md M1) */
+/* the other cores: 4 in QEMU; on the console the key cores=2, 3 or 4 in bm/config.txt gives that many cores, absent gives one (docs/progress/multicore.md, V5) */
 #ifdef PLAT_VIRT
 /* M5: release_check_file hashes a big buffer on a worker; a changed byte is still refused */
 static void smp_selftest_offload(void)
@@ -162,14 +162,14 @@ static void smp_selftest_raster(void)
 static void smp_boot(void)
 {
 #ifdef PLAT_VIRT
-    int on = 1;
+    const int cores = 4;
 #else
     const char *c = config_get("cores");
-    int on = c && c[0] == '4';
+    const int cores = c && c[0] >= '2' && c[0] <= '4' && !c[1] ? c[0] - '0' : 1;
 #endif
-    if (!on)
+    if (cores < 2)
         return;
-    if (smp_start() > 0 && smp_selftest() == 0) {
+    if (smp_start(cores) > 0 && smp_selftest() == 0) {
         const char *rb = config_get("r3d_bands");
         r3d_bands_set(offload_workers, offload_par, !(rb && rb[0] == '0'));    /* V1: the ARM raster by bands */
         const char *mp = config_get("mali_par");

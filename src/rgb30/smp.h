@@ -32,8 +32,8 @@ static inline void spin_unlock(spinlock_t *l)
     __atomic_store_n(l, 0, __ATOMIC_RELEASE);
 }
 
-/* PSCI CPU_ON for every core 1..3; waits up to 100 ms for each. Returns how many secondary cores came up. */
-int smp_start(void);
+/* PSCI CPU_ON for the cores 1 to cores-1 (cores is 1 to 4); waits up to 100 ms for each. Returns how many secondary cores came up. */
+int smp_start(int cores);
 int smp_cores_up(void);                 /* cores running, core 0 included */
 int smp_core_state(int core);           /* 0 off, 1 up, negative: the PSCI error of CPU_ON */
 
