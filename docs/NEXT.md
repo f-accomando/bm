@@ -33,7 +33,7 @@ Chores:
 - Publish `bench3d` to the Market only with the user's OK.
 
 ## Graphics, Mali and cores: tracker (28 Oct 2026)
-Roadmap codes: SYS-22 (the four cores: M, V1 to V5), API-5 (the Mali driver: G, Q), API-14 (2D vector graphics), GAME-4 (Hero Stress cart).
+Roadmap codes: SYS-22 (the four cores: M, V1 to V5), API-5 (the Mali driver: G, Q), API-14 (2D vector graphics).
 Plan sheets: [multicore](progress/multicore.md) (M, G, V tracks), [graphics-mali](progress/graphics-mali.md), [graphics-vector](progress/graphics-vector.md) (2D). Order agreed with the user: V1, then G2 and G1, then V2 and V4.
 
 Done:

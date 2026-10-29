@@ -1,7 +1,5 @@
 # Hero Stress cart
 
-Roadmap line: GAME-4 ([ROADMAP](../ROADMAP.md)).
-
 A separate cart, `carts/herocart/`: 64 heroes walk in a plaza. The player changes the hero count, the polygon level and the 3D options in real time, and reads the cost. Design: [hero-stress-cart-and-cel-shader](../design/hero-stress-cart-and-cel-shader.md). Area: [graphics](graphics.md).
 
 ## How it is today (stages 1 and 2)
