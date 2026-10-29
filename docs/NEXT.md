@@ -45,7 +45,6 @@ To do, in this order:
 1. G1 on the console: the pixel check between GPU and ARM exists, the comparison on the console is not finished. The user looks at the textured scenes on the RGB30 (`mali_tex`).
 2. The scenes of G2 (`spheres`, `split`) by eye on the console, with the user. The old local branch `claude/mali-textures-zbuffer` holds no work: delete it.
 3. Mali, suspended on 29 Oct (the work done is in `docs/DRIVERS.md` 7.17 to 7.28 and `docs/progress/mali-parity.md`):
-   - By eye, once, at the end: the scenes on the console with and without `mali_msaa=1` (the edges of the MSAA were never looked at); `heroes` iterations 3 and 4 at a high n were right at the last check.
    - `make test-b3d` fails on the host with "51 pages drawn" (it failed before these changes too): find the cause.
    - MSAA resolve: the ARM takes 2.6 ms against 1.5 ms without MSAA; count the blocks of each kind to find why.
    - A faster sprite fragment is not the cost of `gpu2d` (the GPU job is 0.8 ms of about 2 ms; the rest is the ARM resolve and the wait). A hybrid resolve by block type is the open idea. Text on the GPU (a font atlas) is not started.
