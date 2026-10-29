@@ -151,6 +151,8 @@ def run(host, pw, req, board="pi"):
         cmd = base + ["--" + op, os.path.realpath(arg)]
     elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
         cmd = base + ["--shot", os.path.realpath(arg)]
+    elif op == "frame" and arg.lower().endswith(".ppm") and allowed_dir(os.path.dirname(arg) or "."):
+        cmd = base + ["--frame", os.path.realpath(arg)]
     elif op == "restart" and not arg:
         cmd = base + ["--restart"]
     elif op == "keys" and arg == "game-exit":

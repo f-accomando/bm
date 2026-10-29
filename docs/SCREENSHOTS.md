@@ -39,7 +39,13 @@ From the PC, with the console's network link ([design/pi-test.md](design/pi-test
 python tools/bm_net.py IP --shot out.png                    # the running game, saved as out.png
 python tools/bm_net.py IP --get bm/shots/pong0007.png out.png   # a file already in bm/shots
 python3 tools/pi_test.py --cart build/carts/pong.bm --shot out.png
+python tools/bm_net.py IP --frame out.ppm                   # the page on the screen now (menu, monitor or game), a PPM
+python tools/bm_watch.py IP                                 # the screen in the terminal, a frame a second or two
 ```
+
+`--frame` and `bm_watch.py` use op `F` of the transfer port (29 Oct 2026): the kernel copies the page on the screen
+and sends it (RGB565 or 32 bit, 460 KB at 640x360) without writing on the SD card. The bridge must be on. A kernel
+from before `F` answers `BH`. The bridge has `pi.py frame OUT.ppm`.
 
 The console saves the PNG in `bm/shots/` as with the key, then sends it. A game must be
 drawing frames: with none, the request fails after 3 s (`NG`). Only files of `bm/shots/` (one

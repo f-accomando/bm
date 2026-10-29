@@ -220,6 +220,57 @@ def get_file(args, path, out, password):
     return rc if data is None else save(out, data)
 
 
+def fetch_frame(host, password):
+    """Op F: the page on the screen now, (width, height, depth, is_rgb, pixels); RuntimeError when it fails"""
+    sock, a = open_request(argparse.Namespace(host=host), b"F", "", b"", password)
+    if a != b"OK":
+        sock.close()
+        raise RuntimeError("refused: " + ANSWERS.get(a, (a or b"no answer").decode(errors="replace")))
+    head = recv_exact(sock, 8, 10)
+    n, crc = struct.unpack("<II", head) if len(head) == 8 else (0, 0)
+    data = recv_exact(sock, n, 60) if len(head) == 8 else b""
+    sock.close()
+    if len(head) < 8 or len(data) != n or n < 8:
+        raise RuntimeError("incomplete answer from the console (a kernel from before op F answers BH)")
+    if zlib.crc32(data) & 0xFFFFFFFF != crc:
+        raise RuntimeError("damaged in transit (crc)")
+    w, h, depth, is_rgb = struct.unpack("<HHBB", data[:6])
+    if depth not in (16, 32) or len(data) != 8 + w * h * depth // 8:
+        raise RuntimeError("a frame this tool does not know (depth %d)" % depth)
+    return w, h, depth, is_rgb, data[8:]
+
+
+def frame_pixel(frame, x, y):
+    """(r, g, b) of the pixel (x, y) of a frame of fetch_frame"""
+    w, _h, depth, is_rgb, px = frame
+    if depth == 16:
+        v = px[(y * w + x) * 2] | px[(y * w + x) * 2 + 1] << 8
+        r, g, b = (v >> 11) & 31, (v >> 5) & 63, v & 31
+        return (r << 3 | r >> 2, g << 2 | g >> 4, b << 3 | b >> 2)
+    o = (y * w + x) * 4
+    return (px[o], px[o + 1], px[o + 2]) if is_rgb else (px[o + 2], px[o + 1], px[o])
+
+
+def save_ppm(frame, out):
+    """a frame as a PPM file (P6)"""
+    w, h = frame[0], frame[1]
+    with open(out, "wb") as f:
+        f.write(b"P6\n%d %d\n255\n" % (w, h))
+        for y in range(h):
+            f.write(bytes(c for x in range(w) for c in frame_pixel(frame, x, y)))
+    print(f"{w}x{h} -> {out}")
+
+
+def frame_file(args, out, password):
+    """--frame: the page on the screen now (F), written to out as a PPM"""
+    try:
+        save_ppm(fetch_frame(args.host, password), out)
+    except (RuntimeError, OSError) as e:
+        print(e)
+        return 1
+    return 0
+
+
 def restart(args, password):
     """--restart: the console restarts (R), with the same kernel"""
     sock, a = open_request(args, b"R", "", b"", password)
@@ -463,12 +514,16 @@ def main():
     ap.add_argument("--restart", action="store_true", help="restart the console (the same kernel)")
     ap.add_argument("--shot", metavar="OUT",
                     help="screenshot of the running game, written to OUT (a PNG)")
+    ap.add_argument("--frame", metavar="OUT",
+                    help="the page on the screen now (the menu, the monitor or a game), written to OUT (a PPM); tools/bm_watch.py repeats it")
     ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
                     help="a file of bm/shots on the console (PATH, e.g. bm/shots/pong0007.png) written to OUT")
     args = ap.parse_args()
 
     if args.restart:
         return restart(args, args.password or getpass.getpass("password: "))
+    if args.frame is not None:
+        return frame_file(args, args.frame, args.password or getpass.getpass("password: "))
     if args.shot is not None:
         return shot(args, args.shot, args.password or getpass.getpass("password: "))
     if args.get is not None:

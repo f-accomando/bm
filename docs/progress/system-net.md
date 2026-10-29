@@ -52,7 +52,10 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   (`bm_shot_ask`; answer `OK` + len32 + name, `NG` after 3 s without a frame); `G` gets a file
   of `bm/shots`, or exactly `bm/BOOTPREV.TXT`, `bm/BOOTLOG.TXT`, `bm/LASTRUN.TXT` (R-NET4; bridge `logs NAME`) (answer `OK` + len32 + crc32 + data; `PA`, `NF`, `SZ`, `PW`). Tools:
   `bm_net.py --shot` (T then G), `--get`; `pi_test.py --shot`. Shared with the RGB30 but not
-  yet proved there.
+  yet proved there. `F` (29 Oct 2026, `bm_net.py --frame`, `tools/bm_watch.py`, bridge `frame`): the page on the screen now
+  (the shown page of `console_framebuffer()`), answer `OK` + len32 + crc32 + 8 bytes (width, height, depth, is_rgb, 2 zero) +
+  the pixels; nothing is written on the SD card. Proved on the host (`test_netcon`, `check_bm_net_config.py`); not on a Pi
+  yet: check that the page is the right one in a game and in the menu at 720p.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
   `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
   `net fetch URL [NAME] [replace]` (`src/kernel/netfetch.c`, Pi only: the RGB30 has no Monitor): a `.bm` into `/bm` or a

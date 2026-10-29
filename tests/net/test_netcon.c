@@ -17,6 +17,8 @@
 #include "net/netcon.h"
 #include "net/netxfer.h"
 #include "fs/fat.h"
+#include "gfx/console.h"
+#include "drivers/fb.h"
 #include "net/stream.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
@@ -156,6 +158,12 @@ int bm_shot_done(char *name, size_t n)
         snprintf(name, n, "PONG0001.PNG");
     return shot_state == 2 ? 0 : shot_state;
 }
+
+/* F: the page on the screen. Two pages of 4x2 pixels in RGB565, rows of 16 bytes (8 of them pixels); page 1 is the one shown */
+static uint8_t fb_mem[2 * 2 * 16];
+static framebuffer_t fake_fb = { .width = 4, .height = 2, .pitch = 16, .is_rgb = 0, .size = sizeof fb_mem,
+                                 .mem = fb_mem, .buffers = 2, .shown = 1, .depth = 16 };
+framebuffer_t *console_framebuffer(void) { return &fake_fb; }
 
 /* the menu's fiber, run straight through (kernel/fiber.c needs the ARM):
  * fiber_job_stop runs it with fiber_cancelled() 1, as the real one */
@@ -600,6 +608,34 @@ int main(int argc, char **argv)
         netxfer_write_tick(0);
         check(strcmp(x.got, "OKQD") == 0 && strcmp(w_dir, "/") == 0 && strcmp(w_name, "top.bm") == 0 &&
               w_len == sizeof a, "  a file for the root: written in /");
+    }
+
+    /* F: the page on the screen now (the shown page, without the pitch's padding) */
+    {
+        client_t x;
+        for (unsigned i = 0; i < sizeof fb_mem; i++)
+            fb_mem[i] = (uint8_t)(0xA0 + i % 7);                /* page 0, and the padding of page 1: not to be sent */
+        for (unsigned y = 0; y < 2; y++)
+            for (unsigned i = 0; i < 8; i++)
+                fb_mem[2 * 16 + y * 16 + i] = (uint8_t)(y * 8 + i + 1);     /* page 1: pixels 1..16 */
+        xfer(&x, 'F', "secret", "", NULL, 0, 0, 10 + 8 + 16);
+        check(x.len == 34 && strncmp(x.got, "OK", 2) == 0 && (uint8_t)x.got[2] == 24 && x.got[3] == 0,
+              "  F: OK and the length (8 + 4x2x2)");
+        const uint8_t *d = (const uint8_t *)x.got + 10;
+        check(x.len == 34 && d[0] == 4 && d[1] == 0 && d[2] == 2 && d[3] == 0 && d[4] == 16 && d[5] == 0 && d[6] == 0 && d[7] == 0,
+              "  F: width, height, depth, is_rgb");
+        int same = x.len == 34;
+        for (unsigned i = 0; same && i < 16; i++)
+            same = d[8 + i] == i + 1;
+        check(same, "  F: the shown page, row by row, no padding");
+        uint32_t c;
+        memcpy(&c, x.got + 6, 4);
+        check(x.len == 34 && c == crc32(d, 24), "  F: the crc of the data");
+        xfer(&x, 'F', "nope", "", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PW") == 0, "  F with a wrong password: PW");
+        static const uint8_t junk[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+        xfer(&x, 'F', "secret", "", junk, sizeof junk, 0, 2);
+        check(strcmp(x.got, "BH") == 0, "  F with data: BH");
     }
 
     /* T and G (R-NET2): a screenshot of the running game, and the file back */

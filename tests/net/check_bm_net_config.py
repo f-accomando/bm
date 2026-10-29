@@ -27,6 +27,9 @@ import bm_net  # noqa: E402
 
 PASSWORD = "123456"
 FAKE_PNG = b"\x89PNG\r\n\x1a\n" + bytes((i * 7 + 3) & 0xFF for i in range(1992))   # 2000 bytes
+# F: a frame of 4x2 pixels in RGB565 (red, green, blue, white; black, red, green, blue), as the console sends it
+FRAME_PIXELS = [0xF800, 0x07E0, 0x001F, 0xFFFF, 0x0000, 0xF800, 0x07E0, 0x001F]
+FAKE_FRAME = struct.pack("<HHBBH", 4, 2, 16, 0, 0) + b"".join(struct.pack("<H", v) for v in FRAME_PIXELS)
 fails = 0
 
 
@@ -39,8 +42,10 @@ def check(ok, what):
 class Console:
     """The transfer port of a console: settings in a dict, as config.c keeps them"""
 
-    def __init__(self, knows_c=True, lose_answer=None, queues=False, busy=False, knows_tg=True, no_game=False):
+    def __init__(self, knows_c=True, lose_answer=None, queues=False, busy=False, knows_tg=True, no_game=False,
+                 knows_f=True):
         self.knows_c = knows_c
+        self.knows_f = knows_f              # F (the page on the screen); else BH
         self.knows_tg = knows_tg            # T (screenshot) and G (file of bm/shots); else BH
         self.no_game = no_game              # T answered NG: no game drew a frame
         self.queues = queues                # S answered QD (written later, from the menu)
@@ -76,7 +81,8 @@ class Console:
     def one(self, c):
         tag, op = self.recv(c, 4), self.recv(c, 1)
         if tag != b"BMXF" or op not in ((b"S", b"P", b"K") + ((b"C",) if self.knows_c else ())
-                                        + ((b"T", b"G") if self.knows_tg else ())):
+                                        + ((b"T", b"G") if self.knows_tg else ())
+                                        + ((b"F",) if self.knows_f else ())):
             c.sendall(b"BH")
             return
         pw = self.recv(c, self.recv(c, 1)[0]).decode()
@@ -88,6 +94,9 @@ class Console:
         if op == b"T":
             name = b"PONG0001.PNG"
             c.sendall(b"NG" if self.no_game else b"OK" + struct.pack("<I", len(name)) + name)
+            return
+        if op == b"F":
+            c.sendall(b"OK" + struct.pack("<II", len(FAKE_FRAME), zlib.crc32(FAKE_FRAME) & 0xFFFFFFFF) + FAKE_FRAME)
             return
         if op == b"G":
             p = path.lower()
@@ -258,6 +267,20 @@ def main():
     check(rc == 1 and "path not allowed" in out and not os.path.exists(png), "--get outside bm/shots: PA")
     rc, out = run(con, job=("--get", "bm/shots/NOPE.PNG", png))
     check(rc == 1 and "no such file" in out and not os.path.exists(png), "--get of a missing file: NF")
+    # --frame (F): the page on the screen now, a PPM; an older console answers BH
+    ppm = os.path.join(tmp, "f.ppm")
+    rc, out = run(con, job=("--frame", ppm))
+    want = b"P6\n4 2\n255\n" + bytes([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255,
+                                       0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255])
+    check(rc == 0 and os.path.exists(ppm) and open(ppm, "rb").read() == want, "--frame writes the frame as a PPM")
+    os.remove(ppm)
+    rc, out = run(Console(knows_f=False), job=("--frame", ppm))
+    check(rc == 1 and not os.path.exists(ppm), "--frame to a console without F: BH, no file")
+    import bm_watch
+    frame = (4, 2, 16, 0, FAKE_FRAME[8:])
+    shown = bm_watch.draw(frame, 4, 1)
+    check(shown.count("▀") == 4 and "38;2;255;0;0;48;2;0;0;0" in shown and "38;2;255;255;255;48;2;0;0;255" in shown,
+          "bm_watch draws a frame in half blocks: top pixel as ink, bottom as paper")
     rc, out = run(Console(no_game=True), job=("--shot", png))
     check(rc == 1 and "no game drew a frame" in out and not os.path.exists(png), "--shot with no game: NG")
     rc, out = run(Console(knows_tg=False), job=("--shot", png))

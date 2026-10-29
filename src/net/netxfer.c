@@ -17,6 +17,11 @@
  * T (R-NET2): a screenshot of the game running (bm_shot_ask), the answer is
  * OK + the name of the PNG in bm/shots, or NG (no frame in 3 s). G gets a
  * file of bm/shots (OK, length, crc, the data): both with size 0, crc 0.
+ *
+ * F (29 Oct 2026, the slow stream of tools/bm_watch.py): the page on the screen
+ * now, whatever draws it (menu, monitor, game): OK, length, crc, then 8 bytes
+ * (width u16, height u16, depth u8, is_rgb u8, 2 zero) and the pixels row by
+ * row without the pitch's padding. Nothing is written on the SD card.
  */
 #include "netxfer.h"
 #include "aiconf.h"
@@ -34,6 +39,8 @@
 #include "kernel/crumbs.h"
 #include "kernel/fiber.h"
 #include "kernel/notice.h"
+#include "gfx/console.h"
+#include "drivers/fb.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
 
@@ -49,7 +56,7 @@
 #define CONFIG_REPLY (8u << 10)         /* the settings after it: under TCP_SND_BUF */
 
 static struct tcp_pcb *listener, *peer;
-static enum { IDLE, HEADER, DATA, DONE, WRITING, REPLIED, SHOT, GETFILE, SENDING } st;
+static enum { IDLE, HEADER, DATA, DONE, WRITING, REPLIED, SHOT, GETFILE, SENDING, FRAME } st;
 static uint8_t hdr[4 + 1 + 1 + 64 + 1 + 64 + 8];
 static unsigned hdr_len, need;
 static char op, path[65];
@@ -149,7 +156,7 @@ static int parse_header(void)
     if (hdr_len < n)
         return 1;
     if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K' && hdr[4] != 'C' &&
-                           hdr[4] != 'T' && hdr[4] != 'G' && hdr[4] != 'R'))
+                           hdr[4] != 'T' && hdr[4] != 'G' && hdr[4] != 'R' && hdr[4] != 'F'))
         return -1;
     unsigned pl = hdr[5];
     n += pl + 1;
@@ -249,7 +256,7 @@ static void feed(const uint8_t *p, unsigned len)
                 close_at = timer_ticks();
                 return;
             }
-            if (op == 'T' || op == 'G') {
+            if (op == 'T' || op == 'G' || op == 'F') {
                 if (size || crc) {
                     fail("BH");
                     return;
@@ -258,6 +265,8 @@ static void feed(const uint8_t *p, unsigned len)
                     bm_shot_ask();
                     shot_t0 = timer_ticks();
                     st = SHOT;
+                } else if (op == 'F') {
+                    st = FRAME;         /* grabbed from netxfer_poll, outside lwIP */
                 } else {
                     st = GETFILE;       /* read from netxfer_poll, outside lwIP */
                 }
@@ -596,7 +605,7 @@ void netxfer_poll(void)
             free(d);
         }
     }
-    if ((st == SHOT || st == GETFILE || st == SENDING) && !peer) {
+    if ((st == SHOT || st == GETFILE || st == SENDING || st == FRAME) && !peer) {
         if (st == SHOT)
             bm_shot_cancel();
         reset();                        /* the PC went away */
@@ -613,6 +622,40 @@ void netxfer_poll(void)
         if (r != 0 || timer_ticks() - shot_t0 > SHOT_WAIT_US) {
             st = REPLIED;
             close_at = timer_ticks();
+        }
+    }
+    if (st == FRAME) {                  /* F: a copy of the page on the screen, so the answer is one picture */
+        const framebuffer_t *fb = console_framebuffer();
+        const uint32_t bpp = fb ? fb->depth / 8 : 0;
+        if (!fb || !fb->mem || (bpp != 2 && bpp != 4) || !fb->width || !fb->height) {
+            fail("NG");
+        } else {
+            const uint32_t row = fb->width * bpp;
+            size = 8 + row * fb->height;
+            buf = malloc(size);
+            if (!buf) {
+                fail("SZ");
+            } else {
+                const uint8_t *page = fb->mem + (size_t)fb->shown * fb->height * fb->pitch;
+                buf[0] = (uint8_t)fb->width;
+                buf[1] = (uint8_t)(fb->width >> 8);
+                buf[2] = (uint8_t)fb->height;
+                buf[3] = (uint8_t)(fb->height >> 8);
+                buf[4] = (uint8_t)fb->depth;
+                buf[5] = (uint8_t)fb->is_rgb;
+                buf[6] = buf[7] = 0;
+                for (uint32_t y = 0; y < fb->height; y++)
+                    memcpy(buf + 8 + (size_t)y * row, page + (size_t)y * fb->pitch, row);
+                crc = crc32(buf, size);
+                uint8_t h[10] = { 'O', 'K', (uint8_t)size, (uint8_t)(size >> 8), (uint8_t)(size >> 16),
+                                  (uint8_t)(size >> 24), (uint8_t)crc, (uint8_t)(crc >> 8),
+                                  (uint8_t)(crc >> 16), (uint8_t)(crc >> 24) };
+                tcp_write(peer, h, sizeof h, TCP_WRITE_FLAG_COPY);
+                tcp_output(peer);
+                sent = 0;
+                sent_at = timer_ticks();
+                st = SENDING;
+            }
         }
     }
     if (st == GETFILE) {
