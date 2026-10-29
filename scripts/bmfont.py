@@ -5,7 +5,7 @@
   python3 scripts/bmfont.py --check    exit 1 if the two files are not what this script writes now
   python3 scripts/bmfont.py --sheet OUT.png   a picture of the whole set at both sizes
 
-The design is the user's choice of 29 Oct 2026 (variant C3): light, soft, condensed, fixed width. Each glyph is a
+The design is the user's choice of 29 Oct 2026 (variant C3, then S1: whole pixels, a pen of 1 and 2 pixels): light, soft, condensed, fixed width. Each glyph is a
 skeleton of strokes (a list of points in a unit box) that a round pen draws at 8 times the size; the picture is made
 smaller and each pixel is on or off. Only ASCII 32 to 126 is drawn today; the other 161 entries of the code page 437
 table are empty. The files have the format of `font_t` (src/gfx/font.h): ceil(width / 8) bytes for each row, MSB = left.
@@ -19,6 +19,7 @@ import sys
 from PIL import Image, ImageDraw
 
 SS = 8
+SNAP = True                       # the straight strokes are put on whole pixels with a whole pen (the user's choice S1, 29 Oct 2026)
 T, X, B, D = 0.0, 0.36, 1.0, 1.36      # cap top, x-height top, baseline, descender (cap height = 1)
 SS = 8
 
@@ -83,6 +84,9 @@ def glyph(ch, cw, ch_h, body, stroke):
     capp = ch_h * .62                       # cap height in pixels
     bw = body * wf
     x0 = (cw - bw) / 2
+    wx, wy = max(1, round(px)), max(1, round(py))
+    if SNAP:
+        px, py = wx, wy
     rx, ry = px * SS / 2, py * SS / 2
 
     def p(u, v):
@@ -93,6 +97,15 @@ def glyph(ch, cw, ch_h, body, stroke):
 
     for line in lines:
         pts = [p(u, v) for u, v in line]
+        if SNAP and len(line) > 1:                      # straight strokes sit on whole pixels, with a whole pen
+            for i, (u, v) in enumerate(line):
+                near = [line[k] for k in (i - 1, i + 1) if 0 <= k < len(line)]
+                x, y = pts[i]
+                if any(q[0] == u for q in near):
+                    x = (round(x / SS - wx / 2) + wx / 2) * SS
+                if any(q[1] == v for q in near):
+                    y = (round(y / SS - wy / 2) + wy / 2) * SS
+                pts[i] = (x, y)
         if all(q == pts[0] for q in pts):               # a dot: a little bigger than the pen
             x, y = pts[0]
             d.ellipse([x - rx * 1.5, y - ry * 1.5, x + rx * 1.5, y + ry * 1.5], fill=255)
@@ -188,7 +201,7 @@ G['a'] = (1, [arc(.5, X + .17, .42, .17, -170, 0, 8) + [(.92, B)], ell(.46, B - 
 G['0'] = (1, [ell(.5, .5, .43, .5), [(.78, .14), (.22, .86)]])
 
 # the cells: (name, width, height, width of an "o" in pixels, pen in pixels)
-SIZES = [('12x32', 12, 32, 9, 1.4), ('18x48', 18, 48, 13, 2.1)]
+SIZES = [('12x32', 12, 32, 9, 1), ('18x48', 18, 48, 13, 2)]
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'src', 'gfx')
 
