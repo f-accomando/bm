@@ -61,7 +61,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 
 - **API-1** (performance budget): the Pi Zero W budget is in [`docs/PERF-BUDGET.md`](../PERF-BUDGET.md) and `profile(true)` with `stat(17)`, `stat(18)` is in the guide. Open: the RGB30 numbers (Mali 3D Bench and the 2D scenes) after the user's RGB30 runs; flips and alpha alone, 2D particles and 3D particles are `not measured`; the cost of `profile(true)` when on.
 - **GAME-3** (gameplay kit, [games-architecture](../design/games-architecture.md) section 7): `lib.world` (entities, contact damage) is done, with the test game `tests/gamekit/cart.lua` (`make test-gamekit`, QEMU `test_game_kit`). Also done: `lib.sounds` (named audio events and tunes), `lib.slots` (games in progress in slots 2 to 8), Pong moved onto `lib.world` and `lib.sounds` (`make test-game-trace` compares its frames with the old version; QEMU `test_pong_kit`). Open: spawn from an OBJECTS section of the cartridge (format change: `bm.h`, `format.c`, `runtime.c`, `mkbm.py`, `bmres.py`, an editor), the kit's cost on the Pi Zero W (`not measured`), moving the other games (Shooter is the next one: shots, enemies, bolts and sparks).
-- **GAME-INPUT-1** (input standard for games: [games-input-standard](../design/games-input-standard.md),
+- **API-15** (was GAME-INPUT-1; input standard for games: [games-input-standard](../design/games-input-standard.md),
   `lib.input` with the schemes scroller, topdown and stick): the library, the docs, the kb and the
   templates are merged. Open: migrate the existing games one by one (list: `python scripts/input_inventory.py --games`);
   open decisions in the standard, section 7. Keys decided 19 Oct: menus B ok / Y cancel; keyboard Enter = ok, Esc = back and pause.

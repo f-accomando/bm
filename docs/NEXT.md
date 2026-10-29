@@ -9,6 +9,7 @@ Rules for this list:
 - The user does the RGB30 tests and the Pi runs. Write the results into the sheets when the user gives them.
 
 ## System, menu and Overbit: tracker (28 Oct 2026)
+Roadmap codes: SYS-21 (native menu layout), SYS-23 (the screen stream), SYS-17 (USB hotplug), SYS-18 (covers), SYS-19 (the shell), SYS-16 (file layout), SYS-15 (remap in the games).
 Done, all in `bm-core`:
 - Menu cost on the Pi: the V3D texture cache `NTEX` went from 8 to 32 and the menu background is copied only when it changes. Menu 1080p 73 -> 12.5 ms, 720p 6.3 ms, 360p GPU 2.9 ms. The default is 720p by the GPU. The order in Settings is 360p ARM, 360p GPU, 720p, 1080p.
 - Native menu layout (`menu_scale=2`, `menu_layout=1`, both set on the Pi now): 8 covers a row, the grid and the key chips centred. It is not the default yet.
@@ -32,6 +33,7 @@ Chores:
 - Publish `bench3d` to the Market only with the user's OK.
 
 ## Graphics, Mali and cores: tracker (28 Oct 2026)
+Roadmap codes: SYS-22 (the four cores: M, V1 to V5), API-5 (the Mali driver: G, Q), API-14 (2D vector graphics), GAME-4 (Hero Stress cart).
 Plan sheets: [multicore](progress/multicore.md) (M, G, V tracks), [graphics-mali](progress/graphics-mali.md), [graphics-vector](progress/graphics-vector.md) (2D). Order agreed with the user: V1, then G2 and G1, then V2 and V4.
 
 Done:
@@ -97,7 +99,7 @@ Chores:
 ## Code work from these decisions (the menu library is merged; D03, D05, /carts, DMA test and grey carts are done)
 
 Decisions of the user, 25 Oct 2026 (`docs/design/kernel8-alignment.md`). Each item is a later work order.
-- D15b: write the RK3566 TSADC temperature and the clock readback. Test on the device.
+- SYS-24 (D15b): write the RK3566 TSADC temperature and the clock readback. Test on the device.
 - `gpu3d_qpu`: make it ON by default on the Pi (ARM fallback) after the 10 minute Yharnam soak of the user.
 - Small leftovers (26 Oct 2026, none blocks the 1.0.0 gate):
   - Add KB entries for `screen_modes`, `_screen`, `lib.view`, `lib.anchor`, `lib.safe_clip`, `lib.fit` in `src/ai/kb/*.txt` and run `make ai-model` (rule in `docs/progress/lua.md`).
@@ -133,7 +135,7 @@ Decisions of the user, 25 Oct 2026 (`docs/design/kernel8-alignment.md`). Each it
    6. One menu library. Done 25 Oct 2026 (one commit for each step; QEMU only, not seen on a device): `src/kernel/library.c` holds the game library of both menus. Out of `carts.c` and `src/rgb30/ui.c` went: the title compare and `same_text` (`lib_text_cmp`, `lib_same_text`); `scan_dir`, the header read, the covers kept across a scan (`lib_scan`); `carts_find_title`, `carts_has_path` (`lib_find_path`); `read_cover`, `next_cover` and the covers job (`lib_covers_tick`, `lib_cover_focus`); `save_size` (`lib_save_size`, `lib_save_delete`); the frozen game (`lib_is_suspended`, `lib_suspend_*`, the switch and compat questions); `cart_panel` and `game_panel` (`lib_panel`); `cart_act` and `game_act` (`lib_act`); `play` and `play_bm` (`lib_play`); `menu_idle` (`lib_menu_idle`); `tab_items`, `is_dev`, `is_project`, `kind_of` (`lib_tab_items`, `lib_is_dev`, `lib_is_project`, `lib_kind`). Each console gives a `lib_backend_t` (folders, compat target, `want`, built-in tools, `stop_background`, the panel rows `LIB_CAP_*`, the jobs of the free time, `play_begin`). Where the two menus differed the Pi won, except for a hardware need; each decision is in [`docs/design/kernel8-alignment.md`](design/kernel8-alignment.md), section "Game library". Left: the two main loops (`carts_menu` and `ui_home` keep their own input, questions and launches); the shares of the free time stay per console and are not measured on a device.
    7. Cut the long functions. Done 24 Oct: `draw_flags` in `r3d.c` (523 to 57 lines, step functions `df_*`; 119 test outputs and 1208 b3d files byte-identical with a fake clock; per-face helpers are `always_inline`). Checked on the Pi Zero W on 25 Oct (`docs/bench/pi-2026-10-25/summary.md`): ARM 2373 triangles at 41.0 ms (before 2385 at 40.8 ms, +0.5% time) and GPU+VS+Q 50915 triangles at 13.1 ms (before 49956 at 13.7 ms): the cut is safe. Done 25 Oct (one commit each, no change of behaviour, QEMU only): `home_panel` 446 to 45 lines (13 `panel_*` functions), `home_act` 300 to 12 (7 `act_*` groups of rows), `menu_ui_frame` 385 to 31 (`frame_*`), `carts_menu` 833 to 40 (`cm_*` steps on a `cmenu_t`), `ui_home` 538 to 41 (`uh_*` steps on a `uhome_t`). The `BM_RGB30` blocks of `settings.c` went from 42 to 31: eleven went behind the functions `home_wireless`, `home_restart`, `home_poweroff`, `home_poweroff_help`, `home_poweroff_detail`, `home_test_help`, `home_connect_help`, `home_controls_changed` and `home_has_battery` (`home.h`; `home.c` for the Pi, `src/rgb30/ui.c` for the RGB30). The 31 that stay are code of one board (the Pi's video and audio output, CRT, USB scan, Ethernet, GPIO screen, menu size, monitor; the RGB30's sound, system and screen-mode panels, Bluetooth start, input test, log), the header includes, and three texts inside a row; each needs its own hook with its own risk. Still long: `cm_draw` (125 lines), `cm_launch` (104), `uh_draw` (103), `act_screen` (98, a table of small cases).
    8. Drivers: review the polling waits with a fixed timeout (SD, USB, WiFi, Bluetooth) the way S1 did for `sdhost.c`: measure first, one change per Pi test.
-   9. Media out of git: the repository is 142 MB with mp4 files of up to 28 MB (`video/`, `docs/img/`). The user decides where they go (separate branch or storage); a history rewrite needs an explicit order.
+   9. SYS-26: media out of git: the repository is 142 MB with mp4 files of up to 28 MB (`video/`, `docs/img/`). The user decides where they go (separate branch or storage); a history rewrite needs an explicit order.
 1. Port content on demand from archive bundles if needed: budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
 2. Single-bm (SYS-8), next stage: the screen modes (720x405, `safe_area()`, `aspect()`, bars), then the input chips. The compat check is in the menus, the Market list (`targets` line) and the load-time message.
 3. Triangle throughput: stages 1-3 are done and measured (`docs/design/triangle-throughput.md`, `docs/PERF-BUDGET.md`). Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.

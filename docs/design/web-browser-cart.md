@@ -1,5 +1,7 @@
 # Web browser cart (design study)
 
+Roadmap line: APP-33 ([ROADMAP](../ROADMAP.md)).
+
 Status: the study of 22 Oct is kept below. Stages 1 to 5 are built (section 8 says what the
 cart does and where it differs from the plan). All sizes and times are estimates. Mark each number
 "not measured" until a Pi Zero W run exists; nothing is verified on hardware.

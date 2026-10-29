@@ -1,5 +1,7 @@
 # 2D vector graphics (OpenVG 1.1 and VGU capabilities)
 
+Roadmap line: API-14 ([ROADMAP](../ROADMAP.md)).
+
 Part of [graphics](graphics.md). Survey of 28 Oct 2026: what bm has of the OpenVG 1.1 and VGU feature set, and how to build the rest on the Pi Zero W (V3D, one core) and on the RGB30 (Mali-G52, four cores). Antialiasing is out of scope. bm does not adopt the OpenVG API. The Pi firmware OpenVG needs the VideoCore firmware services, which a bare-metal kernel does not have. The Mali has no OpenVG. Each item below is an own function in the style of [`docs/api/draw.md`](../api/draw.md).
 
 Costs are estimates from the code, not measurements (ARM1176 700 MHz; A55 about 1.8 GHz). Measure before you keep a step.

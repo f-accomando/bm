@@ -1,4 +1,6 @@
 # Multicore (RGB30 quad core) and the end of the Mali graphics work
+
+Roadmap line: SYS-22 ([ROADMAP](../ROADMAP.md)).
 Schedule of 26 Oct 2026. Three tracks, in this order: **M** (secondary cores), **G** (bm3D on Mali), **V** (use of four cores by apps, games and graphics). Rule: finish a track before the next one starts. The Pi Zero W has one core and stays the benchmark (`docs/design/multitasking-report.md` section 9).
 
 ## State now

@@ -1,5 +1,7 @@
 # bm Agent: a cloud AI model on bm
 
+Roadmap line: API-13 ([ROADMAP](../ROADMAP.md)).
+
 bm runs on bare metal. No provider ships an SDK or an agent program for it. A local model does not fit
 the Pi Zero W (512 MB) or the RGB30. This page says how bm uses cloud models for free or through
 a subscription, and which provider rules apply. Research date: 29 Oct 2026. Check the providers' pages

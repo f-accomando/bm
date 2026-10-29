@@ -1,5 +1,7 @@
 # smw: native port of Super Mario World for the RGB30
 
+Roadmap line: GAME-5 ([ROADMAP](../ROADMAP.md)).
+
 Personal, educational port. The user owns the cartridge. The ROM, the extracted data, and
 the finished cartridge stay on the user's machine and SD card.
 

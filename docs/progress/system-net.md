@@ -1,5 +1,7 @@
 # System: Bluetooth, WiFi and network
 
+Roadmap line: SYS-23 ([ROADMAP](../ROADMAP.md)).
+
 Split from [system](system.md); open work and rules stay there.
 
 ### Bluetooth (`src/bt/`)

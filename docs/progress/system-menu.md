@@ -1,5 +1,7 @@
 # System: menu and kernel services
 
+Roadmap line: SYS-21 ([ROADMAP](../ROADMAP.md)).
+
 Cut from [system](system.md): the menu and kernel services. Open work and rules stay in system.
 
 ### Menu and kernel services (`src/kernel/`)

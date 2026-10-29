@@ -1,5 +1,7 @@
 # Input Standard for Games (bm)
 
+Roadmap line: API-15 ([ROADMAP](../ROADMAP.md)).
+
 One set of logical actions for every game, so the same game reads the same on the Pi keyboard, a Pi pad and the RGB30. The input layer already exists (`keymap()`, the `"ok"` / `"back"` names, `controller().ok`, `prompt()`: [`docs/api/input.md`](../api/input.md) lines 9-12); this standard only fixes which action goes on which button. Per-device keys and screen reference: `docs/spec/ui-reference.md` (planned, written by another operator).
 
 ---

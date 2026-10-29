@@ -1,5 +1,7 @@
 # The bm site: play .bm games and download assets (design note)
 
+Roadmap line: WEB-2 ([ROADMAP](../ROADMAP.md)).
+
 Status: design only. No site exists. Stage 1 is not started. This note lists the facts that the site must respect, the
 rules for its authors, the open decisions and a staged plan. It changes no code. Each fact has a source. A fact
 with no source is marked "not verified" or "not decided".

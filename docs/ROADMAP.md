@@ -39,6 +39,7 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - API-10 - P3 - idea - 2D physics: rigid bodies, joints and contacts (a Box2D subset, zlib license). Clarify with the user first which games need it. Do it after API-7 to API-9. [graphics](progress/graphics.md)
 - API-11 - P3 - idea - Noise (Perlin or Simplex) and other `love.math` helpers in `bmlib`. [lua](progress/lua.md)
 - API-12 - P2 - to do - Hot Lua of the games in C: move the heavy loops of `bmlib` (`lib.ray`, bot paths, particles) to C functions that the runtime registers. Lua keeps the game logic. Done when `profile(true)` shows the Lua time of each moved loop on the Pi lower than before, the Lua API does not change, and the tests of the games pass. First measure with `profile(true)`. Move a loop only if Lua limits the frame. [lua](progress/lua.md) `Lua speed, step 10`
+- API-14 - P3 - idea - 2D vector graphics (the OpenVG 1.1 and VGU capabilities): on the ARM first (scaled blit, `g16_text`, `sspr_zoom`, `fade_apply`, RGB30 bands), then gradients, rounded rectangles, ellipses, paths, strokes, vector fonts and blur. Measure each step before you keep it. [graphics-vector](progress/graphics-vector.md) `Order of work`
 
 ## Video, recording and audio
 
@@ -60,6 +61,8 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
   - Phase 5, games: GC steps in the vsync wait; vsync slice for games that opt in (never lockstep).
   - Phase 6, RGB30 core: find why PSCI `CPU_ON` is absent; then a worker core for pure functions (hash, verify, decode, handshake crypto).
 - R7, R27, bmnet - P3 - idea - UTF-8 accents in `print()`, battery and autosave, network multiplayer. [runtime](progress/runtime.md) `Open work`, [system-net](progress/system-net.md)
+- API-13 - P2 - to test on the Pi - bm Agent and `ai_ask` (spec 6): a cloud chat model for cartridges, the subscription relay, the chat app `carts/agent` and its `/setup` wizard. Done when they run on a Pi and an RGB30 against a free provider and against the relay, and the `ai_ask` part of D50 is closed. [system](progress/system.md) `Open work`, [ai-agent](design/ai-agent.md)
+- WEB-2 - P3 - idea - The bm site: play `.bm` games and download assets. Stage 1 is not started. [bm-site](design/bm-site.md)
 
 ## Platforms and kernel
 
@@ -78,6 +81,12 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - SYS-17 - P2 - mostly done - USB hotplug on the Pi works on the Pi Zero W (28 Oct 2026, the user). Left: a keyboard behind a hub plugged later, and a mouse alone. [system](progress/system.md) `Open work`
 - SYS-18 - P2 - idea - Covers in a better resolution: the cartridge carries a larger cover, the menu scales it for the screen (360p, 720p, 1080p) and the native menu layout keeps its sizes. [system-menu](progress/system-menu.md) `Open work`
 - SYS-19 - P2 - in progress - The monitor as a shell, headless like DOS/Unix with Lua: (1) the bm> prompt as the way in (`monitor_keys=0`) and `hotkey` for single keys, done; (2) file commands on the SD (`ls`, `cat`, `cd`, `cp`, `rm`, `mkdir`), done; (3) `lua FILE`, `lua -e`, and `sh("cmd")` in Lua, done; (4) graphics in the shell's Lua (`fill`, `rect`, `text`, `key`), done; (5) `boot=shell` and `autoexec.lua`, done. Tried on the Pi Zero W on 28 Oct 2026 (the user): it works. Left: a headless mode. [system](progress/system.md) `Open work`
+- SYS-21 - P2 - in progress - Native menu layout (`menu_layout=1`, 720p and 1080p). Done: the grid of 8 covers, the key chips, the options box and the Settings submenu half as wide. Left: the Settings page, the panels, the title, the tabs (the Market tab is cut at 720p), the question boxes; the 3D Bench and the free memory with 32 texture slots (only Yharnam is measured); then the choice of the default. [system-menu](progress/system-menu.md) `Menu and kernel services`
+- SYS-22 - P2 - in progress - The four cores of the RGB30. Done: M1-M6 (start, locks, job slots, `offload_run`, fault safety), G1-G4 (Mali), V1 (CPU raster on four cores) and V2 (`job_run`, `job_poll`, `job_cancel`, `job_info`). Left: M7 (the `multicore` capability and its docs), the cover decode of the menu (M5), V4 (Market download, SD write, hashes and TLS on a worker), V5 (the `cores=1..4` key), the Mali draw build and queue fill on workers. [multicore](progress/multicore.md) `Track V`, `Open work`
+- SYS-23 - P2 - to test on the Pi - The screen of a console in a PC terminal (`tools/bm_watch.py`, ops F and V of the transfer port, `easy_install.sh watch`). Done on the host and on the Pi Zero W in the menu (640x360: 7.5 frames a second, 40 KB a second). Left: Sixel in a real terminal, a game that redraws the whole screen, the cost of a frame on the ARM, the Pi 1 (it needs a new kernel). [system-net](progress/system-net.md) `WiFi and network`
+- SYS-24 - P3 - to do - RGB30 temperature and clock: read the RK3566 TSADC and show the clock readback (D15b). Done when the values are right on the device. [kernel8-alignment](design/kernel8-alignment.md), [platforms](progress/platforms.md) `Open work`
+- SYS-25 - P3 - idea - `net fetch` in the monitor: download a `.bm` from a public GitHub file (`gh:owner/repo/path`). [system](progress/system.md) `Open work`
+- SYS-26 - P3 - idea - Media out of git: the repository is 142 MB, with videos of up to 28 MB (`video/`, `docs/img/`). The user decides where they go (a separate branch or a storage). [NEXT](NEXT.md) `Queue`
 
 ## Tools and SDK
 
@@ -91,12 +100,16 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - M45 - P2 - in progress - bm Write: `.BMD` documents, TXT/MD/HTM/PDF export. A formatted document exported to PDF is identical on the PC (checked against the screen on the host). Left: Pi and RGB30 try, a real PDF viewer, Market. [tools](progress/tools.md)
 - APP-8 - P2 - partly done - Multitab in bm Code for the source files of one project. Done: bm Code opens a `.bme` with `--@module name` lines as one tab per module (second row), `U.tabbar` in bmui is the shared tab bar, the project keeps ONE code section (same bytes, same build). Done when (what is left): bm SDK and the other editors with a code page show the same module tabs with `U.tabbar` (the SDK edits the whole code without tabs today); the modules are separate files in the project, each saved to its own file (this needs a file API for tools in `runtime.c`; today the modules are lines of the one code section). The tab layout is for readability only. [suite-code](design/suite-code.md), [tools](progress/tools.md)
 - R39 - P3 - idea - 720×720 SDK on the RGB30. [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md)
+- APP-33 - P3 - in progress - bm Web (`carts/bmweb`, a web browser cart): stages 1 to 5 and the mouse and keyboard interface are built and pass the host tests. Left: the Pi and RGB30 runs, the speed of scripts on the Pi Zero W, no network inside scripts, the poly.pizza page (CA root and TLS, not verified). [tools](progress/tools.md) `Open work`, [web-browser-cart](design/web-browser-cart.md)
 
 ## Games
 
 - GAME-1 - P3 - in progress - Yharnam: close the open checks (§2), test the map on the Pi. After M42. [yharnam](progress/yharnam.md) §2-3, [tools](progress/tools.md)
 - GAME-2 - P3 - in progress - Overbit: screens, quality, mech pilots from images. Benchmark on the Pi and the RGB30. After M41. [overbit](progress/overbit.md), [tools](progress/tools.md)
 - GAME-3 - P3 - in progress - Game architecture and gameplay kit. Done: `lib.world`, `lib.sounds`, `lib.slots`, the test game `tests/gamekit` (`make test-gamekit`) and Pong on the kit (`make test-game-trace`). Open: spawn from an OBJECTS section (format change), kit cost on the Pi Zero W, more games on the kit. [games-architecture](design/games-architecture.md)
+- GAME-4 - P3 - in progress - Hero Stress cart (`carts/herocart`): stages 1 and 2 are done. Stages 3 and 4 (cel in the V3D vertex programs, outline by the inverted hull) are built and tested on the emulator only. Left: stage 5 (RGB30 panels), the Pi numbers, `bench_save()` (the owner decides) and the looks of the heroes (flat colours, tints). [herocart](progress/herocart.md) `Open work`
+- GAME-5 - P3 - in progress - SMW, a native port of Super Mario World for the RGB30 (personal use: the ROM and its data stay on the user's machine). Left: the other enemies and the Chuck moves, riding Yoshi, big Mario and the power-ups, more levels, the sound (SPC700) and the PDF guide. [smw](progress/smw.md) `Open work`
+- API-15 - P2 - to do - Input standard for games (was `GAME-INPUT-1`): migrate the existing games one by one to `lib.input` (scroller, top-down, stick); close the open decisions of the standard, section 7. [lua](progress/lua.md) `Open work`, [games-input-standard](design/games-input-standard.md)
 
 ## Process and docs
 
