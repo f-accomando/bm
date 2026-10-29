@@ -1,0 +1,73 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1948-g6a51a9cf-dirty
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-c941b3_freeze_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boottor line "reboot", frame 0, 91 s after boot, kernel v0.2.5-1948-g6a51a9cf-dirty, ring 5892, sink on
+--- the last lines printed ---
+the line is done
+> 
+net: console closed
+net: receiving settings (27 bytes)...
+c×Åg: menu_scale=2
+config: menu_layout=1
+net: settings from the PC: 2 changed in bm/config.txt
+
+net: console opened from 192.168.1.115
+> :
+:reboot
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 640x360, drawn by the GPU
+covers: all 16 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 14.7 ms past its slice
+net: time 2026-10-29 15:02 UTC
+fiber: reports did not yield: 95.0 ms past its slice
+report: sending nodate-1df346_freeze_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-1df346_freeze_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
+menu idle: 300/300 frames, 1745 of 3250 ms taken, 97.5 ms past a frame; covers 78 ms (+2.1, stk 0.8/16K), reports 1646 ms (+95.0, stk 7.6/128K); min slack -31258 us, paced 0
+menu idle: sd first word <1ms 171 <3ms 12 (max 1.5 ms)
+menu stalls: tls handshake 1x last 269.3 worst 269.3 ms
+menu frame: 1x, a frame averages draw 5092 us, enlarge 0 us, flip 94 us, free time used 5817 us (300 frames)
+menu frame: 1x, a frame averages draw 3613 us, enlarge 0 us, flip 92 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 3553 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 3468 us, enlarge 0 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 3410 us, enlarge 0 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 3629 us, enlarge 0 us, flip 91 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 3542 us, enlarge 0 us, flip 92 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 3455 us, enlarge 0 us, flip 92 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 3455 us, enlarge 0 us, flip 92 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 3616 us, enlarge 0 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 3527 us, enlarge 0 us, flip 92 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 3441 us, enlarge 0 us, flip 92 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 3496 us, enlarge 0 us, flip 93 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 3598 us, enlarge 0 us, flip 93 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 3510 us, enlarge 0 us, flip 94 us,£%ôe time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 3423 us, enlarge 0 us, flip 94 us, free time used 36 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+type 'h' for help
+> :
+:log
+: log
+report: 20261029-150407_log_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt saved as bm/reports/rpt00001.txt
+report: sending 20261029-150407_log_pi-zero-w_v0.2.5-1948-g6a51a9cf-dirty.txt
