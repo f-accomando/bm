@@ -41,13 +41,14 @@ python tools/bm_net.py IP --get bm/shots/pong0007.png out.png   # a file already
 python3 tools/pi_test.py --cart build/carts/pong.bm --shot out.png
 python tools/bm_net.py IP --frame out.ppm                   # the page on the screen now (menu, monitor or game), a PPM
 python tools/bm_watch.py IP                                 # the screen in the terminal, live (up to 10 frames a second)
+python tools/bm_watch.py IP --mode sixel                    # real pixels, 640x360: the text of the menu is legible
 ```
 
 `--frame` uses op `F` of the transfer port (29 Oct 2026): the kernel copies the page on the screen and sends it whole
 (RGB565 or 32 bit, 460 KB at 640x360) without writing on the SD card. `bm_watch.py` uses op `V`, the stream: the kernel
 averages the screen down to the size of your terminal (120 columns are 120x68 pixels), sends only the pixels that
 changed (skips, runs of one colour, literals), and nothing when the screen does not change, so a Pi Zero W can keep up;
-the tool draws only the cells that changed. The bridge must be on. A kernel from before `F` or `V` answers `BH`. The
+the tool draws only the cells that changed. The half-block picture has one pixel for each column: shapes, not text. For legible text use `--mode sixel`: it asks the console for 640x360 and draws a Sixel image (Windows Terminal 1.22 or later, WezTerm, foot, mlterm); only the bands of 6 rows that changed go to the terminal; `--scale 2` makes it twice as big. Not tried in a real terminal yet. The bridge must be on. A kernel from before `F` or `V` answers `BH`. The
 bridge has `pi.py frame OUT.ppm` and `pi.py view SECONDS` (counts the frames and the bytes of a stream, no drawing).
 
 The console saves the PNG in `bm/shots/` as with the key, then sends it. A game must be

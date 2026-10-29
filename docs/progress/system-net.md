@@ -56,14 +56,14 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   (the shown page of `console_framebuffer()`), answer `OK` + len32 + crc32 + 8 bytes (width, height, depth, is_rgb, 2 zero) +
   the pixels; nothing is written on the SD card. Proved on the host (`test_netcon`, `check_bm_net_config.py`); not on a Pi
   yet: check that the page is the right one in a game and in the menu at 720p. `V` (the stream, `tools/bm_watch.py`,
-  bridge `view`): the path is "WxH" or "WxH@ms" (at most 320x180, 40 to 5000 ms, default 100); the answer is `OK`, then
+  bridge `view`): the path is "WxH" or "WxH@ms" (at most 640x360, 40 to 5000 ms, default 100); the answer is `OK`, then
   frames of u16 width, u16 height, u32 length and tokens (skip n, n literal RGB565 pixels, one pixel n times) that turn
   the last picture into the new one; length 0 is "nothing changed" (every 2 s). A frame is made only when the last one
-  has gone to TCP (`TCP_SND_BUF` is 8 segments). The screen is averaged to the size asked (4 samples for each pixel).
+  has gone to TCP (`TCP_SND_BUF` is 8 segments). The screen is averaged to the size asked (4 samples for each pixel, one when the size is the screen's own).
   Proved on the host (`test_netcon`: the bytes of three frames; `check_bm_net_config.py`: the decoder and the drawing);
   on the Pi Zero W (29 Oct 2026, the menu at 720p, `pi.py view 10`, 120x68, 100 ms): 8.0 frames/s, 1.7 KB/s (about 215
-  bytes a frame: the menu moves little). Not measured yet: a game that redraws the whole screen, the cost of a frame on the
-  ARM, a bigger picture.
+  bytes a frame: the menu moves little). At 640x360 (the screen's own pixels, for legible text; `--mode sixel`): 7.5 frames/s, 40.6 KB/s, 421 KB in 10 s
+  (the first frame and the changes). Not measured yet: a game that redraws the whole screen, the cost of a frame on the ARM.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
   `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
   `net fetch URL [NAME] [replace]` (`src/kernel/netfetch.c`, Pi only: the RGB30 has no Monitor): a `.bm` into `/bm` or a
