@@ -1,0 +1,83 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1973-g83eba042-dirty
+branch: claude/menu-char-width
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-1716ac_freeze_pi-zero-w_v0.2.5-1973-g83eba042-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monioCore firmware does not answer (mailbox, frame 0, inside IRQ 21, 835 s after boot, kernel v0.2.5-1973-g83eba042-dirty, ring 23351, sink on
+--- the last lines printed ---
+       DMA channel 5, 157051 chunks, 0 errors
+       HSM 163682864 Hz, pixel 148500000 Hz, N 6144, MAI ctl 00003229
+       24-bit samples (sound_depth=24), TPDF dither
+       synth 820 us per 256 samples (max; 5333 us of sound), 0 voices on
+> c
+> c
+> c
+> e
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+aw 6966 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6879 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6870 us, enlarge 0 us, flip 93 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 7037 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6949 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6862 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 6911 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7026 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6938 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 6851 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6954 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 7001 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6915 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6832 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6997 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 6988 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 6901 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu idle: sd first word <1ms 15 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 10729 us, enlarge 0 us, flip 93 us, free time used 28 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 17.8 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+fiber: market did not yield: 59.2 ms past its slice
+menu idle: 300/300 frames, 264 of 1599 ms taken, 57.9 ms past a frame; market 253 ms (+59.2, stk 4.0/128K, stop 0.0); min slack -23909 us, paced 0
+menu idle: sd first word <1ms 96 (max 1.4 ms)
+menu stalls: tls handshake 1x last 167.4 worst 167.4 ms
+menu frame: 2x, a frame averages draw 13121 us, enlarge 0 us, flip 95 us, free time used 881 us (300 frames)
+menu: menu size at the next start: 1080p (GPU)
+market: nearby consoles: listening as bm-108
+market: cover of overbit
+menu idle: 300/300 frames, 10 of 1934 ms taken, 1.3 ms past a frame; market 4 ms (+3.6, stk 4.0/128K, stop 1.3); min slack -24399 us, paced 0
+menu idle: sd first word <1ms 60 <3ms 3 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 9655 us, enlarge 0 us, flip 94 us, free time used 36 us (300 frames)
+fb_init_depth: mbox_call failed
+back to the monitor
+
+type 'h' for help
+> a
+audio: HDMI 48 kHz
+       DMA channel 5, 153044 chunks, 0 errors
+       HSM 163682864 Hz, pixel 148500000 Hz, N 6144, MAI ctl 00003229
+       24-bit samples (sound_depth=24), TPDF dither
+       synth 421 us per 256 samples (max; 5333 us of sound), 0 voices on
+  volume 8/10
+  square   ....
+  triangle ....
+  saw      ....
+  noise    ....
+  sine     ....
+  metal    ....
+  fm       ....
+  pluck    ....
+  supersaw ....
+  organ    ....
+  sample   ....
+  pink     ....
+  brown    ....
+  crackle  ....
+  chord (3 voices, envelope with decay)
+  slide, vibrato, arpeggio
+  instrume
