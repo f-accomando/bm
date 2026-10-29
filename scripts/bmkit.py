@@ -110,7 +110,7 @@ def cylinder(s, cx, y0, cz, r0, r1, h, n, colour, tex=None, caps=True, hint=None
             s.add(mid, [(cx, y0, cz), lo[i], lo[j]], c)
 
 
-def sphere(s, cx, cy, cz, rx, ry, rz, n, rings, colour, top_only=False, jitter=None):
+def sphere(s, cx, cy, cz, rx, ry, rz, n, rings, colour, top_only=False, jitter=None, amp=0.18):
     last = rings
     span = math.pi / 2 if top_only else math.pi
     rows = []
@@ -128,7 +128,7 @@ def sphere(s, cx, cy, cz, rx, ry, rz, n, rings, colour, top_only=False, jitter=N
     if jitter:                                     # a rock: every point pushed in or out, by a fixed pseudo-random
         rnd = random.Random(jitter)
         rows = [[(cx + (p[0] - cx) * k, cy + (p[1] - cy) * k, cz + (p[2] - cz) * k) for p in row
-                 for k in [1 + rnd.uniform(-0.18, 0.18)]] for row in rows]
+                 for k in [1 + rnd.uniform(-amp, amp)]] for row in rows]
     hint = (cx, cy, cz)
     for r in range(last):
         A, B = rows[r], rows[r + 1]
@@ -314,6 +314,16 @@ def paint_sprites(sh):
         sh.disc(x + cx, y + cy, r, 0xF4F8FC)
     sh.rect(x + 6, y + 11, 20, 4, 0xF4F8FC)
     zone("cloud2d", x, y, 32, 16)
+    # islet 48 x 24: the island seen from far
+    x, y = 0, SPRITE_Y + 48
+    for j in range(24):
+        for i in range(48):
+            dx, dy = (i - 24) / 24, (j - 14) / 9
+            if dx * dx + dy * dy <= 1 and j >= 10:
+                sh.put(x + i, y + j, 0xE8D190 if dx * dx + dy * dy > 0.55 else 0x56A235)
+    sh.disc(x + 24, y + 8, 3, 0x4CA336)
+    sh.rect(x + 23, y + 8, 2, 6, 0x8A5A33)
+    zone("islet2d", x, y, 48, 24)
     return zones
 
 
@@ -322,9 +332,9 @@ def paint_sprites(sh):
 # part; ring: rings of a sphere; seg: pieces of a trunk; blades: palm leaves; bseg: pieces along a leaf;
 # lumps: spheres of a bush or a cloud; stones: stones round the fire; tufts: blades of a grass tuft.
 QUALITIES = {
-    "hi": dict(side=12, ring=6, seg=10, blades=9, bseg=5, lumps=9, stones=12, tufts=9, detail=True),
-    "med": dict(side=8, ring=4, seg=6, blades=7, bseg=3, lumps=5, stones=8, tufts=5, detail=True),
-    "low": dict(side=6, ring=3, seg=4, blades=5, bseg=2, lumps=3, stones=6, tufts=3, detail=False),
+    "hi": dict(side=12, ring=6, seg=8, blades=7, bseg=4, lumps=9, stones=12, tufts=9, arcs=40, detail=True),
+    "med": dict(side=8, ring=4, seg=5, blades=6, bseg=3, lumps=5, stones=8, tufts=5, arcs=28, detail=True),
+    "low": dict(side=6, ring=3, seg=4, blades=5, bseg=2, lumps=3, stones=6, tufts=3, arcs=16, detail=False),
 }
 QUALITY = "hi"
 
@@ -359,7 +369,7 @@ def limb(s, a, b, r0, r1, n, colour, tex=None, caps=True):
             s.add(mid, [b, hi[i], hi[j]], c)
 
 
-def blade(s, base, direction, length, width, bend, colour, bseg, hint, ribbed=True):
+def blade(s, base, direction, length, width, bend, colour, bseg, hint, ribbed=True, droop=None):
     """a leaf or a blade of grass: a strip along direction (a unit vector in the x-z plane), arching up by
     bend then drooping, tapering to a point; two-sided; the middle raised a little (a fold) when ribbed"""
     dx, dz = direction
@@ -367,7 +377,7 @@ def blade(s, base, direction, length, width, bend, colour, bseg, hint, ribbed=Tr
     st = []
     for i in range(bseg + 1):
         t = i / bseg
-        up = bend * math.sin(t * math.pi * 0.85) - bend * 0.5 * t * t
+        up = bend * math.sin(t * math.pi * 0.85) - (bend * 0.5 if droop is None else droop) * t * t
         w = width * (math.sin(min(1.0, t * 1.15) * math.pi * 0.5) ** 0.8) * (1 - t) ** 0.45 if t < 1 else 0
         x, y, z = base[0] + dx * length * t, base[1] + up, base[2] + dz * length * t
         rib = 0.05 * w / max(width, 1e-6) if ribbed else 0
@@ -379,34 +389,42 @@ def blade(s, base, direction, length, width, bend, colour, bseg, hint, ribbed=Tr
         s.add(hint, [C0, C1, R1, R0], colour(i, 1) if callable(colour) else colour, both=True)
 
 
-def m_palm():
+PALM_VARIANTS = (                                  # name, lean, height, blades fewer by, leaf length, trunk radius
+    ("palm", 0.45, 3.4, 0, 1.75, 0.12),
+    ("palm2", 0.2, 2.7, 1, 1.5, 0.13),
+    ("palm3", -0.5, 4.0, 0, 1.9, 0.10),
+)
+
+
+def m_palm(variant=0):
     q = Q()
-    s = Solid("palm", SOLID)
-    n, lean, h, segs = q["side"], 0.45, 3.4, q["seg"]
+    name, lean, h, fewer, leaf, rad = PALM_VARIANTS[variant]
+    s = Solid(name, SOLID)
+    n, segs = max(5, round(q["side"] * 0.67)), q["seg"]
     bark = TEXTURES["bark"]
     for k in range(segs):
         t0, t1 = k / segs, (k + 1) / segs
         x0, x1 = lean * t0 * t0, lean * t1 * t1
-        r0 = 0.17 * (1 - 0.4 * t0) * (1 + 0.7 * (1 - t0) ** 6)          # the foot flares
-        r1 = 0.17 * (1 - 0.4 * t1) * (1 + 0.7 * (1 - t1) ** 6)
+        r0 = rad * (1 - 0.4 * t0) * (1 + 0.8 * (1 - t0) ** 6)          # the foot flares
+        r1 = rad * (1 - 0.4 * t1) * (1 + 0.8 * (1 - t1) ** 6)
         lo, hi = ring(x0, h * t0, 0, r0, r0, n), ring(x1, h * t1, 0, r1, r1, n)
         for i in range(n):
             j = (i + 1) % n
             s.add((x0, h * (t0 + t1) / 2, 0), [lo[i], lo[j], hi[j], hi[i]], 0x8A5A33, bark)
     top = (lean, h, 0)
-    last = ring(lean, h, 0, 0.17 * 0.6, 0.17 * 0.6, n)
-    foot = ring(0, 0, 0, 0.17 * 1.7, 0.17 * 1.7, n)
+    last = ring(lean, h, 0, rad * 0.6, rad * 0.6, n)
+    foot = ring(0, 0, 0, rad * 1.8, rad * 1.8, n)
     for i in range(n):
         s.add((lean, h - 0.2, 0), [top, last[i], last[(i + 1) % n]], 0x8A5A33, bark)
         s.add((0, 0.5, 0), [(0, 0, 0), foot[i], foot[(i + 1) % n]], 0x8A5A33)
-    nb = q["blades"]
+    nb = max(4, q["blades"] - fewer)
     for b in range(nb):
-        a = b / nb * 2 * math.pi + 0.3
-        blade(s, (lean, h + 0.02, 0), (math.cos(a), math.sin(a)), 1.75 + 0.15 * (b % 2), 0.55, 0.7 - 0.1 * (b % 2),
-              lambda i, side, b=b: (0x4CA336, 0x3E8F2A, 0x5CB83F)[(b + side) % 3], q["bseg"], (lean, h - 1, 0))
+        a = b / nb * 2 * math.pi + 0.3 + variant
+        blade(s, (lean, h + 0.02, 0), (math.cos(a), math.sin(a)), leaf + 0.15 * (b % 2), 0.55, 0.45 - 0.1 * (b % 2),
+              lambda i, side, b=b: (0x4CA336, 0x3E8F2A, 0x5CB83F)[(b + side) % 3], q["bseg"], (lean, h - 1, 0), droop=0.95)
     for k in range(4 if q["detail"] else 2):                              # coconuts
         a = k / 4 * 2 * math.pi
-        sphere(s, lean + 0.17 * math.cos(a), h - 0.13, 0.17 * math.sin(a), 0.11, 0.11, 0.11, max(5, n // 2), max(3, q["ring"] - 2), 0x6B3A1E)
+        sphere(s, lean + 0.15 * math.cos(a), h - 0.12, 0.15 * math.sin(a), 0.1, 0.1, 0.1, max(5, n // 2), max(3, q["ring"] - 2), 0x6B3A1E)
     return s
 
 
@@ -426,8 +444,8 @@ def m_bush():
 def m_rock():
     q = Q()
     s = Solid("rock", SOLID)
-    sphere(s, 0, 0.3, 0, 0.55, 0.38, 0.45, max(6, q["side"] - 2), q["ring"],
-           lambda row, i: (0x80838A, 0x8D9096, 0x73767C, 0x9A9DA3)[(i * 2 + row) % 4], jitter=7)
+    sphere(s, 0, 0.3, 0, 0.55, 0.38, 0.45, max(5, q["side"] // 2 + 1), max(3, q["ring"] - 2),
+           lambda row, i: (0x80838A, 0x8D9096, 0x73767C, 0x9A9DA3)[(i * 2 + row) % 4], jitter=7, amp=0.3)
     return s
 
 
@@ -493,26 +511,45 @@ def m_boat():
     return s
 
 
+def spike(s, cx, y0, cz, r, h, lean, n, colour, turn=0.0):
+    """a shard: an n-sided base of radius r and a point h above it, leaning by lean (x, z)"""
+    base = ring(cx, y0, cz, r, r, n, turn)
+    tip = (cx + lean[0], y0 + h, cz + lean[1])
+    mid = (cx, y0 + h * 0.3, cz)
+    for i in range(n):
+        j = (i + 1) % n
+        c = colour(i) if callable(colour) else colour
+        s.add(mid, [base[i], base[j], tip], c)
+        s.add(mid, [(cx, y0, cz), base[i], base[j]], c)
+
+
 def m_campfire():
+    """logs in a star, the ends meeting at the middle; a flame of jagged shards; sparks over it (a fire reads better
+    with a ragged flame than with a cone); a ring of stones"""
     q = Q()
     s = Solid("campfire", SOLID)
-    n = q["stones"]
+    n = q["stones"] * 2 // 3
     for i in range(n):
-        a = i / n * 2 * math.pi
-        sphere(s, 0.52 * math.cos(a), 0.1, 0.52 * math.sin(a), 0.15, 0.1, 0.15, 5, 2,
-               lambda r, j, i=i: (0x80838A, 0x8D9096)[(i + j) % 2], jitter=70 + i)
-    logs = 5 if q["detail"] else 4
-    for i in range(logs):
-        a = i / logs * 2 * math.pi + 0.4
+        a = (i + 0.5) / n * 2 * math.pi
+        sphere(s, 0.72 * math.cos(a), 0.09, 0.72 * math.sin(a), 0.14, 0.09, 0.14, 5, 2,
+               lambda r, j, i=i: (0x80838A, 0x8D9096)[(i + j) % 2], jitter=70 + i, amp=0.25)
+    logs = 6 if q["detail"] else 4
+    for i in range(logs):                                              # lying nearly flat, the high end at the middle
+        a = i / logs * 2 * math.pi + 0.3
         ca, sa = math.cos(a), math.sin(a)
-        limb(s, (0.4 * ca, 0.1, 0.4 * sa), (0.05 * ca, 0.46, 0.05 * sa), 0.06, 0.045, max(5, q["side"] // 2), 0x6B4423)
-    k = max(5, q["side"] // 2)
-    cylinder(s, 0, 0.14, 0, 0.22, 0.0, 0.62, k, lambda i: (0xE8541E, 0xF08A24)[i % 2], caps=False)
-    cylinder(s, 0, 0.14, 0, 0.12, 0.0, 0.46, k, 0xF6C23C, caps=False)
+        limb(s, (0.62 * ca, 0.07, 0.62 * sa), (0.1 * ca, 0.24, 0.1 * sa), 0.075, 0.065, max(5, q["side"] // 2), 0x7A4C28)
+    flame = (0xE8541E, 0xF08A24, 0xF6C23C)
+    shards = ((0.0, 0.0, 0.0, 0.2, 1.15, 0.0, 0.1), (0.1, 0.06, 0.13, 0.15, 0.85, 0.1, 0.0), (-0.1, 0.1, -0.1, 0.15, 0.75, -0.1, 0.05),
+              (0.05, -0.12, 0.1, 0.13, 0.6, 0.1, -0.1), (-0.12, -0.05, 0.1, 0.12, 0.55, -0.1, -0.05),
+              (0.14, 0.12, -0.08, 0.1, 0.45, 0.05, 0.1), (0.0, -0.2, 0.0, 0.1, 0.4, 0.0, -0.1))
+    count = {"hi": 7, "med": 5, "low": 3}[QUALITY]
+    for k in range(count):
+        dx, _, dz, r, h, lx, lz = shards[k]
+        spike(s, dx, 0.2, dz, r, h, (lx, lz), 5 if q["detail"] else 4, lambda i, k=k: flame[(i + k) % 3], turn=k)
     if q["detail"]:
-        for j in range(3):                                                 # little tongues beside the main flame
-            a = j * 2.1
-            cylinder(s, 0.13 * math.cos(a), 0.14, 0.13 * math.sin(a), 0.07, 0.0, 0.28 + 0.05 * j, 5, 0xF08A24, caps=False)
+        for k in range(4 if QUALITY == "hi" else 2):                   # sparks
+            a = k * 1.7
+            sphere(s, 0.14 * math.cos(a), 1.45 + 0.22 * k, 0.14 * math.sin(a), 0.035, 0.05, 0.035, 4, 2, 0xE8541E)
     return s
 
 
@@ -541,7 +578,54 @@ def m_cloud():
     return s
 
 
-MODELS = (m_palm, m_bush, m_rock, m_chest, m_boat, m_campfire, m_grass, m_cloud)
+def m_islet():
+    """the whole island as one model of radius 1 (a far impostor, scaled by the object table): a sand skirt with an
+    irregular rim, a ring of dark soil, a dome of grass. Flat colours, no texture."""
+    q = Q()
+    A = q["arcs"]
+    s = Solid("islet", FLOOR)
+    rnd = random.Random(33)
+    phase = [rnd.uniform(0, 6.28) for _ in range(3)]
+
+    def outline(a):                                        # the rim: low waves and a little noise per arc
+        return 1 + 0.16 * math.sin(3 * a + phase[0]) + 0.08 * math.sin(5 * a + phase[1]) + 0.05 * math.sin(8 * a + phase[2])
+    noise = [rnd.uniform(-0.04, 0.04) for _ in range(A)]
+    # (radius, height, how much of the outline it follows, colours of the quads that start at this ring)
+    prof = [(0.0, 0.34, 0.0, GRASS), (0.22, 0.31, 0.2, GRASS), (0.42, 0.24, 0.5, GRASS), (0.56, 0.14, 0.7, GRASS),
+            (0.62, 0.05, 0.8, SOIL), (0.66, 0.0, 0.85, SAND), (0.82, -0.01, 0.95, SAND), (1.0, -0.04, 1.0, SAND),
+            (0.88, -0.14, 1.0, UNDER)]
+    pts = []
+    for i, (r, y, f, _) in enumerate(prof):
+        row = []
+        for j in range(A):
+            a = j / A * 2 * math.pi
+            k = 1 + (outline(a) - 1) * f + (noise[j] * f if i > 0 else 0)
+            row.append((r * k * math.cos(a), y + (rnd.uniform(-0.012, 0.012) if 0 < i < 7 else 0), r * k * math.sin(a)))
+        pts.append(row if r > 0 else [row[0]])
+    hint = (0, -0.2, 0)
+    for i in range(len(prof) - 1):
+        A0, B0 = pts[i], pts[i + 1]
+        cols = prof[i][3]
+        for j in range(A):
+            k = (j + 1) % A
+            c = cols[(j + i) % len(cols)]
+            if len(A0) == 1:
+                s.add(hint, [A0[0], B0[j], B0[k]], c)
+            else:
+                s.add(hint, [A0[j], A0[k], B0[k], B0[j]], c)
+    under = pts[-1]
+    for j in range(A):                                       # the bottom, closed
+        s.add((0, 0.5, 0), [(0, -0.14, 0), under[j], under[(j + 1) % A]], UNDER[0])
+    return s
+
+
+GRASS = (0x5FAE3C, 0x56A235, 0x69B845, 0x4E962F)
+SOIL = (0x6F4529, 0x7E5030)
+SAND = (0xE8D190, 0xDFC684, 0xEED89C)
+UNDER = (0xB89A5E,)
+
+MODELS = (m_palm, m_bush, m_rock, m_chest, m_boat, m_campfire, m_grass, m_cloud,
+          lambda: m_palm(1), lambda: m_palm(2), m_islet)
 
 # the object table: id on the objects layer, the model, the 2D sprite, the first mode, the scale, the radius of its
 # collision (world units; 0: none)
@@ -554,6 +638,9 @@ OBJECTS = (
     ("campfire", FIRST_KIT_ID + 10, "campfire", "campfire2d", "3d", 1.0, 0.6),
     ("grass", FIRST_KIT_ID + 12, "grass", "grass2d", "3d", 1.0, 0.0),
     ("cloud", FIRST_KIT_ID + 14, "cloud", "cloud2d", "3d", 1.0, 0.0),
+    ("palm2", FIRST_KIT_ID + 16, "palm2", "palm2d", "3d", 1.0, 0.25),
+    ("palm3", FIRST_KIT_ID + 18, "palm3", "palm2d", "3d", 1.0, 0.25),
+    ("islet", FIRST_KIT_ID + 20, "islet", "islet2d", "3d", 30.0, 0.0),      # the whole island seen from far
 )
 PLAYER_START = 1024
 
@@ -612,12 +699,13 @@ def build_map():
     place(OBJECTS[3][1], c + 3, c - 1)                               # the chest, next to it
     place(PLAYER_START, c, c + 11)                                   # the player starts on the south beach
     ids = {o[0]: o[1] for o in OBJECTS}
+    palms = [ids["palm"], ids["palm2"], ids["palm3"]]
     for i in range(8):                                               # palms in a loose ring
         a = i / 8 * 2 * math.pi + rnd.uniform(-0.2, 0.2)
         r = rnd.uniform(6, 9)
         tx, tz = int(c + r * math.cos(a)), int(c + r * math.sin(a))
         if free(tx, tz):
-            place(ids["palm"], tx, tz)
+            place(palms[i % 3], tx, tz)
     for _ in range(14):
         a, r = rnd.uniform(0, 2 * math.pi), rnd.uniform(3, 11)
         tx, tz = int(c + r * math.cos(a)), int(c + r * math.sin(a))
@@ -762,7 +850,7 @@ def render_png(f, path):
                 for i in range(S):
                     c = col
                     if ob >= 1024 and (i - 4) ** 2 + (j - 4) ** 2 <= 6:
-                        c = (255, 80, 40) if ob == 1050 else (20, 60, 20) if ob == 1040 else (250, 250, 250) if ob == 1054 else (60, 40, 30)
+                        c = (255, 80, 40) if ob == 1050 else (20, 60, 20) if ob in (1040, 1056, 1058) else (250, 250, 250) if ob == 1054 else (60, 40, 30)
                     line[j] += c
         rows += [b"\0" + bytes(l) for l in line]
     raw = b"".join(rows)
