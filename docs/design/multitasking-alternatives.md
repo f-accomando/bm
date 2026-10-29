@@ -6,7 +6,7 @@ Pi measurements in section 6 exist. Mark each number "not measured" until then.
 This study answers the "Open" list of [`docs/progress/multitasking.md`](../progress/multitasking.md)
 and compares the R49 ideas (Beta R1: cooperative I/O consolidation; Beta R2: hybrid preemption with
 MPU; the Unix comparison) with other options. The Pi Zero W (ARM1176, one core, 700 MHz) is the
-benchmark. The RGB30 (RK3566, AArch64) has one usable core (no PSCI `CPU_ON`).
+benchmark. The RGB30 (RK3566, AArch64) has four cores. `CPU_ON` works, and `cores=2` to `4` in `config.txt` starts them as pure workers (see `docs/progress/multicore.md`).
 
 ## 1. Facts from the code
 
