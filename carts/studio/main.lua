@@ -729,6 +729,17 @@ local function sel_scale(list, k, axis)
   end)
 end
 
+-- the diagonal of a quad: the corners (and their texture corners and bones) go one place round, so the two
+-- triangles cut the quad the other way (a bent quad shows another fold); a triangle is left as it is
+local function sel_flip_diagonal(list)
+  for _, f in ipairs(list) do
+    if #f.p == 4 then
+      local function rot(t) if t then return { t[2], t[3], t[4], t[1] } end end
+      f.p, f.uv, f.b = rot(f.p), rot(f.uv), rot(f.b)
+    end
+  end
+end
+
 local function sel_texture_turn(list)
   for _, f in ipairs(list) do
     if f.uv then
@@ -890,6 +901,7 @@ local function select_key(k)
   elseif k == "n" then sel_op("the other side", function(l) for _, f in ipairs(l) do reverse(f) end end)
   elseif k == "\n" then sel_op("new texture", function(l) for _, f in ipairs(l) do texture(f, brush) end end)
   elseif k == "u" then sel_op("texture turned", sel_texture_turn)
+  elseif k == "f" then sel_op("diagonal flipped", sel_flip_diagonal)
   elseif k == "." then sel_op("twice as big" .. (bd.saxis > 0 and (" along " .. ("xyz"):sub(bd.saxis, bd.saxis)) or ""), function(l) sel_scale(l, 2, bd.saxis) end)
   elseif k == "," then sel_op("half as big" .. (bd.saxis > 0 and (" along " .. ("xyz"):sub(bd.saxis, bd.saxis)) or ""), function(l) sel_scale(l, 0.5, bd.saxis) end)
   elseif k == "p" then
@@ -1538,7 +1550,7 @@ function build.menu_items()
   elseif t == 3 then
     list = { { "Choose", " " }, { "All / none", "a" }, { "All joined", "c" }, { "Move", "g" }, { "Copy", "d" },
              { "Bigger", "." }, { "Smaller", "," }, { "Scale axis: all/x/y/z", "p" }, { "Mirror copy (symmetry)", "l" },
-             { "Turn", "r" }, { "Mirror", "m" }, { "New texture", "\n" }, { "Delete", "\b" } }
+             { "Turn", "r" }, { "Mirror", "m" }, { "Flip the diagonal of a quad", "f" }, { "New texture", "\n" }, { "Delete", "\b" } }
   elseif t == 4 then
     list = { { "Choose", " " }, { "All / none", "a" }, { "Move", "g" }, { "Join", "m" } }
   else

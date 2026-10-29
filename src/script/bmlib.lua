@@ -224,7 +224,7 @@ end
 
 -- The flags of the tiles (fget/fset) as bmlib reads them: a convention,
 -- the game can choose others with lib.tiles{}
-lib.SOLID, lib.PLATFORM, lib.LADDER, lib.WATER, lib.HURT = 1, 2, 4, 8, 16
+lib.SOLID, lib.PLATFORM, lib.LADDER, lib.WATER, lib.HURT, lib.TRIGGER = 1, 2, 4, 8, 16, 32
 lib.GRAVITY, lib.MAXFALL = 0.25, 6
 
 local T = { layer = 1, solid = 1, platform = 2, edge = false }

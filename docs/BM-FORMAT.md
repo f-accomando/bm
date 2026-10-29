@@ -92,7 +92,7 @@ ignored. If a type is repeated, the **last** one wins in the kernel (the Python 
 | 14 | BOXES | u16 n (1..4096), u16 reserved, 28-byte boxes | each box names a zone of SPRITES and a valid frame. A broken one is dropped, not fatal, in a cartridge |
 | 15 | DATA | u16 n (1..64), u16 reserved, n entries of 24 bytes (`name[16]` NUL-ended, u32 offset from the start of the section, u32 size), then the blobs | names unique and nonempty; every blob inside the section; **fatal** when wrong. Only a cartridge may hold it. The game cannot read it. The kernel reads a blob of an installed app with `bm_data_find` (the Assistant app: `assist.bin`, `words.lua`). An older kernel ignores the section |
 
-Tile flags of the standard library `bmlib`: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts.
+Tile flags of the standard library `bmlib`: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts, 5 trigger.
 
 Resource files (`BMRES`): the kind says which sections may be present (`.bmm` MESH ANIM sheets; `.bmi` sheet SPRITES BOXES
 FLAGS; `.bms` AUDIO; `.bmt` MAP LAYERS FLAGS sheet; `.bmc` a SHEET8 of N x 1 pixels; `.bmk` any mix); a LUA section is

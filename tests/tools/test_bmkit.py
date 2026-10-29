@@ -65,6 +65,7 @@ class IslandKitTest(unittest.TestCase):
         flags = bmres.flags_get(self.back)
         t = bmkit.TILES["water"]
         self.assertEqual(flags[(t * 2, 0)], 8)
+        self.assertEqual(flags[(bmkit.TILES["stones"] * 2, 1)], 32)           # the campfire tile: trigger
 
     def test_quality_cuts_the_triangles_and_keeps_the_names(self):
         def count(q):

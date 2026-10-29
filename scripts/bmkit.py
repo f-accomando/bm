@@ -734,7 +734,7 @@ def build_map():
 def tile_flags():
     """FLAGS: 0 solid, 3 water (docs/api/draw.md); for each 8 x 8 cell of a 16 x 16 tile"""
     out = {}
-    for name, flag in (("water", 8), ("rock", 1)):
+    for name, flag in (("water", 8), ("rock", 1), ("stones", 32)):
         t = TILES[name]
         for dy in (0, 1):
             for dx in (0, 1):

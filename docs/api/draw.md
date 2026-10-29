@@ -71,7 +71,7 @@ map(0, 0, 0, 0, 80, 45, "front")    -- the tree tops over the hero
 game: wall, water, ladder, danger... Collisions look at the flags instead of the tiles'
 numbers. The convention of [bmlib](bmlib.md#bmlib-the-games-shared-library) (every game can choose
 another): flag 0 **solid** (1), 1 **platform** you can pass through from below (2), 2
-**ladder** (4), 3 **water** (8), 4 **hurts** (16); 5–7 free.
+**ladder** (4), 3 **water** (8), 4 **hurts** (16), 5 **trigger** (32: an area that starts something, a camp fire's warmth, a door, a zone of a scene); 6–7 free.
 
 ```lua
 if fget(mget(cx, cy), 0) then ... end            -- the cell is solid
