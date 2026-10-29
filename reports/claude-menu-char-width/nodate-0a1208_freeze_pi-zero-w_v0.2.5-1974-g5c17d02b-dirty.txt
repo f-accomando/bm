@@ -1,0 +1,64 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1974-g5c17d02b-dirty
+branch: claude/menu-char-width
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-0a1208_freeze_pi-zero-w_v0.2.5-1974-g5c17d02b-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor line "reboot", frame 0, 947 s after boot, kernel v0.2.5-1974-g5c17d02b-dirty, ring 28671, sink on
+--- the last lines printed ---
+menu frame: 2x, a frame averages draw 7631 us, enlarge 0 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7546 us, enlarge 0 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7788 us, enlarge 0 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7705 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7618 us, enlarge 0 us, flip 94 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7587 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu idle: sd first word <1ms 10 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 9640 us, enlarge 0 us, flip 94 us, free time used 29 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 11585 us, enlarge 0 us, flip 95 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 86 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 10428 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+fiber: sdmap did not yield: 5.4 ms past its slice
+fiber: sdmap did not yield: 8.0 ms past its slice
+menu idle: 300/300 frames, 564 of 892 ms taken, 10.3 ms past a frame; sdmap 555 ms (+8.0, stk 2.0/16K); min slack -8741 us, paced 0
+menu idle: sd first word <1ms 1501 <3ms 1 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 11953 us, enlarge 0 us, flip 96 us, free time used 1882 us (300 frames)
+fiber: sdmap did not yield: 15.0 ms past its slice
+menu idle: 300/300 frames, 247 of 995 ms taken, 14.5 ms past a frame; sdmap 240 ms (+15.0, stk 2.0/16K); min slack -12325 us, paced 0
+menu idle: sd first word <1ms 627 <3ms 4 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 11674 us, enlarge 0 us, flip 95 us, free time used 823 us (300 frames)
+menu idle: sd first word <1ms 45 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 11216 us, enlarge 0 us, flip 97 us, free time used 17 us (300 frames)
+menu idle: sd first word <1ms 40 (max 1.5 ms)
+menu frame: 2x, a frame averages draw 11007 us, enlarge 0 us, flip 95 us, free time used 18 us (300 frames)
+menu frame: 2x, a frame averages draw 8006 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 2x, a frame averages draw 7995 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 2x, a frame averages draw 8162 us, enlarge 0 us, flip 95 us, free time used 33 us (300 frames)
+menu frame: 2x, a frame averages draw 8074 us, enlarge 0 us, flip 114 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7986 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 8041 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 8147 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 8059 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7975 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 8092 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 8131 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 8044 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 7956 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 2x, a frame averages draw 8129 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+net: receiving settings (40 bytes)...
+config: menu_scale=3
+config: menu_layout=1
+config: menu_font=no
+net: settings from the PC: 3 changed in bm/config.txt
+
+net: console opened from 192.168.1.115
+> fb_init_depth: mbox_call failed
+back to the monitor
+> :
+:reboot
+: reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
