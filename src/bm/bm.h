@@ -48,7 +48,8 @@
  *              char[16] name (UTF-8, zero padded; unique in the section),
  *              u16 vertices (1..65535; 4096 before 2026-10-05, bm3d 5.0), u16 faces
  *              (1..65535; 16384 before), u32 flags (bit 0
- *              "lit": the light is baked in the faces, see below; else 0),
+ *              "lit": the light is baked in the faces, see below; bits 1-3:
+ *              the map class, BM_MODEL_SOLID, _FLOOR, _DECOR; else 0),
  *              vertices x { f32 x, y, z }: y up, like mesh();
  *              faces x { u16 a, b, c: 0-based vertex indices, clockwise
  *                        seen from the side that shows (as for mesh());
@@ -199,6 +200,12 @@ enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES
 #define BM_MODEL_FACES     65535
 #define BM_MODELS_MAX      256
 #define BM_MESH_FACE       24              /* bytes of a face in MESH */
+/* Model flags (the u32 in the model header, bit 0 is "lit"). The map class says what a model is for in a map
+ * (a bm SDK 3D map, a .bmk kit): at most one of the three; none = not said. A kernel that does not know them
+ * ignores them. */
+#define BM_MODEL_SOLID     2u              /* blocks, as a wall does */
+#define BM_MODEL_FLOOR     4u              /* can be walked on */
+#define BM_MODEL_DECOR     8u              /* no collision */
 #define BM_BONES_MAX       64
 #define BM_CLIPS_MAX       255
 #define BM_KEYS_MAX        1024

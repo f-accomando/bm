@@ -235,6 +235,14 @@ where = ["src/bm/runtime.c", "docs/api/draw.md"]
 note = "safe_area() returns two more values, the design size dw, dh (the header size). Code that reads four values is not affected"
 
 [[item]]
+id = "model-map-class"
+since = 6
+status = "implemented"
+platforms = "all"
+where = ["src/bm/bm.h", "docs/BM-FORMAT.md", "src/script/bm3d.lua", "scripts/bmmesh.py"]
+note = "bits 1-3 of the u32 flags of a MESH model: the map class (2 solid, 4 floor, 8 decor). bm Studio sets it (c on the models page) and writes it; no kernel reads it yet (a kit says it to the 3D map); an old reader ignores it, so no revision is needed. Host test tools3d_host.lua. Not verified on hardware"
+
+[[item]]
 id = "lib-view"
 since = 5
 status = "implemented"

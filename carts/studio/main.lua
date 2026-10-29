@@ -1735,7 +1735,7 @@ function models_page.key(k)
       say("renamed: " .. m.name, C.ACC)
     end)
   elseif k == "d" and m then
-    local c = { name = T.unique_name(m.name), faces = {}, dirty = true }
+    local c = { name = T.unique_name(m.name), faces = {}, dirty = true, mflags = m.mflags }
     if m.mc then c.faces, c.rig = T.decode_model(m.mc, m.ac) else c.rig = T.deep(m.rig) end
     table.insert(S.models, S.cur + 1, c)
     S.undo, S.redo = {}, {}
@@ -1755,6 +1755,11 @@ function models_page.key(k)
     S.undo, S.redo = {}, {}
     S.cur = j
     T.sync(); S.dirty = true
+  elseif k == "c" and m then
+    T.model_class_next(m)
+    m.dirty = true
+    T.sync(); S.dirty = true
+    say("map class: " .. T.model_class(m) .. " (solid blocks, floor can be walked on, decor has no collision)", C.ACC, 150)
   elseif k == "m" then
     T.picture_chooser()
   elseif k == "-" and m and m.nt and m.nt > 1 then
@@ -1803,7 +1808,7 @@ end
 
 function models_page.menu_items()
   return { { "Build it", "\n" }, { "New model", "n" }, { "Rename...", "r" }, { "Duplicate", "d" },
-           { "Delete (twice)", "del" }, { "Fewer triangles...", "-" }, { "Model from a picture...", "m" },
+           { "Delete (twice)", "del" }, { "Fewer triangles...", "-" }, { "Model from a picture...", "m" }, { "Map class (solid / floor / decor)", "c" },
            { "Texture margin", "i" } }
 end
 
@@ -1831,14 +1836,14 @@ function models_page.draw()
   local x = PANEL_W + 16
   rectfill(PANEL_W, 16, W - PANEL_W, 48, C.BG)
   if m then
-    print(m.name, x, 16, C.ACC)
+    print(m.name .. "   map class: " .. T.model_class(m), x, 16, C.ACC)
     local warn = T.counts(m, x, 32)
     print(warn or (m.rig and (#m.rig.bones .. " bones, " .. #m.rig.clips .. " animations (bm Animator)") or
           "no skeleton (bm Animator makes one)"), x, 48, warn and C.ACC or C.DIM)
   end
   print("texture margin " .. S.inset .. " px", W - 192, 16, C.DIM)
   T.hint({ { { "up", "down" }, "model" }, { { "enter" }, "build" }, { { "n" }, "new" }, { { "r" }, "rename" },
-           { { "d" }, "copy" }, { { "del" }, "delete" }, { { "-" }, "reduce" }, { { "m" }, "picture" },
+           { { "d" }, "copy" }, { { "del" }, "delete" }, { { "-" }, "reduce" }, { { "m" }, "picture" }, { { "c" }, "map class" },
            { { "pgup", "pgdn" }, "order" } })
 end
 

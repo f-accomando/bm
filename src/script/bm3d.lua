@@ -1453,9 +1453,29 @@ function T.encode_mesh(m)
   if #tris == 0 then return true end
   if #verts > T.LIMIT_V then return false, #verts .. " vertices: format limit " .. T.LIMIT_V end
   if #tris > T.LIMIT_T then return false, #tris .. " triangles: format limit " .. T.LIMIT_T end
-  m.mc = name16(m.name) .. spack("<I2I2I4", #verts, #tris, 0) .. table.concat(verts) .. table.concat(tris)
+  m.mc = name16(m.name) .. spack("<I2I2I4", #verts, #tris, (m.mflags or 0) & ~1) .. table.concat(verts) .. table.concat(tris)
   m.vb, m.nv, m.nt = table.concat(vb), #verts, #tris
   return true
+end
+
+-- The map class of a model, in the u32 flags of its MESH header (bit 0 is "lit"): what the model is for in a
+-- map (a bm SDK 3D map, a kit): 0 not said, 2 solid (it blocks, as a wall), 4 floor (it can be walked on),
+-- 8 decor (no collision). T.MODEL_CLASSES lists them in the order the key cycles them.
+T.MODEL_CLASSES = { { 0, "not said" }, { 2, "solid" }, { 4, "floor" }, { 8, "decor" } }
+function T.model_class(m)
+  local f = (m.mflags or 0) & 14
+  for _, c in ipairs(T.MODEL_CLASSES) do if c[1] == f then return c[2] end end
+  return "not said"
+end
+function T.model_class_next(m)
+  local f = (m.mflags or 0) & 14
+  for i, c in ipairs(T.MODEL_CLASSES) do
+    if c[1] == f then
+      m.mflags = T.MODEL_CLASSES[i % #T.MODEL_CLASSES + 1][1]
+      return
+    end
+  end
+  m.mflags = 0
 end
 
 -- the model's rig in the ANIM section: m.ac (after encode_mesh)
@@ -2386,6 +2406,7 @@ function T.load_project(path)
     local faces, r = T.decode_model(mc, rigs[name])
     local m = { name = name, faces = faces, rig = r, mc = mc, ac = r and rigs[name] or nil, dirty = false }
     m.nv, m.nt = sunpack("<I2I2", mc, 17)
+    m.mflags = sunpack("<I4", mc, 21) & ~1             -- the model's map class (T.MODEL_CLASSES); bit 0 is "lit"
     if r then
       local vb = {}
       for i = 1, m.nv do vb[i] = string.char(rigs[name]:byte(25 + #r.bones * 44 + i - 1)) end

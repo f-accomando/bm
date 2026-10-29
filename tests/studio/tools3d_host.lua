@@ -122,7 +122,7 @@ local function mesh_models(bin)
       assert(a < nv and b < nv and c < nv, "MESH: a vertex out of range")
       cols[i] = col
     end
-    out[#out + 1] = { name = name, nv = nv, nf = nf, verts = verts, cols = cols }
+    out[#out + 1] = { name = name, nv = nv, nf = nf, verts = verts, cols = cols, flags = string.unpack("<I4", bin, pos + 20) }
     pos = pos + 24 + nv * 12 + nf * 24
   end
   assert(pos == #bin + 1, "MESH: the size does not add up")
@@ -983,6 +983,19 @@ type_text("tower")
 check(cur_models()[2].name == "tower", "renamed tower")
 key("del", "del")
 check(#cur_models() == 1, "deleted (asked twice)")
+
+-- the map class of a model (c): the u32 flags of its MESH header, kept when the model is copied and saved again
+key("c")
+check(cur_models()[1].flags == 2 and sees("map class: solid"), "c: solid, bit 1 of the model flags (" .. tostring(cur_models()[1].flags) .. ")")
+key("c")
+check(cur_models()[1].flags == 4, "c: floor, bit 2")
+key("c")
+check(cur_models()[1].flags == 8, "c: decor, bit 3")
+key("d")
+check(#cur_models() == 2 and cur_models()[2].flags == 8, "d: the copy keeps the class")
+key("del", "del")
+key("c")
+check(cur_models()[1].flags == 0, "c: back to not said")
 
 -- the assistant (F6): a 3D recipe becomes a new model, with its skeleton
 -- and animation; Esc leaves it as it was
