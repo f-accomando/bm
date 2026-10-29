@@ -85,3 +85,18 @@ Facts to keep in mind. The 720p and 1080p menu is drawn by the V3D on the Pi. Af
 28 Oct 2026) a frame of the cover grid costs 2.9 ms at 360p, 6.3 ms at 720p and 12.5 ms at 1080p (the ARM menu at 360p: 6.6 ms;
 see `docs/bench/menu-1080p-probe/`). The 360p menu stays the default on the Pi Zero W. A new font changes every glyph, so
 the tests that compare screens need new references.
+
+### Step 1 measured (Pi Zero W, 29 Oct 2026, kernel `v0.2.5-1948-g6a51a9cf`)
+
+Cover grid, the `menu frame: draw` line (300 frames each; reports on the `reports` branch). `enlarge` is 0 and `flip` about 0.1 ms in all rows.
+
+| Menu | Draw per frame |
+|---|---|
+| 360p on the GPU (`menu_scale=4`) | 3.5 ms |
+| 720p (`menu_scale=2`) | 6.9 ms |
+| 1080p (`menu_scale=3`) | 16 to 18 ms |
+| 720p, native layout (`menu_layout=1`) | 6.1 ms |
+| 1080p, native layout | 10.6 ms |
+
+The native layout is cheaper at 1080p (10.6 ms against 17 ms). It prints `1x` in the line. The 1080p row of 28 Oct (12.5 ms) was lower than the 16 to 18 ms seen now; the cause is not known.
+
