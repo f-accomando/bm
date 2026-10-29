@@ -18,3 +18,31 @@ __attribute__((weak)) int offload_par(void (*fn)(void *blk), void *const *blks, 
         fn(blks[i]);
     return 0;
 }
+
+__attribute__((weak)) int offload_total(void)
+{
+    return 0;
+}
+
+__attribute__((weak)) int offload_core_ok(int core)
+{
+    (void)core;
+    return 0;
+}
+
+__attribute__((weak)) int offload_post_core(int core, void (*fn)(void *arg), void *arg)
+{
+    (void)core; (void)fn; (void)arg;
+    return -1;
+}
+
+__attribute__((weak)) int offload_poll_core(int core)
+{
+    (void)core;
+    return -1;
+}
+
+__attribute__((weak)) void offload_abandon_core(int core)
+{
+    (void)core;
+}

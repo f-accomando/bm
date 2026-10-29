@@ -271,6 +271,7 @@ def test_smp_cores_up(b, opts):
         assert "smp: selftest ok (4 cores, 400000)" in out, out    # atomics and a lock, 4 cores
         assert "smp: offload sha256 ok (2 jobs on workers)" in out, out   # M5: the hash of a release file
         assert "smp: raster bands ok" in out, out        # V1: the picture by bands equals the picture by one core
+        assert "smp: jobs ok" in out and "jobs on workers)" in out and "0 jobs on workers" not in out, out   # V2: a job on a worker gives the answer of core 0
         assert "smp: core 2 FAULT" in out and "smp: core 3 HUNG" in out, out
         assert "smp: fault test ok" in out, out         # a faulting and a looping job do not stop core 0
         assert "IRQ on: timer 1000 Hz" in out, out      # core 0 goes on to boot

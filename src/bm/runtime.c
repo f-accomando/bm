@@ -48,6 +48,7 @@
 #include "tokens.h"
 #include "profile.h"
 #include "project.h"
+#include "kernel/jobs.h"
 #include "rt_internal.h"
 
 #include <stdio.h>
@@ -1367,6 +1368,7 @@ static const luaL_Reg api[] = {
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "gpu3d_opt", l_gpu3d_opt }, { "gpu3d_stats", l_gpu3d_stats }, { "screen", l_screen }, { "screen_modes", l_screen_modes }, { "safe_area", l_safe_area }, { "aspect", l_aspect },{ "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "showkeys", l_showkeys }, { "shot", l_shot }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controls", l_controls }, { "controller", l_controller }, { "online", l_online },
+    { "job_run", l_job_run }, { "job_poll", l_job_poll }, { "job_cancel", l_job_cancel }, { "job_info", l_job_info },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "web_get", l_web_get }, { "web_poll", l_web_poll }, { "web_info", l_web_info }, { "web_body", l_web_body },
@@ -3512,6 +3514,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     prof_enable(0, NULL);                   /* the profiler of functions starts from nothing */
     perf_reset();                           /* the overlay: this run's frames only (a resumed one's too) */
     held.on = held.now = 0;                 /* nothing held (bm3d 6.9), this run's count */
+    jobs_reset();                           /* no job of a run before */
     held.n = 0;
     held.frames = 0;
     held.fb = fb;
@@ -3730,6 +3733,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     }
 
     later_flush();                          /* the frame held, shown: its job done, its page the last */
+    jobs_reset();                           /* the jobs on workers end before the run's memory goes */
     const int suspend = !error && left && suspendable && !rt.online_left;
     if (audio_volume() != vol_start)
         config_save();                      /* the volume chosen in the game stays */

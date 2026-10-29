@@ -116,6 +116,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/tools.md](api/tools.md) | Keyboard and files · Assistant (M30) |
 | [api/light3d.md](api/light3d.md) | nano8 · Light · Light by levels · 3D (software) · Collision worlds |
 | [api/bmlib.md](api/bmlib.md) | The games' shared library |
+| [api/jobs.md](api/jobs.md) | Pure jobs on the worker cores (`job_run`, `job_poll`) |
 | [api/riff.md](api/riff.md) | Music as patterns |
 | [api/video.md](api/video.md) | Video clips (.bmv) |
 | [api/bmnet.md](api/bmnet.md) | Games over the network |

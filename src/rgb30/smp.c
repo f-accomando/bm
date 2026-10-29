@@ -178,6 +178,37 @@ int smp_offload_count(void) { return (int)offload_count; }
 
 static uint8_t offload_blk[SMP_MAX][OFFLOAD_BLK] __attribute__((aligned(64)));
 
+int offload_total(void)
+{
+    int n = 0;
+    for (int c = 1; c < SMP_MAX; c++)
+        n += core_state[c] == 1;
+    return n;
+}
+
+int offload_core_ok(int core)
+{
+    return core >= 1 && core < SMP_MAX && core_state[core] == 1 && !slot[core].fn;
+}
+
+int offload_post_core(int core, void (*fn)(void *arg), void *arg)
+{
+    return smp_post(core, fn, arg);
+}
+
+int offload_poll_core(int core)
+{
+    return smp_poll(core);
+}
+
+void offload_abandon_core(int core)
+{
+    if (core >= 1 && core < SMP_MAX && core_state[core] == 1) {
+        core_state[core] = SMP_HUNG;
+        kprintf("smp: core %d HUNG (job)\n", core);
+    }
+}
+
 int offload_workers(void)
 {
     int n = 0;

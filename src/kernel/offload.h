@@ -20,4 +20,13 @@ int offload_workers(void);
  * of blocks that ran on a worker. With no worker, the caller runs them all, in order. */
 int offload_par(void (*fn)(void *blk), void *const *blks, unsigned n);
 
+/* The same cores for a job that is read later (kernel/jobs.h). One job at a time on a core. The caller keeps the argument alive until the job ends.
+ * offload_total: the worker cores that work (0: the Pi, the host, a console without cores=4). offload_core_ok: the core is up and idle.
+ * offload_post_core: 0, or -1. offload_poll_core: 1 done, 0 runs, -1 faulted. offload_abandon_core: the core did not end its job: it is not used again. */
+int offload_total(void);
+int offload_core_ok(int core);
+int offload_post_core(int core, void (*fn)(void *arg), void *arg);
+int offload_poll_core(int core);
+void offload_abandon_core(int core);
+
 #endif

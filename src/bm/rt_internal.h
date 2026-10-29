@@ -419,6 +419,12 @@ int l_gpu3d(lua_State *L);
 int l_gpu3d_opt(lua_State *L);
 int l_gpu3d_stats(lua_State *L);
 
+/* the pure jobs for the games (api_jobs.c, kernel/jobs.c) */
+int l_job_run(lua_State *L);
+int l_job_poll(lua_State *L);
+int l_job_cancel(lua_State *L);
+int l_job_info(lua_State *L);
+
 /* the network for the games (api_net.c) */
 int l_udp_open(lua_State *L);
 int l_udp_send(lua_State *L);

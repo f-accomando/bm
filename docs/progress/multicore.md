@@ -27,7 +27,7 @@ Open items of `graphics-mali.md`, in this order. Each step is verified on the co
 Starts when M and G are done. Step V0 is a review with the user; the later steps follow its decision.
 - V0 - Review. Measure where a frame spends time on the RGB30 (3D Bench `draws`, `spheres`, a game with Lua load). Choose from the list below and rank by the measured gain.
 - V1 - Graphics (CPU raster on four cores: done 26 Oct, see Open work). Left: the Mali draw build on workers (`frame_build_ex` by draw); the Mali queue fill on a worker.
-- V2 - Games: opt-in API for a game to post a pure job (`job_run(name, data)`) and read it back next frame (pathfinding, particles, mesh skinning). No shared Lua state: a worker never touches the Lua heap. Lockstep games (Overbit, bmnet) stay on one core.
+- V2 - Games [DONE 29 Oct]: `job_run(name, data)`, `job_poll(id)`, `job_cancel(id)`, `job_info()` (`docs/api/jobs.md`, `src/kernel/jobs.c`, `src/bm/api_jobs.c`). A job is a pure function of the kernel by name: `grid_path` (A* on a grid up to 64 x 64) and `grid_flood` (a flow field). A worker never touches the Lua heap. Without a worker (the Pi, the host) the job runs at once on core 0 with the same answer, so lockstep games can use it too. Checks: `make test-jobs` (host), `smp: jobs ok` in `test_smp_cores_up` (QEMU), and on the console (29 Oct, `cores=4`): A* on a 64 x 64 snake of 2079 cells takes 525 us on core 0 and three jobs at once on the workers take 543 us. More jobs (particles, mesh skinning) come when a game needs them.
 - V3 - Audio: dropped (26 Oct). Measured on the console: the mixer costs 309 us for a 5333 us chunk with 8 voices (5.8% of core 0). A worker mixer would share the synth and player state with the game's API calls for that gain at most. Reopen if a game shows `stat(17)` above 15% of a frame.
 - V4 - Apps and system: Market download and SD write on a worker core (the SD driver lives on that core), cover decode, hashes, TLS handshakes. The menu pointer stays on core 0.
 - V5 - Scheduler policy and a `config.txt` key (`cores=1..4`), measured gain per workload in the docs.
@@ -35,6 +35,7 @@ Starts when M and G are done. Step V0 is a review with the user; the later steps
 ## Rules (do not break)
 - Core 0 owns the heap, lwIP, the FAT, the Lua state and every device register until a step of this file moves one.
 - A worker runs pure functions only: input copied in, output copied out, no `malloc`, no Lua, no device access.
+- A job of `kernel/jobs.c` reads its input block and writes its output block and its own scratch. A core keeps its job until a poll has read its end: no new post before that.
 - One change, one measurement. Keep a step only when the QEMU test passes and, for hardware steps, the console report agrees.
 - A block of `offload_par` writes only its own memory (own list, own band of rows). Two cores never write the same pixel. Tables of the cores are sized for the RGB30 only (`BM_RGB30`).
 - The Pi kernel is not changed by track M. The `multicore` capability is off on the Pi.

@@ -101,7 +101,7 @@ BM_SRCS := $(wildcard src/bm/*.c) \
            src/kernel/sdmap.c src/kernel/sdmap_core.c src/kernel/library.c \
            src/kernel/ledstate.c src/kernel/notice.c src/kernel/splash.c src/kernel/logo_data.c
 # the Dev tab's bm SDK (RGB30) runs as a tool, as the Pi's suite: the same loop
-BM_SRCS += src/kernel/devtool.c
+BM_SRCS += src/kernel/devtool.c src/kernel/jobs.c
 SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS) $(LWIP_SRCS) $(NET_SRCS) $(BM_SRCS)
 RGB30_SRCS := $(wildcard src/rgb30/*.c src/rgb30/*.S)
 KERNEL_SRCS := $(RGB30_SRCS) $(SHARED_SRCS) $(LUA_SRCS)
