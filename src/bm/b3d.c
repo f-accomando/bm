@@ -1262,8 +1262,8 @@ static const test_t tests[] = {
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0, 0 },
-    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS | M_VSA, NULL, heroes, NULL, NULL, 0, 0 },
-    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_ETC1 | M_FS2, NULL, heroes_tex, NULL, NULL, 0, 0 },
+    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS | M_VSA | M_VSQ2, NULL, heroes, NULL, NULL, 0, 0 },
+    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_ETC1 | M_FS2 | M_VSQ2, NULL, heroes_tex, NULL, NULL, 0, 0 },
     { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT | M_FS2, NULL, heroes_skin, NULL,
       NULL, 0, 0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
@@ -1693,9 +1693,11 @@ static void ramp(int ti, int pf)
             if (R.backend && prof[pf].queue) {
                 gpu3d_submit(g, 0);     /* the GPU draws while the ARM works (bm3d 4.1) */
                 work(t->work);
-                const uint32_t w0 = P->us();
-                gpu3d_sync();
-                a.sync_ms += (float)(P->us() - w0) / 1000.0f;
+                if (!(prof[pf].queue == 2 && gpu3d_pipelined() && !t->frame2d)) {   /* else the next submit waits for this frame */
+                    const uint32_t w0 = P->us();
+                    gpu3d_sync();
+                    a.sync_ms += (float)(P->us() - w0) / 1000.0f;
+                }
             } else {
                 if (R.backend)
                     gpu3d_flush(g, 0);
@@ -1726,6 +1728,8 @@ static void ramp(int ti, int pf)
             if (stopping())
                 break;
         }
+        if (R.backend && prof[pf].queue)
+            gpu3d_sync();               /* the last frame of the step, if it was left in flight */
         gpu3d_set_queue(0);
         if (halted)
             break;                      /* a step not finished: not a sample */
@@ -1895,9 +1899,11 @@ static void stress_run(int ti, int pf, int n, stress_t *o)
         if (R.backend && prof[pf].queue) {
             gpu3d_submit(g, 0);
             work(t->work);
-            const uint32_t w0 = P->us();
-            gpu3d_sync();
-            sync_ms += (float)(P->us() - w0) / 1000.0f;
+            if (!(prof[pf].queue == 2 && gpu3d_pipelined() && !t->frame2d)) {   /* else the next submit waits for this frame */
+                const uint32_t w0 = P->us();
+                gpu3d_sync();
+                sync_ms += (float)(P->us() - w0) / 1000.0f;
+            }
         } else {
             if (R.backend)
                 gpu3d_flush(g, 0);
@@ -1923,6 +1929,8 @@ static void stress_run(int ti, int pf, int n, stress_t *o)
         if (P->quick ? f >= 6 : P->us() - t0 >= STRESS_US)
             break;
     }
+    if (R.backend && prof[pf].queue)
+        gpu3d_sync();
     gpu3d_set_queue(0);
     gpu3d_take_stats(&st);
     const float k = o->frames > 0 ? 1.0f / (float)o->frames : 0;

@@ -1836,6 +1836,7 @@ static gpu3d_stats_t be_stats;
 
 static uint32_t be_wait_us;
 static int be_pend;
+static g16_t be_pend_gc;                        /* the page of the frame in flight as it was at the submit (the live g16_t moves to the next page) */
 static g16_t *be_pend_g;
 static uint8_t *be_pend_surf;
 static uint32_t be_pend_pitch, be_pend_t0, be_pend_us, be_pend_tris;
@@ -1854,6 +1855,14 @@ int mali_backend_vshader(void)          { return be_vs_on; }
 void mali_backend_set_queue(int on)     { be_q_on = on < 0 ? 0 : on > 2 ? 2 : on; }
 int mali_backend_queue(void)            { return be_q_on; }
 int mali_backend_inflight(void)         { return be_pend; }
+/* waits for the frame in flight only when it is on this page: with each frame shown a frame later, the frame held is waited for and the
+ * next one keeps drawing */
+int mali_backend_sync_page(const void *px)
+{
+    if (!be_pend || (const void *)be_pend_gc.px != px)
+        return 0;
+    return mali_backend_sync();
+}
 uint32_t mali_backend_wait_us(void)     { return be_wait_us; }
 
 void mali_backend_stats(gpu3d_stats_t *s, int reset)
@@ -2149,7 +2158,8 @@ static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, ui
         be_pend_t0 = H->us();
         job_kick(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB);
         be_pend = 1;
-        be_pend_g = (g16_t *)g;
+        be_pend_gc = *g;
+        be_pend_g = &be_pend_gc;
         be_pend_surf = surf;
         be_pend_pitch = pitch;
         be_pend_us = us;

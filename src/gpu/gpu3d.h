@@ -82,6 +82,8 @@ int gpu3d_queue_ok(void);               /* the probe saw a started job end right
  * own memory: the ARM fills the next frame's job while the GPU draws this
  * one (bm3d 5.1). gpu3d_queue2(): asked for and possible. */
 int gpu3d_queue2(void);
+/* 1 if a frame in flight is waited for by the next submit, not by the caller (the Mali): the 3D Bench then does not wait at the end of the frame */
+int gpu3d_pipelined(void);
 
 /* bm3d 4.1, step 2: the memory of the jobs (lists, records, uniforms, vertices)
  * uncached, the ARM's writes merged by the write buffer, no cache line read

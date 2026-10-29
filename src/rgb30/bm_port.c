@@ -105,8 +105,10 @@ int gpu3d_submit(const g16_t *g, int keep)
     return mali_be ? mali_backend_submit((g16_t *)g) : 0;
 }
 int gpu3d_sync(void)                                    { return mali_be ? mali_backend_sync() : 0; }
-int gpu3d_sync_page(const void *px)                     { (void)px; return mali_be ? mali_backend_sync() : 0; }
-int gpu3d_queue2(void)                                  { return 0; }
+int gpu3d_sync_page(const void *px)                     { return mali_be ? mali_backend_sync_page(px) : 0; }
+/* the queue at 2: the frame is kicked and the next one is drawn while the GPU works (each frame shown a frame later, runtime.c) */
+int gpu3d_queue2(void)                                  { return mali_be && mali_backend_queue() == 2; }
+int gpu3d_pipelined(void)                               { return gpu3d_queue2(); }
 int gpu3d_inflight(void)                                { return mali_be ? mali_backend_inflight() : 0; }
 void gpu3d_set_queue(int on)                            { mali_backend_set_queue(on); }
 int gpu3d_queue(void)                                   { return mali_be ? mali_backend_queue() : 0; }

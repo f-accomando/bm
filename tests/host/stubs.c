@@ -558,6 +558,7 @@ int gpu3d_inflight(void) { return 0; }
 int gpu3d_sync(void) { return 0; }
 int gpu3d_sync_page(const void *px) { (void)px; return 0; }
 int gpu3d_queue2(void) { return 0; }
+int gpu3d_pipelined(void) { return 0; }
 void gpu3d_set_queue(int on) { (void)on; }
 int gpu3d_queue(void) { return 0; }
 void gpu3d_set_wc(int on) { (void)on; }

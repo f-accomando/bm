@@ -161,6 +161,7 @@ const r3d_backend_t *mali_backend(const mali_hw_t *hw);
 int mali_backend_pending(void);                 /* triangles waiting */
 int mali_backend_flush(g16_t *g);               /* draws them, copies the covered pixels into g->px; 0, or -1 (the ARM must draw this frame) */
 int mali_backend_submit(g16_t *g);              /* starts the frame on the GPU so the ARM can work meanwhile; mali_backend_sync resolves it */
+int mali_backend_sync_page(const void *px);    /* mali_backend_sync, only if the frame in flight draws into this page */
 int mali_backend_sync(void);                    /* waits for a submitted frame and copies its covered pixels into g->px */
 int mali_backend_inflight(void);                /* 1 while a submitted frame has not been synced yet */
 void mali_backend_drop(void);                   /* forgets what waits */

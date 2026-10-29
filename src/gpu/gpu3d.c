@@ -3024,6 +3024,11 @@ void gpu3d_set_queue(int on)
         block2_make();
 }
 
+int gpu3d_pipelined(void)
+{
+    return 0;
+}
+
 int gpu3d_queue2(void)
 {
     return G.queue_ok && G.queue_on && G.queue2 && G.block2 != NULL;
