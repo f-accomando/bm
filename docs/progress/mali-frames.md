@@ -26,3 +26,14 @@ Open: a worker core for the wait and the resolve (1.2 ms).
 `herocart` with the GPU showed the sky colour and the heroes of the last job only. A log of the backend (a debug build, not kept) showed 3 jobs a frame: the map and 10600 triangles (201062 pixels covered), then two jobs of heroes (about 5900 pixels each).
 The first jobs are resolved at once and the last one is kicked. Then `cls_settle` filled the page with the cls colour, because `gpu3d_cleared()` was 0 on the Mali. The fill covered the map and the first heroes.
 Fix: `gpu3d_page(1, c)` marks the page, the first resolve after it fills the page with `c`, and `gpu3d_cleared()` says so. A frame that fits one job did not show the fault: the fill came before the resolve.
+
+## Where the ARM spends a frame (29 Oct)
+
+`herocart` on the RGB30, 0 heroes (the plaza of 3036 triangles), a probe cart that times each phase with `stat(8)`, 120 frames each (ms a frame):
+- The whole frame: 13.0 with the panel, 9.0 without it, 0.9 without the map.
+- `map3d_draw`: 5.9 (the largest part). The plaza is textured, and `be_mesh_impl` in `mali.c` leaves a textured face (`R3D_TEXTURED`) to the ARM: r3d transforms, culls, lights and projects it one triangle at a time, 1.9 us a triangle. The GPU vertex shader takes only the flat meshes (the heroes: 0.17 us a triangle).
+- The panel (`panel_draw`, 2D text in Lua): 2.8.
+- The end of the frame (build of the draws, the job, the resolve): 2 to 4 (`flush_us` 5.1 with the GPU job and the wait, `resolve_us` 2.2).
+- `_update` (the logic of 64 heroes): 0.6.
+With the panel off the run had no GPU job at all (`jobs` 0, `ms` 9.0 with the ARM raster): not explained, check it before the next probe.
+Next development: a textured variant of the cached mesh path (UV in the vertex, `BM_VS_TEX` with a matrix), so the plaza costs the ARM what a hero does. Expected: `d_map` from 5.9 ms to under 1 ms, and a 3D game with a textured map gains the same.
