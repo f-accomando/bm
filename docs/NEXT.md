@@ -26,7 +26,7 @@ To do, in this order:
 4. SYS-17 leftovers: a keyboard behind a hub plugged later (read `port_status`), a mouse alone.
 
 Chores:
-- Split `docs/progress/system.md` (136 lines), `graphics.md` and `graphics-mali.md` (limit 120).
+- `graphics.md` and `graphics-mali.md` (limit 120).
 - `test_sd_sdhc_and_usb_menu` builds a 4 GB image and the WSL `/tmp` is 3.9 GB: run it with a larger temporary folder. Clean `/tmp/bm-*` after a series of tests.
 - Delete by hand the folder `.claude/worktrees/assistant-data-app-292007` (a session held it) and that session.
 - The running Pi bridge is an old process (it still lists `render`): restart it.
