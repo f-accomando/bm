@@ -61,7 +61,9 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   the last picture into the new one; length 0 is "nothing changed" (every 2 s). A frame is made only when the last one
   has gone to TCP (`TCP_SND_BUF` is 8 segments). The screen is averaged to the size asked (4 samples for each pixel).
   Proved on the host (`test_netcon`: the bytes of three frames; `check_bm_net_config.py`: the decoder and the drawing);
-  the Pi's numbers (frames a second, KB a second, the cost of a frame on the ARM) are in the next line when measured.
+  on the Pi Zero W (29 Oct 2026, the menu at 720p, `pi.py view 10`, 120x68, 100 ms): 8.0 frames/s, 1.7 KB/s (about 215
+  bytes a frame: the menu moves little). Not measured yet: a game that redraws the whole screen, the cost of a frame on the
+  ARM, a bigger picture.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
   `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
   `net fetch URL [NAME] [replace]` (`src/kernel/netfetch.c`, Pi only: the RGB30 has no Monitor): a `.bm` into `/bm` or a
