@@ -135,7 +135,7 @@ build. It skips when Node is missing. Run result on 22 Oct: ok, equal to the PC 
   3 s and when the cartridge ends. Checked in the built-in browser with `tests/webplayer/save.lua`: the file
   `5B2B419C.SAV` was written, a reload of the page gave `runs=2` (it was 1), and a press of A saved 102. This
   check is by hand: IDBFS needs a browser.
-- 3D: `make test-wasm-3d` played the 3D stages cartridge (Stages 3D, removed 25 Oct; the rule now plays `herocart.bm` for 10 s with no input script, not run: no emcc) on the PC build and
+- 3D: `make test-wasm-3d` played the 3D stages cartridge (Stages 3D, removed 25 Oct; the rule now plays `hero.bm` for 10 s with no input script, not run: no emcc) on the PC build and
   on the wasm build and compares one frame in 60: 20 frames, all byte-equal. So `r3d.c` and the float maths
   give the same pixels in wasm. The speed of 3D in wasm is not measured.
 

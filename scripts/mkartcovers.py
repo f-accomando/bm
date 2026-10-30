@@ -402,7 +402,7 @@ def yharnam(a):
     a.over(lay)
 
 
-def herocart(a):
+def hero(a):
     a.glow(44, 30, 36, 0x60A0FF, 0.6)
     lay, d = a.draw()
     d.polygon(P([(0, 40), (88, 40), (88, 62), (0, 62)]), fill=(34, 44, 76, 255))
@@ -497,7 +497,7 @@ COVERS = {
     "titan_ex": ("Titan Clash EX", 0x120C28, 0x5A3A18, lambda a: titan(a, True)),
     "typing": ("Pad Typing", 0x0E2A38, 0x2A6A70, typing),
     "yharnam": ("Yharnam", 0x06141E, 0x1A4450, yharnam),
-    "herocart": ("Hero Stress", 0x141A3A, 0x2A4A9A, herocart),
+    "hero": ("Hero Stress", 0x141A3A, 0x2A4A9A, hero),
     "bmweb": ("bm Web", 0x0E2850, 0x2078B0, bmweb),
     "bench3d": ("3D Bench", 0x0A1A2E, 0x1E4A6E, bench3d),
     "agent": ("bm Agent", 0x1A1240, 0x4A3A9A, agent),

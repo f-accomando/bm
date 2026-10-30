@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Hero Stress is written in several Lua files (carts/herocart/src/*.lua, in
+Hero Stress is written in several Lua files (carts/hero/src/*.lua, in
 name order); a cartridge has one script, so they are joined into one
 main.lua. The first file (00_*.lua) declares the shared locals and stays at
 the top level; every other file goes inside `do ... end`, so its own locals
 never count against Lua's limit of 200 per function.
 
-  carts/herocart/build/build.py OUT.lua [--map OUT.map]
+  carts/hero/build/build.py OUT.lua [--map OUT.map]
 
 The map lists where each file starts in OUT.lua, to find the source line
 of an error message ("main.lua:1234").
@@ -59,7 +59,7 @@ def main():
     # log: the first 7 hex digits of the sources' SHA-1, so the same game
     # always has the same tag and any change gives a new one
     tag = hashlib.sha1(text.encode("utf-8")).hexdigest()[:7]
-    text += f'HEROCART_BUILD = "{tag}"\n'
+    text += f'HERO_BUILD = "{tag}"\n'
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(text)

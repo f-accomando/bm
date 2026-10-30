@@ -891,7 +891,7 @@ Due campi dell'header dicono dove il gioco è fatto per girare. `targets` elenca
 | `carts/snake` | griglia, tempo di gioco, record |
 | `carts/shooter` | sprite scritti nel codice con `sset`, ondate, particelle |
 | `carts/astrowing` | 3D: modelli, nebbia, camera che si inclina, orizzonte |
-| `carts/herocart` | sprite sheet PNG e mappe CSV veri e propri (pavimento, altezze, muri), una piazza 3D con eroi che camminano |
+| `carts/hero` | sprite sheet PNG e mappe CSV veri e propri (pavimento, altezze, muri), una piazza 3D con eroi che camminano |
 | `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
 | `carts/overbit` | modelli 3D fatti con bm Studio e animati con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, `bone_turn()`, notte con `lamp3d` e nebbia |
 | `carts/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |

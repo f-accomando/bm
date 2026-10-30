@@ -211,7 +211,7 @@ class CliTest(unittest.TestCase):
             self.assertIn("not a .bm", r.stderr)
 
     def test_a_cart_in_the_repo(self):
-        path = os.path.join(ROOT, "carts", "herocart", "assets", "models.bm")
+        path = os.path.join(ROOT, "carts", "hero", "assets", "models.bm")
         if not os.path.exists(path):
             self.skipTest("fixture missing")
         out = json.loads(self.run_cli(path, "--json").stdout)

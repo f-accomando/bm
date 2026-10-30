@@ -15,7 +15,7 @@ footer: bm manuals - game API 1
 
 # How a cartridge works
 
-A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C (640×360, 16-bit RGB565 colour, 60 frames a second); Lua only does the logic. Complete examples are in `carts/`: `pong/`, `snake/`, `shooter/` (code only) and `herocart/` (with a PNG sprite sheet and CSV maps).
+A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C (640×360, 16-bit RGB565 colour, 60 frames a second); Lua only does the logic. Complete examples are in `carts/`: `pong/`, `snake/`, `shooter/` (code only) and `hero/` (with a PNG sprite sheet and CSV maps).
 
 ## The functions your game defines
 

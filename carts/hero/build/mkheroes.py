@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-mkheroes.py: makes carts/herocart/assets/models.bm, the hero in four levels of
+mkheroes.py: makes carts/hero/assets/models.bm, the hero in four levels of
 detail and four outline hulls (docs/design/hero-stress-cart-and-cel-shader.md,
 sections 3.2 and 3.3).
 

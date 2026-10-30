@@ -12,7 +12,7 @@ do
     end
     textures3d(true)
     frameskip(MAX_SKIP)     -- a slow frame is not drawn: the logic runs on at 60 a second
-    log("herocart 1 start build " .. tostring(HEROCART_BUILD))
+    log("hero 1 start build " .. tostring(HERO_BUILD))
   end
 
   function _update()

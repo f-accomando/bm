@@ -1,11 +1,11 @@
 /*
- * The heroes of carts/herocart (assets/models.bm) on the V3D emulator: with the vertex shader at
+ * The heroes of carts/hero (assets/models.bm) on the V3D emulator: with the vertex shader at
  * 2 every hero (and every outline hull) must go through the mesh path (gpu3d_stats glmeshes /
  * gltris), with it off none does. A plain coloured hero with a face on two bones goes back to
  * the ARM, one triangle at a time: the models made before the one-bone-face rule do that, so
- * `test_herocart_mesh MODELS.bm --expect-fallback` checks that the old file still shows the fault.
+ * `test_hero_mesh MODELS.bm --expect-fallback` checks that the old file still shows the fault.
  *
- *   test_herocart_mesh carts/herocart/assets/models.bm [--expect-fallback]
+ *   test_hero_mesh carts/hero/assets/models.bm [--expect-fallback]
  */
 #include <math.h>
 #include <stdarg.h>
@@ -119,7 +119,7 @@ static gpu3d_stats_t draw_all(r3d_mesh_t *ms, int n, int vs, const char *what)
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        printf("usage: test_herocart_mesh MODELS.bm [--expect-fallback]\n");
+        printf("usage: test_hero_mesh MODELS.bm [--expect-fallback]\n");
         return 2;
     }
     const int expect_fallback = argc > 2 && strcmp(argv[2], "--expect-fallback") == 0;
@@ -172,6 +172,6 @@ int main(int argc, char **argv)
         CHECK(crowd2.glmeshes == 8 && crowd2.gltris > crowd0.gltris, "crowd: %u meshes at vs 2", crowd2.glmeshes);
     if (failed)
         return 1;
-    printf("herocart mesh: ok%s\n", expect_fallback ? " (old models: fallback shown)" : "");
+    printf("hero mesh: ok%s\n", expect_fallback ? " (old models: fallback shown)" : "");
     return 0;
 }

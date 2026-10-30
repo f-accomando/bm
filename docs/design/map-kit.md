@@ -6,14 +6,14 @@ final rules for kits later; this page records only what is built.
 ## Goal
 
 One file holds a map for the 3D map page of bm SDK, with all the elements that go with it. The example is `island`:
-an island in the ocean with a campfire in the middle. It becomes a graphics benchmark like `herocart` (3D and 2D
+an island in the ocean with a campfire in the middle. It becomes a graphics benchmark like `hero` (3D and 2D
 elements, flat colours and textures). Day, night, rain, snow and fog are not in the kit: the future `.bm` does them.
 
 ## Two looks: texture and flat
 
 Every model is in the kit twice, with the same triangles: the textured one (`palm`) and the flat one (`palm_f`, colours
 only). The object table has both names: `model` (textured) and `model_flat`. A game picks one by its options (as the
-Texture row of `herocart`). `--look texture|flat` on `bmkit.py island` makes a kit with one look only (the names of the
+Texture row of `hero`). `--look texture|flat` on `bmkit.py island` makes a kit with one look only (the names of the
 flat look then end in `_f`).
 
 - Textures are in the shared sheet, row 1 (y = 16) bark, leaf, stone, wood and row 2 (y = 32) grass, sand, water, soil.
@@ -24,7 +24,7 @@ flat look then end in `_f`).
 ## The island: size and sea
 
 - The map is 72 x 72 tiles (144 x 144 cells, 1 unit a tile). The land is about 48 units across. Its middle is
-  flat (height 2) and more than 32 units across, the size of the plaza of `herocart` (32 x 32 cells), so the same
+  flat (height 2) and more than 32 units across, the size of the plaza of `hero` (32 x 32 cells), so the same
   crowd of models fits. One step (height 1) and a beach (height 0, the sea level) go down to the water.
 - The map holds 24 palms, 40 bushes, 60 grass tufts, 22 rocks, the campfire in the middle, a chest, a boat and the
   player start (about 144 objects).

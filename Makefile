@@ -218,7 +218,7 @@ $(BUILD)/carts/%.bm: $$(call c_lua,$$*) scripts/mkbm.py scripts/bmmesh.py $$(cal
 	$(call CART_RECIPE,$*)
 
 # The projects (.bme) of the carts the Dev tab edits: the same cartridge, built the same way
-BME_CARTS := kitchen bmweb agent herocart
+BME_CARTS := kitchen bmweb agent hero
 $(BME_CARTS:%=$(BUILD)/carts/%.bme): $(BUILD)/carts/%.bme: $$(call c_lua,$$*) scripts/mkbm.py $$(call c_deps,$$*)
 	$(call CART_RECIPE,$*)
 
@@ -295,14 +295,14 @@ lua_nano8 := $(BUILD)/nano8/main.lua
 
 # Hero Stress (docs/design/hero-stress-cart-and-cel-shader.md, stage 1): a plaza with walking heroes, to
 # compare the 3D options on the Pi. Not in GAMES: it does not go in dist/bm or the Market.
-# The models and the plaza are committed (carts/herocart/assets/, made by build/mkheroes.py and
-# build/mkplaza.py); the sources are carts/herocart/src/*.lua joined by build/build.py.
-HEROCART_SRC := $(sort $(wildcard carts/herocart/src/*.lua))
-$(BUILD)/herocart/main.lua: $(HEROCART_SRC) carts/herocart/build/build.py
-	$(PYTHON) carts/herocart/build/build.py $@ --map $(BUILD)/herocart/main.map
+# The models and the plaza are committed (carts/hero/assets/, made by build/mkheroes.py and
+# build/mkplaza.py); the sources are carts/hero/src/*.lua joined by build/build.py.
+HERO_SRC := $(sort $(wildcard carts/hero/src/*.lua))
+$(BUILD)/hero/main.lua: $(HERO_SRC) carts/hero/build/build.py
+	$(PYTHON) carts/hero/build/build.py $@ --map $(BUILD)/hero/main.map
 
-lua_herocart := $(BUILD)/herocart/main.lua
-layers_herocart := floor height walls
+lua_hero := $(BUILD)/hero/main.lua
+layers_hero := floor height walls
 
 # Overbit (M38): a hero shooter in 3D. Several Lua files joined by its
 # build.py; the heroes' models and animations (MESH, ANIM) made by
@@ -490,10 +490,10 @@ test-riff: $(BUILD)/host/bmhost-bin $(BUILD)/riff-test.bm
 test-islandbench: $(BUILD)/host/bmhost-bin $(BUILD)/carts/islandbench.bm tests/islandbench/check.py
 	$(PYTHON) tests/islandbench/check.py $< $(BUILD)/carts/islandbench.bm $(BUILD)/islandbench/test
 
-test-herocart: $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm tests/herocart/check.py carts/herocart/build/mkheroes.py
-	$(PYTHON) tests/herocart/check.py $< $(BUILD)/carts/herocart.bm $(BUILD)/herocart/test
-	$(MAKE) $(BUILD)/host/test_herocart_mesh
-	$(BUILD)/host/test_herocart_mesh carts/herocart/assets/models.bm
+test-hero: $(BUILD)/host/bmhost-bin $(BUILD)/carts/hero.bm tests/hero/check.py carts/hero/build/mkheroes.py
+	$(PYTHON) tests/hero/check.py $< $(BUILD)/carts/hero.bm $(BUILD)/hero/test
+	$(MAKE) $(BUILD)/host/test_hero_mesh
+	$(BUILD)/host/test_hero_mesh carts/hero/assets/models.bm
 
 # The RGB30's charge from the voltage and the current (rows of the run-down of 2026-10-27)
 test-battery-curve: tests/rgb30/test_battery_curve.c src/rgb30/battery_curve.h
@@ -719,16 +719,16 @@ WEB_PLAYER := $(BUILD)/web/player
 $(WEB_PLAYER)/bmweb.js: web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
 	@mkdir -p $(WEB_PLAYER)
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sENVIRONMENT=web,node -sMODULARIZE -sEXPORT_NAME=createBmWeb 	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_bmweb_start,_bmweb_input,_bmweb_quit -lidbfs.js -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,FS,IDBFS 	    -o $@ web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
-web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/* web/models/*) $(BUILD)/carts/kitchen.bm $(BUILD)/carts/herocart.bm
+web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/* web/models/*) $(BUILD)/carts/kitchen.bm $(BUILD)/carts/hero.bm
 	cp web/index.html web/style.css web/app.js web/bmcart.js web/bmring.js web/player.js $(WEB_PLAYER)/
 	cp -r web/assets $(WEB_PLAYER)/
 	rm -rf $(WEB_PLAYER)/models && mkdir -p $(WEB_PLAYER)/models
 	cp web/models/*.html web/models/*.bmm web/models/*.png web/models/robots.txt $(WEB_PLAYER)/models/
 	cp $(BUILD)/carts/kitchen.bm $(WEB_PLAYER)/kitchen.bm
-	cp $(BUILD)/carts/herocart.bm $(WEB_PLAYER)/herocart.bm
+	cp $(BUILD)/carts/hero.bm $(WEB_PLAYER)/hero.bm
 # a 3D cartridge (the ARM rasterizer): its frames in wasm equal the PC build's (Hero Stress, no input script)
-test-wasm-3d: $(BUILD)/web/bmhost.js $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm
-	sh tests/webplayer/compare3d.sh $(BUILD) $(BUILD)/carts/herocart.bm "" 10
+test-wasm-3d: $(BUILD)/web/bmhost.js $(BUILD)/host/bmhost-bin $(BUILD)/carts/hero.bm
+	sh tests/webplayer/compare3d.sh $(BUILD) $(BUILD)/carts/hero.bm "" 10
 test-wasm: $(BUILD)/web/bmhost.js $(BUILD)/web/player/bmweb.js
 	$(PYTHON) tests/webplayer/run_wasm.py $(BUILD)
 
@@ -793,7 +793,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-islandbench test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-islandbench test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
@@ -992,7 +992,7 @@ HOST_TESTS := test-jobs test-bm test-res test-compat test-usb test-fat test-fat-
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
-QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm $(BUILD)/carts/mapkit.bm $(BUILD)/carts/testkit.bm
+QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/hero.bm $(BUILD)/carts/mapkit.bm $(BUILD)/carts/testkit.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
 
 test: all $(HOST_TESTS) $(QEMU_DEPS)
@@ -1638,14 +1638,14 @@ $(BUILD)/host/test_impostor: tests/bm/test_impostor.c tests/gpu/v3d_emu.c tests/
 test-impostor: $(BUILD)/host/test_impostor
 	$<
 
-# The heroes of carts/herocart through the vertex shader's mesh path (V3D emulator)
-$(BUILD)/host/test_herocart_mesh: tests/bm/test_herocart_mesh.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c \
+# The heroes of carts/hero through the vertex shader's mesh path (V3D emulator)
+$(BUILD)/host/test_hero_mesh: tests/bm/test_hero_mesh.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c \
                                   src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c \
                                   src/bm/gfx16.c src/bm/format.c src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
-	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_herocart_mesh.c tests/gpu/v3d_emu.c \
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_hero_mesh.c tests/gpu/v3d_emu.c \
 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/r3d.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c $@-gpu3d.o -lm
 
 # Cel light on the ARM raster (cel3d, draw3d flag 256, dither3d): the table, the bands on a sphere,

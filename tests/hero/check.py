@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Hero Stress (carts/herocart) in bmhost, no hardware (stage 1 of
+Hero Stress (carts/hero) in bmhost, no hardware (stage 1 of
 docs/design/hero-stress-cart-and-cel-shader.md):
 
-  1. the models: carts/herocart/build/mkheroes.py --check (the 8 triangle counts);
+  1. the models: carts/hero/build/mkheroes.py --check (the 8 triangle counts);
   2. a scripted run: the printed line has its fields, `tri` rises with the hero
      count and falls from level 0 to level 3, the keys change `n` and `lod`;
   3. the sweep (Start + A): 10 table lines `sweep n=..` and the load line.
 
-  tests/herocart/check.py BMHOST-BIN CART.bm WORKDIR
+  tests/hero/check.py BMHOST-BIN CART.bm WORKDIR
 """
 import os
 import re
@@ -17,7 +17,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
-LINE = re.compile(r"^herocart 1 t=(\d+) n=(\d+) lod=(\S+) res=(\d+)x(\d+) opt=(\S+) \| ms=([\d.]+) max=([\d.]+) "
+LINE = re.compile(r"^hero 1 t=(\d+) n=(\d+) lod=(\S+) res=(\d+)x(\d+) opt=(\S+) \| ms=([\d.]+) max=([\d.]+) "
                   r"fps=(\d+) gpu=([\d.]+) wait=([\d.]+) anim=([\d.]+) tri=(\d+) vtx=(\d+) lua=(\d+) kb=(\d+) skip=(\d+)$")
 
 
@@ -36,13 +36,13 @@ def run(host, cart, work, name, taps, seconds):
     out = r.stdout + r.stderr
     assert r.returncode == 0, out[-2000:]
     assert "error" not in out.lower().replace("0 error", ""), out[-2000:]
-    return [l for l in out.splitlines() if l.startswith(("herocart", "sweep"))]
+    return [l for l in out.splitlines() if l.startswith(("hero", "sweep"))]
 
 
 def main():
     host, cart, work = sys.argv[1:4]
     os.makedirs(work, exist_ok=True)
-    r = subprocess.run([sys.executable, os.path.join(ROOT, "carts", "herocart", "build", "mkheroes.py"), "--check"],
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "carts", "hero", "build", "mkheroes.py"), "--check"],
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     print(r.stdout.strip().splitlines()[-1])
@@ -91,7 +91,7 @@ def main():
     print("resolution row:", "x".join(rows[0][3:5]), "->", "x".join(rows[-1][3:5]))
 
     # 2d. the help of the panel: one table, a text of at most two lines of 44 characters for every row
-    src = open(os.path.join(ROOT, "carts", "herocart", "src", "30_options.lua"), encoding="utf-8").read()
+    src = open(os.path.join(ROOT, "carts", "hero", "src", "30_options.lua"), encoding="utf-8").read()
     names = re.findall(r'(?:choice|grey|heroes = \{ name =) ?\(?"([^"]+)"', src) + ["Heroes"]
     help_ = {k: (a, b) for k, a, b in re.findall(r'\["([^"]+)"\] = \{ "([^"]*)", "([^"]*)" \}', src)}
     assert set(names) == set(help_), (sorted(set(names) ^ set(help_)))
@@ -110,7 +110,7 @@ def main():
     assert tris == sorted(tris) and tris[0] < tris[-1], tris
     assert "sweep load60=" in r.stdout + r.stderr
     print("sweep:", len(sw), "lines, tri", tris[0], "->", tris[-1])
-    print("herocart: ok")
+    print("hero: ok")
 
 
 if __name__ == "__main__":

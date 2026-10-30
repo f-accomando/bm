@@ -709,7 +709,7 @@ PLAYER_START = 1024
 # ---------------------------------------------------------------- the map
 
 # 72 x 72 tiles of 16 x 16 pixels = 144 x 144 cells (1 unit a tile). The land is about 48 units across; its flat middle
-# is more than 32 across, the size of herocart's plaza (32 x 32 cells), so the same crowd of models fits.
+# is more than 32 across, the size of hero's plaza (32 x 32 cells), so the same crowd of models fits.
 MAP_TILES = 72
 PLATEAU = 0.78                                            # the flat middle: this part of the radius, at height 2
 

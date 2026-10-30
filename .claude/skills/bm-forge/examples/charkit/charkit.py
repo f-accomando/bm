@@ -268,10 +268,22 @@ def build(spec):
             prev = ids
             fr.append(ids)
         s.cap(prev, P(pl["foot"][-1][4]), inside=(cx, 0.1, 0.1))
-        for j, ln, dx in pl.get("toes", []):
-            base = [fr[-1][j], fr[-1][(j + 1) % 6], fr[-2][(j + 1) % 6], fr[-2][j]]
-            c = s.centre(base)
-            s.tent(base, (c[0] + sx * dx, c[1] - 0.01, c[2] + ln), P(pl["toe_colour"]), fb)
+        # The ring of one leg starts at another angle than the ring of the other (align() turns it to the pelvis arc),
+        # so the sector numbers of the spec are not the same side of the foot on L and R. The toes go on the three sectors
+        # that face forward (the greatest z), the outer toe on the outer sector: the two feet are mirror images.
+        toes = pl.get("toes", [])
+        if toes:
+            def sector(j):
+                ids = [fr[-1][j], fr[-1][(j + 1) % 6]]
+                v = [s.v[i] for i in ids]
+                return j, (v[0][0] + v[1][0]) / 2, (v[0][2] + v[1][2]) / 2
+            fw = sorted((sector(j) for j in range(6)), key=lambda t: -t[2])[:len(toes)]
+            fw.sort(key=lambda t: -sx * t[1])                    # the outer sector first
+            spec_toes = sorted(toes, key=lambda t: -t[2])        # the outer toe first (the biggest dx)
+            for (j, _, _), (_, ln, dx) in zip(fw, spec_toes):
+                base = [fr[-1][j], fr[-1][(j + 1) % 6], fr[-2][(j + 1) % 6], fr[-2][j]]
+                c = s.centre(base)
+                s.tent(base, (c[0] + sx * dx, c[1] - 0.01, c[2] + ln), P(pl["toe_colour"]), fb)
     s.quad(R[0][9], R[0][2], R[0][3], R[0][8], P(pl["crotch"]), (0, 0.7, 0))
 
     # ---- tail: grows from a patch of pelvis/waist vertices at the back

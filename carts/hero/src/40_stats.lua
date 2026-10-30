@@ -101,7 +101,7 @@ do
       -- the frame count and the cursor row: a test that sends keys waits on them (a serial key is held 10 frames)
       log(string.format("hkeys f=%d row=%d", H.frame, H.cur))
       add_line(string.format(
-        "herocart 1 t=%d n=%d lod=%s res=%dx%d opt=%s | ms=%s max=%s fps=%d gpu=%s wait=%s anim=%s tri=%d vtx=%d lua=%d kb=%d skip=%d",
+        "hero 1 t=%d n=%d lod=%s res=%dx%d opt=%s | ms=%s max=%s fps=%d gpu=%s wait=%s anim=%s tri=%d vtx=%d lua=%d kb=%d skip=%d",
         math.floor(now), H.n, H.lod_name(), SCREEN_W, SCREEN_H, H.opt_string(), fmt(L.ms), fmt(L.max), math.floor(L.fps),
         fmt(L.gpu), fmt(L.wait), fmt(L.anim), math.floor(L.tri), math.floor(L.vtx), math.floor(L.lua / 1000),
         math.floor(L.kb), L.skip))
@@ -110,14 +110,14 @@ do
     end
   end
 
-  -- Start saves the last 120 lines in /docs (the player copies herocart.txt) and as a report
+  -- Start saves the last 120 lines in /docs (the player copies hero.txt) and as a report
   function H.save()
-    local head = string.format("herocart 1 saved t=%d n=%d lod=%s res=%dx%d map=%s\n", math.floor(time()), H.n,
+    local head = string.format("hero 1 saved t=%d n=%d lod=%s res=%dx%d map=%s\n", math.floor(time()), H.n,
       H.lod_name(), SCREEN_W, SCREEN_H, H.map_tris and tostring(math.floor(H.map_tris)) or "-")
     local text = head .. table.concat(H.lines, "\n") .. "\n"
-    local ok = doc_write("herocart.txt", text)
-    report("herocart", text)
-    H.save_note = ok and "saved herocart.txt" or "doc_write failed"
+    local ok = doc_write("hero.txt", text)
+    report("hero", text)
+    H.save_note = ok and "saved hero.txt" or "doc_write failed"
     H.save_t = time()
   end
 end

@@ -964,7 +964,7 @@ Two header fields say where the game is made to run. `targets` lists the devices
 | `carts/snake` | a grid, game time, record |
 | `carts/shooter` | sprites written in the code with `sset`, waves, particles |
 | `carts/astrowing` | 3D: models, fog, a camera that tilts, horizon |
-| `carts/herocart` | a real PNG sprite sheet and CSV maps (floor, height, walls), a 3D plaza with walking heroes |
+| `carts/hero` | a real PNG sprite sheet and CSV maps (floor, height, walls), a 3D plaza with walking heroes |
 | `carts/kitchen` | a big game: sources in several files joined by `build.py`, 3D with meshes built in code, 1–4 players (`btn(i, p)`, `players()`), and saves |
 | `carts/overbit` | 3D models made with bm Studio and animated with bm Animator (`models.bm`): `model()`, `animate()` with two animations blended, `bone3d()`, `bone_turn()`, night with `lamp3d` and fog |
 | `carts/titan` | big pre-rendered sprites (a 3D model made in Python becomes layered pixel art: one frame, many combinations of equipment), a big sheet with a palette (`--sheet8`), parallax, the states of a fighting game with per-frame hitboxes, a CPU opponent |

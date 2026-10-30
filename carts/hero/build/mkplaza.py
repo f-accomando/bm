@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-mkplaza.py: makes the plaza of carts/herocart: assets/sheet.png (128 x 128, 8 pixel
+mkplaza.py: makes the plaza of carts/hero: assets/sheet.png (128 x 128, 8 pixel
 tiles) and the three layers of the 3D map, assets/map_floor.csv, map_height.csv and
 map_walls.csv (docs/api/light3d.md, "3D Map terrain").
 

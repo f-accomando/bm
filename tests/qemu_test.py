@@ -4815,8 +4815,8 @@ def test_square_lights(b, opts):
         q.close()
 
 
-def test_herocart(b, opts):
-    """Hero Stress (carts/herocart, stage 1 of docs/design/hero-stress-cart-and-cel-shader.md) on the
+def test_hero(b, opts):
+    """Hero Stress (carts/hero, stage 1 of docs/design/hero-stress-cart-and-cel-shader.md) on the
     ARM raster of QEMU: it starts, prints its 1 s line for 4 seconds with no Lua error; R1 ('o' from the
     serial line) draws one hero more, X ('c') changes the polygon level, down ('s') and right ('d') change the row's value"""
     q = Qemu(b("kernel.img"))
@@ -4824,7 +4824,7 @@ def test_herocart(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/herocart.bm"), "rb") as f:
+        with open(b("carts/hero.bm"), "rb") as f:
             assert _upload(q, f.read())
 
         def wait(needle, timeout=90):
@@ -4861,7 +4861,7 @@ def test_herocart(b, opts):
 
         wait(" n=20 lod=auto res=640x360 opt=")
         wait("kb=")
-        wait("herocart 1 t=")          # frames go on: a second and another line
+        wait("hero 1 t=")          # frames go on: a second and another line
         wait("kb=")
         settle()
         key("o", lambda r, s: " n=21 lod=auto " in s)      # R1: a hero more

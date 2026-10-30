@@ -7,7 +7,7 @@
 
 Two goals:
 
-- **A.** A separate cartridge, `herocart`: a plaza with heroes that walk. The player changes the hero count, the hero polygon level and the render options in real time. The cart shows the cost (ms, GPU ms, triangles, fps).
+- **A.** A separate cartridge, `hero`: a plaza with heroes that walk. The player changes the hero count, the hero polygon level and the render options in real time. The cart shows the cost (ms, GPU ms, triangles, fps).
 - **B.** A cel shader API (toon shading): the light is cut into a few bands, with an optional outline. The cart tests it.
 
 The Pi Zero W (V3D, RGB565) is the benchmark. The RGB30 (Mali) follows later.
@@ -32,15 +32,15 @@ Today the RGB30 draws 3D with the ARM raster (`src/bm/r3d.c`): the Mali triangle
 | Dev kit numbers | [system.md](../api/system.md) `stat()` | 1 ms, 2 fps, 4 triangles, 7 vertices, 10 Lua instructions, 16 GPU ms, 18 ARM wait ms. |
 | Saving text from Lua | `doc_write(name, bytes)`, `report(kind, text)` | `doc_write` writes in `/docs`. `report` writes in `bm/reports`. **No Lua call writes in `bm/bench/`** today. |
 
-## 2. The cart: `herocart`
+## 2. The cart: `hero`
 
 ### 2.1 Name and sources
 
-- Name: **Hero Stress** (`bm.info` name), folder `carts/herocart/`. The file is `herocart.bm`. The RGB30 panels come in stage 5 in the same `.bm`.
+- Name: **Hero Stress** (`bm.info` name), folder `carts/hero/`. The file is `hero.bm`. The RGB30 panels come in stage 5 in the same `.bm`.
 - Layout (as `carts/stages3d`):
 
 ```
-carts/herocart/
+carts/hero/
   common/00_core.lua      locals, constants, the OPT table (every option, its values, how to apply it)
   common/10_world.lua     plaza map (map3d), camera presets
   common/20_heroes.lua    hero state, waypoint walk, LOD pick
@@ -55,7 +55,7 @@ carts/herocart/
   build/mkheroes.py       hero + 4 LODs + 4 hulls (section 3)
 ```
 
-- The cart is **not** in `GAMES` (`Makefile`): it does not go in `dist/bm` or the Market. Target: `make build/carts/herocart.bm`.
+- The cart is **not** in `GAMES` (`Makefile`): it does not go in `dist/bm` or the Market. Target: `make build/carts/hero.bm`.
 - It is a `.bme` project in the editors. The repository holds the sources; `.bm` files stay read-only.
 - Lua only. No C change in stage 1.
 
@@ -157,12 +157,12 @@ The dev kit overlay (`devkit()`) stays under the player's control. The cart neve
 Once per second, `log()` (serial and console) and the ring buffer get one line:
 
 ```
-herocart 1 t=12 n=20 lod=auto res=640x360 opt=gpu,vs2,q1,aa0,tex,smooth,z,dith,fog0,shd0,cel0,out0 | ms=9.8 max=12.1 fps=60 gpu=7.2 wait=0.4 anim=1.1 tri=31200 vtx=18400 lua=210 kb=1840
+hero 1 t=12 n=20 lod=auto res=640x360 opt=gpu,vs2,q1,aa0,tex,smooth,z,dith,fog0,shd0,cel0,out0 | ms=9.8 max=12.1 fps=60 gpu=7.2 wait=0.4 anim=1.1 tri=31200 vtx=18400 lua=210 kb=1840
 ```
 
 - `ms` is `stat(1)`, `fps` `stat(2)`, `tri` `stat(4)`, `vtx` `stat(7)`, `lua` `stat(10)` (thousands), `kb` `stat(0)`, `gpu` `stat(16)`, `wait` `stat(18)`.
 - **Rule.** `stat(16)`, `stat(17)` and `stat(18)` are read only for the panel and the printed line. No `if` in the game logic uses them (the cart has no quality governor). The sweep (2.7) is driven by frame counts, not by `stat`.
-- Start saves the last 120 lines plus a header (kernel version, board, the `options` line, the map base) in two places that exist today: `doc_write("HEROCART.TXT", text)` (the player copies it from `/docs`) and `report("herocart", text)` (`bm/reports`, sent to the reports branch when the network is on).
+- Start saves the last 120 lines plus a header (kernel version, board, the `options` line, the map base) in two places that exist today: `doc_write("HERO.TXT", text)` (the player copies it from `/docs`) and `report("hero", text)` (`bm/reports`, sent to the reports branch when the network is on).
 - Stage 1b (small, optional): a call `bench_save(name, text)` that writes `bm/bench/` like the 3D Bench (`3D0001.TXT`). It needs a C change in `runtime.c`. The proposal is to wait: `doc_write` is enough for the first Pi runs.
 
 ### 2.7 The sweep
@@ -280,26 +280,26 @@ Way A details:
 
 Each PR runs the checks of the closing list in `CLAUDE.md`: `python scripts/docs_audit.py score`, `python scripts/consistency.py check`, and (stages 2, 3) `consistency.py gate`.
 
-### Stage 1: the cart, existing options only (done; state in [herocart](../progress/herocart.md))
+### Stage 1: the cart, existing options only (done; state in [hero](../progress/hero.md))
 
-Built as described below, with these differences: one hero (`charkit` rango, 984 triangles, flat colours), so the Texture row switches the plaza; rows 17 (alpha) is greyed too; the test is `tests/herocart/check.py` (`make test-herocart`) and `-k herocart` in QEMU; the console `options` line is not read by Lua.
+Built as described below, with these differences: one hero (`charkit` rango, 984 triangles, flat colours), so the Texture row switches the plaza; rows 17 (alpha) is greyed too; the test is `tests/hero/check.py` (`make test-hero`) and `-k hero` in QEMU; the console `options` line is not read by Lua.
 
 Scope:
 
-- `carts/herocart/` as in 2.1, 640x360 panel only, rows 1-11 and 13-18 live, row 19 with the baked hull, rows 12 and 20 greyed.
+- `carts/hero/` as in 2.1, 640x360 panel only, rows 1-11 and 13-18 live, row 19 with the baked hull, rows 12 and 20 greyed.
 - Hero + 4 LODs + 4 hulls in `assets/`, made by `build/mkheroes.py` (bm-forge `charkit` + `bmdecimate`).
 - Sweep, panel, 1 s line, `doc_write` + `report`.
-- `Makefile` target `build/carts/herocart.bm` (not in `GAMES`), `docs/progress/herocart.md` (new, linked from `graphics.md`).
+- `Makefile` target `build/carts/hero.bm` (not in `GAMES`), `docs/progress/hero.md` (new, linked from `graphics.md`).
 - No C, no kernel change.
 
 Tests (no hardware):
 
-- `tests/herocart/check.py` (as the stages3d check): build the cart, run it in the PC runtime (`bmhost`) with a scripted input; check the log line format, `tri` rises with `n`, `tri` falls from LOD 0 to 3, the sweep prints 10 table lines.
+- `tests/hero/check.py` (as the stages3d check): build the cart, run it in the PC runtime (`bmhost`) with a scripted input; check the log line format, `tri` rises with `n`, `tri` falls from LOD 0 to 3, the sweep prints 10 table lines.
 - Counts: `mkheroes.py --check` prints the real triangles of the 8 models; the test fails if a level is off by more than 15%.
-- QEMU smoke: `python tests/qemu_test.py -k herocart` (ARM path, no GPU): starts, draws 120 frames, no Lua error.
+- QEMU smoke: `python tests/qemu_test.py -k hero` (ARM path, no GPU): starts, draws 120 frames, no Lua error.
 - ARM instruction cost per level: `tests/bm/herocost.py` on the cart's models (LOD 0-3, hull). This gives the hull ratio before the Pi.
 
-Pi numbers to collect (copy `HEROCART.TXT` from `/docs`; one run per row, 640x360):
+Pi numbers to collect (copy `HERO.TXT` from `/docs`; one run per row, 640x360):
 
 | Run | Settings | Keep |
 |---|---|---|
@@ -310,7 +310,7 @@ Pi numbers to collect (copy `HEROCART.TXT` from `/docs`; one run per row, 640x36
 | 5 | n 20, resolution 320x180 ... 960x540 | ms, gpu |
 | 6 | n 20, LOD 0 and 1, outline on / off | the hull cost (gate of stage 4) |
 
-### Stage 2: cel on the ARM raster (done; state in [herocart](../progress/herocart.md))
+### Stage 2: cel on the ARM raster (done; state in [hero](../progress/hero.md))
 
 Built as described below, with these differences: bm3D 7.4. The table is built by `r3d_cel`; `cel3d` sets all four values at each call; flag 512 and the outline arguments are kept and draw nothing (stage 4). A cel draw on a backend skips `backend->mesh` and goes triangle by triangle, as with `vs` 1. `dither3d(false)` replaces the dither by a constant half step: it saves no fill time. `herocost.py` was not run; the lighting cost is not measured.
 
@@ -322,10 +322,10 @@ Built as described below, with these differences: bm3D 7.4. The table is built b
   - Host unit test (a new `tests/bm/test_cel.c`, built like `test_impostor.c`): a lit sphere on a `g16` buffer; with `bands = N` the number of distinct grey levels on the sphere is at most `N + ambient steps`; with `bands = 0` the picture checksum equals the one of before (old carts unchanged).
   - Table test: `dd` just below and above each band edge gives the right band; `floor_` 0 and 1.
   - `herocost.py`: ARM instructions of one hero with and without cel; the difference must be under 2%.
-  - QEMU: `-k herocart` with cel rows on.
+  - QEMU: `-k hero` with cel rows on.
 - Pi numbers: runs 3 and 4 again with `Cel` on and `Dither` off; expected delta near 0 for cel. `Dither` off: ARM fill saving, size not known.
 
-### Stage 3: cel on the V3D (done, bm3D 7.5; state in [herocart](../progress/herocart.md))
+### Stage 3: cel on the V3D (done, bm3D 7.5; state in [hero](../progress/hero.md))
 
 Built as way A, with these differences: the `_cel` programs are four copies of the lit programs with the cut block after the `max(d, 0)` line (`cel_variant` in `tools/qpuasm.py`), four more uniforms (N, N - 1 as an integer, the scale, the floor); the code block grows from 40 to 48 KB; the probe is `probe_lit(…, 1)` (status `cel light yes/no`); the cut is not rounded to 1/255 as the ARM table is. `r3d_backend_t.cel` and `r3d_env_t.cel` carry the request. No `heroes_cel` bench test in this change (the 3D Bench is in another branch). The host test is the scenes `cel *` of `tests/gpu/test_gpu3d.c` (ARM against the V3D emulator).
 
@@ -335,7 +335,7 @@ Built as way A, with these differences: the `_cel` programs are four copies of t
   - QPU emulator (`src/gpu/qpu.c`): run each `_cel` program on 1000 fixed normals; compare with the ARM table (skip values within 1e-4 of a band edge); the old programs still match their old output.
   - `make test-b3d`: the new test runs on all profiles; GPU and ARM pictures of a cel hero differ by at most the Gouraud rounding already tolerated.
   - `python tools/qpuasm.py` self-test (the generator checks the programs).
-  - QEMU: `-k herocart` (no GPU in QEMU: only the fallback is exercised).
+  - QEMU: `-k hero` (no GPU in QEMU: only the fallback is exercised).
 - Pi numbers: run 2 with `Cel` on / off at `vs` 2; ms and `gpu` delta (expected within 3%); the `heroes_cel` row of the bench; probe result in `gpu` status. Stage 3b (way C) only if flat cel looks wrong in smooth draws.
 
 ### Stage 4: outline (done, bm3D 7.5)
@@ -349,7 +349,7 @@ Built as the inverted hull in `r3d.c` for every backend: `hull_get` makes a seco
 
 ### Stage 5: RGB30 panels (after the Mali alignment)
 
-- RGB30 front in `carts/herocart/`: 360x360 and 720x720 panels, rows the kernel offers. The `targets` key lists the RGB30.
+- RGB30 front in `carts/hero/`: 360x360 and 720x720 panels, rows the kernel offers. The `targets` key lists the RGB30.
 - Not verified on hardware until the owner runs it.
 
 ## 6. Risks

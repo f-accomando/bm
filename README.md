@@ -86,7 +86,7 @@ bm integrates **bm3d** (version 7.7 in [`src/gpu/version3d.h`](src/gpu/version3d
 ### 🎯 Measure it yourself
 - **3D Bench** (C, in the kernel: *Settings > System > Utilities* on the Pi, the Dev tab on the RGB30, or the `j` key of the monitor) runs every 3D test with every driver and saves a report on the SD card ([`docs/BENCH3D.md`](docs/BENCH3D.md)).
 - **3D Bench for the Market** (`carts/bench3d`): a Lua edition. It has its own numbers, not comparable with the C bench.
-- **Hero Stress** (`carts/herocart`): a plaza with walking heroes. Change the hero count, the polygon level and the 3D options in real time, and read the cost.
+- **Hero Stress** (`carts/hero`): a plaza with walking heroes. Change the hero count, the polygon level and the 3D options in real time, and read the cost.
 - **bm Web** (`carts/bmweb`): 723 frames at 59.6 fps on the Pi Zero W, no late frame (report of 24 Oct, [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET.md)).
 
 > Older measurements (Sep-Oct 2026) stay as history in [`docs/GPU-BENCHMARK-REPORT.md`](docs/GPU-BENCHMARK-REPORT.md), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) and [`docs/STRESS.md`](docs/STRESS.md). The tools they used (stress test, Texture Room, Stack bench, GPU test) were removed from the kernel on 24 Oct 2026.
