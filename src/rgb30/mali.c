@@ -862,7 +862,7 @@ typedef struct {                                /* what every core reads while i
     uint32_t sb;
     uint8_t *verts_m, *push_m, *vpush_m, *draws_m;
     uint64_t verts_pa, pos_pa, push_pa, vpush_pa;
-    const uint8_t *frs_buf, *vrs3_buf, *frst_buf;
+    const uint8_t *frs_buf, *vrs3_buf, *frst_buf, *frsta_buf;   /* frsta: the textured state that kills the texels with alpha 0 */
     uint8_t *tv_m;                              /* textured draws: vertices of 32 bytes (position, u v k), varyings of 16 */
     uint64_t tv_pa, tvy_pa;
     int fast_pack;
@@ -958,7 +958,7 @@ static void build_draws(void *p)
                 }
             }
             zero16(push_m + 64 * (size_t)d, 32);
-            memcpy(loc + D_FRSD, tm ? frst_buf : c->frsl_buf, 80);
+            memcpy(loc + D_FRSD, tm ? ((draws[d].tex_pa & 1) ? c->frsta_buf : frst_buf) : c->frsl_buf, 80);
             md_attribute_buffer(loc + D_ABUFS, (draws[d].res_blk ? c->lv2_pa : c->lv_pa) + (uint64_t)vstride * first, vstride, vstride * nv);
             md_attribute_buffer(loc + D_ABUFS + 16, 0, 0, 0);
             md_attribute_buffer(loc + D_VBUFS, (draws[d].res_blk ? c->tvy2_pa : tvy_pa) + 16 * (uint64_t)first, 16, 16 * nv);
@@ -975,7 +975,7 @@ static void build_draws(void *p)
                               .viewport = pa + sb + SO_VIEWPORT, .push_uniforms = push_pa + 64 * (uint64_t)d,
                               .thread_storage = pa + sb + SO_LS, .varying_buffers = dpa + D_VBUFS,
                               .varyings = pa + sb + SO_VATTR + MD_ATTRIBUTE_SIZE,
-                              .textures = tm ? draws[d].tex_pa : 0, .samplers = tm ? draws[d].tex_pa + 0x80 : 0 };
+                              .textures = tm ? (draws[d].tex_pa & ~1ull) : 0, .samplers = tm ? (draws[d].tex_pa & ~1ull) + 0x80 : 0 };
             md_primitive_t lprim = { .mode = MD_TRIANGLES, .index_count = nv };
             job_header(loc + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
                        d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
@@ -1005,8 +1005,8 @@ static void build_draws(void *p)
                     tvp[q] = v8[q];
             }
             zero16(push_m + 64 * (size_t)d, 32);
-            memcpy(loc + D_FRSD, draws[d].d2 == 1 ? c->frsd_buf : draws[d].d2 == 2 ? c->frsp_buf : frst_buf, 80);
-            uint64_t draw_tex = draws[d].tex_pa, draw_smp = draws[d].tex_pa ? draws[d].tex_pa + 0x80 : 0;
+            memcpy(loc + D_FRSD, draws[d].d2 == 1 ? c->frsd_buf : draws[d].d2 == 2 ? c->frsp_buf : (draws[d].tex_pa & 1) ? c->frsta_buf : frst_buf, 80);
+            uint64_t draw_tex = draws[d].tex_pa & ~1ull, draw_smp = draws[d].tex_pa ? (draws[d].tex_pa & ~1ull) + 0x80 : 0;
             if (draws[d].d2 == 2 && draws[d].ntex) {    /* sprites: the Texture descriptors of the sheets in a row, the sampler of the first */
                 uint8_t *ta = c->texa_m + 576 * (size_t)d;
                 for (uint32_t kx = 0; kx < draws[d].ntex; kx++)
@@ -1134,6 +1134,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     if (any_tex) {
         memcpy(m + sb + SO_VS_TEX, BM_VS_TEX_bin, sizeof BM_VS_TEX_bin);
         memcpy(m + sb + SO_FS_TEX, BM_FS_TEX_bin, sizeof BM_FS_TEX_bin);
+        memcpy(m + sb + SO_FS_TEXA, BM_FS_TEXA_bin, sizeof BM_FS_TEXA_bin);     /* (the textures with holes) */
     }
     int any_lit = 0;
     for (uint32_t d = 0; d < ndraws && !any_lit; d++)
@@ -1261,11 +1262,23 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                  .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = zbuf };
     md_renderer_state(frst_buf, &frst);
     md_blend_opaque(frst_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
+    /* the same with holes: the shader kills a texel with alpha 0, so the depth is written after the shader (force late) */
+    uint8_t frsta_buf[80];
+    memset(frsta_buf, 0, sizeof frsta_buf);
+    md_renderer_state_t frsta = { .fragment = 1, .shader = pa + sb + SO_FS_TEXA, .attribute_count = BM_FS_TEXA_ATTRIBUTE_COUNT,
+                                  .varying_count = BM_FS_TEXA_VARYING_COUNT, .ubo_count = BM_FS_TEXA_UBO_COUNT,
+                                  .sampler_count = 1, .texture_count = 1,
+                                  .work_regs = BM_FS_TEXA_WORK_REGS, .preload_regs = BM_FS_TEXA_PRELOAD,
+                                  .push_count = BM_FS_TEXA_PUSH_COUNT, .pixel_kill = MD_KILL_FORCE_LATE,
+                                  .zs_update = MD_KILL_FORCE_LATE, .wait6 = BM_FS_TEXA_WAIT6, .wait7 = BM_FS_TEXA_WAIT7,
+                                  .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = zbuf };
+    md_renderer_state(frsta_buf, &frsta);
+    md_blend_opaque(frsta_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
 
     bctx_t bc = { .draws = draws, .ndraws = ndraws, .pa = pa, .dpa0 = draws_pa, .sb = sb, .verts_m = verts_m,
                   .push_m = push_m, .vpush_m = vpush_m, .draws_m = draws_m, .verts_pa = verts_pa, .pos_pa = pos_pa,
                   .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .vrs3_buf = vrs3_buf,
-                  .frst_buf = frst_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
+                  .frst_buf = frst_buf, .frsta_buf = frsta_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
                   .lv_m = tv_m ? tv_m - 0x720000 + 0x80000 : NULL, .lv_pa = tv_pa - 0x720000 + 0x80000,   /* BE_LIT_FROM_TV, BE_LIT_V_OFF */
                   .litp_m = tv_m ? tv_m - 0x720000 : NULL, .litp_pa = tv_pa - 0x720000,
                   .texa_m = tv_m ? tv_m - 0x720000 + 0x180000 : NULL, .texa_pa = tv_pa - 0x720000 + 0x180000,   /* after the lit area's 0x180000 bytes */
@@ -2682,6 +2695,7 @@ typedef struct {
     const g16_sheet_t *sheet;
     uint32_t version;
     int ok, spr;                                    /* spr: the block is for the 2D (texels with alpha, nearest) */
+    int alpha;                                  /* a 3D block of a sheet with transparent texels (RGB5A1): BM_FS_TEXA kills them */
     uint64_t pa;
     float iw, ih;
 } be_texslot_t;
@@ -2691,6 +2705,8 @@ static int be_ntex;
 static uint32_t be_tpool_used;
 
 static int be_tex_on = 1;                           /* mali_tex=0 (bm_port.c): textures stay on the ARM */
+static int be_alpha_on;                             /* mali_alpha=1 (bm_port.c): a 3D sheet with transparent texels goes to the Mali (BM_FS_TEXA) */
+void mali_backend_set_alpha(int on)     { be_alpha_on = on != 0; }
 void mali_backend_set_textures(int on)  { be_tex_on = on != 0; }
 static int be_bilinear;
 void mali_backend_set_bilinear(int on)
@@ -2702,7 +2718,7 @@ void mali_backend_set_bilinear(int on)
     if (be_pend)
         (void)mali_backend_sync();              /* the GPU reads the samplers: wait for it */
     for (int i = 0; i < be_ntex; i++)           /* the sheets uploaded filter the new way */
-        if (be_texs[i].ok && !be_texs[i].spr && H) {
+        if (be_texs[i].ok && !be_texs[i].spr && !be_texs[i].alpha && H) {
             uint8_t blk[32] __attribute__((aligned(16)));
             zero16(blk, sizeof blk);
             md_sampler(blk, on);
@@ -2733,7 +2749,7 @@ static int be_tex_find_ex(const g16_t *g, const g16_sheet_t *sh, int spr)
         }
     const uint32_t w = (uint32_t)sh->w, h = (uint32_t)sh->h;
     int ok = w >= 8 && h >= 8 && w <= 4096 && h <= 4096 && (w & 7) == 0;
-    int opaque = 1;                                 /* no transparent texel: the Mali's shader draws every texel */
+    int opaque = 1;                                 /* no transparent texel: BM_FS_TEX draws every texel */
     if (ok) {
         if (sh->cell_opaque) {
             for (uint32_t c = 0; c < (w / 8) * (h / 8) && opaque; c++)
@@ -2742,9 +2758,9 @@ static int be_tex_find_ex(const g16_t *g, const g16_sheet_t *sh, int spr)
             for (uint32_t i = 0; i < w * h && opaque; i++)
                 opaque = sh->alpha[i] != 0;
         }
-        if (!spr)
-            ok = opaque;
     }
+    if (ok && !spr && !opaque && !be_alpha_on)
+        ok = 0;                                     /* holes in a 3D sheet: the ARM, unless mali_alpha=1 */
     const uint32_t size = ok ? ((0xc0u + w * h * 2u + 63u) & ~63u) : 0;
     if (ok && size > BE_TPOOL_SIZE)
         ok = 0;
@@ -2760,15 +2776,16 @@ static int be_tex_find_ex(const g16_t *g, const g16_sheet_t *sh, int spr)
     t->version = sh->version;
     t->ok = ok;
     t->spr = spr;
+    t->alpha = !spr && !opaque;
     if (ok) {
         uint8_t *blk = H->mem - (8u << 20) + be_tpool_used;
         const uint64_t bpa = H->mem_pa - (8u << 20) + be_tpool_used;
         uint8_t hdr[0xc0] __attribute__((aligned(16)));
         zero16(hdr, sizeof hdr);
-        const int a5 = spr && !opaque;
+        const int a5 = !opaque;                       /* 2D and 3D: a sheet with transparent texels is RGB5A1 */
         md_texture(hdr, w, h, a5 ? MD_FMT_RGB5A1 : MD_FMT_RGB565, bpa + 0x40);
         md_surface(hdr + 0x40, bpa + 0xc0, w * 2, w * h * 2);
-        md_sampler(hdr + 0x80, spr ? 0 : be_bilinear);
+        md_sampler(hdr + 0x80, (spr || !opaque) ? 0 : be_bilinear);
         copy_nc16(blk, hdr, sizeof hdr);
         if (a5) {                                   /* R 4:0, G 9:5, B 14:10, A 15 from R 15:11, G 10:5, B 4:0 and the alpha plane */
             uint16_t row[4096] __attribute__((aligned(16)));
@@ -2904,7 +2921,7 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
         t->rgb = 0x01000000u | (uint32_t)ts;        /* a colour no flat draw has: the draws of one texture merge */
         t->key = (v[0].z + v[1].z + v[2].z) / 3;
         t->mvp = NULL;
-        t->tex_pa = sl->pa;
+        t->tex_pa = sl->pa | (sl->alpha ? 1u : 0u);   /* bit 0: the texture has holes (BM_FS_TEXA) */
         t->light = NULL;
         return;
     }
@@ -3221,7 +3238,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                 q->nb = nb;
                 q->nvis = nvis;
                 q->vis0 = vis0;
-                q->tex_pa = tsl ? tsl->pa : 0;
+                q->tex_pa = tsl ? (tsl->pa | (tsl->alpha ? 1u : 0u)) : 0;
             }
             be_stats.glmeshes++;
             be_stats.gltris += nvis;

@@ -40,6 +40,7 @@
 #define SO_VS_LITB      0xa000      /* BM_VS_LITB (0xbb0 bytes) */
 #define SO_VS_TEXM      0xb800      /* BM_VS_TEXM (0x2a0 bytes); far from the other shaders: the GPU reads ahead of a shader and keeps zeros it saw before the copy (an 80 byte gap after BM_VS_LITB gave INSTR_INVALID_ENC) */
 #define SO_FS_SPR       0xb000      /* BM_FS_SPR (the 2D sprites) */
+#define SO_FS_TEXA      0xb400      /* BM_FS_TEXA (0xf0 bytes): BM_FS_TEX that kills the texels with alpha 0 */
 #define SO_HEAP         0x80000
 #define SO_DRAWS        0x40000
 #define SO_SURF         MALI_SET_SURFACE
