@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: Island Bench
+desc: An island with a campfire. Day or night, rain, snow or fog, sun or moon, shadows, 3D models or 2D sprites: change them and read the cost, or run the automatic benchmark.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: tool, 3d, 2d, benchmark
+type: utility
+resolution: 640x360

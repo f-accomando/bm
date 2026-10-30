@@ -243,6 +243,13 @@ $(BUILD)/carts/kratos.bm $(BUILD)/carts/kratos.bme: $(BUILD)/carts/kratos.%: car
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kratos/bm.info
 
+# Island Bench (carts/islandbench): the island of the map kit assets/island.bmk (map, models, sprites) with the
+# benchmark code in main.lua. The .bme is the source, the .bm the cartridge; the kit is merged in by bmres.py.
+$(BUILD)/carts/islandbench.bm $(BUILD)/carts/islandbench.bme: $(BUILD)/carts/islandbench.%: carts/islandbench/main.lua scripts/mkbm.py scripts/bmres.py carts/islandbench/bm.info carts/islandbench/assets/island.bmk
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/islandbench/bm.info
+	$(PYTHON) scripts/bmres.py add $@ carts/islandbench/assets/island.bmk -o $@
+
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
 TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
@@ -480,6 +487,9 @@ test-riff: $(BUILD)/host/bmhost-bin $(BUILD)/riff-test.bm
 	grep -q "^riff: \([0-9]*\)/\1 checks passed" $(BUILD)/riff-test.log
 
 # Hero Stress (stage 1): the models' counts, the printed line, the keys and the sweep, in bmhost
+test-islandbench: $(BUILD)/host/bmhost-bin $(BUILD)/carts/islandbench.bm tests/islandbench/check.py
+	$(PYTHON) tests/islandbench/check.py $< $(BUILD)/carts/islandbench.bm $(BUILD)/islandbench/test
+
 test-herocart: $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm tests/herocart/check.py carts/herocart/build/mkheroes.py
 	$(PYTHON) tests/herocart/check.py $< $(BUILD)/carts/herocart.bm $(BUILD)/herocart/test
 	$(MAKE) $(BUILD)/host/test_herocart_mesh
@@ -783,7 +793,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-islandbench test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \

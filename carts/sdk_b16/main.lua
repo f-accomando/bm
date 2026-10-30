@@ -768,11 +768,29 @@ local function remember_last(path)
   save(t)
 end
 
+-- A map kit's object table (INFO blocks "[object NAME]": id, model, scale): the objects layer holds the ids
+-- 1040 and up, map3d_objects names them "OBJ<id>" (docs/design/map-kit.md).
+local function kit_objects(info)
+  local t, cur = {}, nil
+  for line in (info or ""):gmatch("[^\r\n]+") do
+    local name = line:match("^%[object%s+([^%]%s]+)%]")
+    if name then cur = { name = name, scale = 1.0 }
+    elseif line:sub(1, 1) == "[" then cur = nil
+    elseif cur then
+      local k, v = line:match("^%s*([%w_ ]-)%s*[:=]%s*(.-)%s*$")
+      if k == "id" then cur.id = tonumber(v); t["OBJ" .. tostring(cur.id)] = cur
+      elseif k == "model" then cur.model = v
+      elseif k == "scale" then cur.scale = tonumber(v) or 1.0 end
+    end
+  end
+  return t
+end
+
 local function load_project(path)
   local p, e = cart_load(path)
   if not p then say("cannot open " .. base_name(path) .. ": " .. tostring(e), C.ERR, 400); return false end
   S.proj = { title = p.title, author = p.author, res = p.res, path = path, save = short_path(path),
-             palette = p.palette }
+             palette = p.palette, kit_info = p.info }
   S.lines = split_lines(p.lua)
   S.sheet_w, S.sheet_h, S.map_w, S.map_h = p.sheet_w, p.sheet_h, p.map_w, p.map_h
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
@@ -1397,7 +1415,7 @@ do
     camera prompt lastinput clip rgb btn btnp players stick time stat code_tokens tri screen log report keyhelp
     battery battery_low
     quit keymap controller online udp_open udp_send udp_recv udp_close net_ip net_resolve save saved keyp keyheld
-    rawkeys keydown keys pad mouse mousep timeslice ls cart_load cart_new cart_save cart_build cart_run cart_tool cart_arg
+    rawkeys keydown keys pad mouse mousep timeslice ls cart_load kit_load cart_new cart_save cart_build cart_run cart_tool cart_arg
     cart_read cart_write cart_sheet cart_audio cart_put_audio light_begin light light_end fades dark_begin glow
     dark_end note noteoff freq envelope duty playing apu hz slide vibrato arp sfx sfxpos music tempo mute volume
     audio_bank audio_pattern audio_play nnet require SCREEN_W SCREEN_H SQUARE TRIANGLE SAW NOISE SINE METAL math
@@ -2120,6 +2138,7 @@ do
   local ZOOM_STEPS = { 1, 2, 4, 8, 16 }
   local OBJ_COL = { [1024] = 0xFFD860, [1026] = 0x9A6438, [1028] = 0x8A96A8, [1030] = 0xE04040, [1032] = 0xFFC888, [1034] = 0x70A0D0 }
   local view3d = false
+  local kit_for, kit_objs = nil, {}       -- the kit objects of the project (kit_objects of its INFO)
   local w3d = nil
   local w3d_edits = -1
   local cam_yaw = 0.0
@@ -2708,6 +2727,7 @@ do
       U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "map3dview")
       clip(0, VIEW_Y, W, HINT_Y - VIEW_Y)
 
+      if kit_for ~= S.proj.kit_info then kit_for, kit_objs = S.proj.kit_info, kit_objects(S.proj.kit_info) end
       if not w3d or w3d_edits ~= S.edits then
         w3d = map3d_build({ floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 })
         w3d_edits = S.edits
@@ -2743,12 +2763,13 @@ do
         local objs = map3d_objects(w3d)
         local lamp_slot = 0
         for _, obj in ipairs(objs) do
-          local m = model(obj.kind)
+          local ko = kit_objs[obj.kind]
+          local m = ko and ko.model and model(ko.model) or model(obj.kind)
           if not m and (obj.kind == "PLAYER_START" or obj.kind == "PICO") then
             m = model("PICO")
           end
           if m then
-            draw3d(m, obj.x, obj.y, obj.z, 0, 0, 0, 1.0)
+            draw3d(m, obj.x, obj.y, obj.z, 0, 0, 0, ko and ko.scale or 1.0)
           else
             if obj.kind == "LAMP" and lamp_slot < 4 then
               lamp_slot = lamp_slot + 1                      -- lamp3d slots are 1..4
@@ -4000,6 +4021,33 @@ do
     D.choose("import a Tiled map (JSON)", rows)
   end
 
+  -- a map kit (.bmk in /bmk): its map, sheet, flags, sprites and 3D models become the project's
+  local function import_kit()
+    local rows = {}
+    local ok, files = pcall(ls, "/bmk")
+    for _, f in ipairs(ok and files or {}) do
+      if f.name:lower():match("%.bmk$") and not f.dir then
+        rows[#rows + 1] = { f.name, function()
+          local go = function()
+            local p, e = kit_load("/bmk/" .. f.name)
+            if not p then say("kit: " .. tostring(e), C.ERR); return end
+            S.proj.palette, S.proj.kit_info = p.palette, p.info
+            S.sheet_w, S.sheet_h, S.map_w, S.map_h = p.sheet_w, p.sheet_h, p.map_w, p.map_h
+            P.map.reset()
+            touched()
+            S.edits = S.edits + 1
+            S.d2view = "map"; show("d2")
+            say(string.format("kit %s: %dx%d cells, %d layers; models and sprites are in the project", f.name, p.map_w, p.map_h, #p.layers), C.ACC)
+          end
+          D.choose("kit " .. f.name .. " replaces the map, sheet and models", {
+            { "import the kit", go }, { "cancel", function() end } })
+        end }
+      end
+    end
+    if #rows == 0 then say("no .bmk kit in /bmk on the SD card", C.ERR); return end
+    D.choose("import a map kit (/bmk)", rows)
+  end
+
   local function build()
     items = {
       { "Continue", function() S.page = S.last end },
@@ -4011,6 +4059,7 @@ do
       { "Try the game", run_project, "f5" },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Import a Tiled map (.tmj)...", import_tiled },
+      { "Import a map kit (/bmk)...", import_kit },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
     }
   end

@@ -71,14 +71,40 @@ fire, chest, bushes, rocks and boat merged into one model that is not kept in th
 `scripts/bmkit.py`). `--no-preview` leaves both out and the file is 177 KB smaller. See
 [RISORSE](../RISORSE.md), "The picture inside a file".
 
-## Not a Market item
+## Not a Market catalog item
 
-A `.bmk` is a resource (like `.bmm`, `.bmi`, `.bms`), not a game or an app. It does not go to the Market (owner, 2026-10-29).
-It travels with a project: `bmres.py add` puts it in a game, or the file is copied to `/bmk` on the SD.
+A `.bmk` is a resource (like `.bmm`, `.bmi`, `.bms`), not a game or an app. The Market catalog (`games/`, `apps/`) does
+not list it (owner, 2026-10-29). Since 2026-10-30 the repository `bm-market` has the folders `bmk/` and `bme/` next to
+`games/` and `apps/` (one folder per item, the file and an `info.txt`). The catalog tools do not read them. The console
+installs from them with the Monitor command `net fetch gh:f-accomando/bm-market/bmk/island/island.bmk`. A `.bme`
+installs the same way into `/bme`.
+It also travels with a project: `bmres.py add` puts it in a game, or the file is copied to `/bmk` on the SD.
 
 ## Folder on the SD
 
-`/bmk`, the same pattern as `/bmm` (one folder per extension). Nothing on the console scans it yet.
+`/bmk`, the same pattern as `/bmm` (one folder per extension). bm SDK reads it: the menu entry **Import a map kit
+(/bmk)...** lists the `.bmk` files (`ls("/bmk")`). The SD map (Settings > System) does not count `/bmk` yet.
+
+## In bm SDK
+
+- **Import.** The menu entry **Import a map kit (/bmk)...** calls `kit_load(path)` ([tools API](../api/tools.md)). The
+  kit's sheet, tile flags, sprite zones, map with its layers and 3D models take the place of those of the project. The
+  code, the cover and the sound bank of the project stay. The kit's INFO text stays in the project (`kit_info`).
+- **3D map page.** `map3d_objects` names an object of a kit `OBJ<id>` (ids 1040 and up). The 3D view reads the
+  `[object NAME]` blocks of the INFO text and draws the model with the block's `scale`.
+- **Both SDKs.** `carts/editor` (Pi) and `carts/sdk_b16` (RGB30) have the same code. Not run on a device.
+- `bmres.py add` keeps the layers `height`, `walls` and `objects` as numbers (they hold heights and ids, not sheet tiles).
+
+## The benchmark: Island Bench
+
+`carts/islandbench` is the benchmark made from the kit (`.bme` in `/bme`, `.bm` in `/bm`, both built by
+`make build/carts/islandbench.bm build/carts/islandbench.bme`; the kit is `carts/islandbench/assets/island.bmk`).
+Manual mode: rows for the number of elements (0 to 200%), day or night (sun or moon), clear, rain, snow or fog, the
+height of the light, the campfire (a `lamp3d` light, a 2D flame in the 3D and sparks), shadows (off, dark, dither),
+texture or flat, 3D models or 2D sprites or a mix by distance, the sea, lighting, backend, AA, resolution and camera.
+Benchmark mode (Start + A, F5): the table `SCENES` in `main.lua` runs 16 scenes with a fixed camera and prints the
+median frame time of each and a score. The values are a first choice: the owner sets the final parameters later.
+Test: `make test-islandbench`.
 
 ## Tools
 

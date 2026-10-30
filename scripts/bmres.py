@@ -697,6 +697,7 @@ def map_body(w, h, cells):
 
 
 LAYERS_MAX = 8
+DATA_LAYERS = ("height", "walls", "objects")   # layers of a 3D map that hold numbers, not sheet tiles (map3d_build)
 
 
 def layers_get(f):
@@ -1336,7 +1337,7 @@ def integrate(cart, res, origin=None):
         rects += [px_cells(*zone_rect(z)) for z in rzones]
         if rmap:
             per = rw // CELL
-            used = sorted({n for _, cells in rlayers for n in cells})
+            used = sorted({n for name, cells in rlayers if name not in DATA_LAYERS for n in cells})
             rects += [(n % per, n // per, 1, 1) for n in used if 0 < n < per * (rh // CELL)]
     islands = merge_rects(rects)
     csheet = sheet_get(cart)
@@ -1410,6 +1411,9 @@ def integrate(cart, res, origin=None):
         layers = []
         for name, cells in rlayers:
             out = []
+            if name in DATA_LAYERS:             # numbers, not tiles: heights, walls, object ids stay as they are
+                layers.append((name, list(cells)))
+                continue
             for n in cells:
                 if 0 < n < per * (rsheet[1] // CELL):
                     dx, dy = off_of((n % per, n // per, 1, 1))

@@ -37,10 +37,12 @@ int main(void)
        "https://raw.githubusercontent.com/f-accomando/bm/bm-core/carts/yharnam/yharnam.bme", "/bme/yharnam.bme", 1);
     ok("gh:o/r/a/b/agent.bm@claude/x", "my-ai.bm", "https://raw.githubusercontent.com/o/r/claude/x/a/b/agent.bm",
        "/bm/my-ai.bm", 1);
+    ok("gh:f-accomando/bm-market/bmk/island/island.bmk", NULL,
+       "https://raw.githubusercontent.com/f-accomando/bm-market/HEAD/bmk/island/island.bmk", "/bmk/island.bmk", 1);
     no(NULL, NULL, "net fetch URL");
     no("http://example.org/pong.bm", NULL, "https");
     no("https://example.org/", NULL, "names no file");
-    no("https://example.org/readme.txt", NULL, ".bm cartridge or a .bme");
+    no("https://example.org/readme.txt", NULL, ".bm cartridge, a .bme project or a .bmk");
     no("https://example.org/a_very_long_name.bm", NULL, "1 to 8");
     no("https://example.org/pong.bm", "po ng.bm", "a-z, 0-9");
     no("https://example.org/pong.b16", NULL, ".bm cartridge");

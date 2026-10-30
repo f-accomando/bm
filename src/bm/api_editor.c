@@ -384,6 +384,10 @@ int l_cart_load(lua_State *L)
     memcpy(author, c.author, sizeof author);
     title[48] = author[32] = 0;
     push_project(L, title, author, c.width, c.lua, c.lua_size);
+    if (c.info && c.info_size) {        /* the INFO text: a map kit's object table is in it */
+        lua_pushlstring(L, (const char *)c.info, c.info_size);
+        lua_setfield(L, -2, "info");
+    }
     if (c.sheet8) {                     /* palette = the opaque colours of its SHEET8 palette */
         const uint8_t *p = c.sheet8;
         int nc = p[4] | p[5] << 8, k = 0;
@@ -396,6 +400,71 @@ int l_cart_load(lua_State *L)
             lua_rawseti(L, -2, ++k);
         }
         lua_setfield(L, -2, "palette");
+    }
+    free(data);
+    return 1;
+}
+
+/* kit_load(path) -> project table (title, author, sheet_w, sheet_h, map_w, map_h, layers, palette, info), or nil and a
+ * message. A map kit (.bmk, kind 6) read like cart_load reads a cartridge: its sprite sheet, tile flags, zones, map
+ * with its layers and 3D models take the place of those of the calling cartridge. The code, the cover and the
+ * sound bank of the project stay. `info` is the kit's INFO text (its object table). */
+int l_kit_load(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    bm_cart_t c;
+    char err[64];
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (bm_parse_any(data, len, &c, err, sizeof err) != 0 || c.kind != BM_RES_KIT) {
+        const int bad = bm_parse_any(data, len, &c, err, sizeof err);
+        free(data);
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, bad ? err : "not a map kit (.bmk)");
+        return 2;
+    }
+    if (!c.map_cells) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: the kit has no map", path);
+        return 2;
+    }
+    later_paint();
+    sync3d();
+    free_assets();
+    if (load_assets(&c) != 0 || extras_keep(data) != 0) {
+        free(data);
+        return luaL_error(L, "not enough memory for the kit");
+    }
+    set_copy(&proj_sheet8, &proj_sheet8_len, c.sheet8, c.sheet8 ? c.sheet8_size : 0);
+    proj_sheet_drawn = 0;
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    push_project(L, title, author, c.width, "", 0);
+    if (c.sheet8) {
+        const uint8_t *p = c.sheet8;
+        int nc = p[4] | p[5] << 8, k = 0;
+        lua_createtable(L, nc, 0);
+        for (int i = 0; i < nc; i++) {
+            const uint8_t *pe = p + 8 + i * 4;
+            if (pe[3] < 128)
+                continue;
+            lua_pushinteger(L, (lua_Integer)(pe[0] << 16 | pe[1] << 8 | pe[2]));
+            lua_rawseti(L, -2, ++k);
+        }
+        lua_setfield(L, -2, "palette");
+    }
+    if (c.info && c.info_size) {
+        lua_pushlstring(L, (const char *)c.info, c.info_size);
+        lua_setfield(L, -2, "info");
     }
     free(data);
     return 1;

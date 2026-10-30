@@ -40,6 +40,11 @@ static inline int sphere_box_intersect(float cx, float cy, float cz, float r,
 /* Helper to get kind name from placeholder id */
 static const char *object_kind_name(int id)
 {
+    static char kit[16];                /* a map kit's object: "OBJ1040" (docs/design/map-kit.md) */
+    if (id >= 1040 && id < 65536) {
+        snprintf(kit, sizeof kit, "OBJ%d", id);
+        return kit;
+    }
     switch (id) {
         case 1024: return "PLAYER_START";
         case 1026: return "APPLE";

@@ -518,8 +518,11 @@ CMD(c_net_fetch)
         bm_cart_t c;
         if (b.len < BM_HEADER_SIZE) {
             kprintf("fetch: %lu bytes: not a cartridge, nothing written\n", (unsigned long)b.len);
-        } else if (bm_is_res(b.data) || bm_parse_any(b.data, b.len, &c, err, sizeof err)) {
-            kprintf("fetch: not a cartridge (%s): nothing written\n", bm_is_res(b.data) ? "a resource file" : err);
+        } else if (!strcmp(p.dir, "/bmk")
+                       ? (!bm_is_res(b.data) || bm_parse_any(b.data, b.len, &c, err, sizeof err) || c.kind != BM_RES_KIT)
+                       : (bm_is_res(b.data) || bm_parse_any(b.data, b.len, &c, err, sizeof err))) {
+            kprintf("fetch: not a %s (%s): nothing written\n", !strcmp(p.dir, "/bmk") ? "map kit" : "cartridge",
+                    !strcmp(p.dir, "/bmk") ? "a .bmk is a map kit file" : bm_is_res(b.data) ? "a resource file" : err);
         } else {
             fat_mkdirs(p.dir);
             const int w = there ? fat_replace(p.path, b.data, b.len) : fat_write_file(p.dir, p.name, b.data, b.len);
@@ -764,7 +767,7 @@ static const mcmd_t net_sub[] = {
     { .name = "status", .help = "WiFi, Ethernet, IP address, time", .fn = c_net_status },
     { .name = "eth", .help = "Ethernet (Pi 1 B / B+): link, counters", .key = 'E', .fn = c_net_eth },
     { .name = "get", .args = "URL", .help = "get a web address: status, size, speed", .key = 'G', .fn = c_net_get },
-    { .name = "fetch", .args = "URL [NAME] [replace]", .help = "a .bm/.bme from https or gh: to the card", .fn = c_net_fetch },
+    { .name = "fetch", .args = "URL [NAME] [replace]", .help = "a .bm/.bme/.bmk from https or gh: to the card", .fn = c_net_fetch },
     { NULL }
 };
 

@@ -622,6 +622,7 @@ int l_battery_low(lua_State *L);
 /* cartridge files, for the editor (defined after the asset loader) */
 int l_ls(lua_State *L);
 int l_cart_load(lua_State *L);
+int l_kit_load(lua_State *L);
 int l_cart_new(lua_State *L);
 int l_cart_save(lua_State *L);
 int l_cart_build(lua_State *L);

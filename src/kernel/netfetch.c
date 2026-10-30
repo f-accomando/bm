@@ -88,15 +88,16 @@ int fetch_plan(const char *src, const char *name, fetch_plan_t *p, char *err, si
         if (*c >= 'A' && *c <= 'Z')
             *c = (char)(*c - 'A' + 'a');
     const int bme = dot && !strcmp(dot, ".bme");
-    if (!dot || (strcmp(dot, ".bm") && !bme))
-        return fail(err, en, "a .bm cartridge or a .bme project only (give NAME.bm or NAME.bme)");
+    const int bmk = dot && !strcmp(dot, ".bmk");
+    if (!dot || (strcmp(dot, ".bm") && !bme && !bmk))
+        return fail(err, en, "a .bm cartridge, a .bme project or a .bmk kit only (give NAME.bm, NAME.bme or NAME.bmk)");
     if (bl < 1 || bl > 8)
         return fail(err, en, "the name has 1 to 8 letters before .bm (an 8.3 name: give a NAME)");
     for (size_t i = 0; i < bl; i++)
         if (!((n[i] >= 'a' && n[i] <= 'z') || (n[i] >= '0' && n[i] <= '9') || n[i] == '_' || n[i] == '-'))
             return fail(err, en, "the name has a-z, 0-9, _ and - only (give a NAME)");
     memcpy(p->name, n, strlen(n) + 1);             /* at most 8 + ".bme" + NUL: 13 bytes */
-    snprintf(p->dir, sizeof p->dir, "%s", bme ? "/bme" : "/bm");
+    snprintf(p->dir, sizeof p->dir, "%s", bme ? "/bme" : bmk ? "/bmk" : "/bm");
     snprintf(p->path, sizeof p->path, "%s/%s", p->dir, p->name);
     return 0;
 }
