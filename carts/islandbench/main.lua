@@ -162,6 +162,31 @@ end
 
 G.CAMS = { "orbit", "overview", "close", "free" }
 
+-- The rows in groups: a group is one line that opens or closes with A (or Left, Right, or its digit key).
+local GROUPS = {
+  { name = "Test",        keys = { "mode", "el" },                          open = true },
+  { name = "Environment", keys = { "time", "weather", "amount", "angle" },  open = true },
+  { name = "Light",       keys = { "fire", "shadow" },                      open = false },
+  { name = "Look",        keys = { "look", "objects", "sea", "light" },     open = false },
+  { name = "Screen",      keys = { "backend", "aa", "res", "cam" },         open = false },
+}
+local VIS = {}                                -- what the panel shows now: the group lines and the rows of the open groups
+
+local function build_vis()
+  local key = VIS[G.cur] and (VIS[G.cur].hdr and VIS[G.cur].name or VIS[G.cur].key)
+  VIS = {}
+  for gi, g in ipairs(GROUPS) do
+    VIS[#VIS + 1] = { hdr = true, name = g.name, g = g, n = gi }
+    if g.open then
+      for _, k in ipairs(g.keys) do VIS[#VIS + 1] = ROWS[G.ROW[k]] end
+    end
+  end
+  for i, r in ipairs(VIS) do                 -- the cursor stays on the same line when it can
+    if key and (r.hdr and r.name or r.key) == key then G.cur = i end
+  end
+  G.cur = math.max(1, math.min(G.cur, #VIS))
+end
+
 function G.shown()
   local n = math.floor(G.nbase * O.el / 100 + 0.5)
   return math.min(n, G.ntotal - G.nfixed)
@@ -533,20 +558,25 @@ function G.input()
     end
     return
   end
-  if press("up") then G.cur = (G.cur - 2) % #ROWS + 1 end
-  if press("down") then G.cur = G.cur % #ROWS + 1 end
-  local row = ROWS[G.cur]
-  if press("left") then row.step(-1) end
-  if press("right") then row.step(1) end
-  if not start and btnp("a") then row.toggle() end
+  if #VIS == 0 then build_vis() end
+  if press("up") then G.cur = (G.cur - 2) % #VIS + 1 end
+  if press("down") then G.cur = G.cur % #VIS + 1 end
+  local row = VIS[G.cur]
+  if row.hdr then
+    if press("left") or press("right") or (not start and btnp("a")) then row.g.open = not row.g.open; build_vis() end
+  else
+    if press("left") then row.step(-1) end
+    if press("right") then row.step(1) end
+    if not start and btnp("a") then row.toggle() end
+  end
   if press("l1") then ROWS[G.ROW.el].step(-1) end
   if press("r1") then ROWS[G.ROW.el].step(1) end
   if btnp("x") then ROWS[G.ROW.time].step(1) end
   if btnp("y") then ROWS[G.ROW.weather].step(1) end
   if btnp("select") then G.cam = G.cam % #G.CAMS + 1 end
   if btnp("b") or key_edge(0x0B) then G.panel = not G.panel end
-  for k = 1, 9 do
-    if key_edge(0x1D + k) and ROWS[k] then G.cur = k end
+  for k = 1, #GROUPS do                      -- the digits open and close the groups
+    if key_edge(0x1D + k) then GROUPS[k].open = not GROUPS[k].open; build_vis() end
   end
   if start then
     G.start_held = true
@@ -577,43 +607,42 @@ local function panel_draw()
       print(string.format("%-18s %s", s[1], r and (fmt(r.ms) .. " ms") or (i == B.i and (B.phase == "warm" and "warm" or "...") or "")), 4, 4 + 12 * i, c)
     end
   elseif Hh >= 270 then
-    local help = Hh >= 330 and ROWS[G.cur].help
-    rectfill(0, 0, 268, 12 * (#ROWS + (help and 4 or 2)) + 6, 0x101820)
+    if #VIS == 0 then build_vis() end
+    local help = Hh >= 330 and not VIS[G.cur].hdr and VIS[G.cur].help
+    rectfill(0, 0, 268, 12 * (#VIS + (help and 4 or 2)) + 6, 0x101820)
     local on = gpu_state()
     print("ISLAND BENCH  " .. (on and "gpu" or "arm") .. "  " .. G.CAMS[G.cam], 4, 4, TEXT)
-    for i, r in ipairs(ROWS) do
-      local c = i == G.cur and CUR or TEXT
-      print((i == G.cur and ">" or " ") .. string.format("%-15s", r.name) .. " " .. r.get(), 4, 4 + 12 * i, c)
+    for i, r in ipairs(VIS) do
+      local c = i == G.cur and CUR or (r.hdr and NUM or TEXT)
+      local text = r.hdr and ((r.g.open and "- " or "+ ") .. r.name:upper()) or ("  " .. string.format("%-15s", r.name) .. " " .. r.get())
+      print((i == G.cur and ">" or " ") .. text, 4, 4 + 12 * i, c)
     end
     if help then
-      print(help[1], 4, 4 + 12 * (#ROWS + 1), CUR)
-      print(help[2], 4, 4 + 12 * (#ROWS + 2), CUR)
+      print(help[1], 4, 4 + 12 * (#VIS + 1), CUR)
+      print(help[2], 4, 4 + 12 * (#VIS + 2), CUR)
     end
-    print("Start+A: benchmark   Start: save", 4, 4 + 12 * (#ROWS + (help and 3 or 1)), DIM)
+    print("Start+A: benchmark   Start: save", 4, 4 + 12 * (#VIS + (help and 3 or 1)), DIM)
   else
-    local r = ROWS[G.cur]
+    if #VIS == 0 then build_vis() end
+    local r = VIS[G.cur]
     rectfill(0, 0, 200, 16, 0x101820)
-    print(string.format("%d %s %s", G.cur, r.name, r.get()), 4, 3, CUR)
+    print(string.format("%d %s %s", G.cur, r.name, r.hdr and "(group)" or r.get()), 4, 3, CUR)
   end
-  -- the bar: 16.7 ms is a full bar
-  local bx, full = Wd - 220, 200
+  -- the bottom bar, one line across the screen: a bar (16.7 ms is a full bar) and the numbers
+  local by = Hh - 14
+  rectfill(0, by, Wd, 14, 0x101820)
+  local full = 60
   local w = math.min(full * 2, math.floor(L.ms / 16.7 * full))
-  rectfill(bx, 4 + (Hh >= 270 and 0 or 0), full, 8, 0x202830)
-  rectfill(bx, 4, math.min(w, full), 8, 0x40C060)
-  if w > full then rectfill(bx + full, 4, math.min(w - full, 20), 8, 0xE04040) end
-  local lines = {
-    string.format("ms %s  max %s  fps %d  skip %d", fmt(L.ms), fmt(L.max), math.floor(L.fps), L.skip or 0),
-    string.format("gpu %s  wait %s", fmt(L.gpu), fmt(L.wait)),
-    string.format("tri %d  vtx %d  lua %dk", math.floor(L.tri), math.floor(L.vtx), math.floor(L.lua / 1000)),
-    string.format("3D %d  2D %d  of %d", drawn3, drawn2, G.nfixed + G.shown()),
-    string.format("%dx%d", SCREEN_W, SCREEN_H),
-  }
+  rectfill(4, by + 3, full, 8, 0x202830)
+  rectfill(4, by + 3, math.min(w, full), 8, 0x40C060)
+  if w > full then rectfill(4 + full, by + 3, math.min(w - full, 10), 8, 0xE04040) end
+  local text = string.format("ms %s/%s fps %d skip %d|gpu %s wait %s|tri %d vtx %d lua %dk|3D %d 2D %d/%d|%dx%d",
+    fmt(L.ms), fmt(L.max), math.floor(L.fps), L.skip or 0, fmt(L.gpu), fmt(L.wait), math.floor(L.tri), math.floor(L.vtx),
+    math.floor(L.lua / 1000), drawn3, drawn2, G.nfixed + G.shown(), SCREEN_W, SCREEN_H)
   local note = G.bench_note
   if not note and G.save_note and time() - (G.save_t or 0) < 3 then note = G.save_note end
-  if note then lines[#lines + 1] = note end
-  local y0 = Hh - 4 - 12 * #lines
-  rectfill(Wd - 232, y0 - 3, 232, 12 * #lines + 6, 0x101820)
-  for i, s in ipairs(lines) do print(s, Wd - 228, y0 + 12 * (i - 1), NUM) end
+  if note then text = note .. " | " .. text end
+  print(text, 70, by + 1, NUM)
 end
 
 -- ---------------------------------------------------------------- the cartridge

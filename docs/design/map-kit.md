@@ -102,6 +102,7 @@ It also travels with a project: `bmres.py add` puts it in a game, or the file is
 Manual mode: rows for the number of elements (0 to 200%), day or night (sun or moon), clear, rain, snow or fog, the
 height of the light, the campfire (a `lamp3d` light, a 2D flame in the 3D and sparks), shadows (off, dark, dither),
 texture or flat, 3D models or 2D sprites or a mix by distance, the sea, lighting, backend, AA, resolution and camera.
+The rows are in five groups (Test, Environment, Light, Look, Screen) that open and close with A or the keys 1 to 5. The numbers are one line across the bottom of the screen.
 Benchmark mode (Start + A, F5): the table `SCENES` in `main.lua` runs 16 scenes with a fixed camera and prints the
 median frame time of each and a score. The values are a first choice: the owner sets the final parameters later.
 Test: `make test-islandbench`.
