@@ -1,0 +1,59 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1980-g05596f65
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-3e205c_freeze_pi-zero-w_v0.2.5-1980-g05596f65.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 2356 s after boot, kernel v0.2.5-1980-g05596f65, ring 55448, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 6261 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6174 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6269 us, enlarge 0 us, flip 93 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6331 us, enlarge 0 us, flip 93 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6245 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6158 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6311 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6317 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6229 us, enlarge 0 us, flip 93 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6143 us, enlarge 0 us, flip 93 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6359 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6298 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6211 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6157 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6376 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6287 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+menu frame: 1x, a frame averages draw 6199 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6200 us, enlarge 0 us, flip 92 us, free time used 32 us (300 frames)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 11 cartridges; clusters 32 KB
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 11 cartridges; clusters 32 KB
+menu idle: sd first word <1ms 51 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 10953 us, enlarge 0 us, flip 93 us, free time used 30 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 16.9 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+fiber: market did not yield: 59.7 ms past its slice
+menu idle: 300/300 frames, 450 of 1953 ms taken, 57.7 ms past a frame; market 438 ms (+59.7, stk 4.0/128K, stop 0.0); min slack -25354 us, paced 0
+menu idle: sd first word <1ms 203 (max 8.2 ms)
+menu stalls: tls handshake 1x last 223.8 worst 223.8 ms
+menu frame: 1x, a frame averages draw 12271 us, enlarge 0 us, flip 94 us, free time used 1501 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 24 of 1846 ms taken, 2.9 ms past a frame; market 18 ms (+3.6, stk 4.0/128K); min slack -35469 us, paced 0
+menu idle: sd first word <1ms 20 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 14051 us, enlarge 0 us, flip 94 us, free time used 81 us (300 frames)
+market: nearby consoles: listening as bm-108
+menu frame: 1x, a frame averages draw 8317 us, enlarge 0 us, flip 92 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 6148 us, enlarge 0 us, flip 93 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 6064 us, enlarge 0 us, flip 93 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 6312 us, enlarge 0 us, flip 92 us, free time used 18 us (300 frames)
+menu frame: 1x, a frame averages draw 6225 us, enlarge 0 us, flip 92 us, free time used 18 us (300 frames)
+fb_init_depth: mbox_call failed
+
+playing agent.bm
+play: /bm/agent.bm (46288 bytes), no splash
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log i
