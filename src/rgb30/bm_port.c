@@ -39,6 +39,11 @@ int gpu3d_init(void)
     mali_backend_set_res(!(kr && !strcmp(kr, "0")));
     const char *ka = config_get("mali_msaa");
     mali_backend_set_msaa(ka && !strcmp(ka, "1"));
+    const char *kdg = config_get("mali_diag");
+    int diag = 0;
+    for (const char *q = kdg; q && *q >= '0' && *q <= '9'; q++)
+        diag = diag * 10 + (*q - '0');
+    mali_backend_set_diag(diag);
     const char *ksp = config_get("mali_split");
     mali_backend_set_split(ksp && !strcmp(ksp, "1"));
     const char *kx = config_get("mali_alpha");

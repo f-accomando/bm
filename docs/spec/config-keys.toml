@@ -372,6 +372,15 @@ settings = "Settings > Controllers > Keyboard layout"
 read_in = "src/kernel/config.c:103"
 
 [[key]]
+name = "mali_diag"
+scope = "rgb30"
+values = "N = the log prints the first N mesh calls of the Mali driver (the mesh, what the Mali took, how many triangles it sent, the depth of its origin)"
+default = "0"
+meaning = "A diagnostic for the Mali (2026-10-30), read in bm/lastrun.txt after a restart."
+settings = ""
+read_in = "src/rgb30/bm_port.c"
+
+[[key]]
 name = "mali_split"
 scope = "rgb30"
 values = "1 = a mesh of textured and flat faces is drawn by the Mali in two parts (the textured faces, then the flat ones); anything else = the ARM draws it whole"

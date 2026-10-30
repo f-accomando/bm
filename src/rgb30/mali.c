@@ -2704,6 +2704,8 @@ static be_texslot_t be_texs[BE_TEX_SLOTS];
 static int be_ntex;
 static uint32_t be_tpool_used;
 
+static int be_diag, be_diag_tri;                /* mali_diag=N (bm_port.c): print the first N mesh calls and the first N triangles sent one by one */
+void mali_backend_set_diag(int n)       { be_diag = n; be_diag_tri = n; }
 static int be_tex_on = 1;                           /* mali_tex=0 (bm_port.c): textures stay on the ARM */
 static int be_split_on;                             /* mali_split=1 (bm_port.c): a mesh of textured and flat faces is drawn in two parts; default 0 */
 void mali_backend_set_split(int on)     { be_split_on = on != 0; }
@@ -2896,6 +2898,11 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
 {
     (void)ctx;
     const int textured = (kind & ~R3D_INSIDE) == R3D_KIND_TEXTURE;
+    if (be_diag_tri > 0 && depth == R3D_DEPTH_WRITE) {                      /* mali_diag: the first triangles that r3d sends one by one, x y in tenths of a pixel, z * 1000 */
+        be_diag_tri--;
+        kprintf("mali: tri kind %d depth %d at %d,%d,%d  %d,%d  %d,%d\n", kind, depth, (int)(v[0].x * 10), (int)(v[0].y * 10),
+                (int)(v[0].z * 1000), (int)(v[1].x * 10), (int)(v[1].y * 10), (int)(v[2].x * 10), (int)(v[2].y * 10));
+    }
     if (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) || depth != R3D_DEPTH_WRITE)  /* r3d sends nothing else (colour_only): the guard */
         return;
     if (be_n2d)                                     /* a 3D face after 2D: the job so far has to end, the 2D is under it */
@@ -2960,6 +2967,7 @@ static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
                    int nbones, const r3d_env_t *env, int depth)
 {
     const uint64_t t0 = cnt_now();
+    const uint32_t sent0 = be_stats.gltris;
     int mixed = 0;
     if (m && be_tex_on && be_split_on && m->uv && m->tex) {
         int ntex = 0, nflat = 0;
@@ -2986,6 +2994,11 @@ static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
         r = be_mesh_impl(ctx, g, m, M, N, nbones, env, depth);
     }
     t_mesh += cnt_now() - t0;
+    if (be_diag > 0 && m) {                     /* mali_diag=N: the first N calls: the mesh, what the Mali took and how many triangles it sent */
+        be_diag--;
+        kprintf("mali: mesh %p faces %d verts %d took %d sent %u (of %u glmeshes) camz %.1f\n", (const void *)m, m->nfaces, m->nverts, r,
+                (unsigned)(be_stats.gltris - sent0), (unsigned)be_stats.glmeshes, (double)M[0][11]);
+    }
     return r;
 }
 
