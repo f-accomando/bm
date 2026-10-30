@@ -76,6 +76,17 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 ### 2D on the Pi Zero W
 GPU light, the packed tile pool for `map()`, the cost of each 2D call and the 2D open work: [graphics-2d](graphics-2d.md).
 
+## Performance techniques (what keeps the 3D fast)
+
+Each line says where it was found and where it is written.
+- **Cut the floor you do not see.** A floor tile with id 0 makes no triangle in `map3d_build`. Island Bench cuts the water tiles far from the land (the sea model covers them): the map goes from 10400 to 4900 triangles. [map-kit](../design/map-kit.md), "Speed".
+- **One bone a face (Pi V3D).** The vertex shader takes a mesh of plain lit faces only when each face has its three corners on one bone: split the vertices at the joints. [herocart](herocart.md).
+- **Levels of detail and impostors (Pi V3D).** Four versions of a model made with the quadric reducer, chosen by distance, and `gpu3d` impostors for far small models. [herocart](herocart.md). Not used yet for the island kit (one level).
+- **What keeps a mesh on the Mali.** The Mali takes a mesh only if all its faces are textured or all are flat, the sheet has no transparent texel (or `mali_alpha=1`), the light is the sun and the sky without colour, no lamps and no rim. A `point3d`, `line3d`, `sprite3d`, shadow or particle hands the whole 3D of the cartridge to the ARM until the restart (log line "the 3D is drawn by the ARM from here: the cartridge uses ..."). Read the log after a run before you measure. [graphics-mali](graphics-mali.md), Open work.
+- **Read the counters.** `vtx` above 0 in the cart's line means the ARM transformed vertices; with the GPU on a hero or a map `vtx` is 0. `gpu` reads 0.0 when the GPU job ends after the stat is read. A shot taken with `pi.py shot` of a game with no 2D after the 3D shows only the sky colour: keep the panel on when you take a picture.
+- **A cart must not use `stat(9)` as a test flag.** It is 1 when the GPU does the 3D (Island Bench started its benchmark by itself for this reason).
+- **Light defaults first, and a guard.** Start with the cheap options; Island Bench's "Block under 30 fps" row freezes a change that drops the frame rate and goes back to the last good options. [map-kit](../design/map-kit.md).
+
 ## Open work (`docs/ROADMAP.md`)
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).

@@ -2705,6 +2705,8 @@ static int be_ntex;
 static uint32_t be_tpool_used;
 
 static int be_tex_on = 1;                           /* mali_tex=0 (bm_port.c): textures stay on the ARM */
+static int be_split_on;                             /* mali_split=1 (bm_port.c): a mesh of textured and flat faces is drawn in two parts; default 0 */
+void mali_backend_set_split(int on)     { be_split_on = on != 0; }
 static int be_alpha_on;                             /* mali_alpha=1 (bm_port.c): a 3D sheet with transparent texels goes to the Mali (BM_FS_TEXA) */
 void mali_backend_set_alpha(int on)     { be_alpha_on = on != 0; }
 void mali_backend_set_textures(int on)  { be_tex_on = on != 0; }
@@ -2949,11 +2951,40 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
 
 static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                         int nbones, const r3d_env_t *env, int depth);
+/* A mesh of textured and flat faces (a palm: leaves and trunk) is drawn in two parts, each with its own cache entry and shader:
+ * the textured faces (kind 3), then the flat ones (kind 1 or 2). be_part says which faces the functions below see. */
+static int be_part;                             /* 0: every shown face; 1: the textured faces; 2: the flat ones */
+#define BE_SHOWS(c, det) (R3D_LOD_SHOWS((c), (det)) && (be_part == 0 || (((c) & R3D_TEXTURED) != 0) == (be_part == 1)))
+
 static int be_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                    int nbones, const r3d_env_t *env, int depth)
 {
     const uint64_t t0 = cnt_now();
-    const int r = be_mesh_impl(ctx, g, m, M, N, nbones, env, depth);
+    int mixed = 0;
+    if (m && be_tex_on && be_split_on && m->uv && m->tex) {
+        int ntex = 0, nflat = 0;
+        for (int t = 0; t < m->nfaces; t++) {
+            if (!R3D_LOD_SHOWS(m->colors[t], env->detail))
+                continue;
+            if (m->colors[t] & R3D_TEXTURED)
+                ntex++;
+            else
+                nflat++;
+        }
+        mixed = ntex > 0 && nflat > 0;
+    }
+    int r;
+    if (mixed) {
+        be_part = 1;
+        r = be_mesh_impl(ctx, g, m, M, N, nbones, env, depth);
+        if (r) {
+            be_part = 2;
+            r = be_mesh_impl(ctx, g, m, M, N, nbones, env, depth);     /* 0: the ARM draws all, the textured part twice */
+        }
+        be_part = 0;
+    } else {
+        r = be_mesh_impl(ctx, g, m, M, N, nbones, env, depth);
+    }
     t_mesh += cnt_now() - t0;
     return r;
 }
@@ -3015,7 +3046,7 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
     const unsigned stride = (kind == 1 || kind == 2) ? 16 : 12;
     uint32_t shown = 0;
     for (int t = 0; t < m->nfaces; t++)
-        shown += R3D_LOD_SHOWS(m->colors[t], env->detail) ? 1 : 0;
+        shown += BE_SHOWS(m->colors[t], env->detail) ? 1 : 0;
     const uint32_t need = shown * 3 * stride;
     if (need > BE_RM_POOL || !shown)
         return NULL;
@@ -3030,7 +3061,7 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
     be_rm_used += need;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
-        if (!R3D_LOD_SHOWS(c, env->detail))
+        if (!BE_SHOWS(c, env->detail))
             continue;
         const uint16_t *fc = m->faces + t * 3;
         const v3_t v[3] = { m->verts[fc[0]], m->verts[fc[1]], m->verts[fc[2]] }, n = m->normals[t];
@@ -3076,7 +3107,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     int ntexf = 0, nflatf = 0;                  /* the shown faces with and without a texture */
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
-        if (!R3D_LOD_SHOWS(c, env->detail))
+        if (!BE_SHOWS(c, env->detail))
             continue;
         if (c & R3D_SCREEN)
             return 0;
@@ -3125,7 +3156,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     int vx = env->cel > 0 || env->nlamps > 0 || env->fog_k > 0.0f || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f;
     if (vlit && (env->S[0] > 0.0f || env->S[1] > 0.0f || env->S[2] > 0.0f))
         for (int t = 0; t < m->nfaces && !vx; t++)
-            if (R3D_LOD_SHOWS(m->colors[t], env->detail) && (m->colors[t] & R3D_GLOSSY))
+            if (BE_SHOWS(m->colors[t], env->detail) && (m->colors[t] & R3D_GLOSSY))
                 vx = 1;
     float mvp_local[32][16];
     float cam_s2[32], cam_at[32][3], cz_bone[32];
@@ -3251,7 +3282,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     uint32_t nsent = 0;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
-        if (!R3D_LOD_SHOWS(c, env->detail))
+        if (!BE_SHOWS(c, env->detail))
             continue;
         const uint16_t *fc = m->faces + t * 3;
         const int b = skinned ? m->vbone[fc[0]] : 0;

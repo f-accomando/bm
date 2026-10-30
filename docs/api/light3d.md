@@ -137,6 +137,8 @@ Lua). Complete example: `carts/overbit`. For the 2D map there are the tiles' fla
 
 ### 3D Map terrain
 
+Speed: a floor tile with id 0 makes no triangles, so cut the tiles that a sea model or the sky covers (Island Bench: 10400 to 4900 triangles). See [graphics](../progress/graphics.md), "Performance techniques".
+
 Chunked 3D terrain built from 2D tilemap layers (`floor`, `height`, `walls`, `objects`) with frustum culling (`r3d_visible`), height queries and collision detection (`src/bm/map3d.c`).
 
 | Function | Description |

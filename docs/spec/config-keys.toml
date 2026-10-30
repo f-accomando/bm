@@ -372,6 +372,15 @@ settings = "Settings > Controllers > Keyboard layout"
 read_in = "src/kernel/config.c:103"
 
 [[key]]
+name = "mali_split"
+scope = "rgb30"
+values = "1 = a mesh of textured and flat faces is drawn by the Mali in two parts (the textured faces, then the flat ones); anything else = the ARM draws it whole"
+default = "off"
+meaning = "A palm (leaves textured, trunk flat) is two cached meshes with two shaders. Experimental (2026-10-30). Run on an RGB30 with Island Bench and mali_alpha=1: 57 ms a frame in the orbit view (48 ms without the split), so it is off."
+settings = ""
+read_in = "src/rgb30/bm_port.c"
+
+[[key]]
 name = "mali_alpha"
 scope = "rgb30"
 values = "1 = a 3D sheet with transparent texels (leaves, grass) is drawn by the Mali with BM_FS_TEXA, which kills the texels of alpha 0; anything else = the ARM draws it"
