@@ -218,7 +218,7 @@ $(BUILD)/carts/%.bm: $$(call c_lua,$$*) scripts/mkbm.py scripts/bmmesh.py $$(cal
 	$(call CART_RECIPE,$*)
 
 # The projects (.bme) of the carts the Dev tab edits: the same cartridge, built the same way
-BME_CARTS := kitchen bmweb agent
+BME_CARTS := kitchen bmweb agent herocart
 $(BME_CARTS:%=$(BUILD)/carts/%.bme): $(BUILD)/carts/%.bme: $$(call c_lua,$$*) scripts/mkbm.py $$(call c_deps,$$*)
 	$(call CART_RECIPE,$*)
 
