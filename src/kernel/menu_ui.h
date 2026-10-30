@@ -56,6 +56,8 @@ typedef struct {
 } menu_row_t;
 
 #define MENU_PANEL_ROWS 6       /* rows visible at once; the list scrolls */
+#define MENU_PANEL_ROWS_TALL 10 /* the native layouts (720p, 1080p) have room below: 50% more height (4 rows of 32 pixels) */
+int  menu_panel_rows(void);     /* the rows visible now: MENU_PANEL_ROWS, or MENU_PANEL_ROWS_TALL in a native layout */
 
 typedef struct {
     const char *title;          /* "Settings > Controllers" */

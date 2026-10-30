@@ -103,3 +103,8 @@ The native layout is cheaper at 1080p (10.6 ms against 17 ms). It prints `1x` in
 ### Step 2 started: the bm font family (29 Oct 2026)
 
 Style chosen by the user (variant C3): light, soft, condensed, fixed width. Choices: `a` with a hook on top, `l` with a tail, `0` with a bar, `1` without a base. Cells: 12x32 at 720p (pen 1) and 18x48 at 1080p (pen 2), each drawn at its own size, the straight strokes on whole pixels (the user chose S1 on 29 Oct 2026 because C3 with a pen of 1.4 looked grainy). `scripts/bmfont.py` draws the glyphs from strokes and writes `src/gfx/font_bm12x32.c` and `src/gfx/font_bm18x48.c` in the `font_t` format (`--check` finds files that are out of date; `--sheet OUT.png` makes a picture). Done: ASCII 32 to 126, the files, the two names in `font.h`. Not done: the 161 other entries of the code page 437 table (the menu draws some of them), the 8x16, 8x14 and 6x12 fonts, the files in the build lists (`Makefile`, `rgb30.mk`), the menu and the shell on the new cells (they count columns with `font_t`), a test of the screen and the Pi.
+
+### Menu layout row and a taller Settings box (30 Oct 2026)
+
+Settings > Screen has a new row after Menu size: **Menu layout**, Scaled or Native (`menu_layout`, Pi only, next start). Menu size is `menu_scale` (the picture size: 360p ARM, 360p GPU, 720p, 1080p); Menu layout is separate: Scaled draws the 360p layout bigger, Native lays the menu out at the screen's own size. In a native layout the options box is 50% taller: 10 rows instead of 6 (`menu_panel_rows()`, `MENU_PANEL_ROWS_TALL`); the scaled layout keeps 6 rows because its screen is 360 high. Tested in QEMU at 360p only (`test_home_ui`); the native layouts need a look on the Pi.
+

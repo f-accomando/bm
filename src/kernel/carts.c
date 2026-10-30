@@ -675,7 +675,7 @@ static void cm_begin_frame(cmenu_t *m)
         int *ps = &m->stack[m->depth - 1].sel, *pt = &m->stack[m->depth - 1].top;
         if (*ps >= pb.n) *ps = pb.n ? pb.n - 1 : 0;
         if (*ps < *pt) *pt = *ps;
-        if (*ps >= *pt + MENU_PANEL_ROWS) *pt = *ps - MENU_PANEL_ROWS + 1;
+        if (*ps >= *pt + menu_panel_rows()) *pt = *ps - menu_panel_rows() + 1;
         m->mp = (menu_panel_t){ pb.title, pb.rows, pb.n, *ps, *pt, pb.n ? pb.help[*ps] : NULL };
     }
 }

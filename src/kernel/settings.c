@@ -126,7 +126,7 @@ enum {
     R_UPDATE, R_INSTALL, R_INSTALL_STAGED, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_GPIOSCREEN, R_AUDIO, R_LOG, R_BT,
     R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FAST3D,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_UTILS, R_MENUSIZE, R_SOUNDMENU,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_UTILS, R_MENUSIZE, R_MENULAYOUT, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
     R_DEV, R_REC,
@@ -245,6 +245,13 @@ static const char *menu_size_choice(void)
 {
     const char *v = config_get("menu_scale");
     return v && v[0] == '3' ? "1080p (GPU)" : v && v[0] == '4' ? "360p (GPU)" : v && v[0] == '1' ? "360p (ARM)" : "720p (GPU)";
+}
+
+/* menu_layout: no key = the 360p layout drawn bigger; 1 = the layout at the screen's own size (720p and 1080p) */
+static const char *menu_layout_choice(void)
+{
+    const char *v = config_get("menu_layout");
+    return v && v[0] == '1' ? "Native" : "Scaled";
 }
 
 /* CRT filter mode: 1 = off, 2 = rca (default for Pi 1), 3 = hdmi, 4 = on */
@@ -600,6 +607,9 @@ static void panel_screen(home_panel_t *p)
 #else
     home_row(p, MENU_ROW_CHOICE, R_MENUSIZE, "Menu size",
              "360p on the ARM, or 720p / 1080p by the GPU. Next start", "%s", menu_size_choice());
+    home_row(p, MENU_ROW_CHOICE, R_MENULAYOUT, "Menu layout",
+             "At 720p / 1080p: Scaled is the 360p layout drawn bigger; Native uses the whole screen. Next start", "%s",
+             menu_layout_choice());
 #endif
     if (board_is_pi1()) {
         home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
@@ -1178,6 +1188,16 @@ static int act_screen(int row, int how, home_do_t *d)
             config_set("menu_scale", "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "menu size at the next start: %s", menu_size_choice());
+        break;
+    }
+    case R_MENULAYOUT: {
+        const char *v = config_get("menu_layout");
+        if (v && v[0] == '1')
+            config_unset("menu_layout");
+        else
+            config_set("menu_layout", "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "menu layout at the next start: %s", menu_layout_choice());
         break;
     }
     case R_USB:

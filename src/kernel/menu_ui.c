@@ -1042,7 +1042,8 @@ static void scroll_mark(int cx, int cy, int dir, uint16_t c)
 #define PANEL_W     (bgz > 1 ? (SW - 2 * PANEL_X0) / 2 : SW - 2 * PANEL_X0)
 #define PANEL_X     (bgz > 1 ? (SW - PANEL_W) / 2 : PANEL_X0)
 #define PANEL_Y     52
-#define PANEL_H     (310 - PANEL_Y)
+#define PANEL_EXTRA ((menu_panel_rows() - MENU_PANEL_ROWS) * 32)    /* the taller box of a native layout */
+#define PANEL_H     (310 - PANEL_Y + PANEL_EXTRA)
 #define PANEL_ROW0  6
 #define PANEL_COL   (PANEL_X / CW)
 #define LABEL_COL   (PANEL_COL + 3)
@@ -1055,6 +1056,11 @@ static int by_enter;                    /* Settings: Enter changes a choice (no 
  * (the selected one on a pill; faded: grey, the focus is elsewhere; sel < 0:
  * none), the line of help (p->help) at the bottom; values: the rows'
  * values (else only the ">" of a submenu) */
+int menu_panel_rows(void)
+{
+    return bgz > 1 ? MENU_PANEL_ROWS_TALL : MENU_PANEL_ROWS;
+}
+
 static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, int values)
 {
     round_rect(x0 - 2, PANEL_Y - 2, w + 4, PANEL_H + 4, 16, c16(C_LINE));
@@ -1066,7 +1072,8 @@ static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, 
         buf[w / CW - 4] = 0;
     m_text((col0 + 2) * CW, 4 * 16, buf, c16(faded ? C_DIM : C_TEXT));
     m_rect(x0 + 16, 88, w - 32, 1, c16(C_LINE));
-    for (int i = 0; i < MENU_PANEL_ROWS && p->top + i < p->n; i++) {
+    const int prows = menu_panel_rows(), extra = PANEL_EXTRA;
+    for (int i = 0; i < prows && p->top + i < p->n; i++) {
         const menu_row_t *r = &p->rows[p->top + i];
         int row = PANEL_ROW0 + 2 * i, y = row * 16, sel = p->top + i == p->sel;
         zone(x0 + 16, y - 8, w - 32, 32, hit, p->top + i, 1);
@@ -1114,14 +1121,14 @@ static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, 
     }
     if (p->top > 0)
         scroll_mark(x0 + w - 12, 100, -1, c16(C_DIM));
-    if (p->top + MENU_PANEL_ROWS < p->n)
-        scroll_mark(x0 + w - 12, 268, 1, c16(C_DIM));
-    m_rect(x0 + 16, 281, w - 32, 1, c16(C_LINE));
+    if (p->top + prows < p->n)
+        scroll_mark(x0 + w - 12, 268 + extra, 1, c16(C_DIM));
+    m_rect(x0 + 16, 281 + extra, w - 32, 1, c16(C_LINE));
     if (p->help) {
         ksnprintf(buf, sizeof buf, "%s", p->help);
         if (w / CW - 4 < (int)sizeof buf)
             buf[w / CW - 4] = 0;
-        m_text((col0 + 2) * CW, 18 * 16, buf, c16(C_DIM));
+        m_text((col0 + 2) * CW, 18 * 16 + extra, buf, c16(C_DIM));
     }
 }
 

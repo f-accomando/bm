@@ -1314,6 +1314,8 @@ def test_home_ui(b, opts):
         for name in hidden_rows:
             assert name not in text, f"{name!r} is a hidden key, not a Settings row: {text}"
         keys("s")
+        screen(["Menu layout", "Scaled"])         # 30 Oct 2026: Scaled (no key) or Native (menu_layout=1), after Menu size
+        keys("s")
         screen(["Test pattern", "HDMI colour bars"])
         keys("q")
         keys("s")
