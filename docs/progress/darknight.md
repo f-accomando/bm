@@ -20,18 +20,21 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   the arrows turn the camera and zoom; F9 is a developer key: the next place of the walk.
 - The camera looks down at a steep angle behind the player, goes up when a wall is in the way and comes closer only if that is not enough.
 - The enemies are the models of `art/models/dnenemy.bmm` ([enemies](../../art/models/enemies/README.md)): villagers in the clinic, then huntsmen and
-  dogs in turn in the courtyard, dogs in the alley (`enemy_kind`). They wait, chase within their sight, strike once when the clip
-  reaches its hit time and stagger when hit (`TYPES` has health, speed, damage and reach for each). The Hunter has 100 health.
+  dogs in turn in the courtyard, dogs in the alley (`enemy_kind`). They wait, chase within their sight, strike when the attack clip reaches its hit time and stagger when hit (`TYPES` has health, speed and, for each
+  attack, the clip, the hit time, the damage, the reach and how often it is chosen). The villager and the huntsman have two attacks (a chop or an axe
+  swing, then a sweep or an overhead chop); the dog bites and, from 2.6 to 6.5 units away, leaps at where the Hunter stood and bites on the landing.
+  The choice of the attack follows the frame number, so a run of the game is always the same. The Hunter has 100 health.
   A lantern lights (health and bullets back, a new place to start); a death shows YOU DIED and starts again at the last lantern.
 - Doors that are not locked open when the player is near; the locked ones and the gate stay closed (the gate is the end of this slice).
-- Test: `make test-darknight` plays a script of keys in bmhost and reads the event lines of the game (27 events: the four dodges, the
-  three attacks, the saw, the charge, the shot, the door, the lock, damage, death, a new start). It also checks that the ids and radii of
+- Test: `make test-darknight` plays a script of keys in bmhost and reads the event lines of the game (92 events: the four dodges, the
+  three attacks, the saw, the charge, the shot, the door, the lock, damage, death, a new start, and the attacks of the villagers,
+  huntsmen and dogs, the leap included). It also checks that the ids and radii of
   `main.lua` are those of the map kit.
 
 ## Open work
 
 - Not run on a Pi or an RGB30. The cost of a frame on the Pi Zero W at 1280x720 is not measured (the Resolution row goes to 640x360).
-- The enemies have one attack each (the `attack2` of the men and the `leap` of the dog are made and not used). The pickups of the reference map are not in the kit.
+- The enemies have no tactics: they do not dodge, wait for a gap or keep apart in a group. The pickups of the reference map are not in the kit.
 - No sound and no music. The saw opening and the pistol have no effects besides sparks and a light.
 - The rest of the reference map (Gilbert's House, the Overpass, Main Street) is not built.
 - The weapons are baked into the Hunter (two models, one for each form of the saw). The pistol hammer bone has no use.

@@ -5,7 +5,8 @@
 
 The script presses the keys of the game: run, the three dodges (roll, side jumps, backstep), the three saw attacks, SHIFT
 (open the saw), an attack with the open saw, the charged attack, the pistol, F9 (the developer key: to the hall door), Q
-(lock on), then stands still until the enemies kill the Hunter and he starts again. The game writes one line a
+(lock on), then stands still until the enemies kill the Hunter and he starts again; then F9 to the courtyard, where the attacks of
+the huntsmen and the dogs (the leap) are looked for. The game writes one line a
 event ("darknight: dodge roll"); the test looks for each of them in the log, in that order. It also checks that the object
 ids of main.lua are those of the map kit (art/maps/clinic/build_clinic.py) and that nothing in the log is a Lua error.
 """
@@ -41,10 +42,14 @@ at(960, E); at(965)                                            # the pistol
 at(1050, F9); at(1055)                                         # to the hall door: the door opens, an enemy waits
 at(1110, Q); at(1115)                                          # lock on
 at(1200, F9); at(1205)                                         # to the atrium: two enemies are there
-SCRIPT.append("2700 quit")
+at(2300, F9); at(2305)                                         # after the new start: to the courtyard, where huntsmen and dogs wait
+SCRIPT.append("3600 quit")
 
 EXPECT = ["dodge roll", "dodge right", "dodge left", "dodge back", "attack closed 1", "attack closed 2", "attack closed 3",
           "saw open", "attack open 1", "charge open", "shot", "skip 1", "door opens", "lock on", "skip 2", "hurt hp", "died", "respawn"]
+
+
+REQUIRE = ["enemy villager attack1", "enemy villager attack2", "enemy dog bite", "enemy dog leap", "enemy huntsman attack"]
 
 
 def ids_of_main():
@@ -71,7 +76,7 @@ def main(host, cart, work):
     check(got == {n: float(r) for n, _f, _c, r in B.OBJECTS}, "the radii of main.lua are those of the kit")
     script = os.path.join(work, "input.txt")
     open(script, "w").write("\n".join(SCRIPT) + "\n")
-    out = subprocess.run([host, cart, "--input", script, "--seconds", "46"], capture_output=True, text=True, timeout=400)
+    out = subprocess.run([host, cart, "--input", script, "--seconds", "62"], capture_output=True, text=True, timeout=400)
     log = out.stdout + out.stderr
     open(os.path.join(work, "run.log"), "w").write(log)
     lines = [l[len("darknight: "):] for l in log.splitlines() if l.startswith("darknight: ")]
@@ -85,6 +90,9 @@ def main(host, cart, work):
             check(False, "no event %r after event %d (lines: %s)" % (want_line, pos, ", ".join(lines[:60])))
             break
     check(any(re.match(r"\d+ objects, \d+ enemies", l) for l in lines), "the start line")
+    # the attacks of the enemies, each at least once (the choice follows the frame, so a run is the same every time)
+    for need in REQUIRE:
+        check(any(l.startswith(need) for l in lines), "no event %r (lines: %s)" % (need, ", ".join(sorted(set(lines))[:40])))
     check(re.search(r'bmhost: ".*" \d+ frames, ok', log) is not None, "bmhost ended ok")
     check("error" not in log.lower().replace("no error", ""), "no error in the log")
     print("darknight: %d events, %s" % (len(lines), "ok" if not fails else "FAIL (%d)" % len(fails)))

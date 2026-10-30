@@ -61,12 +61,19 @@ local DODGE = {
   right = { clip = "dodge_r", frames = 12, rate = 1.5, dist = 2.2, inv = { 0.04, 0.45 } },
 }
 local GUN = { clip = "gun", frames = 14, rate = 1.4, shot = 5, dmg = 30, range = 16 }
--- the enemies: health, speed, the clip that moves them, when in the attack clip it hurts (seconds), how long it lasts, the damage,
--- the reach, how far they see, how high they are (for the bar over the head)
+-- the enemies: health, speed, the clip that moves them, how high they are (for the bar over the head), how far they see, and their
+-- attacks: the clip, when in it the blow lands (seconds), how long it lasts, the damage, the reach, how often it is chosen (percent).
+-- The dog also has a leap from afar: it jumps at where the Hunter stood and bites on the landing.
 local TYPES = {
-  villager = { hp = 60, speed = 1.6, move = "walk", rate = 1.4, atk = "attack1", strike = 0.58, total = 1.35, dmg = 14, reach = 1.5, aggro = 7, height = 2.0 },
-  huntsman = { hp = 90, speed = 1.3, move = "walk", rate = 1.3, atk = "attack1", strike = 0.85, total = 1.75, dmg = 22, reach = 2.1, aggro = 8, height = 2.4 },
-  dog = { hp = 40, speed = 3.5, move = "run", rate = 1.3, atk = "bite", strike = 0.42, total = 1.0, dmg = 10, reach = 1.5, aggro = 10, height = 1.3 },
+  villager = { hp = 60, speed = 1.6, move = "walk", rate = 1.4, aggro = 7, height = 2.0, reach = 1.5, attacks = {
+    { clip = "attack1", strike = 0.58, total = 1.35, dmg = 14, reach = 1.5, pct = 60 },       -- a chop
+    { clip = "attack2", strike = 0.70, total = 1.50, dmg = 16, reach = 1.9, pct = 40 } } },   -- a sweep, wider and slower
+  huntsman = { hp = 90, speed = 1.3, move = "walk", rate = 1.3, aggro = 8, height = 2.4, reach = 2.0, attacks = {
+    { clip = "attack1", strike = 0.85, total = 1.75, dmg = 22, reach = 2.1, pct = 60 },      -- the axe, a long swing
+    { clip = "attack2", strike = 0.92, total = 1.85, dmg = 30, reach = 2.3, pct = 40 } } },  -- an overhead chop
+  dog = { hp = 40, speed = 3.5, move = "run", rate = 1.3, aggro = 10, height = 1.3, reach = 1.5, attacks = {
+    { clip = "bite", strike = 0.42, total = 1.0, dmg = 10, reach = 1.5, pct = 100 } },
+    leap = { clip = "leap", takeoff = 0.33, land = 1.0, fly0 = 0.42, fly1 = 1.08, total = 1.35, dmg = 14, reach = 1.7, far = 5.5, cool = 3.5 } },
 }
 
 -- ---------------------------------------------------------------- the state
@@ -135,7 +142,7 @@ local function load_world()
           local kind = enemy_kind(x, z, #enemies)
           local ty = TYPES[kind]
           enemies[#enemies + 1] = { kind = kind, ty = ty, x = x, z = z, hx = x, hz = z, y = y, hp = ty.hp, maxhp = ty.hp, st = "idle", t = 0, yaw = 0,
-                                    flash = 0, anim = "idle", at = 0 }
+                                    flash = 0, anim = "idle", at = 0, idx = #enemies + 1, leapcd = 1.5 }
         elseif name then
           local o = { name = name, x = x, y = y, z = z, r = RADIUS[name] or 0 }
           objs[#objs + 1] = o
@@ -283,7 +290,10 @@ local function damage_enemy(e, dmg, kind)
   e.flash = 0.2
   spark(e.x, e.y + 1.2, e.z, kind == "gun" and 0xFFE080 or 0xB02020, 8)
   if e.hp <= 0 then e.st, e.t = "dead", 0; ev("enemy dead " .. kind); if P.lock == e then P.lock = nil end
-  elseif e.st ~= "attack" or e.t < e.ty.strike then e.st, e.t, e.struck = "stagger", 0, false end
+  else
+    local busy = (e.st == "attack" and e.t >= e.atk.strike) or (e.st == "leap" and e.t >= e.ty.leap.fly0)
+    if not busy then e.st, e.t, e.struck = "stagger", 0, false end
+  end
 end
 
 local function melee_hits(a)
@@ -453,6 +463,7 @@ local function update_enemies()
     local ty = e.ty
     e.t = e.t + dt
     e.flash = max(0, e.flash - dt)
+    e.leapcd = max(0, e.leapcd - dt)
     local dx, dz = P.x - e.x, P.z - e.z
     local d = sqrt(dx * dx + dz * dz)
     local clip, rate = "idle", 1.0
@@ -461,18 +472,49 @@ local function update_enemies()
     elseif e.st == "chase" then
       e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 8 * dt)
       clip, rate = ty.move, ty.rate
-      if d > ty.reach * 0.7 then
+      local lp = ty.leap
+      if lp and e.leapcd <= 0 and d > 2.6 and d < 6.5 and P.hp > 0 then
+        e.st, e.t, e.struck, e.leaping = "leap", 0, false, nil
+        ev("enemy " .. e.kind .. " leap")
+      elseif d > ty.reach * 0.7 then
         try_move(e, dx / d * ty.speed * dt, dz / d * ty.speed * dt, 0.35)
-      else e.st, e.t, e.struck = "attack", 0, false end
+      else
+        -- the attack by its weight; the choice follows the frame, so a run of the game is the same every time
+        local roll, pick = (G.frame * 7 + e.idx * 13) % 100, ty.attacks[1]
+        local acc = 0
+        for _, a in ipairs(ty.attacks) do acc = acc + a.pct; if roll < acc then pick = a; break end end
+        e.st, e.t, e.struck, e.atk = "attack", 0, false, pick
+        ev("enemy " .. e.kind .. " " .. pick.clip)
+      end
       if d > ty.aggro * 2.2 then e.st = "idle" end
     elseif e.st == "attack" then
-      clip, rate = ty.atk, 1.0
-      if e.t < ty.strike then e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 6 * dt) end
-      if e.t >= ty.strike and not e.struck then
+      clip, rate = e.atk.clip, 1.0
+      if e.t < e.atk.strike then e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 6 * dt) end
+      if e.t >= e.atk.strike and not e.struck then
         e.struck = true
-        if d < ty.reach then hurt(ty.dmg, e.x, e.z) end
+        if d < e.atk.reach then hurt(e.atk.dmg, e.x, e.z) end
       end
-      if e.t > ty.total then e.st, e.t = "chase", 0 end
+      if e.t > e.atk.total then e.st, e.t = "chase", 0 end
+    elseif e.st == "leap" then
+      local lp = ty.leap
+      clip, rate = lp.clip, 1.0
+      if e.t < lp.takeoff then
+        e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 10 * dt)
+      elseif not e.leaping then                        -- the take off: where the Hunter stands now, at most `far` away
+        local dist = min(d, lp.far)
+        e.leaping = { sx = e.x, sz = e.z, tx = e.x + dx / (d + 1e-6) * dist, tz = e.z + dz / (d + 1e-6) * dist }
+      end
+      if e.leaping and e.t >= lp.fly0 and e.t <= lp.fly1 then
+        local u = (e.t - lp.fly0) / (lp.fly1 - lp.fly0)
+        local s = u * u * (3 - 2 * u)
+        local L = e.leaping
+        try_move(e, lerp(L.sx, L.tx, s) - e.x, lerp(L.sz, L.tz, s) - e.z, 0.35)
+      end
+      if e.t >= lp.land and not e.struck then
+        e.struck = true
+        if d < lp.reach then hurt(lp.dmg, e.x, e.z) end
+      end
+      if e.t > lp.total then e.st, e.t, e.leapcd = "chase", 0, lp.cool end
     elseif e.st == "stagger" then
       clip = "hit"
       if e.t > 0.45 then e.st, e.t = "chase", 0 end
@@ -533,6 +575,7 @@ local function respawn()
   reset_player(G.spawn[1], G.spawn[2])
   for _, e in ipairs(enemies) do
     e.x, e.z, e.hp, e.st, e.t, e.flash, e.anim, e.at = e.hx, e.hz, e.maxhp, "idle", 0, 0, "idle", 0
+    e.leapcd, e.leaping = 1.5, nil
   end
   G.state = "play"
   ev("respawn")
