@@ -1,0 +1,45 @@
+bm report
+kind: session
+kernel: v0.2.5-1975-ga814d311-dirty
+branch: claude/menu-char-width
+board: Pi Zero W
+date: 2026-10-30 10:07:50
+file: session_res-publica_pi-zero-w.txt
+
+session of "Res Publica" (the last one: the next run of this game replaces this file)
+options bm3d 7.32 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 268 frames in 4.4 s, 59.9 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 9.9 ms, max 17.1 ms, 1 frames over 16.7 ms
+memory: Lua peak 1334 KB, data 904 KB; code 64665 tokens; busiest frame 41k Lua instructions
+frames that were shown after more than 1.5 frames: 0
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    267
+  <= 25 ms             0
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 267 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.0    0%
+  draw (no 3D)     9.4   56%
+  3D calls         0.0    0%
+  audio            0.8    4%
+  GPU wait         0.0    0%
+  all             10.3   62%
+the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
+  map        0.0 ms  0.0 calls
+  spr        0.0 ms  0.0 calls
+  sspr       0.0 ms  0.0 calls
+  stack      0.0 ms  0.0 calls
+  print      0.0 ms  3.0 calls
+  shapes     2.7 ms  2948.0 calls
+  all        2.7 ms  2951.0 calls (of the draw's 9.4 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 4.8% of the CPU's time (mean), 5.7% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+GPU 3D: 84973 jobs, 464331 triangles a frame, 1410.0 ms a frame, longest job seen to its end 6.2 ms
+binner memory: at most 52 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
