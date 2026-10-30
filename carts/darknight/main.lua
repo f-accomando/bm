@@ -61,17 +61,18 @@ local DODGE = {
   right = { clip = "dodge_r", frames = 12, rate = 1.5, dist = 2.2, inv = { 0.04, 0.45 } },
 }
 local GUN = { clip = "gun", frames = 14, rate = 1.4, shot = 5, dmg = 30, range = 16 }
--- the enemies: health, speed, the clip that moves them, how high they are (for the bar over the head), how far they see, and their
+-- the enemies: health, speed, the clip that moves them, how high and how wide they are (the body that is hit), the weapon (a bone, how
+-- far along its axis, how thick: the hitbox that hurts the Hunter), how far they see, and their
 -- attacks: the clip, when in it the blow lands (seconds), how long it lasts, the damage, the reach, how often it is chosen (percent).
 -- The dog also has a leap from afar: it jumps at where the Hunter stood and bites on the landing.
 local TYPES = {
-  villager = { hp = 60, speed = 1.6, move = "walk", rate = 1.4, aggro = 7, height = 2.0, reach = 1.5, attacks = {
+  villager = { hp = 60, speed = 1.6, move = "walk", rate = 1.4, aggro = 7, height = 2.0, radius = 0.45, reach = 1.5, weapon = { "hand.R", 0.85, 0.30 }, attacks = {
     { clip = "attack1", strike = 0.58, total = 1.35, dmg = 14, reach = 1.5, pct = 60 },       -- a chop
     { clip = "attack2", strike = 0.70, total = 1.50, dmg = 16, reach = 1.9, pct = 40 } } },   -- a sweep, wider and slower
-  huntsman = { hp = 90, speed = 1.3, move = "walk", rate = 1.3, aggro = 8, height = 2.4, reach = 2.0, attacks = {
+  huntsman = { hp = 90, speed = 1.3, move = "walk", rate = 1.3, aggro = 8, height = 2.4, radius = 0.5, reach = 2.0, weapon = { "hand.R", 1.05, 0.32 }, attacks = {
     { clip = "attack1", strike = 0.85, total = 1.75, dmg = 22, reach = 2.1, pct = 60 },      -- the axe, a long swing
     { clip = "attack2", strike = 0.92, total = 1.85, dmg = 30, reach = 2.3, pct = 40 } } },  -- an overhead chop
-  dog = { hp = 40, speed = 3.5, move = "run", rate = 1.3, aggro = 10, height = 1.3, reach = 1.5, attacks = {
+  dog = { hp = 40, speed = 3.5, move = "run", rate = 1.3, aggro = 10, height = 1.3, radius = 0.5, reach = 1.5, weapon = { "head", 0.5, 0.28 }, attacks = {
     { clip = "bite", strike = 0.42, total = 1.0, dmg = 10, reach = 1.5, pct = 100 } },
     leap = { clip = "leap", takeoff = 0.33, land = 1.0, fly0 = 0.42, fly1 = 1.08, total = 1.35, dmg = 14, reach = 1.7, far = 5.5, cool = 3.5 } },
 }
@@ -296,18 +297,59 @@ local function damage_enemy(e, dmg, kind)
   end
 end
 
+-- A weapon is a hitbox on a bone: points along the axis of the bone (from its head, for `len`) in the pose the model has now, taken
+-- to the world with the turn the model is drawn with (draw3d turns by yaw + PI about y; the model looks toward -z).
+local function to_world(ox, oy, oz, yaw, x, y, z)
+  local c, s = cos(yaw), sin(yaw)
+  return ox - x * c - z * s, oy + y, oz + x * s - z * c
+end
+
+local function weapon_points(m, bone, len, ox, oy, oz, yaw)
+  local hx, hy, hz, cx, cy, cz = bone3d(m, bone)
+  local pts = {}
+  if not hx then return pts end
+  local dx, dy, dz = cx - hx, cy - hy, cz - hz
+  local l = sqrt(dx * dx + dy * dy + dz * dz) + 1e-6
+  dx, dy, dz = dx / l, dy / l, dz / l
+  for i = 0, 6 do
+    local s = len * i / 6
+    local wx, wy, wz = to_world(ox, oy, oz, yaw, hx + dx * s, hy + dy * s, hz + dz * s)
+    pts[#pts + 1] = { wx, wy, wz }
+  end
+  return pts
+end
+
+-- does a point of the weapon touch a body (an upright cylinder at x, z from y0 to y1)?
+local function touches(pts, x, z, y0, y1, r)
+  for _, p in ipairs(pts) do
+    local dx, dz = p[1] - x, p[3] - z
+    if dx * dx + dz * dz <= r * r and p[2] >= y0 and p[2] <= y1 then return true end
+  end
+  return false
+end
+
+local SAW_LEN = { 1.0, 1.35 }                                   -- from the head of the hand bone to the tip of the saw, closed and open
+
 local function melee_hits(a)
-  local fxx, fzz = dir(P.yaw)
+  local m = P.form == 1 and M3.hunter_c or M3.hunter_o
+  animate(m, P.anim, P.at)
+  local pts = weapon_points(m, "hand.R", SAW_LEN[P.form], P.x, P.y, P.z, P.yaw)
   for _, e in ipairs(enemies) do
-    if e.st ~= "dead" and not P.swing[e] then
-      local dx, dz = e.x - P.x, e.z - P.z
-      local d = sqrt(dx * dx + dz * dz)
-      if d < a.reach + 0.4 and d > 0.001 and (dx * fxx + dz * fzz) / d > 0.3 then
-        P.swing[e] = true
-        damage_enemy(e, a.dmg, "saw")
-      end
+    if e.st ~= "dead" and not P.swing[e] and touches(pts, e.x, e.z, e.y - 0.1, e.y + e.ty.height + 0.1, e.ty.radius + 0.45) then
+      P.swing[e] = true
+      ev("hit " .. e.kind .. " saw")
+      damage_enemy(e, a.dmg, "saw")
     end
   end
+end
+
+-- does the weapon of an enemy touch the Hunter (a cylinder 0.35 wide and 1.9 high)?
+local function enemy_weapon_hits_player(e)
+  local w = e.ty.weapon
+  local m = M3[e.kind]
+  animate(m, e.anim, e.at)
+  local pts = weapon_points(m, w[1], w[2], e.x, e.y, e.z, e.yaw)
+  return touches(pts, P.x, P.z, P.y, P.y + 1.9, 0.35 + w[3])
 end
 
 -- Where a bullet hurts: the bones of the enemy in the pose it has now (hit3d: each bone is a capsule from its head to its tail,
@@ -402,7 +444,7 @@ local function update_player(mx, my)
   P.flash = max(0, P.flash - dt)
   -- the camera's forward gives the meaning of W
   local cfx, cfz = dir(Cam.yaw)
-  local crx, crz = -cfz, cfx
+  local crx, crz = cfz, -cfx                       -- the camera's right (the Hunter's right hand when he looks away from it)
   local wx, wz = cfx * my + crx * mx, cfz * my + crz * mx
   local moving = (wx ~= 0 or wz ~= 0)
 
@@ -540,9 +582,10 @@ local function update_enemies()
     elseif e.st == "attack" then
       clip, rate = e.atk.clip, 1.0
       if e.t < e.atk.strike then e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 6 * dt) end
-      if e.t >= e.atk.strike and not e.struck then
+      -- the blow lands when its weapon touches the Hunter in the window round the hit time of the clip; a Hunter who has moved is missed
+      if e.t >= e.atk.strike - 0.08 and e.t <= e.atk.strike + 0.22 and not e.struck and enemy_weapon_hits_player(e) then
         e.struck = true
-        if d < e.atk.reach then hurt(e.atk.dmg, e.x, e.z) end
+        hurt(e.atk.dmg, e.x, e.z)
       end
       if e.t > e.atk.total then e.st, e.t = "chase", 0 end
     elseif e.st == "leap" then

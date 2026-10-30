@@ -40,17 +40,18 @@ at(560, U); at(565)                                            # an attack with 
 at(700, P); at(780)                                            # the charged attack: hold, let go
 at(960, E); at(965)                                            # the pistol
 at(1050, F9); at(1055)                                         # to the hall door: the door opens, an enemy waits
-at(1110, Q); at(1115)                                          # lock on
-at(1135, E); at(1140)                                         # a shot at the locked enemy: the bones of the enemy are the hurtbox
-at(1200, F9); at(1205)                                         # to the atrium: two enemies are there
-at(2300, F9); at(2305)                                         # after the new start: to the courtyard, where huntsmen and dogs wait
-SCRIPT.append("3600 quit")
+at(1072, U); at(1075); at(1112, U); at(1115)                         # the saw against the enemy that comes: a hitbox on the blade
+at(1160, Q); at(1165)                                          # lock on
+at(1225, E); at(1230)                                         # a shot at the locked enemy: the bones of the enemy are the hurtbox
+at(1290, F9); at(1295)                                         # to the atrium: two enemies are there
+at(2350, F9); at(2355)                                         # after the new start: to the courtyard, where huntsmen and dogs wait
+SCRIPT.append("3650 quit")
 
 EXPECT = ["dodge roll", "dodge right", "dodge left", "dodge back", "attack closed 1", "attack closed 2", "attack closed 3",
           "saw open", "attack open 1", "charge open", "shot", "skip 1", "door opens", "lock on", "skip 2", "hurt hp", "died", "respawn"]
 
 
-REQUIRE = ["shot hit", "enemy villager attack1", "enemy villager attack2", "enemy dog bite", "enemy dog leap", "enemy huntsman attack"]
+REQUIRE = ["hit villager saw", "shot hit", "enemy villager attack1", "enemy villager attack2", "enemy dog bite", "enemy dog leap", "enemy huntsman attack"]
 
 
 def ids_of_main():
