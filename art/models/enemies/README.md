@@ -43,6 +43,6 @@ bmhost. Result on 2026-10-30: 163 checks passed on `enemies.bmm`, `dnenemy.bmm` 
 ## Not verified
 
 - No file was opened by hand in bm Mesh or bm Animator, and none was run on a device (NON VERIFICATO).
-- The enemies in the game have simple moves: they wait, chase, strike once and stagger. The game uses every clip of the enemies.
+- The enemies in the game have simple moves: they wait, chase, attack with one of two blows (the dog also leaps) and stagger. The game uses every clip of the enemies.
 - The shapes follow the reference pictures (hat, coat, rags, hunched body, long snout) in low poly; the fur and the fraying are tents and flat colours.
 - A fan study of third-party characters. It is not for the Market without the owner's decision.
