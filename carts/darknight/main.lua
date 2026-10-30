@@ -4,7 +4,7 @@
 -- ESC the options menu; the arrows turn the camera. A pad has the same moves (see PAD below).
 -- The map and the Hunter come from resource files merged into this cartridge: art/maps/clinic.bmk (the map kit) and
 -- art/models/dnhunter.bmm (the Hunter with the saw in the right hand and the pistol in the left, in two forms).
--- The enemies are placeholders (boxes): a stand-in until the real ones are made.
+-- The enemies come from art/models/dnenemy.bmm: villagers (the clinic), huntsmen and rabid dogs (the courtyard and the alley).
 rawkeys(true)
 
 local PI = math.pi
@@ -61,6 +61,13 @@ local DODGE = {
   right = { clip = "dodge_r", frames = 12, rate = 1.5, dist = 2.2, inv = { 0.04, 0.45 } },
 }
 local GUN = { clip = "gun", frames = 14, rate = 1.4, shot = 5, dmg = 30, range = 16 }
+-- the enemies: health, speed, the clip that moves them, when in the attack clip it hurts (seconds), how long it lasts, the damage,
+-- the reach, how far they see, how high they are (for the bar over the head)
+local TYPES = {
+  villager = { hp = 60, speed = 1.6, move = "walk", rate = 1.4, atk = "attack1", strike = 0.58, total = 1.35, dmg = 14, reach = 1.5, aggro = 7, height = 2.0 },
+  huntsman = { hp = 90, speed = 1.3, move = "walk", rate = 1.3, atk = "attack1", strike = 0.85, total = 1.75, dmg = 22, reach = 2.1, aggro = 8, height = 2.4 },
+  dog = { hp = 40, speed = 3.5, move = "run", rate = 1.3, atk = "bite", strike = 0.42, total = 1.0, dmg = 10, reach = 1.5, aggro = 10, height = 1.3 },
+}
 
 -- ---------------------------------------------------------------- the state
 local world, objs, doors, lanterns, enemies = nil, {}, {}, {}, {}
@@ -71,7 +78,6 @@ local O = { res = 1, textures = true, bright = 2, help = false }      -- the opt
 local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 } }
 local held, prev, pressed = {}, {}, {}
 local fx = {}                         -- short effects: sparks and tracers
-local ENEMY_MESH
 local SKY = 0x2C3346
 
 local function dir(yaw) return sin(yaw), cos(yaw) end                    -- a facing direction from an angle
@@ -105,6 +111,13 @@ end
 -- ---------------------------------------------------------------- the map and the objects
 local function map_height(x, z) return map3d_height(world, x, z) end
 
+-- which enemy stands where: villagers in the clinic, then huntsmen and dogs in turn in the courtyard, dogs in the alley
+local function enemy_kind(x, z, n)
+  if x < 43 then return "villager" end
+  if z >= 31 then return "dog" end
+  return n % 2 == 0 and "huntsman" or "dog"
+end
+
 local function load_world()
   world = map3d_build({ floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 })
   objs, doors, lanterns, enemies = {}, {}, {}, {}
@@ -119,7 +132,10 @@ local function load_world()
         if name == "start" then
           G.spawn = { x, z }
         elseif name == "enemy" then
-          enemies[#enemies + 1] = { x = x, z = z, hx = x, hz = z, y = y, hp = 60, maxhp = 60, st = "idle", t = 0, yaw = 0, flash = 0, hitby = 0 }
+          local kind = enemy_kind(x, z, #enemies)
+          local ty = TYPES[kind]
+          enemies[#enemies + 1] = { kind = kind, ty = ty, x = x, z = z, hx = x, hz = z, y = y, hp = ty.hp, maxhp = ty.hp, st = "idle", t = 0, yaw = 0,
+                                    flash = 0, anim = "idle", at = 0 }
         elseif name then
           local o = { name = name, x = x, y = y, z = z, r = RADIUS[name] or 0 }
           objs[#objs + 1] = o
@@ -267,7 +283,7 @@ local function damage_enemy(e, dmg, kind)
   e.flash = 0.2
   spark(e.x, e.y + 1.2, e.z, kind == "gun" and 0xFFE080 or 0xB02020, 8)
   if e.hp <= 0 then e.st, e.t = "dead", 0; ev("enemy dead " .. kind); if P.lock == e then P.lock = nil end
-  elseif e.st ~= "windup" then e.st, e.t = "stagger", 0 end
+  elseif e.st ~= "attack" or e.t < e.ty.strike then e.st, e.t, e.struck = "stagger", 0, false end
 end
 
 local function melee_hits(a)
@@ -434,30 +450,37 @@ end
 local function update_enemies()
   local dt = 1 / 60
   for _, e in ipairs(enemies) do
+    local ty = e.ty
     e.t = e.t + dt
     e.flash = max(0, e.flash - dt)
     local dx, dz = P.x - e.x, P.z - e.z
     local d = sqrt(dx * dx + dz * dz)
+    local clip, rate = "idle", 1.0
     if e.st == "idle" then
-      if d < 7 and P.hp > 0 then e.st, e.t = "chase", 0 end
+      if d < ty.aggro and P.hp > 0 then e.st, e.t = "chase", 0 end
     elseif e.st == "chase" then
       e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 8 * dt)
-      if d > 1.0 then
-        local sx, sz = dx / d * 1.7 * dt, dz / d * 1.7 * dt
-        try_move(e, sx, sz, 0.35)
-      else e.st, e.t = "windup", 0 end
-      if d > 16 then e.st = "idle" end
-    elseif e.st == "windup" then
-      e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 6 * dt)
-      if e.t > 0.6 then
-        e.st, e.t = "strike", 0
-        if d < 1.5 then hurt(14, e.x, e.z) end
+      clip, rate = ty.move, ty.rate
+      if d > ty.reach * 0.7 then
+        try_move(e, dx / d * ty.speed * dt, dz / d * ty.speed * dt, 0.35)
+      else e.st, e.t, e.struck = "attack", 0, false end
+      if d > ty.aggro * 2.2 then e.st = "idle" end
+    elseif e.st == "attack" then
+      clip, rate = ty.atk, 1.0
+      if e.t < ty.strike then e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 6 * dt) end
+      if e.t >= ty.strike and not e.struck then
+        e.struck = true
+        if d < ty.reach then hurt(ty.dmg, e.x, e.z) end
       end
-    elseif e.st == "strike" then
-      if e.t > 0.35 then e.st, e.t = "chase", 0 end
+      if e.t > ty.total then e.st, e.t = "chase", 0 end
     elseif e.st == "stagger" then
-      if e.t > 0.4 then e.st, e.t = "chase", 0 end
+      clip = "hit"
+      if e.t > 0.45 then e.st, e.t = "chase", 0 end
+    elseif e.st == "dead" then
+      clip = "death"
     end
+    if clip ~= e.anim then e.anim, e.at = clip, 0 end
+    e.at = e.at + dt * rate
     -- the enemies do not stand in each other
     for _, o in ipairs(enemies) do
       if o ~= e and o.st ~= "dead" and e.st ~= "dead" then
@@ -509,7 +532,7 @@ end
 local function respawn()
   reset_player(G.spawn[1], G.spawn[2])
   for _, e in ipairs(enemies) do
-    e.x, e.z, e.hp, e.st, e.t, e.flash = e.hx, e.hz, e.maxhp, "idle", 0, 0
+    e.x, e.z, e.hp, e.st, e.t, e.flash, e.anim, e.at = e.hx, e.hz, e.maxhp, "idle", 0, 0, "idle", 0
   end
   G.state = "play"
   ev("respawn")
@@ -559,28 +582,6 @@ local function look(x, y, z, tx, ty, tz)
 end
 
 -- ---------------------------------------------------------------- the drawing
-local function box_mesh(parts)
-  local v, f = {}, {}
-  local function quad(a, b, c, d, col)
-    local n = #v // 3
-    for _, p in ipairs({ a, b, c, d }) do v[#v + 1], v[#v + 2], v[#v + 3] = p[1], p[2], p[3] end
-    f[#f + 1], f[#f + 2], f[#f + 3], f[#f + 4] = n + 1, n + 2, n + 3, col
-    f[#f + 1], f[#f + 2], f[#f + 3], f[#f + 4] = n + 1, n + 3, n + 4, col
-    f[#f + 1], f[#f + 2], f[#f + 3], f[#f + 4] = n + 1, n + 3, n + 2, col
-    f[#f + 1], f[#f + 2], f[#f + 3], f[#f + 4] = n + 1, n + 4, n + 3, col
-  end
-  for _, b in ipairs(parts) do
-    local x0, y0, z0, x1, y1, z1, c = b[1], b[2], b[3], b[4], b[5], b[6], b[7]
-    quad({ x0, y0, z0 }, { x1, y0, z0 }, { x1, y1, z0 }, { x0, y1, z0 }, c)
-    quad({ x0, y0, z1 }, { x1, y0, z1 }, { x1, y1, z1 }, { x0, y1, z1 }, c)
-    quad({ x0, y0, z0 }, { x0, y0, z1 }, { x0, y1, z1 }, { x0, y1, z0 }, c)
-    quad({ x1, y0, z0 }, { x1, y0, z1 }, { x1, y1, z1 }, { x1, y1, z0 }, c)
-    quad({ x0, y0, z0 }, { x1, y0, z0 }, { x1, y0, z1 }, { x0, y0, z1 }, c)
-    quad({ x0, y1, z0 }, { x1, y1, z0 }, { x1, y1, z1 }, { x0, y1, z1 }, c)
-  end
-  return mesh(v, f)
-end
-
 local function apply_environment()
   local amb = ({ 0.34, 0.44, 0.58 })[O.bright]
   sky3d(0x98A2C0, 0x6C7494, 0x3A3630)             -- a cold dusk, so the lamps are the warm things
@@ -625,17 +626,13 @@ local function draw_player()
 end
 
 local function draw_enemy(e)
-  local ry = e.yaw + PI
-  local rx, y = 0, e.y
-  if e.st == "dead" then
-    local k = min(1, e.t / 0.5)
-    rx = k * (PI / 2)
-    y = y + 0.1 * k
-    if e.t > 4 then return end
-  end
-  local lean = e.st == "windup" and -0.6 * min(1, e.t / 0.6) or e.st == "strike" and 0.5 or 0
-  draw3d(ENEMY_MESH, e.x, y, e.z, rx + lean, ry, 0, 1, e.flash > 0 and 2 or 0)
-  draw3d(ENEMY_MESH, e.x, e.y, e.z, 0, ry, 0, 1, 8)
+  if e.st == "dead" and e.t > 6 then return end
+  local m = M3[e.kind]
+  if not m or not visible3d(e.x, e.y + 1, e.z, 2.5) then return end
+  animate(m, e.anim, e.at)
+  local ry = e.yaw + PI                                    -- the models face -z
+  draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, e.flash > 0 and 2 or 0)
+  if e.st ~= "dead" then draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, 8) end
 end
 
 local function draw_objects()
@@ -682,12 +679,12 @@ local function draw_hud()
   -- the enemies' bars and the lock
   for _, e in ipairs(enemies) do
     if e.st ~= "dead" and (e.hp < e.maxhp or e == P.lock) then
-      local sx, sy = project3d(e.x, e.y + 2.1, e.z)
+      local sx, sy = project3d(e.x, e.y + e.ty.height + 0.2, e.z)
       if sx then bar(sx - 16 * s, sy - 4 * s, 32 * s, 4 * s, e.hp / e.maxhp, 0xC03030) end
     end
   end
   if P.lock then
-    local sx, sy = project3d(P.lock.x, P.lock.y + 1.0, P.lock.z)
+    local sx, sy = project3d(P.lock.x, P.lock.y + P.lock.ty.height * 0.5, P.lock.z)
     if sx then
       local r = 14 * s
       line(sx - r, sy, sx, sy - r, 0xFFD060); line(sx, sy - r, sx + r, sy, 0xFFD060)
@@ -774,18 +771,14 @@ function _init()
     M3[n] = model(n)
     M3[n .. "_f"] = model(n .. "_f")
   end
-  ENEMY_MESH = box_mesh({
-    { -0.3, 0.0, -0.18, 0.3, 0.9, 0.18, 0x6A3A30 },       -- the coat
-    { -0.24, 0.9, -0.2, 0.24, 1.45, 0.2, 0x7A4638 },      -- the chest, hunched
-    { -0.16, 1.45, -0.28, 0.16, 1.78, 0.1, 0xC8B090 },    -- the head
-    { -0.45, 0.85, -0.1, -0.28, 1.5, 0.1, 0x6A3A30 },     -- an arm
-    { 0.28, 0.85, -0.1, 0.45, 1.5, 0.1, 0x6A3A30 },       -- the other
-  })
+  for kind in pairs(TYPES) do M3[kind] = model(kind) end
   load_world()
   reset_player(G.spawn[1], G.spawn[2])
   Cam.x, Cam.y, Cam.z = P.x, P.y + 6, P.z
   say("The Clinic", 4)
-  log("darknight: " .. #objs .. " objects, " .. #enemies .. " enemies")
+  local n = { villager = 0, huntsman = 0, dog = 0 }
+  for _, e in ipairs(enemies) do n[e.kind] = n[e.kind] + 1 end
+  log("darknight: " .. #objs .. " objects, " .. #enemies .. " enemies (villager " .. n.villager .. ", huntsman " .. n.huntsman .. ", dog " .. n.dog .. ")")
 end
 
 function _update()

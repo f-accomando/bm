@@ -251,9 +251,9 @@ $(BUILD)/carts/islandbench.bm $(BUILD)/carts/islandbench.bme: $(BUILD)/carts/isl
 	$(PYTHON) scripts/bmres.py add $@ carts/islandbench/assets/island.bmk -o $@
 
 # Dark Night (carts/darknight): the Hunter in the Clinic. main.lua is the code; the map kit art/maps/clinic.bmk and the
-# models art/models/dnhunter.bmm (made by art/models/hunter/armed.py --game) are merged in by bmres.py. The .bme is the
+# models art/models/dnhunter.bmm (made by art/models/hunter/armed.py --game) and art/models/dnenemy.bmm (art/models/enemies/build.py) are merged in by bmres.py. The .bme is the
 # source, the .bm the cartridge.
-DARKNIGHT_RES := art/maps/clinic.bmk art/models/dnhunter.bmm
+DARKNIGHT_RES := art/maps/clinic.bmk art/models/dnhunter.bmm art/models/dnenemy.bmm
 $(BUILD)/carts/darknight.bm $(BUILD)/carts/darknight.bme: $(BUILD)/carts/darknight.%: carts/darknight/main.lua scripts/mkbm.py scripts/bmres.py carts/darknight/bm.info $(DARKNIGHT_RES)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/darknight/bm.info
@@ -503,6 +503,10 @@ test-islandbench: $(BUILD)/host/bmhost-bin $(BUILD)/carts/islandbench.bm tests/i
 # pistol, the lock, the hall door, death and a new start) and the test reads the event lines of the game
 test-darknight: $(BUILD)/host/bmhost-bin $(BUILD)/carts/darknight.bm tests/darknight/check.py
 	$(PYTHON) tests/darknight/check.py $< $(BUILD)/carts/darknight.bm $(BUILD)/darknight/test
+
+# the editors read the model files: the import code of bm Mesh and bm Animator and the kernel's own checks, in bmhost
+test-bmm: $(BUILD)/host/bmhost-bin scripts/check_bmm.py
+	$(PYTHON) scripts/check_bmm.py art/models/hunter.bmm art/models/hunterlo.bmm art/models/dnhunter.bmm art/models/enemies.bmm art/models/dnenemy.bmm
 
 test-hero: $(BUILD)/host/bmhost-bin $(BUILD)/carts/hero.bm tests/hero/check.py carts/hero/build/mkheroes.py
 	$(PYTHON) tests/hero/check.py $< $(BUILD)/carts/hero.bm $(BUILD)/hero/test
@@ -807,7 +811,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-islandbench test-darknight test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \

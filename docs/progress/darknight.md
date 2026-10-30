@@ -7,7 +7,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 - Build: `make build/carts/darknight.bm build/carts/darknight.bme` (rule in the Makefile, like Island Bench). The code is one file,
   `carts/darknight/main.lua`. The map is `art/maps/clinic.bmk` ([map kit](../design/map-kit.md), builder and checks in
-  `art/maps/clinic/`). The Hunter is `art/models/dnhunter.bmm`: models `hunter_c` (saw closed) and `hunter_o` (saw open), each with the
+  `art/maps/clinic/`). The Hunter is `art/models/dnhunter.bmm` (and the enemies `art/models/dnenemy.bmm`): models `hunter_c` (saw closed) and `hunter_o` (saw open), each with the
   saw in the right hand, the pistol in the left, and the 17 clips (made by `art/models/hunter/armed.py --game`, low poly, about 1300
   triangles). `bmres.py add` merges both files into the cartridge.
 - The `.bme` is kept in the repository. To change it: edit `main.lua` or a resource, run `make build/carts/darknight.bme`, then
@@ -19,7 +19,9 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   P is the charged attack (hold, then let go); ESC opens the options menu (resume, resolution, textures, brightness, controls, restart);
   the arrows turn the camera and zoom; F9 is a developer key: the next place of the walk.
 - The camera looks down at a steep angle behind the player, goes up when a wall is in the way and comes closer only if that is not enough.
-- The enemies are boxes: a placeholder. They wait, chase within 7 units, wind up and strike (14 damage); the Hunter has 100 health.
+- The enemies are the models of `art/models/dnenemy.bmm` ([enemies](../../art/models/enemies/README.md)): villagers in the clinic, then huntsmen and
+  dogs in turn in the courtyard, dogs in the alley (`enemy_kind`). They wait, chase within their sight, strike once when the clip
+  reaches its hit time and stagger when hit (`TYPES` has health, speed, damage and reach for each). The Hunter has 100 health.
   A lantern lights (health and bullets back, a new place to start); a death shows YOU DIED and starts again at the last lantern.
 - Doors that are not locked open when the player is near; the locked ones and the gate stay closed (the gate is the end of this slice).
 - Test: `make test-darknight` plays a script of keys in bmhost and reads the event lines of the game (27 events: the four dodges, the
@@ -29,7 +31,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 ## Open work
 
 - Not run on a Pi or an RGB30. The cost of a frame on the Pi Zero W at 1280x720 is not measured (the Resolution row goes to 640x360).
-- The enemies are placeholders: they need a model, clips and their own moves. The pickups of the reference map are not in the kit.
+- The enemies have one attack each (the `attack2` of the men and the `leap` of the dog are made and not used). The pickups of the reference map are not in the kit.
 - No sound and no music. The saw opening and the pistol have no effects besides sparks and a light.
 - The rest of the reference map (Gilbert's House, the Overpass, Main Street) is not built.
 - The weapons are baked into the Hunter (two models, one for each form of the saw). The pistol hammer bone has no use.
