@@ -1,61 +1,61 @@
 bm report
 kind: session
-kernel: v0.2.5-1858-gd2c0b758
+kernel: v0.2.5-1975-g8ff0510d
 branch: bm-core
 board: RGB30
-date: 2026-10-28 08:46:31
+date: 2026-10-30 10:03:11
 file: session_yharnam_rgb30.txt
 
-session of "Yharnam" since it was resumed (the last one: the next run of this game replaces this file)
-options bm3d 7.16 mali3d=1 gpu3d_vs=0 gpu3d_queue=0 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 9358 frames in 157.4 s, 59.4 fps
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+options bm3d 7.32 mali3d=1 gpu3d_vs=2 gpu3d_queue=2 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 712 frames in 13.4 s, 53.0 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 12.5 ms, max 61.6 ms, 22 frames over 16.7 ms
-memory: Lua peak 4013 KB, data 41353 KB; code 103223 tokens; busiest frame 608k Lua instructions
-frames that were shown after more than 1.5 frames: 39
+time of _update + _draw (+ the 3D's wait): avg 12.5 ms, max 82.7 ms, 56 frames over 16.7 ms
+memory: Lua peak 3096 KB, data 41353 KB; code 106667 tokens; busiest frame 608k Lua instructions
+frames that were shown after more than 1.5 frames: 88
 the game says: on the spot 3
 the game says: in time 5
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    9319
+  <= 18 ms (60 fps)    624
   <= 25 ms             0
-  <= 34 ms (30 fps)    14
+  <= 34 ms (30 fps)    86
   <= 50 ms             0
-  <= 100 ms            22
-  > 100 ms (a freeze)  3
+  <= 100 ms            1
+  > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 9357 frames; ms a frame, % of the 16.7 ms of a frame):
-  update           0.3    2%
-  draw (no 3D)    15.6   93%
+the frame in its parts (as the overlay, 711 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.7    4%
+  draw (no 3D)    17.5  105%
   3D calls         0.0    0%
-  audio            0.7    4%
+  audio            0.5    3%
   GPU wait         0.0    0%
-  all             16.7  100%
-  of the draw: light 7.0 ms (dark_begin, glow, dark_end; in 100% of the frames; the fade of dark_end alone 2.2 ms), the rest 8.5 ms (map, sprites, text, Lua)
+  all             18.7  112%
+  of the draw: light 7.1 ms (dark_begin, glow, dark_end; in 100% of the frames; the fade of dark_end alone 2.3 ms), the rest 10.3 ms (map, sprites, text, Lua)
 the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
-  map        1.1 ms  2.0 calls
-  spr        0.2 ms  49.7 calls
-  sspr       1.1 ms  77.9 calls
+  map        1.1 ms  3.4 calls
+  spr        0.2 ms  43.4 calls
+  sspr       0.9 ms  72.0 calls
   stack      0.0 ms  0.0 calls
-  print      0.0 ms  3.0 calls
-  shapes     0.0 ms  110.0 calls
-  all        2.7 ms  242.8 calls (of the draw's 15.6 ms: the rest is Lua, the light, the 3D)
-audio interrupt: 4.4% of the CPU's time (mean), 5.4% at most in a second
+  print      0.0 ms  1.7 calls
+  shapes     0.1 ms  167.6 calls
+  all        2.4 ms  288.3 calls (of the draw's 17.5 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 2.8% of the CPU's time (mean), 4.8% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-  12361   258.0   100.0   12.3   0.4   11.9   0.0   0.1    87.5       19     2234        1
-   8797   198.0   100.0   12.5   0.4   12.1   0.0   0.1    87.3       19     2269        1
-  15933   318.0   100.0   12.5   0.0   12.5   0.0   0.1    87.3       15     2568        1
-   9820   215.2    66.7   49.9   0.4   49.4   0.0   0.1    16.6       18     2203        1
-  10895   233.2    66.7   50.0   0.5   49.5   0.0   0.1    16.5       20     2206        1
-  11974   251.4    66.7   49.8   0.4   49.3   0.0   0.1    16.7       19     2205        1
-  12335   257.5    66.7   49.8   0.4   49.3   0.0   0.4    16.4       19     2202        1
-  13412   275.7    66.7   51.9   0.5   51.4   0.0   0.2    14.5       19     2204        1
-   7362   173.8    66.7   61.6   0.0   61.5   0.0   0.1     4.9       14     2214        1
-   8025   184.9    66.7   60.8   0.5   60.3   0.0   0.1     5.7       19     2204        1
-   8386   191.0    66.7   50.1   0.7   49.4   0.0   0.2    16.3       19     2204        1
-  14128   287.7    66.7   50.3   0.4   49.8   0.0   0.1    16.2       19     2203        1
+     20     0.9    66.7   58.0   0.2   57.8   0.0   0.1     8.5       16     2045        1
+    676    12.8    33.4   16.8   1.1   15.7   0.0   0.1    16.4       23     3043        1
+    680    13.0    33.4   16.8   1.4   15.4   0.0   0.1    16.4       23     3050        1
+    684    13.1    33.4   16.6   1.4   15.2   0.0   0.1    16.5       23     3056        1
+    613    11.1    33.3   20.7   6.2   14.4   0.0   0.1    12.4       58     2822        1
+    634    11.7    33.3   16.2   1.4   14.8   0.0   0.4    16.6       24     2968        1
+    574    10.2    33.3   17.8   5.6   12.2   0.0   0.1    15.3       54     2599        1
+    576    10.2    33.3   17.9   5.0   12.8   0.0   0.1    15.2       55     2618        1
+    581    10.4    33.3   19.0   6.2   12.7   0.0   0.1    14.1       56     2671        1
+    585    10.5    33.3   24.3  11.5   12.7   0.0   0.1     8.8       56     2721        1
+    587    10.6    33.3   14.7   1.7   13.0   0.0   0.1    18.4       32     2729        1
+    609    10.9    33.3   20.8   6.7   14.0   0.0   0.1    12.3       57     2777        1
