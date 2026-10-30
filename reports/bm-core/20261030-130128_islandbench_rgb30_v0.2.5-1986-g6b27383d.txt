@@ -1,0 +1,58 @@
+bm report
+kind: islandbench
+kernel: v0.2.5-1986-g6b27383d
+branch: bm-core
+board: RGB30
+date: 2026-10-30 13:01:28
+file: 20261030-130128_islandbench_rgb30_v0.2.5-1986-g6b27383d.txt
+
+options bm3d 7.32 mali3d=1 gpu3d_vs=2 gpu3d_queue=2 3d=arm later=0 2d=0 impostor=0 fast=0
+islandbench 1 saved t=40 res=640x360
+gpu: the Mali draws flat colours and opaque textures with its depth buffer (mali3d=1, mali_tex=1, mali_z=1)
+options: bm3d 7.32 mali3d=1 gpu3d_vs=2 gpu3d_queue=2 3d=arm later=0 2d=0 impostor=0 fast=0
+probes: 
+islandbench 1 t=1 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w1,el50,shd0,tex,obj3,fire0,sea0 | ms=0.0 max=0.0 fps=0 gpu=0.0 wait=0.0 tri=0 vtx=0 lua=0 kb=258 skip=0 o3=0 o2=0
+STAGE 1
+islandbench 1 t=2 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w1,el50,shd0,tex,obj3,fire0,sea0 | ms=19.9 max=23.9 fps=30 gpu=0.0 wait=0.0 tri=4219 vtx=9366 lua=12 kb=325 skip=30 o3=4 o2=46
+islandbench 1 t=3 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el50,shd0,tex,obj3,fire0,sea0 | ms=19.8 max=23.2 fps=30 gpu=0.0 wait=0.0 tri=4207 vtx=9369 lua=12 kb=408 skip=30 o3=5 o2=42
+islandbench 1 t=4 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el50,shd0,tex,obj3,fire0,sea0 | ms=19.8 max=21.5 fps=30 gpu=0.0 wait=0.0 tri=4253 vtx=9417 lua=12 kb=493 skip=30 o3=5 o2=41
+islandbench 1 t=5 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el50,shd0,tex,obj3,fire0,sea0 | ms=20.5 max=41.6 fps=30 gpu=0.0 wait=0.0 tri=4253 vtx=9543 lua=12 kb=451 skip=31 o3=5 o2=40
+STAGE 2
+islandbench 1 t=6 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w1,el100,shd0,tex,obj1,fire0,sea0 | ms=19.7 max=27.1 fps=30 gpu=0.0 wait=0.0 tri=3932 vtx=8920 lua=12 kb=451 skip=30 o3=7 o2=38
+islandbench 1 t=7 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd0,tex,obj1,fire0,sea0 | ms=71.4 max=90.0 fps=13 gpu=0.0 wait=0.0 tri=14129 vtx=19932 lua=14 kb=523 skip=36 o3=87 o2=0
+islandbench 1 t=8 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd0,tex,obj1,fire0,sea0 | ms=74.0 max=90.3 fps=12 gpu=0.0 wait=0.0 tri=14427 vtx=20253 lua=15 kb=528 skip=34 o3=89 o2=0
+islandbench 1 t=9 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd0,tex,obj1,fire0,sea0 | ms=76.6 max=99.5 fps=12 gpu=0.0 wait=0.0 tri=14728 vtx=20718 lua=15 kb=546 skip=35 o3=96 o2=0
+STAGE 3
+islandbench 1 t=10 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w1,el100,shd1,tex,obj1,fire0,sea0 | ms=78.1 max=98.3 fps=12 gpu=0.0 wait=0.0 tri=15255 vtx=21641 lua=15 kb=571 skip=35 o3=94 o2=0
+islandbench 1 t=11 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd1,tex,obj1,fire0,sea0 | ms=89.5 max=109.4 fps=11 gpu=0.0 wait=0.0 tri=20569 vtx=21401 lua=16 kb=564 skip=33 o3=93 o2=0
+islandbench 1 t=12 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd1,tex,obj1,fire0,sea0 | ms=87.4 max=105.3 fps=11 gpu=0.0 wait=0.0 tri=20314 vtx=21173 lua=16 kb=548 skip=33 o3=92 o2=0
+islandbench 1 t=14 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd1,tex,obj1,fire0,sea0 | ms=85.8 max=106.4 fps=11 gpu=0.0 wait=0.0 tri=20023 vtx=21163 lua=16 kb=529 skip=33 o3=91 o2=0
+STAGE 4
+islandbench 1 t=15 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w1,el100,shd1,tex,obj1,fire1,sea0 | ms=84.3 max=104.0 fps=11 gpu=0.0 wait=0.0 tri=19611 vtx=20979 lua=15 kb=506 skip=33 o3=92 o2=0
+islandbench 1 t=16 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd1,tex,obj1,fire1,sea0 | ms=82.2 max=100.3 fps=11 gpu=0.0 wait=0.0 tri=19745 vtx=21438 lua=16 kb=581 skip=33 o3=95 o2=0
+islandbench 1 t=17 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd1,tex,obj1,fire1,sea0 | ms=85.9 max=109.0 fps=11 gpu=0.0 wait=0.0 tri=20240 vtx=21799 lua=16 kb=564 skip=33 o3=93 o2=0
+islandbench 1 t=18 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w1,el100,shd1,tex,obj1,fire1,sea0 | ms=86.2 max=108.3 fps=11 gpu=0.0 wait=0.0 tri=19853 vtx=21597 lua=16 kb=539 skip=33 o3=93 o2=0
+STAGE 5
+islandbench 1 t=19 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w2,el100,shd1,tex,obj1,fire1,sea0 | ms=85.8 max=105.2 fps=11 gpu=0.0 wait=0.0 tri=19547 vtx=21386 lua=16 kb=515 skip=33 o3=93 o2=0
+islandbench 1 t=20 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w2,el100,shd1,tex,obj1,fire1,sea0 | ms=83.6 max=104.3 fps=11 gpu=0.0 wait=0.0 tri=19793 vtx=21187 lua=21 kb=585 skip=33 o3=93 o2=0
+islandbench 1 t=21 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w2,el100,shd1,tex,obj1,fire1,sea0 | ms=85.4 max=101.7 fps=11 gpu=0.0 wait=0.0 tri=19529 vtx=20606 lua=21 kb=566 skip=33 o3=94 o2=0
+islandbench 1 t=22 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w2,el100,shd1,tex,obj1,fire1,sea0 | ms=86.4 max=110.5 fps=11 gpu=0.0 wait=0.0 tri=19543 vtx=20693 lua=21 kb=547 skip=33 o3=95 o2=0
+STAGE 6
+islandbench 1 t=23 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w2,el100,shd1,tex,obj1,fire1,sea1 | ms=85.9 max=104.5 fps=11 gpu=0.0 wait=0.0 tri=19612 vtx=20667 lua=21 kb=529 skip=33 o3=95 o2=0
+islandbench 1 t=24 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w2,el100,shd1,tex,obj1,fire1,sea1 | ms=92.3 max=116.2 fps=11 gpu=0.0 wait=0.0 tri=20128 vtx=21157 lua=21 kb=515 skip=33 o3=95 o2=0
+islandbench 1 t=25 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w2,el100,shd1,tex,obj1,fire1,sea1 | ms=89.5 max=114.0 fps=11 gpu=0.0 wait=0.0 tri=20355 vtx=21188 lua=21 kb=582 skip=33 o3=92 o2=0
+islandbench 1 t=26 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w2,el100,shd1,tex,obj1,fire1,sea1 | ms=91.9 max=115.9 fps=11 gpu=0.0 wait=0.0 tri=20485 vtx=20982 lua=21 kb=550 skip=33 o3=91 o2=0
+STAGE 7
+islandbench 1 t=27 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=89.1 max=113.6 fps=11 gpu=0.0 wait=0.0 tri=20226 vtx=20474 lua=21 kb=609 skip=33 o3=91 o2=0
+islandbench 1 t=28 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=87.9 max=106.8 fps=11 gpu=0.0 wait=0.0 tri=19524 vtx=20050 lua=17 kb=569 skip=33 o3=91 o2=0
+islandbench 1 t=29 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=86.1 max=114.5 fps=11 gpu=0.0 wait=0.0 tri=19509 vtx=19807 lua=16 kb=616 skip=33 o3=90 o2=0
+islandbench 1 t=30 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=87.6 max=110.7 fps=11 gpu=0.0 wait=0.0 tri=19336 vtx=19282 lua=16 kb=565 skip=33 o3=90 o2=0
+STAGE 8
+islandbench 1 t=31 scene=manual res=640x360 opt=gpu,aa0,vs1,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=85.0 max=112.2 fps=11 gpu=0.0 wait=0.0 tri=19139 vtx=19068 lua=16 kb=604 skip=33 o3=86 o2=0
+islandbench 1 t=32 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=91.0 max=118.9 fps=11 gpu=0.0 wait=0.0 tri=18891 vtx=18804 lua=16 kb=538 skip=33 o3=87 o2=0
+islandbench 1 t=33 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=88.2 max=117.1 fps=7 gpu=0.0 wait=0.0 tri=18768 vtx=18789 lua=16 kb=550 skip=21 o3=88 o2=0
+islandbench 1 t=34 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=87.6 max=116.2 fps=11 gpu=0.0 wait=0.0 tri=18799 vtx=18802 lua=16 kb=585 skip=33 o3=88 o2=0
+islandbench 1 t=36 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=88.0 max=117.7 fps=11 gpu=0.0 wait=0.0 tri=18849 vtx=18831 lua=16 kb=625 skip=33 o3=88 o2=0
+islandbench 1 t=37 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=90.9 max=114.2 fps=11 gpu=0.0 wait=0.0 tri=18901 vtx=18912 lua=16 kb=553 skip=33 o3=86 o2=0
+islandbench 1 t=38 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=88.4 max=115.9 fps=11 gpu=0.0 wait=0.0 tri=18881 vtx=18976 lua=16 kb=581 skip=33 o3=89 o2=0
+islandbench 1 t=39 scene=manual res=640x360 opt=arm,aa0,vs0,t1,w4,el100,shd1,tex,obj1,fire1,sea1 | ms=91.5 max=121.4 fps=10 gpu=0.0 wait=0.0 tri=19192 vtx=19580 lua=16 kb=586 skip=30 o3=89 o2=0
