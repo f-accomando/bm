@@ -310,29 +310,75 @@ local function melee_hits(a)
   end
 end
 
+-- Where a bullet hurts: the bones of the enemy in the pose it has now (hit3d: each bone is a capsule from its head to its tail,
+-- as wide as its vertices). The head counts double, a limb a little more than half.
+local LIMB = { "hand", "fore", "upper", "fing", "thumb", "thigh", "shin", "foot", "paw", "tail", "fpaw", "ffore", "fupper", "hthigh", "hshin", "hfoot" }
+local function zone_of(bone)
+  bone = tostring(bone or "")
+  if bone:find("^head") or bone:find("^jaw") then return "head", 2.0 end
+  for _, n in ipairs(LIMB) do if bone:find("^" .. n) then return "limb", 0.6 end end
+  return "body", 1.0
+end
+
 local function fire_bullet()
   local fxx, fzz = dir(P.yaw)
   local sx, sy, sz = P.x + fxx * 0.6, P.y + 1.35, P.z + fzz * 0.6
-  local best, bt = nil, GUN.range
-  -- the ray stops at a wall
-  local wall = GUN.range
-  for t = 0.6, GUN.range, 0.4 do
-    if map3d_blocked(world, sx + fxx * t, sy, sz + fzz * t, 0.08) then wall = t; break end
-  end
-  for _, e in ipairs(enemies) do
-    if e.st ~= "dead" then
-      local dx, dz = e.x - sx, e.z - sz
-      local along = dx * fxx + dz * fzz
-      local side = abs(dx * fzz - dz * fxx)
-      if along > 0 and along < min(wall, bt) and side < 0.6 then best, bt = e, along end
+  -- the enemies the bullet may meet: the one locked on, or those in front of the Hunter (a narrow cone: the aim is a little forgiving)
+  local cand = {}
+  if P.lock and P.lock.st ~= "dead" then cand[1] = P.lock
+  else
+    for _, e in ipairs(enemies) do
+      if e.st ~= "dead" then
+        local dx, dz = e.x - P.x, e.z - P.z
+        local d = sqrt(dx * dx + dz * dz)
+        if d > 0.2 and d < GUN.range and (dx * fxx + dz * fzz) / d > 0.96 then cand[#cand + 1] = e end
+      end
     end
   end
-  local tl = best and bt or min(wall, GUN.range)
-  fx[#fx + 1] = { kind = "tracer", x = sx, y = sy, z = sz, x2 = sx + fxx * tl, y2 = sy, z2 = sz + fzz * tl, t = 0.08 }
+  local best, bt, bdir, bbone
+  for _, e in ipairs(cand) do
+    local m = M3[e.kind]
+    animate(m, e.anim, e.at)                                  -- the pose the enemy has now (the mesh is shared by its kind)
+    local ax, ay, az = e.x, e.y + e.ty.height * 0.55, e.z
+    local dx, dy, dz = ax - sx, ay - sy, az - sz
+    local l = sqrt(dx * dx + dy * dy + dz * dz) + 1e-6
+    dx, dy, dz = dx / l, dy / l, dz / l
+    local t, bone = hit3d(m, e.x, e.y, e.z, e.yaw + PI, 1, sx, sy, sz, dx, dy, dz, GUN.range)
+    if t and (not bt or t < bt) then best, bt, bdir, bbone = e, t, { dx, dy, dz }, bone end
+  end
+  local ddx, ddy, ddz = fxx, 0, fzz
+  if bdir then ddx, ddy, ddz = bdir[1], bdir[2], bdir[3] end
+  -- the bullet stops at a wall
+  local wall = GUN.range
+  for t = 0.6, GUN.range, 0.4 do
+    if map3d_blocked(world, sx + ddx * t, sy + ddy * t, sz + ddz * t, 0.08) then wall = t; break end
+  end
+  local hit = best and bt < wall
+  local tl = hit and bt or wall
+  local zone, mult = "body", 1.0
+  if hit then zone, mult = zone_of(bbone) end
+  fx[#fx + 1] = { kind = "tracer", x = sx, y = sy, z = sz, x2 = sx + ddx * tl, y2 = sy + ddy * tl, z2 = sz + ddz * tl, t = 0.08 }
   fx[#fx + 1] = { kind = "flash", x = sx, y = sy, z = sz, t = 0.08 }
-  if best then damage_enemy(best, GUN.dmg, "gun") else spark(sx + fxx * tl, sy, sz + fzz * tl, 0xC0C0C0, 4) end
+  if hit then
+    damage_enemy(best, GUN.dmg * mult, "gun")
+    if zone == "head" then say("headshot", 1.0) end
+  else
+    spark(sx + ddx * tl, sy + ddy * tl, sz + ddz * tl, 0xC0C0C0, 4)
+  end
   P.ammo = P.ammo - 1
-  ev("shot " .. (best and "hit" or "miss") .. " bullets " .. P.ammo)
+  ev("shot " .. (hit and ("hit " .. zone .. " " .. tostring(bbone)) or "miss") .. " bullets " .. P.ammo)
+end
+
+-- can the Hunter see the enemy? A wall between them (at chest height, above the steps of a stair) says no
+local function in_sight(e)
+  local y = max(P.y, e.y) + 1.4
+  local dx, dz = e.x - P.x, e.z - P.z
+  local d = sqrt(dx * dx + dz * dz)
+  if d < 0.6 then return true end
+  for s = 0.5, d - 0.4, 0.5 do
+    if map3d_blocked(world, P.x + dx / d * s, y, P.z + dz / d * s, 0.1) then return false end
+  end
+  return true
 end
 
 local function pick_lock()
@@ -343,7 +389,7 @@ local function pick_lock()
       local dx, dz = e.x - P.x, e.z - P.z
       local d = sqrt(dx * dx + dz * dz)
       local front = (dx * fxx + dz * fzz) / (d + 1e-6)
-      if d < bd and front > -0.2 then best, bd = e, d end
+      if d < bd and front > -0.2 and in_sight(e) then best, bd = e, d end
     end
   end
   return best
@@ -363,7 +409,11 @@ local function update_player(mx, my)
   if pressed.lock then
     if P.lock then P.lock = nil; ev("lock off") else P.lock = pick_lock(); if P.lock then ev("lock on") else say("nothing to lock on", 1.2) end end
   end
-  if P.lock and (P.lock.st == "dead" or ((P.lock.x - P.x) ^ 2 + (P.lock.z - P.z) ^ 2) > 22 * 22) then P.lock = nil end
+  if P.lock then
+    -- the lock goes when the enemy dies, is far, or has been out of sight for a second and a half
+    P.unseen = in_sight(P.lock) and 0 or (P.unseen or 0) + dt
+    if P.lock.st == "dead" or ((P.lock.x - P.x) ^ 2 + (P.lock.z - P.z) ^ 2) > 22 * 22 or P.unseen > 1.5 then P.lock = nil; P.unseen = 0; ev("lock lost") end
+  end
 
   if P.mode == "free" then
     local speed, clip, rate = 0, "idle", 1

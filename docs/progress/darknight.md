@@ -18,6 +18,10 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   E fires the pistol (12 bullets); Q locks on and off; U I O are the three saw attacks (each may follow the one before it in its chain window);
   P is the charged attack (hold, then let go); ESC opens the options menu (resume, resolution, textures, brightness, controls, restart);
   the arrows turn the camera and zoom; F9 is a developer key: the next place of the walk.
+- The pistol hits what the bones say: `fire_bullet` puts the enemy in the pose it has now (`animate`, the mesh is shared by its kind) and asks
+  `hit3d` for the bone the bullet meets (a capsule for each bone, as wide as its vertices). The head counts double (`headshot`), a limb 0.6, the
+  rest 1. The bullet aims at the chest of the locked enemy, or of the first one in a narrow cone in front of the Hunter, and stops at a wall.
+  The lock (Q) takes only an enemy in sight (`in_sight`: no wall at chest height between them) and goes after 1.5 s out of sight.
 - The camera looks down at a steep angle behind the player, goes up when a wall is in the way and comes closer only if that is not enough.
 - The enemies are the models of `art/models/dnenemy.bmm` ([enemies](../../art/models/enemies/README.md)): villagers in the clinic, then huntsmen and
   dogs in turn in the courtyard, dogs in the alley (`enemy_kind`). They wait, chase within their sight, strike when the attack clip reaches its hit time and stagger when hit (`TYPES` has health, speed and, for each
@@ -38,12 +42,14 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - No sound and no music. The saw opening and the pistol have no effects besides sparks and a light.
 - The rest of the reference map (Gilbert's House, the Overpass, Main Street) is not built.
 - The weapons are baked into the Hunter (two models, one for each form of the saw). The pistol hammer bone has no use.
-- The hits of the saw are a cone in front of the Hunter during the frames of the cut (the frames are listed in `ATK`), not the blade's real place.
+- The hits of the saw are a cone in front of the Hunter during the frames of the cut (the frames are listed in `ATK`), not the blade's real place:
+  a hitbox on the bone of the hand (`bone3d`) is not made. The enemies' blows are a distance at the hit time of the clip, not a volume on their weapon.
 - The key map is a table in `main.lua` (`BIND`, `PAD`). The menu has no row to change a key.
 
 ## Rules (do not break)
 
 - Read the keys with `rawkeys(true)` and `keydown`; keep the action table `BIND` the only place that names a key.
 - Keep the object ids and radii of `main.lua` equal to `art/maps/clinic/build_clinic.py` (`tests/darknight/check.py` checks it).
+- Take the hurtboxes of the enemies from their skeleton with `hit3d`, after `animate` of that enemy; do not keep a second set of boxes.
 - Keep the Hunter's clips in place (the game moves the body); the clips carry no net travel.
 - Write a game event as one line `darknight: ...` (`ev()`), because the test reads them.

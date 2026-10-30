@@ -41,6 +41,7 @@ at(700, P); at(780)                                            # the charged att
 at(960, E); at(965)                                            # the pistol
 at(1050, F9); at(1055)                                         # to the hall door: the door opens, an enemy waits
 at(1110, Q); at(1115)                                          # lock on
+at(1135, E); at(1140)                                         # a shot at the locked enemy: the bones of the enemy are the hurtbox
 at(1200, F9); at(1205)                                         # to the atrium: two enemies are there
 at(2300, F9); at(2305)                                         # after the new start: to the courtyard, where huntsmen and dogs wait
 SCRIPT.append("3600 quit")
@@ -49,7 +50,7 @@ EXPECT = ["dodge roll", "dodge right", "dodge left", "dodge back", "attack close
           "saw open", "attack open 1", "charge open", "shot", "skip 1", "door opens", "lock on", "skip 2", "hurt hp", "died", "respawn"]
 
 
-REQUIRE = ["enemy villager attack1", "enemy villager attack2", "enemy dog bite", "enemy dog leap", "enemy huntsman attack"]
+REQUIRE = ["shot hit", "enemy villager attack1", "enemy villager attack2", "enemy dog bite", "enemy dog leap", "enemy huntsman attack"]
 
 
 def ids_of_main():
