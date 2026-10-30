@@ -24,4 +24,9 @@ static inline int mbox_is_dead(unsigned timeouts_in_a_row)
 }
 void mbox_set_dead_hook(void (*fn)(void));
 
+/* A call that gets no answer prints one line (the channel, the first tag, which wait gave up, the status register, how
+ * long ago the last answer came) and runs this hook, so the kernel can add what else it knows (the V3D). Once for
+ * each run of timeouts (30 Oct 2026: the second firmware stop, at the video mode change of an app). */
+void mbox_set_diag_hook(void (*fn)(void));
+
 #endif

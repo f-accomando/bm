@@ -33,7 +33,9 @@
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
+#include "gpu/gpu3d.h"
 #include "gpu/qpu.h"
+#include "gpu/v3d.h"
 #include "bt/bt.h"
 #include "audio/audio.h"
 #include "crumbs.h"
@@ -164,6 +166,19 @@ static void firmware_dead(void)
     watchdog_reboot();
 }
 
+/* The first mailbox timeout of a run: the state of the V3D beside the line mbox.c prints (the registers are read only
+ * when the 3D was started, so the V3D is on) */
+static void mbox_diag(void)
+{
+    if (!gpu3d_ready()) {
+        kprintf("mbox: the 3D is not started\n");
+        return;
+    }
+    char b[320];
+    v3d_errors(b, sizeof b);
+    kprintf("mbox: V3D %s\n", b);
+}
+
 static void pi_lastrun(void)
 {
     uint32_t cpsr;
@@ -257,6 +272,7 @@ void kernel_main(uint32_t atags)
     sdlog_prev();
     watchdog_before_reboot(pi_lastrun);
     mbox_set_dead_hook(firmware_dead);
+    mbox_set_diag_hook(mbox_diag);
     sdlog_boot(0);
     {
         /* v3d_clock=max in bm/config.txt: the GPU at the highest clock the
