@@ -1,0 +1,130 @@
+bm report
+kind: hero
+kernel: v0.2.5-1984-gf07d085c
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-30 14:56:20
+file: 20261030-145620_hero_pi-zero-w_v0.2.5-1984-gf07d085c.txt
+
+options bm3d 7.32 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 attr=1 etc1=0 3d=gpu later=1 2d=1 impostor=32 fast=0
+hero 1 saved t=722 n=20 lod=0 res=640x360 map=3792
+hero 1 t=639 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=17.1 max=27.9 fps=56 gpu=17.8 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=68 kb=306 skip=4
+sweep n=1200 ms=16.9 max=28.0 gpu=17.8 tri=23472
+hero 1 point 2d-sprites gpu n=1200 ms=16.9 max=28.0 gpu=17.8 tri=23472
+hero 1 t=640 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=17.0 max=28.0 fps=57 gpu=17.7 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=68 kb=277 skip=4
+hero 1 t=641 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=20.5 max=38.3 fps=49 gpu=21.2 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=89 kb=290 skip=13
+hero 1 t=642 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=20.4 max=31.2 fps=48 gpu=21.1 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=89 kb=304 skip=13
+hero 1 t=643 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=20.4 max=31.2 fps=48 gpu=21.1 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=89 kb=317 skip=13
+sweep n=1600 ms=20.1 max=31.2 gpu=21.2 tri=23472
+hero 1 point 2d-sprites gpu n=1600 ms=20.1 max=31.2 gpu=21.2 tri=23472
+hero 1 t=644 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=23.4 max=31.2 fps=43 gpu=24.1 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=107 kb=281 skip=19
+hero 1 t=645 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=23.7 max=35.7 fps=41 gpu=24.5 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=110 kb=293 skip=19
+hero 1 t=646 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o1 | ms=23.7 max=34.0 fps=41 gpu=24.5 wait=0.0 anim=0.9 tri=23472 vtx=0 lua=110 kb=305 skip=20
+sweep n=2000 ms=23.5 max=35.7 gpu=24.5 tri=23472
+hero 1 point 2d-sprites gpu n=2000 ms=23.5 max=35.7 gpu=24.5 tri=23472
+sweep load60=1184.9 load30=>2000
+hero 1 result 2d-sprites gpu load60=1184.9 load30=>2000 top=2000
+hero 1 test 2d-light arm
+sweep start lod=0
+hero 1 t=647 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=28.9 max=118.9 fps=37 gpu=23.5 wait=0.0 anim=0.9 tri=22869 vtx=1302 lua=105 kb=320 skip=21
+hero 1 t=648 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.7 max=115.6 fps=10 gpu=0.0 wait=0.0 anim=0.8 tri=13259 vtx=22144 lua=27 kb=323 skip=30
+hero 1 t=649 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.8 max=115.6 fps=10 gpu=0.0 wait=0.0 anim=0.9 tri=13232 vtx=22144 lua=27 kb=280 skip=30
+hero 1 t=650 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.6 max=115.5 fps=10 gpu=0.0 wait=0.0 anim=0.8 tri=13243 vtx=22144 lua=27 kb=284 skip=30
+hero 1 t=651 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.8 max=115.6 fps=10 gpu=0.0 wait=0.0 anim=0.8 tri=13278 vtx=22144 lua=27 kb=288 skip=30
+hero 1 t=652 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.8 max=115.8 fps=10 gpu=0.0 wait=0.0 anim=0.9 tri=13289 vtx=22144 lua=27 kb=292 skip=30
+hero 1 t=654 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.7 max=115.6 fps=10 gpu=0.0 wait=0.0 anim=0.8 tri=13261 vtx=22144 lua=27 kb=296 skip=30
+hero 1 t=655 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.6 max=115.7 fps=10 gpu=0.0 wait=0.0 anim=0.9 tri=13209 vtx=22144 lua=27 kb=300 skip=30
+hero 1 t=656 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.6 max=115.6 fps=10 gpu=0.0 wait=0.0 anim=0.9 tri=13200 vtx=22144 lua=27 kb=303 skip=30
+hero 1 t=657 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.5 max=115.4 fps=10 gpu=0.0 wait=0.0 anim=0.8 tri=13161 vtx=22144 lua=27 kb=307 skip=30
+hero 1 t=658 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.6 max=115.3 fps=10 gpu=0.0 wait=0.0 anim=0.9 tri=13209 vtx=22144 lua=27 kb=312 skip=30
+hero 1 t=659 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.6 max=115.4 fps=10 gpu=0.0 wait=0.0 anim=0.9 tri=13227 vtx=22144 lua=27 kb=315 skip=30
+hero 1 t=660 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.7 max=115.6 fps=10 gpu=0.0 wait=0.0 anim=0.8 tri=13322 vtx=22144 lua=27 kb=319 skip=30
+hero 1 t=661 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.6 max=115.5 fps=10 gpu=0.0 wait=0.0 anim=0.8 tri=13266 vtx=22144 lua=27 kb=322 skip=30
+hero 1 t=662 n=20 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=103.6 max=115.4 fps=10 gpu=0.0 wait=0.0 anim=0.9 tri=13280 vtx=22144 lua=27 kb=326 skip=30
+sweep n=10 ms=102.3 max=115.8 gpu=0.0 tri=13249
+hero 1 point 2d-light arm n=10 ms=102.3 max=115.8 gpu=0.0 tri=13249
+sweep load60=0.0 load30=0.0
+hero 1 result 2d-light arm load60=0.0 load30=0.0 top=2000
+hero 1 test 2d-light gpu
+sweep start lod=0
+hero 1 t=663 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=81.1 max=115.6 fps=10 gpu=1.1 wait=1.1 anim=0.8 tri=16675 vtx=14762 lua=25 kb=290 skip=29
+hero 1 t=664 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.9 max=44.5 fps=29 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=16 kb=300 skip=33
+hero 1 t=665 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.8 max=44.0 fps=29 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=16 kb=309 skip=33
+hero 1 t=666 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.8 max=44.2 fps=29 gpu=3.3 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=16 kb=317 skip=33
+hero 1 t=667 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.8 max=44.0 fps=29 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=16 kb=326 skip=33
+hero 1 t=668 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.8 max=44.1 fps=29 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=16 kb=334 skip=33
+sweep n=10 ms=31.3 max=45.0 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=10 ms=31.3 max=45.0 gpu=3.4 tri=23472
+hero 1 t=669 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.2 max=45.0 fps=28 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=17 kb=294 skip=32
+hero 1 t=670 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.9 max=44.2 fps=29 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=17 kb=304 skip=33
+hero 1 t=671 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.9 max=44.1 fps=29 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=17 kb=313 skip=33
+hero 1 t=672 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.9 max=44.1 fps=29 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=16 kb=322 skip=33
+hero 1 t=673 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=31.9 max=45.1 fps=29 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=17 kb=330 skip=32
+sweep n=20 ms=31.3 max=45.1 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=20 ms=31.3 max=45.1 gpu=3.4 tri=23472
+hero 1 t=674 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.3 max=44.0 fps=28 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=18 kb=340 skip=33
+hero 1 t=675 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.1 max=44.5 fps=29 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=18 kb=348 skip=33
+hero 1 t=676 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.1 max=46.4 fps=29 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=18 kb=185 skip=33
+hero 1 t=678 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.1 max=44.3 fps=29 gpu=3.4 wait=3.4 anim=0.7 tri=23472 vtx=0 lua=18 kb=194 skip=33
+hero 1 t=679 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.0 max=44.4 fps=29 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=17 kb=202 skip=33
+sweep n=50 ms=31.5 max=46.4 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=50 ms=31.5 max=46.4 gpu=3.4 tri=23472
+hero 1 t=680 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.5 max=45.3 fps=28 gpu=3.4 wait=3.4 anim=0.7 tri=23472 vtx=0 lua=19 kb=184 skip=33
+hero 1 t=681 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.3 max=44.5 fps=28 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=19 kb=193 skip=33
+hero 1 t=682 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.4 max=44.5 fps=28 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=19 kb=202 skip=34
+hero 1 t=683 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.4 max=45.5 fps=28 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=20 kb=210 skip=33
+hero 1 t=684 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.4 max=44.5 fps=28 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=19 kb=189 skip=33
+sweep n=100 ms=31.7 max=45.5 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=100 ms=31.7 max=45.5 gpu=3.4 tri=23472
+hero 1 t=685 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.7 max=44.7 fps=28 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=20 kb=201 skip=34
+hero 1 t=686 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.9 max=45.0 fps=28 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=23 kb=209 skip=34
+hero 1 t=687 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.9 max=45.2 fps=28 gpu=3.4 wait=3.4 anim=0.7 tri=23472 vtx=0 lua=23 kb=217 skip=33
+hero 1 t=688 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=33.0 max=45.5 fps=28 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=23 kb=195 skip=34
+hero 1 t=689 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.9 max=45.3 fps=28 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=23 kb=205 skip=34
+hero 1 t=690 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=32.9 max=46.1 fps=28 gpu=3.4 wait=3.4 anim=0.7 tri=23472 vtx=0 lua=23 kb=213 skip=33
+sweep n=200 ms=32.3 max=46.1 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=200 ms=32.3 max=46.1 gpu=3.4 tri=23472
+hero 1 t=691 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=34.0 max=45.0 fps=27 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=29 kb=223 skip=34
+hero 1 t=692 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=33.9 max=46.2 fps=27 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=30 kb=199 skip=35
+hero 1 t=693 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=34.0 max=47.0 fps=27 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=30 kb=207 skip=34
+hero 1 t=694 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=34.0 max=46.0 fps=27 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=30 kb=216 skip=34
+hero 1 t=695 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=34.0 max=45.9 fps=27 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=30 kb=223 skip=34
+sweep n=400 ms=33.3 max=47.0 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=400 ms=33.3 max=47.0 gpu=3.4 tri=23472
+hero 1 t=696 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=34.8 max=46.1 fps=27 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=33 kb=202 skip=34
+hero 1 t=697 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=36.1 max=48.0 fps=26 gpu=3.4 wait=3.4 anim=0.7 tri=23472 vtx=0 lua=44 kb=210 skip=36
+hero 1 t=698 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=36.1 max=48.2 fps=26 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=44 kb=218 skip=37
+hero 1 t=699 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=36.1 max=49.0 fps=26 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=44 kb=226 skip=36
+hero 1 t=700 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=36.2 max=49.2 fps=26 gpu=3.4 wait=3.4 anim=0.7 tri=23472 vtx=0 lua=44 kb=202 skip=36
+hero 1 t=701 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=36.1 max=48.0 fps=26 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=44 kb=210 skip=36
+sweep n=800 ms=35.3 max=49.2 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=800 ms=35.3 max=49.2 gpu=3.4 tri=23472
+hero 1 t=702 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=37.3 max=48.0 fps=25 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=50 kb=221 skip=37
+hero 1 t=703 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=38.2 max=50.0 fps=24 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=58 kb=228 skip=37
+hero 1 t=704 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=38.3 max=51.0 fps=24 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=58 kb=235 skip=36
+hero 1 t=705 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=38.3 max=50.3 fps=24 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=58 kb=208 skip=37
+hero 1 t=706 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=38.3 max=51.3 fps=24 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=58 kb=216 skip=36
+hero 1 t=707 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=38.2 max=50.0 fps=24 gpu=3.4 wait=3.3 anim=0.7 tri=23472 vtx=0 lua=58 kb=223 skip=37
+sweep n=1200 ms=38.1 max=51.3 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=1200 ms=38.1 max=51.3 gpu=3.4 tri=23472
+hero 1 t=708 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=39.1 max=51.0 fps=24 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=61 kb=234 skip=38
+hero 1 t=709 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=40.7 max=53.1 fps=23 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=72 kb=204 skip=38
+hero 1 t=710 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=40.7 max=53.3 fps=23 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=72 kb=212 skip=38
+hero 1 t=711 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=40.6 max=53.3 fps=23 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=72 kb=219 skip=38
+hero 1 t=712 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=40.6 max=53.3 fps=23 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=72 kb=228 skip=38
+hero 1 t=713 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=40.6 max=53.3 fps=23 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=72 kb=234 skip=38
+hero 1 t=714 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=40.6 max=53.2 fps=23 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=72 kb=241 skip=38
+sweep n=1600 ms=40.4 max=53.7 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=1600 ms=40.4 max=53.7 gpu=3.4 tri=23472
+hero 1 t=715 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=42.4 max=53.7 fps=22 gpu=3.4 wait=3.3 anim=0.6 tri=23472 vtx=0 lua=81 kb=218 skip=39
+hero 1 t=716 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=42.8 max=55.2 fps=22 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=86 kb=225 skip=39
+hero 1 t=717 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=42.8 max=55.4 fps=22 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=86 kb=232 skip=39
+hero 1 t=718 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=42.8 max=55.3 fps=22 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=86 kb=239 skip=39
+hero 1 t=719 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=42.8 max=55.2 fps=22 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=86 kb=246 skip=39
+hero 1 t=720 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=42.9 max=55.2 fps=22 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=86 kb=217 skip=39
+hero 1 t=721 n=20 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp32,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0,sc0,fl0,o5 | ms=42.7 max=54.2 fps=22 gpu=3.4 wait=3.4 anim=0.6 tri=23472 vtx=0 lua=85 kb=223 skip=39
+sweep n=2000 ms=42.4 max=55.4 gpu=3.4 tri=23472
+hero 1 point 2d-light gpu n=2000 ms=42.4 max=55.4 gpu=3.4 tri=23472
+sweep load60=0.0 load30=414.1
+hero 1 result 2d-light gpu load60=0.0 load30=414.1 top=2000
+hero 1 suite done tests=10 res=640x360
