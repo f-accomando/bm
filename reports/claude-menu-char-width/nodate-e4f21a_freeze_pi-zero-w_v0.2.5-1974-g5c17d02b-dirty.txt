@@ -1,0 +1,71 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1974-g5c17d02b-dirty
+branch: claude/menu-char-width
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-e4f21a_freeze_pi-zero-w_v0.2.5-1974-g5c17d02b-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monioCore firmware does not answer (mailbox, frame 0, 2361 s after boot, kernel v0.2.5-1974-g5c17d02b-dirty, ring 51960, sink on
+--- the last lines printed ---
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+s (300 frames)
+menu frame: 1x, a frame averages draw 10429 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10601 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10590 us, enlarge 0 us, flip 96 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10506 us, enlarge 0 us, flip 96 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10419 us, enlarge 0 us, flip 96 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10648 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10576 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10488 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10445 us, enlarge 0 us, flip 97 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 10644 us, enlarge 0 us, flip 95 us, free time used 34 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 20.0 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+fiber: market did not yield: 58.7 ms past its slice
+menu idle: 300/300 frames, 152 of 764 ms taken, 61.1 ms past a frame; market 139 ms (+58.7, stk 3.2/128K, stop 0.1); min slack -35880 us, paced 0
+menu idle: sd first word <1ms 64 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 14944 us, enlarge 0 us, flip 96 us, free time used 506 us (300 frames)
+menu idle: sd first word <1ms 60 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13500 us, enlarge 0 us, flip 94 us, free time used 15 us (300 frames)
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 360 of 776 ms taken, 57.0 ms past a frame; market 355 ms (+57.0, stk 4.0/128K); min slack -28724 us, paced 0
+menu idle: sd first word <1ms 181 (max 1.9 ms)
+menu stalls: tls handshake 1x last 171.9 worst 171.9 ms
+menu frame: 1x, a frame averages draw 14737 us, enlarge 0 us, flip 95 us, free time used 1202 us (300 frames)
+menu idle: sd first word <1ms 51 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 15247 us, enlarge 0 us, flip 94 us, free time used 22 us (300 frames)
+menu idle: sd first word <1ms 60 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13221 us, enlarge 0 us, flip 95 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 90 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13389 us, enlarge 0 us, flip 94 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 55 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13607 us, enlarge 0 us, flip 96 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13495 us, enlarge 0 us, flip 99 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13238 us, enlarge 0 us, flip 98 us, free time used 17 us (300 frames)
+menu idle: sd first word <1ms 75 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13757 us, enlarge 0 us, flip 96 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 75 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13598 us, enlarge 0 us, flip 96 us, free time used 14 us (300 frames)
+menu: menu size at the next start: 360p (ARM)
+menu: menu size at the next start: 360p (GPU)
+menu: menu size at the next start: 720p (GPU)
+menu idle: sd first word <1ms 90 <3ms 10 (max 1.9 ms)
+menu frame: 1x, a frame averages draw 13955 us, enlarge 0 us, flip 95 us, free time used 14 us (300 frames)
+fb_init_depth: mbox_call failed
+back to the monitor
+
+type 'h' for help
+> 
+> 
+net: console opened from 192.168.1.115
+> q
+unknown command (0x71), 'h' for help
+> 
+net: c
