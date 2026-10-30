@@ -256,7 +256,7 @@ Digita `:` e poi dei comandi separati da `;`. Girano uno dopo l'altro, e la riga
 | `play NOME` | avvia un gioco per nome |
 | `set key=value ...` | cambia le chiavi di `bm/config.txt` fino al riavvio (`set` da solo le elenca) |
 | `save` | scrive `bm/config.txt` |
-| `net fetch URL [NOME] [replace]` | scarica una `.bm` in `/bm` o un `.bme` in `/bme`. `URL` è `https://...` oppure `gh:OWNER/REPO/PATH[@BRANCH]` (un file di un repository GitHub; uno privato vuole `github_token`). `NOME` è un nome 8.3 al posto di quello del file. Un file che c'è già viene sostituito solo con `replace`. I byte devono essere una cartuccia |
+| `net fetch URL [NOME] [replace]` | scarica una `.bm` in `/bm`, un `.bme` in `/bme`, un kit di mappa `.bmk` in `/bmk` o un file di modelli `.bmm` in `/bmm`. `URL` è `https://...` oppure `gh:OWNER/REPO/PATH[@BRANCH]` (un file di un repository GitHub; uno privato vuole `github_token`). `NOME` è un nome 8.3 al posto di quello del file. Un file che c'è già viene sostituito solo con `replace`. I byte devono essere una cartuccia |
 | `bench render`, `report log`, `report send`, `sys reboot` | benchmark, il log come report, invia i report in attesa, riavvia (`render`, `log`, `send`, `reboot` funzionano ancora) |
 
 ::: copy

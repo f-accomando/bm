@@ -87,7 +87,7 @@ fire, chest, bushes, rocks and boat merged into one model that is not kept in th
 A `.bmk` is a resource (like `.bmm`, `.bmi`, `.bms`), not a game or an app. The Market catalog (`games/`, `apps/`) does
 not list it (owner, 2026-10-29). Since 2026-10-30 the repository `bm-market` has the folders `bmk/` and `bme/` next to
 `games/` and `apps/` (one folder per item, the file and an `info.txt`). The catalog tools do not read them. The console
-installs from them with the Monitor command `net fetch gh:f-accomando/bm-market/bmk/island/island.bmk`. A `.bme`
+installs from them with the Monitor command `net fetch gh:f-accomando/bm-market/bmk/island/island.bmk`. `net fetch` also installs a `.bmm` model file into `/bmm` (`bmm/` in the same repository). A `.bme`
 installs the same way into `/bme`.
 It also travels with a project: `bmres.py add` puts it in a game, or the file is copied to `/bmk` on the SD.
 

@@ -4937,7 +4937,7 @@ def test_monitor_line(b, opts):
         # net fetch (src/kernel/netfetch.c): the checks before the network; QEMU has no network
         for line, want in ((":net fetch\r", "net fetch URL [NAME] [replace]"),
                            (":net fetch http://example.org/x.bm\r", "only https"),
-                           (":net fetch https://example.org/readme.txt\r", ".bm cartridge or a .bme"),
+                           (":net fetch https://example.org/readme.txt\r", ".bm cartridge, a .bme project, a .bmk kit or a .bmm model"),
                            (":net fetch https://example.org/bad.bm\r", "/bm/bad.bm is there already"),
                            (":net fetch gh:o/r/new.bm@main\r", "no network")):
             q.send(line)

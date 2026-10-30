@@ -69,7 +69,7 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
   `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
   `net fetch URL [NAME] [replace]` (`src/kernel/netfetch.c`, Pi only: the RGB30 has no Monitor): a `.bm` into `/bm`, a
-  `.bme` into `/bme` or a `.bmk` map kit into `/bmk` (it must be a kit file) from `https://` or `gh:OWNER/REPO/PATH[@BRANCH]` (raw.githubusercontent.com; `github_token` sent only
+  `.bme` into `/bme`, a `.bmk` map kit into `/bmk` or a `.bmm` model file into `/bmm` (each must be a resource file of that kind) from `https://` or `gh:OWNER/REPO/PATH[@BRANCH]` (raw.githubusercontent.com; `github_token` sent only
   there, no redirect off that host), at most 64 MB, checked by `bm_parse_any` (a resource file refused), an existing file
   replaced only with `replace`, then `carts_init()`. Tests: `make test-netfetch`, QEMU `test_monitor_line` (the checks before
   the network). Not tried on a Pi with a real download.

@@ -420,8 +420,9 @@ CMD(c_net_eth)
 
 CMD(c_net_get) { return net_get_test(argc > 1 ? argv[1] : NULL); }
 
-/* "net fetch": a .bm or .bme from the web onto the card (src/kernel/netfetch.h). The bytes come into
- * memory, are checked as a cartridge (bm_parse_any, a resource file refused), then written: a file that is
+/* "net fetch": a .bm, .bme, .bmk or .bmm from the web onto the card (src/kernel/netfetch.h). The bytes come into
+ * memory, are checked as a cartridge (bm_parse_any, a resource file refused) or, for a .bmk and a .bmm, as the
+ * resource file of that kind, then written: a file that is
  * there is replaced only with the word "replace" (a line never waits for a key). github_token goes only to
  * raw.githubusercontent.com, and then no redirect leaves that host. */
 typedef struct {
@@ -518,11 +519,14 @@ CMD(c_net_fetch)
         bm_cart_t c;
         if (b.len < BM_HEADER_SIZE) {
             kprintf("fetch: %lu bytes: not a cartridge, nothing written\n", (unsigned long)b.len);
-        } else if (!strcmp(p.dir, "/bmk")
-                       ? (!bm_is_res(b.data) || bm_parse_any(b.data, b.len, &c, err, sizeof err) || c.kind != BM_RES_KIT)
+        } else if (p.res
+                       ? (!bm_is_res(b.data) || bm_parse_any(b.data, b.len, &c, err, sizeof err) ||
+                          c.kind != (p.res == FETCH_KIT ? BM_RES_KIT : BM_RES_MODEL))
                        : (bm_is_res(b.data) || bm_parse_any(b.data, b.len, &c, err, sizeof err))) {
-            kprintf("fetch: not a %s (%s): nothing written\n", !strcmp(p.dir, "/bmk") ? "map kit" : "cartridge",
-                    !strcmp(p.dir, "/bmk") ? "a .bmk is a map kit file" : bm_is_res(b.data) ? "a resource file" : err);
+            kprintf("fetch: not a %s (%s): nothing written\n",
+                    p.res == FETCH_KIT ? "map kit" : p.res == FETCH_MODEL ? "model file" : "cartridge",
+                    p.res == FETCH_KIT ? "a .bmk is a map kit file" : p.res == FETCH_MODEL ? "a .bmm is a model file"
+                    : bm_is_res(b.data) ? "a resource file" : err);
         } else {
             fat_mkdirs(p.dir);
             const int w = there ? fat_replace(p.path, b.data, b.len) : fat_write_file(p.dir, p.name, b.data, b.len);
@@ -767,7 +771,7 @@ static const mcmd_t net_sub[] = {
     { .name = "status", .help = "WiFi, Ethernet, IP address, time", .fn = c_net_status },
     { .name = "eth", .help = "Ethernet (Pi 1 B / B+): link, counters", .key = 'E', .fn = c_net_eth },
     { .name = "get", .args = "URL", .help = "get a web address: status, size, speed", .key = 'G', .fn = c_net_get },
-    { .name = "fetch", .args = "URL [NAME] [replace]", .help = "a .bm/.bme/.bmk from https or gh: to the card", .fn = c_net_fetch },
+    { .name = "fetch", .args = "URL [NAME] [replace]", .help = "a .bm/.bme/.bmk/.bmm from https or gh: to the card", .fn = c_net_fetch },
     { NULL }
 };
 

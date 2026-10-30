@@ -39,10 +39,16 @@ int main(void)
        "/bm/my-ai.bm", 1);
     ok("gh:f-accomando/bm-market/bmk/island/island.bmk", NULL,
        "https://raw.githubusercontent.com/f-accomando/bm-market/HEAD/bmk/island/island.bmk", "/bmk/island.bmk", 1);
+    ok("gh:f-accomando/bm-market/bmm/hunter/hunter.bmm", NULL,
+       "https://raw.githubusercontent.com/f-accomando/bm-market/HEAD/bmm/hunter/hunter.bmm", "/bmm/hunter.bmm", 1);
+    ok("https://example.org/m/Hunt_Lo.BMM?raw=1", NULL, "https://example.org/m/Hunt_Lo.BMM?raw=1", "/bmm/hunt_lo.bmm", 0);
+    ok("https://example.org/dl?id=3", "knight.bmm", "https://example.org/dl?id=3", "/bmm/knight.bmm", 0);
     no(NULL, NULL, "net fetch URL");
     no("http://example.org/pong.bm", NULL, "https");
     no("https://example.org/", NULL, "names no file");
-    no("https://example.org/readme.txt", NULL, ".bm cartridge, a .bme project or a .bmk");
+    no("https://example.org/readme.txt", NULL, ".bm cartridge, a .bme project, a .bmk kit or a .bmm model");
+    no("https://example.org/hunterlo_long.bmm", NULL, "1 to 8");
+    no("https://example.org/model.bmmx", NULL, ".bmm model");
     no("https://example.org/a_very_long_name.bm", NULL, "1 to 8");
     no("https://example.org/pong.bm", "po ng.bm", "a-z, 0-9");
     no("https://example.org/pong.b16", NULL, ".bm cartridge");
