@@ -1,0 +1,70 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1975-ga814d311-dirty
+branch: claude/menu-char-width
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-9f65c7_freeze_pi-zero-w_v0.2.5-1975-ga814d311-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 391 s after boot, kernel v0.2.5-1974-g5c17d02b-dirty, ring 17019, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+s)
+menu idle: sd first word <1ms 49 >25ms 1 (max 37.1 ms)
+menu frame: 1x, a frame averages draw 7698 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 37.1 ms)
+menu frame: 1x, a frame averages draw 7761 us, enlarge 0 us, flip 98 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7822 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7701 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7690 us, enlarge 0 us, flip 97 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7803 us, enlarge 0 us, flip 97 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7644 us, enlarge 0 us, flip 97 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7684 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 <25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7780 us, enlarge 0 us, flip 99 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7754 us, enlarge 0 us, flip 98 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.0 ms)
+menu frame: 1x, a frame averages draw 7688 us, enlarge 0 us, flip 97 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.6 ms)
+menu frame: 1x, a frame averages draw 7711 us, enlarge 0 us, flip 98 us, free time used 13 us (300 frames)
+net: receiving a new kernel (6163980 bytes)...
+net: kernel 0% (0 of 6019 KB)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.6 ms)
+menu frame: 1x, a frame averages draw 7951 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+net: kernel 10% (609 of 6019 KB)
+net: kernel 20% (1203 of 6019 KB)
+net: kernel 30% (1813 of 6019 KB)
+net: kernel 40% (2407 of 6019 KB)
+menu idle: sd first word <1ms 49 >25ms 1 (max 38.6 ms)
+menu frame: 1x, a frame averages draw 9272 us, enlarge 0 us, flip 96 us, free time used 13 us (300 frames)
+net: kernel 50% (3018 of 6019 KB)
+net: kernel 60% (3617 of 6019 KB)
+net: kernel 70% (4219 of 6019 KB)
+net: kernel 80% (4816 of 6019 KB)
+net: kernel 90% (5418 of 6019 KB)
+menu idle: sd first word <1ms 48 <3ms 1 >25ms 1 (max 38.6 ms)
+menu frame: 1x, a frame averages draw 9319 us, enlarge 0 us, flip 97 us, free time used 13 us (300 frames)
+net: dev mode: kernel received (6163980 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 115.5 ms past its slice
+net: saved kernel.img on the SD card (6163980 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 10 cartridges; clusters 32 KB
+fiber: reports did not yield: 45.4 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 95.3 ms past its slice
+report: sending nodate-e4f21a_freeze_pi-zero-w_v0.2.5-1974-g5c17d02b-dirty.txt
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+report: sent to f-accomando/bm, branch reports: reports/claude-menu-char-width/nodate-e4f21a_freeze_pi-zero-w_v0.2.5-1974-g5c17d02b-dirty.txt
+menu idle: 300/300 frames, 2099 of 1766 ms taken, 118.1 ms past a frame; netxfer 1688 ms (+115.5, stk 1.7/64K), reports 1190 ms (+95.3, stk 7.6/128K); min slack -91843 us, paced 0
+menu idle: sd first word <1ms 311 <3ms 8 >25ms 4 (max 38.6 ms)
+menu stalls: tls handshake 1x last 279.8 worst 279.8 ms
+menu frame: 1x, a frame averages draw 10734 us, enlarge 0 us, flip 94 us, free time used 6998 us (300 frames)
