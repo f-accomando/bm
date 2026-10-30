@@ -5,7 +5,13 @@ do
   local W = { n = 0, ms = 0, max = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0, skip = 0 }
   local t0 = 0
   local S = nil                 -- the sweep in progress
-  local COUNTS = { 0, 4, 8, 12, 16, 20, 28, 36, 48, 64 }
+  local COUNTS2D = { 10, 20, 50, 100, 200, 400, 800, 1200, 1600, 2000 }
+  local Q = nil                 -- the suite in progress (a list of tests, each on each profile: the bridge's tests)
+  -- the load the sweep changes: the heroes of the plaza, the load of a scene, or the amount of the 2D over the 3D
+  local function getload() return H.var2d and H.n2d or (H.scene == 1 and H.n or H.ns) end
+  local function setload(v)
+    if H.var2d then H.n2d = v elseif H.scene == 1 then H.n = v else H.ns = v end
+  end
   local WARM, MEASURE = 30, 120
 
   H.last = { ms = 0, max = 0, fps = 0, gpu = 0, wait = 0, anim = 0, tri = 0, vtx = 0, lua = 0, skip = 0 }
@@ -26,7 +32,7 @@ do
 
   local function sweep_next()
     S.i = S.i + 1
-    if S.i > #COUNTS then
+    if S.i > #S.counts then
       -- the load at 60 and 30 fps: the heroes where the median passes 16.7 and 33.3 ms
       local function load_at(limit)
         local prev
@@ -40,20 +46,24 @@ do
         return nil
       end
       local l60, l30 = load_at(1000 / 60), load_at(1000 / 30)
-      add_line(string.format("sweep load60=%s load30=%s", l60 and fmt(l60, 1) or ">64", l30 and fmt(l30, 1) or ">64"))
-      H.n, H.lod = S.n, S.lod
-      H.sweep_note = "sweep done: 60fps " .. (l60 and fmt(l60, 0) or ">64") .. ", 30fps " .. (l30 and fmt(l30, 0) or ">64")
+      local top = S.counts[#S.counts]
+      add_line(string.format("sweep load60=%s load30=%s", l60 and fmt(l60, 1) or (">" .. top), l30 and fmt(l30, 1) or (">" .. top)))
+      setload(S.n)
+      H.lod = S.lod
+      H.sweep_note = "sweep done: 60fps " .. (l60 and fmt(l60, 0) or (">" .. top)) .. ", 30fps " .. (l30 and fmt(l30, 0) or (">" .. top))
+      local done = S
       S = nil
+      if Q then H.suite_result(done, l60, l30, top) end
       return
     end
-    H.n = COUNTS[S.i]
+    setload(S.counts[S.i])
     S.phase, S.f = "warm", 0
     S.ms, S.gpu, S.tri, S.max = {}, 0, 0, 0
   end
 
   function H.sweep_start()
     if S then return end
-    S = { i = 0, n = H.n, lod = H.lod, table = {} }
+    S = { i = 0, n = getload(), lod = H.lod, table = {}, counts = H.var2d and COUNTS2D or H.scene_counts() }
     if H.lod == 5 then H.lod = 1 end        -- the sweep uses one level, not auto
     H.sweep_note = nil
     add_line("sweep start lod=" .. H.lod_name())
@@ -79,10 +89,15 @@ do
         S.ms[S.f], S.gpu, S.tri = ms, S.gpu + gpu, S.tri + tri
         if ms > S.max then S.max = ms end
         if S.f >= MEASURE then
-          local row = { n = H.n, ms = median(S.ms) }
+          local row = { n = getload(), ms = median(S.ms) }
           S.table[#S.table + 1] = row
-          add_line(string.format("sweep n=%d ms=%s max=%s gpu=%s tri=%d", H.n, fmt(row.ms), fmt(S.max),
+          add_line(string.format("sweep n=%d ms=%s max=%s gpu=%s tri=%d", row.n, fmt(row.ms), fmt(S.max),
             fmt(S.gpu / MEASURE), math.floor(S.tri / MEASURE)))
+          if Q then
+            add_line(string.format("hero 1 point %s %s n=%d ms=%s max=%s gpu=%s tri=%d", Q.tests[Q.ti], Q.profs[Q.pi], row.n,
+              fmt(row.ms), fmt(S.max), fmt(S.gpu / MEASURE), math.floor(S.tri / MEASURE)))
+          end
+          if row.ms > 70 then S.i = #S.counts end        -- far under 30 fps: the heavier loads are not run (they take minutes)
           sweep_next()
         end
       end
@@ -109,6 +124,84 @@ do
       t0 = now
     end
   end
+
+  -- The suite: the tests the bridge asks for, each on each profile, one sweep each. The key `hero_test` (set with the bridge:
+  -- `pi.py config hero_test=fill-tex.fill-alpha hero_prof=arm.gpu`, then a restart) holds the ids apart by dots, or `all`;
+  -- `hero_prof` the profiles (arm, gpu; default both). The keys are cleared when read. The result lines are
+  -- `hero 1 result ID PROF load60=.. load30=..` and the report (Start, or the end of the suite) sends them.
+  H.TESTS = { "plaza", "spheres", "tiny", "draws", "fill-flat", "fill-smooth", "fill-tex", "fill-alpha", "fill-screen",
+              "fill-bilinear", "fill-texswap", "2d-sprites", "2d-text", "2d-map", "2d-fade", "2d-light" }
+
+  local function rowset(key, i)
+    local r = ROWS[H.ROW[key]]
+    r.i = i
+    r.step(0)                                  -- applies the row's value (a step of 0 turns it round to itself)
+  end
+  local function index_of(list, name)
+    for i, v in ipairs(list) do if v == name then return i end end
+    return 1
+  end
+
+  local function apply_test(id, prof)
+    H.var2d = false
+    rowset("o2d", 1)
+    rowset("fill", 1)
+    rowset("backend", prof == "gpu" and 2 or 1)
+    if id == "plaza" then
+      rowset("scene", 1)
+    elseif id:sub(1, 5) == "fill-" then
+      rowset("scene", 5)
+      rowset("fill", index_of(H.FILLS, id:sub(6)))
+    elseif id:sub(1, 3) == "2d-" then
+      local kinds = { sprites = "sprites", text = "text", map = "map layers", fade = "fade", light = "light" }
+      rowset("scene", 1)
+      H.n = 20
+      H.n2d = 10
+      rowset("o2d", index_of(H.OVER2D, kinds[id:sub(4)]))
+      H.var2d = true
+    else
+      rowset("scene", index_of({ "plaza", "spheres", "tiny", "draws", "fill" }, id))
+    end
+  end
+
+  local function suite_next()
+    if not Q then return end
+    Q.pi = Q.pi + 1
+    if Q.pi > #Q.profs then Q.pi, Q.ti = 1, Q.ti + 1 end
+    if Q.ti > #Q.tests then
+      add_line("hero 1 suite done tests=" .. #Q.tests .. " res=" .. SCREEN_W .. "x" .. SCREEN_H)
+      Q = nil
+      H.var2d = false
+      H.save()
+      return
+    end
+    apply_test(Q.tests[Q.ti], Q.profs[Q.pi])
+    add_line("hero 1 test " .. Q.tests[Q.ti] .. " " .. Q.profs[Q.pi])
+    H.sweep_start()
+  end
+
+  function H.suite_result(done, l60, l30, top)
+    add_line(string.format("hero 1 result %s %s load60=%s load30=%s top=%d", Q.tests[Q.ti], Q.profs[Q.pi],
+      l60 and fmt(l60, 1) or (">" .. top), l30 and fmt(l30, 1) or (">" .. top), top))
+    suite_next()
+  end
+
+  function H.suite_start(spec, profs)
+    if Q or S then return end
+    local tests = {}
+    if spec == "all" then
+      for _, t in ipairs(H.TESTS) do tests[#tests + 1] = t end
+    else
+      for w in spec:gmatch("[^.]+") do tests[#tests + 1] = w end
+    end
+    local pl = {}
+    for w in (profs ~= "" and profs or "arm.gpu"):gmatch("[^.]+") do pl[#pl + 1] = w end
+    Q = { tests = tests, profs = pl, ti = 1, pi = 0 }
+    add_line("hero 1 suite start tests=" .. #tests .. " profiles=" .. #pl)
+    suite_next()
+  end
+
+  function H.suiting() return Q ~= nil end
 
   -- Start saves the last 120 lines in /docs (the player copies hero.txt) and as a report
   function H.save()

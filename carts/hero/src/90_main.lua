@@ -12,11 +12,22 @@ do
     end
     textures3d(true)
     frameskip(MAX_SKIP)     -- a slow frame is not drawn: the logic runs on at 60 a second
+    H.scene_init()
+    local want = cart_config and cart_config("hero_test") or nil
+    if want and want ~= "" then                  -- the bridge asked for tests (config hero_test=..., hero_prof=...)
+      H.suite_want, H.prof_want = want, cart_config("hero_prof") or ""
+      cart_config("hero_test", "")
+      cart_config("hero_prof", "")
+    end
     log("hero 1 start build " .. tostring(HERO_BUILD))
   end
 
   function _update()
     H.frame = H.frame + 1
+    if H.suite_want and H.frame == 60 then
+      H.suite_start(H.suite_want, H.prof_want)
+      H.suite_want = nil
+    end
     H.input()
     H.heroes_update()
     H.camera_update(H.frame * DT)
@@ -29,8 +40,13 @@ do
     H.camera_apply()
     local flags = H.draw_flags()
     local opt = H.draw_opts()
-    map3d_draw(H.world, flags)
-    H.heroes_draw(H.frame * DT, flags | (opt.noz and 1 or 0), opt)
+    if H.scene == 1 then
+      map3d_draw(H.world, flags)
+      H.heroes_draw(H.frame * DT, flags | (opt.noz and 1 or 0), opt)
+    else
+      H.scene_draw(H.frame, flags)
+    end
+    H.overlay_2d(H.frame)
     H.panel_draw()
   end
 end

@@ -16,6 +16,15 @@ A separate cart, `carts/hero/`: 64 heroes walk in a plaza. The player changes th
 - Once a second the cart prints one `hero 1 ...` line with the options in force, `ms`, `fps`, `gpu`, `wait`, `anim`, `tri`, `vtx`, `lua`, `kb`.
 - The sweep runs 10 hero counts (0 to 64), 30 warm-up frames and 120 measured frames each, then prints the load at 60 and 30 fps.
 
+## Scenes of the 3D Bench, 2D and the tests of the bridge (30 Oct 2026)
+
+The cart is `hero` (`hero.bm`, `hero.bme`; it was `herocart`). The panel has 26 rows, 20 on the screen, the window follows the cursor.
+- **Scene** (row 21): plaza (the heroes), spheres, small faces, draw calls, fill quads (`src/25_scenes.lua`, from `carts/bench3d`). The Heroes row is the load of the scene (steps of 15%). **Fill** (row 22): flat, smooth, tex, alpha (texels with holes), screen (screen-door), bilinear (`gpu3d_opt("filter")`), texswap (three textures in turn). The textures are painted into the free part of the sheet at the start. Not built: textured screen-door (`mesh()` has no such face), textured heroes and skins (the heroes have flat colours), sprite stacks (no stack zone in the sheet), baked light.
+- **2D over 3D** (row 23) and **2D amount** (row 24): sprites (flips, holes), text, map layers, fade (`dark_end`), light (`light_end`), drawn after any scene.
+- **GPU option** (row 25) and **GPU opt state** (row 26): one switch of `gpu3d_opt` (wc, tex16, etc1, fs2, sort, attr, filter, merge, light, 2d), on or off, with what is in force after `->`.
+- **Tests by the bridge.** Set the keys with the bridge, then restart and play: `pi.py config hero_test=fill-tex.fill-alpha.2d-sprites hero_prof=arm.gpu`, `pi.py restart`, `pi.py play build/carts/hero.bm` (ids apart by dots, `all` for every test, profiles `arm` and `gpu`; both by default). The cart reads and clears the keys (`cart_config`), waits 60 frames, then runs a sweep of the load for each test on each profile (30 warm frames and 120 measured, up to 10 loads; a sweep stops when a load is over 70 ms). It prints `hero 1 point ID PROF n=.. ms=..`, `hero 1 result ID PROF load60=.. load30=..` and `hero 1 suite done`, and sends the report (kind `hero`) to the `reports` branch. The ids: `plaza spheres tiny draws fill-flat fill-smooth fill-tex fill-alpha fill-screen fill-bilinear fill-texswap 2d-sprites 2d-text 2d-map 2d-fade 2d-light`. On the PC: `BMHOST_CONFIG="hero_test=2d-text.plaza,hero_prof=arm" bmhost-bin hero.bm`.
+- The Rango toes (charkit) now go on the three forward sectors of each foot: both feet are the same.
+
 ## Hero counts at 60 fps from the benchmark (22 Oct, Pi Zero W)
 
 These numbers come from the 3D Bench `herotris` and `cel` tests, not from the cart. Detail and report names: [v3d](v3d.md). A set is one hero of 1536 triangles, its shadow and a map of 5000 triangles, at 640x360.
