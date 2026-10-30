@@ -67,6 +67,7 @@ def check_line(text):
 
 
 # the kernel file name each board takes (bm_net.py --kernel answers KA for another one; refused here before it is sent)
+SEND_TO = {"/bmm": ".bmm", "/bmk": ".bmk", "/bme": ".bme"}     # send FILE to=FOLDER: the folder and the extension it takes
 KERNEL_FILE = {"pi": "kernel.img", "zero2": "kernel7.img", "rgb30": "kernel8.img"}
 ALLOWED_DIRS = [ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
 
@@ -147,6 +148,9 @@ def run(host, pw, req, board="pi"):
     elif op == "config" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg) \
             and all(w.count("=") == 1 and not w.startswith("=") for w in arg.split()):
         cmd = base + ["--config"] + arg.split()
+    elif op == "send" and " to=" in arg and SEND_TO.get(arg.rpartition(" to=")[2])             and arg.rpartition(" to=")[0].lower().endswith(SEND_TO[arg.rpartition(" to=")[2]]) and allowed(arg.rpartition(" to=")[0]):
+        f, _, to = arg.rpartition(" to=")           # a resource or a project into its own folder: send FILE to=/bmm
+        cmd = base + ["--send", os.path.realpath(f), "--to", to]
     elif op in ("send", "play", "kernel") and allowed(arg):
         cmd = base + ["--" + op, os.path.realpath(arg)]
     elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
