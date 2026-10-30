@@ -190,6 +190,13 @@ Order of work for 2D, agreed with the user: the "better" items of the existing c
 | Mesa Panfrost | Open driver for Bifrost | Used: bm takes the job descriptors (`v7.xml`) and the shader compiler |
 | Mesa vc4 / v3d | Open driver for VideoCore | Read for the structures and the probes. Linux code is read, never copied |
 
+# Measured by the hero cart
+
+The `hero` cart (`hero.bm`) measures the techniques of the 3D Bench in its own scene, the plaza with its heroes: a technique is applied to the map and to the heroes and the load is the number of heroes. The tests: the hero in five materials (flat colours, textured, texels with holes, screen-door, baked light), no light, flat light, plaza without textures, no depth test, no dither, fog, sky light with rim and gloss, lamps, shadows, cel, outline, impostors, bilinear, MSAA, vertex shader, queue, and the 2D drawn over the 3D (sprites, text, map layers, fade, light). Each test is a sweep of the load, on the ARM and on the GPU, and the table gives the load that fits in 16.7 ms and in 33.3 ms. The bridge starts them: `pi.py config hero_test=all hero_prof=arm.gpu`, then a restart and `pi.py play`; the report goes to the `reports` branch, and `scripts/herotable.py` writes this table from it.
+
+<!-- hero-table:start -->
+<!-- hero-table:end -->
+
 # Open points
 
 - Pi Zero W: the 2D scenes `map8`, `sprites`, `stack`, `fade` and `light` were measured once (22 Oct). The `-O3` list for `gfx16.c` is not measured.

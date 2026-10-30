@@ -22,9 +22,15 @@ do
       H.ry[i] = H.yaw[i] + PI
     end
     for lv = 0, 3 do
-      H.hero[lv + 1] = model("hero" .. lv)
       H.hull[lv + 1] = model("hero" .. lv .. "_o")
     end
+    -- the materials of the heroes (build/mkheroes.py): flat colours, a texture, a texture with holes, screen-door, baked light
+    H.hero_sets = {}
+    for k, suffix in ipairs({ "", "_t", "_a", "_s", "_b" }) do
+      H.hero_sets[k] = {}
+      for lv = 0, 3 do H.hero_sets[k][lv + 1] = model("hero" .. lv .. suffix) end
+    end
+    H.hero = H.hero_sets[1]
   end
 
   -- all 64 run, drawn or not: the logic cost does not change with the count

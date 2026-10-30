@@ -56,19 +56,11 @@ do
     return default
   end
 
-  -- the heroes row: the count is the value; in a scene of 60_scenes.lua it is the load of the scene (by steps of 15%)
+  -- the heroes row: the count is the value
   local heroes = { name = "Heroes" }
-  function heroes.get() return H.scene == 1 and tostring(H.n) or ("load " .. H.ns) end
-  function heroes.step(d)
-    if H.scene == 1 then
-      H.n = math.max(0, math.min(H.maxh, H.n + d))
-    else
-      local s = H.SCENES[H.scene]
-      local step = math.max(1, math.floor(H.ns * 0.15))
-      H.ns = math.max(s.start, math.min(s.max, H.ns + d * step))
-    end
-  end
-  function heroes.toggle() if H.scene == 1 then H.n = H.n == 0 and 20 or 0 else H.ns = H.SCENES[H.scene].start end end
+  function heroes.get() return tostring(H.n) end
+  function heroes.step(d) H.n = math.max(0, math.min(H.maxh, H.n + d)) end
+  function heroes.toggle() H.n = H.n == 0 and 20 or 0 end
 
   local lod = choice("LOD", { "0", "1", "2", "3", "auto" }, 5, function(i) H.lod = i end)
   -- beside the level: the triangles of one hero in the model it picks (H.lod_tris, 05_tris.lua)
@@ -139,19 +131,6 @@ do
     apply_cel()
   end)
 
-  -- the scenes of the 3D Bench (60_scenes.lua)
-  local scene = choice("Scene", { "plaza", "spheres", "small faces", "draw calls", "fill quads" }, 1, function(i)
-    H.scene = i
-    H.scene_init()
-    H.ns = i == 1 and H.ns or math.max(H.SCENES[i].start, math.min(H.SCENES[i].max, H.ns))
-  end)
-  local fill
-  local function fill_apply(i)
-    H.fill = i
-    local ok = H.FILLS[i] == "bilinear"
-    gpu3d_opt("filter", ok)
-  end
-  fill = choice("Fill", H.FILLS, 1, fill_apply)
   local o2d = choice("2D over 3D", H.OVER2D, 1, function(i) H.o2d = i; H.scene_init() end)
   local n2d = { name = "2D amount" }
   function n2d.get() return tostring(H.n2d) end
@@ -177,16 +156,18 @@ do
   end
   function gstate.toggle() gstate.step(1) end
 
+  -- the material of the heroes: the same models with a texture, a texture with holes, screen-door faces or baked light
+  local hmat = choice("Hero look", H.HMATS, 1, function(i) H.hero = H.hero_sets[i] end)
+
   ROWS = {
     heroes, lod, backend, aa, vs, queue, later, imp, tex, light, zt,
     dither, fog, sky, lamp, shadow,
     grey("Alpha", "n/a (needs a cape)"), res, outline, cel,
-    scene, fill, o2d, n2d, gname, gstate,
+    o2d, n2d, gname, gstate, hmat,
   }
-  H.scene_row = scene
   H.ROW = { heroes = 1, lod = 2, backend = 3, aa = 4, vs = 5, queue = 6, later = 7, imp = 8, tex = 9, light = 10,
-            zt = 11, fog = 13, sky = 14, lamp = 15, shadow = 16, res = 18, outline = 19, cel = 20, scene = 21, fill = 22,
-            o2d = 23, n2d = 24, gopt = 25, gstate = 26 }
+            zt = 11, fog = 13, sky = 14, lamp = 15, shadow = 16, res = 18, outline = 19, cel = 20, dither = 12,
+            o2d = 21, n2d = 22, gopt = 23, gstate = 24, hmat = 25 }
 
   -- the index of each gpu row from what the console really gave (at the start)
   function H.options_sync()
@@ -222,7 +203,7 @@ do
       "aa" .. (a and 1 or 0), "imp" .. (p and p > 0 and p or 0),
       tex.i == 1 and "tex" or "flat", ({ "unlit", "flat", "smooth" })[light.i], zt.i == 1 and "z" or "noz", dither.i == 1 and "dith" or "nodith",
       "fog" .. (fog.i - 1), "shd" .. (shadow.i - 1), "lamp" .. (lamp.i - 1) * 2, "sky" .. (sky.i - 1), "cel" .. H.cel,
-      "out" .. (outline.i - 1), "sc" .. (H.scene - 1), "fl" .. (H.fill - 1), "o" .. (H.o2d - 1) }, ",")
+      "out" .. (outline.i - 1), "o" .. (H.o2d - 1) }, ",")
   end
 
   -- Help under the panel for the row the cursor is on: what the option should do and what to
@@ -236,7 +217,8 @@ do
     ["Queue"] = { "Timing only: ms and wait change.", "tri does not change." },
     ["Frame later"] = { "Each frame shown one frame later.", "Needs Queue 2. Timing only." },
     ["Impostor px"] = { "Far small heroes drawn as one quad.", "tri falls; picture changes a little." },
-    ["Texture"] = { "Plaza texture on or flat colours.", "Heroes are untextured." },
+    ["Texture"] = { "Plaza texture on or flat colours.", "The heroes: the Hero look row." },
+    ["Hero look"] = { "Heroes: flat, textured, texture with holes,", "screen-door or baked light (no light)." },
     ["Lighting"] = { "none, flat or smooth (per vertex) light.", "Smooth is the normal look." },
     ["Z test"] = { "off: draw far to near, no depth test.", "Wrong pictures possible; ms changes." },
     ["Dither"] = { "Dither of the ARM raster, 5-6-5 colour.", "No change with Backend GPU." },
@@ -247,8 +229,6 @@ do
     ["Alpha"] = { "Not in this cart (needs a cape model).", "" },
     ["Resolution"] = { "screen() mode. 1920x1080: use Backend GPU.", "Label shows the mode in force after ->." },
     ["Outline"] = { "Dark outline: baked hull model or flag 512.", "tri about doubles; compare the two." },
-    ["Scene"] = { "3D Bench scene: spheres, tiny, draws, fill.", "Heroes then sets the load of the scene." },
-    ["Fill"] = { "Face of the fill quads: flat, smooth, tex,", "alpha (holes), screen, bilinear, texswap." },
     ["2D over 3D"] = { "2D after the 3D: sprites, text, map layers,", "fade (dark_end) or light (light_end)." },
     ["2D amount"] = { "How many sprites, lines, layers or lamps.", "ms rises; tri stays." },
     ["GPU option"] = { "A gpu3d_opt switch: wc, tex16, etc1, fs2,", "sort, attr, filter, merge, light, 2d." },

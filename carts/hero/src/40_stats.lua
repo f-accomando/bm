@@ -7,10 +7,11 @@ do
   local S = nil                 -- the sweep in progress
   local COUNTS2D = { 10, 20, 50, 100, 200, 400, 800, 1200, 1600, 2000 }
   local Q = nil                 -- the suite in progress (a list of tests, each on each profile: the bridge's tests)
-  -- the load the sweep changes: the heroes of the plaza, the load of a scene, or the amount of the 2D over the 3D
-  local function getload() return H.var2d and H.n2d or (H.scene == 1 and H.n or H.ns) end
+  local COUNTS = { 0, 4, 8, 12, 16, 20, 28, 36, 48, 64 }
+  -- the load the sweep changes: the heroes of the plaza, or the amount of the 2D over the 3D
+  local function getload() return H.var2d and H.n2d or H.n end
   local function setload(v)
-    if H.var2d then H.n2d = v elseif H.scene == 1 then H.n = v else H.ns = v end
+    if H.var2d then H.n2d = v else H.n = v end
   end
   local WARM, MEASURE = 30, 120
 
@@ -63,7 +64,7 @@ do
 
   function H.sweep_start()
     if S then return end
-    S = { i = 0, n = getload(), lod = H.lod, table = {}, counts = H.var2d and COUNTS2D or H.scene_counts() }
+    S = { i = 0, n = getload(), lod = H.lod, table = {}, counts = H.var2d and COUNTS2D or COUNTS }
     if H.lod == 5 then H.lod = 1 end        -- the sweep uses one level, not auto
     H.sweep_note = nil
     add_line("sweep start lod=" .. H.lod_name())
@@ -126,11 +127,26 @@ do
   end
 
   -- The suite: the tests the bridge asks for, each on each profile, one sweep each. The key `hero_test` (set with the bridge:
-  -- `pi.py config hero_test=fill-tex.fill-alpha hero_prof=arm.gpu`, then a restart) holds the ids apart by dots, or `all`;
+  -- `pi.py config hero_test=light-flat.fog hero_prof=arm.gpu`, then a restart) holds the ids apart by dots, or `all`;
   -- `hero_prof` the profiles (arm, gpu; default both). The keys are cleared when read. The result lines are
   -- `hero 1 result ID PROF load60=.. load30=..` and the report (Start, or the end of the suite) sends them.
-  H.TESTS = { "plaza", "spheres", "tiny", "draws", "fill-flat", "fill-smooth", "fill-tex", "fill-alpha", "fill-screen",
-              "fill-bilinear", "fill-texswap", "2d-sprites", "2d-text", "2d-map", "2d-fade", "2d-light" }
+  -- Each test is the plaza with its heroes and one technique of the 3D Bench on (the same functions, in the context of this
+  -- cart, with its own models): the sweep changes the heroes (the 2D tests: the amount of the 2D over 20 heroes).
+  -- set: { row, index of its value }; the others are the defaults.
+  local DEFAULTS = { hmat = 1, tex = 1, light = 3, zt = 1, dither = 1, fog = 1, sky = 1, lamp = 1, shadow = 1, cel = 1, outline = 1,
+                     imp = 1, aa = 1, vs = 1, queue = 1, later = 2 }
+  local SPECS = {
+    plaza = {}, ["hero-tex"] = { hmat = 2 }, ["hero-holes"] = { hmat = 3 }, ["hero-screen"] = { hmat = 4 },
+    ["hero-baked"] = { hmat = 5 },
+    ["light-none"] = { light = 1 }, ["light-flat"] = { light = 2 }, ["tex-off"] = { tex = 2 }, ["z-off"] = { zt = 2 },
+    ["dither-off"] = { dither = 2 }, fog = { fog = 2 }, sky = { sky = 2 }, lamps2 = { lamp = 2 }, lamps4 = { lamp = 3 },
+    shadows = { shadow = 2 }, cel4 = { cel = 4 }, ["outline-hull"] = { outline = 2 }, ["outline-512"] = { outline = 3 },
+    impostor16 = { imp = 3 }, bilinear = { hmat = 2, bilinear = true }, aa = { aa = 2 }, vs1 = { vs = 2 }, vs2 = { vs = 3 },
+    queue1 = { queue = 2 }, queue2 = { queue = 3 }, nolater = { queue = 3, later = 1 },
+  }
+  H.TESTS = { "plaza", "hero-tex", "hero-holes", "hero-screen", "hero-baked", "light-none", "light-flat", "tex-off", "z-off", "dither-off", "fog", "sky", "lamps2", "lamps4", "shadows",
+              "cel4", "outline-hull", "outline-512", "impostor16", "bilinear", "aa", "vs2", "queue2", "nolater",
+              "2d-sprites", "2d-text", "2d-map", "2d-fade", "2d-light" }
 
   local function rowset(key, i)
     local r = ROWS[H.ROW[key]]
@@ -145,22 +161,20 @@ do
   local function apply_test(id, prof)
     H.var2d = false
     rowset("o2d", 1)
-    rowset("fill", 1)
     rowset("backend", prof == "gpu" and 2 or 1)
-    if id == "plaza" then
-      rowset("scene", 1)
-    elseif id:sub(1, 5) == "fill-" then
-      rowset("scene", 5)
-      rowset("fill", index_of(H.FILLS, id:sub(6)))
-    elseif id:sub(1, 3) == "2d-" then
+    for key, v in pairs(DEFAULTS) do rowset(key, v) end
+    gpu3d_opt("filter", false)
+    H.n = 20
+    if id:sub(1, 3) == "2d-" then
       local kinds = { sprites = "sprites", text = "text", map = "map layers", fade = "fade", light = "light" }
-      rowset("scene", 1)
-      H.n = 20
       H.n2d = 10
       rowset("o2d", index_of(H.OVER2D, kinds[id:sub(4)]))
       H.var2d = true
     else
-      rowset("scene", index_of({ "plaza", "spheres", "tiny", "draws", "fill" }, id))
+      local spec = SPECS[id] or {}
+      for key, v in pairs(spec) do
+        if key == "bilinear" then gpu3d_opt("filter", true) else rowset(key, v) end
+      end
     end
   end
 
@@ -180,9 +194,12 @@ do
     H.sweep_start()
   end
 
+  H.results = {}                               -- the result lines of the suite: the report keeps them all (the lines are the last 120)
   function H.suite_result(done, l60, l30, top)
-    add_line(string.format("hero 1 result %s %s load60=%s load30=%s top=%d", Q.tests[Q.ti], Q.profs[Q.pi],
-      l60 and fmt(l60, 1) or (">" .. top), l30 and fmt(l30, 1) or (">" .. top), top))
+    local line = string.format("hero 1 result %s %s load60=%s load30=%s top=%d", Q.tests[Q.ti], Q.profs[Q.pi],
+      l60 and fmt(l60, 1) or (">" .. top), l30 and fmt(l30, 1) or (">" .. top), top)
+    add_line(line)
+    H.results[#H.results + 1] = line
     suite_next()
   end
 
@@ -207,7 +224,7 @@ do
   function H.save()
     local head = string.format("hero 1 saved t=%d n=%d lod=%s res=%dx%d map=%s\n", math.floor(time()), H.n,
       H.lod_name(), SCREEN_W, SCREEN_H, H.map_tris and tostring(math.floor(H.map_tris)) or "-")
-    local text = head .. table.concat(H.lines, "\n") .. "\n"
+    local text = head .. (#H.results > 0 and (table.concat(H.results, "\n") .. "\n") or "") .. table.concat(H.lines, "\n") .. "\n"
     local ok = doc_write("hero.txt", text)
     report("hero", text)
     H.save_note = ok and "saved hero.txt" or "doc_write failed"

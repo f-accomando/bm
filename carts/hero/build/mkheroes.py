@@ -111,6 +111,63 @@ def hull(model):
             "faces": [(a, c, b, HULL_COLOUR, (0,) * 6) for a, b, c, *_ in faces]}
 
 
+# The materials of the heroes (the Hero look row of the cart): the same model with another face colour. The sheet holds the
+# textures (src/25_over2d.lua paints them): (0, 64) 64x64 opaque, (64, 64) 64x64 with holes. The uv is a front projection.
+SHEET_TEX = (0, 64, 64)                # x, y, size of the opaque picture
+SHEET_HOLES = (64, 64, 64)             # the picture with holes
+SCREEN_DOOR = 0x10000000               # material bit 28
+EMISSIVE = 0x40000000                  # material bit 30
+SUN = (0.4, 0.8, -0.45)                # the light the baked colours are lit with
+
+
+def textured(model, region):
+    xs = [p[0] for p in model["verts"]]
+    ys = [p[1] for p in model["verts"]]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    rx, ry, size = region
+
+    def uv(p):
+        return (rx + (p[0] - x0) / ((x1 - x0) or 1.0) * (size - 1), ry + (y1 - p[1]) / ((y1 - y0) or 1.0) * (size - 1))
+    faces = []
+    for a, b, c, *_ in model["faces"]:
+        t = []
+        for i in (a, b, c):
+            t.extend(uv(model["verts"][i]))
+        faces.append((a, b, c, bmmesh.TEXTURED, tuple(t)))
+    m = dict(model)
+    m["faces"] = faces
+    return m
+
+
+def screen_door(model):
+    m = dict(model)
+    m["faces"] = [(a, b, c, (col & 0xFFFFFF) | SCREEN_DOOR, uv) for a, b, c, col, uv in model["faces"]]
+    return m
+
+
+def baked(model):
+    """the colours lit once by a fixed sun and marked emissive: no light at run time"""
+    ln = math.sqrt(sum(x * x for x in SUN))
+    sun = tuple(x / ln for x in SUN)
+    verts = model["verts"]
+    faces = []
+    for a, b, c, col, uv in model["faces"]:
+        p, q, r = verts[a], verts[b], verts[c]
+        u = (q[0] - p[0], q[1] - p[1], q[2] - p[2])
+        v = (r[0] - p[0], r[1] - p[1], r[2] - p[2])
+        n = (u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
+        nl = math.sqrt(sum(x * x for x in n)) or 1.0
+        k = 0.45 + 0.55 * max(0.0, -sum(n[i] / nl * sun[i] for i in range(3)))      # a face shows clockwise: the normal is -n
+        rgb = [min(255, int(((col >> s) & 255) * k)) for s in (16, 8, 0)]
+        faces.append((a, b, c, EMISSIVE | (rgb[0] << 16) | (rgb[1] << 8) | rgb[2], uv))
+    m = dict(model)
+    m["faces"] = faces
+    return m
+
+
+VARIANTS = (("_t", lambda m: textured(m, SHEET_TEX)), ("_a", lambda m: textured(m, SHEET_HOLES)), ("_s", screen_door),
+            ("_b", baked))
+
 TRIS_LUA = os.path.join(HERE, "..", "src", "05_tris.lua")
 
 
@@ -153,6 +210,12 @@ def build():
     for _, (h, v) in split:
         out_models.append(h)
         rigs.append((h["name"], bones, v, clips))
+    for (m, v), _ in split:                  # the materials of each level, on the same vertices, bones and clips
+        for suffix, fn in VARIANTS:
+            vm = fn(m)
+            vm["name"] = m["name"] + suffix
+            out_models.append(vm)
+            rigs.append((vm["name"], bones, v, clips))
     secs[bmmesh.SEC_MESH] = bmmesh.encode(out_models, inset)
     secs[bmmesh.SEC_ANIM] = bmmesh.encode_anim(rigs)
     with open(OUT, "wb") as f:
@@ -190,7 +253,7 @@ def check(full=None):
     if not same:
         print("src/05_tris.lua does not match models.bm: run mkheroes.py")
         bad.append("05_tris.lua")
-    print(f"8 models, {total} triangles, {os.path.getsize(OUT)} bytes")
+    print(f"{len(models)} models, {total} triangles in the levels and hulls, {os.path.getsize(OUT)} bytes")
     return 1 if bad else 0
 
 

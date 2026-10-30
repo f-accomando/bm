@@ -190,6 +190,13 @@ Ordine di lavoro per il 2D, concordato con l'utente: prima le migliorie al codic
 | Mesa Panfrost | Driver aperto per Bifrost | Usato: bm prende i descrittori dei job (`v7.xml`) e il compilatore degli shader |
 | Mesa vc4 / v3d | Driver aperto per VideoCore | Letto per le strutture e i probe. Il codice Linux si legge, non si copia |
 
+# Misurato dal cart hero
+
+Il cart `hero` (`hero.bm`) misura le tecniche del 3D Bench nella sua scena, la piazza con gli eroi: una tecnica si applica alla mappa e agli eroi e il carico è il numero di eroi. I test: l'eroe in cinque materiali (colori piatti, texturato, texel con buchi, retino, luce baked), nessuna luce, luce piatta, piazza senza texture, nessun test di profondità, nessun dither, nebbia, luce del cielo con bordo e lucido, lampade, ombre, cel, contorno, impostor, bilineare, MSAA, vertex shader, coda, e il 2D disegnato sopra il 3D (sprite, testo, strati di mappa, dissolvenza, luce). Ogni test è una scansione del carico, su ARM e su GPU, e la tabella dà il carico che sta in 16,7 ms e in 33,3 ms. Li avvia il ponte: `pi.py config hero_test=all hero_prof=arm.gpu`, poi un riavvio e `pi.py play`; il rapporto va sul branch `reports` e `scripts/herotable.py` scrive da lì questa tabella.
+
+<!-- hero-table:start -->
+<!-- hero-table:end -->
+
 # Punti aperti
 
 - Pi Zero W: le scene 2D `map8`, `sprites`, `stack`, `fade` e `light` sono state misurate una volta (22 ott). La lista `-O3` per `gfx16.c` non è misurata.

@@ -26,7 +26,10 @@ def script(path, taps):
     with open(path, "w") as f:
         f.write("0 device 1 keyboard\n")
         for frame, b in taps:
-            f.write(f"{frame} pad 1 {b}\n{frame + 2} pad 1 none\n")
+            if b.startswith("keys"):                  # a keyboard usage (the digits open the groups of the panel)
+                f.write(f"{frame} {b}\n{frame + 2} keys none\n")
+            else:
+                f.write(f"{frame} pad 1 {b}\n{frame + 2} pad 1 none\n")
 
 
 def run(host, cart, work, name, taps, seconds):
@@ -72,8 +75,10 @@ def main():
 
     # 2b. rows 20 (cel bands) and 12 (dither) are live (26 rows: up from row 1 wraps to row 26): six ups more reach row 20,
     # right three times gives 4 bands, up eight times reaches row 12, A turns the dither off
-    taps = [(10 + 6 * k, "up") for k in range(7)] + [(60 + 6 * k, "right") for k in range(3)]
-    taps += [(100 + 6 * k, "up") for k in range(8)] + [(170, "a")]
+    # the panel has four groups; the key 3 opens "Light and look": the lines are Load, Heroes, LOD, GPU, Light, Texture,
+    # Hero look, Lighting, Z test, Dither, Fog, Sky, Lamps, Shadows, Alpha, Outline, Cel bands, 2D: Cel bands is line 17
+    taps = [(6, "keys 0x20")] + [(12, "up"), (18, "up")] + [(60 + 6 * k, "right") for k in range(3)]
+    taps += [(100 + 6 * k, "up") for k in range(7)] + [(170, "a")]
     lines = run(host, cart, work, "cel", taps, 6)
     opts = [LINE.match(l).group(6) for l in lines if LINE.match(l)]
     assert opts and any("cel4" in o and ",dith," in o for o in opts), opts
@@ -83,7 +88,7 @@ def main():
     # 2c. the Resolution row (18: nine ups from row 1, through row 26) goes through the labels to 1920x1080 and the
     # printed res= is the mode really in force; the opt string has the probe level ("vs0p0": nothing
     # asked, no probe on the ARM)
-    taps = [(10 + 6 * k, "up") for k in range(9)] + [(80 + 40 * k, "right") for k in range(3)]
+    taps = [(6, "keys 0x1F")] + [(12 + 6 * k, "up") for k in range(5)] + [(80 + 40 * k, "right") for k in range(3)]
     lines = run(host, cart, work, "res", taps, 8)
     rows = [LINE.match(l).groups() for l in lines if LINE.match(l)]
     assert rows and all(re.search(r"^arm,vs0p0,", r[5]) for r in rows), rows[0][5]
