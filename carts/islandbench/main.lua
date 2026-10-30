@@ -115,10 +115,10 @@ local function build_rows()
   function mode.toggle() G.bench_start() end
   function mode.step() G.bench_start() end
   local el = { key = "el", name = "Elements", help = { "Palms, bushes, rocks and grass on the island.", "100% = the map (135); over: more of them." } }
-  O.el = 100
+  O.el = 50                                 -- the light settings first: the player raises them
   function el.get() return O.el .. "% (" .. G.shown() .. ")" end
   function el.step(d) O.el = math.max(0, math.min(200, O.el + d * 10)) end
-  function el.toggle() O.el = O.el == 0 and 100 or 0 end
+  function el.toggle() O.el = O.el == 0 and 50 or 0 end
   local backend = { key = "backend", name = "Backend", help = { "ARM or GPU draws the 3D.", "ARM ignores AA." } }
   function backend.get() return (gpu_state()) and "GPU" or "ARM" end
   function backend.step() gpu3d(not (gpu_state())) end
@@ -148,15 +148,17 @@ local function build_rows()
     choice("weather", "Weather", { "Clear", "Rain", "Snow", "Fog" }, 1, { "Rain and snow: particles round the camera.", "Fog: fog3d. All: lighter or darker sky." }),
     choice("amount", "Weather amount", { "50%", "100%", "200%" }, 2, { "Particles of rain or snow a frame.", "tri stays; point work rises." }),
     choice("angle", "Light angle", { "low", "mid", "high" }, 2, { "Height of the sun or moon: low gives", "long shadows." }),
-    choice("fire", "Campfire", { "off", "on" }, 2, { "The fire: a point light (lamp3d), flames", "(2D sprite in the 3D) and sparks." }),
-    choice("shadow", "Shadows", { "off", "dark", "dither" }, 2, { "draw3d flag 8 under palms, rocks, chest, boat.", "dark = shadow3d(0), dither = shadow3d(1)." }),
+    choice("fire", "Campfire", { "off", "on" }, 1, { "The fire: a point light (lamp3d), flames", "(2D sprite in the 3D) and sparks." }),
+    choice("shadow", "Shadows", { "off", "dark", "dither" }, 1, { "draw3d flag 8 under palms, rocks, chest, boat.", "dark = shadow3d(0), dither = shadow3d(1)." }),
     choice("look", "Look", { "Texture", "Flat" }, 1, { "Textured models, or the flat colour ones", "(_f) with textures3d(false)." }),
-    choice("objects", "Objects as", { "3D models", "2D sprites", "Mix by distance" }, 1, { "sprite3d shows the 2D sprite of each object.", "Mix: 3D near, 2D far (as in Doom)." }),
-    choice("sea", "Sea", { "off", "on" }, 2, { "The sea: one model of 1152 triangles.", "" }),
-    choice("light", "Lighting", { "none", "flat", "smooth" }, 3, { "none, flat or smooth (per vertex) light.", "" }),
+    choice("objects", "Objects as", { "3D models", "2D sprites", "Mix by distance" }, 3, { "sprite3d shows the 2D sprite of each object.", "Mix: 3D near, 2D far (as in Doom)." }),
+    choice("sea", "Sea", { "off", "on" }, 1, { "The sea: one model of 1152 triangles.", "" }),
+    choice("light", "Lighting", { "none", "flat", "smooth" }, 2, { "none, flat or smooth (per vertex) light.", "" }),
     backend, aa, res, cam,
   }
   G.ROW = {}
+  ROWS[#ROWS + 1] = choice("guard", "Block under 30 fps", { "off", "on" }, 2,
+    { "A change that takes the frame rate under 30 fps", "freezes the options; 1 s later the last good ones return." })
   for i, r in ipairs(ROWS) do G.ROW[r.key] = i end
 end
 
@@ -168,7 +170,7 @@ local GROUPS = {
   { name = "Environment", keys = { "time", "weather", "amount", "angle" },  open = true },
   { name = "Light",       keys = { "fire", "shadow" },                      open = false },
   { name = "Look",        keys = { "look", "objects", "sea", "light" },     open = false },
-  { name = "Screen",      keys = { "backend", "aa", "res", "cam" },         open = false },
+  { name = "Screen",      keys = { "backend", "aa", "res", "cam", "guard" },         open = false },
 }
 local VIS = {}                                -- what the panel shows now: the group lines and the rows of the open groups
 
@@ -476,6 +478,7 @@ end
 
 function G.stats_frame()
   local ms, gpu, wait = stat(1), stat(16), stat(18)
+  G.guard_frame(ms)
   local tri, vtx, lua = stat(4), stat(7), stat(10)
   W.n = W.n + 1
   W.skip = W.skip + math.max(0, stat(15) - 1)
@@ -546,8 +549,62 @@ local function key_edge(u)
   return e
 end
 
+-- The 30 fps guard. A change of an option (or of the backend, AA, resolution) is watched: after SETTLE frames the
+-- mean frame time of WINDOW frames must stay under 33.4 ms. If not, the options freeze for one second and then the
+-- last good ones come back (G.good). A benchmark scene or a run with the guard off is not watched.
+local SETTLE, WINDOW, LIMIT_MS = 10, 20, 1000 / 30
+local function sig()
+  local on, aa = gpu_state()
+  local t = {}
+  for k, v in pairs(O) do t[#t + 1] = k .. v end
+  table.sort(t)
+  return table.concat(t, ",") .. (on and "g" or "a") .. (aa and "q" or "n") .. SCREEN_W .. "x" .. SCREEN_H .. G.cam
+end
+local function snapshot()
+  local on, aa = gpu_state()
+  local o = {}
+  for k, v in pairs(O) do o[k] = v end
+  return { o = o, on = on, aa = aa, w = SCREEN_W, h = SCREEN_H, cam = G.cam }
+end
+local function restore(sn)
+  for k, v in pairs(sn.o) do O[k] = v end
+  G.cam = sn.cam
+  gpu3d(sn.on, sn.aa)
+  if SCREEN_W ~= sn.w or SCREEN_H ~= sn.h then screen(sn.w, sn.h) end
+  ENVSIG = nil
+end
+
+function G.guard_frame(ms)
+  if B or O.guard ~= 2 then G.pend, G.sig = nil, nil; return end
+  if G.frozen_until then
+    if time() >= G.frozen_until then
+      restore(G.good)
+      G.frozen_until, G.pend, G.sig = nil, nil, nil
+      G.bench_note = nil
+    end
+    return
+  end
+  local sg = sig()
+  if sg ~= G.sig then G.sig = sg; G.pend = { n = 0, ms = 0 } end
+  local p = G.pend
+  if not p then return end
+  p.n = p.n + 1
+  if p.n > SETTLE then p.ms = p.ms + ms end
+  if p.n >= SETTLE + WINDOW then
+    if p.ms / WINDOW > LIMIT_MS + 0.4 and G.good and G.good_sig ~= sg then
+      G.frozen_until = time() + 1
+      G.bench_note = "under 30 fps: options frozen, the last good ones come back"
+      add_line(string.format("guard: %s ms over %d frames, back to the last good options", fmt(p.ms / WINDOW), WINDOW))
+    else
+      G.good, G.good_sig = snapshot(), sg       -- (a state that is slow but is the last good one stays: nothing better)
+    end
+    G.pend = nil
+  end
+end
+
 function G.input()
   local start = btn("start")
+  if G.frozen_until then return end
   if B then
     if btnp("select") or btnp("b") or key_edge(0x29) then          -- abort: Select, B or Esc
       for k, v in pairs(B.saved) do O[k] = v end
@@ -653,6 +710,7 @@ function _init()
   gpu3d(true, nil, nil, 2, nil, true)
   textures3d(true)
   frameskip(MAX_SKIP)
+  G.good, G.good_sig = snapshot(), sig()
   if stat(9) == 1 then            -- run by a test: a short list
     G.bench_start()
   end

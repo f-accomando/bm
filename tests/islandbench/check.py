@@ -37,7 +37,7 @@ def main():
     assert start and int(start[0].rsplit("=", 1)[1]) > 100, start
     rows = [LINE.match(l) for l in lines if l.startswith("islandbench 1 t=")]
     assert len(rows) >= 3 and all(rows), lines[-5:]
-    assert int(rows[-1].group(1)) > 10, "the 3D drew no object of the island"
+    assert int(rows[-1].group(1)) + int(rows[-1].group(2)) > 10, "no object of the island drawn"
     lines = run(host, cart, work, "bench", [(5, "start a")], 120)
     done = [l for l in lines if l.startswith("bench ") and not l.startswith("bench start") and not l.startswith("bench done")]
     assert len(done) == 16, len(done)
