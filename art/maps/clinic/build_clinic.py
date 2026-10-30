@@ -804,10 +804,8 @@ def build_kit():
     bmres.map_put(f, CW, CH, [(n, lay[n]) for n in K.LAYER_NAMES])
     bmres.flags_put(f, tile_flags(), SW)
     info = {"file": [("name", "Dark Night: Clinic"), ("author", "bm"), ("license", "LicenseRef-BM-Community-1.0"),
-                     ("version", "1"), ("tags", "map, 3d, kit, victorian, dark, clinic"), ("looks", "texture, flat"),
-                     ("desc", "The Clinic and its courtyard for Dark Night: infirmary wards, a hall with a stair down, "
-                              "a grand atrium, a courtyard, an alley and the way up to the Courtyard Gate. Static map "
-                              "elements, spawn points for enemies, lanterns and doors")],
+                     ("version", "1"), ("tags", "map, 3d, kit, clinic"), ("looks", "texture, flat"),
+                     ("desc", "Dark Night map kit: the Clinic, a hall, an atrium, a courtyard, an alley and the gate")],
             "items": []}
     for name, _fn, cls, radius in OBJECTS:
         keys = [("id", str(IDS[name])), ("model", name), ("model_flat", name + K.FLAT_SUFFIX), ("mode", "3d"),

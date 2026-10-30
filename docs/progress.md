@@ -23,6 +23,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/` |
 | [graphics-2d](progress/graphics-2d.md) | 2D on the Pi Zero W: GPU light, packed tile pool, 2D call costs, sprite stacking, 2D benchmarks, speed checks, 2D API gaps against the LOVE API | `src/bm/gfx16.c`, `src/gpu/` |
 | [hero](progress/hero.md) | Hero Stress cart: heroes in a plaza, live 3D options, cost panel | `carts/hero/`, `tests/hero/` |
+| [darknight](progress/darknight.md) | Dark Night: the playable Hunter in the Clinic (map kit, models, keys, combat, menu) | `carts/darknight/`, `tests/darknight/`, `art/maps/clinic/`, `art/models/hunter/` |
 | [graphics-mali](progress/graphics-mali.md) | the RGB30's Mali-G52: bring-up, descriptors, shaders, triangle | `src/rgb30/mali.c`, `src/rgb30/mali_desc.c`, `tools/mali/` |
 | [graphics-mali-bringup](progress/graphics-mali-bringup.md) | Mali-G52 bringup (the first triangle, 25 Oct 2026 root causes) and the variant probe of `mali.c` | `src/rgb30/mali.c`, `tools/mali/` |
 | [graphics-vector](progress/graphics-vector.md) | OpenVG/VGU capabilities: what bm has, how to build the rest on the Pi and the RGB30 | `src/bm/gfx16.c`, `src/bm/r3d.c` |

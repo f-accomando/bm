@@ -1,0 +1,12 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: Dark Night
+desc: The Hunter in the Clinic: a Victorian, dystopian hospital and its courtyard. Move, dodge, open and close the saw, fire the pistol, lock on.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: game, 3d, action, fan study
+type: game
+resolution: 640x360
+targets: pi,rgb30
+input: keyboard,pad
+needs: 3d
