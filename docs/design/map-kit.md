@@ -64,6 +64,17 @@ A `.bmk` is a `BMRES` file of type 6 ([RISORSE](../RISORSE.md), section 4). It u
 - `map3d_objects` returns only the kernel kinds today. A kit object needs a later change of `map3d.c`: not done.
 - Floor ids: tile at (x, y) in 16-pixel units has the id `y * 2 * (sheet width / 8) + x * 2`.
 
+## Walls: the value is the height and the texture
+
+`map3d_build` reads the `walls` layer in a fixed way. A wall tile is a block on the floor height of its tile. The block is
+`value x 0.25` units high, and its five faces take the texture of the sheet cell with that number
+(cell `n` is at x = (n mod columns) x 8, y = (n div columns) x 8; the texture is 16 x 16 and stretches over the whole face).
+So a kit has at most 15 wall styles in row 0 of the sheet (even values below 32, heights 0.5 to 7.5 units), and a wall style
+is tied to one height. A taller wall needs a texture in a higher row of the sheet. The `clinic` kit
+([art/maps/clinic](../../art/maps/clinic/README.md)) shares each row-0 tile between a floor and a wall style.
+
+The floor ids have no such limit: a floor id is any cell of the sheet, up to 1023.
+
 ## The picture inside the kit
 
 `island.bmk` carries a COVER (128x128) and a PREVIEW (12 frames of 96x96) of the whole island: the islet with palms,

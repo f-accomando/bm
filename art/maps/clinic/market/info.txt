@@ -1,0 +1,3 @@
+version: 1.0
+license: LicenseRef-BM-Community-1.0
+about: Dark Night map kit: the Clinic, its wards, a hall, an atrium and the courtyard up to the gate. Static elements.
