@@ -1,0 +1,71 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1982-g53d06af3
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-d89ae7_freeze_pi-zero-w_v0.2.5-1982-g53d06af3.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 1910 s after boot, kernel v0.2.5-1980-g05596f65, ring 65741, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+u idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8057 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8038 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8214 us, enlarge 0 us, flip 94 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8129 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8044 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8080 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8202 us, enlarge 0 us, flip 94 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8115 us, enlarge 0 us, flip 94 us, free time used 15 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8027 us, enlarge 0 us, flip 95 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8128 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8185 us, enlarge 0 us, flip 95 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8099 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8011 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8166 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 55 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8187 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+net: receiving a new kernel (6164540 bytes)...
+net: kernel 0% (0 of 6020 KB)
+net: kernel 10% (609 of 6020 KB)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8530 us, enlarge 0 us, flip 95 us, free time used 13 us (300 frames)
+net: kernel 20% (1206 of 6020 KB)
+net: kernel 30% (1813 of 6020 KB)
+net: kernel 40% (2413 of 6020 KB)
+net: kernel 50% (3012 of 6020 KB)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9563 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+net: kernel 60% (3619 of 6020 KB)
+net: kernel 70% (4216 of 6020 KB)
+net: kernel 80% (4823 of 6020 KB)
+net: kernel 90% (5420 of 6020 KB)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9623 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+net: dev mode: kernel received (6164540 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 35.7 ms past its slice
+net: saved kernel.img on the SD card (6164540 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 11 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+report: sending session_bm-agent_pi-zero-w.txt
+net: restarting with the new kernel in 1 s
+menu idle: 300/300 frames, 1905 of 1799 ms taken, 101.1 ms past a frame; reports 1361 ms (+101.1, stk 7.6/128K), netxfer 963 ms (+35.7, stk 1.7/64K); min slack -91728 us, paced 0
+menu idle: sd first word <1ms 271 <3ms 5 (max 1.4 ms)
+menu stalls: tls handshake 1x last 267.0 worst 267.0 ms
+menu frame: 1x, a frame averages draw 9898 us, enlarge 0 us, flip 95 us, free time used 6353 us (300 frames)
