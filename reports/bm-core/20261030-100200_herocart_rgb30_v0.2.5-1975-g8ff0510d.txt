@@ -1,0 +1,22 @@
+bm report
+kind: herocart
+kernel: v0.2.5-1975-g8ff0510d
+branch: bm-core
+board: RGB30
+date: 2026-10-30 10:02:00
+file: 20261030-100200_herocart_rgb30_v0.2.5-1975-g8ff0510d.txt
+
+options bm3d 7.32 mali3d=1 gpu3d_vs=2 gpu3d_queue=2 3d=arm later=0 2d=0 impostor=0 fast=0
+herocart 1 saved t=12 n=50 lod=0 res=640x360 map=-
+herocart 1 t=1 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=50.8 max=56.6 fps=0 gpu=28.9 wait=28.3 anim=0.4 tri=49680 vtx=0 lua=24 kb=170 skip=39
+herocart 1 t=2 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=55.4 max=59.2 fps=16 gpu=31.8 wait=31.2 anim=0.4 tri=52992 vtx=0 lua=27 kb=176 skip=40
+herocart 1 t=3 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.0 max=58.2 fps=15 gpu=32.5 wait=31.9 anim=0.4 tri=52992 vtx=0 lua=27 kb=181 skip=42
+herocart 1 t=4 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=55.1 max=57.3 fps=15 gpu=31.5 wait=30.9 anim=0.4 tri=52992 vtx=0 lua=28 kb=187 skip=41
+herocart 1 t=5 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=54.5 max=57.1 fps=15 gpu=31.0 wait=30.4 anim=0.4 tri=52992 vtx=0 lua=27 kb=192 skip=40
+herocart 1 t=6 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,noz,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=50.2 max=57.6 fps=19 gpu=8.5 wait=8.4 anim=0.4 tri=35035 vtx=32010 lua=26 kb=199 skip=41
+herocart 1 t=7 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=49.2 max=50.6 fps=18 gpu=0.0 wait=0.0 anim=0.4 tri=28598 vtx=43984 lua=26 kb=205 skip=41
+herocart 1 t=8 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=49.0 max=51.4 fps=18 gpu=0.0 wait=0.0 anim=0.4 tri=28582 vtx=43984 lua=26 kb=211 skip=43
+herocart 1 t=9 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,noz,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=48.6 max=51.9 fps=19 gpu=0.0 wait=0.0 anim=0.4 tri=28567 vtx=43984 lua=25 kb=217 skip=41
+herocart 1 t=10 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,noz,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=47.9 max=50.2 fps=20 gpu=0.0 wait=0.0 anim=0.4 tri=28480 vtx=43984 lua=25 kb=223 skip=41
+herocart 1 t=11 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=49.2 max=50.5 fps=18 gpu=0.0 wait=0.0 anim=0.4 tri=28724 vtx=43984 lua=26 kb=230 skip=44
+herocart 1 t=12 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=50.0 max=52.2 fps=17 gpu=0.0 wait=0.0 anim=0.4 tri=28680 vtx=43984 lua=27 kb=235 skip=44
