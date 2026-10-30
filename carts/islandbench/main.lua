@@ -47,7 +47,36 @@ end
 local world
 local ZONE = {}                           -- sprite name -> { x, y, w, h, frames, fps }
 
+-- A tile of water far from the land has no floor (floor id 0: map3d makes no triangles for it): the sea model is
+-- there. The map of the kit has 5184 tiles of 2 triangles; 3173 are water. RING tiles of water stay round the land.
+local WATER, RING = 2, 2
+local function thin_water()
+  local nt = 72
+  local land = {}
+  for tz = 0, nt - 1 do
+    for tx = 0, nt - 1 do
+      local id = mget(tx * 2, tz * 2, "floor")
+      land[tz * nt + tx + 1] = id ~= WATER and id ~= 0
+    end
+  end
+  local cut = 0
+  for tz = 0, nt - 1 do
+    for tx = 0, nt - 1 do
+      local near = false
+      for dz = -RING, RING do
+        for dx = -RING, RING do
+          local x, z = tx + dx, tz + dz
+          if x >= 0 and z >= 0 and x < nt and z < nt and land[z * nt + x + 1] then near = true end
+        end
+      end
+      if not near then mset(tx * 2, tz * 2, 0, "floor"); cut = cut + 1 end
+    end
+  end
+  return cut
+end
+
 local function island_init()
+  G.cut_tiles = thin_water()
   world = map3d_build({ floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 })
   for _, n in ipairs(zones()) do
     local x, y, w, h, fr, fps = zone(n)
@@ -119,7 +148,7 @@ local function build_rows()
   function el.get() return O.el .. "% (" .. G.shown() .. ")" end
   function el.step(d) O.el = math.max(0, math.min(200, O.el + d * 10)) end
   function el.toggle() O.el = O.el == 0 and 50 or 0 end
-  local backend = { key = "backend", name = "Backend", help = { "ARM or GPU draws the 3D.", "ARM ignores AA." } }
+  local backend = { key = "backend", name = "Backend", help = { "ARM or GPU. The Mali (RGB30) takes opaque", "textures and grey light only: it falls to ARM." } }
   function backend.get() return (gpu_state()) and "GPU" or "ARM" end
   function backend.step() gpu3d(not (gpu_state())) end
   backend.toggle = backend.step
@@ -233,10 +262,31 @@ for i = 1, 90 do
 end
 local LDIR = { { -0.4, 0.35, -0.5 }, { -0.4, 0.8, -0.5 }, { -0.25, 1.2, -0.3 } }
 
+-- The Mali of the RGB30 draws flat colours and opaque textures only. A point3d, a line3d, a sprite3d, a shadow (draw3d
+-- flag 8) or a particle hands the 3D of the cartridge to the ARM, for good until it restarts (r3d.c, colour_ok). So with
+-- the GPU on a Mali the effects are not drawn: the GPU keeps the frame, and the ARM backend has them.
+local function fx_on()
+  if G.mali == nil then
+    local st = gpu3d_stats and gpu3d_stats() or {}
+    G.mali = tostring(st.status):find("Mali") ~= nil
+  end
+  return not (G.mali and (gpu_state()))
+end
+
+-- With the Mali the light must have no colour ("light in colour" hands the 3D to the ARM): the greys of the colours.
+local function grey(c)
+  local r, g, b = (c >> 16) & 255, (c >> 8) & 255, c & 255
+  local k = math.floor(r * 0.30 + g * 0.59 + b * 0.11)
+  return k << 16 | k << 8 | k
+end
+
 local function apply_env()
-  local sig = O.time * 1000 + O.weather * 100 + O.angle * 10 + O.look
+  local mono = not fx_on()
+  local sig = O.time * 1000 + O.weather * 100 + O.angle * 10 + O.look + (mono and 10000 or 0)
   if sig == ENVSIG then return end
   ENVSIG = sig
+  local sky3d_c = sky3d
+  local sky3d = function(a, b, c) if mono then sky3d_c(grey(a), grey(b), grey(c)) else sky3d_c(a, b, c) end end
   local night, w = O.time == 2, O.weather
   SKY = WCOL[O.time][w]
   local d = LDIR[O.angle]
@@ -244,16 +294,16 @@ local function apply_env()
     -- the moon: a cold, weak light; the ambient is low so the fire and the stars show
     local m = ({ 0x8090D0, 0x586080, 0x6C7898, 0x505870 })[w]
     sky3d(m, 0x182038, 0x080C18)
-    shine3d(0.3, 24, 0.3)
+    shine3d(0, 16, 0)
     light3d(-d[1], d[2], -d[3], ({ 0.16, 0.12, 0.16, 0.12 })[w])
   else
     local s = ({ 0xFFF0D8, 0xA0A8B4, 0xD8DCE4, 0xC8CCD0 })[w]
     sky3d(s, ({ 0x8CB4FF, 0x707C8C, 0xA0ACC0, 0xB0B8C4 })[w], 0x504838)
-    shine3d(w == 1 and 0.6 or 0.2, 16, w == 1 and 0.5 or 0.2)
+    shine3d(0, 16, 0)
     light3d(d[1], d[2], d[3], ({ 0.45, 0.4, 0.5, 0.5 })[w])
   end
   if w == 4 then fog3d(SKY, 4, night and 18 or 24)
-  elseif w == 1 then fog3d(SKY, 50, 100)
+  elseif w == 1 then fog3d()
   else fog3d(SKY, 16, 56) end
   textures3d(O.look == 1)
 end
@@ -265,7 +315,7 @@ end
 -- rain and snow: particles round the camera
 local function weather_update()
   local w = O.weather
-  if w ~= 2 and w ~= 3 then
+  if not fx_on() or (w ~= 2 and w ~= 3) then
     if G.had_particles then particles(2048); G.had_particles = false end   -- (a new pool: empty)
     return
   end
@@ -338,7 +388,8 @@ local function draw_objects(t)
   local flags = ({ 2, 0, 4 })[O.light]
   local look_flat = O.look == 2
   local mode = O.objects
-  local shadows = O.shadow > 1
+  local fx = fx_on()
+  local shadows = O.shadow > 1 and fx
   local n = G.nfixed + G.shown()
   local cx, cz = G.cx, G.cz
   drawn3, drawn2 = 0, 0
@@ -356,7 +407,7 @@ local function draw_objects(t)
       if visible3d(x, y + 0.5, z, k.sky and 4 or 2) then
         local dx, dz = x - cx, z - cz
         local d2 = dx * dx + dz * dz
-        local as2d = mode == 2 or (mode == 3 and d2 > 144)
+        local as2d = fx and (mode == 2 or (mode == 3 and d2 > 144))
         if as2d and ZONE[k.s] then
           drawn2 = drawn2 + 1
           sprite_of(k, x, y, z, t)
@@ -375,6 +426,7 @@ local function draw_objects(t)
 end
 
 local function draw_sky()
+  if not fx_on() then return end
   local c = G.cx
   local d = LDIR[O.angle]
   local night = O.time == 2
@@ -400,6 +452,7 @@ local function draw_fire(t)
   local f = flicker(t)
   lamp3d(1, CX, y + 0.8, CZ, 9, 1.6 * f, 0xFF9040)
   -- flames: the 2D animation of the campfire in the 3D (sprite3d, frames by time)
+  if not fx_on() then return end
   local zn = ZONE.campfire2d
   if zn then
     local fr = zn[5]
@@ -522,6 +575,8 @@ end
 
 function G.save()
   local head = string.format("islandbench 1 saved t=%d res=%dx%d\n", math.floor(time()), SCREEN_W, SCREEN_H)
+  local gs = gpu3d_stats and gpu3d_stats() or {}
+  head = head .. "gpu: " .. tostring(gs.status) .. "\noptions: " .. tostring(gs.options) .. "\nprobes: " .. tostring(gs.probes) .. "\n"
   local text = head .. table.concat(G.lines, "\n") .. "\n"
   local ok = doc_write("islandbench.txt", text)
   report("islandbench", text)
@@ -668,7 +723,8 @@ local function panel_draw()
     local help = Hh >= 330 and not VIS[G.cur].hdr and VIS[G.cur].help
     rectfill(0, 0, 268, 12 * (#VIS + (help and 4 or 2)) + 6, 0x101820)
     local on = gpu_state()
-    print("ISLAND BENCH  " .. (on and "gpu" or "arm") .. "  " .. G.CAMS[G.cam], 4, 4, TEXT)
+    local gst = gpu3d_stats and gpu3d_stats() or {}
+    print("ISLAND BENCH  " .. (on and "gpu" or "arm") .. "  " .. G.CAMS[G.cam] .. "  " .. tostring(gst.status or ""):sub(1, 24), 4, 4, TEXT)
     for i, r in ipairs(VIS) do
       local c = i == G.cur and CUR or (r.hdr and NUM or TEXT)
       local text = r.hdr and ((r.g.open and "- " or "+ ") .. r.name:upper()) or ("  " .. string.format("%-15s", r.name) .. " " .. r.get())
@@ -699,6 +755,7 @@ local function panel_draw()
   local note = G.bench_note
   if not note and G.save_note and time() - (G.save_t or 0) < 3 then note = G.save_note end
   if note then text = note .. " | " .. text end
+  if not fx_on() then text = "Mali: no effects | " .. text end
   print(text, 70, by + 1, NUM)
 end
 
@@ -711,10 +768,7 @@ function _init()
   textures3d(true)
   frameskip(MAX_SKIP)
   G.good, G.good_sig = snapshot(), sig()
-  if stat(9) == 1 then            -- run by a test: a short list
-    G.bench_start()
-  end
-  log("islandbench 1 start objects=" .. G.ntotal)
+  log("islandbench 1 start objects=" .. G.ntotal .. " floor tiles cut=" .. tostring(G.cut_tiles))
 end
 
 function _update()
@@ -739,6 +793,6 @@ function _draw()
   end
   draw_objects(t)
   draw_fire(t)
-  if O.weather == 2 or O.weather == 3 then particles_draw(O.weather == 2 and 0.04 or 0.07) end
+  if fx_on() and (O.weather == 2 or O.weather == 3) then particles_draw(O.weather == 2 and 0.04 or 0.07) end
   panel_draw()
 end
