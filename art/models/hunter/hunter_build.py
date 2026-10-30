@@ -584,25 +584,25 @@ def build_saw(open_form):
     Local frame while building: origin = grip centre, tip toward +z (mirrored to -z at the end), blade teeth down."""
     s = Skin()
     P = PAL.__getitem__
-    H0, H1 = (-0.22, 0.30) if open_form else (-0.17, 0.20)         # handle from the pommel to the hinge
-    nh = (6 if LO else 16) if open_form else (5 if LO else 12)
+    H0, H1 = (-0.26, 0.32) if open_form else (-0.20, 0.22)         # handle from the pommel to the hinge
+    nh = (8 if LO else 14) if open_form else (7 if LO else 12)   # enough rings for the S
     hp, hr = [], []
     for i in range(nh):
         t = i / (nh - 1)
         z = H0 + (H1 - H0) * t
-        y = 0.0 if open_form else 0.045 * (t - 0.4) ** 2 * 3.2 - 0.02      # the short handle hooks up at the pommel
+        y = (0.085 if open_form else 0.060) * math.sin(2 * math.pi * t)   # the handle is an S (reference picture 5)
         hp.append((0.0, y, z))
         hr.append(0.017 + (0.010 if t < 0.05 else 0.0) + (0.007 if i in (nh // 2,) else 0.0))
     hr[0] = 0.012
     hr[1] = 0.027
     hr[2] = 0.019
-    rings = tube(s, hp, hr, "saw", lambda i: P("band") if i % 2 else P("band_dk"), n=5 if LO else 8)
+    rings = tube(s, hp, hr, "saw", lambda i: P("band") if i % 2 else P("band_dk"), n=5 if LO else 6)
     s.cap(rings[0], P("steel_dk"), bone="saw")
     # hinge block (a cylinder across x) at the end of the handle
     hz = H1 + 0.012
     hy = hp[-1][1]
     hing = tube(s, [(-0.040, hy, hz), (-0.026, hy, hz), (0.026, hy, hz), (0.040, hy, hz)], [0.020, 0.034, 0.034, 0.020], "saw",
-                lambda i: P("iron") if i != 1 else P("steel_dk"), n=6 if LO else 10, ref=(0, 1, 0))
+                lambda i: P("iron") if i != 1 else P("steel_dk"), n=5 if LO else 8, ref=(0, 1, 0))
     s.cap(hing[0], P("iron"), bone="saw")
     s.cap(hing[-1], P("iron"), bone="saw")
     # blade: the profile of the reference picture. A wide wedge, narrow at the hinge, widest about 40% along,
@@ -625,35 +625,49 @@ def build_saw(open_form):
         """cleaver: narrow at the hinge, then a constant width to a square end (reference picture 5)"""
         u = min(1.0, t / 0.15)
         return 0.07 + (WMAX - 0.07) * u * u * (3 - 2 * u)
-    secs = []
+    # a flat plate: two planar faces (+x, -x) each a strip of a few big triangles between a straight back edge and the
+    # zigzag tooth edge, plus the thin edges. One vertex per tooth tip and base on the tooth edge, one per tooth on the back.
+    st = []
     for t, tooth, is_tip in stations:
         W = width(t) * (0.84 if t >= 1.0 else 1.0)          # the far end is cut square, the toothed corner a little chamfered
         vb = 0.075                                          # the back edge is a straight line
         vf = vb - W - tooth
-        c = 0.5 * (vb + vf)
         th = 0.0105 + 0.004 * math.sin(math.pi * min(1.0, t))
         if is_tip:
-            th *= 0.5
-        yc = (hy - 0.06 - 0.05 * t * t) if not open_form else (hy - 0.02 + 0.09 * math.sin(1.5 * t))
-        z = z0 + BL * t
-        secs.append([(0.0, yc + vb, z), (th, yc + vb * 0.55 + c * 0.45, z), (th, yc + vf * 0.55 + c * 0.45, z),
-                     (0.0, yc + vf, z), (-th, yc + vf * 0.55 + c * 0.45, z), (-th, yc + vb * 0.55 + c * 0.45, z)])
-    rings = [s.ring(pts, "saw") for pts in secs]
-    for i in range(len(rings) - 1):
-        zc = secs[i][0][2]
-        yc = 0.5 * (secs[i][0][1] + secs[i + 1][0][1])
-        face = P("band_dk")
-        edge = P("blood") if hsh("bl", i) > 0.78 else P("steel_dk")
-        s.bridge(rings[i], rings[i + 1], [P("band_dk"), face, edge, edge, face, P("band_dk")])
-    # the bandage runs diagonally across both flat faces
-    for i, (a, b, c, col) in enumerate(s.f):
-        if col == P("band_dk") and all(abs(s.v[q][0]) > 0.005 for q in (a, b, c)) and s.v[a][2] > z0:
-            zc = (s.v[a][2] + s.v[b][2] + s.v[c][2]) / 3
-            yc = (s.v[a][1] + s.v[b][1] + s.v[c][1]) / 3
-            if int(math.floor((zc * 30 - (yc - hy) * 34))) % 2 == 0:
-                s.f[i] = (a, b, c, P("band"))
-    s.cap(rings[0], P("iron"), bone="saw")
-    s.cap(rings[-1], P("steel_dk"), bone="saw")
+            th *= 0.4
+        yc = (hy - 0.05 - 0.24 * t) if not open_form else (hy - 0.02 + 0.09 * math.sin(1.5 * t))
+        st.append((z0 + BL * t, yc + vb, yc + vf, th, is_tip))
+    bidx = [0] + [i for i in range(2, len(st)) if not st[i][4]]
+    Fp = [s.vert((q[3], q[2], q[0]), "saw") for q in st]
+    Fm = [s.vert((-q[3], q[2], q[0]), "saw") for q in st]
+    Bp = [s.vert((st[i][3], st[i][1], st[i][0]), "saw") for i in bidx]
+    Bm = [s.vert((-st[i][3], st[i][1], st[i][0]), "saw") for i in bidx]
+    def face_col(a, b, c):
+        zc = (s.v[a][2] + s.v[b][2] + s.v[c][2]) / 3
+        yc = (s.v[a][1] + s.v[b][1] + s.v[c][1]) / 3
+        return P("band")                                    # one flat bandage colour: thin triangles must not make stripes
+    def strip(Bv, Fv):
+        zb = [st[i][0] for i in bidx]
+        zf = [q[0] for q in st]
+        i = j = 0
+        while i < len(Bv) - 1 or j < len(Fv) - 1:
+            if j == len(Fv) - 1 or (i < len(Bv) - 1 and zb[i + 1] <= zf[j + 1]):
+                tri = (Bv[i], Fv[j], Bv[i + 1])
+                i += 1
+            else:
+                tri = (Bv[i], Fv[j], Fv[j + 1])
+                j += 1
+            mid = [sum(s.v[q][k] for q in tri) / 3 for k in (1, 2)]
+            s.tri(tri[0], tri[1], tri[2], face_col(*tri), (0.0, mid[0], mid[1]))
+    strip(Bp, Fp)
+    strip(Bm, Fm)
+    for i in range(len(Bp) - 1):                            # the back edge
+        s.quad(Bp[i], Bp[i + 1], Bm[i + 1], Bm[i], P("band_dk"), (0.0, st[bidx[i]][1] - 0.1, st[bidx[i]][0]))
+    for i in range(len(Fp) - 1):                            # the tooth edge: steel, a little blood
+        col = P("blood") if hsh("bl", i) > 0.8 else P("steel_dk")
+        s.quad(Fp[i], Fp[i + 1], Fm[i + 1], Fm[i], col, (0.0, st[i][2] + 0.1, st[i][0]))
+    s.quad(Bp[0], Bm[0], Fm[0], Fp[0], P("iron"), (0.0, st[0][1], st[0][0] + 0.1))       # the hinge end
+    s.quad(Bp[-1], Fp[-1], Fm[-1], Bm[-1], P("steel_dk"), (0.0, st[-1][1], st[-1][0] - 0.1))   # the far end
     bones = [{"name": "saw", "parent": None, "head": [0, 0, -0.17], "tail": [0, 0, 0.30]}]
     return finish(s, "saw_o" if open_form else "saw_c", bones)
 
@@ -662,28 +676,32 @@ def build_pistol():
     s = Skin()
     P = PAL.__getitem__
     # grip centre at the origin; barrel runs +z (to -z after the mirror). Octagonal barrel, brass lock, wooden grip.
-    nbar = 5 if LO else 15
+    nbar = 3 if LO else 8
     barrel_z = [0.030 + 0.375 * i / (nbar - 1) for i in range(nbar)]
     bp = [(0.0, 0.058, z) for z in barrel_z]
     br = [0.027 if i < 1 else (0.020 if i < nbar - 1 else 0.026) for i in range(nbar)]
-    if not LO:
-        br[3], br[6], br[9] = 0.024, 0.024, 0.024
-    r1 = tube(s, bp, br, "pistol", lambda i: P("steel") if i % 3 else P("steel_dk"), n=6 if LO else 8, ref=(0, 1, 0))
+    r1 = tube(s, bp, br, "pistol", lambda i: P("steel") if i % 2 else P("steel_dk"), n=5 if LO else 6, ref=(0, 1, 0))
     s.cap(r1[0], P("brass"), bone="pistol")
     s.cap(r1[-1], P("iron"), bone="pistol")
     # lock/breech block
-    lk = tube(s, [(0.0, 0.052, 0.040), (0.0, 0.052, 0.000), (0.0, 0.050, -0.040), (0.0, 0.048, -0.075)], [0.030, 0.034, 0.032, 0.026], "pistol",
-              lambda i: P("brass") if i != 1 else P("gold_dk"), n=6 if LO else 8, ref=(0, 1, 0))
+    lp = [(0.0, 0.052, 0.040), (0.0, 0.052, 0.000), (0.0, 0.050, -0.040), (0.0, 0.048, -0.075)]
+    lr = [0.030, 0.034, 0.032, 0.026]
+    if LO:
+        lp, lr = [lp[0], lp[2], lp[3]], [lr[0], lr[2], lr[3]]
+    lk = tube(s, lp, lr, "pistol", lambda i: P("brass") if i != 1 else P("gold_dk"), n=5 if LO else 6, ref=(0, 1, 0))
     s.cap(lk[-1], P("brass"), bone="pistol")
     # wooden grip: curved down and back, thicker toward the pommel
     gp = [(0.0, 0.040, -0.040), (0.0, 0.015, -0.050), (0.0, -0.020, -0.062), (0.0, -0.058, -0.078), (0.0, -0.095, -0.098), (0.0, -0.125, -0.118)]
     gr = [(0.022, 0.026), (0.021, 0.028), (0.022, 0.030), (0.023, 0.031), (0.025, 0.032), (0.027, 0.030)]
-    gr2 = [(a, b) for a, b in gr]
-    gi = tube(s, gp, gr2, "pistol", lambda i: P("wood") if i % 2 else P("wood_dk"), n=6 if LO else 8, ref=(0, 0, 1))
+    if LO:
+        gp, gr = [gp[0], gp[2], gp[4], gp[5]], [gr[0], gr[2], gr[4], gr[5]]
+    elif True:
+        gp, gr = [gp[0], gp[1], gp[3], gp[4], gp[5]], [gr[0], gr[1], gr[3], gr[4], gr[5]]
+    gi = tube(s, gp, gr, "pistol", lambda i: P("wood") if i % 2 else P("wood_dk"), n=5 if LO else 6, ref=(0, 0, 1))
     s.cap(gi[-1], P("brass"), bone="pistol")
     # trigger guard ring (octahedra) and a small trigger tent under the lock
-    for i in range(0 if LO else 8):
-        a = math.pi * i / 7
+    for i in range(0 if LO else 5):
+        a = math.pi * i / 4
         octa(s, (0.0, 0.020 - 0.032 * math.sin(a), -0.050 + 0.040 * math.cos(a) + 0.005), 0.0065, P("brass"), "pistol", 1.0, 1.0, 1.4)
     # hammer: its own bone, a small wedge on top of the lock
     hm = s.ring([(-0.007, 0.082, -0.030), (0.007, 0.082, -0.030), (0.007, 0.082, -0.050), (-0.007, 0.082, -0.050)], "hammer")
