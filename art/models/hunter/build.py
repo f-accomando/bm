@@ -1,6 +1,6 @@
 """build.py: Hunter models + clips -> BMRES `.bmm` files (bm Mesh and bm Animator can open them).
 
-  python3 build.py OUT_DIR        writes OUT_DIR/hunter.bmm (high poly) and OUT_DIR/hunter_lo.bmm (about 1000 triangles)
+  python3 build.py OUT_DIR        writes OUT_DIR/hunter.bmm (high poly) and OUT_DIR/hunterlo.bmm (about 1000 triangles)
   python3 build.py OUT_DIR hi|lo  only one of them
 
 The clips are the same for both: hunter_clips.py. The pistol has its own clip `fire` (hammer and recoil).
@@ -45,7 +45,7 @@ def main(argv):
         return 2
     out_dir = argv[1]
     if len(argv) > 2:
-        build_one(argv[2], os.path.join(out_dir, "hunter.bmm" if argv[2] == "hi" else "hunter_lo.bmm"))
+        build_one(argv[2], os.path.join(out_dir, "hunter.bmm" if argv[2] == "hi" else "hunterlo.bmm"))
         return 0
     for lod in ("hi", "lo"):
         subprocess.check_call([sys.executable, os.path.abspath(__file__), out_dir, lod])

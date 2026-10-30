@@ -1,6 +1,6 @@
 # Hunter (Bloodborne fan study)
 
-Two resource files: `art/models/hunter.bmm` (high poly) and `art/models/hunter_lo.bmm` (low poly).
+Two resource files: `art/models/hunter.bmm` (high poly) and `art/models/hunterlo.bmm` (low poly).
 Both hold the same four models, the same 24 bones, and the same clips.
 
 | Model | High | Low | Rig |
@@ -33,8 +33,21 @@ python3 art/models/hunter/build.py art/models
 `hunter_build.py` builds the models (`HUNTER_LOD=lo` selects low poly). `hunter_clips.py` builds the clips.
 Each pose comes from a few numbers: two-bone IK for legs and arms, degrees for the body.
 
+## Check that the editors read the files
+
+```bash
+make build/host/bmhost-bin
+python3 art/models/hunter/check_editors.py
+```
+
+The script runs the code of bm Mesh and bm Animator (`require "bm3d"`) in bmhost, the PC build of the kernel.
+It imports every model of both files and checks counts, skeleton, clips, tool limits, and bone mirroring.
+It also checks that the kernel accepts both files (`file_write`) and reads them (`res_read`).
+Result on 2026-10-30: 101 of 101 checks passed.
+The name of a file in `/bmm` has 1 to 8 characters of a-z, 0-9, `_` and `-`. This is why the low file is `hunterlo.bmm`.
+
 ## Not verified
 
-- No file was opened in bm Mesh or bm Animator, and none was run on a device (NON VERIFICATO).
+- No file was opened by hand in bm Mesh or bm Animator, and none was run on a device (NON VERIFICATO). The check above runs their import code on the PC.
 - The previews come from `bm_core` (bm-forge), not from the console.
 - The model is a fan study of a third-party character. It is not for the Market without permission.

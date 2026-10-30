@@ -39,9 +39,9 @@ PAL = {k: int(v.lstrip("#"), 16) for k, v in {
     "gold": "#cfa94e", "gold_dk": "#8f6f2c", "pants": "#3a362e", "boot": "#50291f", "boot_lt": "#744532",
     "boot_dk": "#2c1713", "glove": "#2b211d", "skin": "#b38d76", "skin_sh": "#8a6554", "hair": "#2a2220",
     "mask": "#2c2f31", "mask_lt": "#3e4346", "cloth": "#b9aa94", "eye": "#1a1718", "eye_w": "#cfc6b8",
-    "hat": "#4b4642", "hat_lt": "#6d655c", "hat_dk": "#2f2c2a", "blood": "#6a1717",
+    "hat": "#4b4642", "hat_lt": "#6d655c", "hat_dk": "#2f2c2a", "blood": "#4a1e1e",
     "steel": "#80878c", "steel_dk": "#4d5256", "iron": "#2d2f33", "wood": "#6c4524", "wood_dk": "#3e2713",
-    "brass": "#b8923c", "band": "#bda070", "band_dk": "#4b3a29", "cord": "#a38458",
+    "brass": "#b8923c", "band": "#8f7b5a", "band_dk": "#3b3128", "cord": "#a38458",
 }.items()}
 
 
@@ -605,40 +605,55 @@ def build_saw(open_form):
                 lambda i: P("iron") if i != 1 else P("steel_dk"), n=6 if LO else 10, ref=(0, 1, 0))
     s.cap(hing[0], P("iron"), bone="saw")
     s.cap(hing[-1], P("iron"), bone="saw")
-    # blade: a loft of flat sections; teeth = every other section drops its lowest vertex
-    BL = 0.74 if open_form else 0.56
-    nb = (8 if LO else 18) if open_form else (7 if LO else 15)
-    bp, br, drop = [], [], []
+    # blade: the profile of the reference picture. A wide wedge, narrow at the hinge, widest about 40% along,
+    # blunt at the far end, with a row of pointed teeth on one edge (down, -y) that lean toward the tip.
+    # Built as flat sections (6 points: back, two faces, tooth edge) along the blade; a tooth = a section whose edge point
+    # is pulled out and forward.
+    BL = 0.74 if open_form else 0.58
+    NT = (7 if LO else 13) if open_form else (6 if LO else 11)
+    TH = 0.032 if open_form else 0.028                              # tooth height
+    t0, t1 = 0.15, 0.97
+    pitch = (t1 - t0) / NT
+    stations = [(0.0, 0.0, 0.0), (0.07, 0.0, 0.0), (t0, 0.0, 0.0)]
+    for i in range(NT):
+        stations.append((t0 + (i + 0.42) * pitch + 0.012, TH, 1.0))      # tooth tip: out and leaning toward the tip
+        stations.append((t0 + (i + 1) * pitch, 0.0, 0.0))
+    stations.append((1.0, 0.0, 0.0))
     z0 = hz + 0.03
-    for i in range(nb):
-        t = i / (nb - 1)
+    WMAX = 0.19 if open_form else 0.17
+    def width(t):
+        """cleaver: narrow at the hinge, then a constant width to a square end (reference picture 5)"""
+        u = min(1.0, t / 0.15)
+        return 0.07 + (WMAX - 0.07) * u * u * (3 - 2 * u)
+    secs = []
+    for t, tooth, is_tip in stations:
+        W = width(t) * (0.84 if t >= 1.0 else 1.0)          # the far end is cut square, the toothed corner a little chamfered
+        vb = 0.075                                          # the back edge is a straight line
+        vf = vb - W - tooth
+        c = 0.5 * (vb + vf)
+        th = 0.0105 + 0.004 * math.sin(math.pi * min(1.0, t))
+        if is_tip:
+            th *= 0.5
+        yc = (hy - 0.06 - 0.05 * t * t) if not open_form else (hy - 0.02 + 0.09 * math.sin(1.5 * t))
         z = z0 + BL * t
-        if open_form:
-            y = hy - 0.02 + 0.11 * math.sin(t * 1.5) - 0.0
-        else:
-            y = hy - 0.05 - 0.19 * t * t
-        h = 0.030 + 0.125 * min(1.0, t * 5.0) ** 0.5 * (1.0 - 0.85 * max(0.0, (t - 0.82) / 0.18) ** 2)
-        bp.append((0.0, y, z))
-        br.append((0.013, max(0.012, h)))
-        drop.append(0.034 if (i % 2 and 0.08 < t < 0.96) else 0.0)
-    def bcol(i):
-        zc = bp[i][2]
-        return P("band") if int(zc * 38 + bp[i][1] * 6) % 2 == 0 else P("band_dk")
-    # sections are ellipses in the plane perpendicular to the path: flat in x, tall in y (the tube() ref makes u = up)
-    blade = tube(s, bp, br, "saw", bcol, n=6 if LO else 10, ref=(0, 1, 0))
-    for i, ring in enumerate(blade):
-        if drop[i]:
-            lowest = min(ring, key=lambda v: s.v[v][1])
-            x, y, z = s.v[lowest]
-            s.v[lowest] = (x, y - drop[i], z + 0.02)
-    s.cap(blade[0], P("iron"), bone="saw")
-    s.cap(blade[-1], P("steel_dk"), bone="saw")
-    # blood on the teeth: recolour faces touching the lowest vertices
+        secs.append([(0.0, yc + vb, z), (th, yc + vb * 0.55 + c * 0.45, z), (th, yc + vf * 0.55 + c * 0.45, z),
+                     (0.0, yc + vf, z), (-th, yc + vf * 0.55 + c * 0.45, z), (-th, yc + vb * 0.55 + c * 0.45, z)])
+    rings = [s.ring(pts, "saw") for pts in secs]
+    for i in range(len(rings) - 1):
+        zc = secs[i][0][2]
+        yc = 0.5 * (secs[i][0][1] + secs[i + 1][0][1])
+        face = P("band_dk")
+        edge = P("blood") if hsh("bl", i) > 0.78 else P("steel_dk")
+        s.bridge(rings[i], rings[i + 1], [P("band_dk"), face, edge, edge, face, P("band_dk")])
+    # the bandage runs diagonally across both flat faces
     for i, (a, b, c, col) in enumerate(s.f):
-        if s.v[a][1] < -0.12 and hsh("bl", i) > 0.8 and open_form is False:
-            s.f[i] = (a, b, c, P("blood"))
-        elif open_form and s.v[a][1] < 0.0 and s.v[a][2] > 0.5 and hsh("bl", i) > 0.85:
-            s.f[i] = (a, b, c, P("blood"))
+        if col == P("band_dk") and all(abs(s.v[q][0]) > 0.005 for q in (a, b, c)) and s.v[a][2] > z0:
+            zc = (s.v[a][2] + s.v[b][2] + s.v[c][2]) / 3
+            yc = (s.v[a][1] + s.v[b][1] + s.v[c][1]) / 3
+            if int(math.floor((zc * 30 - (yc - hy) * 34))) % 2 == 0:
+                s.f[i] = (a, b, c, P("band"))
+    s.cap(rings[0], P("iron"), bone="saw")
+    s.cap(rings[-1], P("steel_dk"), bone="saw")
     bones = [{"name": "saw", "parent": None, "head": [0, 0, -0.17], "tail": [0, 0, 0.30]}]
     return finish(s, "saw_o" if open_form else "saw_c", bones)
 
