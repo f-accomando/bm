@@ -1,0 +1,41 @@
+bm report
+kind: herocart
+kernel: v0.2.5-2027-g025be1c9-dirty
+branch: claude/rgb30-hdmi-external-720p
+board: RGB30
+date: 2026-10-31 17:32:12
+file: 20261031-173212_herocart_rgb30_v0.2.5-2027-g025be1c9-dirty.txt
+
+options bm3d 7.33 mali3d=1 gpu3d_vs=2 gpu3d_queue=2 3d=arm later=0 2d=0 impostor=0 fast=0
+herocart 1 saved t=35 n=50 lod=0 res=640x360 map=-
+herocart 1 t=1 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=51.0 max=57.4 fps=0 gpu=28.9 wait=28.3 anim=0.4 tri=49680 vtx=0 lua=24 kb=170 skip=39
+herocart 1 t=2 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=55.4 max=59.3 fps=16 gpu=31.8 wait=31.2 anim=0.4 tri=52992 vtx=0 lua=27 kb=176 skip=40
+herocart 1 t=3 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.1 max=58.2 fps=15 gpu=32.5 wait=31.9 anim=0.4 tri=52992 vtx=0 lua=27 kb=181 skip=40
+herocart 1 t=4 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=55.4 max=57.6 fps=15 gpu=31.8 wait=31.2 anim=0.4 tri=52992 vtx=0 lua=27 kb=187 skip=42
+herocart 1 t=5 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=54.6 max=57.0 fps=15 gpu=31.0 wait=30.4 anim=0.4 tri=52992 vtx=0 lua=27 kb=192 skip=40
+herocart 1 t=6 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,noz,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=50.6 max=57.8 fps=18 gpu=10.8 wait=10.6 anim=0.4 tri=36752 vtx=28901 lua=26 kb=198 skip=40
+herocart 1 t=7 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=49.5 max=50.5 fps=18 gpu=0.0 wait=0.0 anim=0.4 tri=28590 vtx=43984 lua=25 kb=205 skip=44
+herocart 1 t=8 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=49.3 max=51.7 fps=20 gpu=0.0 wait=0.0 anim=0.4 tri=28575 vtx=43984 lua=24 kb=211 skip=42
+herocart 1 t=9 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=49.5 max=52.4 fps=14 gpu=0.0 wait=0.0 anim=0.4 tri=28558 vtx=43984 lua=25 kb=216 skip=30
+herocart 1 t=10 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=51.6 max=54.5 fps=15 gpu=0.0 wait=0.0 anim=0.4 tri=28215 vtx=43984 lua=27 kb=221 skip=39
+herocart 1 t=11 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=47.0 max=52.8 fps=18 gpu=0.0 wait=0.0 anim=0.4 tri=26062 vtx=41072 lua=25 kb=227 skip=42
+herocart 1 t=12 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=25.4 max=38.6 fps=28 gpu=0.0 wait=0.0 anim=0.3 tri=10692 vtx=19563 lua=16 kb=236 skip=33
+herocart 1 t=13 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=37.9 max=50.0 fps=22 gpu=0.0 wait=0.0 anim=0.4 tri=19638 vtx=32442 lua=21 kb=252 skip=40
+herocart 1 t=15 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=50.2 max=52.1 fps=6 gpu=0.0 wait=0.0 anim=0.4 tri=28642 vtx=43984 lua=28 kb=254 skip=14
+herocart 1 t=16 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=49.3 max=52.1 fps=20 gpu=0.0 wait=0.0 anim=0.4 tri=28324 vtx=43984 lua=24 kb=261 skip=40
+herocart 1 t=17 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=24.6 max=51.2 fps=26 gpu=0.0 wait=0.0 anim=0.3 tri=11713 vtx=20680 lua=17 kb=269 skip=35
+herocart 1 t=18 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=16.0 max=19.8 fps=50 gpu=0.0 wait=0.0 anim=0.2 tri=5675 vtx=12500 lua=10 kb=283 skip=9
+herocart 1 t=19 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=17.6 max=28.3 fps=49 gpu=0.0 wait=0.0 anim=0.2 tri=6489 vtx=13639 lua=10 kb=189 skip=13
+herocart 1 t=20 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=25.2 max=27.3 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=11007 vtx=19811 lua=15 kb=199 skip=30
+herocart 1 t=21 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=24.4 max=26.9 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=10146 vtx=18103 lua=15 kb=182 skip=30
+herocart 1 t=22 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=24.2 max=26.1 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=9934 vtx=17434 lua=15 kb=191 skip=30
+herocart 1 t=23 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=24.3 max=26.4 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=9951 vtx=17628 lua=15 kb=200 skip=30
+herocart 1 t=24 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=22.6 max=25.2 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=8740 vtx=16002 lua=15 kb=184 skip=30
+herocart 1 t=25 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=21.3 max=40.5 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=8230 vtx=15380 lua=15 kb=194 skip=32
+herocart 1 t=26 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=44.1 max=47.1 fps=20 gpu=0.0 wait=0.0 anim=0.4 tri=23824 vtx=38706 lua=23 kb=201 skip=40
+herocart 1 t=27 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=41.2 max=44.4 fps=20 gpu=0.0 wait=0.0 anim=0.4 tri=21223 vtx=35138 lua=23 kb=208 skip=40
+herocart 1 t=28 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=39.2 max=41.8 fps=20 gpu=0.0 wait=0.0 anim=0.4 tri=19339 vtx=32736 lua=22 kb=189 skip=40
+herocart 1 t=29 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=33.8 max=39.6 fps=21 gpu=0.0 wait=0.0 anim=0.4 tri=16455 vtx=28496 lua=20 kb=194 skip=39
+herocart 1 t=30 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=22.3 max=26.0 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=10871 vtx=19228 lua=14 kb=199 skip=30
+herocart 1 t=34 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=19.7 max=21.9 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=9836 vtx=17918 lua=14 kb=190 skip=10
+herocart 1 t=35 n=50 lod=0 res=640x360 opt=arm,vs0p0,q0,lat0,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=148.0 max=4026.6 fps=30 gpu=0.0 wait=0.0 anim=0.3 tri=8726 vtx=16537 lua=14 kb=195 skip=33
