@@ -96,8 +96,8 @@ local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the
 local P = {}                          -- the player
 -- the camera: behind and a little above the Hunter, looking where he looks (a low pitch), a shoulder's width to the right
 local Cam = { yaw = PI / 2, pitch = -0.36, dist = 5.4, side = 0.55, x = 0, y = 0, z = 0, shake = 0 }
-local O = { res = 1, textures = true, bright = 2, music = true, sfx = 8, perf = 0 } -- the options (sfx: the effects volume 0-10;
-                                                                                      -- perf: 0 off, 1 the counter, 2 and the dev kit)
+local O = { res = 1, textures = true, bright = 2, music = true, sfx = 8, perf = false } -- the options (sfx: the effects volume
+                                                                                        -- 0-10; perf: the dev kit's overlay)
 local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 }, stop = 0, song = -1, calm = 0 }
 local held, prev, pressed = {}, {}, {}
 local fx = {}                         -- short effects: sparks and tracers
@@ -1026,23 +1026,6 @@ local function saw_icon(x, y, k, form, lit)
   end
 end
 
--- the performance counter (the dev kit's numbers, `stat`): fps, ms of the frame, triangles drawn and given to the 3D,
--- ms of the GPU; a measurement only, never used by the game
-local function draw_perf()
-  local s = S()
-  local tin = gpu3d_stats().tris_in
-  local l1 = string.format("%3d fps %5.1f ms", stat(2), stat(1))
-  local l2 = string.format("tris %d / %d", stat(4), tin)
-  local l3 = string.format("3D %4.1f ms  GPU %4.1f ms", stat(6), stat(16))
-  local w = 26 * 8 * s
-  local x, y = SCREEN_W - w - 8 * s, 8 * s
-  rectfill(x - 4 * s, y - 3 * s, w + 8 * s, 46 * s, 0x000000)
-  text(l1, x, y, stat(2) >= 55 and 0x80E080 or stat(2) >= 30 and 0xE0D060 or 0xE06060)
-  text(l2, x, y + 14 * s, 0xC8C4BC)
-  text(l3, x, y + 28 * s, 0xC8C4BC)
-  if O.perf == 2 then devinfo("tris " .. stat(4), "in " .. tin) end
-end
-
 local function draw_hud()
   local s = S()
   bar(8 * s, 8 * s, 120 * s, 7 * s, P.hp / P.maxhp, 0xA82828)
@@ -1155,7 +1138,7 @@ local function menu_value(i)
   if i == 6 then return O.res == 1 and "1280x720" or "640x360" end
   if i == 7 then return O.textures and "on" or "off" end
   if i == 8 then return ({ "dim", "normal", "bright" })[O.bright] end
-  if i == 9 then return ({ [0] = "off", "fps and triangles", "and the dev kit" })[O.perf] end
+  if i == 9 then return O.perf and "fps, ms, triangles" or "off" end
   if i == 11 and G.confirm == 11 then return "ENTER again to quit" end
   return ""
 end
@@ -1240,9 +1223,8 @@ local function menu_update()
   elseif i == 7 then O.textures = not O.textures
   elseif i == 8 then O.bright = (O.bright + step - 1) % 3 + 1
   elseif i == 9 then
-    O.perf = (O.perf + step) % 3
-    devkit(O.perf == 2 and 2 or 0)                 -- the dev kit's own overlay at the bottom right
-    if O.perf < 2 then devinfo() end
+    O.perf = not O.perf
+    devkit(O.perf and 1 or 0)                      -- the dev kit's overlay at the top right (fps, ms, triangles, CPU)
   elseif i == 10 and mp.ok then respawn(); G.state = "play"
   elseif i == 11 and mp.ok then
     if G.confirm == 11 then quit() else G.confirm = 11 end
@@ -1320,5 +1302,4 @@ function _draw()
   draw_player()
   draw_effects()
   if G.state == "menu" then draw_menu() else draw_hud() end
-  if O.perf > 0 and G.state ~= "menu" then draw_perf() end
 end

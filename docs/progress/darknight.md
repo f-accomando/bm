@@ -18,8 +18,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   E fires the pistol (no bullets: a shot costs stamina, `GUN.sta`, and does little damage, `GUN.dmg`); Q locks on and off; U attacks, and U again in the chain window gives the next hit of the combo (4 hits
   for each form, `ATK`); I and O are the second and third hits; SHIFT in a combo is the transform attack (`TRANSFORM`);
   P is the charged attack (hold, then let go); ESC opens the options menu (resume, controls, volume, effects, music, resolution, textures, brightness, performance, restart, quit).
-  The Performance row shows a counter at the top right (`stat`: fps, ms, triangles drawn and given to the 3D, 3D and GPU ms) and, at its
-  second step, the dev kit's overlay (`devkit(2)`) with two `devinfo` lines. The Controls page
+  The Performance row turns on the dev kit's overlay at the top right (`devkit(1)`: fps, ms, triangles, CPU). The Controls page
   remaps each action of `REMAP` to one key (a key of another action is swapped) and `save()` keeps the changed keys and the sound options in slot 1;
   the arrows turn the camera and zoom; F9 is a developer key: the next place of the walk.
 - The pistol hits what the bones say: `fire_bullet` puts the enemy in the pose it has now (`animate`, the mesh is shared by its kind) and asks

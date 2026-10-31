@@ -2425,10 +2425,11 @@ static int vol_start;                   /* the volume when the cartridge started
  * game): F11 once at the top right, again at the bottom right, again off.
  * Off by default. One small block on the 8x16 grid, bigger on the big
  * screens (x2 from 1280 wide, x3 at 1920):
- *   60fps 8.2ms
+ *   60fps 8.2ms tri 15.4k
  *   cpu [=====---]  49%
  *   gpu [===-----]  31%
- * The frames a second and the ms of work of a frame; then the CPU's frame
+ * The frames a second, the ms of work of a frame and, in a 3D game, the
+ * triangles drawn (stat(4), "k" thousands, "m" millions); then the CPU's frame
  * in its parts, each a colour: _update, _draw without its 3D (and the
  * page's clear and copy), the 3D calls (stat(6) without the GPU wait), the
  * audio interrupt, the wait for the GPU (darker), the rest free; the GPU's
@@ -3327,6 +3328,22 @@ static void perf_bar(g16_t *g, int x, int y, int z, const char *name, const uint
     g16_text_scaled(g, x + 14 * 8 * z, y, t, c, z);  /* columns 14 to 17 */
 }
 
+/* " tri 15.4k": the 3D triangles drawn in the frame (stat(4)) after the ms, in
+ * thousands (k) or millions (m) with one decimal; empty in a game with no 3D */
+static void perf_tris(char *out, int n)
+{
+    out[0] = 0;
+    if (!rt.r3d_ready)
+        return;
+    const unsigned long t = (unsigned long)rt.r3d.tris_drawn;
+    if (t < 1000)
+        ksnprintf(out, n, " tri %lu", t);
+    else if (t < 1000000)
+        ksnprintf(out, n, " tri %lu.%luk", t / 1000, t / 100 % 10);
+    else
+        ksnprintf(out, n, " tri %lu.%lum", t / 1000000, t / 100000 % 10);
+}
+
 /* The small dev kit: two rows on the 6x12 font at the top right, for a screen
  * that cannot spare the full block (the RGB30). "60fps 8.2ms", then the CPU
  * and the GPU in % of a 60 Hz frame, in the colours of the full block. */
@@ -3350,9 +3367,10 @@ static void perf_small_draw(void)
         cpct = 999;
     if (gpct > 999)
         gpct = 999;
-    char l1[24], l2[24];
-    ksnprintf(l1, sizeof l1, "%lufps %lu.%lums", (unsigned long)rt.fps, (unsigned long)(used / 1000),
-              (unsigned long)(used / 100 % 10));
+    char l1[40], l2[24], tri[20];
+    perf_tris(tri, sizeof tri);
+    ksnprintf(l1, sizeof l1, "%lufps %lu.%lums%s", (unsigned long)rt.fps, (unsigned long)(used / 1000),
+              (unsigned long)(used / 100 % 10), tri);
     if (gpu)
         ksnprintf(l2, sizeof l2, "c%lu%% g%lu%%", (unsigned long)cpct, (unsigned long)gpct);
     else
@@ -3404,14 +3422,17 @@ void perf_frame(void)
         if (y < 0)
             y = 0;
     }
-    g16_rectfill(g, x - 4 * z, y ? y - 2 * z : 0, 148 * z, rows * rowh + 2 * z, g16_rgb(8, 8, 16));
     uint32_t used = 0;
     for (int i = 0; i < SEG_USED; i++)
         used += pw.seg[i];
-    char line[32];
-    ksnprintf(line, sizeof line, "%lufps %lu.%lums", (unsigned long)rt.fps, (unsigned long)(used / 1000),
-              (unsigned long)(used / 100 % 10));
-    g16_text_scaled(g, x, y, line, g16_rgb(232, 232, 216), z);
+    char line[48], tri[20];
+    perf_tris(tri, sizeof tri);
+    ksnprintf(line, sizeof line, "%lufps %lu.%lums%s", (unsigned long)rt.fps, (unsigned long)(used / 1000),
+              (unsigned long)(used / 100 % 10), tri);
+    /* a first row longer than the 18 columns of the bars widens the box to the left */
+    const int lx = (int)strlen(line) > 18 ? g->w - ((int)strlen(line) * 8) * z : x;
+    g16_rectfill(g, lx - 4 * z, y ? y - 2 * z : 0, g->w - lx + 4 * z, rows * rowh + 2 * z, g16_rgb(8, 8, 16));
+    g16_text_scaled(g, lx, y, line, g16_rgb(232, 232, 216), z);
     /* the CPU: _update, _draw, 3D calls, audio, GPU wait (darker), free */
     static const uint8_t order[5] = { SEG_UPDATE, SEG_DRAW, SEG_3D, SEG_AUDIO, SEG_WAIT };
     const uint16_t col[5] = { g16_rgb(90, 150, 255), g16_rgb(80, 210, 220), g16_rgb(190, 120, 255),
