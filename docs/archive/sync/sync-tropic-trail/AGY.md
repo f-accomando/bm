@@ -2,47 +2,49 @@
 schema: 1
 id: AGY
 state: DONE
-task: signoff
+task: note-sessione
 waiting_on: 
 progress: 100
-wakeup: yes
-ack: 2026-10-14T20:26+02:00
-updated: 2026-10-14T20:30+02:00
+wakeup: no
+ack: 
+updated: 2026-10-31
 ---
-# AGY — Antigravity (AGY)
+# AGY — note della sessione del 2026-10-31
 
-> **Scrive solo Antigravity (AGY)** (gli altri leggono). Il supervisore (SPV, Claude local) legge questo file e lo riassume in `SYNC.md`.
-> Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
-> **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
+> File ripulito il 2026-10-31 su richiesta dell'utente. Il contenuto precedente (registro Antigravity del 14 ottobre) resta nella storia git: `git log --follow -- docs/archive/sync/sync-tropic-trail/AGY.md`.
 
-**Ultimo aggiornamento:** 2026-10-14 20:30 +02:00
-**Stato:** `DONE signoff`
-**Heartbeat:** Sessione conclusa con `SIGNOFF AGY` (SPV, 20:26). Battiti periodici arrestati.
+## Richieste dell'utente
+1. RGB30: con la micro HDMI collegata si spegne il pannello e parte lo schermo esterno a 720p. Scollegata: il pannello si riaccende e l'uscita esterna si spegne.
+2. Capire perché la RGB30 resta circa 12 secondi a schermo nero tra lo splash e il menu, da quando sono partiti gli sviluppi grafici.
+3. Mettere gli sviluppi HDMI in un kernel da provare sulla console accesa.
 
-## Profilo
-- **Ambiente/Luogo**: Locale (Windows 11 x64, Machine A). CPU 6 core (12 thread), 16 GB RAM. Nessun timeout di sessione o container (regge processi lunghi continuativi >60 min).
-- **Tool presenti**: Python 3.12 (con Pillow, lupa, zlib), Git, FFmpeg 9.0.2 installato (Gyan.FFmpeg in WinGet packages, rilevato e linkato automaticamente dagli script). Agente principale sempre libero, background tasks e subagenti concorrenti attivi.
-- **Tool mancanti**: `qemu-system-arm` assente; `make`/`gcc`/`arm-none-eabi-gcc` assenti (quindi non posso compilare `make kernel.img`); `bmhost` è binario ELF Linux (WSL non è installato sulla macchina host); non è presente l'utente `Utente` o `C:\Users\Utente` su questa macchina fisica (l'host è Windows Machine A con utente `ROCKET`).
-- **Competenze**: Codice C e Lua del runtime, 3D engine (`map3d`), editor (`carts/editor`, `sdk_b16`), scripting Python (montaggi, verifiche, generatori come `cover.py`), audit e coerenza (`consistency.py`, `docs_audit.py`).
-- **Limiti**: Non posso fare catture QEMU (`rec_qemu.py`) né esecuzioni con `bmhost` (Linux).
+## Fatto
+- Branch `claude/rgb30-hdmi-external-720p`, già pubblicato su `origin`. Non è in `bm-core`.
+- Nuovi file: `src/rgb30/rk_hdmi.c`, `src/rgb30/rk_hdmi.h` (trasmettitore DW-HDMI e PHY, 1280x720p60, RGB 8 bit, senza audio e senza EDID).
+- Modificato `src/rgb30/rk_display.c`: porta VP0 del VOP2 verso HDMI, clock pixel da VPLL (1188 MHz / 16 = 74,25 MHz), lettura del pin HPD ogni 250 ms con due letture uguali, ripristino del pannello allo scollegamento.
+- Chiavi di `bm/config.txt`: `hdmi=0` (solo pannello), `hdmi_swap=1` (rosso e verde scambiati), `hdmi_origin=1` (posizione dell'immagine). Sono in `docs/spec/config-keys.toml`.
+- Documenti aggiornati: `docs/RGB30.md`, `docs/progress/platforms.md`, divergenza D56 in `docs/spec/divergences.toml`.
+- `consistency.py check`: 0 drift. `docs_audit.py`: nessun link rotto.
+- Installato il cross-compilatore (`gcc-aarch64-linux-gnu`, `picolibc-aarch64-linux-gnu`). `make TARGET=rgb30` produce `kernel8.img` (2,4 MB) senza warning nei file nuovi.
+- Il kernel è stato inviato all'utente come file. Non l'ho caricato io sulla console.
 
-## Consegne
-- DELIVERED AGY-13 @ agy/sync-check-fix@0d9c6a59 · verifica: `python tools/sync_check.py` → RESULT: ALL OK (0 crash, 6 note/righe lunghe rilevate) · 2026-10-14T17:00Z
-- DELIVERED montage7 @ agy/montage7@d202a8af · verifica: `python video/3d/07-code/montage7.py --test` → RESULT: ALL OK (242.00 s, 1920x1080@60fps, stereo AAC) · 2026-10-14T15:52Z
-- DELIVERED montage8 @ agy/montage8@0897809 · verifica: `python video/3d/08-gameplay/montage8.py --test` → RESULT: ALL OK (95.00 s, 1920x1080@60fps, stereo AAC) · 2026-10-14T15:23Z
+## Non verificato
+- Il driver HDMI non è mai girato su hardware. Il codice nasce dalle sequenze dei registri del kernel Linux.
+- Rischi noti: il PHY può non agganciarsi se serve `clk_hdmi_ref` (HPLL), che non programmo. La posizione dell'immagine e l'ordine dei colori sono ipotesi.
+- Test QEMU non eseguiti: l'integrazione in `bm-core` aspetta la prova sulla console.
 
-## Task Svolti & Risultati
-- **AGY-13 (review tools/sync_check.py e tools/sync_hdr.py)**: revisione completata, fix approvati e fusi in `bm-core` (commit `265aa4c`).
-- **AGY-12 (video 7 montage7.py)**: script completato, testato (242.00s @ 60fps), approvato e fuso in `bm-core` (commit `5850347`).
-- **AGY-11 (video 8 montage8.py)**: script completato, testato (95.00s @ 60fps), approvato e fuso in `bm-core` (commit `45d82ab`), integrato fix CLD per anullsrc.
-- **AGY-10 (R-NET1 comando monitor err)**: completato, verificato e fuso in `bm-core` (commit `173019e`).
-- **AGY-09 (adaptive layout 720x720 SDK b16)**: completato passi 1-6, approvato e fuso in `bm-core` (commit `028f853`).
-- **AGY-01..AGY-06 (3D engine map3d)**: implementazione completa motore 3D e fix anteprima editor, fuso in `bm-core`.
-- **Workflow & Sync report**: considerazioni consegnate in `docs/progress/sync.md`.
-- **Test Heartbeat**: eseguito con successo secondo la schedulazione (19:31, 19:46, 20:01, 20:16).
+## Nero all'avvio (indagine di un agente Opus, solo lettura)
+- Ipotesi principale: `.bss` è circa 30 MB (di cui circa 18 MB in `mali.c` e circa 8 MB in `r3d.c`) e `src/rgb30/start.S:126-131` la azzera con MMU e cache spente. La dimensione l'ho verificata. La velocità di scrittura (circa 2,5 MB/s) non è misurata.
+- Ipotesi minori: `cores=4` (al massimo circa 6 s se i core non partono); WiFi/BT prima del menu (qui si vede il logo, non il nero).
+- Il bootlog non ha timestamp. Misura con un cronometro: fine dello splash, LED rosso, suono di avvio, menu.
+- Correzione proposta, non applicata: azzerare la `.bss` grande in C dopo `mmu_init` (modifiche a `kernel.ld`, `start.S`, `mmu.c`, `main.c`). Prima va controllato che nulla scriva in `.bss` prima di `mmu_init`.
 
-## Chiusura
-- Ricevuta riga `SIGNOFF AGY` da SPV (20:26).
-- Progetto Tropic Trail e serie video 3D consegnati; tutti gli 8 video generati e verificati.
-- Stato finale impostato a `DONE signoff`. Battiti periodici arrestati.
-- Grazie a SPV, CLD, OP4 e all'utente per la collaborazione multi-agente!
+## Connessione alla console
+- `192.168.1.233` non risponde da questa sessione cloud (timeout di `tools/bm_net.py`), anche dopo che l'utente ha aperto il bridge. È un indirizzo di rete locale.
+- L'unico computer in Remote Control (`NB-ACCOMANDOFRANCESCO`, Windows) non è offerto alle sessioni cloud.
+- Strada che funziona: una sessione Claude Code locale sul PC, sul branch `claude/rgb30-hdmi-external-720p`.
+
+## Da fare
+1. Caricare il kernel sulla console, provare collegamento, scollegamento e avvio con cavo inserito, e leggere le righe `display:` di `bm/bootlog.txt`.
+2. Misurare il nero all'avvio con il cronometro. Se è prima del LED rosso, applicare il fix della `.bss` su un branch separato (`claude/rgb30-fast-bss-clear`).
+3. Dopo la prova: chiudere D56, aggiornare `## Open work` in `docs/progress/platforms.md` e integrare in `bm-core` con fast-forward.
