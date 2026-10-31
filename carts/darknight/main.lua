@@ -2,7 +2,7 @@
 -- Keyboard (rawkeys): WASD move; SPACE dodge (no direction: backstep, forward: roll, left or right: side jump);
 -- SHIFT opens and closes the saw (during a combo: the transform attack); E the pistol; Q lock on; U the saw attack (press
 -- again in the chain window: the next hit of the combo, four hits), I and O pick the second and third hit directly;
--- P the charged attack (hold); ESC the options menu; the arrows turn the camera. A pad has the same moves (see PAD below).
+-- P the charged attack (hold); ESC the options menu (controls to remap, volume, quit); the arrows turn the camera. A pad has the same moves (see PAD below).
 -- The map and the Hunter come from resource files merged into this cartridge: art/maps/clinic.bmk (the map kit) and
 -- art/models/dnhunter.bmm (the Hunter with the saw in the right hand and the pistol in the left, in two forms).
 -- The enemies come from art/models/dnenemy.bmm: villagers (the clinic), huntsmen and rabid dogs (the courtyard and the alley).
@@ -72,7 +72,8 @@ local DODGE = {
   left = { clip = "dodge_l", frames = 12, rate = 1.5, dist = 2.2, inv = { 0.04, 0.45 } },
   right = { clip = "dodge_r", frames = 12, rate = 1.5, dist = 2.2, inv = { 0.04, 0.45 } },
 }
-local GUN = { clip = "gun", frames = 14, rate = 1.4, shot = 5, dmg = 30, range = 16 }
+-- the pistol has no bullets: each shot costs stamina and hurts little (it staggers more than it kills)
+local GUN = { clip = "gun", frames = 14, rate = 1.4, shot = 5, dmg = 8, range = 16, sta = 22 }
 -- the enemies: health, speed, the clip that moves them, how high and how wide they are (the body that is hit), the weapon (a bone, how
 -- far along its axis, how thick: the hitbox that hurts the Hunter), how far they see, and their
 -- attacks: the clip, when in it the blow lands (seconds), how long it lasts, the damage, the reach, how often it is chosen (percent).
@@ -95,7 +96,7 @@ local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the
 local P = {}                          -- the player
 -- the camera: behind and a little above the Hunter, looking where he looks (a low pitch), a shoulder's width to the right
 local Cam = { yaw = PI / 2, pitch = -0.36, dist = 5.4, side = 0.55, x = 0, y = 0, z = 0, shake = 0 }
-local O = { res = 1, textures = true, bright = 2, help = false, music = true }      -- the options
+local O = { res = 1, textures = true, bright = 2, music = true, sfx = 8 }           -- the options (sfx: the effects volume 0-10)
 local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 }, stop = 0, song = -1, calm = 0 }
 local held, prev, pressed = {}, {}, {}
 local fx = {}                         -- short effects: sparks and tracers
@@ -103,7 +104,7 @@ local SKY = 0x07080E                  -- the night: the fog and the clear colour
 
 local function snd(name, semis, vol)
   local n = SFX[name]
-  if n then sfx(n, nil, semis or 0, vol or 1) end
+  if n and O.sfx > 0 then sfx(n, nil, semis or 0, (vol or 1) * O.sfx / 10) end
 end
 
 local function dir(yaw) return sin(yaw), cos(yaw) end                    -- a facing direction from an angle
@@ -207,7 +208,7 @@ local function reset_player(x, z)
   P.x, P.z = x, z
   P.y = map_height(x, z) or 0
   P.yaw = PI / 2
-  P.hp, P.maxhp, P.ammo = 100, 100, 12
+  P.hp, P.maxhp = 100, 100
   P.sta, P.stawait = STAMINA.max, 0
   P.form = 1                            -- 1 closed, 2 open
   P.mode, P.t = "free", 0
@@ -312,7 +313,8 @@ local function start_charge()
 end
 
 local function start_gun()
-  if P.ammo <= 0 then say("no quicksilver bullets: light a lantern", 2); snd("menu", -7); return end
+  if not can_act() then return end
+  spend(GUN.sta)
   P.mode, P.t, P.shot = "gun", 0, false
   P.queued = nil
   set_anim(GUN.clip, 0)
@@ -479,8 +481,7 @@ local function fire_bullet()
   else
     spark(sx + ddx * tl, sy + ddy * tl, sz + ddz * tl, 0xC0C0C0, 4)
   end
-  P.ammo = P.ammo - 1
-  ev("shot " .. (hit and ("hit " .. zone .. " " .. tostring(bbone)) or "miss") .. " bullets " .. P.ammo)
+  ev("shot " .. (hit and ("hit " .. zone .. " " .. tostring(bbone)) or "miss"))
 end
 
 -- can the Hunter see the enemy? A wall between them (at chest height, above the steps of a stair) says no
@@ -596,8 +597,8 @@ local function update_player(mx, my)
       P.form = 3 - P.form
       ev("saw " .. (P.form == 1 and "closed" or "open"))
       snd(P.form == 1 and "sawclose" or "sawopen")
+      G.swapt = G.frame                            -- the HUD icon flashes
       spark(P.x + dir(P.yaw) * 0.5, P.y + 1.3, P.z, 0xC8C8D0, 8)
-      say(P.form == 1 and "saw closed" or "saw open", 1.0)
     end
     if P.tattack then
       if f >= a.hit[1] and not P.swung then P.swung = true; snd("bigswing", 3) end
@@ -792,8 +793,8 @@ local function update_world()
     local dx, dz = P.x - l.x, P.z - l.z
     if dx * dx + dz * dz < 1.6 * 1.6 and (G.spawn[3] ~= l) then
       G.spawn = { l.x + 1, l.z, l }
-      P.hp, P.ammo = P.maxhp, 12
-      say("the lantern is lit: health and bullets restored", 3)
+      P.hp = P.maxhp
+      say("the lantern is lit: health restored", 3)
       ev("lantern")
       snd("lantern")
       spark(l.x, l.y + 1.4, l.z, 0xFFA030, 14)
@@ -997,14 +998,40 @@ local function text(s, x, y, c, k)
   print(s, x, y, c or 0xF0E8D8, k)
 end
 
+-- the saw in the HUD: a silhouette of its form (1 closed: the blade folded back over the handle; 2 open: the blade beyond
+-- the hinge), a pixel of the picture is `k` pixels of the screen
+local SAW_ICON = {
+  { "....#.#.#.#.#.#.#.#.#.....",
+    "...##################.....",
+    "..####################....",
+    "..######################..",
+    "####.................###..",
+    "###...................#...", },
+  { "................#.#.#.#.#.#.#.#.#.#.#.#.",
+    "...............########################.",
+    "..............#########################.",
+    "..####################################..",
+    "####..........###.......................",
+    "###.....................................", },
+}
+local function saw_icon(x, y, k, form, lit)
+  for pass = 1, 2 do
+    local o, c = pass == 1 and k // 2 or 0, pass == 1 and 0x050508 or (lit and 0xFFF0C8 or 0xC8C4BC)
+    for j, row in ipairs(SAW_ICON[form]) do
+      for i = 1, #row do
+        if row:byte(i) == 35 then rectfill(x + (i - 1) * k + o, y + (j - 1) * k + o, k, k, c) end
+      end
+    end
+  end
+end
+
 local function draw_hud()
   local s = S()
   bar(8 * s, 8 * s, 120 * s, 7 * s, P.hp / P.maxhp, 0xA82828)
   bar(8 * s, 17 * s, 100 * s, 5 * s, max(0, P.sta) / STAMINA.max, P.sta > 0 and 0x5A9A48 or 0x806030)
-  text("BULLETS " .. P.ammo, 8 * s, 26 * s, 0xE0D8A0)
-  text(P.form == 1 and "SAW CLOSED" or "SAW OPEN", 8 * s, 40 * s, 0xC8C8D0)
-  if P.mode == "charge" and not P.released then bar(8 * s, 54 * s, 80 * s, 5 * s, min(1, P.charge / 1.2), 0xE0A040) end
-  if P.mode == "attack" and P.combo > 0 then text(string.rep("|", P.combo), 8 * s, 54 * s, 0xE0C890) end
+  saw_icon(8 * s, 28 * s, 2 * s, P.form, G.frame - (G.swapt or -99) < 18)
+  if P.mode == "charge" and not P.released then bar(8 * s, 46 * s, 80 * s, 5 * s, min(1, P.charge / 1.2), 0xE0A040) end
+  if P.mode == "attack" and P.combo > 0 then text(string.rep("|", P.combo), 8 * s, 46 * s, 0xE0C890) end
   -- the enemies' bars and the lock
   for _, e in ipairs(enemies) do
     if e.st ~= "dead" and (e.hp < e.maxhp or e == P.lock) then
@@ -1022,11 +1049,7 @@ local function draw_hud()
   end
   if G.msgt > 0 then
     local w = #G.msg * 8 * s
-    text(G.msg, (SCREEN_W - w) // 2, SCREEN_H // 4, 0xF0E8D8)        -- above the help lines
-  end
-  if G.frame < 60 * 9 then
-    text("WASD move  SPACE dodge  SHIFT saw (in a combo: transform attack)", 8 * s, SCREEN_H - 36 * s, 0xA8A098)
-    text("U attack (again: the combo)  I O  P charge (hold)  E gun  Q lock  ESC menu", 8 * s, SCREEN_H - 20 * s, 0xA8A098)
+    text(G.msg, (SCREEN_W - w) // 2, SCREEN_H // 4, 0xF0E8D8)
   end
   if P.flash > 0 then
     local a = P.flash / 0.35
@@ -1039,13 +1062,82 @@ local function draw_hud()
   end
 end
 
-local MENU = { "Resume", "Resolution", "Textures", "Brightness", "Music", "Controls", "Restart at the lantern" }
+-- ---------------------------------------------------------------- the options menu (ESC)
+-- The menu reads its own fixed keys (arrows or W S, ENTER or SPACE, ESC), so a remapped key never locks the player out.
+local MK = { up = { { 0x52, 0x1A }, "up" }, down = { { 0x51, 0x16 }, "down" }, left = { { 0x50, 0x04 }, "left" },
+             right = { { 0x4F, 0x07 }, "right" }, ok = { { 0x28, 0x2C }, "ok" }, back = { { 0x29 }, "back" } }
+local mheld, mp = {}, {}
+local function menu_keys()
+  for name, k in pairs(MK) do
+    local d = btn(k[2])
+    for _, u in ipairs(k[1]) do if keydown(u) then d = true end end
+    mp[name] = d and not mheld[name]
+    mheld[name] = d
+  end
+end
+
+-- the actions the player can move to another key, in the order of the Controls page
+local REMAP = { { "fwd", "Move forward" }, { "back", "Move back" }, { "left", "Move left" }, { "right", "Move right" },
+  { "dodge", "Dodge" }, { "atk1", "Attack (again: the combo)" }, { "atk2", "Second hit" }, { "atk3", "Third hit" },
+  { "charge", "Charged attack (hold)" }, { "saw", "Saw: open / close" }, { "gun", "Pistol" }, { "lock", "Lock on" },
+  { "camL", "Camera left" }, { "camR", "Camera right" }, { "camU", "Camera closer" }, { "camD", "Camera farther" } }
+local DEFAULT = {}
+for _, r in ipairs(REMAP) do DEFAULT[r[1]] = { table.unpack(BIND[r[1]]) } end
+local FIXED = { [0x29] = true, [0x28] = true, [0x42] = true }          -- ESC, ENTER and F9 keep their jobs
+
+local KNAME = { [0x2C] = "space", [0x28] = "enter", [0x2A] = "backspace", [0x2B] = "tab", [0x2D] = "-", [0x2E] = "=",
+  [0x2F] = "[", [0x30] = "]", [0x31] = "\\", [0x33] = ";", [0x34] = "'", [0x35] = "`", [0x36] = ",", [0x37] = ".",
+  [0x38] = "/", [0x4F] = "right", [0x50] = "left", [0x51] = "down", [0x52] = "up", [0xE0] = "ctrl", [0xE4] = "r ctrl",
+  [0xE1] = "shift", [0xE5] = "r shift", [0xE2] = "alt", [0xE6] = "r alt", [0x27] = "0" }
+for i = 0, 25 do KNAME[0x04 + i] = string.char(65 + i) end
+for i = 1, 9 do KNAME[0x1D + i] = tostring(i) end
+for i = 1, 12 do KNAME[0x39 + i] = "F" .. i end
+local function keyname(u) return KNAME[u] or string.format("key %02X", u) end
+
+local function save_options()
+  local keys = {}
+  for _, r in ipairs(REMAP) do
+    local a = r[1]
+    if BIND[a][1] ~= DEFAULT[a][1] or #BIND[a] ~= #DEFAULT[a] then keys[a] = BIND[a] end
+  end
+  pcall(save, { keys = keys, music = O.music, sfx = O.sfx })
+end
+
+local function load_options()
+  local ok, t = pcall(saved)
+  if not ok or type(t) ~= "table" then return end
+  if type(t.keys) == "table" then
+    for a, list in pairs(t.keys) do
+      if DEFAULT[a] and type(list) == "table" and type(list[1]) == "number" then BIND[a] = { list[1] } end
+    end
+  end
+  if t.music ~= nil then O.music = t.music and true or false end
+  if type(t.sfx) == "number" then O.sfx = max(0, min(10, floor(t.sfx))) end
+end
+
+-- give action `a` the key `u`; an action that had `u` takes the old key of `a` (a swap: no action is left without a key)
+local function bind_key(a, u)
+  local old = BIND[a][1]
+  for _, r in ipairs(REMAP) do
+    local b = r[1]
+    if b ~= a then
+      for i, k in ipairs(BIND[b]) do if k == u then BIND[b][i] = old end end
+    end
+  end
+  BIND[a] = { u }
+  save_options()
+end
+
+local MENU = { "Resume", "Controls", "Volume", "Effects", "Music", "Resolution", "Textures", "Brightness",
+               "Restart at the lantern", "Quit the game" }
 local function menu_value(i)
-  if i == 2 then return O.res == 1 and "1280x720" or "640x360" end
-  if i == 3 then return O.textures and "on" or "off" end
-  if i == 4 then return ({ "dim", "normal", "bright" })[O.bright] end
+  if i == 3 then return tostring(volume() or 0) .. " / 10" end
+  if i == 4 then return O.sfx .. " / 10" end
   if i == 5 then return O.music and "on" or "off" end
-  if i == 6 then return O.help and "shown" or "hidden" end
+  if i == 6 then return O.res == 1 and "1280x720" or "640x360" end
+  if i == 7 then return O.textures and "on" or "off" end
+  if i == 8 then return ({ "dim", "normal", "bright" })[O.bright] end
+  if i == 10 and G.confirm == 10 then return "ENTER again to quit" end
   return ""
 end
 
@@ -1053,46 +1145,86 @@ local function apply_resolution()
   if O.res == 1 then screen(1280, 720) else screen(640, 360) end
 end
 
-local function draw_menu()
-  local s = S()
-  rectfill(0, 0, SCREEN_W, SCREEN_H, 0x101018)
-  local x, y = SCREEN_W // 2 - 140 * s, SCREEN_H // 2 - 70 * s
-  text("DARK NIGHT", x, y - 30 * s, 0xE0C890, s * 2)
-  for i, label in ipairs(MENU) do
-    local c = i == G.menu and 0xFFE0A0 or 0xB8B0A8
-    text((i == G.menu and "> " or "  ") .. label, x, y + (i - 1) * 18 * s, c)
-    local v = menu_value(i)
-    if v ~= "" then text(v, x + 190 * s, y + (i - 1) * 18 * s, c) end
-  end
-  if O.help then
-    local hx, hy = 8 * s, SCREEN_H - 130 * s
-    for k, line_ in ipairs({
-      "W A S D    move (camera relative; locked: around the target)",
-      "SPACE      dodge: back, or roll forward, or jump left / right",
-      "SHIFT      open or close the saw; in a combo: the transform attack",
-      "E          fire the pistol        Q  lock on / off",
-      "U          attack; press again in time: the combo, four hits (I, O: the 2nd and 3rd)",
-      "P          the charged attack: hold, then let go",
-      "arrows     turn the camera, zoom       ESC  this menu",
-    }) do text(line_, hx, hy + (k - 1) * 16 * s, 0xA8A098) end
+local function draw_rows(title, rows, cur, x, y, step, s)
+  text(title, x, y - 34 * s, 0xE0C890, s * 2)
+  for i, r in ipairs(rows) do
+    local c = i == cur and 0xFFE0A0 or 0xB8B0A8
+    text((i == cur and "> " or "  ") .. r[1], x, y + (i - 1) * step, c)
+    if r[2] ~= "" then text(r[2], x + 230 * s, y + (i - 1) * step, c) end
   end
 end
 
-local function menu_update()
-  if pressed.menu then G.state = "play"; snd("menu"); return end
-  if pressed.fwd or pressed.camU then G.menu = (G.menu - 2) % #MENU + 1; snd("menu", -3) end
-  if pressed.back or pressed.camD then G.menu = G.menu % #MENU + 1; snd("menu", -3) end
-  local act = pressed.ok or pressed.right or pressed.left
-  if not act then return end
+local function draw_menu()
+  local s = S()
+  rectfill(0, 0, SCREEN_W, SCREEN_H, 0x0C0C12)
+  local x = SCREEN_W // 2 - 170 * s
+  if G.page == "keys" then
+    local rows = {}
+    for i, r in ipairs(REMAP) do
+      local v = G.wait == r[1] and "press a key (ESC: cancel)" or keyname(BIND[r[1]][1])
+      rows[i] = { r[2], v }
+    end
+    rows[#rows + 1] = { "Reset to default", G.confirm == "reset" and "ENTER again to reset" or "" }
+    rows[#rows + 1] = { "Back", "" }
+    draw_rows("CONTROLS", rows, G.krow, x, 46 * s, 15 * s, s)
+    text("ENTER change   ESC back", x, SCREEN_H - 16 * s, 0x807870)
+  else
+    local rows = {}
+    for i, label in ipairs(MENU) do rows[i] = { label, menu_value(i) } end
+    draw_rows("DARK NIGHT", rows, G.menu, x, SCREEN_H // 2 - 80 * s, 18 * s, s)
+  end
+end
+
+local function keys_update()
+  if G.wait then
+    local k = keys() or {}
+    if G.waitup then
+      if #k == 0 then G.waitup = false end
+      return
+    end
+    local u = k[1]
+    if u == 0x29 then G.wait = nil; snd("menu", -5)
+    elseif u and not FIXED[u] then bind_key(G.wait, u); G.wait = nil; snd("menu") end
+    return
+  end
+  local n = #REMAP + 2
+  if mp.back then G.page, G.confirm = "main", nil; snd("menu", -3); return end
+  if mp.up then G.krow = (G.krow - 2) % n + 1; G.confirm = nil; snd("menu", -3) end
+  if mp.down then G.krow = G.krow % n + 1; G.confirm = nil; snd("menu", -3) end
+  if not mp.ok then return end
   snd("menu")
+  if G.krow <= #REMAP then G.wait, G.waitup = REMAP[G.krow][1], true
+  elseif G.krow == #REMAP + 1 then
+    if G.confirm == "reset" then
+      for a, list in pairs(DEFAULT) do BIND[a] = { table.unpack(list) } end
+      G.confirm = nil
+      save_options()
+    else G.confirm = "reset" end
+  else G.page, G.confirm = "main", nil end
+end
+
+local function menu_update()
+  if G.page == "keys" then keys_update(); return end
+  if mp.back then G.state, G.confirm = "play", nil; snd("menu"); return end
+  if mp.up then G.menu = (G.menu - 2) % #MENU + 1; G.confirm = nil; snd("menu", -3) end
+  if mp.down then G.menu = G.menu % #MENU + 1; G.confirm = nil; snd("menu", -3) end
+  local step = (mp.right and 1 or 0) - (mp.left and 1 or 0)
+  if not mp.ok and step == 0 then return end
+  if step == 0 then step = 1 end
   local i = G.menu
-  if i == 1 and pressed.ok then G.state = "play"
-  elseif i == 2 then O.res = 3 - O.res; apply_resolution()
-  elseif i == 3 then O.textures = not O.textures
-  elseif i == 4 then O.bright = (O.bright + (pressed.left and -1 or 1) - 1) % 3 + 1
-  elseif i == 5 then O.music = not O.music
-  elseif i == 6 then O.help = not O.help
-  elseif i == 7 and pressed.ok then respawn(); G.state = "play" end
+  if i == 1 and mp.ok then G.state = "play"
+  elseif i == 2 and mp.ok then G.page, G.krow = "keys", 1
+  elseif i == 3 then volume(max(0, min(10, (volume() or 0) + step)))
+  elseif i == 4 then O.sfx = max(0, min(10, O.sfx + step)); save_options()
+  elseif i == 5 then O.music = not O.music; save_options()
+  elseif i == 6 then O.res = 3 - O.res; apply_resolution()
+  elseif i == 7 then O.textures = not O.textures
+  elseif i == 8 then O.bright = (O.bright + step - 1) % 3 + 1
+  elseif i == 9 and mp.ok then respawn(); G.state = "play"
+  elseif i == 10 and mp.ok then
+    if G.confirm == 10 then quit() else G.confirm = 10 end
+  end
+  snd("menu")
 end
 
 -- ---------------------------------------------------------------- the cartridge
@@ -1104,6 +1236,7 @@ function _init()
     M3[n .. "_f"] = model(n .. "_f")
   end
   for kind in pairs(TYPES) do M3[kind] = model(kind) end
+  load_options()
   load_world()
   reset_player(G.spawn[1], G.spawn[2])
   Cam.x, Cam.y, Cam.z = P.x - 4, P.y + 2.5, P.z
@@ -1117,6 +1250,7 @@ end
 function _update()
   G.frame = G.frame + 1
   local mx, my = read_input()
+  menu_keys()
   -- hit stop: a landed blow holds the picture for a few frames (the keys pressed meanwhile are kept)
   if G.stop > 0 and G.state == "play" then
     G.stop = G.stop - 1
@@ -1124,7 +1258,7 @@ function _update()
     return
   end
   if G.state == "play" then
-    if pressed.menu then G.state = "menu"; snd("menu"); return end
+    if pressed.menu then G.state, G.page, G.menu = "menu", "main", 1; snd("menu"); return end
     if pressed.skip then
       G.skipn = (G.skipn or 0) % #SKIPS + 1
       local s = SKIPS[G.skipn]

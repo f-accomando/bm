@@ -15,9 +15,10 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - Screen: `screen(1280, 720)` at the start (the Resolution row of the menu goes to 640x360). The header says 640x360. The HUD scales with the screen.
 - Keys (`rawkeys` and `keydown`, a pad has the same moves): W A S D move (relative to the camera; locked on, around the target);
   SPACE dodges by the keys held (none: backstep, W: roll, A or D: side jump, S: backstep); SHIFT opens and closes the saw (a model change);
-  E fires the pistol (12 bullets); Q locks on and off; U attacks, and U again in the chain window gives the next hit of the combo (4 hits
+  E fires the pistol (no bullets: a shot costs stamina, `GUN.sta`, and does little damage, `GUN.dmg`); Q locks on and off; U attacks, and U again in the chain window gives the next hit of the combo (4 hits
   for each form, `ATK`); I and O are the second and third hits; SHIFT in a combo is the transform attack (`TRANSFORM`);
-  P is the charged attack (hold, then let go); ESC opens the options menu (resume, resolution, textures, brightness, music, controls, restart);
+  P is the charged attack (hold, then let go); ESC opens the options menu (resume, controls, volume, effects, music, resolution, textures, brightness, restart, quit). The Controls page
+  remaps each action of `REMAP` to one key (a key of another action is swapped) and `save()` keeps the changed keys and the sound options in slot 1;
   the arrows turn the camera and zoom; F9 is a developer key: the next place of the walk.
 - The pistol hits what the bones say: `fire_bullet` puts the enemy in the pose it has now (`animate`, the mesh is shared by its kind) and asks
   `hit3d` for the bone the bullet meets (a capsule for each bone, as wide as its vertices). The head counts double (`headshot`), a limb 0.6, the
@@ -36,13 +37,14 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - Sound: the bank `carts/darknight/art/sounds.py` makes the samples (saw, steps, cloth, pistol, enemies, bells) and two songs in D minor
   (`CLINIC` for the walk, `HUNT` for a fight). `make` builds it into `build/darknight/sounds.json` and `mkbm.py --audio` packs it.
 - The walls of the map repeat their 16x16 texture in bands (`map3d_build{ wall_tile = 1.0 }`). The tile textures have soft stains, no loose pixels.
+- The HUD has no help lines. It shows health, stamina, and a silhouette of the saw in its form (`SAW_ICON`), which flashes at a change.
 - The cover is `carts/darknight/cover.png` (made by `carts/darknight/art/cover.py` from a bmhost screenshot).
 - The enemies are the models of `art/models/dnenemy.bmm` ([enemies](../../art/models/enemies/README.md)): villagers in the clinic, then huntsmen and
   dogs in turn in the courtyard, dogs in the alley (`enemy_kind`). They wait, chase within their sight, strike when the attack clip reaches its hit time and stagger when hit (`TYPES` has health, speed and, for each
   attack, the clip, the hit time, the damage, the reach and how often it is chosen). The villager and the huntsman have two attacks (a chop or an axe
   swing, then a sweep or an overhead chop); the dog bites and, from 2.6 to 6.5 units away, leaps at where the Hunter stood and bites on the landing.
   The choice of the attack follows the frame number, so a run of the game is always the same. The Hunter has 100 health.
-  A lantern lights (health and bullets back, a new place to start); a death shows YOU DIED and starts again at the last lantern.
+  A lantern lights (health back, a new place to start); a death shows YOU DIED and starts again at the last lantern.
 - Doors that are not locked open when the player is near; the locked ones and the gate stay closed (the gate is the end of this slice).
 - Test: `make test-darknight` plays a script of keys in bmhost and reads the event lines of the game (97 events: the four dodges, the
   three attacks, the saw, the charge, the shot, the door, the lock, damage, death, a new start, and the attacks of the villagers,
@@ -59,11 +61,12 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - The weapons are baked into the Hunter (two models, one for each form of the saw). The pistol hammer bone has no use.
 - The hitboxes are one segment along the hand bone and one cylinder for each body: no boxes for each bone of the Hunter's body, and no hitbox
   for the dog's leap. The length of each weapon is a number (`SAW_SPAN`, `TYPES`), not read from the model.
-- The key map is a table in `main.lua` (`BIND`, `PAD`). The menu has no row to change a key.
+- The pad buttons (`PAD`) cannot be remapped in the menu. Only the keyboard keys can.
 
 ## Rules (do not break)
 
-- Read the keys with `rawkeys(true)` and `keydown`; keep the action table `BIND` the only place that names a key.
+- Read the keys with `rawkeys(true)` and `keydown`; keep the action table `BIND` the only place that names a game key.
+- Read the menu with its own fixed keys (`MK`: arrows, W S, ENTER, SPACE, ESC), so a remapped key never locks the player out of the menu.
 - Keep the object ids and radii of `main.lua` equal to `art/maps/clinic/build_clinic.py` (`tests/darknight/check.py` checks it).
 - The camera's right is `(fz, -fx)` of its forward: the Hunter's right hand (local -x) when he looks away from the camera. A move by keys uses it.
 - Take the weapon hitboxes from the bones (`bone3d` after `animate`), with the turn of `draw3d`; do not place them by hand.

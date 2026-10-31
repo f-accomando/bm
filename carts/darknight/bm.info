@@ -1,9 +1,9 @@
 # bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
 name: Dark Night
-desc: The Hunter in the Clinic: a Victorian, dystopian hospital and its courtyard. Chain the saw combos, transform the saw in a combo, dodge on stamina, fire the pistol, lock on. Night, lamps, sound and music.
+desc: The Hunter in the Clinic: a Victorian, dystopian hospital and its courtyard. Chain the saw combos, transform the saw in a combo, dodge and shoot on stamina, lock on. Remappable keys. Night, lamps, sound and music.
 author: bm
 license: LicenseRef-BM-Community-1.0
-version: 0.2
+version: 0.3
 tags: game, 3d, action, fan study
 type: game
 resolution: 640x360
