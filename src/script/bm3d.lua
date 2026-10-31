@@ -1662,10 +1662,46 @@ function G.rig_bones(it)
   local nb = sunpack("<I2", ac, 17)
   local out, pos = {}, 25
   for i = 1, nb do
-    out[i] = { name = cname(ac, pos), hx = (sunpack("<f", ac, pos + 20)) }
+    out[i] = { name = cname(ac, pos), hx = (sunpack("<f", ac, pos + 20)), parent = sunpack("<i2", ac, pos + 16) + 1 }
     pos = pos + 44
   end
   return out
+end
+
+-- The parts of a skeleton (one part for each bone), as the list of the Parts panel: { { bone, depth, count }, ... }
+-- in tree order (a parent, then its children), count = the vertices of the bone. rig comes from G.rig_bones
+-- (parent: 1-based, 0 = none). A bone whose parent comes later still shows (as a root).
+function G.part_list(it, rig)
+  local kids, roots, n = {}, {}, {}
+  for i = 1, #(it.vb or {}) do local b = it.vb[i]; n[b] = (n[b] or 0) + 1 end
+  if not it.vb then n[0] = #it.v end
+  for i, r in ipairs(rig) do
+    local p = r.parent
+    if p and p >= 1 and p < i then kids[p] = kids[p] or {}; kids[p][#kids[p] + 1] = i
+    else roots[#roots + 1] = i end
+  end
+  local out = {}
+  local function walk(i, d)
+    out[#out + 1] = { bone = i - 1, depth = d, count = n[i - 1] or 0 }
+    for _, c in ipairs(kids[i] or {}) do walk(c, d + 1) end
+  end
+  for _, i in ipairs(roots) do walk(i, 0) end
+  return out
+end
+
+-- the vertices of bone b (from 0) as a set { [vertex] = true }; with kids also the vertices of the bones below it
+function G.part_set(it, rig, b, kids)
+  local want = { [b] = true }
+  if kids then
+    for i, r in ipairs(rig) do                 -- a parent comes before its children
+      if r.parent and r.parent >= 1 and want[r.parent - 1] then want[i - 1] = true end
+    end
+  end
+  local set = {}
+  for i = 1, #it.v do
+    if want[it.vb and it.vb[i] or 0] then set[i] = true end
+  end
+  return set
 end
 
 -- the name of the other side: arm_l -> arm_r, hand.R -> hand.L, Left -> Right, l_arm -> r_arm; nil

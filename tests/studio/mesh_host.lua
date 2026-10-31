@@ -2143,6 +2143,17 @@ do
                f = {}, vb = { 0, 0, 0, 0, 0, 0 } }
   local rig = G.rig_bones(it)
   check(#rig == 5 and rig[2].name == "arm_l" and math.abs(rig[2].hx - 0.5) < 1e-6 and rig[3].hx < 0, "T.G.rig_bones: names and head x")
+  do   -- the parts of a skeleton: a tree of bones, a part is the vertices of a bone
+    local r = { { name = "body", parent = 0 }, { name = "arm", parent = 1 }, { name = "hand", parent = 2 },
+                { name = "leg", parent = 1 }, { name = "grip", parent = 3 } }
+    local m = { v = { {}, {}, {}, {}, {}, {} }, vb = { 0, 1, 2, 4, 4, 3 } }
+    local pl = G.part_list(m, r)
+    local order = {}
+    for i, p in ipairs(pl) do order[i] = r[p.bone + 1].name .. ":" .. p.depth .. ":" .. p.count end
+    check(table.concat(order, " ") == "body:0:1 arm:1:1 hand:2:1 grip:3:2 leg:1:1", "T.G.part_list: tree order, depth, vertex count: " .. table.concat(order, " "))
+    local one, tree = G.part_set(m, r, 2, false), G.part_set(m, r, 2, true)
+    check(one[2] == nil and one[3] and not one[4] and tree[3] and tree[4] and tree[5] and not tree[6], "T.G.part_set: a bone, and with the bones below it")
+  end
   check(G.mirror_bone(rig, 1) == 2 and G.mirror_bone(rig, 2) == 1 and G.mirror_bone(rig, 3) == 3 and G.mirror_bone(rig, 4) == 4,
         "T.G.mirror_bone: arm_l <-> arm_r; hand.L has no mirror: itself; spine itself")
   local n = G.set_bone(it, { 1, 3 }, 1, false)
@@ -3332,6 +3343,19 @@ do
         and status():find("saved /bmm/rigged.bmm", 1, true), "open: Save writes the .bmm with its skeleton: " .. status())
   key("f5")
   check(status():find("a model file has no game", 1, true), "open: a .bmm has no game to try: " .. status())
+  -- the Parts panel (Shift+N): the bones as a tree, one part chosen or shown alone
+  key("f2", "N")
+  check(sees("parts:"), "parts: Shift+N lists the bones")
+  key("\n")
+  check(sees("Show only this part") and sees("Choose it with the parts below"), "parts: the menu of one part")
+  key("down", "down", "\n")
+  check(status():find("vertices chosen", 1, true) ~= nil,
+        "parts: show only one part chooses it: " .. status())
+  key("N", "\n", "down", "down", "down", "down", "\n")
+  key("N")
+  check(sees("Show all ("), "parts: the list offers Show all after a part is hidden")
+  key("\n")
+  check(status():find("shown:", 1, true) ~= nil, "parts: Show all: " .. status())
 end
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
