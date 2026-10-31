@@ -254,9 +254,13 @@ $(BUILD)/carts/islandbench.bm $(BUILD)/carts/islandbench.bme: $(BUILD)/carts/isl
 # models art/models/dnhunter.bmm (made by art/models/hunter/armed.py --game) and art/models/dnenemy.bmm (art/models/enemies/build.py) are merged in by bmres.py. The .bme is the
 # source, the .bm the cartridge.
 DARKNIGHT_RES := art/maps/clinic.bmk art/models/dnhunter.bmm art/models/dnenemy.bmm
-$(BUILD)/carts/darknight.bm $(BUILD)/carts/darknight.bme: $(BUILD)/carts/darknight.%: carts/darknight/main.lua scripts/mkbm.py scripts/bmres.py carts/darknight/bm.info $(DARKNIGHT_RES)
+# the sound bank: samples made by numpy and two songs (carts/darknight/art/sounds.py)
+$(BUILD)/darknight/sounds.json: carts/darknight/art/sounds.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/darknight/bm.info
+	$(PYTHON) carts/darknight/art/sounds.py $@
+$(BUILD)/carts/darknight.bm $(BUILD)/carts/darknight.bme: $(BUILD)/carts/darknight.%: carts/darknight/main.lua scripts/mkbm.py scripts/bmres.py carts/darknight/bm.info carts/darknight/cover.png $(DARKNIGHT_RES) $(BUILD)/darknight/sounds.json
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/darknight/bm.info --cover carts/darknight/cover.png --audio $(BUILD)/darknight/sounds.json
 	$(PYTHON) scripts/bmres.py add $@ $(DARKNIGHT_RES) -o $@
 
 # Titan Clash (M20): several Lua files too; its sheet has more colours than

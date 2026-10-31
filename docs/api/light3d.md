@@ -143,7 +143,7 @@ Chunked 3D terrain built from 2D tilemap layers (`floor`, `height`, `walls`, `ob
 
 | Function | Description |
 |---|---|
-| `map3d_build([opts])` | builds a 3D map world from tilemap layers. `opts = {floor="floor", height="height", walls="walls", cell=1.0, step=0.25}` |
+| `map3d_build([opts])` | builds a 3D map world from tilemap layers. `opts = {floor="floor", height="height", walls="walls", cell=1.0, step=0.25, wall_tile=0}`. `wall_tile` > 0 repeats the wall texture in bands of that height (units); 0 stretches one tile over the whole wall |
 | `map3d_draw(w, [flags])` | draws visible 16×16 tile chunks of terrain (culled via `r3d_visible`) |
 | `map3d_height(w, x, z)` | floor elevation at world `(x, z)`, or `nil` if hole or outside map |
 | `map3d_blocked(w, x, y, z, r)` | `true` if a sphere with center `(x, y, z)` and radius `r` touches a wall or vertical cliff |

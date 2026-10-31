@@ -5,7 +5,7 @@ Both hold the same four models, the same 24 bones, and the same clips.
 
 | Model | High | Low | Rig |
 |---|---|---|---|
-| `hunter` (T pose, one continuous skin) | 3278 vertices, 6372 triangles | 503 vertices, 994 triangles | 24 bones, 16 clips |
+| `hunter` (T pose, one continuous skin) | 3278 vertices, 6372 triangles | 503 vertices, 994 triangles | 24 bones, 21 clips |
 | `saw_c` (Saw Cleaver, closed) | 358 triangles | 201 triangles | 1 bone `saw` |
 | `saw_o` (Saw Cleaver, open) | 406 triangles | 223 triangles | 1 bone `saw` |
 | `pistol` | 246 triangles | 104 triangles | bones `pistol`, `hammer`; clip `fire` |
@@ -13,13 +13,15 @@ Both hold the same four models, the same 24 bones, and the same clips.
 ## Clips of `hunter` (12 frames a second, linear, a key on every frame)
 
 `idle`, `walk`, `run`, `gun`, `saw_c1`, `saw_c2`, `saw_c3`, `saw_c_charge`, `saw_o1`, `saw_o2`, `saw_o3`,
-`saw_o_charge`, `backstep`, `dodge_l`, `dodge_r`, `roll`.
+`saw_o_charge`, `backstep`, `dodge_l`, `dodge_r`, `roll`, `saw_c4` (a rising backhand), `saw_o4` (a full turn), `transform`
+(the saw swaps form at frame 6), `hurt`, `death`.
 All clips are in place. The game moves the character. The clips move only the body.
 
 ## Weapons
 
 The saw blade is a flat plate with the profile of the reference picture (a cleaver with a row of teeth). The handle is an S.
-The closed saw has the blade tilted down. The open saw has a longer straight blade.
+The closed saw has the same blade folded back about the hinge, beside the handle, teeth out. The open saw has the blade straight beyond the hinge.
+The open shells (coat skirt, capelet, strap) are two-sided (`twosided`), so they show from inside too.
 
 The weapons are separate models. Their frame: origin at the grip, tip toward -z, up +y.
 Draw the saw with the matrix of `hand.R` and the pistol with the matrix of `hand.L`.

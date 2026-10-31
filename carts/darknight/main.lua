@@ -1,10 +1,12 @@
 -- Dark Night: the Hunter in the Clinic (carts/darknight).
 -- Keyboard (rawkeys): WASD move; SPACE dodge (no direction: backstep, forward: roll, left or right: side jump);
--- SHIFT opens and closes the saw; E the pistol; Q lock on; U I O the three saw attacks; P the charged attack (hold);
--- ESC the options menu; the arrows turn the camera. A pad has the same moves (see PAD below).
+-- SHIFT opens and closes the saw (during a combo: the transform attack); E the pistol; Q lock on; U the saw attack (press
+-- again in the chain window: the next hit of the combo, four hits), I and O pick the second and third hit directly;
+-- P the charged attack (hold); ESC the options menu; the arrows turn the camera. A pad has the same moves (see PAD below).
 -- The map and the Hunter come from resource files merged into this cartridge: art/maps/clinic.bmk (the map kit) and
 -- art/models/dnhunter.bmm (the Hunter with the saw in the right hand and the pistol in the left, in two forms).
 -- The enemies come from art/models/dnenemy.bmm: villagers (the clinic), huntsmen and rabid dogs (the courtyard and the alley).
+-- The sounds and the two songs are the cartridge's bank (carts/darknight/art/sounds.py): the SFX table names them.
 rawkeys(true)
 
 local PI = math.pi
@@ -39,19 +41,29 @@ for n, id in pairs(ID) do NAME_OF[id] = n end
 -- a step forward during the cut, the frame from which the next attack may follow
 local FPS = 12
 local ATK = {
-  { -- closed: short and quick
-    { clip = "saw_c1", frames = 16, rate = 1.3, hit = { 6, 9 }, reach = 1.9, dmg = 14, step = 0.5, chain = 10 },
-    { clip = "saw_c2", frames = 15, rate = 1.3, hit = { 5, 8 }, reach = 1.9, dmg = 16, step = 0.5, chain = 9 },
-    { clip = "saw_c3", frames = 20, rate = 1.3, hit = { 7, 10 }, reach = 2.0, dmg = 22, step = 0.7, chain = 13 },
-    charge = { clip = "saw_c_charge", frames = 26, rate = 1.3, hold = 9, resume = 11, hit = { 15, 19 }, reach = 2.2, dmg = 38, step = 1.0 },
+  { -- closed: short and quick; the fourth hit a rising cut that ends the chain
+    { clip = "saw_c1", frames = 16, rate = 1.35, hit = { 6, 9 }, reach = 1.9, dmg = 14, step = 0.55, chain = 9, sta = 16, sfx = "sawswing" },
+    { clip = "saw_c2", frames = 15, rate = 1.35, hit = { 5, 8 }, reach = 1.9, dmg = 16, step = 0.55, chain = 8, sta = 16, sfx = "sawswing" },
+    { clip = "saw_c3", frames = 20, rate = 1.3, hit = { 7, 10 }, reach = 2.0, dmg = 22, step = 0.7, chain = 12, sta = 20, sfx = "sawswing", stop = 4 },
+    { clip = "saw_c4", frames = 18, rate = 1.3, hit = { 6, 9 }, reach = 2.0, dmg = 26, step = 0.8, chain = 99, sta = 24, sfx = "sawswing", stop = 5, up = 1 },
+    charge = { clip = "saw_c_charge", frames = 26, rate = 1.3, hold = 9, resume = 11, hit = { 15, 19 }, reach = 2.2, dmg = 38, step = 1.0, sta = 30, stop = 7 },
   },
-  { -- open: long and heavy
-    { clip = "saw_o1", frames = 19, rate = 1.15, hit = { 7, 12 }, reach = 2.6, dmg = 20, step = 0.6, chain = 12 },
-    { clip = "saw_o2", frames = 18, rate = 1.15, hit = { 6, 11 }, reach = 2.6, dmg = 22, step = 0.6, chain = 11 },
-    { clip = "saw_o3", frames = 24, rate = 1.15, hit = { 8, 13 }, reach = 2.8, dmg = 30, step = 0.8, chain = 16 },
-    charge = { clip = "saw_o_charge", frames = 33, rate = 1.15, hold = 12, resume = 16, hit = { 21, 26 }, reach = 3.0, dmg = 52, step = 1.2 },
+  { -- open: long and heavy; the fourth hit a full turn with the blade out
+    { clip = "saw_o1", frames = 19, rate = 1.2, hit = { 7, 12 }, reach = 2.6, dmg = 20, step = 0.6, chain = 12, sta = 22, sfx = "bigswing" },
+    { clip = "saw_o2", frames = 18, rate = 1.2, hit = { 6, 11 }, reach = 2.6, dmg = 22, step = 0.6, chain = 11, sta = 22, sfx = "bigswing" },
+    { clip = "saw_o3", frames = 24, rate = 1.15, hit = { 8, 13 }, reach = 2.8, dmg = 30, step = 0.8, chain = 15, sta = 26, sfx = "bigswing", stop = 5 },
+    { clip = "saw_o4", frames = 26, rate = 1.15, hit = { 8, 17 }, reach = 2.8, dmg = 34, step = 0.6, chain = 99, sta = 32, sfx = "bigswing", stop = 6, spin = true },
+    charge = { clip = "saw_o_charge", frames = 33, rate = 1.15, hold = 12, resume = 16, hit = { 21, 26 }, reach = 3.0, dmg = 52, step = 1.2, sta = 36, stop = 8 },
   },
 }
+-- the transform attack: the saw changes form in the middle of a wide sweep (SHIFT in the chain window of a hit)
+local TRANSFORM = { clip = "transform", frames = 16, rate = 1.25, swap = 6, hit = { 6, 10 }, dmg = { 24, 18 }, step = 0.6, chain = 11, sta = 20, stop = 5 }
+local STAMINA = { max = 100, regen = 30, wait = 0.45, dodge = 18 }
+-- the blade along the axis of hand.R, from its head: closed, the folded blade reaches back past the pommel; open, it is long
+local SAW_SPAN = { { -0.38, 0.36 }, { 0.15, 1.18 } }
+-- the sound effects of the bank, by name (the order of SFX in carts/darknight/art/sounds.py)
+local SFX = { sawswing = 0, sawhit = 1, cleave = 2, sawopen = 3, sawclose = 4, pistol = 5, step = 6, hurt = 7, dodge = 8, lantern = 9,
+              growl = 10, bite = 11, eswing = 12, edie = 13, door = 14, died = 15, menu = 16, charge = 17, bigswing = 18, headshot = 19 }
 -- F9: the places of the walk, in order: the hall door, the atrium, the courtyard, the way to the gate
 local SKIPS = { { 14.5, 8.5 }, { 37.5, 10.5 }, { 50.5, 12.5 }, { 66.5, 10.5 } }
 local DODGE = {
@@ -81,12 +93,18 @@ local TYPES = {
 local world, objs, doors, lanterns, enemies = nil, {}, {}, {}, {}
 local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the kit's by name (and name_f)
 local P = {}                          -- the player
-local Cam = { yaw = PI / 2, pitch = -0.95, dist = 7.5, x = 0, y = 0, z = 0 }
-local O = { res = 1, textures = true, bright = 2, help = false }      -- the options
-local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 } }
+-- the camera: behind and a little above the Hunter, looking where he looks (a low pitch), a shoulder's width to the right
+local Cam = { yaw = PI / 2, pitch = -0.36, dist = 5.4, side = 0.55, x = 0, y = 0, z = 0, shake = 0 }
+local O = { res = 1, textures = true, bright = 2, help = false, music = true }      -- the options
+local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 }, stop = 0, song = -1, calm = 0 }
 local held, prev, pressed = {}, {}, {}
 local fx = {}                         -- short effects: sparks and tracers
-local SKY = 0x2C3346
+local SKY = 0x07080E                  -- the night: the fog and the clear colour
+
+local function snd(name, semis, vol)
+  local n = SFX[name]
+  if n then sfx(n, nil, semis or 0, vol or 1) end
+end
 
 local function dir(yaw) return sin(yaw), cos(yaw) end                    -- a facing direction from an angle
 local function yaw_of(dx, dz) return atan(dx, dz) end
@@ -127,7 +145,7 @@ local function enemy_kind(x, z, n)
 end
 
 local function load_world()
-  world = map3d_build({ floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 })
+  world = map3d_build({ floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25, wall_tile = 1.0 })
   objs, doors, lanterns, enemies = {}, {}, {}, {}
   local mw, mh = msize()
   for cz = 0, mh - 1, 2 do
@@ -190,6 +208,7 @@ local function reset_player(x, z)
   P.y = map_height(x, z) or 0
   P.yaw = PI / 2
   P.hp, P.maxhp, P.ammo = 100, 100, 12
+  P.sta, P.stawait = STAMINA.max, 0
   P.form = 1                            -- 1 closed, 2 open
   P.mode, P.t = "free", 0
   P.anim, P.at, P.fade_from, P.fade_t = "idle", 0, nil, 1
@@ -198,6 +217,17 @@ local function reset_player(x, z)
   P.swing = {}
   P.charge = 0
   P.flash = 0
+  P.stepd = 0
+end
+
+-- stamina: an action spends it; it comes back after a short wait. An action starts with any stamina left (it may go under 0)
+local function spend(n)
+  P.sta = P.sta - n
+  P.stawait = STAMINA.wait
+end
+
+local function can_act()
+  return P.sta > 0
 end
 
 -- play a clip: a short cross fade from the one before
@@ -232,9 +262,16 @@ local function start_dodge(mx, my, wx, wz)
   end
   local d = DODGE[kind]
   P.mode, P.t, P.dodge = "dodge", 0, { kind = kind, dx = dx, dz = dz, done = 0, def = d }
+  P.queued = nil
+  spend(STAMINA.dodge)
   ev("dodge " .. kind)
+  snd("dodge", kind == "roll" and -2 or 0)
   set_anim(d.clip, 0)
   P.at = 0
+end
+
+local function face_lock()
+  if P.lock then P.yaw = yaw_of(P.lock.x - P.x, P.lock.z - P.z) end
 end
 
 local function start_attack(n)
@@ -244,9 +281,22 @@ local function start_attack(n)
   ev("attack " .. (P.form == 1 and "closed " or "open ") .. n)
   P.swing = {}
   P.queued = nil
+  P.swung = false
+  spend(a.sta)
   set_anim(a.clip, 0)
   P.at = 0
-  if P.lock then P.yaw = yaw_of(P.lock.x - P.x, P.lock.z - P.z) end
+  face_lock()
+end
+
+-- SHIFT: in a combo, the transform attack (the blade changes form inside the sweep and hurts); standing, only the change
+local function start_transform(attacking)
+  P.mode, P.t, P.atk = "transform", 0, TRANSFORM
+  P.swing, P.swapped, P.swung, P.queued = {}, false, false, nil
+  P.tattack = attacking
+  if attacking then spend(TRANSFORM.sta); ev("transform attack") end
+  set_anim(TRANSFORM.clip, 0)
+  P.at = 0
+  face_lock()
 end
 
 local function start_charge()
@@ -254,16 +304,20 @@ local function start_charge()
   P.mode, P.t, P.atk, P.charge, P.released = "charge", 0, a, 0, false
   ev("charge " .. (P.form == 1 and "closed" or "open"))
   P.swing = {}
+  P.swung = false
+  spend(a.sta)
+  snd("charge")
   set_anim(a.clip, 0)
   P.at = 0
 end
 
 local function start_gun()
-  if P.ammo <= 0 then say("no quicksilver bullets: light a lantern", 2); return end
+  if P.ammo <= 0 then say("no quicksilver bullets: light a lantern", 2); snd("menu", -7); return end
   P.mode, P.t, P.shot = "gun", 0, false
+  P.queued = nil
   set_anim(GUN.clip, 0)
   P.at = 0
-  if P.lock then P.yaw = yaw_of(P.lock.x - P.x, P.lock.z - P.z) end
+  face_lock()
 end
 
 local function hurt(dmg, from_x, from_z)
@@ -271,11 +325,23 @@ local function hurt(dmg, from_x, from_z)
   P.hp = max(0, P.hp - dmg)
   P.flash = 0.35
   P.inv = 0.5
+  Cam.shake = max(Cam.shake, 0.12)
   local dx, dz = P.x - from_x, P.z - from_z
   local l = sqrt(dx * dx + dz * dz) + 1e-6
   try_move(P, dx / l * 0.5, dz / l * 0.5, 0.32)
   ev("hurt hp " .. P.hp)
-  if P.hp <= 0 then G.state, G.died = "dead", 0; ev("died") end
+  snd("hurt", math.random(-2, 2))
+  if P.hp <= 0 then
+    G.state, G.died = "dead", 0
+    P.mode = "dead"
+    set_anim("death", 0); P.at = 0
+    ev("died")
+    snd("died")
+    if O.music then music(-1, 400); G.song = -1 end
+  elseif P.mode == "free" or P.mode == "toggle" then
+    P.mode, P.t = "hurt", 0                        -- a flinch; an attack or a dodge goes on (the blow is taken in the move)
+    set_anim("hurt", 0); P.at = 0
+  end
 end
 
 local function spark(x, y, z, col, n)
@@ -289,8 +355,8 @@ local function damage_enemy(e, dmg, kind)
   if e.st == "dead" then return end
   e.hp = e.hp - dmg
   e.flash = 0.2
-  spark(e.x, e.y + 1.2, e.z, kind == "gun" and 0xFFE080 or 0xB02020, 8)
-  if e.hp <= 0 then e.st, e.t = "dead", 0; ev("enemy dead " .. kind); if P.lock == e then P.lock = nil end
+  spark(e.x, e.y + 1.2, e.z, kind == "gun" and 0xFFE080 or 0xB02020, kind == "gun" and 8 or 12)
+  if e.hp <= 0 then e.st, e.t = "dead", 0; ev("enemy dead " .. kind); snd("edie", e.kind == "dog" and 7 or 0); if P.lock == e then P.lock = nil end
   else
     local busy = (e.st == "attack" and e.t >= e.atk.strike) or (e.st == "leap" and e.t >= e.ty.leap.fly0)
     if not busy then e.st, e.t, e.struck = "stagger", 0, false end
@@ -304,15 +370,16 @@ local function to_world(ox, oy, oz, yaw, x, y, z)
   return ox - x * c - z * s, oy + y, oz + x * s - z * c
 end
 
-local function weapon_points(m, bone, len, ox, oy, oz, yaw)
+local function weapon_points(m, bone, len, ox, oy, oz, yaw, from)
   local hx, hy, hz, cx, cy, cz = bone3d(m, bone)
   local pts = {}
   if not hx then return pts end
   local dx, dy, dz = cx - hx, cy - hy, cz - hz
   local l = sqrt(dx * dx + dy * dy + dz * dz) + 1e-6
   dx, dy, dz = dx / l, dy / l, dz / l
+  from = from or 0
   for i = 0, 6 do
-    local s = len * i / 6
+    local s = from + (len - from) * i / 6
     local wx, wy, wz = to_world(ox, oy, oz, yaw, hx + dx * s, hy + dy * s, hz + dz * s)
     pts[#pts + 1] = { wx, wy, wz }
   end
@@ -328,17 +395,20 @@ local function touches(pts, x, z, y0, y1, r)
   return false
 end
 
-local SAW_LEN = { 1.0, 1.35 }                                   -- from the head of the hand bone to the tip of the saw, closed and open
-
 local function melee_hits(a)
   local m = P.form == 1 and M3.hunter_c or M3.hunter_o
   animate(m, P.anim, P.at)
-  local pts = weapon_points(m, "hand.R", SAW_LEN[P.form], P.x, P.y, P.z, P.yaw)
+  local span = SAW_SPAN[P.form]
+  local pts = weapon_points(m, "hand.R", span[2], P.x, P.y, P.z, P.yaw, span[1])
   for _, e in ipairs(enemies) do
     if e.st ~= "dead" and not P.swing[e] and touches(pts, e.x, e.z, e.y - 0.1, e.y + e.ty.height + 0.1, e.ty.radius + 0.45) then
       P.swing[e] = true
       ev("hit " .. e.kind .. " saw")
       damage_enemy(e, a.dmg, "saw")
+      -- the hit stops time for a few frames (the blow is felt) and shakes the camera
+      G.stop = max(G.stop, a.stop or 3)
+      Cam.shake = max(Cam.shake, (a.stop or 3) * 0.018)
+      snd(a.cleave and "cleave" or "sawhit", math.random(-3, 2))
     end
   end
 end
@@ -401,9 +471,11 @@ local function fire_bullet()
   if hit then zone, mult = zone_of(bbone) end
   fx[#fx + 1] = { kind = "tracer", x = sx, y = sy, z = sz, x2 = sx + ddx * tl, y2 = sy + ddy * tl, z2 = sz + ddz * tl, t = 0.08 }
   fx[#fx + 1] = { kind = "flash", x = sx, y = sy, z = sz, t = 0.08 }
+  snd("pistol")
+  Cam.shake = max(Cam.shake, 0.08)
   if hit then
     damage_enemy(best, GUN.dmg * mult, "gun")
-    if zone == "head" then say("headshot", 1.0) end
+    if zone == "head" then say("headshot", 1.0); snd("headshot") end
   else
     spark(sx + ddx * tl, sy + ddy * tl, sz + ddz * tl, 0xC0C0C0, 4)
   end
@@ -437,11 +509,37 @@ local function pick_lock()
   return best
 end
 
+-- the next move, pressed during a hit: it starts in the chain window (an input buffer)
+local function buffer_input()
+  if pressed.atk1 then P.queued = "next" end
+  if pressed.atk2 then P.queued = 2 end
+  if pressed.atk3 then P.queued = 3 end
+  if pressed.saw then P.queued = "transform" end
+  if pressed.dodge then P.queued = "dodge" end
+end
+
+local function run_queued(mx, my, wx, wz)
+  local q = P.queued
+  if not q then return false end
+  if q == "dodge" then
+    if can_act() then start_dodge(mx, my, wx, wz) else P.queued = nil end
+    return true
+  end
+  if not can_act() then P.queued = nil; say("out of breath", 0.8); return false end
+  if q == "transform" then start_transform(true)
+  elseif q == "next" then start_attack(min(4, P.combo + 1))
+  else start_attack(q) end
+  return true
+end
+
 local function update_player(mx, my)
   local dt = 1 / 60
   P.t = P.t + dt
   P.inv = max(0, P.inv - dt)
   P.flash = max(0, P.flash - dt)
+  -- stamina comes back after a short wait, slower while the Hunter runs
+  P.stawait = max(0, P.stawait - dt)
+  if P.stawait <= 0 and P.sta < STAMINA.max then P.sta = min(STAMINA.max, P.sta + STAMINA.regen * dt * (P.mode == "free" and 1 or 0.4)) end
   -- the camera's forward gives the meaning of W
   local cfx, cfz = dir(Cam.yaw)
   local crx, crz = cfz, -cfx                       -- the camera's right (the Hunter's right hand when he looks away from it)
@@ -462,42 +560,76 @@ local function update_player(mx, my)
     if moving then
       if P.lock then speed, clip, rate = 1.7, "walk", 1.8 else speed, clip, rate = 3.4, "run", 1.25 end
       local l = sqrt(wx * wx + wz * wz)
+      local ox, oz = P.x, P.z
       try_move(P, wx / l * speed * dt * min(1, l), wz / l * speed * dt * min(1, l), 0.32)
       if not P.lock then P.yaw = turn_to(P.yaw, yaw_of(wx, wz), 12 * dt) end
+      -- a step every stride: a boot on the stone
+      P.stepd = P.stepd + sqrt((P.x - ox) ^ 2 + (P.z - oz) ^ 2)
+      if P.stepd > (P.lock and 0.75 or 1.05) then P.stepd = 0; snd("step", math.random(-3, 3), 0.8) end
+    else
+      P.stepd = 0.6
     end
     if P.lock then P.yaw = turn_to(P.yaw, yaw_of(P.lock.x - P.x, P.lock.z - P.z), 14 * dt) end
     set_anim(clip)
     P.at = P.at + dt * rate
-    if pressed.dodge then start_dodge(mx, my, wx, wz)
-    elseif pressed.saw then P.mode, P.t = "toggle", 0
+    P.combo = 0
+    if pressed.dodge and can_act() then start_dodge(mx, my, wx, wz)
+    elseif pressed.saw then start_transform(false)
     elseif pressed.gun then start_gun()
-    elseif pressed.charge then start_charge()
-    elseif pressed.atk1 then start_attack(1)
-    elseif pressed.atk2 then start_attack(2)
-    elseif pressed.atk3 then start_attack(3) end
+    elseif pressed.charge and can_act() then start_charge()
+    elseif pressed.atk1 and can_act() then start_attack(1)
+    elseif pressed.atk2 and can_act() then start_attack(2)
+    elseif pressed.atk3 and can_act() then start_attack(3)
+    elseif (pressed.dodge or pressed.charge or pressed.atk1 or pressed.atk2 or pressed.atk3) then say("out of breath", 0.8) end
 
-  elseif P.mode == "toggle" then
-    P.at = P.at + dt
-    if P.t > 0.12 and not P.toggled then P.form = 3 - P.form; P.toggled = true; ev("saw " .. (P.form == 1 and "closed" or "open")); spark(P.x, P.y + 1.3, P.z, 0xC8C8D0, 10)
-      say(P.form == 1 and "saw closed" or "saw open", 1.2) end
-    if P.t > 0.35 then P.mode, P.toggled = "free", false end
+  elseif P.mode == "hurt" then
+    P.at = P.at + dt * 1.4
+    buffer_input()
+    if P.t > 0.32 then P.mode = "free"; if not run_queued(mx, my, wx, wz) then P.queued = nil end end
+
+  elseif P.mode == "transform" then
+    local a = P.atk
+    P.at = P.at + dt * (P.tattack and a.rate or 1.7)
+    local f = P.at * FPS
+    if f >= a.swap and not P.swapped then
+      P.swapped = true
+      P.form = 3 - P.form
+      ev("saw " .. (P.form == 1 and "closed" or "open"))
+      snd(P.form == 1 and "sawclose" or "sawopen")
+      spark(P.x + dir(P.yaw) * 0.5, P.y + 1.3, P.z, 0xC8C8D0, 8)
+      say(P.form == 1 and "saw closed" or "saw open", 1.0)
+    end
+    if P.tattack then
+      if f >= a.hit[1] and not P.swung then P.swung = true; snd("bigswing", 3) end
+      if f >= a.hit[1] and f <= a.hit[2] then
+        melee_hits({ dmg = a.dmg[P.form], stop = a.stop })
+        local fxx, fzz = dir(P.yaw)
+        try_move(P, fxx * a.step * dt * 3, fzz * a.step * dt * 3, 0.32)
+      end
+      buffer_input()
+      if P.queued and f >= a.chain and run_queued(mx, my, wx, wz) then P.combo = 0
+      elseif f >= a.frames - 1 then P.mode, P.combo = "free", 0 end
+    else
+      if f >= 9 then P.mode = "free" end
+    end
 
   elseif P.mode == "attack" then
     local a = P.atk
     local rate = a.rate
     P.at = P.at + dt * rate
     local f = P.at * FPS
+    if f >= a.hit[1] - 1.5 and not P.swung then P.swung = true; snd(a.sfx, a.up and 4 or math.random(-2, 2)) end
     if f >= a.hit[1] and f <= a.hit[2] then
       melee_hits(a)
       local fxx, fzz = dir(P.yaw)
       local s = a.step * dt * rate * FPS / max(1, (a.hit[2] - a.hit[1] + 1))
       try_move(P, fxx * s, fzz * s, 0.32)
     end
-    -- the next attack: pressed during the cut or the recovery
-    for n, act in ipairs({ "atk1", "atk2", "atk3" }) do if pressed[act] then P.queued = n end end
-    if pressed.dodge and f >= a.hit[2] then start_dodge(mx, my, wx, wz)
-    elseif P.queued and f >= a.chain then start_attack(P.queued)
-    elseif f >= a.frames - 1 then P.mode, P.combo = "free", 0 end
+    -- the next move, pressed during the cut or the recovery, starts in the chain window; a dodge may cut the recovery
+    buffer_input()
+    if P.queued == "dodge" and f >= a.hit[2] then run_queued(mx, my, wx, wz)
+    elseif P.queued and P.queued ~= "dodge" and f >= a.chain then run_queued(mx, my, wx, wz)
+    elseif f >= a.frames - 1 then P.mode, P.combo, P.queued = "free", 0, nil end
 
   elseif P.mode == "charge" then
     local a = P.atk
@@ -506,18 +638,20 @@ local function update_player(mx, my)
       P.charge = P.charge + dt
       -- wind up to the hold pose, then wait there while P is held
       if f < a.hold then P.at = P.at + dt * a.rate else P.at = (a.hold + 0.4 * math.sin(P.charge * 14)) / FPS end
-      if not held.charge then P.released = true; P.at = max(P.at, a.hold / FPS); P.at = max(P.at, a.resume / FPS - 0.01) end
+      if not held.charge then P.released = true; P.at = max(P.at, a.hold / FPS); P.at = max(P.at, a.resume / FPS - 0.01); snd("bigswing", -4) end
     else
       P.at = P.at + dt * a.rate
       local ff = P.at * FPS
       if ff >= a.hit[1] and ff <= a.hit[2] then
         local boost = min(1.8, 1 + P.charge * 0.5)
-        local aa = { reach = a.reach, dmg = a.dmg * boost }
+        local aa = { reach = a.reach, dmg = a.dmg * boost, stop = a.stop, cleave = true }
         melee_hits(aa)
         local fxx, fzz = dir(P.yaw)
         try_move(P, fxx * a.step * dt, fzz * a.step * dt, 0.32)
       end
-      if ff >= a.frames - 1 then P.mode = "free" end
+      buffer_input()
+      if P.queued == "dodge" and ff >= a.hit[2] then run_queued(mx, my, wx, wz)
+      elseif ff >= a.frames - 1 then P.mode, P.queued = "free", nil end
     end
 
   elseif P.mode == "gun" then
@@ -540,7 +674,13 @@ local function update_player(mx, my)
     if l > 0 then try_move(P, D.dx / l * step, D.dz / l * step, 0.32) end
     local tsec = P.at
     if tsec >= d.inv[1] and tsec <= d.inv[2] then P.inv = max(P.inv, 0.05) end
-    if u >= 1 then P.mode = "free" end
+    buffer_input()
+    if P.queued == "dodge" then P.queued = nil end
+    if u >= 0.78 and P.queued and run_queued(mx, my, wx, wz) then
+    elseif u >= 1 then P.mode = "free"; P.queued = nil end
+
+  elseif P.mode == "dead" then
+    P.at = min(P.at + dt, 21 / FPS)
   end
 
   -- the floor under the feet (stairs: follow, not jump)
@@ -560,7 +700,7 @@ local function update_enemies()
     local d = sqrt(dx * dx + dz * dz)
     local clip, rate = "idle", 1.0
     if e.st == "idle" then
-      if d < ty.aggro and P.hp > 0 then e.st, e.t = "chase", 0 end
+      if d < ty.aggro and P.hp > 0 then e.st, e.t = "chase", 0; if e.kind == "dog" then snd("growl", math.random(-2, 2)) end end
     elseif e.st == "chase" then
       e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 8 * dt)
       clip, rate = ty.move, ty.rate
@@ -568,6 +708,7 @@ local function update_enemies()
       if lp and e.leapcd <= 0 and d > 2.6 and d < 6.5 and P.hp > 0 then
         e.st, e.t, e.struck, e.leaping = "leap", 0, false, nil
         ev("enemy " .. e.kind .. " leap")
+        snd("growl", 4)
       elseif d > ty.reach * 0.7 then
         try_move(e, dx / d * ty.speed * dt, dz / d * ty.speed * dt, 0.35)
       else
@@ -575,13 +716,14 @@ local function update_enemies()
         local roll, pick = (G.frame * 7 + e.idx * 13) % 100, ty.attacks[1]
         local acc = 0
         for _, a in ipairs(ty.attacks) do acc = acc + a.pct; if roll < acc then pick = a; break end end
-        e.st, e.t, e.struck, e.atk = "attack", 0, false, pick
+        e.st, e.t, e.struck, e.atk, e.swung = "attack", 0, false, pick, false
         ev("enemy " .. e.kind .. " " .. pick.clip)
       end
       if d > ty.aggro * 2.2 then e.st = "idle" end
     elseif e.st == "attack" then
       clip, rate = e.atk.clip, 1.0
       if e.t < e.atk.strike then e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 6 * dt) end
+      if e.t >= e.atk.strike - 0.18 and not e.swung then e.swung = true; snd(e.kind == "dog" and "bite" or "eswing", e.kind == "huntsman" and -3 or 0) end
       -- the blow lands when its weapon touches the Hunter in the window round the hit time of the clip; a Hunter who has moved is missed
       if e.t >= e.atk.strike - 0.08 and e.t <= e.atk.strike + 0.22 and not e.struck and enemy_weapon_hits_player(e) then
         e.struck = true
@@ -605,6 +747,7 @@ local function update_enemies()
       end
       if e.t >= lp.land and not e.struck then
         e.struck = true
+        snd("bite")
         if d < lp.reach then hurt(lp.dmg, e.x, e.z) end
       end
       if e.t > lp.total then e.st, e.t, e.leapcd = "chase", 0, lp.cool end
@@ -638,7 +781,7 @@ local function update_world()
     local near = dx * dx + dz * dz
     if not d.locked then
       if near < 1.8 * 1.8 then
-        if d.open == 0 then ev("door opens") end
+        if d.open == 0 then ev("door opens"); snd("door") end
         d.open = min(1, d.open + dt * 4)
       elseif near > 3.2 * 3.2 then d.open = max(0, d.open - dt * 2) end
     elseif near < 1.5 * 1.5 and G.frame % 120 == 0 then
@@ -652,6 +795,7 @@ local function update_world()
       P.hp, P.ammo = P.maxhp, 12
       say("the lantern is lit: health and bullets restored", 3)
       ev("lantern")
+      snd("lantern")
       spark(l.x, l.y + 1.4, l.z, 0xFFA030, 14)
     end
   end
@@ -662,54 +806,96 @@ local function update_world()
     if f.t <= 0 then table.remove(fx, i) end
   end
   G.msgt = max(0, G.msgt - dt)
+  -- the music: the clinic's theme, and the hunt while an enemy is after the Hunter (back to the theme after a calm)
+  local fight = false
+  for _, e in ipairs(enemies) do
+    if (e.st == "chase" or e.st == "attack" or e.st == "leap" or e.st == "stagger") and (e.x - P.x) ^ 2 + (e.z - P.z) ^ 2 < 14 * 14 then fight = true end
+  end
+  if fight then G.calm = 0 else G.calm = G.calm + dt end
+  local want = (fight or G.calm < 5) and 1 or 0
+  if not O.music then want = -1 end
+  if want ~= G.song and P.hp > 0 then
+    G.song = want
+    if want < 0 then music(-1, 600) else music(want, want == 1 and 300 or 1500) end
+  end
 end
 
 local function respawn()
   reset_player(G.spawn[1], G.spawn[2])
+  Cam.yaw = P.yaw
   for _, e in ipairs(enemies) do
     e.x, e.z, e.hp, e.st, e.t, e.flash, e.anim, e.at = e.hx, e.hz, e.maxhp, "idle", 0, 0, "idle", 0
     e.leapcd, e.leaping = 1.5, nil
   end
   G.state = "play"
+  G.song, G.calm = -1, 10
   ev("respawn")
 end
 
 -- ---------------------------------------------------------------- the camera
+-- the walls and the door leaves (open or shut: an open leaf stands in the doorway's side) stop the camera
+local function cam_blocked(x, y, z)
+  if map3d_blocked(world, x, y, z, 0.18) then return true end
+  for i = 1, #objs do
+    local o = objs[i]
+    if o.door and (x - o.x) ^ 2 + (z - o.z) ^ 2 < (o.r + 0.3) ^ 2 then return true end
+  end
+  return false
+end
+
 local function update_camera()
   local dt = 1 / 60
   if held.camL then Cam.yaw = Cam.yaw - 1.8 * dt end
   if held.camR then Cam.yaw = Cam.yaw + 1.8 * dt end
-  if held.camU then Cam.dist = max(4, Cam.dist - 4 * dt) end
-  if held.camD then Cam.dist = min(12, Cam.dist + 4 * dt) end
+  if held.camU then Cam.dist = max(3.2, Cam.dist - 4 * dt) end
+  if held.camD then Cam.dist = min(9, Cam.dist + 4 * dt) end
   if P.lock then
     -- behind the player, looking at the target
     local want = yaw_of(P.lock.x - P.x, P.lock.z - P.z)
     Cam.yaw = Cam.yaw + wrap(want - Cam.yaw) * 0.08
+  elseif P.mode == "free" and (held.fwd or held.back or held.left or held.right) then
+    -- the camera drifts round behind the Hunter as he runs
+    Cam.yaw = Cam.yaw + wrap(P.yaw - Cam.yaw) * 0.012
   end
-  local tx, ty, tz = P.x, P.y + 1.3, P.z
   local fxx, fzz = dir(Cam.yaw)
+  local crx, crz = fzz, -fxx
+  -- the look point: the Hunter's chest, a shoulder's width to the right of him (an over-the-shoulder view); when locked on,
+  -- a little toward the target
+  -- next to a wall the shoulder offset shrinks, so the look point stays out of the wall
+  local side = Cam.side
+  while side > 0 and map3d_blocked(world, P.x + crx * side, P.y + 1.45, P.z + crz * side, 0.25) do side = side - 0.15 end
+  side = max(0, side)
+  Cam.so = lerp(Cam.so or side, side, 0.15)
+  local tx, ty, tz = P.x + crx * Cam.so, P.y + 1.45, P.z + crz * Cam.so
+  if P.lock then tx, ty, tz = lerp(tx, P.lock.x, 0.18), lerp(ty, P.lock.y + 1.0, 0.18), lerp(tz, P.lock.z, 0.18) end
   -- a wall in the way: first look down more steeply (the camera goes up, not in); only then come closer
   local function clear(pitch, k)
     local hd, vd = Cam.dist * cos(pitch), Cam.dist * sin(-pitch)
     for i = 1, 14 do
       local u = i / 14 * k
-      if map3d_blocked(world, tx - fxx * hd * u, ty + vd * u, tz - fzz * hd * u, 0.25) then return false, (i - 1) / 14 end
+      if cam_blocked(tx - fxx * hd * u, ty + vd * u, tz - fzz * hd * u) then return false, (i - 1) / 14 end
     end
     return true, 1
   end
   local pitch, best = Cam.pitch, 1
-  for _, extra in ipairs({ 0, -0.15, -0.3, -0.45, -0.6 }) do
+  for _, extra in ipairs({ 0, -0.12, -0.25 }) do
     local ok, k = clear(Cam.pitch + extra, 1)
     pitch = Cam.pitch + extra
     if ok then best = 1; break end
     best = k
   end
   Cam.pe = lerp(Cam.pe or Cam.pitch, pitch, 0.1)
-  best = max(0.3, best)
+  best = max(0.35, best)
   local hd, vd = Cam.dist * cos(Cam.pe), Cam.dist * sin(-Cam.pe)
   local gx, gy, gz = tx - fxx * hd * best, ty + vd * best, tz - fzz * hd * best
-  Cam.x, Cam.y, Cam.z = lerp(Cam.x, gx, 0.3), lerp(Cam.y, gy, 0.3), lerp(Cam.z, gz, 0.3)
-  Cam.tx, Cam.ty, Cam.tz = tx, ty, tz
+  -- the ground: the camera never goes under the floor it stands over
+  local fh = map_height(gx, gz)
+  if fh and gy < fh + 0.5 then gy = fh + 0.5 end
+  Cam.x, Cam.y, Cam.z = lerp(Cam.x, gx, 0.25), lerp(Cam.y, gy, 0.25), lerp(Cam.z, gz, 0.25)
+  -- a hit shakes the view
+  Cam.shake = max(0, Cam.shake - dt * 0.6)
+  local sh = Cam.shake
+  Cam.tx, Cam.ty, Cam.tz = tx + (math.random() - 0.5) * sh, ty + (math.random() - 0.5) * sh, tz + (math.random() - 0.5) * sh
 end
 
 local function look(x, y, z, tx, ty, tz)
@@ -718,16 +904,18 @@ local function look(x, y, z, tx, ty, tz)
 end
 
 -- ---------------------------------------------------------------- the drawing
+-- The night: a pale moon high up (the shadows fall straight under the figures, all the same way), a cold sky, a black
+-- ground, a thick fog close by. The lamps and lanterns are the warm light.
 local function apply_environment()
-  local amb = ({ 0.34, 0.44, 0.58 })[O.bright]
-  sky3d(0x98A2C0, 0x6C7494, 0x3A3630)             -- a cold dusk, so the lamps are the warm things
-  light3d(-0.45, 0.8, -0.35, amb)
-  fog3d(SKY, 18, 60)
+  local amb = ({ 0.05, 0.09, 0.15 })[O.bright]
+  sky3d(0x6E7290, 0x23283E, 0x08080C)
+  light3d(-0.16, 1.0, -0.12, amb)
+  fog3d(SKY, 5, 22)
+  shadow3d(0)
 end
 
 local function place_lamps()
-  -- the four lamps or lanterns nearest to the camera light the street
-  local near = {}
+  -- the three lamps or lanterns nearest to the Hunter light the street; the fourth lamp is the pistol's flash
   local src = {}
   for _, o in ipairs(objs) do if o.name == "lamp" or o.name == "lantern" then src[#src + 1] = o end end
   table.sort(src, function(a, b)
@@ -736,13 +924,13 @@ local function place_lamps()
   lamp3d()
   for i = 1, min(3, #src) do
     local o = src[i]
-    if (o.x - P.x) ^ 2 + (o.z - P.z) ^ 2 < 16 * 16 then
-      lamp3d(i, o.x, o.y + (o.name == "lamp" and 2.7 or 1.5), o.z, 6.5, 0.55, o.name == "lamp" and 0xFFC060 or 0xFF9A40)
+    if (o.x - P.x) ^ 2 + (o.z - P.z) ^ 2 < 20 * 20 then
+      local flick = 0.86 + 0.14 * sin(G.frame * 0.37 + o.x * 3.1) * sin(G.frame * 0.11 + o.z)
+      lamp3d(i, o.x, o.y + (o.name == "lamp" and 2.7 or 1.5), o.z, o.name == "lamp" and 5.5 or 4.2, 0.8 * flick,
+             o.name == "lamp" and 0xFFB850 or 0xFF8A30)
     end
   end
-  if #fx > 0 then
-    for _, f in ipairs(fx) do if f.kind == "flash" then lamp3d(4, f.x, f.y, f.z, 5, 1.5, 0xFFE0A0) end end
-  end
+  for _, f in ipairs(fx) do if f.kind == "flash" then lamp3d(4, f.x, f.y, f.z, 6, 1.6, 0xFFE0A0) end end
 end
 
 local function draw_player()
@@ -756,9 +944,9 @@ local function draw_player()
     animate(m, P.anim, P.at)
   end
   local ry = P.yaw + PI                           -- the model faces -z
-  if P.inv > 0 and (G.frame // 3) % 2 == 0 and P.mode ~= "dodge" then return end
+  if P.inv > 0 and (G.frame // 3) % 2 == 0 and P.mode ~= "dodge" and P.mode ~= "dead" then return end
   draw3d(m, P.x, P.y, P.z, 0, ry, 0, 1, 0)
-  draw3d(m, P.x, P.y, P.z, 0, ry, 0, 1, 8)        -- the shadow
+  draw3d(m, P.x, map_height(P.x, P.z) or P.y, P.z, 0, ry, 0, 1, 8)        -- the shadow, on the floor under him
 end
 
 local function draw_enemy(e)
@@ -768,7 +956,7 @@ local function draw_enemy(e)
   animate(m, e.anim, e.at)
   local ry = e.yaw + PI                                    -- the models face -z
   draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, e.flash > 0 and 2 or 0)
-  if e.st ~= "dead" then draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, 8) end
+  if e.st ~= "dead" or e.t < 1.2 then draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, 8) end
 end
 
 local function draw_objects()
@@ -779,6 +967,9 @@ local function draw_objects()
         local lift = 0
         if o.door then lift = o.open * 2.8 end
         draw3d(m, o.x, o.y + lift, o.z, 0, 0, 0, 1, 0)
+        if o.name == "lamp" or o.name == "pillar" or o.name == "lantern" or o.name == "barrel" or o.name == "crate" then
+          draw3d(m, o.x, o.y, o.z, 0, 0, 0, 1, 8)
+        end
       end
     end
   end
@@ -808,10 +999,12 @@ end
 
 local function draw_hud()
   local s = S()
-  bar(8 * s, 8 * s, 120 * s, 8 * s, P.hp / P.maxhp, 0xC03030)
-  text("BULLETS " .. P.ammo, 8 * s, 20 * s, 0xE0D8A0)
-  text(P.form == 1 and "SAW CLOSED" or "SAW OPEN", 8 * s, 36 * s, 0xC8C8D0)
-  if P.mode == "charge" and not P.released then bar(8 * s, 52 * s, 80 * s, 5 * s, min(1, P.charge / 1.2), 0xE0A040) end
+  bar(8 * s, 8 * s, 120 * s, 7 * s, P.hp / P.maxhp, 0xA82828)
+  bar(8 * s, 17 * s, 100 * s, 5 * s, max(0, P.sta) / STAMINA.max, P.sta > 0 and 0x5A9A48 or 0x806030)
+  text("BULLETS " .. P.ammo, 8 * s, 26 * s, 0xE0D8A0)
+  text(P.form == 1 and "SAW CLOSED" or "SAW OPEN", 8 * s, 40 * s, 0xC8C8D0)
+  if P.mode == "charge" and not P.released then bar(8 * s, 54 * s, 80 * s, 5 * s, min(1, P.charge / 1.2), 0xE0A040) end
+  if P.mode == "attack" and P.combo > 0 then text(string.rep("|", P.combo), 8 * s, 54 * s, 0xE0C890) end
   -- the enemies' bars and the lock
   for _, e in ipairs(enemies) do
     if e.st ~= "dead" and (e.hp < e.maxhp or e == P.lock) then
@@ -829,29 +1022,30 @@ local function draw_hud()
   end
   if G.msgt > 0 then
     local w = #G.msg * 8 * s
-    text(G.msg, (SCREEN_W - w) // 2, SCREEN_H - 40 * s, 0xF0E8D8)
+    text(G.msg, (SCREEN_W - w) // 2, SCREEN_H // 4, 0xF0E8D8)        -- above the help lines
   end
   if G.frame < 60 * 9 then
-    text("WASD move  SPACE dodge  SHIFT saw  E gun  Q lock", 8 * s, SCREEN_H - 36 * s, 0xA8A098)
-    text("U I O attacks  P charge (hold)  ESC menu  arrows: camera", 8 * s, SCREEN_H - 20 * s, 0xA8A098)
+    text("WASD move  SPACE dodge  SHIFT saw (in a combo: transform attack)", 8 * s, SCREEN_H - 36 * s, 0xA8A098)
+    text("U attack (again: the combo)  I O  P charge (hold)  E gun  Q lock  ESC menu", 8 * s, SCREEN_H - 20 * s, 0xA8A098)
   end
   if P.flash > 0 then
     local a = P.flash / 0.35
     for i = 0, 3 do rect(i * s, i * s, SCREEN_W - 2 * i * s, SCREEN_H - 2 * i * s, 0x802020) end
   end
-  if G.state == "dead" then
+  if G.state == "dead" and G.died > 0.9 then
     rectfill(0, SCREEN_H // 2 - 30 * s, SCREEN_W, 60 * s, 0x180808)
     local t = "YOU DIED"
     text(t, (SCREEN_W - #t * 8 * s * 3) // 2, SCREEN_H // 2 - 16 * s, 0xC03030, s * 3)
   end
 end
 
-local MENU = { "Resume", "Resolution", "Textures", "Brightness", "Controls", "Restart at the lantern" }
+local MENU = { "Resume", "Resolution", "Textures", "Brightness", "Music", "Controls", "Restart at the lantern" }
 local function menu_value(i)
   if i == 2 then return O.res == 1 and "1280x720" or "640x360" end
   if i == 3 then return O.textures and "on" or "off" end
   if i == 4 then return ({ "dim", "normal", "bright" })[O.bright] end
-  if i == 5 then return O.help and "shown" or "hidden" end
+  if i == 5 then return O.music and "on" or "off" end
+  if i == 6 then return O.help and "shown" or "hidden" end
   return ""
 end
 
@@ -875,9 +1069,9 @@ local function draw_menu()
     for k, line_ in ipairs({
       "W A S D    move (camera relative; locked: around the target)",
       "SPACE      dodge: back, or roll forward, or jump left / right",
-      "SHIFT      open or close the saw",
+      "SHIFT      open or close the saw; in a combo: the transform attack",
       "E          fire the pistol        Q  lock on / off",
-      "U I O      the three saw attacks (U then I then O: a combo)",
+      "U          attack; press again in time: the combo, four hits (I, O: the 2nd and 3rd)",
       "P          the charged attack: hold, then let go",
       "arrows     turn the camera, zoom       ESC  this menu",
     }) do text(line_, hx, hy + (k - 1) * 16 * s, 0xA8A098) end
@@ -885,18 +1079,20 @@ local function draw_menu()
 end
 
 local function menu_update()
-  if pressed.menu then G.state = "play"; return end
-  if pressed.fwd or pressed.camU then G.menu = (G.menu - 2) % #MENU + 1 end
-  if pressed.back or pressed.camD then G.menu = G.menu % #MENU + 1 end
+  if pressed.menu then G.state = "play"; snd("menu"); return end
+  if pressed.fwd or pressed.camU then G.menu = (G.menu - 2) % #MENU + 1; snd("menu", -3) end
+  if pressed.back or pressed.camD then G.menu = G.menu % #MENU + 1; snd("menu", -3) end
   local act = pressed.ok or pressed.right or pressed.left
   if not act then return end
+  snd("menu")
   local i = G.menu
   if i == 1 and pressed.ok then G.state = "play"
   elseif i == 2 then O.res = 3 - O.res; apply_resolution()
   elseif i == 3 then O.textures = not O.textures
   elseif i == 4 then O.bright = (O.bright + (pressed.left and -1 or 1) - 1) % 3 + 1
-  elseif i == 5 then O.help = not O.help
-  elseif i == 6 and pressed.ok then respawn(); G.state = "play" end
+  elseif i == 5 then O.music = not O.music
+  elseif i == 6 then O.help = not O.help
+  elseif i == 7 and pressed.ok then respawn(); G.state = "play" end
 end
 
 -- ---------------------------------------------------------------- the cartridge
@@ -910,7 +1106,8 @@ function _init()
   for kind in pairs(TYPES) do M3[kind] = model(kind) end
   load_world()
   reset_player(G.spawn[1], G.spawn[2])
-  Cam.x, Cam.y, Cam.z = P.x, P.y + 6, P.z
+  Cam.x, Cam.y, Cam.z = P.x - 4, P.y + 2.5, P.z
+  reverb(0.7, 0.45, 0.8)                           -- the clinic's halls
   say("The Clinic", 4)
   local n = { villager = 0, huntsman = 0, dog = 0 }
   for _, e in ipairs(enemies) do n[e.kind] = n[e.kind] + 1 end
@@ -920,14 +1117,21 @@ end
 function _update()
   G.frame = G.frame + 1
   local mx, my = read_input()
+  -- hit stop: a landed blow holds the picture for a few frames (the keys pressed meanwhile are kept)
+  if G.stop > 0 and G.state == "play" then
+    G.stop = G.stop - 1
+    buffer_input()
+    return
+  end
   if G.state == "play" then
-    if pressed.menu then G.state = "menu"; return end
+    if pressed.menu then G.state = "menu"; snd("menu"); return end
     if pressed.skip then
       G.skipn = (G.skipn or 0) % #SKIPS + 1
       local s = SKIPS[G.skipn]
       P.x, P.z = s[1], s[2]
       P.y = map_height(P.x, P.z) or P.y
       P.lock = nil
+      Cam.yaw = P.yaw                                  -- the view goes behind the Hunter at once
       ev("skip " .. G.skipn)
     end
     update_player(mx, my)
@@ -938,9 +1142,10 @@ function _update()
     menu_update()
   elseif G.state == "dead" then
     G.died = G.died + 1 / 60
+    update_player(0, 0)
     update_enemies()
     update_camera()
-    if G.died > 2.8 then respawn() end
+    if G.died > 3.6 then respawn() end
   end
 end
 
@@ -950,7 +1155,7 @@ function _draw()
   apply_environment()
   place_lamps()
   local yaw, pitch = look(Cam.x, Cam.y, Cam.z, Cam.tx or P.x, Cam.ty or P.y + 1.3, Cam.tz or P.z)
-  camera3d(Cam.x, Cam.y, Cam.z, yaw, pitch, 60)
+  camera3d(Cam.x, Cam.y, Cam.z, yaw, pitch, 56)
   textures3d(O.textures)
   map3d_draw(world, 0)
   draw_objects()

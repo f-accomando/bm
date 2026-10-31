@@ -38,6 +38,7 @@ typedef struct {
     int nt_x, nt_z;             /* map grid size in 16x16 tiles (w/2, h/2) */
     float cell;                 /* tile size in world units (default 1.0) */
     float step;                 /* height step in world units (default 0.25) */
+    float wall_tile;            /* units of height a wall texture covers, repeated down the face (0: stretched over it) */
 
     uint16_t *floor;            /* cells copy of floor layer */
     uint16_t *height;           /* cells copy of height layer */
@@ -66,6 +67,14 @@ map3d_t *map3d_create(int w, int h,
                       const uint16_t *objects,
                       float cell, float step,
                       const g16_sheet_t *sheet);
+
+map3d_t *map3d_create_opt(int w, int h,
+                          const uint16_t *floor,
+                          const uint16_t *height,
+                          const uint16_t *walls,
+                          const uint16_t *objects,
+                          float cell, float step,
+                          const g16_sheet_t *sheet, float wall_tile);
 
 void map3d_free(map3d_t *m);
 
