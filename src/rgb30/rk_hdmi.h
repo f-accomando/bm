@@ -22,6 +22,8 @@
 void rk_hdmi_clocks(void);
 /* 1 if a cable with a powered sink is plugged in (the HPD pin) */
 int rk_hdmi_hpd(void);
+/* Raw PHY_STAT0 register value */
+uint32_t rk_hdmi_phy_stat(void);
 /* The picture path and the PHY. The VOP must already send pixels at
  * 74.25 MHz. 0 on success, -1 if the PHY does not lock. */
 int rk_hdmi_start(void);

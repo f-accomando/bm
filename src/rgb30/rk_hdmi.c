@@ -14,9 +14,11 @@
 #include "rk_hdmi.h"
 #include "io.h"
 #include "drivers/timer.h"
+#include "lib/printf.h"
 
 #define HDMI        0xfe0a0000u
 #define CRU         0xfdd20000u
+#define PMUCRU      0xfdd00000u
 #define GRF         0xfdc60000u
 
 /* the controller */
@@ -104,8 +106,23 @@ void rk_hdmi_clocks(void)
 {
     /* pclk_hdmi_host, clk_hdmi_sfr, clk_hdmi_cec: bits 3..5 of CLKGATE_CON21 (0 = on) */
     writel(CRU + 0x354, HIWORD(0x38, 0));
+    /* ensure soft resets for HDMI are deasserted (bits 14, 15 of SOFTRST_CON16 at CRU+0x440) */
+    writel(CRU + 0x440, HIWORD(0xc000, 0));
     /* the DDC lines from the pins, not from I2C5 (GRF_VO_CON1 bits 15 and 14) */
     writel(GRF + 0x364, HIWORD(0xc000, 0xc000));
+
+    uint32_t pmu_mode = readl(PMUCRU + 0x80);
+    uint32_t pmu_sel8 = readl(PMUCRU + 0x120);
+    uint32_t hpll0 = readl(PMUCRU + 0x40);
+    uint32_t hpll1 = readl(PMUCRU + 0x44);
+    uint32_t cfg2 = rd(0x0006);
+    kprintf("hdmi: pmu mode=%08x sel8=%08x hpll=%08x/%08x cfg2=%02x\n",
+            pmu_mode, pmu_sel8, hpll0, hpll1, cfg2);
+}
+
+uint32_t rk_hdmi_phy_stat(void)
+{
+    return rd(PHY_STAT0);
 }
 
 int rk_hdmi_hpd(void)
@@ -122,13 +139,18 @@ static int phy_i2c_write(uint32_t reg, uint32_t val)
     wr(PHY_I2CM_DATAO_0, val);
     wr(PHY_I2CM_OPERATION, 0x10);                   /* write */
     for (int ms = 0; ms < 100; ms++) {
-        uint32_t st = rd(IH_I2CMPHY_STAT0) & 3;     /* done or error */
+        uint32_t st = rd(IH_I2CMPHY_STAT0) & 3;     /* bit 0 = error, bit 1 = done */
         if (st) {
             wr(IH_I2CMPHY_STAT0, st);
-            return st & 2 ? -1 : 0;
+            if (st & 1) {
+                kprintf("hdmi: phy i2c err reg 0x%02x val 0x%04x st 0x%02x\n", reg, val, st);
+                return -1;
+            }
+            return 0; /* done */
         }
         timer_delay_ms(1);
     }
+    kprintf("hdmi: phy i2c timeout reg 0x%02x val 0x%04x\n", reg, val);
     return -1;
 }
 
@@ -145,15 +167,17 @@ static void phy_power(int on)
     mod(PHY_CONF0, PHY_CONF0_PDDQ, 0);
 }
 
-/* one pass of the PHY set-up for 74.25 MHz; the data book asks for two */
-static int phy_pass(void)
+/* One pass of PHY register configuration for 74.25 MHz.
+ * Synopsys DW-HDMI Databook specifies running this twice before powering on the PHY. */
+static int phy_configure(void)
 {
     phy_power(0);
+    mod(PHY_CONF0, 0x20, 0x20);                      /* assert SVSRET (leave low-power retention) */
     mod(PHY_CONF0, PHY_CONF0_DATAENPOL | PHY_CONF0_SELDIPIF, PHY_CONF0_DATAENPOL);
     wr(FC_SCRAMBLER_CTRL, 0);                       /* clock ratio 1/10, no scrambling */
     wr(MC_PHYRSTZ, 1);                              /* PHY reset (active high) */
     wr(MC_PHYRSTZ, 0);
-    wr(MC_HEACPHY_RST, 1);
+    wr(MC_HEACPHY_RST, 0);                          /* ensure HEAC PHY reset is deasserted */
     mod(PHY_TST0, 0x20, 0x20);                      /* test clear, then the slave address */
     wr(PHY_I2CM_SLAVE, 0x69);
     mod(PHY_TST0, 0x20, 0);
@@ -167,13 +191,7 @@ static int phy_pass(void)
     r |= phy_i2c_write(PHY_CKSYMTXCTRL, 0x8009);
     r |= phy_i2c_write(PHY_VLEVCTRL, 0x0272);
     r |= phy_i2c_write(PHY_CKCALCTRL, 0x8000);      /* override */
-    phy_power(1);
-    for (int i = 0; i < 50; i++) {
-        if (rd(PHY_STAT0) & PHY_STAT0_LOCK)
-            return r ? -2 : 0;
-        timer_delay_ms(1);
-    }
-    return -1;
+    return r;
 }
 
 static void composer(void)
@@ -231,12 +249,25 @@ int rk_hdmi_start(void)
 {
     rk_hdmi_clocks();
     composer();
-    int r = phy_pass();
+    /* The Synopsys databook specifies running PHY configuration twice before power-on */
+    int r = phy_configure();
     if (r == 0)
-        r = phy_pass();
-    video_path();
-    avi_infoframe();
-    return r == -1 ? -1 : 0;
+        r = phy_configure();
+    if (r)
+        kprintf("hdmi: phy_configure returned %d\n", r);
+    phy_power(1);
+    for (int i = 0; i < 50; i++) {
+        uint32_t stat = rd(PHY_STAT0);
+        if (stat & PHY_STAT0_LOCK) {
+            kprintf("hdmi: phy locked in %d ms (stat0=0x%02x, conf0=0x%02x)\n", i, stat, rd(PHY_CONF0));
+            video_path();
+            avi_infoframe();
+            return 0;
+        }
+        timer_delay_ms(1);
+    }
+    kprintf("hdmi: phy lock timeout (stat0=0x%02x, conf0=0x%02x, r=%d)\n", rd(PHY_STAT0), rd(PHY_CONF0), r);
+    return -1;
 }
 
 void rk_hdmi_stop(void)

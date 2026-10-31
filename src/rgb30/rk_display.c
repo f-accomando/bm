@@ -21,6 +21,7 @@
 #include "kernel/config.h"
 #include "drivers/timer.h"
 #include "lib/printf.h"
+#include <string.h>
 
 #define VOP         0xfe040000u
 #define VP0         (VOP + 0xc00)
@@ -357,12 +358,15 @@ static int panel_on(void)
  * 0, or -1 with everything left off. */
 static int ext_on(void)
 {
+    kprintf("hdmi: ext_on starting\n");
     rk_hdmi_clocks();
     panel_off(d.up && !d.ext);
     int r = hdmi_clocks();
+    kprintf("hdmi: hdmi_clocks returned %d\n", r);
     if (r == 0) {
         vop_init_ext();
         r = rk_hdmi_start();
+        kprintf("hdmi: rk_hdmi_start returned %d\n", r);
     }
     if (r) {
         rk_hdmi_stop();
@@ -395,14 +399,18 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
         rk_hdmi_clocks();
         const char *off = config_get("hdmi");
         int ext = 0;
-        if (!(off && off[0] == '0')) {
+        int hpd = rk_hdmi_hpd();
+        kprintf("hdmi: boot check hpd=%d (rd=%02x, config hdmi=%s)\n", hpd, rk_hdmi_phy_stat(), off ? off : "unset");
+        if ((off && !strcmp(off, "force")) || (!(off && off[0] == '0') && hpd)) {
             /* a cable that stays for 30 ms is a cable (the pin can glitch) */
-            int hpd = 1;
-            for (int i = 0; i < 4 && hpd; i++) {
-                hpd = rk_hdmi_hpd();
-                timer_delay_ms(10);
+            int ok = 1;
+            if (!(off && !strcmp(off, "force"))) {
+                for (int i = 0; i < 4 && ok; i++) {
+                    ok = rk_hdmi_hpd();
+                    timer_delay_ms(10);
+                }
             }
-            if (hpd) {
+            if (ok) {
                 rgb30_display_stage("HDMI starting");
                 ext = ext_on() == 0;
                 LOG("HDMI %s", ext ? "1280x720" : "FAILED");
@@ -449,7 +457,14 @@ static void hotplug(void)
         return;
     d.last_poll = now;
     const char *off = config_get("hdmi");
-    int want = !(off && off[0] == '0') && rk_hdmi_hpd();
+    int hpd = rk_hdmi_hpd();
+    int want = ((off && !strcmp(off, "force")) || (!(off && off[0] == '0') && hpd));
+    static int last_hpd = -1;
+    if (hpd != last_hpd) {
+        last_hpd = hpd;
+        kprintf("hdmi: hpd changed to %d (rd=%02x, want=%d, ext=%d, noretry=%d)\n",
+                hpd, rk_hdmi_phy_stat(), want, d.ext, d.noretry);
+    }
     if (!want)
         d.noretry = 0;
     if (want == d.ext || (want && d.noretry)) {
@@ -462,12 +477,17 @@ static void hotplug(void)
     int saved = d.pos;
     d.pos = (int)sizeof d.info;                     /* the boot report stays as it was */
     if (want) {
+        kprintf("hdmi: hotplug switching to external 720p...\n");
         d.noretry = ext_on() != 0;
         if (d.noretry) {
+            kprintf("hdmi: ext_on failed, restoring panel\n");
             clocks_on();                            /* VPLL back to the panel's */
             panel_on();                             /* the panel again, as it was */
+        } else {
+            kprintf("hdmi: external 720p active!\n");
         }
     } else {
+        kprintf("hdmi: hotplug switching back to panel...\n");
         rk_hdmi_stop();
         writel(VP0 + 0x00, 1u << 31);
         writel(VOP + 0x000, CFG_DONE_VP0);
