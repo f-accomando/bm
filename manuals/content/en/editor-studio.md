@@ -54,7 +54,7 @@ bm Studio changes **projects** (`.bme`). A **game** (`.bm`) is only read: you ca
 
 ## Inside bm Studio
 
-- Press **Esc** to reach the menu. *Open...* lists the `.bme` projects of `/bme` and the `.bm` and `.bme` files of `/carts` and of the root of the SD card. Shortcut: **Ctrl+O**.
+- Press **Esc** to reach the menu. *Open...* lists the `.bme` projects of `/bme` and the `.bm` and `.bme` files of `/carts` and of the root of the SD card, and the `.bmm` model files of `/bmm` (Save writes the same `.bmm`; Save as makes a `.bme` project). Shortcut: **Ctrl+O**.
 - *Import a model...* (**Ctrl+I**) and *Export to /bmm...* (**Ctrl+E**) bring a model in from `/bmm` or `/glb` and write one to `/bmm` (see "Saving and exporting").
 - *New project* (**Ctrl+N**) starts an empty project. It comes with the starter tiles of bm Studio on its sprite sheet.
 - A new project is not saved yet: the menu shows `(not saved yet)` next to the name. Save it with **Ctrl+S**.

@@ -51,6 +51,8 @@ footer: manuali bm - editor-animator
 - Da un gioco: premi **X** sulla sua copertina e scegli **Open in bm Animator**.
 - Da un altro strumento della suite: la voce di menu **Open in bm Animator** (ce l'ha bm Studio) passa allo stesso file.
 
+*Open...* elenca anche i file di modello `.bmm` di `/bmm`. Un `.bmm` si apre con tutti i suoi modelli e scheletri. **Save** riscrive lo stesso `.bmm`; **Save as** crea un progetto `.bme`; **Try the game** dice che un file di modello non ha un gioco.
+
 Se l'elenco dei file è vuoto, lo schermo dice `no .bm files: make models in bm Studio`. Se apri un file senza modelli 3D, dice `no models: make them in bm Studio`. Il testo `open a .bm with 3D models (made in bm Studio)` compare quando l'app parte senza file e ci sono dei file `.bm`.
 
 ## Progetti e giochi
@@ -138,11 +140,23 @@ La disposizione è quella delle altre app della console: a sinistra un pannello 
 | `k` | pelle: ogni faccia segue l'osso più vicino |
 | `K` | pelle: ogni angolo segue l'osso più vicino (morbida) |
 | `v` | modalità pelle: scegli le facce a mano |
+| `h` | mostra solo le facce di questo osso; ancora: con le ossa sotto di lui; ancora: tutte |
+| `o` `i` | asse di rotazione x, y, z / passo di rotazione 5, 15, 45, 90 gradi |
+| `,` `.` | ruota questo osso e le ossa sotto di lui attorno alla sua testa, un passo indietro o avanti |
+| `u` | scrivi i gradi da ruotare |
 | `t` | posa di prova: piega ogni osso e segna in rosso le facce che si allungano o si strappano |
 | `q` `e` | ruota la vista a scatti |
 | `z` | inquadra il modello |
 
-In modalità pelle: le frecce scelgono una faccia, spazio la segna, `c` segna quelle collegate, `a` dà le facce segnate all'osso, PgSu e PgGiù cambiano osso, Backspace o Canc cancella i segni, `v` torna alle ossa.
+In modalità pelle: le frecce scelgono una faccia, spazio la segna, `c` segna quelle collegate, `b` segna tutte le facce dell'osso, `a` dà le facce segnate all'osso, PgSu e PgGiù cambiano osso, Backspace o Canc cancella i segni, `v` torna alle ossa.
+
+### Parti e angolo di un'arma
+
+Una parte è un osso con le sue facce. **h** mostra una parte da sola: le facce dell'osso scelto, nel colore dell'osso. Premi **h** di nuovo per aggiungere le ossa sotto di lui, e una terza volta per vedere tutto. Serve a controllare quali facce segue un osso.
+
+**, e .** ruotano l'osso scelto e tutte le ossa sotto di lui attorno alla testa dell'osso. Le facce che seguono queste ossa ruotano con loro. Il passo è quello di **i** (5, 15, 45 o 90 gradi) e l'asse è quello di **o**. La pagina li mostra dopo `turn`, per esempio `turn z 15`. **u** chiede i gradi esatti. Un **Ctrl+Z** annulla una rotazione. La rotazione cambia la posa a riposo, quindi ogni animazione usa il nuovo angolo: giri un'arma una sola volta, non in ogni clip. I tasti **[** e **]** cambiano ancora il modello, per questo la rotazione usa la virgola e il punto.
+
+Esempio: il Cacciatore di `dnhunter.bmm` ha la sega su un osso a parte, `grip.R`, figlio di `hand.R`. Scegli `grip.R` con su e giù, premi **o** per l'asse e **.** per ruotare la sega a passi di 15 gradi. Salva con Ctrl+S.
 
 ## F3, animate
 

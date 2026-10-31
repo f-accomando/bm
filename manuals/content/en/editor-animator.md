@@ -51,6 +51,8 @@ footer: bm manuals - editor-animator
 - From a game: press **X** on its cover and choose **Open in bm Animator**.
 - From another tool of the suite: the menu entry **Open in bm Animator** (bm Studio has it) switches to the same file.
 
+*Open...* also lists the `.bmm` model files of `/bmm`. A `.bmm` opens with all its models and skeletons. **Save** writes the same `.bmm` again; **Save as** makes a `.bme` project; **Try the game** says that a model file has no game.
+
 If the file list is empty, the screen says `no .bm files: make models in bm Studio`. If you open a file with no 3D models, it says `no models: make them in bm Studio`. The text `open a .bm with 3D models (made in bm Studio)` is shown when the app starts with no file and there are `.bm` files.
 
 ## Projects and games
@@ -138,11 +140,23 @@ The layout is the one of the other console apps: on the left a panel with lists,
 | `k` | skin: each face follows its nearest bone |
 | `K` | skin: each corner follows its nearest bone (smooth) |
 | `v` | skin mode: choose faces by hand |
+| `h` | show only the faces of this bone; again: with the bones below it; again: all |
+| `o` `i` | turn axis x, y, z / turn step 5, 15, 45, 90 degrees |
+| `,` `.` | turn this bone and the bones below it round its head, one step back or forward |
+| `u` | type the degrees to turn |
 | `t` | test pose: bend each bone and mark in red the faces that stretch or tear |
 | `q` `e` | turn the view by steps |
 | `z` | frame the model |
 
-In skin mode: arrows choose a face, space marks it, `c` marks the connected ones, `a` gives the marked faces to the bone, PgUp and PgDn change the bone, Backspace or Del clears the marks, `v` goes back to the bones.
+In skin mode: arrows choose a face, space marks it, `c` marks the connected ones, `b` marks all the faces of the bone, `a` gives the marked faces to the bone, PgUp and PgDn change the bone, Backspace or Del clears the marks, `v` goes back to the bones.
+
+### Parts and the angle of a weapon
+
+A part is a bone with its faces. **h** shows one part alone: the faces of the chosen bone, in the colour of the bone. Press **h** again to add the bones below it, and a third time to see all. Use it to check which faces follow a bone.
+
+**, and .** turn the chosen bone and all the bones below it round the head of the bone. The faces that follow these bones turn with them. The step is the one of **i** (5, 15, 45 or 90 degrees) and the axis is the one of **o**. The page shows both after `turn`, for example `turn z 15`. **u** asks the exact degrees. One **Ctrl+Z** takes back one turn. The turn changes the rest pose, so every animation uses the new angle: you turn a weapon once, not in each clip. The keys **[** and **]** still change the model, so the turn uses the comma and the point.
+
+Example: the Hunter in `dnhunter.bmm` has the saw on its own bone, `grip.R`, a child of `hand.R`. Choose `grip.R` with up and down, press **o** to pick the axis and **.** to turn the saw in steps of 15 degrees. Save with Ctrl+S.
 
 ## F3, animate
 

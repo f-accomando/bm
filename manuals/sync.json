@@ -414,8 +414,8 @@
  "characters": {
   "chapters": {
    "1": {
-    "en": "d6b5121b6d8e",
-    "it": "2e5b629a945d",
+    "en": "74a7257465a4",
+    "it": "05cb3bd91459",
     "title": "What this manual covers"
    },
    "10": {
@@ -485,8 +485,8 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "4c4eafda795f",
-   "carts/mesh/main.lua": "e108e7248bac",
+   "carts/animator/main.lua": "c0848d2b54a3",
+   "carts/mesh/main.lua": "2f96f4c4d132",
    "carts/pixel/main.lua": "ff4d7d19619e",
    "carts/studio/main.lua": "a445dc610bdc",
    "carts/titan/build/mkrobot.py": "72c7aff21afd",
@@ -496,8 +496,8 @@
    "docs/design/games-architecture.md": "171234de457d",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/design/suite-pixel.md": "bbfd8d899dda",
-   "docs/progress/graphics.md": "ec275f212dde",
-   "docs/progress/tools.md": "470a3fe5ad67",
+   "docs/progress/graphics.md": "48a8c75083b2",
+   "docs/progress/tools.md": "66ee167893d7",
    "docs/progress/yharnam.md": "98213d6bc581",
    "tools/cutout2mesh.py": "a2a57f9737c1",
    "tools/img2mesh.py": "db3364221d4a"
@@ -516,13 +516,13 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "d2752f12b6b9",
-    "it": "5559fb96404e",
+    "en": "b8ca8e03935c",
+    "it": "f75279c21ed4",
     "title": "Opening"
    },
    "3": {
-    "en": "23bc5f2800dc",
-    "it": "b7fac9fc9573",
+    "en": "c2affa9d7e92",
+    "it": "8a9f03d0ab4d",
     "title": "The screen and the controls"
    },
    "4": {
@@ -557,11 +557,11 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "4c4eafda795f",
-   "docs/RISORSE.md": "69354ea59894",
+   "carts/animator/main.lua": "c0848d2b54a3",
+   "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "59fa40bbade7",
-   "sdk/README.md": "3c71bfdd808e"
+   "docs/progress/tools.md": "66ee167893d7",
+   "sdk/README.md": "2a6f102e097a"
   }
  },
  "editor-code": {
@@ -633,18 +633,18 @@
     "title": "What bm Mesh is"
    },
    "2": {
-    "en": "4c9ce9800f12",
-    "it": "6678e4d94c5d",
+    "en": "87fb377513a6",
+    "it": "fba910c81e70",
     "title": "Opening"
    },
    "3": {
-    "en": "d4b37c78ff63",
-    "it": "a7f903e912a9",
+    "en": "13634f7cc663",
+    "it": "62420f139685",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "973253256a24",
-    "it": "1de7f3190efd",
+    "en": "9255570dcd67",
+    "it": "d06e348fb95b",
     "title": "Selecting and moving"
    },
    "5": {
@@ -669,11 +669,11 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "e108e7248bac",
-   "docs/RISORSE.md": "69354ea59894",
+   "carts/mesh/main.lua": "2f96f4c4d132",
+   "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-studio-mesh.md": "fb92e52de055",
-   "docs/progress/tools.md": "59fa40bbade7",
-   "sdk/README.md": "3c71bfdd808e"
+   "docs/progress/tools.md": "66ee167893d7",
+   "sdk/README.md": "2a6f102e097a"
   }
  },
  "editor-pixel": {
@@ -862,8 +862,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "64f2a4244f0b",
-    "it": "bbf2797fd2cb",
+    "en": "381561e94d80",
+    "it": "fe679a7ca4f3",
     "title": "Opening a project or a game"
    },
    "3": {
@@ -872,8 +872,8 @@
     "title": "The screen and the 3D view"
    },
    "4": {
-    "en": "0ff49de462fe",
-    "it": "81a530ee8851",
+    "en": "8de710a11eb8",
+    "it": "1467b8180b69",
     "title": "Building: tiles and blocks"
    },
    "5": {
@@ -882,8 +882,8 @@
     "title": "Painting a model"
    },
    "6": {
-    "en": "377c3d1aafcf",
-    "it": "3cfdf6281fdc",
+    "en": "f23764d4674e",
+    "it": "9f9a12e7cc22",
     "title": "The models page and mesh reduction"
    },
    "7": {
@@ -903,11 +903,11 @@
    }
   },
   "sources": {
-   "carts/studio/main.lua": "597711e5f5c8",
-   "docs/RISORSE.md": "69354ea59894",
+   "carts/studio/main.lua": "a445dc610bdc",
+   "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-studio-mesh.md": "fb92e52de055",
-   "docs/progress/tools.md": "59fa40bbade7",
-   "sdk/README.md": "3c71bfdd808e"
+   "docs/progress/tools.md": "66ee167893d7",
+   "sdk/README.md": "2a6f102e097a"
   }
  },
  "editor-write": {

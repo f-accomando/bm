@@ -33,6 +33,7 @@ A character in bm is one of three things: a **sprite** in the sprite sheet, a se
 
 - Pixel, Studio, Animator and Mesh work on the same file: a **project** (`.bme`). A game (`.bm`) is read only, and the first save makes an editable `.BME` copy.
 - The sprite sheet is shared: bm Pixel draws it, bm Studio uses pieces of it as textures, bm Animator puts baked sprites into it.
+- Give a weapon its own bone (a child of the hand, for example `grip.R`). In bm Mesh, **Shift+N** shows each bone as a part and lets you work on it alone. In bm Animator, **,** and **.** turn the bone and its children, so one change gives the weapon a new angle in every animation.
 - The pad and keys of each editor are in its own manual (`editor-pixel`, `editor-studio`, `editor-animator`, `editor-mesh`). Here only what a character needs.
 
 ## Caveats

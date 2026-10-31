@@ -33,6 +33,7 @@ Un personaggio in bm è una di tre cose: uno **sprite** nello sprite sheet, un i
 
 - Pixel, Studio, Animator e Mesh lavorano sullo stesso file: un **progetto** (`.bme`). Un gioco (`.bm`) è di sola lettura e il primo salvataggio crea una copia `.BME` modificabile.
 - Lo sprite sheet è condiviso: bm Pixel lo disegna, bm Studio ne usa dei pezzi come texture, bm Animator ci mette gli sprite generati.
+- Dai a un'arma un osso proprio (figlio della mano, per esempio `grip.R`). In bm Mesh, **Maiusc+N** mostra ogni osso come una parte e ti lascia lavorare su di lei da sola. In bm Animator, **,** e **.** ruotano l'osso e i suoi figli, quindi una sola modifica dà all'arma un nuovo angolo in ogni animazione.
 - Tasti e pad di ogni editor stanno nel suo manuale (`editor-pixel`, `editor-studio`, `editor-animator`, `editor-mesh`). Qui solo ciò che serve a un personaggio.
 
 ## Attenzione

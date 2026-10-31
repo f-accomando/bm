@@ -65,7 +65,7 @@ Tutti gli strumenti della suite modificano solo **progetti** (`.bme`). Un **gioc
 - Dalla scheda **Dev** del menu della console.
 - Da un gioco: premi **X** sulla sua copertina, poi **Open in bm Mesh**.
 - Dal monitor: il tasto `4`.
-- Dall'interno dell'editor: Esc, poi **Open...** (Ctrl+O). L'elenco mostra i progetti `.bme` di `/bme` e i file `.bm` e `.bme` di `/carts` e della radice della SD.
+- Dall'interno dell'editor: Esc, poi **Open...** (Ctrl+O). L'elenco mostra i progetti `.bme` di `/bme`, i file `.bm` e `.bme` di `/carts` e della radice della SD, e i file di modello `.bmm` di `/bmm`. Un `.bmm` si apre con tutti i suoi modelli e scheletri. **Save** riscrive lo stesso `.bmm`, **Save as** chiede un nome di al massimo 8 lettere per un altro `.bmm`, e **Try the game** dice che un file di modello non ha un gioco.
 - Se hai avviato bm Mesh senza file, il selettore di file si apre da solo.
 
 ## Cosa vedi dopo l'apertura
@@ -154,6 +154,7 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | X (Maiusc+X) | specchio dal vivo acceso o spento |
 | B (Maiusc+B) | dai i vertici scelti a un osso dello scheletro |
 | v | vista ossa: i punti dei vertici prendono il colore del loro osso |
+| N (Maiusc+N) | parti: le ossa come albero; scegli una parte, mostrala da sola, nascondila |
 | h | mostra o nascondi il fantasma (il modello di riferimento) |
 | H (Maiusc+H) | carica un fantasma da `/bmm` o `/glb`, o toglilo |
 | [ e ] | il fantasma più piccolo o più grande (5 per cento a ogni pressione) |
@@ -274,6 +275,19 @@ L'intestazione mostra l'osso della scelta a destra della seconda riga, per esemp
 Con lo specchio dal vivo acceso, seguono anche i corrispondenti dall'altra parte di X = 0. Se lo scheletro ha una coppia speculare per nome, i corrispondenti prendono l'altro osso della coppia. I nomi che differiscono solo per il lato sono una coppia: `arm_l` e `arm_r`, `hand.L` e `hand.R`, `l_foot` e `r_foot`, `armLeft` e `armRight`. Un osso senza coppia nello scheletro dà lo stesso osso ai corrispondenti. Se scegli entrambi i lati, i vertici dal lato della testa dell'osso tengono quell'osso e l'altro lato prende la coppia. Un vertice su X = 0 tiene l'osso che hai scelto.
 
 Se uno scheletro non ha ancora vertici, tutti i vertici sono sull'osso 0 finché non li dai a un altro osso. Se lo scheletro è stato fatto per un altro numero di vertici, bm Mesh non cambia le ossa: associa di nuovo il modello in bm Animator. Un modello senza scheletro risponde "no skeleton". Con il gamepad tocca X e scegli **Give the choice to a bone** o **Bone view**.
+
+### Parti
+
+Lavora per parti, non per vertici. Una parte è l'insieme dei vertici di un osso. Premi **Maiusc+N** (con il gamepad: X, poi **Parts**). Un elenco mostra le ossa come albero: ogni figlio è rientrato sotto il suo genitore, per esempio `uarm`, poi `larm`, `hand` e `grip` sotto di lui. Il numero tra parentesi è quanti vertici ha l'osso. Scegli un osso e premi Invio per aprire il suo menu:
+
+- **Choose this part** sceglie tutti i suoi vertici. Poi **g**, **r** e **t** spostano, ruotano e scalano la parte, e **f** la inquadra.
+- **Choose it with the parts below** aggiunge i vertici delle ossa figlie.
+- **Show only this part** nasconde il resto del modello, così vedi la parte da sola. **Show only it with the parts below** fa lo stesso per la parte e i suoi figli.
+- **Hide this part** nasconde la parte e lascia il resto.
+- **Give the choice to this bone** è come **Maiusc+B** con questo osso.
+- **Back to the parts** riapre l'elenco.
+
+Quando qualcosa è nascosto, la prima riga dell'elenco è **Show all**. Ogni nascondi e ogni mostra-solo è un passo di annullamento. Un modello senza scheletro risponde "no skeleton". Per fare di un'arma una parte a sé, aggiungi in bm Animator un osso per lei (figlio della mano), poi dai i suoi vertici a quell'osso con **Maiusc+B**.
 
 ## Aggancio
 
