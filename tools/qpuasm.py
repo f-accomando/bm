@@ -1521,6 +1521,76 @@ SHADERS["vs_lit_tex2"] = """
         nop                 ; nop
 """
 
+# bm3d 7.33: plain colour faces of a skin on two bones (the joints of a continuous skin: Dark Night's
+# characters). vs_lit_tex2's corner with the colour (bytes a b c, 0..1) in place of s t, and vs_lit's
+# end: colour * light, the lamps in colour, the fog (colour + (fog - colour) * f), at most 1: the
+# varyings of fs_colour. No highlight: a glossy face on two bones stays on the ARM. Attributes
+# x y z w, the normal, colour a b c, emissive, the normal's weight (12 words). Uniforms as
+# vs_lit_tex2's with the fog's colour (a b c) after the fog's near and k.
+SHADERS["vs_lit2"] = """
+        ldi vr_setup, 0xc01a00                          # 12 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra25, vpm       ; nop                       # w: 1 bone A, 0 bone B
+        mov ra3, vpm        ; nop                       # the normal
+        mov ra4, vpm        ; nop
+        mov rb0, vpm        ; nop
+        mov rb1, vpm        ; nop                       # colour a
+        mov ra17, vpm       ; nop                       # colour b
+        mov ra7, vpm        ; nop                       # colour c
+        mov ra8, vpm        ; nop                       # emissive
+        mov rb25, vpm       ; nop                       # the normal's weight
+""" + XFORM2 + """
+        mov ra13, r4        ; nop                       # 1 / depth
+""" + DOT2("ra18", "rb25") + DOT2("ra14", "rb25") + DOT2("ra19", "rb25") + """
+        fmax r3, ra18, 0    ; nop                       # max(d, 0)
+        fmax r2, ra19, 0    ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, r2           # e^2: the rim
+""" + SHADE("ra5") + SHADE("rb3") + SHADE("rb4") + FOG + """
+        mov ra11, unif      ; nop                       # fog a b c
+        mov rb11, unif      ; nop
+        mov ra12, unif      ; nop
+""" + LAMP * 4 + """
+        fsub r0, 1.0, ra5   ; nop                       # emissive: full light
+        mov r1, rb3         ; fmul r0, r0, ra8
+        fadd ra5, ra5, r0   ; nop
+        fsub r1, 1.0, r1    ; nop
+        mov r2, rb4         ; fmul r1, r1, ra8
+        fadd rb3, rb3, r1   ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, ra8
+        fadd rb4, rb4, r2   ; nop
+        nop                 ; fmul r0, rb1, ra5         # colour * light
+        nop                 ; fmul r1, ra17, rb3
+        nop                 ; fmul r2, ra7, rb4
+        fsub r3, ra11, r0   ; nop                       # (fog - colour) * f + colour
+        nop                 ; fmul r3, r3, ra10
+        fadd r0, r0, r3     ; nop
+        fsub r3, rb11, r1   ; nop
+        nop                 ; fmul r3, r3, ra10
+        fadd r1, r1, r3     ; nop
+        fsub r3, ra12, r2   ; nop
+        nop                 ; fmul r3, r3, ra10
+        fadd r2, r2, r3     ; nop
+        fmin r0, r0, 1.0    ; nop
+        fmin r1, r1, 1.0    ; nop
+        fmin r2, r2, 1.0    ; nop
+        mov vpm, ra9        ; nop                       # screen x, y
+        mov vpm, rb9        ; nop                       # z
+        mov vpm, ra13       ; nop                       # 1 / w
+        mov vpm, r0         ; nop                       # colour a b c
+        mov vpm, r1         ; nop
+        mov vpm, r2         ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
 # Shadows (bm3d 3.0): the corner (ra0 ra1 ra2) into world axes relative to the
 # camera by its bone (12 uniforms), then down along the sun to the ground's
 # plane, as r3d's draw_shadow: h = max(0, (y - plane) / Ly), x - Lx h,
@@ -1719,7 +1789,7 @@ def cel_variant(src, spec):
     return out
 
 
-for _name, _spec in (("vs_lit", 1), ("vs_lit8", 1), ("vs_lit_tex", 0), ("vs_lit_tex2", 0)):
+for _name, _spec in (("vs_lit", 1), ("vs_lit8", 1), ("vs_lit_tex", 0), ("vs_lit_tex2", 0), ("vs_lit2", 0)):
     SHADERS[_name + "_cel"] = cel_variant(SHADERS[_name], _spec)
 
 

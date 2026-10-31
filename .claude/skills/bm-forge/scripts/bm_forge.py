@@ -10,6 +10,7 @@
     python bm_forge.py preview FILE -o OUT.png|OUT.gif [--model NAME] [--clip NAME | --turntable N] [--size WxH]
                                [--yaw R] [--pitch R] [--ortho] [--bones] [--fps 12] [--cols N]
                                [--mask] [--compare REF] [--ref-model NAME] [--view V] [--min-iou F]
+    python bm_forge.py gpuskin FILE [-o OUT] [--two-bones] [--palette X,Y[,W] --palette-png STRIP.png] [--model NAME] [--json]
     python bm_forge.py doctor [--json]
 """
 import argparse
@@ -22,7 +23,7 @@ if SKILL not in sys.path:
     sys.path.insert(0, SKILL)
 
 import bm_core as B
-from bm_core import ValidationError, animgen, container, export, glb, mesh as meshmod, shapes, skelgen
+from bm_core import ValidationError, animgen, container, export, glb, gpuskin, mesh as meshmod, shapes, skelgen
 
 
 def build_parser():
@@ -142,6 +143,15 @@ def build_parser():
     preview_parser.add_argument("--min-iou", type=float, help="Minimum IoU of --compare (default 0.75)")
 
     # doctor
+    gs_parser = subparsers.add_parser("gpuskin", help="Report or fix what keeps skinned models off the console's GPU")
+    gs_parser.add_argument("file", help="A .bm/.bme/.bmm with MESH and ANIM")
+    gs_parser.add_argument("-o", "--out", help="Write the changed file here (with --two-bones or --palette)")
+    gs_parser.add_argument("--two-bones", action="store_true", help="Faces on three bones -> two (bm3d 7.33 then draws the skin)")
+    gs_parser.add_argument("--palette", help="X,Y[,W]: plain faces on two bones -> texels of a strip of the sheet (kernels before 7.33)")
+    gs_parser.add_argument("--palette-png", help="Write the palette strip (put it in the cart's sheet at X,Y)")
+    gs_parser.add_argument("--model", action="append", help="Only this model (repeatable; default every model with a rig)")
+    gs_parser.add_argument("--json", action="store_true", help="Print only a JSON object")
+
     doctor_parser = subparsers.add_parser("doctor", help="Report the optional tools found (none is imported)")
     doctor_parser.add_argument("--json", action="store_true", help="Print only a JSON object")
 
@@ -1091,6 +1101,60 @@ def cmd_preview(args):
 
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 2
+
+
+def cmd_gpuskin(args):
+    """gpuskin FILE [-o OUT] [--two-bones] [--palette X,Y[,W] --palette-png P] [--model NAME] [--json]"""
+    if (args.two_bones or args.palette) and not args.out:
+        print("error: --two-bones and --palette need -o OUT", file=sys.stderr)
+        return 2
+    if args.palette and not args.palette_png:
+        print("error: --palette needs --palette-png (the strip to put in the sheet)", file=sys.stderr)
+        return 2
+    cart = container.read_file(args.file, kernel_limits=True)
+    mesh, anim = cart.mesh(True), cart.anim(True)
+    if mesh is None or anim is None:
+        print("error: the file has no MESH and ANIM", file=sys.stderr)
+        return 2
+    rigs = {r.model: i for i, r in enumerate(anim.rigs)}
+    px = None
+    if args.palette:
+        parts = [int(v) for v in args.palette.split(",")]
+        if len(parts) not in (2, 3):
+            print("error: --palette X,Y[,W]", file=sys.stderr)
+            return 2
+        px = (parts[0], parts[1], parts[2] if len(parts) == 3 else 64)
+    out, colours = {}, []
+    for mi, m in enumerate(mesh.models):
+        if m.name not in rigs or (args.model and m.name not in args.model):
+            continue
+        ri = rigs[m.name]
+        rig = anim.rigs[ri]
+        before = gpuskin.gpu_report(m, rig)
+        if args.two_bones:
+            m, rig = gpuskin.two_bones_max(m, rig)
+        if px:                          # one strip for the whole file
+            m, colours = gpuskin.palette_joints(m, rig, px[0], px[1], px[2], colours)
+        mesh.models[mi] = m
+        anim.rigs[ri] = rig
+        out[m.name] = {"before": before, "after": gpuskin.gpu_report(m, rig)}
+    if args.out:
+        cart.set_mesh(mesh, True)
+        cart.set_anim(anim, True)
+        container.write_file(args.out, cart, kernel_limits=True)
+    if px:
+        gpuskin.palette_image(colours, px[2]).save_png(args.palette_png)
+    if args.json:
+        print(json.dumps({"models": out, "palette": len(colours)}))
+    else:
+        for name, r in out.items():
+            a = r["after"]
+            print("%-12s %s  one %d, two plain %d, two textured %d, two glossy %d, three %d%s" % (
+                name, "GPU" if a["gpu"] else "ARM", a["one"], a["two_plain"], a["two_textured"], a["two_glossy"],
+                a["three"], ("  (" + "; ".join(a["why"]) + ")") if a["why"] else ""))
+        if px:
+            print("palette: %d colours, %s at %d,%d" % (len(colours), args.palette_png, px[0], px[1]))
+    return 0
 
 
 def cmd_doctor(args):

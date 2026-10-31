@@ -38,7 +38,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   such a mesh goes triangle by triangle.
 
 ### V3D driver (`src/gpu/gpu3d.c`, `v3d.c`, `v3d_cl.c`, `shaders.h`)
-- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.2"); the table there lists
+- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.33"); the table there lists
   every step and which settings reproduce older ones.
 - Default where a V3D answers; software when `gpu3d=0`, in QEMU, or when the boot probe
   fails. What is not documented is learnt by the probe at boot and switched off by itself
@@ -48,7 +48,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   (2D under the 3D stays), 24-bit depth, MSAA 4× option.
 - QPU shaders written in `tools/qpuasm.py` and generated into `src/gpu/shaders.h`: fragment
   `fs_*` (two-thread variants `fs_*_t`), vertex `vs_baked`, `vs_tex_rgb`, `vs_lit`,
-  `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8`, shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
+  `vs_lit_tex`, `vs_lit_tex2`, `vs_lit2` (7.33: plain skins on two bones), `vs_baked8`, `vs_lit8`, `vs_shadow*`, `cs_*`, `fs_zclear`.
 - Options (each a `bm/config.txt` key, a Settings row and, for the main ones, an argument of
   `gpu3d([on, aa, vs, queue])`): `gpu3d`, `gpu3d_aa`, `gpu3d_vs` (0/1/2), `gpu3d_queue`
   (1 = default on the Pi, 0 = off, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,

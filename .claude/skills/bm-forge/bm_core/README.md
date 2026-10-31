@@ -18,6 +18,7 @@ ANIM (9) sections. Python >= 3.8, standard library only, no network. Formats:
 | `glb.py` | `.glb` -> `Mesh`, port of the glTF half of `scripts/bmmesh.py` |
 | `skin.py` | playback: `pose_at`, `skin` (port of `src/bm/runtime.c:2198-2321`), `playback()` -> per-frame bone matrices, posed bones, vertex bounds |
 | `preview.py` | software rasterizer (flat light, z-buffer, back faces, SHEET/SHEET8 textures): `render_mesh`, `render_turntable`, `render_anim`, `anim_gif`, `texture_of` |
+| `gpuskin.py` | skins for the V3D mesh path: `gpu_report` (faces on 1, 2, 3 bones; plain, glossy, textured on 2), `two_bones_max` (a face on three bones -> two), `palette_joints` and `palette_image` (plain faces on two bones -> texels of a strip, for kernels before bm3d 7.33) |
 | `skelgen.py` | skeleton description (JSON) -> `Rig`: `skeleton`, `describe`; rigid binding `assign_vertices` (`nearest_bone`, `nearest_bone_part`), `bind`; `mirror_name` (bm Animator's) |
 | `animgen.py` | keyframe description (JSON) -> `Clip` on the 12 fps grid: `clip`, `add_clips`, `write_anim`; native modes or baked keys |
 | `shapes.py` | box builder with the villager's winding: `box`, `boxes_model`, `load_boxes` |

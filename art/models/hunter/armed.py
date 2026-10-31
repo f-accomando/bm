@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import hunter_build as B  # noqa: E402
 import hunter_clips as C  # noqa: E402
-from bm_core import anim as A, animgen, export, mesh as M  # noqa: E402
+from bm_core import anim as A, animgen, export, gpuskin, mesh as M  # noqa: E402
 
 GRIP = {"saw": ("hand.R", -1), "pistol": ("hand.L", 1)}    # hand bone, side (+1 = .L on +x)
 PALM_Y = 1.48
@@ -60,7 +60,7 @@ def main(argv):
     if argv[1] == "--game":
         out_models, out_rigs = [], []
         for saw, name in (("saw_c", "hunter_c"), ("saw_o", "hunter_o")):
-            m, r = armed(models, rigs, saw, name)
+            m, r = gpuskin.two_bones_max(*armed(models, rigs, saw, name))   # no face on three bones: the GPU draws the skin
             out_models.append(m)
             out_rigs.append(animgen.add_clips(r, descs))
         export.export_bmm(argv[2], M.Mesh(out_models), anim=A.Anim(out_rigs), title="Hunter armed")

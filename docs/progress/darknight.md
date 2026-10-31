@@ -40,11 +40,10 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - Draw cost: the fog is whole at `FAR` (22). `map3d_draw(world, 0, FAR + 1)` skips the map pieces beyond it, and the objects and enemies beyond
   it are not drawn. A shadow (a second draw) is drawn only within `SHADOW` (11) of the camera. Models of 12 pixels or less are impostors
   (`gpu3d`). The game asks `gpu3d(gpu3d(), nil, 2, true, 12)`: the vertex shader at 2 and the console's queue, as the Hero cart
-  measured them (about 10k hero triangles at 60 fps on the Pi Zero W). The map and the props take the GPU's mesh path. The characters
-  do not: a quarter of their faces are plain colours on two bones (the joints of a continuous skin), and the vertex shader takes such a
-  face only when it is textured, so each character goes to the ARM one triangle at a time (`test_hero_mesh build/carts/darknight.bm
-  --expect-fallback hunter_c` shows it). A split to one bone a face (as the Hero cart) opened a seam at every bent joint, so it is not
-  used. Shadows are dithered (`shadow3d(1)`): the darkening style darkens again where two triangles of one shadow overlap on the GPU.
+  measured them (about 10k hero triangles at 60 fps on the Pi Zero W). The map, the props and the characters take the GPU's mesh
+  path: the characters' joints are plain faces on two bones (a continuous skin), drawn by `vs_lit2` (bm3d 7.33), and the 4 faces on
+  three bones of the coat's seams are split by `gpuskin.two_bones_max` (`armed.py --game`, `enemies/build.py`). `make test-darknight`
+  checks every character on the V3D emulator. A split to one bone a face (as the Hero cart) opened a seam at every bent joint. Shadows are dithered (`shadow3d(1)`): the darkening style darkens again where two triangles of one shadow overlap on the GPU.
   On the fixed walk of bmhost: 6.8k triangles a frame (at most 9.7k) and 316K pixels, against 14.2k (26k) and 1.27M before.
 - The Hunter carries the weapons at his sides: `idle`, `walk` and `run` swing the arms beside the body; with the open saw the game plays
   `idle_o`, `walk_o` and `run_o` (the long blade low and back, off the floor). The closed saw has a long handle and the blade folded along it.
@@ -65,8 +64,6 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Open work
 
-- The characters are drawn by the ARM on the Pi (plain faces on two bones). The fix is in the V3D driver: a vertex shader for plain lit faces
-  on two bones (as `vs_lit_tex2` for the textured ones).
 - Not run on a Pi or an RGB30. The cost of a frame on the consoles is not measured: run it with the dev kit on (Performance row) and read the session report.
 - The enemies have no tactics: they do not dodge, wait for a gap or keep apart in a group. The pickups of the reference map are not in the kit.
 - The sound and the music are heard only in bmhost renders (`make wav`). Listen to them on a device.
@@ -90,5 +87,6 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - Keep the `SFX` table of `main.lua` in the order of the effects of `carts/darknight/art/sounds.py`. An effect is played by its index.
 - Draw a shadow (`draw3d` flag 8) on the floor height under the figure, not on the figure's own height.
 - Keep the skin of a character continuous (faces across a joint share its vertices). A split to one bone a face opens seams when the joint bends.
+- Export the characters with no face on three bones (`gpuskin.two_bones_max`) and no glossy face on two bones. Such a face sends the whole model to the ARM.
 - Keep the draw distance `FAR` equal to the fog's far distance, and draw the shadows only within `SHADOW`. A thing beyond the fog costs triangles and shows nothing.
 - Make an open shell of a model (coat skirt, cape, strap) two-sided (`twosided` in `hunter_build.py`). A one-sided shell is not seen from inside.

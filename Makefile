@@ -505,8 +505,9 @@ test-islandbench: $(BUILD)/host/bmhost-bin $(BUILD)/carts/islandbench.bm tests/i
 
 # Dark Night (carts/darknight): a script of keys plays the game in bmhost (dodges, attacks, the saw, the charge, the
 # pistol, the lock, the hall door, death and a new start) and the test reads the event lines of the game
-test-darknight: $(BUILD)/host/bmhost-bin $(BUILD)/carts/darknight.bm tests/darknight/check.py
+test-darknight: $(BUILD)/host/bmhost-bin $(BUILD)/carts/darknight.bm tests/darknight/check.py $(BUILD)/host/test_hero_mesh
 	$(PYTHON) tests/darknight/check.py $< $(BUILD)/carts/darknight.bm $(BUILD)/darknight/test
+	$(BUILD)/host/test_hero_mesh $(BUILD)/carts/darknight.bm hunter_c hunter_o villager huntsman dog    # every character on the GPU (vs_lit2)
 
 # the editors read the model files: the import code of bm Mesh and bm Animator and the kernel's own checks, in bmhost
 test-bmm: $(BUILD)/host/bmhost-bin scripts/check_bmm.py

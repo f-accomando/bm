@@ -27,8 +27,8 @@
  * (shadow3d(0); shadow3d(1) is the screen-door of 7.6) 7.7. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.32"
-#define BM3D_BLOCK   "Mali"
+#define BM3D_VERSION "7.33"
+#define BM3D_BLOCK   "vs"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -94,6 +94,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.16", "Mali", "2026-10-27", "gpu2d_only (hidden, off): a game with no 3D has its 2D drawn by the V3D; the job opens with the first quad; dark_begin starts it" },
         { "7.17", "Mali", "2026-10-28", "Opaque textures on the Mali (BM_FS_TEX, mali_tex=1); 3D Bench pixel check (K lines)" },
         { "7.18", "Mali", "2026-10-28", "Hardware depth test on the Mali (mali_z=1): no far-to-near sort, one frame holds all the triangles" },
+        { "7.33", "vs", "2026-10-31", "V3D: plain colour faces of a skin on two bones in the vertex shader (vs_lit2): a continuous skin stays on the GPU" },
         { "7.32", "Mali", "2026-10-29", "Textured meshes in the Mali vertex shader (BM_VS_TEXM): a map chunk costs the ARM 0.6 ms, not 5.8 ms (hero, 0 heroes)" },
         { "7.31", "Mali", "2026-10-29", "Each frame shown a frame later (gpu3d_later) on the Mali: the page of the held frame uses the real page step of the RGB30; a cls belongs to its frame" },
         { "7.30", "Mali", "2026-10-29", "A cls() with the 3D on the GPU: the first resolve fills the page, so a frame split in jobs keeps its first jobs (hero showed no map, 50 heroes, 6 visible)" },

@@ -64,22 +64,23 @@ enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA,
 #define SH_LIGHT_FIRST SH_LIGHT0
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (bm3d 3.0); GV_LIT_TEX2: faces on two bones (a
- * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (bm3d 7.1,
+ * skin); GV_LIT2 (bm3d 7.33): the plain colour faces of a skin on two bones; GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (bm3d 7.1,
  * gpu3d_attr: bytes packed in words, unpacked by the shader). bm3d 7.5: GV_*_CEL, the lit
  * programs with the cel light (cel3d): the same corners, four uniforms more; a draw with
  * the cel light takes them in place of the others (cel_vs), they are never in a mesh */
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8,
-       GV_LIT_CEL, GV_LIT_TEX_CEL, GV_LIT_TEX2_CEL, GV_LIT8_CEL, GV_COUNT };
+       GV_LIT_CEL, GV_LIT_TEX_CEL, GV_LIT_TEX2_CEL, GV_LIT8_CEL, GV_LIT2, GV_LIT2_CEL, GV_COUNT };
 #define CODE_CS (SH_COUNT + 1)          /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS (CODE_CS + 1)           /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
 #define CODE_CS2 (CODE_SHADOW + 3)      /* on two bones: the coordinate shader, the shadow's two */
 #define CODE_SHADOW2 (CODE_CS2 + 1)
-#define TWO_BONES(vs) ((vs) == GV_LIT_TEX2 || (vs) == GV_LIT_TEX2_CEL)
+#define TWO_BONES(vs) ((vs) == GV_LIT_TEX2 || (vs) == GV_LIT_TEX2_CEL || (vs) == GV_LIT2 || (vs) == GV_LIT2_CEL)
 _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs_lit <= 2048 &&
                sizeof vs_lit_tex <= 2048 && sizeof vs_lit_tex2 <= 2048 && sizeof vs_shadow <= 2048 &&
                sizeof vs_baked8 <= 2048 && sizeof vs_lit8 <= 2048 && sizeof vs_lit_cel <= 2048 &&
                sizeof vs_lit_tex_cel <= 2048 && sizeof vs_lit_tex2_cel <= 2048 && sizeof vs_lit8_cel <= 2048 &&
+               sizeof vs_lit2 <= 2048 && sizeof vs_lit2_cel <= 2048 &&
                sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 && sizeof cs_colour2 <= 1024 &&
                sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 && sizeof fs_light12 <= 2048 && sizeof fs_light8 <= 1024 &&
                CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
@@ -1308,13 +1309,15 @@ static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vs
     { vs_lit_tex_cel, sizeof vs_lit_tex_cel, 12, CODE_VS + 16 },
     { vs_lit_tex2_cel, sizeof vs_lit_tex2_cel, 11, CODE_VS + 18 },
     { vs_lit8_cel, sizeof vs_lit8_cel, 10, CODE_VS + 20 },
+    { vs_lit2, sizeof vs_lit2, 12, CODE_VS + 22 },      /* w, normal, colour, emissive, normal's w (bm3d 7.33) */
+    { vs_lit2_cel, sizeof vs_lit2_cel, 12, CODE_VS + 24 },
 };
 
 /* bm3d 7.5: the program of a lit group for a draw with the cel light */
 static int cel_vs(int vs)
 {
     return vs == GV_LIT ? GV_LIT_CEL : vs == GV_LIT_TEX ? GV_LIT_TEX_CEL : vs == GV_LIT_TEX2 ? GV_LIT_TEX2_CEL
-         : vs == GV_LIT8 ? GV_LIT8_CEL : vs;
+         : vs == GV_LIT8 ? GV_LIT8_CEL : vs == GV_LIT2 ? GV_LIT2_CEL : vs;
 }
 
 /* bm3d 7.1: the compact attributes in force (asked for, and the probe saw them) */
@@ -1386,6 +1389,20 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
         o[8] = m->uv[f * 6 + k * 2 + 1] * t->inv_h;
         o[9] = (float)((c & R3D_EMISSIVE) != 0);
         o[10] = sm ? o[3] : m->vbone[m->faces[f * 3]] == bone ? 1.0f : 0.0f;
+        return;
+    }
+    if (vs == GV_LIT2) {
+        /* bm3d 7.33: a plain corner of a skin: GV_LIT_TEX2's with the colour (bytes a b c) in place of s t */
+        const uint32_t c = m->colors[f];
+        const int sm = smooth && !(c & R3D_FLAT);
+        const v3_t n = sm ? m->vnormals[vi] : m->normals[f];
+        o[3] = m->vbone[vi] == bone ? 1.0f : 0.0f;
+        o[4] = n.x; o[5] = n.y; o[6] = n.z;
+        o[7 + G.ia] = (float)(c >> 16 & 255) * (1.0f / 255.0f);
+        o[8] = (float)(c >> 8 & 255) * (1.0f / 255.0f);
+        o[9 - G.ia] = (float)(c & 255) * (1.0f / 255.0f);
+        o[10] = (float)((c & R3D_EMISSIVE) != 0);
+        o[11] = sm ? o[3] : m->vbone[m->faces[f * 3]] == bone ? 1.0f : 0.0f;
         return;
     }
     if (vs == GV_LIT_TEX) {
@@ -1598,11 +1615,12 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
             const int b0 = m->vbone[fc[0]], b1 = m->vbone[fc[1]], b2 = m->vbone[fc[2]];
             bone = bone2 = b0;
             if (b1 != b0 || b2 != b0) {
-                /* a face on two bones: the textured faces of a skin lit by
-                 * the sun (vs_lit_tex2); three bones, or other faces: the
-                 * ARM's */
+                /* a face on two bones: the faces of a skin lit by the sun,
+                 * textured (vs_lit_tex2) or plain and not glossy (vs_lit2,
+                 * bm3d 7.33: it has no highlight); three bones, or other
+                 * faces: the ARM's */
                 const int o = b1 != b0 ? b1 : b2;
-                if ((b1 != b0 && b1 != o) || (b2 != b0 && b2 != o) || !lit || !textured)
+                if ((b1 != b0 && b1 != o) || (b2 != b0 && b2 != o) || !lit || (!textured && (c & R3D_GLOSSY)))
                     return 0;
                 bone = b0 < o ? b0 : o;
                 bone2 = b0 < o ? o : b0;
@@ -1612,7 +1630,7 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
         }
         int vs, fs;
         if (lit && !textured) {
-            vs = GV_LIT;
+            vs = bone2 != bone ? GV_LIT2 : GV_LIT;
             fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
         } else if (textured) {
             if (unlit)
@@ -1862,11 +1880,11 @@ static void put_cel(float *fo, const r3d_env_t *env)
     fo[3] = env->cel_floor;
 }
 
-/* the uniforms of a group on two bones (vs_lit_tex2, cs_colour2): the two
+/* the uniforms of a group on two bones (vs_lit_tex2, vs_lit2, cs_colour2): the two
  * matrices (A = gr->bone, B = gr->bone2), f*16, 0.5, -f*16, 0.5, -NEAR (the
  * coordinate shader then f/(w/2), f/(h/2)); the vertex shader then the
  * sun, up and V in A's axes and in B's, per byte of the colour B D R A,
- * the fog (near, k), four lamps */
+ * the fog (near, k; vs_lit2: and its colour, bytes a b c), four lamps */
 static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, int vs_kind, const float MA[12], const float NA[9],
                          const float MB[12], const float NB[9], const r3d_env_t *env)
 {
@@ -1887,7 +1905,7 @@ static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, int vs_kind, const floa
         bone_axes(fo + 3, NB, dirs[d]);
         fo += 6;
     }
-    if (vs_kind == GV_LIT_TEX2_CEL) {   /* bm3d 7.5: the cel light's four */
+    if (vs_kind == GV_LIT_TEX2_CEL || vs_kind == GV_LIT2_CEL) {   /* bm3d 7.5: the cel light's four */
         put_cel(fo, env);
         fo += 4;
     }
@@ -1899,6 +1917,12 @@ static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, int vs_kind, const floa
     fo[0] = env->fog_near;
     fo[1] = env->fog_k;
     fo += 2;
+    if (vs_kind == GV_LIT2 || vs_kind == GV_LIT2_CEL) {     /* bm3d 7.33: the fog's colour */
+        fo[G.ia] = env->fog[0];
+        fo[1] = env->fog[1];
+        fo[2 - G.ia] = env->fog[2];
+        fo += 3;
+    }
     for (int i = 0; i < 4; i++, fo += 7) {
         if (i < env->nlamps && gr->lamps) {
             memcpy(fo, env->lamp[i], 4 * sizeof *fo);
@@ -2105,7 +2129,8 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     r[0] = (uint8_t)((clipping ? 4 : 0) | fs_flags(fs_code(fs)));
     r[3] = shaders[fs].varyings;
     a = v3d_bus(G.code + 1024 * fs_code(fs)); memcpy(r + 4, &a, 4);
-    a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX || two ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
+    a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX || gr->vs == GV_LIT_TEX2 ? v3d_bus(e->tex->params) : 0;   /* (vs_lit2: none) */
+    memcpy(r + 8, &a, 4);
     /* the first attribute: x y z (and w on two bones), the coordinate
      * shader's too */
     const uint32_t head = two ? 16 : 12;
