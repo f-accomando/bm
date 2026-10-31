@@ -3068,11 +3068,13 @@ do
     print(a:sub(1, 58), lx, 224 + dy, r and C.TEXT or C.DIM)
     if b then print(b:sub(1, 58), lx, 240 + dy, C.TEXT) end
     if r then
-      print(string.format("%d tokens   %d triangles   3D on the %s   %.0f s", r.tokens, r.tris, r.gpu and "GPU" or "ARM",
+      local tri = devkit_tris and select(2, devkit_tris(r.tris)) or tostring(r.tris)    -- "15.4k", as the overlay
+      print(string.format("%d tokens   tri %s   3D on the %s   %.0f s", r.tokens, tri, r.gpu and "GPU" or "ARM",
                           r.secs), lx, 256 + dy, C.TEXT)
     end
     print("in the game: stat(1) ms, stat(2) fps, stat(11) tokens,", lx, 288 + dy, C.DIM)
     print("stat(12) Lua KB at most, stat(13) KB of data", lx, 304 + dy, C.DIM)
+    print("devkit_tris() triangles of the frame (\"15.4k\")", lx, 320 + dy, C.DIM)
     hint({ { "f1", "Y", "the project" }, { "f5", nil, "try it" },
            { "f6", nil, "assistant" } })
   end

@@ -1348,7 +1348,7 @@ static const luaL_Reg api[] = {
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
-    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
+    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "battery", l_battery }, { "battery_low", l_battery_low },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
@@ -2480,6 +2480,20 @@ int l_devkit(lua_State *L)
     return 1;
 }
 
+/* devkit_tris([n]) -> n, text: the 3D triangles drawn in the last frame
+ * (stat(4)) and the text of the overlay ("15.4k"); 0, "0" with no 3D.
+ * With n: that count in the same short text (the SDK's run numbers). */
+int l_devkit_tris(lua_State *L)
+{
+    lua_Integer v = luaL_optinteger(L, 1, rt.r3d_ready ? (lua_Integer)rt.r3d.tris_drawn : 0);
+    const unsigned long t = v > 0 ? (unsigned long)v : 0;
+    char c[16];
+    devkit_count(c, sizeof c, t);
+    lua_pushinteger(L, (lua_Integer)t);
+    lua_pushstring(L, c);
+    return 2;
+}
+
 /* devinfo(line, ...): up to 4 lines of the game in the session report
  * (its quality, its actors...), 18 characters each; devinfo() none */
 int l_devinfo(lua_State *L)
@@ -3328,6 +3342,18 @@ static void perf_bar(g16_t *g, int x, int y, int z, const char *name, const uint
     g16_text_scaled(g, x + 14 * 8 * z, y, t, c, z);  /* columns 14 to 17 */
 }
 
+/* a count in short: "950", "15.4k" (thousands), "1.2m" (millions), one
+ * decimal; the dev kit's overlay and devkit_tris() write it so */
+void devkit_count(char *out, int n, unsigned long t)
+{
+    if (t < 1000)
+        ksnprintf(out, n, "%lu", t);
+    else if (t < 1000000)
+        ksnprintf(out, n, "%lu.%luk", t / 1000, t / 100 % 10);
+    else
+        ksnprintf(out, n, "%lu.%lum", t / 1000000, t / 100000 % 10);
+}
+
 /* " tri 15.4k": the 3D triangles drawn in the frame (stat(4)) after the ms, in
  * thousands (k) or millions (m) with one decimal; empty in a game with no 3D */
 static void perf_tris(char *out, int n)
@@ -3335,13 +3361,9 @@ static void perf_tris(char *out, int n)
     out[0] = 0;
     if (!rt.r3d_ready)
         return;
-    const unsigned long t = (unsigned long)rt.r3d.tris_drawn;
-    if (t < 1000)
-        ksnprintf(out, n, " tri %lu", t);
-    else if (t < 1000000)
-        ksnprintf(out, n, " tri %lu.%luk", t / 1000, t / 100 % 10);
-    else
-        ksnprintf(out, n, " tri %lu.%lum", t / 1000000, t / 100000 % 10);
+    char c[16];
+    devkit_count(c, sizeof c, rt.r3d.tris_drawn);
+    ksnprintf(out, n, " tri %s", c);
 }
 
 /* The small dev kit: two rows on the 6x12 font at the top right, for a screen
