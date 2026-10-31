@@ -567,6 +567,109 @@ end
 
 The last line draws the shadow. This is the pattern of the games with rigged models, such as `carts/overbit`.
 
+# Optimising 3D models
+
+## What it does
+
+This chapter tells you how to keep a 3D scene fast. Two things set the cost of a frame: who draws the triangles (the GPU or the ARM) and how many pixels the 3D fills. Most of the speed comes from keeping every model on the GPU. The rest comes from drawing less.
+
+## Why it matters
+
+The Pi Zero W draws many more triangles when the GPU places them. These are the numbers of the 3D Bench for one hero of 1536 triangles with its shadow and a map of 5000 triangles, at 640x360:
+
+| Profile (Settings) | Hero triangles at 60 fps |
+|---|---:|
+| ARM | 630 |
+| GPU | 859 |
+| GPU + vertex shader | 5907 |
+| GPU + vertex shader + queue | 10351 |
+
+A model that the vertex shader cannot take is drawn by the ARM, one triangle at a time. Then the model costs as much as on the ARM profile, whatever the settings say.
+
+## Keep the models on the GPU
+
+The vertex shader of the Pi takes a model with bones only when every face has its corners on one or two bones.
+
+| A face of a skinned model | On the Pi's GPU |
+|---|---|
+| all corners on one bone | yes |
+| on two bones, textured | yes |
+| on two bones, plain colour, not glossy | yes, from the 3D drivers bm3D 7.33 |
+| on two bones, glossy | no: the whole model goes to the ARM |
+| on three bones | no: the whole model goes to the ARM |
+
+One face that the GPU cannot take sends the whole model to the ARM. Check your models with bm-forge on the PC:
+
+1. Run `gpuskin` on the model file. Each model gets a line with `GPU` or `ARM` and the faces that cause it.
+2. If a model says `ARM` because of faces on three bones, run `gpuskin` again with `--two-bones` and `-o`. The tool copies the corner of the third bone onto the second bone. A thin seam can open there when the joint bends.
+3. If a model has glossy faces on two bones, remove the glossy bit from those faces in bm Mesh.
+4. Run `gpuskin` on the new file. Each model must say `GPU`.
+
+::: copy
+cd .claude/skills/bm-forge
+python3 scripts/bm_forge.py gpuskin game.bmm
+python3 scripts/bm_forge.py gpuskin game.bmm --two-bones -o game_gpu.bmm
+:::
+
+For consoles with drivers before bm3D 7.33, `--palette X,Y[,W] --palette-png STRIP.png` gives the plain faces on two bones a texture: each colour becomes one texel of a strip. Put the strip in the cartridge's sheet at `X,Y`. These faces then get a grey light and no fog, as all textured faces lit by the sun.
+
+::: warn
+Do not split every face to one bone. A continuous skin shares its vertices at the joints. A split opens a gap at every bent joint, and the gaps show as light cracks on the character.
+:::
+
+The Mali of the RGB30 has other rules. It takes a mesh only if all its faces are textured or all are flat, the sheet has no transparent texel, the light is the sun and the sky without colour, and there are no lamps and no rim light. A `point3d`, `line3d`, `sprite3d`, shadow or particle hands the whole 3D of the cartridge to the ARM until the restart.
+
+## Ask for the GPU
+
+Ask for the vertex shader and the queue in `_init`. Keep the console's on and off choice: pass `gpu3d()` as the first value.
+
+::: copy
+gpu3d(gpu3d(), nil, 2, true, 12)
+:::
+
+The values are: GPU as the console has it, anti-aliasing as Settings say, vertex shader level 2, the console's queue, and impostors for models of 12 pixels or less (of a 1080-line screen). A console without the GPU keeps the ARM.
+
+## Draw less
+
+- **Resolution.** 640x360 has a quarter of the pixels of 1280x720. Start at 640x360 and offer 1280x720 in the game's menu.
+- **Draw distance.** With fog, nothing beyond the fog's far distance shows. Give that distance to `map3d_draw(w, flags, far)`: the map pieces beyond it are skipped. Skip the objects and characters beyond it in your code too.
+- **Out of view.** Call `visible3d(x, y, z, r)` before `animate`. A model out of view then costs neither the pose nor the draw.
+- **Levels of detail.** Put the far version of a model in the low levels (material bits 24 to 26 of the face's colour) and draw it with flag 16, 32 or 48 by distance.
+- **Impostors.** A far small model drawn as one quad in its average colour: the fifth value of `gpu3d()`.
+
+## Shadows
+
+A shadow (`draw3d` flag 8) draws the mesh a second time.
+
+- Draw the shadows only near the camera, for example within 10 to 12 units.
+- Draw a static object's shadow only if it is near too.
+- On the GPU, `shadow3d(0)` darkens the ground once for each triangle of the shadow. Where two triangles of one shadow overlap, the ground gets darker again and the triangles show. Use `shadow3d(1)` (dithered) for characters: it looks the same on the GPU and the ARM.
+
+## Measure
+
+Measure before and after each change, on the console.
+
+1. Turn on the dev kit: F11 on the keyboard, `perf=top` in `bm/config.txt`, or `devkit(1)` from a row of your game's menu.
+2. Read the first row: `60fps 16.6ms tri 15.4k`. It shows the frames a second, the ms of work of a frame and the triangles drawn.
+3. Play the same walk before and after the change, and compare the numbers.
+4. Read the session report at the end of the run.
+
+From the code, `stat(1)` is the ms of the last frame, `stat(4)` the triangles drawn, `stat(16)` the ms of the GPU, and `devkit_tris()` the triangles as text (`15.4k`).
+
+::: try
+**Try it.** Open your game with the dev kit on. Note `fps` and `tri` in one place. Add the draw distance to `map3d_draw` and the shadow distance. Play the same place again and compare.
+:::
+
+## Good to know
+
+- Dark Night uses all of this. On a fixed walk in bmhost the triangles a frame went from 14.2k to 6.8k and the pixels from 1.27M to 316K.
+- A frame on the PC (bmhost) is not a frame on the console. Use the PC to compare two versions, and the console for the real numbers.
+
+## Caveats
+
+- [TO FILL: fps of Dark Night on a Pi Zero W and on an RGB30 with these changes.]
+- The plain skins on two bones (bm3D 7.33) are tested on the V3D emulator only.
+
 # Tutorials
 
 ## A side-scroller hero
@@ -607,6 +710,7 @@ The last line draws the shadow. This is the pattern of the games with rigged mod
 | bones in a skeleton | 64 |
 | animations of a model | 255 |
 | triangles a scene at 60 fps | about 1200 |
+| hero triangles at 60 fps, measured (Pi Zero W, 640x360) | about 630 on the ARM, about 10000 with GPU + vertex shader + queue (see Optimising 3D models) |
 | point lights (`lamp3d`) | 4 |
 | models in a cartridge | 256 |
 

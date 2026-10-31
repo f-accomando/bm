@@ -567,6 +567,109 @@ end
 
 L'ultima riga disegna l'ombra. È lo schema dei giochi con modelli con scheletro, come `carts/overbit`.
 
+# Ottimizzare i modelli 3D
+
+## Cosa fa
+
+Questo capitolo ti dice come tenere veloce una scena 3D. Due cose decidono il costo di un fotogramma: chi disegna i triangoli (la GPU o l'ARM) e quanti pixel riempie il 3D. Quasi tutta la velocità viene dal tenere ogni modello sulla GPU. Il resto viene dal disegnare meno.
+
+## Perché conta
+
+Il Pi Zero W disegna molti più triangoli quando li piazza la GPU. Questi sono i numeri del 3D Bench per un eroe di 1536 triangoli con la sua ombra e una mappa di 5000 triangoli, a 640x360:
+
+| Profilo (Impostazioni) | Triangoli dell'eroe a 60 fps |
+|---|---:|
+| ARM | 630 |
+| GPU | 859 |
+| GPU + vertex shader | 5907 |
+| GPU + vertex shader + coda | 10351 |
+
+Un modello che il vertex shader non accetta lo disegna l'ARM, un triangolo alla volta. Allora il modello costa quanto nel profilo ARM, qualunque cosa dicano le impostazioni.
+
+## Tieni i modelli sulla GPU
+
+Il vertex shader del Pi accetta un modello con ossa solo quando ogni faccia ha i vertici su uno o due ossa.
+
+| Una faccia di un modello con ossa | Sulla GPU del Pi |
+|---|---|
+| tutti i vertici su un osso | sì |
+| su due ossa, con texture | sì |
+| su due ossa, tinta unita, non lucida | sì, dai driver 3D bm3D 7.33 |
+| su due ossa, lucida | no: tutto il modello va all'ARM |
+| su tre ossa | no: tutto il modello va all'ARM |
+
+Una sola faccia che la GPU non accetta manda tutto il modello all'ARM. Controlla i tuoi modelli con bm-forge sul PC:
+
+1. Esegui `gpuskin` sul file dei modelli. Ogni modello ha una riga con `GPU` o `ARM` e le facce che ne sono la causa.
+2. Se un modello dice `ARM` per facce su tre ossa, esegui di nuovo `gpuskin` con `--two-bones` e `-o`. Lo strumento copia il vertice del terzo osso sul secondo osso. Lì può aprirsi una fessura sottile quando l'articolazione si piega.
+3. Se un modello ha facce lucide su due ossa, togli il bit lucido da quelle facce in bm Mesh.
+4. Esegui `gpuskin` sul nuovo file. Ogni modello deve dire `GPU`.
+
+::: copy
+cd .claude/skills/bm-forge
+python3 scripts/bm_forge.py gpuskin game.bmm
+python3 scripts/bm_forge.py gpuskin game.bmm --two-bones -o game_gpu.bmm
+:::
+
+Per le console con driver precedenti a bm3D 7.33, `--palette X,Y[,W] --palette-png STRIP.png` dà una texture alle facce a tinta unita su due ossa: ogni colore diventa un texel di una striscia. Metti la striscia nello sprite sheet della cartuccia in `X,Y`. Queste facce prendono poi una luce grigia e niente nebbia, come tutte le facce con texture illuminate dal sole.
+
+::: warn
+Non dividere ogni faccia su un solo osso. Una pelle continua condivide i vertici alle articolazioni. La divisione apre una fessura a ogni articolazione piegata, e le fessure si vedono come crepe chiare sul personaggio.
+:::
+
+La Mali dell'RGB30 ha altre regole. Accetta una mesh solo se tutte le sue facce hanno una texture o sono tutte piatte, lo sheet non ha texel trasparenti, la luce è il sole e il cielo senza colore, e non ci sono lampade né luce di contorno. Un `point3d`, `line3d`, `sprite3d`, un'ombra o una particella passano tutto il 3D della cartuccia all'ARM fino al riavvio.
+
+## Chiedi la GPU
+
+Chiedi il vertex shader e la coda in `_init`. Mantieni la scelta della console su acceso e spento: passa `gpu3d()` come primo valore.
+
+::: copy
+gpu3d(gpu3d(), nil, 2, true, 12)
+:::
+
+I valori sono: GPU come la ha la console, anti-aliasing come dicono le Impostazioni, vertex shader livello 2, la coda della console, e impostori per i modelli di 12 pixel o meno (di uno schermo di 1080 righe). Una console senza GPU tiene l'ARM.
+
+## Disegna meno
+
+- **Risoluzione.** 640x360 ha un quarto dei pixel di 1280x720. Parti a 640x360 e offri 1280x720 nel menu del gioco.
+- **Distanza di disegno.** Con la nebbia, oltre la sua distanza massima non si vede niente. Passa quella distanza a `map3d_draw(w, flags, far)`: i pezzi di mappa oltre vengono saltati. Salta anche gli oggetti e i personaggi oltre, nel tuo codice.
+- **Fuori dalla vista.** Chiama `visible3d(x, y, z, r)` prima di `animate`. Un modello fuori dalla vista allora non costa né la posa né il disegno.
+- **Livelli di dettaglio.** Metti la versione lontana di un modello nei livelli bassi (bit di materiale da 24 a 26 del colore della faccia) e disegnala con il flag 16, 32 o 48 secondo la distanza.
+- **Impostori.** Un modello piccolo e lontano disegnato come un solo quadrato del suo colore medio: il quinto valore di `gpu3d()`.
+
+## Ombre
+
+Un'ombra (`draw3d` flag 8) disegna la mesh una seconda volta.
+
+- Disegna le ombre solo vicino alla camera, per esempio entro 10-12 unità.
+- Disegna l'ombra di un oggetto fermo solo se anche lui è vicino.
+- Sulla GPU, `shadow3d(0)` scurisce il terreno una volta per ogni triangolo dell'ombra. Dove due triangoli della stessa ombra si sovrappongono, il terreno si scurisce di nuovo e i triangoli si vedono. Usa `shadow3d(1)` (a retino) per i personaggi: è uguale sulla GPU e sull'ARM.
+
+## Misura
+
+Misura prima e dopo ogni modifica, sulla console.
+
+1. Accendi il dev kit: F11 sulla tastiera, `perf=top` in `bm/config.txt`, oppure `devkit(1)` da una riga del menu del tuo gioco.
+2. Leggi la prima riga: `60fps 16.6ms tri 15.4k`. Mostra i fotogrammi al secondo, i ms di lavoro di un fotogramma e i triangoli disegnati.
+3. Gioca lo stesso percorso prima e dopo la modifica, e confronta i numeri.
+4. Leggi il report della sessione alla fine della partita.
+
+Dal codice, `stat(1)` sono i ms dell'ultimo fotogramma, `stat(4)` i triangoli disegnati, `stat(16)` i ms della GPU, e `devkit_tris()` i triangoli come testo (`15.4k`).
+
+::: try
+**Prova.** Apri il tuo gioco con il dev kit acceso. Annota `fps` e `tri` in un punto. Aggiungi la distanza di disegno a `map3d_draw` e la distanza delle ombre. Gioca di nuovo lo stesso punto e confronta.
+:::
+
+## Buono a sapersi
+
+- Dark Night usa tutto questo. Su un percorso fisso in bmhost i triangoli per fotogramma sono passati da 14.2k a 6.8k e i pixel da 1.27M a 316K.
+- Un fotogramma sul PC (bmhost) non è un fotogramma sulla console. Usa il PC per confrontare due versioni, e la console per i numeri veri.
+
+## Avvertenze
+
+- [DA COMPLETARE: fps di Dark Night su un Pi Zero W e su un RGB30 con queste modifiche.]
+- Le pelli a tinta unita su due ossa (bm3D 7.33) sono provate solo sull'emulatore V3D.
+
 # Tutorial
 
 ## Un eroe da platform
@@ -607,6 +710,7 @@ L'ultima riga disegna l'ombra. È lo schema dei giochi con modelli con scheletro
 | ossa in uno scheletro | 64 |
 | animazioni di un modello | 255 |
 | triangoli a scena a 60 fps | circa 1200 |
+| triangoli dell'eroe a 60 fps, misurati (Pi Zero W, 640x360) | circa 630 sull'ARM, circa 10000 con GPU + vertex shader + coda (vedi Ottimizzare i modelli 3D) |
 | luci puntiformi (`lamp3d`) | 4 |
 | modelli in una cartuccia | 256 |
 

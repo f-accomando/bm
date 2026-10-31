@@ -429,13 +429,18 @@
     "title": "Drawing and animating in the game"
    },
    "12": {
+    "en": "1ca896afb666",
+    "it": "63d0c2340551",
+    "title": "Optimising 3D models"
+   },
+   "13": {
     "en": "8365d99abcd5",
     "it": "92f6a5528706",
     "title": "Tutorials"
    },
-   "13": {
-    "en": "44d5c676723f",
-    "it": "18b219c19bea",
+   "14": {
+    "en": "739910acccdb",
+    "it": "c381f93d56d7",
     "title": "Tips and limits"
    },
    "2": {
@@ -483,17 +488,17 @@
    "carts/animator/main.lua": "4c4eafda795f",
    "carts/mesh/main.lua": "e108e7248bac",
    "carts/pixel/main.lua": "ff4d7d19619e",
-   "carts/studio/main.lua": "597711e5f5c8",
+   "carts/studio/main.lua": "a445dc610bdc",
    "carts/titan/build/mkrobot.py": "72c7aff21afd",
    "carts/yharnam/build/mkassets.py": "86bfe9f06612",
-   "docs/api/draw.md": "c0ab8355c549",
-   "docs/api/light3d.md": "b3d47843af0f",
-   "docs/design/games-architecture.md": "ebbc5540d40e",
+   "docs/api/draw.md": "45c6e61a67be",
+   "docs/api/light3d.md": "5ef4a3fd4193",
+   "docs/design/games-architecture.md": "171234de457d",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/design/suite-pixel.md": "bbfd8d899dda",
-   "docs/progress/graphics.md": "5cc49dae1257",
-   "docs/progress/tools.md": "59fa40bbade7",
-   "docs/progress/yharnam.md": "bcb01bd06c3f",
+   "docs/progress/graphics.md": "ec275f212dde",
+   "docs/progress/tools.md": "470a3fe5ad67",
+   "docs/progress/yharnam.md": "98213d6bc581",
    "tools/cutout2mesh.py": "a2a57f9737c1",
    "tools/img2mesh.py": "db3364221d4a"
   }
