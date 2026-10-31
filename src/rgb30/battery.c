@@ -17,6 +17,8 @@
 #include "kernel/config.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
+#include <string.h>
+#include <strings.h>
 
 #define FULL_US     10000000u       /* the voltage and the charger's state */
 #define PLUG_US     250000u         /* the plug */
@@ -58,10 +60,10 @@ static void read_all(void)
 }
 
 /*
- * The battery log (2026-10-26, read only, for the calibration in
+ * The battery log (read only, for the calibration in
  * docs/design/rgb30-battery-calibration.md): with battery_log=1 in
- * bm/config.txt, one line a minute in bm/bat00.csv (the first free name up
- * to bat99): seconds, mV, mA (negative = discharge), the gauge's charge in
+ * bm/config.txt, one line a minute appended to bm/battery.csv:
+ * seconds, mV, mA (negative = discharge), the gauge's charge in
  * mAh, the plug, the charger's state. The file is written whole each time
  * (fat_write_file keeps the old one if the power goes), so a run-down leaves
  * everything up to the last minute. A write is skipped while another is under
@@ -71,7 +73,7 @@ static void read_all(void)
 #define LOG_MAX     32768
 
 static char log_buf[LOG_MAX];
-static char log_name[] = "bat00.csv";
+static const char log_name[] = "battery.csv";
 static int log_len, log_on = -1, log_fail;
 static uint32_t log_at;
 static uint64_t log_sec;
@@ -82,27 +84,49 @@ static void log_start(void)
     log_on = v && *v == '1';
     if (!log_on)
         return;
-    for (int i = 0; i < 100; i++) {
-        log_name[3] = (char)('0' + i / 10);
-        log_name[4] = (char)('0' + i % 10);
-        char path[24];
-        fat_entry_t e;
-        ksnprintf(path, sizeof path, "/bm/%s", log_name);
-        if (fat_find(path, &e) != 0)
-            break;
+
+    log_len = 0;
+    fat_entry_t e;
+    uint8_t *old_data = NULL;
+    size_t old_len = 0;
+    if (fat_find("/bm/battery.csv", &e) == 0 && !e.is_dir && e.size > 0) {
+        if (fat_load(&e, &old_data, &old_len) == 0 && old_data) {
+            if (old_len < sizeof log_buf - 1024) {
+                memcpy(log_buf, old_data, old_len);
+                log_len = (int)old_len;
+            } else {
+                const char *hdr = "sec,mV,mA,mAh,plug,charge\n";
+                size_t hlen = strlen(hdr);
+                memcpy(log_buf, hdr, hlen);
+                size_t keep = sizeof log_buf - 1024 - hlen;
+                const char *start = (const char *)old_data + old_len - keep;
+                const char *nl = memchr(start, '\n', keep);
+                if (nl)
+                    start = nl + 1;
+                size_t tail_len = (size_t)((const char *)old_data + old_len - start);
+                memcpy(log_buf + hlen, start, tail_len);
+                log_len = (int)(hlen + tail_len);
+            }
+            free(old_data);
+        }
     }
-    log_len = ksnprintf(log_buf, sizeof log_buf, "sec,mV,mA,mAh,plug,charge\n");
+    if (log_len == 0)
+        log_len = ksnprintf(log_buf, sizeof log_buf, "sec,mV,mA,mAh,plug,charge\n");
 }
 
 static void log_step(uint32_t now)
 {
+    if (log_on == 0 || log_fail >= 3)
+        return;
+    if (!log_at) {
+        log_at = now | 1;
+        return;
+    }
+    if ((int32_t)(now - log_at) < (int32_t)LOG_US)      /* signed: log_at is now|1, a hair ahead of now */
+        return;
     if (log_on < 0)
         log_start();
-    if (log_on <= 0 || log_fail >= 3)
-        return;
-    if (!log_at)
-        log_at = now | 1;
-    if ((int32_t)(now - log_at) < (int32_t)LOG_US)      /* signed: log_at is now|1, a hair ahead of now */
+    if (log_on <= 0)
         return;
     if (fat_writing() || log_len + 64 > LOG_MAX)
         return;
