@@ -1741,6 +1741,53 @@ do
   check(sees("import a model (/bmm, /glb)"), "bm Animator: menu, Import a model")
   key("esc")
 
+  do -- Animator, rig page: parts. h shows only a bone's faces; comma and point turn a bone and the bones below it (rest pose)
+    key("f2", "n", "up")                         -- a child bone, then the root again
+    local nexp = 0
+    local function snap()                       -- the bones as the model is exported (the file holds the rest pose)
+      nexp = nexp + 1
+      local nm = "turn" .. nexp
+      key("^e")
+      type_text(nm)
+      local f = MF.card["/bmm"][nm .. ".bmm"]
+      local rg = anim_rigs(f and f.sections[9])["rigged"]
+      assert(rg, "parts: the exported skeleton")
+      local o = {}
+      for i, b in ipairs(rg.bones) do o[i] = { b.head[1], b.head[2], b.head[3], b.tail[1], b.tail[2], b.tail[3] } end
+      return o, #rg.bones
+    end
+    local r = { bones = {} }
+    local _, nb = snap()
+    for i = 1, nb do r.bones[i] = true end
+    check(nb >= 2, "parts: the rig page has the skeleton")
+    local before = snap()
+    key("o")                                    -- the axis z (the child bone lies on y)
+    key(".")
+    local turned_say = status()
+    local after = snap()
+    local moved = 0
+    for i = 2, #r.bones do for k = 1, 6 do if math.abs(after[i][k] - before[i][k]) > 1e-4 then moved = moved + 1 end end end
+    local h1 = { after[1][1] - before[1][1], after[1][2] - before[1][2], after[1][3] - before[1][3] }
+    check(moved > 0, "parts: the child bone turns with its parent (" .. moved .. " numbers moved)")
+    check(math.abs(h1[1]) < 1e-6 and math.abs(h1[2]) < 1e-6 and math.abs(h1[3]) < 1e-6, "parts: the head of the turned bone stays")
+    check(turned_say:find("turned 15 degrees round z", 1, true) ~= nil, "parts: . turns 15 degrees: " .. turned_say)
+    key(",")
+    local back = snap()
+    local err = 0
+    for i = 1, #r.bones do for k = 1, 6 do err = math.max(err, math.abs(back[i][k] - before[i][k])) end end
+    check(err < 1e-4, "parts: comma turns it back (" .. err .. ")")
+    key("i", ".")
+    check(status():find("turned 45 degrees round z", 1, true) ~= nil, "parts: i step 45: " .. status())
+    key(",")
+    key("h")
+    check(status():find("only the faces of", 1, true) ~= nil, "parts: h shows only the faces of the bone: " .. status())
+    key("h")
+    check(status():find("and the bones below", 1, true) ~= nil, "parts: h again: with the bones below")
+    key("h")
+    check(status():find("all the faces", 1, true) ~= nil, "parts: h a third time: all")
+  end
+
+
   -- animations from another model (APP-27): Ctrl+Shift+I and the menu row; the clips go on by bone name
   local function n16(x) return x .. string.rep("\0", 16 - #x) end
   local function rig_ac(name, bones, clips)       -- a skeleton chunk for a model of four vertices on bone 0

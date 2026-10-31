@@ -8,7 +8,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - Build: `make build/carts/darknight.bm build/carts/darknight.bme` (rule in the Makefile, like Island Bench). The code is one file,
   `carts/darknight/main.lua`. The map is `art/maps/clinic.bmk` ([map kit](../design/map-kit.md), builder and checks in
   `art/maps/clinic/`). The Hunter is `art/models/dnhunter.bmm` (and the enemies `art/models/dnenemy.bmm`): models `hunter_c` (saw closed) and `hunter_o` (saw open), each with the
-  saw in the right hand, the pistol in the left, and the 17 clips (made by `art/models/hunter/armed.py --game`, low poly, about 1300
+  saw in the right hand, the pistol in the left, and the 17 clips (made by `art/models/hunter/armed.py --game`; the saw is on its own bone `grip.R` and the pistol on `grip.L`, children of the hands, so bm Animator turns a weapon as one part; low poly, about 1300
   triangles). `bmres.py add` merges both files into the cartridge.
 - The `.bme` is kept in the repository. To change it: edit `main.lua` or a resource, run `make build/carts/darknight.bme`, then
   `cp build/carts/darknight.bme carts/darknight/darknight.bme`. The `.bm` is the same bytes with bit 0 of the u16 at 18 cleared (`mkbm.py --from`).

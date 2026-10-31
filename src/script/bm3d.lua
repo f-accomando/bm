@@ -2031,6 +2031,39 @@ function T.retarget(src, dst)
   return clips, { matched = matched, missing = missing, clips = #clips }
 end
 
+-- Animator side (bones of a loaded rig: r.bones[i] = { parent (1-based, 0 none), head, tail }, faces f.p / f.b).
+-- T.part_bones(r, b, tree): { [bone] = true } for bone b (1-based), with the bones below it when tree is set.
+function T.part_bones(r, b, tree)
+  local set = { [b] = true }
+  if tree then
+    for i, o in ipairs(r.bones) do if o.parent >= 1 and set[o.parent] then set[i] = true end end
+  end
+  return set
+end
+
+-- T.turn_part(m, r, b, axis, rad): turns the bone b and the bones below it round the head of b, and the corners
+-- of the faces that follow them (m.faces[].p, f.b). The head of b, the poses and the animations stay; every
+-- animation turns the part from its new rest place. Returns the number of corners turned.
+function T.turn_part(m, r, b, axis, rad)
+  local set = T.part_bones(r, b, true)
+  local pivot, q = V.copy(r.bones[b].head), Q.axis(V.norm(axis), rad)
+  local function turn(p) return V.add(pivot, Q.rotate(q, V.sub(p, pivot))) end
+  for i in pairs(set) do
+    local o = r.bones[i]
+    if i ~= b then o.head = turn(o.head) end
+    o.tail = turn(o.tail)
+  end
+  local n = 0
+  for _, f in ipairs(m.faces) do
+    if f.b then
+      for k = 1, #f.p do
+        if set[f.b[k]] then f.p[k] = turn(f.p[k]); n = n + 1 end
+      end
+    end
+  end
+  return n
+end
+
 -- Two-bone IK (APP-29), for the editors only: the runtime, the clip format and the kernel do not change; the
 -- result is ordinary rotation keys. T.ik2(root, len1, len2, target, pole [, rest1, rest2]) puts a chain of two
 -- segments (upper from root, lower after it) on a target. Returns { mid, tip, d1, d2, q1, q2, reached }: the

@@ -40,16 +40,22 @@ def armed(models, rigs, saw, name):
     verts = [list(v) for v in body.verts]
     faces = list(body.faces)
     vb = list(rig.vbones)
+    bones = list(rig.bones)
     for wname, key in ((saw, "saw"), ("pistol", "pistol")):
         m = byname[wname]
         hand, side = GRIP[key]
+        # the weapon has its own bone (grip.R, grip.L), a child of the hand: bm Animator turns it as one part
+        # (rig page: o i , . keys) and every clip keeps the new angle
+        gname = "grip." + ("L" if side > 0 else "R")
+        bones.append(A.Bone(gname, bidx[hand], [side * 0.80, PALM_Y, 0.0], [side * 0.95, PALM_Y, 0.0]))
+        bidx[gname] = len(bones) - 1
         off = len(verts)
         verts += place(m, side)
-        vb += [bidx[hand]] * len(m.verts)
+        vb += [bidx[gname]] * len(m.verts)
         for f in m.faces:
             faces.append(dataclasses.replace(f, a=f.a + off, b=f.b + off, c=f.c + off))
     model = dataclasses.replace(body, name=name, verts=verts, faces=faces)
-    return model, A.Rig(name, list(rig.bones), vb, [])
+    return model, A.Rig(name, bones, vb, [])
 
 
 def main(argv):
