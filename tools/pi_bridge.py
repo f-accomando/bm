@@ -33,7 +33,7 @@ KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch
 # these keys mean something else in the menu (X opens the options, r is an action): only when the monitor has them
 MONITOR_ONLY = {"crash-dabt", "crash-undef", "crash-prefetch", "freeze", "freeze-irq", "reboot"}
 # the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only, in any case)
-LOGS = {"bootprev": "bootprev.txt", "bootlog": "bootlog.txt", "lastrun": "lastrun.txt"}
+LOGS = {"bootprev": "bootprev.txt", "bootlog": "bootlog.txt", "lastrun": "lastrun.txt", "battery": "battery.csv"}
 # the monitor commands the line operation passes (the old words of the table `commands` in src/kernel/monitor.c; set, save and play are left out:
 # set writes any config key, wifi_psk and net_password included; play is the bridge's play FILE)
 LINE_CMDS = ("b3d", "log", "err", "crc", "send", "reboot")

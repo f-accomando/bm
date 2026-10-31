@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import enemy_build as EB  # noqa: E402
 import enemy_clips as EC  # noqa: E402
-from bm_core import anim as A, animgen, export, mesh as M  # noqa: E402
+from bm_core import anim as A, animgen, export, gpuskin, mesh as M  # noqa: E402
 
 PALM_Y = 1.48
 GRIP = {"cleaver": ("hand.R", -1), "haxe": ("hand.R", -1), "torch": ("hand.L", 1)}      # hand bone, side (+1 = .L on +x)
@@ -70,6 +70,7 @@ def main(out_dir):
         m, r = by[name]
         if name in GRIP_OF:
             m, r = armed(m, r, weapons)
+        m, r = gpuskin.two_bones_max(m, r)                             # no face on three bones: the GPU draws the skin
         g_models.append(m)
         g_rigs.append(animgen.add_clips(r, clips[name]))
     p2 = os.path.join(out_dir, "dnenemy.bmm")

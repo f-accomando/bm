@@ -360,7 +360,7 @@ local function bounds(it, list)
 end
 
 local function list_files()
-  local out = U.project_files({ bm = true, bme = true })
+  local out = U.project_files({ bm = true, bme = true, bmm = true }, { B.BMM_DIR })   -- and the model files of /bmm
   table.sort(out)
   return out
 end
@@ -383,6 +383,22 @@ end
 local reset_pages, go       -- defined with the pages
 
 local function open_file(path)
+  -- a model file (.bmm): its models and skeletons, no code and no game; Save writes the .bmm again (res_write)
+  if B.is_bmm(path) then
+    local r, e = res_read(path)
+    if not r then say("cannot open " .. path .. ": " .. tostring(e), C_ERR); return false end
+    if r.kind ~= 1 or not r.sections[SEC_MESH] then say(path .. " is not a model file", C_ERR); return false end
+    proj = { path = path, bmm = true, title = r.name or "", author = r.author or "", lua = "", warn = nil }
+    items, undo, redo = {}, {}, {}
+    local parts, ins = split_mesh(r.sections[SEC_MESH])
+    inset = ins
+    local rigs = r.sections[SEC_ANIM] and split_anim(r.sections[SEC_ANIM]) or {}
+    for _, part in ipairs(parts) do items[#items + 1] = model_item(part[1], part[2], rigs[part[1]]) end
+    dirty, code_dirty, cur = false, false, 1
+    reset_pages()
+    say(string.format("%s: %d models; a model file: Save writes it, Save as makes another in /bmm", path, #parts), C_ACC)
+    return true
+  end
   local p, e = cart_load(path)      -- its sheet: the textures of the models
   if not p then say("cannot open " .. path .. ": " .. tostring(e), C_ERR); return false end
   proj = { path = path, title = p.title, lua = p.lua or "", warn = nil }
@@ -444,6 +460,24 @@ local function save_to(path, from)
   if not proj.path then say("open a .bm or .bme first: Esc > Open", C_ERR); return false end
   local mesh, anim, skipped = build_sections()
   if mesh == nil then say("cannot save: " .. anim, C_ERR); return false end
+  if proj.bmm then                      -- a model file: res_write, the models and their skeletons only
+    if not mesh then say("cannot save: no model with faces", C_ERR); return false end
+    local ok, err = res_write(path, 1, { sections = { [SEC_MESH] = mesh, [SEC_ANIM] = anim or nil },
+                                         name = proj.title ~= "" and proj.title or nil, author = proj.author,
+                                         replace = true })
+    if not ok then say("save failed: " .. tostring(err), C_ERR); return false end
+    for _, it in ipairs(items) do
+      if it.kind == "model" and it.new_mc then
+        it.mc, it.mc_name, it.ac = it.new_mc, it.name, it.new_ac
+        if not it.ac then it.vb = nil end
+      end
+      it.dirty, it.new_mc, it.new_ac = false, nil, nil
+    end
+    proj.path = path
+    dirty = false
+    say("saved " .. path .. (skipped and ("  (" .. skipped .. " has no faces: left out)") or ""), C_ACC)
+    return true
+  end
   local t = { sections = { [SEC_MESH] = mesh, [SEC_ANIM] = anim }, from = from }
   local lua = code_dirty and full_lua() or nil
   t.lua = lua
@@ -2397,6 +2431,68 @@ function ed.bone_dialog()
   return true
 end
 
+-- Parts (Shift+N): the bones as a tree (arm, hand, grip). A part is the vertices of one bone; the next menu
+-- chooses it (with or without the bones below it), shows only it (the rest hidden, Shift+Y shows all), hides it, or
+-- gives the choice to it. Work by parts, not by vertices.
+function ed.part_choose(set, what)
+  local it = I()
+  ed.mode, ed.sv, ed.sf, ed.se, ed.force = "v", {}, {}, {}, nil
+  local n = 0
+  for i in pairs(set) do
+    if not (it.hid and it.hid[i]) then n = n + 1; ed.order = ed.order + 1; ed.sv[i] = ed.order end
+  end
+  ed.sig = ""
+  if n == 0 then say(what .. ": nothing to choose (hidden or empty)", C_ERR); return end
+  say(what .. ": " .. n .. " vertices chosen (f frames them, g moves them)", C_ACC, 150)
+end
+
+function ed.part_menu(b)
+  local it = I()
+  local rig = ed.rig_of(it)
+  if not rig or not rig[b + 1] then return end
+  local name = rig[b + 1].name
+  local one = B.G.part_set(it, rig, b, false)
+  local tree = B.G.part_set(it, rig, b, true)
+  local function only(set, what)
+    UA.push()
+    ed.set_hidden(it, B.G.isolate(it, set))
+    ed.part_choose(set, what)
+  end
+  choose("part " .. name, {
+    { "Choose this part", function() ed.part_choose(one, name) end },
+    { "Choose it with the parts below", function() ed.part_choose(tree, name .. " and below") end },
+    { "Show only this part", function() only(one, name) end },
+    { "Show only it with the parts below", function() only(tree, name .. " and below") end },
+    { "Hide this part", function()
+        UA.push()
+        local hid = {}
+        for i in pairs(it.hid or {}) do hid[i] = true end
+        for i in pairs(one) do hid[i] = true end
+        ed.set_hidden(it, hid)
+        say("hidden: " .. name .. " (Shift+Y shows all)", C_ACC, 150)
+      end },
+    { "Give the choice to this bone", function() ed.give_bone(b) end },
+    { "Back to the parts", function() ed.parts_dialog(b) end },
+  })
+end
+
+function ed.parts_dialog(sel_bone)
+  local it = I()
+  local rig, err = ed.rig_of(it)
+  if not rig then say(err, C_ERR, 240); return false end
+  local rows, sel = {}, 1
+  if it.hid then
+    rows[1] = { "Show all (" .. ed.hidden_count(it) .. " vertices hidden)", function() ed.show_all() end }
+  end
+  for _, p in ipairs(B.G.part_list(it, rig)) do
+    rows[#rows + 1] = { string.format("%s%s  (%d)", ("   "):rep(p.depth), rig[p.bone + 1].name, p.count),
+                        function() ed.part_menu(p.bone) end }
+    if p.bone == sel_bone then sel = #rows end
+  end
+  choose("parts: " .. #rig .. " bones (Enter: choose, show only...)", rows, sel)
+  return true
+end
+
 function ed.toggle_bone_view()
   local rig, err = ed.rig_of(I())
   if not rig then say(err, C_ERR, 240); return end
@@ -2745,6 +2841,7 @@ local COMMANDS = {
   { "Smooth the chosen vertices: relax toward the neighbours (V)", "V" },
   { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / edges / faces (Tab)", "\t" },
   { "Next element (n)", "n" }, { "Frame the choice (f)", "f" }, { "Finer step (,)", "," }, { "Coarser step (.)", "." },
+  { "Parts: choose or show only a bone's part (N)", "N" },
   { "Ghost: load a model, clear it (H)", "H" }, { "Ghost: show / hide (h)", "h" },
   { "Ghost: scale up (])", "]" }, { "Ghost: scale down ([)", "[" },
   { "Ghost: up (})", "}" }, { "Ghost: down ({)", "{" },
@@ -2869,6 +2966,7 @@ function edit_key(k)
   elseif k == "V" then ed.smooth()
   elseif k == "R" then ed.ref_dialog()
   elseif k == "B" then ed.bone_dialog()
+  elseif k == "N" then ed.parts_dialog()
   elseif k == "v" then ed.toggle_bone_view()
   elseif k == "h" then ed.ghost_toggle()
   elseif k == "H" then ed.ghost_dialog()
@@ -3142,6 +3240,7 @@ local HELP = {
     { "0-9 . -", "in g r t: type the exact value (axis x y z n first; Backspace)" },
     { "shift r", "reference pictures: a front and a side from /pics behind the model (views 1 and 3)" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete, add a part, loop cut on both sides (not the knife)" },
+    { "shift n", "parts: the bones as a tree (arm, hand, grip); choose a part, show only it, hide it; Shift+Y shows all" },
     { "shift b / v", "give the choice (or a part, l) to a bone of the skeleton / tint the dots by bone" },
     { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved); the last row sets its detail (2000, 5000, 20000, all); a long wire is drawn thinned" },
     { "[ ] / { }", "ghost: scale / height (with a ghost, [ ] do not change the mesh)" },
@@ -3214,6 +3313,7 @@ end
 
 local function try_game()
   if not proj.path then say("open a .bm first", C_ERR); return end
+  if proj.bmm then say("a model file has no game to try", C_ERR); return end
   if dirty and not save_to(proj.path) then return end
   save({ page = last_page, cur = cur })        -- the page to come back to
   cart_run(proj.path)
@@ -3229,6 +3329,14 @@ end
 
 local function save_as()
   if not proj.path then say("open a .bm first", C_ERR); return end
+  if proj.bmm then                      -- another model file in /bmm (1 to 8 of a-z 0-9 _ -)
+    ask("file name (in /bmm)", proj.path:match("([^/]+)%.%w+$") or "model", function(t)
+      local stem = t:lower():gsub("%.bmm$", "")
+      if not stem:match("^[a-z0-9_%-]+$") or #stem > 8 then say("a .bmm name is 1 to 8 of a-z 0-9 _ -", C_ERR); return end
+      if save_to(B.BMM_DIR .. "/" .. stem .. ".bmm") then go("list") end
+    end)
+    return
+  end
   ask("file name (8.3, in /bme)", short_path(proj.path):match("([^/]+)$") or "meshes.bme", function(t)
     local to = U.project_path(t)
     local from = proj.path

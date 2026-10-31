@@ -65,7 +65,7 @@ All the tools of the suite change only **projects** (`.bme`). A **game** (`.bm`)
 - From the **Dev** tab of the console menu.
 - From a game: press **X** on its cover, then **Open in bm Mesh**.
 - From the monitor: the key `4`.
-- From inside the editor: Esc, then **Open...** (Ctrl+O). The list shows the `.bme` projects of `/bme` and the `.bm` and `.bme` files of `/carts` and of the root of the SD card.
+- From inside the editor: Esc, then **Open...** (Ctrl+O). The list shows the `.bme` projects of `/bme`, the `.bm` and `.bme` files of `/carts` and of the root of the SD card, and the `.bmm` model files of `/bmm`. A `.bmm` opens with all its models and skeletons. **Save** writes the same `.bmm` again, **Save as** asks a name of up to 8 letters for another `.bmm`, and **Try the game** says that a model file has no game.
 - If you started bm Mesh with no file, the file chooser opens by itself.
 
 ## What you see after opening
@@ -154,6 +154,7 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | X (Shift+X) | live mirror on or off |
 | B (Shift+B) | give the chosen vertices to a bone of the skeleton |
 | v | bone view: the vertex dots take the colour of their bone |
+| N (Shift+N) | parts: the bones as a tree; choose a part, show only it, hide it |
 | h | show or hide the ghost (the reference model) |
 | H (Shift+H) | load a ghost from `/bmm` or `/glb`, or clear it |
 | [ and ] | the ghost smaller or larger (5 percent each press) |
@@ -274,6 +275,19 @@ The header shows the bone of the choice on the right of the second row, for exam
 With the live mirror on, the counterparts across X = 0 follow too. If the skeleton has a mirrored pair by name, the counterparts take the other bone of the pair. Names that differ only by the side are a pair: `arm_l` and `arm_r`, `hand.L` and `hand.R`, `l_foot` and `r_foot`, `armLeft` and `armRight`. A bone with no pair in the skeleton gives the same bone to the counterparts. If you choose both sides, the vertices on the side of the head of the bone keep that bone and the other side takes the pair. A vertex on X = 0 keeps the bone you picked.
 
 If a skeleton has no vertices yet, all vertices are on bone 0 until you give them another bone. If the skeleton was made for a different number of vertices, bm Mesh does not change the bones: skin the model again in bm Animator. A model with no skeleton answers "no skeleton". With the gamepad, tap X and pick **Give the choice to a bone** or **Bone view**.
+
+### Parts
+
+Work by parts, not by vertices. A part is all the vertices of one bone. Press **Shift+N** (on the gamepad: X, then **Parts**). A list shows the bones as a tree: each child is indented under its parent, for example `uarm`, then `larm`, `hand` and `grip` below it. The number in brackets is how many vertices the bone has. Pick a bone and press Enter to open its menu:
+
+- **Choose this part** chooses all its vertices. Then **g**, **r** and **t** move, turn and scale the part, and **f** frames it.
+- **Choose it with the parts below** adds the vertices of the child bones.
+- **Show only this part** hides the rest of the model, so you see the part alone. **Show only it with the parts below** does the same for the part and its children.
+- **Hide this part** hides the part and keeps the rest.
+- **Give the choice to this bone** is the same as **Shift+B** with this bone.
+- **Back to the parts** opens the list again.
+
+When something is hidden, the first row of the list is **Show all**. Each hide and each show-only is one undo step. A model with no skeleton answers "no skeleton". To make a weapon a part of its own, add a bone for it in bm Animator (a child of the hand), then give its vertices to that bone with **Shift+B**.
 
 ## Snap
 

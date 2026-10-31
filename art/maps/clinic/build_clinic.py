@@ -63,8 +63,10 @@ class Paint:
 
     def __init__(self, sh, x, y, seed):
         self.sh, self.x, self.y, self.rnd = sh, x, y, random.Random(seed)
+        self.px = {}
 
     def put(self, i, j, c):
+        self.px[(i, j)] = c
         self.sh.put(self.x + i, self.y + j, c)
 
     def fill(self, c):
@@ -78,10 +80,22 @@ class Paint:
                 self.put(i, j, c)
 
     def speckle(self, ramp, amount=1.0):
+        """soft stains: a smooth noise that wraps at the tile edge shades the colours already painted (no single
+        loose pixels, they shimmer when the texture is far). `ramp` keeps the call sites; `amount` sets the depth."""
+        g = [[self.rnd.random() for _ in range(4)] for _ in range(4)]
+        depth = 0.10 + 0.14 * min(1.0, amount * 2)
         for j in range(16):
             for i in range(16):
-                if self.rnd.random() < amount:
-                    self.put(i, j, ramp[self.rnd.randrange(len(ramp))])
+                fx, fy = i / 4.0, j / 4.0
+                x0, y0 = int(fx), int(fy)
+                tx, ty = fx - x0, fy - y0
+                tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
+                a = g[y0 % 4][x0 % 4] + (g[y0 % 4][(x0 + 1) % 4] - g[y0 % 4][x0 % 4]) * tx
+                b = g[(y0 + 1) % 4][x0 % 4] + (g[(y0 + 1) % 4][(x0 + 1) % 4] - g[(y0 + 1) % 4][x0 % 4]) * tx
+                n = a + (b - a) * ty
+                c = self.px.get((i, j))
+                if c is not None:
+                    self.put(i, j, tint(c, 1.0 + (n - 0.5) * depth))
 
 
 def t_ward(p):                       # the infirmary floor: pale green-grey squares with a dark grout line
@@ -165,14 +179,13 @@ def t_clinicwall(p):                 # infirmary wall: cream plaster over a mute
                 c = 0xC2B79C
                 if i % 8 == 0:
                     c = 0xA79C82
-                elif (i * 7 + j * 3) % 11 == 0:
-                    c = 0xB3A88D                                # a stain
             elif j == 10:
                 c = 0xDDD4BA
             else:
                 c = 0x41614F if (i % 8) else 0x34503F
             p.put(i, j, c)
     p.rect(0, 0, 16, 1, 0x8E8369)
+    p.speckle([], 0.3)
 
 
 def t_dirt(p):

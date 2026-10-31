@@ -1662,10 +1662,46 @@ function G.rig_bones(it)
   local nb = sunpack("<I2", ac, 17)
   local out, pos = {}, 25
   for i = 1, nb do
-    out[i] = { name = cname(ac, pos), hx = (sunpack("<f", ac, pos + 20)) }
+    out[i] = { name = cname(ac, pos), hx = (sunpack("<f", ac, pos + 20)), parent = sunpack("<i2", ac, pos + 16) + 1 }
     pos = pos + 44
   end
   return out
+end
+
+-- The parts of a skeleton (one part for each bone), as the list of the Parts panel: { { bone, depth, count }, ... }
+-- in tree order (a parent, then its children), count = the vertices of the bone. rig comes from G.rig_bones
+-- (parent: 1-based, 0 = none). A bone whose parent comes later still shows (as a root).
+function G.part_list(it, rig)
+  local kids, roots, n = {}, {}, {}
+  for i = 1, #(it.vb or {}) do local b = it.vb[i]; n[b] = (n[b] or 0) + 1 end
+  if not it.vb then n[0] = #it.v end
+  for i, r in ipairs(rig) do
+    local p = r.parent
+    if p and p >= 1 and p < i then kids[p] = kids[p] or {}; kids[p][#kids[p] + 1] = i
+    else roots[#roots + 1] = i end
+  end
+  local out = {}
+  local function walk(i, d)
+    out[#out + 1] = { bone = i - 1, depth = d, count = n[i - 1] or 0 }
+    for _, c in ipairs(kids[i] or {}) do walk(c, d + 1) end
+  end
+  for _, i in ipairs(roots) do walk(i, 0) end
+  return out
+end
+
+-- the vertices of bone b (from 0) as a set { [vertex] = true }; with kids also the vertices of the bones below it
+function G.part_set(it, rig, b, kids)
+  local want = { [b] = true }
+  if kids then
+    for i, r in ipairs(rig) do                 -- a parent comes before its children
+      if r.parent and r.parent >= 1 and want[r.parent - 1] then want[i - 1] = true end
+    end
+  end
+  local set = {}
+  for i = 1, #it.v do
+    if want[it.vb and it.vb[i] or 0] then set[i] = true end
+  end
+  return set
 end
 
 -- the name of the other side: arm_l -> arm_r, hand.R -> hand.L, Left -> Right, l_arm -> r_arm; nil
@@ -1993,6 +2029,39 @@ function T.retarget(src, dst)
     clips[c] = o
   end
   return clips, { matched = matched, missing = missing, clips = #clips }
+end
+
+-- Animator side (bones of a loaded rig: r.bones[i] = { parent (1-based, 0 none), head, tail }, faces f.p / f.b).
+-- T.part_bones(r, b, tree): { [bone] = true } for bone b (1-based), with the bones below it when tree is set.
+function T.part_bones(r, b, tree)
+  local set = { [b] = true }
+  if tree then
+    for i, o in ipairs(r.bones) do if o.parent >= 1 and set[o.parent] then set[i] = true end end
+  end
+  return set
+end
+
+-- T.turn_part(m, r, b, axis, rad): turns the bone b and the bones below it round the head of b, and the corners
+-- of the faces that follow them (m.faces[].p, f.b). The head of b, the poses and the animations stay; every
+-- animation turns the part from its new rest place. Returns the number of corners turned.
+function T.turn_part(m, r, b, axis, rad)
+  local set = T.part_bones(r, b, true)
+  local pivot, q = V.copy(r.bones[b].head), Q.axis(V.norm(axis), rad)
+  local function turn(p) return V.add(pivot, Q.rotate(q, V.sub(p, pivot))) end
+  for i in pairs(set) do
+    local o = r.bones[i]
+    if i ~= b then o.head = turn(o.head) end
+    o.tail = turn(o.tail)
+  end
+  local n = 0
+  for _, f in ipairs(m.faces) do
+    if f.b then
+      for k = 1, #f.p do
+        if set[f.b[k]] then f.p[k] = turn(f.p[k]); n = n + 1 end
+      end
+    end
+  end
+  return n
 end
 
 -- Two-bone IK (APP-29), for the editors only: the runtime, the clip format and the kernel do not change; the
@@ -2385,20 +2454,35 @@ function T.short_path(path)
 end
 
 function T.list_files()
-  local out = U.project_files({ bm = true, bme = true })
+  local out = U.project_files({ bm = true, bme = true, bmm = true }, { T.BMM_DIR })   -- and the model files of /bmm
   table.sort(out)
   return out
 end
 
+-- a model file (.bmm) is opened as a project of its models: Save writes the .bmm again (res_write),
+-- Save as makes a .bme project of them
+function T.is_bmm(path) return path ~= nil and path:lower():match("%.bmm$") ~= nil end
+
 local reset_pages
 
 function T.load_project(path)
-  local p, e = cart_load(path)
-  if not p then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
-  S.proj = { title = p.title, author = p.author, res = p.res, path = path,
-             sheet_w = p.sheet_w, sheet_h = p.sheet_h, palette = p.palette }
-  local parts, ins = T.split_mesh(cart_data(SEC_MESH))
-  local rigs = T.split_anim(cart_data(SEC_ANIM))
+  local parts, ins, rigs
+  if T.is_bmm(path) then
+    local r, e = res_read(path)
+    if not r then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
+    if r.kind ~= 1 or not r.sections[SEC_MESH] then say(path .. " is not a model file", C.ERR); return false end
+    S.proj = { title = r.name or path:match("([^/]+)%.%w+$"), author = r.author or "", res = "640x360", path = path,
+               bmm = true }
+    parts, ins = T.split_mesh(r.sections[SEC_MESH])
+    rigs = r.sections[SEC_ANIM] and T.split_anim(r.sections[SEC_ANIM]) or {}
+  else
+    local p, e = cart_load(path)
+    if not p then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
+    S.proj = { title = p.title, author = p.author, res = p.res, path = path,
+               sheet_w = p.sheet_w, sheet_h = p.sheet_h, palette = p.palette }
+    parts, ins = T.split_mesh(cart_data(SEC_MESH))
+    rigs = T.split_anim(cart_data(SEC_ANIM))
+  end
   S.inset = ins
   S.models = {}
   for _, part in ipairs(parts) do
@@ -2421,7 +2505,8 @@ function T.load_project(path)
   if not ok then say("broken models: " .. tostring(err), C.ERR) end
   T.select_model(1)
   reset_pages()
-  say("opened " .. path .. "  (" .. #parts .. " models" .. (T.is_game(path) and "; a game: saving makes its copy" or "") .. ")", C.ACC)
+  say("opened " .. path .. "  (" .. #parts .. " models" .. (T.is_game(path) and "; a game: saving makes its copy" or "")
+      .. (S.proj.bmm and "; a model file: Save writes it, Save as makes a .bme" or "") .. ")", C.ACC)
   return true
 end
 
@@ -2442,7 +2527,17 @@ end
 function T.save_to(path, from)
   local ok, e = T.sync()
   if not ok then say("cannot save: " .. tostring(e), C.ERR); return false end
-  local new = not S.proj.path
+  if T.is_bmm(path) then                -- a model file: the models and their skeletons, nothing else
+    local mesh = cart_data(SEC_MESH)
+    if not mesh then say("cannot save: no model with faces", C.ERR); return false end
+    ok, e = res_write(path, 1, { sections = { [SEC_MESH] = mesh, [SEC_ANIM] = cart_data(SEC_ANIM) },
+                                 name = S.proj.title, author = S.proj.author or "", replace = true })
+    if not ok then say("save failed: " .. tostring(e), C.ERR); return false end
+    S.dirty = false
+    say("saved " .. path, C.ACC)
+    return true
+  end
+  local new = not S.proj.path or S.proj.bmm   -- a .bmm saved as a project: a new cartridge with the viewer
   local t = { sections = { [SEC_MESH] = cart_data(SEC_MESH) or false, [SEC_ANIM] = cart_data(SEC_ANIM) or false },
               title = S.proj.title, author = S.proj.author }
   if new then
@@ -2454,7 +2549,7 @@ function T.save_to(path, from)
   ok, e = cart_write(path, t)
   if not ok then say("save failed: " .. tostring(e), C.ERR); return false end
   if type(e) == "string" then path = e end      -- the editable copy of a game, or a new project
-  S.proj.path = path
+  S.proj.path, S.proj.bmm = path, nil
   S.dirty, S.sheet_dirty = false, false
   say(U.saved_text(path), C.ACC)
   return true
@@ -2481,6 +2576,7 @@ end
 -- tries the game: saved first, then cart_run; the program comes back to
 -- the same page (saved())
 function T.run_project()
+  if S.proj.bmm then say("a model file has no game: Save as makes a .bme project to try", C.ERR); return end
   local function go_run()
     save({ page = S.last_page, model = S.cur })
     cart_run(S.proj.path)

@@ -1348,7 +1348,7 @@ static const luaL_Reg api[] = {
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
-    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
+    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "battery", l_battery }, { "battery_low", l_battery_low },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
@@ -2425,10 +2425,11 @@ static int vol_start;                   /* the volume when the cartridge started
  * game): F11 once at the top right, again at the bottom right, again off.
  * Off by default. One small block on the 8x16 grid, bigger on the big
  * screens (x2 from 1280 wide, x3 at 1920):
- *   60fps 8.2ms
+ *   60fps 8.2ms tri 15.4k
  *   cpu [=====---]  49%
  *   gpu [===-----]  31%
- * The frames a second and the ms of work of a frame; then the CPU's frame
+ * The frames a second, the ms of work of a frame and, in a 3D game, the
+ * triangles drawn (stat(4), "k" thousands, "m" millions); then the CPU's frame
  * in its parts, each a colour: _update, _draw without its 3D (and the
  * page's clear and copy), the 3D calls (stat(6) without the GPU wait), the
  * audio interrupt, the wait for the GPU (darker), the rest free; the GPU's
@@ -2477,6 +2478,20 @@ int l_devkit(lua_State *L)
     }
     lua_pushinteger(L, old);
     return 1;
+}
+
+/* devkit_tris([n]) -> n, text: the 3D triangles drawn in the last frame
+ * (stat(4)) and the text of the overlay ("15.4k"); 0, "0" with no 3D.
+ * With n: that count in the same short text (the SDK's run numbers). */
+int l_devkit_tris(lua_State *L)
+{
+    lua_Integer v = luaL_optinteger(L, 1, rt.r3d_ready ? (lua_Integer)rt.r3d.tris_drawn : 0);
+    const unsigned long t = v > 0 ? (unsigned long)v : 0;
+    char c[16];
+    devkit_count(c, sizeof c, t);
+    lua_pushinteger(L, (lua_Integer)t);
+    lua_pushstring(L, c);
+    return 2;
 }
 
 /* devinfo(line, ...): up to 4 lines of the game in the session report
@@ -3327,6 +3342,30 @@ static void perf_bar(g16_t *g, int x, int y, int z, const char *name, const uint
     g16_text_scaled(g, x + 14 * 8 * z, y, t, c, z);  /* columns 14 to 17 */
 }
 
+/* a count in short: "950", "15.4k" (thousands), "1.2m" (millions), one
+ * decimal; the dev kit's overlay and devkit_tris() write it so */
+void devkit_count(char *out, int n, unsigned long t)
+{
+    if (t < 1000)
+        ksnprintf(out, n, "%lu", t);
+    else if (t < 1000000)
+        ksnprintf(out, n, "%lu.%luk", t / 1000, t / 100 % 10);
+    else
+        ksnprintf(out, n, "%lu.%lum", t / 1000000, t / 100000 % 10);
+}
+
+/* " tri 15.4k": the 3D triangles drawn in the frame (stat(4)) after the ms, in
+ * thousands (k) or millions (m) with one decimal; empty in a game with no 3D */
+static void perf_tris(char *out, int n)
+{
+    out[0] = 0;
+    if (!rt.r3d_ready)
+        return;
+    char c[16];
+    devkit_count(c, sizeof c, rt.r3d.tris_drawn);
+    ksnprintf(out, n, " tri %s", c);
+}
+
 /* The small dev kit: two rows on the 6x12 font at the top right, for a screen
  * that cannot spare the full block (the RGB30). "60fps 8.2ms", then the CPU
  * and the GPU in % of a 60 Hz frame, in the colours of the full block. */
@@ -3350,9 +3389,10 @@ static void perf_small_draw(void)
         cpct = 999;
     if (gpct > 999)
         gpct = 999;
-    char l1[24], l2[24];
-    ksnprintf(l1, sizeof l1, "%lufps %lu.%lums", (unsigned long)rt.fps, (unsigned long)(used / 1000),
-              (unsigned long)(used / 100 % 10));
+    char l1[40], l2[24], tri[20];
+    perf_tris(tri, sizeof tri);
+    ksnprintf(l1, sizeof l1, "%lufps %lu.%lums%s", (unsigned long)rt.fps, (unsigned long)(used / 1000),
+              (unsigned long)(used / 100 % 10), tri);
     if (gpu)
         ksnprintf(l2, sizeof l2, "c%lu%% g%lu%%", (unsigned long)cpct, (unsigned long)gpct);
     else
@@ -3404,14 +3444,17 @@ void perf_frame(void)
         if (y < 0)
             y = 0;
     }
-    g16_rectfill(g, x - 4 * z, y ? y - 2 * z : 0, 148 * z, rows * rowh + 2 * z, g16_rgb(8, 8, 16));
     uint32_t used = 0;
     for (int i = 0; i < SEG_USED; i++)
         used += pw.seg[i];
-    char line[32];
-    ksnprintf(line, sizeof line, "%lufps %lu.%lums", (unsigned long)rt.fps, (unsigned long)(used / 1000),
-              (unsigned long)(used / 100 % 10));
-    g16_text_scaled(g, x, y, line, g16_rgb(232, 232, 216), z);
+    char line[48], tri[20];
+    perf_tris(tri, sizeof tri);
+    ksnprintf(line, sizeof line, "%lufps %lu.%lums%s", (unsigned long)rt.fps, (unsigned long)(used / 1000),
+              (unsigned long)(used / 100 % 10), tri);
+    /* a first row longer than the 18 columns of the bars widens the box to the left */
+    const int lx = (int)strlen(line) > 18 ? g->w - ((int)strlen(line) * 8) * z : x;
+    g16_rectfill(g, lx - 4 * z, y ? y - 2 * z : 0, g->w - lx + 4 * z, rows * rowh + 2 * z, g16_rgb(8, 8, 16));
+    g16_text_scaled(g, lx, y, line, g16_rgb(232, 232, 216), z);
     /* the CPU: _update, _draw, 3D calls, audio, GPU wait (darker), free */
     static const uint8_t order[5] = { SEG_UPDATE, SEG_DRAW, SEG_3D, SEG_AUDIO, SEG_WAIT };
     const uint16_t col[5] = { g16_rgb(90, 150, 255), g16_rgb(80, 210, 220), g16_rgb(190, 120, 255),

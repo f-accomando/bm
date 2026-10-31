@@ -54,7 +54,7 @@ static g16_sheet_t sheet, sheet2, sheet3;
 static g16_sheet_t sheets10[10];        /* more sheets than the backend keeps in a job (8) */
 static g16_sheet_t sheet_e;             /* bm3d 7.3: opaque 128x128, gradients and checkers (ETC1) */
 static r3d_mesh_t quad_e;               /* a quad over the whole of sheet_e */
-static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex, hero_skin;
+static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex, hero_skin, hero_skin_col;
 static r3d_mesh_t quad_s, lit_quad_s, lit_box_s;     /* M34: textured screen-door faces */
 static r3d_mesh_t grid_shuffled;        /* bm3d 5.6: a grid whose faces come in no order */
 static const r3d_mesh_t *hero_m = &hero;     /* the hero of s_vshader_heroes */
@@ -182,6 +182,20 @@ static void make_hero(void)
     hero_skin.vbone = hero_skin_vbone;
     hero_skin.nbones = 2;
     r3d_mesh_normals(&hero_skin);
+    /* bm3d 7.33: the same skin in plain colours (vs_lit2): the hero's colours, emissive and flat
+     * faces kept; a glossy face on two bones would send it to the ARM, so its gloss goes */
+    r3d_mesh_alloc(&hero_skin_col, hero.nverts, hero.nfaces);
+    memcpy(hero_skin_col.verts, hero.verts, (size_t)hero.nverts * sizeof *hero.verts);
+    memcpy(hero_skin_col.faces, hero.faces, (size_t)hero.nfaces * 3 * sizeof *hero.faces);
+    for (int f = 0; f < hero.nfaces; f++) {
+        const uint16_t *fc = hero.faces + f * 3;
+        const int two = hero_skin_vbone[fc[0]] != hero_skin_vbone[fc[1]] || hero_skin_vbone[fc[0]] != hero_skin_vbone[fc[2]];
+        hero_skin_col.colors[f] = (hero.colors[f] & ~(two ? R3D_GLOSSY : 0u)) | (f % 13 == 0 ? R3D_FLAT : 0);
+    }
+    hero_skin_col.bones = hero.bones;
+    hero_skin_col.vbone = hero_skin_vbone;
+    hero_skin_col.nbones = 2;
+    r3d_mesh_normals(&hero_skin_col);
     r3d_mesh_free(&s);
     r3d_mesh_free(&c);
 }
@@ -463,6 +477,15 @@ static void s_vshader_skin(r3d_t *r, g16_t *g, int gpu)
     hero_m = &hero;
 }
 
+/* bm3d 7.33: a skin of plain colours, faces on two bones (vs_lit2): the lamp in colour and the fog
+ * as vs_lit's */
+static void s_vshader_skin_col(r3d_t *r, g16_t *g, int gpu)
+{
+    hero_m = &hero_skin_col;
+    s_vshader_heroes(r, g, gpu);
+    hero_m = &hero;
+}
+
 /* bm3d 7.5: the cel light (cel3d, flag 256) by the vertex programs against the ARM's table: the
  * heroes alone (no mesh but the cel ones, so a GPU that drew nothing by the vertex shader is
  * seen), flat and smooth, 4 bands; the sun at 0.5 so that most faces are well inside a band; a
@@ -532,6 +555,13 @@ static void s_vshader_cel_tex(r3d_t *r, g16_t *g, int gpu)
 static void s_vshader_cel_skin(r3d_t *r, g16_t *g, int gpu)
 {
     hero_m = &hero_skin;
+    s_vshader_cel(r, g, gpu);
+    hero_m = &hero;
+}
+
+static void s_vshader_cel_skin_col(r3d_t *r, g16_t *g, int gpu)
+{
+    hero_m = &hero_skin_col;
     s_vshader_cel(r, g, gpu);
     hero_m = &hero;
 }
@@ -914,9 +944,11 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader heroes", s_vshader_heroes, 640, 360, 0.04f, 1 },
     { "vshader textured", s_vshader_heroes_tex, 640, 360, 0.04f, 1 },
     { "vshader skin", s_vshader_skin, 640, 360, 0.04f, 1 },
+    { "vshader skin colour", s_vshader_skin_col, 640, 360, 0.04f, 1 },
     { "cel heroes", s_vshader_cel, 640, 360, 0.04f, 1 },
     { "cel textured", s_vshader_cel_tex, 640, 360, 0.04f, 1 },
     { "cel skin", s_vshader_cel_skin, 640, 360, 0.04f, 1 },
+    { "cel skin colour", s_vshader_cel_skin_col, 640, 360, 0.04f, 1 },
     { "cel 2 bands", s_vshader_cel_2, 640, 360, 0.04f, 1 },
     { "cel 8 bands", s_vshader_cel_8, 640, 360, 0.04f, 1 },
     { "outline", s_vshader_outline, 640, 360, 0.04f, 1 },
@@ -1042,6 +1074,7 @@ static void run_scene(int s)
                   scenes[s].fn == s_vshader_heroes_tex || scenes[s].fn == s_vshader_skin ||
                   scenes[s].fn == s_vshader_cel || scenes[s].fn == s_vshader_cel_tex ||
                   scenes[s].fn == s_vshader_cel_skin || scenes[s].fn == s_vshader_cel_2 ||
+                  scenes[s].fn == s_vshader_skin_col || scenes[s].fn == s_vshader_cel_skin_col ||
                   scenes[s].fn == s_vshader_cel_8 || scenes[s].fn == s_vshader_outline ||
                   scenes[s].fn == s_vshader_outline_skin) && emu_clip != 1))
                 CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");

@@ -176,7 +176,7 @@ end
 
 -- the faces coloured by their bones (shared corners), as a mesh; the
 -- chosen faces brighter, the faces the test pose marked red
-local function skin_mesh(m, chosen, hot)
+local function skin_mesh(m, chosen, hot, only)
   if not m.rig or #m.faces == 0 then return nil end
   local v, f, index = {}, {}, {}
   local function vid(p)
@@ -190,6 +190,7 @@ local function skin_mesh(m, chosen, hot)
     return i
   end
   for _, fc in ipairs(m.faces) do
+   if not only or only[fc.b and fc.b[1] or 1] then
     local ids = {}
     for k, p in ipairs(fc.p) do ids[k] = vid(p) end
     local col = T.bone_colour(fc.b and fc.b[1] or 1)
@@ -201,6 +202,7 @@ local function skin_mesh(m, chosen, hot)
         f[#f + 1], f[#f + 2], f[#f + 3], f[#f + 4] = a, b, c, col
       end
     end
+   end
   end
   if #v // 3 <= 4096 and #f > 0 and #f // 4 <= 16384 then return mesh(v, f) end
 end
@@ -423,8 +425,17 @@ local function chosen_list()
   return #out > 0 and out or nil
 end
 
+-- Parts: h shows only the faces of the chosen bone (rg.only = "bone"), then with the bones below it ("tree"),
+-- then all again. The faces are drawn in the colour of their bone (the skin view).
+local function only_set()
+  local r = rig()
+  if not rg.only or not r or not r.bones[rg.bone] then return nil end
+  return T.part_bones(r, rg.bone, rg.only == "tree")
+end
+
 local function remesh()
-  rg.mesh = rg.skin and M() and skin_mesh(M(), rg.sel, rg.stress and rg.stress.faces) or nil
+  local only = only_set()
+  rg.mesh = (rg.skin or only) and M() and skin_mesh(M(), rg.skin and rg.sel or nil, rg.skin and rg.stress and rg.stress.faces or nil, only) or nil
 end
 
 rig_page = {
@@ -436,6 +447,9 @@ rig_page = {
     { "tab", "head / tail" },
     { "j", "head alone: it leaves the parent's tail (shoulder, hip)" },
     { "n", "new bone (child of this one)" },
+    { "h", "show only the faces of this bone, then with the bones below it, then all" },
+    { "o / i", "turn axis x y z / step 5, 15, 45, 90 degrees" },
+    { ", . / u", "turn this bone and the bones below it round its head (rest pose) / type the degrees" },
     { "x / del", "delete the bone" },
     { "m", "mirror it and its children (.L / .R)" },
     { "enter / p", "rename / parent" },
@@ -449,6 +463,7 @@ rig_page = {
     { "up down left right", "a face" },
     { "space", "choose" },
     { "c / a", "all joined / assign to the bone" },
+    { "b", "choose all the faces of the bone" },
     { "pgup / pgdn", "the bone" },
     { "backspace", "choose none" },
     { "k / shift k", "auto (the chosen faces)" },
@@ -629,6 +644,23 @@ local function rig_move(dx, dy, dz, step)
   T.commit_anim()
 end
 
+-- Turns the bone, the bones below it and the faces that follow them round the head of the bone, for good (the
+-- rest pose): a weapon on its own bone (grip) takes a new angle in every animation. o axis, i step, comma and point turn, u degrees.
+local AXES = { { "x (across)", { 1, 0, 0 } }, { "y (up)", { 0, 1, 0 } }, { "z (along)", { 0, 0, 1 } } }
+local STEPS = { 5, 15, 45, 90 }
+rg.axis, rg.stepi = 2, 2
+
+local function turn_part(deg)
+  local r, m = rig(), M()
+  if not r or not m then return end
+  T.begin_edit()
+  local n = T.turn_part(m, r, rg.bone, AXES[rg.axis][2], deg * pi / 180)
+  T.commit()
+  rg.stress = nil
+  remesh()
+  say(string.format("%s turned %g degrees round %s (%d corners)", r.bones[rg.bone].name, deg, AXES[rg.axis][1], n), C.ACC, 150)
+end
+
 local function choose_parent()
   local r = rig()
   if not r or rg.bone == 1 then say("the first bone has no parent", C.DIM, 60); return end
@@ -686,8 +718,14 @@ local function skin_key(k)
     rg.sel = {}
     remesh()
     say(#list .. " faces follow " .. r.bones[rg.bone].name, C.ACC, 90)
-  elseif k == "pgup" then rg.bone = (rg.bone - 2) % #r.bones + 1
-  elseif k == "pgdn" then rg.bone = rg.bone % #r.bones + 1
+  elseif k == "b" then                           -- the faces of the bone, all at once
+    rg.sel = {}
+    local n = 0
+    for _, f in ipairs(fs) do if (f.b and f.b[1] or 1) == rg.bone then rg.sel[f] = true; n = n + 1 end end
+    remesh()
+    say(n .. " faces follow " .. r.bones[rg.bone].name .. " (all chosen)", C.ACC, 120)
+  elseif k == "pgup" then rg.bone = (rg.bone - 2) % #r.bones + 1; remesh()
+  elseif k == "pgdn" then rg.bone = rg.bone % #r.bones + 1; remesh()
   elseif k == "\b" or k == "del" then rg.sel = {}; remesh()
   end
 end
@@ -719,6 +757,14 @@ function rig_page.key(k)
     end
     return
   end
+  if k == "h" then
+    rg.only = (rg.only == nil and "bone") or (rg.only == "bone" and "tree") or nil
+    remesh()
+    local name = r.bones[rg.bone].name
+    say(rg.only == "bone" and ("only the faces of " .. name .. " (h: with the bones below)")
+        or rg.only == "tree" and ("only " .. name .. " and the bones below (h: all)") or "all the faces", C.ACC, 120)
+    return
+  end
   if k == "k" or k == "K" then
     T.begin_edit(); auto_skin(m, k == "K", rg.skin and chosen_list()); T.commit()
     rg.stress = nil
@@ -727,8 +773,16 @@ function rig_page.key(k)
     return
   end
   if rg.skin then skin_key(k); return end
-  if k == "up" then rg.bone = (rg.bone - 2) % #r.bones + 1
-  elseif k == "down" then rg.bone = rg.bone % #r.bones + 1
+  if k == "up" then rg.bone = (rg.bone - 2) % #r.bones + 1; remesh()
+  elseif k == "down" then rg.bone = rg.bone % #r.bones + 1; remesh()
+  elseif k == "o" then rg.axis = rg.axis % 3 + 1; say("turn axis: " .. AXES[rg.axis][1], C.ACC, 90)
+  elseif k == "i" then rg.stepi = rg.stepi % #STEPS + 1; say("turn step: " .. STEPS[rg.stepi] .. " degrees", C.ACC, 90)
+  elseif k == "," or k == "." then turn_part(k == "." and STEPS[rg.stepi] or -STEPS[rg.stepi])
+  elseif k == "u" then
+    T.ask("turn " .. r.bones[rg.bone].name .. " and its children, degrees round " .. AXES[rg.axis][1], "15", function(t)
+      local d = T.G.parse_number(t)
+      if d then turn_part(d) end
+    end)
   elseif k == "\t" then rg.tail = not rg.tail
   elseif k == "j" then
     rg.alone = not rg.alone
@@ -842,7 +896,7 @@ function rig_page.draw()
   T.look(cam, PANEL_W / 2, 12)
   if m and #m.faces > 0 then T.draw_grid(round(cam.tx), cam.floor, round(cam.tz), 6, 0.5, C.GRID) end
   light3d(-0.4, 0.8, -0.5, 0.45)
-  if rg.skin and rg.mesh then draw3d(rg.mesh, 0, 0, 0, 0, 0, 0, 1, 0)
+  if (rg.skin or rg.only) and rg.mesh then draw3d(rg.mesh, 0, 0, 0, 0, 0, 0, 1, 0)
   elseif S.view then
     if r then animate(S.view) end
     draw3d(S.view, 0, 0, 0, 0, 0, 0, 1, 0)
@@ -884,7 +938,8 @@ function rig_page.draw()
     local parent = b.parent > 0 and r.bones[b.parent].name or "-"
     print(string.format("%s of %s: %.3f, %.3f, %.3f", rg.tail and "tail" or "head", b.name, e[1], e[2], e[3]),
           INFO_X, 32, C.ACC)
-    print("parent: " .. parent .. ((rg.alone and not rg.tail) and "   head alone (j)" or ""), INFO_X, 48, C.DIM)
+    print("parent: " .. parent .. ((rg.alone and not rg.tail) and "   head alone (j)" or "") ..
+          (rg.only and ("   ONLY " .. rg.only) or "") .. "   turn " .. AXES[rg.axis][1]:sub(1, 1) .. " " .. STEPS[rg.stepi], INFO_X, 48, C.DIM)
     T.hint({ { { "up", "down" }, "bone" }, { { "w", "a", "s", "d", "r", "f" }, "move" }, { { "tab" }, "head/tail" }, { { "j" }, "alone" },
              { { "n" }, "new" }, { { "m" }, "mirror" }, { { "k" }, "auto skin" }, { { "v" }, "skin" } })
   end

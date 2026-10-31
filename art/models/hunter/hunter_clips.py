@@ -311,7 +311,32 @@ def cyc(p):
     return p - math.floor(p)
 
 
-def walk_fn(frames=12, stride=0.20, lift=0.075, sway=0.02):
+def arms_down(d, swing, bend=0.0, open_saw=False):
+    """the arms hang beside the body and swing in the walk: `swing` > 0 takes the left hand forward and the right hand back
+    (the opposite of the legs); `bend` (0..1) bends the elbows (the run). The saw and the pistol point down, a little forward
+    and outward, as the Hunter carries them in the reference pictures."""
+    y = -0.51 + 0.20 * bend
+    for side, sg in (("L", 1), ("R", -1)):
+        z = sg * swing
+        d["h" + side] = [0.11 + 0.03 * bend, y + 0.03 * abs(z), 0.03 + z]
+        d["e" + side] = [0.25, -0.2, -1.0]                     # the elbows bend backward
+        d["d" + side] = [0.30 + 0.9 * bend + 0.6 * z, -1.0 + 0.6 * bend, 0.0]
+    d["dR"][2] = -0.22                                         # the saw a little away from the leg
+    d["dL"][2] = 0.10
+    if open_saw:
+        # the open saw is longer than the leg: the right hand carries it low, the blade trailing back and down, off the floor
+        d["hR"] = [0.13, y + 0.04, 0.06 - 0.35 * swing]
+        d["dR"] = [-0.80, -0.55, -0.30]
+    else:
+        # the closed saw points forward from the hanging hand, the blade level with the ground and under the handle, teeth down
+        # (the reference figure); it does not lie along the arm
+        d["dR"] = [1.0, -0.04, -0.10]
+        d["rR"] = 180
+    d["rL"] = 0
+    return d
+
+
+def walk_fn(frames=12, stride=0.20, lift=0.075, sway=0.02, open_saw=False):
     def fn(f):
         p = f / float(frames)
         d = merge(READY, {})
@@ -333,13 +358,12 @@ def walk_fn(frames=12, stride=0.20, lift=0.075, sway=0.02):
         d["spine"] = [4, 7 * sw, 0]
         d["chest"] = [3, 3 * sw, 0]
         d["head"] = [-4, -6 * sw, 0]
-        d["hL"] = [0.05, -0.19, 0.36 - 0.12 * sw]
-        d["hR"] = [0.03, -0.26, 0.33 + 0.12 * sw]
+        arms_down(d, -0.14 * math.cos(2 * math.pi * p), open_saw=open_saw)   # the left hand back while the left foot is forward
         return d
     return fn
 
 
-def run_fn(frames=8, stride=0.34, lift=0.17):
+def run_fn(frames=8, stride=0.34, lift=0.17, open_saw=False):
     def fn(f):
         p = f / float(frames)
         d = merge(READY, {})
@@ -361,16 +385,12 @@ def run_fn(frames=8, stride=0.34, lift=0.17):
         d["spine"] = [6, 10 * sw, 0]
         d["chest"] = [4, 4 * sw, 0]
         d["head"] = [-12, -8 * sw, 0]
-        d["hL"] = [0.0, -0.10, 0.22 - 0.26 * sw]
-        d["hR"] = [-0.02, -0.12, 0.22 + 0.26 * sw]
-        d["dR"] = [1.0, -0.1, -0.05]
-        d["eL"] = [0.2, -1.0, 0.5]
-        d["eR"] = [0.2, -1.0, 0.5]
+        arms_down(d, -0.22 * math.cos(2 * math.pi * p), bend=0.55, open_saw=open_saw)
         return d
     return fn
 
 
-def idle_fn(frames=24):
+def idle_fn(frames=24, open_saw=False):
     def fn(f):
         p = f / float(frames)
         b = math.sin(2 * math.pi * p)
@@ -378,8 +398,9 @@ def idle_fn(frames=24):
         d["hmove"] = [0, -0.045 + 0.008 * b, 0]
         d["chest"] = [3 + 1.5 * b, 0, 0]
         d["head"] = [-4 - 1.0 * b, 0, 0]
-        d["hL"] = [0.04, -0.20 + 0.01 * b, 0.36]
-        d["hR"] = [0.02, -0.27 + 0.01 * b, 0.32]
+        arms_down(d, 0.0, open_saw=open_saw)
+        d["hL"][1] += 0.006 * b
+        d["hR"][1] += 0.006 * b
         return d
     return fn
 
@@ -389,6 +410,10 @@ def clips():
     out.append(make_clip("idle", 24, idle_fn(24), True))
     out.append(make_clip("walk", 12, walk_fn(), True))
     out.append(make_clip("run", 8, run_fn(), True))
+    # the same moves with the open saw carried low and back (the game picks them in the open form)
+    out.append(make_clip("idle_o", 24, idle_fn(24, open_saw=True), True))
+    out.append(make_clip("walk_o", 12, walk_fn(open_saw=True), True))
+    out.append(make_clip("run_o", 8, run_fn(open_saw=True), True))
 
     # ---- pistol shot (left hand): raise, fire (kick), hold, lower
     ks = [
@@ -611,6 +636,91 @@ def clips():
         (15, dict(hips=[363, 0, 0]), "smooth"),
     ]
     out.append(make_clip("roll", 16, from_keys(rl, 16), False))
+
+    # ---- the fourth hit of each combo. Closed: a rising backhand from low right to high left, a step in.
+    c4 = [
+        (0, {}, "lin"),
+        (3, dict(hips=[8, -24, 0], hmove=[-0.03, -0.14, -0.04], spine=[10, -18, 0], chest=[6, -12, 0], head=[-6, 12, 0],
+                 hR=[0.34, -0.42, 0.12], dR=[0.5, -0.75, -0.45], rR=-25, hL=[0.14, -0.22, 0.26],
+                 fL=[0.20, 0.09, 0.10, 0, 0], fR=[0.22, 0.09, -0.24, 0, 20], **CL), "smooth"),
+        (7, dict(hips=[-2, 26, 0], hmove=[0.02, -0.06, 0.22], spine=[-8, 20, 0], chest=[-8, 14, 0], head=[2, -14, 0],
+                 hR=[-0.18, 0.30, 0.48], dR=[0.35, 0.85, 0.40], rR=10, hL=[0.22, -0.15, 0.08],
+                 fL=[0.22, 0.09, 0.32, 0, 30], fR=[0.20, 0.09, -0.08, 0, -10], **CL), "in"),
+        (9, dict(hips=[-4, 30, 0], hmove=[0.02, -0.05, 0.24], spine=[-10, 22, 0], chest=[-10, 16, 0], head=[4, -16, 0],
+                 hR=[-0.26, 0.44, 0.36], dR=[0.05, 0.95, 0.30], rR=14, hL=[0.22, -0.15, 0.08],
+                 fL=[0.22, 0.09, 0.32, 0, 32], fR=[0.20, 0.09, -0.08, 0, -10], **CL), "out"),
+        (13, dict(hips=[2, 10, 0], hmove=[0, -0.08, 0.12], spine=[2, 6, 0], chest=[0, 4, 0], head=[-4, -4, 0],
+                  hR=[0.0, 0.10, 0.40], dR=[0.6, 0.5, 0.0], hL=[0.12, -0.22, 0.26],
+                  fL=[0.18, 0.09, 0.20, 0, 10], fR=[0.18, 0.09, -0.12, 0, -8], **CL), "smooth"),
+        (17, {}, "smooth"),
+    ]
+    out.append(make_clip("saw_c4", 18, from_keys(c4, 18), False))
+    # Open: a full turn, the long blade out at arm's length (the pelvis turns 360 degrees, the clip ends facing front again)
+    o4 = [
+        (0, OREADY, "lin"),
+        (5, dict(hips=[4, -42, 0], hmove=[-0.04, -0.12, -0.06], spine=[4, -28, 0], chest=[2, -18, 0], head=[-3, 24, 0],
+                 hR=[0.52, -0.08, -0.08], dR=[0.2, -0.05, -0.97], rR=-20, hL=[0.22, -0.18, 0.08],
+                 fL=[0.24, 0.09, 0.10, 0, -6], fR=[0.28, 0.09, -0.26, 0, 34], **OP), "smooth"),
+        (8, dict(hips=[6, 70, 0], hmove=[0.02, -0.12, 0.10], spine=[5, 20, 0], chest=[3, 12, 0], head=[-3, -10, 0],
+                 hR=[-0.20, -0.06, 0.58], dR=[0.55, -0.05, 0.82], rR=10, hL=[0.24, -0.15, 0.04],
+                 fL=[0.24, 0.09, 0.30, 0, 40], fR=[0.22, 0.09, -0.12, 0, -14], **OP), "in"),
+        (11, dict(hips=[6, 190, 0], hmove=[0.0, -0.14, 0.18], spine=[5, 16, 0], chest=[3, 10, 0], head=[-3, -10, 0],
+                  hR=[-0.52, -0.06, 0.22], dR=[-0.15, -0.05, 0.98], rR=10, hL=[0.24, -0.15, 0.04],
+                  fL=[0.24, 0.09, 0.30, 0, 40], fR=[0.22, 0.09, -0.12, 0, -14], **OP), "lin"),
+        (14, dict(hips=[6, 300, 0], hmove=[0.0, -0.14, 0.24], spine=[5, 16, 0], chest=[3, 10, 0], head=[-3, -10, 0],
+                  hR=[-0.10, -0.06, 0.54], dR=[0.85, -0.05, 0.50], rR=10, hL=[0.24, -0.15, 0.04],
+                  fL=[0.24, 0.09, 0.30, 0, 40], fR=[0.22, 0.09, -0.12, 0, -14], **OP), "lin"),
+        (17, dict(hips=[9, 398, 0], hmove=[0.03, -0.16, 0.32], spine=[7, 30, 0], chest=[4, 20, 0], head=[-3, -22, 0],
+                  hR=[-0.46, -0.10, 0.46], dR=[0.15, -0.05, 1.0], rR=16, hL=[0.24, -0.15, 0.04],
+                  fL=[0.24, 0.09, 0.34, 0, 44], fR=[0.22, 0.09, -0.10, 0, -14], **OP), "out"),
+        (21, dict(hips=[6, 372, 0], hmove=[0.0, -0.12, 0.16], spine=[4, 10, 0], chest=[2, 6, 0], head=[-3, -8, 0],
+                  hR=[-0.10, -0.20, 0.40], dR=[0.8, -0.2, 0.5], hL=[0.14, -0.20, 0.20],
+                  fL=[0.22, 0.09, 0.22, 0, 20], fR=[0.22, 0.09, -0.12, 0, -8], **OP), "smooth"),
+        (25, merge(OREADY, dict(hips=[3, 360, 0])), "smooth"),
+    ]
+    out.append(make_clip("saw_o4", 26, from_keys(o4, 26), False))
+
+    # ---- the transform attack: a wide sweep from across the body out to the right with the arm at full length; the game
+    # changes the saw's form in the middle of it (frame 6), so the blade opens or closes inside the cut
+    tr = [
+        (0, {}, "lin"),
+        (3, dict(hips=[4, 32, 0], hmove=[0.03, -0.08, 0.0], spine=[4, 22, 0], chest=[2, 16, 0], head=[-3, -14, 0],
+                 hR=[-0.32, -0.16, 0.40], dR=[0.30, -0.25, 0.92], rR=24, hL=[0.14, -0.22, 0.30],
+                 fL=[0.22, 0.09, 0.24, 0, 30], fR=[0.22, 0.09, -0.14, 0, -12], **OP), "smooth"),
+        (7, dict(hips=[6, -40, 0], hmove=[-0.04, -0.12, 0.18], spine=[6, -28, 0], chest=[3, -20, 0], head=[-3, 18, 0],
+                 hR=[0.54, -0.06, 0.34], dR=[0.42, 0.05, -0.90], rR=-30, hL=[0.20, -0.25, 0.14],
+                 fL=[0.22, 0.09, 0.08, 0, -12], fR=[0.24, 0.09, -0.34, 0, 26], **OP), "in"),
+        (9, dict(hips=[6, -46, 0], hmove=[-0.04, -0.12, 0.20], spine=[6, -32, 0], chest=[3, -22, 0], head=[-3, 20, 0],
+                 hR=[0.58, 0.0, 0.24], dR=[0.28, 0.10, -0.95], rR=-34, hL=[0.20, -0.25, 0.14],
+                 fL=[0.22, 0.09, 0.08, 0, -12], fR=[0.24, 0.09, -0.34, 0, 30], **OP), "out"),
+        (15, OREADY, "smooth"),
+    ]
+    out.append(make_clip("transform", 16, from_keys(tr, 16), False))
+
+    # ---- a flinch when hit, and the death: the knees give, the body falls on its back
+    hu = [
+        (0, {}, "lin"),
+        (2, dict(hips=[-8, 0, 0], hmove=[0, -0.05, -0.10], spine=[-10, 0, 4], chest=[-8, 0, 2], head=[10, 0, -6],
+                 hL=[0.26, -0.14, 0.18], hR=[0.22, -0.18, 0.18], dR=[0.8, -0.4, -0.3],
+                 fL=[0.18, 0.09, 0.06, 0, 0], fR=[0.18, 0.09, -0.16, 0, 0]), "out"),
+        (5, dict(hips=[-3, 0, 0], hmove=[0, -0.07, -0.05], spine=[2, 0, 2], head=[-4, 0, -3]), "smooth"),
+        (8, {}, "smooth"),
+    ]
+    out.append(make_clip("hurt", 9, from_keys(hu, 9), False))
+    de = [
+        (0, {}, "lin"),
+        (3, dict(hips=[-2, 0, 0], hmove=[0, -0.22, -0.05], spine=[6, 0, 0], head=[-6, 0, 0], fL=[0.14, 0.09, 0.0, 0, 0], fR=[0.14, 0.09, 0.0, 0, 0],
+                 wL=[0.1, -0.5, 0.25], wR=[0.1, -0.5, 0.25], hL=[0.12, -0.30, 0.28], hR=[0.10, -0.32, 0.26]), "smooth"),
+        (8, dict(hips=[-48, 0, 6], hmove=[0, -0.55, -0.35], spine=[-8, 0, 0], chest=[-6, 0, 0], neck=[0, 0, 0], head=[10, 0, 0], fw=1.0,
+                 wL=[0.12, -0.7, 0.2], wR=[0.14, -0.7, 0.1], hL=[0.3, -0.2, -0.1], hR=[0.3, -0.2, -0.1], dL=[0.5, -0.5, 0.5], dR=[0.5, -0.5, 0.5]), "in"),
+        (13, dict(hips=[-88, 0, 4], hmove=[0, -0.78, -0.55], spine=[0, 0, 0], chest=[0, 0, 0], neck=[0, 0, 0], head=[18, 0, 0], fw=1.0,
+                  wL=[0.14, -0.78, 0.1], wR=[0.16, -0.76, 0.0], hL=[0.5, -0.1, -0.1], hR=[0.5, -0.1, -0.1], dL=[0.2, -0.3, 1.0], dR=[0.2, -0.3, -1.0],
+                  gL=0.3, gR=0.3), "out"),
+        (21, dict(hips=[-90, 0, 4], hmove=[0, -0.80, -0.55], spine=[0, 0, 0], chest=[0, 0, 0], neck=[0, 0, 0], head=[18, 0, 0], fw=1.0,
+                  wL=[0.14, -0.78, 0.1], wR=[0.16, -0.76, 0.0], hL=[0.5, -0.1, -0.1], hR=[0.5, -0.1, -0.1], dL=[0.2, -0.3, 1.0], dR=[0.2, -0.3, -1.0],
+                  gL=0.3, gR=0.3), "lin"),
+    ]
+    out.append(make_clip("death", 22, from_keys(de, 22), False))
     return out
 
 

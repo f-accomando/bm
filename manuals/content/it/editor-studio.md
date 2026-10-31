@@ -54,7 +54,7 @@ bm Studio modifica **progetti** (`.bme`). Un **gioco** (`.bm`) è solo letto: pu
 
 ## Dentro bm Studio
 
-- Premi **Esc** per arrivare al menu. *Open...* elenca i progetti `.bme` di `/bme` e i file `.bm` e `.bme` di `/carts` e della radice della scheda SD. Scorciatoia: **Ctrl+O**.
+- Premi **Esc** per arrivare al menu. *Open...* elenca i progetti `.bme` di `/bme` e i file `.bm` e `.bme` di `/carts` e della radice della scheda SD, e i file di modello `.bmm` di `/bmm` (Save riscrive lo stesso `.bmm`; Save as crea un progetto `.bme`). Scorciatoia: **Ctrl+O**.
 - *Import a model...* (**Ctrl+I**) ed *Export to /bmm...* (**Ctrl+E**) portano un modello da `/bmm` o `/glb` e ne scrivono uno in `/bmm` (vedi "Salvare ed esportare").
 - *New project* (**Ctrl+N**) avvia un progetto vuoto. Porta con sé le tessere iniziali di bm Studio nello sprite sheet.
 - Un nuovo progetto non è ancora salvato: il menu mostra `(not saved yet)` accanto al nome. Salvalo con **Ctrl+S**.

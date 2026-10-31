@@ -38,7 +38,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   such a mesh goes triangle by triangle.
 
 ### V3D driver (`src/gpu/gpu3d.c`, `v3d.c`, `v3d_cl.c`, `shaders.h`)
-- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.2"); the table there lists
+- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.33"); the table there lists
   every step and which settings reproduce older ones.
 - Default where a V3D answers; software when `gpu3d=0`, in QEMU, or when the boot probe
   fails. What is not documented is learnt by the probe at boot and switched off by itself
@@ -48,7 +48,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   (2D under the 3D stays), 24-bit depth, MSAA 4× option.
 - QPU shaders written in `tools/qpuasm.py` and generated into `src/gpu/shaders.h`: fragment
   `fs_*` (two-thread variants `fs_*_t`), vertex `vs_baked`, `vs_tex_rgb`, `vs_lit`,
-  `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8`, shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
+  `vs_lit_tex`, `vs_lit_tex2`, `vs_lit2` (7.33: plain skins on two bones), `vs_baked8`, `vs_lit8`, `vs_shadow*`, `cs_*`, `fs_zclear`.
 - Options (each a `bm/config.txt` key, a Settings row and, for the main ones, an argument of
   `gpu3d([on, aa, vs, queue])`): `gpu3d`, `gpu3d_aa`, `gpu3d_vs` (0/1/2), `gpu3d_queue`
   (1 = default on the Pi, 0 = off, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,
@@ -80,7 +80,7 @@ GPU light, the packed tile pool for `map()`, the cost of each 2D call and the 2D
 
 Each line says where it was found and where it is written.
 - **Cut the floor you do not see.** A floor tile with id 0 makes no triangle in `map3d_build`. Island Bench cuts the water tiles far from the land (the sea model covers them): the map goes from 10400 to 4900 triangles. [map-kit](../design/map-kit.md), "Speed".
-- **One bone a face (Pi V3D).** The vertex shader takes a mesh of plain lit faces only when each face has its three corners on one bone: split the vertices at the joints. [hero](hero.md).
+- **Skins on the Pi V3D.** The vertex shader takes a skin when each face is on one or two bones, plain faces on two bones from bm3d 7.33 (not glossy); `bm-forge gpuskin` checks and fixes. [hero](hero.md).
 - **Levels of detail and impostors (Pi V3D).** Four versions of a model made with the quadric reducer, chosen by distance, and `gpu3d` impostors for far small models. [hero](hero.md). Not used yet for the island kit (one level).
 - **What keeps a mesh on the Mali.** The Mali takes a mesh only if all its faces are textured or all are flat, the sheet has no transparent texel (or `mali_alpha=1`), the light is the sun and the sky without colour, no lamps and no rim. A `point3d`, `line3d`, `sprite3d`, shadow or particle hands the whole 3D of the cartridge to the ARM until the restart (log line "the 3D is drawn by the ARM from here: the cartridge uses ..."). Read the log after a run before you measure. [graphics-mali](graphics-mali.md), Open work.
 - **Read the counters.** `vtx` above 0 in the cart's line means the ARM transformed vertices; with the GPU on a hero or a map `vtx` is 0. `gpu` reads 0.0 when the GPU job ends after the stat is read. A shot taken with `pi.py shot` of a game with no 2D after the 3D shows only the sky colour: keep the panel on when you take a picture.

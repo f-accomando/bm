@@ -42,6 +42,7 @@ For `cel`, with the vertex shader (n heroes of 1536 triangles, 50 heroes): lit 1
 
 ## Tests
 
+- `test_hero_mesh FILE [MODEL ...]` checks the named models of another file (e.g. `build/carts/darknight.bm hunter_c`); `--expect-fallback` checks that they go to the ARM.
 - `make test-hero` also runs `build/host/test_hero_mesh` (V3D emulator): every hero model and hull goes through the mesh path with Vertex shader 2 (`glmeshes`, `gltris`), none with it off or at 1. On the models made before the one-bone rule, `test_hero_mesh OLD.bm --expect-fallback` shows the fallback.
 - `make test-hero` (bmhost): model counts, one bone for each face, the Resolution row to 1920x1080, one help text of at most two lines for each row, line format, `tri` rises with `n` and falls with the level, the cel and dither rows change the printed options, the sweep prints 10 lines.
 - `make test-cel`: the 64-entry table (bands, floor, band edges), a lit sphere shows exactly N grey levels, the light off gives the picture of before cel, `dither3d`.

@@ -136,6 +136,7 @@ def biped(spec):
                 return "skirt_b"
             return "skirt.L" if math.cos(2 * math.pi * k / N) > 0 else "skirt.R"
         prev = {k: R[tags[coat["from"]]][k] for k in range(N) if k != FRONT}
+        n_coat = len(s.f)
         for i, r in enumerate(coat["rows"]):
             last = i == len(coat["rows"]) - 1
             ids = {}
@@ -160,6 +161,7 @@ def biped(spec):
                 tip = ((a[0] + b[0]) / 2, min(a[1], b[1]) - 0.10 - 0.08 * hsh("rag", k), (a[2] + b[2]) / 2)
                 inner = s.vert(((a[0] + b[0]) / 2 * 0.95, min(a[1], b[1]) + 0.04, (a[2] + b[2]) / 2 * 0.95), skirt_bone(k))
                 s.tri(hem[k], hem[k2], tip_vert(s, tip, skirt_bone(k)), PAL["coat_h2"] if hsh("rc", k) > 0.4 else PAL["lining_h"], (0, tip[1] + 0.3, 0))
+        HB.twosided(s, n_coat)                                 # the coat is an open shell: seen from inside too
     for fn in spec.get("late_parts", []):
         fn(ctx)
     return s

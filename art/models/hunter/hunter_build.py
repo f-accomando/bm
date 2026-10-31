@@ -40,7 +40,7 @@ PAL = {k: int(v.lstrip("#"), 16) for k, v in {
     "boot_dk": "#2c1713", "glove": "#2b211d", "skin": "#b38d76", "skin_sh": "#8a6554", "hair": "#2a2220",
     "mask": "#2c2f31", "mask_lt": "#3e4346", "cloth": "#b9aa94", "eye": "#1a1718", "eye_w": "#cfc6b8",
     "hat": "#4b4642", "hat_lt": "#6d655c", "hat_dk": "#2f2c2a", "blood": "#4a1e1e",
-    "steel": "#80878c", "steel_dk": "#4d5256", "iron": "#2d2f33", "wood": "#6c4524", "wood_dk": "#3e2713",
+    "steel": "#8e959b", "steel_lt": "#c4c9cc", "steel_dk": "#4d5256", "iron": "#2d2f33", "wood": "#6c4524", "wood_dk": "#3e2713",
     "brass": "#b8923c", "band": "#8f7b5a", "band_dk": "#3b3128", "cord": "#a38458",
 }.items()}
 
@@ -189,12 +189,19 @@ def finish(s, name, bones):
     s.v = [(x, y, -z) for x, y, z in s.v]
     f = []
     for i, (a, b, c, col) in enumerate(s.f):
-        f.append((a, c, b, shade(col, 0.93 + 0.14 * hsh(name, i))))
+        f.append((a, c, b, shade(col, 0.97 + 0.06 * hsh(name, i))))
     rig = expand_bones(bones, name)
     bidx = {b.name: i for i, b in enumerate(rig.bones)}
     model = M.Model(name, [list(v) for v in s.v], [M.Face(a, b, c, col | FLAT) for a, b, c, col in f], 0)
     rig = skelgen.bind(model, rig, vbones=[bidx[b] for b in s.bone])
     return model, rig
+
+
+def twosided(s, n0):
+    """every face added since n0 also from its other side: the open shells (the coat skirt, the capelet, the strap) are seen
+    from inside when the camera is low or the cloth swings; without this their inside is invisible"""
+    for a, b, c, col in list(s.f[n0:]):
+        s.f.append((a, c, b, col))
 
 
 def yz_ring(x, cy, ry, rz, n=LM, cz=0.0):
@@ -337,9 +344,11 @@ def build_hunter():
         side = unit(cross(nn, up))
         for sgn, lst in ((-1, left), (1, right)):
             lst.append(s.vert(add(add(c, mul(nn, 0.007)), mul(unit(cross(nn, (0.3, 1, 0))), sgn * 0.017)), "chest" if y > 1.30 else "spine"))
+    n_strap = len(s.f)
     for i in range(steps):
         inside = (0.0, 1.30 - 0.3 * (i / steps), 0.0)
         s.quad(left[i], left[i + 1], right[i + 1], right[i], P("strap"), inside)
+    twosided(s, n_strap)
     for t_, y_ in (() if LO else ((0.18, 1.42), (0.46, 1.30), (0.78, 1.18))):
         ang = 62 + 78 * t_
         c, nn = surf(y_, ang)
@@ -379,6 +388,7 @@ def build_hunter():
                 inside = (0.0, (s.v[r0[k]][1] + s.v[r1[k]][1]) / 2 - 0.05, 0.0)
                 s.quad(r0[k], r0[k2], r1[k2], r1[k], c, inside)
     prev = {k: ring("a3")[k] for k in range(N) if k not in gapc}
+    n_cape = len(s.f)
     cape_ids = []
     for i, r in enumerate(cape_rows):
         last = i == len(cape_rows) - 1
@@ -392,6 +402,7 @@ def build_hunter():
     if not LO:
         cin2 = arc_ring(dict(y=1.45, rx=0.344 * 0.82, rz=0.205 * 0.82), tag="capein2")
         arc_bridge(cin, cin2, P("lining"))
+    twosided(s, n_cape)
     for k in range(0 if LO else N):                              # fringe: a tent under every hem quad
         k2 = (k + 1) % N
         if k in hem and k2 in hem and k in cin and k2 in cin:
@@ -518,6 +529,7 @@ def build_hunter():
     ]
     sk_rows = densify(lod(sk_rows), ("y", "rx", "rz"), DT)
     prev = {k: R[tags["belt1"]][k] for k in range(N) if k not in sk_gap}
+    n_skirt = len(s.f)
     for i, r in enumerate(sk_rows):
         last = i == len(sk_rows) - 1
         def back_drop(k):
@@ -545,6 +557,7 @@ def build_hunter():
         sin2[k] = s.vert((x * 0.86, y + 0.20, z * 0.86), skirt_bone(k))
     if sin2:
         arc_bridge(sin_, sin2, P("lining"))
+    twosided(s, n_skirt)
     for k in range(0 if LO else N):
         k2 = (k + 1) % N
         if k in hem and k2 in hem:
@@ -580,22 +593,25 @@ def tube(s, pts, radii, bone, colfn, n=8, ref=(0, 1, 0), flat=None):
 
 
 def build_saw(open_form):
-    """Saw Cleaver. closed: short curved handle, blade pointing forward-down; open: long straight handle and blade.
-    Local frame while building: origin = grip centre, tip toward +z (mirrored to -z at the end), blade teeth down."""
+    """Saw Cleaver (reference: the closed form is a serrated cleaver like the Samoan war club, the open form a long cleaver).
+    Local frame while building: origin = grip centre, tip toward +z (mirrored to -z at the end), up +y.
+    One blade for both forms: open, it is in line with the handle, teeth down; closed, it is folded back about the hinge, so
+    it lies along the handle with the teeth out and the tip at the hand, as the real one."""
     s = Skin()
     P = PAL.__getitem__
-    H0, H1 = (-0.26, 0.32) if open_form else (-0.20, 0.22)         # handle from the pommel to the hinge
-    nh = (8 if LO else 14) if open_form else (7 if LO else 12)   # enough rings for the S
+    # handle from the pommel to the hinge. Closed, the hand holds the end of a long handle and the blade folds back along it,
+    # so the tip stops at the hand (it does not pass the pommel into the arm or the body)
+    H0, H1 = (-0.26, 0.36) if open_form else (-0.07, 0.56)
+    nh = (8 if LO else 12) if open_form else (6 if LO else 9)
     hp, hr = [], []
     for i in range(nh):
         t = i / (nh - 1)
         z = H0 + (H1 - H0) * t
-        y = (0.085 if open_form else 0.060) * math.sin(2 * math.pi * t)   # the handle is an S (reference picture 5)
+        y = 0.045 * math.sin(2 * math.pi * t)                        # the handle is an S
         hp.append((0.0, y, z))
-        hr.append(0.017 + (0.010 if t < 0.05 else 0.0) + (0.007 if i in (nh // 2,) else 0.0))
-    hr[0] = 0.012
-    hr[1] = 0.027
-    hr[2] = 0.019
+        hr.append(0.018 + (0.004 if (i % 3) == 1 else 0.0))          # the wrapping in bands
+    hr[0] = 0.014
+    hr[1] = 0.026                                                   # the pommel
     rings = tube(s, hp, hr, "saw", lambda i: P("band") if i % 2 else P("band_dk"), n=5 if LO else 6)
     s.cap(rings[0], P("steel_dk"), bone="saw")
     # hinge block (a cylinder across x) at the end of the handle
@@ -605,48 +621,53 @@ def build_saw(open_form):
                 lambda i: P("iron") if i != 1 else P("steel_dk"), n=5 if LO else 8, ref=(0, 1, 0))
     s.cap(hing[0], P("iron"), bone="saw")
     s.cap(hing[-1], P("iron"), bone="saw")
-    # blade: the profile of the reference picture. A wide wedge, narrow at the hinge, widest about 40% along,
-    # blunt at the far end, with a row of pointed teeth on one edge (down, -y) that lean toward the tip.
-    # Built as flat sections (6 points: back, two faces, tooth edge) along the blade; a tooth = a section whose edge point
-    # is pulled out and forward.
-    BL = 0.74 if open_form else 0.58
-    NT = (7 if LO else 13) if open_form else (6 if LO else 11)
-    TH = 0.032 if open_form else 0.028                              # tooth height
-    t0, t1 = 0.15, 0.97
+
+    # the blade, laid out as in the open form: a straight spine along +z over the handle line, a row of big pointed teeth on
+    # the lower edge that lean toward the tip, a square far end. A flat plate: two planar faces of a few triangles each,
+    # the thin edges, and the teeth as part of the profile (one vertex at each tip).
+    BL = 0.62
+    NT = 6 if LO else 9
+    TH = 0.048                                                      # tooth height
+    WMAX = 0.165
+    t0, t1 = 0.14, 0.96
     pitch = (t1 - t0) / NT
-    stations = [(0.0, 0.0, 0.0), (0.07, 0.0, 0.0), (t0, 0.0, 0.0)]
+    stations = [(0.0, 0.0, 0), (0.06, 0.0, 0), (t0, 0.0, 0)]
     for i in range(NT):
-        stations.append((t0 + (i + 0.42) * pitch + 0.012, TH, 1.0))      # tooth tip: out and leaning toward the tip
-        stations.append((t0 + (i + 1) * pitch, 0.0, 0.0))
-    stations.append((1.0, 0.0, 0.0))
+        stations.append((t0 + (i + 0.55) * pitch, TH, 1))             # the tip of the tooth, leaning forward
+        stations.append((t0 + (i + 1) * pitch, 0.0, 0))
+    stations.append((1.0, 0.0, 0))
     z0 = hz + 0.03
-    WMAX = 0.19 if open_form else 0.17
+
     def width(t):
-        """cleaver: narrow at the hinge, then a constant width to a square end (reference picture 5)"""
-        u = min(1.0, t / 0.15)
-        return 0.07 + (WMAX - 0.07) * u * u * (3 - 2 * u)
-    # a flat plate: two planar faces (+x, -x) each a strip of a few big triangles between a straight back edge and the
-    # zigzag tooth edge, plus the thin edges. One vertex per tooth tip and base on the tooth edge, one per tooth on the back.
+        u = min(1.0, t / 0.14)
+        return 0.062 + (WMAX - 0.062) * u * u * (3 - 2 * u)
+
+    def fold(p):
+        """closed: the blade turned 180 degrees about the hinge axis (x) and moved beside the handle"""
+        x, y, z = p
+        if open_form:
+            return (x, y, z)
+        return (x + 0.040, 2 * hy - y, 2 * hz - z)
+
     st = []
     for t, tooth, is_tip in stations:
-        W = width(t) * (0.84 if t >= 1.0 else 1.0)          # the far end is cut square, the toothed corner a little chamfered
-        vb = 0.075                                          # the back edge is a straight line
+        W = width(t) * (0.86 if t >= 1.0 else 1.0)
+        vb = 0.070                                                  # the spine, straight
         vf = vb - W - tooth
-        th = 0.0105 + 0.004 * math.sin(math.pi * min(1.0, t))
+        th = 0.009 + 0.004 * math.sin(math.pi * min(1.0, t))
         if is_tip:
-            th *= 0.4
-        yc = (hy - 0.05 - 0.24 * t) if not open_form else (hy - 0.02 + 0.09 * math.sin(1.5 * t))
+            th *= 0.45
+        yc = hy + (0.035 * math.sin(1.6 * t) if open_form else 0.0)
         st.append((z0 + BL * t, yc + vb, yc + vf, th, is_tip))
     bidx = [0] + [i for i in range(2, len(st)) if not st[i][4]]
-    Fp = [s.vert((q[3], q[2], q[0]), "saw") for q in st]
-    Fm = [s.vert((-q[3], q[2], q[0]), "saw") for q in st]
-    Bp = [s.vert((st[i][3], st[i][1], st[i][0]), "saw") for i in bidx]
-    Bm = [s.vert((-st[i][3], st[i][1], st[i][0]), "saw") for i in bidx]
-    def face_col(a, b, c):
-        zc = (s.v[a][2] + s.v[b][2] + s.v[c][2]) / 3
-        yc = (s.v[a][1] + s.v[b][1] + s.v[c][1]) / 3
-        return P("band")                                    # one flat bandage colour: thin triangles must not make stripes
-    def strip(Bv, Fv):
+    V = lambda x, y, z: s.vert(fold((x, y, z)), "saw")           # noqa: E731
+    Fp = [V(q[3], q[2], q[0]) for q in st]
+    Fm = [V(-q[3], q[2], q[0]) for q in st]
+    Bp = [V(st[i][3], st[i][1], st[i][0]) for i in bidx]
+    Bm = [V(-st[i][3], st[i][1], st[i][0]) for i in bidx]
+    steel = P("steel")
+
+    def strip(Bv, Fv, side):
         zb = [st[i][0] for i in bidx]
         zf = [q[0] for q in st]
         i = j = 0
@@ -657,17 +678,20 @@ def build_saw(open_form):
             else:
                 tri = (Bv[i], Fv[j], Fv[j + 1])
                 j += 1
-            mid = [sum(s.v[q][k] for q in tri) / 3 for k in (1, 2)]
-            s.tri(tri[0], tri[1], tri[2], face_col(*tri), (0.0, mid[0], mid[1]))
-    strip(Bp, Fp)
-    strip(Bm, Fm)
-    for i in range(len(Bp) - 1):                            # the back edge
-        s.quad(Bp[i], Bp[i + 1], Bm[i + 1], Bm[i], P("band_dk"), (0.0, st[bidx[i]][1] - 0.1, st[bidx[i]][0]))
-    for i in range(len(Fp) - 1):                            # the tooth edge: steel, a little blood
-        col = P("blood") if hsh("bl", i) > 0.8 else P("steel_dk")
-        s.quad(Fp[i], Fp[i + 1], Fm[i + 1], Fm[i], col, (0.0, st[i][2] + 0.1, st[i][0]))
-    s.quad(Bp[0], Bm[0], Fm[0], Fp[0], P("iron"), (0.0, st[0][1], st[0][0] + 0.1))       # the hinge end
-    s.quad(Bp[-1], Fp[-1], Fm[-1], Bm[-1], P("steel_dk"), (0.0, st[-1][1], st[-1][0] - 0.1))   # the far end
+            s.tri(tri[0], tri[1], tri[2], steel, fold((-side, hy, z0)))   # the face looks to its own side (+x or -x)
+    strip(Bp, Fp, 1.0)
+    strip(Bm, Fm, -1.0)
+    mid = lambda i: fold((0.0, (st[i][1] + st[i][2]) / 2, st[i][0]))     # noqa: E731
+    for i in range(len(Bp) - 1):                                    # the spine: dark iron
+        s.quad(Bp[i], Bp[i + 1], Bm[i + 1], Bm[i], P("iron"), mid(bidx[i]))
+    for i in range(len(Fp) - 1):                                    # the tooth edge: bright steel, old blood on a few teeth
+        col = P("blood") if hsh("bl", i, open_form) > 0.78 else P("steel_lt")
+        s.quad(Fp[i], Fp[i + 1], Fm[i + 1], Fm[i], col, mid(i))
+    s.quad(Bp[0], Bm[0], Fm[0], Fp[0], P("iron"), fold((0.0, (st[0][1] + st[0][2]) / 2, st[0][0] + 0.1)))      # the hinge end
+    s.quad(Bp[-1], Fp[-1], Fm[-1], Bm[-1], P("steel_dk"), fold((0.0, (st[-1][1] + st[-1][2]) / 2, st[-1][0] - 0.1)))  # the far end
+    if not open_form:                                               # the catch that holds the folded blade: a small iron tab
+        tab = s.ring([fold((x, hy + 0.02, hz - 0.02)) for x in (0.012, 0.062)] + [fold((x, hy + 0.02, hz - 0.08)) for x in (0.062, 0.012)], "saw")
+        s.cap(tab, P("iron"), apex=fold((0.037, hy + 0.045, hz - 0.05)), bone="saw")
     bones = [{"name": "saw", "parent": None, "head": [0, 0, -0.17], "tail": [0, 0, 0.30]}]
     return finish(s, "saw_o" if open_form else "saw_c", bones)
 

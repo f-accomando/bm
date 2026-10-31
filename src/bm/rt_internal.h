@@ -612,6 +612,8 @@ int l_font(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);
+int l_devkit_tris(lua_State *L);
+void devkit_count(char *out, int n, unsigned long t);
 int l_profile(lua_State *L);
 int l_breakpoint(lua_State *L);
 int l_devinfo(lua_State *L);

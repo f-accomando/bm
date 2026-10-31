@@ -39,6 +39,9 @@ Details, syntax and output lines: `references/CLI.md`.
 - `export` `models | bmm | cart | folder | market`: models cart, BMRES model, game `.bm`, repo folder, Market layout.
 - `check` validate files; budget, drift, `--reference` silhouette similarity, `--json`.
 - `preview` render PNG/GIF (still, `--turntable`, `--clip`, `--mask`, `--compare`).
+- `gpuskin` say which faces keep a skinned model off the console's GPU (three bones, glossy on two bones) and fix them:
+  `--two-bones` (bm3d 7.33 draws the rest), `--palette X,Y[,W] --palette-png STRIP.png` (kernels before 7.33: the plain
+  faces on two bones become texels of a strip; grey light and no fog, as textured faces).
 - `doctor` report optional tools and bm_core drift.
 
 | Exit | Meaning |
@@ -90,6 +93,13 @@ COSA: a .bm cart for Pi and RGB30 from the animated model
 VINCOLI: 360x360, lua examples/game_demo/bm/main.lua, targets pi,rgb30
 OUTPUT: <ABS>/forgedemo.bm
 VERIFICA: export cart <ABS>/anim.bm --lua ... -o <ABS>/forgedemo.bm --res 360x360 --targets pi,rgb30 --title "Forge Demo"; check <ABS>/forgedemo.bm
+```
+
+```
+COSA: keep the skinned models of a game on the GPU
+VINCOLI: continuous skin, no seams but at the faces on three bones
+OUTPUT: <ABS>/game_gpu.bmm
+VERIFICA: gpuskin <ABS>/game.bmm; gpuskin <ABS>/game.bmm --two-bones -o <ABS>/game_gpu.bmm; check <ABS>/game_gpu.bmm
 ```
 
 ```

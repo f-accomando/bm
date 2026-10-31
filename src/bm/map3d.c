@@ -99,6 +99,36 @@ static void add_quad(mesh_builder_t *b,
     b->f_count += 2;
 }
 
+/* A vertical face in bands: with wall_tile > 0 the texture covers wall_tile units of height and repeats down the face
+ * (a tall wall no longer stretches one 16 x 16 texture over its whole height); 0 stretches it, as before. t0, t1 are
+ * the top corners, b2, b3 the bottom ones (b2 under t1, b3 under t0). */
+static int wall_bands(float ytop, float ybot, float tile)
+{
+    if (tile <= 0.0f)
+        return 1;
+    int n = (int)ceilf((ytop - ybot) / tile - 0.001f);
+    return n < 1 ? 1 : n;
+}
+
+static void add_wall(mesh_builder_t *b, v3_t t0, v3_t t1, v3_t b2, v3_t b3,
+                     float u0, float v0, float u1, float v1, float tile, uint32_t color)
+{
+    if (tile <= 0.0f) {
+        add_quad(b, t0, t1, b2, b3, u0, v0, u1, v1, color);
+        return;
+    }
+    const float ytop = t0.y, ybot = b2.y;
+    const int n = wall_bands(ytop, ybot, tile);
+    for (int k = 0; k < n; k++) {
+        float yt = ytop - tile * k;
+        float yb = yt - tile;
+        if (yb < ybot) yb = ybot;
+        v3_t a0 = { t0.x, yt, t0.z }, a1 = { t1.x, yt, t1.z };
+        v3_t a2 = { b2.x, yb, b2.z }, a3 = { b3.x, yb, b3.z };
+        add_quad(b, a0, a1, a2, a3, u0, v0, u1, v0 + (v1 - v0) * (yt - yb) / tile, color);
+    }
+}
+
 static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
 {
     int tx0 = chunk->tx0, tx1 = chunk->tx1;
@@ -109,6 +139,7 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
 
     int sheet_cols = (m->sheet && m->sheet->w > 0) ? (m->sheet->w / 8) : 16;
     if (sheet_cols <= 0) sheet_cols = 16;
+    const float tile = m->wall_tile;
 
     /* First pass: count required quads */
     int quads = 0;
@@ -134,8 +165,8 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                         y_n = (m->height ? (m->height[nc] & 255) : 0) * step;
                     }
                 }
-                if (!n_has_f) { if (y_floor > 0.0f) quads++; }
-                else if (y_n < y_floor) quads++;
+                if (!n_has_f) { if (y_floor > 0.0f) quads += wall_bands(y_floor, 0.0f, tile); }
+                else if (y_n < y_floor) quads += wall_bands(y_floor, y_n, tile);
 
                 /* South neighbor */
                 float y_s = -1.0f;
@@ -147,8 +178,8 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                         y_s = (m->height ? (m->height[sc] & 255) : 0) * step;
                     }
                 }
-                if (!s_has_f) { if (y_floor > 0.0f) quads++; }
-                else if (y_s < y_floor) quads++;
+                if (!s_has_f) { if (y_floor > 0.0f) quads += wall_bands(y_floor, 0.0f, tile); }
+                else if (y_s < y_floor) quads += wall_bands(y_floor, y_s, tile);
 
                 /* West neighbor */
                 float y_w = -1.0f;
@@ -160,8 +191,8 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                         y_w = (m->height ? (m->height[wc] & 255) : 0) * step;
                     }
                 }
-                if (!w_has_f) { if (y_floor > 0.0f) quads++; }
-                else if (y_w < y_floor) quads++;
+                if (!w_has_f) { if (y_floor > 0.0f) quads += wall_bands(y_floor, 0.0f, tile); }
+                else if (y_w < y_floor) quads += wall_bands(y_floor, y_w, tile);
 
                 /* East neighbor */
                 float y_e = -1.0f;
@@ -173,12 +204,13 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                         y_e = (m->height ? (m->height[ec] & 255) : 0) * step;
                     }
                 }
-                if (!e_has_f) { if (y_floor > 0.0f) quads++; }
-                else if (y_e < y_floor) quads++;
+                if (!e_has_f) { if (y_floor > 0.0f) quads += wall_bands(y_floor, 0.0f, tile); }
+                else if (y_e < y_floor) quads += wall_bands(y_floor, y_e, tile);
             }
 
             if (w_id != 0) {
-                quads += 5; /* top + 4 sides of wall block */
+                float y_base = h_id * step;
+                quads += 1 + 4 * wall_bands(y_base + w_id * step, y_base, tile);  /* top + 4 sides of wall block */
             }
         }
     }
@@ -245,11 +277,11 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                 if (!n_has_f && y_floor > 0.0f) {
                     v3_t v_n0 = { x1, y_floor, z0 }, v_n1 = { x0, y_floor, z0 };
                     v3_t v_n2 = { x0, 0.0f,    z0 }, v_n3 = { x1, 0.0f,    z0 };
-                    add_quad(&b, v_n0, v_n1, v_n2, v_n3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_n0, v_n1, v_n2, v_n3, u0, v0, u1, v1, tile, col_textured);
                 } else if (n_has_f && y_n < y_floor) {
                     v3_t v_n0 = { x1, y_floor, z0 }, v_n1 = { x0, y_floor, z0 };
                     v3_t v_n2 = { x0, y_n,     z0 }, v_n3 = { x1, y_n,     z0 };
-                    add_quad(&b, v_n0, v_n1, v_n2, v_n3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_n0, v_n1, v_n2, v_n3, u0, v0, u1, v1, tile, col_textured);
                 }
 
                 /* South vertical wall */
@@ -265,11 +297,11 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                 if (!s_has_f && y_floor > 0.0f) {
                     v3_t v_s0 = { x0, y_floor, z1 }, v_s1 = { x1, y_floor, z1 };
                     v3_t v_s2 = { x1, 0.0f,    z1 }, v_s3 = { x0, 0.0f,    z1 };
-                    add_quad(&b, v_s0, v_s1, v_s2, v_s3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_s0, v_s1, v_s2, v_s3, u0, v0, u1, v1, tile, col_textured);
                 } else if (s_has_f && y_s < y_floor) {
                     v3_t v_s0 = { x0, y_floor, z1 }, v_s1 = { x1, y_floor, z1 };
                     v3_t v_s2 = { x1, y_s,     z1 }, v_s3 = { x0, y_s,     z1 };
-                    add_quad(&b, v_s0, v_s1, v_s2, v_s3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_s0, v_s1, v_s2, v_s3, u0, v0, u1, v1, tile, col_textured);
                 }
 
                 /* West vertical wall */
@@ -285,11 +317,11 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                 if (!w_has_f && y_floor > 0.0f) {
                     v3_t v_w0 = { x0, y_floor, z0 }, v_w1 = { x0, y_floor, z1 };
                     v3_t v_w2 = { x0, 0.0f,    z1 }, v_w3 = { x0, 0.0f,    z0 };
-                    add_quad(&b, v_w0, v_w1, v_w2, v_w3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_w0, v_w1, v_w2, v_w3, u0, v0, u1, v1, tile, col_textured);
                 } else if (w_has_f && y_w < y_floor) {
                     v3_t v_w0 = { x0, y_floor, z0 }, v_w1 = { x0, y_floor, z1 };
                     v3_t v_w2 = { x0, y_w,     z1 }, v_w3 = { x0, y_w,     z0 };
-                    add_quad(&b, v_w0, v_w1, v_w2, v_w3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_w0, v_w1, v_w2, v_w3, u0, v0, u1, v1, tile, col_textured);
                 }
 
                 /* East vertical wall */
@@ -305,11 +337,11 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                 if (!e_has_f && y_floor > 0.0f) {
                     v3_t v_e0 = { x1, y_floor, z1 }, v_e1 = { x1, y_floor, z0 };
                     v3_t v_e2 = { x1, 0.0f,    z0 }, v_e3 = { x1, 0.0f,    z1 };
-                    add_quad(&b, v_e0, v_e1, v_e2, v_e3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_e0, v_e1, v_e2, v_e3, u0, v0, u1, v1, tile, col_textured);
                 } else if (e_has_f && y_e < y_floor) {
                     v3_t v_e0 = { x1, y_floor, z1 }, v_e1 = { x1, y_floor, z0 };
                     v3_t v_e2 = { x1, y_e,     z0 }, v_e3 = { x1, y_e,     z1 };
-                    add_quad(&b, v_e0, v_e1, v_e2, v_e3, u0, v0, u1, v1, col_textured);
+                    add_wall(&b, v_e0, v_e1, v_e2, v_e3, u0, v0, u1, v1, tile, col_textured);
                 }
             }
 
@@ -328,22 +360,22 @@ static void build_chunk_mesh(map3d_t *m, map3d_chunk_t *chunk)
                 /* North side */
                 v3_t wn0 = { x1, y_top,   z0 }, wn1 = { x0, y_top,   z0 };
                 v3_t wn2 = { x0, y_floor, z0 }, wn3 = { x1, y_floor, z0 };
-                add_quad(&b, wn0, wn1, wn2, wn3, u0, v0, u1, v1, col_textured);
+                add_wall(&b, wn0, wn1, wn2, wn3, u0, v0, u1, v1, tile, col_textured);
 
                 /* South side */
                 v3_t ws0 = { x0, y_top,   z1 }, ws1 = { x1, y_top,   z1 };
                 v3_t ws2 = { x1, y_floor, z1 }, ws3 = { x0, y_floor, z1 };
-                add_quad(&b, ws0, ws1, ws2, ws3, u0, v0, u1, v1, col_textured);
+                add_wall(&b, ws0, ws1, ws2, ws3, u0, v0, u1, v1, tile, col_textured);
 
                 /* West side */
                 v3_t ww0 = { x0, y_top,   z0 }, ww1 = { x0, y_top,   z1 };
                 v3_t ww2 = { x0, y_floor, z1 }, ww3 = { x0, y_floor, z0 };
-                add_quad(&b, ww0, ww1, ww2, ww3, u0, v0, u1, v1, col_textured);
+                add_wall(&b, ww0, ww1, ww2, ww3, u0, v0, u1, v1, tile, col_textured);
 
                 /* East side */
                 v3_t we0 = { x1, y_top,   z1 }, we1 = { x1, y_top,   z0 };
                 v3_t we2 = { x1, y_floor, z0 }, we3 = { x1, y_floor, z1 };
-                add_quad(&b, we0, we1, we2, we3, u0, v0, u1, v1, col_textured);
+                add_wall(&b, we0, we1, we2, we3, u0, v0, u1, v1, tile, col_textured);
             }
         }
     }
@@ -361,6 +393,17 @@ map3d_t *map3d_create(int w, int h,
                       float cell, float step,
                       const g16_sheet_t *sheet)
 {
+    return map3d_create_opt(w, h, floor, height, walls, objects, cell, step, sheet, 0.0f);
+}
+
+map3d_t *map3d_create_opt(int w, int h,
+                          const uint16_t *floor,
+                          const uint16_t *height,
+                          const uint16_t *walls,
+                          const uint16_t *objects,
+                          float cell, float step,
+                          const g16_sheet_t *sheet, float wall_tile)
+{
     if (w <= 0 || h <= 0)
         return NULL;
 
@@ -373,6 +416,7 @@ map3d_t *map3d_create(int w, int h,
     m->nt_z = h / 2;
     m->cell = (cell > 0.0f) ? cell : 1.0f;
     m->step = (step > 0.0f) ? step : 0.25f;
+    m->wall_tile = wall_tile > 0.0f ? wall_tile : 0.0f;
     m->sheet = sheet;
 
     size_t cells_size = (size_t)w * (size_t)h * sizeof(uint16_t);
@@ -476,6 +520,13 @@ void map3d_free(map3d_t *m)
 
 void map3d_draw(const map3d_t *m, r3d_t *r, unsigned flags)
 {
+    map3d_draw_far(m, r, flags, 0.0f);
+}
+
+/* far > 0: a piece whose sphere is all beyond `far` from the camera is not drawn (put it at the fog's far distance: the
+ * fog hides it anyway, and its triangles cost the same) */
+void map3d_draw_far(const map3d_t *m, r3d_t *r, unsigned flags, float far)
+{
     if (!m || !r || !m->chunks)
         return;
 
@@ -489,6 +540,12 @@ void map3d_draw(const map3d_t *m, r3d_t *r, unsigned flags)
         /* Frustum culling: skip pieces out of camera view */
         if (!r3d_visible(r, chunk->mesh.centre, chunk->mesh.radius))
             continue;
+        if (far > 0.0f) {
+            const float dx = chunk->mesh.centre.x - r->cam_pos.x, dy = chunk->mesh.centre.y - r->cam_pos.y,
+                        dz = chunk->mesh.centre.z - r->cam_pos.z, lim = far + chunk->mesh.radius;
+            if (dx * dx + dy * dy + dz * dz > lim * lim)
+                continue;
+        }
 
         r3d_draw_flags(r, &chunk->mesh, zero_pos, 0.0f, 0.0f, 0.0f, 1.0f, flags);
     }
@@ -584,6 +641,7 @@ int l_map3d_build(lua_State *L)
     const char *walls_name = "walls";
     float cell = 1.0f;
     float step = 0.25f;
+    float wall_tile = 0.0f;
 
     if (lua_istable(L, 1)) {
         lua_getfield(L, 1, "floor");
@@ -605,6 +663,10 @@ int l_map3d_build(lua_State *L)
         lua_getfield(L, 1, "step");
         if (lua_isnumber(L, -1)) step = (float)lua_tonumber(L, -1);
         lua_pop(L, 1);
+
+        lua_getfield(L, 1, "wall_tile");            /* units of height a wall texture covers (0: stretched) */
+        if (lua_isnumber(L, -1)) wall_tile = (float)lua_tonumber(L, -1);
+        lua_pop(L, 1);
     }
 
     int w = 0, h = 0;
@@ -623,7 +685,7 @@ int l_map3d_build(lua_State *L)
 
     const g16_sheet_t *sheet = rt_get_sheet();
 
-    map3d_t *m = map3d_create(w, h, f_cells, h_cells, w_cells, o_cells, cell, step, sheet);
+    map3d_t *m = map3d_create_opt(w, h, f_cells, h_cells, w_cells, o_cells, cell, step, sheet, wall_tile);
     if (!m)
         return luaL_error(L, "map3d_build: out of memory");
 
@@ -643,10 +705,11 @@ int l_map3d_draw(lua_State *L)
 {
     map3d_t *m = check_map3d(L, 1);
     unsigned flags = (unsigned)luaL_optinteger(L, 2, 0);
+    float far = (float)luaL_optnumber(L, 3, 0.0);
 
     r3d_t *r = rt_get_r3d(L);
     if (r) {
-        map3d_draw(m, r, flags);
+        map3d_draw_far(m, r, flags, far);
     }
     return 0;
 }
