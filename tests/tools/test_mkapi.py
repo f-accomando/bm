@@ -93,7 +93,7 @@ class MkapiTest(unittest.TestCase):
         )
         self.assertIsNotNone(m_block, "api[] table not found in runtime.c")
         block = m_block.group(1)
-        runtime_names = set(re.findall(r'\{\s*"([A-Za-z_0-9]+)",\s*l_', block))
+        runtime_names = set(re.findall(r'\{\s*"([A-Za-z_0-9]+)",\s*[lt]_', block))
 
         doc_global_names = set()
         with open(API_TSV, "r", encoding="utf-8") as f:

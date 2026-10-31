@@ -12,7 +12,7 @@ FUTURE = []
 # the 2D scenes: only when `tests=` names them (the default run has no row of them)
 TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM", "QPU"}, "light": {"ARM"},
            "herotris": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q", "GPU+VS+Q2", "GPU+VS+A8", "GPU+VS+A8+Q", "GPU+VS+FS2"},
-           "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"},
+           "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"}, "cel_flat_lit": {"ARM", "GPU+VS"}, "cel_flat": {"ARM", "GPU+VS"},
            "cel_outline": {"ARM", "GPU+VS"}, "stress": {"GPU+VS+Q"},
            # herotris with the map in 100, 10 or 1 pieces; "m": r3d merges the draws (gpu3d_merge)
            "ht_p100": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q"}, "ht_p100m": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q"},

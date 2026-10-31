@@ -704,7 +704,7 @@ static void s_vshader_sheets(r3d_t *r, g16_t *g, int gpu)
     gpu3d_set_vshader(0);
 }
 
-/* ten sheets in turn: more than a job keeps (8), so two jobs */
+/* ten sheets in turn: a job keeps 32, so one job */
 static void s_sheets10(r3d_t *r, g16_t *g, int gpu)
 {
     r3d_camera(r, 0, 0, -6, 0, 0, 60);
@@ -1053,7 +1053,7 @@ static void run_scene(int s)
             if (s == 4)
                 CHECK(emu_stats.jobs - jobs == 1, "3 sheets: %u jobs (8 sheets fit in one)", emu_stats.jobs - jobs);
             if (scenes[s].fn == s_sheets10)
-                CHECK(emu_stats.jobs - jobs >= 2, "10 sheets: one job");
+                CHECK(emu_stats.jobs - jobs == 1, "10 sheets: %u jobs (32 sheets fit in one)", emu_stats.jobs - jobs);
             if (scenes[s].fn == s_vshader_groups) {
                 CHECK(test_arena_overruns() == 0, "vshader groups: the corners' copy written past its end");
                 if (emu_clip != 1)      /* (the models lit by the sun need the clipper) */
