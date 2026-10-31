@@ -631,9 +631,11 @@ end
 
 local function open_file(name)
   local list = {}                        -- the picker's order: /bme, /carts, the root; sorted by path
-  for _, dir in ipairs({ "/bme", "/carts", "/" }) do
+  for _, dir in ipairs({ "/bme", "/bmm", "/carts", "/" }) do
     for _, f in ipairs(E.ls(dir)) do
-      if f.name:match("%.bm$") or f.name:match("%.bme$") then list[#list + 1] = (dir == "/" and "" or dir) .. "/" .. f.name end
+      if f.name:match("%.bm$") or f.name:match("%.bme$") or (dir == "/bmm" and f.name:match("%.bmm$")) then
+        list[#list + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
+      end
     end
   end
   table.sort(list)
@@ -1840,6 +1842,25 @@ do
   ok2, why = B.encode_mesh({ name = "grid", faces = faces })
   check(ok2 == false and why and why:find("format limit", 1, true) and why:find("triangles", 1, true),
         "encode_mesh: more than 65535 triangles are refused with the format limit (" .. tostring(why) .. ")")
+end
+
+-- a model file in the Open list: opened as a project of its models and skeletons; Save writes the .bmm
+-- again (res_write); Try the game says there is none
+do
+  MF.put_bmm("rigged.bmm", "Rigged", "rigged", 3, { rig = true })
+  key("esc", "^s", "^o")
+  if sees("unsaved") then key("^o") end
+  check(sees("/bmm/rigged.bmm"), "open: /bmm/rigged.bmm is in the Open list")
+  open_file("rigged.bmm")
+  check(status():find("opened /bmm/rigged.bmm", 1, true) and status():find("a model file", 1, true),
+        "open: a .bmm opens as a project of its models: " .. status())
+  check(m1().name == "rigged" and rig1() ~= nil, "open: the model and its skeleton")
+  local nw = #MF.writes
+  key("^s")
+  check(#MF.writes == nw + 1 and MF.writes[#MF.writes] == "/bmm/rigged.bmm" and MF.card["/bmm"]["rigged.bmm"].sections[9] ~= nil,
+        "open: Save writes the .bmm with its skeleton: " .. status())
+  key("f5")
+  check(status():find("a model file has no game", 1, true), "open: a .bmm has no game to try: " .. status())
 end
 
 io.write(string.format("bm Studio and bm Animator host: %d/%d checks passed\n", checks - fails, checks))

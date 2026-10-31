@@ -137,7 +137,7 @@ local sel_rows = {}
 E.rectfill = function(x, y, w, h, c) if c == 0x3050A0 then sel_rows[#sel_rows + 1] = y end end
 for _, n in ipairs({ "cls", "rect", "line", "circ", "circfill", "tri", "clip", "sspr", "spr", "camera", "zclear",
                      "light3d", "fog3d", "lamp3d", "pset", "draw3d" }) do E[n] = nop end
-E.print = function(s, x, y) texts[#texts + 1] = { tostring(s), x or 0, y or 0 }; return (x or 0) + #tostring(s) * 8 end
+E.print = function(s, x, y, c) texts[#texts + 1] = { tostring(s), x or 0, y or 0, c }; return (x or 0) + #tostring(s) * 8 end
 -- the keys as chips: written as "[name]"; prompt(name) alone measures
 local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
 E.prompt = function(n, x, y)
@@ -2089,6 +2089,7 @@ do
     item.v[b + 3] = { b + 1, 0, 0 }
     item.f[#item.f + 1] = { b + 1, b + 2, b + 3, 0x808080 }
   end
+
   check(G.GHOST_FACES == 20000 and G.GHOST_DETAIL[1] == 2000 and G.GHOST_DETAIL[2] == 5000 and G.GHOST_DETAIL[3] == 20000
         and G.GHOST_DETAIL[4] == 65535 and G.GHOST_EDGES_FRAME == 4000, "T.G: the budget constants")
   local gd = G.ghost_make(item)
@@ -3305,6 +3306,32 @@ key("f2")
 do
   local function on_bar(s) for _, t in ipairs(texts) do if t[3] == 320 and t[1] == s then return true end end end
   check(on_bar("all") and on_bar("mode") and on_bar("extrude"), "edit page: the bar has choose, all (a), mode and extrude next to the fixed chip")
+end
+
+do
+  -- a model file in the Open list (Ctrl+O): opened as a project of its models; Save writes the .bmm again
+  -- (res_write); there is no game to try
+  local function open_row(label)
+    key("^o")
+    if sees("unsaved changes") then key("^o") end
+    for _ = 1, 80 do
+      for _, t in ipairs(texts) do if t[1] == label and t[4] == 0xFFFFFF then key("\n"); return true end end
+      key("down")
+    end
+    return false
+  end
+  MF.put_bmm("rigged.bmm", "Rigged", "rigged", 3, { rig = true })
+  key("esc", "^s")
+  check(open_row("/bmm/rigged.bmm"), "open: /bmm/rigged.bmm is in the Open list")
+  check(status():find("/bmm/rigged.bmm: 1 models; a model file", 1, true), "open: a .bmm opens as its models: " .. status())
+  key("f1")
+  check(chosen() == "M rigged", "open: the model of the .bmm: " .. tostring(chosen()))
+  local nwb = #MF.writes
+  key("^s")
+  check(#MF.writes == nwb + 1 and MF.writes[#MF.writes] == "/bmm/rigged.bmm" and MF.card["/bmm"]["rigged.bmm"].sections[9] ~= nil
+        and status():find("saved /bmm/rigged.bmm", 1, true), "open: Save writes the .bmm with its skeleton: " .. status())
+  key("f5")
+  check(status():find("a model file has no game", 1, true), "open: a .bmm has no game to try: " .. status())
 end
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))

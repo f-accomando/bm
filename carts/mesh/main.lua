@@ -360,7 +360,7 @@ local function bounds(it, list)
 end
 
 local function list_files()
-  local out = U.project_files({ bm = true, bme = true })
+  local out = U.project_files({ bm = true, bme = true, bmm = true }, { B.BMM_DIR })   -- and the model files of /bmm
   table.sort(out)
   return out
 end
@@ -383,6 +383,22 @@ end
 local reset_pages, go       -- defined with the pages
 
 local function open_file(path)
+  -- a model file (.bmm): its models and skeletons, no code and no game; Save writes the .bmm again (res_write)
+  if B.is_bmm(path) then
+    local r, e = res_read(path)
+    if not r then say("cannot open " .. path .. ": " .. tostring(e), C_ERR); return false end
+    if r.kind ~= 1 or not r.sections[SEC_MESH] then say(path .. " is not a model file", C_ERR); return false end
+    proj = { path = path, bmm = true, title = r.name or "", author = r.author or "", lua = "", warn = nil }
+    items, undo, redo = {}, {}, {}
+    local parts, ins = split_mesh(r.sections[SEC_MESH])
+    inset = ins
+    local rigs = r.sections[SEC_ANIM] and split_anim(r.sections[SEC_ANIM]) or {}
+    for _, part in ipairs(parts) do items[#items + 1] = model_item(part[1], part[2], rigs[part[1]]) end
+    dirty, code_dirty, cur = false, false, 1
+    reset_pages()
+    say(string.format("%s: %d models; a model file: Save writes it, Save as makes another in /bmm", path, #parts), C_ACC)
+    return true
+  end
   local p, e = cart_load(path)      -- its sheet: the textures of the models
   if not p then say("cannot open " .. path .. ": " .. tostring(e), C_ERR); return false end
   proj = { path = path, title = p.title, lua = p.lua or "", warn = nil }
@@ -444,6 +460,24 @@ local function save_to(path, from)
   if not proj.path then say("open a .bm or .bme first: Esc > Open", C_ERR); return false end
   local mesh, anim, skipped = build_sections()
   if mesh == nil then say("cannot save: " .. anim, C_ERR); return false end
+  if proj.bmm then                      -- a model file: res_write, the models and their skeletons only
+    if not mesh then say("cannot save: no model with faces", C_ERR); return false end
+    local ok, err = res_write(path, 1, { sections = { [SEC_MESH] = mesh, [SEC_ANIM] = anim or nil },
+                                         name = proj.title ~= "" and proj.title or nil, author = proj.author,
+                                         replace = true })
+    if not ok then say("save failed: " .. tostring(err), C_ERR); return false end
+    for _, it in ipairs(items) do
+      if it.kind == "model" and it.new_mc then
+        it.mc, it.mc_name, it.ac = it.new_mc, it.name, it.new_ac
+        if not it.ac then it.vb = nil end
+      end
+      it.dirty, it.new_mc, it.new_ac = false, nil, nil
+    end
+    proj.path = path
+    dirty = false
+    say("saved " .. path .. (skipped and ("  (" .. skipped .. " has no faces: left out)") or ""), C_ACC)
+    return true
+  end
   local t = { sections = { [SEC_MESH] = mesh, [SEC_ANIM] = anim }, from = from }
   local lua = code_dirty and full_lua() or nil
   t.lua = lua
@@ -3214,6 +3248,7 @@ end
 
 local function try_game()
   if not proj.path then say("open a .bm first", C_ERR); return end
+  if proj.bmm then say("a model file has no game to try", C_ERR); return end
   if dirty and not save_to(proj.path) then return end
   save({ page = last_page, cur = cur })        -- the page to come back to
   cart_run(proj.path)
@@ -3229,6 +3264,14 @@ end
 
 local function save_as()
   if not proj.path then say("open a .bm first", C_ERR); return end
+  if proj.bmm then                      -- another model file in /bmm (1 to 8 of a-z 0-9 _ -)
+    ask("file name (in /bmm)", proj.path:match("([^/]+)%.%w+$") or "model", function(t)
+      local stem = t:lower():gsub("%.bmm$", "")
+      if not stem:match("^[a-z0-9_%-]+$") or #stem > 8 then say("a .bmm name is 1 to 8 of a-z 0-9 _ -", C_ERR); return end
+      if save_to(B.BMM_DIR .. "/" .. stem .. ".bmm") then go("list") end
+    end)
+    return
+  end
   ask("file name (8.3, in /bme)", short_path(proj.path):match("([^/]+)$") or "meshes.bme", function(t)
     local to = U.project_path(t)
     local from = proj.path

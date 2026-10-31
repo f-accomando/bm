@@ -17,3 +17,12 @@ void *memcpy(void *restrict dst, const void *restrict src, size_t n)
         *d++ = *s++;
     return dst;
 }
+
+/* The chainloader has no printf: the drivers it shares with the kernel (mbox.c) may call kprintf for a diagnostic
+ * line, which the loader drops. */
+#include "lib/printf.h"
+int kprintf(const char *fmt, ...)
+{
+    (void)fmt;
+    return 0;
+}

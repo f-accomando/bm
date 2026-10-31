@@ -2385,20 +2385,35 @@ function T.short_path(path)
 end
 
 function T.list_files()
-  local out = U.project_files({ bm = true, bme = true })
+  local out = U.project_files({ bm = true, bme = true, bmm = true }, { T.BMM_DIR })   -- and the model files of /bmm
   table.sort(out)
   return out
 end
 
+-- a model file (.bmm) is opened as a project of its models: Save writes the .bmm again (res_write),
+-- Save as makes a .bme project of them
+function T.is_bmm(path) return path ~= nil and path:lower():match("%.bmm$") ~= nil end
+
 local reset_pages
 
 function T.load_project(path)
-  local p, e = cart_load(path)
-  if not p then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
-  S.proj = { title = p.title, author = p.author, res = p.res, path = path,
-             sheet_w = p.sheet_w, sheet_h = p.sheet_h, palette = p.palette }
-  local parts, ins = T.split_mesh(cart_data(SEC_MESH))
-  local rigs = T.split_anim(cart_data(SEC_ANIM))
+  local parts, ins, rigs
+  if T.is_bmm(path) then
+    local r, e = res_read(path)
+    if not r then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
+    if r.kind ~= 1 or not r.sections[SEC_MESH] then say(path .. " is not a model file", C.ERR); return false end
+    S.proj = { title = r.name or path:match("([^/]+)%.%w+$"), author = r.author or "", res = "640x360", path = path,
+               bmm = true }
+    parts, ins = T.split_mesh(r.sections[SEC_MESH])
+    rigs = r.sections[SEC_ANIM] and T.split_anim(r.sections[SEC_ANIM]) or {}
+  else
+    local p, e = cart_load(path)
+    if not p then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
+    S.proj = { title = p.title, author = p.author, res = p.res, path = path,
+               sheet_w = p.sheet_w, sheet_h = p.sheet_h, palette = p.palette }
+    parts, ins = T.split_mesh(cart_data(SEC_MESH))
+    rigs = T.split_anim(cart_data(SEC_ANIM))
+  end
   S.inset = ins
   S.models = {}
   for _, part in ipairs(parts) do
@@ -2421,7 +2436,8 @@ function T.load_project(path)
   if not ok then say("broken models: " .. tostring(err), C.ERR) end
   T.select_model(1)
   reset_pages()
-  say("opened " .. path .. "  (" .. #parts .. " models" .. (T.is_game(path) and "; a game: saving makes its copy" or "") .. ")", C.ACC)
+  say("opened " .. path .. "  (" .. #parts .. " models" .. (T.is_game(path) and "; a game: saving makes its copy" or "")
+      .. (S.proj.bmm and "; a model file: Save writes it, Save as makes a .bme" or "") .. ")", C.ACC)
   return true
 end
 
@@ -2442,7 +2458,17 @@ end
 function T.save_to(path, from)
   local ok, e = T.sync()
   if not ok then say("cannot save: " .. tostring(e), C.ERR); return false end
-  local new = not S.proj.path
+  if T.is_bmm(path) then                -- a model file: the models and their skeletons, nothing else
+    local mesh = cart_data(SEC_MESH)
+    if not mesh then say("cannot save: no model with faces", C.ERR); return false end
+    ok, e = res_write(path, 1, { sections = { [SEC_MESH] = mesh, [SEC_ANIM] = cart_data(SEC_ANIM) },
+                                 name = S.proj.title, author = S.proj.author or "", replace = true })
+    if not ok then say("save failed: " .. tostring(e), C.ERR); return false end
+    S.dirty = false
+    say("saved " .. path, C.ACC)
+    return true
+  end
+  local new = not S.proj.path or S.proj.bmm   -- a .bmm saved as a project: a new cartridge with the viewer
   local t = { sections = { [SEC_MESH] = cart_data(SEC_MESH) or false, [SEC_ANIM] = cart_data(SEC_ANIM) or false },
               title = S.proj.title, author = S.proj.author }
   if new then
@@ -2454,7 +2480,7 @@ function T.save_to(path, from)
   ok, e = cart_write(path, t)
   if not ok then say("save failed: " .. tostring(e), C.ERR); return false end
   if type(e) == "string" then path = e end      -- the editable copy of a game, or a new project
-  S.proj.path = path
+  S.proj.path, S.proj.bmm = path, nil
   S.dirty, S.sheet_dirty = false, false
   say(U.saved_text(path), C.ACC)
   return true
@@ -2481,6 +2507,7 @@ end
 -- tries the game: saved first, then cart_run; the program comes back to
 -- the same page (saved())
 function T.run_project()
+  if S.proj.bmm then say("a model file has no game: Save as makes a .bme project to try", C.ERR); return end
   local function go_run()
     save({ page = S.last_page, model = S.cur })
     cart_run(S.proj.path)
