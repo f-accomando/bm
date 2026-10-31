@@ -5,7 +5,7 @@ Both hold the same four models, the same 24 bones, and the same clips.
 
 | Model | High | Low | Rig |
 |---|---|---|---|
-| `hunter` (T pose, one continuous skin) | 3278 vertices, 6372 triangles | 503 vertices, 994 triangles | 24 bones, 21 clips |
+| `hunter` (T pose, one continuous skin) | 3278 vertices, 7688 triangles | 503 vertices, 1162 triangles | 24 bones, 21 clips |
 | `saw_c` (Saw Cleaver, closed) | 358 triangles | 201 triangles | 1 bone `saw` |
 | `saw_o` (Saw Cleaver, open) | 406 triangles | 223 triangles | 1 bone `saw` |
 | `pistol` | 246 triangles | 104 triangles | bones `pistol`, `hammer`; clip `fire` |
