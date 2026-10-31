@@ -327,7 +327,12 @@ def arms_down(d, swing, bend=0.0, open_saw=False):
         # the open saw is longer than the leg: the right hand carries it low, the blade trailing back and down, off the floor
         d["hR"] = [0.13, y + 0.04, 0.06 - 0.35 * swing]
         d["dR"] = [-0.80, -0.55, -0.30]
-    d["rL"], d["rR"] = 0, 0
+    else:
+        # the closed saw points forward from the hanging hand, the blade level with the ground and under the handle, teeth down
+        # (the reference figure); it does not lie along the arm
+        d["dR"] = [1.0, -0.04, -0.10]
+        d["rR"] = 180
+    d["rL"] = 0
     return d
 
 

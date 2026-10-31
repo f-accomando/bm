@@ -920,7 +920,9 @@ local function apply_environment()
   sky3d(0x6E7290, 0x23283E, 0x08080C)
   light3d(-0.16, 1.0, -0.12, amb)
   fog3d(SKY, 5, FAR)
-  shadow3d(0)
+  -- the dithered shadow: on the GPU the darkening style darkens again where two triangles of one shadow overlap, so a
+  -- figure's shadow shows its triangles; the dither is the same on the ARM and the GPU, overlaps or not
+  shadow3d(1)
 end
 
 local function place_lamps()
@@ -1244,7 +1246,11 @@ end
 -- ---------------------------------------------------------------- the cartridge
 function _init()
   apply_resolution()                               -- 640x360: a quarter of the pixels of 1280x720 (the menu has both)
-  gpu3d(nil, nil, nil, nil, 12)                    -- a far model (12 pixels of a 1080-line screen or less) is one quad
+  -- the GPU as the Hero cart measured it (GPU + VS + queue: about 10k hero triangles at 60 fps on the Pi Zero W): the
+  -- vertex shader at 2 places the skinned models (every face of them is on one bone, see art/models/hunter/hunter_build.py
+  -- one_bone), the console's queue lets the next _update run while the GPU draws. A console without the GPU keeps the ARM.
+  -- A far model (12 pixels of a 1080-line screen or less) is one quad.
+  gpu3d(gpu3d(), nil, 2, true, 12)
   M3.hunter_c, M3.hunter_o = model("hunter_c"), model("hunter_o")
   for n in pairs(RADIUS) do
     M3[n] = model(n)

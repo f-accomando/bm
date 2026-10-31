@@ -5,7 +5,10 @@
  * the ARM, one triangle at a time: the models made before the one-bone-face rule do that, so
  * `test_hero_mesh MODELS.bm --expect-fallback` checks that the old file still shows the fault.
  *
- *   test_hero_mesh carts/hero/assets/models.bm [--expect-fallback]
+ *   test_hero_mesh carts/hero/assets/models.bm [--expect-fallback] [MODEL ...]
+ *
+ * With MODEL names (up to 8) it checks those models instead of the heroes: a game's skinned
+ * models (Dark Night: hunter_c hunter_o villager huntsman dog) must take the mesh path too.
  */
 #include <math.h>
 #include <stdarg.h>
@@ -119,10 +122,19 @@ static gpu3d_stats_t draw_all(r3d_mesh_t *ms, int n, int vs, const char *what)
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        printf("usage: test_hero_mesh MODELS.bm [--expect-fallback]\n");
+        printf("usage: test_hero_mesh MODELS.bm [--expect-fallback] [MODEL ...]\n");
         return 2;
     }
-    const int expect_fallback = argc > 2 && strcmp(argv[2], "--expect-fallback") == 0;
+    int expect_fallback = 0, n = 0;
+    const char *names[8] = { "hero0", "hero1", "hero2", "hero3", "hero0_o", "hero1_o", "hero2_o", "hero3_o" };
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "--expect-fallback") == 0)
+            expect_fallback = 1;
+        else if (n < 8)
+            names[n++] = argv[i];
+    }
+    if (n == 0)
+        n = 8;
     FILE *f = fopen(argv[1], "rb");
     if (!f) {
         printf("FAIL: %s\n", argv[1]);
@@ -148,13 +160,12 @@ int main(int argc, char **argv)
         printf("FAIL: gpu3d: %s\n", gpu3d_status());
         return 1;
     }
-    static const char *const names[8] = { "hero0", "hero1", "hero2", "hero3", "hero0_o", "hero1_o", "hero2_o", "hero3_o" };
     r3d_mesh_t ms[8];
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < n; i++)
         CHECK(load_model(&c, names[i], &ms[i]) == 0, "model %s", names[i]);
     if (failed)
         return 1;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < n; i++) {
         gpu3d_stats_t off = draw_all(&ms[i], 1, 0, names[i]), on = draw_all(&ms[i], 1, 2, names[i]);
         CHECK(off.glmeshes == 0 && off.gltris == 0, "%s: the mesh path with the vertex shader off", names[i]);
         if (expect_fallback) {
@@ -165,11 +176,12 @@ int main(int argc, char **argv)
         }
     }
     /* the crowd: at vs 1 lit heroes go to the ARM */
-    gpu3d_stats_t one = draw_all(ms, 4, 1, "crowd");
+    const int nc = n < 4 ? n : 4;
+    gpu3d_stats_t one = draw_all(ms, nc, 1, "crowd");
     CHECK(one.glmeshes == 0, "lit heroes took the mesh path at vs 1 (%u)", one.glmeshes);
-    gpu3d_stats_t crowd0 = draw_all(ms, 4, 0, "crowd"), crowd2 = draw_all(ms, 4, 2, "crowd");
+    gpu3d_stats_t crowd0 = draw_all(ms, nc, 0, "crowd"), crowd2 = draw_all(ms, nc, 2, "crowd");
     if (!expect_fallback)
-        CHECK(crowd2.glmeshes == 8 && crowd2.gltris > crowd0.gltris, "crowd: %u meshes at vs 2", crowd2.glmeshes);
+        CHECK(crowd2.glmeshes == (unsigned)(2 * nc) && crowd2.gltris > crowd0.gltris, "crowd: %u meshes at vs 2", crowd2.glmeshes);
     if (failed)
         return 1;
     printf("hero mesh: ok%s\n", expect_fallback ? " (old models: fallback shown)" : "");
