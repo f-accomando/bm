@@ -12,7 +12,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   triangles). `bmres.py add` merges both files into the cartridge.
 - The `.bme` is kept in the repository. To change it: edit `main.lua` or a resource, run `make build/carts/darknight.bme`, then
   `cp build/carts/darknight.bme carts/darknight/darknight.bme`. The `.bm` is the same bytes with bit 0 of the u16 at 18 cleared (`mkbm.py --from`).
-- Screen: `screen(1280, 720)` at the start (the Resolution row of the menu goes to 640x360). The header says 640x360. The HUD scales with the screen.
+- Screen: `screen(640, 360)` at the start, as the header says (the Resolution row of the menu goes to 1280x720). The HUD scales with the screen.
 - Keys (`rawkeys` and `keydown`, a pad has the same moves): W A S D move (relative to the camera; locked on, around the target);
   SPACE dodges by the keys held (none: backstep, W: roll, A or D: side jump, S: backstep); SHIFT opens and closes the saw (a model change);
   E fires the pistol (no bullets: a shot costs stamina, `GUN.sta`, and does little damage, `GUN.dmg`); Q locks on and off; U attacks, and U again in the chain window gives the next hit of the combo (4 hits
@@ -37,6 +37,11 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   lie on the floor height (`map_height`). The three nearest lamps or lanterns are warm, flickering point lights (`lamp3d`).
 - Sound: the bank `carts/darknight/art/sounds.py` makes the samples (saw, steps, cloth, pistol, enemies, bells) and two songs in D minor
   (`CLINIC` for the walk, `HUNT` for a fight). `make` builds it into `build/darknight/sounds.json` and `mkbm.py --audio` packs it.
+- Draw cost: the fog is whole at `FAR` (22). `map3d_draw(world, 0, FAR + 1)` skips the map pieces beyond it, and the objects and enemies beyond
+  it are not drawn. A shadow (a second draw) is drawn only within `SHADOW` (11) of the camera. Models of 12 pixels or less are impostors
+  (`gpu3d`). On the fixed walk of bmhost: 6.8k triangles a frame (at most 9.7k) and 316K pixels, against 14.2k (26k) and 1.27M before.
+- The Hunter carries the weapons at his sides: `idle`, `walk` and `run` swing the arms beside the body; with the open saw the game plays
+  `idle_o`, `walk_o` and `run_o` (the long blade low and back, off the floor). The closed saw has a long handle and the blade folded along it.
 - The walls of the map repeat their 16x16 texture in bands (`map3d_build{ wall_tile = 1.0 }`). The tile textures have soft stains, no loose pixels.
 - The HUD has no help lines. It shows health, stamina, and a silhouette of the saw in its form (`SAW_ICON`), which flashes at a change.
 - The cover is `carts/darknight/cover.png` (made by `carts/darknight/art/cover.py` from a bmhost screenshot).
@@ -54,7 +59,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Open work
 
-- Not run on a Pi or an RGB30. The cost of a frame on the Pi Zero W at 1280x720 is not measured (the Resolution row goes to 640x360).
+- Not run on a Pi or an RGB30. The cost of a frame on the consoles is not measured: run it with the dev kit on (Performance row) and read the session report.
 - The enemies have no tactics: they do not dodge, wait for a gap or keep apart in a group. The pickups of the reference map are not in the kit.
 - The sound and the music are heard only in bmhost renders (`make wav`). Listen to them on a device.
 - The enemy clips are the first ones. They have no hurt reaction by direction.
@@ -76,4 +81,5 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - Write a game event as one line `darknight: ...` (`ev()`), because the test reads them.
 - Keep the `SFX` table of `main.lua` in the order of the effects of `carts/darknight/art/sounds.py`. An effect is played by its index.
 - Draw a shadow (`draw3d` flag 8) on the floor height under the figure, not on the figure's own height.
+- Keep the draw distance `FAR` equal to the fog's far distance, and draw the shadows only within `SHADOW`. A thing beyond the fog costs triangles and shows nothing.
 - Make an open shell of a model (coat skirt, cape, strap) two-sided (`twosided` in `hunter_build.py`). A one-sided shell is not seen from inside.

@@ -144,7 +144,7 @@ Chunked 3D terrain built from 2D tilemap layers (`floor`, `height`, `walls`, `ob
 | Function | Description |
 |---|---|
 | `map3d_build([opts])` | builds a 3D map world from tilemap layers. `opts = {floor="floor", height="height", walls="walls", cell=1.0, step=0.25, wall_tile=0}`. `wall_tile` > 0 repeats the wall texture in bands of that height (units); 0 stretches one tile over the whole wall |
-| `map3d_draw(w, [flags])` | draws visible 16×16 tile chunks of terrain (culled via `r3d_visible`) |
+| `map3d_draw(w, [flags, far])` | draws visible 16×16 tile chunks of terrain (culled via `r3d_visible`); with `far` > 0 a chunk whose sphere is all beyond `far` units from the camera is skipped (put it at the fog's far distance) |
 | `map3d_height(w, x, z)` | floor elevation at world `(x, z)`, or `nil` if hole or outside map |
 | `map3d_blocked(w, x, y, z, r)` | `true` if a sphere with center `(x, y, z)` and radius `r` touches a wall or vertical cliff |
 | `map3d_objects(w, [kind])` | list of objects in the map `{ {kind="APPLE", x=, y=, z=}, ... }`; `kind` optional filter. The objects of a map kit ([map-kit](../design/map-kit.md)) have the kind `OBJ<id>` (id 1040 and up) |

@@ -595,11 +595,13 @@ def tube(s, pts, radii, bone, colfn, n=8, ref=(0, 1, 0), flat=None):
 def build_saw(open_form):
     """Saw Cleaver (reference: the closed form is a serrated cleaver like the Samoan war club, the open form a long cleaver).
     Local frame while building: origin = grip centre, tip toward +z (mirrored to -z at the end), up +y.
-    One blade for both forms: open, it is in line with the handle, teeth down, the handle longer; closed, it is folded back
-    about the hinge, so it lies beside the handle with the teeth out and the tip past the pommel (the hand), as the real one."""
+    One blade for both forms: open, it is in line with the handle, teeth down; closed, it is folded back about the hinge, so
+    it lies along the handle with the teeth out and the tip at the hand, as the real one."""
     s = Skin()
     P = PAL.__getitem__
-    H0, H1 = (-0.26, 0.36) if open_form else (-0.20, 0.20)         # handle from the pommel to the hinge
+    # handle from the pommel to the hinge. Closed, the hand holds the end of a long handle and the blade folds back along it,
+    # so the tip stops at the hand (it does not pass the pommel into the arm or the body)
+    H0, H1 = (-0.26, 0.36) if open_form else (-0.07, 0.56)
     nh = (8 if LO else 12) if open_form else (6 if LO else 9)
     hp, hr = [], []
     for i in range(nh):

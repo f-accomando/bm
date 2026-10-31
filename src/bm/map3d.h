@@ -79,6 +79,8 @@ map3d_t *map3d_create_opt(int w, int h,
 void map3d_free(map3d_t *m);
 
 void map3d_draw(const map3d_t *m, r3d_t *r, unsigned flags);
+/* the same, skipping the pieces beyond `far` units from the camera (0: no limit) */
+void map3d_draw_far(const map3d_t *m, r3d_t *r, unsigned flags, float far);
 
 /* Returns 1 if floor is present, 0 if hole or outside map */
 int  map3d_get_height(const map3d_t *m, float x, float z, float *out_h);

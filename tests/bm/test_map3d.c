@@ -152,6 +152,13 @@ int main(void)
     test_g.px = fake_px;
     r3d_init(&test_r3d, &test_g);
     map3d_draw(m, &test_r3d, 0);
+    /* the far limit: a tiny one skips every piece, a huge one keeps what the plain draw gave */
+    const uint32_t all = test_r3d.tris_in;
+    test_r3d.tris_in = 0;
+    map3d_draw_far(m, &test_r3d, 0, 1e-3f);
+    assert(test_r3d.tris_in == 0);
+    map3d_draw_far(m, &test_r3d, 0, 1e6f);
+    assert(test_r3d.tris_in == all);
     r3d_free(&test_r3d);
     free(fake_px);
 

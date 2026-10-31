@@ -520,6 +520,13 @@ void map3d_free(map3d_t *m)
 
 void map3d_draw(const map3d_t *m, r3d_t *r, unsigned flags)
 {
+    map3d_draw_far(m, r, flags, 0.0f);
+}
+
+/* far > 0: a piece whose sphere is all beyond `far` from the camera is not drawn (put it at the fog's far distance: the
+ * fog hides it anyway, and its triangles cost the same) */
+void map3d_draw_far(const map3d_t *m, r3d_t *r, unsigned flags, float far)
+{
     if (!m || !r || !m->chunks)
         return;
 
@@ -533,6 +540,12 @@ void map3d_draw(const map3d_t *m, r3d_t *r, unsigned flags)
         /* Frustum culling: skip pieces out of camera view */
         if (!r3d_visible(r, chunk->mesh.centre, chunk->mesh.radius))
             continue;
+        if (far > 0.0f) {
+            const float dx = chunk->mesh.centre.x - r->cam_pos.x, dy = chunk->mesh.centre.y - r->cam_pos.y,
+                        dz = chunk->mesh.centre.z - r->cam_pos.z, lim = far + chunk->mesh.radius;
+            if (dx * dx + dy * dy + dz * dz > lim * lim)
+                continue;
+        }
 
         r3d_draw_flags(r, &chunk->mesh, zero_pos, 0.0f, 0.0f, 0.0f, 1.0f, flags);
     }
@@ -692,10 +705,11 @@ int l_map3d_draw(lua_State *L)
 {
     map3d_t *m = check_map3d(L, 1);
     unsigned flags = (unsigned)luaL_optinteger(L, 2, 0);
+    float far = (float)luaL_optnumber(L, 3, 0.0);
 
     r3d_t *r = rt_get_r3d(L);
     if (r) {
-        map3d_draw(m, r, flags);
+        map3d_draw_far(m, r, flags, far);
     }
     return 0;
 }

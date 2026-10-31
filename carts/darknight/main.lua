@@ -59,8 +59,8 @@ local ATK = {
 -- the transform attack: the saw changes form in the middle of a wide sweep (SHIFT in the chain window of a hit)
 local TRANSFORM = { clip = "transform", frames = 16, rate = 1.25, swap = 6, hit = { 6, 10 }, dmg = { 24, 18 }, step = 0.6, chain = 11, sta = 20, stop = 5 }
 local STAMINA = { max = 100, regen = 30, wait = 0.45, dodge = 18 }
--- the blade along the axis of hand.R, from its head: closed, the folded blade reaches back past the pommel; open, it is long
-local SAW_SPAN = { { -0.38, 0.36 }, { 0.15, 1.18 } }
+-- the blade along the axis of hand.R, from its head: closed, the blade folded along the long handle; open, beyond the hinge
+local SAW_SPAN = { { 0.04, 0.66 }, { 0.15, 1.18 } }
 -- the sound effects of the bank, by name (the order of SFX in carts/darknight/art/sounds.py)
 local SFX = { sawswing = 0, sawhit = 1, cleave = 2, sawopen = 3, sawclose = 4, pistol = 5, step = 6, hurt = 7, dodge = 8, lantern = 9,
               growl = 10, bite = 11, eswing = 12, edie = 13, door = 14, died = 15, menu = 16, charge = 17, bigswing = 18, headshot = 19 }
@@ -96,12 +96,16 @@ local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the
 local P = {}                          -- the player
 -- the camera: behind and a little above the Hunter, looking where he looks (a low pitch), a shoulder's width to the right
 local Cam = { yaw = PI / 2, pitch = -0.36, dist = 5.4, side = 0.55, x = 0, y = 0, z = 0, shake = 0 }
-local O = { res = 1, textures = true, bright = 2, music = true, sfx = 8, perf = false } -- the options (sfx: the effects volume
+local O = { res = 2, textures = true, bright = 2, music = true, sfx = 8, perf = false } -- the options (sfx: the effects volume
                                                                                         -- 0-10; perf: the dev kit's overlay)
 local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 }, stop = 0, song = -1, calm = 0 }
 local held, prev, pressed = {}, {}, {}
 local fx = {}                         -- short effects: sparks and tracers
 local SKY = 0x07080E                  -- the night: the fog and the clear colour
+-- the draw distance: the fog is whole at FAR, so the map, the objects and the enemies beyond it are not drawn; the shadows
+-- (a second draw of the model) only within SHADOW of the camera
+local FAR, SHADOW = 22, 11
+local function cam_d2(x, z) return (x - Cam.x) ^ 2 + (z - Cam.z) ^ 2 end
 
 local function snd(name, semis, vol)
   local n = SFX[name]
@@ -166,6 +170,8 @@ local function load_world()
                                     flash = 0, anim = "idle", at = 0, idx = #enemies + 1, leapcd = 1.5 }
         elseif name then
           local o = { name = name, x = x, y = y, z = z, r = RADIUS[name] or 0 }
+          o.camstop = name:find("^door") ~= nil or name:find("^gate") ~= nil
+          o.shadow = name == "lamp" or name == "pillar" or name == "lantern" or name == "barrel" or name == "crate"
           objs[#objs + 1] = o
           if name:find("^door") then o.door = true; o.locked = name:find("_l$") ~= nil; o.open = 0; doors[#doors + 1] = o end
           if name == "lantern" then lanterns[#lanterns + 1] = o end
@@ -572,6 +578,7 @@ local function update_player(mx, my)
       P.stepd = 0.6
     end
     if P.lock then P.yaw = turn_to(P.yaw, yaw_of(P.lock.x - P.x, P.lock.z - P.z), 14 * dt) end
+    if P.form == 2 then clip = clip .. "_o" end           -- the open saw is carried low and back (idle_o, walk_o, run_o)
     set_anim(clip)
     P.at = P.at + dt * rate
     P.combo = 0
@@ -835,12 +842,12 @@ local function respawn()
 end
 
 -- ---------------------------------------------------------------- the camera
--- the walls and the door leaves (open or shut: an open leaf stands in the doorway's side) stop the camera
+-- the walls, the door leaves (open or shut: an open leaf stands in the doorway's side) and the gate stop the camera
 local function cam_blocked(x, y, z)
   if map3d_blocked(world, x, y, z, 0.18) then return true end
   for i = 1, #objs do
     local o = objs[i]
-    if o.door and (x - o.x) ^ 2 + (z - o.z) ^ 2 < (o.r + 0.3) ^ 2 then return true end
+    if o.camstop and (x - o.x) ^ 2 + (z - o.z) ^ 2 < (o.r + 0.3) ^ 2 then return true end
   end
   return false
 end
@@ -912,7 +919,7 @@ local function apply_environment()
   local amb = ({ 0.05, 0.09, 0.15 })[O.bright]
   sky3d(0x6E7290, 0x23283E, 0x08080C)
   light3d(-0.16, 1.0, -0.12, amb)
-  fog3d(SKY, 5, 22)
+  fog3d(SKY, 5, FAR)
   shadow3d(0)
 end
 
@@ -954,22 +961,24 @@ end
 local function draw_enemy(e)
   if e.st == "dead" and e.t > 6 then return end
   local m = M3[e.kind]
-  if not m or not visible3d(e.x, e.y + 1, e.z, 2.5) then return end
+  local d2 = cam_d2(e.x, e.z)
+  if not m or d2 > (FAR + 1) ^ 2 or not visible3d(e.x, e.y + 1, e.z, 2.5) then return end
   animate(m, e.anim, e.at)
   local ry = e.yaw + PI                                    -- the models face -z
   draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, e.flash > 0 and 2 or 0)
-  if e.st ~= "dead" or e.t < 1.2 then draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, 8) end
+  if (e.st ~= "dead" or e.t < 1.2) and d2 < SHADOW * SHADOW then draw3d(m, e.x, e.y, e.z, 0, ry, 0, 1, 8) end
 end
 
 local function draw_objects()
   for _, o in ipairs(objs) do
-    if not (o.door and o.open > 0.95) and visible3d(o.x, o.y + 1, o.z, 2.5) then
+    local d2 = cam_d2(o.x, o.z)
+    if not (o.door and o.open > 0.95) and d2 < (FAR + 2) ^ 2 and visible3d(o.x, o.y + 1, o.z, 2.5) then
       local m = object_mesh(o.name)
       if m then
         local lift = 0
         if o.door then lift = o.open * 2.8 end
         draw3d(m, o.x, o.y + lift, o.z, 0, 0, 0, 1, 0)
-        if o.name == "lamp" or o.name == "pillar" or o.name == "lantern" or o.name == "barrel" or o.name == "crate" then
+        if o.shadow and d2 < SHADOW * SHADOW then
           draw3d(m, o.x, o.y, o.z, 0, 0, 0, 1, 8)
         end
       end
@@ -1234,7 +1243,8 @@ end
 
 -- ---------------------------------------------------------------- the cartridge
 function _init()
-  screen(1280, 720)
+  apply_resolution()                               -- 640x360: a quarter of the pixels of 1280x720 (the menu has both)
+  gpu3d(nil, nil, nil, nil, 12)                    -- a far model (12 pixels of a 1080-line screen or less) is one quad
   M3.hunter_c, M3.hunter_o = model("hunter_c"), model("hunter_o")
   for n in pairs(RADIUS) do
     M3[n] = model(n)
@@ -1296,7 +1306,7 @@ function _draw()
   local yaw, pitch = look(Cam.x, Cam.y, Cam.z, Cam.tx or P.x, Cam.ty or P.y + 1.3, Cam.tz or P.z)
   camera3d(Cam.x, Cam.y, Cam.z, yaw, pitch, 56)
   textures3d(O.textures)
-  map3d_draw(world, 0)
+  map3d_draw(world, 0, FAR + 1)
   draw_objects()
   for _, e in ipairs(enemies) do draw_enemy(e) end
   draw_player()

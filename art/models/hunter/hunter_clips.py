@@ -311,7 +311,27 @@ def cyc(p):
     return p - math.floor(p)
 
 
-def walk_fn(frames=12, stride=0.20, lift=0.075, sway=0.02):
+def arms_down(d, swing, bend=0.0, open_saw=False):
+    """the arms hang beside the body and swing in the walk: `swing` > 0 takes the left hand forward and the right hand back
+    (the opposite of the legs); `bend` (0..1) bends the elbows (the run). The saw and the pistol point down, a little forward
+    and outward, as the Hunter carries them in the reference pictures."""
+    y = -0.51 + 0.20 * bend
+    for side, sg in (("L", 1), ("R", -1)):
+        z = sg * swing
+        d["h" + side] = [0.11 + 0.03 * bend, y + 0.03 * abs(z), 0.03 + z]
+        d["e" + side] = [0.25, -0.2, -1.0]                     # the elbows bend backward
+        d["d" + side] = [0.30 + 0.9 * bend + 0.6 * z, -1.0 + 0.6 * bend, 0.0]
+    d["dR"][2] = -0.22                                         # the saw a little away from the leg
+    d["dL"][2] = 0.10
+    if open_saw:
+        # the open saw is longer than the leg: the right hand carries it low, the blade trailing back and down, off the floor
+        d["hR"] = [0.13, y + 0.04, 0.06 - 0.35 * swing]
+        d["dR"] = [-0.80, -0.55, -0.30]
+    d["rL"], d["rR"] = 0, 0
+    return d
+
+
+def walk_fn(frames=12, stride=0.20, lift=0.075, sway=0.02, open_saw=False):
     def fn(f):
         p = f / float(frames)
         d = merge(READY, {})
@@ -333,13 +353,12 @@ def walk_fn(frames=12, stride=0.20, lift=0.075, sway=0.02):
         d["spine"] = [4, 7 * sw, 0]
         d["chest"] = [3, 3 * sw, 0]
         d["head"] = [-4, -6 * sw, 0]
-        d["hL"] = [0.05, -0.19, 0.36 - 0.12 * sw]
-        d["hR"] = [0.03, -0.26, 0.33 + 0.12 * sw]
+        arms_down(d, -0.14 * math.cos(2 * math.pi * p), open_saw=open_saw)   # the left hand back while the left foot is forward
         return d
     return fn
 
 
-def run_fn(frames=8, stride=0.34, lift=0.17):
+def run_fn(frames=8, stride=0.34, lift=0.17, open_saw=False):
     def fn(f):
         p = f / float(frames)
         d = merge(READY, {})
@@ -361,16 +380,12 @@ def run_fn(frames=8, stride=0.34, lift=0.17):
         d["spine"] = [6, 10 * sw, 0]
         d["chest"] = [4, 4 * sw, 0]
         d["head"] = [-12, -8 * sw, 0]
-        d["hL"] = [0.0, -0.10, 0.22 - 0.26 * sw]
-        d["hR"] = [-0.02, -0.12, 0.22 + 0.26 * sw]
-        d["dR"] = [1.0, -0.1, -0.05]
-        d["eL"] = [0.2, -1.0, 0.5]
-        d["eR"] = [0.2, -1.0, 0.5]
+        arms_down(d, -0.22 * math.cos(2 * math.pi * p), bend=0.55, open_saw=open_saw)
         return d
     return fn
 
 
-def idle_fn(frames=24):
+def idle_fn(frames=24, open_saw=False):
     def fn(f):
         p = f / float(frames)
         b = math.sin(2 * math.pi * p)
@@ -378,8 +393,9 @@ def idle_fn(frames=24):
         d["hmove"] = [0, -0.045 + 0.008 * b, 0]
         d["chest"] = [3 + 1.5 * b, 0, 0]
         d["head"] = [-4 - 1.0 * b, 0, 0]
-        d["hL"] = [0.04, -0.20 + 0.01 * b, 0.36]
-        d["hR"] = [0.02, -0.27 + 0.01 * b, 0.32]
+        arms_down(d, 0.0, open_saw=open_saw)
+        d["hL"][1] += 0.006 * b
+        d["hR"][1] += 0.006 * b
         return d
     return fn
 
@@ -389,6 +405,10 @@ def clips():
     out.append(make_clip("idle", 24, idle_fn(24), True))
     out.append(make_clip("walk", 12, walk_fn(), True))
     out.append(make_clip("run", 8, run_fn(), True))
+    # the same moves with the open saw carried low and back (the game picks them in the open form)
+    out.append(make_clip("idle_o", 24, idle_fn(24, open_saw=True), True))
+    out.append(make_clip("walk_o", 12, walk_fn(open_saw=True), True))
+    out.append(make_clip("run_o", 8, run_fn(open_saw=True), True))
 
     # ---- pistol shot (left hand): raise, fire (kick), hold, lower
     ks = [
