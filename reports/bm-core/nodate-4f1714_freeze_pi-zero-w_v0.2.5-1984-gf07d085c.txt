@@ -1,0 +1,65 @@
+bm report
+kind: freeze
+kernel: v0.2.5-1984-gf07d085c
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-4f1714_freeze_pi-zero-w_v0.2.5-1984-gf07d085c.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 23744 s after boot, kernel v0.2.5-1984-gf07d085c, ring 538475, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+nu: 1280x720, drawn by the GPU
+market: nearby consoles: listening as bm-108
+menu idle: sd first word <1ms 37 (max 2.4 ms)
+menu frame: 1x, a frame averages draw 11126 us, enlarge 0 us, flip 93 us, free time used 19 us (300 frames)
+market: Checking for new games...
+market: catalog 20261031134559, 23 games
+menu idle: 300/300 frames, 478 of 2479 ms taken, 64.2 ms past a frame; market 472 ms (+68.8, stk 4.0/128K); min slack -34204 us, paced 0
+menu idle: sd first word <1ms 27 <3ms 3 (max 2.7 ms)
+menu stalls: tls handshake 1x last 162.5 worst 162.5 ms
+menu frame: 1x, a frame averages draw 7589 us, enlarge 0 us, flip 95 us, free time used 1594 us (300 frames)
+market: downloading apps/mesh/mesh.bm (176224 bytes)
+market: apps/mesh/mesh.bm -> /bm/mesh.bm
+market: bm Mesh installed
+covers: all 19 read
+menu idle: 300/300 frames, 767 of 2400 ms taken, 28.4 ms past a frame; covers 7 ms (+1.9, stk 0.8/16K), market 754 ms (+32.8, stk 4.0/128K); min slack -34204 us, paced 0
+menu idle: sd first word <1ms 59 <3ms 5 <10ms 1 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 8562 us, enlarge 0 us, flip 94 us, free time used 2558 us (300 frames)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.32 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+load: bm Mesh 222 ms (close 0, parse 2, assets+state 2, mode 1, audio 1, lua 215)
+bm: screen 1280x720
+bm: "bm Mesh" stopped with an error:
+main.lua:387: attempt to call a nil value (field 'is_bmm')
+stack traceback:
+	main.lua:387: in upvalue 'open_file'
+	main.lua:3308: in field 'integer index'
+	main.lua:720: in upvalue 'pick_key'
+	main.lua:3582: in function '_update'
+menu: 1280x720, drawn by the GPU
+menu idle: sd first word <1ms 79 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 10568 us, enlarge 0 us, flip 93 us, free time used 28 us (300 frames)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.32 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+load: bm Mesh 223 ms (close 0, parse 2, assets+state 2, mode 1, audio 0, lua 216)
+bm: screen 1280x720
+bm: "bm Mesh" stopped with an error:
+main.lua:387: attempt to call a nil value (field 'is_bmm')
+stack traceback:
+	main.lua:387: in upvalue 'open_file'
+	main.lua:3308: in field 'integer index'
+	main.lua:720: in upvalue 'pick_key'
+	main.lua:3582: in function '_update'
+menu: 1280x720, drawn by the GPU
+menu idle: sd first word <1ms 46 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 8329 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6401 us, enlarge 0 us, flip 92 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 6317 us, enlarge 0 us, flip 92 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 6440 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 6471 us, enlarge 0 us, flip 92 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 6382 us, enlarge 0 us, flip 92 us, free time used 35 us (300 frames)
+menu idle: sd first word <1ms 31 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 6772 us, enlarge 0 us, flip 94 us, free time used 27 us (300 frames)
+market: nearby consoles: listening as bm-108
+menu frame: 1x, a frame averages draw 8395 us, enlarge 0 us, flip 96 us, free time used 26 us (300 frames)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 15 cartridges; clusters 32 K
