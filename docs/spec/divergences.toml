@@ -634,3 +634,15 @@ status = "resolved"
 note = "Done 25 Oct 2026 (settings.c util_count check). QEMU test_dev_tab_utilities. Not seen on the panel. Tried on the RGB30 hardware on 25 Oct 2026 (docs/bench/rgb30-2026-10-25/summary.md). Decision of the user, 25 Oct 2026: the DMA test is removed (see D14); the Utilities row keeps the Render bench."
 evidence = "src/kernel/settings.c:855; src/rgb30/ui.c"
 action = "look at it on the console"
+
+[[divergence]]
+id = "D56"
+area = "external screen"
+pi = "HDMI is the only screen (the mode is in config.txt)"
+rgb30 = "the micro HDMI cable switches the screen: plugged in, the panel goes off and the TV or monitor shows 1280x720 at 60 Hz; unplugged, the panel is back"
+cause = "todo"
+priority = 3
+status = "open"
+note = "Written 31 Oct 2026 (src/rgb30/rk_hdmi.c, rk_display.c). Built from the Linux register sequences; the cross compiler and the console were not available when it was written, so the code is compiled on the PC only. Test on the console: plug in, unplug, plug in at boot. config.txt: hdmi=0 keeps the panel; hdmi_swap and hdmi_origin are test switches."
+evidence = "src/rgb30/rk_hdmi.c; src/rgb30/rk_display.c"
+action = "try it on the console and read the display lines of bm/bootlog.txt"

@@ -16,11 +16,14 @@
 #include "plat.h"
 #include "rk_display.h"
 #include "rk_gpio.h"
+#include "rk_hdmi.h"
 #include "io.h"
+#include "kernel/config.h"
 #include "drivers/timer.h"
 #include "lib/printf.h"
 
 #define VOP         0xfe040000u
+#define VP0         (VOP + 0xc00)
 #define VP1         (VOP + 0xd00)
 #define ESMART0     (VOP + 0x1800)
 #define PMU         0xfdd90000u
@@ -32,11 +35,20 @@
 #define PANEL_H     720
 
 #define CFG_DONE_VP1 0x00028002u        /* GLB_CFG_DONE_EN | VP1 | VP1 write enable */
+#define CFG_DONE_VP0 0x00018001u        /* the same for VP0 (the external screen) */
+#define CFG_DONE    (d.ext ? CFG_DONE_VP0 : CFG_DONE_VP1)
 #define BG_COLOR    ((0x40u << 20) | (0x50u << 10) | 0x70u)     /* the menu's 0x10141c, 10-bit */
 
 static struct {
     int up, failed, problem;
-    uint32_t w, h, depth, out_w, out_h;     /* out: on the panel */
+    int ext;                                /* 1: the HDMI screen is the one lit, the panel is off */
+    int noretry;                            /* HDMI failed to start with this cable plugged in */
+    int streak;                             /* polls in a row that disagree with the screen in use */
+    uint32_t last_poll;
+    uint32_t ow, oh, xoff, yoff;            /* the screen in use: size, and where the image area starts */
+    plat_mode_t mode;
+    uintptr_t addr;
+    uint32_t w, h, depth, out_w, out_h;     /* out: on the screen in use */
     char info[384];
     int pos;
 } d;
@@ -123,9 +135,25 @@ static void clocks_on(void)
     LOG(", dclk %lu kHz", pll_khz(0xa0, 12) / 8);
 }
 
+/* The pixel clock of the external screen: dclk_vop0 = VPLL (1188 MHz) / 16 =
+ * 74.25 MHz. VPLL is the panel's clock too (292.5 MHz), so the panel is off
+ * before this runs and clocks_on() sets it back. */
+static int hdmi_clocks(void)
+{
+    uint32_t khz = pll_khz(0xa0, 12);
+    if ((khz < 1187000 || khz > 1189000) && vpll_set(1, 99, 2, 1))
+        return -1;
+    writel(CRU + 0x19c, 0x0cff0000u | (1u << 10) | 15);  /* mux VPLL, divide by 16 */
+    writel(CRU + 0x350, HIWORD(1u << 10, 0));            /* ungate dclk_vop0 */
+    return 0;
+}
+
 /* --- VOP2 --- */
 
-static int vop_init(void)
+/* Windows off, the layers of every window on one port: VP1 for the panel,
+ * VP0 for the external screen (OVL_PORT_SEL: the six windows' port in the
+ * top half, the layer count of each port below). */
+static void vop_common(int ext)
 {
     /* IOMMU of the VOP in bypass */
     for (uintptr_t mmu = VOP + 0x3e00; mmu <= VOP + 0x3f00; mmu += 0x100)
@@ -144,20 +172,27 @@ static int vop_init(void)
     for (uintptr_t w = 0x1800; w <= 0x1e00; w += 0x200)
         for (uintptr_t r = 0x10; r <= 0xa0; r += 0x30)
             writel(VOP + w + r, 0);
-    /* overlay: every window on VP1, Esmart0 the bottom layer */
+    /* overlay: every window on the port, Esmart0 the bottom layer */
     writel(VOP + 0x600, 0x10000000u);
-    writel(VOP + 0x608, 0x55050858u);
+    writel(VOP + 0x608, ext ? 0x00000885u : 0x55050858u);
     writel(VOP + 0x604, 0x00763102u);
     writel(VOP + 0x6f0, 0);
     writel(VOP + 0x6f8, 0x00000014u);
-    writel(VOP + 0x6e4, 0x28000000u);
-    /* VP1 -> MIPI0, polarities as the panel (none positive), interface changes at once */
+    writel(VOP + 0x6e0 + (ext ? 0 : 4), 0x28000000u);
+}
+
+static int vop_init(void)
+{
+    vop_common(0);
+    /* VP1 -> MIPI0, polarities as the panel (none positive), interface changes at once;
+     * HDMI off, VP0 in standby */
     uint32_t v = readl(VOP + 0x028);
-    v = (v & ~(3u << 16)) | (1u << 4) | (1u << 16);
+    v = (v & ~((3u << 16) | (1u << 1))) | (1u << 4) | (1u << 16);
     writel(VOP + 0x028, v);
     v = readl(VOP + 0x030);
     v = (v & ~(0xfu << 16)) | (1u << 28);
     writel(VOP + 0x030, v);
+    writel(VP0 + 0x00, 1u << 31);
     /* VP1 timing: 720x720, htotal 814, vtotal 749 */
     writel(VP1 + 0x04, 0);
     writel(VP1 + 0x08, 0);
@@ -172,9 +207,45 @@ static int vop_init(void)
     writel(VP1 + 0x3c, 0x10001000u);
     writel(VP1 + 0x40, 0);
     writel(VP1 + 0x2c, BG_COLOR);
-    writel(VOP + 0x000, CFG_DONE_VP1);
+    writel(VOP + 0x000, CFG_DONE_VP1 | CFG_DONE_VP0);
     writel(VP1 + 0x00, 0x00010000u);                /* RGB888 out, out of standby: scanning */
     return 0;
+}
+
+/* VP0 -> HDMI, 1280x720p60 (rk_hdmi.h), both syncs positive; VP1 in standby.
+ * The timing registers are the panel's, with the numbers of CEA mode 4. */
+static void vop_init_ext(void)
+{
+    vop_common(1);
+    uint32_t v = readl(VOP + 0x028);
+    v = (v & ~((3u << 10) | (1u << 4) | (3u << 16))) | (1u << 1);  /* HDMI on VP0, MIPI0 off */
+    writel(VOP + 0x028, v);
+    v = readl(VOP + 0x030);
+    writel(VOP + 0x030, (v & ~0xf0u) | 0x30u);      /* HDMI pins: hsync and vsync positive */
+    uint32_t hs = HDMI_HTOTAL - (HDMI_W + HDMI_HFRONT), he = hs + HDMI_W;
+    uint32_t vs = HDMI_VTOTAL - (HDMI_H + HDMI_VFRONT), ve = vs + HDMI_H;
+    writel(VP0 + 0x04, 0);
+    writel(VP0 + 0x08, 0);
+    writel(VP0 + 0x48, HDMI_HTOTAL << 16 | HDMI_HSYNC);
+    writel(VP0 + 0x4c, hs << 16 | he);
+    writel(VP0 + 0x54, vs << 16 | ve);
+    writel(VOP + 0x070, ve << 16 | ve);
+    writel(VP0 + 0x50, HDMI_VTOTAL << 16 | HDMI_VSYNC);
+    writel(VP0 + 0x30, (40 + HDMI_W / 2 - 1) << 16 | HDMI_HSYNC);   /* pre-scan: bg delay 40 + half a line */
+    writel(VP0 + 0x34, hs << 16 | he);
+    writel(VP0 + 0x38, vs << 16 | ve);
+    writel(VP0 + 0x3c, 0x10001000u);
+    writel(VP0 + 0x40, 0);
+    writel(VP0 + 0x2c, BG_COLOR);
+    writel(VP1 + 0x00, 1u << 31);                   /* the panel's port in standby */
+    writel(VOP + 0x000, CFG_DONE_VP1 | CFG_DONE_VP0);
+    const char *sw = config_get("hdmi_swap");       /* red and green swapped on the screen: 1 */
+    writel(VP0 + 0x00, sw && sw[0] == '1' ? 0x00010000u : 0);   /* RGB888 out, scanning */
+    d.ow = HDMI_W;
+    d.oh = HDMI_H;
+    const char *org = config_get("hdmi_origin");    /* 1: window positions count from the sync */
+    d.xoff = org && org[0] == '1' ? hs : 0;
+    d.yoff = org && org[0] == '1' ? vs : 0;
 }
 
 static uint16_t scale_factor(uint32_t src, uint32_t dst)
@@ -186,18 +257,28 @@ static uint16_t scale_factor(uint32_t src, uint32_t dst)
 }
 
 /* Esmart0: the image scaled by the mode (up: nearest neighbour or smooth;
- * down when bigger than the panel), centred (rockchip_drm_vop2.c
- * vop2_setup_scale) */
+ * down when bigger than the screen), centred (rockchip_drm_vop2.c
+ * vop2_setup_scale). "As big as fits" is worked out here, against the
+ * screen in use, so a cable plugged in later enlarges it. */
 static void window(const plat_mode_t *m, uintptr_t addr)
 {
     uint32_t w = m->w, h = m->h, dw = m->out_w, dh = m->out_h;
-    if (dw > PANEL_W)
-        dw = PANEL_W;
-    if (dh > PANEL_H)
-        dh = PANEL_H;
+    if (m->scale == 0) {
+        if ((uint64_t)w * d.oh <= (uint64_t)h * d.ow) {
+            dh = d.oh;
+            dw = w * d.oh / h;
+        } else {
+            dw = d.ow;
+            dh = h * d.ow / w;
+        }
+    }
+    if (dw > d.ow)
+        dw = d.ow;
+    if (dh > d.oh)
+        dh = d.oh;
     if (w > dw && (dw & 1))
         dw--;                                       /* even when scaling down */
-    uint32_t x = (PANEL_W - dw) / 2, y = (PANEL_H - dh) / 2;
+    uint32_t x = (d.ow - dw) / 2 + d.xoff, y = (d.oh - dh) / 2 + d.yoff;
     /* a vertical shrink by 2 or 4 first drops lines (GT2, GT4) */
     uint32_t sh = h, gt = 0;
     if (h >= 4 * dh) {
@@ -223,7 +304,7 @@ static void window(const plat_mode_t *m, uintptr_t addr)
     writel(ESMART0 + 0x24, (dh - 1) << 16 | (dw - 1));
     writel(ESMART0 + 0x28, y << 16 | x);
     writel(ESMART0 + 0x10, (m->depth == 16 ? 0x00001005u : 0x00000001u) | gt << 8);
-    writel(VOP + 0x000, CFG_DONE_VP1);
+    writel(VOP + 0x000, CFG_DONE);
     d.out_w = dw;
     d.out_h = dh;
 }
@@ -241,10 +322,64 @@ static void backlight(unsigned percent)
     writel(PWM4 + 0x0c, 0x0b);                      /* enable, continuous, duty high */
 }
 
+/* The backlight's pin back to a plain GPIO, low, and the panel off (display
+ * off and sleep in if its link is up, then reset, supply off, 300 ms). The
+ * next start finds it as after power-on. */
+static void panel_off(int link_up)
+{
+    if (link_up)
+        writel(PWM4 + 0x0c, 0);                     /* (its clock is on) */
+    writel(PMUGRF + 0x10, 0xf0000000u);             /* GPIO0_C3 = gpio */
+    rk_gpio_output(rk_pin(0, 'C', 3), 0);
+    rk_dsi_off(link_up);
+}
+
+/* the DSI link and the panel, the VOP scanning for it; 0 or the rk_dsi_init error */
+static int panel_on(void)
+{
+    d.ow = PANEL_W;
+    d.oh = PANEL_H;
+    d.xoff = d.yoff = 0;
+    d.ext = 0;
+    vop_init();
+    timer_delay_ms(20);
+    LOG("; ");
+    char dsi[200];
+    rgb30_display_stage("DSI link and panel starting");
+    int r = rk_dsi_init(dsi, sizeof dsi);
+    LOG("%s", dsi);
+    rgb30_display_stage(r ? "panel failed" : "panel on");
+    return r;
+}
+
+/* The external screen instead of the panel: panel off, 74.25 MHz pixel clock,
+ * VP0 scanning, then the transmitter (the PHY locks only with pixels coming).
+ * 0, or -1 with everything left off. */
+static int ext_on(void)
+{
+    rk_hdmi_clocks();
+    panel_off(d.up && !d.ext);
+    int r = hdmi_clocks();
+    if (r == 0) {
+        vop_init_ext();
+        r = rk_hdmi_start();
+    }
+    if (r) {
+        rk_hdmi_stop();
+        writel(VP0 + 0x00, 1u << 31);
+        writel(VOP + 0x000, CFG_DONE_VP0);
+        return -1;
+    }
+    d.ext = 1;
+    return 0;
+}
+
 int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 {
     if (d.failed)
         return -1;
+    d.mode = *m;
+    d.addr = addr;
     if (!d.up) {
         d.pos = 0;
         /* the LEDs say which step a hang is in (docs/RGB30.md): both
@@ -257,17 +392,34 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
             return -1;
         }
         plat_led(1, 1);
+        rk_hdmi_clocks();
+        const char *off = config_get("hdmi");
+        int ext = 0;
+        if (!(off && off[0] == '0')) {
+            /* a cable that stays for 30 ms is a cable (the pin can glitch) */
+            int hpd = 1;
+            for (int i = 0; i < 4 && hpd; i++) {
+                hpd = rk_hdmi_hpd();
+                timer_delay_ms(10);
+            }
+            if (hpd) {
+                rgb30_display_stage("HDMI starting");
+                ext = ext_on() == 0;
+                LOG("HDMI %s", ext ? "1280x720" : "FAILED");
+                d.noretry = !ext;
+                rgb30_display_stage(ext ? "HDMI on" : "HDMI failed");
+            }
+        }
+        if (ext) {
+            plat_led(0, 1);
+            d.up = 1;
+            window(m, addr);
+            d.problem = 0;
+            return 0;
+        }
         clocks_on();
         plat_led(1, 0);
-        vop_init();
-        plat_led(0, 0);
-        timer_delay_ms(20);
-        LOG("; ");
-        char dsi[200];
-        rgb30_display_stage("DSI link and panel starting");
-        r = rk_dsi_init(dsi, sizeof dsi);
-        LOG("%s", dsi);
-        rgb30_display_stage(r ? "panel failed" : "panel on");
+        r = panel_on();
         plat_led(0, 1);
         d.up = 1;
         window(m, addr);
@@ -285,21 +437,69 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
     return 0;
 }
 
+/* The screen follows the cable. Every 250 ms the HPD pin is read; two reads
+ * in a row that disagree with the screen in use change it: HDMI plugged in,
+ * panel off and the external screen on; unplugged, the other way round.
+ * hdmi=0 in bm/config.txt keeps the panel. A cable that fails to start is
+ * not tried again until it has been unplugged. */
+static void hotplug(void)
+{
+    uint32_t now = timer_ticks();
+    if (!d.up || now - d.last_poll < 250000u)
+        return;
+    d.last_poll = now;
+    const char *off = config_get("hdmi");
+    int want = !(off && off[0] == '0') && rk_hdmi_hpd();
+    if (!want)
+        d.noretry = 0;
+    if (want == d.ext || (want && d.noretry)) {
+        d.streak = 0;
+        return;
+    }
+    if (++d.streak < 2)
+        return;
+    d.streak = 0;
+    int saved = d.pos;
+    d.pos = (int)sizeof d.info;                     /* the boot report stays as it was */
+    if (want) {
+        d.noretry = ext_on() != 0;
+        if (d.noretry) {
+            clocks_on();                            /* VPLL back to the panel's */
+            panel_on();                             /* the panel again, as it was */
+        }
+    } else {
+        rk_hdmi_stop();
+        writel(VP0 + 0x00, 1u << 31);
+        writel(VOP + 0x000, CFG_DONE_VP0);
+        d.ext = 0;
+        clocks_on();
+        panel_on();
+    }
+    if (!d.ext)
+        backlight(80);
+    d.pos = saved;
+    window(&d.mode, d.addr);
+}
+
 void plat_display_show(uintptr_t addr)
 {
     if (!d.up)
         return;
+    d.addr = addr;
     writel(ESMART0 + 0x14, (uint32_t)addr);
-    writel(VOP + 0x000, CFG_DONE_VP1);
+    writel(VOP + 0x000, CFG_DONE);
+    hotplug();
 }
 
 /* The pending address is taken at the next frame start: the cfg_done bit
- * of VP1 reads 1 until then. */
+ * of the port reads 1 until then. */
 int plat_display_wait_vsync(void)
 {
     if (!d.up)
         return 0;
-    return poll_bits(VOP + 0x000, 1u << 1, 0, 40000) == 0;
+    int ok = poll_bits(VOP + 0x000, d.ext ? 1u << 0 : 1u << 1, 0, 40000) == 0;
+    hotplug();
+    return ok;
 }
 
 int plat_display_problem(void)
@@ -318,11 +518,13 @@ const char *plat_display_info(void)
  * off, the next start finds it as after power-on. */
 void plat_display_off(void)
 {
-    if (d.up)
-        writel(PWM4 + 0x0c, 0);                     /* (its clock is on) */
-    writel(PMUGRF + 0x10, 0xf0000000u);             /* GPIO0_C3 = gpio */
-    rk_gpio_output(rk_pin(0, 'C', 3), 0);
-    rk_dsi_off(d.up);
+    if (d.ext) {
+        rk_hdmi_stop();
+        writel(VP0 + 0x00, 1u << 31);
+        writel(VOP + 0x000, CFG_DONE_VP0);
+    }
+    panel_off(d.up && !d.ext);
     d.up = 0;
+    d.ext = 0;
 }
 #endif

@@ -48,6 +48,33 @@ settings = ""
 read_in = "src/rgb30/fb.c:87"
 
 [[key]]
+name = "hdmi"
+scope = "rgb30"
+values = "0 = the panel only; anything else = the screen follows the micro HDMI cable"
+default = "on"
+meaning = "With a cable plugged in, the panel goes off and the external screen shows 1280x720 at 60 Hz; unplugged, the panel is back."
+settings = ""
+read_in = "src/rgb30/rk_display.c"
+
+[[key]]
+name = "hdmi_origin"
+scope = "rgb30"
+values = "1 = window positions count from the sync start; anything else = from the active area"
+default = "from the active area (as on the panel)"
+meaning = "Hardware test switch for the image position on the external screen (see docs/RGB30.md, HDMI)."
+settings = ""
+read_in = "src/rgb30/rk_display.c"
+
+[[key]]
+name = "hdmi_swap"
+scope = "rgb30"
+values = "1 = swap red and green on the external screen; anything else = off"
+default = "off"
+meaning = "Hardware test switch for the colour order on the external screen (see docs/RGB30.md, HDMI)."
+settings = ""
+read_in = "src/rgb30/rk_display.c"
+
+[[key]]
 name = "bm_smooth"
 scope = "rgb30"
 values = "1 = smooth scaling; anything else = off"
