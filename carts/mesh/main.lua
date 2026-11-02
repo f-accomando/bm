@@ -1163,7 +1163,7 @@ function edit_reset()
   if cur_it and cur_it.hid then cur_it.hid, cur_it.view = nil, nil end
   ed.sx, ed.sy, ed.sz, ed.pk = {}, {}, {}, nil
   local it = I()
-  if it then aim(ed.cam, it, nil, 2.2) end
+  if it then aim(ed.cam, it, nil, 3.4) end
   ed.px, ed.py = W // 2, 184
 end
 
@@ -2538,10 +2538,60 @@ function ed.part_menu(b)
   })
 end
 
+-- the pieces of a model with no skeleton (faces that share vertices: an imported model, the parts added with
+-- "Add a part"): the same menu as the bones' parts, from the top down. They come from the mesh as it is now.
+function ed.pieces_of(it)
+  local k = tostring(it.ver) .. ":" .. #it.v .. ":" .. #it.f
+  if it.pcs_key ~= k then it.pcs, it.pcs_key = B.G.pieces(it), k end
+  return it.pcs
+end
+
+function ed.piece_menu(n)
+  local it = I()
+  local pc = ed.pieces_of(it)[n]
+  if not pc then return end
+  local name = "part " .. n
+  choose(name .. "  (" .. pc.faces .. " faces)", {
+    { "Choose this part", function() ed.part_choose(pc.set, name) end },
+    { "Show only this part", function()
+        UA.push()
+        ed.set_hidden(it, B.G.isolate(it, pc.set))
+        ed.part_choose(pc.set, name)
+      end },
+    { "Hide this part", function()
+        UA.push()
+        local hid = {}
+        for i in pairs(it.hid or {}) do hid[i] = true end
+        for i in pairs(pc.set) do hid[i] = true end
+        ed.set_hidden(it, hid)
+        say("hidden: " .. name .. " (Shift+Y shows all)", C_ACC, 150)
+      end },
+    { "Back to the parts", function() ed.pieces_dialog(n) end },
+  })
+end
+
+function ed.pieces_dialog(sel)
+  local it = I()
+  local list = ed.pieces_of(it)
+  if #list == 0 then say("no faces: no parts", C_ERR); return false end
+  local rows = {}
+  if it.hid then
+    rows[1] = { "Show all (" .. ed.hidden_count(it) .. " vertices hidden)", function() ed.show_all() end }
+  end
+  local lo, hi = 1e9, -1e9
+  for _, p in ipairs(list) do lo, hi = min(lo, p.cy), max(hi, p.cy) end
+  for i, p in ipairs(list) do
+    local h = hi - lo < 1e-6 and "" or (p.cy > lo + (hi - lo) * 0.66 and "  high" or (p.cy < lo + (hi - lo) * 0.33 and "  low" or "  middle"))
+    rows[#rows + 1] = { string.format("part %d  (%d faces)%s", i, p.faces, h), function() ed.piece_menu(i) end }
+  end
+  choose("parts: " .. #list .. " (faces that share vertices; Enter: choose, show only...)", rows, (it.hid and 1 or 0) + (sel or 1))
+  return true
+end
+
 function ed.parts_dialog(sel_bone)
   local it = I()
   local rig, err = ed.rig_of(it)
-  if not rig then say(err, C_ERR, 240); return false end
+  if not rig then return ed.pieces_dialog() end    -- no skeleton: the pieces of the mesh
   local rows, sel = {}, 1
   if it.hid then
     rows[1] = { "Show all (" .. ed.hidden_count(it) .. " vertices hidden)", function() ed.show_all() end }
@@ -2903,7 +2953,7 @@ local COMMANDS = {
   { "Smooth the chosen vertices: relax toward the neighbours (V)", "V" },
   { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / edges / faces (Tab)", "\t" },
   { "Next element (n)", "n" }, { "Frame the choice (f)", "f" }, { "Finer step (,)", "," }, { "Coarser step (.)", "." },
-  { "Parts: choose or show only a bone's part (N)", "N" },
+  { "Parts: choose, show only or hide a part (N)", "N" },
   { "Ghost: load a model, clear it (H)", "H" }, { "Ghost: show / hide (h)", "h" },
   { "Ghost: scale up (])", "]" }, { "Ghost: scale down ([)", "[" },
   { "Ghost: up (})", "}" }, { "Ghost: down ({)", "{" },
@@ -3291,7 +3341,7 @@ local HELP = {
     { "0-9 . -", "in g r t: type the exact value (axis x y z n first; Backspace)" },
     { "shift r", "reference pictures: a front and a side from /pics behind the model (views 1 and 3)" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete, add a part, loop cut on both sides (not the knife)" },
-    { "shift n", "parts: the bones as a tree (arm, hand, grip); choose a part, show only it, hide it; Shift+Y shows all" },
+    { "shift n", "parts: the pieces of the model (faces that share vertices), or the bones as a tree when it has a skeleton; choose a part, show only it, hide it; Shift+Y shows all" },
     { "shift b / v", "give the choice (or a part, l) to a bone of the skeleton / tint the dots by bone" },
     { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved); the last row sets its detail (2000, 5000, 20000, all); a long wire is drawn thinned" },
     { "[ ] / { }", "ghost: scale / height (with a ghost, [ ] do not change the mesh)" },
@@ -3460,7 +3510,9 @@ local function take_imported(it, note)
   dirty = true
   lp.select(insert_item(it))
   go("edit")
+  local np = #ed.pieces_of(it)
   say(note .. (flat > 0 and (", " .. flat .. " textured faces flat grey") or "") .. ": model " .. it.name ..
+      (np > 1 and (", " .. np .. " parts: Shift+N") or "") ..
       (proj.path and "  (Ctrl+S saves it in the project)" or "  (Ctrl+S saves it in /bmm)"), C_ACC, 400)
   return true
 end

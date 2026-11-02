@@ -493,6 +493,17 @@ check(sees("open a cartridge") and sees("/carts/astrowing.bm") and sees("New fil
 -- no file: New file makes a cube (a model alone); n adds another; Ctrl+S names it in /bmm
 key("\n")
 check(sees("VERTICES") and status():find("new file", 1, true) ~= nil, "New file: the cube in the edit page: " .. status())
+-- the pieces: one cube is one part; a part added next to it makes two (no skeleton: Shift+N lists the pieces)
+key("N")
+check(sees("parts: 1") and sees("part 1  (12 faces)"), "Shift+N: one cube, one part")
+key("esc", "A", "\n")
+key("N")
+check(sees("parts: 2"), "Shift+N: a part added, two parts")
+key("\n")
+check(sees("Show only this part") and sees("Hide this part"), "a part: the menu")
+key("down", "\n")
+check(status():find("part 1:", 1, true) ~= nil or status():find("vertices chosen", 1, true) ~= nil, "Show only this part: " .. status())
+key("Y")
 key("f1", "n")
 check(status():find("new model cube2", 1, true) ~= nil, "n with no file: a second cube: " .. status())
 key("^s")
@@ -1727,6 +1738,7 @@ do
   key("S")                                   -- vertex only
   key("g", "x", ".", ".", "esc")             -- the move step 0.1 again
   rep("-", 10)
+  rep("+", 3)                                -- the camera starts farther: back to the size these steps were made for
   local function px_to_v2(dx)
     local ax, ay = E.project3d(m0.verts[1][1] + dx, m0.verts[1][2], m0.verts[1][3])
     local bx, by = E.project3d(m0.verts[2][1], m0.verts[2][2], m0.verts[2][3])

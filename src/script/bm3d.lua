@@ -391,6 +391,44 @@ function G.face_hidden(f, hid)
 end
 
 -- every vertex but the ones in keep goes into the set (isolate)
+-- The pieces of a mesh: the faces that share vertices form one piece (an imported model, a part added with
+-- "Add a part"). { { set = { [vertex] = true }, faces = n, cx, cy, cz }, ... } from the top down (then left to
+-- right in x), so the numbers stay in the same order while the model does not change. Hidden faces count.
+function G.pieces(it)
+  local par = {}
+  local function find(x)
+    while par[x] ~= x do par[x] = par[par[x]]; x = par[x] end
+    return x
+  end
+  for i = 1, #it.v do par[i] = i end
+  for _, f in ipairs(it.f) do
+    local a = find(f[1])
+    par[find(f[2])] = a
+    par[find(f[3])] = find(a)
+  end
+  local by, list = {}, {}
+  for i, v in ipairs(it.v) do
+    local r = find(i)
+    local q = by[r]
+    if not q then q = { set = {}, faces = 0, cx = 0, cy = 0, cz = 0, n = 0 }; by[r] = q; list[#list + 1] = q end
+    q.set[i] = true
+    q.n, q.cx, q.cy, q.cz = q.n + 1, q.cx + v[1], q.cy + v[2], q.cz + v[3]
+  end
+  for _, f in ipairs(it.f) do by[find(f[1])].faces = by[find(f[1])].faces + 1 end
+  local out = {}
+  for _, q in ipairs(list) do
+    if q.faces > 0 then
+      q.cx, q.cy, q.cz = q.cx / q.n, q.cy / q.n, q.cz / q.n
+      out[#out + 1] = q
+    end
+  end
+  table.sort(out, function(p, q)
+    if math.abs(p.cy - q.cy) > 1e-4 then return p.cy > q.cy end
+    return p.cx < q.cx
+  end)
+  return out
+end
+
 function G.isolate(it, keep)
   local hid = {}
   for i in ipairs(it.v) do if not keep[i] then hid[i] = true end end
