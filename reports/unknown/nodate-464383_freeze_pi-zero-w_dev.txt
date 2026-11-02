@@ -1,0 +1,56 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-464383_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 2057 s after boot, kernel dev, ring 48236, sink on
+--- the last lines printed ---
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+ used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 6270 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 6184 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 6367 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 6335 us, enlarge 0 us, flip 93 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 6247 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 6164 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6412 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6324 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6236 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6223 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6393 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6307 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6220 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6254 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6379 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6291 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6204 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6293 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6358 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6271 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6187 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6345 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6352 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6266 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6178 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6388 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6330 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6243 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6179 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 6406 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+bt:   report map 140 bytes: mouse found, report ID 2
+bt: mouse df:0e:42:84:a7:2d connected, it moves the pointer
+menu frame: 1x, a frame averages draw 7875 us, enlarge 0 us, flip 93 us, free time used 33 us (300 frames)
