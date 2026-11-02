@@ -807,7 +807,7 @@ typedef struct uhome_s uhome_t;
 struct uhome_s {
     int tab, sel[3];                    /* the tab, and the selection of each */
     int mopt, mopt_sel, ask_game;       /* a Market game's details (X): its panel over the covers */
-    int gopt, gopt_sel;                 /* a game's options (X on the Games tab) */
+    int gopt, gopt_sel;                 /* the options of a game, an app or a utility (X on the Games and Dev tabs) */
     int gsend;                          /* 1: the options show the consoles to send the game to */
     struct { int id, sel, top; } stack[DEPTH_MAX];      /* the panels of Settings, one over the other */
     int depth, built, frame, ask_row, asking, ask_switch, ask_compat;
@@ -900,7 +900,7 @@ static void uh_background(uhome_t *m)
     market_lan(m->on_market || (m->gopt >= 0 && m->gsend));
     if (!m->on_market)
         m->mopt = -1;
-    if (m->tab != TAB_GAMES || m->on_gear)
+    if ((m->tab != TAB_GAMES && m->tab != TAB_DEV) || m->on_gear)
         m->gopt = -1;
     if (m->asking == ASK_NONE && market_offer(m->ask_q, sizeof m->ask_q, m->ask_d, sizeof m->ask_d)) {
         ksnprintf(m->ask_y, sizeof m->ask_y, "Accept");
@@ -1388,8 +1388,8 @@ static void uh_covers(uhome_t *m)
                 play_market(*m->s);
             }
         }
-    } else if ((m->p & PAD_X) && m->shown == TAB_GAMES && m->n > 0) {
-        m->gopt = game_idx[*m->s];            /* X: the game's options (the Pi's C) */
+    } else if ((m->p & PAD_X) && (m->shown == TAB_GAMES || m->shown == TAB_DEV) && cart_at(m->shown, *m->s) >= 0) {
+        m->gopt = cart_at(m->shown, *m->s);   /* X: the options of a game, or of an app or a utility in Dev (the Pi's C) */
         lib_panel_open(&games[m->gopt]);
         m->gopt_sel = 0;
     } else if (m->p & pad_ok) {
