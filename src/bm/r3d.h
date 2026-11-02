@@ -191,6 +191,11 @@ typedef struct {
                                  * (cel3d); else a lit cel draw goes to the ARM triangle by triangle */
     int colour_only;            /* M41: draws flat colours with depth R3D_DEPTH_WRITE only (the Mali, phase 2): anything
                                  * else makes r3d hand over to the ARM (to_arm) */
+    int test_as_write;          /* colour_only: a flat colour tested against the depth and not written (point3d, line3d, the sparks)
+                                 * is drawn as one that writes it: the depth test of the GPU orders it as well, and it need not hand
+                                 * the 3D to the ARM */
+    const int *skip_shadows;    /* colour_only: points to 1 when the shadows are not drawn (mali_noshadow=1), so they do not hand the 3D to
+                                 * the ARM: a test of what the GPU gives without them */
 } r3d_backend_t;
 
 typedef struct { float r, g, b; } r3d_rgb_t;

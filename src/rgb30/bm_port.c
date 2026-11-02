@@ -48,6 +48,8 @@ int gpu3d_init(void)
     mali_backend_set_split(ksp && !strcmp(ksp, "1"));
     const char *kx = config_get("mali_alpha");
     mali_backend_set_alpha(kx && !strcmp(kx, "1"));
+    const char *kns = config_get("mali_noshadow");
+    mali_backend_set_noshadow(kns && !strcmp(kns, "1"));
     const char *k2 = config_get("mali_2d");
     mali_backend_set_2d(k2 && !strcmp(k2, "1"));
     const char *kl = config_get("mali_lit");

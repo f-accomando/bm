@@ -178,6 +178,7 @@ void mali_backend_set_res(int on);
 void mali_backend_set_msaa(int on);              /* 4x MSAA in the tile buffer (config key mali_msaa); read before the first frame */             /* 0: no cache of the faces of a lit mesh (config key mali_res; default 1) */
 void mali_backend_set_diag(int n);              /* print the first n mesh calls to the log (config key mali_diag; default 0) */
 void mali_backend_set_split(int on);            /* 1: a mesh of textured and flat faces is drawn in two parts (config key mali_split; default 0, experimental) */
+void mali_backend_set_noshadow(int on);        /* 1: the shadows are not drawn (config key mali_noshadow; default 0, a test) */
 void mali_backend_set_alpha(int on);            /* 1: a 3D sheet with transparent texels goes to the Mali (config key mali_alpha; default 0, experimental) */
 void mali_backend_set_2d(int on);               /* 1: the Mali draws the 2D (config key mali_2d; default 0) */
 void mali_backend_set_lit(int on, int min_px);  /* 0: lit meshes are lit by the ARM (mali_lit); faces smaller than min_px on average stay on the ARM (mali_lit_min) */

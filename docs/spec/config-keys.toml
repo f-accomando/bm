@@ -408,6 +408,15 @@ settings = ""
 read_in = "src/rgb30/bm_port.c"
 
 [[key]]
+name = "mali_noshadow"
+scope = "rgb30"
+values = "1 = the Mali does not draw the shadows (shadow3d); anything else = a shadow hands the 3D to the ARM"
+default = "ARM (the shadows hand the 3D over)"
+meaning = "A test (2 Nov 2026): the Mali has no screen-door face, so one shadow (Dark Night) moved the whole 3D to the ARM. With it the GPU stays on and the shadows are not drawn."
+settings = ""
+read_in = "src/rgb30/bm_port.c"
+
+[[key]]
 name = "mali3d"
 scope = "rgb30"
 values = "1 = the Mali draws the flat-colour triangles of the 3D; anything else = the ARM"

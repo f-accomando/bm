@@ -2456,6 +2456,12 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         }
     }
     be_zfr = zfr;
+    {                                               /* how many jobs the depth test could draw whole, and how many fell back to the sort */
+        static unsigned zjobs[3];
+        zjobs[be_zmode() ? (zfr ? 1 : 2) : 0]++;
+        if ((zjobs[0] + zjobs[1] + zjobs[2]) % 300 == 0)
+            kprintf("mali: 300 jobs: depth test off %u, depth test %u, sort instead %u (draws %d, triangles %d)\n", zjobs[0], zjobs[1], zjobs[2], max_draws, n);
+    }
     if (!zfr) {
     const uint64_t ts = cnt_now();
     sort_tris(idx, tmp_idx, n, tri_after_mvp);
@@ -2672,6 +2678,21 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     return be_run(g, surf, pa, pitch, sw, sh, dr, nd, async);
 }
 
+static int be_flush(const g16_t *g);
+/* why a job ends before the frame does (a new job starts with the depth cleared: what is drawn after it ignores what is before): counted by cause, a line each 600 */
+static unsigned be_why[8];
+static int be_flush_why(const g16_t *g, int why)
+{
+    be_why[why]++;
+    unsigned all = 0;
+    for (int i = 0; i < 8; i++)
+        all += be_why[i];
+    if (all % 600 == 0)
+        kprintf("mali: jobs cut short (600): pool %u, 2d %u, after 2d %u, triangles %u, faces %u, mvps %u, meshes %u\n", be_why[0] + 0u, be_why[1], be_why[2],
+                be_why[3], be_why[4], be_why[5], be_why[6]);
+    return be_flush(g);
+}
+
 static int be_flush(const g16_t *g)
 {
     return be_flush_mode(g, 0);
@@ -2711,6 +2732,8 @@ static int be_split_on;                             /* mali_split=1 (bm_port.c):
 void mali_backend_set_split(int on)     { be_split_on = on != 0; }
 static int be_alpha_on;                             /* mali_alpha=1 (bm_port.c): a 3D sheet with transparent texels goes to the Mali (BM_FS_TEXA) */
 void mali_backend_set_alpha(int on)     { be_alpha_on = on != 0; }
+static int be_noshadow;                             /* mali_noshadow=1 (bm_port.c): the shadows are not drawn, the 3D stays on the Mali */
+void mali_backend_set_noshadow(int on)  { be_noshadow = on != 0; }
 void mali_backend_set_textures(int on)  { be_tex_on = on != 0; }
 static int be_bilinear;
 void mali_backend_set_bilinear(int on)
@@ -2769,7 +2792,7 @@ static int be_tex_find_ex(const g16_t *g, const g16_sheet_t *sh, int spr)
     if (ok && size > BE_TPOOL_SIZE)
         ok = 0;
     if (ok && (be_tpool_used + size > BE_TPOOL_SIZE || be_ntex == BE_TEX_SLOTS)) {
-        be_flush(g);                                /* what is waiting uses the pool: draw it before the blocks go */
+        be_flush_why(g, 0);                         /* what is waiting uses the pool: draw it before the blocks go */
         be_ntex = 0;
         be_tpool_used = 0;
     }
@@ -2843,7 +2866,7 @@ int mali_backend_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t
     if (x1 <= x0 || y1 <= y0)
         return 1;                                   /* nothing to draw */
     if (be_n2d == BE_2D_MAX)
-        be_flush(g);
+        be_flush_why(g, 1);
     be_2d_t *q = &be_2ds[be_n2d++];
     q->kind = 1;
     q->x0 = (float)x0; q->y0 = (float)y0; q->x1 = (float)x1; q->y1 = (float)y1;
@@ -2871,7 +2894,7 @@ int mali_backend_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, in
     if (x1 <= x0 || y1 <= y0)
         return 1;
     if (be_n2d == BE_2D_MAX)
-        be_flush(g);
+        be_flush_why(g, 1);
     const be_texslot_t *t = &be_texs[slot];
     /* the source texels along the destination: u(x) = ul + (x - dx) / dw * (ur - ul), the texel of a pixel centre */
     const float ul = (float)(flip_x ? sx + sw : sx), ur = (float)(flip_x ? sx : sx + sw);
@@ -2903,16 +2926,17 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
         kprintf("mali: tri kind %d depth %d at %d,%d,%d  %d,%d  %d,%d\n", kind, depth, (int)(v[0].x * 10), (int)(v[0].y * 10),
                 (int)(v[0].z * 1000), (int)(v[1].x * 10), (int)(v[1].y * 10), (int)(v[2].x * 10), (int)(v[2].y * 10));
     }
-    if (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) || depth != R3D_DEPTH_WRITE)  /* r3d sends nothing else (colour_only): the guard */
+    if (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) ||
+        (depth != R3D_DEPTH_WRITE && !(depth == R3D_DEPTH_TEST && !textured)))  /* r3d sends nothing else (colour_only): the guard; the effects tested and not written are drawn as written */
         return;
     if (be_n2d)                                     /* a 3D face after 2D: the job so far has to end, the 2D is under it */
-        be_flush(g);
+        be_flush_why(g, 2);
     int ts = -1;
     if (textured && (ts = be_tex_find(g, tex)) < 0)
         return;
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
     if (be_n == cap) {
-        be_flush(g);                                /* (g16_t holds the page by pointer: const does not stop the copy) */
+        be_flush_why(g, 3);                         /* (g16_t holds the page by pointer: const does not stop the copy) */
         if (textured && (ts = be_tex_find(g, tex)) < 0)
             return;
     }
@@ -3161,7 +3185,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
     if (be_n2d || be_n + m->nfaces > cap || (int)be_nvis + m->nfaces > BE_VIS_MAX || be_nmvp + nb > BE_MAX_MVPS ||
         be_ninst >= BE_INST_MAX)
-        be_flush(g);
+        be_flush_why(g, be_n2d ? 2 : be_n + m->nfaces > cap ? 3 : (int)be_nvis + m->nfaces > BE_VIS_MAX ? 4 : be_nmvp + nb > BE_MAX_MVPS ? 5 : 6);
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();
     /* Q2: the vertex shader lights the faces when the light is the sun and the ambient light of a rigid mesh */
@@ -3305,7 +3329,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         if ((s2 * v0.x + at[0]) * n.x + (s2 * v0.y + at[1]) * n.y + (s2 * v0.z + at[2]) * n.z >= 0.0f)
             continue;
         if (be_n == cap) {
-            be_flush(g);
+            be_flush_why(g, 3);
             for (int kb = 0; kb < nb; kb++) {
                 memcpy(be_mvps[be_nmvp], mvp_local[kb], sizeof mvp_local[kb]);
                 mvp_bone[kb] = be_mvps[be_nmvp++];
@@ -3439,12 +3463,13 @@ static void be_zclear(void *ctx, const g16_t *g)
 
 const r3d_backend_t *mali_backend(const mali_hw_t *hw)
 {
-    static const r3d_backend_t be = {
+    static r3d_backend_t be = {
         .tri = be_tri, .mesh = be_mesh, .zclear = be_zclear, .tex_ok = be_tex_ok,
-        .guard = 2048.0f, .cel = 1, .colour_only = 1,
+        .guard = 2048.0f, .cel = 1, .colour_only = 1, .test_as_write = 1,
     };
     if (!probed_ok || hw != H)
         return NULL;
+    be.skip_shadows = &be_noshadow;
     be_hw = hw;
     return &be;
 }

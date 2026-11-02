@@ -1259,7 +1259,24 @@ static int colour_ok(r3d_t *r, int kind, int depth, const g16_sheet_t *tex, cons
         if ((kind & 3) == R3D_KIND_TEXTURE && !(kind & R3D_TEX_SCREEN) && depth == R3D_DEPTH_WRITE && r->backend->tex_ok &&
             r->backend->tex_ok(r->backend->ctx, r->g, tex))
             return 1;
-        to_arm(r, why);
+        if ((kind & 3) == R3D_KIND_COLOUR && depth == R3D_DEPTH_TEST && r->backend->test_as_write)
+            return 1;
+        static char why_kind[256];                      /* what made it: the kind and the depth of the first face
+                                                          the Mali could not draw (R3D_KIND_*, R3D_DEPTH_*) */
+        size_t n = strlen(why) < 200 ? strlen(why) : 200;
+        memcpy(why_kind, why, n);
+        const char *tail = " [kind ";
+        memcpy(why_kind + n, tail, 7);
+        n += 7;
+        if (kind >= 10)
+            why_kind[n++] = (char)('0' + kind / 10 % 10);
+        why_kind[n++] = (char)('0' + kind % 10);
+        memcpy(why_kind + n, ", depth ", 8);
+        n += 8;
+        why_kind[n++] = (char)('0' + depth % 10);
+        why_kind[n++] = ']';
+        why_kind[n] = 0;
+        to_arm(r, why_kind);
         return 0;
     }
     return 1;
@@ -1502,6 +1519,8 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
                 pts[i] = project(v, cl[i], 1.0f);
         }
         r->tris_drawn++;
+        if (r->backend && r->backend->skip_shadows && *r->backend->skip_shadows)
+            continue;
         if (r->backend) {
             /* the GPU: black on every other pixel (shadow3d(1)), where the
              * ground is not much nearer than the shadow (its depth 3.5%
