@@ -206,11 +206,47 @@ static int rgb_want(const char *name)
     return is_b16 || is_bm;
 }
 
+/* The tests' reports waiting on the SD card go by themselves once the console is on the network (reports_auto_due),
+ * in a fiber as on the Pi (carts.c), only where the network is free: Games and Dev, no panel open. Before 3 Nov 2026
+ * the menu sent them in one blocking call, and the screen stayed black for 4 s after Start + Select. */
+static fiber_job_t report_job = { .name = "reports" };
+static int reports_free;                            /* the menu is where they may go (uh_background) */
+
+static void reports_main(void *arg)
+{
+    (void)arg;
+    reports_send_pending();                         /* reports.c logs how it went */
+}
+
+static void reports_idle(uint32_t until)
+{
+    if (!reports_free)
+        return;
+    if (!report_job.busy &&
+        (!reports_auto_due() || fiber_job_start(&report_job, 128 * 1024, reports_main, NULL) != 0))
+        return;
+    fiber_job_run(&report_job, until);
+}
+
+/* a file from the PC waits: the report job stops too */
+static void rgb_write_waits(void)
+{
+    fiber_job_stop(&report_job);
+}
+
+/* before the jobs run in a frame: one at a time on the network */
+static void rgb_before_jobs(void)
+{
+    if (!reports_free)
+        fiber_job_stop(&report_job);
+}
+
 /* Before the list changes (as the Pi's background_stop): the work that holds a cartridge of it stops. */
 static void rgb_stop_background(void)
 {
     netxfer_write_pause();                          /* a file from the PC: again later */
     lib_covers_stop();                              /* no cover read left half way */
+    fiber_job_stop(&report_job);
     wifi_auto_stop();
     sdmap_stop();
 }
@@ -222,8 +258,9 @@ static void rgb_stop_background(void)
 static const fiber_share_t menu_jobs[] = {
     /*                      game tool menu */
     { update_tick,        {  0,   0,  25 } },
-    { market_tick,        {  0,   0,  40 } },   /* its tab only: on another one it gives its time back at once */
+    { market_tick,        {  0,   0,  35 } },   /* its tab only: on another one it gives its time back at once */
     { lib_covers_tick,    {  0,   0,  15 } },   /* the tab's covers first (D10) */
+    { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, no panel */
     { wifi_auto_idle,     {  0,   0,  10 } },
     { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
 };
@@ -236,6 +273,7 @@ static const lib_backend_t rgb_backend = {
     .panel = LIB_CAP_SDK | LIB_CAP_SEND,        /* no tools but the SDK, no editable copy, no Publish (D11) */
     .play_begin = rgb_play_begin,
     .jobs = menu_jobs, .njobs = (int)(sizeof menu_jobs / sizeof *menu_jobs),
+    .write_waits = rgb_write_waits, .before_jobs = rgb_before_jobs,
 };
 
 static void scan_games(void)
@@ -900,13 +938,9 @@ static void uh_background(uhome_t *m)
             m->built = -1;
         }
     }
-    /* the tests' reports waiting on the SD card go once the console is
-     * on the network (reports_auto_due; no fibers here: a moment's wait,
-     * from the covers only, not in Settings) */
-    if (!m->on_gear && !m->asking && !m->on_market && !netxfer_write_pending() && reports_auto_due()) {
-        reports_send_pending();
-        kprintf("report %s\n", reports_last());
-    }
+    /* the tests' reports waiting on the SD card go once the console is on the network: the fiber of
+     * reports_idle, from the covers only, not in Settings */
+    reports_free = !m->on_gear && !m->asking && !m->on_market && !netxfer_write_pending();
 }
 
 /* What the tab lists, and the selection in it; the covers to read first. */

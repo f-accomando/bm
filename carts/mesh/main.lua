@@ -317,6 +317,7 @@ end
 -- the mesh the kernel draws (made again after each change); false if none
 local function view_of(it)
   if it.view ~= nil then return it.view end
+  it.ver = (it.ver or 0) + 1                -- the mesh changed: what is kept of its screen is old (ed.refresh)
   if #it.f == 0 or #it.v == 0 or #it.v > LIMIT_V or #it.f > LIMIT_F then it.view = false; return false end
   local v, f, uv, tex = {}, {}, {}, false
   local hid, n = it.hid, 0                  -- hidden vertices (APP-11): their faces are not drawn
@@ -842,12 +843,30 @@ local function view_axes(yaw)
   return fa, fs, ra, rs
 end
 
-local function draw_grid(cx, level, cz, n, step, c)
-  for i = -n, n do
-    local x, z = cx + i * step, cz + i * step
-    seg({ x, level, cz - n * step }, { x, level, cz + n * step }, c)
-    seg({ cx - n * step, level, z }, { cx + n * step, level, z }, c)
+-- the lines of the grid on the screen are kept while the camera and the grid stay as they are
+-- (34 lines, 68 projections and as many tables for each frame otherwise)
+local function draw_grid(cam, cx, level, cz, n, step, c)
+  local g = cam.grid
+  if not (g and g.yaw == cam.yaw and g.pitch == cam.pitch and g.dist == cam.dist and g.tx == cam.tx
+          and g.ty == cam.ty and g.tz == cam.tz and g.cx == cx and g.level == level and g.cz == cz
+          and g.step == step and g.w == W and g.h == H) then
+    local segs, k = {}, 0
+    local function add(a, b)
+      local ax, ay = scr(a)
+      local bx, by = scr(b)
+      if ax and bx then segs[k + 1], segs[k + 2], segs[k + 3], segs[k + 4] = ax, ay, bx, by; k = k + 4 end
+    end
+    for i = -n, n do
+      local x, z = cx + i * step, cz + i * step
+      add({ x, level, cz - n * step }, { x, level, cz + n * step })
+      add({ cx - n * step, level, z }, { cx + n * step, level, z })
+    end
+    g = { yaw = cam.yaw, pitch = cam.pitch, dist = cam.dist, tx = cam.tx, ty = cam.ty, tz = cam.tz,
+          cx = cx, level = level, cz = cz, step = step, w = W, h = H, segs = segs, n = k }
+    cam.grid = g
   end
+  local segs = g.segs
+  for i = 1, g.n, 4 do line(segs[i], segs[i + 1], segs[i + 2], segs[i + 3], c) end
 end
 
 local function aim(cam, it, list, k)
@@ -862,7 +881,7 @@ end
 local function floor_grid(cam)
   local s = cam.size or 1
   local step = s > 12 and 2 or (s > 6 and 1 or (s > 2 and 0.5 or 0.25))
-  draw_grid(round(cam.tx / step) * step, cam.floor or 0, round(cam.tz / step) * step, 8, step, C_GRID)
+  draw_grid(cam, round(cam.tx / step) * step, cam.floor or 0, round(cam.tz / step) * step, 8, step, C_GRID)
 end
 
 -- the three axes, in a corner
@@ -1137,7 +1156,7 @@ function edit_reset()
   ed.he, ed.sig, ed.box = nil, "", nil
   local cur_it = I()
   if cur_it and cur_it.hid then cur_it.hid, cur_it.view = nil, nil end
-  ed.sx, ed.sy, ed.sz = {}, {}, {}
+  ed.sx, ed.sy, ed.sz, ed.pk = {}, {}, {}, nil
   local it = I()
   if it then aim(ed.cam, it, nil, 2.2) end
   ed.px, ed.py = W // 2, 184
@@ -1268,6 +1287,44 @@ local function hover()
     ed.hv = best
   else
     ed.hf = face_at(ed.px, ed.py)
+  end
+end
+
+-- The screen of the mesh (every vertex, the edges that face the camera, the
+-- element under the pointer) is loops in Lua: on the Pi Zero W they cost more
+-- than the drawing. They run again only when the mesh, the camera or the
+-- screen changes; the hover runs again only when the pointer or the mode moves.
+function ed.refresh(it, cam)
+  local k = ed.pk
+  if not (k and k.it == it and k.ver == it.ver and k.yaw == cam.yaw and k.pitch == cam.pitch and k.dist == cam.dist
+          and k.tx == cam.tx and k.ty == cam.ty and k.tz == cam.tz and k.w == W and k.h == H) then
+    project_all(it)
+    local wire, n = {}, 0
+    if #it.f <= 3000 then
+      local sx, sy, seen = ed.sx, ed.sy, {}
+      for _, f in ipairs(it.f) do
+        local ar = area(f)
+        if ar and ar > 0 then
+          for j = 1, 3 do
+            local a, b = f[j], f[j % 3 + 1]
+            local key = B.G.edge_key(a, b)
+            if not seen[key] then
+              seen[key] = true
+              wire[n + 1], wire[n + 2], wire[n + 3], wire[n + 4] = sx[a], sy[a], sx[b], sy[b]
+              n = n + 4
+            end
+          end
+        end
+      end
+    end
+    k = { it = it, ver = it.ver, yaw = cam.yaw, pitch = cam.pitch, dist = cam.dist, tx = cam.tx, ty = cam.ty,
+          tz = cam.tz, w = W, h = H, wire = wire, nw = n }
+    ed.pk = k
+  end
+  ed.sync_e(it)
+  if not (k.hover and k.hx == ed.px and k.hy == ed.py and k.hm == ed.mode and k.hf == ed.force) then
+    hover()
+    k.hover, k.hx, k.hy, k.hm, k.hf = true, ed.px, ed.py, ed.mode, ed.force
   end
 end
 
@@ -3059,22 +3116,11 @@ function draw_edit()
     draw3d(v, 0, 0, 0, 0, 0, 0, 1, 0)
   end
   ed.ghost_draw()
-  project_all(it)
-  ed.sync_e(it)
-  hover()
+  ed.refresh(it, cam)
   local sx, sy = ed.sx, ed.sy
-  -- the edges of the faces that look at the camera
-  if #it.f <= 3000 then
-    for _, f in ipairs(it.f) do
-      local ar = area(f)
-      if ar and ar > 0 then
-        local a, b, c = f[1], f[2], f[3]
-        line(sx[a], sy[a], sx[b], sy[b], C_WIRE)
-        line(sx[b], sy[b], sx[c], sy[c], C_WIRE)
-        line(sx[c], sy[c], sx[a], sy[a], C_WIRE)
-      end
-    end
-  end
+  -- the edges of the faces that look at the camera: each one once, from the kept list
+  local wire = ed.pk.wire
+  for i = 1, ed.pk.nw, 4 do line(wire[i], wire[i + 1], wire[i + 2], wire[i + 3], C_WIRE) end
   local function outline(f, c)
     local a, b, d = f[1], f[2], f[3]
     if sx[a] and sx[b] and sx[d] then

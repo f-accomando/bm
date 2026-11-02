@@ -3358,5 +3358,17 @@ do
   check(status():find("shown:", 1, true) ~= nil, "parts: Show all: " .. status())
 end
 
+-- the CPU of the edit page: a still view does not project the mesh again (ed.refresh)
+do
+  local calls, p0 = 0, E.project3d
+  E.project3d = function(...) calls = calls + 1; return p0(...) end
+  frames(1)
+  calls = 0
+  frames(3)
+  io.write("idle project3d calls in 3 frames: " .. calls .. "\n")
+  check(calls < 10, "idle frames do not project every vertex again: " .. calls)
+  E.project3d = p0
+end
+
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)
