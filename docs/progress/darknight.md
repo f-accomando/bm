@@ -64,7 +64,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Open work
 
-- Not run on a Pi or an RGB30. The cost of a frame on the consoles is not measured: run it with the dev kit on (Performance row) and read the session report.
+- It starts on the RGB30 (2 Nov 2026: a shadow crash after the GPU fell back to the ARM is fixed). Not run on a Pi. The cost of a frame on the consoles is not measured: run it with the dev kit on (Performance row) and read the session report.
 - The enemies have no tactics: they do not dodge, wait for a gap or keep apart in a group. The pickups of the reference map are not in the kit.
 - The sound and the music are heard only in bmhost renders (`make wav`). Listen to them on a device.
 - The enemy clips are the first ones. They have no hurt reaction by direction.
