@@ -177,7 +177,7 @@ endef
 # The built-in tools: $(BUILD)/<tool>.bm. They print carts/<tool>/icon.png on the cartridge.
 TOOL_BMS := code assistant editor sound studio animator mesh pixel
 $(foreach t,$(TOOL_BMS),$(eval cover_$(t) := carts/$(t)/icon.png))
-cover_assistant := carts/code/icon.png
+cover_assistant := carts/assistant/icon.png
 # the Assistant app carries the dictionaries and the knowledge file (DATA section): a clean kernel has none
 extra_assistant := --data words.lua=$(BUILD)/words.lua --data assist.bin=$(BUILD)/assist.bin
 $(BUILD)/assistant.bm: $(BUILD)/words.lua $(BUILD)/assist.bin
