@@ -1,0 +1,68 @@
+bm report
+kind: crash
+kernel: v0.2.5-2028-g08b4aef8-dirty
+branch: claude/rgb30-hdmi-external-720p
+board: RGB30
+date: unknown (no network time)
+file: nodate-dd47d2_crash_rgb30_v0.2.5-2028-g08b4aef8-dirty.txt
+
+a crash (the red screen) while: boot, frame 0, 2559 s after boot, kernel v0.2.5-2028-g08b4aef8-dirty, ring 59217, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 943 us, enlarge 0 us, flip 15722 us, free time used 5 us (300 frames)
+net: transfer with a wrong password from 192.168.1.115
+menu frame: 1x, a frame averages draw 969 us, enlarge 0 us, flip 15696 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 942 us, enlarge 0 us, flip 15723 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 1008 us, enlarge 0 us, flip 15657 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 940 us, enlarge 0 us, flip 15725 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 955 us, enlarge 0 us, flip 15710 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 966 us, enlarge 0 us, flip 15700 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 1004 us, enlarge 0 us, flip 15661 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 943 us, enlarge 0 us, flip 15722 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 959 us, enlarge 0 us, flip 15706 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 943 us, enlarge 0 us, flip 15722 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 956 us, enlarge 0 us, flip 15709 us, free time used 5 us (300 frames)
+menu frame: 1x, a frame averages draw 944 us, enlarge 0 us, flip 15722 us, free time used 5 us (300 frames)
+net: receiving darknight.bm (2186568 bytes)...
+menu frame: 1x, a frame averages draw 1998 us, enlarge 0 us, flip 14666 us, free time used 6 us (300 frames)
+net: cartridge received, starting it
+play: from the network (2186568 bytes)
+mali: supply: vdd_gpu 900 mV
+mali: power: PD_GPU turned on, clocks on (gates 0000 -> 0000, CLKSEL_CON6 4191: parent 2, divider 2, clk_gpu_src)
+mali: GPU_ID 74021000: Mali-G52 r1p0, 1 shader core (00000001), L2 00000001, tiler 00000001, address spaces ff, job slots 07
+mali: MMU 35-bit addresses, 40-bit physical; 768 threads a core
+mali: tiler features 00000209 (max_levels 2, bin_size 9)
+mali: reset: soft
+mali: cores: L2, 1 shader core and the tiler powered on
+mali: mmu: address space 0 on, 64 MB at 3c000000 1:1 (Mali LPAE, tables at 3fc00000)
+mali: a WRITE_VALUE job: done in 8 us, the word written (JS_STATUS 00 OK, header 01 DONE)
+mali: a chain of two jobs: done in 7 us
+mali: a fragment job (a clear): done in 15 us, 64x64 pixels of 20c060 (0020c060)
+bm: the 3D is drawn by the GPU as bm3d 3.4 (the Mali draws flat colours and opaque textures with its depth buffer (mali3d=1, mali_tex=1, mali_z=1))
+darknight: 46 objects, 17 enemies (villager 7, huntsman 4, dog 6)
+load: Dark Night 124 ms (close 0, parse 24, assets+state 7, mode 8, audio 4, lua 80)
+bm: loaded in 126 ms, the splash over at 1800 ms
+bm: splash ticks: 26 frames, longest gap 39188 us at 104 ms (between 0x100d92fc and 0x100d92fc)
+bm: the 3D is drawn by the ARM from here: the cartridge uses textures with holes, light in colour, screen-door faces or effects (the Mali draws flat colours and opaque textures)
+
+*** EXCEPTION: synchronous exception - data abort ***
+while: boot, frame 0
+PC=00000000100c9964  LR=0000016d4da00000
+SP=0000000012087a50  FAR=0000000000018c69
+ESR=96000046 SPSR=20000345
+x0 =0000000000000001  x1 =000000000000009f
+x2 =00000000000017c5  x3 =0000000000000169
+x4 =0000000000000000  x5 =000000000000016d
+x6 =000000000000ffff  x7 =0000000000000169
+x8 =000000000000009f  x9 =0000016dcd9fffff
+x10=00000169c0f7ffff  x11=0000000012087c90
+x12=0000000011e0d200  x13=0000000000000001
+x14=000000051aad7800  x15=0000000011e0d918
+x16=000000000000009e  x17=ffffffff0cda3800
+x18=0000016940f80000  x19=000000000000009f
+x20=0000000000000001  x21=0000000000018b00
+x22=00000000126b19b0  x23=000000000000009e
+x24=ffffffff0cda3800  x25=0000000000000000
+x26=000000001266a6c0  x27=000000001266ab24
+x28=000000001266fd50  x29=0000000012087a50
+System halted. LED blink code: 1
+Restarting in 60 s: this screen goes out as a report
