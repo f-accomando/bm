@@ -343,7 +343,7 @@ local function view_of(it)
 end
 
 local function changed(it)
-  it.view, it.dirty, dirty = nil, true, true
+  it.view, it.dirty, dirty, it.pcs_key = nil, true, true, nil
   if it.kind == "code" then code_dirty = true end
 end
 
@@ -1162,6 +1162,7 @@ function edit_reset()
   local cur_it = I()
   if cur_it and cur_it.hid then cur_it.hid, cur_it.view = nil, nil end
   ed.sx, ed.sy, ed.sz, ed.pk = {}, {}, {}, nil
+  ed.side_cur, ed.side_f, ed.side_hov = 1, false, nil
   local it = I()
   if it then aim(ed.cam, it, nil, 3.4) end
   ed.px, ed.py = W // 2, 184
@@ -2541,7 +2542,7 @@ end
 -- the pieces of a model with no skeleton (faces that share vertices: an imported model, the parts added with
 -- "Add a part"): the same menu as the bones' parts, from the top down. They come from the mesh as it is now.
 function ed.pieces_of(it)
-  local k = tostring(it.ver) .. ":" .. #it.v .. ":" .. #it.f
+  local k = #it.v .. ":" .. #it.f             -- (changed() clears it: a tool that moves vertices keeps the order)
   if it.pcs_key ~= k then it.pcs, it.pcs_key = B.G.pieces(it), k end
   return it.pcs
 end
@@ -2586,6 +2587,102 @@ function ed.pieces_dialog(sel)
   end
   choose("parts: " .. #list .. " (faces that share vertices; Enter: choose, show only...)", rows, (it.hid and 1 or 0) + (sel or 1))
   return true
+end
+
+-- The parts' sidebar of the edit page (Shift+N on a model with no skeleton): every part of the model in a
+-- list on the left, a box to show or hide it, a click to choose it; the part under the pointer (or the row of the
+-- keyboard) is drawn bright in the view, so the number says which one it is. Up/Down move, Space shows or hides,
+-- Enter chooses, o shows only it, Esc gives the keys back to the view, Shift+N closes it.
+function ed.side_rows() return (HINT_Y - 32 - 64) // 16 end
+
+function ed.side_toggle()
+  if ed.side and ed.side_f then ed.side, ed.side_f = false, false
+  else ed.side, ed.side_f, ed.side_cur = true, true, ed.side_cur or 1 end
+end
+
+function ed.side_hidden(it, pc) return it.hid and it.hid[pc.first] end
+
+function ed.side_visible(it, pc, on, only)
+  UA.push()
+  if only then ed.set_hidden(it, B.G.isolate(it, pc.set)); return end
+  local hid = {}
+  for i in pairs(it.hid or {}) do hid[i] = true end
+  for i in pairs(pc.set) do hid[i] = (not on) or nil end
+  ed.set_hidden(it, hid)
+end
+
+function ed.side_click(z)
+  local it = I()
+  if z.kind == "pall" then ed.show_all(); return end
+  local pc = ed.pieces_of(it)[z.a]
+  if not pc then return end
+  ed.side_cur = z.a
+  if z.kind == "pbox" then ed.side_visible(it, pc, ed.side_hidden(it, pc) and true or false, U.shift())
+  else ed.part_choose(pc.set, "part " .. z.a) end
+end
+
+function ed.side_key(k)
+  local it = I()
+  local list = ed.pieces_of(it)
+  local pc = list[ed.side_cur or 1]
+  if k == "up" then ed.side_cur = max(1, (ed.side_cur or 1) - 1)
+  elseif k == "down" then ed.side_cur = min(#list, (ed.side_cur or 1) + 1)
+  elseif k == "home" then ed.side_cur = 1
+  elseif k == "end" then ed.side_cur = #list
+  elseif k == " " and pc then ed.side_visible(it, pc, ed.side_hidden(it, pc) and true or false)
+  elseif k == "\n" and pc then ed.part_choose(pc.set, "part " .. ed.side_cur)
+  elseif k == "o" and pc then ed.side_visible(it, pc, true, true); ed.part_choose(pc.set, "part " .. ed.side_cur)
+  elseif k == "\b" or k == "del" then ed.show_all()
+  elseif k == "esc" then ed.side_f = false
+  elseif k == "N" then ed.side_toggle()
+  else return false end
+  return true
+end
+
+function ed.side_draw(it)
+  local list = ed.pieces_of(it)
+  rectfill(0, 48, PANEL_W, HINT_Y - 48, C_PANEL)
+  local foc = ed.side_f
+  print("PARTS " .. #list, 8, 48, foc and C_ACC or C_DIM)
+  local rows = ed.side_rows()
+  ed.side_cur = clamp(ed.side_cur or 1, 1, max(1, #list))
+  local first = clamp(ed.side_cur - rows // 2, 1, max(1, #list - rows + 1))
+  for i = first, min(#list, first + rows - 1) do
+    local pc = list[i]
+    local yy = 64 + (i - first) * 16
+    U.zone(0, yy, PANEL_W, 16, "prow", i)
+    U.zone(0, yy, 24, 16, "pbox", i)
+    local cur = foc and i == ed.side_cur
+    if cur then rectfill(0, yy, PANEL_W, 16, C_SEL) elseif i == ed.side_hov then rectfill(0, yy, PANEL_W, 16, C_BAR) end
+    local hid = ed.side_hidden(it, pc)
+    rect(6, yy + 3, 10, 10, hid and C_DIM or C_TEXT)
+    if not hid then rectfill(8, yy + 5, 6, 6, C_PT) end
+    print(string.format("%d  %d faces", i, pc.faces), 28, yy, hid and C_DIM or (cur and 0xFFFFFF or C_TEXT))
+  end
+  if first > 1 then print("^", PANEL_W - 16, 48, C_DIM) end
+  if first + rows - 1 < #list then print("v", PANEL_W - 16, 64 + rows * 16, C_DIM) end
+  print("box: show/hide", 8, HINT_Y - 48, C_DIM)
+  print("shift: only it", 8, HINT_Y - 32, C_DIM)
+  U.zone(0, HINT_Y - 16, PANEL_W, 16, "pall")
+  print("Show all (bksp)", 8, HINT_Y - 16, C_ACC)
+end
+
+-- the part named by the row under the pointer (or by the keyboard's row): all its edges, bright
+function ed.side_highlight(it)
+  if not ed.side then return end
+  local n = ed.side_hov or (ed.side_f and ed.side_cur)
+  local pc = n and ed.pieces_of(it)[n]
+  if not pc then return end
+  local sx, sy = ed.sx, ed.sy
+  for _, fi in ipairs(pc.fi) do
+    local f = it.f[fi]
+    local a, b, c = f and f[1], f and f[2], f and f[3]
+    if a and sx[a] and sx[b] and sx[c] then
+      line(sx[a], sy[a], sx[b], sy[b], C_ACC); line(sx[a] + 1, sy[a], sx[b] + 1, sy[b], C_ACC)
+      line(sx[b], sy[b], sx[c], sy[c], C_ACC); line(sx[b] + 1, sy[b], sx[c] + 1, sy[c], C_ACC)
+      line(sx[c], sy[c], sx[a], sy[a], C_ACC); line(sx[c] + 1, sy[c], sx[a] + 1, sy[a], C_ACC)
+    end
+  end
 end
 
 function ed.parts_dialog(sel_bone)
@@ -2709,10 +2806,19 @@ end
 function ed.ghost_draw()
   local g = ed.ghost
   if not g or not g.on then return end
-  -- at most B.G.GHOST_EDGES_FRAME edges: 1 edge in `every`, the window moves by one edge each frame;
-  -- a vertex is projected the first time an edge needs it
-  local gx, gy, done = {}, {}, {}
+  -- at most B.G.GHOST_EDGES_FRAME edges: 1 edge in `every`, always the same ones (a window that moved flickered);
+  -- a vertex is projected the first time an edge needs it, and the points are kept while the camera and the ghost
+  -- stand still
+  local cam = ed.cam
+  local c = g.pc
   local v, sc, dy = g.v, g.scale, g.dy
+  if not (c and c.yaw == cam.yaw and c.pitch == cam.pitch and c.dist == cam.dist and c.tx == cam.tx and c.ty == cam.ty
+          and c.tz == cam.tz and c.sc == sc and c.dy == dy and c.w == W and c.h == H and c.sx == ed.side) then
+    c = { yaw = cam.yaw, pitch = cam.pitch, dist = cam.dist, tx = cam.tx, ty = cam.ty, tz = cam.tz, sc = sc, dy = dy,
+          w = W, h = H, sx = ed.side, gx = {}, gy = {}, done = {} }
+    g.pc = c
+  end
+  local gx, gy, done = c.gx, c.gy, c.done
   local function at(i)
     if not done[i] then
       done[i] = true
@@ -2723,8 +2829,7 @@ function ed.ghost_draw()
     return gx[i]
   end
   local ea, eb, every = g.ea, g.eb, g.every
-  g.phase = (g.phase + 1) % every
-  for k = g.phase + 1, #ea, every do
+  for k = 1, #ea, every do
     local a, b = ea[k], eb[k]
     if at(a) and at(b) then line(gx[a], gy[a], gx[b], gy[b], ed.GHOST_C) end
   end
@@ -2994,15 +3099,26 @@ function edit_mouse()
     elseif z and z.kind == "shade" then edit_key("esc") end
     return
   end
-  cam_mouse(ed.cam, 0, 48, W, HINT_Y - 48)
-  local view = U.inside(0, 48, W, HINT_Y - 48)
+  local vx = ed.side and PANEL_W or 0                 -- the view starts right of the parts' sidebar
+  if ed.side then
+    local z = U.at()
+    ed.side_hov = nil
+    if z and (z.kind == "prow" or z.kind == "pbox" or z.kind == "pall") and not U.drag and not ed.box then
+      if z.kind ~= "pall" then ed.side_hov = z.a end
+      if U.wheel ~= 0 then ed.side_cur = clamp((ed.side_cur or 1) - U.wheel, 1, max(1, #ed.pieces_of(I()))) end
+      if U.click(0) then ed.side_click(z) end
+      return
+    end
+  end
+  cam_mouse(ed.cam, vx, 48, W - vx, HINT_Y - 48)
+  local view = U.inside(vx, 48, W - vx, HINT_Y - 48)
   if ed.tool then
     if U.drag_arrows(12) then return end
     if U.released(0) and view and not U.drag then edit_key("\n") end
     return
   end
   local d = U.drag
-  if d and d.b == 0 and not (ed.box and not ed.box.mouse) and d.y0 >= 48 and d.y0 < HINT_Y then
+  if d and d.b == 0 and not (ed.box and not ed.box.mouse) and d.x0 >= vx and d.y0 >= 48 and d.y0 < HINT_Y then
     if not ed.box then ed.box = { x0 = d.x0, y0 = d.y0, mouse = true, add = U.shift() } end
     ed.box.x1, ed.box.y1 = U.x, U.y
     return
@@ -3027,6 +3143,7 @@ function edit_key(k)
   if ed.pal then palette_key(k); return end
   if ed.tool then tool_key(k); return end
   local cam = ed.cam
+  if ed.side_f and not ed.box and ed.side_key(k) then return end
   if ed.box then                              -- box select: the arrows move the corner
     if k == "\n" or k == "ok" then ed.box_commit(false, ed.px, ed.py); return
     elseif k == " " then ed.box_commit(true, ed.px, ed.py); return
@@ -3078,7 +3195,7 @@ function edit_key(k)
   elseif k == "V" then ed.smooth()
   elseif k == "R" then ed.ref_dialog()
   elseif k == "B" then ed.bone_dialog()
-  elseif k == "N" then ed.parts_dialog()
+  elseif k == "N" then if ed.rig_of(it) then ed.parts_dialog() else ed.side_toggle() end
   elseif k == "v" then ed.toggle_bone_view()
   elseif k == "h" then ed.ghost_toggle()
   elseif k == "H" then ed.ghost_dialog()
@@ -3162,7 +3279,7 @@ function draw_edit()
     return
   end
   local cam = ed.cam
-  look(cam, 0, 24)
+  look(cam, ed.side and PANEL_W / 2 or 0, 24)
   ed.ref_draw()
   floor_grid(cam)
   local v = view_of(it)
@@ -3176,6 +3293,7 @@ function draw_edit()
   -- the edges of the faces that look at the camera: each one once, from the kept list
   local wire = ed.pk.wire
   for i = 1, ed.pk.nw, 4 do line(wire[i], wire[i + 1], wire[i + 2], wire[i + 3], C_WIRE) end
+  ed.side_highlight(it)
   local function outline(f, c)
     local a, b, d = f[1], f[2], f[3]
     if sx[a] and sx[b] and sx[d] then
@@ -3241,7 +3359,7 @@ function draw_edit()
   line(ed.px + 3, ed.py, ed.px + 7, ed.py, 0xFFFFFF)
   line(ed.px, ed.py - 7, ed.px, ed.py - 3, 0xFFFFFF)
   line(ed.px, ed.py + 3, ed.px, ed.py + 7, 0xFFFFFF)
-  draw_gizmo(cam, 40, HINT_Y - 40)
+  draw_gizmo(cam, (ed.side and PANEL_W or 0) + 40, HINT_Y - 40)
   -- what it is
   rectfill(0, 16, W, 32, C_BG)
   local nsel = ed.mode == "v" and count(ed.sv) or (ed.mode == "e" and count(ed.se) or count(ed.sf))
@@ -3271,6 +3389,7 @@ function draw_edit()
     rectfill(8, 36, 12, 8, ed.colour)
     print(string.format("#%06X  step %s  %s", ed.colour, num(MOVE_STEPS[ed.step]), kind_text(it)), 24, 32, C_DIM)
   end
+  if ed.side then ed.side_draw(it) end
   if ed.pal then ed.draw_palette() end
   if ed.tool then
     local hl = { { { "up", "down", "left", "right" }, "change" }, { { "x", "y", "z", "n" }, "axis" }, { { "0" }, "number" }, { { "shift", "p" }, "soft" },
@@ -3341,7 +3460,7 @@ local HELP = {
     { "0-9 . -", "in g r t: type the exact value (axis x y z n first; Backspace)" },
     { "shift r", "reference pictures: a front and a side from /pics behind the model (views 1 and 3)" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete, add a part, loop cut on both sides (not the knife)" },
-    { "shift n", "parts: the pieces of the model (faces that share vertices), or the bones as a tree when it has a skeleton; choose a part, show only it, hide it; Shift+Y shows all" },
+    { "shift n", "parts: a sidebar with the pieces of the model (a box shows or hides each, a click chooses it, the part is drawn bright), or the bones as a tree when it has a skeleton; Shift+Y shows all" },
     { "shift b / v", "give the choice (or a part, l) to a bone of the skeleton / tint the dots by bone" },
     { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved); the last row sets its detail (2000, 5000, 20000, all); a long wire is drawn thinned" },
     { "[ ] / { }", "ghost: scale / height (with a ghost, [ ] do not change the mesh)" },
@@ -3511,6 +3630,7 @@ local function take_imported(it, note)
   lp.select(insert_item(it))
   go("edit")
   local np = #ed.pieces_of(it)
+  ed.side, ed.side_f, ed.side_cur = np > 1, false, 1       -- a model of many parts: the sidebar is open
   say(note .. (flat > 0 and (", " .. flat .. " textured faces flat grey") or "") .. ": model " .. it.name ..
       (np > 1 and (", " .. np .. " parts: Shift+N") or "") ..
       (proj.path and "  (Ctrl+S saves it in the project)" or "  (Ctrl+S saves it in /bmm)"), C_ACC, 400)
@@ -3615,7 +3735,7 @@ local function global_key(k)
   if k == "f1" then go("list"); return true
   elseif k == "f2" then if I() then go("edit") end; return true
   elseif k == "f3" then if page == "edit" then edit_actions() elseif page == "list" then list_actions() end; return true
-  elseif k == "esc" and page ~= "menu" and not (page == "edit" and (ed.tool or ed.pal or ed.box)) then go("menu"); return true
+  elseif k == "esc" and page ~= "menu" and not (page == "edit" and (ed.tool or ed.pal or ed.box or ed.side_f)) then go("menu"); return true
   -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save_to(proj.path); return true
   elseif k == "^S" then save_as(); return true

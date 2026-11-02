@@ -410,11 +410,15 @@ function G.pieces(it)
   for i, v in ipairs(it.v) do
     local r = find(i)
     local q = by[r]
-    if not q then q = { set = {}, faces = 0, cx = 0, cy = 0, cz = 0, n = 0 }; by[r] = q; list[#list + 1] = q end
+    if not q then q = { set = {}, fi = {}, first = i, faces = 0, cx = 0, cy = 0, cz = 0, n = 0 }; by[r] = q; list[#list + 1] = q end
     q.set[i] = true
     q.n, q.cx, q.cy, q.cz = q.n + 1, q.cx + v[1], q.cy + v[2], q.cz + v[3]
   end
-  for _, f in ipairs(it.f) do by[find(f[1])].faces = by[find(f[1])].faces + 1 end
+  for fi, f in ipairs(it.f) do
+    local q = by[find(f[1])]
+    q.faces = q.faces + 1
+    q.fi[q.faces] = fi
+  end
   local out = {}
   for _, q in ipairs(list) do
     if q.faces > 0 then
