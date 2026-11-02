@@ -489,8 +489,17 @@ local lua0 = section(astro0, 1)
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/carts/astrowing.bm"), "at the start: the list of the files")
+check(sees("open a cartridge") and sees("/carts/astrowing.bm") and sees("New file"), "at the start: New file and the list of the files")
+-- no file: New file makes a cube (a model alone); n adds another; Ctrl+S names it in /bmm
 key("\n")
+check(sees("VERTICES") and status():find("new file", 1, true) ~= nil, "New file: the cube in the edit page: " .. status())
+key("f1", "n")
+check(status():find("new model cube2", 1, true) ~= nil, "n with no file: a second cube: " .. status())
+key("^s")
+check(sees("/bmm") and sees("name"), "Ctrl+S with no file: the name in /bmm")
+key("esc", "esc", "down", "down", "\n", "\n")        -- the input, the menu, Open (twice: unsaved cubes)
+check(sees("open a cartridge"), "Esc, Open: the list of the files")
+key("down", "\n")
 check(status():find("0 models, 0 code meshes, 13 from the game's code", 1, true), "Astro Wing: " .. status())
 check(chosen() == "G ship" and sees("built by the game's code"), "the first mesh: the ship, from the game's code")
 check(sees("30 vertices, 32 triangles"), "the ship: 30 vertices, 32 triangles")
@@ -545,7 +554,7 @@ end
 -- open again: the model, the code mesh, and the 13 of the game's code
 key("esc")
 check(sees("bm Mesh") and sees("Open..."), "Esc: the menu")
-key("down", "\n", "\n")
+key("down", "down", "\n", "\n")
 -- (the game's ship is the code mesh's: shown once)
 check(status():find("1 models, 1 code meshes, 12 from the game's code", 1, true), "open again: " .. status())
 
@@ -652,8 +661,8 @@ check(ran and ran:upper() == "/BME/ASTROWIN.BME", "F5: the project runs: " .. to
 
 -- the test kit: a model with a skeleton keeps it (the list: astrowin.bme,
 -- astrowing.bm, testkit.bm)
-key("esc", "down", "\n")
-for _ = 1, 5 do key("down") end
+key("esc", "down", "down", "\n")
+for _ = 1, 6 do key("down") end
 key("\n")
 check(status():find("8 models", 1, true), "the test kit: " .. status())
 goto_item("M walker")
@@ -690,7 +699,7 @@ check(section(v1, 1) == section(kit0, 1) and section(v1, 5) == section(kit0, 5) 
 
 -- save as a copy
 key("esc")
-for _ = 1, 3 do key("down") end
+for _ = 1, 4 do key("down") end
 key("\n")
 check(sees("file name"), "Save as asks a name")
 -- a click on the line of the dialog puts the caret there (M48): "ac", a click between, "b"
@@ -1831,7 +1840,7 @@ do
   end
   local function bmm_has(name) return MF.card["/bmm"][name .. ".bmm"] ~= nil end
 
-  key("f1", "esc", "down", "down", "down", "\n")           -- Save as: a project of its own
+  key("f1", "esc", "down", "down", "down", "down", "\n")   -- Save as: a project of its own
   type_text("IMPORT")
   local project = status():match("saved /bme/(%S+)")
   check(project == "import.bme", "import: a project of its own: " .. status())
@@ -1913,7 +1922,7 @@ do
   check(#MF.writes == nw, "export: Esc writes nothing")
   key("esc")                             -- the menu
   check(sees("Import a model...") and sees("Export to /bmm..."), "import, export: in the menu")
-  for _ = 1, 5 do key("down") end
+  for _ = 1, 6 do key("down") end
   key("\n")
   check(sees("import a model (/bmm, /glb)"), "import: the menu item")
   key("esc")

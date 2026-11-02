@@ -459,7 +459,7 @@ end
 
 local function save_to(path, from)
   if not proj.path then                 -- no project: a model alone, written to /bmm
-    if I() then return lp.export_dialog() end
+    if I() then return B.mesh_export() end   -- (lp comes later in the chunk)
     say("nothing to save: n makes a model", C_ERR); return false
   end
   local mesh, anim, skipped = build_sections()
@@ -929,7 +929,7 @@ local ed, edit_reset, edit_key, edit_pad, edit_actions, draw_edit, edit_mouse
 ----------------------------------------------------------------- list page
 do
 
-lp = { cam = { yaw = 0.6, pitch = -0.4, dist = 4, tx = 0, ty = 0, tz = 0 }, spin = true }
+lp = { cam = { yaw = 0.6, pitch = -0.4, dist = 4, tx = 0, ty = 0, tz = 0 }, spin = false }
 
 function list_reset()
   local it = I()
@@ -3351,13 +3351,24 @@ reset_pages = function()
   edit_reset()
 end
 
+-- a new file: no cartridge, one cube to start from; Ctrl+S writes the model to /bmm
+function lp.new_file()
+  if dirty and not confirmed("new", "unsaved changes: choose again to start a new file") then return end
+  proj = { path = nil, title = "", lua = "", warn = nil }
+  items, undo, redo, inset = {}, {}, {}, 64
+  dirty, code_dirty, cur = false, false, 1
+  reset_pages()
+  lp.new_shape("cube")
+  go("edit")
+  say("new file: a cube. F2 edits, F1 lists, Ctrl+S saves it in /bmm", C_ACC, 400)
+end
+
 local function open_chooser()
   local files = list_files()
-  if #files == 0 then say("no .bm files on the SD card", C_ERR); return end
-  local rows, sel = {}, 1
+  local rows, sel = { { "New file (a cube, saved in /bmm)", lp.new_file } }, 1
   for i, f in ipairs(files) do
-    rows[i] = { f, function() if open_file(f) then go("list") end end }
-    if f == proj.path then sel = i end
+    rows[#rows + 1] = { f, function() if open_file(f) then go("list") end end }
+    if f == proj.path then sel = i + 1 end
   end
   choose("open a cartridge", rows, sel)
 end
@@ -3471,17 +3482,18 @@ lp.export_dialog = function()
   end
   return B.export_item(mesh_ui, item)
 end
+B.mesh_export = lp.export_dialog        -- save_to, earlier in the chunk, reaches it from here
 end
 
 local MENU = {
   { "Continue", function() go(last_page) end },
+  { "New file   (Ctrl+N)", function() lp.new_file() end },
   { "Open...   (Ctrl+O)", open_other },
   { "Save   (Ctrl+S)", function() save_to(proj.path) end },
   { "Save as...   (Ctrl+Shift+S)", save_as },
   { "Try the game (F5)", try_game },
   { "Import a model...   (Ctrl+I)", function() if lp.import_dialog() then go("list") end end },
   { "Export to /bmm...   (Ctrl+E)", function() lp.export_dialog() end },
-  { "New model: cube   (Ctrl+N)", function() lp.new_shape("cube"); go("edit") end },
   { B.LY.label(), B.LY.switch },
   { "Exit bm Mesh", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then quit() end end },
 }
@@ -3556,7 +3568,7 @@ local function global_key(k)
   elseif k == "^s" then save_to(proj.path); return true
   elseif k == "^S" then save_as(); return true
   elseif k == "^o" and not ed.tool then open_other(); return true
-  elseif k == "^n" and not ed.tool then lp.new_shape("cube"); return true
+  elseif k == "^n" and not ed.tool then lp.new_file(); return true
   elseif k == "^i" and not ed.tool then lp.import_dialog(); return true
   elseif k == "^e" and not ed.tool then lp.export_dialog(); return true
   elseif k == "f6" and not ed.tool then assistant(); return true
