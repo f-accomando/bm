@@ -1513,11 +1513,13 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
                  R3D_DEPTH_TEST);
             continue;
         }
+        if (!mask_ready(r))                 /* the GPU failed in this very loop: the mask was not made at the top */
+            break;
         raster_mask(r, pts[0], pts[1], pts[2], box);
         if (np == 4)
             raster_mask(r, pts[0], pts[2], pts[3], box);
     }
-    if (box[2] > box[0] && !r->backend)
+    if (box[2] > box[0] && !r->backend && r->mask)
         shadow_apply(r, box);
 }
 
