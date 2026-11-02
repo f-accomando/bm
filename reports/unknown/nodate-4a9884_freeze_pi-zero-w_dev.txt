@@ -1,0 +1,68 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-4a9884_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bm Mesh, frame 22952, 513 s after boot, kernel dev, ring 7395, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+s)
+menu frame: 1x, a frame averages draw 7803 us, enlarge 0 us, flip 94 us, free time used 382 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-02 13:31 UTC
+menu idle: sd first word <1ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 6286 us, enlarge 0 us, flip 93 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 6390 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6301 us, enlarge 0 us, flip 91 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6216 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6259 us, enlarge 0 us, flip 91 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6374 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6285 us, enlarge 0 us, flip 91 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6205 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6301 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6357 us, enlarge 0 us, flip 93 us, free time used 33 us (300 frames)
+menu frame: 1x, a frame averages draw 6271 us, enlarge 0 us, flip 92 us, free time used 33 us (300 frames)
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+menu frame: 1x, a frame averages draw 6483 us, enlarge 0 us, flip 93 us, free time used 33 us (300 frames)
+bt:   report map 140 bytes: mouse found, report ID 2
+bt: mouse df:0e:42:84:a7:2d connected, it moves the pointer
+menu frame: 1x, a frame averages draw 13751 us, enlarge 0 us, flip 95 us, free time used 31 us (300 frames)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.33 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+load: bm Mesh 222 ms (close 0, parse 2, assets+state 2, mode 1, audio 1, lua 215)
+bm: screen 1280x720
+bm: "bm Mesh" stopped with an error:
+main.lua:3509: attempt to call a nil value (global 'new_shape')
+stack traceback:
+	main.lua:3509: in upvalue 'global_key'
+	main.lua:3583: in function '_update'
+menu: 1280x720, drawn by the GPU
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.33 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+load: bm Mesh 223 ms (close 0, parse 2, assets+state 2, mode 1, audio 1, lua 216)
+bm: screen 1280x720
+bt: mouse disconnected after 228551 ms: it closed the link (switched off, or another console) (reason 13)
+net: receiving a new kernel (6189884 bytes)...
+net: kernel 0% (0 of 6044 KB)
+net: kernel 10% (604 of 6044 KB)
+net: kernel 20% (1209 of 6044 KB)
+net: kernel 30% (1818 of 6044 KB)
+net: kernel 40% (2426 of 6044 KB)
+net: kernel 50% (3022 of 6044 KB)
+net: kernel 60% (3627 of 6044 KB)
+net: kernel 70% (4231 of 6044 KB)
+net: kernel 80% (4844 of 6044 KB)
+net: kernel 90% (5448 of 6044 KB)
+net: saved kernel.img on the SD card (6189884 bytes)
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
