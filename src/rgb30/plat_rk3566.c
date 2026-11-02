@@ -10,6 +10,7 @@
 #include "rk_wlbt.h"
 #include "rk_audio.h"
 #include "rk_display.h"
+#include "lib/printf.h"
 
 #define CRU             0xfdd20000u
 #define CRU_GLB_SRST_FST 0xd4           /* the chip's first global soft reset (0xfdb9) */
@@ -100,6 +101,19 @@ void plat_reset(void)
     writel(CRU + CRU_GLB_SRST_FST, 0xfdb9u);
     for (;;)
         __asm__ volatile("wfe");
+}
+
+/* The power key: bit 7 of the RK817's SYS_STS (0xf0) is high while it is up, low while it is held (the probe of
+ * 2 Nov 2026: three presses, three falls and rises). 1 once for each press. */
+int plat_power_key_pressed(void)
+{
+    static int up = 1;
+    const int v = rk817_read(0xf0);
+    if (v < 0)
+        return 0;
+    const int now = (v >> 7) & 1, pressed = up && !now;
+    up = now;
+    return pressed;
 }
 
 void plat_poweroff(void)

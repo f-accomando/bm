@@ -1081,7 +1081,8 @@ local MK = { up = { { 0x52, 0x1A }, "up" }, down = { { 0x51, 0x16 }, "down" }, l
 local mheld, mp = {}, {}
 local function menu_keys()
   for name, k in pairs(MK) do
-    local d = btn(k[2])
+    local d = btn(k[2] or "back")                  -- B (the system's back) closes the menu too
+    if name == "back" and btn("start") then d = true end    -- Start opens the menu and closes it, without Resume
     for _, u in ipairs(k[1]) do if keydown(u) then d = true end end
     mp[name] = d and not mheld[name]
     mheld[name] = d

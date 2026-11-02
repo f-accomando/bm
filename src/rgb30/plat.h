@@ -100,6 +100,11 @@ static inline int battery_percent(int mv, int ma)
 /* PSCI through TF-A (SMC) on the RGB30, QEMU's PSCI (HVC) in the tests */
 /* the display off (before a restart; the RGB30's panel and backlight) */
 void plat_display_off(void);
+/* the backlight's brightness, 0 (dark) to 100; the picture stays as it is (the menu's lock screen) */
+void plat_display_backlight(unsigned percent);
+#define PLAT_BACKLIGHT_DEFAULT 80
+/* 1 once for each press of the power key (polls the PMIC over I2C) */
+int plat_power_key_pressed(void);
 /* PSCI CPU_ON: the secondary core starts at entry with x0 = ctx; returns the PSCI status */
 long plat_cpu_on(uint64_t mpidr, uint64_t entry, uint64_t ctx);
 void plat_reset(void) __attribute__((noreturn));

@@ -43,6 +43,8 @@
 #include "bm/runtime.h"
 #include "kernel/home.h"
 #include "kernel/menu_ui.h"
+#include "kernel/splash.h"
+#include "kernel/prompts.h"
 #include "kernel/pointer.h"
 #include "kernel/notice.h"
 #include "bm/loading.h"
@@ -1443,17 +1445,168 @@ static void uh_row_result(uhome_t *m)
     }
 }
 
+/* The menu's lock screen (Settings > Screen > Lock screen, lock_screen=1 in bm/config.txt): after 60 s without a
+ * button the backlight goes out, to save the battery. The same button pressed 3 times (each within 6 s of the one before, while the light is on)
+ * unlocks it, as the Switch does. Only the menu locks: a game or an application never does. */
+#define LOCK_AFTER_US   60000000u
+#define LOCK_GLOW_US    6000000u        /* the light stays 6 s after a press; the count goes on while it is on */
+
+static int lock_on(void)
+{
+    const char *v = config_get("lock_screen");
+    return v && strcmp(v, "1") == 0;
+}
+
+/* The chip of a pad button (bit of PAD_*): the menu's own prompts (prompts.h); NULL for the volume keys */
+static const prompt_t *lock_prompt(int bit)
+{
+    static const int ids[16] = {
+        PROMPT_DPAD_UP, PROMPT_DPAD_DOWN, PROMPT_DPAD_LEFT, PROMPT_DPAD_RIGHT,
+        PROMPT_RGB30_A, PROMPT_RGB30_B, PROMPT_RGB30_X, PROMPT_RGB30_Y,
+        PROMPT_L1, PROMPT_R1, PROMPT_L2, PROMPT_R2,
+        PROMPT_PAD_SELECT, PROMPT_PAD_START, PROMPT_L3, PROMPT_R3,
+    };
+    return bit >= 0 && bit < 16 ? prompt_get(ids[bit], 0) : NULL;
+}
+
+/* the chip at (x, y) over the colour bg; returns its width */
+static int lock_chip(const prompt_t *p, int x, int y, uint32_t bg)
+{
+    if (!p) {                                           /* an empty place, or a key with no chip: a small dot */
+        for (int j = -3; j <= 3; j++)
+            for (int i = -3; i <= 3; i++)
+                if (i * i + j * j <= 10)
+                    *(uint32_t *)(fb->base + (uint32_t)(y + PROMPT_H / 2 + j) * fb->pitch + (uint32_t)(x + 8 + i) * 4) = rgb(C_DIM);
+        return 16;
+    }
+    for (int j = 0; j < PROMPT_H; j++) {
+        uint32_t *row = (uint32_t *)(fb->base + (uint32_t)(y + j) * fb->pitch);
+        for (int i = 0; i < p->w; i++) {
+            const uint32_t c = p->px[j * p->w + i], a = c >> 24;
+            if (!a)
+                continue;
+            uint32_t o = 0;
+            for (int k = 0; k < 24; k += 8)             /* a over the background, one channel at a time */
+                o |= (((c >> k & 255) * a + (bg >> k & 255) * (255 - a)) / 255) << k;
+            row[x + i] = rgb(o);
+        }
+    }
+    return p->w;
+}
+
+/* The lock screen: the bm logo in the middle, the text, and the chips of the buttons pressed so far (of 3). The
+ * logo and the text are drawn once on every page; a press redraws only the strip of the chips (the whole screen
+ * took long enough to miss a short tap). */
+#define LOCK_LOGO_Y ((H - bm_logo_h) / 2 - 36)
+#define LOCK_CHIPS_Y (LOCK_LOGO_Y + bm_logo_h + 52)
+
+static void lock_base(void)
+{
+    const uint32_t bg = (uint32_t)bm_logo_bg;
+    gfx_clear(fb, rgb(bg));
+    const int x0 = (W - bm_logo_w) / 2, y0 = LOCK_LOGO_Y;
+    for (int y = 0; y < bm_logo_h; y++) {
+        uint32_t *row = (uint32_t *)(fb->base + (uint32_t)(y0 + y) * fb->pitch);
+        for (int x = 0; x < bm_logo_w; x++) {
+            const uint16_t c = bm_logo[y * bm_logo_w + x];
+            row[x0 + x] = fb_color(fb, (uint8_t)((c >> 11) << 3 | (c >> 13)), (uint8_t)((c >> 5 & 63) << 2 | (c >> 9 & 3)),
+                                   (uint8_t)((c & 31) << 3 | (c >> 2 & 7)));
+        }
+    }
+    const char *msg = "Press a button three times to unlock";
+    text((W - 8 * (int)strlen(msg)) / 2, y0 + bm_logo_h + 20, msg, C_DIM, bg);
+}
+
+static void lock_draw(const int *keys, int n)
+{
+    const uint32_t bg = (uint32_t)bm_logo_bg;
+    gfx_rect(fb, 0, LOCK_CHIPS_Y - 4, W, PROMPT_H + 8, rgb(bg));
+    int w = 2 * 12;                                     /* the row of three, centred */
+    for (int i = 0; i < 3; i++)
+        w += i < n && lock_prompt(keys[i]) ? lock_prompt(keys[i])->w : 16;
+    int x = (W - w) / 2;
+    for (int i = 0; i < 3; i++)
+        x += lock_chip(i < n ? lock_prompt(keys[i]) : NULL, x, LOCK_CHIPS_Y, bg) + 12;
+    frame_end();
+}
+
+static void lock_screen(void)
+{
+    uint32_t prev = pad_state(), last = 0, glow_t = 0;
+    int glow_on = 0;                                    /* the light is on (glow_t is when it went on) */
+    int count = 0, keys[3] = { 0, 0, 0 }, polls = 0;
+    menu_ui_close_quiet(fb);                            /* the menu has its own screen mode: a page draws on the console's */
+    console_suspend(1);
+    for (uint32_t pg = 0; pg < fb->buffers; pg++) {     /* the base on every page */
+        lock_base();
+        lock_draw(keys, 0);
+    }
+    plat_display_backlight(0);
+    for (;;) {
+        const uint32_t s = pad_state(), edges = s & ~prev, now = timer_ticks();
+        prev = s;
+        if (edges) {
+            const uint32_t b = edges & -edges;          /* one button of the ones that went down */
+            count = b == last && glow_on ? count + 1 : 1;
+            last = b;
+            keys[count - 1] = __builtin_ctz(b);
+            lock_draw(keys, count);                     /* a dim light shows the chips */
+            plat_display_backlight(25);
+            if (count >= 3) {
+                timer_delay_ms(300);                    /* the third chip is seen */
+                break;
+            }
+            glow_t = now;
+            glow_on = 1;
+        } else if ((++polls & 3) == 0 && plat_power_key_pressed()) {   /* the power key only wakes the light */
+            lock_draw(keys, count);
+            plat_display_backlight(25);
+            glow_t = now;
+            glow_on = 1;
+        }
+        if (glow_on && now - glow_t > LOCK_GLOW_US) {
+            plat_display_backlight(0);
+            glow_on = 0;
+            count = 0;
+        }
+        timer_delay_ms(5);
+    }
+    plat_display_backlight(PLAT_BACKLIGHT_DEFAULT);
+    while (pad_state())                                 /* the third press must not reach the menu */
+        timer_delay_ms(10);
+    pad_pressed();
+    menu_reopen();
+}
+
 void ui_home(framebuffer_t *f)
 {
     uhome_t m;
     uh_open(&m, f);
+    uint32_t idle_since = timer_ticks(), loop_at = idle_since;
     for (;;) {
+        if (timer_ticks() - loop_at > 1000000u)         /* away for a game, an app or a page: the 60 s start again */
+            idle_since = timer_ticks();
+        loop_at = timer_ticks();
         uh_view_state(&m);
         uh_background(&m);
         uh_selection(&m);
         uh_items(&m);
         uh_draw(&m);
-        if (uh_input(&m) || uh_pointer(&m))
+        const int power = plat_power_key_pressed();                 /* the power key locks the menu at once */
+        const int moved = uh_input(&m) || uh_pointer(&m);
+        if (power && lock_on() && !update_busy()) {
+            lock_screen();
+            idle_since = timer_ticks();
+            continue;
+        }
+        if (m.p || moved || pad_state()) {
+            idle_since = timer_ticks();
+        } else if (lock_on() && !update_busy() && timer_ticks() - idle_since >= LOCK_AFTER_US) {
+            lock_screen();
+            idle_since = timer_ticks();
+            continue;
+        }
+        if (moved)
             continue;
         m.d.what = -1;
         if (m.asking) {

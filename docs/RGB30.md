@@ -231,6 +231,11 @@ was powered on again `bootprev.txt` has the log of the black boot.
   (top right; *Settings > Screen > Low battery icon* turns it off); in Lua
   `battery()` and `battery_low()`. The lines that do work (pairing, connecting, updating, bench, log) still write
   to the text console.
+- **Lock screen** (*Settings > Screen > Lock screen*, `lock_screen=1`, off by default; `src/rgb30/ui.c`): in the menu only,
+  never in a game or an application. After 60 s without a button, or at once with the power key, the backlight goes out
+  (the battery saver). Any button pressed 3 times unlocks it: the same button, each press within 6 s of the one before.
+  A press or the power key lights the screen at 25% for 6 s: the bm logo, "Press a button three times to unlock" and three
+  places that fill with the chips of the buttons pressed. The power key is bit 7 of the RK817 register 0xf0 (low while held).
 - **3D Bench** (Dev tab, `src/rgb30/b3d_rgb30.c`): the same test bench as the Pi
   (`src/bm/b3d.c`), at 640×360 scaled onto the panel; all 3D tests drawn by the ARM; with `mali3d=1` the GPU
   profile runs flat-colour scenes on the Mali (written, not verified on hardware), the other rows stay empty, the Cortex-A55 counters
