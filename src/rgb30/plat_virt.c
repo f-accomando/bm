@@ -167,6 +167,16 @@ static uintptr_t widen(uintptr_t addr)
     return (uintptr_t)wide;
 }
 
+int plat_power_key_pressed(void)
+{
+    return 0;
+}
+
+void plat_display_backlight(unsigned percent)
+{
+    (void)percent;                      /* no backlight in the emulator */
+}
+
 int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 {
     if (ramfb_key < 0)

@@ -129,7 +129,7 @@ enum {
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_UTILS, R_MENUSIZE, R_MENULAYOUT, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
-    R_DEV, R_REC,
+    R_DEV, R_REC, R_LOCKSCREEN,
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
 
@@ -191,6 +191,15 @@ static int battery_icon_on(void)
     const char *v = config_get("battery_icon");
     return !(v && strcmp(v, "0") == 0);
 }
+
+#ifdef BM_RGB30
+/* the menu's lock screen (rgb30/ui.c): off unless lock_screen=1 */
+static int lock_screen_on(void)
+{
+    const char *v = config_get("lock_screen");
+    return v && strcmp(v, "1") == 0;
+}
+#endif
 
 #ifndef BM_RGB30
 /* what plays as the first player without a pad (the USB one) */
@@ -626,11 +635,16 @@ static void panel_screen(home_panel_t *p)
                  "3.5\" SPI TFT on the Pi 1: a tiny robot at its computer", NULL);
 #endif
     }
-    if (home_has_battery())
+    if (home_has_battery()) {
         home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
                  "A small red battery over games and tools at 20% or less", "%s",
                  battery_icon_on() ? "On" : "Off");
-    else
+#ifdef BM_RGB30
+        home_row(p, MENU_ROW_CHOICE, R_LOCKSCREEN, "Lock screen",
+                 "Battery saver: the menu turns the screen off after 60 s; press one button 3 times to unlock", "%s",
+                 lock_screen_on() ? "On" : "Off");
+#endif
+    } else
         home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
                  "HDMI colour bars; any button returns", NULL);
     for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)     /* the 3D tests and benchmarks */
@@ -1170,6 +1184,13 @@ static int act_screen(int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "low battery icon: %s", battery_icon_on() ? "on" : "off");
         break;
+#ifdef BM_RGB30
+    case R_LOCKSCREEN:
+        config_set("lock_screen", lock_screen_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "lock screen: %s", lock_screen_on() ? "on" : "off");
+        break;
+#endif
 #ifdef BM_RGB30
     case R_MODES:
         if (how == 0) text(d, x_modes, 0, 1);

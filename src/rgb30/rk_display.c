@@ -241,6 +241,12 @@ static void backlight(unsigned percent)
     writel(PWM4 + 0x0c, 0x0b);                      /* enable, continuous, duty high */
 }
 
+void plat_display_backlight(unsigned percent)
+{
+    if (d.up)
+        writel(PWM4 + 0x08, 600 * (percent > 100 ? 100 : percent) / 100);     /* the duty alone: the PWM runs on */
+}
+
 int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 {
     if (d.failed)
@@ -272,7 +278,7 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
         d.up = 1;
         window(m, addr);
         timer_delay_ms(20);
-        backlight(80);
+        backlight(PLAT_BACKLIGHT_DEFAULT);
         uint32_t st = readl(VOP + 0x0bc);
         if (st & (1u << 4))
             LOG("; underflow");

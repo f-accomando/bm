@@ -39,6 +39,15 @@ settings = "Settings > Screen > Low battery icon"
 read_in = "src/bm/runtime.c:8409"
 
 [[key]]
+name = "lock_screen"
+scope = "rgb30"
+values = "1 = on; anything else = off"
+default = "off"
+meaning = "The menu (not a game or an application) turns the screen off after 60 s without a button, to save the battery; the same button pressed 3 times unlocks it."
+settings = "Settings > Screen > Lock screen"
+read_in = "src/rgb30/ui.c"
+
+[[key]]
 name = "bm_scale"
 scope = "rgb30"
 values = "int = whole-pixel scale (largest that fits); anything else = fill"
