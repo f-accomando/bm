@@ -1,0 +1,28 @@
+bm report
+kind: herocart
+kernel: v0.2.5-2030-gfc1ef57b-dirty
+branch: claude/mali-darknight-gpu
+board: RGB30
+date: 2026-11-02 16:41:26
+file: 20261102-164126_herocart_rgb30_v0.2.5-2030-gfc1ef57b-dirty.txt
+
+options bm3d 7.33 mali3d=1 gpu3d_vs=2 gpu3d_queue=2 3d=gpu later=1 2d=1 impostor=0 fast=0
+herocart 1 saved t=18 n=50 lod=0 res=640x360 map=-
+herocart 1 t=1 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=52.8 max=59.0 fps=0 gpu=29.6 wait=28.9 anim=0.4 tri=49680 vtx=0 lua=24 kb=170 skip=40
+herocart 1 t=2 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=57.3 max=60.6 fps=15 gpu=32.5 wait=31.8 anim=0.4 tri=52992 vtx=0 lua=27 kb=176 skip=42
+herocart 1 t=3 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=57.9 max=60.8 fps=15 gpu=33.1 wait=32.4 anim=0.4 tri=52992 vtx=0 lua=27 kb=181 skip=40
+herocart 1 t=4 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=57.1 max=59.2 fps=15 gpu=32.3 wait=31.6 anim=0.4 tri=52992 vtx=0 lua=27 kb=186 skip=40
+herocart 1 t=5 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.5 max=58.9 fps=15 gpu=31.7 wait=31.0 anim=0.4 tri=52992 vtx=0 lua=27 kb=192 skip=40
+herocart 1 t=6 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.9 max=59.6 fps=15 gpu=32.1 wait=31.4 anim=0.4 tri=52992 vtx=0 lua=27 kb=197 skip=39
+herocart 1 t=7 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.6 max=59.7 fps=15 gpu=31.7 wait=31.0 anim=0.4 tri=52992 vtx=0 lua=27 kb=202 skip=40
+herocart 1 t=8 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.3 max=58.8 fps=15 gpu=31.5 wait=30.8 anim=0.4 tri=52992 vtx=0 lua=27 kb=207 skip=40
+herocart 1 t=9 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.4 max=59.6 fps=15 gpu=31.5 wait=30.8 anim=0.4 tri=52992 vtx=0 lua=27 kb=212 skip=42
+herocart 1 t=10 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=58.0 max=59.9 fps=15 gpu=33.1 wait=32.4 anim=0.4 tri=52992 vtx=0 lua=27 kb=218 skip=40
+herocart 1 t=11 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=57.2 max=58.7 fps=15 gpu=32.3 wait=31.6 anim=0.4 tri=52992 vtx=0 lua=27 kb=223 skip=40
+herocart 1 t=12 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.7 max=60.3 fps=15 gpu=31.8 wait=31.1 anim=0.4 tri=52992 vtx=0 lua=27 kb=228 skip=40
+herocart 1 t=13 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=55.4 max=57.8 fps=15 gpu=30.6 wait=29.8 anim=0.4 tri=52992 vtx=0 lua=27 kb=233 skip=42
+herocart 1 t=14 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=57.3 max=58.9 fps=15 gpu=32.4 wait=31.7 anim=0.4 tri=52992 vtx=0 lua=27 kb=238 skip=40
+herocart 1 t=15 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.7 max=59.0 fps=15 gpu=31.7 wait=31.0 anim=0.4 tri=52992 vtx=0 lua=27 kb=243 skip=40
+herocart 1 t=16 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=55.9 max=58.1 fps=15 gpu=31.1 wait=30.4 anim=0.4 tri=52992 vtx=0 lua=27 kb=249 skip=42
+herocart 1 t=17 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=56.8 max=58.5 fps=15 gpu=32.0 wait=31.2 anim=0.4 tri=52992 vtx=0 lua=27 kb=254 skip=40
+herocart 1 t=18 n=50 lod=0 res=640x360 opt=gpu,vs2p2,q2,lat1,aa0,imp0,tex,smooth,z,dith,fog0,shd0,lamp0,sky0,cel0,out0 | ms=57.0 max=59.8 fps=15 gpu=32.2 wait=31.5 anim=0.4 tri=52992 vtx=0 lua=27 kb=259 skip=42
