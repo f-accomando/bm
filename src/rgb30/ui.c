@@ -1582,8 +1582,11 @@ void ui_home(framebuffer_t *f)
 {
     uhome_t m;
     uh_open(&m, f);
-    uint32_t idle_since = timer_ticks();
+    uint32_t idle_since = timer_ticks(), loop_at = idle_since;
     for (;;) {
+        if (timer_ticks() - loop_at > 1000000u)         /* away for a game, an app or a page: the 60 s start again */
+            idle_since = timer_ticks();
+        loop_at = timer_ticks();
         uh_view_state(&m);
         uh_background(&m);
         uh_selection(&m);
