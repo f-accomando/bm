@@ -458,7 +458,10 @@ local function full_lua()
 end
 
 local function save_to(path, from)
-  if not proj.path then say("open a .bm or .bme first: Esc > Open", C_ERR); return false end
+  if not proj.path then                 -- no project: a model alone, written to /bmm
+    if I() then return lp.export_dialog() end
+    say("nothing to save: n makes a model", C_ERR); return false
+  end
   local mesh, anim, skipped = build_sections()
   if mesh == nil then say("cannot save: " .. anim, C_ERR); return false end
   if proj.bmm then                      -- a model file: res_write, the models and their skeletons only
@@ -1005,17 +1008,16 @@ end
 
 -- new models: a cube, a plane, a sphere, a cylinder (in the colour of the edit page)
 local function new_shape(shape)
-  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return end
   local it = { kind = "model", name = unique_name("model", shape), v = {}, f = {}, dirty = true }
   B.G.primitive(it, shape, { 0, shape == "plane" and 0 or 0.5, 0 }, 1, ed.colour)
   dirty = true
   select_item(insert_item(it))
   say("new model " .. it.name .. ": F2 edits it", C_ACC)
 end
+lp.new_shape = new_shape               -- the menu and Ctrl+N are outside the scope of the local
 
 -- a humanoid base: 17 boxes on 16 bones (T.G.humanoid); bm Animator makes the walk and the poses
 function lp.new_humanoid()
-  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return end
   local it = B.G.humanoid(unique_name("model", "man"))
   dirty = true
   select_item(insert_item(it))
@@ -1132,7 +1134,10 @@ function draw_list_page()
     print("no meshes in " .. proj.path, x, 32, C_TEXT)
     print("n: a new model (a cube), then F2 edits it", x, 48, C_DIM)
   else
-    print("no file open: Esc > Open", x, 32, C_TEXT)
+    print("no file open: a model alone", x, 32, C_TEXT)
+    print("n: a new model (a cube), then F2 edits it", x, 48, C_DIM)
+    print("i: import a /glb or /bmm model", x, 64, C_DIM)
+    print("Ctrl+S saves the model in /bmm", x, 80, C_DIM)
   end
   if proj.warn then
     rectfill(PANEL_W, HINT_Y - 32, W - PANEL_W, 16, C_BG)
@@ -3399,7 +3404,6 @@ end
 -- out (bm Studio and bm Animator take it with the skeleton)
 local function take_model(m)
   if not m or not m.faces or #m.faces == 0 then return end
-  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return end
   local it = { kind = "model", name = unique_name("model", m.gen or m.name or "model"), v = {}, f = {}, dirty = true }
   local at = {}
   local function vi(p)
@@ -3446,12 +3450,11 @@ local function take_imported(it, note)
   lp.select(insert_item(it))
   go("edit")
   say(note .. (flat > 0 and (", " .. flat .. " textured faces flat grey") or "") .. ": model " .. it.name ..
-      "  (Ctrl+S saves it in the project)", C_ACC, 400)
+      (proj.path and "  (Ctrl+S saves it in the project)" or "  (Ctrl+S saves it in /bmm)"), C_ACC, 400)
   return true
 end
 
 lp.import_dialog = function()
-  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return false end
   return B.import_flow(mesh_ui, take_imported)
 end
 
@@ -3478,6 +3481,7 @@ local MENU = {
   { "Try the game (F5)", try_game },
   { "Import a model...   (Ctrl+I)", function() if lp.import_dialog() then go("list") end end },
   { "Export to /bmm...   (Ctrl+E)", function() lp.export_dialog() end },
+  { "New model: cube   (Ctrl+N)", function() lp.new_shape("cube"); go("edit") end },
   { B.LY.label(), B.LY.switch },
   { "Exit bm Mesh", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then quit() end end },
 }
@@ -3552,7 +3556,7 @@ local function global_key(k)
   elseif k == "^s" then save_to(proj.path); return true
   elseif k == "^S" then save_as(); return true
   elseif k == "^o" and not ed.tool then open_other(); return true
-  elseif k == "^n" and not ed.tool then new_shape("cube"); return true
+  elseif k == "^n" and not ed.tool then lp.new_shape("cube"); return true
   elseif k == "^i" and not ed.tool then lp.import_dialog(); return true
   elseif k == "^e" and not ed.tool then lp.export_dialog(); return true
   elseif k == "f6" and not ed.tool then assistant(); return true
