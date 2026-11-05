@@ -239,9 +239,9 @@ static void vop_init_ext(void)
     writel(VP0 + 0x40, 0);
     writel(VP0 + 0x2c, BG_COLOR);
     writel(VP1 + 0x00, 1u << 31);                   /* the panel's port in standby */
-    writel(VOP + 0x000, CFG_DONE_VP1 | CFG_DONE_VP0);
     const char *sw = config_get("hdmi_swap");       /* red and green swapped on the screen: 1 */
     writel(VP0 + 0x00, sw && sw[0] == '1' ? 0x00010000u : 0);   /* RGB888 out, scanning */
+    writel(VOP + 0x000, CFG_DONE_VP1 | CFG_DONE_VP0);
     d.ow = HDMI_W;
     d.oh = HDMI_H;
     const char *org = config_get("hdmi_origin");    /* 1: window positions count from the sync */

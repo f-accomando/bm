@@ -62,6 +62,7 @@
 #define PHY_I2CM_DATAO_0    0x3023
 #define PHY_I2CM_OPERATION  0x3026
 #define MC_CLKDIS           0x4001
+#define MC_SWRSTZ           0x4002
 #define MC_FLOWCTRL         0x4004
 #define MC_PHYRSTZ          0x4005
 #define MC_HEACPHY_RST      0x4007
@@ -183,7 +184,7 @@ static int phy_configure(void)
     mod(PHY_TST0, 0x20, 0);
     int r = 0;
     r |= phy_i2c_write(PHY_CPCE_CTRL, 0x0072);      /* MPLL for 74.25 MHz */
-    r |= phy_i2c_write(PHY_GMPCTRL, 0x0001);
+    r |= phy_i2c_write(PHY_GMPCTRL, 0x0002);
     r |= phy_i2c_write(PHY_CURRCTRL, 0x0000);
     r |= phy_i2c_write(PHY_PLLPHBYCTRL, 0x0000);
     r |= phy_i2c_write(PHY_MSM_CTRL, 3 << 1);       /* clock out: feedback clock */
@@ -218,14 +219,15 @@ static void video_path(void)
     wr(FC_CH1PREAM, 0x16);
     wr(FC_CH2PREAM, 0x21);
     /* HDCP, CSC, audio, pixel repeater and CEC clocks off; pixel and TMDS clocks on */
-    wr(MC_CLKDIS, 0x7d);
-    wr(MC_CLKDIS, 0x7c);
+    wr(MC_CLKDIS, 0x7f);
+    wr(MC_CLKDIS, 0x7e);                            /* pixel clock on */
+    wr(MC_CLKDIS, 0x7c);                            /* TMDS clock on */
     wr(MC_FLOWCTRL, 0);                             /* colour space converter bypassed */
     /* packetizer: 8 bit RGB goes straight through */
     wr(VP_PR_CD, 4 << 4);                           /* 24 bits per pixel, no repetition */
     wr(VP_STUFF, 0x05);
     wr(VP_REMAP, 0);
-    wr(VP_CONF, 0x40 | 0x03);                       /* bypass */
+    wr(VP_CONF, 0x40 | 0x04 | 0x03);                 /* bypass (BYPASS_EN | BYPASS_SELECT_VID_PACKETIZER | OUTPUT_BYPASS) */
     wr(CSC_CFG, 0);
     wr(CSC_SCALE, 0x00);                            /* 24 bpp */
     wr(TX_INVID0, 0x01);                            /* RGB888, internal generator off */
@@ -245,6 +247,15 @@ static void avi_infoframe(void)
         wr(a, 0);
 }
 
+/* Synopsys DW-HDMI hardware workaround: pulse TMDS software reset and rewrite
+ * FC_INVIDCONF to clear any Frame Composer arithmetic unit overflow state. */
+static void clear_overflow(void)
+{
+    wr(MC_SWRSTZ, (uint8_t)~0x02);                  /* TMDS software reset (active low) */
+    uint32_t val = rd(FC_INVIDCONF);
+    wr(FC_INVIDCONF, val);
+}
+
 int rk_hdmi_start(void)
 {
     rk_hdmi_clocks();
@@ -262,6 +273,7 @@ int rk_hdmi_start(void)
             kprintf("hdmi: phy locked in %d ms (stat0=0x%02x, conf0=0x%02x)\n", i, stat, rd(PHY_CONF0));
             video_path();
             avi_infoframe();
+            clear_overflow();
             return 0;
         }
         timer_delay_ms(1);
