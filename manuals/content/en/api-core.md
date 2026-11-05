@@ -159,15 +159,47 @@ Everything on the screen: shapes, text, sprites and the tile map.
 | `line(x0, y0, x1, y1, c)` | a line |
 | `rect(x, y, w, h, c)` | an empty rectangle |
 | `rectfill(x, y, w, h, c)` | a filled rectangle |
+| `rrect(x, y, w, h, r, c)` | an empty rectangle with rounded corners of radius `r` |
+| `rrectfill(x, y, w, h, r, c)` | a filled rectangle with rounded corners of radius `r` |
 | `circ(x, y, r, c)` | an empty circle |
 | `circfill(x, y, r, c)` | a filled circle |
+| `ellipse(cx, cy, rx, ry, c)` | an empty ellipse with horizontal radius `rx` and vertical radius `ry` |
+| `ellipsefill(cx, cy, rx, ry, c)` | a filled ellipse with horizontal radius `rx` and vertical radius `ry` |
+| `rectgrad(x, y, w, h, c0, c1, [c2, c3, dir])` | a rectangle filled with a linear gradient (vertical, horizontal with `dir` `"h"`, or 4 corners) |
+| `radgrad(cx, cy, r, c0, [c1])` | a circle filled with a radial gradient from `c0` at centre to `c1` at edge |
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | a filled triangle; with three colours (one per corner) the colour shades from one corner to the other (Gouraud, dithered) |
+| `poly(points, [c, closed])` | draws a polygon outline from coordinates `{x1, y1, ...}` or pairs |
+| `polyfill(points, [c, rule])` | fills a polygon with even-odd (`"evenodd"`, default) or non-zero (`"nonzero"`) winding rule |
+| `path_begin()` | begins a new 2D vector path |
+| `path_move(x, y)` | moves pen to (x, y) without drawing |
+| `path_line(x, y)` | adds a line segment to (x, y) |
+| `path_quad(cx, cy, x, y)` | adds a quadratic Bézier curve to (x, y) with control point (cx, cy) |
+| `path_cubic(c1x, c1y, c2x, c2y, x, y)` | adds a cubic Bézier curve to (x, y) with control points (c1x, c1y) and (c2x, c2y) |
+| `path_arc(cx, cy, r, a0, a1)` | adds a circular arc from angle `a0` to `a1` (radians) |
+| `path_close()` | closes the current subpath |
+| `path_fill([c, rule])` | fills the current path with colour `c` using even-odd or non-zero winding |
+| `path_stroke([c, width])` | strokes the current path with colour `c` and line width |
 | `print(text, x, y, [c, scale])` | text with the 8×16 font (white if `c` is missing), `scale` times bigger (1–8: 2 = 16×32 characters); returns the x after the last character |
 | `font([name])` | sets the font of `print` from now on: `"8x16"` (the normal one), `"8x14"` or `"6x12"` (106 columns by 30 rows at 640×360: for tools with a lot of text); returns the width and height of a character of the current font |
+| `vfont([data_or_path, [size]])` | loads or scales active TrueType vector font |
+| `vprint(text, x, y, [c, size])` | draws antialiased vector text using active TrueType font |
+| `vmeasure(text, [size])` | measures width and height (`w, h`) of text with vector font |
 | `prompt(name, x, y, [small, scale, player, menu])` | draws a key as a coloured chip, with its top left corner at (x, y); returns the x after the chip (details below) |
 | `prompt(name, [small, scale, player])` | without coordinates it does not draw: it returns the width and height |
 | `camera([x, y])` | moves all drawing by (−x, −y); without arguments it resets it |
 | `clip([x, y, w, h])` | limits drawing to the rectangle; without arguments the whole screen |
+| `blend([mode, [alpha]])` | sets 2D blend mode (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255`) |
+| `palt([c, [transparent]])` | sets transparency mask for palette colours |
+| `fillpat([pat, [transparent, [bg]]])` | sets pattern for filled 2D shapes (4×4 or 8×8 bitmask or 8-byte table) |
+| `colmat([x, y, w, h,] mat, [offset])` | transforms colours with 3×3 RGB matrix and optional offset |
+| `blur([x, y, w, h, radius, passes])` | box blur with running sums |
+| `conv3(x, y, w, h, kernel, [divisor, offset])` | 3×3 convolution filter |
+| `target([t_or_w, [h]])` | redirects drawing to render target `t`, or screen if `nil` |
+| `target_create(w, h)` | creates an off-screen render target of size `w`×`h` |
+| `target_blit(t, dx, dy, [dw, dh, sx, sy, sw, sh, fx, fy])` | draws render target `t` onto active surface |
+| `target_clear(t, [c])` | clears render target `t` with colour `c` |
+| `target_size(t)` | returns width and height (`w, h`) of render target `t` |
+| `target_free(t)` | releases pixel memory of render target `t` immediately |
 
 ### Sizes for `screen(w, h)`
 
@@ -214,12 +246,17 @@ The **sprite sheet** is a picture divided into 8×8 cells: cell `n` is at column
 | Function | What it does |
 |---|---|
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | draws cell `n` (w×h cells, default 1×1), mirrored too |
+| `spr_rot(n, dx, dy, rz, [scale, wc, hc])` | rotates cell `n` around its centre by `rz` radians with optional scale |
+| `spr_alpha(n, dx, dy, [alpha, wc, hc, flip_x, flip_y])` | draws cell `n` with global 8-bit alpha (0..255) |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copies any rectangle of the sheet; with `zoom` (default 1) it draws it bigger (`2`, `3`…) or smaller (`0.5`), pixel by pixel: it covers `sw * zoom` × `sh * zoom` pixels |
+| `sspr_rot(sx, sy, sw, sh, dx, dy, rz, [scale, ox, oy])` | rotates sheet rectangle by `rz` radians around `(ox, oy)` (defaults to center) with optional scale |
+| `sspr_alpha(sx, sy, sw, sh, dx, dy, [alpha, flip_x, flip_y])` | draws sheet rectangle with global 8-bit alpha (0..255) |
+| `sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy])` | affine 2x2 transform `[a b; c d]` of a sheet rectangle at anchor `(dx, dy)` |
 | `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | sprite stacking: draws `n` slices of `w`×`h` pixels that lie side by side on the sheet from `(sx, sy)`, left to right. Slice 1 is the bottom. `(x, y)` is the centre of the bottom slice. Each slice turns by `rz` radians around its centre, is `scale` times bigger and sits `step * scale` pixels above the one below (`step` 1 by default). Colour 0 is transparent |
 | `stackv(sx, sy, w, h, n, x, y, [rz, scale, step])` | the same as `stack`, but the slices lie one under the other on the sheet, top to bottom; the top one is slice 1 |
 | `zstack(name, x, y, [rz, scale])` | draws a stack zone of the zones file (the line `stack name x y w h n`, or `stackv` for slices one under the other) |
-| `sget(x, y)` | reads a pixel of the sheet (`nil` = transparent) |
-| `sset(x, y, [c])` | writes a pixel of the sheet (`nil` = transparent) |
+| `sget(x, y)` | reads a pixel of the sheet (returns `colour, alpha`; `nil` = transparent) |
+| `sset(x, y, [c, alpha])` | writes a pixel of the sheet with optional 8-bit alpha (`nil` = transparent) |
 
 ```lua
 spr(0, x, y)                   -- cell 0 (8x8)

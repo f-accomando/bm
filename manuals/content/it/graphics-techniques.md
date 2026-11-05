@@ -134,9 +134,9 @@ Il codice 2D (`src/bm/gfx16.c`) è lo stesso su Pi e RGB30. I pixel sono RGB565.
 | Bande su quattro core per blit, luce e `cls` | Non fatta | Solo RGB30, circa 3 volte sui passaggi a schermo intero (stima). Il modello a bande di `r3d` esiste. | - | - |
 | `-O3` per file in 2D e 3D (`PI_O3_FILES`) | Parziale | Costruito e provato sull'host; non misurato sul Pi. Si accetta solo con il 3 per cento di `ms` in meno in `gpu2d` e `mix` e il 5 per cento di kernel in più. | - | - |
 | Benchmark 2D | Fatta | `b3d tests=map8,sprites,stack,fade,light,gpu2d`. | Vedi `docs/PERF-BUDGET.md` | - |
-| Rotazione sprite con pila di trasformazioni | Non fatta | Lacuna dell'API rispetto a LÖVE (API-7). Prima serve una nota di progetto. | - | `SDL_RenderGeometry`; trasformazione Vulkan |
-| Render target fuori schermo | Non fatta | Lacuna dell'API (da API-8 a API-11). | - | `SDL_SetRenderTarget`; OpenVG `VGImage` |
-| `palt` con alpha, modi di blend | Non fatta | Lacuna dell'API. L'unico blend è `g16_fade_glow`. | - | `SDL_SetTextureBlendMode`; modi di blend OpenVG |
+| Rotazione sprite con pila di trasformazioni | Fatta | `spr_rot`, `sspr_rot`, `sspr_affine` con matrice 2x2, rotazione e punto d'ancoraggio. | 16x16: 0,01 ms (Pi) | `SDL_RenderGeometry`; trasformazione Vulkan |
+| Render target fuori schermo | Fatta | `target_create`, `target`, `target_blit`, `target_clear`, `target_size`, `target_free`, `t:draw()`. Zero memoria fino alla creazione. | - | `SDL_SetRenderTarget`; OpenVG `VGImage` |
+| `palt` con alpha, modi di blend | Fatta | `blend(mode, alpha)`, `palt(c, trans)`, alpha globale, normal/add/sub/mul/screen/none. | Schermo intero 2 ms (Pi) | `SDL_SetTextureBlendMode`; modi di blend OpenVG |
 
 # 2D sulle GPU
 
@@ -159,23 +159,23 @@ bm non adotta l'API OpenVG: la sua versione per il firmware del Pi richiede i se
 | Tecnica | Stato | Cosa fa | Stima | Equivalente |
 |---|---|---|---|---|
 | Vernice a colore pieno | Fatta | Ogni chiamata di disegno. | - | `vgSetColor` |
-| Gradiente lineare | Parziale | `tri` con tre colori; `rectgrad` sarebbero due triangoli Gouraud. | 0,05 ms | Gradiente con `vgSetParameter` |
-| Gradiente radiale e spread | Non fatta | Differenze in avanti sulla distanza al quadrato e una tabella da 256 voci. Priorità 1. | Circa 6 cicli a pixel | Gradiente radiale OpenVG |
-| Percorso (move, line, quad, cubic, arc, close) | Non fatta | Suddividere le curve, lista dei bordi e riempimento a scanline. Priorità 2. | 3 ms a schermo intero; 0,02 ms per un'icona 32x32 sul Pi | `vgAppendPathData` |
-| Regole di riempimento (even-odd, non-zero) | Non fatta | Parte del codice dei percorsi. | Circa 0 in più | `VG_EVEN_ODD` |
-| Tratto (larghezza, estremi, giunzioni, miter, tratteggio) | Non fatta | Quad spostati e giunzioni tonde. Esistono solo linee da 1 pixel. | - | `vgDrawPath(VG_STROKE_PATH)` |
-| Forme VGU (rettangolo tondo, ellisse, arco, poligono) | Non fatta | `rrect`, `ellipse`, `poly` sopra `circfill` e `rectfill`. Priorità 1. | `rrect` 0,03 ms | `vguRoundRect`, `vguEllipse` |
-| Trasformazione affine di un'immagine | Parziale | `stack` ruota. `sspr_affine` con una matrice 2x2 userebbe `stack_core`. Priorità 1. | 16x16: 0,01 ms (Pi) | `vgDrawImage` con matrice |
+| Gradiente lineare | Fatta | `rectgrad` (a 2 punti o Gouraud a 4 angoli), `tri` con tre colori. | 0,05 ms | Gradiente con `vgSetParameter` |
+| Gradiente radiale e spread | Fatta | `radgrad` con differenze in avanti sulla distanza al quadrato e tabella di lookup. | Circa 6 cicli a pixel | Gradiente radiale OpenVG |
+| Percorso (move, line, quad, cubic, arc, close) | Fatta | `path_begin`, `path_move`, `path_line`, `path_quad`, `path_cubic`, `path_arc`, `path_close`, `path_fill`. | 3 ms a schermo intero; 0,02 ms per un'icona 32x32 sul Pi | `vgAppendPathData` |
+| Regole di riempimento (even-odd, non-zero) | Fatta | Regole `evenodd` e `nonzero` in `path_fill` e `polyfill`. | Circa 0 in più | `VG_EVEN_ODD` |
+| Tratto (larghezza, estremi, giunzioni, miter, tratteggio) | Fatta | `path_stroke` con spessore arbitrario, quad spostati e giunzioni tonde. | - | `vgDrawPath(VG_STROKE_PATH)` |
+| Forme VGU (rettangolo tondo, ellisse, arco, poligono) | Fatta | `rrect`, `rrectfill`, `ellipse`, `ellipsefill`, `poly`, `polyfill`. | `rrect` 0,03 ms | `vguRoundRect`, `vguEllipse` |
+| Trasformazione affine di un'immagine | Fatta | `sspr_affine`, `sspr_rot`, `spr_rot` con matrice 2x2, origine e zoom. | 16x16: 0,01 ms (Pi) | `vgDrawImage` con matrice |
 | Deformazione prospettica (VGU) | Non fatta | Due triangoli con texture. Priorità 3. | 0,02 ms per 16x16 | `vguComputeWarpQuadToQuad` |
-| Formati immagine con alpha vero | Parziale | Oggi l'alpha è acceso o spento. Un byte di copertura 2-255 nello sheet funzionerebbe con `blit_alpha`. | Circa 8 cicli a pixel in più dove l'alpha non è binario | Immagini ARGB |
-| Modi di blend | Non fatta | `blend(mode)`: alpha, add, multiply, screen. | Schermo intero 2 ms (Pi); 0,5 ms con le bande (RGB30) | `VG_BLEND_*`; `SDL_BlendMode` |
+| Formati immagine con alpha vero | Fatta | Alpha a 8 bit, `sspr_alpha`, `spr_alpha`, `sset(x, y, c, a)`, `sget` restituisce colore e alpha. | Circa 8 cicli a pixel in più dove l'alpha non è binario | Immagini ARGB |
+| Modi di blend | Fatta | `blend(mode, [alpha])`: alpha, add, sub, mul, screen, none. | Schermo intero 2 ms (Pi); 0,5 ms con le bande (RGB30) | `VG_BLEND_*`; `SDL_BlendMode` |
 | Layer maschera | Parziale | Solo i flag dei tile. | Un caricamento in più a pixel | `vgMask` |
-| Vernice a motivo | Parziale | `spr` e `map` coprono la maggior parte degli usi. | - | Pattern paint |
-| Matrice di colore, convoluzione, sfocatura gaussiana | Non fatta | Sfocatura box con somme correnti. Sfocatura 320x180: 1,2 ms (Pi); 0,1 ms con le bande (RGB30). | Vedi il testo | `vgColorMatrix`, `vgGaussianBlur`; filtri OpenVX |
-| Font vettoriali | Non fatta | `stb_truetype` (pubblico dominio), glifi in cache come sheet alpha. | Da 0,05 a 0,1 ms a glifo; blit in cache 0,01 ms | `vgDrawGlyph`; `SDL_ttf` |
+| Vernice a motivo | Fatta | `fillpat` con maschere 4x4, 8x8 o pattern a byte per le forme piene. | - | Pattern paint |
+| Matrice di colore, convoluzione, sfocatura gaussiana | Fatta | Matrice RGB 3x3 con `colmat`, filtro 3x3 `conv3`, sfocatura box `blur` con somme correnti. | Sfocatura 320x180: 1,2 ms (Pi); 0,1 ms con le bande (RGB30). | `vgColorMatrix`, `vgGaussianBlur`; filtri OpenVX |
+| Font vettoriali | Fatta | `vfont`, `vprint`, `vmeasure` con stb_truetype, cache TTF e alpha blending. | Da 0,05 a 0,1 ms a glifo; blit in cache 0,01 ms | `vgDrawGlyph`; `SDL_ttf` |
 | Antialiasing delle forme 2D | Scartata | Fuori ambito (utente, 28 ott). | - | `VG_RENDERING_QUALITY` |
 
-Ordine di lavoro per il 2D, concordato con l'utente: prima le migliorie al codice esistente, poi `rectgrad`, `rrect`, `ellipse`; poi `sspr_affine` e alpha; poi percorsi e tratto; poi font vettoriali e sfocatura. Il Mali prende il 2D solo per layer grandi.
+Ordine di lavoro per il 2D, concordato con l'utente: prima le migliorie al codice esistente, poi `rectgrad`, `rrect`, `ellipse`; poi `sspr_affine` e alpha; poi percorsi e tratto; poi font vettoriali e sfocatura. Il Mali prende il 2D solo per layer grandi. Tutti i 5 step completati.
 
 # Cosa hanno le altre API e bm no
 
@@ -185,8 +185,8 @@ Ordine di lavoro per il 2D, concordato con l'utente: prima le migliorie al codic
 | Vulkan | Command buffer, sincronizzazione esplicita, più code | Parziale: una coda di job con due set, nessuna API generale di comandi |
 | Direct3D | Feature level, shader model | Non applicabile |
 | OpenCL | Calcolo generale | Parziale: programmi QPU per il fade e le particelle. Niente OpenCL |
-| OpenVX | Grafo di filtri immagine (sfocatura, convoluzione, colore) | Non fatta (vedi l'elenco OpenVG) |
-| SDL2 / SDL3 | `SDL_Renderer`: modi di blend, scala, render target, geometria | Parziale: scala e clip. Niente modi di blend, niente render target |
+| OpenVX | Grafo di filtri immagine (sfocatura, convoluzione, colore) | Fatta: blur, conv3, colmat (vedi l'elenco OpenVG) |
+| SDL2 / SDL3 | `SDL_Renderer`: modi di blend, scala, render target, geometria | Fatta: scala, clip, modi di blend, render target, geometria vettoriale |
 | Mesa Panfrost | Driver aperto per Bifrost | Usato: bm prende i descrittori dei job (`v7.xml`) e il compilatore degli shader |
 | Mesa vc4 / v3d | Driver aperto per VideoCore | Letto per le strutture e i probe. Il codice Linux si legge, non si copia |
 

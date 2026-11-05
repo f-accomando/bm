@@ -134,9 +134,9 @@ The 2D code (`src/bm/gfx16.c`) is the same on the Pi and the RGB30. Pixels are R
 | Four-core bands for blit, light and `cls` | Not built | RGB30 only, about 3 times on full-screen passes (estimate). The `r3d` band pattern exists. | - | - |
 | Per-file `-O3` for 2D and 3D (`PI_O3_FILES`) | Partial | Built and tested on the host; not measured on the Pi. Accept only with 3 percent less `ms` in `gpu2d` and `mix` and 5 percent more kernel. | - | - |
 | 2D benchmarks | Built | `b3d tests=map8,sprites,stack,fade,light,gpu2d`. | See `docs/PERF-BUDGET.md` | - |
-| Sprite rotation with a transform stack | Not built | API gap against LÖVE (API-7). A design note comes first. | - | `SDL_RenderGeometry`; Vulkan transform |
-| Off-screen render targets | Not built | API gap (API-8 to API-11). | - | `SDL_SetRenderTarget`; OpenVG `VGImage` |
-| `palt` with alpha, blend modes | Not built | API gap. The only blend is `g16_fade_glow`. | - | `SDL_SetTextureBlendMode`; OpenVG blend modes |
+| Sprite rotation with a transform stack | Built | `spr_rot`, `sspr_rot`, `sspr_affine` with 2x2 matrix, rotation and anchor. | 16x16: 0.01 ms (Pi) | `SDL_RenderGeometry`; Vulkan transform |
+| Off-screen render targets | Built | `target_create`, `target`, `target_blit`, `target_clear`, `target_size`, `target_free`, `t:draw()`. Zero memory until created. | - | `SDL_SetRenderTarget`; OpenVG `VGImage` |
+| `palt` with alpha, blend modes | Built | `blend(mode, alpha)`, `palt(c, trans)`, global alpha, normal/add/sub/mul/screen/none. | Full screen 2 ms (Pi) | `SDL_SetTextureBlendMode`; OpenVG blend modes |
 
 # 2D on the GPUs
 
@@ -159,23 +159,23 @@ bm does not adopt the OpenVG API: its Pi firmware version needs the VideoCore fi
 | Technique | State | What it does | Estimate | Equivalent |
 |---|---|---|---|---|
 | Solid colour paint | Built | Every draw call. | - | `vgSetColor` |
-| Linear gradient | Partial | `tri` with three colours; `rectgrad` would be two Gouraud triangles. | 0.05 ms | `vgSetParameter` gradient |
-| Radial gradient and spread | Not built | Forward differences on the squared distance and a 256-entry table. Priority 1. | About 6 cycles a pixel | OpenVG radial gradient |
-| Path (move, line, quad, cubic, arc, close) | Not built | Subdivide curves, an edge list and scanline fill. Priority 2. | 3 ms full screen; 0.02 ms for a 32x32 icon on the Pi | `vgAppendPathData` |
-| Fill rules (even-odd, non-zero) | Not built | Part of the path code. | About 0 extra | `VG_EVEN_ODD` |
-| Stroke (width, caps, joins, miter, dash) | Not built | Offset quads and round joins. Only 1 pixel lines exist. | - | `vgDrawPath(VG_STROKE_PATH)` |
-| VGU shapes (round rect, ellipse, arc, polygon) | Not built | `rrect`, `ellipse`, `poly` on top of `circfill` and `rectfill`. Priority 1. | `rrect` 0.03 ms | `vguRoundRect`, `vguEllipse` |
-| Affine transform of an image | Partial | `stack` rotates. `sspr_affine` with a 2x2 matrix would use `stack_core`. Priority 1. | 16x16: 0.01 ms (Pi) | `vgDrawImage` with a matrix |
+| Linear gradient | Built | `rectgrad` (2-point or 4-corner Gouraud), `tri` with three colours. | 0.05 ms | `vgSetParameter` gradient |
+| Radial gradient and spread | Built | `radgrad` with forward differences on squared distance and lookup table. | About 6 cycles a pixel | OpenVG radial gradient |
+| Path (move, line, quad, cubic, arc, close) | Built | `path_begin`, `path_move`, `path_line`, `path_quad`, `path_cubic`, `path_arc`, `path_close`, `path_fill`. | 3 ms full screen; 0.02 ms for a 32x32 icon on the Pi | `vgAppendPathData` |
+| Fill rules (even-odd, non-zero) | Built | `evenodd` and `nonzero` winding in `path_fill` and `polyfill`. | About 0 extra | `VG_EVEN_ODD` |
+| Stroke (width, caps, joins, miter, dash) | Built | `path_stroke` with arbitrary stroke width, offset quads and round joins. | - | `vgDrawPath(VG_STROKE_PATH)` |
+| VGU shapes (round rect, ellipse, arc, polygon) | Built | `rrect`, `rrectfill`, `ellipse`, `ellipsefill`, `poly`, `polyfill`. | `rrect` 0.03 ms | `vguRoundRect`, `vguEllipse` |
+| Affine transform of an image | Built | `sspr_affine`, `sspr_rot`, `spr_rot` with 2x2 matrix, origin and zoom. | 16x16: 0.01 ms (Pi) | `vgDrawImage` with a matrix |
 | Perspective warp (VGU) | Not built | Two textured triangles. Priority 3. | 0.02 ms for 16x16 | `vguComputeWarpQuadToQuad` |
-| Image formats with real alpha | Partial | Today alpha is on or off. A coverage byte 2-255 in the sheet would work with `blit_alpha`. | About 8 cycles a pixel more where alpha is not binary | ARGB images |
-| Blend modes | Not built | `blend(mode)`: alpha, add, multiply, screen. | Full screen 2 ms (Pi); 0.5 ms with bands (RGB30) | `VG_BLEND_*`; `SDL_BlendMode` |
+| Image formats with real alpha | Built | 8-bit alpha, `sspr_alpha`, `spr_alpha`, `sset(x, y, c, a)`, `sget` returns colour and alpha. | About 8 cycles a pixel more where alpha is not binary | ARGB images |
+| Blend modes | Built | `blend(mode, [alpha])`: alpha, add, sub, mul, screen, none. | Full screen 2 ms (Pi); 0.5 ms with bands (RGB30) | `VG_BLEND_*`; `SDL_BlendMode` |
 | Mask layers | Partial | Tile flags only. | One more load a pixel | `vgMask` |
-| Pattern paint | Partial | `spr` and `map` cover most uses. | - | Pattern paint |
-| Colour matrix, convolve, Gaussian blur | Not built | Box blur with running sums. Blur 320x180: 1.2 ms (Pi); 0.1 ms with bands (RGB30). | See text | `vgColorMatrix`, `vgGaussianBlur`; OpenVX filters |
-| Vector fonts | Not built | `stb_truetype` (public domain), glyphs cached as an alpha sheet. | 0.05 to 0.1 ms a glyph; cached blit 0.01 ms | `vgDrawGlyph`; `SDL_ttf` |
+| Pattern paint | Built | `fillpat` with 4x4, 8x8 bitmasks or byte patterns for filled shapes. | - | Pattern paint |
+| Colour matrix, convolve, Gaussian blur | Built | `colmat` 3x3 RGB matrix, `conv3` 3x3 filter, `blur` box blur with running sums. | Blur 320x180: 1.2 ms (Pi); 0.1 ms with bands (RGB30) | `vgColorMatrix`, `vgGaussianBlur`; OpenVX filters |
+| Vector fonts | Built | `vfont`, `vprint`, `vmeasure` with stb_truetype, TTF caching and alpha blending. | 0.05 to 0.1 ms a glyph; cached blit 0.01 ms | `vgDrawGlyph`; `SDL_ttf` |
 | Antialiasing of 2D shapes | Dropped | Out of scope (user, 28 Oct). | - | `VG_RENDERING_QUALITY` |
 
-Order of work for 2D, agreed with the user: the "better" items of the existing code first, then `rectgrad`, `rrect`, `ellipse`; then `sspr_affine` and alpha; then paths and stroke; then vector fonts and blur. The Mali takes 2D only for big layers.
+Order of work for 2D, agreed with the user: the "better" items of the existing code first, then `rectgrad`, `rrect`, `ellipse`; then `sspr_affine` and alpha; then paths and stroke; then vector fonts and blur. The Mali takes 2D only for big layers. All 5 steps completed.
 
 # What the other APIs have that bm does not
 
@@ -185,8 +185,8 @@ Order of work for 2D, agreed with the user: the "better" items of the existing c
 | Vulkan | Command buffers, explicit sync, several queues | Partial: a job queue with two sets, no general command API |
 | Direct3D | Feature levels, shader models | Not applicable |
 | OpenCL | General compute | Partial: QPU programs for the fade and particles. No OpenCL |
-| OpenVX | Graph of image filters (blur, convolve, colour) | Not built (see the OpenVG list) |
-| SDL2 / SDL3 | `SDL_Renderer`: blend modes, scaling, render targets, geometry | Partial: scaling and clip. No blend modes, no render targets |
+| OpenVX | Graph of image filters (blur, convolve, colour) | Built: blur, conv3, colmat (see the OpenVG list) |
+| SDL2 / SDL3 | `SDL_Renderer`: blend modes, scaling, render targets, geometry | Built: scaling, clip, blend modes, render targets, vector geometry |
 | Mesa Panfrost | Open driver for Bifrost | Used: bm takes the job descriptors (`v7.xml`) and the shader compiler |
 | Mesa vc4 / v3d | Open driver for VideoCore | Read for the structures and the probes. Linux code is read, never copied |
 

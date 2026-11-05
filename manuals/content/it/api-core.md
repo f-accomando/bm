@@ -159,15 +159,47 @@ Tutto ciò che sta sullo schermo: forme, testo, sprite e mappa di tile.
 | `line(x0, y0, x1, y1, c)` | una linea |
 | `rect(x, y, w, h, c)` | un rettangolo vuoto |
 | `rectfill(x, y, w, h, c)` | un rettangolo pieno |
+| `rrect(x, y, w, h, r, c)` | un rettangolo vuoto con angoli arrotondati di raggio `r` |
+| `rrectfill(x, y, w, h, r, c)` | un rettangolo pieno con angoli arrotondati di raggio `r` |
 | `circ(x, y, r, c)` | un cerchio vuoto |
 | `circfill(x, y, r, c)` | un cerchio pieno |
+| `ellipse(cx, cy, rx, ry, c)` | un'ellisse vuota con raggio orizzontale `rx` e verticale `ry` |
+| `ellipsefill(cx, cy, rx, ry, c)` | un'ellisse piena con raggio orizzontale `rx` e verticale `ry` |
+| `rectgrad(x, y, w, h, c0, c1, [c2, c3, dir])` | un rettangolo con gradiente lineare (verticale, orizzontale con `dir` `"h"`, o a 4 angoli) |
+| `radgrad(cx, cy, r, c0, [c1])` | un cerchio con gradiente radiale da `c0` al centro a `c1` al bordo |
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | un triangolo pieno; con tre colori (uno per angolo) il colore sfuma da un angolo all'altro (Gouraud, con dithering) |
+| `poly(points, [c, closed])` | disegna il contorno di un poligono da coordinate `{x1, y1, ...}` o coppie |
+| `polyfill(points, [c, rule])` | riempie un poligono con regola even-odd (`"evenodd"`, predefinita) o non-zero (`"nonzero"`) |
+| `path_begin()` | inizia un nuovo percorso vettoriale 2D |
+| `path_move(x, y)` | sposta la penna in (x, y) senza tracciare |
+| `path_line(x, y)` | aggiunge un segmento lineare fino a (x, y) |
+| `path_quad(cx, cy, x, y)` | aggiunge una curva di Bézier quadratica fino a (x, y) con punto di controllo (cx, cy) |
+| `path_cubic(c1x, c1y, c2x, c2y, x, y)` | aggiunge una curva di Bézier cubica fino a (x, y) con punti di controllo (c1x, c1y) e (c2x, c2y) |
+| `path_arc(cx, cy, r, a0, a1)` | aggiunge un arco circolare dall'angolo `a0` a `a1` (radianti) |
+| `path_close()` | chiude il sub-percorso corrente |
+| `path_fill([c, rule])` | riempie il percorso corrente con il colore `c` usando la regola even-odd o non-zero |
+| `path_stroke([c, width])` | traccia il contorno del percorso con il colore `c` e spessore linea |
 | `print(text, x, y, [c, scale])` | testo con il font 8×16 (bianco se manca `c`), `scale` volte più grande (1–8: 2 = caratteri 16×32); restituisce la x dopo l'ultimo carattere |
 | `font([name])` | imposta il font di `print` da ora in poi: `"8x16"` (quello normale), `"8x14"` o `"6x12"` (106 colonne per 30 righe a 640×360: per strumenti con molto testo); restituisce larghezza e altezza di un carattere del font attuale |
+| `vfont([data_or_path, [size]])` | imposta o ridimensiona il font vettoriale TrueType attivo |
+| `vprint(text, x, y, [c, size])` | disegna testo vettoriale antialiased usando il font TrueType attivo |
+| `vmeasure(text, [size])` | misura larghezza e altezza (`w, h`) del testo con il font vettoriale |
 | `prompt(name, x, y, [small, scale, player, menu])` | disegna un tasto come un gettone colorato, con l'angolo in alto a sinistra in (x, y); restituisce la x dopo il gettone (dettagli sotto) |
 | `prompt(name, [small, scale, player])` | senza coordinate non disegna: restituisce larghezza e altezza |
 | `camera([x, y])` | sposta tutto il disegno di (−x, −y); senza argomenti lo azzera |
 | `clip([x, y, w, h])` | limita il disegno al rettangolo; senza argomenti tutto lo schermo |
+| `blend([mode, [alpha]])` | imposta il modo di blend 2D (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) e l'alpha globale (`0..255`) |
+| `palt([c, [transparent]])` | imposta la maschera di trasparenza per i colori della tavolozza |
+| `fillpat([pat, [transparent, [bg]]])` | imposta il motivo per le forme piene 2D (maschera 4×4 o 8×8 o tabella di 8 byte) |
+| `colmat([x, y, w, h,] mat, [offset])` | trasforma i colori con matrice RGB 3×3 e offset opzionale |
+| `blur([x, y, w, h, radius, passes])` | sfocatura box con somme correnti |
+| `conv3(x, y, w, h, kernel, [divisor, offset])` | filtro di convoluzione 3×3 |
+| `target([t_or_w, [h]])` | reindirizza il disegno al render target `t`, o allo schermo se `nil` |
+| `target_create(w, h)` | crea un render target fuori schermo di dimensione `w`×`h` |
+| `target_blit(t, dx, dy, [dw, dh, sx, sy, sw, sh, fx, fy])` | disegna il render target `t` sulla superficie attiva |
+| `target_clear(t, [c])` | cancella il render target `t` con il colore `c` |
+| `target_size(t)` | restituisce larghezza e altezza (`w, h`) del render target `t` |
+| `target_free(t)` | rilascia immediatamente la memoria pixel del render target `t` |
 
 ### Dimensioni per `screen(w, h)`
 
@@ -214,12 +246,17 @@ Lo **sprite sheet** è un'immagine divisa in celle 8×8: la cella `n` sta alla c
 | Funzione | Cosa fa |
 |---|---|
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | disegna la cella `n` (w×h celle, predefinito 1×1), anche specchiata |
+| `spr_rot(n, dx, dy, rz, [scale, wc, hc])` | ruota la cella `n` attorno al suo centro di `rz` radianti con scala opzionale |
+| `spr_alpha(n, dx, dy, [alpha, wc, hc, flip_x, flip_y])` | disegna la cella `n` con alpha globale a 8 bit (0..255) |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copia un rettangolo qualsiasi dello sheet; con `zoom` (predefinito 1) lo disegna più grande (`2`, `3`…) o più piccolo (`0.5`), pixel per pixel: copre `sw * zoom` × `sh * zoom` pixel |
+| `sspr_rot(sx, sy, sw, sh, dx, dy, rz, [scale, ox, oy])` | ruota il rettangolo dello sheet di `rz` radianti attorno a `(ox, oy)` (predefinito al centro) |
+| `sspr_alpha(sx, sy, sw, sh, dx, dy, [alpha, flip_x, flip_y])` | disegna il rettangolo dello sheet con alpha globale a 8 bit (0..255) |
+| `sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy])` | trasformazione affine 2×2 `[a b; c d]` di un rettangolo dello sheet con punto d'ancoraggio `(dx, dy)` |
 | `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | sprite stacking: disegna `n` fette di `w`×`h` pixel, una accanto all'altra sullo sheet da `(sx, sy)`, da sinistra a destra. La fetta 1 è la più bassa. `(x, y)` è il centro della fetta più bassa. Ogni fetta ruota di `rz` radianti attorno al suo centro, è `scale` volte più grande e sta `step * scale` pixel sopra quella sotto (`step` 1 di norma). Il colore 0 è trasparente |
 | `stackv(sx, sy, w, h, n, x, y, [rz, scale, step])` | come `stack`, ma le fette stanno una sotto l'altra sullo sheet, dall'alto in basso; quella in alto è la fetta 1 |
 | `zstack(name, x, y, [rz, scale])` | disegna una zona stack del file delle zone (la riga `stack name x y w h n`, o `stackv` per fette una sotto l'altra) |
-| `sget(x, y)` | legge un pixel dello sheet (`nil` = trasparente) |
-| `sset(x, y, [c])` | scrive un pixel dello sheet (`nil` = trasparente) |
+| `sget(x, y)` | legge un pixel dello sheet (restituisce `colore, alpha`; `nil` = trasparente) |
+| `sset(x, y, [c, alpha])` | scrive un pixel dello sheet con alpha a 8 bit opzionale (`nil` = trasparente) |
 
 ```lua
 spr(0, x, y)                   -- cella 0 (8x8)

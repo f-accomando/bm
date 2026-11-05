@@ -75,8 +75,8 @@
  "api-core": {
   "chapters": {
    "1": {
-    "en": "f7cdbc81c139",
-    "it": "29ccc7f8b808",
+    "en": "a03c37af1002",
+    "it": "db931f8c9d58",
     "title": "How a cartridge works"
    },
    "10": {
@@ -90,8 +90,8 @@
     "title": "Your first game"
    },
    "3": {
-    "en": "42d56151f647",
-    "it": "e4b3fc99e15a",
+    "en": "5552f41ba5a3",
+    "it": "5f09d5adc298",
     "title": "Drawing"
    },
    "4": {
@@ -126,11 +126,11 @@
    }
   },
   "sources": {
-   "docs/API.md": "66c39baad549",
-   "docs/GAME-GUIDE.md": "64ef243e68cb",
-   "docs/api/draw.md": "c0ab8355c549",
-   "docs/api/input.md": "4a75b07df3da",
-   "docs/api/system.md": "583f94063149"
+   "docs/API.md": "e7bfe8858f98",
+   "docs/GAME-GUIDE.md": "714204e7ee0d",
+   "docs/api/draw.md": "0fef72d5bc3a",
+   "docs/api/input.md": "5269de427422",
+   "docs/api/system.md": "c0ec411133dc"
   }
  },
  "api-lib": {
@@ -962,6 +962,11 @@
     "it": "d76b4ced0b65",
     "title": "How to read the tables"
    },
+   "10": {
+    "en": "f9f8838df42c",
+    "it": "0336b449ca8c",
+    "title": "Open points"
+   },
    "2": {
     "en": "694b5ea91239",
     "it": "778a7237af72",
@@ -978,8 +983,8 @@
     "title": "3D on the Mali-G52 (RGB30)"
    },
    "5": {
-    "en": "18f9322a4898",
-    "it": "24ee187891be",
+    "en": "b05ddb861aa0",
+    "it": "2dad0412576c",
     "title": "2D on the CPU"
    },
    "6": {
@@ -988,29 +993,29 @@
     "title": "2D on the GPUs"
    },
    "7": {
-    "en": "478c69300492",
-    "it": "4acdb55c08e6",
+    "en": "97eed3f39e25",
+    "it": "86b63c41b6cd",
     "title": "The OpenVG and VGU list (2D vector)"
    },
    "8": {
-    "en": "8c28d44cb307",
-    "it": "d36ba2328ca0",
+    "en": "1c4a3c9f363f",
+    "it": "d70e2a8741c9",
     "title": "What the other APIs have that bm does not"
    },
    "9": {
-    "en": "f9f8838df42c",
-    "it": "0336b449ca8c",
-    "title": "Open points"
+    "en": "1a092b09bcd5",
+    "it": "c4336fae8967",
+    "title": "Measured by the hero cart"
    }
   },
   "sources": {
-   "docs/DRIVERS.md": "c9ad72f2ded6",
+   "docs/DRIVERS.md": "03d607a2bbd1",
    "docs/PERF-BUDGET.md": "e8c38e6619d4",
-   "docs/progress/graphics-mali.md": "29a9e33391f5",
-   "docs/progress/graphics-vector.md": "5fef996d733c",
-   "docs/progress/graphics.md": "fe012f24feec",
-   "docs/progress/mali-parity.md": "85ace43a82a8",
-   "docs/progress/multicore.md": "72affa06fc65"
+   "docs/progress/graphics-mali.md": "dc849b34819e",
+   "docs/progress/graphics-vector.md": "548b3e347760",
+   "docs/progress/graphics.md": "c0b67005c4b9",
+   "docs/progress/mali-parity.md": "48374dc29415",
+   "docs/progress/multicore.md": "34ee3426d977"
   }
  },
  "install-sd": {

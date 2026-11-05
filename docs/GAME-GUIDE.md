@@ -956,6 +956,55 @@ end
 
 Two header fields say where the game is made to run. `targets` lists the devices (`--targets pi,rgb30`). `aspect` lists the shapes (`--aspect wide,square,any,safe_area`; `safe_area` says the game uses `safe_area()`). The same keys exist in `bm.info` of a `.bme`. A cartridge that is not made for the device is shown **grey** in the menu with the reason. It is not hidden and not blocked: the kernel asks for a confirm before it starts. See `docs/BM-FORMAT.md` for the bytes.
 
+### 2D effects: render targets, blend modes, patterns and vector text
+
+bm provides modern 2D raster and vector operations that integrate seamlessly with sprite sheets and the RGB565 framebuffer:
+
+- **Off-screen render targets (`target_create`, `target`, `target_blit`):**
+  Create an off-screen surface to cache procedural graphics (minimaps, weather layers, pre-rendered UI):
+  ```lua
+  local minimap = target_create(128, 128)
+  
+  -- Render into target once or when the map changes:
+  minimap:draw(function()
+    cls(0x101824)
+    map(0, 0, 0, 0, 16, 16)
+  end)
+  
+  -- In _draw(): blit target to screen with position, scaling and opacity:
+  minimap:blit(SCREEN_W - 136, 8, 128, 128)
+  ```
+
+- **Blend modes and global opacity (`blend`):**
+  Use additive blending for fires and glowing magic, multiply for ambient shadows, and global alpha for translucent fades:
+  ```lua
+  -- Additive glow:
+  blend("add", 200)
+  circfill(px, py, 24, 0xFF8822)
+  blend("alpha", 255)  -- restore default alpha blend
+  
+  -- Ambient shadow tint:
+  blend("mul")
+  rectfill(0, 0, SCREEN_W, SCREEN_H, 0x404060)
+  blend("alpha", 255)
+  ```
+
+- **Pattern fills (`fillpat`):**
+  Fill shapes with 4×4 or 8×8 bitmasks for retro shading, cross-hatching, and dithered UI bars:
+  ```lua
+  fillpat(0xAA55AA55)  -- 4x4 checker pattern
+  rectfill(16, 16, 120, 24, 0x2266AA)
+  fillpat()            -- restore solid fill
+  ```
+
+- **TrueType vector fonts (`vfont`, `vprint`, `vmeasure`):**
+  Render antialiased vector typography at any scale with alpha coverage:
+  ```lua
+  vfont("assets/title.ttf", 24)
+  local w, h = vmeasure("GAME OVER")
+  vprint("GAME OVER", (SCREEN_W - w) // 2, 80, 0xFFE040)
+  ```
+
 ## 16. Examples to start from
 
 | Game | What it shows |

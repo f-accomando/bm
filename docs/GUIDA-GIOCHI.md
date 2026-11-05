@@ -883,6 +883,55 @@ end
 
 Due campi dell'header dicono dove il gioco è fatto per girare. `targets` elenca i dispositivi (`--targets pi,rgb30`). `aspect` elenca le forme (`--aspect wide,square,any,safe_area`; `safe_area` dice che il gioco usa `safe_area()`). Le stesse chiavi esistono in `bm.info` di un `.bme`. Una cartuccia non fatta per il dispositivo appare **grigia** nel menu con il motivo. Non è nascosta e non è bloccata: il kernel chiede una conferma prima di avviarla. I byte sono in `docs/BM-FORMAT.md`.
 
+### Effetti 2D: render target, modi di blend, motivi e testo vettoriale
+
+bm offre primitive raster e vettoriali 2D moderne che si integrano in modo trasparente con lo sprite sheet e il framebuffer RGB565:
+
+- **Render target fuori schermo (`target_create`, `target`, `target_blit`):**
+  Crea una superficie fuori schermo per mettere in cache grafica procedurale (minimappe, strati meteo, UI pre-renderizzata):
+  ```lua
+  local minimap = target_create(128, 128)
+  
+  -- Disegna nel target una volta sola o quando la mappa cambia:
+  minimap:draw(function()
+    cls(0x101824)
+    map(0, 0, 0, 0, 16, 16)
+  end)
+  
+  -- In _draw(): esegui il blit del target a schermo con posizione, scala e opacità:
+  minimap:blit(SCREEN_W - 136, 8, 128, 128)
+  ```
+
+- **Modi di blend e opacità globale (`blend`):**
+  Usa il blend additivo per fuochi e bagliori magici, multiply per ombre ambientali e alpha globale per dissolvenze traslucide:
+  ```lua
+  -- Bagliore additivo:
+  blend("add", 200)
+  circfill(px, py, 24, 0xFF8822)
+  blend("alpha", 255)  -- ripristina il blend alpha predefinito
+  
+  -- Tinta scura ambientale:
+  blend("mul")
+  rectfill(0, 0, SCREEN_W, SCREEN_H, 0x404060)
+  blend("alpha", 255)
+  ```
+
+- **Campiture a motivo (`fillpat`):**
+  Riempi le forme piene con maschere a bit 4×4 o 8×8 per ombreggiature tratteggiate retro e barre dithered:
+  ```lua
+  fillpat(0xAA55AA55)  -- motivo a scacchiera 4x4
+  rectfill(16, 16, 120, 24, 0x2266AA)
+  fillpat()            -- ripristina il riempimento pieno
+  ```
+
+- **Font vettoriali TrueType (`vfont`, `vprint`, `vmeasure`):**
+  Disegna tipografia vettoriale antialiased a qualunque dimensione con copertura alpha:
+  ```lua
+  vfont("assets/title.ttf", 24)
+  local w, h = vmeasure("GAME OVER")
+  vprint("GAME OVER", (SCREEN_W - w) // 2, 80, 0xFFE040)
+  ```
+
 ## 16. Esempi da cui partire
 
 | Gioco | Cosa mostra |

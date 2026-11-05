@@ -34,12 +34,9 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a design note in the area file before its work order.
 
 - API-7 - P2 - to do - Rotation and scale of 2D sprites: a rotation and a scale argument for `spr` and `sspr`, and a transform stack (`translate`, `rotate`, `scale`, `push`, `pop`). Done when a sprite turns and scales at 60 fps on the Pi Zero W (`b3d` 2D scene) and the existing calls give the same pixels. [graphics](progress/graphics.md)
-- API-8 - P2 - in progress (5 Nov 2026: target, target_create, target_blit, scaling, zero memory until created) - Render target: draw into an off-screen surface and then draw the surface to the screen (mini-maps, effects, cache). Done when a cart draws into a target and the target costs no memory until it is created. [graphics](progress/graphics.md)
-- API-9 - P2 - in progress (5 Nov 2026: blend, palt, global alpha, normal/add/sub/mul/screen/none modes over RGB565) - `palt`, global alpha and 2D blend modes (add, multiply). Done when a test cart shows each mode and the default drawing is unchanged. [graphics](progress/graphics.md)
 - API-10 - P3 - idea - 2D physics: rigid bodies, joints and contacts (a Box2D subset, zlib license). Clarify with the user first which games need it. Do it after API-7 to API-9. [graphics](progress/graphics.md)
 - API-11 - P3 - idea - Noise (Perlin or Simplex) and other `love.math` helpers in `bmlib`. [lua](progress/lua.md)
 - API-12 - P2 - to do - Hot Lua of the games in C: move the heavy loops of `bmlib` (`lib.ray`, bot paths, particles) to C functions that the runtime registers. Lua keeps the game logic. Done when `profile(true)` shows the Lua time of each moved loop on the Pi lower than before, the Lua API does not change, and the tests of the games pass. First measure with `profile(true)`. Move a loop only if Lua limits the frame. [lua](progress/lua.md) `Lua speed, step 10`
-- API-14 - P2 - done - 2D vector graphics (the OpenVG 1.1 and VGU capabilities): steps 1-5 done (5 Nov 2026: `rectgrad`, `rrect`, `rrectfill`, `ellipse`, `ellipsefill`, `sspr_affine`, `sspr_rot`, `spr_rot`, `sspr_alpha`, `spr_alpha`, `g16_sspr_zoom` xmap, 8-bit alpha, paths, curves, fill rules, stroker, `poly`, `polyfill`, `blur`, `conv3`, `radgrad`, `vfont`, `vprint`, `vmeasure`, blend modes, render target, `colmat`, `fillpat`, Mali 2D offload architecture). [graphics-vector](progress/graphics-vector.md) `Order of work`
 
 ## Video, recording and audio
 
