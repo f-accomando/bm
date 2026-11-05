@@ -39,6 +39,7 @@
 #include "ledstate.h"
 #include "fiber.h"
 #include "reports.h"
+#include "bmz_install.h"
 #include "config.h"
 #include "library.h"
 
@@ -233,6 +234,8 @@ void carts_init(void)
      * the CPU back between its pieces (fat.h; netxfer sets its own) */
     if (!fat_write_tick)
         fat_write_tick = fiber_slice_tick;
+    if (library.sd_ok)
+        bmz_install_all(NULL);          /* /bmz -> /bm, /bme, ... before the games are listed */
     rescan();
     if (library.sd_ok) {
         /* the cluster size (a card's writes depend on it) and, if any, the

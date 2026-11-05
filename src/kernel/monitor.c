@@ -36,6 +36,8 @@
 #include "bm/bm.h"
 #include "pager.h"
 #include "reports.h"
+#include "bmz_install.h"
+#include "bm/bmz.h"
 #include "audio/audio.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
@@ -588,6 +590,14 @@ CMD(c_report_log)
 
 CMD(c_update) { update_monitor(); return 0; }
 
+CMD(c_bmz)
+{
+    int failed;
+    const int done = bmz_install_all(&failed);
+    kprintf("bmz: %d extracted, %d failed (the files wait in %s)\n", done, failed, BMZ_DIR);
+    return failed ? 1 : 0;
+}
+
 /* the keys of bm/config.txt that Tab completes after "set" (docs/spec/config-keys.toml; a key
  * that is not here is set all the same) */
 static const char *const set_keys[] = {
@@ -800,6 +810,7 @@ static const mcmd_t commands[] = {
     { .name = "bench", .help = "benchmarks", .sub = bench_sub },
     { .name = "report", .help = "the reports of the tests", .sub = report_sub },
     { .name = "update", .help = "update from GitHub (asks first)", .key = 'u', .fn = c_update },
+    { .name = "bmz", .help = "extract the .bmz files of /bmz into their folders", .fn = c_bmz },
     { .name = "set", .args = "[KEY=VALUE ...]", .help = "bm/config.txt keys until a restart", .fn = c_set, .cand = cand_set },
     { .name = "save", .help = "write bm/config.txt", .fn = c_save },
     { .name = "play", .args = "NAME", .help = "play a game by its title", .fn = c_play },

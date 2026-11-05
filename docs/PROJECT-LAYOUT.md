@@ -81,6 +81,8 @@ Special builds keep their own rules: the Overbit variants (reel, match), the tes
   `bm/`), the games a cartridge writes and `make sdcard` all use `/bm`. A game left in `/carts` on an old card is not listed:
   move it to `/bm` (`make install` and `easy_install.sh` do it). The tools still read `/carts` and the root for a `.bme` next to its game.
   No menu tab lists a project on either kernel (user decision 21 Oct 2026, D44): the editors open the projects.
+- `/bmz` is the inbox of the compressed files (`.bmz`, [BM-FORMAT](BM-FORMAT.md)). The console extracts each file into the folder of its
+  kind at start (`/bm`, `/bme`, `/bmm`, `/bmk`, `/bmi`, `/bms`, `/bmt`, `/bmc`) and deletes it from `/bmz`. The menus never list `/bmz`.
 - `/glb` and `/bmm` are the folders of APP-9 (the model import, `docs/progress/tools.md`): the editors read and write them.
   The menus never list them. The SD map counts them.
 

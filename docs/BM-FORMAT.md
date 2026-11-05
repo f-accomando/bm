@@ -111,6 +111,45 @@ refused. See [RISORSE.md](RISORSE.md).
   cover the header); `mkbm.py`, `bmres.py` and `bmmesh.py` in Python. A change to the header must be made in all of
   them.
 
+## The `.bmz` container (transfer only)
+
+A `.bmz` is a zlib-compressed copy of one `.bm`, `.bme` or resource file, for the transfer online (design:
+[design/compressed-sections](design/compressed-sections.md)). It is not a cartridge: the menu does not list it and no
+game opens it. The `.bmz` files wait in `/bmz` on the SD card. At every start the console extracts each one into the
+folder of its kind and deletes it from `/bmz`. The monitor command `bmz` does the same at any time. The file on the card
+is the normal raw file, so the load time of a game does not change. Code: `src/bm/bmz.c` (the reader, shared with the
+host test), `src/kernel/bmz_install.c` (the extraction), `scripts/bmz.py` (pack, unpack, list).
+
+All numbers are little endian. The header is 32 bytes, then the zlib stream to the end of the file.
+
+| Offset | Size | Field | Rule |
+|---|---|---|---|
+| 0 | 4 | magic | `BMZ1` |
+| 4 | u16 | version | 1; another value is refused |
+| 6 | u16 | flags | 0; a bit set is refused |
+| 8 | u32 | raw size | 1 to 128 MB (`BMZ_MAX_RAW`) |
+| 12 | u32 | CRC-32 | of the raw bytes (as `zlib.crc32`) |
+| 16 | 16 | name | the name of the raw file: lowercase 8.3, `a-z 0-9 _ -` before the dot, NUL ended, zeros after the NUL |
+
+The extension in the name gives the folder:
+
+| Extension | Folder |
+|---|---|
+| `.bm` | `/bm` |
+| `.bme` | `/bme` |
+| `.bmm` | `/bmm` |
+| `.bmk` | `/bmk` |
+| `.bmi .bms .bmt .bmc` | `/bmi`, `/bms`, `/bmt`, `/bmc` (the names of the pattern; no console reads these folders yet) |
+
+The extraction checks, in this order: the header, the inflate and its exact size, the CRC-32, and the first 8 bytes of the
+raw file (`BMCART` or `BM33CART` for `.bm` and `.bme`, `BMRES` for the others). Then it makes the folder, writes the
+file (a file of the same name is replaced), finds it again on the card with the right size, and only then deletes the
+`.bmz`. A file that fails stays in `/bmz` and the log (`bmz: PATH: REASON`) says why. One pass takes at most 32 files.
+The `.bm` inside is not parsed here: the usual checks run when the game loads.
+
+The compression happens on the PC (`scripts/bmz.py pack`, output in `bmz/`). When the console makes a `.bmz` itself is a
+later decision. The bridge accepts `send FILE.bmz to=/bmz`.
+
 ## Limits found only in the code
 
 Sheet at most 4096 per side; cover at most 512; the map and the flags have no upper bound but the size match;

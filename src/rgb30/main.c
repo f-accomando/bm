@@ -31,6 +31,7 @@
 #include "drivers/sd.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "kernel/bmz_install.h"
 #include "kernel/fiber.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
@@ -282,6 +283,7 @@ static void sd_boot(void)
     config_load();
     pad_config();                       /* confirm= */
     sdlog_prev();
+    bmz_install_all(NULL);              /* /bmz -> /bm, /bme, ... (src/bm/bmz.h) */
 }
 
 static int booting = 1;                 /* until "ready" */

@@ -67,7 +67,7 @@ def check_line(text):
 
 
 # the kernel file name each board takes (bm_net.py --kernel answers KA for another one; refused here before it is sent)
-SEND_TO = {"/bmm": ".bmm", "/bmk": ".bmk", "/bme": ".bme"}     # send FILE to=FOLDER: the folder and the extension it takes
+SEND_TO = {"/bmm": ".bmm", "/bmk": ".bmk", "/bme": ".bme", "/bmz": ".bmz"}     # send FILE to=FOLDER: the folder and the extension it takes
 KERNEL_FILE = {"pi": "kernel.img", "zero2": "kernel7.img", "rgb30": "kernel8.img"}
 ALLOWED_DIRS = [ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
 

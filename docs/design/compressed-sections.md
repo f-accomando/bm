@@ -26,6 +26,15 @@ On the PC (Python, level 6): zlib 3.3x, lzma 4.2x, bz2 4.0x. lzma and bz2 decode
 
 Reading the raw bytes is faster than reading and inflating for LUA, SHEET, SHEET8, MESH and AUDIO. ANIM is level. MAP and LAYERS gain.
 
+## Built (5 Nov 2026)
+
+The container and the extraction are done: format in [BM-FORMAT](../BM-FORMAT.md) (section `.bmz`), reader `src/bm/bmz.c`,
+extraction `src/kernel/bmz_install.c` (Pi: `carts_init`, RGB30: after the SD mount; monitor command `bmz`), tool
+`scripts/bmz.py`, tests `make test-bmz` (the C reader on good and broken files; the extraction on a FAT image checked with
+`fsck.vfat` and `mtools`). The compressed files wait in `/bmz` and are extracted into `/bm`, `/bme`, `/bmm`, `/bmk` and the
+folders of the other resources. **Not done:** the download in the Market and `bm_net.py --send` do not make or use `.bmz` by
+themselves; the console does not compress; no hardware run yet (only the host test and the builds of both kernels).
+
 ## Direction chosen (5 Nov 2026, the user)
 
 Do not compress the sections inside the `.bm`. Make a separate extension for compressed resources that travel online. The `.bm` and the `.bme` stay raw on the SD card, so the load time does not change and no kernel needs a new format version.
@@ -34,7 +43,7 @@ Do not compress the sections inside the `.bm`. Make a separate extension for com
 - **Where it is used.** The Market download and the upload from the PC (`bm_net.py --send`). The console inflates the file when it receives it and writes the normal `.bm` on the SD card. Nothing else reads a `.bmz`.
 - **Why it fits the numbers.** The Pi receives about 0.5 MB/s over Wi-Fi, so a 3.4x smaller file saves most of the wait. The inflate cost (12 MB/s) is paid once, at download, not at every start.
 - **What to keep from the list below.** Items 1 to 6 (per section) are the second step, only if a game needs a smaller file on the SD card. The measurements and the open questions stay valid.
-- **Work for this direction.** (1) Name and header of the container in `docs/BM-FORMAT.md`. (2) `png_inflate` in the receive path of `netxfer.c` and of the catalog download (`catalog.c`). (3) `mkmarket.py` and `bm_net.py` compress before they send. (4) Tests: a broken stream, a wrong size, a wrong CRC, a file too big for the heap. (5) Measure the download time of Overbit (6.5 MB) on the Pi.
+- **Work left for this direction.** (1) The Market download and `bm_net.py --send` / `mkmarket.py` make and read `.bmz` by themselves (today the file is put in `/bmz` by hand or by the bridge). (2) The console makes a `.bmz` (an encoder in the kernel; later, when and how). (3) The result of the extraction in the menu (a notice) and a size limit that fits the free heap. (4) A run on the Pi and on the RGB30. Done: the format, the extraction, the PC tool and the host tests (section Built).
 
 ## Design (per section, second step)
 

@@ -1011,7 +1011,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-jobs test-bm test-res test-compat test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-bmz test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
@@ -1060,6 +1060,21 @@ test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet $(BUILD)/host/test
 	$(BUILD)/host/test_ethnet
 	$(BUILD)/host/test_config
 	$(PYTHON) tests/net/check_bm_net_config.py
+
+# .bmz (src/bm/bmz.c): the C reader on files made by scripts/bmz.py, good and broken
+$(BUILD)/host/test_bmz: tests/bmz/test_bmz.c src/bm/bmz.c src/bm/bmz.h src/bm/png.c src/bm/png.h src/lib/crc32.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/bmz/test_bmz.c src/bm/bmz.c src/bm/png.c src/lib/crc32.c
+
+# the console's extraction of /bmz on a FAT image (src/kernel/bmz_install.c), checked with fsck.vfat and mtools
+$(BUILD)/host/test_install: tests/bmz/test_install.c src/kernel/bmz_install.c src/kernel/bmz_install.h src/bm/bmz.c src/bm/bmz.h                             src/bm/png.c src/fs/fat.c src/fs/fat.h src/kernel/sdmap_core.c src/bm/project.c src/bm/format.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bmz/test_install.c src/kernel/bmz_install.c src/bm/bmz.c src/bm/png.c 		src/fs/fat.c src/kernel/sdmap_core.c src/bm/project.c src/bm/format.c src/lib/crc32.c
+
+test-bmz: $(BUILD)/host/test_bmz $(BUILD)/host/test_install
+	$(PYTHON) tests/bmz/run_bmz_test.py $(BUILD)/host/test_bmz
+	$(PYTHON) tests/bmz/run_install_test.py $(BUILD)/host/test_install
+.PHONY: test-bmz
 
 # bm/config.txt (src/kernel/config.c): the file, and the settings from the PC
 # (netxfer's C, bm_net.py --config, easy_install.sh)
