@@ -147,3 +147,129 @@ int l_font(lua_State *L)
     lua_pushinteger(L, rt.g.font->height);
     return 2;
 }
+
+static void ensure_vfont(void)
+{
+    if (!rt.vfont_loaded) {
+        size_t len = 0;
+        const uint8_t *data = g16_vfont_default_data(&len);
+        if (g16_vfont_init(&rt.vfont, data, len, 0, 16.0f) == 0) {
+            rt.vfont_loaded = 1;
+        }
+    }
+}
+
+/* vfont([data_or_path, [size]]): sets or scales the active vector font.
+ * Returns ascent, descent, line_gap, size. */
+int l_vfont(lua_State *L)
+{
+    if (lua_isnumber(L, 1)) {
+        ensure_vfont();
+        float sz = (float)lua_tonumber(L, 1);
+        if (sz > 0) g16_vfont_size(&rt.vfont, sz);
+    } else if (lua_isstring(L, 1)) {
+        size_t slen = 0;
+        const char *s = lua_tolstring(L, 1, &slen);
+        float sz = (float)luaL_optnumber(L, 2, 16.0);
+        uint8_t *data = NULL;
+        size_t dlen = 0;
+        int owns = 0;
+
+        if (slen >= 12 && (memcmp(s, "\0\1\0\0", 4) == 0 ||
+                           memcmp(s, "OTTO", 4) == 0 ||
+                           memcmp(s, "true", 4) == 0)) {
+            data = malloc(slen);
+            if (data) {
+                memcpy(data, s, slen);
+                dlen = slen;
+                owns = 1;
+            }
+        } else {
+            /* Try FAT first */
+            fat_entry_t e;
+            memset(&e, 0, sizeof e);
+            if (fat_find(s, &e) == 0 && !e.is_dir && fat_load(&e, &data, &dlen) == 0) {
+                owns = 1;
+            } else {
+                /* Host fallback fopen */
+                FILE *f = fopen(s, "rb");
+                if (f) {
+                    fseek(f, 0, SEEK_END);
+                    long fsz = ftell(f);
+                    fseek(f, 0, SEEK_SET);
+                    if (fsz > 0) {
+                        data = malloc(fsz);
+                        if (data && fread(data, 1, fsz, f) == (size_t)fsz) {
+                            dlen = (size_t)fsz;
+                            owns = 1;
+                        } else {
+                            free(data);
+                            data = NULL;
+                        }
+                    }
+                    fclose(f);
+                }
+            }
+        }
+
+        if (data && dlen > 0) {
+            if (g16_vfont_init(&rt.vfont, data, dlen, owns, sz) == 0) {
+                rt.vfont_loaded = 1;
+            } else {
+                if (owns) free(data);
+                return luaL_error(L, "vfont: invalid TrueType font");
+            }
+        } else {
+            return luaL_error(L, "vfont: font file not found '%s'", s);
+        }
+    } else {
+        ensure_vfont();
+        if (!lua_isnoneornil(L, 2)) {
+            float sz = (float)luaL_checknumber(L, 2);
+            if (sz > 0) g16_vfont_size(&rt.vfont, sz);
+        }
+    }
+
+    lua_pushinteger(L, rt.vfont.ascent);
+    lua_pushinteger(L, rt.vfont.descent);
+    lua_pushinteger(L, rt.vfont.line_gap);
+    lua_pushnumber(L, rt.vfont.size);
+    return 4;
+}
+
+/* vprint(text, x, y [, colour, size]) */
+int l_vprint(lua_State *L)
+{
+    int x = ival(L, 2), y = ival(L, 3);
+    uint16_t c = col(L, 4, 0xFFFFFF);
+    if (!lua_isnoneornil(L, 5)) {
+        float sz = (float)luaL_checknumber(L, 5);
+        ensure_vfont();
+        if (sz > 0 && sz != rt.vfont.size) g16_vfont_size(&rt.vfont, sz);
+    } else {
+        ensure_vfont();
+    }
+    size_t len;
+    const char *s = luaL_tolstring(L, 1, &len);
+    int next_x = g16_vprint(&rt.g, &rt.vfont, s, x, y, c);
+    lua_pushinteger(L, next_x);
+    return 1;
+}
+
+/* vmeasure(text [, size]) -> w, h */
+int l_vmeasure(lua_State *L)
+{
+    const char *s = luaL_checkstring(L, 1);
+    if (!lua_isnoneornil(L, 2)) {
+        float sz = (float)luaL_checknumber(L, 2);
+        ensure_vfont();
+        if (sz > 0 && sz != rt.vfont.size) g16_vfont_size(&rt.vfont, sz);
+    } else {
+        ensure_vfont();
+    }
+    int w = 0, h = 0;
+    g16_vmeasure(&rt.vfont, s, &w, &h);
+    lua_pushinteger(L, w);
+    lua_pushinteger(L, h);
+    return 2;
+}

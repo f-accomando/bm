@@ -359,23 +359,6 @@ void g16_ellipsefill(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c)
 
 typedef uint32_t __attribute__((may_alias)) g16_w32;
 
-static inline uint16_t blend_rgb565(uint16_t src, uint16_t dst, uint8_t a)
-{
-    int s_r = (src >> 11) & 0x1f;
-    int s_g = (src >> 5) & 0x3f;
-    int s_b = src & 0x1f;
-    int d_r = (dst >> 11) & 0x1f;
-    int d_g = (dst >> 5) & 0x3f;
-    int d_b = dst & 0x1f;
-    int r = d_r + (((s_r - d_r) * (int)a + 128) >> 8);
-    int g = d_g + (((s_g - d_g) * (int)a + 128) >> 8);
-    int b = d_b + (((s_b - d_b) * (int)a + 128) >> 8);
-    if (r < 0) r = 0; else if (r > 31) r = 31;
-    if (g < 0) g = 0; else if (g > 63) g = 63;
-    if (b < 0) b = 0; else if (b > 31) b = 31;
-    return (uint16_t)((r << 11) | (g << 5) | b);
-}
-
 /* Core blit: sheet rectangle -> screen position (screen coords), clipped. */
 static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                  int dx, int dy, int flip_x, int flip_y, int opaque)

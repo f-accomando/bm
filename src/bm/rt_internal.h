@@ -17,6 +17,7 @@
 
 #include "bm.h"
 #include "gfx16.h"
+#include "vfont.h"
 #include "r3d.h"
 #include "loading.h"
 #include "map3d.h"
@@ -134,6 +135,8 @@ typedef struct {
     g16_light_t light;          /* light_begin() .. light_end() */
     g16_fade_t fade;            /* fades(), dark_begin() .. dark_end() */
     g16_path_t path;            /* path_begin() .. path_stroke()/path_fill() */
+    g16_vfont_t vfont;          /* vfont(), vprint(), vmeasure() */
+    int vfont_loaded;
     r3d_pfx_t *pfx;             /* particles() pool */
     int text_mode;              /* keyp() was called: the keyboard types */
     int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
@@ -612,6 +615,9 @@ int l_sget(lua_State *L);
 int l_sset(lua_State *L);
 int l_print(lua_State *L);
 int l_font(lua_State *L);
+int l_vfont(lua_State *L);
+int l_vprint(lua_State *L);
+int l_vmeasure(lua_State *L);
 
 /* the dev kit's overlay (defined with it) */
 int l_devkit(lua_State *L);

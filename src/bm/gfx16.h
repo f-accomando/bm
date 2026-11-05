@@ -56,6 +56,24 @@ static inline uint16_t g16_rgb24(uint32_t rgb)
 /* RGB565 -> 0xRRGGBB with the low bits replicated */
 uint32_t g16_to_rgb24(uint16_t c);
 
+/* Blend src (RGB565) over dst (RGB565) with alpha a (0..255) */
+static inline uint16_t blend_rgb565(uint16_t src, uint16_t dst, uint8_t a)
+{
+    int s_r = (src >> 11) & 0x1f;
+    int s_g = (src >> 5) & 0x3f;
+    int s_b = src & 0x1f;
+    int d_r = (dst >> 11) & 0x1f;
+    int d_g = (dst >> 5) & 0x3f;
+    int d_b = dst & 0x1f;
+    int r = d_r + (((s_r - d_r) * (int)a + 128) >> 8);
+    int g = d_g + (((s_g - d_g) * (int)a + 128) >> 8);
+    int b = d_b + (((s_b - d_b) * (int)a + 128) >> 8);
+    if (r < 0) r = 0; else if (r > 31) r = 31;
+    if (g < 0) g = 0; else if (g > 63) g = 63;
+    if (b < 0) b = 0; else if (b > 31) b = 31;
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
 void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const font_t *font);
 void g16_clip(g16_t *g, int x, int y, int w, int h);    /* w or h <= 0: full screen */
 void g16_camera(g16_t *g, int x, int y);

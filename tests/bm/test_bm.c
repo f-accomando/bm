@@ -5,6 +5,7 @@
 
 #include "bm/bm.h"
 #include "bm/gfx16.h"
+#include "bm/vfont.h"
 #include "bm/project.h"
 #include "bm/r3d.h"
 #include "lib/crc32.h"
@@ -180,6 +181,38 @@ static void test_primitives(void)
     CHECK(at(40, 40) == 0xF800, "radgrad center c0 red");
     CHECK(at(55, 40) == 0x001F, "radgrad outer perimeter c1 blue");
     CHECK(at(58, 40) == 0, "radgrad exterior untouched");
+
+    /* TrueType vector font */
+    g16_vfont_t vf;
+    memset(&vf, 0, sizeof(vf));
+    size_t def_len = 0;
+    const uint8_t *def_data = g16_vfont_default_data(&def_len);
+    CHECK(def_data != NULL && def_len > 0, "vfont default data available");
+    CHECK(g16_vfont_init(&vf, def_data, def_len, 0, 16.0f) == 0, "vfont init default font");
+    CHECK(vf.ascent > 0 && vf.line_height > 0, "vfont metrics computed");
+
+    int vw = 0, vh = 0;
+    g16_vmeasure(&vf, "Hello", &vw, &vh);
+    CHECK(vw > 0 && vh > 0, "vmeasure non-empty text");
+
+    g16_cls(&g, 0);
+    int next_x = g16_vprint(&g, &vf, "A", 10, 10, 0xFFFF);
+    CHECK(next_x > 10, "vprint advances x");
+    int lit_pixels = 0;
+    for (int y = 0; y < H; y++) {
+        for (int x = 0; x < W; x++) {
+            if (at(x, y) != 0) lit_pixels++;
+        }
+    }
+    CHECK(lit_pixels > 0, "vprint rasterized glyph to framebuffer");
+
+    g16_vfont_size(&vf, 24.0f);
+    CHECK(vf.size == 24.0f, "vfont_size updated size");
+    int vw2 = 0, vh2 = 0;
+    g16_vmeasure(&vf, "Hello", &vw2, &vh2);
+    CHECK(vw2 > vw && vh2 > vh, "vfont_size scaled text dimensions");
+
+    g16_vfont_free(&vf);
 
     CHECK(g16_rgb(255, 0, 0) == 0xF800 && g16_rgb(0, 255, 0) == 0x07E0 && g16_rgb(0, 0, 255) == 0x001F, "rgb565");
     CHECK(g16_to_rgb24(0xF800) == 0xFF0000 && g16_to_rgb24(0xFFFF) == 0xFFFFFF, "rgb565 -> rgb24");

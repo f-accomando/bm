@@ -1765,6 +1765,8 @@ TIMED(t_stack, OP_STACK, l_stack)
 TIMED(t_stackv, OP_STACK, l_stackv)
 TIMED(t_zstack, OP_STACK, l_zstack)
 TIMED(t_print, OP_TEXT, l_print)
+TIMED(t_vprint, OP_TEXT, l_vprint)
+TIMED(t_vmeasure, OP_TEXT, l_vmeasure)
 TIMED(t_rect, OP_SHAPE, l_rect)
 TIMED(t_rectfill, OP_SHAPE, l_rectfill)
 TIMED(t_line, OP_SHAPE, l_line)
@@ -1808,7 +1810,8 @@ static const luaL_Reg api[] = {
     { "fget", l_fget }, { "fset", l_fset }, { "mflags", l_mflags }, { "msize", l_msize },
     { "mlayers", l_mlayers }, { "zone", l_zone }, { "zones", l_zones }, { "zspr", l_zspr },
     { "zboxes", l_zboxes },
-    { "sget", l_sget }, { "sset", l_sset }, { "print", t_print }, { "font", l_font }, { "camera", l_camera },
+    { "sget", l_sget }, { "sset", l_sset }, { "print", t_print }, { "font", l_font },
+    { "vfont", l_vfont }, { "vprint", t_vprint }, { "vmeasure", t_vmeasure }, { "camera", l_camera },
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
@@ -2866,6 +2869,10 @@ static void release(lua_State *L)
     rt.zclear_seen = 0;
     g16_fade_free(&rt.fade);
     g16_path_free(&rt.path);
+    if (rt.vfont_loaded) {
+        g16_vfont_free(&rt.vfont);
+        rt.vfont_loaded = 0;
+    }
     if (rt.pfx) {
         r3d_pfx_free(rt.pfx);
         rt.pfx = NULL;

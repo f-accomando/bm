@@ -319,6 +319,25 @@ local function draw_checks()
   rectfill(20, 20, 10, 10, WHITE)
   conv3(15, 15, 20, 20, {-1, -1, -1, -1, 8, -1, -1, -1, -1}, 1, 0)
   check(pget(25, 25) == 0 and pget(20, 20) ~= 0, "conv3: edge filter applied")
+  -- Vector 2D step 4 part 2: TrueType vector fonts (vfont, vprint, vmeasure)
+  local asc, desc, gap, sz = vfont()
+  check(asc > 0 and sz == 16, "vfont(): default font metrics loaded")
+  local vw, vh = vmeasure("Vector Font")
+  check(vw > 0 and vh > 0, "vmeasure: non-zero text dimensions")
+  cls(0)
+  local nx = vprint("V", 30, 30, YELLOW)
+  check(nx > 30, "vprint: advances x position")
+  local lit = 0
+  for py = 25, 45 do
+    for px = 25, 45 do
+      if pget(px, py) ~= 0 then lit = lit + 1 end
+    end
+  end
+  check(lit > 0, "vprint: antialiased glyph drawn to screen")
+  vfont(24)
+  local vw2, vh2 = vmeasure("Vector Font")
+  check(vw2 > vw and vh2 > vh, "vfont(size): scaled measurements")
+  vfont(16)
   -- 3D particles: the pool, the step (life -1, gravity on vy), the draw and lib.particles3d
   check(particles(100) == 112 and particles_count() == 0 and particles_draw() == 0, "particles(n): capacity 112, empty")
   check(particles_add(0, 0, 0, 0, 0, 0, 2.5) == 0 and particles_count() == 1, "particles_add: slot 0, one live")

@@ -41,7 +41,7 @@ export ZERO2
 CLEAN_KERNEL ?= 0
 CLEAN_DEFS := $(if $(filter 1,$(CLEAN_KERNEL)),-DBM_CLEAN_KERNEL)
 K7      := $(if $(filter 1,$(ZERO2)),$(BUILD)/kernel7.img)
-COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
+COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc -Ithird_party \
           -ffunction-sections -fdata-sections \
           -DUART_BAUD=$(BAUD) $(CLEAN_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
@@ -703,7 +703,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
@@ -715,7 +715,7 @@ BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SR
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -std=c11 -O2 -g -w -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -c -o $@ $<
+	$(HOSTCC) -std=c11 -O2 -g -w -Itests/host/shim -Isrc -Isrc/bm -Ithird_party -Ithird_party/lua -c -o $@ $<
 $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kernel/*.h src/usb/hid.h)
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
@@ -1032,9 +1032,9 @@ test-zero2: export ZERO2 = 1
 test-zero2: all $(BUILD)/kernel7.img test-hyp $(QEMU_DEPS)
 	$(QEMU_TESTS) --kernel7
 
-$(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
+$(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/vfont.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c -lm
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party -o $@ tests/bm/test_bm.c src/bm/gfx16.c src/bm/vfont.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c -lm
 
 test-fat: $(BUILD)/host/test_fat
 	$(PYTHON) tests/fs/run.py $<
