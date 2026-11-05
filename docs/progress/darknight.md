@@ -64,6 +64,8 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Open work
 
+- The new `darknight.bm` (camera behind the shoulders, back steps backwards, the camera under the wall tops) is not on the console's SD card yet: the bridge `send` of `darknigh.bm` stopped at 29% (the console stopped answering, 5 Nov 2026). The menu runs the old file. Send it again with the console free (a named copy in 8.3), or copy it to `bm/` by hand; the console showed the old game at 30 fps and no new camera.
+- Dark Night is above one 60 Hz frame at the heavy spots (11k faces): see `graphics-mali.md`, Open work.
 - Dark Night on the Mali (5 Nov 2026): walls, enemies, doors and the shadows are right and drawn by the GPU (bm3d 7.35). The ARM time a frame is not measured after the change. The faces `R3D_SCREEN` of a model still hand the 3D to the ARM.
 - It starts on the RGB30 (2 Nov 2026: a shadow crash after the GPU fell back to the ARM is fixed). Not run on a Pi. The cost of a frame on the consoles is not measured: run it with the dev kit on (Performance row) and read the session report.
 - The enemies have no tactics: they do not dodge, wait for a gap or keep apart in a group. The pickups of the reference map are not in the kit.

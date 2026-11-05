@@ -27,7 +27,7 @@
  * (shadow3d(0); shadow3d(1) is the screen-door of 7.6) 7.7. 0.1 and 1.0 no longer run: the 3D Bench shows the
  * numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "7.35"
+#define BM3D_VERSION "7.36"
 #define BM3D_BLOCK   "vs"
 
 typedef struct {
@@ -94,6 +94,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "7.16", "Mali", "2026-10-27", "gpu2d_only (hidden, off): a game with no 3D has its 2D drawn by the V3D; the job opens with the first quad; dark_begin starts it" },
         { "7.17", "Mali", "2026-10-28", "Opaque textures on the Mali (BM_FS_TEX, mali_tex=1); 3D Bench pixel check (K lines)" },
         { "7.18", "Mali", "2026-10-28", "Hardware depth test on the Mali (mali_z=1): no far-to-near sort, one frame holds all the triangles" },
+        { "7.36", "Mali", "2026-11-05", "Mali: a face of a cached rigid mesh wholly outside the screen is not sent (the GPU vertex work, the copy and the wait fall; Dark Night: frames within 16.7 ms 2% -> 50% of the samples); the log line mali: 60 jobs gives the ARM time of the backend" },
         { "7.35", "Mali", "2026-11-05", "Mali: the shadows on the GPU (the screen-door of shadow3d(1) with BM_FS_SCR, the blend of style 0 as target * 5/8), the faces that cross the near plane cut and cached, the shadows drawn last (Dark Night no longer hands the 3D to the ARM)" },
         { "7.34", "Mali", "2026-11-05", "Mali: exact depth (depth source fixed function; before, the last draw always won), textured meshes first, a flat per-triangle face keeps its 1/depth, skinned faces across a joint use the bone of each corner (the Dark Night enemies are cached meshes), BM_VS_TEXX (lamps, rim light and cel levels on textured meshes), unlit meshes in the cache, mali_alpha on by default" },
         { "7.33", "vs", "2026-10-31", "V3D: plain colour faces of a skin on two bones in the vertex shader (vs_lit2): a continuous skin stays on the GPU" },

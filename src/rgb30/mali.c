@@ -2507,18 +2507,20 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     {                                               /* how many jobs the depth test could draw whole, and how many fell back to the sort */
         static unsigned zjobs[3];
         zjobs[be_zmode() ? (zfr ? 1 : 2) : 0]++;
-        if ((zjobs[0] + zjobs[1] + zjobs[2]) % 300 == 0) {
-            kprintf("mali: 300 jobs: depth test off %u, depth test %u, sort instead %u (draws %d, triangles %d)\n", zjobs[0], zjobs[1], zjobs[2], max_draws, n);
-            const uint64_t fq = cnt_freq() ? cnt_freq() : 24000000u;      /* the ARM's time in the backend, us a job over the last 300 */
-            kprintf("mali: ARM us a job: mesh %u (sort %u), flush %u (build %u, resolve %u, jobs %u)\n", (unsigned)(t_mesh * 1000000u / 300u / fq),
-                    (unsigned)(t_sort * 1000000u / 300u / fq), (unsigned)(t_flush * 1000000u / 300u / fq), (unsigned)(t_build * 1000000u / 300u / fq),
-                    (unsigned)(t_resolve * 1000000u / 300u / fq), (unsigned)(t_jobs * 1000000u / 300u / fq));
+        static uint64_t acc_n, acc_vis;                 /* the faces of a job: one at a time (the ARM lights them) and of the cached meshes (visible) */
+        acc_n += (uint64_t)n;
+        for (int ii = 0; ii < ninst; ii++)
+            acc_vis += be_insts[ii].nvis;
+        if ((zjobs[0] + zjobs[1] + zjobs[2]) % 60 == 0) {
+            const uint64_t fq = cnt_freq() ? cnt_freq() : 24000000u;      /* the ARM's time in the backend, us a job over the last 60 */
             static uint64_t last_wall;
             const uint64_t now_w = cnt_now();
-            if (last_wall)
-                kprintf("mali: wall %u us a job (%u fps of the 3D)\n", (unsigned)((now_w - last_wall) * 1000000u / 300u / fq),
-                        (unsigned)(300u * fq / (now_w - last_wall)));
+            kprintf("mali: 60 jobs: %u faces one at a time + %u of cached meshes a job; ARM us: mesh %u (sort %u), flush %u (build %u, resolve %u, jobs %u); wall %u us; draws %d, depth test %u, sort %u\n",
+                    (unsigned)(acc_n / 60u), (unsigned)(acc_vis / 60u), (unsigned)(t_mesh * 1000000u / 60u / fq), (unsigned)(t_sort * 1000000u / 60u / fq),
+                    (unsigned)(t_flush * 1000000u / 60u / fq), (unsigned)(t_build * 1000000u / 60u / fq), (unsigned)(t_resolve * 1000000u / 60u / fq),
+                    (unsigned)(t_jobs * 1000000u / 60u / fq), last_wall ? (unsigned)((now_w - last_wall) * 1000000u / 60u / fq) : 0u, max_draws, zjobs[1], zjobs[2]);
             last_wall = now_w;
+            acc_n = acc_vis = 0;
             t_mesh = t_flush = t_resolve = t_sort = t_build = t_jobs = 0;
         }
     }
@@ -3433,6 +3435,22 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                         nclip += (be_clip_used - clip0) / (3 * stride);
                         continue;
                     }
+                }
+                if (!skinned) {                 /* a face wholly outside the screen (to one side, all three corners) is not sent: the GPU's vertex work and the copy go with it */
+                    const float *T = mvp_bone[0], W = env->cx * 2.0f, H = env->cy * 2.0f, mg = 8.0f;
+                    int xl = 0, xh = 0, yl = 0, yh = 0;
+                    for (int k = 0; k < 3; k++) {
+                        const float *q = f + k * stride;
+                        const float w = T[12] * q[0] + T[13] * q[1] + T[14] * q[2] + T[15];
+                        const float x = T[0] * q[0] + T[1] * q[1] + T[2] * q[2] + T[3];
+                        const float y = T[4] * q[0] + T[5] * q[1] + T[6] * q[2] + T[7];
+                        xl += x < -mg * w;
+                        xh += x > (W + mg) * w;
+                        yl += y < -mg * w;
+                        yh += y > (H + mg) * w;
+                    }
+                    if (xl == 3 || xh == 3 || yl == 3 || yh == 3)
+                        continue;
                 }
                 be_vis[be_nvis++] = (uint16_t)j;
             }
