@@ -466,6 +466,26 @@ def main():
             check(pw is None and why and "empty" in why, "password: an empty file is refused")
             pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": os.path.join(pwdir, "none")}, ask)
             check(pw == "typed-pw" and where == "the prompt" and len(asked) == 1, "password: no file -> the prompt")
+            # each console makes its own password: --dev NAME reads ~/.pi_bridge.NAME.pw when it exists
+            real_home = os.environ.get("HOME")
+            os.environ["HOME"] = pwdir
+            try:
+                dev_file = os.path.join(pwdir, ".pi_bridge.zz.pw")
+                with open(dev_file, "w") as f:
+                    f.write("zz-pw\n")
+                os.chmod(dev_file, 0o600)
+                check(pi_bridge.password_path({}, "zz") == dev_file, "password: --dev NAME reads its own file")
+                check(pi_bridge.password_path({}, "yy") == os.path.join(pwdir, ".pi_bridge.pw"),
+                      "password: a device without a file falls back to ~/.pi_bridge.pw")
+                check(pi_bridge.password_path({"BM_PASSWORD_FILE": pwf}, "zz") == pwf,
+                      "password: BM_PASSWORD_FILE wins over the device file")
+                pw, where, why = pi_bridge.get_password("h", {}, ask, "zz")
+                check(pw == "zz-pw" and why is None, "password: get_password takes the device file")
+            finally:
+                if real_home is None:
+                    del os.environ["HOME"]
+                else:
+                    os.environ["HOME"] = real_home
         finally:
             shutil.rmtree(pwdir, ignore_errors=True)
 

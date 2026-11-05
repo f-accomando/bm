@@ -3,6 +3,7 @@
 #include "b3dpi.h"
 #include "config.h"
 #include "crumbs.h"
+#include "defbench.h"
 #include "input.h"
 #include "monitor.h"
 #include "pager.h"
@@ -147,6 +148,8 @@ static tool_t tools[] = {
     /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen */
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
       { 0 }, NULL, 1 },
+    { "Deflate Bench", "png_inflate speed on real cartridge data, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A,
+      defbench_run, 1, { 0 }, "deflate", 1 },
 };
 
 #define NTOOLS ((int)(sizeof tools / sizeof tools[0]))

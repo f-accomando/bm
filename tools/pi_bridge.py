@@ -185,6 +185,9 @@ def run(host, pw, req, board="pi"):
         with open(out_file, "w", encoding="utf-8") as f:    # what is kept on the PC is masked too
             f.write(body)
         text += chr(10) + body
+    if "wrong password" in text:
+        text += chr(10) + "(each console makes its own password: put this one, one line, mode 0600, in %s)" % password_path(
+            os.environ, DEV)
     return text.replace(pw, "***")
 
 
@@ -227,12 +230,25 @@ def detach():
     os.dup2(log, 2)
 
 
-def get_password(host, environ=os.environ, ask=getpass.getpass):
-    """(password, where it came from, None) or (None, None, why): BM_PASSWORD, then the file BM_PASSWORD_FILE or
-    ~/.pi_bridge.pw (the owner writes it, mode 0600, one line), then the prompt. The value is never shown."""
+def password_path(environ=os.environ, dev=""):
+    """The password file: BM_PASSWORD_FILE, else ~/.pi_bridge.DEV.pw of this device (each console makes its own
+    password), else ~/.pi_bridge.pw"""
+    if environ.get("BM_PASSWORD_FILE"):
+        return os.path.expanduser(environ["BM_PASSWORD_FILE"])
+    if dev:
+        own = os.path.expanduser("~/.pi_bridge.%s.pw" % dev)
+        if os.path.isfile(own):
+            return own
+    return os.path.expanduser("~/.pi_bridge.pw")
+
+
+def get_password(host, environ=os.environ, ask=getpass.getpass, dev=""):
+    """(password, where it came from, None) or (None, None, why): BM_PASSWORD, then the file BM_PASSWORD_FILE, or
+    ~/.pi_bridge.DEV.pw of the device, or ~/.pi_bridge.pw (the owner writes it, mode 0600, one line), then the
+    prompt. The value is never shown."""
     if environ.get("BM_PASSWORD"):
         return environ["BM_PASSWORD"], "BM_PASSWORD", None
-    path = os.path.expanduser(environ.get("BM_PASSWORD_FILE") or "~/.pi_bridge.pw")
+    path = password_path(environ, dev)
     try:
         fd = os.open(path, os.O_RDONLY)
     except OSError:
@@ -273,7 +289,7 @@ def main():
     names = [a for a in args if not a.startswith("--")]
     host = names[0] if names else "192.168.1.108"
     s = claim_socket(SOCK)
-    pw, where, why = get_password(host)
+    pw, where, why = get_password(host, dev=DEV)
     if why:
         print(why)
         s.close()
