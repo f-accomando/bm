@@ -3191,7 +3191,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     const float zmul = env->front ? 0.1f : 1.0f;
     const int zmode = be_zmode();
     /* Q2: the vertex shader lights the faces when the light is the sun and the ambient light of a rigid mesh */
-    int vlit = be_lit_on && be_arena() && env->lit && N;
+    int vlit = be_lit_on && be_arena() && ((env->lit && N) || env->unlit);   /* an unlit mesh: every face emissive (be_rm_get), the light block is not read */
     int vx = env->cel > 0 || env->nlamps > 0 || env->fog_k > 0.0f || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f;
     if (vlit && (env->S[0] > 0.0f || env->S[1] > 0.0f || env->S[2] > 0.0f))
         for (int t = 0; t < m->nfaces && !vx; t++)
@@ -3199,7 +3199,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                 vx = 1;
     float mvp_local[32][16];
     float cam_s2[32], cam_at[32][3], cz_bone[32];
-    v3_t l_sun[32], l_up[32], l_view[32], l_half[32];
+    v3_t l_sun[32] = { { 0 } }, l_up[32] = { { 0 } }, l_view[32] = { { 0 } }, l_half[32] = { { 0 } };
     const float *mvp_bone[32];
     for (int b = 0; b < nb; b++) {
         const float *Mb = M[b];
