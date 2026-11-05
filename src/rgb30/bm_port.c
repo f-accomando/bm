@@ -44,6 +44,9 @@ int gpu3d_init(void)
     for (const char *q = kdg; q && *q >= '0' && *q <= '9'; q++)
         diag = diag * 10 + (*q - '0');
     mali_backend_set_diag(diag);
+    extern int md_prim_barrier;
+    const char *kbar = config_get("mali_barrier");
+    md_prim_barrier = kbar && !strcmp(kbar, "1");
     const char *ksp = config_get("mali_split");
     mali_backend_set_split(ksp && !strcmp(ksp, "1"));
     const char *kx = config_get("mali_alpha");

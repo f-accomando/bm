@@ -965,7 +965,7 @@ static void build_draws(void *p)
             md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
             md_attribute_buffer(loc + D_VBUFS + 32, 0, 0, 0);
             md_uniform_buffer(loc + D_VUBO, c->litp_pa + draws[d].uoff, ubo_entries);
-            md_draw_t lvd = { .state = pa + sb + (litx == 2 ? SO_VRSDB : litx ? SO_VRSDX : tm ? SO_VRSDM : SO_VRSDL), .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
+            md_draw_t lvd = { .state = pa + sb + (litx == 2 ? SO_VRSDB : litx ? (tm ? SO_VRSDTX : SO_VRSDX) : tm ? SO_VRSDM : SO_VRSDL), .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
                               .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR,
                               .uniform_buffers = dpa + D_VUBO, .push_uniforms = c->litp_pa + draws[d].uoff,
                               .thread_storage = pa + sb + SO_LS };
@@ -1141,7 +1141,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         any_lit = draws[d].litv != NULL && tv_m != NULL;
     int any_litx = 0;
     for (uint32_t d = 0; d < ndraws && !any_litx; d++)
-        any_litx = draws[d].litv != NULL && draws[d].litx && tv_m != NULL;
+        any_litx = draws[d].litv != NULL && draws[d].litx && !draws[d].tex_pa && tv_m != NULL;
     int any_d2r = 0, any_d2s = 0;
     for (uint32_t d = 0; d < ndraws; d++) {
         any_d2r |= draws[d].d2 == 1 && tv_m != NULL;
@@ -1156,11 +1156,15 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     int any_litb = 0;
     for (uint32_t d = 0; d < ndraws && !any_litb; d++)
         any_litb = draws[d].litv != NULL && draws[d].litx == 2 && tv_m != NULL;
-    int any_tm = 0;
-    for (uint32_t d = 0; d < ndraws && !any_tm; d++)
-        any_tm = draws[d].litv != NULL && draws[d].tex_pa && tv_m != NULL;
+    int any_tm = 0, any_tx = 0;
+    for (uint32_t d = 0; d < ndraws; d++) {
+        any_tm |= draws[d].litv != NULL && draws[d].tex_pa && !draws[d].litx && tv_m != NULL;
+        any_tx |= draws[d].litv != NULL && draws[d].tex_pa && draws[d].litx == 1 && tv_m != NULL;
+    }
     if (any_tm)
         memcpy(m + sb + SO_VS_TEXM, BM_VS_TEXM_bin, sizeof BM_VS_TEXM_bin);
+    if (any_tx)
+        memcpy(m + sb + SO_VS_TEXX, BM_VS_TEXX_bin, sizeof BM_VS_TEXX_bin);
     if (any_litx)
         memcpy(m + sb + SO_VS_LITX, BM_VS_LITX_bin, sizeof BM_VS_LITX_bin);
     if (any_litb)
@@ -1221,6 +1225,11 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                  .work_regs = BM_VS_TEXM_WORK_REGS, .preload_regs = BM_VS_TEXM_PRELOAD,
                                  .push_count = BM_VS_TEXM_PUSH_COUNT };
     md_renderer_state(hdr + SO_VRSDM, &vrsm);
+    md_renderer_state_t vrstx = { .shader = pa + sb + SO_VS_TEXX, .attribute_count = BM_VS_TEXX_ATTRIBUTE_COUNT,
+                                  .varying_count = BM_VS_TEXX_VARYING_COUNT, .ubo_count = BM_VS_TEXX_UBO_COUNT,
+                                  .work_regs = BM_VS_TEXX_WORK_REGS, .preload_regs = BM_VS_TEXX_PRELOAD,
+                                  .push_count = BM_VS_TEXX_PUSH_COUNT };
+    md_renderer_state(hdr + SO_VRSDTX, &vrstx);
     md_renderer_state_t vrslb = { .shader = pa + sb + SO_VS_LITB, .attribute_count = BM_VS_LITB_ATTRIBUTE_COUNT,
                                   .varying_count = BM_VS_LITB_VARYING_COUNT, .ubo_count = BM_VS_LITB_UBO_COUNT,
                                   .work_regs = BM_VS_LITB_WORK_REGS, .preload_regs = BM_VS_LITB_PRELOAD,
@@ -2570,7 +2579,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         for (int ii = 1; ii < ninst; ii++) {
             const be_inst_t t = be_insts[ii];
             int jj = ii;
-            while (jj > 0 && ((be_insts[jj - 1].kind == 3) != (t.kind == 3) ? t.kind == 3 : be_insts[jj - 1].mvp[15] < t.mvp[15])) {
+            while (jj > 0 && ((be_insts[jj - 1].kind >= 3) != (t.kind >= 3) ? t.kind >= 3 : be_insts[jj - 1].mvp[15] < t.mvp[15])) {
                 be_insts[jj] = be_insts[jj - 1];
                 jj--;
             }
@@ -2592,7 +2601,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             dr[nd].tex_pa = q->tex_pa;
             dr[nd].litv = (const float (*)[12])litbuf[0];   /* (not read: marks a lit draw) */
             dr[nd].light = q->light;
-            dr[nd].litx = q->kind == 3 ? 0 : q->kind;
+            dr[nd].litx = q->kind == 3 ? 0 : q->kind == 4 ? 1 : q->kind;     /* kind 4: BM_VS_TEXX reads the uniforms of BM_VS_LITX */
             dr[nd].nbones = q->nb;
             dr[nd].d2 = 0;
             dr[nd].ntex = 0;
@@ -3082,7 +3091,7 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
             r->unlit == unlit && r->colsum == cs && r->smooth == smooth && r->tex == (sl ? (const void *)m->tex : NULL) && (!sl || (r->iw == sl->iw && r->ih == sl->ih)))
             return r;
     }
-    const unsigned stride = (kind == 1 || kind == 2) ? 16 : 12;
+    const unsigned stride = (kind == 1 || kind == 2 || kind == 4) ? 16 : 12;
     uint32_t shown = 0;
     for (int t = 0; t < m->nfaces; t++)
         shown += BE_SHOWS(m->colors[t], env->detail) ? 1 : 0;
@@ -3122,6 +3131,10 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
             if (kind == 1 || kind == 2) {
                 q[12] = cx; q[13] = cy; q[14] = cz;
                 q[15] = skinned ? (float)m->vbone[fc[0]] : 0.0f;
+            } else if (kind == 4) {             /* the point the lamps light: the corner of a smooth face, else the centre (as r3d) */
+                const int vc = smooth && !(c & R3D_FLAT);
+                q[12] = vc ? v[k].x : cx; q[13] = vc ? v[k].y : cy; q[14] = vc ? v[k].z : cz;
+                q[15] = 0.0f;
             }
         }
         o += 3 * stride;
@@ -3172,12 +3185,12 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                 return 0;
         }
     }
-    /* a textured mesh: the cache and the vertex shader light it as r3d does a textured face (the grey of the sun and sky light, no fog),
-     * so the faces all have the texture and the light is the sun and sky alone */
+    /* a textured mesh: the cache and the vertex shader light it as r3d does a textured face (the grey of the sun, sky, rim and lamp
+     * light, cel levels, no gloss and no fog), so the faces all have the texture */
     const be_texslot_t *tsl = NULL;
     if (ntexf) {
         if (nflatf || skinned || env->front || !m->uv || !m->tex || !be_res_on || !be_zmode() || !be_arena() ||
-            m->nfaces < 16 || (env->lit && (!N || env->cel > 0 || env->nlamps > 0 || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f)))
+            m->nfaces < 16 || (env->lit && !N))
             return 0;
         const int ts = be_tex_find(g, m->tex);
         if (ts < 0)
@@ -3285,10 +3298,12 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             memset(be_lights[(const float (*)[16])mvp_bone[0] - be_mvps], 0, 88 * sizeof(float));
     }
     if ((vlit || tsl) && be_res_on && zmode) {  /* the face cache: only the visible faces' numbers go on */
-        const int kind = tsl ? 3 : vx == 2 ? 2 : vx ? 1 : 0;
+        /* kind 4: a textured mesh with lamps, rim light or cel levels (BM_VS_TEXX) */
+        const int tx = tsl && env->lit && (env->cel > 0 || env->nlamps > 0 || env->R[0] > 0.0f || env->R[1] > 0.0f || env->R[2] > 0.0f);
+        const int kind = tsl ? (tx ? 4 : 3) : vx == 2 ? 2 : vx ? 1 : 0;
         const be_rm_t *rm = be_rm_get(m, env, kind, skinned, tsl);
         if (rm) {
-            const unsigned stride = (kind == 1 || kind == 2) ? 16 : 12;
+            const unsigned stride = (kind == 1 || kind == 2 || kind == 4) ? 16 : 12;
             const uint32_t vis0 = be_nvis;
             for (uint32_t j = 0; j < rm->nshown; j++) {
                 const float *f = rm->blk + (size_t)j * 3 * stride;

@@ -25,6 +25,7 @@
 #define SO_VRSDX        0x0ac0      /* the same with every effect (BM_VS_LITX) */
 #define SO_VRSDB        0x0400      /* the skinned meshes' vertex Renderer State (BM_VS_LITB) */
 #define SO_VRSDM        0x0c80      /* the textured meshes' vertex Renderer State (BM_VS_TEXM) */
+#define SO_VRSDTX       0x0cc0      /* the textured meshes with lamps, rim light or cel levels (BM_VS_TEXX) */
 #define SO_LS           0x0b00      /* Local Storage */
 #define SO_VIEWPORT     0x0b40
 #define SO_ATTR         0x0bc0
@@ -39,6 +40,7 @@
 #define SO_VS_LITX      0x9200      /* BM_VS_LITX (0xad0 bytes) */
 #define SO_VS_LITB      0xa000      /* BM_VS_LITB (0xbb0 bytes) */
 #define SO_VS_TEXM      0xb800      /* BM_VS_TEXM (0x2a0 bytes); far from the other shaders: the GPU reads ahead of a shader and keeps zeros it saw before the copy (an 80 byte gap after BM_VS_LITB gave INSTR_INVALID_ENC) */
+#define SO_VS_TEXX      0xc400      /* BM_VS_TEXX (0x850 bytes): 0x960 bytes after BM_VS_TEXM, the code area ends at 0x10000 */
 #define SO_FS_SPR       0xb000      /* BM_FS_SPR (the 2D sprites) */
 #define SO_FS_TEXA      0xb400      /* BM_FS_TEXA (0xf0 bytes): BM_FS_TEX that kills the texels with alpha 0 */
 #define SO_HEAP         0x80000

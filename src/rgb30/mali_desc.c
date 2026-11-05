@@ -42,6 +42,8 @@ void md_primitive(uint8_t *p, const md_primitive_t *s)
     A(p, 4, s->indices);
 }
 
+int md_prim_barrier;                            /* mali_barrier=1 (test): the primitive barrier bit of every draw */
+
 void md_draw(uint8_t *p, const md_draw_t *s)
 {
     W(p, 0, 0, 1, 1);                           /* four components per vertex */
@@ -49,6 +51,8 @@ void md_draw(uint8_t *p, const md_draw_t *s)
     W(p, 0, 5, 1, (uint32_t)(s->front_ccw != 0));
     W(p, 0, 6, 1, (uint32_t)(s->cull_front != 0));
     W(p, 0, 7, 1, (uint32_t)(s->cull_back != 0));
+    if (md_prim_barrier)
+        W(p, 0, 10, 1, 1);                      /* primitive barrier */
     /* instance size and instance primitive size: 1, "padded" 1 is stored as 0 */
     A(p, 4, s->position);
     A(p, 6, s->uniform_buffers);
