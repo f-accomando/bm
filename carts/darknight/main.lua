@@ -96,6 +96,7 @@ local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the
 local P = {}                          -- the player
 -- the camera: behind the Hunter's shoulders and a little above him, always turning to where he looks; it looks far ahead of him
 -- (ahead: the distance of the aimed point in front of him) from a low pitch, a shoulder's width to the right
+local CAM_MAX_H = 2.5                -- the camera's highest point over the floor (the walls are 3 high)
 local Cam = { yaw = PI / 2, pitch = -0.25, dist = 5.0, side = 0.4, ahead = 8, follow = 0.07, x = 0, y = 0, z = 0, shake = 0 }
 local O = { res = 2, textures = true, bright = 2, music = true, sfx = 8, perf = false } -- the options (sfx: the effects volume
                                                                                         -- 0-10; perf: the dev kit's overlay)
@@ -898,19 +899,20 @@ local function update_camera()
     return true, 1
   end
   local pitch, best = Cam.pitch, 1
-  for _, extra in ipairs({ 0, -0.12, -0.25 }) do
+  for _, extra in ipairs({ 0, -0.08 }) do          -- (a steeper look lifts the camera: over the wall tops the view is black)
     local ok, k = clear(Cam.pitch + extra, 1)
     pitch = Cam.pitch + extra
     if ok then best = 1; break end
     best = k
   end
   Cam.pe = lerp(Cam.pe or Cam.pitch, pitch, 0.1)
-  best = max(0.35, best)
+  best = max(0.12, best)
   local hd, vd = Cam.dist * cos(Cam.pe), Cam.dist * sin(-Cam.pe)
   local gx, gy, gz = tx - fxx * hd * best, ty + vd * best, tz - fzz * hd * best
   -- the ground: the camera never goes under the floor it stands over
   local fh = map_height(gx, gz)
   if fh and gy < fh + 0.5 then gy = fh + 0.5 end
+  gy = min(gy, (fh or P.y) + CAM_MAX_H)          -- under the wall tops: higher, the camera looks over the walls into the void
   Cam.x, Cam.y, Cam.z = lerp(Cam.x, gx, 0.25), lerp(Cam.y, gy, 0.25), lerp(Cam.z, gz, 0.25)
   -- a hit shakes the view
   Cam.shake = max(0, Cam.shake - dt * 0.6)
