@@ -1,0 +1,59 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-37bebd_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 1475 s after boot, kernel dev, ring 35221, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+a frame averages draw 7864 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 7831 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8020 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7934 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7847 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7884 us, enlarge 0 us, flip 91 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8012 us, enlarge 0 us, flip 91 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7924 us, enlarge 0 us, flip 91 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7836 us, enlarge 0 us, flip 91 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7933 us, enlarge 0 us, flip 90 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7987 us, enlarge 0 us, flip 91 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7902 us, enlarge 0 us, flip 90 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 7815 us, enlarge 0 us, flip 90 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 7967 us, enlarge 0 us, flip 91 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 7976 us, enlarge 0 us, flip 91 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 7888 us, enlarge 0 us, flip 90 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 7808 us, enlarge 0 us, flip 91 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8015 us, enlarge 0 us, flip 92 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 7959 us, enlarge 0 us, flip 92 us, free time used 35 us (300 frames)
+menu: menu size at the next start: 360p (GPU)
+menu idle: sd first word <1ms 55 <3ms 3 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9107 us, enlarge 0 us, flip 91 us, free time used 20 us (300 frames)
+menu: menu size at the next start: 720p (GPU)
+menu idle: sd first word <1ms 95 <3ms 4 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8907 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9010 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9207 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 55 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8846 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8817 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8968 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9190 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9105 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 60 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9077 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 110 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9080 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu: Applying kernel: restarting in 3 seconds
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
