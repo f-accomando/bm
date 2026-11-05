@@ -3130,7 +3130,7 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
             }
             if (kind == 1 || kind == 2) {
                 q[12] = cx; q[13] = cy; q[14] = cz;
-                q[15] = skinned ? (float)m->vbone[fc[0]] : 0.0f;
+                q[15] = skinned ? (float)m->vbone[fc[k]] : 0.0f;       /* each corner has its own bone: a face across a joint is drawn as the skin moves it */
             } else if (kind == 4) {             /* the point the lamps light: the corner of a smooth face, else the centre (as r3d) */
                 const int vc = smooth && !(c & R3D_FLAT);
                 q[12] = vc ? v[k].x : cx; q[13] = vc ? v[k].y : cy; q[14] = vc ? v[k].z : cz;
@@ -3170,7 +3170,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         if (skinned) {
             const uint16_t *fc = m->faces + t * 3;
             const uint8_t b0 = m->vbone[fc[0]];
-            if (b0 >= (unsigned)nb || m->vbone[fc[1]] != b0 || m->vbone[fc[2]] != b0)
+            if (b0 >= (unsigned)nb || m->vbone[fc[1]] >= (unsigned)nb || m->vbone[fc[2]] >= (unsigned)nb)
                 return 0;
         }
     }
