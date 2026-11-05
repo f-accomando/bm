@@ -11,7 +11,7 @@ State of 26 Oct 2026. The `.bm` runs on the Pi Zero W and on the RGB30. The head
 5. A long sound (above the PCM limit) needs a stream from the SD card.
 6. The new SDK `.bm` for both kernels (the user makes it). Until then the RGB30 SDK is built into its kernel and the Market has only the Pi SDK.
 7. Old files on an SD card stay readable: the kernels read a file of the older edition as made for the Pi and the RGB30. Review that loader at v1.0.0.
-8. Compressed sections in a `.bm`: decide. Measured on the Pi: inflate 12 MB/s, SD read 15.8 MB/s, so compression saves size and download time, not load time ([deflate-pi-2026-11](../bench/deflate-pi-2026-11.md)). Run again on the RGB30 (the bench tool is in commit bd3214bd).
+8. Compressed sections in a `.bm`: decide. Measured on the Pi: inflate 12 MB/s, SD read 15.8 MB/s, so compression saves size and download time, not load time ([deflate-pi-2026-11](../bench/deflate-pi-2026-11.md)). Design: [compressed-sections](../design/compressed-sections.md), roadmap SYS-28. Run the bench again on the RGB30 (the tool is in commit bd3214bd).
 
 ## Rules (do not break)
 
