@@ -296,6 +296,168 @@ int l_palt(lua_State *L)
     return 0;
 }
 
+#define TARGET_MT "bm.target"
+
+typedef struct {
+    g16_target_t target;
+} ltarget_t;
+
+static int l_target_gc(lua_State *L)
+{
+    ltarget_t *lt = (ltarget_t *)luaL_checkudata(L, 1, TARGET_MT);
+    if (lt) {
+        if (rt.cur_target == lt) {
+            if (rt.has_saved_screen) {
+                rt.g.px = rt.screen_g.px;
+                rt.g.stride = rt.screen_g.stride;
+                rt.g.w = rt.screen_g.w;
+                rt.g.h = rt.screen_g.h;
+                rt.g.cx0 = rt.screen_g.cx0; rt.g.cy0 = rt.screen_g.cy0; rt.g.cx1 = rt.screen_g.cx1; rt.g.cy1 = rt.screen_g.cy1;
+                rt.g.cam_x = rt.screen_g.cam_x; rt.g.cam_y = rt.screen_g.cam_y;
+                rt.has_saved_screen = 0;
+            }
+            rt.cur_target = NULL;
+        }
+        g16_target_free(&lt->target);
+    }
+    return 0;
+}
+
+int l_target_free(lua_State *L)
+{
+    return l_target_gc(L);
+}
+
+int l_target_size(lua_State *L)
+{
+    ltarget_t *lt = (ltarget_t *)luaL_checkudata(L, 1, TARGET_MT);
+    if (!lt || !lt->target.px) return 0;
+    lua_pushinteger(L, lt->target.w);
+    lua_pushinteger(L, lt->target.h);
+    return 2;
+}
+
+int l_target_clear(lua_State *L)
+{
+    ltarget_t *lt = (ltarget_t *)luaL_checkudata(L, 1, TARGET_MT);
+    if (!lt || !lt->target.px) return 0;
+    uint16_t c = 0;
+    if (lua_gettop(L) >= 2)
+        c = (uint16_t)col(L, 2, 0);
+    g16_target_clear(&lt->target, c);
+    return 0;
+}
+
+int l_target_create(lua_State *L)
+{
+    int w = (int)luaL_checkinteger(L, 1);
+    int h = (int)luaL_checkinteger(L, 2);
+    int with_alpha = lua_toboolean(L, 3);
+    if (w <= 0 || h <= 0)
+        return luaL_error(L, "invalid target size %dx%d", w, h);
+    ltarget_t *lt = (ltarget_t *)lua_newuserdatauv(L, sizeof *lt, 0);
+    memset(lt, 0, sizeof *lt);
+    if (g16_target_alloc(&lt->target, w, h, with_alpha) != 0)
+        return luaL_error(L, "not enough memory for target %dx%d", w, h);
+    luaL_getmetatable(L, TARGET_MT);
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+int l_target(lua_State *L)
+{
+    int top = lua_gettop(L);
+    if (top >= 2 && lua_type(L, 1) == LUA_TNUMBER && lua_type(L, 2) == LUA_TNUMBER) {
+        return l_target_create(L);
+    }
+    if (top == 0 || lua_isnil(L, 1) || (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "screen"))) {
+        if (rt.has_saved_screen) {
+            rt.g.px = rt.screen_g.px;
+            rt.g.stride = rt.screen_g.stride;
+            rt.g.w = rt.screen_g.w;
+            rt.g.h = rt.screen_g.h;
+            rt.g.cx0 = rt.screen_g.cx0; rt.g.cy0 = rt.screen_g.cy0; rt.g.cx1 = rt.screen_g.cx1; rt.g.cy1 = rt.screen_g.cy1;
+            rt.g.cam_x = rt.screen_g.cam_x; rt.g.cam_y = rt.screen_g.cam_y;
+            rt.has_saved_screen = 0;
+        }
+        rt.cur_target = NULL;
+        return 0;
+    }
+    if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "sheet")) {
+        if (!rt.has_saved_screen) {
+            rt.screen_g = rt.g;
+            rt.has_saved_screen = 1;
+        }
+        rt.cur_target = &rt.sheet;
+        rt.g.px = rt.sheet.px;
+        rt.g.stride = (uint32_t)rt.sheet.w;
+        rt.g.w = rt.sheet.w;
+        rt.g.h = rt.sheet.h;
+        g16_clip(&rt.g, 0, 0, 0, 0);
+        rt.g.cam_x = rt.g.cam_y = 0;
+        return 0;
+    }
+    if (lua_isuserdata(L, 1)) {
+        ltarget_t *lt = (ltarget_t *)luaL_checkudata(L, 1, TARGET_MT);
+        if (!lt || !lt->target.px)
+            return luaL_error(L, "target is freed");
+        if (!rt.has_saved_screen) {
+            rt.screen_g = rt.g;
+            rt.has_saved_screen = 1;
+        }
+        rt.cur_target = lt;
+        rt.g.px = lt->target.px;
+        rt.g.stride = (uint32_t)lt->target.w;
+        rt.g.w = lt->target.w;
+        rt.g.h = lt->target.h;
+        g16_clip(&rt.g, 0, 0, 0, 0);
+        rt.g.cam_x = rt.g.cam_y = 0;
+        return 0;
+    }
+    return luaL_error(L, "invalid argument to target([t])");
+}
+
+int l_target_blit(lua_State *L)
+{
+    ltarget_t *lt = (ltarget_t *)luaL_checkudata(L, 1, TARGET_MT);
+    if (!lt || !lt->target.px)
+        return luaL_error(L, "target is freed");
+    int dx = (int)luaL_checkinteger(L, 2);
+    int dy = (int)luaL_checkinteger(L, 3);
+    int dw = (int)luaL_optinteger(L, 4, lt->target.w);
+    int dh = (int)luaL_optinteger(L, 5, lt->target.h);
+    int sx = (int)luaL_optinteger(L, 6, 0);
+    int sy = (int)luaL_optinteger(L, 7, 0);
+    int sw = (int)luaL_optinteger(L, 8, lt->target.w);
+    int sh = (int)luaL_optinteger(L, 9, lt->target.h);
+    int flip_x = lua_toboolean(L, 10);
+    int flip_y = lua_toboolean(L, 11);
+
+    g16_target_blit(&rt.g, &lt->target, dx, dy, dw, dh, sx, sy, sw, sh, flip_x, flip_y);
+    return 0;
+}
+
+void target_type_init(lua_State *L)
+{
+    if (luaL_newmetatable(L, TARGET_MT)) {
+        lua_pushcfunction(L, l_target_gc);
+        lua_setfield(L, -2, "__gc");
+        lua_newtable(L);
+        lua_pushcfunction(L, l_target_blit);
+        lua_setfield(L, -2, "draw");
+        lua_pushcfunction(L, l_target_blit);
+        lua_setfield(L, -2, "blit");
+        lua_pushcfunction(L, l_target_clear);
+        lua_setfield(L, -2, "clear");
+        lua_pushcfunction(L, l_target_size);
+        lua_setfield(L, -2, "size");
+        lua_pushcfunction(L, l_target_free);
+        lua_setfield(L, -2, "free");
+        lua_setfield(L, -2, "__index");
+    }
+    lua_pop(L, 1);
+}
+
 int l_rgb(lua_State *L)
 {
     lua_Integer r = luaL_checkinteger(L, 1) & 255, g = luaL_checkinteger(L, 2) & 255, b = luaL_checkinteger(L, 3) & 255;

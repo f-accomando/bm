@@ -45,6 +45,12 @@ Part of the game API. Index and basics: [API.md](../API.md).
 | `clip([x, y, w, h])` | limits drawing to the rectangle; without arguments the whole screen |
 | `blend([mode, [alpha]])` | sets the active 2D blend mode (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255` or `0.0..1.0`); without arguments returns `mode, alpha` |
 | `palt([c, [transparent]])` | sets transparency for color `c` (`true`/`false`), or sets 16-color mask `palt(mask)`; without arguments resets to default (color 0 transparent) |
+| `target([t_or_w, [h]])` | redirects drawing to render target `t` (or creates `w`×`h` target); without arguments or `nil` restores drawing to screen; `"sheet"` targets sprite sheet |
+| `target_create(w, h)` | creates an off-screen render target of size `w`×`h` (allocated dynamically, zero cost until created) |
+| `target_blit(t, dx, dy, [dw, dh, sx, sy, sw, sh, fx, fy])` | draws render target `t` onto active target/screen with optional scaling (`dw, dh`), source crop, flipping, alpha and blend modes |
+| `target_clear(t, [c])` | fills render target `t` with color `c` (black if missing) |
+| `target_size(t)` | returns the width and height (`w, h`) of render target `t` |
+| `target_free(t)` | immediately releases pixel memory of render target `t` |
 
 ### Sprites and map
 

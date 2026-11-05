@@ -1,3 +1,5 @@
+#define _DEFAULT_SOURCE
+#define _ISOC11_SOURCE
 #include "gfx16.h"
 
 #include <math.h>
@@ -54,6 +56,147 @@ void g16_palt_reset(g16_t *g)
     if (!g) return;
     g->palt_mask = 0x0001;
     g->color_key = -1;
+}
+
+static inline void draw_pixel_with_alpha(g16_t *g, uint16_t *dst, uint16_t c, uint8_t a)
+{
+    if (!a) return;
+    if ((g->palt_mask != 0x0001) && (c < 16) && ((g->palt_mask >> c) & 1)) return;
+    if (g->color_key >= 0 && (int32_t)c == g->color_key) return;
+    uint8_t eff_a = (a == 1 || a == 255) ? g->global_alpha : (uint8_t)((a * (int)g->global_alpha + 128) >> 8);
+    if (!eff_a) return;
+    if (g->blend_mode == G16_BLEND_NORMAL && eff_a == 255)
+        *dst = c;
+    else
+        *dst = g16_blend_pixel(c, *dst, g->blend_mode, eff_a);
+}
+
+int g16_target_alloc(g16_target_t *t, int w, int h, int with_alpha)
+{
+    if (!t || w <= 0 || h <= 0 || w > 4096 || h > 4096)
+        return -1;
+    t->w = w;
+    t->h = h;
+    t->px = calloc((size_t)w * h, sizeof(uint16_t));
+    if (!t->px)
+        return -1;
+    if (with_alpha) {
+        t->alpha = calloc((size_t)w * h, sizeof(uint8_t));
+        if (!t->alpha) {
+            free(t->px);
+            t->px = NULL;
+            return -1;
+        }
+    } else {
+        t->alpha = NULL;
+    }
+    return 0;
+}
+
+void g16_target_free(g16_target_t *t)
+{
+    if (!t) return;
+    if (t->px) { free(t->px); t->px = NULL; }
+    if (t->alpha) { free(t->alpha); t->alpha = NULL; }
+    t->w = t->h = 0;
+}
+
+void g16_target_clear(g16_target_t *t, uint16_t c)
+{
+    if (!t || !t->px) return;
+    const size_t total = (size_t)t->w * t->h;
+    if (c == 0) {
+        memset(t->px, 0, total * sizeof(uint16_t));
+    } else {
+        for (size_t i = 0; i < total; i++)
+            t->px[i] = c;
+    }
+    if (t->alpha)
+        memset(t->alpha, c ? 255 : 0, total);
+}
+
+void g16_target_blit(g16_t *g, const g16_target_t *t, int dx, int dy,
+                     int dw, int dh, int sx, int sy, int sw, int sh,
+                     int flip_x, int flip_y)
+{
+    if (!g || !g->px || !t || !t->px) return;
+    if (sw <= 0) sw = t->w;
+    if (sh <= 0) sh = t->h;
+    if (dw <= 0) dw = sw;
+    if (dh <= 0) dh = sh;
+
+    if (sx < 0) { sw += sx; sx = 0; }
+    if (sy < 0) { sh += sy; sy = 0; }
+    if (sx + sw > t->w) sw = t->w - sx;
+    if (sy + sh > t->h) sh = t->h - sy;
+    if (sw <= 0 || sh <= 0) return;
+
+    dx -= g->cam_x;
+    dy -= g->cam_y;
+
+    int x0 = dx, y0 = dy, x1 = dx + dw, y1 = dy + dh;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x0 >= x1 || y0 >= y1) return;
+
+    const int fast_normal = (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255 && g->palt_mask == 0x0001 && g->color_key < 0);
+
+    if (dw == sw && dh == sh) {
+        for (int y = y0; y < y1; y++) {
+            int ly = y - dy;
+            int srow = sy + (flip_y ? (sh - 1 - ly) : ly);
+            uint16_t *dst_row = g->px + (uint32_t)y * g->stride;
+            const uint16_t *src_row = t->px + (size_t)srow * t->w;
+            const uint8_t *alpha_row = t->alpha ? (t->alpha + (size_t)srow * t->w) : NULL;
+
+            if (!flip_x) {
+                int col_start = sx + (x0 - dx);
+                if (fast_normal && !alpha_row && g->palt_mask == 0) {
+                    memcpy(dst_row + x0, src_row + col_start, (size_t)(x1 - x0) * 2);
+                } else {
+                    for (int x = x0; x < x1; x++) {
+                        int scol = col_start + (x - x0);
+                        uint16_t sc = src_row[scol];
+                        uint8_t sa = alpha_row ? alpha_row[scol] : 255;
+                        draw_pixel_with_alpha(g, &dst_row[x], sc, sa);
+                    }
+                }
+            } else {
+                int col_start = sx + sw - 1 - (x0 - dx);
+                for (int x = x0; x < x1; x++) {
+                    int scol = col_start - (x - x0);
+                    uint16_t sc = src_row[scol];
+                    uint8_t sa = alpha_row ? alpha_row[scol] : 255;
+                    draw_pixel_with_alpha(g, &dst_row[x], sc, sa);
+                }
+            }
+        }
+        return;
+    }
+
+    for (int y = y0; y < y1; y++) {
+        int ly = y - dy;
+        int srow_idx = (int)(((int64_t)ly * sh) / dh);
+        int srow = sy + (flip_y ? (sh - 1 - srow_idx) : srow_idx);
+        if (srow < 0 || srow >= t->h) continue;
+
+        uint16_t *dst_row = g->px + (uint32_t)y * g->stride;
+        const uint16_t *src_row = t->px + (size_t)srow * t->w;
+        const uint8_t *alpha_row = t->alpha ? (t->alpha + (size_t)srow * t->w) : NULL;
+
+        for (int x = x0; x < x1; x++) {
+            int lx = x - dx;
+            int scol_idx = (int)(((int64_t)lx * sw) / dw);
+            int scol = sx + (flip_x ? (sw - 1 - scol_idx) : scol_idx);
+            if (scol < 0 || scol >= t->w) continue;
+
+            uint16_t sc = src_row[scol];
+            uint8_t sa = alpha_row ? alpha_row[scol] : 255;
+            draw_pixel_with_alpha(g, &dst_row[x], sc, sa);
+        }
+    }
 }
 
 void g16_clip(g16_t *g, int x, int y, int w, int h)
@@ -416,19 +559,6 @@ void g16_ellipsefill(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c)
 }
 
 typedef uint32_t __attribute__((may_alias)) g16_w32;
-
-static inline void draw_pixel_with_alpha(g16_t *g, uint16_t *dst, uint16_t c, uint8_t a)
-{
-    if (!a) return;
-    if ((g->palt_mask != 0x0001) && (c < 16) && ((g->palt_mask >> c) & 1)) return;
-    if (g->color_key >= 0 && (int32_t)c == g->color_key) return;
-    uint8_t eff_a = (a == 1 || a == 255) ? g->global_alpha : (uint8_t)((a * (int)g->global_alpha + 128) >> 8);
-    if (!eff_a) return;
-    if (g->blend_mode == G16_BLEND_NORMAL && eff_a == 255)
-        *dst = c;
-    else
-        *dst = g16_blend_pixel(c, *dst, g->blend_mode, eff_a);
-}
 
 /* Core blit: sheet rectangle -> screen position (screen coords), clipped. */
 static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,

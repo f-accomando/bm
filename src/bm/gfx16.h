@@ -167,6 +167,20 @@ void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const fon
 void g16_clip(g16_t *g, int x, int y, int w, int h);    /* w or h <= 0: full screen */
 void g16_camera(g16_t *g, int x, int y);
 
+/* Off-screen render target surface (API-8) */
+typedef struct {
+    int w, h;
+    uint16_t *px;
+    uint8_t *alpha;
+} g16_target_t;
+
+int  g16_target_alloc(g16_target_t *t, int w, int h, int with_alpha);
+void g16_target_free(g16_target_t *t);
+void g16_target_clear(g16_target_t *t, uint16_t c);
+void g16_target_blit(g16_t *g, const g16_target_t *t, int dx, int dy,
+                     int dw, int dh, int sx, int sy, int sw, int sh,
+                     int flip_x, int flip_y);
+
 /* A w x h RGB565 picture (rows w apart) copied whole to (x, y), each pixel scale x scale (1..8), the camera
  * and the clip as for g16_rectfill. */
 void g16_blit565(g16_t *g, const uint16_t *src, int w, int h, int x, int y, int scale);

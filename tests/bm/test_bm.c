@@ -1866,6 +1866,36 @@ static void test_data(void)
     CHECK(bm_parse(cart, sizeof cart, &c, err, sizeof err) != 0, "data: the parser refuses it");
 }
 
+static void test_render_target(void)
+{
+    g16_target_t t;
+    CHECK(g16_target_alloc(&t, -1, 10, 0) != 0, "target: negative width refused");
+    CHECK(g16_target_alloc(&t, 64, 48, 0) == 0, "target: 64x48 alloc ok");
+    CHECK(t.w == 64 && t.h == 48 && t.px != NULL && t.alpha == NULL, "target: fields set");
+
+    g16_target_clear(&t, 0xF800);
+    CHECK(t.px[0] == 0xF800 && t.px[64 * 48 - 1] == 0xF800, "target: clear red");
+
+    g16_t tg;
+    g16_target(&tg, t.px, t.w, t.w, t.h, NULL);
+    g16_rectfill(&tg, 10, 10, 20, 20, 0x07E0);
+    CHECK(t.px[15 * 64 + 15] == 0x07E0, "target: rectfill green inside target");
+
+    uint16_t fb[128 * 128];
+    memset(fb, 0, sizeof fb);
+    g16_t screen;
+    g16_target(&screen, fb, 128, 128, 128, NULL);
+    g16_target_blit(&screen, &t, 10, 10, 64, 48, 0, 0, 64, 48, 0, 0);
+    CHECK(fb[(10 + 15) * 128 + (10 + 15)] == 0x07E0, "target: blit 1:1");
+
+    memset(fb, 0, sizeof fb);
+    g16_target_blit(&screen, &t, 0, 0, 128, 96, 0, 0, 64, 48, 0, 0);
+    CHECK(fb[30 * 128 + 30] == 0x07E0, "target: blit scaled 2x");
+
+    g16_target_free(&t);
+    CHECK(t.w == 0 && t.h == 0 && t.px == NULL, "target: free zeroed");
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -1887,6 +1917,7 @@ int main(int argc, char **argv)
     test_mesh();
     test_pixel();
     test_data();
+    test_render_target();
     if (argc > 2)
         test_anim_cart(argv[2]);
     if (argc > 3)

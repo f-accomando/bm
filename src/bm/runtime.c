@@ -590,6 +590,7 @@ int gpu2d(int op, const int32_t *v)
  * drawn first (sync3d). */
 int draw2d(int op, uint32_t words, int32_t **a)
 {
+    if (rt.cur_target != NULL) return 0;
     if (!d2.on && rt.early) {           /* 2D in the early _update: the next frame's */
         d2.on = 1;
         d2.font = NULL;
@@ -664,6 +665,10 @@ static int l_cls(lua_State *L)
 {
     const uint16_t c = col(L, 1, 0);
     int32_t *a;
+    if (rt.cur_target != NULL) {
+        g16_cls(&rt.g, c);
+        return 0;
+    }
     if (draw2d(D2_CLS, 1, &a)) {
         a[0] = c;
         return 0;
@@ -688,7 +693,7 @@ static void shape2d(lua_State *L, int op, int n)
     for (int i = 0; i < n - 1; i++)
         v[i] = ival(L, i + 1);
     v[n - 1] = col(L, n, 0xFFFFFF);
-    if (gpu2d(op, v))
+    if (!rt.cur_target && gpu2d(op, v))
         return;
     if (draw2d(op, (uint32_t)n, &a)) {
         memcpy(a, v, (size_t)n * sizeof *v);
@@ -1813,7 +1818,10 @@ static const luaL_Reg api[] = {
     { "sget", l_sget }, { "sset", l_sset }, { "print", t_print }, { "font", l_font },
     { "vfont", l_vfont }, { "vprint", t_vprint }, { "vmeasure", t_vmeasure }, { "camera", l_camera },
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
-    { "clip", l_clip }, { "blend", l_blend }, { "palt", l_palt }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
+    { "clip", l_clip }, { "blend", l_blend }, { "palt", l_palt },
+    { "target", l_target }, { "target_create", l_target_create }, { "target_blit", l_target_blit },
+    { "target_clear", l_target_clear }, { "target_free", l_target_free }, { "target_size", l_target_size },
+    { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
@@ -1954,6 +1962,7 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_pushcfunction(L, l_world_gc);
     lua_setfield(L, -2, "__gc");
     lua_pop(L, 1);
+    target_type_init(L);
     luaL_newmetatable(L, VIDEO_MT);
     lua_pushcfunction(L, l_clip_gc);
     lua_setfield(L, -2, "__gc");
@@ -2701,6 +2710,16 @@ static void shot_grab(void)
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
+    if (rt.has_saved_screen) {
+        rt.g.px = rt.screen_g.px;
+        rt.g.stride = rt.screen_g.stride;
+        rt.g.w = rt.screen_g.w;
+        rt.g.h = rt.screen_g.h;
+        rt.g.cx0 = rt.screen_g.cx0; rt.g.cy0 = rt.screen_g.cy0; rt.g.cx1 = rt.screen_g.cx1; rt.g.cy1 = rt.screen_g.cy1;
+        rt.g.cam_x = rt.screen_g.cam_x; rt.g.cam_y = rt.screen_g.cam_y;
+        rt.has_saved_screen = 0;
+        rt.cur_target = NULL;
+    }
     flush3d(0);
     cls_settle();
     if (rt.hold_frame) {
@@ -2885,6 +2904,16 @@ static void release(lua_State *L)
     rt.gwin_on = 0;
     if (rt.gwin.px)
         g16_sheet_free(&rt.gwin);
+    if (rt.has_saved_screen) {
+        rt.g.px = rt.screen_g.px;
+        rt.g.stride = rt.screen_g.stride;
+        rt.g.w = rt.screen_g.w;
+        rt.g.h = rt.screen_g.h;
+        rt.g.cx0 = rt.screen_g.cx0; rt.g.cy0 = rt.screen_g.cy0; rt.g.cx1 = rt.screen_g.cx1; rt.g.cy1 = rt.screen_g.cy1;
+        rt.g.cam_x = rt.screen_g.cam_x; rt.g.cam_y = rt.screen_g.cam_y;
+        rt.has_saved_screen = 0;
+    }
+    rt.cur_target = NULL;
     free_assets();
 }
 

@@ -58,6 +58,9 @@ enum { PERM_NET, PERM_REPORT, PERM_DOCS, PERM_COUNT };
 
 typedef struct {
     g16_t g;
+    g16_t screen_g;                 /* saved screen graphics state when target() is active */
+    int has_saved_screen;           /* 1 if screen_g is saved */
+    void *cur_target;               /* active target pointer (or &sheet or NULL for screen) */
     g16_sheet_t sheet;
     g16_map_t map;                  /* the map's layer 1 (map.cells == layer[0]) */
     uint16_t *layer[BM_LAYERS_MAX]; /* the cells of each layer, map.w x map.h (R11) */
@@ -555,6 +558,15 @@ int l_camera(lua_State *L);
 int l_clip(lua_State *L);
 int l_blend(lua_State *L);
 int l_palt(lua_State *L);
+
+/* render target (api_prompts.c) */
+int  l_target(lua_State *L);
+int  l_target_create(lua_State *L);
+int  l_target_blit(lua_State *L);
+int  l_target_clear(lua_State *L);
+int  l_target_free(lua_State *L);
+int  l_target_size(lua_State *L);
+void target_type_init(lua_State *L);
 int l_rgb(lua_State *L);
 int button_real(int i);
 void keymap_apply_controls(void);

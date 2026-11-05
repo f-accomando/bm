@@ -84,6 +84,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 - `radgrad(cx, cy, r, c0, c1)`: radial gradient circle using forward differences on $d^2 = dx^2 + dy^2$ ($(dx+1)^2 - dx^2 = 2dx + 1$) and 256-entry precomputed RGB565 LUT.
 - `vfont([data_or_path, size])`, `vprint(text, x, y, [c, size])`, `vmeasure(text, [size])`: TrueType engine via vendored `third_party/stb_truetype.h`; dynamic rasterization into 8-bit glyph alpha cache for ASCII 32..127 with kerning, fallback default vector font, and antialiased 8-bit alpha blending over RGB565.
 - Blend modes & global alpha (`blend`, `palt`, `API-9`): 2D blend modes (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255`) with fast-path bypass for standard opaque draws; palette transparency mask via `palt([c, t])`.
+- Render target off-screen (`target`, `target_blit`, `API-8`): draw into off-screen surface (`target([t])`) and blit to screen/target (`target_blit`) with scaling and alpha; zero memory cost until allocated.
 
 ## Can only the RGB30 pay for it?
 A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full-screen gradients with blend, full-screen blur and many icons a frame belong to the RGB30. The Pi takes: `rrect`, `ellipse`, `rectgrad`, `radgrad`, `sspr_affine`, alpha sprites for the HUD, bitmap text, and two or three vector icons a frame.
