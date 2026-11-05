@@ -16,6 +16,9 @@ Part of the game API. Index and basics: [API.md](../API.md).
 | `pset(x, y, c)` / `pget(x, y)` | writes / reads a pixel (`pget` gives `0xRRGGBB`, or `nil` off screen) |
 | `line(x0, y0, x1, y1, c)` | a line |
 | `rect(x, y, w, h, c)` / `rectfill(x, y, w, h, c)` | an empty / filled rectangle |
+| `rrect(x, y, w, h, r, c)` / `rrectfill(x, y, w, h, r, c)` | an empty / filled rectangle with rounded corners of radius `r` |
+| `ellipse(cx, cy, rx, ry, c)` / `ellipsefill(cx, cy, rx, ry, c)` | an empty / filled ellipse with horizontal radius `rx` and vertical radius `ry` |
+| `rectgrad(x, y, w, h, c0, c1, [c2, c3, dir])` | a rectangle filled with a linear gradient; two colours shade vertically (or horizontally with `dir` `"h"`), four colours (`c0`..`c3`) shade from top-left, top-right, bottom-right and bottom-left |
 | `circ(x, y, r, c)` / `circfill(x, y, r, c)` | an empty / filled circle |
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | a filled triangle; with three colours (one per corner) the colour shades from one corner to the other (Gouraud, dithered) |
 | `print(text, x, y, [c, scale])` | text with the 8×16 font (white if `c` is missing), `scale` times bigger (1–8: 2 = 16×32 characters); returns the x after the last character |

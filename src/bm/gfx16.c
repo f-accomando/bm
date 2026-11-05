@@ -66,6 +66,15 @@ static inline void hline(g16_t *g, int x0, int x1, int y, uint16_t c)   /* scree
     span(g->px + (uint32_t)y * g->stride + x0, x1 - x0 + 1, c);
 }
 
+static inline void vline(g16_t *g, int x, int y0, int y1, uint16_t c)
+{
+    if (x < g->cx0 || x >= g->cx1) return;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (y1 >= g->cy1) y1 = g->cy1 - 1;
+    for (int y = y0; y <= y1; y++)
+        g->px[(uint32_t)y * g->stride + x] = c;
+}
+
 static inline void plot(g16_t *g, int x, int y, uint16_t c)             /* screen coords */
 {
     if (x >= g->cx0 && x < g->cx1 && y >= g->cy0 && y < g->cy1)
@@ -130,15 +139,28 @@ void g16_blit565(g16_t *g, const uint16_t *src, int w, int h, int x, int y, int 
     int y0 = y < g->cy0 ? g->cy0 : y, y1 = y + dh > g->cy1 ? g->cy1 : y + dh;
     if (x0 >= x1 || y0 >= y1)
         return;
+    if (scale == 1) {
+        for (int yy = y0; yy < y1; yy++) {
+            const uint16_t *row = src + (size_t)(yy - y) * w;
+            uint16_t *out = g->px + (size_t)yy * g->stride;
+            memcpy(out + x0, row + (x0 - x), (size_t)(x1 - x0) * 2);
+        }
+        return;
+    }
+    const int span_w = x1 - x0;
+    int16_t xmap_buf[1920];
+    int16_t *xmap = span_w <= 1920 ? xmap_buf : malloc((size_t)span_w * sizeof(int16_t));
+    if (!xmap) return;
+    for (int i = 0; i < span_w; i++)
+        xmap[i] = (int16_t)((x0 + i - x) / scale);
     for (int yy = y0; yy < y1; yy++) {
         const uint16_t *row = src + (size_t)((yy - y) / scale) * w;
-        uint16_t *out = g->px + (size_t)yy * g->stride;
-        if (scale == 1)
-            memcpy(out + x0, row + (x0 - x), (size_t)(x1 - x0) * 2);
-        else
-            for (int xx = x0; xx < x1; xx++)
-                out[xx] = row[(xx - x) / scale];
+        uint16_t *out = g->px + (size_t)yy * g->stride + x0;
+        for (int i = 0; i < span_w; i++)
+            out[i] = row[xmap[i]];
     }
+    if (xmap != xmap_buf)
+        free(xmap);
 }
 
 void g16_rect(g16_t *g, int x, int y, int w, int h, uint16_t c)
@@ -183,6 +205,156 @@ void g16_circfill(g16_t *g, int cx, int cy, int r, uint16_t c)
         if (err < 0) err += 2 * y + 1;
         else { x--; err += 2 * (y - x) + 1; }
     }
+}
+
+void g16_rrect(g16_t *g, int x, int y, int w, int h, int r, uint16_t c)
+{
+    if (w <= 0 || h <= 0) return;
+    if (r <= 0) { g16_rect(g, x, y, w, h, c); return; }
+    if (2 * r > w) r = w / 2;
+    if (2 * r > h) r = h / 2;
+    int sx = x - g->cam_x, sy = y - g->cam_y;
+    int x0 = sx, x1 = sx + w - 1;
+    int y0 = sy, y1 = sy + h - 1;
+    hline(g, x0 + r, x1 - r, y0, c);
+    hline(g, x0 + r, x1 - r, y1, c);
+    vline(g, x0, y0 + r, y1 - r, c);
+    vline(g, x1, y0 + r, y1 - r, c);
+    int cx = r, cy = 0, err = 1 - r;
+    while (cx >= cy) {
+        plot(g, x0 + r - cx, y0 + r - cy, c);
+        plot(g, x0 + r - cy, y0 + r - cx, c);
+        plot(g, x1 - r + cx, y0 + r - cy, c);
+        plot(g, x1 - r + cy, y0 + r - cx, c);
+        plot(g, x0 + r - cx, y1 - r + cy, c);
+        plot(g, x0 + r - cy, y1 - r + cx, c);
+        plot(g, x1 - r + cx, y1 - r + cy, c);
+        plot(g, x1 - r + cy, y1 - r + cx, c);
+        cy++;
+        if (err < 0) err += 2 * cy + 1;
+        else { cx--; err += 2 * (cy - cx) + 1; }
+    }
+}
+
+void g16_rrectfill(g16_t *g, int x, int y, int w, int h, int r, uint16_t c)
+{
+    if (w <= 0 || h <= 0) return;
+    if (r <= 0) { g16_rectfill(g, x, y, w, h, c); return; }
+    if (2 * r > w) r = w / 2;
+    if (2 * r > h) r = h / 2;
+    int sx = x - g->cam_x, sy = y - g->cam_y;
+    int x0 = sx, x1 = sx + w - 1;
+    int y0 = sy, y1 = sy + h - 1;
+    int max_x[1024];
+    int *mx = r < 1024 ? max_x : malloc((size_t)(r + 1) * sizeof(int));
+    if (!mx) return;
+    for (int i = 0; i <= r; i++) mx[i] = 0;
+    int cx = r, cy = 0, err = 1 - r;
+    while (cx >= cy) {
+        if (cx > mx[cy]) mx[cy] = cx;
+        if (cy > mx[cx]) mx[cy] = cy;
+        cy++;
+        if (err < 0) err += 2 * cy + 1;
+        else { cx--; err += 2 * (cy - cx) + 1; }
+    }
+    for (int dy = 1; dy <= r; dy++) {
+        int dx = mx[dy];
+        hline(g, x0 + r - dx, x1 - r + dx, y0 + r - dy, c);
+        hline(g, x0 + r - dx, x1 - r + dx, y1 - r + dy, c);
+    }
+    for (int yy = y0 + r; yy <= y1 - r; yy++)
+        hline(g, x0, x1, yy, c);
+    if (mx != max_x) free(mx);
+}
+
+void g16_ellipse(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c)
+{
+    if (rx <= 0 || ry <= 0) return;
+    cx -= g->cam_x;
+    cy -= g->cam_y;
+    int64_t rx2 = (int64_t)rx * rx, ry2 = (int64_t)ry * ry;
+    int64_t rx2_2 = 2 * rx2, ry2_2 = 2 * ry2;
+    int x = 0, y = ry;
+    int64_t px = 0, py = rx2_2 * y;
+    int64_t p = ry2 - rx2 * ry + (rx2 >> 2);
+    while (px < py) {
+        plot(g, cx + x, cy + y, c);
+        plot(g, cx - x, cy + y, c);
+        plot(g, cx + x, cy - y, c);
+        plot(g, cx - x, cy - y, c);
+        x++;
+        px += ry2_2;
+        if (p < 0)
+            p += ry2 + px;
+        else {
+            y--;
+            py -= rx2_2;
+            p += ry2 + px - py;
+        }
+    }
+    p = (int64_t)(ry2 * (x * 2 + 1) * (x * 2 + 1) + 4 * rx2 * (y - 1) * (y - 1) - 4 * rx2 * ry2 + 2) / 4;
+    while (y >= 0) {
+        plot(g, cx + x, cy + y, c);
+        plot(g, cx - x, cy + y, c);
+        plot(g, cx + x, cy - y, c);
+        plot(g, cx - x, cy - y, c);
+        y--;
+        py -= rx2_2;
+        if (p > 0)
+            p += rx2 - py;
+        else {
+            x++;
+            px += ry2_2;
+            p += rx2 - py + px;
+        }
+    }
+}
+
+void g16_ellipsefill(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c)
+{
+    if (rx <= 0 || ry <= 0) return;
+    cx -= g->cam_x;
+    cy -= g->cam_y;
+    int max_x[1024];
+    int *mx = ry < 1024 ? max_x : malloc((size_t)(ry + 1) * sizeof(int));
+    if (!mx) return;
+    for (int i = 0; i <= ry; i++) mx[i] = 0;
+    int64_t rx2 = (int64_t)rx * rx, ry2 = (int64_t)ry * ry;
+    int64_t rx2_2 = 2 * rx2, ry2_2 = 2 * ry2;
+    int x = 0, y = ry;
+    int64_t px = 0, py = rx2_2 * y;
+    int64_t p = ry2 - rx2 * ry + (rx2 >> 2);
+    while (px < py) {
+        if (x > mx[y]) mx[y] = x;
+        x++;
+        px += ry2_2;
+        if (p < 0)
+            p += ry2 + px;
+        else {
+            y--;
+            py -= rx2_2;
+            p += ry2 + px - py;
+        }
+    }
+    p = (int64_t)(ry2 * (x * 2 + 1) * (x * 2 + 1) + 4 * rx2 * (y - 1) * (y - 1) - 4 * rx2 * ry2 + 2) / 4;
+    while (y >= 0) {
+        if (x > mx[y]) mx[y] = x;
+        y--;
+        py -= rx2_2;
+        if (p > 0)
+            p += rx2 - py;
+        else {
+            x++;
+            px += ry2_2;
+            p += rx2 - py + px;
+        }
+    }
+    hline(g, cx - mx[0], cx + mx[0], cy, c);
+    for (int dy = 1; dy <= ry; dy++) {
+        hline(g, cx - mx[dy], cx + mx[dy], cy + dy, c);
+        hline(g, cx - mx[dy], cx + mx[dy], cy - dy, c);
+    }
+    if (mx != max_x) free(mx);
 }
 
 typedef uint32_t __attribute__((may_alias)) g16_w32;
@@ -493,12 +665,22 @@ int g16_text(g16_t *g, int x, int y, const char *str, uint16_t c)
         if (sx >= g->cx1 || sx + cw <= g->cx0 || sy >= g->cy1 || sy + f->height <= g->cy0)
             continue;
         const uint8_t *gl = f->glyphs + (uint8_t)*str * f->height * wb;
-        for (int r = 0; r < f->height; r++)
+        for (int r = 0; r < f->height; r++) {
+            int py = sy + r;
+            if (py < g->cy0 || py >= g->cy1) continue;
             for (int k = 0; k < wb; k++) {
                 uint8_t bits = gl[r * wb + k];
-                for (int b = 0; bits; b++, bits <<= 1)
-                    if (bits & 0x80) plot(g, sx + k * 8 + b, sy + r, c);
+                if (!bits) continue;
+                int bx = sx + k * 8;
+                for (int b = 0; b < 8;) {
+                    if (!(bits & (0x80 >> b))) { b++; continue; }
+                    int e = b;
+                    while (e < 8 && (bits & (0x80 >> e))) e++;
+                    hline(g, bx + b, bx + e - 1, py, c);
+                    b = e;
+                }
             }
+        }
     }
     return x;
 }

@@ -22,7 +22,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Fill rules (even-odd, non-zero) | none | part of the path code | ~0 extra | same | 2 |
 | Stroke (width, caps, joins, miter, dash) | 1 px `line`/`rect`/`circ` | offset quads (two `g16_tri` a segment), round joins with `g16_circfill`; about 150 lines | ARM | bands | 2 |
 | Solid paint | has | - | - | - | - |
-| Linear gradient | partial (`tri`, three colours) | `rectgrad` = two Gouraud triangles; about 30 lines | 0.05 ms | same | 1 |
+| Linear gradient | has | `rectgrad` (two Gouraud triangles) and `tri` | 0.05 ms | same | 1 |
 | Radial gradient, spread modes | none | forward differences on d2, 256-entry RGB565 table; about 80 lines | about 6 cycles a pixel | bands | 1 |
 | Colour ramp | partial (`fades`) | the radial and linear tables | - | - | 2 |
 | Pattern paint | partial (`spr`/`map`) | `fillpat` over a cell range; about 20 lines | ARM | ARM | 3 |
@@ -37,7 +37,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Colour transform, lookup table | partial (`g16_fade_apply`) | `colmat(m)` 3x3 on RGB565; about 60 lines | about 10 cycles a pixel | bands | 3 |
 | Colour matrix, convolve, Gaussian blur | none | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
 | Vector fonts, glyph origin | none (bitmap fonts) | `stb_truetype` (public domain or MIT; vendored about 5k lines), glyph raster once, cache as alpha sheet (96 glyphs at 24 px about 27 KB); wrapper about 300 lines: `vfont`, `vprint` | raster 0.05-0.1 ms a glyph, cached blit 0.01 ms | raster on cores 1-3 | 2 |
-| VGU line, polyline, rect, round rect, ellipse, arc, polygon | `line`, `rect`, `circ` only | `rrect` = four `circfill` + `rectfill`; `ellipse` by midpoint; `poly`/`polyfill` (fill = path code); about 120 lines | `rrect` 0.03 ms | same | 1 |
+| VGU line, polyline, rect, round rect, ellipse, arc, polygon | partial (`line`, `rect`, `circ`, `rrect`, `ellipse`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
 | Offload of heavy 2D work to the GPU | Pi partial, RGB30 none | Pi exists. Mali: Texture and Sampler descriptors, textured fragment shader (G1 in [multicore](multicore.md)), alpha discard. 4 us a draw makes 600 sprites cost 2.4 ms, more than the ARM path (about 0.5 ms). The Mali pays only for big layers and fades | exists | skip for sprites | 3 |
 
 ## Do better (code that exists)
@@ -52,7 +52,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 8. Pi build: list `gfx16.c` in `PI_O3_FILES` (item 3 of [graphics](graphics.md)) and measure.
 
 ## Order of work
-1. Items 1, 2 and 5 of "Do better", then `rectgrad`, `rrect` and `ellipse` (about 150 lines) for UI.
+1. Done (5 Nov 2026): Items 1 and 2 of "Do better" (xmap on scaled blits, runs with `hline` on `g16_text`), and `rectgrad`, `rrect`, `rrectfill`, `ellipse`, `ellipsefill` for UI. Item 5 (RGB30 bands).
 2. `sspr_affine` and the alpha blit: rotated sprites and HUD alpha on the Pi.
 3. Paths with fill rules and the stroker, written once, with bands on the RGB30.
 4. Vector font with an alpha glyph cache; blur for glow on the RGB30 only.

@@ -59,6 +59,38 @@ static void test_primitives(void)
     CHECK(at(30, 20) == 0xAAAA && at(35, 20) == 0xAAAA && at(36, 20) == 0 && at(30, 26) == 0, "circfill");
     g16_circ(&g, -3, -3, 2, 0xFFFF);        /* fully off screen: must not crash */
 
+    /* rrectfill */
+    g16_cls(&g, 0);
+    g16_rrectfill(&g, 10, 10, 20, 15, 4, 0x07E0);
+    CHECK(at(20, 17) == 0x07E0, "rrectfill center");
+    CHECK(at(10, 10) == 0, "rrectfill corner excluded");
+    CHECK(at(14, 10) == 0x07E0, "rrectfill top edge");
+    CHECK(at(10, 14) == 0x07E0, "rrectfill left edge");
+
+    /* rrect outline */
+    g16_cls(&g, 0);
+    g16_rrect(&g, 10, 10, 20, 15, 4, 0xF800);
+    CHECK(at(20, 17) == 0, "rrect inside hollow");
+    CHECK(at(14, 10) == 0xF800, "rrect top edge");
+    CHECK(at(10, 14) == 0xF800, "rrect left edge");
+
+    /* ellipse & ellipsefill */
+    g16_cls(&g, 0);
+    g16_ellipsefill(&g, 30, 25, 12, 6, 0x001F);
+    CHECK(at(30, 25) == 0x001F, "ellipsefill center");
+    CHECK(at(30 + 12, 25) == 0x001F && at(30, 25 + 6) == 0x001F, "ellipsefill axes");
+    CHECK(at(30 + 13, 25) == 0 && at(30, 25 + 7) == 0, "ellipsefill outside");
+
+    g16_cls(&g, 0);
+    g16_ellipse(&g, 30, 25, 12, 6, 0xFFE0);
+    CHECK(at(30, 25) == 0, "ellipse outline center hollow");
+    CHECK(at(30 + 12, 25) == 0xFFE0 && at(30, 25 + 6) == 0xFFE0, "ellipse outline on axes");
+
+    /* rectgrad */
+    g16_cls(&g, 0);
+    g16_rectgrad(&g, 5, 5, 20, 10, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF);
+    CHECK(at(5, 5) != 0 && at(24, 14) != 0, "rectgrad filled");
+
     CHECK(g16_rgb(255, 0, 0) == 0xF800 && g16_rgb(0, 255, 0) == 0x07E0 && g16_rgb(0, 0, 255) == 0x001F, "rgb565");
     CHECK(g16_to_rgb24(0xF800) == 0xFF0000 && g16_to_rgb24(0xFFFF) == 0xFFFFFF, "rgb565 -> rgb24");
 }

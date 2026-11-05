@@ -72,6 +72,11 @@ void g16_rect(g16_t *g, int x, int y, int w, int h, uint16_t c);
 void g16_rectfill(g16_t *g, int x, int y, int w, int h, uint16_t c);
 void g16_circ(g16_t *g, int cx, int cy, int r, uint16_t c);
 void g16_circfill(g16_t *g, int cx, int cy, int r, uint16_t c);
+void g16_rrect(g16_t *g, int x, int y, int w, int h, int r, uint16_t c);
+void g16_rrectfill(g16_t *g, int x, int y, int w, int h, int r, uint16_t c);
+void g16_ellipse(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c);
+void g16_ellipsefill(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c);
+void g16_rectgrad(g16_t *g, int x, int y, int w, int h, uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3);
 
 /* Sprite n (8x8 cell index, row-major in the sheet), wc x hc cells. */
 void g16_spr(g16_t *g, const g16_sheet_t *s, int n, int x, int y,

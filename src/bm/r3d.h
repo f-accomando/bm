@@ -361,5 +361,6 @@ void g16_tri(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2, uint16_t 
 /* The same with a colour (0xRRGGBB) at each corner, blended and dithered. */
 void g16_tri_gouraud(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2,
                      uint32_t c0, uint32_t c1, uint32_t c2);
+void g16_rectgrad(g16_t *g, int x, int y, int w, int h, uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3);
 
 #endif

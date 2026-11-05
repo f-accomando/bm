@@ -39,7 +39,7 @@ Gaps found by comparing the bm API with LÖVE 11 (24 Oct). Each goal needs a des
 - API-10 - P3 - idea - 2D physics: rigid bodies, joints and contacts (a Box2D subset, zlib license). Clarify with the user first which games need it. Do it after API-7 to API-9. [graphics](progress/graphics.md)
 - API-11 - P3 - idea - Noise (Perlin or Simplex) and other `love.math` helpers in `bmlib`. [lua](progress/lua.md)
 - API-12 - P2 - to do - Hot Lua of the games in C: move the heavy loops of `bmlib` (`lib.ray`, bot paths, particles) to C functions that the runtime registers. Lua keeps the game logic. Done when `profile(true)` shows the Lua time of each moved loop on the Pi lower than before, the Lua API does not change, and the tests of the games pass. First measure with `profile(true)`. Move a loop only if Lua limits the frame. [lua](progress/lua.md) `Lua speed, step 10`
-- API-14 - P3 - idea - 2D vector graphics (the OpenVG 1.1 and VGU capabilities): on the ARM first (scaled blit, `g16_text`, `sspr_zoom`, `fade_apply`, RGB30 bands), then gradients, rounded rectangles, ellipses, paths, strokes, vector fonts and blur. Measure each step before you keep it. [graphics-vector](progress/graphics-vector.md) `Order of work`
+- API-14 - P2 - in progress - 2D vector graphics (the OpenVG 1.1 and VGU capabilities): step 1 done (5 Nov 2026: `rectgrad`, `rrect`, `rrectfill`, `ellipse`, `ellipsefill`, `g16_blit565` xmap, `g16_text` runs). Next: `sspr_affine` and alpha blit; then paths, strokes, vector fonts and blur. [graphics-vector](progress/graphics-vector.md) `Order of work`
 
 ## Video, recording and audio
 

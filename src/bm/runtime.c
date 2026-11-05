@@ -130,6 +130,13 @@ static void d2_play(const int32_t *w, uint32_t upto)
             g16_tri_gouraud(&rt.g, a[0], a[1], a[2], a[3], a[4], a[5], (uint32_t)a[6], (uint32_t)a[7],
                             (uint32_t)a[8]);
             break;
+        case D2_RRECT: g16_rrect(&rt.g, a[0], a[1], a[2], a[3], a[4], (uint16_t)a[5]); break;
+        case D2_RRECTFILL: g16_rrectfill(&rt.g, a[0], a[1], a[2], a[3], a[4], (uint16_t)a[5]); break;
+        case D2_ELLIPSE: g16_ellipse(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_ELLIPSEFILL: g16_ellipsefill(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_RECTGRAD:
+            g16_rectgrad(&rt.g, a[0], a[1], a[2], a[3], (uint32_t)a[4], (uint32_t)a[5], (uint32_t)a[6], (uint32_t)a[7]);
+            break;
         }
         d2.ops++;
     }
@@ -665,7 +672,7 @@ static int l_cls(lua_State *L)
 /* the 2D of pset ... circfill: drawn, or recorded (draw2d) */
 static void shape2d(lua_State *L, int op, int n)
 {
-    int32_t v[5], *a;
+    int32_t v[6], *a;
     for (int i = 0; i < n - 1; i++)
         v[i] = ival(L, i + 1);
     v[n - 1] = col(L, n, 0xFFFFFF);
@@ -682,15 +689,58 @@ static void shape2d(lua_State *L, int op, int n)
     case D2_RECTFILL: g16_rectfill(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
     case D2_CIRC: g16_circ(&rt.g, v[0], v[1], v[2], (uint16_t)v[3]); break;
     case D2_CIRCFILL: g16_circfill(&rt.g, v[0], v[1], v[2], (uint16_t)v[3]); break;
+    case D2_RRECT: g16_rrect(&rt.g, v[0], v[1], v[2], v[3], v[4], (uint16_t)v[5]); break;
+    case D2_RRECTFILL: g16_rrectfill(&rt.g, v[0], v[1], v[2], v[3], v[4], (uint16_t)v[5]); break;
+    case D2_ELLIPSE: g16_ellipse(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
+    case D2_ELLIPSEFILL: g16_ellipsefill(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
     }
 }
 
-static int l_pset(lua_State *L)     { shape2d(L, D2_PSET, 3); return 0; }
-static int l_line(lua_State *L)     { shape2d(L, D2_LINE, 5); return 0; }
-static int l_rect(lua_State *L)     { shape2d(L, D2_RECT, 5); return 0; }
-static int l_rectfill(lua_State *L) { shape2d(L, D2_RECTFILL, 5); return 0; }
-static int l_circ(lua_State *L)     { shape2d(L, D2_CIRC, 4); return 0; }
-static int l_circfill(lua_State *L) { shape2d(L, D2_CIRCFILL, 4); return 0; }
+static int l_pset(lua_State *L)        { shape2d(L, D2_PSET, 3); return 0; }
+static int l_line(lua_State *L)        { shape2d(L, D2_LINE, 5); return 0; }
+static int l_rect(lua_State *L)        { shape2d(L, D2_RECT, 5); return 0; }
+static int l_rectfill(lua_State *L)    { shape2d(L, D2_RECTFILL, 5); return 0; }
+static int l_circ(lua_State *L)        { shape2d(L, D2_CIRC, 4); return 0; }
+static int l_circfill(lua_State *L)    { shape2d(L, D2_CIRCFILL, 4); return 0; }
+static int l_rrect(lua_State *L)       { shape2d(L, D2_RRECT, 6); return 0; }
+static int l_rrectfill(lua_State *L)   { shape2d(L, D2_RRECTFILL, 6); return 0; }
+static int l_ellipse(lua_State *L)     { shape2d(L, D2_ELLIPSE, 5); return 0; }
+static int l_ellipsefill(lua_State *L) { shape2d(L, D2_ELLIPSEFILL, 5); return 0; }
+
+static int l_rectgrad(lua_State *L)
+{
+    int32_t v[8], *a;
+    v[0] = ival(L, 1);
+    v[1] = ival(L, 2);
+    v[2] = ival(L, 3);
+    v[3] = ival(L, 4);
+    uint32_t c0 = (uint32_t)luaL_optinteger(L, 5, 0xFFFFFF);
+    uint32_t c1 = (uint32_t)luaL_optinteger(L, 6, (lua_Integer)c0);
+    uint32_t c2 = c1, c3 = c0;
+    if (lua_isinteger(L, 7)) {
+        c2 = (uint32_t)luaL_checkinteger(L, 7);
+        c3 = (uint32_t)luaL_optinteger(L, 8, (lua_Integer)c2);
+    } else if (lua_isstring(L, 7)) {
+        const char *dir = lua_tostring(L, 7);
+        if (dir && (dir[0] == 'h' || dir[0] == 'H')) {
+            c2 = c1; c3 = c0;
+        } else {
+            c1 = c0; c2 = c1; c3 = c1;
+        }
+    } else {
+        c1 = c0; c2 = c1; c3 = c1;
+    }
+    v[4] = (int32_t)c0;
+    v[5] = (int32_t)c1;
+    v[6] = (int32_t)c2;
+    v[7] = (int32_t)c3;
+    if (draw2d(D2_RECTGRAD, 8, &a)) {
+        memcpy(a, v, sizeof v);
+        return 0;
+    }
+    g16_rectgrad(&rt.g, v[0], v[1], v[2], v[3], (uint32_t)v[4], (uint32_t)v[5], (uint32_t)v[6], (uint32_t)v[7]);
+    return 0;
+}
 
 static int l_pget(lua_State *L)
 {
@@ -1334,12 +1384,19 @@ TIMED(t_rectfill, OP_SHAPE, l_rectfill)
 TIMED(t_line, OP_SHAPE, l_line)
 TIMED(t_circ, OP_SHAPE, l_circ)
 TIMED(t_circfill, OP_SHAPE, l_circfill)
+TIMED(t_rrect, OP_SHAPE, l_rrect)
+TIMED(t_rrectfill, OP_SHAPE, l_rrectfill)
+TIMED(t_ellipse, OP_SHAPE, l_ellipse)
+TIMED(t_ellipsefill, OP_SHAPE, l_ellipsefill)
+TIMED(t_rectgrad, OP_SHAPE, l_rectgrad)
 TIMED(t_pset, OP_SHAPE, l_pset)
 
 static const luaL_Reg api[] = {
     { "video_open", l_video_open },
     { "cls", l_cls }, { "pset", t_pset }, { "pget", l_pget }, { "line", t_line },
     { "rect", t_rect }, { "rectfill", t_rectfill }, { "circ", t_circ }, { "circfill", t_circfill },
+    { "rrect", t_rrect }, { "rrectfill", t_rrectfill }, { "ellipse", t_ellipse }, { "ellipsefill", t_ellipsefill },
+    { "rectgrad", t_rectgrad },
     { "spr", t_spr }, { "sspr", t_sspr }, { "stack", t_stack }, { "stackv", t_stackv }, { "zstack", t_zstack }, { "map", t_map }, { "mget", l_mget }, { "mset", l_mset },
     { "fget", l_fget }, { "fset", l_fset }, { "mflags", l_mflags }, { "msize", l_msize },
     { "mlayers", l_mlayers }, { "zone", l_zone }, { "zones", l_zones }, { "zspr", l_zspr },

@@ -799,6 +799,15 @@ void g16_tri_gouraud(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2,
 #undef GV
 }
 
+void g16_rectgrad(g16_t *g, int x, int y, int w, int h,
+                  uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3)
+{
+    if (w <= 0 || h <= 0)
+        return;
+    g16_tri_gouraud(g, x, y, x + w, y, x + w, y + h, c0, c1, c2);
+    g16_tri_gouraud(g, x, y, x + w, y + h, x, y + h, c0, c2, c3);
+}
+
 /* ---------------------------------------------------------------- 3D */
 
 /* ---- a mesh on the cores (RGB30; docs/progress/multicore.md, V1) ----
