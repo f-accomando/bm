@@ -2468,8 +2468,20 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     {                                               /* how many jobs the depth test could draw whole, and how many fell back to the sort */
         static unsigned zjobs[3];
         zjobs[be_zmode() ? (zfr ? 1 : 2) : 0]++;
-        if ((zjobs[0] + zjobs[1] + zjobs[2]) % 300 == 0)
+        if ((zjobs[0] + zjobs[1] + zjobs[2]) % 300 == 0) {
             kprintf("mali: 300 jobs: depth test off %u, depth test %u, sort instead %u (draws %d, triangles %d)\n", zjobs[0], zjobs[1], zjobs[2], max_draws, n);
+            const uint64_t fq = cnt_freq() ? cnt_freq() : 24000000u;      /* the ARM's time in the backend, us a job over the last 300 */
+            kprintf("mali: ARM us a job: mesh %u (sort %u), flush %u (build %u, resolve %u, jobs %u)\n", (unsigned)(t_mesh * 1000000u / 300u / fq),
+                    (unsigned)(t_sort * 1000000u / 300u / fq), (unsigned)(t_flush * 1000000u / 300u / fq), (unsigned)(t_build * 1000000u / 300u / fq),
+                    (unsigned)(t_resolve * 1000000u / 300u / fq), (unsigned)(t_jobs * 1000000u / 300u / fq));
+            static uint64_t last_wall;
+            const uint64_t now_w = cnt_now();
+            if (last_wall)
+                kprintf("mali: wall %u us a job (%u fps of the 3D)\n", (unsigned)((now_w - last_wall) * 1000000u / 300u / fq),
+                        (unsigned)(300u * fq / (now_w - last_wall)));
+            last_wall = now_w;
+            t_mesh = t_flush = t_resolve = t_sort = t_build = t_jobs = 0;
+        }
     }
     if (!zfr) {
     for (int i = 0; i < n; i++)                     /* no depth test: the order decides; a flat face's 1/depth goes to 0.5 (z over 1 is discarded) */

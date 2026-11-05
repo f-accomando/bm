@@ -570,8 +570,16 @@ local function update_player(mx, my)
       if P.lock then speed, clip, rate = 1.7, "walk", 1.8 else speed, clip, rate = 3.4, "run", 1.25 end
       local l = sqrt(wx * wx + wz * wz)
       local ox, oz = P.x, P.z
-      try_move(P, wx / l * speed * dt * min(1, l), wz / l * speed * dt * min(1, l), 0.32)
-      if not P.lock then P.yaw = turn_to(P.yaw, yaw_of(wx, wz), 12 * dt) end
+      if my < 0 and not P.lock then
+        -- back: the Hunter steps backwards and keeps his face to where he looks; left and right only steer him
+        local px, pz = dir(P.yaw)
+        speed, clip, rate = 1.9, "walk", 1.2
+        try_move(P, -px * speed * dt * min(1, l), -pz * speed * dt * min(1, l), 0.32)
+        if mx ~= 0 then P.yaw = turn_to(P.yaw, yaw_of(cfx + crx * mx, cfz + crz * mx), 5 * dt) end
+      else
+        try_move(P, wx / l * speed * dt * min(1, l), wz / l * speed * dt * min(1, l), 0.32)
+        if not P.lock then P.yaw = turn_to(P.yaw, yaw_of(wx, wz), 12 * dt) end
+      end
       -- a step every stride: a boot on the stone
       P.stepd = P.stepd + sqrt((P.x - ox) ^ 2 + (P.z - oz) ^ 2)
       if P.stepd > (P.lock and 0.75 or 1.05) then P.stepd = 0; snd("step", math.random(-3, 3), 0.8) end
@@ -1256,7 +1264,7 @@ function _init()
   -- vertex shader at 2 places the skinned models (every face of them is on one bone, see art/models/hunter/hunter_build.py
   -- one_bone), the console's queue lets the next _update run while the GPU draws. A console without the GPU keeps the ARM.
   -- A far model (12 pixels of a 1080-line screen or less) is one quad.
-  gpu3d(gpu3d(), nil, 2, true, 12)
+  gpu3d(gpu3d(), nil, 2, 2, 12)
   M3.hunter_c, M3.hunter_o = model("hunter_c"), model("hunter_o")
   for n in pairs(RADIUS) do
     M3[n] = model(n)

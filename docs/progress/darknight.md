@@ -77,6 +77,8 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Rules (do not break)
 
+- Walk back (S) steps backwards and keeps the Hunter's facing; left and right only steer him. The camera follows `P.yaw`: a move that turned him toward the camera made him spin.
+
 - Keep the camera behind the Hunter's shoulders: `Cam.yaw` follows `P.yaw` at `Cam.follow` in every state (only a held camera key or a lock-on changes it). The camera looks at a point `Cam.ahead` units in front of him, not at him.
 
 - Read the keys with `rawkeys(true)` and `keydown`; keep the action table `BIND` the only place that names a game key.
