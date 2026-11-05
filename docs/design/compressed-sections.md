@@ -1,6 +1,6 @@
 # Compressed sections in a `.bm` (design, not built)
 
-State of 5 Nov 2026. Nothing is built. A `.bm` and a `.bme` store every section raw, except SHEET8, which holds RLE runs. This note keeps the design and the measurements for the day the work starts. Roadmap entry: SYS-28.
+State of 5 Nov 2026. Nothing is built. The user's preference (5 Nov 2026) is the section "Direction chosen" below. A `.bm` and a `.bme` store every section raw, except SHEET8, which holds RLE runs. This note keeps the design and the measurements for the day the work starts. Roadmap entry: SYS-28.
 
 ## Why
 
@@ -26,7 +26,17 @@ On the PC (Python, level 6): zlib 3.3x, lzma 4.2x, bz2 4.0x. lzma and bz2 decode
 
 Reading the raw bytes is faster than reading and inflating for LUA, SHEET, SHEET8, MESH and AUDIO. ANIM is level. MAP and LAYERS gain.
 
-## Design
+## Direction chosen (5 Nov 2026, the user)
+
+Do not compress the sections inside the `.bm`. Make a separate extension for compressed resources that travel online. The `.bm` and the `.bme` stay raw on the SD card, so the load time does not change and no kernel needs a new format version.
+
+- **Container.** A new extension (name to decide, for example `.bmz`) holds one `.bm`, `.bme` or resource file, compressed with zlib as a whole. Its header says the original kind, the raw size and the CRC-32 of the raw bytes.
+- **Where it is used.** The Market download and the upload from the PC (`bm_net.py --send`). The console inflates the file when it receives it and writes the normal `.bm` on the SD card. Nothing else reads a `.bmz`.
+- **Why it fits the numbers.** The Pi receives about 0.5 MB/s over Wi-Fi, so a 3.4x smaller file saves most of the wait. The inflate cost (12 MB/s) is paid once, at download, not at every start.
+- **What to keep from the list below.** Items 1 to 6 (per section) are the second step, only if a game needs a smaller file on the SD card. The measurements and the open questions stay valid.
+- **Work for this direction.** (1) Name and header of the container in `docs/BM-FORMAT.md`. (2) `png_inflate` in the receive path of `netxfer.c` and of the catalog download (`catalog.c`). (3) `mkmarket.py` and `bm_net.py` compress before they send. (4) Tests: a broken stream, a wrong size, a wrong CRC, a file too big for the heap. (5) Measure the download time of Overbit (6.5 MB) on the Pi.
+
+## Design (per section, second step)
 
 1. **Per section, not per file.** The header, INFO and COVER stay in clear. The menu reads the cover without the CRC (`bm_cover_peek`). A file compressed as one block would break that.
 2. **Codec: zlib (deflate).** The decoder exists in the kernel. Use level 6 or 9 in the tools. The encoder runs on the PC only.
