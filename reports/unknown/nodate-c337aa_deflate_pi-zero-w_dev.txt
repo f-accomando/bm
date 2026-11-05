@@ -1,0 +1,25 @@
+bm report
+kind: deflate
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-c337aa_deflate_pi-zero-w_dev.txt
+
+Deflate Bench: png_inflate on real cartridge data
+
+file /bm/defbench.bm
+SD read                    7032 KB in     445 ms =  15790 KB/s
+
+blob        raw KB    zip KB  ratio  inflate                  CRC
+lua           6143      1678     3.6    445 ms  13775 KB/s  ok
+sheet         5904      1868     3.1    532 ms  11087 KB/s  ok
+sheet8        1672       743     2.2    185 ms   9038 KB/s  ok
+mesh          4535      1516     2.9    426 ms  10637 KB/s  ok
+anim          3655       573     6.3    191 ms  19059 KB/s  ok
+map           1527        51    29.7     39 ms  38974 KB/s  ok
+audio          727       600     1.2    155 ms   4668 KB/s  ok
+
+inflate, all blobs        24167 KB in    1976 ms =  12225 KB/s
+compressed 7031 KB -> raw 24167 KB, ratio 3.43
+memcpy baseline           32768 KB in       0 ms = 2703228928 KB/s
