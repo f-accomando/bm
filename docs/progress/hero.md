@@ -55,7 +55,7 @@ Copy `hero.bm` to the SD card (`bm/`). Run it at 640x360. To check the vertex sh
 
 ## Open work
 
-- **Hero Stress on the RGB30 Mali (5 Nov 2026, hardware).** The GPU draws the plaza and 50 heroes at 20 fps with no ARM triangles (`vtx 0`; heroes alone 21 ms on the GPU). The map hid the heroes before the depth source fix. `mali_alpha` is on by default, so the hero look with holes stays on the GPU. Not measured on hardware: the other looks and the suite of 29 tests after the fix.
+- Hero Stress on the RGB30 Mali: not measured on hardware after the 5 Nov 2026 fix: the other hero looks and the suite of 29 tests.
 - Pi numbers (runs 1-6 of the design) are not collected.
 - Stage 1b: `bench_save()` into `bm/bench/` (owner decision, the proposal is to wait).
 - Heroes have flat colours. The Texture row switches the plaza only. Four tints and a textured hero are not done.
