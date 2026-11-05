@@ -553,6 +553,8 @@ int l_prompt(lua_State *L);
 int l_lastinput(lua_State *L);
 int l_camera(lua_State *L);
 int l_clip(lua_State *L);
+int l_blend(lua_State *L);
+int l_palt(lua_State *L);
 int l_rgb(lua_State *L);
 int button_real(int i);
 void keymap_apply_controls(void);

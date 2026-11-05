@@ -214,6 +214,34 @@ static void test_primitives(void)
 
     g16_vfont_free(&vf);
 
+    /* Blend modes & global alpha */
+    uint16_t red = 0xF800, green = 0x07E0, white = 0xFFFF, black = 0x0000;
+    CHECK(g16_blend_pixel(red, black, G16_BLEND_NORMAL, 255) == red, "blend normal opaque");
+    CHECK(g16_blend_pixel(red, black, G16_BLEND_NORMAL, 0) == black, "blend normal transparent");
+    CHECK(g16_blend_pixel(red, green, G16_BLEND_ADD, 255) == 0xFFE0, "blend add red + green = yellow");
+    CHECK(g16_blend_pixel(green, 0xFFE0, G16_BLEND_SUB, 255) == red, "blend sub yellow - green = red");
+    CHECK(g16_blend_pixel(red, white, G16_BLEND_MUL, 255) == red, "blend mul white * red = red");
+    CHECK(g16_blend_pixel(red, green, G16_BLEND_SCREEN, 255) == 0xFFE0, "blend screen red + green = yellow");
+    CHECK(g16_blend_pixel(0x1234, 0x5678, G16_BLEND_NONE, 255) == 0x1234, "blend none replacement");
+
+    g16_cls(&g, green);
+    g16_blend(&g, G16_BLEND_ADD, 255);
+    g16_rectfill(&g, 10, 10, 10, 10, red);
+    CHECK(at(15, 15) == 0xFFE0, "g16_rectfill with blend add");
+
+    g16_cls(&g, black);
+    g16_blend(&g, G16_BLEND_NORMAL, 128);
+    g16_pset(&g, 20, 20, white);
+    CHECK(at(20, 20) != black && at(20, 20) != white, "g16_pset with 50%% global alpha");
+
+    g16_blend(&g, G16_BLEND_NORMAL, 255);
+    g16_palt(&g, 3, 1);
+    CHECK((g.palt_mask & (1 << 3)) != 0, "palt set bit 3");
+    g16_palt(&g, 3, 0);
+    CHECK((g.palt_mask & (1 << 3)) == 0, "palt clear bit 3");
+    g16_palt_reset(&g);
+    CHECK(g.palt_mask == 0x0001, "palt reset default mask");
+
     CHECK(g16_rgb(255, 0, 0) == 0xF800 && g16_rgb(0, 255, 0) == 0x07E0 && g16_rgb(0, 0, 255) == 0x001F, "rgb565");
     CHECK(g16_to_rgb24(0xF800) == 0xFF0000 && g16_to_rgb24(0xFFFF) == 0xFFFFFF, "rgb565 -> rgb24");
 }

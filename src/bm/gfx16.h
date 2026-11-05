@@ -34,6 +34,15 @@ typedef struct {
     uint16_t *cells;            /* sprite index; 0 = empty */
 } g16_map_t;
 
+typedef enum {
+    G16_BLEND_NORMAL = 0,  /* Alpha: src over dst */
+    G16_BLEND_ADD,         /* Additive: dst + src */
+    G16_BLEND_SUB,         /* Subtractive: dst - src */
+    G16_BLEND_MUL,         /* Multiplicative: dst * src */
+    G16_BLEND_SCREEN,      /* Screen: 1 - (1-src)*(1-dst) */
+    G16_BLEND_NONE         /* Copy / Replace: dst = src */
+} g16_blend_mode_t;
+
 typedef struct {
     uint16_t *px;
     uint32_t stride;            /* pixels per row */
@@ -41,6 +50,10 @@ typedef struct {
     int cx0, cy0, cx1, cy1;     /* clip rectangle, x1/y1 exclusive */
     int cam_x, cam_y;
     const font_t *font;
+    g16_blend_mode_t blend_mode;
+    uint8_t global_alpha;       /* 0..255, default 255 */
+    uint16_t palt_mask;         /* bitmask for transparent 16 colors, default 0x0001 */
+    int32_t color_key;          /* -1 if disabled, or RGB565 color */
 } g16_t;
 
 static inline uint16_t g16_rgb(uint32_t r, uint32_t g, uint32_t b)
@@ -73,6 +86,82 @@ static inline uint16_t blend_rgb565(uint16_t src, uint16_t dst, uint8_t a)
     if (b < 0) b = 0; else if (b > 31) b = 31;
     return (uint16_t)((r << 11) | (g << 5) | b);
 }
+
+/* Blend src over dst according to blend mode and alpha (0..255) */
+static inline uint16_t g16_blend_pixel(uint16_t src, uint16_t dst, g16_blend_mode_t mode, uint8_t a)
+{
+    if (a == 0) return dst;
+    if (mode == G16_BLEND_NONE) return src;
+
+    int s_r = (src >> 11) & 0x1f;
+    int s_g = (src >> 5) & 0x3f;
+    int s_b = src & 0x1f;
+    int d_r = (dst >> 11) & 0x1f;
+    int d_g = (dst >> 5) & 0x3f;
+    int d_b = dst & 0x1f;
+
+    int r, g, b;
+
+    switch (mode) {
+    case G16_BLEND_ADD: {
+        int sa_r = (s_r * (int)a + 128) >> 8;
+        int sa_g = (s_g * (int)a + 128) >> 8;
+        int sa_b = (s_b * (int)a + 128) >> 8;
+        r = d_r + sa_r; if (r > 31) r = 31;
+        g = d_g + sa_g; if (g > 63) g = 63;
+        b = d_b + sa_b; if (b > 31) b = 31;
+        break;
+    }
+    case G16_BLEND_SUB: {
+        int sa_r = (s_r * (int)a + 128) >> 8;
+        int sa_g = (s_g * (int)a + 128) >> 8;
+        int sa_b = (s_b * (int)a + 128) >> 8;
+        r = d_r - sa_r; if (r < 0) r = 0;
+        g = d_g - sa_g; if (g < 0) g = 0;
+        b = d_b - sa_b; if (b < 0) b = 0;
+        break;
+    }
+    case G16_BLEND_MUL: {
+        int tr = (d_r * s_r * 33 + 512) >> 10;
+        int tg = (d_g * s_g * 65 + 2048) >> 12;
+        int tb = (d_b * s_b * 33 + 512) >> 10;
+        r = d_r + (((tr - d_r) * (int)a + 128) >> 8);
+        g = d_g + (((tg - d_g) * (int)a + 128) >> 8);
+        b = d_b + (((tb - d_b) * (int)a + 128) >> 8);
+        if (r < 0) r = 0; else if (r > 31) r = 31;
+        if (g < 0) g = 0; else if (g > 63) g = 63;
+        if (b < 0) b = 0; else if (b > 31) b = 31;
+        break;
+    }
+    case G16_BLEND_SCREEN: {
+        int tr = 31 - (((31 - d_r) * (31 - s_r) * 33 + 512) >> 10);
+        int tg = 63 - (((63 - d_g) * (63 - s_g) * 65 + 2048) >> 12);
+        int tb = 31 - (((31 - d_b) * (31 - s_b) * 33 + 512) >> 10);
+        r = d_r + (((tr - d_r) * (int)a + 128) >> 8);
+        g = d_g + (((tg - d_g) * (int)a + 128) >> 8);
+        b = d_b + (((tb - d_b) * (int)a + 128) >> 8);
+        if (r < 0) r = 0; else if (r > 31) r = 31;
+        if (g < 0) g = 0; else if (g > 63) g = 63;
+        if (b < 0) b = 0; else if (b > 31) b = 31;
+        break;
+    }
+    case G16_BLEND_NORMAL:
+    default:
+        r = d_r + (((s_r - d_r) * (int)a + 128) >> 8);
+        g = d_g + (((s_g - d_g) * (int)a + 128) >> 8);
+        b = d_b + (((s_b - d_b) * (int)a + 128) >> 8);
+        if (r < 0) r = 0; else if (r > 31) r = 31;
+        if (g < 0) g = 0; else if (g > 63) g = 63;
+        if (b < 0) b = 0; else if (b > 31) b = 31;
+        break;
+    }
+
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+void g16_blend(g16_t *g, g16_blend_mode_t mode, uint8_t global_alpha);
+void g16_palt(g16_t *g, int c, int transparent);
+void g16_palt_reset(g16_t *g);
 
 void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const font_t *font);
 void g16_clip(g16_t *g, int x, int y, int w, int h);    /* w or h <= 0: full screen */

@@ -228,6 +228,74 @@ int l_lastinput(lua_State *L)
 int l_camera(lua_State *L) { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
 int l_clip(lua_State *L)   { g16_clip(&rt.g, oval(L, 1, 0), oval(L, 2, 0), oval(L, 3, 0), oval(L, 4, 0)); return 0; }
 
+int l_blend(lua_State *L)
+{
+    if (lua_gettop(L) == 0) {
+        const char *m = "alpha";
+        switch (rt.g.blend_mode) {
+        case G16_BLEND_ADD: m = "add"; break;
+        case G16_BLEND_SUB: m = "sub"; break;
+        case G16_BLEND_MUL: m = "mul"; break;
+        case G16_BLEND_SCREEN: m = "screen"; break;
+        case G16_BLEND_NONE: m = "none"; break;
+        case G16_BLEND_NORMAL: default: m = "alpha"; break;
+        }
+        lua_pushstring(L, m);
+        lua_pushinteger(L, rt.g.global_alpha);
+        return 2;
+    }
+
+    g16_blend_mode_t mode = rt.g.blend_mode;
+    uint8_t a = rt.g.global_alpha;
+
+    if (lua_type(L, 1) == LUA_TNUMBER) {
+        lua_Number val = lua_tonumber(L, 1);
+        if (val <= 1.0 && val > 0.0) val = val * 255.0;
+        int ia = (int)val;
+        if (ia < 0) ia = 0; else if (ia > 255) ia = 255;
+        a = (uint8_t)ia;
+    } else if (lua_type(L, 1) == LUA_TSTRING) {
+        const char *s = lua_tostring(L, 1);
+        if (strcmp(s, "normal") == 0 || strcmp(s, "alpha") == 0) mode = G16_BLEND_NORMAL;
+        else if (strcmp(s, "add") == 0 || strcmp(s, "additive") == 0) mode = G16_BLEND_ADD;
+        else if (strcmp(s, "sub") == 0 || strcmp(s, "subtract") == 0) mode = G16_BLEND_SUB;
+        else if (strcmp(s, "mul") == 0 || strcmp(s, "multiply") == 0) mode = G16_BLEND_MUL;
+        else if (strcmp(s, "screen") == 0) mode = G16_BLEND_SCREEN;
+        else if (strcmp(s, "none") == 0 || strcmp(s, "copy") == 0 || strcmp(s, "replace") == 0) mode = G16_BLEND_NONE;
+    }
+
+    if (lua_gettop(L) >= 2 && lua_isnumber(L, 2)) {
+        lua_Number val = lua_tonumber(L, 2);
+        if (val <= 1.0 && val > 0.0) val = val * 255.0;
+        int ia = (int)val;
+        if (ia < 0) ia = 0; else if (ia > 255) ia = 255;
+        a = (uint8_t)ia;
+    }
+
+    g16_blend(&rt.g, mode, a);
+    return 0;
+}
+
+int l_palt(lua_State *L)
+{
+    if (lua_gettop(L) == 0) {
+        g16_palt_reset(&rt.g);
+        return 0;
+    }
+    if (lua_gettop(L) == 1 && lua_isinteger(L, 1) && !lua_isboolean(L, 1)) {
+        rt.g.palt_mask = (uint16_t)lua_tointeger(L, 1);
+        return 0;
+    }
+    int c = (int)luaL_checkinteger(L, 1);
+    int t = 1;
+    if (lua_gettop(L) >= 2) {
+        if (lua_isboolean(L, 2)) t = lua_toboolean(L, 2);
+        else t = (lua_tointeger(L, 2) != 0);
+    }
+    g16_palt(&rt.g, c, t);
+    return 0;
+}
+
 int l_rgb(lua_State *L)
 {
     lua_Integer r = luaL_checkinteger(L, 1) & 255, g = luaL_checkinteger(L, 2) & 255, b = luaL_checkinteger(L, 3) & 255;

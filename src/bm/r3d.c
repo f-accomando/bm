@@ -252,7 +252,12 @@ static uint32_t raster(g16_t *g, uint16_t *zbuf, sv_t a, sv_t b, sv_t c, uint16_
         uint16_t *p = g->px + (uint32_t)y * g->stride + x0;
         int n = x1 - x0;
         if (!zbuf) {
-            span_fill(p, n, color);
+            if (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255) {
+                span_fill(p, n, color);
+            } else {
+                for (int i = 0; i < n; i++)
+                    p[i] = g16_blend_pixel(color, p[i], g->blend_mode, g->global_alpha);
+            }
             count += (uint32_t)n;
             continue;
         }

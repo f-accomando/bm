@@ -1813,7 +1813,7 @@ static const luaL_Reg api[] = {
     { "sget", l_sget }, { "sset", l_sset }, { "print", t_print }, { "font", l_font },
     { "vfont", l_vfont }, { "vprint", t_vprint }, { "vmeasure", t_vmeasure }, { "camera", l_camera },
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
-    { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
+    { "clip", l_clip }, { "blend", l_blend }, { "palt", l_palt }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },

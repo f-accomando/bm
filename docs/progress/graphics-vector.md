@@ -32,7 +32,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Mask layers | partial (tile flag mask) | 1-bit mask plane built from paths; about 100 lines | +1 load a pixel | same | 3 |
 | Image formats with alpha (ARGB) | has (coverage 0..255) | the sheet `alpha` byte holds coverage 2-255, 1/255 stays opaque so old sheets stay right; separate `sspr_alpha`/`spr_alpha` keeps `spr` the fast path | about +8 cycles a pixel where alpha is not binary | same | 2 |
 | Copy, get, set pixels | has | - | - | - | - |
-| Blend modes (alpha, add, multiply, screen...) | none (only `g16_fade_glow`) | `blend(mode)` before a draw; alpha on 5/6-bit fields, add and multiply by LUT; about 80 lines | 5-8 cycles a pixel; full screen about 2 ms | bands: 0.5 ms | 2 |
+| Blend modes (alpha, add, multiply, screen...) | has (`blend`, `palt`, global alpha) | `blend(mode)` before a draw; alpha on 5/6-bit fields, add/sub/mul/screen channel arithmetic | 5-8 cycles a pixel; fast path unchanged | bands: 0.5 ms | 2 |
 | Premultiplied alpha | none | a sheet option, no API | saves one multiply | same | 3 |
 | Colour transform, lookup table | partial (`g16_fade_apply`) | `colmat(m)` 3x3 on RGB565; about 60 lines | about 10 cycles a pixel | bands | 3 |
 | Colour matrix, convolve, Gaussian blur | has (`blur` separable box blur with running sum, `conv3` 3x3 convolution matrix) | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
@@ -83,6 +83,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 - `conv3(x, y, w, h, kernel, [divisor, offset])`: general 3x3 spatial convolution matrix on RGB565 with clamped boundary sampling.
 - `radgrad(cx, cy, r, c0, c1)`: radial gradient circle using forward differences on $d^2 = dx^2 + dy^2$ ($(dx+1)^2 - dx^2 = 2dx + 1$) and 256-entry precomputed RGB565 LUT.
 - `vfont([data_or_path, size])`, `vprint(text, x, y, [c, size])`, `vmeasure(text, [size])`: TrueType engine via vendored `third_party/stb_truetype.h`; dynamic rasterization into 8-bit glyph alpha cache for ASCII 32..127 with kerning, fallback default vector font, and antialiased 8-bit alpha blending over RGB565.
+- Blend modes & global alpha (`blend`, `palt`, `API-9`): 2D blend modes (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255`) with fast-path bypass for standard opaque draws; palette transparency mask via `palt([c, t])`.
 
 ## Can only the RGB30 pay for it?
 A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full-screen gradients with blend, full-screen blur and many icons a frame belong to the RGB30. The Pi takes: `rrect`, `ellipse`, `rectgrad`, `radgrad`, `sspr_affine`, alpha sprites for the HUD, bitmap text, and two or three vector icons a frame.

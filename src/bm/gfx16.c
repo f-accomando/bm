@@ -18,7 +18,42 @@ void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const fon
     g->h = h;
     g->font = font;
     g->cam_x = g->cam_y = 0;
+    g->blend_mode = G16_BLEND_NORMAL;
+    g->global_alpha = 255;
+    g->palt_mask = 0x0001;
+    g->color_key = -1;
     g16_clip(g, 0, 0, 0, 0);
+}
+
+void g16_blend(g16_t *g, g16_blend_mode_t mode, uint8_t global_alpha)
+{
+    if (g) {
+        g->blend_mode = mode;
+        g->global_alpha = global_alpha;
+    }
+}
+
+void g16_palt(g16_t *g, int c, int transparent)
+{
+    if (!g) return;
+    if (c >= 0 && c < 16) {
+        if (transparent)
+            g->palt_mask |= (uint16_t)(1u << c);
+        else
+            g->palt_mask &= (uint16_t)~(1u << c);
+    } else if (c >= 0) {
+        if (transparent)
+            g->color_key = c & 0xFFFF;
+        else if (g->color_key == (c & 0xFFFF))
+            g->color_key = -1;
+    }
+}
+
+void g16_palt_reset(g16_t *g)
+{
+    if (!g) return;
+    g->palt_mask = 0x0001;
+    g->color_key = -1;
 }
 
 void g16_clip(g16_t *g, int x, int y, int w, int h)
@@ -63,7 +98,16 @@ static inline void hline(g16_t *g, int x0, int x1, int y, uint16_t c)   /* scree
     if (x0 < g->cx0) x0 = g->cx0;
     if (x1 >= g->cx1) x1 = g->cx1 - 1;
     if (x0 > x1) return;
-    span(g->px + (uint32_t)y * g->stride + x0, x1 - x0 + 1, c);
+    uint16_t *p = g->px + (uint32_t)y * g->stride + x0;
+    int n = x1 - x0 + 1;
+    if (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255) {
+        span(p, n, c);
+    } else {
+        g16_blend_mode_t bm = g->blend_mode;
+        uint8_t a = g->global_alpha;
+        for (int i = 0; i < n; i++)
+            p[i] = g16_blend_pixel(c, p[i], bm, a);
+    }
 }
 
 static inline void vline(g16_t *g, int x, int y0, int y1, uint16_t c)
@@ -71,14 +115,28 @@ static inline void vline(g16_t *g, int x, int y0, int y1, uint16_t c)
     if (x < g->cx0 || x >= g->cx1) return;
     if (y0 < g->cy0) y0 = g->cy0;
     if (y1 >= g->cy1) y1 = g->cy1 - 1;
-    for (int y = y0; y <= y1; y++)
-        g->px[(uint32_t)y * g->stride + x] = c;
+    if (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255) {
+        for (int y = y0; y <= y1; y++)
+            g->px[(uint32_t)y * g->stride + x] = c;
+    } else {
+        g16_blend_mode_t bm = g->blend_mode;
+        uint8_t a = g->global_alpha;
+        for (int y = y0; y <= y1; y++) {
+            uint16_t *p = &g->px[(uint32_t)y * g->stride + x];
+            *p = g16_blend_pixel(c, *p, bm, a);
+        }
+    }
 }
 
 static inline void plot(g16_t *g, int x, int y, uint16_t c)             /* screen coords */
 {
-    if (x >= g->cx0 && x < g->cx1 && y >= g->cy0 && y < g->cy1)
-        g->px[(uint32_t)y * g->stride + x] = c;
+    if (x >= g->cx0 && x < g->cx1 && y >= g->cy0 && y < g->cy1) {
+        uint16_t *p = &g->px[(uint32_t)y * g->stride + x];
+        if (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255)
+            *p = c;
+        else
+            *p = g16_blend_pixel(c, *p, g->blend_mode, g->global_alpha);
+    }
 }
 
 void g16_pset(g16_t *g, int x, int y, uint16_t c)
@@ -359,6 +417,19 @@ void g16_ellipsefill(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c)
 
 typedef uint32_t __attribute__((may_alias)) g16_w32;
 
+static inline void draw_pixel_with_alpha(g16_t *g, uint16_t *dst, uint16_t c, uint8_t a)
+{
+    if (!a) return;
+    if ((g->palt_mask != 0x0001) && (c < 16) && ((g->palt_mask >> c) & 1)) return;
+    if (g->color_key >= 0 && (int32_t)c == g->color_key) return;
+    uint8_t eff_a = (a == 1 || a == 255) ? g->global_alpha : (uint8_t)((a * (int)g->global_alpha + 128) >> 8);
+    if (!eff_a) return;
+    if (g->blend_mode == G16_BLEND_NORMAL && eff_a == 255)
+        *dst = c;
+    else
+        *dst = g16_blend_pixel(c, *dst, g->blend_mode, eff_a);
+}
+
 /* Core blit: sheet rectangle -> screen position (screen coords), clipped. */
 static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                  int dx, int dy, int flip_x, int flip_y, int opaque)
@@ -372,6 +443,8 @@ static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
         return;
 
     const int n = x1 - x0;
+    const int fast_normal = (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255 && g->palt_mask == 0x0001 && g->color_key < 0);
+
     for (int y = y0; y < y1; y++) {
         int ly = y - dy;
         int srow = sy + (flip_y ? sh - 1 - ly : ly);
@@ -379,19 +452,30 @@ static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
         const uint32_t sbase = (uint32_t)srow * s->w;
         if (!flip_x) {
             const uint16_t *src = s->px + sbase + sx + (x0 - dx);
-            if (opaque) {
-                memcpy(dst, src, (size_t)n * 2);
+            if (fast_normal) {
+                if (opaque) {
+                    memcpy(dst, src, (size_t)n * 2);
+                } else {
+                    const uint8_t *a = s->alpha + sbase + sx + (x0 - dx);
+                    for (int i = 0; i < n; i++)
+                        if (a[i]) dst[i] = src[i];
+                }
             } else {
-                const uint8_t *a = s->alpha + sbase + sx + (x0 - dx);
+                const uint8_t *a = s->alpha ? (s->alpha + sbase + sx + (x0 - dx)) : NULL;
                 for (int i = 0; i < n; i++)
-                    if (a[i]) dst[i] = src[i];
+                    draw_pixel_with_alpha(g, &dst[i], src[i], a ? a[i] : 255);
             }
         } else {
             int scol = sx + sw - 1 - (x0 - dx);
             const uint16_t *src = s->px + sbase;
-            const uint8_t *a = s->alpha + sbase;
-            for (int i = 0; i < n; i++, scol--)
-                if (opaque || a[scol]) dst[i] = src[scol];
+            const uint8_t *a = s->alpha ? (s->alpha + sbase) : NULL;
+            if (fast_normal) {
+                for (int i = 0; i < n; i++, scol--)
+                    if (opaque || a[scol]) dst[i] = src[scol];
+            } else {
+                for (int i = 0; i < n; i++, scol--)
+                    draw_pixel_with_alpha(g, &dst[i], src[scol], a ? a[scol] : 255);
+            }
         }
     }
 }
@@ -463,12 +547,7 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
         uint16_t *dst = g->px + (uint32_t)y * g->stride;
         for (int i = 0; i < span_w; i++) {
             uint32_t k = sbase + (uint32_t)xmap[i];
-            uint8_t a = s->alpha[k];
-            if (!a) continue;
-            if (a == 1 || a == 255)
-                dst[x0 + i] = s->px[k];
-            else
-                dst[x0 + i] = blend_rgb565(s->px[k], dst[x0 + i], a);
+            draw_pixel_with_alpha(g, &dst[x0 + i], s->px[k], s->alpha[k]);
         }
     }
     if (xmap != stack_xmap) free(xmap);
@@ -529,12 +608,7 @@ static inline void stack_core(g16_t *g, const g16_sheet_t *s, int sx, int sy, in
                 const uint32_t lx = (uint32_t)(u >> 16), ly = (uint32_t)(v >> 16);
                 if (u < 0 || v < 0 || lx >= (uint32_t)sw || ly >= (uint32_t)sh) continue;
                 const uint32_t k = (uint32_t)(fy + (int)ly) * s->w + (uint32_t)(fx + (int)lx);
-                uint8_t a = s->alpha[k];
-                if (!a) continue;
-                if (a == 1 || a == 255)
-                    dst[px] = s->px[k];
-                else
-                    dst[px] = blend_rgb565(s->px[k], dst[px], a);
+                draw_pixel_with_alpha(g, &dst[px], s->px[k], s->alpha[k]);
             }
         }
     }
@@ -624,12 +698,7 @@ void g16_sspr_affine(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int
             uint32_t ly = (uint32_t)(v >> 16);
             if (lx >= (uint32_t)sw || ly >= (uint32_t)sh) continue;
             uint32_t k = (uint32_t)(sy + (int)ly) * s->w + (uint32_t)(sx + (int)lx);
-            uint8_t a_val = s->alpha[k];
-            if (!a_val) continue;
-            if (a_val == 1 || a_val == 255)
-                dst[px] = s->px[k];
-            else
-                dst[px] = blend_rgb565(s->px[k], dst[px], a_val);
+            draw_pixel_with_alpha(g, &dst[px], s->px[k], s->alpha[k]);
         }
     }
 }
@@ -670,11 +739,7 @@ void g16_sspr_alpha(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int 
             uint8_t a = s->alpha[k];
             if (!a) continue;
             uint32_t eff_a = (a == 1 || a == 255) ? (uint32_t)global_alpha : ((uint32_t)a * (uint32_t)global_alpha + 128) >> 8;
-            if (!eff_a) continue;
-            if (eff_a >= 255)
-                dst[x] = s->px[k];
-            else
-                dst[x] = blend_rgb565(s->px[k], dst[x], (uint8_t)eff_a);
+            draw_pixel_with_alpha(g, &dst[x], s->px[k], (uint8_t)eff_a);
         }
     }
 }
@@ -790,7 +855,8 @@ void g16_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
             }
             tx *= G16_CELL;
             ty *= G16_CELL;
-            if (s->cell_opaque[n] && ydone && px >= g->cx0 && px + G16_CELL <= g->cx1) {
+            const int fast_map = (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255 && g->palt_mask == 0x0001 && g->color_key < 0);
+            if (fast_map && s->cell_opaque[n] && ydone && px >= g->cx0 && px + G16_CELL <= g->cx1) {
                 /* whole tile inside the clip: 8 inline row copies */
                 uint16_t *dst = g->px + (size_t)py * g->stride + px;
                 const uint16_t *pk = tile_packed(s, n, ncells);

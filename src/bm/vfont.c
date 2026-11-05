@@ -172,10 +172,12 @@ int g16_vprint(g16_t *g, g16_vfont_t *vf, const char *text, int x, int y, uint16
                         for (int c = 0; c < row_w; c++) {
                             uint8_t a = src_row[c];
                             if (!a) continue;
-                            if (a == 255) {
+                            uint8_t eff_a = (g->global_alpha == 255) ? a : (uint8_t)((a * (int)g->global_alpha + 128) >> 8);
+                            if (!eff_a) continue;
+                            if (g->blend_mode == G16_BLEND_NORMAL && eff_a == 255) {
                                 dst_row[c] = col;
                             } else {
-                                dst_row[c] = blend_rgb565(col, dst_row[c], a);
+                                dst_row[c] = g16_blend_pixel(col, dst_row[c], g->blend_mode, eff_a);
                             }
                         }
                     }
