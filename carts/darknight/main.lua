@@ -96,7 +96,7 @@ local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the
 local P = {}                          -- the player
 -- the camera: behind the Hunter's shoulders and a little above him, always turning to where he looks; it looks far ahead of him
 -- (ahead: the distance of the aimed point in front of him) from a low pitch, a shoulder's width to the right
-local Cam = { yaw = PI / 2, pitch = -0.3, dist = 5.4, side = 0.4, ahead = 10, follow = 0.07, x = 0, y = 0, z = 0, shake = 0 }
+local Cam = { yaw = PI / 2, pitch = -0.25, dist = 5.0, side = 0.4, ahead = 8, follow = 0.07, x = 0, y = 0, z = 0, shake = 0 }
 local O = { res = 2, textures = true, bright = 2, music = true, sfx = 8, perf = false } -- the options (sfx: the effects volume
                                                                                         -- 0-10; perf: the dev kit's overlay)
 local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 }, stop = 0, song = -1, calm = 0 }
@@ -878,7 +878,7 @@ local function update_camera()
   Cam.so = lerp(Cam.so or side, side, 0.15)
   local tx, ty, tz = P.x + crx * Cam.so, P.y + 1.45, P.z + crz * Cam.so
   -- the aimed point: far ahead of the Hunter, at chest height (a deep view forward); when locked on, the target
-  local ax, ay, az = tx + fxx * Cam.ahead, ty - 0.9, tz + fzz * Cam.ahead
+  local ax, ay, az = tx + fxx * Cam.ahead, ty - 1.45, tz + fzz * Cam.ahead
   if P.lock then ax, ay, az = P.lock.x, P.lock.y + 1.0, P.lock.z end
   -- a wall in the way: first look down more steeply (the camera goes up, not in); only then come closer
   local function clear(pitch, k)
