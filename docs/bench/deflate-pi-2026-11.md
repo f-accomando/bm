@@ -1,6 +1,6 @@
 # Deflate on the Pi Zero W (5 Nov 2026)
 
-Question: can a `.bm` section be stored compressed? Measured with the Deflate Bench utility (`src/kernel/defbench.c`, Settings > Screen) on the Pi Zero W, kernel `dev`. The corpus is `defbench.bm`, made by `scripts/defbench_make.py` from real cartridges: 24167 KB raw, 7031 KB compressed (zlib level 6). The decoder is `png_inflate` (`src/bm/png.c`). Every CRC matched.
+Question: can a `.bm` section be stored compressed? Measured with a temporary Deflate Bench utility on the Pi Zero W, kernel `dev` (commit bd3214bd of `bm-core`: `src/kernel/defbench.c` and `scripts/defbench_make.py`; both were removed afterwards). The corpus was a `.bm` with a DATA blob per section type, made from real cartridges: 24167 KB raw, 7031 KB compressed (zlib level 6). The decoder is `png_inflate` (`src/bm/png.c`). Every CRC matched.
 
 | Blob | Raw KB | Zip KB | Ratio | Inflate ms | Inflate KB/s |
 |---|---|---|---|---|---|
@@ -13,7 +13,7 @@ Question: can a `.bm` section be stored compressed? Measured with the Deflate Be
 | audio | 727 | 600 | 1.2 | 155 | 4668 |
 | all | 24167 | 7031 | 3.4 | 1976 | 12225 |
 
-SD read of the 7032 KB file: 445 ms, 15790 KB/s. The `memcpy` line of this run is not valid (0 ms: the compiler removed the loop); the utility now copies through a volatile pointer.
+SD read of the 7032 KB file: 445 ms, 15790 KB/s. The `memcpy` line of this run is not valid (0 ms: the compiler removed the loop); the removed utility was fixed afterwards and not measured again.
 
 ## What the numbers say
 
