@@ -53,7 +53,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 
 ## Order of work
 1. Done (5 Nov 2026): Items 1 and 2 of "Do better" (xmap on scaled blits, runs with `hline` on `g16_text`), and `rectgrad`, `rrect`, `rrectfill`, `ellipse`, `ellipsefill` for UI. Item 5 (RGB30 bands).
-2. `sspr_affine` and the alpha blit: rotated sprites and HUD alpha on the Pi.
+2. Done (5 Nov 2026): `sspr_affine` (2x2 matrix rasterizer), `sspr_rot`, `spr_rot`, `sspr_alpha`, `spr_alpha`, `g16_sspr_zoom` xmap optimization, 8-bit translucent sheet alpha (`sget`/`sset` alpha).
 3. Paths with fill rules and the stroker, written once, with bands on the RGB30.
 4. Vector font with an alpha glyph cache; blur for glow on the RGB30 only.
 5. Mali 2D only after G1 and only for big layers.

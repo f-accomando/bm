@@ -146,6 +146,34 @@ static void test_sprites(void)
     g16_map(&g, &s, &m, 0, 0, 0, 0, 3, 2);
     CHECK(at(0, 0) == 100 && at(8, 0) == 0x2222 && at(16, 0) == 0xFFFF && at(17, 0) == 0x2222, "map, 0 = empty");
     CHECK(at(8, 8) == 100 && at(0, 8) == 0x2222, "map second row");
+
+    /* Alpha blit and translucent sheet pixel */
+    g16_sheet_set_alpha(&s, 0, 0, 0xF800, 128); /* 50% red */
+    g16_cls(&g, 0);
+    g16_sspr_alpha(&g, &s, 0, 0, 1, 1, 0, 0, 0, 0, 255);
+    CHECK(at(0, 0) == 0x8000, "sheet translucent alpha 128");
+
+    /* Global alpha */
+    g16_sheet_set(&s, 1, 0, 0xF800, 1); /* opaque red */
+    g16_cls(&g, 0);
+    g16_sspr_alpha(&g, &s, 1, 0, 1, 1, 0, 0, 0, 0, 128);
+    CHECK(at(0, 0) == 0x8000, "sspr_alpha global alpha 128");
+
+    /* spr_alpha */
+    g16_cls(&g, 0);
+    g16_spr_alpha(&g, &s, 0, 0, 0, 1, 1, 0, 0, 128);
+    CHECK(at(1, 0) == 0x8000, "spr_alpha cell");
+
+    /* sspr_affine identity */
+    g16_cls(&g, 0);
+    g16_sspr_affine(&g, &s, 8, 0, 8, 8, 10, 10, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+    CHECK(at(10, 10) == 100 && at(17, 10) == 107 && at(10, 17) == 156, "sspr_affine identity");
+
+    /* sspr_rot 0 */
+    g16_cls(&g, 0);
+    g16_sspr_rot(&g, &s, 8, 0, 8, 8, 10, 10, 0.0f, 1.0f, 1.0f, 4.0f, 4.0f);
+    CHECK(at(6, 6) == 100 && at(13, 6) == 107, "sspr_rot angle 0");
+
     g16_sheet_free(&s);
 }
 

@@ -88,6 +88,18 @@ void g16_sspr(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
  * covers round(sw * zoom) x round(sh * zoom) pixels of the screen. */
 void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                    int dx, int dy, int flip_x, int flip_y, float zoom);
+/* Affine 2x2 transform of a sheet rectangle: (dx, dy) is anchor on screen,
+ * [a b; c d] matrix, (ox, oy) origin within the rectangle (e.g. sw/2, sh/2 for centre). */
+void g16_sspr_affine(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                     int dx, int dy, float a, float b, float c, float d, float ox, float oy);
+/* Sprite rotation around origin (ox, oy): rz radians, scale_x and scale_y. */
+void g16_sspr_rot(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                  int dx, int dy, float rz, float scale_x, float scale_y, float ox, float oy);
+/* Sprite blit with 8-bit alpha (global_alpha 0..255 and/or per-pixel coverage). */
+void g16_sspr_alpha(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                    int dx, int dy, int flip_x, int flip_y, int global_alpha);
+void g16_spr_alpha(g16_t *g, const g16_sheet_t *s, int n, int x, int y,
+                   int wc, int hc, int flip_x, int flip_y, int global_alpha);
 /* Sprite stacking: `n` slices of sw x sh, side by side on the sheet from
  * (sx, sy), slice 0 is the bottom and is drawn first.  (x, y) is the centre of
  * the bottom slice; each slice turns by `rz` (radians) around its centre, is
@@ -177,6 +189,7 @@ void g16_fade_apply(g16_t *g, const g16_fade_t *f);
 int  g16_sheet_alloc(g16_sheet_t *s, int w, int h);
 void g16_sheet_free(g16_sheet_t *s);
 void g16_sheet_set(g16_sheet_t *s, int x, int y, uint16_t c, int opaque);
+void g16_sheet_set_alpha(g16_sheet_t *s, int x, int y, uint16_t c, uint8_t alpha);
 void g16_sheet_update_cell(g16_sheet_t *s, int cx, int cy);
 
 #endif

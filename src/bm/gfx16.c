@@ -359,6 +359,23 @@ void g16_ellipsefill(g16_t *g, int cx, int cy, int rx, int ry, uint16_t c)
 
 typedef uint32_t __attribute__((may_alias)) g16_w32;
 
+static inline uint16_t blend_rgb565(uint16_t src, uint16_t dst, uint8_t a)
+{
+    int s_r = (src >> 11) & 0x1f;
+    int s_g = (src >> 5) & 0x3f;
+    int s_b = src & 0x1f;
+    int d_r = (dst >> 11) & 0x1f;
+    int d_g = (dst >> 5) & 0x3f;
+    int d_b = dst & 0x1f;
+    int r = d_r + (((s_r - d_r) * (int)a + 128) >> 8);
+    int g = d_g + (((s_g - d_g) * (int)a + 128) >> 8);
+    int b = d_b + (((s_b - d_b) * (int)a + 128) >> 8);
+    if (r < 0) r = 0; else if (r > 31) r = 31;
+    if (g < 0) g = 0; else if (g > 63) g = 63;
+    if (b < 0) b = 0; else if (b > 31) b = 31;
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
 /* Core blit: sheet rectangle -> screen position (screen coords), clipped. */
 static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                  int dx, int dy, int flip_x, int flip_y, int opaque)
@@ -446,20 +463,32 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
      * rounded up so that whole zooms land exactly on their pixels */
     const uint32_t stepx = (uint32_t)((((uint64_t)sw << 16) + (uint32_t)dw - 1) / (uint32_t)dw);
     const uint32_t stepy = (uint32_t)((((uint64_t)sh << 16) + (uint32_t)dh - 1) / (uint32_t)dh);
+    const int span_w = x1 - x0;
+    int stack_xmap[1024];
+    int *xmap = span_w <= 1024 ? stack_xmap : malloc((size_t)span_w * sizeof(int));
+    if (!xmap) return;
+    uint64_t fx = (uint64_t)(uint32_t)(x0 - dx) * stepx;
+    for (int i = 0; i < span_w; i++, fx += stepx) {
+        int lx = (int)(fx >> 16);
+        if (lx >= sw) lx = sw - 1;
+        xmap[i] = (int)(flip_x ? sw - 1 - lx : lx);
+    }
     for (int y = y0; y < y1; y++) {
         int ly = (int)(((uint64_t)(uint32_t)(y - dy) * stepy) >> 16);
         if (ly >= sh) ly = sh - 1;
-        const uint32_t sbase = (uint32_t)(sy + (flip_y ? sh - 1 - ly : ly)) * s->w;
+        const uint32_t sbase = (uint32_t)(sy + (flip_y ? sh - 1 - ly : ly)) * s->w + (uint32_t)sx;
         uint16_t *dst = g->px + (uint32_t)y * g->stride;
-        uint64_t fx = (uint64_t)(uint32_t)(x0 - dx) * stepx;
-        for (int x = x0; x < x1; x++, fx += stepx) {
-            int lx = (int)(fx >> 16);
-            if (lx >= sw) lx = sw - 1;
-            uint32_t k = sbase + (uint32_t)(sx + (flip_x ? sw - 1 - lx : lx));
-            if (s->alpha[k])
-                dst[x] = s->px[k];
+        for (int i = 0; i < span_w; i++) {
+            uint32_t k = sbase + (uint32_t)xmap[i];
+            uint8_t a = s->alpha[k];
+            if (!a) continue;
+            if (a == 1 || a == 255)
+                dst[x0 + i] = s->px[k];
+            else
+                dst[x0 + i] = blend_rgb565(s->px[k], dst[x0 + i], a);
         }
     }
+    if (xmap != stack_xmap) free(xmap);
 }
 
 /* Sprite stacking: slice i of `n` (left to right on the sheet, or top to bottom for
@@ -517,7 +546,12 @@ static inline void stack_core(g16_t *g, const g16_sheet_t *s, int sx, int sy, in
                 const uint32_t lx = (uint32_t)(u >> 16), ly = (uint32_t)(v >> 16);
                 if (u < 0 || v < 0 || lx >= (uint32_t)sw || ly >= (uint32_t)sh) continue;
                 const uint32_t k = (uint32_t)(fy + (int)ly) * s->w + (uint32_t)(fx + (int)lx);
-                if (s->alpha[k]) dst[px] = s->px[k];
+                uint8_t a = s->alpha[k];
+                if (!a) continue;
+                if (a == 1 || a == 255)
+                    dst[px] = s->px[k];
+                else
+                    dst[px] = blend_rgb565(s->px[k], dst[px], a);
             }
         }
     }
@@ -533,6 +567,143 @@ void g16_stackv(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                 int n, int x, int y, float rz, float scale, float step)
 {
     stack_core(g, s, sx, sy, sw, sh, n, x, y, rz, scale, step, 1);
+}
+
+void g16_sspr_affine(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                     int dx, int dy, float a, float b, float c, float d, float ox, float oy)
+{
+    if (!s->px || sw <= 0 || sh <= 0 || sx < 0 || sy < 0) return;
+    if (sx + sw > s->w || sy + sh > s->h) return;
+    if (!isfinite(a) || !isfinite(b) || !isfinite(c) || !isfinite(d)) return;
+    if (!isfinite(ox) || !isfinite(oy)) return;
+    float det = a * d - b * c;
+    if (det == 0.0f || !isfinite(det)) return;
+
+    const float cx = (float)(dx - g->cam_x);
+    const float cy = (float)(dy - g->cam_y);
+
+    const float u0 = -ox, v0_c = -oy;
+    const float u1 = (float)sw - ox, v1_c = (float)sh - oy;
+
+    const float x0_r = a * u0 + b * v0_c, y0_r = c * u0 + d * v0_c;
+    const float x1_r = a * u1 + b * v0_c, y1_r = c * u1 + d * v0_c;
+    const float x2_r = a * u1 + b * v1_c, y2_r = c * u1 + d * v1_c;
+    const float x3_r = a * u0 + b * v1_c, y3_r = c * u0 + d * v1_c;
+
+    float min_x = x0_r, max_x = x0_r;
+    if (x1_r < min_x) min_x = x1_r;
+    if (x1_r > max_x) max_x = x1_r;
+    if (x2_r < min_x) min_x = x2_r;
+    if (x2_r > max_x) max_x = x2_r;
+    if (x3_r < min_x) min_x = x3_r;
+    if (x3_r > max_x) max_x = x3_r;
+
+    float min_y = y0_r, max_y = y0_r;
+    if (y1_r < min_y) min_y = y1_r;
+    if (y1_r > max_y) max_y = y1_r;
+    if (y2_r < min_y) min_y = y2_r;
+    if (y2_r > max_y) max_y = y2_r;
+    if (y3_r < min_y) min_y = y3_r;
+    if (y3_r > max_y) max_y = y3_r;
+
+    int x0 = (int)floorf(cx + min_x), x1 = (int)ceilf(cx + max_x) + 1;
+    int y0 = (int)floorf(cy + min_y), y1 = (int)ceilf(cy + max_y) + 1;
+
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x0 >= x1 || y0 >= y1) return;
+
+    const float inv_det = 1.0f / det;
+    const float m00 =  d * inv_det;
+    const float m01 = -b * inv_det;
+    const float m10 = -c * inv_det;
+    const float m11 =  a * inv_det;
+
+    const int32_t step_u_x = (int32_t)lrintf(m00 * 65536.0f);
+    const int32_t step_v_x = (int32_t)lrintf(m10 * 65536.0f);
+    const int32_t step_u_y = (int32_t)lrintf(m01 * 65536.0f);
+    const int32_t step_v_y = (int32_t)lrintf(m11 * 65536.0f);
+
+    const float ox_start = (float)x0 - cx + 0.5f;
+    const float oy_start = (float)y0 - cy + 0.5f;
+
+    int32_t row_u = (int32_t)lrintf((ox + m00 * ox_start + m01 * oy_start) * 65536.0f);
+    int32_t row_v = (int32_t)lrintf((oy + m10 * ox_start + m11 * oy_start) * 65536.0f);
+
+    for (int py = y0; py < y1; py++, row_u += step_u_y, row_v += step_v_y) {
+        int32_t u = row_u, v = row_v;
+        uint16_t *dst = g->px + (uint32_t)py * g->stride;
+        for (int px = x0; px < x1; px++, u += step_u_x, v += step_v_x) {
+            if (u < 0 || v < 0) continue;
+            uint32_t lx = (uint32_t)(u >> 16);
+            uint32_t ly = (uint32_t)(v >> 16);
+            if (lx >= (uint32_t)sw || ly >= (uint32_t)sh) continue;
+            uint32_t k = (uint32_t)(sy + (int)ly) * s->w + (uint32_t)(sx + (int)lx);
+            uint8_t a_val = s->alpha[k];
+            if (!a_val) continue;
+            if (a_val == 1 || a_val == 255)
+                dst[px] = s->px[k];
+            else
+                dst[px] = blend_rgb565(s->px[k], dst[px], a_val);
+        }
+    }
+}
+
+void g16_sspr_rot(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                  int dx, int dy, float rz, float scale_x, float scale_y, float ox, float oy)
+{
+    if (scale_x == 0.0f) scale_x = 1.0f;
+    if (scale_y == 0.0f) scale_y = scale_x;
+    float c = cosf(rz), sn = sinf(rz);
+    g16_sspr_affine(g, s, sx, sy, sw, sh, dx, dy,
+                    scale_x * c, -scale_y * sn,
+                    scale_x * sn,  scale_y * c,
+                    ox, oy);
+}
+
+void g16_sspr_alpha(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                    int dx, int dy, int flip_x, int flip_y, int global_alpha)
+{
+    if (!s->px || global_alpha <= 0 || !clamp_rect(s, &sx, &sy, &sw, &sh)) return;
+    if (global_alpha > 255) global_alpha = 255;
+    dx -= g->cam_x;
+    dy -= g->cam_y;
+    int x0 = dx, y0 = dy, x1 = dx + sw, y1 = dy + sh;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x0 >= x1 || y0 >= y1) return;
+
+    for (int y = y0; y < y1; y++) {
+        int sy_idx = sy + (flip_y ? sh - 1 - (y - dy) : (y - dy));
+        const uint32_t sbase = (uint32_t)sy_idx * s->w;
+        uint16_t *dst = g->px + (uint32_t)y * g->stride;
+        for (int x = x0; x < x1; x++) {
+            int sx_idx = sx + (flip_x ? sw - 1 - (x - dx) : (x - dx));
+            uint32_t k = sbase + (uint32_t)sx_idx;
+            uint8_t a = s->alpha[k];
+            if (!a) continue;
+            uint32_t eff_a = (a == 1 || a == 255) ? (uint32_t)global_alpha : ((uint32_t)a * (uint32_t)global_alpha + 128) >> 8;
+            if (!eff_a) continue;
+            if (eff_a >= 255)
+                dst[x] = s->px[k];
+            else
+                dst[x] = blend_rgb565(s->px[k], dst[x], (uint8_t)eff_a);
+        }
+    }
+}
+
+void g16_spr_alpha(g16_t *g, const g16_sheet_t *s, int n, int x, int y,
+                   int wc, int hc, int flip_x, int flip_y, int global_alpha)
+{
+    if (!s->px || n < 0 || wc <= 0 || hc <= 0) return;
+    int per_row = s->w / G16_CELL;
+    int sx = (n % per_row) * G16_CELL;
+    int sy = (n / per_row) * G16_CELL;
+    g16_sspr_alpha(g, s, sx, sy, wc * G16_CELL, hc * G16_CELL, x, y, flip_x, flip_y, global_alpha);
 }
 
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
@@ -744,15 +915,20 @@ void g16_sheet_free(g16_sheet_t *s)
     memset(s, 0, sizeof *s);
 }
 
-void g16_sheet_set(g16_sheet_t *s, int x, int y, uint16_t c, int opaque)
+void g16_sheet_set_alpha(g16_sheet_t *s, int x, int y, uint16_t c, uint8_t alpha)
 {
     if (x < 0 || y < 0 || x >= s->w || y >= s->h) return;
     uint32_t i = (uint32_t)y * s->w + x;
     s->px[i] = c;
-    s->alpha[i] = opaque ? 1 : 0;
+    s->alpha[i] = alpha;
     s->version++;
-    if (!opaque)
+    if (alpha != 1 && alpha != 255)
         s->cell_opaque[(y / G16_CELL) * (s->w / G16_CELL) + x / G16_CELL] = 0;
+}
+
+void g16_sheet_set(g16_sheet_t *s, int x, int y, uint16_t c, int opaque)
+{
+    g16_sheet_set_alpha(s, x, y, c, opaque ? 1 : 0);
 }
 
 void g16_sheet_update_cell(g16_sheet_t *s, int cx, int cy)
@@ -761,8 +937,10 @@ void g16_sheet_update_cell(g16_sheet_t *s, int cx, int cy)
     if (cx < 0 || cy < 0 || cx >= per_row || cy >= s->h / G16_CELL) return;
     int all = 1;
     for (int y = 0; y < G16_CELL && all; y++)
-        for (int x = 0; x < G16_CELL; x++)
-            if (!s->alpha[(uint32_t)(cy * G16_CELL + y) * s->w + cx * G16_CELL + x]) { all = 0; break; }
+        for (int x = 0; x < G16_CELL; x++) {
+            uint8_t a = s->alpha[(uint32_t)(cy * G16_CELL + y) * s->w + cx * G16_CELL + x];
+            if (a != 1 && a != 255) { all = 0; break; }
+        }
     s->cell_opaque[cy * per_row + cx] = (uint8_t)all;
     s->version++;
 }

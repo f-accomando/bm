@@ -137,6 +137,16 @@ static void d2_play(const int32_t *w, uint32_t upto)
         case D2_RECTGRAD:
             g16_rectgrad(&rt.g, a[0], a[1], a[2], a[3], (uint32_t)a[4], (uint32_t)a[5], (uint32_t)a[6], (uint32_t)a[7]);
             break;
+        case D2_SSPR_AFFINE: {
+            float f[6];
+            memcpy(f, a + 6, sizeof f);
+            g16_sspr_affine(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5],
+                            f[0], f[1], f[2], f[3], f[4], f[5]);
+            break;
+        }
+        case D2_SSPR_ALPHA:
+            g16_sspr_alpha(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8]);
+            break;
         }
         d2.ops++;
     }
@@ -522,7 +532,9 @@ int gpu2d(int op, const int32_t *v)
     }
     case D2_STACK:
     case D2_STACKV:
-        return 0;                       /* the ARM draws it after the job (sprite stacking is CPU only) */
+    case D2_SSPR_AFFINE:
+    case D2_SSPR_ALPHA:
+        return 0;                       /* the ARM draws it after the job (sprite stacking and affine/alpha are CPU only) */
     case D2_MAP: {
         /* g16_map_mask's cells, each a sprite */
         const uint16_t *cells = rt.layer[v[6]];
@@ -828,6 +840,140 @@ static int l_stack(lua_State *L) { return stack_lua(L, 0); }
 /* stackv(sx, sy, w, h, n, x, y, [rz=0, scale=1, step=1]): as stack(), the n slices one under
  * the other on the sheet from (sx, sy), top to bottom; the top one is the bottom of the stack */
 static int l_stackv(lua_State *L) { return stack_lua(L, 1); }
+
+/* sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy]) */
+int l_sspr_affine(lua_State *L)
+{
+    const int32_t v[6] = { ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6) };
+    const float f[6] = {
+        (float)luaL_checknumber(L, 7),
+        (float)luaL_checknumber(L, 8),
+        (float)luaL_checknumber(L, 9),
+        (float)luaL_checknumber(L, 10),
+        (float)luaL_optnumber(L, 11, (float)v[2] * 0.5f),
+        (float)luaL_optnumber(L, 12, (float)v[3] * 0.5f)
+    };
+    int32_t *a;
+    sheet_commit();
+    if (draw2d(D2_SSPR_AFFINE, 12, &a)) {
+        memcpy(a, v, 6 * sizeof(int32_t));
+        memcpy(a + 6, f, 6 * sizeof(float));
+    } else {
+        g16_sspr_affine(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5],
+                        f[0], f[1], f[2], f[3], f[4], f[5]);
+    }
+    return 0;
+}
+
+/* sspr_rot(sx, sy, sw, sh, dx, dy, rz, [scale, ox, oy]) or [scale_x, scale_y, ox, oy] */
+int l_sspr_rot(lua_State *L)
+{
+    int sw = ival(L, 3), sh = ival(L, 4);
+    int top = lua_gettop(L);
+    float rz = (float)luaL_optnumber(L, 7, 0);
+    float sx_scale = (float)luaL_optnumber(L, 8, 1);
+    float sy_scale = sx_scale;
+    float ox = (float)sw * 0.5f;
+    float oy = (float)sh * 0.5f;
+    if (top >= 9) {
+        if (top >= 10 && lua_isnumber(L, 10)) {
+            sy_scale = (float)lua_tonumber(L, 9);
+            ox = (float)lua_tonumber(L, 10);
+            oy = (float)luaL_optnumber(L, 11, (float)sh * 0.5f);
+        } else {
+            ox = (float)lua_tonumber(L, 9);
+            oy = (float)luaL_optnumber(L, 10, (float)sh * 0.5f);
+        }
+    }
+    float c = cosf(rz), sn = sinf(rz);
+    float a = sx_scale * c, b = -sy_scale * sn;
+    float c_mat = sx_scale * sn, d = sy_scale * c;
+    const int32_t v[6] = { ival(L, 1), ival(L, 2), sw, sh, ival(L, 5), ival(L, 6) };
+    const float f[6] = { a, b, c_mat, d, ox, oy };
+    int32_t *out_a;
+    sheet_commit();
+    if (draw2d(D2_SSPR_AFFINE, 12, &out_a)) {
+        memcpy(out_a, v, 6 * sizeof(int32_t));
+        memcpy(out_a + 6, f, 6 * sizeof(float));
+    } else {
+        g16_sspr_affine(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], a, b, c_mat, d, ox, oy);
+    }
+    return 0;
+}
+
+/* spr_rot(n, dx, dy, rz, [scale, wc, hc]) */
+int l_spr_rot(lua_State *L)
+{
+    int n = ival(L, 1);
+    if (!rt.sheet.px || n < 0) return 0;
+    int wc = oval(L, 6, 1);
+    int hc = oval(L, 7, 1);
+    int per_row = rt.sheet.w / G16_CELL;
+    int sx = (n % per_row) * G16_CELL;
+    int sy = (n / per_row) * G16_CELL;
+    int sw = wc * G16_CELL;
+    int sh = hc * G16_CELL;
+    float rz = (float)luaL_optnumber(L, 4, 0);
+    float scale = (float)luaL_optnumber(L, 5, 1);
+    float c = cosf(rz), sn = sinf(rz);
+    float a = scale * c, b = -scale * sn;
+    float c_mat = scale * sn, d = scale * c;
+    float ox = (float)sw * 0.5f, oy = (float)sh * 0.5f;
+    const int32_t v[6] = { sx, sy, sw, sh, ival(L, 2), ival(L, 3) };
+    const float f[6] = { a, b, c_mat, d, ox, oy };
+    int32_t *out_a;
+    sheet_commit();
+    if (draw2d(D2_SSPR_AFFINE, 12, &out_a)) {
+        memcpy(out_a, v, 6 * sizeof(int32_t));
+        memcpy(out_a + 6, f, 6 * sizeof(float));
+    } else {
+        g16_sspr_affine(&rt.g, &rt.sheet, sx, sy, sw, sh, v[4], v[5], a, b, c_mat, d, ox, oy);
+    }
+    return 0;
+}
+
+/* sspr_alpha(sx, sy, sw, sh, dx, dy, [alpha=255, flip_x=false, flip_y=false]) */
+int l_sspr_alpha(lua_State *L)
+{
+    const int32_t v[9] = {
+        ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+        lua_toboolean(L, 8), lua_toboolean(L, 9),
+        oval(L, 7, 255)
+    };
+    int32_t *a;
+    sheet_commit();
+    if (draw2d(D2_SSPR_ALPHA, 9, &a)) {
+        memcpy(a, v, sizeof v);
+    } else {
+        g16_sspr_alpha(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]);
+    }
+    return 0;
+}
+
+/* spr_alpha(n, dx, dy, [alpha=255, wc=1, hc=1, flip_x=false, flip_y=false]) */
+int l_spr_alpha(lua_State *L)
+{
+    int n = ival(L, 1);
+    if (!rt.sheet.px || n < 0) return 0;
+    int wc = oval(L, 5, 1);
+    int hc = oval(L, 6, 1);
+    int per_row = rt.sheet.w / G16_CELL;
+    int sx = (n % per_row) * G16_CELL;
+    int sy = (n / per_row) * G16_CELL;
+    const int32_t v[9] = {
+        sx, sy, wc * G16_CELL, hc * G16_CELL, ival(L, 2), ival(L, 3),
+        lua_toboolean(L, 7), lua_toboolean(L, 8),
+        oval(L, 4, 255)
+    };
+    int32_t *a;
+    sheet_commit();
+    if (draw2d(D2_SSPR_ALPHA, 9, &a)) {
+        memcpy(a, v, sizeof v);
+    } else {
+        g16_sspr_alpha(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]);
+    }
+    return 0;
+}
 
 /* the sheet was drawn on since cart_load (sset, cart_sheet): cart_save
  * writes it whole, not the section the file had (proj_sheet8, below) */
@@ -1375,6 +1521,11 @@ char shot_net_file[13];          /* the name of the file it saved */
 TIMED(t_map, OP_MAP, l_map)
 TIMED(t_spr, OP_SPR, l_spr)
 TIMED(t_sspr, OP_SSPR, l_sspr)
+TIMED(t_sspr_affine, OP_SSPR, l_sspr_affine)
+TIMED(t_sspr_rot, OP_SSPR, l_sspr_rot)
+TIMED(t_spr_rot, OP_SPR, l_spr_rot)
+TIMED(t_sspr_alpha, OP_SSPR, l_sspr_alpha)
+TIMED(t_spr_alpha, OP_SPR, l_spr_alpha)
 TIMED(t_stack, OP_STACK, l_stack)
 TIMED(t_stackv, OP_STACK, l_stackv)
 TIMED(t_zstack, OP_STACK, l_zstack)
@@ -1397,7 +1548,9 @@ static const luaL_Reg api[] = {
     { "rect", t_rect }, { "rectfill", t_rectfill }, { "circ", t_circ }, { "circfill", t_circfill },
     { "rrect", t_rrect }, { "rrectfill", t_rrectfill }, { "ellipse", t_ellipse }, { "ellipsefill", t_ellipsefill },
     { "rectgrad", t_rectgrad },
-    { "spr", t_spr }, { "sspr", t_sspr }, { "stack", t_stack }, { "stackv", t_stackv }, { "zstack", t_zstack }, { "map", t_map }, { "mget", l_mget }, { "mset", l_mset },
+    { "spr", t_spr }, { "sspr", t_sspr }, { "sspr_affine", t_sspr_affine }, { "sspr_rot", t_sspr_rot },
+    { "spr_rot", t_spr_rot }, { "sspr_alpha", t_sspr_alpha }, { "spr_alpha", t_spr_alpha },
+    { "stack", t_stack }, { "stackv", t_stackv }, { "zstack", t_zstack }, { "map", t_map }, { "mget", l_mget }, { "mset", l_mset },
     { "fget", l_fget }, { "fset", l_fset }, { "mflags", l_mflags }, { "msize", l_msize },
     { "mlayers", l_mlayers }, { "zone", l_zone }, { "zones", l_zones }, { "zspr", l_zspr },
     { "zboxes", l_zboxes },

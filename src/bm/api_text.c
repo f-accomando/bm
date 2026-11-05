@@ -63,21 +63,36 @@ int l_sget(lua_State *L)
     int x = ival(L, 1), y = ival(L, 2);
     if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h || !rt.sheet.alpha[y * rt.sheet.w + x])
         lua_pushnil(L);
-    else
+    else {
         lua_pushinteger(L, g16_to_rgb24(rt.sheet.px[y * rt.sheet.w + x]));
+        uint8_t a = rt.sheet.alpha[y * rt.sheet.w + x];
+        lua_pushinteger(L, a == 1 ? 255 : a);
+        return 2;
+    }
     return 1;
 }
 
-/* sset(x, y, colour) - nil colour = transparent */
+/* sset(x, y, colour [, alpha]) - nil colour = transparent */
 int l_sset(lua_State *L)
 {
     int x = ival(L, 1), y = ival(L, 2);
     if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h)
         return 0;
     int opaque = !lua_isnoneornil(L, 3);
+    uint8_t alpha = 0;
+    if (opaque) {
+        if (!lua_isnoneornil(L, 4)) {
+            int a = (int)luaL_checkinteger(L, 4);
+            if (a < 0) a = 0;
+            if (a > 255) a = 255;
+            alpha = (uint8_t)a;
+        } else {
+            alpha = 1;
+        }
+    }
     later_paint();                      /* the frame held's sprites as they were (bm3d 6.9) */
     sync3d();                           /* the waiting 3D may use the sheet as texture */
-    g16_sheet_set(&rt.sheet, x, y, opaque ? col(L, 3, 0) : 0, opaque);
+    g16_sheet_set_alpha(&rt.sheet, x, y, alpha > 0 ? col(L, 3, 0) : 0, alpha);
     rt.cell_dirty[(y / G16_CELL) * (rt.sheet.w / G16_CELL) + x / G16_CELL] = 1;
     rt.sheet_dirty = 1;
     proj_sheet_drawn = 1;
