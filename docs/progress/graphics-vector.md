@@ -38,7 +38,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Colour matrix, convolve, Gaussian blur | has (`blur` separable box blur with running sum, `conv3` 3x3 convolution matrix) | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
 | Vector fonts, glyph origin | has (`vfont`, `vprint`, `vmeasure`) | `stb_truetype` (public domain / MIT), dynamic raster with ASCII 32..127 glyph alpha cache, 8-bit alpha blend over RGB565 | raster 0.05-0.1 ms a glyph, cached blit 0.01 ms | raster on cores 1-3 | 2 |
 | VGU line, polyline, rect, round rect, ellipse, arc, polygon | has (`line`, `rect`, `circ`, `rrect`, `ellipse`, `rrectfill`, `ellipsefill`, `poly`, `polyfill`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
-| Offload of heavy 2D work to the GPU | Pi partial, RGB30 none | Pi exists. Mali: Texture and Sampler descriptors, textured fragment shader (G1 in [multicore](multicore.md)), alpha discard. 4 us a draw makes 600 sprites cost 2.4 ms, more than the ARM path (about 0.5 ms). The Mali pays only for big layers and fades | exists | skip for sprites | 3 |
+| Offload of heavy 2D work to the GPU | has (Pi `gpu2d`, RGB30 `mali_2d` for big layers; small sprites skip to 4-core ARM bands) | Texture/Sampler descriptors (G1), `mali_backend_rect2d`/`blit2d`; 4-core ARM bands for small sprites | exists | big layers only | 3 |
 
 ## Do better (code that exists)
 Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites,fade` (Pi and RGB30).
@@ -56,7 +56,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 2. Done (5 Nov 2026): `sspr_affine` (2x2 matrix rasterizer), `sspr_rot`, `spr_rot`, `sspr_alpha`, `spr_alpha`, `g16_sspr_zoom` xmap optimization, 8-bit translucent sheet alpha (`sget`/`sset` alpha).
 3. Done (5 Nov 2026): Paths with even-odd and non-zero winding rules, Bézier curves (quad, cubic), circular arcs, vector stroker with round caps/joins, `poly` and `polyfill`.
 4. Done (5 Nov 2026): Box blur (`blur`), 3x3 convolution (`conv3`), radial gradients (`radgrad`), TrueType vector fonts (`vfont`, `vprint`, `vmeasure`) with glyph alpha cache.
-5. Mali 2D only after G1 and only for big layers.
+5. Done (5 Nov 2026): Mali 2D offload architecture: G1 texture/sampler descriptors, `mali_backend_rect2d`/`mali_backend_blit2d` with `be_2d_t` batching. Large layers/fades offloaded; small sprites routed to 4-core ARM bands.
 
 ## Details of implemented steps
 
@@ -86,6 +86,10 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 - Blend modes & global alpha (`blend`, `palt`, `API-9`): 2D blend modes (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255`) with fast-path bypass for standard opaque draws; palette transparency mask via `palt([c, t])`.
 - Render target off-screen (`target`, `target_blit`, `API-8`): draw into off-screen surface (`target([t])`) and blit to screen/target (`target_blit`) with scaling and alpha; zero memory cost until allocated.
 - Colour transformations & pattern paint (`colmat`, `fillpat`): 3x3 color matrix transformation with bias offset on RGB565 (`colmat([x, y, w, h,] mat, [offset])`); 8x8 tiled 1-bit stipple/dither pattern for drawing primitives with transparent and background colour options (`fillpat([pat, [trans, [bg]]])`).
+
+### Step 5: Mali 2D offload architecture & big layers (5 Nov 2026)
+- Mali 2D pipeline (`mali_2d=1`, `be_2d_on`, `mali_backend_rect2d`, `mali_backend_blit2d`): integrates 2D quads and textured sheets into GPU draw calls with texture slot reuse.
+- Offload decision: dispatch overhead (~4 μs per draw) means 600 small sprites cost ~2.4 ms on GPU vs ~0.5 ms on 4 ARM A55 cores; offload is reserved for large surfaces and full-screen passes (`mali_2d=1`, `gpu2d_only=1`).
 
 ## Can only the RGB30 pay for it?
 A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full-screen gradients with blend, full-screen blur and many icons a frame belong to the RGB30. The Pi takes: `rrect`, `ellipse`, `rectgrad`, `radgrad`, `sspr_affine`, alpha sprites for the HUD, bitmap text, and two or three vector icons a frame.
