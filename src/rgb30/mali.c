@@ -2472,6 +2472,10 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             kprintf("mali: 300 jobs: depth test off %u, depth test %u, sort instead %u (draws %d, triangles %d)\n", zjobs[0], zjobs[1], zjobs[2], max_draws, n);
     }
     if (!zfr) {
+    for (int i = 0; i < n; i++)                     /* no depth test: the order decides; a flat face's 1/depth goes to 0.5 (z over 1 is discarded) */
+        if (!be_tris[i].mvp && !be_tris[i].tex_pa)
+            for (int k = 0; k < 3; k++)
+                be_tris[i].v[k][2] = 0.5f;
     const uint64_t ts = cnt_now();
     sort_tris(idx, tmp_idx, n, tri_after_mvp);
     t_sort += cnt_now() - ts;
@@ -2975,7 +2979,7 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
     for (int i = 0; i < 3; i++) {
         t->v[i][0] = v[i].x;
         t->v[i][1] = v[i].y;
-        t->v[i][2] = 0.5f;
+        t->v[i][2] = v[i].z;                        /* 1/depth, as a textured triangle (it was 0.5: every flat face at depth 2, in front of the far meshes) */
         r += v[i].a;
         gr += v[i].b;
         b += v[i].c;
