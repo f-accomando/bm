@@ -17,11 +17,9 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 - Menu: 720p drawn by the V3D by default (28 Oct 2026; 6.3 ms a frame). `menu_scale` 1 (360p on the ARM, the HDMI scaler enlarges it), 4 (360p on the GPU), 2 (720p) or 3 (1080p) (Settings > Screen > Menu size) makes the V3D draw the menu at that size (quads, blit, 24x48 text at 1080p, enlarge 0 us; 1080p verified on the Pi Zero W, 720p not yet). The ARM never enlarges the menu: if the GPU cannot start, the menu stays at 360p on the ARM (26 Oct 2026; the `menu_gpu` key is removed).
 
 ### 2D (`src/bm/gfx16.c`, `gfx16.h`)
-- All 2D in C (Lua only logic): primitives, `spr`/`sspr`, `map()` with up to 8 layers
-  (`BM_LAYERS_MAX`, LAYERS section 12), tile flags (FLAGS 13), named zones (SPRITES 11).
-- Sheets up to `BM_SHEET_MAX` 4096 px a side; SHEET8 (≤ 256 colours) stored smaller.
-- Darkness and glows: `g16_fade_*` tables (Lua `light_begin`/`dark_begin`/`glow`…), used by
-  Yharnam.
+- All 2D in C: primitives, UI (`rrect`, `ellipse`, `rectgrad`, `radgrad`), affine blits (`sspr_affine`, `spr_rot`), 8-bit alpha, vector paths (`path_*`, `poly`, `polyfill`), filters (`blur`, `conv3`), `spr`/`sspr`, `map()` with 8 layers, tile flags, named zones.
+- Sheets up to `BM_SHEET_MAX` 4096 px; SHEET8 (≤ 256 colours) stored smaller.
+- Darkness and glows: `g16_fade_*` tables (Lua `light_begin`/`dark_begin`/`glow`…), used by Yharnam.
 
 ### Software 3D (`src/bm/r3d.c`, `r3d.h`)
 - The ARM transforms, lights, culls and clips (VFP floats) and rasterizes in fixed point
