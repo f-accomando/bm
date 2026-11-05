@@ -33,3 +33,5 @@ The first triangle on the Mali-G52 (root causes, 25 Oct 2026) and the variant pr
 
 ## Open work
 None. The probe has no entry point since 24 Oct 2026. Read the driver state in [graphics-mali](graphics-mali.md).
+
+- Renderer State Properties (Mali v7, Mesa `genxml/v7.xml`): Depth source is bit 8, 2 bits (0 minimum, 1 maximum, 2 fixed function, 3 shader). Leave 2 for every state that tests depth. The Mesa source of the layouts is in `~/mesa-bifrost` in WSL.
