@@ -25,7 +25,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Linear gradient | has | `rectgrad` (two Gouraud triangles) and `tri` | 0.05 ms | same | 1 |
 | Radial gradient, spread modes | has (`radgrad`, forward differences on d2, 256-entry RGB565 LUT) | forward differences on d2, 256-entry RGB565 table; about 80 lines | about 6 cycles a pixel | bands | 1 |
 | Colour ramp | partial (`fades`) | the radial and linear tables | - | - | 2 |
-| Pattern paint | partial (`spr`/`map`) | `fillpat` over a cell range; about 20 lines | ARM | ARM | 3 |
+| Pattern paint | has (`fillpat`, 8x8 tiled bitmask with transparent/bg colours) | 8x8 tiled bitmask in `hline` | ~0 overhead | same | 3 |
 | Affine transform of an image | has (`sspr_affine`, `sspr_rot`, `spr_rot`) | `sspr_affine` with a 2x2 matrix, reuse `stack_core`; about 70 lines | 16x16 about 0.01 ms | 0.003 ms | 1 |
 | Image perspective, quad warp (VGU) | 3D only | two textured triangles with `tri_grad` and `rq_tex` (`r3d.c`); about 120 lines | 0.02 ms for 16x16 | bands | 3 |
 | Clip rectangle | has | - | - | - | - |
@@ -34,7 +34,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Copy, get, set pixels | has | - | - | - | - |
 | Blend modes (alpha, add, multiply, screen...) | has (`blend`, `palt`, global alpha) | `blend(mode)` before a draw; alpha on 5/6-bit fields, add/sub/mul/screen channel arithmetic | 5-8 cycles a pixel; fast path unchanged | bands: 0.5 ms | 2 |
 | Premultiplied alpha | none | a sheet option, no API | saves one multiply | same | 3 |
-| Colour transform, lookup table | partial (`g16_fade_apply`) | `colmat(m)` 3x3 on RGB565; about 60 lines | about 10 cycles a pixel | bands | 3 |
+| Colour transform, lookup table | has (`colmat` 3x3 RGB matrix with offset, `g16_fade_apply`) | `colmat(m)` 3x3 on RGB565; about 60 lines | about 10 cycles a pixel | bands | 3 |
 | Colour matrix, convolve, Gaussian blur | has (`blur` separable box blur with running sum, `conv3` 3x3 convolution matrix) | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
 | Vector fonts, glyph origin | has (`vfont`, `vprint`, `vmeasure`) | `stb_truetype` (public domain / MIT), dynamic raster with ASCII 32..127 glyph alpha cache, 8-bit alpha blend over RGB565 | raster 0.05-0.1 ms a glyph, cached blit 0.01 ms | raster on cores 1-3 | 2 |
 | VGU line, polyline, rect, round rect, ellipse, arc, polygon | has (`line`, `rect`, `circ`, `rrect`, `ellipse`, `rrectfill`, `ellipsefill`, `poly`, `polyfill`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
@@ -85,6 +85,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 - `vfont([data_or_path, size])`, `vprint(text, x, y, [c, size])`, `vmeasure(text, [size])`: TrueType engine via vendored `third_party/stb_truetype.h`; dynamic rasterization into 8-bit glyph alpha cache for ASCII 32..127 with kerning, fallback default vector font, and antialiased 8-bit alpha blending over RGB565.
 - Blend modes & global alpha (`blend`, `palt`, `API-9`): 2D blend modes (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255`) with fast-path bypass for standard opaque draws; palette transparency mask via `palt([c, t])`.
 - Render target off-screen (`target`, `target_blit`, `API-8`): draw into off-screen surface (`target([t])`) and blit to screen/target (`target_blit`) with scaling and alpha; zero memory cost until allocated.
+- Colour transformations & pattern paint (`colmat`, `fillpat`): 3x3 color matrix transformation with bias offset on RGB565 (`colmat([x, y, w, h,] mat, [offset])`); 8x8 tiled 1-bit stipple/dither pattern for drawing primitives with transparent and background colour options (`fillpat([pat, [trans, [bg]]])`).
 
 ## Can only the RGB30 pay for it?
 A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full-screen gradients with blend, full-screen blur and many icons a frame belong to the RGB30. The Pi takes: `rrect`, `ellipse`, `rectgrad`, `radgrad`, `sspr_affine`, alpha sprites for the HUD, bitmap text, and two or three vector icons a frame.

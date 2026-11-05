@@ -1896,6 +1896,34 @@ static void test_render_target(void)
     CHECK(t.w == 0 && t.h == 0 && t.px == NULL, "target: free zeroed");
 }
 
+static void test_colmat_fillpat(void)
+{
+    uint16_t fb[16 * 16];
+    memset(fb, 0, sizeof fb);
+    g16_t g;
+    g16_target(&g, fb, 16, 16, 16, NULL);
+
+    /* fillpat checkerboard 0x55... */
+    g16_fillpat(&g, 0x5555555555555555ULL, 1, 0);
+    g16_rectfill(&g, 0, 0, 8, 8, 0xFFFF);
+    CHECK(fb[0] == 0xFFFF && fb[1] == 0x0000, "fillpat: checkerboard alternating pixels");
+
+    /* reset fillpat */
+    g16_fillpat_reset(&g);
+    g16_rectfill(&g, 0, 0, 8, 8, 0xFFFF);
+    CHECK(fb[0] == 0xFFFF && fb[1] == 0xFFFF, "fillpat: reset restores solid fill");
+
+    /* colmat: swap R and B channels */
+    fb[0] = g16_rgb(255, 0, 0);
+    float swap_rb[9] = {
+        0.0f, 0.0f, 1.0f,
+        0.0f, 1.0f, 0.0f,
+        1.0f, 0.0f, 0.0f
+    };
+    g16_colmat(&g, 0, 0, 1, 1, swap_rb, NULL);
+    CHECK(fb[0] == g16_rgb(0, 0, 255), "colmat: red swapped to blue");
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -1918,6 +1946,7 @@ int main(int argc, char **argv)
     test_pixel();
     test_data();
     test_render_target();
+    test_colmat_fillpat();
     if (argc > 2)
         test_anim_cart(argv[2]);
     if (argc > 3)

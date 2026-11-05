@@ -22,6 +22,7 @@ Part of the game API. Index and basics: [API.md](../API.md).
 | `radgrad(cx, cy, r, c0, [c1])` | a radial gradient circle from centre `(cx, cy)` of radius `r` shading from `c0` at centre to `c1` at edge (black if `c1` missing) |
 | `blur([x, y, w, h, radius, passes])` | separable 2D box blur with running sums; whole screen if coordinates omitted, `radius` default 2, `passes` default 1 (multiple passes approximate Gaussian blur) |
 | `conv3(x, y, w, h, kernel, [divisor, offset])` | 3×3 convolution filter over rectangle `(x, y, w, h)` using a 9-element table `kernel` |
+| `colmat([x, y, w, h,] mat, [offset])` | transforms RGB colours of rectangle (or screen) using 3×3 matrix and optional RGB offset |
 | `circ(x, y, r, c)` / `circfill(x, y, r, c)` | an empty / filled circle |
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | a filled triangle; with three colours (one per corner) the colour shades from one corner to the other (Gouraud, dithered) |
 | `poly(points, [c, closed])` | draws a polygon outline from a table of coordinates `{x1, y1, ...}`, pairs `{ {x1, y1}, ... }` or varargs; closed by default (`closed = false` leaves open) |
@@ -45,6 +46,7 @@ Part of the game API. Index and basics: [API.md](../API.md).
 | `clip([x, y, w, h])` | limits drawing to the rectangle; without arguments the whole screen |
 | `blend([mode, [alpha]])` | sets the active 2D blend mode (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255` or `0.0..1.0`); without arguments returns `mode, alpha` |
 | `palt([c, [transparent]])` | sets transparency for color `c` (`true`/`false`), or sets 16-color mask `palt(mask)`; without arguments resets to default (color 0 transparent) |
+| `fillpat([pat, [transparent, [bg]]])` | sets pattern for filled 2D shapes: 4×4 or 8×8 bitmask or 8-byte table; without arguments resets to solid fill |
 | `target([t_or_w, [h]])` | redirects drawing to render target `t` (or creates `w`×`h` target); without arguments or `nil` restores drawing to screen; `"sheet"` targets sprite sheet |
 | `target_create(w, h)` | creates an off-screen render target of size `w`×`h` (allocated dynamically, zero cost until created) |
 | `target_blit(t, dx, dy, [dw, dh, sx, sy, sw, sh, fx, fy])` | draws render target `t` onto active target/screen with optional scaling (`dw, dh`), source crop, flipping, alpha and blend modes |

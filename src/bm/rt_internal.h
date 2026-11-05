@@ -567,6 +567,8 @@ int  l_target_clear(lua_State *L);
 int  l_target_free(lua_State *L);
 int  l_target_size(lua_State *L);
 void target_type_init(lua_State *L);
+int  l_fillpat(lua_State *L);
+int  l_colmat(lua_State *L);
 int l_rgb(lua_State *L);
 int button_real(int i);
 void keymap_apply_controls(void);

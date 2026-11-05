@@ -54,6 +54,9 @@ typedef struct {
     uint8_t global_alpha;       /* 0..255, default 255 */
     uint16_t palt_mask;         /* bitmask for transparent 16 colors, default 0x0001 */
     int32_t color_key;          /* -1 if disabled, or RGB565 color */
+    uint64_t fillpat;           /* 8x8 bit pattern (default ~0ULL = solid) */
+    uint8_t fillpat_trans;      /* 1 = 0-bits transparent, 0 = draw fillpat_bg */
+    uint16_t fillpat_bg;        /* background color for 0-bits */
 } g16_t;
 
 static inline uint16_t g16_rgb(uint32_t r, uint32_t g, uint32_t b)
@@ -162,6 +165,9 @@ static inline uint16_t g16_blend_pixel(uint16_t src, uint16_t dst, g16_blend_mod
 void g16_blend(g16_t *g, g16_blend_mode_t mode, uint8_t global_alpha);
 void g16_palt(g16_t *g, int c, int transparent);
 void g16_palt_reset(g16_t *g);
+void g16_fillpat(g16_t *g, uint64_t pat, int transparent, uint16_t bg);
+void g16_fillpat_reset(g16_t *g);
+void g16_colmat(g16_t *g, int x, int y, int w, int h, const float mat[9], const float offset[3]);
 
 void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const font_t *font);
 void g16_clip(g16_t *g, int x, int y, int w, int h);    /* w or h <= 0: full screen */

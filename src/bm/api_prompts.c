@@ -458,6 +458,93 @@ void target_type_init(lua_State *L)
     lua_pop(L, 1);
 }
 
+int l_fillpat(lua_State *L)
+{
+    if (lua_gettop(L) == 0 || lua_isnil(L, 1)) {
+        g16_fillpat_reset(&rt.g);
+        return 0;
+    }
+
+    uint64_t pat = ~0ULL;
+    if (lua_type(L, 1) == LUA_TNUMBER) {
+        lua_Integer v = lua_tointeger(L, 1);
+        if (v <= 0xFFFF && v >= 0) {
+            uint64_t pat8 = 0;
+            for (int r = 0; r < 4; r++) {
+                uint8_t row4 = (uint8_t)((v >> (r * 4)) & 0xF);
+                uint8_t row8 = (row4 << 4) | row4;
+                pat8 |= ((uint64_t)row8 << (r * 8));
+                pat8 |= ((uint64_t)row8 << ((r + 4) * 8));
+            }
+            pat = pat8;
+        } else {
+            pat = (uint64_t)v;
+        }
+    } else if (lua_istable(L, 1)) {
+        uint64_t pat8 = 0;
+        for (int i = 1; i <= 8; i++) {
+            lua_rawgeti(L, 1, i);
+            uint8_t b = (uint8_t)lua_tointeger(L, -1);
+            lua_pop(L, 1);
+            pat8 |= ((uint64_t)b << ((i - 1) * 8));
+        }
+        pat = pat8;
+    }
+
+    int trans = 1;
+    uint16_t bg = 0;
+    if (lua_gettop(L) >= 2) {
+        if (lua_isboolean(L, 2)) trans = lua_toboolean(L, 2);
+        else trans = (lua_tointeger(L, 2) != 0);
+    }
+    if (lua_gettop(L) >= 3) {
+        bg = col(L, 3, 0);
+    }
+
+    g16_fillpat(&rt.g, pat, trans, bg);
+    return 0;
+}
+
+int l_colmat(lua_State *L)
+{
+    int top = lua_gettop(L);
+    int x = 0, y = 0, w = rt.g.w, h = rt.g.h;
+    int mat_idx = 1;
+    int off_idx = 2;
+
+    if (top >= 5 && lua_type(L, 1) == LUA_TNUMBER && lua_type(L, 2) == LUA_TNUMBER &&
+        lua_type(L, 3) == LUA_TNUMBER && lua_type(L, 4) == LUA_TNUMBER) {
+        x = (int)luaL_checkinteger(L, 1);
+        y = (int)luaL_checkinteger(L, 2);
+        w = (int)luaL_checkinteger(L, 3);
+        h = (int)luaL_checkinteger(L, 4);
+        mat_idx = 5;
+        off_idx = 6;
+    }
+
+    luaL_checktype(L, mat_idx, LUA_TTABLE);
+    float mat[9];
+    for (int i = 1; i <= 9; i++) {
+        lua_rawgeti(L, mat_idx, i);
+        mat[i - 1] = (float)lua_tonumber(L, -1);
+        lua_pop(L, 1);
+    }
+
+    float offset[3] = { 0.0f, 0.0f, 0.0f };
+    float *poff = NULL;
+    if (top >= off_idx && lua_istable(L, off_idx)) {
+        for (int i = 1; i <= 3; i++) {
+            lua_rawgeti(L, off_idx, i);
+            offset[i - 1] = (float)lua_tonumber(L, -1);
+            lua_pop(L, 1);
+        }
+        poff = offset;
+    }
+
+    g16_colmat(&rt.g, x, y, w, h, mat, poff);
+    return 0;
+}
+
 int l_rgb(lua_State *L)
 {
     lua_Integer r = luaL_checkinteger(L, 1) & 255, g = luaL_checkinteger(L, 2) & 255, b = luaL_checkinteger(L, 3) & 255;

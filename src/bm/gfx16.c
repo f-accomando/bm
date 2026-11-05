@@ -24,6 +24,9 @@ void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const fon
     g->global_alpha = 255;
     g->palt_mask = 0x0001;
     g->color_key = -1;
+    g->fillpat = ~0ULL;
+    g->fillpat_trans = 1;
+    g->fillpat_bg = 0;
     g16_clip(g, 0, 0, 0, 0);
 }
 
@@ -56,6 +59,65 @@ void g16_palt_reset(g16_t *g)
     if (!g) return;
     g->palt_mask = 0x0001;
     g->color_key = -1;
+}
+
+void g16_fillpat(g16_t *g, uint64_t pat, int transparent, uint16_t bg)
+{
+    if (g) {
+        g->fillpat = pat;
+        g->fillpat_trans = transparent ? 1 : 0;
+        g->fillpat_bg = bg;
+    }
+}
+
+void g16_fillpat_reset(g16_t *g)
+{
+    if (g) {
+        g->fillpat = ~0ULL;
+        g->fillpat_trans = 1;
+        g->fillpat_bg = 0;
+    }
+}
+
+void g16_colmat(g16_t *g, int x, int y, int w, int h, const float mat[9], const float offset[3])
+{
+    if (!g || !g->px || !mat || w <= 0 || h <= 0) return;
+    x -= g->cam_x;
+    y -= g->cam_y;
+    int x0 = x < g->cx0 ? g->cx0 : x;
+    int y0 = y < g->cy0 ? g->cy0 : y;
+    int x1 = x + w > g->cx1 ? g->cx1 : x + w;
+    int y1 = y + h > g->cy1 ? g->cy1 : y + h;
+    if (x0 >= x1 || y0 >= y1) return;
+
+    float off_r = offset ? offset[0] : 0.0f;
+    float off_g = offset ? offset[1] : 0.0f;
+    float off_b = offset ? offset[2] : 0.0f;
+
+    for (int cy = y0; cy < y1; cy++) {
+        uint16_t *row = g->px + (uint32_t)cy * g->stride;
+        for (int cx = x0; cx < x1; cx++) {
+            uint16_t c = row[cx];
+            float rf = (float)(c >> 11) * (255.0f / 31.0f);
+            float gf = (float)((c >> 5) & 0x3F) * (255.0f / 63.0f);
+            float bf = (float)(c & 0x1F) * (255.0f / 31.0f);
+
+            float nr = mat[0] * rf + mat[1] * gf + mat[2] * bf + off_r;
+            float ng = mat[3] * rf + mat[4] * gf + mat[5] * bf + off_g;
+            float nb = mat[6] * rf + mat[7] * gf + mat[8] * bf + off_b;
+
+            if (nr < 0.0f) nr = 0.0f; else if (nr > 255.0f) nr = 255.0f;
+            if (ng < 0.0f) ng = 0.0f; else if (ng > 255.0f) ng = 255.0f;
+            if (nb < 0.0f) nb = 0.0f; else if (nb > 255.0f) nb = 255.0f;
+
+            uint16_t out_c = g16_rgb((uint32_t)(nr + 0.5f), (uint32_t)(ng + 0.5f), (uint32_t)(nb + 0.5f));
+            if (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255) {
+                row[cx] = out_c;
+            } else {
+                row[cx] = g16_blend_pixel(out_c, c, g->blend_mode, g->global_alpha);
+            }
+        }
+    }
 }
 
 static inline void draw_pixel_with_alpha(g16_t *g, uint16_t *dst, uint16_t c, uint8_t a)
@@ -243,6 +305,26 @@ static inline void hline(g16_t *g, int x0, int x1, int y, uint16_t c)   /* scree
     if (x0 > x1) return;
     uint16_t *p = g->px + (uint32_t)y * g->stride + x0;
     int n = x1 - x0 + 1;
+
+    if (g->fillpat != ~0ULL) {
+        uint8_t row_pat = (uint8_t)((g->fillpat >> ((y & 7) * 8)) & 0xFF);
+        g16_blend_mode_t bm = g->blend_mode;
+        uint8_t a = g->global_alpha;
+        int fast_normal = (bm == G16_BLEND_NORMAL && a == 255);
+
+        for (int i = 0; i < n; i++) {
+            int x = x0 + i;
+            if ((row_pat >> (x & 7)) & 1) {
+                if (fast_normal) p[i] = c;
+                else p[i] = g16_blend_pixel(c, p[i], bm, a);
+            } else if (!g->fillpat_trans) {
+                if (fast_normal) p[i] = g->fillpat_bg;
+                else p[i] = g16_blend_pixel(g->fillpat_bg, p[i], bm, a);
+            }
+        }
+        return;
+    }
+
     if (g->blend_mode == G16_BLEND_NORMAL && g->global_alpha == 255) {
         span(p, n, c);
     } else {

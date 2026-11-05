@@ -1809,6 +1809,7 @@ static const luaL_Reg api[] = {
     { "path_close", t_path_close }, { "path_fill", t_path_fill }, { "path_stroke", t_path_stroke },
     { "poly", t_poly }, { "polyfill", t_polyfill },
     { "blur", t_blur }, { "conv3", t_conv3 }, { "radgrad", t_radgrad },
+    { "colmat", l_colmat }, { "fillpat", l_fillpat },
     { "spr", t_spr }, { "sspr", t_sspr }, { "sspr_affine", t_sspr_affine }, { "sspr_rot", t_sspr_rot },
     { "spr_rot", t_spr_rot }, { "sspr_alpha", t_sspr_alpha }, { "spr_alpha", t_spr_alpha },
     { "stack", t_stack }, { "stackv", t_stackv }, { "zstack", t_zstack }, { "map", t_map }, { "mget", l_mget }, { "mset", l_mset },
