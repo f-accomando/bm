@@ -940,6 +940,55 @@ static int l_polyfill(lua_State *L)
     return 0;
 }
 
+static int l_blur(lua_State *L)
+{
+    int top = lua_gettop(L);
+    int x = 0, y = 0, w = rt.g.w, h = rt.g.h, radius = 2, passes = 1;
+    if (top >= 4) {
+        x = ival(L, 1);
+        y = ival(L, 2);
+        w = ival(L, 3);
+        h = ival(L, 4);
+        radius = (int)luaL_optinteger(L, 5, 2);
+        passes = (int)luaL_optinteger(L, 6, 1);
+    } else {
+        radius = (int)luaL_optinteger(L, 1, 2);
+        passes = (int)luaL_optinteger(L, 2, 1);
+    }
+    g16_blur(&rt.g, x, y, w, h, radius, passes);
+    return 0;
+}
+
+static int l_conv3(lua_State *L)
+{
+    int x = ival(L, 1);
+    int y = ival(L, 2);
+    int w = ival(L, 3);
+    int h = ival(L, 4);
+    luaL_checktype(L, 5, LUA_TTABLE);
+    int16_t kernel[9];
+    for (int i = 0; i < 9; i++) {
+        lua_rawgeti(L, 5, i + 1);
+        kernel[i] = (int16_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+    }
+    int divisor = (int)luaL_optinteger(L, 6, 0);
+    int offset = (int)luaL_optinteger(L, 7, 0);
+    g16_conv3(&rt.g, x, y, w, h, kernel, divisor, offset);
+    return 0;
+}
+
+static int l_radgrad(lua_State *L)
+{
+    int cx = ival(L, 1);
+    int cy = ival(L, 2);
+    int r = ival(L, 3);
+    uint32_t c0 = (uint32_t)luaL_checkinteger(L, 4);
+    uint32_t c1 = (uint32_t)luaL_optinteger(L, 5, 0);
+    g16_radgrad(&rt.g, cx, cy, r, c0, c1);
+    return 0;
+}
+
 static int l_pget(lua_State *L)
 {
     if (rt.early)
@@ -1737,6 +1786,9 @@ TIMED(t_path_fill, OP_SHAPE, l_path_fill)
 TIMED(t_path_stroke, OP_SHAPE, l_path_stroke)
 TIMED(t_poly, OP_SHAPE, l_poly)
 TIMED(t_polyfill, OP_SHAPE, l_polyfill)
+TIMED(t_blur, OP_SHAPE, l_blur)
+TIMED(t_conv3, OP_SHAPE, l_conv3)
+TIMED(t_radgrad, OP_SHAPE, l_radgrad)
 TIMED(t_pset, OP_SHAPE, l_pset)
 
 static const luaL_Reg api[] = {
@@ -1749,6 +1801,7 @@ static const luaL_Reg api[] = {
     { "path_quad", t_path_quad }, { "path_cubic", t_path_cubic }, { "path_arc", t_path_arc },
     { "path_close", t_path_close }, { "path_fill", t_path_fill }, { "path_stroke", t_path_stroke },
     { "poly", t_poly }, { "polyfill", t_polyfill },
+    { "blur", t_blur }, { "conv3", t_conv3 }, { "radgrad", t_radgrad },
     { "spr", t_spr }, { "sspr", t_sspr }, { "sspr_affine", t_sspr_affine }, { "sspr_rot", t_sspr_rot },
     { "spr_rot", t_spr_rot }, { "sspr_alpha", t_sspr_alpha }, { "spr_alpha", t_spr_alpha },
     { "stack", t_stack }, { "stackv", t_stackv }, { "zstack", t_zstack }, { "map", t_map }, { "mget", l_mget }, { "mset", l_mset },

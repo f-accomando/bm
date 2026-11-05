@@ -23,7 +23,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Stroke (width, caps, joins, miter, dash) | has (`path_stroke`, 1 px line + offset quads, round joins/caps) | offset quads (two `g16_tri` a segment), round joins with `g16_circfill`; about 150 lines | ARM | bands | 2 |
 | Solid paint | has | - | - | - | - |
 | Linear gradient | has | `rectgrad` (two Gouraud triangles) and `tri` | 0.05 ms | same | 1 |
-| Radial gradient, spread modes | none | forward differences on d2, 256-entry RGB565 table; about 80 lines | about 6 cycles a pixel | bands | 1 |
+| Radial gradient, spread modes | has (`radgrad`, forward differences on d2, 256-entry RGB565 LUT) | forward differences on d2, 256-entry RGB565 table; about 80 lines | about 6 cycles a pixel | bands | 1 |
 | Colour ramp | partial (`fades`) | the radial and linear tables | - | - | 2 |
 | Pattern paint | partial (`spr`/`map`) | `fillpat` over a cell range; about 20 lines | ARM | ARM | 3 |
 | Affine transform of an image | has (`sspr_affine`, `sspr_rot`, `spr_rot`) | `sspr_affine` with a 2x2 matrix, reuse `stack_core`; about 70 lines | 16x16 about 0.01 ms | 0.003 ms | 1 |
@@ -35,7 +35,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Blend modes (alpha, add, multiply, screen...) | none (only `g16_fade_glow`) | `blend(mode)` before a draw; alpha on 5/6-bit fields, add and multiply by LUT; about 80 lines | 5-8 cycles a pixel; full screen about 2 ms | bands: 0.5 ms | 2 |
 | Premultiplied alpha | none | a sheet option, no API | saves one multiply | same | 3 |
 | Colour transform, lookup table | partial (`g16_fade_apply`) | `colmat(m)` 3x3 on RGB565; about 60 lines | about 10 cycles a pixel | bands | 3 |
-| Colour matrix, convolve, Gaussian blur | none | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
+| Colour matrix, convolve, Gaussian blur | has (`blur` separable box blur with running sum, `conv3` 3x3 convolution matrix) | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
 | Vector fonts, glyph origin | none (bitmap fonts) | `stb_truetype` (public domain or MIT; vendored about 5k lines), glyph raster once, cache as alpha sheet (96 glyphs at 24 px about 27 KB); wrapper about 300 lines: `vfont`, `vprint` | raster 0.05-0.1 ms a glyph, cached blit 0.01 ms | raster on cores 1-3 | 2 |
 | VGU line, polyline, rect, round rect, ellipse, arc, polygon | has (`line`, `rect`, `circ`, `rrect`, `ellipse`, `rrectfill`, `ellipsefill`, `poly`, `polyfill`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
 | Offload of heavy 2D work to the GPU | Pi partial, RGB30 none | Pi exists. Mali: Texture and Sampler descriptors, textured fragment shader (G1 in [multicore](multicore.md)), alpha discard. 4 us a draw makes 600 sprites cost 2.4 ms, more than the ARM path (about 0.5 ms). The Mali pays only for big layers and fades | exists | skip for sprites | 3 |
@@ -55,51 +55,33 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 1. Done (5 Nov 2026): Items 1 and 2 of "Do better" (xmap on scaled blits, runs with `hline` on `g16_text`), and `rectgrad`, `rrect`, `rrectfill`, `ellipse`, `ellipsefill` for UI. Item 5 (RGB30 bands).
 2. Done (5 Nov 2026): `sspr_affine` (2x2 matrix rasterizer), `sspr_rot`, `spr_rot`, `sspr_alpha`, `spr_alpha`, `g16_sspr_zoom` xmap optimization, 8-bit translucent sheet alpha (`sget`/`sset` alpha).
 3. Done (5 Nov 2026): Paths with even-odd and non-zero winding rules, Bézier curves (quad, cubic), circular arcs, vector stroker with round caps/joins, `poly` and `polyfill`.
-4. Vector font with an alpha glyph cache; blur for glow on the RGB30 only.
+4. Done (5 Nov 2026): Separable 2D box blur with running sums (`blur`), 3x3 convolution filter (`conv3`), radial gradients (`radgrad`). Next: TrueType vector fonts (`vfont`, `vprint`) with alpha glyph cache.
 5. Mali 2D only after G1 and only for big layers.
 
 ## Details of implemented steps
 
 ### Step 1: UI primitives, gradients & ARM inner loops (5 Nov 2026)
-- **`rrect(x, y, w, h, r, col)` / `rrectfill(x, y, w, h, r, col)`**:
-  Rounded rectangles with radius `r`. `rrectfill` computes symmetric corner quadrant spans using midpoint circle math, drawing the 4 corner areas with `hline` and filling the center and vertical segments with a single `rectfill` (zero overdraw across all pixels). `rrect` draws four 1px border lines and 4 circular arcs.
-- **`ellipse(cx, cy, rx, ry, col)` / `ellipsefill(cx, cy, rx, ry, col)`**:
-  Midpoint ellipse algorithm in integer arithmetic. `ellipsefill` maintains the maximum x-span for each scanline row and rasterizes with symmetric `hline` pairs (zero overdraw).
-- **`rectgrad(x, y, w, h, c0, c1, [c2, c3, dir])`**:
-  Linear gradient rectangle decomposed into 2 Gouraud triangles (`g16_tri_gouraud`). Supports vertical 2-color (default), horizontal 2-color (`dir = "h"`), and 4-corner gradients ($c_0$ top-left, $c_1$ top-right, $c_2$ bottom-right, $c_3$ bottom-left).
-- **`g16_blit565` & `g16_text` optimizations**:
-  - `g16_blit565`: precomputed `xmap` array removes the per-pixel software integer division (`__aeabi_idiv`) on ARM1176.
-  - `g16_text`: run-length encoding with `hline` for consecutive lit bits, removing 4 clip bounds tests per font pixel.
+- `rrect`, `rrectfill`: rounded rectangles; midpoint circle quadrant spans with `hline` and single center `rectfill` (zero overdraw).
+- `ellipse`, `ellipsefill`: integer midpoint ellipse; symmetric scanline `hline` pairs.
+- `rectgrad(x, y, w, h, c0, c1, [c2, c3, dir])`: 2 Gouraud triangles (`g16_tri_gouraud`). Vertical, horizontal (`dir="h"`), or 4-corner gradients.
+- `g16_blit565` & `g16_text` optimizations: precomputed `xmap` array replaces ARM1176 software integer division; RLE runs with `hline` for font glyphs.
 
 ### Step 2: Affine transforms, sprite rotation & 8-bit alpha (5 Nov 2026)
-- **`sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy])`**:
-  2x2 affine matrix transformation rasterizer. Computes the inverse transform $M = \frac{1}{ad-bc} \begin{pmatrix} d & -b \\ -c & a \end{pmatrix}$ in 16.16 fixed point, mapping each screen pixel $(px, py)$ to sheet texel $(u, v)$. Supports arbitrary pivot $(ox, oy)$ (defaults to center `(sw/2, sh/2)`), screen clipping, and sub-texel floor rounding.
-- **`sspr_rot(sx, sy, sw, sh, dx, dy, rz, [scale, ox, oy])` / `spr_rot(n, dx, dy, rz, [scale, wc, hc])`**:
-  High-level sprite rotation around visual center or custom pivot with uniform or 2D scaling ($sx\_scale, sy\_scale$), mapped directly to the affine core.
-- **8-bit alpha blending & translucent sheet support**:
-  - Unpacked channel integer blend: $(C_s - C_d) \times \alpha + 128 \gg 8$ on 16-bit RGB565.
-  - Coverage convention: $\alpha=0$ transparent, $\alpha=1$ and $\alpha=255$ opaque fast path, $\alpha \in [2, 254]$ translucent blend.
-  - `sspr_alpha` and `spr_alpha`: blit with global alpha factor ($0..255$) combined with per-pixel sheet coverage for HUD fading.
-  - `sget(x, y)` returns `(color, alpha)` (100% backward compatible in Lua).
-  - `sset(x, y, [color, alpha])` accepts optional 8-bit alpha.
-- **`g16_sspr_zoom` optimization**:
-  Precomputed `xmap` array replaces per-pixel 64-bit multiplications and shifts in the inner loop.
+- `sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy])`: 2x2 affine matrix inverse rasterizer in 16.16 fixed point with clipping and arbitrary pivot.
+- `sspr_rot(sx, sy, sw, sh, dx, dy, rz, [scale, ox, oy])` / `spr_rot(n, dx, dy, rz, [scale, wc, hc])`: high-level sprite rotation with uniform/2D scaling.
+- 8-bit alpha blending: sheet coverage $\alpha \in [2, 254]$ blended via unpacked channels; `sspr_alpha`, `spr_alpha`, `sset`/`sget` alpha.
+- `g16_sspr_zoom`: precomputed `xmap` replaces per-pixel 64-bit multiplications.
 
 ### Step 3: 2D Paths, Bézier curves, fill rules & vector stroker (5 Nov 2026)
-- **`path_begin()`, `path_move(x, y)`, `path_line(x, y)`, `path_close()`**:
-  Dynamic path vertex and command buffer (`g16_path_t`). Efficiently reused across frames (`g16_path_reset` retains allocations). Supports arbitrary subpaths and contours.
-- **Bézier curves & circular arcs**:
-  - `path_quad(cx, cy, x, y)`: recursive de Casteljau adaptive subdivision with chord sagitta deviation test (< 0.5 px).
-  - `path_cubic(c1x, c1y, c2x, c2y, x, y)`: cubic Bézier flattening with chord distance sum ($d_1 + d_2 \le 0.5$ px).
-  - `path_arc(cx, cy, r, a0, a1)`: curvature-adaptive circular arc stepping connecting seamlessly to previous subpath.
-- **Scanline polygon rasterization & fill rules**:
-  - `path_fill([col, rule])` & `polyfill(points, [col, rule])`: scanline intersection sorting with sub-pixel top-left half-open intervals ($[ymin, ymax)$).
-  - Even-odd rule (`"evenodd"`, default): alternating span parity rasterization.
-  - Non-zero winding rule (`"nonzero"`): signed vertical edge winding tracker, correctly handling self-intersecting polygons and complex nested holes.
-- **Vector stroker**:
-  - `path_stroke([col, width])`: 1px fast-path via `g16_line`; thick strokes ($width > 1$) decomposed into normal-offset quads (`g16_tri`) with circular disks (`g16_circfill`) at vertices for smooth round caps and round joins.
-- **High-level polygon APIs**:
-  - `poly(points, [col, closed])` & `polyfill(points, [col, rule])`: accept table of coordinates `{x1, y1, ...}`, table of point pairs `{ {x1, y1}, ... }` or varargs `(x1, y1, x2, y2, ...)`.
+- Dynamic path buffer (`g16_path_t`): `path_begin`, `path_move`, `path_line`, `path_close`.
+- Curves: `path_quad` (recursive de Casteljau), `path_cubic` (chord flatness subdivision), `path_arc` (curvature-adaptive circular arcs).
+- Scanline polygon fill: `path_fill([c, rule])` & `polyfill(points, [c, rule])` with even-odd (`"evenodd"`) and non-zero winding (`"nonzero"`).
+- Vector stroker & poly: `path_stroke([c, width])` via offset quads and round caps/joints; `poly` and `polyfill` for point tables/varargs.
+
+### Step 4: Separable 2D box blur, 3x3 convolution & radial gradients (5 Nov 2026)
+- `blur([x, y, w, h, radius, passes])`: separable 2D box blur on RGB565 with sliding running sum accumulators ($O(1)$ per pixel independent of radius, fixed-point shift multiplier, multi-pass approximation of Gaussian blur, defaults to full screen).
+- `conv3(x, y, w, h, kernel, [divisor, offset])`: general 3x3 spatial convolution matrix on RGB565 with clamped boundary sampling.
+- `radgrad(cx, cy, r, c0, c1)`: radial gradient circle using forward differences on $d^2 = dx^2 + dy^2$ ($(dx+1)^2 - dx^2 = 2dx + 1$) and 256-entry precomputed RGB565 LUT.
 
 ## Can only the RGB30 pay for it?
 A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full-screen gradients with blend, full-screen blur and many icons a frame belong to the RGB30. The Pi takes: `rrect`, `ellipse`, `rectgrad`, `radgrad`, `sspr_affine`, alpha sprites for the HUD, bitmap text, and two or three vector icons a frame.

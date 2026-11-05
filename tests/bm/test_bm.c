@@ -160,6 +160,27 @@ static void test_primitives(void)
     g16_poly(&g, poly_pts, 3, 0xFFE0, 1);
     CHECK(at(20, 10) == 0xFFE0, "poly closed edge");
 
+    /* blur, conv3, radgrad */
+    g16_cls(&g, 0);
+    g16_pset(&g, 20, 20, 0xFFFF);
+    g16_blur(&g, 10, 10, 20, 20, 2, 1);
+    CHECK(at(20, 20) != 0 && at(20, 20) != 0xFFFF, "blur center attenuated");
+    CHECK(at(21, 20) != 0 && at(20, 21) != 0, "blur neighbors lit");
+    CHECK(at(5, 5) == 0, "blur exterior untouched");
+
+    g16_cls(&g, 0);
+    g16_rectfill(&g, 15, 15, 10, 10, 0xFFFF);
+    int16_t edge_k[9] = { -1, -1, -1, -1, 8, -1, -1, -1, -1 };
+    g16_conv3(&g, 10, 10, 20, 20, edge_k, 1, 0);
+    CHECK(at(19, 19) == 0, "conv3 flat region zeroed");
+    CHECK(at(15, 15) != 0, "conv3 edge detected");
+
+    g16_cls(&g, 0);
+    g16_radgrad(&g, 40, 40, 15, 0xFF0000, 0x0000FF);
+    CHECK(at(40, 40) == 0xF800, "radgrad center c0 red");
+    CHECK(at(55, 40) == 0x001F, "radgrad outer perimeter c1 blue");
+    CHECK(at(58, 40) == 0, "radgrad exterior untouched");
+
     CHECK(g16_rgb(255, 0, 0) == 0xF800 && g16_rgb(0, 255, 0) == 0x07E0 && g16_rgb(0, 0, 255) == 0x001F, "rgb565");
     CHECK(g16_to_rgb24(0xF800) == 0xFF0000 && g16_to_rgb24(0xFFFF) == 0xFFFFFF, "rgb565 -> rgb24");
 }

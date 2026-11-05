@@ -1620,6 +1620,38 @@ void g16_path_fill(g16_t *g, const g16_path_t *p, uint16_t c, g16_fill_rule_t ru
     free(edges);
 }
 
+static void g16_stroke_quad(g16_t *g, float x0, float y0, float x1, float y1,
+                            float x2, float y2, float x3, float y3, uint16_t c)
+{
+    float qx[4] = { x0, x1, x2, x3 };
+    float qy[4] = { y0, y1, y2, y3 };
+    int min_y = (int)ceilf(fminf(fminf(y0, y1), fminf(y2, y3)) - 0.5f);
+    int max_y = (int)floorf(fmaxf(fmaxf(y0, y1), fmaxf(y2, y3)) - 0.5f);
+    if (min_y < g->cy0) min_y = g->cy0;
+    if (max_y >= g->cy1) max_y = g->cy1 - 1;
+    for (int y = min_y; y <= max_y; y++) {
+        float py = (float)y + 0.5f;
+        float inters[4];
+        int n = 0;
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) & 3;
+            float ey0 = qy[i], ey1 = qy[j];
+            if ((ey0 <= py && ey1 > py) || (ey1 <= py && ey0 > py)) {
+                float t = (py - ey0) / (ey1 - ey0);
+                inters[n++] = qx[i] + t * (qx[j] - qx[i]);
+            }
+        }
+        if (n >= 2) {
+            float sx0 = inters[0], sx1 = inters[1];
+            if (sx0 > sx1) { float tmp = sx0; sx0 = sx1; sx1 = tmp; }
+            int ix0 = (int)ceilf(sx0 - 0.5f);
+            int ix1 = (int)floorf(sx1 - 0.5f);
+            if (ix0 <= ix1)
+                hline(g, ix0, ix1, y, c);
+        }
+    }
+}
+
 void g16_path_stroke(g16_t *g, const g16_path_t *p, uint16_t c, float width)
 {
     if (!g || !p || p->count < 2) return;
@@ -1657,13 +1689,12 @@ void g16_path_stroke(g16_t *g, const g16_path_t *p, uint16_t c, float width)
             if (len > 1e-4f) {
                 float nx = (-dy / len) * hw;
                 float ny = (dx / len) * hw;
-                int ax = (int)roundf(x0 + nx), ay = (int)roundf(y0 + ny);
-                int bx = (int)roundf(x0 - nx), by = (int)roundf(y0 - ny);
-                int cx = (int)roundf(x1 - nx), cy = (int)roundf(y1 - ny);
-                int dx_pt = (int)roundf(x1 + nx), dy_pt = (int)roundf(y1 + ny);
+                float ax = x0 + nx, ay = y0 + ny;
+                float bx = x0 - nx, by = y0 - ny;
+                float cx = x1 - nx, cy = y1 - ny;
+                float dx_pt = x1 + nx, dy_pt = y1 + ny;
 
-                g16_tri(g, ax, ay, bx, by, cx, cy, c);
-                g16_tri(g, ax, ay, cx, cy, dx_pt, dy_pt, c);
+                g16_stroke_quad(g, ax, ay, bx, by, cx, cy, dx_pt, dy_pt, c);
             }
             g16_circfill(g, (int)roundf(x1), (int)roundf(y1), rad, c);
             cur_x = x1;
@@ -1696,4 +1727,222 @@ void g16_polyfill(g16_t *g, const float *pts, int count, uint16_t c, g16_fill_ru
     g16_path_close(&p);
     g16_path_fill(g, &p, c, rule);
     g16_path_free(&p);
+}
+
+/* ------------------------------------------------------- Filters & radial gradients */
+
+void g16_blur(g16_t *g, int x, int y, int w, int h, int radius, int passes)
+{
+    if (!g || !g->px || radius <= 0 || w <= 0 || h <= 0) return;
+    if (radius > 32) radius = 32;
+    if (passes < 1) passes = 1;
+    if (passes > 4) passes = 4;
+
+    x -= g->cam_x;
+    y -= g->cam_y;
+    int x1 = x + w, y1 = y + h;
+    if (x < g->cx0) x = g->cx0;
+    if (y < g->cy0) y = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    int rw = x1 - x;
+    int rh = y1 - y;
+    if (rw <= 1 || rh <= 1) return;
+
+    uint16_t *tmp = (uint16_t *)malloc((size_t)rw * (size_t)rh * sizeof(uint16_t));
+    if (!tmp) return;
+
+    int ksize = 2 * radius + 1;
+    uint32_t inv_k = (uint32_t)((1ULL << 24) / (uint32_t)ksize);
+
+    for (int p = 0; p < passes; p++) {
+        /* Pass 1: Horizontal blur from g->px into tmp */
+        for (int row = 0; row < rh; row++) {
+            const uint16_t *src_row = g->px + (uint32_t)(y + row) * g->stride + x;
+            uint16_t *dst_row = tmp + (size_t)row * rw;
+
+            uint32_t sum_r = 0, sum_g = 0, sum_b = 0;
+            for (int i = -radius; i <= radius; i++) {
+                int cx = i < 0 ? 0 : (i >= rw ? rw - 1 : i);
+                uint16_t c = src_row[cx];
+                sum_r += (c >> 11);
+                sum_g += (c >> 5 & 63);
+                sum_b += (c & 31);
+            }
+
+            for (int col = 0; col < rw; col++) {
+                uint32_t r = (sum_r * inv_k + (1 << 23)) >> 24;
+                uint32_t g_val = (sum_g * inv_k + (1 << 23)) >> 24;
+                uint32_t b = (sum_b * inv_k + (1 << 23)) >> 24;
+                if (r > 31) r = 31;
+                if (g_val > 63) g_val = 63;
+                if (b > 31) b = 31;
+                dst_row[col] = (uint16_t)(r << 11 | g_val << 5 | b);
+
+                int left_x = col - radius;
+                int right_x = col + radius + 1;
+                if (left_x < 0) left_x = 0;
+                if (right_x >= rw) right_x = rw - 1;
+
+                uint16_t c_out = src_row[left_x];
+                uint16_t c_in = src_row[right_x];
+
+                sum_r += (c_in >> 11) - (c_out >> 11);
+                sum_g += (c_in >> 5 & 63) - (c_out >> 5 & 63);
+                sum_b += (c_in & 31) - (c_out & 31);
+            }
+        }
+
+        /* Pass 2: Vertical blur from tmp back into g->px */
+        for (int col = 0; col < rw; col++) {
+            uint32_t sum_r = 0, sum_g = 0, sum_b = 0;
+            for (int i = -radius; i <= radius; i++) {
+                int cy = i < 0 ? 0 : (i >= rh ? rh - 1 : i);
+                uint16_t c = tmp[(size_t)cy * rw + col];
+                sum_r += (c >> 11);
+                sum_g += (c >> 5 & 63);
+                sum_b += (c & 31);
+            }
+
+            for (int row = 0; row < rh; row++) {
+                uint32_t r = (sum_r * inv_k + (1 << 23)) >> 24;
+                uint32_t g_val = (sum_g * inv_k + (1 << 23)) >> 24;
+                uint32_t b = (sum_b * inv_k + (1 << 23)) >> 24;
+                if (r > 31) r = 31;
+                if (g_val > 63) g_val = 63;
+                if (b > 31) b = 31;
+                g->px[(uint32_t)(y + row) * g->stride + (x + col)] = (uint16_t)(r << 11 | g_val << 5 | b);
+
+                int top_y = row - radius;
+                int bot_y = row + radius + 1;
+                if (top_y < 0) top_y = 0;
+                if (bot_y >= rh) bot_y = rh - 1;
+
+                uint16_t c_out = tmp[(size_t)top_y * rw + col];
+                uint16_t c_in = tmp[(size_t)bot_y * rw + col];
+
+                sum_r += (c_in >> 11) - (c_out >> 11);
+                sum_g += (c_in >> 5 & 63) - (c_out >> 5 & 63);
+                sum_b += (c_in & 31) - (c_out & 31);
+            }
+        }
+    }
+
+    free(tmp);
+}
+
+void g16_conv3(g16_t *g, int x, int y, int w, int h, const int16_t kernel[9], int divisor, int offset)
+{
+    if (!g || !g->px || !kernel || w <= 0 || h <= 0) return;
+
+    x -= g->cam_x;
+    y -= g->cam_y;
+    int x1 = x + w, y1 = y + h;
+    if (x < g->cx0) x = g->cx0;
+    if (y < g->cy0) y = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    int rw = x1 - x, rh = y1 - y;
+    if (rw <= 0 || rh <= 0) return;
+
+    if (divisor == 0) {
+        int sum = 0;
+        for (int i = 0; i < 9; i++) sum += kernel[i];
+        divisor = sum == 0 ? 1 : sum;
+    }
+
+    uint16_t *tmp = (uint16_t *)malloc((size_t)rw * (size_t)rh * sizeof(uint16_t));
+    if (!tmp) return;
+
+    for (int row = 0; row < rh; row++) {
+        const uint16_t *src_row = g->px + (uint32_t)(y + row) * g->stride + x;
+        memcpy(tmp + (size_t)row * rw, src_row, (size_t)rw * sizeof(uint16_t));
+    }
+
+    for (int row = 0; row < rh; row++) {
+        uint16_t *dst_row = g->px + (uint32_t)(y + row) * g->stride + x;
+        for (int col = 0; col < rw; col++) {
+            int32_t r = 0, g_val = 0, b = 0;
+            for (int ky = -1; ky <= 1; ky++) {
+                int sy = row + ky;
+                if (sy < 0) sy = 0; else if (sy >= rh) sy = rh - 1;
+                const uint16_t *krow = tmp + (size_t)sy * rw;
+                for (int kx = -1; kx <= 1; kx++) {
+                    int sx = col + kx;
+                    if (sx < 0) sx = 0; else if (sx >= rw) sx = rw - 1;
+                    uint16_t c = krow[sx];
+                    int16_t w_val = kernel[(ky + 1) * 3 + (kx + 1)];
+                    r += (int32_t)(c >> 11) * w_val;
+                    g_val += (int32_t)(c >> 5 & 63) * w_val;
+                    b += (int32_t)(c & 31) * w_val;
+                }
+            }
+            if (divisor != 1) {
+                r /= divisor;
+                g_val /= divisor;
+                b /= divisor;
+            }
+            r += offset; g_val += offset; b += offset;
+            if (r < 0) r = 0; else if (r > 31) r = 31;
+            if (g_val < 0) g_val = 0; else if (g_val > 63) g_val = 63;
+            if (b < 0) b = 0; else if (b > 31) b = 31;
+            dst_row[col] = (uint16_t)(r << 11 | g_val << 5 | b);
+        }
+    }
+
+    free(tmp);
+}
+
+void g16_radgrad(g16_t *g, int cx, int cy, int r, uint32_t c0, uint32_t c1)
+{
+    if (!g || !g->px || r <= 0) return;
+
+    uint16_t lut[256];
+    uint32_t r0 = (c0 >> 16 & 0xFF) >> 3;
+    uint32_t g0 = (c0 >> 8 & 0xFF) >> 2;
+    uint32_t b0 = (c0 & 0xFF) >> 3;
+
+    uint32_t r1 = (c1 >> 16 & 0xFF) >> 3;
+    uint32_t g1 = (c1 >> 8 & 0xFF) >> 2;
+    uint32_t b1 = (c1 & 0xFF) >> 3;
+
+    for (int i = 0; i < 256; i++) {
+        uint32_t cr = (r0 * (uint32_t)(255 - i) + r1 * (uint32_t)i + 128) / 255;
+        uint32_t cg = (g0 * (uint32_t)(255 - i) + g1 * (uint32_t)i + 128) / 255;
+        uint32_t cb = (b0 * (uint32_t)(255 - i) + b1 * (uint32_t)i + 128) / 255;
+        lut[i] = (uint16_t)(cr << 11 | cg << 5 | cb);
+    }
+
+    cx -= g->cam_x;
+    cy -= g->cam_y;
+
+    int y0 = cy - r, y1 = cy + r;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (y1 >= g->cy1) y1 = g->cy1 - 1;
+    if (y0 > y1) return;
+
+    int64_t r2 = (int64_t)r * r;
+    if (r2 <= 0) return;
+
+    for (int y = y0; y <= y1; y++) {
+        int64_t dy = y - cy;
+        int64_t dy2 = dy * dy;
+        if (dy2 > r2) continue;
+
+        int dx_max = (int)sqrtf((float)(r2 - dy2));
+        int x_left = cx - dx_max;
+        int x_right = cx + dx_max;
+        if (x_left < g->cx0) x_left = g->cx0;
+        if (x_right >= g->cx1) x_right = g->cx1 - 1;
+        if (x_left > x_right) continue;
+
+        uint16_t *dst = g->px + (uint32_t)y * g->stride;
+        for (int x = x_left; x <= x_right; x++) {
+            int64_t dx = x - cx;
+            int64_t d2 = dx * dx + dy2;
+            int idx = (int)((d2 * 255) / r2);
+            if (idx > 255) idx = 255;
+            dst[x] = lut[idx];
+        }
+    }
 }

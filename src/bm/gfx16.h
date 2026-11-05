@@ -218,7 +218,6 @@ typedef struct {
     int has_start;
 } g16_path_t;
 
-void g16_tri(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2, uint16_t c);
 
 void g16_path_init(g16_path_t *p);
 void g16_path_free(g16_path_t *p);
@@ -235,5 +234,10 @@ void g16_path_stroke(g16_t *g, const g16_path_t *p, uint16_t c, float width);
 
 void g16_poly(g16_t *g, const float *pts, int count, uint16_t c, int closed);
 void g16_polyfill(g16_t *g, const float *pts, int count, uint16_t c, g16_fill_rule_t rule);
+
+/* Filters & radial gradients */
+void g16_blur(g16_t *g, int x, int y, int w, int h, int radius, int passes);
+void g16_conv3(g16_t *g, int x, int y, int w, int h, const int16_t kernel[9], int divisor, int offset);
+void g16_radgrad(g16_t *g, int cx, int cy, int r, uint32_t c0, uint32_t c1);
 
 #endif

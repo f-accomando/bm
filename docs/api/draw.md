@@ -19,6 +19,9 @@ Part of the game API. Index and basics: [API.md](../API.md).
 | `rrect(x, y, w, h, r, c)` / `rrectfill(x, y, w, h, r, c)` | an empty / filled rectangle with rounded corners of radius `r` |
 | `ellipse(cx, cy, rx, ry, c)` / `ellipsefill(cx, cy, rx, ry, c)` | an empty / filled ellipse with horizontal radius `rx` and vertical radius `ry` |
 | `rectgrad(x, y, w, h, c0, c1, [c2, c3, dir])` | a rectangle filled with a linear gradient; two colours shade vertically (or horizontally with `dir` `"h"`), four colours (`c0`..`c3`) shade from top-left, top-right, bottom-right and bottom-left |
+| `radgrad(cx, cy, r, c0, [c1])` | a radial gradient circle from centre `(cx, cy)` of radius `r` shading from `c0` at centre to `c1` at edge (black if `c1` missing) |
+| `blur([x, y, w, h, radius, passes])` | separable 2D box blur with running sums; whole screen if coordinates omitted, `radius` default 2, `passes` default 1 (multiple passes approximate Gaussian blur) |
+| `conv3(x, y, w, h, kernel, [divisor, offset])` | 3×3 convolution filter over rectangle `(x, y, w, h)` using a 9-element table `kernel` |
 | `circ(x, y, r, c)` / `circfill(x, y, r, c)` | an empty / filled circle |
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | a filled triangle; with three colours (one per corner) the colour shades from one corner to the other (Gouraud, dithered) |
 | `poly(points, [c, closed])` | draws a polygon outline from a table of coordinates `{x1, y1, ...}`, pairs `{ {x1, y1}, ... }` or varargs; closed by default (`closed = false` leaves open) |
