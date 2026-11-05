@@ -26,18 +26,18 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Radial gradient, spread modes | none | forward differences on d2, 256-entry RGB565 table; about 80 lines | about 6 cycles a pixel | bands | 1 |
 | Colour ramp | partial (`fades`) | the radial and linear tables | - | - | 2 |
 | Pattern paint | partial (`spr`/`map`) | `fillpat` over a cell range; about 20 lines | ARM | ARM | 3 |
-| Affine transform of an image | partial (`sspr` zoom, `stack` rotate) | `sspr_affine` with a 2x2 matrix, reuse `stack_core`; about 70 lines | 16x16 about 0.01 ms | 0.003 ms | 1 |
+| Affine transform of an image | has (`sspr_affine`, `sspr_rot`, `spr_rot`) | `sspr_affine` with a 2x2 matrix, reuse `stack_core`; about 70 lines | 16x16 about 0.01 ms | 0.003 ms | 1 |
 | Image perspective, quad warp (VGU) | 3D only | two textured triangles with `tri_grad` and `rq_tex` (`r3d.c`); about 120 lines | 0.02 ms for 16x16 | bands | 3 |
 | Clip rectangle | has | - | - | - | - |
 | Mask layers | partial (tile flag mask) | 1-bit mask plane built from paths; about 100 lines | +1 load a pixel | same | 3 |
-| Image formats with alpha (ARGB) | partial (alpha is 0 or 1) | the sheet `alpha` byte holds coverage 2-255, 1 stays opaque so old sheets stay right; a separate `blit_alpha` keeps `spr` the fast path; about 60 lines | about +8 cycles a pixel where alpha is not binary | same | 2 |
+| Image formats with alpha (ARGB) | has (coverage 0..255) | the sheet `alpha` byte holds coverage 2-255, 1/255 stays opaque so old sheets stay right; separate `sspr_alpha`/`spr_alpha` keeps `spr` the fast path | about +8 cycles a pixel where alpha is not binary | same | 2 |
 | Copy, get, set pixels | has | - | - | - | - |
 | Blend modes (alpha, add, multiply, screen...) | none (only `g16_fade_glow`) | `blend(mode)` before a draw; alpha on 5/6-bit fields, add and multiply by LUT; about 80 lines | 5-8 cycles a pixel; full screen about 2 ms | bands: 0.5 ms | 2 |
 | Premultiplied alpha | none | a sheet option, no API | saves one multiply | same | 3 |
 | Colour transform, lookup table | partial (`g16_fade_apply`) | `colmat(m)` 3x3 on RGB565; about 60 lines | about 10 cycles a pixel | bands | 3 |
 | Colour matrix, convolve, Gaussian blur | none | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
 | Vector fonts, glyph origin | none (bitmap fonts) | `stb_truetype` (public domain or MIT; vendored about 5k lines), glyph raster once, cache as alpha sheet (96 glyphs at 24 px about 27 KB); wrapper about 300 lines: `vfont`, `vprint` | raster 0.05-0.1 ms a glyph, cached blit 0.01 ms | raster on cores 1-3 | 2 |
-| VGU line, polyline, rect, round rect, ellipse, arc, polygon | partial (`line`, `rect`, `circ`, `rrect`, `ellipse`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
+| VGU line, polyline, rect, round rect, ellipse, arc, polygon | partial (`line`, `rect`, `circ`, `rrect`, `ellipse`, `rrectfill`, `ellipsefill`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
 | Offload of heavy 2D work to the GPU | Pi partial, RGB30 none | Pi exists. Mali: Texture and Sampler descriptors, textured fragment shader (G1 in [multicore](multicore.md)), alpha discard. 4 us a draw makes 600 sprites cost 2.4 ms, more than the ARM path (about 0.5 ms). The Mali pays only for big layers and fades | exists | skip for sprites | 3 |
 
 ## Do better (code that exists)
@@ -57,6 +57,33 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 3. Paths with fill rules and the stroker, written once, with bands on the RGB30.
 4. Vector font with an alpha glyph cache; blur for glow on the RGB30 only.
 5. Mali 2D only after G1 and only for big layers.
+
+## Details of implemented steps
+
+### Step 1: UI primitives, gradients & ARM inner loops (5 Nov 2026)
+- **`rrect(x, y, w, h, r, col)` / `rrectfill(x, y, w, h, r, col)`**:
+  Rounded rectangles with radius `r`. `rrectfill` computes symmetric corner quadrant spans using midpoint circle math, drawing the 4 corner areas with `hline` and filling the center and vertical segments with a single `rectfill` (zero overdraw across all pixels). `rrect` draws four 1px border lines and 4 circular arcs.
+- **`ellipse(cx, cy, rx, ry, col)` / `ellipsefill(cx, cy, rx, ry, col)`**:
+  Midpoint ellipse algorithm in integer arithmetic. `ellipsefill` maintains the maximum x-span for each scanline row and rasterizes with symmetric `hline` pairs (zero overdraw).
+- **`rectgrad(x, y, w, h, c0, c1, [c2, c3, dir])`**:
+  Linear gradient rectangle decomposed into 2 Gouraud triangles (`g16_tri_gouraud`). Supports vertical 2-color (default), horizontal 2-color (`dir = "h"`), and 4-corner gradients ($c_0$ top-left, $c_1$ top-right, $c_2$ bottom-right, $c_3$ bottom-left).
+- **`g16_blit565` & `g16_text` optimizations**:
+  - `g16_blit565`: precomputed `xmap` array removes the per-pixel software integer division (`__aeabi_idiv`) on ARM1176.
+  - `g16_text`: run-length encoding with `hline` for consecutive lit bits, removing 4 clip bounds tests per font pixel.
+
+### Step 2: Affine transforms, sprite rotation & 8-bit alpha (5 Nov 2026)
+- **`sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy])`**:
+  2x2 affine matrix transformation rasterizer. Computes the inverse transform $M = \frac{1}{ad-bc} \begin{pmatrix} d & -b \\ -c & a \end{pmatrix}$ in 16.16 fixed point, mapping each screen pixel $(px, py)$ to sheet texel $(u, v)$. Supports arbitrary pivot $(ox, oy)$ (defaults to center `(sw/2, sh/2)`), screen clipping, and sub-texel floor rounding.
+- **`sspr_rot(sx, sy, sw, sh, dx, dy, rz, [scale, ox, oy])` / `spr_rot(n, dx, dy, rz, [scale, wc, hc])`**:
+  High-level sprite rotation around visual center or custom pivot with uniform or 2D scaling ($sx\_scale, sy\_scale$), mapped directly to the affine core.
+- **8-bit alpha blending & translucent sheet support**:
+  - Unpacked channel integer blend: $(C_s - C_d) \times \alpha + 128 \gg 8$ on 16-bit RGB565.
+  - Coverage convention: $\alpha=0$ transparent, $\alpha=1$ and $\alpha=255$ opaque fast path, $\alpha \in [2, 254]$ translucent blend.
+  - `sspr_alpha` and `spr_alpha`: blit with global alpha factor ($0..255$) combined with per-pixel sheet coverage for HUD fading.
+  - `sget(x, y)` returns `(color, alpha)` (100% backward compatible in Lua).
+  - `sset(x, y, [color, alpha])` accepts optional 8-bit alpha.
+- **`g16_sspr_zoom` optimization**:
+  Precomputed `xmap` array replaces per-pixel 64-bit multiplications and shifts in the inner loop.
 
 ## Can only the RGB30 pay for it?
 A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full-screen gradients with blend, full-screen blur and many icons a frame belong to the RGB30. The Pi takes: `rrect`, `ellipse`, `rectgrad`, `radgrad`, `sspr_affine`, alpha sprites for the HUD, bitmap text, and two or three vector icons a frame.
