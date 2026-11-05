@@ -94,8 +94,9 @@ local TYPES = {
 local world, objs, doors, lanterns, enemies = nil, {}, {}, {}, {}
 local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the kit's by name (and name_f)
 local P = {}                          -- the player
--- the camera: behind and a little above the Hunter, looking where he looks (a low pitch), a shoulder's width to the right
-local Cam = { yaw = PI / 2, pitch = -0.36, dist = 5.4, side = 0.55, x = 0, y = 0, z = 0, shake = 0 }
+-- the camera: behind the Hunter's shoulders and a little above him, always turning to where he looks; it looks far ahead of him
+-- (ahead: the distance of the aimed point in front of him) from a low pitch, a shoulder's width to the right
+local Cam = { yaw = PI / 2, pitch = -0.3, dist = 5.4, side = 0.4, ahead = 10, follow = 0.07, x = 0, y = 0, z = 0, shake = 0 }
 local O = { res = 2, textures = true, bright = 2, music = true, sfx = 8, perf = false } -- the options (sfx: the effects volume
                                                                                         -- 0-10; perf: the dev kit's overlay)
 local G = { frame = 0, state = "play", msg = "", msgt = 0, flash = 0, died = 0, menu = 1, spawn = { 0, 0 }, stop = 0, song = -1, calm = 0 }
@@ -862,9 +863,9 @@ local function update_camera()
     -- behind the player, looking at the target
     local want = yaw_of(P.lock.x - P.x, P.lock.z - P.z)
     Cam.yaw = Cam.yaw + wrap(want - Cam.yaw) * 0.08
-  elseif P.mode == "free" and (held.fwd or held.back or held.left or held.right) then
-    -- the camera drifts round behind the Hunter as he runs
-    Cam.yaw = Cam.yaw + wrap(P.yaw - Cam.yaw) * 0.012
+  elseif not (held.camL or held.camR) then
+    -- the camera goes round behind the Hunter and stays there, in a run, a stand or a fight
+    Cam.yaw = Cam.yaw + wrap(P.yaw - Cam.yaw) * Cam.follow
   end
   local fxx, fzz = dir(Cam.yaw)
   local crx, crz = fzz, -fxx
@@ -876,7 +877,9 @@ local function update_camera()
   side = max(0, side)
   Cam.so = lerp(Cam.so or side, side, 0.15)
   local tx, ty, tz = P.x + crx * Cam.so, P.y + 1.45, P.z + crz * Cam.so
-  if P.lock then tx, ty, tz = lerp(tx, P.lock.x, 0.18), lerp(ty, P.lock.y + 1.0, 0.18), lerp(tz, P.lock.z, 0.18) end
+  -- the aimed point: far ahead of the Hunter, at chest height (a deep view forward); when locked on, the target
+  local ax, ay, az = tx + fxx * Cam.ahead, ty - 0.9, tz + fzz * Cam.ahead
+  if P.lock then ax, ay, az = P.lock.x, P.lock.y + 1.0, P.lock.z end
   -- a wall in the way: first look down more steeply (the camera goes up, not in); only then come closer
   local function clear(pitch, k)
     local hd, vd = Cam.dist * cos(pitch), Cam.dist * sin(-pitch)
@@ -904,7 +907,9 @@ local function update_camera()
   -- a hit shakes the view
   Cam.shake = max(0, Cam.shake - dt * 0.6)
   local sh = Cam.shake
-  Cam.tx, Cam.ty, Cam.tz = tx + (math.random() - 0.5) * sh, ty + (math.random() - 0.5) * sh, tz + (math.random() - 0.5) * sh
+  Cam.tx = lerp(Cam.tx or ax, ax, 0.2) + (math.random() - 0.5) * sh
+  Cam.ty = lerp(Cam.ty or ay, ay, 0.2) + (math.random() - 0.5) * sh
+  Cam.tz = lerp(Cam.tz or az, az, 0.2) + (math.random() - 0.5) * sh
 end
 
 local function look(x, y, z, tx, ty, tz)
@@ -1311,7 +1316,7 @@ function _draw()
   apply_environment()
   place_lamps()
   local yaw, pitch = look(Cam.x, Cam.y, Cam.z, Cam.tx or P.x, Cam.ty or P.y + 1.3, Cam.tz or P.z)
-  camera3d(Cam.x, Cam.y, Cam.z, yaw, pitch, 56)
+  camera3d(Cam.x, Cam.y, Cam.z, yaw, pitch, 64)
   textures3d(O.textures)
   map3d_draw(world, 0, FAR + 1)
   draw_objects()

@@ -2563,12 +2563,14 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             nd = nv = btri = slots = lu_used = 0;
         }
         be_zfr = 1;
-        /* Far to near: when the meshes need more than one frame, a later frame has no depth of the earlier ones and the nearer
-         * meshes must come last. m[15] is the depth of the mesh origin (insertion sort: a stable order for the same depth). */
+        /* The textured meshes (the map: large faces) first, then far to near: when the meshes need more than one frame, a later
+         * frame has no depth of the earlier ones and the nearer meshes must come last. A lit draw before a textured one lost the
+         * whole map in the Hero Stress frame (5 Nov 2026, hardware). m[15] is the depth of the mesh origin (insertion sort: a
+         * stable order for the same depth). */
         for (int ii = 1; ii < ninst; ii++) {
             const be_inst_t t = be_insts[ii];
             int jj = ii;
-            while (jj > 0 && be_insts[jj - 1].mvp[15] < t.mvp[15]) {
+            while (jj > 0 && ((be_insts[jj - 1].kind == 3) != (t.kind == 3) ? t.kind == 3 : be_insts[jj - 1].mvp[15] < t.mvp[15])) {
                 be_insts[jj] = be_insts[jj - 1];
                 jj--;
             }

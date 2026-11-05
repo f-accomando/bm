@@ -87,6 +87,8 @@ void md_renderer_state(uint8_t *p, const md_renderer_state_t *s)
     W(p, 4, 0, 8, s->ubo_count);
     W(p, 4, 12, 2, s->work_regs <= 32 ? 2 : 0); /* shader register allocation: 32 or 64 per thread */
     if (s->fragment) {
+        if (s->depth_func)
+            W(p, 4, 8, 2, 2);                   /* depth source: fixed function, the z of each pixel (0 is a z of 0 for the whole triangle: later draws always won) */
         W(p, 4, 20, 1, 1);                      /* allow forward pixel to be killed */
         W(p, 4, 21, 2, (uint32_t)s->pixel_kill);
         W(p, 4, 23, 2, (uint32_t)s->zs_update);

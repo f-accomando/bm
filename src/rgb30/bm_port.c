@@ -47,7 +47,7 @@ int gpu3d_init(void)
     const char *ksp = config_get("mali_split");
     mali_backend_set_split(ksp && !strcmp(ksp, "1"));
     const char *kx = config_get("mali_alpha");
-    mali_backend_set_alpha(kx && !strcmp(kx, "1"));
+    mali_backend_set_alpha(!(kx && !strcmp(kx, "0")));      /* on by default: a texture with holes stays on the Mali (BM_FS_TEXA) */
     const char *kns = config_get("mali_noshadow");
     mali_backend_set_noshadow(kns && !strcmp(kns, "1"));
     const char *k2 = config_get("mali_2d");

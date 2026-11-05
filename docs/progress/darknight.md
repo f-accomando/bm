@@ -64,6 +64,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Open work
 
+- **Dark Night on the Mali (5 Nov 2026).** The map chunks (2000+ faces, textured, with lamps and fog) are not cached meshes: r3d sends their faces one by one (5000+ triangles, more than 1024 draws), so every frame uses the sort and no depth test. Next: textured lit meshes with point lamps and fog in the Mali vertex shader (`BM_VS_TEXM`), then the shadows (screen-door faces: `mali_noshadow=1` skips them).
 - It starts on the RGB30 (2 Nov 2026: a shadow crash after the GPU fell back to the ARM is fixed). Not run on a Pi. The cost of a frame on the consoles is not measured: run it with the dev kit on (Performance row) and read the session report.
 - The enemies have no tactics: they do not dodge, wait for a gap or keep apart in a group. The pickups of the reference map are not in the kit.
 - The sound and the music are heard only in bmhost renders (`make wav`). Listen to them on a device.
@@ -75,6 +76,8 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - The pad buttons (`PAD`) cannot be remapped in the menu. Only the keyboard keys can.
 
 ## Rules (do not break)
+
+- Keep the camera behind the Hunter's shoulders: `Cam.yaw` follows `P.yaw` at `Cam.follow` in every state (only a held camera key or a lock-on changes it). The camera looks at a point `Cam.ahead` units in front of him, not at him.
 
 - Read the keys with `rawkeys(true)` and `keydown`; keep the action table `BIND` the only place that names a game key.
 - Read the menu with its own fixed keys (`MK`: arrows, W S, ENTER, SPACE, ESC), so a remapped key never locks the player out of the menu.

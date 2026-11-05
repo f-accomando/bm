@@ -401,9 +401,9 @@ read_in = "src/rgb30/bm_port.c"
 [[key]]
 name = "mali_alpha"
 scope = "rgb30"
-values = "1 = a 3D sheet with transparent texels (leaves, grass) is drawn by the Mali with BM_FS_TEXA, which kills the texels of alpha 0; anything else = the ARM draws it"
-default = "ARM"
-meaning = "Experimental (2026-10-30): with it the GPU stays on for a cartridge whose 3D sheet has holes. Run on an RGB30 with Island Bench: the GPU stays on and the leaves are cut out, but meshes with flat and textured faces still go through the ARM one triangle at a time and some near objects are not drawn."
+values = "0 = the ARM draws a 3D sheet with transparent texels; anything else = the Mali draws it with BM_FS_TEXA, which kills the texels of alpha 0"
+default = "1"
+meaning = "On by default since 5 Nov 2026 (was experimental, 2026-10-30): the GPU stays on for a cartridge whose 3D sheet has holes. Run on an RGB30 with Island Bench: the GPU stays on and the leaves are cut out, but meshes with flat and textured faces still go through the ARM one triangle at a time and some near objects are not drawn."
 settings = ""
 read_in = "src/rgb30/bm_port.c"
 
