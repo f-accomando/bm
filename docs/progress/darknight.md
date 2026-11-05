@@ -64,7 +64,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Open work
 
-- **Dark Night on the Mali (5 Nov 2026).** The map chunks (2000+ faces, textured, with lamps and fog) are not cached meshes: r3d sends their faces one by one (5000+ triangles, more than 1024 draws), so every frame uses the sort and no depth test. Next: textured lit meshes with point lamps and fog in the Mali vertex shader (`BM_VS_TEXM`), then the shadows (screen-door faces: `mali_noshadow=1` skips them).
+- Dark Night on the Mali (5 Nov 2026): walls, enemies, doors and the shadows are right and drawn by the GPU (bm3d 7.35). The ARM time a frame is not measured after the change. The faces `R3D_SCREEN` of a model still hand the 3D to the ARM.
 - It starts on the RGB30 (2 Nov 2026: a shadow crash after the GPU fell back to the ARM is fixed). Not run on a Pi. The cost of a frame on the consoles is not measured: run it with the dev kit on (Performance row) and read the session report.
 - The enemies have no tactics: they do not dodge, wait for a gap or keep apart in a group. The pickups of the reference map are not in the kit.
 - The sound and the music are heard only in bmhost renders (`make wav`). Listen to them on a device.

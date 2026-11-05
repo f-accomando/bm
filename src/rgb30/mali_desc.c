@@ -148,6 +148,28 @@ void md_blend_opaque(uint8_t *p, uint32_t rt, uint32_t mem_format, uint32_t reg_
     W(p, 3, 24, 3, reg_format);                 /* conversion: register format */
 }
 
+/* the shadow: the colour on the target times a constant (5/8: the ARM's style 0), the alpha kept. Blend equation A + B * C with A zero,
+B the destination and C the constant; the destination is read (Load Destination), the internal mode is fixed function (2), not opaque (1). */
+void md_blend_scale(uint8_t *p, uint32_t rt, uint32_t mem_format, uint32_t reg_format, uint32_t k16)
+{
+    W(p, 0, 0, 1, 1);                           /* load destination */
+    W(p, 0, 9, 1, 1);                           /* enable */
+    W(p, 0, 11, 1, 1);                          /* round to FB precision */
+    W(p, 0, 16, 16, k16);                       /* the blend constant */
+    W(p, 1, 0, 2, 1);                           /* RGB A: Zero */
+    W(p, 1, 4, 2, 3);                           /* RGB B: Dest */
+    W(p, 1, 8, 3, 7);                           /* RGB C: Constant */
+    W(p, 1, 12, 2, 3);                          /* alpha A: Dest */
+    W(p, 1, 16, 2, 3);                          /* alpha B: Dest */
+    W(p, 1, 20, 3, 1);                          /* alpha C: Zero (alpha = Dest) */
+    W(p, 1, 28, 4, 0xf);
+    W(p, 2, 0, 2, 2);                           /* internal: fixed function */
+    W(p, 2, 3, 2, 3);
+    W(p, 2, 16, 4, rt);
+    W(p, 3, 0, 22, mem_format);
+    W(p, 3, 24, 3, reg_format);
+}
+
 void md_local_storage(uint8_t *p)
 {
     W(p, 1, 0, 5, 31);                          /* WLS instances: none (log2 of 0x80000000) */

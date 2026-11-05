@@ -565,6 +565,21 @@ int main(int argc, char **argv)
         g_pushable = 1;
 #undef UC
     }
+    {   /* the screen-door fragment (R3D_KIND_SCREEN, the shadow of shadow3d(1)): the draw's colour as BM_FS, and the pixel is killed where
+         * x + y is odd, so the colour is on the pixels with x + y even as the ARM draws it */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, opt, "bm_fs_scr");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        b.shader->info.num_ubos = 1;
+        nir_variable *ocol = var(&b, nir_var_shader_out, "color", FRAG_RESULT_DATA0, INTERP_MODE_NONE);
+        nir_def *fc = nir_load_frag_coord(&b);
+        nir_def *xi = nir_f2i32(&b, nir_ffloor(&b, nir_channel(&b, fc, 0))), *yi = nir_f2i32(&b, nir_ffloor(&b, nir_channel(&b, fc, 1)));
+        nir_discard_if(&b, nir_ine_imm(&b, nir_iand_imm(&b, nir_iadd(&b, xi, yi), 1), 0));
+        nir_def *c = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 0), .align_mul = 16,
+                                  .align_offset = 0, .range_base = 0, .range = 16);
+        nir_store_var(&b, ocol, c, 0xf);
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_FS_SCR", b.shader, out, &fi, 0);
+    }
     fclose(out);
     return 0;
 }

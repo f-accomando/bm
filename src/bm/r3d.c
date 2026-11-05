@@ -1270,6 +1270,8 @@ static int colour_ok(r3d_t *r, int kind, int depth, const g16_sheet_t *tex, cons
             return 1;
         if ((kind & 3) == R3D_KIND_COLOUR && depth == R3D_DEPTH_TEST && r->backend->test_as_write)
             return 1;
+        if (kind == R3D_KIND_SCREEN && depth == R3D_DEPTH_TEST && r->backend->screen_test_ok)
+            return 1;
         static char why_kind[256];                      /* what made it: the kind and the depth of the first face
                                                           the Mali could not draw (R3D_KIND_*, R3D_DEPTH_*) */
         size_t n = strlen(why) < 200 ? strlen(why) : 200;

@@ -38,7 +38,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   such a mesh goes triangle by triangle.
 
 ### V3D driver (`src/gpu/gpu3d.c`, `v3d.c`, `v3d_cl.c`, `shaders.h`)
-- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.34"); the table there lists
+- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.35"); the table there lists
   every step and which settings reproduce older ones.
 - Default where a V3D answers; software when `gpu3d=0`, in QEMU, or when the boot probe
   fails. What is not documented is learnt by the probe at boot and switched off by itself

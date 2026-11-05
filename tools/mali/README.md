@@ -59,3 +59,5 @@ Mesa's postprocess.
   cause was not found. A colour per draw avoids it; a mesh with several colours is several draws.
 - Fragment preload is r60 only (no message preload), the Renderer State's `Uniform count` is
   `ceil(push count / 2)` = 4.
+
+- `BM_FS_SCR` (bm3d 7.35): the colour of `BM_FS` (a vec4 at offset 0 of uniform buffer 0, pushed words 4-7), and the pixel is killed where `floor(x) + floor(y)` is odd (fragment position): the screen-door of `shadow3d(1)`. Offset `SO_FS_SCR` 0xd400. `BM_VS_TEXX` (bm3d 7.34): the vertex of a textured mesh with lamps, rim light and cel levels (the uniforms of `BM_VS_LITX`).

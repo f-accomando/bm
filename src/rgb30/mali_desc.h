@@ -90,6 +90,7 @@ void md_rs_texture_count(uint8_t *p, uint32_t n);   /* the texture count of a bu
 /* Blend (16 bytes, 16-aligned) for a render target written as it is: mode Opaque, 4 components, the
  * colour converted from `reg_format` (MD_REG_*) to the memory format `mem_format` */
 void md_blend_opaque(uint8_t *p, uint32_t rt, uint32_t mem_format, uint32_t reg_format);
+void md_blend_scale(uint8_t *p, uint32_t rt, uint32_t mem_format, uint32_t reg_format, uint32_t k16);   /* fixed function: colour = destination * constant (k16: the constant, 16 bits unorm), alpha kept */
 
 /* Local Storage (thread storage, 64 bytes, 64-aligned): no scratch, no workgroup memory */
 void md_local_storage(uint8_t *p);

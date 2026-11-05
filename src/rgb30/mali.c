@@ -863,6 +863,8 @@ typedef struct {                                /* what every core reads while i
     uint8_t *verts_m, *push_m, *vpush_m, *draws_m;
     uint64_t verts_pa, pos_pa, push_pa, vpush_pa;
     const uint8_t *frs_buf, *vrs3_buf, *frst_buf, *frsta_buf;   /* frsta: the textured state that kills the texels with alpha 0 */
+    const uint8_t *frsc_buf;                    /* the screen-door: the flat state that kills the pixels with x + y odd, the depth tested and not written */
+    const uint8_t *frsh_buf;                    /* the shadow: the flat state that multiplies the target by 5/8, the depth tested and not written */
     uint8_t *tv_m;                              /* textured draws: vertices of 32 bytes (position, u v k), varyings of 16 */
     uint64_t tv_pa, tvy_pa;
     int fast_pack;
@@ -877,6 +879,9 @@ typedef struct {                                /* what every core reads while i
     const uint8_t *frsl_buf, *frsd_buf, *frsp_buf;   /* the 2D rectangles' and sprites' fragment states (no depth test) */
     int zbuf;                                   /* G2: the frame has a depth test: z = 1 - near / depth (see be_mesh) */
 } bctx_t;
+
+#define BE_SCREEN_FLAG  0x08000000u /* added to the colour of a screen-door triangle (the shadow of shadow3d(1)): the pixels with x + y even only */
+#define BE_SHADE_RGB    0x07000000u /* the colour word of a shadow triangle (R3D_KIND_SHADE): no colour, a blend draw */
 
 typedef struct {                                /* the block of one core: its draws and its own counters */
     const bctx_t *c;
@@ -1063,7 +1068,7 @@ static void build_draws(void *p)
         const uint64_t tb1 = cnt_now();
         k->t1 += tb1 - tb0;
         /* the draw's tables */
-        memcpy(loc + D_FRSD, frs_buf, 80);
+        memcpy(loc + D_FRSD, rgb == BE_SHADE_RGB ? c->frsh_buf : (rgb >> 24) == (BE_SCREEN_FLAG >> 24) ? c->frsc_buf : frs_buf, 80);
         md_attribute_buffer(loc + D_ABUFS, verts_pa + 16 * (uint64_t)first, 16, 16 * nv);
         md_attribute_buffer(loc + D_VBUFS, 0, 0, 0);
         md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
@@ -1136,6 +1141,11 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
         memcpy(m + sb + SO_FS_TEX, BM_FS_TEX_bin, sizeof BM_FS_TEX_bin);
         memcpy(m + sb + SO_FS_TEXA, BM_FS_TEXA_bin, sizeof BM_FS_TEXA_bin);     /* (the textures with holes) */
     }
+    int any_scr = 0;
+    for (uint32_t d = 0; d < ndraws && !any_scr; d++)
+        any_scr = (draws[d].rgb >> 24) == (BE_SCREEN_FLAG >> 24) && tv_m != NULL;
+    if (any_scr)
+        memcpy(m + sb + SO_FS_SCR, BM_FS_SCR_bin, sizeof BM_FS_SCR_bin);
     int any_lit = 0;
     for (uint32_t d = 0; d < ndraws && !any_lit; d++)
         any_lit = draws[d].litv != NULL && tv_m != NULL;
@@ -1199,6 +1209,22 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     memset(frs_buf, 0, sizeof frs_buf);
     md_renderer_state(frs_buf, &frs);
     md_blend_opaque(frs_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
+    uint8_t frsh_buf[80];                       /* the shadow of r3d (R3D_KIND_SHADE): the same shader, the depth not written, the target * 5/8 */
+    memset(frsh_buf, 0, sizeof frsh_buf);
+    md_renderer_state_t frsh = frs;
+    frsh.depth_write = 0;
+    md_renderer_state(frsh_buf, &frsh);
+    md_blend_scale(frsh_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32, 0x9F60u);
+    uint8_t frsc_buf[80];                       /* the screen-door shadow: BM_FS_SCR kills the pixels with x + y odd (so it ends the pixel late), depth tested not written */
+    memset(frsc_buf, 0, sizeof frsc_buf);
+    md_renderer_state_t frsc = { .fragment = 1, .shader = pa + sb + SO_FS_SCR, .attribute_count = BM_FS_SCR_ATTRIBUTE_COUNT,
+                                 .varying_count = BM_FS_SCR_VARYING_COUNT, .ubo_count = BM_FS_SCR_UBO_COUNT,
+                                 .work_regs = BM_FS_SCR_WORK_REGS, .preload_regs = BM_FS_SCR_PRELOAD,
+                                 .push_count = BM_FS_SCR_PUSH_COUNT, .pixel_kill = MD_KILL_FORCE_LATE,
+                                 .zs_update = MD_KILL_FORCE_LATE, .wait6 = BM_FS_SCR_WAIT6, .wait7 = BM_FS_SCR_WAIT7,
+                                 .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = 0 };
+    md_renderer_state(frsc_buf, &frsc);
+    md_blend_opaque(frsc_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
     md_renderer_state_t vrs3 = { .shader = pa + sb + SO_VS3, .attribute_count = BM_VS3_ATTRIBUTE_COUNT,
                                  .varying_count = BM_VS3_VARYING_COUNT, .ubo_count = BM_VS3_UBO_COUNT,
                                  .work_regs = BM_VS3_WORK_REGS, .preload_regs = BM_VS3_PRELOAD,
@@ -1286,7 +1312,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
 
     bctx_t bc = { .draws = draws, .ndraws = ndraws, .pa = pa, .dpa0 = draws_pa, .sb = sb, .verts_m = verts_m,
                   .push_m = push_m, .vpush_m = vpush_m, .draws_m = draws_m, .verts_pa = verts_pa, .pos_pa = pos_pa,
-                  .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .vrs3_buf = vrs3_buf,
+                  .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .frsh_buf = frsh_buf, .frsc_buf = frsc_buf, .vrs3_buf = vrs3_buf,
                   .frst_buf = frst_buf, .frsta_buf = frsta_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
                   .lv_m = tv_m ? tv_m - 0x720000 + 0x80000 : NULL, .lv_pa = tv_pa - 0x720000 + 0x80000,   /* BE_LIT_FROM_TV, BE_LIT_V_OFF */
                   .litp_m = tv_m ? tv_m - 0x720000 : NULL, .litp_pa = tv_pa - 0x720000,
@@ -1844,6 +1870,15 @@ static be_inst_t be_insts[BE_INST_MAX];
 static int be_ninst;
 #define BE_VIS_MAX      65536                   /* the faces of the cached meshes in a batch (a frame holds 10922 visible ones: the flush splits) */
 static uint16_t be_vis[BE_VIS_MAX];
+/* A face of a cached rigid mesh that crosses the near plane is cut here on the ARM (its corners interpolated, the light and the texture as
+ * they are) and drawn by a second instance of the same mesh. Without it a mesh with one corner behind the camera (the map chunk, near a
+ * wall) went one face at a time: over 1024 draws a frame, the frame lost its depth test and the cached meshes (the enemies) were drawn
+ * over the walls. */
+#define BE_CLIP_FLOATS  (1u << 16)
+static float be_clip[BE_CLIP_FLOATS];
+static uint32_t be_clip_used;
+static be_rm_t be_clip_rm[BE_INST_MAX];
+static uint32_t be_nclip_rm;
 static uint32_t be_nvis;
 static int be_res_on = 1;                       /* mali_res=0: no face cache */
 static int be_msaa;                             /* mali_msaa=1: 4x MSAA */
@@ -1956,6 +1991,8 @@ void mali_backend_drop(void)
     be_n2d = 0;
     be_ninst = 0;
     be_nvis = 0;
+    be_clip_used = 0;
+    be_nclip_rm = 0;
     be_nmvp = 0;
 }
 
@@ -2416,6 +2453,8 @@ static int be_flush_mode_impl(const g16_t *g, int async)
     be_n2d = 0;
     be_ninst = 0;
     be_nvis = 0;
+    be_clip_used = 0;
+    be_nclip_rm = 0;
     be_nmvp = 0;
     const mali_hw_t *hw = be_hw;
     const uint32_t sw = ((uint32_t)g->w + 15) & ~15u, sh = ((uint32_t)g->h + 15) & ~15u;
@@ -2521,9 +2560,27 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         pa = hw->mem_pa - (2u << 20);
     }
 #endif
+    int ns = n;                                     /* the triangles that are not shadows: the shadows (blend, screen-door) go last, over the floor */
+    {
+        int w = 0;
+        for (int i = 0; i < n; i++)
+            if (be_tris[idx[i]].rgb != BE_SHADE_RGB && (be_tris[idx[i]].rgb >> 24) != (BE_SCREEN_FLAG >> 24))
+                tmp_idx[w++] = idx[i];
+        ns = w;
+        for (int i = 0; i < n; i++)
+            if (be_tris[idx[i]].rgb == BE_SHADE_RGB || (be_tris[idx[i]].rgb >> 24) == (BE_SCREEN_FLAG >> 24))
+                tmp_idx[w++] = idx[i];
+        if (ns < n)
+            memcpy(idx, tmp_idx, (size_t)n * sizeof(int));
+    }
     uint32_t nd = 0, nv = 0, btri = 0, slots = 0;   /* slots: the frame's vertex index (draws padded to 4 vertices) */
     uint32_t lu_used = 0;                           /* bytes of the lit area's uniform words used by the draws */
-    for (int i = 0; i < n; i++) {
+    /* The triangles that are not shadows, then the cached meshes (without the depth test the triangles end their frames first), then the
+     * shadows: their blend and their screen-door are over what the floor and the meshes drew. */
+    for (int pass = 0; pass < 3; pass++) {
+        if (pass != 1) {
+            const int i0 = pass == 0 ? 0 : ns, i1 = pass == 0 ? ns : n;
+    for (int i = i0; i < i1; i++) {
         const be_tri_t *t = &be_tris[idx[i]];
         const int tex = t->tex_pa != 0 || t->light != NULL;
         /* a textured or lit draw's vertices live in arrays of BE_TEXV_MAX slots: the frame ends before it passes them */
@@ -2580,6 +2637,7 @@ static int be_flush_mode_impl(const g16_t *g, int async)
         nv += 3;
         btri++;
     }
+        } else {
     /* the cached meshes: a draw each, with the depth test (the frame has it) */
     if (ninst) {
         if (!zfr && nd > 0) {                       /* the sorted triangles end their frames first */
@@ -2628,6 +2686,8 @@ static int be_flush_mode_impl(const g16_t *g, int async)
             slots += sl;
             btri += q->nvis;
             nd++;
+        }
+    }
         }
     }
     /* the 2D, in the order called, after the 3D and without a depth test: the quads of one colour kind or one sheet make a draw */
@@ -2953,8 +3013,10 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
         kprintf("mali: tri kind %d depth %d at %d,%d,%d  %d,%d  %d,%d\n", kind, depth, (int)(v[0].x * 10), (int)(v[0].y * 10),
                 (int)(v[0].z * 1000), (int)(v[1].x * 10), (int)(v[1].y * 10), (int)(v[2].x * 10), (int)(v[2].y * 10));
     }
-    if (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) ||
-        (depth != R3D_DEPTH_WRITE && !(depth == R3D_DEPTH_TEST && !textured)))  /* r3d sends nothing else (colour_only): the guard; the effects tested and not written are drawn as written */
+    const int shade = (kind & ~R3D_INSIDE) == R3D_KIND_SHADE && depth == R3D_DEPTH_TEST;      /* a shadow: darkens the target, the depth tested and not written */
+    const int screen = (kind & ~R3D_INSIDE) == R3D_KIND_SCREEN && depth == R3D_DEPTH_TEST;       /* the screen-door shadow: its colour on the pixels with x + y even */
+    if (!shade && !screen && (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) ||
+        (depth != R3D_DEPTH_WRITE && !(depth == R3D_DEPTH_TEST && !textured))))  /* r3d sends nothing else (colour_only): the guard; the effects tested and not written are drawn as written */
         return;
     if (be_n2d)                                     /* a 3D face after 2D: the job so far has to end, the 2D is under it */
         be_flush_why(g, 2);
@@ -3002,7 +3064,7 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
     uint32_t rgb = (cr > 255 ? 255 : cr) << 16 | (cg > 255 ? 255 : cg) << 8 | (cb > 255 ? 255 : cb);
     if (rgb == BE_KEY)
         rgb = 0xFF01FF;                             /* the key means "not covered" */
-    t->rgb = rgb;
+    t->rgb = shade ? BE_SHADE_RGB : screen ? (rgb | BE_SCREEN_FLAG) : rgb;
     t->key = z / 3;                                 /* 1/depth: larger is nearer */
     t->mvp = NULL;
 }
@@ -3190,6 +3252,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                 return 0;
         }
     }
+    int has_behind = 0;
     if (!env->inside) {
         for (int i = 0; i < m->nverts; i++) {
             if (m->vlod && !(m->vlod[i] & dbit))
@@ -3197,8 +3260,12 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             const float *Mb = M[skinned ? m->vbone[i] : 0];
             const v3_t o = m->verts[i];
             const float cz = Mb[8] * o.x + Mb[9] * o.y + Mb[10] * o.z + Mb[11];
-            if (cz < R3D_NEAR)
-                return 0;
+            if (cz < R3D_NEAR) {
+                if (skinned)
+                    return 0;
+                has_behind = 1;                 /* a rigid mesh: the cache cuts the faces that cross the near plane */
+                break;
+            }
         }
     }
     /* a textured mesh: the cache and the vertex shader light it as r3d does a textured face (the grey of the sun, sky, rim and lamp
@@ -3321,15 +3388,73 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         if (rm) {
             const unsigned stride = (kind == 1 || kind == 2 || kind == 4) ? 16 : 12;
             const uint32_t vis0 = be_nvis;
+            uint32_t nclip = 0;
             for (uint32_t j = 0; j < rm->nshown; j++) {
                 const float *f = rm->blk + (size_t)j * 3 * stride;
                 const int b = skinned ? (int)f[15] : 0;
                 const float s2 = cam_s2[b], *at = cam_at[b];
                 if ((s2 * f[0] + at[0]) * f[4] + (s2 * f[1] + at[1]) * f[5] + (s2 * f[2] + at[2]) * f[6] >= 0.0f)
                     continue;
+                if (has_behind) {               /* the corners' depth: whole, cut or behind the camera */
+                    const float *Mb = M[0], zc = R3D_NEAR + 0.01f;
+                    float zz[3];
+                    int behind = 0;
+                    for (int k = 0; k < 3; k++) {
+                        const float *q = f + k * stride;
+                        zz[k] = Mb[8] * q[0] + Mb[9] * q[1] + Mb[10] * q[2] + Mb[11] - zc;
+                        behind += zz[k] < 0.0f;
+                    }
+                    if (behind == 3)
+                        continue;
+                    if (behind) {
+                        if (be_clip_used + 2 * 3 * stride > BE_CLIP_FLOATS || be_nclip_rm + 1 >= BE_INST_MAX || be_ninst + 2 >= BE_INST_MAX)
+                            continue;           /* (no room: the face is left out) */
+                        float poly[4][16];
+                        int np = 0;
+                        for (int k = 0; k < 3; k++) {
+                            const int k2 = (k + 1) % 3;
+                            const float *a = f + k * stride, *bq = f + k2 * stride;
+                            if (zz[k] >= 0.0f)
+                                memcpy(poly[np++], a, stride * sizeof(float));
+                            if ((zz[k] >= 0.0f) != (zz[k2] >= 0.0f)) {
+                                const float u = zz[k] / (zz[k] - zz[k2]);
+                                for (unsigned e = 0; e < stride; e++)
+                                    poly[np][e] = a[e] + (bq[e] - a[e]) * u;
+                                np++;
+                            }
+                        }
+                        const uint32_t clip0 = be_clip_used;
+                        for (int t3 = 1; t3 + 1 < np; t3++) {
+                            memcpy(be_clip + be_clip_used, poly[0], stride * sizeof(float));
+                            memcpy(be_clip + be_clip_used + stride, poly[t3], stride * sizeof(float));
+                            memcpy(be_clip + be_clip_used + 2 * stride, poly[t3 + 1], stride * sizeof(float));
+                            be_clip_used += 3 * stride;
+                        }
+                        nclip += (be_clip_used - clip0) / (3 * stride);
+                        continue;
+                    }
+                }
                 be_vis[be_nvis++] = (uint16_t)j;
             }
             const uint32_t nvis = be_nvis - vis0;
+            if (nclip) {                        /* the cut faces: a second instance of the mesh with a block of their own */
+                be_rm_t *cr = &be_clip_rm[be_nclip_rm++];
+                *cr = *rm;
+                cr->blk = be_clip + be_clip_used - (size_t)nclip * 3 * stride;
+                cr->nshown = nclip;
+                be_inst_t *q2 = &be_insts[be_ninst++];
+                q2->rm = cr;
+                q2->mvp = mvp_bone[0];
+                q2->light = be_lights[(const float (*)[16])mvp_bone[0] - be_mvps];
+                q2->kind = kind;
+                q2->nb = nb;
+                q2->nvis = nclip;
+                q2->vis0 = be_nvis;
+                q2->tex_pa = tsl ? (tsl->pa | (tsl->alpha ? 1u : 0u)) : 0;
+                for (uint32_t j = 0; j < nclip; j++)
+                    be_vis[be_nvis++] = (uint16_t)j;
+                be_stats.gltris += nclip;
+            }
             if (nvis) {
                 be_inst_t *q = &be_insts[be_ninst++];
                 q->rm = rm;
@@ -3347,8 +3472,8 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             return 1;
         }
     }
-    if (tsl)
-        return 0;                               /* no cache entry: r3d draws the faces one by one */
+    if (tsl || has_behind)
+        return 0;                               /* no cache entry (or a corner behind the camera): r3d draws the faces one by one */
     uint32_t nsent = 0;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
@@ -3498,7 +3623,7 @@ const r3d_backend_t *mali_backend(const mali_hw_t *hw)
 {
     static r3d_backend_t be = {
         .tri = be_tri, .mesh = be_mesh, .zclear = be_zclear, .tex_ok = be_tex_ok,
-        .guard = 2048.0f, .cel = 1, .colour_only = 1, .test_as_write = 1,
+        .guard = 2048.0f, .cel = 1, .colour_only = 1, .test_as_write = 1, .shadow_blend = 1, .screen_test_ok = 1,
     };
     if (!probed_ok || hw != H)
         return NULL;
