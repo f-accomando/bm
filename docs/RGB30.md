@@ -119,6 +119,21 @@ The screen: the border around an image smaller than the panel (a game with `bm_s
 is the video controller's background colour (the same dark blue-grey as the menu). All uniform blue-grey = panel on but window not
 working; black = DSI link or panel; nothing at all = backlight.
 
+**External screen (micro HDMI).** The screen follows the cable. Plug in a micro HDMI cable to a TV or
+monitor: the panel goes off and the external screen shows the image at 1280x720, 60 Hz (CEA mode 4,
+RGB, no sound). Unplug it: the external output stops and the panel comes back. The kernel reads the
+cable pin every 250 ms and acts after two equal reads. At boot, a cable already plugged in makes the
+external screen the first one (`display: HDMI starting`, then `HDMI on` or `HDMI failed`). A cable
+that fails to start is not tried again until it is unplugged; the panel stays on in that case.
+Code: `src/rgb30/rk_hdmi.c` (the transmitter and its PHY), `src/rgb30/rk_display.c` (the video
+controller port VP0, the pixel clock, the switch).
+Keys of `bm/config.txt`: `hdmi=0` keeps the panel and ignores the cable. If the external image has
+wrong colours (red and green swapped), set `hdmi_swap=1`. If it is shifted, set `hdmi_origin=1`.
+This driver is written from the register sequences of the Linux kernel and compiled on the PC only.
+It has not run on the console yet. If the external screen stays black: read the `display:` lines of
+`bm/bootlog.txt` (`HDMI FAILED` = the PHY did not lock; the clock `clk_hdmi_ref` and the HPLL are the
+first suspects), or set `hdmi=0` on the SD from a PC.
+
 **`bm/bootlog.txt`**: at every boot the kernel writes to the SD everything it printed
 (version, CPU, SD, what the screen driver did step by step, menu). The SD is read
 before turning on the screen and the log is written three times (before the screen, after, and at
