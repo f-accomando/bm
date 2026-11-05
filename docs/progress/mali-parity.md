@@ -104,3 +104,5 @@ Now `BE_MAX_MVPS` is 2048, `BE_VIS_MAX` 65536, and the cached meshes are sorted 
 ## The queue, the frame pipeline and the cls (29 Oct)
 
 The sections about the queue on `heroes`, the frame pipeline (bm3d 7.29) and the cls before the 3D (bm3d 7.30) are in [mali-frames](mali-frames.md).
+
+- Since 5 Nov 2026 (bm3d 7.34): lamps, rim light and cel levels on textured meshes in the Mali vertex shader (`BM_VS_TEXX`), skins with faces across joints, exact depth. Fog and gloss on a textured face are not drawn, as in r3d.
