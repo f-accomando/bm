@@ -192,4 +192,48 @@ void g16_sheet_set(g16_sheet_t *s, int x, int y, uint16_t c, int opaque);
 void g16_sheet_set_alpha(g16_sheet_t *s, int x, int y, uint16_t c, uint8_t alpha);
 void g16_sheet_update_cell(g16_sheet_t *s, int cx, int cy);
 
+/* 2D Paths and Vector Polygons */
+typedef enum {
+    G16_FILL_EVEN_ODD = 0,
+    G16_FILL_NON_ZERO = 1
+} g16_fill_rule_t;
+
+typedef enum {
+    G16_PATH_MOVE = 0,
+    G16_PATH_LINE = 1,
+    G16_PATH_CLOSE = 2
+} g16_path_cmd_t;
+
+typedef struct {
+    float x, y;
+    uint8_t cmd;
+} g16_path_pt_t;
+
+typedef struct {
+    g16_path_pt_t *pts;
+    int count;
+    int cap;
+    float cur_x, cur_y;
+    float start_x, start_y;
+    int has_start;
+} g16_path_t;
+
+void g16_tri(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2, uint16_t c);
+
+void g16_path_init(g16_path_t *p);
+void g16_path_free(g16_path_t *p);
+void g16_path_reset(g16_path_t *p);
+void g16_path_move_to(g16_path_t *p, float x, float y);
+void g16_path_line_to(g16_path_t *p, float x, float y);
+void g16_path_quad_to(g16_path_t *p, float cx, float cy, float x, float y);
+void g16_path_cubic_to(g16_path_t *p, float c1x, float c1y, float c2x, float c2y, float x, float y);
+void g16_path_arc(g16_path_t *p, float cx, float cy, float r, float a0, float a1);
+void g16_path_close(g16_path_t *p);
+
+void g16_path_fill(g16_t *g, const g16_path_t *p, uint16_t c, g16_fill_rule_t rule);
+void g16_path_stroke(g16_t *g, const g16_path_t *p, uint16_t c, float width);
+
+void g16_poly(g16_t *g, const float *pts, int count, uint16_t c, int closed);
+void g16_polyfill(g16_t *g, const float *pts, int count, uint16_t c, g16_fill_rule_t rule);
+
 #endif

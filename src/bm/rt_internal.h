@@ -133,6 +133,7 @@ typedef struct {
                                  * for the next frame, and nothing has drawn on it since */
     g16_light_t light;          /* light_begin() .. light_end() */
     g16_fade_t fade;            /* fades(), dark_begin() .. dark_end() */
+    g16_path_t path;            /* path_begin() .. path_stroke()/path_fill() */
     r3d_pfx_t *pfx;             /* particles() pool */
     int text_mode;              /* keyp() was called: the keyboard types */
     int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */

@@ -91,6 +91,75 @@ static void test_primitives(void)
     g16_rectgrad(&g, 5, 5, 20, 10, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF);
     CHECK(at(5, 5) != 0 && at(24, 14) != 0, "rectgrad filled");
 
+    /* 2D path: fill (even-odd & non-zero winding), stroke, curves, arc */
+    g16_cls(&g, 0);
+    g16_path_t p;
+    g16_path_init(&p);
+    g16_path_move_to(&p, 10.0f, 10.0f);
+    g16_path_line_to(&p, 30.0f, 10.0f);
+    g16_path_line_to(&p, 30.0f, 30.0f);
+    g16_path_line_to(&p, 10.0f, 30.0f);
+    g16_path_close(&p);
+    g16_path_fill(&g, &p, 0xF800, G16_FILL_EVEN_ODD);
+    CHECK(at(20, 20) == 0xF800, "path_fill even-odd interior");
+    CHECK(at(11, 11) == 0xF800 && at(29, 29) == 0xF800, "path_fill even-odd bounds");
+    CHECK(at(5, 5) == 0 && at(35, 35) == 0, "path_fill even-odd exterior");
+
+    /* Donut path with opposite winding (non-zero winding rule) */
+    g16_cls(&g, 0);
+    g16_path_reset(&p);
+    /* Outer CW */
+    g16_path_move_to(&p, 10.0f, 10.0f);
+    g16_path_line_to(&p, 40.0f, 10.0f);
+    g16_path_line_to(&p, 40.0f, 40.0f);
+    g16_path_line_to(&p, 10.0f, 40.0f);
+    g16_path_close(&p);
+    /* Inner CCW */
+    g16_path_move_to(&p, 20.0f, 20.0f);
+    g16_path_line_to(&p, 20.0f, 30.0f);
+    g16_path_line_to(&p, 30.0f, 30.0f);
+    g16_path_line_to(&p, 30.0f, 20.0f);
+    g16_path_close(&p);
+    g16_path_fill(&g, &p, 0x07E0, G16_FILL_NON_ZERO);
+    CHECK(at(15, 25) == 0x07E0, "path_fill non-zero outer filled");
+    CHECK(at(25, 25) == 0, "path_fill non-zero hole unfilled");
+    CHECK(at(5, 5) == 0, "path_fill non-zero exterior");
+
+    /* Path stroke */
+    g16_cls(&g, 0);
+    g16_path_reset(&p);
+    g16_path_move_to(&p, 10.0f, 20.0f);
+    g16_path_line_to(&p, 30.0f, 20.0f);
+    g16_path_stroke(&g, &p, 0x001F, 1.0f);
+    CHECK(at(20, 20) == 0x001F && at(20, 21) == 0, "path_stroke 1px");
+
+    g16_cls(&g, 0);
+    g16_path_reset(&p);
+    g16_path_move_to(&p, 20.0f, 20.0f);
+    g16_path_line_to(&p, 40.0f, 20.0f);
+    g16_path_stroke(&g, &p, 0xF800, 6.0f);
+    CHECK(at(30, 20) == 0xF800 && at(30, 22) == 0xF800, "path_stroke thick span");
+    CHECK(at(18, 20) == 0xF800, "path_stroke round cap");
+
+    /* Curves and arcs */
+    g16_path_reset(&p);
+    g16_path_move_to(&p, 10.0f, 10.0f);
+    g16_path_quad_to(&p, 20.0f, 0.0f, 30.0f, 10.0f);
+    g16_path_cubic_to(&p, 40.0f, 20.0f, 50.0f, 0.0f, 60.0f, 10.0f);
+    g16_path_arc(&p, 70.0f, 10.0f, 5.0f, 0.0f, 3.14159f);
+    CHECK(p.count > 10, "path curves subdivision generated points");
+    g16_path_free(&p);
+
+    /* poly & polyfill */
+    g16_cls(&g, 0);
+    float poly_pts[] = { 10.0f, 10.0f, 30.0f, 10.0f, 20.0f, 30.0f };
+    g16_polyfill(&g, poly_pts, 3, 0x001F, G16_FILL_EVEN_ODD);
+    CHECK(at(20, 15) == 0x001F, "polyfill interior");
+    CHECK(at(10, 30) == 0, "polyfill exterior");
+
+    g16_poly(&g, poly_pts, 3, 0xFFE0, 1);
+    CHECK(at(20, 10) == 0xFFE0, "poly closed edge");
+
     CHECK(g16_rgb(255, 0, 0) == 0xF800 && g16_rgb(0, 255, 0) == 0x07E0 && g16_rgb(0, 0, 255) == 0x001F, "rgb565");
     CHECK(g16_to_rgb24(0xF800) == 0xFF0000 && g16_to_rgb24(0xFFFF) == 0xFFFFFF, "rgb565 -> rgb24");
 }

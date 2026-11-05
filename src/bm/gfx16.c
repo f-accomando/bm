@@ -1279,3 +1279,421 @@ void g16_fade_apply(g16_t *g, const g16_fade_t *f)
         }
     }
 }
+
+/* ------------------------------------------------------- 2D paths & polygons */
+
+void g16_path_init(g16_path_t *p)
+{
+    p->pts = NULL;
+    p->count = 0;
+    p->cap = 0;
+    p->cur_x = p->cur_y = 0.0f;
+    p->start_x = p->start_y = 0.0f;
+    p->has_start = 0;
+}
+
+void g16_path_free(g16_path_t *p)
+{
+    if (p->pts) {
+        free(p->pts);
+        p->pts = NULL;
+    }
+    p->count = 0;
+    p->cap = 0;
+    p->has_start = 0;
+}
+
+void g16_path_reset(g16_path_t *p)
+{
+    p->count = 0;
+    p->cur_x = p->cur_y = 0.0f;
+    p->start_x = p->start_y = 0.0f;
+    p->has_start = 0;
+}
+
+static int path_add_pt(g16_path_t *p, float x, float y, uint8_t cmd)
+{
+    if (p->count >= p->cap) {
+        int ncap = p->cap < 64 ? 64 : p->cap * 2;
+        g16_path_pt_t *npts = (g16_path_pt_t *)realloc(p->pts, (size_t)ncap * sizeof(g16_path_pt_t));
+        if (!npts) return 0;
+        p->pts = npts;
+        p->cap = ncap;
+    }
+    p->pts[p->count].x = x;
+    p->pts[p->count].y = y;
+    p->pts[p->count].cmd = cmd;
+    p->count++;
+    return 1;
+}
+
+void g16_path_move_to(g16_path_t *p, float x, float y)
+{
+    path_add_pt(p, x, y, G16_PATH_MOVE);
+    p->cur_x = x;
+    p->cur_y = y;
+    p->start_x = x;
+    p->start_y = y;
+    p->has_start = 1;
+}
+
+void g16_path_line_to(g16_path_t *p, float x, float y)
+{
+    if (!p->has_start)
+        g16_path_move_to(p, 0.0f, 0.0f);
+    path_add_pt(p, x, y, G16_PATH_LINE);
+    p->cur_x = x;
+    p->cur_y = y;
+}
+
+void g16_path_close(g16_path_t *p)
+{
+    if (p->has_start && (p->cur_x != p->start_x || p->cur_y != p->start_y)) {
+        path_add_pt(p, p->start_x, p->start_y, G16_PATH_CLOSE);
+        p->cur_x = p->start_x;
+        p->cur_y = p->start_y;
+    }
+}
+
+static void subdivide_quad(g16_path_t *p, float x0, float y0, float cx, float cy, float x1, float y1, int depth)
+{
+    float mx = (x0 + x1) * 0.5f;
+    float my = (y0 + y1) * 0.5f;
+    float dx = cx - mx;
+    float dy = cy - my;
+    if (depth >= 6 || (dx * dx + dy * dy) <= 0.25f) {
+        g16_path_line_to(p, x1, y1);
+        return;
+    }
+    float x01 = (x0 + cx) * 0.5f, y01 = (y0 + cy) * 0.5f;
+    float x12 = (cx + x1) * 0.5f, y12 = (cy + y1) * 0.5f;
+    float x012 = (x01 + x12) * 0.5f, y012 = (y01 + y12) * 0.5f;
+    subdivide_quad(p, x0, y0, x01, y01, x012, y012, depth + 1);
+    subdivide_quad(p, x012, y012, x12, y12, x1, y1, depth + 1);
+}
+
+void g16_path_quad_to(g16_path_t *p, float cx, float cy, float x, float y)
+{
+    if (!p->has_start)
+        g16_path_move_to(p, 0.0f, 0.0f);
+    subdivide_quad(p, p->cur_x, p->cur_y, cx, cy, x, y, 0);
+}
+
+static void subdivide_cubic(g16_path_t *p, float x0, float y0, float c1x, float c1y,
+                            float c2x, float c2y, float x1, float y1, int depth)
+{
+    float d1x = c1x - (2.0f * x0 + x1) / 3.0f;
+    float d1y = c1y - (2.0f * y0 + y1) / 3.0f;
+    float d2x = c2x - (x0 + 2.0f * x1) / 3.0f;
+    float d2y = c2y - (y0 + 2.0f * y1) / 3.0f;
+    float d = (d1x * d1x + d1y * d1y) + (d2x * d2x + d2y * d2y);
+    if (depth >= 6 || d <= 0.25f) {
+        g16_path_line_to(p, x1, y1);
+        return;
+    }
+    float x01 = (x0 + c1x) * 0.5f, y01 = (y0 + c1y) * 0.5f;
+    float x12 = (c1x + c2x) * 0.5f, y12 = (c1y + c2y) * 0.5f;
+    float x23 = (c2x + x1) * 0.5f, y23 = (c2y + y1) * 0.5f;
+
+    float x012 = (x01 + x12) * 0.5f, y012 = (y01 + y12) * 0.5f;
+    float x123 = (x12 + x23) * 0.5f, y123 = (y12 + y23) * 0.5f;
+    float x0123 = (x012 + x123) * 0.5f, y0123 = (y012 + y123) * 0.5f;
+
+    subdivide_cubic(p, x0, y0, x01, y01, x012, y012, x0123, y0123, depth + 1);
+    subdivide_cubic(p, x0123, y0123, x123, y123, x23, y23, x1, y1, depth + 1);
+}
+
+void g16_path_cubic_to(g16_path_t *p, float c1x, float c1y, float c2x, float c2y, float x, float y)
+{
+    if (!p->has_start)
+        g16_path_move_to(p, 0.0f, 0.0f);
+    subdivide_cubic(p, p->cur_x, p->cur_y, c1x, c1y, c2x, c2y, x, y, 0);
+}
+
+void g16_path_arc(g16_path_t *p, float cx, float cy, float r, float a0, float a1)
+{
+    if (r <= 0.0f) {
+        g16_path_line_to(p, cx, cy);
+        return;
+    }
+    float da = a1 - a0;
+    float abs_da = da < 0 ? -da : da;
+    float dtheta = sqrtf(2.0f / r);
+    if (dtheta > 0.35f) dtheta = 0.35f;
+    if (dtheta < 0.05f) dtheta = 0.05f;
+    int steps = (int)ceilf(abs_da / dtheta);
+    if (steps < 4) steps = 4;
+    if (steps > 128) steps = 128;
+
+    float start_x = cx + r * cosf(a0);
+    float start_y = cy + r * sinf(a0);
+    if (!p->has_start)
+        g16_path_move_to(p, start_x, start_y);
+    else
+        g16_path_line_to(p, start_x, start_y);
+
+    for (int i = 1; i <= steps; i++) {
+        float a = a0 + da * ((float)i / (float)steps);
+        g16_path_line_to(p, cx + r * cosf(a), cy + r * sinf(a));
+    }
+}
+
+typedef struct {
+    float x0, y0;
+    float x1, y1;
+    float ymin, ymax;
+    float dx_dy;
+    int dir;
+} path_edge_t;
+
+typedef struct {
+    float x;
+    int dir;
+} scan_inter_t;
+
+void g16_path_fill(g16_t *g, const g16_path_t *p, uint16_t c, g16_fill_rule_t rule)
+{
+    if (!g || !p || p->count < 3) return;
+
+    int max_edges = p->count + 16;
+    path_edge_t *edges = (path_edge_t *)malloc((size_t)max_edges * sizeof(path_edge_t));
+    if (!edges) return;
+    int num_edges = 0;
+
+    float cur_x = 0.0f, cur_y = 0.0f;
+    float start_x = 0.0f, start_y = 0.0f;
+    int subpath_pts = 0;
+
+    for (int i = 0; i < p->count; i++) {
+        float px = p->pts[i].x - (float)g->cam_x;
+        float py = p->pts[i].y - (float)g->cam_y;
+
+        if (p->pts[i].cmd == G16_PATH_MOVE) {
+            if (subpath_pts >= 2 && (cur_x != start_x || cur_y != start_y)) {
+                float y0 = cur_y, y1 = start_y;
+                if (fabsf(y1 - y0) >= 1e-4f) {
+                    if (num_edges >= max_edges) {
+                        max_edges *= 2;
+                        path_edge_t *nedges = (path_edge_t *)realloc(edges, (size_t)max_edges * sizeof(path_edge_t));
+                        if (!nedges) { free(edges); return; }
+                        edges = nedges;
+                    }
+                    edges[num_edges].x0 = cur_x; edges[num_edges].y0 = y0;
+                    edges[num_edges].x1 = start_x; edges[num_edges].y1 = y1;
+                    edges[num_edges].ymin = y0 < y1 ? y0 : y1;
+                    edges[num_edges].ymax = y0 > y1 ? y0 : y1;
+                    edges[num_edges].dir = y0 < y1 ? 1 : -1;
+                    edges[num_edges].dx_dy = (start_x - cur_x) / (y1 - y0);
+                    num_edges++;
+                }
+            }
+            start_x = px;
+            start_y = py;
+            cur_x = px;
+            cur_y = py;
+            subpath_pts = 1;
+        } else {
+            float y0 = cur_y, y1 = py;
+            if (fabsf(y1 - y0) >= 1e-4f) {
+                if (num_edges >= max_edges) {
+                    max_edges *= 2;
+                    path_edge_t *nedges = (path_edge_t *)realloc(edges, (size_t)max_edges * sizeof(path_edge_t));
+                    if (!nedges) { free(edges); return; }
+                    edges = nedges;
+                }
+                edges[num_edges].x0 = cur_x; edges[num_edges].y0 = y0;
+                edges[num_edges].x1 = px; edges[num_edges].y1 = y1;
+                edges[num_edges].ymin = y0 < y1 ? y0 : y1;
+                edges[num_edges].ymax = y0 > y1 ? y0 : y1;
+                edges[num_edges].dir = y0 < y1 ? 1 : -1;
+                edges[num_edges].dx_dy = (px - cur_x) / (y1 - y0);
+                num_edges++;
+            }
+            cur_x = px;
+            cur_y = py;
+            subpath_pts++;
+        }
+    }
+
+    if (subpath_pts >= 2 && (cur_x != start_x || cur_y != start_y)) {
+        float y0 = cur_y, y1 = start_y;
+        if (fabsf(y1 - y0) >= 1e-4f) {
+            if (num_edges >= max_edges) {
+                max_edges += 8;
+                path_edge_t *nedges = (path_edge_t *)realloc(edges, (size_t)max_edges * sizeof(path_edge_t));
+                if (!nedges) { free(edges); return; }
+                edges = nedges;
+            }
+            edges[num_edges].x0 = cur_x; edges[num_edges].y0 = y0;
+            edges[num_edges].x1 = start_x; edges[num_edges].y1 = y1;
+            edges[num_edges].ymin = y0 < y1 ? y0 : y1;
+            edges[num_edges].ymax = y0 > y1 ? y0 : y1;
+            edges[num_edges].dir = y0 < y1 ? 1 : -1;
+            edges[num_edges].dx_dy = (start_x - cur_x) / (y1 - y0);
+            num_edges++;
+        }
+    }
+
+    if (num_edges < 2) {
+        free(edges);
+        return;
+    }
+
+    float b_ymin = edges[0].ymin, b_ymax = edges[0].ymax;
+    for (int i = 1; i < num_edges; i++) {
+        if (edges[i].ymin < b_ymin) b_ymin = edges[i].ymin;
+        if (edges[i].ymax > b_ymax) b_ymax = edges[i].ymax;
+    }
+
+    int y_start = (int)floorf(b_ymin);
+    int y_end = (int)ceilf(b_ymax);
+    if (y_start < g->cy0) y_start = g->cy0;
+    if (y_end >= g->cy1) y_end = g->cy1 - 1;
+    if (y_start > y_end) {
+        free(edges);
+        return;
+    }
+
+    int inter_cap = 64;
+    scan_inter_t *inters = (scan_inter_t *)malloc((size_t)inter_cap * sizeof(scan_inter_t));
+    if (!inters) {
+        free(edges);
+        return;
+    }
+
+    for (int y = y_start; y <= y_end; y++) {
+        float yc = (float)y + 0.5f;
+        int num_inters = 0;
+
+        for (int i = 0; i < num_edges; i++) {
+            if (edges[i].ymin <= yc && yc < edges[i].ymax) {
+                if (num_inters >= inter_cap) {
+                    inter_cap *= 2;
+                    scan_inter_t *ninters = (scan_inter_t *)realloc(inters, (size_t)inter_cap * sizeof(scan_inter_t));
+                    if (!ninters) break;
+                    inters = ninters;
+                }
+                float x = edges[i].x0 + (yc - edges[i].y0) * edges[i].dx_dy;
+                int dir = edges[i].dir;
+                int k = num_inters;
+                while (k > 0 && inters[k - 1].x > x) {
+                    inters[k] = inters[k - 1];
+                    k--;
+                }
+                inters[k].x = x;
+                inters[k].dir = dir;
+                num_inters++;
+            }
+        }
+
+        if (num_inters < 2) continue;
+
+        if (rule == G16_FILL_NON_ZERO) {
+            int winding = 0;
+            float span_start = 0.0f;
+            for (int i = 0; i < num_inters; i++) {
+                int prev_w = winding;
+                winding += inters[i].dir;
+                if (prev_w == 0 && winding != 0) {
+                    span_start = inters[i].x;
+                } else if (prev_w != 0 && winding == 0) {
+                    float span_end = inters[i].x;
+                    int x0 = (int)ceilf(span_start - 0.5f);
+                    int x1 = (int)floorf(span_end - 0.5f);
+                    if (x0 <= x1)
+                        hline(g, x0, x1, y, c);
+                }
+            }
+        } else {
+            for (int i = 0; i + 1 < num_inters; i += 2) {
+                float span_start = inters[i].x;
+                float span_end = inters[i + 1].x;
+                int x0 = (int)ceilf(span_start - 0.5f);
+                int x1 = (int)floorf(span_end - 0.5f);
+                if (x0 <= x1)
+                    hline(g, x0, x1, y, c);
+            }
+        }
+    }
+
+    free(inters);
+    free(edges);
+}
+
+void g16_path_stroke(g16_t *g, const g16_path_t *p, uint16_t c, float width)
+{
+    if (!g || !p || p->count < 2) return;
+    if (width <= 1.0f) {
+        float cur_x = 0.0f, cur_y = 0.0f;
+        for (int i = 0; i < p->count; i++) {
+            if (p->pts[i].cmd == G16_PATH_MOVE) {
+                cur_x = p->pts[i].x;
+                cur_y = p->pts[i].y;
+            } else {
+                g16_line(g, (int)roundf(cur_x), (int)roundf(cur_y),
+                            (int)roundf(p->pts[i].x), (int)roundf(p->pts[i].y), c);
+                cur_x = p->pts[i].x;
+                cur_y = p->pts[i].y;
+            }
+        }
+        return;
+    }
+
+    float hw = width * 0.5f;
+    int rad = (int)roundf(hw);
+    if (rad < 1) rad = 1;
+
+    float cur_x = 0.0f, cur_y = 0.0f;
+    for (int i = 0; i < p->count; i++) {
+        if (p->pts[i].cmd == G16_PATH_MOVE) {
+            cur_x = p->pts[i].x;
+            cur_y = p->pts[i].y;
+            g16_circfill(g, (int)roundf(cur_x), (int)roundf(cur_y), rad, c);
+        } else {
+            float x0 = cur_x, y0 = cur_y;
+            float x1 = p->pts[i].x, y1 = p->pts[i].y;
+            float dx = x1 - x0, dy = y1 - y0;
+            float len = sqrtf(dx * dx + dy * dy);
+            if (len > 1e-4f) {
+                float nx = (-dy / len) * hw;
+                float ny = (dx / len) * hw;
+                int ax = (int)roundf(x0 + nx), ay = (int)roundf(y0 + ny);
+                int bx = (int)roundf(x0 - nx), by = (int)roundf(y0 - ny);
+                int cx = (int)roundf(x1 - nx), cy = (int)roundf(y1 - ny);
+                int dx_pt = (int)roundf(x1 + nx), dy_pt = (int)roundf(y1 + ny);
+
+                g16_tri(g, ax, ay, bx, by, cx, cy, c);
+                g16_tri(g, ax, ay, cx, cy, dx_pt, dy_pt, c);
+            }
+            g16_circfill(g, (int)roundf(x1), (int)roundf(y1), rad, c);
+            cur_x = x1;
+            cur_y = y1;
+        }
+    }
+}
+
+void g16_poly(g16_t *g, const float *pts, int count, uint16_t c, int closed)
+{
+    if (!g || count < 2 || !pts) return;
+    for (int i = 0; i < count - 1; i++) {
+        g16_line(g, (int)roundf(pts[i * 2]), (int)roundf(pts[i * 2 + 1]),
+                    (int)roundf(pts[(i + 1) * 2]), (int)roundf(pts[(i + 1) * 2 + 1]), c);
+    }
+    if (closed && count >= 3) {
+        g16_line(g, (int)roundf(pts[(count - 1) * 2]), (int)roundf(pts[(count - 1) * 2 + 1]),
+                    (int)roundf(pts[0]), (int)roundf(pts[1]), c);
+    }
+}
+
+void g16_polyfill(g16_t *g, const float *pts, int count, uint16_t c, g16_fill_rule_t rule)
+{
+    if (!g || count < 3 || !pts) return;
+    g16_path_t p;
+    g16_path_init(&p);
+    g16_path_move_to(&p, pts[0], pts[1]);
+    for (int i = 1; i < count; i++)
+        g16_path_line_to(&p, pts[i * 2], pts[i * 2 + 1]);
+    g16_path_close(&p);
+    g16_path_fill(g, &p, c, rule);
+    g16_path_free(&p);
+}

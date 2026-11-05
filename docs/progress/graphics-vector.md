@@ -18,9 +18,9 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 
 | OpenVG / VGU capability | Today | Way to build | Pi | RGB30 | Prio |
 |---|---|---|---|---|---|
-| Path (move, line, quad, cubic, arc, close) | none | flatten curves by subdivision, edge list, scanline `span_fill` (`r3d.c`); about 250 lines | ARM, about 3 ms a full screen, 0.02 ms for a 32x32 icon | same, bands of rows on four cores: about 0.1 ms | 2 |
-| Fill rules (even-odd, non-zero) | none | part of the path code | ~0 extra | same | 2 |
-| Stroke (width, caps, joins, miter, dash) | 1 px `line`/`rect`/`circ` | offset quads (two `g16_tri` a segment), round joins with `g16_circfill`; about 150 lines | ARM | bands | 2 |
+| Path (move, line, quad, cubic, arc, close) | has (`path_begin`, `path_move`, `path_line`, `path_quad`, `path_cubic`, `path_arc`, `path_close`) | flatten curves by subdivision, edge list, scanline intersection fill; about 250 lines | ARM, about 3 ms a full screen, 0.02 ms for a 32x32 icon | same, bands of rows on four cores: about 0.1 ms | 2 |
+| Fill rules (even-odd, non-zero) | has (even-odd, non-zero winding via `path_fill`, `polyfill`) | part of the path scanline code | ~0 extra | same | 2 |
+| Stroke (width, caps, joins, miter, dash) | has (`path_stroke`, 1 px line + offset quads, round joins/caps) | offset quads (two `g16_tri` a segment), round joins with `g16_circfill`; about 150 lines | ARM | bands | 2 |
 | Solid paint | has | - | - | - | - |
 | Linear gradient | has | `rectgrad` (two Gouraud triangles) and `tri` | 0.05 ms | same | 1 |
 | Radial gradient, spread modes | none | forward differences on d2, 256-entry RGB565 table; about 80 lines | about 6 cycles a pixel | bands | 1 |
@@ -37,7 +37,7 @@ Priority 1 is high, 3 is low. "Pi" and "RGB30" give the way to build it.
 | Colour transform, lookup table | partial (`g16_fade_apply`) | `colmat(m)` 3x3 on RGB565; about 60 lines | about 10 cycles a pixel | bands | 3 |
 | Colour matrix, convolve, Gaussian blur | none | box blur with running sums (`blur`), `conv3`; about 150 lines | blur 320x180 about 1.2 ms | bands: about 0.1 ms. A Mali pass needs the Texture descriptor (G1) | 2 (blur), 3 (rest) |
 | Vector fonts, glyph origin | none (bitmap fonts) | `stb_truetype` (public domain or MIT; vendored about 5k lines), glyph raster once, cache as alpha sheet (96 glyphs at 24 px about 27 KB); wrapper about 300 lines: `vfont`, `vprint` | raster 0.05-0.1 ms a glyph, cached blit 0.01 ms | raster on cores 1-3 | 2 |
-| VGU line, polyline, rect, round rect, ellipse, arc, polygon | partial (`line`, `rect`, `circ`, `rrect`, `ellipse`, `rrectfill`, `ellipsefill`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
+| VGU line, polyline, rect, round rect, ellipse, arc, polygon | has (`line`, `rect`, `circ`, `rrect`, `ellipse`, `rrectfill`, `ellipsefill`, `poly`, `polyfill`) | `poly`/`polyfill` (fill = path code); arc | `rrect` 0.03 ms | same | 1 |
 | Offload of heavy 2D work to the GPU | Pi partial, RGB30 none | Pi exists. Mali: Texture and Sampler descriptors, textured fragment shader (G1 in [multicore](multicore.md)), alpha discard. 4 us a draw makes 600 sprites cost 2.4 ms, more than the ARM path (about 0.5 ms). The Mali pays only for big layers and fades | exists | skip for sprites | 3 |
 
 ## Do better (code that exists)
@@ -54,7 +54,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 ## Order of work
 1. Done (5 Nov 2026): Items 1 and 2 of "Do better" (xmap on scaled blits, runs with `hline` on `g16_text`), and `rectgrad`, `rrect`, `rrectfill`, `ellipse`, `ellipsefill` for UI. Item 5 (RGB30 bands).
 2. Done (5 Nov 2026): `sspr_affine` (2x2 matrix rasterizer), `sspr_rot`, `spr_rot`, `sspr_alpha`, `spr_alpha`, `g16_sspr_zoom` xmap optimization, 8-bit translucent sheet alpha (`sget`/`sset` alpha).
-3. Paths with fill rules and the stroker, written once, with bands on the RGB30.
+3. Done (5 Nov 2026): Paths with even-odd and non-zero winding rules, Bézier curves (quad, cubic), circular arcs, vector stroker with round caps/joins, `poly` and `polyfill`.
 4. Vector font with an alpha glyph cache; blur for glow on the RGB30 only.
 5. Mali 2D only after G1 and only for big layers.
 
@@ -84,6 +84,22 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
   - `sset(x, y, [color, alpha])` accepts optional 8-bit alpha.
 - **`g16_sspr_zoom` optimization**:
   Precomputed `xmap` array replaces per-pixel 64-bit multiplications and shifts in the inner loop.
+
+### Step 3: 2D Paths, Bézier curves, fill rules & vector stroker (5 Nov 2026)
+- **`path_begin()`, `path_move(x, y)`, `path_line(x, y)`, `path_close()`**:
+  Dynamic path vertex and command buffer (`g16_path_t`). Efficiently reused across frames (`g16_path_reset` retains allocations). Supports arbitrary subpaths and contours.
+- **Bézier curves & circular arcs**:
+  - `path_quad(cx, cy, x, y)`: recursive de Casteljau adaptive subdivision with chord sagitta deviation test (< 0.5 px).
+  - `path_cubic(c1x, c1y, c2x, c2y, x, y)`: cubic Bézier flattening with chord distance sum ($d_1 + d_2 \le 0.5$ px).
+  - `path_arc(cx, cy, r, a0, a1)`: curvature-adaptive circular arc stepping connecting seamlessly to previous subpath.
+- **Scanline polygon rasterization & fill rules**:
+  - `path_fill([col, rule])` & `polyfill(points, [col, rule])`: scanline intersection sorting with sub-pixel top-left half-open intervals ($[ymin, ymax)$).
+  - Even-odd rule (`"evenodd"`, default): alternating span parity rasterization.
+  - Non-zero winding rule (`"nonzero"`): signed vertical edge winding tracker, correctly handling self-intersecting polygons and complex nested holes.
+- **Vector stroker**:
+  - `path_stroke([col, width])`: 1px fast-path via `g16_line`; thick strokes ($width > 1$) decomposed into normal-offset quads (`g16_tri`) with circular disks (`g16_circfill`) at vertices for smooth round caps and round joins.
+- **High-level polygon APIs**:
+  - `poly(points, [col, closed])` & `polyfill(points, [col, rule])`: accept table of coordinates `{x1, y1, ...}`, table of point pairs `{ {x1, y1}, ... }` or varargs `(x1, y1, x2, y2, ...)`.
 
 ## Can only the RGB30 pay for it?
 A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full-screen gradients with blend, full-screen blur and many icons a frame belong to the RGB30. The Pi takes: `rrect`, `ellipse`, `rectgrad`, `radgrad`, `sspr_affine`, alpha sprites for the HUD, bitmap text, and two or three vector icons a frame.

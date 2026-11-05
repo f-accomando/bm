@@ -754,6 +754,192 @@ static int l_rectgrad(lua_State *L)
     return 0;
 }
 
+/* ------------------------------------------------------- 2D paths & polygons */
+
+static int l_path_begin(lua_State *L)
+{
+    (void)L;
+    g16_path_reset(&rt.path);
+    return 0;
+}
+
+static int l_path_move(lua_State *L)
+{
+    float x = (float)luaL_checknumber(L, 1);
+    float y = (float)luaL_checknumber(L, 2);
+    g16_path_move_to(&rt.path, x, y);
+    return 0;
+}
+
+static int l_path_line(lua_State *L)
+{
+    float x = (float)luaL_checknumber(L, 1);
+    float y = (float)luaL_checknumber(L, 2);
+    g16_path_line_to(&rt.path, x, y);
+    return 0;
+}
+
+static int l_path_quad(lua_State *L)
+{
+    float cx = (float)luaL_checknumber(L, 1);
+    float cy = (float)luaL_checknumber(L, 2);
+    float x = (float)luaL_checknumber(L, 3);
+    float y = (float)luaL_checknumber(L, 4);
+    g16_path_quad_to(&rt.path, cx, cy, x, y);
+    return 0;
+}
+
+static int l_path_cubic(lua_State *L)
+{
+    float c1x = (float)luaL_checknumber(L, 1);
+    float c1y = (float)luaL_checknumber(L, 2);
+    float c2x = (float)luaL_checknumber(L, 3);
+    float c2y = (float)luaL_checknumber(L, 4);
+    float x = (float)luaL_checknumber(L, 5);
+    float y = (float)luaL_checknumber(L, 6);
+    g16_path_cubic_to(&rt.path, c1x, c1y, c2x, c2y, x, y);
+    return 0;
+}
+
+static int l_path_arc(lua_State *L)
+{
+    float cx = (float)luaL_checknumber(L, 1);
+    float cy = (float)luaL_checknumber(L, 2);
+    float r = (float)luaL_checknumber(L, 3);
+    float a0 = (float)luaL_checknumber(L, 4);
+    float a1 = (float)luaL_checknumber(L, 5);
+    g16_path_arc(&rt.path, cx, cy, r, a0, a1);
+    return 0;
+}
+
+static int l_path_close(lua_State *L)
+{
+    (void)L;
+    g16_path_close(&rt.path);
+    return 0;
+}
+
+static g16_fill_rule_t parse_fill_rule(lua_State *L, int idx)
+{
+    if (lua_type(L, idx) == LUA_TSTRING) {
+        const char *s = lua_tostring(L, idx);
+        if (s && (strcmp(s, "nonzero") == 0 || strcmp(s, "nz") == 0 || strcmp(s, "non-zero") == 0))
+            return G16_FILL_NON_ZERO;
+        return G16_FILL_EVEN_ODD;
+    }
+    if (lua_isnumber(L, idx)) {
+        return lua_tointeger(L, idx) != 0 ? G16_FILL_NON_ZERO : G16_FILL_EVEN_ODD;
+    }
+    return G16_FILL_EVEN_ODD;
+}
+
+static int l_path_fill(lua_State *L)
+{
+    uint16_t c = 0xFFFF;
+    g16_fill_rule_t rule = G16_FILL_EVEN_ODD;
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        rule = parse_fill_rule(L, 1);
+        c = col(L, 2, 0xFFFFFF);
+    } else {
+        c = col(L, 1, 0xFFFFFF);
+        rule = parse_fill_rule(L, 2);
+    }
+    g16_path_fill(&rt.g, &rt.path, c, rule);
+    return 0;
+}
+
+static int l_path_stroke(lua_State *L)
+{
+    uint16_t c = col(L, 1, 0xFFFFFF);
+    float width = (float)luaL_optnumber(L, 2, 1.0);
+    if (width < 1.0f) width = 1.0f;
+    g16_path_stroke(&rt.g, &rt.path, c, width);
+    return 0;
+}
+
+static float *parse_poly_points(lua_State *L, int *out_count, int *next_arg)
+{
+    *out_count = 0;
+    if (lua_istable(L, 1)) {
+        *next_arg = 2;
+        int len = (int)luaL_len(L, 1);
+        if (len < 4) return NULL;
+        lua_rawgeti(L, 1, 1);
+        int is_subtable = lua_istable(L, -1);
+        lua_pop(L, 1);
+
+        if (is_subtable) {
+            int npts = len;
+            float *buf = (float *)malloc((size_t)npts * 2 * sizeof(float));
+            if (!buf) return NULL;
+            for (int i = 0; i < npts; i++) {
+                lua_rawgeti(L, 1, i + 1);
+                lua_rawgeti(L, -1, 1);
+                buf[i * 2] = (float)lua_tonumber(L, -1);
+                lua_pop(L, 1);
+                lua_rawgeti(L, -1, 2);
+                buf[i * 2 + 1] = (float)lua_tonumber(L, -1);
+                lua_pop(L, 2);
+            }
+            *out_count = npts;
+            return buf;
+        } else {
+            int npts = len / 2;
+            float *buf = (float *)malloc((size_t)npts * 2 * sizeof(float));
+            if (!buf) return NULL;
+            for (int i = 0; i < npts * 2; i++) {
+                lua_rawgeti(L, 1, i + 1);
+                buf[i] = (float)lua_tonumber(L, -1);
+                lua_pop(L, 1);
+            }
+            *out_count = npts;
+            return buf;
+        }
+    } else {
+        int top = lua_gettop(L);
+        int ncoords = top;
+        int has_col = 0;
+        if (top % 2 != 0) {
+            ncoords = top - 1;
+            has_col = 1;
+        }
+        *next_arg = has_col ? top : top + 1;
+        int npts = ncoords / 2;
+        if (npts < 2) return NULL;
+        float *buf = (float *)malloc((size_t)npts * 2 * sizeof(float));
+        if (!buf) return NULL;
+        for (int i = 0; i < ncoords; i++) {
+            buf[i] = (float)lua_tonumber(L, i + 1);
+        }
+        *out_count = npts;
+        return buf;
+    }
+}
+
+static int l_poly(lua_State *L)
+{
+    int count = 0, next_arg = 2;
+    float *pts = parse_poly_points(L, &count, &next_arg);
+    if (!pts) return 0;
+    uint16_t c = col(L, next_arg, 0xFFFFFF);
+    int closed = lua_isboolean(L, next_arg + 1) ? lua_toboolean(L, next_arg + 1) : 1;
+    g16_poly(&rt.g, pts, count, c, closed);
+    free(pts);
+    return 0;
+}
+
+static int l_polyfill(lua_State *L)
+{
+    int count = 0, next_arg = 2;
+    float *pts = parse_poly_points(L, &count, &next_arg);
+    if (!pts) return 0;
+    uint16_t c = col(L, next_arg, 0xFFFFFF);
+    g16_fill_rule_t rule = parse_fill_rule(L, next_arg + 1);
+    g16_polyfill(&rt.g, pts, count, c, rule);
+    free(pts);
+    return 0;
+}
+
 static int l_pget(lua_State *L)
 {
     if (rt.early)
@@ -1540,6 +1726,17 @@ TIMED(t_rrectfill, OP_SHAPE, l_rrectfill)
 TIMED(t_ellipse, OP_SHAPE, l_ellipse)
 TIMED(t_ellipsefill, OP_SHAPE, l_ellipsefill)
 TIMED(t_rectgrad, OP_SHAPE, l_rectgrad)
+TIMED(t_path_begin, OP_SHAPE, l_path_begin)
+TIMED(t_path_move, OP_SHAPE, l_path_move)
+TIMED(t_path_line, OP_SHAPE, l_path_line)
+TIMED(t_path_quad, OP_SHAPE, l_path_quad)
+TIMED(t_path_cubic, OP_SHAPE, l_path_cubic)
+TIMED(t_path_arc, OP_SHAPE, l_path_arc)
+TIMED(t_path_close, OP_SHAPE, l_path_close)
+TIMED(t_path_fill, OP_SHAPE, l_path_fill)
+TIMED(t_path_stroke, OP_SHAPE, l_path_stroke)
+TIMED(t_poly, OP_SHAPE, l_poly)
+TIMED(t_polyfill, OP_SHAPE, l_polyfill)
 TIMED(t_pset, OP_SHAPE, l_pset)
 
 static const luaL_Reg api[] = {
@@ -1548,6 +1745,10 @@ static const luaL_Reg api[] = {
     { "rect", t_rect }, { "rectfill", t_rectfill }, { "circ", t_circ }, { "circfill", t_circfill },
     { "rrect", t_rrect }, { "rrectfill", t_rrectfill }, { "ellipse", t_ellipse }, { "ellipsefill", t_ellipsefill },
     { "rectgrad", t_rectgrad },
+    { "path_begin", t_path_begin }, { "path_move", t_path_move }, { "path_line", t_path_line },
+    { "path_quad", t_path_quad }, { "path_cubic", t_path_cubic }, { "path_arc", t_path_arc },
+    { "path_close", t_path_close }, { "path_fill", t_path_fill }, { "path_stroke", t_path_stroke },
+    { "poly", t_poly }, { "polyfill", t_polyfill },
     { "spr", t_spr }, { "sspr", t_sspr }, { "sspr_affine", t_sspr_affine }, { "sspr_rot", t_sspr_rot },
     { "spr_rot", t_spr_rot }, { "sspr_alpha", t_sspr_alpha }, { "spr_alpha", t_spr_alpha },
     { "stack", t_stack }, { "stackv", t_stackv }, { "zstack", t_zstack }, { "map", t_map }, { "mget", l_mget }, { "mset", l_mset },
@@ -2611,6 +2812,7 @@ static void release(lua_State *L)
     zclear_dma_wait(1);         /* the DMA may still be clearing it */
     rt.zclear_seen = 0;
     g16_fade_free(&rt.fade);
+    g16_path_free(&rt.path);
     if (rt.pfx) {
         r3d_pfx_free(rt.pfx);
         rt.pfx = NULL;
