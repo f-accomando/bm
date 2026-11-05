@@ -1,0 +1,154 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-67c6da_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: monioCore firmware does not answer (mailbox, frame 0, 7875 s after boot, kernel dev, ring 244938, sink on
+--- the last lines printed ---
+net: console closed
+
+net: console opened from 192.168.1.97
+> M3
+nil
+lua> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> exit()
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> M
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 2x, 360p on the ARM
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2006 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+back to the monitor
+
+type 'h' for help
+> :
+:log
+: log
+report: 20261105-163625_log_pi-zero-w_dev.txt saved as bm/reports/rpt00001.txt
+report: sending 20261105-163625_log_pi-zero-w_dev.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/20261105-163625_log_pi-zero-w_dev.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> f
+   1  bm    451932  /bm/bench3d.bm  "3D Bench"
+   2  bm     54468  /bm/astrowin.bm  "Astro Wing"
+   3  bm     46288  /bm/agent.bm  "bm Agent"
+   4  bm    101952  /bm/animator.bm  "bm Animator"
+   5  bm   1295968  /bm/assistan.bm  "bm assistant"
+   6  bm    187508  /bm/mesh.bm  "bm Mesh"
+   7  bm    895588  /bm/kitchen.bm  "Chaos Kitchen"
+   8  bm   2139352  /bm/darknigh.bm  "Dark Night"
+   9  bm   7200972  /bm/defbench.bm  "Deflate Bench"
+  10  bm    500904  /bm/island-b.bm  "Island Bench"
+  11  bm     85244  /bm/ko2.bm  "KO-II"
+  12  bm   2374032  /bm/overbit.bm  "Overbit"
+  13  bm    724368  /bm/res-publ.bm  "Res Publica"
+  14  bm   1713280  /bm/titan.bm  "Titan Clash"
+  15  bm   1723888  /bm/titan-cl.bm  "Titan Clash EX"
+  16  bm   6430584  /bm/yharnam.bm  "Yharnam"
+  17  bm    176808  editor (built-in)  "bm SDK"
+  18  bm    197700  sound (built-in)  "bm Sound"
+  19  bm    111880  studio (built-in)  "bm Studio"
+  20  bm    126192  pixel (built-in)  "bm Pixel"
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:err
+: err
+err: none
+running: menu
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:play bm Agent
+: play bm Agent
+play: no game 'bm Agent' on this console
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> l
+Lua 5.4.7  Copyright (C) 1994-2024 Lua.org, PUC-Rio - Esc (empty line), Ctrl-D or exit() to leave
+lua> 
+lua> print(12345+67)
+12412
+lua> exit()
+> 
+net: console connection lost
+
+net: console opened from 192.168.1.97
+> l
+Lua 5.4.7  Copyright (C) 1994-2024 Lua.org, PUC-Rio - Esc (empty line), Ctrl-D or exit() to leave
+lua> 
+lua> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> l
+nil
+lua> t={};
+net: console closed
+
+net: console opened from 192.168.1.97
+> l
+>> for k, v in pairs(_G) do print(k, type(v)) end
+stdin:2: syntax error near 'for'
+lua> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> ^C
+lua> 
+lua> l
+nil
+lua> print(_VERSION)
+Lua 5.4
+lua> print(io and io.open or "no io")
+function: 0x140bf8
+lua> print(bm and bm.micros or "no bm")
+function: 0x123da8
+lua> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> l
+nil
+lua> f, err = io.open("/bm/agent.bm", "rb"); print(f, err)
+nil	/bm/agent.bm: Function not implemented
+lua> if f then print("LEN:", #f:read("*a")); f:close() end
+lua> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> l
+nil
+lua> local t = {}; for k,v in pairs(_G) do t[#t+1]=k end; table.sort(t); for i=1,#t,8 do print(table.concat(t, ", ", i, math.min(#t, i+7))) end
+_G, _VERSION, assert, bm, collectgarbage, coroutine, debug, dofile
+err, error, exit, getmetatable, io, ipairs, load, loadfile
+math, next, os, package, pairs, pcall, print, rawequal
+rawget, rawlen, rawset, require, select, setmetatable, string, table
+tonumber, tostring, type, 
