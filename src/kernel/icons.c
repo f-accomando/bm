@@ -240,9 +240,27 @@ static float tab_market(float x, float y)
 
 static float tab_games(float x, float y)
 {
-    float hbar = rrect(x, y, 16.0f, 16.0f, 7.5f, 2.5f, 1.0f);
-    float vbar = rrect(x, y, 16.0f, 16.0f, 2.5f, 7.5f, 1.0f);
-    return un(hbar, vbar);
+    float body = rrect(x, y, 16.0f, 16.0f, 6.2f, 7.8f, 1.2f);
+    /* Top-right corner chamfer cut */
+    float cut_box = rrect((x - 22.2f) * 0.7071f + (y - 8.2f) * 0.7071f,
+                          -(x - 22.2f) * 0.7071f + (y - 8.2f) * 0.7071f,
+                          0.0f, 0.0f, 2.5f, 2.5f, 0.3f);
+    body = cut(body, cut_box);
+
+    /* Left lock notch */
+    float notch = rrect(x, y, 9.6f, 12.5f, 1.0f, 1.6f, 0.4f);
+    body = cut(body, notch);
+
+    /* Label window cutout in lower half */
+    float label = rrect(x, y, 16.0f, 18.2f, 4.0f, 3.4f, 0.8f);
+
+    /* Pin grooves on top edge */
+    float g1 = rrect(x, y, 13.0f, 8.8f, 0.5f, 1.2f, 0.2f);
+    float g2 = rrect(x, y, 15.0f, 8.8f, 0.5f, 1.2f, 0.2f);
+    float g3 = rrect(x, y, 17.0f, 8.8f, 0.5f, 1.2f, 0.2f);
+    float grooves = un(un(g1, g2), g3);
+
+    return cut(cut(body, label), grooves);
 }
 
 static float tab_dev(float x, float y)
