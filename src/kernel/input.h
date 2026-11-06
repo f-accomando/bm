@@ -97,8 +97,6 @@ uint32_t input_ok_bit(int back);
  * or its neighbour when the face buttons are taken by position (the
  * RGB30 with game_buttons=position: the game's A is the button marked B). */
 uint32_t input_face_shown(uint32_t bit);
-/* "pads: 1 2 - -" for status lines. */
-void input_status(char *buf, unsigned size);
 
 /* Monitor 'Y': the buttons each player holds, live for `seconds`. */
 void input_live_test(uint32_t seconds);

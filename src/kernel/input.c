@@ -15,10 +15,14 @@
 
 static void update_uptime(void)
 {
-    char buf[80], pads[48];
+    char buf[80];
     uint32_t s = timer_ticks() / 1000000;
-    input_status(pads, sizeof pads);
-    ksnprintf(buf, sizeof buf, "%s  up %02lu:%02lu:%02lu", pads, s / 3600, s / 60 % 60, s % 60);
+    if (net_ip())
+        ksnprintf(buf, sizeof buf, "IP %s  up %02lu:%02lu:%02lu", net_ip_text(),
+                  s / 3600, s / 60 % 60, s % 60);
+    else
+        ksnprintf(buf, sizeof buf, "up %02lu:%02lu:%02lu",
+                  s / 3600, s / 60 % 60, s % 60);
     console_set_status(0, buf);
 }
 
@@ -307,21 +311,6 @@ void input_stick_r(int p, float *x, float *y)
     *y = ay;
 }
 
-void input_status(char *buf, unsigned size)
-{
-    /* a number: that player's pad is connected; k: the player who uses
-     * the keyboard (or the USB pad) */
-    unsigned m = input_connected(), pads = bt_pads();
-    int n = ksnprintf(buf, size, "pads:");
-    for (int p = 0; p < INPUT_PLAYERS && n + 3 < (int)size; p++) {
-        if (pads >> p & 1)
-            n += ksnprintf(buf + n, size - (unsigned)n, " %d", p + 1);
-        else
-            n += ksnprintf(buf + n, size - (unsigned)n, (m >> p & 1) ? " k" : " -");
-    }
-    if (net_ip() && n + 18 < (int)size)          /* on the network: its address */
-        ksnprintf(buf + n, size - (unsigned)n, "  IP %s", net_ip_text());
-}
 
 void input_live_test(uint32_t seconds)
 {
