@@ -1,0 +1,104 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2090-gdf050a96-dirty
+branch: antigravity/tab-icon-sdcard-games
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-5d9409_freeze_pi-zero-w_v0.2.5-2090-gdf050a96-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor, waiting for a key, frame 0, 1940 s after boot, kernel v0.2.5-2086-g356bb230-dirty, ring 32958, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ 1x, a frame averages draw 8556 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8472 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8684 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8623 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8538 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8477 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8700 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8611 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8524 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8526 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8678 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8589 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8503 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8573 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8671 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8583 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8496 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8616 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8644 us, enlarge 0 us, flip 94 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8557 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+menu frame: 1x, a frame averages draw 8477 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+type 'h' for help
+> :
+:ls /bm
+: ls /bm
+   <dir>  SAVE/
+    1290  CONFIG.TXT
+   30049  BCM43430A1.hcd
+  399344  brcmfmac43430-sdio.bin
+    4733  brcmfmac43430-sdio.clm_blob
+    1121  brcmfmac43430-sdio.txt
+   27701  ca.pem
+   46979  SYN43430A1.hcd
+   44376  SYN43430B0.hcd
+  416101  brcmfmac43436-sdio.bin
+   11209  brcmfmac43436-sdio.clm_blob
+    1706  brcmfmac43436-sdio.txt
+  442211  brcmfmac43436s-sdio.bin
+    1185  brcmfmac43436s-sdio.txt
+   <dir>  BACKUP/
+   <dir>  BENCH/
+   <dir>  REPORTS/
+   <dir>  MARKET/
+    3171  BOOTPREV.TXT
+    2541  BOOTLOG.TXT
+   63182  LASTRUN.TXT
+   <dir>  SHOTS/
+   <dir>  VIDBENCH/
+    1106  sdmap.txt
+   <dir>  staging/
+  451932  bench3d.bm
+ 1723888  titan-cl.bm
+   <dir>  web/
+ 6430584  yharnam.bm
+   54468  astrowin.bm
+  895588  kitchen.bm
+ 1713280  titan.bm
+ 2374032  overbit.bm
+   85244  ko2.bm
+       5  bridge.txt
+ 1295968  assistan.bm
+   46288  agent.bm
+     262  ai.txt
+  724368  res-publ.bm
+  500904  island-b.bm
+ 2139352  darknigh.bm
+  111776  animator.bm
+  187508  mesh.bm
+ 7200972  defbench.bm
+35 files, 27434424 bytes; 9 folders
+the line is done
+> 
+net: console closed
+net: receiving a new kernel (6290652 bytes)...
+net: kernel 0% (0 of 6143 KB)
+net: kernel 10% (614 of 6143 KB)
+net: kernel 20% (1229 of 6143 KB)
+net: kernel 30% (1844 of 6143 KB)
+net: kernel 40% (2459 of 6143 KB)
+net: kernel 50% (3072 of 6143 KB)
+net: kernel 60% (3688 of 6143 KB)
+net: kernel 70% (4303 of 6143 KB)
+net: kernel 80% (4916 of 6143 KB)
+net: kernel 90% (5529 of 6143 KB)
