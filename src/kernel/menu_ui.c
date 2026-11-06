@@ -106,7 +106,6 @@ static uint32_t st_draw, st_enlarge, st_flip;      /* us over IDLE_FRAMES: drawi
 static int idle_first;              /* the frame after the menu opens: its slack is the opening's */
 static uint32_t idle_sd_retries, idle_sd_timeouts;  /* sd_counters at the last line */
 static float scroll;                /* first visible row, eased */
-static float tab_shift;             /* the tabs' x, eased: < 0 while the first one hides */
 static int first_row;
 static uint16_t *bg_cur, *bg_prev;  /* blurred covers, SW x SH */
 static const g16_sheet_t *bg_key;   /* the cover bg_cur was made from */
@@ -1792,9 +1791,10 @@ static void frame_tabs(const menu_view_t *v)
     }
 }
 
-/* The name of the selected cartridge, and the sub tabs at the right. */
+/* The sub tabs at the right, if any (Market/Refresh). */
 static void frame_title(const menu_view_t *v, const menu_item_t *cur)
 {
+    (void)cur;
     int sub_w = 0;
     if (v->subtabs && v->nsubtabs > 0) {
         for (int i = 0; i < v->nsubtabs; i++)
@@ -1831,14 +1831,6 @@ static void frame_title(const menu_view_t *v, const menu_item_t *cur)
         if (max_cols < (int)sizeof buf)
             buf[max_cols] = 0;
         pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
-    } else if (cur && cur->title && cur->title[0]) {
-        char buf[72];
-        ksnprintf(buf, sizeof buf, "%s", cur->title);
-        if (max_cols < (int)sizeof buf)
-            buf[max_cols] = 0;
-        int n = (int)strlen(buf);
-        round_rect(3 * CW - 10, TITLE_ROW * 16 - 6, (n + 2) * CW + 4, 28, 14, c16(C_LINE));
-        pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
     } else if (v->n == 0) {
         pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
     }
@@ -1867,6 +1859,24 @@ static int hints_run(const menu_view_t *v, const menu_item_t *cur, int hc)
         const char *a = v->a_label ? v->a_label
                       : cur && cur->kind && (!strcmp(cur->kind, "tool") || !strcmp(cur->kind, "bme")) ? "Open"
                                                                                                           : "Play";
+        char act_buf[64];
+        if (cur && cur->title && cur->title[0] && a[0]) {
+            char title_short[32];
+            ksnprintf(title_short, sizeof title_short, "%s", cur->title);
+            const int max_title = WIDE ? 20 : 12;
+            if ((int)strlen(title_short) > max_title) {
+                if (max_title > 3) {
+                    title_short[max_title - 3] = '.';
+                    title_short[max_title - 2] = '.';
+                    title_short[max_title - 1] = '.';
+                    title_short[max_title] = 0;
+                } else {
+                    title_short[max_title] = 0;
+                }
+            }
+            ksnprintf(act_buf, sizeof act_buf, "%s %s", a, title_short);
+            a = act_buf;
+        }
         if (a[0])
             col = hint(v, col, HROW, BTN_A, a);
         if (cur && cur->kind && strcmp(cur->kind, "market") == 0 && cur->title && cur->title[0])
@@ -1877,7 +1887,7 @@ static int hints_run(const menu_view_t *v, const menu_item_t *cur, int hc)
             col = hint(v, col, HROW, BTN_Y, v->y_label);
         if (v->refresh_label && v->refresh_label[0])
             col = hint_btn(v, col, HROW, BTN_REFRESH, v->refresh_label, v->refresh_enabled);
-        if (!v->no_monitor && (!WIDE || col <= hc + (v->prompts == MENU_PROMPTS_KEYBOARD ? 28 : 34)))
+        if (!v->no_monitor && col + 10 < SW / CW)
             col = hint(v, col, HROW, BTN_MONITOR, "Monitor");
     }
     return col;
@@ -1891,15 +1901,12 @@ static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
     hints_dead = v->ask != NULL;
     m_rect(0, FOOT_Y, SW, SH - FOOT_Y, c16(C_BAR));
     m_rect(16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
-    int hc = WIDE ? 32 : 2;                     /* where the hints start */
-    if (bgz > 1) {                              /* the native layouts: the chips in the middle of the bar */
-        chips_dry = 1;
-        const int width = hints_run(v, cur, 0) - 3;
-        chips_dry = 0;
-        hc = (SW / CW - width) / 2;
-        if (hc < 2)
-            hc = 2;
-    }
+    chips_dry = 1;
+    const int width = hints_run(v, cur, 0) - 3;
+    chips_dry = 0;
+    int hc = (SW / CW - width) / 2;
+    if (hc < 2)
+        hc = 2;
     hints_run(v, cur, hc);
 }
 
