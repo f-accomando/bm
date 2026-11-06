@@ -1,0 +1,78 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2094-g881b2366-dirty
+branch: antigravity/font-refine-weight-and-clipping
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-6228d2_freeze_pi-zero-w_v0.2.5-2094-g881b2366-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monioCore firmware does not answer (mailbox, frame 0, 495 s after boot, kernel v0.2.5-2094-g881b2366-dirty, ring 6895, sink on
+--- the last lines printed ---
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+back to the monitor
+> e
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+ll 20 read
+menu idle: 300/300 frames, 121 of 1603 ms taken, 2.0 ms past a frame; covers 110 ms (+2.6, stk 0.8/16K); min slack -24307 us, paced 0
+menu idle: sd first word <1ms 159 <3ms 10 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 11407 us, enlarge 0 us, flip 93 us, free time used 404 us (300 frames)
+menu frame: 2x, a frame averages draw 9409 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.6 ms past its slice
+net: time 2026-11-06 17:08 UTC
+fiber: reports did not yield: 98.3 ms past its slice
+report: sending nodate-92b5b9_freeze_pi-zero-w_v0.2.5-2094-g881b2366-dirty.txt
+menu idle: 300/300 frames, 649 of 1697 ms taken, 100.9 ms past a frame; reports 628 ms (+98.3, stk 7.6/128K); min slack -7876 us, paced 0
+menu idle: sd first word <1ms 28 (max 1.4 ms)
+menu stalls: tls handshake 1x last 299.1 worst 299.1 ms
+menu frame: 2x, a frame averages draw 9400 us, enlarge 0 us, flip 93 us, free time used 2165 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/antigravity-font-refine-weight-and-clipping/nodate-92b5b9_freeze_pi-zero-w_v0.2.5-2094-g881b2366-dirty.txt
+menu idle: 300/300 frames, 341 of 1669 ms taken, 19.8 ms past a frame; reports 331 ms (+19.8, stk 7.6/128K); min slack -248137 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 11192 us, enlarge 0 us, flip 94 us, free time used 1139 us (300 frames)
+menu frame: 2x, a frame averages draw 9489 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 2x, a frame averages draw 9398 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+type 'h' for help
+> 
+net: console closed
+
+> 
+unknown command (0x7f), 'h' for help
+> 
+unknown command (0x7f), 'h' for help
+> c
+> 
+unknown command (0x09), 'h' for help
+> 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 1280x720, drawn by the GPU
+menu frame: 2x, a frame averages draw 9597 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 12610 us, enlarge 0 us, flip 93 us, free time used 19 us (300 frames)
+menu: menu layout at the next start: Native
+menu idle: sd first word <1ms 75 <3ms 3 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 11665 us, enlarge 0 us, flip 93 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 70 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 11472 us, enlarge 0 us, flip 91 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 54 <3ms 1 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 11625 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 60 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 11614 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 11570 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 35 (max 1.4 ms)
+menu frame: 2x, a frame averages draw 10719 us, enlarge 0 us, flip 92 us, free time used 22 us (300 frames)
