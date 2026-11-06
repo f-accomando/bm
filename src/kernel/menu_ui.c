@@ -51,8 +51,6 @@ static int bm_font;                     /* menu_font=bm: the bm font family at 7
 
 static inline const font_t *menu_font(int sc)
 {
-    if (bm_font && sc >= 2)
-        return sc == 3 ? &font_bm_18x48 : &font_bm_12x32;
     return sc == 3 ? &font_console_24x48 : sc == 2 ? &font_console_16x32 : &font_console_8x16;
 }
 #define FRAME_US 16667
