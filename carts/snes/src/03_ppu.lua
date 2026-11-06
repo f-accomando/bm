@@ -2,7 +2,7 @@
 -- the sprite sheet and drawn with sspr(). A "band" is a run of lines with the same registers: a
 -- change of scroll in the middle of the frame (a status bar) or by HDMA makes a new band.
 
-local cache_flush, ppu_frame_start, ppu_line, ppu_frame_end, ppu_render
+local cache_flush, ppu_frame_start, ppu_line, ppu_frame_end, ppu_render, ppu_decode
 do
 
 local SHEET_CELLS_W = 128                       -- the sheet is 1024 x 1024: 128 x 128 cells
@@ -38,6 +38,8 @@ local function decode(addr, bpp, pal, sx, sy)
     end
   end
 end
+
+ppu_decode = decode                           -- the viewer uses it
 
 -- the sheet position of a character (its address in VRAM bytes, bits per pixel, first colour)
 local BPPC = { [2] = 0, [4] = 1, [8] = 2 }
