@@ -1,4 +1,4 @@
--- Part 4: the cartridge: ROM list, the frame loop, the screen, the save of the battery RAM.
+-- Part 5: the cartridge: ROM list, the frame loop, the screen, the save of the battery RAM.
 
 local LINE_CYC = 190                            -- CPU cycles in a line (about 7 master clocks each)
 local BTNS = { { "b", 15 }, { "y", 14 }, { "select", 13 }, { "start", 12 }, { "up", 11 }, { "down", 10 },
@@ -124,7 +124,7 @@ local function run_frame()
 end
 
 ------------------------------------------------------------------ the cartridge
-local state = "browse"           -- browse, run, menu
+local state = "browse"           -- browse, run, menu, viewer
 local files, sel, msg = {}, 1, nil
 local scr
 local holdmenu = 0
@@ -180,15 +180,18 @@ function _update()
     if frames % 600 == 0 then save_sram() end
   elseif state == "menu" then
     if btnp("up") then menusel = math.max(1, menusel - 1) end
-    if btnp("down") then menusel = math.min(4, menusel + 1) end
+    if btnp("down") then menusel = math.min(5, menusel + 1) end
     if btnp("a") then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then
         save_sram(); apu_reset(); cpu_reset(); nmitimen = 0; state = "run"
-      elseif menusel == 3 then show_fps = not show_fps
+      elseif menusel == 3 then viewer_open(curname); state = "viewer"
+      elseif menusel == 4 then show_fps = not show_fps
       else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") then state = "run" end
+  elseif state == "viewer" then
+    if viewer_update() then state = "menu" end
   end
 end
 
@@ -222,6 +225,7 @@ function _draw()
     print("A play   X refresh", 16, SCREEN_H - 24, 0x8090A0)
     return
   end
+  if state == "viewer" then viewer_draw(); return end
   local lines = (P.setini & 4 ~= 0) and 239 or 224
   ppu_render(scr, lines)
   cls(0)
@@ -229,12 +233,12 @@ function _draw()
   target_blit(scr, x, y, w, h, 0, 0, 256, lines)
   if show_fps then print(string.format("%d fps", stat(2)), 4, 4, 0x00FF00) end
   if state == "menu" then
-    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 60, 220, 120, 0x101820)
-    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 60, 220, 120, 0xFFD050)
-    local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", "Back to the list" }
-    for i = 1, 4 do
-      print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 48 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
+    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 84, 220, 168, 0x101820)
+    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 84, 220, 168, 0xFFD050)
+    local items = { "Resume", "Reset", "Sprite viewer", show_fps and "FPS: on" or "FPS: off", "Back to the list" }
+    for i = 1, 5 do
+      print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 72 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end
-    print(info.title, SCREEN_W // 2 - 90, SCREEN_H // 2 + 40, 0x8090A0)
+    print(info.title, SCREEN_W // 2 - 90, SCREEN_H // 2 + 60, 0x8090A0)
   end
 end

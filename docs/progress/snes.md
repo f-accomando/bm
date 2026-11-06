@@ -10,8 +10,18 @@ was tried. The speed on the Pi Zero W and the RGB30 is not measured.
 2. Start "bm SNES" from the menu. The first time, the console asks if the cartridge may use the files.
 3. Choose the ROM with the arrows. Press A.
 4. Keys: the pad keys are the SNES keys (A, B, X, Y, L1, R1, Start, Select, the cross).
-   Hold L2 and R2 for half a second to open the emulator menu (resume, reset, FPS, back to the list).
+   Hold L2 and R2 for half a second to open the emulator menu (resume, reset, sprite viewer, FPS, back to the list).
 5. The battery RAM goes to `/docs/<name>.srm`. The cartridge saves it every 10 seconds, in the menu and at exit.
+
+## The viewer
+
+Menu, "Sprite viewer". The emulation is paused. L1 and R1 change the view.
+- Tiles (VRAM): 16 x 16 tiles a page, 2, 4 or 8 bits per pixel (Y), the palette (left and right), the page (up, down, L2, R2).
+- Sprites (OAM): 32 sprites a page, each as stored (no flips), with the sizes of OBSEL.
+- Colours (CGRAM): the 256 colours.
+- A saves the view as a PNG in `/docs`. X saves all of it: the whole VRAM (16 tiles a row), all 128 sprites, the colours.
+  Names: the first 4 letters of the ROM name, a letter (`t` tile page, `v` all VRAM, `s` sprite page, `o` all sprites,
+  `p` colours) and two digits. bm Pixel exports to the same folder. Open the file there as a picture.
 
 ## What is in it
 
@@ -20,7 +30,8 @@ was tried. The speed on the Pi Zero W and the RGB30 is not measured.
 | `carts/snes/src/01_core.lua` | memory, PPU registers, APU stub, CPU registers `$42xx`, joypads, bus (LoROM, HiROM, SRAM), DMA and HDMA |
 | `carts/snes/src/02_cpu.lua` | the 65C816: all 256 opcodes, emulation and native mode, decimal mode, interrupts |
 | `carts/snes/src/03_ppu.lua` | the picture: tile cache in the sprite sheet, bands, BG modes 0-4, sprites |
-| `carts/snes/src/04_main.lua` | ROM list, header detection, frame loop, screen, SRAM, menu |
+| `carts/snes/src/04_viewer.lua` | the viewer of tiles, sprites and colours, and the PNG export |
+| `carts/snes/src/05_main.lua` | ROM list, header detection, frame loop, screen, SRAM, menu |
 | `carts/snes/build/build.py` | joins the sources, makes the blank sheet, packs `.bme` and `.bm` (`make build/carts/snes.bm`) |
 | `tests/snes/` | `cpu_test.lua` (21 checks), `make_testrom.py` (a ROM made for the test), `render_test.py`; run `make test-snes` |
 
@@ -55,4 +66,6 @@ was tried. The speed on the Pi Zero W and the RGB30 is not measured.
   and interleaved ROMs are not detected.
 - Input: player 2 reads `btn(name, 2)`. The multitap, the mouse and the light gun are not emulated.
 - Put the cartridge in `GAMES` and in the Market after a test on both devices.
+- Viewer: the tile page shows 4 bpp first, also for 2 bpp games (press Y). Add the tilemap view (BG1-4 as the PPU sees them)
+  and a sprite sheet with the flips applied. Check that bm Pixel opens the PNG from `/docs` (it exports there).
 - Save states and a speed-up key.
