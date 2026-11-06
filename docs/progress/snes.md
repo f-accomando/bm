@@ -27,6 +27,7 @@ was tried. The speed on the Pi Zero W and the RGB30 is not measured.
 ## Rules (do not break)
 
 - The Lua sources are in `carts/snes/src/` and `build.py` joins them. Edit the sources. Do not edit `build/snes/main.lua`.
+- After a change in `src/`, run `make build/carts/snes.bme` and copy it to `carts/snes/snes.bme`. That file is the project.
 - A Lua function has at most 200 local variables. The CPU and the PPU files wrap their locals in a `do ... end`
   block. Keep that when you add code.
 - The ROM comes only from `doc_read`. The cartridge never writes a ROM. The only file it writes is the `.srm`.
