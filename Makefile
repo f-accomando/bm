@@ -243,6 +243,20 @@ $(BUILD)/carts/kratos.bm $(BUILD)/carts/kratos.bme: $(BUILD)/carts/kratos.%: car
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kratos/bm.info
 
+# bm SNES (carts/snes): a Super Nintendo emulator in Lua. build.py joins carts/snes/src/*.lua, makes the blank
+# 1024 x 1024 sheet the tile cache needs and packs both files. The .bme is the source, the .bm the cartridge.
+# Not in GAMES yet: the speed on the Pi Zero W and the RGB30 is not measured (docs/progress/snes.md).
+$(BUILD)/carts/snes.bm $(BUILD)/carts/snes.bme: $(BUILD)/carts/snes.%: carts/snes/build/build.py $(wildcard carts/snes/src/*.lua) carts/snes/bm.info scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) carts/snes/build/build.py $(BUILD)/snes
+	cp $(BUILD)/snes/snes.$* $@
+
+# bm SNES tests: the CPU core in a plain Lua (tests/snes/cpu_test.lua) and the cartridge in bmhost with a test ROM
+# made by tests/snes/make_testrom.py (tests/snes/render_test.py reads the pictures).
+test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py
+	sh tests/snes/run_cpu_test.sh
+	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
+
 # Island Bench (carts/islandbench): the island of the map kit assets/island.bmk (map, models, sprites) with the
 # benchmark code in main.lua. The .bme is the source, the .bm the cartridge; the kit is merged in by bmres.py.
 $(BUILD)/carts/islandbench.bm $(BUILD)/carts/islandbench.bme: $(BUILD)/carts/islandbench.%: carts/islandbench/main.lua scripts/mkbm.py scripts/bmres.py carts/islandbench/bm.info carts/islandbench/assets/island.bmk
@@ -816,7 +830,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
