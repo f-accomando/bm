@@ -196,6 +196,8 @@ typedef struct {
                                  * the 3D to the ARM */
     int screen_test_ok;         /* colour_only: draws R3D_KIND_SCREEN tested against the depth and not written (the shadows of shadow3d(1):
                                  * a colour on the pixels with x + y even) */
+    int screen_write_ok;        /* colour_only: draws R3D_KIND_SCREEN with the depth written (a model's R3D_SCREEN faces: the pixels with
+                                 * x + y even keep the colour and the depth) */
     const int *skip_shadows;    /* colour_only: points to 1 when the shadows are not drawn (mali_noshadow=1), so they do not hand the 3D to
                                  * the ARM: a test of what the GPU gives without them */
 } r3d_backend_t;

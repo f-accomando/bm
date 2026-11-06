@@ -864,6 +864,7 @@ typedef struct {                                /* what every core reads while i
     uint64_t verts_pa, pos_pa, push_pa, vpush_pa;
     const uint8_t *frs_buf, *vrs3_buf, *frst_buf, *frsta_buf;   /* frsta: the textured state that kills the texels with alpha 0 */
     const uint8_t *frsc_buf;                    /* the screen-door: the flat state that kills the pixels with x + y odd, the depth tested and not written */
+    const uint8_t *frscw_buf;                   /* the screen-door of a model's face (R3D_SCREEN): as frsc_buf, the depth written where it draws */
     const uint8_t *frsh_buf;                    /* the shadow: the flat state that multiplies the target by 5/8, the depth tested and not written */
     uint8_t *tv_m;                              /* textured draws: vertices of 32 bytes (position, u v k), varyings of 16 */
     uint64_t tv_pa, tvy_pa;
@@ -881,6 +882,7 @@ typedef struct {                                /* what every core reads while i
 } bctx_t;
 
 #define BE_SCREEN_FLAG  0x08000000u /* added to the colour of a screen-door triangle (the shadow of shadow3d(1)): the pixels with x + y even only */
+#define BE_SCREENW_FLAG 0x04000000u /* added to the colour of a screen-door face of a model (R3D_SCREEN): x + y even only, the depth written */
 #define BE_SHADE_RGB    0x07000000u /* the colour word of a shadow triangle (R3D_KIND_SHADE): no colour, a blend draw */
 
 typedef struct {                                /* the block of one core: its draws and its own counters */
@@ -1068,7 +1070,8 @@ static void build_draws(void *p)
         const uint64_t tb1 = cnt_now();
         k->t1 += tb1 - tb0;
         /* the draw's tables */
-        memcpy(loc + D_FRSD, rgb == BE_SHADE_RGB ? c->frsh_buf : (rgb >> 24) == (BE_SCREEN_FLAG >> 24) ? c->frsc_buf : frs_buf, 80);
+        memcpy(loc + D_FRSD, rgb == BE_SHADE_RGB ? c->frsh_buf : (rgb >> 24) == (BE_SCREEN_FLAG >> 24) ? c->frsc_buf :
+                             (rgb >> 24) == (BE_SCREENW_FLAG >> 24) ? c->frscw_buf : frs_buf, 80);
         md_attribute_buffer(loc + D_ABUFS, verts_pa + 16 * (uint64_t)first, 16, 16 * nv);
         md_attribute_buffer(loc + D_VBUFS, 0, 0, 0);
         md_attribute_buffer(loc + D_VBUFS + 16, pos_pa + 16 * (uint64_t)first, 16, 16 * nv);
@@ -1143,7 +1146,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
     }
     int any_scr = 0;
     for (uint32_t d = 0; d < ndraws && !any_scr; d++)
-        any_scr = (draws[d].rgb >> 24) == (BE_SCREEN_FLAG >> 24) && tv_m != NULL;
+        any_scr = ((draws[d].rgb >> 24) == (BE_SCREEN_FLAG >> 24) || (draws[d].rgb >> 24) == (BE_SCREENW_FLAG >> 24)) && tv_m != NULL;
     if (any_scr)
         memcpy(m + sb + SO_FS_SCR, BM_FS_SCR_bin, sizeof BM_FS_SCR_bin);
     int any_lit = 0;
@@ -1225,7 +1228,12 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
                                  .depth_func = zbuf ? MD_FUNC_LEQUAL : 0, .depth_write = 0 };
     md_renderer_state(frsc_buf, &frsc);
     md_blend_opaque(frsc_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
-    md_renderer_state_t vrs3 = { .shader = pa + sb + SO_VS3, .attribute_count = BM_VS3_ATTRIBUTE_COUNT,
+    uint8_t frscw_buf[80];                      /* a model's screen-door face: the same, the depth written on the pixels that stay (the kill ends the pixel late) */
+    memset(frscw_buf, 0, sizeof frscw_buf);
+    frsc.depth_write = zbuf;
+    md_renderer_state(frscw_buf, &frsc);
+    md_blend_opaque(frscw_buf + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
+    md_renderer_state_t vrs3= { .shader = pa + sb + SO_VS3, .attribute_count = BM_VS3_ATTRIBUTE_COUNT,
                                  .varying_count = BM_VS3_VARYING_COUNT, .ubo_count = BM_VS3_UBO_COUNT,
                                  .work_regs = BM_VS3_WORK_REGS, .preload_regs = BM_VS3_PRELOAD,
                                  .push_count = BM_VS3_PUSH_COUNT };
@@ -1312,7 +1320,7 @@ static void frame_build_ex(uint32_t set, const mali_draw_t *draws, uint32_t ndra
 
     bctx_t bc = { .draws = draws, .ndraws = ndraws, .pa = pa, .dpa0 = draws_pa, .sb = sb, .verts_m = verts_m,
                   .push_m = push_m, .vpush_m = vpush_m, .draws_m = draws_m, .verts_pa = verts_pa, .pos_pa = pos_pa,
-                  .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .frsh_buf = frsh_buf, .frsc_buf = frsc_buf, .vrs3_buf = vrs3_buf,
+                  .push_pa = push_pa, .vpush_pa = vpush_pa, .frs_buf = frs_buf, .frsh_buf = frsh_buf, .frsc_buf = frsc_buf, .frscw_buf = frscw_buf, .vrs3_buf = vrs3_buf,
                   .frst_buf = frst_buf, .frsta_buf = frsta_buf, .tv_m = tv_m, .tv_pa = tv_pa, .tvy_pa = tvy_pa, .fast_pack = fast_pack,
                   .lv_m = tv_m ? tv_m - 0x720000 + 0x80000 : NULL, .lv_pa = tv_pa - 0x720000 + 0x80000,   /* BE_LIT_FROM_TV, BE_LIT_V_OFF */
                   .litp_m = tv_m ? tv_m - 0x720000 : NULL, .litp_pa = tv_pa - 0x720000,
@@ -3052,7 +3060,8 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
     }
     const int shade = (kind & ~R3D_INSIDE) == R3D_KIND_SHADE && depth == R3D_DEPTH_TEST;      /* a shadow: darkens the target, the depth tested and not written */
     const int screen = (kind & ~R3D_INSIDE) == R3D_KIND_SCREEN && depth == R3D_DEPTH_TEST;       /* the screen-door shadow: its colour on the pixels with x + y even */
-    if (!shade && !screen && (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) ||
+    const int screenw = (kind & ~R3D_INSIDE) == R3D_KIND_SCREEN && depth == R3D_DEPTH_WRITE;    /* a model's screen-door face: the same, the depth written */
+    if (!shade && !screen && !screenw && (((kind & ~R3D_INSIDE) != R3D_KIND_COLOUR && !textured) ||
         (depth != R3D_DEPTH_WRITE && !(depth == R3D_DEPTH_TEST && !textured))))  /* r3d sends nothing else (colour_only): the guard; the effects tested and not written are drawn as written */
         return;
     if (be_n2d)                                     /* a 3D face after 2D: the job so far has to end, the 2D is under it */
@@ -3101,7 +3110,7 @@ static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
     uint32_t rgb = (cr > 255 ? 255 : cr) << 16 | (cg > 255 ? 255 : cg) << 8 | (cb > 255 ? 255 : cb);
     if (rgb == BE_KEY)
         rgb = 0xFF01FF;                             /* the key means "not covered" */
-    t->rgb = shade ? BE_SHADE_RGB : screen ? (rgb | BE_SCREEN_FLAG) : rgb;
+    t->rgb = shade ? BE_SHADE_RGB : screen ? (rgb | BE_SCREEN_FLAG) : screenw ? (rgb | BE_SCREENW_FLAG) : rgb;
     t->key = z / 3;                                 /* 1/depth: larger is nearer */
     t->mvp = NULL;
 }
@@ -3476,8 +3485,8 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                         continue;
                     }
                 }
-                if (!skinned) {                 /* a face wholly outside the screen (to one side, all three corners) is not sent: the GPU's vertex work and the copy go with it */
-                    const float *T = mvp_bone[0], W = env->cx * 2.0f, H = env->cy * 2.0f, mg = 8.0f;
+                {                               /* a face wholly outside the screen (to one side, all three corners) is not sent: the GPU's vertex work and the copy go with it (a skin: with its bone's matrix) */
+                    const float *T = mvp_local[b], W = env->cx * 2.0f, H = env->cy * 2.0f, mg = 8.0f;
                     int xl = 0, xh = 0, yl = 0, yh = 0;
                     for (int k = 0; k < 3; k++) {
                         const float *q = f + k * stride;
@@ -3682,7 +3691,7 @@ const r3d_backend_t *mali_backend(const mali_hw_t *hw)
 {
     static r3d_backend_t be = {
         .tri = be_tri, .mesh = be_mesh, .zclear = be_zclear, .tex_ok = be_tex_ok,
-        .guard = 2048.0f, .cel = 1, .colour_only = 1, .test_as_write = 1, .shadow_blend = 1, .screen_test_ok = 1,
+        .guard = 2048.0f, .cel = 1, .colour_only = 1, .test_as_write = 1, .shadow_blend = 1, .screen_test_ok = 1, .screen_write_ok = 1,
     };
     if (!probed_ok || hw != H)
         return NULL;
