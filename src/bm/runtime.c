@@ -1269,9 +1269,13 @@ static void gpu3d_maybe(void)
         gpu3d_set_vshader(vs ? atoi(vs) : 2);           /* vertex shader: hidden key (0, 1, 2; every model
                                                          * from bm3d 6.6, where the boot's probes saw it) */
         const char *q = config_get("gpu3d_queue");
+#ifdef BM_RGB30
+        gpu3d_set_queue(!q ? 2 : (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the RGB30: two jobs in flight without the key (6 Nov 2026) */
+#else
         gpu3d_set_queue(!q ? 1 : (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (bm3d 4.1,
                                                                                      on without the key; "0" = off),
                                                                                      two jobs in flight (bm3d 5.1) */
+#endif
         const char *wc = config_get("gpu3d_wc");
         gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (bm3d 4.1): hidden key (SYS-9) */
         const char *bf = config_get("gpu3d_filter");
@@ -1291,7 +1295,11 @@ static void gpu3d_maybe(void)
         const char *g2 = config_get("gpu3d_2d");
         rt.gpu2d = !g2 || strcmp(g2, "0") != 0;          /* the 2D over the 3D in the job (bm3d 4.8): on by default (+6.7% boost, 3569+ sprites); 0 = off (SYS-9b) */
         const char *lt = config_get("gpu3d_later");
+#ifdef BM_RGB30
+        rt.later = !lt || strcmp(lt, "0") != 0;         /* the RGB30: each frame shown a frame later without the key; gpu3d_later=0 = at once (6 Nov 2026) */
+#else
         rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (bm3d 6.9): hidden key (SYS-9) */
+#endif
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         rt.r3d.merge = merge_cfg();

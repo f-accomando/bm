@@ -1261,7 +1261,8 @@ end
 
 -- ---------------------------------------------------------------- the cartridge
 function _init()
-  apply_resolution()                               -- 640x360: a quarter of the pixels of 1280x720 (the menu has both)
+  frameskip(3)                                     -- a slow frame is not drawn: the logic keeps 60 _update a second (the game does not slow at 30 fps)
+  apply_resolution()                             -- 640x360: a quarter of the pixels of 1280x720 (the menu has both)
   -- the GPU as the Hero cart measured it (GPU + VS + queue: about 10k hero triangles at 60 fps on the Pi Zero W): the
   -- vertex shader at 2 places the skinned models (every face of them is on one bone, see art/models/hunter/hunter_build.py
   -- one_bone), the console's queue lets the next _update run while the GPU draws. A console without the GPU keeps the ARM.

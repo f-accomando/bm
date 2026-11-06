@@ -146,13 +146,22 @@ do
     rectfill(4, by + 3, full, 8, 0x202830)
     rectfill(4, by + 3, math.min(w, full), 8, 0x40C060)
     if w > full then rectfill(4 + full, by + 3, math.min(w - full, 10), 8, 0xE04040) end
-    local load = H.var2d and ("2d " .. H.n2d) or ("n " .. H.n .. " lod " .. H.lod_name())
-    local text = string.format("ms %s/%s fps %d skip %d|gpu %s wait %s|tri %d vtx %d lua %dk|%s|%dx%d",
-      fmt(L.ms), fmt(L.max), math.floor(L.fps), L.skip or 0, fmt(L.gpu), fmt(L.wait), math.floor(L.tri),
-      math.floor(L.vtx), math.floor(L.lua / 1000), load, SCREEN_W, SCREEN_H)
     local note = H.suiting() and "SUITE" or (H.sweeping() and "SWEEP" or H.sweep_note)
     if not note and H.save_note and time() - (H.save_t or 0) < 3 then note = H.save_note end
-    if note then text = note .. "|" .. text end
-    print(text, 70, by + 1, NUM)
+    local items = { string.format("ms %s/%s", fmt(L.ms), fmt(L.max)), string.format("fps %d", math.floor(L.fps)),
+      string.format("skip %d", L.skip or 0), string.format("gpu %s", fmt(L.gpu)), string.format("wait %s", fmt(L.wait)),
+      string.format("tri %d", math.floor(L.tri)), string.format("vtx %d", math.floor(L.vtx)),
+      string.format("lua %dk", math.floor(L.lua / 1000)), string.format("%dx%d", SCREEN_W, SCREEN_H) }
+    if note then table.insert(items, 1, note) end
+    -- one line to the right of the meter (which ends at x 74): the spaces between the items fill the width (the font is 6 pixels wide)
+    local chars = 0
+    for _, s in ipairs(items) do chars = chars + #s end
+    local room = (W - 4 - 80) // 6 - chars
+    local gap = math.max(1, room // (#items - 1))
+    local x = 80
+    for _, s in ipairs(items) do
+      print(s, x, by + 1, NUM)
+      x = x + (#s + gap) * 6
+    end
   end
 end
