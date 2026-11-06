@@ -1842,8 +1842,8 @@ static float be_mvps[BE_MAX_MVPS][16];
  * name the entry), so a frame only tests the faces and copies the visible ones. Kind 0 (sun and ambient light) has vertices of 12
  * floats, kinds 1 and 2 (the effects, the skeleton) of 16. Kind 3 (a textured mesh, BM_VS_TEXM) has 12 floats: position, normal and
  * emissive flag, then u v of the sheet in 0..1. A block is the 3 vertices of a face. */
-#define BE_RM_SLOTS     12
-#define BE_RM_POOL      (3u << 18)              /* floats: 3 MB */
+#define BE_RM_SLOTS     96                      /* Dark Night shows more than 12 meshes a frame: with the cache full the rest went one face at a time */
+#define BE_RM_POOL      (2u << 20)              /* floats: 8 MB */
 #define BE_INST_MAX     256
 typedef struct {
     const r3d_mesh_t *m;
@@ -1868,7 +1868,8 @@ static uint32_t be_rm_used;
 static float be_rm_pool[BE_RM_POOL] __attribute__((aligned(64)));
 static be_inst_t be_insts[BE_INST_MAX];
 static int be_ninst;
-#define BE_VIS_MAX      65536                   /* the faces of the cached meshes in a batch (a frame holds 10922 visible ones: the flush splits) */
+static unsigned be_rej[8];                      /* the faces of the meshes the cache refused, by reason (the 60 job log) */
+#define BE_VIS_MAX     65536                   /* the faces of the cached meshes in a batch (a frame holds 10922 visible ones: the flush splits) */
 static uint16_t be_vis[BE_VIS_MAX];
 /* A face of a cached rigid mesh that crosses the near plane is cut here on the ARM (its corners interpolated, the light and the texture as
  * they are) and drawn by a second instance of the same mesh. Without it a mesh with one corner behind the camera (the map chunk, near a
@@ -2520,6 +2521,10 @@ static int be_flush_mode_impl(const g16_t *g, int async)
                     (unsigned)(t_flush * 1000000u / 60u / fq), (unsigned)(t_build * 1000000u / 60u / fq), (unsigned)(t_resolve * 1000000u / 60u / fq),
                     (unsigned)(t_jobs * 1000000u / 60u / fq), last_wall ? (unsigned)((now_w - last_wall) * 1000000u / 60u / fq) : 0u, max_draws, zjobs[1], zjobs[2]);
             last_wall = now_w;
+            kprintf("mali: refused faces a job by reason: screen %u, skin bones %u, skin behind %u, tex rules %u, tex slot %u, tex small %u, tex or behind %u\n",
+                    be_rej[0] / 60u, be_rej[1] / 60u, be_rej[2] / 60u, be_rej[3] / 60u, be_rej[4] / 60u, be_rej[5] / 60u, be_rej[6] / 60u);
+            for (int k = 0; k < 8; k++)
+                be_rej[k] = 0;
             acc_n = acc_vis = 0;
             t_mesh = t_flush = t_resolve = t_sort = t_build = t_jobs = 0;
         }
@@ -3226,6 +3231,7 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
     return r;
 }
 
+#define BE_REJ(k) (be_rej[k] += (unsigned)m->nfaces, 0)
 static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                         int nbones, const r3d_env_t *env, int depth)
 {
@@ -3242,7 +3248,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         if (!BE_SHOWS(c, env->detail))
             continue;
         if (c & R3D_SCREEN)
-            return 0;
+            return BE_REJ(0);
         if (c & R3D_TEXTURED)
             ntexf++;
         else
@@ -3251,7 +3257,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             const uint16_t *fc = m->faces + t * 3;
             const uint8_t b0 = m->vbone[fc[0]];
             if (b0 >= (unsigned)nb || m->vbone[fc[1]] >= (unsigned)nb || m->vbone[fc[2]] >= (unsigned)nb)
-                return 0;
+                return BE_REJ(1);
         }
     }
     int has_behind = 0;
@@ -3264,8 +3270,8 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             const float cz = Mb[8] * o.x + Mb[9] * o.y + Mb[10] * o.z + Mb[11];
             if (cz < R3D_NEAR) {
                 if (skinned)
-                    return 0;
-                has_behind = 1;                 /* a rigid mesh: the cache cuts the faces that cross the near plane */
+                    return BE_REJ(2);
+                has_behind = 1;                /* a rigid mesh: the cache cuts the faces that cross the near plane */
                 break;
             }
         }
@@ -3276,10 +3282,10 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
     if (ntexf) {
         if (nflatf || skinned || env->front || !m->uv || !m->tex || !be_res_on || !be_zmode() || !be_arena() ||
             m->nfaces < 16 || (env->lit && !N))
-            return 0;
+            return BE_REJ(3);
         const int ts = be_tex_find(g, m->tex);
         if (ts < 0)
-            return 0;
+            return BE_REJ(4);
         tsl = &be_texs[ts];
     }
     const int cap = be_frame ? MALI_BATCH_MAX : BE_MAX_TRIS;
@@ -3376,7 +3382,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         vlit = 0;
         const float rpx = m->radius > 0.0f ? m->radius * env->f / cz_bone[0] : 1e9f;
         if (!mvp_bone[0] || 3.14f * rpx * rpx < be_lit_min * 0.5f * (float)m->nfaces)
-            return 0;                           /* (the ARM draws the faces one by one) */
+            return BE_REJ(5);                   /* (the ARM draws the faces one by one) */
         if (env->lit)
             be_set_light(mvp_bone[0], env, l_sun[0], l_up[0], l_view[0], l_half[0], M[0], cz_bone[0]);
         else
@@ -3491,7 +3497,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
         }
     }
     if (tsl || has_behind)
-        return 0;                               /* no cache entry (or a corner behind the camera): r3d draws the faces one by one */
+        return BE_REJ(6);                          /* no cache entry (or a corner behind the camera): r3d draws the faces one by one */
     uint32_t nsent = 0;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
