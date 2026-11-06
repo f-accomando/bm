@@ -1,0 +1,67 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2091-g123c9565-dirty
+branch: antigravity/menu-app-title-action
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-66120a_freeze_pi-zero-w_v0.2.5-2091-g123c9565-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 75 s after boot, kernel v0.2.5-2091-g123c9565-dirty, ring 6713, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 20 read
+wifi: joining "FASTWEB-36AB12" again (try 1)
+wifi: scanning...
+menu idle: 300/300 frames, 179 of 714 ms taken, 2.0 ms past a frame; covers 111 ms (+3.0, stk 0.8/16K), wifi 54 ms (+4.1, stk 0.9/64K); min slack -37374 us, paced 0
+menu idle: sd first word <1ms 159 <3ms 10 (max 1.6 ms)
+menu frame: 1x, a frame averages draw 14719 us, enlarge 0 us, flip 96 us, free time used 598 us (300 frames)
+wifi: 1 network
+   1   -73 dBm  ch  1  WPA2  FASTWEB-36AB12
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+fiber: wifi did not yield: 12.5 ms past its slice
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+menu idle: 300/300 frames, 478 of 643 ms taken, 12.8 ms past a frame; wifi 464 ms (+12.5, stk 0.9/64K); min slack -9174 us, paced 0
+menu frame: 1x, a frame averages draw 12969 us, enlarge 0 us, flip 92 us, free time used 1593 us (300 frames)
+menu frame: 1x, a frame averages draw 13026 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 12948 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.6 ms past its slice
+net: time 2026-11-06 16:16 UTC
+fiber: reports did not yield: 101.1 ms past its slice
+report: sending nodate-699c49_freeze_pi-zero-w_v0.2.5-2091-g123c9565-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/antigravity-menu-app-title-action/nodate-699c49_freeze_pi-zero-w_v0.2.5-2091-g123c9565-dirty.txt
+menu idle: 300/300 frames, 428 of 633 ms taken, 103.7 ms past a frame; reports 408 ms (+101.1, stk 7.6/128K); min slack -14486 us, paced 0
+menu idle: sd first word <1ms 43 <3ms 2 (max 1.6 ms)
+menu stalls: tls handshake 1x last 299.4 worst 299.4 ms
+menu frame: 1x, a frame averages draw 13042 us, enlarge 0 us, flip 95 us, free time used 1428 us (300 frames)
+menu frame: 1x, a frame averages draw 14622 us, enlarge 0 us, flip 97 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12911 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13123 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13057 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+menu frame: 1x, a frame averages draw 12993 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12922 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13139 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+net: receiving settings (13 bytes)...
+config: menu_layout removed
+net: settings from the PC: 1 changed in bm/config.txt
+menu idle: sd first word <1ms 6 <3ms 2 (max 1.6 ms)
+menu frame: 1x, a frame averages draw 13204 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+net: restarting with the new kernel in 1 s
