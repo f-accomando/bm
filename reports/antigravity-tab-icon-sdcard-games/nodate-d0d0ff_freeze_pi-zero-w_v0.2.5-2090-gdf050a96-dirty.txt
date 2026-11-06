@@ -1,0 +1,54 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2090-gdf050a96-dirty
+branch: antigravity/tab-icon-sdcard-games
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-d0d0ff_freeze_pi-zero-w_v0.2.5-2090-gdf050a96-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 1040 s after boot, kernel v0.2.5-2090-gdf050a96-dirty, ring 26451, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 8914 us, enlarge 0 us, flip 96 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8973 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8885 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8796 us, enlarge 0 us, flip 96 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8974 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8953 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8867 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8783 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 9005 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 8945 us, enlarge 0 us, flip 93 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 8857 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 8800 us, enlarge 0 us, flip 92 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 9008 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 8920 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 8833 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 8857 us, enlarge 0 us, flip 94 us, free time used 34 us (300 frames)
+menu frame: 1x, a frame averages draw 8991 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8904 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8816 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8885 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8973 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8888 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8799 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8925 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8956 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8869 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8782 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8981 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8937 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8850 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8767 us, enlarge 0 us, flip 95 us, free time used 35 us (300 frames)
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+menu frame: 1x, a frame averages draw 9036 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8927 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8840 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+net: receiving settings (26 bytes)...
+config: menu_layout removed
+config: menu_font=bm
+net: settings from the PC: 2 changed in bm/config.txt
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
