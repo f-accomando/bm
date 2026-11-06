@@ -1,0 +1,12 @@
+# bm.info: metadata for bm Font (docs/PROJECT-LAYOUT.md)
+name: bm Font
+desc: The font editor: create and edit 8x16 and 6x12 bitmap fonts.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, font
+type: app
+resolution: 640x360
+targets: pi,rgb30
+input: keyboard,pad,mouse
+spec: 6

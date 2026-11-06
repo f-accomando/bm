@@ -187,7 +187,7 @@ $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) scripts/mkbm.py $
 	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing kitchen titan titanex nano8 overbit yharnam typing write ko2 bench3d
+GAMES := pong snake shooter astrowing kitchen titan titanex nano8 overbit yharnam typing write ko2 bench3d font
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
