@@ -2050,22 +2050,13 @@ static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
     t_resolve += cnt_now() - t0;
 }
 
-static void be_resolve_impl(const g16_t *g, const uint8_t *surf, uint32_t pitch)
+/* the rows y0 to y1 of the surface into the page (the rows are independent: bands run on the worker cores) */
+static void be_resolve_rows(const g16_t *g, const uint8_t *surf, uint32_t pitch, int y0, int y1)
 {
     const uint64_t key2 = (uint64_t)BE_KEY | ((uint64_t)BE_KEY << 32);
     const uint64_t mask = 0x00FFFFFF00FFFFFFull;
-    const int w = g->w, h = g->h, w8 = w & ~7;
-#ifdef PLAT_RK3566
-    if (!be_frame && H && surf < H->mem) {
-        const uintptr_t s0 = (uintptr_t)surf & ~63ull;
-        const uintptr_t s1 = ((uintptr_t)surf + (size_t)pitch * (size_t)h + 63ull) & ~63ull;
-        __asm__ volatile("dsb sy" ::: "memory");
-        for (uintptr_t a = s0; a < s1; a += 64)
-            __asm__ volatile("dc civac, %0" :: "r"(a) : "memory");
-        __asm__ volatile("dsb sy" ::: "memory");
-    }
-#endif
-    for (int y = 0; y < h; y++) {
+    const int w = g->w, w8 = w & ~7;
+    for (int y = y0; y < y1; y++) {
         const uint8_t *row = surf + (size_t)y * pitch;
         uint16_t *dst = g->px + (size_t)y * g->stride;
         int x = 0;
@@ -2112,6 +2103,45 @@ static void be_resolve_impl(const g16_t *g, const uint8_t *surf, uint32_t pitch)
                 dst[x] = (uint16_t)((p >> 19 & 31) << 11 | (p >> 10 & 63) << 5 | (p >> 3 & 31));
         }
     }
+}
+
+typedef struct { const g16_t *g; const uint8_t *surf; uint32_t pitch; int y0, y1; } be_rband_t;
+static void be_resolve_band(void *p)
+{
+    const be_rband_t *b = (const be_rband_t *)p;
+    be_resolve_rows(b->g, b->surf, b->pitch, b->y0, b->y1);
+}
+
+static void be_resolve_impl(const g16_t *g, const uint8_t *surf, uint32_t pitch)
+{
+    const int h = g->h;
+#ifdef PLAT_RK3566
+    if (!be_frame && H && surf < H->mem) {
+        const uintptr_t s0 = (uintptr_t)surf & ~63ull;
+        const uintptr_t s1 = ((uintptr_t)surf + (size_t)pitch * (size_t)h + 63ull) & ~63ull;
+        __asm__ volatile("dsb sy" ::: "memory");
+        for (uintptr_t a = s0; a < s1; a += 64)
+            __asm__ volatile("dc civac, %0" :: "r"(a) : "memory");
+        __asm__ volatile("dsb sy" ::: "memory");
+    }
+#endif
+    int nb = 1;
+    if (mp_par && mp_workers && h >= 64) {
+        nb = mp_workers() + 1;
+        if (nb > MALI_BUILD_CORES)
+            nb = MALI_BUILD_CORES;
+    }
+    if (nb <= 1) {
+        be_resolve_rows(g, surf, pitch, 0, h);
+        return;
+    }
+    be_rband_t bd[MALI_BUILD_CORES];
+    void *bl[MALI_BUILD_CORES];
+    for (int i = 0; i < nb; i++) {
+        bd[i] = (be_rband_t){ g, surf, pitch, h * i / nb, h * (i + 1) / nb };
+        bl[i] = &bd[i];
+    }
+    mp_par(be_resolve_band, bl, (unsigned)nb);
 }
 
 /* 4x MSAA: byte 3 of a surface pixel is the coverage (0: not covered, 255: covered), the colour is premultiplied by it: a pixel
