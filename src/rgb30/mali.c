@@ -3299,9 +3299,9 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             const v3_t o = m->verts[i];
             const float cz = Mb[8] * o.x + Mb[9] * o.y + Mb[10] * o.z + Mb[11];
             if (cz < R3D_NEAR) {
-                if (skinned)
-                    return BE_REJ(2);
-                has_behind = 1;                /* a rigid mesh: the cache cuts the faces that cross the near plane */
+                /* a rigid mesh: the cache cuts the faces that cross the near plane; a skin: the faces wholly behind
+                 * the camera are dropped, and a face that crosses the plane sends the mesh to r3d (below) */
+                has_behind = 1;
                 break;
             }
         }
@@ -3434,7 +3434,7 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                 if ((s2 * f[0] + at[0]) * f[4] + (s2 * f[1] + at[1]) * f[5] + (s2 * f[2] + at[2]) * f[6] >= 0.0f)
                     continue;
                 if (has_behind) {               /* the corners' depth: whole, cut or behind the camera */
-                    const float *Mb = M[0], zc = R3D_NEAR + 0.01f;
+                    const float *Mb = M[b], zc = R3D_NEAR + 0.01f;
                     float zz[3];
                     int behind = 0;
                     for (int k = 0; k < 3; k++) {
@@ -3444,6 +3444,10 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
                     }
                     if (behind == 3)
                         continue;
+                    if (behind && skinned) {    /* a cut face of a skin: r3d draws the mesh (the cut keeps one matrix) */
+                        be_nvis = vis0;
+                        goto no_cache;
+                    }
                     if (behind) {
                         if (be_clip_used + 2 * 3 * stride > BE_CLIP_FLOATS || be_nclip_rm + 1 >= BE_INST_MAX || be_ninst + 2 >= BE_INST_MAX)
                             continue;           /* (no room: the face is left out) */
@@ -3526,8 +3530,9 @@ static int be_mesh_impl(void *ctx, const g16_t *g, const r3d_mesh_t *m, const fl
             return 1;
         }
     }
+no_cache:
     if (tsl || has_behind)
-        return BE_REJ(6);                          /* no cache entry (or a corner behind the camera): r3d draws the faces one by one */
+        return skinned && has_behind && !tsl ? BE_REJ(2) : BE_REJ(6);                          /* no cache entry (or a corner behind the camera): r3d draws the faces one by one */
     uint32_t nsent = 0;
     for (int t = 0; t < m->nfaces; t++) {
         const uint32_t c = m->colors[t];
