@@ -79,7 +79,7 @@ makes the drafts and the tools. Do one step, get the user's decision, then go to
 | 3 | Chips and glyphs. A sharper key chip and a clearer set of symbols at each size. | The user approves the chips at the three sizes. |
 | 4 | HD covers (SYS-18). The cartridge carries one larger cover; the menu makes the 1x, 2x and 3x sizes from it. | A cover looks sharp at 1080p and the decode cost is measured on the Pi. |
 | 5 | Layout at the screen's size (SYS-21). The Market tab, the panels, the title and the question boxes. | No cut text at 720p and 1080p. |
-| 6 | Icons in place of the tab names. | The user approves the icon set; tabs work with the pad and the mouse. |
+| 6 | Icons in place of the tab names. | Switch-style circular flat polished minimal icons (Market bag, Games D-pad, Dev </>, Settings gear) rendered via 4x4 anti-aliased SDF masks and centered in the bar; tested on Pi Zero W. |
 
 Facts to keep in mind. The 720p and 1080p menu is drawn by the V3D on the Pi. After the texture cache fix (`NTEX` 32,
 28 Oct 2026) a frame of the cover grid costs 2.9 ms at 360p, 6.3 ms at 720p and 12.5 ms at 1080p (the ARM menu at 360p: 6.6 ms;

@@ -1212,6 +1212,62 @@ static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_
     }
 }
 
+/* Switch-style circular tab icon: disc, ring and minimal flat glyph inside */
+static void put_tab_icon(const tab_icon_mask_t *m, int x0, int y0, int active)
+{
+    const uint32_t bg_col = C_BAR;
+    const uint32_t disc_col = active ? 0x2A2A38 : 0x202028;
+    const uint32_t ring_col = active ? 0xFFFFFF : 0x484856;
+    const uint32_t glyph_col = active ? 0xFFFFFF : C_DIM;
+
+    if (gpu_draw) {
+        for (int y = 0; y < TAB_ICON_H; y++) {
+            for (int x = 0; x < TAB_ICON_W; x++) {
+                int i = y * TAB_ICON_W + x;
+                uint8_t d = m->disc[i], r = m->ring[i], g_val = m->glyph[i];
+                if (!d && !r && !g_val)
+                    continue;
+                uint32_t c = bg_col;
+                if (d) c = over(c, disc_col, d);
+                if (r) c = over(c, ring_col, r);
+                if (g_val) c = over(c, glyph_col, g_val);
+                uint16_t col = c16(c);
+                int x1 = x;
+                while (x1 + 1 < TAB_ICON_W) {
+                    int i1 = y * TAB_ICON_W + x1 + 1;
+                    uint8_t d1 = m->disc[i1], r1 = m->ring[i1], g1 = m->glyph[i1];
+                    if (!d1 && !r1 && !g1)
+                        break;
+                    uint32_t c1 = bg_col;
+                    if (d1) c1 = over(c1, disc_col, d1);
+                    if (r1) c1 = over(c1, ring_col, r1);
+                    if (g1) c1 = over(c1, glyph_col, g1);
+                    if (c16(c1) != col)
+                        break;
+                    x1++;
+                }
+                gpu3d_rect2d(&g, (x0 + x) * scale, (y0 + y) * scale, (x0 + x1 + 1) * scale, (y0 + y + 1) * scale, col);
+                x = x1;
+            }
+        }
+        return;
+    }
+    for (int y = 0; y < TAB_ICON_H; y++) {
+        uint16_t *p = g.px + (uint32_t)(y0 + y) * g.stride + x0;
+        for (int x = 0; x < TAB_ICON_W; x++) {
+            int i = y * TAB_ICON_W + x;
+            uint8_t d = m->disc[i], r = m->ring[i], g_val = m->glyph[i];
+            if (!d && !r && !g_val)
+                continue;
+            uint32_t c = bg_col;
+            if (d) c = over(c, disc_col, d);
+            if (r) c = over(c, ring_col, r);
+            if (g_val) c = over(c, glyph_col, g_val);
+            p[x] = c16(c);
+        }
+    }
+}
+
 /* right-aligned: a keyboard or a controller for each player, then the
  * mice, all without a number (a blue dot on Bluetooth), then WiFi or
  * Ethernet when the console is on a network, and the battery (the RGB30:
@@ -1704,44 +1760,36 @@ static void frame_grid(const menu_view_t *v, float t)
         draw_page(v->page, v->ask != NULL);
 }
 
-/* The top bar: the tabs and Settings. */
+/* The top bar: the 4 Switch-style tab icons and Settings, centered horizontally. */
 static void frame_tabs(const menu_view_t *v)
 {
-    /* top bar: the tabs and Settings (the last tab: its panel; L1 / R1 move
-     * between them), then the players and the network */
     m_rect(0, 0, SW, BAR_H, c16(C_BAR));
-    /* the first tab (the Market) off the screen at the left, the end of its
-     * name showing, unless it is the tab: then all of them slide right */
-    {
-        float to = 0;
-        if (v->peek_first && v->ntabs > 1 && (v->tab != 0 || v->on_gear))
-            to = -(float)CW * (float)(strlen(v->tabs[0]) + 1);
-        tab_shift += (to - tab_shift) * 0.3f;
-        if (fabsf(tab_shift - to) < 0.5f)
-            tab_shift = to;                     /* at rest on the font's columns */
-    }
-    const int ox = (int)lroundf(tab_shift);
-    /* the tabs stop short of the icons (the RGB30's narrow bar: Settings
-     * peeks at the right while the Market is the tab), closer there */
-    const int icons_x = status_icons(v), sep = SW < 480 ? 3 : 4;
-    m_clip(0, 0, icons_x - 8, BAR_H);
-    int col = 3;
-    for (int i = 0; i < v->ntabs; i++) {
-        int n = (int)strlen(v->tabs[i]), x = col * CW + ox;
-        int zx = x - CW < 0 ? 0 : x - CW, zw = x - CW + (n + 2) * CW - zx;
-        zone(zx, 4, zw, 40, MENU_HIT_TAB, i, 1);
-        if (i == v->tab && !v->on_gear)
-            pill_at(x, 1, v->tabs[i], C_BAR, C_TAB_ON);
+
+    /* Status icons at the right (controllers, WiFi, battery) */
+    status_icons(v);
+
+    /* 4 Switch-style circular tab icons, centered horizontally in the bar */
+    const int ntabs = 4;
+    const int btn_sz = TAB_ICON_W;
+    const int gap = SW < 480 ? 14 : 20;
+    const int total_w = ntabs * btn_sz + (ntabs - 1) * gap;
+    const int start_x = (SW - total_w) / 2;
+    const int y0 = (BAR_H - btn_sz) / 2;
+
+    for (int i = 0; i < ntabs; i++) {
+        int x0 = start_x + i * (btn_sz + gap);
+        int is_active = (i == 3) ? v->on_gear : (i == v->tab && !v->on_gear);
+
+        /* Touch / mouse hit zones */
+        if (i < 3)
+            zone(x0 - gap / 2, 4, btn_sz + gap, BAR_H - 8, MENU_HIT_TAB, i, 1);
         else
-            m_text(x, 16, v->tabs[i], c16(C_DIM));
-        col += n + sep;
+            zone(x0 - gap / 2, 4, btn_sz + gap, BAR_H - 8, MENU_HIT_SETTINGS, 0, 1);
+
+        const tab_icon_mask_t *m = tab_icon_mask(i, is_active);
+        if (m)
+            put_tab_icon(m, x0, y0, is_active);
     }
-    zone(col * CW + ox - CW, 4, 10 * CW, 40, MENU_HIT_SETTINGS, 0, 1);
-    if (v->on_gear)
-        pill_at(col * CW + ox, 1, "Settings", C_BAR, C_TAB_ON);
-    else
-        m_text(col * CW + ox, 16, "Settings", c16(C_DIM));
-    m_clip(0, 0, 0, 0);
 }
 
 /* The name of the selected cartridge, and the sub tabs at the right. */

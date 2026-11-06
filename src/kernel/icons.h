@@ -40,4 +40,26 @@ const icon_mask_t *icon_mask(int icon, int num);
  * inside, or a bolt instead when `charging`; no disc. */
 const icon_mask_t *icon_battery(int bars, int charging);
 
+/* ---------------------------------------------------------------- tab icons */
+
+#define TAB_ICON_W   32
+#define TAB_ICON_H   32
+
+enum {
+    TAB_ICON_MARKET,
+    TAB_ICON_GAMES,
+    TAB_ICON_DEV,
+    TAB_ICON_SETTINGS,
+    TAB_ICON_COUNT
+};
+
+/* Switch-style circular tab icon: disc, ring and glyph inside. */
+typedef struct {
+    uint8_t disc[TAB_ICON_W * TAB_ICON_H];
+    uint8_t ring[TAB_ICON_W * TAB_ICON_H];
+    uint8_t glyph[TAB_ICON_W * TAB_ICON_H];
+} tab_icon_mask_t;
+
+const tab_icon_mask_t *tab_icon_mask(int icon, int active);
+
 #endif

@@ -215,3 +215,93 @@ const icon_mask_t *icon_battery(int bars, int charging)
     done[bars][charging] = 1;
     return m;
 }
+
+/* ----------------------------------------------------------- Switch tab icons */
+
+static float tab_disc(float x, float y)
+{
+    return circle(x, y, 16.0f, 16.0f, 14.5f);
+}
+
+static float tab_ring_t;
+static float tab_ring(float x, float y)
+{
+    return outline(circle(x, y, 16.0f, 16.0f, 14.5f), tab_ring_t);
+}
+
+static float tab_market(float x, float y)
+{
+    float body = rrect(x, y, 16.0f, 19.0f, 6.2f, 4.2f, 1.2f);
+    float h1 = capsule(x, y, 13.2f, 16.0f, 13.2f, 11.2f, 0.9f);
+    float h2 = capsule(x, y, 13.2f, 11.2f, 18.8f, 11.2f, 0.9f);
+    float h3 = capsule(x, y, 18.8f, 11.2f, 18.8f, 16.0f, 0.9f);
+    return un(body, un(h1, un(h2, h3)));
+}
+
+static float tab_games(float x, float y)
+{
+    float hbar = rrect(x, y, 16.0f, 16.0f, 7.5f, 2.5f, 1.0f);
+    float vbar = rrect(x, y, 16.0f, 16.0f, 2.5f, 7.5f, 1.0f);
+    return un(hbar, vbar);
+}
+
+static float tab_dev(float x, float y)
+{
+    float l1 = capsule(x, y, 11.8f, 11.2f, 8.8f, 16.0f, 0.95f);
+    float l2 = capsule(x, y, 8.8f, 16.0f, 11.8f, 20.8f, 0.95f);
+    float slash = capsule(x, y, 17.5f, 10.2f, 14.5f, 21.8f, 0.95f);
+    float r1 = capsule(x, y, 20.2f, 11.2f, 23.2f, 16.0f, 0.95f);
+    float r2 = capsule(x, y, 23.2f, 16.0f, 20.2f, 20.8f, 0.95f);
+    return un(un(l1, l2), un(slash, un(r1, r2)));
+}
+
+static float tab_settings(float x, float y)
+{
+    float body = circle(x, y, 16.0f, 16.0f, 6.0f);
+    float teeth = 1e9f;
+    for (int i = 0; i < 6; i++) {
+        float ang = (float)i * 1.04719755f; /* pi / 3 */
+        float tx = 16.0f + 6.8f * cosf(ang);
+        float ty = 16.0f + 6.8f * sinf(ang);
+        float ca = cosf(-ang), sa = sinf(-ang);
+        float rx = (x - tx) * ca - (y - ty) * sa + tx;
+        float ry = (x - tx) * sa + (y - ty) * ca + ty;
+        float tooth = rrect(rx, ry, tx, ty, 1.5f, 1.8f, 0.5f);
+        teeth = un(teeth, tooth);
+    }
+    float gear = un(body, teeth);
+    float hole = circle(x, y, 16.0f, 16.0f, 2.6f);
+    return cut(gear, hole);
+}
+
+const tab_icon_mask_t *tab_icon_mask(int icon, int active)
+{
+    static tab_icon_mask_t masks[TAB_ICON_COUNT][2];
+    static int made[TAB_ICON_COUNT][2];
+    if (icon < 0 || icon >= TAB_ICON_COUNT)
+        return NULL;
+    active = active != 0;
+    tab_icon_mask_t *m = &masks[icon][active];
+    if (made[icon][active])
+        return m;
+
+    float (*glyph_fn)(float, float) =
+        icon == TAB_ICON_MARKET   ? tab_market :
+        icon == TAB_ICON_GAMES    ? tab_games :
+        icon == TAB_ICON_DEV      ? tab_dev :
+                                    tab_settings;
+
+    tab_ring_t = active ? 2.0f : 1.2f;
+    memset(m, 0, sizeof *m);
+
+    for (int y = 0; y < TAB_ICON_H; y++) {
+        for (int x = 0; x < TAB_ICON_W; x++) {
+            int i = y * TAB_ICON_W + x;
+            m->disc[i]  = (uint8_t)(coverage(tab_disc, x, y) * 255.0f + 0.5f);
+            m->ring[i]  = (uint8_t)(coverage(tab_ring, x, y) * 255.0f + 0.5f);
+            m->glyph[i] = (uint8_t)(coverage(glyph_fn, x, y) * 255.0f + 0.5f);
+        }
+    }
+    made[icon][active] = 1;
+    return m;
+}
