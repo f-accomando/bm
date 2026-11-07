@@ -181,13 +181,13 @@ def terminal(loader, kernel_path):
 
 
 def send_cart(loader, path, term):
-    """Asks the running kernel's monitor to receive a cartridge ('U')."""
-    loader.port.write(b"U")
+    """Asks the running kernel's monitor to receive a cartridge (the line ':upload')."""
+    loader.port.write(b":upload\r")
     deadline = time.time() + 5
     buf = b""
     while b"send a .bm" not in buf:
         if time.time() > deadline:
-            log("the kernel did not answer (is the monitor prompt active?)")
+            log("the kernel did not answer (is the bm shell menu on the screen? the bm: prompt takes no ':' line)")
             return 1
         buf += loader.port.read(0.2)
     with open(path, "rb") as f:

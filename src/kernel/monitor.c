@@ -320,8 +320,8 @@ CMD(c_bt_forget)
     }
     if (yes) {
         int n = bt_forget_all();
-        kprintf("bt: %d device%s forgotten; pair again with T (DS4: Share + PS),\n"
-                "    K (keyboard) or O (mouse)\n", n, n == 1 ? "" : "s");
+        kprintf("bt: %d device%s forgotten; pair again with 'bt pair pad' (DS4: Share + PS),\n"
+                "    'bt pair kbd' or 'bt pair mouse'\n", n, n == 1 ? "" : "s");
     } else {
         kprintf("cancelled\n");
     }

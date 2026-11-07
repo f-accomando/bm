@@ -125,17 +125,16 @@ void shell_menu_draw(const smenu_t *m)
     }
 
     const smenu_item_t *g = &m->items[m->sel];
-    if (m->n > 0 && g->sub) {                   /* its submenu, to the right of the main one */
-        const int sw = box_width(g->sub, g->nsub, 12);
+    if (m->n > 0 && g->sub) {                   /* its submenu, to the right of the main one, from the same top row */
+        const int sw = box_width(g->sub, g->nsub, (int)strlen(g->label) + 4);
         const int sh = g->nsub + 2;
-        int sr = r0 + 1 + m->sel;               /* the top of it on the row of the group */
-        const int room = (int)rows - 5;
-        if (sr + sh - 1 > room)
-            sr = room - sh + 1;
-        if (sr < r0)
-            sr = r0;
+        const int sr = r0;
         const int sc = c0 + w + 1;
         box(sr, sc, sh, sw);
+        char name[40];
+        snprintf(name, sizeof name, " %.30s ", g->label);      /* its name on the top border, as " bm shell " */
+        at(sr, sc + 2);
+        console_write(name);
         for (int i = 0; i < g->nsub; i++) {
             const char *style = !m->in_sub ? "\x1b[90m" : i == m->subsel ? "\x1b[7m" : "\x1b[0m";
             item_row(sr + 1 + i, sc, sw, &g->sub[i], style);

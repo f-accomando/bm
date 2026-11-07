@@ -8,7 +8,7 @@ fixed operations without ever seeing the password.
   python3 tools/pi.py line crc                          # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.txt and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, freeze-irq (IRQs on: the guard restarts the Pi in about 23 s), reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only b3d tests=.. profiles=.., log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, restart (the console restarts, the same kernel: a bench3d_boot or a setting takes effect), shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.txt and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, freeze-irq (IRQs on: the guard restarts the Pi in about 23 s), reboot: the last ones are fixed ":sys crash ..." and ":sys reboot" lines, from the menu or the shell), line TEXT (monitor commands separated by ';', only b3d tests=.. profiles=.., log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, restart (the console restarts, the same kernel: a bench3d_boot or a setting takes effect), shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
 One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.txt.
 The board decides the kernel file kernel FILE takes (pi: any name, as before; zero2: kernel7.img, rgb30: kernel8.img); the RGB30 has no monitor, so its crash, freeze and reboot keys answer "not for this board".
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
@@ -28,10 +28,14 @@ SOCK = os.path.expanduser("~/.pi_bridge.sock")
 DEV = ""            # --dev NAME: one bridge per device
 sys.path.insert(0, HERE)
 import bm_net  # noqa: E402  (status asks the greeting of the console)
-# keys the Pi can be told to press, by name (the monitor; the voluntary crashes: X then a/u/b). No free keys.
-KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch": "Xb", "freeze": "Xf", "freeze-irq": "Xg", "reboot": "r"}
-# these keys mean something else in the menu (X opens the options, r is an action): only when the monitor has them
-MONITOR_ONLY = {"crash-dabt", "crash-undef", "crash-prefetch", "freeze", "freeze-irq", "reboot"}
+# the keys the Pi can be told to press, by name: 'q' in the menu goes to the monitor (the bm shell). No free keys.
+KEYS = {"monitor": "q"}
+# the voluntary crashes and the reboot: a fixed line of commands (the bm shell has no single keys; a ':' line works from the
+# menu and from the shell). Fixed text: it does not go through check_line.
+KEY_LINES = {"crash-dabt": "sys crash dabt", "crash-undef": "sys crash undef", "crash-prefetch": "sys crash pabt",
+             "freeze": "sys crash freeze", "freeze-irq": "sys crash freeze-irq", "reboot": "sys reboot"}
+# the RGB30 has no monitor yet: these answer "not for this board" there
+MONITOR_ONLY = set(KEY_LINES)
 # the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only, in any case)
 LOGS = {"bootprev": "bootprev.txt", "bootlog": "bootlog.txt", "lastrun": "lastrun.txt", "battery": "battery.csv"}
 # the monitor commands the line operation passes (the old words of the table `commands` in src/kernel/monitor.c; set, save and play are left out:
@@ -164,8 +168,10 @@ def run(host, pw, req, board="pi"):
         cmd = base + ["--restart"]
     elif op == "keys" and arg == "game-exit":
         cmd = base + ["--game-exit"]
+    elif op == "keys" and arg in KEY_LINES:
+        cmd = base + ["--line", KEY_LINES[arg]]
     elif op == "keys" and arg in KEYS:
-        cmd = base + (["--in-monitor"] if arg in MONITOR_ONLY else []) + ["--keys", KEYS[arg]]
+        cmd = base + ["--keys", KEYS[arg]]
     elif op == "logs" and (arg in LOGS or re.fullmatch(r"bat[0-9]{2}", arg)):
         if arg not in LOGS:
             LOGS[arg] = arg + ".csv"        # the RGB30's battery log (battery.c): bm/bat00.csv ... bm/bat99.csv
