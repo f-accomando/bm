@@ -1,0 +1,53 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2123-g73e7c779-dirty
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-c96490_freeze_pi-zero-w_v0.2.5-2123-g73e7c779-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: VideoCore firmware does not answer (mailbox, frame 0, 2440 s after boot, kernel v0.2.5-2123-g73e7c779-dirty, ring 54824, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 13149 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13059 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12972 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12975 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13122 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13039 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12955 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13026 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13113 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13026 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12939 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13067 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13085 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13001 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12915 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13102 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13068 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12986 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12901 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13138 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13056 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12972 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12952 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13136 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13047 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12960 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12996 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13117 us, enlarge 0 us, flip 92 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13033 us, enlarge 0 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 12949 us, enlarge 0 us, flip 92 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13055 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13112 us, enlarge 0 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13023 us, enlarge 0 us, flip 93 us, free time used 38 us (300 frames)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2000 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+
+playing snes.bm
+play: /bm/snes.bm (38860 bytes)
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastr
