@@ -1,0 +1,75 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2122-g5fdc58fa-dirty
+branch: claude/snes-core-c
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-f3d945_freeze_pi-zero-w_v0.2.5-2122-g5fdc58fa-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 73 s after boot, kernel v0.2.5-2122-g5fdc58fa-dirty, ring 6165, sink on
+--- the last lines printed ---
+   3   -85 dBm  ch  7  WPA2  FASTWEB-N72DKD
+   4   -88 dBm  ch  9  WPA2  (hidden)
+   5   -89 dBm  ch  3  WPA2  Infostrada-8F1A91
+   6   -91 dBm  ch  9  WPA2  FASTWEB-325YFF
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 20 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-07 20:50 UTC
+menu idle: 300/300 frames, 131 of 618 ms taken, 2.0 ms past a frame; covers 117 ms (+3.2, stk 0.8/16K); min slack -43841 us, paced 0
+menu idle: sd first word <1ms 160 <3ms 8 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 15022 us, enlarge 0 us, flip 95 us, free time used 437 us (300 frames)
+menu frame: 1x, a frame averages draw 13003 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13070 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13170 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13095 us, enlarge 0 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 12997 us, enlarge 0 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13138 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13175 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+net: receiving a new kernel (6363284 bytes)...
+net: kernel 0% (0 of 6214 KB)
+menu frame: 1x, a frame averages draw 13329 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+net: kernel 10% (622 of 6214 KB)
+net: kernel 20% (1251 of 6214 KB)
+net: kernel 30% (1868 of 6214 KB)
+net: kernel 40% (2486 of 6214 KB)
+menu frame: 1x, a frame averages draw 14634 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+net: kernel 50% (3113 of 6214 KB)
+net: kernel 60% (3731 of 6214 KB)
+net: kernel 70% (4356 of 6214 KB)
+menu frame: 1x, a frame averages draw 14422 us, enlarge 0 us, flip 96 us, free time used 41 us (300 frames)
+net: kernel 80% (4979 of 6214 KB)
+net: kernel 90% (5599 of 6214 KB)
+net: dev mode: kernel received (6363284 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 24.8 ms past its slice
+fiber: netxfer did not yield: 35.7 ms past its slice
+net: saved kernel.img on the SD card (6363284 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 603 of 617 ms taken, 38.2 ms past a frame; netxfer 1116 ms (+35.7, stk 1.7/64K); min slack -103431 us, paced 0
+menu idle: sd first word <1ms 275 <3ms 3 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 16377 us, enlarge 0 us, flip 96 us, free time used 2012 us (300 frames)
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
