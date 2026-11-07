@@ -4932,7 +4932,7 @@ def test_monitor_line(b, opts):
         out = q.expect("the line is done", timeout=30).decode(errors="replace")
         assert "attempt to call a nil value" in out, out
         q.expect("> ")
-        q.send(":lua\r")  # the key is set for now
+        q.send(":lua\r")                              # the shell takes lines after all of these
         q.expect("lua> ")
     finally:
         q.close()
