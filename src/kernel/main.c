@@ -304,7 +304,7 @@ void kernel_main(uint32_t atags)
     autoexec_run();
     const char *boot_to = config_get("boot");
     if (boot_to && !strcmp(boot_to, "shell")) {         /* boot=shell: the monitor first; its 'menu' opens the cartridges */
-        kprintf("the shell: 'menu' opens the cartridge menu\n");
+        kprintf("the shell: the bm shell menu; 'menu' or Esc opens the cartridge menu\n");
         sdlog_boot(1);
         monitor_run();
     }
