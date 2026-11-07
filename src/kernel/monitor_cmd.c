@@ -317,43 +317,10 @@ int mcmd_run_line(const mcmd_t *tab, char *line, const mcmd_hooks_t *h)
     return 0;
 }
 
-/* ---- the key shortcuts ---- */
-
-const mcmd_t *mcmd_find_key(const mcmd_t *tab, int key, char *path, size_t cap)
-{
-    for (const mcmd_t *r = tab; r && r->name; r++) {
-        if (r->alias)
-            continue;
-        if (r->key && r->key == key) {
-            if (cap)
-                path[0] = 0;
-            tb_t b;
-            tb_init(&b, path, cap);
-            tb_str(&b, r->name);
-            return r;
-        }
-        if (r->sub) {
-            const mcmd_t *s = mcmd_find_key(r->sub, key, path, cap);
-            if (s) {
-                char tmp[48];
-                tb_t b;
-                tb_init(&b, tmp, sizeof tmp);
-                tb_str(&b, r->name);
-                tb_str(&b, " ");
-                tb_str(&b, path);
-                tb_init(&b, path, cap);
-                tb_str(&b, tmp);
-                return s;
-            }
-        }
-    }
-    return NULL;
-}
-
 /* ------------------------------------------------------------------ help */
 
 #define HELP_USAGE_COL 26           /* width of the "words and arguments" field */
-#define HELP_TEXT_COL 32            /* where the help text starts */
+#define HELP_TEXT_COL 29            /* where the help text starts */
 
 static void help_row(tb_t *b, const mcmd_t *r, const char *path)
 {
@@ -366,8 +333,6 @@ static void help_row(tb_t *b, const mcmd_t *r, const char *path)
         tb_str(&u, " ");
         tb_str(&u, r->args);
     }
-    tb_str(b, "  ");
-    tb_str(b, r->key ? (char[]){ r->key, 0 } : " ");
     tb_str(b, "  ");
     size_t from = b->n;
     tb_str(b, usage);
@@ -913,4 +878,72 @@ int medit_feed(medit_t *e, int k)
     }
     e->last_cr = k == '\r';
     return do_key(e, k);
+}
+
+/* ---- the menu of the bm shell ---- */
+
+void smenu_init(smenu_t *m, const smenu_item_t *items, int n)
+{
+    m->items = items;
+    m->n = n;
+    m->sel = 0;
+    m->esc = 0;
+    m->last_cr = 0;
+}
+
+int smenu_in_escape(const smenu_t *m)
+{
+    return m->esc != 0;
+}
+
+static int smenu_step(smenu_t *m, int d)
+{
+    if (m->n <= 0)
+        return SMENU_NONE;
+    m->sel = (m->sel + d + m->n) % m->n;
+    return SMENU_MOVE;
+}
+
+int smenu_feed(smenu_t *m, int key)
+{
+    const int was_cr = m->last_cr;
+    m->last_cr = 0;
+    if (key == MEDIT_K_ESC) {
+        m->esc = 0;
+        return SMENU_LEAVE;
+    }
+    if (m->esc == 1) {                  /* ESC [ or ESC O: a terminal's arrow key follows */
+        if (key == '[' || key == 'O') {
+            m->esc = 2;
+            return SMENU_NONE;
+        }
+        m->esc = 0;                     /* Alt + a key: both dropped */
+        return SMENU_NONE;
+    }
+    if (m->esc == 2) {
+        m->esc = 0;
+        if (key == 'A')
+            return smenu_step(m, -1);
+        if (key == 'B')
+            return smenu_step(m, 1);
+        return SMENU_NONE;
+    }
+    switch (key) {
+    case 0x1B:
+        m->esc = 1;
+        return SMENU_NONE;
+    case MEDIT_K_UP: case 'w': case 'k':
+        return smenu_step(m, -1);
+    case MEDIT_K_DOWN: case 's': case 'j':
+        return smenu_step(m, 1);
+    case '\r':
+        m->last_cr = 1;
+        return SMENU_RUN;
+    case '\n':
+        return was_cr ? SMENU_NONE : SMENU_RUN;
+    case ':':
+        return SMENU_LINE;
+    default:
+        return SMENU_NONE;
+    }
 }

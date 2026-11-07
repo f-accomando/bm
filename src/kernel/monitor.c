@@ -24,6 +24,7 @@
 #include "usb/usb.h"
 #include "usb/smsc95xx.h"
 #include "carts.h"
+#include "shell_menu.h"
 #include "config.h"
 #include "bt/bt.h"
 #include "wifi/wifi.h"
@@ -47,18 +48,19 @@
 
 /*
  * The Monitor is a table of commands (monitor_cmd.h). A row has the word,
- * its arguments, one line of help, the single key that is its shortcut and
- * its handler. The help, the Tab completion and the keys come from the
- * table: to add a command, add one row to `commands` below.
+ * its arguments, one line of help and its handler. The help and the Tab
+ * completion come from the table: to add a command, add one row to
+ * `commands` below.
  *
- * from_key is 1 while a handler runs for a single key. Then it may ask
- * (prompt for an address, wait for a second key) and show its pages; in
- * a line it takes its words from the arguments and never waits.
+ * The bm shell (monitor_run) shows a menu (shell_menu.c). from_key is 1
+ * while a handler runs for an item of that menu. Then it may ask (prompt
+ * for an address, wait for a second key) and show its pages; in a line
+ * it takes its words from the arguments and never waits.
  */
 static int from_key;
-static int want_exit;                   /* the 'exit' command: leave the bm> prompt */
+static int want_exit;                   /* the 'exit' command: leave the bm: prompt */
 
-#define MON_FOCUS "the monitor ('h' for help, M the menu)"
+#define MON_FOCUS "the monitor (bm shell: Enter an item, ':' a line, Esc the menu)"
 
 #define CMD(f) static int f(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 
@@ -142,8 +144,8 @@ CMD(c_help)
     static char text[9216];
     static const char head[] =
         "commands (games: arrows/wasd, space = A, Esc their menu; Ctrl+Esc or q leaves):\n"
-        "  A key in the first column runs its command. A word does the same: ':' and\n"
-        "  Enter open the bm> prompt (Tab completes, Up repeats, exit or Esc leaves).\n"
+        "  At the bm shell menu Enter runs an item and ':' takes one line. The first\n"
+        "  item opens the bm: prompt (Tab completes, Up repeats, exit or Esc leaves).\n"
         "  'help NAME' tells more about one command.\n";
     static const char foot[] =
         ":  a line of commands, ';' between them, run one after the other:\n"
@@ -596,7 +598,7 @@ static const char *const set_keys[] = {
     "dma_zclear=", "draw=", "game_buttons=", "game_intro=", "gpu3d=", "gpu3d_2d=", "gpu3d_aa=",
     "gpu3d_attr=", "gpu3d_etc1=", "gpu3d_filter=", "gpu3d_fs2=", "gpu3d_later=", "gpu3d_merge=",
     "gpu3d_qpu=", "gpu3d_queue=", "gpu3d_sort=", "gpu3d_tex16=", "gpu3d_vs=", "gpu3d_wc=", "layout=", "lock_screen=",
-    "mali3d=", "mali_noshadow=", "market_delay=", "menu_scale=", "monitor_keys=", "mouse=", "name=", "perf=",
+    "mali3d=", "mali_noshadow=", "market_delay=", "menu_scale=", "mouse=", "name=", "perf=",
     "prompts=", "r3d_fast=", "r3d_impostor=", "rec=", "rec_fps=", "rec_format=", "report_upload=",
     "session_report=", "sound=", "sound_depth=", "v3d_clock=", "volume=",
     "web_max_kib=", "wifi_boot=",
@@ -701,51 +703,40 @@ CMD(c_exit)
     return 0;
 }
 
-/* single keys run commands (the key loop); Enter or Esc there goes back to the prompt */
-static int hot;                         /* 1: the key loop; 0: the bm> prompt */
-static int hot_sticky;                  /* no monitor_keys=0: the key loop is the way in */
-CMD(c_hotkey)
-{
-    hot = 1;
-    want_exit = 1;                      /* the prompt ends; the key loop runs */
-    kprintf("hotkeys on: a key runs its command; Enter or Esc: back to the prompt\n");
-    return 0;
-}
-
 /* ------------------------------------------------------------------ table */
 
 static const mcmd_t carts_sub[] = {
-    { .name = "list", .help = "list the cartridges", .key = 'f', .fn = c_carts_list },
-    { .name = "rescan", .help = "re-read the SD card", .key = 'F', .fn = c_carts_rescan },
+    { .name = "list", .help = "list the cartridges", .fn = c_carts_list },
+    { .name = "rescan", .help = "re-read the SD card", .fn = c_carts_rescan },
     { NULL }
 };
 
 static const mcmd_t sys_sub[] = {
-    { .name = "info", .help = "system information", .key = 'i', .fn = c_info },
-    { .name = "heap", .help = "heap usage", .key = 'm', .fn = c_heap },
-    { .name = "clear", .help = "clear the screen", .key = 'c', .fn = c_clear },
-    { .name = "dmesg", .help = "everything printed since boot (pager)", .key = 'o', .fn = c_dmesg },
-    { .name = "usb", .help = "USB: scan the port and the hub", .key = 'y', .fn = c_usb },
-    { .name = "input", .help = "input test: USB, then each player (10 s)", .key = 'Y', .fn = c_input },
-    { .name = "layout", .args = "[it|us]", .help = "keyboard layout (no word: the other one)", .key = 'L', .fn = c_layout },
-    { .name = "via-ram", .args = "[on|off]", .help = ".bm drawing: via RAM / direct", .key = 'V', .fn = c_via_ram },
-    { .name = "audio", .help = "HDMI sound status and a test tune", .key = 'a', .fn = c_audio },
-    { .name = "test-pattern", .help = "HDMI test pattern (any key returns)", .key = 't', .fn = c_pattern },
-    { .name = "crash", .args = "[KIND]", .help = "crash test: undef dabt pabt svc freeze ...", .key = 'X', .fn = c_crash },
-    { .name = "reboot", .help = "reboot (the chainloader asks for a kernel)", .key = 'r', .fn = c_reboot },
+    { .name = "info", .help = "system information", .fn = c_info },
+    { .name = "heap", .help = "heap usage", .fn = c_heap },
+    { .name = "clear", .help = "clear the screen", .fn = c_clear },
+    { .name = "dmesg", .help = "everything printed since boot (pager)", .fn = c_dmesg },
+    { .name = "usb", .help = "USB: scan the port and the hub", .fn = c_usb },
+    { .name = "input", .help = "input test: USB, then each player (10 s)", .fn = c_input },
+    { .name = "layout", .args = "[it|us]", .help = "keyboard layout (no word: the other one)", .fn = c_layout },
+    { .name = "via-ram", .args = "[on|off]", .help = ".bm drawing: via RAM / direct", .fn = c_via_ram },
+    { .name = "audio", .help = "HDMI sound status and a test tune", .fn = c_audio },
+    { .name = "test-pattern", .help = "HDMI test pattern (any key returns)", .fn = c_pattern },
+    { .name = "crash", .args = "[KIND]", .help = "crash test: undef dabt pabt svc freeze ...", .fn = c_crash },
+    { .name = "reboot", .help = "reboot (the chainloader asks for a kernel)", .fn = c_reboot },
     { NULL }
 };
 
 static const mcmd_t bt_pair_sub[] = {
-    { .name = "pad", .help = "pair a controller (DS4: Share + PS)", .key = 'T', .fn = c_bt_pad },
-    { .name = "kbd", .help = "pair a LE keyboard (hold Easy-Switch)", .key = 'K', .fn = c_bt_kbd },
-    { .name = "mouse", .help = "pair a mouse (LE or classic, no code)", .key = 'O', .fn = c_bt_mouse },
+    { .name = "pad", .help = "pair a controller (DS4: Share + PS)", .fn = c_bt_pad },
+    { .name = "kbd", .help = "pair a LE keyboard (hold Easy-Switch)", .fn = c_bt_kbd },
+    { .name = "mouse", .help = "pair a mouse (LE or classic, no code)", .fn = c_bt_mouse },
     { NULL }
 };
 
 static const mcmd_t bt_sub[] = {
     { .name = "pair", .help = "pair a device", .sub = bt_pair_sub },
-    { .name = "forget", .args = "[yes]", .help = "forget all pads, keyboard, mouse", .key = 'P', .fn = c_bt_forget },
+    { .name = "forget", .args = "[yes]", .help = "forget all pads, keyboard, mouse", .fn = c_bt_forget },
     { NULL }
 };
 
@@ -758,36 +749,36 @@ static const mcmd_t wifi_sub[] = {
 
 static const mcmd_t net_sub[] = {
     { .name = "status", .help = "WiFi, Ethernet, IP address, time", .fn = c_net_status },
-    { .name = "eth", .help = "Ethernet (Pi 1 B / B+): link, counters", .key = 'E', .fn = c_net_eth },
-    { .name = "get", .args = "URL", .help = "get a web address: status, size, speed", .key = 'G', .fn = c_net_get },
+    { .name = "eth", .help = "Ethernet (Pi 1 B / B+): link, counters", .fn = c_net_eth },
+    { .name = "get", .args = "URL", .help = "get a web address: status, size, speed", .fn = c_net_get },
     { .name = "fetch", .args = "URL [NAME] [replace]", .help = "a .bm/.bme/.bmk/.bmm from https or gh: to the card", .fn = c_net_fetch },
     { NULL }
 };
 
 static const mcmd_t bench_sub[] = {
-    { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, bars and a saved report", .key = 'j', .fn = c_bench_3d },
+    { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, bars and a saved report", .fn = c_bench_3d },
     { NULL }
 };
 
 static const mcmd_t report_sub[] = {
-    { .name = "send", .help = "send the reports in bm/reports", .key = 'z', .fn = c_report_send },
-    { .name = "log", .help = "the log since boot as a report", .key = 'Z', .fn = c_report_log },
+    { .name = "send", .help = "send the reports in bm/reports", .fn = c_report_send },
+    { .name = "log", .help = "the log since boot as a report", .fn = c_report_log },
     { NULL }
 };
 
 static const mcmd_t commands[] = {
-    { .name = "help", .args = "[COMMAND]", .help = "this list, or one command", .key = 'h', .fn = c_help, .cand = cand_help },
-    { .name = "menu", .help = "cartridge menu, or PS on a pad", .key = 'M', .fn = c_menu },
+    { .name = "help", .args = "[COMMAND]", .help = "this list, or one command", .fn = c_help, .cand = cand_help },
+    { .name = "menu", .help = "cartridge menu, or PS on a pad", .fn = c_menu },
     { .name = "carts", .help = "the cartridges (SD: / and /bm)", .sub = carts_sub },
-    { .name = "lua", .args = "[FILE | -e CODE]", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .key = 'l', .fn = c_lua },
-    { .name = "upload", .help = "receive a cartridge over serial, play it", .key = 'U', .fn = c_upload },
+    { .name = "lua", .args = "[FILE | -e CODE]", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .fn = c_lua },
+    { .name = "upload", .help = "receive a cartridge over serial, play it", .fn = c_upload },
     { .name = "sys", .help = "the system", .sub = sys_sub },
     { .name = "bt", .help = "Bluetooth", .sub = bt_sub },
-    { .name = "wifi", .help = "start, scan, join (saved in config.txt)", .key = 'W', .fn = c_wifi, .sub = wifi_sub },
+    { .name = "wifi", .help = "start, scan, join (saved in config.txt)", .fn = c_wifi, .sub = wifi_sub },
     { .name = "net", .help = "the network", .sub = net_sub },
     { .name = "bench", .help = "benchmarks", .sub = bench_sub },
     { .name = "report", .help = "the reports of the tests", .sub = report_sub },
-    { .name = "update", .help = "update from GitHub (asks first)", .key = 'u', .fn = c_update },
+    { .name = "update", .help = "update from GitHub (asks first)", .fn = c_update },
     { .name = "bmz", .help = "extract the .bmz files of /bmz into their folders", .fn = c_bmz },
     { .name = "set", .args = "[KEY=VALUE ...]", .help = "bm/config.txt keys until a restart", .fn = c_set, .cand = cand_set },
     { .name = "save", .help = "write bm/config.txt", .fn = c_save },
@@ -801,8 +792,7 @@ static const mcmd_t commands[] = {
     { .name = "cp", .args = "FILE TO", .help = "copy a file (a new name is 8.3)", .fn = c_cp },
     { .name = "rm", .args = "FILE", .help = "remove a file", .fn = c_rm },
     { .name = "mkdir", .args = "PATH", .help = "make a folder (8.3 names)", .fn = c_mkdir },
-    { .name = "exit", .help = "leave the bm> prompt (to the menu)", .fn = c_exit },
-    { .name = "hotkey", .help = "single keys run commands (the keys of the first column of help)", .fn = c_hotkey },
+    { .name = "exit", .help = "leave the bm: prompt (back to the shell menu)", .fn = c_exit },
     /* the words of before: same syntax, same output */
     { .name = "b3d", .alias = "bench 3d" },
     { .name = "log", .alias = "report log" },
@@ -904,7 +894,7 @@ static int edit_read(const char *prompt)
 
 /* ':' a line of commands for the tests (2026-10-05: one string sent to the user instead of
  * many settings): ';' between commands; each says what it does, a word not known stops the
- * line. quiet: at the bm> prompt, where the line is on the screen already */
+ * line. quiet: at the bm: prompt, where the line is on the screen already */
 static int quiet_line;
 
 static void line_before(int argc, char **argv)
@@ -943,17 +933,17 @@ static int monitor_sh(const char *text, char *out, size_t cap)
     return r;
 }
 
-/* the bm> prompt: lines until 'exit', Esc or Ctrl-D. 1 if the PS button asked for the menu */
+/* the bm: prompt: lines until 'exit', Esc or Ctrl-D. 1 if the PS button asked for the menu */
 static int prompt_mode(void)
 {
     int home = 0;
     want_exit = 0;
-    kprintf("the prompt stays: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves\n");
+    kprintf("the bm: prompt: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves\n");
     for (;;) {
         console_suspend(0);                     /* (a stopped test left it hidden: bm_video_leave) */
-        netcon_focus(MON_FOCUS, "bm> ");
+        netcon_focus(MON_FOCUS, "bm: ");
         crumb("monitor, waiting for a line", NULL);
-        int r = edit_read("bm> ");
+        int r = edit_read("bm: ");
         if (r == EK_HOME) {
             home = 1;
             break;
@@ -987,75 +977,105 @@ static int line_commands(void)
     return 0;
 }
 
-/* a single key: its row of the table */
-static int run_key(int c)
+/* a key of the bm shell: the keyboard, the serial line or the network console. The terminal's arrow keys
+ * come as ESC [ A; an ESC that nothing follows for 100 ms is the Esc key (as in edit_key). */
+static int shell_key(const smenu_t *m)
 {
-    char path[48], *av[2];
-    const mcmd_t *r = mcmd_find_key(commands, c, path, sizeof path);
-    if (!r || !r->fn)
-        return 0;
-    av[0] = (char *)r->name;
-    av[1] = NULL;
-    from_key = 1;
-    r->fn(1, av);
+    int c;
+    hid_text_mode(1);                           /* a USB keyboard's arrows as keys */
+    if (smenu_in_escape(m)) {
+        uint32_t t0 = timer_ticks();
+        while ((c = input_key()) < 0)
+            if (timer_ticks() - t0 > 100000) {
+                hid_text_mode(0);
+                return MEDIT_K_ESC;
+            }
+    } else {
+        c = input_getc_home();
+    }
+    hid_text_mode(0);
+    if (c == INPUT_HOME)
+        return EK_HOME;
+    if (c == INPUT_NET_PLAY)
+        return EK_PLAY;
+    switch (c) {
+    case HID_KEY_UP: return MEDIT_K_UP;
+    case HID_KEY_DOWN: return MEDIT_K_DOWN;
+    default: return c < 0x80 ? c : 0;
+    }
+}
+
+/* Enter on an item: the first one is the bm: prompt, the others run a line of commands. 1 if the
+ * PS button asked for the cartridge menu. */
+static int shell_run_item(const smenu_item_t *it)
+{
+    if (!it->line)
+        return prompt_mode();
+    console_clear();
+    from_key = 1;                               /* the item may ask and show pages */
+    line_run(it->line, 1);
     from_key = 0;
-    return 1;
+    want_exit = 0;
+    if (it->wait) {
+        kprintf("\n-- press a key to go back --\n");
+        input_getc_home();
+    }
+    return 0;
 }
 
 void monitor_run(void)
 {
     bm_set_sh(monitor_sh);
-    const char *mk = config_get("monitor_keys");
-    hot = hot_sticky = !(mk && mk[0] == '0');      /* monitor_keys=0: the bm> prompt is the way in */
-    if (hot)
-        kprintf("\ntype 'h' for help\n");
-    else
-        kprintf("\nthe bm> prompt: 'help' lists the commands, 'hotkey' makes a key run one, 'exit' leaves\n");
+    smenu_t m;
+    int n;
+    const smenu_item_t *items = shell_menu_items(&n);
+    smenu_init(&m, items, n);
+    kprintf("\nbm shell: Enter runs the selected item (the first opens the bm: prompt), ':' takes a line, "
+            "Esc the cartridge menu\n");
 
+    int redraw = 1;
     for (;;) {
-        if (!hot) {                             /* the bm> prompt is the way in */
-            prompt_mode();
-            if (!hot)
-                carts_menu(console_framebuffer());      /* exit, Esc, Ctrl-D or PS: the menu */
-            continue;
-        }
         console_suspend(0);                     /* (a stopped test left it hidden: bm_video_leave) */
+        if (redraw) {
+            shell_menu_draw(&m);
+            redraw = 0;
+        }
         netcon_focus(MON_FOCUS, "> ");
         kprintf("> ");
         crumb("monitor, waiting for a key", NULL);
-        int c = input_getc_home();              /* PS on a controller: INPUT_HOME */
-        if (c == 0x1B) {                /* a terminal's arrow key: not a command */
-            if (input_skip_sequence()) {
-                kprintf("\r");
-                continue;
-            }
+        const int c = shell_key(&m);
+        if (c == EK_PLAY) {
+            kprintf("\n");
+            net_play();
+            redraw = 1;
+            continue;
         }
-        if (c >= ' ' && c < 127)
-            kprintf("%c", c);
-        kprintf("\n");
-        char cmd[2] = { c >= ' ' && c < 127 ? c : '?', 0 };
-        crumb("monitor command", cmd);
+        const int act = c == EK_HOME ? SMENU_LEAVE : smenu_feed(&m, c);   /* PS on a controller: the menu */
+        if (c == ':')
+            kprintf(":");
+        if (act != SMENU_NONE || c == '\r' || c == '\n')
+            kprintf("\n");
+        crumb("monitor key", NULL);
 
-        if (c == INPUT_HOME)
-            c = 'M';
-        else if (c == '?')
-            c = 'h';
-        else if (c == 'J')
-            c = 'j';
-        switch (c) {
-        case '\r': case '\n':
-        case 0x1B:                      /* Esc alone: already at the monitor; with the prompt as the way in, back to it */
-            if (!hot_sticky)
-                hot = 0;
+        switch (act) {
+        case SMENU_MOVE:
+            redraw = 1;
             break;
-        case ':':
+        case SMENU_RUN:
+            if (shell_run_item(&items[m.sel]))
+                carts_menu(console_framebuffer());      /* the PS button */
+            redraw = 1;
+            break;
+        case SMENU_LINE:
             if (line_commands())
                 carts_menu(console_framebuffer());
             break;
-        case INPUT_NET_PLAY: net_play(); break;
+        case SMENU_LEAVE:
+            carts_menu(console_framebuffer());
+            redraw = 1;
+            break;
         default:
-            if (!run_key(c))
-                kprintf("unknown command (0x%02x), 'h' for help\n", (unsigned char)c);
+            kprintf("\r");                      /* a key that does nothing: the marker stays */
         }
     }
 }
