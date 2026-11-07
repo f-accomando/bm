@@ -275,7 +275,7 @@ local function export_font()
   if font_write then
     local ok, err = font_write(stem, data)
     if ok then
-      set_notice("Salcato in /bmf/" .. stem .. ".bmf!")
+      set_notice("Salvato in /bmf/" .. stem .. ".bmf!")
       return
     end
   end
@@ -323,10 +323,59 @@ local SHEET_ROWS = 16
 local SHEET_CELL_W = 18
 local SHEET_CELL_H = 18
 
-local TOOLS_X = 490
-local TOOLS_Y = 40
+-- Right Panel Layout Constants
+local RP_X = 484
+local RP_W = 148
+
+local TOOL_BOX_Y = 34
+local TOOL_BOX_H = 130
+
+local SCALE_Y = 38
+local SCALE_BTN_W = 26
+local SCALE_BTN_H = 16
+local SCALE_1_X = 540
+local SCALE_2_X = 570
+local SCALE_3_X = 600
+
+local BTN_COL1_X = 490
+local BTN_COL2_X = 562
+local BTN_W = 66
+local BTN_H = 16
+
+local OP_ROW1_Y = 58
+local OP_ROW2_Y = 78
+local SHIFT_ROW_Y = 98
+local CLIP_ROW_Y = 118
+local SAVE_ROW_Y = 138
+local SAVE_BTN_H = 20
+
+local SHIFT_BTN_W = 30
+local SHIFT_BTN_H = 16
+local SHIFT_L_X = 490
+local SHIFT_U_X = 526
+local SHIFT_D_X = 562
+local SHIFT_R_X = 598
+
+local PV_BOX_Y = 170
+local PV_BOX_H = 166
+
+-- Dropdown Menu Constants
+local DROP_X = 14
+local DROP_Y = 26
+local DROP_W = 200
+local DROP_ITEM_H = 20
+
+-- Modal Constants
+local MODAL_W = 240
+local MODAL_H = 190
+local MODAL_X = math.floor((640 - MODAL_W) / 2)
+local MODAL_Y = math.floor((360 - MODAL_H) / 2)
+
+local last_mb = 0
+local mx, my, mb = -1, -1, 0
 
 function _init()
+  if mouse then mouse(true) end
   init_fonts()
 end
 
@@ -335,29 +384,46 @@ function _update()
     notice_timer = notice_timer - 1
   end
 
-  local mx, my, mb = mouse()
-  local click = mousep(1)
-  local rclick = mousep(2)
-  local hold = mb & 1 ~= 0
-  local rhold = mb & 2 ~= 0
+  if mouse then
+    local x, y, b = mouse()
+    mx = x or -1
+    my = y or -1
+    mb = b or 0
+  else
+    mx, my, mb = -1, -1, 0
+  end
+
+  local mb1 = (mb & 1) ~= 0
+  local mb2 = (mb & 2) ~= 0
+  local last_mb1 = (last_mb & 1) ~= 0
+  local last_mb2 = (last_mb & 2) ~= 0
+
+  -- mousep(0) is Left Click in BareMetal, mousep(1) is Right Click
+  local click = (mousep and (mousep(0) or false)) or (mb1 and not last_mb1)
+  local rclick = (mousep and (mousep(1) or false)) or (mb2 and not last_mb2)
+  local hold = mb1
+  local rhold = mb2
+  last_mb = mb
 
   -- Modal: New Font Creation
   if new_modal_open then
     if click then
-      -- Modal window: 200, 80, 240, 200
-      local mw, mh = 240, 200
-      local mx0, my0 = (640 - mw) / 2, (360 - mh) / 2
       -- Dimension options
-      if mx >= mx0 + 20 and mx <= mx0 + 80 and my >= my0 + 50 and my <= my0 + 72 then new_font_size = "8x16" end
-      if mx >= mx0 + 90 and mx <= mx0 + 150 and my >= my0 + 50 and my <= my0 + 72 then new_font_size = "8x8" end
-      if mx >= mx0 + 160 and mx <= mx0 + 220 and my >= my0 + 50 and my <= my0 + 72 then new_font_size = "6x12" end
+      if mx >= MODAL_X + 20 and mx <= MODAL_X + 80 and my >= MODAL_Y + 52 and my <= MODAL_Y + 72 then
+        new_font_size = "8x16"
+      elseif mx >= MODAL_X + 90 and mx <= MODAL_X + 150 and my >= MODAL_Y + 52 and my <= MODAL_Y + 72 then
+        new_font_size = "8x8"
+      elseif mx >= MODAL_X + 160 and mx <= MODAL_X + 220 and my >= MODAL_Y + 52 and my <= MODAL_Y + 72 then
+        new_font_size = "6x12"
       -- Template options
-      if mx >= mx0 + 20 and mx <= mx0 + 110 and my >= my0 + 100 and my <= my0 + 122 then new_font_base = "inter" end
-      if mx >= mx0 + 120 and mx <= mx0 + 210 and my >= my0 + 100 and my <= my0 + 122 then new_font_base = "terminus" end
+      elseif mx >= MODAL_X + 20 and mx <= MODAL_X + 110 and my >= MODAL_Y + 100 and my <= MODAL_Y + 120 then
+        new_font_base = "inter"
+      elseif mx >= MODAL_X + 120 and mx <= MODAL_X + 210 and my >= MODAL_Y + 100 and my <= MODAL_Y + 120 then
+        new_font_base = "terminus"
       -- Action buttons
-      if mx >= mx0 + 20 and mx <= mx0 + 105 and my >= my0 + 150 and my <= my0 + 180 then
+      elseif mx >= MODAL_X + 20 and mx <= MODAL_X + 110 and my >= MODAL_Y + 145 and my <= MODAL_Y + 171 then
         create_new_font()
-      elseif mx >= mx0 + 125 and mx <= mx0 + 210 and my >= my0 + 150 and my <= my0 + 180 then
+      elseif mx >= MODAL_X + 130 and mx <= MODAL_X + 220 and my >= MODAL_Y + 145 and my <= MODAL_Y + 171 then
         new_modal_open = false
       end
     end
@@ -367,12 +433,10 @@ function _update()
   -- Handle Dropdown menu clicks
   if dropdown_open then
     if click then
-      local dy0 = 30
-      local item_h = 20
       local handled = false
       for idx, f in ipairs(fonts) do
-        local iy = dy0 + (idx - 1) * item_h
-        if mx >= 14 and mx <= 200 and my >= iy and my < iy + item_h then
+        local iy = DROP_Y + (idx - 1) * DROP_ITEM_H
+        if mx >= DROP_X and mx < DROP_X + DROP_W and my >= iy and my < iy + DROP_ITEM_H then
           select_font(idx)
           dropdown_open = false
           set_notice("Selezionato " .. f.name)
@@ -381,12 +445,12 @@ function _update()
         end
       end
       if not handled then
-        local action_y = dy0 + #fonts * item_h + 6
-        if mx >= 14 and mx <= 200 and my >= action_y and my < action_y + item_h then
+        local action_y = DROP_Y + #fonts * DROP_ITEM_H + 4
+        if mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y and my < action_y + DROP_ITEM_H then
           dropdown_open = false
           new_modal_open = true
           handled = true
-        elseif mx >= 14 and mx <= 200 and my >= action_y + item_h and my < action_y + item_h * 2 then
+        elseif mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y + DROP_ITEM_H and my < action_y + DROP_ITEM_H * 2 then
           dropdown_open = false
           export_font()
           handled = true
@@ -405,12 +469,10 @@ function _update()
   end
   
   -- Interactive Scale buttons click
-  if click then
-    local sx0 = TOOLS_X + 80
-    local sy0 = TOOLS_Y
-    if mx >= sx0 and mx < sx0 + 26 and my >= sy0 and my < sy0 + 16 then preview_scale = 1 end
-    if mx >= sx0 + 28 and mx < sx0 + 54 and my >= sy0 and my < sy0 + 16 then preview_scale = 2 end
-    if mx >= sx0 + 56 and mx < sx0 + 82 and my >= sy0 and my < sy0 + 16 then preview_scale = 3 end
+  if click and my >= SCALE_Y and my < SCALE_Y + SCALE_BTN_H then
+    if mx >= SCALE_1_X and mx < SCALE_1_X + SCALE_BTN_W then preview_scale = 1 end
+    if mx >= SCALE_2_X and mx < SCALE_2_X + SCALE_BTN_W then preview_scale = 2 end
+    if mx >= SCALE_3_X and mx < SCALE_3_X + SCALE_BTN_W then preview_scale = 3 end
   end
 
   -- Grid Drawing
@@ -433,44 +495,57 @@ function _update()
     local col = math.floor((mx - SHEET_X) / SHEET_CELL_W)
     local row = math.floor((my - SHEET_Y) / SHEET_CELL_H)
     local sel = row * 16 + col
-    if click then
+    if click or hold then
       cur_char = sel
     end
   end
 
   -- Tool buttons
   if click then
-    local bx, by = TOOLS_X, TOOLS_Y + 54
-    local bw, bh = 42, 16
-    local gap = 4
-    if mx >= bx and mx < bx + bw and my >= by and my < by + bh then clear_glyph() end
-    if mx >= bx + bw + gap and mx < bx + (bw + gap) * 2 and my >= by and my < by + bh then invert_glyph() end
-    if mx >= bx + (bw + gap) * 2 and mx < bx + (bw + gap) * 3 and my >= by and my < by + bh then flip_h() end
-    if mx >= bx + (bw + gap) * 3 and mx < bx + (bw + gap) * 4 and my >= by and my < by + bh then flip_v() end
-
-    -- Shift arrows
-    local ax, ay = bx + 28, by + 24
-    if mx >= ax + 14 and mx < ax + 28 and my >= ay and my < ay + 14 then shift_glyph(0, -1) end
-    if mx >= ax and mx < ax + 14 and my >= ay + 14 and my < ay + 28 then shift_glyph(-1, 0) end
-    if mx >= ax + 28 and mx < ax + 42 and my >= ay + 14 and my < ay + 28 then shift_glyph(1, 0) end
-    if mx >= ax + 14 and mx < ax + 28 and my >= ay + 28 and my < ay + 42 then shift_glyph(0, 1) end
-
-    -- Copy / Paste
-    local cx, cy = bx + 78, ay + 10
-    if mx >= cx and mx < cx + 32 and my >= cy and my < cy + 18 then copy_glyph() end
-    if mx >= cx + 36 and mx < cx + 68 and my >= cy and my < cy + 18 then paste_glyph() end
-
-    -- Save / Export button
-    local ex, ey = TOOLS_X + 70, TOOLS_Y + 118
-    if mx >= ex and mx < ex + 76 and my >= ey and my < ey + 20 then
-      export_font()
+    -- Operations Row 1: Clear, Invert
+    if my >= OP_ROW1_Y and my < OP_ROW1_Y + BTN_H then
+      if mx >= BTN_COL1_X and mx < BTN_COL1_X + BTN_W then
+        clear_glyph()
+      elseif mx >= BTN_COL2_X and mx < BTN_COL2_X + BTN_W then
+        invert_glyph()
+      end
+    -- Operations Row 2: FlipH, FlipV
+    elseif my >= OP_ROW2_Y and my < OP_ROW2_Y + BTN_H then
+      if mx >= BTN_COL1_X and mx < BTN_COL1_X + BTN_W then
+        flip_h()
+      elseif mx >= BTN_COL2_X and mx < BTN_COL2_X + BTN_W then
+        flip_v()
+      end
+    -- Shift Row: [<] [^] [v] [>]
+    elseif my >= SHIFT_ROW_Y and my < SHIFT_ROW_Y + SHIFT_BTN_H then
+      if mx >= SHIFT_L_X and mx < SHIFT_L_X + SHIFT_BTN_W then
+        shift_glyph(-1, 0)
+      elseif mx >= SHIFT_U_X and mx < SHIFT_U_X + SHIFT_BTN_W then
+        shift_glyph(0, -1)
+      elseif mx >= SHIFT_D_X and mx < SHIFT_D_X + SHIFT_BTN_W then
+        shift_glyph(0, 1)
+      elseif mx >= SHIFT_R_X and mx < SHIFT_R_X + SHIFT_BTN_W then
+        shift_glyph(1, 0)
+      end
+    -- Clipboard Row: Copia, Incolla
+    elseif my >= CLIP_ROW_Y and my < CLIP_ROW_Y + BTN_H then
+      if mx >= BTN_COL1_X and mx < BTN_COL1_X + BTN_W then
+        copy_glyph()
+      elseif mx >= BTN_COL2_X and mx < BTN_COL2_X + BTN_W then
+        paste_glyph()
+      end
+    -- Save Button
+    elseif my >= SAVE_ROW_Y and my < SAVE_ROW_Y + SAVE_BTN_H then
+      if mx >= BTN_COL1_X and mx < BTN_COL1_X + 138 then
+        export_font()
+      end
     end
   end
 
   -- Typed keys
   local k = keyp()
   while k do
-    if k == "\t" then
+    if k == "\t" or k == "m" or k == "f" then
       dropdown_open = not dropdown_open
     elseif k == "^s" or k == "ctrl s" then
       export_font()
@@ -576,142 +651,171 @@ function _draw()
   end
 
   -- Right Panel: Tools and Previews
-  rectfill(TOOLS_X - 6, TOOLS_Y - 6, 148, 150, C.panel)
-  rect(TOOLS_X - 6, TOOLS_Y - 6, 148, 150, C.border)
+  rectfill(RP_X - 4, TOOL_BOX_Y, RP_W + 8, TOOL_BOX_H, C.panel)
+  rect(RP_X - 4, TOOL_BOX_Y, RP_W + 8, TOOL_BOX_H, C.border)
 
-  -- Scale selectors
-  print("Scale:", TOOLS_X, TOOLS_Y + 4, C.dim)
-  local sx0 = TOOLS_X + 46
-  local sy0 = TOOLS_Y + 1
-  for s = 1, 3 do
-    local bx = sx0 + (s - 1) * 28
-    rectfill(bx, sy0, 24, 14, (preview_scale == s) and C.cyan or C.btn)
-    rect(bx, sy0, 24, 14, (preview_scale == s) and C.white or C.border)
-    print(s .. "x", bx + 5, sy0 + 2, (preview_scale == s) and C.black or C.btn_text)
+  -- Row 1: Scale selectors
+  print("Scala:", RP_X + 6, SCALE_Y + 4, C.dim)
+  local scales = { { 1, SCALE_1_X }, { 2, SCALE_2_X }, { 3, SCALE_3_X } }
+  for _, sc in ipairs(scales) do
+    local s = sc[1]
+    local bx = sc[2]
+    local is_active = (preview_scale == s)
+    rectfill(bx, SCALE_Y, SCALE_BTN_W, SCALE_BTN_H, is_active and C.cyan or C.btn)
+    rect(bx, SCALE_Y, SCALE_BTN_W, SCALE_BTN_H, is_active and C.white or C.border)
+    print(s .. "x", bx + 5, SCALE_Y + 4, is_active and C.black or C.btn_text)
   end
 
-  -- Glyph zoom samples
-  draw_glyph_scaled(cur_char, TOOLS_X, TOOLS_Y + 24, 1, C.cyan)
-  draw_glyph_scaled(cur_char, TOOLS_X + 16, TOOLS_Y + 22, 2, C.white)
-  draw_glyph_scaled(cur_char, TOOLS_X + 40, TOOLS_Y + 20, 3, C.white)
+  -- Row 2: Clear, Invert
+  rectfill(BTN_COL1_X, OP_ROW1_Y, BTN_W, BTN_H, C.btn)
+  rect(BTN_COL1_X, OP_ROW1_Y, BTN_W, BTN_H, C.border)
+  print("Clear", BTN_COL1_X + 13, OP_ROW1_Y + 4, C.btn_text)
 
-  -- Operation buttons
-  local bx, by = TOOLS_X, TOOLS_Y + 54
-  local bw, bh = 42, 16
-  local gap = 4
-  local ops = { "Clear", C.btn }, { "Invert", C.btn }, { "FlipH", C.btn }, { "FlipV", C.btn }
-  for i, op in ipairs(ops) do
-    local ox = bx + (i - 1) * (bw + gap)
-    if i > 2 then ox = bx + (i - 3) * (bw + gap) end
-    local oy = by
-    if i > 2 then oy = by + 20 end
-    rectfill(ox, oy, bw, bh, op[2])
-    rect(ox, oy, bw, bh, C.border)
-    print(op[1], ox + 4, oy + 4, C.btn_text)
+  rectfill(BTN_COL2_X, OP_ROW1_Y, BTN_W, BTN_H, C.btn)
+  rect(BTN_COL2_X, OP_ROW1_Y, BTN_W, BTN_H, C.border)
+  print("Invert", BTN_COL2_X + 9, OP_ROW1_Y + 4, C.btn_text)
+
+  -- Row 3: FlipH, FlipV
+  rectfill(BTN_COL1_X, OP_ROW2_Y, BTN_W, BTN_H, C.btn)
+  rect(BTN_COL1_X, OP_ROW2_Y, BTN_W, BTN_H, C.border)
+  print("FlipH", BTN_COL1_X + 13, OP_ROW2_Y + 4, C.btn_text)
+
+  rectfill(BTN_COL2_X, OP_ROW2_Y, BTN_W, BTN_H, C.btn)
+  rect(BTN_COL2_X, OP_ROW2_Y, BTN_W, BTN_H, C.border)
+  print("FlipV", BTN_COL2_X + 13, OP_ROW2_Y + 4, C.btn_text)
+
+  -- Row 4: Shift [<] [^] [v] [>]
+  local shifts = {
+    { "<", SHIFT_L_X },
+    { "^", SHIFT_U_X },
+    { "v", SHIFT_D_X },
+    { ">", SHIFT_R_X },
+  }
+  for _, sh in ipairs(shifts) do
+    rectfill(sh[2], SHIFT_ROW_Y, SHIFT_BTN_W, SHIFT_BTN_H, C.btn)
+    rect(sh[2], SHIFT_ROW_Y, SHIFT_BTN_W, SHIFT_BTN_H, C.border)
+    print(sh[1], sh[2] + 11, SHIFT_ROW_Y + 4, C.btn_text)
   end
 
-  -- Shift D-pad
-  local ax, ay = bx + 96, by
-  rectfill(ax + 14, ay, 14, 14, C.btn); rect(ax + 14, ay, 14, 14, C.border); print("^", ax + 19, ay + 2, C.btn_text)
-  rectfill(ax, ay + 14, 14, 14, C.btn); rect(ax, ay + 14, 14, 14, C.border); print("<", ax + 4, ay + 16, C.btn_text)
-  rectfill(ax + 28, ay + 14, 14, 14, C.btn); rect(ax + 28, ay + 14, 14, 14, C.border); print(">", ax + 33, ay + 16, C.btn_text)
-  rectfill(ax + 14, ay + 28, 14, 14, C.btn); rect(ax + 14, ay + 28, 14, 14, C.border); print("v", ax + 19, ay + 30, C.btn_text)
+  -- Row 5: Copia, Incolla
+  rectfill(BTN_COL1_X, CLIP_ROW_Y, BTN_W, BTN_H, C.btn)
+  rect(BTN_COL1_X, CLIP_ROW_Y, BTN_W, BTN_H, C.border)
+  print("Copia", BTN_COL1_X + 13, CLIP_ROW_Y + 4, C.btn_text)
 
-  -- Copy / Paste buttons
-  local cx, cy = bx + 50, by + 42
-  rectfill(cx, cy, 38, 16, C.btn); rect(cx, cy, 38, 16, C.border); print("Copy", cx + 6, cy + 4, C.btn_text)
-  rectfill(cx + 42, cy, 38, 16, C.btn); rect(cx + 42, cy, 38, 16, C.border); print("Paste", cx + 4, cy + 4, C.btn_text)
+  rectfill(BTN_COL2_X, CLIP_ROW_Y, BTN_W, BTN_H, C.btn)
+  rect(BTN_COL2_X, CLIP_ROW_Y, BTN_W, BTN_H, C.border)
+  print("Incolla", BTN_COL2_X + 5, CLIP_ROW_Y + 4, C.btn_text)
 
-  -- Save / Export button
-  local ex, ey = TOOLS_X, TOOLS_Y + 118
-  rectfill(ex, ey, 136, 20, C.btn_hi)
-  rect(ex, ey, 136, 20, C.green)
-  print("Salva in /bmf", ex + 24, ey + 5, C.green)
+  -- Row 6: Salva in /bmf
+  rectfill(BTN_COL1_X, SAVE_ROW_Y, 138, SAVE_BTN_H, C.btn_hi)
+  rect(BTN_COL1_X, SAVE_ROW_Y, 138, SAVE_BTN_H, C.green)
+  print("Salva in /bmf", BTN_COL1_X + 13, SAVE_ROW_Y + 6, C.green)
 
   -- Live Preview box
-  local pv_x = TOOLS_X - 6
-  local pv_y = 196
-  rectfill(pv_x, pv_y, 148, 136, C.panel)
-  rect(pv_x, pv_y, 148, 136, C.border)
-  print("Live Preview (" .. preview_scale .. "x):", pv_x + 6, pv_y + 6, C.dim)
+  rectfill(RP_X - 4, PV_BOX_Y, RP_W + 8, PV_BOX_H, C.panel)
+  rect(RP_X - 4, PV_BOX_Y, RP_W + 8, PV_BOX_H, C.border)
+  print("Live Preview (" .. preview_scale .. "x):", RP_X + 6, PV_BOX_Y + 6, C.dim)
 
-  local preview_lines = {
-    "The quick fox",
-    "jumps over lazy",
-    "0123456789",
-    "Hello BareMetal!",
-  }
-  local py = pv_y + 22
+  local preview_lines
+  if preview_scale == 1 then
+    preview_lines = {
+      "BareMetal 2026",
+      "Quick brown fox",
+      "jumps over dog",
+      "0123456789",
+      "AaBbCcDdEeFf",
+      "!@#$%^&*()-+",
+    }
+  elseif preview_scale == 2 then
+    preview_lines = {
+      "BareMetal",
+      "BMF Font",
+      "01234567",
+      "AaBbCc",
+    }
+  else
+    preview_lines = {
+      "Bare",
+      "BMF!",
+      "123",
+    }
+  end
+
+  local line_spacing = (cur_font.ch + 2) * preview_scale
+  local py = PV_BOX_Y + 22
   for _, line_txt in ipairs(preview_lines) do
-    local px = pv_x + 6
+    if py + cur_font.ch * preview_scale > PV_BOX_Y + PV_BOX_H - 4 then break end
+    local px = RP_X + 6
     for i = 1, #line_txt do
       local ch_code = line_txt:byte(i)
       draw_glyph_scaled(ch_code, px, py, preview_scale, C.white)
       px = px + cur_font.cw * preview_scale
-      if px >= pv_x + 140 then break end
+      if px + cur_font.cw * preview_scale > RP_X + RP_W then break end
     end
-    py = py + (cur_font.ch + 2) * preview_scale
-    if py >= pv_y + 130 then break end
+    py = py + line_spacing
   end
 
   -- Dropdown Menu Overlay
   if dropdown_open then
-    local dy0 = 26
-    local dw = 190
-    local item_h = 20
-    local dh = #fonts * item_h + 54
-    rectfill(14, dy0, dw, dh, C.panel_hi)
-    rect(14, dy0, dw, dh, C.cyan)
+    local dh = #fonts * DROP_ITEM_H + 50
+    rectfill(DROP_X, DROP_Y, DROP_W, dh, C.panel_hi)
+    rect(DROP_X, DROP_Y, DROP_W, dh, C.cyan)
     for idx, f in ipairs(fonts) do
-      local iy = dy0 + (idx - 1) * item_h
+      local iy = DROP_Y + (idx - 1) * DROP_ITEM_H
+      local is_hover = (mx >= DROP_X and mx < DROP_X + DROP_W and my >= iy and my < iy + DROP_ITEM_H)
       if idx == active_font_idx then
-        rectfill(16, iy + 1, dw - 4, item_h - 2, C.btn_hi)
-        print("> " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", 20, iy + 4, C.cyan)
+        rectfill(DROP_X + 2, iy + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi)
+        print("> " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", DROP_X + 6, iy + 4, C.cyan)
+      elseif is_hover then
+        rectfill(DROP_X + 2, iy + 1, DROP_W - 4, DROP_ITEM_H - 2, C.border)
+        print("  " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", DROP_X + 6, iy + 4, C.white)
       else
-        print("  " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", 20, iy + 4, C.text)
+        print("  " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", DROP_X + 6, iy + 4, C.text)
       end
     end
     -- Dropdown action buttons
-    local action_y = dy0 + #fonts * item_h + 6
-    line(14, action_y - 3, 14 + dw, action_y - 3, C.border)
-    print("+ Nuovo Font...", 24, action_y + 2, C.yellow)
-    print("v Salva in /bmf", 24, action_y + item_h + 2, C.green)
+    local action_y = DROP_Y + #fonts * DROP_ITEM_H + 4
+    line(DROP_X, action_y, DROP_X + DROP_W, action_y, C.border)
+    local hov_nuovo = (mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y and my < action_y + DROP_ITEM_H)
+    local hov_salva = (mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y + DROP_ITEM_H and my < action_y + DROP_ITEM_H * 2)
+    if hov_nuovo then rectfill(DROP_X + 2, action_y + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi) end
+    print("+ Nuovo Font...", DROP_X + 10, action_y + 4, C.yellow)
+    if hov_salva then rectfill(DROP_X + 2, action_y + DROP_ITEM_H + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi) end
+    print("v Salva in /bmf", DROP_X + 10, action_y + DROP_ITEM_H + 4, C.green)
   end
 
   -- Modal Window: New Font
   if new_modal_open then
     rectfill(0, 0, 640, 360, 0x88000000) -- backdrop
-    local mw, mh = 240, 190
-    local mx0, my0 = (640 - mw) / 2, (360 - mh) / 2
-    rectfill(mx0, my0, mw, mh, C.panel)
-    rect(mx0, my0, mw, mh, C.cyan)
-    print("Crea Nuovo Font", mx0 + 60, my0 + 12, C.white)
+    rectfill(MODAL_X, MODAL_Y, MODAL_W, MODAL_H, C.panel)
+    rect(MODAL_X, MODAL_Y, MODAL_W, MODAL_H, C.cyan)
+    print("Crea Nuovo Font", MODAL_X + 60, MODAL_Y + 12, C.white)
 
-    print("Dimensioni glifo:", mx0 + 20, my0 + 36, C.dim)
-    local sizes = { "8x16", 20 }, { "8x8", 90 }, { "6x12", 160 }
+    print("Dimensioni glifo:", MODAL_X + 20, MODAL_Y + 36, C.dim)
+    local sizes = { { "8x16", 20 }, { "8x8", 90 }, { "6x12", 160 } }
     for _, s in ipairs(sizes) do
-      local bx = mx0 + s[2]
-      rectfill(bx, my0 + 52, 60, 20, (new_font_size == s[1]) and C.cyan or C.btn)
-      rect(bx, my0 + 52, 60, 20, C.border)
-      print(s[1], bx + 14, my0 + 56, (new_font_size == s[1]) and C.black or C.btn_text)
+      local bx = MODAL_X + s[2]
+      rectfill(bx, MODAL_Y + 52, 60, 20, (new_font_size == s[1]) and C.cyan or C.btn)
+      rect(bx, MODAL_Y + 52, 60, 20, C.border)
+      print(s[1], bx + 14, MODAL_Y + 56, (new_font_size == s[1]) and C.black or C.btn_text)
     end
 
-    print("Template base:", mx0 + 20, my0 + 84, C.dim)
-    local templates = { "Inter", "inter", 20 }, { "Terminus", "terminus", 120 }
+    print("Template base:", MODAL_X + 20, MODAL_Y + 84, C.dim)
+    local templates = { { "Inter", "inter", 20 }, { "Terminus", "terminus", 120 } }
     for _, t in ipairs(templates) do
-      local bx = mx0 + t[3]
-      rectfill(bx, my0 + 100, 90, 20, (new_font_base == t[2]) and C.cyan or C.btn)
-      rect(bx, my0 + 100, 90, 20, C.border)
-      print(t[1], bx + 16, my0 + 104, (new_font_base == t[2]) and C.black or C.btn_text)
+      local bx = MODAL_X + t[3]
+      rectfill(bx, MODAL_Y + 100, 90, 20, (new_font_base == t[2]) and C.cyan or C.btn)
+      rect(bx, MODAL_Y + 100, 90, 20, C.border)
+      print(t[1], bx + 16, MODAL_Y + 104, (new_font_base == t[2]) and C.black or C.btn_text)
     end
 
     -- Confirm / Cancel
-    rectfill(mx0 + 20, my0 + 145, 90, 26, C.green)
-    print("Crea", mx0 + 50, my0 + 152, C.black)
+    rectfill(MODAL_X + 20, MODAL_Y + 145, 90, 26, C.green)
+    print("Crea", MODAL_X + 50, MODAL_Y + 152, C.black)
 
-    rectfill(mx0 + 130, my0 + 145, 90, 26, C.btn_hi)
-    rect(mx0 + 130, my0 + 145, 90, 26, C.border)
-    print("Annulla", mx0 + 150, my0 + 152, C.btn_text)
+    rectfill(MODAL_X + 130, MODAL_Y + 145, 90, 26, C.btn_hi)
+    rect(MODAL_X + 130, MODAL_Y + 145, 90, 26, C.border)
+    print("Annulla", MODAL_X + 150, MODAL_Y + 152, C.btn_text)
   end
 
   -- Bottom key hints

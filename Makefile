@@ -1196,7 +1196,7 @@ MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # The Market has its own list of games: GAMES minus MARKET_APPS_OF_GAMES.
 # typing, write and bench3d are apps: they go to the apps/ folder of the Market.
-MARKET_APPS_OF_GAMES := typing write bench3d
+MARKET_APPS_OF_GAMES := typing write bench3d font
 # titanex is held back: built as a .bm, not in the Market until the owner says so (26 Oct 2026).
 MARKET_HELD := titanex
 MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES) $(MARKET_HELD),$(GAMES))
