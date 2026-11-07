@@ -229,7 +229,7 @@ Ogni comando ha una parola. Il tasto è una scorciatoia per la parola. L'aiuto d
 | `r` | `sys reboot` | riavvia |
 | `X` | `sys crash [TIPO]` | prove di crash: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
 
-Altri tasti lanciano test e benchmark: `k`, `p` e `j` sono `bench cpu`, `bench render` e `bench 3d`. `d` è `demo`, `t` è `sys test-pattern`, `a` è `sys audio`. `E` è `net eth`, `G` è `net get URL`, `z` è `report send`, `U` è `upload`. Altri aprono gli editor: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` sono `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
+Altri tasti lanciano test e benchmark: `k`, `p` e `j` sono `bench cpu`, `bench render` e `bench 3d`. `d` è `demo`, `t` è `sys test-pattern`, `a` è `sys audio`. `E` è `net eth`, `G` è `net get URL`, `z` è `report send`, `U` è `upload`. Apri un editor con `play NOME` (vedi la tabella sotto).
 
 ## Il prompt bm>
 
@@ -253,7 +253,7 @@ Digita `:` e poi dei comandi separati da `;`. Girano uno dopo l'altro, e la riga
 | Comando | Cosa fa |
 |---|---|
 | `bench 3d tests=a,b profiles=P` | il 3D Bench, tutto o in parte (`b3d` funziona ancora) |
-| `play NOME` | avvia un gioco per nome |
+| `play NOME` | avvia un gioco per nome, o apre uno strumento: `editor` (bm SDK), `code`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `assistant` |
 | `set key=value ...` | cambia le chiavi di `bm/config.txt` fino al riavvio (`set` da solo le elenca) |
 | `save` | scrive `bm/config.txt` |
 | `net fetch URL [NOME] [replace]` | scarica una `.bm` in `/bm`, un `.bme` in `/bme`, un kit di mappa `.bmk` in `/bmk` o un file di modelli `.bmm` in `/bmm`. `URL` è `https://...` oppure `gh:OWNER/REPO/PATH[@BRANCH]` (un file di un repository GitHub; uno privato vuole `github_token`). `NOME` è un nome 8.3 al posto di quello del file. Un file che c'è già viene sostituito solo con `replace`. I byte devono essere una cartuccia |
