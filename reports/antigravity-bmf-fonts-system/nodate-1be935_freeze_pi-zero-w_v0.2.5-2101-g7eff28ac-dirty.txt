@@ -1,0 +1,69 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2101-g7eff28ac-dirty
+branch: antigravity/bmf-fonts-system
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-1be935_freeze_pi-zero-w_v0.2.5-2101-g7eff28ac-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 1184, 3621 s after boot, kernel v0.2.5-2100-g1b4e7aa8-dirty, ring 87640, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 370.1 ms past its slice
+net: saved /bmf/terminus.bmf on the SD card (4128 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 384 of 1935 ms taken, 372.8 ms past a frame; netxfer 374 ms (+370.1, stk 1.6/64K); min slack -74704 us, paced 0
+menu idle: sd first word <1ms 40 <3ms 3 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 8861 us, enlarge 0 us, flip 93 us, free time used 1281 us (300 frames)
+net: receiving bmf/inter.bmf (4128 bytes)...
+net: /bmf/inter.bmf received (4128 bytes): written on the SD card from the menu
+net: saved /bmf/inter.bmf on the SD card (4128 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 93 of 1935 ms taken, 82.0 ms past a frame; netxfer 87 ms (+81.9, stk 1.8/64K); min slack -74377 us, paced 0
+menu idle: sd first word <1ms 36 <3ms 2 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 8879 us, enlarge 0 us, flip 93 us, free time used 312 us (300 frames)
+net: receiving bmf/6x12.bmf (3104 bytes)...
+net: /bmf/6x12.bmf received (3104 bytes): written on the SD card from the menu
+net: saved /bmf/6x12.bmf on the SD card (3104 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 24 of 1964 ms taken, 12.6 ms past a frame; netxfer 17 ms (+12.6, stk 1.8/64K); min slack -85745 us, paced 0
+menu idle: sd first word <1ms 36 <3ms 2 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 8757 us, enlarge 0 us, flip 93 us, free time used 81 us (300 frames)
+net: receiving bmf/8x14.bmf (3616 bytes)...
+net: /bmf/8x14.bmf received (3616 bytes): written on the SD card from the menu
+net: saved /bmf/8x14.bmf on the SD card (3616 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: receiving bm/font.bm (76532 bytes)...
+net: /bm/font.bm received (76532 bytes): written on the SD card from the menu
+net: saved /bm/font.bm on the SD card (76532 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+covers: all 20 read
+menu idle: 300/300 frames, 53 of 1945 ms taken, 13.5 ms past a frame; covers 7 ms (+1.8, stk 0.8/16K), netxfer 126 ms (+80.3, stk 1.8/64K); min slack -152724 us, paced 0
+menu idle: sd first word <1ms 88 <3ms 5 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 9357 us, enlarge 0 us, flip 93 us, free time used 179 us (300 frames)
+menu frame: 1x, a frame averages draw 8572 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 8642 us, enlarge 0 us, flip 93 us, free time used 36 us (300 frames)
+net: receiving a new kernel (6297148 bytes)...
+net: kernel 0% (0 of 6149 KB)
+net: kernel 10% (618 of 6149 KB)
+net: kernel 20% (1237 of 6149 KB)
+net: kernel 30% (1853 of 6149 KB)
+net: kernel 40% (2469 of 6149 KB)
+menu frame: 1x, a frame averages draw 10239 us, enlarge 0 us, flip 93 us, free time used 36 us (300 frames)
+net: kernel 50% (3082 of 6149 KB)
+net: kernel 60% (3694 of 6149 KB)
+net: kernel 70% (4315 of 6149 KB)
+net: kernel 80% (4920 of 6149 KB)
+net: kernel 90% (5542 of 6149 KB)
+menu frame: 1x, a frame averages draw 10142 us, enlarge 0 us, flip 93 us, free time used 36 us (300 frames)
+net: dev mode: kernel received (6297148 bytes): written directly to kernel.img
+net: saved kernel.img on the SD card (6297148 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+menu idle: 300/300 frames, 1070 of 1430 ms taken, 72.6 ms past a frame; netxfer 1558 ms (+72.6, stk 1.8/64K); min slack -94744 us, paced 0
+menu idle: sd first word <1ms 252 <3ms 2 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 11251 us, enlarge 0 us, flip 93 us, free time used 3569 us (300 frames)
