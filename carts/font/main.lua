@@ -42,6 +42,7 @@ local notice_timer = 120
 -- UI State
 local preview_scale = 1 -- 1, 2, or 3
 local dropdown_open = false
+local dropdown_sel_idx = 1
 local new_modal_open = false
 local new_font_size = "8x16"
 local new_font_base = "inter"
@@ -373,6 +374,9 @@ local MODAL_Y = math.floor((360 - MODAL_H) / 2)
 
 local last_mb = 0
 local mx, my, mb = -1, -1, 0
+local grid_drawing = false
+local grid_erasing = false
+local sheet_selecting = false
 
 function _init()
   if mouse then mouse(true) end
@@ -405,6 +409,14 @@ function _update()
   local rhold = mb2
   last_mb = mb
 
+  if not mb1 then
+    grid_drawing = false
+    sheet_selecting = false
+  end
+  if not mb2 then
+    grid_erasing = false
+  end
+
   -- Modal: New Font Creation
   if new_modal_open then
     if click then
@@ -430,33 +442,67 @@ function _update()
     return
   end
   
-  -- Handle Dropdown menu clicks
+  -- Handle Dropdown menu (keyboard arrows, enter, and mouse clicks)
   if dropdown_open then
-    if click then
-      local handled = false
-      for idx, f in ipairs(fonts) do
-        local iy = DROP_Y + (idx - 1) * DROP_ITEM_H
-        if mx >= DROP_X and mx < DROP_X + DROP_W and my >= iy and my < iy + DROP_ITEM_H then
-          select_font(idx)
-          dropdown_open = false
-          set_notice("Selezionato " .. f.name)
-          handled = true
-          break
-        end
+    -- Mouse hover updates selected index
+    local action_y = DROP_Y + #fonts * DROP_ITEM_H + 4
+    if mx >= DROP_X and mx < DROP_X + DROP_W then
+      if my >= DROP_Y and my < DROP_Y + #fonts * DROP_ITEM_H then
+        dropdown_sel_idx = math.floor((my - DROP_Y) / DROP_ITEM_H) + 1
+      elseif my >= action_y and my < action_y + DROP_ITEM_H then
+        dropdown_sel_idx = #fonts + 1
+      elseif my >= action_y + DROP_ITEM_H and my < action_y + DROP_ITEM_H * 2 then
+        dropdown_sel_idx = #fonts + 2
       end
-      if not handled then
-        local action_y = DROP_Y + #fonts * DROP_ITEM_H + 4
-        if mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y and my < action_y + DROP_ITEM_H then
+    end
+
+    -- Keyboard navigation
+    local k = keyp()
+    while k do
+      if k == "up" then
+        dropdown_sel_idx = dropdown_sel_idx - 1
+        if dropdown_sel_idx < 1 then dropdown_sel_idx = #fonts + 2 end
+      elseif k == "down" then
+        dropdown_sel_idx = dropdown_sel_idx + 1
+        if dropdown_sel_idx > #fonts + 2 then dropdown_sel_idx = 1 end
+      elseif k == "\r" or k == "\n" or k == "enter" or k == "return" or k == " " then
+        if dropdown_sel_idx <= #fonts then
+          select_font(dropdown_sel_idx)
+          dropdown_open = false
+          set_notice("Selezionato " .. fonts[dropdown_sel_idx].name)
+        elseif dropdown_sel_idx == #fonts + 1 then
           dropdown_open = false
           new_modal_open = true
-          handled = true
-        elseif mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y + DROP_ITEM_H and my < action_y + DROP_ITEM_H * 2 then
+        elseif dropdown_sel_idx == #fonts + 2 then
           dropdown_open = false
           export_font()
-          handled = true
+        end
+        return
+      elseif k == "\t" or k == "escape" or k == "esc" or k == "\x1b" or k == "m" or k == "f" then
+        dropdown_open = false
+        return
+      end
+      k = keyp()
+    end
+
+    -- Mouse click selection
+    if click then
+      if mx >= DROP_X and mx < DROP_X + DROP_W then
+        if dropdown_sel_idx <= #fonts then
+          select_font(dropdown_sel_idx)
+          dropdown_open = false
+          set_notice("Selezionato " .. fonts[dropdown_sel_idx].name)
+        elseif dropdown_sel_idx == #fonts + 1 then
+          dropdown_open = false
+          new_modal_open = true
+        elseif dropdown_sel_idx == #fonts + 2 then
+          dropdown_open = false
+          export_font()
         else
           dropdown_open = false
         end
+      else
+        dropdown_open = false
       end
     end
     return
@@ -465,6 +511,7 @@ function _update()
   -- Top Dropdown button click
   if click and mx >= 14 and mx <= 180 and my >= 4 and my <= 24 then
     dropdown_open = true
+    dropdown_sel_idx = active_font_idx
     return
   end
   
@@ -475,28 +522,32 @@ function _update()
     if mx >= SCALE_3_X and mx < SCALE_3_X + SCALE_BTN_W then preview_scale = 3 end
   end
 
-  -- Grid Drawing
+  -- Grid Drawing: only draws if click/drag was initiated inside the grid
   local cell_size = math.min(math.floor(GRID_MAX_W / cur_font.cw), math.floor(GRID_MAX_H / cur_font.ch))
   local grid_w = cur_font.cw * cell_size
   local grid_h = cur_font.ch * cell_size
-  if mx >= GRID_X and mx < GRID_X + grid_w and my >= GRID_Y and my < GRID_Y + grid_h then
+  local in_grid = mx >= GRID_X and mx < GRID_X + grid_w and my >= GRID_Y and my < GRID_Y + grid_h
+  if in_grid then
+    if click then grid_drawing = true end
+    if rclick then grid_erasing = true end
     local gx = math.floor((mx - GRID_X) / cell_size) + 1
     local gy = math.floor((my - GRID_Y) / cell_size) + 1
-    if hold then
+    if grid_drawing then
       set_pixel(cur_char, gx, gy, true)
-    elseif rhold then
+    elseif grid_erasing then
       set_pixel(cur_char, gx, gy, false)
     end
   end
 
-  -- Sheet Selection
-  if mx >= SHEET_X and mx < SHEET_X + SHEET_COLS * SHEET_CELL_W and
-     my >= SHEET_Y and my < SHEET_Y + SHEET_ROWS * SHEET_CELL_H then
-    local col = math.floor((mx - SHEET_X) / SHEET_CELL_W)
-    local row = math.floor((my - SHEET_Y) / SHEET_CELL_H)
-    local sel = row * 16 + col
-    if click or hold then
-      cur_char = sel
+  -- Sheet Selection: only selects if click was initiated inside the sheet
+  local in_sheet = mx >= SHEET_X and mx < SHEET_X + SHEET_COLS * SHEET_CELL_W and
+                   my >= SHEET_Y and my < SHEET_Y + SHEET_ROWS * SHEET_CELL_H
+  if in_sheet then
+    if click then sheet_selecting = true end
+    if sheet_selecting then
+      local col = math.floor((mx - SHEET_X) / SHEET_CELL_W)
+      local row = math.floor((my - SHEET_Y) / SHEET_CELL_H)
+      cur_char = row * 16 + col
     end
   end
 
@@ -547,6 +598,7 @@ function _update()
   while k do
     if k == "\t" or k == "m" or k == "f" then
       dropdown_open = not dropdown_open
+      if dropdown_open then dropdown_sel_idx = active_font_idx end
     elseif k == "^s" or k == "ctrl s" then
       export_font()
     elseif k == "^c" or k == "ctrl c" then
@@ -762,26 +814,35 @@ function _draw()
     rect(DROP_X, DROP_Y, DROP_W, dh, C.cyan)
     for idx, f in ipairs(fonts) do
       local iy = DROP_Y + (idx - 1) * DROP_ITEM_H
-      local is_hover = (mx >= DROP_X and mx < DROP_X + DROP_W and my >= iy and my < iy + DROP_ITEM_H)
-      if idx == active_font_idx then
+      local is_sel = (idx == dropdown_sel_idx)
+      local is_active = (idx == active_font_idx)
+      if is_sel then
         rectfill(DROP_X + 2, iy + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi)
-        print("> " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", DROP_X + 6, iy + 4, C.cyan)
-      elseif is_hover then
-        rectfill(DROP_X + 2, iy + 1, DROP_W - 4, DROP_ITEM_H - 2, C.border)
-        print("  " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", DROP_X + 6, iy + 4, C.white)
-      else
-        print("  " .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", DROP_X + 6, iy + 4, C.text)
+        rect(DROP_X + 2, iy + 1, DROP_W - 4, DROP_ITEM_H - 2, C.cyan)
+      elseif is_active then
+        rectfill(DROP_X + 2, iy + 1, DROP_W - 4, DROP_ITEM_H - 2, C.panel)
       end
+      local prefix = is_active and "> " or "  "
+      local col = is_sel and C.cyan or (is_active and C.white or C.text)
+      print(prefix .. f.name .. " (" .. f.cw .. "x" .. f.ch .. ")", DROP_X + 6, iy + 4, col)
     end
     -- Dropdown action buttons
     local action_y = DROP_Y + #fonts * DROP_ITEM_H + 4
     line(DROP_X, action_y, DROP_X + DROP_W, action_y, C.border)
-    local hov_nuovo = (mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y and my < action_y + DROP_ITEM_H)
-    local hov_salva = (mx >= DROP_X and mx < DROP_X + DROP_W and my >= action_y + DROP_ITEM_H and my < action_y + DROP_ITEM_H * 2)
-    if hov_nuovo then rectfill(DROP_X + 2, action_y + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi) end
-    print("+ Nuovo Font...", DROP_X + 10, action_y + 4, C.yellow)
-    if hov_salva then rectfill(DROP_X + 2, action_y + DROP_ITEM_H + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi) end
-    print("v Salva in /bmf", DROP_X + 10, action_y + DROP_ITEM_H + 4, C.green)
+
+    local is_sel_nuovo = (dropdown_sel_idx == #fonts + 1)
+    if is_sel_nuovo then
+      rectfill(DROP_X + 2, action_y + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi)
+      rect(DROP_X + 2, action_y + 1, DROP_W - 4, DROP_ITEM_H - 2, C.yellow)
+    end
+    print("+ Nuovo Font...", DROP_X + 10, action_y + 4, is_sel_nuovo and C.white or C.yellow)
+
+    local is_sel_salva = (dropdown_sel_idx == #fonts + 2)
+    if is_sel_salva then
+      rectfill(DROP_X + 2, action_y + DROP_ITEM_H + 1, DROP_W - 4, DROP_ITEM_H - 2, C.btn_hi)
+      rect(DROP_X + 2, action_y + DROP_ITEM_H + 1, DROP_W - 4, DROP_ITEM_H - 2, C.green)
+    end
+    print("v Salva in /bmf", DROP_X + 10, action_y + DROP_ITEM_H + 4, is_sel_salva and C.white or C.green)
   end
 
   -- Modal Window: New Font
@@ -821,5 +882,9 @@ function _draw()
   -- Bottom key hints
   rectfill(0, 342, 640, 18, C.panel)
   line(0, 342, 639, 342, C.border)
-  print("[Mouse] Edita   [Tab] Menu Font   [1/2/3] Zoom   [Ctrl+S] Salva in /bmf", 14, 346, C.dim)
+  if dropdown_open then
+    print("[Freccia Su/Giu] Scegli   [Invio] Conferma   [Esc/Tab] Chiudi", 14, 346, C.cyan)
+  else
+    print("[Mouse] Edita   [Tab] Menu Font   [1/2/3] Zoom   [Ctrl+S] Salva in /bmf", 14, 346, C.dim)
+  end
 end
