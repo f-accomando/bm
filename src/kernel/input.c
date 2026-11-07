@@ -13,16 +13,14 @@
 
 #include <math.h>
 
-static void update_uptime(void)
+/* the right of the status bar: the IP address when the network has one, else nothing */
+static void update_status(void)
 {
-    char buf[80];
-    uint32_t s = timer_ticks() / 1000000;
+    char buf[40];
     if (net_ip())
-        ksnprintf(buf, sizeof buf, "IP %s  up %02lu:%02lu:%02lu", net_ip_text(),
-                  s / 3600, s / 60 % 60, s % 60);
+        ksnprintf(buf, sizeof buf, "IP %s", net_ip_text());
     else
-        ksnprintf(buf, sizeof buf, "up %02lu:%02lu:%02lu",
-                  s / 3600, s / 60 % 60, s % 60);
+        buf[0] = 0;
     console_set_status(0, buf);
 }
 
@@ -131,11 +129,11 @@ char input_getc(void)
     uint32_t last = timer_ticks();
     int c;
 
-    update_uptime();
+    update_status();
     while ((c = input_key()) < 0) {
         if (timer_ticks() - last >= 1000000) {
             last += 1000000;
-            update_uptime();
+            update_status();
         }
     }
     return (char)c;
@@ -146,13 +144,13 @@ int input_getc_home(void)
     uint32_t last = timer_ticks();
     int c;
 
-    update_uptime();
+    update_status();
     while ((c = input_key()) < 0) {
         if (hid_quit_pressed() & HID_QUIT_PS)
             return INPUT_HOME;
         if (timer_ticks() - last >= 1000000) {
             last += 1000000;
-            update_uptime();
+            update_status();
         }
     }
     return c;

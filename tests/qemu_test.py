@@ -320,14 +320,11 @@ def test_console_ansi_and_status(b, opts):
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
-        for _ in range(10):                 # the uptime appears once the monitor waits
-            img = q.screendump()
-            text = screen_text(img)
-            if "up 00:00:" in text[0]:
-                break
-            time.sleep(0.2)
+        time.sleep(1.0)                     # the status bar is drawn once the monitor waits
+        img = q.screendump()
+        text = screen_text(img)
         assert text[0].startswith(" bm "), f"status bar: {text[0]!r}"
-        assert "up 00:00:0" in text[0], f"uptime in status bar: {text[0]!r}"
+        assert "up 00:" not in text[0], f"no uptime in the status bar now: {text[0]!r}"   # QEMU has no IP: nothing at the right
         assert pixel(img, 2, 2) == (0, 170, 170), "status bar colour"
         # scrolling: 40 unknown-command lines push the prompt text off screen
         for _ in range(20):
