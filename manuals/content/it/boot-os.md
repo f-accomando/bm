@@ -194,7 +194,7 @@ Se l'elenco non mostra i tasti di un gioco, il gioco non ne ha dichiarati. [DA C
 
 # Il monitor
 
-Il monitor è la console di testo di bm. Ha un prompt `>` e prende un tasto per comando. Prende anche comandi scritti al prompt `bm>`. Scrive sullo schermo, sulla porta seriale e sulla console di rete.
+Il monitor è la console di testo di bm. Apre la bm shell: un menu di voci e una riga di comando (il prompt `bm:`). Scrive sullo schermo, sulla porta seriale e sulla console di rete.
 
 ## Come aprirlo
 
@@ -202,38 +202,50 @@ Il monitor è la console di testo di bm. Ha un prompt `>` e prende un tasto per 
 - Oppure scegli Settings > System > *Open the monitor*.
 - Oppure collegati dal PC: `python3 tools/bm_net.py IP` mostra il monitor di una console in rete.
 
-Digita `h` per l'aiuto. L'aiuto è fatto dalla tabella dei comandi nel kernel, quindi elenca sempre tutti i comandi. `M` torna al menu; `Esc` da solo non fa nulla al prompt.
+## Il menu della bm shell
+
+Il menu è a sinistra dello schermo. Un gruppo (System, Network) ha un sottomenu: si apre a destra del menu, dalla stessa riga in alto, e il suo nome è sul bordo superiore.
+
+| Tasto | Cosa fa |
+|---|---|
+| `w` / `s` oppure `Su` / `Giù` | muovono nel menu |
+| `Invio`, `d` o `Destra` | esegue la voce, o apre il gruppo |
+| `a`, `Sinistra` o `Esc` | chiudono il sottomenu |
+| `Esc` nel menu principale | il menu delle cartucce |
+| `:` | una riga di comandi (vedi sotto) |
+
+Le voci sono: *Command line* (il prompt `bm:`), *Cartridge menu*, *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sulla porta seriale e sulla console di rete il menu non è disegnato: `Invio` esegue la prima voce, il prompt `bm:`, e `:` prende una riga.
 
 ## Comandi
 
-Ogni comando ha una parola. Il tasto è una scorciatoia per la parola. L'aiuto del monitor li elenca tutti. Questi sono quelli che contano per chi comincia:
+Ogni comando ha una parola. Al prompt `bm:`, e in una riga con `:`, scrivi la parola. L'aiuto (`help`) è fatto dalla tabella dei comandi nel kernel, quindi elenca sempre tutti i comandi. Questi sono quelli che contano per chi comincia:
 
-| Tasto | Parola | Cosa fa |
-|---|---|---|
-| `h` o `?` | `help [NOME]` | l'aiuto, o l'aiuto di un comando |
-| `M` | `menu` | il menu delle cartucce |
-| `f` / `F` | `carts list` / `carts rescan` | elenca le cartucce / rileggi la scheda SD |
-| `i` | `sys info` | informazioni di sistema |
-| `m` | `sys heap` | uso dell'heap |
-| `c` | `sys clear` | pulisci lo schermo |
-| `l` | `lua` | prompt Lua (`Esc`, `Ctrl-D` o `exit()` tornano qui) |
-| `L` | `sys layout [it\|us]` | layout della tastiera, italiano o US |
-| `V` | `sys via-ram [on\|off]` | disegno dei `.bm`, diretto sullo schermo o via RAM |
-| `y` / `Y` | `sys usb` / `sys input` | scansione USB / prova degli input |
-| `T` `K` `O` | `bt pair pad` / `kbd` / `mouse` | Bluetooth: abbina un pad, una tastiera, un mouse |
-| `P` | `bt forget` | Bluetooth: dimentica tutti i dispositivi abbinati (chiede prima) |
-| `W` | `wifi`, `wifi list`, `wifi join NOME [PASSWORD]`, `wifi forget` | WiFi: avvia, elenca le reti, entra in una, dimenticala |
-| `u` | `update` | aggiorna da GitHub (chiede prima) |
-| `o` | `sys dmesg` | tutto ciò che è stato stampato dall'avvio |
-| `Z` | `report log` | il log dall'avvio, come report |
-| `r` | `sys reboot` | riavvia |
-| `X` | `sys crash [TIPO]` | prove di crash: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
+| Parola | Cosa fa |
+|---|---|
+| `help [NOME]` | l'aiuto, o l'aiuto di un comando |
+| `menu` | il menu delle cartucce |
+| `carts list` / `carts rescan` | elenca le cartucce / rileggi la scheda SD |
+| `sys info` | informazioni di sistema |
+| `sys heap` | uso dell'heap |
+| `sys clear` | pulisci lo schermo |
+| `lua` | prompt Lua (`Esc`, `Ctrl-D` o `exit()` tornano qui) |
+| `sys layout [it\|us]` | layout della tastiera, italiano o US |
+| `sys via-ram [on\|off]` | disegno dei `.bm`, diretto sullo schermo o via RAM |
+| `sys usb` / `sys input` | scansione USB / prova degli input |
+| `bt pair pad` / `kbd` / `mouse` | Bluetooth: abbina un pad, una tastiera, un mouse |
+| `bt forget` | Bluetooth: dimentica tutti i dispositivi abbinati (chiede prima) |
+| `wifi`, `wifi list`, `wifi join NOME [PASSWORD]`, `wifi forget` | WiFi: avvia, elenca le reti, entra in una, dimenticala |
+| `update` | aggiorna da GitHub (chiede prima) |
+| `sys dmesg` | tutto ciò che è stato stampato dall'avvio |
+| `report log` | il log dall'avvio, come report |
+| `sys reboot` | riavvia |
+| `sys crash [TIPO]` | prove di crash: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
 
-Altri tasti lanciano test e benchmark: `k`, `p` e `j` sono `bench cpu`, `bench render` e `bench 3d`. `d` è `demo`, `t` è `sys test-pattern`, `a` è `sys audio`. `E` è `net eth`, `G` è `net get URL`, `z` è `report send`, `U` è `upload`. Apri un editor con `play NOME` (vedi la tabella sotto).
+Altri comandi lanciano test e benchmark: `bench 3d`, `sys test-pattern`, `sys audio`, `net eth`, `net get URL`, `report send`, `upload`. Apri un editor con `play NOME` (vedi la tabella sotto).
 
-## Il prompt bm>
+## Il prompt bm:
 
-Digita `:` e poi `Invio`. Il prompt `bm> ` si apre e resta aperto. Digita `exit` per uscire, oppure premi `Esc`, oppure premi `Ctrl-D` su una riga vuota.
+Scegli *Command line* nel menu. Il prompt `bm: ` si apre e resta aperto. Digita `exit` per uscire (torna al menu), oppure premi `Esc`, oppure premi `Ctrl-D` su una riga vuota.
 
 | Tasto | Cosa fa |
 |---|---|
@@ -413,7 +425,7 @@ Per leggere i file, spegni la console, metti la scheda nel PC e apri `bm/`. Legg
 3. Scegli *Install the update*. Scarica e controlla ogni file prima di scrivere qualsiasi cosa.
 4. Aspetta. Il vecchio kernel va in `bm/backup/`, il kernel della scheda viene scritto per ultimo e la console si riavvia.
 
-Se qualcosa fallisce, non è stato scritto nulla finché i file non sono stati controllati. Il tasto `u` del monitor fa lo stesso, chiedendo prima.
+Se qualcosa fallisce, non è stato scritto nulla finché i file non sono stati controllati. Il comando `update` del monitor fa lo stesso, chiedendo prima.
 
 ## Dal PC
 

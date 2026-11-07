@@ -95,7 +95,7 @@ static void got_byte(char c)
                     if (focus_prompt)
                         out_str(focus_prompt);
                 } else {
-                    out_str("\r\nok - bm monitor, 'h' for help, Ctrl-Q to leave\r\n> ");
+                    out_str("\r\nok - bm shell: Enter runs the selected item, ':' takes a line, Ctrl-Q to leave\r\n> ");
                 }
             } else if (++tries >= MAX_TRIES) {
                 out_str("\r\nwrong password, bye\r\n");

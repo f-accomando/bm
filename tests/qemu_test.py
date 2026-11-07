@@ -37,7 +37,7 @@ import mksd  # noqa: E402
 
 QEMU = os.environ.get("QEMU", "qemu-system-arm")
 REF_DIR = os.path.join(HERE, "ref")
-PROMPT = b"type 'h' for help"
+PROMPT = b"bm shell:"
 MENU = b"cartridge menu"
 
 
@@ -133,7 +133,7 @@ class Qemu:
         return seen
 
     def boot(self):
-        """Boot ends in the cartridge menu: 'q' goes to the monitor prompt."""
+        """Boot ends in the cartridge menu: 'q' goes to the bm shell (its menu, '> ' waits for a key)."""
         out = self.expect(MENU, timeout=30)
         self.send("q")
         out += self.expect(PROMPT, timeout=10)
@@ -288,10 +288,10 @@ def test_boot_banner(b, opts):
             assert s in plain, f"missing {s!r} in boot log"
         text = "\n".join(screen_text(q.screendump()))
         assert all(len(l) < 80 for l in text.splitlines()), "boot output wraps:\n" + text
-        q.send("i")
+        q.send(":sys info\r")
         out = q.expect("uptime")
         assert b"MMU/caches     : on" in out, out
-        q.send("m")
+        q.send(":sys heap\r")
         q.expect("KB in use")
     finally:
         q.close()
@@ -347,7 +347,7 @@ def test_pager(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        q.send("h")
+        q.send(":help\r")
         q.expect("-- lines 1-", timeout=5)
         q.send("s")
         q.expect("-- lines 2-", timeout=5)
@@ -355,7 +355,7 @@ def test_pager(b, opts):
         q.expect("-- lines 3-", timeout=5)
         q.send("q")
         q.expect("> ", timeout=5)
-        q.send("o")
+        q.send(":sys dmesg\r")
         out = q.expect("-- lines 1-", timeout=5).decode(errors="replace")
         # the log has no colours: the banner's line is plain up to the reset
         # the pager puts at the end of every line (not a fixed 40 characters:
@@ -366,14 +366,12 @@ def test_pager(b, opts):
         q.expect("> ", timeout=5)
         _, text = settled_screen(q, lambda i, t: any(l.startswith(">") for l in t))
         assert text[0].startswith(" bm "), text[0]
-        # a terminal's arrow and PgDn keys at the prompt are not commands
+        # a terminal's arrow key moves the menu, PgDn does nothing: neither is a command
         q.send("\x1b[B")
         time.sleep(0.3)
         q.send("\x1b[6~")
         time.sleep(0.3)
-        q.send("\x1b")                       # Esc alone: ignored too
-        time.sleep(0.3)
-        q.send("m")
+        q.send(":sys heap\r")
         out = q.expect("heap", timeout=5).decode(errors="replace")
         assert "unknown command" not in out, out[-300:]
     finally:
@@ -384,7 +382,7 @@ def test_screen_pattern(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        q.send("t")
+        q.send(":sys test-pattern\r")
         q.expect("press any key")
         w, h, px = img = q.screendump()
         assert (w, h) == (640, 360), (w, h)
@@ -405,7 +403,7 @@ def test_screen_pattern(b, opts):
         q.send(" ")                         # back to the console, text restored
         q.expect("> ")
         text = "\n".join(screen_text(q.screendump()))
-        assert "type 'h' for help" in text and "test pattern shown" in text, text
+        assert "bm shell" in text and "test pattern shown" in text, text
     finally:
         q.close()
 
@@ -414,9 +412,7 @@ def _exception_case(b, key, needles, code):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        q.send("X")
-        q.expect("other keys cancel")
-        q.send(key)
+        q.send(f":sys crash {key}\r")
         out = q.expect(f"LED blink code: {code}")
         for s in needles:
             assert s.encode() in out, f"missing {s!r}:\n{out.decode(errors='replace')}"
@@ -444,45 +440,11 @@ def test_exc_data_abort(b, opts):
     _exception_case(b, "a", ["Data abort", "DFAR=00008001"], 4)
 
 
-def test_demo_60fps(b, opts):
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("d")
-        time.sleep(2.0)
-        # QEMU's display does not seem to honour the virtual offset, so a
-        # screendump can catch a page mid-draw: take a few samples.
-        for _ in range(5):
-            img = q.screendump()
-            top = screen_text(img)[0]
-            if top.startswith(" bm M4 demo"):
-                break
-        assert top.startswith(" bm M4 demo") and "fps" in top, f"demo overlay: {top!r}"
-        assert pixel(img, 320, 200) != (0, 0, 0), "demo background not drawn"
-        time.sleep(4.0)
-        q.send(" ")
-        out = q.expect("dropped", timeout=10).decode(errors="replace")
-        m = re.search(r"demo: (\d+) frames in ([\d.]+) s = ([\d.]+) fps \((\w+)\)\s+"
-                      r"frame (\d+)-(\d+) us, (\d+) dropped", out)
-        assert m, out
-        frames, secs, fps, pacing = int(m[1]), float(m[2]), float(m[3]), m[4]
-        dropped = int(m[7])
-        assert 5.5 <= secs <= 8, secs
-        assert 55 <= fps <= 62, f"{fps} fps"
-        assert pacing == "timer", "QEMU has no real vsync"
-        assert dropped <= frames // 20, f"{dropped} dropped frames"
-        q.expect("> ")
-        text = "\n".join(screen_text(q.screendump()))
-        assert "demo:" in text and "dropped" in text, text
-    finally:
-        q.close()
-
-
 def test_lua_repl(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        q.send("l")
+        q.send(":lua\r")
         q.expect("lua> ")
         q.send("print(2^10)\r")
         assert b"1024.0" in q.expect("lua> ")
@@ -511,7 +473,7 @@ def test_lua_repl(b, opts):
         assert b"2" in q.expect("lua> ")
         q.send("\x04")                            # Ctrl-D: back to the monitor
         q.expect("> ")
-        q.send("h")
+        q.send(":help\r")
         q.expect("Lua REPL")
         text = "\n".join(screen_text(q.screendump()))
         assert "lua> print(2^10)" in text or "10-20-30" in text or "Lua REPL" in text, text
@@ -523,7 +485,7 @@ def test_lua_out_of_memory(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        q.send("l")
+        q.send(":lua\r")
         q.expect("lua> ")
         # grows past the 64 MB Lua limit: must fail cleanly, not crash
         q.send("t = {} for i = 1, 1000 do t[i] = ('x'):rep(1 << 20) .. i end\r")
@@ -800,7 +762,7 @@ def test_usb_keyboard(b, opts):
 
         # monitor command and Lua REPL typed on the Italian layout:
         # shift-8 = '(', shift-] = '*', shift-2 = '"', ';' key = 'Ã²' (CP437 0x95)
-        sendkeys(q, "l")
+        sendkeys(q, "shift-dot l u a ret")
         q.expect("lua> ", timeout=10)
         sendkeys(q, "p r i n t shift-8 3 shift-bracket_right 4 shift-9 ret")
         q.expect("\n12\r\n", timeout=10)
@@ -809,7 +771,7 @@ def test_usb_keyboard(b, opts):
         q.expect(b"\x95\r\n", timeout=10)
         sendkeys(q, "esc")                     # Esc on an empty line leaves the REPL
         q.expect("> ", timeout=10)
-        sendkeys(q, "shift-l")
+        sendkeys(q, "shift-dot s y s spc l a y o u t ret")     # ':sys layout' on the Italian layout
         q.expect("keyboard layout: us", timeout=10)
     finally:
         q.close()
@@ -895,13 +857,13 @@ def test_usb_hub(b, opts):
         sendkeys(q, "ctrl-shift-esc")          # Ctrl+Shift+Esc: from the menu to the monitor
         q.expect(PROMPT, timeout=10)
         q.expect("> ")
-        sendkeys(q, "l")
+        q.send(":lua\r")
         q.expect("lua> ", timeout=10)
         sendkeys(q, "p r i n t shift-8 3 shift-bracket_right 4 shift-9 ret")
         q.expect("\n12\r\n", timeout=10)
         sendkeys(q, "esc")
         q.expect("> ", timeout=10)
-        q.send("y")                             # scan again: same result
+        q.send(":sys usb\r")  # scan again: same result
         out = q.expect("(hub port 2)", timeout=20)
         assert b"usb: hub 0409:55aa" in out, out
     finally:
@@ -924,16 +886,16 @@ def test_pi1_board(b, opts):
         out = q.boot()
         assert b"kernel" in out and b"- Raspberry Pi 1 A+ (BCM2835, revision 900021)" in out, out
         assert b"usb: keyboard 0627:0001" in out, out
-        q.send("W")
+        q.send(":wifi\r")
         q.expect("wifi: no WiFi on the Pi 1 A+", timeout=10)
         q.expect("> ")
-        q.send("T")
+        q.send(":bt pair pad\r")
         q.expect("bt: no Bluetooth on the Pi 1 A+", timeout=10)
         q.expect("> ")
-        q.send("E")
+        q.send(":net eth\r")
         q.expect("eth: no Ethernet controller", timeout=10)
         q.expect("> ")
-        q.send("i")
+        q.send(":sys info\r")
         q.expect("board revision : 00900021 (Raspberry Pi 1 A+)", timeout=10)
     finally:
         q.close()
@@ -950,11 +912,11 @@ def test_wifi_probe(b, opts):
     try:
         out = q.boot().decode(errors="replace")
         assert "(sdhost)" in out, out
-        q.send("W")
+        q.send(":wifi\r")
         out = q.expect("wifi: CMD5: no answer from the WiFi chip", timeout=10).decode(errors="replace")
         assert "wifi: power on (WL_REG_ON = GPIO41)" in out and "controller at 400 kHz" in out, out
         q.expect("> ", timeout=5)
-        q.send("F")                              # the card is still readable
+        q.send(":carts rescan\r")  # the card is still readable
         q.expect("demo.bm", timeout=10)
     finally:
         q.close()
@@ -971,11 +933,11 @@ def test_sd_cartridges(b, opts):
     try:
         out = q.boot().decode(errors="replace")
         assert "sd: SD card (sdhost), FAT32, 127 MB, label BMSD; 2 cartridges" in out, out
-        q.send("f")
+        q.send(":carts list\r")
         out = q.expect("\"Pong\"\r\n").decode(errors="replace")
         assert "Il mio gioco lungo.bm" in out and "/bm/demo2.bm" in out, out
         q.expect("> ")
-        q.send("M")
+        q.send(":menu\r")
         q.expect("cartridge menu")
         wait_menu(q)
         want = ("Games", "Astro Wing")
@@ -1033,7 +995,7 @@ def test_sd_games_bm(b, opts):
     try:
         out = q.boot().decode(errors="replace")
         assert "label BMSD; 2 cartridges" in out, out
-        q.send("f")
+        q.send(":carts list\r")
         out = q.expect("> ").decode(errors="replace")
         assert "/snake.bm" in out and "/bm/rgbgame.bm" in out and "/carts/pong.bm" not in out, out
     finally:
@@ -1513,7 +1475,7 @@ def test_make_image(b, opts):
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
-        q.send("f")
+        q.send(":carts list\r")
         out = q.expect('Star Shooter"\r\n').decode(errors="replace")
         assert "/bm/pong.bm" in out and "/bm/shooter.bm" in out, out
         q.close()
@@ -1580,11 +1542,11 @@ def test_old_folder_and_carts(b, opts):
     try:
         out = q.boot().decode(errors="replace")
         assert "layout us" in out, out
-        q.send("f")
+        q.send(":carts list\r")
         out = q.expect('"Old header"').decode(errors="replace")
         assert "/bm/old.bm" in out, out
         q.expect("> ")
-        q.send("L")                             # layout: us -> it, saved
+        q.send(":sys layout\r")  # layout: us -> it, saved
         q.expect("> ")
         time.sleep(0.5)
     finally:
@@ -1622,7 +1584,7 @@ def test_sd_save_and_config(b, opts):
                     assert 'loaded\tq"uo\\te\r\n\t2.5\ttrue\tfloat\t-7' in out, out  # serial: \r\n
                 q.expect("> ", timeout=10)
                 if run == 1:
-                    q.send("L")                    # Italian -> US, saved in config.txt
+                    q.send(":sys layout\r")  # Italian -> US, saved in config.txt
                     q.expect("keyboard layout: us")
                     q.expect("> ")
             finally:
@@ -2340,7 +2302,7 @@ def test_bt_start_and_scan(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     try:
         q.boot()
-        q.send("T")
+        q.send(":bt pair pad\r")
         q.expect("(same pins, same speed)\r\n")
         chip = FakeBtChip(q.port)
         chip.buf, q.buf = q.buf, b""                   # HCI bytes already read
@@ -2359,7 +2321,7 @@ def test_bt_start_and_scan(b, opts):
         assert ops[:4] == [0x0C03, 0x0C03, 0xFC2E, 0xFC4C], [hex(o) for o in ops]
         assert chip.log[3][1] == bytes(range(8)) and 0xFC4E in ops, chip.log
         # the monitor now answers on the mini UART
-        q.mini.write(b"i")
+        q.mini.write(b":sys info\r")
         out = b""
         deadline = time.time() + 5
         while b"uptime" not in out and time.time() < deadline:
@@ -2601,7 +2563,7 @@ def test_bt_pair_and_reconnect(b, opts):
         q.mini_buf = b""
         try:
             q.boot()
-            q.send("T")
+            q.send(":bt pair pad\r")
             q.expect("(same pins, same speed)\r\n")
             chip = FakeDs4Chip(q.port)
             chip.buf, q.buf = q.buf, b""
@@ -3090,7 +3052,7 @@ def test_bt_mouse(b, opts):
     q.mini_buf = b""
     try:
         q.boot()
-        q.send("K")
+        q.send(":bt pair kbd\r")
         q.expect("(same pins, same speed)\r\n")
         chip = FakeMxMouse(q.port)
         chip.buf, q.buf = q.buf, b""
@@ -3259,7 +3221,7 @@ def test_bt_mouse_classic(b, opts):
     q.mini_buf = b""
     try:
         q.boot()
-        q.send("O")
+        q.send(":bt pair mouse\r")
         q.expect("(same pins, same speed)\r\n")
         chip = FakeClassicMouse(q.port)
         chip.buf, q.buf = q.buf, b""
@@ -3321,14 +3283,14 @@ def test_pad_no_pointer(b, opts):
 
     try:
         q.boot()
-        q.send("T")
+        q.send(":bt pair pad\r")
         q.expect("(same pins, same speed)\r\n")
         chip = FakeDs4Chip(q.port)
         chip.buf, q.buf = q.buf, b""
         chip.init(reset_silent=False)
         chip.pair(FakeDs4Chip.DS4, chip.KEY, chip.HANDLE, (0x70, 0x71), 1)
         _mini_expect(q, "next time just press PS")
-        q.mini.write(b"M")
+        q.mini.write(b":menu\r")
         _mini_expect(q, "cartridge menu")
         assert no_arrow(wait_icons(q, 1)), "an arrow with only a pad"
         chip.report(rx=255)                             # the right stick, right
@@ -3389,7 +3351,7 @@ def test_bt_keyboard(b, opts):
     q.mini_buf = b""
     try:
         q.boot()
-        q.send("K")
+        q.send(":bt pair kbd\r")
         q.expect("(same pins, same speed)\r\n")
         chip = FakeMxKeys(q.port)
         chip.buf, q.buf = q.buf, b""
@@ -3492,7 +3454,7 @@ def test_bt_keyboard_legacy(b, opts):
     q.mini_buf = b""
     try:
         q.boot()
-        q.send("K")
+        q.send(":bt pair kbd\r")
         q.expect("(same pins, same speed)\r\n")
         chip = FakeMxKeys(q.port)
         chip.buf, q.buf = q.buf, b""
@@ -3525,7 +3487,7 @@ def test_bt_keyboard_legacy(b, opts):
         chip.keys(0x29)                                   # Esc: out of Lua
         chip.keys()
         _mini_expect(q, "\n> ")
-        q.mini.write(b"M")
+        q.mini.write(b":menu\r")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
         shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and blue_number(i, r[0]))
@@ -3582,11 +3544,11 @@ def test_bt_forget(b, opts):
         _mini_expect(q, "cartridge menu")
         q.mini.write(b"q")
         _mini_expect(q, "back to the monitor")
-        q.mini.write(b"P")
+        q.mini.write(b":bt forget\r")
         _mini_expect(q, "y = yes")
         q.mini.write(b"n")
         _mini_expect(q, "cancelled")
-        q.mini.write(b"P")
+        q.mini.write(b":bt forget\r")
         _mini_expect(q, "y = yes")
         q.mini.write(b"y")
         _mini_expect(q, "bt: 2 devices forgotten")
@@ -3800,11 +3762,11 @@ def test_b16_on_pi(b, opts):
             time.sleep(0.5)
             q.send("q")                                 # the monitor: the list of cartridges
             q.expect("> ", timeout=10)
-            q.send("F")
+            q.send(":carts rescan\r")
             out = q.expect("pocket.b16", timeout=10).decode(errors="replace")
             out += q.expect("\n", timeout=5).decode(errors="replace")
             assert re.search(r"b16 +\d+ +/bm/pocket.b16", out), out[-300:]
-            q.send("M")
+            q.send(":menu\r")
             q.expect(MENU, timeout=20)
             time.sleep(0.8)
             q.send("\r")                                # the first game: the only one
@@ -4240,7 +4202,7 @@ def test_bt_two_pads(b, opts):
         # a third pad pairs from the monitor and becomes player 3
         q.mini.write(b"q")
         _mini_expect(q, "back to the monitor")
-        q.mini.write(b"T")
+        q.mini.write(b":bt pair pad\r")
         chip.pair(pad_c, key_c, 0x0D, (0x72, 0x73), 3)             # green
         out = _mini_expect(q, "next time just press PS")
         assert "connected (player 3)" in out and "paired as player 3" in out, out
@@ -4973,7 +4935,7 @@ def test_monitor_line(b, opts):
         out = q.expect("the line is done", timeout=30).decode(errors="replace")
         assert "attempt to call a nil value" in out, out
         q.expect("> ")
-        q.send("l")                             # the key is set for now
+        q.send(":lua\r")  # the key is set for now
         q.expect("lua> ")
     finally:
         q.close()
@@ -5033,73 +4995,85 @@ def _plain(data):
 
 def test_monitor_help_table(b, opts):
     """The help is made from the table of commands (src/kernel/monitor_cmd.c): one
-    line for each key, none longer than the console (79 characters: the pager wraps at 80), the old
+    line for each command, none longer than the console (79 characters: the pager wraps at 80), the old
     words in a last line; 'help NAME' says more about one command."""
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        for key in "h?":
-            q.send(key)
-            text = ""
-            for _ in range(12):
-                text += _plain(q.expect("-- lines ", timeout=5)).removesuffix("-- lines ") + "\n"
-                span = _plain(q.expect("returns --", timeout=5))
-                first, last, total = map(int, re.match(r"(\d+)-(\d+) of (\d+)", span).groups())
-                if last >= total:
-                    break
-                q.send(" ")
-            q.send("q")
-            q.expect("> ", timeout=5)
-            assert "commands (games:" in text and "help [COMMAND]" in text, text[-600:]
-            keys = set(re.findall(r"^  (\S)  \S", text, re.M))
-            want = set("hMfFlUimcoyYLVatXrTKOPWEGjzZu")
-            assert want <= keys, f"keys missing in the help: {sorted(want - keys)}"
-            assert "old words that still work: b3d=bench 3d," in text, text[-500:]
-            assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
-            assert "wifi join NAME [PASSWORD]" in text and "bench 3d [tests=A,B profiles=P]" in text, text[-900:]
+        q.send(":help\r")
+        text = ""
+        for _ in range(12):
+            text += _plain(q.expect("-- lines ", timeout=5)).removesuffix("-- lines ") + "\n"
+            span = _plain(q.expect("returns --", timeout=5))
+            first, last, total = map(int, re.match(r"(\d+)-(\d+) of (\d+)", span).groups())
+            if last >= total:
+                break
+            q.send(" ")
+        q.send("q")
+        q.expect("> ", timeout=5)
+        assert "commands (games:" in text and "help [COMMAND]" in text, text[-600:]
+        words = ("menu", "carts list", "lua", "upload", "sys info", "sys crash", "bt pair pad", "bt forget",
+                 "wifi", "net eth", "bench 3d", "report send", "report log", "update", "play NAME", "set ",
+                 "save", "ls ", "exit")
+        missing = [w for w in words if not re.search(r"^  " + re.escape(w), text, re.M)]
+        assert not missing, f"words missing in the help: {missing}"
+        assert not re.search(r"^  \S  \S", text, re.M), "the help has no column of keys now"
+        assert "hotkey" not in text and "tool " not in text, text[-500:]
+        assert "old words that still work: b3d=bench 3d," in text, text[-500:]
+        assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
+        assert "wifi join NAME [PASSWORD]" in text and "bench 3d [tests=A,B profiles=P]" in text, text[-900:]
     finally:
         q.close()
 
 
 def _prompt_line(q, text, timeout=10):
-    """a line typed at the bm> prompt (bytes of text as they are, then Enter);
+    """a line typed at the bm: prompt (bytes of text as they are, then Enter);
     what it printed, up to the next prompt"""
     q.send(text + "\r")
-    return _plain(q.expect("\nbm> ", timeout=timeout))
+    return _plain(q.expect("\nbm: ", timeout=timeout))
 
 
-def test_monitor_prompt_first(b, opts):
-    """monitor_keys=0 (2026-10-28): the monitor opens at the bm> prompt, a key typed there is
-    text and runs nothing, 'hotkey' turns the single keys on, Enter then goes back to the
-    prompt, 'exit' leaves to the menu."""
-    tmp = tempfile.mkdtemp(prefix="bm-promptfirst-")
-    img = os.path.join(tmp, "sd.img")
-    cfg = os.path.join(tmp, "config.txt")
-    with open(cfg, "w") as f:
-        f.write("layout=us\nwifi_boot=0\nmonitor_keys=0\n")
-    mksd.build(img, [(cfg, "bm/config.txt")])
-    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+def test_shell_menu(b, opts):
+    """The bm shell (2026-11-07): the monitor opens at a menu; '> ' waits for a key; Enter on the
+    first item opens the bm: prompt (a key typed there is text), 'exit' goes back to the menu;
+    w/s move, Enter or d open a group (System, Network), Enter runs an item (Info), a closes
+    the group, Esc opens the cartridge menu and q comes back."""
+    q = Qemu(b("kernel.img"))
     try:
         q.expect(MENU, timeout=30)
         q.send("q")
-        q.expect("the bm> prompt:", timeout=10)
-        q.expect("\nbm> ", timeout=10)
+        q.expect(PROMPT, timeout=10)
+        q.expect("> ", timeout=10)
+        q.send("\r")                                # the first item: the bm: prompt
+        q.expect("the bm: prompt:", timeout=10)
+        q.expect("\nbm: ", timeout=10)
         out = _prompt_line(q, "i")                  # a key is text here: 'i' is not a command
         assert "not a command" in out, out
-        q.send("hotkey\r")
-        q.expect("hotkeys on", timeout=5)
-        q.send("i")                                 # now 'i' is sys info
-        q.expect("board", timeout=5)
-        q.send("\r")                                # Enter: back to the prompt
-        q.expect("\nbm> ", timeout=10)
-        q.send("exit\r")
-        q.expect(MENU, timeout=15)                  # exit leaves to the menu
+        q.send("exit\r")                            # back to the menu
+        q.expect("> ", timeout=10)
+        for k in "sss":                             # Command line, Cartridge menu, Lua, System
+            q.send(k)
+            q.expect("> ", timeout=5)
+        q.send("d")                                 # the System group opens
+        q.expect("> ", timeout=5)
+        q.send("\r")                                # its first item: Info
+        q.expect("board", timeout=10)
+        q.expect("-- press a key to go back --", timeout=5)
+        q.send(" ")
+        q.expect("> ", timeout=10)
+        q.send(":sys heap\r")                       # a line from the menu, as the PC tools send it
+        q.expect("the line is done", timeout=10)
+        q.expect("> ", timeout=5)
+        q.send("\x1b")                              # Esc: the cartridge menu
+        q.expect(MENU, timeout=15)
+        q.send("q")
+        q.expect("> ", timeout=10)
     finally:
         q.close()
 
 
 def test_monitor_files(b, opts):
-    """The file commands of the bm> prompt (2026-10-28, SYS-19): pwd, ls, cd (with .. and relative
+    """The file commands of the bm: prompt (2026-10-28, SYS-19): pwd, ls, cd (with .. and relative
     paths), cat, cp (into a folder, to a new 8.3 name, over a file), mkdir, rm; the boot files of
     the card are not removed; a word that is not found says so."""
     tmp = tempfile.mkdtemp(prefix="bm-files-")
@@ -5115,7 +5089,7 @@ def test_monitor_files(b, opts):
     try:
         q.expect(MENU, timeout=30)
         q.send("q")
-        q.expect("\nbm> ", timeout=10)
+        q.expect("\nbm: ", timeout=10)
         assert "\n/\n" in _prompt_line(q, "pwd")
         out = _prompt_line(q, "ls")
         assert "<dir>" in out and "bm/" in out and "CONFIG.TXT" in out.upper(), out
@@ -5142,7 +5116,7 @@ def test_monitor_files(b, opts):
 
 
 def test_monitor_lua_shell(b, opts):
-    """The shell's Lua (2026-10-28, SYS-19): lua -e and lua FILE at the bm> prompt; bm.sh returns the
+    """The shell's Lua (2026-10-28, SYS-19): lua -e and lua FILE at the bm: prompt; bm.sh returns the
     output of a monitor line; bm.write, bm.read and bm.ls on the card; the drawing calls run; boot=shell
     starts at the monitor, autoexec=1 runs /bm/autoexec.lua once at boot (and the PC tools cannot set
     that key)."""
@@ -5170,7 +5144,7 @@ def test_monitor_lua_shell(b, opts):
         out = q.expect("the shell:", timeout=30).decode(errors="replace")
         assert "autoexec: /bm/autoexec.lua" in out and "AUTOEXEC-RAN" in out, out
         assert "cartridge menu" not in out, out
-        q.expect("\nbm> ", timeout=10)
+        q.expect("\nbm: ", timeout=10)
         out = _prompt_line(q, "lua -e print(1+2)")
         assert "\n3\n" in out, out
         out = _prompt_line(q, "cd bm; lua hello.lua")
@@ -5185,7 +5159,7 @@ def test_monitor_lua_shell(b, opts):
 
 
 def test_monitor_prompt(b, opts):
-    """The persistent line mode (2026-10-25): ':' and Enter open the bm> prompt, which stays
+    """The persistent line mode (2026-10-25): ':' and Enter open the bm: prompt, which stays
     until 'exit' or Esc. Commands and subcommands, a suggestion for an unknown word, 'set'
     and 'crc', the history on Up (a terminal's ESC [ A, also one byte at a time), Tab
     completion of commands, subcommands and set keys, Backspace and Ctrl-U, '\\r\\n' as
@@ -5195,7 +5169,7 @@ def test_monitor_prompt(b, opts):
         q.boot()
         q.send(":\r")
         q.expect("the prompt stays", timeout=5)
-        q.expect("\nbm> ", timeout=5)
+        q.expect("\nbm: ", timeout=5)
         out = _prompt_line(q, "help wifi")
         assert "wifi join NAME [PASSWORD]" in out and "wifi forget" in out and "wifi list" in out, out
         out = _prompt_line(q, "help nosuch")
@@ -5230,45 +5204,45 @@ def test_monitor_prompt(b, opts):
         q.expect("nope; net status", timeout=5)
         q.send("\x15")                                      # Ctrl-U
         q.send("crc\r")
-        out = _plain(q.expect("\nbm> ", timeout=10))
+        out = _plain(q.expect("\nbm: ", timeout=10))
         assert "crc: " in out and "net: wifi" not in out, out
         # Tab: a command, a subcommand, a key of set
         q.send("cr\t")
-        q.expect("bm> crc ", timeout=5)
+        q.expect("bm: crc ", timeout=5)
         q.send("\r")
-        assert "crc: " in _plain(q.expect("\nbm> ", timeout=10))
+        assert "crc: " in _plain(q.expect("\nbm: ", timeout=10))
         q.send("wi\tjo\t")
-        q.expect("bm> wifi join ", timeout=5)
+        q.expect("bm: wifi join ", timeout=5)
         q.send("\x15")
         q.send("set vol\t")
-        q.expect("bm> set volume=", timeout=5)
+        q.expect("bm: set volume=", timeout=5)
         q.send("\x15")
         q.send("sy\tcr\t")
-        q.expect("bm> sys crash ", timeout=5)
+        q.expect("bm: sys crash ", timeout=5)
         q.send("\x15")
         # Tab with several words: the list, then the line again
         q.send("se\t")
-        out = _plain(q.expect("bm> se", timeout=5))
+        out = _plain(q.expect("bm: se", timeout=5))
         assert "send" in out and "set" in out and "sys" not in out, out
         q.send("\x03")                                      # Ctrl-C drops the line
         q.expect("^C", timeout=5)
-        q.expect("\nbm> ", timeout=5)
+        q.expect("\nbm: ", timeout=5)
         # Backspace, and \r\n as one Enter: no empty line behind it
         q.send("crx\x7fc\r\n")
-        out = _plain(q.expect("\nbm> ", timeout=10))
+        out = _plain(q.expect("\nbm: ", timeout=10))
         assert "crc: " in out, out
         q.send("err\r\n")
-        out = _plain(q.expect("\nbm> ", timeout=10))
+        out = _plain(q.expect("\nbm: ", timeout=10))
         assert "err: none" in out, out
         time.sleep(0.3)
-        assert b"\nbm> " not in q.buf, q.buf                # no second prompt for the \n
+        assert b"\nbm: " not in q.buf, q.buf                # no second prompt for the \n
         # the word of before inside the prompt
         out = _prompt_line(q, "b3d tests=spheres profiles=ARM", timeout=240)
         assert "only tests spheres, profiles ARM" in out, out[-600:]
         # exit: back to the key prompt; the keys work again; ':' with a line is one-shot
         q.send("exit\r")
         q.expect("\n> ", timeout=5)
-        q.send("m")
+        q.send(":sys heap\r")
         assert "heap" in _plain(q.expect("\n> ", timeout=5))
         q.send(":set name=\"q r\"; err\r")
         out = _plain(q.expect("the line is done", timeout=10))
@@ -5276,12 +5250,12 @@ def test_monitor_prompt(b, opts):
         q.expect("\n> ", timeout=5)
         # Esc leaves the prompt too (a lone ESC byte: the Esc key of a keyboard)
         q.send(":\r")
-        q.expect("\nbm> ", timeout=5)
+        q.expect("\nbm: ", timeout=5)
         q.send("\x1b")
         q.expect("\n> ", timeout=5)
         # Ctrl-D on an empty line leaves
         q.send(":\r")
-        q.expect("\nbm> ", timeout=5)
+        q.expect("\nbm: ", timeout=5)
         q.send("\x04")
         q.expect("\n> ", timeout=5)
         # Esc in a one-shot ':' drops it
@@ -5293,17 +5267,12 @@ def test_monitor_prompt(b, opts):
         q.close()
 
 
-def test_monitor_keys_and_words(b, opts):
-    """Every single key still works as before, and the word of its command does the same
-    (the keys are shortcuts of the table). Keys that need hardware or a long wait are
-    not here (T K O P W G u X k p j d D t Y: other tests)."""
+def test_monitor_words(b, opts):
+    """The words of the commands, as a ':' line sends them (the single keys are gone). Commands
+    that need hardware or a long wait are not here (bt wifi update crash bench: other tests)."""
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-
-        def key(k):
-            q.send(k)
-            return _plain(q.expect("\n> ", timeout=20))
 
         def words(w):
             q.send(":" + w + "\r")
@@ -5311,17 +5280,14 @@ def test_monitor_keys_and_words(b, opts):
             q.expect("\n> ", timeout=5)
             return out
 
-        pairs = [("i", "sys info", "board revision"), ("m", "sys heap", "heap"),
-                 ("f", "carts list", "bm SDK"), ("F", "carts rescan", "sd: no card"),
-                 ("y", "sys usb", "usb: nothing attached"), ("E", "net eth", "eth: no Ethernet controller"),
-                 ("a", "sys audio", "audio:"), ("z", "report send", "waiting on the SD card"),
-                 ("Z", "report log", "report: "), ("L", "sys layout", "keyboard layout: "),
-                 ("V", "sys via-ram", ".bm carts draw ")]
-        for k, w, want in pairs:
-            a, c = key(k), words(w)
-            assert want in a, (k, a)
-            assert want in c, (w, c)
-        # the toggles went twice each (a key, a word): set them by name
+        pairs = [("sys info", "board revision"), ("sys heap", "heap"),
+                 ("carts list", "bm SDK"), ("carts rescan", "sd: no card"),
+                 ("sys usb", "usb: nothing attached"), ("net eth", "eth: no Ethernet controller"),
+                 ("sys audio", "audio:"), ("report send", "waiting on the SD card"),
+                 ("report log", "report: "), ("sys layout", "keyboard layout: "),
+                 ("sys via-ram", ".bm carts draw ")]
+        for w, want in pairs:
+            assert want in words(w), w
         assert "keyboard layout: us" in words("sys layout us")
         assert "keyboard layout: it" in words("sys layout it")
         assert "directly on screen" in words("sys via-ram off")
@@ -5331,24 +5297,19 @@ def test_monitor_keys_and_words(b, opts):
         for old, new, want in (("send", "report send", "waiting on the SD card"), ("log", "report log", "report: "),
                                ("err", "err", "err: none"), ("crc", "crc", "crc: ")):
             assert want in words(old) and want in words(new), old
-        # c clears the screen, h and ? are the help, an unknown key is said
-        key("c")
-        q.send("h")
+        # sys clear clears the screen; help is a pager; a key that is no command does nothing
+        words("sys clear")
+        q.send(":help\r")
         q.expect("-- lines 1-", timeout=5)
         q.send("q")
+        q.expect("the line is done", timeout=5)
         q.expect("> ", timeout=5)
-        q.send("?")
-        q.expect("-- lines 1-", timeout=5)
-        q.send("q")
-        q.expect("> ", timeout=5)
-        assert "unknown command (0x78)" in key("x")
         # help of one command, and of an old word
         q.send(":help b3d\r")
         out = _plain(q.expect("\n> ", timeout=10))
         assert "b3d is the old word for 'bench 3d'" in out and "bench 3d [tests=A,B profiles=P]" in out, out
         out = words("sys crash nosuch")
         assert "crash: undef, dabt, pabt, svc, freeze or freeze-irq" in out, out
-        # sys crash with a word: the same crash as X and a key
         q.send(":sys crash dabt\r")
         q.expect("Data abort", timeout=15)
     finally:
@@ -5374,19 +5335,19 @@ def test_reports(b, opts):
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
-        q.send("l")                             # the token printed: it is in the log now
+        q.send(":lua\r")  # the token printed: it is in the log now
         q.expect("lua> ")
         q.send("print('the token is ' .. 'test-token-' .. 4242)\r")
         q.expect("the token is test-token-4242")
         q.send("exit()\r")
         q.expect("> ")
-        q.send("Z")
+        q.send(":report log\r")
         out = q.expect("report: on the SD card: no network", timeout=20).decode(errors="replace")
         m = re.search(r"report: (nodate-[0-9a-f]{6}_log_\S+_\S+\.txt) saved as bm/reports/rpt00001.txt", out)
         assert m, out
         name = m.group(1)
         q.expect("> ")
-        q.send("z")
+        q.send(":report send\r")
         out = q.expect("waiting on the SD card", timeout=20).decode(errors="replace")
         assert "on the SD card: no network; 1 waiting" in out, out
         q.expect("> ")
@@ -5431,9 +5392,7 @@ def test_crash_report(b, opts):
         q.expect(PROMPT)
         q.expect("> ")
         time.sleep(21)                          # past the first 20 s of the boot
-        q.send("X")
-        q.expect("other keys cancel")
-        q.send("a")
+        q.send(":sys crash dabt\r")
         out = q.expect("Restarting in 60 s", timeout=20).decode(errors="replace")
         assert re.search(r"called from:( [0-9a-f]{8})+", out), out
         q.expect("the last run ended in a crash: saved as a report", timeout=120)
@@ -5835,7 +5794,7 @@ def open_tool(q, word, wait=0.0):
 
 
 def _upload(q, data):
-    q.send("U")
+    q.send(":upload\r")
     q.expect("15 s timeout\r\n")
     loader = bm_load.Loader(q.port, echo=q)
     return loader.upload(data)
@@ -6009,7 +5968,7 @@ def test_sd_logs(b, opts):
             q.expect("pw test-pass-4242")
             q.send("exit()\n")
             q.expect("> ")
-            q.send("r")
+            q.send(":sys reboot\r")
             q.expect("restarting: this run's log in bm/lastrun.txt", timeout=20)
             q.expect(MENU, timeout=30)
             q.expect("boot log saved to bm/bootlog.txt", timeout=20)
@@ -6285,7 +6244,7 @@ def test_audio(b, opts):
     try:
         out = q.boot().decode(errors="replace")
         assert "audio: off - no HDMI audio" in out, out
-        q.send("a")
+        q.send(":sys audio\r")
         q.expect("audio: off - no HDMI audio")
         q.expect("> ")
         assert _upload(q, mkbm.pack(AUDIO_CART.encode(), title="audio test"))
@@ -6601,7 +6560,7 @@ def test_bench_stop(b, opts):
     try:
         q.boot()
         time.sleep(0.5)
-        q.send("j")
+        q.send(":bench 3d\r")
         q.expect("b3d spheres ARM n=", timeout=60)       # past the boot's settling: a ramp
         sendkeys(q, "ctrl-esc")
         out = q.expect("3D Bench: stopped; no report saved or sent", timeout=20).decode(errors="replace")
@@ -8718,7 +8677,7 @@ def test_upload_refused_and_corrupt(b, opts):
         q.expect("unknown cartridge format", timeout=10)
         q.expect("> ")
         # CRC failure is reported, the monitor carries on
-        q.send("U")
+        q.send(":upload\r")
         q.expect("15 s timeout\r\n")
         import struct, zlib
         data = b"BMCART\x00\x00" + b"x" * 100
@@ -8813,7 +8772,7 @@ def test_chainloader(b, opts):
         q.boot()
 
         # Reboot from the monitor: chainloader comes back and takes a new kernel.
-        q.send("r")
+        q.send(":sys reboot\r")
         q.expect("rebooting")
         assert loader.wait_ready(timeout=10), "no chainloader after reboot"
         assert loader.upload_file(b("kernel.img")), "second upload failed"

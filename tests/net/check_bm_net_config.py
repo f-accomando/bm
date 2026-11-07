@@ -377,10 +377,13 @@ def main():
     pi_bridge.subprocess.run = lambda cmd, **kw: (seen.append(cmd), R())[1]
     try:
         out = pi_bridge.run("1.2.3.4", "s3cret", "keys crash-dabt")
-        check(seen and seen[-1][-2:] == ["--keys", "Xa"] and "s3cret" not in out, "bridge: keys crash-dabt -> --keys Xa, password hidden")
-        for name, seq in (("monitor", "q"), ("crash-undef", "Xu"), ("crash-prefetch", "Xb")):
+        check(seen and seen[-1][-2:] == ["--line", "sys crash dabt"] and "s3cret" not in out,
+              "bridge: keys crash-dabt -> --line 'sys crash dabt', password hidden")
+        pi_bridge.run("1.2.3.4", "s3cret", "keys monitor")
+        check(seen[-1][-2:] == ["--keys", "q"], "bridge: keys monitor -> --keys q")
+        for name, line in (("crash-undef", "sys crash undef"), ("crash-prefetch", "sys crash pabt")):
             pi_bridge.run("1.2.3.4", "s3cret", "keys " + name)
-            check(seen[-1][-2:] == ["--keys", seq], f"bridge: keys {name} -> {seq}")
+            check(seen[-1][-2:] == ["--line", line], f"bridge: keys {name} -> --line {line}")
         for name, f in (("bootprev", "bootprev.txt"), ("bootlog", "bootlog.txt"), ("lastrun", "lastrun.txt")):
             pi_bridge.run("1.2.3.4", "s3cret", "logs " + name)
             check(seen[-1][-3] == "--get" and seen[-1][-2] == "bm/" + f, f"bridge: logs {name} -> --get bm/{f}")
@@ -402,14 +405,13 @@ def main():
         check("s3cret" not in out and "net_password=***" in out and "s3cret" not in kept,
               "bridge: logs bootprev: the password masked in the answer and in the file kept")
         pi_bridge.subprocess.run = lambda cmd, **kw: (seen.append(cmd), R())[1]
-        for name in ("freeze", "reboot", "crash-dabt"):
+        for name in ("freeze", "freeze-irq", "reboot", "crash-dabt"):
             pi_bridge.run("1.2.3.4", "s3cret", "keys " + name)
-            check(seen[-1][-3] == "--in-monitor" and seen[-1][-2] == "--keys", f"bridge: keys {name} only when the monitor has the keys")
-        check(seen and pi_bridge.run("1.2.3.4", "s3cret", "keys freeze") is not None and seen[-1][-1] == "Xf", "bridge: keys freeze -> Xf")
+            check(seen[-1][-2] == "--line" and "--in-monitor" not in seen[-1], f"bridge: keys {name} is a fixed line")
+        pi_bridge.run("1.2.3.4", "s3cret", "keys freeze")
+        check(seen[-1][-1] == "sys crash freeze", "bridge: keys freeze -> --line 'sys crash freeze'")
         pi_bridge.run("1.2.3.4", "s3cret", "keys reboot")
-        check(seen[-1][-3:] == ["--in-monitor", "--keys", "r"], "bridge: keys reboot -> r")
-        pi_bridge.run("1.2.3.4", "s3cret", "keys monitor")
-        check("--in-monitor" not in seen[-1], "bridge: keys monitor needs no monitor")
+        check(seen[-1][-2:] == ["--line", "sys reboot"], "bridge: keys reboot -> --line 'sys reboot'")
         pi_bridge.run("1.2.3.4", "s3cret", "keys game-exit")
         check(seen[-1][-1] == "--game-exit" and "--keys" not in seen[-1], "bridge: keys game-exit -> --game-exit")
 
@@ -520,14 +522,6 @@ def main():
         check(len(seen) == n, "  nothing run")
     finally:
         pi_bridge.subprocess.run = real
-
-    # --in-monitor: the keys only where the monitor has them
-    mc = NetConsole("the menu (test)")
-    rc, out = run(mc, job=("-P", str(mc.port), "--in-monitor", "--keys", "Xf"))
-    check(rc == 2 and mc.keys == b"" and "monitor only" in out, "--in-monitor --keys in the menu: exit 2, nothing sent")
-    mo = NetConsole("the monitor ('h' for help, M the menu)")
-    rc, out = run(mo, job=("-P", str(mo.port), "--in-monitor", "--keys", "Xf"))
-    check(rc == 0 and mo.keys == b"Xf", "--in-monitor --keys in the monitor: Xf pressed")
 
     # one bridge only: a live socket is respected, a stale file is removed
     import tempfile

@@ -194,7 +194,7 @@ If the list does not show a game's keys, the game did not declare any. [TO FILL:
 
 # The monitor
 
-The monitor is bm's text console. It has a prompt `>` and takes one key per command. It also takes typed commands at the `bm>` prompt. It prints on the screen, on the serial port and on the network console.
+The monitor is bm's text console. It opens the bm shell: a menu of items and a command line (the `bm:` prompt). It prints on the screen, on the serial port and on the network console.
 
 ## How to open it
 
@@ -202,38 +202,50 @@ The monitor is bm's text console. It has a prompt `>` and takes one key per comm
 - Or choose Settings > System > *Open the monitor*.
 - Or connect from the PC: `python3 tools/bm_net.py IP` shows the monitor of a console on the network.
 
-Type `h` for help. The help is made from the table of commands in the kernel, so it always lists every command. `M` goes back to the menu; `Esc` alone does nothing at the prompt.
+## The bm shell menu
+
+The menu is at the left of the screen. A group (System, Network) has a submenu: it opens to the right of the menu, from the same top row, and its name is on its top border.
+
+| Key | What it does |
+|---|---|
+| `w` / `s` or `Up` / `Down` | move in the menu |
+| `Enter`, `d` or `Right` | run the item, or open the group |
+| `a`, `Left` or `Esc` | close the submenu |
+| `Esc` in the main menu | the cartridge menu |
+| `:` | one line of commands (see below) |
+
+The items are: *Command line* (the `bm:` prompt), *Cartridge menu*, *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. On the serial port and on the network console the menu is not drawn: `Enter` runs the first item, the `bm:` prompt, and `:` takes a line.
 
 ## Commands
 
-Each command has a word. The key is a shortcut for the word. The help of the monitor lists all of them. These are the ones that matter to a first-time user:
+Each command has a word. At the `bm:` prompt, and in a `:` line, you type the word. The help (`help`) is made from the table of commands in the kernel, so it always lists every command. These are the ones that matter to a first-time user:
 
-| Key | Word | What it does |
-|---|---|---|
-| `h` or `?` | `help [NAME]` | the help, or the help of one command |
-| `M` | `menu` | the cartridge menu |
-| `f` / `F` | `carts list` / `carts rescan` | list cartridges / read the SD card again |
-| `i` | `sys info` | system information |
-| `m` | `sys heap` | heap usage |
-| `c` | `sys clear` | clear the screen |
-| `l` | `lua` | Lua prompt (`Esc`, `Ctrl-D` or `exit()` returns) |
-| `L` | `sys layout [it\|us]` | keyboard layout, Italian or US |
-| `V` | `sys via-ram [on\|off]` | `.bm` drawing, direct on screen or via RAM |
-| `y` / `Y` | `sys usb` / `sys input` | USB scan / input test |
-| `T` `K` `O` | `bt pair pad` / `kbd` / `mouse` | Bluetooth: pair a pad, a keyboard, a mouse |
-| `P` | `bt forget` | Bluetooth: forget all paired devices (asks first) |
-| `W` | `wifi`, `wifi list`, `wifi join NAME [PASSWORD]`, `wifi forget` | WiFi: start, list networks, join one, forget it |
-| `u` | `update` | update from GitHub (asks first) |
-| `o` | `sys dmesg` | everything printed since boot |
-| `Z` | `report log` | the log since boot, as a report |
-| `r` | `sys reboot` | reboot |
-| `X` | `sys crash [KIND]` | crash tests: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
+| Word | What it does |
+|---|---|
+| `help [NAME]` | the help, or the help of one command |
+| `menu` | the cartridge menu |
+| `carts list` / `carts rescan` | list cartridges / read the SD card again |
+| `sys info` | system information |
+| `sys heap` | heap usage |
+| `sys clear` | clear the screen |
+| `lua` | Lua prompt (`Esc`, `Ctrl-D` or `exit()` returns) |
+| `sys layout [it\|us]` | keyboard layout, Italian or US |
+| `sys via-ram [on\|off]` | `.bm` drawing, direct on screen or via RAM |
+| `sys usb` / `sys input` | USB scan / input test |
+| `bt pair pad` / `kbd` / `mouse` | Bluetooth: pair a pad, a keyboard, a mouse |
+| `bt forget` | Bluetooth: forget all paired devices (asks first) |
+| `wifi`, `wifi list`, `wifi join NAME [PASSWORD]`, `wifi forget` | WiFi: start, list networks, join one, forget it |
+| `update` | update from GitHub (asks first) |
+| `sys dmesg` | everything printed since boot |
+| `report log` | the log since boot, as a report |
+| `sys reboot` | reboot |
+| `sys crash [KIND]` | crash tests: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
 
-Other keys run tests and benchmarks: `k`, `p` and `j` are `bench cpu`, `bench render` and `bench 3d`. `d` is `demo`, `t` is `sys test-pattern`, `a` is `sys audio`. `E` is `net eth`, `G` is `net get URL`, `z` is `report send`, `U` is `upload`. Open an editor with `play NAME` (see the table below).
+Other commands run tests and benchmarks: `bench 3d`, `sys test-pattern`, `sys audio`, `net eth`, `net get URL`, `report send`, `upload`. Open an editor with `play NAME` (see the table below).
 
-## The bm> prompt
+## The bm: prompt
 
-Type `:` and then `Enter`. The prompt `bm> ` opens and stays open. Type `exit` to leave it, or press `Esc`, or press `Ctrl-D` on an empty line.
+Choose *Command line* in the menu. The prompt `bm: ` opens and stays open. Type `exit` to leave it (back to the menu), or press `Esc`, or press `Ctrl-D` on an empty line.
 
 | Key | What it does |
 |---|---|
@@ -248,7 +260,7 @@ It works with a USB keyboard, on the serial port and on the network console. Quo
 
 ## A line of commands
 
-Type `:` and then commands separated by `;`. They run one after the other, and the line stops at the first one that fails. The line runs once, as it always did. The PC tools use it (`bm_net.py IP --line "..."`).
+At the bm shell menu, type `:` and then commands separated by `;`. They run one after the other, and the line stops at the first one that fails. The line runs once, as it always did. The PC tools use it (`bm_net.py IP --line "..."`).
 
 | Command | What it does |
 |---|---|
@@ -413,7 +425,7 @@ To read the files, switch off the console, put the card in the PC and open `bm/`
 3. Choose *Install the update*. It downloads and checks every file before writing anything.
 4. Wait. The old kernel goes to `bm/backup/`, the board's own kernel is written last, and the console restarts.
 
-If something fails, nothing was written until the files were checked. The monitor key `u` does the same, asking first.
+If something fails, nothing was written until the files were checked. The command `update` in the monitor does the same, asking first.
 
 ## From the PC
 

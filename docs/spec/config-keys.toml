@@ -570,18 +570,9 @@ settings = "Settings > Screen > Menu size"
 read_in = "src/kernel/menu_ui.c:1208"
 
 [[key]]
-name = "monitor_keys"
-scope = "pi"
-values = "0 = the monitor opens at the bm> prompt and a key is text; the command hotkey turns the single keys on (Enter or Esc: back to the prompt); exit leaves to the menu. Anything else, or no key = the monitor opens with the single keys on, as before"
-default = "no key (single keys on)"
-meaning = "How the monitor opens on the Pi."
-settings = ""
-read_in = "src/kernel/monitor.c"
-
-[[key]]
 name = "boot"
 scope = "pi"
-values = "shell = the Pi starts at the monitor (the bm> prompt, or the single keys, see monitor_keys) and the command menu opens the cartridge menu; anything else, or no key = the cartridge menu first"
+values = "shell = the Pi starts at the monitor (the bm shell menu) and its item Cartridge menu, or Esc, opens the cartridge menu; anything else, or no key = the cartridge menu first"
 default = "no key (the cartridge menu)"
 meaning = "What the Pi starts with."
 settings = ""
