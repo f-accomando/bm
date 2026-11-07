@@ -4,8 +4,9 @@
  * line editor with history. src/kernel/monitor.c holds the table and the
  * handlers; tests/kernel/test_monitor_cmd.c tests this file on the PC.
  *
- * To add a command: add ONE row to the table in monitor.c. The help, the
- * Tab completion and the single-key shortcut come from that row.
+ * To add a command: add ONE row to the table in monitor.c. The help and the
+ * Tab completion come from that row. The bm shell's menu (smenu_*, below)
+ * is a short list of lines of commands; its drawing is in shell_menu.c.
  */
 #ifndef MONITOR_CMD_H
 #define MONITOR_CMD_H
@@ -23,7 +24,6 @@ typedef struct mcmd {
     const char *name;               /* the word; NULL ends a table */
     const char *args;               /* usage after the name: "NAME [PASSWORD]" (or NULL) */
     const char *help;               /* one line; NULL: no line in the help */
-    char key;                       /* single-key shortcut (0: none) */
     mcmd_fn fn;                     /* NULL: a group with subcommands only */
     const struct mcmd *sub;         /* subcommands (a table), or NULL */
     const char *alias;              /* a hidden old word: the words it stands for ("bench 3d") */
@@ -67,10 +67,6 @@ void mcmd_error_text(const mcmd_t *tab, int err, const mcmd_t *where, const char
 
 /* Names that start like word (or, if none, close to it): "a, b, c" (at most 4); 0 if none. */
 int mcmd_suggest(const mcmd_t *tab, const char *word, char *out, size_t cap);
-
-/* The row of a shortcut key, also inside subcommands; NULL if none. The path
- * of words that reaches it goes to path (for the message). */
-const mcmd_t *mcmd_find_key(const mcmd_t *tab, int key, char *path, size_t cap);
 
 /* The row of a top-level word (an alias row too), or NULL. */
 const mcmd_t *mcmd_find(const mcmd_t *tab, const char *name);
@@ -134,5 +130,34 @@ const char *medit_text(const medit_t *e);
 int medit_in_escape(const medit_t *e);
 /* The i-th line of the history, 0 = the newest; NULL if none. */
 const char *medit_history(const medit_t *e, int i);
+
+/* ---- the menu of the bm shell (no hardware: shell_menu.c draws it) ---- */
+
+typedef struct {
+    const char *label;              /* the text of the item */
+    const char *line;               /* the commands it runs, as a ':' line; NULL: the bm: prompt */
+    int wait;                       /* 1: keep what it printed on the screen until a key is pressed */
+} smenu_item_t;
+
+/* what smenu_feed says */
+#define SMENU_NONE  0               /* nothing to do */
+#define SMENU_MOVE  1               /* the selection moved: draw the menu again */
+#define SMENU_RUN   2               /* Enter: run the item smenu_t.sel */
+#define SMENU_LINE  3               /* ':' : one line of commands, as the PC tools send it */
+#define SMENU_LEAVE 4               /* Esc: the cartridge menu */
+
+typedef struct {
+    const smenu_item_t *items;
+    int n, sel;
+    int esc;                        /* 0, 1 after ESC, 2 in ESC [ or ESC O */
+    int last_cr;                    /* the previous key was \r: a \n after it is no Enter */
+} smenu_t;
+
+void smenu_init(smenu_t *m, const smenu_item_t *items, int n);
+/* One key: w, k, Up and the terminal's ESC [ A go up; s, j, Down and ESC [ B go down (the list
+ * wraps); Enter runs; ':' asks for a line; MEDIT_K_ESC (an Esc that nothing followed) leaves. */
+int smenu_feed(smenu_t *m, int key);
+/* 1 after an ESC byte: more may follow (the caller waits a few ms, then feeds MEDIT_K_ESC). */
+int smenu_in_escape(const smenu_t *m);
 
 #endif

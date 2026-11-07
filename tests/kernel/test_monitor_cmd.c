@@ -53,14 +53,14 @@ static const char *cand_keys(int i)
 }
 
 static const mcmd_t pair_sub[] = {
-    { .name = "pad", .help = "pair a controller", .key = 'T', .fn = h_pad },
-    { .name = "kbd", .help = "pair a keyboard", .key = 'K', .fn = h_pad },
-    { .name = "mouse", .help = "pair a mouse", .key = 'O', .fn = h_pad },
+    { .name = "pad", .help = "pair a controller", .fn = h_pad },
+    { .name = "kbd", .help = "pair a keyboard", .fn = h_pad },
+    { .name = "mouse", .help = "pair a mouse", .fn = h_pad },
     { NULL }
 };
 static const mcmd_t bt_sub[] = {
     { .name = "pair", .help = "pair a device", .sub = pair_sub },
-    { .name = "forget", .args = "[yes]", .help = "forget all", .key = 'P', .fn = h_plain },
+    { .name = "forget", .args = "[yes]", .help = "forget all", .fn = h_plain },
     { NULL }
 };
 static const mcmd_t wifi_sub[] = {
@@ -70,20 +70,20 @@ static const mcmd_t wifi_sub[] = {
     { NULL }
 };
 static const mcmd_t bench_sub[] = {
-    { .name = "cpu", .help = "cpu", .key = 'k', .fn = h_plain },
-    { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, the pages and a long text to wrap", .key = 'j',
+    { .name = "cpu", .help = "cpu", .fn = h_plain },
+    { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, the pages and a long text to wrap",
       .fn = h_3d },
     { NULL }
 };
 static const mcmd_t table[] = {
-    { .name = "help", .args = "[COMMAND]", .help = "this list", .key = 'h', .fn = h_help, .cand = NULL },
-    { .name = "wifi", .help = "start and join", .key = 'W', .fn = h_wifi, .sub = wifi_sub },
+    { .name = "help", .args = "[COMMAND]", .help = "this list", .fn = h_help, .cand = NULL },
+    { .name = "wifi", .help = "start and join", .fn = h_wifi, .sub = wifi_sub },
     { .name = "bt", .help = "Bluetooth", .sub = bt_sub },
     { .name = "bench", .help = "benchmarks", .sub = bench_sub },
     { .name = "set", .args = "[KEY=VALUE ...]", .help = "config keys", .fn = h_set, .cand = cand_keys },
-    { .name = "send", .help = "send", .key = 'z', .fn = h_plain },
+    { .name = "send", .help = "send", .fn = h_plain },
     { .name = "save", .help = "save", .fn = h_plain },
-    { .name = "reboot", .help = "reboot", .key = 'r', .fn = h_plain },
+    { .name = "reboot", .help = "reboot", .fn = h_plain },
     { .name = "exit", .help = "leave", .fn = h_exit },
     { .name = "fail", .help = "fails", .fn = h_fail },
     { .name = "b3d", .alias = "bench 3d" },
@@ -174,13 +174,6 @@ static void test_dispatch(void)
     check(run("") == 0 && calls == 0, "run: an empty line");
     check(run("wifi nope; send") == -1 && calls == 0, "run: bad subcommand stops the line");
 
-    char path[64];
-    const mcmd_t *r = mcmd_find_key(table, 'T', path, sizeof path);
-    check(r && r->fn == h_pad && !strcmp(path, "bt pair pad"), "key: a key inside two levels, its path");
-    r = mcmd_find_key(table, 'W', path, sizeof path);
-    check(r && r->fn == h_wifi && !strcmp(path, "wifi"), "key: a group row with a handler");
-    check(mcmd_find_key(table, 'Q', path, sizeof path) == NULL, "key: none");
-    check(mcmd_find_key(table, 'z', path, sizeof path)->fn == h_plain, "key: a plain command");
     char sug[64];
     check(mcmd_suggest(table, "w", sug, sizeof sug) == 1 && !strcmp(sug, "wifi"), "suggest: one prefix");
     check(mcmd_suggest(table, "b", sug, sizeof sug) == 3 && !strcmp(sug, "bt, bench, b3d"), "suggest: prefixes in table order, aliases too");
@@ -191,8 +184,9 @@ static void test_help(void)
     static char out[4096];
     mcmd_help_all(table, "HEAD\n", "FOOT\n", out, sizeof out);
     check(!strncmp(out, "HEAD\n", 5) && strstr(out, "FOOT\n"), "help: head and foot");
-    check(strstr(out, "  W  wifi ") && strstr(out, "start and join"), "help: a group row with a handler, its key");
-    check(strstr(out, "  T  bt pair pad ") && strstr(out, "  P  bt forget [yes] "), "help: subcommands with their key");
+    check(strstr(out, "\n  wifi ") && strstr(out, "start and join"), "help: a group row with a handler");
+    check(strstr(out, "\n  bt pair pad ") && strstr(out, "\n  bt forget [yes] "), "help: subcommands");
+    check(!strstr(out, "\n  W  ") && !strstr(out, "\n  T  "), "help: no column of keys");
     check(strstr(out, "wifi join NAME [PASSWORD]  join a network") || strstr(out, "wifi join NAME [PASSWORD]"),
           "help: usage with the arguments");
     check(!strstr(out, "  bt  ") && !strstr(out, "bt pair  "), "help: a group with no handler has no line of its own");
@@ -576,11 +570,40 @@ static void test_end_to_end(void)
     check(!strcmp(medit_text(&ed), "wifi join Home \"pass word\""), "e2e: Up brings the line back");
 }
 
+static void test_smenu(void)
+{
+    static const smenu_item_t items[] = { { "One", NULL, 0 }, { "Two", "sys info", 1 }, { "Three", "help", 0 } };
+    smenu_t m;
+    smenu_init(&m, items, 3);
+    check(m.sel == 0 && smenu_feed(&m, 's') == SMENU_MOVE && m.sel == 1, "smenu: s goes down");
+    check(smenu_feed(&m, MEDIT_K_DOWN) == SMENU_MOVE && m.sel == 2, "smenu: Down goes down");
+    check(smenu_feed(&m, 'j') == SMENU_MOVE && m.sel == 0, "smenu: the list wraps at the end");
+    check(smenu_feed(&m, 'w') == SMENU_MOVE && m.sel == 2, "smenu: the list wraps at the start");
+    check(smenu_feed(&m, MEDIT_K_UP) == SMENU_MOVE && m.sel == 1, "smenu: Up goes up");
+    check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_in_escape(&m), "smenu: ESC waits for the rest");
+    check(smenu_feed(&m, '[') == SMENU_NONE && smenu_feed(&m, 'B') == SMENU_MOVE && m.sel == 2 &&
+          !smenu_in_escape(&m), "smenu: a terminal's ESC [ B goes down");
+    check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, 'O') == SMENU_NONE &&
+          smenu_feed(&m, 'A') == SMENU_MOVE && m.sel == 1, "smenu: ESC O A goes up");
+    check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, 'x') == SMENU_NONE && !smenu_in_escape(&m),
+          "smenu: Alt + a key is dropped");
+    check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, MEDIT_K_ESC) == SMENU_LEAVE &&
+          !smenu_in_escape(&m), "smenu: an Esc that nothing followed leaves");
+    check(smenu_feed(&m, '\r') == SMENU_RUN && m.sel == 1 && smenu_feed(&m, '\n') == SMENU_NONE,
+          "smenu: Enter runs the item, a \\n after the \\r is no second Enter");
+    check(smenu_feed(&m, '\n') == SMENU_RUN, "smenu: a lone \\n is Enter");
+    check(smenu_feed(&m, ':') == SMENU_LINE, "smenu: ':' asks for a line");
+    check(smenu_feed(&m, 'z') == SMENU_NONE && smenu_feed(&m, 'q') == SMENU_NONE, "smenu: other keys do nothing");
+    smenu_init(&m, items, 0);
+    check(smenu_feed(&m, 's') == SMENU_NONE, "smenu: an empty list does not move");
+}
+
 int main(void)
 {
     test_tokenizer();
     test_dispatch();
     test_help();
+    test_smenu();
     test_editor_basic();
     test_editor_escape();
     test_history();
