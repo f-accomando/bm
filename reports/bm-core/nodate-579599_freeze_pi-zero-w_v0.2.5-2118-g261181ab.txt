@@ -1,0 +1,52 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2118-g261181ab
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-579599_freeze_pi-zero-w_v0.2.5-2118-g261181ab.txt
+
+the Pi froze (the watchdog restarted it) while: VideoCore firmware does not answer (mailbox, frame 0, 7276 s after boot, kernel v0.2.5-2118-g261181ab, ring 350460, sink on
+--- the last lines printed ---
+playing snes.bm
+play: /bm/snes.bm (106456 bytes)
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+6 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 16719 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16676 us, enlarge 0 us, flip 97 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16634 us, enlarge 0 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 16645 us, enlarge 0 us, flip 98 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16686 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16620 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16643 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16702 us, enlarge 0 us, flip 98 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16667 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16615 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16712 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16665 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16710 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16648 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16663 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16635 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16666 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16610 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16609 us, enlarge 0 us, flip 97 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16553 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16685 us, enlarge 0 us, flip 97 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16647 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16577 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16734 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16692 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16671 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16644 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16584 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 16639 us, enlarge 0 us, flip 98 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16650 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16687 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16648 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 16575 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2001 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS
