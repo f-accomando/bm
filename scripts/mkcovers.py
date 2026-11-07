@@ -243,6 +243,28 @@ def sound():
     return c
 
 
+def snes():
+    c = Canvas()
+    c.vgradient(0, H, 0x15171C, 0x23272F)
+    # a pad: grey body with round ends, a cross, four buttons, start and select
+    c.rect(9, 36, 110, 34, 0x10131C)                          # its shadow
+    c.rect(14, 29, 100, 36, 0xC9CCD4)
+    c.circle(22, 47, 18, 0xC9CCD4)
+    c.circle(106, 47, 18, 0xC9CCD4)
+    c.rect(14, 40, 100, 25, 0xB4B8C2)
+    c.circle(22, 56, 13, 0xB4B8C2)
+    c.circle(106, 56, 13, 0xB4B8C2)
+    c.rect(37, 38, 54, 20, 0x8A8F9C)                          # the middle plate
+    c.rect(18, 45, 22, 7, 0x2B2E38)                           # the cross
+    c.rect(25, 38, 8, 21, 0x2B2E38)
+    for bx, by, col in ((100, 40, 0x35C46E), (90, 47, 0xF2C230), (110, 47, 0xE0483E), (100, 54, 0x3C8CE7)):
+        c.circle(bx, by, 4, col)
+    c.rect(52, 50, 10, 3, 0x2B2E38)                           # select and start
+    c.rect(66, 50, 10, 3, 0x2B2E38)
+    c.ctext("SNES", 4, 0xF2701D, scale=2, outline=0x000000)
+    return c
+
+
 def nano8():
     c = Canvas()
     c.vgradient(0, H, 0x101420, 0x241a38)
@@ -314,7 +336,7 @@ def write():
     return c
 
 
-COVERS = (("editor", editor), ("sound", sound), ("write", write))   # games: scripts/mkartcovers.py
+COVERS = (("editor", editor), ("sound", sound), ("write", write), ("snes", snes))   # games: scripts/mkartcovers.py
 
 
 def main():

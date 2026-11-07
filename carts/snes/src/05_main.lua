@@ -1,14 +1,25 @@
 -- Part 5: the cartridge: ROM list, the frame loop, the screen, the save of the battery RAM.
 
+local APU_LINE = 24                            -- SPC700 cycles in a line (about half speed: the sound is not played)
 local LINE_CYC = 190                            -- CPU cycles in a line (about 7 master clocks each)
 local BTNS = { { "b", 15 }, { "y", 14 }, { "select", 13 }, { "start", 12 }, { "up", 11 }, { "down", 10 },
                { "left", 9 }, { "right", 8 }, { "a", 7 }, { "x", 6 }, { "l1", 5 }, { "r1", 4 } }
+
+-- The SNES buttons sit as A right, B bottom, X top, Y left. On the RGB30 (and Nintendo pads) bm's names
+-- are the same. On a keyboard or an Xbox pad bm's A is the bottom button and X the left one: swap them.
+local swap = false
+local function pad_layout()
+  local c = controller and controller(1)
+  swap = not (c and c.layout == "nintendo")
+end
+local SWAP = { a = "b", b = "a", x = "y", y = "x" }
 
 local function readpad(p)
   local v = 0
   for i = 1, 12 do
     local e = BTNS[i]
-    if btn(e[1], p) then v = v | (1 << e[2]) end
+    local name = swap and SWAP[e[1]] or e[1]
+    if btn(name, p) then v = v | (1 << e[2]) end
   end
   if v & 0x0300 == 0x0300 then v = v & ~0x0300 end        -- left and right together: none
   if v & 0x0C00 == 0x0C00 then v = v & ~0x0C00 end
@@ -50,7 +61,8 @@ local function load_rom(data, name)
   sram = {}
   for i = 1, sramsize do sram[i] = 0 end
   sramdirty = false
-  local base = name:gsub("%.[^.]*$", ""):sub(1, 8)
+  local base = name:gsub("%.[^.]*$", ""):gsub("[^%w_%-]", ""):sub(1, 8)
+  if base == "" then base = "rom" end
   info.srm = base .. ".srm"
   if sramsize > 0 then
     local s = doc_read(info.srm)
@@ -116,6 +128,7 @@ local function run_frame()
     if ia then cpu_run(ia); irqFlag = 1 end
     base = base + LINE_CYC
     cpu_run(base)
+    apu_run(APU_LINE)
     hblank = false
   end
   cyc = cyc - 262 * LINE_CYC
@@ -158,6 +171,7 @@ end
 
 function _init()
   scr = target_create(256, 240)
+  pad_layout()
   frameskip(4)
   list_roms()
 end
@@ -174,7 +188,8 @@ function _update()
     if btnp("x") then list_roms() end
     if btnp("a") and files[sel] then open_rom(files[sel]) end
   elseif state == "run" then
-    if btn("l2") and btn("r2") then holdmenu = holdmenu + 1 else holdmenu = 0 end
+    if (btn("l2") and btn("r2")) or (btn("l1") and btn("r1")) then holdmenu = holdmenu + 1 else holdmenu = 0 end
+    if frames % 120 == 0 then pad_layout() end
     if holdmenu > 30 then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); return end
     run_frame()
     if frames % 600 == 0 then save_sram() end
@@ -222,7 +237,7 @@ function _draw()
       if y > SCREEN_H - 40 then break end
     end
     if msg then print(msg, 16, SCREEN_H - 56, 0xFF6060) end
-    print("A play   X refresh", 16, SCREEN_H - 24, 0x8090A0)
+    print("A play   X refresh   in game: hold L1+R1 (keyboard: Q+E) for the menu", 16, SCREEN_H - 24, 0x8090A0)
     return
   end
   if state == "viewer" then viewer_draw(); return end
@@ -231,7 +246,11 @@ function _draw()
   cls(0)
   local x, y, w, h = fit()
   target_blit(scr, x, y, w, h, 0, 0, 256, lines)
-  if show_fps then print(string.format("%d fps", stat(2)), 4, 4, 0x00FF00) end
+  if show_fps then
+    local run, spc_pc, halt = apu_info()
+    print(string.format("%d fps  blank %02X  tm %02X  sound %s %04X", stat(2), P.inidisp, P.tm,
+      run and (halt and "halt" or "run") or "boot", spc_pc), 4, 4, 0x00FF00)
+  end
   if state == "menu" then
     rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 84, 220, 168, 0x101820)
     rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 84, 220, 168, 0xFFD050)

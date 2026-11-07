@@ -162,31 +162,7 @@ local function ppuread(o)
   return 0
 end
 
------------------------------------------------------------------- APU (SPC700 not emulated)
--- The boot ROM of the sound chip is played as a small state machine: the 0xAA 0xBB
--- greeting, the 0xCC handshake, the block upload and the "run" command. After "run" the
--- four ports echo what the CPU wrote, so most games pass their sound driver handshake.
-local apu_in, apu_out = { 0, 0, 0, 0 }, { 0xAA, 0xBB, 0, 0 }
-local apu_mode, apu_expect = 0, 0
-local function apu_reset()
-  apu_in[1], apu_in[2], apu_in[3], apu_in[4] = 0, 0, 0, 0
-  apu_out[1], apu_out[2], apu_out[3], apu_out[4] = 0xAA, 0xBB, 0, 0
-  apu_mode, apu_expect = 0, 0
-end
-local function apu_write(n, v)               -- n = 1..4
-  apu_in[n] = v
-  if apu_mode == 2 then apu_out[n] = v; return end
-  if n ~= 1 then return end
-  if apu_mode == 0 then
-    if v == 0xCC then apu_out[1] = 0xCC; apu_mode = 1; apu_expect = 0 end
-  elseif v == apu_expect then
-    apu_out[1] = v; apu_expect = (apu_expect + 1) & 0xFF
-  elseif apu_in[2] == 0 then
-    apu_mode = 2; apu_out[1] = v
-  else
-    apu_out[1] = v; apu_expect = 0
-  end
-end
+-- The sound CPU is in 00_spc.lua: apu_in, apu_out, apu_read, apu_write, apu_run, apu_reset.
 
 ------------------------------------------------------------------ CPU I/O ($4200..), joypads
 local nmitimen, nmiflag, irqFlag, vblank, hblank = 0, 0, 0, false, false
@@ -257,7 +233,7 @@ local function ioread(o)
     joyshift2 = ((joyshift2 << 1) | 1) & 0xFFFF
     return b | 0x1C
   end
-  if o >= 0x2140 and o < 0x2180 then return apu_out[(o & 3) + 1] end
+  if o >= 0x2140 and o < 0x2180 then return apu_read((o & 3) + 1) end
   if o >= 0x2100 and o < 0x2200 then return ppuread(o) end
   return 0
 end

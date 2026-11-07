@@ -24,7 +24,8 @@ fi
 python3 - "$root" "$out" <<'PY'
 import sys
 root, out = sys.argv[1:3]
-core = open(root + "/carts/snes/src/01_core.lua").read()
+spc = open(root + "/carts/snes/src/00_spc.lua").read()
+core = spc + "\n" + open(root + "/carts/snes/src/01_core.lua").read()
 cpu = open(root + "/carts/snes/src/02_cpu.lua").read()
 cpu = cpu.replace("\ndo\n", "\n", 1).rstrip()
 assert cpu.endswith("end")
@@ -33,3 +34,9 @@ test = open(root + "/tests/snes/cpu_test.lua").read()
 open(out + "/cpu_all.lua", "w").write(core + "\n" + cpu + "\n" + test)
 PY
 "$out/minilua" "$out/cpu_all.lua"
+python3 - "$root" "$out" <<'PY'
+import sys
+root, out = sys.argv[1:3]
+open(out + "/spc_all.lua", "w").write(open(root + "/carts/snes/src/00_spc.lua").read() + "\n" + open(root + "/tests/snes/spc_test.lua").read())
+PY
+"$out/minilua" "$out/spc_all.lua"
