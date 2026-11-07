@@ -47,15 +47,13 @@ static g16_sheet_t bg_sheet;
 static int bg_sheet_alloced;
 static uintptr_t bg_sig;                /* what the background sheet holds: the picture's address, bit 0 dim (0: nothing yet) */
 
-static int bm_font;                     /* menu_font=bm: the bm font family at 720p and 1080p (a trial, 29 Oct 2026) */
-static int term_font;                   /* menu_font=terminus: retro Terminus font */
-
 static inline const font_t *menu_font(int sc)
 {
-    if (bm_font)
+    const char *mf = config_get("menu_font");
+    if (mf && !strcasecmp(mf, "bm"))
         return sc == 3 ? &font_bm_18x48 : &font_bm_12x32;
-    if (term_font)
-        return &font_console_8x16;
+    if (mf && mf[0])
+        return font_find(mf);
     return sc == 3 ? &font_console_24x48 : sc == 2 ? &font_console_16x32 : &font_inter_8x16;
 }
 #define FRAME_US 16667
@@ -1517,11 +1515,6 @@ int menu_ui_open(framebuffer_t *fb)
                 bg_sheet_alloced = 1;
             }
         }
-    }
-    {
-        const char *mf = config_get("menu_font");
-        bm_font = mf && mf[0] == 'b';
-        term_font = mf && mf[0] == 't';
     }
     char_w = menu_font(scale)->width / scale;      /* 8 with the fonts of today; the text grid and the boxes follow it */
     cols = bgz > 1 ? 8 : (SW - 16) / (CARD_W + GAP_X);    /* 6 at 640, 3 at 360, 8 in the native layouts */

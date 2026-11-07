@@ -141,7 +141,11 @@ int l_font(lua_State *L)
         if (!strcmp(n, "6x12") || !strcmp(n, "small")) rt.g.font = &font_console_6x12;
         else if (!strcmp(n, "8x14") || !strcmp(n, "medium")) rt.g.font = &font_console_8x14;
         else if (!strcmp(n, "8x16") || !strcmp(n, "large")) rt.g.font = &font_console_8x16;
-        else return luaL_argerror(L, 1, "\"6x12\", \"8x14\" or \"8x16\"");
+        else {
+            const font_t *f = font_find(n);
+            if (f) rt.g.font = f;
+            else return luaL_argerror(L, 1, "\"6x12\", \"8x14\", \"8x16\" or .bmf font name");
+        }
     }
     lua_pushinteger(L, rt.g.font->width);
     lua_pushinteger(L, rt.g.font->height);

@@ -1253,31 +1253,34 @@ static int act_screen(int row, int how, home_do_t *d)
         break;
     }
     case R_FONT_UI: {
+        char list[16][16];
+        int count = font_bmf_scan(list, 16);
         const char *v = config_get("menu_font");
-        if (!v || !v[0] || !strcmp(v, "inter"))
-            config_set("menu_font", "terminus");
-        else if (!strcmp(v, "terminus"))
-            config_set("menu_font", "bm");
-        else
-            config_set("menu_font", "inter");
+        if (!v || !v[0]) v = "bm";
+        int idx = 0;
+        for (int i = 0; i < count; i++) {
+            if (strcasecmp(v, list[i]) == 0) { idx = i; break; }
+        }
+        int next = (idx + (how == -1 ? count - 1 : 1)) % count;
+        config_set("menu_font", list[next]);
         config_save();
         ksnprintf(d->note, sizeof d->note, "Font UI: %s", font_ui_choice());
         break;
     }
     case R_FONT_MONITOR: {
+        char list[16][16];
+        int count = font_bmf_scan(list, 16);
         const char *v = config_get("monitor_font");
-        if (!v || !v[0] || !strcmp(v, "terminus"))
-            config_set("monitor_font", "inter");
-        else if (!strcmp(v, "inter"))
-            config_set("monitor_font", "6x12");
-        else
-            config_set("monitor_font", "terminus");
+        if (!v || !v[0]) v = "terminus";
+        int idx = 0;
+        for (int i = 0; i < count; i++) {
+            if (strcasecmp(v, list[i]) == 0) { idx = i; break; }
+        }
+        int next = (idx + (how == -1 ? count - 1 : 1)) % count;
+        config_set("monitor_font", list[next]);
         config_save();
-        const char *new_v = config_get("monitor_font");
-        const font_t *f = &font_console_8x16;
-        if (new_v && !strcmp(new_v, "inter")) f = &font_inter_8x16;
-        else if (new_v && !strcmp(new_v, "6x12")) f = &font_console_6x12;
-        console_set_font(f);
+        const font_t *f = font_find(list[next]);
+        if (f) console_set_font(f);
         ksnprintf(d->note, sizeof d->note, "Font monitor: %s", font_monitor_choice());
         break;
     }

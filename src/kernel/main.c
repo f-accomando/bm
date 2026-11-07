@@ -260,10 +260,11 @@ void kernel_main(uint32_t atags)
     config_load();
     {
         const char *mf = config_get("monitor_font");
-        if (mf && !strcmp(mf, "inter"))
-            console_set_font(&font_inter_8x16);
-        else if (mf && !strcmp(mf, "6x12"))
-            console_set_font(&font_console_6x12);
+        if (mf && mf[0]) {
+            const font_t *f = font_find(mf);
+            if (f)
+                console_set_font(f);
+        }
     }
     if (gpu_qpu_key())                  /* gpu3d_qpu=1 (default off): Yharnam's darkness on the QPUs, ARM fallback */
         bm_fade_accel = qpu_fade_hook;

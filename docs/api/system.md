@@ -235,3 +235,15 @@ local ok, why = doc_write("notes.txt", "shopping:\nbread\nmilk\n")
 if not ok then msg = why end
 for _, d in ipairs(doc_list() or {}) do print(d.name .. " " .. d.size) end
 ```
+
+### Fonts (`/bmf`)
+
+BareMetal bitmap fonts (`.bmf` files in `/bmf` on the SD card).
+
+| Function | Description |
+|---|---|
+| `font_list()` | the fonts in `/bmf`: `{ {name = "terminus", file = "terminus.bmf", size = 4128}, ... }` |
+| `font_read(name)` | the bytes of a font file, or `nil` and the reason |
+| `font_write(name, bytes)` | writes a `.bmf` font file to `/bmf/` (new or replaced); `true`, or `nil` and the reason |
+| `font_delete(name)` | deletes a font file; `true`, or `nil` and the reason |
+

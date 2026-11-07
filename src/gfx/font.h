@@ -21,4 +21,8 @@ extern const font_t font_console_6x12;     /* font("6x12"): 106 x 30 at 640x360 
 extern const font_t font_bm_12x32;          /* the bm font family (scripts/bmfont.py): 720p, ASCII only for now */
 extern const font_t font_bm_18x48;          /* the same at 1080p */
 
+/* Dynamic .bmf font loader (/bmf/<name>.bmf or built-in fallback) */
+const font_t *font_find(const char *name);
+int font_bmf_scan(char list[][16], int max_fonts);
+
 #endif

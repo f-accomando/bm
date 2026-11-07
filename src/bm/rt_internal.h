@@ -473,6 +473,12 @@ int l_doc_read(lua_State *L);
 int l_doc_write(lua_State *L);
 int l_doc_delete(lua_State *L);
 
+/* fonts (api_font.c) */
+int l_font_list(lua_State *L);
+int l_font_read(lua_State *L);
+int l_font_write(lua_State *L);
+int l_font_delete(lua_State *L);
+
 /* sound (api_sound.c) */
 int l_hz(lua_State *L);
 int l_note(lua_State *L);
