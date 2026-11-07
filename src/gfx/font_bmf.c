@@ -87,7 +87,20 @@ const font_t *font_find(const char *name)
             uint8_t h = data[9];
             uint16_t count = (uint16_t)(data[10] | (data[11] << 8));
             size_t bytes_per_glyph = (size_t)h * ((w + 7) / 8);
-            if (len >= BMF_HEADER_SIZE + count * bytes_per_glyph && w > 0 && h > 0) {
+            /* the console and the menus read any of the 256 glyphs of code page 437: a file with fewer
+             * glyphs is copied into a table of 256 with the missing ones blank, and a size that cannot be a
+             * font is refused */
+            if (w > 0 && w <= 32 && h > 0 && h <= 64 && count > 0 && count <= 256 &&
+                len >= BMF_HEADER_SIZE + count * bytes_per_glyph) {
+                uint8_t *table = calloc(256, bytes_per_glyph);
+                if (!table) {
+                    free(data);
+                    return &font_terminus_8x16;
+                }
+                memcpy(table, data + BMF_HEADER_SIZE, count * bytes_per_glyph);
+                free(data);
+                data = table;
+                len = 256 * bytes_per_glyph;
                 if (dynamic_buf)
                     free(dynamic_buf);
                 dynamic_buf = data;
@@ -96,7 +109,7 @@ const font_t *font_find(const char *name)
                 dynamic_name[15] = 0;
                 dynamic_font.width = w;
                 dynamic_font.height = h;
-                dynamic_font.glyphs = dynamic_buf + BMF_HEADER_SIZE;
+                dynamic_font.glyphs = dynamic_buf;
                 return &dynamic_font;
             }
         }

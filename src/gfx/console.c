@@ -1,5 +1,7 @@
 #include "console.h"
 
+#include <stddef.h>
+
 #define MAX_COLS    240     /* 1920 / 8 */
 #define MAX_ROWS    68      /* 1080 / 16 */
 #define STATUS_ROW  0
@@ -47,25 +49,38 @@ static void draw_cell(uint32_t col, uint32_t row, int cursor)
         return;
 
     const cell_t *c = &con.cells[row][col];
-    const uint32_t h = con.font->height;
-    const uint8_t *g = con.font->glyphs + c->ch * h;
+    const uint32_t w = con.font->width, h = con.font->height;
+    const uint32_t bpr = (w + 7) / 8;                   /* bytes of one glyph row */
+    const uint8_t *g = con.font->glyphs + (size_t)c->ch * bpr * h;
     uint32_t fg = con.pal[ATTR_FG(c->attr)];
     uint32_t bg = con.pal[ATTR_BG(c->attr)];
-    uint8_t *line = con.fb->base + row * h * con.fb->pitch + col * 8 * 4;
+    uint8_t *line = con.fb->base + row * h * con.fb->pitch + col * w * 4;
 
+    if (bpr == 1 && w == 8) {                           /* the usual 8-pixel glyph: unrolled */
+        for (uint32_t y = 0; y < h; y++, line += con.fb->pitch) {
+            uint32_t bits = g[y];
+            if (cursor && y >= h - 2)
+                bits = 0xFF;
+            uint32_t *p = (uint32_t *)line;
+            p[0] = bits & 0x80 ? fg : bg;
+            p[1] = bits & 0x40 ? fg : bg;
+            p[2] = bits & 0x20 ? fg : bg;
+            p[3] = bits & 0x10 ? fg : bg;
+            p[4] = bits & 0x08 ? fg : bg;
+            p[5] = bits & 0x04 ? fg : bg;
+            p[6] = bits & 0x02 ? fg : bg;
+            p[7] = bits & 0x01 ? fg : bg;
+        }
+        return;
+    }
+    /* any other width (6x12, 12x32...): a cell is exactly font->width pixels, so the columns that fit
+     * the screen are the ones drawn (cols = width / font->width) */
     for (uint32_t y = 0; y < h; y++, line += con.fb->pitch) {
-        uint32_t bits = g[y];
-        if (cursor && y >= h - 2)
-            bits = 0xFF;
         uint32_t *p = (uint32_t *)line;
-        p[0] = bits & 0x80 ? fg : bg;
-        p[1] = bits & 0x40 ? fg : bg;
-        p[2] = bits & 0x20 ? fg : bg;
-        p[3] = bits & 0x10 ? fg : bg;
-        p[4] = bits & 0x08 ? fg : bg;
-        p[5] = bits & 0x04 ? fg : bg;
-        p[6] = bits & 0x02 ? fg : bg;
-        p[7] = bits & 0x01 ? fg : bg;
+        for (uint32_t x = 0; x < w; x++) {
+            const int on = (cursor && y >= h - 2) || (g[y * bpr + x / 8] & (0x80 >> (x % 8)));
+            p[x] = on ? fg : bg;
+        }
     }
 }
 
@@ -75,7 +90,7 @@ static void redraw_all(void)
         return;
     /* Clear the margins the cell grid does not cover. */
     uint32_t bg = con.pal[ATTR_BG(con.attr)];
-    uint32_t gw = con.cols * 8, gh = con.rows * con.font->height;
+    uint32_t gw = con.cols * con.font->width, gh = con.rows * con.font->height;
     fb_fill_rect(con.fb, gw, 0, con.fb->width - gw, con.fb->height, bg);
     fb_fill_rect(con.fb, 0, gh, gw, con.fb->height - gh, bg);
 
@@ -239,7 +254,7 @@ void console_init(framebuffer_t *fb, const font_t *font)
 {
     con.fb = fb;
     con.font = font;
-    con.cols = fb->width / 8;
+    con.cols = fb->width / font->width;
     con.rows = fb->height / font->height;
     if (con.cols > MAX_COLS) con.cols = MAX_COLS;
     if (con.rows > MAX_ROWS) con.rows = MAX_ROWS;
@@ -259,13 +274,20 @@ void console_init(framebuffer_t *fb, const font_t *font)
 
 void console_set_font(const font_t *font)
 {
-    if (!con.fb || !font)
+    if (!con.fb || !font || !font->width || !font->height)
         return;
+    uint32_t cols = con.fb->width / font->width, rows = con.fb->height / font->height;
+    if (cols < 20 || rows < 4)                          /* too big for the screen: keep the font it has */
+        return;
+    if (cols > MAX_COLS) cols = MAX_COLS;
+    if (rows > MAX_ROWS) rows = MAX_ROWS;
+    for (uint32_t c = con.cols; c < cols; c++) {         /* more columns than before: the status bar covers them too */
+        con.cells[STATUS_ROW][c].ch = ' ';
+        con.cells[STATUS_ROW][c].attr = ATTR_STATUS;
+    }
     con.font = font;
-    con.cols = con.fb->width / font->width;
-    con.rows = con.fb->height / font->height;
-    if (con.cols > MAX_COLS) con.cols = MAX_COLS;
-    if (con.rows > MAX_ROWS) con.rows = MAX_ROWS;
+    con.cols = cols;
+    con.rows = rows;
     console_clear();
 }
 
