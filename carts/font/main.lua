@@ -225,7 +225,7 @@ local buttons = {
 
 function _init()
   mouse(true)
-  local data = load()
+  local data = saved()
   if data and data.glyphs then
     if data.preset and presets[data.preset] then
       active_preset = data.preset
