@@ -1,0 +1,99 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2117-g53834dc2
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-7f67d6_freeze_pi-zero-w_v0.2.5-2117-g53834dc2.txt
+
+the Pi froze (the watchdog restarted it) while: VideoCore firmware does not answer (mailbox, frame 0, 1770 s after boot, kernel v0.2.5-2117-g53834dc2, ring 158558, sink on
+--- the last lines printed ---
+menu: 1920x1080, drawn by the GPU
+menu idle: sd first word <1ms 108 <3ms 13 <10ms 2 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 17958 us, enlarge 0 us, flip 95 us, free time used 18 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 20.5 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+fiber: market did not yield: 58.0 ms past its slice
+menu idle: 300/300 frames, 161 of 832 ms taken, 60.4 ms past a frame; market 149 ms (+58.0, stk 3.2/128K, stop 0.2); min slack -45384 us, paced 0
+menu idle: sd first word <1ms 105 (max 8.2 ms)
+menu stalls: tls handshake 1x last 190.7 worst 190.7 ms
+menu frame: 1x, a frame averages draw 18174 us, enlarge 0 us, flip 95 us, free time used 537 us (300 frames)
+menu idle: sd first word <1ms 70 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 16978 us, enlarge 0 us, flip 97 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 87 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 16492 us, enlarge 0 us, flip 95 us, free time used 19 us (300 frames)
+back to the monitor
+bm: 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 1920x1080, drawn by the GPU
+back to the monitor
+> 
+> 
+the bm: prompt: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves
+bm: bm: menubm: 
+> > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 1920x1080, drawn by the GPU
+menu frame: 1x, a frame averages draw 13484 us, enlarge 0 us, flip 96 us, free time used 41 us (300 frames)
+back to the monitor
+> 
+> 
+> 
+> 
+> 
+Lua 5.4.7  Copyright (C) 1994-2024 Lua.org, PUC-Rio - Esc (empty line), Ctrl-D or exit() to leave
+lua> 
+> > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 1920x1080, drawn by the GPU
+market: nearby consoles: listening as bm-108
+market: catalog 20261107133645, 26 games
+menu idle: 300/300 frames, 139 of 803 ms taken, 54.9 ms past a frame; market 131 ms (+54.9, stk 3.2/128K, stop 45.0); min slack -67558 us, paced 0
+menu idle: sd first word <1ms 57 <3ms 4 (max 8.2 ms)
+menu stalls: tls handshake 1x last 169.0 worst 169.0 ms
+menu frame: 1x, a frame averages draw 18651 us, enlarge 0 us, flip 95 us, free time used 464 us (300 frames)
+menu: Font monitor: Terminus (classic)
+menu idle: sd first word <1ms 57 <3ms 3 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 17033 us, enlarge 0 us, flip 94 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 50 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 16951 us, enlarge 0 us, flip 94 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 63 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 17084 us, enlarge 0 us, flip 96 us, free time used 21 us (300 frames)
+back to the monitor
+> > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 4998 ms ago (tag 0x00048003)
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 3x, 360p on the ARM
+fb_init_depth: mbox_call failed
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
