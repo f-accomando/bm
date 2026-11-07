@@ -1,0 +1,11 @@
+bm report
+kind: crash
+kernel: v0.2.5-2101-g7eff28ac-dirty
+branch: antigravity/bmf-fonts-system
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-b10c61_crash_pi-zero-w_v0.2.5-2101-g7eff28ac-dirty.txt
+
+a crash (the red screen) while: nested exception, frame 0, 7846 s after boot, kernel ?, ring 31255, sink on
+--- the last lines printed ---
+restarting: this run's log in bm/lastrun.txt
