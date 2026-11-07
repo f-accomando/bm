@@ -1,0 +1,71 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2101-g7eff28ac-dirty
+branch: antigravity/bmf-fonts-system
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-7d36f0_freeze_pi-zero-w_v0.2.5-2101-g7eff28ac-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor command "M", frame 0, 4066 s after boot, kernel v0.2.5-2101-g7eff28ac-dirty, ring 91419, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ 652 dropped
+     update+draw avg 34.61 ms (207% of frame), max 48.48 ms, Lua 588 KB
+     dev kit: Lua peak 989 KB, data 322 KB, busiest frame 364k instructions, 953 frames over 16.7 ms, 4609 tokens
+     GPU 3D 1 jobs, 4 triangles a frame, 0.01 ms a frame (bin 4%), max job 15435 us
+report: session_bm-font_pi-zero-w.txt saved as bm/reports/rpt00002.txt
+menu: 1920x1080, drawn by the GPU
+net: saved /bm/font.bm on the SD card (82880 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+covers: all 20 read
+menu idle: 300/300 frames, 662 of 899 ms taken, 101.3 ms past a frame; covers 7 ms (+1.8, stk 0.8/16K), reports 610 ms (+101.3, stk 7.6/128K), netxfer 52 ms (+9.7, stk 1.9/64K, stop 6.1); min slack -129470 us, paced 0
+menu idle: sd first word <1ms 251 <3ms 15 (max 8.2 ms)
+menu stalls: tls handshake 2x last 479.6 worst 479.6 ms
+menu frame: 1x, a frame averages draw 25461 us, enlarge 0 us, flip 95 us, free time used 2209 us (300 frames)
+report: sending session_bm-font_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/antigravity-bmf-fonts-system/session_bm-font_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/antigravity-bmf-fonts-system/session
+
+playing font.bm
+play: /bm/font.bm (82880 bytes), no splash
+load: bm Font 77 ms (close 0, parse 1, assets+state 2, mode 1, audio 0, lua 71)
+
+net: console closed
+net: receiving font.bm (82884 bytes)...
+net: cartridge received, starting it
+bm: Screenshot saved: bm/shots/bmfo0011.png
+bm: "bm Font" suspended (A on its cover resumes it)
+bm: "bm Font" 657 frames, 22.8 fps, 657 dropped
+     update+draw avg 43.17 ms (259% of frame), max 88.87 ms, Lua 753 KB
+     dev kit: Lua peak 988 KB, data 322 KB, busiest frame 495k instructions, 657 frames over 16.7 ms, 4609 tokens
+     GPU 3D 92 jobs, 530 triangles a frame, 2.16 ms a frame (bin 4%), max job 15500 us
+report: session_bm-font_pi-zero-w.txt saved as bm/reports/rpt00003.txt
+menu: 1920x1080, drawn by the GPU
+report: /bm/reports/rpt00001.txt cannot be read
+bm: "bm Font" closed, memory freed
+load: bm Font 103 ms (close 14, parse 1, assets+state 2, mode 1, audio 0, lua 82)
+bm: "bm Font" 28 frames, 24.9 fps, 28 dropped
+     update+draw avg 39.68 ms (238% of frame), max 39.77 ms, Lua 596 KB
+     dev kit: Lua peak 596 KB, data 322 KB, busiest frame 363k instructions, 28 frames over 16.7 ms, 4608 tokens
+     GPU 3D 1 jobs, 137 triangles a frame, 0.55 ms a frame (bin 4%), max job 15411 us
+menu: 1920x1080, drawn by the GPU
+report: sending session_bm-font_pi-zero-w.txt
+back to the monitor
+> M
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 1920x1080, drawn by the GPU
+report: sent to f-accomando/bm, branch reports: reports/antigravity-bmf-fonts-system/session_bm-font_pi-zero-w.txt
+report: sending session_bm-font_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/antigravity-bmf-fonts-system/session_bm-font_pi-zero-w.txt
+report: sending session_bm-font_pi-zero-w.txt
+menu idle: 300/300 frames, 1059 of 899 ms taken, 100.7 ms past a frame; reports 1046 ms (+100.7, stk 7.6/128K, stop 19.4); min slack -20050 us, paced 0
+menu idle: sd first word <1ms 183 <3ms 11 (max 8.2 ms)
+menu stalls: tls handshake 1x last 365.0 worst 365.0 ms
+menu frame: 1x, a frame averages draw 19477 us, enlarge 0 us, flip 99 us, free time used 3532 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/antigravity-bmf-fonts-system/session_bm-font_pi-zero-w.txt
+menu idle: 300/300 frames, 165 of 899 ms taken, 19.4 ms past a frame; reports 153 ms (+22.3, stk 7.6/128K); min slack -20191 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 18865 us, enlarge 0 us, flip 97 us, free time used 550 us (3
