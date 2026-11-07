@@ -44,8 +44,10 @@ local preview_scale = 1 -- 1, 2, or 3
 local dropdown_open = false
 local dropdown_sel_idx = 1
 local new_modal_open = false
+local new_font_name = "mio_font"
 local new_font_size = "8x16"
 local new_font_base = "inter"
+local cursor_tick = 0
 
 local function set_notice(msg)
   notice = msg
@@ -270,32 +272,50 @@ local function paste_glyph()
 end
 
 local function export_font()
-  save({ active_idx = active_font_idx, fonts = fonts })
-  local stem = cur_font.stem or (cur_font.name:gsub("%s+", "_"):lower():sub(1, 12))
+  local stem = cur_font.stem or (cur_font.name:gsub("%s+", "_"):lower():gsub("[^a-z0-9_%-]", ""):sub(1, 12))
+  if stem == "" then stem = "font" end
   local data = pack_bmf(cur_font)
   if font_write then
     local ok, err = font_write(stem, data)
     if ok then
-      set_notice("Salvato in /bmf/" .. stem .. ".bmf!")
+      set_notice("Salvato /bmf/" .. stem .. ".bmf!")
+      return
+    else
+      set_notice("Errore scrittura: " .. tostring(err))
       return
     end
   end
-  set_notice("Salvato nei dati utente (/bm/save)!")
+  set_notice("font_write non disponibile")
 end
 
 local function create_new_font()
   local ncw, nch = 8, 16
   if new_font_size == "8x8" then ncw, nch = 8, 8
   elseif new_font_size == "6x12" then ncw, nch = 6, 12 end
-  
-  local base_hex = HEX_INTER_8X16
-  if new_font_base == "terminus" then base_hex = HEX_ORIG_8X16
-  elseif new_font_base == "6x12" then base_hex = HEX_6X12 end
-  
-  local gl = parse_hex_glyphs(base_hex, nch)
-  local stem = "font_" .. (#fonts + 1)
+
+  local gl
+  if new_font_base == "vuoto" then
+    gl = {}
+    for i = 0, 255 do
+      gl[i] = {}
+      for y = 1, nch do gl[i][y] = 0 end
+    end
+  else
+    local base_hex = HEX_INTER_8X16
+    if new_font_base == "terminus" then base_hex = HEX_ORIG_8X16
+    elseif new_font_base == "6x12" then base_hex = HEX_6X12 end
+    gl = parse_hex_glyphs(base_hex, nch)
+  end
+
+  local raw_name = new_font_name:match("^%s*(.-)%s*$")
+  if not raw_name or raw_name == "" then
+    raw_name = "font_" .. (#fonts + 1)
+  end
+  local stem = raw_name:gsub("%s+", "_"):lower():gsub("[^a-z0-9_%-]", ""):sub(1, 12)
+  if stem == "" then stem = "font_" .. (#fonts + 1) end
+
   local nf = {
-    name = "Custom " .. (#fonts + 1),
+    name = raw_name:sub(1, 15),
     stem = stem,
     cw = ncw,
     ch = nch,
@@ -367,8 +387,8 @@ local DROP_W = 200
 local DROP_ITEM_H = 20
 
 -- Modal Constants
-local MODAL_W = 240
-local MODAL_H = 190
+local MODAL_W = 260
+local MODAL_H = 216
 local MODAL_X = math.floor((640 - MODAL_W) / 2)
 local MODAL_Y = math.floor((360 - MODAL_H) / 2)
 
@@ -419,24 +439,43 @@ function _update()
 
   -- Modal: New Font Creation
   if new_modal_open then
-    if click then
-      -- Dimension options
-      if mx >= MODAL_X + 20 and mx <= MODAL_X + 80 and my >= MODAL_Y + 52 and my <= MODAL_Y + 72 then
-        new_font_size = "8x16"
-      elseif mx >= MODAL_X + 90 and mx <= MODAL_X + 150 and my >= MODAL_Y + 52 and my <= MODAL_Y + 72 then
-        new_font_size = "8x8"
-      elseif mx >= MODAL_X + 160 and mx <= MODAL_X + 220 and my >= MODAL_Y + 52 and my <= MODAL_Y + 72 then
-        new_font_size = "6x12"
-      -- Template options
-      elseif mx >= MODAL_X + 20 and mx <= MODAL_X + 110 and my >= MODAL_Y + 100 and my <= MODAL_Y + 120 then
-        new_font_base = "inter"
-      elseif mx >= MODAL_X + 120 and mx <= MODAL_X + 210 and my >= MODAL_Y + 100 and my <= MODAL_Y + 120 then
-        new_font_base = "terminus"
-      -- Action buttons
-      elseif mx >= MODAL_X + 20 and mx <= MODAL_X + 110 and my >= MODAL_Y + 145 and my <= MODAL_Y + 171 then
+    cursor_tick = cursor_tick + 1
+
+    -- Keyboard typing in modal
+    local k = keyp()
+    while k do
+      if k == "backspace" or k == "\b" then
+        new_font_name = new_font_name:sub(1, -2)
+      elseif k == "return" or k == "\r" or k == "\n" then
         create_new_font()
-      elseif mx >= MODAL_X + 130 and mx <= MODAL_X + 220 and my >= MODAL_Y + 145 and my <= MODAL_Y + 171 then
+        return
+      elseif k == "escape" or k == "esc" or k == "\x1b" then
         new_modal_open = false
+        return
+      elseif #k == 1 and #new_font_name < 14 and k:match("[%w_%-%s]") then
+        new_font_name = new_font_name .. k
+      end
+      k = keyp()
+    end
+
+    if click then
+      -- Dimension options (Y: MODAL_Y + 90, H: 20)
+      if my >= MODAL_Y + 90 and my <= MODAL_Y + 110 then
+        if mx >= MODAL_X + 20 and mx <= MODAL_X + 88 then new_font_size = "8x16"
+        elseif mx >= MODAL_X + 96 and mx <= MODAL_X + 164 then new_font_size = "8x8"
+        elseif mx >= MODAL_X + 172 and mx <= MODAL_X + 240 then new_font_size = "6x12" end
+      -- Template options (Y: MODAL_Y + 132, H: 20)
+      elseif my >= MODAL_Y + 132 and my <= MODAL_Y + 152 then
+        if mx >= MODAL_X + 20 and mx <= MODAL_X + 88 then new_font_base = "inter"
+        elseif mx >= MODAL_X + 96 and mx <= MODAL_X + 164 then new_font_base = "terminus"
+        elseif mx >= MODAL_X + 172 and mx <= MODAL_X + 240 then new_font_base = "vuoto" end
+      -- Action buttons (Y: MODAL_Y + 172, H: 26)
+      elseif my >= MODAL_Y + 172 and my <= MODAL_Y + 198 then
+        if mx >= MODAL_X + 20 and mx <= MODAL_X + 125 then
+          create_new_font()
+        elseif mx >= MODAL_X + 135 and mx <= MODAL_X + 240 then
+          new_modal_open = false
+        end
       end
     end
     return
@@ -473,6 +512,8 @@ function _update()
         elseif dropdown_sel_idx == #fonts + 1 then
           dropdown_open = false
           new_modal_open = true
+          new_font_name = "font_" .. (#fonts + 1)
+          cursor_tick = 0
         elseif dropdown_sel_idx == #fonts + 2 then
           dropdown_open = false
           export_font()
@@ -495,6 +536,8 @@ function _update()
         elseif dropdown_sel_idx == #fonts + 1 then
           dropdown_open = false
           new_modal_open = true
+          new_font_name = "font_" .. (#fonts + 1)
+          cursor_tick = 0
         elseif dropdown_sel_idx == #fonts + 2 then
           dropdown_open = false
           export_font()
@@ -850,39 +893,52 @@ function _draw()
     rectfill(0, 0, 640, 360, 0x88000000) -- backdrop
     rectfill(MODAL_X, MODAL_Y, MODAL_W, MODAL_H, C.panel)
     rect(MODAL_X, MODAL_Y, MODAL_W, MODAL_H, C.cyan)
-    print("Crea Nuovo Font", MODAL_X + 60, MODAL_Y + 12, C.white)
+    print("Crea Nuovo Font", MODAL_X + 68, MODAL_Y + 12, C.white)
 
-    print("Dimensioni glifo:", MODAL_X + 20, MODAL_Y + 36, C.dim)
-    local sizes = { { "8x16", 20 }, { "8x8", 90 }, { "6x12", 160 } }
+    -- Name Input
+    print("Nome file /bmf/<nome>.bmf:", MODAL_X + 20, MODAL_Y + 34, C.dim)
+    rectfill(MODAL_X + 20, MODAL_Y + 48, 220, 20, C.bg)
+    rect(MODAL_X + 20, MODAL_Y + 48, 220, 20, C.cyan)
+    local cur_char_blink = ((cursor_tick // 20) % 2 == 0) and "_" or " "
+    print(new_font_name .. cur_char_blink, MODAL_X + 26, MODAL_Y + 54, C.white)
+
+    -- Dimension options
+    print("Dimensioni glifo:", MODAL_X + 20, MODAL_Y + 76, C.dim)
+    local sizes = { { "8x16", 20 }, { "8x8", 96 }, { "6x12", 172 } }
     for _, s in ipairs(sizes) do
       local bx = MODAL_X + s[2]
-      rectfill(bx, MODAL_Y + 52, 60, 20, (new_font_size == s[1]) and C.cyan or C.btn)
-      rect(bx, MODAL_Y + 52, 60, 20, C.border)
-      print(s[1], bx + 14, MODAL_Y + 56, (new_font_size == s[1]) and C.black or C.btn_text)
+      local is_sel = (new_font_size == s[1])
+      rectfill(bx, MODAL_Y + 90, 68, 20, is_sel and C.cyan or C.btn)
+      rect(bx, MODAL_Y + 90, 68, 20, is_sel and C.white or C.border)
+      print(s[1], bx + 18, MODAL_Y + 95, is_sel and C.black or C.btn_text)
     end
 
-    print("Template base:", MODAL_X + 20, MODAL_Y + 84, C.dim)
-    local templates = { { "Inter", "inter", 20 }, { "Terminus", "terminus", 120 } }
+    -- Template options
+    print("Template base:", MODAL_X + 20, MODAL_Y + 118, C.dim)
+    local templates = { { "Inter", "inter", 20 }, { "Terminus", "terminus", 96 }, { "Vuoto", "vuoto", 172 } }
     for _, t in ipairs(templates) do
       local bx = MODAL_X + t[3]
-      rectfill(bx, MODAL_Y + 100, 90, 20, (new_font_base == t[2]) and C.cyan or C.btn)
-      rect(bx, MODAL_Y + 100, 90, 20, C.border)
-      print(t[1], bx + 16, MODAL_Y + 104, (new_font_base == t[2]) and C.black or C.btn_text)
+      local is_sel = (new_font_base == t[2])
+      rectfill(bx, MODAL_Y + 132, 68, 20, is_sel and C.cyan or C.btn)
+      rect(bx, MODAL_Y + 132, 68, 20, is_sel and C.white or C.border)
+      print(t[1], bx + 8, MODAL_Y + 137, is_sel and C.black or C.btn_text)
     end
 
     -- Confirm / Cancel
-    rectfill(MODAL_X + 20, MODAL_Y + 145, 90, 26, C.green)
-    print("Crea", MODAL_X + 50, MODAL_Y + 152, C.black)
+    rectfill(MODAL_X + 20, MODAL_Y + 172, 105, 26, C.green)
+    print("Crea [Invio]", MODAL_X + 26, MODAL_Y + 180, C.black)
 
-    rectfill(MODAL_X + 130, MODAL_Y + 145, 90, 26, C.btn_hi)
-    rect(MODAL_X + 130, MODAL_Y + 145, 90, 26, C.border)
-    print("Annulla", MODAL_X + 150, MODAL_Y + 152, C.btn_text)
+    rectfill(MODAL_X + 135, MODAL_Y + 172, 105, 26, C.btn_hi)
+    rect(MODAL_X + 135, MODAL_Y + 172, 105, 26, C.border)
+    print("Annulla [Esc]", MODAL_X + 138, MODAL_Y + 180, C.btn_text)
   end
 
   -- Bottom key hints
   rectfill(0, 342, 640, 18, C.panel)
   line(0, 342, 639, 342, C.border)
-  if dropdown_open then
+  if new_modal_open then
+    print("[Tastiera] Digita nome   [Invio] Crea font   [Esc] Annulla", 14, 346, C.cyan)
+  elseif dropdown_open then
     print("[Freccia Su/Giu] Scegli   [Invio] Conferma   [Esc/Tab] Chiudi", 14, 346, C.cyan)
   else
     print("[Mouse] Edita   [Tab] Menu Font   [1/2/3] Zoom   [Ctrl+S] Salva in /bmf", 14, 346, C.dim)
