@@ -1,0 +1,57 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2121-ga339f274-dirty
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-9994cf_freeze_pi-zero-w_v0.2.5-2121-ga339f274-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: playoCore firmware does not answer (mailbox, frame 0, 331 s after boot, kernel v0.2.5-2121-ga339f274-dirty, ring 13453, sink on
+--- the last lines printed ---
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+
+playing snes.bm
+play: /bm/snes.bm (123540 bytes)
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+ draw 16175 us, enlarge 0 us, flip 96 us, free time used 1281 us (300 frames)
+menu frame: 1x, a frame averages draw 13022 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13140 us, enlarge 0 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13178 us, enlarge 0 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13091 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13006 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13195 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13160 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13080 us, enlarge 0 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 12993 us, enlarge 0 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13237 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+net: receiving bm/snes.bm (123540 bytes)...
+net: /bm/snes.bm received (123540 bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 12.6 ms past its slice
+net: saved /bm/snes.bm on the SD card (123540 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+covers: all 20 read
+menu idle: 300/300 frames, 56 of 572 ms taken, 15.1 ms past a frame; covers 7 ms (+1.9, stk 0.9/16K), netxfer 43 ms (+12.6, stk 1.7/64K); min slack -71686 us, paced 0
+menu idle: sd first word <1ms 59 <3ms 3 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13537 us, enlarge 0 us, flip 96 us, free time used 188 us (300 frames)
+menu frame: 1x, a frame averages draw 13180 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13092 us, enlarge 0 us, flip 92 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13005 us, enlarge 0 us, flip 93 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13076 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13157 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13072 us, enlarge 0 us, flip 92 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12986 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13116 us, enlarge 0 us, flip 92 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13142 us, enlarge 0 us, flip 93 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13055 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12975 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13167 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13129 us, enlarge 0 us, flip 93 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13045 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12972 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13864 us, enlarge 0 us, flip 92 us, free time used 35 us (300 frames)
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
