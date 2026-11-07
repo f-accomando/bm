@@ -130,6 +130,7 @@ enum {
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
     R_DEV, R_REC, R_LOCKSCREEN,
+    R_FONT_UI, R_FONT_MONITOR,
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
 
@@ -261,6 +262,30 @@ static const char *menu_layout_choice(void)
 {
     const char *v = config_get("menu_layout");
     return v && v[0] == '1' ? "Native" : "Scaled";
+}
+
+static const char *font_ui_choice(void)
+{
+    const char *v = config_get("menu_font");
+    if (!v || !v[0] || !strcmp(v, "inter"))
+        return "Inter (modern)";
+    if (!strcmp(v, "terminus"))
+        return "Terminus (retro)";
+    if (!strcmp(v, "bm"))
+        return "bm";
+    return v;
+}
+
+static const char *font_monitor_choice(void)
+{
+    const char *v = config_get("monitor_font");
+    if (!v || !v[0] || !strcmp(v, "terminus"))
+        return "Terminus (classic)";
+    if (!strcmp(v, "inter"))
+        return "Inter";
+    if (!strcmp(v, "6x12"))
+        return "6x12 (compact)";
+    return v;
 }
 
 /* CRT filter mode: 1 = off, 2 = rca (default for Pi 1), 3 = hdmi, 4 = on */
@@ -620,6 +645,12 @@ static void panel_screen(home_panel_t *p)
              "At 720p / 1080p: Scaled is the 360p layout drawn bigger; Native uses the whole screen. Next start", "%s",
              menu_layout_choice());
 #endif
+    home_row(p, MENU_ROW_CHOICE, R_FONT_UI, "Font UI",
+             "Font of the menu: Inter (modern), Terminus (retro), bm", "%s",
+             font_ui_choice());
+    home_row(p, MENU_ROW_CHOICE, R_FONT_MONITOR, "Font monitor",
+             "Font of the monitor: Terminus (classic), Inter, 6x12", "%s",
+             font_monitor_choice());
     if (board_is_pi1()) {
         home_row(p, MENU_ROW_CHOICE, R_CRT, "CRT filter",
                  "Emulates CRT scanlines: 1. Off, 2. RCA, 3. HDMI, 4. On", "%s",
@@ -1219,6 +1250,35 @@ static int act_screen(int row, int how, home_do_t *d)
             config_set("menu_layout", "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "menu layout at the next start: %s", menu_layout_choice());
+        break;
+    }
+    case R_FONT_UI: {
+        const char *v = config_get("menu_font");
+        if (!v || !v[0] || !strcmp(v, "inter"))
+            config_set("menu_font", "terminus");
+        else if (!strcmp(v, "terminus"))
+            config_set("menu_font", "bm");
+        else
+            config_set("menu_font", "inter");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "Font UI: %s", font_ui_choice());
+        break;
+    }
+    case R_FONT_MONITOR: {
+        const char *v = config_get("monitor_font");
+        if (!v || !v[0] || !strcmp(v, "terminus"))
+            config_set("monitor_font", "inter");
+        else if (!strcmp(v, "inter"))
+            config_set("monitor_font", "6x12");
+        else
+            config_set("monitor_font", "terminus");
+        config_save();
+        const char *new_v = config_get("monitor_font");
+        const font_t *f = &font_console_8x16;
+        if (new_v && !strcmp(new_v, "inter")) f = &font_inter_8x16;
+        else if (new_v && !strcmp(new_v, "6x12")) f = &font_console_6x12;
+        console_set_font(f);
+        ksnprintf(d->note, sizeof d->note, "Font monitor: %s", font_monitor_choice());
         break;
     }
     case R_USB:

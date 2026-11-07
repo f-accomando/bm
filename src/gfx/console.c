@@ -257,6 +257,18 @@ void console_init(framebuffer_t *fb, const font_t *font)
     console_clear();
 }
 
+void console_set_font(const font_t *font)
+{
+    if (!con.fb || !font)
+        return;
+    con.font = font;
+    con.cols = con.fb->width / font->width;
+    con.rows = con.fb->height / font->height;
+    if (con.cols > MAX_COLS) con.cols = MAX_COLS;
+    if (con.rows > MAX_ROWS) con.rows = MAX_ROWS;
+    console_clear();
+}
+
 int console_active(void)
 {
     return con.active;

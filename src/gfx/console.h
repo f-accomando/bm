@@ -22,6 +22,7 @@ enum {
  * Bytes >= 0x80 are drawn as code page 437 glyphs.
  */
 void console_init(framebuffer_t *fb, const font_t *font);
+void console_set_font(const font_t *font);
 int  console_active(void);
 void console_putc(char c);
 void console_write(const char *s);

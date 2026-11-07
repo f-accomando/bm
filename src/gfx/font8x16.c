@@ -268,3 +268,7 @@ static const uint8_t glyphs[256][16] = {
 const font_t font_console_8x16 = {
     .width = 8, .height = 16, .glyphs = &glyphs[0][0],
 };
+
+const font_t font_terminus_8x16 = {
+    .width = 8, .height = 16, .glyphs = &glyphs[0][0],
+};

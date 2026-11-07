@@ -48,10 +48,15 @@ static int bg_sheet_alloced;
 static uintptr_t bg_sig;                /* what the background sheet holds: the picture's address, bit 0 dim (0: nothing yet) */
 
 static int bm_font;                     /* menu_font=bm: the bm font family at 720p and 1080p (a trial, 29 Oct 2026) */
+static int term_font;                   /* menu_font=terminus: retro Terminus font */
 
 static inline const font_t *menu_font(int sc)
 {
-    return sc == 3 ? &font_console_24x48 : sc == 2 ? &font_console_16x32 : &font_console_8x16;
+    if (bm_font)
+        return sc == 3 ? &font_bm_18x48 : &font_bm_12x32;
+    if (term_font)
+        return &font_console_8x16;
+    return sc == 3 ? &font_console_24x48 : sc == 2 ? &font_console_16x32 : &font_inter_8x16;
 }
 #define FRAME_US 16667
 #define IDLE_MIN_US 3000                /* the least free time a late frame gives the jobs (Pi), times (menu_scale - 1) */
@@ -178,7 +183,7 @@ static inline void m_rect_px(int x0, int y0, int x1, int y1, uint16_t c)
 static inline void m_text(int x, int y, const char *str, uint16_t c)
 {
     if (gpu_draw) {
-        int z = (g.font == menu_font(scale)) ? 1 : scale;
+        int z = (g.font && g.font->width > 8) ? 1 : scale;
         gpu3d_text2d(&g, x * scale, y * scale, str, c, z);
     } else {
         g16_text(&g, x, y, str, c);
@@ -1516,6 +1521,7 @@ int menu_ui_open(framebuffer_t *fb)
     {
         const char *mf = config_get("menu_font");
         bm_font = mf && mf[0] == 'b';
+        term_font = mf && mf[0] == 't';
     }
     char_w = menu_font(scale)->width / scale;      /* 8 with the fonts of today; the text grid and the boxes follow it */
     cols = bgz > 1 ? 8 : (SW - 16) / (CARD_W + GAP_X);    /* 6 at 640, 3 at 360, 8 in the native layouts */
@@ -1911,36 +1917,50 @@ static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
 /* A question in a panel over everything. */
 static void frame_ask(const menu_view_t *v)
 {
-    const int px = WIDE ? 12 * CW : 2 * CW, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
+    const int pw = (WIDE && bgz > 1) ? 520 : (WIDE ? 448 : SW - 32);
+    const int px = (SW - pw) / 2, py = 8 * 16 - 8, ph = 5 * 16 + 16;
     round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_LINE));
     round_rect(px, py, pw, ph, 12, c16(C_BAR));
     zone(px - 2, py - 2, pw + 4, ph + 4, MENU_HIT_ASK, 0, 1);
     char q[64];
     ksnprintf(q, sizeof q, "%s", v->ask);
-    q[pw / CW - 2] = 0;
+    if (pw / CW - 2 < (int)sizeof q - 1)
+        q[pw / CW - 2] = 0;
     m_text((SW / CW - (int)strlen(q)) / 2 * CW, 9 * 16, q, c16(C_TEXT));
     if (v->ask_detail) {
         ksnprintf(q, sizeof q, "%s", v->ask_detail);
-        q[pw / CW - 2] = 0;
+        if (pw / CW - 2 < (int)sizeof q - 1)
+            q[pw / CW - 2] = 0;
         m_text((SW / CW - (int)strlen(q)) / 2 * CW, 10 * 16, q, c16(C_DIM));
     }
-    int c = hint(v, WIDE ? 26 : 4, 12, BTN_A, v->ask_yes ? v->ask_yes : "Close it");
+    const char *yes_label = v->ask_yes ? v->ask_yes : "Close it";
+    chips_dry = 1;
+    int end_col = hint(v, 0, 12, BTN_A, yes_label);
+    end_col = hint(v, end_col + 2, 12, BTN_B, "Cancel");
+    chips_dry = 0;
+    int btn_col = (SW / CW - (end_col - 3)) / 2;
+    if (btn_col < px / CW + 2)
+        btn_col = px / CW + 2;
+    int c = hint(v, btn_col, 12, BTN_A, yes_label);
     hint(v, c + 2, 12, BTN_B, "Cancel");
 }
 
 /* The system's notice, over everything (a kernel arriving, a restart). */
 static void frame_notice(const menu_view_t *v)
 {
-    const int px = WIDE ? 12 * CW : 2 * CW, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
+    const int pw = (WIDE && bgz > 1) ? 520 : (WIDE ? 448 : SW - 32);
+    const int px = (SW - pw) / 2, py = 8 * 16 - 8, ph = 5 * 16 + 16;
     round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_ACCENT));
     round_rect(px, py, pw, ph, 12, c16(C_BAR));
     char q[64];
     ksnprintf(q, sizeof q, "%s", v->notice);
-    q[pw / CW - 2] = 0;
+    if (pw / CW - 2 < (int)sizeof q - 1)
+        q[pw / CW - 2] = 0;
     m_text((SW / CW - (int)strlen(q)) / 2 * CW, 9 * 16, q, c16(C_TEXT));
     if (v->notice_detail) {
         ksnprintf(q, sizeof q, "%s", v->notice_detail);
-        q[pw / CW - 2] = 0;
+        if (pw / CW - 2 < (int)sizeof q - 1)
+            q[pw / CW - 2] = 0;
         m_text((SW / CW - (int)strlen(q)) / 2 * CW, 10 * 16, q, c16(C_DIM));
     }
     if (v->notice_progress >= 0) {

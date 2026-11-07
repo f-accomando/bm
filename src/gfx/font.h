@@ -12,6 +12,8 @@ typedef struct {
 } font_t;
 
 extern const font_t font_console_8x16;
+extern const font_t font_terminus_8x16;    /* CP437 Terminus 8x16 */
+extern const font_t font_inter_8x16;       /* CP437 Inter 8x16 */
 extern const font_t font_console_16x32;     /* 8x16 scaled 2x (menu 720p) */
 extern const font_t font_console_24x48;     /* 8x16 scaled 3x (menu 1080p) */
 extern const font_t font_console_8x14;     /* .bm print(): font("8x14") */
