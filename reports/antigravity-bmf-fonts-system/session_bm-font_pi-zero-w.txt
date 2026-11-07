@@ -3,59 +3,59 @@ kind: session
 kernel: v0.2.5-2101-g7eff28ac-dirty
 branch: antigravity/bmf-fonts-system
 board: Pi Zero W
-date: 2026-11-07 13:47:31
+date: 2026-11-07 15:45:29
 file: session_bm-font_pi-zero-w.txt
 
 session of "bm Font" (the last one: the next run of this game replaces this file)
 options bm3d 7.36 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 3d=none later=0 2d=0 impostor=0 fast=0
-screen 640x360, 3558 frames in 146.1 s, 24.3 fps
+screen 640x360, 293516 frames in 2637.3 s, 111.2 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 40.5 ms, max 48.7 ms, 3558 frames over 16.7 ms
-memory: Lua peak 1000 KB, data 322 KB; code 5260 tokens; busiest frame 364k Lua instructions
-frames that were shown after more than 1.5 frames: 3558
+time of _update + _draw (+ the 3D's wait): avg 8.4 ms, max 71.0 ms, 293516 frames over 16.7 ms
+memory: Lua peak 907 KB, data 322 KB; code 5260 tokens; busiest frame 385k Lua instructions
+frames that were shown after more than 1.5 frames: 18915
 
 time from one picture to the next:
   <= 18 ms (60 fps)    0
-  <= 25 ms             0
-  <= 34 ms (30 fps)    0
-  <= 50 ms             3555
-  <= 100 ms            0
-  > 100 ms (a freeze)  2
+  <= 25 ms             274601
+  <= 34 ms (30 fps)    712
+  <= 50 ms             18187
+  <= 100 ms            15
+  > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 3557 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 293515 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
-  draw (no 3D)    40.4  242%
+  draw (no 3D)    22.9  137%
   3D calls         0.0    0%
-  audio            0.2    1%
+  audio            0.1    0%
   GPU wait         0.0    0%
-  all             40.7  244%
+  all             23.1  139%
 the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
   map        0.0 ms  0.0 calls
   spr        0.0 ms  0.0 calls
   sspr       0.0 ms  0.0 calls
   stack      0.0 ms  0.0 calls
-  print      0.5 ms  29.0 calls
-  shapes     5.9 ms  5448.5 calls
-  all        6.4 ms  5477.5 calls (of the draw's 40.4 ms: the rest is Lua, the light, the 3D)
-audio interrupt: 0.5% of the CPU's time (mean), 0.5% at most in a second
+  print      0.5 ms  29.2 calls
+  shapes     3.4 ms  2552.5 calls
+  all        4.0 ms  2581.8 calls (of the draw's 22.9 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 0.6% of the CPU's time (mean), 0.6% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-     82     3.5   131.9   40.5   0.0   40.5   0.0   0.0    91.4      363      608        1
-    305    12.7   129.1   40.5   0.0   40.4   0.0   0.0    88.6      363      771        1
-    618    25.6    49.2   48.7   0.0   48.6   0.0   0.0     0.4      363      543        1
-     94     4.0    49.1   40.6   0.0   40.5   0.0   0.0     8.4      363      616        1
-    316    13.2    49.0   40.6   0.0   40.5   0.0   0.0     8.4      363      779        1
-     96     4.1    43.4   40.6   0.0   40.5   0.0   0.0     2.8      363      618        1
-   3436   141.1    43.0   40.6   0.1   40.4   0.0   0.0     2.3      363      551        1
-   3558   146.2    42.9   40.6   0.0   40.5   0.0   0.0     2.3      363      641        1
-     97     4.1    42.5   40.6   0.0   40.5   0.0   0.0     1.9      363      619        1
-   2686   110.4    42.2   41.7   0.0   41.7   0.0   0.0     0.4      363      543        1
-   2243    92.2    42.2   41.7   0.0   41.7   0.0   0.0     0.5      363      543        1
-   2982   122.5    42.2   41.7   0.0   41.7   0.0   0.0     0.4      363      543        1
+  142385  3468.8    71.8   71.0  49.7   21.2   0.0   0.0     0.7      205      512        1
+  170420  4093.0    62.7   62.1  40.7   21.4   0.0   0.0     0.5      206      513        1
+     96     3.9    60.5   39.7   0.0   39.6   0.0   0.0    20.7      363      478        1
+  270068  2082.3    51.2   50.9  28.1   22.7   0.0   0.0     0.3      214      524        1
+  292417  2610.9    51.2   50.2  27.2   22.9   0.0   0.0     0.9      215      548        1
+  109955  2696.5    51.1   50.5  27.9   22.5   0.0   0.0     0.5      212      503        1
+  293307  2632.3    50.8   50.2  27.2   23.0   0.0   0.0     0.5      215      554        1
+  97348  2224.2    50.5   49.9  27.4   22.5   0.0   0.0     0.5      212      553        1
+  248632  1549.6    50.4   49.9  27.3   22.5   0.0   0.0     0.5      212      531        1
+  233890  1210.3    50.4   49.5  27.3   22.2   0.0   0.0     0.8      210      532        1
+  240684  1366.7    50.3   49.8  27.3   22.4   0.0   0.0     0.5      212      557        1
+  58702  1309.7    50.2   49.6  27.2   22.3   0.0   0.0     0.6      212      513        1
 
-GPU 3D: 24190 jobs, 25537 triangles a frame, 64.4 ms a frame, longest job seen to its end 13.0 ms
-binner memory: at most 96 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
+GPU 3D: 5056 jobs, 64 triangles a frame, 0.1 ms a frame, longest job seen to its end 9.5 ms
+binner memory: at most 92 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
