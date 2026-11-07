@@ -1062,7 +1062,7 @@ void monitor_run(void)
             redraw = 1;
             break;
         case SMENU_RUN:
-            if (shell_run_item(&items[m.sel]))
+            if (shell_run_item(smenu_current(&m)))
                 carts_menu(console_framebuffer());      /* the PS button */
             redraw = 1;
             break;
