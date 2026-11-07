@@ -10,23 +10,33 @@
 
 #include "gfx/console.h"
 
+static const smenu_item_t system_sub[] = {
+    { "Info",     "sys info",   1, NULL, 0 },
+    { "Log",      "sys dmesg",  0, NULL, 0 },
+    { "3D Bench", "bench 3d",   0, NULL, 0 },
+    { "Reboot",   "sys reboot", 0, NULL, 0 },
+};
+
+static const smenu_item_t network_sub[] = {
+    { "WiFi",            "wifi",        1, NULL, 0 },
+    { "Pair controller", "bt pair pad", 1, NULL, 0 },
+    { "Send reports",    "report send", 1, NULL, 0 },
+};
+
+#define NSUB(a) ((int)(sizeof (a) / sizeof (a)[0]))
+
 static const smenu_item_t items[] = {
-    { "Command line",    NULL,          0 },
-    { "Cartridge menu",  "menu",        0 },
-    { "Lua",             "lua",         0 },
-    { "Info",            "sys info",    1 },
-    { "Log",             "sys dmesg",   0 },
-    { "WiFi",            "wifi",        1 },
-    { "Pair controller", "bt pair pad", 1 },
-    { "Send reports",    "report send", 1 },
-    { "3D Bench",        "bench 3d",    0 },
-    { "Reboot",          "sys reboot",  0 },
-    { "Help",            "help",        0 },
+    { "Command line",   NULL,   0, NULL, 0 },
+    { "Cartridge menu", "menu", 0, NULL, 0 },
+    { "Lua",            "lua",  0, NULL, 0 },
+    { "System",         NULL,   0, system_sub, NSUB(system_sub) },
+    { "Network",        NULL,   0, network_sub, NSUB(network_sub) },
+    { "Help",           "help", 0, NULL, 0 },
 };
 
 const smenu_item_t *shell_menu_items(int *n)
 {
-    *n = (int)(sizeof items / sizeof items[0]);
+    *n = NSUB(items);
     return items;
 }
 
@@ -43,48 +53,97 @@ static void rep(char c, int n)
         console_putc(c);
 }
 
-void shell_menu_draw(const smenu_t *m)
+static void box(int r, int c, int h, int w)
 {
-    static const char title[] = " bm shell ";
-    static const char hint[] = "w/s or arrows: move   Enter: run   ':' a line   Esc: cartridge menu";
-    uint32_t cols, rows;
-    console_size(&cols, &rows);
-
-    int w = (int)strlen(title) + 4;
-    for (int i = 0; i < m->n; i++) {
-        const int l = (int)strlen(m->items[i].label) + 6;
-        if (l > w)
-            w = l;
-    }
-    const int h = m->n + 2;
-    int c0 = ((int)cols - w) / 2 + 1;
-    if (c0 < 1)
-        c0 = 1;
-    const int r0 = 2;
-
-    console_write("\x1b[0m\x1b[2J\x1b[H");
-    at(r0, c0);
+    at(r, c);
     console_putc((char)0xDA);
     rep((char)0xC4, w - 2);
     console_putc((char)0xBF);
-    at(r0, c0 + 2);
-    console_write(title);
-    for (int i = 0; i < m->n; i++) {
-        at(r0 + 1 + i, c0);
+    for (int i = 1; i < h - 1; i++) {
+        at(r + i, c);
         console_putc((char)0xB3);
-        if (i == m->sel)
-            console_write("\x1b[7m");
-        char row[80];
-        snprintf(row, sizeof row, " %-*s ", w - 4, m->items[i].label);
-        console_write(row);
-        console_write("\x1b[0m");
+        at(r + i, c + w - 1);
         console_putc((char)0xB3);
     }
-    at(r0 + h - 1, c0);
+    at(r + h - 1, c);
     console_putc((char)0xC0);
     rep((char)0xC4, w - 2);
     console_putc((char)0xD9);
-    at(r0 + h + 1, 1);
+}
+
+/* The longest label of a list, plus the room for the border, a space each side and the arrow. */
+static int box_width(const smenu_item_t *it, int n, int least)
+{
+    int w = least;
+    for (int i = 0; i < n; i++) {
+        const int l = (int)strlen(it[i].label) + 6;
+        if (l > w)
+            w = l;
+    }
+    return w;
+}
+
+/* One row inside a box: " label" padded, a ">" on a group (the console draws no glyph for code 0x10). style: the SGR to start it. */
+static void item_row(int r, int c, int w, const smenu_item_t *it, const char *style)
+{
+    char row[80];
+    const int iw = w - 2;
+    if (iw >= (int)sizeof row)
+        return;
+    memset(row, ' ', (size_t)iw);
+    row[iw] = 0;
+    const int l = (int)strlen(it->label);
+    memcpy(row + 1, it->label, (size_t)(l < iw - 2 ? l : iw - 2));
+    if (it->sub)
+        row[iw - 1] = '>';
+    at(r, c + 1);
+    console_write(style);
+    console_write(row);
+    console_write("\x1b[0m");
+}
+
+void shell_menu_draw(const smenu_t *m)
+{
+    static const char title[] = " bm shell ";
+    static const char hint[] = "w/s: move   Enter or d: open   a or Esc: back   ':' a line";
+    uint32_t cols, rows;
+    console_size(&cols, &rows);
+    (void)cols;
+
+    const int c0 = 1, r0 = 2;                   /* at the left, not centred */
+    const int w = box_width(m->items, m->n, (int)strlen(title) + 4);
+    const int h = m->n + 2;
+    int bottom = r0 + h - 1;
+
+    console_write("\x1b[0m\x1b[2J\x1b[H");
+    box(r0, c0, h, w);
+    at(r0, c0 + 2);
+    console_write(title);
+    for (int i = 0; i < m->n; i++) {
+        const char *style = i != m->sel ? "\x1b[0m" : m->in_sub ? "\x1b[1m" : "\x1b[7m";
+        item_row(r0 + 1 + i, c0, w, &m->items[i], style);
+    }
+
+    const smenu_item_t *g = &m->items[m->sel];
+    if (m->n > 0 && g->sub) {                   /* its submenu, to the right of the main one */
+        const int sw = box_width(g->sub, g->nsub, 12);
+        const int sh = g->nsub + 2;
+        int sr = r0 + 1 + m->sel;               /* the top of it on the row of the group */
+        const int room = (int)rows - 5;
+        if (sr + sh - 1 > room)
+            sr = room - sh + 1;
+        if (sr < r0)
+            sr = r0;
+        const int sc = c0 + w + 1;
+        box(sr, sc, sh, sw);
+        for (int i = 0; i < g->nsub; i++) {
+            const char *style = !m->in_sub ? "\x1b[90m" : i == m->subsel ? "\x1b[7m" : "\x1b[0m";
+            item_row(sr + 1 + i, sc, sw, &g->sub[i], style);
+        }
+        if (sr + sh - 1 > bottom)
+            bottom = sr + sh - 1;
+    }
+    at(bottom + 2, 1);
     console_write(hint);
-    at(r0 + h + 3, 1);                          /* the marker of the serial line goes below the box */
+    at(bottom + 4, 1);                          /* the marker of the serial line goes below the boxes */
 }

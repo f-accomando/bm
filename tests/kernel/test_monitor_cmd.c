@@ -572,7 +572,10 @@ static void test_end_to_end(void)
 
 static void test_smenu(void)
 {
-    static const smenu_item_t items[] = { { "One", NULL, 0 }, { "Two", "sys info", 1 }, { "Three", "help", 0 } };
+    static const smenu_item_t sub[] = { { "A", "sys info", 1, NULL, 0 }, { "B", "help", 0, NULL, 0 } };
+    static const smenu_item_t items[] = { { "One", NULL, 0, NULL, 0 },
+                                          { "Group", NULL, 0, sub, 2 },
+                                          { "Three", "menu", 0, NULL, 0 } };
     smenu_t m;
     smenu_init(&m, items, 3);
     check(m.sel == 0 && smenu_feed(&m, 's') == SMENU_MOVE && m.sel == 1, "smenu: s goes down");
@@ -587,15 +590,37 @@ static void test_smenu(void)
           smenu_feed(&m, 'A') == SMENU_MOVE && m.sel == 1, "smenu: ESC O A goes up");
     check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, 'x') == SMENU_NONE && !smenu_in_escape(&m),
           "smenu: Alt + a key is dropped");
-    check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, MEDIT_K_ESC) == SMENU_LEAVE &&
-          !smenu_in_escape(&m), "smenu: an Esc that nothing followed leaves");
-    check(smenu_feed(&m, '\r') == SMENU_RUN && m.sel == 1 && smenu_feed(&m, '\n') == SMENU_NONE,
+
+    /* a group: Enter or Right opens it, the keys then move inside it */
+    check(smenu_feed(&m, '\r') == SMENU_MOVE && m.in_sub && m.subsel == 0, "smenu: Enter opens a group");
+    check(smenu_current(&m) == &sub[0], "smenu: the current item is in the submenu");
+    check(smenu_feed(&m, 's') == SMENU_MOVE && m.subsel == 1 && m.sel == 1, "smenu: s moves in the submenu");
+    check(smenu_feed(&m, 's') == SMENU_MOVE && m.subsel == 0, "smenu: the submenu wraps");
+    check(smenu_feed(&m, '\n') == SMENU_RUN && smenu_current(&m)->line &&
+          !strcmp(smenu_current(&m)->line, "sys info"), "smenu: Enter in the submenu runs its item");
+    check(smenu_feed(&m, 'a') == SMENU_MOVE && !m.in_sub && m.sel == 1, "smenu: a closes the submenu");
+    check(smenu_feed(&m, MEDIT_K_RIGHT) == SMENU_MOVE && m.in_sub, "smenu: Right opens a group");
+    check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, MEDIT_K_ESC) == SMENU_MOVE && !m.in_sub,
+          "smenu: Esc in a submenu closes it and does not leave");
+    check(smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, '[') == SMENU_NONE &&
+          smenu_feed(&m, 'C') == SMENU_MOVE && m.in_sub &&
+          smenu_feed(&m, 0x1B) == SMENU_NONE && smenu_feed(&m, '[') == SMENU_NONE &&
+          smenu_feed(&m, 'D') == SMENU_MOVE && !m.in_sub, "smenu: a terminal's ESC [ C opens, ESC [ D closes");
+    check(smenu_feed(&m, 's') == SMENU_MOVE && m.sel == 2 && m.subsel == 0, "smenu: a new item starts at the top");
+
+    /* an item: Enter runs, Right does nothing, Esc leaves */
+    check(smenu_feed(&m, MEDIT_K_RIGHT) == SMENU_NONE && !m.in_sub, "smenu: Right on an item does nothing");
+    check(smenu_feed(&m, '\r') == SMENU_RUN && smenu_current(&m) == &items[2] && smenu_feed(&m, '\n') == SMENU_NONE,
           "smenu: Enter runs the item, a \\n after the \\r is no second Enter");
     check(smenu_feed(&m, '\n') == SMENU_RUN, "smenu: a lone \\n is Enter");
+    smenu_init(&m, items, 3);
+    check(smenu_feed(&m, '\r') == SMENU_RUN && smenu_current(&m) == &items[0], "smenu: the first item has no line (the prompt)");
+    check(smenu_feed(&m, MEDIT_K_ESC) == SMENU_LEAVE, "smenu: Esc in the main menu leaves");
     check(smenu_feed(&m, ':') == SMENU_LINE, "smenu: ':' asks for a line");
     check(smenu_feed(&m, 'z') == SMENU_NONE && smenu_feed(&m, 'q') == SMENU_NONE, "smenu: other keys do nothing");
+    check(smenu_feed(&m, 'a') == SMENU_NONE, "smenu: close with no submenu does nothing");
     smenu_init(&m, items, 0);
-    check(smenu_feed(&m, 's') == SMENU_NONE, "smenu: an empty list does not move");
+    check(smenu_feed(&m, 's') == SMENU_NONE && smenu_feed(&m, '\r') == SMENU_NONE, "smenu: an empty list does not move");
 }
 
 int main(void)

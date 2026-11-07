@@ -887,6 +887,8 @@ void smenu_init(smenu_t *m, const smenu_item_t *items, int n)
     m->items = items;
     m->n = n;
     m->sel = 0;
+    m->in_sub = 0;
+    m->subsel = 0;
     m->esc = 0;
     m->last_cr = 0;
 }
@@ -896,11 +898,45 @@ int smenu_in_escape(const smenu_t *m)
     return m->esc != 0;
 }
 
+const smenu_item_t *smenu_current(const smenu_t *m)
+{
+    const smenu_item_t *it = &m->items[m->sel];
+    return m->in_sub && it->sub ? &it->sub[m->subsel] : it;
+}
+
 static int smenu_step(smenu_t *m, int d)
 {
+    const smenu_item_t *it = m->n > 0 ? &m->items[m->sel] : NULL;
+    if (m->in_sub && it && it->sub) {
+        m->subsel = (m->subsel + d + it->nsub) % it->nsub;
+        return SMENU_MOVE;
+    }
     if (m->n <= 0)
         return SMENU_NONE;
     m->sel = (m->sel + d + m->n) % m->n;
+    m->subsel = 0;
+    return SMENU_MOVE;
+}
+
+/* Enter or Right: a group opens, an item runs (Right on an item does nothing) */
+static int smenu_open(smenu_t *m, int enter)
+{
+    if (m->n <= 0)
+        return SMENU_NONE;
+    const smenu_item_t *it = &m->items[m->sel];
+    if (it->sub && !m->in_sub) {
+        m->in_sub = 1;
+        m->subsel = 0;
+        return SMENU_MOVE;
+    }
+    return enter ? SMENU_RUN : SMENU_NONE;
+}
+
+static int smenu_close(smenu_t *m)
+{
+    if (!m->in_sub)
+        return SMENU_NONE;
+    m->in_sub = 0;
     return SMENU_MOVE;
 }
 
@@ -910,7 +946,7 @@ int smenu_feed(smenu_t *m, int key)
     m->last_cr = 0;
     if (key == MEDIT_K_ESC) {
         m->esc = 0;
-        return SMENU_LEAVE;
+        return m->in_sub ? smenu_close(m) : SMENU_LEAVE;
     }
     if (m->esc == 1) {                  /* ESC [ or ESC O: a terminal's arrow key follows */
         if (key == '[' || key == 'O') {
@@ -922,11 +958,13 @@ int smenu_feed(smenu_t *m, int key)
     }
     if (m->esc == 2) {
         m->esc = 0;
-        if (key == 'A')
-            return smenu_step(m, -1);
-        if (key == 'B')
-            return smenu_step(m, 1);
-        return SMENU_NONE;
+        switch (key) {
+        case 'A': return smenu_step(m, -1);
+        case 'B': return smenu_step(m, 1);
+        case 'C': return smenu_open(m, 0);
+        case 'D': return smenu_close(m);
+        default: return SMENU_NONE;
+        }
     }
     switch (key) {
     case 0x1B:
@@ -936,11 +974,15 @@ int smenu_feed(smenu_t *m, int key)
         return smenu_step(m, -1);
     case MEDIT_K_DOWN: case 's': case 'j':
         return smenu_step(m, 1);
+    case MEDIT_K_RIGHT: case 'd': case 'l':
+        return smenu_open(m, 0);
+    case MEDIT_K_LEFT: case 'a': case 'h':
+        return smenu_close(m);
     case '\r':
         m->last_cr = 1;
-        return SMENU_RUN;
+        return smenu_open(m, 1);
     case '\n':
-        return was_cr ? SMENU_NONE : SMENU_RUN;
+        return was_cr ? SMENU_NONE : smenu_open(m, 1);
     case ':':
         return SMENU_LINE;
     default:

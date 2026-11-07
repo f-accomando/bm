@@ -133,29 +133,38 @@ const char *medit_history(const medit_t *e, int i);
 
 /* ---- the menu of the bm shell (no hardware: shell_menu.c draws it) ---- */
 
-typedef struct {
+/* An item is a command line to run, the bm: prompt (no line, no sub) or a group (sub: its items, drawn
+ * to the right of the main menu). */
+typedef struct smenu_item {
     const char *label;              /* the text of the item */
     const char *line;               /* the commands it runs, as a ':' line; NULL: the bm: prompt */
     int wait;                       /* 1: keep what it printed on the screen until a key is pressed */
+    const struct smenu_item *sub;   /* a group: the items of its submenu, or NULL */
+    int nsub;
 } smenu_item_t;
 
 /* what smenu_feed says */
 #define SMENU_NONE  0               /* nothing to do */
-#define SMENU_MOVE  1               /* the selection moved: draw the menu again */
-#define SMENU_RUN   2               /* Enter: run the item smenu_t.sel */
+#define SMENU_MOVE  1               /* the selection or the open submenu changed: draw the menu again */
+#define SMENU_RUN   2               /* Enter on an item that runs: smenu_current() */
 #define SMENU_LINE  3               /* ':' : one line of commands, as the PC tools send it */
-#define SMENU_LEAVE 4               /* Esc: the cartridge menu */
+#define SMENU_LEAVE 4               /* Esc in the main menu: the cartridge menu */
 
 typedef struct {
     const smenu_item_t *items;
-    int n, sel;
+    int n, sel;                     /* the main menu */
+    int in_sub, subsel;             /* 1: the submenu of items[sel] has the keys; its selection */
     int esc;                        /* 0, 1 after ESC, 2 in ESC [ or ESC O */
     int last_cr;                    /* the previous key was \r: a \n after it is no Enter */
 } smenu_t;
 
 void smenu_init(smenu_t *m, const smenu_item_t *items, int n);
+/* The item Enter runs now: in the submenu if it is open, else in the main menu. */
+const smenu_item_t *smenu_current(const smenu_t *m);
 /* One key: w, k, Up and the terminal's ESC [ A go up; s, j, Down and ESC [ B go down (the list
- * wraps); Enter runs; ':' asks for a line; MEDIT_K_ESC (an Esc that nothing followed) leaves. */
+ * wraps); Enter, d, l and Right open a group or run an item; a, h and Left close the submenu; ':'
+ * asks for a line; MEDIT_K_ESC (an Esc that nothing followed) closes the submenu, or in the main
+ * menu leaves. */
 int smenu_feed(smenu_t *m, int key);
 /* 1 after an ESC byte: more may follow (the caller waits a few ms, then feeds MEDIT_K_ESC). */
 int smenu_in_escape(const smenu_t *m);
