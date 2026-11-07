@@ -2,9 +2,9 @@
 
 An emulator of the Super Nintendo. The machine is written in C and is part of the kernel (`src/bm/snes_*.c`, one
 global machine). The cartridge `carts/snes/` is its user interface in Lua: it lists the ROMs, passes the pads and
-draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-07): the C core passes its tests
-(`make test-snes`) and plays the test ROM. A first version in Lua ran at 2 fps on the Pi Zero W, so the machine was
-written again in C. No commercial ROM was tried yet and the speed on the Pi Zero W and the RGB30 is not measured.
+draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-07): Super Mario World reaches its title screen and demo on the Pi Zero W (the user's ROM, checked with the bridge). It
+draws about 9 frames a second there, so it is not yet playable at speed. The C core passes its tests (`make test-snes`). A first version
+in Lua ran at 2 fps, so the machine was written again in C. The RGB30 is not measured.
 
 ## How to use it
 
@@ -19,7 +19,7 @@ written again in C. No commercial ROM was tried yet and the speed on the Pi Zero
    Hold L2 and R2 (keyboard: Q and E) for half a second to open the emulator menu (resume, reset, FPS, back to the list).
 5. The battery RAM goes to `/docs/<name>.srm` (the first 8 letters of the ROM name). The cartridge saves it every 10 seconds,
    in the menu and at exit.
-6. A game that keeps the screen off shows an orange line at the bottom after 3 seconds: the PC of the CPU, the last registers it
+6. A game that keeps the screen off shows two orange lines at the bottom after 3 seconds: the PC of the CPU, the last registers it
    read, and the state of the sound CPU. Send it when a game stays black. The menu item "FPS" shows `fps`, `blank` (INIDISP),
    `tm` (layers on) and the sound CPU.
 
@@ -52,8 +52,12 @@ written again in C. No commercial ROM was tried yet and the speed on the Pi Zero
 
 ## Open work
 
-- Speed: measure on the Pi Zero W and the RGB30 with a real game (the FPS item of the menu). If it is short: draw only the layers
-  that are on, skip the sub screen when no colour math is on, a fast path for the CPU's most common opcodes.
+- Speed: 9 fps drawn on the Pi Zero W (title of Super Mario World). The cartridge draws every other frame (`snes_frame(..., render)`);
+  layers on neither screen are not drawn. Measure where the time goes (the PPU's per-pixel work, the CPU's bus calls) and cut it: a per-line
+  cache of the tile rows, a fast path for lines with no colour math or window, a fast path for the CPU's most common opcodes. Measure on
+  the RGB30 too.
+- A test build: set `AUTO = true` (and `show_fps = true`) in `carts/snes/src/main.lua` to open the first ROM of /sfc by itself. With the bridge
+  (`pi.py play`, `pi.py shot`) it runs a ROM and reads the screen with no key press. Put them back to false before a commit.
 - Sound: the DSP is not emulated, its registers are stored and no sound is made. The SPC700 runs at full speed (65 cycles a line).
 - Picture: hires modes 5 and 6, mosaic, offset-per-tile (modes 2 and 4), direct colour, interlace, mode 7 EXTBG, the sprite
   limits of 34 tiles a line.

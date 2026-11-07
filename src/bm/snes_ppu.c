@@ -23,12 +23,14 @@ void ppu_cgram_write(int i)
 /* the layer buffers of a line: the colour index (0 = clear) and the priority */
 static uint8_t bgi[4][256], bgp[4][256], obi[256], obp[256], obmath[256];
 static uint8_t winm[6][256];            /* 1 = the layer is hidden at this x (BG1..BG4, OBJ, colour) */
+static uint8_t win_on[6];               /* the layer has a window */
 
 /* ------------------------------------------------------------------ backgrounds */
 static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
 {
     uint8_t *oi = bgi[n], *op = bgp[n];
     memset(oi, 0, 256); memset(op, 0, 256);
+    if (!((S.tm | S.ts) & (1 << n))) return;            /* the layer is on neither screen: nothing to draw */
     const int big = (S.bgmode >> (4 + n)) & 1, tsz = big ? 16 : 8;
     const int sc = S.sc[n], wide = sc & 1, tall = sc & 2;
     const uint32_t map_base = (uint32_t)(sc & 0xFC) << 9;       /* bytes */
@@ -122,6 +124,7 @@ static const uint8_t obj_h[8][2] = { {8,16}, {8,32}, {8,64}, {16,32}, {16,64}, {
 static void draw_obj(int y)
 {
     memset(obi, 0, 256); memset(obp, 0, 256); memset(obmath, 0, 256);
+    if (!((S.tm | S.ts) & 16)) return;
     const int sz = S.obsel >> 5;
     const uint32_t base0 = (uint32_t)(S.obsel & 7) << 14;
     const uint32_t base1 = base0 + ((uint32_t)(((S.obsel >> 3) & 3) + 1) << 13);
@@ -164,7 +167,8 @@ static void draw_obj(int y)
 static void window_mask(int layer, int en1, int inv1, int en2, int inv2, int log)
 {
     uint8_t *m = winm[layer];
-    if (!en1 && !en2) { memset(m, 0, 256); return; }
+    win_on[layer] = (uint8_t)(en1 || en2);
+    if (!en1 && !en2) return;
     for (int x = 0; x < 256; x++) {
         int w1 = (x >= S.wh0 && x <= S.wh1) ^ inv1;
         int w2 = (x >= S.wh2 && x <= S.wh3) ^ inv2;
@@ -197,17 +201,31 @@ static const slot_t ord2[] = { {OB,3}, {B1,1}, {OB,2}, {B2,1}, {OB,1}, {B1,0}, {
 static const slot_t ord6[] = { {OB,3}, {B1,1}, {OB,2}, {OB,1}, {B1,0}, {OB,0} };
 static const slot_t ord7[] = { {OB,3}, {OB,2}, {OB,1}, {B1,0}, {OB,0} };
 
-/* the colour at x of a screen (the layers in `en`, hidden by their windows when `wm` says so):
- * its colour index in *idx, the layer in *lay (6 = the backdrop) and whether a sprite allows maths */
-static void pick(const slot_t *o, int n, int x, int en, int wm, int *idx, int *lay, int *omath)
+/* the layers of a screen that are on, in order (what pick() looks through) */
+typedef struct { uint8_t layer, prio, win; } fslot_t;
+static int build_list(const slot_t *o, int n, int en, int wm, fslot_t *out)
 {
+    int k = 0;
     for (int i = 0; i < n; i++) {
         const int l = o[i].layer;
         if (!(en & (1 << l))) continue;
+        out[k].layer = o[i].layer; out[k].prio = o[i].prio;
+        out[k].win = (uint8_t)(((wm >> l) & 1) && win_on[l]);
+        k++;
+    }
+    return k;
+}
+
+/* the colour at x of a screen: its colour index in *idx, the layer in *lay (6 = the backdrop) and whether a
+ * sprite allows maths */
+static inline void pick(const fslot_t *o, int n, int x, int *idx, int *lay, int *omath)
+{
+    for (int i = 0; i < n; i++) {
+        const int l = o[i].layer;
         int c;
-        if (l == OB) { if (!obi[x] || obp[x] != o[i].prio) continue; c = obi[x]; }
-        else { if (!bgi[l][x] || bgp[l][x] != o[i].prio) continue; c = bgi[l][x]; }
-        if ((wm & (1 << l)) && winm[l][x]) continue;
+        if (l == OB) { c = obi[x]; if (!c || obp[x] != o[i].prio) continue; }
+        else { c = bgi[l][x]; if (!c || bgp[l][x] != o[i].prio) continue; }
+        if (o[i].win && winm[l][x]) continue;
         *idx = c; *lay = l; *omath = l == OB ? obmath[x] : 1;
         return;
     }
@@ -235,17 +253,19 @@ void ppu_line(int y)
     draw_obj(y);
     build_windows();
     const int main_en = (S.tm & (nbg_mask | 16)), sub_en = (S.ts & (nbg_mask | 16));
-    const int main_wm = S.tmw, sub_wm = S.tsw;
+    fslot_t mlist[12], slist[12];
+    const int nm = build_list(ord, nord, main_en, S.tmw, mlist);
+    const int ns = build_list(ord, nord, sub_en, S.tsw, slist);
     const int math_on = (S.cgadsub & 0x3F) != 0;
     const int bright = S.inidisp & 15;
     const int clipmode = S.cgwsel >> 6, premode = (S.cgwsel >> 4) & 3, use_sub = S.cgwsel & 2;
     const int add = !(S.cgadsub & 0x80), half = (S.cgadsub & 0x40) != 0;
     for (int x = 0; x < SNES_W; x++) {
         int idx, lay, om;
-        pick(ord, nord, x, main_en, main_wm, &idx, &lay, &om);
+        pick(mlist, nm, x, &idx, &lay, &om);
         unsigned c = S.pal[idx];                         /* index 0: the backdrop, colour 0 */
         unsigned r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
-        const int cw = winm[5][x];
+        const int cw = win_on[5] ? winm[5][x] : 0;
         int clip = clipmode == 3 || (clipmode == 1 && !cw) || (clipmode == 2 && cw);
         if (clip) r = g = b = 0;
         int prevent = premode == 3 || (premode == 1 && !cw) || (premode == 2 && cw);
@@ -254,7 +274,7 @@ void ppu_line(int y)
             int from_layer = 0;
             if (use_sub) {
                 int si, sl, so;
-                pick(ord, nord, x, sub_en, sub_wm, &si, &sl, &so);
+                pick(slist, ns, x, &si, &sl, &so);
                 if (sl != 6) { unsigned sc = S.pal[si]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; from_layer = 1; }
             }
             int rr, gg, bb;

@@ -4,7 +4,8 @@
  *
  *   snes_load(bytes)            -> true, or nil and why        loads and resets
  *   snes_reset()                                               a reset of the machine
- *   snes_frame(pad1, pad2)                                     one frame; a pad is bits (SNES_PAD_* in snes.h)
+ *   snes_frame(pad1, pad2, [render])                           one frame; a pad is bits (SNES_PAD_* in snes.h);
+ *                                                              render false: the picture is not drawn
  *   snes_draw(target)           -> lines                       copies the picture (256 x lines) to the top left of a
  *                                                              render target of 256 x 240 or bigger
  *   snes_info()                 -> {title, hirom, size, sram}
@@ -15,6 +16,7 @@
 #include "rt_internal.h"
 #include "snes.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "lauxlib.h"
@@ -43,7 +45,7 @@ int l_snes_reset(lua_State *L)
 
 int l_snes_frame(lua_State *L)
 {
-    snes_frame((uint16_t)luaL_optinteger(L, 1, 0), (uint16_t)luaL_optinteger(L, 2, 0));
+    snes_frame((uint16_t)luaL_optinteger(L, 1, 0), (uint16_t)luaL_optinteger(L, 2, 0), lua_isnone(L, 3) || lua_toboolean(L, 3));
     return 0;
 }
 
@@ -112,5 +114,26 @@ int l_snes_debug(lua_State *L)
     lua_pushinteger(L, d.tm); lua_setfield(L, -2, "tm");
     lua_pushinteger(L, d.nmitimen); lua_setfield(L, -2, "nmi");
     lua_pushinteger(L, d.frames); lua_setfield(L, -2, "frames");
+    char hex[96];
+    int n = 0;
+    for (int i = 0; i < 12; i++) n += snprintf(hex + n, sizeof hex - (size_t)n, "%02X", d.cpu_code[i]);
+    lua_pushstring(L, hex); lua_setfield(L, -2, "cpu_code");
+    n = 0;
+    for (int i = 0; i < 12; i++) n += snprintf(hex + n, sizeof hex - (size_t)n, "%02X", d.spc_code[i]);
+    lua_pushstring(L, hex); lua_setfield(L, -2, "spc_code");
+    snprintf(hex, sizeof hex, "in %02X%02X%02X%02X out %02X%02X%02X%02X t %02X%02X%02X F1 %02X tg %02X%02X%02X en %X wr %lu",
+             d.port_in[0], d.port_in[1], d.port_in[2], d.port_in[3], d.port_out[0], d.port_out[1], d.port_out[2],
+             d.port_out[3], d.timer_out[0], d.timer_out[1], d.timer_out[2], d.spc_ctl, d.spc_tgt[0], d.spc_tgt[1],
+             d.spc_tgt[2], d.spc_en, (unsigned long)d.spc_writes);
+    lua_pushstring(L, hex); lua_setfield(L, -2, "ports");
+    char tb[160];
+    n = 0;
+    for (int i = 0; i < 12; i++)
+        n += snprintf(tb + n, sizeof tb - (size_t)n, "%c%d:%02X ", (d.trace[i] >> 12) == 1 ? 'c' : 's', (d.trace[i] >> 8) & 15, d.trace[i] & 255);
+    lua_pushstring(L, tb); lua_setfield(L, -2, "trace");
+    n = 0;
+    for (int i = 0; i < 12; i++)
+        n += snprintf(tb + n, sizeof tb - (size_t)n, "%d:%02X ", (d.trace_s[i] >> 8) & 15, d.trace_s[i] & 255);
+    lua_pushstring(L, tb); lua_setfield(L, -2, "trace_s");
     return 1;
 }

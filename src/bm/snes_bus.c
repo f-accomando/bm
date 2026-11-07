@@ -457,7 +457,7 @@ void snes_reset(void)
     cpu_reset();
 }
 
-void snes_frame(uint16_t pad1, uint16_t pad2)
+void snes_frame(uint16_t pad1, uint16_t pad2, int render)
 {
     if (!S.rom) return;
     S.joy1 = pad1; S.joy2 = pad2;
@@ -495,7 +495,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2)
         S.line_clk = 0;
         snes_clk -= end;
         spc_run(65);
-        if (L < S.lines) ppu_line(L);
+        if (L < S.lines && render) ppu_line(L);
     }
     S.frames++;
 }
@@ -562,5 +562,13 @@ void snes_debug(snes_debug_t *d)
     cpu_info(&d->pc, &d->flags);
     for (int i = 0; i < 6; i++) d->io[i] = S.io_log[(S.io_idx + 1 + i) % 6];
     spc_info(&d->spc_running, &d->spc_halted, &d->spc_pc);
+    for (int i = 0; i < 12; i++) d->cpu_code[i] = raw_read((d->pc - 8 + (uint32_t)i) & 0xFFFFFF);   /* 8 bytes before the PC and 4 after */
+    spc_trace(d->trace);
+    spc_trace_s(d->trace_s);
+    {
+        uint8_t regs[8];
+        spc_peek(d->spc_pc, d->spc_code, 12, d->port_in, d->port_out, d->timer_out, regs);
+        d->spc_ctl = regs[0]; d->spc_tgt[0] = regs[1]; d->spc_tgt[1] = regs[2]; d->spc_tgt[2] = regs[3]; d->spc_en = regs[4]; d->spc_writes = (uint32_t)(regs[5] | (regs[6] << 8) | (regs[7] << 16));
+    }
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;
 }

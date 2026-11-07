@@ -3,6 +3,7 @@
 -- battery RAM in /docs and has the menu. Original code.
 
 local SW, SH = 256, 240
+local AUTO = false            -- a test build opens the first ROM by itself (the bridge cannot press keys)
 
 -- the SNES buttons as bits (snes.h): B Y Select Start Up Down Left Right A X L R
 local BTNS = { { "b", 0x8000 }, { "y", 0x4000 }, { "select", 0x2000 }, { "start", 0x1000 }, { "up", 0x0800 },
@@ -79,6 +80,7 @@ function _init()
   pad_layout()
   frameskip(4)
   list_roms()
+  if AUTO and files[1] then open_rom(files[1]) end
 end
 
 function _exit()
@@ -95,7 +97,7 @@ function _update()
   elseif state == "run" then
     if (btn("l2") and btn("r2")) or (btn("l1") and btn("r1")) then holdmenu = holdmenu + 1 else holdmenu = 0 end
     if holdmenu > 30 then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); return end
-    snes_frame(readpad(1), readpad(2))
+    snes_frame(readpad(1), readpad(2), frames % 2 == 0)      -- the picture every other frame: the draw takes most of the time
     frames = frames + 1
     if frames % 120 == 0 then pad_layout() end
     if frames % 600 == 0 then save_sram() end
@@ -145,13 +147,15 @@ function _draw()
   local x, y, w, h = fit(lines)
   target_blit(scr, x, y, w, h, 0, 0, SW, lines)
   local d = snes_debug()
-  if d.inidisp & 0x80 ~= 0 and frames > 180 and state == "run" then      -- a game that keeps the screen off: say why
+  if d.inidisp & 0x80 ~= 0 and frames > 180 then      -- a game that keeps the screen off: say why
     local io = {}
     for i = 1, 6 do io[i] = string.format("%04X", d.io[i]) end
     print(string.format("screen off: PC %06X%s%s  nmi %02X  sound %s %04X", d.pc, d.wai and " WAI" or "",
       d.stp and " STP" or "", d.nmi, d.spc, d.spc_pc), 4, SCREEN_H - 32, 0xFF8040)
     print("reads: " .. table.concat(io, " ") .. "  " .. snes_info().mapping .. " " .. snes_info().title, 4,
       SCREEN_H - 16, 0xFF8040)
+    print("cpu " .. d.cpu_code .. "  spc " .. d.spc_code, 4, SCREEN_H - 48, 0xFF8040)
+    print("ports " .. d.ports, 4, SCREEN_H - 64, 0xFF8040)
   end
   if show_fps then
     print(string.format("%d fps  blank %02X  tm %02X  sound %s %04X", stat(2), d.inidisp, d.tm, d.spc, d.spc_pc), 4, 4, 0x00FF00)

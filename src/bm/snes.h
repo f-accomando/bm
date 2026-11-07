@@ -40,7 +40,7 @@ typedef struct {
 int snes_load(const uint8_t *data, size_t len, const char **why);
 void snes_reset(void);
 /* one frame with the two pads; the picture is ready after it */
-void snes_frame(uint16_t pad1, uint16_t pad2);
+void snes_frame(uint16_t pad1, uint16_t pad2, int render);   /* render 0: the picture is not drawn (a frame that is skipped) */
 /* the picture: SNES_W x lines of RGB565 (lines is 224 or 239) */
 const uint16_t *snes_picture(int *lines);
 const snes_info_t *snes_info(void);
@@ -57,6 +57,13 @@ typedef struct {
     uint16_t spc_pc;
     uint8_t inidisp, tm, nmitimen;
     uint32_t frames;
+    uint8_t cpu_code[12];               /* the bytes at the CPU PC */
+    uint8_t spc_code[12];               /* the bytes at the sound PC */
+    uint8_t port_in[4], port_out[4];    /* the four ports: written by the CPU, written by the sound CPU */
+    uint8_t timer_out[3];
+    uint16_t trace[12], trace_s[12];
+    uint32_t spc_writes;                /* port writes by the CPU since the reset */
+    uint8_t spc_ctl, spc_tgt[3], spc_en;   /* $F1, the timer targets, which timers run */
 } snes_debug_t;
 void snes_debug(snes_debug_t *d);
 
@@ -65,6 +72,9 @@ void spc_reset(void);
 void spc_port_write(int n, uint8_t v);      /* n = 0..3, the main CPU writes */
 uint8_t spc_port_read(int n);
 void spc_run(int cycles);
+void spc_trace_s(uint16_t *out12);         /* the sound CPU's writes */
+void spc_trace(uint16_t *out12);           /* the last 12 port events, oldest first */
 void spc_info(int *running, int *halted, uint16_t *pc);
+void spc_peek(uint16_t addr, uint8_t *out, int n, uint8_t *pin, uint8_t *pout, uint8_t *tout, uint8_t *regs);
 
 #endif

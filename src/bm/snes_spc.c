@@ -23,6 +23,14 @@ static unsigned acc16, acc128;
 static int running, halted;
 static int ipl_state, ipl_expect, ipl_pending;
 static uint16_t ipl_dest;
+static uint16_t tr[12], tr_s[12];               /* the last port events: 0x1nvv CPU wrote port n, 0x2nvv the sound CPU did */
+static int tr_i, tr_si;
+static void trace(int who, int n, uint8_t v)
+{
+    const uint16_t e = (uint16_t)((who << 12) | (n << 8) | v);
+    if (who == 1) { tr[tr_i] = e; tr_i = (tr_i + 1) % 12; } else { tr_s[tr_si] = e; tr_si = (tr_si + 1) % 12; }
+}
+static uint32_t nwrites, nreads;       /* the port traffic, for the debug line */
 
 static uint8_t rd(uint16_t a)
 {
@@ -53,7 +61,7 @@ static void wr(uint16_t a, uint8_t v)
         break;
     case 0xF2: dspaddr = v; break;
     case 0xF3: if (dspaddr < 128) dsp[dspaddr] = v; break;
-    case 0xF4: case 0xF5: case 0xF6: case 0xF7: apu_out[a - 0xF4] = v; break;
+    case 0xF4: case 0xF5: case 0xF6: case 0xF7: apu_out[a - 0xF4] = v; trace(2, a - 0xF4, v); break;
     case 0xFA: case 0xFB: case 0xFC: tgt[a - 0xFA] = v; break;
     default: break;
     }
@@ -378,7 +386,7 @@ static void ipl_sync(void)
     const uint16_t addr = (uint16_t)(apu_in[2] | (apu_in[3] << 8));
     if (ipl_state == 0) {
         if (v != 0xCC) return;
-        if (apu_in[1] == 0) { rPC = addr; running = 1; halted = 0; return; }
+        if (apu_in[1] == 0) { apu_out[0] = v; rPC = addr; running = 1; halted = 0; return; }
         ipl_dest = addr; ipl_expect = 0; ipl_state = 1;
         apu_out[0] = 0xCC;
     } else if (v == ipl_expect) {
@@ -386,6 +394,7 @@ static void ipl_sync(void)
         apu_out[0] = v;
         ipl_expect = (ipl_expect + 1) & 255;
     } else if (apu_in[1] == 0) {
+        apu_out[0] = v;                             /* the boot ROM echoes the command before the jump too */
         rPC = addr; running = 1; halted = 0;
     } else {
         ipl_dest = addr; ipl_expect = 0;
@@ -396,6 +405,8 @@ static void ipl_sync(void)
 void spc_port_write(int n, uint8_t v)
 {
     n &= 3;
+    nwrites++;
+    trace(1, n, v);
     if (!running) {
         if (n != 1) ipl_sync();
         apu_in[n] = v;
@@ -407,6 +418,7 @@ void spc_port_write(int n, uint8_t v)
 
 uint8_t spc_port_read(int n)
 {
+    nreads++;
     if (!running) ipl_sync();
     return apu_out[n & 3];
 }
@@ -425,4 +437,18 @@ void spc_run(int cycles)
     timers((unsigned)n);
 }
 
+void spc_trace(uint16_t *out) { for (int i = 0; i < 12; i++) out[i] = tr[(tr_i + i) % 12]; }
+void spc_trace_s(uint16_t *out) { for (int i = 0; i < 12; i++) out[i] = tr_s[(tr_si + i) % 12]; }
+
 void spc_info(int *r, int *h, uint16_t *pc) { *r = running; *h = halted; *pc = rPC; }
+
+void spc_peek(uint16_t addr, uint8_t *out, int n, uint8_t *pin, uint8_t *pout, uint8_t *tout_, uint8_t *regs)
+{
+    for (int i = 0; i < n; i++) out[i] = ram[(uint16_t)(addr + i)];
+    memcpy(pin, apu_in, 4);
+    memcpy(pout, apu_out, 4);
+    memcpy(tout_, tout, 3);
+    regs[0] = ctl; regs[1] = tgt[0]; regs[2] = tgt[1]; regs[3] = tgt[2];
+    regs[5] = (uint8_t)nwrites; regs[6] = (uint8_t)(nwrites >> 8); regs[7] = (uint8_t)(nwrites >> 16);
+    regs[4] = (uint8_t)(tenable[0] | (tenable[1] << 1) | (tenable[2] << 2));
+}

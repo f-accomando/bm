@@ -98,6 +98,7 @@ static void upload(uint16_t addr, const uint8_t *b, int n)
     }
     spc_port_write(2, (uint8_t)addr); spc_port_write(3, (uint8_t)(addr >> 8));
     spc_port_write(1, 0); spc_port_write(0, (uint8_t)(n + 1));
+    CHECK("jump echo", spc_port_read(0) == (uint8_t)(n + 1));   /* the game waits for it before it goes on */
 }
 
 static void spc_tests(void)
