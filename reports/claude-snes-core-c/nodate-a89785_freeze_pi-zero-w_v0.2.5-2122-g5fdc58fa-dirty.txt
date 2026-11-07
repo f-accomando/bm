@@ -1,0 +1,79 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2122-g5fdc58fa-dirty
+branch: claude/snes-core-c
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-a89785_freeze_pi-zero-w_v0.2.5-2122-g5fdc58fa-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 1111, 335 s after boot, kernel v0.2.5-2122-g5fdc58fa-dirty, ring 9842, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+eived, starting it
+load: bm SNES 56 ms (close 0, parse 0, assets+state 1, mode 1, audio 0, lua 52)
+bm: Screenshot saved: bm/shots/bmsn0011.png
+
+net: console opened from 192.168.1.115
+> bm: "bm SNES" 254 frames, 5.7 fps, 254 dropped
+     update+draw avg 172.56 ms (1035% of frame), max 205.16 ms, Lua 767 KB
+     dev kit: Lua peak 767 KB, data 129 KB, busiest frame 2k instructions, 254 frames over 16.7 ms, 1115 tokens
+     GPU 3D 2242 jobs, 33200 triangles a frame, 98.52 ms a frame (bin 5%), max job 11248 us
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+report: sending session_bm-snes_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-snes-core-c/session_bm-snes_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 457 of 536 ms taken, 101.7 ms past a frame; reports 441 ms (+101.7, stk 7.8/128K); min slack -16181 us, paced 0
+menu idle: sd first word <1ms 129 <3ms 6 (max 1.5 ms)
+menu stalls: tls handshake 1x last 300.0 worst 300.0 ms
+menu frame: 1x, a frame averages draw 15066 us, enlarge 0 us, flip 96 us, free time used 1524 us (300 frames)
+net: receiving snes.bm (38108 bytes)...
+net: cartridge received, starting it
+load: bm SNES 56 ms (close 0, parse 0, assets+state 1, mode 1, audio 0, lua 52)
+bm: Screenshot saved: bm/shots/bmsn0012.png
+bm: Screenshot saved: bm/shots/bmsn0013.png
+
+net: console opened from 192.168.1.115
+> bm: "bm SNES" 1111 frames, 5.2 fps, 1111 dropped
+     update+draw avg 190.00 ms (1139% of frame), max 205.25 ms, Lua 63 KB
+     dev kit: Lua peak 1123 KB, data 129 KB, busiest frame 2k instructions, 1111 frames over 16.7 ms, 1115 tokens
+     GPU 3D 345 jobs, 1166 triangles a frame, 3.46 ms a frame (bin 5%), max job 11227 us
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 104.0 ms past its slice
+report: sending session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 399 of 379 ms taken, 103.7 ms past a frame; reports 382 ms (+104.0, stk 7.8/128K); min slack -16160 us, paced 0
+menu idle: sd first word <1ms 144 <3ms 6 (max 1.5 ms)
+menu stalls: tls handshake 1x last 350.2 worst 350.2 ms
+menu frame: 1x, a frame averages draw 14976 us, enlarge 0 us, flip 97 us, free time used 1330 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/claude-snes-core-c/session_bm-snes_pi-zero-w.txt
+
+net: console closed
+net: receiving a new kernel (6363604 bytes)...
+net: kernel 0% (0 of 6214 KB)
+net: kernel 10% (622 of 6214 KB)
+net: kernel 20% (1248 of 6214 KB)
+net: kernel 30% (1873 of 6214 KB)
+menu idle: 300/300 frames, 42 of 735 ms taken, 21.1 ms past a frame; reports 30 ms (+21.8, stk 7.8/128K); min slack -13872 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 16123 us, enlarge 0 us, flip 97 us, free time used 140 us (300 frames)
+net: kernel 40% (2494 of 6214 KB)
+net: kernel 50% (3114 of 6214 KB)
+net: kernel 60% (3737 of 6214 KB)
+net: kernel 70% (4355 of 6214 KB)
+menu frame: 1x, a frame averages draw 16384 us, enlarge 0 us, flip 97 us, free time used 39 us (300 frames)
+net: kernel 80% (4972 of 6214 KB)
+net: kernel 90% (5599 of 6214 KB)
+net: dev mode: kernel received (6363604 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 24.7 ms past its slice
+fiber: netxfer did not yield: 40.2 ms past its slice
+menu idle: 300/300 frames, 451 of 899 ms taken, 27.2 ms past a frame; netxfer 882 ms (+40.2, stk 1.2/64K); min slack -105910 us, paced 0
+menu idle: sd first word <1ms 186 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 17744 us, enlarge 0 us, flip 100 us, free time used 1503 us (300 frames)
+net: saved kernel.img on the SD card (6363604 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
