@@ -1,0 +1,77 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2122-g5fdc58fa-dirty
+branch: claude/snes-core-c
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-eb991a_freeze_pi-zero-w_v0.2.5-2122-g5fdc58fa-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 2275, 212 s after boot, kernel v0.2.5-2122-g5fdc58fa-dirty, ring 7184, sink on
+--- the last lines printed ---
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 20 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.5 ms past its slice
+net: time 2026-11-07 20:51 UTC
+fiber: reports did not yield: 102.6 ms past its slice
+report: sending nodate-f3d945_freeze_pi-zero-w_v0.2.5-2122-g5fdc58fa-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-snes-core-c/nodate-f3d945_freeze_pi-zero-w_v0.2.5-2122-g5fdc58fa-dirty.txt
+menu idle: 300/300 frames, 597 of 650 ms taken, 105.2 ms past a frame; covers 117 ms (+3.1, stk 0.8/16K), reports 460 ms (+102.6, stk 7.6/128K); min slack -42730 us, paced 0
+menu idle: sd first word <1ms 205 <3ms 12 (max 1.4 ms)
+menu stalls: tls handshake 1x last 302.5 worst 302.5 ms
+menu frame: 1x, a frame averages draw 14913 us, enlarge 0 us, flip 96 us, free time used 1992 us (300 frames)
+net: receiving snes.bm (38252 bytes)...
+net: cartridge received, starting it
+load: bm SNES 56 ms (close 0, parse 0, assets+state 1, mode 1, audio 0, lua 52)
+bm: Screenshot saved: bm/shots/bmsn0010.png
+
+net: console opened from 192.168.1.115
+> bm: "bm SNES" 2275 frames, 13.1 fps, 2275 dropped
+     update+draw avg 75.59 ms (453% of frame), max 79.20 ms, Lua 55 KB
+     dev kit: Lua peak 1122 KB, data 129 KB, busiest frame 2k instructions, 2275 frames over 16.7 ms, 1141 tokens
+     GPU 3D 532 jobs, 882 triangles a frame, 2.20 ms a frame (bin 7%), max job 9472 us
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+report: sending session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 262 of 623 ms taken, 102.4 ms past a frame; reports 247 ms (+102.4, stk 7.6/128K); min slack -265 us, paced 0
+menu idle: sd first word <1ms 102 <3ms 4 (max 1.4 ms)
+menu stalls: tls handshake 1x last 301.1 worst 301.1 ms
+menu frame: 1x, a frame averages draw 13204 us, enlarge 0 us, flip 95 us, free time used 873 us (300 frames)
+
+net: console closed
+net: receiving a new kernel (6363316 bytes)...
+net: kernel 0% (0 of 6214 KB)
+net: kernel 10% (628 of 6214 KB)
+report: sent to f-accomando/bm, branch reports: reports/claude-snes-core-c/session_bm-snes_pi-zero-w.txt
+net: kernel 20% (1251 of 6214 KB)
+menu idle: 300/300 frames, 402 of 513 ms taken, 20.7 ms past a frame; reports 390 ms (+21.9, stk 7.6/128K); min slack -1150 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 13682 us, enlarge 0 us, flip 96 us, free time used 1340 us (300 frames)
+net: kernel 30% (1871 of 6214 KB)
+net: kernel 40% (2494 of 6214 KB)
+net: kernel 50% (3109 of 6214 KB)
+net: kernel 60% (3737 of 6214 KB)
+menu frame: 1x, a frame averages draw 14423 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+net: kernel 70% (4355 of 6214 KB)
+net: kernel 80% (4981 of 6214 KB)
+net: kernel 90% (5596 of 6214 KB)
+net: dev mode: kernel received (6363316 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 76.1 ms past its slice
+menu idle: 300/300 frames, 155 of 450 ms taken, 78.6 ms past a frame; netxfer 203 ms (+76.1, stk 1.2/64K); min slack -104770 us, paced 0
+menu idle: sd first word <1ms 64 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 14931 us, enlarge 0 us, flip 96 us, free time used 516 us (300 frames)
+net: saved kernel.img on the SD card (6363316 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
