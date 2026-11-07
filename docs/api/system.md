@@ -226,7 +226,7 @@ call returns `nil` and the reason.
 | Function | Description |
 |---|---|
 | `doc_list([folder])` | the files in `/docs` (or in `/sfc`, the ROM folder of bm SNES, with `"sfc"`): `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
-| `doc_read(name[, folder])` | the bytes of a document (a string), or `nil` and the reason |
+| `doc_read(name[, folder])` | the bytes of a document (a string), or `nil` and the reason. In `"sfc"` the name is the one the card has (long names too); in `"docs"` it is 8.3 |
 | `doc_write(name, bytes[, folder])` | writes a document, new or replaced (at most 4 MB); `true`, or `nil` and the reason |
 | `doc_delete(name[, folder])` | deletes a document; `true`, or `nil` and the reason |
 

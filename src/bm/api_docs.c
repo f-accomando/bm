@@ -161,14 +161,30 @@ int l_doc_list(lua_State *L)
 /* doc_read(name[, folder]) -> its bytes, or nil and why */
 int l_doc_read(lua_State *L)
 {
-    char name[13], path[24];
+    char name[96], path[128];
     const char *dir;
     const int fr = doc_folder(L, 2, &dir);
     if (fr)
         return fr;
-    const int r = doc_check(L, 1, name);
-    if (r)
-        return r;
+    if (!strcmp(dir, SFC_DIR)) {
+        /* a ROM keeps the name it has on the card (long names too): reading only, so no check of 8.3 */
+        const char *in = luaL_checkstring(L, 1);
+        if (!perm_allowed(PERM_DOCS)) {
+            lua_pushnil(L);
+            lua_pushstring(L, "the player did not allow this app the documents");
+            return 2;
+        }
+        if (!in[0] || in[0] == '.' || strlen(in) >= sizeof name || strpbrk(in, "/\\")) {
+            lua_pushnil(L);
+            lua_pushfstring(L, "%s: not a file name", in);
+            return 2;
+        }
+        snprintf(name, sizeof name, "%s", in);
+    } else {
+        const int r = doc_check(L, 1, name);
+        if (r)
+            return r;
+    }
     ksnprintf(path, sizeof path, "%s/%s", dir, name);
     fat_entry_t e;
     uint8_t *data;
