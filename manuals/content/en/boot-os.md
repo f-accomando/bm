@@ -229,7 +229,7 @@ Each command has a word. The key is a shortcut for the word. The help of the mon
 | `r` | `sys reboot` | reboot |
 | `X` | `sys crash [KIND]` | crash tests: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |
 
-Other keys run tests and benchmarks: `k`, `p` and `j` are `bench cpu`, `bench render` and `bench 3d`. `d` is `demo`, `t` is `sys test-pattern`, `a` is `sys audio`. `E` is `net eth`, `G` is `net get URL`, `z` is `report send`, `U` is `upload`. Other keys open the editors: `e`, `A`, `3`, `4`, `5`, `6`, `C`, `I` are `tool editor`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `code`, `assistant`.
+Other keys run tests and benchmarks: `k`, `p` and `j` are `bench cpu`, `bench render` and `bench 3d`. `d` is `demo`, `t` is `sys test-pattern`, `a` is `sys audio`. `E` is `net eth`, `G` is `net get URL`, `z` is `report send`, `U` is `upload`. Open an editor with `play NAME` (see the table below).
 
 ## The bm> prompt
 
@@ -253,7 +253,7 @@ Type `:` and then commands separated by `;`. They run one after the other, and t
 | Command | What it does |
 |---|---|
 | `bench 3d tests=a,b profiles=P` | the 3D Bench, all or part (`b3d` still works) |
-| `play NAME` | start a game by name |
+| `play NAME` | start a game by name, or open a tool: `editor` (bm SDK), `code`, `sound`, `studio`, `mesh`, `pixel`, `animator`, `assistant` |
 | `set key=value ...` | change `bm/config.txt` keys until a restart (`set` alone lists them) |
 | `save` | write `bm/config.txt` |
 | `net fetch URL [NAME] [replace]` | download a `.bm` into `/bm`, a `.bme` into `/bme`, a `.bmk` map kit into `/bmk` or a `.bmm` model file into `/bmm`. `URL` is `https://...` or `gh:OWNER/REPO/PATH[@BRANCH]` (a file of a GitHub repository; a private one needs `github_token`). `NAME` is an 8.3 name instead of the file's own. A file that is there is replaced only with `replace`. The bytes must be a cartridge |

@@ -848,7 +848,7 @@ def test_keys_help(b, opts):
         sendkeys(q, "ctrl-shift-esc")
         q.expect(PROMPT, timeout=10)
         q.expect("> ")
-        q.send("3")
+        open_tool(q, "studio")
         _, text = settled_screen(q, lambda i, t: any("bm Studio" in l for l in t), tries=60)
 
         def help_shows(*words, tries=40):
@@ -5052,7 +5052,7 @@ def test_monitor_help_table(b, opts):
             q.expect("> ", timeout=5)
             assert "commands (games:" in text and "help [COMMAND]" in text, text[-600:]
             keys = set(re.findall(r"^  (\S)  \S", text, re.M))
-            want = set("hMfFlUimcoyYLVatXrTKOPWEGjzZu3456eACI")
+            want = set("hMfFlUimcoyYLVatXrTKOPWEGjzZu")
             assert want <= keys, f"keys missing in the help: {sorted(want - keys)}"
             assert "old words that still work: b3d=bench 3d," in text, text[-500:]
             assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
@@ -5826,6 +5826,14 @@ def test_permissions(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def open_tool(q, word, wait=0.0):
+    """A tool of the suite from the monitor, by the word `play` knows: editor (bm SDK), code, sound,
+    studio, mesh, pixel, animator, assistant. A line, so it does not depend on a single-key shortcut."""
+    q.send(f":play {word}\r")
+    if wait:
+        time.sleep(wait)
+
+
 def _upload(q, data):
     q.send("U")
     q.expect("15 s timeout\r\n")
@@ -6049,7 +6057,7 @@ def test_sound_editor(b, opts):
         time.sleep(gap)
     try:
         q.boot()
-        k("A", 3)                                           # the editor, on the demo
+        open_tool(q, "sound", 3)                                           # the editor, on the demo
         k("\x1bOR")                                         # F3: pattern
         for _ in range(5):
             k("\x1b[B")                                     # track 6: empty in pattern 0
@@ -6124,7 +6132,7 @@ def test_sound_assistant(b, opts):
         time.sleep(gap)
     try:
         q.boot()
-        k("A", 3)                                           # bm Sound, on the demo
+        open_tool(q, "sound", 3)                                           # bm Sound, on the demo
         k("\x1b[17~", 1.5)                                  # F6: the assistant
         for ch in "base lofi in re":
             k(ch, 0.08)
@@ -6158,7 +6166,7 @@ def test_sound_riff(b, opts):
         time.sleep(gap)
     try:
         q.boot()
-        k("A", 3)                                           # bm Sound, on the demo
+        open_tool(q, "sound", 3)                                           # bm Sound, on the demo
         k("\x1b[18~", 1.5)                                  # F7: Riff...
         k("\r", 1)
         q.expect('sound: riff s "kick*4, ~ snare, hat*8"', timeout=10)
@@ -6224,7 +6232,7 @@ def test_sound_import(b, opts):
         time.sleep(gap)
     try:
         q.boot()
-        k("A", 3)                                           # bm Sound, on the demo
+        open_tool(q, "sound", 3)                                           # bm Sound, on the demo
         k("\x17", 1.5)                                      # Ctrl+W: the list of /docs (a tool needs no permission)
         k("\x1b[B", 0.4)                                    # the list: tone.wav, tune.mid
         k("\r", 1)
@@ -6893,7 +6901,7 @@ def test_assistant(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, f"assistant-{name}.png"))
     try:
         q.boot()
-        k("I")
+        open_tool(q, "assistant")
         out = q.expect("sprite recipes", timeout=20).decode(errors="replace")
         assert re.search(r"assistant: ready, \d+ entries, \d+ sprite recipes", out), out
         # the network on the ARM (SIMD) gives the integers of the Python reference
@@ -6987,7 +6995,7 @@ def test_debugger(b, opts):
 
     try:
         q.boot()
-        k("C")
+        open_tool(q, "code")
         expect("code: ready")
         time.sleep(0.5)
         k("\x0f", 0.5)                                     # Ctrl+O: the files
@@ -7092,7 +7100,7 @@ def test_editor_mouse(b, opts):
     q = Qemu(b("kernel.img"), args)
     try:
         q.boot()
-        run(q, "C")
+        open_tool(q, "code")
         q.expect("code: ready", timeout=30)
         run(q, "\x0f", 0.5)                 # Ctrl+O, the first file
         look(q, ["/bm/pong.bm"])
@@ -7135,7 +7143,7 @@ def test_editor_mouse(b, opts):
     q = Qemu(b("kernel.img"), args)
     try:
         q.boot()
-        run(q, "e")
+        open_tool(q, "editor")
         text = look(q, ["OPEN IN", "code"], 8, 16)   # the same dump: a later one may catch a redraw
         cx, cy = find(text[:1], "code", 8, 16)
         click(q, cx, cy)                    # the F2 tab: the code page
@@ -7209,7 +7217,7 @@ def test_code_editor(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, f"code-{name}.png"))
     try:
         q.boot()
-        k("C")
+        open_tool(q, "code")
         expect("code: ready")
         see(["keys"])                                       # the F1 chip, then "keys"
         k("\x0f", 0.5)                                      # Ctrl+O: the files
@@ -7380,7 +7388,7 @@ def test_code_modules(b, opts):
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
     try:
         q.boot()
-        k("C")
+        open_tool(q, "code")
         q.expect("code: ready", timeout=15)
         k("\x0f", 0.5)                                      # Ctrl+O
         see(["Open a cartridge", "/bme/mods.bme"])
@@ -7507,7 +7515,7 @@ def test_code_templates(b, opts):
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
     try:
         q.boot()
-        k("C")
+        open_tool(q, "code")
         q.expect("code: ready", timeout=15)
         k("\x0e", 0.5)                                      # Ctrl+N
         see(["choose a template", "Empty", "Platform 2D", "Top-down 2D", "Shooter 2D", "Versus 2D", "3D scene"])
@@ -7632,7 +7640,7 @@ def test_riff_code(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, f"riff-{name}.png"))
     try:
         q.boot()
-        k("C")
+        open_tool(q, "code")
         q.expect("code: ready", timeout=15)
         see(["keys"])
         k("\x14", 0.4)                                      # Ctrl+T: an empty tab
@@ -7692,7 +7700,7 @@ def test_code_api(b, opts):
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
     try:
         q.boot()
-        k("C")
+        open_tool(q, "code")
         expect("code: ready")
         # A: the help of the name under the cursor, and the message without one
         k("\x14", 0.3)                                      # Ctrl+T: a new tab
@@ -7765,7 +7773,7 @@ def test_assistant_app(b, opts):
     q = Qemu(clean("kernel.img"))
     try:
         q.boot()
-        q.send("I")
+        open_tool(q, "assistant")
         q.expect("assistant: not installed", timeout=20)
     finally:
         q.close()
@@ -7797,7 +7805,7 @@ def test_assistant_app(b, opts):
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
     try:
         q.boot()
-        k("I")
+        open_tool(q, "assistant")
         out = q.expect("sprite recipes", timeout=30).decode(errors="replace")
         assert re.search(r"assistant: ready, \d+ entries, \d+ sprite recipes", out), out
         q.expect("assistant: checksum ", timeout=10)
@@ -7808,7 +7816,7 @@ def test_assistant_app(b, opts):
         see(["Muovere un personaggio con le frecce"])
         k("\x1c", 0.5)                                      # Ctrl+Esc: back to the monitor
         q.expect("> ", timeout=10)
-        k("C")                                              # bm Code, from the card, with the dictionaries
+        open_tool(q, "code")                                              # bm Code, from the card, with the dictionaries
         q.expect("code: ready", timeout=30)
         see_code(["keys"])
         k("\x14", 0.4)                                      # Ctrl+T: an empty tab
@@ -7882,7 +7890,7 @@ def test_code_completion(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, f"code-complete-{name}.png"))
     try:
         q.boot()
-        k("C")
+        open_tool(q, "code")
         q.expect("code: ready", timeout=15)
         see(["keys"])
         k("\x14", 0.4)                                      # Ctrl+T: an empty tab
@@ -8101,7 +8109,7 @@ def test_pad_typing(b, opts):
         _mini_expect(q, "back to the monitor")
 
         # bm Code: Share turns the typing on, the numbers, Share off
-        q.mini.write(b"C")
+        q.mini.write(b":play code\r")
         _mini_expect(q, "code: ready", timeout=30)
         see(["keys"], cw=6, ch=12)
         q.mini.write(b"\x14")                    # Ctrl+T: an empty tab
@@ -8151,7 +8159,7 @@ def test_editor(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, f"sdk-{name}.png"))
     try:
         q.boot()
-        k("e")
+        open_tool(q, "editor")
         see("OPEN IN")                                      # the project page: the suite
         see("bm Animator")
         see("tokens")                                       # the contents, measured
@@ -8267,7 +8275,7 @@ def test_sdk_layers(b, opts):
         raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
     try:
         q.boot()
-        k("e")
+        open_tool(q, "editor")
         see("OPEN IN")
         k("\x0e", 0.5)                                      # Ctrl+N: the templates
         see("new project from a template")
@@ -8346,7 +8354,7 @@ def test_sdk_map3d_roundtrip(b, opts):
         raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
     try:
         q.boot()
-        k("e")
+        open_tool(q, "editor")
         see("OPEN IN")
         k("\x0e", 0.5)                                      # Ctrl+N: the templates
         see("new project from a template")
@@ -8476,7 +8484,7 @@ def test_sdk_suite(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, f"sdk-{name}.png"))
     try:
         q.boot()
-        k("e", 1)
+        open_tool(q, "editor", 1)
         see("OPEN IN")
         k("\x0f", 0.5)                                      # Ctrl+O: the cartridges
         see("open a cartridge")
@@ -8571,7 +8579,7 @@ def test_sdk_elastic(b, opts):
             _save_png(got, os.path.join(opts.shots, f"elastic-{name}.png"))
     try:
         q.boot()
-        k("e", 1)
+        open_tool(q, "editor", 1)
         k("\x0f", 0.5)                                     # Ctrl+O: the cartridges
         k("\r", 1)
         small = size_is(640, 360)
@@ -8651,7 +8659,7 @@ def test_suite_elastic(b, opts):
             assert (got[0], got[1]) == (1280, 720), f"{name} {label}: {got[0]}x{got[1]}"
         try:
             q.boot()
-            k("e", 1)
+            open_tool(q, "editor", 1)
             k("\x0f", 0.5)
             k("\r", 1.5)
             k(key, 3)
@@ -8851,7 +8859,7 @@ def test_sdk_template_pi(b, opts):
         raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
     try:
         q.boot()
-        k("e")
+        open_tool(q, "editor")
         see("OPEN IN")
         k("\x0e", 0.5)                                      # Ctrl+N: the templates
         see("new project from a template")
@@ -8910,7 +8918,7 @@ def test_sdk_code_pi(b, opts):
         raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
     try:
         q.boot()
-        k("e")
+        open_tool(q, "editor")
         see("OPEN IN")
         k("\x0e", 0.5)                                      # Ctrl+N: the templates
         see("new project from a template")

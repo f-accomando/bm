@@ -302,15 +302,6 @@ CMD(c_reboot)
     crumbs_restart(0);
 }
 
-CMD(c_tool_editor) { carts_editor(console_framebuffer()); return 0; }
-CMD(c_tool_sound) { carts_sound_editor(console_framebuffer()); return 0; }
-CMD(c_tool_studio) { carts_studio(console_framebuffer()); return 0; }
-CMD(c_tool_mesh) { carts_mesh(console_framebuffer()); return 0; }
-CMD(c_tool_pixel) { carts_pixel(console_framebuffer()); return 0; }
-CMD(c_tool_animator) { carts_animator(console_framebuffer()); return 0; }
-CMD(c_tool_code) { carts_code(console_framebuffer(), NULL); return 0; }
-CMD(c_tool_assistant) { home_assistant(console_framebuffer()); return 0; }
-
 CMD(c_bt_pad) { bt_scan(8); return 0; }
 CMD(c_bt_kbd) { bt_pair_keyboard(15); return 0; }
 CMD(c_bt_mouse) { bt_pair_mouse(10); return 0; }
@@ -663,7 +654,7 @@ CMD(c_play)
     for (int i = 1; i < argc; i++)
         n += snprintf(name + n, sizeof name - (size_t)n, "%s%s", i > 1 ? " " : "", argv[i]);
     if (argc < 2 || carts_play_title(console_framebuffer(), name) != 0) {
-        kprintf("play: no game '%s' on this console\n", argc < 2 ? "" : name);
+        kprintf("play: no game or tool '%s' on this console\n", argc < 2 ? "" : name);
         return -1;
     }
     return 0;
@@ -745,18 +736,6 @@ static const mcmd_t sys_sub[] = {
     { NULL }
 };
 
-static const mcmd_t tool_sub[] = {
-    { .name = "editor", .help = "editor: code, sprites and map of a .bm", .key = 'e', .fn = c_tool_editor },
-    { .name = "sound", .help = "sound editor: sounds, effects and music", .key = 'A', .fn = c_tool_sound },
-    { .name = "studio", .help = "bm Studio: the 3D models of a .bm", .key = '3', .fn = c_tool_studio },
-    { .name = "mesh", .help = "bm Mesh: the meshes of a .bm to edit", .key = '4', .fn = c_tool_mesh },
-    { .name = "pixel", .help = "bm Pixel: sprite sheet, palette, animation", .key = '5', .fn = c_tool_pixel },
-    { .name = "animator", .help = "bm Animator: skeletons, animations", .key = '6', .fn = c_tool_animator },
-    { .name = "code", .help = "bm Code: the code editor (tabs, small font)", .key = 'C', .fn = c_tool_code },
-    { .name = "assistant", .help = "assistant: how to write code (F6 in tools)", .key = 'I', .fn = c_tool_assistant },
-    { NULL }
-};
-
 static const mcmd_t bt_pair_sub[] = {
     { .name = "pad", .help = "pair a controller (DS4: Share + PS)", .key = 'T', .fn = c_bt_pad },
     { .name = "kbd", .help = "pair a LE keyboard (hold Easy-Switch)", .key = 'K', .fn = c_bt_kbd },
@@ -803,7 +782,6 @@ static const mcmd_t commands[] = {
     { .name = "lua", .args = "[FILE | -e CODE]", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .key = 'l', .fn = c_lua },
     { .name = "upload", .help = "receive a cartridge over serial, play it", .key = 'U', .fn = c_upload },
     { .name = "sys", .help = "the system", .sub = sys_sub },
-    { .name = "tool", .help = "the tools of a .bm cartridge", .sub = tool_sub },
     { .name = "bt", .help = "Bluetooth", .sub = bt_sub },
     { .name = "wifi", .help = "start, scan, join (saved in config.txt)", .key = 'W', .fn = c_wifi, .sub = wifi_sub },
     { .name = "net", .help = "the network", .sub = net_sub },
@@ -813,7 +791,7 @@ static const mcmd_t commands[] = {
     { .name = "bmz", .help = "extract the .bmz files of /bmz into their folders", .fn = c_bmz },
     { .name = "set", .args = "[KEY=VALUE ...]", .help = "bm/config.txt keys until a restart", .fn = c_set, .cand = cand_set },
     { .name = "save", .help = "write bm/config.txt", .fn = c_save },
-    { .name = "play", .args = "NAME", .help = "play a game by its title", .fn = c_play },
+    { .name = "play", .args = "NAME", .help = "play a game, or open a tool (editor, code, sound, ...)", .fn = c_play },
     { .name = "err", .help = "the last runtime error, the game running", .fn = c_err },
     { .name = "crc", .help = "CRC32 of the page on screen", .fn = c_crc },
     { .name = "ls", .args = "[PATH]", .help = "list a folder of the SD card", .fn = c_ls },

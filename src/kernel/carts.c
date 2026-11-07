@@ -394,32 +394,38 @@ const char *carts_animator(framebuffer_t *fb)
     return animator_session(fb, NULL);
 }
 
+/* Open a tool of the suite by its id and come back (the menu, the Dev tab and "play NAME" use this). */
+static void run_tool(framebuffer_t *fb, const char *tid)
+{
+    lib_suspend_close();                /* the menu asked first */
+    const char *w;
+    if (!strcmp(tid, "sdk"))
+        w = carts_editor(fb);
+    else if (!strcmp(tid, "sound"))
+        w = carts_sound_editor(fb);
+    else if (!strcmp(tid, "mesh"))
+        w = carts_mesh(fb);
+    else if (!strcmp(tid, "pixel"))
+        w = carts_pixel(fb);
+    else if (!strcmp(tid, "animator"))
+        w = carts_animator(fb);
+    else if (!strcmp(tid, "code"))
+        w = carts_code(fb, NULL);
+    else if (!strcmp(tid, "assistant")) {
+        home_assistant(fb);
+        w = "Assistant";
+    } else
+        w = carts_studio(fb);
+    ksnprintf(last_msg, sizeof last_msg, "last: %s", w);
+    crumb("cartridge menu", NULL);
+    rescan();                           /* it may have saved new files */
+}
+
 static void play(framebuffer_t *fb, lib_game_t *c)
 {
     const char *tid = tool_id_of(c);
     if (tid) {
-        lib_suspend_close();            /* the menu asked first */
-        const char *w;
-        if (!strcmp(tid, "sdk"))
-            w = carts_editor(fb);
-        else if (!strcmp(tid, "sound"))
-            w = carts_sound_editor(fb);
-        else if (!strcmp(tid, "mesh"))
-            w = carts_mesh(fb);
-        else if (!strcmp(tid, "pixel"))
-            w = carts_pixel(fb);
-        else if (!strcmp(tid, "animator"))
-            w = carts_animator(fb);
-        else if (!strcmp(tid, "code"))
-            w = carts_code(fb, NULL);
-        else if (!strcmp(tid, "assistant")) {
-            home_assistant(fb);
-            w = "Assistant";
-        } else
-            w = carts_studio(fb);
-        ksnprintf(last_msg, sizeof last_msg, "last: %s", w);
-        crumb("cartridge menu", NULL);
-        rescan();                       /* it may have saved new files */
+        run_tool(fb, tid);
         return;
     }
     bm_stats_t st;
@@ -452,11 +458,24 @@ static int lower_prefix(const char *s, const char *p, size_t n)
     return 1;
 }
 
-/* The monitor line's play NAME: a game of the SD card or a built-in one by
- * its title or file name (the start of it is enough). 0, or -1 if none. */
+/* The tools "play NAME" opens: the word, and the id of run_tool(). "editor" is the SDK. */
+static const struct { const char *word, *id; } play_tools[] = {
+    { "editor", "sdk" },       { "sound", "sound" },  { "studio", "studio" }, { "mesh", "mesh" },
+    { "pixel", "pixel" },      { "animator", "animator" }, { "code", "code" }, { "assistant", "assistant" },
+};
+
+/* The monitor line's play NAME: a tool of the suite by its word (editor, sound, studio, mesh, pixel, animator,
+ * code, assistant), else a game of the SD card or a built-in one by its title or file name (the start of it
+ * is enough). 0, or -1 if none. */
 int carts_play_title(framebuffer_t *fb, const char *name)
 {
     size_t n = strlen(name);
+    for (size_t i = 0; n && i < sizeof play_tools / sizeof play_tools[0]; i++) {
+        if (strlen(play_tools[i].word) == n && lower_prefix(play_tools[i].word, name, n)) {
+            run_tool(fb, play_tools[i].id);
+            return 0;
+        }
+    }
     for (int i = 0; n && i < library.nsd; i++) {
         lib_game_t *c = &library.g[i];
         if (!lib_is_dev(c) && (lower_prefix(c->title, name, n) || lower_prefix(c->name, name, n))) {
