@@ -2570,7 +2570,7 @@ def test_bt_pair_and_reconnect(b, opts):
             assert "bt: pairing with 1c:66:6d:01:02:03" in out and \
                 "bt: controller 1c:66:6d:01:02:03 connected (player 1)" in out, out
             # the pad drives the menu: cross plays the first cart, PS quits
-            q.mini.write(b"M")
+            q.mini.write(b":menu\r")
             _mini_expect(q, "cartridge menu")
             time.sleep(0.3)
             # the real pad streams reports all the time: a burst of 600 idle
@@ -3067,7 +3067,7 @@ def test_bt_mouse(b, opts):
         _mini_expect(q, "ready to type")
         # the mouse, while the keyboard stays connected
         time.sleep(0.3)
-        q.mini.write(b"O")
+        q.mini.write(b":bt pair mouse\r")
         try:
             chip.pair_mouse(FakeBtChip.ADDR)
             chip.serve_mouse()
@@ -3088,7 +3088,7 @@ def test_bt_mouse(b, opts):
         chip.keys()
         _mini_expect(q, "uptime")
         # the menu: keyboard (blue 1) and the mouse (blue dot) in the bar
-        q.mini.write(b"M")
+        q.mini.write(b":menu\r")
         _mini_expect(q, "cartridge menu")
         shot_ = wait_icons(q, 2)
         runs = bar_icons(shot_)
@@ -3229,7 +3229,7 @@ def test_bt_mouse_classic(b, opts):
                    "bt: found 1c:66:6d:0a:0b:0c class 002580",
                    "bt: mouse 1c:66:6d:0a:0b:0c connected, it moves the pointer"):
             assert s_ in out, out
-        q.mini.write(b"M")
+        q.mini.write(b":menu\r")
         _mini_expect(q, "cartridge menu")
         shot_ = wait_icons(q, 1)
         runs = bar_icons(shot_)
@@ -3387,7 +3387,7 @@ def test_bt_keyboard(b, opts):
         _mini_expect(q, "uptime")
         # the menu bar: the USB keyboard is player 1 (white number), the LE
         # keyboard player 2 (blue)
-        q.mini.write(b"M")
+        q.mini.write(b":menu\r")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
         shot_, runs = wait_bar_icons(
@@ -4205,7 +4205,7 @@ def test_bt_two_pads(b, opts):
         assert "connected (player 3)" in out and "paired as player 3" in out, out
 
         # the menu bar: a controller icon for each player (M27)
-        q.mini.write(b"M")
+        q.mini.write(b":menu\r")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
         screen_img, runs = wait_bar_icons(
@@ -4967,13 +4967,13 @@ def test_monitor_crc(b, opts):
         assert w > 0 and h > 0 and bpp == 32 and pitch >= w * 4, m.group(0)
         first = m.group(5)
         assert first != "00000000", m.group(0)
-        # console_clear() gives the same screen, but for the status line: it shows
-        # the uptime in seconds (src/kernel/input.c update_uptime), so two clears on
-        # either side of a second differ. Clear and ask until two in a row agree: they
-        # do within one second, and a CRC that did not follow the screen never would.
+        # sys clear gives the same screen each time (the status bar has no uptime now, only the IP when
+        # there is one). Clear and ask until two in a row agree: a CRC that did not follow the screen
+        # never would.
         seen = []
         for _ in range(20):
-            q.send("c")
+            q.send(":sys clear\r")
+            q.expect("the line is done")
             q.expect("> ")
             seen.append(crc().group(5))
             if len(seen) > 1 and seen[-1] == seen[-2]:
@@ -5015,7 +5015,7 @@ def test_monitor_help_table(b, opts):
         missing = [w for w in words if not re.search(r"^  " + re.escape(w), text, re.M)]
         assert not missing, f"words missing in the help: {missing}"
         assert not re.search(r"^  \S  \S", text, re.M), "the help has no column of keys now"
-        assert "hotkey" not in text and "tool " not in text, text[-500:]
+        assert "hotkey" not in text and not re.search(r"^  tool ", text, re.M), text[-500:]
         assert "old words that still work: b3d=bench 3d," in text, text[-500:]
         assert all(len(l) <= 79 for l in text.splitlines()), [l for l in text.splitlines() if len(l) > 79]
         assert "wifi join NAME [PASSWORD]" in text and "bench 3d [tests=A,B profiles=P]" in text, text[-900:]
@@ -5061,7 +5061,9 @@ def test_shell_menu(b, opts):
         q.send(":sys heap\r")                       # a line from the menu, as the PC tools send it
         q.expect("the line is done", timeout=10)
         q.expect("> ", timeout=5)
-        q.send("\x1b")                              # Esc: the cartridge menu
+        q.send("a")                                 # the System group is still open: close it
+        q.expect("> ", timeout=5)
+        q.send("\x1b")                              # Esc in the main menu: the cartridge menu
         q.expect(MENU, timeout=15)
         q.send("q")
         q.expect("> ", timeout=10)
@@ -5078,7 +5080,7 @@ def test_monitor_files(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     note = os.path.join(tmp, "note.txt")
     with open(cfg, "w") as f:
-        f.write("layout=us\nwifi_boot=0\nmonitor_keys=0\n")
+        f.write("layout=us\nwifi_boot=0\n")
     with open(note, "w") as f:
         f.write("first line\nsecond line\n")
     mksd.build(img, [(cfg, "bm/config.txt"), (note, "bm/note.txt"), (cfg, "config.txt")])
@@ -5086,6 +5088,8 @@ def test_monitor_files(b, opts):
     try:
         q.expect(MENU, timeout=30)
         q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("\r")                                # the first item of the bm shell: the bm: prompt
         q.expect("\nbm: ", timeout=10)
         assert "\n/\n" in _prompt_line(q, "pwd")
         out = _prompt_line(q, "ls")
@@ -5123,7 +5127,7 @@ def test_monitor_lua_shell(b, opts):
     hello = os.path.join(tmp, "hello.lua")
     auto = os.path.join(tmp, "autoexec.lua")
     with open(cfg, "w") as f:
-        f.write("layout=us\nwifi_boot=0\nmonitor_keys=0\nboot=shell\nautoexec=1\n")
+        f.write("layout=us\nwifi_boot=0\nboot=shell\nautoexec=1\n")
     with open(hello, "w") as f:
         f.write('local ok, out = bm.sh("pwd")\n'
                 'print("sh gave " .. tostring(ok) .. " " .. out:gsub("%s+", ""))\n'
@@ -5141,6 +5145,8 @@ def test_monitor_lua_shell(b, opts):
         out = q.expect("the shell:", timeout=30).decode(errors="replace")
         assert "autoexec: /bm/autoexec.lua" in out and "AUTOEXEC-RAN" in out, out
         assert "cartridge menu" not in out, out
+        q.expect("> ", timeout=10)
+        q.send("\r")                                # the first item of the bm shell: the bm: prompt
         q.expect("\nbm: ", timeout=10)
         out = _prompt_line(q, "lua -e print(1+2)")
         assert "\n3\n" in out, out
@@ -5165,7 +5171,7 @@ def test_monitor_prompt(b, opts):
     try:
         q.boot()
         q.send(":\r")
-        q.expect("the prompt stays", timeout=5)
+        q.expect("the bm: prompt:", timeout=5)
         q.expect("\nbm: ", timeout=5)
         out = _prompt_line(q, "help wifi")
         assert "wifi join NAME [PASSWORD]" in out and "wifi forget" in out and "wifi list" in out, out
@@ -5409,7 +5415,7 @@ def test_crash_report(b, opts):
     head, body = rep.split("\n\n", 1)
     assert "\x00" not in rep, "null bytes in crash report"
     assert "kind: crash" in head.splitlines(), rep[:600]
-    assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
+    assert body.startswith('a crash (the red screen) while: monitor line "sys crash dabt"'), body[:300]
     assert ", kernel " in body.splitlines()[0], body.splitlines()[0]
     assert ", ring " in body.splitlines()[0] and "sink " in body.splitlines()[0], body.splitlines()[0]
     assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
@@ -5959,7 +5965,7 @@ def test_sd_logs(b, opts):
             q.send("q")
             q.expect(PROMPT)
             q.expect("> ")
-            q.send("l\n")
+            q.send(":lua\r")
             q.expect("lua> ")
             q.send("print('pw ' .. 'test-pass-' .. 4242)\n")
             q.expect("pw test-pass-4242")
@@ -8683,7 +8689,7 @@ def test_upload_refused_and_corrupt(b, opts):
         assert loader._reply() == b"OK"
         q.send(data)
         assert loader._reply() == b"CE"
-        q.send("h")
+        q.send(":help\r")
         q.expect("commands (")
     finally:
         q.close()
