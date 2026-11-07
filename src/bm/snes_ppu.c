@@ -3,20 +3,30 @@
  * line (so a change in the middle of the frame, an HDMA effect, shows). BG modes 0 to 4 and 7, the sprites
  * (all sizes, flips, the 32 per line), windows, colour math with the fixed colour or the sub screen, and the
  * brightness. Not done: modes 5 and 6 (hires), mosaic, offset-per-tile, direct colour, interlace.
- * Original code.
+ *
+ * The cost matters (the Pi Zero W): a layer that is on neither screen is not drawn, a clear row of a tile writes
+ * nothing, the screens are made by painting the layers from the back to the front, and a line with no colour
+ * math is a palette lookup. Original code.
  */
 #include "snes_int.h"
 
 #include <string.h>
 
+uint32_t ppu_us[5];                     /* the time of the parts of ppu_line (layers, sprites, windows, compose, mix) */
+static int pal_dirty = 1;
+#define T0 uint32_t t_ = snes_now_us ? snes_now_us() : 0
+#define TLAP(k) do { if (snes_now_us) { uint32_t n_ = snes_now_us(); ppu_us[k] += n_ - t_; t_ = n_; } } while (0)
+
 void ppu_reset(void)
 {
     memset(S.pal, 0, sizeof S.pal);
     memset(S.picture, 0, sizeof S.picture);
+    pal_dirty = 1;
 }
 
 void ppu_cgram_write(int i)
 {
+    pal_dirty = 1;
     S.pal[i & 255] = (uint16_t)((S.cgram[(i & 255) * 2] | (S.cgram[(i & 255) * 2 + 1] << 8)) & 0x7FFF);
 }
 
@@ -37,57 +47,52 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
     const uint32_t chr_base = S.nba[n];
     const int bytes_tile = bpp * 8;
     const int sy = (y + S.vofs[n]) & 0x3FF;
-    int cur = -1;
-    uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, b7 = 0;
-    int pal = 0, pri = 0, hflip = 0;
-    for (int x = 0; x < 256; x++) {
-        const int sx = (x + S.hofs[n]) & 0x3FF;
+    const int ty = sy / tsz;
+    const unsigned pal_off = (bpp == 2 && pal_base_mode0) ? (unsigned)n * 32 : 0;
+    int x = 0, sx = S.hofs[n] & 0x3FF;
+    while (x < 256) {                                   /* one column of 8 pixels of a tile per turn */
+        const int px0 = sx & 7;
+        int cnt = 8 - px0;
+        if (x + cnt > 256) cnt = 256 - x;
         const int tcol = sx / tsz;
-        if ((sx >> 3) != cur) {
-            cur = sx >> 3;
-            const int ty = sy / tsz;
-            int screen = 0;
-            if (wide) screen += (tcol >> 5) & 1;
-            if (tall) screen += ((ty >> 5) & 1) * (wide ? 2 : 1);
-            const uint32_t ea = (map_base + (uint32_t)screen * 0x800 + (uint32_t)(((ty & 31) * 32 + (tcol & 31)) * 2)) & 0xFFFF;
-            const unsigned e = S.vram[ea] | (S.vram[ea + 1] << 8);
-            unsigned tile = e & 0x3FF;
-            pal = (e >> 10) & 7; pri = (e >> 13) & 1;
-            hflip = (e >> 14) & 1;
-            const int vflip = (e >> 15) & 1;
-            int py = sy & (tsz - 1), px8 = 0;
-            if (big) {
-                int sxm = sx & 15;
-                if (hflip) sxm = 15 - sxm;
-                px8 = sxm >> 3;
-                int row = py >> 3;
-                if (vflip) row = 1 - row;
-                tile = (tile + px8 + row * 16) & 0x3FF;
-                py &= 7;
-            }
-            if (vflip) py = 7 - (py & 7);
-            const uint32_t ca = (chr_base + tile * (uint32_t)bytes_tile + (uint32_t)((py & 7) * 2)) & 0xFFFF;
-            b0 = S.vram[ca]; b1 = S.vram[(ca + 1) & 0xFFFF];
-            if (bpp >= 4) { b2 = S.vram[(ca + 16) & 0xFFFF]; b3 = S.vram[(ca + 17) & 0xFFFF]; }
-            if (bpp == 8) {
-                b4 = S.vram[(ca + 32) & 0xFFFF]; b5 = S.vram[(ca + 33) & 0xFFFF];
-                b6 = S.vram[(ca + 48) & 0xFFFF]; b7 = S.vram[(ca + 49) & 0xFFFF];
+        int screen = 0;
+        if (wide) screen += (tcol >> 5) & 1;
+        if (tall) screen += ((ty >> 5) & 1) * (wide ? 2 : 1);
+        const uint32_t ea = (map_base + (uint32_t)screen * 0x800 + (uint32_t)(((ty & 31) * 32 + (tcol & 31)) * 2)) & 0xFFFF;
+        const unsigned e = S.vram[ea] | (S.vram[ea + 1] << 8);
+        unsigned tile = e & 0x3FF;
+        const int pal = (e >> 10) & 7, pri = (e >> 13) & 1, hflip = (e >> 14) & 1, vflip = (e >> 15) & 1;
+        int py = sy & (tsz - 1);
+        if (big) {
+            int sxm = sx & 15;
+            if (hflip) sxm = 15 - sxm;
+            int row = py >> 3;
+            if (vflip) row = 1 - row;
+            tile = (tile + (sxm >> 3) + row * 16) & 0x3FF;
+            py &= 7;
+        }
+        if (vflip) py = 7 - (py & 7);
+        const uint32_t ca = (chr_base + tile * (uint32_t)bytes_tile + (uint32_t)((py & 7) * 2)) & 0xFFFF;
+        const unsigned b0 = S.vram[ca], b1 = S.vram[(ca + 1) & 0xFFFF];
+        unsigned b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, b7 = 0;
+        if (bpp >= 4) { b2 = S.vram[(ca + 16) & 0xFFFF]; b3 = S.vram[(ca + 17) & 0xFFFF]; }
+        if (bpp == 8) {
+            b4 = S.vram[(ca + 32) & 0xFFFF]; b5 = S.vram[(ca + 33) & 0xFFFF];
+            b6 = S.vram[(ca + 48) & 0xFFFF]; b7 = S.vram[(ca + 49) & 0xFFFF];
+        }
+        if (b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7) {    /* a clear row of a tile writes nothing */
+            for (int i = 0; i < cnt; i++) {
+                const int sh = hflip ? px0 + i : 7 - (px0 + i);
+                unsigned v = ((b0 >> sh) & 1) | (((b1 >> sh) & 1) << 1);
+                if (bpp >= 4) v |= (((b2 >> sh) & 1) << 2) | (((b3 >> sh) & 1) << 3);
+                if (bpp == 8) v |= (((b4 >> sh) & 1) << 4) | (((b5 >> sh) & 1) << 5) | (((b6 >> sh) & 1) << 6) | (((b7 >> sh) & 1) << 7);
+                if (!v) continue;
+                oi[x + i] = (uint8_t)(bpp == 2 ? pal_off + (unsigned)pal * 4 + v : bpp == 4 ? (unsigned)pal * 16 + v : v);
+                op[x + i] = (uint8_t)pri;
             }
         }
-        int px = sx & 7;
-        if (big) { px = sx & 15; if (hflip) px = 15 - px; px &= 7; }
-        else if (hflip) px = 7 - px;
-        const int sh = 7 - px;
-        unsigned v = ((b0 >> sh) & 1) | (((b1 >> sh) & 1) << 1);
-        if (bpp >= 4) v |= (((b2 >> sh) & 1) << 2) | (((b3 >> sh) & 1) << 3);
-        if (bpp == 8) v |= (((b4 >> sh) & 1) << 4) | (((b5 >> sh) & 1) << 5) | (((b6 >> sh) & 1) << 6) | (((b7 >> sh) & 1) << 7);
-        if (!v) continue;
-        unsigned idx;
-        if (bpp == 2) idx = (pal_base_mode0 ? (unsigned)n * 32 : 0) + pal * 4 + v;
-        else if (bpp == 4) idx = pal * 16 + v;
-        else idx = v;
-        oi[x] = (uint8_t)idx;
-        op[x] = (uint8_t)pri;
+        x += cnt;
+        sx = (sx + cnt) & 0x3FF;
     }
 }
 
@@ -201,7 +206,7 @@ static const slot_t ord2[] = { {OB,3}, {B1,1}, {OB,2}, {B2,1}, {OB,1}, {B1,0}, {
 static const slot_t ord6[] = { {OB,3}, {B1,1}, {OB,2}, {OB,1}, {B1,0}, {OB,0} };
 static const slot_t ord7[] = { {OB,3}, {OB,2}, {OB,1}, {B1,0}, {OB,0} };
 
-/* the layers of a screen that are on, in order (what pick() looks through) */
+/* the layers of a screen that are on, in order */
 typedef struct { uint8_t layer, prio, win; } fslot_t;
 static int build_list(const slot_t *o, int n, int en, int wm, fslot_t *out)
 {
@@ -216,20 +221,29 @@ static int build_list(const slot_t *o, int n, int en, int wm, fslot_t *out)
     return k;
 }
 
-/* the colour at x of a screen: its colour index in *idx, the layer in *lay (6 = the backdrop) and whether a
- * sprite allows maths */
-static inline void pick(const fslot_t *o, int n, int x, int *idx, int *lay, int *omath)
+/* a screen as three arrays: the colour index (0 = backdrop), the layer (6 = backdrop) and whether a sprite allows
+ * maths. The layers are painted from the back to the front, so a later one covers an earlier one. */
+static uint8_t m_idx[256], m_lay[256], m_om[256], s_idx[256], s_lay[256];
+static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t *om)
 {
-    for (int i = 0; i < n; i++) {
-        const int l = o[i].layer;
-        int c;
-        if (l == OB) { c = obi[x]; if (!c || obp[x] != o[i].prio) continue; }
-        else { c = bgi[l][x]; if (!c || bgp[l][x] != o[i].prio) continue; }
-        if (o[i].win && winm[l][x]) continue;
-        *idx = c; *lay = l; *omath = l == OB ? obmath[x] : 1;
-        return;
+    memset(idx, 0, 256); memset(lay, 6, 256);
+    if (om) memset(om, 1, 256);
+    for (int i = n - 1; i >= 0; i--) {
+        const int l = o[i].layer, pr = o[i].prio;
+        const uint8_t *win = o[i].win ? winm[l] : NULL;
+        if (l == OB) {
+            for (int x = 0; x < 256; x++) {
+                const uint8_t c = obi[x];
+                if (c && obp[x] == pr && !(win && win[x])) { idx[x] = c; lay[x] = OB; if (om) om[x] = obmath[x]; }
+            }
+        } else {
+            const uint8_t *ci = bgi[l], *cp = bgp[l];
+            for (int x = 0; x < 256; x++) {
+                const uint8_t c = ci[x];
+                if (c && cp[x] == pr && !(win && win[x])) { idx[x] = c; lay[x] = (uint8_t)l; if (om) om[x] = 1; }
+            }
+        }
     }
-    *idx = 0; *lay = 6; *omath = 1;
 }
 
 static inline unsigned rgb565(unsigned r, unsigned g, unsigned b) { return (r << 11) | (((g << 1) | (g >> 4)) << 5) | b; }
@@ -238,6 +252,7 @@ void ppu_line(int y)
 {
     uint16_t *dst = &S.picture[y * SNES_W];
     if (S.inidisp & 0x80) { memset(dst, 0, SNES_W * 2); return; }
+    T0;
     const int mode = S.bgmode & 7;
     const slot_t *ord;
     int nord, nbg_mask = 0;
@@ -250,8 +265,11 @@ void ppu_line(int y)
     case 7: ord = ord7; nord = 5; draw_mode7(y); nbg_mask = 1; break;
     default: ord = ord6; nord = 6; draw_bg(0, y, 4, 0); nbg_mask = 1; break;
     }
+    TLAP(0);
     draw_obj(y);
+    TLAP(1);
     build_windows();
+    TLAP(2);
     const int main_en = (S.tm & (nbg_mask | 16)), sub_en = (S.ts & (nbg_mask | 16));
     fslot_t mlist[12], slist[12];
     const int nm = build_list(ord, nord, main_en, S.tmw, mlist);
@@ -260,9 +278,28 @@ void ppu_line(int y)
     const int bright = S.inidisp & 15;
     const int clipmode = S.cgwsel >> 6, premode = (S.cgwsel >> 4) & 3, use_sub = S.cgwsel & 2;
     const int add = !(S.cgadsub & 0x80), half = (S.cgadsub & 0x40) != 0;
+    compose(mlist, nm, m_idx, m_lay, m_om);
+    TLAP(3);
+
+    /* the palette as RGB565 with the brightness, kept until the palette or the brightness changes */
+    static uint16_t lut[256];
+    static int lut_bright = -1;
+    if (pal_dirty || lut_bright != bright) {
+        for (int k = 0; k < 256; k++) {
+            unsigned c = S.pal[k], r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
+            if (bright != 15) { r = r * (unsigned)bright / 15; g = g * (unsigned)bright / 15; b = b * (unsigned)bright / 15; }
+            lut[k] = (uint16_t)rgb565(r, g, b);
+        }
+        lut_bright = bright; pal_dirty = 0;
+    }
+    if (!math_on && !clipmode) {                        /* the common line: a palette lookup */
+        for (int x = 0; x < SNES_W; x++) dst[x] = lut[m_idx[x]];
+        TLAP(4);
+        return;
+    }
+    if (use_sub) compose(slist, ns, s_idx, s_lay, NULL);
     for (int x = 0; x < SNES_W; x++) {
-        int idx, lay, om;
-        pick(mlist, nm, x, &idx, &lay, &om);
+        const int idx = m_idx[x], lay = m_lay[x], om = m_om[x];
         unsigned c = S.pal[idx];                         /* index 0: the backdrop, colour 0 */
         unsigned r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
         const int cw = win_on[5] ? winm[5][x] : 0;
@@ -271,16 +308,11 @@ void ppu_line(int y)
         int prevent = premode == 3 || (premode == 1 && !cw) || (premode == 2 && cw);
         if (math_on && !prevent && (S.cgadsub & (1 << lay)) && om) {
             unsigned sr = S.fixr, sg = S.fixg, sb = S.fixb;
-            int from_layer = 0;
-            if (use_sub) {
-                int si, sl, so;
-                pick(slist, ns, x, &si, &sl, &so);
-                if (sl != 6) { unsigned sc = S.pal[si]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; from_layer = 1; }
-            }
+            if (use_sub && s_lay[x] != 6) { unsigned sc = S.pal[s_idx[x]]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; }
             int rr, gg, bb;
             if (add) { rr = (int)(r + sr); gg = (int)(g + sg); bb = (int)(b + sb); }
             else { rr = (int)r - (int)sr; gg = (int)g - (int)sg; bb = (int)b - (int)sb; }
-            if (half && !clip && (from_layer || !use_sub || 1)) { rr >>= 1; gg >>= 1; bb >>= 1; }
+            if (half && !clip) { rr >>= 1; gg >>= 1; bb >>= 1; }
             r = (unsigned)(rr < 0 ? 0 : rr > 31 ? 31 : rr);
             g = (unsigned)(gg < 0 ? 0 : gg > 31 ? 31 : gg);
             b = (unsigned)(bb < 0 ? 0 : bb > 31 ? 31 : bb);
@@ -288,4 +320,5 @@ void ppu_line(int y)
         if (bright != 15) { r = r * (unsigned)bright / 15; g = g * (unsigned)bright / 15; b = b * (unsigned)bright / 15; }
         dst[x] = (uint16_t)rgb565(r, g, b);
     }
+    TLAP(4);
 }

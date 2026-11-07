@@ -457,9 +457,16 @@ void snes_reset(void)
     cpu_reset();
 }
 
+uint32_t (*snes_now_us)(void);
+#define now_us snes_now_us
+static uint32_t avg_frame, avg_ppu, avg_spc;
+void snes_set_clock(uint32_t (*f)(void)) { now_us = f; }
+
 void snes_frame(uint16_t pad1, uint16_t pad2, int render)
 {
     if (!S.rom) return;
+    const uint32_t t_start = now_us ? now_us() : 0;
+    uint32_t t_ppu = 0, t_spc = 0;
     S.joy1 = pad1; S.joy2 = pad2;
     S.lines = (S.setini & 4) ? 239 : 224;
     for (int L = 0; L < 262; L++) {
@@ -494,10 +501,25 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         while (snes_clk < end) { S.line_clk = snes_clk; cpu_step(); }
         S.line_clk = 0;
         snes_clk -= end;
-        spc_run(65);
-        if (L < S.lines && render) ppu_line(L);
+        if (now_us) {
+            uint32_t a = now_us();
+            spc_run(65);
+            uint32_t b = now_us();
+            if (L < S.lines && render) ppu_line(L);
+            t_spc += b - a; t_ppu += now_us() - b;
+        } else {
+            spc_run(65);
+            if (L < S.lines && render) ppu_line(L);
+        }
     }
     S.frames++;
+    if (now_us) {
+        const uint32_t tot = now_us() - t_start;
+        avg_frame = (uint32_t)((int32_t)avg_frame + ((int32_t)tot - (int32_t)avg_frame) / 8);
+        avg_ppu = (uint32_t)((int32_t)avg_ppu + ((int32_t)t_ppu - (int32_t)avg_ppu) / 8);
+        avg_spc = (uint32_t)((int32_t)avg_spc + ((int32_t)t_spc - (int32_t)avg_spc) / 8);
+        if (S.frames < 4) { avg_frame = tot; avg_ppu = t_ppu; avg_spc = t_spc; }
+    }
 }
 
 /* ------------------------------------------------------------------ the loader and the small API */
@@ -570,5 +592,8 @@ void snes_debug(snes_debug_t *d)
         spc_peek(d->spc_pc, d->spc_code, 12, d->port_in, d->port_out, d->timer_out, regs);
         d->spc_ctl = regs[0]; d->spc_tgt[0] = regs[1]; d->spc_tgt[1] = regs[2]; d->spc_tgt[2] = regs[3]; d->spc_en = regs[4]; d->spc_writes = (uint32_t)(regs[5] | (regs[6] << 8) | (regs[7] << 16));
     }
+    d->us_bg = ppu_us[0]; d->us_obj = ppu_us[1]; d->us_win = ppu_us[2]; d->us_comp = ppu_us[3]; d->us_mix = ppu_us[4];
+    memset(ppu_us, 0, sizeof ppu_us);
+    d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;
 }

@@ -51,6 +51,8 @@ def cover(path):
 def main():
     parts = sorted(glob.glob(os.path.join(HERE, "..", "src", "*.lua")))
     lua = "\n".join(open(p).read() for p in parts)
+    if os.environ.get("SNES_TEST") == "1":         # a test build for the bridge: the first ROM opens by itself, the FPS line is on
+        lua = lua.replace("local AUTO = false", "local AUTO = true").replace("local show_fps = false", "local show_fps = true")
     open(os.path.join(OUT, "main.lua"), "w").write(lua)
     sheet = os.path.join(OUT, "sheet.png")
     png(sheet, 16, 16, lambda x, y: b"\x00\x00\x00\x00")

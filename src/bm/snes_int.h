@@ -97,5 +97,7 @@ void cpu_get(cpu_regs_t *r);                    /* for the tests */
 void ppu_reset(void);
 void ppu_line(int y);                   /* draws line y into S.picture */
 void ppu_cgram_write(int index);
+extern uint32_t (*snes_now_us)(void);
+extern uint32_t ppu_us[5];               /* the time of the parts of ppu_line since the last read: layers, sprites, windows, compose, mix */
 
 #endif

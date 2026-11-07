@@ -62,10 +62,14 @@ typedef struct {
     uint8_t port_in[4], port_out[4];    /* the four ports: written by the CPU, written by the sound CPU */
     uint8_t timer_out[3];
     uint16_t trace[12], trace_s[12];
+    uint32_t us_bg, us_obj, us_win, us_comp, us_mix;     /* since the last read: layers, sprites, windows, mixing (microseconds) */
+    uint32_t us_frame, us_ppu, us_spc, us_draw; /* the time of a frame and its parts, averaged, in microseconds */
     uint32_t spc_writes;                /* port writes by the CPU since the reset */
     uint8_t spc_ctl, spc_tgt[3], spc_en;   /* $F1, the timer targets, which timers run */
 } snes_debug_t;
 void snes_debug(snes_debug_t *d);
+/* a clock in microseconds, to time the parts of a frame (the host or the kernel gives it; NULL: no timing) */
+void snes_set_clock(uint32_t (*now_us)(void));
 
 /* the sound CPU (snes_spc.c) */
 void spc_reset(void);

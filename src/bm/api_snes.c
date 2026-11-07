@@ -14,6 +14,7 @@
  *   snes_debug()                -> {pc, wai, stp, io = {..}, spc = "boot"/"run"/"halt", spc_pc, inidisp, tm, nmi, frames}
  */
 #include "rt_internal.h"
+#include "drivers/timer.h"
 #include "snes.h"
 
 #include <stdio.h>
@@ -22,8 +23,11 @@
 #include "lauxlib.h"
 #include "lua.h"
 
+static uint32_t now_us(void) { return timer_ticks(); }
+
 int l_snes_load(lua_State *L)
 {
+    snes_set_clock(now_us);
     size_t len;
     const char *data = luaL_checklstring(L, 1, &len);
     const char *why = "";
@@ -56,10 +60,33 @@ int l_snes_draw(lua_State *L)
     if (!dst)
         return luaL_error(L, "snes_draw: a render target is needed");
     const uint16_t *src = snes_picture(&lines);
-    if (w < SNES_W || h < lines)
-        return luaL_error(L, "snes_draw: the target is smaller than %dx%d", SNES_W, lines);
-    for (int y = 0; y < lines; y++)
-        memcpy(dst + (size_t)y * (size_t)w, src + (size_t)y * SNES_W, SNES_W * sizeof(uint16_t));
+    const int dw = (int)luaL_optinteger(L, 2, SNES_W), dh = (int)luaL_optinteger(L, 3, lines);
+    if (dw < 1 || dh < 1 || dw > w || dh > h)
+        return luaL_error(L, "snes_draw: the size %dx%d does not fit the target (%dx%d)", dw, dh, w, h);
+    if (dw == SNES_W && dh == lines) {
+        for (int y = 0; y < lines; y++)
+            memcpy(dst + (size_t)y * (size_t)w, src + (size_t)y * SNES_W, SNES_W * sizeof(uint16_t));
+    } else {
+        /* nearest neighbour to dw x dh: a table of the source column of each column, and a row that repeats is a copy */
+        static uint16_t xmap[1280];
+        if (dw > 1280)
+            return luaL_error(L, "snes_draw: at most 1280 pixels wide");
+        for (int x = 0; x < dw; x++)
+            xmap[x] = (uint16_t)(x * SNES_W / dw);
+        int prev = -1;
+        for (int y = 0; y < dh; y++) {
+            const int sy = y * lines / dh;
+            uint16_t *row = dst + (size_t)y * (size_t)w;
+            if (sy == prev) {
+                memcpy(row, row - w, (size_t)dw * sizeof(uint16_t));
+                continue;
+            }
+            const uint16_t *s = src + (size_t)sy * SNES_W;
+            for (int x = 0; x < dw; x++)
+                row[x] = s[xmap[x]];
+            prev = sy;
+        }
+    }
     lua_pushinteger(L, lines);
     return 1;
 }
@@ -126,6 +153,10 @@ int l_snes_debug(lua_State *L)
              d.port_out[3], d.timer_out[0], d.timer_out[1], d.timer_out[2], d.spc_ctl, d.spc_tgt[0], d.spc_tgt[1],
              d.spc_tgt[2], d.spc_en, (unsigned long)d.spc_writes);
     lua_pushstring(L, hex); lua_setfield(L, -2, "ports");
+    snprintf(hex, sizeof hex, "us frame %lu ppu %lu spc %lu", (unsigned long)d.us_frame, (unsigned long)d.us_ppu, (unsigned long)d.us_spc);
+    lua_pushstring(L, hex); lua_setfield(L, -2, "us");
+    snprintf(hex, sizeof hex, "ppu us: bg %lu obj %lu win %lu comp %lu mix %lu", (unsigned long)d.us_bg, (unsigned long)d.us_obj, (unsigned long)d.us_win, (unsigned long)d.us_comp, (unsigned long)d.us_mix);
+    lua_pushstring(L, hex); lua_setfield(L, -2, "us_ppu");
     char tb[160];
     n = 0;
     for (int i = 0; i < 12; i++)
