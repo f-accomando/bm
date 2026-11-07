@@ -214,7 +214,7 @@ The menu is at the left of the screen. A group (System, Network) has a submenu: 
 | `Esc` in the main menu | the cartridge menu |
 | `:` | one line of commands (see below) |
 
-The items are: *Command line* (the `bm:` prompt), *Cartridge menu*, *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. On the serial port and on the network console the menu is not drawn: `Enter` runs the first item, the `bm:` prompt, and `:` takes a line.
+The items are: *bm menu gui* (the cartridge menu), *Command line* (the `bm:` prompt), *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. On the serial port and on the network console the menu is not drawn: `Enter` runs *Command line*, the `bm:` prompt (the selected item at start), and `:` takes a line. The menu has no key hint line and no `>` marker on the screen. *System > Info* opens a box with the main facts: device, CPU, GPU, RAM, kernel, storage, clocks, WiFi and Bluetooth. The typed line `sys info` still prints the full list.
 
 ## Commands
 

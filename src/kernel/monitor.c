@@ -215,7 +215,20 @@ CMD(c_upload) { upload_and_play(console_framebuffer()); return 0; }
 CMD(c_carts_list) { carts_list(); return 0; }
 CMD(c_carts_rescan) { carts_init(); carts_list(); return 0; }
 
-CMD(c_info) { sysinfo_print(); return 0; }
+/* sys info: a box with the main facts from the bm shell menu; the full list for a typed line (the PC tools, the tests) */
+CMD(c_info)
+{
+    if (!from_key) {
+        sysinfo_print();
+        return 0;
+    }
+    char label[12][14], value[12][40];
+    const int n = sysinfo_summary(label, value, 12);
+    shell_info_draw("System info", (const char (*)[14])label, (const char (*)[40])value, n);
+    kprintf("\n-- press a key to go back --\n");
+    input_getc_home();
+    return 0;
+}
 CMD(c_heap) { sysinfo_print_heap(); return 0; }
 CMD(c_clear) { console_clear(); return 0; }
 CMD(c_dmesg) { pager_show(klog_text()); return 0; }
@@ -1005,7 +1018,7 @@ static int shell_key(const smenu_t *m)
     }
 }
 
-/* Enter on an item: the first one is the bm: prompt, the others run a line of commands. 1 if the
+/* Enter on an item: Command line (no line) is the bm: prompt, the others run a line of commands. 1 if the
  * PS button asked for the cartridge menu. */
 static int shell_run_item(const smenu_item_t *it)
 {
@@ -1030,7 +1043,8 @@ void monitor_run(void)
     int n;
     const smenu_item_t *items = shell_menu_items(&n);
     smenu_init(&m, items, n);
-    kprintf("\nbm shell: Enter runs the selected item (the first opens the bm: prompt), ':' takes a line, "
+    m.sel = 1;                                  /* Command line: Enter on the serial line opens the prompt, as before */
+    kprintf("\nbm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, "
             "Esc the cartridge menu\n");
 
     int redraw = 1;
@@ -1042,6 +1056,7 @@ void monitor_run(void)
         }
         netcon_focus(MON_FOCUS, "> ");
         kprintf("> ");
+        console_write("\r\x1b[K");               /* the marker is for the serial line: the screen shows none */
         crumb("monitor, waiting for a key", NULL);
         const int c = shell_key(&m);
         if (c == EK_PLAY) {

@@ -11,7 +11,7 @@
 #include "gfx/console.h"
 
 static const smenu_item_t system_sub[] = {
-    { "Info",     "sys info",   1, NULL, 0 },
+    { "Info",     "sys info",   0, NULL, 0 },
     { "Log",      "sys dmesg",  0, NULL, 0 },
     { "3D Bench", "bench 3d",   0, NULL, 0 },
     { "Reboot",   "sys reboot", 0, NULL, 0 },
@@ -26,8 +26,8 @@ static const smenu_item_t network_sub[] = {
 #define NSUB(a) ((int)(sizeof (a) / sizeof (a)[0]))
 
 static const smenu_item_t items[] = {
-    { "Command line",   NULL,   0, NULL, 0 },
-    { "Cartridge menu", "menu", 0, NULL, 0 },
+    { "bm menu gui", "menu", 0, NULL, 0 },
+    { "Command line", NULL,  0, NULL, 0 },
     { "Lua",            "lua",  0, NULL, 0 },
     { "System",         NULL,   0, system_sub, NSUB(system_sub) },
     { "Network",        NULL,   0, network_sub, NSUB(network_sub) },
@@ -105,7 +105,6 @@ static void item_row(int r, int c, int w, const smenu_item_t *it, const char *st
 void shell_menu_draw(const smenu_t *m)
 {
     static const char title[] = " bm shell ";
-    static const char hint[] = "w/s: move   Enter or d: open   a or Esc: back   ':' a line";
     uint32_t cols, rows;
     console_size(&cols, &rows);
     (void)cols;
@@ -142,7 +141,31 @@ void shell_menu_draw(const smenu_t *m)
         if (sr + sh - 1 > bottom)
             bottom = sr + sh - 1;
     }
-    at(bottom + 2, 1);
-    console_write(hint);
-    at(bottom + 4, 1);                          /* the marker of the serial line goes below the boxes */
+    at(bottom + 2, 1);                          /* the serial marker is printed here and wiped from the screen */
+}
+
+/* The system info box: label and value rows in a frame, drawn over a clear screen. */
+void shell_info_draw(const char *title, const char (*label)[14], const char (*value)[40], int n)
+{
+    int w = (int)strlen(title) + 6;
+    for (int i = 0; i < n; i++) {
+        const int l = 2 + 13 + (int)strlen(value[i]) + 2;
+        if (l > w)
+            w = l;
+    }
+    console_write("\x1b[0m\x1b[2J\x1b[H");
+    box(2, 1, n + 2, w);
+    char t[40];
+    snprintf(t, sizeof t, " %.30s ", title);
+    at(2, 3);
+    console_write(t);
+    for (int i = 0; i < n; i++) {
+        at(3 + i, 3);
+        console_write("\x1b[90m");
+        console_write(label[i]);
+        console_write("\x1b[0m");
+        at(3 + i, 3 + 13);
+        console_write(value[i]);
+    }
+    at(n + 5, 1);
 }

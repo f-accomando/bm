@@ -42,7 +42,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   The monitor keys `b`, `g` and `R`, and the line words `gpu`, `room`, `video` and `stack`, went with them.
   The monitor keys `k` (CPU bench), `d` (animation demo) and `p` (render bench) were removed on 28 Oct 2026 with `bench.c`, `demo.c` and `bm_bench` (the RGB30 Settings row *Render bench* went too).
   The monitor is a table of commands (`commands` in `src/kernel/monitor.c`). The bm shell menu (`src/kernel/shell_menu.c`)
-  runs lines of commands (7 Nov 2026: the single keys are gone). The `bm:` prompt (the first item) stays open and
+  runs lines of commands (7 Nov 2026: the single keys are gone). The `bm:` prompt (the item Command line, selected at start) stays open and
   has history, Tab and line editing (`src/kernel/monitor_cmd.c`). The old line words stay as aliases.
   A game in memory has a star at the top right of its card; a game with a newer
   Market version has a down triangle at the bottom right (`market_has_update()`). The Market

@@ -6,6 +6,10 @@
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "lib/printf.h"
+#include "fs/fat.h"
+#include "kernel/version.h"
+
+#include <string.h>
 
 #include <malloc.h>
 
@@ -97,4 +101,42 @@ void sysinfo_print_short(void)
     kprintf("%s from %s, MMU+caches %s, heap %lu MB, UART %lu Hz\n", sysinfo_cpu(),
             mode_name(boot_mode), mmu_enabled() ? "on" : "off",
             (uint32_t)((heap_end() - heap_start()) >> 20), uart_clock());
+}
+
+/* The main facts of the machine for the bm shell's box: label and value rows. Returns the rows. */
+int sysinfo_summary(char label[][14], char value[][40], int max)
+{
+    uint32_t arm[2] = { 0, 0 }, vc[2] = { 0, 0 };
+    prop_query(PROP_GET_ARM_MEMORY, arm, 2);
+    prop_query(PROP_GET_VC_MEMORY, vc, 2);
+    const uint32_t mhz_arm = prop_clock_rate(CLOCK_ARM) / 1000000;
+    const uint32_t mhz_core = prop_clock_rate(CLOCK_CORE) / 1000000;
+    const uint32_t mhz_v3d = prop_clock_rate(CLOCK_V3D) / 1000000;
+    const uint32_t mhz_ram = prop_clock_rate(CLOCK_SDRAM) / 1000000;
+    const board_t *b = board();
+    const int wireless = b->wireless;
+    const int zero2 = b->model == BOARD_ZERO_2W;
+
+    char dev[28];                               /* "Pi Zero W rev 1.1" -> "Pi Zero W 1.1" */
+    const char *rev = strstr(b->name, " rev ");
+    if (rev)
+        ksnprintf(dev, sizeof dev, "%.*s %s", (int)(rev - b->name), b->name, rev + 5);
+    else
+        ksnprintf(dev, sizeof dev, "%s", b->name);
+
+    int n = 0;
+#define ROW(l, ...) do { if (n < max) { ksnprintf(label[n], 14, "%s", l); ksnprintf(value[n], 40, __VA_ARGS__); n++; } } while (0)
+    ROW("Device", "Raspberry %s", dev);
+    ROW("CPU", "%s, %s", zero2 ? "Cortex-A53 x4" : "ARM1176JZF-S", BOARD_SOC);
+    ROW("GPU", "VideoCore IV");
+    ROW("RAM", "%lu MB (+ %lu MB GPU)", arm[1] >> 20, vc[1] >> 20);
+    ROW("Kernel", "bm %s", bm_version);
+    ROW("Storage", "%s", fat_describe());
+    ROW("ARM clock", "%lu MHz", mhz_arm);
+    ROW("Core clock", "%lu MHz (V3D %lu)", mhz_core, mhz_v3d);
+    ROW("RAM clock", "%lu MHz", mhz_ram);
+    ROW("WiFi", "%s", wireless ? "802.11n 2.4 GHz" : "none");
+    ROW("Bluetooth", "%s", wireless ? "4.1 LE" : "none");
+#undef ROW
+    return n;
 }

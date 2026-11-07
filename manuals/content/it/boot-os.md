@@ -214,7 +214,7 @@ Il menu è a sinistra dello schermo. Un gruppo (System, Network) ha un sottomenu
 | `Esc` nel menu principale | il menu delle cartucce |
 | `:` | una riga di comandi (vedi sotto) |
 
-Le voci sono: *Command line* (il prompt `bm:`), *Cartridge menu*, *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sulla porta seriale e sulla console di rete il menu non è disegnato: `Invio` esegue la prima voce, il prompt `bm:`, e `:` prende una riga.
+Le voci sono: *bm menu gui* (il menu delle cartucce), *Command line* (il prompt `bm:`), *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sulla porta seriale e sulla console di rete il menu non è disegnato: `Invio` esegue *Command line*, il prompt `bm:` (la voce scelta all'avvio), e `:` prende una riga. Sullo schermo il menu non ha la riga dei tasti né il segno `>`. *System > Info* apre un riquadro con i dati principali: dispositivo, CPU, GPU, RAM, kernel, archivio, clock, WiFi e Bluetooth. La riga digitata `sys info` stampa ancora l'elenco completo.
 
 ## Comandi
 
