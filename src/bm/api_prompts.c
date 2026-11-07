@@ -1048,3 +1048,14 @@ int l_tri(lua_State *L)
         g16_tri(&rt.g, v[0], v[1], v[2], v[3], v[4], v[5], (uint16_t)v[6]);
     return 0;
 }
+
+/* the pixels (RGB565) of a render target at stack index idx, for the files that fill one (api_snes.c); NULL if it is not one */
+uint16_t *target_pixels(lua_State *L, int idx, int *w, int *h)
+{
+    ltarget_t *lt = (ltarget_t *)luaL_testudata(L, idx, TARGET_MT);
+    if (!lt || !lt->target.px)
+        return NULL;
+    *w = lt->target.w;
+    *h = lt->target.h;
+    return lt->target.px;
+}

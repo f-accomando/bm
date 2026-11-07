@@ -146,7 +146,8 @@ def build():
     n.inc(0x0010)                                # frame counter at $0010 (WRAM)
     n.lda(0x0010)
     n.stz(0x2102); n.stz(0x2103)
-    n.sta(0x2104)                                # sprite 0 x = frame counter
+    n.sta(0x2104)                                # sprite 0 x = frame counter (the pair is written at the second byte)
+    n.lda_i(100); n.sta(0x2104)                  # y = 100
     n.pla()
     n.rti()
     img[NMI - 0x8000:NMI - 0x8000 + len(n.b)] = n.b

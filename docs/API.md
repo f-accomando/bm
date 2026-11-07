@@ -112,6 +112,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/draw.md](api/draw.md) | Screen and shapes · Sprites and map |
 | [api/input.md](api/input.md) | Keys, gamepad, mouse, touch |
 | [api/system.md](api/system.md) | Time and system · Network (UDP) · Saves · Documents |
+| [api/snes.md](api/snes.md) | The SNES machine (bm SNES) |
 | [api/sound.md](api/sound.md) | Sound effects and music · Notes · Instruments, tone, room · The bank |
 | [api/tools.md](api/tools.md) | Keyboard and files · Assistant (M30) |
 | [api/light3d.md](api/light3d.md) | nano8 · Light · Light by levels · 3D (software) · Collision worlds |

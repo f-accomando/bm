@@ -469,6 +469,14 @@ int l_delsave(lua_State *L);
 
 /* documents (api_docs.c) */
 int l_doc_list(lua_State *L);
+uint16_t *target_pixels(lua_State *L, int idx, int *w, int *h);
+int l_snes_load(lua_State *L);
+int l_snes_reset(lua_State *L);
+int l_snes_frame(lua_State *L);
+int l_snes_draw(lua_State *L);
+int l_snes_info(lua_State *L);
+int l_snes_sram(lua_State *L);
+int l_snes_debug(lua_State *L);
 int l_doc_read(lua_State *L);
 int l_doc_write(lua_State *L);
 int l_doc_delete(lua_State *L);

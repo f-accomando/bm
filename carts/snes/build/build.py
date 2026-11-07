@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build.py - bm SNES: joins src/*.lua into one main.lua, makes the blank sprite sheet the tile
+build.py - bm SNES: joins src/*.lua into one main.lua, makes a blank 16 x 16 sprite sheet (the runtime needs one)
 cache needs, and packs the project (.bme) and the cartridge (.bm) with scripts/mkbm.py.
 
   python3 carts/snes/build/build.py [outdir]      (default build/snes)
@@ -53,7 +53,7 @@ def main():
     lua = "\n".join(open(p).read() for p in parts)
     open(os.path.join(OUT, "main.lua"), "w").write(lua)
     sheet = os.path.join(OUT, "sheet.png")
-    png(sheet, 1024, 1024, lambda x, y: b"\x00\x00\x00\x00")
+    png(sheet, 16, 16, lambda x, y: b"\x00\x00\x00\x00")
     cv = os.path.join(HERE, "..", "cover.png")
     if not os.path.exists(cv):
         cover(cv)

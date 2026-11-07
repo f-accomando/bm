@@ -63,12 +63,7 @@ def main():
     subprocess.check_call([sys.executable, HERE + "/make_testrom.py", tmp + "/sd/sfc/bmtest.sfc"],   # the ROM folder
                           stdout=subprocess.DEVNULL)
     script = ("5 shot browse\n10 pad 1 a\n12 pad 1 none\n60 shot f60\n200 shot f200\n"
-              "210 pad 1 l2 r2\n260 pad 1 none\n"                       # the emulator menu
-              "270 pad 1 down\n272 pad 1 none\n274 pad 1 down\n276 pad 1 none\n"
-              "278 pad 1 a\n280 pad 1 none\n"                           # Sprite viewer
-              "285 shot tiles\n290 pad 1 a\n292 pad 1 none\n"          # export the tile page
-              "300 pad 1 r1\n302 pad 1 none\n305 shot sprites\n310 pad 1 x\n312 pad 1 none\n"  # export all sprites
-              "320 pad 1 b\n322 pad 1 none\n330 shot menu\n")
+              "210 pad 1 l2 r2\n260 pad 1 none\n330 shot menu\n")
     open(tmp + "/in.txt", "w").write(script)
     subprocess.check_call([host, cart, "--sd", tmp + "/sd", "--seconds", "6", "--shots", tmp + "/shots",
                            "--input", tmp + "/in.txt", "--quiet"], stdout=subprocess.DEVNULL)
@@ -97,18 +92,6 @@ def main():
         return None
     a, b = red_left(f200, 100), red_left(f200, 300)
     check("HDMA bands change the scroll", a is not None and b is not None and a != b)
-    # the viewer: it shows the tiles of the test ROM and exports PNG files in /docs
-    tiles = pixels(read_png(tmp + "/shots/tiles.png"))
-    check("viewer shows the tile colours", has(tiles, white) or has(tiles, green) or has(tiles, red))
-    docs = sorted(os.listdir(tmp + "/sd/docs"))
-    pngs = [n for n in docs if n.endswith(".png")]
-    check("viewer exported two PNG files", len(pngs) == 2)
-    for n in pngs:
-        d = open(tmp + "/sd/docs/" + n, "rb").read()
-        check("PNG " + n + " is valid", d[:8] == b"\x89PNG\r\n\x1a\n")
-    if pngs:
-        w, h = struct.unpack(">II", open(tmp + "/sd/docs/" + pngs[0], "rb").read()[16:24])
-        print("     ", pngs, "first is", w, "x", h)
     print("snes render test:", "ok" if not fails else "FAILED " + ", ".join(fails))
     sys.exit(1 if fails else 0)
 

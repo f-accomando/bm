@@ -243,18 +243,19 @@ $(BUILD)/carts/kratos.bm $(BUILD)/carts/kratos.bme: $(BUILD)/carts/kratos.%: car
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kratos/bm.info
 
-# bm SNES (carts/snes): a Super Nintendo emulator in Lua. build.py joins carts/snes/src/*.lua, makes the blank
-# 1024 x 1024 sheet the tile cache needs and packs both files. The .bme is the source, the .bm the cartridge.
+# bm SNES (carts/snes): the user interface of a Super Nintendo emulator whose machine is in C (src/bm/snes_*.c).
+# build.py packs carts/snes/src/main.lua and the cover. The .bme is the source, the .bm the cartridge.
 # Not in GAMES yet: the speed on the Pi Zero W and the RGB30 is not measured (docs/progress/snes.md).
 $(BUILD)/carts/snes.bm $(BUILD)/carts/snes.bme: $(BUILD)/carts/snes.%: carts/snes/build/build.py $(wildcard carts/snes/src/*.lua) carts/snes/bm.info scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) carts/snes/build/build.py $(BUILD)/snes
 	cp $(BUILD)/snes/snes.$* $@
 
-# bm SNES tests: the CPU core in a plain Lua (tests/snes/cpu_test.lua) and the cartridge in bmhost with a test ROM
+# bm SNES tests: the C core on small programs (tests/snes/core_test.c) and the cartridge in bmhost with a test ROM
 # made by tests/snes/make_testrom.py (tests/snes/render_test.py reads the pictures).
 test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py
-	sh tests/snes/run_cpu_test.sh
+	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c
+	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
 # Island Bench (carts/islandbench): the island of the map kit assets/island.bmk (map, models, sprites) with the
@@ -717,7 +718,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
              src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \
