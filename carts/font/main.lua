@@ -81,6 +81,10 @@ local function load_bmf_data(stem, raw)
   local w = raw:byte(9)
   local h = raw:byte(10)
   local count = raw:byte(11) + raw:byte(12) * 256
+  local asc = raw:byte(13) or 0
+  local desc = raw:byte(14) or 0
+  if asc == 0 or asc >= h then asc = math.max(1, math.floor(h * 0.2)) end
+  if desc == 0 or desc > h then desc = math.min(h, math.floor(h * 0.82)) end
   local name = raw:sub(17, 32):gsub("%z.*", "")
   if name == "" then name = stem end
   local gl = {}
@@ -92,14 +96,16 @@ local function load_bmf_data(stem, raw)
       ptr = ptr + 1
     end
   end
-  return { name = name, stem = stem, cw = w, ch = h, glyphs = gl }
+  return { name = name, stem = stem, cw = w, ch = h, glyphs = gl, ascender = asc, descender = desc }
 end
 
 local function pack_bmf(font)
   local magic = "BMFONT\1\0"
   local dims = string.char(font.cw, font.ch)
   local count = string.char(256 % 256, math.floor(256 / 256))
-  local res = "\0\0\0\0"
+  local asc = font.ascender or math.max(1, math.floor(font.ch * 0.2))
+  local desc = font.descender or math.min(font.ch, math.floor(font.ch * 0.82))
+  local res = string.char(asc, desc, 0, 0)
   local n = (font.name or font.stem):sub(1, 15)
   local name_padded = n .. string.rep("\0", 16 - #n)
   local header = magic .. dims .. count .. res .. name_padded
@@ -133,9 +139,9 @@ local function init_fonts()
   end
 
   if not loaded_any then
-    table.insert(fonts, { name = "Terminus", stem = "terminus", cw = 8, ch = 16, glyphs = parse_hex_glyphs(HEX_ORIG_8X16, 16) })
-    table.insert(fonts, { name = "Inter", stem = "inter", cw = 8, ch = 16, glyphs = parse_hex_glyphs(HEX_INTER_8X16, 16) })
-    table.insert(fonts, { name = "6x12", stem = "6x12", cw = 6, ch = 12, glyphs = parse_hex_glyphs(HEX_6X12, 12) })
+    table.insert(fonts, { name = "Terminus", stem = "terminus", cw = 8, ch = 16, glyphs = parse_hex_glyphs(HEX_ORIG_8X16, 16), ascender = 3, descender = 14 })
+    table.insert(fonts, { name = "Inter", stem = "inter", cw = 8, ch = 16, glyphs = parse_hex_glyphs(HEX_INTER_8X16, 16), ascender = 3, descender = 14 })
+    table.insert(fonts, { name = "6x12", stem = "6x12", cw = 6, ch = 12, glyphs = parse_hex_glyphs(HEX_6X12, 12), ascender = 2, descender = 10 })
     if font_write then
       for _, f in ipairs(fonts) do
         font_write(f.stem, pack_bmf(f))
@@ -314,12 +320,16 @@ local function create_new_font()
   local stem = raw_name:gsub("%s+", "_"):lower():gsub("[^a-z0-9_%-]", ""):sub(1, 12)
   if stem == "" then stem = "font_" .. (#fonts + 1) end
 
+  local def_asc = math.max(1, math.floor(nch * 0.2))
+  local def_desc = math.min(nch, math.floor(nch * 0.82))
   local nf = {
     name = raw_name:sub(1, 15),
     stem = stem,
     cw = ncw,
     ch = nch,
-    glyphs = gl
+    glyphs = gl,
+    ascender = def_asc,
+    descender = def_desc
   }
   table.insert(fonts, nf)
   active_font_idx = #fonts
@@ -397,6 +407,8 @@ local mx, my, mb = -1, -1, 0
 local grid_drawing = false
 local grid_erasing = false
 local sheet_selecting = false
+local dragging_asc = false
+local dragging_desc = false
 
 function _init()
   if mouse then mouse(true) end
@@ -432,6 +444,8 @@ function _update()
   if not mb1 then
     grid_drawing = false
     sheet_selecting = false
+    dragging_asc = false
+    dragging_desc = false
   end
   if not mb2 then
     grid_erasing = false
@@ -565,12 +579,55 @@ function _update()
     if mx >= SCALE_3_X and mx < SCALE_3_X + SCALE_BTN_W then preview_scale = 3 end
   end
 
-  -- Grid Drawing: only draws if click/drag was initiated inside the grid
   local cell_size = math.min(math.floor(GRID_MAX_W / cur_font.cw), math.floor(GRID_MAX_H / cur_font.ch))
   local grid_w = cur_font.cw * cell_size
   local grid_h = cur_font.ch * cell_size
+  local asc_val = cur_font.ascender or math.max(1, math.floor(cur_font.ch * 0.2))
+  local desc_val = cur_font.descender or math.min(cur_font.ch, math.floor(cur_font.ch * 0.82))
+  local asc_y = GRID_Y + asc_val * cell_size
+  local desc_y = GRID_Y + desc_val * cell_size
+
+  -- Stepper buttons & guide line dragging
+  if click then
+    -- Ascender row (Y: 300..316)
+    if my >= 300 and my <= 316 then
+      if mx >= 46 and mx <= 66 then
+        cur_font.ascender = math.max(1, asc_val - 1)
+      elseif mx >= 90 and mx <= 112 then
+        cur_font.ascender = math.min(desc_val - 1, asc_val + 1)
+      end
+    -- Descender row (Y: 318..335)
+    elseif my >= 318 and my <= 335 then
+      if mx >= 46 and mx <= 66 then
+        cur_font.descender = math.max(asc_val + 1, desc_val - 1)
+      elseif mx >= 90 and mx <= 112 then
+        cur_font.descender = math.min(cur_font.ch, desc_val + 1)
+      end
+    -- Dragging handles (markers A and D on left edge)
+    elseif mx >= 6 and mx <= GRID_X + 6 then
+      if math.abs(my - asc_y) <= 8 then
+        dragging_asc = true
+      elseif math.abs(my - desc_y) <= 8 then
+        dragging_desc = true
+      end
+    end
+  end
+
+  if dragging_asc then
+    local r = math.floor((my - GRID_Y + cell_size / 2) / cell_size)
+    if r < 1 then r = 1 end
+    if r >= (cur_font.descender or cur_font.ch) then r = (cur_font.descender or cur_font.ch) - 1 end
+    cur_font.ascender = r
+  elseif dragging_desc then
+    local r = math.floor((my - GRID_Y + cell_size / 2) / cell_size)
+    if r <= (cur_font.ascender or 1) then r = (cur_font.ascender or 1) + 1 end
+    if r > cur_font.ch then r = cur_font.ch end
+    cur_font.descender = r
+  end
+
+  -- Grid Drawing: only draws if click/drag was initiated inside the grid
   local in_grid = mx >= GRID_X and mx < GRID_X + grid_w and my >= GRID_Y and my < GRID_Y + grid_h
-  if in_grid then
+  if in_grid and not dragging_asc and not dragging_desc then
     if click then grid_drawing = true end
     if rclick then grid_erasing = true end
     local gx = math.floor((mx - GRID_X) / cell_size) + 1
@@ -705,13 +762,18 @@ function _draw()
     print(notice, 440, 6, C.cyan)
   end
 
-  -- Left Panel: Large Glyph Editor
+  -- Left Panel: Large Glyph Editor and Guideline Controls
   local cell_size = math.min(math.floor(GRID_MAX_W / cur_font.cw), math.floor(GRID_MAX_H / cur_font.ch))
   local grid_w = cur_font.cw * cell_size
   local grid_h = cur_font.ch * cell_size
+  local asc_val = cur_font.ascender or math.max(1, math.floor(cur_font.ch * 0.2))
+  local desc_val = cur_font.descender or math.min(cur_font.ch, math.floor(cur_font.ch * 0.82))
+  local asc_y = GRID_Y + asc_val * cell_size
+  local desc_y = GRID_Y + desc_val * cell_size
 
-  rectfill(GRID_X - 6, GRID_Y - 6, grid_w + 12, grid_h + 12, C.panel)
-  rect(GRID_X - 6, GRID_Y - 6, grid_w + 12, grid_h + 12, C.border)
+  -- Panel box extended to Y=338 to hold guide markers and steppers
+  rectfill(6, GRID_Y - 6, grid_w + 20, 304, C.panel)
+  rect(6, GRID_Y - 6, grid_w + 20, 304, C.border)
   rectfill(GRID_X, GRID_Y, grid_w, grid_h, C.pixel_off)
 
   for y = 1, cur_font.ch do
@@ -727,8 +789,40 @@ function _draw()
     end
   end
 
-  -- Baseline guide
-  line(GRID_X, GRID_Y + grid_h, GRID_X + grid_w, GRID_Y + grid_h, C.accent)
+  -- Ascender Guide (Green)
+  line(GRID_X, asc_y, GRID_X + grid_w, asc_y, 0x10B981)
+  print("A", 9, asc_y - 4, 0x10B981)
+  line(16, asc_y, 19, asc_y, 0x10B981)
+
+  -- Descender Guide (Orange)
+  line(GRID_X, desc_y, GRID_X + grid_w, desc_y, 0xFF9100)
+  print("D", 9, desc_y - 4, 0xFF9100)
+  line(16, desc_y, 19, desc_y, 0xFF9100)
+
+  -- Stepper Controls below grid
+  -- Ascender row (Y: 301..315)
+  print("Asc", 12, 304, 0x10B981)
+  rectfill(46, 301, 18, 14, C.btn)
+  rect(46, 301, 18, 14, C.border)
+  print("-", 53, 303, C.btn_text)
+
+  print(string.format("%2d", asc_val), 70, 304, 0x10B981)
+
+  rectfill(92, 301, 18, 14, C.btn)
+  rect(92, 301, 18, 14, C.border)
+  print("+", 98, 303, C.btn_text)
+
+  -- Descender row (Y: 319..333)
+  print("Disc", 12, 321, 0xFF9100)
+  rectfill(46, 319, 18, 14, C.btn)
+  rect(46, 319, 18, 14, C.border)
+  print("-", 53, 321, C.btn_text)
+
+  print(string.format("%2d", desc_val), 70, 321, 0xFF9100)
+
+  rectfill(92, 319, 18, 14, C.btn)
+  rect(92, 319, 18, 14, C.border)
+  print("+", 98, 321, C.btn_text)
 
   -- Center Panel: Code Page 437 Sheet
   rectfill(SHEET_X - 6, SHEET_Y - 6, SHEET_COLS * SHEET_CELL_W + 12, SHEET_ROWS * SHEET_CELL_H + 12, C.panel)
@@ -946,6 +1040,6 @@ function _draw()
   elseif dropdown_open then
     print("[Freccia Su/Giu] Scegli   [Invio] Conferma   [Esc/Tab] Chiudi", 14, 346, C.cyan)
   else
-    print("[Mouse] Edita   [Tab] Menu Font   [1/2/3] Zoom   [Ctrl+S] Salva in /bmf", 14, 346, C.dim)
+    print("[Mouse] Edita/Guide   [Tab] Menu Font   [1/2/3] Zoom   [Ctrl+S] Salva in /bmf", 14, 346, C.dim)
   end
 end
