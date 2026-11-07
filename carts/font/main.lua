@@ -75,12 +75,29 @@ local function parse_hex_glyphs(hex_str, height)
   return gl
 end
 
+-- The glyphs of a base font (bh rows a glyph) as a font of nh rows and nw columns: the nearest row of the
+-- base for each row, the left nw columns (bit 7 is the left pixel).
+local function base_glyphs(base_hex, bh, nh, nw)
+  local src = parse_hex_glyphs(base_hex, bh)
+  local keep = (0xFF << (8 - nw)) & 0xFF
+  local gl = {}
+  for i = 0, 255 do
+    gl[i] = {}
+    for y = 1, nh do
+      gl[i][y] = (src[i][((y - 1) * bh) // nh + 1] or 0) & keep
+    end
+  end
+  return gl
+end
+
 local function load_bmf_data(stem, raw)
   if #raw < 32 then return nil end
   if raw:sub(1, 6) ~= "BMFONT" then return nil end
   local w = raw:byte(9)
   local h = raw:byte(10)
   local count = raw:byte(11) + raw:byte(12) * 256
+  if w < 1 or w > 8 or h < 1 or h > 64 then return nil end   -- one byte a row: up to 8 pixels wide
+  if count > 256 then count = 256 end
   local asc = raw:byte(13) or 0
   local desc = raw:byte(14) or 0
   if asc == 0 or asc >= h then asc = math.max(1, math.floor(h * 0.2)) end
@@ -95,6 +112,10 @@ local function load_bmf_data(stem, raw)
       gl[i][y] = raw:byte(ptr) or 0
       ptr = ptr + 1
     end
+  end
+  for i = count, 255 do               -- a file with fewer than 256 glyphs: the rest blank (saved as 256)
+    gl[i] = {}
+    for y = 1, h do gl[i][y] = 0 end
   end
   return { name = name, stem = stem, cw = w, ch = h, glyphs = gl, ascender = asc, descender = desc }
 end
@@ -174,14 +195,14 @@ end
 local function get_pixel(c, x, y)
   local g = get_glyph(c)
   local row = g[y] or 0
-  local shift = cur_font.cw - x
+  local shift = 8 - x                 -- bit 7 is the left pixel, as the kernel draws it
   return (row & (1 << shift)) ~= 0
 end
 
 local function set_pixel(c, x, y, val)
   local g = get_glyph(c)
   local row = g[y] or 0
-  local shift = cur_font.cw - x
+  local shift = 8 - x                 -- bit 7 is the left pixel, as the kernel draws it
   if val then
     row = row | (1 << shift)
   else
@@ -200,7 +221,7 @@ end
 
 local function invert_glyph()
   local g = get_glyph(cur_char)
-  local mask = (1 << cur_font.cw) - 1
+  local mask = ((1 << cur_font.cw) - 1) << (8 - cur_font.cw)   -- the cw left bits
   for y = 1, cur_font.ch do
     g[y] = (g[y] ~ mask) & mask
   end
@@ -213,8 +234,8 @@ local function flip_h()
     local r = g[y]
     local nr = 0
     for x = 1, cur_font.cw do
-      if (r & (1 << (cur_font.cw - x))) ~= 0 then
-        nr = nr | (1 << (x - 1))
+      if (r & (1 << (8 - x))) ~= 0 then
+        nr = nr | (1 << (8 - (cur_font.cw + 1 - x)))
       end
     end
     g[y] = nr
@@ -236,7 +257,7 @@ end
 local function shift_glyph(dx, dy)
   local g = get_glyph(cur_char)
   local ng = {}
-  local mask = (1 << cur_font.cw) - 1
+  local mask = ((1 << cur_font.cw) - 1) << (8 - cur_font.cw)   -- the cw left bits
   for y = 1, cur_font.ch do
     local sy = y - dy
     if sy >= 1 and sy <= cur_font.ch then
@@ -307,10 +328,10 @@ local function create_new_font()
       for y = 1, nch do gl[i][y] = 0 end
     end
   else
-    local base_hex = HEX_INTER_8X16
+    local base_hex, base_h = HEX_INTER_8X16, 16
     if new_font_base == "terminus" then base_hex = HEX_ORIG_8X16
-    elseif new_font_base == "6x12" then base_hex = HEX_6X12 end
-    gl = parse_hex_glyphs(base_hex, nch)
+    elseif new_font_base == "6x12" then base_hex, base_h = HEX_6X12, 12 end
+    gl = base_glyphs(base_hex, base_h, nch, ncw)
   end
 
   local raw_name = new_font_name:match("^%s*(.-)%s*$")
@@ -729,7 +750,7 @@ local function draw_glyph_scaled(c, dx, dy, scale, col)
   for y = 1, cur_font.ch do
     local r = g[y] or 0
     for x = 1, cur_font.cw do
-      if (r & (1 << (cur_font.cw - x))) ~= 0 then
+      if (r & (1 << (8 - x))) ~= 0 then
         if scale == 1 then
           pset(dx + x - 1, dy + y - 1, col)
         else
