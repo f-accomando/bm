@@ -5723,6 +5723,59 @@ def test_bm_write(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+DOCFOLDER_CART = r"""
+function _init()
+  local l = doc_list("sfc")
+  log("sfc", l and #l or "nil", l and l[1] and l[1].name or "-", l and l[1] and l[1].size or 0)
+  local d = doc_read("t.sfc", "sfc")
+  log("read", d and #d or "nil", d and d:byte(1) or 0)
+  log("indocs", select(2, doc_read("t.sfc")))
+  log("docs", #doc_list(), #doc_list("docs"))
+  log("badfolder", select(2, doc_list("nope")))
+  log("write", doc_write("w.srm", "abc", "sfc"), (doc_read("w.srm", "sfc")))
+  log("delete", doc_delete("w.srm", "sfc"), select(2, doc_read("w.srm", "sfc")))
+  quit()
+end
+"""
+
+
+def test_doc_folders(b, opts):
+    """The document calls take a folder (2026-11-07): doc_list/doc_read/doc_write/doc_delete with "sfc" work on
+    /sfc, the ROM folder of bm SNES; no folder or "docs" is /docs as before; another word says so; the same
+    permission (documents) covers both."""
+    tmp = tempfile.mkdtemp(prefix="bm-docfolder-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    rom = os.path.join(tmp, "t.sfc")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    with open(rom, "wb") as f:
+        f.write(bytes([0xAB]) + b"x" * 99)
+    mksd.build(img, [(cfg, "bm/config.txt"), (rom, "sfc/t.sfc")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(DOCFOLDER_CART.encode(), title="docfolder"))
+        q.expect("asks for the documents (ok: allow, back: no)", timeout=30)
+        time.sleep(0.3)
+        q.send("j")                                     # A: allow
+        out = b""
+        out += q.expect("delete\t", timeout=30)
+        out += q.expect("\n", timeout=5)
+        text = out.decode(errors="replace").replace("\r", "")
+        assert "sfc\t1\tT.SFC\t100" in text or "sfc\t1\tt.sfc\t100" in text, text
+        assert "read\t100\t171" in text, text
+        assert "indocs\tno document t.sfc" in text, text
+        assert "docs\t0\t0" in text, text
+        assert "badfolder\tnope: the folder is docs or sfc" in text, text
+        assert "write\ttrue\tabc" in text, text
+        assert "delete\ttrue\tno document w.srm" in text, text
+        q.expect("> ", timeout=20)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 PERMIT_CART = r"""
 function _init()
   log("report1", report("test", "hello"))

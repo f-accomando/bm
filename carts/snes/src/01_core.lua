@@ -1,4 +1,4 @@
--- bm SNES: a Super Nintendo emulator cartridge. It reads .sfc and .smc files from /docs.
+-- bm SNES: a Super Nintendo emulator cartridge. It reads .sfc and .smc files from /sfc (the battery RAM goes to /docs).
 -- Part 1: memory, ROM header, bus, I/O registers, APU stub, DMA and HDMA.
 -- Original code. No SNES firmware or game data is in this file.
 

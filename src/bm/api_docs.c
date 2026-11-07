@@ -63,6 +63,7 @@
  * time: PERM_DOCS). Names 8.3, no folders ("letter.bmd", "letter.pdf"). */
 
 #define DOCS_DIR    "/docs"
+#define SFC_DIR     "/sfc"      /* the ROMs of bm SNES: the same calls, folder "sfc" */
 #define DOC_MAX     (4u * 1024 * 1024)
 
 /* a valid 8.3 name, lower case, in out (13 bytes); 0, or -1 */
@@ -88,6 +89,27 @@ static int doc_name(const char *in, char out[13])
     return base && ext != 0 ? 0 : -1;
 }
 
+/* the optional folder argument at idx: none or "docs" is /docs, "sfc" is /sfc; 0, or 2 (nil and why pushed) */
+static int doc_folder(lua_State *L, int idx, const char **dir)
+{
+    if (lua_isnoneornil(L, idx)) {
+        *dir = DOCS_DIR;
+        return 0;
+    }
+    const char *f = luaL_checkstring(L, idx);
+    if (!strcmp(f, "docs")) {
+        *dir = DOCS_DIR;
+        return 0;
+    }
+    if (!strcmp(f, "sfc")) {
+        *dir = SFC_DIR;
+        return 0;
+    }
+    lua_pushnil(L);
+    lua_pushfstring(L, "%s: the folder is docs or sfc", f);
+    return 2;
+}
+
 static int doc_check(lua_State *L, int idx, char name[13])
 {
     const char *in = luaL_checkstring(L, idx);
@@ -104,10 +126,14 @@ static int doc_check(lua_State *L, int idx, char name[13])
     return 0;
 }
 
-/* doc_list() -> { {name =, size =}, ... } of /docs (none: empty); nil and
+/* doc_list([folder]) -> { {name =, size =}, ... } of /docs, or of /sfc with "sfc" (none: empty); nil and
  * why if not allowed */
 int l_doc_list(lua_State *L)
 {
+    const char *dir;
+    const int fr = doc_folder(L, 1, &dir);
+    if (fr)
+        return fr;
     if (!perm_allowed(PERM_DOCS)) {
         lua_pushnil(L);
         lua_pushstring(L, "the player did not allow this app the documents");
@@ -116,7 +142,7 @@ int l_doc_list(lua_State *L)
     lua_newtable(L);
     fat_dir_t d;
     fat_entry_t e;
-    if (fat_opendir(&d, DOCS_DIR) != 0)
+    if (fat_opendir(&d, dir) != 0)
         return 1;
     int n = 0;
     while (fat_readdir(&d, &e) > 0) {
@@ -132,14 +158,18 @@ int l_doc_list(lua_State *L)
     return 1;
 }
 
-/* doc_read(name) -> its bytes, or nil and why */
+/* doc_read(name[, folder]) -> its bytes, or nil and why */
 int l_doc_read(lua_State *L)
 {
     char name[13], path[24];
+    const char *dir;
+    const int fr = doc_folder(L, 2, &dir);
+    if (fr)
+        return fr;
     const int r = doc_check(L, 1, name);
     if (r)
         return r;
-    ksnprintf(path, sizeof path, "%s/%s", DOCS_DIR, name);
+    ksnprintf(path, sizeof path, "%s/%s", dir, name);
     fat_entry_t e;
     uint8_t *data;
     size_t len;
@@ -158,12 +188,16 @@ int l_doc_read(lua_State *L)
     return 1;
 }
 
-/* doc_write(name, bytes) -> true, or nil and why (new or replaced) */
+/* doc_write(name, bytes[, folder]) -> true, or nil and why (new or replaced) */
 int l_doc_write(lua_State *L)
 {
     char name[13];
     size_t len;
+    const char *dir;
     luaL_checklstring(L, 2, &len);
+    const int fr = doc_folder(L, 3, &dir);
+    if (fr)
+        return fr;
     const int r = doc_check(L, 1, name);
     if (r)
         return r;
@@ -173,7 +207,7 @@ int l_doc_write(lua_State *L)
         lua_pushstring(L, "more than 4 MB");
         return 2;
     }
-    if (sd_write_file("doc", DOCS_DIR, name, data, len) != 0) {
+    if (sd_write_file("doc", dir, name, data, len) != 0) {
         lua_pushnil(L);
         lua_pushstring(L, fat_error());
         return 2;
@@ -182,14 +216,18 @@ int l_doc_write(lua_State *L)
     return 1;
 }
 
-/* doc_delete(name) -> true, or nil and why */
+/* doc_delete(name[, folder]) -> true, or nil and why */
 int l_doc_delete(lua_State *L)
 {
     char name[13], path[24];
+    const char *dir;
+    const int fr = doc_folder(L, 2, &dir);
+    if (fr)
+        return fr;
     const int r = doc_check(L, 1, name);
     if (r)
         return r;
-    ksnprintf(path, sizeof path, "%s/%s", DOCS_DIR, name);
+    ksnprintf(path, sizeof path, "%s/%s", dir, name);
     fat_entry_t e;
     if (fat_find(path, &e) != 0 || fat_delete(path) != 0) {
         lua_pushnil(L);

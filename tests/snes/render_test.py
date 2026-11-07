@@ -59,8 +59,8 @@ def has(p, want):
 def main():
     host, cart = sys.argv[1:3]
     tmp = tempfile.mkdtemp(prefix="snes-test-")
-    os.makedirs(tmp + "/sd/docs"); os.makedirs(tmp + "/shots")
-    subprocess.check_call([sys.executable, HERE + "/make_testrom.py", tmp + "/sd/docs/bmtest.sfc"],
+    os.makedirs(tmp + "/sd/docs"); os.makedirs(tmp + "/sd/sfc"); os.makedirs(tmp + "/shots")
+    subprocess.check_call([sys.executable, HERE + "/make_testrom.py", tmp + "/sd/sfc/bmtest.sfc"],   # the ROM folder
                           stdout=subprocess.DEVNULL)
     script = ("5 shot browse\n10 pad 1 a\n12 pad 1 none\n60 shot f60\n200 shot f200\n"
               "210 pad 1 l2 r2\n260 pad 1 none\n"                       # the emulator menu

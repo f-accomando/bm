@@ -719,7 +719,8 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # a script. For the reels of the games and for tests with screenshots.
 BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
-             src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
+             src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
+             src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
              src/bm/decimate.c src/bm/cutout.c \

@@ -134,7 +134,7 @@ local curname = ""
 
 local function list_roms()
   files = {}
-  local l, why = doc_list()
+  local l, why = doc_list("sfc")
   if not l then msg = why or "the player did not allow the files"; return end
   for _, d in ipairs(l) do
     local ext = d.name:match("%.([^.]+)$")
@@ -146,7 +146,7 @@ local function list_roms()
 end
 
 local function open_rom(d)
-  local data, why = doc_read(d.name)
+  local data, why = doc_read(d.name, "sfc")
   if not data then msg = why or "cannot read the file"; return end
   local ok, err = load_rom(data, d.name)
   if not ok then msg = err; return end
@@ -207,7 +207,7 @@ function _draw()
   if state == "browse" then
     cls(0x101820)
     print("bm SNES", 16, 12, 0xFFD050, 2)
-    print("Put .sfc or .smc files in the docs folder of the SD card.", 16, 56, 0x8090A0)
+    print("Put .sfc or .smc files in the /sfc folder of the SD card.", 16, 56, 0x8090A0)
     if #files == 0 then
       print("No ROM found.", 16, 100, 0xFFFFFF)
     end

@@ -35,7 +35,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `src/rgb30/`, `rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
 | [single-bm](progress/single-bm.md) | one cartridge type, the targets of the header, the faded cover, Market entries | `src/bm/format.c`, `docs/spec/compat-policy.toml`, `src/kernel/library.c` |
 | [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets, verification | `carts/overbit/`, `carts/yharnam/` |
-| [snes](progress/snes.md) | bm SNES: a Super Nintendo emulator in Lua that plays `.sfc` ROMs from `/docs` (65C816, DMA/HDMA, tile PPU; no sound yet) | `carts/snes/`, `tests/snes/` |
+| [snes](progress/snes.md) | bm SNES: a Super Nintendo emulator in Lua that plays `.sfc` ROMs from `/sfc` (65C816, DMA/HDMA, tile PPU; no sound yet) | `carts/snes/`, `tests/snes/` |
 | [smw](progress/smw.md) | native port of Super Mario World for the RGB30 (personal use): ROM extractor, emulator capture, physics reference | `scripts/smw_extract.py`, `scripts/smw_capture.py` |
 | [smw-guide](progress/smw-guide.md) | PDF guide of the SMW port and its redrawn guide edition | `manuals/content/en/smw-guide.md`, `carts/smw/guide/build.py` |
 | [tools](progress/tools.md) (+ [assistant](progress/tools-assistant.md), [suite](progress/tools-suite.md), [code templates](progress/tools-code-templates.md)) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `carts/`, `src/ai/`, `scripts/`, `tools/` |

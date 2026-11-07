@@ -225,10 +225,12 @@ call returns `nil` and the reason.
 
 | Function | Description |
 |---|---|
-| `doc_list()` | the files in `/docs`: `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
-| `doc_read(name)` | the bytes of a document (a string), or `nil` and the reason |
-| `doc_write(name, bytes)` | writes a document, new or replaced (at most 4 MB); `true`, or `nil` and the reason |
-| `doc_delete(name)` | deletes a document; `true`, or `nil` and the reason |
+| `doc_list([folder])` | the files in `/docs` (or in `/sfc`, the ROM folder of bm SNES, with `"sfc"`): `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
+| `doc_read(name[, folder])` | the bytes of a document (a string), or `nil` and the reason |
+| `doc_write(name, bytes[, folder])` | writes a document, new or replaced (at most 4 MB); `true`, or `nil` and the reason |
+| `doc_delete(name[, folder])` | deletes a document; `true`, or `nil` and the reason |
+
+`folder` is `"docs"` (the default) or `"sfc"`. Any other word gives `nil` and `the folder is docs or sfc`. The same permission covers both folders.
 
 ```lua
 local ok, why = doc_write("notes.txt", "shopping:\nbread\nmilk\n")

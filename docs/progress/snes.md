@@ -6,7 +6,7 @@ was tried. The speed on the Pi Zero W and the RGB30 is not measured.
 
 ## How to use it
 
-1. Copy the ROM to the `/docs` folder of the SD card. Use an 8.3 name (`game.sfc`). A file has at most 4 MB.
+1. Make the folder `/sfc` at the root of the SD card and copy the ROM there. Use an 8.3 name (`game.sfc`). A file has at most 4 MB. (The cartridge reads it with `doc_list("sfc")` and `doc_read(name, "sfc")`; the permission is the one of the documents.)
 2. Start "bm SNES" from the menu. The first time, the console asks if the cartridge may use the files.
 3. Choose the ROM with the arrows. Press A.
 4. Keys: the pad keys are the SNES keys (A, B, X, Y, L1, R1, Start, Select, the cross).

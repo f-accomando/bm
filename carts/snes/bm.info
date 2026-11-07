@@ -1,6 +1,6 @@
 # bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
 name: bm SNES
-desc: A Super Nintendo emulator in Lua. It plays .sfc and .smc files from the docs folder of the SD card.
+desc: A Super Nintendo emulator in Lua. It plays .sfc and .smc files from the /sfc folder of the SD card.
 author: bm
 license: LicenseRef-BM-Community-1.0
 version: 0.1
