@@ -3,59 +3,56 @@ kind: session
 kernel: v0.2.5-2101-g7eff28ac-dirty
 branch: antigravity/bmf-fonts-system
 board: Pi Zero W
-date: 2026-11-07 12:41:21
+date: 2026-11-07 12:48:18
 file: session_bm-font_pi-zero-w.txt
 
-session of "bm Font" (the last one: the next run of this game replaces this file)
+session of "bm Font" since it was resumed (the last one: the next run of this game replaces this file)
 options bm3d 7.36 gpu3d=on vs=2 aa=0 queue=1 wc=0 filter=0 tex16=0 fs2=1 sort=0 attr=0 etc1=0 3d=none later=0 2d=0 impostor=0 fast=0
-screen 640x360, 1116 frames in 43.6 s, 25.5 fps
+screen 640x360, 62 frames in 2.4 s, 25.5 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 38.1 ms, max 41.5 ms, 1116 frames over 16.7 ms
-memory: Lua peak 776 KB, data 322 KB; code 4106 tokens; busiest frame 341k Lua instructions
-frames that were shown after more than 1.5 frames: 1116
+time of _update + _draw (+ the 3D's wait): avg 38.4 ms, max 44.9 ms, 62 frames over 16.7 ms
+memory: Lua peak 796 KB, data 322 KB; code 4106 tokens; busiest frame 341k Lua instructions
+frames that were shown after more than 1.5 frames: 62
 
 time from one picture to the next:
   <= 18 ms (60 fps)    0
   <= 25 ms             0
   <= 34 ms (30 fps)    0
-  <= 50 ms             1115
+  <= 50 ms             62
   <= 100 ms            0
   > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 1115 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 61 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
-  draw (no 3D)    38.0  228%
+  draw (no 3D)    38.3  230%
   3D calls         0.0    0%
   audio            0.2    1%
   GPU wait         0.0    0%
-  all             38.3  230%
+  all             38.6  231%
 the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
   map        0.0 ms  0.0 calls
   spr        0.0 ms  0.0 calls
   sspr       0.0 ms  0.0 calls
   stack      0.0 ms  0.0 calls
-  print      0.5 ms  21.2 calls
-  shapes     5.4 ms  5004.9 calls
-  all        6.0 ms  5026.1 calls (of the draw's 38.0 ms: the rest is Lua, the light, the 3D)
+  print      0.6 ms  25.4 calls
+  shapes     5.6 ms  5085.0 calls
+  all        6.3 ms  5110.4 calls (of the draw's 38.3 ms: the rest is Lua, the light, the 3D)
 audio interrupt: 0.5% of the CPU's time (mean), 0.5% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-     13     0.6    46.1   38.1   0.0   38.0   0.0   0.0     7.9      341      412        1
-    252     9.9    42.6   41.5   0.0   41.4   0.0   0.0     1.0      340      398        1
-     16     0.7    40.0   38.0   0.1   37.9   0.0   0.0     1.9      340      413        1
-     17     0.8    39.9   38.0   0.0   37.9   0.0   0.0     1.9      341      414        1
-    726    28.4    39.4   38.4   0.0   38.3   0.0   0.0     1.0      340      606        1
-    791    31.0    39.2   38.4   0.0   38.3   0.0   0.0     0.8      341      634        1
-    809    31.7    39.1   38.3   0.0   38.3   0.0   0.0     0.8      340      642        1
-     92     3.7    39.1   38.1   0.0   38.0   0.0   0.0     1.0      341      446        1
-    468    18.4    39.1   38.0   0.1   37.9   0.0   0.0     1.0      340      493        1
-    182     7.2    39.1   37.9   0.0   37.9   0.0   0.0     1.1      340      486        1
-   1085    42.4    39.1   38.4   0.0   38.4   0.0   0.0     0.6      340      763        1
-    239     9.4    39.0   37.9   0.0   37.9   0.0   0.0     1.1      340      511        1
-
-GPU 3D: 151 jobs, 544 triangles a frame, 1.0 ms a frame, longest job seen to its end 8.0 ms
-binner memory: at most 52 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
+   1161    45.4    45.5   44.9   0.0   44.9   0.0   0.0     0.6      341      398        1
+   1162    45.4    39.3   38.3   0.0   38.3   0.0   0.0     1.0      340      399        1
+   1130    44.2    39.0   38.4   0.0   38.4   0.0   0.0     0.6      340      783        1
+   1143    44.7    39.0   38.4   0.0   38.4   0.0   0.0     0.6      340      788        1
+   1156    45.2    39.0   38.4   0.0   38.4   0.0   0.0     0.6      340      794        1
+   1146    44.8    39.0   38.4   0.0   38.4   0.0   0.0     0.6      340      790        1
+   1174    45.9    39.0   38.3   0.0   38.3   0.0   0.0     0.6      340      404        1
+   1171    45.8    39.0   38.4   0.0   38.3   0.0   0.0     0.6      341      403        1
+   1121    43.8    39.0   38.4   0.0   38.3   0.0   0.0     0.6      340      779        1
+   1153    45.1    39.0   38.4   0.0   38.3   0.0   0.0     0.6      340      793        1
+   1140    44.6    39.0   38.4   0.0   38.4   0.0   0.0     0.6      340      787        1
+   1168    45.7    39.0   38.3   0.0   38.2   0.0   0.0     0.6      341      401        1
