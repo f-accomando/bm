@@ -712,13 +712,18 @@ function _draw()
 
   rectfill(GRID_X - 6, GRID_Y - 6, grid_w + 12, grid_h + 12, C.panel)
   rect(GRID_X - 6, GRID_Y - 6, grid_w + 12, grid_h + 12, C.border)
+  rectfill(GRID_X, GRID_Y, grid_w, grid_h, C.pixel_off)
 
   for y = 1, cur_font.ch do
     for x = 1, cur_font.cw do
       local on = get_pixel(cur_char, x, y)
       local px = GRID_X + (x - 1) * cell_size
       local py = GRID_Y + (y - 1) * cell_size
-      rectfill(px, py, cell_size - 1, cell_size - 1, on and C.pixel_on or C.pixel_off)
+      if on then
+        rectfill(px, py, cell_size, cell_size, C.pixel_on)
+      end
+      -- Pixel grid border for every single cell
+      rect(px, py, cell_size, cell_size, on and 0x008899 or 0x2D3748)
     end
   end
 
