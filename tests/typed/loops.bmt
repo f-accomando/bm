@@ -1,0 +1,53 @@
+-- Loops with while (and break), for the test of scripts/bmt.py.
+
+function sum_to(n: i32): i32
+  local s = 0
+  local i = 1
+  while i <= n do
+    s = s + i
+    i = i + 1
+  end
+  return s
+end
+
+-- how many times x = x * 1.5 runs from 1.0 until x reaches the limit
+function steps_to_reach(limit: f64): i32
+  local x = 1.0
+  local k = 0
+  while x < limit do
+    x = x * 1.5
+    k = k + 1
+  end
+  return k
+end
+
+-- the first i whose square is over the limit
+function first_square_over(limit: i32): i32
+  local i = 1
+  while true do
+    if i * i > limit then
+      break
+    end
+    i = i + 1
+  end
+  return i
+end
+
+-- a while inside a for, with a bool that stops it: how many i in 1..n have a divisor d (2 <= d <= 9) with d * d == i
+function squares_of_small(n: i32): i32
+  local count = 0
+  for i = 1, n do
+    local d = 2
+    local found = false
+    while d <= 9 and not found do
+      if d * d == i then
+        found = true
+      end
+      d = d + 1
+    end
+    if found then
+      count = count + 1
+    end
+  end
+  return count
+end

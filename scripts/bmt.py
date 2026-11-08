@@ -10,7 +10,7 @@ One source gives two outputs:
 The language
   types       i32  f32  f64  bool   and arrays of them: f64[]  i32[]  bool[]
   function    function name(a: f64, v: f64[], n: i32): bool ... end   (the return type is optional)
-  statements  local x = e     for i = a, b do ... end     if / elseif / else / end
+  statements  local x = e     for i = a, b do ... end     while c do ... end     if / elseif / else / end
               return e        break        x = e        v[i] = e
   expressions + - * /  < <= > >= == ~=  and or not  v[i]  sqrt(e)  abs(e)  numbers  true false
 Rules
@@ -28,7 +28,7 @@ TOKEN = re.compile(
     r"(?P<ws>\s+)|(?P<comment>--[^\n]*)|(?P<num>\d+\.\d*|\.\d+|\d+)|(?P<name>[A-Za-z_]\w*)"
     r"|(?P<op><=|>=|==|~=|[-+*/(),:\[\]=<>])"
 )
-KEYWORDS = {"function", "local", "for", "do", "end", "if", "then", "elseif", "else", "return", "break", "and", "or",
+KEYWORDS = {"function", "local", "for", "do", "while", "end", "if", "then", "elseif", "else", "return", "break", "and", "or",
             "not", "true", "false"}
 SCALARS = ("i32", "f32", "f64", "bool")
 CTYPE = {"i32": "int32_t", "f32": "float", "f64": "double", "bool": "bool"}
@@ -203,6 +203,15 @@ class Parser:
             return (["{", "    int32_t %s = %s;" % (end, b),
                      "    for (int32_t %s = %s; %s <= %s; %s++) {" % (n, a, n, end, n)]
                     + indent(indent(body)) + ["    }", "}"])
+        if t == "while":
+            self.i += 1
+            c, ct = self.expr()
+            if ct != "bool":
+                self.fail("the test of a while is bool, not %s" % ct)
+            self.expect("do")
+            body = self.block({"end"})
+            self.expect("end")
+            return ["while (%s) {" % c] + indent(body) + ["}"]
         if t == "if":
             self.i += 1
             c, ct = self.expr()

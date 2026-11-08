@@ -37,6 +37,8 @@ BAD = [
      "function f(v: f64[], x: f64): f64\n  return v[x]\nend\n", "line 2"),
     ("a whole array used as a number",
      "function f(v: f64[]): f64\n  return v + 1\nend\n", "line 2"),
+    ("a number as the test of a while",
+     "function f(n: i32): i32\n  while n do\n    n = n - 1\n  end\n  return n\nend\n", "line 2"),
     ("a call of a function that is not in the subset",
      "function f(x: f64): f64\n  return print(x)\nend\n", "line 2"),
 ]
@@ -202,6 +204,37 @@ else:
     pairs = sum(int(l.split()[1]) for l in c_out.splitlines() if l.startswith("P"))
     print("typed: %d cases, the same result from C and from Lua (%d camera hits, %d near pairs)" % (ncases, hits, pairs))
 
+# the loops: while, and break in a while
+loops_lua, loops_c = os.path.join(BUILD, "loops.lua"), os.path.join(BUILD, "loops.c")
+if bmt.main([os.path.join(HERE, "loops.bmt"), "--lua", loops_lua, "--c", loops_c]) != 0:
+    sys.exit(1)
+limits = [0.5, 1.0, 1.5, 2.0, 10.0, 1000.0, 123456.789, 1e9]
+open(os.path.join(BUILD, "loops_main.c"), "w").write(
+    '#include <stdio.h>\n#include "loops.c"\nint main(void)\n{\n'
+    '    for (int n = -2; n <= 300; n++) printf("sum %d\\n", bmt_sum_to(n));\n'
+    '    double lim[] = {' + ", ".join(repr(x) for x in limits) + '};\n'
+    '    for (int i = 0; i < %d; i++) printf("steps %%d\\n", bmt_steps_to_reach(lim[i]));\n' % len(limits) +
+    '    for (int n = -3; n <= 5000; n += 7) printf("sq %d\\n", bmt_first_square_over(n));\n'
+    '    for (int n = 0; n <= 200; n++) printf("small %d\\n", bmt_squares_of_small(n));\n'
+    '    return 0;\n}\n')
+open(os.path.join(BUILD, "loops_main.lua"), "w").write(
+    'dofile(arg[1])\n'
+    'for n = -2, 300 do print("sum " .. sum_to(n)) end\n'
+    'for _, l in ipairs({' + ", ".join(repr(x) for x in limits) + '}) do print("steps " .. steps_to_reach(l)) end\n'
+    'for n = -3, 5000, 7 do print("sq " .. first_square_over(n)) end\n'
+    'for n = 0, 200 do print("small " .. squares_of_small(n)) end\n')
+subprocess.run(["gcc", "-O2", "-Wall", "-Wextra", "-I", BUILD, "-o", os.path.join(BUILD, "loops_c"),
+                os.path.join(BUILD, "loops_main.c"), "-lm"], check=True)
+lc, _ = run([os.path.join(BUILD, "loops_c")])
+ll, _ = run([LUAHOST, os.path.join(BUILD, "loops_main.lua"), loops_lua])
+if lc != ll:
+    cl, ll2 = lc.splitlines(), ll.splitlines()
+    bad = next((i for i in range(min(len(cl), len(ll2))) if cl[i] != ll2[i]), None)
+    print("typed: FAIL the loops differ: C '%s' Lua '%s'" % (cl[bad] if bad is not None else "?", ll2[bad] if bad is not None else "?"))
+    failed += 1
+else:
+    print("typed: %d results of while loops, the same in C and in Lua" % len(lc.splitlines()))
+
 # ---------------------------------------------------------------- 3. the time
 bind = os.path.join(BUILD, "bindhost")
 subprocess.run(["gcc", "-O2", "-w", "-I", os.path.join(ROOT, "third_party", "lua"), "-I", BUILD, "-o", bind,
@@ -239,6 +272,6 @@ else:
     print("typed: a frame of 17 enemies (move, find the pairs, read the hits), %d pairs in 200 frames, the same sums in all three:" % res["A"][1])
     print("typed:   A tables and Lua scan %.2f us   B data in C, a call for each enemy %.2f us (%.1f times)   C data in C, one call %.2f us (%.1f times)" % (
         res["A"][0], res["B"][0], res["A"][0] / res["B"][0], res["C"][0], res["A"][0] / res["C"][0]))
-total = len(BAD) + 4          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames
+total = len(BAD) + 5          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames
 print("typed: %d/%d checks passed" % (total - failed, total) if not failed else "typed: FAILED, %d of %d checks" % (failed, total))
 sys.exit(1 if failed else 0)
