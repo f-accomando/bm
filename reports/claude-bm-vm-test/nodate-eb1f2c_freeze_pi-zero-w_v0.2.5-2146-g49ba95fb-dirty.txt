@@ -1,0 +1,71 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2146-g49ba95fb-dirty
+branch: claude/bm-vm-test
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-eb1f2c_freeze_pi-zero-w_v0.2.5-2146-g49ba95fb-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 6, 75 s after boot, kernel v0.2.5-2146-g49ba95fb-dirty, ring 7566, sink on
+--- the last lines printed ---
+menu idle: sd first word <1ms 165 <3ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 14869 us, enlarge 0 us, flip 96 us, free time used 393 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.7 ms past its slice
+net: time 2026-11-08 23:24 UTC
+fiber: reports did not yield: 103.8 ms past its slice
+report: sending nodate-bc89b0_freeze_pi-zero-w_v0.2.5-2146-g49ba95fb-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-bm-vm-test/nodate-bc89b0_freeze_pi-zero-w_v0.2.5-2146-g49ba95fb-dirty.txt
+menu idle: 300/300 frames, 414 of 600 ms taken, 104.6 ms past a frame; reports 394 ms (+103.8, stk 7.6/128K); min slack -14081 us, paced 0
+menu idle: sd first word <1ms 43 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 302.8 worst 302.8 ms
+menu frame: 1x, a frame averages draw 13109 us, enlarge 0 us, flip 96 us, free time used 1380 us (300 frames)
+menu frame: 1x, a frame averages draw 13154 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13062 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12981 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12957 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+net: receiving pi_vm.bm (13560 bytes)...
+net: cartridge received, starting it
+load: Typed Bench VM 111 ms (close 0, parse 0, assets+state 2, mode 1, audio 1, lua 106)
+typed vm: Lua (tables)              0.605 s    30.227 us a call  checksum 6240
+typed vm: C (kernel)                0.075 s     3.759 us a call  checksum 6240
+typed vm: VM (bmvm)                 0.297 s    14.865 us a call  checksum 6240
+typed vm: VM is 2.03 times the speed of the Lua, and 3.95 times the time of the C
+typed vm: VM, an empty call         0.062 s     3.089 us a call  checksum 0
+typed vm: the machine alone (VM minus the empty call): 11.8 us a call
+bm: "Typed Bench VM" 6 frames, 5.4 fps, 4 dropped
+     update+draw avg 178.32 ms (1069% of frame), max 609.70 ms, Lua 1412 KB
+     dev kit: Lua peak 1412 KB, data 322 KB, busiest frame 5465k instructions, 4 frames over 16.7 ms, 1327 tokens
+     GPU 3D 1872 jobs, 1173803 triangles a frame, 2934.32 ms a frame (bin 7%), max job 9483 us
+menu: 1920x1080, drawn by the GPU
+menu frame: 1x, a frame averages draw 13357 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13066 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12978 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12971 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13130 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+net: receiving a new kernel (2772188 bytes)...
+net: kernel 0% (0 of 2707 KB)
+net: kernel 10% (275 of 2707 KB)
+net: kernel 20% (541 of 2707 KB)
+net: kernel 30% (819 of 2707 KB)
+net: kernel 40% (1086 of 2707 KB)
+net: kernel 50% (1359 of 2707 KB)
+net: kernel 60% (1631 of 2707 KB)
+net: kernel 70% (1898 of 2707 KB)
+menu frame: 1x, a frame averages draw 14307 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+net: kernel 80% (2170 of 2707 KB)
+net: kernel 90% (2442 of 2707 KB)
+net: dev mode: kernel received (2772188 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 25.8 ms past its slice
+net: saved kernel.img on the SD card (2772188 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
