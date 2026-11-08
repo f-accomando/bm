@@ -42,13 +42,29 @@ Pallene is a typed subset of Lua that compiles to C (`github.com/pallene-lang/pa
 
 Built with `tests/typed/pallene/setup.sh` and run with `tests/typed/pallene/run.py` (the build needs the Git mirrors of Pallene, Lua 5.4.7 and LPeg). The 20000 random cases give the same result as Lua. On the frame of 17 enemies (six runs): arrays of numbers 1.3 - 2.6 times faster than Lua tables, tables as the game 0.9 - 1.5 times, move and scan in Pallene 0.9 - 1.6 times. The bmt way with data owned by C gives 3.2 - 6 times. Pallene shows a small gain on this scene when the data stay in the tables of the game.
 
+## Pi Zero W measures (8 Nov 2026)
+
+Clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on (`3d=gpu`). Reports in the branch `reports`, folder `claude-darknight-pi-perf`. Details: section 3 of the design document. The first runs of that day had `gpu3d=0` in `bm/config.txt` and are not valid.
+
+- Yharnam, autoplay, 7199 frames: 49.7 fps, 17.2 ms a frame. The Lua is a large part: `draw_scene` 3.9 ms (13.4 with its calls), `fdiv` 2.2, `blocked` 1.1 (3.2). `update_parts` is not in the first ten rows.
+- Dark Night, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame. The Lua functions are 0.25 to 0.65 ms each.
+- Result: road B has a case in Yharnam (small functions called thousands of times) and none in Dark Night. The 16 to 22 times of `update_parts` on a PC says little: that function is not the cost.
+
 ## Open work
 
-- Data in C helps (3 to 6 times a frame), but the crossing between Lua and C is now the cost. Move the whole per-frame work over the arrays into C (the move of the enemies too, not only the scan), so that Lua sets parameters and reads results once a frame, not once for each enemy. That needs more of the language: `//`, `%`, calls between typed functions, structs.
-- Try Pallene on a heavier loop (`update_parts` of Yharnam) and keep the road to an own language of bm open: both run in parallel with the C+Lua hybrid, which is the baseline (section 3 of the design document).
-- Measure on the Pi Zero W with `profile(true)`. The PC numbers say nothing about the ARM1176 (no out-of-order, a small cache).
-- `f32` for the Pi (the VFP is faster on `float` than on `double`). The test uses `f64` because Lua numbers are `double`: with `f32` the results differ in the last digits, so the test needs a tolerance.
-- Missing in the language: `//` and `%`, calls between typed functions, `min` and `max`, structs. Integer overflow differs: C wraps at 32 bits, Lua at 64.
+Roadmap of a language of bm, a small start. The Lua output stays the reference, and a test compares it with the C.
+
+1. Write `fdiv`, `blocked` and `solid_at` of Yharnam in the typed subset and measure them on the Pi (the V3D on). They are 5 to 6 ms of a 17 ms frame in Lua. If the gain stays under 5% of a frame, stop road B.
+2. Measure the RGB30 with the same two runs.
+3. Complete the subset: `//`, `%`, `min`, `max`, calls between typed functions, structs. Decide the integer overflow first (C wraps at 32 bits, Lua at 64).
+4. Keep the data in C and call once a frame. Move the draw of the particles into C too, or the accessors take the gain back.
+5. Link the C into the kernel (a new API file in `src/bm/`, the table in `runtime.c`, the API in `docs/api/`). Write a test cartridge that runs the Lua and the C on the same scene and logs both times.
+6. Write the movement of the enemies of Dark Night in the language. Measure the frame on the Pi and on the RGB30. Decide road B with these numbers.
+7. Later and optional: `f32` for the VFP of the Pi (the test needs a tolerance) and a compiler on the console (a large project).
+
+Other open points:
+
+- Try Pallene on a heavier loop and keep both roads open: the C+Lua hybrid is the baseline (section 3 of the design document).
 - Not done: a loader for native code in a `.bm`. The prototype stays inside the kernel (a function the console registers), so the "one cartridge type" rule holds.
 
 ## Rules (do not break)

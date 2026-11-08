@@ -1,5 +1,7 @@
 # Graphics
 
+Pi Zero W against a PS1, and why the V3D must be on: [pi-vs-ps1](../design/pi-vs-ps1.md).
+
 Framebuffer, 2D (`gfx16`), software 3D (`r3d`), the V3D driver (`gpu3d`) and the Mali
 bring-up. Driver versions and history: [`docs/DRIVERS.md`](../DRIVERS.md); bench and score:
 [`docs/BENCH3D.md`](../BENCH3D.md); numbers: `docs/PERFORMANCE.md`, `docs/STRESS.md`.

@@ -934,6 +934,17 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
     console like the others (`src/bm/api_*.c`, the table in `runtime.c`), write it in
     `docs/api/` and test it with a small cartridge. A kernel without it has no such name:
     test with `if name then`. Do not move code to C that the profile does not show.
+  - **Measure on the Pi before you optimize the Lua.** Put `session_report=1` and `profile(true)`
+    (in `_init`, or a config key like `yharnam_profile=1`) and read the costliest functions in
+    the session report. If the top rows are `[C]`, change what the game asks of the console,
+    not its Lua. Do not call a measure a Pi number before you read the `options` line of the
+    report.
+  - **Check `3d=gpu` in the `options` line.** A `gpu3d=0` in `bm/config.txt` sends all the 3D
+    to the ARM (`3d=arm`), and a game like *Dark Night* falls from 59 fps to 12 fps (8 Nov
+    2026, Pi Zero W, a walk with the camera turning). Test keys stay in the file after a
+    benchmark: remove `gpu3d=0`, `r3d_fast=0` and `hero_test` before you measure a game. A
+    game that needs the GPU can ask for it with `gpu3d(true)`; `gpu3d(gpu3d(), ...)` keeps what
+    the console has.
 - **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
   there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
   out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the

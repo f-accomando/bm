@@ -29,6 +29,23 @@ Rule: road B is judged against road A with the same scene and the same sums. A n
 | 7.4% | `by_depth` | the comparator of `table.sort` |
 | ~20% | `solid_at`, `blocked`, `chunk`, `fdiv`, `inside`, `ensure`, `BRK.near` | small functions called thousands of times a frame |
 
+**On the Pi Zero W** (8 Nov 2026, clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on: `3d=gpu` in the `options` line of the report). Reports in the branch `reports`, folder `claude-darknight-pi-perf`. **Pi.** The first runs of that day had `gpu3d=0` in `bm/config.txt` (the 3D drawn by the ARM) and are not valid: Dark Night showed 12.4 fps against the 59 fps below.
+
+*Yharnam*, autoplay, 7199 frames: 49.7 fps, 17.2 ms a frame (update 3.5, draw 13.1, audio 1.6, GPU wait 1.1). Profile of one whole second, ms a frame:
+
+| Function | Self | With its calls | Note |
+|---|---|---|---|
+| `draw_scene` | 3.92 | 13.4 | Lua |
+| `map` | 2.24 | 2.24 | [C] |
+| `fdiv` | 2.19 | 2.59 | Lua, a small function called thousands of times |
+| `spr`, `sspr` | 1.88, 1.56 | | [C] |
+| `dark_end` | 1.58 | 1.58 | [C], the light (1.7 ms in all) |
+| `blocked` | 1.10 | 3.20 | Lua |
+
+On the Pi the Lua is a large part of the frame: `fdiv`, `blocked` and `draw_scene` together are about 7 ms of 19. `update_parts` is not in the first ten rows. The best candidates for a typed C function are the small functions that Lua calls thousands of times (`fdiv`, `blocked`, `solid_at`).
+
+*Dark Night*, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame (update 1.9, draw 2.8, 3D calls 0.2, audio 2.7, GPU wait 0.8), 9549 triangles a frame. The game is within the 60 fps budget; the Lua functions `cam_blocked`, `update_enemies` and `draw_objects` are 0.25 to 0.65 ms each. Typed code would gain under 1 ms here.
+
 **Dark Night** (the key script, 3650 frames): 5.252 ms a frame before the fixes, worst 12.264 ms. 80,608 samples.
 
 | Share | Function | Cause |
