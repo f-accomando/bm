@@ -3,35 +3,35 @@ kind: session
 kernel: v0.2.5-2143-gf1506488-dirty
 branch: claude/yharnam-draw-scene
 board: Pi Zero W
-date: 2026-11-08 21:05:31
+date: 2026-11-08 21:09:50
 file: session_yharnam_pi-zero-w.txt
 
 session of "Yharnam" (the last one: the next run of this game replaces this file)
-options bm3d 7.36 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=1 etc1=0 3d=gpu later=1 2d=1 impostor=32 fast=1
-screen 360x360, 7199 frames in 145.6 s, 49.4 fps
+options bm3d 7.36 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 attr=1 etc1=0 3d=gpu later=1 2d=1 impostor=32 fast=1
+screen 360x360, 7199 frames in 135.5 s, 53.1 fps
 3D: GPU
 
-time of _update + _draw (+ the 3D's wait): avg 17.3 ms, max 263.8 ms, 2868 frames over 16.7 ms
-memory: Lua peak 4202 KB, data 41607 KB; code 107346 tokens; busiest frame 1336k Lua instructions
-frames that were shown after more than 1.5 frames: 1274
+time of _update + _draw (+ the 3D's wait): avg 15.9 ms, max 250.9 ms, 2371 frames over 16.7 ms
+memory: Lua peak 3656 KB, data 41607 KB; code 107346 tokens; busiest frame 1310k Lua instructions
+frames that were shown after more than 1.5 frames: 30
 the game says: on the spot 3
 the game says: in time 7
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    2570
-  <= 25 ms             3355
-  <= 34 ms (30 fps)    1267
-  <= 50 ms             2
+  <= 18 ms (60 fps)    2803
+  <= 25 ms             4366
+  <= 34 ms (30 fps)    24
+  <= 50 ms             1
   <= 100 ms            1
   > 100 ms (a freeze)  3
 
 the frame in its parts (as the overlay, 7198 frames; ms a frame, % of the 16.7 ms of a frame):
-  update           3.8   22%
+  update           2.4   14%
   draw (no 3D)    13.0   78%
   3D calls         0.0    0%
-  audio            1.6    9%
+  audio            1.5    9%
   GPU wait         1.1    6%
-  all             19.5  117%
+  all             18.1  109%
   of the draw: light 1.7 ms (dark_begin, glow, dark_end; in 100% of the frames; the fade of dark_end alone 1.7 ms), the rest 11.2 ms (map, sprites, text, Lua)
 the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
   map        2.1 ms  2.0 calls
@@ -39,39 +39,39 @@ the 2D calls of the draw (ms a frame, calls a frame; the time of each call as th
   sspr       1.6 ms  72.1 calls
   stack      0.0 ms  0.0 calls
   print      0.0 ms  2.1 calls
-  shapes     0.2 ms  111.3 calls
-  all        5.2 ms  305.1 calls (of the draw's 13.0 ms: the rest is Lua, the light, the 3D)
-audio interrupt: 8.0% of the CPU's time (mean), 10.7% at most in a second
-GPU wait: 5.8% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+  shapes     0.2 ms  110.6 calls
+  all        5.2 ms  304.4 calls (of the draw's 13.0 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 8.2% of the CPU's time (mean), 10.4% at most in a second
+GPU wait: 6.2% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-    180     3.5   265.1   10.8   0.6   10.1   0.0   1.8   252.4       19     2106        1
-    689    12.8   149.5   12.3   1.3   10.9   0.0   2.3   134.9       18     3306        1
-   3209    61.3   141.1   22.6  10.5   12.1   0.0   1.8   116.6       51     2449        1
-    479     9.0    55.3   13.7   1.5   12.2   0.0   2.3    39.2       20     2831        1
-    896    16.6    45.8   21.6   8.5   13.0   0.0   1.8    22.3       45     2101        1
-   2026    38.0    40.8   35.2   2.4   32.7   0.0   1.8     3.7       24     1995        1
-   6824   137.6    31.5   24.0   8.8   15.1   0.0   2.3     5.1       61     2462        1
-   6839   138.1    31.2   26.9  11.8   15.0   0.0   1.8     2.4       61     2560        1
-   7102   143.6    31.2   17.7   3.1   14.6   0.0   1.8    11.5       25     2628        1
-   6012   120.3    31.1   18.5   3.1   15.4   0.0   1.8    10.6       28     2284        1
-   6938   140.1    31.0   16.9   2.8   14.1   0.0   2.2    11.8       26     2337        1
-   3201    61.0    30.5   15.5   2.8   12.7   0.0   2.3    12.6       25     2280        1
+    180     3.5   252.7   10.4   0.6    9.7   0.0   2.2   240.0       16     2108        1
+    689    12.4   148.3   13.0   1.4   11.5   0.0   1.8   133.5       17     3305        1
+   3209    57.7   135.7   17.9   5.2   12.7   0.0   2.3   115.4       34     2467        1
+    479     8.7    54.4   12.8   1.1   11.7   0.0   2.3    39.2       19     2832        1
+    908    16.2    38.3   36.4   2.5   33.8   0.0   1.8     0.0       23     1989        1
+   3809    68.5    30.1   22.3   8.1   14.1   0.0   1.8     5.9       60     2388        1
+   6824   128.3    28.1   23.2   8.8   14.3   0.0   2.3     2.6       61     2424        1
+   2915    52.1    27.7   22.9  10.2   12.6   0.0   1.8     2.9       60     2130        1
+   6828   128.4    27.4   23.3   9.0   14.3   0.0   2.3     1.7       61     2465        1
+   6829   128.4    27.3   24.2   9.9   14.2   0.0   2.3     0.6       61     2469        1
+   6825   128.3    27.2   24.9  10.1   14.8   0.0   2.3     0.0       61     2433        1
+   2909    52.0    27.0   17.9   4.8   13.0   0.0   2.3     6.8       33     2394        1
 
 GPU 3D: 7199 jobs, 0 triangles a frame, 1.2 ms a frame, longest job seen to its end 1.9 ms
 binner memory: at most 14 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
 
 the costliest functions (profile(true): the last whole second, 60 frames; ms a frame of their own and with what they call; [C]: the console's and Lua's own):
   function                 self    all  calls  where
-  draw_scene               3.83   13.3      0  main.lua:5850
-  map                      2.20   2.20      2  [C]
-  fdiv                     2.13   2.54      0  main.lua:1406
+  draw_scene               3.80   13.2      0  main.lua:5850
+  map                      2.23   2.23      2  [C]
   spr                      1.79   1.79    170  [C]
-  dark_end                 1.70   1.70      1  [C]
-  sspr                     1.54   1.54     58  [C]
-  for iterator             1.46   1.46   1538  [C]
-  blocked_lua              1.14   3.33      0  main.lua:3139
-  main.lua:5403            0.74   4.84      0  main.lua:5403
-  floor                    0.55   0.55    511  [C]
+  dark_end                 1.67   1.67      1  [C]
+  sspr                     1.56   1.56     58  [C]
+  for iterator             1.10   1.10   1211  [C]
+  fdiv                     0.72   0.84      0  main.lua:1406
+  main.lua:5403            0.64   1.60      0  main.lua:5403
+  near                     0.49   0.77      0  main.lua:3246
+  in_fire                  0.48   0.61      0  main.lua:5384
