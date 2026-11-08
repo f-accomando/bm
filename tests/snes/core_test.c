@@ -127,10 +127,46 @@ static void spc_tests(void)
     CHECK("boot ROM again", spc_port_read(0) == 0xAA && spc_port_read(1) == 0xBB);
 }
 
+extern uint8_t *spc_ram_ptr(void);
+
+/* the DSP: a looping square-wave sample plays on voice 0 and comes out of the ring as sound that changes sign */
+static void dsp_tests(void)
+{
+    static const uint8_t prog[] = {
+        0x8F,0x5D,0xF2, 0x8F,0x02,0xF3,                 /* DIR = $02 (the directory at $0200) */
+        0x8F,0x04,0xF2, 0x8F,0x00,0xF3,                 /* voice 0: SRCN 0 */
+        0x8F,0x05,0xF2, 0x8F,0x00,0xF3,                 /* ADSR1 0: GAIN is used */
+        0x8F,0x07,0xF2, 0x8F,0x7F,0xF3,                 /* GAIN: direct, full */
+        0x8F,0x00,0xF2, 0x8F,0x7F,0xF3,                 /* VOL L */
+        0x8F,0x01,0xF2, 0x8F,0x7F,0xF3,                 /* VOL R */
+        0x8F,0x02,0xF2, 0x8F,0x00,0xF3,                 /* PITCH low */
+        0x8F,0x03,0xF2, 0x8F,0x10,0xF3,                 /* PITCH high: $1000, one sample a step */
+        0x8F,0x0C,0xF2, 0x8F,0x7F,0xF3,                 /* master volume L */
+        0x8F,0x1C,0xF2, 0x8F,0x7F,0xF3,                 /* master volume R */
+        0x8F,0x6C,0xF2, 0x8F,0x00,0xF3,                 /* FLG: not muted */
+        0x8F,0x4C,0xF2, 0x8F,0x01,0xF3,                 /* KON voice 0 */
+        0x2F,0xFE,
+    };
+    upload(0x400, prog, sizeof prog);
+    uint8_t *ram = spc_ram_ptr();
+    ram[0x200] = 0x00; ram[0x201] = 0x03; ram[0x202] = 0x00; ram[0x203] = 0x03;    /* start and loop: $0300 */
+    ram[0x300] = 0xC3;                                                              /* range 12, no filter, loop and end */
+    for (int i = 0; i < 4; i++) { ram[0x301 + i] = 0x77; ram[0x305 + i] = 0x88; }  /* 8 samples of +7, 8 of -8 */
+    for (int i = 0; i < 200; i++) spc_run(65);
+    float out[2 * 128];
+    memset(out, 0, sizeof out);
+    snes_audio_mix(out, 128, 1.0f);
+    float hi = 0, lo = 0;
+    for (int i = 0; i < 128; i++) { if (out[2 * i] > hi) hi = out[2 * i]; if (out[2 * i] < lo) lo = out[2 * i]; }
+    CHECK("dsp makes sound", hi > 0.05f && lo < -0.05f);
+    CHECK("dsp left and right", out[100] == out[101]);
+}
+
 int main(void)
 {
     cpu_tests();
     spc_tests();
+    dsp_tests();
     printf("%d checks, %d failed\n", count, fails);
     return fails ? 1 : 0;
 }

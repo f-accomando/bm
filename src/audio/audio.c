@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int (*ext_mix)(float *out, unsigned n, float gain);   /* an outside source (audio_set_ext) */
 static synth_t synth;
 static player_t player;
 static au_bank_t banks[2];          /* the one playing, and the one a new bank is parsed into */
@@ -52,6 +53,8 @@ static int mix_block(unsigned m)
     player_advance(&player, m);
     int kind = synth_mix(&synth, own_regs, fmix, m);
     if (n8snd_mix_float(fmix, m, synth.gain) && kind == SYNTH_MIX_SILENT)
+        kind = SYNTH_MIX_SOUND;
+    if (ext_mix && ext_mix(fmix, m, synth.gain) && kind == SYNTH_MIX_SILENT)
         kind = SYNTH_MIX_SOUND;
     return kind;
 }
@@ -89,6 +92,11 @@ void audio_render(int16_t *out, unsigned n)
         synth_quantize16(&synth, fmix, out + 2 * k, m, mix_block(m));
     }
     timed(t0, n);
+}
+
+void audio_set_ext(int (*mix)(float *out, unsigned n, float gain))
+{
+    ext_mix = mix;
 }
 
 void audio_set_depth(unsigned bits)

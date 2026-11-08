@@ -2,9 +2,10 @@
 
 An emulator of the Super Nintendo. The machine is written in C and is part of the kernel (`src/bm/snes_*.c`, one
 global machine). The cartridge `carts/snes/` is its user interface in Lua: it lists the ROMs, passes the pads and
-draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-07): Super Mario World reaches its title screen and demo on the Pi Zero W (the user's ROM, checked with the bridge). It
-runs at about 27 frames drawn a second there; with `frameskip` the game logic runs at about 60 updates a second. The C core passes its
-tests (`make test-snes`). A first version in Lua ran at 2 fps, so the machine was written again in C. The RGB30 is not measured.
+draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-08): Super Mario World plays on the Pi Zero W with the backgrounds, the overworld map and sound (the user's ROM,
+checked with the bridge; the sound is heard by the user). The picture is drawn at 25 to 50 frames a second and the game logic runs at
+about 60 updates a second. The C core passes its tests (`make test-snes`, 175 checks). A first version in Lua ran at 2 fps, so the
+machine was written again in C. The RGB30 is not measured.
 
 ## How to use it
 
@@ -33,6 +34,7 @@ tests (`make test-snes`). A first version in Lua ran at 2 fps, so the machine wa
 | `src/bm/snes_bus.c` | the memory map (LoROM, HiROM, WRAM, battery RAM), the PPU and CPU registers, joypads, DMA and HDMA, the frame clock (262 lines of 1364 master clocks), IRQ and NMI, the ROM loader |
 | `src/bm/snes_ppu.c` | the picture, a line at a time: BG modes 0-4 and 7, sprites, windows, colour math, brightness |
 | `src/bm/snes_spc.c` | the SPC700 (all opcodes, three timers, four ports) and the boot ROM protocol as a state machine |
+| `src/bm/snes_dsp.c` | the S-DSP: 8 voices (BRR, pitch, pitch modulation, cubic interpolation, ADSR and GAIN, noise, volumes), a ring of 32 kHz samples, and `snes_audio_mix`, which the console's output calls (`audio_set_ext` in `src/audio/audio.c`) |
 | `src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
 | `carts/snes/src/main.lua` | the user interface; `carts/snes/build/build.py` packs it (`make build/carts/snes.bm`) |
 | `tests/snes/core_test.c` | 92 checks: the CPU on small programs, DMA, the SPC700 and its boot protocol |
@@ -59,7 +61,9 @@ tests (`make test-snes`). A first version in Lua ran at 2 fps, so the machine wa
 - A test build: `SNES_TEST=1 python3 carts/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /sfc by
   itself and shows the FPS and the times of the parts of a frame. With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
   screen with no key press.
-- Sound: the DSP is not emulated, its registers are stored and no sound is made. The SPC700 runs at full speed (65 cycles a line).
+- Sound: the echo and its FIR filter are not done (the echo buffer is not written; games that use echo sound drier), the Gaussian table is a
+  cubic interpolation, a voice has no start delay, the envelope timing follows the public tables from memory. The output is 32 kHz
+  resampled to 48 kHz by linear interpolation. If the game is slower than real time the sound has gaps (the debug line counts them).
 - Picture: hires modes 5 and 6, mosaic, offset-per-tile (modes 2 and 4), direct colour, interlace, mode 7 EXTBG, the sprite
   limits of 34 tiles a line.
 - Timing: the cost of an instruction is the sum of its accesses plus 6 clocks. Games that count cycles (raster tricks) may break.

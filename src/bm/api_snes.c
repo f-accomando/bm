@@ -14,6 +14,7 @@
  *   snes_debug()                -> {pc, wai, stp, io = {..}, spc = "boot"/"run"/"halt", spc_pc, inidisp, tm, nmi, frames}
  */
 #include "rt_internal.h"
+#include "audio/audio.h"
 #include "drivers/timer.h"
 #include "snes.h"
 
@@ -28,6 +29,7 @@ static uint32_t now_us(void) { return timer_ticks(); }
 int l_snes_load(lua_State *L)
 {
     snes_set_clock(now_us);
+    audio_set_ext(snes_audio_mix);                 /* the sound of the machine goes out through the console's output */
     size_t len;
     const char *data = luaL_checklstring(L, 1, &len);
     const char *why = "";
@@ -157,6 +159,13 @@ int l_snes_debug(lua_State *L)
     lua_pushstring(L, hex); lua_setfield(L, -2, "us");
     snprintf(hex, sizeof hex, "ppu us: bg %lu obj %lu win %lu comp %lu mix %lu", (unsigned long)d.us_bg, (unsigned long)d.us_obj, (unsigned long)d.us_win, (unsigned long)d.us_comp, (unsigned long)d.us_mix);
     lua_pushstring(L, hex); lua_setfield(L, -2, "us_ppu");
+    {
+        uint32_t under, over, kons;
+        snes_audio_stats(&under, &over, &kons);
+        snprintf(hex, sizeof hex, "audio: %s  voices started %lu  under %lu over %lu", audio_ready() ? audio_status() : "no output",
+                 (unsigned long)kons, (unsigned long)under, (unsigned long)over);
+        lua_pushstring(L, hex); lua_setfield(L, -2, "audio");
+    }
     char tb[160];
     n = 0;
     for (int i = 0; i < 12; i++)

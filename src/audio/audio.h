@@ -42,7 +42,12 @@ void audio_note_off(unsigned ch);
 void audio_freq(unsigned ch, float freq);
 void audio_envelope(unsigned ch, int a, int d, int s, int r);
 void audio_duty(unsigned ch, int duty);
-int  audio_busy(unsigned ch);           /* sounding, or held by a sequence */
+int  audio_busy(unsigned ch);
+/* An outside source of sound mixed into the output (the SNES machine): mix(out, n, gain) adds n stereo frames at
+ * AUDIO_RATE to out (floats, 1.0 full scale) and returns 1 if it made sound. It runs in the output's interrupt.
+ * NULL takes it away. */
+void audio_set_ext(int (*mix)(float *out, unsigned n, float gain));
+           /* sounding, or held by a sequence */
 /* The note of a voice glides to hz in ms; wobbles semitones deep at
  * rate_hz (0: off); runs through semitone offsets, ms each (n = 0: off). */
 void audio_slide(unsigned ch, float hz, uint32_t ms);

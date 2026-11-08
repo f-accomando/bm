@@ -93,6 +93,11 @@ extern int cpu_waiting, cpu_stopped;
 typedef struct { uint16_t a, x, y, s, d, pc; uint8_t p; int e; uint8_t pb, db; } cpu_regs_t;
 void cpu_get(cpu_regs_t *r);                    /* for the tests */
 
+/* snes_dsp.c */
+void dsp_write(int reg, uint8_t v);
+void dsp_reset(void);
+void dsp_tick(void);                    /* one sample (every 32 cycles of the sound CPU) */
+
 /* snes_ppu.c */
 void ppu_reset(void);
 void ppu_line(int y);                   /* draws line y into S.picture */

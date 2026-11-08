@@ -32,6 +32,9 @@ static void trace(int who, int n, uint8_t v)
 }
 static uint32_t nwrites, nreads;       /* the port traffic, for the debug line */
 
+uint8_t *spc_ram_ptr(void) { return ram; }
+uint8_t *spc_dsp_ptr(void) { return dsp; }
+
 static uint8_t rd(uint16_t a)
 {
     if (a < 0xF0 || a > 0xFF) return ram[a];
@@ -60,7 +63,7 @@ static void wr(uint16_t a, uint8_t v)
         ctl = v;
         break;
     case 0xF2: dspaddr = v; break;
-    case 0xF3: if (dspaddr < 128) dsp[dspaddr] = v; break;
+    case 0xF3: if (dspaddr < 128) dsp_write(dspaddr, v); break;
     case 0xF4: case 0xF5: case 0xF6: case 0xF7: apu_out[a - 0xF4] = v; trace(2, a - 0xF4, v); break;
     case 0xFA: case 0xFB: case 0xFC: tgt[a - 0xFA] = v; break;
     default: break;
@@ -368,6 +371,7 @@ void spc_reset(void)
     memset(ram, 0, sizeof ram);
     memset(dsp, 0, sizeof dsp);
     ctl = 0x80; dspaddr = 0; halted = 0;
+    dsp_reset();
     memset(tgt, 0, sizeof tgt); memset(tout, 0, sizeof tout);
     memset(tstage, 0, sizeof tstage); memset(tenable, 0, sizeof tenable);
     acc16 = acc128 = 0;
@@ -425,16 +429,22 @@ uint8_t spc_port_read(int n)
 
 void spc_run(int cycles)
 {
+    static unsigned dsp_acc;
     if (!running) ipl_sync();
-    if (!running || halted) return;
     int n = 0;
-    while (n < cycles) {
-        if (rPC >= 0xFFC0 && (ctl & 0x80)) { ipl_start(); return; }     /* the program went back to the boot ROM */
-        step();
-        n += 3;
-        if (halted) break;
+    if (running && !halted) {
+        while (n < cycles) {
+            if (rPC >= 0xFFC0 && (ctl & 0x80)) { ipl_start(); break; }     /* the program went back to the boot ROM */
+            step();
+            n += 3;
+            if (halted) break;
+        }
+        timers((unsigned)n);
+    } else {
+        n = cycles;
     }
-    timers((unsigned)n);
+    dsp_acc += (unsigned)n;                             /* the DSP makes a sample every 32 cycles */
+    while (dsp_acc >= 32) { dsp_tick(); dsp_acc -= 32; }
 }
 
 void spc_trace(uint16_t *out) { for (int i = 0; i < 12; i++) out[i] = tr[(tr_i + i) % 12]; }

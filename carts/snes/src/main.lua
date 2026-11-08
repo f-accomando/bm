@@ -24,8 +24,11 @@ local frames = 0
 local function auto_pad(f)
   if f < 300 then return 0 end
   local t = f - 300
-  if t < 1500 then
-    if t % 90 < 8 then return t < 8 and 0x1000 or 0x0080 end    -- Start once, then taps of A
+  if t < 2400 then                                              -- taps of Start, A and B in turn: the title, the file, the messages
+    if t % 40 < 6 then
+      if t < 400 then return ({ 0x1000, 0x0080, 0x8000 })[(t // 40) % 3 + 1] end    -- Start only at the title (in a level it is the pause)
+      return ({ 0x0080, 0x8000 })[(t // 40) % 2 + 1]
+    end
     return 0
   end
   return 0x0100 | ((t % 60) < 25 and 0x8000 or 0) | 0x4000      -- right, running (Y), jumping (B) now and then
@@ -90,7 +93,6 @@ local function open_rom(d)
 end
 
 local dx, dy, dw, dh = 0, 0, SW, SH            -- where and how big the picture is on the screen (4:3 in the screen)
-local fresh = true                              -- the screen must be cleared once
 
 function _init()
   dw, dh = (SCREEN_H * 4) // 3, SCREEN_H
@@ -116,7 +118,7 @@ function _update()
     if btnp("a") and files[sel] then open_rom(files[sel]) end
   elseif state == "run" then
     if (btn("l2") and btn("r2")) or (btn("l1") and btn("r1")) then holdmenu = holdmenu + 1 else holdmenu = 0 end
-    if holdmenu > 30 then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); fresh = true; return end
+    if holdmenu > 30 then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); return end
     snes_frame(readpad(1), readpad(2), frames % 4 == 0)      -- the picture every fourth frame: the draw is about one in four updates anyway
     frames = frames + 1
     if frames % 120 == 0 then pad_layout() end
@@ -136,7 +138,6 @@ end
 
 function _draw()
   if state == "browse" then
-    fresh = true
     cls(0x101820)
     print("bm SNES", 16, 12, 0xFFD050, 2)
     print("Put .sfc or .smc files in the /sfc folder of the SD card.", 16, 56, 0x8090A0)
@@ -158,12 +159,18 @@ function _draw()
   local t0 = time()
   snes_draw(scr, dw, dh)
   local t1 = time()
-  if fresh then cls(0); fresh = false end
+  if dx > 0 then                                   -- the screen has two buffers: the margins are cleared every frame
+    rectfill(0, 0, dx, SCREEN_H, 0)
+    rectfill(dx + dw, 0, SCREEN_W - dx - dw, SCREEN_H, 0)
+  end
+  if dy > 0 then
+    rectfill(0, 0, SCREEN_W, dy, 0)
+    rectfill(0, dy + dh, SCREEN_W, SCREEN_H - dy - dh, 0)
+  end
   scr:draw(dx, dy)
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
   local d = snes_debug()
   if d.inidisp & 0x80 ~= 0 and frames > 180 then      -- a game that keeps the screen off: say why
-    fresh = true                                        -- the text is in the margin: clear it later
     local io = {}
     for i = 1, 6 do io[i] = string.format("%04X", d.io[i]) end
     print(string.format("screen off: PC %06X%s%s  nmi %02X  sound %s %04X", d.pc, d.wai and " WAI" or "",
@@ -174,9 +181,11 @@ function _draw()
     print("ports " .. d.ports, 4, SCREEN_H - 64, 0xFF8040)
   end
   if show_fps then
-    fresh = true
+    rectfill(0, 0, 400, 78, 0)                          -- a black bar under the lines, to read them
     print(string.format("%d fps  blank %02X  tm %02X  sound %s %04X", stat(2), d.inidisp, d.tm, d.spc, d.spc_pc), 4, 4, 0x00FF00)
     print(d.us_ppu, 4, 36, 0x00FF00)
+    print(d.audio, 4, 52, 0x00FF00)
+    print(string.format("PC %06X%s%s  nmi %02X  reads %04X %04X %04X  frames %d", d.pc, d.wai and " WAI" or "", d.stp and " STP" or "", d.nmi, d.io[1], d.io[3], d.io[6], d.frames), 4, 68, 0x00FF00)
     print(d.us .. string.format("  copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 20, 0x00FF00)
   end
   if state == "menu" then

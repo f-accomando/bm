@@ -71,6 +71,11 @@ void snes_debug(snes_debug_t *d);
 /* a clock in microseconds, to time the parts of a frame (the host or the kernel gives it; NULL: no timing) */
 void snes_set_clock(uint32_t (*now_us)(void));
 
+/* the sound: the machine makes 32 kHz stereo; this is what the output calls (it takes samples from the ring and
+ * resamples them to AUDIO_RATE). Safe to call from the output's interrupt. */
+int snes_audio_mix(float *out, unsigned n, float gain);
+void snes_audio_stats(uint32_t *underruns, uint32_t *overruns, uint32_t *kons);
+
 /* the sound CPU (snes_spc.c) */
 void spc_reset(void);
 void spc_port_write(int n, uint8_t v);      /* n = 0..3, the main CPU writes */

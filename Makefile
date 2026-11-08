@@ -254,7 +254,7 @@ $(BUILD)/carts/snes.bm $(BUILD)/carts/snes.bme: $(BUILD)/carts/snes.%: carts/sne
 # bm SNES tests: the C core on small programs (tests/snes/core_test.c) and the cartridge in bmhost with a test ROM
 # made by tests/snes/make_testrom.py (tests/snes/render_test.py reads the pictures).
 test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py
-	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c
+	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
@@ -718,7 +718,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
              src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \
