@@ -1,0 +1,69 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2146-g49ba95fb-dirty
+branch: claude/bm-vm-test
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-01811c_freeze_pi-zero-w_v0.2.5-2146-g49ba95fb-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 6, 142 s after boot, kernel v0.2.5-2146-g49ba95fb-dirty, ring 9442, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 13074 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13116 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13027 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12940 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13111 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13085 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13003 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12925 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+menu frame: 1x, a frame averages draw 13167 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+net: receiving pi_vm.bm (16960 bytes)...
+net: cartridge received, starting it
+load: Typed Bench VM 111 ms (close 0, parse 0, assets+state 2, mode 1, audio 0, lua 106)
+typed vm: Lua (tables)              0.601 s    30.053 us a call  checksum 6240
+typed vm: C (kernel)                0.077 s     3.852 us a call  checksum 6240
+typed vm: VM (bmvm)                 0.522 s    26.108 us a call  checksum 6240
+typed vm: VM is 1.15 times the speed of the Lua, and 6.78 times the time of the C
+typed vm: VM, an empty call         0.152 s     7.607 us a call  checksum 0
+typed vm: the machine alone (VM minus the empty call): 18.5 us a call
+bm: "Typed Bench VM" 6 frames, 4.2 fps, 4 dropped
+     update+draw avg 230.58 ms (1383% of frame), max 606.29 ms, Lua 1413 KB
+     dev kit: Lua peak 1413 KB, data 322 KB, busiest frame 5465k instructions, 4 frames over 16.7 ms, 1319 tokens
+     GPU 3D 5237 jobs, 3281345 triangles a frame, 8214.33 ms a frame (bin 7%), max job 9496 us
+menu: 1920x1080, drawn by the GPU
+menu frame: 1x, a frame averages draw 13335 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13086 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13000 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12928 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13148 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13057 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12975 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+net: receiving a new kernel (2770628 bytes)...
+net: kernel 0% (0 of 2705 KB)
+net: kernel 10% (272 of 2705 KB)
+net: kernel 20% (544 of 2705 KB)
+net: kernel 30% (813 of 2705 KB)
+net: kernel 40% (1088 of 2705 KB)
+net: kernel 50% (1360 of 2705 KB)
+net: kernel 60% (1633 of 2705 KB)
+net: kernel 70% (1898 of 2705 KB)
+menu frame: 1x, a frame averages draw 14241 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+net: kernel 80% (2165 of 2705 KB)
+net: kernel 90% (2437 of 2705 KB)
+net: dev mode: kernel received (2770628 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 25.3 ms past its slice
+net: saved kernel.img on the SD card (2770628 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+menu idle: 300/300 frames, 258 of 566 ms taken, 27.8 ms past a frame; netxfer 455 ms (+25.3, stk 1.7/64K); min slack -73713 us, paced 0
+menu idle: sd first word <1ms 146 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 14847 us, enlarge 0 us, flip 94 us, free time used 860 us (300 frames)
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
