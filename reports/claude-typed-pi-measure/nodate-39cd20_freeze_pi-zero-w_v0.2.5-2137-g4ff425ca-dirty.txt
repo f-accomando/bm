@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2137-g4ff425ca-dirty
+branch: claude/typed-pi-measure
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-39cd20_freeze_pi-zero-w_v0.2.5-2137-g4ff425ca-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boottor line "sys reboot", frame 1201, 1183 s after boot, kernel v0.2.5-2137-g4ff425ca-dirty, ring 24274, sink on
+--- the last lines printed ---
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:sys reboot
+: sys reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+: 1x, a frame averages draw 13110 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13025 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12942 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13118 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13109 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13025 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12939 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13160 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13110 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13025 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12966 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13188 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+net: receiving settings (14 bytes)...
+config: gpu3d_later=1
+net: settings from the PC: 1 changed in bm/config.txt
+menu idle: sd first word <1ms 6 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 13203 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13030 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12947 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13124 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13096 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+net: receiving darknight_auto.bm (2190792 bytes)...
+menu frame: 1x, a frame averages draw 14037 us, enlarge 0 us, flip 96 us, free time used 35 us (300 frames)
+net: cartridge received, starting it
+darknight: 46 objects, 17 enemies (villager 7, huntsman 4, dog 6)
+load: Dark Night 199 ms (close 0, parse 47, assets+state 20, mode 1, audio 10, lua 119)
+bm: "Dark Night" 1201 frames, 12.5 fps, 1201 dropped
+     update+draw avg 79.04 ms (474% of frame), max 121.29 ms, Lua 212 KB
+     dev kit: Lua peak 389 KB, data 2335 KB, busiest frame 27k instructions, 1201 frames over 16.7 ms, 11317 tokens
+     GPU 3D 26453 jobs, 82773 triangles a frame, 207.38 ms a frame (bin 7%), max job 9510 us
+report: session_dark-night_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+report: sending session_dark-night_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-typed-pi-measure/session_dark-night_pi-zero-w.txt
+menu idle: 300/300 frames, 536 of 559 ms taken, 102.5 ms past a frame; reports 523 ms (+102.5, stk 7.6/128K); min slack -4921 us, paced 0
+menu idle: sd first word <1ms 54 <3ms 5 (max 1.4 ms)
+menu stalls: tls handshake 1x last 484.0 worst 484.0 ms
+menu frame: 1x, a frame averages draw 13620 us, enlarge 0 us, flip 96 us, free time used 1786 us (300 frames)
+menu frame: 1x, a frame averages draw 12980 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13021 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13137 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13053 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+
+net: console opened from 192
