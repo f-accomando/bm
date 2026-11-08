@@ -1,0 +1,70 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2146-g49ba95fb-dirty
+branch: claude/bm-vm-test
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-62ae7c_freeze_pi-zero-w_v0.2.5-2146-g49ba95fb-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 5, 88 s after boot, kernel v0.2.5-2146-g49ba95fb-dirty, ring 7186, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 16 read
+menu idle: 300/300 frames, 118 of 626 ms taken, 1.5 ms past a frame; covers 107 ms (+3.0, stk 0.8/16K); min slack -43555 us, paced 0
+menu idle: sd first word <1ms 142 <3ms 8 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 14982 us, enlarge 0 us, flip 96 us, free time used 395 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-08 23:14 UTC
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13148 us, enlarge 0 us, flip 96 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 13031 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12947 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13094 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13095 us, enlarge 0 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13016 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+net: receiving pi_vm.bm (16028 bytes)...
+net: cartridge received, starting it
+load: Typed Bench VM 111 ms (close 0, parse 0, assets+state 2, mode 1, audio 1, lua 106)
+typed vm: Lua (tables)              0.595 s    29.748 us a call  checksum 6240
+typed vm: C (kernel)                0.078 s     3.898 us a call  checksum 6240
+typed vm: VM (bmvm)                 0.530 s    26.508 us a call  checksum 6240
+typed vm: VM is 1.12 times the speed of the Lua, and 6.80 times the time of the C
+bm: "Typed Bench VM" 5 frames, 3.9 fps, 3 dropped
+     update+draw avg 245.07 ms (1470% of frame), max 600.18 ms, Lua 1411 KB
+     dev kit: Lua peak 1411 KB, data 322 KB, busiest frame 5465k instructions, 3 frames over 16.7 ms, 1218 tokens
+     GPU 3D 2234 jobs, 1680642 triangles a frame, 4201.16 ms a frame (bin 7%), max job 9474 us
+menu: 1920x1080, drawn by the GPU
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13243 us, enlarge 0 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13005 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12923 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13163 us, enlarge 0 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13081 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12994 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+net: receiving a new kernel (2770628 bytes)...
+net: kernel 0% (0 of 2705 KB)
+net: kernel 10% (280 of 2705 KB)
+net: kernel 20% (550 of 2705 KB)
+menu frame: 1x, a frame averages draw 13424 us, enlarge 0 us, flip 96 us, free time used 37 us (300 frames)
+net: kernel 30% (812 of 2705 KB)
+net: kernel 40% (1084 of 2705 KB)
+net: kernel 50% (1357 of 2705 KB)
+net: kernel 60% (1632 of 2705 KB)
+net: kernel 70% (1903 of 2705 KB)
+net: kernel 80% (2173 of 2705 KB)
+net: kernel 90% (2438 of 2705 KB)
+net: dev mode: kernel received (2770628 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 27.2 ms past its slice
+net: saved kernel.img on the SD card (2770628 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 278 of 494 ms taken, 29.7 ms past a frame; netxfer 475 ms (+27.2, stk 1.7/64K); min slack -84517 us, paced 0
+menu idle: sd first word <1ms 150 <3ms 3 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 15384 us, enlarge 0 us, flip 96 us, free time used 927 us (300 frames)
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
