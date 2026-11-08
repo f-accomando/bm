@@ -1041,13 +1041,32 @@ local SAW_ICON = {
     "####..........###.......................",
     "###.....................................", },
 }
+-- the runs of lit pixels of each form, found once: {first column, row, length}; a run is one rectfill, not one per pixel
+local SAW_RUNS = {}
+for form, rows in ipairs(SAW_ICON) do
+  local runs = {}
+  for j, row in ipairs(rows) do
+    local i = 1
+    while i <= #row do
+      if row:byte(i) == 35 then
+        local i2 = i
+        while row:byte(i2 + 1) == 35 do i2 = i2 + 1 end
+        runs[#runs + 1] = { i - 1, j - 1, i2 - i + 1 }
+        i = i2 + 1
+      else
+        i = i + 1
+      end
+    end
+  end
+  SAW_RUNS[form] = runs
+end
 local function saw_icon(x, y, k, form, lit)
+  local runs = SAW_RUNS[form]
   for pass = 1, 2 do
     local o, c = pass == 1 and k // 2 or 0, pass == 1 and 0x050508 or (lit and 0xFFF0C8 or 0xC8C4BC)
-    for j, row in ipairs(SAW_ICON[form]) do
-      for i = 1, #row do
-        if row:byte(i) == 35 then rectfill(x + (i - 1) * k + o, y + (j - 1) * k + o, k, k, c) end
-      end
+    for n = 1, #runs do
+      local r = runs[n]
+      rectfill(x + r[1] * k + o, y + r[2] * k + o, r[3] * k, k, c)
     end
   end
 end
