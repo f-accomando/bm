@@ -18,7 +18,21 @@ local function pad_layout()
   swap = not (c and c.layout == "nintendo")
 end
 
+local frames = 0
+
+-- the test build plays by itself (the bridge cannot press keys): through the title and the file select, then to the right
+local function auto_pad(f)
+  if f < 300 then return 0 end
+  local t = f - 300
+  if t < 1500 then
+    if t % 90 < 8 then return t < 8 and 0x1000 or 0x0080 end    -- Start once, then taps of A
+    return 0
+  end
+  return 0x0100 | ((t % 60) < 25 and 0x8000 or 0) | 0x4000      -- right, running (Y), jumping (B) now and then
+end
+
 local function readpad(p)
+  if AUTO and p == 1 then return auto_pad(frames) end
   local v = 0
   for i = 1, #BTNS do
     local e = BTNS[i]
@@ -35,7 +49,6 @@ local files, sel, msg = {}, 1, nil
 local scr
 local holdmenu, menusel = 0, 1
 local show_fps = false
-local frames = 0
 local draw_ms = { 0, 0 }
 local srm = ""
 

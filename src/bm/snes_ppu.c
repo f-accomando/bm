@@ -221,12 +221,12 @@ static int build_list(const slot_t *o, int n, int en, int wm, fslot_t *out)
     return k;
 }
 
-/* a screen as three arrays: the colour index (0 = backdrop), the layer (6 = backdrop) and whether a sprite allows
+/* a screen as three arrays: the colour index (0 = backdrop), the layer (5 = backdrop: the bit of $2131 that stands for it) and whether a sprite allows
  * maths. The layers are painted from the back to the front, so a later one covers an earlier one. */
 static uint8_t m_idx[256], m_lay[256], m_om[256], s_idx[256], s_lay[256];
 static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t *om)
 {
-    memset(idx, 0, 256); memset(lay, 6, 256);
+    memset(idx, 0, 256); memset(lay, 5, 256);
     if (om) memset(om, 1, 256);
     for (int i = n - 1; i >= 0; i--) {
         const int l = o[i].layer, pr = o[i].prio;
@@ -308,7 +308,7 @@ void ppu_line(int y)
         int prevent = premode == 3 || (premode == 1 && !cw) || (premode == 2 && cw);
         if (math_on && !prevent && (S.cgadsub & (1 << lay)) && om) {
             unsigned sr = S.fixr, sg = S.fixg, sb = S.fixb;
-            if (use_sub && s_lay[x] != 6) { unsigned sc = S.pal[s_idx[x]]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; }
+            if (use_sub && s_lay[x] != 5) { unsigned sc = S.pal[s_idx[x]]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; }
             int rr, gg, bb;
             if (add) { rr = (int)(r + sr); gg = (int)(g + sg); bb = (int)(b + sb); }
             else { rr = (int)r - (int)sr; gg = (int)g - (int)sg; bb = (int)b - (int)sb; }
