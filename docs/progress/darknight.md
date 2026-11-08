@@ -12,6 +12,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   triangles). `bmres.py add` merges both files into the cartridge.
 - The `.bme` is kept in the repository. To change it: edit `main.lua` or a resource, run `make build/carts/darknight.bme`, then
   `cp build/carts/darknight.bme carts/darknight/darknight.bme`. The `.bm` is the same bytes with bit 0 of the u16 at 18 cleared (`mkbm.py --from`).
+- `bm.info` declares the compatibility block: `targets: pi,rgb30`, `input: keyboard,pad`, `aspect: wide`, `needs: 3d,audio` (the header bytes 122 and 123 of the `.bm` and the `.bme` hold 1 and 3). `min_ram`, `min_spec` and `min_width` are not set: no measure of them yet.
 - Screen: `screen(640, 360)` at the start, as the header says (the Resolution row of the menu goes to 1280x720). The HUD scales with the screen.
 - Keys (`rawkeys` and `keydown`, a pad has the same moves): W A S D move (relative to the camera; locked on, around the target);
   SPACE dodges by the keys held (none: backstep, W: roll, A or D: side jump, S: backstep); SHIFT opens and closes the saw (a model change);

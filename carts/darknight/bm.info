@@ -9,4 +9,5 @@ type: game
 resolution: 640x360
 targets: pi,rgb30
 input: keyboard,pad
-needs: 3d
+aspect: wide
+needs: 3d,audio
