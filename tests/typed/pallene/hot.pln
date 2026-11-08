@@ -1,0 +1,39 @@
+-- The hot functions of Dark Night (see ../hot.bmt) in Pallene, for the trial of docs/design/typed-native.md.
+-- Pallene reads the Lua arrays and tables in place: no copy at the call.
+local m: module = {}
+
+-- the camera test: does the point (x, z) touch one of the n doors?
+function m.cam_blocked(x: float, z: float, n: integer, ox: {float}, oz: {float}, r: {float}): boolean
+  for i = 1, n do
+    local rr = r[i] + 0.3
+    local dx = x - ox[i]
+    local dz = z - oz[i]
+    if dx * dx + dz * dz < rr * rr then
+      return true
+    end
+  end
+  return false
+end
+
+-- the enemies that stand in the way of enemy `self`: their numbers go into `out`, the function returns how many
+function m.near_pairs(self: integer, n: integer, x: {float}, z: {float}, alive: {boolean}, out: {integer}): integer
+  local count = 0
+  local ex = x[self]
+  local ez = z[self]
+  for i = 1, n do
+    if i ~= self and alive[i] then
+      local dx = ex - x[i]
+      if dx < 0.8 and dx > -0.8 then
+        local dz = ez - z[i]
+        local d2 = dx * dx + dz * dz
+        if d2 < 0.64 and d2 > 0.000001 then
+          count = count + 1
+          out[count] = i
+        end
+      end
+    end
+  end
+  return count
+end
+
+return m

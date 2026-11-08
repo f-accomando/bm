@@ -1,0 +1,89 @@
+-- A frame of 17 enemies in Pallene (see ../frame.lua for the Lua and the C ways). The three ways here:
+--   soa:     the enemies are arrays of numbers (x, z, alive): the scan reads them in place.
+--   objects: the enemies are Lua tables with the fields x, z, alive, as in the game: the scan reads the fields in place.
+--   whole:   the move and the scan are one function over the arrays.
+local m: module = {}
+
+typealias Enemy = { x: float, z: float, vx: float, vz: float, alive: boolean }
+
+-- the pairs closer than 0.8, over arrays; out has n * n integers, counts has n; the function returns the number of pairs
+function m.scan_soa(n: integer, x: {float}, z: {float}, alive: {boolean}, out: {integer}, counts: {integer}): integer
+  local total = 0
+  for self = 1, n do
+    local count = 0
+    counts[self] = 0
+    if alive[self] then
+      local ex = x[self]
+      local ez = z[self]
+      for i = 1, n do
+        if i ~= self and alive[i] then
+          local dx = ex - x[i]
+          if dx < 0.8 and dx > -0.8 then
+            local dz = ez - z[i]
+            local d2 = dx * dx + dz * dz
+            if d2 < 0.64 and d2 > 0.000001 then
+              count = count + 1
+              out[(self - 1) * n + count] = i
+            end
+          end
+        end
+      end
+      counts[self] = count
+      total = total + count
+    end
+  end
+  return total
+end
+
+-- the same over a Lua array of enemy tables: the layout of the game
+function m.scan_objects(n: integer, en: {Enemy}, out: {integer}, counts: {integer}): integer
+  local total = 0
+  for self = 1, n do
+    local count = 0
+    counts[self] = 0
+    local e = en[self]
+    if e.alive then
+      for i = 1, n do
+        local o = en[i]
+        if i ~= self and o.alive then
+          local dx = e.x - o.x
+          if dx < 0.8 and dx > -0.8 then
+            local dz = e.z - o.z
+            local d2 = dx * dx + dz * dz
+            if d2 < 0.64 and d2 > 0.000001 then
+              count = count + 1
+              out[(self - 1) * n + count] = i
+            end
+          end
+        end
+      end
+      counts[self] = count
+      total = total + count
+    end
+  end
+  return total
+end
+
+-- the move of one enemy: it bounces in a room of 5 x 5
+local function bounce(p: float, v: float): float
+  if p < 0.0 or p > 5.0 then
+    return -v
+  end
+  return v
+end
+
+-- the move of the objects and the scan in one call
+function m.frame_objects(n: integer, en: {Enemy}, out: {integer}, counts: {integer}): integer
+  for i = 1, n do
+    local e = en[i]
+    if e.alive then
+      e.vx = bounce(e.x, e.vx)
+      e.vz = bounce(e.z, e.vz)
+      e.x = e.x + e.vx
+      e.z = e.z + e.vz
+    end
+  end
+  return m.scan_objects(n, en, out, counts)
+end
+
+return m

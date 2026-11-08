@@ -1,5 +1,7 @@
 # Typed hot functions (prototype)
 
+The reasons, all the tests and the numbers, the benchmark of the C+Lua hybrid and the trial of Pallene are in [`docs/design/typed-native.md`](../design/typed-native.md). This sheet keeps the state and the rules.
+
 A typed subset of Lua for the hot functions of a game. One source gives plain Lua (the types taken out) and C. The goal: native speed on the Pi Zero W where the profile shows a hot function, with the same text running in the VM.
 
 ## How it is today (prototype)
@@ -35,9 +37,14 @@ Pallene is a typed subset of Lua that compiles to C (`github.com/pallene-lang/pa
 - A record is a userdata, not a table. A module is a C library that Lua loads with `require`: the kernel has no dynamic loader, so a module must be linked into the kernel.
 - To try: build the compiler with the Lua of `third_party/lua`, compile the two functions of `hot.bmt` as Pallene, link them into `bindhost.c`, and time the frame of `frame.lua` against way C.
 
+## Pallene trial (8 Nov 2026)
+
+Built with `tests/typed/pallene/setup.sh` and run with `tests/typed/pallene/run.py` (the build needs the Git mirrors of Pallene, Lua 5.4.7 and LPeg). The 20000 random cases give the same result as Lua. On the frame of 17 enemies (six runs): arrays of numbers 1.3 - 2.6 times faster than Lua tables, tables as the game 0.9 - 1.5 times, move and scan in Pallene 0.9 - 1.6 times. The bmt way with data owned by C gives 3.2 - 6 times. Pallene shows a small gain on this scene when the data stay in the tables of the game.
+
 ## Open work
 
 - Data in C helps (3 to 6 times a frame), but the crossing between Lua and C is now the cost. Move the whole per-frame work over the arrays into C (the move of the enemies too, not only the scan), so that Lua sets parameters and reads results once a frame, not once for each enemy. That needs more of the language: `//`, `%`, calls between typed functions, structs.
+- Try Pallene on a heavier loop (`update_parts` of Yharnam) and keep the road to an own language of bm open: both run in parallel with the C+Lua hybrid, which is the baseline (section 3 of the design document).
 - Measure on the Pi Zero W with `profile(true)`. The PC numbers say nothing about the ARM1176 (no out-of-order, a small cache).
 - `f32` for the Pi (the VFP is faster on `float` than on `double`). The test uses `f64` because Lua numbers are `double`: with `f32` the results differ in the last digits, so the test needs a tolerance.
 - Missing in the language: `//` and `%`, calls between typed functions, `min` and `max`, structs. Integer overflow differs: C wraps at 32 bits, Lua at 64.
