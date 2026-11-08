@@ -46,6 +46,17 @@ On the Pi the Lua is a large part of the frame: `fdiv`, `blocked` and `draw_scen
 
 *Dark Night*, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame (update 1.9, draw 2.8, 3D calls 0.2, audio 2.7, GPU wait 0.8), 9549 triangles a frame. The game is within the 60 fps budget; the Lua functions `cam_blocked`, `update_enemies` and `draw_objects` are 0.25 to 0.65 ms each. Typed code would gain under 1 ms here.
 
+**Typed C against Lua on the Pi Zero W** (8 Nov 2026, clean kernel with `src/bm/api_typed.c`, the V3D on, cartridge `tests/typed/pi_bench`). **Pi.** The C is written by hand as `bmt.py` would give it (the data in C arrays); the Lua is the code of `fdiv`, `solid_at` and `blocked` of Yharnam with the game's tables. Same results in both ways (24146, 8947 and 8887 blocked points):
+
+| Function | Lua | C | C against Lua |
+|---|---|---|---|
+| `fdiv`, one call each | 1.90 us | 1.09 us | 1.7 times |
+| `solid_at`, one call each (tables or data in C) | 8.6 - 8.7 us | 1.9 us | 4.5 times |
+| `blocked`, one call each | 39.6 us | 3.0 us | **13.3 times** |
+| `blocked`, the whole loop in one C call | 40.4 us | 1.4 us | **29.5 times** |
+
+A call from Lua to a C function costs about 1 us on the ARM1176. A function that does more than that (`solid_at` and what it calls) gains; a function as small as `fdiv` does not. In Yharnam `blocked` costs 3.2 ms of a 17.2 ms frame (with `solid_at` and `fdiv`). At 13 times it would cost about 0.25 ms: a frame of about 14 ms, inside the 16.7 ms of 60 fps. This is an estimate, not a measure of the game: the data (`solid`, `cols`) must live in C, and the game must fill them when a chunk is made.
+
 **Dark Night** (the key script, 3650 frames): 5.252 ms a frame before the fixes, worst 12.264 ms. 80,608 samples.
 
 | Share | Function | Cause |

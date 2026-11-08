@@ -49,18 +49,20 @@ Clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on (`3d=gpu`). Reports in the bran
 - Yharnam, autoplay, 7199 frames: 49.7 fps, 17.2 ms a frame. The Lua is a large part: `draw_scene` 3.9 ms (13.4 with its calls), `fdiv` 2.2, `blocked` 1.1 (3.2). `update_parts` is not in the first ten rows.
 - Dark Night, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame. The Lua functions are 0.25 to 0.65 ms each.
 - Result: road B has a case in Yharnam (small functions called thousands of times) and none in Dark Night. The 16 to 22 times of `update_parts` on a PC says little: that function is not the cost.
+- Typed C against Lua on the Pi (`tests/typed/pi_bench`, `src/bm/api_typed.c`): `blocked` 13.3 times, 29.5 times with the loop in C; `solid_at` 4.5 times; `fdiv` 1.7 times. A call from Lua to C costs about 1 us. Same results as Lua.
 
 ## Open work
 
 Roadmap of a language of bm, a small start. The Lua output stays the reference, and a test compares it with the C.
 
-1. Write `fdiv`, `blocked` and `solid_at` of Yharnam in the typed subset and measure them on the Pi (the V3D on). They are 5 to 6 ms of a 17 ms frame in Lua. If the gain stays under 5% of a frame, stop road B.
-2. Measure the RGB30 with the same two runs.
-3. Complete the subset: `//`, `%`, `min`, `max`, calls between typed functions, structs. Decide the integer overflow first (C wraps at 32 bits, Lua at 64).
-4. Keep the data in C and call once a frame. Move the draw of the particles into C too, or the accessors take the gain back.
-5. Link the C into the kernel (a new API file in `src/bm/`, the table in `runtime.c`, the API in `docs/api/`). Write a test cartridge that runs the Lua and the C on the same scene and logs both times.
-6. Write the movement of the enemies of Dark Night in the language. Measure the frame on the Pi and on the RGB30. Decide road B with these numbers.
-7. Later and optional: `f32` for the VFP of the Pi (the test needs a tolerance) and a compiler on the console (a large project).
+1. Done: the Pi shows 13 times on `blocked`, so road B stays open for Yharnam. Next: generate the C of `solid_at` and `blocked` with `bmt.py` (it needs `//`, `%` and calls between typed functions), and keep the chunk data (`solid`, `cols`) in C arrays that the game fills when it makes a chunk.
+2. Put the two functions in Yharnam (behind a test of `if typed_blocked then`) and measure the frame on the Pi. The goal: 17.2 ms to under 16.7 ms.
+3. Measure the RGB30 with the same runs.
+4. Complete the subset: `//`, `%`, `min`, `max`, calls between typed functions, structs. Decide the integer overflow first (C wraps at 32 bits, Lua at 64).
+5. Keep the data in C and call once a frame. Move the draw of the particles into C too, or the accessors take the gain back.
+6. Link the C into the kernel (a new API file in `src/bm/`, the table in `runtime.c`, the API in `docs/api/`). Write a test cartridge that runs the Lua and the C on the same scene and logs both times.
+7. Write the movement of the enemies of Dark Night in the language. Measure the frame on the Pi and on the RGB30. Decide road B with these numbers.
+8. Later and optional: `f32` for the VFP of the Pi (the test needs a tolerance) and a compiler on the console (a large project).
 
 Other open points:
 
