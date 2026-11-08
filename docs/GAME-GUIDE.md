@@ -921,7 +921,8 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
        less again (4 us against 68 us), but only if the game has a free sheet: in a 3D game
        the textures are on the sheet, and `sset` on it breaks them.
     2. **A scan over a list when few items matter** (`cam_blocked` looked at all 46 objects
-       for the few doors and gates). Keep a second list of the items that matter, filled when the map loads.
+       for the few doors and gates).
+       Keep a second list of the items that matter, filled when the map loads.
     3. **A loop of pairs** (17 enemies check the 16 others). Reject on one axis first, take
        `sqrt` only for the near pair (compare squares), and skip the items beyond the draw
        distance.
