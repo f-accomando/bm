@@ -1,0 +1,69 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2139-g6b973c71-dirty
+branch: claude/typed-pi-measure
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-cc5149_freeze_pi-zero-w_v0.2.5-2139-g6b973c71-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 8, 91 s after boot, kernel v0.2.5-2139-g6b973c71-dirty, ring 8362, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+u frame: 1x, a frame averages draw 14983 us, enlarge 0 us, flip 97 us, free time used 2141 us (300 frames)
+menu frame: 1x, a frame averages draw 13058 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 13117 us, enlarge 0 us, flip 93 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 13032 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 12947 us, enlarge 0 us, flip 94 us, free time used 35 us (300 frames)
+menu frame: 1x, a frame averages draw 13093 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu idle: sd first word <1ms 5 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 13120 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13016 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+net: receiving tbench.bm (3812 bytes)...
+net: cartridge received, starting it
+load: Typed Bench 10 ms (close 0, parse 0, assets+state 2, mode 1, audio 1, lua 5)
+typed bench: solid_at (tables / data in C) Lua     0.873 s    8.734 us a call  result 24146
+typed bench: solid_at (tables / data in C) C       0.193 s    1.932 us a call  result 24146
+typed bench: solid_at (tables / data in C): C is 4.52 times the speed of Lua
+typed bench: blocked, one call each Lua            0.792 s   39.608 us a call  result 8947
+typed bench: blocked, one call each C              0.059 s    2.972 us a call  result 8947
+typed bench: blocked, one call each: C is 13.33 times the speed of Lua
+typed bench: blocked, the loop in C Lua            0.807 s   40.375 us a call  result 8887
+typed bench: blocked, the loop in C C              0.027 s    1.368 us a call  result 8887
+typed bench: blocked, the loop in C: C is 29.52 times the speed of Lua
+bm: "Typed Bench" 8 frames, 2.8 fps, 6 dropped
+     update+draw avg 350.28 ms (2101% of frame), max 879.21 ms, Lua 70 KB
+     dev kit: Lua peak 70 KB, data 322 KB, busiest frame 7055k instructions, 6 frames over 16.7 ms, 746 tokens
+     GPU 3D 2533 jobs, 1190857 triangles a frame, 2979.58 ms a frame (bin 7%), max job 9472 us
+menu: 1920x1080, drawn by the GPU
+menu frame: 1x, a frame averages draw 13235 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13006 us, enlarge 0 us, flip 97 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 12920 us, enlarge 0 us, flip 97 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13138 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 13069 us, enlarge 0 us, flip 97 us, free time used 36 us (300 frames)
+net: receiving a new kernel (2761500 bytes)...
+net: kernel 0% (0 of 2696 KB)
+net: kernel 10% (280 of 2696 KB)
+menu frame: 1x, a frame averages draw 13196 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+net: kernel 20% (546 of 2696 KB)
+net: kernel 30% (813 of 2696 KB)
+net: kernel 40% (1083 of 2696 KB)
+net: kernel 50% (1355 of 2696 KB)
+net: kernel 60% (1620 of 2696 KB)
+net: kernel 70% (1892 of 2696 KB)
+net: kernel 80% (2161 of 2696 KB)
+net: kernel 90% (2433 of 2696 KB)
+net: dev mode: kernel received (2761500 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 32.2 ms past its slice
+menu idle: 300/300 frames, 91 of 453 ms taken, 34.7 ms past a frame; netxfer 120 ms (+32.2, stk 1.2/64K); min slack -45500 us, paced 0
+menu idle: sd first word <1ms 40 <3ms 1 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 14842 us, enlarge 0 us, flip 96 us, free time used 304 us (300 frames)
+net: saved kernel.img on the SD card (2761500 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
