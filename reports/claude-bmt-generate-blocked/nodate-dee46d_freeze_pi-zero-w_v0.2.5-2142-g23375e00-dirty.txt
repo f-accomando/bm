@@ -1,0 +1,67 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2142-g23375e00-dirty
+branch: claude/bmt-generate-blocked
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-dee46d_freeze_pi-zero-w_v0.2.5-2142-g23375e00-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 7199, 262 s after boot, kernel v0.2.5-2142-g23375e00-dirty, ring 9286, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ving yharnam.bm (6451400 bytes)...
+menu frame: 1x, a frame averages draw 14488 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 14550 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+net: cartridge received, starting it
+yharnam typed: C on, check on
+load: Yharnam 3161 ms (close 0, parse 342, assets+state 2570, mode 4, audio 1, lua 243)
+bm: the 3D is drawn by the GPU as bm3d 6.9 (bm3d 7.36 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+yharnam typed: 20000 calls, 18612 in C, 1388 in Lua, 0 different
+yharnam typed: 40000 calls, 38009 in C, 1991 in Lua, 0 different
+yharnam typed: 60000 calls, 58009 in C, 1991 in Lua, 0 different
+yharnam typed: 80000 calls, 78009 in C, 1991 in Lua, 0 different
+autoplay: 7200 frames, 0 deaths, 0 hunts lost, 1 lamps, 5 goals, 0 slain, 4 districts: Ash Way, Black Court, Bone Square, Mourn Street
+bm: "Yharnam" 7199 frames, 48.6 fps, 1434 dropped
+     update+draw avg 17.72 ms (106% of frame), max 265.02 ms, Lua 2717 KB
+     copy to screen 2.03 ms per frame
+     dev kit: Lua peak 3683 KB, data 41607 KB, busiest frame 1335k instructions, 3112 frames over 16.7 ms, 107075 tokens
+     GPU 3D 7199 jobs, 0 triangles a frame, 1.26 ms a frame (bin 1%), max job 2009 us
+report: session_yharnam_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 9.2 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.7 ms past its slice
+fiber: reports did not yield: 100.7 ms past its slice
+report: sending session_yharnam_pi-zero-w.txt
+menu idle: 300/300 frames, 452 of 562 ms taken, 103.3 ms past a frame; reports 431 ms (+100.7, stk 7.6/128K); min slack -12776 us, paced 0
+menu idle: sd first word <1ms 47 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 349.1 worst 349.1 ms
+menu frame: 1x, a frame averages draw 14016 us, enlarge 0 us, flip 96 us, free time used 1506 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/claude-bmt-generate-blocked/session_yharnam_pi-zero-w.txt
+menu idle: 300/300 frames, 40 of 591 ms taken, 20.5 ms past a frame; reports 29 ms (+20.5, stk 7.6/128K); min slack 1559 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13093 us, enlarge 0 us, flip 96 us, free time used 133 us (300 frames)
+menu frame: 1x, a frame averages draw 13010 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+net: receiving a new kernel (2763540 bytes)...
+net: kernel 0% (0 of 2698 KB)
+net: kernel 10% (277 of 2698 KB)
+net: kernel 20% (541 of 2698 KB)
+net: kernel 30% (813 of 2698 KB)
+net: kernel 40% (1088 of 2698 KB)
+net: kernel 50% (1353 of 2698 KB)
+menu frame: 1x, a frame averages draw 13913 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+net: kernel 60% (1627 of 2698 KB)
+net: kernel 70% (1897 of 2698 KB)
+net: kernel 80% (2159 of 2698 KB)
+net: kernel 90% (2433 of 2698 KB)
+net: dev mode: kernel received (2763540 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 31.0 ms past its slice
+net: saved kernel.img on the SD card (2763540 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+menu idle: 300/300 frames, 278 of 544 ms taken, 33.5 ms past a frame; netxfer 485 ms (+31.0, stk 1.7/64K); min slack -89885 us, paced 0
+menu idle: sd first word <1ms 153 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 15083 us, enlarge 0 us, flip 95 us, free time used 929 us (300 frames)
+net: restarting with the new kernel in 1 s
