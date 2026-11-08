@@ -1,0 +1,59 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2141-g5f33617d-dirty
+branch: claude/yharnam-typed-blocked
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-45a1d9_freeze_pi-zero-w_v0.2.5-2141-g5f33617d-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 7199, 2341 s after boot, kernel v0.2.5-2141-g5f33617d-dirty, ring 53539, sink on
+--- the last lines printed ---
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+100 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13105 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13018 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12930 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13103 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13088 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13005 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12918 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13150 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13078 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12990 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12953 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13144 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13060 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12972 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 12995 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13131 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13044 us, enlarge 0 us, flip 94 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12959 us, enlarge 0 us, flip 94 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13044 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13115 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+net: receiving settings (76 bytes)...
+config: yharnam_autoplay=1
+config: yharnam_profile=1
+config: yharnam_typed_check=1
+net: settings from the PC: 3 changed in bm/config.txt
+menu idle: sd first word <1ms 6 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13192 us, enlarge 0 us, flip 95 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 13119 us, enlarge 0 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13036 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12949 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13179 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13106 us, enlarge 0 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13021 us, enlarge 0 us, flip 94 us, free time used 39 us (300 frames)
+net: receiving yharnam.bm (6451400 bytes)...
+menu frame: 1x, a frame averages draw 13132 us, enlarge 0 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 14486 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 14155 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+net: cartridge received, starting it
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2106 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth
