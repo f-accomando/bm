@@ -1,0 +1,37 @@
+-- The hot functions of Dark Night (carts/darknight/main.lua), in the typed subset.
+-- The same text runs in the VM (types taken out) and in C (scripts/bmt.py).
+
+-- the camera test: does the point (x, z) touch one of the n doors (centre ox, oz and radius r)?
+function cam_blocked(x: f64, z: f64, n: i32, ox: f64[], oz: f64[], r: f64[]): bool
+  for i = 1, n do
+    local rr = r[i] + 0.3
+    local dx = x - ox[i]
+    local dz = z - oz[i]
+    if dx * dx + dz * dz < rr * rr then
+      return true
+    end
+  end
+  return false
+end
+
+-- the enemies that stand in the way of enemy `self` (closer than 0.8, not dead): their numbers go into
+-- `out`, and the function returns how many
+function near_pairs(self: i32, n: i32, x: f64[], z: f64[], alive: bool[], out: i32[]): i32
+  local count = 0
+  local ex = x[self]
+  local ez = z[self]
+  for i = 1, n do
+    if i ~= self and alive[i] then
+      local dx = ex - x[i]
+      if dx < 0.8 and dx > -0.8 then
+        local dz = ez - z[i]
+        local d2 = dx * dx + dz * dz
+        if d2 < 0.64 and d2 > 0.000001 then
+          count = count + 1
+          out[count] = i
+        end
+      end
+    end
+  end
+  return count
+end

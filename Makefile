@@ -524,6 +524,11 @@ test-darknight: $(BUILD)/host/bmhost-bin $(BUILD)/carts/darknight.bm tests/darkn
 	$(PYTHON) tests/darknight/check.py $< $(BUILD)/carts/darknight.bm $(BUILD)/darknight/test
 	$(BUILD)/host/test_hero_mesh $(BUILD)/carts/darknight.bm hunter_c hunter_o villager huntsman dog    # every character on the GPU (vs_lit2)
 
+# The typed subset of Lua (scripts/bmt.py): the compiler refuses type errors, and the C and the Lua of tests/typed/hot.bmt give
+# the same results on random cases (progress/typed.md). On demand: it is not in HOST_TESTS.
+test-typed: $(BUILD)/host/luahost scripts/bmt.py tests/typed/run.py tests/typed/hot.bmt tests/typed/bindhost.c
+	$(PYTHON) -I tests/typed/run.py $< $(BUILD)/typed
+
 # the editors read the model files: the import code of bm Mesh and bm Animator and the kernel's own checks, in bmhost
 test-bmm: $(BUILD)/host/bmhost-bin scripts/check_bmm.py
 	$(PYTHON) scripts/check_bmm.py art/models/hunter.bmm art/models/hunterlo.bmm art/models/dnhunter.bmm art/models/enemies.bmm art/models/dnenemy.bmm
@@ -832,7 +837,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-typed test-snes test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
