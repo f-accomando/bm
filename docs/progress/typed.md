@@ -57,7 +57,7 @@ Clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on (`3d=gpu`). Reports in the bran
 Roadmap of a language of bm, a small start. The Lua output stays the reference, and a test compares it with the C.
 
 1. Done: `blocked` of Yharnam is made by `bmt.py` (`tests/typed/yblocked.bmt`, `src/bm/typed_yblocked_gen.h`): 50.5 to 53.5 fps on the Pi, the same as the hand-written C. The subset has `//`, `%`, `floor`, `min`, `max` and calls between typed functions. Next: structs, and a table of the cols that the game fills once (today `typed_ysync` copies a chunk each time).
-2. Look at the next hot spot of Yharnam: `draw_scene` (3.7 ms, 13 with its calls). It draws the objects one by one; the loop may go to C with `spr` and `sspr` called from C.
+2. `draw_scene` of Yharnam: the cull in C gave nothing (53.1 against 53.5 fps), and its cost is spread over the sort comparator, the cull, the building tiles and the draw calls (design document, section 3). Do not port a part of it. Options: the whole draw of the objects in C, or a cheaper sort (the comparator is 7.3% of the Lua instructions).
 3. Measure the RGB30 with the same runs.
 4. Complete the subset: structs. Decide the integer overflow first (C wraps at 32 bits, Lua at 64).
 5. Keep the data in C and call once a frame. Move the draw of the particles into C too, or the accessors take the gain back.

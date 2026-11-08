@@ -68,6 +68,8 @@ The gain is 6.7% in fps and 1.1 ms a frame. The 13 times of the micro test becom
 
 **The same `blocked`, made by `bmt.py`** (8 Nov 2026). `bmt.py` now has `//` and `%` (rounding toward minus infinity, as Lua), `floor`, `min`, `max`, calls between typed functions and arrays passed by name. `tests/typed/yblocked.bmt` is `solid_at` and `blocked` of Yharnam on flat arrays; the C goes to `src/bm/typed_yblocked_gen.h`. `make test-typed` (16 checks) compares C and Lua on 30000 random points (12298 blocked, 11724 free, 5978 chunk missing: the same) and checks that the committed header is what `bmt.py` makes. **Pi.** In the game: 0 differences in 80000 calls, 53.5 fps (the hand-written C gave 53.9, the Lua 50.5), frame 15.7 ms.
 
+**A negative result: the cull of `draw_scene` in C** (8 Nov 2026). The loop that picks the visible scenery objects of the near chunks was made in the typed subset (data of the objects copied to C, the same order, 0 differences in the game) and run on the Pi: 53.1 fps against 53.5 with `blocked` alone, and `draw_scene` kept its 3.8 ms of its own time. The code was dropped. The Lua line profile of Yharnam on a PC (60 s of autoplay, 88726 samples) shows why: `draw_scene` is 44.7% of the samples and they are spread: the comparator `by_depth` of `table.sort` 7.3%, the cull loop about 8%, the tile loop of the buildings 5.6%, the `sspr` line of the objects 3.9%, the flames 4.7%. No one function of `draw_scene` is worth a port. A gain needs the whole draw of the objects in C (the objects, the order and the calls to `spr` and `sspr` together), which is a larger change of the data of the game.
+
 **Dark Night** (the key script, 3650 frames): 5.252 ms a frame before the fixes, worst 12.264 ms. 80,608 samples.
 
 | Share | Function | Cause |
