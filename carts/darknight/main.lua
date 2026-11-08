@@ -92,6 +92,7 @@ local TYPES = {
 
 -- ---------------------------------------------------------------- the state
 local world, objs, doors, lanterns, enemies = nil, {}, {}, {}, {}
+local camstops = {}          -- the objects with camstop (doors, gates): the camera test looks at these only
 local M3 = {}                         -- the meshes: hunter_c, hunter_o, and the kit's by name (and name_f)
 local P = {}                          -- the player
 -- the camera: behind the Hunter's shoulders and a little above him, always turning to where he looks; it looks far ahead of him
@@ -154,7 +155,7 @@ end
 
 local function load_world()
   world = map3d_build({ floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25, wall_tile = 1.0 })
-  objs, doors, lanterns, enemies = {}, {}, {}, {}
+  objs, doors, lanterns, enemies, camstops = {}, {}, {}, {}, {}
   local mw, mh = msize()
   for cz = 0, mh - 1, 2 do
     for cx = 0, mw - 1, 2 do
@@ -175,6 +176,7 @@ local function load_world()
           o.camstop = name:find("^door") ~= nil or name:find("^gate") ~= nil
           o.shadow = name == "lamp" or name == "pillar" or name == "lantern" or name == "barrel" or name == "crate"
           objs[#objs + 1] = o
+          if o.camstop then camstops[#camstops + 1] = o end
           if name:find("^door") then o.door = true; o.locked = name:find("_l$") ~= nil; o.open = 0; doors[#doors + 1] = o end
           if name == "lantern" then lanterns[#lanterns + 1] = o end
         end
@@ -779,11 +781,20 @@ local function update_enemies()
     if clip ~= e.anim then e.anim, e.at = clip, 0 end
     e.at = e.at + dt * rate
     -- the enemies do not stand in each other
-    for _, o in ipairs(enemies) do
-      if o ~= e and o.st ~= "dead" and e.st ~= "dead" then
-        local ox, oz = e.x - o.x, e.z - o.z
-        local od = sqrt(ox * ox + oz * oz)
-        if od < 0.8 and od > 0.001 then try_move(e, ox / od * 0.02, oz / od * 0.02, 0.35) end
+    if e.st ~= "dead" then
+      local ex, ez = e.x, e.z
+      for i = 1, #enemies do
+        local o = enemies[i]
+        local ox = ex - o.x
+        if ox < 0.8 and ox > -0.8 and o ~= e and o.st ~= "dead" then    -- a near one on x first, no more lookups for the far ones
+          local oz = ez - o.z
+          local d2 = ox * ox + oz * oz           -- the square first: sqrt only for the near ones
+          if d2 < 0.64 and d2 > 0.000001 then
+            local od = sqrt(d2)
+            try_move(e, ox / od * 0.02, oz / od * 0.02, 0.35)
+            ex, ez = e.x, e.z
+          end
+        end
       end
     end
     if d < 0.7 and e.st ~= "dead" and d > 0.001 then try_move(P, -dx / d * 0.03, -dz / d * 0.03, 0.32) end
@@ -855,9 +866,11 @@ end
 -- the walls, the door leaves (open or shut: an open leaf stands in the doorway's side) and the gate stop the camera
 local function cam_blocked(x, y, z)
   if map3d_blocked(world, x, y, z, 0.18) then return true end
-  for i = 1, #objs do
-    local o = objs[i]
-    if o.camstop and (x - o.x) ^ 2 + (z - o.z) ^ 2 < (o.r + 0.3) ^ 2 then return true end
+  for i = 1, #camstops do
+    local o = camstops[i]
+    local rr = o.r + 0.3
+    local ox, oz = x - o.x, z - o.z
+    if ox * ox + oz * oz < rr * rr then return true end
   end
   return false
 end
