@@ -781,7 +781,7 @@ local function update_enemies()
     if clip ~= e.anim then e.anim, e.at = clip, 0 end
     e.at = e.at + dt * rate
     -- the enemies do not stand in each other
-    if e.st ~= "dead" then
+    if e.st ~= "dead" and d < FAR then          -- beyond the draw distance nobody sees them stand in each other
       local ex, ez = e.x, e.z
       for i = 1, #enemies do
         local o = enemies[i]
