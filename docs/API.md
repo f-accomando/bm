@@ -120,6 +120,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/jobs.md](api/jobs.md) | Pure jobs on the worker cores (`job_run`, `job_poll`) |
 | [api/riff.md](api/riff.md) | Music as patterns |
 | [api/video.md](api/video.md) | Video clips (.bmv) |
+| [api/typed.md](api/typed.md) | Typed native functions (experiment) |
 | [api/bmnet.md](api/bmnet.md) | Games over the network |
 
 ## Budget and tips
