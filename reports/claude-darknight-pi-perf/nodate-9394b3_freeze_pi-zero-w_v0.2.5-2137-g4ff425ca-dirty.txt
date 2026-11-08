@@ -1,0 +1,62 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2137-g4ff425ca-dirty
+branch: claude/darknight-pi-perf
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-9394b3_freeze_pi-zero-w_v0.2.5-2137-g4ff425ca-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 1201, 216 s after boot, kernel v0.2.5-2137-g4ff425ca-dirty, ring 13904, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ 3 s: arm path: draws 359 (culled 104), faces 265022, setup 5888 us, transform 160380 us, faces 2291964 us; backend mesh: draws 0, faces 0, 0 us
+r3d phase 3 s: arm path: draws 400 (culled 81), faces 246362, setup 4743 us, transform 144141 us, faces 2422282 us; backend mesh: draws 0, faces 0, 0 us
+r3d phase 3 s: arm path: draws 382 (culled 94), faces 267467, setup 6920 us, transform 168562 us, faces 2325053 us; backend mesh: draws 0, faces 0, 0 us
+r3d phase 3 s: arm path: draws 404 (culled 96), faces 270219, setup 5715 us, transform 149518 us, faces 2362335 us; backend mesh: draws 0, faces 0, 0 us
+r3d phase 3 s: arm path: draws 417 (culled 83), faces 268528, setup 6536 us, transform 163643 us, faces 2408134 us; backend mesh: draws 0, faces 0, 0 us
+r3d phase 3 s: arm path: draws 356 (culled 123), faces 260896, setup 7255 us, transform 145798 us, faces 2314700 us; backend mesh: draws 0, faces 0, 0 us
+r3d phase 3 s: arm path: draws 416 (culled 64), faces 250834, setup 4837 us, transform 158361 us, faces 2450376 us; backend mesh: draws 0, faces 0, 0 us
+r3d phase 3 s: arm path: draws 352 (culled 118), faces 266272, setup 5798 us, transform 154671 us, faces 2316590 us; backend mesh: draws 0, faces 0, 0 us
+bm: "Dark Night" 1201 frames, 12.9 fps, 1201 dropped
+     update+draw avg 76.41 ms (458% of frame), max 118.50 ms, Lua 212 KB
+     dev kit: Lua peak 389 KB, data 2335 KB, busiest frame 26k instructions, 1201 frames over 16.7 ms, 11317 tokens
+     GPU 3D 5318 jobs, 16646 triangles a frame, 42.79 ms a frame (bin 6%), max job 9749 us
+report: session_dark-night_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 103.5 ms past its slice
+report: sending session_dark-night_pi-zero-w.txt
+menu idle: 300/300 frames, 276 of 574 ms taken, 106.0 ms past a frame; reports 260 ms (+103.5, stk 7.6/128K); min slack -5443 us, paced 0
+menu idle: sd first word <1ms 40 <3ms 2 (max 1.6 ms)
+menu stalls: tls handshake 1x last 404.6 worst 404.6 ms
+menu frame: 1x, a frame averages draw 14460 us, enlarge 0 us, flip 96 us, free time used 922 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/claude-darknight-pi-perf/session_dark-night_pi-zero-w.txt
+menu idle: 300/300 frames, 217 of 510 ms taken, 98.7 ms past a frame; reports 207 ms (+98.7, stk 7.6/128K); min slack 1299 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.6 ms)
+menu frame: 1x, a frame averages draw 13367 us, enlarge 0 us, flip 96 us, free time used 723 us (300 frames)
+menu frame: 1x, a frame averages draw 13221 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+net: receiving a new kernel (2760948 bytes)...
+net: kernel 0% (0 of 2696 KB)
+net: kernel 10% (272 of 2696 KB)
+net: kernel 20% (547 of 2696 KB)
+menu frame: 1x, a frame averages draw 13817 us, enlarge 0 us, flip 95 us, free time used 36 us (300 frames)
+net: kernel 30% (809 of 2696 KB)
+net: kernel 40% (1084 of 2696 KB)
+net: kernel 50% (1353 of 2696 KB)
+net: kernel 60% (1617 of 2696 KB)
+net: kernel 70% (1895 of 2696 KB)
+net: kernel 80% (2159 of 2696 KB)
+net: kernel 90% (2426 of 2696 KB)
+net: dev mode: kernel received (2760948 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 26.7 ms past its slice
+fiber: netxfer did not yield: 93.0 ms past its slice
+fiber: netxfer did not yield: 94.6 ms past its slice
+fiber: netxfer did not yield: 96.9 ms past its slice
+net: saved kernel.img on the SD card (2760948 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 16 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 543 of 523 ms taken, 97.1 ms past a frame; netxfer 840 ms (+96.9, stk 1.7/64K); min slack -112771 us, paced 0
+menu idle: sd first word <1ms 157 <3ms 2 (max 1.6 ms)
+menu frame: 1x, a frame averages draw 15960 us, enlarge 0 us, flip 96 us, free time used 1812 us (300 frames)
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
