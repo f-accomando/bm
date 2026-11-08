@@ -57,6 +57,15 @@ On the Pi the Lua is a large part of the frame: `fdiv`, `blocked` and `draw_scen
 
 A call from Lua to a C function costs about 1 us on the ARM1176. A function that does more than that (`solid_at` and what it calls) gains; a function as small as `fdiv` does not. In Yharnam `blocked` costs 3.2 ms of a 17.2 ms frame (with `solid_at` and `fdiv`). At 13 times it would cost about 0.25 ms: a frame of about 14 ms, inside the 16.7 ms of 60 fps. This is an estimate, not a measure of the game: the data (`solid`, `cols`) must live in C, and the game must fill them when a chunk is made.
 
+**Yharnam with `blocked` in C, on the Pi Zero W** (8 Nov 2026, the same cartridge in both runs, autoplay, 7199 frames; `yharnam_typed=off` against the default). **Pi.** The game copies each chunk (solid tiles, columns) to C and calls `typed_yblocked`; a chunk that is not in C gives `nil` and the Lua runs. Check mode (`yharnam_typed_check=1`, both run): 0 differences in more than 80000 calls, 97.5% answered by C.
+
+| Way | fps | Frame | Update | Frames over 16.7 ms |
+|---|---|---|---|---|
+| Lua (`yharnam_typed=off`) | 50.5 | 16.8 ms | 3.5 ms | 2560 |
+| C for `blocked` | **53.9** | **15.6 ms** | **2.4 ms** | 1922 |
+
+The gain is 6.7% in fps and 1.1 ms a frame. The 13 times of the micro test becomes 1.1 ms in the game because `blocked` is 3.2 ms of the frame and most of it was Lua; the light (`dark_end`) and the draw (`draw_scene`, `map`, `spr`) did not change. The next candidates by the profile: `draw_scene` (3.7 ms, 13 with its calls) and the light.
+
 **Dark Night** (the key script, 3650 frames): 5.252 ms a frame before the fixes, worst 12.264 ms. 80,608 samples.
 
 | Share | Function | Cause |

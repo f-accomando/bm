@@ -49,14 +49,15 @@ Clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on (`3d=gpu`). Reports in the bran
 - Yharnam, autoplay, 7199 frames: 49.7 fps, 17.2 ms a frame. The Lua is a large part: `draw_scene` 3.9 ms (13.4 with its calls), `fdiv` 2.2, `blocked` 1.1 (3.2). `update_parts` is not in the first ten rows.
 - Dark Night, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame. The Lua functions are 0.25 to 0.65 ms each.
 - Result: road B has a case in Yharnam (small functions called thousands of times) and none in Dark Night. The 16 to 22 times of `update_parts` on a PC says little: that function is not the cost.
+- Yharnam with `blocked` in C (`yharnam_typed`, default on): 53.9 fps against 50.5 with the Lua, 0 differences in 80000 calls. Frame 16.8 to 15.6 ms.
 - Typed C against Lua on the Pi (`tests/typed/pi_bench`, `src/bm/api_typed.c`): `blocked` 13.3 times, 29.5 times with the loop in C; `solid_at` 4.5 times; `fdiv` 1.7 times. A call from Lua to C costs about 1 us. Same results as Lua.
 
 ## Open work
 
 Roadmap of a language of bm, a small start. The Lua output stays the reference, and a test compares it with the C.
 
-1. Done: the Pi shows 13 times on `blocked`, so road B stays open for Yharnam. Next: generate the C of `solid_at` and `blocked` with `bmt.py` (it needs `//`, `%` and calls between typed functions), and keep the chunk data (`solid`, `cols`) in C arrays that the game fills when it makes a chunk.
-2. Put the two functions in Yharnam (behind a test of `if typed_blocked then`) and measure the frame on the Pi. The goal: 17.2 ms to under 16.7 ms.
+1. Done: `blocked` of Yharnam in C (hand-written, in `src/bm/api_typed.c`), 50.5 to 53.9 fps on the Pi. Next: generate that C with `bmt.py` (it needs `//`, `%` and calls between typed functions), so that the C comes from the same source as the Lua.
+2. Look at the next hot spot of Yharnam: `draw_scene` (3.7 ms, 13 with its calls). It draws the objects one by one; the loop may go to C with `spr` and `sspr` called from C.
 3. Measure the RGB30 with the same runs.
 4. Complete the subset: `//`, `%`, `min`, `max`, calls between typed functions, structs. Decide the integer overflow first (C wraps at 32 bits, Lua at 64).
 5. Keep the data in C and call once a frame. Move the draw of the particles into C too, or the accessors take the gain back.

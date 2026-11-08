@@ -14,5 +14,7 @@ The data is one chunk of 32 x 32 tiles of 16 pixels and up to 64 columns (the sh
 | `typed_solid_at(x, y)` | `true` if the pixel is in a solid tile or outside the chunk |
 | `typed_blocked(x, y)` | `true` if a box of 12 x 5 pixels around `(x, y)` touches a solid tile or a column |
 | `typed_blocked_many(n, x0, y0, dx, dy)` | the number of blocked points among the `n` points `(x0 + i*dx, y0 + i*dy)`; one call for the whole loop |
+| `typed_ysync(cx, cy, solid, cols)` | copies one chunk of Yharnam to C: `solid` is a string of 256 bytes (0 or 1, row by row), `cols` a flat table `x, y, rx, ry, off` for each column. Gives `false` if it does not fit |
+| `typed_yblocked(x, y)` | the game's `blocked`: `true` or `false`, or `nil` when a chunk it needs is not in C (the Lua then decides). Chunks are 16 x 16 tiles of 16 pixels, 8 x 8 chunks |
 
 A call from Lua to a C function costs about 1 us on the Pi Zero W, so give a C function a loop, not one number at a time.

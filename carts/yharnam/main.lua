@@ -1332,6 +1332,30 @@ end
 function UI.hint_w(btn, words) return (prompt(btn, false, 1, 1)) + 4 + #words * 8 end
 local TS, CS = 16, 16                    -- tile pixels; chunk tiles (a chunk is one screen)
 local CPX = TS * CS
+
+-- typed native (src/bm/api_typed.c, docs/api/typed.md): the solid tiles and the columns of each chunk are copied to C when
+-- the chunk is ready and when a breakable is broken; blocked() asks C first. A console without typed_yblocked, or
+-- yharnam_typed=off in bm/config.txt, runs the Lua. yharnam_typed_check=1 runs both and logs a difference.
+local TYPED, TCHECK = typed_yblocked ~= nil, false
+local TC = { calls = 0, c = 0, miss = 0, bad = 0 }
+if TYPED and cart_config then
+  local ok, v = pcall(cart_config, "yharnam_typed")
+  if ok and v == "off" then TYPED = false end
+  local okc, vc = pcall(cart_config, "yharnam_typed_check")
+  TCHECK = okc and vc ~= nil and vc ~= "" and vc ~= "0"
+end
+log("yharnam typed: C " .. (TYPED and "on" or "off") .. (TCHECK and ", check on" or ""))
+local function tsync(ch)
+  if not TYPED or not ch.ready then return end
+  local solid, s = ch.solid, {}
+  for i = 1, CS * CS do s[i] = solid[i] and "\1" or "\0" end
+  local flat, n = {}, 0
+  for _, c in ipairs(ch.cols) do
+    flat[n + 1], flat[n + 2], flat[n + 3], flat[n + 4], flat[n + 5] = c.x, c.y, c.rx, c.ry, c.off and 1 or 0
+    n = n + 5
+  end
+  typed_ysync(ch.cx, ch.cy, table.concat(s), flat)
+end
 local RING = 4                           -- the map holds 4 x 4 chunks
 local RT = RING * CS                     -- ... that is 64 x 64 tiles
 local SW8 = SHEET_W // 8                 -- map cells per sheet row
@@ -1931,7 +1955,7 @@ local function add_obj(ch, name, x, y, z, col)
   local o = { s = s, x = x, y = y, z = z or y, name = name, u = ch.unit }
   ch.objs[#ch.objs + 1] = o
   if col then
-    local c = { x = x, y = y + (col.dy or 0), rx = col[1], ry = col[2] }
+    local c = { x = x, y = y + (col.dy or 0), rx = col[1], ry = col[2], ch = ch }
     ch.cols[#ch.cols + 1] = c
     o.c = c
     if BRK.kinds[name] then
@@ -2981,6 +3005,7 @@ local function gen(ch)
     end
   end
   ch.ready = true
+  tsync(ch)
 end
 
 local function new_chunk(cx, cy)
@@ -3103,7 +3128,7 @@ local function solid_at(x, y)
   return ch.solid[(ty % CS) * CS + (tx % CS) + 1]
 end
 
-local function blocked(x, y)
+local function blocked_lua(x, y)
   if solid_at(x - 6, y - 3) or solid_at(x + 6, y - 3) or solid_at(x - 6, y + 2) or solid_at(x + 6, y + 2) then
     return true
   end
@@ -3127,6 +3152,27 @@ local function blocked(x, y)
     end
   end
   return false
+end
+
+local function blocked(x, y)
+  if TYPED then
+    local r = typed_yblocked(x, y)
+    TC.calls = TC.calls + 1
+    if r == nil then
+      TC.miss = TC.miss + 1               -- a chunk is not in C: the Lua decides
+    else
+      TC.c = TC.c + 1
+      if TCHECK and r ~= blocked_lua(x, y) then
+        TC.bad = TC.bad + 1
+        if TC.bad <= 20 then log(string.format("yharnam typed: DIFFERENT at %.2f %.2f (C %s)", x, y, tostring(r))) end
+      end
+      if TCHECK and TC.calls % 20000 == 0 then
+        log(string.format("yharnam typed: %d calls, %d in C, %d in Lua, %d different", TC.calls, TC.c, TC.miss, TC.bad))
+      end
+      return r
+    end
+  end
+  return blocked_lua(x, y)
 end
 
 local function place_player()
@@ -3162,6 +3208,7 @@ end
 -- the breakables (see BRK): what is left lies where the thing stood
 function BRK.wreck(o)
   o.broken, o.s, o.z, o.col.off = true, SPR[BRK.kinds[o.name]], o.y - 10, true
+  if o.col.ch then tsync(o.col.ch) end
 end
 -- broken now: splinters thrown away from the blow (ux, uy), dust, a crack
 function BRK.smash_one(o, ux, uy)
@@ -3293,6 +3340,7 @@ function BRK.reset()
     for _, o in ipairs(ch.objs) do
       if o.broken and not (o.gate and G.gates[o.gate.id]) then o.broken, o.s, o.z, o.col.off = nil, SPR[o.name], o.y, nil end
     end
+    tsync(ch)
   end
 end
 
