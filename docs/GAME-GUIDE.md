@@ -904,6 +904,35 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
   ```
 
   Compare the numbers with the budget in [`docs/PERF-BUDGET.md`](PERF-BUDGET.md).
+- **Hot functions:** a hot function is a function that tops the profile. Find it, fix its
+  structure in Lua, and only then think of C.
+  - Profile on the PC: `BMHOST_LUAPROF=1 build/host/bmhost-bin game.bm --input keys.txt
+    --seconds 60`. A script of keys plays the game (see `tests/darknight/check.py`: one
+    line `<frame> keys <usages>`, and `<frame> quit`). The report at the end lists the
+    functions, then the lines, in % of the samples. It counts Lua instructions only. The time
+    inside the console's C functions (`rectfill`, `spr`, the 3D) is not in it: use
+    `profile(true)` on the console for that. Compare the samples before and after each
+    change, not the ms of the PC.
+  - Measured in *Dark Night* (80.6k samples, 39.8k after the three fixes below) and in
+    *Yharnam*. Look for these four patterns first:
+    1. **One primitive per pixel of a fixed picture** (`saw_icon`: 160 `rectfill` for an icon).
+       Find the runs of equal pixels once, when the file loads, and draw one `rectfill`
+       per run (32 calls, the same pixels). A sheet region with `sspr` and a zoom costs
+       less again (4 us against 68 us), but only if the game has a free sheet: in a 3D game
+       the textures are on the sheet, and `sset` on it breaks them.
+    2. **A scan over a list when few items matter** (`cam_blocked` looked at all 46 objects
+       for the few doors and gates). Keep a second list of the items that matter, filled when the map loads.
+    3. **A loop of pairs** (17 enemies check the 16 others). Reject on one axis first, take
+       `sqrt` only for the near pair (compare squares), and skip the items beyond the draw
+       distance.
+    4. **A comparator or a small function that Lua calls thousands of times** (`by_depth` of
+       `table.sort`, `solid_at`, `fdiv`: 7% and 20% in *Yharnam*). It is the first candidate
+       for a C function in the kernel.
+  - Use a C function when the function still tops the profile after the Lua fix, it works
+    on numbers or arrays only, and no game needs another result from it. Add it to the
+    console like the others (`src/bm/api_*.c`, the table in `runtime.c`), write it in
+    `docs/api/` and test it with a small cartridge. A kernel without it has no such name:
+    test with `if name then`. Do not move code to C that the profile does not show.
 - **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
   there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
   out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the
