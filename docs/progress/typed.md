@@ -15,9 +15,19 @@ A typed subset of Lua for the hot functions of a game. One source gives plain Lu
   | C alone, flat arrays | 0.07 us | 10 - 17 times faster |
   | C called from Lua, with the game's tables | 0.5 - 0.9 us | 1.3 - 1.6 times faster |
 
+- A whole frame of 17 enemies (`tests/typed/frame.lua`: Lua moves them, the pairs closer than 0.8 are found, Lua reads the hits; the sums are equal in all three ways). The data of the enemies are in C (one array for each field, `E.get`, `E.set`, `E.near`, `E.near_all`). Three runs on a PC:
+
+  | Way | Time of a frame | Against tables |
+  |---|---|---|
+  | A: tables in Lua, as the game | 15 - 20 us | 1 |
+  | B: data in C, one `E.near` call for each enemy | 3 - 4 us | 3.7 - 6 times faster |
+  | C: data in C, one `E.near_all` call | 4 - 5.5 us | 3.2 - 4 times faster |
+
+  The move of the enemies alone (34 calls of `E.get` and `E.set`) costs 2.4 - 3.3 us. With tables it costs 1.3 - 2.5 us. So in way C more than half of the frame is the crossing between Lua and C, not the scan. The numbers vary between runs (a PC shared with other work): read the ratios, not the digits.
+
 ## Open work
 
-- The call through the Lua C API copies the numbers out of the game's tables, and that costs about as much as the work of a function this small. Test a design where C owns the data (one array for each field: `x`, `z`, `alive`) and Lua reads it through short accessors. Or compile the whole loop (`update_enemies`), not its pieces.
+- Data in C helps (3 to 6 times a frame), but the crossing between Lua and C is now the cost. Move the whole per-frame work over the arrays into C (the move of the enemies too, not only the scan), so that Lua sets parameters and reads results once a frame, not once for each enemy. That needs more of the language: `while`, `//`, `%`, calls between typed functions, structs.
 - Measure on the Pi Zero W with `profile(true)`. The PC numbers say nothing about the ARM1176 (no out-of-order, a small cache).
 - `f32` for the Pi (the VFP is faster on `float` than on `double`). The test uses `f64` because Lua numbers are `double`: with `f32` the results differ in the last digits, so the test needs a tolerance.
 - Missing in the language: `//` and `%`, `while`, calls between typed functions, `min` and `max`, structs. Integer overflow differs: C wraps at 32 bits, Lua at 64.

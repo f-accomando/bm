@@ -66,6 +66,69 @@ static int l_near_pairs(lua_State *L)
     return 1;
 }
 
+/* The enemies kept in C: one array for each field, owned by the host. Lua moves them with get and set (two numbers
+ * a call), and reads the hits with short calls. No table is copied. */
+static double EX[MAXN], EZ[MAXN];
+static bool EA[MAXN];
+static int32_t EOUT[MAXN * MAXN], ECNT[MAXN];
+static int EN;
+
+static int l_e_init(lua_State *L)
+{
+    EN = (int)luaL_checkinteger(L, 1);
+    if (EN > MAXN)
+        return luaL_error(L, "too many");
+    return 0;
+}
+
+static int l_e_set(lua_State *L)       /* E.set(i, x, z, alive) */
+{
+    int i = (int)luaL_checkinteger(L, 1) - 1;
+    EX[i] = luaL_checknumber(L, 2);
+    EZ[i] = luaL_checknumber(L, 3);
+    if (lua_gettop(L) >= 4)
+        EA[i] = lua_toboolean(L, 4);
+    return 0;
+}
+
+static int l_e_get(lua_State *L)       /* E.get(i) -> x, z */
+{
+    int i = (int)luaL_checkinteger(L, 1) - 1;
+    lua_pushnumber(L, EX[i]);
+    lua_pushnumber(L, EZ[i]);
+    return 2;
+}
+
+static int l_e_near(lua_State *L)      /* E.near(i) -> count; the hits are E.hit(1..count) */
+{
+    lua_pushinteger(L, bmt_near_pairs((int)luaL_checkinteger(L, 1), EN, EX, EZ, EA, EOUT));
+    return 1;
+}
+
+static int l_e_hit(lua_State *L)       /* E.hit(k) of the last E.near */
+{
+    lua_pushinteger(L, EOUT[luaL_checkinteger(L, 1) - 1]);
+    return 1;
+}
+
+static int l_e_near_all(lua_State *L)  /* E.near_all() -> pairs; E.count(i), E.hit_all(i, k) */
+{
+    lua_pushinteger(L, bmt_near_all(EN, EX, EZ, EA, EOUT, ECNT));
+    return 1;
+}
+
+static int l_e_count(lua_State *L)
+{
+    lua_pushinteger(L, ECNT[luaL_checkinteger(L, 1) - 1]);
+    return 1;
+}
+
+static int l_e_hit_all(lua_State *L)
+{
+    lua_pushinteger(L, EOUT[(luaL_checkinteger(L, 1) - 1) * EN + luaL_checkinteger(L, 2) - 1]);
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -76,6 +139,11 @@ int main(int argc, char **argv)
     luaL_openlibs(L);
     lua_register(L, "cam_blocked_c", l_cam_blocked);
     lua_register(L, "near_pairs_c", l_near_pairs);
+    static const luaL_Reg enemies[] = {
+        { "init", l_e_init }, { "set", l_e_set }, { "get", l_e_get }, { "near", l_e_near }, { "hit", l_e_hit },
+        { "near_all", l_e_near_all }, { "count", l_e_count }, { "hit_all", l_e_hit_all }, { NULL, NULL } };
+    luaL_newlib(L, enemies);
+    lua_setglobal(L, "E");
     lua_createtable(L, argc, 0);
     for (int i = 1; i < argc; i++) {
         lua_pushstring(L, argv[i]);

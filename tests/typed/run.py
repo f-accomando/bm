@@ -225,6 +225,20 @@ print("typed: Lua %.3f us a call, C %.4f us a call: C is %.0f times faster on th
     l_us, c_us, l_us / c_us))
 print("typed: called from Lua with the game's tables (the numbers are copied each call): %.3f us a call, %.1f times faster than the Lua" % (
     b_us, l_us / b_us))
-total = len(BAD) + 3          # the bad programs, the good one, the C against the Lua, the native functions against the Lua
+# ---------------------------------------------------------------- 4. a whole frame of 17 enemies
+frame = os.path.join(HERE, "frame.lua")
+res = {}
+for mode in "ABC":
+    out, _ = run([bind, frame, "200", mode])
+    m, us, pn, hs = out.split()
+    res[m] = (float(us), int(pn), int(hs))
+if len({(v[1], v[2]) for v in res.values()}) != 1:
+    print("typed: FAIL the three frames do not give the same sums: %s" % res)
+    failed += 1
+else:
+    print("typed: a frame of 17 enemies (move, find the pairs, read the hits), %d pairs in 200 frames, the same sums in all three:" % res["A"][1])
+    print("typed:   A tables and Lua scan %.2f us   B data in C, a call for each enemy %.2f us (%.1f times)   C data in C, one call %.2f us (%.1f times)" % (
+        res["A"][0], res["B"][0], res["A"][0] / res["B"][0], res["C"][0], res["A"][0] / res["C"][0]))
+total = len(BAD) + 4          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames
 print("typed: %d/%d checks passed" % (total - failed, total) if not failed else "typed: FAILED, %d of %d checks" % (failed, total))
 sys.exit(1 if failed else 0)

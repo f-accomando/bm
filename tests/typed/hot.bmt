@@ -35,3 +35,33 @@ function near_pairs(self: i32, n: i32, x: f64[], z: f64[], alive: bool[], out: i
   end
   return count
 end
+
+-- the same scan for all the n enemies in one call: the hits of enemy e are out[(e - 1) * n + 1 ..], their number is counts[e];
+-- the function returns the number of pairs (counted for both sides)
+function near_all(n: i32, x: f64[], z: f64[], alive: bool[], out: i32[], counts: i32[]): i32
+  local total = 0
+  for self = 1, n do
+    local count = 0
+    counts[self] = 0
+    if alive[self] then
+      local ex = x[self]
+      local ez = z[self]
+      for i = 1, n do
+        if i ~= self and alive[i] then
+          local dx = ex - x[i]
+          if dx < 0.8 and dx > -0.8 then
+            local dz = ez - z[i]
+            local d2 = dx * dx + dz * dz
+            if d2 < 0.64 and d2 > 0.000001 then
+              count = count + 1
+              out[(self - 1) * n + count] = i
+            end
+          end
+        end
+      end
+      counts[self] = count
+      total = total + count
+    end
+  end
+  return total
+end
