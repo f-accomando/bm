@@ -1,0 +1,50 @@
+-- update_parts of Yharnam (carts/yharnam/main.lua) in Pallene, on the particles as the game keeps them: a Lua array of tables.
+-- Pallene arrays hold no nil: the function swaps the last particle into the place of the one that dies and returns the new
+-- count; the caller cuts the tail of the array.
+local m: module = {}
+
+typealias Part = { x: float, y: float, vx: float, vy: float, t: integer, life: integer, kind: integer, gy: float }
+
+function m.update_parts(parts: {Part}, n: integer, jit: {float}, k0: integer): integer
+  local i = 1
+  while i <= n do
+    local p = parts[i]
+    local pt = p.t + 1
+    p.t = pt
+    if pt >= p.life then
+      parts[i] = parts[n]
+      n = n - 1
+    else
+      p.x = p.x + p.vx
+      p.y = p.y + p.vy
+      local k = p.kind
+      if k == 1 then
+        p.vx = p.vx * 0.94 + jit[((k0 + i * 7) & 63) + 1] * 0.12
+        p.vy = p.vy * 0.985 - 0.012
+      elseif k == 2 then
+        p.vx = p.vx + jit[((k0 + i * 5) & 63) + 1] * 0.08
+        p.vy = p.vy * 0.995 - 0.004
+      elseif k == 3 then
+        p.vx = p.vx * 0.99 + 0.004
+        p.vy = p.vy * 0.995
+      elseif k == 8 then
+        if p.y < p.gy then
+          p.vy = p.vy + 0.13
+        else
+          p.y = p.gy
+          p.vx = 0.0
+          p.vy = 0.0
+        end
+      elseif k >= 6 then
+        p.vx = p.vx * 0.97 + jit[((k0 + i * 3) & 63) + 1] * 0.03
+        p.vy = p.vy * 0.99 - 0.002
+      else
+        p.vy = p.vy + 0.03
+      end
+      i = i + 1
+    end
+  end
+  return n
+end
+
+return m

@@ -75,7 +75,7 @@ The last way is not in the game. On the sprite sheet it breaks the 3D textures (
 
 One source gives plain Lua (the types cut out) and C. Types `i32`, `f32`, `f64`, `bool` and arrays. `local`, `for`, `while`, `if`, `return`, `break`, `sqrt`, `abs`. A type error names the line of its statement; a float is never cut into an `i32`. The language is in the docstring of the script.
 
-`make test-typed` (13 checks, on demand):
+`make test-typed` (14 checks, on demand):
 
 | Check | Result |
 |---|---|
@@ -85,6 +85,7 @@ One source gives plain Lua (the types cut out) and C. Types `i32`, `f32`, `f64`,
 | Native functions called from Lua through the Lua C API, against Lua | identical |
 | 1,227 results of `while` loops (`tests/typed/loops.bmt`), C against Lua | identical |
 | Frame of 17 enemies, three ways | equal sums |
+| `update_parts` of Yharnam (160 particles, 600 frames), typed C on arrays of C, against the function of the game | same count, same sums |
 
 A found defect: the compiler pointed at the line after a type error. The test found it and it is fixed.
 
@@ -100,13 +101,22 @@ A found defect: the compiler pointed at the line after a type error. The test fo
 
 The move of the enemies alone, through `E.get` and `E.set`, costs 2.4 - 3.3 us: more than half of way C. With tables it costs 1.3 - 2.5 us. The crossing between Lua and C is the cost now.
 
+**Particles of Yharnam** (`tests/typed/parts_bench.lua`, `tests/typed/parts.bmt`: `update_parts` of the game, up to 160 particles, 3 births a frame, 600 frames; the time is the time of `update_parts` only; 30 runs, three batches):
+
+| Way | Time of `update_parts` | Against Lua tables |
+|---|---|---|
+| The function of the game (Lua tables) | 17 - 24 us | 1 |
+| Typed C on arrays owned by C | 0.96 - 1.2 us | **16 - 22 times** |
+
+The draw of the particles is not in this number. The draw reads x, y, kind, t and life of every particle each frame. With the data in C it must move to C too, or the accessors take the gain back. This is not measured.
+
 ## 6. Trial of Pallene
 
 **Build** (`tests/typed/pallene/setup.sh WORKDIR`, 9 seconds). Pallene needs a Lua 5.4.7 with a patch (`expose-internal-apis.patch`) and LPeg. The site lua.org is not reachable from the session, so the script takes Lua from the Git mirror of the tag v5.4.7 and LPeg from its Git mirror. The Makefile parts of the patch do not apply to the mirror; the script makes `luacore.h` itself. Pallene's text is MIT; its last commit is 3 Nov 2026.
 
 **What the code does.** The generated C reads the array part of a Lua table in place (`arr->array[i - 1]`) and tests the tag of the value. It copies nothing. Of all the files of `third_party/lua`, only `ldo.c` and `lvm.c` differ from Lua 5.4.7 (the profile hooks): the structures of the tables are the same.
 
-**Run** (`tests/typed/pallene/run.py PREFIX build/typed`, 2 checks): the 20,000 random cases give the same result from Pallene and from Lua. The frame sums are equal in all four ways.
+**Run** (`tests/typed/pallene/run.py PREFIX build/typed`, 3 checks): the 20,000 random cases give the same result from Pallene and from Lua. The frame sums are equal in all four ways. The particles give the same count and sums.
 
 | Way (Pallene's own Lua, `plua`) | Time of a frame (6 runs) | Against tables |
 |---|---|---|
@@ -116,6 +126,8 @@ The move of the enemies alone, through `E.get` and `E.set`, costs 2.4 - 3.3 us: 
 | P3: tables as the game, Pallene moves and scans | 9.4 - 17.1 us | 0.9 - 1.6 times |
 
 One call of `cam_blocked` or the scan on tables of Lua: Pallene 0.43 - 0.61 us, Lua 0.56 - 1.02 us (1.0 to 1.7 times).
+
+**Particles of Yharnam** (`parts.pln`: Pallene on the same array of tables as the game; Pallene arrays hold no nil, so the function swaps the last particle in and returns the count, and Lua cuts the tail): `update_parts` in Lua 17.9 - 27.5 us, in Pallene 12.0 - 15.7 us (**1.2 to 1.9 times**). The typed C of section 5 on arrays of C is 16 to 22 times.
 
 ## 7. All the ways on one frame
 
@@ -128,27 +140,38 @@ One call of `cam_blocked` or the scan on tables of Lua: Pallene 0.43 - 0.61 us, 
 
 Reading: on this scene Pallene gives little when the data stay in the tables of the game. It gives more on arrays of numbers. Data owned by C give the most, but then Lua reaches the data through short calls, and those calls are now the larger part of the cost.
 
+On the particles (160 tables, a longer loop) the picture is the same with larger ratios: Pallene on the tables of the game 1.2 - 1.9 times, typed C on arrays of C 16 - 22 times.
+
 The numbers vary between runs (a shared PC): read the ratios, not the digits. The scene is synthetic (17 enemies in a room of 5 x 5). Dark Night has much more logic for each enemy.
 
-## 8. State and next steps
+## 8. Where the C is compiled
+
+- **Today.** The kernel is built on a PC (or in CI) with `arm-none-eabi-gcc` (`README.md`), and `dist/kernel.img` is copied to the SD card. The console has no C compiler: I found none in the documents (a search for a compiler on the device found nothing). The kernel replaced Linux, so there is no `gcc` to call either.
+- **What it means for road B.** A typed function that becomes C must be compiled somewhere. Three ways:
+  1. **On the PC, in the build** (the kernel build, or the SDK and the Market): simple, and what the project does for the kernel. The author of a game needs a PC and the toolchain.
+  2. **On a Pi that runs Linux.** It works (the C files here are small), but bm removed Linux from the console, so this is a second system to keep.
+  3. **On the console, by a compiler of bm itself.** A small compiler for the typed language could write ARM code directly, without a C compiler. This gives "write native code on the console", but it is a large project (a back end for the ARM1176 and one for the RGB30, a loader, tests). It is the way that Ravi (MIR) and MicroPython (`@native`) go.
+- Nothing prevents a build on a Pi under Linux, but bm has no compiler on the console, so the build is on a PC today. Which way to choose is a decision of the product (open).
+
+## 9. State and next steps
 
 **Decisions.**
 - Road A stays the baseline and the default way to make a game faster: profile, fix the structure in Lua, then add a C function.
 - Road B stays open. It is not yet shown that it beats road A on a Pi.
 
 **Open questions.**
-1. **The Pi.** Every number is from a PC. The ARM1176 has no out-of-order execution and a small cache; the ratios may change a lot. There is no ARM toolchain in the build session. Measure on the Pi Zero W with `profile(true)` and read the session report.
+1. **The Pi.** Every number is from a PC. The ARM1176 has no out-of-order execution and a small cache; the ratios may change a lot. The ARM toolchain installs in the cloud session (`apt-get update`, then `gcc-arm-none-eabi libnewlib-arm-none-eabi`), and the generated C compiles with the flags of the Pi kernel, but nothing runs there: the run needs the device. Measure on the Pi Zero W with `profile(true)` and read the session report. The steps are in [`docs/NEXT.md`](../NEXT.md).
 2. **A language of bm.** The prototype lacks `//`, `%`, calls between typed functions, `min`, `max` and structs. The movement of the enemies cannot be written in it yet. Add them, rewrite the movement in the language, and measure the frame again.
 3. **Code in a cartridge.** Native code needs a loader and one version for each architecture, or it must be linked into the kernel. The rule of one cartridge type must hold.
-4. **A gain to see.** Pallene shows a small gain on this scene. Try it on a heavier loop (the particles of Yharnam, `update_parts`) before a decision.
+4. **A heavier loop.** Done for `update_parts`: Pallene 1.2 - 1.9 times on the tables of the game, typed C 16 - 22 times on arrays of C. What decides now is the cost of the draw and of the accessors, and the Pi.
 5. **Dark Night in the language.** A real game is the test that counts.
 
 **Rules for new results.** Run the same scene. Check equal sums or equal results before the time. Give a range of at least three runs. Say what is a PC and what is a Pi.
 
-## 9. Reproduce
+## 10. Reproduce
 
 ```
-make test-typed                                                  # the prototype: 13 checks and the numbers of section 5
+make test-typed                                                  # the prototype: 14 checks and the numbers of section 5
 sh tests/typed/pallene/setup.sh /path/to/work                    # builds Pallene
 python3 tests/typed/pallene/run.py /path/to/work/prefix build/typed   # the trial of section 6
 BMHOST_LUAPROF=1 build/host/bmhost-bin build/carts/darknight.bm --input keys.txt --seconds 62   # the profile of section 3

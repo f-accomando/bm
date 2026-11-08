@@ -65,6 +65,11 @@ lua_file, c_file = os.path.join(BUILD, "hot.lua"), os.path.join(BUILD, "hot.c")
 if bmt.main([src, "--lua", lua_file, "--c", c_file]) != 0:
     sys.exit(1)
 
+# update_parts of Yharnam in the typed subset (arrays owned by C): the C is linked into the host below
+parts_c = os.path.join(BUILD, "parts.c")
+if bmt.main([os.path.join(HERE, "parts.bmt"), "--c", parts_c]) != 0:
+    sys.exit(1)
+
 rnd = random.Random(20261108)
 lines = []
 for _ in range(20000):
@@ -272,6 +277,20 @@ else:
     print("typed: a frame of 17 enemies (move, find the pairs, read the hits), %d pairs in 200 frames, the same sums in all three:" % res["A"][1])
     print("typed:   A tables and Lua scan %.2f us   B data in C, a call for each enemy %.2f us (%.1f times)   C data in C, one call %.2f us (%.1f times)" % (
         res["A"][0], res["B"][0], res["A"][0] / res["B"][0], res["C"][0], res["A"][0] / res["C"][0]))
-total = len(BAD) + 5          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames
+# ---------------------------------------------------------------- 5. the particles of Yharnam (update_parts)
+parts_lua = os.path.join(HERE, "parts_bench.lua")
+rows = {}
+for mode in "AU":
+    out, _ = run([bind, parts_lua, "30", mode])
+    m, us, n, sm = out.split()
+    rows[m] = (float(us), int(n), float(sm))
+if (rows["A"][1], rows["A"][2]) != (rows["U"][1], rows["U"][2]):
+    print("typed: FAIL the particles differ: Lua %s, C %s" % (rows["A"], rows["U"]))
+    failed += 1
+else:
+    print("typed: particles of Yharnam (up to 160, 600 frames), the same count and sums in Lua and in C: update_parts "
+          "Lua tables %.2f us, typed C on arrays of C %.2f us (%.1f times faster; the draw of the particles is not in it)" % (
+              rows["A"][0], rows["U"][0], rows["A"][0] / rows["U"][0]))
+total = len(BAD) + 6          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames
 print("typed: %d/%d checks passed" % (total - failed, total) if not failed else "typed: FAILED, %d of %d checks" % (failed, total))
 sys.exit(1 if failed else 0)

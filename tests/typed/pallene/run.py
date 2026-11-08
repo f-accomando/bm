@@ -27,8 +27,9 @@ for need in (PLUA, PALLENEC, os.path.join(BUILD, "cases.txt"), os.path.join(BUIL
 work = os.path.join(BUILD, "pallene")
 shutil.rmtree(work, ignore_errors=True)
 os.makedirs(work)
-for f in ("hot.pln", "frame.pln", "frame_bench.lua", "wrapper.lua"):
+for f in ("hot.pln", "frame.pln", "frame_bench.lua", "wrapper.lua", "parts.pln"):
     shutil.copy(os.path.join(HERE, f), work)
+shutil.copy(os.path.join(HERE, "..", "parts_bench.lua"), work)
 env = dict(os.environ, LUA_CPATH="./?.so;;")
 
 
@@ -40,7 +41,7 @@ def run(cmd):
     return r.stdout, r.stderr
 
 
-for m in ("hot.pln", "frame.pln"):
+for m in ("hot.pln", "frame.pln", "parts.pln"):
     run([PALLENEC, m])
 
 failed = 0
@@ -69,5 +70,17 @@ else:
     print("pallene:   A Lua tables %.2f us | P1 arrays of numbers %.2f us (%.1f times) | P2 tables as the game %.2f us (%.1f times) | "
           "P3 move and scan in Pallene %.2f us (%.1f times)" % (
               a, rows["P1"][0], a / rows["P1"][0], rows["P2"][0], a / rows["P2"][0], rows["P3"][0], a / rows["P3"][0]))
-print("pallene: %s" % ("FAILED" if failed else "2/2 checks passed"))
+# the particles of Yharnam (update_parts): the function of the game in Lua, and in Pallene on the same tables
+prow = {}
+for mode in ("A", "P"):
+    out, _ = run([PLUA, "parts_bench.lua", "30", mode])
+    m, us, n, sm = out.split()
+    prow[m] = (float(us), int(n), float(sm))
+if (prow["A"][1], prow["A"][2]) != (prow["P"][1], prow["P"][2]):
+    print("pallene: FAIL the particles differ: %s" % prow)
+    failed += 1
+else:
+    print("pallene: particles of Yharnam (up to 160, 600 frames), the same count and sums: update_parts Lua %.2f us, Pallene on the "
+          "tables of the game %.2f us (%.1f times)" % (prow["A"][0], prow["P"][0], prow["A"][0] / prow["P"][0]))
+print("pallene: %s" % ("FAILED" if failed else "3/3 checks passed"))
 sys.exit(1 if failed else 0)

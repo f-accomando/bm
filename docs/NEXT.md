@@ -63,7 +63,36 @@ Chores:
 - Check that the online Market index lists Yharnam `2026.10.28b`.
 - Delete by hand the folders `.claude/worktrees/mali-gpu-textures-1ec2f2` (it has an untracked `shots` folder) and `mali-hw-zbuffer` (a shell holds them), and the local branch `claude/mali-textures-zbuffer`.
 
+## Typed native code (hot functions): tracker (8 Nov 2026)
+Design, tests and numbers: [`docs/design/typed-native.md`](design/typed-native.md). State and rules: [typed](progress/typed.md). Two roads run in parallel. Road A is the C+Lua hybrid: it is the baseline, and its profile is the benchmark. Road B is a typed Lua-like language that gives plain Lua and C: our own (`scripts/bmt.py`) or Pallene. Keep both open. Road B must beat road A on the Pi, or give something that road A cannot give.
+
+Done, all in `bm-core`. Every number is from a PC (x86). No number is from a Pi yet.
+- Dark Night: `saw_icon` (runs of pixels), `cam_blocked` (list `camstops`), the enemy scan (cheap reject, only within `FAR`). Lua samples of the key script 80.6k to 39.8k, frames identical to the original, `make test-darknight` passes.
+- `scripts/bmt.py`: types `i32`, `f32`, `f64`, `bool` and arrays, `for`, `while`, `if`, `&`. `make test-typed` (14 checks): the C and the Lua give the same results (20000 random cases, 1227 loop results, the frame of 17 enemies, the particles of Yharnam).
+- Pallene built from its Git mirrors and run (`tests/typed/pallene/setup.sh`, `run.py`). Same results as Lua.
+- Results of the three ways, on a PC. Frame of 17 enemies: typed C with data in C 3.2 - 6 times faster than Lua tables; Pallene 0.9 - 1.6 times on the tables of the game, up to 2.6 times on arrays of numbers. `update_parts` of Yharnam (160 particles): typed C on arrays of C 16 - 22 times (the draw is not in it); Pallene 1.2 - 1.9 times on the tables of the game.
+
+To do, in this order. The local session does it: it has the Pi Zero W and the ARM toolchain.
+1. Start a branch from an up-to-date `bm-core`: `claude/typed-pi-measure`.
+2. Measure Lua on the Pi. Yharnam autoplay with the profiler, and Dark Night with the dev kit overlay. Put in the design document (section 3) the ms of `update_parts`, `draw_scene`, `update_enemies` and `cam_blocked`, marked "Pi". The steps are in "Waiting for the user".
+3. Give the console the typed C as functions: `E.*` and `Parts.*` of `tests/typed/bindhost.c` are the model (a new `src/bm/api_typed.c`, the table in `runtime.c`, the API in `docs/api/`). Build the kernel with the generated `parts.c` and `hot.c` (`scripts/bmt.py`). Write a test cartridge that runs the Lua function and the C function on the same scene and logs both times. The sums must equal the ones of `make test-typed`. Run it on the Pi Zero W and on the RGB30.
+4. The draw of the particles reads every particle. With the data in C, the draw must move to C too (a function that calls `pset` and `rectfill` from C), or the gain is lost in the accessors. Measure that on the Pi before you decide.
+5. Extend the language: `//`, `%`, calls between typed functions, `min`, `max`, structs. Then write the movement of the enemies of Dark Night in it and measure the frame again.
+6. Decide road B with the Pi numbers. Do not choose between our own language and Pallene before step 2 and step 3 give numbers.
+
+Toolchain in the cloud session: run `apt-get update`, then `apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi` (it works). The generated C compiles with `-mcpu=arm1176jzf-s -mfpu=vfp -mfloat-abi=hard`, no warnings, about 720 bytes for each file. The site `lua.org` and the deletion of a remote branch are refused from the cloud session: use the Git mirrors, and delete branches from the local clone.
+
+Branches and worktrees (checked on 8 Nov 2026 with `git cherry origin/bm-core origin/<branch>`: every commit of the four branches below is already in `bm-core`):
+- Use: `bm-core` (the main branch) and, for the next work, a new `claude/typed-pi-measure` from it. Keep `reports` (the consoles write their reports there).
+- Delete, remote and local (`git push origin --delete <name>`, then `git branch -d <name>`), each by name:
+  - `claude/high-level-low-level-compilation-0t3nmq` (this session's first branch; its four commits are in `bm-core` as rebased copies; the deletion was refused from the cloud session).
+  - `claude/typed-hot-functions-prototype` (local only; it was pushed to `bm-core` as a fast-forward).
+  - `claude/console-font-robust`, `claude/monitor-cleanup`, `claude/snes-emulator-sfc-xx1xx0`: not made in this session. Their commits are in `bm-core`. Look at them yourself before you delete them.
+- Worktrees: the cloud session has only the main one (`git worktree list`). In the local clone run `git worktree list`, then `git worktree prune`. The chores above name three to delete by hand: `.claude/worktrees/assistant-data-app-292007`, `.claude/worktrees/mali-gpu-textures-1ec2f2` and `.claude/worktrees/mali-hw-zbuffer`. Check each (an untracked `shots` folder in one of them) before you remove it.
+- Outside the repository, only in the cloud container (they vanish with it): `/home/user/pallene-lang/` (the clones and the build of Pallene). In the local clone rebuild with `tests/typed/pallene/setup.sh`.
+
 ## Waiting for the user (decisions and Pi runs)
+- Typed native code, step 2 (the Pi Zero W): put `yharnam_autoplay=1`, `yharnam_profile=1` and `session_report=1` in `bm/config.txt` (the keys that `cart_config` reads) and run Yharnam for 60 s: the session report lists the ten costliest functions with the time in C. For Dark Night turn on the Performance row of its menu (`devkit(1)`). Read the reports in the `reports` branch (`reports/<branch>/session_<game>_<board>.txt`).
 - Look at the native menu on the TV (720p, `menu_scale=2`, `menu_layout=1`) and decide if it becomes the default at 720p and 1080p.
 - Try the clean kernel (`CLEAN_KERNEL=1`, `build-clean/`, 2.49 MB) with the Assistant installed from the Market (`apps/assistant`). The QEMU test `assistant_app` passes; the Pi is not tried.
 - Overbit, COMMANDS on the Pi and the RGB30 (only tried in `bmhost`): change a key, swap, reset; play with the new keys.
@@ -111,6 +140,7 @@ Decisions of the user, 25 Oct 2026 (`docs/design/kernel8-alignment.md`). Each it
   - Touched manuals (menu library, layout API): rebuild the PDFs. The locked worktree `agent-a95a9bc95a2fcfc68` is not from this session.
 
 ## Queue (development, in order)
+-4. Typed native code (hot functions): the steps 1 to 6 of the tracker "Typed native code" above. They need the Pi: the PC numbers are done.
 -3. The 2D map on the GPU as resident batches (task of its own; the branch `claude/yharnam-gpu2d` is merged, the draft is here). Why: the GPU's 2D draws each quad from scratch (`quad2d` in `src/gpu/gpu3d.c`: 6 new vertices, the job, the cache upkeep: 1 to 3 us a quad), the 3D keeps the meshes in the GPU's memory and sends a matrix (0.3 us a triangle, `docs/PERF-BUDGET.md` `herotris`). On the Pi (27 Oct) Yharnam's map as 2650 quads a frame, with `gpu2d_only=1` and `gpu2d_sheet`, was slower than the ARM: 44.3 fps against 50.5 (`docs/progress/yharnam.md`). The idea: a block of 16 x 16 cells is one buffer of quads made once (made again when `mset` changes a cell of it), drawn with an offset when the camera moves, as `map3d.c` does for the 3D maps: about 10 calls a frame instead of 2700. Gain estimated 2 to 2.5 ms of the 2.5 missing for 60 fps (19.2 ms a frame at step 2): an estimate, not a measure. To do: (1) the buffer per block in `gpu3d.c` (vertices in the job memory kept between jobs, `GPU_PRE()`, `MG_SYNC()` and early z: read the comments before touching them, `docs/progress/v3d.md`); (2) `map()` in `gpu2d()` uses it when a window of the sheet (`gpu2d_sheet`) holds the cells; (3) the host test on the V3D emulated (`make test-gpu2d-only`, the pictures must be the same as the ARM's); (4) the Pi: 2 minutes of Yharnam, `gpu2d_only=1`. The sources of Yharnam's `sspr` are all over the 4096 x 3400 sheet (x 0..4095, y 33..3377): they stay on the ARM. The tools of the 27 Oct work: `make test-gpu2d-only`, the session report lines `2D: GPU`, `glow tables` (reverted), `QPU (gpu3d_qpu=1)`, the F11 row `2D: GPU wait`.
 -2. The fade of `dark_end` is 4.1 ms of Yharnam's frame on the Pi (ARM). The QPU does not help: with `gpu3d_qpu=1` (the picture on a 64-byte line since 27 Oct, 5631 of 5631 runs on the QPUs) it was 4.6 ms. A fragment shader with the level map as a texture is the other way (the colour tables are 65536 entries: only the multiplicative scale of colours without a table fits, so the pictures would differ). Not started.
 -1. Editor tests in QEMU (27 Oct): the options of a game no longer have "Open in ...", "Make an editable copy" or "Publish to the Market"; 14 QEMU tests that opened the editors from those rows are removed (`docs/progress/tools.md`). To test an editor in QEMU again, start it from the Dev tab and choose the file with its own *Open*.

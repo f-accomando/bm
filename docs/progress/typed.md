@@ -8,7 +8,8 @@ A typed subset of Lua for the hot functions of a game. One source gives plain Lu
 
 - Compiler: `scripts/bmt.py` (`bmt.py hot.bmt --lua hot.lua --c hot.c`). The language is in its docstring: types `i32`, `f32`, `f64`, `bool` and arrays of them; `local`, `for`, `while`, `if`, `return`, `break`; `sqrt` and `abs`. A type error names the line of its statement.
 - Source: `tests/typed/hot.bmt` has two functions of Dark Night: `cam_blocked` and `near_pairs` (the scan of the enemy separation).
-- Test: `make test-typed` (on demand; it is not in `HOST_TESTS`). It checks eight programs with a type error, a good one, the loops of `tests/typed/loops.bmt` (`while`, `break` in a `while`: 1227 results) and 20000 random cases: C and Lua print the same results, byte for byte. A second host (`tests/typed/bindhost.c`) calls the C from Lua through the Lua C API, as the console would, and the results are the same again.
+- Test: `make test-typed` (14 checks, on demand; it is not in `HOST_TESTS`). It checks eight programs with a type error, a good one, the loops of `tests/typed/loops.bmt` (`while`, `break` in a `while`: 1227 results) and 20000 random cases: C and Lua print the same results, byte for byte. A second host (`tests/typed/bindhost.c`) calls the C from Lua through the Lua C API, as the console would, and the results are the same again.
+- `update_parts` of Yharnam (160 particles, `tests/typed/parts.bmt`, `parts_bench.lua`): Lua tables 17 - 24 us, typed C on arrays of C 0.96 - 1.2 us (16 - 22 times, the draw not included); Pallene on the tables of the game 1.2 - 1.9 times. Same count and sums.
 - Measures on a PC (x86, not a Pi, three runs):
 
   | Way of calling | Time of a call | Against Lua |

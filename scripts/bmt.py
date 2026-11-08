@@ -12,7 +12,8 @@ The language
   function    function name(a: f64, v: f64[], n: i32): bool ... end   (the return type is optional)
   statements  local x = e     for i = a, b do ... end     while c do ... end     if / elseif / else / end
               return e        break        x = e        v[i] = e
-  expressions + - * /  < <= > >= == ~=  and or not  v[i]  sqrt(e)  abs(e)  numbers  true false
+  expressions + - * /  &  < <= > >= == ~=  and or not  v[i]  sqrt(e)  abs(e)  numbers  true false
+              (& is the bitwise and of two i32, below + and - and above the comparisons, as in Lua)
 Rules
   - Arrays count from 1, as in Lua. The C code subtracts 1. The size of an array is a separate i32.
   - A local has the type of its first value. i32 widens to f32 and f64. A float never narrows to i32:
@@ -26,7 +27,7 @@ import sys
 
 TOKEN = re.compile(
     r"(?P<ws>\s+)|(?P<comment>--[^\n]*)|(?P<num>\d+\.\d*|\.\d+|\d+)|(?P<name>[A-Za-z_]\w*)"
-    r"|(?P<op><=|>=|==|~=|[-+*/(),:\[\]=<>])"
+    r"|(?P<op><=|>=|==|~=|[-+*/&(),:\[\]=<>])"
 )
 KEYWORDS = {"function", "local", "for", "do", "while", "end", "if", "then", "elseif", "else", "return", "break", "and", "or",
             "not", "true", "false"}
@@ -295,11 +296,21 @@ class Parser:
         if a != "bool" or b != "bool":
             self.fail("'%s' takes bool, not %s and %s" % (op, a, b))
 
-    def cmp(self):
+    def band(self):
         l, lt = self.add()
+        while self.kind() == "op" and self.peek() == "&":
+            self.i += 1
+            r, rt = self.add()
+            if lt != "i32" or rt != "i32":
+                self.fail("'&' takes i32, not %s and %s" % (lt, rt))
+            l, lt = "(%s & %s)" % (l, r), "i32"
+        return l, lt
+
+    def cmp(self):
+        l, lt = self.band()
         if self.kind() == "op" and self.peek() in ("<", "<=", ">", ">=", "==", "~="):
             op = self.take()[1]
-            r, rt = self.add()
+            r, rt = self.band()
             if not ((numeric(lt) and numeric(rt)) or (lt == rt == "bool" and op in ("==", "~="))):
                 self.fail("cannot compare %s with %s" % (lt, rt))
             return "(%s %s %s)" % (l, "!=" if op == "~=" else op, r), "bool"

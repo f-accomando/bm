@@ -14,6 +14,7 @@
 #include "lualib.h"
 
 #include "hot.c"        /* build/typed/hot.c, made by scripts/bmt.py */
+#include "parts.c"      /* build/typed/parts.c: update_parts of Yharnam */
 
 #define MAXN 64
 
@@ -129,6 +130,63 @@ static int l_e_hit_all(lua_State *L)
     return 1;
 }
 
+/* The particles of Yharnam kept in C (tests/typed/parts.lua, mode U): one array for each field. */
+#define PMAX 160
+static int32_t PT[PMAX], PL[PMAX], PK[PMAX];
+static double PX[PMAX], PY[PMAX], PVX[PMAX], PVY[PMAX], PGY[PMAX], JV[64];
+static int PN;
+
+static int l_p_reset(lua_State *L)
+{
+    (void)L;
+    PN = 0;
+    return 0;
+}
+
+static int l_p_jit(lua_State *L)       /* Parts.jit(i, v), i from 1 to 64 */
+{
+    JV[luaL_checkinteger(L, 1) - 1] = luaL_checknumber(L, 2);
+    return 0;
+}
+
+static int l_p_spawn(lua_State *L)     /* Parts.spawn(x, y, vx, vy, life, kind, gy): the same limit as the game's spawn() */
+{
+    int kind = (int)luaL_checkinteger(L, 6);
+    if (PN >= (kind == 1 ? PMAX - 40 : PMAX))
+        return 0;
+    PX[PN] = luaL_checknumber(L, 1);
+    PY[PN] = luaL_checknumber(L, 2);
+    PVX[PN] = luaL_checknumber(L, 3);
+    PVY[PN] = luaL_checknumber(L, 4);
+    PL[PN] = (int32_t)luaL_checkinteger(L, 5);
+    PK[PN] = kind;
+    PGY[PN] = luaL_checknumber(L, 7);
+    PT[PN] = 0;
+    PN++;
+    return 0;
+}
+
+static int l_p_update(lua_State *L)    /* Parts.update(k0) */
+{
+    PN = bmt_update_parts(PN, PT, PL, PK, PX, PY, PVX, PVY, PGY, JV, (int32_t)luaL_checkinteger(L, 1));
+    return 0;
+}
+
+static int l_p_checksum(lua_State *L)  /* Parts.checksum() -> n, sum: the order of the sum is the one of the Lua loop */
+{
+    double sum = 0.0;
+    for (int i = 0; i < PN; i++) {
+        sum = sum + PX[i];
+        sum = sum + PY[i];
+        sum = sum + PVX[i];
+        sum = sum + PVY[i];
+        sum = sum + (double)PT[i];
+    }
+    lua_pushinteger(L, PN);
+    lua_pushnumber(L, sum);
+    return 2;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -144,6 +202,11 @@ int main(int argc, char **argv)
         { "near_all", l_e_near_all }, { "count", l_e_count }, { "hit_all", l_e_hit_all }, { NULL, NULL } };
     luaL_newlib(L, enemies);
     lua_setglobal(L, "E");
+    static const luaL_Reg particles[] = {
+        { "reset", l_p_reset }, { "jit", l_p_jit }, { "spawn", l_p_spawn }, { "update", l_p_update },
+        { "checksum", l_p_checksum }, { NULL, NULL } };
+    luaL_newlib(L, particles);
+    lua_setglobal(L, "Parts");
     lua_createtable(L, argc, 0);
     for (int i = 1; i < argc; i++) {
         lua_pushstring(L, argv[i]);

@@ -1,0 +1,52 @@
+-- update_parts of Yharnam (carts/yharnam/main.lua) in the typed subset, on arrays that C owns (one array for each field).
+-- Same moves, same order, same removal (the last particle takes the place of the one that dies). Not in HOST_TESTS of the game.
+
+-- n particles; jit has the 64 numbers of JIT at 1..64; k0 is JIT.k after this frame's step; returns the new n
+function update_parts(n: i32, t: i32[], life: i32[], kind: i32[], x: f64[], y: f64[], vx: f64[], vy: f64[], gy: f64[],
+                      jit: f64[], k0: i32): i32
+  local i = 1
+  while i <= n do
+    local pt = t[i] + 1
+    t[i] = pt
+    if pt >= life[i] then
+      t[i] = t[n]
+      life[i] = life[n]
+      kind[i] = kind[n]
+      x[i] = x[n]
+      y[i] = y[n]
+      vx[i] = vx[n]
+      vy[i] = vy[n]
+      gy[i] = gy[n]
+      n = n - 1
+    else
+      x[i] = x[i] + vx[i]
+      y[i] = y[i] + vy[i]
+      local k = kind[i]
+      if k == 1 then
+        vx[i] = vx[i] * 0.94 + jit[((k0 + i * 7) & 63) + 1] * 0.12
+        vy[i] = vy[i] * 0.985 - 0.012
+      elseif k == 2 then
+        vx[i] = vx[i] + jit[((k0 + i * 5) & 63) + 1] * 0.08
+        vy[i] = vy[i] * 0.995 - 0.004
+      elseif k == 3 then
+        vx[i] = vx[i] * 0.99 + 0.004
+        vy[i] = vy[i] * 0.995
+      elseif k == 8 then
+        if y[i] < gy[i] then
+          vy[i] = vy[i] + 0.13
+        else
+          y[i] = gy[i]
+          vx[i] = 0.0
+          vy[i] = 0.0
+        end
+      elseif k >= 6 then
+        vx[i] = vx[i] * 0.97 + jit[((k0 + i * 3) & 63) + 1] * 0.03
+        vy[i] = vy[i] * 0.99 - 0.002
+      else
+        vy[i] = vy[i] + 0.03
+      end
+      i = i + 1
+    end
+  end
+  return n
+end
