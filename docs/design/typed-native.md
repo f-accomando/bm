@@ -66,6 +66,8 @@ A call from Lua to a C function costs about 1 us on the ARM1176. A function that
 
 The gain is 6.7% in fps and 1.1 ms a frame. The 13 times of the micro test becomes 1.1 ms in the game because `blocked` is 3.2 ms of the frame and most of it was Lua; the light (`dark_end`) and the draw (`draw_scene`, `map`, `spr`) did not change. The next candidates by the profile: `draw_scene` (3.7 ms, 13 with its calls) and the light.
 
+**The same `blocked`, made by `bmt.py`** (8 Nov 2026). `bmt.py` now has `//` and `%` (rounding toward minus infinity, as Lua), `floor`, `min`, `max`, calls between typed functions and arrays passed by name. `tests/typed/yblocked.bmt` is `solid_at` and `blocked` of Yharnam on flat arrays; the C goes to `src/bm/typed_yblocked_gen.h`. `make test-typed` (16 checks) compares C and Lua on 30000 random points (12298 blocked, 11724 free, 5978 chunk missing: the same) and checks that the committed header is what `bmt.py` makes. **Pi.** In the game: 0 differences in 80000 calls, 53.5 fps (the hand-written C gave 53.9, the Lua 50.5), frame 15.7 ms.
+
 **Dark Night** (the key script, 3650 frames): 5.252 ms a frame before the fixes, worst 12.264 ms. 80,608 samples.
 
 | Share | Function | Cause |

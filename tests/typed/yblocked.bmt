@@ -1,0 +1,86 @@
+-- `solid_at` and `blocked` of Yharnam (carts/yharnam/main.lua), in the typed subset, on flat arrays.
+-- The map is 8 x 8 chunks of 16 x 16 tiles of 16 pixels. Chunk number ci = cy * 8 + cx + 1 (1 to 64).
+--   solid    256 values for each chunk, row by row: (ci - 1) * 256 + ty * 16 + tx + 1 (1 solid, 0 free)
+--   ready    1 if the chunk is in the arrays, 0 if it is not
+--   colx, coly, colrx, colry, coloff   the columns: 96 slots for each chunk, slot (ci - 1) * 96 + j (coloff 1: broken)
+--   ccount   the columns of each chunk
+-- The functions give 1 (blocked), 0 (free), or -1 (a chunk they need is not in the arrays: the game runs its Lua).
+
+-- the game's solid_at: 1 solid, 0 free, -1 chunk missing
+function tile_solid(x: f64, y: f64, solid: i32[], ready: i32[]): i32
+  local tx = floor(x) // 16
+  local ty = floor(y) // 16
+  local cx = tx // 16
+  local cy = ty // 16
+  if cx < 0 or cx >= 8 or cy < 0 or cy >= 8 then
+    return 1
+  end
+  local ci = cy * 8 + cx + 1
+  if ready[ci] == 0 then
+    return -1
+  end
+  return solid[(ci - 1) * 256 + (ty - cy * 16) * 16 + (tx - cx * 16) + 1]
+end
+
+-- the game's blocked: the four corners of the feet, then the columns of this chunk and of the neighbours near the border
+function blocked(x: f64, y: f64, solid: i32[], ready: i32[], colx: f64[], coly: f64[], colrx: f64[], colry: f64[],
+                 coloff: i32[], ccount: i32[]): i32
+  local s = tile_solid(x - 6, y - 3, solid, ready)
+  if s ~= 0 then
+    return s
+  end
+  s = tile_solid(x + 6, y - 3, solid, ready)
+  if s ~= 0 then
+    return s
+  end
+  s = tile_solid(x - 6, y + 2, solid, ready)
+  if s ~= 0 then
+    return s
+  end
+  s = tile_solid(x + 6, y + 2, solid, ready)
+  if s ~= 0 then
+    return s
+  end
+  local pcx = floor(x) // 256
+  local pcy = floor(y) // 256
+  local fx = x - pcx * 256
+  local fy = y - pcy * 256
+  local cy0 = pcy
+  if fy < 48 then
+    cy0 = pcy - 1
+  end
+  local cy1 = pcy
+  if fy > 208 then
+    cy1 = pcy + 1
+  end
+  local cx0 = pcx
+  if fx < 48 then
+    cx0 = pcx - 1
+  end
+  local cx1 = pcx
+  if fx > 208 then
+    cx1 = pcx + 1
+  end
+  for cy = cy0, cy1 do
+    for cx = cx0, cx1 do
+      if cx >= 0 and cx < 8 and cy >= 0 and cy < 8 then
+        local ci = cy * 8 + cx + 1
+        if ready[ci] == 0 then
+          return -1
+        end
+        for j = 1, ccount[ci] do
+          local k = (ci - 1) * 96 + j
+          local dx = x - colx[k]
+          if dx < 48 and dx > -48 and coloff[k] == 0 then
+            dx = dx / (colrx[k] + 5)
+            local dy = (y - coly[k]) / (colry[k] + 3)
+            if dx * dx + dy * dy < 1 then
+              return 1
+            end
+          end
+        end
+      end
+    end
+  end
+  return 0
+end

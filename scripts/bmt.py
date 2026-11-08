@@ -12,14 +12,19 @@ The language
   function    function name(a: f64, v: f64[], n: i32): bool ... end   (the return type is optional)
   statements  local x = e     for i = a, b do ... end     while c do ... end     if / elseif / else / end
               return e        break        x = e        v[i] = e
-  expressions + - * /  &  < <= > >= == ~=  and or not  v[i]  sqrt(e)  abs(e)  numbers  true false
+  expressions + - * / // %  &  < <= > >= == ~=  and or not  v[i]  numbers  true false
+              sqrt(e)  abs(e)  floor(e)  min(a, b)  max(a, b)  name(args) (a function defined above)
               (& is the bitwise and of two i32, below + and - and above the comparisons, as in Lua)
+              // and % round toward minus infinity, as in Lua. A division by zero gives 0 in C (Lua stops with an
+              error on integers): the source must not divide by zero. floor gives an i32.
 Rules
   - Arrays count from 1, as in Lua. The C code subtracts 1. The size of an array is a separate i32.
   - A local has the type of its first value. i32 widens to f32 and f64. A float never narrows to i32:
     that is an error, not a silent cut.
   - `/` always gives f64, as in Lua. `and`, `or` and `not` take bool only.
-  - No closures, no strings, no tables, no calls of other functions except sqrt and abs.
+  - No closures, no strings, no tables. A function calls the functions defined above it and sqrt, abs, floor, min, max.
+    An array goes to a function by its name. The Lua output needs sqrt, abs, floor, min and max as names of the host
+    (math.sqrt, math.abs, math.floor, math.min, math.max).
 """
 import argparse
 import re
@@ -27,7 +32,7 @@ import sys
 
 TOKEN = re.compile(
     r"(?P<ws>\s+)|(?P<comment>--[^\n]*)|(?P<num>\d+\.\d*|\.\d+|\d+)|(?P<name>[A-Za-z_]\w*)"
-    r"|(?P<op><=|>=|==|~=|[-+*/&(),:\[\]=<>])"
+    r"|(?P<op><=|>=|==|~=|//|[-+*/%&(),:\[\]=<>])"
 )
 KEYWORDS = {"function", "local", "for", "do", "while", "end", "if", "then", "elseif", "else", "return", "break", "and", "or",
             "not", "true", "false"}
@@ -66,6 +71,7 @@ class Parser:
         self.cuts = []          # spans of the source that are types: they leave the Lua output
         self.vars = {}
         self.ret = None
+        self.funcs = {}         # the functions read so far: name -> (parameter types, return type)
         self.stmt_start = 0     # the token where the statement being read begins: a type error points there
 
     # -- helpers
@@ -153,6 +159,7 @@ class Parser:
             self.ret = self.type_after_colon()
             if self.ret.endswith("[]"):
                 self.fail("a function cannot return an array")
+        self.funcs[fname] = ([t for _, t in params], self.ret)    # (known inside its own body: no recursion is checked)
         body = self.block({"end"})
         self.expect("end")
         cparams = ", ".join(self.cdecl(t, n) for n, t in params) or "void"
@@ -322,6 +329,11 @@ class Parser:
         if op == "/":
             return "((double)(%s) / (double)(%s))" % (l, r), "f64"
         t = max(lt, rt, key=lambda x: RANK[x])
+        if op in ("//", "%"):
+            if lt == "i32" and rt == "i32":
+                return "bmt_%s(%s, %s)" % ("idiv" if op == "//" else "imod", l, r), "i32"
+            return "bmt_%s((double)(%s), (double)(%s))" % ("fdiv" if op == "//" else "fmod", l, r), "f64"
+
         return "(%s %s %s)" % (l, op, r), t
 
     def add(self):
@@ -334,7 +346,7 @@ class Parser:
 
     def mul(self):
         l, lt = self.unary()
-        while self.kind() == "op" and self.peek() in ("*", "/"):
+        while self.kind() == "op" and self.peek() in ("*", "/", "//", "%"):
             op = self.take()[1]
             r, rt = self.unary()
             l, lt = self.arith(l, lt, op, r, rt)
@@ -353,6 +365,48 @@ class Parser:
             return "(!%s)" % e, "bool"
         return self.primary()
 
+    def call_arg(self):
+        """An argument: an expression, or the name of an array (the whole array goes to the function)."""
+        if self.kind() == "name" and self.peek() in self.vars and self.vars[self.peek()].endswith("[]"):
+            nxt = self.toks[self.i + 1][1] if self.i + 1 < len(self.toks) else ""
+            if nxt != "[":
+                n = self.name()
+                return n, self.vars[n]
+        return self.expr()
+
+    def call(self, n, args):
+        def num(k):
+            if len(args) != k:
+                self.fail("'%s' takes %d argument%s" % (n, k, "" if k == 1 else "s"))
+            for a, at in args:
+                if not numeric(at):
+                    self.fail("'%s' takes numbers, not %s" % (n, at))
+        if n == "sqrt":
+            num(1)
+            return "sqrt((double)(%s))" % args[0][0], "f64"
+        if n == "abs":
+            num(1)
+            return ("abs(%s)" % args[0][0] if args[0][1] == "i32" else "fabs(%s)" % args[0][0]), args[0][1]
+        if n == "floor":
+            num(1)
+            return ("(%s)" % args[0][0] if args[0][1] == "i32" else "bmt_floor(%s)" % args[0][0]), "i32"
+        if n in ("min", "max"):
+            num(2)
+            t = max(args[0][1], args[1][1], key=lambda x: RANK[x])
+            return "bmt_%s_%s(%s, %s)" % (n, t, args[0][0], args[1][0]), t
+        if n not in self.funcs:
+            self.fail("'%s' is not a function of the subset (define it above)" % n)
+        ptypes, ret = self.funcs[n]
+        if ret is None:
+            self.fail("'%s' gives no value" % n)
+        if len(args) != len(ptypes):
+            self.fail("'%s' takes %d arguments, not %d" % (n, len(ptypes), len(args)))
+        for (a, at), pt in zip(args, ptypes):
+            ok = at == pt if (pt.endswith("[]") or at.endswith("[]")) else widens(pt, at)
+            if not ok:
+                self.fail("'%s' gets %s where %s is expected" % (n, at, pt))
+        return "bmt_%s(%s)" % (n, ", ".join(a for a, _ in args)), ret
+
     def primary(self):
         k = self.kind()
         if k == "num":
@@ -370,13 +424,14 @@ class Parser:
             n = self.name()
             if self.peek() == "(" and self.kind() == "op":
                 self.i += 1
-                a, at = self.expr()
+                args = []
+                if self.peek() != ")":
+                    while True:
+                        args.append(self.call_arg())
+                        if not self.accept(","):
+                            break
                 self.expect(")")
-                if n == "sqrt" and numeric(at):
-                    return "sqrt((double)(%s))" % a, "f64"
-                if n == "abs" and numeric(at):
-                    return ("abs(%s)" % a if at == "i32" else "fabs(%s)" % a), at
-                self.fail("'%s' is not a function of the subset" % n)
+                return self.call(n, args)
             if n not in self.vars:
                 self.fail("'%s' is not declared" % n)
             vt = self.vars[n]
@@ -398,6 +453,43 @@ def indent(lines):
     return ["    " + l if l else l for l in lines]
 
 
+HELPERS = """/* Lua semantics: // and % round toward minus infinity; a zero divisor gives 0 */
+#ifndef BMT_HELPERS
+#define BMT_HELPERS
+static inline int32_t bmt_idiv(int32_t a, int32_t b)
+{
+    if (b == 0)
+        return 0;
+    int32_t q = a / b;
+    if ((a % b != 0) && ((a < 0) != (b < 0)))
+        q--;
+    return q;
+}
+
+static inline int32_t bmt_imod(int32_t a, int32_t b)
+{
+    if (b == 0)
+        return 0;
+    int32_t r = a % b;
+    if (r != 0 && ((r < 0) != (b < 0)))
+        r += b;
+    return r;
+}
+
+static inline double bmt_fdiv(double a, double b) { return floor(a / b); }
+static inline double bmt_fmod(double a, double b) { return a - floor(a / b) * b; }
+static inline int32_t bmt_floor(double a) { return (int32_t)floor(a); }
+static inline int32_t bmt_min_i32(int32_t a, int32_t b) { return a < b ? a : b; }
+static inline int32_t bmt_max_i32(int32_t a, int32_t b) { return a > b ? a : b; }
+static inline float bmt_min_f32(float a, float b) { return a < b ? a : b; }
+static inline float bmt_max_f32(float a, float b) { return a > b ? a : b; }
+static inline double bmt_min_f64(double a, double b) { return a < b ? a : b; }
+static inline double bmt_max_f64(double a, double b) { return a > b ? a : b; }
+#endif
+
+"""
+
+
 def translate(src):
     p = Parser(src)
     funcs = p.program()
@@ -405,7 +497,7 @@ def translate(src):
     for start, end in sorted(p.cuts, reverse=True):
         lua = lua[:start] + lua[end:]
     c = ("/* made by scripts/bmt.py from a .bmt source: do not edit */\n#include <math.h>\n#include <stdbool.h>\n"
-         "#include <stdint.h>\n#include <stdlib.h>\n\n" + "\n".join(funcs))
+         "#include <stdint.h>\n#include <stdlib.h>\n\n" + HELPERS + "\n".join(funcs))
     return lua, c
 
 

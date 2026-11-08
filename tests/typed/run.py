@@ -291,6 +291,75 @@ else:
     print("typed: particles of Yharnam (up to 160, 600 frames), the same count and sums in Lua and in C: update_parts "
           "Lua tables %.2f us, typed C on arrays of C %.2f us (%.1f times faster; the draw of the particles is not in it)" % (
               rows["A"][0], rows["U"][0], rows["A"][0] / rows["U"][0]))
-total = len(BAD) + 6          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames
+# ---------------------------------------------------------------- 6. blocked of Yharnam on flat arrays, made by bmt.py
+yb_lua, yb_c = os.path.join(BUILD, "yblocked.lua"), os.path.join(BUILD, "yblocked.c")
+if bmt.main([os.path.join(HERE, "yblocked.bmt"), "--lua", yb_lua, "--c", yb_c]) != 0:
+    sys.exit(1)
+import random
+rng = random.Random(7)
+SOLID = [1 if rng.random() < 0.2 else 0 for _ in range(64 * 256)]
+READY = [0 if rng.random() < 0.15 else 1 for _ in range(64)]
+CNT = [rng.randint(0, 20) for _ in range(64)]
+COLS = {k: [0.0] * (64 * 96) for k in ("x", "y", "rx", "ry")}
+COFF = [0] * (64 * 96)
+for ci in range(64):
+    cx, cy = ci % 8, ci // 8
+    for j in range(CNT[ci]):
+        k = ci * 96 + j
+        COLS["x"][k] = cx * 256 + rng.random() * 256
+        COLS["y"][k] = cy * 256 + rng.random() * 256
+        COLS["rx"][k] = 4 + rng.random() * 14
+        COLS["ry"][k] = 3 + rng.random() * 8
+        COFF[k] = 1 if rng.random() < 0.15 else 0
+POINTS = [(rng.uniform(-40, 8 * 256 + 40), rng.uniform(-40, 8 * 256 + 40)) for _ in range(30000)]
+
+
+def carr(name, ctype, vals, fmt):
+    return "static %s %s[] = {%s};\n" % (ctype, name, ",".join(fmt % v for v in vals))
+
+
+def larr(name, vals, fmt):
+    return "local %s = {%s}\n" % (name, ",".join(fmt % v for v in vals))
+
+
+C_MAIN = ("int main(void)\n{\n    for (int i = 0; i < %d; i++)\n        printf(\"%%d\\n\", bmt_blocked(px[i], py[i], solid, ready, "
+          "colx, coly, colrx, colry, coloff, ccount));\n    return 0;\n}\n")
+cs = ('#include <stdio.h>\n#include "yblocked.c"\n' + carr("solid", "int32_t", SOLID, "%d") + carr("ready", "int32_t", READY, "%d")
+      + carr("colx", "double", COLS["x"], "%.17g") + carr("coly", "double", COLS["y"], "%.17g")
+      + carr("colrx", "double", COLS["rx"], "%.17g") + carr("colry", "double", COLS["ry"], "%.17g")
+      + carr("coloff", "int32_t", COFF, "%d") + carr("ccount", "int32_t", CNT, "%d")
+      + carr("px", "double", [p[0] for p in POINTS], "%.17g") + carr("py", "double", [p[1] for p in POINTS], "%.17g")
+      + C_MAIN % len(POINTS))
+open(os.path.join(BUILD, "yb_main.c"), "w").write(cs)
+ls = ("floor, min, max, sqrt, abs = math.floor, math.min, math.max, math.sqrt, math.abs\ndofile(arg[1])\n"
+      + larr("solid", SOLID, "%d") + larr("ready", READY, "%d") + larr("colx", COLS["x"], "%.17g")
+      + larr("coly", COLS["y"], "%.17g") + larr("colrx", COLS["rx"], "%.17g") + larr("colry", COLS["ry"], "%.17g")
+      + larr("coloff", COFF, "%d") + larr("ccount", CNT, "%d") + larr("px", [p[0] for p in POINTS], "%.17g")
+      + larr("py", [p[1] for p in POINTS], "%.17g")
+      + "for i = 1, #px do print(blocked(px[i], py[i], solid, ready, colx, coly, colrx, colry, coloff, ccount)) end\n")
+open(os.path.join(BUILD, "yb_main.lua"), "w").write(ls)
+subprocess.run(["gcc", "-O2", "-ffp-contract=off", "-Wall", "-Wextra", "-I", BUILD, "-o", os.path.join(BUILD, "yb_c"),
+                os.path.join(BUILD, "yb_main.c"), "-lm"], check=True)
+yc, _ = run([os.path.join(BUILD, "yb_c")])
+yl, _ = run([LUAHOST, os.path.join(BUILD, "yb_main.lua"), yb_lua])
+if yc != yl:
+    a, b = yc.splitlines(), yl.splitlines()
+    bad = next((i for i in range(min(len(a), len(b))) if a[i] != b[i]), None)
+    print("typed: FAIL blocked of Yharnam differs at point %s: C '%s' Lua '%s'" % (
+        bad, a[bad] if bad is not None else "?", b[bad] if bad is not None else "?"))
+    failed += 1
+else:
+    vals = [int(v) for v in yc.split()]
+    print("typed: blocked of Yharnam (flat arrays, made by bmt.py), %d points: the same in C and in Lua (%d blocked, %d free, %d chunk missing)" % (
+        len(vals), vals.count(1), vals.count(0), vals.count(-1)))
+# the C that the kernel compiles (src/bm/typed_yblocked_gen.h) is what bmt.py makes from the source
+gen = os.path.join(ROOT, "src", "bm", "typed_yblocked_gen.h")
+if not os.path.exists(gen) or open(gen, newline="").read().replace("\r\n", "\n") != open(yb_c).read():
+    print("typed: FAIL src/bm/typed_yblocked_gen.h is not what bmt.py makes from tests/typed/yblocked.bmt: "
+          "run python3 scripts/bmt.py tests/typed/yblocked.bmt --c src/bm/typed_yblocked_gen.h")
+    failed += 1
+else:
+    print("typed: the C in the kernel (typed_yblocked_gen.h) is the one bmt.py makes from the source")
+total = len(BAD) + 8          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames, blocked
 print("typed: %d/%d checks passed" % (total - failed, total) if not failed else "typed: FAILED, %d of %d checks" % (failed, total))
 sys.exit(1 if failed else 0)
