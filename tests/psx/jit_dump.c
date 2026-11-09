@@ -10,6 +10,7 @@ int psx_jit_dump(uint32_t pc, uint32_t *out, int max);
 
 int main(int argc, char **argv)
 {
+    psx_cpu.cop0[12] = 0x40000000u;              /* the GTE is on */
     uint32_t w[64];
     int n = 0;
     for (int i = 1; i < argc && n < 62; i++) w[n++] = (uint32_t)strtoul(argv[i], NULL, 16);

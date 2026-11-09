@@ -149,7 +149,23 @@ static void patch_here(uint32_t *patch)                       /* the branch at p
     *patch |= (uint32_t)off & 0x00FFFFFFu;
 }
 static void bx_reg(int rm) { emit(14u << 28 | 0x012FFF10u | (uint32_t)rm); }
-static void call_c(const void *fn) { const_(12, (uint32_t)(uintptr_t)fn); emit(14u << 28 | 0x012FFF30u | 12u); }
+#ifdef PSX_JIT_HOST
+void psx_jit_div(uint32_t n, uint32_t d);
+void psx_jit_divu(uint32_t n, uint32_t d);
+/* on the PC the helper addresses are 0xF0000000 + 4 * number: tests/psx/jit_unicorn.py answers a call to them */
+static uint32_t helper_addr(const void *fn)
+{
+    static const void *const list[] = { (const void *)psx_jit_exec, (const void *)psx_jit_read, (const void *)psx_jit_write, (const void *)psx_jit_div,
+                                        (const void *)psx_jit_divu, (const void *)psx_gte_get_data, (const void *)psx_gte_set_data,
+                                        (const void *)psx_gte_get_ctl, (const void *)psx_gte_set_ctl, (const void *)psx_gte_command };
+    for (uint32_t i = 0; i < sizeof list / sizeof list[0]; i++) if (list[i] == fn) return 0xF0000000u + 4u * i;
+    return 0xF0000F00u;
+}
+#define HELPER(fn) helper_addr(fn)
+#else
+#define HELPER(fn) ((uint32_t)(uintptr_t)(fn))
+#endif
+static void call_c(const void *fn) { const_(12, HELPER(fn)); emit(14u << 28 | 0x012FFF30u | 12u); }
 
 /* ------------------------------------------------------------------ one block */
 typedef struct {
@@ -284,8 +300,8 @@ static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
         flush_pending(g, 0);
         return 1;
     }
-    /* the load in flight from the instruction before lands now; this one goes in flight */
-    flush_pending(g, rt);
+    /* the load in flight from the instruction before lands now (even into the same register: a load does not cancel an earlier load); this one goes in flight */
+    flush_pending(g, 0);
     if (rt) { g->pend_reg = rt; g->pend_arm = dst; g->next_arm = dst == 6 ? 7 : 6; }
     return 1;
 }
@@ -367,7 +383,7 @@ static int gen_cop2(gen_t *g, uint32_t i)
         const_(0, (uint32_t)rd);
         call_c(sub == 0 ? (const void *)psx_gte_get_data : (const void *)psx_gte_get_ctl);
         mov_reg(dst, 0);
-        flush_pending(g, rt);
+        flush_pending(g, 0);
         if (rt) { g->pend_reg = rt; g->pend_arm = dst; g->next_arm = dst == 6 ? 7 : 6; }
         return 1;
     }
@@ -412,15 +428,20 @@ static void gen_trap_add(gen_t *g, uint32_t i, uint32_t pc, int bd)
     flush_pending(g, dest);
 }
 
-/* an instruction the compiler leaves to the interpreter */
+/* an instruction the compiler leaves to the interpreter. A load in flight lands after it (it reads the old value), except when
+ * the instruction itself loads into the same register (LWL and LWR then merge with the value in flight: it lands first) */
 static int gen_fallback(gen_t *g, uint32_t i, uint32_t pc, int bd)
 {
-    flush_pending(g, 0);
+    const uint32_t op = i >> 26;
+    const int rt = (int)((i >> 16) & 31);
+    const int loads = op == 0x22 || op == 0x26 || (op == 0x10 && ((i >> 21) & 31) == 0);
+    if (loads && g->pend_reg == rt) flush_pending(g, 0);
     const_(0, i);
     const_(1, pc);
     dp_imm(AL, OP_MOV, 2, 0, bd ? 1 : 0, 0);
     call_c((const void *)psx_jit_exec);
     exit_if_r0(g);
+    flush_pending(g, loads ? rt : 0);
     return 1;
 }
 
@@ -703,54 +724,7 @@ void psx_jit_sr_changed(void)
     else psx_jit_flush_code();                                         /* (the blocks' own flags are set again when they are compiled) */
 }
 
-#ifdef PSX_JIT_HOST
-/* the translator only: a block's ARM words for the PC (tests/psx/jit_dump.c) */
-int psx_jit_dump(uint32_t pc, uint32_t *out, int max)
-{
-    psx_jit_flush_code();
-    int p0, p1;
-    uint32_t *code = (uint32_t *)compile(pc, &p0, &p1);
-    if (!code) return 0;
-    const int n = (int)(cp - code);
-    for (int k = 0; k < n && k < max; k++) out[k] = code[k];
-    return n;
-}
-int psx_jit_run_block(void) { return 0; }
-int psx_jit_selftest(int trials, char *msg, int n) { (void)trials; snprintf(msg, (size_t)n, "translator only"); return -1; }
-#else
-int psx_jit_run_block(void)
-{
-    const uint32_t pc = C.pc;
-    block_t *b = &table[(pc >> 2) & ((1u << TABLE_BITS) - 1)];
-    if (b->pc != pc || (b->code && (b->g0 != page_gen[b->p0] || b->g1 != page_gen[b->p1]))) {
-        int p0 = 0, p1 = 0;
-        const uint32_t pp = phys_of(pc);
-        if (pp < 0x00800000u && page_bad[(pp & 0x1FFFFFu) >> PAGE_SHIFT]) { b->pc = pc; b->code = NULL; b->p0 = b->p1 = 0; b->g0 = b->g1 = 0; return 0; }
-        void *code = compile(pc, &p0, &p1);
-        if (!code && arena_used + 8192 > ARENA_SIZE) {                    /* the arena is full: start again */
-            psx_jit_flush_code();
-            b = &table[(pc >> 2) & ((1u << TABLE_BITS) - 1)];
-            code = compile(pc, &p0, &p1);
-        }
-        b->pc = pc;
-        b->code = code;
-        b->p0 = (uint16_t)p0; b->p1 = (uint16_t)p1;
-        b->g0 = page_gen[p0]; b->g1 = page_gen[p1];
-        if (code && p0 < NPAGES) { psx_jit_pageflags[p0] = 1; psx_jit_pageflags[p1] = 1; }
-    }
-    if (!b->code) return 0;
-    cur_p0 = b->p0; cur_p1 = b->p1;
-    stale_cur = 0;
-    C.jit_exc = 0;
-    const uint32_t used = psx_jit_enter(b->code, &C);
-    cur_p0 = cur_p1 = -1;
-    return (int)used;
-}
-
-/* ------------------------------------------------------------------ the self test */
-/* Random programs run twice from the same start, by the interpreter and by compiled code; the registers, HI, LO and the data
- * area must come out the same. It uses the CPU state and a part of RAM: call it with no game running. */
-extern int psx_hooks;
+/* ------------------------------------------------------------------ programs for the self test */
 static uint32_t rs_;
 static uint32_t rnd32(void) { rs_ = rs_ * 1664525u + 1013904223u; return rs_; }
 static int rndn(int n) { return (int)((rnd32() >> 9) % (uint32_t)n); }
@@ -764,7 +738,7 @@ static int rsrc(void) { const int k = rndn(10); return k == 0 ? 0 : k == 1 ? 31 
 
 static uint32_t gen_simple(void)
 {
-    const int k = rndn(44);
+    const int k = rndn(48);
     const int rs = rsrc(), rt = rsrc(), rd = rndn(12) == 0 ? 0 : rreg(), sh = rndn(32);
     const int dt = rndn(12) == 0 ? 0 : rreg();                  /* a destination register */
     const uint32_t imm = rnd32() & 0xFFFF;
@@ -813,6 +787,10 @@ static uint32_t gen_simple(void)
     case 40: { const int o = bo & ~3; return I_(0x3A, 29, rndn(32), 0x200 + o); }            /* swc2 */
     case 41: return I_(0x08, rs, dt, imm & 0xFF);                                            /* addi with a small immediate (no overflow unless rs is huge) */
     case 42: return R_(0, 0, rt, rd, 0, 0x20);                                               /* add from zero: never overflows */
+    case 43: { const int o = bo & ~3; return I_(0x23, 27, dt, o); }                          /* lw from the scratchpad */
+    case 44: { const int o = bo & ~3; return I_(0x2B, 27, rt, o); }                          /* sw to the scratchpad */
+    case 45: return I_(rndn(2) ? 0x21 : 0x25, 27, dt, bo & ~1);                              /* lh lhu */
+    case 46: return I_(rndn(2) ? 0x28 : 0x29, 27, rt, bo & ~1);                              /* sb sh */
     default: return R_(0, rs, 0, rd, 0, 0x22);                                               /* sub of zero: never overflows */
     }
 }
@@ -821,8 +799,8 @@ static uint32_t gen_slot(void)                                  /* a delay slot 
 {
     for (;;) {
         const uint32_t w = gen_simple();
-        const uint32_t op = w >> 26;
-        if (op != 0x20 && op != 0x21 && op != 0x23 && op != 0x24 && op != 0x25) return w;
+        const uint32_t op = w >> 26, sub = (w >> 21) & 31;
+        if (op != 0x20 && op != 0x21 && op != 0x23 && op != 0x24 && op != 0x25 && !(op == 0x12 && (sub == 0 || sub == 2))) return w;
     }
 }
 
@@ -873,20 +851,87 @@ static int build_program(uint32_t *prog, int len)               /* fills prog[0.
     return len;
 }
 
-/* runs prog (len instructions and the end) from the given start by the interpreter and by compiled code; 0 if they agree.
- * what: the first difference (1..31 a register, 32 hi, 33 lo, 34 data) and the two values */
+
 static gte_t gte0;                                              /* the GTE state every pass starts from */
 
-static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32_t hi0, uint32_t lo0, const uint8_t *data0,
+/* one trial of the self test: the program, the start state, from the number of the trial (the same for the Pi and the PC test) */
+void psx_jit_make_trial(int t, uint32_t *prog, int *len_out, uint32_t *regs0, uint32_t *hi0, uint32_t *lo0, uint8_t *data0, uint8_t *scr0, gte_t *gte)
+{
+    rs_ = 0x1234567u + (uint32_t)t * 7919u;
+    const int len = 24 + rndn(40);
+    build_program(prog, len);
+    for (int i = 0; i < 0x400; i++) data0[i] = (uint8_t)rnd32();
+    for (int i = 0; i < 0x400; i++) scr0[i] = (uint8_t)rnd32();
+    *hi0 = rnd32(); *lo0 = rnd32();
+    for (int i = 0; i < 32; i++) regs0[i] = rnd32();
+    for (int i = 0; i < 32; i++) { gte->d[i] = (int32_t)rnd32(); gte->c[i] = (int32_t)rnd32(); }
+    regs0[0] = 0; regs0[13] = T_BASE + 4u * (uint32_t)len;      /* r13: the jump register; if a branch skips the lui/ori that set it, the jump goes to the end */
+    regs0[27] = 0x1F800200u;                                    /* the scratchpad base of the generated loads and stores */
+    regs0[29] = T_DATA;                                         /* the loads and stores use 0x200 +- 0x80 from it */
+    *len_out = len;
+}
+
+#ifdef PSX_JIT_HOST
+/* the translator only: a block's ARM words for the PC (tests/psx/jit_dump.c) */
+int psx_jit_dump(uint32_t pc, uint32_t *out, int max)
+{
+    psx_jit_flush_code();
+    int p0, p1;
+    uint32_t *code = (uint32_t *)compile(pc, &p0, &p1);
+    if (!code) return 0;
+    const int n = (int)(cp - code);
+    for (int k = 0; k < n && k < max; k++) out[k] = code[k];
+    return n;
+}
+int psx_jit_run_block(void) { return 0; }
+int psx_jit_selftest(int trials, char *msg, int n) { (void)trials; snprintf(msg, (size_t)n, "translator only"); return -1; }
+#else
+int psx_jit_run_block(void)
+{
+    const uint32_t pc = C.pc;
+    block_t *b = &table[(pc >> 2) & ((1u << TABLE_BITS) - 1)];
+    if (b->pc != pc || (b->code && (b->g0 != page_gen[b->p0] || b->g1 != page_gen[b->p1]))) {
+        int p0 = 0, p1 = 0;
+        const uint32_t pp = phys_of(pc);
+        if (pp < 0x00800000u && page_bad[(pp & 0x1FFFFFu) >> PAGE_SHIFT]) { b->pc = pc; b->code = NULL; b->p0 = b->p1 = 0; b->g0 = b->g1 = 0; return 0; }
+        void *code = compile(pc, &p0, &p1);
+        if (!code && arena_used + 8192 > ARENA_SIZE) {                    /* the arena is full: start again */
+            psx_jit_flush_code();
+            b = &table[(pc >> 2) & ((1u << TABLE_BITS) - 1)];
+            code = compile(pc, &p0, &p1);
+        }
+        b->pc = pc;
+        b->code = code;
+        b->p0 = (uint16_t)p0; b->p1 = (uint16_t)p1;
+        b->g0 = page_gen[p0]; b->g1 = page_gen[p1];
+        if (code && p0 < NPAGES) { psx_jit_pageflags[p0] = 1; psx_jit_pageflags[p1] = 1; }
+    }
+    if (!b->code) return 0;
+    cur_p0 = b->p0; cur_p1 = b->p1;
+    stale_cur = 0;
+    C.jit_exc = 0;
+    const uint32_t used = psx_jit_enter(b->code, &C);
+    cur_p0 = cur_p1 = -1;
+    return (int)used;
+}
+
+/* ------------------------------------------------------------------ the self test */
+/* Random programs run twice from the same start, by the interpreter and by compiled code; the registers, HI, LO and the data
+ * area must come out the same. It uses the CPU state and a part of RAM: call it with no game running. */
+/* runs prog (len instructions and the end) from the given start by the interpreter and by compiled code; 0 if they agree.
+ * what: the first difference (1..31 a register, 32 hi, 33 lo, 34 data) and the two values */
+extern int psx_hooks;
+static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32_t hi0, uint32_t lo0, const uint8_t *data0, const uint8_t *scr0,
                     int *what, uint32_t *va, uint32_t *vb)
 {
     gte_t gte_a;
     uint32_t regs_a[32], hi_a = 0, lo_a = 0;
-    uint8_t data_a[0x400];
+    uint8_t data_a[0x400], scr_a[0x400];
     const uint32_t end = T_BASE + 4u * (uint32_t)len;
     memcpy(psx_ram + (T_BASE & 0x1FFFFF), prog, (size_t)(len + 140) * 4);
     for (int pass = 0; pass < 2; pass++) {
         memcpy(psx_ram + (T_DATA & 0x1FFFFF), data0, 0x400);
+        memcpy(psx_scratch, scr0, 0x400);
         memcpy(C.r, regs0, 32 * sizeof(uint32_t));
         C.hi = hi0; C.lo = lo0;
         G = gte0;
@@ -900,6 +945,7 @@ static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32
         if (pass == 0) {
             memcpy(regs_a, C.r, sizeof regs_a); hi_a = C.hi; lo_a = C.lo; gte_a = G;
             memcpy(data_a, psx_ram + (T_DATA & 0x1FFFFF), sizeof data_a);
+            memcpy(scr_a, psx_scratch, sizeof scr_a);
         }
     }
     for (int i = 1; i < 32; i++) if (C.r[i] != regs_a[i]) { *what = i; *va = regs_a[i]; *vb = C.r[i]; return 1; }
@@ -909,6 +955,7 @@ static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32
     for (int i = 0; i < 0x400; i++) {
         const uint8_t b = psx_ram[(T_DATA & 0x1FFFFF) + (uint32_t)i];
         if (b != data_a[i]) { *what = 34; *va = (uint32_t)i << 8 | data_a[i]; *vb = (uint32_t)i << 8 | b; return 1; }
+        if (psx_scratch[i] != scr_a[i]) { *what = 34; *va = (uint32_t)(0x400 + i) << 8 | scr_a[i]; *vb = (uint32_t)(0x400 + i) << 8 | psx_scratch[i]; return 1; }
     }
     return 0;
 }
@@ -921,19 +968,14 @@ int psx_jit_selftest(int trials, char *msg, int n)
     psx_hooks = 0;
     C.cop0[12] = 0x40000000u;
     for (int t = 0; t < trials; t++) {
-        rs_ = 0x1234567u + (uint32_t)t * 7919u;
         uint32_t prog[64 + 144];
-        const int len = 24 + rndn(40);
-        build_program(prog, len);
-        uint8_t data0[0x400];
-        for (int i = 0; i < 0x400; i++) data0[i] = (uint8_t)rnd32();
-        uint32_t regs0[32], hi0 = rnd32(), lo0 = rnd32();
-        for (int i = 0; i < 32; i++) regs0[i] = rnd32();
-        for (int i = 0; i < 32; i++) { gte0.d[i] = (int32_t)rnd32(); gte0.c[i] = (int32_t)rnd32(); }
-        regs0[0] = 0; regs0[13] = T_BASE + 4u * (uint32_t)len; regs0[29] = T_DATA;      /* the loads and stores use 0x200 +- 0x80 from it */     /* r13: the jump register; if a branch skips the lui/ori that set it, the jump goes to the end */
+        int len;
+        uint8_t data0[0x400], scr0[0x400];
+        uint32_t regs0[32], hi0, lo0;
+        psx_jit_make_trial(t, prog, &len, regs0, &hi0, &lo0, data0, scr0, &gte0);
         int what = 0;
         uint32_t va = 0, vb = 0;
-        const int rp = run_pair(prog, len, regs0, hi0, lo0, data0, &what, &va, &vb);
+        const int rp = run_pair(prog, len, regs0, hi0, lo0, data0, scr0, &what, &va, &vb);
         if (rp <= 0) continue;
         if (!bad) {
             /* the shortest prefix that still differs: the instructions after it are nops */
@@ -944,9 +986,9 @@ int psx_jit_selftest(int trials, char *msg, int n)
                 for (int k = l; k < len; k++) cut[k] = 0;
                 int w2 = 0;
                 uint32_t a2 = 0, b2 = 0;
-                if (run_pair(cut, len, regs0, hi0, lo0, data0, &w2, &a2, &b2) > 0) { minl = l; what = w2; va = a2; vb = b2; break; }
+                if (run_pair(cut, len, regs0, hi0, lo0, data0, scr0, &w2, &a2, &b2) > 0) { minl = l; what = w2; va = a2; vb = b2; break; }
             }
-            int k = snprintf(msg, (size_t)n, "t%d prefix %d %s%d %08x/%08x:", t, minl, what >= 40 ? "gte" : what == 34 ? "data" : what == 32 ? "hi" : what == 33 ? "lo" : "r", what < 32 ? what : what >= 40 ? what - 40 : 0, (unsigned)va, (unsigned)vb);
+            int k = snprintf(msg, (size_t)n, "t%d prefix %d %s%d %08x/%08x:", t, minl, what >= 40 ? "gte" : what == 34 ? "mem" : what == 32 ? "hi" : what == 33 ? "lo" : "r", what < 32 ? what : what >= 40 ? what - 40 : 0, (unsigned)va, (unsigned)vb);
             for (int j = minl - 4 < 0 ? 0 : minl - 4; j < minl && k < n - 10; j++) k += snprintf(msg + k, (size_t)(n - k), " %08x", (unsigned)prog[j]);
         }
         bad++;

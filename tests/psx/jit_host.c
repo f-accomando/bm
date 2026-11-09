@@ -37,3 +37,14 @@ void h_interp(uint32_t end, int max_steps)
 
 int h_dump(uint32_t pc, uint32_t *out, int max) { return psx_jit_dump(pc, out, max); }
 void h_step(void) { psx_jit_on = 0; psx_cpu_run(1); }
+
+void psx_jit_make_trial(int t, uint32_t *prog, int *len_out, uint32_t *regs0, uint32_t *hi0, uint32_t *lo0, uint8_t *data0, uint8_t *scr0, gte_t *gte);
+/* a trial of the self test (the generator of src/bm/psx_jit.c): the program (len + 140 words), the registers, HI, LO, the data and scratchpad bytes, the GTE registers */
+void h_gen(int t, uint32_t *prog, int *len, uint32_t *regs0, uint32_t *hi, uint32_t *lo, uint8_t *data, uint8_t *scr, int32_t *gte)
+{
+    gte_t g;
+    psx_jit_make_trial(t, prog, len, regs0, hi, lo, data, scr, &g);
+    memcpy(gte, &g, sizeof g);
+}
+void h_set_gte(const int32_t *g) { memcpy(&psx_gte, g, sizeof psx_gte); }
+void h_get_gte(int32_t *g) { memcpy(g, &psx_gte, sizeof psx_gte); }
