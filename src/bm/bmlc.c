@@ -846,7 +846,7 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         return BMN_I32;
     }
 
-    /* Stage 7 kernel/host functions: cls, pix, rectfill, spr, btn */
+    /* Stage 7+ kernel/host functions: cls, pix, rectfill, spr, btn, btnp, line, circ, circfill, rect, sfx, music, time */
     static const struct {
         const char *name;
         int         host_id;
@@ -858,6 +858,14 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         { "rectfill", BMN_HOST_RECTFILL, 5, BMN_NONE },
         { "spr",      BMN_HOST_SPR,      3, BMN_NONE },
         { "btn",      BMN_HOST_BTN,      1, BMN_BOOL },
+        { "btnp",     BMN_HOST_BTNP,     1, BMN_BOOL },
+        { "line",     BMN_HOST_LINE,     5, BMN_NONE },
+        { "circ",     BMN_HOST_CIRC,     4, BMN_NONE },
+        { "circfill", BMN_HOST_CIRCFILL, 4, BMN_NONE },
+        { "rect",     BMN_HOST_RECT,     5, BMN_NONE },
+        { "sfx",      BMN_HOST_SFX,      1, BMN_NONE },
+        { "music",    BMN_HOST_MUSIC,    1, BMN_NONE },
+        { "time",     BMN_HOST_TIME,     0, BMN_F32 },
     };
     for (size_t h = 0; h < sizeof host_specs / sizeof host_specs[0]; h++) {
         if (strcmp(callee, host_specs[h].name) == 0) {
@@ -1449,7 +1457,7 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
         } else if (op == OP_CALL_HOST) {
             int hid = ins.arg >> 8;
             int argc = ins.arg & 0xFF;
-            int has_ret = (hid == BMN_HOST_BTN);
+            int has_ret = (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME);
             t1 = pc + 1; sp1 = sp - argc + (has_ret ? 1 : 0);
         }
 
@@ -1788,7 +1796,7 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             emit_mov32(C, 2, (uint32_t)argc);
             emit_branch_patch(C, -4, 0, COND_AL, 1);
             emit_dp_imm(C, DP_ADD, 13, 13, (uint32_t)alloc_bytes, COND_AL, 0);
-            if (hid == BMN_HOST_BTN)
+            if (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME)
                 put_slot_reg(C, (int)fn->nlocals + base, 0);
             break;
         }

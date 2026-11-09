@@ -50,7 +50,7 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 - Conditions in `if`, `elseif`, `while`, `and`, `or`, and `not` must have type `bool`. An `i32` is never implicitly truthy.
 - Integer division uses `//` and modulo uses `%` (floor toward $-\infty$). Float division uses `/` on `f32` operands.
 - Built-in math and conversion functions: `abs(x)`, `min(a, b)`, `max(a, b)` (for `i32` or `f32`), `sqrt(x: f32): f32`, `f32(x: i32): f32`, and `floor(x: f32): i32`.
-- Kernel host functions (Stage 7): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, and `btn(b): bool`.
+- Kernel host functions (Stage 7+): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(x0, y0, x1, y1, col)`, `circ(x, y, r, col)`, `circfill(x, y, r, col)`, `rect(x, y, w, h, col)`, `sfx(id)`, `music(id)`, and `time(): f32`.
 
 ## Statements and operators
 

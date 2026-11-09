@@ -303,8 +303,12 @@ static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t n
     lua_State *L = g_active_lua;
     if (!L)
         return 0;
-    static const char *const names[5] = { "cls", "pix", "rectfill", "spr", "btn" };
-    if (host_id < 0 || host_id >= 5)
+    static const char *const names[] = {
+        "cls", "pix", "rectfill", "spr", "btn",
+        "btnp", "line", "circ", "circfill", "rect",
+        "sfx", "music", "time"
+    };
+    if (host_id < 0 || host_id >= (int)(sizeof names / sizeof names[0]))
         return 0;
     lua_getglobal(L, names[host_id]);
     if (!lua_isfunction(L, -1) && host_id == BMN_HOST_PIX) {
@@ -317,7 +321,7 @@ static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t n
     }
     for (int32_t i = 0; i < nargs; i++)
         lua_pushinteger(L, args[i]);
-    if (host_id == BMN_HOST_BTN) {
+    if (host_id == BMN_HOST_BTN || host_id == BMN_HOST_BTNP) {
         if (lua_pcall(L, nargs, 1, 0) != LUA_OK) {
             lua_pop(L, 1);
             return 0;
@@ -325,6 +329,17 @@ static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t n
         int32_t res = lua_toboolean(L, -1) ? 1 : 0;
         lua_pop(L, 1);
         return res;
+    }
+    if (host_id == BMN_HOST_TIME) {
+        if (lua_pcall(L, nargs, 1, 0) != LUA_OK) {
+            lua_pop(L, 1);
+            return 0;
+        }
+        float val = (float)lua_tonumber(L, -1);
+        lua_pop(L, 1);
+        uint32_t bits = 0;
+        memcpy(&bits, &val, 4);
+        return (int32_t)bits;
     }
     if (lua_pcall(L, nargs, 0, 0) != LUA_OK)
         lua_pop(L, 1);

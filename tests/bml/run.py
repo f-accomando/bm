@@ -572,6 +572,13 @@ void _start(void)
 {{
     __asm__ volatile (
         "ldr sp, =0x04000000\\n"
+        /* Enable CP10 and CP11 in CP15 Coprocessor Access Control Register, then set FPEXC.EN */
+        "mrc p15, 0, r0, c1, c0, 2\\n"
+        "orr r0, r0, #0x00F00000\\n"
+        "mcr p15, 0, r0, c1, c0, 2\\n"
+        "mcr p15, 0, r0, c7, c5, 4\\n"
+        "mov r0, #0x40000000\\n"
+        ".word 0xEEE80A10\\n"
         "bl c_main\\n"
         "mov r0, #0x18\\n"
         "ldr r1, =0x20026\\n"
@@ -884,6 +891,13 @@ void _start(void)
 {{
     __asm__ volatile (
         "ldr sp, =0x04000000\\n"
+        /* Enable CP10 and CP11 in CP15 Coprocessor Access Control Register, then set FPEXC.EN */
+        "mrc p15, 0, r0, c1, c0, 2\\n"
+        "orr r0, r0, #0x00F00000\\n"
+        "mcr p15, 0, r0, c1, c0, 2\\n"
+        "mcr p15, 0, r0, c7, c5, 4\\n"
+        "mov r0, #0x40000000\\n"
+        ".word 0xEEE80A10\\n"
         "bl c_main\\n"
         "mov r0, #0x18\\n"
         "ldr r1, =0x20026\\n"
@@ -1308,11 +1322,23 @@ for px, py, hp, max_hp, btn_mask in s7_cases:
         "rectfill": lambda x, y, w, h, c, lg=draw_log: lg.append(f"rectfill:{x},{y},{w},{h},{c}"),
         "spr": lambda idx, x, y, lg=draw_log: lg.append(f"spr:{idx},{x},{y}"),
         "btn": lambda b, m=btn_mask: ((m >> b) & 1) != 0,
+        "btnp": lambda b, m=btn_mask: ((m >> b) & 1) != 0,
+        "line": lambda x0, y0, x1, y1, c, lg=draw_log: lg.append(f"line:{x0},{y0},{x1},{y1},{c}"),
+        "circ": lambda x, y, r, c, lg=draw_log: lg.append(f"circ:{x},{y},{r},{c}"),
+        "circfill": lambda x, y, r, c, lg=draw_log: lg.append(f"circfill:{x},{y},{r},{c}"),
+        "rect": lambda x, y, w, h, c, lg=draw_log: lg.append(f"rect:{x},{y},{w},{h},{c}"),
+        "sfx": lambda sid, lg=draw_log: lg.append(f"sfx:{sid}"),
+        "music": lambda mid, lg=draw_log: lg.append(f"music:{mid}"),
+        "time": lambda: 1.5,
     }
     kf_vm = bml.StackVM(kf_mod, host_fns=host_table)
     res = kf_vm.call("step_and_draw_hud", [px, py, hp, max_hp])
     vm_s7_out.extend(draw_log)
     vm_s7_out.append(f"ret:{res}")
+    draw_log.clear()
+    res_ext = kf_vm.call("test_extended_hud", [px, py, hp])
+    vm_s7_out.extend(draw_log)
+    vm_s7_out.append(f"ret_ext:{res_ext}")
 
 # 9b. Plain Lua reference oracle
 s7_lua_ref_path = os.path.join(BUILD, "stage7_ref.lua")
@@ -1325,16 +1351,25 @@ function pix(x, y, c) print("pix:" .. x .. "," .. y .. "," .. c) end
 function rectfill(x, y, w, h, c) print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
 function spr(id, x, y) print("spr:" .. id .. "," .. x .. "," .. y) end
 function btn(b) return ((btn_mask >> b) & 1) ~= 0 end
+function btnp(b) return ((btn_mask >> b) & 1) ~= 0 end
+function line(x0, y0, x1, y1, c) print("line:" .. x0 .. "," .. y0 .. "," .. x1 .. "," .. y1 .. "," .. c) end
+function rect(x, y, w, h, c) print("rect:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function circ(x, y, r, c) print("circ:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function circfill(x, y, r, c) print("circfill:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function sfx(id) print("sfx:" .. id) end
+function music(id) print("music:" .. id) end
+function time() return 1.5 end
 """)
     f.write(bml.to_lua(kf_src))
     for px, py, hp, max_hp, btn_mask in s7_cases:
         f.write(f"\nbtn_mask = {btn_mask}\nprint('ret:' .. step_and_draw_hud({px}, {py}, {hp}, {max_hp}))\n")
+        f.write(f"print('ret_ext:' .. test_extended_hud({px}, {py}, {hp}))\n")
 
 lua_s7_out = subprocess.check_output([LUAHOST, s7_lua_ref_path], text=True).strip().splitlines()
 if vm_s7_out != lua_s7_out:
     fail(f"Stage 7 StackVM differs from Lua: {vm_s7_out} vs {lua_s7_out}")
 
-# 9c. Host Lua C API: native_run dispatching __bml_call_host back to Lua globals (cls, pix, rectfill, spr, btn)
+# 9c. Host Lua C API: native_run dispatching __bml_call_host back to Lua globals
 s7_luahost_script = os.path.join(BUILD, "stage7_luahost.lua")
 with open(s7_luahost_script, "w", encoding="utf-8") as f:
     f.write(f"""\
@@ -1349,9 +1384,18 @@ function pix(x, y, c) print("pix:" .. x .. "," .. y .. "," .. c) end
 function rectfill(x, y, w, h, c) print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
 function spr(id, x, y) print("spr:" .. id .. "," .. x .. "," .. y) end
 function btn(b) return ((btn_mask >> b) & 1) ~= 0 end
+function btnp(b) return ((btn_mask >> b) & 1) ~= 0 end
+function line(x0, y0, x1, y1, c) print("line:" .. x0 .. "," .. y0 .. "," .. x1 .. "," .. y1 .. "," .. c) end
+function rect(x, y, w, h, c) print("rect:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function circ(x, y, r, c) print("circ:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function circfill(x, y, r, c) print("circfill:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function sfx(id) print("sfx:" .. id) end
+function music(id) print("music:" .. id) end
+function time() return 1.5 end
 """)
     for px, py, hp, max_hp, btn_mask in s7_cases:
         f.write(f"btn_mask = {btn_mask}\nprint('ret:' .. native_run(mn, 'step_and_draw_hud', {px}, {py}, {hp}, {max_hp}))\n")
+        f.write(f"print('ret_ext:' .. native_run(mn, 'test_extended_hud', {px}, {py}, {hp}))\n")
 
 s7_luahost_out = subprocess.check_output([native_luahost_bin, s7_luahost_script], text=True).strip().splitlines()
 if s7_luahost_out != lua_s7_out:
@@ -1364,7 +1408,9 @@ if arm_gcc and qemu_arm:
         s7_calls_c.append(
             f"    g_btn_mask = {btn_mask}; "
             f"{{ int32_t a[4] = {{{px}, {py}, {hp}, {max_hp}}}, r = 0; "
-            f"bmnative_call(m, fn, a, 4, &r); put_str(\"ret:\"); put_i32(r); put_ch('\\n'); }}"
+            f"bmnative_call(m, fn, a, 4, &r); put_str(\"ret:\"); put_i32(r); put_ch('\\n'); "
+            f"int32_t a_ext[3] = {{{px}, {py}, {hp}}}, r_ext = 0; "
+            f"bmnative_call(m, fn_ext, a_ext, 3, &r_ext); put_str(\"ret_ext:\"); put_i32(r_ext); put_ch('\\n'); }}"
         )
 
     QEMU_S7_C = f"""\
@@ -1413,6 +1459,40 @@ static int32_t kernel_host_table(int32_t host_id, const int32_t *args, int32_t n
         return 0;
     case BMN_HOST_BTN:
         return (g_btn_mask >> args[0]) & 1;
+    case BMN_HOST_BTNP:
+        return (g_btn_mask >> args[0]) & 1;
+    case BMN_HOST_LINE:
+        put_str("line:");
+        for (int i = 0; i < 5; i++) {{ if (i) put_ch(','); put_i32(args[i]); }}
+        put_ch('\\n');
+        return 0;
+    case BMN_HOST_RECT:
+        put_str("rect:");
+        for (int i = 0; i < 5; i++) {{ if (i) put_ch(','); put_i32(args[i]); }}
+        put_ch('\\n');
+        return 0;
+    case BMN_HOST_CIRC:
+        put_str("circ:");
+        for (int i = 0; i < 4; i++) {{ if (i) put_ch(','); put_i32(args[i]); }}
+        put_ch('\\n');
+        return 0;
+    case BMN_HOST_CIRCFILL:
+        put_str("circfill:");
+        for (int i = 0; i < 4; i++) {{ if (i) put_ch(','); put_i32(args[i]); }}
+        put_ch('\\n');
+        return 0;
+    case BMN_HOST_SFX:
+        put_str("sfx:"); put_i32(args[0]); put_ch('\\n');
+        return 0;
+    case BMN_HOST_MUSIC:
+        put_str("music:"); put_i32(args[0]); put_ch('\\n');
+        return 0;
+    case BMN_HOST_TIME: {{
+        float t = 1.5f;
+        uint32_t bits = 0;
+        for (size_t i = 0; i < 4; i++) ((char*)&bits)[i] = ((char*)&t)[i];
+        return (int32_t)bits;
+    }}
     default:
         return 0;
     }}
@@ -1461,6 +1541,7 @@ void c_main(void)
         return;
     }}
     int fn = bmnative_find(m, "step_and_draw_hud");
+    int fn_ext = bmnative_find(m, "test_extended_hud");
 {chr(10).join(s7_calls_c)}
 }}
 
@@ -1469,6 +1550,13 @@ void _start(void)
 {{
     __asm__ volatile (
         "ldr sp, =0x04000000\\n"
+        /* Enable CP10 and CP11 in CP15 Coprocessor Access Control Register, then set FPEXC.EN */
+        "mrc p15, 0, r0, c1, c0, 2\\n"
+        "orr r0, r0, #0x00F00000\\n"
+        "mcr p15, 0, r0, c1, c0, 2\\n"
+        "mcr p15, 0, r0, c7, c5, 4\\n"
+        "mov r0, #0x40000000\\n"
+        ".word 0xEEE80A10\\n"
         "bl c_main\\n"
         "mov r0, #0x18\\n"
         "ldr r1, =0x20026\\n"
@@ -1948,10 +2036,19 @@ function pix(x, y, c) print(string.format("pix:%d,%d,%d", x, y, c)) end
 function rectfill(x, y, w, h, c) print(string.format("rectfill:%d,%d,%d,%d,%d", x, y, w, h, c)) end
 function spr(id, x, y) print(string.format("spr:%d,%d,%d", id, x, y)) end
 function btn(b) return ((g_mask >> b) & 1) ~= 0 end
+function btnp(b) return ((g_mask >> b) & 1) ~= 0 end
+function line(x0, y0, x1, y1, c) print(string.format("line:%d,%d,%d,%d,%d", x0, y0, x1, y1, c)) end
+function rect(x, y, w, h, c) print(string.format("rect:%d,%d,%d,%d,%d", x, y, w, h, c)) end
+function circ(x, y, r, c) print(string.format("circ:%d,%d,%d,%d", x, y, r, c)) end
+function circfill(x, y, r, c) print(string.format("circfill:%d,%d,%d,%d", x, y, r, c)) end
+function sfx(id) print(string.format("sfx:%d", id)) end
+function music(id) print(string.format("music:%d", id)) end
+function time() return 1.5 end
 """)
     for px, py, hp, max_hp, mask in s7_cases:
         f.write(f"g_mask = {mask}\n")
         f.write(f'print(string.format("ret:%d", native_run(m_kf, "step_and_draw_hud", {px}, {py}, {hp}, {max_hp})))\n')
+        f.write(f'print(string.format("ret_ext:%d", native_run(m_kf, "test_extended_hud", {px}, {py}, {hp})))\n')
 
     f.write(f"""
 -- 6. Compile darknight_enemy.b (Stage 8: 60 frames of 17 enemies) in C via native_compile

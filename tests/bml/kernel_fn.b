@@ -32,3 +32,21 @@ function step_and_draw_hud(px: i32, py: i32, hp: i32, max_hp: i32): i32
 
   return nx * 1000 + ny
 end
+
+function test_extended_hud(px: i32, py: i32, tick: i32): i32
+  line(px, py, px + 20, py + 20, 7)
+  rect(px, py, 30, 20, 8)
+  circ(px + 15, py + 10, 8, 9)
+  circfill(px + 15, py + 10, 4, 10)
+  if btnp(0) then
+    sfx(3)
+  end
+  if btnp(1) then
+    music(1)
+  end
+  local t: f32 = time()
+  if t > 0.0 then
+    return floor(t * 100.0)
+  end
+  return tick + 42
+end

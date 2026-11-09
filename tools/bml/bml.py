@@ -62,6 +62,14 @@ BUILTINS = {
     "rectfill": (["i32", "i32", "i32", "i32", "i32"], None),
     "spr": (["i32", "i32", "i32"], None),
     "btn": (["i32"], "bool"),
+    "btnp": (["i32"], "bool"),
+    "line": (["i32", "i32", "i32", "i32", "i32"], None),
+    "circ": (["i32", "i32", "i32", "i32"], None),
+    "circfill": (["i32", "i32", "i32", "i32"], None),
+    "rect": (["i32", "i32", "i32", "i32", "i32"], None),
+    "sfx": (["i32"], None),
+    "music": (["i32"], None),
+    "time": ([], "f32"),
 }
 
 HOST_FUNCTIONS: Dict[str, Tuple[int, List[str], Optional[str]]] = {
@@ -70,6 +78,14 @@ HOST_FUNCTIONS: Dict[str, Tuple[int, List[str], Optional[str]]] = {
     "rectfill": (2, ["i32", "i32", "i32", "i32", "i32"], None),
     "spr": (3, ["i32", "i32", "i32"], None),
     "btn": (4, ["i32"], "bool"),
+    "btnp": (5, ["i32"], "bool"),
+    "line": (6, ["i32", "i32", "i32", "i32", "i32"], None),
+    "circ": (7, ["i32", "i32", "i32", "i32"], None),
+    "circfill": (8, ["i32", "i32", "i32", "i32"], None),
+    "rect": (9, ["i32", "i32", "i32", "i32", "i32"], None),
+    "sfx": (10, ["i32"], None),
+    "music": (11, ["i32"], None),
+    "time": (12, [], "f32"),
 }
 
 
@@ -1732,7 +1748,7 @@ class StackVM:
                 if h_name in self.host_fns:
                     res = self.host_fns[h_name](*call_args)
                 else:
-                    res = False if h_ret == "bool" else (0 if h_ret == "i32" else None)
+                    res = False if h_ret == "bool" else (0.0 if h_ret == "f32" else (0 if h_ret == "i32" else None))
                 if h_ret == "bool":
                     stack.append(bool(res))
                 elif h_ret == "i32":
