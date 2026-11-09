@@ -83,6 +83,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Rules (do not break)
 
+- At the start the game draws the whole map once from above (`warm_map`, behind a "Loading" picture): the V3D builds the mesh of each map chunk at its first draw (about 280 ms each on the Pi Zero W) and that was a freeze the first time you saw each part. With it: 19323 frames in 324 s, 59.6 fps, one freeze of 1.9 s at the start and none after (Pi Zero W, 9 Nov 2026). Keep a `map3d_draw` of every chunk before the play starts.
 - A door slides along its wall into the wall beside the opening; it does not lift. Doors side by side in one wall are one door (`d.grp`): they open together and slide the same way, toward the side with wall cells (`sdx`, `sdz`, `dist`). A shut door stops every blow: `door_between` blocks the enemy's strike and the dog's leap. Keep a door's leaves one tile apart, in line, with wall cells on at least one side.
 - Keep the camera under `CAM_MAX_H` over the floor and never lift it with a steeper look near a wall: over the wall tops the view shows the void (a black screen, 5 Nov 2026). A wall behind the Hunter pulls the camera in (`best`, down to 12%), it does not raise it.
 - Walk back (S) steps backwards and keeps the Hunter's facing; left and right only steer him. The camera follows `P.yaw`: a move that turned him toward the camera made him spin.

@@ -1354,6 +1354,7 @@ end
 -- ---------------------------------------------------------------- the cartridge
 function _init()
   if devkit_chord then devkit_chord(false) end     -- L1 and R1 are the game's: they do not show the small dev kit block (the Performance row of the menu does)
+  G.warm = 1                                      -- the first frames: see warm_map
   frameskip(3)                                     -- a slow frame is not drawn: the logic keeps 60 _update a second (the game does not slow at 30 fps)
   apply_resolution()                             -- 640x360: a quarter of the pixels of 1280x720 (the menu has both)
   -- the GPU as the Hero cart measured it (GPU + VS + queue: about 10k hero triangles at 60 fps on the Pi Zero W): the
@@ -1414,7 +1415,37 @@ function _update()
   end
 end
 
+-- The first time a chunk of the map is drawn the V3D builds its mesh (the order of the corners for its cache): about 280 ms
+-- on the Pi Zero W for each of the 15 chunks (a freeze the first time you see each part). One draw of the whole map from
+-- above, behind a "Loading" picture, builds them all at the start.
+local function warm_map()
+  cls(SKY)
+  zclear()
+  apply_environment()
+  local mw, mh = msize()
+  local cx, cz = mw / 4, mh / 4
+  local yaw, pitch = look(cx, mw / 2 + 20, cz + mh / 8, cx, 0, cz)
+  camera3d(cx, mw / 2 + 20, cz + mh / 8, yaw, pitch, 90)
+  textures3d(O.textures)
+  map3d_draw(world, 0, 0)
+  local s = S()
+  rectfill(0, 0, SCREEN_W, SCREEN_H, SKY)                  -- (the map seen from above is not shown)
+  text("Loading", SCREEN_W // 2 - 28 * s, SCREEN_H // 2 - 8 * s, 0xE8E0D0, s)
+end
+
 function _draw()
+  if G.warm then
+    if G.warm == 1 then
+      cls(SKY)
+      local s = S()
+      text("Loading", SCREEN_W // 2 - 28 * s, SCREEN_H // 2 - 8 * s, 0xE8E0D0, s)
+      G.warm = 2
+    else
+      warm_map()
+      G.warm = nil
+    end
+    return
+  end
   cls(SKY)
   zclear()
   apply_environment()
