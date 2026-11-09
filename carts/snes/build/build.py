@@ -55,6 +55,8 @@ def main():
         lua = lua.replace("local AUTO = false", "local AUTO = true").replace("local show_fps = false", "local show_fps = true")
         if os.environ.get("SNES_ADAPT") == "1":    # the speed controller on in the test build (no fixed range of frames: the cart plays on)
             lua = lua.replace("if not AUTO then adapt() end", "adapt()").replace("(AUTO and 4 or every)", "every").replace("if not (AUTO and frames >= 3200) then", "if true then").replace("local bench = AUTO and frames >= 600 and frames < 3200", "local bench = false").replace("local MINI, last_ups = false, 0", "local MINI, last_ups = true, 0")
+        if os.environ.get("SNES_GPU") == "n":      # a test build that starts in the native 256x256 mode
+            lua = lua.replace('local START_MODE = "sharp"', 'local START_MODE = "native"')
         if os.environ.get("SNES_GPU") in ("2", "3"):     # a test build that starts in a GPU mode (2: 960x540 and x2, 3: 1280x720 and x3)
             lua = lua.replace('local START_MODE = "sharp"', 'local START_MODE = "gpu%s"' % os.environ["SNES_GPU"])
             if os.environ.get("SNES_GPUEMPTY") == "1":
@@ -71,7 +73,7 @@ def main():
     for ext in ("bme", "bm"):
         subprocess.check_call([sys.executable, mk, "-o", os.path.join(OUT, "snes." + ext),
                                "--lua", os.path.join(OUT, "main.lua"), "--sheet", sheet, "--sheet8",
-                               "--cover", cv, "--info", os.path.join(HERE, "..", "bm.info")])
+                               "--cover", cv, "--info", os.path.join(HERE, "..", "bm.info")] + (["--res", os.environ["SNES_RES"]] if os.environ.get("SNES_RES") else []))
     print("built", OUT)
 
 

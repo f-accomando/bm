@@ -1631,6 +1631,7 @@ static int l_model(lua_State *L)
  * TV but for 1280x720 (1.5x). The cartridge's own (its header) is one. */
 static const uint16_t screen_modes[][2] = {
     { 320, 180 }, { 384, 216 }, { 480, 270 }, { 640, 360 }, { 960, 540 }, { 1280, 720 }, { 1920, 1080 },
+    { 256, 256 },                       /* a square mode, last so the others keep their numbers: drawn in the middle of a 480x270 screen (4x on a 1080p TV) */
 };
 #define SCREEN_MODES (int)(sizeof screen_modes / sizeof screen_modes[0])
 /* On a square panel (the RGB30's 720x720) the modes are two:
@@ -1655,7 +1656,7 @@ void bm_set_square_panel(int on)
 /* screen(w, h) -> true: the cartridge's resolution changes to w x h from the
  * next frame (SCREEN_W and SCREEN_H then say it; if the console cannot
  * set it they stay); false: not one of the modes. screen() -> w, h now.
- * screen(i) -> the i-th mode w, h (1 = 320x180 ... 7 = 1920x1080; on a
+ * screen(i) -> the i-th mode w, h (1 = 320x180 ... 7 = 1920x1080, 8 = 256x256 on the Pi; on a
  * square panel 1 = 360x360, 2 = 720x720, 3 = 720x405), or nil. A square cartridge
  * (256x256, 360x360) changes as the others (2026-10-10, Overbit's .b16 on
  * the Pi: a whole 16:9 page, where the GPU draws). */

@@ -18,7 +18,9 @@ machine was written again in C. The RGB30 is not measured.
    cartridge swaps A with B and X with Y, so the bottom button is the SNES B. The keyboard: arrows or WASD, Space or Z
    (B), X (A), C (Y), V (X), Q and E (L and R), Enter (Start), Tab (Select).
    Hold L2 and R2 (keyboard: Q and E) for half a second to open the emulator menu (resume, reset, FPS, scale, back to the list).
-   Scale in the menu: "sharp" (default), "GPU 2x (540p)", "GPU 3x (720p)", "fit 4:3". The GPU modes ask for a bigger screen (`screen(960, 540)` or
+   Scale in the menu: "sharp" (default), "native 256x256", "GPU 2x (540p)", "GPU 3x (720p)", "fit 4:3". "native" asks for `screen(256, 256)` (the 8th mode of the Pi; the console
+   puts a square screen in the middle of a 480x270 one): the picture is 1x in a 256x256 page, and a 1080p TV shows it 4x at whole pixels (1024 x 896), with no GPU work. Pi One: 59-60 updates a second
+   and a picture every frame (the controller reaches 1/1); on a 720p TV the 480x270 page is 2.67x, not whole. The GPU modes ask for a bigger screen (`screen(960, 540)` or
    `screen(1280, 720)`), copy the picture into the sprite sheet (`snes_to_sheet`) and draw it with `sspr` at zoom 2 or 3, after a tiny 3D triangle that opens the GPU's
    job (the 2D that follows is drawn by the GPU: `gpu3d_2d`). 960x540 shows at whole pixels on a 1080p TV (each pixel of the game is 4 x 4 pixels of the TV), 1280x720 on a 720p
    TV; a console that cannot give the size keeps the mode it had (the RGB30 has other sizes).

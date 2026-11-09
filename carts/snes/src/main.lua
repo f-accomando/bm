@@ -121,7 +121,7 @@ local function open_rom(d)
 end
 
 local dx, dy, dw, dh = 0, 0, SW, SH            -- where and how big the picture is on the screen
--- "sharp": a whole-number scale (1x on a 360-line screen), all pixels the same size; "fit": 4:3 on the whole screen; "gpu2" and "gpu3": the screen is 960x540 (a 1080p TV
+-- "native": the screen is 256x256 (the console centres it in a 480x270 screen: 4x on a 1080p TV); "sharp": a whole-number scale (1x on a 360-line screen), all pixels the same size; "fit": 4:3 on the whole screen; "gpu2" and "gpu3": the screen is 960x540 (a 1080p TV
 -- shows it at whole pixels) or 1280x720 (a 720p TV), and the GPU draws the picture 2 or 3 times bigger (snes_to_sheet and sspr)
 local mode = "sharp"
 local START_MODE = "sharp"                       -- a test build starts in another mode
@@ -159,15 +159,16 @@ local function layout(lines)
   dx, dy = (SCREEN_W - dw) // 2, (SCREEN_H - dh) // 2
 end
 
-local MODE_LABEL = { sharp = "Scale: sharp", gpu2 = "Scale: GPU 2x (540p)", gpu3 = "Scale: GPU 3x (720p)", fit = "Scale: fit 4:3" }
+local MODE_LABEL = { sharp = "Scale: sharp", native = "Scale: native 256x256", gpu2 = "Scale: GPU 2x (540p)", gpu3 = "Scale: GPU 3x (720p)", fit = "Scale: fit 4:3" }
 function mode_label() return MODE_LABEL[mode] end
 
 -- Changes the scale mode. The GPU modes ask for a bigger screen (screen() takes effect at the next frame); a console that cannot give it keeps the mode it had.
 function set_mode(m)
   local ok = true
-  if m == "gpu2" then ok = screen(960, 540)
+  if m == "native" then ok = screen(256, 256)   -- the console puts it in the middle of a 480x270 screen: 4x at whole pixels on a 1080p TV
+  elseif m == "gpu2" then ok = screen(960, 540)
   elseif m == "gpu3" then ok = screen(1280, 720)
-  elseif screen and SCREEN_W ~= 640 and (mode == "gpu2" or mode == "gpu3") then screen(640, 360) end
+  elseif screen and SCREEN_W ~= 640 and (mode == "gpu2" or mode == "gpu3" or mode == "native") then screen(640, 360) end
   if not ok then return false end
   mode = m
   layout(cur_lines)
@@ -175,7 +176,7 @@ function set_mode(m)
 end
 
 function next_mode()
-  local order = { "sharp", "gpu2", "gpu3", "fit" }
+  local order = { "sharp", "native", "gpu2", "gpu3", "fit" }
   local i = 1
   for k = 1, #order do if order[k] == mode then i = k end end
   for step = 1, #order do
