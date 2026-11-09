@@ -1,0 +1,88 @@
+-- A collision map for a game seen from above (the generic form of yblocked.bmt, which has the numbers of Yharnam in it).
+-- The map is mw x mh chunks of ctiles x ctiles tiles of `tile` pixels. Chunk number ci = cy * mw + cx + 1.
+--   solid    ctiles * ctiles values for each chunk, row by row (1 solid, 0 free)
+--   ready    1 if the chunk is in the arrays, 0 if it is not
+--   colx, coly, colrx, colry, coloff   the obstacles (ellipses): maxcols slots for each chunk, slot (ci - 1) * maxcols + j
+--   ccount   the obstacles of each chunk
+-- A body is a box: its four corners are (x + fx0, y + fy0) ... (x + fx1, y + fy1). Obstacles of the chunk and of the
+-- neighbours within `margin` pixels of the body are tested, an ellipse grown by padx and pady.
+-- The functions give 1 (blocked), 0 (free), or -1 (a chunk they need is not in the arrays).
+
+function cm_solid(x: f64, y: f64, solid: i32[], ready: i32[], tile: i32, ctiles: i32, mw: i32, mh: i32): i32
+  local tx = floor(x) // tile
+  local ty = floor(y) // tile
+  local cx = tx // ctiles
+  local cy = ty // ctiles
+  if cx < 0 or cx >= mw or cy < 0 or cy >= mh then
+    return 1
+  end
+  local ci = cy * mw + cx + 1
+  if ready[ci] == 0 then
+    return -1
+  end
+  return solid[(ci - 1) * ctiles * ctiles + (ty - cy * ctiles) * ctiles + (tx - cx * ctiles) + 1]
+end
+
+function cm_blocked(x: f64, y: f64, solid: i32[], ready: i32[], colx: f64[], coly: f64[], colrx: f64[], colry: f64[],
+                    coloff: i32[], ccount: i32[], tile: i32, ctiles: i32, mw: i32, mh: i32, maxcols: i32,
+                    fx0: f64, fy0: f64, fx1: f64, fy1: f64, margin: f64, padx: f64, pady: f64): i32
+  local s = cm_solid(x + fx0, y + fy0, solid, ready, tile, ctiles, mw, mh)
+  if s ~= 0 then
+    return s
+  end
+  s = cm_solid(x + fx1, y + fy0, solid, ready, tile, ctiles, mw, mh)
+  if s ~= 0 then
+    return s
+  end
+  s = cm_solid(x + fx0, y + fy1, solid, ready, tile, ctiles, mw, mh)
+  if s ~= 0 then
+    return s
+  end
+  s = cm_solid(x + fx1, y + fy1, solid, ready, tile, ctiles, mw, mh)
+  if s ~= 0 then
+    return s
+  end
+  local cpx = ctiles * tile
+  local pcx = floor(x) // cpx
+  local pcy = floor(y) // cpx
+  local fx = x - pcx * cpx
+  local fy = y - pcy * cpx
+  local cy0 = pcy
+  if fy < margin then
+    cy0 = pcy - 1
+  end
+  local cy1 = pcy
+  if fy > cpx - margin then
+    cy1 = pcy + 1
+  end
+  local cx0 = pcx
+  if fx < margin then
+    cx0 = pcx - 1
+  end
+  local cx1 = pcx
+  if fx > cpx - margin then
+    cx1 = pcx + 1
+  end
+  for cy = cy0, cy1 do
+    for cx = cx0, cx1 do
+      if cx >= 0 and cx < mw and cy >= 0 and cy < mh then
+        local ci = cy * mw + cx + 1
+        if ready[ci] == 0 then
+          return -1
+        end
+        for j = 1, ccount[ci] do
+          local k = (ci - 1) * maxcols + j
+          local dx = x - colx[k]
+          if dx < margin and dx > -margin and coloff[k] == 0 then
+            dx = dx / (colrx[k] + padx)
+            local dy = (y - coly[k]) / (colry[k] + pady)
+            if dx * dx + dy * dy < 1 then
+              return 1
+            end
+          end
+        end
+      end
+    end
+  end
+  return 0
+end

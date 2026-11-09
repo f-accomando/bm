@@ -1,0 +1,10 @@
+name: Typed Bench VM
+desc: blocked of Yharnam in Lua, in the C of the kernel and on the bmvm machine, on the Pi (test only).
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: test
+type: game
+resolution: 640x360
+targets: pi,rgb30
+input: keyboard,pad

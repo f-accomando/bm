@@ -360,6 +360,154 @@ if not os.path.exists(gen) or open(gen, newline="").read().replace("\r\n", "\n")
     failed += 1
 else:
     print("typed: the C in the kernel (typed_yblocked_gen.h) is the one bmt.py makes from the source")
-total = len(BAD) + 8          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames, blocked
+# ---------------------------------------------------------------- 7. blocked of Yharnam on the bmvm machine (bmtvm.py)
+import bmtvm  # noqa: E402
+
+vm_blob = os.path.join(BUILD, "yblocked.bmv")
+if bmtvm.main([os.path.join(HERE, "yblocked.bmt"), "--out", vm_blob]) != 0:
+    sys.exit(1)
+VM_MAIN = r'''
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include "bmvm.h"
+'''
+vm_c = (VM_MAIN + "".join([
+    carr("solid", "int32_t", SOLID, "%d"), carr("ready", "int32_t", READY, "%d"),
+    carr("colx", "double", COLS["x"], "%.17g"), carr("coly", "double", COLS["y"], "%.17g"),
+    carr("colrx", "double", COLS["rx"], "%.17g"), carr("colry", "double", COLS["ry"], "%.17g"),
+    carr("coloff", "int32_t", COFF, "%d"), carr("ccount", "int32_t", CNT, "%d"),
+    carr("px", "double", [p[0] for p in POINTS], "%.17g"), carr("py", "double", [p[1] for p in POINTS], "%.17g")]) + r'''
+int main(int argc, char **argv)
+{
+    FILE *f = fopen(argv[1], "rb");
+    static uint8_t blob[1 << 20];
+    size_t n = fread(blob, 1, sizeof blob, f);
+    fclose(f);
+    bmvm_mod *m;
+    const char *why = "";
+    if (bmvm_load(&m, blob, n, &why)) { fprintf(stderr, "load: %s\n", why); return 1; }
+    int fn = bmvm_find(m, "blocked");
+    bmvm_arr arrs[8] = {
+        { solid, sizeof solid / 4, 0 }, { ready, sizeof ready / 4, 0 }, { colx, sizeof colx / 8, 1 }, { coly, sizeof coly / 8, 1 },
+        { colrx, sizeof colrx / 8, 1 }, { colry, sizeof colry / 8, 1 }, { coloff, sizeof coloff / 4, 0 }, { ccount, sizeof ccount / 4, 0 } };
+    int reps = argc > 2 ? atoi(argv[2]) : 1;
+    long sum = 0;
+    clock_t t0 = clock();
+    for (int r = 0; r < reps; r++)
+        for (size_t i = 0; i < sizeof px / sizeof px[0]; i++) {
+            bmvm_val args[10], ret;
+            args[0].d = px[i]; args[1].d = py[i];
+            for (int h = 0; h < 8; h++) args[2 + h].i = h;
+            int e = bmvm_call(m, fn, args, 10, arrs, 8, &ret, 1000000);
+            if (e) { fprintf(stderr, "error %d at point %zu\n", e, i); return 1; }
+            if (r == 0 && argc <= 2) printf("%d\n", ret.i);
+            sum += ret.i;
+        }
+    if (argc > 2) fprintf(stderr, "time %.4f us per call (checksum %ld)\n", (double)(clock() - t0) / CLOCKS_PER_SEC * 1e6 / ((double)reps * (sizeof px / sizeof px[0])), sum);
+    bmvm_free(m);
+    return 0;
+}
+''')
+open(os.path.join(BUILD, "vm_main.c"), "w").write(vm_c)
+subprocess.run(["gcc", "-O2", "-Wall", "-Wextra", "-I", os.path.join(ROOT, "src", "bm"), "-o", os.path.join(BUILD, "vm_c"),
+                os.path.join(BUILD, "vm_main.c"), os.path.join(ROOT, "src", "bm", "bmvm.c"), "-lm"], check=True)
+vo, _ = run([os.path.join(BUILD, "vm_c"), vm_blob])
+if vo != yl:
+    a, b = vo.splitlines(), yl.splitlines()
+    bad = next((i for i in range(min(len(a), len(b))) if a[i] != b[i]), None)
+    print("typed: FAIL the bmvm machine differs at point %s: VM '%s' Lua '%s'" % (
+        bad, a[bad] if bad is not None else "?", b[bad] if bad is not None else "?"))
+    failed += 1
+else:
+    print("typed: blocked of Yharnam on the bmvm machine (bmtvm.py): %d points, the same as the Lua and the C" % len(vo.split()))
+_, vm_err = run([os.path.join(BUILD, "vm_c"), vm_blob, "20"])
+_, c_err2 = run([os.path.join(BUILD, "yb_c")])
+print("typed: bmvm %s (a PC, x86)" % vm_err.strip())
+# ---------------------------------------------------------------- 8. the collision map in general (collmap.bmt), two geometries
+cm_lua, cm_c = os.path.join(BUILD, "collmap.lua"), os.path.join(BUILD, "collmap.c")
+if bmt.main([os.path.join(HERE, "collmap.bmt"), "--lua", cm_lua, "--c", cm_c]) != 0:
+    sys.exit(1)
+gen2 = os.path.join(ROOT, "src", "bm", "typed_collmap_gen.h")
+if not os.path.exists(gen2) or open(gen2, newline="").read().replace("\r\n", "\n") != open(cm_c).read():
+    print("typed: FAIL src/bm/typed_collmap_gen.h is not what bmt.py makes from tests/typed/collmap.bmt")
+    failed += 1
+GEOMS = [
+    # name, map w, h, chunk tiles, tile px, max obstacles, foot x0 y0 x1 y1, margin, pad x y, (world: the same as Yharnam's)
+    ("Yharnam", 8, 8, 16, 16, 96, -6.0, -3.0, 6.0, 2.0, 48.0, 5.0, 3.0),
+    ("other", 5, 3, 8, 10, 40, -4.0, -4.0, 4.0, 4.0, 25.0, 2.0, 2.0),
+]
+cm_total, cm_fail = 0, 0
+for gi, (gname, mw, mh, ct, tile, mc, fx0, fy0, fx1, fy1, mg, pdx, pdy) in enumerate(GEOMS):
+    g = random.Random(11 + gi)
+    nch = mw * mh
+    if gi == 0:
+        sol, rdy, cnt, coff = SOLID, READY, CNT, COFF           # the world of the section 6: the answers are known
+        cx_, cy_, crx_, cry_ = COLS["x"], COLS["y"], COLS["rx"], COLS["ry"]
+        pts = POINTS
+    else:
+        sol = [1 if g.random() < 0.25 else 0 for _ in range(nch * ct * ct)]
+        rdy = [0 if g.random() < 0.1 else 1 for _ in range(nch)]
+        cnt = [g.randint(0, 12) for _ in range(nch)]
+        cx_, cy_, crx_, cry_, coff = [0.0] * (nch * mc), [0.0] * (nch * mc), [0.0] * (nch * mc), [0.0] * (nch * mc), [0] * (nch * mc)
+        for ci in range(nch):
+            for j in range(cnt[ci]):
+                k = ci * mc + j
+                cx_[k] = (ci % mw) * ct * tile + g.random() * ct * tile
+                cy_[k] = (ci // mw) * ct * tile + g.random() * ct * tile
+                crx_[k], cry_[k] = 3 + g.random() * 8, 2 + g.random() * 6
+                coff[k] = 1 if g.random() < 0.2 else 0
+        pts = [(g.uniform(-30, mw * ct * tile + 30), g.uniform(-30, mh * ct * tile + 30)) for _ in range(20000)]
+    params = (tile, ct, mw, mh, mc)
+    geo = (fx0, fy0, fx1, fy1, mg, pdx, pdy)
+    cs = ('#include <stdio.h>\n#include "collmap.c"\n' + carr("solid", "int32_t", sol, "%d") + carr("ready", "int32_t", rdy, "%d")
+          + carr("colx", "double", cx_, "%.17g") + carr("coly", "double", cy_, "%.17g")
+          + carr("colrx", "double", crx_, "%.17g") + carr("colry", "double", cry_, "%.17g")
+          + carr("coloff", "int32_t", coff, "%d") + carr("ccount", "int32_t", cnt, "%d")
+          + carr("px", "double", [p[0] for p in pts], "%.17g") + carr("py", "double", [p[1] for p in pts], "%.17g")
+          + "int main(void)\n{\n    for (int i = 0; i < %d; i++)\n        printf(\"%%d\\n\", bmt_cm_blocked(px[i], py[i], solid, ready, "
+            "colx, coly, colrx, colry, coloff, ccount, %d, %d, %d, %d, %d, %s));\n    return 0;\n}\n"
+          % (len(pts), params[0], params[1], params[2], params[3], params[4], ", ".join(repr(v) for v in geo)))
+    open(os.path.join(BUILD, "cm_main.c"), "w").write(cs)
+    ls = ("floor, min, max, sqrt, abs = math.floor, math.min, math.max, math.sqrt, math.abs\ndofile(arg[1])\n"
+          + larr("solid", sol, "%d") + larr("ready", rdy, "%d") + larr("colx", cx_, "%.17g") + larr("coly", cy_, "%.17g")
+          + larr("colrx", crx_, "%.17g") + larr("colry", cry_, "%.17g") + larr("coloff", coff, "%d") + larr("ccount", cnt, "%d")
+          + larr("px", [p[0] for p in pts], "%.17g") + larr("py", [p[1] for p in pts], "%.17g")
+          + "for i = 1, #px do print(cm_blocked(px[i], py[i], solid, ready, colx, coly, colrx, colry, coloff, ccount, %d, %d, %d, %d, %d, %s)) end\n"
+          % (params[0], params[1], params[2], params[3], params[4], ", ".join(repr(v) for v in geo)))
+    open(os.path.join(BUILD, "cm_main.lua"), "w").write(ls)
+    subprocess.run(["gcc", "-O2", "-ffp-contract=off", "-Wall", "-Wextra", "-I", BUILD, "-o", os.path.join(BUILD, "cm_c"),
+                    os.path.join(BUILD, "cm_main.c"), "-lm"], check=True)
+    cc, _ = run([os.path.join(BUILD, "cm_c")])
+    cl, _ = run([LUAHOST, os.path.join(BUILD, "cm_main.lua"), cm_lua])
+    cm_total += 1
+    same_cl = cc == cl
+    same_known = (cc == yl) if gi == 0 else True            # the Yharnam geometry gives what the specific function gave
+    if not (same_cl and same_known):
+        a, b = cc.splitlines(), (cl if not same_cl else yl).splitlines()
+        bad = next((i for i in range(min(len(a), len(b))) if a[i] != b[i]), None)
+        print("typed: FAIL collmap %s differs at point %s (C '%s', %s '%s')" % (
+            gname, bad, a[bad] if bad is not None else "?", "Lua" if not same_cl else "the specific blocked", b[bad] if bad is not None else "?"))
+        cm_fail += 1
+    else:
+        v = [int(t) for t in cc.split()]
+        print("typed: collmap, geometry %s (%dx%d chunks of %dx%d tiles of %d px): %d points, the same in C and in Lua%s (%d blocked, %d free, %d chunk missing)" % (
+            gname, mw, mh, ct, ct, tile, len(v), " and as the specific blocked of Yharnam" if gi == 0 else "", v.count(1), v.count(0), v.count(-1)))
+failed += 1 if cm_fail else 0
+# ---------------------------------------------------------------- 9. the bmvm machine against changed blobs (a fuzz)
+fz = os.path.join(BUILD, "vmfuzz")
+san = ["-fsanitize=address,undefined", "-fno-sanitize-recover=all"]
+cmd = ["gcc", "-std=gnu11", "-O1", "-g", "-I", os.path.join(ROOT, "src", "bm"), "-o", fz, os.path.join(HERE, "vmfuzz.c"),
+       os.path.join(ROOT, "src", "bm", "bmvm.c"), "-lm"]
+if subprocess.run(cmd + san, capture_output=True).returncode:          # a gcc without the sanitizers: the run still looks for a crash
+    subprocess.run(cmd, check=True)
+    san = []
+fo, _ = run([fz, vm_blob, "200000"])
+if "no crash" not in fo:
+    print("typed: FAIL the fuzz of the bmvm machine: %s" % fo.strip())
+    failed += 1
+else:
+    print("typed: %s%s" % (fo.strip(), " (address and undefined-behaviour sanitizers)" if san else ""))
+total = len(BAD) + 12          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames, blocked
 print("typed: %d/%d checks passed" % (total - failed, total) if not failed else "typed: FAILED, %d of %d checks" % (failed, total))
 sys.exit(1 if failed else 0)

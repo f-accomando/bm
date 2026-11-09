@@ -70,6 +70,22 @@ The gain is 6.7% in fps and 1.1 ms a frame. The 13 times of the micro test becom
 
 **A negative result: the cull of `draw_scene` in C** (8 Nov 2026). The loop that picks the visible scenery objects of the near chunks was made in the typed subset (data of the objects copied to C, the same order, 0 differences in the game) and run on the Pi: 53.1 fps against 53.5 with `blocked` alone, and `draw_scene` kept its 3.8 ms of its own time. The code was dropped. The Lua line profile of Yharnam on a PC (60 s of autoplay, 88726 samples) shows why: `draw_scene` is 44.7% of the samples and they are spread: the comparator `by_depth` of `table.sort` 7.3%, the cull loop about 8%, the tile loop of the buildings 5.6%, the `sspr` line of the objects 3.9%, the flames 4.7%. No one function of `draw_scene` is worth a port. A gain needs the whole draw of the objects in C (the objects, the order and the calls to `spr` and `sspr` together), which is a larger change of the data of the game.
 
+**Four ways to run `blocked` of Yharnam, on the Pi Zero W** (9 Nov 2026, `tests/typed/pi_vm`, the same data, 20000 calls, the same checksum in all four). **Pi.** The question was how to avoid an API in the kernel for each game.
+
+| Way | Time of a call | Against Lua | What it needs |
+|---|---|---|---|
+| Lua, the arrays are tables | 29.4 us | 1 | nothing |
+| C of the kernel, made for Yharnam (`typed_yblocked`) | 3.8 us | 7.7 | a change of the kernel for each game |
+| C of the kernel, general (`collmap`) | 5.1 us | 5.7 | the geometry as parameters; one function for every game seen from above |
+| bmvm machine (`vm_run`) | 14.9 us | 2.0 | nothing in the kernel for a new game: the code is data in the cartridge |
+
+The cost of a call that does nothing is 3.1 us on the machine (6.0 us of the 7.6 us before `vm_bind`), so the machine itself is 11.8 us for 191 instructions: about 60 cycles an instruction on the ARM1176 (no branch prediction for an indirect jump, a floating-point unit that does not overlap). A second pass of the compiler (constants in registers, jumps that compare, a local written in its own register) took the machine from 26.1 to 14.9 us.
+
+- **General C.** It costs 1.3 us more than the C made for Yharnam (22 parameters instead of 10, and the data behind a pointer). It is tested on two geometries (`make test-typed`: the 8 x 8 chunks of Yharnam, whose answers equal the specific function, and a 5 x 3 map of other numbers). One function serves every game with tiles in chunks and ellipse obstacles. It does not serve a game with another shape of collision.
+- **Machine.** It is safe by construction (the checks above), it needs no kernel change per game and it keeps one cartridge type. The gain is 2 times, not 8. On Yharnam that is about 0.5 ms of the 17 ms frame. It supports `i32` and `f64` arrays only, and computes `f32` as `f64`. A cartridge needs a kernel that has it (`if vm_load then`, and the Lua as the fallback).
+- **Safety of the machine.** `tests/typed/vmfuzz.c` changes the blob at random (bits, bytes, a short blob) and loads and runs what loads, with the address and undefined-behaviour sanitizers (`make test-typed`: 200000 blobs; 1000000 by hand: 266858 loaded, 533716 functions run, no crash). It found a real fault in the first version: a conditional jump that goes backward does not use the budget, so a changed blob could loop for ever and stop the console. The loader now refuses it (only `JMP` and `FORI` go back, and they use the budget). A machine in the kernel that runs code of a cartridge needs a longer audit than this fuzz (one blob, changes only) before it ships.
+- **Size in the kernel:** the machine, its Lua glue and the collision map add 12.5 KB to the kernel image (2763508 to 2776068 bytes); the data of Yharnam's `typed_y*` (285 KB of memory) is the one that grows with the games.
+
 **Dark Night** (the key script, 3650 frames): 5.252 ms a frame before the fixes, worst 12.264 ms. 80,608 samples.
 
 | Share | Function | Cause |

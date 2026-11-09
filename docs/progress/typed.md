@@ -49,6 +49,8 @@ Clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on (`3d=gpu`). Reports in the bran
 - Yharnam, autoplay, 7199 frames: 49.7 fps, 17.2 ms a frame. The Lua is a large part: `draw_scene` 3.9 ms (13.4 with its calls), `fdiv` 2.2, `blocked` 1.1 (3.2). `update_parts` is not in the first ten rows.
 - Dark Night, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame. The Lua functions are 0.25 to 0.65 ms each.
 - Result: road B has a case in Yharnam (small functions called thousands of times) and none in Dark Night. The 16 to 22 times of `update_parts` on a PC says little: that function is not the cost.
+- The machine is fuzzed (`tests/typed/vmfuzz.c`): the first version had a loop without the budget (a conditional jump backward); the loader now refuses it.
+- Two ways without an API for each game, measured on the Pi (design document, section 3): `collmap` (the general C: 5.1 us against 29.4 us of Lua, 1.3 us more than the C made for Yharnam) and the `bmvm` machine (14.9 us, 2 times the Lua, data in the cartridge, safe by construction).
 - Yharnam with `blocked` in C (`yharnam_typed`, default on; the C is made by `bmt.py` since 8 Nov 2026): 53.9 fps against 50.5 with the Lua, 0 differences in 80000 calls. Frame 16.8 to 15.6 ms.
 - Typed C against Lua on the Pi (`tests/typed/pi_bench`, `src/bm/api_typed.c`): `blocked` 13.3 times, 29.5 times with the loop in C; `solid_at` 4.5 times; `fdiv` 1.7 times. A call from Lua to C costs about 1 us. Same results as Lua.
 
