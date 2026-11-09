@@ -543,6 +543,27 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
             continue;
         }
 
+        /* 5c. Halfword Transfer: LDRH / STRH Rd, [Rn, #+/-imm8] (bits 27..25 == 0b000, bits 7..4 == 0b1011) */
+        if ((w & 0x0E0000F0u) == 0x000000B0u) {
+            const int is_ldr = (int)((w >> 20) & 1u);
+            const int u_bit  = (int)((w >> 23) & 1u);
+            const uint32_t rn = (w >> 16) & 0xFu;
+            const uint32_t rd = (w >> 12) & 0xFu;
+            const uint32_t imm8 = ((w >> 4) & 0xF0u) | (w & 0x0Fu);
+            const uint32_t base = (rn == 15u) ? (curr_pc + 8u) : r[rn];
+            const uint32_t addr = u_bit ? (base + imm8) : (base - imm8);
+            const uint32_t m_off = addr & 0xFFFFu;
+            if (is_ldr) {
+                uint32_t val = (uint32_t)g_sim_ram[m_off] |
+                               ((uint32_t)g_sim_ram[(m_off + 1) & 0xFFFFu] << 8);
+                r[rd] = val;
+            } else {
+                g_sim_ram[m_off] = (uint8_t)(r[rd] & 0xFFu);
+                g_sim_ram[(m_off + 1) & 0xFFFFu] = (uint8_t)((r[rd] >> 8) & 0xFFu);
+            }
+            continue;
+        }
+
         /* 5b. VFPv2 single-precision coprocessor 10 instructions (top4 == 0xE, cp == 10) */
         if (((w >> 24) & 0xFu) == 0xEu && ((w >> 8) & 0xFu) == 10u) {
             const uint32_t op_mask = w & 0x0FFFFFFFu;

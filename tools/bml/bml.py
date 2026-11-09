@@ -76,6 +76,8 @@ BUILTINS = {
     "print": (["string"], "i32"),
     "peek": (["i32"], "i32"),
     "poke": (["i32", "i32"], None),
+    "peek2": (["i32"], "i32"),
+    "poke2": (["i32", "i32"], None),
     "peek4": (["i32"], "i32"),
     "poke4": (["i32", "i32"], None),
     "memcpy": (["i32", "i32", "i32"], None),
@@ -1331,6 +1333,8 @@ OPCODES = (
     "ASETF",        # pops val, idx, arr; sets arr[idx] = val (f32, 1-based)
     "PEEK",         # pops addr; pushes unsigned byte (i32)
     "POKE",         # pops val, addr; writes byte
+    "PEEK2",        # pops addr; pushes unsigned 16-bit halfword (i32)
+    "POKE2",        # pops val, addr; writes 16-bit halfword
     "PEEK4",        # pops addr; pushes 32-bit word (i32)
     "POKE4",        # pops val, addr; writes word
     "MEMCPY",       # pops bytes, src, dst; copies memory
@@ -1731,6 +1735,12 @@ class BytecodeCompiler:
         if call.callee == "poke":
             self.emit("POKE")
             return
+        if call.callee == "peek2":
+            self.emit("PEEK2")
+            return
+        if call.callee == "poke2":
+            self.emit("POKE2")
+            return
         if call.callee == "peek4":
             self.emit("PEEK4")
             return
@@ -2100,6 +2110,14 @@ class StackVM:
                 val = int(stack.pop()) & 0xFF
                 addr = int(stack.pop()) & 0xFFFF
                 self.memory[addr] = val
+            elif op == "PEEK2":
+                addr = int(stack.pop()) & 0xFFFF
+                val = struct.unpack("<H", self.memory[addr:addr+2])[0]
+                stack.append(val)
+            elif op == "POKE2":
+                val = int(stack.pop()) & 0xFFFF
+                addr = int(stack.pop()) & 0xFFFF
+                self.memory[addr:addr+2] = struct.pack("<H", val)
             elif op == "PEEK4":
                 addr = int(stack.pop()) & 0xFFFF
                 val = struct.unpack("<i", self.memory[addr:addr+4])[0]
@@ -2230,7 +2248,7 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             reach(pc + 1, sp + 1)
         elif op in ("STORE", "POP"):
             reach(pc + 1, sp - 1)
-        elif op in ("NEG", "NOT", "BNOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR", "PEEK", "PEEK4"):
+        elif op in ("NEG", "NOT", "BNOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR", "PEEK", "PEEK2", "PEEK4"):
             reach(pc + 1, sp)
         elif op in (
             "ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "BOR", "BXOR", "SHL", "SHR",
@@ -2239,7 +2257,7 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             "AGET", "AGETF",
         ):
             reach(pc + 1, sp - 1)
-        elif op in ("POKE", "POKE4"):
+        elif op in ("POKE", "POKE2", "POKE4"):
             reach(pc + 1, sp - 2)
         elif op in ("ASET", "ASETF", "MEMCPY", "MEMSET"):
             reach(pc + 1, sp - 3)
