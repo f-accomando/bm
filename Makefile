@@ -275,6 +275,14 @@ $(BUILD)/host/snes_cpu_golden: tests/snes/cpu_golden.c $(SNES_PPU_SRCS) src/bm/s
 	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/cpu_golden.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
 test-snes-cpu: $(BUILD)/host/snes_cpu_golden
 	$<
+# The S-DSP on random voices, against the hashes of the code before the speed work (tests/snes/dsp_golden.c).
+$(BUILD)/host/snes_dsp_golden: tests/snes/dsp_golden.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/dsp_golden.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+test-snes-dsp: $(BUILD)/host/snes_dsp_golden
+	$<
+bench-snes-dsp: $(BUILD)/host/snes_dsp_golden
+	$< bench
 
 # Island Bench (carts/islandbench): the island of the map kit assets/island.bmk (map, models, sprites) with the
 # benchmark code in main.lua. The .bme is the source, the .bm the cartridge; the kit is merged in by bmres.py.

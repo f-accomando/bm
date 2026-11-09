@@ -160,9 +160,25 @@ static int16_t next_sample(voice_t *v, int i)
     return v->blk[v->pos++];
 }
 
-static int fire(int rate)
+/* Does the envelope step at this value of the clock? For each of the 0x7800 values of `counter`, one bit for each rate: the rate fires when
+ * (counter + rate_off) is a multiple of its period. A table, because the ARM1176 has no divide: the modulo took a library call for every voice at every sample. */
+#define COUNTER_N 0x7800
+static uint32_t fire_tab[COUNTER_N];
+static int fire_ready;
+static void fire_init(void)
 {
-    return rate && ((counter + rate_off[rate]) % rate_period[rate]) == 0;
+    for (int c = 0; c < COUNTER_N; c++) {
+        uint32_t m = 0;
+        for (int r = 1; r < 32; r++)
+            if (((c + rate_off[r]) % rate_period[r]) == 0) m |= 1u << r;
+        fire_tab[c] = m;
+    }
+    fire_ready = 1;
+}
+
+static inline int fire(int rate)
+{
+    return rate && ((fire_tab[counter] >> rate) & 1);
 }
 
 static void envelope(voice_t *v, const uint8_t *r, int koff)
@@ -233,6 +249,7 @@ void dsp_reset(void)
 
 void dsp_tick(void)
 {
+    if (!fire_ready) fire_init();
     uint8_t *d = spc_dsp_ptr();
     const uint8_t flg = d[0x6C];
     const int kon = kon_latch;
@@ -264,12 +281,14 @@ void dsp_tick(void)
         if (d[0x3D] & (1 << i)) {
             s = (int16_t)(noise << 1);
         } else {
-            /* a cubic between hist[1] and hist[2] */
-            const float t = (float)v->frac * (1.0f / 4096.0f);
-            const float s0 = v->hist[0], s1 = v->hist[1], s2 = v->hist[2], s3 = v->hist[3];
-            const float c3 = 3.0f * (s1 - s2) + s3 - s0, c2 = 2.0f * s0 - 5.0f * s1 + 4.0f * s2 - s3;
-            const float f = s1 + 0.5f * t * (s2 - s0 + t * (c2 + t * c3));
-            s = (int)f;
+            /* a cubic between hist[1] and hist[2]: f = s1 + t/2 * (s2 - s0 + t * (c2 + t * c3)), t = frac / 4096, in 64-bit integers (the ARM1176
+             * has a slow floating point unit). The same value as the float formula, cut towards zero. */
+            const int s0 = v->hist[0], s1 = v->hist[1], s2 = v->hist[2], s3 = v->hist[3];
+            const int c3 = 3 * (s1 - s2) + s3 - s0, c2 = 2 * s0 - 5 * s1 + 4 * s2 - s3;
+            const int64_t T = v->frac;
+            const int64_t U = (int64_t)c2 * 4096 + T * c3;                    /* (c2 + t * c3) * 2^12 */
+            const int64_t V12 = ((int64_t)(s2 - s0) << 12) + ((T * U) >> 12);  /* (s2 - s0 + t * (...)) * 2^12 */
+            s = (int)((((int64_t)s1 << 25) + T * V12) / 33554432);            /* / 2^25: t / 2 * (...) with t = T / 2^12 */
             s = clamp16(s);
         }
         s = (s * v->env) >> 11;
