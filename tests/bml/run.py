@@ -1502,10 +1502,368 @@ void _start(void)
     if qemu_s7_out != lua_s7_out:
         fail(f"Stage 7 ARM1176 QEMU kernel function table output differs: {qemu_s7_out} vs {lua_s7_out}")
 
+# ---------------------------------------------------------------- 10. Stage 8: Dark Night enemy movement & separation (darknight_enemy.b)
+dn_path = os.path.join(HERE, "darknight_enemy.b")
+with open(dn_path, encoding="utf-8") as f:
+    dn_src = f.read()
+
+dn_mod = bml.compile_source(dn_src)
+dn_vm = bml.StackVM(dn_mod)
+dn_bmv_path = os.path.join(BUILD, "darknight_enemy.bmv")
+dn_bmn_path = os.path.join(BUILD, "darknight_enemy.bmn")
+dn_bmn_bytes = bml.compile_native_blob(dn_src)
+open(dn_bmv_path, "wb").write(bml.compile_bmvm(dn_src))
+open(dn_bmn_path, "wb").write(dn_bmn_bytes)
+
+# Initial scene of 17 enemies with exact binary32 coordinates (multiples of 1/64) so f32 and f64 are bit-identical
+DN_N = 17
+DN_FRAMES = 60
+dn_init_x  = [0.5, 0.875, 1.25, 1.5, 2.0, 2.375, 2.75, 3.125, 3.5, 3.875, 4.25, 4.625, 0.75, 1.625, 2.5, 3.375, 4.125]
+dn_init_z  = [0.5, 0.625, 1.125, 1.75, 2.125, 2.25, 2.875, 3.25, 3.625, 3.75, 4.375, 4.5, 0.875, 1.875, 2.625, 3.5, 4.25]
+dn_init_vx = [0.0625, -0.0625, 0.03125, -0.03125, 0.0625, -0.03125, 0.03125, -0.0625, 0.0625, -0.0625, 0.03125, -0.03125, 0.0625, -0.0625, 0.03125, -0.03125, 0.0625]
+dn_init_vz = [0.03125, 0.0625, -0.0625, 0.03125, -0.03125, 0.0625, -0.0625, 0.03125, -0.03125, 0.0625, -0.0625, 0.03125, -0.03125, 0.0625, -0.0625, 0.03125, -0.0625]
+dn_init_alive = [True, True, True, False, True, True, True, True, True, False, True, True, True, True, True, True, True]
+
+# 10a. StackVM simulation of 60 frames + cam_blocked
+sx = list(dn_init_x)
+sz = list(dn_init_z)
+svx = list(dn_init_vx)
+svz = list(dn_init_vz)
+salive = list(dn_init_alive)
+sout = [0] * (DN_N * DN_N)
+scounts = [0] * DN_N
+vm_pairs_total = 0
+vm_hit_sum = 0
+for _ in range(DN_FRAMES):
+    vm_pairs_total += dn_vm.call("move_and_separate", [DN_N, sx, sz, svx, svz, salive, sout, scounts])
+    for e_idx in range(DN_N):
+        for k_idx in range(scounts[e_idx]):
+            vm_hit_sum += sout[e_idx * DN_N + k_idx]
+
+doors_ox = [1.5, 3.0, 4.5]
+doors_oz = [1.5, 3.0, 4.5]
+doors_r  = [0.5, 0.5, 0.5]
+vm_cam1 = dn_vm.call("cam_blocked", [1.6, 1.6, 3, doors_ox, doors_oz, doors_r])
+vm_cam2 = dn_vm.call("cam_blocked", [0.2, 0.2, 3, doors_ox, doors_oz, doors_r])
+vm_s8_out = [
+    str(vm_pairs_total),
+    str(vm_hit_sum),
+    "true" if vm_cam1 else "false",
+    "true" if vm_cam2 else "false",
+    str(int(round(sx[0] * 64))),
+    str(int(round(sz[0] * 64))),
+    str(int(round(sx[16] * 64))),
+    str(int(round(sz[16] * 64))),
+]
+
+# 10b. Plain Lua reference oracle
+s8_lua_ref_path = os.path.join(BUILD, "stage8_ref.lua")
+with open(s8_lua_ref_path, "w", encoding="utf-8") as f:
+    f.write(LUA_PRELUDE)
+    f.write(bml.to_lua(dn_src))
+    f.write(f"""
+local N, FRAMES = {DN_N}, {DN_FRAMES}
+local x = {{{", ".join(str(v) for v in dn_init_x)}}}
+local z = {{{", ".join(str(v) for v in dn_init_z)}}}
+local vx = {{{", ".join(str(v) for v in dn_init_vx)}}}
+local vz = {{{", ".join(str(v) for v in dn_init_vz)}}}
+local alive = {{{", ".join("true" if v else "false" for v in dn_init_alive)}}}
+local out, counts = {{}}, {{}}
+for i = 1, N * N do out[i] = 0 end
+for i = 1, N do counts[i] = 0 end
+
+local pairs_total, hit_sum = 0, 0
+for _ = 1, FRAMES do
+  pairs_total = pairs_total + move_and_separate(N, x, z, vx, vz, alive, out, counts)
+  for e = 1, N do
+    for k = 1, counts[e] do
+      hit_sum = hit_sum + out[(e - 1) * N + k]
+    end
+  end
+end
+
+local ox = {{1.5, 3.0, 4.5}}
+local oz = {{1.5, 3.0, 4.5}}
+local r  = {{0.5, 0.5, 0.5}}
+print(pairs_total)
+print(hit_sum)
+print(tostring(cam_blocked(1.6, 1.6, 3, ox, oz, r)))
+print(tostring(cam_blocked(0.2, 0.2, 3, ox, oz, r)))
+print(math.floor(x[1] * 64 + 0.5))
+print(math.floor(z[1] * 64 + 0.5))
+print(math.floor(x[17] * 64 + 0.5))
+print(math.floor(z[17] * 64 + 0.5))
+""")
+
+lua_s8_out = subprocess.check_output([LUAHOST, s8_lua_ref_path], text=True).strip().splitlines()
+if vm_s8_out != lua_s8_out:
+    fail(f"Stage 8 Dark Night StackVM differs from Lua: {vm_s8_out} vs {lua_s8_out}")
+
+# 10c. Host Lua C API: both bmvm (vm_run with vm_buf) and native (native_run)
+s8_luahost_script = os.path.join(BUILD, "stage8_luahost.lua")
+with open(s8_luahost_script, "w", encoding="utf-8") as f:
+    f.write(f"""\
+local function read_blob(path)
+  local fh = assert(io.open(path, "rb"))
+  local d = fh:read("*a")
+  fh:close()
+  return d
+end
+
+local mv = assert(vm_load(read_blob({dn_bmv_path!r})))
+local mn = assert(native_load(read_blob({dn_bmn_path!r})))
+local fn_nat = assert(native_fn(mn, "move_and_separate"))
+local fn_vm  = assert(vm_fn(mv, "move_and_separate"))
+
+local N, FRAMES = {DN_N}, {DN_FRAMES}
+local x = {{{", ".join(str(v) for v in dn_init_x)}}}
+local z = {{{", ".join(str(v) for v in dn_init_z)}}}
+local vx = {{{", ".join(str(v) for v in dn_init_vx)}}}
+local vz = {{{", ".join(str(v) for v in dn_init_vz)}}}
+local alive = {{{", ".join("true" if v else "false" for v in dn_init_alive)}}}
+local out, counts = {{}}, {{}}
+for i = 1, N * N do out[i] = 0 end
+for i = 1, N do counts[i] = 0 end
+
+local pairs_total, hit_sum = 0, 0
+for _ = 1, FRAMES do
+  pairs_total = pairs_total + native_run(mn, fn_nat, N, x, z, vx, vz, alive, out, counts)
+  for e = 1, N do
+    for k = 1, counts[e] do
+      hit_sum = hit_sum + out[(e - 1) * N + k]
+    end
+  end
+end
+
+-- Also verify bmvm on the exact same 60 frames using vm_buf
+local bx = vm_buf("f64", N); vm_buf_fill(bx, {{{", ".join(str(v) for v in dn_init_x)}}})
+local bz = vm_buf("f64", N); vm_buf_fill(bz, {{{", ".join(str(v) for v in dn_init_z)}}})
+local bvx = vm_buf("f64", N); vm_buf_fill(bvx, {{{", ".join(str(v) for v in dn_init_vx)}}})
+local bvz = vm_buf("f64", N); vm_buf_fill(bvz, {{{", ".join(str(v) for v in dn_init_vz)}}})
+local balive = vm_buf("i32", N); vm_buf_fill(balive, {{{", ".join("true" if v else "false" for v in dn_init_alive)}}})
+local bout = vm_buf("i32", N * N)
+local bcounts = vm_buf("i32", N)
+local vm_pairs = 0
+for _ = 1, FRAMES do
+  vm_pairs = vm_pairs + vm_run(mv, fn_vm, N, bx, bz, bvx, bvz, balive, bout, bcounts)
+end
+assert(vm_pairs == pairs_total, "bmvm vs native_run pairs mismatch")
+
+local ox = {{1.5, 3.0, 4.5}}
+local oz = {{1.5, 3.0, 4.5}}
+local r  = {{0.5, 0.5, 0.5}}
+print(pairs_total)
+print(hit_sum)
+print(tostring(native_run(mn, "cam_blocked", 1.6, 1.6, 3, ox, oz, r)))
+print(tostring(native_run(mn, "cam_blocked", 0.2, 0.2, 3, ox, oz, r)))
+print(math.floor(x[1] * 64 + 0.5))
+print(math.floor(z[1] * 64 + 0.5))
+print(math.floor(x[17] * 64 + 0.5))
+print(math.floor(z[17] * 64 + 0.5))
+""")
+
+s8_luahost_out = subprocess.check_output([native_luahost_bin, s8_luahost_script], text=True).strip().splitlines()
+if s8_luahost_out != lua_s8_out:
+    fail(f"Stage 8 Dark Night native_run/vm_run differs from Lua: {s8_luahost_out} vs {lua_s8_out}")
+
+# 10d. Bare-metal ARM1176 VFPv2 QEMU: 60 frames of Dark Night move_and_separate + cam_blocked
+if arm_gcc and qemu_arm:
+    c_init_x = ", ".join(f"{v}f" for v in dn_init_x)
+    c_init_z = ", ".join(f"{v}f" for v in dn_init_z)
+    c_init_vx = ", ".join(f"{v}f" for v in dn_init_vx)
+    c_init_vz = ", ".join(f"{v}f" for v in dn_init_vz)
+    c_init_alive = ", ".join("1u" if v else "0u" for v in dn_init_alive)
+
+    QEMU_S8_C = f"""\
+#include <stddef.h>
+#include <stdint.h>
+#include "bm/bmnative.h"
+
+#define UART0 ((volatile uint32_t *)0x101F1000u)
+
+static void put_ch(char c) {{ *UART0 = (uint32_t)(uint8_t)c; }}
+static void put_str(const char *s) {{ while (*s) put_ch(*s++); }}
+static void put_bool(int32_t v) {{ put_str(v ? "true\\n" : "false\\n"); }}
+
+static void put_i32(int32_t v)
+{{
+    char buf[16];
+    uint32_t u = (v < 0) ? (0u - (uint32_t)v) : (uint32_t)v;
+    if (v < 0) put_ch('-');
+    int i = 0;
+    if (u == 0) buf[i++] = '0';
+    while (u > 0) {{
+        buf[i++] = (char)('0' + (u % 10u));
+        u /= 10u;
+    }}
+    while (i > 0) put_ch(buf[--i]);
+    put_ch('\\n');
+}}
+
+static uint32_t f2u(float f)
+{{
+    union {{ float f; uint32_t u; }} u;
+    u.f = f;
+    return u.u;
+}}
+
+static float u2f(uint32_t bits)
+{{
+    union {{ uint32_t u; float f; }} u;
+    u.u = bits;
+    return u.f;
+}}
+
+static uint8_t heap_buf[128 * 1024] __attribute__((aligned(32)));
+static size_t heap_off = 0;
+void *calloc(size_t nmemb, size_t size)
+{{
+    size_t total = (nmemb * size + 31u) & ~31u;
+    if (heap_off + total > sizeof(heap_buf)) return NULL;
+    uint8_t *p = &heap_buf[heap_off];
+    heap_off += total;
+    for (size_t i = 0; i < total; i++) p[i] = 0;
+    return p;
+}}
+void free(void *p) {{ (void)p; }}
+void *memcpy(void *dst, const void *src, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    for (size_t i = 0; i < n; i++) d[i] = s[i];
+    return dst;
+}}
+void *memset(void *dst, int c, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    for (size_t i = 0; i < n; i++) d[i] = (uint8_t)c;
+    return dst;
+}}
+int strcmp(const char *a, const char *b)
+{{
+    while (*a && *a == *b) {{ a++; b++; }}
+    return (uint8_t)*a - (uint8_t)*b;
+}}
+
+static const uint8_t blob_dn[] = {{ {fmt_bytes(dn_bmn_bytes)} }};
+
+void c_main(void)
+{{
+    const char *why = "";
+    bmnative_mod *m = NULL;
+    if (bmnative_load(&m, blob_dn, sizeof(blob_dn), &why) != BMN_OK) {{
+        put_str("LOAD_ERR\\n");
+        return;
+    }}
+    const float init_x[{DN_N}]  = {{ {c_init_x} }};
+    const float init_z[{DN_N}]  = {{ {c_init_z} }};
+    const float init_vx[{DN_N}] = {{ {c_init_vx} }};
+    const float init_vz[{DN_N}] = {{ {c_init_vz} }};
+    uint32_t x[{DN_N}], z[{DN_N}], vx[{DN_N}], vz[{DN_N}];
+    uint32_t alive[{DN_N}] = {{ {c_init_alive} }};
+    int32_t out[{DN_N * DN_N}];
+    int32_t counts[{DN_N}];
+
+    for (int i = 0; i < {DN_N}; i++) {{
+        x[i] = f2u(init_x[i]);
+        z[i] = f2u(init_z[i]);
+        vx[i] = f2u(init_vx[i]);
+        vz[i] = f2u(init_vz[i]);
+        counts[i] = 0;
+    }}
+    for (int i = 0; i < {DN_N * DN_N}; i++) out[i] = 0;
+
+    int fn_move = bmnative_find(m, "move_and_separate");
+    int fn_cam  = bmnative_find(m, "cam_blocked");
+    int32_t pairs_total = 0, hit_sum = 0;
+    int32_t a[8] = {{
+        {DN_N},
+        (int32_t)(uintptr_t)x,
+        (int32_t)(uintptr_t)z,
+        (int32_t)(uintptr_t)vx,
+        (int32_t)(uintptr_t)vz,
+        (int32_t)(uintptr_t)alive,
+        (int32_t)(uintptr_t)out,
+        (int32_t)(uintptr_t)counts
+    }};
+    for (int f = 0; f < {DN_FRAMES}; f++) {{
+        int32_t r = 0;
+        bmnative_call(m, fn_move, a, 8, &r);
+        pairs_total += r;
+        for (int e = 0; e < {DN_N}; e++) {{
+            for (int k = 0; k < counts[e]; k++)
+                hit_sum += out[e * {DN_N} + k];
+        }}
+    }}
+
+    uint32_t ox[3] = {{ f2u(1.5f), f2u(3.0f), f2u(4.5f) }};
+    uint32_t oz[3] = {{ f2u(1.5f), f2u(3.0f), f2u(4.5f) }};
+    uint32_t rad[3] = {{ f2u(0.5f), f2u(0.5f), f2u(0.5f) }};
+    int32_t cam1 = 0, cam2 = 0;
+    {{ int32_t ca[6] = {{ (int32_t)f2u(1.6f), (int32_t)f2u(1.6f), 3, (int32_t)(uintptr_t)ox, (int32_t)(uintptr_t)oz, (int32_t)(uintptr_t)rad }}; bmnative_call(m, fn_cam, ca, 6, &cam1); }}
+    {{ int32_t ca[6] = {{ (int32_t)f2u(0.2f), (int32_t)f2u(0.2f), 3, (int32_t)(uintptr_t)ox, (int32_t)(uintptr_t)oz, (int32_t)(uintptr_t)rad }}; bmnative_call(m, fn_cam, ca, 6, &cam2); }}
+
+    put_i32(pairs_total);
+    put_i32(hit_sum);
+    put_bool(cam1);
+    put_bool(cam2);
+    put_i32((int32_t)(u2f(x[0]) * 64.0f + 0.5f));
+    put_i32((int32_t)(u2f(z[0]) * 64.0f + 0.5f));
+    put_i32((int32_t)(u2f(x[16]) * 64.0f + 0.5f));
+    put_i32((int32_t)(u2f(z[16]) * 64.0f + 0.5f));
+}}
+
+__attribute__((naked, section(".text.boot")))
+void _start(void)
+{{
+    __asm__ volatile (
+        "ldr sp, =0x04000000\\n"
+        "mrc p15, 0, r0, c1, c0, 2\\n"
+        "orr r0, r0, #0x00F00000\\n"
+        "mcr p15, 0, r0, c1, c0, 2\\n"
+        "mcr p15, 0, r0, c7, c5, 4\\n"
+        "mov r0, #0x40000000\\n"
+        ".word 0xEEE80A10\\n"
+        "bl c_main\\n"
+        "mov r0, #0x18\\n"
+        "ldr r1, =0x20026\\n"
+        "svc 0x00123456\\n"
+        "1: b 1b\\n"
+    );
+}}
+"""
+    qemu_s8_c = os.path.join(BUILD, "armv6_stage8.c")
+    qemu_s8_elf = os.path.join(BUILD, "armv6_stage8.elf")
+    with open(qemu_s8_c, "w", encoding="utf-8") as f:
+        f.write(QEMU_S8_C)
+
+    subprocess.run(
+        [
+            arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
+            f"-I{os.path.join(ROOT, 'src')}",
+            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            "-T", qemu_ld, "-o", qemu_s8_elf,
+            qemu_s8_c,
+            os.path.join(ROOT, "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "src", "arch", "cache.c"),
+            "-lgcc",
+        ],
+        check=True,
+    )
+    qemu_s8_out = subprocess.check_output(
+        [qemu_arm, "-M", "versatilepb", "-cpu", "arm1176", "-nographic", "-semihosting", "-kernel", qemu_s8_elf],
+        text=True,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    ).replace("\r\n", "\n").strip().splitlines()
+
+    if qemu_s8_out != lua_s8_out:
+        fail(f"Stage 8 Dark Night ARM1176 VFPv2 QEMU output differs: {qemu_s8_out} vs {lua_s8_out}")
+
 if failed:
     sys.exit(1)
 
 print(
-    f"bml: stages 1-7 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
-    f"{len(feat_calls)} feature calls, 200 random programs [1000 calls], Stage 6 types_mem.b, and Stage 7 kernel_fn.b matched Lua across StackVM, C, native_run, and ARM1176 QEMU)"
+    f"bml: stages 1-8 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
+    f"{len(feat_calls)} feature calls, 200 random programs [1000 calls], Stage 6 types_mem.b, Stage 7 kernel_fn.b, and Stage 8 darknight_enemy.b [60 frames, 17 enemies] matched Lua across StackVM, C bmvm, native_run, and ARM1176 VFPv2 QEMU)"
 )
