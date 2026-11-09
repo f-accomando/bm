@@ -665,7 +665,7 @@ static void sc_draw_editor(void)
             int is_cur = (file_line == t->cy);
             if (is_err) {
                 written += snprintf(line_buf + written, sizeof(line_buf) - (size_t)written,
-                                    "\x1b[1;91m!%*d\x1b[0m\x1b[90m\xb3\x1b[0m", gw - 1, file_line + 1);
+                                    "\x1b[1;91m%*d!\x1b[0m", gw - 1, file_line + 1);
             } else {
                 written += snprintf(line_buf + written, sizeof(line_buf) - (size_t)written,
                                     "\x1b[90m%*d\xb3\x1b[0m", gw - 1, file_line + 1);
