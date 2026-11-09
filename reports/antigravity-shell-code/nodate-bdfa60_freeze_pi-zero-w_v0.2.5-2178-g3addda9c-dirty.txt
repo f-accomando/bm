@@ -1,0 +1,116 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2178-g3addda9c-dirty
+branch: antigravity/shell-code
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-bdfa60_freeze_pi-zero-w_v0.2.5-2178-g3addda9c-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor, waiting for a line, frame 0, 114 s after boot, kernel v0.2.5-2177-ged83addc-dirty, ring 4876, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+fi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 3 networks
+   1   -62 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -70 dBm  ch  5  WPA2  Wind3 HUB - ED4188
+   3   -78 dBm  ch  9  WPA2  FASTWEB-325YFF
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 20 read
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> 
+> 
+> 
+> 
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-09 17:25 UTC
+> 
+> 
+> 
+> 
+> 
+> 
+the bm: prompt: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves
+bm: code & /code/ -b/prova.b
+
+-- Grafica disegnata. main() ha restituito 42 (2222 us). Premi un tasto --
+ Disassembly: prova.b (%zu bytes, 224 words, 39 fn) │ Up/Down, Esc/q:Esci 
+; function main(0 params) -> 1 @ 0x0000
+  0x0000: E92D4FF0  push {0x4FF0}
+  0x0004: E1A0B00D  mov r11, r13
+  0x0008: E3A0C004  mov r12, #4
+  0x000C: E04DD00C  sub r13, r13, r12
+  0x0010: E3A04001  mov r4, #1
+  0x0014: E24DD008  sub r13, r13, #8
+  0x0018: E58D4000  str r4, [r13, #0]
+  0x001C: E3A00000  mov r0, #0
+  0x0020: E1A0100D  mov r1, r13
+  0x0024: E3A02001  mov r2, #1
+  0x0028: EB000015  bl +92
+  0x002C: E28DD008  add r13, r13, #8
+  0x0030: E3A04014  mov r4, #20
+  0x0034: E3A05014  mov r5, #20
+  0x0038: E3A06064  mov r6, #100
+  0x003C: E3A0703C  mov r7, #60
+  0x0040: E3A0800B  mov r8, #11
+  0x0044: E24DD018  sub r13, r13, #24
+  0x0048: E58D4000  str r4, [r13, #0]
+bm: net: receiving a new kernel (6435708 bytes)...
+net: kernel 0% (0 of 6284 KB)
+net: kernel 10% (629 of 6284 KB)
+net: kernel 20% (1262 of 6284 KB)
+net: kernel 30% (1889 of 6284 KB)
+net: kernel 40% (2519 of 6284 KB)
+net: kernel 50% (3144 of 6284 KB)
+net: kernel 60% (3778 of 6284 KB)
+net: kernel 70% (4402 of 6284 KB)
+net: kernel 80% (5028 of 6284 KB)
+net: kernel 90% (5663 of 6284 KB)
