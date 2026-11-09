@@ -66,9 +66,9 @@ Decisions of the user:
 Stages. Each stage ends with a test that compares the result with the Lua result (`make test-bml`, `tests/bml/run.py`):
 1. **Front end (done).** Lexer, parser, syntax tree, type check in `tools/bml/bml.py`. Types `i32` and `bool`, `local`, `if`/`elseif`/`else`, `while`, `break`, numeric `for`, `return`, `abs`/`min`/`max`, functions that call functions. Error messages name the line (23 negative tests + `tests/bml/sum.bml` and `tests/bml/features.bml`).
 2. **Bytecode and VM on the host (done).** `BytecodeCompiler` and `StackVM` in `tools/bml/bml.py`. `sum(10)` gives 55; `sum(-5..100)`, `tests/bml/features.bml`, and 200 random programs (1000 calls) give the same result as Lua.
-3. **Decide the VM of the kernel (next).** Use `bmvm` (a register machine, `src/bm/bmvm.h`) or write a new one. The bytecode goes to a section of the `.bm`. The runtime loads it like `vm_load`.
-4. **Back end ARMv6.** From the syntax tree to 32 bit words (A32, AAPCS: arguments in `r0`-`r3`, result in `r0`). First an assembler of the words, then a register allocator, then the stack frame for calls. Test with `qemu-system-arm`: same results as Lua.
-5. **Load on the Pi.** The blob goes to RAM that can run code. Clean the D-cache and invalidate the I-cache before the first call. A Lua function (`native_load`, `native_run`, like `vm_load`, `vm_run`) calls it.
+3. **VM of the kernel (done).** `BMVMCompiler` (`--bmvm`) lowers the checked IR to a `BMV1` register module for `src/bm/bmvm.c` (`vm_load`, `vm_run`). Tested on `sum`, `features`, and 200 random programs in C against Lua.
+4. **Back end ARMv6 (done).** `ARMv6Assembler` and `ARMv6Compiler` (`--armv6`, `--dump-armv6`) emit 32-bit A32 words (AAPCS: `r0`-`r3` args, `r0` result, `r4`-`r10` register allocator + `[fp, #-off]` spills, `__bml_idivmod` helper, and the exact 9-word leaf encoding for `sum`). Tested on `qemu-system-arm -cpu arm1176`: all 1,559 calls (`sum`, `features`, 200 random programs) match Lua.
+5. **Load on the Pi (next).** The blob goes to RAM that can run code. Clean the D-cache and invalidate the I-cache before the first call. A Lua function (`native_load`, `native_run`, like `vm_load`, `vm_run`) calls it.
 6. **Types and memory.** Arrays, then structs. Decide the overflow of `i32` first: C wraps at 32 bit, Lua at 64 bit (`StackVM` supports `--wrap32`). Then `f32` with the VFP of the ARM1176.
 7. **Standard functions and bm.** A table of kernel functions (`spr`, `rectfill`, `btn`, math) that the native code calls. Strings and tables stay out until this works.
 8. **Games.** Write the movement of the enemies of Dark Night in the language. Measure on the Pi.
@@ -88,7 +88,7 @@ The ARMv6 words that stage 4 must write for it (verified with `arm-none-eabi-obj
 
 ## Open work
 
-Stages 1 and 2 of `tools/bml/bml.py` are complete (`make test-bml`); stage 3 (kernel VM choice: `bmvm` in `src/bm/bmvm.h` vs stack VM) and stage 4 (ARMv6 A32 back end) are next. For `scripts/bmt.py`, the Lua output stays the reference and `make test-typed` compares it with the C.
+Stages 1, 2, 3, and 4 of `tools/bml/bml.py` are complete (`make test-bml`); stage 5 (loading native ARMv6 blobs on the Pi with D/I-cache maintenance) and stage 6 (arrays, structs, `i32` overflow rule, `f32` VFP) are next. For `scripts/bmt.py`, the Lua output stays the reference and `make test-typed` compares it with the C.
 
 1. Done: `blocked` of Yharnam is made by `bmt.py` (`tests/typed/yblocked.bmt`): 50.5 to 53.5 fps on the Pi, the same as the hand-written C. The kernel now has the general form (`tests/typed/collmap.bmt`, `src/bm/typed_collmap_gen.h`). The subset has `//`, `%`, `floor`, `min`, `max` and calls between typed functions. Next: structs, and a table of the cols that the game fills once (today `typed_ysync` copies a chunk each time).
 2. `draw_scene` of Yharnam: the cull in C gave nothing (53.1 against 53.5 fps), and its cost is spread over the sort comparator, the cull, the building tiles and the draw calls (design document, section 3). Do not port a part of it. Options: the whole draw of the objects in C, or a cheaper sort (the comparator is 7.3% of the Lua instructions).

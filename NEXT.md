@@ -2,14 +2,14 @@
 
 State on 9 Nov 2026: `bm-core` holds the Mali work up to bm3d 7.36 plus the face cache of 96 meshes (8 MB) and the resolve in bands on the worker cores. The performance work on Dark Night and Yharnam (Pi and RGB30) is closed. The console runs a test kernel with `mali_split=1`, `gpu3d_queue=2`, `gpu3d_later=1`, `perf=top`.
 
-## 1. The language of bm: stage 3 and stage 4 (learning project)
-- Done in stages 1 and 2 (`tools/bml/bml.py`, `tests/bml/run.py`, `make test-bml`, manual in `docs/design/bml-manual.md`):
+## 1. The language of bm: stages 5 and 6 (learning project)
+- Done in stages 1, 2, 3, and 4 (`tools/bml/bml.py`, `tests/bml/run.py`, `make test-bml`, manual in `docs/design/bml-manual.md`):
   - Stage 1 front end: lexer, parser, syntax tree (AST), type checker (`i32`, `bool`, `local`, `if`/`elseif`/`else`, `while`, `break`, numeric `for`, `return`, `abs`/`min`/`max`, functions calling functions, recursion), and Lua stripper (`--lua`). 23 error checks verify exact line numbers.
   - Stage 2 stack bytecode and host `StackVM`: `sum(10)` gives 55, `sum(-5..100)`, `tests/bml/features.bml` (347 calls), and 200 random programs (1000 calls) match `luahost`.
-  - The 9 ARMv6 words of `sum` (`E3A01000 ... E12FFF1E`) are verified with `arm-none-eabi-objdump` and `run_armv6_words` on `-5..100`.
-- Next, stage 3: decide the VM of the kernel (`bmvm` in `src/bm/bmvm.h` or a stack VM in C), pack bytecode in a `.bm` section, and load it like `vm_load`.
-- Then stage 4: ARMv6 32-bit (A32, AAPCS) back end in `tools/bml/`, tested with `qemu-system-arm` against Lua.
-- Open: the overflow of `i32` (C/ARM wraps at 32 bit, Lua at 64 bit; `StackVM` supports `--wrap32`), and `bmvm` vs a new VM for stage 3.
+  - Stage 3 kernel VM back end (`BMVMCompiler`, `--bmvm`): compiles to `BMV1` blobs executed by `src/bm/bmvm.c` (`vm_load`, `vm_run`); `sum`, `features`, and 200 random programs match `luahost`.
+  - Stage 4 ARMv6 A32 native back end (`ARMv6Assembler`, `ARMv6Compiler`, `--armv6`, `--dump-armv6`): emits the exact 9 hand-verified words for `sum` plus general AAPCS frames (`r4`-`r10` register allocation, stack spills, `__bml_idivmod`); verified on `qemu-system-arm -M versatilepb -cpu arm1176` across all 1,559 calls against `luahost`.
+- Next, stage 5: load the ARMv6 blob on the Pi (`native_load`, `native_run`), clean the D-cache and invalidate the I-cache before the first call.
+- Then stage 6: arrays and structs, finalize `i32` overflow rule (32-bit wrap vs 64-bit Lua), and `f32` on the ARM1176 VFP.
 
 ## 2. Mali: other open items (`docs/progress/graphics-mali.md`)
 - See the faces `R3D_SCREEN` of a model drawn by the GPU (Overbit with `RENDERER: GPU`); the 3D Bench has no GPU row for them.

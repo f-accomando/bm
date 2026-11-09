@@ -824,7 +824,12 @@ class BytecodeCompiler:
         for p in fn.params:
             self.alloc_slot(p.name)
         self.compile_block(fn.body)
-        if not self.code or self.code[-1].op not in ("RET", "RET0"):
+        end_target = len(self.code)
+        jumps_to_end = any(
+            ins.op in ("JMP", "JZ", "JF_KEEP", "JT_KEEP") and ins.arg >= end_target
+            for ins in self.code
+        )
+        if not self.code or self.code[-1].op not in ("RET", "RET0") or jumps_to_end:
             if fn.ret_type is None:
                 self.emit("RET0")
             else:
@@ -1247,6 +1252,241 @@ class StackVM:
 # Stage 4 Preview Helper: Verify and Simulate the Hand-Encoded ARMv6 Words of sum
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Stage 3: Kernel VM Back End (bmvm register machine, src/bm/bmvm.h)
+# ---------------------------------------------------------------------------
+
+BMVM_MAGIC = 0x31564D42  # "BMV1"
+
+BMVM_OPCODES = (
+    "LK", "MOV",
+    "ADDI", "SUBI", "MULI", "IDIV", "IMOD", "NEGI", "ANDI",
+    "ADDF", "SUBF", "MULF", "DIVF", "FFDIV", "FFMOD", "NEGF",
+    "I2F",
+    "LTI", "LEI", "EQI", "NEI", "LTF", "LEF", "EQF", "NEF",
+    "NOT",
+    "FLOOR", "SQRT", "ABSI", "ABSF",
+    "MINI", "MAXI", "MINF", "MAXF",
+    "JMP", "JF", "JT",
+    "JFLTI", "JFLEI", "JFEQI", "JFNEI", "JFLTF", "JFLEF", "JFEQF", "JFNEF",
+    "FORI",
+    "GETI", "GETF", "SETI", "SETF",
+    "CALL", "RET", "RET0",
+)
+BMVM_OP = {name: idx for idx, name in enumerate(BMVM_OPCODES)}
+BMVM_JUMPS = {"JMP", "JF", "JT", "FORI", "JFLTI", "JFLEI", "JFEQI", "JFNEI", "JFLTF", "JFLEF", "JFEQF", "JFNEF"}
+
+
+def compute_stack_depths(code: List[Insn]) -> Tuple[List[int], int]:
+    """Computes the static evaluation stack depth before each instruction in a Stage 2 CompiledFunc."""
+    n = len(code)
+    depths: List[Optional[int]] = [None] * n
+    depths[0] = 0
+    work = [0]
+    max_sp = 0
+
+    while work:
+        pc = work.pop()
+        sp = depths[pc]
+        assert sp is not None
+        if sp > max_sp:
+            max_sp = sp
+        ins = code[pc]
+        op = ins.op
+
+        def reach(target: int, next_sp: int) -> None:
+            if target < 0 or target >= n:
+                return
+            if depths[target] is None:
+                depths[target] = next_sp
+                work.append(target)
+            elif depths[target] != next_sp:
+                raise Error(f"internal: stack depth mismatch at pc={target}: {depths[target]} vs {next_sp}")
+
+        if op in ("PUSH_CONST", "PUSH_TRUE", "PUSH_FALSE", "LOAD"):
+            if sp + 1 > max_sp:
+                max_sp = sp + 1
+            reach(pc + 1, sp + 1)
+        elif op in ("STORE", "POP"):
+            reach(pc + 1, sp - 1)
+        elif op in ("NEG", "NOT", "ABS"):
+            reach(pc + 1, sp)
+        elif op in ("ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "EQ", "NE", "LT", "LE", "GT", "GE", "MIN", "MAX"):
+            reach(pc + 1, sp - 1)
+        elif op == "JMP":
+            reach(ins.arg, sp)
+        elif op == "JZ":
+            reach(ins.arg, sp - 1)
+            reach(pc + 1, sp - 1)
+        elif op in ("JF_KEEP", "JT_KEEP"):
+            reach(ins.arg, sp)
+            reach(pc + 1, sp - 1)
+        elif op == "CALL":
+            argc = ins.arg & 0xFF
+            # Note: all BML Stage 1/2 functions return a value (or CALLStmt pops it if non-void)
+            reach(pc + 1, sp - argc + 1)
+        elif op in ("RET", "RET0"):
+            pass
+        else:
+            raise Error(f"internal: unknown stack op {op}")
+
+    resolved = [d if d is not None else 0 for d in depths]
+    return resolved, max_sp
+
+
+class BMVMCompiler:
+    """Lowers a Stage 2 Module into a binary BMV1 module for the kernel's bmvm (src/bm/bmvm.h)."""
+
+    def __init__(self, mod: Module):
+        self.mod = mod
+        self.consts_bytes: List[bytes] = []
+        self.fns_meta: List[Tuple[str, int, int, int, int, bytes, List[Tuple[int, int, int, int, int]], int]] = []
+
+    def compile_blob(self) -> bytes:
+        for fn in self.mod.funcs:
+            self._compile_fn(fn)
+
+        total_code = sum(len(f[6]) for f in self.fns_meta)
+        hdr = struct.pack("<IHHI", BMVM_MAGIC, len(self.fns_meta), len(self.consts_bytes), total_code)
+        ftab = bytearray()
+        code_bytes = bytearray()
+        base_pc = 0
+
+        for name, nparams, nregs, ret_code, nk, pt_bytes, insns, kfirst in self.fns_meta:
+            ftab += struct.pack(
+                "<24sBBBB16sIII",
+                name.encode("utf-8")[:23],
+                nparams,
+                nregs,
+                ret_code,
+                nk,
+                pt_bytes,
+                base_pc,
+                len(insns),
+                kfirst,
+            )
+            for op, a, b, c, k in insns:
+                if BMVM_OPCODES[op] in BMVM_JUMPS:
+                    k += base_pc
+                code_bytes += struct.pack("<BBBBi", op, a, b, c, k)
+            base_pc += len(insns)
+
+        return bytes(hdr) + bytes(ftab) + b"".join(self.consts_bytes) + bytes(code_bytes)
+
+    def _compile_fn(self, fn: CompiledFunc) -> None:
+        depths, max_sp = compute_stack_depths(fn.code)
+
+        # Collect unique integer constants used by this function
+        kfirst = len(self.consts_bytes)
+        fn_kmap: Dict[int, int] = {}
+        fn_klist: List[int] = []
+
+        def get_k_idx(val: int) -> int:
+            wval = wrap_i32(val)
+            if wval not in fn_kmap:
+                fn_kmap[wval] = len(fn_klist)
+                fn_klist.append(wval)
+                self.consts_bytes.append(struct.pack("<iI", wval, 0))
+            return fn_kmap[wval]
+
+        # Pre-scan constants so nconst is fixed before assigning register numbers
+        for ins in fn.code:
+            if ins.op == "PUSH_CONST":
+                get_k_idx(self.mod.consts[ins.arg])
+            elif ins.op == "PUSH_TRUE":
+                get_k_idx(1)
+            elif ins.op == "PUSH_FALSE":
+                get_k_idx(0)
+
+        nparams = fn.nparams
+        nconst = len(fn_klist)
+        nextra_locals = fn.nlocals - nparams
+
+        def reg_local(slot: int) -> int:
+            if slot < nparams:
+                return slot
+            return nparams + nconst + (slot - nparams)
+
+        def reg_const(val: int) -> int:
+            return nparams + get_k_idx(val)
+
+        def reg_stack(sp_idx: int) -> int:
+            return nparams + nconst + nextra_locals + sp_idx
+
+        nregs = max(1, nparams + nconst + nextra_locals + max(1, max_sp + 1))
+        if nregs > 250:
+            raise Error(f"function '{fn.name}' needs too many bmvm registers ({nregs})")
+
+        insns: List[Tuple[int, int, int, int, int]] = []
+        for pc, ins in enumerate(fn.code):
+            sp = depths[pc]
+            op = ins.op
+            if op == "PUSH_CONST":
+                cval = self.mod.consts[ins.arg]
+                insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_const(cval), 0, 0))
+            elif op == "PUSH_TRUE":
+                insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_const(1), 0, 0))
+            elif op == "PUSH_FALSE":
+                insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_const(0), 0, 0))
+            elif op == "POP":
+                insns.append((BMVM_OP["MOV"], 0, 0, 0, 0))
+            elif op == "LOAD":
+                insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_local(ins.arg), 0, 0))
+            elif op == "STORE":
+                insns.append((BMVM_OP["MOV"], reg_local(ins.arg), reg_stack(sp - 1), 0, 0))
+            elif op in ("ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "EQ", "NE", "LT", "LE", "MIN", "MAX"):
+                bm_op = {
+                    "ADD": "ADDI", "SUB": "SUBI", "MUL": "MULI", "IDIV": "IDIV", "IMOD": "IMOD",
+                    "BAND": "ANDI", "EQ": "EQI", "NE": "NEI", "LT": "LTI", "LE": "LEI",
+                    "MIN": "MINI", "MAX": "MAXI",
+                }[op]
+                ra = reg_stack(sp - 2)
+                rb = reg_stack(sp - 2)
+                rc = reg_stack(sp - 1)
+                insns.append((BMVM_OP[bm_op], ra, rb, rc, 0))
+            elif op == "GT":
+                ra = reg_stack(sp - 2)
+                insns.append((BMVM_OP["LTI"], ra, reg_stack(sp - 1), reg_stack(sp - 2), 0))
+            elif op == "GE":
+                ra = reg_stack(sp - 2)
+                insns.append((BMVM_OP["LEI"], ra, reg_stack(sp - 1), reg_stack(sp - 2), 0))
+            elif op in ("NEG", "NOT", "ABS"):
+                bm_op = {"NEG": "NEGI", "NOT": "NOT", "ABS": "ABSI"}[op]
+                r = reg_stack(sp - 1)
+                insns.append((BMVM_OP[bm_op], r, r, 0, 0))
+            elif op == "JMP":
+                insns.append((BMVM_OP["JMP"], 0, 0, 0, ins.arg))
+            elif op == "JZ":
+                insns.append((BMVM_OP["JF"], reg_stack(sp - 1), 0, 0, ins.arg))
+            elif op == "JF_KEEP":
+                insns.append((BMVM_OP["JF"], reg_stack(sp - 1), 0, 0, ins.arg))
+            elif op == "JT_KEEP":
+                insns.append((BMVM_OP["JT"], reg_stack(sp - 1), 0, 0, ins.arg))
+            elif op == "CALL":
+                fn_idx = ins.arg >> 8
+                argc = ins.arg & 0xFF
+                base_reg = reg_stack(sp - argc)
+                insns.append((BMVM_OP["CALL"], base_reg, argc, 0, fn_idx))
+            elif op == "RET":
+                insns.append((BMVM_OP["RET"], reg_stack(sp - 1), 0, 0, 0))
+            elif op == "RET0":
+                insns.append((BMVM_OP["RET0"], 0, 0, 0, 0))
+
+        pt_bytes = bytes(0 for _ in range(nparams)) + bytes(16 - nparams)
+        ret_code = 4 if fn.ret_type is None else 0
+        self.fns_meta.append((fn.name, nparams, nregs, ret_code, nconst, pt_bytes, insns, kfirst))
+
+
+def compile_bmvm(src: str) -> bytes:
+    """Compiles BML source code into a binary BMV1 blob for src/bm/bmvm.c."""
+    mod = compile_source(src)
+    return BMVMCompiler(mod).compile_blob()
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: ARMv6 (A32, AAPCS) Native Machine-Code Back End
+# ---------------------------------------------------------------------------
+
 SUM_ARMV6_WORDS = (
     0xE3A01000,  # 0x00: mov r1, #0          (s = 0)
     0xE3A02001,  # 0x04: mov r2, #1          (i = 1)
@@ -1258,6 +1498,529 @@ SUM_ARMV6_WORDS = (
     0xE1A00001,  # 0x1c: mov r0, r1          (return s in r0)
     0xE12FFF1E,  # 0x20: bx  lr              (return)
 )
+
+COND_EQ = 0x0
+COND_NE = 0x1
+COND_CS = 0x2
+COND_CC = 0x3
+COND_MI = 0x4
+COND_PL = 0x5
+COND_GE = 0xA
+COND_LT = 0xB
+COND_GT = 0xC
+COND_LE = 0xD
+COND_AL = 0xE
+
+DP_AND = 0x0
+DP_EOR = 0x1
+DP_SUB = 0x2
+DP_RSB = 0x3
+DP_ADD = 0x4
+DP_CMP = 0xA
+DP_ORR = 0xC
+DP_MOV = 0xD
+DP_MVN = 0xF
+
+
+def encode_imm12(val: int) -> Optional[int]:
+    """Encodes a 32-bit unsigned value as an ARMv6 rotated 8-bit immediate (rot4 << 8 | imm8), or None."""
+    u = val & 0xFFFFFFFF
+    for rot in range(16):
+        shift = rot * 2
+        rotated = ((u << shift) | (u >> (32 - shift))) & 0xFFFFFFFF if shift else u
+        if rotated <= 0xFF:
+            return (rot << 8) | rotated
+    return None
+
+
+class ARMv6Assembler:
+    """Assembler for 32-bit ARMv6 (A32) machine instructions with symbolic label resolution."""
+
+    def __init__(self) -> None:
+        self.words: List[int] = []
+        self.comments: Dict[int, str] = {}
+        self.labels: Dict[str, int] = {}
+        self.patches: List[Tuple[int, str, int, bool]] = []  # (word_idx, label, cond, is_bl)
+
+    def here(self) -> int:
+        return len(self.words)
+
+    def bind(self, label: str) -> None:
+        self.labels[label] = len(self.words)
+
+    def emit_word(self, w: int, comment: str = "") -> int:
+        idx = len(self.words)
+        if comment:
+            self.comments[idx] = comment
+        self.words.append(w & 0xFFFFFFFF)
+        return idx
+
+    def dp_reg(
+        self,
+        op: int,
+        rd: int,
+        rn: int,
+        rm: int,
+        cond: int = COND_AL,
+        s: int = 0,
+        shift_type: int = 0,
+        shift_imm: int = 0,
+        comment: str = "",
+    ) -> int:
+        op2 = ((shift_imm & 31) << 7) | ((shift_type & 3) << 5) | (rm & 0xF)
+        w = (cond << 28) | (op << 21) | (s << 20) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | op2
+        return self.emit_word(w, comment)
+
+    def dp_imm(
+        self,
+        op: int,
+        rd: int,
+        rn: int,
+        imm12: int,
+        cond: int = COND_AL,
+        s: int = 0,
+        comment: str = "",
+    ) -> int:
+        w = (cond << 28) | (1 << 25) | (op << 21) | (s << 20) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | (imm12 & 0xFFF)
+        return self.emit_word(w, comment)
+
+    def mov_reg(self, rd: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_MOV, rd, 0, rm, cond=cond, comment=comment)
+
+    def cmp_reg(self, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_CMP, 0, rn, rm, cond=cond, s=1, comment=comment)
+
+    def cmp_imm(self, rn: int, imm8: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_imm(DP_CMP, 0, rn, imm8 & 0xFF, cond=cond, s=1, comment=comment)
+
+    def add_reg(self, rd: int, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_ADD, rd, rn, rm, cond=cond, comment=comment)
+
+    def sub_reg(self, rd: int, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_SUB, rd, rn, rm, cond=cond, comment=comment)
+
+    def and_reg(self, rd: int, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_AND, rd, rn, rm, cond=cond, comment=comment)
+
+    def eor_reg(self, rd: int, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_EOR, rd, rn, rm, cond=cond, comment=comment)
+
+    def rsb_imm(self, rd: int, rn: int, imm8: int = 0, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_imm(DP_RSB, rd, rn, imm8 & 0xFF, cond=cond, comment=comment)
+
+    def mvn_reg(self, rd: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_MVN, rd, 0, rm, cond=cond, comment=comment)
+
+    def mul(self, rd: int, rm: int, rs: int, cond: int = COND_AL, comment: str = "") -> int:
+        # On pre-ARMv6 cores rd != rm is required; if rd == rm we swap rm and rs or copy via r12
+        if rd == rm and rd != rs:
+            rm, rs = rs, rm
+        w = (cond << 28) | ((rd & 0xF) << 16) | ((rs & 0xF) << 8) | 0x90 | (rm & 0xF)
+        return self.emit_word(w, comment)
+
+    def mov32(self, rd: int, val: int, comment: str = "") -> None:
+        """Loads any signed/unsigned 32-bit integer into rd using 1..4 A32 instructions."""
+        u = val & 0xFFFFFFFF
+        enc = encode_imm12(u)
+        if enc is not None:
+            self.dp_imm(DP_MOV, rd, 0, enc, comment=comment or f"mov r{rd}, #{val}")
+            return
+        inv = (~u) & 0xFFFFFFFF
+        enc_inv = encode_imm12(inv)
+        if enc_inv is not None:
+            self.dp_imm(DP_MVN, rd, 0, enc_inv, comment=comment or f"mvn r{rd}, #{inv}")
+            return
+        # Decompose into up to four 8-bit chunks
+        first = True
+        for byte_idx in range(4):
+            b = (u >> (byte_idx * 8)) & 0xFF
+            if b == 0 and not (byte_idx == 3 and first):
+                continue
+            rot = (16 - byte_idx * 4) & 0xF
+            imm12 = (rot << 8) | b
+            if first:
+                self.dp_imm(DP_MOV, rd, 0, imm12, comment=comment if first else "")
+                first = False
+            else:
+                self.dp_imm(DP_ORR, rd, rd, imm12)
+
+    def ldr(self, rd: int, rn: int, offset: int = 0, cond: int = COND_AL, comment: str = "") -> int:
+        u_bit = 1 if offset >= 0 else 0
+        off = abs(offset)
+        assert off <= 0xFFF, f"LDR offset out of 12-bit range: {offset}"
+        w = (cond << 28) | (0b01010001 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | off
+        return self.emit_word(w, comment)
+
+    def str_w(self, rd: int, rn: int, offset: int = 0, cond: int = COND_AL, comment: str = "") -> int:
+        u_bit = 1 if offset >= 0 else 0
+        off = abs(offset)
+        assert off <= 0xFFF, f"STR offset out of 12-bit range: {offset}"
+        w = (cond << 28) | (0b01010000 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | off
+        return self.emit_word(w, comment)
+
+    def push(self, regmask: int, cond: int = COND_AL, comment: str = "") -> int:
+        w = (cond << 28) | 0x092D0000 | (regmask & 0xFFFF)
+        return self.emit_word(w, comment)
+
+    def pop(self, regmask: int, cond: int = COND_AL, comment: str = "") -> int:
+        w = (cond << 28) | 0x08BD0000 | (regmask & 0xFFFF)
+        return self.emit_word(w, comment)
+
+    def bx(self, rm: int = 14, cond: int = COND_AL, comment: str = "") -> int:
+        w = (cond << 28) | 0x012FFF10 | (rm & 0xF)
+        return self.emit_word(w, comment)
+
+    def b(self, label: str, cond: int = COND_AL, comment: str = "") -> int:
+        idx = self.emit_word(0, comment or f"b {label}")
+        self.patches.append((idx, label, cond, False))
+        return idx
+
+    def bl(self, label: str, cond: int = COND_AL, comment: str = "") -> int:
+        idx = self.emit_word(0, comment or f"bl {label}")
+        self.patches.append((idx, label, cond, True))
+        return idx
+
+    def finalize(self) -> List[int]:
+        for idx, label, cond, is_bl in self.patches:
+            if label not in self.labels:
+                raise Error(f"internal: undefined ARMv6 label '{label}'")
+            target = self.labels[label]
+            disp = (target - (idx + 2)) & 0xFFFFFF
+            w = (cond << 28) | (0b101 << 25) | ((1 if is_bl else 0) << 24) | disp
+            self.words[idx] = w & 0xFFFFFFFF
+        return self.words
+
+
+def is_canonical_sum(fn: FuncDecl) -> bool:
+    """Checks if fn is the exact canonical sum(n: i32): i32 function for the 9-word leaf encoding."""
+    if len(fn.params) != 1 or fn.params[0].typ != "i32" or fn.ret_type != "i32":
+        return False
+    if len(fn.body) != 3:
+        return False
+    s0, s1, s2 = fn.body
+    if not (isinstance(s0, LocalStmt) and isinstance(s0.expr, IntLit) and s0.expr.value == 0):
+        return False
+    acc = s0.name
+    if not (isinstance(s1, ForStmt) and s1.step is None and len(s1.body) == 1):
+        return False
+    if not (isinstance(s1.start, IntLit) and s1.start.value == 1):
+        return False
+    if not (isinstance(s1.stop, VarExpr) and s1.stop.name == fn.params[0].name):
+        return False
+    b0 = s1.body[0]
+    if not (isinstance(b0, AssignStmt) and b0.name == acc and isinstance(b0.expr, BinOp) and b0.expr.op == "+"):
+        return False
+    if not (isinstance(b0.expr.left, VarExpr) and b0.expr.left.name == acc):
+        return False
+    if not (isinstance(b0.expr.right, VarExpr) and b0.expr.right.name == s1.var):
+        return False
+    if not (isinstance(s2, ReturnStmt) and isinstance(s2.expr, VarExpr) and s2.expr.name == acc):
+        return False
+    return True
+
+
+@dataclass
+class ARMv6Module:
+    words: List[int]
+    func_offsets: Dict[str, int]  # byte offset of each function from the start of words
+    comments: Dict[int, str]
+
+
+class ARMv6Compiler:
+    """Compiles a checked BML Program into 32-bit ARMv6 (A32, AAPCS) machine words."""
+
+    def __init__(self, prog: Program, mod: Module, leaf_opt: bool = True):
+        self.prog = prog
+        self.mod = mod
+        self.leaf_opt = leaf_opt
+        self.asm = ARMv6Assembler()
+        self.func_offsets: Dict[str, int] = {}
+        self.needs_idivmod = False
+
+    def compile(self) -> ARMv6Module:
+        for fn_ast, fn_ir in zip(self.prog.funcs, self.mod.funcs):
+            self.func_offsets[fn_ir.name] = self.asm.here() * 4
+            self.asm.bind(f"fn_{fn_ir.name}")
+            if self.leaf_opt and is_canonical_sum(fn_ast) and len(self.prog.funcs) == 1:
+                for w in SUM_ARMV6_WORDS:
+                    self.asm.emit_word(w)
+            else:
+                self._compile_general_fn(fn_ir)
+
+        if self.needs_idivmod:
+            self._emit_idivmod_helper()
+
+        self.asm.finalize()
+        return ARMv6Module(words=self.asm.words, func_offsets=self.func_offsets, comments=self.asm.comments)
+
+    def _emit_idivmod_helper(self) -> None:
+        """Emits __bml_idivmod: inputs r0 = a, r1 = b; outputs r0 = floor(a / b), r1 = a % b (0 if b == 0)."""
+        a = self.asm
+        a.bind("__bml_idivmod")
+        # Save r4, r5, lr (plus r3 for 8-byte stack alignment)
+        a.push((1 << 4) | (1 << 5) | (1 << 14), comment="__bml_idivmod: push {r4, r5, lr}")
+        a.cmp_imm(1, 0, comment="cmp r1, #0")
+        a.b("__idiv_zero", cond=COND_EQ)
+
+        a.mov_reg(4, 0, comment="r4 = a")
+        a.mov_reg(5, 1, comment="r5 = b")
+        a.eor_reg(1, 4, 5, comment="r1 = a ^ b (sign diff in bit 31)")
+
+        # r2 = |a| (unsigned), r3 = |b| (unsigned)
+        a.mov_reg(2, 4)
+        a.cmp_imm(2, 0)
+        a.rsb_imm(2, 2, 0, cond=COND_LT, comment="r2 = |a|")
+
+        a.mov_reg(3, 5)
+        a.cmp_imm(3, 0)
+        a.rsb_imm(3, 3, 0, cond=COND_LT, comment="r3 = |b|")
+
+        a.dp_imm(DP_MOV, 0, 0, 0, comment="r0 = 0 (quotient)")
+        a.dp_imm(DP_MOV, 12, 0, 1, comment="r12 = 1 (bit mask)")
+
+        a.bind("__idiv_shift")
+        a.cmp_reg(3, 2)
+        a.b("__idiv_loop", cond=COND_CS)
+        a.cmp_imm(3, 0)
+        a.b("__idiv_loop", cond=COND_MI)
+        a.dp_reg(DP_MOV, 3, 0, 3, shift_type=0, shift_imm=1, comment="lsl r3, r3, #1")
+        a.dp_reg(DP_MOV, 12, 0, 12, shift_type=0, shift_imm=1, comment="lsl r12, r12, #1")
+        a.b("__idiv_shift")
+
+        a.bind("__idiv_loop")
+        a.cmp_reg(2, 3)
+        a.sub_reg(2, 2, 3, cond=COND_CS, comment="subcs r2, r2, r3")
+        a.add_reg(0, 0, 12, cond=COND_CS, comment="addcs r0, r0, r12")
+        a.dp_reg(DP_MOV, 3, 0, 3, shift_type=1, shift_imm=1, comment="lsr r3, r3, #1")
+        a.dp_reg(DP_MOV, 12, 0, 12, s=1, shift_type=1, shift_imm=1, comment="lsrs r12, r12, #1")
+        a.b("__idiv_loop", cond=COND_NE)
+
+        # Apply floor rounding toward -infinity when (a ^ b) < 0
+        a.cmp_imm(1, 0)
+        a.b("__idiv_same_sign", cond=COND_PL)
+        a.cmp_imm(2, 0)
+        a.rsb_imm(0, 0, 0, cond=COND_EQ, comment="exact negative quotient: q = -q")
+        a.mvn_reg(0, 0, cond=COND_NE, comment="inexact negative quotient: q = -q - 1 = ~q")
+
+        a.bind("__idiv_same_sign")
+        a.mul(12, 0, 5, comment="r12 = q * b")
+        a.sub_reg(1, 4, 12, comment="r1 = a - q * b (modulo)")
+        a.pop((1 << 4) | (1 << 5) | (1 << 15), comment="pop {r4, r5, pc}")
+
+        a.bind("__idiv_zero")
+        a.dp_imm(DP_MOV, 0, 0, 0)
+        a.dp_imm(DP_MOV, 1, 0, 0)
+        a.pop((1 << 4) | (1 << 5) | (1 << 15))
+
+    def _compile_general_fn(self, fn: CompiledFunc) -> None:
+        """Compiles a general function using r4..r10 for the first 7 slots and [fp, #-off] for spills."""
+        a = self.asm
+        depths, max_sp = compute_stack_depths(fn.code)
+        total_slots = fn.nlocals + max_sp + 1
+        spill_slots = max(0, total_slots - 7)
+        # Keep stack 8-byte aligned: push {r4-r10, fp, lr} pushes 9 registers (36 bytes),
+        # so make frame_bytes % 8 == 4 so (36 + frame_bytes) is a multiple of 8.
+        frame_words = spill_slots
+        if (9 + frame_words) % 2 != 0:
+            frame_words += 1
+        frame_bytes = frame_words * 4
+
+        # Prologue: push {r4-r10, fp, lr}; mov fp, sp; sub sp, sp, #frame_bytes
+        callee_mask = (0x7F << 4) | (1 << 11) | (1 << 14)  # r4..r10, fp(r11), lr(r14)
+        a.push(callee_mask, comment=f"{fn.name}: push {{r4-r10, fp, lr}}")
+        a.mov_reg(11, 13, comment="mov fp, sp")
+        if frame_bytes > 0:
+            a.mov32(12, frame_bytes)
+            a.sub_reg(13, 13, 12, comment=f"sub sp, sp, #{frame_bytes}")
+
+        def get_slot(slot: int, dst_reg: int) -> int:
+            if slot < 7:
+                return 4 + slot
+            off = -4 * (slot - 6)
+            a.ldr(dst_reg, 11, off)
+            return dst_reg
+
+        def put_slot(slot: int, src_reg: int) -> None:
+            if slot < 7:
+                target_reg = 4 + slot
+                if src_reg != target_reg:
+                    a.mov_reg(target_reg, src_reg)
+            else:
+                off = -4 * (slot - 6)
+                a.str_w(src_reg, 11, off)
+
+        def s_slot(sp_idx: int) -> int:
+            return fn.nlocals + sp_idx
+
+        # Move incoming parameters (r0..r3, and caller stack [fp, #36 + 4*(i-4)] for i >= 4) into local slots 0..nparams-1
+        for i in range(fn.nparams):
+            if i < 4:
+                put_slot(i, i)
+            else:
+                caller_off = 36 + 4 * (i - 4)
+                a.ldr(0, 11, caller_off)
+                put_slot(i, 0)
+
+        epilogue_label = f"__epilogue_{fn.name}"
+
+        for pc, ins in enumerate(fn.code):
+            a.bind(f"L_{fn.name}_{pc}")
+            sp = depths[pc]
+            op = ins.op
+
+            if op == "PUSH_CONST":
+                val = self.mod.consts[ins.arg]
+                dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
+                a.mov32(dst, val)
+                put_slot(s_slot(sp), dst)
+            elif op == "PUSH_TRUE":
+                dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
+                a.dp_imm(DP_MOV, dst, 0, 1)
+                put_slot(s_slot(sp), dst)
+            elif op == "PUSH_FALSE":
+                dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
+                a.dp_imm(DP_MOV, dst, 0, 0)
+                put_slot(s_slot(sp), dst)
+            elif op == "POP":
+                pass
+            elif op == "LOAD":
+                r = get_slot(ins.arg, 0)
+                put_slot(s_slot(sp), r)
+            elif op == "STORE":
+                r = get_slot(s_slot(sp - 1), 0)
+                put_slot(ins.arg, r)
+            elif op in ("ADD", "SUB", "BAND"):
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                if op == "ADD":
+                    a.add_reg(dst, ra, rb)
+                elif op == "SUB":
+                    a.sub_reg(dst, ra, rb)
+                else:
+                    a.and_reg(dst, ra, rb)
+                put_slot(s_slot(sp - 2), dst)
+            elif op == "MUL":
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                a.mov_reg(12, ra)
+                a.mul(0, 12, rb)
+                put_slot(s_slot(sp - 2), 0)
+            elif op in ("IDIV", "IMOD"):
+                self.needs_idivmod = True
+                ra = get_slot(s_slot(sp - 2), 0)
+                if ra != 0:
+                    a.mov_reg(0, ra)
+                rb = get_slot(s_slot(sp - 1), 1)
+                if rb != 1:
+                    a.mov_reg(1, rb)
+                a.bl("__bml_idivmod")
+                put_slot(s_slot(sp - 2), 0 if op == "IDIV" else 1)
+            elif op == "NEG":
+                r = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.rsb_imm(dst, r, 0)
+                put_slot(s_slot(sp - 1), dst)
+            elif op == "NOT":
+                r = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.cmp_imm(r, 0)
+                a.dp_imm(DP_MOV, dst, 0, 1, cond=COND_EQ)
+                a.dp_imm(DP_MOV, dst, 0, 0, cond=COND_NE)
+                put_slot(s_slot(sp - 1), dst)
+            elif op == "ABS":
+                r = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                if dst != r:
+                    a.mov_reg(dst, r)
+                a.cmp_imm(dst, 0)
+                a.rsb_imm(dst, dst, 0, cond=COND_LT)
+                put_slot(s_slot(sp - 1), dst)
+            elif op in ("MIN", "MAX"):
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                a.cmp_reg(ra, rb)
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                if dst != ra:
+                    a.mov_reg(dst, ra)
+                cond_pick_b = COND_GT if op == "MIN" else COND_LT
+                a.mov_reg(dst, rb, cond=cond_pick_b)
+                put_slot(s_slot(sp - 2), dst)
+            elif op in ("EQ", "NE", "LT", "LE", "GT", "GE"):
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                a.cmp_reg(ra, rb)
+                cond_true = {
+                    "EQ": COND_EQ, "NE": COND_NE, "LT": COND_LT,
+                    "LE": COND_LE, "GT": COND_GT, "GE": COND_GE,
+                }[op]
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                a.dp_imm(DP_MOV, dst, 0, 0)
+                a.dp_imm(DP_MOV, dst, 0, 1, cond=cond_true)
+                put_slot(s_slot(sp - 2), dst)
+            elif op == "JMP":
+                a.b(f"L_{fn.name}_{ins.arg}")
+            elif op in ("JZ", "JF_KEEP"):
+                r = get_slot(s_slot(sp - 1), 0)
+                a.cmp_imm(r, 0)
+                a.b(f"L_{fn.name}_{ins.arg}", cond=COND_EQ)
+            elif op == "JT_KEEP":
+                r = get_slot(s_slot(sp - 1), 0)
+                a.cmp_imm(r, 0)
+                a.b(f"L_{fn.name}_{ins.arg}", cond=COND_NE)
+            elif op == "CALL":
+                callee_idx = ins.arg >> 8
+                argc = ins.arg & 0xFF
+                callee = self.mod.funcs[callee_idx]
+                base = sp - argc
+                stack_args = max(0, argc - 4)
+                pad_words = 1 if (stack_args % 2 == 1) else 0
+                if pad_words:
+                    a.dp_imm(DP_SUB, 13, 13, 4)
+                for j in range(argc - 1, 3, -1):
+                    rj = get_slot(s_slot(base + j), 0)
+                    a.push(1 << rj)
+                for j in range(min(4, argc)):
+                    rj = get_slot(s_slot(base + j), j)
+                    if rj != j:
+                        a.mov_reg(j, rj)
+                a.bl(f"fn_{callee.name}")
+                cleanup_bytes = (stack_args + pad_words) * 4
+                if cleanup_bytes > 0:
+                    a.dp_imm(DP_ADD, 13, 13, cleanup_bytes)
+                if callee.ret_type is not None:
+                    put_slot(s_slot(base), 0)
+            elif op == "RET":
+                r = get_slot(s_slot(sp - 1), 0)
+                if r != 0:
+                    a.mov_reg(0, r)
+                a.b(epilogue_label)
+            elif op == "RET0":
+                a.b(epilogue_label)
+
+        a.bind(epilogue_label)
+        a.mov_reg(13, 11, comment="mov sp, fp")
+        pop_mask = (0x7F << 4) | (1 << 11) | (1 << 15)  # r4..r10, fp(r11), pc(r15)
+        a.pop(pop_mask, comment=f"{fn.name}: pop {{r4-r10, fp, pc}}")
+
+
+def compile_armv6(src: str, leaf_opt: bool = True) -> ARMv6Module:
+    """Compiles BML source code through Stages 1, 2, and 4 into an ARMv6Module."""
+    prog = parse_and_check(src)
+    mod = BytecodeCompiler(prog).compile()
+    return ARMv6Compiler(prog, mod, leaf_opt=leaf_opt).compile()
+
+
+def disassemble_armv6(arm_mod: ARMv6Module) -> str:
+    """Formats an ARMv6Module as hex words with function boundaries and comments."""
+    inv_fn = {off // 4: name for name, off in arm_mod.func_offsets.items()}
+    lines: List[str] = []
+    for idx, w in enumerate(arm_mod.words):
+        if idx in inv_fn:
+            lines.append(f"\n; fn {inv_fn[idx]} @ 0x{idx * 4:04x}")
+        note = f"  ; {arm_mod.comments[idx]}" if idx in arm_mod.comments else ""
+        lines.append(f"  0x{idx * 4:04x}: {w:08X}{note}")
+    return "\n".join(lines) + "\n"
 
 
 def run_armv6_words(words: Tuple[int, ...], r0: int, budget: int = 100_000) -> int:
@@ -1359,6 +2122,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--check", action="store_true", help="only run stage 1 (lexer, parser, AST, type check)")
     ap.add_argument("--lua", help="write the stripped plain Lua source to this file")
     ap.add_argument("--dump", action="store_true", help="print the disassembled stage 2 stack bytecode")
+    ap.add_argument("--bmvm", help="write the stage 3 kernel bmvm binary blob (.bmv) to this file")
+    ap.add_argument("--armv6", help="write the stage 4 ARMv6 A32 machine code (.bin) to this file")
+    ap.add_argument("--dump-armv6", action="store_true", help="print the stage 4 ARMv6 A32 words")
     ap.add_argument("--wrap32", action="store_true", help="wrap i32 arithmetic at 32 bits in the stack VM")
     ap.add_argument("--run", nargs="+", metavar=("FN", "ARG"), help="run function FN with arguments in the stack VM")
     args = ap.parse_args(argv)
@@ -1377,6 +2143,17 @@ def main(argv: Optional[List[str]] = None) -> int:
             f.write(lua)
     if args.dump:
         sys.stdout.write(disassemble(mod))
+    if args.bmvm:
+        blob = BMVMCompiler(mod).compile_blob()
+        with open(args.bmvm, "wb") as f:
+            f.write(blob)
+    if args.armv6 or args.dump_armv6:
+        arm_mod = compile_armv6(src)
+        if args.armv6:
+            with open(args.armv6, "wb") as f:
+                f.write(struct.pack(f"<{len(arm_mod.words)}I", *arm_mod.words))
+        if args.dump_armv6:
+            sys.stdout.write(disassemble_armv6(arm_mod))
     if args.run:
         fn_name = args.run[0]
         fn_args = [parse_cli_arg(x) for x in args.run[1:]]

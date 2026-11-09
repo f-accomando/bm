@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""make test-bml: verifies stages 1 and 2 of the language of bm (tools/bml/bml.py).
+"""make test-bml: verifies stages 1, 2, 3, and 4 of the language of bm (tools/bml/bml.py).
 
   run.py LUAHOST BUILD_DIR
 
 1. Stage 1 (Front end): lexer, parser, AST, and type checker reject invalid programs and name the exact line.
-2. Stage 1 & 2 (sum): tests/bml/sum.bml compiles to stack bytecode, sum(10) == 55, and matches Lua on -5..100.
-3. ARMv6 preview check: verifies the 9 hand-encoded A32 words of sum in docs/progress/typed.md via objdump and simulation.
-4. Stage 2 (features): tests/bml/features.bml matches Lua across all language constructs and recursion.
-5. Stage 2 (differential fuzzing): 200 random well-typed BML programs run in StackVM and in Lua with identical results.
+2. Stage 2 (StackVM): sum(10) == 55, sum(-5..100), features.bml (347 calls), and 200 random programs match Lua.
+3. Stage 3 (Kernel bmvm): compiles sum, features, and 200 random programs to BMV1 blobs and runs them in C (src/bm/bmvm.c).
+4. Stage 4 (ARMv6 A32 back end): compiles sum (both 9-word leaf and general), features, and 200 random programs to
+   32-bit ARMv6 machine words and executes them on an emulated ARM1176 CPU in qemu-system-arm against Lua.
 """
 import os
 import random
 import shutil
+import struct
 import subprocess
 import sys
 
@@ -116,26 +117,7 @@ vm_sum_out = [str(sum_vm.call("sum", [n])) for n in range(-5, 101)]
 if lua_sum_out != vm_sum_out:
     fail("sum(-5..100) differs between StackVM and Lua")
 
-# ---------------------------------------------------------------- 3. ARMv6 hand-encoded words of sum verification
-for n in range(-5, 101):
-    arm_val = bml.run_armv6_words(bml.SUM_ARMV6_WORDS, n)
-    vm_val = sum_vm.call("sum", [n])
-    if arm_val != vm_val:
-        fail(f"ARMv6 sum({n}) = {arm_val}, expected {vm_val}")
-        break
-
-objdump = shutil.which("arm-none-eabi-objdump")
-if objdump:
-    import struct
-    bin_path = os.path.join(BUILD, "sum_armv6.bin")
-    with open(bin_path, "wb") as f:
-        f.write(struct.pack("<9I", *bml.SUM_ARMV6_WORDS))
-    dis = subprocess.check_output([objdump, "-D", "-b", "binary", "-m", "arm", bin_path], text=True)
-    for expected_insn in ("cmp\tr2, r0", "bgt\t0x1c", "add\tr1, r1, r2", "b\t0x8", "bx\tlr"):
-        if expected_insn not in dis:
-            fail(f"ARMv6 objdump missing '{expected_insn}':\n{dis}")
-
-# ---------------------------------------------------------------- 4. Stage 2: features.bml against Lua
+# ---------------------------------------------------------------- 3. Stage 2: features.bml against Lua
 feat_path = os.path.join(HERE, "features.bml")
 with open(feat_path, encoding="utf-8") as f:
     feat_src = f.read()
@@ -145,24 +127,24 @@ feat_vm = bml.StackVM(feat_mod)
 
 feat_calls = []
 for x in range(-25, 26):
-    feat_calls.append(("is_even", [x]))
-    feat_calls.append(("clamp", [x * 7, -50, 50]))
-    feat_calls.append(("short_circuit_ok", [x]))
-    feat_calls.append(("countdown_sum", [x]))
+    feat_calls.append(("is_even", [x], "bool"))
+    feat_calls.append(("clamp", [x * 7, -50, 50], "i32"))
+    feat_calls.append(("short_circuit_ok", [x], "bool"))
+    feat_calls.append(("countdown_sum", [x], "i32"))
 for a in (-48, -17, 0, 12, 35, 105, 1071):
     for b in (-36, -1, 0, 6, 14, 462):
-        feat_calls.append(("gcd", [a, b]))
-        feat_calls.append(("arith_mix", [a, b]))
+        feat_calls.append(("gcd", [a, b], "i32"))
+        feat_calls.append(("arith_mix", [a, b], "i32"))
 for n in range(0, 13):
-    feat_calls.append(("fib", [n]))
+    feat_calls.append(("fib", [n], "i32"))
 for n in range(0, 40):
-    feat_calls.append(("collatz_steps", [n]))
+    feat_calls.append(("collatz_steps", [n], "i32"))
 for lim in (0, 1, 2, 10, 30, 60):
-    feat_calls.append(("count_primes", [lim]))
+    feat_calls.append(("count_primes", [lim], "i32"))
 
 feat_lua_lines = [LUA_PRELUDE, bml.to_lua(feat_src)]
 vm_feat_out = []
-for fn_name, args in feat_calls:
+for fn_name, args, _ in feat_calls:
     res = feat_vm.call(fn_name, args)
     vm_feat_out.append("true" if res is True else ("false" if res is False else str(res)))
     arg_str = ", ".join(str(a) for a in args)
@@ -174,12 +156,12 @@ with open(feat_lua_path, "w", encoding="utf-8") as f:
 
 lua_feat_out = subprocess.check_output([LUAHOST, feat_lua_path], text=True).strip().splitlines()
 if lua_feat_out != vm_feat_out:
-    for idx, ((fn_name, args), lv, vv) in enumerate(zip(feat_calls, lua_feat_out, vm_feat_out)):
+    for idx, ((fn_name, args, _), lv, vv) in enumerate(zip(feat_calls, lua_feat_out, vm_feat_out)):
         if lv != vv:
             fail(f"features mismatch at #{idx} {fn_name}({args}): Lua={lv}, VM={vv}")
             break
 
-# ---------------------------------------------------------------- 5. Stage 2: 200 random programs against Lua
+# ---------------------------------------------------------------- 4. Stage 2: 200 random programs against Lua
 rnd = random.Random(20261109)
 
 
@@ -194,7 +176,6 @@ def gen_int_expr(vars_i32: list, vars_bool: list, helper_name: str, depth: int) 
         l = gen_int_expr(vars_i32, vars_bool, helper_name, depth - 1)
         r = gen_int_expr(vars_i32, vars_bool, helper_name, depth - 1)
         if op == "*":
-            # Keep products bounded so 64-bit Lua and 32-bit ints never overflow
             r = str(rnd.randint(-6, 6))
         return f"({l} {op} {r})"
     if choice < 0.72:
@@ -359,10 +340,269 @@ if lua_rand_out != vm_rand_out:
             fail(f"random program mismatch at call #{idx}: Lua={lv}, VM={vv}")
             break
 
+# ---------------------------------------------------------------- 5. Stage 3: Kernel bmvm (src/bm/bmvm.c) against Lua
+sum_bmv = os.path.join(BUILD, "sum.bmv")
+feat_bmv = os.path.join(BUILD, "features.bmv")
+open(sum_bmv, "wb").write(bml.compile_bmvm(sum_src))
+open(feat_bmv, "wb").write(bml.compile_bmvm(feat_src))
+
+# Split 200 random programs into 8 batches of 25 programs (each batch has 51 <= 64 functions, bmvm's limit)
+batch_bmvs = []
+for b_idx in range(8):
+    sub_progs = [CLAMP_HELPER] + prog_chunks[1 + b_idx * 25 : 1 + (b_idx + 1) * 25]
+    b_path = os.path.join(BUILD, f"rand_{b_idx}.bmv")
+    open(b_path, "wb").write(bml.compile_bmvm("\n\n".join(sub_progs) + "\n"))
+    batch_bmvs.append(b_path)
+
+BMVM_HOST_C = r"""
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "bmvm.h"
+
+static bmvm_mod *must_load(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "cannot open %s\n", path); exit(1); }
+    fseek(f, 0, SEEK_END);
+    size_t len = (size_t)ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *buf = malloc(len);
+    if (fread(buf, 1, len, f) != len) { fprintf(stderr, "short read\n"); exit(1); }
+    fclose(f);
+    bmvm_mod *m = NULL;
+    const char *why = "";
+    if (bmvm_load(&m, buf, len, &why) != 0) {
+        fprintf(stderr, "bmvm_load(%s) failed: %s\n", path, why);
+        exit(1);
+    }
+    free(buf);
+    return m;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc < 3) return 1;
+    bmvm_mod *m = must_load(argv[1]);
+    FILE *in = fopen(argv[2], "r");
+    if (!in) return 1;
+    char fname[64], rkind[16];
+    int nargs;
+    while (fscanf(in, "%63s %15s %d", fname, rkind, &nargs) == 3) {
+        bmvm_val args[16], ret;
+        for (int i = 0; i < nargs; i++) {
+            int v = 0;
+            if (fscanf(in, "%d", &v) != 1) return 1;
+            args[i].i = v;
+        }
+        int fn = bmvm_find(m, fname);
+        if (fn < 0) { fprintf(stderr, "missing fn %s\n", fname); return 1; }
+        int err = bmvm_call(m, fn, args, nargs, NULL, 0, &ret, 20000000u);
+        if (err != 0) { fprintf(stderr, "bmvm_call(%s) error %d\n", fname, err); return 1; }
+        if (rkind[0] == 'b')
+            printf("%s\n", ret.i ? "true" : "false");
+        else
+            printf("%d\n", (int)ret.i);
+    }
+    fclose(in);
+    bmvm_free(m);
+    return 0;
+}
+"""
+
+bmvm_host_c_path = os.path.join(BUILD, "bmvm_host.c")
+bmvm_host_bin = os.path.join(BUILD, "bmvm_host")
+open(bmvm_host_c_path, "w", encoding="utf-8").write(BMVM_HOST_C)
+subprocess.run(
+    ["cc", "-O2", "-Wall", f"-I{os.path.join(ROOT, 'src', 'bm')}",
+     "-o", bmvm_host_bin, bmvm_host_c_path, os.path.join(ROOT, "src", "bm", "bmvm.c"), "-lm"],
+    check=True,
+)
+
+# 5a. sum in bmvm
+sum_in = os.path.join(BUILD, "sum_bmvm.in")
+open(sum_in, "w", encoding="utf-8").write("".join(f"sum i32 1 {n}\n" for n in range(-5, 101)))
+bmvm_sum_out = subprocess.check_output([bmvm_host_bin, sum_bmv, sum_in], text=True).strip().splitlines()
+if bmvm_sum_out != lua_sum_out:
+    fail("Stage 3 bmvm sum(-5..100) differs from Lua")
+
+# 5b. features in bmvm
+feat_in = os.path.join(BUILD, "feat_bmvm.in")
+open(feat_in, "w", encoding="utf-8").write(
+    "".join(f"{fn_name} {rk} {len(args)} {' '.join(str(int(a)) for a in args)}\n" for fn_name, args, rk in feat_calls)
+)
+bmvm_feat_out = subprocess.check_output([bmvm_host_bin, feat_bmv, feat_in], text=True).strip().splitlines()
+if bmvm_feat_out != lua_feat_out:
+    fail("Stage 3 bmvm features.bml differs from Lua")
+
+# 5c. 200 random programs in bmvm
+bmvm_rand_out = []
+for b_idx, b_path in enumerate(batch_bmvs):
+    b_in = os.path.join(BUILD, f"rand_{b_idx}.in")
+    lines_in = []
+    for fn_name, inputs in call_specs[b_idx * 25 : (b_idx + 1) * 25]:
+        for a, b, flg in inputs:
+            lines_in.append(f"{fn_name} i32 3 {a} {b} {1 if flg else 0}\n")
+    open(b_in, "w", encoding="utf-8").write("".join(lines_in))
+    bmvm_rand_out.extend(subprocess.check_output([bmvm_host_bin, b_path, b_in], text=True).strip().splitlines())
+
+if bmvm_rand_out != lua_rand_out:
+    fail("Stage 3 bmvm 200 random programs differ from Lua")
+
+# ---------------------------------------------------------------- 6. Stage 4: ARMv6 A32 back end + qemu-system-arm
+arm_sum_leaf = bml.compile_armv6(sum_src, leaf_opt=True)
+if tuple(arm_sum_leaf.words) != bml.SUM_ARMV6_WORDS:
+    fail(f"Stage 4 leaf sum words {[hex(w) for w in arm_sum_leaf.words]} != SUM_ARMV6_WORDS")
+
+for n in range(-5, 101):
+    if bml.run_armv6_words(tuple(arm_sum_leaf.words), n) != int(lua_sum_out[n + 5]):
+        fail(f"Stage 4 simulated ARMv6 sum({n}) mismatch")
+        break
+
+objdump = shutil.which("arm-none-eabi-objdump")
+if objdump:
+    bin_path = os.path.join(BUILD, "sum_armv6.bin")
+    with open(bin_path, "wb") as f:
+        f.write(struct.pack("<9I", *arm_sum_leaf.words))
+    dis = subprocess.check_output([objdump, "-D", "-b", "binary", "-m", "arm", bin_path], text=True)
+    for expected_insn in ("cmp\tr2, r0", "bgt\t0x1c", "add\tr1, r1, r2", "b\t0x8", "bx\tlr"):
+        if expected_insn not in dis:
+            fail(f"ARMv6 objdump missing '{expected_insn}':\n{dis}")
+
+arm_gcc = shutil.which("arm-none-eabi-gcc")
+qemu_arm = shutil.which("qemu-system-arm")
+if arm_gcc and qemu_arm:
+    arm_sum_gen = bml.compile_armv6(sum_src, leaf_opt=False)
+    arm_feat = bml.compile_armv6(feat_src)
+    arm_rand = bml.compile_armv6(full_bml)
+
+    def fmt_words(words: list) -> str:
+        return ", ".join(f"0x{w:08X}u" for w in words)
+
+    call_lines_c = []
+    # 1. Leaf sum(-5..100)
+    for n in range(-5, 101):
+        call_lines_c.append(f"    put_i32(((fn1_t)&code_sum_leaf[0])({n}));")
+    # 2. General allocator sum(-5..100)
+    for n in range(-5, 101):
+        call_lines_c.append(f"    put_i32(((fn1_t)&code_sum_gen[0])({n}));")
+    # 3. features.bml (347 calls)
+    for fn_name, args, rk in feat_calls:
+        w_off = arm_feat.func_offsets[fn_name] // 4
+        c_args = ", ".join(str(int(a)) for a in args)
+        fn_t = f"fn{len(args)}_t"
+        if rk == "bool":
+            call_lines_c.append(f"    put_bool((({fn_t})&code_feat[{w_off}])({c_args}));")
+        else:
+            call_lines_c.append(f"    put_i32((({fn_t})&code_feat[{w_off}])({c_args}));")
+    # 4. 200 random programs (1000 calls)
+    for fn_name, inputs in call_specs:
+        w_off = arm_rand.func_offsets[fn_name] // 4
+        for a, b, flg in inputs:
+            call_lines_c.append(f"    put_i32(((fn3_t)&code_rand[{w_off}])({a}, {b}, {1 if flg else 0}));")
+
+    QEMU_C = f"""\
+#include <stdint.h>
+
+#define UART0 ((volatile uint32_t *)0x101F1000u)
+
+static void put_ch(char c) {{ *UART0 = (uint32_t)(uint8_t)c; }}
+static void put_str(const char *s) {{ while (*s) put_ch(*s++); }}
+
+static void put_bool(int32_t v)
+{{
+    put_str(v ? "true\\n" : "false\\n");
+}}
+
+static void put_i32(int32_t v)
+{{
+    char buf[16];
+    uint32_t u = (v < 0) ? (0u - (uint32_t)v) : (uint32_t)v;
+    if (v < 0) put_ch('-');
+    int i = 0;
+    if (u == 0) buf[i++] = '0';
+    while (u > 0) {{
+        buf[i++] = (char)('0' + (u % 10u));
+        u /= 10u;
+    }}
+    while (i > 0) put_ch(buf[--i]);
+    put_ch('\\n');
+}}
+
+typedef int32_t (*fn1_t)(int32_t);
+typedef int32_t (*fn2_t)(int32_t, int32_t);
+typedef int32_t (*fn3_t)(int32_t, int32_t, int32_t);
+
+__attribute__((aligned(4)))
+static const uint32_t code_sum_leaf[] = {{ {fmt_words(arm_sum_leaf.words)} }};
+
+__attribute__((aligned(4)))
+static const uint32_t code_sum_gen[] = {{ {fmt_words(arm_sum_gen.words)} }};
+
+__attribute__((aligned(4)))
+static const uint32_t code_feat[] = {{ {fmt_words(arm_feat.words)} }};
+
+__attribute__((aligned(4)))
+static const uint32_t code_rand[] = {{ {fmt_words(arm_rand.words)} }};
+
+void c_main(void)
+{{
+{chr(10).join(call_lines_c)}
+}}
+
+__attribute__((naked, section(".text.boot")))
+void _start(void)
+{{
+    __asm__ volatile (
+        "ldr sp, =0x04000000\\n"
+        "bl c_main\\n"
+        "mov r0, #0x18\\n"
+        "ldr r1, =0x20026\\n"
+        "svc 0x00123456\\n"
+        "1: b 1b\\n"
+    );
+}}
+"""
+    qemu_ld = os.path.join(BUILD, "armv6_test.ld")
+    with open(qemu_ld, "w", encoding="utf-8") as f:
+        f.write(
+            "ENTRY(_start)\n"
+            "SECTIONS {\n"
+            "  . = 0x00010000;\n"
+            "  .text : { *(.text.boot) *(.text*) *(.rodata*) }\n"
+            "  .data : { *(.data*) }\n"
+            "  .bss  : { *(.bss*) *(COMMON) }\n"
+            "}\n"
+        )
+    qemu_c_path = os.path.join(BUILD, "armv6_test.c")
+    qemu_elf = os.path.join(BUILD, "armv6_test.elf")
+    with open(qemu_c_path, "w", encoding="utf-8") as f:
+        f.write(QEMU_C)
+
+    subprocess.run(
+        [arm_gcc, "-O2", "-march=armv6", "-marm", "-ffreestanding", "-nostdlib",
+         "-T", qemu_ld, "-o", qemu_elf, qemu_c_path, "-lgcc"],
+        check=True,
+    )
+    qemu_out = subprocess.check_output(
+        [qemu_arm, "-M", "versatilepb", "-cpu", "arm1176", "-nographic", "-semihosting", "-kernel", qemu_elf],
+        text=True,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    ).replace("\r\n", "\n").strip().splitlines()
+
+    expected_qemu = lua_sum_out + lua_sum_out + lua_feat_out + lua_rand_out
+    if qemu_out != expected_qemu:
+        fail(f"Stage 4 ARMv6 QEMU output count {len(qemu_out)} vs expected {len(expected_qemu)}")
+        for idx, (ev, qv) in enumerate(zip(expected_qemu, qemu_out)):
+            if ev != qv:
+                fail(f"Stage 4 ARMv6 QEMU mismatch at line #{idx}: Lua={ev}, ARMv6={qv}")
+                break
+
 if failed:
     sys.exit(1)
 
 print(
-    f"bml: {len(BAD_PROGRAMS)} error checks, sum(10)=55, ARMv6 words of sum, "
-    f"{len(feat_calls)} feature calls, and 200 random programs ({len(vm_rand_out)} calls) matched Lua"
+    f"bml: stages 1-4 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
+    f"{len(feat_calls)} feature calls, and 200 random programs [1000 calls] matched Lua in StackVM, C bmvm, and ARM1176 QEMU)"
 )

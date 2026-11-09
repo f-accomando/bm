@@ -14,8 +14,8 @@ BML is a statically typed subset of Lua 5.4 designed for `bm` cartridges on the 
 2. **Explicit Multi-Pass Architecture**: Unlike `scripts/bmt.py` (which emits C text directly during single-pass parsing), `tools/bml/bml.py` separates the compiler into distinct, inspectable stages:
    - **Stage 1 (Front End)**: `Lexer` $\to$ `Parser` $\to$ `AST` $\to$ `TypeChecker` (+ Lua stripper `to_lua`).
    - **Stage 2 (Host Bytecode & VM)**: `BytecodeCompiler` $\to$ `Module` $\to$ `StackVM` (with `--dump` disassembler).
-   - **Stage 3 (Kernel VM — next)**: Target either the existing register VM (`src/bm/bmvm.h`) or a compact stack bytecode section in `.bm`.
-   - **Stage 4 (ARMv6 A32 Back End — goal)**: Lower the checked AST / IR directly to 32-bit ARMv6 machine words (AAPCS calling convention).
+   - **Stage 3 (Kernel VM Back End)**: `BMVMCompiler` (`--bmvm <out.bmv>`), lowering the checked stack IR into a verified `BMV1` register-machine module executed by [`src/bm/bmvm.c`](../../src/bm/bmvm.c) (`vm_load`, `vm_run`).
+   - **Stage 4 (ARMv6 A32 Native Back End)**: `ARMv6Assembler` and `ARMv6Compiler` (`--armv6 <out.bin>`, `--dump-armv6`), lowering BML functions directly to 32-bit ARMv6 (A32, AAPCS) machine words and verified on an emulated ARM1176JZF-S CPU via `qemu-system-arm -M versatilepb -cpu arm1176`.
 3. **Line-Accurate Diagnostics**: Every lexical, syntactic, or type error reports the 1-based line number of the offending token or statement (`line <N>: <message>`).
 
 ---
@@ -36,10 +36,13 @@ python3 tools/bml/bml.py tests/bml/sum.bml --dump
 python3 tools/bml/bml.py tests/bml/sum.bml --run sum 10
 # -> 55
 
-# 5. Run with 32-bit signed two's-complement wrapping enabled
-python3 tools/bml/bml.py tests/bml/sum.bml --wrap32 --run sum 10
+# 5. Emit a Stage 3 BMV1 binary module for the kernel's bmvm (src/bm/bmvm.c)
+python3 tools/bml/bml.py tests/bml/features.bml --bmvm build/features.bmv
 
-# 6. Run the full verification suite (Stage 1 + Stage 2 + ARMv6 sum check + 200 random programs vs Lua)
+# 6. Emit and inspect Stage 4 ARMv6 (A32) 32-bit machine words
+python3 tools/bml/bml.py tests/bml/sum.bml --armv6 build/sum.bin --dump-armv6
+
+# 7. Run the full verification suite (Stages 1, 2, 3, and 4 on QEMU ARM1176 vs Lua)
 make test-bml
 ```
 
@@ -235,11 +238,49 @@ At each iteration (`PC 0006..0018`), `i <= i$stop` is tested; `s = s + i` and `i
 
 ---
 
-## 6. Stage 4 Preview: Verified ARMv6 Words of `sum`
+## 6. Stage 3 Internals: Kernel VM Back End (`BMVMCompiler`)
 
-In `docs/progress/typed.md`, nine 32-bit ARMv6 (A32) machine words are given for `sum(n: i32): i32` under the AAPCS calling convention (`n` in `r0`, return value in `r0`, scratch registers `r1` for `s` and `r2` for `i`).
+### 6.1 Architectural Decision: Reusing `bmvm` (`src/bm/bmvm.h`)
 
-`tools/bml/bml.py` (`SUM_ARMV6_WORDS` and `run_armv6_words`) and `tests/bml/run.py` verify these 9 words both with `arm-none-eabi-objdump` and by executing them across `n = -5 .. 100`:
+The kernel already includes `bmvm` ([`src/bm/bmvm.h`](../../src/bm/bmvm.h), [`src/bm/bmvm.c`](../../src/bm/bmvm.c), exposed to Lua in [`src/bm/api_vm.c`](../../src/bm/api_vm.c) via `vm_load`, `vm_fn`, and `vm_run`), a verified register machine that enforces:
+- Load-time validation of register indices (`a, b, c < f->nregs`), constant indices, call targets, and jump targets.
+- Strict forward-only conditional jumps (`c->k > pc` for `JF`/`JT`), ensuring backward loops must execute `JMP` or `FORI` where the instruction step budget is decremented.
+- Runtime bounds on call depth (`BMVM_DEPTH = 32`), register stack (`BMVM_STACK = 4096`), and execution step budget.
+
+Rather than adding a second bytecode interpreter to the kernel image, `BMVMCompiler` lowers the Stage 2 stack IR directly into a binary `BMV1` module (`0x31564D42`).
+
+### 6.2 Isomorphic Stack-to-Register Mapping (`compute_stack_depths`)
+
+Because every BML expression pushes exactly one value and every statement leaves the stack empty (`sp = 0`), the stack height `sp` before every instruction `pc` is a static constant computed by `compute_stack_depths(fn.code)`.
+
+For each function with `nparams` parameters, `nconst` unique constants, `nextra = nlocals - nparams` local variables, and maximum stack depth `max_sp`, `BMVMCompiler` partitions the function's register window `R[0 .. nregs - 1]` as:
+1. **`R[0 .. nparams - 1]`**: Incoming parameters (`slot 0 .. nparams - 1`).
+2. **`R[nparams .. nparams + nconst - 1]`**: Per-function constants copied automatically from `m->k[kfirst ..]` by `bmvm_call` on function entry.
+3. **`R[nparams + nconst .. nlocals + nconst - 1]`**: Local variables and loop state (`slot nparams .. nlocals - 1`).
+4. **`R[nlocals + nconst + k]`**: Evaluation stack slot `S[k]` (`0 <= k <= max_sp`).
+
+Under this mapping, every Stage 2 stack instruction lowers **1-to-1** to a single `bmvm` instruction:
+- `JF_KEEP target` (`and`) lowers to `JF S[sp - 1], target` (if `False`, `S[sp - 1]` already holds `0` at `target`; if `True`, the right operand overwrites `S[sp - 1]`).
+- `JT_KEEP target` (`or`) lowers to `JT S[sp - 1], target` (if `True`, `S[sp - 1]` already holds `1` at `target`; if `False`, the right operand overwrites `S[sp - 1]`).
+- `CALL fn_idx, argc` lowers to `CALL S[sp - argc], argc, 0, fn_idx`: the `argc` arguments are already in contiguous registers `S[sp - argc .. sp - 1]` above all live locals and lower temporaries, and `bmvm`'s `RET` writes the return value into `S[sp - argc]`.
+
+---
+
+## 7. Stage 4 Internals: ARMv6 (A32) Native Code Generator (`ARMv6Compiler`)
+
+### 7.1 Target ABI (Raspberry Pi Zero W, ARM1176JZF-S)
+
+- **Instruction Set**: 32-bit ARMv6 A32, little-endian.
+- **Calling Convention (AAPCS)**:
+  - Arguments `0..3` in `r0..r3`; arguments `4+` on the stack (`[sp, #0]`, `[sp, #4]`, ...).
+  - Return value in `r0`.
+  - Scratch registers (caller-saved): `r0..r3`, `r12` (`ip`), `r14` (`lr`).
+  - Callee-saved registers: `r4..r10`, `r11` (`fp`), `r13` (`sp`, 8-byte aligned at call boundaries).
+
+### 7.2 Two-Tier Code Generation
+
+1. **Canonical Leaf Optimization (`is_canonical_sum`)**:
+   - Recognizes leaf accumulator loops such as `sum(n: i32): i32` and emits the 9 hand-verified A32 words directly (`r0 = n`, `r1 = s`, `r2 = i`, returning via `bx lr` with zero stack-frame overhead):
 
 | Byte Offset | Word (Hex) | A32 Disassembly | Meaning |
 |---|---|---|---|
@@ -253,14 +294,23 @@ In `docs/progress/typed.md`, nine 32-bit ARMv6 (A32) machine words are given for
 | `0x1c` | `0xE1A00001` | `mov r0, r1` | Move `s` (`r1`) to return register `r0` |
 | `0x20` | `0xE12FFF1E` | `bx lr` | Return to caller (`LR`) |
 
+2. **General Register Allocator and Stack Frame (`_compile_general_fn`)**:
+   - **Prologue**: `push {r4-r10, fp, lr}; mov fp, sp; sub sp, sp, #frame_bytes` (padded so `36 + frame_bytes` is a multiple of 8 bytes).
+   - **Register Allocation**: Slots `0..6` (covering parameters, locals, and the bottom of the evaluation stack) are allocated to hardware callee-saved registers `r4..r10`. Slots $\ge 7$ spill to `[fp, #-4 * (slot - 6)]`. Because `r4..r10` and `fp` are preserved across `bl` calls, nested function calls (`fib(n - 1) + fib(n - 2)`) never clobber live locals or evaluation-stack temporaries.
+   - **Immediate Synthesis (`mov32`)**: Arbitrary 32-bit constants are synthesized in 1 to 4 instructions using rotated 8-bit immediates (`mov` / `mvn` + `orr`), avoiding PC-relative literal pool range limits.
+   - **Software Floor Division & Modulo (`__bml_idivmod`)**: Since ARM1176 (ARMv6) has no hardware `sdiv` instruction, `ARMv6Compiler` emits a 30-word A32 helper `__bml_idivmod` whenever `//` or `%` is used. It performs unsigned shift-and-subtract division on $|a|$ and $|b|$, rounds the quotient toward $-\infty$ when `a ^ b < 0` and the remainder is non-zero (`mvnne r0, r0`, using $-q - 1 = \sim q$), and computes the floor remainder $r = a - q \times b$ in `r1`.
+   - **Epilogue**: `mov sp, fp; pop {r4-r10, fp, pc}`.
+
+### 7.3 Verification on `qemu-system-arm -cpu arm1176`
+
+`make test-bml` (`tests/bml/run.py`) compiles `sum.bml` (both 9-word leaf and general frame), `features.bml` (347 calls), and 200 random BML programs (1000 calls) into raw A32 machine words, links them into a freestanding ARMv6 ELF binary (`-march=armv6 -marm`), runs them under `qemu-system-arm -M versatilepb -cpu arm1176 -nographic -semihosting`, and checks that all 1,559 outputs match `luahost` byte-for-byte.
+
 ---
 
-## 7. Open Architectural Questions (for Stages 3 and 6)
+## 8. Next Stages (Stages 5 to 9)
 
-1. **`i32` Overflow Semantics (Stage 6)**:
-   - Native ARMv6 A32 instructions (`ADD`, `SUB`, `MUL`) wrap modulo $2^{32}$ in two's complement at zero cost, whereas plain Lua 5.4 uses 64-bit integers.
-   - `StackVM` already supports both modes (`wrap32=False` by default for direct comparison with unannotated Lua, and `wrap32=True` via `--wrap32` for 32-bit two's-complement wrapping).
-   - When Stage 6 fixes 32-bit wrapping as the language rule, `to_lua` can either assume programs stay within `[-2^31, 2^31 - 1]` or wrap arithmetic expressions when strict overflow equivalence is requested.
-2. **Kernel Virtual Machine Choice (Stage 3)**:
-   - `src/bm/bmvm.h` (`bmvm.c`) is already in the kernel as a verified register machine with step budget and bounds checks.
-   - Stage 3 can either emit `bmvm` register bytecode from the `bml.py` AST or embed a compact stack VM in C mirroring `StackVM`.
+- **Stage 5 (Load on the Pi)**: Allocate executable RAM in the kernel, clean the D-cache and invalidate the I-cache (`mcr p15, 0, ...`), and expose `native_load` / `native_run` to Lua.
+- **Stage 6 (Types and Memory)**: Arrays and structs; finalize `i32` overflow policy (32-bit two's-complement wrapping on ARMv6/C vs 64-bit Lua integers); add `f32` using the ARM1176 VFPv2 coprocessor.
+- **Stage 7 (Standard Functions and `bm` API)**: Function table allowing native ARMv6 code to call `spr`, `rectfill`, `btn`, and math routines.
+- **Stage 8 (Games)**: Port the enemy movement of Dark Night to BML and measure frame times on the Pi Zero W.
+- **Stage 9 (On the Console)**: Self-hosting / running the compiler on the Pi itself.
