@@ -312,6 +312,64 @@ int32_t step_vec2f(Vec2f *v, float dt, float lim)
   EEF1FA10    vmrs      APSR_nzcv, fpscr; transfer VFP flags to ARM CPSR
 ```
 
+## Esempio 6: Ottimizzazione di una cartuccia (Dark Night)
+
+In `carts/darknight/main.lua`, la separazione dei nemici controlla 272 coppie a ogni frame ($O(N^2)$). In Lua, i lookup nelle tabelle (`e.x`, `o.x`, `o.st`) e le operazioni float nella VM assorbono il 27,3% del tempo di calcolo. Convertire il ciclo in una funzione calda `.b` con `vm_buf` elimina il boxing delle tabelle, usa istruzioni hardware VFPv2 e riduce il tempo da 20 us a 4 us (fino a 5 volte più veloce).
+
+```lua
+-- 1. Originale Lua in carts/darknight/main.lua
+for i = 1, #enemies do
+  local o = enemies[i]
+  local ox = ex - o.x
+  if ox < 0.8 and ox > -0.8 and o ~= e and o.st ~= "dead" then
+    local oz = ez - o.z
+    local d2 = ox * ox + oz * oz
+    if d2 < 0.64 and d2 > 0.000001 then
+      try_move(e, ox / sqrt(d2) * 0.02, oz / sqrt(d2) * 0.02, 0.35)
+    end
+  end
+end
+```
+
+```lua
+-- 2. Implementazione tipata in .b (tests/bml/darknight_enemy.b)
+function move_and_separate(n: i32, x: f32[], z: f32[], vx: f32[], vz: f32[], alive: bool[], out: i32[], counts: i32[]): i32
+  for self = 1, n do
+    if alive[self] then
+      for i = 1, n do
+        if i ~= self and alive[i] then
+          local dx = x[self] - x[i]
+          if dx < 0.8 and dx > -0.8 then
+            local dz = z[self] - z[i]
+            local d2 = dx * dx + dz * dz
+            if d2 < 0.64 and d2 > 0.00001 then
+              counts[self] = counts[self] + 1
+              out[(self - 1) * n + counts[self]] = i
+            end
+          end
+        end
+      end
+    end
+  end
+  return 0
+end
+```
+
+```lua
+-- 3. Integrazione zero-copy nella cartuccia con native_compile e vm_buf
+local blob = assert(native_compile(b_source))
+local mod = assert(native_load(blob))
+local bx = vm_buf("i32", N)
+local bz = vm_buf("i32", N)
+native_run(mod, "move_and_separate", N, bx, bz, bvx, bvz, balive, bout, bcounts)
+```
+
+| Implementazione | Scansione 17 nemici | Chiamate per frame | Costo del passaggio |
+|---|---|---|---|
+| Tabelle Lua originali | 15 - 20 us | 0 (VM Lua) | Hashing tabelle |
+| Chiamate native multiple | 8 - 12 us | 34 chiamate | 34 us overhead |
+| Chiamata singola + vm_buf | 3 - 4 us | 1 chiamata | 1 us totale |
+
 # Prova passo per passo
 
 ::: try

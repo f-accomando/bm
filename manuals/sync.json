@@ -353,8 +353,8 @@
     "title": "How the compiler works"
    },
    "4": {
-    "en": "f3ae28b43a4b",
-    "it": "22c94b658414",
+    "en": "768da8b7353c",
+    "it": "df360f8f0094",
     "title": "Practical code examples: BML, C, and ARMv6 ASM"
    },
    "5": {
@@ -364,7 +364,7 @@
    }
   },
   "sources": {
-   "docs/design/bml-manual.md": "f482f741da03",
+   "docs/design/bml-manual.md": "a95945a42cf4",
    "docs/progress/typed.md": "75b1684716d5",
    "src/bm/bmvm.h": "ba119d71aa28",
    "tools/bml/bml.py": "2001a567a9ef"

@@ -312,6 +312,64 @@ int32_t step_vec2f(Vec2f *v, float dt, float lim)
   EEF1FA10    vmrs      APSR_nzcv, fpscr; transfer VFP flags to ARM CPSR
 ```
 
+## Example 6: Game cartridge optimization (Dark Night)
+
+In `carts/darknight/main.lua`, enemy separation checks 272 pairs every frame ($O(N^2)$). In Lua, table lookups (`e.x`, `o.x`, `o.st`) and floating-point VM operations take 27.3% of the total logic time. Converting the loop to a `.b` hot function with `vm_buf` eliminates table boxing, uses hardware VFPv2 single-precision instructions, and reduces runtime from 20 us to 4 us (up to 5x faster).
+
+```lua
+-- 1. Original Lua in carts/darknight/main.lua
+for i = 1, #enemies do
+  local o = enemies[i]
+  local ox = ex - o.x
+  if ox < 0.8 and ox > -0.8 and o ~= e and o.st ~= "dead" then
+    local oz = ez - o.z
+    local d2 = ox * ox + oz * oz
+    if d2 < 0.64 and d2 > 0.000001 then
+      try_move(e, ox / sqrt(d2) * 0.02, oz / sqrt(d2) * 0.02, 0.35)
+    end
+  end
+end
+```
+
+```lua
+-- 2. Typed .b implementation (tests/bml/darknight_enemy.b)
+function move_and_separate(n: i32, x: f32[], z: f32[], vx: f32[], vz: f32[], alive: bool[], out: i32[], counts: i32[]): i32
+  for self = 1, n do
+    if alive[self] then
+      for i = 1, n do
+        if i ~= self and alive[i] then
+          local dx = x[self] - x[i]
+          if dx < 0.8 and dx > -0.8 then
+            local dz = z[self] - z[i]
+            local d2 = dx * dx + dz * dz
+            if d2 < 0.64 and d2 > 0.00001 then
+              counts[self] = counts[self] + 1
+              out[(self - 1) * n + counts[self]] = i
+            end
+          end
+        end
+      end
+    end
+  end
+  return 0
+end
+```
+
+```lua
+-- 3. Zero-copy integration in cart with native_compile and vm_buf
+local blob = assert(native_compile(b_source))
+local mod = assert(native_load(blob))
+local bx = vm_buf("i32", N)
+local bz = vm_buf("i32", N)
+native_run(mod, "move_and_separate", N, bx, bz, bvx, bvz, balive, bout, bcounts)
+```
+
+| Implementation | 17 enemies scan | Calls per frame | Crossing cost |
+|---|---|---|---|
+| Original Lua tables | 15 - 20 us | 0 (Lua VM) | Table hashing |
+| Multiple native calls | 8 - 12 us | 34 calls | 34 us overhead |
+| Single call + vm_buf | 3 - 4 us | 1 call | 1 us total |
+
 # Try it step by step
 
 ::: try

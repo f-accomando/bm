@@ -206,3 +206,22 @@ test works for the next game: add the tail `tests/gamekit/trace_tail.lua` to its
 Not done yet: spawn from an OBJECTS section of the cartridge. It needs a format change: a new
 section number in `bm.h`, a reader in `format.c` and `runtime.c`, a writer in `mkbm.py` and
 `bmres.py`, and an editor to place the objects. `W:load` takes the rows as data today.
+
+## 8. Native Hot Functions with `.b` and `vm_buf`
+
+Complex games experience frame time drops when Lua loops over hundreds of entity pairs.
+The engine gives a native path without writing C in the kernel:
+1. Write the calculation in `.b` (the statically typed language of `bm`).
+2. Compile the source at start with `native_compile(src)`.
+3. Load the machine code with `native_load(blob)`.
+4. Store flat entity coordinates in `vm_buf("i32", n)` userdata buffers.
+5. Call the native function once per frame with `native_run(mod, "fn", ...)`.
+
+The bridge in `src/bm/api_vm.c` passes the underlying C memory pointers directly to ARM registers `r0-r3` and stack with zero copy.
+
+### Rules for Native Crossings
+
+- **Single Call Per Frame**: Do not call `native_run` inside an entity loop. Crossing the Lua-to-native boundary takes ~1 us on the Pi Zero W. Group all calculations into one call per frame.
+- **Flat Buffers**: Use `vm_buf("i32", n)` instead of Lua tables. Regular tables marshal values one by one with `lua_rawgeti`. Buffers pass raw pointers with zero copy.
+- **Fixed Memory**: Allocate `vm_buf` buffers once during `_init()`. Never allocate them inside `_update()`.
+
