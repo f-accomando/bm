@@ -6,7 +6,7 @@
 
 local AUTO = false            -- a test build opens the first game by itself (the bridge cannot press keys)
 local show_fps = false
-local jit_on = false          -- the dynamic recompiler (the Pi): off until the self test has passed
+local jit_on = false          -- the dynamic recompiler (the Pi): off until the self test has passed (at the start)
 local selftest_msg = ""
 
 -- PlayStation buttons as bits (psx.h). The bm names follow the Nintendo layout on the RGB30: a right, b bottom,
@@ -86,12 +86,15 @@ function _init()
   pad_layout()
   frameskip(2)
   list_games()
-  if AUTO then                                           -- the test build checks the recompiler first, and uses it only if it agrees
-    local bad, msg = psx_selftest(300)
-    selftest_msg = string.format("selftest: %d of 300 differ %s", bad, msg or "")
-    local avail
-    _, avail = psx_jit()
-    if avail and bad == 0 then jit_on = true end
+  do                                                     -- the recompiler is checked first (random programs run both ways) and used only if it agrees
+    local _, avail = psx_jit()
+    if avail then
+      local bad, msg = psx_selftest(200)
+      selftest_msg = string.format("selftest: %d of 200 differ %s", bad, msg or "")
+      if bad == 0 then jit_on = true end
+    else
+      selftest_msg = "no recompiler on this device"
+    end
   end
   psx_jit(jit_on)
   if AUTO and games[1] then start_game(games[1]) end
@@ -105,6 +108,7 @@ function _update()
     if btnp("y") then                                     -- the self test of the recompiler: random programs, compiled and interpreted
       local bad, msg = psx_selftest(300)
       selftest_msg = string.format("selftest: %d of 300 differ %s", bad, msg or "")
+      if bad == 0 then jit_on = psx_jit(true) end
     end
     if btnp("a") and games[sel] then start_game(games[sel]) end
   elseif state == "run" then
