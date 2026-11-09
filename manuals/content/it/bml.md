@@ -65,6 +65,7 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 | Variabile locale | `local s = 0` o `local s: i32 = 0` | Visibile fino alla fine del blocco; non può oscurare una variabile attiva |
 | Assegnamento | `s = s + i` | La variabile deve essere dichiarata e avere lo stesso tipo |
 | Assegnamento composto | `x += 1`, `s.fld *= 2`, `a[i] <<= 4` | Supporta `+=`, `-=`, `*=`, `&=`, `|=`, `<<=`, `>>=`; desugaring per Lua e nativo |
+| Puntatori tipizzati / viste | `local p: Struct = Struct(addr)`, `local a: i32[] = addr` | Accesso strutturato a zero-overhead su memoria MMIO/framebuffer/DMA |
 | Condizionale | `if a < b then ... elseif a == b then ... else ... end` | Ogni condizione deve essere `bool` |
 | Ciclo while | `while b ~= 0 do ... end` | La condizione deve essere `bool`; `break` esce dal ciclo più interno |
 | Ciclo for numerico | `for i = 1, n do ... end` o `for i = n, 1, -2 do ... end` | Estremi e passo opzionale sono `i32` |

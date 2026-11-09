@@ -140,6 +140,14 @@ The `.b` language supports in-place compound assignments for scalar variables, s
 
 Compound assignments are desugared cleanly during Lua generation (`to_lua`), and compiled single-pass directly in the native C compiler `bmlc.c`.
 
+### 3.4.2 Typed Pointers and Memory Views
+
+The `.b` language supports zero-overhead typed pointers and memory views for bare-metal programming, allowing direct structured access to hardware MMIO registers, DMA buffers, framebuffers, and packet records:
+
+- **Struct pointer / memory view**: `local s: StructName = StructName(addr)` or `local s: StructName = addr`. Field reads and writes (`s.field = val`) translate directly to single ARMv6 `ldr`/`str` instructions at `addr + offset` with zero allocation overhead.
+- **Array pointer / memory view**: `local arr: i32[] = addr` or `local farr: f32[] = addr`. Element accesses (`arr[i] = val`) compile directly to `*(addr + (i - 1) * 4)`.
+- **Lua compatibility**: In plain Lua (`to_lua`), struct constructors and `__bml_arr` proxy tables map field and index accesses transparently to `peek4`/`poke4` when passed an integer memory address.
+
 ### 3.5 Built-in Functions
 
 - Math & Conversion:

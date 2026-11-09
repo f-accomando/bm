@@ -67,6 +67,13 @@ local function memset(dst, val, n)
     __mem[dst + i] = b
   end
 end
+local function __bml_arr(base)
+  if type(base) == "table" then return base end
+  return setmetatable({}, {
+    __index = function(_, i) return peek4(base + (i - 1) * 4) end,
+    __newindex = function(_, i, v) poke4(base + (i - 1) * 4, v) end,
+  })
+end
 """
 
 failed = 0
@@ -1030,6 +1037,8 @@ vec_c = {"x": 2.0, "y": 3.0}
 arr_c = [5, 6]
 vm_s6_out.append(str(tm_vm.call("test_compound_ops", [10])))
 vm_s6_out.append(str(tm_vm.call("test_compound_struct_array", [vec_c, arr_c, 1])))
+vm_s6_out.append(str(tm_vm.call("test_struct_ptr", [100])))
+vm_s6_out.append(str(tm_vm.call("test_arr_ptr", [200, 5])))
 
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
@@ -1083,6 +1092,8 @@ local vec_c = {x = 2.0, y = 3.0}
 local arr_c = {5, 6}
 print(test_compound_ops(10))
 print(test_compound_struct_array(vec_c, arr_c, 1))
+print(test_struct_ptr(100))
+print(test_arr_ptr(200, 5))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1163,6 +1174,8 @@ local vec_c = {{x = 2.0, y = 3.0}}
 local arr_c = {{5, 6}}
 print(native_run(mn, "test_compound_ops", 10))
 print(native_run(mn, "test_compound_struct_array", vec_c, arr_c, 1))
+print(native_run(mn, "test_struct_ptr", 100))
+print(native_run(mn, "test_arr_ptr", 200, 5))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1358,6 +1371,22 @@ void c_main(void)
         int32_t arrc[2] = {{5, 6}};
         int32_t a[3] = {{(int32_t)(uintptr_t)vc, (int32_t)(uintptr_t)arrc, 1}};
         bmnative_call(m, bmnative_find(m, "test_compound_struct_array"), a, 3, &r);
+        put_i32(r);
+    }}
+
+    /* 13. test_struct_ptr */
+    {{
+        static uint8_t s_pkt_buf[256];
+        int32_t a[1] = {{(int32_t)(uintptr_t)s_pkt_buf}};
+        bmnative_call(m, bmnative_find(m, "test_struct_ptr"), a, 1, &r);
+        put_i32(r);
+    }}
+
+    /* 14. test_arr_ptr */
+    {{
+        static int32_t s_arr_buf[64];
+        int32_t a[2] = {{(int32_t)(uintptr_t)s_arr_buf, 5}};
+        bmnative_call(m, bmnative_find(m, "test_arr_ptr"), a, 2, &r);
         put_i32(r);
     }}
 }}
@@ -2188,6 +2217,8 @@ local vec_c = {{x = 2.0, y = 3.0}}
 local arr_c = {{5, 6}}
 print(native_run(m_tm, "test_compound_ops", 10))
 print(native_run(m_tm, "test_compound_struct_array", vec_c, arr_c, 1))
+print(native_run(m_tm, "test_struct_ptr", 100))
+print(native_run(m_tm, "test_arr_ptr", 200, 5))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))

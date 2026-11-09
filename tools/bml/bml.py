@@ -450,7 +450,7 @@ class Parser:
                 self.fail(f"unknown or disallowed array type '{typ_s}'", tname)
         elif typ_s in self.struct_names:
             if not allow_composite:
-                self.fail(f"struct type '{typ_s}' is only allowed on parameters", tname)
+                self.fail(f"struct type '{typ_s}' is not allowed here", tname)
         elif typ_s not in TYPES:
             self.fail(f"unknown type '{typ_s}' (expected i32, bool, or f32)", tname)
         self.cuts.append((start_pos, end_pos))
@@ -571,7 +571,33 @@ class Parser:
             self.fail(f"struct '{sname.text}' has no fields", kw)
         self.struct_names.add(sname.text)
         del self.cuts[cuts_before:]
-        self.cuts.append((kw.start, end_tok.end))
+        params_s = ", ".join(f.name for f in fields)
+        body_s = ", ".join(f"{f.name} = {f.name}" for f in fields)
+        lua_ctor = (
+            f"local function {sname.text}({params_s}, ...)\n"
+            f"  if {fields[0].name} ~= nil and select('#', ...) == 0 and type({fields[0].name}) == 'number' then\n"
+            f"    local base = {fields[0].name}\n"
+            f"    return setmetatable({{}}, {{\n"
+            f"      __index = function(_, k)\n"
+        )
+        for i, f in enumerate(fields):
+            off = i * 4
+            lua_ctor += f"        if k == '{f.name}' then return peek4(base + {off}) end\n"
+        lua_ctor += (
+            f"      end,\n"
+            f"      __newindex = function(_, k, v)\n"
+        )
+        for i, f in enumerate(fields):
+            off = i * 4
+            lua_ctor += f"        if k == '{f.name}' then poke4(base + {off}, v) end\n"
+        lua_ctor += (
+            f"      end,\n"
+            f"    }})\n"
+            f"  end\n"
+            f"  return {{{body_s}}}\n"
+            f"end\n"
+        )
+        self.cuts.append((kw.start, end_tok.end, lua_ctor))
         return StructDecl(sname.text, fields, kw.line)
 
     def parse_function(self) -> FuncDecl:
@@ -642,9 +668,17 @@ class Parser:
                 v = self.expect_name()
                 decl_type: Optional[str] = None
                 if self.cur().text == ":":
-                    decl_type = self.parse_type_annotation(allow_composite=False)
-                self.expect("=")
+                    decl_type = self.parse_type_annotation(allow_composite=True)
+                if decl_type in self.struct_names:
+                    self.cur_struct_vars[v.text] = decl_type
+                eq_tok = self.expect("=")
+                is_arr = decl_type is not None and decl_type.endswith("[]")
+                if is_arr:
+                    self.cuts.append((eq_tok.end, eq_tok.end, " __bml_arr("))
                 e = self.parse_expr()
+                if is_arr:
+                    last_tok = self.toks[self.i - 1]
+                    self.cuts.append((last_tok.end, last_tok.end, ")"))
                 return LocalStmt(t.line, v.text, decl_type, e)
             if t.text == "if":
                 self.i += 1
@@ -1013,13 +1047,17 @@ class TypeChecker:
             return
         if isinstance(s, LocalStmt):
             et = self.check_expr(s.expr, s.line)
-            if et not in TYPES:
-                self.fail(s.line, f"local variable '{s.name}' must be i32, bool, or f32, not {et}")
-            if s.decl_type is not None and s.decl_type != et:
-                self.fail(s.line, f"{et} assigned to '{s.name}' of {s.decl_type}")
+            if s.decl_type is not None:
+                if s.decl_type != et and not (s.decl_type in self.structs and et == "i32") and not (s.decl_type.endswith("[]") and et == "i32"):
+                    self.fail(s.line, f"{et} assigned to '{s.name}' of {s.decl_type}")
+                vt = s.decl_type
+            else:
+                if et not in TYPES:
+                    self.fail(s.line, f"local variable '{s.name}' must be i32, bool, or f32, not {et}")
+                vt = et
             if s.name in self.vars:
                 self.fail(s.line, f"'{s.name}' is declared twice")
-            self.vars[s.name] = et
+            self.vars[s.name] = vt
             return
 
         if isinstance(s, AssignStmt):
@@ -1027,7 +1065,7 @@ class TypeChecker:
                 self.fail(s.line, f"'{s.name}' is not declared")
             vt = self.vars[s.name]
             et = self.check_expr(s.expr, s.line)
-            if vt != et:
+            if vt != et and not (vt in self.structs and et == "i32") and not (vt.endswith("[]") and et == "i32"):
                 self.fail(s.line, f"{et} assigned to '{s.name}' of {vt}")
             return
 
@@ -1276,6 +1314,24 @@ class TypeChecker:
                 self.fail(stmt_line, f"'{call.callee}' takes matching i32 or f32 arguments")
             call.typ = t0
             return t0
+
+        if call.callee in self.structs:
+            st = self.structs[call.callee]
+            if len(call.args) == 1:
+                at = self.check_expr(call.args[0], stmt_line)
+                if at != "i32":
+                    self.fail(stmt_line, f"'{call.callee}' address pointer must be i32, not {at}")
+                call.typ = call.callee
+                return call.callee
+            elif len(call.args) == len(st.fields):
+                for arg, fld in zip(call.args, st.fields):
+                    at = self.check_expr(arg, stmt_line)
+                    if at != fld.typ:
+                        self.fail(stmt_line, f"'{call.callee}' field '{fld.name}' gets {at} where {fld.typ} is expected")
+                call.typ = call.callee
+                return call.callee
+            else:
+                self.fail(stmt_line, f"'{call.callee}' takes 1 address or {len(st.fields)} field values, not {len(call.args)}")
 
         if call.callee in BUILTINS:
             ptypes, ret = BUILTINS[call.callee]
@@ -1760,6 +1816,9 @@ class BytecodeCompiler:
     def compile_call(self, call: CallExpr) -> None:
         for arg in call.args:
             self.compile_expr(arg)
+        if call.callee in self.structs:
+            if len(call.args) == 1:
+                return
         if call.callee in ("abs", "min", "max"):
             is_f = call.args[0].typ == "f32"
             self.emit(("F" if is_f else "") + call.callee.upper())
@@ -2126,27 +2185,43 @@ class StackVM:
             elif op in ("AGET", "AGETF"):
                 idx = int(stack.pop())
                 arr = stack.pop()
-                if idx < 1 or idx > len(arr):
-                    raise VMError(f"array index {idx} out of range (1..{len(arr)})")
-                v = arr[idx - 1]
-                if op == "AGETF":
-                    stack.append(f32_round(float(v)))
-                elif isinstance(v, bool):
-                    stack.append(v)
+                if isinstance(arr, int):
+                    addr = (arr + (idx - 1) * 4) & 0xFFFF
+                    if op == "AGETF":
+                        v = struct.unpack("<f", self.memory[addr:addr+4])[0]
+                        stack.append(f32_round(float(v)))
+                    else:
+                        v = struct.unpack("<i", self.memory[addr:addr+4])[0]
+                        stack.append(self._norm(int(v)))
                 else:
-                    stack.append(self._norm(int(v)))
+                    if idx < 1 or idx > len(arr):
+                        raise VMError(f"array index {idx} out of range (1..{len(arr)})")
+                    v = arr[idx - 1]
+                    if op == "AGETF":
+                        stack.append(f32_round(float(v)))
+                    elif isinstance(v, bool):
+                        stack.append(v)
+                    else:
+                        stack.append(self._norm(int(v)))
             elif op in ("ASET", "ASETF"):
                 val = stack.pop()
                 idx = int(stack.pop())
                 arr = stack.pop()
-                if idx < 1 or idx > len(arr):
-                    raise VMError(f"array index {idx} out of range (1..{len(arr)})")
-                if op == "ASETF":
-                    arr[idx - 1] = f32_round(float(val))
-                elif isinstance(val, bool):
-                    arr[idx - 1] = val
+                if isinstance(arr, int):
+                    addr = (arr + (idx - 1) * 4) & 0xFFFF
+                    if op == "ASETF":
+                        self.memory[addr:addr+4] = struct.pack("<f", float(val))
+                    else:
+                        self.memory[addr:addr+4] = struct.pack("<i", int(val))
                 else:
-                    arr[idx - 1] = self._norm(int(val))
+                    if idx < 1 or idx > len(arr):
+                        raise VMError(f"array index {idx} out of range (1..{len(arr)})")
+                    if op == "ASETF":
+                        arr[idx - 1] = f32_round(float(val))
+                    elif isinstance(val, bool):
+                        arr[idx - 1] = val
+                    else:
+                        arr[idx - 1] = self._norm(int(val))
             elif op == "PEEK":
                 addr = int(stack.pop()) & 0xFFFF
                 stack.append(self.memory[addr])

@@ -1206,6 +1206,13 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         expect_tok(C, ")");
     }
 
+    int s_idx = find_struct(C, callee);
+    if (s_idx >= 0) {
+        if (argc != 1 || arg_types[0] != BMN_I32)
+            c_fail(C, stmt_line, "struct '%s' constructor takes 1 address (i32)", callee);
+        return (uint8_t)(BMN_STRUCT_BASE | (uint8_t)s_idx);
+    }
+
     if (strcmp(callee, "print") == 0) {
         if (argc < 1 || argc > 5)
             c_fail(C, stmt_line, "'print' takes 1 to 5 arguments");
@@ -1439,11 +1446,16 @@ static int compile_stmt(bmlc_ctx_t *C)
                 c_fail(C, line, "'%s' is declared twice", vname);
             uint8_t decl_t = BMN_NONE;
             if (cur_tok(C)->kind == TK_OP && tok_eq(cur_tok(C), ":"))
-                decl_t = parse_type_annotation(C, 0);
+                decl_t = parse_type_annotation(C, 1);
             expect_tok(C, "=");
             uint8_t et = compile_expr(C, line);
-            if (decl_t != BMN_NONE && et != decl_t)
-                c_fail(C, line, "cannot put incompatible value in '%s'", vname);
+            if (decl_t != BMN_NONE && et != decl_t) {
+                int ok = 0;
+                if (et == BMN_I32 && ((decl_t & BMN_STRUCT_BASE) || (decl_t >= BMN_ARR_I32 && decl_t <= BMN_ARR_F32)))
+                    ok = 1;
+                if (!ok)
+                    c_fail(C, line, "cannot put incompatible value in '%s'", vname);
+            }
             int slot = alloc_local(C, vname, decl_t != BMN_NONE ? decl_t : et, line);
             emit_op(C, OP_STORE, slot, line);
             return 0;
@@ -1773,8 +1785,14 @@ static int compile_stmt(bmlc_ctx_t *C)
         }
         expect_tok(C, "=");
         uint8_t et = compile_expr(C, line);
-        if (et != C->cur_fn->ltype[slot])
-            c_fail(C, line, "cannot assign incompatible type to '%s'", name);
+        uint8_t lt = C->cur_fn->ltype[slot];
+        if (et != lt) {
+            int ok = 0;
+            if (et == BMN_I32 && ((lt & BMN_STRUCT_BASE) || (lt >= BMN_ARR_I32 && lt <= BMN_ARR_F32)))
+                ok = 1;
+            if (!ok)
+                c_fail(C, line, "cannot assign incompatible type to '%s'", name);
+        }
         emit_op(C, OP_STORE, slot, line);
         return 0;
     }

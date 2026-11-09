@@ -167,3 +167,30 @@ function test_compound_struct_array(v: Vec2f, arr: i32[], idx: i32): i32
   return floor(v.x + v.y) + arr[idx] + arr[idx + 1]
 end
 
+struct Packet
+  id: i32
+  len: i32
+  val: i32
+end
+
+function test_struct_ptr(base: i32): i32
+  local pkt: Packet = Packet(base)
+  pkt.id = 101
+  pkt.len = 16
+  pkt.val = 2024
+  return pkt.id + pkt.len + pkt.val
+end
+
+function test_arr_ptr(base: i32, n: i32): i32
+  local arr: i32[] = base
+  for i = 1, n do
+    arr[i] = i * 10
+  end
+  local sum: i32 = 0
+  for i = 1, n do
+    sum += arr[i]
+  end
+  return sum
+end
+
+
