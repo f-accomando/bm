@@ -111,6 +111,8 @@ enum {
     OP_ASETF,
     OP_PEEK,
     OP_POKE,
+    OP_PEEK2,
+    OP_POKE2,
     OP_PEEK4,
     OP_POKE4,
     OP_MEMCPY,
@@ -1237,6 +1239,18 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         emit_op(C, OP_POKE, 0, stmt_line);
         return BMN_NONE;
     }
+    if (strcmp(callee, "peek2") == 0) {
+        if (argc != 1 || arg_types[0] != BMN_I32)
+            c_fail(C, stmt_line, "'peek2' takes 1 i32 argument");
+        emit_op(C, OP_PEEK2, 0, stmt_line);
+        return BMN_I32;
+    }
+    if (strcmp(callee, "poke2") == 0) {
+        if (argc != 2 || arg_types[0] != BMN_I32 || arg_types[1] != BMN_I32)
+            c_fail(C, stmt_line, "'poke2' takes 2 i32 arguments");
+        emit_op(C, OP_POKE2, 0, stmt_line);
+        return BMN_NONE;
+    }
     if (strcmp(callee, "peek4") == 0) {
         if (argc != 1 || arg_types[0] != BMN_I32)
             c_fail(C, stmt_line, "'peek4' takes 1 i32 argument");
@@ -1901,6 +1915,26 @@ static void emit_strb(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
     emit_w(C, (COND_AL << 28) | (0x54u << 20) | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (off & 0xFFFu));
 }
 
+static void emit_ldrh(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
+{
+    uint32_t u_bit = (offset >= 0) ? 1u : 0u;
+    uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
+    uint32_t imm_hi = (off >> 4) & 0xFu;
+    uint32_t imm_lo = off & 0xFu;
+    uint32_t w = 0xE1D000B0u | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (imm_hi << 8) | imm_lo;
+    emit_w(C, w);
+}
+
+static void emit_strh(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
+{
+    uint32_t u_bit = (offset >= 0) ? 1u : 0u;
+    uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
+    uint32_t imm_hi = (off >> 4) & 0xFu;
+    uint32_t imm_lo = off & 0xFu;
+    uint32_t w = 0xE1C000B0u | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (imm_hi << 8) | imm_lo;
+    emit_w(C, w);
+}
+
 static void emit_branch_patch(bmlc_ctx_t *C, int16_t fn_idx, int16_t target, uint8_t cond, uint8_t is_bl)
 {
     if (C->npatches >= MAX_PATCHES)
@@ -1939,9 +1973,9 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
             t1 = pc + 1; sp1 = sp + 1;
         } else if (op == OP_STORE || op == OP_POP) {
             t1 = pc + 1; sp1 = sp - 1;
-        } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR || op == OP_PEEK || op == OP_PEEK4) {
+        } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR || op == OP_PEEK || op == OP_PEEK2 || op == OP_PEEK4) {
             t1 = pc + 1; sp1 = sp;
-        } else if (op == OP_POKE || op == OP_POKE4) {
+        } else if (op == OP_POKE || op == OP_POKE2 || op == OP_POKE4) {
             t1 = pc + 1; sp1 = sp - 2;
         } else if (op >= OP_ADD && op <= OP_AGETF) {
             t1 = pc + 1; sp1 = sp - 1;
@@ -2297,6 +2331,19 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             uint32_t r_addr = get_slot_reg(C, s_top - 2, 0);
             uint32_t r_val = get_slot_reg(C, s_top - 1, 1);
             emit_strb(C, r_val, r_addr, 0);
+            break;
+        }
+        case OP_PEEK2: {
+            uint32_t r_addr = get_slot_reg(C, s_top - 1, 0);
+            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            emit_ldrh(C, dst, r_addr, 0);
+            put_slot_reg(C, s_top - 1, dst);
+            break;
+        }
+        case OP_POKE2: {
+            uint32_t r_addr = get_slot_reg(C, s_top - 2, 0);
+            uint32_t r_val = get_slot_reg(C, s_top - 1, 1);
+            emit_strh(C, r_val, r_addr, 0);
             break;
         }
         case OP_PEEK4: {

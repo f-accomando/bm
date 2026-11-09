@@ -24,6 +24,7 @@ import bml  # noqa: E402
 LUAHOST = sys.argv[1]
 BUILD = sys.argv[2]
 os.makedirs(BUILD, exist_ok=True)
+os.environ["QEMU_AUDIO_DRV"] = "none"
 
 LUA_PRELUDE = """\
 local abs, min, max, floor, sqrt = math.abs, math.min, math.max, math.floor, math.sqrt
@@ -31,6 +32,15 @@ local function f32(x) return x + 0.0 end
 local __mem = {}
 local function peek(addr) return __mem[addr] or 0 end
 local function poke(addr, val) __mem[addr] = val & 255 end
+local function peek2(addr)
+  local b0 = __mem[addr] or 0
+  local b1 = __mem[addr+1] or 0
+  return b0 | (b1 << 8)
+end
+local function poke2(addr, val)
+  __mem[addr]   = val & 255
+  __mem[addr+1] = (val >> 8) & 255
+end
 local function peek4(addr)
   local b0 = __mem[addr] or 0
   local b1 = __mem[addr+1] or 0

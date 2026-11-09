@@ -2715,6 +2715,24 @@ class ARMv6Assembler:
         w = (cond << 28) | (0b01010100 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | off
         return self.emit_word(w, comment)
 
+    def ldrh(self, rd: int, rn: int, offset: int = 0, cond: int = COND_AL, comment: str = "") -> int:
+        u_bit = 1 if offset >= 0 else 0
+        off = abs(offset)
+        assert off <= 0xFF, f"LDRH offset out of 8-bit range: {offset}"
+        imm_hi = (off >> 4) & 0xF
+        imm_lo = off & 0xF
+        w = (cond << 28) | (0b00010101 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | (imm_hi << 8) | 0xB0 | imm_lo
+        return self.emit_word(w, comment)
+
+    def strh(self, rd: int, rn: int, offset: int = 0, cond: int = COND_AL, comment: str = "") -> int:
+        u_bit = 1 if offset >= 0 else 0
+        off = abs(offset)
+        assert off <= 0xFF, f"STRH offset out of 8-bit range: {offset}"
+        imm_hi = (off >> 4) & 0xF
+        imm_lo = off & 0xF
+        w = (cond << 28) | (0b00010100 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | (imm_hi << 8) | 0xB0 | imm_lo
+        return self.emit_word(w, comment)
+
     # -- VFPv2 single-precision (coprocessor 10) instructions for ARM1176JZF-S --
     def vmov_s0_r(self, rt: int, comment: str = "") -> int:
         return self.emit_word(0xEE000A10 | ((rt & 0xF) << 12), comment or f"vmov s0, r{rt}")
@@ -3259,6 +3277,15 @@ class ARMv6Compiler:
                 r_addr = get_slot(s_slot(sp - 2), 0)
                 r_val = get_slot(s_slot(sp - 1), 1)
                 a.strb(r_val, r_addr, 0, comment="poke (strb)")
+            elif op == "PEEK2":
+                r_addr = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.ldrh(dst, r_addr, 0, comment="peek2 (ldrh)")
+                put_slot(s_slot(sp - 1), dst)
+            elif op == "POKE2":
+                r_addr = get_slot(s_slot(sp - 2), 0)
+                r_val = get_slot(s_slot(sp - 1), 1)
+                a.strh(r_val, r_addr, 0, comment="poke2 (strh)")
             elif op == "PEEK4":
                 r_addr = get_slot(s_slot(sp - 1), 0)
                 dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
