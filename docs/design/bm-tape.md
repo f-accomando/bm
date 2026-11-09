@@ -4,7 +4,7 @@ Name: **bm Tape** (folder `carts/tape`, project `carts/tape/tape.bme`).
 
 bm Tape is one `.bm` app with five jobs: synth, sampler, sequencer, multitrack, and live DJ set. The references are the OP-1 (one display, four colour encoders, a tape) and the EP-133 K.O. II (pads, groups, punch-in effects; bm has `carts/ko2`). All code and all pictures are original.
 
-Status: phase 1 (skeleton in `carts/tape`) is in progress. Section 10 gives the phases.
+Status: phase 1 (skeleton in `carts/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. Section 10 gives the phases.
 
 ## 1. Principles
 
@@ -114,8 +114,9 @@ Without K2 (phases 1 to 4) a deck is a pattern set of 4 voices. The DJ module wa
 | `e3` | encoder 3 | amber |
 | `e4` | encoder 4 | white |
 | `hot` | play head, record, clip | red-orange |
+| `mute` | secondary text | grey-violet |
 
-Seven colours. Lines are 1 unit wide. The sun is the only filled shape with bands. Retro mode (`retro(true)`) changes no colour: the look is the same.
+Eight colours. Lines are 1 unit wide. The sun is the only filled shape with bands. Retro mode (`retro(true)`) changes no colour: the look is the same.
 
 ### 4.3 Scenes
 

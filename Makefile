@@ -258,6 +258,20 @@ test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_tes
 	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
+# bm Tape (carts/tape): a studio of nine vector scenes for the Pi. build.py joins carts/tape/src/*.lua, puts engine.b
+# (compiled on the console by native_compile) at its placeholder line, makes the cover and packs the .bme and the .bm.
+# Not in GAMES yet: phase 1 has no sound (docs/design/bm-tape.md).
+$(BUILD)/carts/tape.bm $(BUILD)/carts/tape.bme: $(BUILD)/carts/tape.%: carts/tape/build/build.py $(wildcard carts/tape/src/*.lua) carts/tape/src/engine.b carts/tape/bm.info scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) carts/tape/build/build.py $(BUILD)/tape
+	cp $(BUILD)/tape/tape.$* $@
+
+# bm Tape tests: engine.b on the stack VM and as Lua against a Python reference (tests/tape/engine_test.py), and the
+# cartridge in bmhost, one picture per scene (tests/tape/render_test.py). bmhost runs the native engine on the PC.
+test-tape: $(BUILD)/host/luahost $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm tests/tape/engine_test.py tests/tape/render_test.py tools/bml/bml.py
+	$(PYTHON) -I tests/tape/engine_test.py $(BUILD)/host/luahost $(BUILD)/tape-test
+	$(PYTHON) -I tests/tape/render_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm
+
 # The fast PPU against the reference copy (tests/snes/ppu_ref.c): random states, every line equal bit for bit. `make bench-snes-ppu` times both.
 SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 SNES_REF_DEFS := -Dppu_line=ppu_line_ref -Dppu_reset=ppu_reset_ref -Dppu_cgram_write=ppu_cgram_write_ref -Dppu_us=ppu_us_ref
@@ -864,7 +878,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-typed test-bml test-snes test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-typed test-bml test-snes test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
