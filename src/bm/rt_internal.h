@@ -487,6 +487,8 @@ int l_psx_draw(lua_State *L);
 int l_psx_info(lua_State *L);
 int l_psx_debug(lua_State *L);
 int l_psx_tty(lua_State *L);
+int l_psx_jit(lua_State *L);
+int l_psx_selftest(lua_State *L);
 int l_doc_read(lua_State *L);
 int l_doc_write(lua_State *L);
 int l_doc_delete(lua_State *L);

@@ -150,6 +150,7 @@ static void dicr_update(uint32_t flags)
 static void dma_run(int ch)
 {
     uint32_t madr = dma_madr[ch] & 0x1FFFFCu;
+    const uint32_t madr0 = madr;
     const uint32_t chcr = dma_chcr[ch];
     const int mode = (int)((chcr >> 9) & 3), from_ram = (int)(chcr & 1), step = (chcr & 2) ? -4 : 4;
     uint32_t words = 0;
@@ -201,6 +202,10 @@ static void dma_run(int ch)
             }
             madr += words * 4;
         }
+    }
+    if (ch == 1 || ch == 3 || ch == 6 || ((ch == 2 || ch == 4) && !from_ram)) {        /* RAM was written: code compiled from it is stale */
+        const uint32_t lo = (madr0 < madr ? madr0 : madr) & 0x1FFFFCu, hi = (madr0 > madr ? madr0 : madr) & 0x1FFFFCu;
+        psx_jit_ram_written(lo, hi - lo + 4);
     }
     dma_madr[ch] = madr;
     dma_bcr[ch] = mode == 0 ? dma_bcr[ch] : dma_bcr[ch] & 0xFFFFu;
@@ -565,6 +570,7 @@ void psx_reset(void)
     exe_pending = 0;
     psx_hooks = has_bios ? 0 : 1;
     psx_cpu_reset();
+    psx_jit_reset();
     psx_gte_reset();
     psx_gpu_reset();
     memset(GP.vram, 0, sizeof GP.vram);

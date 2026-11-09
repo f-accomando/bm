@@ -6,6 +6,8 @@
 
 local AUTO = false            -- a test build opens the first game by itself (the bridge cannot press keys)
 local show_fps = false
+local jit_on = false          -- the dynamic recompiler (the Pi): off until the self test has passed
+local selftest_msg = ""
 
 -- PlayStation buttons as bits (psx.h). The bm names follow the Nintendo layout on the RGB30: a right, b bottom,
 -- x top, y left. Cross is the bottom button, Circle right, Triangle top, Square left.
@@ -84,6 +86,14 @@ function _init()
   pad_layout()
   frameskip(2)
   list_games()
+  if AUTO then                                           -- the test build checks the recompiler first, and uses it only if it agrees
+    local bad, msg = psx_selftest(300)
+    selftest_msg = string.format("selftest: %d of 300 differ %s", bad, msg or "")
+    local avail
+    _, avail = psx_jit()
+    if avail and bad == 0 then jit_on = true end
+  end
+  psx_jit(jit_on)
   if AUTO and games[1] then start_game(games[1]) end
 end
 
@@ -92,6 +102,10 @@ function _update()
     if btnp("up") then sel = math.max(1, sel - 1) end
     if btnp("down") then sel = math.min(#games, sel + 1) end
     if btnp("x") then list_games() end
+    if btnp("y") then                                     -- the self test of the recompiler: random programs, compiled and interpreted
+      local bad, msg = psx_selftest(300)
+      selftest_msg = string.format("selftest: %d of 300 differ %s", bad, msg or "")
+    end
     if btnp("a") and games[sel] then start_game(games[sel]) end
   elseif state == "run" then
     if btn("select") and btn("start") then hold = hold + 1 else hold = 0 end
@@ -101,11 +115,12 @@ function _update()
     if frames % 120 == 0 then pad_layout() end
   elseif state == "menu" then
     if btnp("up") then menusel = math.max(1, menusel - 1) end
-    if btnp("down") then menusel = math.min(4, menusel + 1) end
+    if btnp("down") then menusel = math.min(5, menusel + 1) end
     if btnp("a") then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then psx_reset(); state = "run"
       elseif menusel == 3 then show_fps = not show_fps
+      elseif menusel == 4 then jit_on = psx_jit(not jit_on)
       else state = "browse"; list_games() end
     end
     if btnp("b") then state = "run" end
@@ -130,7 +145,8 @@ function _draw()
       if y > SCREEN_H - 50 then break end
     end
     if msg then print(msg:sub(1, 70), 16, SCREEN_H - 40, 0xFF6060) end
-    print("A play   X refresh   in game: hold Select+Start for the menu", 16, SCREEN_H - 20, 0x8090A0)
+    if selftest_msg ~= "" then print(selftest_msg:sub(1, 90), 16, SCREEN_H - 76, 0xFFFF80); print(selftest_msg:sub(91, 190), 16, SCREEN_H - 60, 0xFFFF80) end
+    print("A play   X refresh   Y recompiler test   in game: hold Select+Start for the menu", 16, SCREEN_H - 20, 0x8090A0)
     return
   end
   local t0 = time()
@@ -148,23 +164,25 @@ function _draw()
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
   if show_fps then
     local d = psx_debug()
-    rectfill(0, 0, 640, 100, 0)
+    rectfill(0, 0, 640, 132, 0)
     print(string.format("%d fps  frame %.1f ms (cpu+gpu %.1f, gpu draw %.1f)  gpu cmds %d  dma %d", stat(2), d.us_frame / 1000, d.us_cpu / 1000, d.us_gpu / 1000, d.gpu_cmds, d.dma_runs), 4, 4, 0x00FF00)
     print(string.format("PC %08X  RA %08X  istat %03X imask %03X  unhandled %d (%08X)", d.pc, d.ra, d.istat, d.imask, d.unhandled, d.last_unhandled), 4, 20, 0x00FF00)
     print(string.format("CD cmds %d last %02X sectors %d fail %d  irq flag %d en %02X  queued %d", d.cd_cmds, d.cd_last_cmd, d.cd_sectors, d.cd_read_fail, d.cd_irq_flag, d.cd_irq_en, d.cd_events), 4, 36, 0x00FF00)
     print(string.format("copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 52, 0x00FF00)
     print(d.audio, 4, 68, 0x00FF00)
+    print((jit_on and "JIT on  " or "JIT off  ") .. selftest_msg:sub(1, 70), 4, 100, 0xFFFF80)
+    print(selftest_msg:sub(71, 160), 4, 116, 0xFFFF80)
     print(string.format("lba %d loc %d  %s", d.cd_lba, d.cd_loc, d.cd_trace), 4, 84, 0x00FF00)
   end
   local tty = psx_tty()
   if #tty > 0 and frames < 600 then print(tty:sub(-60), 4, SCREEN_H - 16, 0xFFFF80) end
   if state == "menu" then
-    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 140, 0x101828)
-    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 140, 0xFFD050)
-    local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", "Back to the list" }
-    for i = 1, 4 do
-      print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
+    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 80, 220, 160, 0x101828)
+    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 80, 220, 160, 0xFFD050)
+    local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", jit_on and "JIT: on" or "JIT: off", "Back to the list" }
+    for i = 1, 5 do
+      print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 68 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end
-    print(psx_info().game:sub(1, 26), SCREEN_W // 2 - 90, SCREEN_H // 2 + 46, 0x8090A0)
+    print(psx_info().game:sub(1, 26), SCREEN_W // 2 - 90, SCREEN_H // 2 + 56, 0x8090A0)
   end
 end

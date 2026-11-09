@@ -299,7 +299,7 @@ int l_psx_debug(lua_State *L)
     {
         char tb[160];
         int n = 0;
-        for (int i = 5; i < 12; i++) n += snprintf(tb + n, sizeof tb - (size_t)n, "%02X.%02X%02X%02X ", d.cd_trace[i] & 255, (d.cd_trace[i] >> 8) & 255, (d.cd_trace[i] >> 16) & 255, d.cd_trace[i] >> 24);
+        for (int i = 5; i < 12; i++) n += snprintf(tb + n, sizeof tb - (size_t)n, "%02X.%02X%02X%02X ", (unsigned)(d.cd_trace[i] & 255), (unsigned)((d.cd_trace[i] >> 8) & 255), (unsigned)((d.cd_trace[i] >> 16) & 255), (unsigned)(d.cd_trace[i] >> 24));
         lua_pushstring(L, tb); lua_setfield(L, -2, "cd_trace");
     }
     FIELD2("cd_lba", d.cd_lba); FIELD2("cd_loc", d.cd_loc);
@@ -311,6 +311,26 @@ int l_psx_debug(lua_State *L)
     lua_pushstring(L, buf);
     lua_setfield(L, -2, "audio");
     return 1;
+}
+
+int l_psx_jit(lua_State *L)
+{
+    if (!lua_isnone(L, 1))
+        psx_jit_on = lua_toboolean(L, 1) && psx_jit_available();
+    lua_pushboolean(L, psx_jit_on);
+    lua_pushboolean(L, psx_jit_available());
+    return 2;
+}
+
+/* psx_selftest([trials]) -> number of trials that differ, a message: random programs run by the interpreter and by compiled
+ * code (it uses the machine: call it with no game running) */
+int l_psx_selftest(lua_State *L)
+{
+    char msg[160];
+    const int bad = psx_jit_selftest((int)luaL_optinteger(L, 1, 200), msg, sizeof msg);
+    lua_pushinteger(L, bad);
+    lua_pushstring(L, msg);
+    return 2;
 }
 
 int l_psx_tty(lua_State *L)

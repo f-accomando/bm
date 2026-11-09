@@ -7,7 +7,7 @@
  */
 #include "psx_int.h"
 
-#define CPI 2
+#define CPI PSX_CPI
 
 cpu_t C;
 uint8_t psx_ram[2 * 1024 * 1024];
@@ -85,6 +85,7 @@ static inline void mem_write(uint32_t a, uint32_t v, int sz)
     if (p < 0x00800000u) {
         uint8_t *m = psx_ram + (p & 0x1FFFFFu);
         WATCH("W", a, v);
+        if (__builtin_expect(psx_jit_pageflags[(p & 0x1FFFFFu) >> 8], 0)) psx_jit_ram_written(p & 0x1FFFFFu, (uint32_t)sz);
         if (sz == 4) { m[0] = (uint8_t)v; m[1] = (uint8_t)(v >> 8); m[2] = (uint8_t)(v >> 16); m[3] = (uint8_t)(v >> 24); }
         else if (sz == 2) { m[0] = (uint8_t)v; m[1] = (uint8_t)(v >> 8); }
         else m[0] = (uint8_t)v;
@@ -192,7 +193,7 @@ static inline __attribute__((always_inline)) void exec(uint32_t i)
         case 0x04: {                                                                      /* MTC0 */
             const uint32_t v = r[rt];
             switch (rd) {
-            case 12: C.cop0[12] = v; break;
+            case 12: C.cop0[12] = v; psx_jit_sr_changed(); break;
             case 13: C.cop0[13] = (C.cop0[13] & ~0x300u) | (v & 0x300u); break;
             case 3: case 5: case 6: case 7: case 9: case 11: C.cop0[rd] = v; break;
             default: break;
@@ -261,6 +262,56 @@ static inline __attribute__((always_inline)) void exec(uint32_t i)
     }
 }
 
+/* ------------------------------------------------------------------ helpers for the dynamic recompiler */
+int psx_jit_on;
+
+/* one instruction run by the interpreter for a block: the state the loop would have set, and the load applied at once */
+int psx_jit_exec(uint32_t instr, uint32_t pc, int bd)
+{
+    C.cur_pc = pc;
+    C.in_bd = bd;
+    C.pc = pc + 4;
+    C.npc = pc + 8;
+    C.next_bd = 0;
+    ar = 0; av = 0; C.ld_r = 0;
+    exec(instr);
+    if (C.ld_r) { C.r[C.ld_r] = C.ld_v; C.ld_r = 0; }
+    return C.pc != pc + 4 || C.npc != pc + 8 || C.next_bd;
+}
+
+uint32_t psx_jit_read(uint32_t a, uint32_t kind_bd, uint32_t pc)
+{
+    static const uint8_t size[5] = { 4, 2, 2, 1, 1 };
+    const uint32_t kind = kind_bd & 15;
+    const int sz = size[kind];
+    if ((sz == 4 && (a & 3)) || (sz == 2 && (a & 1))) {
+        C.cur_pc = pc;
+        C.in_bd = (kind_bd >> 4) & 1;
+        bad_addr(a, 4);
+        C.jit_exc = 1;
+        return 0;
+    }
+    const uint32_t v = mem_read(a, sz);
+    if (kind == 1) return (uint32_t)(int32_t)(int16_t)v;
+    if (kind == 3) return (uint32_t)(int32_t)(int8_t)v;
+    return v;
+}
+
+int psx_jit_write(uint32_t a, uint32_t v, uint32_t kind_bd, uint32_t pc)
+{
+    const uint32_t kind = kind_bd & 15;
+    const int sz = kind == 0 ? 4 : kind == 1 ? 2 : 1;
+    if ((sz == 4 && (a & 3)) || (sz == 2 && (a & 1))) {
+        C.cur_pc = pc;
+        C.in_bd = (kind_bd >> 4) & 1;
+        bad_addr(a, 5);
+        C.jit_exc = 1;
+        return 1;
+    }
+    mem_write(a, v, sz);
+    return psx_jit_take_stale();
+}
+
 void psx_cpu_run(uint32_t cycles)
 {
     const uint64_t stop = C.cycles + cycles;
@@ -279,6 +330,10 @@ void psx_cpu_run(uint32_t cycles)
                     continue;
                 }
             }
+        }
+        if (psx_jit_on && !psx_hooks && C.next_bd == 0 && C.ld_r == 0) {   /* a block of compiled code, when there is one at the PC */
+            const int used = psx_jit_run_block();
+            if (used) { C.cycles += (uint32_t)used; continue; }
         }
         const uint32_t pc = C.pc;
         C.in_bd = C.next_bd;

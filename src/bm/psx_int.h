@@ -18,6 +18,7 @@ extern int psx_probe_trace __attribute__((weak));
 #define I_STAT psx_i_stat
 #define I_MASK psx_i_mask
 
+#define PSX_CPI 2                       /* cycles an instruction costs */
 #define PSX_CLOCK      33868800u
 #define PSX_FRAME_CYC  564480u           /* NTSC, 60 Hz */
 #define PSX_LINE_CYC   2154u
@@ -34,6 +35,7 @@ typedef struct {
     uint32_t ld_r, ld_v;                 /* the load in flight: it lands after the next instruction */
     int in_bd, next_bd;                  /* the instruction is in a branch delay slot */
     int halted;
+    int jit_exc;                         /* set by a slow load or store of the dynamic recompiler that raised an exception */
     uint64_t cycles;                     /* since the reset */
 } cpu_t;
 
@@ -81,6 +83,16 @@ void psx_cpu_run(uint32_t cycles);
 void psx_cpu_exception(uint32_t code);
 uint32_t psx_bus_read(uint32_t addr, int size);          /* physical address; size 1, 2, 4 */
 void psx_bus_write(uint32_t addr, uint32_t v, int size);
+/* the helpers of the dynamic recompiler (psx_jit.c): psx_cpu.c gives them what the interpreter knows */
+int psx_jit_exec(uint32_t instr, uint32_t pc, int bd);                       /* one instruction by the interpreter; 1 if the PC left pc + 4 */
+uint32_t psx_jit_read(uint32_t addr, uint32_t kind_bd, uint32_t pc);          /* kind: 0 lw, 1 lh, 2 lhu, 3 lb, 4 lbu; bit 4: in a delay slot */
+int psx_jit_write(uint32_t addr, uint32_t val, uint32_t kind_bd, uint32_t pc); /* kind: 0 sw, 1 sh, 2 sb; 1 if the block must stop */
+void psx_jit_reset(void);
+int psx_jit_take_stale(void);                             /* 1 once if a store changed the code of the block that is running */
+void psx_jit_ram_written(uint32_t off, uint32_t len);     /* a DMA or a store put new bytes into RAM: drop the code compiled from them */
+void psx_jit_sr_changed(void);                            /* the cache isolation bit may have changed */
+int psx_jit_run_block(void);                              /* runs one block at the PC (cycles used), or 0 if there is none */
+extern uint8_t psx_jit_pageflags[];
 /* psx_gte.c */
 void psx_gte_reset(void);
 void psx_gte_command(uint32_t op);

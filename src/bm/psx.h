@@ -77,6 +77,10 @@ const char *psx_tty(void);
 /* with a BIOS: log what a program prints through the BIOS calls into psx_tty (the BIOS still runs the call). Costs a check per instruction. */
 void psx_log_bios_tty(int on);
 void psx_set_clock(uint32_t (*now_us)(void));
+/* the dynamic recompiler (ARM only): psx_jit_on selects it; the self test runs random programs by it and by the interpreter */
+extern int psx_jit_on;
+int psx_jit_available(void);
+int psx_jit_selftest(int trials, char *msg, int n);    /* uses the machine: call it with no game running. 0, or how many trials differ; msg says the first */
 /* a debug read of the machine: a word of RAM (address in KUSEG, 0..2 MB) */
 uint32_t psx_peek32(uint32_t addr);
 /* the VRAM (1024 x 512 of RGB555 + mask) and the registers, for the tests */
