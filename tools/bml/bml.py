@@ -40,7 +40,7 @@ TOKEN_RE = re.compile(
     r"|(?P<float>\d+\.\d*|\.\d+)"
     r"|(?P<int>\d+)"
     r"|(?P<name>[A-Za-z_]\w*)"
-    r"|(?P<op><=|>=|==|~=|//|[-+*/%&(),.:\[\]=<>])"
+    r"|(?P<op><=|>=|==|~=|<<|>>|//|[-+*/%&|~(),.:\[\]=<>])"
 )
 
 KEYWORDS = {
@@ -737,20 +737,45 @@ class Parser:
         return left
 
     def parse_cmp(self) -> Expr:
-        left = self.parse_band()
+        left = self.parse_bor()
         t = self.cur()
         if t.kind == "op" and t.text in ("<", "<=", ">", ">=", "==", "~="):
             self.i += 1
-            right = self.parse_band()
+            right = self.parse_bor()
             return BinOp(left.line, t.text, left, right)
         return left
 
+    def parse_bor(self) -> Expr:
+        left = self.parse_bxor()
+        while self.cur().kind == "op" and self.cur().text == "|":
+            self.i += 1
+            right = self.parse_bxor()
+            left = BinOp(left.line, "|", left, right)
+        return left
+
+    def parse_bxor(self) -> Expr:
+        left = self.parse_band()
+        while self.cur().kind == "op" and self.cur().text == "~":
+            self.i += 1
+            right = self.parse_band()
+            left = BinOp(left.line, "~", left, right)
+        return left
+
     def parse_band(self) -> Expr:
-        left = self.parse_add()
+        left = self.parse_shift()
         while self.cur().kind == "op" and self.cur().text == "&":
             self.i += 1
-            right = self.parse_add()
+            right = self.parse_shift()
             left = BinOp(left.line, "&", left, right)
+        return left
+
+    def parse_shift(self) -> Expr:
+        left = self.parse_add()
+        while self.cur().kind == "op" and self.cur().text in ("<<", ">>"):
+            op = self.cur().text
+            self.i += 1
+            right = self.parse_add()
+            left = BinOp(left.line, op, left, right)
         return left
 
     def parse_add(self) -> Expr:
@@ -779,6 +804,9 @@ class Parser:
         if self.accept("not"):
             operand = self.parse_unary()
             return UnaryOp(t.line, "not", operand)
+        if self.accept("~"):
+            operand = self.parse_unary()
+            return UnaryOp(t.line, "~", operand)
         return self.parse_primary()
 
     def parse_primary(self) -> Expr:
@@ -1112,6 +1140,11 @@ class TypeChecker:
                     self.fail(stmt_line, f"'not' takes bool, not {ot}")
                 e.typ = "bool"
                 return "bool"
+            if e.op == "~":
+                if ot != "i32":
+                    self.fail(stmt_line, f"unary '~' takes i32, not {ot}")
+                e.typ = "i32"
+                return "i32"
 
         if isinstance(e, BinOp):
             lt = self.check_expr(e.left, stmt_line)
@@ -1129,7 +1162,7 @@ class TypeChecker:
                     e.typ = "f32"
                     return "f32"
                 self.fail(stmt_line, f"'{e.op}' takes matching i32 or f32, not {lt} and {rt}")
-            if e.op in ("//", "%", "&"):
+            if e.op in ("//", "%", "&", "|", "~", "<<", ">>"):
                 if lt != "i32" or rt != "i32":
                     self.fail(stmt_line, f"'{e.op}' takes i32, not {lt} and {rt}")
                 e.typ = "i32"
@@ -1245,6 +1278,11 @@ OPCODES = (
     "IDIV",         # pops b, a; pushes floor(a / b) (0 if b == 0)
     "IMOD",         # pops b, a; pushes a - floor(a / b) * b (0 if b == 0)
     "BAND",         # pops b, a; pushes a & b (32-bit signed)
+    "BOR",          # pops b, a; pushes a | b (32-bit signed)
+    "BXOR",         # pops b, a; pushes a ^ b (32-bit signed)
+    "BNOT",         # pops a; pushes ~a (32-bit signed)
+    "SHL",          # pops b, a; pushes a << b (32-bit signed)
+    "SHR",          # pops b, a; pushes a >> b (32-bit signed, arithmetic)
     "NEG",          # pops a; pushes -a (i32)
     "NOT",          # pops a; pushes not a
     "EQ",           # pops b, a; pushes a == b (i32/bool)
@@ -1611,8 +1649,10 @@ class BytecodeCompiler:
             self.compile_expr(e.operand)
             if e.op == "-":
                 self.emit("FNEG" if e.typ == "f32" else "NEG")
-            else:
+            elif e.op == "not":
                 self.emit("NOT")
+            elif e.op == "~":
+                self.emit("BNOT")
             return
 
         if isinstance(e, BinOp):
@@ -1638,7 +1678,8 @@ class BytecodeCompiler:
                 self.emit(f_op_map[e.op])
             else:
                 op_map = {
-                    "+": "ADD", "-": "SUB", "*": "MUL", "//": "IDIV", "%": "IMOD", "&": "BAND",
+                    "+": "ADD", "-": "SUB", "*": "MUL", "//": "IDIV", "%": "IMOD",
+                    "&": "BAND", "|": "BOR", "~": "BXOR", "<<": "SHL", ">>": "SHR",
                     "==": "EQ", "~=": "NE", "<": "LT", "<=": "LE", ">": "GT", ">=": "GE",
                 }
                 self.emit(op_map[e.op])
@@ -1866,6 +1907,25 @@ class StackVM:
                 b = int(stack.pop())
                 a = int(stack.pop())
                 stack.append(self._norm(a & b))
+            elif op == "BOR":
+                b = int(stack.pop())
+                a = int(stack.pop())
+                stack.append(self._norm(a | b))
+            elif op == "BXOR":
+                b = int(stack.pop())
+                a = int(stack.pop())
+                stack.append(self._norm(a ^ b))
+            elif op == "BNOT":
+                a = int(stack.pop())
+                stack.append(self._norm(~a))
+            elif op == "SHL":
+                b = int(stack.pop()) & 31
+                a = int(stack.pop())
+                stack.append(self._norm(a << b))
+            elif op == "SHR":
+                b = int(stack.pop()) & 31
+                a = int(stack.pop())
+                stack.append(self._norm(a >> b))
             elif op == "NEG":
                 a = int(stack.pop())
                 stack.append(self._norm(-a))
@@ -2106,10 +2166,11 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             reach(pc + 1, sp + 1)
         elif op in ("STORE", "POP"):
             reach(pc + 1, sp - 1)
-        elif op in ("NEG", "NOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR"):
+        elif op in ("NEG", "NOT", "BNOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR"):
             reach(pc + 1, sp)
         elif op in (
-            "ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "EQ", "NE", "LT", "LE", "GT", "GE", "MIN", "MAX",
+            "ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "BOR", "BXOR", "SHL", "SHR",
+            "EQ", "NE", "LT", "LE", "GT", "GE", "MIN", "MAX",
             "FADD", "FSUB", "FMUL", "FDIV", "FEQ", "FNE", "FLT", "FLE", "FGT", "FGE", "FMIN", "FMAX",
             "AGET", "AGETF",
         ):
@@ -2472,8 +2533,27 @@ class ARMv6Assembler:
     def and_reg(self, rd: int, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
         return self.dp_reg(DP_AND, rd, rn, rm, cond=cond, comment=comment)
 
+    def orr_reg(self, rd: int, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
+        return self.dp_reg(DP_ORR, rd, rn, rm, cond=cond, comment=comment)
+
     def eor_reg(self, rd: int, rn: int, rm: int, cond: int = COND_AL, comment: str = "") -> int:
         return self.dp_reg(DP_EOR, rd, rn, rm, cond=cond, comment=comment)
+
+    def dp_reg_regshift(
+        self,
+        op: int,
+        rd: int,
+        rn: int,
+        rm: int,
+        shift_type: int,
+        rs: int,
+        cond: int = COND_AL,
+        s: int = 0,
+        comment: str = "",
+    ) -> int:
+        op2 = ((rs & 0xF) << 8) | ((shift_type & 3) << 5) | (1 << 4) | (rm & 0xF)
+        w = (cond << 28) | (op << 21) | (s << 20) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | op2
+        return self.emit_word(w, comment)
 
     def rsb_imm(self, rd: int, rn: int, imm8: int = 0, cond: int = COND_AL, comment: str = "") -> int:
         return self.dp_imm(DP_RSB, rd, rn, imm8 & 0xFF, cond=cond, comment=comment)
@@ -2857,7 +2937,7 @@ class ARMv6Compiler:
             elif op == "STORE":
                 r = get_slot(s_slot(sp - 1), 0)
                 put_slot(ins.arg, r)
-            elif op in ("ADD", "SUB", "BAND"):
+            elif op in ("ADD", "SUB", "BAND", "BOR", "BXOR"):
                 ra = get_slot(s_slot(sp - 2), 0)
                 rb = get_slot(s_slot(sp - 1), 1)
                 dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
@@ -2865,9 +2945,25 @@ class ARMv6Compiler:
                     a.add_reg(dst, ra, rb)
                 elif op == "SUB":
                     a.sub_reg(dst, ra, rb)
-                else:
+                elif op == "BAND":
                     a.and_reg(dst, ra, rb)
+                elif op == "BOR":
+                    a.orr_reg(dst, ra, rb)
+                else:
+                    a.eor_reg(dst, ra, rb)
                 put_slot(s_slot(sp - 2), dst)
+            elif op in ("SHL", "SHR"):
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                shift_type = 0 if op == "SHL" else 2  # 0: LSL, 2: ASR
+                a.dp_reg_regshift(DP_MOV, dst, 0, ra, shift_type, rb)
+                put_slot(s_slot(sp - 2), dst)
+            elif op == "BNOT":
+                r = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.mvn_reg(dst, r)
+                put_slot(s_slot(sp - 1), dst)
             elif op == "MUL":
                 ra = get_slot(s_slot(sp - 2), 0)
                 rb = get_slot(s_slot(sp - 1), 1)

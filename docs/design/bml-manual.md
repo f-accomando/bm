@@ -97,11 +97,14 @@ arg_list    = expr { "," expr } ;
 expr        = or_expr ;
 or_expr     = and_expr { "or" and_expr } ;
 and_expr    = cmp_expr { "and" cmp_expr } ;
-cmp_expr    = band_expr [ ( "<" | "<=" | ">" | ">=" | "==" | "~=" ) band_expr ] ;
-band_expr   = add_expr { "&" add_expr } ;
+cmp_expr    = bor_expr [ ( "<" | "<=" | ">" | ">=" | "==" | "~=" ) bor_expr ] ;
+bor_expr    = bxor_expr { "|" bxor_expr } ;
+bxor_expr   = band_expr { "~" band_expr } ;
+band_expr   = shift_expr { "&" shift_expr } ;
+shift_expr  = add_expr { ( "<<" | ">>" ) add_expr } ;
 add_expr    = mul_expr { ( "+" | "-" ) mul_expr } ;
 mul_expr    = unary_expr { ( "*" | "//" | "%" ) unary_expr } ;
-unary_expr  = ( "-" | "not" ) unary_expr | primary ;
+unary_expr  = ( "-" | "not" | "~" ) unary_expr | primary ;
 primary     = INT | "true" | "false" | "(" expr ")" | NAME "(" [ arg_list ] ")" | NAME ;
 ```
 
@@ -113,10 +116,13 @@ primary     = INT | "true" | "false" | "(" expr ")" | NAME "(" [ arg_list ] ")" 
 | 2 | `and` | `bool, bool` | `bool` | Short-circuit logical AND (right operand not evaluated if left is `false`) |
 | 3 | `<`, `<=`, `>`, `>=` | `i32, i32` | `bool` | Signed integer order comparison |
 | 3 | `==`, `~=` | `T, T` (`i32` or `bool`) | `bool` | Equality / inequality of identical types |
-| 4 | `&` | `i32, i32` | `i32` | Bitwise AND (between `+`/`-` and comparisons, matching Lua 5.4) |
-| 5 | `+`, `-` | `i32, i32` | `i32` | Integer addition and subtraction |
-| 6 | `*`, `//`, `%` | `i32, i32` | `i32` | Multiplication, floor division toward $-\infty$, floor modulo ($a - (a // b) \times b$) |
-| 7 | `-` (unary), `not` | `i32` / `bool` | `i32` / `bool` | Arithmetic negation / logical negation |
+| 4 | `\|` | `i32, i32` | `i32` | Bitwise OR |
+| 5 | `~` (binary) | `i32, i32` | `i32` | Bitwise XOR |
+| 6 | `&` | `i32, i32` | `i32` | Bitwise AND |
+| 7 | `<<`, `>>` | `i32, i32` | `i32` | Logical left shift / arithmetic right shift (by $b \mathbin{\&} 31$) |
+| 8 | `+`, `-` | `i32, i32` | `i32` | Integer addition and subtraction |
+| 9 | `*`, `//`, `%` | `i32, i32` | `i32` | Multiplication, floor division toward $-\infty$, floor modulo ($a - (a // b) \times b$) |
+| 10 | `-`, `not`, `~` (unary) | `i32` / `bool` | `i32` / `bool` | Arithmetic negation / logical negation / bitwise NOT |
 
 ### 3.5 Built-in Functions
 
@@ -179,7 +185,9 @@ Each function activation in `StackVM` owns:
 | `STORE` | `slot` | $v \to$ | Pops top of stack into `locals[slot]` |
 | `ADD`, `SUB`, `MUL` | — | $a, b \to (a \circ b)$ | Integer arithmetic |
 | `IDIV`, `IMOD` | — | $a, b \to (a \circ b)$ | Floor division `//` and modulo `%` toward $-\infty$ |
-| `BAND` | — | $a, b \to (a \mathbin{\&} b)$ | Bitwise AND |
+| `BAND`, `BOR`, `BXOR` | — | $a, b \to (a \circ b)$ | Bitwise AND (`&`), OR (`\|`), XOR (`~`) |
+| `BNOT` | — | $a \to (\sim a)$ | Bitwise NOT |
+| `SHL`, `SHR` | — | $a, b \to (a \circ (b \mathbin{\&} 31))$ | Bitwise left shift `<<` / arithmetic right shift `>>` |
 | `NEG` | — | $a \to (-a)$ | Integer negation |
 | `NOT` | — | $a \to (\neg a)$ | Boolean negation |
 | `EQ`, `NE` | — | $a, b \to (a \circ b)$ | Equality / inequality (`bool`) |

@@ -586,9 +586,36 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
                 const uint32_t rm = w & 0xFu;
                 const uint32_t val_m = (rm == 15u) ? (curr_pc + 8u) : r[rm];
                 const uint32_t shift_type = (w >> 5) & 3u;
-                const uint32_t shift_imm = (w >> 7) & 0x1Fu;
+                uint32_t shift_imm = 0;
+                if ((w & 0x10u) != 0) {
+                    /* Shift by register */
+                    const uint32_t rs = (w >> 8) & 0xFu;
+                    shift_imm = r[rs] & 0xFFu;
+                } else {
+                    shift_imm = (w >> 7) & 0x1Fu;
+                }
                 if (shift_imm == 0) {
                     op2 = val_m;
+                } else if (shift_imm >= 32u) {
+                    if (shift_type == 0u) { /* LSL */
+                        shift_c = (shift_imm == 32u) ? (int)(val_m & 1u) : 0;
+                        op2 = 0;
+                    } else if (shift_type == 1u) { /* LSR */
+                        shift_c = (shift_imm == 32u) ? (int)((val_m >> 31) & 1u) : 0;
+                        op2 = 0;
+                    } else if (shift_type == 2u) { /* ASR */
+                        int32_t sval = (int32_t)val_m;
+                        shift_c = (sval < 0) ? 1 : 0;
+                        op2 = (sval < 0) ? 0xFFFFFFFFu : 0u;
+                    } else {                       /* ROR */
+                        shift_imm &= 0x1Fu;
+                        if (shift_imm == 0) {
+                            op2 = val_m;
+                        } else {
+                            op2 = (val_m >> shift_imm) | (val_m << (32u - shift_imm));
+                            shift_c = (int)((op2 >> 31) & 1u);
+                        }
+                    }
                 } else if (shift_type == 0u) { /* LSL */
                     shift_c = (int)((val_m >> (32u - shift_imm)) & 1u);
                     op2 = val_m << shift_imm;

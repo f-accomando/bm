@@ -985,6 +985,7 @@ vec_m = {"x": 2.0, "y": 3.0}
 vm_s6_out.append(str(tm_vm.call("test_struct_methods", [vec_m, 1.5])))
 vm_s6_out.append(str(int(round(vec_m["x"] * 100))))
 vm_s6_out.append(str(int(round(vec_m["y"] * 100))))
+vm_s6_out.append(str(tm_vm.call("test_bitwise", [0x1234, 0x5678])))
 
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
@@ -1032,6 +1033,7 @@ local vec_m = {x = 2.0, y = 3.0}
 print(test_struct_methods(vec_m, 1.5))
 print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
+print(test_bitwise(0x1234, 0x5678))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1106,6 +1108,7 @@ local vec_m = {{x = 2.0, y = 3.0}}
 print(native_run(mn, "test_struct_methods", vec_m, 1.5))
 print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
+print(native_run(mn, "test_bitwise", 0x1234, 0x5678))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1271,6 +1274,13 @@ void c_main(void)
             float v = u2f(vm[i]) * 100.0f;
             put_i32((int32_t)(v >= 0.0f ? (v + 0.5f) : (v - 0.5f)));
         }}
+    }}
+
+    /* 9. test_bitwise */
+    {{
+        int32_t a[2] = {{0x1234, 0x5678}};
+        bmnative_call(m, bmnative_find(m, "test_bitwise"), a, 2, &r);
+        put_i32(r);
     }}
 }}
 
@@ -2094,6 +2104,7 @@ local vec_m = {{x = 2.0, y = 3.0}}
 print(native_run(m_tm, "test_struct_methods", vec_m, 1.5))
 print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
+print(native_run(m_tm, "test_bitwise", 0x1234, 0x5678))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))

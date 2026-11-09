@@ -66,7 +66,7 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 | Condizionale | `if a < b then ... elseif a == b then ... else ... end` | Ogni condizione deve essere `bool` |
 | Ciclo while | `while b ~= 0 do ... end` | La condizione deve essere `bool`; `break` esce dal ciclo più interno |
 | Ciclo for numerico | `for i = 1, n do ... end` o `for i = n, 1, -2 do ... end` | Estremi e passo opzionale sono `i32` |
-| Operatori | `+`, `-`, `*`, `//`, `%`, `&`, `<`, `<=`, `>`, `>=`, `==`, `~=`, `and`, `or`, `not` | `and` e `or` valutano in corto-circuito come in Lua |
+| Operatori | `+`, `-`, `*`, `//`, `%`, `&`, `|`, `~`, `<<`, `>>`, `<`, `<=`, `>`, `>=`, `==`, `~=`, `and`, `or`, `not` | Bitwise (`&`, `|`, `~` binario/unario, `<<`, `>>`), aritmetici e logici con precedenze Lua 5.4 |
 
 # Come funziona il compilatore
 
@@ -75,7 +75,7 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 1. `tokenize()` divide il testo sorgente in record `Token(kind, text, line, start, end)`.
 2. `Parser` costruisce l'albero sintattico `Program` (`FuncDecl`, `Stmt`, `Expr`) e annota gli intervalli di byte di `: i32` e `: bool` affinché `to_lua()` possa rimuoverli.
 3. `TypeChecker` verifica gli ambiti delle variabili, i tipi degli operatori, le chiamate di funzione e controlla che ogni percorso di una funzione con tipo di ritorno termini con `return`.
-4. `BytecodeCompiler` emette le istruzioni a stack (`PUSH_CONST`, `LOAD`, `STORE`, `ADD`, `SUB`, `MUL`, `IDIV`, `IMOD`, `BAND`, `LE`, `JZ`, `JF_KEEP`, `JT_KEEP`, `CALL`, `RET`).
+4. `BytecodeCompiler` emette le istruzioni a stack (`PUSH_CONST`, `LOAD`, `STORE`, `ADD`, `SUB`, `MUL`, `IDIV`, `IMOD`, `BAND`, `BOR`, `BXOR`, `BNOT`, `SHL`, `SHR`, `LE`, `JZ`, `JF_KEEP`, `JT_KEEP`, `CALL`, `RET`).
 
 ## Tappa 3 e Tappa 4: `bmvm` del kernel e ARMv6 A32
 

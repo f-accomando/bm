@@ -121,3 +121,13 @@ function test_struct_methods(v: Vec2f, factor: f32): i32
   end
   return -1
 end
+
+function test_bitwise(a: i32, b: i32): i32
+  local o = a | b
+  local x = a ~ b
+  local n = ~a
+  local s1 = (a << 4) | (b & 15)
+  local s2 = (a >> 2) + (~b & 3)
+  local prec = a | b & 7 ~ 2 << 1
+  return (o + x + n + s1 + s2 + prec) & 65535
+end

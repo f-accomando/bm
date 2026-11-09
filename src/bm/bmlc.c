@@ -72,8 +72,13 @@ enum {
     OP_IDIV,
     OP_IMOD,
     OP_BAND,
+    OP_BOR,
+    OP_BXOR,
+    OP_SHL,
+    OP_SHR,
     OP_NEG,
     OP_NOT,
+    OP_BNOT,
     OP_EQ,
     OP_NE,
     OP_LT,
@@ -460,12 +465,13 @@ static void tokenize(bmlc_ctx_t *C)
             continue;
         }
 
-        /* Two-character operators: <=, >=, ==, ~=, // */
+        /* Two-character operators: <=, >=, ==, ~=, //, <<, >> */
         if (pos + 1 < n) {
             char c2 = s[pos + 1];
             if ((c == '<' && c2 == '=') || (c == '>' && c2 == '=') ||
                 (c == '=' && c2 == '=') || (c == '~' && c2 == '=') ||
-                (c == '/' && c2 == '/')) {
+                (c == '/' && c2 == '/') ||
+                (c == '<' && c2 == '<') || (c == '>' && c2 == '>')) {
                 t->kind = TK_OP;
                 t->len = 2;
                 pos += 2;
@@ -476,7 +482,7 @@ static void tokenize(bmlc_ctx_t *C)
 
         /* Single-character operators */
         {
-            const char *ops = "-+*/%&(),.:[]=<>";
+            const char *ops = "-+*/%&|~(),.:[]=<>";
             int is_op = 0;
             for (int k = 0; ops[k]; k++) {
                 if (ops[k] == c) {
@@ -996,6 +1002,14 @@ static uint8_t compile_unary(bmlc_ctx_t *C, int stmt_line)
         emit_op(C, OP_NOT, 0, stmt_line);
         return BMN_BOOL;
     }
+    if (t->kind == TK_OP && tok_eq(t, "~")) {
+        C->ti++;
+        uint8_t ot = compile_unary(C, stmt_line);
+        if (ot != BMN_I32)
+            c_fail(C, stmt_line, "unary '~' needs an i32 operand");
+        emit_op(C, OP_BNOT, 0, stmt_line);
+        return BMN_I32;
+    }
     return compile_primary(C, stmt_line);
 }
 
@@ -1011,12 +1025,18 @@ static int op_prec(const token_t *t)
     if (tok_eq(t, "<") || tok_eq(t, "<=") || tok_eq(t, ">") || tok_eq(t, ">=") ||
         tok_eq(t, "==") || tok_eq(t, "~="))
         return 3;
-    if (tok_eq(t, "&"))
+    if (tok_eq(t, "|"))
         return 4;
-    if (tok_eq(t, "+") || tok_eq(t, "-"))
+    if (tok_eq(t, "~"))
         return 5;
-    if (tok_eq(t, "*") || tok_eq(t, "//") || tok_eq(t, "%") || tok_eq(t, "/"))
+    if (tok_eq(t, "&"))
         return 6;
+    if (tok_eq(t, "<<") || tok_eq(t, ">>"))
+        return 7;
+    if (tok_eq(t, "+") || tok_eq(t, "-"))
+        return 8;
+    if (tok_eq(t, "*") || tok_eq(t, "//") || tok_eq(t, "%") || tok_eq(t, "/"))
+        return 9;
     return -1;
 }
 
@@ -1073,10 +1093,19 @@ static uint8_t compile_prec(bmlc_ctx_t *C, int min_prec, int stmt_line)
                 c_fail(C, stmt_line, "'/' needs f32 operands; use '//' for i32 division");
             emit_op(C, OP_FDIV, 0, stmt_line);
             lt = BMN_F32;
-        } else if (strcmp(op, "//") == 0 || strcmp(op, "%") == 0 || strcmp(op, "&") == 0) {
+        } else if (strcmp(op, "//") == 0 || strcmp(op, "%") == 0 || strcmp(op, "&") == 0 ||
+                   strcmp(op, "|") == 0 || strcmp(op, "~") == 0 ||
+                   strcmp(op, "<<") == 0 || strcmp(op, ">>") == 0) {
             if (lt != BMN_I32 || rt != BMN_I32)
                 c_fail(C, stmt_line, "'%s' needs i32 operands", op);
-            uint8_t code = (op[0] == '/') ? OP_IDIV : ((op[0] == '%') ? OP_IMOD : OP_BAND);
+            uint8_t code;
+            if (strcmp(op, "//") == 0)      code = OP_IDIV;
+            else if (strcmp(op, "%") == 0)  code = OP_IMOD;
+            else if (strcmp(op, "&") == 0)  code = OP_BAND;
+            else if (strcmp(op, "|") == 0)  code = OP_BOR;
+            else if (strcmp(op, "~") == 0)  code = OP_BXOR;
+            else if (strcmp(op, "<<") == 0) code = OP_SHL;
+            else                            code = OP_SHR;
             emit_op(C, code, 0, stmt_line);
             lt = BMN_I32;
         } else if (strcmp(op, "<") == 0 || strcmp(op, "<=") == 0 || strcmp(op, ">") == 0 || strcmp(op, ">=") == 0) {
@@ -1730,6 +1759,12 @@ static void emit_dp_reg(bmlc_ctx_t *C, uint32_t op, uint32_t rd, uint32_t rn, ui
     emit_w(C, (cond << 28) | (op << 21) | (s << 20) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | op2);
 }
 
+static void emit_dp_reg_regshift(bmlc_ctx_t *C, uint32_t op, uint32_t rd, uint32_t rn, uint32_t rm, uint32_t shift_type, uint32_t rs, uint32_t cond, uint32_t s)
+{
+    uint32_t op2 = ((rs & 0xFu) << 8) | ((shift_type & 3u) << 5) | (1u << 4) | (rm & 0xFu);
+    emit_w(C, (cond << 28) | (op << 21) | (s << 20) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | op2);
+}
+
 static void emit_dp_imm(bmlc_ctx_t *C, uint32_t op, uint32_t rd, uint32_t rn, uint32_t imm12, uint32_t cond, uint32_t s)
 {
     emit_w(C, (cond << 28) | (1u << 25) | (op << 21) | (s << 20) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (imm12 & 0xFFFu));
@@ -1826,7 +1861,7 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
             t1 = pc + 1; sp1 = sp + 1;
         } else if (op == OP_STORE || op == OP_POP) {
             t1 = pc + 1; sp1 = sp - 1;
-        } else if (op == OP_NEG || op == OP_NOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR) {
+        } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR) {
             t1 = pc + 1; sp1 = sp;
         } else if (op >= OP_ADD && op <= OP_AGETF) {
             t1 = pc + 1; sp1 = sp - 1;
@@ -1989,13 +2024,37 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
         }
         case OP_ADD:
         case OP_SUB:
-        case OP_BAND: {
+        case OP_BAND:
+        case OP_BOR:
+        case OP_BXOR: {
             uint32_t ra = get_slot_reg(C, s_top - 2, 0);
             uint32_t rb = get_slot_reg(C, s_top - 1, 1);
             uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
-            uint32_t dp = (op == OP_ADD) ? DP_ADD : ((op == OP_SUB) ? DP_SUB : DP_AND);
+            uint32_t dp;
+            if (op == OP_ADD) dp = DP_ADD;
+            else if (op == OP_SUB) dp = DP_SUB;
+            else if (op == OP_BAND) dp = DP_AND;
+            else if (op == OP_BOR) dp = DP_ORR;
+            else dp = DP_EOR;
             emit_dp_reg(C, dp, dst, ra, rb, COND_AL, 0, 0, 0);
             put_slot_reg(C, s_top - 2, dst);
+            break;
+        }
+        case OP_SHL:
+        case OP_SHR: {
+            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
+            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
+            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
+            uint32_t shift_type = (op == OP_SHL) ? 0u : 2u; /* 0: LSL, 2: ASR */
+            emit_dp_reg_regshift(C, DP_MOV, dst, 0, ra, shift_type, rb, COND_AL, 0);
+            put_slot_reg(C, s_top - 2, dst);
+            break;
+        }
+        case OP_BNOT: {
+            uint32_t r = get_slot_reg(C, s_top - 1, 0);
+            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            emit_dp_reg(C, DP_MVN, dst, 0, r, COND_AL, 0, 0, 0);
+            put_slot_reg(C, s_top - 1, dst);
             break;
         }
         case OP_MUL: {
