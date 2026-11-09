@@ -72,7 +72,7 @@ Stages. Each stage ends with a test that compares the result with the Lua result
 6. **Types and memory (done).** `i32` wraps at 32-bit two's complement across `StackVM`, `bmvm`, C, and ARMv6. Added 1-based arrays (`i32[]`, `bool[]`, `f32[]`), `struct Name ... end` (`s.field`), and `f32` single-precision floats (`sqrt`, `f32`, `floor`, VFPv2 coprocessor 10 instructions `vadd.f32`/`vmul.f32`/`vsqrt.f32`/`vcmp.f32`/`vcvt`). Tested in `tests/bml/types_mem.b` across Lua, `StackVM`, `bmvm`, `native_run` (Lua tables and `vm_buf`), and bare-metal ARM1176 VFPv2 QEMU.
 7. **Standard functions and bm (done).** Kernel function table (`cls`, `pix`, `rectfill`, `spr`, `btn`, plus `abs`/`min`/`max`/`sqrt`/`floor`/`f32`) callable from `.b` via `CALL_HOST` and the 6-word ARMv6 stub `__bml_call_host` (`bmnative_set_host_fn` and Lua global callback bridge in `l_native_run`). Verified in `tests/bml/kernel_fn.b` across Lua, `StackVM`, `native_run`, and ARM1176 QEMU.
 8. **Games (done).** Wrote Dark Night enemy movement, wall bounce, and pairwise separation (`move_and_separate`, `cam_blocked`, `bounce_vel`) in `tests/bml/darknight_enemy.b`. Tested 60 frames of 17 enemies across Lua, `StackVM`, `bmvm` (`vm_buf`), `native_run`, and bare-metal ARM1176 VFPv2 QEMU with identical pair counts, hit sums, and coordinates.
-9. **On the console (next).** Run the compiler on the Pi itself (a large project, last).
+9. **On the console (done).** Self-contained C compiler `src/bm/bmlc.c` (`bml_compile_native`) exposed to Lua as `native_compile(src)` in `src/bm/api_vm.c`. Compiles `.b` source strings directly into `BMN1` ARMv6 A32 + VFPv2 machine code in RAM without Python or external tools. Tested on all 23 negative programs, `sum.b`, `features.b`, `types_mem.b`, `kernel_fn.b`, and `darknight_enemy.b` in Lua (`native_compile` + `native_load` + `native_run`) and on bare-metal ARM1176 VFPv2 QEMU.
 
 The first program (`tests/bml/sum.b`), tested in stages 1 and 2:
 
@@ -88,7 +88,7 @@ The ARMv6 words that stage 4 must write for it (verified with `arm-none-eabi-obj
 
 ## Open work
 
-Stages 1 through 8 of `tools/bml/bml.py` are complete (`make test-bml`); stage 9 (on-console compiler) is next. For `scripts/bmt.py`, the Lua output stays the reference and `make test-typed` compares it with the C.
+All 9 stages of `tools/bml/bml.py` and the on-console C compiler `src/bm/bmlc.c` (`native_compile`, `native_load`, `native_fn`, `native_run`) are complete (`make test-bml`). For `scripts/bmt.py`, the Lua output stays the reference and `make test-typed` compares it with the C.
 
 1. Done: `blocked` of Yharnam is made by `bmt.py` (`tests/typed/yblocked.bmt`): 50.5 to 53.5 fps on the Pi, the same as the hand-written C. The kernel now has the general form (`tests/typed/collmap.bmt`, `src/bm/typed_collmap_gen.h`). The subset has `//`, `%`, `floor`, `min`, `max` and calls between typed functions. Next: structs, and a table of the cols that the game fills once (today `typed_ysync` copies a chunk each time).
 2. `draw_scene` of Yharnam: the cull in C gave nothing (53.1 against 53.5 fps), and its cost is spread over the sort comparator, the cull, the building tiles and the draw calls (design document, section 3). Do not port a part of it. Options: the whole draw of the objects in C, or a cheaper sort (the comparator is 7.3% of the Lua instructions).

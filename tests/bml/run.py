@@ -654,6 +654,7 @@ int l_vm_run(lua_State *L);
 int l_native_load(lua_State *L);
 int l_native_fn(lua_State *L);
 int l_native_run(lua_State *L);
+int l_native_compile(lua_State *L);
 
 int main(int argc, char **argv)
 {
@@ -670,6 +671,7 @@ int main(int argc, char **argv)
     lua_register(L, "native_load", l_native_load);
     lua_register(L, "native_fn", l_native_fn);
     lua_register(L, "native_run", l_native_run);
+    lua_register(L, "native_compile", l_native_compile);
     if (luaL_dofile(L, argv[1]) != LUA_OK) {
         fprintf(stderr, "%s\\n", lua_tostring(L, -1));
         lua_close(L);
@@ -698,6 +700,7 @@ subprocess.run(
         f"-I{lua_dir}",
         "-o", native_luahost_bin,
         native_luahost_c,
+        os.path.join(ROOT, "src", "bm", "bmlc.c"),
         os.path.join(ROOT, "src", "bm", "bmnative.c"),
         os.path.join(ROOT, "src", "bm", "api_vm.c"),
         os.path.join(ROOT, "src", "bm", "bmvm.c"),
@@ -1860,10 +1863,430 @@ void _start(void)
     if qemu_s8_out != lua_s8_out:
         fail(f"Stage 8 Dark Night ARM1176 VFPv2 QEMU output differs: {qemu_s8_out} vs {lua_s8_out}")
 
+# ---------------------------------------------------------------- 11. Stage 9: On-console compiler in C (src/bm/bmlc.c / native_compile)
+s9_luahost_script = os.path.join(BUILD, "stage9_luahost.lua")
+with open(s9_luahost_script, "w", encoding="utf-8") as f:
+    f.write(f"""\
+local function read_text(path)
+  local fh = assert(io.open(path, "r"))
+  local d = fh:read("*a")
+  fh:close()
+  return d
+end
+
+-- 1. Negative checks on native_compile: all BAD_PROGRAMS must return nil + "line N: ..."
+""")
+    for bad_idx, (_, bad_src, _) in enumerate(BAD_PROGRAMS):
+        f.write(f"""\
+do
+  local blob, err = native_compile({bad_src!r})
+  assert(blob == nil and type(err) == "string" and err:find("^line %d+:"),
+         "bad program #{bad_idx} should fail in native_compile, got: " .. tostring(err))
+end
+""")
+    f.write(f"""
+-- 2. Compile sum.b in C via native_compile, load, and verify sum(-5..100)
+local sum_blob = assert(native_compile(read_text({sum_path!r})))
+local m_sum = assert(native_load(sum_blob))
+for n = -5, 100 do
+  print(tostring(native_run(m_sum, "sum", n)))
+end
+
+-- 3. Compile features.b in C via native_compile, load, and verify all feat_calls
+local feat_blob = assert(native_compile(read_text({feat_path!r})))
+local m_feat = assert(native_load(feat_blob))
+""")
+    for fn_name, args, _ in feat_calls:
+        lua_args = ", ".join(("true" if a else "false") if isinstance(a, bool) else str(a) for a in args)
+        sep = ", " if lua_args else ""
+        f.write(f'print(tostring(native_run(m_feat, {fn_name!r}{sep}{lua_args})))\n')
+
+    f.write(f"""
+-- 4. Compile types_mem.b (Stage 6: i32 wrap, arrays, structs, f32 VFPv2) in C via native_compile
+local tm_blob = assert(native_compile(read_text({tm_path!r})))
+local m_tm = assert(native_load(tm_blob))
+print(native_run(m_tm, "wrap_add", 2147483647, 1))
+print(native_run(m_tm, "wrap_add", -2147483648, -1))
+print(native_run(m_tm, "wrap_mul", 100000, 100000))
+
+local ai = {{3, -2, 7, 10, -5}}
+print(native_run(m_tm, "array_sum_scale", ai, 5, 3))
+for i = 1, 5 do print(ai[i]) end
+
+local ab = {{true, false, true, true, false, false}}
+print(native_run(m_tm, "count_true", ab, 6))
+for i = 1, 6 do print(tostring(ab[i])) end
+
+local body = {{x = 10, y = -15, vx = 7, vy = -9}}
+print(native_run(m_tm, "step_body", body, 12, 25))
+print(body.x)
+print(body.y)
+print(body.vx)
+print(body.vy)
+
+print(native_run(m_tm, "f32_poly", 3.0, 4.0))
+print(native_run(m_tm, "f32_poly", 0.0, 0.5))
+print(tostring(native_run(m_tm, "f32_cmp", -2.5, 1.25)))
+print(tostring(native_run(m_tm, "f32_cmp", 3.0, 1.0)))
+
+local xs = {{1.5, -2.0, 4.0, 0.5}}
+local ys = {{2.0, 3.0, -0.5, 6.0}}
+print(native_run(m_tm, "dot_scale_f32", xs, ys, 4))
+for i = 1, 4 do print(math.floor(xs[i] * 100 + 0.5)) end
+
+local vec = {{x = 1.5, y = -2.0}}
+print(native_run(m_tm, "step_vec2f", vec, 1.5, 6.0))
+print(math.floor(vec.x * 100 + 0.5))
+print(math.floor(vec.y * 100 + 0.5))
+
+-- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
+local kf_blob = assert(native_compile(read_text({kf_path!r})))
+local m_kf = assert(native_load(kf_blob))
+local g_mask = 0
+function cls(c) print(string.format("cls:%d", c)) end
+function pix(x, y, c) print(string.format("pix:%d,%d,%d", x, y, c)) end
+function rectfill(x, y, w, h, c) print(string.format("rectfill:%d,%d,%d,%d,%d", x, y, w, h, c)) end
+function spr(id, x, y) print(string.format("spr:%d,%d,%d", id, x, y)) end
+function btn(b) return ((g_mask >> b) & 1) ~= 0 end
+""")
+    for px, py, hp, max_hp, mask in s7_cases:
+        f.write(f"g_mask = {mask}\n")
+        f.write(f'print(string.format("ret:%d", native_run(m_kf, "step_and_draw_hud", {px}, {py}, {hp}, {max_hp})))\n')
+
+    f.write(f"""
+-- 6. Compile darknight_enemy.b (Stage 8: 60 frames of 17 enemies) in C via native_compile
+local dn_blob = assert(native_compile(read_text({dn_path!r})))
+local m_dn = assert(native_load(dn_blob))
+local N, FRAMES = {DN_N}, {DN_FRAMES}
+local x = {{{", ".join(str(v) for v in dn_init_x)}}}
+local z = {{{", ".join(str(v) for v in dn_init_z)}}}
+local vx = {{{", ".join(str(v) for v in dn_init_vx)}}}
+local vz = {{{", ".join(str(v) for v in dn_init_vz)}}}
+local alive = {{{", ".join("true" if v else "false" for v in dn_init_alive)}}}
+local out, counts = {{}}, {{}}
+for i = 1, N * N do out[i] = 0 end
+for i = 1, N do counts[i] = 0 end
+
+local pairs_total, hit_sum = 0, 0
+for _ = 1, FRAMES do
+  pairs_total = pairs_total + native_run(m_dn, "move_and_separate", N, x, z, vx, vz, alive, out, counts)
+  for e = 1, N do
+    for k = 1, counts[e] do
+      hit_sum = hit_sum + out[(e - 1) * N + k]
+    end
+  end
+end
+
+local ox = {{1.5, 3.0, 4.5}}
+local oz = {{1.5, 3.0, 4.5}}
+local r  = {{0.5, 0.5, 0.5}}
+print(pairs_total)
+print(hit_sum)
+print(tostring(native_run(m_dn, "cam_blocked", 1.6, 1.6, 3, ox, oz, r)))
+print(tostring(native_run(m_dn, "cam_blocked", 0.2, 0.2, 3, ox, oz, r)))
+print(math.floor(x[1] * 64 + 0.5))
+print(math.floor(z[1] * 64 + 0.5))
+print(math.floor(x[17] * 64 + 0.5))
+print(math.floor(z[17] * 64 + 0.5))
+""")
+
+s9_luahost_out = subprocess.check_output([native_luahost_bin, s9_luahost_script], text=True).strip().splitlines()
+expected_s9 = lua_sum_out + lua_feat_out + lua_s6_out + lua_s7_out + lua_s8_out
+if s9_luahost_out != expected_s9:
+    for idx, (got, exp) in enumerate(zip(s9_luahost_out, expected_s9)):
+        if got != exp:
+            fail(f"Stage 9 native_compile output mismatch at line #{idx + 1}: got={got}, expected={exp}")
+            break
+    else:
+        fail(f"Stage 9 native_compile line count mismatch: {len(s9_luahost_out)} vs {len(expected_s9)}")
+
+# 11b. Bare-metal ARM1176 VFPv2 QEMU: compile .b source strings directly on the simulated Pi CPU via bml_compile_native()
+if arm_gcc and qemu_arm:
+    def c_str_bytes(s: str) -> str:
+        b = s.encode("utf-8")
+        return ", ".join(f"0x{x:02X}u" for x in b) + ", 0x00u"
+
+    QEMU_S9_C = f"""\
+#include <setjmp.h>
+#include <stddef.h>
+#include <stdint.h>
+#include "bm/bmlc.h"
+#include "bm/bmnative.h"
+
+#define UART0 ((volatile uint32_t *)0x101F1000u)
+
+static void put_ch(char c) {{ *UART0 = (uint32_t)(uint8_t)c; }}
+static void put_str(const char *s) {{ while (*s) put_ch(*s++); }}
+static void put_bool(int32_t v) {{ put_str(v ? "true\\n" : "false\\n"); }}
+
+static void put_i32(int32_t v)
+{{
+    char buf[16];
+    uint32_t u = (v < 0) ? (0u - (uint32_t)v) : (uint32_t)v;
+    if (v < 0) put_ch('-');
+    int i = 0;
+    if (u == 0) buf[i++] = '0';
+    while (u > 0) {{
+        buf[i++] = (char)('0' + (u % 10u));
+        u /= 10u;
+    }}
+    while (i > 0) put_ch(buf[--i]);
+    put_ch('\\n');
+}}
+
+static uint32_t f2u(float f)
+{{
+    union {{ float f; uint32_t u; }} u;
+    u.f = f;
+    return u.u;
+}}
+
+static float u2f(uint32_t bits)
+{{
+    union {{ uint32_t u; float f; }} u;
+    u.u = bits;
+    return u.f;
+}}
+
+/* Minimal freestanding heap, string, and setjmp/longjmp for bmlc.c + bmnative.c + cache.c */
+static uint8_t heap_buf[2048 * 1024] __attribute__((aligned(32)));
+static size_t heap_off = 0;
+
+void *calloc(size_t nmemb, size_t size)
+{{
+    size_t total = (nmemb * size + 31u) & ~31u;
+    if (heap_off + total > sizeof(heap_buf)) return NULL;
+    uint8_t *p = &heap_buf[heap_off];
+    heap_off += total;
+    for (size_t i = 0; i < total; i++) p[i] = 0;
+    return p;
+}}
+
+void free(void *p) {{ (void)p; }}
+
+void *memcpy(void *dst, const void *src, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    for (size_t i = 0; i < n; i++) d[i] = s[i];
+    return dst;
+}}
+
+void *memset(void *dst, int c, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    for (size_t i = 0; i < n; i++) d[i] = (uint8_t)c;
+    return dst;
+}}
+
+int memcmp(const void *a, const void *b, size_t n)
+{{
+    const uint8_t *pa = (const uint8_t *)a;
+    const uint8_t *pb = (const uint8_t *)b;
+    for (size_t i = 0; i < n; i++) {{
+        if (pa[i] != pb[i]) return (int)pa[i] - (int)pb[i];
+    }}
+    return 0;
+}}
+
+size_t strlen(const char *s)
+{{
+    size_t n = 0;
+    while (s[n]) n++;
+    return n;
+}}
+
+int strcmp(const char *a, const char *b)
+{{
+    while (*a && *a == *b) {{ a++; b++; }}
+    return (uint8_t)*a - (uint8_t)*b;
+}}
+
+__attribute__((naked))
+int setjmp(jmp_buf env)
+{{
+    __asm__ volatile (
+        "stmia r0, {{r4-r11, sp, lr}}\\n"
+        "mov r0, #0\\n"
+        "bx lr\\n"
+    );
+}}
+
+__attribute__((naked))
+void longjmp(jmp_buf env, int val)
+{{
+    __asm__ volatile (
+        "ldmia r0, {{r4-r11, sp, lr}}\\n"
+        "movs r0, r1\\n"
+        "moveq r0, #1\\n"
+        "bx lr\\n"
+    );
+}}
+
+static const uint8_t src_sum[] = {{ {c_str_bytes(sum_src)} }};
+static const uint8_t src_dn[]  = {{ {c_str_bytes(dn_src)} }};
+
+static bmnative_mod *compile_and_load_on_pi(const uint8_t *src, size_t len)
+{{
+    uint8_t *blob = NULL;
+    size_t blob_len = 0;
+    char err[128];
+    if (bml_compile_native((const char *)src, len, &blob, &blob_len, err, sizeof err) != 0) {{
+        put_str("COMPILE_ERR: ");
+        put_str(err);
+        put_ch('\\n');
+        return NULL;
+    }}
+    const char *why = "";
+    bmnative_mod *m = NULL;
+    if (bmnative_load(&m, blob, blob_len, &why) != BMN_OK) {{
+        put_str("LOAD_ERR: ");
+        put_str(why);
+        put_ch('\\n');
+        return NULL;
+    }}
+    return m;
+}}
+
+void c_main(void)
+{{
+    /* 1. Verify negative error reporting on-console */
+    {{
+        const char *bad = "function f(x: i32): i32\\n  return true\\nend\\n";
+        uint8_t *blob = NULL;
+        size_t blob_len = 0;
+        char err[128];
+        if (bml_compile_native(bad, strlen(bad), &blob, &blob_len, err, sizeof err) == 0) {{
+            put_str("BAD_ACCEPTED\\n");
+            return;
+        }}
+    }}
+
+    /* 2. Compile sum.b on the ARM1176 CPU and run sum(10) = 55 */
+    bmnative_mod *m_sum = compile_and_load_on_pi(src_sum, sizeof(src_sum) - 1u);
+    if (!m_sum) return;
+    {{
+        int32_t a10[1] = {{10}}, r = 0;
+        bmnative_call(m_sum, 0, a10, 1, &r);
+        put_i32(r);
+    }}
+
+    /* 3. Compile darknight_enemy.b on the ARM1176 CPU and run 60 frames of 17 enemies */
+    bmnative_mod *m = compile_and_load_on_pi(src_dn, sizeof(src_dn) - 1u);
+    if (!m) return;
+
+    const float init_x[{DN_N}]  = {{ {c_init_x} }};
+    const float init_z[{DN_N}]  = {{ {c_init_z} }};
+    const float init_vx[{DN_N}] = {{ {c_init_vx} }};
+    const float init_vz[{DN_N}] = {{ {c_init_vz} }};
+    uint32_t x[{DN_N}], z[{DN_N}], vx[{DN_N}], vz[{DN_N}];
+    uint32_t alive[{DN_N}] = {{ {c_init_alive} }};
+    int32_t out[{DN_N * DN_N}];
+    int32_t counts[{DN_N}];
+
+    for (int i = 0; i < {DN_N}; i++) {{
+        x[i] = f2u(init_x[i]);
+        z[i] = f2u(init_z[i]);
+        vx[i] = f2u(init_vx[i]);
+        vz[i] = f2u(init_vz[i]);
+        counts[i] = 0;
+    }}
+    for (int i = 0; i < {DN_N * DN_N}; i++) out[i] = 0;
+
+    int fn_move = bmnative_find(m, "move_and_separate");
+    int fn_cam  = bmnative_find(m, "cam_blocked");
+    int32_t pairs_total = 0, hit_sum = 0;
+    int32_t a[8] = {{
+        {DN_N},
+        (int32_t)(uintptr_t)x,
+        (int32_t)(uintptr_t)z,
+        (int32_t)(uintptr_t)vx,
+        (int32_t)(uintptr_t)vz,
+        (int32_t)(uintptr_t)alive,
+        (int32_t)(uintptr_t)out,
+        (int32_t)(uintptr_t)counts
+    }};
+    for (int f = 0; f < {DN_FRAMES}; f++) {{
+        int32_t r = 0;
+        bmnative_call(m, fn_move, a, 8, &r);
+        pairs_total += r;
+        for (int e = 0; e < {DN_N}; e++) {{
+            for (int k = 0; k < counts[e]; k++)
+                hit_sum += out[e * {DN_N} + k];
+        }}
+    }}
+
+    uint32_t ox[3] = {{ f2u(1.5f), f2u(3.0f), f2u(4.5f) }};
+    uint32_t oz[3] = {{ f2u(1.5f), f2u(3.0f), f2u(4.5f) }};
+    uint32_t rad[3] = {{ f2u(0.5f), f2u(0.5f), f2u(0.5f) }};
+    int32_t cam1 = 0, cam2 = 0;
+    {{ int32_t ca[6] = {{ (int32_t)f2u(1.6f), (int32_t)f2u(1.6f), 3, (int32_t)(uintptr_t)ox, (int32_t)(uintptr_t)oz, (int32_t)(uintptr_t)rad }}; bmnative_call(m, fn_cam, ca, 6, &cam1); }}
+    {{ int32_t ca[6] = {{ (int32_t)f2u(0.2f), (int32_t)f2u(0.2f), 3, (int32_t)(uintptr_t)ox, (int32_t)(uintptr_t)oz, (int32_t)(uintptr_t)rad }}; bmnative_call(m, fn_cam, ca, 6, &cam2); }}
+
+    put_i32(pairs_total);
+    put_i32(hit_sum);
+    put_bool(cam1);
+    put_bool(cam2);
+    put_i32((int32_t)(u2f(x[0]) * 64.0f + 0.5f));
+    put_i32((int32_t)(u2f(z[0]) * 64.0f + 0.5f));
+    put_i32((int32_t)(u2f(x[16]) * 64.0f + 0.5f));
+    put_i32((int32_t)(u2f(z[16]) * 64.0f + 0.5f));
+}}
+
+__attribute__((naked, section(".text.boot")))
+void _start(void)
+{{
+    __asm__ volatile (
+        "ldr sp, =0x04000000\\n"
+        "mrc p15, 0, r0, c1, c0, 2\\n"
+        "orr r0, r0, #0x00F00000\\n"
+        "mcr p15, 0, r0, c1, c0, 2\\n"
+        "mcr p15, 0, r0, c7, c5, 4\\n"
+        "mov r0, #0x40000000\\n"
+        ".word 0xEEE80A10\\n"
+        "bl c_main\\n"
+        "mov r0, #0x18\\n"
+        "ldr r1, =0x20026\\n"
+        "svc 0x00123456\\n"
+        "1: b 1b\\n"
+    );
+}}
+"""
+    qemu_s9_c = os.path.join(BUILD, "armv6_stage9.c")
+    qemu_s9_elf = os.path.join(BUILD, "armv6_stage9.elf")
+    with open(qemu_s9_c, "w", encoding="utf-8") as f:
+        f.write(QEMU_S9_C)
+
+    subprocess.run(
+        [
+            arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-mfpu=vfpv2", "-mfloat-abi=softfp",
+            "-ffreestanding", "-nostdlib",
+            f"-I{os.path.join(ROOT, 'src')}",
+            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            "-T", qemu_ld, "-o", qemu_s9_elf,
+            qemu_s9_c,
+            os.path.join(ROOT, "src", "bm", "bmlc.c"),
+            os.path.join(ROOT, "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "src", "arch", "cache.c"),
+            "-lgcc",
+        ],
+        check=True,
+    )
+    qemu_s9_out = subprocess.check_output(
+        [qemu_arm, "-M", "versatilepb", "-cpu", "arm1176", "-nographic", "-semihosting", "-kernel", qemu_s9_elf],
+        text=True,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    ).replace("\r\n", "\n").strip().splitlines()
+
+    expected_s9_qemu = ["55"] + lua_s8_out
+    if qemu_s9_out != expected_s9_qemu:
+        fail(f"Stage 9 ARM1176 on-console bml_compile_native QEMU output differs: {qemu_s9_out} vs {expected_s9_qemu}")
+
 if failed:
     sys.exit(1)
 
 print(
-    f"bml: stages 1-8 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
-    f"{len(feat_calls)} feature calls, 200 random programs [1000 calls], Stage 6 types_mem.b, Stage 7 kernel_fn.b, and Stage 8 darknight_enemy.b [60 frames, 17 enemies] matched Lua across StackVM, C bmvm, native_run, and ARM1176 VFPv2 QEMU)"
+    f"bml: stages 1-9 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
+    f"{len(feat_calls)} feature calls, 200 random programs [1000 calls], Stage 6 types_mem.b, Stage 7 kernel_fn.b, Stage 8 darknight_enemy.b [60 frames, 17 enemies], and Stage 9 on-console C compiler native_compile matched Lua across StackVM, C bmvm, native_run, and ARM1176 VFPv2 QEMU)"
 )

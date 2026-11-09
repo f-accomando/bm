@@ -17,6 +17,10 @@ BML is a statically typed subset of Lua 5.4 designed for `bm` cartridges on the 
    - **Stage 3 (Kernel VM Back End)**: `BMVMCompiler` (`--bmvm <out.bmv>`), lowering the checked stack IR into a verified `BMV1` register-machine module executed by [`src/bm/bmvm.c`](../../src/bm/bmvm.c) (`vm_load`, `vm_run`).
    - **Stage 4 (ARMv6 A32 Native Back End)**: `ARMv6Assembler` and `ARMv6Compiler` (`--armv6 <out.bin>`, `--dump-armv6`), lowering BML functions directly to 32-bit ARMv6 (A32, AAPCS) machine words and verified on an emulated ARM1176JZF-S CPU via `qemu-system-arm -M versatilepb -cpu arm1176`.
    - **Stage 5 (Native Pi Loader & Cache Maintenance)**: `compile_native_blob` (`--native <out.bmn>`), packing the verified `BMN1` container loaded by [`src/bm/bmnative.c`](../../src/bm/bmnative.c) and [`src/bm/api_vm.c`](../../src/bm/api_vm.c) (`native_load`, `native_fn`, `native_run`) into 32-byte-aligned executable RAM with CP15 D-cache clean and I-cache invalidate.
+   - **Stage 6 (Types & Memory)**: 32-bit two's complement wraparound for `i32`, 1-based arrays (`i32[]`, `bool[]`, `f32[]`), `struct Name ... end` (`s.field`), and single-precision `f32` floats lowered to hardware VFPv2 coprocessor 10 instructions (`vadd.f32`, `vsub.f32`, `vmul.f32`, `vdiv.f32`, `vsqrt.f32`, `vcmp.f32` + `vmrs APSR_nzcv, fpscr`, `vcvt.f32.s32`, `vcvt.s32.f32`).
+   - **Stage 7 (Kernel Function Table)**: Direct calls from `.b` to `bm` kernel functions (`cls`, `pix`, `rectfill`, `spr`, `btn`, plus `abs`/`min`/`max`/`sqrt`/`floor`/`f32`) via `CALL_HOST` and the 6-word ARMv6 stub `__bml_call_host`.
+   - **Stage 8 (Games — Dark Night)**: Full enemy movement, wall bounce, camera collision (`cam_blocked`), and $O(N^2)$ pairwise separation (`move_and_separate`) in [`tests/bml/darknight_enemy.b`](../../tests/bml/darknight_enemy.b).
+   - **Stage 9 (On-Console Compiler in C)**: Self-contained C compiler in [`src/bm/bmlc.c`](../../src/bm/bmlc.c) (`bml_compile_native`) exposed to Lua as `native_compile(src)`, compiling `.b` source text directly into `BMN1` ARMv6 + VFPv2 machine code on the Pi Zero W without Python or external tools.
 3. **Line-Accurate Diagnostics**: Every lexical, syntactic, or type error reports the 1-based line number of the offending token or statement (`line <N>: <message>`).
 
 ---
@@ -548,8 +552,81 @@ int32_t bmt_fib(int32_t n)
   0x01c8: e0855006    add   r5, r5, r6      ; S[0] = fib(n - 1) + fib(n - 2)
   0x01cc: e1a00005    mov   r0, r5          ; return value in r0
   0x01d0: ea000002    b     0x01e0          ; jump to epilogue
-  ...
+   ...
   0x01e0: e1a0d00b    mov   sp, fp
   0x01e4: e8bd8ff0    pop   {r4-r10, fp, pc}
 ```
+
+---
+
+### 9.5 Example 5: Arrays, Structs, and Hardware VFPv2 `f32` (Stages 6–8)
+
+**1. BML Source (`tests/bml/types_mem.b` and `tests/bml/darknight_enemy.b`)**:
+```lua
+struct Vec2f
+  x: f32
+  y: f32
+end
+
+function step_vec2f(v: Vec2f, dt: f32, lim: f32): i32
+  v.x = v.x + 2.0 * dt
+  v.y = v.y - 1.5 * dt
+  local d: f32 = sqrt(v.x * v.x + v.y * v.y)
+  if d > lim then
+    v.x = v.x * (lim / d)
+    v.y = v.y * (lim / d)
+  end
+  return floor(d * 100.0)
+end
+```
+
+**2. Equivalent C**:
+```c
+typedef struct { float x, y; } Vec2f;
+
+int32_t step_vec2f(Vec2f *v, float dt, float lim)
+{
+    v->x = v->x + 2.0f * dt;
+    v->y = v->y - 1.5f * dt;
+    float d = sqrtf(v->x * v->x + v->y * v->y);
+    if (d > lim) {
+        v->x = v->x * (lim / d);
+        v->y = v->y * (lim / d);
+    }
+    return (int32_t)floorf(d * 100.0f);
+}
+```
+
+**3. ARMv6 + VFPv2 Coprocessor 10 Assembly (`bml.py --dump-armv6`)**:
+```armasm
+; VFPv2 single-precision distance & comparison (r4 = v ptr, r5 = dt bits, r6 = lim bits):
+  EE007A10    vmov.f32  s0, r7          ; s0 = v.x * v.x + v.y * v.y
+  EEB10AC0    vsqrt.f32 s0, s0          ; hardware VFPv2 square root
+  EE107A10    vmov.f32  r7, s0          ; r7 = d (IEEE-754 binary32 bits)
+  EE007A10    vmov.f32  s0, r7          ; s0 = d
+  EE006A90    vmov.f32  s1, r6          ; s1 = lim
+  EEB40A60    vcmp.f32  s0, s1          ; compare d with lim in VFPv2
+  EEF1FA10    vmrs      APSR_nzcv, fpscr; transfer VFP flags to ARM CPSR
+```
+
+---
+
+### 9.6 Stage 9: On-Console Compiler in C (`native_compile`)
+
+On the console (or in `bmhost`), cartridges can compile `.b` source strings directly into `BMN1` ARMv6 + VFPv2 machine code in RAM using `native_compile(src)` ([`src/bm/bmlc.c`](../../src/bm/bmlc.c)):
+
+```lua
+local src = [[
+function bounce_vel(p: f32, v: f32, lo: f32, hi: f32): f32
+  if p < lo and v < 0.0 then return -v end
+  if p > hi and v > 0.0 then return -v end
+  return v
+end
+]]
+
+local blob = assert(native_compile(src))
+local mod  = assert(native_load(blob))
+local v1   = native_run(mod, "bounce_vel", 0.25, -0.5, 0.4, 4.6) -- -> 0.5
+```
+
 

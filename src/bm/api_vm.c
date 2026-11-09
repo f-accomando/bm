@@ -10,14 +10,16 @@
  *                                   gives the result
  *   vm_buf_get(b, i)                element i of b
  *
- * Native ARMv6 A32 loader (Stage 5 of tools/bml/bml.py):
+ * Native ARMv6 A32 compiler and loader (Stages 5-9):
+ *   blob, why = native_compile(src) compiles .b source into a BMN1 ARMv6 A32 module in RAM, or nil and the error
  *   m, why = native_load(blob)      loads a BMN1 module or raw ARMv6 words into executable RAM (cleans D-cache, invalidates I-cache)
  *   f = native_fn(m, "name")        the number of a function, or nil
- *   r = native_run(m, f, args...)   calls function f (number or "name") with i32/bool arguments and returns its result
+ *   r = native_run(m, f, args...)   calls function f (number or "name") with i32/bool/f32/array/struct arguments and returns its result
  */
 #include <stdlib.h>
 #include <string.h>
 
+#include "bmlc.h"
 #include "bmnative.h"
 #include "bmvm.h"
 #include "lauxlib.h"
@@ -305,6 +307,10 @@ static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t n
     if (host_id < 0 || host_id >= 5)
         return 0;
     lua_getglobal(L, names[host_id]);
+    if (!lua_isfunction(L, -1) && host_id == BMN_HOST_PIX) {
+        lua_pop(L, 1);
+        lua_getglobal(L, "pset");
+    }
     if (!lua_isfunction(L, -1)) {
         lua_pop(L, 1);
         return 0;
@@ -491,5 +497,22 @@ int l_native_run(lua_State *L)
     if (f->ret == BMN_NONE)
         return 0;
     push_word_to_lua(L, (uint32_t)ret, f->ret);
+    return 1;
+}
+
+int l_native_compile(lua_State *L)
+{
+    size_t n = 0;
+    const char *src = luaL_checklstring(L, 1, &n);
+    uint8_t *blob = NULL;
+    size_t blob_len = 0;
+    char err[256];
+    if (bml_compile_native(src, n, &blob, &blob_len, err, sizeof err) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    lua_pushlstring(L, (const char *)blob, blob_len);
+    free(blob);
     return 1;
 }

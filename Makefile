@@ -542,9 +542,12 @@ test-darknight: $(BUILD)/host/bmhost-bin $(BUILD)/carts/darknight.bm tests/darkn
 test-typed: $(BUILD)/host/luahost scripts/bmt.py tests/typed/run.py tests/typed/hot.bmt tests/typed/bindhost.c
 	$(PYTHON) -I tests/typed/run.py $< $(BUILD)/typed
 
-# The language of bm (tools/bml/bml.py): stage 1 front end (lexer, parser, AST, type checker) and stage 2 stack VM
-# compared against Lua on sum, features and 200 random programs (docs/design/bml-manual.md).
-test-bml: $(BUILD)/host/luahost tools/bml/bml.py tests/bml/run.py tests/bml/sum.b tests/bml/features.b
+# The language of bm (tools/bml/bml.py and src/bm/bmlc.c): stages 1-9 (front end, stack VM, bmvm, ARMv6 A32,
+# native loader + cache sync, i32 wrap/arrays/structs/f32 VFPv2, kernel functions, Dark Night enemies, and on-console C compiler)
+# compared against Lua and bare-metal ARM1176 VFPv2 QEMU (docs/design/bml-manual.md).
+test-bml: $(BUILD)/host/luahost tools/bml/bml.py tests/bml/run.py tests/bml/sum.b tests/bml/features.b \
+          tests/bml/types_mem.b tests/bml/kernel_fn.b tests/bml/darknight_enemy.b \
+          src/bm/bmlc.c src/bm/bmlc.h src/bm/bmnative.c src/bm/bmnative.h src/bm/api_vm.c src/bm/bmvm.c
 	$(PYTHON) -I tests/bml/run.py $< $(BUILD)/bml
 
 # the editors read the model files: the import code of bm Mesh and bm Animator and the kernel's own checks, in bmhost

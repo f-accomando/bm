@@ -21,12 +21,13 @@ Un gioco sul Raspberry Pi Zero W 1.1 gira su un singolo core ARM1176JZF-S a 1000
 
 Un file `.b` usa la sintassi di Lua con annotazioni di tipo (`: i32`, `: bool`) sui parametri e sul valore di ritorno. Da un solo file `.b`, `tools/bml/bml.py` produce:
 
-| Bersaglio | Opzione | Dove gira | Scopo |
+| Bersaglio | Opzione / API | Dove gira | Scopo |
 |---|---|---|---|
-| Lua 5.4 standard | `--lua` | `luahost` e la VM Lua della console | Oracolo di riferimento: rimuove `: i32` e `: bool` |
+| Lua 5.4 standard | `--lua` | `luahost` e la VM Lua della console | Oracolo di riferimento: rimuove `: <tipo>` e `struct ... end` |
 | VM a stack (Tappa 2) | `--run` / `--dump` | Python sul PC (`StackVM`) | Verifica rapida e ispezione del bytecode |
 | `bmvm` del kernel (Tappa 3) | `--bmvm` | `src/bm/bmvm.c` (`vm_load`, `vm_run`) | Blob sicuro per macchina a registri dentro la cartuccia |
-| ARMv6 A32 nativo (Tappe 4-5) | `--armv6` / `--native` | `src/bm/bmnative.c` (`native_load`, `native_run`) | Parole macchina A32 a 32 bit in RAM eseguibile (AAPCS) |
+| ARMv6 A32 nativo (Tappe 4–8) | `--armv6` / `--native` | `src/bm/bmnative.c` (`native_load`, `native_run`) | Parole macchina A32 + VFPv2 a 32 bit in RAM eseguibile (AAPCS) |
+| Compilatore su console (Tappa 9) | `native_compile(src)` | `src/bm/bmlc.c` (`bml_compile_native`) | Compila testo `.b` direttamente in codice macchina ARMv6 `BMN1` sul Pi |
 
 ::: note
 `scripts/bmt.py` traduce la stessa sintassi Lua tipata in C (`--c`) per le funzioni collegate nel kernel (`src/bm/api_collmap.c`). `tools/bml/bml.py` è il compilatore autonomo che genera direttamente bytecode e parole macchina ARMv6 senza un compilatore C.
@@ -38,15 +39,18 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 
 ## Tipi e letterali
 
-| Tipo | Significato | Letterali | Rappresentazione ARMv6 |
+| Tipo | Significato | Letterali / Sintassi | Rappresentazione ARMv6 |
 |---|---|---|---|
-| `i32` | Intero con segno a 32 bit | `0`, `42`, `-2147483648`, `2147483647` | Registro generale a 32 bit (`r0`..`r10`) |
+| `i32` | Intero con segno a 32 bit (wrap in complemento a 2) | `0`, `42`, `-2147483648`, `2147483647` | Registro generale a 32 bit (`r0`..`r10`) |
 | `bool` | Valore di verità stretto | `true`, `false` | `1` (`true`) o `0` (`false`) in un registro a 32 bit |
+| `f32` | Float IEEE-754 a singola precisione | `0.0`, `1.5`, `-0.25` | Slot GP a 32 bit + coprocessore 10 VFPv2 `s0`..`s1` |
+| `i32[]`, `bool[]`, `f32[]` | Array tipati con indice base 1 | `a[i]`, `a[i] = v` | Puntatore base in registro a 32 bit (`ldr`/`str` a `base + (i - 1) * 4`) |
+| `struct Name ... end` | Record a layout fisso | `s.field`, `s.field = v` | Puntatore a parole contigue di 32 bit (`offset = field_idx * 4`) |
 
 - Le condizioni in `if`, `elseif`, `while`, `and`, `or` e `not` devono avere tipo `bool`. Un `i32` non è mai usato implicitamente come booleano.
-- La divisione intera usa `//` e il modulo usa `%`. Entrambi arrotondano verso meno infinito, come in Lua 5.4. L'operatore `/` è rifiutato nella Tappa 1 perché in Lua produce un float.
-- Funzioni integrate: `abs(x)`, `min(a, b)` e `max(a, b)` ricevono `i32` e restituiscono `i32`.
-- [DA COMPLETARE: la Tappa 6 aggiunge array, struct, la regola definitiva sull'overflow di `i32` e `f32` sul coprocessore VFPv2 dell'ARM1176 (`docs/progress/typed.md`)]
+- La divisione intera usa `//` e il modulo usa `%` (arrotondati verso $-\infty$). La divisione float usa `/` su operandi `f32`.
+- Funzioni matematiche e di conversione integrate: `abs(x)`, `min(a, b)`, `max(a, b)` (per `i32` o `f32`), `sqrt(x: f32): f32`, `f32(x: i32): f32` e `floor(x: f32): i32`.
+- Funzioni del kernel (Tappa 7): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)` e `btn(b): bool`.
 
 ## Istruzioni e operatori
 
@@ -257,14 +261,65 @@ int32_t bmt_fib(int32_t n)
   0x01cc: E1A00005    mov   r0, r5          ; return result in r0
 ```
 
+## Esempio 5: Struct, array e `f32` VFPv2 (`step_vec2f`)
+
+La Tappa 6 traduce l'aritmetica `f32` (`+`, `-`, `*`, `/`, `sqrt`, confronti) nelle istruzioni hardware del coprocessore 10 VFPv2 (`vadd.f32`, `vmul.f32`, `vsqrt.f32`, `vcmp.f32` + `vmrs APSR_nzcv, fpscr`) e compila gli accessi ai campi delle `struct` (`v.x`, `v.y`) in letture e scritture a 32 bit.
+
+```lua
+-- 1. Sorgente BML (tests/bml/types_mem.b)
+struct Vec2f
+  x: f32
+  y: f32
+end
+
+function step_vec2f(v: Vec2f, dt: f32, lim: f32): i32
+  v.x = v.x + 2.0 * dt
+  v.y = v.y - 1.5 * dt
+  local d: f32 = sqrt(v.x * v.x + v.y * v.y)
+  if d > lim then
+    v.x = v.x * (lim / d)
+    v.y = v.y * (lim / d)
+  end
+  return floor(d * 100.0)
+end
+```
+
+```c
+/* 2. Equivalent C */
+typedef struct { float x, y; } Vec2f;
+
+int32_t step_vec2f(Vec2f *v, float dt, float lim)
+{
+    v->x = v->x + 2.0f * dt;
+    v->y = v->y - 1.5f * dt;
+    float d = sqrtf(v->x * v->x + v->y * v->y);
+    if (d > lim) {
+        v->x = v->x * (lim / d);
+        v->y = v->y * (lim / d);
+    }
+    return (int32_t)floorf(d * 100.0f);
+}
+```
+
+```armasm
+; 3. ARMv6 + VFPv2 coprocessor 10 machine code (distance & comparison)
+  EE007A10    vmov.f32  s0, r7          ; s0 = v.x * v.x + v.y * v.y
+  EEB10AC0    vsqrt.f32 s0, s0          ; hardware VFPv2 square root
+  EE107A10    vmov.f32  r7, s0          ; r7 = d (IEEE-754 binary32 bits)
+  EE007A10    vmov.f32  s0, r7          ; s0 = d
+  EE006A90    vmov.f32  s1, r6          ; s1 = lim
+  EEB40A60    vcmp.f32  s0, s1          ; compare d with lim in VFPv2
+  EEF1FA10    vmrs      APSR_nzcv, fpscr; transfer VFP flags to ARM CPSR
+```
+
 # Prova passo per passo
 
 ::: try
-Compila `tests/bml/sum.b`, ispeziona il bytecode a stack e le 9 parole macchina ARMv6, eseguilo nella VM e lancia la suite completa sulla CPU ARM1176 emulata:
+Compila `tests/bml/sum.b` e `tests/bml/darknight_enemy.b`, ispeziona il bytecode a stack e le parole macchina ARMv6 + VFPv2, oppure compila testo `.b` direttamente da Lua con `native_compile(src)`:
 
-1. Esegui `python3 tools/bml/bml.py tests/bml/sum.b --dump --run sum 10`: vedi le 21 istruzioni a stack e il risultato `55`.
+1. Esegui `python3 tools/bml/bml.py tests/bml/sum.b --dump --run sum 10`: vedi le istruzioni a stack e il risultato `55`.
 2. Esegui `python3 tools/bml/bml.py tests/bml/sum.b --dump-armv6`: vedi le 9 parole esadecimali A32 da `0x0000` a `0x0020`.
-3. Esegui `make test-bml`: la suite controlla 23 programmi errati, `sum`, `features` e 200 programmi casuali confrontando Lua, `StackVM`, `bmvm` in C, `native_load`/`native_run` e `qemu-system-arm -cpu arm1176`.
+3. Esegui `make test-bml`: la suite controlla 23 programmi errati, `sum.b`, `features.b`, 200 programmi casuali, `types_mem.b`, `kernel_fn.b`, `darknight_enemy.b` (60 frame di 17 nemici) e il compilatore C su console `native_compile` (Tappa 9) confrontando Lua, `StackVM`, `bmvm` in C, `native_run` e `qemu-system-arm -cpu arm1176`.
 :::
 
 ::: copy
