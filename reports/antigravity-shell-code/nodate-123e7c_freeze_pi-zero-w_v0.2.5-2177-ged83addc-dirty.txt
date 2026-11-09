@@ -1,0 +1,120 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2177-ged83addc-dirty
+branch: antigravity/shell-code
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-123e7c_freeze_pi-zero-w_v0.2.5-2177-ged83addc-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor line "code /code-b/prova.b", frame 0, 505 s after boot, kernel v0.2.5-2176-g6f0dc727-dirty, ring 46225, sink on
+--- the last lines printed ---
+  0x0078: E8BD8FF0  pop {0x8FF0}
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0064: E3A02005  mov r2, #5
+  0x0068: EB000003  bl +20
+  0x006C: E28DD018  add r13, r13, #24
+  0x0070: EAFFFFFF  b +4
+  0x0074: E1A0D00B  mov r13, r11
+  0x0078: E8BD8FF0  pop {0x8FF0}
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0068: EB000003  bl +20
+  0x006C: E28DD018  add r13, r13, #24
+  0x0070: EAFFFFFF  b +4
+  0x0074: E1A0D00B  mov r13, r11
+  0x0078: E8BD8FF0  pop {0x8FF0}
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x006C: E28DD018  add r13, r13, #24
+  0x0070: EAFFFFFF  b +4
+  0x0074: E1A0D00B  mov r13, r11
+  0x0078: E8BD8FF0  pop {0x8FF0}
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0070: EAFFFFFF  b +4
+  0x0074: E1A0D00B  mov r13, r11
+  0x0078: E8BD8FF0  pop {0x8FF0}
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0074: E1A0D00B  mov r13, r11
+  0x0078: E8BD8FF0  pop {0x8FF0}
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0078: E8BD8FF0  pop {0x8FF0}
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x007C: E59FC00C  ldr r12, [r15, #12]
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0080: E35C0000  cmp r12, #0
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0084: 112FFF1C  bxne r12
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+ Disassembly: prova.b (%zu bytes, 216 words, 37 fn) │ Up/Down, Esc/q:Esci 
+  0x0088: E3A00000  mov r0, #0
+  0x008C: E12FFF1E  bx lr
+  0x0090: 00000000  andeq r0, r0, r0
+net: receiving a new kernel (6436004 bytes)...
+net: kernel 0% (0 of 6285 KB)
+net: kernel 10% (629 of 6285 KB)
+net: kernel 20% (1258 of 6285 KB)
+net: kernel 30% (1890 of 6285 KB)
+net: kernel 40% (2521 of 6285 KB)
+net: kernel 50% (3144 of 6285 KB)
+net: kernel 60% (3773 of 6285 KB)
+net: kernel 70% (4402 of 6285 KB)
+net: kernel 80% (5030 of 6285 KB)
+net: kernel 90% (5665 of 6285 KB)
+net: saved kernel.img on the SD card (6436004 bytes)
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log i
