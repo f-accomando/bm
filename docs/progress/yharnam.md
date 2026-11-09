@@ -110,6 +110,7 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 ## Rules (do not break)
 
+- Keep each passage between two areas free when its gate is open: no house, tree, bush or other thing of the `objects` layer in the two tile rows (or columns) of the gate, 6 tiles to each side. `make test-yharnam` runs `tests/yharnam/passages.lua` (the game's own collision on a grid of 2 pixels: the passage is crossed and its free width is at least 20 pixels). On 9 Nov 2026 the house at the gate of the cathedral (tile 72,19) and a tree, a crate and a bush at the other gate of that border (tiles 69-70,51-52) were taken out of `map_objects.csv`.
 - `MAP.grid` has one area for each cell. A forest cell never touches a cathedral cell along a side (a load-time check stops the game).
 - The 8 hunter's lamps are at least 2 chunks apart (not even diagonal). Each lamp chunk and each boss chunk is inside one area.
 - The kinds in `art/places.py` are append only: a tile keeps its number, and the drawn map keeps its numbers.

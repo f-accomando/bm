@@ -468,6 +468,7 @@ test-yharnam: $(BUILD)/host/luahost
 	$< tests/yharnam/mapgen.lua carts/yharnam/main.lua $(BUILD)/yharnam-map
 	$< tests/yharnam/borders.lua carts/yharnam/main.lua
 	$< tests/yharnam/borders.lua carts/yharnam/main.lua --drawn
+	$< tests/yharnam/passages.lua carts/yharnam/main.lua --drawn
 
 # Yharnam's autoplay on the host: 7200 frames with no key, then quit(); the run must end by itself
 test-yharnam-autoplay: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm
