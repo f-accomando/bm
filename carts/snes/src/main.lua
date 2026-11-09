@@ -51,6 +51,7 @@ local state = "browse"           -- browse, run, menu
 local files, sel, msg = {}, 1, nil
 local scr
 local holdmenu, menusel = 0, 1
+local esc_prev = false                        -- Esc was down at the last update (the menu opens and closes on the press)
 local show_fps = false
 local draw_ms = { 0, 0 }
 local acc = { n = 0, f = 0, p = 0, s = 0, n2 = 0, tf = 0, bg = 0, ob = 0, wi = 0, co = 0, mi = 0 }
@@ -129,6 +130,7 @@ local cur_lines = 224                          -- lines of the picture now: 224,
 
 -- Where the picture goes for `lines` lines. A new size makes a new render target: the machine fills it whole.
 local gmesh
+local dbg, dbg_n = nil, 0                    -- the last debug table and a counter of draws
 local GPU_EMPTY = false                    -- a test: no picture, to time the empty 720p frame
 local pic_new = true                       -- the machine made a picture since the last snes_to_sheet
 local GPU3D = true                         -- call zclear() so that the GPU draws the 2D (needed at 1280x720)
@@ -206,8 +208,12 @@ function _update()
     if btnp("x") then list_roms() end
     if btnp("a") and files[sel] then open_rom(files[sel]) end
   elseif state == "run" then
-    if (btn("l2") and btn("r2")) or (btn("l1") and btn("r1")) then holdmenu = holdmenu + 1 else holdmenu = 0 end
-    if holdmenu > 30 then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); return end
+    -- the emulator menu: Esc on a keyboard, or L2 and R2 held for half a second on a pad (Q and E are L and R of the game)
+    local esc_now = keydown(0x29)
+    local esc_edge = esc_now and not esc_prev
+    esc_prev = esc_now
+    if btn("l2") and btn("r2") then holdmenu = holdmenu + 1 else holdmenu = 0 end
+    if holdmenu > 30 or esc_edge then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); return end
     local bench = AUTO and frames >= 600 and frames < 3200      -- the test build: every frame in this range is drawn, and the time of the parts is summed: the same frames in every run
     if not (AUTO and frames >= 3200) then                                -- the test build stops at frame 3200: the same picture in every run, to compare two kernels
       local tf = time()
@@ -234,7 +240,9 @@ function _update()
       elseif menusel == 4 then next_mode()
       else save_sram(); state = "browse"; list_roms() end
     end
-    if btnp("b") then state = "run" end
+    local esc_now = keydown(0x29)
+    if btnp("b") or (esc_now and not esc_prev) then state = "run"; holdmenu = 0 end
+    esc_prev = esc_now
   end
 end
 
@@ -255,7 +263,7 @@ function _draw()
       if y > SCREEN_H - 40 then break end
     end
     if msg then print(msg, 16, SCREEN_H - 56, 0xFF6060) end
-    print("A play   X refresh   in game: hold L1+R1 (keyboard: Q+E) for the menu", 16, SCREEN_H - 24, 0x8090A0)
+    print("A play   X refresh   in game: Esc (keyboard) or hold L2+R2 (pad) for the menu", 16, SCREEN_H - 24, 0x8090A0)
     return
   end
   if SCREEN_W ~= last_sw or SCREEN_H ~= last_sh then layout(cur_lines) end   -- screen() took effect
@@ -297,8 +305,11 @@ function _draw()
   end
   scr:draw(dx, dy)
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
-  local d = snes_debug(0xCFC0)
-  if d.inidisp & 0x80 ~= 0 and frames > 180 and not AUTO then      -- a game that keeps the screen off: say why
+  -- the machine's debug table is big (strings, the sprite table): the test build takes it at every picture, the cart twice a second, for the message of a screen that stays off
+  dbg_n = dbg_n + 1
+  if AUTO or dbg_n % 30 == 0 then dbg = snes_debug(AUTO and 0xCFC0 or nil) end
+  local d = dbg
+  if d and d.inidisp & 0x80 ~= 0 and frames > 180 and not AUTO then      -- a game that keeps the screen off: say why
     local io = {}
     for i = 1, 6 do io[i] = string.format("%04X", d.io[i]) end
     print(string.format("screen off: PC %06X%s%s  nmi %02X  sound %s %04X", d.pc, d.wai and " WAI" or "",
@@ -335,7 +346,7 @@ function _draw()
     local out = snap or lines
     for i = 1, #out do print(out[i], 4, 282 + i * 16, snap and 0xFFC080 or 0x80FF80) end
   end
-  if show_fps then
+  if AUTO and show_fps then
     rectfill(0, 0, 400, 78, 0)                          -- a black bar under the lines, to read them
     print(string.format("%d fps  pic 1/%d  blank %02X  tm %02X  sound %s %04X", stat(2), every, d.inidisp, d.tm, d.spc, d.spc_pc), 4, 4, 0x00FF00)
     print(d.us_ppu, 4, 36, 0x00FF00)
@@ -343,7 +354,7 @@ function _draw()
     print(string.format("PC %06X%s%s  nmi %02X  reads %04X %04X %04X  frames %d", d.pc, d.wai and " WAI" or "", d.stp and " STP" or "", d.nmi, d.io[1], d.io[3], d.io[6], d.frames), 4, 68, 0x00FF00)
     print(d.us .. string.format("  copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 20, 0x00FF00)
   end
-  if MINI then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end
+  if MINI or (show_fps and not AUTO) then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end   -- one line: the loop, the machine (updates a second), the picture rate
   if state == "menu" then
     rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0x101820)
     rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0xFFD050)

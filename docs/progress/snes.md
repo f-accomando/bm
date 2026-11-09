@@ -17,7 +17,8 @@ machine was written again in C. The RGB30 is not measured.
    A right, B bottom, X top, Y left. The RGB30 and Nintendo pads have the same names. On a keyboard or an Xbox pad the
    cartridge swaps A with B and X with Y, so the bottom button is the SNES B. The keyboard: arrows or WASD, Space or Z
    (B), X (A), C (Y), V (X), Q and E (L and R), Enter (Start), Tab (Select).
-   Hold L2 and R2 (keyboard: Q and E) for half a second to open the emulator menu (resume, reset, FPS, scale, back to the list).
+   Press Esc (keyboard), or hold L2 and R2 for half a second (pad), to open the emulator menu (resume, reset, FPS, scale, back to the list); Esc or B closes it. Q and E are
+   only the game's L and R. The menu item "FPS" shows one line at the top left: `fps` (the draw loop), `upd/s` (emulated frames a second: 60 is full speed) and `pic 1/N` (a new picture every N frames).
    Scale in the menu: "sharp" (default), "native 256x256", "GPU 2x (540p)", "GPU 3x (720p)", "fit 4:3". "native" asks for `screen(256, 256)` (the 8th mode of the Pi; the console
    puts a square screen in the middle of a 480x270 one): the picture is 1x in a 256x256 page, and a 1080p TV shows it 4x at whole pixels (1024 x 896), with no GPU work. Pi One: 59-60 updates a second
    and a picture every frame (the controller reaches 1/1); on a 720p TV the 480x270 page is 2.67x, not whole. The GPU modes ask for a bigger screen (`screen(960, 540)` or
@@ -30,8 +31,7 @@ machine was written again in C. The RGB30 is not measured.
 5. The battery RAM goes to `/docs/<name>.srm` (the first 8 letters of the ROM name). The cartridge saves it every 10 seconds,
    in the menu and at exit.
 6. A game that keeps the screen off shows two orange lines at the bottom after 3 seconds: the PC of the CPU, the last registers it
-   read, and the state of the sound CPU. Send it when a game stays black. The menu item "FPS" shows `fps`, `blank` (INIDISP),
-   `tm` (layers on) and the sound CPU.
+   read, and the state of the sound CPU. Send it when a game stays black. The test build (`SNES_TEST=1`) shows the long debug lines (`fps`, `blank`, `tm`, the sound CPU).
 
 ## What is in it
 
@@ -72,6 +72,12 @@ machine was written again in C. The RGB30 is not measured.
 
 ## Open work
 
+- Play on the Pi One (the user, keyboard, 2026-11-10): the picture rate is not even. The user reads about 24 frames a second in play with drops to 11, and the picture skips often. My test runs
+  (the fixed intro of Super Mario World, a test build) gave 58 to 60 updates a second and 20 to 48 draw loop frames, so the cause is not found: not measured in the scenes where it drops. The
+  menu item "FPS" now shows `fps  upd/s  pic 1/N` on one line: `upd/s` near 60 with `fps` low means the machine keeps up and the cart draws less often (the controller `adapt` moves `pic 1/N`
+  between 1 and 4 and `frameskip(4)` lets up to 4 updates run for a draw); `upd/s` low means the machine is too slow in that scene (many sprites, colour math with the sub screen, mode 7, HDMA). Next:
+  read that line in the scenes that drop and send it (with the ROM scene), then measure the PPU and CPU in those scenes with the test build.
+  The cart took the whole debug table of the machine at every draw (strings, the sprite table, a map of the video RAM): now twice a second (a few ms a draw less; not measured in play).
 - Speed: the PPU is done in C with ARMv6 SIMD (the layers merged 4 pixels at a time with UADD8 and SEL, the colour math of the three channels in one
   UQADD8, UQSUB8 or UHADD8, a table of mixed colours for the fixed colour, shifts in place of the divides: the ARM1176 has no divide), the colour mix with
   a sub screen is a hand-written loop (`src/bm/snes_ppu_arm.S`, 28 instructions a pixel), and the tiles are decoded once: a cache of chunky pixels for each
