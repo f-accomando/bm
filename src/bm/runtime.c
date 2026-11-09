@@ -4118,6 +4118,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
          * the same again hides it. The buttons are the frame's own (raw_all, the
          * console's pad included): hid_buttons() has not the built-in pad and
          * clears the latches the game reads. */
+#ifdef BM_RGB30    /* on the Pi the keyboard's Q and E are L1 and R1: a game that uses both would show the block; the Pi has F11 */
         {
             const uint32_t pad = rt.raw_all;
             const int chord = (pad & HID_L1) && (pad & HID_R1);
@@ -4131,6 +4132,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             }
             rt.pad_chord_held = chord;
         }
+#endif
         /* frameskip(n): the 1/60 s that went by since the last frame, each
          * an _update (up to n; past n the time is let go: the game slows
          * down rather than never drawing) */
