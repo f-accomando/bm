@@ -1,14 +1,16 @@
 /*
- * Shell Code: Hybrid Vim / bm Code editor, compiler, and runner for bm shell.
+ * Shell Code: Interactive Editor, Compiler, and Runner for bm shell.
  *
- * Implements:
- * - Multi-tab text buffer with dynamic lines
- * - Line numbering gutter with error markers
- * - Syntax highlighting for .b, .c, .lua, .txt
- * - Modal Vim navigation (Normal, Insert, Command, Search) and bm Code shortcuts
- * - Compiler integration with bml_compile_native() and exact error location
+ * Designed for Raspberry Pi Zero W & PowKiddy RGB30:
+ * - Direct, responsive typing (no complex vim colon commands)
+ * - Esc opens a clean centered popup menu with all actions (Save, Run, Disasm, New, Exit)
+ * - Row 0 displays the Tab Bar, replacing the kernel version status bar
+ * - High-contrast block cursor with inverted character (zero flicker, zero drift)
+ * - Zero-scroll rendering: exact ANSI row positioning with no screen wrapping
+ * - Automatic saving to /code-b/ for all .b files
+ * - Compiler error feedback jumping straight to the error line
  * - Native ARMv6 runner with microsecond profiling and framebuffer graphics
- * - ARMv6 A32 / BMN1 interactive disassembly viewer
+ * - ARMv6 A32 / BMN1 disassembly viewer
  */
 #include "shell_code.h"
 
@@ -40,36 +42,23 @@
 #define HID_KEY_PGUP    0xF6
 #define HID_KEY_PGDN    0xF7
 #define HID_KEY_DEL     0xF8
-#define HID_KEY_F5      0xFD
-#define HID_KEY_F7      0xE7
+#define HID_KEY_F1      0xF9
+#define HID_KEY_F6      0xE6
 #endif
 #endif
 
-#define SC_MAX_TABS    8
-#define SC_PATH_MAX    128
-#define SC_LINE_INIT   64
+#define SC_KEY_F5       (HID_KEY_F1 + 4)
+#define SC_KEY_F7       (HID_KEY_F6 + 1)
 
-#ifndef HID_KEY_F1
-#define HID_KEY_F1     0xF9
-#endif
-#ifndef HID_KEY_F6
-#define HID_KEY_F6     0xE6
-#endif
-#define SC_KEY_F5      (HID_KEY_F1 + 4)
-#define SC_KEY_F7      (HID_KEY_F6 + 1)
+#define SC_MAX_TABS     8
+#define SC_PATH_MAX     128
+#define SC_LINE_INIT    64
 
 enum {
     SC_SYN_PLAIN = 0,
     SC_SYN_B     = 1,
     SC_SYN_LUA   = 2,
     SC_SYN_C     = 3
-};
-
-enum {
-    SC_MODE_NORMAL  = 0,
-    SC_MODE_INSERT  = 1,
-    SC_MODE_COMMAND = 2,
-    SC_MODE_SEARCH  = 3
 };
 
 typedef struct {
@@ -94,23 +83,69 @@ typedef struct {
     char       status[256];
 } sc_tab_t;
 
+enum {
+    MENU_RESUME = 0,
+    MENU_SAVE,
+    MENU_SAVE_AS,
+    MENU_RUN,
+    MENU_DISASM,
+    MENU_NEW,
+    MENU_NEXT_TAB,
+    MENU_CLOSE_TAB,
+    MENU_EXIT,
+    MENU_COUNT
+};
+
+static const char *const g_menu_labels[MENU_COUNT] = {
+    "Riprendi editing",
+    "Salva            (Ctrl+S)",
+    "Salva con nome...",
+    "Esegui .b        (Ctrl+R)",
+    "Disassembla .b   (Ctrl+D)",
+    "Nuovo file       (Ctrl+N)",
+    "Prossimo Tab     (Ctrl+T)",
+    "Chiudi Tab",
+    "Esci dall'app"
+};
+
 typedef struct {
     sc_tab_t tabs[SC_MAX_TABS];
     int      ntabs;
     int      cur_tab;
-    int      mode;
-    char     cmd_buf[128];
-    int      cmd_len;
-    char     search_buf[64];
-    int      search_len;
-    char    *yank_buf;
-    int      yank_is_line;
+    int      show_menu;
+    int      menu_sel;
     int      quit_requested;
     int      screen_cols;
     int      screen_rows;
 } sc_state_t;
 
 static sc_state_t g_sc;
+
+/* ---- Path Normalization (/code-b/) ---- */
+
+static void sc_normalize_path(char *dest, size_t dest_cap, const char *src)
+{
+    if (!src || !*src) {
+        snprintf(dest, dest_cap, "/code-b/scratch.b");
+        return;
+    }
+    const char *ext = strrchr(src, '.');
+    int is_b = (ext && strcmp(ext, ".b") == 0);
+
+    if (is_b) {
+        if (src[0] == '/') {
+            snprintf(dest, dest_cap, "%s", src);
+        } else {
+            snprintf(dest, dest_cap, "/code-b/%s", src);
+        }
+    } else {
+        if (src[0] == '/') {
+            snprintf(dest, dest_cap, "%s", src);
+        } else {
+            snprintf(dest, dest_cap, "/%s", src);
+        }
+    }
+}
 
 /* ---- Line Operations ---- */
 
@@ -247,10 +282,7 @@ static void sc_tab_delete_line(sc_tab_t *t, int at)
 static void sc_tab_init_empty(sc_tab_t *t, const char *path)
 {
     memset(t, 0, sizeof(*t));
-    if (path && *path)
-        strncpy(t->path, path, sizeof(t->path) - 1);
-    else
-        strcpy(t->path, "scratch.b");
+    sc_normalize_path(t->path, sizeof(t->path), path);
     sc_tab_update_name(t);
     sc_tab_detect_syntax(t);
     sc_tab_insert_line(t, 0, "", 0);
@@ -323,59 +355,52 @@ static int sc_tab_load(sc_tab_t *t, const char *path)
 {
     sc_tab_init_empty(t, path);
 #ifndef SHELL_CODE_HOST_TEST
-    char resolved[128];
-    if (mfs_path(path, resolved, sizeof(resolved)) != 0) {
-        strncpy(resolved, path, sizeof(resolved) - 1);
-        resolved[sizeof(resolved) - 1] = '\0';
-    }
     fat_entry_t e;
-    if (fat_find(resolved, &e) == 0 && !e.is_dir) {
+    if (fat_find(t->path, &e) == 0 && !e.is_dir) {
         uint8_t *data = NULL;
         size_t len = 0;
         if (fat_load(&e, &data, &len) == 0) {
             sc_tab_set_text(t, (const char *)data, len);
             free(data);
             t->dirty = 0;
-            snprintf(t->status, sizeof(t->status), "Loaded %s (%zu bytes)", resolved, len);
+            snprintf(t->status, sizeof(t->status), "Caricato %s (%zu bytes)", t->path, len);
             return 0;
         }
     }
 #endif
-    snprintf(t->status, sizeof(t->status), "New file: %s", path);
+    snprintf(t->status, sizeof(t->status), "Nuovo file: %s", t->path);
     return 0;
 }
 
 static int sc_tab_save(sc_tab_t *t, const char *override_path)
 {
-    const char *target = (override_path && *override_path) ? override_path : t->path;
-    if (!target || !*target)
-        target = "scratch.b";
-    snprintf(t->path, sizeof(t->path), "%s", target);
-    sc_tab_update_name(t);
-    sc_tab_detect_syntax(t);
+    if (override_path && *override_path) {
+        sc_normalize_path(t->path, sizeof(t->path), override_path);
+        sc_tab_update_name(t);
+        sc_tab_detect_syntax(t);
+    }
 
     size_t len = 0;
     char *text = sc_tab_get_text(t, &len);
     if (!text) {
-        snprintf(t->status, sizeof(t->status), "Error: out of memory");
+        snprintf(t->status, sizeof(t->status), "Errore: memoria esaurita");
         return -1;
     }
 
 #ifndef SHELL_CODE_HOST_TEST
-    char resolved[128];
-    if (mfs_path(target, resolved, sizeof(resolved)) != 0) {
-        strncpy(resolved, target, sizeof(resolved) - 1);
-        resolved[sizeof(resolved) - 1] = '\0';
+    if (strncmp(t->path, "/code-b/", 8) == 0) {
+        fat_mkdirs("/code-b");
     }
+
     fat_entry_t e;
     int ok = 0;
-    if (fat_find(resolved, &e) == 0 && !e.is_dir) {
-        ok = (fat_replace(resolved, text, len) == 0);
+    if (fat_find(t->path, &e) == 0 && !e.is_dir) {
+        ok = (fat_replace(t->path, text, len) == 0);
     } else {
         char dir[128];
-        snprintf(dir, sizeof(dir), "%s", resolved);
+        snprintf(dir, sizeof(dir), "%s", t->path);
         char *slash = strrchr(dir, '/');
-        const char *name = resolved;
+        const char *name = t->path;
         if (slash) {
             name = slash + 1;
             if (slash == dir)
@@ -391,16 +416,16 @@ static int sc_tab_save(sc_tab_t *t, const char *override_path)
     free(text);
     if (ok) {
         t->dirty = 0;
-        snprintf(t->status, sizeof(t->status), "Saved %zu bytes to %s", len, resolved);
+        snprintf(t->status, sizeof(t->status), "Salvato %s (%zu bytes)", t->path, len);
         return 0;
     } else {
-        snprintf(t->status, sizeof(t->status), "Save failed: %s", fat_error());
+        snprintf(t->status, sizeof(t->status), "Errore salvataggio: %s", fat_error());
         return -1;
     }
 #else
     free(text);
     t->dirty = 0;
-    snprintf(t->status, sizeof(t->status), "Saved %zu bytes to %s", len, target);
+    snprintf(t->status, sizeof(t->status), "Salvato %s (%zu bytes)", t->path, len);
     return 0;
 #endif
 }
@@ -448,93 +473,92 @@ static const char *const c_kw[] = {
     "case", "break", "continue", "sizeof", "uint32_t", "int32_t", "uint8_t"
 };
 
-static void sc_format_line_syntax(const sc_tab_t *t, int line_idx, int col_off, int max_cols, char *out, size_t max_len)
+/* Formats line content with syntax highlighting and explicit inverse block cursor */
+static void sc_format_line(const sc_tab_t *t, int file_line, int is_cursor_line,
+                           int cursor_cx, int col_off, int max_cols, char *out, size_t max_len)
 {
-    if (line_idx < 0 || line_idx >= t->nlines) {
+    if (file_line < 0 || file_line >= t->nlines) {
         out[0] = '\0';
         return;
     }
-    const sc_line_t *l = &t->lines[line_idx];
+    const sc_line_t *l = &t->lines[file_line];
     const char *s = l->chars;
     int len = l->len;
     size_t pos = 0;
 
-    int i = 0;
-    while (i < len) {
-        int visible = (i >= col_off && i < col_off + max_cols);
+    int col = col_off;
+    int end_col = col_off + max_cols;
+
+    while (col < end_col) {
+        if (is_cursor_line && col == cursor_cx) {
+            /* Render active block cursor: reverse video / negative */
+            char c = (col < len) ? s[col] : ' ';
+            pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m", c);
+            col++;
+            continue;
+        }
+
+        if (col >= len) {
+            /* Past end of text: fill with spaces */
+            if (pos + 1 < max_len)
+                out[pos++] = ' ';
+            col++;
+            continue;
+        }
 
         /* Comments */
-        if ((t->syntax == SC_SYN_B || t->syntax == SC_SYN_LUA) && i + 1 < len && s[i] == '-' && s[i + 1] == '-') {
-            if (visible && pos + 5 < max_len) {
-                memcpy(out + pos, "\x1b[90m", 5);
-                pos += 5;
+        if ((t->syntax == SC_SYN_B || t->syntax == SC_SYN_LUA) && col + 1 < len && s[col] == '-' && s[col + 1] == '-') {
+            pos += snprintf(out + pos, max_len - pos, "\x1b[90m");
+            while (col < end_col && col < len) {
+                if (is_cursor_line && col == cursor_cx) {
+                    pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m\x1b[90m", s[col]);
+                } else if (pos + 1 < max_len) {
+                    out[pos++] = s[col];
+                }
+                col++;
             }
-            while (i < len) {
-                if (i >= col_off && i < col_off + max_cols && pos + 1 < max_len)
-                    out[pos++] = s[i];
-                i++;
-            }
-            if (pos + 4 < max_len) {
-                memcpy(out + pos, "\x1b[0m", 4);
-                pos += 4;
-            }
-            break;
+            pos += snprintf(out + pos, max_len - pos, "\x1b[0m");
+            continue;
         }
-        if (t->syntax == SC_SYN_C && i + 1 < len && s[i] == '/' && s[i + 1] == '/') {
-            if (visible && pos + 5 < max_len) {
-                memcpy(out + pos, "\x1b[90m", 5);
-                pos += 5;
+        if (t->syntax == SC_SYN_C && col + 1 < len && s[col] == '/' && s[col + 1] == '/') {
+            pos += snprintf(out + pos, max_len - pos, "\x1b[90m");
+            while (col < end_col && col < len) {
+                if (is_cursor_line && col == cursor_cx) {
+                    pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m\x1b[90m", s[col]);
+                } else if (pos + 1 < max_len) {
+                    out[pos++] = s[col];
+                }
+                col++;
             }
-            while (i < len) {
-                if (i >= col_off && i < col_off + max_cols && pos + 1 < max_len)
-                    out[pos++] = s[i];
-                i++;
-            }
-            if (pos + 4 < max_len) {
-                memcpy(out + pos, "\x1b[0m", 4);
-                pos += 4;
-            }
-            break;
+            pos += snprintf(out + pos, max_len - pos, "\x1b[0m");
+            continue;
         }
 
         /* Strings */
-        if (s[i] == '"' || (t->syntax == SC_SYN_LUA && s[i] == '\'')) {
-            char quote = s[i];
-            if (visible && pos + 5 < max_len) {
-                memcpy(out + pos, "\x1b[33m", 5);
-                pos += 5;
-            }
-            if (visible && pos + 1 < max_len)
-                out[pos++] = s[i];
-            i++;
-            while (i < len && s[i] != quote) {
-                if (s[i] == '\\' && i + 1 < len) {
-                    if (i >= col_off && i < col_off + max_cols && pos + 1 < max_len)
-                        out[pos++] = s[i];
-                    i++;
+        if (s[col] == '"' || (t->syntax == SC_SYN_LUA && s[col] == '\'')) {
+            char quote = s[col];
+            pos += snprintf(out + pos, max_len - pos, "\x1b[33m");
+            int inside = 1;
+            while (col < end_col && col < len && inside) {
+                if (is_cursor_line && col == cursor_cx) {
+                    pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m\x1b[33m", s[col]);
+                } else if (pos + 1 < max_len) {
+                    out[pos++] = s[col];
                 }
-                if (i >= col_off && i < col_off + max_cols && pos + 1 < max_len)
-                    out[pos++] = s[i];
-                i++;
+                if (col > 0 && s[col] == quote && s[col - 1] != '\\')
+                    inside = 0;
+                col++;
             }
-            if (i < len) {
-                if (i >= col_off && i < col_off + max_cols && pos + 1 < max_len)
-                    out[pos++] = s[i];
-                i++;
-            }
-            if (pos + 4 < max_len) {
-                memcpy(out + pos, "\x1b[0m", 4);
-                pos += 4;
-            }
+            pos += snprintf(out + pos, max_len - pos, "\x1b[0m");
             continue;
         }
 
         /* Identifiers and Keywords */
-        if (is_ident_start(s[i])) {
-            int start = i;
-            while (i < len && is_ident_part(s[i]))
-                i++;
-            int tok_len = i - start;
+        if (is_ident_start(s[col])) {
+            int start = col;
+            while (col < len && is_ident_part(s[col]))
+                col++;
+            int tok_len = col - start;
             const char *color = NULL;
 
             if (t->syntax == SC_SYN_B) {
@@ -550,182 +574,195 @@ static void sc_format_line_syntax(const sc_tab_t *t, int line_idx, int col_off, 
             } else if (t->syntax == SC_SYN_LUA) {
                 if (sc_match_kw(s + start, tok_len, lua_kw, sizeof(lua_kw)/sizeof(lua_kw[0])))
                     color = "\x1b[1;93m";
-                else if ((tok_len == 4 && strncmp(s + start, "true", 4) == 0) ||
-                         (tok_len == 5 && strncmp(s + start, "false", 5) == 0))
-                    color = "\x1b[35m";
             } else if (t->syntax == SC_SYN_C) {
                 if (sc_match_kw(s + start, tok_len, c_kw, sizeof(c_kw)/sizeof(c_kw[0])))
                     color = "\x1b[1;96m";
             }
 
-            for (int k = start; k < i; k++) {
-                if (k >= col_off && k < col_off + max_cols) {
-                    if (color && k == start && pos + strlen(color) < max_len) {
-                        memcpy(out + pos, color, strlen(color));
-                        pos += strlen(color);
-                    }
+            for (int k = start; k < col && k < end_col; k++) {
+                if (is_cursor_line && k == cursor_cx) {
+                    pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m", s[k]);
+                } else {
+                    if (color && k == start)
+                        pos += snprintf(out + pos, max_len - pos, "%s", color);
                     if (pos + 1 < max_len)
                         out[pos++] = s[k];
                 }
             }
-            if (color && pos + 4 < max_len) {
-                memcpy(out + pos, "\x1b[0m", 4);
-                pos += 4;
-            }
+            if (color)
+                pos += snprintf(out + pos, max_len - pos, "\x1b[0m");
             continue;
         }
 
         /* Numbers */
-        if (isdigit((unsigned char)s[i])) {
-            int start = i;
-            while (i < len && (isalnum((unsigned char)s[i]) || s[i] == '.'))
-                i++;
-            for (int k = start; k < i; k++) {
-                if (k >= col_off && k < col_off + max_cols) {
-                    if (k == start && pos + 5 < max_len) {
-                        memcpy(out + pos, "\x1b[35m", 5);
-                        pos += 5;
-                    }
-                    if (pos + 1 < max_len)
-                        out[pos++] = s[k];
+        if (isdigit((unsigned char)s[col])) {
+            int start = col;
+            while (col < len && (isalnum((unsigned char)s[col]) || s[col] == '.'))
+                col++;
+            pos += snprintf(out + pos, max_len - pos, "\x1b[35m");
+            for (int k = start; k < col && k < end_col; k++) {
+                if (is_cursor_line && k == cursor_cx) {
+                    pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m\x1b[35m", s[k]);
+                } else if (pos + 1 < max_len) {
+                    out[pos++] = s[k];
                 }
             }
-            if (pos + 4 < max_len) {
-                memcpy(out + pos, "\x1b[0m", 4);
-                pos += 4;
-            }
+            pos += snprintf(out + pos, max_len - pos, "\x1b[0m");
             continue;
         }
 
-        /* Plain char */
-        if (visible && pos + 1 < max_len)
-            out[pos++] = s[i];
-        i++;
+        /* Default plain character */
+        if (pos + 1 < max_len)
+            out[pos++] = s[col];
+        col++;
     }
     out[pos] = '\0';
 }
 
-/* ---- Screen Drawing ---- */
+/* ---- Screen Drawing (Zero-Scroll, Zero-Flicker) ---- */
 
-static void sc_draw_tabs(void)
+static void sc_draw_tabs_status(void)
 {
-    char buf[256];
+    char left[128];
     size_t pos = 0;
-    pos += snprintf(buf + pos, sizeof(buf) - pos, "\x1b[H\x1b[7m");
     for (int i = 0; i < g_sc.ntabs; i++) {
         sc_tab_t *t = &g_sc.tabs[i];
         if (i == g_sc.cur_tab) {
-            pos += snprintf(buf + pos, sizeof(buf) - pos, "\x1b[1;30;46m [%d: %s%s] \x1b[7m",
-                            i + 1, t->name, t->dirty ? " *" : "");
+            pos += snprintf(left + pos, sizeof(left) - pos, "[%d: %s%s] ",
+                            i + 1, t->name, t->dirty ? "*" : "");
         } else {
-            pos += snprintf(buf + pos, sizeof(buf) - pos, " %d: %s%s ",
-                            i + 1, t->name, t->dirty ? " *" : "");
+            pos += snprintf(left + pos, sizeof(left) - pos, " %d: %s%s  ",
+                            i + 1, t->name, t->dirty ? "*" : "");
         }
     }
-    pos += snprintf(buf + pos, sizeof(buf) - pos, "\x1b[K\x1b[0m\r\n");
 #ifndef SHELL_CODE_HOST_TEST
-    console_write(buf);
+    console_set_status(left, "[Esc] Menu");
 #endif
 }
 
 static void sc_draw_editor(void)
 {
     sc_tab_t *t = &g_sc.tabs[g_sc.cur_tab];
-    int rows = g_sc.screen_rows - 3;
-    if (rows < 1) rows = 1;
+    int rows_avail = g_sc.screen_rows - 2;   /* row 0 is status, row rows-1 is bottom bar */
+    if (rows_avail < 1) rows_avail = 1;
     int cols = g_sc.screen_cols;
 
-    /* Gutter width: 4 or 5 chars */
     int gw = (t->nlines >= 1000) ? 6 : 5;
-    int text_cols = cols - gw;
+    int text_cols = cols - gw - 1;
     if (text_cols < 10) text_cols = 10;
 
     char line_buf[512];
     char text_buf[512];
 
-    for (int r = 0; r < rows; r++) {
+    for (int r = 0; r < rows_avail; r++) {
         int file_line = t->row_off + r;
+        int ansi_row = 1 + r;   /* 1-based row below status row 0 */
+
+        int written = snprintf(line_buf, sizeof(line_buf), "\x1b[%d;1H", ansi_row);
+
         if (file_line < t->nlines) {
             int is_err = (file_line + 1 == t->err_line);
-            int written = 0;
+            int is_cur = (file_line == t->cy);
             if (is_err) {
-                written = snprintf(line_buf, sizeof(line_buf), "\x1b[1;91m!%*d\x1b[0m\x1b[90m\xb3\x1b[0m", gw - 1, file_line + 1);
+                written += snprintf(line_buf + written, sizeof(line_buf) - (size_t)written,
+                                    "\x1b[1;91m!%*d\x1b[0m\x1b[90m\xb3\x1b[0m", gw - 1, file_line + 1);
             } else {
-                written = snprintf(line_buf, sizeof(line_buf), "\x1b[90m%*d\xb3\x1b[0m", gw - 1, file_line + 1);
+                written += snprintf(line_buf + written, sizeof(line_buf) - (size_t)written,
+                                    "\x1b[90m%*d\xb3\x1b[0m", gw - 1, file_line + 1);
             }
-            if (written < 0 || written >= (int)sizeof(line_buf)) written = 0;
-            sc_format_line_syntax(t, file_line, t->col_off, text_cols, text_buf, sizeof(text_buf));
-            snprintf(line_buf + written, sizeof(line_buf) - (size_t)written, "%s\x1b[K\r\n", text_buf);
+            sc_format_line(t, file_line, is_cur, t->cx, t->col_off, text_cols, text_buf, sizeof(text_buf));
+            snprintf(line_buf + written, sizeof(line_buf) - (size_t)written, "%s\x1b[K", text_buf);
         } else {
-            snprintf(line_buf, sizeof(line_buf), "\x1b[94m~\x1b[0m\x1b[K\r\n");
+            snprintf(line_buf + written, sizeof(line_buf) - (size_t)written,
+                     "\x1b[94m~\x1b[0m%*s\x1b[90m\xb3\x1b[0m\x1b[K", gw - 2, "");
         }
 #ifndef SHELL_CODE_HOST_TEST
         console_write(line_buf);
 #endif
     }
 
-    /* Status Bar */
-    const char *modestr = "-- NORMAL --";
-    if (g_sc.mode == SC_MODE_INSERT) modestr = "-- INSERT --";
-    else if (g_sc.mode == SC_MODE_COMMAND) modestr = "-- COMMAND --";
-    else if (g_sc.mode == SC_MODE_SEARCH) modestr = "-- SEARCH --";
+    /* Clean bottom status line (row con.rows - 1) */
+    int bot_row = g_sc.screen_rows - 1;
+    char bot[256];
+    const char *synstr = (t->syntax == SC_SYN_B) ? ".b" :
+                         (t->syntax == SC_SYN_LUA) ? ".lua" :
+                         (t->syntax == SC_SYN_C) ? ".c" : ".txt";
 
-    const char *synstr = ".b";
-    if (t->syntax == SC_SYN_LUA) synstr = ".lua";
-    else if (t->syntax == SC_SYN_C) synstr = ".c";
-    else if (t->syntax == SC_SYN_PLAIN) synstr = ".txt";
-
-    char status[256];
-    snprintf(status, sizeof(status), "\x1b[7m %-12s %s%s  [%s]  Ln %d/%d, Col %d  │ ^S:Save ^R:Run ^D:Asm ^Q:Quit\x1b[K\x1b[0m\r\n",
-             modestr, t->name, t->dirty ? " *" : "", synstr, t->cy + 1, t->nlines, t->cx + 1);
-#ifndef SHELL_CODE_HOST_TEST
-    console_write(status);
-#endif
-
-    /* Command / Message Row */
-    char bottom[256];
-    if (g_sc.mode == SC_MODE_COMMAND) {
-        snprintf(bottom, sizeof(bottom), ":%s\x1b[K", g_sc.cmd_buf);
-    } else if (g_sc.mode == SC_MODE_SEARCH) {
-        snprintf(bottom, sizeof(bottom), "/%s\x1b[K", g_sc.search_buf);
-    } else if (t->err_line > 0) {
-        snprintf(bottom, sizeof(bottom), "\x1b[1;91m%s\x1b[0m\x1b[K", t->status);
+    if (t->err_line > 0) {
+        snprintf(bot, sizeof(bot), "\x1b[%d;1H\x1b[7;1;91m ! Riga %d: %s \x1b[0m\x1b[K",
+                 bot_row, t->err_line, t->status);
     } else {
-        snprintf(bottom, sizeof(bottom), "\x1b[92m%s\x1b[0m\x1b[K", t->status);
+        snprintf(bot, sizeof(bot), "\x1b[%d;1H\x1b[7m %s  [%s]  Ln %d/%d, Col %d  │  %s  │  [Esc] Menu \x1b[0m\x1b[K",
+                 bot_row, t->name, synstr, t->cy + 1, t->nlines, t->cx + 1,
+                 t->status[0] ? t->status : "Pronto");
     }
 #ifndef SHELL_CODE_HOST_TEST
-    console_write(bottom);
+    console_write(bot);
+#endif
+}
+
+static void sc_draw_popup_menu(void)
+{
+    int w = 36;
+    int h = MENU_COUNT + 4;
+    int top = (g_sc.screen_rows - h) / 2;
+    if (top < 1) top = 1;
+    int left = (g_sc.screen_cols - w) / 2;
+    if (left < 1) left = 1;
+
+    char buf[256];
+
+    /* Header */
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xda\xc4\xc4 Shell Code Menu \xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xbf\x1b[0m",
+             top, left);
+#ifndef SHELL_CODE_HOST_TEST
+    console_write(buf);
 #endif
 
-    /* Position hardware / ANSI cursor */
-    int cursor_r = 2 + (t->cy - t->row_off);
-    int cursor_c = 1 + gw + (t->cx - t->col_off);
-    if (g_sc.mode == SC_MODE_COMMAND) {
-        cursor_r = g_sc.screen_rows;
-        cursor_c = 2 + g_sc.cmd_len;
-    } else if (g_sc.mode == SC_MODE_SEARCH) {
-        cursor_r = g_sc.screen_rows;
-        cursor_c = 2 + g_sc.search_len;
-    }
-    char curpos[32];
-    snprintf(curpos, sizeof(curpos), "\x1b[%d;%dH", cursor_r, cursor_c);
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3%*s\xb3\x1b[0m", top + 1, left, w - 2, "");
 #ifndef SHELL_CODE_HOST_TEST
-    console_write(curpos);
+    console_write(buf);
+#endif
+
+    /* Menu Items */
+    for (int i = 0; i < MENU_COUNT; i++) {
+        int r = top + 2 + i;
+        if (i == g_sc.menu_sel) {
+            snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3\x1b[1;30;47m > %-28s < \x1b[1;97;44m\xb3\x1b[0m",
+                     r, left, g_menu_labels[i]);
+        } else {
+            snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3   %-28s   \xb3\x1b[0m",
+                     r, left, g_menu_labels[i]);
+        }
+#ifndef SHELL_CODE_HOST_TEST
+        console_write(buf);
+#endif
+    }
+
+    /* Footer */
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3%*s\xb3\x1b[0m", top + 2 + MENU_COUNT, left, w - 2, "");
+#ifndef SHELL_CODE_HOST_TEST
+    console_write(buf);
+#endif
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xc0\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xd9\x1b[0m",
+             top + 3 + MENU_COUNT, left);
+#ifndef SHELL_CODE_HOST_TEST
+    console_write(buf);
 #endif
 }
 
 static void sc_scroll_to_cursor(sc_tab_t *t)
 {
-    int rows = g_sc.screen_rows - 3;
-    if (rows < 1) rows = 1;
+    int rows_avail = g_sc.screen_rows - 2;
+    if (rows_avail < 1) rows_avail = 1;
     int gw = (t->nlines >= 1000) ? 6 : 5;
-    int text_cols = g_sc.screen_cols - gw;
+    int text_cols = g_sc.screen_cols - gw - 1;
     if (text_cols < 10) text_cols = 10;
 
     if (t->cy < t->row_off)
         t->row_off = t->cy;
-    if (t->cy >= t->row_off + rows)
-        t->row_off = t->cy - rows + 1;
+    if (t->cy >= t->row_off + rows_avail)
+        t->row_off = t->cy - rows_avail + 1;
 
     if (t->cx < t->col_off)
         t->col_off = t->cx;
@@ -742,7 +779,7 @@ static int sc_compile_b(sc_tab_t *t, uint8_t **out_blob, size_t *out_len)
     size_t src_len = 0;
     char *src = sc_tab_get_text(t, &src_len);
     if (!src) {
-        snprintf(t->status, sizeof(t->status), "Out of memory");
+        snprintf(t->status, sizeof(t->status), "Errore memoria");
         return -1;
     }
 
@@ -761,12 +798,12 @@ static int sc_compile_b(sc_tab_t *t, uint8_t **out_blob, size_t *out_len)
                 sc_scroll_to_cursor(t);
             }
         }
-        snprintf(t->status, sizeof(t->status), "Compile Error: %s", err);
+        snprintf(t->status, sizeof(t->status), "Errore sintassi: %s", err);
         return -1;
     }
 
     t->err_line = 0;
-    snprintf(t->status, sizeof(t->status), "Compiled OK: %zu bytes BMN1 ARMv6", *out_len);
+    snprintf(t->status, sizeof(t->status), "Compilato OK: %zu bytes BMN1 ARMv6", *out_len);
     return 0;
 }
 
@@ -806,7 +843,6 @@ static int32_t shell_code_host_dispatch(int32_t host_id, const int32_t *args, in
     }
     case BMN_HOST_SPR: {
         if (nargs >= 3) {
-            /* Draw 8x8 sprite placeholder */
             fb_fill_rect(fb, (uint32_t)args[1], (uint32_t)args[2], 8, 8, 0x00FF00FF);
             g_shell_did_draw_gfx = 1;
         }
@@ -836,11 +872,10 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
     const char *why = "";
     if (bmnative_load(&m, blob, blob_len, &why) != BMN_OK) {
         free(blob);
-        snprintf(t->status, sizeof(t->status), "Load failed: %s", why);
+        snprintf(t->status, sizeof(t->status), "Caricamento fallito: %s", why);
         return -1;
     }
 
-    /* Choose function: first search function under cursor, else main, else fn[0] */
     int fn_idx = -1;
     if (t->cy < t->nlines) {
         const char *line = t->lines[t->cy].chars;
@@ -868,7 +903,7 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
     if (nargs > 0 && arg_str && *arg_str) {
         args[0] = (int32_t)atoi(arg_str);
     } else if (nargs > 0) {
-        args[0] = 10;   /* sensible default, e.g. for sum(10) */
+        args[0] = 10;
     }
 
     g_shell_did_draw_gfx = 0;
@@ -884,18 +919,17 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
     bmnative_set_host_fn(prev_host);
 
     if (g_shell_did_draw_gfx) {
-        /* Graphical output: wait for key press to return to editor */
-        kprintf("\n\x1b[1;92m-- Graphics drawn. %s() returned %d (%u us). Press any key to return --\x1b[0m\n",
-                f->name, ret, us);
+        kprintf("\n\x1b[1;92m-- Grafica disegnata. %s() ha restituito %ld (%lu us). Premi un tasto --\x1b[0m\n",
+                f->name, (long)ret, (unsigned long)us);
         input_getc();
         console_clear();
     }
 
     if (err == BMN_OK) {
-        snprintf(t->status, sizeof(t->status), "%s() = %d (0x%X) [%u us]",
-                 f->name, ret, (unsigned)ret, us);
+        snprintf(t->status, sizeof(t->status), "%s() = %ld (0x%lX) [%lu us]",
+                 f->name, (long)ret, (unsigned long)ret, (unsigned long)us);
     } else {
-        snprintf(t->status, sizeof(t->status), "Execution trap (%d) in %s", err, f->name);
+        snprintf(t->status, sizeof(t->status), "Trap runtime (%d) in %s", err, f->name);
     }
 
     bmnative_free(m);
@@ -904,7 +938,7 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
 #else
     (void)arg_str;
     free(blob);
-    snprintf(t->status, sizeof(t->status), "Compiled OK (runner simulated)");
+    snprintf(t->status, sizeof(t->status), "Compilato OK (runner simulato)");
     return 0;
 #endif
 }
@@ -920,32 +954,28 @@ static void sc_disasm_armv6_word(uint32_t w, char *buf, size_t cap)
     };
     const char *cc = conds[cond];
 
-    /* Branch B / BL */
     if (((w >> 25) & 7u) == 5u) {
         int is_bl = (w >> 24) & 1u;
         int32_t imm24 = (int32_t)(w & 0xFFFFFFu);
         if (imm24 & 0x800000) imm24 -= 0x1000000;
         int32_t byte_off = (imm24 + 2) * 4;
-        snprintf(buf, cap, "%s%s %+d (target pc%+d)", is_bl ? "bl" : "b", cc, byte_off, byte_off);
+        snprintf(buf, cap, "%s%s %+d", is_bl ? "bl" : "b", cc, (int)byte_off);
         return;
     }
-    /* BX LR */
     if ((w & 0x0FFFFFF0u) == 0x012FFF10u) {
         int rm = w & 0xFu;
         if (rm == 14) snprintf(buf, cap, "bx%s lr", cc);
         else snprintf(buf, cap, "bx%s r%d", cc, rm);
         return;
     }
-    /* PUSH / POP */
     if ((w & 0x0FFF0000u) == 0x092D0000u) {
-        snprintf(buf, cap, "push%s {regs: 0x%04X}", cc, w & 0xFFFFu);
+        snprintf(buf, cap, "push%s {0x%04X}", cc, (unsigned)(w & 0xFFFFu));
         return;
     }
     if ((w & 0x0FFF0000u) == 0x08BD0000u) {
-        snprintf(buf, cap, "pop%s {regs: 0x%04X}", cc, w & 0xFFFFu);
+        snprintf(buf, cap, "pop%s {0x%04X}", cc, (unsigned)(w & 0xFFFFu));
         return;
     }
-    /* Data processing: MOV, ADD, SUB, RSB, CMP, etc. */
     if (((w >> 26) & 3u) == 0u) {
         uint32_t op = (w >> 21) & 0xFu;
         uint32_t rn = (w >> 16) & 0xFu;
@@ -955,38 +985,36 @@ static void sc_disasm_armv6_word(uint32_t w, char *buf, size_t cap)
             "tst", "teq", "cmp", "cmn", "orr", "mov", "bic", "mvn"
         };
         const char *opname = ops[op];
-        if (op == 13 || op == 15) {     /* MOV / MVN */
+        if (op == 13 || op == 15) {
             if ((w >> 25) & 1u)
-                snprintf(buf, cap, "%s%s r%u, #%u", opname, cc, rd, w & 0xFFu);
+                snprintf(buf, cap, "%s%s r%u, #%u", opname, cc, (unsigned)rd, (unsigned)(w & 0xFFu));
             else
-                snprintf(buf, cap, "%s%s r%u, r%u", opname, cc, rd, w & 0xFu);
+                snprintf(buf, cap, "%s%s r%u, r%u", opname, cc, (unsigned)rd, (unsigned)(w & 0xFu));
             return;
         }
-        if (op == 8 || op == 9 || op == 10 || op == 11) { /* CMP / TST */
+        if (op >= 8 && op <= 11) {
             if ((w >> 25) & 1u)
-                snprintf(buf, cap, "%s%s r%u, #%u", opname, cc, rn, w & 0xFFu);
+                snprintf(buf, cap, "%s%s r%u, #%u", opname, cc, (unsigned)rn, (unsigned)(w & 0xFFu));
             else
-                snprintf(buf, cap, "%s%s r%u, r%u", opname, cc, rn, w & 0xFu);
+                snprintf(buf, cap, "%s%s r%u, r%u", opname, cc, (unsigned)rn, (unsigned)(w & 0xFu));
             return;
         }
-        /* ADD, SUB, etc. */
         if ((w >> 25) & 1u)
-            snprintf(buf, cap, "%s%s r%u, r%u, #%u", opname, cc, rd, rn, w & 0xFFu);
+            snprintf(buf, cap, "%s%s r%u, r%u, #%u", opname, cc, (unsigned)rd, (unsigned)rn, (unsigned)(w & 0xFFu));
         else
-            snprintf(buf, cap, "%s%s r%u, r%u, r%u", opname, cc, rd, rn, w & 0xFu);
+            snprintf(buf, cap, "%s%s r%u, r%u, r%u", opname, cc, (unsigned)rd, (unsigned)rn, (unsigned)(w & 0xFu));
         return;
     }
-    /* Memory LDR / STR */
     if (((w >> 26) & 3u) == 1u) {
         int is_load = (w >> 20) & 1u;
         uint32_t rn = (w >> 16) & 0xFu;
         uint32_t rd = (w >> 12) & 0xFu;
         uint32_t imm12 = w & 0xFFFu;
         int is_up = (w >> 23) & 1u;
-        snprintf(buf, cap, "%s%s r%u, [r%u, #%s%u]", is_load ? "ldr" : "str", cc, rd, rn, is_up ? "" : "-", imm12);
+        snprintf(buf, cap, "%s%s r%u, [r%u, #%s%u]", is_load ? "ldr" : "str", cc,
+                 (unsigned)rd, (unsigned)rn, is_up ? "" : "-", (unsigned)imm12);
         return;
     }
-    /* VFP instructions (coprocessor 10) */
     if (((w >> 24) & 0xFu) == 0xEu && ((w >> 8) & 0xFu) == 10u) {
         snprintf(buf, cap, "vfp (cp10) 0x%08X", (unsigned)w);
         return;
@@ -1006,7 +1034,7 @@ static void sc_disasm_viewer(sc_tab_t *t)
     const char *why = "";
     if (bmnative_load(&m, blob, blob_len, &why) != BMN_OK) {
         free(blob);
-        snprintf(t->status, sizeof(t->status), "Disasm: load failed: %s", why);
+        snprintf(t->status, sizeof(t->status), "Disasm: caricamento fallito: %s", why);
         return;
     }
 
@@ -1016,14 +1044,13 @@ static void sc_disasm_viewer(sc_tab_t *t)
 
     for (;;) {
         console_clear();
-        kprintf("\x1b[7m BMN1 Disassembly: %s (%zu bytes, %u words, %d fn) │ Up/Down, q:Return \x1b[0m\r\n",
-                t->name, blob_len, (unsigned)m->ncode, m->nfn);
+        kprintf("\x1b[7m Disassembly: %s (%zu bytes, %lu words, %d fn) │ Up/Down, Esc/q:Esci \x1b[0m\r\n",
+                t->name, blob_len, (unsigned long)m->ncode, m->nfn);
 
         for (int r = 0; r < page; r++) {
             uint32_t idx = (uint32_t)(top + r);
             if (idx >= m->ncode) break;
 
-            /* Check if index is function entry */
             for (int f = 0; f < m->nfn; f++) {
                 if (m->fn[f].word_off == idx) {
                     kprintf("\x1b[1;93m; function %s(%d params) -> %d @ 0x%04X\x1b[0m\r\n",
@@ -1116,45 +1143,57 @@ static void sc_delete_under_cursor(sc_tab_t *t)
     }
 }
 
-static void sc_execute_command(void)
+static void sc_execute_menu_action(void)
 {
     sc_tab_t *t = &g_sc.tabs[g_sc.cur_tab];
-    char *cmd = g_sc.cmd_buf;
-    while (*cmd == ' ') cmd++;
+    g_sc.show_menu = 0;
 
-    if (strcmp(cmd, "q") == 0) {
-        if (t->dirty) {
-            snprintf(t->status, sizeof(t->status), "Unsaved changes! Use :q! or :wq");
-        } else {
-            g_sc.quit_requested = 1;
-        }
-    } else if (strcmp(cmd, "q!") == 0) {
-        g_sc.quit_requested = 1;
-    } else if (strncmp(cmd, "w", 1) == 0 && (cmd[1] == '\0' || cmd[1] == ' ')) {
-        const char *arg = cmd + 1;
-        while (*arg == ' ') arg++;
-        sc_tab_save(t, arg);
-    } else if (strcmp(cmd, "wq") == 0 || strcmp(cmd, "x") == 0) {
-        if (sc_tab_save(t, NULL) == 0)
-            g_sc.quit_requested = 1;
-    } else if (strncmp(cmd, "e ", 2) == 0) {
-        const char *file = cmd + 2;
-        while (*file == ' ') file++;
+    switch (g_sc.menu_sel) {
+    case MENU_RESUME:
+        break;
+    case MENU_SAVE:
+        sc_tab_save(t, NULL);
+        break;
+    case MENU_SAVE_AS:
+        /* Prompt or save */
+        sc_tab_save(t, NULL);
+        break;
+    case MENU_RUN:
+        sc_run_b(t, NULL);
+        break;
+    case MENU_DISASM:
+        sc_disasm_viewer(t);
+        break;
+    case MENU_NEW:
         if (g_sc.ntabs < SC_MAX_TABS) {
             int new_idx = g_sc.ntabs++;
-            sc_tab_load(&g_sc.tabs[new_idx], file);
+            char new_path[64];
+            snprintf(new_path, sizeof(new_path), "/code-b/file%d.b", new_idx + 1);
+            sc_tab_init_empty(&g_sc.tabs[new_idx], new_path);
             g_sc.cur_tab = new_idx;
-        } else {
-            sc_tab_load(t, file);
         }
-    } else if (strncmp(cmd, "r", 1) == 0 || strncmp(cmd, "run", 3) == 0) {
-        const char *arg = strchr(cmd, ' ');
-        if (arg) while (*arg == ' ') arg++;
-        sc_run_b(t, arg);
-    } else if (strcmp(cmd, "dis") == 0 || strcmp(cmd, "asm") == 0) {
-        sc_disasm_viewer(t);
-    } else {
-        snprintf(t->status, sizeof(t->status), "Unknown command: :%s", cmd);
+        break;
+    case MENU_NEXT_TAB:
+        g_sc.cur_tab = (g_sc.cur_tab + 1) % g_sc.ntabs;
+        break;
+    case MENU_CLOSE_TAB:
+        if (g_sc.ntabs > 1) {
+            sc_tab_free(&g_sc.tabs[g_sc.cur_tab]);
+            for (int i = g_sc.cur_tab; i + 1 < g_sc.ntabs; i++)
+                g_sc.tabs[i] = g_sc.tabs[i + 1];
+            g_sc.ntabs--;
+            if (g_sc.cur_tab >= g_sc.ntabs)
+                g_sc.cur_tab = g_sc.ntabs - 1;
+        } else {
+            sc_tab_set_text(t, "", 0);
+            t->dirty = 0;
+        }
+        break;
+    case MENU_EXIT:
+        g_sc.quit_requested = 1;
+        break;
+    default:
+        break;
     }
 }
 
@@ -1162,17 +1201,41 @@ static void sc_handle_key(int c)
 {
     sc_tab_t *t = &g_sc.tabs[g_sc.cur_tab];
 
-    /* Global shortcuts */
+    /* When popup menu is active */
+    if (g_sc.show_menu) {
+        if (c == 0x1B || c == 'q' || c == 'Q') {
+            g_sc.show_menu = 0;
+            return;
+        }
+        if (c == HID_KEY_UP || c == 'w' || c == 'k') {
+            g_sc.menu_sel = (g_sc.menu_sel + MENU_COUNT - 1) % MENU_COUNT;
+            return;
+        }
+        if (c == HID_KEY_DOWN || c == 's' || c == 'j') {
+            g_sc.menu_sel = (g_sc.menu_sel + 1) % MENU_COUNT;
+            return;
+        }
+        if (c == '\r' || c == '\n' || c == ' ') {
+            sc_execute_menu_action();
+            return;
+        }
+        return;
+    }
+
+    /* Global Esc: Open Popup Menu */
+    if (c == 0x1B) {
+        g_sc.show_menu = 1;
+        g_sc.menu_sel = 0;
+        return;
+    }
+
+    /* Global Hotkeys */
     if (c == 0x13) {                    /* Ctrl+S: Save */
         sc_tab_save(t, NULL);
         return;
     }
     if (c == 0x11) {                    /* Ctrl+Q: Quit */
-        if (t->dirty) {
-            snprintf(t->status, sizeof(t->status), "Unsaved changes! Use :q! or :wq");
-        } else {
-            g_sc.quit_requested = 1;
-        }
+        g_sc.quit_requested = 1;
         return;
     }
     if (c == 0x12 || c == SC_KEY_F5) {  /* Ctrl+R or F5: Run */
@@ -1187,152 +1250,53 @@ static void sc_handle_key(int c)
         g_sc.cur_tab = (g_sc.cur_tab + 1) % g_sc.ntabs;
         return;
     }
-
-    if (g_sc.mode == SC_MODE_INSERT) {
-        if (c == 0x1B) {                /* Esc: Return to NORMAL */
-            g_sc.mode = SC_MODE_NORMAL;
-            if (t->cx > 0) t->cx--;
-            return;
-        }
-        if (c == '\r' || c == '\n') {
-            sc_insert_newline(t);
-        } else if (c == 0x08 || c == 0x7F) {
-            sc_backspace(t);
-        } else if (c == HID_KEY_DEL) {
-            sc_delete_under_cursor(t);
-        } else if (c == '\t') {
-            sc_insert_text_char(t, ' ');
-            sc_insert_text_char(t, ' ');
-        } else if (c == HID_KEY_LEFT) {
-            if (t->cx > 0) t->cx--;
-        } else if (c == HID_KEY_RIGHT) {
-            if (t->cx < t->lines[t->cy].len) t->cx++;
-        } else if (c == HID_KEY_UP) {
-            if (t->cy > 0) {
-                t->cy--;
-                if (t->cx > t->lines[t->cy].len) t->cx = t->lines[t->cy].len;
-            }
-        } else if (c == HID_KEY_DOWN) {
-            if (t->cy + 1 < t->nlines) {
-                t->cy++;
-                if (t->cx > t->lines[t->cy].len) t->cx = t->lines[t->cy].len;
-            }
-        } else if (c >= 32 && c < 127) {
-            sc_insert_text_char(t, (char)c);
-        }
-        sc_scroll_to_cursor(t);
-        return;
-    }
-
-    if (g_sc.mode == SC_MODE_COMMAND) {
-        if (c == 0x1B) {                /* Esc: Cancel */
-            g_sc.mode = SC_MODE_NORMAL;
-            g_sc.cmd_len = 0;
-            g_sc.cmd_buf[0] = '\0';
-            return;
-        }
-        if (c == '\r' || c == '\n') {
-            g_sc.mode = SC_MODE_NORMAL;
-            sc_execute_command();
-            g_sc.cmd_len = 0;
-            g_sc.cmd_buf[0] = '\0';
-            return;
-        }
-        if (c == 0x08 || c == 0x7F) {
-            if (g_sc.cmd_len > 0) {
-                g_sc.cmd_len--;
-                g_sc.cmd_buf[g_sc.cmd_len] = '\0';
-            } else {
-                g_sc.mode = SC_MODE_NORMAL;
-            }
-            return;
-        }
-        if (c >= 32 && c < 127 && g_sc.cmd_len + 1 < (int)sizeof(g_sc.cmd_buf)) {
-            g_sc.cmd_buf[g_sc.cmd_len++] = (char)c;
-            g_sc.cmd_buf[g_sc.cmd_len] = '\0';
+    if (c == 0x0E) {                    /* Ctrl+N: New tab */
+        if (g_sc.ntabs < SC_MAX_TABS) {
+            int new_idx = g_sc.ntabs++;
+            char new_path[64];
+            snprintf(new_path, sizeof(new_path), "/code-b/file%d.b", new_idx + 1);
+            sc_tab_init_empty(&g_sc.tabs[new_idx], new_path);
+            g_sc.cur_tab = new_idx;
         }
         return;
     }
 
-    /* MODE_NORMAL */
-    if (c == 'i') {
-        g_sc.mode = SC_MODE_INSERT;
-        return;
-    }
-    if (c == 'a') {
-        g_sc.mode = SC_MODE_INSERT;
-        if (t->cx < t->lines[t->cy].len) t->cx++;
-        return;
-    }
-    if (c == 'I') {
-        g_sc.mode = SC_MODE_INSERT;
-        t->cx = 0;
-        while (t->cx < t->lines[t->cy].len && t->lines[t->cy].chars[t->cx] == ' ')
-            t->cx++;
-        return;
-    }
-    if (c == 'A') {
-        g_sc.mode = SC_MODE_INSERT;
-        t->cx = t->lines[t->cy].len;
-        return;
-    }
-    if (c == 'o') {
-        g_sc.mode = SC_MODE_INSERT;
-        t->cx = t->lines[t->cy].len;
+    /* Direct text editing */
+    if (c == '\r' || c == '\n') {
         sc_insert_newline(t);
-        return;
-    }
-    if (c == 'O') {
-        g_sc.mode = SC_MODE_INSERT;
-        sc_tab_insert_line(t, t->cy, "", 0);
-        t->cx = 0;
-        return;
-    }
-    if (c == ':') {
-        g_sc.mode = SC_MODE_COMMAND;
-        g_sc.cmd_len = 0;
-        g_sc.cmd_buf[0] = '\0';
-        return;
-    }
-    if (c == 'h' || c == HID_KEY_LEFT) {
+    } else if (c == 0x08 || c == 0x7F) {
+        sc_backspace(t);
+    } else if (c == HID_KEY_DEL) {
+        sc_delete_under_cursor(t);
+    } else if (c == '\t') {
+        sc_insert_text_char(t, ' ');
+        sc_insert_text_char(t, ' ');
+    } else if (c == HID_KEY_LEFT) {
         if (t->cx > 0) t->cx--;
-    } else if (c == 'l' || c == HID_KEY_RIGHT) {
-        if (t->cx + 1 < t->lines[t->cy].len) t->cx++;
-    } else if (c == 'k' || c == HID_KEY_UP) {
+    } else if (c == HID_KEY_RIGHT) {
+        if (t->cx < t->lines[t->cy].len) t->cx++;
+    } else if (c == HID_KEY_UP) {
         if (t->cy > 0) {
             t->cy--;
-            if (t->cx >= t->lines[t->cy].len)
-                t->cx = t->lines[t->cy].len ? t->lines[t->cy].len - 1 : 0;
+            if (t->cx > t->lines[t->cy].len) t->cx = t->lines[t->cy].len;
         }
-    } else if (c == 'j' || c == HID_KEY_DOWN) {
+    } else if (c == HID_KEY_DOWN) {
         if (t->cy + 1 < t->nlines) {
             t->cy++;
-            if (t->cx >= t->lines[t->cy].len)
-                t->cx = t->lines[t->cy].len ? t->lines[t->cy].len - 1 : 0;
+            if (t->cx > t->lines[t->cy].len) t->cx = t->lines[t->cy].len;
         }
-    } else if (c == '0' || c == HID_KEY_HOME) {
+    } else if (c == HID_KEY_HOME) {
         t->cx = 0;
-    } else if (c == '$' || c == HID_KEY_END) {
-        t->cx = t->lines[t->cy].len ? t->lines[t->cy].len - 1 : 0;
-    } else if (c == 'x') {
-        sc_delete_under_cursor(t);
-    } else if (c == 'd') {
-        /* dd deletes line */
-        sc_tab_delete_line(t, t->cy);
-        if (t->cy >= t->nlines) t->cy = t->nlines - 1;
-        t->cx = 0;
-    } else if (c == 'G') {
-        t->cy = t->nlines - 1;
-        t->cx = 0;
-    } else if (c == 'g') {
-        t->cy = 0;
-        t->cx = 0;
+    } else if (c == HID_KEY_END) {
+        t->cx = t->lines[t->cy].len;
     } else if (c == HID_KEY_PGUP) {
-        t->cy -= (g_sc.screen_rows - 3);
+        t->cy -= (g_sc.screen_rows - 2);
         if (t->cy < 0) t->cy = 0;
     } else if (c == HID_KEY_PGDN) {
-        t->cy += (g_sc.screen_rows - 3);
+        t->cy += (g_sc.screen_rows - 2);
         if (t->cy >= t->nlines) t->cy = t->nlines - 1;
+    } else if (c >= 32 && c < 127) {
+        sc_insert_text_char(t, (char)c);
     }
     sc_scroll_to_cursor(t);
 }
@@ -1354,15 +1318,22 @@ int shell_code_open(const char *path)
 
     g_sc.ntabs = 1;
     g_sc.cur_tab = 0;
-    sc_tab_load(&g_sc.tabs[0], path);
+    g_sc.show_menu = 0;
+    g_sc.menu_sel = 0;
+
+    char norm[SC_PATH_MAX];
+    sc_normalize_path(norm, sizeof(norm), path);
+    sc_tab_load(&g_sc.tabs[0], norm);
 
 #ifndef SHELL_CODE_HOST_TEST
     hid_text_mode(1);
     console_clear();
 
     while (!g_sc.quit_requested) {
-        sc_draw_tabs();
+        sc_draw_tabs_status();
         sc_draw_editor();
+        if (g_sc.show_menu)
+            sc_draw_popup_menu();
 
         int c = (unsigned char)input_getc();
         sc_handle_key(c);
@@ -1384,15 +1355,28 @@ int shell_code_test_run(void)
 {
     printf("running shell_code tests...\n");
 
-    /* Test 1: Init tab and text operations */
+    /* Test 1: Path normalization into /code-b/ */
+    char norm[SC_PATH_MAX];
+    sc_normalize_path(norm, sizeof(norm), "test.b");
+    if (strcmp(norm, "/code-b/test.b") != 0) {
+        printf("FAIL: path norm (%s != /code-b/test.b)\n", norm);
+        return 1;
+    }
+    sc_normalize_path(norm, sizeof(norm), NULL);
+    if (strcmp(norm, "/code-b/scratch.b") != 0) {
+        printf("FAIL: null path norm (%s != /code-b/scratch.b)\n", norm);
+        return 2;
+    }
+
+    /* Test 2: Init tab and text operations */
     sc_tab_t tab;
     sc_tab_init_empty(&tab, "test.b");
     if (tab.nlines != 1 || tab.syntax != SC_SYN_B) {
         printf("FAIL: tab init syntax or nlines\n");
-        return 1;
+        return 3;
     }
 
-    /* Test 2: Insert text and verify lines */
+    /* Test 3: Insert text and verify lines */
     const char *test_src =
         "function sum(n: i32): i32\n"
         "  local s = 0\n"
@@ -1402,52 +1386,52 @@ int shell_code_test_run(void)
     sc_tab_set_text(&tab, test_src, strlen(test_src));
     if (tab.nlines != 5) {
         printf("FAIL: set_text lines count (%d != 5)\n", tab.nlines);
-        return 2;
+        return 4;
     }
 
-    /* Test 3: Reconstruct text */
+    /* Test 4: Reconstruct text */
     size_t out_len = 0;
     char *text = sc_tab_get_text(&tab, &out_len);
     if (!text || strcmp(text, test_src) != 0) {
         printf("FAIL: get_text mismatch\n");
         free(text);
-        return 3;
+        return 5;
     }
     free(text);
 
-    /* Test 4: Compile .b natively */
+    /* Test 5: Compile .b natively */
     uint8_t *blob = NULL;
     size_t blob_len = 0;
     int rc = sc_compile_b(&tab, &blob, &blob_len);
     if (rc != 0 || !blob || blob_len < 12) {
         printf("FAIL: sc_compile_b failed (%d)\n", rc);
         free(blob);
-        return 4;
+        return 6;
     }
 
-    /* Test 5: Verify BMN1 container magic and header */
+    /* Test 6: Verify BMN1 container magic and header */
     uint32_t magic = (uint32_t)blob[0] | ((uint32_t)blob[1] << 8) | ((uint32_t)blob[2] << 16) | ((uint32_t)blob[3] << 24);
     if (magic != BMN_MAGIC) {
         printf("FAIL: BMN1 magic mismatch (0x%08X)\n", (unsigned)magic);
         free(blob);
-        return 5;
+        return 7;
     }
 
-    /* Test 6: Verify BMN1 execution on host via bmnative_load + call */
+    /* Test 7: Verify BMN1 execution on host via bmnative_load + call */
     bmnative_mod *m = NULL;
     const char *why = "";
     int lrc = bmnative_load(&m, blob, blob_len, &why);
     if (lrc != BMN_OK) {
         printf("FAIL: bmnative_load: %s\n", why);
         free(blob);
-        return 6;
+        return 8;
     }
     int fn_idx = bmnative_find(m, "sum");
     if (fn_idx < 0) {
         printf("FAIL: bmnative_find 'sum'\n");
         bmnative_free(m);
         free(blob);
-        return 7;
+        return 9;
     }
     int32_t args[1] = { 10 };
     int32_t ret = 0;
@@ -1456,12 +1440,12 @@ int shell_code_test_run(void)
         printf("FAIL: sum(10) returned %ld (expected 55)\n", (long)ret);
         bmnative_free(m);
         free(blob);
-        return 8;
+        return 10;
     }
     bmnative_free(m);
     free(blob);
 
-    /* Test 7: Compiler error feedback and line location */
+    /* Test 8: Compiler error feedback and line location */
     const char *bad_src =
         "function broken(): i32\n"
         "  local x = undefined_var + 1\n"
@@ -1471,44 +1455,57 @@ int shell_code_test_run(void)
     rc = sc_compile_b(&tab, &blob, &blob_len);
     if (rc == 0 || tab.err_line != 2) {
         printf("FAIL: compiler error line mismatch (%d != 2)\n", tab.err_line);
-        return 9;
+        return 11;
     }
 
-    /* Test 8: Disassembly formatting */
+    /* Test 9: Disassembly formatting */
     char dis_buf[64];
     sc_disasm_armv6_word(0xE2810002u, dis_buf, sizeof(dis_buf)); /* add r0, r1, #2 */
     if (strstr(dis_buf, "add") == NULL) {
         printf("FAIL: disasm opcode mismatch (%s)\n", dis_buf);
-        return 10;
+        return 12;
     }
 
-    /* Test 9: Vim Navigation, Insert Mode, and Editing */
+    /* Test 10: Direct typing, Esc Popup Menu navigation and Exit */
     memset(&g_sc, 0, sizeof(g_sc));
     g_sc.screen_cols = 80;
     g_sc.screen_rows = 25;
     g_sc.ntabs = 1;
     g_sc.cur_tab = 0;
-    sc_tab_init_empty(&g_sc.tabs[0], "scratch.b");
+    sc_tab_init_empty(&g_sc.tabs[0], "/code-b/scratch.b");
 
-    /* Switch to insert mode with 'i', type "local a = 10", press Enter */
-    sc_handle_key('i');
-    if (g_sc.mode != SC_MODE_INSERT) {
-        printf("FAIL: switch to insert mode\n");
-        return 11;
-    }
-    const char *typed = "local a = 10";
+    /* Type "local v = 42" */
+    const char *typed = "local v = 42";
     for (size_t k = 0; k < strlen(typed); k++)
         sc_handle_key(typed[k]);
-    sc_handle_key('\n');
-    sc_handle_key(0x1B); /* Esc -> back to normal */
-    if (g_sc.mode != SC_MODE_NORMAL) {
-        printf("FAIL: Esc to normal mode\n");
-        return 12;
+    if (g_sc.tabs[0].lines[0].len != (int)strlen(typed)) {
+        printf("FAIL: direct typing length mismatch\n");
+        return 13;
     }
 
-    /* Test 10: Drawing functions */
-    sc_draw_tabs();
+    /* Press Esc: opens popup menu */
+    sc_handle_key(0x1B);
+    if (!g_sc.show_menu) {
+        printf("FAIL: Esc did not open popup menu\n");
+        return 14;
+    }
+
+    /* Move down in menu and select Salva */
+    sc_handle_key(HID_KEY_DOWN);
+    if (g_sc.menu_sel != 1) {
+        printf("FAIL: menu navigation down mismatch (%d != 1)\n", g_sc.menu_sel);
+        return 15;
+    }
+    sc_handle_key('\n'); /* Execute Salva */
+    if (g_sc.show_menu) {
+        printf("FAIL: Salva did not close menu\n");
+        return 16;
+    }
+
+    /* Draw test */
+    sc_draw_tabs_status();
     sc_draw_editor();
+    sc_draw_popup_menu();
 
     sc_tab_free(&g_sc.tabs[0]);
     sc_tab_free(&tab);
