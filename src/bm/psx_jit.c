@@ -80,8 +80,19 @@ int psx_jit_available(void) { return 1; }
 /* ------------------------------------------------------------------ the code buffer */
 static uint32_t *cp;                       /* where the next instruction goes */
 static uint32_t *cend;
+/* The code of a block is made in two buffers: the hot code (in the arena) and the cold code (the slow paths of loads and
+ * stores, the exits after a helper call), which goes after it when the block is done: the code that runs often stays
+ * together and the instruction cache holds more of it. A branch between the two is fixed at the end. */
+#define COLD_WORDS 4096
+static uint32_t coldbuf[COLD_WORDS];
+static uint32_t *hot_cp, *hot_end, *cold_cp, *hot_start;
+static struct { uint32_t *br, *tgt; } fix[512];
+static int nfix;
 
 static inline void emit(uint32_t w) { if (cp < cend) *cp++ = w; }
+static inline int in_cold(const uint32_t *q) { return q >= coldbuf && q < coldbuf + COLD_WORDS; }
+static void cold_begin(void) { hot_cp = cp; hot_end = cend; cp = cold_cp; cend = coldbuf + COLD_WORDS; }
+static void cold_end(void) { cold_cp = cp; cp = hot_cp; cend = hot_end; }
 
 enum { AL = 14, EQ = 0, NE = 1, HS = 2, LO = 3, GE = 10, LT = 11, GT = 12, LE = 13 };
 enum { OP_AND = 0, OP_EOR = 1, OP_SUB = 2, OP_RSB = 3, OP_ADD = 4, OP_TST = 8, OP_CMP = 10, OP_ORR = 12, OP_MOV = 13, OP_BIC = 14, OP_MVN = 15 };
@@ -141,13 +152,20 @@ static void str_off(int cond, int rd, int rn, int off) { emit((uint32_t)cond << 
 static void ld_mips(int arm, int m) { if (m) ldr_off(AL, arm, 11, OFF_R(m)); else dp_imm(AL, OP_MOV, arm, 0, 0, 0); }
 static void st_mips(int m, int arm) { if (m) str_off(AL, arm, 11, OFF_R(m)); }
 
-static void branch_fwd(int cond, uint32_t **patch) { *patch = cp; emit((uint32_t)cond << 28 | 0x0A000000u); }
-static void patch_here(uint32_t *patch)                       /* the branch at patch goes to the next instruction */
+static uint32_t dummy_word;                                    /* where the branch of a buffer that overflowed points (the block is dropped then) */
+static void branch_fwd(int cond, uint32_t **patch) { *patch = cp < cend ? cp : &dummy_word; emit((uint32_t)cond << 28 | 0x0A000000u); }
+static void patch_to(uint32_t *patch, uint32_t *target)       /* the branch at patch goes to target */
 {
-    if (patch >= cend) return;
-    const int32_t off = (int32_t)(cp - patch) - 2;
-    *patch |= (uint32_t)off & 0x00FFFFFFu;
+    if (patch == &dummy_word || target == &dummy_word) return;
+    if (in_cold(patch) == in_cold(target)) {
+        const int32_t off = (int32_t)(target - patch) - 2;
+        *patch |= (uint32_t)off & 0x00FFFFFFu;
+    } else if (nfix < 512) {
+        fix[nfix].br = patch; fix[nfix].tgt = target; nfix++;
+    }
 }
+static void patch_here(uint32_t *patch) { patch_to(patch, cp); }   /* the branch at patch goes to the next instruction */
+static void branch_to(int cond, uint32_t *target) { uint32_t *b = cp < cend ? cp : &dummy_word; emit((uint32_t)cond << 28 | 0x0A000000u); patch_to(b, target); }
 static void bx_reg(int rm) { emit(14u << 28 | 0x012FFF10u | (uint32_t)rm); }
 #ifdef PSX_JIT_HOST
 void psx_jit_div(uint32_t n, uint32_t d);
@@ -221,9 +239,11 @@ static void exit_if_r0(const gen_t *g)
 {
     uint32_t *p;
     dp_imm(AL, OP_CMP, 0, 0, 0, 1);
-    branch_fwd(EQ, &p);
-    exit_cycles(g);
+    branch_fwd(NE, &p);
+    cold_begin();
     patch_here(p);
+    exit_cycles(g);
+    cold_end();
 }
 
 static int is_branch(uint32_t i)
@@ -253,7 +273,7 @@ static void emit_store_op(int kind, int src, int base, int idx)    /* str src, [
     emit(14u << 28 | o | (uint32_t)base << 16 | (uint32_t)src << 12 | (uint32_t)idx);
 }
 
-/* a load: RAM and the scratchpad inline, the rest by a helper. gte: LWC2 (the value goes to the GTE register rt) */
+/* a load: RAM inline, the scratchpad and the rest in the cold code. gte: LWC2 (the value goes to the GTE register rt) */
 static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
 {
     const uint32_t op = i >> 26;
@@ -263,7 +283,7 @@ static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
     const int kind = gte ? 0 : kind_of[op - 0x20];
     const int size = (kind == 0) ? 4 : (kind == 1 || kind == 2) ? 2 : 1;
     const int dst = gte ? 2 : g->next_arm;
-    uint32_t *slow1 = NULL, *hi, *slow2, *done1, *done2, *exc;
+    uint32_t *slow1 = NULL, *hi, *slow2;
     ld_mips(0, rs);
     add_const(0, 0, imm);
     if (size > 1) { dp_imm(AL, OP_TST, 0, 0, size - 1, 1); branch_fwd(NE, &slow1); }
@@ -272,13 +292,14 @@ static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
     branch_fwd(HS, &hi);
     dp_imm(AL, OP_BIC, 1, 1, enc_imm(0x600000u), 0);
     emit_load_op(kind, dst, 10, 1);
-    branch_fwd(AL, &done1);
+    uint32_t *back = cp;                                        /* the code goes on here after the cold code */
+    cold_begin();
     patch_here(hi);                                             /* the scratchpad: 0x1F800000 to 0x1F8003FF */
     dp_imm(AL, OP_SUB, 3, 1, enc_imm(0x1F800000u), 0);
     dp_imm(AL, OP_CMP, 0, 3, enc_imm(0x400u), 1);
     branch_fwd(HS, &slow2);
     emit_load_op(kind, dst, 4, 3);
-    branch_fwd(AL, &done2);
+    branch_to(AL, back);
     if (slow1) patch_here(slow1);
     patch_here(slow2);
     /* the slow way: r0 is the address */
@@ -288,11 +309,9 @@ static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
     mov_reg(dst, 0);
     ldr_off(AL, 1, 11, OFF_EXC);
     dp_imm(AL, OP_CMP, 0, 1, 0, 1);
-    branch_fwd(EQ, &exc);
+    branch_to(EQ, back);
     exit_cycles(g);
-    patch_here(exc);
-    patch_here(done1);
-    patch_here(done2);
+    cold_end();
     if (gte) {                                                  /* LWC2: the value (r2) goes to the GTE register */
         mov_reg(1, 2);
         const_(0, (uint32_t)rt);
@@ -306,7 +325,7 @@ static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
     return 1;
 }
 
-/* a store: RAM and the scratchpad inline. gte: SWC2 (the value comes from the GTE register rt) */
+/* a store: RAM inline; the scratchpad and the slow way in the cold code. gte: SWC2 (the value comes from the GTE register rt) */
 static int gen_store(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
 {
     const uint32_t op = i >> 26;
@@ -314,7 +333,7 @@ static int gen_store(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
     const int32_t imm = (int16_t)(i & 0xFFFF);
     const int kind = (gte || op == 0x2B) ? 0 : op == 0x29 ? 1 : 2;      /* sw, sh, sb */
     const int size = kind == 0 ? 4 : kind == 1 ? 2 : 1;
-    uint32_t *slow1 = NULL, *hi, *slow2, *slow3, *done1, *done2, *cont;
+    uint32_t *slow1 = NULL, *hi, *slow2, *slow3, *cont;
     if (gte) { const_(0, (uint32_t)rt); call_c((const void *)psx_gte_get_data); mov_reg(2, 0); }
     ld_mips(0, rs);
     add_const(0, 0, imm);
@@ -328,13 +347,14 @@ static int gen_store(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
     dp_imm(AL, OP_CMP, 0, 3, 0, 1);
     branch_fwd(NE, &slow3);                                     /* a page with compiled code: the slow way drops it */
     emit_store_op(kind, 2, 10, 1);
-    branch_fwd(AL, &done1);
+    uint32_t *back = cp;
+    cold_begin();
     patch_here(hi);                                             /* the scratchpad */
     dp_imm(AL, OP_SUB, 3, 1, enc_imm(0x1F800000u), 0);
     dp_imm(AL, OP_CMP, 0, 3, enc_imm(0x400u), 1);
     branch_fwd(HS, &slow2);
     emit_store_op(kind, 2, 4, 3);
-    branch_fwd(AL, &done2);
+    branch_to(AL, back);
     if (slow1) patch_here(slow1);
     patch_here(slow2);
     patch_here(slow3);
@@ -345,25 +365,21 @@ static int gen_store(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
     call_c((const void *)psx_jit_write);
     if (!bd) {
         /* nonzero: an exception (the PC is set) or the block's own code changed (go on at the next instruction) */
-        uint32_t *p;
         dp_imm(AL, OP_CMP, 0, 0, 0, 1);
-        branch_fwd(EQ, &p);
+        branch_to(EQ, back);
         ldr_off(AL, 1, 11, OFF_EXC);
         dp_imm(AL, OP_CMP, 0, 1, 0, 1);
         branch_fwd(NE, &cont);
         exit_const(g, pc + 4);
         patch_here(cont);
         exit_cycles(g);
-        patch_here(p);
     } else {
         ldr_off(AL, 1, 11, OFF_EXC);
         dp_imm(AL, OP_CMP, 0, 1, 0, 1);
-        branch_fwd(EQ, &cont);
+        branch_to(EQ, back);
         exit_cycles(g);
-        patch_here(cont);
     }
-    patch_here(done1);
-    patch_here(done2);
+    cold_end();
     flush_pending(g, 0);
     return 1;
 }
@@ -397,14 +413,14 @@ static int gen_cop2(gen_t *g, uint32_t i)
     return 0;
 }
 
-/* ADD, ADDI, SUB trap on overflow: the sum is made inline; on overflow the interpreter raises the exception */
+/* ADD, ADDI, SUB trap on overflow: the sum is made inline; on overflow the interpreter raises the exception (in the cold code) */
 static void gen_trap_add(gen_t *g, uint32_t i, uint32_t pc, int bd)
 {
     const uint32_t op = i >> 26;
     const int rs = (int)((i >> 21) & 31), rt = (int)((i >> 16) & 31), rd = (int)((i >> 11) & 31);
     const int dest = op == 8 ? rt : rd;
     const int32_t simm = (int16_t)(i & 0xFFFF);
-    uint32_t *ov, *done;
+    uint32_t *ov;
     ld_mips(0, rs);
     if (op == 8) {
         const int e = enc_imm((uint32_t)(simm < 0 ? -simm : simm));
@@ -417,14 +433,14 @@ static void gen_trap_add(gen_t *g, uint32_t i, uint32_t pc, int bd)
     }
     branch_fwd(6, &ov);                                         /* VS: a signed overflow */
     st_mips(dest, 0);
-    branch_fwd(AL, &done);
+    cold_begin();
     patch_here(ov);
     const_(0, i);
     const_(1, pc);
     dp_imm(AL, OP_MOV, 2, 0, bd ? 1 : 0, 0);
     call_c((const void *)psx_jit_exec);
     exit_cycles(g);
-    patch_here(done);
+    cold_end();
     flush_pending(g, dest);
 }
 
@@ -468,6 +484,9 @@ static int gen_alu(gen_t *g, uint32_t i)
     const int32_t simm = (int16_t)(i & 0xFFFF);
     const uint32_t uimm = i & 0xFFFF;
     int w = 0;
+    if (op == 0 && rd == 0 && (fn <= 7 || fn == 0x10 || fn == 0x12 || (fn >= 0x21 && fn <= 0x27 && fn != 0x22) || fn == 0x2A || fn == 0x2B) && fn != 0x08 && fn != 0x09)
+        return 0x100;                                           /* a nop, or a result into $zero: nothing to do */
+    if (op >= 9 && op <= 0x0F && op != 8 && rt == 0 && op != 0x22) return 0x100;
     if (op == 0) {
         switch (fn) {
         case 0x00: ld_mips(0, rt); if (sh) dp_reg(AL, OP_MOV, 0, 0, 0, 0, sh, 0); w = rd; st_mips(rd, 0); break;                              /* sll */
@@ -571,8 +590,10 @@ static void *compile(uint32_t pc0, int *p0, int *p1)
     if (!pc_ok(pc0)) return NULL;
     if (arena_used + 8192 > ARENA_SIZE) return NULL;
     uint32_t *start = (uint32_t *)(arena + arena_used);
-    cp = start;
-    cend = (uint32_t *)(arena + ARENA_SIZE);
+    cp = hot_start = start;
+    cend = hot_end = (uint32_t *)(arena + ARENA_SIZE);
+    cold_cp = coldbuf;
+    nfix = 0;
     gen_t g = { 0, 0, 0, 6 };
     emit(14u << 28 | 0x01A00000u | 8u << 12 | 14u);              /* mov r8, lr */
     uint32_t pc = pc0, last_addr = pc0;
@@ -649,7 +670,20 @@ static void *compile(uint32_t pc0, int *p0, int *p1)
         gen_one(&g, i, pc, 0);
         pc += 4;
     }
-    if (cp >= cend) return NULL;
+    if (cp >= cend || cold_cp >= coldbuf + COLD_WORDS - 64) return NULL;
+    {   /* the cold code goes after the hot code; the branches between them are fixed now */
+        uint32_t *hot_top = cp;
+        const uint32_t hot_len = (uint32_t)(hot_top - start), cold_len = (uint32_t)(cold_cp - coldbuf);
+        if (start + hot_len + cold_len >= (uint32_t *)(arena + ARENA_SIZE)) return NULL;
+        memcpy(hot_top, coldbuf, cold_len * 4u);
+        for (int k = 0; k < nfix; k++) {
+            uint32_t *br = fix[k].br, *tg = fix[k].tgt;
+            uint32_t *fbr = in_cold(br) ? start + hot_len + (br - coldbuf) : br;
+            uint32_t *ftg = in_cold(tg) ? start + hot_len + (tg - coldbuf) : tg;
+            *fbr |= (uint32_t)((int32_t)(ftg - fbr) - 2) & 0x00FFFFFFu;
+        }
+        cp = hot_top + cold_len;
+    }
     const uint32_t bytes = (uint32_t)((uint8_t *)cp - (uint8_t *)start);
     arena_used += (bytes + 31) & ~31u;
     /* the pages of the code: at most two of 256 bytes (a block is at most 49 instructions) */
