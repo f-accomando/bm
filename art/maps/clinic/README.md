@@ -12,7 +12,7 @@ Dark Night is a new, independent `.bm`. The kit is only its map asset.
   with a house, a ruin and two sheds, an alley to the south that ends in a barricade, and a stair up to the Courtyard Gate.
 - **Models**: 18 static elements, each in a textured look and a flat look (`bed`, `bed_f`): beds, operating table, cabinet,
   street lamp, checkpoint lantern, doors (open and locked, two directions), the gate, crate, barrel, pillar, bench, cart, barricade.
-- **Logic objects** (no model): `player_start` (1024) and `enemy` spawn points. 15 enemies, 3 lanterns, 7 doors, 1 gate.
+- **Logic objects** (no model): `player_start` (1024) and `enemy` spawn points. 14 enemies, 3 lanterns, 9 door leaves (the first door has three leaves), 1 gate.
 - **Screen**: 640 x 360, shown at 1280 x 720 by 2x scaling. Textures are 16 x 16 for one unit.
 
 ## How the picture stays readable

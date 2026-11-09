@@ -66,7 +66,8 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 ## Open work
 
 - The new `darknight.bm` (camera behind the shoulders, back steps backwards, the camera under the wall tops) is not on the console's SD card yet: the bridge `send` of `darknigh.bm` stopped at 29% (the console stopped answering, 5 Nov 2026). The menu runs the old file. Send it again with the console free (a named copy in 8.3), or copy it to `bm/` by hand; the console showed the old game at 30 fps and no new camera.
-- Dark Night is above one 60 Hz frame at the heavy spots (11k faces): see `graphics-mali.md`, Open work.
+- Dark Night is above one 60 Hz frame at the heavy spots (11k faces): see `graphics-mali.md`, Open work. User report (9 Nov 2026, Pi Zero W): the frame rate goes from 60 to 30 fps when the triangles double, from 7k to 14k. Not measured or fixed yet.
+- Changes of 9 Nov 2026 (checked on the PC with `make test-darknight`, not yet on a console): the first door of the clinic is as wide as the hall (three leaves, `build_clinic.py`); the bench at the foot of the stair, the lamp outside the first room and the first villager of the hall are gone (the kinds of the other enemies are kept by `enemy_kind`); doors slide sideways; a shut door stops a dog's bite and leap; F9 goes first to the stair of the hall (24.5, 9.5).
 - Lua profile on the PC (`BMHOST_LUAPROF=1`, the key script of `tests/darknight/check.py`, 3650 frames): 80.6k samples at first, 39.8k now (`saw_icon` in runs of pixels, `cam_blocked` on the list `camstops`, the enemy separation with a cheap reject and only within `FAR` of the Hunter). Left: `update_enemies` 18%, `cam_blocked` 15%, `hits_object` 11%, `draw_objects`. The profiler counts Lua instructions only: the time in C (`rectfill`, the 3D) is not in it.
 - `saw_icon` in a render target (drawn once, `target_blit` with a zoom: 4 us against 68 us for the runs, measured in bmhost) shows a black box in this game and loses the shadow (`0x050508` is black in RGB565). The sprite sheet cannot hold it: the 3D textures are on the sheet. Open: find why the target is not transparent here.
 - Dark Night on the Mali (5 Nov 2026): walls, enemies, doors and the shadows are right and drawn by the GPU (bm3d 7.35). The ARM time a frame is not measured after the change. The faces `R3D_SCREEN` of a model still hand the 3D to the ARM.
@@ -82,6 +83,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 
 ## Rules (do not break)
 
+- A door slides along its wall into the wall beside the opening; it does not lift. Doors side by side in one wall are one door (`d.grp`): they open together and slide the same way, toward the side with wall cells (`sdx`, `sdz`, `dist`). A shut door stops every blow: `door_between` blocks the enemy's strike and the dog's leap. Keep a door's leaves one tile apart, in line, with wall cells on at least one side.
 - Keep the camera under `CAM_MAX_H` over the floor and never lift it with a steeper look near a wall: over the wall tops the view shows the void (a black screen, 5 Nov 2026). A wall behind the Hunter pulls the camera in (`best`, down to 12%), it does not raise it.
 - Walk back (S) steps backwards and keeps the Hunter's facing; left and right only steer him. The camera follows `P.yaw`: a move that turned him toward the camera made him spin.
 

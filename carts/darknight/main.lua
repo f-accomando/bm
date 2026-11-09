@@ -64,8 +64,8 @@ local SAW_SPAN = { { 0.04, 0.66 }, { 0.15, 1.18 } }
 -- the sound effects of the bank, by name (the order of SFX in carts/darknight/art/sounds.py)
 local SFX = { sawswing = 0, sawhit = 1, cleave = 2, sawopen = 3, sawclose = 4, pistol = 5, step = 6, hurt = 7, dodge = 8, lantern = 9,
               growl = 10, bite = 11, eswing = 12, edie = 13, door = 14, died = 15, menu = 16, charge = 17, bigswing = 18, headshot = 19 }
--- F9: the places of the walk, in order: the hall door, the atrium, the courtyard, the way to the gate
-local SKIPS = { { 14.5, 8.5 }, { 37.5, 10.5 }, { 50.5, 12.5 }, { 66.5, 10.5 } }
+-- F9: the places of the walk, in order: the stair of the hall, the atrium, the courtyard, the way to the gate
+local SKIPS = { { 24.5, 9.5 }, { 37.5, 10.5 }, { 50.5, 12.5 }, { 66.5, 10.5 } }
 local DODGE = {
   roll = { clip = "roll", frames = 16, rate = 1.6, dist = 3.0, inv = { 0.08, 0.6 } },
   back = { clip = "backstep", frames = 16, rate = 1.6, dist = 2.6, inv = { 0.04, 0.4 } },
@@ -150,6 +150,7 @@ local function map_height(x, z) return map3d_height(world, x, z) end
 local function enemy_kind(x, z, n)
   if x < 43 then return "villager" end
   if z >= 31 then return "dog" end
+  if z >= 9 then n = n + 1 end                       -- (the villager that stood by the first door is gone: the others keep their kind)
   return n % 2 == 0 and "huntsman" or "dog"
 end
 
@@ -177,12 +178,67 @@ local function load_world()
           o.shadow = name == "lamp" or name == "pillar" or name == "lantern" or name == "barrel" or name == "crate"
           objs[#objs + 1] = o
           if o.camstop then camstops[#camstops + 1] = o end
-          if name:find("^door") then o.door = true; o.locked = name:find("_l$") ~= nil; o.open = 0; doors[#doors + 1] = o end
+          if name:find("^door") then
+            o.door, o.ns, o.locked, o.open = true, name:find("_ns") ~= nil, name:find("_l$") ~= nil, 0
+            doors[#doors + 1] = o
+          end
           if name == "lantern" then lanterns[#lanterns + 1] = o end
         end
       end
     end
   end
+  -- doors side by side in one wall are one door: they open together and slide along the wall, into the wall beside the opening
+  local function beside(a, b)
+    if a.ns ~= b.ns or a.locked ~= b.locked then return false end
+    if a.ns then return a.x == b.x and abs(a.z - b.z) == 1 end
+    return a.z == b.z and abs(a.x - b.x) == 1
+  end
+  for _, d in ipairs(doors) do
+    if not d.grp then
+      local grp, stack = { d }, { d }
+      d.grp = grp
+      while #stack > 0 do
+        local c = table.remove(stack)
+        for _, o in ipairs(doors) do
+          if not o.grp and beside(c, o) then o.grp = grp; grp[#grp + 1] = o; stack[#stack + 1] = o end
+        end
+      end
+      local lo, hi = 1e9, -1e9
+      for _, m in ipairs(grp) do
+        local a = d.ns and m.z or m.x
+        lo, hi = min(lo, a), max(hi, a)
+      end
+      local function pocket(from, step)               -- the wall cells beyond the opening, on one side
+        local n = 0
+        for k = 1, #grp do
+          local a = floor(from + step * k)
+          local c = mget(d.ns and floor(d.x) * 2 or a * 2, d.ns and a * 2 or floor(d.z) * 2, "walls") or 0
+          if c == 0 then break end
+          n = n + 1
+        end
+        return n
+      end
+      local sgn = pocket(hi, 1) >= pocket(lo, -1) and 1 or -1
+      for _, m in ipairs(grp) do m.sdx, m.sdz, m.dist = d.ns and 0 or sgn, d.ns and sgn or 0, #grp end
+    end
+  end
+end
+
+-- is a shut door between two points? (nothing hits through a door)
+local function door_between(ax, az, bx, bz)
+  for i = 1, #doors do
+    local o = doors[i]
+    if o.open < 0.75 then
+      local p0, p1, o0, a0, a1 = ax, bx, o.x, az, bz
+      local oc = o.z
+      if not o.ns then p0, p1, o0, a0, a1, oc = az, bz, o.z, ax, bx, o.x end
+      if (p0 - o0) * (p1 - o0) < 0 then
+        local c = a0 + (o0 - p0) / (p1 - p0) * (a1 - a0)
+        if abs(c - oc) <= 0.6 then return true end
+      end
+    end
+  end
+  return false
 end
 
 local function object_mesh(name)
@@ -193,7 +249,7 @@ end
 local function hits_object(x, z, r)
   for i = 1, #objs do
     local o = objs[i]
-    if o.r > 0 and not (o.door and o.open > 0.5) then
+    if o.r > 0 and not (o.door and o.open > 0.75) then
       local dx, dz = x - o.x, z - o.z
       local rr = o.r + r
       if dx * dx + dz * dz < rr * rr then return o end
@@ -726,11 +782,12 @@ local function update_enemies()
       e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 8 * dt)
       clip, rate = ty.move, ty.rate
       local lp = ty.leap
-      if lp and e.leapcd <= 0 and d > 2.6 and d < 6.5 and P.hp > 0 then
+      local shut = d < 7 and door_between(e.x, e.z, P.x, P.z)      -- a shut door between: no leap, no blow
+      if lp and e.leapcd <= 0 and d > 2.6 and d < 6.5 and P.hp > 0 and not shut then
         e.st, e.t, e.struck, e.leaping = "leap", 0, false, nil
         ev("enemy " .. e.kind .. " leap")
         snd("growl", 4)
-      elseif d > ty.reach * 0.7 then
+      elseif d > ty.reach * 0.7 or shut then
         try_move(e, dx / d * ty.speed * dt, dz / d * ty.speed * dt, 0.35)
       else
         -- the attack by its weight; the choice follows the frame, so a run of the game is the same every time
@@ -746,7 +803,7 @@ local function update_enemies()
       if e.t < e.atk.strike then e.yaw = turn_to(e.yaw, yaw_of(dx, dz), 6 * dt) end
       if e.t >= e.atk.strike - 0.18 and not e.swung then e.swung = true; snd(e.kind == "dog" and "bite" or "eswing", e.kind == "huntsman" and -3 or 0) end
       -- the blow lands when its weapon touches the Hunter in the window round the hit time of the clip; a Hunter who has moved is missed
-      if e.t >= e.atk.strike - 0.08 and e.t <= e.atk.strike + 0.22 and not e.struck and enemy_weapon_hits_player(e) then
+      if e.t >= e.atk.strike - 0.08 and e.t <= e.atk.strike + 0.22 and not e.struck and not door_between(e.x, e.z, P.x, P.z) and enemy_weapon_hits_player(e) then
         e.struck = true
         hurt(e.atk.dmg, e.x, e.z)
       end
@@ -769,7 +826,7 @@ local function update_enemies()
       if e.t >= lp.land and not e.struck then
         e.struck = true
         snd("bite")
-        if d < lp.reach then hurt(lp.dmg, e.x, e.z) end
+        if d < lp.reach and not door_between(e.x, e.z, P.x, P.z) then hurt(lp.dmg, e.x, e.z) end
       end
       if e.t > lp.total then e.st, e.t, e.leapcd = "chase", 0, lp.cool end
     elseif e.st == "stagger" then
@@ -807,11 +864,14 @@ end
 local function update_world()
   local dt = 1 / 60
   for _, d in ipairs(doors) do
-    local dx, dz = P.x - d.x, P.z - d.z
-    local near = dx * dx + dz * dz
+    local near = 1e9                                        -- the nearest leaf of the door
+    for _, m in ipairs(d.grp) do
+      local dx, dz = P.x - m.x, P.z - m.z
+      near = min(near, dx * dx + dz * dz)
+    end
     if not d.locked then
       if near < 1.8 * 1.8 then
-        if d.open == 0 then ev("door opens"); snd("door") end
+        if d.open == 0 and d == d.grp[1] then ev("door opens"); snd("door") end
         d.open = min(1, d.open + dt * 4)
       elseif near > 3.2 * 3.2 then d.open = max(0, d.open - dt * 2) end
     elseif near < 1.5 * 1.5 and G.frame % 120 == 0 then
@@ -870,7 +930,7 @@ local function cam_blocked(x, y, z)
     local o = camstops[i]
     local rr = o.r + 0.3
     local ox, oz = x - o.x, z - o.z
-    if ox * ox + oz * oz < rr * rr then return true end
+    if ox * ox + oz * oz < rr * rr and not (o.door and o.open > 0.75) then return true end
   end
   return false
 end
@@ -1005,9 +1065,9 @@ local function draw_objects()
     if not (o.door and o.open > 0.95) and d2 < (FAR + 2) ^ 2 and visible3d(o.x, o.y + 1, o.z, 2.5) then
       local m = object_mesh(o.name)
       if m then
-        local lift = 0
-        if o.door then lift = o.open * 2.8 end
-        draw3d(m, o.x, o.y + lift, o.z, 0, 0, 0, 1, 0)
+        local sx, sz = 0, 0                                -- a door slides along its wall, into the wall
+        if o.door then sx, sz = o.sdx * o.open * o.dist, o.sdz * o.open * o.dist end
+        draw3d(m, o.x + sx, o.y, o.z + sz, 0, 0, 0, 1, 0)
         if o.shadow and d2 < SHADOW * SHADOW then
           draw3d(m, o.x, o.y, o.z, 0, 0, 0, 1, 8)
         end

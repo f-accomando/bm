@@ -660,7 +660,7 @@ def build_map():
     CL = 12                                            # the clinic floor: 3 units over the courtyard
     # --- the Clinic
     g.open(4, 4, 13, 14, "ward", CL, "ward")                           # Ward A: the start
-    g.open(13, 8, 14, 9, "wood", CL, "ward")                           # its door
+    g.open(13, 8, 14, 11, "wood", CL, "ward")                          # its door: as wide as the hall (3 tiles), three leaves that slide together
     g.open(14, 8, 22, 11, "carpet", CL, "hall")                        # the hall, with a red runner
     for i, h in enumerate((10, 8, 6, 4, 2)):                           # the stair down: five treads of two tiles, 0.5 units each
         g.open(22 + 2 * i, 8, 24 + 2 * i, 11, "stairs", h, "hall")
@@ -694,8 +694,8 @@ def build_map():
     g.put("bed_ns", 4, 8)
     g.put("cabinet", 11, 13)
     g.put("lantern", 5, 12)
-    g.put("door_ns", 13, 8)
-    g.put("lamp", 14, 9)
+    for z in (8, 9, 10):
+        g.put("door_ns", 13, z)
     for x in (16, 19):
         g.put("bed", x, 3)
     g.put("bed", 16, 6)
@@ -709,13 +709,10 @@ def build_map():
     g.put("barrel", 21, 21)
     g.put("enemy", 19, 17)
     g.put("enemy", 16, 20)
-    g.put("enemy", 17, 9)
     g.put("enemy", 27, 10)
     for x, z in ((36, 6), (36, 13), (39, 6), (39, 13)):
         g.put("pillar", x, z)
     g.put("lantern", 34, 5)
-    g.put("bench_ns", 34, 9)
-    g.put("bench_ns", 34, 10)
     g.put("enemy", 38, 9)
     g.put("enemy", 37, 12)
     g.put("door_ns", 42, 9)

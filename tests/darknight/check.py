@@ -4,7 +4,7 @@
   check.py BMHOST DARKNIGHT.bm WORKDIR
 
 The script presses the keys of the game: run, the three dodges (roll, side jumps, backstep), the three saw attacks, SHIFT
-(open the saw), an attack with the open saw, the charged attack, the pistol, F9 (the developer key: to the hall door), Q
+(open the saw), an attack with the open saw, the charged attack, the pistol, F9 (the developer key: to the hall), Q
 (lock on), then stands still until the enemies kill the Hunter and he starts again; then F9 to the courtyard, where the attacks of
 the huntsmen and the dogs (the leap) are looked for. The game writes one line a
 event ("darknight: dodge roll"); the test looks for each of them in the log, in that order. It also checks that the object
@@ -39,16 +39,16 @@ at(520, SHIFT); at(525)                                        # open the saw
 at(560, U); at(565)                                            # an attack with the open saw
 at(700, P); at(780)                                            # the charged attack: hold, let go
 at(960, E); at(965)                                            # the pistol
-at(1050, F9); at(1055)                                         # to the hall door: the door opens, an enemy waits
+at(1050, F9); at(1055)                                         # to the stair of the hall: an enemy waits
 at(1072, U); at(1075); at(1112, U); at(1115)                         # the saw against the enemy that comes: a hitbox on the blade
 at(1160, Q); at(1165)                                          # lock on
-at(1225, E); at(1230)                                         # a shot at the locked enemy: the bones of the enemy are the hurtbox
+at(1205, E); at(1210)                                         # a shot at the locked enemy: the bones of the enemy are the hurtbox
 at(1290, F9); at(1295)                                         # to the atrium: two enemies are there
 at(2350, F9); at(2355)                                         # after the new start: to the courtyard, where huntsmen and dogs wait
 SCRIPT.append("3650 quit")
 
-EXPECT = ["dodge roll", "dodge right", "dodge left", "dodge back", "attack closed 1", "attack closed 2", "attack closed 3",
-          "saw open", "attack open 1", "charge open", "shot", "skip 1", "door opens", "lock on", "skip 2", "hurt hp", "died", "respawn"]
+EXPECT = ["dodge roll", "door opens", "dodge right", "dodge left", "dodge back", "attack closed 1", "attack closed 2", "attack closed 3",
+          "saw open", "attack open 1", "charge open", "shot", "skip 1", "lock on", "skip 2", "hurt hp", "died", "respawn"]
 
 
 REQUIRE = ["hit villager saw", "shot hit", "enemy villager attack1", "enemy villager attack2", "enemy dog bite", "enemy dog leap", "enemy huntsman attack"]
