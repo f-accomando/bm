@@ -1,10 +1,10 @@
-# bm Tape: a portable studio cartridge (design, phase 0)
+# bm Tape: a portable studio cartridge (design)
 
-Working name: **bm Tape** (folder `carts/tape`, project `carts/tape/tape.bme`). The name is an open decision (section 11).
+Name: **bm Tape** (folder `carts/tape`, project `carts/tape/tape.bme`).
 
 bm Tape is one `.bm` app with five jobs: synth, sampler, sequencer, multitrack, and live DJ set. The references are the OP-1 (one display, four colour encoders, a tape) and the EP-133 K.O. II (pads, groups, punch-in effects; bm has `carts/ko2`). All code and all pictures are original.
 
-Status: design only. No code exists. Section 10 gives the phases.
+Status: phase 1 (skeleton in `carts/tape`) is in progress. Section 10 gives the phases.
 
 ## 1. Principles
 
@@ -13,7 +13,7 @@ Status: design only. No code exists. Section 10 gives the phases.
 3. **Vector scenes.** A scene is lines, rectangles, and short text on a 320×160 unit grid. The cartridge draws it at scale `S` (1 on a 360×360 canvas, 2 on a 640×360 canvas). No bitmaps in the display, except the stroke font.
 4. **One clock.** All timing comes from `audio_time()` and `play_at()` (1.3 ms grid in the audio interrupt). The frame rate does not move a note.
 5. **One sound format.** A sound of bm Tape is a bank sound (`BMAU`, 48 bytes). bm Sound, riff, and games read the same sound.
-6. **One source for typed code.** The hot loops are `.b` files. The same file gives native ARMv6 code on the Pi and Lua on the RGB30.
+6. **One source for typed code.** The hot loops are `.b` files. The Pi compiles them on the console to native ARMv6 code.
 
 ## 2. What the kernel has and what it lacks
 
@@ -33,8 +33,8 @@ Facts read on 9 Nov 2026 (`docs/progress/audio.md`, `docs/api/sound.md`, `docs/a
 | **K2** Bounce: render events to a PCM sample off line | missing | new API |
 | **K3** Scope tap: the last N output samples and the peak per voice | missing | new API |
 | **K4** `line` (and `text`) in the `.b` host table | missing | `bmnative_set_host_fn` |
-| **K5** `.b` source carried in a `.bm` | missing (section 6) | `BM_SEC_DATA` |
-| **K6** More than 8 voices | not measured on the ARM1176 | `SYNTH_VOICES` |
+| **K5** `.b` source carried in a `.bm` | ready with a Lua long string (section 6) | `BM_SEC_DATA` |
+| **K6** More than 8 voices | measured on the host only (section 3.2); 8 voices stay | `SYNTH_VOICES` |
 | Audio input | no hardware on the Pi Zero W or on the RGB30 | - |
 
 Consequence of the last row: "sampling" means three things here. Load a WAV from the SD. Resample the synth (K2). Slice and edit a sample that is in memory (K1).
@@ -68,6 +68,22 @@ A frozen track (K2) plays as one sample voice. Freeze gives the voices back. Thi
 DJ budget: deck A 1 voice, deck B 1 voice (mono bounce; 2 each if the bounce is stereo), 4 to 6 voices for live pads over the mix. A sample voice changes speed and pitch together, as a record does. `freq()` nudges, `slide()` brakes, `begin` sets a cue point, `reverse` plays backward, the voice filter is the DJ filter. The DJ module needs no time stretch.
 
 Without K2 (phases 1 to 4) a deck is a pattern set of 4 voices. The DJ module waits for K2.
+
+### 3.2 Measure of 12 and 16 voices (host, 9 Nov 2026)
+
+| Voices | Plain square, µs per 64-sample block | Heavy patch, µs per block |
+|---|---|---|
+| 8 | 3.8 to 4.7 | 13.7 |
+| 12 | 5.8 | 16.6 to 19.5 |
+| 16 | 7.2 to 9.9 | 23.3 to 26.0 |
+
+- The measure calls `synth_render` on an x86 host. The build is `gcc -O2`. There are two runs. The benchmark is a throwaway program that is not in the repository.
+- The heavy patch uses supersaw, FM, saw, and square with filter, LFO, drive, room send, and echo send.
+- A block lasts 1333 µs.
+- The cost grows about 1.3 times for 12 voices and about 1.8 times for 16 voices. The room, the echo, and the limiter are a fixed part.
+- The host numbers do not give the Pi time. Measure on the Pi Zero W before a decision.
+- `AU_TRACKS` in `src/audio/player.h` equals `SYNTH_VOICES`. The register block is `SYNTH_VOICES * 32` bytes. A change of the voice count changes the bank format and the three encoders.
+- Decision: keep 8 voices and use freeze.
 
 ## 4. The display
 
@@ -134,8 +150,9 @@ A picture of nine of these scenes is at https://claude.ai/artifact/9hAxdY3ARgj9X
 
 | Device | Canvas | Display | Rest of the screen |
 |---|---|---|---|
-| RGB30 | 360×360 (shown ×2 on the 720×720 panel) | 320×160 at (20, 16), `S` = 1 | below: encoder row (4 dials with values), then the 12 pads or the 4 tracks, then one hint line of the gamepad |
 | Pi | 640×360 | 640×320 at (0, 0), `S` = 2 | a 40-pixel strip: mode keys and key hints |
+
+The scenes use a 320×160 unit grid. A later RGB30 layout draws them at `S` = 1.
 
 Measure the fill cost of `S` = 2 on the Pi in phase 1. If a scene costs more than 4 ms, draw the ground once and the moving parts each frame.
 
@@ -143,32 +160,31 @@ Measure the fill cost of `S` = 2 on the Pi in phase 1. If a scene costs more tha
 
 Check each row against `docs/design/games-input-standard.md` and `docs/spec/ui-reference.md` in phase 1. This table is a proposal.
 
-| Action | RGB30 gamepad | USB keyboard (Pi) |
-|---|---|---|
-| Encoder 1 to 4 | hold L1 / L2 / R1 / R2 and press left or right | `Q`/`A`, `W`/`S`, `E`/`D`, `R`/`F` (up / down) |
-| Fine step | add the left stick click | add Shift |
-| Module | Select + D-pad (ring menu on the display) | `F1` to `F8` |
-| Page of the module | Select + L1 / R1 | Tab |
-| Pads | A, B, X, Y and the D-pad (8 pads; right stick up/down changes the row) | the KO-II block: `7 8 9 / U I O / J K L / M , .` |
-| Play / stop | Start | Space |
-| Record | Start + A | Enter |
-| Track 1 to 4 | right stick left / right | `1` to `4` |
-| Punch-in effect | hold a pad with R2 down | hold `Z X C V` |
-| Exit page | Start + Select | Esc |
+| Action | USB keyboard (Pi) |
+|---|---|
+| Encoder 1 to 4 | `Q`/`A`, `W`/`S`, `E`/`D`, `R`/`F` (up / down) |
+| Fine step | add Shift |
+| Module | `F1` to `F8` |
+| Page of the module | Tab |
+| Pads | the KO-II block: `7 8 9 / U I O / J K L / M , .` |
+| Play / stop | Space |
+| Record | Enter |
+| Track 1 to 4 | `1` to `4` |
+| Punch-in effect | hold `Z X C V` |
+| Exit page | Esc |
 
 ## 6. The `.b` integration (first cartridge with `.b`)
 
-Facts: `native_compile(src)` compiles `.b` text on the Pi into ARMv6 code in RAM. The RGB30 (AArch64) has no native back end. The Lua output of a `.b` file is the source minus the types (`tools/bml/bml.py --lua`), and it is the reference of every test.
+Facts: `native_compile(src)` compiles `.b` text on the Pi into ARMv6 code in RAM. The Lua output of a `.b` file is the source minus the types (`tools/bml/bml.py --lua`), and it is the reference of every test.
 
-Proposal:
+Decided plan:
 
-1. The project holds `engine.b` (one file per engine if the size needs it).
-2. The build writes two things into the `.bm`: the `.b` text as a named blob in the DATA section (section 15, name `engine.b`), and the Lua output inside the LUA section as module `engine`.
-3. At `_init`, the cartridge calls `native_compile` when the function exists and the target is the Pi. If the compile gives a module, the cartridge calls `native_run`. If not, the cartridge calls the Lua module. The two paths take the same `vm_buf` arguments.
-4. `targets` in `bm.info` stays Pi and RGB30. `docs/progress/typed.md` says today that a cartridge with native code is Pi only. This proposal changes that rule for a cartridge that carries the Lua output too. Record the decision before phase 1 (section 11).
-5. The `.bm` carries source, not machine code. The "one cartridge type" rule holds, and `native_load` checks the code as it does today.
-
-To verify in phase 1: a Lua cartridge can read a DATA blob by name. If it cannot, carry the `.b` text as a Lua long string made by the build.
+1. The project holds `src/engine.b`.
+2. The build puts the `.b` text into the Lua source as a long string. A Lua cartridge has no API to read a DATA blob (`bm_data_find` is used only by the kernel in `src/kernel/appdata.c`).
+3. At `_init`, the cartridge calls `native_compile`, then `native_load`, then `native_run` with `vm_buf` arguments.
+4. `targets: pi` is set in `bm.info`. This agrees with the rule in `docs/progress/typed.md`.
+5. The `.bm` carries source, not machine code. The "one cartridge type" rule holds.
+6. Each `.b` function has a host test. The test compares the native result with the Lua output of `tools/bml/bml.py`.
 
 ### 6.1 What goes into `.b`
 
@@ -231,7 +247,7 @@ A song is saved under `/bm/save` first. A song file of its own (and its section 
 | Phase | Content | Kernel work | Exit test |
 |---|---|---|---|
 | P0 | This document and the picture of the scenes | none | the user accepts the scope |
-| P1 | Skeleton: display frame, nine static scenes, encoders, module switch, `engine.b` with `euclid` and `meter_fall`, Lua path | K5 (or the long-string path) | the same frame on bmhost, Pi, RGB30; `.b` result equal to Lua |
+| P1 | Skeleton: display frame, nine static scenes, encoders, module switch, `engine.b` with `euclid` and `meter_fall`, Lua path | none | the same frame on bmhost and on the Pi; `.b` result equal to Lua |
 | P2 | SYNTH, DRUM, SEQ with `seq_window`; engines and the first 20 sounds | none | a 4-bar pattern keeps time at 20 fps and at 60 fps |
 | P3 | TAPE with event clips, MIX, FX, punch-in effects | K4 | a 4-track song saves, loads, and plays the same |
 | P4 | LIB, bank import and export, riff lane, live code | shared bank encoder module | a song made here plays in a game with `music()` |
@@ -239,11 +255,15 @@ A song is saved under `/bm/save` first. A song file of its own (and its section 
 | P6 | DJ: two decks, crossfader, cue, loop, brake | master filter (optional) | two songs mixed for 3 minutes with no late note |
 | P7 | Synth work of section 8, layer 3 | per item | measure on the Pi before and after |
 
-## 11. Open decisions (for the user)
+## 11. Decisions
 
-1. The name. Proposal: bm Tape.
-2. `.b` on the RGB30: accept the Lua path (proposal), or make the cartridge Pi only as `docs/progress/typed.md` says today.
-3. The first device to tune: the RGB30 with the gamepad (proposal, it is the portable one) or the Pi with a USB keyboard.
-4. Kernel APIs K1 to K4: accept them as a plan. Each one gets a work order before its phase.
-5. 8 voices: keep them and use freeze (proposal), or measure 12 or 16 voices on the ARM1176 first (K6).
-6. `carts/ko2` stays a separate cartridge (proposal). bm Tape reuses its recorder logic and its key block. `carts/ko2` has no `.bme`: make one when the code moves.
+Closed (9 Nov 2026):
+
+1. The name is bm Tape.
+2. The target is the Pi only. The RGB30 is a later project.
+3. The synth keeps 8 voices. Use freeze (section 3.2).
+4. `carts/ko2` stays a separate cartridge. bm Tape reuses its recorder logic and its key block. `carts/ko2` has no `.bme`: make one when the code moves.
+
+Open:
+
+1. Kernel APIs K1 to K4: each one gets a work order before its phase.
