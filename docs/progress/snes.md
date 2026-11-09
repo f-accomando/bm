@@ -55,6 +55,7 @@ machine was written again in C. The RGB30 is not measured.
 - The ROM comes only from `doc_read(name, "sfc")`. The cartridge never writes a ROM. The only file it writes is the `.srm`.
 - No SNES firmware, ROM data or game code goes into the repository. The test ROM is made by `make_testrom.py`.
 - The core tests are the gate for a change of the CPU, the PPU or the SPC700. Run `make test-snes`. After a change of `snes_ppu.c` run `make test-snes-ppu` too: it must stay bit for bit equal to `tests/snes/ppu_ref.c` (change the reference only for a new PPU feature, in both files).
+- The BG scroll registers ($210D to $2114) keep the 16 bits of the write; the picture uses the low 10 bits. The second write of a pair takes bits 0 to 2 from the first one (`bgofs_latch`, bits 8 to 10 of the old value). A mask to 10 bits at the first write loses bit 2: the map was then up to 4 pixels off from the sprites (Mario not centred on the house of the SMW overworld). `core_test.c` checks all 1024 values.
 - The PPU reads and writes its line buffers a 32-bit word at a time from arrays aligned to 4 bytes (`_Alignas(4)`); keep every access aligned (the ARM1176 kernel).
 
 ## Open work

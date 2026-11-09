@@ -162,8 +162,24 @@ static void dsp_tests(void)
     CHECK("dsp left and right", out[100] == out[101]);
 }
 
+/* The scroll registers take two writes through one latch: the low byte first, then the high byte. The value must be what the game wrote, for
+ * every low byte: the second write takes bits 0 to 2 of the first from the first value (a mask to 10 bits too early lost bit 2). */
+static void scroll_tests(void)
+{
+    int bad = 0;
+    for (int lo = 0; lo < 256; lo++)
+        for (int hi = 0; hi < 4; hi++) {
+            snes_ppu_write(0x210D, (uint8_t)lo); snes_ppu_write(0x210D, (uint8_t)hi);
+            if ((S.hofs[0] & 0x3FF) != (hi << 8 | lo)) bad++;
+            snes_ppu_write(0x2110, (uint8_t)lo); snes_ppu_write(0x2110, (uint8_t)hi);
+            if ((S.vofs[1] & 0x3FF) != (hi << 8 | lo)) bad++;
+        }
+    CHECK("scroll registers: all 1024 values", bad == 0);
+}
+
 int main(void)
 {
+    scroll_tests();
     cpu_tests();
     spc_tests();
     dsp_tests();

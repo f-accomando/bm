@@ -162,7 +162,7 @@ void snes_ppu_write(uint16_t o, uint8_t v)
     case 0x210D: case 0x210F: case 0x2111: case 0x2113: {
         int n = (o - 0x210D) >> 1;
         if (n == 0) { S.m7hofs = sign13(((unsigned)v << 8) | S.m7_latch); S.m7_latch = v; }
-        S.hofs[n] = (uint16_t)((((unsigned)v << 8) | (S.bgofs_latch & 0xF8) | ((S.hofs[n] >> 8) & 7)) & 0x3FF);
+        S.hofs[n] = (uint16_t)(((unsigned)v << 8) | (S.bgofs_latch & 0xF8) | ((S.hofs[n] >> 8) & 7));    /* all 16 bits kept: the next write takes bits 8 to 10 of this one; the picture uses the low 10 */
         S.bgofs_latch = v;
         break;
     }
@@ -602,5 +602,5 @@ void snes_debug(snes_debug_t *d)
     memcpy(d->oam, S.oam, sizeof d->oam);
     d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;
     d->bgmode = S.bgmode; d->obsel = S.obsel; d->ts = S.ts;
-    for (int i = 0; i < 4; i++) { d->sc[i] = S.sc[i]; d->hofs[i] = S.hofs[i]; d->vofs[i] = S.vofs[i]; }
+    for (int i = 0; i < 4; i++) { d->sc[i] = S.sc[i]; d->hofs[i] = S.hofs[i] & 0x3FF; d->vofs[i] = S.vofs[i]; }
 }
