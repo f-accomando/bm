@@ -101,6 +101,8 @@ Each line says where it was found and where it is written.
 - Hero benchmark ([BENCH3D](../BENCH3D.md), *herotris* and *The cel shader*): `b3d tests=herotris,cel` gives the hero triangles at 60 fps (ARM, GPU, GPU+VS, GPU+VS+Q2 with the frame-later model; the report says if the mesh path was ACCEPTED or fell back) and the ms of the lit hero against the cel hero (dither on and off). Built and tested on the host. Not run on the Pi yet. After the run, copy the report to `docs/bench/`.
 
 ## Rules (do not break)
+
+- A game with a `map3d` world draws the whole map once before the play (`map3d_draw(world, 0, 0)` from a camera above the map, then a full-screen cover). The V3D builds a chunk's mesh at its first draw (about 280 ms on the Pi Zero W); without this the first view of each part freezes the game. See `docs/PERFORMANCE.md` 4.1 and `docs/GAME-GUIDE.md`, Tips.
 - Visible face: the side where the vertices are clockwise (`r3d.c`). Toward glTF z flips
   sign and the order reverses.
 - `animate()` in `runtime.c` and the pose in `carts/animator/main.lua` do the same maths:

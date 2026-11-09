@@ -583,10 +583,11 @@ Random numbers: `math.random`. For different games at every start, seed the gene
 - `1` (the default) is one `_update` a frame; the most is 8. It returns the old value.
 - A button pressed counts once in `btnp()` (and `mousep()`, the wheel) however many `_update` see it; `btn()` stays held.
 - Overbit uses `frameskip(4)` (its benchmark `1`).
+- A frame that misses 1/60 s runs a second `_update` in the next one. Keep `_update` cheap, or that extra work makes the next frame late too. In a heavy 3D scene the share of frames with two `_update` grows with the triangles (Dark Night on the RGB30: 2% at 10k triangles, 39% at 11k, 73% at 12k and more).
 
 ## The dev kit and the profiler
 
-The **dev kit** is a performance overlay over any game, **off by default**. Turn it on with `perf=top` or `perf=bottom` in `bm/config.txt` (the RGB30 has no F11: use `perf=` there), with F11 on the keyboard (a system key, also in the tools), with `p` from the serial line or with `devkit(mode)` from the game: once at the top right, again at the bottom right, again off. F11, `p` and `devkit()` last one run: every game starts (and resumes) as the saved setting says. It is one small block:
+The **dev kit** is a performance overlay over any game, **off by default**. Turn it on with `perf=top` or `perf=bottom` in `bm/config.txt` (the RGB30 has no F11: use `perf=` there), with F11 on the keyboard (a system key, also in the tools), with `p` from the serial line or with `devkit(mode)` from the game: once at the top right, again at the bottom right, again off. F11, `p` and `devkit()` last one run: every game starts (and resumes) as the saved setting says. On the RGB30, L1 and R1 together show a smaller block (two rows, no bars); a game that uses both buttons at once turns this off with `devkit_chord(false)` (`devkit_chord(true)` turns it on again). It is one small block:
 
 ```text
 60fps 8.2ms           frames a second; ms of work in a frame (the parts below)

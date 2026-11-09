@@ -218,6 +218,7 @@ It is the driver bm3d 0.2. It draws everything when `gpu3d=0`, in QEMU, when the
 - Differences from the ARM renderer: smooth Gouraud without dither noise, 24-bit depth instead of 16-bit 1/z, no `zclear()` needed for the depth buffer (it starts from zero each frame) (sources: `docs/GPU-BENCHMARK-REPORT.md`, `docs/api/light3d.md`).
 - A vertex shader (on by default) can place the vertices of whole meshes on the GPU, so the ARM sends only matrices and lights.
 - The pixels match the ARM renderer to within 0.1% in the emulator tests (source: `docs/GPU-BENCHMARK-REPORT.md`).
+- The V3D builds the mesh of a model or of a map chunk the first time it is drawn (a big map chunk: about 280 ms). The game stops for that long the first time each part comes in view. A game that draws every mesh once before the play does not have these stops (Dark Night: 19323 frames in 324 s at 59.6 fps, one stop of 1.9 s at the start, none in the play; source: `docs/PERFORMANCE.md`, 4.1).
 
 ## When each is used
 

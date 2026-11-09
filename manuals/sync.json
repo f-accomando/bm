@@ -2,8 +2,8 @@
  "api-3d": {
   "chapters": {
    "1": {
-    "en": "b8d39b4c558f",
-    "it": "974fa3a44eaf",
+    "en": "0763fe18f740",
+    "it": "f44adfc5cf0b",
     "title": "How 3D works in bm"
    },
    "10": {
@@ -12,8 +12,8 @@
     "title": "Collision worlds"
    },
    "11": {
-    "en": "84919c5e1589",
-    "it": "98ef212bb42a",
+    "en": "622d8d43ea43",
+    "it": "5f470182b100",
     "title": "3D map terrain"
    },
    "12": {
@@ -62,14 +62,14 @@
     "title": "Visibility"
    },
    "9": {
-    "en": "4cb4c8a3cbeb",
-    "it": "9ee29d5aafb4",
+    "en": "342195becf8c",
+    "it": "92667bf18c6c",
     "title": "The GPU: gpu3d and its options"
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "7d1bf309f26f",
-   "docs/api/light3d.md": "ac46dc6636b0"
+   "docs/BENCH3D.md": "44ab22d8fc6b",
+   "docs/api/light3d.md": "5e4205a83cbe"
   }
  },
  "api-core": {
@@ -100,8 +100,8 @@
     "title": "Input"
    },
    "5": {
-    "en": "c4d3eca43797",
-    "it": "772e5d2a2d3e",
+    "en": "1bdbea6a9835",
+    "it": "ba42978560ba",
     "title": "Time and system"
    },
    "6": {
@@ -126,11 +126,11 @@
    }
   },
   "sources": {
-   "docs/API.md": "e7bfe8858f98",
-   "docs/GAME-GUIDE.md": "714204e7ee0d",
+   "docs/API.md": "a3e04a8c4543",
+   "docs/GAME-GUIDE.md": "5ca8388fec0d",
    "docs/api/draw.md": "0fef72d5bc3a",
    "docs/api/input.md": "5269de427422",
-   "docs/api/system.md": "c0ec411133dc"
+   "docs/api/system.md": "46ec14d8000f"
   }
  },
  "api-lib": {
@@ -1155,8 +1155,8 @@
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "f03317264ac0",
-    "it": "9b853fe8dfe5",
+    "en": "3a4b19f5d270",
+    "it": "9ab72bcedbbb",
     "title": "The GPU and the 3D"
    },
    "5": {
@@ -1181,11 +1181,11 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "43763bf3dc03",
-   "docs/DRIVERS.md": "ea1b61f9d9bd",
+   "docs/BENCH3D.md": "44ab22d8fc6b",
+   "docs/DRIVERS.md": "03d607a2bbd1",
    "docs/HARDWARE.md": "6bfcdeee8616",
-   "docs/PERFORMANCE.md": "5adf533c20fd",
-   "docs/progress/graphics.md": "5cc49dae1257",
+   "docs/PERFORMANCE.md": "bf2b92c16e9b",
+   "docs/progress/graphics.md": "91689a83cede",
    "docs/progress/v3d.md": "20081adc0057"
   }
  },

@@ -377,13 +377,15 @@ A 3D world made from the layers of the 2D map: the editor's 3D preview and the g
 | Function | Description |
 |---|---|
 | `map3d_build([opts])` | builds the world from the map layers and returns it. `opts = { floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 }`: the names of the layers, the size of one tile in world units, and the height step. Every field is optional. The layer of the objects is always `objects` |
-| `map3d_draw(w, [flags])` | draws the chunks of the ground you can see; `flags` is optional (0 if missing) |
+| `map3d_draw(w, [flags, far])` | draws the chunks of the ground you can see; `flags` is optional (0 if missing); with `far` above 0 a chunk wholly beyond `far` units from the camera is skipped |
 | `map3d_height(w, x, z)` | the height of the ground at `(x, z)`, or `nil` for a hole or a point outside the map |
 | `map3d_blocked(w, x, y, z, r)` | `true` if a sphere with centre `(x, y, z)` and radius `r` touches a wall or a cliff |
 | `map3d_objects(w, [kind])` | the list of the objects `{ kind, x, y, z }`; `kind` filters the list |
 | `map3d_size(w)` | `nx, nz`: the size of the world in world units |
 
-Call `zclear()` and `camera3d` first, then `map3d_draw`. If the map is empty, `map3d_build` gives an error. For a full example with several stages, see the manual *Maps and Levels*.
+Call `zclear()` and `camera3d` first, then `map3d_draw`. If the map is empty, `map3d_build` gives an error.
+
+**The first draw of a chunk can freeze the game on the Pi Zero W.** With the GPU, the V3D builds the mesh of a chunk when it is drawn for the first time: a big chunk costs about 280 ms, so the game stops for that long the first time the player sees each part of the map. Draw the whole map once before the play starts. Show a "Loading" picture for one frame; then, in the next `_draw`, put the camera high over the middle of the map looking down (`camera3d` with a pitch of about -1.4 radians), call `map3d_draw(w, 0, 0)` (with 0 as `far`, nothing is skipped for being far), cover it with a full-screen `rectfill`, and go on with the game. You pay the cost once at the start (about 2 seconds for 15 chunks) and never in the play. The RGB30 does not have this cost. For a full example with several stages, see the manual *Maps and Levels*.
 
 # Light for 2D scenes
 

@@ -218,6 +218,7 @@ bm ha due modi di disegnare il 3D, dietro le stesse funzioni. La tua cartuccia n
 - Differenze dal renderer ARM: Gouraud liscio senza rumore di dither, profondità a 24 bit invece di 1/z a 16 bit, nessun bisogno di `zclear()` per il buffer di profondità (parte da zero a ogni frame) (fonti: `docs/GPU-BENCHMARK-REPORT.md`, `docs/api/light3d.md`).
 - Un vertex shader (attivo di default) può piazzare i vertici di intere mesh sulla GPU, così l'ARM manda solo matrici e luci.
 - I pixel coincidono con quelli del renderer ARM entro lo 0,1% nei test sull'emulatore (fonte: `docs/GPU-BENCHMARK-REPORT.md`).
+- Il V3D costruisce la mesh di un modello o di un blocco di mappa la prima volta che viene disegnato (un blocco di mappa grande: circa 280 ms). Il gioco si ferma per quel tempo la prima volta che ogni parte entra nell'inquadratura. Un gioco che disegna ogni mesh una volta prima della partita non ha questi arresti (Dark Night: 19323 fotogrammi in 324 s a 59,6 fps, un arresto di 1,9 s all'inizio, nessuno in partita; fonte: `docs/PERFORMANCE.md`, 4.1).
 
 ## Quando si usa l'uno o l'altro
 

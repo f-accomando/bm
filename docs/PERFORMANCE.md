@@ -94,6 +94,10 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 
 ---
 
+### 4.1 The first draw of a mesh (measured 9 Nov 2026)
+
+With `3d=gpu` the V3D path builds the corners of a mesh (the order for the vertex cache, `vcache_order`, and the copy in the GPU's memory) the first time the mesh is drawn, and keeps them (256 slots). A map chunk of Dark Night (16 x 16 tiles) took about 280 ms; the game stopped for that long the first time each of its 15 chunks came in view. A session of 193 s had six such stops (80 to 289 ms, all in `map3d_draw`, found by timing each draw call). With one draw of the whole map before the play: 19323 frames in 324 s, 59.6 fps, one stop of 1.9 s at the start, and none in the play. The RGB30 (Mali) has no such cost.
+
 ## 5. Cost Per Pixel: Flat, Gouraud, Textures
 
 | Render Mode | Host Baseline *(H)* | Host Rewritten *(H)* | Pi Hardware: Fullscreen Sphere (~180,000 px) *(M)* |

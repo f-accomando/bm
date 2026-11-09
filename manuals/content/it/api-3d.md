@@ -377,13 +377,15 @@ Un mondo 3D costruito con i livelli della mappa 2D: l'anteprima 3D dell'editor e
 | Funzione | Descrizione |
 |---|---|
 | `map3d_build([opts])` | costruisce il mondo dai livelli della mappa e lo restituisce. `opts = { floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 }`: i nomi dei livelli, la dimensione di un tile in unità del mondo e il passo dell'altezza. Ogni campo è facoltativo. Il livello degli oggetti è sempre `objects` |
-| `map3d_draw(w, [flags])` | disegna i blocchi di terreno che si vedono; `flags` è facoltativo (0 se manca) |
+| `map3d_draw(w, [flags, far])` | disegna i blocchi di terreno che si vedono; `flags` è facoltativo (0 se manca); con `far` maggiore di 0 un blocco tutto oltre `far` unità dalla camera viene saltato |
 | `map3d_height(w, x, z)` | l'altezza del terreno in `(x, z)`, o `nil` per un buco o un punto fuori dalla mappa |
 | `map3d_blocked(w, x, y, z, r)` | `true` se una sfera con centro `(x, y, z)` e raggio `r` tocca un muro o un dirupo |
 | `map3d_objects(w, [kind])` | la lista degli oggetti `{ kind, x, y, z }`; `kind` filtra la lista |
 | `map3d_size(w)` | `nx, nz`: la dimensione del mondo in unità del mondo |
 
-Chiama prima `zclear()` e `camera3d`, poi `map3d_draw`. Se la mappa è vuota, `map3d_build` dà un errore. Per un esempio completo con più livelli di gioco, vedi il manuale *Mappe e livelli*.
+Chiama prima `zclear()` e `camera3d`, poi `map3d_draw`. Se la mappa è vuota, `map3d_build` dà un errore.
+
+**Il primo disegno di un blocco può bloccare il gioco sul Pi Zero W.** Con la GPU, il V3D costruisce la mesh di un blocco quando viene disegnato per la prima volta: un blocco grande costa circa 280 ms, quindi il gioco si ferma per quel tempo la prima volta che il giocatore vede ogni parte della mappa. Disegna tutta la mappa una volta prima che la partita cominci. Mostra per un fotogramma un'immagine "Loading"; poi, nel `_draw` successivo, metti la camera in alto sopra il centro della mappa, rivolta in basso (`camera3d` con un'inclinazione di circa -1,4 radianti), chiama `map3d_draw(w, 0, 0)` (con 0 come `far`, niente viene saltato perché lontano), coprila con un `rectfill` a schermo intero e prosegui con il gioco. Paghi il costo una volta all'inizio (circa 2 secondi per 15 blocchi) e mai durante la partita. La RGB30 non ha questo costo. Per un esempio completo con più livelli di gioco, vedi il manuale *Mappe e livelli*.
 
 # Luce per le scene 2D
 

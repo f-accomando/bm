@@ -583,10 +583,11 @@ Numeri casuali: `math.random`. Per giochi diversi a ogni avvio, inizializza il g
 - `1` (il predefinito) è un `_update` per fotogramma; il massimo è 8. Restituisce il valore precedente.
 - Un pulsante premuto conta una volta in `btnp()` (e `mousep()`, la rotella) per quanti `_update` lo vedano; `btn()` resta premuto.
 - Overbit usa `frameskip(4)` (il suo benchmark `1`).
+- Un fotogramma che manca 1/60 s esegue un secondo `_update` nel successivo. Tieni `_update` leggero, o quel lavoro in più fa arrivare in ritardo anche il fotogramma dopo. In una scena 3D pesante la quota di fotogrammi con due `_update` cresce con i triangoli (Dark Night sulla RGB30: 2% a 10k triangoli, 39% a 11k, 73% da 12k in su).
 
 ## Il dev kit e il profiler
 
-Il **dev kit** è un overlay di prestazioni sopra qualsiasi gioco, **spento di default**. Accendilo con `perf=top` o `perf=bottom` in `bm/config.txt` (la RGB30 non ha F11: lì usa `perf=`), con F11 sulla tastiera (un tasto di sistema, anche negli strumenti), con `p` dalla linea seriale o con `devkit(mode)` dal gioco: una volta in alto a destra, un'altra in basso a destra, un'altra spento. F11, `p` e `devkit()` durano un'esecuzione: ogni gioco parte (e riprende) come dice l'impostazione salvata. È un piccolo blocco:
+Il **dev kit** è un overlay di prestazioni sopra qualsiasi gioco, **spento di default**. Accendilo con `perf=top` o `perf=bottom` in `bm/config.txt` (la RGB30 non ha F11: lì usa `perf=`), con F11 sulla tastiera (un tasto di sistema, anche negli strumenti), con `p` dalla linea seriale o con `devkit(mode)` dal gioco: una volta in alto a destra, un'altra in basso a destra, un'altra spento. F11, `p` e `devkit()` durano un'esecuzione: ogni gioco parte (e riprende) come dice l'impostazione salvata. Sulla RGB30, L1 e R1 premuti insieme mostrano un blocco più piccolo (due righe, senza barre); un gioco che usa entrambi i pulsanti insieme lo spegne con `devkit_chord(false)` (`devkit_chord(true)` lo riaccende). È un piccolo blocco:
 
 ```text
 60fps 8.2ms           fotogrammi al secondo; ms di lavoro in un fotogramma (le parti sotto)
