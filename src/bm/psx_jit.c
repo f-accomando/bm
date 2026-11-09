@@ -707,7 +707,7 @@ static uint32_t gen_simple(void)
     case 30: { const int o = bo & ~3; return I_(0x2B, 29, rt, 0x200 + o); }                  /* sw */
     case 31: { const int o = bo & ~1; return I_(0x29, 29, rt, 0x200 + o); }                  /* sh */
     case 32: return I_(0x28, 29, rt, 0x200 + bo);                                            /* sb */
-    default: { static const uint8_t u[4] = { 0x22, 0x26, 0x2A, 0x2E }; return I_(u[rndn(4)], 29, rndn(2) ? rt : dt, 0x200 + bo); }   /* lwl lwr swl swr */
+    default: return I_(rndn(2) ? 0x2A : 0x2E, 29, rt, 0x200 + bo);                           /* swl swr (lwl and lwr come as a pair in build_program) */
     }
 }
 
@@ -725,7 +725,17 @@ static int build_program(uint32_t *prog, int len)               /* fills prog[0.
     int k = 0;
     while (k < len - 6) {
         const int t = rndn(14);
-        if (t < 9) { prog[k++] = gen_simple(); continue; }
+        if (t < 9) {
+            if (rndn(12) == 0) {                                 /* the usual unaligned load: lwl, lwr, then a nop (a value that lwl or lwr loads lands at once in the recompiler) */
+                const int d = rreg(), bo = (int)(rnd32() & 0x7F);
+                prog[k++] = I_(0x22, 29, d, 0x200 + bo + 3);
+                prog[k++] = I_(0x26, 29, d, 0x200 + bo);
+                prog[k++] = 0;
+                continue;
+            }
+            prog[k++] = gen_simple();
+            continue;
+        }
         const int span = len - (k + 2);
         const int tgt = k + 2 + rndn(span > 7 ? 7 : span + 1);  /* a forward target, at most the end */
         if (t < 12) {                                           /* a conditional branch with a delay slot */
