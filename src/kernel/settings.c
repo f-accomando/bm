@@ -249,21 +249,6 @@ static const char *gpu3d_choice(void)
 }
 #endif
 
-#ifndef BM_RGB30
-/* menu_scale: no key or 2 = 720p drawn by the GPU; 3 = 1080p; 4 = 360p drawn by the GPU; 1 = 360p drawn by the ARM */
-static const char *menu_size_choice(void)
-{
-    const char *v = config_get("menu_scale");
-    return v && v[0] == '3' ? "1080p (GPU)" : v && v[0] == '4' ? "360p (GPU)" : v && v[0] == '1' ? "360p (ARM)" : "720p (GPU)";
-}
-
-/* menu_layout: no key = the 360p layout drawn bigger; 1 = the layout at the screen's own size (720p and 1080p) */
-static const char *menu_layout_choice(void)
-{
-    const char *v = config_get("menu_layout");
-    return v && v[0] == '1' ? "Native" : "Scaled";
-}
-
 static const char *font_ui_choice(void)
 {
     const char *v = config_get("menu_font");
@@ -286,6 +271,21 @@ static const char *font_monitor_choice(void)
     if (!strcmp(v, "6x12"))
         return "6x12 (compact)";
     return v;
+}
+
+#ifndef BM_RGB30
+/* menu_scale: no key or 2 = 720p drawn by the GPU; 3 = 1080p; 4 = 360p drawn by the GPU; 1 = 360p drawn by the ARM */
+static const char *menu_size_choice(void)
+{
+    const char *v = config_get("menu_scale");
+    return v && v[0] == '3' ? "1080p (GPU)" : v && v[0] == '4' ? "360p (GPU)" : v && v[0] == '1' ? "360p (ARM)" : "720p (GPU)";
+}
+
+/* menu_layout: no key = the 360p layout drawn bigger; 1 = the layout at the screen's own size (720p and 1080p) */
+static const char *menu_layout_choice(void)
+{
+    const char *v = config_get("menu_layout");
+    return v && v[0] == '1' ? "Native" : "Scaled";
 }
 
 /* CRT filter mode: 1 = off, 2 = rca (default for Pi 1), 3 = hdmi, 4 = on */
