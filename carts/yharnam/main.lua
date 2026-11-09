@@ -1338,13 +1338,18 @@ local CPX = TS * CS
 -- yharnam_typed=off in bm/config.txt, runs the Lua. yharnam_typed_check=1 runs both and logs a difference.
 local TYPED, TCHECK = typed_yblocked ~= nil, false
 local TC = { calls = 0, c = 0, miss = 0, bad = 0 }
+TC.cm = nil                                 -- yharnam_typed=generic: the general collision map (collmap_*) instead of typed_y*
 if TYPED and cart_config then
   local ok, v = pcall(cart_config, "yharnam_typed")
   if ok and v == "off" then TYPED = false end
+  if ok and v == "generic" and not collmap_new then TYPED = false end   -- the general map is asked for, the kernel has none: the Lua
+  if ok and v == "generic" and collmap_new then
+    TC.cm = collmap_new{ map = { 8, 8 }, chunk = 16, tile = 16, cols = 96, foot = { -6, -3, 6, 2 }, margin = 48, pad = { 5, 3 } }
+  end
   local okc, vc = pcall(cart_config, "yharnam_typed_check")
   TCHECK = okc and vc ~= nil and vc ~= "" and vc ~= "0"
 end
-log("yharnam typed: C " .. (TYPED and "on" or "off") .. (TCHECK and ", check on" or ""))
+log("yharnam typed: C " .. (TYPED and (TC.cm and "on (generic collmap)" or "on") or "off") .. (TCHECK and ", check on" or ""))
 local function tsync(ch)
   if not TYPED or not ch.ready then return end
   local solid, s = ch.solid, {}
@@ -1354,7 +1359,8 @@ local function tsync(ch)
     flat[n + 1], flat[n + 2], flat[n + 3], flat[n + 4], flat[n + 5] = c.x, c.y, c.rx, c.ry, c.off and 1 or 0
     n = n + 5
   end
-  typed_ysync(ch.cx, ch.cy, table.concat(s), flat)
+  if TC.cm then collmap_chunk(TC.cm, ch.cx, ch.cy, table.concat(s), flat)
+  else typed_ysync(ch.cx, ch.cy, table.concat(s), flat) end
 end
 local RING = 4                           -- the map holds 4 x 4 chunks
 local RT = RING * CS                     -- ... that is 64 x 64 tiles
@@ -3156,7 +3162,8 @@ end
 
 local function blocked(x, y)
   if TYPED then
-    local r = typed_yblocked(x, y)
+    local r
+    if TC.cm then r = collmap_blocked(TC.cm, x, y) else r = typed_yblocked(x, y) end
     TC.calls = TC.calls + 1
     if r == nil then
       TC.miss = TC.miss + 1               -- a chunk is not in C: the Lua decides

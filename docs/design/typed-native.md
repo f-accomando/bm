@@ -63,6 +63,7 @@ A call from Lua to a C function costs about 1 us on the ARM1176. A function that
 |---|---|---|---|---|
 | Lua (`yharnam_typed=off`) | 50.5 | 16.8 ms | 3.5 ms | 2560 |
 | C for `blocked` | **53.9** | **15.6 ms** | **2.4 ms** | 1922 |
+| General C (`collmap`, `yharnam_typed=generic`, 9 Nov 2026) | 53.0 | 15.9 ms | not read | 2363 |
 
 The gain is 6.7% in fps and 1.1 ms a frame. The 13 times of the micro test becomes 1.1 ms in the game because `blocked` is 3.2 ms of the frame and most of it was Lua; the light (`dark_end`) and the draw (`draw_scene`, `map`, `spr`) did not change. The next candidates by the profile: `draw_scene` (3.7 ms, 13 with its calls) and the light.
 
