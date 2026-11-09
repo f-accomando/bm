@@ -74,7 +74,7 @@ come from a small INT8 network (`MUS_NFEAT` 116 inputs, `MUS_NOUT` 24 outputs, `
 - **KO-II (`carts/ko2`)**: a groovebox played with the USB keyboard (12 pads, groups A-D, step
   recorder, 12 effects, LCD, fader, volume knob; F1 shows the keys). It runs at 1280x720 (`screen()`; the GPU scales it) with the real panel's proportions and its own stroke font in the sprite sheet. Esc opens the exit page. Ctrl+Esc freezes it (`_exit()` saves and returns `true`). Done and tested on the PC
   with bmhost. To verify on the Pi and on the RGB30 with a USB keyboard (keys, latency, voices).
-- **bm Tape (`carts/tape`)**: one Pi app for synth, sampler, sequencer, 4-track tape, and DJ set. The design and the decisions are in [`docs/design/bm-tape.md`](../design/bm-tape.md). Phase 1 is done on the PC (`make test-tape`): nine vector scenes, four encoders on the USB keyboard, and `engine.b` compiled by `native_compile`. To verify on the Pi: the keys, the Esc exit page, and the frame time at scale 2. Next: phase 2 (SYNTH, DRUM, SEQ with sound). The kernel lacks run-time samples, bounce, and a scope tap (K1 to K3).
+- **bm Tape (`carts/tape`)**: one Pi app for synth, sampler, sequencer, 4-track tape, and DJ set. The design and the decisions are in [`docs/design/bm-tape.md`](../design/bm-tape.md). Phase 2 is done on the PC (`make test-tape`): seven engines and 20 sounds, a drum kit of 12 pads, four tracks with a 16 to 64 step sequencer (`seq_window` in `engine.b`, notes queued with `play_at` from `audio_time()`), live play on voices 6 and 7, record with quantize, step edit, and the TEMPO page. TAPE, MIX, FX and DJ are still preview scenes. To verify on the Pi: how the 20 sounds sound; the timing by ear at the real frame rate (the PC test checks the queued times at 60, 20 and 7.5 frames a second, not the audio onsets); the frame time of the new scenes at scale 2; the keys and the Esc exit page; the cost of `native_compile` for the larger `engine.b`; whether six sequencer voices are enough for the drums with a bass and a pad. Next: phase 3 (TAPE clips, MIX, FX, punch-in effects, save and load; kernel K4).
 - **QPU programs, step 4**: block audio effects (reverb, echo, filters) on the QPUs, also for nano8.
 - Ideas not decided (spunti in `docs/ROADMAP.md`, R31 on). R28, R29, R30, R31, short PCM samples,
   TPDF dither, in-block ramps and the WAV and MIDI import (bm Sound, Ctrl+W) are done (above and
@@ -83,6 +83,7 @@ come from a small INT8 network (`MUS_NFEAT` 116 inputs, `MUS_NOUT` 24 outputs, `
 
 ## Rules (do not break)
 
+- **bm Tape voices.** The sequencer queues notes with `play_at` and keeps `play_voices(0, 1, 2, 3, 4, 5)`. Live play uses `play(6 or 7, ...)`. Keep this split: a live key must not take a voice of the sequencer.
 - **The bank format lives in three places**, changed together: C `au_parse`
   (`src/audio/player.c`), Lua (`carts/sound/main.lua`, test double `tests/sound/sim.lua`),
   Python `scripts/bmaudio.py` (also read by `scripts/bmres.py`, `scripts/bmmesh.py`). Always

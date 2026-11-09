@@ -1,10 +1,10 @@
 # bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
 # section of a .bm: mkbm.py --info copies it in.
 name: bm Tape
-desc: A portable studio in vector art: nine scenes of synth, sampler, sequencer, mixer, echo and DJ decks.
+desc: A portable studio in vector art: synth, drum kit and step sequencer with sound; mixer, echo and DJ decks as previews.
 author: bm
 license: LicenseRef-BM-Community-1.0
-version: 0.1
+version: 0.2
 type: app
 tags: music, synth, sampler, sequencer
 resolution: 640x360

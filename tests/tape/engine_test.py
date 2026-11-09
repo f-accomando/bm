@@ -6,6 +6,9 @@ engine_test.py - carts/tape/src/engine.b on the stack VM of tools/bml/bml.py and
 
 Both run 300 random inputs per function and must give the same results as a Python reference, array contents included.
 euclid is also checked for the pulse count and for an even spread of the gaps, and against known patterns.
+seq_window runs 400 random cases (random patterns, lengths, swing, mutes, windows across the loop end, small capacities);
+the reference builds the events of each loop and sorts them, so it does not share the scan of engine.b. A window split at a
+random point gives the same events as the whole window, and the function never writes past the capacity.
 The native ARMv6 path of the same source is run by tests/tape/render_test.py (the cartridge in bmhost).
 """
 import os, random, subprocess, sys
@@ -54,6 +57,28 @@ def ref_meter(levels, peaks, n, dt):
             peaks[i] = max(lv, peaks[i] - dt * 3 // 10)
 
 
+def ref_seq(t0, t1, length, swing, notes, vels, gates, mutes, cap):
+    """The events of the ticks t0 .. t1 - 1 as (tick, track, note, velocity, gate), built loop by loop."""
+    steps = max(1, min(length, 64))
+    sw = max(0, min(swing, 3))
+    plen = steps * 6
+    ev = []
+    for loop in range(max(0, t0) // plen, max(0, t1 - 1) // plen + 1):
+        for p in range(steps):
+            tick = loop * plen + p * 6 + (sw if p % 2 else 0)
+            if not (max(0, t0) <= tick < t1):
+                continue
+            for k in range(4):
+                if mutes[k]:
+                    continue
+                for sl in range(4):
+                    i = (k * 64 + p) * 4 + sl
+                    if notes[i] > 0:
+                        ev.append((tick, k, sl, notes[i], vels[i], gates[i]))
+    ev.sort(key=lambda e: e[:3])
+    return [(e[0], e[1]) + e[3:] for e in ev[:max(0, cap)]]
+
+
 # ---------------------------------------------------------------- random cases
 rnd = random.Random(1234)
 eu_cases = [(rnd.randint(-3, 70), rnd.randint(-2, 70), rnd.randint(-100, 100)) for _ in range(N - 10)]
@@ -64,6 +89,26 @@ for _ in range(N):
     lv = [rnd.randint(0, 1200) for _ in range(n)]
     pk = [rnd.randint(0, 1200) for _ in range(n)] + [rnd.choice([0, rnd.randint(0, 700)]) for _ in range(n)]
     mt_cases.append((lv, pk, n, rnd.choice([rnd.randint(0, 200), rnd.randint(0, 5000)])))
+
+SQ_PATTERNS = []
+for _ in range(14):
+    dens = rnd.choice([0.02, 0.1, 0.3, 0.7])
+    pat = {"notes": [0] * 1024, "vels": [0] * 1024, "gates": [0] * 1024, "mutes": [rnd.choice([0, 0, 0, 1]) for _ in range(4)]}
+    for i in range(1024):
+        if rnd.random() < dens:
+            pat["notes"][i], pat["vels"][i], pat["gates"][i] = rnd.randint(1, 127), rnd.randint(1, 127), rnd.randint(1, 96)
+    SQ_PATTERNS.append(pat)
+SQ_PATTERNS[0]["mutes"] = [0, 0, 0, 0]
+SQ_CAP_EXTRA = 10                                        # sentinel records after the capacity: they must stay as they are
+sq_cases = []
+for _ in range(400):
+    length = rnd.choice([16, 32, 48, 64, rnd.randint(-2, 70)])
+    swing = rnd.choice([0, 1, 2, 3, rnd.randint(-2, 6)])
+    plen = max(1, min(length, 64)) * 6
+    t0 = rnd.choice([rnd.randint(-10, 5), rnd.randint(0, 3 * plen), rnd.randint(0, 40 * plen)])
+    t1 = t0 + rnd.choice([0, 1, rnd.randint(1, 30), rnd.randint(1, plen), rnd.randint(1, 3 * plen)])
+    cap = rnd.choice([0, 1, 2, rnd.randint(3, 20), 300, 300])
+    sq_cases.append((rnd.randrange(len(SQ_PATTERNS)), t0, t1, length, swing, cap))
 
 # ---------------------------------------------------------------- stack VM
 vm = bml.StackVM(bml.compile_source(SRC))
@@ -76,6 +121,13 @@ for lv, pk, n, dt in mt_cases:
     vm.call("meter_fall", [a, b, n, dt])
     vm_mt.append((a, b))
 
+vm_sq = []
+for c in sq_cases:
+    pat = SQ_PATTERNS[c[0]]
+    out = [-7] * (5 * c[5] + 5 * SQ_CAP_EXTRA)
+    n = vm.call("seq_window", [c[1], c[2], c[3], c[4], list(pat["notes"]), list(pat["vels"]), list(pat["gates"]), list(pat["mutes"]), out, c[5]])
+    vm_sq.append((n, out))
+
 # ---------------------------------------------------------------- Lua (stripped source) on the host Lua
 lines = ["local abs, min, max, floor, sqrt = math.abs, math.min, math.max, math.floor, math.sqrt", bml.to_lua(SRC)]
 lines.append("local function lst(t, n) local s = {} for i = 1, n do s[i] = tostring(t[i]) end return table.concat(s, ',') end")
@@ -84,11 +136,18 @@ for k, n, r in eu_cases:
 for lv, pk, n, dt in mt_cases:
     lines.append("do local a, b = {%s}, {%s} meter_fall(a, b, %d, %d) print(lst(a, %d) .. ' ' .. lst(b, %d)) end"
                  % (",".join(map(str, lv)), ",".join(map(str, pk)), n, dt, n, 2 * n))
+for i, pat in enumerate(SQ_PATTERNS):
+    lines.append("local PAT%d = {n = {%s}, v = {%s}, g = {%s}, m = {%s}}" % (
+        i, ",".join(map(str, pat["notes"])), ",".join(map(str, pat["vels"])), ",".join(map(str, pat["gates"])), ",".join(map(str, pat["mutes"]))))
+for c in sq_cases:
+    L = 5 * c[5] + 5 * SQ_CAP_EXTRA
+    lines.append("do local o = {} for i = 1, %d do o[i] = -7 end local n = seq_window(%d, %d, %d, %d, PAT%d.n, PAT%d.v, PAT%d.g, PAT%d.m, o, %d) "
+                 "print(n .. ' ' .. lst(o, %d)) end" % (L, c[1], c[2], c[3], c[4], c[0], c[0], c[0], c[0], c[5], L))
 path = os.path.join(BUILD, "engine_test.lua")
 open(path, "w").write("\n".join(lines) + "\n")
 lua_out = subprocess.check_output([LUAHOST, path], text=True).strip().splitlines()
-check("Lua output gives one line per case", len(lua_out) == len(eu_cases) + len(mt_cases))
-lua_eu, lua_mt = lua_out[:len(eu_cases)], lua_out[len(eu_cases):]
+check("Lua output gives one line per case", len(lua_out) == len(eu_cases) + len(mt_cases) + len(sq_cases))
+lua_eu, lua_mt, lua_sq = lua_out[:len(eu_cases)], lua_out[len(eu_cases):len(eu_cases) + len(mt_cases)], lua_out[len(eu_cases) + len(mt_cases):]
 
 # ---------------------------------------------------------------- compare
 def fmt(p, arr): return "%d %s" % (p, ",".join(map(str, arr)))
@@ -124,6 +183,50 @@ check("meter_fall: StackVM equals the Python reference (%d inputs)" % len(mt_cas
 check("meter_fall: Lua output equals the Python reference", bad_lua == 0, "%d differ" % bad_lua)
 check("meter_fall: a level never goes below 0 and never rises",
       all(0 <= x <= y for (lv, _, n, _), (a, _) in zip(mt_cases, vm_mt) for x, y in zip(a, lv)))
+
+# seq_window
+bad_vm = bad_lua = bad_over = bad_ord = 0
+for i, c in enumerate(sq_cases):
+    pat = SQ_PATTERNS[c[0]]
+    want = ref_seq(c[1], c[2], c[3], c[4], pat["notes"], pat["vels"], pat["gates"], pat["mutes"], c[5])
+    flat = [x for e in want for x in e]
+    out0 = flat + [-7] * (5 * c[5] + 5 * SQ_CAP_EXTRA - len(flat))
+    n, out = vm_sq[i]
+    bad_vm += (n, out) != (len(want), out0)
+    bad_lua += lua_sq[i] != "%d %s" % (len(want), ",".join(map(str, out0)))
+    bad_over += any(x != -7 for x in out[5 * c[5]:])
+    bad_ord += [e[:2] for e in want] != sorted(e[:2] for e in want)
+check("seq_window: StackVM equals the Python reference (%d cases)" % len(sq_cases), bad_vm == 0, "%d differ" % bad_vm)
+check("seq_window: Lua output equals the Python reference", bad_lua == 0, "%d differ" % bad_lua)
+check("seq_window: nothing is written past the capacity", bad_over == 0, "%d cases" % bad_over)
+check("seq_window: events come in tick, track order", bad_ord == 0)
+check("seq_window: the cases hold events, empty windows and full capacities",
+      sum(n > 0 for n, _ in vm_sq) > 100 and sum(n == 0 for n, _ in vm_sq) > 20
+      and sum(n == c[5] > 0 for (n, _), c in zip(vm_sq, sq_cases)) > 10)
+
+bad_split = bad_loop = bad_swing = 0
+split_cases = 0
+for _ in range(400):
+    pat = rnd.choice(SQ_PATTERNS)
+    length, swing = rnd.choice([16, 32, 48, 64, rnd.randint(1, 64)]), rnd.randint(0, 3)
+    plen = length * 6
+    a = rnd.randint(0, 5 * plen)
+    c = a + rnd.randint(0, 3 * plen)
+    b = rnd.randint(a, c)
+
+    def window(x, y):
+        out = [-7] * (5 * 5000)
+        n = vm.call("seq_window", [x, y, length, swing, list(pat["notes"]), list(pat["vels"]), list(pat["gates"]), list(pat["mutes"]), out, 5000])
+        return [tuple(out[5 * j:5 * j + 5]) for j in range(n)]
+    whole, left, right = window(a, c), window(a, b), window(b, c)
+    split_cases += 1
+    bad_split += whole != left + right
+    shifted = window(a + plen, c + plen)                       # the pattern loops: one loop later is the same, plen ticks on
+    bad_loop += [(e[0] - plen,) + e[1:] for e in shifted] != whole
+    bad_swing += any((e[0] % plen) % 6 != (swing if (e[0] % plen) // 6 % 2 else 0) for e in whole)
+check("seq_window: a window split at a random point gives the same events (%d cases)" % split_cases, bad_split == 0, "%d differ" % bad_split)
+check("seq_window: one loop later gives the same events, one loop of ticks on", bad_loop == 0, "%d differ" % bad_loop)
+check("seq_window: every event is on a step tick, odd steps late by the swing", bad_swing == 0, "%d differ" % bad_swing)
 
 print("tape engine: %s" % ("FAIL" if fails else "ok"))
 sys.exit(1 if fails else 0)

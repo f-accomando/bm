@@ -4,7 +4,7 @@ Name: **bm Tape** (folder `carts/tape`, project `carts/tape/tape.bme`).
 
 bm Tape is one `.bm` app with five jobs: synth, sampler, sequencer, multitrack, and live DJ set. The references are the OP-1 (one display, four colour encoders, a tape) and the EP-133 K.O. II (pads, groups, punch-in effects; bm has `carts/ko2`). All code and all pictures are original.
 
-Status: phase 1 (skeleton in `carts/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. Section 10 gives the phases.
+Status: phase 2 (synth, drums, sequencer, with sound; `carts/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. TAPE, MIX, FX and DJ are still the scenes of phase 1 (they show PREVIEW). Section 10 gives the phases.
 
 ## 1. Principles
 
@@ -56,12 +56,14 @@ Consequence of the last row: "sampling" means three things here. Load a WAV from
 
 The synth has 8 voices. The modules share them with `play_voices()`.
 
+The API gives no voices per track. `play_at` picks the voice when the note starts: a silent voice, then a tail, then the oldest note of `play_at` (`src/audio/player.c`, `pick_at_voice`). `play_voices(...)` is one mask for all notes of `play_at` (`player_at_voices`). It keeps `play_at` away from the voices outside the mask. A call `play(v, ...)` with a voice number takes that voice (`src/bm/api_sound.c`, `l_play`). Phase 2 uses this split:
+
 | Use | Voices | Note |
 |---|---|---|
-| Track 1 (drums) | 3 | kick, snare, one shared hat/perc voice (a closed hat cuts an open hat) |
-| Track 2 (bass) | 1 | mono, with slide |
-| Track 3 (chords) | 3 | the fourth note takes the oldest voice |
-| Track 4 (lead / live play) | 1 | mono |
+| Sequencer, tracks 1 to 4 | 0 to 5 | `play_voices(0, 1, 2, 3, 4, 5)`. The player picks the voice. When six notes sound, the next note takes the oldest one. |
+| Live play from the keyboard | 6 and 7 | `play(v, ...)` with 6 and 7 in turn. A held key is released with `noteoff(v)`. |
+
+A drum pad is held 60 ms and then released, so it frees its voice early. A hat does not cut an open hat: this needs a voice per track and waits for a better API.
 
 A frozen track (K2) plays as one sample voice. Freeze gives the voices back. This is the bm equivalent of a tape overdub: freeze track 3, then use its 3 voices for a new part.
 
@@ -142,7 +144,7 @@ The common ground is a horizon at 60% of the height with a perspective grid belo
 | FX / room | A wire room. The depth is the size. | size | damp | wet | send of the track |
 | FX / chorus | Two palms that sway out of phase. | rate | depth | wet | send of the track |
 | DJ | Two discs with a phase mark, two wave strips, a crossfader on the horizon. | deck A pitch | deck B pitch | crossfader | filter of the active deck |
-| TEMPO | A pendulum under the sun. | BPM | swing | metronome level | count-in bars |
+| TEMPO | A pendulum under the sun. | BPM | swing | metronome level | pattern length (count-in bars wait for the record modes) |
 | LIB | A shelf of cassettes. The label is the name. | scroll | kind | - | - |
 
 A picture of nine of these scenes is at https://claude.ai/artifact/9hAxdY3ARgj9XHU6moybsX (private page of the user). Port the nine drawings to Lua in phase 1.
@@ -159,20 +161,41 @@ Measure the fill cost of `S` = 2 on the Pi in phase 1. If a scene costs more tha
 
 ## 5. Controls
 
-Check each row against `docs/design/games-input-standard.md` and `docs/spec/ui-reference.md` in phase 1. This table is a proposal.
+Phase 2 keys. The cartridge reads USB keys with `rawkeys(true)`.
 
 | Action | USB keyboard (Pi) |
 |---|---|
-| Encoder 1 to 4 | `Q`/`A`, `W`/`S`, `E`/`D`, `R`/`F` (up / down) |
+| Encoder 1 to 4 | `Q`/`A`, `W`/`S`, `E`/`D`, `R`/`F` (up / down). Hold to repeat. |
 | Fine step | add Shift |
-| Module | `F1` to `F8` |
-| Page of the module | Tab |
-| Pads | the KO-II block: `7 8 9 / U I O / J K L / M , .` |
+| Module | `F1` SYNTH, `F2` DRUM, `F3` SEQ, `F4` TAPE, `F5` MIX, `F6` FX, `F7` DJ, `F8` TEMPO |
+| Page | `Tab` goes to the next page of the module. Left and Right go through all ten pages in order. |
+| Engine (SYNTH ENGINE page) | Up / Down |
+| Track 1 to 4 | `1` to `4`. Track 1 is the drum track. `F2` selects track 1. `F1` selects the last synth track. |
+| Mute a track | Shift + `1` to `4` |
+| Pads and notes | the KO-II block `7 8 9 / U I O / J K L / M , .`. Track 1: pads 1 to 12. Tracks 2 to 4: 12 semitones from the root. The note holds while the key is down. |
+| Octave of a synth track | `-` / `=` |
+| Sound of the synth track | `[` / `]` (previous / next of the 20 sounds) |
 | Play / stop | Space |
-| Record | Enter |
-| Track 1 to 4 | `1` to `4` |
-| Punch-in effect | hold `Z X C V` |
+| Record | Enter arms and disarms. `REC` shows on the status strip. |
+| SEQ GRID: toggle a slot | `T` (a step you enter also sounds once) |
+| SEQ GRID: clear | Backspace clears the step, Shift + Backspace the track |
+| Punch-in effect | hold `Z X C V` (phase 3) |
 | Exit page | Esc |
+
+Pages: SYNTH (ENGINE, ENVELOPE, FILTER), DRUM (PAD), SEQ (GRID), TAPE, MIX, FX, DJ, TEMPO.
+
+Encoders per page in phase 2:
+
+| Page | e1 | e2 | e3 | e4 |
+|---|---|---|---|---|
+| SYNTH ENGINE | the four macros of the engine (4.3). A macro that is a filter value (cutoff, resonance, LFO rate) is the same value as on the FILTER page. | | | |
+| SYNTH ENVELOPE | attack | decay | sustain | release |
+| SYNTH FILTER | cutoff | resonance | LFO rate | LFO depth |
+| DRUM PAD (last pad hit) | start | decay (the release: the API has no sample end) | pitch (semitones) | level |
+| SEQ GRID | step cursor | note or pad | velocity | gate (1 to 16 steps) |
+| TEMPO | BPM (60 to 200, Shift: 0.1) | swing (0 to 3 ticks) | metronome level | pattern length (16, 32, 48, 64) |
+
+Record: while the transport plays and record is armed, a pad or note key writes into the selected track at the nearest step. A hit in the last half step of the loop goes to step 1. A synth note takes the time the key is held as its gate.
 
 ## 6. The `.b` integration (first cartridge with `.b`)
 
@@ -225,6 +248,8 @@ Three layers. Only the third changes the kernel.
    - A master bus insert: tape saturation with wow and flutter, and a master filter for the DJ module.
    - A new register changes `synth.h`, the tone bytes, and the three encoders (rule of the audio area).
 
+Phase 2 has layer 1 and 20 sounds of layer 2 in `carts/tape/src/25_sounds.lua`: three FM, three STRING, three PULSE, four CLUSTER, three ORGAN, two VOX, two DIGITAL. Nobody has judged them by ear on the Pi yet.
+
 Measure each kernel item on the Pi Zero W before the decision: the budget is 8 voices in a 64-sample block.
 
 ## 9. Project and files
@@ -249,7 +274,7 @@ A song is saved under `/bm/save` first. A song file of its own (and its section 
 |---|---|---|---|
 | P0 | This document and the picture of the scenes | none | the user accepts the scope |
 | P1 | Skeleton: display frame, nine static scenes, encoders, module switch, `engine.b` with `euclid` and `meter_fall`, Lua path | none | the same frame on bmhost and on the Pi; `.b` result equal to Lua |
-| P2 | SYNTH, DRUM, SEQ with `seq_window`; engines and the first 20 sounds | none | a 4-bar pattern keeps time at 20 fps and at 60 fps |
+| P2 | SYNTH, DRUM, SEQ with `seq_window`; seven engines and 20 sounds | none | a 4-bar pattern gives the same events, on their grid times, at 60, 20 and 7.5 frames a second (`tests/tape/timing_test.py`). bmhost has no frame rate option: the test builds update the sequencer every N-th frame. |
 | P3 | TAPE with event clips, MIX, FX, punch-in effects | K4 | a 4-track song saves, loads, and plays the same |
 | P4 | LIB, bank import and export, riff lane, live code | shared bank encoder module | a song made here plays in a game with `music()` |
 | P5 | Run-time samples, WAV load, bounce, scope | K1, K2, K3 | freeze of a track gives its voices back; the frozen track sounds the same |

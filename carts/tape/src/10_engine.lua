@@ -22,7 +22,7 @@ function engine.init()
   if not blob then fail("compile", why) return end
   local m, why2 = native_load(blob)
   if not m then fail("load", why2) return end
-  for _, name in ipairs({ "euclid", "meter_fall" }) do
+  for _, name in ipairs({ "euclid", "meter_fall", "seq_window" }) do
     engine.fn[name] = native_fn(m, name)
     if not engine.fn[name] then fail("load", "no function " .. name) return end
   end
@@ -49,4 +49,14 @@ function engine.meter_fall(levels, peaks, n, dt)
   local ok, why = pcall(native_run, engine.mod, engine.fn.meter_fall, levels, peaks, n, dt)
   if not ok then fail("meter", why) return false end
   return true
+end
+
+-- events that start in the ticks t0 .. t1 - 1 (see seq_window in engine.b); q holds the step arrays, out the records.
+-- Returns the number of events, or nil without engine.
+function engine.seq_window(t0, t1, len, swing, q, out, cap)
+  if not engine.mod then return nil end
+  local ok, n = pcall(native_run, engine.mod, engine.fn.seq_window, t0, t1, len, swing,
+                      q.notes, q.vels, q.gates, q.mutes, out, cap)
+  if not ok then fail("seq", n) return nil end
+  return n
 end
