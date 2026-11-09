@@ -11,10 +11,11 @@ Usage:
 """
 import argparse
 from dataclasses import dataclass, field
+import math
 import re
 import struct
 import sys
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # ---------------------------------------------------------------------------
 # Errors
@@ -38,21 +39,40 @@ TOKEN_RE = re.compile(
     r"|(?P<float>\d+\.\d*|\.\d+)"
     r"|(?P<int>\d+)"
     r"|(?P<name>[A-Za-z_]\w*)"
-    r"|(?P<op><=|>=|==|~=|//|[-+*/%&(),:\[\]=<>])"
+    r"|(?P<op><=|>=|==|~=|//|[-+*/%&(),.:\[\]=<>])"
 )
 
 KEYWORDS = {
     "function", "local", "for", "do", "while", "end",
     "if", "then", "elseif", "else", "return", "break",
-    "and", "or", "not", "true", "false",
+    "and", "or", "not", "true", "false", "struct",
 }
 
-TYPES = ("i32", "bool")
+TYPES = ("i32", "bool", "f32")
+ARRAY_TYPES = ("i32[]", "bool[]", "f32[]")
 BUILTINS = {
     "abs": (["i32"], "i32"),
     "min": (["i32", "i32"], "i32"),
     "max": (["i32", "i32"], "i32"),
+    "sqrt": (["f32"], "f32"),
+    "f32": (["i32"], "f32"),
+    "floor": (["f32"], "i32"),
 }
+
+
+def f32_round(x: float) -> float:
+    """Rounds a Python float to IEEE-754 binary32 (single precision)."""
+    return struct.unpack("<f", struct.pack("<f", float(x)))[0]
+
+
+def f32_to_bits(x: float) -> int:
+    """Returns the unsigned 32-bit IEEE-754 binary32 representation of x."""
+    return struct.unpack("<I", struct.pack("<f", float(x)))[0]
+
+
+def bits_to_f32(u: int) -> float:
+    """Reinterprets an unsigned 32-bit integer as an IEEE-754 binary32 float."""
+    return struct.unpack("<f", struct.pack("<I", u & 0xFFFFFFFF))[0]
 
 
 @dataclass(frozen=True)
@@ -105,6 +125,11 @@ class IntLit(Expr):
 
 
 @dataclass
+class FloatLit(Expr):
+    value: float
+
+
+@dataclass
 class BoolLit(Expr):
     value: bool
 
@@ -115,6 +140,19 @@ class VarExpr(Expr):
 
 
 @dataclass
+class IndexExpr(Expr):
+    base: str
+    index: Expr
+
+
+@dataclass
+class FieldExpr(Expr):
+    base: str
+    field_name: str
+    field_idx: int = field(default=-1, init=False)
+
+
+@dataclass
 class UnaryOp(Expr):
     op: str         # '-', 'not'
     operand: Expr
@@ -122,7 +160,7 @@ class UnaryOp(Expr):
 
 @dataclass
 class BinOp(Expr):
-    op: str         # '+', '-', '*', '//', '%', '&', '<', '<=', '>', '>=', '==', '~=', 'and', 'or'
+    op: str         # '+', '-', '*', '/', '//', '%', '&', '<', '<=', '>', '>=', '==', '~=', 'and', 'or'
     left: Expr
     right: Expr
 
@@ -149,6 +187,23 @@ class LocalStmt(Stmt):
 class AssignStmt(Stmt):
     name: str
     expr: Expr
+
+
+@dataclass
+class IndexAssignStmt(Stmt):
+    base: str
+    index: Expr
+    expr: Expr
+    elem_type: str = field(default="", init=False)
+
+
+@dataclass
+class FieldAssignStmt(Stmt):
+    base: str
+    field_name: str
+    expr: Expr
+    field_idx: int = field(default=-1, init=False)
+    field_type: str = field(default="", init=False)
 
 
 @dataclass
@@ -202,6 +257,20 @@ class Param:
 
 
 @dataclass
+class StructField:
+    name: str
+    typ: str
+    line: int
+
+
+@dataclass
+class StructDecl:
+    name: str
+    fields: List[StructField]
+    line: int
+
+
+@dataclass
 class FuncDecl:
     name: str
     params: List[Param]
@@ -214,6 +283,7 @@ class FuncDecl:
 class Program:
     funcs: List[FuncDecl]
     cuts: List[Tuple[int, int]]
+    structs: List[StructDecl] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +296,7 @@ class Parser:
         self.toks = tokenize(src)
         self.i = 0
         self.cuts: List[Tuple[int, int]] = []
+        self.struct_names: set = set()
 
     def cur(self) -> Token:
         return self.toks[self.i]
@@ -256,20 +327,60 @@ class Parser:
         self.i += 1
         return t
 
-    def parse_type_annotation(self) -> str:
-        """Parses ': <type>' and records its byte span for Lua stripping."""
+    def parse_type_annotation(self, allow_composite: bool = False) -> str:
+        """Parses ': <type>' (including T[] or struct Name when allow_composite) and records its byte span."""
         colon = self.expect(":")
         tname = self.expect_name()
-        if tname.text not in TYPES:
-            self.fail(f"unknown type '{tname.text}' (expected i32 or bool)", tname)
-        self.cuts.append((colon.start, tname.end))
-        return tname.text
+        end_pos = tname.end
+        typ_s = tname.text
+        if self.cur().text == "[":
+            self.expect("[")
+            rb = self.expect("]")
+            end_pos = rb.end
+            typ_s = f"{tname.text}[]"
+            if not allow_composite or typ_s not in ARRAY_TYPES:
+                self.fail(f"unknown or disallowed array type '{typ_s}'", tname)
+        elif typ_s in self.struct_names:
+            if not allow_composite:
+                self.fail(f"struct type '{typ_s}' is only allowed on parameters", tname)
+        elif typ_s not in TYPES:
+            self.fail(f"unknown type '{typ_s}' (expected i32, bool, or f32)", tname)
+        self.cuts.append((colon.start, end_pos))
+        return typ_s
 
     def parse(self) -> Program:
         funcs: List[FuncDecl] = []
+        structs: List[StructDecl] = []
         while self.cur().kind != "eof":
-            funcs.append(self.parse_function())
-        return Program(funcs=funcs, cuts=self.cuts)
+            if self.cur().kind == "kw" and self.cur().text == "struct":
+                structs.append(self.parse_struct())
+            else:
+                funcs.append(self.parse_function())
+        return Program(funcs=funcs, cuts=self.cuts, structs=structs)
+
+    def parse_struct(self) -> StructDecl:
+        kw = self.expect("struct")
+        sname = self.expect_name()
+        if sname.text in TYPES or sname.text in self.struct_names:
+            self.fail(f"struct '{sname.text}' is defined twice", sname)
+        fields: List[StructField] = []
+        seen_fields: set = set()
+        cuts_before = len(self.cuts)
+        while self.cur().kind != "eof" and self.cur().text != "end":
+            fname = self.expect_name()
+            if fname.text in seen_fields:
+                self.fail(f"field '{fname.text}' is declared twice in struct '{sname.text}'", fname)
+            seen_fields.add(fname.text)
+            ftype = self.parse_type_annotation(allow_composite=False)
+            fields.append(StructField(fname.text, ftype, fname.line))
+            self.accept(",")
+        end_tok = self.expect("end")
+        if not fields:
+            self.fail(f"struct '{sname.text}' has no fields", kw)
+        self.struct_names.add(sname.text)
+        del self.cuts[cuts_before:]
+        self.cuts.append((kw.start, end_tok.end))
+        return StructDecl(sname.text, fields, kw.line)
 
     def parse_function(self) -> FuncDecl:
         kw = self.expect("function")
@@ -279,14 +390,14 @@ class Parser:
         if self.cur().text != ")":
             while True:
                 pname = self.expect_name()
-                ptype = self.parse_type_annotation()
+                ptype = self.parse_type_annotation(allow_composite=True)
                 params.append(Param(pname.text, ptype, pname.line))
                 if not self.accept(","):
                     break
         self.expect(")")
         ret_type: Optional[str] = None
         if self.cur().text == ":":
-            ret_type = self.parse_type_annotation()
+            ret_type = self.parse_type_annotation(allow_composite=False)
         body = self.parse_block({"end"})
         self.expect("end")
         return FuncDecl(fname.text, params, ret_type, body, kw.line)
@@ -305,7 +416,7 @@ class Parser:
                 v = self.expect_name()
                 decl_type: Optional[str] = None
                 if self.cur().text == ":":
-                    decl_type = self.parse_type_annotation()
+                    decl_type = self.parse_type_annotation(allow_composite=False)
                 self.expect("=")
                 e = self.parse_expr()
                 return LocalStmt(t.line, v.text, decl_type, e)
@@ -361,6 +472,17 @@ class Parser:
             if self.accept("("):
                 args = self.parse_arg_list()
                 return CallStmt(ident.line, CallExpr(ident.line, ident.text, args))
+            if self.accept("["):
+                idx_e = self.parse_expr()
+                self.expect("]")
+                self.expect("=")
+                val_e = self.parse_expr()
+                return IndexAssignStmt(ident.line, ident.text, idx_e, val_e)
+            if self.accept("."):
+                fld = self.expect_name()
+                self.expect("=")
+                val_e = self.parse_expr()
+                return FieldAssignStmt(ident.line, ident.text, fld.text, val_e)
             self.expect("=")
             e = self.parse_expr()
             return AssignStmt(ident.line, ident.text, e)
@@ -378,7 +500,7 @@ class Parser:
         self.expect(")")
         return args
 
-    # -- Expressions (precedence: or < and < cmp < & < + - < * // % < unary < primary)
+    # -- Expressions (precedence: or < and < cmp < & < + - < * / // % < unary < primary)
     def parse_expr(self) -> Expr:
         return self.parse_or()
 
@@ -450,7 +572,8 @@ class Parser:
                 self.fail(f"integer literal {t.text} overflows i32", t)
             return IntLit(t.line, val)
         if t.kind == "float":
-            self.fail(f"floating-point literal '{t.text}' is not in stage 1 (only i32 and bool)", t)
+            self.i += 1
+            return FloatLit(t.line, f32_round(float(t.text)))
         if self.accept("true"):
             return BoolLit(t.line, True)
         if self.accept("false"):
@@ -459,11 +582,19 @@ class Parser:
             e = self.parse_expr()
             self.expect(")")
             return e
-        if t.kind == "name":
-            ident = self.expect_name()
+        if t.kind == "name" or (t.kind == "kw" and t.text in BUILTINS):
+            ident = self.cur()
+            self.i += 1
             if self.accept("("):
                 args = self.parse_arg_list()
                 return CallExpr(ident.line, ident.text, args)
+            if self.accept("["):
+                idx_e = self.parse_expr()
+                self.expect("]")
+                return IndexExpr(ident.line, ident.text, idx_e)
+            if self.accept("."):
+                fld = self.expect_name()
+                return FieldExpr(ident.line, ident.text, fld.text)
             return VarExpr(ident.line, ident.text)
         found = t.text or "end of file"
         self.fail(f"an expression cannot start with '{found}'", t)
@@ -474,10 +605,11 @@ class Parser:
 # ---------------------------------------------------------------------------
 
 class TypeChecker:
-    """Checks types (i32 and bool), variable scopes, loop break placement, and function signatures."""
+    """Checks types (i32, bool, f32, arrays, structs), variable scopes, loop break placement, and signatures."""
 
     def __init__(self) -> None:
         self.funcs: Dict[str, Tuple[List[str], Optional[str]]] = {}
+        self.structs: Dict[str, StructDecl] = {}
         self.vars: Dict[str, str] = {}
         self.ret_type: Optional[str] = None
         self.loop_depth: int = 0
@@ -486,6 +618,8 @@ class TypeChecker:
         raise Error(f"line {line}: {msg}")
 
     def check_program(self, prog: Program) -> Program:
+        for st in prog.structs:
+            self.structs[st.name] = st
         if not prog.funcs:
             self.fail(1, "program has no functions")
         for fn in prog.funcs:
@@ -528,6 +662,8 @@ class TypeChecker:
     def check_stmt(self, s: Stmt) -> None:
         if isinstance(s, LocalStmt):
             et = self.check_expr(s.expr, s.line)
+            if et not in TYPES:
+                self.fail(s.line, f"local variable '{s.name}' must be i32, bool, or f32, not {et}")
             if s.decl_type is not None and s.decl_type != et:
                 self.fail(s.line, f"{et} assigned to '{s.name}' of {s.decl_type}")
             if s.name in self.vars:
@@ -542,6 +678,45 @@ class TypeChecker:
             et = self.check_expr(s.expr, s.line)
             if vt != et:
                 self.fail(s.line, f"{et} assigned to '{s.name}' of {vt}")
+            return
+
+        if isinstance(s, IndexAssignStmt):
+            if s.base not in self.vars:
+                self.fail(s.line, f"'{s.base}' is not declared")
+            bt = self.vars[s.base]
+            if not bt.endswith("[]"):
+                self.fail(s.line, f"'{s.base}' is {bt}, not an array")
+            elem_t = bt[:-2]
+            it = self.check_expr(s.index, s.line)
+            if it != "i32":
+                self.fail(s.line, f"array index must be i32, not {it}")
+            vt = self.check_expr(s.expr, s.line)
+            if vt != elem_t:
+                self.fail(s.line, f"{vt} assigned to element of {bt}")
+            s.elem_type = elem_t
+            return
+
+        if isinstance(s, FieldAssignStmt):
+            if s.base not in self.vars:
+                self.fail(s.line, f"'{s.base}' is not declared")
+            bt = self.vars[s.base]
+            if bt not in self.structs:
+                self.fail(s.line, f"'{s.base}' is {bt}, not a struct")
+            st = self.structs[bt]
+            f_idx = -1
+            f_typ = ""
+            for idx, fld in enumerate(st.fields):
+                if fld.name == s.field_name:
+                    f_idx = idx
+                    f_typ = fld.typ
+                    break
+            if f_idx < 0:
+                self.fail(s.line, f"struct '{bt}' has no field '{s.field_name}'")
+            vt = self.check_expr(s.expr, s.line)
+            if vt != f_typ:
+                self.fail(s.line, f"{vt} assigned to '{s.base}.{s.field_name}' of {f_typ}")
+            s.field_idx = f_idx
+            s.field_type = f_typ
             return
 
         if isinstance(s, IfStmt):
@@ -613,6 +788,10 @@ class TypeChecker:
             e.typ = "i32"
             return "i32"
 
+        if isinstance(e, FloatLit):
+            e.typ = "f32"
+            return "f32"
+
         if isinstance(e, BoolLit):
             e.typ = "bool"
             return "bool"
@@ -623,6 +802,33 @@ class TypeChecker:
             e.typ = self.vars[e.name]
             return e.typ
 
+        if isinstance(e, IndexExpr):
+            if e.base not in self.vars:
+                self.fail(stmt_line, f"'{e.base}' is not declared")
+            bt = self.vars[e.base]
+            if not bt.endswith("[]"):
+                self.fail(stmt_line, f"'{e.base}' is {bt}, not an array")
+            it = self.check_expr(e.index, stmt_line)
+            if it != "i32":
+                self.fail(stmt_line, f"array index must be i32, not {it}")
+            e.typ = bt[:-2]
+            return e.typ
+
+        if isinstance(e, FieldExpr):
+            if e.base not in self.vars:
+                self.fail(stmt_line, f"'{e.base}' is not declared")
+            bt = self.vars[e.base]
+            if bt not in self.structs:
+                self.fail(stmt_line, f"'{e.base}' is {bt}, not a struct")
+            st = self.structs[bt]
+            for idx, fld in enumerate(st.fields):
+                if fld.name == e.field_name:
+                    e.field_idx = idx
+                    e.typ = fld.typ
+                    return fld.typ
+            self.fail(stmt_line, f"struct '{bt}' has no field '{e.field_name}'")
+            return ""
+
         if isinstance(e, UnaryOp):
             if e.op == "-" and isinstance(e.operand, IntLit) and e.operand.value == 0x80000000:
                 e.operand.typ = "i32"
@@ -630,10 +836,10 @@ class TypeChecker:
                 return "i32"
             ot = self.check_expr(e.operand, stmt_line)
             if e.op == "-":
-                if ot != "i32":
-                    self.fail(stmt_line, f"unary '-' takes i32, not {ot}")
-                e.typ = "i32"
-                return "i32"
+                if ot not in ("i32", "f32"):
+                    self.fail(stmt_line, f"unary '-' takes i32 or f32, not {ot}")
+                e.typ = ot
+                return ot
             if e.op == "not":
                 if ot != "bool":
                     self.fail(stmt_line, f"'not' takes bool, not {ot}")
@@ -648,20 +854,31 @@ class TypeChecker:
                     self.fail(stmt_line, f"'{e.op}' takes bool, not {lt} and {rt}")
                 e.typ = "bool"
                 return "bool"
-            if e.op in ("+", "-", "*", "//", "%", "&"):
+            if e.op in ("+", "-", "*"):
+                if lt == "i32" and rt == "i32":
+                    e.typ = "i32"
+                    return "i32"
+                if lt == "f32" and rt == "f32":
+                    e.typ = "f32"
+                    return "f32"
+                self.fail(stmt_line, f"'{e.op}' takes matching i32 or f32, not {lt} and {rt}")
+            if e.op in ("//", "%", "&"):
                 if lt != "i32" or rt != "i32":
                     self.fail(stmt_line, f"'{e.op}' takes i32, not {lt} and {rt}")
                 e.typ = "i32"
                 return "i32"
             if e.op == "/":
+                if lt == "f32" and rt == "f32":
+                    e.typ = "f32"
+                    return "f32"
                 self.fail(stmt_line, "'/' gives a float in Lua; use '//' for integer division in stage 1")
             if e.op in ("<", "<=", ">", ">="):
-                if lt != "i32" or rt != "i32":
-                    self.fail(stmt_line, f"cannot compare {lt} with {rt}")
-                e.typ = "bool"
-                return "bool"
+                if (lt == "i32" and rt == "i32") or (lt == "f32" and rt == "f32"):
+                    e.typ = "bool"
+                    return "bool"
+                self.fail(stmt_line, f"cannot compare {lt} with {rt}")
             if e.op in ("==", "~="):
-                if lt != rt:
+                if lt != rt or lt not in ("i32", "bool", "f32"):
                     self.fail(stmt_line, f"cannot compare {lt} with {rt}")
                 e.typ = "bool"
                 return "bool"
@@ -676,6 +893,17 @@ class TypeChecker:
         return ""
 
     def check_call(self, call: CallExpr, stmt_line: int, need_value: bool) -> Optional[str]:
+        if call.callee in ("abs", "min", "max"):
+            want_n = 1 if call.callee == "abs" else 2
+            if len(call.args) != want_n:
+                self.fail(stmt_line, f"'{call.callee}' takes {want_n} arguments, not {len(call.args)}")
+            arg_types = [self.check_expr(a, stmt_line) for a in call.args]
+            t0 = arg_types[0]
+            if t0 not in ("i32", "f32") or any(at != t0 for at in arg_types):
+                self.fail(stmt_line, f"'{call.callee}' takes matching i32 or f32 arguments")
+            call.typ = t0
+            return t0
+
         if call.callee in BUILTINS:
             ptypes, ret = BUILTINS[call.callee]
         elif call.callee in self.funcs:
@@ -703,11 +931,12 @@ def parse_and_check(src: str) -> Program:
 
 
 def to_lua(src: str) -> str:
-    """Checks the BML source and strips type annotations to yield plain Lua."""
+    """Checks the BML source and strips type annotations and struct blocks to yield plain Lua."""
     prog = parse_and_check(src)
     lua = src
     for start, end in sorted(prog.cuts, reverse=True):
-        lua = lua[:start] + lua[end:]
+        nl_count = lua[start:end].count("\n")
+        lua = lua[:start] + ("\n" * nl_count) + lua[end:]
     return lua
 
 
@@ -717,28 +946,50 @@ def to_lua(src: str) -> str:
 
 OPCODES = (
     "PUSH_CONST",   # arg = constant index k; pushes K[k] (i32)
+    "PUSH_FCONST",  # arg = float constant index k; pushes FK[k] (f32)
     "PUSH_TRUE",    # pushes True
     "PUSH_FALSE",   # pushes False
     "POP",          # discards top of stack
     "LOAD",         # arg = local slot index; pushes locals[slot]
     "STORE",        # arg = local slot index; pops TOS into locals[slot]
-    "ADD",          # pops b, a; pushes a + b
-    "SUB",          # pops b, a; pushes a - b
-    "MUL",          # pops b, a; pushes a * b
+    "ADD",          # pops b, a; pushes a + b (i32)
+    "SUB",          # pops b, a; pushes a - b (i32)
+    "MUL",          # pops b, a; pushes a * b (i32)
     "IDIV",         # pops b, a; pushes floor(a / b) (0 if b == 0)
     "IMOD",         # pops b, a; pushes a - floor(a / b) * b (0 if b == 0)
     "BAND",         # pops b, a; pushes a & b (32-bit signed)
-    "NEG",          # pops a; pushes -a
+    "NEG",          # pops a; pushes -a (i32)
     "NOT",          # pops a; pushes not a
-    "EQ",           # pops b, a; pushes a == b
-    "NE",           # pops b, a; pushes a != b
-    "LT",           # pops b, a; pushes a < b
-    "LE",           # pops b, a; pushes a <= b
-    "GT",           # pops b, a; pushes a > b
-    "GE",           # pops b, a; pushes a >= b
-    "ABS",          # pops a; pushes abs(a)
-    "MIN",          # pops b, a; pushes min(a, b)
-    "MAX",          # pops b, a; pushes max(a, b)
+    "EQ",           # pops b, a; pushes a == b (i32/bool)
+    "NE",           # pops b, a; pushes a != b (i32/bool)
+    "LT",           # pops b, a; pushes a < b (i32)
+    "LE",           # pops b, a; pushes a <= b (i32)
+    "GT",           # pops b, a; pushes a > b (i32)
+    "GE",           # pops b, a; pushes a >= b (i32)
+    "ABS",          # pops a; pushes abs(a) (i32)
+    "MIN",          # pops b, a; pushes min(a, b) (i32)
+    "MAX",          # pops b, a; pushes max(a, b) (i32)
+    "FADD",         # pops b, a; pushes f32(a + b)
+    "FSUB",         # pops b, a; pushes f32(a - b)
+    "FMUL",         # pops b, a; pushes f32(a * b)
+    "FDIV",         # pops b, a; pushes f32(a / b)
+    "FNEG",         # pops a; pushes f32(-a)
+    "FEQ",          # pops b, a; pushes a == b (f32)
+    "FNE",          # pops b, a; pushes a != b (f32)
+    "FLT",          # pops b, a; pushes a < b (f32)
+    "FLE",          # pops b, a; pushes a <= b (f32)
+    "FGT",          # pops b, a; pushes a > b (f32)
+    "FGE",          # pops b, a; pushes a >= b (f32)
+    "FABS",         # pops a; pushes f32(abs(a))
+    "FMIN",         # pops b, a; pushes min(a, b) (f32)
+    "FMAX",         # pops b, a; pushes max(a, b) (f32)
+    "FSQRT",        # pops a; pushes f32(sqrt(a))
+    "I2F",          # pops a (i32); pushes f32(a)
+    "FLOOR",        # pops a (f32); pushes i32(floor(a))
+    "AGET",         # pops idx, arr; pushes arr[idx] (i32/bool, 1-based)
+    "AGETF",        # pops idx, arr; pushes arr[idx] (f32, 1-based)
+    "ASET",         # pops val, idx, arr; sets arr[idx] = val (i32/bool, 1-based)
+    "ASETF",        # pops val, idx, arr; sets arr[idx] = val (f32, 1-based)
     "JMP",          # arg = target pc; pc = target
     "JZ",           # arg = target pc; pops cond; if not cond: pc = target
     "JF_KEEP",      # arg = target pc; if not TOS: pc = target (keeps False), else pops True
@@ -772,6 +1023,8 @@ class Module:
     funcs: List[CompiledFunc]
     consts: List[int]
     func_index: Dict[str, int]
+    fconsts: List[float] = field(default_factory=list)
+    structs: Dict[str, StructDecl] = field(default_factory=dict)
 
 
 class BytecodeCompiler:
@@ -781,6 +1034,9 @@ class BytecodeCompiler:
         self.prog = prog
         self.consts: List[int] = []
         self.const_map: Dict[int, int] = {}
+        self.fconsts: List[float] = []
+        self.fconst_map: Dict[int, int] = {}
+        self.structs: Dict[str, StructDecl] = {st.name: st for st in prog.structs}
         self.func_index: Dict[str, int] = {fn.name: idx for idx, fn in enumerate(prog.funcs)}
         self.func_ret: Dict[str, Optional[str]] = {fn.name: fn.ret_type for fn in prog.funcs}
         self.code: List[Insn] = []
@@ -793,6 +1049,14 @@ class BytecodeCompiler:
             self.const_map[val] = len(self.consts)
             self.consts.append(val)
         return self.const_map[val]
+
+    def add_fconst(self, val: float) -> int:
+        fv = f32_round(val)
+        bits = f32_to_bits(fv)
+        if bits not in self.fconst_map:
+            self.fconst_map[bits] = len(self.fconsts)
+            self.fconsts.append(fv)
+        return self.fconst_map[bits]
 
     def alloc_slot(self, name: str) -> int:
         slot = len(self.local_names)
@@ -814,7 +1078,13 @@ class BytecodeCompiler:
         compiled: List[CompiledFunc] = []
         for fn in self.prog.funcs:
             compiled.append(self.compile_func(fn))
-        return Module(funcs=compiled, consts=self.consts, func_index=self.func_index)
+        return Module(
+            funcs=compiled,
+            consts=self.consts,
+            func_index=self.func_index,
+            fconsts=self.fconsts,
+            structs=self.structs,
+        )
 
     def compile_func(self, fn: FuncDecl) -> CompiledFunc:
         self.code = []
@@ -832,6 +1102,10 @@ class BytecodeCompiler:
         if not self.code or self.code[-1].op not in ("RET", "RET0") or jumps_to_end:
             if fn.ret_type is None:
                 self.emit("RET0")
+            elif fn.ret_type == "f32":
+                fk = self.add_fconst(0.0)
+                self.emit("PUSH_FCONST", fk, "0.0")
+                self.emit("RET")
             else:
                 k = self.add_const(0)
                 self.emit("PUSH_CONST", k)
@@ -863,6 +1137,23 @@ class BytecodeCompiler:
             self.compile_expr(s.expr)
             slot = self.slots[s.name]
             self.emit("STORE", slot, s.name)
+            return
+
+        if isinstance(s, IndexAssignStmt):
+            slot = self.slots[s.base]
+            self.emit("LOAD", slot, s.base)
+            self.compile_expr(s.index)
+            self.compile_expr(s.expr)
+            self.emit("ASETF" if s.elem_type == "f32" else "ASET", 0, f"{s.base}[...]")
+            return
+
+        if isinstance(s, FieldAssignStmt):
+            slot = self.slots[s.base]
+            self.emit("LOAD", slot, s.base)
+            k = self.add_const(s.field_idx + 1)
+            self.emit("PUSH_CONST", k, f".{s.field_name}")
+            self.compile_expr(s.expr)
+            self.emit("ASETF" if s.field_type == "f32" else "ASET", 0, f"{s.base}.{s.field_name}")
             return
 
         if isinstance(s, IfStmt):
@@ -978,6 +1269,11 @@ class BytecodeCompiler:
             self.emit("PUSH_CONST", k, str(e.value))
             return
 
+        if isinstance(e, FloatLit):
+            fk = self.add_fconst(e.value)
+            self.emit("PUSH_FCONST", fk, str(e.value))
+            return
+
         if isinstance(e, BoolLit):
             self.emit("PUSH_TRUE" if e.value else "PUSH_FALSE")
             return
@@ -987,13 +1283,31 @@ class BytecodeCompiler:
             self.emit("LOAD", slot, e.name)
             return
 
+        if isinstance(e, IndexExpr):
+            slot = self.slots[e.base]
+            self.emit("LOAD", slot, e.base)
+            self.compile_expr(e.index)
+            self.emit("AGETF" if e.typ == "f32" else "AGET", 0, f"{e.base}[...]")
+            return
+
+        if isinstance(e, FieldExpr):
+            slot = self.slots[e.base]
+            self.emit("LOAD", slot, e.base)
+            k = self.add_const(e.field_idx + 1)
+            self.emit("PUSH_CONST", k, f".{e.field_name}")
+            self.emit("AGETF" if e.typ == "f32" else "AGET", 0, f"{e.base}.{e.field_name}")
+            return
+
         if isinstance(e, UnaryOp):
             if e.op == "-" and isinstance(e.operand, IntLit) and e.operand.value == 0x80000000:
                 k = self.add_const(-2147483648)
                 self.emit("PUSH_CONST", k, "-2147483648")
                 return
             self.compile_expr(e.operand)
-            self.emit("NEG" if e.op == "-" else "NOT")
+            if e.op == "-":
+                self.emit("FNEG" if e.typ == "f32" else "NEG")
+            else:
+                self.emit("NOT")
             return
 
         if isinstance(e, BinOp):
@@ -1011,11 +1325,18 @@ class BytecodeCompiler:
                 return
             self.compile_expr(e.left)
             self.compile_expr(e.right)
-            op_map = {
-                "+": "ADD", "-": "SUB", "*": "MUL", "//": "IDIV", "%": "IMOD", "&": "BAND",
-                "==": "EQ", "~=": "NE", "<": "LT", "<=": "LE", ">": "GT", ">=": "GE",
-            }
-            self.emit(op_map[e.op])
+            if e.left.typ == "f32":
+                f_op_map = {
+                    "+": "FADD", "-": "FSUB", "*": "FMUL", "/": "FDIV",
+                    "==": "FEQ", "~=": "FNE", "<": "FLT", "<=": "FLE", ">": "FGT", ">=": "FGE",
+                }
+                self.emit(f_op_map[e.op])
+            else:
+                op_map = {
+                    "+": "ADD", "-": "SUB", "*": "MUL", "//": "IDIV", "%": "IMOD", "&": "BAND",
+                    "==": "EQ", "~=": "NE", "<": "LT", "<=": "LE", ">": "GT", ">=": "GE",
+                }
+                self.emit(op_map[e.op])
             return
 
         if isinstance(e, CallExpr):
@@ -1026,7 +1347,17 @@ class BytecodeCompiler:
         for arg in call.args:
             self.compile_expr(arg)
         if call.callee in ("abs", "min", "max"):
-            self.emit(call.callee.upper())
+            is_f = call.args[0].typ == "f32"
+            self.emit(("F" if is_f else "") + call.callee.upper())
+            return
+        if call.callee == "sqrt":
+            self.emit("FSQRT")
+            return
+        if call.callee == "f32":
+            self.emit("I2F")
+            return
+        if call.callee == "floor":
+            self.emit("FLOOR")
             return
         fn_idx = self.func_index[call.callee]
         packed = (fn_idx << 8) | (len(call.args) & 0xFF)
@@ -1045,13 +1376,16 @@ def disassemble(mod: Module) -> str:
     if mod.consts:
         consts_str = ", ".join(f"K[{i}]={v}" for i, v in enumerate(mod.consts))
         lines.append(f"; constants: {consts_str}")
+    if mod.fconsts:
+        fconsts_str = ", ".join(f"FK[{i}]={v}" for i, v in enumerate(mod.fconsts))
+        lines.append(f"; fconsts: {fconsts_str}")
     for idx, fn in enumerate(mod.funcs):
         ret_s = fn.ret_type or "void"
         params_s = ", ".join(f"{fn.local_names[i]}: {t}" for i, t in enumerate(fn.param_types))
         lines.append(f"\nfn #{idx} {fn.name}({params_s}) -> {ret_s}  [locals={fn.nlocals}]")
         for pc, ins in enumerate(fn.code):
             note = f"  ; {ins.comment}" if ins.comment else ""
-            if ins.op in ("PUSH_CONST", "LOAD", "STORE", "JMP", "JZ", "JF_KEEP", "JT_KEEP"):
+            if ins.op in ("PUSH_CONST", "PUSH_FCONST", "LOAD", "STORE", "JMP", "JZ", "JF_KEEP", "JT_KEEP"):
                 lines.append(f"  {pc:04d}  {ins.op:<12} {ins.arg}{note}")
             elif ins.op == "CALL":
                 lines.append(f"  {pc:04d}  {ins.op:<12} fn={ins.arg >> 8}, argc={ins.arg & 0xFF}{note}")
@@ -1084,9 +1418,9 @@ def lua_imod(a: int, b: int) -> int:
 
 
 class StackVM:
-    """Executes a compiled BML Module on a stack machine."""
+    """Executes a compiled BML Module on a stack machine (with 32-bit i32 wrapping by default in Stage 6+)."""
 
-    def __init__(self, mod: Module, wrap32: bool = False, max_depth: int = 64):
+    def __init__(self, mod: Module, wrap32: bool = True, max_depth: int = 64):
         self.mod = mod
         self.wrap32 = wrap32
         self.max_depth = max_depth
@@ -1094,37 +1428,68 @@ class StackVM:
     def _norm(self, x: int) -> int:
         return wrap_i32(x) if self.wrap32 else x
 
-    def call(self, fn_name: str, args: List[Union[int, bool]], budget: int = 1_000_000) -> Optional[Union[int, bool]]:
+    def call(self, fn_name: str, args: List[Any], budget: int = 1_000_000) -> Optional[Union[int, float, bool]]:
         if fn_name not in self.mod.func_index:
             raise VMError(f"unknown function '{fn_name}'")
         fn_idx = self.mod.func_index[fn_name]
         fn = self.mod.funcs[fn_idx]
         if len(args) != fn.nparams:
             raise VMError(f"'{fn_name}' expects {fn.nparams} arguments, got {len(args)}")
-        norm_args: List[Union[int, bool]] = []
+        norm_args: List[Any] = []
+        struct_writebacks: List[Tuple[dict, StructDecl, list]] = []
         for a, pt in zip(args, fn.param_types):
             if pt == "bool":
                 norm_args.append(bool(a))
-            else:
+            elif pt == "f32":
+                norm_args.append(f32_round(float(a)))
+            elif pt == "i32":
                 norm_args.append(self._norm(int(a)))
+            elif pt.endswith("[]"):
+                if not isinstance(a, list):
+                    raise VMError(f"expected list for array parameter of type {pt}")
+                norm_args.append(a)
+            elif pt in self.mod.structs:
+                st = self.mod.structs[pt]
+                if isinstance(a, dict):
+                    lst = []
+                    for fld in st.fields:
+                        v = a[fld.name]
+                        if fld.typ == "bool":
+                            lst.append(bool(v))
+                        elif fld.typ == "f32":
+                            lst.append(f32_round(float(v)))
+                        else:
+                            lst.append(self._norm(int(v)))
+                    norm_args.append(lst)
+                    struct_writebacks.append((a, st, lst))
+                elif isinstance(a, list):
+                    norm_args.append(a)
+                else:
+                    raise VMError(f"expected dict or list for struct parameter of type {pt}")
+            else:
+                norm_args.append(a)
         val, _ = self._exec(fn, norm_args, depth=1, budget=budget)
+        for d_obj, st, lst in struct_writebacks:
+            for idx, fld in enumerate(st.fields):
+                d_obj[fld.name] = lst[idx]
         return val
 
     def _exec(
         self,
         fn: CompiledFunc,
-        args: List[Union[int, bool]],
+        args: List[Any],
         depth: int,
         budget: int,
-    ) -> Tuple[Optional[Union[int, bool]], int]:
+    ) -> Tuple[Optional[Union[int, float, bool]], int]:
         if depth > self.max_depth:
             raise VMError("call stack depth exceeded")
-        locals_arr: List[Union[int, bool]] = [0] * fn.nlocals
+        locals_arr: List[Any] = [0] * fn.nlocals
         for i, v in enumerate(args):
             locals_arr[i] = v
-        stack: List[Union[int, bool]] = []
+        stack: List[Any] = []
         code = fn.code
         consts = self.mod.consts
+        fconsts = self.mod.fconsts
         pc = 0
         n = len(code)
 
@@ -1138,6 +1503,8 @@ class StackVM:
 
             if op == "PUSH_CONST":
                 stack.append(self._norm(consts[ins.arg]))
+            elif op == "PUSH_FCONST":
+                stack.append(fconsts[ins.arg])
             elif op == "PUSH_TRUE":
                 stack.append(True)
             elif op == "PUSH_FALSE":
@@ -1213,6 +1580,93 @@ class StackVM:
                 b = int(stack.pop())
                 a = int(stack.pop())
                 stack.append(a if a > b else b)
+            elif op == "FADD":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(f32_round(a + b))
+            elif op == "FSUB":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(f32_round(a - b))
+            elif op == "FMUL":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(f32_round(a * b))
+            elif op == "FDIV":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(f32_round(a / b) if b != 0.0 else 0.0)
+            elif op == "FNEG":
+                a = float(stack.pop())
+                stack.append(f32_round(-a))
+            elif op == "FEQ":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a == b)
+            elif op == "FNE":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a != b)
+            elif op == "FLT":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a < b)
+            elif op == "FLE":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a <= b)
+            elif op == "FGT":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a > b)
+            elif op == "FGE":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a >= b)
+            elif op == "FABS":
+                a = float(stack.pop())
+                stack.append(f32_round(abs(a)))
+            elif op == "FMIN":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a if a < b else b)
+            elif op == "FMAX":
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(a if a > b else b)
+            elif op == "FSQRT":
+                a = float(stack.pop())
+                stack.append(f32_round(math.sqrt(a)))
+            elif op == "I2F":
+                a = int(stack.pop())
+                stack.append(f32_round(float(a)))
+            elif op == "FLOOR":
+                a = float(stack.pop())
+                stack.append(self._norm(int(math.floor(a))))
+            elif op in ("AGET", "AGETF"):
+                idx = int(stack.pop())
+                arr = stack.pop()
+                if idx < 1 or idx > len(arr):
+                    raise VMError(f"array index {idx} out of range (1..{len(arr)})")
+                v = arr[idx - 1]
+                if op == "AGETF":
+                    stack.append(f32_round(float(v)))
+                elif isinstance(v, bool):
+                    stack.append(v)
+                else:
+                    stack.append(self._norm(int(v)))
+            elif op in ("ASET", "ASETF"):
+                val = stack.pop()
+                idx = int(stack.pop())
+                arr = stack.pop()
+                if idx < 1 or idx > len(arr):
+                    raise VMError(f"array index {idx} out of range (1..{len(arr)})")
+                if op == "ASETF":
+                    arr[idx - 1] = f32_round(float(val))
+                elif isinstance(val, bool):
+                    arr[idx - 1] = val
+                else:
+                    arr[idx - 1] = self._norm(int(val))
             elif op == "JMP":
                 pc = ins.arg
             elif op == "JZ":
@@ -1277,7 +1731,7 @@ BMVM_OP = {name: idx for idx, name in enumerate(BMVM_OPCODES)}
 BMVM_JUMPS = {"JMP", "JF", "JT", "FORI", "JFLTI", "JFLEI", "JFEQI", "JFNEI", "JFLTF", "JFLEF", "JFEQF", "JFNEF"}
 
 
-def compute_stack_depths(code: List[Insn]) -> Tuple[List[int], int]:
+def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] = None) -> Tuple[List[int], int]:
     """Computes the static evaluation stack depth before each instruction in a Stage 2 CompiledFunc."""
     n = len(code)
     depths: List[Optional[int]] = [None] * n
@@ -1303,16 +1757,22 @@ def compute_stack_depths(code: List[Insn]) -> Tuple[List[int], int]:
             elif depths[target] != next_sp:
                 raise Error(f"internal: stack depth mismatch at pc={target}: {depths[target]} vs {next_sp}")
 
-        if op in ("PUSH_CONST", "PUSH_TRUE", "PUSH_FALSE", "LOAD"):
+        if op in ("PUSH_CONST", "PUSH_FCONST", "PUSH_TRUE", "PUSH_FALSE", "LOAD"):
             if sp + 1 > max_sp:
                 max_sp = sp + 1
             reach(pc + 1, sp + 1)
         elif op in ("STORE", "POP"):
             reach(pc + 1, sp - 1)
-        elif op in ("NEG", "NOT", "ABS"):
+        elif op in ("NEG", "NOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR"):
             reach(pc + 1, sp)
-        elif op in ("ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "EQ", "NE", "LT", "LE", "GT", "GE", "MIN", "MAX"):
+        elif op in (
+            "ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "EQ", "NE", "LT", "LE", "GT", "GE", "MIN", "MAX",
+            "FADD", "FSUB", "FMUL", "FDIV", "FEQ", "FNE", "FLT", "FLE", "FGT", "FGE", "FMIN", "FMAX",
+            "AGET", "AGETF",
+        ):
             reach(pc + 1, sp - 1)
+        elif op in ("ASET", "ASETF"):
+            reach(pc + 1, sp - 3)
         elif op == "JMP":
             reach(ins.arg, sp)
         elif op == "JZ":
@@ -1322,9 +1782,12 @@ def compute_stack_depths(code: List[Insn]) -> Tuple[List[int], int]:
             reach(ins.arg, sp)
             reach(pc + 1, sp - 1)
         elif op == "CALL":
+            fn_idx = ins.arg >> 8
             argc = ins.arg & 0xFF
-            # Note: all BML Stage 1/2 functions return a value (or CALLStmt pops it if non-void)
-            reach(pc + 1, sp - argc + 1)
+            has_ret = True
+            if funcs is not None and 0 <= fn_idx < len(funcs):
+                has_ret = funcs[fn_idx].ret_type is not None
+            reach(pc + 1, sp - argc + (1 if has_ret else 0))
         elif op in ("RET", "RET0"):
             pass
         else:
@@ -1374,32 +1837,46 @@ class BMVMCompiler:
         return bytes(hdr) + bytes(ftab) + b"".join(self.consts_bytes) + bytes(code_bytes)
 
     def _compile_fn(self, fn: CompiledFunc) -> None:
-        depths, max_sp = compute_stack_depths(fn.code)
+        depths, max_sp = compute_stack_depths(fn.code, self.mod.funcs)
 
-        # Collect unique integer constants used by this function
+        # Collect unique constants (i32 and f32/f64) used by this function
         kfirst = len(self.consts_bytes)
-        fn_kmap: Dict[int, int] = {}
-        fn_klist: List[int] = []
+        fn_kmap: Dict[Tuple[str, int], int] = {}
+        nconst_count = 0
 
         def get_k_idx(val: int) -> int:
+            nonlocal nconst_count
             wval = wrap_i32(val)
-            if wval not in fn_kmap:
-                fn_kmap[wval] = len(fn_klist)
-                fn_klist.append(wval)
+            key = ("i", wval)
+            if key not in fn_kmap:
+                fn_kmap[key] = nconst_count
+                nconst_count += 1
                 self.consts_bytes.append(struct.pack("<iI", wval, 0))
-            return fn_kmap[wval]
+            return fn_kmap[key]
+
+        def get_fk_idx(fval: float) -> int:
+            nonlocal nconst_count
+            fv = f32_round(fval)
+            key = ("f", f32_to_bits(fv))
+            if key not in fn_kmap:
+                fn_kmap[key] = nconst_count
+                nconst_count += 1
+                self.consts_bytes.append(struct.pack("<d", float(fv)))
+            return fn_kmap[key]
 
         # Pre-scan constants so nconst is fixed before assigning register numbers
         for ins in fn.code:
             if ins.op == "PUSH_CONST":
                 get_k_idx(self.mod.consts[ins.arg])
+            elif ins.op == "PUSH_FCONST":
+                get_fk_idx(self.mod.fconsts[ins.arg])
             elif ins.op == "PUSH_TRUE":
                 get_k_idx(1)
             elif ins.op == "PUSH_FALSE":
                 get_k_idx(0)
 
         nparams = fn.nparams
-        nconst = len(fn_klist)
+        nconst = nconst_count
         nextra_locals = fn.nlocals - nparams
 
         def reg_local(slot: int) -> int:
@@ -1409,6 +1886,9 @@ class BMVMCompiler:
 
         def reg_const(val: int) -> int:
             return nparams + get_k_idx(val)
+
+        def reg_fconst(fval: float) -> int:
+            return nparams + get_fk_idx(fval)
 
         def reg_stack(sp_idx: int) -> int:
             return nparams + nconst + nextra_locals + sp_idx
@@ -1424,6 +1904,9 @@ class BMVMCompiler:
             if op == "PUSH_CONST":
                 cval = self.mod.consts[ins.arg]
                 insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_const(cval), 0, 0))
+            elif op == "PUSH_FCONST":
+                fval = self.mod.fconsts[ins.arg]
+                insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_fconst(fval), 0, 0))
             elif op == "PUSH_TRUE":
                 insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_const(1), 0, 0))
             elif op == "PUSH_FALSE":
@@ -1434,11 +1917,17 @@ class BMVMCompiler:
                 insns.append((BMVM_OP["MOV"], reg_stack(sp), reg_local(ins.arg), 0, 0))
             elif op == "STORE":
                 insns.append((BMVM_OP["MOV"], reg_local(ins.arg), reg_stack(sp - 1), 0, 0))
-            elif op in ("ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "EQ", "NE", "LT", "LE", "MIN", "MAX"):
+            elif op in (
+                "ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "EQ", "NE", "LT", "LE", "MIN", "MAX",
+                "FADD", "FSUB", "FMUL", "FDIV", "FEQ", "FNE", "FLT", "FLE", "FMIN", "FMAX",
+            ):
                 bm_op = {
                     "ADD": "ADDI", "SUB": "SUBI", "MUL": "MULI", "IDIV": "IDIV", "IMOD": "IMOD",
                     "BAND": "ANDI", "EQ": "EQI", "NE": "NEI", "LT": "LTI", "LE": "LEI",
                     "MIN": "MINI", "MAX": "MAXI",
+                    "FADD": "ADDF", "FSUB": "SUBF", "FMUL": "MULF", "FDIV": "DIVF",
+                    "FEQ": "EQF", "FNE": "NEF", "FLT": "LTF", "FLE": "LEF",
+                    "FMIN": "MINF", "FMAX": "MAXF",
                 }[op]
                 ra = reg_stack(sp - 2)
                 rb = reg_stack(sp - 2)
@@ -1450,10 +1939,28 @@ class BMVMCompiler:
             elif op == "GE":
                 ra = reg_stack(sp - 2)
                 insns.append((BMVM_OP["LEI"], ra, reg_stack(sp - 1), reg_stack(sp - 2), 0))
-            elif op in ("NEG", "NOT", "ABS"):
-                bm_op = {"NEG": "NEGI", "NOT": "NOT", "ABS": "ABSI"}[op]
+            elif op == "FGT":
+                ra = reg_stack(sp - 2)
+                insns.append((BMVM_OP["LTF"], ra, reg_stack(sp - 1), reg_stack(sp - 2), 0))
+            elif op == "FGE":
+                ra = reg_stack(sp - 2)
+                insns.append((BMVM_OP["LEF"], ra, reg_stack(sp - 1), reg_stack(sp - 2), 0))
+            elif op in ("NEG", "NOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR"):
+                bm_op = {
+                    "NEG": "NEGI", "NOT": "NOT", "ABS": "ABSI",
+                    "FNEG": "NEGF", "FABS": "ABSF", "FSQRT": "SQRT", "I2F": "I2F", "FLOOR": "FLOOR",
+                }[op]
                 r = reg_stack(sp - 1)
                 insns.append((BMVM_OP[bm_op], r, r, 0, 0))
+            elif op in ("AGET", "AGETF"):
+                bm_op = "GETF" if op == "AGETF" else "GETI"
+                ra = reg_stack(sp - 2)
+                rb = reg_stack(sp - 2)
+                rc = reg_stack(sp - 1)
+                insns.append((BMVM_OP[bm_op], ra, rb, rc, 0))
+            elif op in ("ASET", "ASETF"):
+                bm_op = "SETF" if op == "ASETF" else "SETI"
+                insns.append((BMVM_OP[bm_op], reg_stack(sp - 3), reg_stack(sp - 2), reg_stack(sp - 1), 0))
             elif op == "JMP":
                 insns.append((BMVM_OP["JMP"], 0, 0, 0, ins.arg))
             elif op == "JZ":
@@ -1472,8 +1979,23 @@ class BMVMCompiler:
             elif op == "RET0":
                 insns.append((BMVM_OP["RET0"], 0, 0, 0, 0))
 
-        pt_bytes = bytes(0 for _ in range(nparams)) + bytes(16 - nparams)
-        ret_code = 4 if fn.ret_type is None else 0
+        def bmvm_ptype(pt: str) -> int:
+            if pt == "f32":
+                return 1  # BMVM_F64
+            if pt == "f32[]":
+                return 3  # BMVM_ARR_F64
+            if pt in ("i32[]", "bool[]"):
+                return 2  # BMVM_ARR_I32
+            if pt in self.mod.structs:
+                st = self.mod.structs[pt]
+                if all(f.typ == "f32" for f in st.fields):
+                    return 3  # BMVM_ARR_F64
+                return 2  # BMVM_ARR_I32
+            return 0  # BMVM_I32
+
+        pt_list = [bmvm_ptype(pt) for pt in fn.param_types] + [0] * (16 - nparams)
+        pt_bytes = bytes(pt_list[:16])
+        ret_code = 4 if fn.ret_type is None else (1 if fn.ret_type == "f32" else 0)
         self.fns_meta.append((fn.name, nparams, nregs, ret_code, nconst, pt_bytes, insns, kfirst))
 
 
@@ -1658,6 +2180,55 @@ class ARMv6Assembler:
         w = (cond << 28) | (0b01010000 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | off
         return self.emit_word(w, comment)
 
+    # -- VFPv2 single-precision (coprocessor 10) instructions for ARM1176JZF-S --
+    def vmov_s0_r(self, rt: int, comment: str = "") -> int:
+        return self.emit_word(0xEE000A10 | ((rt & 0xF) << 12), comment or f"vmov s0, r{rt}")
+
+    def vmov_s1_r(self, rt: int, comment: str = "") -> int:
+        return self.emit_word(0xEE000A90 | ((rt & 0xF) << 12), comment or f"vmov s1, r{rt}")
+
+    def vmov_r_s0(self, rt: int, comment: str = "") -> int:
+        return self.emit_word(0xEE100A10 | ((rt & 0xF) << 12), comment or f"vmov r{rt}, s0")
+
+    def vmov_r_s2(self, rt: int, comment: str = "") -> int:
+        return self.emit_word(0xEE110A10 | ((rt & 0xF) << 12), comment or f"vmov r{rt}, s2")
+
+    def vadd_f32(self, comment: str = "vadd.f32 s0, s0, s1") -> int:
+        return self.emit_word(0xEE300A20, comment)
+
+    def vsub_f32(self, comment: str = "vsub.f32 s0, s0, s1") -> int:
+        return self.emit_word(0xEE300A60, comment)
+
+    def vmul_f32(self, comment: str = "vmul.f32 s0, s0, s1") -> int:
+        return self.emit_word(0xEE200A20, comment)
+
+    def vdiv_f32(self, comment: str = "vdiv.f32 s0, s0, s1") -> int:
+        return self.emit_word(0xEE800A20, comment)
+
+    def vneg_f32(self, comment: str = "vneg.f32 s0, s0") -> int:
+        return self.emit_word(0xEEB10A40, comment)
+
+    def vabs_f32(self, comment: str = "vabs.f32 s0, s0") -> int:
+        return self.emit_word(0xEEB00AC0, comment)
+
+    def vsqrt_f32(self, comment: str = "vsqrt.f32 s0, s0") -> int:
+        return self.emit_word(0xEEB10AC0, comment)
+
+    def vcmp_f32(self, comment: str = "vcmp.f32 s0, s1") -> int:
+        return self.emit_word(0xEEB40A60, comment)
+
+    def vmrs_apsr(self, comment: str = "vmrs APSR_nzcv, fpscr") -> int:
+        return self.emit_word(0xEEF1FA10, comment)
+
+    def vcvt_f32_s32_s0(self, comment: str = "vcvt.f32.s32 s0, s0") -> int:
+        return self.emit_word(0xEEB80AC0, comment)
+
+    def vcvt_s32_f32_s2_s0(self, comment: str = "vcvt.s32.f32 s2, s0") -> int:
+        return self.emit_word(0xEEBD1AC0, comment)
+
+    def vcvt_f32_s32_s2(self, comment: str = "vcvt.f32.s32 s2, s2") -> int:
+        return self.emit_word(0xEEB81AC1, comment)
+
     def push(self, regmask: int, cond: int = COND_AL, comment: str = "") -> int:
         w = (cond << 28) | 0x092D0000 | (regmask & 0xFFFF)
         return self.emit_word(w, comment)
@@ -1815,7 +2386,7 @@ class ARMv6Compiler:
     def _compile_general_fn(self, fn: CompiledFunc) -> None:
         """Compiles a general function using r4..r10 for the first 7 slots and [fp, #-off] for spills."""
         a = self.asm
-        depths, max_sp = compute_stack_depths(fn.code)
+        depths, max_sp = compute_stack_depths(fn.code, self.mod.funcs)
         total_slots = fn.nlocals + max_sp + 1
         spill_slots = max(0, total_slots - 7)
         # Keep stack 8-byte aligned: push {r4-r10, fp, lr} pushes 9 registers (36 bytes),
@@ -1872,6 +2443,12 @@ class ARMv6Compiler:
                 val = self.mod.consts[ins.arg]
                 dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
                 a.mov32(dst, val)
+                put_slot(s_slot(sp), dst)
+            elif op == "PUSH_FCONST":
+                fval = self.mod.fconsts[ins.arg]
+                bits = f32_to_bits(fval)
+                dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
+                a.mov32(dst, bits, comment=f"f32 {fval}")
                 put_slot(s_slot(sp), dst)
             elif op == "PUSH_TRUE":
                 dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
@@ -1958,6 +2535,92 @@ class ARMv6Compiler:
                 a.dp_imm(DP_MOV, dst, 0, 0)
                 a.dp_imm(DP_MOV, dst, 0, 1, cond=cond_true)
                 put_slot(s_slot(sp - 2), dst)
+            elif op in ("FADD", "FSUB", "FMUL", "FDIV"):
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                a.vmov_s0_r(ra)
+                a.vmov_s1_r(rb)
+                if op == "FADD":
+                    a.vadd_f32()
+                elif op == "FSUB":
+                    a.vsub_f32()
+                elif op == "FMUL":
+                    a.vmul_f32()
+                else:
+                    a.vdiv_f32()
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                a.vmov_r_s0(dst)
+                put_slot(s_slot(sp - 2), dst)
+            elif op in ("FNEG", "FABS", "FSQRT", "I2F"):
+                r = get_slot(s_slot(sp - 1), 0)
+                a.vmov_s0_r(r)
+                if op == "FNEG":
+                    a.vneg_f32()
+                elif op == "FABS":
+                    a.vabs_f32()
+                elif op == "FSQRT":
+                    a.vsqrt_f32()
+                else:
+                    a.vcvt_f32_s32_s0()
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.vmov_r_s0(dst)
+                put_slot(s_slot(sp - 1), dst)
+            elif op == "FLOOR":
+                r = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.vmov_s0_r(r)
+                a.vcvt_s32_f32_s2_s0()
+                a.vmov_r_s2(dst)
+                a.vcvt_f32_s32_s2()
+                a.vmov_r_s2(12)
+                a.vmov_s1_r(12)
+                a.vcmp_f32()
+                a.vmrs_apsr()
+                a.dp_imm(DP_SUB, dst, dst, 1, cond=COND_MI, comment="floor adjust if x < trunc(x)")
+                put_slot(s_slot(sp - 1), dst)
+            elif op in ("FMIN", "FMAX"):
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                a.vmov_s0_r(ra)
+                a.vmov_s1_r(rb)
+                a.vcmp_f32()
+                a.vmrs_apsr()
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                if dst != ra:
+                    a.mov_reg(dst, ra)
+                cond_pick_b = COND_GT if op == "FMIN" else COND_LT
+                a.mov_reg(dst, rb, cond=cond_pick_b)
+                put_slot(s_slot(sp - 2), dst)
+            elif op in ("FEQ", "FNE", "FLT", "FLE", "FGT", "FGE"):
+                ra = get_slot(s_slot(sp - 2), 0)
+                rb = get_slot(s_slot(sp - 1), 1)
+                a.vmov_s0_r(ra)
+                a.vmov_s1_r(rb)
+                a.vcmp_f32()
+                a.vmrs_apsr()
+                cond_true = {
+                    "FEQ": COND_EQ, "FNE": COND_NE, "FLT": COND_LT,
+                    "FLE": COND_LE, "FGT": COND_GT, "FGE": COND_GE,
+                }[op]
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                a.dp_imm(DP_MOV, dst, 0, 0)
+                a.dp_imm(DP_MOV, dst, 0, 1, cond=cond_true)
+                put_slot(s_slot(sp - 2), dst)
+            elif op in ("AGET", "AGETF"):
+                r_base = get_slot(s_slot(sp - 2), 0)
+                r_idx = get_slot(s_slot(sp - 1), 1)
+                a.dp_imm(DP_SUB, 12, r_idx, 1, comment="idx - 1 (0-based)")
+                a.dp_reg(DP_ADD, 12, r_base, 12, shift_type=0, shift_imm=2, comment="base + (idx - 1) * 4")
+                dst = 4 + s_slot(sp - 2) if s_slot(sp - 2) < 7 else 0
+                a.ldr(dst, 12, 0)
+                put_slot(s_slot(sp - 2), dst)
+            elif op in ("ASET", "ASETF"):
+                r_base = get_slot(s_slot(sp - 3), 0)
+                r_idx = get_slot(s_slot(sp - 2), 1)
+                r_val = get_slot(s_slot(sp - 1), 2)
+                a.dp_imm(DP_SUB, 12, r_idx, 1, comment="idx - 1 (0-based)")
+                a.dp_reg(DP_ADD, 12, r_base, 12, shift_type=0, shift_imm=2, comment="base + (idx - 1) * 4")
+                a.str_w(r_val, 12, 0)
             elif op == "JMP":
                 a.b(f"L_{fn.name}_{ins.arg}")
             elif op in ("JZ", "JF_KEEP"):
@@ -2011,38 +2674,86 @@ def compile_armv6(src: str, leaf_opt: bool = True) -> ARMv6Module:
     return ARMv6Compiler(prog, mod, leaf_opt=leaf_opt).compile()
 
 
-# Stage 5: Native ARMv6 Container Format (BMN1) for native_load / native_run
+# Stage 5 & 6: Native ARMv6 Container Format (BMN1) for native_load / native_run
 BMN_MAGIC = 0x314E4D42  # "BMN1"
 BMN_NONE = 0
 BMN_I32 = 1
 BMN_BOOL = 2
+BMN_F32 = 3
+BMN_ARR_I32 = 4
+BMN_ARR_BOOL = 5
+BMN_ARR_F32 = 6
+BMN_STRUCT_BASE = 0x80
 
 
 def compile_native_blob(src: str, leaf_opt: bool = True) -> bytes:
-    """Compiles BML source code into a Stage 5 BMN1 binary container for native_load()."""
+    """Compiles BML source code into a BMN1 binary container for native_load()."""
     prog = parse_and_check(src)
     mod = BytecodeCompiler(prog).compile()
     arm_mod = ARMv6Compiler(prog, mod, leaf_opt=leaf_opt).compile()
 
     nfn = len(mod.funcs)
+    nstruct = len(prog.structs)
     ncode = len(arm_mod.words)
     if nfn < 1 or nfn > 512:
         raise Error(f"native module has {nfn} functions (1..512 allowed)")
+    if nstruct > 64:
+        raise Error(f"native module has {nstruct} structs (0..64 allowed)")
     if ncode < 1 or ncode > 65536:
         raise Error(f"native module has {ncode} words (1..65536 allowed)")
 
-    out = bytearray(struct.pack("<III", BMN_MAGIC, nfn, ncode))
+    struct_idx_map = {st.name: idx for idx, st in enumerate(prog.structs)}
+
+    def encode_bmn_type(t: Optional[str]) -> int:
+        if t is None:
+            return BMN_NONE
+        if t == "i32":
+            return BMN_I32
+        if t == "bool":
+            return BMN_BOOL
+        if t == "f32":
+            return BMN_F32
+        if t == "i32[]":
+            return BMN_ARR_I32
+        if t == "bool[]":
+            return BMN_ARR_BOOL
+        if t == "f32[]":
+            return BMN_ARR_F32
+        if t in struct_idx_map:
+            return BMN_STRUCT_BASE | struct_idx_map[t]
+        raise Error(f"unsupported BMN1 type '{t}'")
+
+    nfn_packed = (nstruct << 16) | nfn
+    out = bytearray(struct.pack("<III", BMN_MAGIC, nfn_packed, ncode))
     for fn in mod.funcs:
         name_b = fn.name.encode("ascii")[:31]
         name_padded = name_b + b"\x00" * (32 - len(name_b))
-        ret_code = BMN_NONE if fn.ret_type is None else (BMN_BOOL if fn.ret_type == "bool" else BMN_I32)
+        ret_code = encode_bmn_type(fn.ret_type)
         ptypes = [0] * 16
         for i, pt in enumerate(fn.param_types):
-            ptypes[i] = BMN_BOOL if pt == "bool" else BMN_I32
+            ptypes[i] = encode_bmn_type(pt)
         word_off = arm_mod.func_offsets[fn.name] // 4
         out.extend(struct.pack("<32sBBH16BI", name_padded, fn.nparams, ret_code, 0, *ptypes, word_off))
 
     out.extend(struct.pack(f"<{ncode}I", *arm_mod.words))
+
+    for st in prog.structs:
+        if len(st.fields) > 16:
+            raise Error(f"struct '{st.name}' has {len(st.fields)} fields (max 16)")
+        sname_b = st.name.encode("ascii")[:31]
+        sname_padded = sname_b + b"\x00" * (32 - len(sname_b))
+        ftypes = [0] * 16
+        fnames = bytearray()
+        for i in range(16):
+            if i < len(st.fields):
+                ftypes[i] = encode_bmn_type(st.fields[i].typ)
+                fb = st.fields[i].name.encode("ascii")[:15]
+                fnames.extend(fb + b"\x00" * (16 - len(fb)))
+            else:
+                fnames.extend(b"\x00" * 16)
+        out.extend(struct.pack("<32sI16B", sname_padded, len(st.fields), *ftypes))
+        out.extend(fnames)
+
     return bytes(out)
 
 

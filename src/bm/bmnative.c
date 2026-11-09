@@ -1,4 +1,4 @@
-/* Native ARMv6 A32 loader and runner for the language of bm (Stage 5). */
+/* Native ARMv6 A32 loader and runner for the language of bm (Stages 5 and 6). */
 #include "bmnative.h"
 
 #include <stdlib.h>
@@ -6,6 +6,10 @@
 
 #if defined(__arm__) && !defined(__linux__)
 #include "arch/cache.h"
+#endif
+
+#if !defined(__arm__)
+#include <math.h>
 #endif
 
 static uint32_t rd_u32(const uint8_t *p)
@@ -41,6 +45,7 @@ void bmnative_free(bmnative_mod *m)
     if (!m)
         return;
     free(m->fn);
+    free(m->structs);
     free(m->code_Alloc);
     free(m);
 }
@@ -56,11 +61,18 @@ static int check_armv6_words(const uint32_t *code, uint32_t ncode, const char **
             *why = "unconditional extension instruction not allowed";
             return BMN_ERR_BAD;
         }
-        /* Reject SVC/SWI (0b1111 in bits 27..24) and coprocessor instructions (0b110x / 0b1110). */
+        /* Reject SVC/SWI (0b1111 in bits 27..24); allow only coprocessor 10 (VFPv2 single-precision). */
         const uint32_t top4 = (w >> 24) & 0xFu;
-        if (top4 >= 0xCu) {
-            *why = "coprocessor or supervisor call instruction not allowed";
+        if (top4 == 0xFu) {
+            *why = "supervisor call instruction not allowed";
             return BMN_ERR_BAD;
+        }
+        if (top4 >= 0xCu) {
+            const uint32_t cp = (w >> 8) & 0xFu;
+            if (top4 != 0xEu || cp != 10u) {
+                *why = "coprocessor instruction not allowed";
+                return BMN_ERR_BAD;
+            }
         }
         /* Reject BKPT (0xE1200070 mask). */
         if ((w & 0x0FF000F0u) == 0x01200070u) {
@@ -80,6 +92,15 @@ static int check_armv6_words(const uint32_t *code, uint32_t ncode, const char **
         }
     }
     return BMN_OK;
+}
+
+static int valid_ptype(uint8_t pt, uint32_t nstruct)
+{
+    if (pt >= BMN_I32 && pt <= BMN_ARR_F32)
+        return 1;
+    if ((pt & BMN_STRUCT_BASE) && (uint32_t)(pt & 0x7Fu) < nstruct)
+        return 1;
+    return 0;
 }
 
 int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const char **why)
@@ -103,23 +124,36 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
     if (first_word == BMN_MAGIC) {
         if (len < 12)
             FAIL("truncated BMN1 header");
-        const uint32_t nfn = rd_u32(blob + 4);
+        const uint32_t nfn_packed = rd_u32(blob + 4);
+        const uint32_t nfn = nfn_packed & 0xFFFFu;
+        const uint32_t nstruct = (nfn_packed >> 16) & 0xFFFFu;
         const uint32_t ncode = rd_u32(blob + 8);
         if (nfn < 1 || nfn > BMN_MAX_FN)
             FAIL("bad function count");
+        if (nstruct > BMN_MAX_STRUCT)
+            FAIL("bad struct count");
         if (ncode < 1 || ncode > BMN_MAX_CODE)
             FAIL("bad code word count");
-        const size_t expected_len = 12u + (size_t)nfn * 56u + (size_t)ncode * 4u;
+        const size_t expected_len = 12u + (size_t)nfn * 56u + (size_t)ncode * 4u + (size_t)nstruct * 308u;
         if (len != expected_len)
             FAIL("BMN1 blob size mismatch");
 
         m->nfn = (int)nfn;
+        m->nstruct = (int)nstruct;
         m->ncode = ncode;
         m->fn = calloc(nfn, sizeof *m->fn);
         if (!m->fn) {
             bmnative_free(m);
             *why = "out of memory";
             return BMN_ERR_OOM;
+        }
+        if (nstruct > 0) {
+            m->structs = calloc(nstruct, sizeof *m->structs);
+            if (!m->structs) {
+                bmnative_free(m);
+                *why = "out of memory";
+                return BMN_ERR_OOM;
+            }
         }
 
         const uint8_t *p = blob + 12;
@@ -131,11 +165,11 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
             f->ret = p[33];
             if (f->nparams > BMN_MAX_ARGS)
                 FAIL("too many parameters");
-            if (f->ret > BMN_BOOL)
+            if (f->ret > BMN_F32)
                 FAIL("invalid return type");
             memcpy(f->ptype, p + 36, BMN_MAX_ARGS);
             for (int j = 0; j < f->nparams; j++) {
-                if (f->ptype[j] != BMN_I32 && f->ptype[j] != BMN_BOOL)
+                if (!valid_ptype(f->ptype[j], nstruct))
                     FAIL("invalid parameter type");
             }
             f->word_off = rd_u32(p + 52);
@@ -143,6 +177,22 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
                 FAIL("function entry offset out of range");
         }
         code_ptr = p;
+        const uint8_t *sp_ptr = code_ptr + (size_t)ncode * 4u;
+        for (uint32_t i = 0; i < nstruct; i++, sp_ptr += 308) {
+            bmnative_struct *st = &m->structs[i];
+            memcpy(st->name, sp_ptr, 31);
+            st->name[31] = '\0';
+            st->nfields = rd_u32(sp_ptr + 32);
+            if (st->nfields < 1 || st->nfields > BMN_MAX_FIELDS)
+                FAIL("invalid struct field count");
+            memcpy(st->ftype, sp_ptr + 36, BMN_MAX_FIELDS);
+            for (uint32_t k = 0; k < st->nfields; k++) {
+                if (st->ftype[k] < BMN_I32 || st->ftype[k] > BMN_F32)
+                    FAIL("invalid struct field type");
+                memcpy(st->fname[k], sp_ptr + 52 + k * 16u, 15);
+                st->fname[k][15] = '\0';
+            }
+        }
     } else {
         /* Raw 32-bit ARMv6 A32 word blob (e.g. tools/bml/bml.py --armv6). */
         if ((len & 3u) != 0)
@@ -235,8 +285,22 @@ static int eval_cond(uint32_t cond, int n, int z, int c, int v)
     }
 }
 
+static float u32_to_f32(uint32_t u)
+{
+    float f;
+    memcpy(&f, &u, 4);
+    return f;
+}
+
+static uint32_t f32_to_u32(float f)
+{
+    uint32_t u;
+    memcpy(&u, &f, 4);
+    return u;
+}
+
 /* Executes the ARMv6 A32 machine words in m->code on non-ARM hosts (e.g. x86_64 bmhost-bin). */
-static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int32_t *a, int32_t *ret)
+static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int32_t *a, const bmnative_buf *bufs, int32_t *ret)
 {
     enum { STACK_WORDS = 8192 };
     uint32_t stack[STACK_WORDS];
@@ -248,6 +312,9 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
     r[1] = (uint32_t)a[1];
     r[2] = (uint32_t)a[2];
     r[3] = (uint32_t)a[3];
+
+    float s[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    int vfp_n = 0, vfp_z = 0, vfp_c = 0, vfp_v = 0;
 
     /* Place stack arguments a[4..15] at the top of the virtual stack. */
     uint32_t sp_base = (STACK_WORDS - 32) * 4u;
@@ -334,13 +401,76 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
             const uint32_t imm12 = w & 0xFFFu;
             const uint32_t base = (rn == 15u) ? (curr_pc + 8u) : r[rn];
             const uint32_t addr = u_bit ? (base + imm12) : (base - imm12);
-            if ((addr & 3u) != 0 || (addr >> 2) >= STACK_WORDS)
+            if ((addr & 3u) != 0)
                 return BMN_ERR_TRAP;
-            if (is_ldr)
-                r[rd] = stack[addr >> 2];
-            else
-                stack[addr >> 2] = r[rd];
+            const uint32_t seg = addr >> 24;
+            if (seg == 0u) {
+                if ((addr >> 2) >= STACK_WORDS)
+                    return BMN_ERR_TRAP;
+                if (is_ldr)
+                    r[rd] = stack[addr >> 2];
+                else
+                    stack[addr >> 2] = r[rd];
+            } else if (seg >= 1u && seg <= BMN_MAX_ARGS && bufs && bufs[seg - 1u].data) {
+                const uint32_t w_off = (addr & 0x00FFFFFFu) >> 2;
+                if (w_off >= bufs[seg - 1u].nwords)
+                    return BMN_ERR_TRAP;
+                if (is_ldr)
+                    r[rd] = bufs[seg - 1u].data[w_off];
+                else
+                    bufs[seg - 1u].data[w_off] = r[rd];
+            } else {
+                return BMN_ERR_TRAP;
+            }
             continue;
+        }
+
+        /* 5b. VFPv2 single-precision coprocessor 10 instructions (top4 == 0xE, cp == 10) */
+        if (((w >> 24) & 0xFu) == 0xEu && ((w >> 8) & 0xFu) == 10u) {
+            const uint32_t op_mask = w & 0x0FFFFFFFu;
+            const uint32_t rt_mask = w & 0x0FFF0FFFu;
+            const uint32_t rt = (w >> 12) & 0xFu;
+            if (rt_mask == 0x0E000A10u) {
+                s[0] = u32_to_f32(r[rt]);
+                continue;
+            }
+            if (rt_mask == 0x0E000A90u) {
+                s[1] = u32_to_f32(r[rt]);
+                continue;
+            }
+            if (rt_mask == 0x0E100A10u) {
+                r[rt] = f32_to_u32(s[0]);
+                continue;
+            }
+            if (rt_mask == 0x0E110A10u) {
+                r[rt] = f32_to_u32(s[2]);
+                continue;
+            }
+            if (op_mask == 0x0E300A20u) { s[0] = s[0] + s[1]; continue; }
+            if (op_mask == 0x0E300A60u) { s[0] = s[0] - s[1]; continue; }
+            if (op_mask == 0x0E200A20u) { s[0] = s[0] * s[1]; continue; }
+            if (op_mask == 0x0E800A20u) { s[0] = (s[1] != 0.0f) ? (s[0] / s[1]) : 0.0f; continue; }
+            if (op_mask == 0x0EB10A40u) { s[0] = -s[0]; continue; }
+            if (op_mask == 0x0EB00AC0u) { s[0] = fabsf(s[0]); continue; }
+            if (op_mask == 0x0EB10AC0u) { s[0] = sqrtf(s[0]); continue; }
+            if (op_mask == 0x0EB80AC0u) { s[0] = (float)(int32_t)f32_to_u32(s[0]); continue; }
+            if (op_mask == 0x0EBD1AC0u) { s[2] = u32_to_f32((uint32_t)(int32_t)s[0]); continue; }
+            if (op_mask == 0x0EB81AC1u) { s[2] = (float)(int32_t)f32_to_u32(s[2]); continue; }
+            if (op_mask == 0x0EB40A60u) {
+                vfp_n = (s[0] < s[1]);
+                vfp_z = (s[0] == s[1]);
+                vfp_c = (s[0] >= s[1]);
+                vfp_v = 0;
+                continue;
+            }
+            if (op_mask == 0x0EF1FA10u) {
+                flag_n = vfp_n;
+                flag_z = vfp_z;
+                flag_c = vfp_c;
+                flag_v = vfp_v;
+                continue;
+            }
+            return BMN_ERR_TRAP;
         }
 
         /* 6. MUL Rd, Rm, Rs (bits 27..21 == 0, bits 7..4 == 0b1001) */
@@ -476,7 +606,7 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
 }
 #endif
 
-int bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs, int32_t *ret)
+int bmnative_call_buf(const bmnative_mod *m, int fn, const int32_t *args, const bmnative_buf *bufs, int nargs, int32_t *ret)
 {
     if (!m || fn < 0 || fn >= m->nfn || !ret)
         return BMN_ERR_ARGS;
@@ -490,8 +620,17 @@ int bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs,
 
     int32_t a[BMN_MAX_ARGS];
     memset(a, 0, sizeof a);
-    for (int i = 0; i < nargs; i++)
-        a[i] = args[i];
+    for (int i = 0; i < nargs; i++) {
+        if (bufs && bufs[i].data) {
+#if defined(__arm__)
+            a[i] = (int32_t)(uintptr_t)bufs[i].data;
+#else
+            a[i] = (int32_t)((uint32_t)(i + 1) << 24);
+#endif
+        } else {
+            a[i] = args ? args[i] : 0;
+        }
+    }
 
 #if defined(__arm__)
     bmnative_cfunc_t fp = (bmnative_cfunc_t)(uintptr_t)(&m->code[f->word_off]);
@@ -502,6 +641,11 @@ int bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs,
         a[12], a[13], a[14], a[15]);
     return BMN_OK;
 #else
-    return sim_armv6_call(m, f->word_off, a, ret);
+    return sim_armv6_call(m, f->word_off, a, bufs, ret);
 #endif
+}
+
+int bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs, int32_t *ret)
+{
+    return bmnative_call_buf(m, fn, args, NULL, nargs, ret);
 }

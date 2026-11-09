@@ -69,8 +69,8 @@ Stages. Each stage ends with a test that compares the result with the Lua result
 3. **VM of the kernel (done).** `BMVMCompiler` (`--bmvm`) lowers the checked IR to a `BMV1` register module for `src/bm/bmvm.c` (`vm_load`, `vm_run`). Tested on `sum`, `features`, and 200 random programs in C against Lua.
 4. **Back end ARMv6 (done).** `ARMv6Assembler` and `ARMv6Compiler` (`--armv6`, `--dump-armv6`) emit 32-bit A32 words (AAPCS: `r0`-`r3` args, `r0` result, `r4`-`r10` register allocator + `[fp, #-off]` spills, `__bml_idivmod` helper, and the exact 9-word leaf encoding for `sum`). Tested on `qemu-system-arm -cpu arm1176`: all 1,559 calls (`sum`, `features`, 200 random programs) match Lua.
 5. **Load on the Pi (done).** `compile_native_blob` (`--native`) packs the `BMN1` module (`0x314E4D42`). `src/bm/bmnative.c` and `src/bm/api_vm.c` expose `native_load`, `native_fn`, and `native_run`: `bmnative_load` validates the A32 words, copies them into 32-byte-aligned executable RAM, cleans the D-cache (`dcache_clean_range`), and invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch target cache (`c7, c5, 6`) + `DSB`/`ISB`. Verified in Lua (`native_load`/`native_run`) and on bare-metal ARM1176 QEMU (including self-modifying cache flush test).
-6. **Types and memory (next).** Arrays, then structs. Decide the overflow of `i32` first: C wraps at 32 bit, Lua at 64 bit (`StackVM` supports `--wrap32`). Then `f32` with the VFP of the ARM1176.
-7. **Standard functions and bm.** A table of kernel functions (`spr`, `rectfill`, `btn`, math) that the native code calls. Strings and tables stay out until this works.
+6. **Types and memory (done).** `i32` wraps at 32-bit two's complement across `StackVM`, `bmvm`, C, and ARMv6. Added 1-based arrays (`i32[]`, `bool[]`, `f32[]`), `struct Name ... end` (`s.field`), and `f32` single-precision floats (`sqrt`, `f32`, `floor`, VFPv2 coprocessor 10 instructions `vadd.f32`/`vmul.f32`/`vsqrt.f32`/`vcmp.f32`/`vcvt`). Tested in `tests/bml/types_mem.b` across Lua, `StackVM`, `bmvm`, `native_run` (Lua tables and `vm_buf`), and bare-metal ARM1176 VFPv2 QEMU.
+7. **Standard functions and bm (next).** A table of kernel functions (`spr`, `rectfill`, `btn`, math) that the native code calls. Strings and tables stay out until this works.
 8. **Games.** Write the movement of the enemies of Dark Night in the language. Measure on the Pi.
 9. **On the console.** Run the compiler on the Pi itself (a large project, last).
 
@@ -88,7 +88,7 @@ The ARMv6 words that stage 4 must write for it (verified with `arm-none-eabi-obj
 
 ## Open work
 
-Stages 1 through 5 of `tools/bml/bml.py` are complete (`make test-bml`); stage 6 (arrays, structs, `i32` overflow rule, `f32` VFP) and stage 7 (kernel function table) are next. For `scripts/bmt.py`, the Lua output stays the reference and `make test-typed` compares it with the C.
+Stages 1 through 6 of `tools/bml/bml.py` are complete (`make test-bml`); stage 7 (kernel function table), stage 8 (Dark Night enemy separation), and stage 9 (on-console compiler) are next. For `scripts/bmt.py`, the Lua output stays the reference and `make test-typed` compares it with the C.
 
 1. Done: `blocked` of Yharnam is made by `bmt.py` (`tests/typed/yblocked.bmt`): 50.5 to 53.5 fps on the Pi, the same as the hand-written C. The kernel now has the general form (`tests/typed/collmap.bmt`, `src/bm/typed_collmap_gen.h`). The subset has `//`, `%`, `floor`, `min`, `max` and calls between typed functions. Next: structs, and a table of the cols that the game fills once (today `typed_ysync` copies a chunk each time).
 2. `draw_scene` of Yharnam: the cull in C gave nothing (53.1 against 53.5 fps), and its cost is spread over the sort comparator, the cull, the building tiles and the draw calls (design document, section 3). Do not port a part of it. Options: the whole draw of the objects in C, or a cheaper sort (the comparator is 7.3% of the Lua instructions).

@@ -26,7 +26,8 @@ BUILD = sys.argv[2]
 os.makedirs(BUILD, exist_ok=True)
 
 LUA_PRELUDE = """\
-local abs, min, max = math.abs, math.min, math.max
+local abs, min, max, floor, sqrt = math.abs, math.min, math.max, math.floor, math.sqrt
+local function f32(x) return x + 0.0 end
 """
 
 failed = 0
@@ -42,8 +43,8 @@ def fail(msg: str) -> None:
 BAD_PROGRAMS = [
     ("unexpected character",
      "function f(n: i32): i32\n  local x = 1\n  return x @ 2\nend\n", "line 3"),
-    ("floating-point literal in stage 1",
-     "function f(n: i32): i32\n  local x = 1.5\n  return x\nend\n", "line 2"),
+    ("narrowing f32 literal to i32",
+     "function f(n: i32): i32\n  local x: i32 = 1.5\n  return x\nend\n", "line 2"),
     ("unknown type in parameter",
      "function f(n: str): i32\n  return 0\nend\n", "line 1"),
     ("duplicate parameter name",
@@ -78,7 +79,7 @@ BAD_PROGRAMS = [
      "function f(b: bool): i32\n  return b + 1\nend\n", "line 2"),
     ("logical 'and' on i32",
      "function f(a: i32, b: i32): bool\n  return a and b\nend\n", "line 2"),
-    ("float division '/' in stage 1",
+    ("float division '/' on i32",
      "function f(a: i32, b: i32): i32\n  return a / b\nend\n", "line 2"),
     ("call to undefined function",
      "function f(a: i32): i32\n  return unknown_fn(a)\nend\n", "line 2"),
@@ -86,6 +87,16 @@ BAD_PROGRAMS = [
      "function g(x: i32): i32\n  return x\nend\nfunction f(a: i32): i32\n  return g(a, 2)\nend\n", "line 5"),
     ("call with wrong argument type",
      "function g(x: i32): i32\n  return x\nend\nfunction f(a: i32): i32\n  return g(a > 0)\nend\n", "line 5"),
+    ("indexing a scalar variable",
+     "function f(a: i32): i32\n  return a[1]\nend\n", "line 2"),
+    ("non-i32 array index",
+     "function f(arr: i32[], b: bool): i32\n  return arr[b]\nend\n", "line 2"),
+    ("unknown struct field",
+     "struct S\n  x: i32\nend\nfunction f(s: S): i32\n  return s.y\nend\n", "line 5"),
+    ("wrong type assigned to struct field",
+     "struct S\n  x: i32\nend\nfunction f(s: S)\n  s.x = true\nend\n", "line 5"),
+    ("mixing i32 and f32 in '+'",
+     "function f(a: i32, b: f32): f32\n  return a + b\nend\n", "line 2"),
 ]
 
 for desc, bad_src, expected_line in BAD_PROGRAMS:
@@ -629,6 +640,10 @@ NATIVE_LUAHOST_C = """\
 
 int l_vm_load(lua_State *L);
 int l_vm_fn(lua_State *L);
+int l_vm_buf(lua_State *L);
+int l_vm_buf_get(lua_State *L);
+int l_vm_buf_fill(lua_State *L);
+int l_vm_bind(lua_State *L);
 int l_vm_run(lua_State *L);
 int l_native_load(lua_State *L);
 int l_native_fn(lua_State *L);
@@ -641,6 +656,10 @@ int main(int argc, char **argv)
     luaL_openlibs(L);
     lua_register(L, "vm_load", l_vm_load);
     lua_register(L, "vm_fn", l_vm_fn);
+    lua_register(L, "vm_buf", l_vm_buf);
+    lua_register(L, "vm_buf_get", l_vm_buf_get);
+    lua_register(L, "vm_buf_fill", l_vm_buf_fill);
+    lua_register(L, "vm_bind", l_vm_bind);
     lua_register(L, "vm_run", l_vm_run);
     lua_register(L, "native_load", l_native_load);
     lua_register(L, "native_fn", l_native_fn);
@@ -893,10 +912,370 @@ void _start(void)
     if qemu_s5_out != expected_s5_qemu:
         fail(f"Stage 5 ARM1176 bmnative_load+cache QEMU output differs ({len(qemu_s5_out)} vs {len(expected_s5_qemu)})")
 
+# ---------------------------------------------------------------- 8. Stage 6: i32 overflow, arrays, structs, and f32 VFPv2
+tm_path = os.path.join(HERE, "types_mem.b")
+with open(tm_path, encoding="utf-8") as f:
+    tm_src = f.read()
+
+tm_mod = bml.compile_source(tm_src)
+tm_vm = bml.StackVM(tm_mod)
+tm_bmv_path = os.path.join(BUILD, "types_mem.bmv")
+tm_bmn_path = os.path.join(BUILD, "types_mem.bmn")
+tm_bmn_bytes = bml.compile_native_blob(tm_src)
+open(tm_bmv_path, "wb").write(bml.compile_bmvm(tm_src))
+open(tm_bmn_path, "wb").write(tm_bmn_bytes)
+
+# 8a. StackVM checks (including 32-bit two's complement wraparound)
+vm_s6_out = []
+vm_s6_out.append(str(tm_vm.call("wrap_add", [2147483647, 1])))
+vm_s6_out.append(str(tm_vm.call("wrap_add", [-2147483648, -1])))
+vm_s6_out.append(str(tm_vm.call("wrap_mul", [100000, 100000])))
+
+arr_i = [3, -2, 7, 10, -5]
+vm_s6_out.append(str(tm_vm.call("array_sum_scale", [arr_i, 5, 3])))
+vm_s6_out.extend(str(x) for x in arr_i)
+
+arr_b = [True, False, True, True, False, False]
+vm_s6_out.append(str(tm_vm.call("count_true", [arr_b, 6])))
+vm_s6_out.extend("true" if x else "false" for x in arr_b)
+
+body = {"x": 10, "y": -15, "vx": 7, "vy": -9}
+vm_s6_out.append(str(tm_vm.call("step_body", [body, 12, 25])))
+vm_s6_out.extend(str(body[k]) for k in ("x", "y", "vx", "vy"))
+
+vm_s6_out.append(str(tm_vm.call("f32_poly", [3.0, 4.0])))
+vm_s6_out.append(str(tm_vm.call("f32_poly", [0.0, 0.5])))
+vm_s6_out.append("true" if tm_vm.call("f32_cmp", [-2.5, 1.25]) else "false")
+vm_s6_out.append("true" if tm_vm.call("f32_cmp", [3.0, 1.0]) else "false")
+
+xs_f = [1.5, -2.0, 4.0, 0.5]
+ys_f = [2.0, 3.0, -0.5, 6.0]
+vm_s6_out.append(str(tm_vm.call("dot_scale_f32", [xs_f, ys_f, 4])))
+vm_s6_out.extend(str(int(round(x * 100))) for x in xs_f)
+
+vec_f = {"x": 1.5, "y": -2.0}
+vm_s6_out.append(str(tm_vm.call("step_vec2f", [vec_f, 1.5, 6.0])))
+vm_s6_out.append(str(int(round(vec_f["x"] * 100))))
+vm_s6_out.append(str(int(round(vec_f["y"] * 100))))
+
+# 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
+s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
+with open(s6_lua_ref_path, "w", encoding="utf-8") as f:
+    f.write(LUA_PRELUDE)
+    f.write(bml.to_lua(tm_src))
+    f.write("""
+local function i32_wrap(x)
+  local u = x & 0xFFFFFFFF
+  if u >= 0x80000000 then return u - 0x100000000 end
+  return u
+end
+print(i32_wrap(wrap_add(2147483647, 1)))
+print(i32_wrap(wrap_add(-2147483648, -1)))
+print(i32_wrap(wrap_mul(100000, 100000)))
+
+local arr_i = {3, -2, 7, 10, -5}
+print(array_sum_scale(arr_i, 5, 3))
+for i = 1, 5 do print(arr_i[i]) end
+
+local arr_b = {true, false, true, true, false, false}
+print(count_true(arr_b, 6))
+for i = 1, 6 do print(tostring(arr_b[i])) end
+
+local body = {x = 10, y = -15, vx = 7, vy = -9}
+print(step_body(body, 12, 25))
+print(body.x) print(body.y) print(body.vx) print(body.vy)
+
+print(f32_poly(3.0, 4.0))
+print(f32_poly(0.0, 0.5))
+print(tostring(f32_cmp(-2.5, 1.25)))
+print(tostring(f32_cmp(3.0, 1.0)))
+
+local xs_f = {1.5, -2.0, 4.0, 0.5}
+local ys_f = {2.0, 3.0, -0.5, 6.0}
+print(dot_scale_f32(xs_f, ys_f, 4))
+for i = 1, 4 do print(math.floor(xs_f[i] * 100 + 0.5)) end
+
+local vec_f = {x = 1.5, y = -2.0}
+print(step_vec2f(vec_f, 1.5, 6.0))
+print(math.floor(vec_f.x * 100 + 0.5))
+print(math.floor(vec_f.y * 100 + 0.5))
+""")
+
+lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
+if vm_s6_out != lua_s6_out:
+    fail(f"Stage 6 StackVM differs from Lua: {vm_s6_out} vs {lua_s6_out}")
+
+# 8c. Host Lua C API: both bmvm (vm_load/vm_buf/vm_run) and native (native_load/native_run with Lua tables + vm_buf)
+s6_luahost_script = os.path.join(BUILD, "stage6_luahost.lua")
+with open(s6_luahost_script, "w", encoding="utf-8") as f:
+    f.write(f"""\
+local function read_blob(path)
+  local fh = assert(io.open(path, "rb"))
+  local d = fh:read("*a")
+  fh:close()
+  return d
+end
+
+local mv = assert(vm_load(read_blob({tm_bmv_path!r})))
+local mn = assert(native_load(read_blob({tm_bmn_path!r})))
+
+local function check_both(fn_name, ...)
+  local rn = native_run(mn, fn_name, ...)
+  return rn
+end
+
+print(native_run(mn, "wrap_add", 2147483647, 1))
+print(native_run(mn, "wrap_add", -2147483648, -1))
+print(native_run(mn, "wrap_mul", 100000, 100000))
+assert(vm_run(mv, vm_fn(mv, "wrap_add"), 2147483647, 1) == -2147483648)
+assert(vm_run(mv, vm_fn(mv, "wrap_add"), -2147483648, -1) == 2147483647)
+assert(vm_run(mv, vm_fn(mv, "wrap_mul"), 100000, 100000) == 1410065408)
+
+local arr_i = {{3, -2, 7, 10, -5}}
+print(native_run(mn, "array_sum_scale", arr_i, 5, 3))
+for i = 1, 5 do print(arr_i[i]) end
+
+-- Also verify vm_buf with both vm_run and native_run
+local bi = vm_buf("i32", 5)
+vm_buf_fill(bi, {{3, -2, 7, 10, -5}})
+assert(vm_run(mv, vm_fn(mv, "array_sum_scale"), bi, 5, 3) == 39)
+assert(vm_buf_get(bi, 1) == 9 and vm_buf_get(bi, 4) == 30)
+vm_buf_fill(bi, {{3, -2, 7, 10, -5}})
+assert(native_run(mn, "array_sum_scale", bi, 5, 3) == 39)
+assert(vm_buf_get(bi, 1) == 9 and vm_buf_get(bi, 4) == 30)
+
+local arr_b = {{true, false, true, true, false, false}}
+print(native_run(mn, "count_true", arr_b, 6))
+for i = 1, 6 do print(tostring(arr_b[i])) end
+
+local body = {{x = 10, y = -15, vx = 7, vy = -9}}
+print(native_run(mn, "step_body", body, 12, 25))
+print(body.x) print(body.y) print(body.vx) print(body.vy)
+
+print(native_run(mn, "f32_poly", 3.0, 4.0))
+print(native_run(mn, "f32_poly", 0.0, 0.5))
+assert(vm_run(mv, vm_fn(mv, "f32_poly"), 3.0, 4.0) == 26)
+assert(vm_run(mv, vm_fn(mv, "f32_poly"), 0.0, 0.5) == 16)
+print(tostring(native_run(mn, "f32_cmp", -2.5, 1.25)))
+print(tostring(native_run(mn, "f32_cmp", 3.0, 1.0)))
+
+local xs_f = {{1.5, -2.0, 4.0, 0.5}}
+local ys_f = {{2.0, 3.0, -0.5, 6.0}}
+print(native_run(mn, "dot_scale_f32", xs_f, ys_f, 4))
+for i = 1, 4 do print(math.floor(xs_f[i] * 100 + 0.5)) end
+
+local vec_f = {{x = 1.5, y = -2.0}}
+print(native_run(mn, "step_vec2f", vec_f, 1.5, 6.0))
+print(math.floor(vec_f.x * 100 + 0.5))
+print(math.floor(vec_f.y * 100 + 0.5))
+""")
+
+s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
+if s6_luahost_out != lua_s6_out:
+    fail(f"Stage 6 native_run/vm_run differs from Lua: {s6_luahost_out} vs {lua_s6_out}")
+
+# 8d. Bare-metal ARM1176 QEMU with hardware VFPv2 enabled
+if arm_gcc and qemu_arm:
+    QEMU_S6_C = f"""\
+#include <stddef.h>
+#include <stdint.h>
+#include "bm/bmnative.h"
+
+#define UART0 ((volatile uint32_t *)0x101F1000u)
+
+static void put_ch(char c) {{ *UART0 = (uint32_t)(uint8_t)c; }}
+static void put_str(const char *s) {{ while (*s) put_ch(*s++); }}
+static void put_bool(int32_t v) {{ put_str(v ? "true\\n" : "false\\n"); }}
+
+static void put_i32(int32_t v)
+{{
+    char buf[16];
+    uint32_t u = (v < 0) ? (0u - (uint32_t)v) : (uint32_t)v;
+    if (v < 0) put_ch('-');
+    int i = 0;
+    if (u == 0) buf[i++] = '0';
+    while (u > 0) {{
+        buf[i++] = (char)('0' + (u % 10u));
+        u /= 10u;
+    }}
+    while (i > 0) put_ch(buf[--i]);
+    put_ch('\\n');
+}}
+
+static uint32_t f2u(float f)
+{{
+    union {{ float f; uint32_t u; }} u;
+    u.f = f;
+    return u.u;
+}}
+
+static float u2f(uint32_t bits)
+{{
+    union {{ uint32_t u; float f; }} u;
+    u.u = bits;
+    return u.f;
+}}
+
+static uint8_t heap_buf[128 * 1024] __attribute__((aligned(32)));
+static size_t heap_off = 0;
+
+void *calloc(size_t nmemb, size_t size)
+{{
+    size_t total = (nmemb * size + 31u) & ~31u;
+    if (heap_off + total > sizeof(heap_buf)) return NULL;
+    uint8_t *p = &heap_buf[heap_off];
+    heap_off += total;
+    for (size_t i = 0; i < total; i++) p[i] = 0;
+    return p;
+}}
+void free(void *p) {{ (void)p; }}
+void *memcpy(void *dst, const void *src, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    for (size_t i = 0; i < n; i++) d[i] = s[i];
+    return dst;
+}}
+void *memset(void *dst, int c, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    for (size_t i = 0; i < n; i++) d[i] = (uint8_t)c;
+    return dst;
+}}
+int strcmp(const char *a, const char *b)
+{{
+    while (*a && *a == *b) {{ a++; b++; }}
+    return (uint8_t)*a - (uint8_t)*b;
+}}
+
+static const uint8_t blob_tm[] = {{ {fmt_bytes(tm_bmn_bytes)} }};
+
+void c_main(void)
+{{
+    const char *why = "";
+    bmnative_mod *m = NULL;
+    if (bmnative_load(&m, blob_tm, sizeof(blob_tm), &why) != BMN_OK) {{
+        put_str("LOAD_ERR\\n");
+        return;
+    }}
+    int32_t r = 0;
+
+    /* 1. wrap_add / wrap_mul */
+    {{ int32_t a[2] = {{2147483647, 1}}; bmnative_call(m, bmnative_find(m, "wrap_add"), a, 2, &r); put_i32(r); }}
+    {{ int32_t a[2] = {{-2147483648, -1}}; bmnative_call(m, bmnative_find(m, "wrap_add"), a, 2, &r); put_i32(r); }}
+    {{ int32_t a[2] = {{100000, 100000}}; bmnative_call(m, bmnative_find(m, "wrap_mul"), a, 2, &r); put_i32(r); }}
+
+    /* 2. array_sum_scale */
+    {{
+        uint32_t arr_i[5] = {{3u, (uint32_t)-2, 7u, 10u, (uint32_t)-5}};
+        int32_t a[3] = {{(int32_t)(uintptr_t)arr_i, 5, 3}};
+        bmnative_call(m, bmnative_find(m, "array_sum_scale"), a, 3, &r);
+        put_i32(r);
+        for (int i = 0; i < 5; i++) put_i32((int32_t)arr_i[i]);
+    }}
+
+    /* 3. count_true */
+    {{
+        uint32_t arr_b[6] = {{1, 0, 1, 1, 0, 0}};
+        int32_t a[2] = {{(int32_t)(uintptr_t)arr_b, 6}};
+        bmnative_call(m, bmnative_find(m, "count_true"), a, 2, &r);
+        put_i32(r);
+        for (int i = 0; i < 6; i++) put_bool((int32_t)arr_b[i]);
+    }}
+
+    /* 4. step_body */
+    {{
+        int32_t body[4] = {{10, -15, 7, -9}};
+        int32_t a[3] = {{(int32_t)(uintptr_t)body, 12, 25}};
+        bmnative_call(m, bmnative_find(m, "step_body"), a, 3, &r);
+        put_i32(r);
+        for (int i = 0; i < 4; i++) put_i32(body[i]);
+    }}
+
+    /* 5. f32_poly & f32_cmp */
+    {{ int32_t a[2] = {{(int32_t)f2u(3.0f), (int32_t)f2u(4.0f)}}; bmnative_call(m, bmnative_find(m, "f32_poly"), a, 2, &r); put_i32(r); }}
+    {{ int32_t a[2] = {{(int32_t)f2u(0.0f), (int32_t)f2u(0.5f)}}; bmnative_call(m, bmnative_find(m, "f32_poly"), a, 2, &r); put_i32(r); }}
+    {{ int32_t a[2] = {{(int32_t)f2u(-2.5f), (int32_t)f2u(1.25f)}}; bmnative_call(m, bmnative_find(m, "f32_cmp"), a, 2, &r); put_bool(r); }}
+    {{ int32_t a[2] = {{(int32_t)f2u(3.0f), (int32_t)f2u(1.0f)}}; bmnative_call(m, bmnative_find(m, "f32_cmp"), a, 2, &r); put_bool(r); }}
+
+    /* 6. dot_scale_f32 */
+    {{
+        uint32_t xs[4] = {{f2u(1.5f), f2u(-2.0f), f2u(4.0f), f2u(0.5f)}};
+        uint32_t ys[4] = {{f2u(2.0f), f2u(3.0f), f2u(-0.5f), f2u(6.0f)}};
+        int32_t a[3] = {{(int32_t)(uintptr_t)xs, (int32_t)(uintptr_t)ys, 4}};
+        bmnative_call(m, bmnative_find(m, "dot_scale_f32"), a, 3, &r);
+        put_i32(r);
+        for (int i = 0; i < 4; i++) {{
+            float v = u2f(xs[i]) * 100.0f;
+            put_i32((int32_t)(v >= 0.0f ? (v + 0.5f) : (v - 0.5f)));
+        }}
+    }}
+
+    /* 7. step_vec2f */
+    {{
+        uint32_t vf[2] = {{f2u(1.5f), f2u(-2.0f)}};
+        int32_t a[3] = {{(int32_t)(uintptr_t)vf, (int32_t)f2u(1.5f), (int32_t)f2u(6.0f)}};
+        bmnative_call(m, bmnative_find(m, "step_vec2f"), a, 3, &r);
+        put_i32(r);
+        for (int i = 0; i < 2; i++) {{
+            float v = u2f(vf[i]) * 100.0f;
+            put_i32((int32_t)(v >= 0.0f ? (v + 0.5f) : (v - 0.5f)));
+        }}
+    }}
+}}
+
+__attribute__((naked, section(".text.boot")))
+void _start(void)
+{{
+    __asm__ volatile (
+        "ldr sp, =0x04000000\\n"
+        /* Enable CP10 and CP11 in CP15 Coprocessor Access Control Register, then set FPEXC.EN */
+        "mrc p15, 0, r0, c1, c0, 2\\n"
+        "orr r0, r0, #0x00F00000\\n"
+        "mcr p15, 0, r0, c1, c0, 2\\n"
+        "mcr p15, 0, r0, c7, c5, 4\\n"
+        "mov r0, #0x40000000\\n"
+        ".word 0xEEE80A10\\n"
+        "bl c_main\\n"
+        "mov r0, #0x18\\n"
+        "ldr r1, =0x20026\\n"
+        "svc 0x00123456\\n"
+        "1: b 1b\\n"
+    );
+}}
+"""
+    qemu_s6_c = os.path.join(BUILD, "armv6_stage6.c")
+    qemu_s6_elf = os.path.join(BUILD, "armv6_stage6.elf")
+    with open(qemu_s6_c, "w", encoding="utf-8") as f:
+        f.write(QEMU_S6_C)
+
+    subprocess.run(
+        [
+            arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
+            f"-I{os.path.join(ROOT, 'src')}",
+            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            "-T", qemu_ld, "-o", qemu_s6_elf,
+            qemu_s6_c,
+            os.path.join(ROOT, "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "src", "arch", "cache.c"),
+            "-lgcc",
+        ],
+        check=True,
+    )
+    qemu_s6_out = subprocess.check_output(
+        [qemu_arm, "-M", "versatilepb", "-cpu", "arm1176", "-nographic", "-semihosting", "-kernel", qemu_s6_elf],
+        text=True,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    ).replace("\r\n", "\n").strip().splitlines()
+
+    if qemu_s6_out != lua_s6_out:
+        fail(f"Stage 6 ARM1176 VFPv2 QEMU output differs: {qemu_s6_out} vs {lua_s6_out}")
+
 if failed:
     sys.exit(1)
 
 print(
-    f"bml: stages 1-5 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
-    f"{len(feat_calls)} feature calls, and 200 random programs [1000 calls] matched Lua in StackVM, C bmvm, native_load/native_run, and ARM1176 QEMU)"
+    f"bml: stages 1-6 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
+    f"{len(feat_calls)} feature calls, 200 random programs [1000 calls], and Stage 6 types_mem.b matched Lua in StackVM, C bmvm, native_run, and ARM1176 VFPv2 QEMU)"
 )

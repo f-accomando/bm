@@ -268,6 +268,32 @@ int l_native_fn(lua_State *L)
     return 1;
 }
 
+static uint32_t lua_val_to_word(lua_State *L, int idx, uint8_t kind)
+{
+    if (kind == BMN_F32) {
+        float fv = (float)luaL_checknumber(L, idx);
+        uint32_t u;
+        memcpy(&u, &fv, 4);
+        return u;
+    }
+    if (kind == BMN_BOOL || lua_isboolean(L, idx))
+        return (uint32_t)(lua_toboolean(L, idx) ? 1 : 0);
+    return (uint32_t)(int32_t)luaL_checkinteger(L, idx);
+}
+
+static void push_word_to_lua(lua_State *L, uint32_t w, uint8_t kind)
+{
+    if (kind == BMN_F32) {
+        float fv;
+        memcpy(&fv, &w, 4);
+        lua_pushnumber(L, (lua_Number)fv);
+    } else if (kind == BMN_BOOL) {
+        lua_pushboolean(L, w != 0);
+    } else {
+        lua_pushinteger(L, (int32_t)w);
+    }
+}
+
 int l_native_run(lua_State *L)
 {
     natmod_t *u = (natmod_t *)luaL_checkudata(L, 1, NAT_MT);
@@ -293,21 +319,138 @@ int l_native_run(lua_State *L)
     }
 
     int32_t args[BMN_MAX_ARGS];
+    bmnative_buf bufs[BMN_MAX_ARGS];
+    uint32_t *temp_allocs[BMN_MAX_ARGS];
+    vmbuf_t *f64_vmbufs[BMN_MAX_ARGS];
+    memset(args, 0, sizeof args);
+    memset(bufs, 0, sizeof bufs);
+    memset(temp_allocs, 0, sizeof temp_allocs);
+    memset(f64_vmbufs, 0, sizeof f64_vmbufs);
+
     for (int i = 0; i < nargs; i++) {
         const int li = 3 + i;
-        args[i] = lua_isboolean(L, li) ? lua_toboolean(L, li) : (int32_t)luaL_checkinteger(L, li);
+        const uint8_t pt = (f->nparams == BMN_VARARGS) ? BMN_I32 : f->ptype[i];
+        if (pt >= BMN_ARR_I32 && pt <= BMN_ARR_F32) {
+            const uint8_t elem_kind = (pt == BMN_ARR_F32) ? BMN_F32 : ((pt == BMN_ARR_BOOL) ? BMN_BOOL : BMN_I32);
+            vmbuf_t *vb = (vmbuf_t *)luaL_testudata(L, li, BUF_MT);
+            if (vb) {
+                if (!vb->a.is_f64 && elem_kind != BMN_F32) {
+                    bufs[i].data = (uint32_t *)vb->a.data;
+                    bufs[i].nwords = (uint32_t)vb->a.n;
+                } else if (vb->a.is_f64 && elem_kind == BMN_F32) {
+                    uint32_t nw = (uint32_t)vb->a.n;
+                    uint32_t *tmp = calloc(nw, sizeof(uint32_t));
+                    if (!tmp) {
+                        for (int k = 0; k < i; k++) free(temp_allocs[k]);
+                        return luaL_error(L, "native_run: out of memory");
+                    }
+                    const double *src = (const double *)vb->a.data;
+                    for (uint32_t j = 0; j < nw; j++) {
+                        float fv = (float)src[j];
+                        memcpy(&tmp[j], &fv, 4);
+                    }
+                    temp_allocs[i] = tmp;
+                    f64_vmbufs[i] = vb;
+                    bufs[i].data = tmp;
+                    bufs[i].nwords = nw;
+                } else {
+                    for (int k = 0; k < i; k++) free(temp_allocs[k]);
+                    return luaL_error(L, "native_run: vm_buf kind mismatch at arg %d", i + 1);
+                }
+            } else if (lua_istable(L, li)) {
+                uint32_t nw = (uint32_t)lua_rawlen(L, li);
+                uint32_t *tmp = calloc(nw ? nw : 1u, sizeof(uint32_t));
+                if (!tmp) {
+                    for (int k = 0; k < i; k++) free(temp_allocs[k]);
+                    return luaL_error(L, "native_run: out of memory");
+                }
+                for (uint32_t j = 0; j < nw; j++) {
+                    lua_rawgeti(L, li, (lua_Integer)(j + 1));
+                    tmp[j] = lua_val_to_word(L, -1, elem_kind);
+                    lua_pop(L, 1);
+                }
+                temp_allocs[i] = tmp;
+                bufs[i].data = tmp;
+                bufs[i].nwords = nw;
+            } else {
+                for (int k = 0; k < i; k++) free(temp_allocs[k]);
+                return luaL_error(L, "native_run: expected table or vm_buf at arg %d", i + 1);
+            }
+        } else if (pt & BMN_STRUCT_BASE) {
+            const uint32_t s_idx = pt & 0x7Fu;
+            const bmnative_struct *st = &u->m->structs[s_idx];
+            vmbuf_t *vb = (vmbuf_t *)luaL_testudata(L, li, BUF_MT);
+            if (vb && !vb->a.is_f64 && (uint32_t)vb->a.n >= st->nfields) {
+                bufs[i].data = (uint32_t *)vb->a.data;
+                bufs[i].nwords = st->nfields;
+            } else if (lua_istable(L, li)) {
+                uint32_t *tmp = calloc(st->nfields, sizeof(uint32_t));
+                if (!tmp) {
+                    for (int k = 0; k < i; k++) free(temp_allocs[k]);
+                    return luaL_error(L, "native_run: out of memory");
+                }
+                for (uint32_t k = 0; k < st->nfields; k++) {
+                    lua_getfield(L, li, st->fname[k]);
+                    if (lua_isnil(L, -1)) {
+                        lua_pop(L, 1);
+                        lua_rawgeti(L, li, (lua_Integer)(k + 1));
+                    }
+                    tmp[k] = lua_val_to_word(L, -1, st->ftype[k]);
+                    lua_pop(L, 1);
+                }
+                temp_allocs[i] = tmp;
+                bufs[i].data = tmp;
+                bufs[i].nwords = st->nfields;
+            } else {
+                for (int k = 0; k < i; k++) free(temp_allocs[k]);
+                return luaL_error(L, "native_run: expected struct table at arg %d", i + 1);
+            }
+        } else {
+            args[i] = (int32_t)lua_val_to_word(L, li, pt);
+        }
     }
 
     int32_t ret = 0;
-    const int e = bmnative_call(u->m, fn, args, nargs, &ret);
+    const int e = bmnative_call_buf(u->m, fn, args, bufs, nargs, &ret);
+
+    /* Write back modified array/struct elements to Lua tables or f64 vm_bufs. */
+    if (e == BMN_OK) {
+        for (int i = 0; i < nargs; i++) {
+            if (!temp_allocs[i])
+                continue;
+            const int li = 3 + i;
+            const uint8_t pt = f->ptype[i];
+            if (f64_vmbufs[i]) {
+                double *dst = (double *)f64_vmbufs[i]->a.data;
+                for (uint32_t j = 0; j < bufs[i].nwords; j++) {
+                    float fv;
+                    memcpy(&fv, &temp_allocs[i][j], 4);
+                    dst[j] = (double)fv;
+                }
+            } else if (pt >= BMN_ARR_I32 && pt <= BMN_ARR_F32) {
+                const uint8_t elem_kind = (pt == BMN_ARR_F32) ? BMN_F32 : ((pt == BMN_ARR_BOOL) ? BMN_BOOL : BMN_I32);
+                for (uint32_t j = 0; j < bufs[i].nwords; j++) {
+                    push_word_to_lua(L, temp_allocs[i][j], elem_kind);
+                    lua_rawseti(L, li, (lua_Integer)(j + 1));
+                }
+            } else if (pt & BMN_STRUCT_BASE) {
+                const bmnative_struct *st = &u->m->structs[pt & 0x7Fu];
+                for (uint32_t k = 0; k < st->nfields; k++) {
+                    push_word_to_lua(L, temp_allocs[i][k], st->ftype[k]);
+                    lua_setfield(L, li, st->fname[k]);
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < nargs; i++)
+        free(temp_allocs[i]);
+
     if (e)
         return luaL_error(L, "native_run: %s stopped (%d)", f->name, e);
 
     if (f->ret == BMN_NONE)
         return 0;
-    if (f->ret == BMN_BOOL)
-        lua_pushboolean(L, ret != 0);
-    else
-        lua_pushinteger(L, ret);
+    push_word_to_lua(L, (uint32_t)ret, f->ret);
     return 1;
 }
