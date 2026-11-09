@@ -13,6 +13,17 @@
 #endif
 
 static bmnative_host_fn g_host_fn = NULL;
+static const bmnative_mod *g_active_mod = NULL;
+
+const char *bmnative_get_string(int32_t arg0)
+{
+    if (g_active_mod && g_active_mod->rodata) {
+        uint32_t u = (uint32_t)arg0;
+        if (u >= g_active_mod->ncode * 4u && u < g_active_mod->ncode * 4u + g_active_mod->nrodata)
+            return (const char *)(g_active_mod->rodata + (u - g_active_mod->ncode * 4u));
+    }
+    return (const char *)(uintptr_t)arg0;
+}
 
 void bmnative_set_host_fn(bmnative_host_fn fn)
 {
@@ -108,7 +119,7 @@ static int check_armv6_words(const uint32_t *code, uint32_t ncode, const char **
 
 static int valid_ptype(uint8_t pt, uint32_t nstruct)
 {
-    if (pt >= BMN_I32 && pt <= BMN_ARR_F32)
+    if ((pt >= BMN_I32 && pt <= BMN_ARR_F32) || pt == BMN_STR)
         return 1;
     if ((pt & BMN_STRUCT_BASE) && (uint32_t)(pt & 0x7Fu) < nstruct)
         return 1;
@@ -132,6 +143,8 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
 
     const uint32_t first_word = rd_u32(blob);
     const uint8_t *code_ptr = NULL;
+    const uint8_t *rodata_ptr = NULL;
+    uint32_t rodata_len = 0;
 
     if (first_word == BMN_MAGIC) {
         if (len < 12)
@@ -148,7 +161,15 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
             FAIL("bad struct count");
         if (ncode < 1 || ncode > BMN_MAX_CODE || (has_host_stub && ncode < 6u))
             FAIL("bad code word count");
-        const size_t expected_len = 12u + (size_t)nfn * 56u + (size_t)ncode * 4u + (size_t)nstruct * 308u;
+
+        uint32_t nrodata = 0;
+        size_t hdr_size = 12u;
+        size_t expected_len_no_rodata = 12u + (size_t)nfn * 56u + (size_t)ncode * 4u + (size_t)nstruct * 308u;
+        if (len > expected_len_no_rodata && len >= 16u) {
+            nrodata = rd_u32(blob + 12);
+            hdr_size = 16u;
+        }
+        const size_t expected_len = hdr_size + (size_t)nfn * 56u + (size_t)ncode * 4u + (size_t)nstruct * 308u + (size_t)nrodata;
         if (len != expected_len)
             FAIL("BMN1 blob size mismatch");
 
@@ -171,7 +192,7 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
             }
         }
 
-        const uint8_t *p = blob + 12;
+        const uint8_t *p = blob + hdr_size;
         for (uint32_t i = 0; i < nfn; i++, p += 56) {
             bmnative_fn *f = &m->fn[i];
             memcpy(f->name, p, 31);
@@ -180,7 +201,7 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
             f->ret = p[33];
             if (f->nparams > BMN_MAX_ARGS)
                 FAIL("too many parameters");
-            if (f->ret > BMN_F32)
+            if (f->ret > BMN_STR)
                 FAIL("invalid return type");
             memcpy(f->ptype, p + 36, BMN_MAX_ARGS);
             for (int j = 0; j < f->nparams; j++) {
@@ -208,6 +229,8 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
                 st->fname[k][15] = '\0';
             }
         }
+        rodata_ptr = (nrodata > 0) ? sp_ptr : NULL;
+        rodata_len = nrodata;
     } else {
         /* Raw 32-bit ARMv6 A32 word blob (e.g. tools/bml/bml.py --armv6). */
         if ((len & 3u) != 0)
@@ -233,9 +256,10 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
         code_ptr = blob;
     }
 
-    /* Allocate 32-byte cache-line-aligned executable RAM for the A32 words. */
+    /* Allocate 32-byte cache-line-aligned executable RAM for the A32 words and .rodata segment. */
     const size_t code_bytes = (size_t)m->ncode * 4u;
-    m->code_Alloc = calloc(1, code_bytes + 64u);
+    const size_t total_alloc_bytes = code_bytes + (size_t)rodata_len + 64u;
+    m->code_Alloc = calloc(1, total_alloc_bytes);
     if (!m->code_Alloc) {
         bmnative_free(m);
         *why = "out of memory";
@@ -245,6 +269,11 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
     m->code = (uint32_t *)aligned;
     for (uint32_t i = 0; i < m->ncode; i++)
         m->code[i] = rd_u32(code_ptr + i * 4u);
+    if (rodata_len > 0 && rodata_ptr) {
+        m->nrodata = rodata_len;
+        m->rodata = (uint8_t *)(m->code + m->ncode);
+        memcpy(m->rodata, rodata_ptr, rodata_len);
+    }
 
     if (check_armv6_words(m->code, m->ncode, why) != BMN_OK) {
         bmnative_free(m);
@@ -441,6 +470,13 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
             const uint32_t addr = u_bit ? (base + imm12) : (base - imm12);
             if ((addr & 3u) != 0)
                 return BMN_ERR_TRAP;
+            if (rn == 15u) {
+                if (is_ldr && (addr >> 2) < m->ncode) {
+                    r[rd] = m->code[addr >> 2];
+                    continue;
+                }
+                return BMN_ERR_TRAP;
+            }
             const uint32_t seg = addr >> 24;
             if (seg == 0u) {
                 if ((addr >> 2) >= STACK_WORDS)
@@ -646,6 +682,7 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
 
 int bmnative_call_buf(const bmnative_mod *m, int fn, const int32_t *args, const bmnative_buf *bufs, int nargs, int32_t *ret)
 {
+    g_active_mod = m;
     if (!m || fn < 0 || fn >= m->nfn || !ret)
         return BMN_ERR_ARGS;
     const bmnative_fn *f = &m->fn[fn];

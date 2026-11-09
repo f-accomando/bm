@@ -1357,6 +1357,7 @@ for px, py, hp, max_hp, btn_mask in s7_cases:
         "sfx": lambda sid, lg=draw_log: lg.append(f"sfx:{sid}"),
         "music": lambda mid, lg=draw_log: lg.append(f"music:{mid}"),
         "time": lambda: 1.5,
+        "print": lambda s, *extra, lg=draw_log: (lg.append("print:" + str(s) + (" " + " ".join(str(x) for x in extra) if extra else "")), 0)[1],
     }
     kf_vm = bml.StackVM(kf_mod, host_fns=host_table)
     res = kf_vm.call("step_and_draw_hud", [px, py, hp, max_hp])
@@ -1366,31 +1367,44 @@ for px, py, hp, max_hp, btn_mask in s7_cases:
     res_ext = kf_vm.call("test_extended_hud", [px, py, hp])
     vm_s7_out.extend(draw_log)
     vm_s7_out.append(f"ret_ext:{res_ext}")
+    draw_log.clear()
+    res_banner = kf_vm.call("test_print_banner", [hp])
+    vm_s7_out.extend(draw_log)
+    vm_s7_out.append(f"ret_banner:{res_banner}")
 
 # 9b. Plain Lua reference oracle
 s7_lua_ref_path = os.path.join(BUILD, "stage7_ref.lua")
 with open(s7_lua_ref_path, "w", encoding="utf-8") as f:
     f.write(LUA_PRELUDE)
     f.write("""
+local _orig_print = print
+function print(s, ...)
+  local parts = { "print:" .. tostring(s) }
+  local extra = {...}
+  for i = 1, #extra do table.insert(parts, tostring(extra[i])) end
+  _orig_print(table.concat(parts, " "))
+  return 0
+end
 local btn_mask = 0
-function cls(c) print("cls:" .. c) end
-function pix(x, y, c) print("pix:" .. x .. "," .. y .. "," .. c) end
-function rectfill(x, y, w, h, c) print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
-function spr(id, x, y) print("spr:" .. id .. "," .. x .. "," .. y) end
+function cls(c) _orig_print("cls:" .. c) end
+function pix(x, y, c) _orig_print("pix:" .. x .. "," .. y .. "," .. c) end
+function rectfill(x, y, w, h, c) _orig_print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function spr(id, x, y) _orig_print("spr:" .. id .. "," .. x .. "," .. y) end
 function btn(b) return ((btn_mask >> b) & 1) ~= 0 end
 function btnp(b) return ((btn_mask >> b) & 1) ~= 0 end
-function line(x0, y0, x1, y1, c) print("line:" .. x0 .. "," .. y0 .. "," .. x1 .. "," .. y1 .. "," .. c) end
-function rect(x, y, w, h, c) print("rect:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
-function circ(x, y, r, c) print("circ:" .. x .. "," .. y .. "," .. r .. "," .. c) end
-function circfill(x, y, r, c) print("circfill:" .. x .. "," .. y .. "," .. r .. "," .. c) end
-function sfx(id) print("sfx:" .. id) end
-function music(id) print("music:" .. id) end
+function line(x0, y0, x1, y1, c) _orig_print("line:" .. x0 .. "," .. y0 .. "," .. x1 .. "," .. y1 .. "," .. c) end
+function rect(x, y, w, h, c) _orig_print("rect:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function circ(x, y, r, c) _orig_print("circ:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function circfill(x, y, r, c) _orig_print("circfill:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function sfx(id) _orig_print("sfx:" .. id) end
+function music(id) _orig_print("music:" .. id) end
 function time() return 1.5 end
 """)
     f.write(bml.to_lua(kf_src))
     for px, py, hp, max_hp, btn_mask in s7_cases:
-        f.write(f"\nbtn_mask = {btn_mask}\nprint('ret:' .. step_and_draw_hud({px}, {py}, {hp}, {max_hp}))\n")
-        f.write(f"print('ret_ext:' .. test_extended_hud({px}, {py}, {hp}))\n")
+        f.write(f"\nbtn_mask = {btn_mask}\n_orig_print('ret:' .. step_and_draw_hud({px}, {py}, {hp}, {max_hp}))\n")
+        f.write(f"_orig_print('ret_ext:' .. test_extended_hud({px}, {py}, {hp}))\n")
+        f.write(f"_orig_print('ret_banner:' .. test_print_banner({hp}))\n")
 
 lua_s7_out = subprocess.check_output([LUAHOST, s7_lua_ref_path], text=True).strip().splitlines()
 if vm_s7_out != lua_s7_out:
@@ -1405,24 +1419,33 @@ local blob = fh:read("*a")
 fh:close()
 local mn = assert(native_load(blob))
 
+local _orig_print = print
+function print(s, ...)
+  local parts = {{ "print:" .. tostring(s) }}
+  local extra = {{...}}
+  for i = 1, #extra do table.insert(parts, tostring(extra[i])) end
+  _orig_print(table.concat(parts, " "))
+  return 0
+end
 local btn_mask = 0
-function cls(c) print("cls:" .. c) end
-function pix(x, y, c) print("pix:" .. x .. "," .. y .. "," .. c) end
-function rectfill(x, y, w, h, c) print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
-function spr(id, x, y) print("spr:" .. id .. "," .. x .. "," .. y) end
+function cls(c) _orig_print("cls:" .. c) end
+function pix(x, y, c) _orig_print("pix:" .. x .. "," .. y .. "," .. c) end
+function rectfill(x, y, w, h, c) _orig_print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function spr(id, x, y) _orig_print("spr:" .. id .. "," .. x .. "," .. y) end
 function btn(b) return ((btn_mask >> b) & 1) ~= 0 end
 function btnp(b) return ((btn_mask >> b) & 1) ~= 0 end
-function line(x0, y0, x1, y1, c) print("line:" .. x0 .. "," .. y0 .. "," .. x1 .. "," .. y1 .. "," .. c) end
-function rect(x, y, w, h, c) print("rect:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
-function circ(x, y, r, c) print("circ:" .. x .. "," .. y .. "," .. r .. "," .. c) end
-function circfill(x, y, r, c) print("circfill:" .. x .. "," .. y .. "," .. r .. "," .. c) end
-function sfx(id) print("sfx:" .. id) end
-function music(id) print("music:" .. id) end
+function line(x0, y0, x1, y1, c) _orig_print("line:" .. x0 .. "," .. y0 .. "," .. x1 .. "," .. y1 .. "," .. c) end
+function rect(x, y, w, h, c) _orig_print("rect:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function circ(x, y, r, c) _orig_print("circ:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function circfill(x, y, r, c) _orig_print("circfill:" .. x .. "," .. y .. "," .. r .. "," .. c) end
+function sfx(id) _orig_print("sfx:" .. id) end
+function music(id) _orig_print("music:" .. id) end
 function time() return 1.5 end
 """)
     for px, py, hp, max_hp, btn_mask in s7_cases:
-        f.write(f"btn_mask = {btn_mask}\nprint('ret:' .. native_run(mn, 'step_and_draw_hud', {px}, {py}, {hp}, {max_hp}))\n")
-        f.write(f"print('ret_ext:' .. native_run(mn, 'test_extended_hud', {px}, {py}, {hp}))\n")
+        f.write(f"btn_mask = {btn_mask}\n_orig_print('ret:' .. native_run(mn, 'step_and_draw_hud', {px}, {py}, {hp}, {max_hp}))\n")
+        f.write(f"_orig_print('ret_ext:' .. native_run(mn, 'test_extended_hud', {px}, {py}, {hp}))\n")
+        f.write(f"_orig_print('ret_banner:' .. native_run(mn, 'test_print_banner', {hp}))\n")
 
 s7_luahost_out = subprocess.check_output([native_luahost_bin, s7_luahost_script], text=True).strip().splitlines()
 if s7_luahost_out != lua_s7_out:
@@ -1437,7 +1460,9 @@ if arm_gcc and qemu_arm:
             f"{{ int32_t a[4] = {{{px}, {py}, {hp}, {max_hp}}}, r = 0; "
             f"bmnative_call(m, fn, a, 4, &r); put_str(\"ret:\"); put_i32(r); put_ch('\\n'); "
             f"int32_t a_ext[3] = {{{px}, {py}, {hp}}}, r_ext = 0; "
-            f"bmnative_call(m, fn_ext, a_ext, 3, &r_ext); put_str(\"ret_ext:\"); put_i32(r_ext); put_ch('\\n'); }}"
+            f"bmnative_call(m, fn_ext, a_ext, 3, &r_ext); put_str(\"ret_ext:\"); put_i32(r_ext); put_ch('\\n'); "
+            f"int32_t a_ban[1] = {{{hp}}}, r_ban = 0; "
+            f"bmnative_call(m, fn_banner, a_ban, 1, &r_ban); put_str(\"ret_banner:\"); put_i32(r_ban); put_ch('\\n'); }}"
         )
 
     QEMU_S7_C = f"""\
@@ -1520,6 +1545,16 @@ static int32_t kernel_host_table(int32_t host_id, const int32_t *args, int32_t n
         for (size_t i = 0; i < 4; i++) ((char*)&bits)[i] = ((char*)&t)[i];
         return (int32_t)bits;
     }}
+    case BMN_HOST_PRINT: {{
+        put_str("print:");
+        put_str((const char *)args[0]);
+        for (int i = 1; i < nargs; i++) {{
+            put_ch(' ');
+            put_i32(args[i]);
+        }}
+        put_ch('\\n');
+        return 0;
+    }}
     default:
         return 0;
     }}
@@ -1569,6 +1604,7 @@ void c_main(void)
     }}
     int fn = bmnative_find(m, "step_and_draw_hud");
     int fn_ext = bmnative_find(m, "test_extended_hud");
+    int fn_banner = bmnative_find(m, "test_print_banner");
 {chr(10).join(s7_calls_c)}
 }}
 
@@ -2063,26 +2099,38 @@ print(math.floor(vec_m.y * 100 + 0.5))
 local kf_blob = assert(native_compile(read_text({kf_path!r})))
 local m_kf = assert(native_load(kf_blob))
 local g_mask = 0
-function cls(c) print(string.format("cls:%d", c)) end
-function pix(x, y, c) print(string.format("pix:%d,%d,%d", x, y, c)) end
-function rectfill(x, y, w, h, c) print(string.format("rectfill:%d,%d,%d,%d,%d", x, y, w, h, c)) end
-function spr(id, x, y) print(string.format("spr:%d,%d,%d", id, x, y)) end
+local _orig_print = print
+function print(s, ...)
+  local parts = {{ "print:" .. tostring(s) }}
+  local extra = {{...}}
+  for i = 1, #extra do table.insert(parts, tostring(extra[i])) end
+  _orig_print(table.concat(parts, " "))
+  return 0
+end
+function cls(c) _orig_print(string.format("cls:%d", c)) end
+function pix(x, y, c) _orig_print(string.format("pix:%d,%d,%d", x, y, c)) end
+function rectfill(x, y, w, h, c) _orig_print(string.format("rectfill:%d,%d,%d,%d,%d", x, y, w, h, c)) end
+function spr(id, x, y) _orig_print(string.format("spr:%d,%d,%d", id, x, y)) end
 function btn(b) return ((g_mask >> b) & 1) ~= 0 end
 function btnp(b) return ((g_mask >> b) & 1) ~= 0 end
-function line(x0, y0, x1, y1, c) print(string.format("line:%d,%d,%d,%d,%d", x0, y0, x1, y1, c)) end
-function rect(x, y, w, h, c) print(string.format("rect:%d,%d,%d,%d,%d", x, y, w, h, c)) end
-function circ(x, y, r, c) print(string.format("circ:%d,%d,%d,%d", x, y, r, c)) end
-function circfill(x, y, r, c) print(string.format("circfill:%d,%d,%d,%d", x, y, r, c)) end
-function sfx(id) print(string.format("sfx:%d", id)) end
-function music(id) print(string.format("music:%d", id)) end
+function line(x0, y0, x1, y1, c) _orig_print(string.format("line:%d,%d,%d,%d,%d", x0, y0, x1, y1, c)) end
+function rect(x, y, w, h, c) _orig_print(string.format("rect:%d,%d,%d,%d,%d", x, y, w, h, c)) end
+function circ(x, y, r, c) _orig_print(string.format("circ:%d,%d,%d,%d", x, y, r, c)) end
+function circfill(x, y, r, c) _orig_print(string.format("circfill:%d,%d,%d,%d", x, y, r, c)) end
+function sfx(id) _orig_print(string.format("sfx:%d", id)) end
+function music(id) _orig_print(string.format("music:%d", id)) end
 function time() return 1.5 end
 """)
     for px, py, hp, max_hp, mask in s7_cases:
         f.write(f"g_mask = {mask}\n")
-        f.write(f'print(string.format("ret:%d", native_run(m_kf, "step_and_draw_hud", {px}, {py}, {hp}, {max_hp})))\n')
-        f.write(f'print(string.format("ret_ext:%d", native_run(m_kf, "test_extended_hud", {px}, {py}, {hp})))\n')
+        f.write(f'_orig_print(string.format("ret:%d", native_run(m_kf, "step_and_draw_hud", {px}, {py}, {hp}, {max_hp})))\n')
+        f.write(f'_orig_print(string.format("ret_ext:%d", native_run(m_kf, "test_extended_hud", {px}, {py}, {hp})))\n')
+        f.write(f'_orig_print(string.format("ret_banner:%d", native_run(m_kf, "test_print_banner", {hp})))\n')
 
     f.write(f"""
+-- Restore print for darknight_enemy
+print = _orig_print
+
 -- 6. Compile darknight_enemy.b (Stage 8: 60 frames of 17 enemies) in C via native_compile
 local dn_blob = assert(native_compile(read_text({dn_path!r})))
 local m_dn = assert(native_load(dn_blob))

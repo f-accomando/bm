@@ -50,3 +50,12 @@ function test_extended_hud(px: i32, py: i32, tick: i32): i32
   end
   return tick + 42
 end
+
+const GREETING: string = "BM BareMetal Kernel"
+
+function test_print_banner(id: i32): i32
+  local msg: string = "Agent status"
+  local rc: i32 = print(GREETING, id)
+  rc = print(msg, rc, 100)
+  return rc + id
+end

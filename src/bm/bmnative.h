@@ -26,7 +26,8 @@ enum {
     BMN_F32      = 3,
     BMN_ARR_I32  = 4,
     BMN_ARR_BOOL = 5,
-    BMN_ARR_F32  = 6
+    BMN_ARR_F32  = 6,
+    BMN_STR      = 7
 };
 
 enum {
@@ -71,7 +72,8 @@ enum {
     BMN_HOST_RECT     = 9,
     BMN_HOST_SFX      = 10,
     BMN_HOST_MUSIC    = 11,
-    BMN_HOST_TIME     = 12
+    BMN_HOST_TIME     = 12,
+    BMN_HOST_PRINT    = 13
 };
 
 typedef int32_t (*bmnative_host_fn)(int32_t host_id, const int32_t *args, int32_t nargs);
@@ -85,6 +87,8 @@ typedef struct {
     bmnative_struct *structs;
     uint32_t        *code;              /* 32-byte-aligned executable A32 machine words */
     void            *code_Alloc;        /* underlying heap allocation to free */
+    uint32_t         nrodata;           /* byte size of read-only data segment (.rodata) */
+    uint8_t         *rodata;            /* contiguous read-only data (strings, constants) */
 } bmnative_mod;
 
 /* Clean D-cache and invalidate I-cache + branch predictor over [code, code + bytes). */
@@ -99,5 +103,6 @@ void bmnative_free(bmnative_mod *m);
 int  bmnative_find(const bmnative_mod *m, const char *name);
 int  bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs, int32_t *ret);
 int  bmnative_call_buf(const bmnative_mod *m, int fn, const int32_t *args, const bmnative_buf *bufs, int nargs, int32_t *ret);
+const char *bmnative_get_string(int32_t arg0);
 
 #endif

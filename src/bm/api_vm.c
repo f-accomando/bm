@@ -306,7 +306,7 @@ static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t n
     static const char *const names[] = {
         "cls", "pix", "rectfill", "spr", "btn",
         "btnp", "line", "circ", "circfill", "rect",
-        "sfx", "music", "time"
+        "sfx", "music", "time", "print"
     };
     if (host_id < 0 || host_id >= (int)(sizeof names / sizeof names[0]))
         return 0;
@@ -318,6 +318,19 @@ static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t n
     if (!lua_isfunction(L, -1)) {
         lua_pop(L, 1);
         return 0;
+    }
+    if (host_id == BMN_HOST_PRINT) {
+        if (nargs > 0)
+            lua_pushstring(L, bmnative_get_string(args[0]));
+        for (int32_t i = 1; i < nargs; i++)
+            lua_pushinteger(L, args[i]);
+        if (lua_pcall(L, nargs, 1, 0) != LUA_OK) {
+            lua_pop(L, 1);
+            return 0;
+        }
+        int32_t res = (int32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        return res;
     }
     for (int32_t i = 0; i < nargs; i++)
         lua_pushinteger(L, args[i]);

@@ -37,7 +37,8 @@ enum {
     TK_NAME,
     TK_INT,
     TK_FLOAT,
-    TK_OP
+    TK_OP,
+    TK_STRING
 };
 
 typedef struct {
@@ -59,6 +60,7 @@ typedef struct {
 enum {
     OP_PUSH_CONST = 0,
     OP_PUSH_FCONST,
+    OP_PUSH_STR,
     OP_PUSH_TRUE,
     OP_PUSH_FALSE,
     OP_POP,
@@ -203,6 +205,16 @@ typedef struct {
     int         needs_host_call;
     int         idivmod_word;
     int         host_call_word;
+
+    /* .rodata segment state */
+    uint8_t     rodata[4096];
+    uint32_t    nrodata;
+    struct {
+        uint16_t lit_word_idx;
+        uint16_t add_word_idx;
+        uint32_t str_off;
+    } str_patches[256];
+    int         nstr_patches;
 } bmlc_ctx_t;
 
 static void bml_copy_str(char *dst, size_t cap, const char *src)
@@ -321,6 +333,31 @@ static uint32_t f32_to_bits(float f)
     return u;
 }
 
+static uint32_t bml_intern_string(bmlc_ctx_t *C, const char *ptr, size_t len, int line)
+{
+    if (len < 2)
+        c_fail(C, line, "invalid string literal");
+    const char *s = ptr + 1;
+    size_t slen = len - 2;
+    uint32_t off = C->nrodata;
+    for (size_t i = 0; i < slen; i++) {
+        if (C->nrodata + 2 >= sizeof C->rodata)
+            c_fail(C, line, "rodata buffer overflow");
+        if (s[i] == '\\' && i + 1 < slen) {
+            char c = s[++i];
+            if (c == 'n') C->rodata[C->nrodata++] = '\n';
+            else if (c == 't') C->rodata[C->nrodata++] = '\t';
+            else if (c == 'r') C->rodata[C->nrodata++] = '\r';
+            else if (c == '0') C->rodata[C->nrodata++] = '\0';
+            else C->rodata[C->nrodata++] = (uint8_t)c;
+        } else {
+            C->rodata[C->nrodata++] = (uint8_t)s[i];
+        }
+    }
+    C->rodata[C->nrodata++] = '\0';
+    return off;
+}
+
 static void tokenize(bmlc_ctx_t *C)
 {
     const char *s = C->src;
@@ -381,6 +418,28 @@ static void tokenize(bmlc_ctx_t *C)
             t->len = (uint16_t)(pos - start);
             C->ntoks++;
             (void)is_flt;
+            continue;
+        }
+
+        /* String literal: "..." or '...' */
+        if (c == '"' || c == '\'') {
+            char quote = c;
+            size_t start = pos;
+            pos++;
+            while (pos < n && s[pos] != quote) {
+                if (s[pos] == '\\' && pos + 1 < n)
+                    pos += 2;
+                else if (s[pos] == '\n')
+                    c_fail(C, line, "unfinished string literal");
+                else
+                    pos++;
+            }
+            if (pos >= n)
+                c_fail(C, line, "unfinished string literal");
+            pos++; /* consume closing quote */
+            t->kind = TK_STRING;
+            t->len = (uint16_t)(pos - start);
+            C->ntoks++;
             continue;
         }
 
@@ -553,6 +612,8 @@ static uint8_t parse_type_annotation(bmlc_ctx_t *C, int allow_composite)
         base = BMN_BOOL;
     else if (strcmp(tname, "f32") == 0)
         base = BMN_F32;
+    else if (strcmp(tname, "string") == 0)
+        base = BMN_STR;
     else {
         int s_idx = find_struct(C, tname);
         if (s_idx >= 0 && allow_composite)
@@ -612,6 +673,13 @@ static void parse_const_decl(bmlc_ctx_t *C)
         } else {
             c_fail(C, v->line, "expected true or false for bool const");
         }
+    } else if (ctyp == BMN_STR) {
+        if (sign < 0)
+            c_fail(C, v->line, "unexpected '-' for string const");
+        if (v->kind != TK_STRING)
+            c_fail(C, v->line, "expected string literal for string const");
+        C->ti++;
+        val = bml_intern_string(C, v->ptr, v->len, v->line);
     } else {
         c_fail(C, cn->line, "unsupported type for const");
     }
@@ -743,6 +811,12 @@ static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
         emit_op(C, OP_PUSH_FCONST, fk, stmt_line);
         return BMN_F32;
     }
+    if (t->kind == TK_STRING) {
+        C->ti++;
+        uint32_t off = bml_intern_string(C, t->ptr, t->len, stmt_line);
+        emit_op(C, OP_PUSH_STR, (int32_t)off, stmt_line);
+        return BMN_STR;
+    }
     if (t->kind == TK_KW && (tok_eq(t, "true") || tok_eq(t, "false"))) {
         int val = tok_eq(t, "true");
         C->ti++;
@@ -768,6 +842,9 @@ static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
             } else if (cn->type == BMN_BOOL) {
                 emit_op(C, cn->val ? OP_PUSH_TRUE : OP_PUSH_FALSE, 0, stmt_line);
                 return BMN_BOOL;
+            } else if (cn->type == BMN_STR) {
+                emit_op(C, OP_PUSH_STR, (int32_t)cn->val, stmt_line);
+                return BMN_STR;
             }
         }
 
@@ -1045,6 +1122,15 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
                 break;
         }
         expect_tok(C, ")");
+    }
+
+    if (strcmp(callee, "print") == 0) {
+        if (argc < 1 || argc > 5)
+            c_fail(C, stmt_line, "'print' takes 1 to 5 arguments");
+        if (arg_types[0] != BMN_STR)
+            c_fail(C, stmt_line, "'print' first argument must be string");
+        emit_op(C, OP_CALL_HOST, (BMN_HOST_PRINT << 8) | argc, stmt_line);
+        return BMN_I32;
     }
 
     /* Polymorphic math built-ins: abs, min, max */
@@ -1735,7 +1821,7 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
         uint8_t op = ins.op;
 
         int t1 = -1, sp1 = sp, t2 = -1, sp2 = sp;
-        if (op == OP_PUSH_CONST || op == OP_PUSH_FCONST || op == OP_PUSH_TRUE || op == OP_PUSH_FALSE || op == OP_LOAD) {
+        if (op == OP_PUSH_CONST || op == OP_PUSH_FCONST || op == OP_PUSH_STR || op == OP_PUSH_TRUE || op == OP_PUSH_FALSE || op == OP_LOAD) {
             if (sp + 1 > max_sp) max_sp = sp + 1;
             t1 = pc + 1; sp1 = sp + 1;
         } else if (op == OP_STORE || op == OP_POP) {
@@ -1762,7 +1848,7 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
         } else if (op == OP_CALL_HOST) {
             int hid = ins.arg >> 8;
             int argc = ins.arg & 0xFF;
-            int has_ret = (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME);
+            int has_ret = (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT);
             t1 = pc + 1; sp1 = sp - argc + (has_ret ? 1 : 0);
         }
 
@@ -1825,6 +1911,8 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
     int frame_bytes = frame_words * 4;
 
     int fn_patch_start = C->npatches;
+    struct { uint16_t ldr_idx; uint16_t add_idx; uint8_t dst; uint32_t off; } fn_str_relocs[64];
+    int nfn_str_relocs = 0;
 
     /* push {r4-r10, fp, lr}; mov fp, sp; sub sp, sp, #frame_bytes */
     emit_w(C, 0xE92D4FF0u);
@@ -1861,6 +1949,22 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
         case OP_PUSH_FCONST: {
             uint32_t dst = (s_top < 7) ? (uint32_t)(4 + s_top) : 0u;
             emit_mov32(C, dst, C->fconsts[ins.arg]);
+            put_slot_reg(C, s_top, dst);
+            break;
+        }
+        case OP_PUSH_STR: {
+            uint32_t dst = (s_top < 7) ? (uint32_t)(4 + s_top) : 0u;
+            uint16_t ldr_idx = (uint16_t)C->nwords;
+            emit_w(C, 0); /* placeholder for ldr dst, [pc, #lit] */
+            uint16_t add_idx = (uint16_t)C->nwords;
+            emit_dp_reg(C, DP_ADD, dst, 15, dst, COND_AL, 0, 0, 0);
+            if (nfn_str_relocs < 64) {
+                fn_str_relocs[nfn_str_relocs].ldr_idx = ldr_idx;
+                fn_str_relocs[nfn_str_relocs].add_idx = add_idx;
+                fn_str_relocs[nfn_str_relocs].dst = (uint8_t)dst;
+                fn_str_relocs[nfn_str_relocs].off = (uint32_t)ins.arg;
+                nfn_str_relocs++;
+            }
             put_slot_reg(C, s_top, dst);
             break;
         }
@@ -2101,7 +2205,7 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             emit_mov32(C, 2, (uint32_t)argc);
             emit_branch_patch(C, -4, 0, COND_AL, 1);
             emit_dp_imm(C, DP_ADD, 13, 13, (uint32_t)alloc_bytes, COND_AL, 0);
-            if (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME)
+            if (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT)
                 put_slot_reg(C, (int)fn->nlocals + base, 0);
             break;
         }
@@ -2122,6 +2226,19 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
     C->pc_word[n] = (uint16_t)epilogue_word;
     emit_dp_reg(C, DP_MOV, 13, 0, 11, COND_AL, 0, 0, 0);
     emit_w(C, 0xE8BD8FF0u); /* pop {r4-r10, fp, pc} */
+
+    for (int k = 0; k < nfn_str_relocs; k++) {
+        uint16_t lit_slot_idx = (uint16_t)C->nwords;
+        emit_w(C, 0); /* placeholder for delta */
+        uint32_t lit_offset = (uint32_t)(lit_slot_idx - (fn_str_relocs[k].ldr_idx + 2)) * 4u;
+        C->words[fn_str_relocs[k].ldr_idx] = (COND_AL << 28) | (0x51u << 20) | (1u << 23) | (15u << 16) | (((uint32_t)fn_str_relocs[k].dst & 0xFu) << 12) | (lit_offset & 0xFFFu);
+        if (C->nstr_patches < 256) {
+            C->str_patches[C->nstr_patches].lit_word_idx = lit_slot_idx;
+            C->str_patches[C->nstr_patches].add_word_idx = fn_str_relocs[k].add_idx;
+            C->str_patches[C->nstr_patches].str_off = fn_str_relocs[k].off;
+            C->nstr_patches++;
+        }
+    }
 
     /* Resolve intra-function jump patches now */
     for (int i = fn_patch_start; i < C->npatches; i++) {
@@ -2227,8 +2344,20 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
         }
     }
 
+    /* Resolve string literal delta patches */
+    while ((C->nrodata & 3u) != 0)
+        C->rodata[C->nrodata++] = 0;
+
+    for (int i = 0; i < C->nstr_patches; i++) {
+        uint32_t target_off = (uint32_t)C->nwords * 4u + C->str_patches[i].str_off;
+        uint32_t pc_at_add = ((uint32_t)C->str_patches[i].add_word_idx + 2u) * 4u;
+        uint32_t delta = target_off - pc_at_add;
+        C->words[C->str_patches[i].lit_word_idx] = delta;
+    }
+
     /* Pack BMN1 binary container */
-    size_t total_len = 12u + (size_t)C->nfuncs * 56u + (size_t)C->nwords * 4u + (size_t)C->nstructs * 308u;
+    size_t hdr_size = (C->nrodata > 0) ? 16u : 12u;
+    size_t total_len = hdr_size + (size_t)C->nfuncs * 56u + (size_t)C->nwords * 4u + (size_t)C->nstructs * 308u + (size_t)C->nrodata;
     uint8_t *blob = calloc(1, total_len);
     if (!blob) {
         free(C);
@@ -2242,8 +2371,10 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
     memcpy(blob + 0, &magic, 4);
     memcpy(blob + 4, &nfn_packed, 4);
     memcpy(blob + 8, &ncode, 4);
+    if (C->nrodata > 0)
+        memcpy(blob + 12, &C->nrodata, 4);
 
-    uint8_t *p = blob + 12;
+    uint8_t *p = blob + hdr_size;
     for (int i = 0; i < C->nfuncs; i++, p += 56) {
         const c_func_t *f = &C->funcs[i];
         memcpy(p, f->name, 32);
@@ -2262,6 +2393,11 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
         memcpy(p + 32, &nf, 4);
         memcpy(p + 36, st->ftype, 16);
         memcpy(p + 52, st->fname, 256);
+    }
+
+    if (C->nrodata > 0) {
+        memcpy(p, C->rodata, C->nrodata);
+        p += C->nrodata;
     }
 
     *out_blob = blob;

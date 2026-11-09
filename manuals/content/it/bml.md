@@ -44,16 +44,17 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 | `i32` | Intero con segno a 32 bit (wrap in complemento a 2) | `0`, `42`, `-2147483648`, `2147483647` | Registro generale a 32 bit (`r0`..`r10`) |
 | `bool` | Valore di verità stretto | `true`, `false` | `1` (`true`) o `0` (`false`) in un registro a 32 bit |
 | `f32` | Float IEEE-754 a singola precisione | `0.0`, `1.5`, `-0.25` | Slot GP a 32 bit + coprocessore 10 VFPv2 `s0`..`s1` |
+| `string` | Stringa immutabile e costanti nel segmento `.rodata` | `"testo"`, `'testo'` | Puntatore a 32 bit nel segmento `.rodata` (PIC PC-relative, zero rilocazioni) |
 | `i32[]`, `bool[]`, `f32[]` | Array tipati con indice base 1 | `a[i]`, `a[i] = v` | Puntatore base in registro a 32 bit (`ldr`/`str` a `base + (i - 1) * 4`) |
 | `struct Name ... end` | Record a layout fisso | `s.field`, `s.field = v` | Puntatore a parole contigue di 32 bit (`offset = field_idx * 4`) |
-| `const NAME: tipo = val` | Costante a costo zero valutata a compile-time | `const MAX: i32 = 16` | Sostituita con valore immediato nel codice macchina (zero registri sprecati) |
+| `const NAME: tipo = val` | Costante a costo zero valutata a compile-time | `const MAX: i32 = 16`, `const S: string = "ok"` | Sostituita con valore immediato o offset `.rodata` nel codice macchina |
 | `enum Name ... end` | Enumerazione di interi sequenziali | `enum State IDLE = 0, RUN, JUMP end` | Valutata a compile-time come `i32` (`State.RUN`) |
 | `function Struct:metodo(...)` | Metodo associato a una struct | `function Vec2f:len_sq(): f32 ... end` | Primo parametro implicito `self`; dispatch statico diretto (`v:len_sq()`) |
 
 - Le condizioni in `if`, `elseif`, `while`, `and`, `or` e `not` devono avere tipo `bool`. Un `i32` non è mai usato implicitamente come booleano.
 - La divisione intera usa `//` e il modulo usa `%` (arrotondati verso $-\infty$). La divisione float usa `/` su operandi `f32`.
 - Funzioni matematiche e di conversione integrate: `abs(x)`, `min(a, b)`, `max(a, b)` (per `i32` o `f32`), `sqrt(x: f32): f32`, `f32(x: i32): f32` e `floor(x: f32): i32`.
-- Funzioni del kernel (Tappa 7+): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(x0, y0, x1, y1, col)`, `circ(x, y, r, col)`, `circfill(x, y, r, col)`, `rect(x, y, w, h, col)`, `sfx(id)`, `music(id)` e `time(): f32`.
+- Funzioni del kernel (Tappa 7+): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(x0, y0, x1, y1, col)`, `circ(x, y, r, col)`, `circfill(x, y, r, col)`, `rect(x, y, w, h, col)`, `sfx(id)`, `music(id)`, `time(): f32` e `print(msg, ...): i32` (fino a 5 argomenti; primo argomento `string`).
 
 ## Istruzioni e operatori
 

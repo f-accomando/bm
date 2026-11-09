@@ -36,6 +36,7 @@ class VMError(Exception):
 TOKEN_RE = re.compile(
     r"(?P<ws>\s+)"
     r"|(?P<comment>--[^\n]*)"
+    r"|(?P<string>\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')"
     r"|(?P<float>\d+\.\d*|\.\d+)"
     r"|(?P<int>\d+)"
     r"|(?P<name>[A-Za-z_]\w*)"
@@ -49,7 +50,7 @@ KEYWORDS = {
     "const", "enum",
 }
 
-TYPES = ("i32", "bool", "f32")
+TYPES = ("i32", "bool", "f32", "string")
 ARRAY_TYPES = ("i32[]", "bool[]", "f32[]")
 BUILTINS = {
     "abs": (["i32"], "i32"),
@@ -71,6 +72,7 @@ BUILTINS = {
     "sfx": (["i32"], None),
     "music": (["i32"], None),
     "time": ([], "f32"),
+    "print": (["string"], "i32"),
 }
 
 HOST_FUNCTIONS: Dict[str, Tuple[int, List[str], Optional[str]]] = {
@@ -87,7 +89,29 @@ HOST_FUNCTIONS: Dict[str, Tuple[int, List[str], Optional[str]]] = {
     "sfx": (10, ["i32"], None),
     "music": (11, ["i32"], None),
     "time": (12, [], "f32"),
+    "print": (13, ["string"], "i32"),
 }
+
+def unescape_string(raw: str) -> str:
+    """Strips outer quotes and processes standard escape sequences."""
+    inner = raw[1:-1]
+    res: List[str] = []
+    i = 0
+    n = len(inner)
+    while i < n:
+        if inner[i] == "\\" and i + 1 < n:
+            c = inner[i + 1]
+            if c == "n": res.append("\n")
+            elif c == "t": res.append("\t")
+            elif c == "r": res.append("\r")
+            elif c == "0": res.append("\0")
+            elif c in ('"', "'", "\\"): res.append(c)
+            else: res.append(c)
+            i += 2
+        else:
+            res.append(inner[i])
+            i += 1
+    return "".join(res)
 
 
 def f32_round(x: float) -> float:
@@ -162,6 +186,11 @@ class FloatLit(Expr):
 @dataclass
 class BoolLit(Expr):
     value: bool
+
+
+@dataclass
+class StringLit(Expr):
+    value: str
 
 
 @dataclass
@@ -453,6 +482,13 @@ class Parser:
                 val = False
             else:
                 self.fail("expected true or false for bool const", val_tok)
+        elif ctyp == "string":
+            if sign < 0:
+                self.fail("unexpected '-' for string const", val_tok)
+            if val_tok.kind != "string":
+                self.fail("expected string literal for string const", val_tok)
+            self.i += 1
+            val = unescape_string(val_tok.text)
         else:
             self.fail(f"unsupported type '{ctyp}' for const", type_tok)
 
@@ -756,6 +792,9 @@ class Parser:
         if t.kind == "float":
             self.i += 1
             return FloatLit(t.line, f32_round(float(t.text)))
+        if t.kind == "string":
+            self.i += 1
+            return StringLit(t.line, unescape_string(t.text))
         if self.accept("true"):
             return BoolLit(t.line, True)
         if self.accept("false"):
@@ -775,6 +814,8 @@ class Parser:
                     return FloatLit(ident.line, float(cval))
                 elif ctyp == "bool":
                     return BoolLit(ident.line, bool(cval))
+                elif ctyp == "string":
+                    return StringLit(ident.line, str(cval))
             if ident.text in self.enum_table:
                 self.expect(".")
                 ent = self.expect_name()
@@ -1004,6 +1045,10 @@ class TypeChecker:
         self.fail(s.line, f"unknown statement {type(s).__name__}")
 
     def check_expr(self, e: Expr, stmt_line: int) -> str:
+        if isinstance(e, StringLit):
+            e.typ = "string"
+            return "string"
+
         if isinstance(e, IntLit):
             if e.value == 0x80000000:
                 self.fail(stmt_line, "integer literal 2147483648 overflows i32 unless negated")
@@ -1115,6 +1160,19 @@ class TypeChecker:
         return ""
 
     def check_call(self, call: CallExpr, stmt_line: int, need_value: bool) -> Optional[str]:
+        if call.callee == "print":
+            if not (1 <= len(call.args) <= 5):
+                self.fail(stmt_line, f"'print' takes 1 to 5 arguments, not {len(call.args)}")
+            t0 = self.check_expr(call.args[0], stmt_line)
+            if t0 != "string":
+                self.fail(stmt_line, f"'print' first argument must be string, not {t0}")
+            for a in call.args[1:]:
+                at = self.check_expr(a, stmt_line)
+                if at not in ("i32", "bool", "f32", "string"):
+                    self.fail(stmt_line, f"'print' extra arguments must be primitive, not {at}")
+            call.typ = "i32"
+            return "i32"
+
         if call.callee in ("abs", "min", "max"):
             want_n = 1 if call.callee == "abs" else 2
             if len(call.args) != want_n:
@@ -1175,6 +1233,7 @@ def to_lua(src: str) -> str:
 OPCODES = (
     "PUSH_CONST",   # arg = constant index k; pushes K[k] (i32)
     "PUSH_FCONST",  # arg = float constant index k; pushes FK[k] (f32)
+    "PUSH_STR",     # arg = string index k; pushes str/offset (string)
     "PUSH_TRUE",    # pushes True
     "PUSH_FALSE",   # pushes False
     "POP",          # discards top of stack
@@ -1253,6 +1312,7 @@ class Module:
     consts: List[int]
     func_index: Dict[str, int]
     fconsts: List[float] = field(default_factory=list)
+    strings: List[str] = field(default_factory=list)
     structs: Dict[str, StructDecl] = field(default_factory=dict)
 
 
@@ -1265,6 +1325,8 @@ class BytecodeCompiler:
         self.const_map: Dict[int, int] = {}
         self.fconsts: List[float] = []
         self.fconst_map: Dict[int, int] = {}
+        self.strings: List[str] = []
+        self.str_map: Dict[str, int] = {}
         self.structs: Dict[str, StructDecl] = {st.name: st for st in prog.structs}
         self.func_index: Dict[str, int] = {fn.name: idx for idx, fn in enumerate(prog.funcs)}
         self.func_ret: Dict[str, Optional[str]] = {fn.name: fn.ret_type for fn in prog.funcs}
@@ -1286,6 +1348,12 @@ class BytecodeCompiler:
             self.fconst_map[bits] = len(self.fconsts)
             self.fconsts.append(fv)
         return self.fconst_map[bits]
+
+    def add_string(self, val: str) -> int:
+        if val not in self.str_map:
+            self.str_map[val] = len(self.strings)
+            self.strings.append(val)
+        return self.str_map[val]
 
     def alloc_slot(self, name: str) -> int:
         slot = len(self.local_names)
@@ -1312,6 +1380,7 @@ class BytecodeCompiler:
             consts=self.consts,
             func_index=self.func_index,
             fconsts=self.fconsts,
+            strings=self.strings,
             structs=self.structs,
         )
 
@@ -1495,6 +1564,11 @@ class BytecodeCompiler:
             return
 
     def compile_expr(self, e: Expr) -> None:
+        if isinstance(e, StringLit):
+            s_idx = self.add_string(e.value)
+            self.emit("PUSH_STR", s_idx, repr(e.value))
+            return
+
         if isinstance(e, IntLit):
             k = self.add_const(e.value)
             self.emit("PUSH_CONST", k, str(e.value))
@@ -1615,13 +1689,16 @@ def disassemble(mod: Module) -> str:
     if mod.fconsts:
         fconsts_str = ", ".join(f"FK[{i}]={v}" for i, v in enumerate(mod.fconsts))
         lines.append(f"; fconsts: {fconsts_str}")
+    if mod.strings:
+        strings_str = ", ".join(f"S[{i}]={repr(v)}" for i, v in enumerate(mod.strings))
+        lines.append(f"; strings: {strings_str}")
     for idx, fn in enumerate(mod.funcs):
         ret_s = fn.ret_type or "void"
         params_s = ", ".join(f"{fn.local_names[i]}: {t}" for i, t in enumerate(fn.param_types))
         lines.append(f"\nfn #{idx} {fn.name}({params_s}) -> {ret_s}  [locals={fn.nlocals}]")
         for pc, ins in enumerate(fn.code):
             note = f"  ; {ins.comment}" if ins.comment else ""
-            if ins.op in ("PUSH_CONST", "PUSH_FCONST", "LOAD", "STORE", "JMP", "JZ", "JF_KEEP", "JT_KEEP"):
+            if ins.op in ("PUSH_CONST", "PUSH_FCONST", "PUSH_STR", "LOAD", "STORE", "JMP", "JZ", "JF_KEEP", "JT_KEEP"):
                 lines.append(f"  {pc:04d}  {ins.op:<12} {ins.arg}{note}")
             elif ins.op == "CALL":
                 lines.append(f"  {pc:04d}  {ins.op:<12} fn={ins.arg >> 8}, argc={ins.arg & 0xFF}{note}")
@@ -1753,6 +1830,8 @@ class StackVM:
                 stack.append(self._norm(consts[ins.arg]))
             elif op == "PUSH_FCONST":
                 stack.append(fconsts[ins.arg])
+            elif op == "PUSH_STR":
+                stack.append(self.mod.strings[ins.arg])
             elif op == "PUSH_TRUE":
                 stack.append(True)
             elif op == "PUSH_FALSE":
@@ -2021,7 +2100,7 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             elif depths[target] != next_sp:
                 raise Error(f"internal: stack depth mismatch at pc={target}: {depths[target]} vs {next_sp}")
 
-        if op in ("PUSH_CONST", "PUSH_FCONST", "PUSH_TRUE", "PUSH_FALSE", "LOAD"):
+        if op in ("PUSH_CONST", "PUSH_FCONST", "PUSH_STR", "PUSH_TRUE", "PUSH_FALSE", "LOAD"):
             if sp + 1 > max_sp:
                 max_sp = sp + 1
             reach(pc + 1, sp + 1)
@@ -2564,6 +2643,7 @@ class ARMv6Module:
     words: List[int]
     func_offsets: Dict[str, int]  # byte offset of each function from the start of words
     comments: Dict[int, str]
+    rodata: bytes = b""
 
 
 class ARMv6Compiler:
@@ -2578,6 +2658,14 @@ class ARMv6Compiler:
         self.needs_idivmod = False
         self.needs_host_call = False
         self.host_slot_word: Optional[int] = None
+        self.rodata = bytearray()
+        self.str_offsets: Dict[int, int] = {}
+        for s_idx, s_val in enumerate(self.mod.strings):
+            self.str_offsets[s_idx] = len(self.rodata)
+            self.rodata.extend(s_val.encode("utf-8") + b"\x00")
+        while len(self.rodata) % 4 != 0:
+            self.rodata.append(0)
+        self.final_str_patches: List[Tuple[int, int, int]] = []
 
     def compile(self) -> ARMv6Module:
         for fn_ast, fn_ir in zip(self.prog.funcs, self.mod.funcs):
@@ -2594,8 +2682,18 @@ class ARMv6Compiler:
         if self.needs_host_call:
             self._emit_host_call_helper()
 
+        ncode = len(self.asm.words)
+        for lit_slot_idx, add_idx, str_off in self.final_str_patches:
+            delta = (ncode * 4 + str_off) - ((add_idx + 2) * 4)
+            self.asm.words[lit_slot_idx] = delta & 0xFFFFFFFF
+
         self.asm.finalize()
-        return ARMv6Module(words=self.asm.words, func_offsets=self.func_offsets, comments=self.asm.comments)
+        return ARMv6Module(
+            words=self.asm.words,
+            func_offsets=self.func_offsets,
+            comments=self.asm.comments,
+            rodata=bytes(self.rodata),
+        )
 
     def _emit_host_call_helper(self) -> None:
         """Emits __bml_call_host: inputs r0 = host_id, r1 = &args[0], r2 = nargs; returns r0 = result (0 if no handler)."""
@@ -2671,6 +2769,7 @@ class ARMv6Compiler:
     def _compile_general_fn(self, fn: CompiledFunc) -> None:
         """Compiles a general function using r4..r10 for the first 7 slots and [fp, #-off] for spills."""
         a = self.asm
+        pending_str_relocs: List[Tuple[int, int, int, int]] = []
         depths, max_sp = compute_stack_depths(fn.code, self.mod.funcs)
         total_slots = fn.nlocals + max_sp + 1
         spill_slots = max(0, total_slots - 7)
@@ -2734,6 +2833,13 @@ class ARMv6Compiler:
                 bits = f32_to_bits(fval)
                 dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
                 a.mov32(dst, bits, comment=f"f32 {fval}")
+                put_slot(s_slot(sp), dst)
+            elif op == "PUSH_STR":
+                str_off = self.str_offsets[ins.arg]
+                dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
+                ldr_idx = a.emit_word(0, comment=f"ldr r{dst}, [pc, #lit] ; str {repr(self.mod.strings[ins.arg])}")
+                add_idx = a.add_reg(dst, 15, dst, comment=f"add r{dst}, pc, r{dst}")
+                pending_str_relocs.append((ldr_idx, add_idx, dst, str_off))
                 put_slot(s_slot(sp), dst)
             elif op == "PUSH_TRUE":
                 dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
@@ -2970,6 +3076,13 @@ class ARMv6Compiler:
         pop_mask = (0x7F << 4) | (1 << 11) | (1 << 15)  # r4..r10, fp(r11), pc(r15)
         a.pop(pop_mask, comment=f"{fn.name}: pop {{r4-r10, fp, pc}}")
 
+        for ldr_idx, add_idx, dst, str_off in pending_str_relocs:
+            lit_slot_idx = a.emit_word(0, comment=f"literal slot for str offset {str_off}")
+            lit_offset = (lit_slot_idx - (ldr_idx + 2)) * 4
+            assert 0 <= lit_offset <= 0xFFF, f"string literal offset out of 12-bit range: {lit_offset}"
+            a.words[ldr_idx] = (COND_AL << 28) | (0b01010001 << 20) | (1 << 23) | (15 << 16) | ((dst & 0xF) << 12) | (lit_offset & 0xFFF)
+            self.final_str_patches.append((lit_slot_idx, add_idx, str_off))
+
 
 def compile_armv6(src: str, leaf_opt: bool = True) -> ARMv6Module:
     """Compiles BML source code through Stages 1, 2, and 4 into an ARMv6Module."""
@@ -2987,6 +3100,7 @@ BMN_F32 = 3
 BMN_ARR_I32 = 4
 BMN_ARR_BOOL = 5
 BMN_ARR_F32 = 6
+BMN_STR = 7
 BMN_STRUCT_BASE = 0x80
 
 
@@ -3000,6 +3114,7 @@ def compile_native_blob(src: str, leaf_opt: bool = True) -> bytes:
     nfn = len(mod.funcs)
     nstruct = len(prog.structs)
     ncode = len(arm_mod.words)
+    nrodata = len(arm_mod.rodata)
     if nfn < 1 or nfn > 512:
         raise Error(f"native module has {nfn} functions (1..512 allowed)")
     if nstruct > 64:
@@ -3024,13 +3139,18 @@ def compile_native_blob(src: str, leaf_opt: bool = True) -> bytes:
             return BMN_ARR_BOOL
         if t == "f32[]":
             return BMN_ARR_F32
+        if t == "string":
+            return BMN_STR
         if t in struct_idx_map:
             return BMN_STRUCT_BASE | struct_idx_map[t]
         raise Error(f"unsupported BMN1 type '{t}'")
 
     host_flag = 0x8000 if arm_comp.host_slot_word is not None else 0
     nfn_packed = ((nstruct | host_flag) << 16) | nfn
-    out = bytearray(struct.pack("<III", BMN_MAGIC, nfn_packed, ncode))
+    if nrodata > 0:
+        out = bytearray(struct.pack("<IIII", BMN_MAGIC, nfn_packed, ncode, nrodata))
+    else:
+        out = bytearray(struct.pack("<III", BMN_MAGIC, nfn_packed, ncode))
     for fn in mod.funcs:
         name_b = fn.name.encode("ascii")[:31]
         name_padded = name_b + b"\x00" * (32 - len(name_b))
@@ -3059,6 +3179,9 @@ def compile_native_blob(src: str, leaf_opt: bool = True) -> bytes:
                 fnames.extend(b"\x00" * 16)
         out.extend(struct.pack("<32sI16B", sname_padded, len(st.fields), *ftypes))
         out.extend(fnames)
+
+    if nrodata > 0:
+        out.extend(arm_mod.rodata)
 
     return bytes(out)
 
