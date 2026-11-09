@@ -281,14 +281,14 @@ void dsp_tick(void)
         if (d[0x3D] & (1 << i)) {
             s = (int16_t)(noise << 1);
         } else {
-            /* a cubic between hist[1] and hist[2]: f = s1 + t/2 * (s2 - s0 + t * (c2 + t * c3)), t = frac / 4096, in 64-bit integers (the ARM1176
-             * has a slow floating point unit). The same value as the float formula, cut towards zero. */
+            /* a cubic between hist[1] and hist[2]: f = s1 + t/2 * (s2 - s0 + t * (c2 + t * c3)), t = frac / 4096 (Horner's rule, three 32 x 32 to 64 bit
+             * products, each rounded; the ARM1176 has a slow floating point unit). Within 2 steps of 16 bit of the float formula that was here before. */
             const int s0 = v->hist[0], s1 = v->hist[1], s2 = v->hist[2], s3 = v->hist[3];
             const int c3 = 3 * (s1 - s2) + s3 - s0, c2 = 2 * s0 - 5 * s1 + 4 * s2 - s3;
-            const int64_t T = v->frac;
-            const int64_t U = (int64_t)c2 * 4096 + T * c3;                    /* (c2 + t * c3) * 2^12 */
-            const int64_t V12 = ((int64_t)(s2 - s0) << 12) + ((T * U) >> 12);  /* (s2 - s0 + t * (...)) * 2^12 */
-            s = (int)((((int64_t)s1 << 25) + T * V12) / 33554432);            /* / 2^25: t / 2 * (...) with t = T / 2^12 */
+            const int t = v->frac;
+            const int p1 = c2 + (int)(((int64_t)c3 * t + 2048) >> 12);                  /* c2 + t * c3 */
+            const int p2 = (s2 - s0) + (int)(((int64_t)p1 * t + 2048) >> 12);          /* s2 - s0 + t * (...) */
+            s = s1 + (int)(((int64_t)p2 * t + 4096) >> 13);                             /* + t / 2 * (...) */
             s = clamp16(s);
         }
         s = (s * v->env) >> 11;

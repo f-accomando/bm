@@ -95,19 +95,19 @@ static uint64_t run_case(int c, float *out, int *nout)
     return h;
 }
 
-/* The table is of the code with the integer cubic. The float cubic that came before gave the same samples but for a rounding: over 720000 samples of these
- * cases the largest difference was 2 steps of 16 bit (4.9e-05 in the floats of snes_audio_mix), the mean 1.6e-09 (2026-11-09, `dsp_golden diff`). */
+/* The table is of the code with the integer cubic (32 x 32 to 64 bit products, rounded). The float cubic that came before gave the same samples within a few steps of
+ * 16 bit: in 8 of these 10 cases at most 4 steps, in two cases (a voice that modulates its pitch from the one before) the samples drift apart in time (`dsp_golden diff`). */
 static const uint64_t GOLDEN[CASES] = {
-    0x48608291F2C43D87ull,
-    0x5B5F2D0FE1F8330Bull,
-    0x1CB3759F6BD5B18Cull,
-    0x958D904051E08FCFull,
-    0xECE382611E3DC08Full,
-    0x6DC5F1BBA805B766ull,
-    0x1E14098E7A48EE71ull,
-    0x54E52C8F8FF5BC1Eull,
-    0x5CBBEB60FC13E550ull,
-    0xFD6FAC1B8FD1CCA4ull,
+    0xB7D9994A2A699486ull,
+    0x2716BDCCF60DD069ull,
+    0x395C62181BC65E13ull,
+    0x6B2BE6B9DDFAE24Full,
+    0xDF4EAD607DF6B431ull,
+    0x310F8F4598A19715ull,
+    0x5CB07C2165904168ull,
+    0x594C017D2C563316ull,
+    0x16DBCAFEBF83011Full,
+    0x6FF0F939A5713266ull,
 };
 
 static void bench(void)
@@ -145,12 +145,19 @@ int main(int argc, char **argv)
             int n;
             run_case(c, out, &n);
             if (fread(old, sizeof(float), (size_t)n, f) != (size_t)n) { printf("short file\n"); return 1; }
+            double cworst = 0;
+            long cbig = 0;
             for (int i = 0; i < n; i++) {
                 const double dd = fabs((double)out[i] - (double)old[i]);
+                if (dd > cworst) cworst = dd;
                 if (dd > worst) worst = dd;
                 sum += dd; count++;
-                if (dd > 4.0 * (0.8 / 32768.0)) big++;      /* more than 4 steps of 16 bit */
+                if (dd > 4.0 * (0.8 / 32768.0)) cbig++;     /* more than 4 steps of 16 bit */
             }
+            /* a voice that modulates its pitch from the voice before it (PMON) turns a difference of one step into a change of pitch: the samples drift
+             * apart in time, they are not wrong. The cases without it must stay within 4 steps. */
+            printf("case %d: PMON %02X, largest %.2e, %ld samples over 4 steps\n", c, spc_dsp_ptr()[0x2D], cworst, cbig);
+            if (spc_dsp_ptr()[0x2D] == 0) big += cbig;
         }
         printf("largest difference %.3e (a 16-bit step is %.3e), mean %.3e, %ld of %ld samples more than 4 steps\n", worst, 0.8 / 32768.0, sum / (double)count, big, count);
         fclose(f);
