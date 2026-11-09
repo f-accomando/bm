@@ -137,6 +137,7 @@ static void vwrite(int hi, uint8_t v)
 {
     uint32_t ba = ((uint32_t)vaddr(S.vmaddr & 0x7FFF) << 1) & 0xFFFF;
     S.vram[ba + hi] = v;
+    ppu_vram_dirty((uint16_t)(ba + hi));
     if (((S.vmain & 0x80) != 0) == hi) S.vmaddr = (uint16_t)(S.vmaddr + vmstep[S.vmain & 3]);
 }
 static int16_t sign13(unsigned v) { v &= 0x1FFF; return (int16_t)(v & 0x1000 ? v - 0x2000 : v); }
@@ -428,6 +429,7 @@ void snes_bus_reset(void)
 {
     memset(S.wram, 0, sizeof S.wram);
     memset(S.vram, 0, sizeof S.vram);
+    ppu_vram_dirty_all();
     memset(S.oam, 0, sizeof S.oam);
     memset(S.cgram, 0, sizeof S.cgram);
     memset(S.dma, 0xFF, sizeof S.dma);

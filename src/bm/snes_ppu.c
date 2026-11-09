@@ -22,6 +22,7 @@ static uint32_t pal_gen = 1;            /* grows with every palette write: the c
 
 void ppu_reset(void)
 {
+    ppu_vram_dirty_all();
     memset(S.pal, 0, sizeof S.pal);
     memset(S.picture, 0, sizeof S.picture);
     pal_gen++;
@@ -54,6 +55,35 @@ static void make_tables(void)
         memcpy(&tAf[b], f, 4); memcpy(&tBf[b], f + 4, 4);
     }
     tables_ready = 1;
+}
+
+/* Decoded tiles: every tile of the video RAM as chunky pixels, one byte a pixel, 8 rows of two words (pixels 0 to 3 and 4 to 7), made when the tile is first
+ * used and dropped when the video RAM is written there (ppu_vram_dirty, called by the bus). A row of a tile is then two loads; a flipped tile is the
+ * two words swapped and byte-reversed. There is one cache for each depth (2, 4 and 8 bits a pixel): a tile address is 16, 32 or 64 bytes apart. */
+static uint32_t tc2[4096][16], tc4[2048][16], tc8[1024][16];
+static uint8_t tv2[4096], tv4[2048], tv8[1024];
+void ppu_vram_dirty(uint16_t a) { tv2[a >> 4] = 0; tv4[a >> 5] = 0; tv8[a >> 6] = 0; }
+void ppu_vram_dirty_all(void) { memset(tv2, 0, sizeof tv2); memset(tv4, 0, sizeof tv4); memset(tv8, 0, sizeof tv8); }
+
+static void decode_tile(int bpp, uint32_t a, uint32_t *out)
+{
+    for (int py = 0; py < 8; py++) {
+        const uint32_t ca = (a + (uint32_t)py * 2) & 0xFFFF;
+        unsigned b = S.vram[ca];
+        uint32_t lo = tA[b], hi = tB[b];
+        b = S.vram[(ca + 1) & 0xFFFF]; lo |= tA[b] << 1; hi |= tB[b] << 1;
+        if (bpp >= 4) {
+            b = S.vram[(ca + 16) & 0xFFFF]; lo |= tA[b] << 2; hi |= tB[b] << 2;
+            b = S.vram[(ca + 17) & 0xFFFF]; lo |= tA[b] << 3; hi |= tB[b] << 3;
+        }
+        if (bpp == 8) {
+            b = S.vram[(ca + 32) & 0xFFFF]; lo |= tA[b] << 4; hi |= tB[b] << 4;
+            b = S.vram[(ca + 33) & 0xFFFF]; lo |= tA[b] << 5; hi |= tB[b] << 5;
+            b = S.vram[(ca + 48) & 0xFFFF]; lo |= tA[b] << 6; hi |= tB[b] << 6;
+            b = S.vram[(ca + 49) & 0xFFFF]; lo |= tA[b] << 7; hi |= tB[b] << 7;
+        }
+        out[py * 2] = lo; out[py * 2 + 1] = hi;
+    }
 }
 
 /* Four 8-bit lanes in a 32-bit word. On the ARMv6 core of the Pi (the SIMD32 instructions: UADD8, SEL, UQADD8, UQSUB8, UHADD8) one instruction does what
@@ -105,28 +135,32 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
     memset(oi, 0, 256); memset(op, 0, 256);
     if (!((S.tm | S.ts) & (1 << n))) return;            /* the layer is on neither screen: nothing to draw */
     if (!tables_ready) make_tables();
-    const int big = (S.bgmode >> (4 + n)) & 1, tsz = big ? 16 : 8, tsh = big ? 4 : 3;        /* tsh: log2 of the tile size (the ARM1176 has no divide) */
+    const int big = (S.bgmode >> (4 + n)) & 1, tsh = big ? 4 : 3;        /* tsh: log2 of the tile size (the ARM1176 has no divide) */
     const int sc = S.sc[n], wide = sc & 1, tall = sc & 2;
-    const uint32_t map_base = (uint32_t)(sc & 0xFC) << 9;       /* bytes */
     const uint32_t chr_base = S.nba[n];
-    const int bytes_tile = bpp * 8;
     const int sy = (y + S.vofs[n]) & 0x3FF;
     const int ty = sy >> tsh;
-    const unsigned pal_off = (bpp == 2 && pal_base_mode0) ? (unsigned)n * 32 : 0;
+    /* the tile map: the address of the entry of tile column tcol is base_a + (tcol & 31) * 2 + (tcol & 32) * wsh, all modulo 64 KB */
+    const uint32_t map_base = (uint32_t)(sc & 0xFC) << 9;
+    const uint32_t base_a = map_base + (uint32_t)(tall ? ((ty >> 5) & 1) * (wide ? 2 : 1) * 0x800 : 0) + (uint32_t)((ty & 31) * 64);
+    const uint32_t wsh = wide ? 64u : 0u;
+    /* the tile data: the depth gives the size of a tile and the cache */
+    const int tshift = bpp == 2 ? 4 : bpp == 4 ? 5 : 6;                  /* log2 of the bytes of a tile */
+    uint32_t (*tc)[16] = bpp == 2 ? tc2 : bpp == 4 ? tc4 : tc8;
+    uint8_t *tv = bpp == 2 ? tv2 : bpp == 4 ? tv4 : tv8;
+    const uint32_t pbase = (bpp == 2 && pal_base_mode0) ? (uint32_t)n * 32 : 0;
+    const int py0 = sy & (big ? 15 : 7);
     const int hofs = S.hofs[n] & 0x3FF, px0 = hofs & 7;
     int sx = hofs & ~7, any = 0;
     uint8_t *ti = tbi[n], *tp = tbp[n];
     memset(ti, 0, 264); memset(tp, 0, 264);
     for (int k = 0; k < 33; k++, sx = (sx + 8) & 0x3FF) {      /* one tile column of 8 pixels per turn, on the grid of the tiles; the scroll is a shift at the end */
         const int tcol = sx >> tsh;
-        int screen = 0;
-        if (wide) screen += (tcol >> 5) & 1;
-        if (tall) screen += ((ty >> 5) & 1) * (wide ? 2 : 1);
-        const uint32_t ea = (map_base + (uint32_t)screen * 0x800 + (uint32_t)(((ty & 31) * 32 + (tcol & 31)) * 2)) & 0xFFFF;
+        const uint32_t ea = (base_a + (uint32_t)(tcol & 31) * 2 + (uint32_t)(tcol & 32) * wsh) & 0xFFFF;
         const unsigned e = S.vram[ea] | (S.vram[ea + 1] << 8);
         unsigned tile = e & 0x3FF;
         const int pal = (e >> 10) & 7, pri = (e >> 13) & 1, hflip = (e >> 14) & 1, vflip = (e >> 15) & 1;
-        int py = sy & (tsz - 1);
+        int py = py0;
         if (big) {
             int sxm = sx & 15;
             if (hflip) sxm = 15 - sxm;
@@ -136,24 +170,13 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
             py &= 7;
         }
         if (vflip) py = 7 - (py & 7);
-        const uint32_t ca = (chr_base + tile * (uint32_t)bytes_tile + (uint32_t)((py & 7) * 2)) & 0xFFFF;
-        const uint32_t *ta = hflip ? tAf : tA, *tb = hflip ? tBf : tB;
-        unsigned b = S.vram[ca];
-        uint32_t lo = ta[b], hi = tb[b];
-        b = S.vram[(ca + 1) & 0xFFFF]; lo |= ta[b] << 1; hi |= tb[b] << 1;
-        if (bpp >= 4) {
-            b = S.vram[(ca + 16) & 0xFFFF]; lo |= ta[b] << 2; hi |= tb[b] << 2;
-            b = S.vram[(ca + 17) & 0xFFFF]; lo |= ta[b] << 3; hi |= tb[b] << 3;
-        }
-        if (bpp == 8) {
-            b = S.vram[(ca + 32) & 0xFFFF]; lo |= ta[b] << 4; hi |= tb[b] << 4;
-            b = S.vram[(ca + 33) & 0xFFFF]; lo |= ta[b] << 5; hi |= tb[b] << 5;
-            b = S.vram[(ca + 48) & 0xFFFF]; lo |= ta[b] << 6; hi |= tb[b] << 6;
-            b = S.vram[(ca + 49) & 0xFFFF]; lo |= ta[b] << 7; hi |= tb[b] << 7;
-        }
+        const uint32_t chunk = ((chr_base + tile * (1u << tshift)) & 0xFFFF) >> tshift;
+        if (!tv[chunk]) { decode_tile(bpp, chunk << tshift, tc[chunk]); tv[chunk] = 1; }
+        uint32_t lo = tc[chunk][(py & 7) * 2], hi = tc[chunk][(py & 7) * 2 + 1];
         if (!(lo | hi)) continue;                       /* a clear row of a tile writes nothing */
+        if (hflip) { const uint32_t t = __builtin_bswap32(hi); hi = __builtin_bswap32(lo); lo = t; }
         any = 1;
-        const uint32_t pb = (uint32_t)(bpp == 2 ? pal_off + (unsigned)pal * 4 : bpp == 4 ? (unsigned)pal * 16 : 0) * 0x01010101u;
+        const uint32_t pb = (pbase + (uint32_t)(bpp == 2 ? pal * 4 : bpp == 4 ? pal * 16 : 0)) * 0x01010101u;
         const uint32_t pr = (uint32_t)pri * 0x01010101u;
         const uint32_t ml = nz_mask(lo), mh = nz_mask(hi);
         st(ti + k * 8, (lo + pb) & ml);     st(ti + k * 8 + 4, (hi + pb) & mh);
@@ -381,7 +404,8 @@ void ppu_line(int y)
 
     /* the palette as RGB565 with the brightness, and the brightness tables of the channels, kept until the palette or the brightness changes */
     static uint16_t lut[256], rt[32], gt[32], bt[32];
-    static uint32_t rt32[32], gt32[32], bt32[32];     /* the same tables as words: the ARM loop (snes_ppu_arm.S) */
+    static uint32_t rt32[32], gt32[32], bt32[32];     /* the same tables as words: the ARM loop (snes_ppu_arm.S); unused on the host */
+    (void)rt32; (void)gt32; (void)bt32;
     static uint32_t pal8[256];                          /* the palette as three lanes (red, green, blue) of the colour times 8: the lane maths below */
     static int lut_bright = -1;
     static uint32_t lut_gen;

@@ -103,6 +103,8 @@ void dsp_tick(void);                    /* one sample (every 32 cycles of the so
 void ppu_reset(void);
 void ppu_line(int y);                   /* draws line y into S.picture */
 void ppu_cgram_write(int index);
+void ppu_vram_dirty(uint16_t byte_addr);       /* the video RAM changed at this byte: the decoded tile is dropped */
+void ppu_vram_dirty_all(void);              /* the video RAM changed everywhere (a reset, a test that fills it) */
 extern uint32_t (*snes_now_us)(void);
 extern uint32_t ppu_us[5];               /* the time of the parts of ppu_line since the last read: layers, sprites, windows, compose, mix */
 

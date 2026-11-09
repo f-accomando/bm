@@ -21,6 +21,7 @@ static void fill_vram(int clear_pct)
     for (int i = 0; i < 65536; i++) S.vram[i] = (rnd() % 100 < (uint32_t)clear_pct) ? 0 : (uint8_t)rnd();
     /* tile rows that are plain: clear rows of 8 bytes now and then, and tile maps that point to few tiles */
     for (int i = 0; i < 65536; i += 16) if (rnd() % 4 == 0) memset(&S.vram[i], 0, 16);
+    ppu_vram_dirty_all();                                            /* the PPU keeps decoded tiles: tell it that the video RAM changed */
 }
 
 static void fill_cgram(void)
@@ -72,6 +73,12 @@ static int equiv(int cases)
         random_state();
         for (int y = 0; y < 224; y++) {
             if (rnd() % 8 == 0) { S.hofs[rnd() & 3] = (uint16_t)(rnd() & 0x3FF); S.cgadsub ^= (uint8_t)(rnd() & 1); }   /* a change in the middle of the frame */
+            if (rnd() % 6 == 0) {                                                    /* the video RAM written through the registers, as a game does: the cache of decoded tiles must follow */
+                snes_ppu_write(0x2115, 0);
+                const uint16_t wa = (uint16_t)(rnd() & 0x7FFF);
+                snes_ppu_write(0x2116, (uint8_t)wa); snes_ppu_write(0x2117, (uint8_t)(wa >> 8));
+                for (int i = 0; i < 6; i++) { snes_ppu_write(0x2118, (uint8_t)rnd()); snes_ppu_write(0x2119, (uint8_t)rnd()); }
+            }
             S.inidisp = (uint8_t)((S.inidisp & 0x80) | (S.inidisp & 15));
             memset(&S.picture[y * SNES_W], 0xA5, SNES_W * 2);
             ppu_line_ref(y);
@@ -141,6 +148,7 @@ static int rotation(void)
     memset(S.vram, 0, sizeof S.vram);
     memset(&S.vram[0x4000 + 1 * 32], 0xFF, 16);                       /* tile 1: planes 0 and 1: colour 3 of its palette */
     for (int r = 0; r < 8; r++) S.vram[0x4000 + 2 * 32 + r * 2] = 0xFF;   /* tile 2: plane 0 only: colour 1 */
+    ppu_vram_dirty_all();
     memset(S.cgram, 0, sizeof S.cgram);
     S.cgram[(128 + 3) * 2] = 0x1F;                                    /* sprite colour 3: red */
     S.cgram[(128 + 1) * 2 + 1] = 0x7C;                                /* sprite colour 1: blue */
