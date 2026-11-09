@@ -116,6 +116,7 @@ extern int psx_gpu_hres(void);
 extern int psx_gpu_line, psx_gpu_field;
 extern int psx_irq_poll;
 uint32_t psx_now_us(void);                 /* the host clock in microseconds (0 without one) */
+extern uint32_t psx_us_dma, psx_us_gte, psx_us_gpu_other;   /* microseconds in the frame: DMA (it includes the drawing it starts), GTE commands, GPU fills, copies and uploads */
 extern uint32_t psx_gpu_us;                /* microseconds spent drawing since the last frame (psx_gpu.c, read by psx_bus.c) */
 /* psx_bus.c */
 void psx_irq_raise(int n);

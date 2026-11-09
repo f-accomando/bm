@@ -63,6 +63,7 @@ typedef struct {
     uint32_t gpu_cmds, gpu_pixels;
     uint32_t dma_runs;
     uint32_t cd_cmds, cd_sectors, cd_last_cmd, cd_irq_flag, cd_irq_en, cd_events, cd_read_fail;
+    uint32_t us_dma, us_gte, us_gpu_other;      /* microseconds a frame: DMA (it includes drawing it starts), GTE commands, GPU fills and copies */
     uint32_t st_blocks, st_jit_instr, st_interp, st_exec, st_rslow, st_wslow;   /* the CPU in the last frame */
     uint32_t cd_trace[12];     /* the last commands, newest last: cmd | param0 << 8 | param1 << 16 | param2 << 24 */
     uint32_t cd_lba, cd_loc;

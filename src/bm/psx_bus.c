@@ -21,6 +21,8 @@ static uint32_t (*clock_us)(void);
 static uint32_t frames, unhandled, last_unhandled, dma_runs;
 static uint32_t us_frame, us_cpu, us_gpu;
 static uint32_t st_last[6];
+uint32_t psx_us_dma, psx_us_gte, psx_us_gpu_other;
+static uint32_t us_dma_s, us_gte_s, us_other_s;
 static char st_text[160];
 static char tty[2048];
 static uint32_t tty_len;
@@ -158,6 +160,7 @@ static void dma_run(int ch)
     const int mode = (int)((chcr >> 9) & 3), from_ram = (int)(chcr & 1), step = (chcr & 2) ? -4 : 4;
     uint32_t words = 0;
     dma_runs++;
+    const uint32_t dma_t0 = psx_now_us();
     TRACE("DMA ch%d madr %06x bcr %08x chcr %08x dpcr %08x dicr %08x%c", ch, dma_madr[ch], dma_bcr[ch], chcr, dpcr, dicr, 10);
     if (mode == 2) {                                           /* linked list: only the GPU */
         int guard = 0x40000;
@@ -215,6 +218,7 @@ static void dma_run(int ch)
     dma_chcr[ch] &= ~0x11000000u;
     if ((dicr >> (16 + ch)) & 1) dicr_update(1u << (24 + ch));
     else dicr_update(0);
+    psx_us_dma += psx_now_us() - dma_t0;
 }
 
 static uint32_t dma_read(uint32_t reg)
@@ -621,6 +625,8 @@ void psx_frame(uint16_t pad1, uint16_t pad2, int render)
         memset(psx_stat_exec_hist, 0, sizeof psx_stat_exec_hist);
         memset(psx_stat_slow_hist, 0, sizeof psx_stat_slow_hist);
     }
+    us_dma_s = (us_dma_s * 7 + psx_us_dma) / 8; us_gte_s = (us_gte_s * 7 + psx_us_gte) / 8; us_other_s = (us_other_s * 7 + psx_us_gpu_other) / 8;
+    psx_us_dma = psx_us_gte = psx_us_gpu_other = 0;
     st_last[0] = psx_stat_blocks; st_last[1] = psx_stat_jit_instr; st_last[2] = psx_stat_interp; st_last[3] = psx_stat_exec; st_last[4] = psx_stat_rslow; st_last[5] = psx_stat_wslow;
     psx_stat_blocks = psx_stat_jit_instr = psx_stat_interp = psx_stat_exec = psx_stat_rslow = psx_stat_wslow = 0;
     (void)render;
@@ -655,6 +661,7 @@ void psx_debug(psx_debug_t *d)
     d->bios = has_bios; d->exe = exe_len != 0;
     d->us_frame = us_frame; d->us_cpu = us_cpu; d->us_gpu = us_gpu;
     psx_cd_debug(d);
+    d->us_dma = us_dma_s; d->us_gte = us_gte_s; d->us_gpu_other = us_other_s;
     d->st_blocks = st_last[0]; d->st_jit_instr = st_last[1]; d->st_interp = st_last[2]; d->st_exec = st_last[3]; d->st_rslow = st_last[4]; d->st_wslow = st_last[5];
     d->tty_len = tty_len; d->unhandled = unhandled; d->last_unhandled = last_unhandled;
 }

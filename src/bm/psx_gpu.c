@@ -374,7 +374,7 @@ static void exec_cmd(void)
         psx_gpu_us += psx_now_us() - t0;
         return;
     }
-    if (op >= 0x80 && op < 0xA0) { cmd_vram_copy(); return; }
+    if (op >= 0x80 && op < 0xA0) { const uint32_t t0 = psx_now_us(); cmd_vram_copy(); psx_us_gpu_other += psx_now_us() - t0; return; }
     if (op >= 0xA0 && op < 0xC0) {
         GP.xfer = 1;
         GP.xfer_x = (int)(GP.cmd[1] & 0x3FF); GP.xfer_y = (int)((GP.cmd[1] >> 16) & 0x1FF);
@@ -395,7 +395,7 @@ static void exec_cmd(void)
     }
     switch (op) {
     case 0x01: break;
-    case 0x02: cmd_fill(); break;
+    case 0x02: { const uint32_t t0 = psx_now_us(); cmd_fill(); psx_us_gpu_other += psx_now_us() - t0; break; }
     case 0x1F: GP.irq = 1; psx_irq_raise(IRQ_GPU); break;
     case 0xE1:
         GP.texpage = c0 & 0x7FF;

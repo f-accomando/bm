@@ -176,7 +176,7 @@ function _draw()
     print(d.audio, 4, 68, 0x00FF00)
     print((jit_on and "JIT on  " or "JIT off  ") .. selftest_msg:sub(1, 70), 4, 100, 0xFFFF80)
     print(string.format("a frame: blocks %d  jit instr %d  interp %d  exec %d  rslow %d  wslow %d", d.st_blocks, d.st_jit_instr, d.st_interp, d.st_exec, d.st_rslow, d.st_wslow), 4, 116, 0xFFFF80)
-    print(d.stat_text, 4, 132, 0xFFFF80)
+    print(d.stat_text .. string.format("  ms: dma %.1f gte %.1f fill/copy %.1f", d.us_dma / 1000, d.us_gte / 1000, d.us_gpu_other / 1000), 4, 132, 0xFFFF80)
     print(string.format("lba %d loc %d  %s", d.cd_lba, d.cd_loc, d.cd_trace), 4, 84, 0x00FF00)
   end
   local tty = psx_tty()

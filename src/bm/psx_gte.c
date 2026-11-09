@@ -365,7 +365,7 @@ static void base_color(int64_t b[3])                        /* the colour << 16 
     b[0] = (int64_t)(c & 0xFF) << 16; b[1] = (int64_t)((c >> 8) & 0xFF) << 16; b[2] = (int64_t)((c >> 16) & 0xFF) << 16;
 }
 
-void psx_gte_command(uint32_t op)
+static void gte_command_impl(uint32_t op)
 {
     const int sf = (op >> 19) & 1, lm = (op >> 10) & 1;
     G.c[31] = 0;
@@ -437,4 +437,11 @@ void psx_gte_command(uint32_t op)
     default: break;
     }
     if (G.c[31] & 0x7F87E000) G.c[31] |= (int32_t)0x80000000u;
+}
+
+void psx_gte_command(uint32_t op)
+{
+    const uint32_t t0 = psx_now_us();
+    gte_command_impl(op);
+    psx_us_gte += psx_now_us() - t0;
 }
