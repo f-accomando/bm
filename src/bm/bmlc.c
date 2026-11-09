@@ -544,6 +544,13 @@ static const token_t *cur_tok(const bmlc_ctx_t *C)
     return &C->toks[C->ti];
 }
 
+static const token_t *peek_tok(const bmlc_ctx_t *C, int offset)
+{
+    if (C->ti + offset < C->ntoks)
+        return &C->toks[C->ti + offset];
+    return &C->toks[C->ntoks];
+}
+
 static const token_t *expect_tok(bmlc_ctx_t *C, const char *text)
 {
     const token_t *t = cur_tok(C);
@@ -632,7 +639,7 @@ static int alloc_local(bmlc_ctx_t *C, const char *name, uint8_t typ, int line)
 
 static uint8_t parse_type_annotation(bmlc_ctx_t *C, int allow_composite)
 {
-    expect_tok(C, ":");
+    accept_tok(C, ":");
     const token_t *t = cur_tok(C);
     if (t->kind != TK_NAME)
         c_fail(C, t->line, "expected a type name (i32, bool, or f32)");
@@ -1733,6 +1740,17 @@ static int check_canonical_leaf_sum(const bmlc_ctx_t *C, const c_func_t *fn)
 static void parse_func_decl(bmlc_ctx_t *C)
 {
     const token_t *kw = expect_tok(C, "function");
+    uint8_t prefix_ret = BMN_NONE;
+    const token_t *first = cur_tok(C);
+    const token_t *second = peek_tok(C, 1);
+    if (first->kind == TK_NAME && second->kind == TK_NAME &&
+        (tok_eq(first, "i32") || tok_eq(first, "f32") || tok_eq(first, "bool") || tok_eq(first, "void"))) {
+        if (tok_eq(first, "i32")) prefix_ret = BMN_I32;
+        else if (tok_eq(first, "f32")) prefix_ret = BMN_F32;
+        else if (tok_eq(first, "bool")) prefix_ret = BMN_BOOL;
+        else prefix_ret = BMN_NONE;
+        C->ti++;
+    }
     const token_t *fn_tok = expect_name(C);
     char fname[64];
     tok_copy_str(fn_tok, fname, sizeof fname);
@@ -1788,7 +1806,7 @@ static void parse_func_decl(bmlc_ctx_t *C)
         expect_tok(C, ")");
     }
 
-    fn->ret_type = BMN_NONE;
+    fn->ret_type = prefix_ret;
     if (cur_tok(C)->kind == TK_OP && tok_eq(cur_tok(C), ":"))
         fn->ret_type = parse_type_annotation(C, 0);
 

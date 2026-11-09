@@ -426,8 +426,9 @@ class Parser:
         return t
 
     def parse_type_annotation(self, allow_composite: bool = False) -> str:
-        """Parses ': <type>' (including T[] or struct Name when allow_composite) and records its byte span."""
-        colon = self.expect(":")
+        """Parses ': <type>' or '<type>' (including T[] or struct Name when allow_composite) and records its byte span."""
+        colon = self.accept(":")
+        start_pos = colon.start if colon else self.cur().start
         tname = self.expect_name()
         end_pos = tname.end
         typ_s = tname.text
@@ -443,7 +444,7 @@ class Parser:
                 self.fail(f"struct type '{typ_s}' is only allowed on parameters", tname)
         elif typ_s not in TYPES:
             self.fail(f"unknown type '{typ_s}' (expected i32, bool, or f32)", tname)
-        self.cuts.append((colon.start, end_pos))
+        self.cuts.append((start_pos, end_pos))
         return typ_s
 
     def parse(self) -> Program:
@@ -566,6 +567,11 @@ class Parser:
 
     def parse_function(self) -> FuncDecl:
         kw = self.expect("function")
+        prefix_ret: Optional[str] = None
+        if self.cur().text in TYPES or self.cur().text == "void":
+            prefix_ret = self.cur().text if self.cur().text != "void" else None
+            self.cuts.append((self.cur().start, self.cur().end))
+            self.i += 1
         fname = self.expect_name()
         is_method = False
         st_name = ""
@@ -592,7 +598,7 @@ class Parser:
                 if not self.accept(","):
                     break
         rparen = self.expect(")")
-        ret_type: Optional[str] = None
+        ret_type: Optional[str] = prefix_ret
         if self.cur().text == ":":
             ret_type = self.parse_type_annotation(allow_composite=False)
 

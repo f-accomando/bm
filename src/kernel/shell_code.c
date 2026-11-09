@@ -80,6 +80,9 @@ typedef struct {
     int        syntax;     /* SC_SYN_* */
     int        dirty;      /* 1 if modified */
     int        err_line;   /* 1-based error line from compiler */
+    int        sel_active;
+    int        sel_anchor_cy;
+    int        sel_anchor_cx;
     char       status[256];
 } sc_tab_t;
 
@@ -98,16 +101,16 @@ enum {
 };
 
 static const char *const g_menu_labels[MENU_COUNT] = {
-    "Riprendi editing",
-    "Apri file...     (Ctrl+O)",
-    "Salva            (Ctrl+S)",
-    "Salva con nome...",
-    "Nuovo file       (Ctrl+N)",
-    "Compila ed Esegui (F5)",
-    "Disassembla .b   (F7)",
-    "Prossimo Tab     (Ctrl+T)",
-    "Chiudi Tab",
-    "Esci dall'app"
+    "Resume Editing",
+    "Open File...     (Ctrl+O)",
+    "Save             (Ctrl+S)",
+    "Save As...",
+    "New File         (Ctrl+N)",
+    "Compile & Run    (F5)",
+    "Disassemble .b   (F7)",
+    "Next Tab         (Ctrl+T)",
+    "Close Tab",
+    "Exit Shell Code"
 };
 
 #ifndef FAT_NAME_MAX
@@ -142,9 +145,29 @@ typedef struct {
     int      quit_requested;
     int      screen_cols;
     int      screen_rows;
+    char    *clipboard;
+    size_t   clipboard_len;
 } sc_state_t;
 
 static sc_state_t g_sc;
+
+static int g_mock_ctrl = 0, g_mock_shift = 0, g_mock_alt = 0;
+
+#ifndef SHELL_CODE_HOST_TEST
+static inline int sc_ctrl_held(void) {
+    return g_mock_ctrl || hid_usage_held(0xE0) || hid_usage_held(0xE4);
+}
+static inline int sc_shift_held(void) {
+    return g_mock_shift || hid_usage_held(0xE1) || hid_usage_held(0xE5);
+}
+static inline int sc_alt_held(void) {
+    return g_mock_alt || hid_usage_held(0xE2) || hid_usage_held(0xE6);
+}
+#else
+static inline int sc_ctrl_held(void) { return g_mock_ctrl; }
+static inline int sc_shift_held(void) { return g_mock_shift; }
+static inline int sc_alt_held(void) { return g_mock_alt; }
+#endif
 
 /* ---- Path Normalization (/code-b/) ---- */
 
@@ -502,6 +525,37 @@ static const char *const c_kw[] = {
     "case", "break", "continue", "sizeof", "uint32_t", "int32_t", "uint8_t"
 };
 
+static int sc_get_selection(const sc_tab_t *t, int *s_cy, int *s_cx, int *e_cy, int *e_cx)
+{
+    if (!t->sel_active) return 0;
+    int a_cy = t->sel_anchor_cy, a_cx = t->sel_anchor_cx;
+    int c_cy = t->cy, c_cx = t->cx;
+    if (a_cy < c_cy || (a_cy == c_cy && a_cx <= c_cx)) {
+        *s_cy = a_cy; *s_cx = a_cx;
+        *e_cy = c_cy; *e_cx = c_cx;
+    } else {
+        *s_cy = c_cy; *s_cx = c_cx;
+        *e_cy = a_cy; *e_cx = a_cx;
+    }
+    return 1;
+}
+
+static int sc_is_char_selected(const sc_tab_t *t, int file_line, int col)
+{
+    int s_cy, s_cx, e_cy, e_cx;
+    if (!sc_get_selection(t, &s_cy, &s_cx, &e_cy, &e_cx))
+        return 0;
+    if (file_line < s_cy || file_line > e_cy)
+        return 0;
+    if (s_cy == e_cy)
+        return (col >= s_cx && col < e_cx);
+    if (file_line == s_cy)
+        return (col >= s_cx);
+    if (file_line == e_cy)
+        return (col < e_cx);
+    return 1;
+}
+
 /* Formats line content with syntax highlighting and explicit inverse block cursor */
 static void sc_format_line(const sc_tab_t *t, int file_line, int is_cursor_line,
                            int cursor_cx, int col_off, int max_cols, char *out, size_t max_len)
@@ -523,6 +577,12 @@ static void sc_format_line(const sc_tab_t *t, int file_line, int is_cursor_line,
             /* Render active block cursor: reverse video / negative */
             char c = (col < len) ? s[col] : ' ';
             pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m", c);
+            col++;
+            continue;
+        }
+        if (sc_is_char_selected(t, file_line, col)) {
+            char c = (col < len) ? s[col] : ' ';
+            pos += snprintf(out + pos, max_len - pos, "\x1b[44;97m%c\x1b[0m", c);
             col++;
             continue;
         }
@@ -1358,11 +1418,61 @@ static void sc_insert_newline(sc_tab_t *t)
     t->dirty = 1;
 }
 
+static void sc_delete_range(sc_tab_t *t, int s_cy, int s_cx, int e_cy, int e_cx)
+{
+    if (s_cy == e_cy) {
+        sc_line_t *l = &t->lines[s_cy];
+        int count = e_cx - s_cx;
+        for (int i = 0; i < count; i++)
+            sc_line_delete_char(l, s_cx);
+        t->cy = s_cy;
+        t->cx = s_cx;
+        t->dirty = 1;
+        return;
+    }
+
+    sc_line_t *first = &t->lines[s_cy];
+    sc_line_t *last = &t->lines[e_cy];
+
+    /* Truncate first line at s_cx */
+    first->len = s_cx;
+    first->chars[s_cx] = '\0';
+
+    /* Append remainder of last line */
+    if (e_cx < last->len)
+        sc_line_append(first, last->chars + e_cx, last->len - e_cx);
+
+    /* Delete intermediate lines from e_cy down to s_cy + 1 */
+    for (int r = e_cy; r > s_cy; r--)
+        sc_tab_delete_line(t, r);
+
+    t->cy = s_cy;
+    t->cx = s_cx;
+    t->dirty = 1;
+}
+
 static void sc_backspace(sc_tab_t *t)
 {
+    if (t->sel_active) {
+        int s_cy, s_cx, e_cy, e_cx;
+        if (sc_get_selection(t, &s_cy, &s_cx, &e_cy, &e_cx)) {
+            sc_delete_range(t, s_cy, s_cx, e_cy, e_cx);
+            t->sel_active = 0;
+            return;
+        }
+    }
     if (t->cx > 0) {
-        sc_line_delete_char(&t->lines[t->cy], t->cx - 1);
+        sc_line_t *cur = &t->lines[t->cy];
+        char prev = cur->chars[t->cx - 1];
+        char next = (t->cx < cur->len) ? cur->chars[t->cx] : '\0';
+        sc_line_delete_char(cur, t->cx - 1);
         t->cx--;
+        /* Auto-delete closing pair if empty */
+        if ((prev == '(' && next == ')') || (prev == '[' && next == ']') ||
+            (prev == '{' && next == '}') || (prev == '"' && next == '"')) {
+            if (t->cx < cur->len)
+                sc_line_delete_char(cur, t->cx);
+        }
         t->dirty = 1;
     } else if (t->cy > 0) {
         sc_line_t *prev = &t->lines[t->cy - 1];
@@ -1377,6 +1487,14 @@ static void sc_backspace(sc_tab_t *t)
 
 static void sc_delete_under_cursor(sc_tab_t *t)
 {
+    if (t->sel_active) {
+        int s_cy, s_cx, e_cy, e_cx;
+        if (sc_get_selection(t, &s_cy, &s_cx, &e_cy, &e_cx)) {
+            sc_delete_range(t, s_cy, s_cx, e_cy, e_cx);
+            t->sel_active = 0;
+            return;
+        }
+    }
     sc_line_t *cur = &t->lines[t->cy];
     if (t->cx < cur->len) {
         sc_line_delete_char(cur, t->cx);
@@ -1386,6 +1504,171 @@ static void sc_delete_under_cursor(sc_tab_t *t)
         sc_tab_delete_line(t, t->cy + 1);
         t->dirty = 1;
     }
+}
+
+static void sc_copy_selection_or_line(sc_tab_t *t, int is_cut)
+{
+    int s_cy, s_cx, e_cy, e_cx;
+    free(g_sc.clipboard);
+    g_sc.clipboard = NULL;
+    g_sc.clipboard_len = 0;
+
+    if (sc_get_selection(t, &s_cy, &s_cx, &e_cy, &e_cx)) {
+        size_t est_len = 0;
+        for (int r = s_cy; r <= e_cy; r++)
+            est_len += (size_t)t->lines[r].len + 2;
+        g_sc.clipboard = malloc(est_len + 1);
+        if (!g_sc.clipboard) return;
+
+        size_t pos = 0;
+        for (int r = s_cy; r <= e_cy; r++) {
+            sc_line_t *l = &t->lines[r];
+            int c_start = (r == s_cy) ? s_cx : 0;
+            int c_end = (r == e_cy) ? e_cx : l->len;
+            if (c_end > l->len) c_end = l->len;
+            if (c_start < l->len && c_end > c_start) {
+                int clen = c_end - c_start;
+                memcpy(g_sc.clipboard + pos, l->chars + c_start, (size_t)clen);
+                pos += (size_t)clen;
+            }
+            if (r < e_cy)
+                g_sc.clipboard[pos++] = '\n';
+        }
+        g_sc.clipboard[pos] = '\0';
+        g_sc.clipboard_len = pos;
+
+        if (is_cut) {
+            sc_delete_range(t, s_cy, s_cx, e_cy, e_cx);
+            t->sel_active = 0;
+            snprintf(t->status, sizeof(t->status), "Cut %zu bytes", g_sc.clipboard_len);
+        } else {
+            snprintf(t->status, sizeof(t->status), "Copied %zu bytes", g_sc.clipboard_len);
+        }
+    } else {
+        sc_line_t *cur = &t->lines[t->cy];
+        g_sc.clipboard = malloc((size_t)cur->len + 2);
+        if (!g_sc.clipboard) return;
+        if (cur->len > 0)
+            memcpy(g_sc.clipboard, cur->chars, (size_t)cur->len);
+        g_sc.clipboard[cur->len] = '\n';
+        g_sc.clipboard[cur->len + 1] = '\0';
+        g_sc.clipboard_len = (size_t)cur->len + 1;
+
+        if (is_cut) {
+            sc_tab_delete_line(t, t->cy);
+            if (t->nlines == 0) sc_tab_insert_line(t, 0, "", 0);
+            if (t->cy >= t->nlines) t->cy = t->nlines - 1;
+            t->cx = 0;
+            t->dirty = 1;
+            snprintf(t->status, sizeof(t->status), "Cut line");
+        } else {
+            snprintf(t->status, sizeof(t->status), "Copied line");
+        }
+    }
+}
+
+static void sc_paste_clipboard(sc_tab_t *t)
+{
+    if (!g_sc.clipboard || g_sc.clipboard_len == 0)
+        return;
+
+    int s_cy, s_cx, e_cy, e_cx;
+    if (sc_get_selection(t, &s_cy, &s_cx, &e_cy, &e_cx)) {
+        sc_delete_range(t, s_cy, s_cx, e_cy, e_cx);
+        t->sel_active = 0;
+    }
+
+    for (size_t i = 0; i < g_sc.clipboard_len; i++) {
+        char c = g_sc.clipboard[i];
+        if (c == '\r') continue;
+        if (c == '\n')
+            sc_insert_newline(t);
+        else
+            sc_insert_text_char(t, c);
+    }
+    snprintf(t->status, sizeof(t->status), "Pasted %zu bytes", g_sc.clipboard_len);
+    t->dirty = 1;
+}
+
+static void sc_duplicate_line(sc_tab_t *t)
+{
+    sc_line_t *cur = &t->lines[t->cy];
+    sc_tab_insert_line(t, t->cy + 1, cur->chars, cur->len);
+    t->cy++;
+    t->dirty = 1;
+    snprintf(t->status, sizeof(t->status), "Line duplicated");
+}
+
+static void sc_word_skip_left(sc_tab_t *t)
+{
+    sc_line_t *l = &t->lines[t->cy];
+    if (t->cx == 0) {
+        if (t->cy > 0) {
+            t->cy--;
+            t->cx = t->lines[t->cy].len;
+        }
+        return;
+    }
+    while (t->cx > 0 && !isalnum((unsigned char)l->chars[t->cx - 1]) && l->chars[t->cx - 1] != '_')
+        t->cx--;
+    while (t->cx > 0 && (isalnum((unsigned char)l->chars[t->cx - 1]) || l->chars[t->cx - 1] == '_'))
+        t->cx--;
+}
+
+static void sc_word_skip_right(sc_tab_t *t)
+{
+    sc_line_t *l = &t->lines[t->cy];
+    if (t->cx >= l->len) {
+        if (t->cy + 1 < t->nlines) {
+            t->cy++;
+            t->cx = 0;
+        }
+        return;
+    }
+    while (t->cx < l->len && (isalnum((unsigned char)l->chars[t->cx]) || l->chars[t->cx] == '_'))
+        t->cx++;
+    while (t->cx < l->len && !isalnum((unsigned char)l->chars[t->cx]) && l->chars[t->cx] != '_')
+        t->cx++;
+}
+
+static int sc_try_tab_complete(sc_tab_t *t)
+{
+    sc_line_t *cur = &t->lines[t->cy];
+    if (t->cx == 0) return 0;
+    int start = t->cx;
+    while (start > 0 && (isalnum((unsigned char)cur->chars[start - 1]) || cur->chars[start - 1] == '_'))
+        start--;
+    int prefix_len = t->cx - start;
+    if (prefix_len < 2) return 0;
+
+    const char *prefix = cur->chars + start;
+    static const struct { const char *key; const char *compl; } kws[] = {
+        { "func", "function " },
+        { "fn",   "function " },
+        { "loc",  "local " },
+        { "ret",  "return " },
+        { "whi",  "while " },
+        { "str",  "struct " },
+        { "rec",  "rectfill(" },
+        { NULL, NULL }
+    };
+    for (int i = 0; kws[i].key; i++) {
+        size_t klen = strlen(kws[i].key);
+        if ((size_t)prefix_len == klen && strncmp(prefix, kws[i].key, klen) == 0) {
+            for (int d = 0; d < prefix_len; d++) {
+                sc_line_delete_char(cur, start);
+            }
+            const char *c = kws[i].compl;
+            size_t clen = strlen(c);
+            for (size_t j = 0; j < clen; j++) {
+                sc_line_insert_char(cur, start + (int)j, c[j]);
+            }
+            t->cx = start + (int)clen;
+            t->dirty = 1;
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static void sc_execute_menu_action(void)
@@ -1495,6 +1778,25 @@ static void sc_handle_key(int c)
     }
 
     /* Global Hotkeys */
+    if (c == 0x03) {                    /* Ctrl+C: Copy */
+        sc_copy_selection_or_line(t, 0);
+        return;
+    }
+    if (c == 0x18) {                    /* Ctrl+X: Cut */
+        sc_copy_selection_or_line(t, 1);
+        sc_scroll_to_cursor(t);
+        return;
+    }
+    if (c == 0x16) {                    /* Ctrl+V: Paste */
+        sc_paste_clipboard(t);
+        sc_scroll_to_cursor(t);
+        return;
+    }
+    if (c == 0x19) {                    /* Ctrl+Y: Duplicate line */
+        sc_duplicate_line(t);
+        sc_scroll_to_cursor(t);
+        return;
+    }
     if (c == 0x0F) {                    /* Ctrl+O: Open file picker */
         char dir[128];
         snprintf(dir, sizeof(dir), "%s", t->path);
@@ -1536,42 +1838,169 @@ static void sc_handle_key(int c)
         return;
     }
 
+    /* Modifiers state */
+    int shift = sc_shift_held();
+    int ctrl = sc_ctrl_held();
+    int alt = sc_alt_held();
+
     /* Direct text editing */
     if (c == '\r' || c == '\n') {
+        t->sel_active = 0;
         sc_insert_newline(t);
     } else if (c == 0x08 || c == 0x7F) {
         sc_backspace(t);
     } else if (c == HID_KEY_DEL) {
         sc_delete_under_cursor(t);
     } else if (c == '\t') {
-        sc_insert_text_char(t, ' ');
-        sc_insert_text_char(t, ' ');
+        t->sel_active = 0;
+        if (!sc_try_tab_complete(t)) {
+            sc_insert_text_char(t, ' ');
+            sc_insert_text_char(t, ' ');
+        }
     } else if (c == HID_KEY_LEFT) {
-        if (t->cx > 0) t->cx--;
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
+
+        if (ctrl && alt) {
+            t->cx = 0;
+        } else if (ctrl) {
+            sc_word_skip_left(t);
+        } else {
+            if (t->cx > 0) t->cx--;
+        }
     } else if (c == HID_KEY_RIGHT) {
-        if (t->cx < t->lines[t->cy].len) t->cx++;
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
+
+        if (ctrl && alt) {
+            t->cx = t->lines[t->cy].len;
+        } else if (ctrl) {
+            sc_word_skip_right(t);
+        } else {
+            if (t->cx < t->lines[t->cy].len) t->cx++;
+        }
     } else if (c == HID_KEY_UP) {
-        if (t->cy > 0) {
-            t->cy--;
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
+
+        if (ctrl && alt) {
+            t->cy = 0;
+            t->cx = 0;
+        } else if (alt) {
+            t->cy -= (g_sc.screen_rows - 2);
+            if (t->cy < 0) t->cy = 0;
+        } else {
+            if (t->cy > 0) t->cy--;
             if (t->cx > t->lines[t->cy].len) t->cx = t->lines[t->cy].len;
         }
     } else if (c == HID_KEY_DOWN) {
-        if (t->cy + 1 < t->nlines) {
-            t->cy++;
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
+
+        if (ctrl && alt) {
+            t->cy = t->nlines - 1;
+            t->cx = t->lines[t->cy].len;
+        } else if (alt) {
+            t->cy += (g_sc.screen_rows - 2);
+            if (t->cy >= t->nlines) t->cy = t->nlines - 1;
+        } else {
+            if (t->cy + 1 < t->nlines) t->cy++;
             if (t->cx > t->lines[t->cy].len) t->cx = t->lines[t->cy].len;
         }
     } else if (c == HID_KEY_HOME) {
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
         t->cx = 0;
     } else if (c == HID_KEY_END) {
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
         t->cx = t->lines[t->cy].len;
     } else if (c == HID_KEY_PGUP) {
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
         t->cy -= (g_sc.screen_rows - 2);
         if (t->cy < 0) t->cy = 0;
     } else if (c == HID_KEY_PGDN) {
+        if (shift && !t->sel_active) {
+            t->sel_active = 1;
+            t->sel_anchor_cx = t->cx;
+            t->sel_anchor_cy = t->cy;
+        } else if (!shift) {
+            t->sel_active = 0;
+        }
         t->cy += (g_sc.screen_rows - 2);
         if (t->cy >= t->nlines) t->cy = t->nlines - 1;
     } else if (c >= 32 && c < 127) {
-        sc_insert_text_char(t, (char)c);
+        /* Auto-closing brackets and quotes, and overtyping */
+        if (c == ')' || c == ']' || c == '}' || c == '"') {
+            sc_line_t *cur = &t->lines[t->cy];
+            if (t->cx < cur->len && cur->chars[t->cx] == c) {
+                t->cx++;
+                sc_scroll_to_cursor(t);
+                return;
+            }
+        }
+        if (t->sel_active) {
+            int s_cy, s_cx, e_cy, e_cx;
+            if (sc_get_selection(t, &s_cy, &s_cx, &e_cy, &e_cx)) {
+                sc_delete_range(t, s_cy, s_cx, e_cy, e_cx);
+                t->sel_active = 0;
+            }
+        }
+        if (c == '(') {
+            sc_insert_text_char(t, '(');
+            sc_insert_text_char(t, ')');
+            t->cx--;
+        } else if (c == '[') {
+            sc_insert_text_char(t, '[');
+            sc_insert_text_char(t, ']');
+            t->cx--;
+        } else if (c == '{') {
+            sc_insert_text_char(t, '{');
+            sc_insert_text_char(t, '}');
+            t->cx--;
+        } else if (c == '"') {
+            sc_insert_text_char(t, '"');
+            sc_insert_text_char(t, '"');
+            t->cx--;
+        } else {
+            sc_insert_text_char(t, (char)c);
+        }
     }
     sc_scroll_to_cursor(t);
 }
@@ -1797,8 +2226,100 @@ int shell_code_test_run(void)
     sc_draw_popup_menu();
     sc_draw_picker(&g_picker);
 
+    /* Test 11: Auto-pairing, Tab completion, Duplicate, Copy/Paste, and Navigations */
+    sc_tab_t edit_tab;
+    sc_tab_init_empty(&edit_tab, "/code-b/edit_test.b");
+    g_sc.tabs[0] = edit_tab;
+    g_sc.cur_tab = 0;
+
+    /* Auto-pair bracket */
+    sc_handle_key('(');
+    if (g_sc.tabs[0].lines[0].len != 2 || g_sc.tabs[0].cx != 1) {
+        printf("FAIL: auto-pair bracket\n");
+        return 19;
+    }
+    /* Overtype ')' */
+    sc_handle_key(')');
+    if (g_sc.tabs[0].lines[0].len != 2 || g_sc.tabs[0].cx != 2) {
+        printf("FAIL: overtype bracket\n");
+        return 20;
+    }
+
+    /* Tab completion: type "func" then '\t' */
+    sc_tab_set_text(&g_sc.tabs[0], "func", 4);
+    g_sc.tabs[0].cx = 4;
+    sc_handle_key('\t');
+    if (strcmp(g_sc.tabs[0].lines[0].chars, "function ") != 0) {
+        printf("FAIL: tab completion (%s != function )\n", g_sc.tabs[0].lines[0].chars);
+        return 21;
+    }
+
+    /* Duplicate line (Ctrl+Y = 0x19) */
+    sc_handle_key(0x19);
+    if (g_sc.tabs[0].nlines != 2 || g_sc.tabs[0].cy != 1) {
+        printf("FAIL: duplicate line\n");
+        return 22;
+    }
+
+    /* Copy (Ctrl+C = 0x03) and Paste (Ctrl+V = 0x16) */
+    sc_handle_key(0x03); /* Copy whole line */
+    if (!g_sc.clipboard || g_sc.clipboard_len == 0) {
+        printf("FAIL: clipboard empty on copy\n");
+        return 23;
+    }
+    sc_handle_key(0x16); /* Paste */
+    if (g_sc.tabs[0].nlines < 3) {
+        printf("FAIL: paste line\n");
+        return 24;
+    }
+
+    /* Navigation: Shift+Down selection */
+    g_mock_shift = 1;
+    sc_handle_key(HID_KEY_DOWN);
+    g_mock_shift = 0;
+    if (!g_sc.tabs[0].sel_active) {
+        printf("FAIL: Shift+Down selection active\n");
+        return 25;
+    }
+
+    /* Ctrl+Left / Right word skip */
+    g_sc.tabs[0].cy = 0;
+    g_sc.tabs[0].cx = 0;
+    g_mock_ctrl = 1;
+    sc_handle_key(HID_KEY_RIGHT);
+    g_mock_ctrl = 0;
+    if (g_sc.tabs[0].cx <= 0) {
+        printf("FAIL: Ctrl+Right word skip (%d <= 0, line: '%s')\n", g_sc.tabs[0].cx, g_sc.tabs[0].lines[0].chars);
+        return 26;
+    }
+
+    /* Ctrl+Alt+Left: Start of line */
+    g_mock_ctrl = 1; g_mock_alt = 1;
+    sc_handle_key(HID_KEY_LEFT);
+    g_mock_ctrl = 0; g_mock_alt = 0;
+    if (g_sc.tabs[0].cx != 0) {
+        printf("FAIL: Ctrl+Alt+Left start of line\n");
+        return 27;
+    }
+
+    /* Ctrl+Alt+Up: Start of file */
+    g_mock_ctrl = 1; g_mock_alt = 1;
+    sc_handle_key(HID_KEY_UP);
+    g_mock_ctrl = 0; g_mock_alt = 0;
+    if (g_sc.tabs[0].cy != 0 || g_sc.tabs[0].cx != 0) {
+        printf("FAIL: Ctrl+Alt+Up start of file\n");
+        return 28;
+    }
+
+    /* Alt+Down: Page Down */
+    g_mock_alt = 1;
+    sc_handle_key(HID_KEY_DOWN);
+    g_mock_alt = 0;
+
+    free(g_sc.clipboard);
+    g_sc.clipboard = NULL;
     sc_tab_free(&g_sc.tabs[0]);
     sc_tab_free(&tab);
-    printf("shell_code tests passed: 10/10 checks ok\n");
+    printf("shell_code tests passed: 11/11 checks ok\n");
     return 0;
 }
