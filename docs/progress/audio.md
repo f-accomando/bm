@@ -74,6 +74,7 @@ come from a small INT8 network (`MUS_NFEAT` 116 inputs, `MUS_NOUT` 24 outputs, `
 - **KO-II (`carts/ko2`)**: a groovebox played with the USB keyboard (12 pads, groups A-D, step
   recorder, 12 effects, LCD, fader, volume knob; F1 shows the keys). It runs at 1280x720 (`screen()`; the GPU scales it) with the real panel's proportions and its own stroke font in the sprite sheet. Esc opens the exit page. Ctrl+Esc freezes it (`_exit()` saves and returns `true`). Done and tested on the PC
   with bmhost. To verify on the Pi and on the RGB30 with a USB keyboard (keys, latency, voices).
+- **bm Tape (design, phase 0)**: one app for synth, sampler, sequencer, 4-track tape, and DJ set, with a display of vector scenes and the first `.b` code in a `.bm`. Read [`docs/design/bm-tape.md`](../design/bm-tape.md). Get the answers to its section 11 before phase 1. The kernel lacks run-time samples, bounce, and a scope tap (K1 to K3 of its section 2).
 - **QPU programs, step 4**: block audio effects (reverb, echo, filters) on the QPUs, also for nano8.
 - Ideas not decided (spunti in `docs/ROADMAP.md`, R31 on). R28, R29, R30, R31, short PCM samples,
   TPDF dither, in-block ramps and the WAV and MIDI import (bm Sound, Ctrl+W) are done (above and
