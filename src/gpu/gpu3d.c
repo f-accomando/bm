@@ -2402,6 +2402,37 @@ int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, i
                   (float)(flip_y ? sy + sh : sy), flip_x ? -k : k, flip_y ? -k : k, NULL);
 }
 
+int gpu3d_map_block(const g16_t *g, const g16_sheet_t *s, int block_px, int block_py,
+                    const map2d_vert_t *verts, int nverts)
+{
+    GPU_PRE();
+    if (G.failed || !G.ready || nverts <= 0 || !verts)
+        return 0;
+    const tex_t *t = tex_get(g, s);
+    if (!t)
+        return 0;
+    if (!batch_takes(g, SH_TEX2D, R3D_DEPTH_NONE, t) && batch_for(g, SH_TEX2D, R3D_DEPTH_NONE, t) != 0)
+        return 0;
+
+    const int16_t off_x = (int16_t)(block_px * 16);
+    const int16_t off_y = (int16_t)(block_py * 16);
+    uint8_t *o = G.verts + G.vbytes;
+    for (int i = 0; i < nverts; i++, o += G.b_stride) {
+        gvert_t *v = (gvert_t *)o;
+        v->x = (int16_t)(verts[i].x_rel + off_x);
+        v->y = (int16_t)(verts[i].y_rel + off_y);
+        v->z = 0;
+        v->inv_w = 1.0f;
+        v->v[0] = verts[i].u * t->inv_w;
+        v->v[1] = verts[i].v * t->inv_h;
+        v->v[2] = 1.0f;
+    }
+    G.vbytes += (uint32_t)(nverts * G.b_stride);
+    G.st.tris += (uint32_t)(nverts / 3);
+    G.st.quads2d += (uint32_t)(nverts / 6);
+    return 1;
+}
+
 /* the glyphs of a font as a sheet: 16 a row, wb * 8 pixels wide, white where lit */
 #define NFONTS 6
 static struct { const font_t *font; g16_sheet_t sheet; } fonts[NFONTS];

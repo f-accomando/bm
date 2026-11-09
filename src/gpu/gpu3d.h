@@ -181,6 +181,16 @@ typedef struct {
 int gpu3d_light2d(const g16_t *g, const float *amb, const gpu_lamp_t *lamp, int n);
 int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
                  int flip_x, int flip_y);
+
+typedef struct {
+    int16_t x_rel; /* pixel * 16 */
+    int16_t y_rel; /* pixel * 16 */
+    float u;       /* texel in sheet */
+    float v;       /* texel in sheet */
+} map2d_vert_t;
+
+int gpu3d_map_block(const g16_t *g, const g16_sheet_t *s, int block_px, int block_py,
+                    const map2d_vert_t *verts, int nverts);
 int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale);
 
 /* bm3d 4.8: the w x h RGB565 frame src scale times bigger on page (as many

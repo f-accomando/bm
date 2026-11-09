@@ -118,6 +118,7 @@ int l_mset(lua_State *L)
     if (x >= 0 && y >= 0 && x < rt.map.w && y < rt.map.h) {
         settle_reads();                 /* a map() recorded draws the map as it was */
         rt.layer[l][y * rt.map.w + x] = (uint16_t)n;
+        rt.map_version++;
     }
     return 0;
 }

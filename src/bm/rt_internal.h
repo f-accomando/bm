@@ -172,6 +172,7 @@ typedef struct {
     int light_n;                /* the lamps recorded */
     struct { int x, y, r, lv, dither; } lamp[64];   /* glow() as it was asked: x, y in the page */
     uint32_t gpu_quads_frame;   /* the 2D quads the GPU took in the last frame (the overlay's "2D" row) */
+    uint32_t map_version;       /* incremented when mset or map changes (resident batches) */
     int gwin_on;                /* gpu2d_sheet(): the window of the sheet the GPU's 2D draws from (a copy, gwin) */
     int gw_x, gw_y, gw_w, gw_h; /* the window in the sheet, on the 8-pixel cells */
     g16_sheet_t gwin;

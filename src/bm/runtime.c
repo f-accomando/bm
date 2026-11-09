@@ -464,6 +464,84 @@ int l_gpu2d_sheet(lua_State *L)
     return 1;
 }
 
+#define MAP2D_BLOCK_SIZE 16
+#define MAP2D_CACHE_BLOCKS 64
+
+typedef struct {
+    int valid;
+    uint32_t map_version;
+    const uint16_t *cells_ptr;
+    int bx, by;
+    uint8_t mask;
+    int nverts;
+    map2d_vert_t verts[MAP2D_BLOCK_SIZE * MAP2D_BLOCK_SIZE * 6];
+} map2d_block_t;
+
+static map2d_block_t map2d_blocks[MAP2D_CACHE_BLOCKS];
+static int map2d_block_next = 0;
+
+static map2d_block_t *map2d_get_block(const uint16_t *cells, int bx, int by, uint8_t mask,
+                                      int per_row, int ncells, const g16_sheet_t **out_ws)
+{
+    for (int i = 0; i < MAP2D_CACHE_BLOCKS; i++) {
+        map2d_block_t *b = &map2d_blocks[i];
+        if (b->valid && b->map_version == rt.map_version && b->cells_ptr == cells &&
+            b->bx == bx && b->by == by && b->mask == mask) {
+            int tx = 0, ty = 0;
+            *out_ws = gwin_for(&tx, &ty, G16_CELL, G16_CELL);
+            return b;
+        }
+    }
+
+    map2d_block_t *b = &map2d_blocks[map2d_block_next];
+    map2d_block_next = (map2d_block_next + 1) % MAP2D_CACHE_BLOCKS;
+    b->valid = 0;
+    b->map_version = rt.map_version;
+    b->cells_ptr = cells;
+    b->bx = bx;
+    b->by = by;
+    b->mask = mask;
+    b->nverts = 0;
+
+    const g16_sheet_t *ws_first = NULL;
+    for (int ly = 0; ly < MAP2D_BLOCK_SIZE; ly++) {
+        int row = by * MAP2D_BLOCK_SIZE + ly;
+        if (row < 0 || row >= rt.map.h) continue;
+        for (int lx = 0; lx < MAP2D_BLOCK_SIZE; lx++) {
+            int col = bx * MAP2D_BLOCK_SIZE + lx;
+            if (col < 0 || col >= rt.map.w) continue;
+            int n = cells[row * rt.map.w + col];
+            if (n == 0 || n >= ncells || (mask && !(rt.flags[n] & mask)))
+                continue;
+            int tx = (n % per_row) * G16_CELL;
+            int ty = (n / per_row) * G16_CELL;
+            const g16_sheet_t *ws = gwin_for(&tx, &ty, G16_CELL, G16_CELL);
+            if (!ws) return NULL;
+            if (!ws_first) ws_first = ws;
+            else if (ws != ws_first) return NULL;
+
+            int16_t rx0 = (int16_t)(lx * G16_CELL * 16);
+            int16_t ry0 = (int16_t)(ly * G16_CELL * 16);
+            int16_t rx1 = (int16_t)(rx0 + G16_CELL * 16);
+            int16_t ry1 = (int16_t)(ry0 + G16_CELL * 16);
+            float u0 = (float)tx, v0 = (float)ty;
+            float u1 = (float)(tx + G16_CELL), v1 = (float)(ty + G16_CELL);
+
+            map2d_vert_t *v = &b->verts[b->nverts];
+            v[0].x_rel = rx0; v[0].y_rel = ry0; v[0].u = u0; v[0].v = v0;
+            v[1].x_rel = rx1; v[1].y_rel = ry0; v[1].u = u1; v[1].v = v0;
+            v[2].x_rel = rx1; v[2].y_rel = ry1; v[2].u = u1; v[2].v = v1;
+            v[3].x_rel = rx0; v[3].y_rel = ry0; v[3].u = u0; v[3].v = v0;
+            v[4].x_rel = rx1; v[4].y_rel = ry1; v[4].u = u1; v[4].v = v1;
+            v[5].x_rel = rx0; v[5].y_rel = ry1; v[5].u = u0; v[5].v = v1;
+            b->nverts += 6;
+        }
+    }
+    b->valid = 1;
+    *out_ws = ws_first;
+    return b;
+}
+
 int gpu2d(int op, const int32_t *v)
 {
     if (!gpu2d_open())
@@ -560,21 +638,60 @@ int gpu2d(int op, const int32_t *v)
                 }
             }
         }
-        for (int my = 0; my < v[5]; my++) {
-            const int row = v[1] + my, py = y + my * G16_CELL;
-            if (row < 0 || row >= rt.map.h || py >= g->cy1 || py + G16_CELL <= g->cy0)
-                continue;
-            for (int mx = 0; mx < v[4]; mx++) {
-                const int c = v[0] + mx, px = x + mx * G16_CELL;
-                if (c < 0 || c >= rt.map.w || px >= g->cx1 || px + G16_CELL <= g->cx0)
-                    continue;
-                const int n = cells[row * rt.map.w + c];
-                if (n == 0 || n >= ncells || (mask && !(rt.flags[n] & mask)))
-                    continue;
-                int tx = n % per_row * G16_CELL, ty = n / per_row * G16_CELL;
-                const g16_sheet_t *ws = gwin_for(&tx, &ty, G16_CELL, G16_CELL);
-                if (!ws || !gpu3d_blit2d(g, ws, tx, ty, G16_CELL, G16_CELL, px, py, 1, 0, 0))
-                    return 0;           /* the ARM draws it all again after the job: the same pixels */
+
+        /* 16x16 resident batch accelerated path */
+        const int bx0 = v[0] / MAP2D_BLOCK_SIZE;
+        const int by0 = v[1] / MAP2D_BLOCK_SIZE;
+        const int bx1 = (v[0] + v[4] - 1) / MAP2D_BLOCK_SIZE;
+        const int by1 = (v[1] + v[5] - 1) / MAP2D_BLOCK_SIZE;
+
+        for (int by = by0; by <= by1; by++) {
+            const int block_row0 = by * MAP2D_BLOCK_SIZE;
+            const int block_py = y + (block_row0 - v[1]) * G16_CELL;
+            for (int bx = bx0; bx <= bx1; bx++) {
+                const int block_col0 = bx * MAP2D_BLOCK_SIZE;
+                const int block_px = x + (block_col0 - v[0]) * G16_CELL;
+
+                const int is_whole = (block_col0 >= v[0]) && (block_col0 + MAP2D_BLOCK_SIZE <= v[0] + v[4]) &&
+                                     (block_row0 >= v[1]) && (block_row0 + MAP2D_BLOCK_SIZE <= v[1] + v[5]);
+                const int block_w_px = MAP2D_BLOCK_SIZE * G16_CELL;
+                const int block_h_px = MAP2D_BLOCK_SIZE * G16_CELL;
+                const int inside_clip = (block_px >= g->cx0) && (block_px + block_w_px <= g->cx1) &&
+                                        (block_py >= g->cy0) && (block_py + block_h_px <= g->cy1);
+
+                if (is_whole && inside_clip) {
+                    const g16_sheet_t *ws = NULL;
+                    map2d_block_t *blk = map2d_get_block(cells, bx, by, mask, per_row, ncells, &ws);
+                    if (blk) {
+                        if (blk->nverts > 0 && ws) {
+                            if (!gpu3d_map_block(g, ws, block_px, block_py, blk->verts, blk->nverts))
+                                return 0;
+                        }
+                        continue;
+                    }
+                }
+
+                /* Partial / edge block: cell-by-cell fallback with exact pixel-level clipping */
+                const int c_start = block_col0 < v[0] ? v[0] : block_col0;
+                const int c_end = (block_col0 + MAP2D_BLOCK_SIZE < v[0] + v[4]) ? block_col0 + MAP2D_BLOCK_SIZE : v[0] + v[4];
+                const int r_start = block_row0 < v[1] ? v[1] : block_row0;
+                const int r_end = (block_row0 + MAP2D_BLOCK_SIZE < v[1] + v[5]) ? block_row0 + MAP2D_BLOCK_SIZE : v[1] + v[5];
+
+                for (int r = r_start; r < r_end; r++) {
+                    const int py = y + (r - v[1]) * G16_CELL;
+                    if (py >= g->cy1 || py + G16_CELL <= g->cy0) continue;
+                    for (int c = c_start; c < c_end; c++) {
+                        const int px = x + (c - v[0]) * G16_CELL;
+                        if (px >= g->cx1 || px + G16_CELL <= g->cx0) continue;
+                        const int n = cells[r * rt.map.w + c];
+                        if (n == 0 || n >= ncells || (mask && !(rt.flags[n] & mask)))
+                            continue;
+                        int tx = (n % per_row) * G16_CELL, ty = (n / per_row) * G16_CELL;
+                        const g16_sheet_t *ws = gwin_for(&tx, &ty, G16_CELL, G16_CELL);
+                        if (!ws || !gpu3d_blit2d(g, ws, tx, ty, G16_CELL, G16_CELL, px, py, 1, 0, 0))
+                            return 0;
+                    }
+                }
             }
         }
         return 1;
