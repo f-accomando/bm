@@ -1,5 +1,5 @@
 -- Kratos built with the pointer: bm Mesh's tools (vertices, faces, colour) drawn by a
--- virtual cursor, one part at a time. Run it with `rec=on` to record the build.
+-- virtual cursor, one part at a time.
 -- The model is "LoPo Kratos" by Tipatat Chennavasin (poly.pizza), reduced to 69 parts.
 -- Check the model's licence on its poly.pizza page before you publish this cart.
 -- DATA BEGIN (carts/kratos/build/glb2parts.py, cell 0.045; do not edit by hand)

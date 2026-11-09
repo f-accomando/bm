@@ -612,7 +612,7 @@ static const char *const set_keys[] = {
     "gpu3d_attr=", "gpu3d_etc1=", "gpu3d_filter=", "gpu3d_fs2=", "gpu3d_later=", "gpu3d_merge=",
     "gpu3d_qpu=", "gpu3d_queue=", "gpu3d_sort=", "gpu3d_tex16=", "gpu3d_vs=", "gpu3d_wc=", "layout=", "lock_screen=",
     "mali3d=", "mali_noshadow=", "market_delay=", "menu_scale=", "mouse=", "name=", "perf=",
-    "prompts=", "r3d_fast=", "r3d_impostor=", "rec=", "rec_fps=", "rec_format=", "report_upload=",
+    "prompts=", "r3d_fast=", "r3d_impostor=", "report_upload=",
     "session_report=", "sound=", "sound_depth=", "v3d_clock=", "volume=",
     "web_max_kib=", "wifi_boot=",
 };

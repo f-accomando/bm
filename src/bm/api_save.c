@@ -21,7 +21,6 @@
 #include "fs/fat.h"
 #include "fs/sdlock.h"
 #include "vid.h"
-#include "rec.h"
 #include "lib/crc32.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -204,7 +203,6 @@ int l_save(lua_State *L)
     ser(L, 1, 0);
     char name[16];
     slot_name(slot, name);
-    rec_note_game_io();                 /* the recorder leaves the card to the save */
     if (sd_write_file("save", SAVE_DIR, name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());

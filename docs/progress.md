@@ -41,7 +41,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [smw-guide](progress/smw-guide.md) | PDF guide of the SMW port and its redrawn guide edition | `manuals/content/en/smw-guide.md`, `carts/smw/guide/build.py` |
 | [tools](progress/tools.md) (+ [assistant](progress/tools-assistant.md), [suite](progress/tools-suite.md), [code templates](progress/tools-code-templates.md)) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `carts/`, `src/ai/`, `scripts/`, `tools/` |
 | [tropic-trail-final-report](progress/tropic-trail-final-report.md) | final report of the 3D video series: deliveries, grades of the operators, estimated vs actual times, lessons | `video/3d/` |
-| [video](progress/video.md) | clips for cartridges (container, MJPEG, RLE+delta) and chunked screen recording; study and spikes | `src/bm/jpeg.c`, `docs/bench/video-feasibility-2026-10.md` |
+| [video](progress/video.md) | clips for cartridges (container, MJPEG, RLE); study and spikes; the removed screen recorder is in the archive | `src/bm/jpeg.c`, `docs/bench/video-feasibility-2026-10.md` |
 | [devkit-weight](progress/devkit-weight.md) | dev kit: weight report of a `.bm`/`.bme`, performance plan from the docs, compat policy table | `scripts/bm_weight.py`, `docs/spec/compat-policy.toml` |
 
 ## Which section to open

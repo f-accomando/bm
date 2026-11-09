@@ -81,4 +81,4 @@ python scripts/mkvid.py -o clip.bmv --jpegs frames/ --fps 15 --pcm audio.raw --r
 
 `bmv_decode` also copies a raw RGB565 frame, decodes an RLE565 frame and expands a raw RGB332 frame (r 3 bits, g 3 bits, b 2 bits, the top bits repeated). `jpeg_decode565` (`src/bm/jpeg.h`) writes RGB565 into a given buffer. It does not allocate a 24-bit picture.
 
-The Lua API for cartridges is in [api/video.md](api/video.md). The screen recorder writes codec 2 and 3 chunks: see [video.md](progress/video.md).
+The Lua API for cartridges is in [api/video.md](api/video.md). The screen recorder that wrote codec 2, 3 and 4 clips was removed: see [video-recorder.md](archive/video-recorder.md).

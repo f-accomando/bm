@@ -57,9 +57,6 @@ int bridge_set(int mode);                   /* Settings only: writes the file; 0
 int bridge_file_name(const char *path);     /* 1 if a path names the bridge file */
 int dev_mode(void);
 
-/* screen recorder: 1 if rec=1 / rec=on in bm/config.txt */
-int rec_mode(void);
-void rec_set_mode(int on);
 
 /* A file of the console on the SD card ("config.txt", "ca.pem",
  * "save/1a2b3c4d.sav"): in /bm, or in the folder of before the rename

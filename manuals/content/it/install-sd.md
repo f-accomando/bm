@@ -333,8 +333,6 @@ La console lo scrive quando cambi un'impostazione. Puoi anche modificarlo dal PC
 | `wifi_psk` | la sua password |
 | `wifi_boot` | `0`: niente WiFi all'avvio; `1`: la console si collega a ogni avvio |
 | `net_password` | la Console password. Se la chiave manca, la console crea un numero casuale di 6 cifre quando parte la console di rete e lo salva qui. Modificala per sceglierne una tua; vale dal prossimo avvio |
-| `rec` | `on`: il registratore dello schermo scrive ogni partita in `/bm/rec` (spento per impostazione predefinita) |
-| `rec_format` | il formato dei pixel del registratore: `rle565` (predefinito, senza perdite), `rgb565` o `rgb332` |
 | `layout` | `it` o `us`: la tastiera |
 | `volume` | da 0 a 10 |
 | `confirm` | `a`: A conferma (RGB30) |

@@ -21,7 +21,6 @@
 #include "fs/fat.h"
 #include "fs/sdlock.h"
 #include "vid.h"
-#include "rec.h"
 #include "lib/crc32.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -61,7 +60,6 @@
 /* ---------------------------------------------------------------- video clips (.bmv) */
 
 #define CLIP_DIR   "/bm/clips/"
-#define REC_CLIP_DIR "/bm/rec/"
 #define CLIP_MAX   (48u << 20)          /* a clip is read whole into memory: 48 MB at most */
 
 typedef struct {
@@ -98,15 +96,10 @@ int l_clip_gc(lua_State *L)
 int l_video_open(lua_State *L)
 {
     const char *name = luaL_checkstring(L, 1);
-    const char *dir = CLIP_DIR;
     char path[FAT_NAME_MAX + 16], err[80];
-    if (!strncmp(name, "rec/", 4)) {      /* the recorder's chunks (bm/rec) play as clips too */
-        dir = REC_CLIP_DIR;
-        name += 4;
-    }
     if (!*name || strchr(name, '/') || strchr(name, '\\') || strstr(name, "..") || strlen(name) >= FAT_NAME_MAX)
-        return luaL_error(L, "video_open: a file name in %s (or rec/ and a name), no other path", CLIP_DIR);
-    ksnprintf(path, sizeof path, "%s%s", dir, name);
+        return luaL_error(L, "video_open: a file name in %s, no other path", CLIP_DIR);
+    ksnprintf(path, sizeof path, "%s%s", CLIP_DIR, name);
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;

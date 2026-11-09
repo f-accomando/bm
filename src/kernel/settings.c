@@ -129,7 +129,7 @@ enum {
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_UTILS, R_MENUSIZE, R_MENULAYOUT, R_SOUNDMENU,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CRT, R_LCD_POWER, R_VIDEO_OUT, R_AUDIO_OUT,
-    R_DEV, R_REC, R_LOCKSCREEN,
+    R_DEV, R_LOCKSCREEN,
     R_FONT_UI, R_FONT_MONITOR,
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES and the 3D tests of HOME_GRAPHICS: R_UTIL_BASE + i */
@@ -497,9 +497,6 @@ static void panel_settings(home_panel_t *p)
     home_row(p, MENU_ROW_SUB, R_UPDATES, "Updates",
              "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
     reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
-    home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
-             "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
-             rec_mode() ? "On" : "Off");
     home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
              "Version, memory, the log", "%s, spec %s", bm_version, bm_spec);
     /* the last two, on every system (the user's request, 2026-10-04) */
@@ -825,9 +822,6 @@ static void panel_system(home_panel_t *p)
     home_row(p, MENU_ROW_CHOICE, R_DEV, "Bridge",
              "PC tools: off, on (staged), fast (direct)", "%s",
              bridge_label(bridge_mode()));
-    home_row(p, MENU_ROW_CHOICE, R_REC, "Screen recorder",
-             "Record game to /bm/rec as .bmv (RLE565, 15 fps)", "%s",
-             rec_mode() ? "On" : "Off");
     home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
              "Everything printed since the console started", NULL);
 #ifndef BM_RGB30
@@ -1375,12 +1369,6 @@ static int act_system(int row, int how, home_do_t *d)
         else
             ksnprintf(d->note, sizeof d->note, "bridge: %s%s", bridge_label(m),
                       m == BRIDGE_FAST ? " (kernel and files written at once)" : m == BRIDGE_ON ? " (a kernel waits for the menu)" : " (no PC tool)");
-        break;
-    }
-    case R_REC: {
-        int on = how < 0 ? 0 : how > 0 ? 1 : !rec_mode();
-        rec_set_mode(on);
-        ksnprintf(d->note, sizeof d->note, "recorder: %s (/bm/rec, RLE565 15 fps)", on ? "on" : "off");
         break;
     }
     case R_LOG:

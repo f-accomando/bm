@@ -21,7 +21,6 @@
 #include "fs/fat.h"
 #include "fs/sdlock.h"
 #include "vid.h"
-#include "rec.h"
 #include "lib/crc32.h"
 #include "gfx/console.h"
 #include "gfx/font.h"

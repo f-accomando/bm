@@ -20,7 +20,6 @@
 #include "fs/fat.h"
 #include "fs/sdlock.h"
 #include "vid.h"
-#include "rec.h"
 #include "lib/crc32.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -2682,7 +2681,6 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 static void pace(uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     zclear_dma_start();
-    rec_pump(*deadline);                /* the recorder writes in the time the frame has left */
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;
     uint32_t now = timer_ticks();
@@ -2698,15 +2696,9 @@ static void pace(uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 /* The frame drawn, before the overlays, saved if a screenshot was asked for: a PNG in /bm/shots */
 static void shot_grab(void)
 {
-    if (rec_due()) {                    /* the recorder takes the frame as it is, with the screenshot */
-        flush3d(0);
-        cls_settle();
-        rec_frame(rt.g.px, rt.g.stride, rt.g.w, rt.g.h);
-    }
     if (!shot_req)
         return;
     shot_req = 0;
-    rec_note_game_io();
     flush3d(0);                         /* its 3D done, as present() does */
     cls_settle();
     size_t n = 0;
@@ -3281,11 +3273,6 @@ void notice_draw(void)
  * 1 second (60 frames). It is small so that it does not hide the game. */
 void shot_note_draw(void)
 {
-    if (rec_active()) {                 /* not in the recording: it is drawn after the frame was taken */
-        char t[24];
-        rec_overlay_text(t, sizeof t);
-        g16_text(&rt.g, 2, 2, t, 0xF800);
-    }
     if (shot_note <= 0)
         return;
     shot_note--;
@@ -4097,11 +4084,6 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     held.n = 0;
     held.frames = 0;
     held.fb = fb;
-    {
-        rec_cfg_t rc;
-        if (rec_config(&rc))
-            rec_start(&rc);             /* bm/config.txt rec=on: this run is recorded to /bm/rec */
-    }
     while (!error) {
         uint32_t now_us = timer_ticks();
         played_us += now_us - played_at;
@@ -4329,7 +4311,6 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     prof_enable(0, NULL);                   /* not over the menu nor the next game */
     memset(&dbg, 0, sizeof dbg);            /* nor the debugger (R13) */
     cart_src = NULL;
-    rec_stop();                             /* the rest to the card, the report */
     st->frames = rt.frame - frame0;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);

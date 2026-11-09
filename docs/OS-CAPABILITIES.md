@@ -190,7 +190,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 
 ### 5.2 Video recording
 
-- The kernel has a `.bmv` reader (`src/bm/vid.c`, `src/bm/runtime.c` section `video clips (.bmv)`) and a recorder (`src/bm/rec.c`, key `rec=on`). A clip is read whole into memory, 48 MB at most. [code, `src/bm/runtime.c:5520-5526`]
+- The kernel has a `.bmv` reader (`src/bm/vid.c`, `src/bm/runtime.c` section `video clips (.bmv)`). A clip is read whole into memory, 48 MB at most. [code, `src/bm/runtime.c:5520-5526`]
 - Screenshots are the other capture feature. The PC can fetch a PNG with `G` over the network. [code, `src/net/netxfer.c:17-18`]
 - The speed of clips and of the recorder is **not verified on hardware**.
 

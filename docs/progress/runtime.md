@@ -32,7 +32,7 @@ Order in the file. Sizes are a guide: `the frame in its parts` is the big one.
 
 ## Platform interface
 
-- `src/bm/platform.h` lists every kernel, USB, network and AI header that the runtime uses. `runtime.c`, `loading.c`, `rec.c`, `webfile.c` and `webget.c` include only this header. It holds plain declarations: the Pi kernel, the RGB30 port and bmhost link by symbol name. A file that includes it needs `-Ithird_party/lua` (`ai/net.h` includes `lua.h`).
+- `src/bm/platform.h` lists every kernel, USB, network and AI header that the runtime uses. `runtime.c`, `loading.c`, `webfile.c` and `webget.c` include only this header. It holds plain declarations: the Pi kernel, the RGB30 port and bmhost link by symbol name. A file that includes it needs `-Ithird_party/lua` (`ai/net.h` includes `lua.h`).
 - `src/kernel/crt.h` declares the four `crt_*` functions of `settings.c`. `home.h` and `platform.h` include it.
 - `src/bm/rt_internal.h` is private to `src/bm`. It declares `rt` (`rt_t`), `d2` (`d2_t`) and `held` (`held_t`), the shared macros and enums, the helpers `col`, `ival`, `oval` and `sheet_commit`, and the functions that one area calls in another (`l_*`, `draw_prompt`, `perf_end` and others). Those functions are not `static`. The definitions of `rt`, `d2` and `held` stay in `runtime.c`.
 - `api[]`, `res_name`, `screen_modes`, `square_modes` and the `bm_toolnames` use stay in `runtime.c`. `scripts/consistency.py`, `tests/tools/test_mkapi.py` and `test_meshcap` read that text.
