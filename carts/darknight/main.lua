@@ -107,7 +107,7 @@ local fx = {}                         -- short effects: sparks and tracers
 local SKY = 0x07080E                  -- the night: the fog and the clear colour
 -- the draw distance: the fog is whole at FAR, so the map, the objects and the enemies beyond it are not drawn; the shadows
 -- (a second draw of the model) only within SHADOW of the camera
-local FAR, SHADOW = 22, 11
+local FAR, SHADOW = 16, 11
 local function cam_d2(x, z) return (x - Cam.x) ^ 2 + (z - Cam.z) ^ 2 end
 
 local function snd(name, semis, vol)
