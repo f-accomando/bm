@@ -41,6 +41,7 @@ machine was written again in C. The RGB30 is not measured.
 | `src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
 | `carts/snes/src/main.lua` | the user interface; `carts/snes/build/build.py` packs it (`make build/carts/snes.bm`) |
 | `tests/snes/core_test.c` | 92 checks: the CPU on small programs, DMA, the SPC700 and its boot protocol |
+| `tests/snes/ppu_equiv.c`, `ppu_ref.c` | the fast PPU against the reference copy of the old one: random states, every line equal (`make test-snes-ppu`); `make bench-snes-ppu` times both |
 | `tests/snes/render_test.py` | the cartridge in bmhost with a test ROM made by `make_testrom.py`: the picture, the sprite, the HDMA bands |
 
 ## Rules (do not break)
@@ -53,14 +54,16 @@ machine was written again in C. The RGB30 is not measured.
   port 1. A 16-bit store writes port 1 after port 0, so the state machine works at the next read or write of another port.
 - The ROM comes only from `doc_read(name, "sfc")`. The cartridge never writes a ROM. The only file it writes is the `.srm`.
 - No SNES firmware, ROM data or game code goes into the repository. The test ROM is made by `make_testrom.py`.
-- The core tests are the gate for a change of the CPU, the PPU or the SPC700. Run `make test-snes`.
+- The core tests are the gate for a change of the CPU, the PPU or the SPC700. Run `make test-snes`. After a change of `snes_ppu.c` run `make test-snes-ppu` too: it must stay bit for bit equal to `tests/snes/ppu_ref.c` (change the reference only for a new PPU feature, in both files).
+- The PPU reads and writes its line buffers a 32-bit word at a time from arrays aligned to 4 bytes (`_Alignas(4)`); keep every access aligned (the ARM1176 kernel).
 
 ## Open work
 
-- Speed: a frame of the machine costs about 10 ms on the Pi Zero W (CPU 5, PPU 4.5, SPC700 1); the draw of the picture 11 ms (the machine
-  scales it into a render target, `snes_draw(target, w, h)`; the kernel's scaled `target_blit` took 46 ms). The cartridge asks for a
-  picture every fourth frame. Next: draw at 30 or 60 pictures a second (the PPU's sprites and layers per line, a cache of the tile rows),
-  a fast path for the CPU's most common opcodes, a smaller picture (the 1:1 blit of 478x358 takes 8 ms). Measure on the RGB30.
+- Speed: the PPU in C is done (a row of 8 tile pixels in two 32-bit words, the layers merged 4 pixels at a time, a table of mixed colours for
+  the colour math). On the Pi One (Super Mario World, emulated frames 600 to 3300, the test build): PPU 7434 us a frame before, 4553 after;
+  the whole frame 17041 us before, 14190 after (CPU about 7000, audio 2640). On a PC the PPU is 3 times faster (`make bench-snes-ppu`). Next:
+  hand-written ASM in the inner loops of the PPU (tile row, merge, mix), a fast path for the CPU's most common opcodes, a smaller picture.
+  Measure on the RGB30. The draw of the picture is 5.6 ms at 1x (copy 1.0, blit 4.6).
 - A test build: `SNES_TEST=1 python3 carts/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /sfc by
   itself and shows the FPS and the times of the parts of a frame. With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
   screen with no key press.

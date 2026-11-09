@@ -53,6 +53,7 @@ local scr
 local holdmenu, menusel = 0, 1
 local show_fps = false
 local draw_ms = { 0, 0 }
+local acc = { n = 0, f = 0, p = 0, s = 0 }       -- the test build's sums
 local srm = ""
 
 local function list_roms()
@@ -197,6 +198,13 @@ function _draw()
       SCREEN_H - 16, 0xFF8040)
     print("cpu " .. d.cpu_code .. "  spc " .. d.spc_code, 4, SCREEN_H - 48, 0xFF8040)
     print("ports " .. d.ports, 4, SCREEN_H - 64, 0xFF8040)
+  end
+  if AUTO then                                           -- the test build: the mean cost of the parts over the same game frames (600 to 3300), to compare two kernels
+    local f, p, sp = string.match(d.us, "us frame (%d+) ppu (%d+) spc (%d+)")
+    if f and d.frames >= 600 and d.frames < 3300 then
+      acc.n = acc.n + 1; acc.f = acc.f + f; acc.p = acc.p + p; acc.s = acc.s + sp
+    end
+    if acc.n > 0 then print(string.format("mean of %d draws, frames 600-%d: frame %d ppu %d spc %d us", acc.n, math.min(d.frames, 3300), acc.f // acc.n, acc.p // acc.n, acc.s // acc.n), 4, 90, 0xFFFF00) end
   end
   if show_fps then
     rectfill(0, 0, 400, 78, 0)                          -- a black bar under the lines, to read them

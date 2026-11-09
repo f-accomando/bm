@@ -258,6 +258,18 @@ test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_tes
 	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
+# The fast PPU against the reference copy (tests/snes/ppu_ref.c): random states, every line equal bit for bit. `make bench-snes-ppu` times both.
+SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+SNES_REF_DEFS := -Dppu_line=ppu_line_ref -Dppu_reset=ppu_reset_ref -Dppu_cgram_write=ppu_cgram_write_ref -Dppu_us=ppu_us_ref
+$(BUILD)/host/snes_ppu_equiv: tests/snes/ppu_equiv.c tests/snes/ppu_ref.c src/bm/snes_ppu.c $(SNES_PPU_SRCS) src/bm/snes_int.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -w $(SNES_REF_DEFS) -Isrc/bm -c -o $(BUILD)/host/snes_ppu_ref.o tests/snes/ppu_ref.c
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/ppu_equiv.c $(BUILD)/host/snes_ppu_ref.o src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
+test-snes-ppu: $(BUILD)/host/snes_ppu_equiv
+	$< equiv 400
+bench-snes-ppu: $(BUILD)/host/snes_ppu_equiv
+	$< bench 200
+
 # Island Bench (carts/islandbench): the island of the map kit assets/island.bmk (map, models, sprites) with the
 # benchmark code in main.lua. The .bme is the source, the .bm the cartridge; the kit is merged in by bmres.py.
 $(BUILD)/carts/islandbench.bm $(BUILD)/carts/islandbench.bme: $(BUILD)/carts/islandbench.%: carts/islandbench/main.lua scripts/mkbm.py scripts/bmres.py carts/islandbench/bm.info carts/islandbench/assets/island.bmk
@@ -838,7 +850,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-typed test-snes test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-typed test-snes test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
