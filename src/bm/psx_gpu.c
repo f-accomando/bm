@@ -10,7 +10,7 @@
 
 gpu_t GP;
 static uint16_t pic[PSX_W_MAX * PSX_H_MAX];
-static int frame_odd;
+int psx_gpu_line, psx_gpu_field;      /* set by the frame loop (psx_bus.c): the scanline and the field */
 
 #define VR(x, y) GP.vram[(((y) & 511) << 10) | ((x) & 1023)]
 
@@ -475,7 +475,8 @@ uint32_t psx_gpu_stat(void)
     case 3: s |= 1u << 25; break;
     default: break;
     }
-    if ((GP.dispmode & 0x24) == 0x24 && frame_odd) s |= 1u << 31;   /* the field in 480 line mode */
+    /* bit 31: the field in 480 line interlaced mode, else the parity of the scanline */
+    if ((GP.dispmode & 0x24) == 0x24 ? psx_gpu_field : (psx_gpu_line & 1)) s |= 1u << 31;
     return s;
 }
 
@@ -505,7 +506,6 @@ const uint16_t *psx_gpu_picture(int *pw, int *ph)
     const int tall = (GP.dispmode & 0x24) == 0x24;
     if (tall) h *= 2;
     if (h > PSX_H_MAX) h = PSX_H_MAX;
-    frame_odd ^= 1;
     if (GP.disp_off) {
         memset(pic, 0, (size_t)w * (size_t)h * 2);
     } else if (GP.dispmode & 0x10) {                       /* 24 bits per pixel */

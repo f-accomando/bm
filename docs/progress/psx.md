@@ -4,7 +4,7 @@ An emulator of the PlayStation 1. The machine is written in C and is part of the
 global machine). The cartridge `carts/psx/` is its user interface in Lua: it lists the games, passes the pads and
 draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-09): the core and the cartridge exist and
 pass their tests on the PC (`make test-psx`, 38 checks; `make test-psx-cart`, the cartridge in bmhost with a test
-PS-EXE). Nothing is measured on the Pi Zero W or the RGB30, and no commercial game or BIOS has been run yet.
+PS-EXE). On the Pi Zero W (2026-11-09) a real BIOS boots to the PlayStation logo and the "Licensed by" screen, reads the disc, and starts the game's code, at about 8 to 11 frames a second. The game (Crash Bandicoot 2) then stays black in a loop of its own CD commands (see Open work). The RGB30 is not measured.
 
 The core is original code (clean room). The hardware facts come from public documentation. No code of pcsx-rearmed
 (GPL-2.0) or of any other emulator is copied: the repository license does not allow it. The module split follows the
@@ -41,6 +41,7 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 | `src/fs/fat.c` | `fat_read_at`: a range of a file, read in place, with a cluster cursor |
 | `carts/psx/src/main.lua` | the user interface; `carts/psx/build/build.py` packs it (`make build/carts/psx.bm`) |
 | `tests/psx/core_test.c` | 38 checks: the CPU on small programs, BIOS calls, interrupts, GTE, GPU, DMA, CD-ROM, SPU |
+| `tests/psx/boot_probe.c` | a PC probe: boots a BIOS with a disc given on the command line and prints the CD traffic (no BIOS or disc in the repository) |
 | `tests/psx/render_test.py` | the cartridge in bmhost with a test PS-EXE made by `make_testexe.py`: the list, the fill, the Gouraud triangle, the rectangle |
 
 ## Rules (do not break)
@@ -57,6 +58,7 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 
 ## Open work
 
+- Crash Bandicoot 2 (USA) stays black after the BIOS loads it: its CD library repeats Setloc 00:02:00, Pause, Pause, ReadN and never asks for the sector data (no write of 0x80 to the request register, no DMA 3). Find it on the PC: `make build/host/psx_boot_probe` style build of `tests/psx/boot_probe.c` with a BIOS and a disc given on the command line (`... BIOS.bin DISC.bin 900 trace` prints every CD command, interrupt and register access). Suspects: the timing of INT1 against INT3, the status bits, a command sent while the previous one has not answered (the busy bit is set now), the first sector delay after ReadN, or a game that waits for the MDEC.
 - First run on real hardware: boot a BIOS, then a disc, with the bridge. Measure the time of a frame on the Pi Zero W and the RGB30
   (the menu item FPS shows it). The interpreter costs about 30 host cycles an instruction on the ARM1176: expect 10 to 20 frames a second
   on the Pi Zero W before work on speed. The first levers: a dynamic recompiler for ARMv6 (a block cache and the fast RAM path), the GPU

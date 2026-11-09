@@ -393,7 +393,7 @@ void psx_bus_write(uint32_t a, uint32_t v, int size)
         return;
     }
     if (a >= 0x1F802000u && a < 0x1F804000u) return;                  /* expansion 2 (POST) */
-    if (a == 0x1FFE0130u) return;                                     /* cache control */
+    if (a == 0x1FFE0130u || a == 0xFFFE0130u) return;                                     /* cache control */
     if (a >= 0x1F000000u && a < 0x1F800000u) return;
     psx_dbg_unhandled(a);
 }
@@ -572,6 +572,7 @@ void psx_frame(uint16_t pad1, uint16_t pad2, int render)
     uint32_t cpu_us = 0;
     for (int ln = 0; ln < PSX_LINES; ln++) {
         line_no = ln;
+        psx_gpu_line = ln;
         const uint32_t a = clock_us ? clock_us() : 0;
         psx_cpu_run(PSX_LINE_CYC);
         if (clock_us) cpu_us += clock_us() - a;
@@ -583,6 +584,7 @@ void psx_frame(uint16_t pad1, uint16_t pad2, int render)
         if (ln == PSX_VBLANK_LN) psx_irq_raise(IRQ_VBLANK);
     }
     frames++;
+    psx_gpu_field ^= 1;
     (void)render;
     if (clock_us) {
         const uint32_t dt = clock_us() - t0;
@@ -613,5 +615,6 @@ void psx_debug(psx_debug_t *d)
     d->gpu_cmds = GP.cmds; d->gpu_pixels = GP.pixels; d->dma_runs = dma_runs;
     d->bios = has_bios; d->exe = exe_len != 0;
     d->us_frame = us_frame; d->us_cpu = us_cpu; d->us_gpu = us_gpu;
+    psx_cd_debug(d);
     d->tty_len = tty_len; d->unhandled = unhandled; d->last_unhandled = last_unhandled;
 }

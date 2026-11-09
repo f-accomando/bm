@@ -93,6 +93,7 @@ void psx_gpu_dma_to(const uint32_t *words, int n);           /* ram to gpu */
 int psx_gpu_dma_from(uint32_t *words, int n);                /* gpu to ram */
 const uint16_t *psx_gpu_picture(int *w, int *h);
 extern int psx_gpu_hres(void);
+extern int psx_gpu_line, psx_gpu_field;
 /* psx_bus.c */
 void psx_irq_raise(int n);
 void psx_dbg_unhandled(uint32_t addr);
@@ -110,5 +111,6 @@ void psx_cd_write(uint32_t reg, uint32_t v);
 void psx_cd_run(uint32_t cycles);
 void psx_cd_set_disc(const psx_disc_t *d);
 int psx_cd_dma_read(uint8_t *dst, int n);
+void psx_cd_debug(psx_debug_t *d);
 
 #endif

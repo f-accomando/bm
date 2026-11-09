@@ -194,8 +194,15 @@ int l_psx_boot(lua_State *L)
             const int r = parse_cue(txt, file, sizeof file, &cooked);
             free(txt);
             snprintf(path, sizeof path, "%s/%s", PSX_DIR, file);
-            if (r != 0 || fat_find(path, &img) != 0)
-                return fail(L, "the cue sheet names no file that can be read");
+            if (r != 0 || fat_find(path, &img) != 0) {
+                /* a renamed image: try the cue's own name with .bin (cb2.cue -> cb2.bin) */
+                char alt[160];
+                snprintf(alt, sizeof alt, "%s/%s", PSX_DIR, name);
+                char *dot2 = strrchr(alt, '.');
+                if (dot2) strcpy(dot2, ".bin");
+                if (!dot2 || fat_find(alt, &img) != 0)
+                    return fail(L, "the cue sheet names no file that can be read");
+            }
         }
         disc_file = img;
         disc_secsize = cooked ? 2048u : 2352u;
@@ -279,13 +286,23 @@ int l_psx_debug(lua_State *L)
     psx_debug_t d;
     psx_debug(&d);
     lua_createtable(L, 0, 16);
+#define FIELD2(name, val) lua_pushinteger(L, (lua_Integer)(val)); lua_setfield(L, -2, name)
 #define FIELD(name, val) lua_pushinteger(L, (lua_Integer)(val)); lua_setfield(L, -2, name)
     FIELD("pc", d.pc); FIELD("ra", d.ra); FIELD("sp", d.sp); FIELD("sr", d.sr); FIELD("cause", d.cause);
     FIELD("istat", d.istat); FIELD("imask", d.imask); FIELD("frames", d.frames);
     FIELD("gpu_cmds", d.gpu_cmds); FIELD("dma_runs", d.dma_runs);
     FIELD("us_frame", d.us_frame); FIELD("us_cpu", d.us_cpu); FIELD("unhandled", d.unhandled);
     FIELD("last_unhandled", d.last_unhandled);
+    FIELD("cd_cmds", d.cd_cmds); FIELD("cd_sectors", d.cd_sectors); FIELD("cd_last_cmd", d.cd_last_cmd);
+    FIELD("cd_irq_flag", d.cd_irq_flag); FIELD("cd_irq_en", d.cd_irq_en); FIELD("cd_events", d.cd_events); FIELD("cd_read_fail", d.cd_read_fail);
 #undef FIELD
+    {
+        char tb[160];
+        int n = 0;
+        for (int i = 5; i < 12; i++) n += snprintf(tb + n, sizeof tb - (size_t)n, "%02X.%02X%02X%02X ", d.cd_trace[i] & 255, (d.cd_trace[i] >> 8) & 255, (d.cd_trace[i] >> 16) & 255, d.cd_trace[i] >> 24);
+        lua_pushstring(L, tb); lua_setfield(L, -2, "cd_trace");
+    }
+    FIELD2("cd_lba", d.cd_lba); FIELD2("cd_loc", d.cd_loc);
     uint32_t under, over, kons;
     psx_audio_stats(&under, &over, &kons);
     char buf[96];

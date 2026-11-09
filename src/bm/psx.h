@@ -62,7 +62,9 @@ typedef struct {
     uint32_t frames, cycles_frame;
     uint32_t gpu_cmds, gpu_pixels;
     uint32_t dma_runs;
-    uint32_t cd_cmd, cd_sectors;
+    uint32_t cd_cmds, cd_sectors, cd_last_cmd, cd_irq_flag, cd_irq_en, cd_events, cd_read_fail;
+    uint32_t cd_trace[12];     /* the last commands, newest last: cmd | param0 << 8 | param1 << 16 | param2 << 24 */
+    uint32_t cd_lba, cd_loc;
     int bios, disc, exe;
     uint32_t us_frame, us_cpu, us_gpu;
     uint32_t tty_len;

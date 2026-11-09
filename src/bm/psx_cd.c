@@ -7,6 +7,12 @@
  */
 #include "psx_int.h"
 
+#include <stdio.h>
+
+/* set by the host probe (tests/psx/boot_probe.c); the kernel build has none */
+extern int psx_probe_trace __attribute__((weak));
+#define TRACE(...) do { if (&psx_probe_trace && psx_probe_trace) printf(__VA_ARGS__); } while (0)
+
 #define CD_STAT_MOTOR 0x02
 #define CD_STAT_READ  0x20
 #define CD_STAT_SHELL 0x10
@@ -23,10 +29,19 @@ static uint8_t sec[2352];
 static uint8_t databuf[2352];
 static int data_len, data_pos, want_data, sec_len;
 static uint32_t cd_mode, cur_lba, loc_lba;
-static int reading;
+static int setloc_pending;               /* a Setloc that no read or seek has used yet */
+static int reading, busy;                 /* busy: a command was written and has not answered yet (status bit 7) */
 static cd_evt_t evq[12];
 static int nev;
-uint32_t psx_cd_stat_cmds, psx_cd_stat_sectors;
+uint32_t psx_cd_stat_cmds, psx_cd_stat_sectors, cd_last_cmd, cd_read_fail;
+static uint32_t trace[12];
+
+void psx_cd_debug(psx_debug_t *d)
+{
+    d->cd_cmds = psx_cd_stat_cmds; d->cd_sectors = psx_cd_stat_sectors; d->cd_last_cmd = cd_last_cmd;
+    memcpy(d->cd_trace, trace, sizeof trace); d->cd_lba = cur_lba; d->cd_loc = loc_lba;
+    d->cd_irq_flag = (uint32_t)irq_flag; d->cd_irq_en = (uint32_t)irq_en; d->cd_events = (uint32_t)nev; d->cd_read_fail = cd_read_fail;
+}
 
 static uint8_t bcd(int v) { return (uint8_t)(((v / 10) << 4) | (v % 10)); }
 static int unbcd(uint8_t b) { return (b >> 4) * 10 + (b & 15); }
@@ -56,7 +71,7 @@ void psx_cd_reset(void)
     index_ = 0; irq_en = 0; irq_flag = 0;
     nparam = nresp = resp_pos = 0;
     data_len = data_pos = 0; want_data = 0;
-    cd_mode = 0; cur_lba = loc_lba = 0; reading = 0; nev = 0;
+    cd_mode = 0; cur_lba = loc_lba = 0; reading = 0; nev = 0; busy = 0; setloc_pending = 0;
 }
 
 void psx_cd_set_disc(const psx_disc_t *d)
@@ -80,7 +95,9 @@ static void deliver(cd_evt_t *e)
     nresp = e->len;
     memcpy(resp, e->d, e->len);
     resp_pos = 0;
+    busy = 0;
     irq_flag = (irq_flag & ~7) | e->intn;
+    TRACE("  INT%d resp %02X %02X %02X %02X (len %d)%c", e->intn, e->d[0], e->len > 1 ? e->d[1] : 0, e->len > 2 ? e->d[2] : 0, e->len > 3 ? e->d[3] : 0, e->len, 10);
     if (irq_en & e->intn) psx_irq_raise(IRQ_CD);
 }
 
@@ -115,6 +132,7 @@ void psx_cd_run(uint32_t cycles)
         if (e.kind == 1) {                                         /* a sector of a read */
             if (!reading) continue;
             if (load_sector() != 0) {
+                cd_read_fail++;
                 reading = 0;
                 const uint8_t err[2] = { (uint8_t)(stat() | 1), 0x04 };
                 cd_evt_t x; x.intn = 5; x.len = 2; memcpy(x.d, err, 2);
@@ -145,6 +163,11 @@ static void remove_sector_events(void)
 static void command(uint32_t cmd)
 {
     psx_cd_stat_cmds++;
+    busy = 1;
+    cd_last_cmd = cmd;
+    TRACE("cmd %02X params %02X %02X %02X  (frame cycles %llu)%c", cmd, param[0], param[1], param[2], (unsigned long long)psx_cpu.cycles, 10);
+    memmove(trace, trace + 1, 11 * sizeof trace[0]);
+    trace[11] = cmd | (uint32_t)param[0] << 8 | (uint32_t)param[1] << 16 | (uint32_t)param[2] << 24;
     const uint8_t s = stat();
     const int d1 = 50401;
     uint8_t buf[10];
@@ -152,11 +175,12 @@ static void command(uint32_t cmd)
     case 0x01: push_stat(d1, 3); break;                                    /* GetStat */
     case 0x02:                                                              /* Setloc */
         loc_lba = (uint32_t)((unbcd(param[0]) * 60 + unbcd(param[1])) * 75 + unbcd(param[2])) - 150;
+        setloc_pending = 1;
         push_stat(d1, 3);
         break;
     case 0x06: case 0x1B:                                                   /* ReadN, ReadS */
         if (!have_disc) { const uint8_t e[2] = { (uint8_t)(s | 1), 0x80 }; push(d1, 5, 0, 2, e); break; }
-        cur_lba = loc_lba;
+        if (setloc_pending) { cur_lba = loc_lba; setloc_pending = 0; }     /* without a new Setloc a read goes on from where it was */
         reading = 1;
         remove_sector_events();
         push_stat(d1, 3);
@@ -205,7 +229,7 @@ static void command(uint32_t cmd)
         break;
     }
     case 0x15: case 0x16:                                                   /* SeekL, SeekP */
-        cur_lba = loc_lba;
+        if (setloc_pending) { cur_lba = loc_lba; setloc_pending = 0; }
         push_stat(d1, 3);
         push_stat(d1 + 100000, 2);
         break;
@@ -236,10 +260,11 @@ static void command(uint32_t cmd)
 
 uint32_t psx_cd_read(uint32_t reg)
 {
+    if (reg != 0) TRACE("    R %u.%d  pc %08x%c", reg, index_, psx_cpu.cur_pc, 10);
     switch (reg) {
     case 0:
         return (uint32_t)index_ | (nparam == 0 ? 8u : 0u) | 0x10u | (resp_pos < nresp ? 0x20u : 0u) |
-               (data_pos < data_len ? 0x40u : 0u);
+               (data_pos < data_len ? 0x40u : 0u) | (busy ? 0x80u : 0u);
     case 1: return resp_pos < nresp ? resp[resp_pos++] : 0;
     case 2: return (data_pos < data_len) ? databuf[data_pos++] : 0;
     default:
@@ -251,6 +276,7 @@ uint32_t psx_cd_read(uint32_t reg)
 void psx_cd_write(uint32_t reg, uint32_t v)
 {
     v &= 0xFF;
+    TRACE("    W %u.%d = %02X  pc %08x%c", reg, index_, v, psx_cpu.cur_pc, 10);
     if (reg == 0) { index_ = (int)(v & 3); return; }
     switch (index_ * 4 + (int)reg) {
     case 1: command(v); break;                          /* index 0, reg 1: the command */

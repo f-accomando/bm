@@ -148,11 +148,13 @@ function _draw()
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
   if show_fps then
     local d = psx_debug()
-    rectfill(0, 0, 420, 70, 0)
+    rectfill(0, 0, 640, 100, 0)
     print(string.format("%d fps  frame %.1f ms (cpu %.1f)  gpu cmds %d  dma %d", stat(2), d.us_frame / 1000, d.us_cpu / 1000, d.gpu_cmds, d.dma_runs), 4, 4, 0x00FF00)
     print(string.format("PC %08X  RA %08X  istat %03X imask %03X  unhandled %d (%08X)", d.pc, d.ra, d.istat, d.imask, d.unhandled, d.last_unhandled), 4, 20, 0x00FF00)
-    print(d.audio, 4, 36, 0x00FF00)
+    print(string.format("CD cmds %d last %02X sectors %d fail %d  irq flag %d en %02X  queued %d", d.cd_cmds, d.cd_last_cmd, d.cd_sectors, d.cd_read_fail, d.cd_irq_flag, d.cd_irq_en, d.cd_events), 4, 36, 0x00FF00)
     print(string.format("copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 52, 0x00FF00)
+    print(d.audio, 4, 68, 0x00FF00)
+    print(string.format("lba %d loc %d  %s", d.cd_lba, d.cd_loc, d.cd_trace), 4, 84, 0x00FF00)
   end
   local tty = psx_tty()
   if #tty > 0 and frames < 600 then print(tty:sub(-60), 4, SCREEN_H - 16, 0xFFFF80) end
