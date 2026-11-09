@@ -7,12 +7,6 @@
  */
 #include "psx_int.h"
 
-#include <stdio.h>
-
-/* set by the host probe (tests/psx/boot_probe.c); the kernel build has none */
-extern int psx_probe_trace __attribute__((weak));
-#define TRACE(...) do { if (&psx_probe_trace && psx_probe_trace) printf(__VA_ARGS__); } while (0)
-
 #define CD_STAT_MOTOR 0x02
 #define CD_STAT_READ  0x20
 #define CD_STAT_SHELL 0x10
@@ -120,14 +114,21 @@ static void start_data(void)
 {
     if (cd_mode & 0x20) { memcpy(databuf, sec + 12, 0x924); sec_len = 0x924; }
     else { memcpy(databuf, sec + 24, 0x800); sec_len = 0x800; }
+    data_len = data_pos = 0;                           /* a new sector: the data FIFO is empty until the next request */
 }
 
 void psx_cd_run(uint32_t cycles)
 {
     for (int i = 0; i < nev; i++) evq[i].due -= (int32_t)cycles;
-    while (nev && evq[0].due <= 0 && (irq_flag & 7) == 0) {
-        cd_evt_t e = evq[0];
-        memmove(&evq[0], &evq[1], (size_t)(nev - 1) * sizeof evq[0]);
+    for (;;) {
+        /* the event that is due first goes first (the answer to a command may be due before the next sector of a read
+         * that is going on, though it was queued later); the order of events with the same due time is kept */
+        int first = -1;
+        for (int i = 0; i < nev; i++)
+            if (first < 0 || evq[i].due < evq[first].due) first = i;
+        if (first < 0 || evq[first].due > 0 || (irq_flag & 7) != 0) break;
+        cd_evt_t e = evq[first];
+        memmove(&evq[first], &evq[first + 1], (size_t)(nev - 1 - first) * sizeof evq[0]);
         nev--;
         if (e.kind == 1) {                                         /* a sector of a read */
             if (!reading) continue;
@@ -165,7 +166,7 @@ static void command(uint32_t cmd)
     psx_cd_stat_cmds++;
     busy = 1;
     cd_last_cmd = cmd;
-    TRACE("cmd %02X params %02X %02X %02X  (frame cycles %llu)%c", cmd, param[0], param[1], param[2], (unsigned long long)psx_cpu.cycles, 10);
+    TRACE("cmd %02X params %02X %02X %02X  (cycles %llu) ra %08x sp %08x%c", cmd, param[0], param[1], param[2], (unsigned long long)psx_cpu.cycles, psx_cpu.r[31], psx_cpu.r[29], 10);
     memmove(trace, trace + 1, 11 * sizeof trace[0]);
     trace[11] = cmd | (uint32_t)param[0] << 8 | (uint32_t)param[1] << 16 | (uint32_t)param[2] << 24;
     const uint8_t s = stat();
@@ -282,7 +283,9 @@ void psx_cd_write(uint32_t reg, uint32_t v)
     case 1: command(v); break;                          /* index 0, reg 1: the command */
     case 2: if (nparam < 16) param[nparam++] = (uint8_t)v; break;
     case 3:                                             /* the request register */
-        if (v & 0x80) { data_len = sec_len; data_pos = 0; }
+        if (v & 0x80) {                                  /* want data: a loaded buffer is not rewound (a second request goes on where the first DMA stopped) */
+            if (data_len == 0) { data_len = sec_len; data_pos = 0; }
+        }
         else data_len = data_pos = 0;
         break;
     case 6: irq_en = (int)(v & 0x1F); break;            /* index 1, reg 2 */

@@ -4,7 +4,7 @@ An emulator of the PlayStation 1. The machine is written in C and is part of the
 global machine). The cartridge `carts/psx/` is its user interface in Lua: it lists the games, passes the pads and
 draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-09): the core and the cartridge exist and
 pass their tests on the PC (`make test-psx`, 38 checks; `make test-psx-cart`, the cartridge in bmhost with a test
-PS-EXE). On the Pi Zero W (2026-11-09) a real BIOS boots to the PlayStation logo and the "Licensed by" screen, reads the disc, and starts the game's code, at about 8 to 11 frames a second. The game (Crash Bandicoot 2) then stays black in a loop of its own CD commands (see Open work). The RGB30 is not measured.
+PS-EXE). On the Pi Zero W (2026-11-09) a real BIOS boots to the PlayStation logo and the "Licensed by" screen, reads the disc, and starts the game's code, at about 8 to 11 frames a second. Crash Bandicoot 2 loads from the disc and plays its logo animation (see Open work). The RGB30 is not measured.
 
 The core is original code (clean room). The hardware facts come from public documentation. No code of pcsx-rearmed
 (GPL-2.0) or of any other emulator is copied: the repository license does not allow it. The module split follows the
@@ -54,11 +54,12 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 - A disc is read one sector at a time with `fat_read_at` (the callback in `psx_disc_t`). Never load a disc image whole.
 - The BIOS call vectors 0xA0, 0xB0 and 0xC0 are answered by the core only when there is no BIOS. A test that puts code there fails.
 - A load or a GTE read (`MFC2`) has a delay slot: the next instruction sees the old value. The core and the test programs follow it.
+- The CD data FIFO: writing the request bit again does not rewind a loaded buffer (a game reads a sector in two DMAs, header then data); a new sector empties it. The CD events go out in due-time order, not in the order they were queued.
 - The core tests are the gate for a change of the CPU, the GTE, the GPU, the DMA, the CD-ROM or the SPU. Run `make test-psx`.
 
 ## Open work
 
-- Crash Bandicoot 2 (USA) stays black after the BIOS loads it: its CD library repeats Setloc 00:02:00, Pause, Pause, ReadN and never asks for the sector data (no write of 0x80 to the request register, no DMA 3). Find it on the PC: `make build/host/psx_boot_probe` style build of `tests/psx/boot_probe.c` with a BIOS and a disc given on the command line (`... BIOS.bin DISC.bin 900 trace` prints every CD command, interrupt and register access). Suspects: the timing of INT1 against INT3, the status bits, a command sent while the previous one has not answered (the busy bit is set now), the first sector delay after ReadN, or a game that waits for the MDEC.
+- Crash Bandicoot 2 (USA) runs on the Pi Zero W up to the Naughty Dog logo animation (2026-11-09, 7 frames a second). The title screen and the game are not checked yet: run the probe further (`tests/psx/boot_probe.c`, frames 3000 and more) and look at `build/psx_probe.ppm`. Speed is the next problem: 7 frames a second is far from 60.
 - First run on real hardware: boot a BIOS, then a disc, with the bridge. Measure the time of a frame on the Pi Zero W and the RGB30
   (the menu item FPS shows it). The interpreter costs about 30 host cycles an instruction on the ARM1176: expect 10 to 20 frames a second
   on the Pi Zero W before work on speed. The first levers: a dynamic recompiler for ARMv6 (a block cache and the fast RAM path), the GPU

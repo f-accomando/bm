@@ -51,11 +51,25 @@ void psx_cpu_exception(uint32_t code)
 }
 
 /* ------------------------------------------------------------------ memory */
+#ifdef PSX_PROBE                       /* the host probe only: report the accesses to one address range */
+uint32_t psx_watch_lo, psx_watch_hi;
+static void watch(const char *k, uint32_t a, uint32_t v)
+{
+    const uint32_t p = a & 0x1FFFFFFFu;
+    if (psx_probe_trace && psx_watch_hi && p >= psx_watch_lo && p < psx_watch_hi)
+        printf("  %s %08x = %08x  pc %08x%c", k, a, v, psx_cpu.cur_pc, 10);
+}
+#define WATCH(k, a, v) watch(k, a, v)
+#else
+#define WATCH(k, a, v) ((void)0)
+#endif
+
 static inline uint32_t mem_read(uint32_t a, int sz)
 {
     const uint32_t p = a & seg_mask[a >> 29];
     if (p < 0x00800000u) {
         const uint8_t *m = psx_ram + (p & 0x1FFFFFu);
+        WATCH("R", a, m[0] | (uint32_t)m[1] << 8 | (uint32_t)m[2] << 16 | (uint32_t)m[3] << 24);
         if (sz == 4) return (uint32_t)m[0] | (uint32_t)m[1] << 8 | (uint32_t)m[2] << 16 | (uint32_t)m[3] << 24;
         if (sz == 2) return (uint32_t)m[0] | (uint32_t)m[1] << 8;
         return m[0];
@@ -70,6 +84,7 @@ static inline void mem_write(uint32_t a, uint32_t v, int sz)
     const uint32_t p = a & seg_mask[a >> 29];
     if (p < 0x00800000u) {
         uint8_t *m = psx_ram + (p & 0x1FFFFFu);
+        WATCH("W", a, v);
         if (sz == 4) { m[0] = (uint8_t)v; m[1] = (uint8_t)(v >> 8); m[2] = (uint8_t)(v >> 16); m[3] = (uint8_t)(v >> 24); }
         else if (sz == 2) { m[0] = (uint8_t)v; m[1] = (uint8_t)(v >> 8); }
         else m[0] = (uint8_t)v;

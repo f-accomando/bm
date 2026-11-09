@@ -153,6 +153,7 @@ static void dma_run(int ch)
     const int mode = (int)((chcr >> 9) & 3), from_ram = (int)(chcr & 1), step = (chcr & 2) ? -4 : 4;
     uint32_t words = 0;
     dma_runs++;
+    TRACE("DMA ch%d madr %06x bcr %08x chcr %08x dpcr %08x dicr %08x%c", ch, dma_madr[ch], dma_bcr[ch], chcr, dpcr, dicr, 10);
     if (mode == 2) {                                           /* linked list: only the GPU */
         int guard = 0x40000;
         uint32_t addr = madr;
@@ -459,6 +460,13 @@ static void hle_printf(void)
     #undef ARG
 }
 
+static int log_bios_tty;                  /* with a BIOS: copy what a program prints with the BIOS calls into the tty buffer (the BIOS goes on) */
+void psx_log_bios_tty(int on)
+{
+    log_bios_tty = on;
+    psx_hooks = on || !has_bios || exe_pending;
+}
+
 static void hle_call(uint32_t vec)
 {
     const uint32_t fn = C.r[9] & 0xFF;
@@ -470,6 +478,7 @@ static void hle_call(uint32_t vec)
         if (fn == 0x3D) tty_put((char)C.r[4]);
         else if (fn == 0x3F) { uint32_t p = C.r[4]; for (int g = 0; g < 512; g++, p++) { const char ch = (char)(psx_peek32(p & 0x1FFFFFFFu) >> (8 * (p & 3))); if (!ch) break; tty_put(ch); } tty_put('\n'); }
     }
+    if (has_bios) return;                 /* only logged: the BIOS answers the call itself */
     C.r[2] = 0;
     C.pc = C.r[31];
     C.npc = C.pc + 4;
@@ -501,10 +510,10 @@ void psx_hook(void)
     if (exe_pending && has_bios && pc == 0x80030000u) {
         exe_apply(exe_buf, exe_len);
         exe_pending = 0;
-        psx_hooks = 0;
+        psx_hooks = log_bios_tty;
         return;
     }
-    if (!has_bios) {
+    if (!has_bios || log_bios_tty) {
         const uint32_t p = pc & 0x1FFFFFFFu;
         if (p == 0xA0 || p == 0xB0 || p == 0xC0) hle_call(p);
     }

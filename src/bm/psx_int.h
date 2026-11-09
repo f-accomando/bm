@@ -3,7 +3,12 @@
 #define PSX_INT_H
 
 #include "psx.h"
+#include <stdio.h>
 #include <string.h>
+
+/* set by the host probe (tests/psx/boot_probe.c); the kernel build has none */
+extern int psx_probe_trace __attribute__((weak));
+#define TRACE(...) do { if (&psx_probe_trace && psx_probe_trace) printf(__VA_ARGS__); } while (0)
 
 /* the short names of the three big states and of the interrupt registers: the symbols are psx_*, so they never meet
  * the SNES core's in the kernel */

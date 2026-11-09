@@ -74,6 +74,8 @@ typedef struct {
 void psx_debug(psx_debug_t *d);
 /* the text a program printed with the BIOS calls (kept without a BIOS; the last 2 KB) */
 const char *psx_tty(void);
+/* with a BIOS: log what a program prints through the BIOS calls into psx_tty (the BIOS still runs the call). Costs a check per instruction. */
+void psx_log_bios_tty(int on);
 void psx_set_clock(uint32_t (*now_us)(void));
 /* a debug read of the machine: a word of RAM (address in KUSEG, 0..2 MB) */
 uint32_t psx_peek32(uint32_t addr);
