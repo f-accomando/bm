@@ -56,17 +56,22 @@ machine was written again in C. The RGB30 is not measured.
 - No SNES firmware, ROM data or game code goes into the repository. The test ROM is made by `make_testrom.py`.
 - The core tests are the gate for a change of the CPU, the PPU or the SPC700. Run `make test-snes`. After a change of `snes_ppu.c` run `make test-snes-ppu` too: it must stay bit for bit equal to `tests/snes/ppu_ref.c` (change the reference only for a new PPU feature, in both files).
 - The BG scroll registers ($210D to $2114) keep the 16 bits of the write; the picture uses the low 10 bits. The second write of a pair takes bits 0 to 2 from the first one (`bgofs_latch`, bits 8 to 10 of the old value). A mask to 10 bits at the first write loses bit 2: the map was then up to 4 pixels off from the sprites (Mario not centred on the house of the SMW overworld). `core_test.c` checks all 1024 values.
+- The lane helpers of `snes_ppu.c` (`nz_mask`, `lane_uqadd`, ...) use the ARMv6 SIMD32 instructions on the console and plain C on the host. Keep the C version in step: `make test-snes-ppu` runs only the C one, so check an ARM change on the console (the test build with `SNES_NOHUD=1` stops at frame 3200: compare two screenshots byte for byte).
 - The PPU reads and writes its line buffers a 32-bit word at a time from arrays aligned to 4 bytes (`_Alignas(4)`); keep every access aligned (the ARM1176 kernel).
 
 ## Open work
 
-- Speed: the PPU in C is done (a row of 8 tile pixels in two 32-bit words, the layers merged 4 pixels at a time, a table of mixed colours for
-  the colour math). On the Pi One (Super Mario World, emulated frames 600 to 3300, the test build): PPU 7434 us a frame before, 4553 after;
-  the whole frame 17041 us before, 14190 after (CPU about 7000, audio 2640). On a PC the PPU is 3 times faster (`make bench-snes-ppu`). Next:
-  hand-written ASM in the inner loops of the PPU (tile row, merge, mix), a fast path for the CPU's most common opcodes, a smaller picture.
-  Measure on the RGB30. The draw of the picture is 5.6 ms at 1x (copy 1.0, blit 4.6).
+- Speed: the PPU is done in C with ARMv6 SIMD (a row of 8 tile pixels in two 32-bit words, the layers merged 4 pixels at a time with UADD8 and SEL,
+  the colour math of the three channels in one UQADD8, UQSUB8 or UHADD8, a table of mixed colours for the fixed colour, shifts in place of the divides:
+  the ARM1176 has no divide). Pi One, Super Mario World, the test build draws every frame from 600 to 3200 (2600 frames) and sums the parts: the PPU costs
+  19162 us a drawn frame with the code of before, 16863 us now (-12%); each timer read costs about 6 us, so the real figures are 12100 and 9800 us (-19%).
+  The CPU is about 7000 us and the sound 3000 us a frame. The picture is identical byte for byte at frame 3200 (checked on the Pi One). On a PC the PPU
+  is 3 times faster than the first C version (`make bench-snes-ppu`). Next: the colour mix with a sub screen is the biggest part (4700 us of the 9800): a
+  hand-written loop in a `.S` file (the compiler spills registers, about 35 instructions a pixel); then the tile decode (4200 us) and the CPU's most
+  common opcodes. Measure on the RGB30. The draw of the picture is 5.7 ms at 1x (copy 1.1, blit 4.6).
 - A test build: `SNES_TEST=1 python3 carts/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /sfc by
-  itself and shows the FPS and the times of the parts of a frame. With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
+  itself and shows the FPS, the times of the parts of a frame, the PPU registers and the first sprites; it draws every frame from 600 to 3200, sums the PPU parts
+  (the line `PPU n fr`) and stops at frame 3200 (`SNES_NOHUD=1`: no text, for a picture to compare). With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
   screen with no key press.
 - Sound: the echo and its FIR filter are not done (the echo buffer is not written; games that use echo sound drier), the Gaussian table is a
   cubic interpolation, a voice has no start delay, the envelope timing follows the public tables from memory. The output is 32 kHz

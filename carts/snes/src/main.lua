@@ -53,7 +53,7 @@ local scr
 local holdmenu, menusel = 0, 1
 local show_fps = false
 local draw_ms = { 0, 0 }
-local acc = { n = 0, f = 0, p = 0, s = 0 }
+local acc = { n = 0, f = 0, p = 0, s = 0, n2 = 0, bg = 0, ob = 0, wi = 0, co = 0, mi = 0 }
 local snap                                         -- the test build's kept lines       -- the test build's sums
 local srm = ""
 
@@ -137,7 +137,14 @@ function _update()
   elseif state == "run" then
     if (btn("l2") and btn("r2")) or (btn("l1") and btn("r1")) then holdmenu = holdmenu + 1 else holdmenu = 0 end
     if holdmenu > 30 then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); return end
-    snes_frame(readpad(1), readpad(2), frames % 4 == 0)      -- the picture every fourth frame: the draw is about one in four updates anyway
+    local bench = AUTO and frames >= 600 and frames < 3200      -- the test build: every frame in this range is drawn, and the time of the parts is summed: the same frames in every run
+    if not (AUTO and frames >= 3200) then                                -- the test build stops at frame 3200: the same picture in every run, to compare two kernels
+      snes_frame(readpad(1), readpad(2), bench or frames % 4 == 0)      -- the picture every fourth frame: the draw is about one in four updates anyway
+    end
+    if bench then
+      local bg, ob, wi, co, mi = string.match(snes_debug().us_ppu, "bg (%d+) obj (%d+) win (%d+) comp (%d+) mix (%d+)")
+      if bg then acc.n2 = acc.n2 + 1; acc.bg = acc.bg + bg; acc.ob = acc.ob + ob; acc.wi = acc.wi + wi; acc.co = acc.co + co; acc.mi = acc.mi + mi end
+    end
     frames = frames + 1
     if frames % 120 == 0 then pad_layout() end
     if frames % 600 == 0 then save_sram() end
@@ -200,7 +207,7 @@ function _draw()
     print("cpu " .. d.cpu_code .. "  spc " .. d.spc_code, 4, SCREEN_H - 48, 0xFF8040)
     print("ports " .. d.ports, 4, SCREEN_H - 64, 0xFF8040)
   end
-  if AUTO then                                           -- the test build: the mean cost of the parts over the same game frames (600 to 3300), to compare two kernels
+  if AUTO then                                           -- the test build: the mean cost of the parts over the same game frames (600 to 3200), to compare two kernels
     local f, p, sp = string.match(d.us, "us frame (%d+) ppu (%d+) spc (%d+)")
     if f and d.frames >= 600 and d.frames < 3300 then
       acc.n = acc.n + 1; acc.f = acc.f + f; acc.p = acc.p + p; acc.s = acc.s + sp
@@ -222,7 +229,7 @@ function _draw()
     local hx, cg = {}, {}
     for i = 1, 16 do hx[i] = string.format("%02X", d.vram:byte(i)) end
     for i = 1, 8 do cg[i] = string.format("%02X%02X", d.cgram:byte(i * 2), d.cgram:byte(i * 2 - 1)) end
-    local lines = { d.regs, "first: " .. table.concat(first, "  "), "other: " .. table.concat(rest, "  "), "t7E " .. table.concat(hx, "", 1, 8) .. " vm " .. d.vmap:sub(193, 256) }
+    local lines = { d.regs, "first: " .. table.concat(first, "  "), (acc.n2 > 0) and string.format("PPU %d fr: bg %d obj %d win %d comp %d mix %d = %d us", acc.n2, acc.bg // acc.n2, acc.ob // acc.n2, acc.wi // acc.n2, acc.co // acc.n2, acc.mi // acc.n2, (acc.bg + acc.ob + acc.wi + acc.co + acc.mi) // acc.n2) or ("other: " .. table.concat(rest, "  ")), "t7E " .. table.concat(hx, "", 1, 8) .. " vm " .. d.vmap:sub(193, 256) }
     if not snap and d.regs:find("hofs 1003") and #first > 0 and d.inidisp == 0x0F then snap = lines end       -- the overworld: keep it
     local out = snap or lines
     for i = 1, #out do print(out[i], 4, 282 + i * 16, snap and 0xFFC080 or 0x80FF80) end

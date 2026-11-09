@@ -56,13 +56,44 @@ static void make_tables(void)
     tables_ready = 1;
 }
 
-/* the bytes of a word that are not zero, as 0xFF; the bytes of a word that equal the bytes of another, as 0xFF */
-static inline uint32_t nz_mask(uint32_t v) { return (((((v & 0x7F7F7F7Fu) + 0x7F7F7F7Fu) | v) & 0x80808080u) >> 7) * 0xFFu; }
-static inline uint32_t eq_mask(uint32_t a, uint32_t b)
+/* Four 8-bit lanes in a 32-bit word. On the ARMv6 core of the Pi (the SIMD32 instructions: UADD8, SEL, UQADD8, UQSUB8, UHADD8) one instruction does what
+ * the C code below does in several; on any other CPU (the host tests) the C code runs. Both give the same bits (tests/snes/ppu_equiv.c on the PC, the
+ * picture on the console). */
+#if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
+#include <arm_acle.h>
+static inline uint32_t lane_uqadd(uint32_t a, uint32_t b) { return __uqadd8(a, b); }
+static inline uint32_t lane_uqsub(uint32_t a, uint32_t b) { return __uqsub8(a, b); }
+static inline uint32_t lane_uhadd(uint32_t a, uint32_t b) { return __uhadd8(a, b); }
+/* the bytes of a word that are not zero, as 0xFF: v + 0xFF carries out of a byte exactly when the byte is not 0; SEL picks 0xFF for those bytes */
+static inline uint32_t nz_mask(uint32_t v)
 {
-    const uint32_t x = a ^ b;
-    return (((~((((x & 0x7F7F7F7Fu) + 0x7F7F7F7Fu) | x)) & 0x80808080u) >> 7)) * 0xFFu;
+    uint32_t r;
+    __asm__("uadd8 %0, %1, %2\n\tsel %0, %2, %3" : "=&r"(r) : "r"(v), "r"(0xFFFFFFFFu), "r"(0u) : "cc");
+    return r;
 }
+#else
+static inline uint32_t lane_uqadd(uint32_t a, uint32_t b)
+{
+    uint32_t r = 0;
+    for (int i = 0; i < 32; i += 8) { uint32_t t = ((a >> i) & 255) + ((b >> i) & 255); r |= (t > 255 ? 255u : t) << i; }
+    return r;
+}
+static inline uint32_t lane_uqsub(uint32_t a, uint32_t b)
+{
+    uint32_t r = 0;
+    for (int i = 0; i < 32; i += 8) { uint32_t x = (a >> i) & 255, y = (b >> i) & 255; r |= (x > y ? x - y : 0u) << i; }
+    return r;
+}
+static inline uint32_t lane_uhadd(uint32_t a, uint32_t b)
+{
+    uint32_t r = 0;
+    for (int i = 0; i < 32; i += 8) r |= ((((a >> i) & 255) + ((b >> i) & 255)) >> 1) << i;
+    return r;
+}
+static inline uint32_t nz_mask(uint32_t v) { return (((((v & 0x7F7F7F7Fu) + 0x7F7F7F7Fu) | v) & 0x80808080u) >> 7) * 0xFFu; }
+#endif
+/* the bytes of a word that equal the bytes of another, as 0xFF */
+static inline uint32_t eq_mask(uint32_t a, uint32_t b) { return ~nz_mask(a ^ b); }
 static inline uint32_t ld(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v; }
 static inline void st(uint8_t *p, uint32_t v) { memcpy(p, &v, 4); }
 
@@ -74,20 +105,20 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
     memset(oi, 0, 256); memset(op, 0, 256);
     if (!((S.tm | S.ts) & (1 << n))) return;            /* the layer is on neither screen: nothing to draw */
     if (!tables_ready) make_tables();
-    const int big = (S.bgmode >> (4 + n)) & 1, tsz = big ? 16 : 8;
+    const int big = (S.bgmode >> (4 + n)) & 1, tsz = big ? 16 : 8, tsh = big ? 4 : 3;        /* tsh: log2 of the tile size (the ARM1176 has no divide) */
     const int sc = S.sc[n], wide = sc & 1, tall = sc & 2;
     const uint32_t map_base = (uint32_t)(sc & 0xFC) << 9;       /* bytes */
     const uint32_t chr_base = S.nba[n];
     const int bytes_tile = bpp * 8;
     const int sy = (y + S.vofs[n]) & 0x3FF;
-    const int ty = sy / tsz;
+    const int ty = sy >> tsh;
     const unsigned pal_off = (bpp == 2 && pal_base_mode0) ? (unsigned)n * 32 : 0;
     const int hofs = S.hofs[n] & 0x3FF, px0 = hofs & 7;
     int sx = hofs & ~7, any = 0;
     uint8_t *ti = tbi[n], *tp = tbp[n];
     memset(ti, 0, 264); memset(tp, 0, 264);
     for (int k = 0; k < 33; k++, sx = (sx + 8) & 0x3FF) {      /* one tile column of 8 pixels per turn, on the grid of the tiles; the scroll is a shift at the end */
-        const int tcol = sx / tsz;
+        const int tcol = sx >> tsh;
         int screen = 0;
         if (wide) screen += (tcol >> 5) & 1;
         if (tall) screen += ((ty >> 5) & 1) * (wide ? 2 : 1);
@@ -291,7 +322,7 @@ static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t
             const uint32_t c = ld(ci + x);
             if (!c) continue;
             uint32_t m = nz_mask(c) & eq_mask(ld(cp + x), prl);
-            if (win) m &= ~(ld(win + x) * 0xFFu);
+            if (win) m &= ~nz_mask(ld(win + x));
             if (!m) continue;
             st(idx + x, (ld(idx + x) & ~m) | (c & m));
             st(lay + x, (ld(lay + x) & ~m) | (lal & m));
@@ -337,9 +368,11 @@ void ppu_line(int y)
 
     /* the palette as RGB565 with the brightness, and the brightness tables of the channels, kept until the palette or the brightness changes */
     static uint16_t lut[256], rt[32], gt[32], bt[32];
+    static uint32_t pal8[256];                          /* the palette as three lanes (red, green, blue) of the colour times 8: the lane maths below */
     static int lut_bright = -1;
     static uint32_t lut_gen;
     if (lut_gen != pal_gen || lut_bright != bright) {
+        for (int k = 0; k < 256; k++) { const unsigned c = S.pal[k]; pal8[k] = (c & 31) * 8u | ((c >> 5) & 31) * 8u << 8 | ((c >> 10) & 31) * 8u << 16; }
         for (int k = 0; k < 256; k++) {
             unsigned c = S.pal[k], r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
             if (bright != 15) { r = r * (unsigned)bright / 15; g = g * (unsigned)bright / 15; b = b * (unsigned)bright / 15; }
@@ -379,17 +412,20 @@ void ppu_line(int y)
             TLAP(4);
             return;
         }
-        for (int x = 0; x < SNES_W; x++) {              /* the sub screen: the colour behind the pixel */
+        const uint32_t fix8 = (uint32_t)S.fixr * 8u | (uint32_t)S.fixg * 8u << 8 | (uint32_t)S.fixb * 8u << 16;
+        const int mode_k = (add ? 2 : 0) | (half ? 1 : 0);
+        for (int x = 0; x < SNES_W; x++) {              /* the sub screen: the colour behind the pixel; the three channels are one lane operation */
             const int idx = m_idx[x];
             if (!((mb >> m_lay[x]) & m_om[x] & 1)) { dst[x] = lut[idx]; continue; }
-            const unsigned c = S.pal[idx];
-            int rr = (int)(c & 31), gg = (int)((c >> 5) & 31), bb = (int)((c >> 10) & 31);
-            unsigned sr = S.fixr, sg = S.fixg, sb = S.fixb;
-            if (s_lay[x] != 5) { const unsigned sc = S.pal[s_idx[x]]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; }
-            if (add) { rr += (int)sr; gg += (int)sg; bb += (int)sb; } else { rr -= (int)sr; gg -= (int)sg; bb -= (int)sb; }
-            if (half) { rr >>= 1; gg >>= 1; bb >>= 1; }
-            rr = rr < 0 ? 0 : rr > 31 ? 31 : rr; gg = gg < 0 ? 0 : gg > 31 ? 31 : gg; bb = bb < 0 ? 0 : bb > 31 ? 31 : bb;
-            dst[x] = (uint16_t)(rt[rr] | gt[gg] | bt[bb]);
+            const uint32_t c = pal8[idx], sc = s_lay[x] != 5 ? pal8[s_idx[x]] : fix8;
+            uint32_t v;      /* each lane is 8 times the 5-bit value: a sum above 31 saturates at 255 (31 after the shift), a difference below 0 stops at 0, a half is (a + b) >> 1 */
+            switch (mode_k) {
+            case 3: v = lane_uhadd(c, sc); break;
+            case 2: v = lane_uqadd(c, sc); break;
+            case 1: v = lane_uhadd(lane_uqsub(c, sc), 0); break;
+            default: v = lane_uqsub(c, sc); break;
+            }
+            dst[x] = (uint16_t)(rt[(v >> 3) & 31] | gt[(v >> 11) & 31] | bt[(v >> 19) & 31]);
         }
         TLAP(4);
         return;
