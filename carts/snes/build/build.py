@@ -53,6 +53,8 @@ def main():
     lua = "\n".join(open(p).read() for p in parts)
     if os.environ.get("SNES_TEST") == "1":         # a test build for the bridge: the first ROM opens by itself, the FPS line is on
         lua = lua.replace("local AUTO = false", "local AUTO = true").replace("local show_fps = false", "local show_fps = true")
+        if os.environ.get("SNES_ADAPT") == "1":    # the speed controller on in the test build (no fixed range of frames: the cart plays on)
+            lua = lua.replace("if not AUTO then adapt() end", "adapt()").replace("(AUTO and 4 or every)", "every").replace("if not (AUTO and frames >= 3200) then", "if true then").replace("local bench = AUTO and frames >= 600 and frames < 3200", "local bench = false").replace("local MINI, last_ups = false, 0", "local MINI, last_ups = true, 0")
         if os.environ.get("SNES_NOHUD") == "1":    # no statistics on the picture: a clean screenshot
             lua = lua.replace("local show_fps = true", "local show_fps = false").replace("  if AUTO then   ", "  if false then   ").replace("local AUTO = true", "local AUTO = true")
     open(os.path.join(OUT, "main.lua"), "w").write(lua)

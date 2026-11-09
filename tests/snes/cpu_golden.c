@@ -86,8 +86,23 @@ static const uint64_t GOLDEN[CASES] = {
     0xF7DC6371048EFEAEull,
 };
 
+#include <time.h>
+/* cpu_golden bench: the time of a frame of the machine on a random program (no picture drawn): the CPU, DMA, the sound */
+static void bench(void)
+{
+    for (int c = 1; c <= 3; c += 2) {
+        run_case(c);                                     /* loads the ROM of the case and runs 5 frames */
+        struct timespec a, b;
+        clock_gettime(CLOCK_MONOTONIC, &a);
+        for (int f = 0; f < 200; f++) snes_frame(0, 0, 0);
+        clock_gettime(CLOCK_MONOTONIC, &b);
+        printf("case %d: %.1f us a frame\n", c, ((b.tv_sec - a.tv_sec) * 1e6 + (b.tv_nsec - a.tv_nsec) / 1e3) / 200);
+    }
+}
+
 int main(int argc, char **argv)
 {
+    if (argc > 1 && !strcmp(argv[1], "bench")) { bench(); return 0; }
     const int print = argc > 1 && !strcmp(argv[1], "print");
     int bad = 0;
     if (print) printf("static const uint64_t GOLDEN[CASES] = {\n");

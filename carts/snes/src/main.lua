@@ -54,7 +54,28 @@ local holdmenu, menusel = 0, 1
 local show_fps = false
 local draw_ms = { 0, 0 }
 local acc = { n = 0, f = 0, p = 0, s = 0, n2 = 0, tf = 0, bg = 0, ob = 0, wi = 0, co = 0, mi = 0 }
-local snap                                         -- the test build's kept lines       -- the test build's sums
+local snap                                         -- the test build's kept lines
+
+-- How often a picture is made: every `every` emulated frames (1 = 60 pictures a second). The machine runs 60 frames a second whatever the picture costs
+-- (frameskip), so the cart makes more pictures when the console keeps up and fewer when it does not. A window of 90 updates is timed: under 58 updates a
+-- second, a picture less often; at 60 with room to spare (the work of a frame is under 11 ms), a picture more often, and not again for 20 seconds if the
+-- speed fell after that.
+local every, win_n, win_t, win_last, cooldown = 3, 0, 0, nil, 0
+local MINI, last_ups = false, 0                     -- a test build with a one-line speed readout
+local function adapt()
+  local t = time()
+  if win_last then win_t = win_t + (t - win_last); win_n = win_n + 1 end
+  win_last = t
+  if cooldown > 0 then cooldown = cooldown - 1 end
+  if win_n >= 90 then
+    local ups = win_n / win_t                          -- _update a second
+    last_ups = ups
+    local work = stat(1)                               -- ms of the last frame
+    if ups < 58 and every < 4 then every = every + 1; cooldown = 1200
+    elseif ups >= 59.5 and work < 11 and every > 1 and cooldown == 0 then every = every - 1 end
+    win_n, win_t = 0, 0
+  end
+end       -- the test build's sums
 local srm = ""
 
 local function list_roms()
@@ -140,7 +161,8 @@ function _update()
     local bench = AUTO and frames >= 600 and frames < 3200      -- the test build: every frame in this range is drawn, and the time of the parts is summed: the same frames in every run
     if not (AUTO and frames >= 3200) then                                -- the test build stops at frame 3200: the same picture in every run, to compare two kernels
       local tf = time()
-      snes_frame(readpad(1), readpad(2), bench or frames % 4 == 0)      -- the picture every fourth frame: the draw is about one in four updates anyway
+      if not AUTO then adapt() end
+      snes_frame(readpad(1), readpad(2), bench or frames % (AUTO and 4 or every) == 0)      -- a picture every `every` frames (the test build: every fourth)
       if bench then acc.tf = acc.tf + (time() - tf) end
     end
     if bench then
@@ -238,12 +260,13 @@ function _draw()
   end
   if show_fps then
     rectfill(0, 0, 400, 78, 0)                          -- a black bar under the lines, to read them
-    print(string.format("%d fps  blank %02X  tm %02X  sound %s %04X", stat(2), d.inidisp, d.tm, d.spc, d.spc_pc), 4, 4, 0x00FF00)
+    print(string.format("%d fps  pic 1/%d  blank %02X  tm %02X  sound %s %04X", stat(2), every, d.inidisp, d.tm, d.spc, d.spc_pc), 4, 4, 0x00FF00)
     print(d.us_ppu, 4, 36, 0x00FF00)
     print(d.audio, 4, 52, 0x00FF00)
     print(string.format("PC %06X%s%s  nmi %02X  reads %04X %04X %04X  frames %d", d.pc, d.wai and " WAI" or "", d.stp and " STP" or "", d.nmi, d.io[1], d.io[3], d.io[6], d.frames), 4, 68, 0x00FF00)
     print(d.us .. string.format("  copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 20, 0x00FF00)
   end
+  if MINI then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end
   if state == "menu" then
     rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0x101820)
     rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0xFFD050)
