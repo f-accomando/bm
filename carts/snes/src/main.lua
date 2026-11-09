@@ -57,10 +57,9 @@ local acc = { n = 0, f = 0, p = 0, s = 0, n2 = 0, tf = 0, bg = 0, ob = 0, wi = 0
 local snap                                         -- the test build's kept lines
 
 -- How often a picture is made: every `every` emulated frames (1 = 60 pictures a second). The machine runs 60 frames a second whatever the picture costs
--- (frameskip), so the cart makes more pictures when the console keeps up and fewer when it does not. A window of 90 updates is timed: under 58 updates a
--- second, a picture less often; at 60 with room to spare (the work of a frame is under 11 ms), a picture more often, and not again for 20 seconds if the
--- speed fell after that.
-local every, win_n, win_t, win_last, cooldown = 3, 0, 0, nil, 0
+-- (frameskip), so the cart makes more pictures when the console keeps up and fewer when it does not. A window of 90 updates is timed: under 57 updates a
+-- second, a picture less often (and no try for a picture more often for 15 seconds); three windows in a row at 58.8 or more, a picture more often.
+local every, win_n, win_t, win_last, cooldown, good = 3, 0, 0, nil, 0, 0
 local MINI, last_ups = false, 0                     -- a test build with a one-line speed readout
 local function adapt()
   local t = time()
@@ -70,12 +69,18 @@ local function adapt()
   if win_n >= 90 then
     local ups = win_n / win_t                          -- _update a second
     last_ups = ups
-    local work = stat(1)                               -- ms of the last frame
-    if ups < 58 and every < 4 then every = every + 1; cooldown = 1200
-    elseif ups >= 59.5 and work < 11 and every > 1 and cooldown == 0 then every = every - 1 end
+    if ups < 57 then
+      good = 0
+      if every < 4 then every = every + 1; cooldown = 900 end
+    elseif ups >= 58.8 then
+      good = good + 1
+      if good >= 3 and every > 1 and cooldown == 0 then every = every - 1; good = 0 end
+    else
+      good = 0
+    end
     win_n, win_t = 0, 0
   end
-end       -- the test build's sums
+end
 local srm = ""
 
 local function list_roms()

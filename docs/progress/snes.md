@@ -75,6 +75,9 @@ machine was written again in C. The RGB30 is not measured.
   table lookup, the registers take the slow path. On the Pi One a frame of the test build (update, with the machine and the Lua of the test) went from
   25.25 ms to 22.69 ms (-10%) with the PPU unchanged: the CPU part is about 37% lower. The sound is about 3000 us a frame.
   The picture is identical byte for byte at frame 3200 after each step (checked on the Pi One).
+  The cart makes a picture every 1 to 4 emulated frames, by the speed it measures (`adapt` in `main.lua`: a window of 90 updates; under 57 a second, a
+  picture less often; three windows at 58.8 or more, a picture more often). Pi One, 2026-11-09: 58 updates and 30 pictures a second (`SNES_ADAPT=1` makes
+  a test build with a one-line readout: fps, updates a second, the interval).
   On a PC the PPU is 3 times faster than the first C version (`make bench-snes-ppu`). Next: the mix (about 3950 us a frame), the sprites and the layer
   merge, the CPU's instruction decode (the flags as bits in one byte, a table of opcodes). Measure on the RGB30. The draw of the picture is 5.7 ms at 1x (copy 1.0, blit 4.6).
 - A test build: `SNES_TEST=1 python3 carts/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /sfc by
