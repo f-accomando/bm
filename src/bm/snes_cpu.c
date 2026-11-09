@@ -10,8 +10,8 @@ static uint32_t rDB, rPB;               /* kept shifted left by 16 */
 static int fN, fV, fM = 1, fX = 1, fD, fI = 1, fZ, fC, fE = 1;
 int cpu_waiting, cpu_stopped;
 
-static inline uint8_t rd8(uint32_t a) { return snes_read(a & 0xFFFFFF); }
-static inline void wr8(uint32_t a, uint8_t v) { snes_write(a & 0xFFFFFF, v); }
+static inline uint8_t rd8(uint32_t a) { return snes_read_f(a & 0xFFFFFF); }
+static inline void wr8(uint32_t a, uint8_t v) { snes_write_f(a & 0xFFFFFF, v); }
 static inline uint16_t rd16(uint32_t a) { uint16_t l = rd8(a); return l | (uint16_t)(rd8(a + 1) << 8); }
 static inline void wr16(uint32_t a, uint16_t v) { wr8(a, (uint8_t)v); wr8(a + 1, (uint8_t)(v >> 8)); }
 /* a read in bank 0 whose second byte wraps in the bank (pointers of the direct page and the stack) */

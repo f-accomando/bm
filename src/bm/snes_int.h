@@ -85,6 +85,28 @@ void snes_hdma_init(void);
 void snes_hdma_line(void);
 extern int snes_clk;                    /* the CPU's clock, in master clocks, counting into the line */
 
+/* The memory map as pages of 4 KB (snes_bus.c, snes_map_build): a pointer for the pages that are plain memory (the ROM, the work RAM, the battery RAM for a
+ * read; the work RAM for a write), NULL for the rest (the registers, the writes to the ROM and the battery RAM: the slow path), and the master clocks of an
+ * access to the page. The CPU reads and writes through these two functions: a page of memory is a table lookup, the rest is snes_read and snes_write. */
+extern const uint8_t *snes_rtab[4096];
+extern uint8_t *snes_wtab[4096];
+extern uint8_t snes_ctab[4096];
+void snes_map_build(void);
+static inline uint8_t snes_read_f(uint32_t a)
+{
+    const unsigned pg = (a >> 12) & 0xFFF;
+    const uint8_t *p = snes_rtab[pg];
+    if (p) { snes_clk += snes_ctab[pg]; return p[a & 0xFFF]; }
+    return snes_read(a);
+}
+static inline void snes_write_f(uint32_t a, uint8_t v)
+{
+    const unsigned pg = (a >> 12) & 0xFFF;
+    uint8_t *p = snes_wtab[pg];
+    if (p) { snes_clk += snes_ctab[pg]; p[a & 0xFFF] = v; return; }
+    snes_write(a, v);
+}
+
 /* snes_cpu.c */
 void cpu_reset(void);
 void cpu_step(void);

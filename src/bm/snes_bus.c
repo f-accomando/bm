@@ -99,6 +99,49 @@ static inline int access_clk(uint32_t a)
     return (bank & 0x80) && (S.memsel & 1) ? 6 : 8;
 }
 
+/* ------------------------------------------------------------------ the memory map as pages */
+/* the byte that raw_read returns for plain memory, as a pointer; NULL for the registers and for what reads as 0 (the same cases as raw_read) */
+static const uint8_t *map_ptr(uint32_t a)
+{
+    const unsigned bank = a >> 16, off = a & 0xFFFF;
+    if (bank == 0x7E) return &S.wram[off];
+    if (bank == 0x7F) return &S.wram[0x10000 + off];
+    if ((bank & 0x7F) < 0x40) {
+        if (off < 0x2000) return &S.wram[off];
+        if (off < 0x6000) return NULL;
+        if (off < 0x8000) {
+            if (S.hirom && S.sram_size && (bank & 0x7F) >= 0x20)
+                return &S.sram[(((bank & 0x1F) * 0x2000) + (off - 0x6000)) & (S.sram_size - 1)];
+            return NULL;
+        }
+        if (S.hirom) { uint32_t o = ((bank & 0x3F) << 16) | off; if (o >= S.rom_size) o %= S.rom_size; return &S.rom[o]; }
+        { uint32_t o = ((bank & 0x7F) << 15) | (off & 0x7FFF); if (o >= S.rom_size) o %= S.rom_size; return &S.rom[o]; }
+    }
+    if (S.hirom) { uint32_t o = ((bank & 0x3F) << 16) | off; if (o >= S.rom_size) o %= S.rom_size; return &S.rom[o]; }
+    if ((bank & 0x7F) >= 0x70 && off < 0x8000) return S.sram_size ? &S.sram[off & (S.sram_size - 1)] : NULL;
+    { uint32_t o = ((bank & 0x7F) << 15) | (off & 0x7FFF); if (o >= S.rom_size) o %= S.rom_size; return &S.rom[o]; }
+}
+
+const uint8_t *snes_rtab[4096];
+uint8_t *snes_wtab[4096];
+uint8_t snes_ctab[4096];
+
+/* A page is fast when its first and last byte are plain memory at the same distance (no mirror wraps inside the page) and cost the same clocks. */
+void snes_map_build(void)
+{
+    for (unsigned pg = 0; pg < 4096; pg++) {
+        const uint32_t base = (uint32_t)pg << 12;
+        snes_rtab[pg] = NULL; snes_wtab[pg] = NULL; snes_ctab[pg] = 0;
+        if (!S.rom) continue;
+        const uint8_t *p0 = map_ptr(base), *p1 = map_ptr(base + 0xFFF);
+        const int c0 = access_clk(base), c1 = access_clk(base + 0xFFF);
+        if (!p0 || !p1 || p1 != p0 + 0xFFF || c0 != c1) continue;
+        snes_rtab[pg] = p0;
+        snes_ctab[pg] = (uint8_t)c0;
+        if (p0 >= S.wram && p0 < S.wram + sizeof S.wram) snes_wtab[pg] = (uint8_t *)p0;
+    }
+}
+
 uint8_t snes_read(uint32_t a)
 {
     snes_clk += access_clk(a);
@@ -419,7 +462,7 @@ static void cpu_reg_write(uint16_t o, uint8_t v)
     case 0x420A: S.vtime = (uint16_t)((S.vtime & 0xFF) | ((v & 1) << 8)); break;
     case 0x420B: S.mdmaen = v; run_dma(v); break;
     case 0x420C: S.hdmaen = v; break;
-    case 0x420D: S.memsel = v; break;
+    case 0x420D: S.memsel = v; snes_map_build(); break;
     default: break;
     }
 }
@@ -448,6 +491,7 @@ void snes_bus_reset(void)
     S.wmadd = 0;
     S.rddiv = 0; S.rdmpy = 0; S.wrdiv = 0xFFFF; S.wrmpya = 0xFF;
     ppu_reset();
+    snes_map_build();
 }
 
 void snes_reset(void)

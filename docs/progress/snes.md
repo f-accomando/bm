@@ -42,6 +42,7 @@ machine was written again in C. The RGB30 is not measured.
 | `src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
 | `carts/snes/src/main.lua` | the user interface; `carts/snes/build/build.py` packs it (`make build/carts/snes.bm`) |
 | `tests/snes/core_test.c` | 92 checks: the CPU on small programs, DMA, the SPC700 and its boot protocol |
+| `tests/snes/cpu_golden.c` | the CPU and the memory map on random programs (LoROM and HiROM, ROMs of odd sizes, with and without battery RAM): a hash of the registers, the clock and the memories after each frame, against the table of the code before the speed work (`make test-snes-cpu`) |
 | `tests/snes/ppu_equiv.c`, `ppu_ref.c` | the fast PPU against the reference copy of the old one: random states, every line equal (`make test-snes-ppu`); `make bench-snes-ppu` times both |
 | `tests/snes/render_test.py` | the cartridge in bmhost with a test ROM made by `make_testrom.py`: the picture, the sprite, the HDMA bands |
 
@@ -56,6 +57,7 @@ machine was written again in C. The RGB30 is not measured.
 - The ROM comes only from `doc_read(name, "sfc")`. The cartridge never writes a ROM. The only file it writes is the `.srm`.
 - No SNES firmware, ROM data or game code goes into the repository. The test ROM is made by `make_testrom.py`.
 - The core tests are the gate for a change of the CPU, the PPU or the SPC700. Run `make test-snes`. After a change of `snes_ppu.c` run `make test-snes-ppu` too: it must stay bit for bit equal to `tests/snes/ppu_ref.c` (change the reference only for a new PPU feature, in both files).
+- The CPU reads and writes memory through the page tables (`snes_read_f`, `snes_write_f` in `snes_int.h`); `snes_map_build` makes them and runs after a reset and a write to $420D. A page is fast only when its first and last byte are plain memory at the same distance, so a ROM that is not a multiple of 4 KB still mirrors right. A change of the memory map (a new chip, a bank rule) goes in `map_ptr` and in `raw_read` together; `make test-snes-cpu` must pass with the same hashes.
 - The BG scroll registers ($210D to $2114) keep the 16 bits of the write; the picture uses the low 10 bits. The second write of a pair takes bits 0 to 2 from the first one (`bgofs_latch`, bits 8 to 10 of the old value). A mask to 10 bits at the first write loses bit 2: the map was then up to 4 pixels off from the sprites (Mario not centred on the house of the SMW overworld). `core_test.c` checks all 1024 values.
 - Every write to the video RAM goes through `vwrite` in `snes_bus.c`, which calls `ppu_vram_dirty`: the PPU keeps decoded tiles. A new way to write the video RAM must call it too (a test that fills `S.vram` calls `ppu_vram_dirty_all`). `ppu_equiv.c` writes the video RAM through the registers in the middle of a case to check it.
 - The lane helpers of `snes_ppu.c` (`nz_mask`, `lane_uqadd`, ...) use the ARMv6 SIMD32 instructions on the console and plain C on the host. Keep the C version in step: `make test-snes-ppu` runs only the C one, so check an ARM change on the console (the test build with `SNES_NOHUD=1` stops at frame 3200: compare two screenshots byte for byte).
@@ -69,9 +71,12 @@ machine was written again in C. The RGB30 is not measured.
   depth (450 KB of bss), dropped by `ppu_vram_dirty` when the video RAM is written, a row of a tile is two loads. Pi One, Super Mario World, the test build
   draws every frame from 600 to 3200 and sums the parts: the PPU costs 19162 us a drawn frame with the code of before, 16863 with the SIMD in C, 16152 with
   the loop in assembly, 14804 with the tile cache (-23%); each timer read costs about 6 us, so the real figures are 12100, 9800, 9100 and 7700 us (-36%).
-  The CPU is about 7000 us and the sound 3000 us a frame. The picture is identical byte for byte at frame 3200 after each step (checked on the Pi One).
+  The memory map is a table of 4 KB pages (`snes_rtab`, `snes_wtab`, `snes_ctab` in `snes_bus.c`): the CPU reads ROM, work RAM and battery RAM with one
+  table lookup, the registers take the slow path. On the Pi One a frame of the test build (update, with the machine and the Lua of the test) went from
+  25.25 ms to 22.69 ms (-10%) with the PPU unchanged: the CPU part is about 37% lower. The sound is about 3000 us a frame.
+  The picture is identical byte for byte at frame 3200 after each step (checked on the Pi One).
   On a PC the PPU is 3 times faster than the first C version (`make bench-snes-ppu`). Next: the mix (about 3950 us a frame), the sprites and the layer
-  merge, the CPU's most common opcodes (7000 us). Measure on the RGB30. The draw of the picture is 5.7 ms at 1x (copy 1.0, blit 4.6).
+  merge, the CPU's instruction decode (the flags as bits in one byte, a table of opcodes). Measure on the RGB30. The draw of the picture is 5.7 ms at 1x (copy 1.0, blit 4.6).
 - A test build: `SNES_TEST=1 python3 carts/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /sfc by
   itself and shows the FPS, the times of the parts of a frame, the PPU registers and the first sprites; it draws every frame from 600 to 3200, sums the PPU parts
   (the line `PPU n fr`) and stops at frame 3200 (`SNES_NOHUD=1`: no text, for a picture to compare). With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
