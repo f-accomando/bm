@@ -32,6 +32,7 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 | `src/bm/psx.h` | the public calls of the core, the pad bits, the disc callback |
 | `src/bm/psx_int.h` | the machine state shared by the files; every global symbol starts with `psx_` (the kernel links the SNES core too) |
 | `src/bm/psx_cpu.c` | the R3000A: MIPS I with the branch and load delay slots, COP0 (SR, CAUSE, EPC, exceptions, interrupts), the call into COP2, cache isolation. An instruction costs 2 cycles |
+| `src/bm/psx_jit.c` | the dynamic recompiler MIPS to ARMv6 (Pi Zero W only): blocks of up to 48 instructions to a branch with its delay slot; RAM and scratchpad loads and stores inline; the GTE, add with trap and the rest through helpers; code pages of 256 bytes; `psx_jit_selftest` runs random programs both ways |
 | `src/bm/psx_gte.c` | the GTE: RTPS, RTPT, NCLIP, OP, DPCS, INTPL, MVMVA, NCDS, CDP, NCDT, NCCS, CC, NCS, NCT, SQR, DCPL, DPCT, AVSZ3, AVSZ4, GPF, GPL, NCCT, with the division table and the saturation flags |
 | `src/bm/psx_bus.c` | the memory map (RAM, scratchpad, BIOS, I/O), I_STAT/I_MASK, the 3 timers, DMA channels 2, 3, 4, 6 (instant), the digital pad port, the frame loop (263 lines of 2154 cycles, vertical blank at line 240), the PS-EXE loader, the BIOS calls for a run without BIOS (putchar, puts, printf) |
 | `src/bm/psx_gpu.c` | the software GPU: GP0 polygons (flat, Gouraud, textured 4/8/15 bit, semi-transparent), lines and polylines, rectangles, fills, VRAM copies, texture window, mask bit, dither; GP1; the picture from the VRAM (15 and 24 bit) |
@@ -42,6 +43,8 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 | `carts/psx/src/main.lua` | the user interface; `carts/psx/build/build.py` packs it (`make build/carts/psx.bm`) |
 | `tests/psx/core_test.c` | 38 checks: the CPU on small programs, BIOS calls, interrupts, GTE, GPU, DMA, CD-ROM, SPU |
 | `tests/psx/boot_probe.c` | a PC probe: boots a BIOS with a disc given on the command line and prints the CD traffic (no BIOS or disc in the repository) |
+| `tests/psx/jit_unicorn.py` | the recompiler on the PC: the ARM code runs in the Unicorn emulator (`pip install unicorn`), the helpers are the real C ones, the programs are those of the self test; `python3 tests/psx/jit_unicorn.py 1000` (in WSL or Linux) |
+| `tests/psx/jit_host.c`, `jit_dump.c` | the PC library and the dump tool of the translator (`-DPSX_JIT_HOST`) |
 | `tests/psx/render_test.py` | the cartridge in bmhost with a test PS-EXE made by `make_testexe.py`: the list, the fill, the Gouraud triangle, the rectangle |
 
 ## Rules (do not break)
@@ -55,15 +58,15 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 - The BIOS call vectors 0xA0, 0xB0 and 0xC0 are answered by the core only when there is no BIOS. A test that puts code there fails.
 - A load or a GTE read (`MFC2`) has a delay slot: the next instruction sees the old value. The core and the test programs follow it.
 - The CD data FIFO: writing the request bit again does not rewind a loaded buffer (a game reads a sector in two DMAs, header then data); a new sector empties it. The CD events go out in due-time order, not in the order they were queued.
+- The recompiler is exact except for two cases that real code does not use: a load in the delay slot of a branch lands at once, and a value loaded by LWL, LWR, MFC0 and a fallback lands at once. A change of `psx_jit.c` must pass `jit_unicorn.py` (0 differences in 1000 trials) and the self test on the Pi (the cartridge shows it).
+- The generated code reads the CPU state through r11; every field it uses has its offset from `offsetof(cpu_t, ...)`. Keep `jit_exc`, `pc`, `npc`, `next_bd`, `hi`, `lo`, `r` in `cpu_t`.
+- A store into RAM must call `psx_jit_ram_written` when the page has compiled code (`psx_jit_pageflags`): the interpreter (`mem_write`), the DMA and the slow path of the compiled code do it.
 - The core tests are the gate for a change of the CPU, the GTE, the GPU, the DMA, the CD-ROM or the SPU. Run `make test-psx`.
 
 ## Open work
 
 - Crash Bandicoot 2 (USA) runs on the Pi Zero W up to the Naughty Dog logo animation (2026-11-09, 7 frames a second). The title screen and the game are not checked yet: run the probe further (`tests/psx/boot_probe.c`, frames 3000 and more) and look at `build/psx_probe.ppm`. Speed is the next problem: 7 frames a second is far from 60.
-- First run on real hardware: boot a BIOS, then a disc, with the bridge. Measure the time of a frame on the Pi Zero W and the RGB30
-  (the menu item FPS shows it). The interpreter costs about 30 host cycles an instruction on the ARM1176: expect 10 to 20 frames a second
-  on the Pi Zero W before work on speed. The first levers: a dynamic recompiler for ARMv6 (a block cache and the fast RAM path), the GPU
-  rasterizer in fixed point with fewer checks, a smaller picture, frame skip for the draw.
+- Speed on the Pi Zero W (2026-11-09, Crash Bandicoot 2 title screen): 11 frames a second with the recompiler, 7 without. A frame takes 38 ms: about 21 ms of CPU, 14 ms of GPU drawing (software), 3 ms of sound and the rest. The CPU time is mostly the 54000 blocks a frame (5 instructions each): the dispatcher and the instruction cache (the generated code is too big for 16 KB). Next: chain the blocks (a patched jump to the next block with a cycle budget), put the slow paths of loads and stores out of line or in shared stubs, keep the MIPS registers used most in ARM registers; for the GPU a smaller picture or frame skip, and the V3D for fills and textured polygons.
 - The MDEC (FMV) is not done: DMA channels 0 and 1 end at once and the picture stays black in movies. The CD-DA and XA audio are not done.
 - The CPU timing is 2 cycles an instruction. Games with exact timing (raster tricks, some timers) may break. Add the real costs of
   memory accesses, the instruction cache, the multiply and divide stalls, and the GTE stalls.

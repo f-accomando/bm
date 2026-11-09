@@ -14,4 +14,6 @@ the documents permission). A disc image is never loaded whole.
 | `psx_draw(target, [w, h])` | copies the picture (256 to 640 pixels wide, 240 or 480 lines) to the top left of a render target; with `w` and `h` it scales it to that size (nearest pixel); returns the size of the picture |
 | `psx_info()` | `{bios, game, kind, disc_sectors}` |
 | `psx_debug()` | the state of the machine: `{pc, ra, sp, sr, cause, istat, imask, frames, gpu_cmds, dma_runs, us_frame, us_cpu, unhandled, last_unhandled, audio}` |
+| `psx_jit([on])` | turns the dynamic recompiler (ARM only) on or off; returns whether it is on and whether the device has one |
+| `psx_selftest([trials])` | runs random programs by the interpreter and by compiled code and returns how many differ and a message; it uses the machine, so call it with no game running |
 | `psx_tty()` | the text a program printed with the BIOS calls (kept without a BIOS; the last 2 KB) |
