@@ -280,21 +280,30 @@ test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_tes
 # bm Tape (carts/tape): a studio for the Pi: synth, drums and sequencer with sound (phase 2), four preview scenes.
 # build.py joins carts/tape/src/*.lua, puts engine.b (compiled on the console by native_compile) at its placeholder
 # line, makes the cover and packs the .bme and the .bm. Not in GAMES yet (docs/design/bm-tape.md).
-$(BUILD)/carts/tape.bm $(BUILD)/carts/tape.bme: $(BUILD)/carts/tape.%: carts/tape/build/build.py $(wildcard carts/tape/src/*.lua) carts/tape/src/engine.b carts/tape/bm.info scripts/mkbm.py
+# The sound bank holds 24 samples rendered on the PC from Felucca-Engines (MIT): build.py calls scripts/felpack.py, which
+# compiles tools/felrender/felrender.c with the files of third_party/felucca-engines/ and renders carts/tape/sounds/felucca.json.
+TAPE_FEL := scripts/felpack.py tools/felrender/felrender.c carts/tape/sounds/felucca.json scripts/bmaudio.py $(wildcard third_party/felucca-engines/src/* third_party/felucca-engines/tools/*)
+# The WAV files and the bank input (build.py makes them again for its own output folder; this rule is for the tests).
+$(BUILD)/tape/bank.json: $(TAPE_FEL)
+	$(PYTHON) scripts/felpack.py $(BUILD)/tape
+
+$(BUILD)/carts/tape.bm $(BUILD)/carts/tape.bme: $(BUILD)/carts/tape.%: carts/tape/build/build.py $(wildcard carts/tape/src/*.lua) carts/tape/src/engine.b carts/tape/bm.info scripts/mkbm.py $(TAPE_FEL)
 	@mkdir -p $(dir $@)
 	$(PYTHON) carts/tape/build/build.py $(BUILD)/tape
 	cp $(BUILD)/tape/tape.$* $@
 
 # Test builds: TAPE_TEST=N logs every note the sequencer queues and updates it every N-th frame (a frame of N/60 s).
-$(BUILD)/tape-t%/tape.bm: carts/tape/build/build.py carts/tape/test/hook.lua $(wildcard carts/tape/src/*.lua) carts/tape/src/engine.b carts/tape/bm.info scripts/mkbm.py
+$(BUILD)/tape-t%/tape.bm: carts/tape/build/build.py carts/tape/test/hook.lua $(wildcard carts/tape/src/*.lua) carts/tape/src/engine.b carts/tape/bm.info scripts/mkbm.py $(TAPE_FEL)
 	TAPE_TEST=$* $(PYTHON) carts/tape/build/build.py $(BUILD)/tape-t$*
 
 # bm Tape tests: engine.b on the stack VM and as Lua against a Python reference (tests/tape/engine_test.py), the
 # cartridge in bmhost: pictures of every page and engine, keys, recording and the error path (render_test.py), the timing of
 # the sequencer at 60, 20 and 7.5 frames a second (timing_test.py, the exit test of phase 2) and the sound in a WAV
-# (sound_test.py). bmhost runs the native engine on the PC.
-test-tape: $(BUILD)/host/luahost $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-t1/tape.bm $(BUILD)/tape-t3/tape.bm $(BUILD)/tape-t8/tape.bm tests/tape/engine_test.py tests/tape/render_test.py tests/tape/timing_test.py tests/tape/sound_test.py tools/bml/bml.py
+# (sound_test.py), the 24 PCM sounds of Felucca-Engines: WAV format, peak, SHA-256 against tests/tape/felucca_golden.txt, the
+# bank of the cartridge (felucca_test.py). bmhost runs the native engine on the PC.
+test-tape: $(BUILD)/tape/bank.json $(BUILD)/host/luahost $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-t1/tape.bm $(BUILD)/tape-t3/tape.bm $(BUILD)/tape-t8/tape.bm tests/tape/engine_test.py tests/tape/render_test.py tests/tape/timing_test.py tests/tape/sound_test.py tests/tape/felucca_test.py tests/tape/felucca_golden.txt tools/bml/bml.py
 	$(PYTHON) -I tests/tape/engine_test.py $(BUILD)/host/luahost $(BUILD)/tape-test
+	$(PYTHON) -I tests/tape/felucca_test.py $(BUILD)/tape $(BUILD)/carts/tape.bm
 	$(PYTHON) -I tests/tape/render_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm
 	$(PYTHON) -I tests/tape/timing_test.py $(BUILD)/host/bmhost-bin $(BUILD)/tape-t1/tape.bm $(BUILD)/tape-t3/tape.bm $(BUILD)/tape-t8/tape.bm
 	$(PYTHON) -I tests/tape/sound_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-test/demo.wav

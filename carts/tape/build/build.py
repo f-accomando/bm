@@ -6,7 +6,10 @@ cartridge (.bm) with scripts/mkbm.py.
 
   python3 carts/tape/build/build.py [outdir]      (default build/tape)
 
-Files written in outdir: main.lua, sheet.png, cover.png, tape.bme, tape.bm.
+Files written in outdir: main.lua, sheet.png, cover.png, bank.json, felucca/ (the WAV files), tape.bme, tape.bm.
+
+The sound bank holds 24 samples rendered on the PC from Felucca-Engines (scripts/felpack.py, carts/tape/sounds/felucca.json).
+The bank has samples only: no sound, no sfx, no song. The sounds of the cartridge are tone() tables in the Lua source.
 
 Test build: with TAPE_TEST=N in the environment (N = 1, 2, 3 ...) the file carts/tape/test/hook.lua goes in at the line --@TEST_HOOK@.
 The cartridge then logs every note the sequencer queues with play_at (lines "TAPE_AT time track note velocity tick",
@@ -85,11 +88,12 @@ def main():
     png(sheet, 16, 16, lambda x, y: b"\x00\x00\x00\x00")
     cv = os.path.join(OUT, "cover.png")
     cover(cv)
+    subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts", "felpack.py"), OUT])
     mk = os.path.join(ROOT, "scripts", "mkbm.py")
     for ext in ("bme", "bm"):
         subprocess.check_call([sys.executable, mk, "-o", os.path.join(OUT, "tape." + ext),
                                "--lua", os.path.join(OUT, "main.lua"), "--sheet", sheet, "--sheet8",
-                               "--cover", cv, "--info", os.path.join(HERE, "..", "bm.info")])
+                               "--cover", cv, "--audio", os.path.join(OUT, "bank.json"), "--info", os.path.join(HERE, "..", "bm.info")])
     print("built", OUT)
 
 

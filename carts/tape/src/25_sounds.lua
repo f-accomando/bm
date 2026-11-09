@@ -1,4 +1,4 @@
--- bm Tape sound library (design 8, layers 1 and 2): seven engines, 20 sounds, the drum kit.
+-- bm Tape sound library (design 8, layers 1 and 2): eight engines, 44 sounds (20 live synth sounds, 24 PCM sounds), the drum kit.
 -- An engine is a base tone() table plus four macros. A macro maps one encoder value (in its real unit) to
 -- tone() keys. A macro with an alias lives in the filter (cutoff, res, rate): the FILTER page edits the same value.
 
@@ -56,11 +56,16 @@ local ENGINES = {
     M("CURVE", 0, 5, 1, 1, function(v) return CURVES[floor(v + 0.5) + 1]:upper() end,
       function(tn, v) tn.curve = CURVES[floor(v + 0.5) + 1] end),
     M("DRIVE", 0, 1, 0.01, 0.3, "%.2f", key("drive")) } },
+  -- PCM: a sample of the cartridge's bank, rendered on the PC from Felucca-Engines (MIT, tools/felrender).
+  -- The macros change the bm voice (start, filter, drive), not the Felucca engine: the timbre is fixed.
+  { name = "PCM", pcm = true, base = { wave = "sample" }, macros = {
+    M("START", 0, 0.9, 0.01, 0, "%.2f", key("begin")), A("cutoff"), A("res"),
+    M("DRIVE", 0, 1, 0.01, 0, "%.2f", key("drive")) } },
 }
 local ENGIDX = {}
 for i, e in ipairs(ENGINES) do ENGIDX[e.name] = i end
 
--- the 20 sounds. macros: the four macro values (false: the macro lives in the filter, see below);
+-- the 20 live synth sounds. macros: the four macro values (false: the macro lives in the filter, see below);
 -- env: attack ms, decay ms, sustain 0..1, release ms; filter: cutoff kHz, resonance, LFO rate Hz, LFO depth (octaves)
 local function snd(name, engine, macros, env, filter)
   return { name = name, engine = engine, macros = macros, env = env, filter = filter }
@@ -88,6 +93,49 @@ local SOUNDS = {
   snd("CRUSH BASS", "DIGITAL", { 6, 2, 0, 0.4 }, { 2, 220, 0.5, 100 }, { 2.2, 0.3, 0, 0 }),
 }
 
+-- the 24 PCM sounds (design 8, Felucca-Engines): the name is the engine prefix and the preset, the sample is in the
+-- cartridge's bank (carts/tape/sounds/felucca.json, scripts/felpack.py), the kind sets the release of the bm voice.
+-- The sample holds its own envelope and plays once: a held key stops at the end of the sample.
+local PCM_REL = { bass = 80, keys = 150, pad = 300, lead = 120, bell = 400, fx = 200 }
+local function pcm(name, sample, kind)
+  local s = snd(name, "PCM", { 0, false, false, 0 }, { 1, 10, 1, PCM_REL[kind] }, { 12, 0, 0, 0 })
+  s.sample, s.kind = sample, kind
+  return s
+end
+local PCM_FIRST = "PHBRASS"
+local PCM_SOUNDS = {
+  pcm("PH BRASS", "PHBRASS", "lead"),
+  pcm("PH ORGAN", "PHORGAN", "pad"),
+  pcm("PH STRING", "PHSTRING", "pad"),
+  pcm("PH RESO", "PHRESO", "lead"),
+  pcm("PH BELL", "PHBELL", "bell"),
+  pcm("PH WIRE", "PHWIRE", "lead"),
+  pcm("TR FAT BASS", "TRFATBAS", "bass"),
+  pcm("TR ARP LEAD", "TRARPLD", "lead"),
+  pcm("TR SYNC LEAD", "TRSYNCLD", "lead"),
+  pcm("TR RING BELL", "TRRINGBL", "bell"),
+  pcm("TR CHIP CHOIR", "TRCHIPCH", "pad"),
+  pcm("WH FULL ORGAN", "WHFULL", "pad"),
+  pcm("WH JAZZ PERC", "WHJAZZ", "keys"),
+  pcm("WH GOSPEL", "WHGOSPEL", "pad"),
+  pcm("WH SOFT FLUTE", "WHFLUTE", "pad"),
+  pcm("WH ROCK DRIVE", "WHROCK", "pad"),
+  pcm("AN RAVE", "ANRAVE", "lead"),
+  pcm("AN PWM STR", "ANPWMSTR", "pad"),
+  pcm("AN SUB BASS", "ANSUBBAS", "bass"),
+  pcm("AN BRASS", "ANBRASS", "lead"),
+  pcm("LO PULSE LD", "LOPULSE", "lead"),
+  pcm("LO WAVE BASS", "LOWAVBAS", "bass"),
+  pcm("LO WAVE LEAD", "LOWAVLD", "lead"),
+  pcm("NO METAL", "NOMETAL", "fx"),
+}
+for _, s in ipairs(PCM_SOUNDS) do SOUNDS[#SOUNDS + 1] = s end
+-- the bank's samples by name: frames, rate and the 32 peaks (meter) of each, for the PCM scene
+local PCMINFO = {}
+do
+  for _, x in ipairs(audio_samples and audio_samples() or {}) do PCMINFO[x.name] = x end
+end
+
 -- a synth track: its own copy of a sound (the encoders edit this copy)
 local function macro_get(t, i)
   local m = ENGINES[t.eng].macros[i]
@@ -107,6 +155,7 @@ local function retone(t)
   for i, m in ipairs(e.macros) do
     if m.to then m.to(tn, t.mac[i], i) end
   end
+  if e.pcm then tn.sample = t.sample or PCM_FIRST end
   tn.attack, tn.decay, tn.sustain, tn.release = t.env[1], t.env[2], t.env[3], t.env[4]
   tn.filter, tn.cutoff, tn.res = "lp", t.flt[1] * 1000, t.flt[2]
   tn.lfo, tn.wah = t.flt[3], t.flt[4]
@@ -115,7 +164,7 @@ end
 
 local function load_sound(t, n)
   local s = SOUNDS[n]
-  t.snd, t.eng, t.mod = n, ENGIDX[s.engine], false
+  t.snd, t.eng, t.mod, t.sample = n, ENGIDX[s.engine], false, s.sample
   t.env, t.flt, t.mac = { table.unpack(s.env) }, { table.unpack(s.filter) }, {}
   for i, m in ipairs(ENGINES[t.eng].macros) do t.mac[i] = s.macros[i] or m.def end
   retone(t)
@@ -123,7 +172,7 @@ end
 
 -- a new engine on a track: macros at their defaults, the filter and the envelope stay
 local function set_engine(t, e)
-  t.eng, t.snd, t.mod, t.mac = e, 0, false, {}
+  t.eng, t.snd, t.mod, t.mac, t.sample = e, 0, false, {}, nil
   for i, m in ipairs(ENGINES[e].macros) do t.mac[i] = m.def end
   retone(t)
 end

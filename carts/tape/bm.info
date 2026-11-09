@@ -10,3 +10,4 @@ tags: music, synth, sampler, sequencer
 resolution: 640x360
 targets: pi
 input: keyboard
+credit: Felucca-Engines (24 sounds rendered on the PC) - Leo Kuroshita, Hügelton Instruments - MIT - https://github.com/hugelton/felucca-engines

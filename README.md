@@ -196,4 +196,4 @@ bm is developed by **F. Accomando** and licensed under the **BM Community Licens
 - Individuals may freely use, modify, and redistribute the project, including commercial projects on their own behalf.
 - Attribution is required; modified versions must remain under the same license.
 - Organizations require a separate commercial license.
-- Embedded third-party components retain their respective open-source licenses: Lua (MIT), lwIP (BSD), mbedTLS (Apache 2.0).
+- Embedded third-party components retain their respective open-source licenses: Lua (MIT), lwIP (BSD), mbedTLS (Apache 2.0). Felucca-Engines (MIT, Hügelton Instruments) is a PC tool only: it renders the PCM sounds of bm Tape, and the kernel does not link it.

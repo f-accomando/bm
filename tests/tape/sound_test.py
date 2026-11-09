@@ -8,6 +8,8 @@ Checks: the run ends well; the WAV holds sound in each of the two bars (RMS abov
 play_at queued did reach the synthesizer); no run of full-scale samples longer than 24 samples (clipping).
 A second run plays each of the 20 sounds live on track 2 (key ] loads the next sound, a key is held for 1 s): every
 sound must give an RMS above the floor, so no sound is silent because of a bad tone() table.
+A third run plays each of the 24 PCM sounds (sounds 21 to 44; the samples of the bank rendered from Felucca-Engines): each
+one must be heard and must not clip.
 The test cannot judge how the sound is: that is for the ear, on the Pi.
 """
 import array, math, os, subprocess, sys, tempfile, wave
@@ -76,5 +78,31 @@ for x in pcm:
     longest = max(longest, run)
 check("the 20 sounds: no long run of full-scale samples (longest %d, limit 24)" % longest, longest <= 24)
 check("every one of the 20 sounds is heard (RMS above 0.01; silent: %s)" % (quiet or "none"), not quiet)
+# the 24 PCM sounds: 19 presses of ] bring sound 20, then ] and the key U held for 1 s for each of sounds 21 to 44
+lines = []
+for i in range(19):
+    lines += ["%d keys 0x30" % (10 + 6 * i), "%d keys none" % (12 + 6 * i)]
+T0 = 150
+for n in range(24):
+    f = T0 + 90 * n
+    lines += ["%d keys 0x30" % f, "%d keys none" % (f + 2), "%d keys 0x18" % (f + 6), "%d keys none" % (f + 66)]
+with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
+    f.write("\n".join(lines) + "\n")
+wav3 = wav.replace(".wav", "-pcm.wav")
+p = subprocess.run([host, cart, "--input", f.name, "--seconds", str((T0 + 90 * 24) / 60 + 1), "--wav", wav3, "--quiet"], capture_output=True, text=True)
+os.unlink(f.name)
+check("the 24 PCM sounds: the run ends without a Lua error", p.returncode == 0 and " ok" in p.stderr)
+w = wave.open(wav3)
+pcm = array.array("h")
+pcm.frombytes(w.readframes(w.getnframes()))
+levels = [rms((T0 + 90 * n + 6) / 60 + 0.05, (T0 + 90 * n + 66) / 60) for n in range(24)]
+print("RMS of the PCM sounds: " + " ".join("%.3f" % x for x in levels))
+quiet = [n + 21 for n, x in enumerate(levels) if x < 0.01]
+run = longest = 0
+for x in pcm:
+    run = run + 1 if abs(x) >= 32767 else 0
+    longest = max(longest, run)
+check("the 24 PCM sounds: no long run of full-scale samples (longest %d, limit 24)" % longest, longest <= 24)
+check("every one of the 24 PCM sounds is heard (RMS above 0.01; silent: %s)" % (quiet or "none"), not quiet)
 print("tape sound: %s" % ("FAIL" if fails else "ok"))
 sys.exit(1 if fails else 0)

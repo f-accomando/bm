@@ -1,0 +1,25 @@
+# Felucca-Engines in bm
+
+Origin: https://github.com/hugelton/felucca-engines
+Commit: d0260074ce100a47675814b7f38d61f11176c926 (28 Oct 2026)
+Licence: MIT. Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hugelton Instruments. See `LICENSE`.
+
+bm compiles these files on the PC only, to render samples. The kernel does not link them.
+
+Files copied without a change:
+- `src/felucca_engine.h`, `src/dsp.c`
+- `src/eng_analog.c`, `src/eng_lofi.c`, `src/eng_noise.c`, `src/eng_phase.c`, `src/eng_trio.c`, `src/eng_wheel.c`
+- `tools/gen_engine_tables.py`
+- `tests/analog_signed_test.c`, `tests/fe_host.c`, `tests/fs_check.c`, `tests/golden.txt`, `tests/run.sh`
+- `LICENSE`
+
+Files not copied: `README.md` and `.github/` of the origin.
+
+Use in bm:
+- `tools/felrender/felrender.c` is a PC program. It includes `src/` and renders one note of one preset.
+- `scripts/felpack.py` makes the tables (`--fs 32000`), builds `felrender` and renders the sounds of `carts/tape/sounds/felucca.json`.
+- `make test-tape` checks the renders against `tests/tape/felucca_golden.txt`.
+
+Test of the copied code: `sh third_party/felucca-engines/tests/run.sh`. It writes into `third_party/felucca-engines/build/`. Delete that folder after the test.
+
+Rule: change no file of this folder. To update, copy a new commit and change the commit above.

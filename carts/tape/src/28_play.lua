@@ -107,7 +107,7 @@ local function octave(d)
   end
 end
 
--- the previous or next of the 20 sounds on the selected synth track
+-- the previous or next of the sounds (20 synth sounds, then the 24 PCM sounds) on the selected synth track
 local function next_sound(d)
   local t = trk[S.syn]
   load_sound(t, ((t.snd == 0 and 1 or t.snd) - 1 + d) % #SOUNDS + 1)
