@@ -26,7 +26,8 @@ static uint32_t mc[16];                  /* the memory control registers 1F80100
 static uint32_t ram_size_reg;
 
 void psx_set_clock(uint32_t (*f)(void)) { clock_us = f; }
-void psx_irq_raise(int n) { I_STAT |= 1u << n; }
+uint32_t psx_now_us(void) { return clock_us ? clock_us() : 0; }
+void psx_irq_raise(int n) { I_STAT |= 1u << n; psx_irq_poll = 1; }
 void psx_dbg_unhandled(uint32_t a) { unhandled++; last_unhandled = a; }
 const char *psx_tty(void) { return tty; }
 const uint16_t *psx_vram(void) { return GP.vram; }
@@ -383,8 +384,8 @@ void psx_bus_write(uint32_t a, uint32_t v, int size)
             return;
         }
         if (reg >= 0x40 && reg < 0x50) { joy_write(reg & ~1u, v); return; }
-        if (reg == 0x70) { I_STAT &= v | 0xFFFFF800u; return; }       /* writing 0 acknowledges */
-        if (reg == 0x74) { I_MASK = v & 0x7FFu; return; }
+        if (reg == 0x70) { I_STAT &= v | 0xFFFFF800u; psx_irq_poll = 1; return; }       /* writing 0 acknowledges */
+        if (reg == 0x74) { I_MASK = v & 0x7FFu; psx_irq_poll = 1; return; }
         if (reg < 0x24) { mc[reg >> 2] = v; return; }
         if (reg == 0x60) { ram_size_reg = v; return; }
         if (reg >= 0x80 && reg < 0x100) { dma_write(reg - 0x80, v); return; }
@@ -556,6 +557,7 @@ void psx_reset(void)
     memset(dma_madr, 0, sizeof dma_madr); memset(dma_bcr, 0, sizeof dma_bcr); memset(dma_chcr, 0, sizeof dma_chcr);
     dpcr = 0x07654321u; dicr = 0;
     I_STAT = I_MASK = 0;
+    psx_irq_poll = 1;
     joy_ctrl = joy_mode = 0; joy_rx_full = 0; joy_state = 0; joy_irq_flag = 0; joy_ack_delay = 0;
     t_last = 0; line_no = 0; frames = 0; hblank_in = 0;
     tty_len = 0; tty[0] = 0;
@@ -599,8 +601,9 @@ void psx_frame(uint16_t pad1, uint16_t pad2, int render)
         const uint32_t dt = clock_us() - t0;
         us_frame = (us_frame * 7 + dt) / 8;
         us_cpu = (us_cpu * 7 + cpu_us) / 8;
+        us_gpu = (us_gpu * 7 + psx_gpu_us) / 8;
     }
-    (void)us_gpu;
+    psx_gpu_us = 0;
 }
 
 static int pic_w, pic_h;

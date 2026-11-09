@@ -291,7 +291,7 @@ int l_psx_debug(lua_State *L)
     FIELD("pc", d.pc); FIELD("ra", d.ra); FIELD("sp", d.sp); FIELD("sr", d.sr); FIELD("cause", d.cause);
     FIELD("istat", d.istat); FIELD("imask", d.imask); FIELD("frames", d.frames);
     FIELD("gpu_cmds", d.gpu_cmds); FIELD("dma_runs", d.dma_runs);
-    FIELD("us_frame", d.us_frame); FIELD("us_cpu", d.us_cpu); FIELD("unhandled", d.unhandled);
+    FIELD("us_frame", d.us_frame); FIELD("us_cpu", d.us_cpu); FIELD("us_gpu", d.us_gpu); FIELD("unhandled", d.unhandled);
     FIELD("last_unhandled", d.last_unhandled);
     FIELD("cd_cmds", d.cd_cmds); FIELD("cd_sectors", d.cd_sectors); FIELD("cd_last_cmd", d.cd_last_cmd);
     FIELD("cd_irq_flag", d.cd_irq_flag); FIELD("cd_irq_en", d.cd_irq_en); FIELD("cd_events", d.cd_events); FIELD("cd_read_fail", d.cd_read_fail);

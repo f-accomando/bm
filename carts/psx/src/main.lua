@@ -149,7 +149,7 @@ function _draw()
   if show_fps then
     local d = psx_debug()
     rectfill(0, 0, 640, 100, 0)
-    print(string.format("%d fps  frame %.1f ms (cpu %.1f)  gpu cmds %d  dma %d", stat(2), d.us_frame / 1000, d.us_cpu / 1000, d.gpu_cmds, d.dma_runs), 4, 4, 0x00FF00)
+    print(string.format("%d fps  frame %.1f ms (cpu+gpu %.1f, gpu draw %.1f)  gpu cmds %d  dma %d", stat(2), d.us_frame / 1000, d.us_cpu / 1000, d.us_gpu / 1000, d.gpu_cmds, d.dma_runs), 4, 4, 0x00FF00)
     print(string.format("PC %08X  RA %08X  istat %03X imask %03X  unhandled %d (%08X)", d.pc, d.ra, d.istat, d.imask, d.unhandled, d.last_unhandled), 4, 20, 0x00FF00)
     print(string.format("CD cmds %d last %02X sectors %d fail %d  irq flag %d en %02X  queued %d", d.cd_cmds, d.cd_last_cmd, d.cd_sectors, d.cd_read_fail, d.cd_irq_flag, d.cd_irq_en, d.cd_events), 4, 36, 0x00FF00)
     print(string.format("copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 52, 0x00FF00)

@@ -99,6 +99,9 @@ int psx_gpu_dma_from(uint32_t *words, int n);                /* gpu to ram */
 const uint16_t *psx_gpu_picture(int *w, int *h);
 extern int psx_gpu_hres(void);
 extern int psx_gpu_line, psx_gpu_field;
+extern int psx_irq_poll;
+uint32_t psx_now_us(void);                 /* the host clock in microseconds (0 without one) */
+extern uint32_t psx_gpu_us;                /* microseconds spent drawing since the last frame (psx_gpu.c, read by psx_bus.c) */
 /* psx_bus.c */
 void psx_irq_raise(int n);
 void psx_dbg_unhandled(uint32_t addr);

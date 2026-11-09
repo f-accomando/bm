@@ -108,7 +108,9 @@ static void cop_unusable(uint32_t n)
     psx_cpu_exception(11);
 }
 
-static void exec(uint32_t i)
+int psx_irq_poll = 1;      /* set when the interrupt state may have changed: the loop looks at it before the next instruction */
+
+static inline __attribute__((always_inline)) void exec(uint32_t i)
 {
     const uint32_t op = i >> 26, rs = (i >> 21) & 31, rt = (i >> 16) & 31, rd = (i >> 11) & 31, sh = (i >> 6) & 31;
     const uint32_t imm = i & 0xFFFFu;
@@ -183,7 +185,10 @@ static void exec(uint32_t i)
     case 0x0F: SETR(rt, imm << 16); break;
     case 0x10:                                                                            /* COP0 */
         switch (rs) {
-        case 0x00: LOAD(rt, C.cop0[rd]); break;                                           /* MFC0 */
+        case 0x00:                                                                        /* MFC0 */
+            if (rd == 13) { if (I_STAT & I_MASK) C.cop0[13] |= 0x400u; else C.cop0[13] &= ~0x400u; }
+            LOAD(rt, C.cop0[rd]);
+            break;
         case 0x04: {                                                                      /* MTC0 */
             const uint32_t v = r[rt];
             switch (rd) {
@@ -192,10 +197,11 @@ static void exec(uint32_t i)
             case 3: case 5: case 6: case 7: case 9: case 11: C.cop0[rd] = v; break;
             default: break;
             }
+            psx_irq_poll = 1;
             break;
         }
         case 0x10:
-            if ((i & 63) == 0x10) C.cop0[12] = (C.cop0[12] & ~0xFu) | ((C.cop0[12] >> 2) & 0xFu);   /* RFE */
+            if ((i & 63) == 0x10) { C.cop0[12] = (C.cop0[12] & ~0xFu) | ((C.cop0[12] >> 2) & 0xFu); psx_irq_poll = 1; }   /* RFE */
             else psx_cpu_exception(10);
             break;
         default: psx_cpu_exception(10); break;
@@ -259,23 +265,34 @@ void psx_cpu_run(uint32_t cycles)
 {
     const uint64_t stop = C.cycles + cycles;
     while (C.cycles < stop) {
-        if (psx_hooks)
-            psx_hook();
-        if (I_STAT & I_MASK) C.cop0[13] |= 0x400u; else C.cop0[13] &= ~0x400u;
-        C.in_bd = C.next_bd;
-        C.cur_pc = C.pc;
-        if ((C.cop0[12] & 1u) && (C.cop0[13] & C.cop0[12] & 0xFF00u)) {
-            C.cycles += CPI;
-            psx_cpu_exception(0);
-            continue;
+        if (__builtin_expect(psx_hooks | psx_irq_poll, 0)) {
+            if (psx_hooks)
+                psx_hook();
+            if (psx_irq_poll) {
+                psx_irq_poll = 0;
+                if (I_STAT & I_MASK) C.cop0[13] |= 0x400u; else C.cop0[13] &= ~0x400u;
+                if ((C.cop0[12] & 1u) && (C.cop0[13] & C.cop0[12] & 0xFF00u)) {
+                    C.in_bd = C.next_bd;
+                    C.cur_pc = C.pc;
+                    C.cycles += CPI;
+                    psx_cpu_exception(0);
+                    continue;
+                }
+            }
         }
         const uint32_t pc = C.pc;
-        if (pc & 3) {
+        C.in_bd = C.next_bd;
+        C.cur_pc = pc;
+        if (__builtin_expect(pc & 3, 0)) {
             bad_addr(pc, 4);
             C.cycles += CPI;
             continue;
         }
-        const uint32_t i = mem_read(pc, 4);
+        uint32_t i;
+        const uint32_t pp = pc & seg_mask[pc >> 29];
+        if (__builtin_expect(pp < 0x00800000u, 1)) i = *(const uint32_t *)(psx_ram + (pp & 0x1FFFFFu));
+        else if (pp >= 0x1FC00000u && pp < 0x1FC80000u) i = *(const uint32_t *)(psx_bios + (pp & 0x7FFFFu));
+        else i = mem_read(pc, 4);
         C.pc = C.npc;
         C.npc += 4;
         C.next_bd = 0;
@@ -283,6 +300,5 @@ void psx_cpu_run(uint32_t cycles)
         exec(i);
         if (ar) C.r[ar] = av;
         C.cycles += CPI;
-        C.r[0] = 0;
     }
 }

@@ -66,7 +66,11 @@ static inline void put(int x, int y, int r, int g, int b, int semi, int bit15, i
 }
 
 /* ------------------------------------------------------------------ textures */
-typedef struct { int depth, xb, yb, cx, cy; } tex_t;
+typedef struct {
+    int depth, xb, yb, cx, cy;
+    int win, uand, uor, vand, vor;      /* the texture window as masks: u = (u & uand) | uor */
+    const uint16_t *clut;               /* the VRAM row of the CLUT */
+} tex_t;
 
 static void tex_setup(tex_t *t, uint32_t clut, uint32_t tp)
 {
@@ -75,41 +79,99 @@ static void tex_setup(tex_t *t, uint32_t clut, uint32_t tp)
     t->depth = (int)((tp >> 7) & 3);
     t->cx = (int)(clut & 0x3F) * 16;
     t->cy = (int)((clut >> 6) & 0x1FF);
+    t->win = (GP.tw_mx | GP.tw_my) != 0;
+    t->uand = ~(GP.tw_mx * 8); t->uor = (GP.tw_ox & GP.tw_mx) * 8;
+    t->vand = ~(GP.tw_my * 8); t->vor = (GP.tw_oy & GP.tw_my) * 8;
+    t->clut = &GP.vram[(size_t)t->cy << 10];
 }
 
-/* 0 for a transparent texel, else the 15 bit colour with bit 15 set if the stp bit is */
-static inline uint16_t texel(const tex_t *t, int u, int v)
+/* 0 for a transparent texel, else the 15 bit colour with bit 15 set if the stp bit is; depth is a constant in the callers */
+static inline __attribute__((always_inline)) uint16_t texel_d(const tex_t *t, int u, int v, const int depth)
 {
-    u = (u & ~(GP.tw_mx * 8)) | ((GP.tw_ox & GP.tw_mx) * 8);
-    v = (v & ~(GP.tw_my * 8)) | ((GP.tw_oy & GP.tw_my) * 8);
+    if (t->win) { u = (u & t->uand) | t->uor; v = (v & t->vand) | t->vor; }
     u &= 255; v &= 255;
-    if (t->depth == 0) {
-        const uint16_t w = VR(t->xb + (u >> 2), t->yb + v);
-        return VR(t->cx + ((w >> ((u & 3) * 4)) & 15), t->cy);
+    const uint16_t *row = &GP.vram[(size_t)(((t->yb + v) & 511) << 10)];
+    if (depth == 0) {
+        const uint16_t w = row[(t->xb + (u >> 2)) & 1023];
+        return t->clut[(t->cx + ((w >> ((u & 3) * 4)) & 15)) & 1023];
     }
-    if (t->depth == 1) {
-        const uint16_t w = VR(t->xb + (u >> 1), t->yb + v);
-        return VR(t->cx + ((w >> ((u & 1) * 8)) & 255), t->cy);
+    if (depth == 1) {
+        const uint16_t w = row[(t->xb + (u >> 1)) & 1023];
+        return t->clut[(t->cx + ((w >> ((u & 1) * 8)) & 255)) & 1023];
     }
-    return VR(t->xb + u, t->yb + v);
+    return row[(t->xb + u) & 1023];
 }
 
-/* the shared pixel of a polygon or a sprite: colour (r g b) as the vertex gives it, a texel or none */
-static inline void shade(int x, int y, int r, int g, int b, const tex_t *t, int u, int v, int semi, int raw, int dither)
+/* what a primitive needs to know to write its pixels */
+typedef struct { int semi, raw, dither, simple, abr; } prim_t;
+
+static void prim_setup(prim_t *P, int semi, int raw, int dither)
+{
+    P->semi = semi; P->raw = raw; P->dither = dither;
+    P->abr = (int)((GP.texpage >> 5) & 3);
+    P->simple = !(GP.stat & 0x1800u) && !dither;          /* no mask test, no forced mask bit, no dither: the pixel is written as is */
+}
+
+/* one row of a polygon or a sprite. TEX, GOU and DEPTH are constants in the callers, so each combination is its own loop.
+ * cur: the colour (0..2) and texture (3, 4) accumulators in 16.16; dxs their steps per pixel. */
+static inline __attribute__((always_inline)) void span_t(uint16_t *rowp, int y, int xl, int xr, uint32_t *cur, const int32_t *dxs,
+                                                         int fr, int fg, int fb, const tex_t *t, const prim_t *P,
+                                                         const int TEX, const int GOU, const int DEPTH)
+{
+    for (int x = xl; x <= xr; x++) {
+        int r = fr, g = fg, b = fb, bit15 = 0, semi = P->semi, dith = P->dither;
+        if (GOU) { r = clamp255((int)cur[0] >> 16); g = clamp255((int)cur[1] >> 16); b = clamp255((int)cur[2] >> 16); }
+        if (TEX) {
+            const uint16_t tx = texel_d(t, (int)(cur[3] >> 16), (int)(cur[4] >> 16), DEPTH);
+            if (tx == 0) goto next;
+            int tr = (tx & 31) << 3, tg = ((tx >> 5) & 31) << 3, tb = ((tx >> 10) & 31) << 3;
+            if (!P->raw) { tr = clamp255((tr * r) >> 7); tg = clamp255((tg * g) >> 7); tb = clamp255((tb * b) >> 7); }
+            else dith = 0;
+            r = tr; g = tg; b = tb;
+            semi = semi && (tx & 0x8000);
+            bit15 = tx >> 15;
+        }
+        if (P->simple) {
+            int pr = r >> 3, pg = g >> 3, pb = b >> 3;
+            if (semi) {
+                const uint16_t back = rowp[x];
+                const int br = back & 31, bg = (back >> 5) & 31, bb = (back >> 10) & 31;
+                switch (P->abr) {
+                case 0: pr = (br + pr) >> 1; pg = (bg + pg) >> 1; pb = (bb + pb) >> 1; break;
+                case 1: pr = br + pr; pg = bg + pg; pb = bb + pb; break;
+                case 2: pr = br - pr; pg = bg - pg; pb = bb - pb; break;
+                default: pr = br + (pr >> 2); pg = bg + (pg >> 2); pb = bb + (pb >> 2); break;
+                }
+                pr = pr < 0 ? 0 : pr > 31 ? 31 : pr;
+                pg = pg < 0 ? 0 : pg > 31 ? 31 : pg;
+                pb = pb < 0 ? 0 : pb > 31 ? 31 : pb;
+            }
+            rowp[x] = (uint16_t)(pr | pg << 5 | pb << 10 | (bit15 << 15));
+        } else {
+            put(x, y, r, g, b, semi, bit15, dith);
+        }
+    next:
+        if (GOU) { cur[0] += (uint32_t)dxs[0]; cur[1] += (uint32_t)dxs[1]; cur[2] += (uint32_t)dxs[2]; }
+        if (TEX) { cur[3] += (uint32_t)dxs[3]; cur[4] += (uint32_t)dxs[4]; }
+    }
+}
+
+static void run_span(uint16_t *rowp, int y, int xl, int xr, uint32_t *cur, const int32_t *dxs, int fr, int fg, int fb,
+                     const tex_t *t, const prim_t *P, int gouraud)
 {
     if (!t) {
-        put(x, y, r, g, b, semi, 0, dither);
-        return;
+        if (gouraud) span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 0, 1, 0);
+        else span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 0, 0, 0);
+    } else if (t->depth == 0) {
+        if (gouraud) span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 1, 1, 0);
+        else span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 1, 0, 0);
+    } else if (t->depth == 1) {
+        if (gouraud) span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 1, 1, 1);
+        else span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 1, 0, 1);
+    } else {
+        if (gouraud) span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 1, 1, 2);
+        else span_t(rowp, y, xl, xr, cur, dxs, fr, fg, fb, t, P, 1, 0, 2);
     }
-    const uint16_t tx = texel(t, u, v);
-    if (tx == 0) return;
-    int tr = (tx & 31) << 3, tg = ((tx >> 5) & 31) << 3, tb = ((tx >> 10) & 31) << 3;
-    int dth = 0;
-    if (!raw) {
-        tr = clamp255((tr * r) >> 7); tg = clamp255((tg * g) >> 7); tb = clamp255((tb * b) >> 7);
-        dth = dither;
-    }
-    put(x, y, tr, tg, tb, semi && (tx & 0x8000), tx >> 15, dth);
 }
 
 /* ------------------------------------------------------------------ triangles */
@@ -151,6 +213,8 @@ static void tri(vtx_t a, vtx_t b, vtx_t c, int gouraud, const tex_t *t, int semi
     }
     if (!gouraud) { base[0] = a.r; base[1] = a.g; base[2] = a.b; }
     const int dither = (GP.texpage & 0x200) && (gouraud || (t && !raw));
+    prim_t P;
+    prim_setup(&P, semi, raw, dither);
     for (int y = miny; y <= maxy; y++) {
         /* the x range of the row from the three edges */
         int xl = minx, xr = maxx;
@@ -164,13 +228,7 @@ static void tri(vtx_t a, vtx_t b, vtx_t c, int gouraud, const tex_t *t, int semi
         uint32_t cur[5];
         for (int k = 0; k < nat; k++)
             cur[k] = ((uint32_t)base[k] << 16) + (k < 3 ? 0x8000u : 0u) + (uint32_t)dx_[k] * (uint32_t)(xl - a.x) + (uint32_t)dy_[k] * (uint32_t)(y - a.y);
-        for (int x = xl; x <= xr; x++) {
-            int r = a.r, g = a.g, bl = a.b, u = 0, v = 0;
-            if (nat >= 3) { r = clamp255((int)cur[0] >> 16); g = clamp255((int)cur[1] >> 16); bl = clamp255((int)cur[2] >> 16); }
-            if (nat == 5) { u = (int)(cur[3] >> 16) & 255; v = (int)(cur[4] >> 16) & 255; }
-            shade(x, y, r, g, bl, t, u, v, semi, raw, dither);
-            for (int k = 0; k < nat; k++) cur[k] += (uint32_t)dx_[k];
-        }
+        run_span(&GP.vram[(size_t)y << 10], y, xl, xr, cur, dx_, a.r, a.g, a.b, t, &P, gouraud);
     }
     GP.pixels += (uint32_t)(maxx - minx + 1) * (uint32_t)(maxy - miny + 1) / 2;
 }
@@ -262,14 +320,15 @@ static void cmd_rect(void)
     const tex_t *tp = NULL;
     if (textured) { tex_setup(&t, uv >> 16, GP.texpage); tp = &t; if (raw) r = g = b = 128; }
     const int u0 = (int)(uv & 255), v0 = (int)((uv >> 8) & 255);
-    for (int y = 0; y < rh; y++) {
+    prim_t P;
+    prim_setup(&P, semi, raw, 0);
+    int xa = x0 < GP.da_x1 ? GP.da_x1 : x0, xb = x0 + rw - 1 > GP.da_x2 ? GP.da_x2 : x0 + rw - 1;
+    const int32_t dxs[5] = { 0, 0, 0, 0x10000, 0 };
+    for (int y = 0; y < rh && xa <= xb; y++) {
         const int py = y0 + y;
         if (py < GP.da_y1 || py > GP.da_y2) continue;
-        for (int x = 0; x < rw; x++) {
-            const int px = x0 + x;
-            if (px < GP.da_x1 || px > GP.da_x2) continue;
-            shade(px, py, r, g, b, tp, (u0 + x) & 255, (v0 + y) & 255, semi, raw, 0);
-        }
+        uint32_t cur[5] = { 0, 0, 0, (uint32_t)(u0 + (xa - x0)) << 16, (uint32_t)((v0 + y) & 255) << 16 };
+        run_span(&GP.vram[(size_t)py << 10], py, xa, xb, cur, dxs, r, g, b, tp, &P, 0);
     }
     GP.pixels += (uint32_t)rw * (uint32_t)rh;
 }
@@ -302,14 +361,19 @@ static void cmd_vram_copy(void)
         }
 }
 
+uint32_t psx_gpu_us;
+
 static void exec_cmd(void)
 {
     const uint32_t c0 = GP.cmd[0];
     const int op = (int)(c0 >> 24);
     GP.cmds++;
-    if (op >= 0x20 && op < 0x40) { cmd_polygon(); return; }
-    if (op >= 0x40 && op < 0x60) { cmd_line(); return; }
-    if (op >= 0x60 && op < 0x80) { cmd_rect(); return; }
+    if (op >= 0x20 && op < 0x80) {                            /* the drawing commands are timed: the frame time splits into CPU and GPU */
+        const uint32_t t0 = psx_now_us();
+        if (op < 0x40) cmd_polygon(); else if (op < 0x60) cmd_line(); else cmd_rect();
+        psx_gpu_us += psx_now_us() - t0;
+        return;
+    }
     if (op >= 0x80 && op < 0xA0) { cmd_vram_copy(); return; }
     if (op >= 0xA0 && op < 0xC0) {
         GP.xfer = 1;

@@ -19,7 +19,11 @@ static int disc_read(void *u, uint32_t lba, uint8_t *out)
 }
 
 int psx_probe_trace;
+#ifdef PSX_PROBE
 extern uint32_t psx_watch_lo, psx_watch_hi;
+#else
+static uint32_t psx_watch_lo, psx_watch_hi;       /* the watch exists only in a PSX_PROBE build of the core */
+#endif
 
 int main(int argc, char **argv)
 {
@@ -41,7 +45,7 @@ int main(int argc, char **argv)
     psx_set_disc(&d);
     psx_reset();
     psx_set_disc(&d);
-    psx_log_bios_tty(1);
+    if (!getenv("PSX_NOLOG")) psx_log_bios_tty(1);
     for (int i = 0; i < frames; i++) {
         {   /* PSX_PAD="frame:mask,frame:mask": a pad value held from that frame; PSX_SHOT=N writes a picture every N frames */
             static uint16_t pad;
