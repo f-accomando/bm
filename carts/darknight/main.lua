@@ -1353,6 +1353,7 @@ end
 
 -- ---------------------------------------------------------------- the cartridge
 function _init()
+  if devkit_chord then devkit_chord(false) end     -- L1 and R1 are the game's: they do not show the small dev kit block (the Performance row of the menu does)
   frameskip(3)                                     -- a slow frame is not drawn: the logic keeps 60 _update a second (the game does not slow at 30 fps)
   apply_resolution()                             -- 640x360: a quarter of the pixels of 1280x720 (the menu has both)
   -- the GPU as the Hero cart measured it (GPU + VS + queue: about 10k hero triangles at 60 fps on the Pi Zero W): the

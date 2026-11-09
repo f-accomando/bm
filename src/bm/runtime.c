@@ -1838,7 +1838,7 @@ static const luaL_Reg api[] = {
     { "collmap_new", l_collmap_new }, { "collmap_chunk", l_collmap_chunk }, { "collmap_blocked", l_collmap_blocked },
     { "vm_load", l_vm_load }, { "vm_fn", l_vm_fn }, { "vm_buf", l_vm_buf }, { "vm_buf_fill", l_vm_buf_fill },
     { "vm_buf_get", l_vm_buf_get }, { "vm_run", l_vm_run }, { "vm_bind", l_vm_bind },
-    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
+    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_chord", l_devkit_chord }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "battery", l_battery }, { "battery_low", l_battery_low },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
@@ -2960,6 +2960,7 @@ static int vol_start;                   /* the volume when the cartridge started
 #define PERF_MODES 3                    /* off, top, bottom */
 static int perf_on;                     /* 0 off, 1 top, 2 bottom: now */
 static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
+static int perf_chord_off;              /* devkit_chord(false): this game uses L1 and R1 together, they do not show the small block */
 static int perf_small;                  /* 1: the small block (L1 + R1 on a pad): top right, two rows */
 
 /* KB of the cartridge's data in memory, besides its Lua: the sprite sheet
@@ -2996,6 +2997,16 @@ int l_devkit(lua_State *L)
         perf_small = 0;
     }
     lua_pushinteger(L, old);
+    return 1;
+}
+
+/* devkit_chord([on]) -> the old state (true: L1 + R1 together show the small block on the RGB30; the default).
+ * A game that uses both buttons at once turns it off for its run. */
+int l_devkit_chord(lua_State *L)
+{
+    lua_pushboolean(L, !perf_chord_off);
+    if (!lua_isnoneornil(L, 1))
+        perf_chord_off = !lua_toboolean(L, 1);
     return 1;
 }
 
@@ -4122,7 +4133,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         {
             const uint32_t pad = rt.raw_all;
             const int chord = (pad & HID_L1) && (pad & HID_R1);
-            if (chord && !rt.pad_chord_held) {
+            if (chord && !rt.pad_chord_held && !perf_chord_off) {
                 if (perf_on && perf_small) {
                     perf_on = 0;
                 } else {
@@ -4501,6 +4512,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     sess_reset();                       /* the session report: this cartridge's frames only */
     perf_on = perf_user;                /* the overlay as Settings has it */
     perf_small = 0;
+    perf_chord_off = 0;
     dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", "t") != LUA_OK ||
@@ -4571,6 +4583,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     vol_start = audio_volume();
     perf_on = perf_user;                /* the overlay as Settings has it, as at the start */
     perf_small = 0;
+    perf_chord_off = 0;
     sess_reset();                       /* the session report: this run's frames, as the time and GPU's */
     sess.resumed = 1;
     {
