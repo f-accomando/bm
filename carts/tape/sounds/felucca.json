@@ -1,0 +1,221 @@
+{
+ "source": "Felucca-Engines d0260074ce100a47675814b7f38d61f11176c926 (MIT), rendered at 32000 Hz mono by scripts/felpack.py",
+ "sounds": [
+  {
+   "sample": "PHBRASS",
+   "engine": "phase",
+   "preset": "BRASS",
+   "n": 0,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "PHORGAN",
+   "engine": "phase",
+   "preset": "ORGAN",
+   "n": 1,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "PHSTRING",
+   "engine": "phase",
+   "preset": "STRING",
+   "n": 2,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "PHRESO",
+   "engine": "phase",
+   "preset": "RESO",
+   "n": 3,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "PHBELL",
+   "engine": "phase",
+   "preset": "BELL",
+   "n": 4,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "bell"
+  },
+  {
+   "sample": "PHWIRE",
+   "engine": "phase",
+   "preset": "WIRE",
+   "n": 5,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "TRFATBAS",
+   "engine": "trio",
+   "preset": "FAT BASS",
+   "n": 0,
+   "root": "C2",
+   "held_ms": 1000,
+   "kind": "bass"
+  },
+  {
+   "sample": "TRARPLD",
+   "engine": "trio",
+   "preset": "ARP LEAD",
+   "n": 1,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "TRSYNCLD",
+   "engine": "trio",
+   "preset": "SYNC LEAD",
+   "n": 2,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "TRRINGBL",
+   "engine": "trio",
+   "preset": "RING BELL",
+   "n": 3,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "bell"
+  },
+  {
+   "sample": "TRCHIPCH",
+   "engine": "trio",
+   "preset": "CHIP CHOIR",
+   "n": 4,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "WHFULL",
+   "engine": "wheel",
+   "preset": "FULL ORGAN",
+   "n": 0,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "WHJAZZ",
+   "engine": "wheel",
+   "preset": "JAZZ PERC",
+   "n": 1,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "keys"
+  },
+  {
+   "sample": "WHGOSPEL",
+   "engine": "wheel",
+   "preset": "GOSPEL",
+   "n": 2,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "WHFLUTE",
+   "engine": "wheel",
+   "preset": "SOFT FLUTE",
+   "n": 3,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "WHROCK",
+   "engine": "wheel",
+   "preset": "ROCK DRIVE",
+   "n": 4,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "ANRAVE",
+   "engine": "analog",
+   "preset": "RAVE",
+   "n": 6,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "ANPWMSTR",
+   "engine": "analog",
+   "preset": "PWM STR",
+   "n": 3,
+   "root": "C3",
+   "held_ms": 2000,
+   "kind": "pad"
+  },
+  {
+   "sample": "ANSUBBAS",
+   "engine": "analog",
+   "preset": "SUB BASS",
+   "n": 7,
+   "root": "C2",
+   "held_ms": 1000,
+   "kind": "bass"
+  },
+  {
+   "sample": "ANBRASS",
+   "engine": "analog",
+   "preset": "BRASS",
+   "n": 9,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "LOPULSE",
+   "engine": "lofi",
+   "preset": "PULSE LD",
+   "n": 0,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "LOWAVBAS",
+   "engine": "lofi",
+   "preset": "WAVE BASS",
+   "n": 1,
+   "root": "C2",
+   "held_ms": 1000,
+   "kind": "bass"
+  },
+  {
+   "sample": "LOWAVLD",
+   "engine": "lofi",
+   "preset": "WAVE LEAD",
+   "n": 3,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "lead"
+  },
+  {
+   "sample": "NOMETAL",
+   "engine": "noise",
+   "preset": "METAL",
+   "n": 3,
+   "root": "C3",
+   "held_ms": 1000,
+   "kind": "fx"
+  }
+ ]
+}

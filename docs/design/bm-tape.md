@@ -240,7 +240,13 @@ Each `.b` function gets a test in `tests/bml/` that compares native, `bmvm`, and
 
 Three layers. Only the third changes the kernel.
 
-A fourth source is ready as a work order: 24 presets of the MIT engines of Felucca-Engines, rendered on the PC into bank samples. Read [`bm-tape-wo-felucca.md`](bm-tape-wo-felucca.md).
+A fourth source is built (work order [`bm-tape-wo-felucca.md`](bm-tape-wo-felucca.md)): the engine `PCM`. It plays 24 presets of the MIT engines of Felucca-Engines, rendered on the PC into bank samples.
+
+- **Render.** `scripts/felpack.py` makes the tables (`--fs 32000`), builds `tools/felrender/felrender.c` with `third_party/felucca-engines/`, and renders one note of each preset of `carts/tape/sounds/felucca.json`. It cuts the tail at -60 dB, fades the last 10 ms and sets the peak to -1 dB. Each sample is 32000 Hz, mono, 16 bits. The root is C2 for a bass and C3 for the others. The total is 2.35 MB. The build is deterministic: `tests/tape/felucca_golden.txt` holds the SHA-256 of each WAV.
+- **Engine.** The base tone is `{ wave = "sample", sample = <name> }`. The four macros are START (`begin`, 0 to 0.9), CUTOFF, RESO, and DRIVE. They change the bm voice. They do not change the timbre of the Felucca engine.
+- **Sounds.** The sound table has 44 entries: 20 synth sounds, then 24 PCM sounds. The keys `[` and `]` reach them in that order. The 24 sounds: PHASE (BRASS, ORGAN, STRING, RESO, BELL, WIRE), TRIO (FAT BASS, ARP LEAD, SYNC LEAD, RING BELL, CHIP CHOIR), WHEEL (FULL ORGAN, JAZZ PERC, GOSPEL, SOFT FLUTE, ROCK DRIVE), ANALOG (RAVE, PWM STR, SUB BASS, BRASS), LOFI (PULSE LD, WAVE BASS, WAVE LEAD), NOISE (METAL).
+- **Scene.** The PCM scene draws the sample as a ridge from the 32 peaks of `audio_samples()`. Encoder 1 moves the start gate. The sun shows the cutoff.
+- **Limits.** A held key stops at the end of the sample: the order has no loop points. The envelope of the host in `felrender.c` is a bm choice (the release is at most 1.5 s), made to keep the total under 2.5 MB. Nobody has judged the sounds by ear on the Pi yet.
 
 1. **Engines (cartridge, Lua tables).** An engine is a `tone()` table and four macros. A macro maps one encoder to one or more registers with a curve. The seven engines of 4.3 use the waves that exist today.
 2. **The "wave" pack (cartridge first, then `presets.c`).** About 40 sounds made with the engines: gated snare, tom fill, DX bass, pick bass, Juno-style pad, brass stab, PWM strings, sync-style lead, glass bell, arp pluck, tape noise, vinyl crackle, risers. Each sound has a name, a kind, and four macro defaults. Move the best ones to `src/audio/presets.c` after the tests on both consoles.
@@ -250,7 +256,7 @@ A fourth source is ready as a work order: 24 presets of the MIT engines of Feluc
    - A master bus insert: tape saturation with wow and flutter, and a master filter for the DJ module.
    - A new register changes `synth.h`, the tone bytes, and the three encoders (rule of the audio area).
 
-Phase 2 has layer 1 and 20 sounds of layer 2 in `carts/tape/src/25_sounds.lua`: three FM, three STRING, three PULSE, four CLUSTER, three ORGAN, two VOX, two DIGITAL. Nobody has judged them by ear on the Pi yet.
+Phase 2 has layer 1 and 20 sounds of layer 2 in `carts/tape/src/25_sounds.lua`, and the engine `PCM` with its 24 sounds (above): three FM, three STRING, three PULSE, four CLUSTER, three ORGAN, two VOX, two DIGITAL. Nobody has judged them by ear on the Pi yet.
 
 Measure each kernel item on the Pi Zero W before the decision: the budget is 8 voices in a 64-sample block.
 

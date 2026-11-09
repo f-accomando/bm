@@ -156,6 +156,55 @@ EDRAW[7] = function(t, v)
   R(296, 90 - 40 * v[4], 5, 40 * v[4] + 1, C.e4, true)
 end
 
+-- PCM: the sample as a ridge over the horizon (its 32 peaks from audio_samples()). The start gate (encoder 1) cuts the
+-- ridge: the part before it is dim. The sun is the cutoff, the ring around it the resonance, the second line of the
+-- ridge (it shakes) the drive. A dot runs along the ridge from the gate: the sample as the voice plays it.
+local PCM_TOP, PCM_X0, PCM_W = 30, 20, 280
+local function ridge_at(m, u)
+  if not m then return 0.5 + 0.4 * sin(u * 23) * exp(-u * 2) end
+  local x = clamp(u, 0, 1) * 31
+  local i = floor(x)
+  local f = (1 - cos((x - i) * PI)) / 2                      -- a smooth step between two peaks
+  return m[i + 1] * (1 - f) + m[min(i + 2, 32)] * f
+end
+EDRAW[8] = function(t, v)
+  local tk = trk[S.syn]
+  local info = PCMINFO[tk.sample or PCM_FIRST]
+  local m = info and info.meter
+  local sy = 98 - 52 * sqrt(clamp(v[2] / 12, 0, 1))
+  sun(160, sy, 24, 0.1, C.e3)
+  clipu(0, 0, 320, HZ)
+  O(160, sy, 30 + 12 * v[3], 30 + 12 * v[3], fade(C.e2, 0.2 + 0.8 * v[3]))
+  clip()
+  ground(t)
+  local gx = PCM_X0 + PCM_W * v[1]
+  local pts, low = {}, {}
+  for x = PCM_X0, PCM_X0 + PCM_W, 4 do
+    local y = HZ - 6 - 46 * ridge_at(m, (x - PCM_X0) / PCM_W)
+    pts[#pts + 1] = { x, y }
+    low[#low + 1] = { x, y + 2 * v[4] * 4 * sin(x * 0.7 + t * 31) }
+  end
+  local body = { { PCM_X0, HZ - 2 } }
+  for _, p in ipairs(pts) do body[#body + 1] = p end
+  body[#body + 1] = { PCM_X0 + PCM_W, HZ - 2 }
+  poly(body, nil, C.ink)
+  for i = 1, #pts - 1 do
+    local on = pts[i][1] >= gx - 2
+    L(pts[i][1], pts[i][2], pts[i + 1][1], pts[i + 1][2], on and C.e1 or C.grid, 1.4)
+    if v[4] > 0.02 and on then L(low[i][1], low[i][2], low[i + 1][1], low[i + 1][2], C.e2, 1) end
+  end
+  L(PCM_X0, HZ - 2, PCM_X0 + PCM_W, HZ - 2, C.grid)
+  L(gx, PCM_TOP, gx, HZ, C.e1, 1.2)
+  poly({ { gx, PCM_TOP }, { gx + 7, PCM_TOP + 3 }, { gx, PCM_TOP + 6 } }, C.e1, C.e1)
+  local span = max(0.05, 1 - v[1])
+  local u = v[1] + (t * 0.5 % 1) * span
+  local k = clamp(floor((u * PCM_W) / 4) + 1, 1, #pts)
+  O(PCM_X0 + u * PCM_W, pts[k][2], 3, 3, C.e4, true)
+  local nm = info and info.name or (tk.sample or PCM_FIRST)
+  local secs = info and info.frames and info.rate and info.rate > 0 and info.frames / info.rate or 0
+  T(string.format("%s %.2fs", nm, secs), 160, 116, C.e3, "center")
+end
+
 -- the ENGINE page: the engine of the synth track S.syn picks the drawing and the macros
 local EPAR = {}
 for i, e in ipairs(ENGINES) do

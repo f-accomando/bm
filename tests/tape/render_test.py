@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-render_test.py - the bm Tape cartridge in bmhost: pictures of the ten pages and the seven engines, keys, the error path.
+render_test.py - the bm Tape cartridge in bmhost: pictures of the ten pages and the eight engines, keys, the error path.
 
   python3 tests/tape/render_test.py build/host/bmhost-bin build/carts/tape.bm
 
 bmhost runs the engine (src/bm/bmnative.c emulates ARMv6 on the PC), so native_run executes here.
-Checks: the run ends without a Lua error; each of the 16 pictures (ten pages, the other six engines) is not blank, holds
+Checks: the run ends without a Lua error; each of the 17 pictures (ten pages, the other seven engines) is not blank, holds
 the four encoder colours in the value strip and shows no engine error; the pictures differ; PREVIEW is on the four
 preview pages only; Tab and the arrows go to the right pages; for every page and every encoder, turning the encoder
 changes the scene (two runs with the same frames, so the animation is the same); SEQ GRID shows the demo pattern, with
 the rim steps of the native euclid; Space runs the transport; Enter shows REC and a recorded hit lands in the grid;
-the live keys play all 20 sounds without a Lua error; a cartridge with a broken engine.b still draws, shows the error
+the live keys play all 44 sounds without a Lua error; the PCM scene shows the sample of its sound (name and length from
+audio_samples()) and audio_samples() in the cartridge lists the 24 samples of the bank; a cartridge with a broken engine.b still draws, shows the error
 text on the status strip, and Space does nothing.
 """
 import hashlib, os, struct, subprocess, sys, tempfile, zlib
@@ -100,7 +101,7 @@ def key(frame, usage, n=1, gap=6):
 
 PAGES = ["SYNTH ENGINE", "SYNTH ENVELOPE", "SYNTH FILTER", "DRUM PAD", "SEQ GRID", "TAPE", "MIX", "FX ECHO", "DJ", "TEMPO"]
 PREVIEW = {5, 6, 7, 8}                                  # indexes of the pages that make no sound
-ENGINES = ["FM", "STRING", "PULSE", "CLUSTER", "ORGAN", "VOX", "DIGITAL"]
+ENGINES = ["FM", "STRING", "PULSE", "CLUSTER", "ORGAN", "VOX", "DIGITAL", "PCM"]
 # the keys that bring a page up from the start: F1 to F8, Tab inside SYNTH
 GOTO = {0: key(10, F1), 1: key(10, F1) + key(16, TAB), 2: key(10, F1) + key(16, TAB) + key(22, TAB),
         3: key(10, F1 + 1), 4: key(10, F1 + 2), 5: key(10, F1 + 3), 6: key(10, F1 + 4), 7: key(10, F1 + 5),
@@ -129,14 +130,14 @@ def main():
             print(out.strip()[-300:])
         return read_png("%s/shots/%s/%s.png" % (tmp, name, name))
 
-    # ten pages, then the other six engines on the SYNTH ENGINE page (Up changes the engine)
+    # ten pages, then the other seven engines on the SYNTH ENGINE page (Up changes the engine)
     img, hashes = {}, {}
     for i in range(10):
         img["pg%d" % i] = one("pg%d" % i, GOTO[i], 2)
-    for k in range(1, 7):
+    for k in range(1, 8):
         img["eng%d" % k] = one("eng%d" % k, GOTO[0] + key(20, UP, k), 2)
     img["eng0"] = img["pg0"]
-    names = ["pg%d" % i for i in range(10)] + ["eng%d" % k for k in range(1, 7)]
+    names = ["pg%d" % i for i in range(10)] + ["eng%d" % k for k in range(1, 8)]
     for n in names:
         im = img[n]
         _, lit = colours(im, 0, 54, 640, 270)
@@ -147,7 +148,7 @@ def main():
         err, _ = colours(im, 236, 0, 520, 26)
         check("%s: no engine error on the status strip" % n, not has(err, HOT))
         hashes[n] = crop_hash(im, 0, 0, 640, 320)
-    check("the 16 pictures differ", len(set(hashes.values())) == 16)
+    check("the 17 pictures differ", len(set(hashes.values())) == 17)
     for i in range(10):
         pv = colours(img["pg%d" % i], 164, 0, 222, 26)[1]
         check("%s: PREVIEW %s on the status strip" % (PAGES[i], "shown" if i in PREVIEW else "not shown"), (pv > 20) == (i in PREVIEW))
@@ -168,7 +169,7 @@ def main():
                 rows[y][x] = 0
         return hashlib.md5(b"".join(bytes(r) for r in rows)).hexdigest()
     for pg in range(10):
-        steps = [(0, [])] if pg != 0 else [(k, key(20, UP, k)) for k in range(7)]
+        steps = [(0, [])] if pg != 0 else [(k, key(20, UP, k)) for k in range(8)]
         for eng, pre in steps:
             ref = scene_crop(one("ref", GOTO[pg] + pre, 3, 120))
             for e in range(4):
@@ -223,11 +224,26 @@ def main():
 
     # the live keys play every sound: ] loads the next sound into the track, a key is held for a moment
     play = key(5, KEY_2) + key(10, F1)
-    for n in range(21):
-        play += key(20 + 30 * n, RB) + ["%d keys %d" % (24 + 30 * n, KEY_U), "%d keys none" % (40 + 30 * n)]
-    play += key(660, F1 + 1) + key(670, KEY_O)                    # and a pad
-    code, out = run(host, cart, script(play), tmp + "/shots/play", 13)
-    check("the live keys play 21 sounds and a pad without a Lua error", code == 0 and " ok" in out)
+    for n in range(45):
+        play += key(20 + 20 * n, RB) + ["%d keys %d" % (23 + 20 * n, KEY_U), "%d keys none" % (33 + 20 * n)]
+    play += key(940, F1 + 1) + key(950, KEY_O)                    # and a pad
+    code, out = run(host, cart, script(play), tmp + "/shots/play", 17)
+    check("the live keys play 44 sounds (the list wraps once) and a pad without a Lua error", code == 0 and " ok" in out)
+
+    # the PCM scene (engine 8): the sample of the sound is named on the scene; audio_samples() of the cartridge lists the 24 samples
+    names = [l.split()[0] for l in open(ROOT + "/tests/tape/felucca_golden.txt") if l.strip() and not l.startswith("#")]
+    lua = open(ROOT + "/build/tape/main.lua").read() + (
+        '\nlocal smp = audio_samples()\nlog("TAPE_SAMPLES " .. #smp .. " " .. (smp[1] and smp[1].name or "") .. " "'
+        ' .. (smp[24] and smp[24].name or ""))\n')
+    open(tmp + "/samples.lua", "w").write(lua)
+    subprocess.check_call([sys.executable, ROOT + "/scripts/mkbm.py", "-o", tmp + "/samples.bm", "--lua", tmp + "/samples.lua",
+                           "--sheet", ROOT + "/build/tape/sheet.png", "--sheet8", "--audio", ROOT + "/build/tape/bank.json",
+                           "--info", ROOT + "/carts/tape/bm.info"], stdout=subprocess.DEVNULL)
+    open(tmp + "/samples.txt", "w").write(script(key(10, F1)))
+    p = subprocess.run([host, tmp + "/samples.bm", "--input", tmp + "/samples.txt", "--seconds", "1"], capture_output=True, text=True)
+    code, out = p.returncode, p.stdout + p.stderr
+    check("audio_samples() in the cartridge lists %d samples (%s)" % (len(names), out.split("TAPE_SAMPLES")[-1].strip()[:40]),
+          code == 0 and "TAPE_SAMPLES %d %s %s" % (len(names), names[0], names[-1]) in out)
 
     # the error path: a broken engine.b must leave the cartridge drawing, with the error text on the status strip
     bad = open(ROOT + "/build/tape/main.lua").read()

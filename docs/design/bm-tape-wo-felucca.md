@@ -1,6 +1,6 @@
 # Work order: Felucca-Engines sounds for bm Tape (rendered samples)
 
-Status: ready for the user to accept. No code exists. Parent design: [`bm-tape.md`](bm-tape.md), section 8.
+Status: built (9 Nov 2026), see section 8 of `bm-tape.md`. Parent design: [`bm-tape.md`](bm-tape.md), section 8.
 
 ## 1. Objective
 
