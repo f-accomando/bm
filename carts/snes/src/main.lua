@@ -92,13 +92,29 @@ local function open_rom(d)
   frames = 0
 end
 
-local dx, dy, dw, dh = 0, 0, SW, SH            -- where and how big the picture is on the screen (4:3 in the screen)
+local dx, dy, dw, dh = 0, 0, SW, SH            -- where and how big the picture is on the screen
+local mode = "sharp"                           -- "sharp": a whole-number scale (1x on a 360-line screen), all pixels the same size; "fit": 4:3 on the whole screen
+local cur_lines = 224                          -- lines of the picture now: 224, or 239 (PAL and overscan)
+
+-- Where the picture goes for `lines` lines. A new size makes a new render target: the machine fills it whole.
+local function layout(lines)
+  local w, h
+  if mode == "fit" then
+    w, h = (SCREEN_H * 4) // 3, SCREEN_H
+    if w > SCREEN_W then w = SCREEN_W; h = (SCREEN_W * 3) // 4 end
+  else
+    local s = math.max(1, math.floor(math.min(SCREEN_H / lines, SCREEN_W / 256)))   -- a whole number: every pixel the same size
+    w, h = 256 * s, lines * s
+  end
+  if w ~= dw or h ~= dh or not scr then
+    dw, dh = w, h
+    scr = target_create(dw, dh)             -- the machine scales its picture into it: the kernel's own scaling is slow
+  end
+  dx, dy = (SCREEN_W - dw) // 2, (SCREEN_H - dh) // 2
+end
 
 function _init()
-  dw, dh = (SCREEN_H * 4) // 3, SCREEN_H
-  if dw > SCREEN_W then dw = SCREEN_W; dh = (SCREEN_W * 3) // 4 end
-  dx, dy = (SCREEN_W - dw) // 2, (SCREEN_H - dh) // 2
-  scr = target_create(dw, dh)             -- the machine scales its picture into it: the kernel's own scaling is slow
+  layout(cur_lines)
   pad_layout()
   frameskip(4)
   list_roms()
@@ -125,11 +141,12 @@ function _update()
     if frames % 600 == 0 then save_sram() end
   elseif state == "menu" then
     if btnp("up") then menusel = math.max(1, menusel - 1) end
-    if btnp("down") then menusel = math.min(4, menusel + 1) end
+    if btnp("down") then menusel = math.min(5, menusel + 1) end
     if btnp("a") then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then save_sram(); snes_reset(); state = "run"
       elseif menusel == 3 then show_fps = not show_fps
+      elseif menusel == 4 then mode = (mode == "sharp") and "fit" or "sharp"; layout(cur_lines)
       else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") then state = "run" end
@@ -157,8 +174,9 @@ function _draw()
     return
   end
   local t0 = time()
-  snes_draw(scr, dw, dh)
+  local lines = snes_draw(scr, dw, dh)
   local t1 = time()
+  if lines ~= cur_lines then cur_lines = lines; layout(lines) end   -- the next picture has the new size
   if dx > 0 then                                   -- the screen has two buffers: the margins are cleared every frame
     rectfill(0, 0, dx, SCREEN_H, 0)
     rectfill(dx + dw, 0, SCREEN_W - dx - dw, SCREEN_H, 0)
@@ -189,12 +207,13 @@ function _draw()
     print(d.us .. string.format("  copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 20, 0x00FF00)
   end
   if state == "menu" then
-    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 140, 0x101820)
-    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 140, 0xFFD050)
-    local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", "Back to the list" }
-    for i = 1, 4 do
+    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0x101820)
+    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0xFFD050)
+    local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
+                    mode == "sharp" and "Scale: sharp" or "Scale: fit 4:3", "Back to the list" }
+    for i = 1, 5 do
       print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end
-    print(snes_info().title, SCREEN_W // 2 - 90, SCREEN_H // 2 + 46, 0x8090A0)
+    print(snes_info().title, SCREEN_W // 2 - 90, SCREEN_H // 2 + 66, 0x8090A0)
   end
 end

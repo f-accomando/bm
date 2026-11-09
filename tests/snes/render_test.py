@@ -90,7 +90,7 @@ def main():
         for x in range(w // 2, w):
             if near(p.get((x, y), (0, 0, 0)), red): return x
         return None
-    a, b = red_left(f200, 100), red_left(f200, 300)
+    a, b = red_left(f200, 100), red_left(f200, 250)     # the picture is 224 lines at 1x: rows 68 to 291 of the 360 screen
     check("HDMA bands change the scroll", a is not None and b is not None and a != b)
     print("snes render test:", "ok" if not fails else "FAILED " + ", ".join(fails))
     sys.exit(1 if fails else 0)

@@ -17,7 +17,10 @@ machine was written again in C. The RGB30 is not measured.
    A right, B bottom, X top, Y left. The RGB30 and Nintendo pads have the same names. On a keyboard or an Xbox pad the
    cartridge swaps A with B and X with Y, so the bottom button is the SNES B. The keyboard: arrows or WASD, Space or Z
    (B), X (A), C (Y), V (X), Q and E (L and R), Enter (Start), Tab (Select).
-   Hold L2 and R2 (keyboard: Q and E) for half a second to open the emulator menu (resume, reset, FPS, back to the list).
+   Hold L2 and R2 (keyboard: Q and E) for half a second to open the emulator menu (resume, reset, FPS, scale, back to the list).
+   Scale "sharp" (default) uses a whole-number scale (1x on a 360-line screen, 2x from 448 lines), so every pixel has the same size; the
+   picture follows the line count (224, or 239 for PAL and overscan). Scale "fit 4:3" fills the screen height; its pixels are uneven.
+   A steps-of-0.5 scale (1.5x) was tried on the Pi One on 2026-11-09: the pixels still look uneven (2 and 1 in turn).
 5. The battery RAM goes to `/docs/<name>.srm` (the first 8 letters of the ROM name). The cartridge saves it every 10 seconds,
    in the menu and at exit.
 6. A game that keeps the screen off shows two orange lines at the bottom after 3 seconds: the PC of the CPU, the last registers it
