@@ -877,7 +877,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
         test-fat test-fat-queue test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-klog test-monitor-cmd test-netfetch test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-klog test-monitor-cmd test-shell-code test-netfetch test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map test-yharnam test-yharnam-autoplay \
         test-catalog test-github test-lan market-seed test-host test-anim-ease test-qemu test-vid
 
@@ -1069,7 +1069,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-jobs test-bm test-res test-compat test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-bmz test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
-	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-vid $(if $(K7),test-hyp)
+	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-shell-code test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/hero.bm $(BUILD)/carts/mapkit.bm $(BUILD)/carts/testkit.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1538,6 +1538,13 @@ $(BUILD)/host/test_netfetch: tests/kernel/test_netfetch.c src/kernel/netfetch.c 
 $(BUILD)/host/test_monitor_cmd: tests/kernel/test_monitor_cmd.c src/kernel/monitor_cmd.c src/kernel/monitor_cmd.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_monitor_cmd.c src/kernel/monitor_cmd.c
+
+test-shell-code: $(BUILD)/host/test_shell_code
+	$(BUILD)/host/test_shell_code
+
+$(BUILD)/host/test_shell_code: tests/kernel/test_shell_code.c src/kernel/shell_code.c src/kernel/shell_code.h src/bm/bmlc.c src/bm/bmnative.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -DSHELL_CODE_HOST_TEST -Isrc -Isrc/bm -o $@ tests/kernel/test_shell_code.c src/kernel/shell_code.c src/bm/bmlc.c src/bm/bmnative.c -lm
 
 # The freeze guard: the timer IRQ pets the watchdog only while the main code makes progress (SYS-2)
 $(BUILD)/host/test_wdguard: tests/kernel/test_wdguard.c src/drivers/watchdog.h src/drivers/mbox.h

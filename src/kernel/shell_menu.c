@@ -28,7 +28,7 @@ static const smenu_item_t network_sub[] = {
 static const smenu_item_t items[] = {
     { "bm menu gui", "menu", 0, NULL, 0 },
     { "Command line", NULL,  0, NULL, 0 },
-    { "Lua",            "lua",  0, NULL, 0 },
+    { "Shell Code",   "code", 0, NULL, 0 },
     { "System",         NULL,   0, system_sub, NSUB(system_sub) },
     { "Network",        NULL,   0, network_sub, NSUB(network_sub) },
     { "Help",           "help", 0, NULL, 0 },

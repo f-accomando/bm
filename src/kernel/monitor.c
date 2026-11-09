@@ -25,6 +25,7 @@
 #include "usb/smsc95xx.h"
 #include "carts.h"
 #include "shell_menu.h"
+#include "shell_code.h"
 #include "config.h"
 #include "bt/bt.h"
 #include "wifi/wifi.h"
@@ -173,6 +174,12 @@ CMD(c_help)
 }
 
 CMD(c_menu) { carts_menu(console_framebuffer()); return 0; }
+/* code [FILE]: Shell Code editor/compiler/runner (vim-like, .b .c .lua .txt) */
+CMD(c_code)
+{
+    const char *path = (argc > 1) ? argv[1] : NULL;
+    return shell_code_open(path);
+}
 /* lua: no word, the REPL; lua -e CODE, one chunk; lua FILE, a script of the SD card */
 CMD(c_lua)
 {
@@ -782,6 +789,7 @@ static const mcmd_t report_sub[] = {
 static const mcmd_t commands[] = {
     { .name = "help", .args = "[COMMAND]", .help = "this list, or one command", .fn = c_help, .cand = cand_help },
     { .name = "menu", .help = "cartridge menu, or PS on a pad", .fn = c_menu },
+    { .name = "code", .args = "[FILE]", .help = "Shell Code editor/compiler/runner (.b, .c, .lua)", .fn = c_code },
     { .name = "carts", .help = "the cartridges (SD: / and /bm)", .sub = carts_sub },
     { .name = "lua", .args = "[FILE | -e CODE]", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .fn = c_lua },
     { .name = "upload", .help = "receive a cartridge over serial, play it", .fn = c_upload },
@@ -808,6 +816,9 @@ static const mcmd_t commands[] = {
     { .name = "exit", .help = "leave the bm: prompt (back to the shell menu)", .fn = c_exit },
     /* the words of before: same syntax, same output */
     { .name = "b3d", .alias = "bench 3d" },
+    { .name = "vim", .alias = "code" },
+    { .name = "ed", .alias = "code" },
+    { .name = "shell_code", .alias = "code" },
     { .name = "log", .alias = "report log" },
     { .name = "send", .alias = "report send" },
     { .name = "reboot", .alias = "sys reboot" },
