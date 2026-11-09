@@ -38,6 +38,7 @@ static void random_state(void)
     if (rnd() & 1) for (int i = 0; i < 128; i++) S.oam[i * 4 + 1] = (uint8_t)(rnd() % 240);   /* more sprites on the lines */
     S.inidisp = (uint8_t)((rnd() % 4 == 0) ? (rnd() & 15) : 15);
     S.obsel = (uint8_t)rnd();
+    S.oamrot = (uint8_t)(rnd() & 1); S.oamaddr_reload = (uint16_t)(rnd() & 0x3FF);       /* the priority rotation of the sprites */
     S.bgmode = (uint8_t)(modes[rnd() % sizeof modes] | ((rnd() & 1) ? (rnd() & 0xF8) : 0));
     S.mosaic = 0;
     for (int n = 0; n < 4; n++) {
@@ -132,9 +133,36 @@ static void bench(int loops)
     }
 }
 
+/* The priority rotation ($2103 bit 7): two sprites on the same pixel; the one at the OAM address wins. */
+static int rotation(void)
+{
+    memset(S.oam, 0, sizeof S.oam);
+    for (int i = 0; i < 128; i++) S.oam[i * 4 + 1] = 240;
+    memset(S.vram, 0, sizeof S.vram);
+    memset(&S.vram[0x4000 + 1 * 32], 0xFF, 16);                       /* tile 1: planes 0 and 1: colour 3 of its palette */
+    for (int r = 0; r < 8; r++) S.vram[0x4000 + 2 * 32 + r * 2] = 0xFF;   /* tile 2: plane 0 only: colour 1 */
+    memset(S.cgram, 0, sizeof S.cgram);
+    S.cgram[(128 + 3) * 2] = 0x1F;                                    /* sprite colour 3: red */
+    S.cgram[(128 + 1) * 2 + 1] = 0x7C;                                /* sprite colour 1: blue */
+    for (int i = 0; i < 256; i++) { ppu_cgram_write(i); ppu_cgram_write_ref(i); }
+    S.oam[0] = 10; S.oam[1] = 9; S.oam[2] = 1; S.oam[3] = 0x30;      /* sprite 0: colour 3 */
+    S.oam[20] = 10; S.oam[21] = 9; S.oam[22] = 2; S.oam[23] = 0x30;  /* sprite 5: colour 1 */
+    S.inidisp = 15; S.obsel = 0x01; S.bgmode = 1; S.tm = 0x10; S.ts = 0; S.cgwsel = 0; S.cgadsub = 0;
+    int bad = 0;
+    for (int rot = 0; rot < 2; rot++) {
+        S.oamrot = (uint8_t)rot; S.oamaddr_reload = (uint16_t)(5 * 4);
+        ppu_line(10); const uint16_t n = S.picture[10 * SNES_W + 12];
+        ppu_line_ref(10); const uint16_t r = S.picture[10 * SNES_W + 12];
+        const uint16_t want = rot ? 0x001F : 0xF800;                  /* blue (sprite 5) with the rotation, red (sprite 0) without; RGB565 */
+        if (n != want || r != want) { printf("rotation %d: want %04X got %04X (ref %04X)\n", rot, want, n, r); bad = 1; }
+    }
+    return bad;
+}
+
 int main(int argc, char **argv)
 {
     ppu_reset(); ppu_reset_ref();
+    if (rotation()) return 1;
     if (argc > 1 && !strcmp(argv[1], "bench")) { bench(argc > 2 ? atoi(argv[2]) : 200); return 0; }
     return equiv(argc > 2 ? atoi(argv[2]) : 400);
 }

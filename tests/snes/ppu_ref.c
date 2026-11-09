@@ -136,7 +136,9 @@ static void draw_obj(int y)
     const uint32_t base0 = (uint32_t)(S.obsel & 7) << 14;
     const uint32_t base1 = base0 + ((uint32_t)(((S.obsel >> 3) & 3) + 1) << 13);
     int count = 0;
-    for (int i = 0; i < 128 && count < 32; i++) {
+    const int first = S.oamrot ? (S.oamaddr_reload >> 2) & 0x7F : 0;       /* $2103 bit 7: the sprite at the OAM address is the first in priority, the others follow in order */
+    for (int n = 0; n < 128 && count < 32; n++) {
+        const int i = (first + n) & 127;
         const uint8_t *o = &S.oam[i * 4];
         const unsigned hi = (S.oam[512 + (i >> 2)] >> ((i & 3) * 2)) & 3;
         const int big = (hi >> 1) & 1;

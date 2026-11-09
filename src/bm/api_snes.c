@@ -143,7 +143,27 @@ int l_snes_debug(lua_State *L)
     lua_pushinteger(L, d.tm); lua_setfield(L, -2, "tm");
     lua_pushinteger(L, d.nmitimen); lua_setfield(L, -2, "nmi");
     lua_pushinteger(L, d.frames); lua_setfield(L, -2, "frames");
-    char hex[96];
+    if (lua_isinteger(L, 1)) {                          /* snes_debug(addr): 32 bytes of the video RAM at addr, and the 32 bytes of colours of sprite palette 3 */
+        uint8_t b[32];
+        snes_vram_peek((uint16_t)lua_tointeger(L, 1), b, 32);
+        lua_pushlstring(L, (const char *)b, 32); lua_setfield(L, -2, "vram");
+        snes_cgram_peek(352, b, 32);
+        lua_pushlstring(L, (const char *)b, 32); lua_setfield(L, -2, "cgram");
+        char map[256];                                  /* one character for each 256 bytes of the video RAM: . all zero, F all FF, x anything else */
+        for (int pg = 0; pg < 256; pg++) {
+            uint8_t row[256];
+            snes_vram_peek((uint16_t)(pg << 8), row, 256);
+            int z = 1, f = 1;
+            for (int i = 0; i < 256; i++) { z &= row[i] == 0; f &= row[i] == 0xFF; }
+            map[pg] = z ? '.' : f ? 'F' : 'x';
+        }
+        lua_pushlstring(L, map, 256); lua_setfield(L, -2, "vmap");
+    }
+    lua_pushlstring(L, (const char *)d.oam, sizeof d.oam); lua_setfield(L, -2, "oam");
+    char hex[192];
+    snprintf(hex, sizeof hex, "rot %d@%d mode %d obsel %02X tm %02X ts %02X sc %02X %02X %02X %02X hofs %d %d %d %d vofs %d %d %d %d", d.oamrot, d.oam_reload >> 2, d.bgmode & 7, d.obsel, d.tm, d.ts,
+             d.sc[0], d.sc[1], d.sc[2], d.sc[3], d.hofs[0], d.hofs[1], d.hofs[2], d.hofs[3], d.vofs[0], d.vofs[1], d.vofs[2], d.vofs[3]);
+    lua_pushstring(L, hex); lua_setfield(L, -2, "regs");
     int n = 0;
     for (int i = 0; i < 12; i++) n += snprintf(hex + n, sizeof hex - (size_t)n, "%02X", d.cpu_code[i]);
     lua_pushstring(L, hex); lua_setfield(L, -2, "cpu_code");

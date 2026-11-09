@@ -147,7 +147,7 @@ void snes_ppu_write(uint16_t o, uint8_t v)
     case 0x2100: S.inidisp = v; break;
     case 0x2101: S.obsel = v; break;
     case 0x2102: S.oamaddr_reload = (uint16_t)((S.oamaddr_reload & 0x200) | (v << 1)); S.oamaddr = S.oamaddr_reload; break;
-    case 0x2103: S.oamaddr_reload = (uint16_t)((S.oamaddr_reload & 0x1FE) | ((v & 1) << 9)); S.oamaddr = S.oamaddr_reload; break;
+    case 0x2103: S.oamaddr_reload = (uint16_t)((S.oamaddr_reload & 0x1FE) | ((v & 1) << 9)); S.oamaddr = S.oamaddr_reload; S.oamrot = (uint8_t)(v >> 7); break;
     case 0x2104:
         if (S.oamaddr >= 0x200) S.oam[0x200 + (S.oamaddr & 0x1F)] = v;
         else if (!(S.oamaddr & 1)) S.oam_latch = v;
@@ -578,6 +578,9 @@ uint8_t *snes_sram(uint32_t *size) { if (size) *size = S.sram_size; return S.sra
 int snes_sram_dirty(void) { return S.sram_dirty; }
 void snes_sram_clean(void) { S.sram_dirty = 0; }
 
+void snes_vram_peek(uint16_t addr, uint8_t *out, int n) { for (int i = 0; i < n; i++) out[i] = S.vram[(uint16_t)(addr + i)]; }
+void snes_cgram_peek(uint16_t addr, uint8_t *out, int n) { for (int i = 0; i < n; i++) out[i] = S.cgram[(addr + i) & 511]; }
+
 void snes_debug(snes_debug_t *d)
 {
     memset(d, 0, sizeof *d);
@@ -596,4 +599,8 @@ void snes_debug(snes_debug_t *d)
     memset(ppu_us, 0, sizeof ppu_us);
     d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;
+    memcpy(d->oam, S.oam, sizeof d->oam);
+    d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;
+    d->bgmode = S.bgmode; d->obsel = S.obsel; d->ts = S.ts;
+    for (int i = 0; i < 4; i++) { d->sc[i] = S.sc[i]; d->hofs[i] = S.hofs[i]; d->vofs[i] = S.vofs[i]; }
 }

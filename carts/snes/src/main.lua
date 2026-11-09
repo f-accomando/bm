@@ -53,7 +53,8 @@ local scr
 local holdmenu, menusel = 0, 1
 local show_fps = false
 local draw_ms = { 0, 0 }
-local acc = { n = 0, f = 0, p = 0, s = 0 }       -- the test build's sums
+local acc = { n = 0, f = 0, p = 0, s = 0 }
+local snap                                         -- the test build's kept lines       -- the test build's sums
 local srm = ""
 
 local function list_roms()
@@ -188,8 +189,8 @@ function _draw()
   end
   scr:draw(dx, dy)
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
-  local d = snes_debug()
-  if d.inidisp & 0x80 ~= 0 and frames > 180 then      -- a game that keeps the screen off: say why
+  local d = snes_debug(0xCFC0)
+  if d.inidisp & 0x80 ~= 0 and frames > 180 and not AUTO then      -- a game that keeps the screen off: say why
     local io = {}
     for i = 1, 6 do io[i] = string.format("%04X", d.io[i]) end
     print(string.format("screen off: PC %06X%s%s  nmi %02X  sound %s %04X", d.pc, d.wai and " WAI" or "",
@@ -205,6 +206,26 @@ function _draw()
       acc.n = acc.n + 1; acc.f = acc.f + f; acc.p = acc.p + p; acc.s = acc.s + sp
     end
     if acc.n > 0 then print(string.format("mean of %d draws, frames 600-%d: frame %d ppu %d spc %d us", acc.n, math.min(d.frames, 3300), acc.f // acc.n, acc.p // acc.n, acc.s // acc.n), 4, 90, 0xFFFF00) end
+  end
+  if AUTO and show_fps then                              -- the test build: the PPU registers, the first sprites, the other sprites, a tile and a palette; the overworld's values are kept
+    local o, first, rest = d.oam, {}, {}
+    for i = 0, 127 do
+      local b = i * 4
+      local y = o:byte(b + 2)
+      if y < 224 then
+        local hi = (o:byte(513 + (i >> 2)) >> ((i & 3) * 2)) & 3
+        local t = string.format("%d:%d,%d t%02X a%02X s%d", i, o:byte(b + 1) + (hi & 1) * 256, y, o:byte(b + 3), o:byte(b + 4), hi >> 1)
+        if #first < 4 then first[#first + 1] = t end
+        if o:byte(b + 3) ~= 0x7E and #rest < 7 then rest[#rest + 1] = t end
+      end
+    end
+    local hx, cg = {}, {}
+    for i = 1, 16 do hx[i] = string.format("%02X", d.vram:byte(i)) end
+    for i = 1, 8 do cg[i] = string.format("%02X%02X", d.cgram:byte(i * 2), d.cgram:byte(i * 2 - 1)) end
+    local lines = { d.regs, "first: " .. table.concat(first, "  "), "other: " .. table.concat(rest, "  "), "t7E " .. table.concat(hx, "", 1, 8) .. " vm " .. d.vmap:sub(193, 256) }
+    if not snap and d.regs:find("hofs 1003") and #first > 0 and d.inidisp == 0x0F then snap = lines end       -- the overworld: keep it
+    local out = snap or lines
+    for i = 1, #out do print(out[i], 4, 282 + i * 16, snap and 0xFFC080 or 0x80FF80) end
   end
   if show_fps then
     rectfill(0, 0, 400, 78, 0)                          -- a black bar under the lines, to read them

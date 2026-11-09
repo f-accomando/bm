@@ -70,6 +70,7 @@ machine was written again in C. The RGB30 is not measured.
 - Sound: the echo and its FIR filter are not done (the echo buffer is not written; games that use echo sound drier), the Gaussian table is a
   cubic interpolation, a voice has no start delay, the envelope timing follows the public tables from memory. The output is 32 kHz
   resampled to 48 kHz by linear interpolation. If the game is slower than real time the sound has gaps (the debug line counts them).
+- Sprite priority rotation ($2103 bit 7) is done: Super Mario World uses it (first sprite 120 on the overworld; without it the Mario head icon was hidden under 12 blank sprites). Found with the test build's OAM and register lines and checked on the Pi One (2026-11-09).
 - Picture: hires modes 5 and 6, mosaic, offset-per-tile (modes 2 and 4), direct colour, interlace, mode 7 EXTBG, the sprite
   limits of 34 tiles a line.
 - Timing: the cost of an instruction is the sum of its accesses plus 6 clocks. Games that count cycles (raster tricks) may break.

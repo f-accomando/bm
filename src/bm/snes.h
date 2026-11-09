@@ -66,8 +66,14 @@ typedef struct {
     uint32_t us_frame, us_ppu, us_spc, us_draw; /* the time of a frame and its parts, averaged, in microseconds */
     uint32_t spc_writes;                /* port writes by the CPU since the reset */
     uint8_t spc_ctl, spc_tgt[3], spc_en;   /* $F1, the timer targets, which timers run */
+    uint8_t oam[544];                   /* the sprite table now */
+    uint8_t bgmode, obsel, ts, sc[4];   /* the PPU registers that place the layers */
+    uint16_t hofs[4], vofs[4];
+    uint8_t oamrot; uint16_t oam_reload;        /* $2103 bit 7 and the OAM reload address */
 } snes_debug_t;
 void snes_debug(snes_debug_t *d);
+void snes_vram_peek(uint16_t addr, uint8_t *out, int n);     /* bytes of the video RAM, for the tests and the debug line */
+void snes_cgram_peek(uint16_t addr, uint8_t *out, int n);
 /* a clock in microseconds, to time the parts of a frame (the host or the kernel gives it; NULL: no timing) */
 void snes_set_clock(uint32_t (*now_us)(void));
 

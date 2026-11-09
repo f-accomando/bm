@@ -37,6 +37,7 @@ typedef struct {
     uint8_t vmain;
     uint16_t vmaddr, vmpre;
     uint16_t oamaddr, oamaddr_reload;
+    uint8_t oamrot;                     /* $2103 bit 7: the first sprite in priority is the one at the OAM address */
     uint8_t oam_latch;
     uint8_t cgadd, cgflip, cglatch;
     uint8_t m7sel;
