@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build.py - bm SNES: joins src/*.lua into one main.lua, makes a blank 16 x 16 sprite sheet (the runtime needs one)
+build.py - bm SNES: joins src/*.lua into one main.lua, makes a blank 256 x 240 sprite sheet (the runtime needs one)
 cache needs, and packs the project (.bme) and the cartridge (.bm) with scripts/mkbm.py.
 
   python3 carts/snes/build/build.py [outdir]      (default build/snes)
@@ -55,11 +55,15 @@ def main():
         lua = lua.replace("local AUTO = false", "local AUTO = true").replace("local show_fps = false", "local show_fps = true")
         if os.environ.get("SNES_ADAPT") == "1":    # the speed controller on in the test build (no fixed range of frames: the cart plays on)
             lua = lua.replace("if not AUTO then adapt() end", "adapt()").replace("(AUTO and 4 or every)", "every").replace("if not (AUTO and frames >= 3200) then", "if true then").replace("local bench = AUTO and frames >= 600 and frames < 3200", "local bench = false").replace("local MINI, last_ups = false, 0", "local MINI, last_ups = true, 0")
+        if os.environ.get("SNES_GPU") in ("2", "3"):     # a test build that starts in a GPU mode (2: 960x540 and x2, 3: 1280x720 and x3)
+            lua = lua.replace('local START_MODE = "sharp"', 'local START_MODE = "gpu%s"' % os.environ["SNES_GPU"])
+            if os.environ.get("SNES_GPUEMPTY") == "1":
+                lua = lua.replace("local GPU_EMPTY = false", "local GPU_EMPTY = true")
         if os.environ.get("SNES_NOHUD") == "1":    # no statistics on the picture: a clean screenshot
             lua = lua.replace("local show_fps = true", "local show_fps = false").replace("  if AUTO then   ", "  if false then   ").replace("local AUTO = true", "local AUTO = true")
     open(os.path.join(OUT, "main.lua"), "w").write(lua)
     sheet = os.path.join(OUT, "sheet.png")
-    png(sheet, 16, 16, lambda x, y: b"\x00\x00\x00\x00")
+    png(sheet, 256, 240, lambda x, y: b"\x00\x00\x00\x00")      # room for the picture of snes_to_sheet (256 x 240)
     cv = os.path.join(HERE, "..", "cover.png")
     if not os.path.exists(cv):
         cover(cv)

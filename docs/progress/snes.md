@@ -18,6 +18,10 @@ machine was written again in C. The RGB30 is not measured.
    cartridge swaps A with B and X with Y, so the bottom button is the SNES B. The keyboard: arrows or WASD, Space or Z
    (B), X (A), C (Y), V (X), Q and E (L and R), Enter (Start), Tab (Select).
    Hold L2 and R2 (keyboard: Q and E) for half a second to open the emulator menu (resume, reset, FPS, scale, back to the list).
+   Scale in the menu: "sharp" (default), "GPU 2x (540p)", "GPU 3x (720p)", "fit 4:3". The GPU modes ask for a bigger screen (`screen(960, 540)` or
+   `screen(1280, 720)`), copy the picture into the sprite sheet (`snes_to_sheet`) and draw it with `sspr` at zoom 2 or 3, after a tiny 3D triangle that opens the GPU's
+   job (the 2D that follows is drawn by the GPU: `gpu3d_2d`). 960x540 shows at whole pixels on a 1080p TV (each pixel of the game is 4 x 4 pixels of the TV), 1280x720 on a 720p
+   TV; a console that cannot give the size keeps the mode it had (the RGB30 has other sizes).
    Scale "sharp" (default) uses a whole-number scale (1x on a 360-line screen, 2x from 448 lines), so every pixel has the same size; the
    picture follows the line count (224, or 239 for PAL and overscan). Scale "fit 4:3" fills the screen height; its pixels are uneven.
    A steps-of-0.5 scale (1.5x) was tried on the Pi One on 2026-11-09: the pixels still look uneven (2 and 1 in turn).
@@ -76,6 +80,8 @@ machine was written again in C. The RGB30 is not measured.
   table lookup, the registers take the slow path. On the Pi One a frame of the test build (update, with the machine and the Lua of the test) went from
   25.25 ms to 22.69 ms (-10%) with the PPU unchanged: the CPU part is about 37% lower. The sound measured 3017 us a frame in the test build (the timer's own cost is about 1400 us of it). The DSP makes the envelope steps from a table (the modulo was a library call on the ARM1176) and the cubic in integers (three 32 x 32 to 64 bit products): 2746 us measured, 22.66 to 22.27 ms a frame (Pi One, 2026-11-09). With `dsp_tick` switched off in a test kernel, `spc` fell to 1368 us and the frame to 20.51 ms: the DSP costs about 1.4 to 1.9 ms a frame (8 voices, 533 samples a frame, about 300 cycles a voice), and the SPC700's own loop is almost nothing, so it is not worth a rewrite. A further gain needs fewer operations in `dsp_tick` (a voice at a time, in 16-bit integers), or a lower rate for voices that are silent.
   The picture is identical byte for byte at frame 3200 after each step (checked on the Pi One).
+  GPU 2x on the Pi One (2026-11-09, test build, picture 1 in 4): 60.6 updates and 30 loop frames a second at 960x540 (512 x 448 of the picture); GPU 3x at
+  1280x720: 49.5 updates and 13 frames a second (the empty 720p frame alone costs 44 ms and the job 8 ms: the 720p output is the cost, not the picture).
   The cart makes a picture every 1 to 4 emulated frames, by the speed it measures (`adapt` in `main.lua`: a window of 90 updates; under 57 a second, a
   picture less often; three windows at 58.8 or more, a picture more often). Pi One, 2026-11-09: 58 updates and 30 pictures a second (`SNES_ADAPT=1` makes
   a test build with a one-line readout: fps, updates a second, the interval).
@@ -97,4 +103,5 @@ machine was written again in C. The RGB30 is not measured.
 - Input: player 2 reads `btn(name, 2)`. The multitap, the mouse and the light gun are not emulated.
 - The viewer of tiles, sprites and colours of the Lua version is gone. Add `snes_vram()` and friends to bring it back.
 - Save states and a speed-up key.
+- The GPU 3x mode runs at about 50 updates a second on the Pi One: a smaller cost for the 720p frame, or drawing less often, would help. The `dsp_tick` skip of silent voices is exact and gives no measurable gain (spc 2746 against 2776 us).
 - Put the cartridge in `GAMES` after a test on both devices. It is in the Market (apps/snes).

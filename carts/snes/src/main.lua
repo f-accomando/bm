@@ -121,12 +121,30 @@ local function open_rom(d)
 end
 
 local dx, dy, dw, dh = 0, 0, SW, SH            -- where and how big the picture is on the screen
-local mode = "sharp"                           -- "sharp": a whole-number scale (1x on a 360-line screen), all pixels the same size; "fit": 4:3 on the whole screen
+-- "sharp": a whole-number scale (1x on a 360-line screen), all pixels the same size; "fit": 4:3 on the whole screen; "gpu2" and "gpu3": the screen is 960x540 (a 1080p TV
+-- shows it at whole pixels) or 1280x720 (a 720p TV), and the GPU draws the picture 2 or 3 times bigger (snes_to_sheet and sspr)
+local mode = "sharp"
+local START_MODE = "sharp"                       -- a test build starts in another mode
 local cur_lines = 224                          -- lines of the picture now: 224, or 239 (PAL and overscan)
 
 -- Where the picture goes for `lines` lines. A new size makes a new render target: the machine fills it whole.
+local gmesh
+local GPU_EMPTY = false                    -- a test: no picture, to time the empty 720p frame
+local pic_new = true                       -- the machine made a picture since the last snes_to_sheet
+local GPU3D = true                         -- call zclear() so that the GPU draws the 2D (needed at 1280x720)
+local gpu_pic, gpu_zoom = false, 3             -- the picture goes by the sprite sheet and sspr (no render target)
+local last_sw, last_sh = 0, 0
 local function layout(lines)
   local w, h
+  last_sw, last_sh = SCREEN_W, SCREEN_H
+  if (mode == "gpu2" or mode == "gpu3") and SCREEN_H >= 448 then
+    gpu_zoom = math.max(1, math.floor(math.min(SCREEN_H / lines, SCREEN_W / 256)))
+    gpu_pic = true
+    dw, dh = 256 * gpu_zoom, lines * gpu_zoom
+    dx, dy = (SCREEN_W - dw) // 2, (SCREEN_H - dh) // 2
+    return
+  end
+  gpu_pic = false
   if mode == "fit" then
     w, h = (SCREEN_H * 4) // 3, SCREEN_H
     if w > SCREEN_W then w = SCREEN_W; h = (SCREEN_W * 3) // 4 end
@@ -141,8 +159,34 @@ local function layout(lines)
   dx, dy = (SCREEN_W - dw) // 2, (SCREEN_H - dh) // 2
 end
 
+local MODE_LABEL = { sharp = "Scale: sharp", gpu2 = "Scale: GPU 2x (540p)", gpu3 = "Scale: GPU 3x (720p)", fit = "Scale: fit 4:3" }
+function mode_label() return MODE_LABEL[mode] end
+
+-- Changes the scale mode. The GPU modes ask for a bigger screen (screen() takes effect at the next frame); a console that cannot give it keeps the mode it had.
+function set_mode(m)
+  local ok = true
+  if m == "gpu2" then ok = screen(960, 540)
+  elseif m == "gpu3" then ok = screen(1280, 720)
+  elseif screen and SCREEN_W ~= 640 and (mode == "gpu2" or mode == "gpu3") then screen(640, 360) end
+  if not ok then return false end
+  mode = m
+  layout(cur_lines)
+  return true
+end
+
+function next_mode()
+  local order = { "sharp", "gpu2", "gpu3", "fit" }
+  local i = 1
+  for k = 1, #order do if order[k] == mode then i = k end end
+  for step = 1, #order do
+    local m = order[(i + step - 1) % #order + 1]
+    if set_mode(m) then return end
+  end
+end
+
 function _init()
   layout(cur_lines)
+  if START_MODE ~= "sharp" then set_mode(START_MODE) end
   pad_layout()
   frameskip(4)
   list_roms()
@@ -167,7 +211,9 @@ function _update()
     if not (AUTO and frames >= 3200) then                                -- the test build stops at frame 3200: the same picture in every run, to compare two kernels
       local tf = time()
       if not AUTO then adapt() end
-      snes_frame(readpad(1), readpad(2), bench or frames % (AUTO and 4 or every) == 0)      -- a picture every `every` frames (the test build: every fourth)
+      local render = bench or frames % (AUTO and 4 or every) == 0
+      snes_frame(readpad(1), readpad(2), render)      -- a picture every `every` frames (the test build: every fourth)
+      if render then pic_new = true end
       if bench then acc.tf = acc.tf + (time() - tf) end
     end
     if bench then
@@ -184,7 +230,7 @@ function _update()
       if menusel == 1 then state = "run"
       elseif menusel == 2 then save_sram(); snes_reset(); state = "run"
       elseif menusel == 3 then show_fps = not show_fps
-      elseif menusel == 4 then mode = (mode == "sharp") and "fit" or "sharp"; layout(cur_lines)
+      elseif menusel == 4 then next_mode()
       else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") then state = "run" end
@@ -209,6 +255,31 @@ function _draw()
     end
     if msg then print(msg, 16, SCREEN_H - 56, 0xFF6060) end
     print("A play   X refresh   in game: hold L1+R1 (keyboard: Q+E) for the menu", 16, SCREEN_H - 24, 0x8090A0)
+    return
+  end
+  if SCREEN_W ~= last_sw or SCREEN_H ~= last_sh then layout(cur_lines) end   -- screen() took effect
+  if gpu_pic then
+    local lines = cur_lines
+    if pic_new then                            -- the sheet is made again only for a new picture (the GPU keeps its texture)
+      lines = snes_to_sheet(0, 0)
+      pic_new = false
+    end
+    if lines ~= cur_lines then cur_lines = lines; layout(lines) end
+    if GPU3D then                              -- a 3D call opens the GPU's job (a tiny triangle, far away): the 2D that follows is drawn by the GPU, in the job
+      gmesh = gmesh or mesh({ -1, -1, 0, 1, -1, 0, 0, 1, 0 }, { 1, 2, 3, -1 }, { 0, 0, 1, 0, 0, 1 })
+      zclear()
+      camera3d(0, 0, -2000)
+      light3d(0, 0, -1, 1)
+      draw3d(gmesh, 0, 0, 0)
+    end
+    rectfill(0, 0, SCREEN_W, SCREEN_H, 0)
+    if not GPU_EMPTY then sspr(0, 0, 256, lines, dx, dy, false, false, gpu_zoom) end
+    if MINI then print(string.format("%.0f fps  %.1f upd/s  pic 1/%d  x%d  gpu %.0f  frame %.0f ms  job %.0f ms  wait %.0f ms", stat(2), last_ups, every, gpu_zoom, stat(9), stat(1), stat(16), stat(18)), 4, 4, 0x00FF00) end
+    if state == "menu" then
+      rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0x101820)
+      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), "Back to the list" }
+      for i = 1, 5 do print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
+    end
     return
   end
   local t0 = time()
@@ -276,7 +347,7 @@ function _draw()
     rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0x101820)
     rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0xFFD050)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode == "sharp" and "Scale: sharp" or "Scale: fit 4:3", "Back to the list" }
+                    mode_label(), "Back to the list" }
     for i = 1, 5 do
       print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end

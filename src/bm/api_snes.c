@@ -93,6 +93,29 @@ int l_snes_draw(lua_State *L)
     return 1;
 }
 
+/* snes_to_sheet([x, y]) -> lines: the picture (256 pixels wide, 224 or 239 lines) into the cartridge's sprite sheet at (x, y), opaque, so that `sspr`
+ * draws it with a zoom (the GPU does it where it draws the 2D: no pixel of the big picture is written by the ARM). x and y are multiples of 8. */
+int l_snes_to_sheet(lua_State *L)
+{
+    const int dx = (int)luaL_optinteger(L, 1, 0), dy = (int)luaL_optinteger(L, 2, 0);
+    int lines;
+    const uint16_t *src = snes_picture(&lines);
+    g16_sheet_t *s = &rt.sheet;
+    if (!s->px || dx < 0 || dy < 0 || (dx & 7) || (dy & 7) || dx + SNES_W > s->w || dy + lines > s->h)
+        return luaL_error(L, "snes_to_sheet: the sprite sheet must hold 256 x %d pixels at (%d, %d), x and y multiples of 8", lines, dx, dy);
+    const int per_row = s->w / G16_CELL;
+    for (int y = 0; y < lines; y++) {
+        memcpy(s->px + (size_t)(dy + y) * (size_t)s->w + (size_t)dx, src + (size_t)y * SNES_W, SNES_W * sizeof(uint16_t));
+        memset(s->alpha + (size_t)(dy + y) * (size_t)s->w + (size_t)dx, 1, SNES_W);
+    }
+    for (int cy = dy / G16_CELL; cy < (dy + lines + G16_CELL - 1) / G16_CELL; cy++)
+        for (int cx = dx / G16_CELL; cx < (dx + SNES_W) / G16_CELL; cx++)
+            s->cell_opaque[cy * per_row + cx] = (dy + lines >= (cy + 1) * G16_CELL) ? 1 : s->cell_opaque[cy * per_row + cx];
+    s->version++;
+    lua_pushinteger(L, lines);
+    return 1;
+}
+
 int l_snes_info(lua_State *L)
 {
     const snes_info_t *i = snes_info();

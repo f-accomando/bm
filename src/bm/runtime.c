@@ -1867,7 +1867,7 @@ static const luaL_Reg api[] = {
     { "ai_ask", l_ai_ask }, { "ai_reply", l_ai_reply }, { "ai_info", l_ai_info },
     { "ai_setup", l_ai_setup }, { "ai_pair", l_ai_pair }, { "ai_pair_finish", l_ai_pair_finish },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
-    { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw },
+    { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw }, { "snes_to_sheet", l_snes_to_sheet },
     { "snes_info", l_snes_info }, { "snes_sram", l_snes_sram }, { "snes_debug", l_snes_debug },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "font_list", l_font_list }, { "font_read", l_font_read }, { "font_write", l_font_write }, { "font_delete", l_font_delete },

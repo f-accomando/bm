@@ -474,6 +474,7 @@ int l_snes_load(lua_State *L);
 int l_snes_reset(lua_State *L);
 int l_snes_frame(lua_State *L);
 int l_snes_draw(lua_State *L);
+int l_snes_to_sheet(lua_State *L);
 int l_snes_info(lua_State *L);
 int l_snes_sram(lua_State *L);
 int l_snes_debug(lua_State *L);

@@ -278,7 +278,9 @@ void dsp_tick(void)
             v->hist[3] = next_sample(v, i);
         }
         int s;
-        if (d[0x3D] & (1 << i)) {
+        if (v->env == 0) {
+            s = 0;                                      /* silent: the sample times the envelope is 0 (the position above still moved) */
+        } else if (d[0x3D] & (1 << i)) {
             s = (int16_t)(noise << 1);
         } else {
             /* a cubic between hist[1] and hist[2]: f = s1 + t/2 * (s2 - s0 + t * (c2 + t * c3)), t = frac / 4096 (Horner's rule, three 32 x 32 to 64 bit
