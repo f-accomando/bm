@@ -119,6 +119,19 @@ typedef struct {
 
 typedef struct {
     char     name[32];
+    uint8_t  type;
+    uint32_t val;
+} c_const_t;
+
+typedef struct {
+    char     name[32];
+    char     enames[16][32];
+    int32_t  evals[16];
+    int      nentries;
+} c_enum_t;
+
+typedef struct {
+    char     name[32];
     uint8_t  nparams;
     uint8_t  nlocals;
     uint8_t  ret_type;
@@ -152,6 +165,12 @@ typedef struct {
 
     c_struct_t  structs[MAX_STRUCTS];
     int         nstructs;
+
+    c_const_t   const_decls[64];
+    int         nconst_decls;
+
+    c_enum_t    enum_decls[32];
+    int         nenum_decls;
 
     c_func_t    funcs[MAX_FUNCS];
     int         nfuncs;
@@ -195,6 +214,20 @@ static void bml_copy_str(char *dst, size_t cap, const char *src)
         dst[i] = src[i];
         i++;
     }
+    dst[i] = '\0';
+}
+
+static void bml_make_method_name(char *dst, size_t cap, const char *st_name, const char *mname)
+{
+    if (!dst || cap == 0)
+        return;
+    size_t i = 0;
+    while (*st_name && i + 1 < cap)
+        dst[i++] = *st_name++;
+    if (i + 1 < cap)
+        dst[i++] = '_';
+    while (*mname && i + 1 < cap)
+        dst[i++] = *mname++;
     dst[i] = '\0';
 }
 
@@ -271,7 +304,8 @@ static int is_keyword(const char *p, size_t n)
     static const char *const kws[] = {
         "function", "local", "for", "do", "while", "end",
         "if", "then", "elseif", "else", "return", "break",
-        "and", "or", "not", "true", "false", "struct"
+        "and", "or", "not", "true", "false", "struct",
+        "const", "enum"
     };
     for (size_t i = 0; i < sizeof kws / sizeof kws[0]; i++) {
         if (strlen(kws[i]) == n && memcmp(p, kws[i], n) == 0)
@@ -462,6 +496,24 @@ static int find_func(const bmlc_ctx_t *C, const char *name)
     return -1;
 }
 
+static int find_const(const bmlc_ctx_t *C, const char *name)
+{
+    for (int i = 0; i < C->nconst_decls; i++) {
+        if (strcmp(C->const_decls[i].name, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
+static int find_enum(const bmlc_ctx_t *C, const char *name)
+{
+    for (int i = 0; i < C->nenum_decls; i++) {
+        if (strcmp(C->enum_decls[i].name, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
 static int find_local(const bmlc_ctx_t *C, const char *name)
 {
     const c_func_t *fn = C->cur_fn;
@@ -517,6 +569,103 @@ static uint8_t parse_type_annotation(bmlc_ctx_t *C, int allow_composite)
     return base;
 }
 
+static void parse_const_decl(bmlc_ctx_t *C)
+{
+    const token_t *kw = expect_tok(C, "const");
+    const token_t *cn = expect_name(C);
+    char cname[32];
+    tok_copy_str(cn, cname, sizeof cname);
+    if (find_const(C, cname) >= 0)
+        c_fail(C, cn->line, "const '%s' is declared twice", cname);
+    if (C->nconst_decls >= 64)
+        c_fail(C, kw->line, "too many const declarations");
+
+    uint8_t ctyp = parse_type_annotation(C, 0);
+    expect_tok(C, "=");
+    int sign = 1;
+    if (accept_tok(C, "-"))
+        sign = -1;
+    const token_t *v = cur_tok(C);
+    uint32_t val = 0;
+    if (ctyp == BMN_I32) {
+        if (v->kind != TK_INT)
+            c_fail(C, v->line, "expected integer literal for i32 const");
+        C->ti++;
+        int32_t iv = (int32_t)(sign * (int64_t)v->ival);
+        memcpy(&val, &iv, 4);
+    } else if (ctyp == BMN_F32) {
+        if (v->kind != TK_FLOAT && v->kind != TK_INT)
+            c_fail(C, v->line, "expected float or integer literal for f32 const");
+        C->ti++;
+        float fv = (v->kind == TK_FLOAT) ? v->fval : (float)v->ival;
+        fv = (float)sign * fv;
+        val = f32_to_bits(fv);
+    } else if (ctyp == BMN_BOOL) {
+        if (sign < 0)
+            c_fail(C, v->line, "unexpected '-' for boolean const");
+        if (v->kind == TK_KW && tok_eq(v, "true")) {
+            val = 1;
+            C->ti++;
+        } else if (v->kind == TK_KW && tok_eq(v, "false")) {
+            val = 0;
+            C->ti++;
+        } else {
+            c_fail(C, v->line, "expected true or false for bool const");
+        }
+    } else {
+        c_fail(C, cn->line, "unsupported type for const");
+    }
+
+    c_const_t *cd = &C->const_decls[C->nconst_decls++];
+    bml_copy_str(cd->name, sizeof cd->name, cname);
+    cd->type = ctyp;
+    cd->val = val;
+}
+
+static void parse_enum_decl(bmlc_ctx_t *C)
+{
+    const token_t *kw = expect_tok(C, "enum");
+    const token_t *en = expect_name(C);
+    char ename[32];
+    tok_copy_str(en, ename, sizeof ename);
+    if (find_enum(C, ename) >= 0)
+        c_fail(C, en->line, "enum '%s' is declared twice", ename);
+    if (C->nenum_decls >= 32)
+        c_fail(C, kw->line, "too many enum declarations");
+
+    c_enum_t *ed = &C->enum_decls[C->nenum_decls++];
+    memset(ed, 0, sizeof *ed);
+    bml_copy_str(ed->name, sizeof ed->name, ename);
+
+    int32_t next_val = 0;
+    while (cur_tok(C)->kind != TK_EOF && !tok_eq(cur_tok(C), "end")) {
+        const token_t *it = expect_name(C);
+        char iname[32];
+        tok_copy_str(it, iname, sizeof iname);
+        for (int i = 0; i < ed->nentries; i++) {
+            if (strcmp(ed->enames[i], iname) == 0)
+                c_fail(C, it->line, "enum entry '%s' declared twice in '%s'", iname, ename);
+        }
+        if (ed->nentries >= 16)
+            c_fail(C, it->line, "too many entries in enum '%s'", ename);
+        if (accept_tok(C, "=")) {
+            int sign = 1;
+            if (accept_tok(C, "-"))
+                sign = -1;
+            const token_t *iv = cur_tok(C);
+            if (iv->kind != TK_INT)
+                c_fail(C, iv->line, "expected integer literal for enum value");
+            C->ti++;
+            next_val = (int32_t)(sign * (int64_t)iv->ival);
+        }
+        int idx = ed->nentries++;
+        bml_copy_str(ed->enames[idx], sizeof ed->enames[idx], iname);
+        ed->evals[idx] = next_val++;
+        accept_tok(C, ",");
+    }
+    expect_tok(C, "end");
+}
+
 static int emit_op(bmlc_ctx_t *C, uint8_t op, int32_t arg, int line)
 {
     if (C->ninsns >= MAX_INSNS)
@@ -551,9 +700,8 @@ static int add_const(bmlc_ctx_t *C, int32_t v, int line)
     return C->nconsts++;
 }
 
-static int add_fconst(bmlc_ctx_t *C, float fv, int line)
+static int add_fconst_bits(bmlc_ctx_t *C, uint32_t bits, int line)
 {
-    uint32_t bits = f32_to_bits(fv);
     for (int i = 0; i < C->nfconsts; i++) {
         if (C->fconsts[i] == bits)
             return i;
@@ -562,6 +710,11 @@ static int add_fconst(bmlc_ctx_t *C, float fv, int line)
         c_fail(C, line, "too many float constants");
     C->fconsts[C->nfconsts] = bits;
     return C->nfconsts++;
+}
+
+static int add_fconst(bmlc_ctx_t *C, float fv, int line)
+{
+    return add_fconst_bits(C, f32_to_bits(fv), line);
 }
 
 /* Forward declarations for expression and statement parsing + typechecking + emission */
@@ -600,8 +753,92 @@ static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
         char name[32];
         tok_copy_str(t, name, sizeof name);
         C->ti++;
+
+        int cid = find_const(C, name);
+        if (cid >= 0) {
+            const c_const_t *cn = &C->const_decls[cid];
+            if (cn->type == BMN_I32) {
+                int k = add_const(C, (int32_t)cn->val, stmt_line);
+                emit_op(C, OP_PUSH_CONST, k, stmt_line);
+                return BMN_I32;
+            } else if (cn->type == BMN_F32) {
+                int fk = add_fconst_bits(C, cn->val, stmt_line);
+                emit_op(C, OP_PUSH_FCONST, fk, stmt_line);
+                return BMN_F32;
+            } else if (cn->type == BMN_BOOL) {
+                emit_op(C, cn->val ? OP_PUSH_TRUE : OP_PUSH_FALSE, 0, stmt_line);
+                return BMN_BOOL;
+            }
+        }
+
+        int eid = find_enum(C, name);
+        if (eid >= 0) {
+            expect_tok(C, ".");
+            const token_t *ent = expect_name(C);
+            char ename[32];
+            tok_copy_str(ent, ename, sizeof ename);
+            const c_enum_t *en = &C->enum_decls[eid];
+            int val = 0;
+            int found = 0;
+            for (int i = 0; i < en->nentries; i++) {
+                if (strcmp(en->enames[i], ename) == 0) {
+                    val = en->evals[i];
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found)
+                c_fail(C, stmt_line, "enum '%s' has no entry '%s'", en->name, ename);
+            int k = add_const(C, (int32_t)val, stmt_line);
+            emit_op(C, OP_PUSH_CONST, k, stmt_line);
+            return BMN_I32;
+        }
+
         if (accept_tok(C, "(")) {
             return compile_call(C, name, stmt_line, 1);
+        }
+        if (accept_tok(C, ":")) {
+            const token_t *m_tok = expect_name(C);
+            char mname[32];
+            tok_copy_str(m_tok, mname, sizeof mname);
+            int slot = find_local(C, name);
+            if (slot < 0)
+                c_fail(C, stmt_line, "'%s' is not declared", name);
+            uint8_t bt = C->cur_fn->ltype[slot];
+            if (!(bt & BMN_STRUCT_BASE))
+                c_fail(C, stmt_line, "'%s' is not a struct", name);
+            const c_struct_t *st = &C->structs[bt & 0x7Fu];
+            char target_fn[64];
+            bml_make_method_name(target_fn, sizeof target_fn, st->name, mname);
+            emit_op(C, OP_LOAD, slot, stmt_line);
+            expect_tok(C, "(");
+            uint8_t arg_types[MAX_PARAMS];
+            arg_types[0] = bt;
+            int argc = 1;
+            if (!accept_tok(C, ")")) {
+                while (1) {
+                    if (argc >= MAX_PARAMS)
+                        c_fail(C, stmt_line, "too many call arguments");
+                    arg_types[argc++] = compile_expr(C, stmt_line);
+                    if (!accept_tok(C, ","))
+                        break;
+                }
+                expect_tok(C, ")");
+            }
+            int fn_idx = find_func(C, target_fn);
+            if (fn_idx < 0)
+                c_fail(C, stmt_line, "'%s' is not a defined function", target_fn);
+            const c_func_t *target = &C->funcs[fn_idx];
+            if (target->ret_type == BMN_NONE)
+                c_fail(C, stmt_line, "'%s' gives no value", target_fn);
+            if (argc != target->nparams)
+                c_fail(C, stmt_line, "'%s' takes %d arguments", target_fn, target->nparams);
+            for (int i = 0; i < argc; i++) {
+                if (arg_types[i] != target->ptype[i])
+                    c_fail(C, stmt_line, "argument %d of '%s' has wrong type", i + 1, target_fn);
+            }
+            emit_op(C, OP_CALL, (fn_idx << 8) | argc, stmt_line);
+            return target->ret_type;
         }
         if (accept_tok(C, "[")) {
             int slot = find_local(C, name);
@@ -918,6 +1155,10 @@ static int compile_stmt(bmlc_ctx_t *C)
     int line = t->line;
 
     if (t->kind == TK_KW) {
+        if (tok_eq(t, "const")) {
+            parse_const_decl(C);
+            return 0;
+        }
         if (tok_eq(t, "local")) {
             C->ti++;
             const token_t *vtok = expect_name(C);
@@ -1119,6 +1360,49 @@ static int compile_stmt(bmlc_ctx_t *C)
                 emit_op(C, OP_POP, 0, line);
             return 0;
         }
+        if (accept_tok(C, ":")) {
+            const token_t *m_tok = expect_name(C);
+            char mname[32];
+            tok_copy_str(m_tok, mname, sizeof mname);
+            int slot = find_local(C, name);
+            if (slot < 0)
+                c_fail(C, line, "'%s' is not declared", name);
+            uint8_t bt = C->cur_fn->ltype[slot];
+            if (!(bt & BMN_STRUCT_BASE))
+                c_fail(C, line, "'%s' is not a struct", name);
+            const c_struct_t *st = &C->structs[bt & 0x7Fu];
+            char target_fn[64];
+            bml_make_method_name(target_fn, sizeof target_fn, st->name, mname);
+            emit_op(C, OP_LOAD, slot, line);
+            expect_tok(C, "(");
+            uint8_t arg_types[MAX_PARAMS];
+            arg_types[0] = bt;
+            int argc = 1;
+            if (!accept_tok(C, ")")) {
+                while (1) {
+                    if (argc >= MAX_PARAMS)
+                        c_fail(C, line, "too many call arguments");
+                    arg_types[argc++] = compile_expr(C, line);
+                    if (!accept_tok(C, ","))
+                        break;
+                }
+                expect_tok(C, ")");
+            }
+            int fn_idx = find_func(C, target_fn);
+            if (fn_idx < 0)
+                c_fail(C, line, "'%s' is not a defined function", target_fn);
+            const c_func_t *target = &C->funcs[fn_idx];
+            if (argc != target->nparams)
+                c_fail(C, line, "'%s' takes %d arguments", target_fn, target->nparams);
+            for (int i = 0; i < argc; i++) {
+                if (arg_types[i] != target->ptype[i])
+                    c_fail(C, line, "argument %d of '%s' has wrong type", i + 1, target_fn);
+            }
+            emit_op(C, OP_CALL, (fn_idx << 8) | argc, line);
+            if (target->ret_type != BMN_NONE)
+                emit_op(C, OP_POP, 0, line);
+            return 0;
+        }
         if (accept_tok(C, "[")) {
             int slot = find_local(C, name);
             if (slot < 0)
@@ -1257,8 +1541,24 @@ static void parse_func_decl(bmlc_ctx_t *C)
 {
     const token_t *kw = expect_tok(C, "function");
     const token_t *fn_tok = expect_name(C);
-    char fname[32];
+    char fname[64];
     tok_copy_str(fn_tok, fname, sizeof fname);
+
+    int is_method = 0;
+    int st_idx = -1;
+    if (accept_tok(C, ":")) {
+        const token_t *mn_tok = expect_name(C);
+        char mname[32];
+        tok_copy_str(mn_tok, mname, sizeof mname);
+        st_idx = find_struct(C, fname);
+        if (st_idx < 0)
+            c_fail(C, fn_tok->line, "struct '%s' is not defined", fname);
+        char full_name[64];
+        bml_make_method_name(full_name, sizeof full_name, fname, mname);
+        bml_copy_str(fname, sizeof fname, full_name);
+        is_method = 1;
+    }
+
     if (find_func(C, fname) >= 0)
         c_fail(C, fn_tok->line, "function '%s' is defined twice", fname);
     if (C->nfuncs >= MAX_FUNCS)
@@ -1270,6 +1570,11 @@ static void parse_func_decl(bmlc_ctx_t *C)
     fn->code_start = (uint16_t)C->ninsns;
     C->cur_fn = fn;
     memset(C->scope_active, 0, sizeof C->scope_active);
+
+    if (is_method) {
+        fn->ptype[fn->nparams++] = (uint8_t)(BMN_STRUCT_BASE | (uint8_t)st_idx);
+        alloc_local(C, "self", (uint8_t)(BMN_STRUCT_BASE | (uint8_t)st_idx), fn_tok->line);
+    }
 
     expect_tok(C, "(");
     if (!accept_tok(C, ")")) {
@@ -1860,10 +2165,14 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
     while (cur_tok(C)->kind != TK_EOF) {
         if (cur_tok(C)->kind == TK_KW && tok_eq(cur_tok(C), "struct"))
             parse_struct_decl(C);
+        else if (cur_tok(C)->kind == TK_KW && tok_eq(cur_tok(C), "const"))
+            parse_const_decl(C);
+        else if (cur_tok(C)->kind == TK_KW && tok_eq(cur_tok(C), "enum"))
+            parse_enum_decl(C);
         else if (cur_tok(C)->kind == TK_KW && tok_eq(cur_tok(C), "function"))
             parse_func_decl(C);
         else
-            c_fail(C, cur_tok(C)->line, "expected 'function' or 'struct'");
+            c_fail(C, cur_tok(C)->line, "expected 'function', 'struct', 'const', or 'enum'");
     }
     if (C->nfuncs == 0)
         c_fail(C, 1, "program has no functions");

@@ -91,3 +91,33 @@ function step_vec2f(v: Vec2f, dx: f32, dy: f32): i32
   v.y = v.y + dy
   return floor(sqrt(v.x * v.x + v.y * v.y) * 8.0)
 end
+
+const SCALE_EXTRA: f32 = 0.5
+const ENEMY_MAX: i32 = 42
+const FLAG_DEBUG: bool = true
+
+enum Direction
+  NORTH = 1,
+  EAST = 2,
+  SOUTH = 5,
+  WEST = 6
+end
+
+function Vec2f:len_sq(): f32
+  return self.x * self.x + self.y * self.y
+end
+
+function Vec2f:scale(factor: f32)
+  self.x = self.x * factor
+  self.y = self.y * factor
+end
+
+function test_struct_methods(v: Vec2f, factor: f32): i32
+  const LOCAL_EXTRA: f32 = 0.5
+  v:scale(factor + LOCAL_EXTRA)
+  local d = Direction.SOUTH
+  if FLAG_DEBUG and d == 5 then
+    return floor(v:len_sq())
+  end
+  return -1
+end

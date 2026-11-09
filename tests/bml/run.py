@@ -981,6 +981,11 @@ vm_s6_out.append(str(tm_vm.call("step_vec2f", [vec_f, 1.5, 6.0])))
 vm_s6_out.append(str(int(round(vec_f["x"] * 100))))
 vm_s6_out.append(str(int(round(vec_f["y"] * 100))))
 
+vec_m = {"x": 2.0, "y": 3.0}
+vm_s6_out.append(str(tm_vm.call("test_struct_methods", [vec_m, 1.5])))
+vm_s6_out.append(str(int(round(vec_m["x"] * 100))))
+vm_s6_out.append(str(int(round(vec_m["y"] * 100))))
+
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
 with open(s6_lua_ref_path, "w", encoding="utf-8") as f:
@@ -1022,6 +1027,11 @@ local vec_f = {x = 1.5, y = -2.0}
 print(step_vec2f(vec_f, 1.5, 6.0))
 print(math.floor(vec_f.x * 100 + 0.5))
 print(math.floor(vec_f.y * 100 + 0.5))
+
+local vec_m = {x = 2.0, y = 3.0}
+print(test_struct_methods(vec_m, 1.5))
+print(math.floor(vec_m.x * 100 + 0.5))
+print(math.floor(vec_m.y * 100 + 0.5))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1091,6 +1101,11 @@ local vec_f = {{x = 1.5, y = -2.0}}
 print(native_run(mn, "step_vec2f", vec_f, 1.5, 6.0))
 print(math.floor(vec_f.x * 100 + 0.5))
 print(math.floor(vec_f.y * 100 + 0.5))
+
+local vec_m = {{x = 2.0, y = 3.0}}
+print(native_run(mn, "test_struct_methods", vec_m, 1.5))
+print(math.floor(vec_m.x * 100 + 0.5))
+print(math.floor(vec_m.y * 100 + 0.5))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1242,6 +1257,18 @@ void c_main(void)
         put_i32(r);
         for (int i = 0; i < 2; i++) {{
             float v = u2f(vf[i]) * 100.0f;
+            put_i32((int32_t)(v >= 0.0f ? (v + 0.5f) : (v - 0.5f)));
+        }}
+    }}
+
+    /* 8. test_struct_methods */
+    {{
+        uint32_t vm[2] = {{f2u(2.0f), f2u(3.0f)}};
+        int32_t a[2] = {{(int32_t)(uintptr_t)vm, (int32_t)f2u(1.5f)}};
+        bmnative_call(m, bmnative_find(m, "test_struct_methods"), a, 2, &r);
+        put_i32(r);
+        for (int i = 0; i < 2; i++) {{
+            float v = u2f(vm[i]) * 100.0f;
             put_i32((int32_t)(v >= 0.0f ? (v + 0.5f) : (v - 0.5f)));
         }}
     }}
@@ -2026,6 +2053,11 @@ local vec = {{x = 1.5, y = -2.0}}
 print(native_run(m_tm, "step_vec2f", vec, 1.5, 6.0))
 print(math.floor(vec.x * 100 + 0.5))
 print(math.floor(vec.y * 100 + 0.5))
+
+local vec_m = {{x = 2.0, y = 3.0}}
+print(native_run(m_tm, "test_struct_methods", vec_m, 1.5))
+print(math.floor(vec_m.x * 100 + 0.5))
+print(math.floor(vec_m.y * 100 + 0.5))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))

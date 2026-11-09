@@ -46,6 +46,9 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 | `f32` | Float IEEE-754 a singola precisione | `0.0`, `1.5`, `-0.25` | Slot GP a 32 bit + coprocessore 10 VFPv2 `s0`..`s1` |
 | `i32[]`, `bool[]`, `f32[]` | Array tipati con indice base 1 | `a[i]`, `a[i] = v` | Puntatore base in registro a 32 bit (`ldr`/`str` a `base + (i - 1) * 4`) |
 | `struct Name ... end` | Record a layout fisso | `s.field`, `s.field = v` | Puntatore a parole contigue di 32 bit (`offset = field_idx * 4`) |
+| `const NAME: tipo = val` | Costante a costo zero valutata a compile-time | `const MAX: i32 = 16` | Sostituita con valore immediato nel codice macchina (zero registri sprecati) |
+| `enum Name ... end` | Enumerazione di interi sequenziali | `enum State IDLE = 0, RUN, JUMP end` | Valutata a compile-time come `i32` (`State.RUN`) |
+| `function Struct:metodo(...)` | Metodo associato a una struct | `function Vec2f:len_sq(): f32 ... end` | Primo parametro implicito `self`; dispatch statico diretto (`v:len_sq()`) |
 
 - Le condizioni in `if`, `elseif`, `while`, `and`, `or` e `not` devono avere tipo `bool`. Un `i32` non è mai usato implicitamente come booleano.
 - La divisione intera usa `//` e il modulo usa `%` (arrotondati verso $-\infty$). La divisione float usa `/` su operandi `f32`.

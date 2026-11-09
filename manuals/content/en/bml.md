@@ -46,6 +46,9 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 | `f32` | IEEE-754 single-precision float | `0.0`, `1.5`, `-0.25` | 32-bit GP slot + VFPv2 coprocessor 10 `s0`..`s1` |
 | `i32[]`, `bool[]`, `f32[]` | 1-based typed arrays | `a[i]`, `a[i] = v` | Base pointer in 32-bit register (`ldr`/`str` at `base + (i - 1) * 4`) |
 | `struct Name ... end` | Fixed-layout record | `s.field`, `s.field = v` | Pointer to contiguous 32-bit field words (`offset = field_idx * 4`) |
+| `const NAME: type = val` | Zero-cost compile-time constant | `const MAX: i32 = 16` | Inlined as literal constant in machine code (zero registers or RAM wasted) |
+| `enum Name ... end` | Sequential integer enumeration | `enum State IDLE = 0, RUN, JUMP end` | Evaluated at compile time as `i32` (`State.RUN`) |
+| `function Struct:method(...)` | Method attached to a struct | `function Vec2f:len_sq(): f32 ... end` | Implicit `self` as first parameter; direct static dispatch (`v:len_sq()`) |
 
 - Conditions in `if`, `elseif`, `while`, `and`, `or`, and `not` must have type `bool`. An `i32` is never implicitly truthy.
 - Integer division uses `//` and modulo uses `%` (floor toward $-\infty$). Float division uses `/` on `f32` operands.

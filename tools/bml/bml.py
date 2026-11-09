@@ -46,6 +46,7 @@ KEYWORDS = {
     "function", "local", "for", "do", "while", "end",
     "if", "then", "elseif", "else", "return", "break",
     "and", "or", "not", "true", "false", "struct",
+    "const", "enum",
 }
 
 TYPES = ("i32", "bool", "f32")
@@ -274,6 +275,11 @@ class BreakStmt(Stmt):
 
 
 @dataclass
+class NoOpStmt(Stmt):
+    pass
+
+
+@dataclass
 class CallStmt(Stmt):
     call: CallExpr
 
@@ -300,6 +306,21 @@ class StructDecl:
 
 
 @dataclass
+class ConstDecl:
+    name: str
+    typ: str
+    val: Union[int, float, bool]
+    line: int
+
+
+@dataclass
+class EnumDecl:
+    name: str
+    entries: Dict[str, int]
+    line: int
+
+
+@dataclass
 class FuncDecl:
     name: str
     params: List[Param]
@@ -311,8 +332,10 @@ class FuncDecl:
 @dataclass
 class Program:
     funcs: List[FuncDecl]
-    cuts: List[Tuple[int, int]]
+    cuts: List[Any]
     structs: List[StructDecl] = field(default_factory=list)
+    consts: List[ConstDecl] = field(default_factory=list)
+    enums: List[EnumDecl] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -324,8 +347,11 @@ class Parser:
         self.src = src
         self.toks = tokenize(src)
         self.i = 0
-        self.cuts: List[Tuple[int, int]] = []
+        self.cuts: List[Any] = []
         self.struct_names: set = set()
+        self.cur_struct_vars: Dict[str, str] = {}
+        self.const_table: Dict[str, Tuple[str, Union[int, float, bool]]] = {}
+        self.enum_table: Dict[str, Dict[str, int]] = {}
 
     def cur(self) -> Token:
         return self.toks[self.i]
@@ -380,12 +406,89 @@ class Parser:
     def parse(self) -> Program:
         funcs: List[FuncDecl] = []
         structs: List[StructDecl] = []
+        consts: List[ConstDecl] = []
+        enums: List[EnumDecl] = []
         while self.cur().kind != "eof":
             if self.cur().kind == "kw" and self.cur().text == "struct":
                 structs.append(self.parse_struct())
+            elif self.cur().kind == "kw" and self.cur().text == "const":
+                consts.append(self.parse_const())
+            elif self.cur().kind == "kw" and self.cur().text == "enum":
+                enums.append(self.parse_enum())
             else:
                 funcs.append(self.parse_function())
-        return Program(funcs=funcs, cuts=self.cuts, structs=structs)
+        return Program(funcs=funcs, cuts=self.cuts, structs=structs, consts=consts, enums=enums)
+
+    def parse_const(self) -> ConstDecl:
+        kw = self.expect("const")
+        cname = self.expect_name()
+        if cname.text in self.const_table:
+            self.fail(f"const '{cname.text}' is declared twice", cname)
+        type_tok = self.cur()
+        cuts_before = len(self.cuts)
+        ctyp = self.parse_type_annotation(allow_composite=False)
+        del self.cuts[cuts_before:]
+        self.expect("=")
+        sign = 1
+        val_start = self.cur().start
+        if self.accept("-"):
+            sign = -1
+        val_tok = self.cur()
+        if ctyp == "i32":
+            if val_tok.kind != "int":
+                self.fail("expected integer literal for i32 const", val_tok)
+            self.i += 1
+            val: Union[int, float, bool] = sign * int(val_tok.text)
+        elif ctyp == "f32":
+            if val_tok.kind not in ("float", "int"):
+                self.fail("expected float or integer literal for f32 const", val_tok)
+            self.i += 1
+            val = f32_round(float(sign * float(val_tok.text)))
+        elif ctyp == "bool":
+            if sign < 0:
+                self.fail("unexpected '-' for boolean const", val_tok)
+            if self.accept("true"):
+                val = True
+            elif self.accept("false"):
+                val = False
+            else:
+                self.fail("expected true or false for bool const", val_tok)
+        else:
+            self.fail(f"unsupported type '{ctyp}' for const", type_tok)
+
+        self.const_table[cname.text] = (ctyp, val)
+        self.cuts.append((kw.start, val_start, f"local {cname.text} = "))
+        return ConstDecl(cname.text, ctyp, val, kw.line)
+
+    def parse_enum(self) -> EnumDecl:
+        kw = self.expect("enum")
+        ename = self.expect_name()
+        if ename.text in self.enum_table:
+            self.fail(f"enum '{ename.text}' is declared twice", ename)
+        entries: Dict[str, int] = {}
+        next_val = 0
+        while self.cur().kind != "eof" and self.cur().text != "end":
+            item = self.expect_name()
+            if item.text in entries:
+                self.fail(f"enum entry '{item.text}' declared twice in '{ename.text}'", item)
+            if self.accept("="):
+                sign = 1
+                if self.accept("-"):
+                    sign = -1
+                iv = self.cur()
+                if iv.kind != "int":
+                    self.fail("expected integer literal for enum value", iv)
+                self.i += 1
+                next_val = sign * int(iv.text)
+            entries[item.text] = next_val
+            next_val += 1
+            self.accept(",")
+        end_kw = self.expect("end")
+        self.enum_table[ename.text] = entries
+        lua_fields = ", ".join(f"{k} = {v}" for k, v in entries.items())
+        lua_code = f"local {ename.text} = {{ {lua_fields} }}"
+        self.cuts.append((kw.start, end_kw.end, lua_code))
+        return EnumDecl(ename.text, entries, kw.line)
 
     def parse_struct(self) -> StructDecl:
         kw = self.expect("struct")
@@ -414,8 +517,23 @@ class Parser:
     def parse_function(self) -> FuncDecl:
         kw = self.expect("function")
         fname = self.expect_name()
-        self.expect("(")
+        is_method = False
+        st_name = ""
+        mname_tok = None
+        if self.accept(":"):
+            mname_tok = self.expect_name()
+            st_name = fname.text
+            if st_name not in self.struct_names:
+                self.fail(f"struct '{st_name}' is not defined", fname)
+            fn_full_name = f"{st_name}_{mname_tok.text}"
+            is_method = True
+        else:
+            fn_full_name = fname.text
+
+        lparen = self.expect("(")
         params: List[Param] = []
+        if is_method:
+            params.append(Param("self", st_name, kw.line))
         if self.cur().text != ")":
             while True:
                 pname = self.expect_name()
@@ -423,13 +541,24 @@ class Parser:
                 params.append(Param(pname.text, ptype, pname.line))
                 if not self.accept(","):
                     break
-        self.expect(")")
+        rparen = self.expect(")")
         ret_type: Optional[str] = None
         if self.cur().text == ":":
             ret_type = self.parse_type_annotation(allow_composite=False)
+
+        if is_method:
+            if len(params) > 1:
+                self.cuts.append((kw.start, lparen.end, f"function {fn_full_name}(self, "))
+            else:
+                self.cuts.append((kw.start, rparen.end, f"function {fn_full_name}(self)"))
+
+        saved_struct_vars = self.cur_struct_vars
+        self.cur_struct_vars = {p.name: p.typ for p in params if p.typ in self.struct_names}
+
         body = self.parse_block({"end"})
         self.expect("end")
-        return FuncDecl(fname.text, params, ret_type, body, kw.line)
+        self.cur_struct_vars = saved_struct_vars
+        return FuncDecl(fn_full_name, params, ret_type, body, kw.line)
 
     def parse_block(self, stops: set) -> List[Stmt]:
         stmts: List[Stmt] = []
@@ -440,6 +569,9 @@ class Parser:
     def parse_stmt(self) -> Stmt:
         t = self.cur()
         if t.kind == "kw":
+            if t.text == "const":
+                self.parse_const()
+                return NoOpStmt(t.line)
             if t.text == "local":
                 self.i += 1
                 v = self.expect_name()
@@ -501,6 +633,27 @@ class Parser:
             if self.accept("("):
                 args = self.parse_arg_list()
                 return CallStmt(ident.line, CallExpr(ident.line, ident.text, args))
+            if self.accept(":"):
+                mname = self.expect_name()
+                if ident.text not in self.cur_struct_vars:
+                    self.fail(f"'{ident.text}' is not a struct", ident)
+                st_name = self.cur_struct_vars[ident.text]
+                callee = f"{st_name}_{mname.text}"
+                lparen = self.expect("(")
+                args: List[Expr] = [VarExpr(ident.line, ident.text)]
+                has_user_args = False
+                if self.cur().text != ")":
+                    has_user_args = True
+                    while True:
+                        args.append(self.parse_expr())
+                        if not self.accept(","):
+                            break
+                rparen = self.expect(")")
+                if has_user_args:
+                    self.cuts.append((ident.start, lparen.end, f"{callee}({ident.text}, "))
+                else:
+                    self.cuts.append((ident.start, rparen.end, f"{callee}({ident.text})"))
+                return CallStmt(ident.line, CallExpr(ident.line, callee, args))
             if self.accept("["):
                 idx_e = self.parse_expr()
                 self.expect("]")
@@ -614,9 +767,44 @@ class Parser:
         if t.kind == "name" or (t.kind == "kw" and t.text in BUILTINS):
             ident = self.cur()
             self.i += 1
+            if ident.text in self.const_table:
+                ctyp, cval = self.const_table[ident.text]
+                if ctyp == "i32":
+                    return IntLit(ident.line, int(cval))
+                elif ctyp == "f32":
+                    return FloatLit(ident.line, float(cval))
+                elif ctyp == "bool":
+                    return BoolLit(ident.line, bool(cval))
+            if ident.text in self.enum_table:
+                self.expect(".")
+                ent = self.expect_name()
+                if ent.text not in self.enum_table[ident.text]:
+                    self.fail(f"enum '{ident.text}' has no entry '{ent.text}'", ent)
+                return IntLit(ident.line, self.enum_table[ident.text][ent.text])
             if self.accept("("):
                 args = self.parse_arg_list()
                 return CallExpr(ident.line, ident.text, args)
+            if self.accept(":"):
+                mname = self.expect_name()
+                if ident.text not in self.cur_struct_vars:
+                    self.fail(f"'{ident.text}' is not a struct", ident)
+                st_name = self.cur_struct_vars[ident.text]
+                callee = f"{st_name}_{mname.text}"
+                lparen = self.expect("(")
+                args = [VarExpr(ident.line, ident.text)]
+                has_user_args = False
+                if self.cur().text != ")":
+                    has_user_args = True
+                    while True:
+                        args.append(self.parse_expr())
+                        if not self.accept(","):
+                            break
+                rparen = self.expect(")")
+                if has_user_args:
+                    self.cuts.append((ident.start, lparen.end, f"{callee}({ident.text}, "))
+                else:
+                    self.cuts.append((ident.start, rparen.end, f"{callee}({ident.text})"))
+                return CallExpr(ident.line, callee, args)
             if self.accept("["):
                 idx_e = self.parse_expr()
                 self.expect("]")
@@ -654,6 +842,9 @@ class TypeChecker:
         for fn in prog.funcs:
             if fn.name in self.funcs or fn.name in BUILTINS:
                 self.fail(fn.line, f"function '{fn.name}' is defined twice")
+            param_types = [p.typ for p in fn.params]
+            self.funcs[fn.name] = (param_types, fn.ret_type)
+        for fn in prog.funcs:
             self.check_function(fn)
         return prog
 
@@ -689,6 +880,8 @@ class TypeChecker:
         self.vars = saved
 
     def check_stmt(self, s: Stmt) -> None:
+        if isinstance(s, NoOpStmt):
+            return
         if isinstance(s, LocalStmt):
             et = self.check_expr(s.expr, s.line)
             if et not in TYPES:
@@ -963,9 +1156,15 @@ def to_lua(src: str) -> str:
     """Checks the BML source and strips type annotations and struct blocks to yield plain Lua."""
     prog = parse_and_check(src)
     lua = src
-    for start, end in sorted(prog.cuts, reverse=True):
-        nl_count = lua[start:end].count("\n")
-        lua = lua[:start] + ("\n" * nl_count) + lua[end:]
+    sorted_cuts = sorted(prog.cuts, key=lambda c: c[0], reverse=True)
+    for cut in sorted_cuts:
+        start, end = cut[0], cut[1]
+        rep = cut[2] if len(cut) > 2 else None
+        if rep is None:
+            nl_count = lua[start:end].count("\n")
+            lua = lua[:start] + ("\n" * nl_count) + lua[end:]
+        else:
+            lua = lua[:start] + rep + lua[end:]
     return lua
 
 
@@ -1157,6 +1356,8 @@ class BytecodeCompiler:
         self.slots = saved
 
     def compile_stmt(self, s: Stmt) -> None:
+        if isinstance(s, NoOpStmt):
+            return
         if isinstance(s, LocalStmt):
             self.compile_expr(s.expr)
             slot = self.alloc_slot(s.name)
