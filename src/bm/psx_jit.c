@@ -13,7 +13,7 @@
  * the next instruction (it is held in r6 or r7 and stored after the next instruction is translated). Two deviations:
  * a value loaded in a delay slot or by LWL/LWR/MFC0/MFC2/CFC2 lands at once.
  *
- * ARM registers: r11 CPU state, r10 RAM, r9 page flags, r8 the return address, r5 branch condition or target,
+ * ARM registers: r11 CPU state, r10 RAM, r9 page flags, r8 the return address, r4 the scratchpad, r5 branch condition or target,
  * r6 and r7 a load in flight, r0-r3 and r12 scratch.
  *
  * Code pages: RAM is split in 256 byte pages. A page with compiled code has a flag; a store into it goes the slow way
@@ -69,6 +69,7 @@ __asm__(
     "  mov r11, r1\n"
     "  ldr r10, =psx_ram\n"
     "  ldr r9, =psx_jit_pageflags\n"
+    "  ldr r4, =psx_scratch\n"
     "  blx r0\n"
     "  pop {r3-r11, pc}\n"
     "  .ltorg\n");
@@ -224,29 +225,44 @@ static int is_terminator(uint32_t i)                           /* runs by the in
     return 0;
 }
 
-static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd)
+static void emit_load_op(int kind, int dst, int base, int idx)     /* ldr dst, [base, idx] for lw, lh, lhu, lb, lbu */
+{
+    const uint32_t o = kind == 0 ? 0x07900000u : kind == 4 ? 0x07D00000u : kind == 3 ? 0x019000D0u : kind == 2 ? 0x019000B0u : 0x019000F0u;
+    emit(14u << 28 | o | (uint32_t)base << 16 | (uint32_t)dst << 12 | (uint32_t)idx);
+}
+
+static void emit_store_op(int kind, int src, int base, int idx)    /* str src, [base, idx] for sw, sh, sb */
+{
+    const uint32_t o = kind == 0 ? 0x07800000u : kind == 1 ? 0x018000B0u : 0x07C00000u;
+    emit(14u << 28 | o | (uint32_t)base << 16 | (uint32_t)src << 12 | (uint32_t)idx);
+}
+
+/* a load: RAM and the scratchpad inline, the rest by a helper. gte: LWC2 (the value goes to the GTE register rt) */
+static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
 {
     const uint32_t op = i >> 26;
     const int rs = (int)((i >> 21) & 31), rt = (int)((i >> 16) & 31);
     const int32_t imm = (int16_t)(i & 0xFFFF);
     static const uint8_t kind_of[6] = { 3, 1, 0, 0, 4, 2 };    /* 0x20 lb, 0x21 lh, 0x22 -, 0x23 lw, 0x24 lbu, 0x25 lhu */
-    const int kind = kind_of[op - 0x20];
+    const int kind = gte ? 0 : kind_of[op - 0x20];
     const int size = (kind == 0) ? 4 : (kind == 1 || kind == 2) ? 2 : 1;
-    const int dst = g->next_arm;
-    uint32_t *slow1 = NULL, *slow2, *done, *exc;
+    const int dst = gte ? 2 : g->next_arm;
+    uint32_t *slow1 = NULL, *hi, *slow2, *done1, *done2, *exc;
     ld_mips(0, rs);
     add_const(0, 0, imm);
     if (size > 1) { dp_imm(AL, OP_TST, 0, 0, size - 1, 1); branch_fwd(NE, &slow1); }
     dp_imm(AL, OP_BIC, 1, 0, enc_imm(0xE0000000u), 0);
     dp_imm(AL, OP_CMP, 0, 1, enc_imm(0x800000u), 1);
-    branch_fwd(HS, &slow2);
+    branch_fwd(HS, &hi);
     dp_imm(AL, OP_BIC, 1, 1, enc_imm(0x600000u), 0);
-    if (kind == 0) emit(14u << 28 | 0x07900000u | 10u << 16 | (uint32_t)dst << 12 | 1u);                    /* ldr dst, [r10, r1] */
-    else if (kind == 4) emit(14u << 28 | 0x07D00000u | 10u << 16 | (uint32_t)dst << 12 | 1u);               /* ldrb */
-    else if (kind == 3) emit(14u << 28 | 0x019000D0u | 10u << 16 | (uint32_t)dst << 12 | 1u);               /* ldrsb */
-    else if (kind == 2) emit(14u << 28 | 0x019000B0u | 10u << 16 | (uint32_t)dst << 12 | 1u);               /* ldrh */
-    else emit(14u << 28 | 0x019000F0u | 10u << 16 | (uint32_t)dst << 12 | 1u);                              /* ldrsh */
-    branch_fwd(AL, &done);
+    emit_load_op(kind, dst, 10, 1);
+    branch_fwd(AL, &done1);
+    patch_here(hi);                                             /* the scratchpad: 0x1F800000 to 0x1F8003FF */
+    dp_imm(AL, OP_SUB, 3, 1, enc_imm(0x1F800000u), 0);
+    dp_imm(AL, OP_CMP, 0, 3, enc_imm(0x400u), 1);
+    branch_fwd(HS, &slow2);
+    emit_load_op(kind, dst, 4, 3);
+    branch_fwd(AL, &done2);
     if (slow1) patch_here(slow1);
     patch_here(slow2);
     /* the slow way: r0 is the address */
@@ -259,41 +275,55 @@ static int gen_load(gen_t *g, uint32_t i, uint32_t pc, int bd)
     branch_fwd(EQ, &exc);
     exit_cycles(g);
     patch_here(exc);
-    patch_here(done);
+    patch_here(done1);
+    patch_here(done2);
+    if (gte) {                                                  /* LWC2: the value (r2) goes to the GTE register */
+        mov_reg(1, 2);
+        const_(0, (uint32_t)rt);
+        call_c((const void *)psx_gte_set_data);
+        flush_pending(g, 0);
+        return 1;
+    }
     /* the load in flight from the instruction before lands now; this one goes in flight */
     flush_pending(g, rt);
     if (rt) { g->pend_reg = rt; g->pend_arm = dst; g->next_arm = dst == 6 ? 7 : 6; }
     return 1;
 }
 
-static int gen_store(gen_t *g, uint32_t i, uint32_t pc, int bd)
+/* a store: RAM and the scratchpad inline. gte: SWC2 (the value comes from the GTE register rt) */
+static int gen_store(gen_t *g, uint32_t i, uint32_t pc, int bd, int gte)
 {
     const uint32_t op = i >> 26;
     const int rs = (int)((i >> 21) & 31), rt = (int)((i >> 16) & 31);
     const int32_t imm = (int16_t)(i & 0xFFFF);
-    const int kind = op == 0x2B ? 0 : op == 0x29 ? 1 : 2;      /* sw, sh, sb */
+    const int kind = (gte || op == 0x2B) ? 0 : op == 0x29 ? 1 : 2;      /* sw, sh, sb */
     const int size = kind == 0 ? 4 : kind == 1 ? 2 : 1;
-    uint32_t *slow1 = NULL, *slow2, *slow3, *done, *cont;
+    uint32_t *slow1 = NULL, *hi, *slow2, *slow3, *done1, *done2, *cont;
+    if (gte) { const_(0, (uint32_t)rt); call_c((const void *)psx_gte_get_data); mov_reg(2, 0); }
     ld_mips(0, rs);
     add_const(0, 0, imm);
+    if (!gte) ld_mips(2, rt);
     if (size > 1) { dp_imm(AL, OP_TST, 0, 0, size - 1, 1); branch_fwd(NE, &slow1); }
     dp_imm(AL, OP_BIC, 1, 0, enc_imm(0xE0000000u), 0);
     dp_imm(AL, OP_CMP, 0, 1, enc_imm(0x800000u), 1);
-    branch_fwd(HS, &slow2);
+    branch_fwd(HS, &hi);
     dp_imm(AL, OP_BIC, 1, 1, enc_imm(0x600000u), 0);
     emit(14u << 28 | 0x07D00000u | 9u << 16 | 3u << 12 | ((uint32_t)PAGE_SHIFT << 7) | (1u << 5) | 1u);   /* ldrb r3, [r9, r1, lsr #PAGE_SHIFT] */
     dp_imm(AL, OP_CMP, 0, 3, 0, 1);
     branch_fwd(NE, &slow3);                                     /* a page with compiled code: the slow way drops it */
-    ld_mips(2, rt);
-    if (kind == 0) emit(14u << 28 | 0x07800000u | 10u << 16 | 2u << 12 | 1u);                            /* str r2, [r10, r1] */
-    else if (kind == 1) emit(14u << 28 | 0x018000B0u | 10u << 16 | 2u << 12 | 1u);                      /* strh */
-    else emit(14u << 28 | 0x07C00000u | 10u << 16 | 2u << 12 | 1u);                                     /* strb */
-    branch_fwd(AL, &done);
+    emit_store_op(kind, 2, 10, 1);
+    branch_fwd(AL, &done1);
+    patch_here(hi);                                             /* the scratchpad */
+    dp_imm(AL, OP_SUB, 3, 1, enc_imm(0x1F800000u), 0);
+    dp_imm(AL, OP_CMP, 0, 3, enc_imm(0x400u), 1);
+    branch_fwd(HS, &slow2);
+    emit_store_op(kind, 2, 4, 3);
+    branch_fwd(AL, &done2);
     if (slow1) patch_here(slow1);
     patch_here(slow2);
     patch_here(slow3);
     /* the slow way: r0 = address, r1 = value, r2 = kind, r3 = pc */
-    ld_mips(1, rt);
+    mov_reg(1, 2);
     dp_imm(AL, OP_MOV, 2, 0, kind | (bd ? 0x10 : 0), 0);
     const_(3, pc);
     call_c((const void *)psx_jit_write);
@@ -316,9 +346,70 @@ static int gen_store(gen_t *g, uint32_t i, uint32_t pc, int bd)
         exit_cycles(g);
         patch_here(cont);
     }
-    patch_here(done);
+    patch_here(done1);
+    patch_here(done2);
     flush_pending(g, 0);
     return 1;
+}
+
+/* MFC2, CFC2, MTC2, CTC2 and the GTE commands: direct calls (no decoding by the interpreter). 0 if it is not one of them */
+static int gen_cop2(gen_t *g, uint32_t i)
+{
+    const int sub = (int)((i >> 21) & 31), rt = (int)((i >> 16) & 31), rd = (int)((i >> 11) & 31);
+    if (i & (1u << 25)) {                                       /* a GTE command */
+        const_(0, i & 0x1FFFFFFu);
+        call_c((const void *)psx_gte_command);
+        flush_pending(g, 0);
+        return 1;
+    }
+    if (sub == 0 || sub == 2) {                                 /* MFC2, CFC2: a load that lands after the next instruction */
+        const int dst = g->next_arm;
+        const_(0, (uint32_t)rd);
+        call_c(sub == 0 ? (const void *)psx_gte_get_data : (const void *)psx_gte_get_ctl);
+        mov_reg(dst, 0);
+        flush_pending(g, rt);
+        if (rt) { g->pend_reg = rt; g->pend_arm = dst; g->next_arm = dst == 6 ? 7 : 6; }
+        return 1;
+    }
+    if (sub == 4 || sub == 6) {                                 /* MTC2, CTC2 */
+        ld_mips(1, rt);
+        const_(0, (uint32_t)rd);
+        call_c(sub == 4 ? (const void *)psx_gte_set_data : (const void *)psx_gte_set_ctl);
+        flush_pending(g, 0);
+        return 1;
+    }
+    return 0;
+}
+
+/* ADD, ADDI, SUB trap on overflow: the sum is made inline; on overflow the interpreter raises the exception */
+static void gen_trap_add(gen_t *g, uint32_t i, uint32_t pc, int bd)
+{
+    const uint32_t op = i >> 26;
+    const int rs = (int)((i >> 21) & 31), rt = (int)((i >> 16) & 31), rd = (int)((i >> 11) & 31);
+    const int dest = op == 8 ? rt : rd;
+    const int32_t simm = (int16_t)(i & 0xFFFF);
+    uint32_t *ov, *done;
+    ld_mips(0, rs);
+    if (op == 8) {
+        const int e = enc_imm((uint32_t)(simm < 0 ? -simm : simm));
+        if (simm >= 0 && e >= 0) dp_imm(AL, OP_ADD, 0, 0, e, 1);
+        else if (simm < 0 && e >= 0) dp_imm(AL, OP_SUB, 0, 0, e, 1);
+        else { const_(1, (uint32_t)simm); dp_reg(AL, OP_ADD, 0, 0, 1, 0, 0, 1); }
+    } else {
+        ld_mips(1, rt);
+        dp_reg(AL, (i & 63) == 0x20 ? OP_ADD : OP_SUB, 0, 0, 1, 0, 0, 1);
+    }
+    branch_fwd(6, &ov);                                         /* VS: a signed overflow */
+    st_mips(dest, 0);
+    branch_fwd(AL, &done);
+    patch_here(ov);
+    const_(0, i);
+    const_(1, pc);
+    dp_imm(AL, OP_MOV, 2, 0, bd ? 1 : 0, 0);
+    call_c((const void *)psx_jit_exec);
+    exit_cycles(g);
+    patch_here(done);
+    flush_pending(g, dest);
 }
 
 /* an instruction the compiler leaves to the interpreter */
@@ -441,8 +532,13 @@ static int cond_for(uint32_t i, int *link)                    /* the ARM conditi
 static void gen_one(gen_t *g, uint32_t i, uint32_t pc, int bd)  /* a plain instruction (not a branch) */
 {
     const uint32_t op = i >> 26;
-    if (op >= 0x20 && op <= 0x25 && op != 0x22) { gen_load(g, i, pc, bd); return; }
-    if (op == 0x28 || op == 0x29 || op == 0x2B) { gen_store(g, i, pc, bd); return; }
+    const int cu2 = (C.cop0[12] & 0x40000000u) != 0;             /* (checked when the block is made) */
+    if (op >= 0x20 && op <= 0x25 && op != 0x22) { gen_load(g, i, pc, bd, 0); return; }
+    if (op == 0x28 || op == 0x29 || op == 0x2B) { gen_store(g, i, pc, bd, 0); return; }
+    if (cu2 && op == 0x32) { gen_load(g, i, pc, bd, 1); return; }
+    if (cu2 && op == 0x3A) { gen_store(g, i, pc, bd, 1); return; }
+    if (cu2 && op == 0x12 && gen_cop2(g, i)) return;
+    if (op == 8 || (op == 0 && ((i & 63) == 0x20 || (i & 63) == 0x22))) { gen_trap_add(g, i, pc, bd); return; }
     const int r = gen_alu(g, i);
     if (r < 0) gen_fallback(g, i, pc, bd);                      /* (a fallback that is a load: its value landed at once) */
     else flush_pending(g, r == 0x100 ? 0 : r);
@@ -668,7 +764,7 @@ static int rsrc(void) { const int k = rndn(10); return k == 0 ? 0 : k == 1 ? 31 
 
 static uint32_t gen_simple(void)
 {
-    const int k = rndn(34);
+    const int k = rndn(44);
     const int rs = rsrc(), rt = rsrc(), rd = rndn(12) == 0 ? 0 : rreg(), sh = rndn(32);
     const int dt = rndn(12) == 0 ? 0 : rreg();                  /* a destination register */
     const uint32_t imm = rnd32() & 0xFFFF;
@@ -707,7 +803,17 @@ static uint32_t gen_simple(void)
     case 30: { const int o = bo & ~3; return I_(0x2B, 29, rt, 0x200 + o); }                  /* sw */
     case 31: { const int o = bo & ~1; return I_(0x29, 29, rt, 0x200 + o); }                  /* sh */
     case 32: return I_(0x28, 29, rt, 0x200 + bo);                                            /* sb */
-    default: return I_(rndn(2) ? 0x2A : 0x2E, 29, rt, 0x200 + bo);                           /* swl swr (lwl and lwr come as a pair in build_program) */
+    case 33: return I_(rndn(2) ? 0x2A : 0x2E, 29, rt, 0x200 + bo);                           /* swl swr (lwl and lwr come as a pair in build_program) */
+    case 34: return I_(0x12, 0, dt, rndn(32) << 11) | (0u << 21);                          /* mfc2 */
+    case 35: return (0x12u << 26) | (2u << 21) | ((uint32_t)dt << 16) | ((uint32_t)rndn(32) << 11);   /* cfc2 */
+    case 36: return (0x12u << 26) | (4u << 21) | ((uint32_t)rt << 16) | ((uint32_t)rndn(32) << 11);   /* mtc2 */
+    case 37: return (0x12u << 26) | (6u << 21) | ((uint32_t)rt << 16) | ((uint32_t)rndn(32) << 11);   /* ctc2 */
+    case 38: { static const uint8_t cmd[8] = { 0x01, 0x06, 0x0C, 0x12, 0x13, 0x28, 0x2D, 0x30 }; return 0x4A000000u | ((uint32_t)rndn(2) << 19) | ((uint32_t)rndn(2) << 10) | cmd[rndn(8)]; }   /* a GTE command */
+    case 39: { const int o = bo & ~3; return I_(0x32, 29, rndn(32), 0x200 + o); }            /* lwc2 */
+    case 40: { const int o = bo & ~3; return I_(0x3A, 29, rndn(32), 0x200 + o); }            /* swc2 */
+    case 41: return I_(0x08, rs, dt, imm & 0xFF);                                            /* addi with a small immediate (no overflow unless rs is huge) */
+    case 42: return R_(0, 0, rt, rd, 0, 0x20);                                               /* add from zero: never overflows */
+    default: return R_(0, rs, 0, rd, 0, 0x22);                                               /* sub of zero: never overflows */
     }
 }
 
@@ -769,9 +875,12 @@ static int build_program(uint32_t *prog, int len)               /* fills prog[0.
 
 /* runs prog (len instructions and the end) from the given start by the interpreter and by compiled code; 0 if they agree.
  * what: the first difference (1..31 a register, 32 hi, 33 lo, 34 data) and the two values */
+static gte_t gte0;                                              /* the GTE state every pass starts from */
+
 static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32_t hi0, uint32_t lo0, const uint8_t *data0,
                     int *what, uint32_t *va, uint32_t *vb)
 {
+    gte_t gte_a;
     uint32_t regs_a[32], hi_a = 0, lo_a = 0;
     uint8_t data_a[0x400];
     const uint32_t end = T_BASE + 4u * (uint32_t)len;
@@ -780,6 +889,7 @@ static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32
         memcpy(psx_ram + (T_DATA & 0x1FFFFF), data0, 0x400);
         memcpy(C.r, regs0, 32 * sizeof(uint32_t));
         C.hi = hi0; C.lo = lo0;
+        G = gte0;
         C.pc = T_BASE; C.npc = T_BASE + 4; C.next_bd = 0; C.in_bd = 0; C.ld_r = 0; C.ld_v = 0; C.jit_exc = 0;
         psx_jit_flush_code();
         psx_jit_on = pass;                                      /* 0: the interpreter, 1: compiled code */
@@ -788,13 +898,14 @@ static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32
         if (pass == 0 && C.pc != end) return -1;                 /* the program does not end (a jr back whose lui was skipped): not a test */
         if (C.ld_r) { C.r[C.ld_r] = C.ld_v; C.ld_r = 0; }       /* the interpreter stops with the last load not landed yet */
         if (pass == 0) {
-            memcpy(regs_a, C.r, sizeof regs_a); hi_a = C.hi; lo_a = C.lo;
+            memcpy(regs_a, C.r, sizeof regs_a); hi_a = C.hi; lo_a = C.lo; gte_a = G;
             memcpy(data_a, psx_ram + (T_DATA & 0x1FFFFF), sizeof data_a);
         }
     }
     for (int i = 1; i < 32; i++) if (C.r[i] != regs_a[i]) { *what = i; *va = regs_a[i]; *vb = C.r[i]; return 1; }
     if (C.hi != hi_a) { *what = 32; *va = hi_a; *vb = C.hi; return 1; }
     if (C.lo != lo_a) { *what = 33; *va = lo_a; *vb = C.lo; return 1; }
+    if (memcmp(&G, &gte_a, sizeof G) != 0) { *what = 35; *va = 0; *vb = 0; for (int i = 0; i < 32; i++) { if (G.d[i] != gte_a.d[i]) { *what = 40 + i; *va = (uint32_t)gte_a.d[i]; *vb = (uint32_t)G.d[i]; return 1; } if (G.c[i] != gte_a.c[i]) { *what = 80 + i; *va = (uint32_t)gte_a.c[i]; *vb = (uint32_t)G.c[i]; return 1; } } return 1; }
     for (int i = 0; i < 0x400; i++) {
         const uint8_t b = psx_ram[(T_DATA & 0x1FFFFF) + (uint32_t)i];
         if (b != data_a[i]) { *what = 34; *va = (uint32_t)i << 8 | data_a[i]; *vb = (uint32_t)i << 8 | b; return 1; }
@@ -818,6 +929,7 @@ int psx_jit_selftest(int trials, char *msg, int n)
         for (int i = 0; i < 0x400; i++) data0[i] = (uint8_t)rnd32();
         uint32_t regs0[32], hi0 = rnd32(), lo0 = rnd32();
         for (int i = 0; i < 32; i++) regs0[i] = rnd32();
+        for (int i = 0; i < 32; i++) { gte0.d[i] = (int32_t)rnd32(); gte0.c[i] = (int32_t)rnd32(); }
         regs0[0] = 0; regs0[13] = T_BASE + 4u * (uint32_t)len; regs0[29] = T_DATA;      /* the loads and stores use 0x200 +- 0x80 from it */     /* r13: the jump register; if a branch skips the lui/ori that set it, the jump goes to the end */
         int what = 0;
         uint32_t va = 0, vb = 0;
@@ -834,7 +946,7 @@ int psx_jit_selftest(int trials, char *msg, int n)
                 uint32_t a2 = 0, b2 = 0;
                 if (run_pair(cut, len, regs0, hi0, lo0, data0, &w2, &a2, &b2) > 0) { minl = l; what = w2; va = a2; vb = b2; break; }
             }
-            int k = snprintf(msg, (size_t)n, "t%d prefix %d %s%d %08x/%08x:", t, minl, what == 34 ? "data" : what == 32 ? "hi" : what == 33 ? "lo" : "r", what < 32 ? what : 0, (unsigned)va, (unsigned)vb);
+            int k = snprintf(msg, (size_t)n, "t%d prefix %d %s%d %08x/%08x:", t, minl, what >= 40 ? "gte" : what == 34 ? "data" : what == 32 ? "hi" : what == 33 ? "lo" : "r", what < 32 ? what : what >= 40 ? what - 40 : 0, (unsigned)va, (unsigned)vb);
             for (int j = minl - 4 < 0 ? 0 : minl - 4; j < minl && k < n - 10; j++) k += snprintf(msg + k, (size_t)(n - k), " %08x", (unsigned)prog[j]);
         }
         bad++;

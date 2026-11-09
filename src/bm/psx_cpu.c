@@ -264,10 +264,15 @@ static inline __attribute__((always_inline)) void exec(uint32_t i)
 
 /* ------------------------------------------------------------------ helpers for the dynamic recompiler */
 int psx_jit_on;
+uint32_t psx_stat_blocks, psx_stat_jit_instr, psx_stat_interp, psx_stat_exec, psx_stat_rslow, psx_stat_wslow;
+uint32_t psx_stat_exec_hist[128];                      /* by primary opcode, and 64 + function for SPECIAL */
+uint32_t psx_stat_slow_hist[6];                        /* slow loads and stores: scratchpad, I/O, other; first the reads */
 
 /* one instruction run by the interpreter for a block: the state the loop would have set, and the load applied at once */
 int psx_jit_exec(uint32_t instr, uint32_t pc, int bd)
 {
+    psx_stat_exec++;
+    psx_stat_exec_hist[(instr >> 26) ? (instr >> 26) : 64 + (instr & 63)]++;
     C.cur_pc = pc;
     C.in_bd = bd;
     C.pc = pc + 4;
@@ -281,6 +286,8 @@ int psx_jit_exec(uint32_t instr, uint32_t pc, int bd)
 
 uint32_t psx_jit_read(uint32_t a, uint32_t kind_bd, uint32_t pc)
 {
+    psx_stat_rslow++;
+    psx_stat_slow_hist[(a & 0x1FFFFFFFu) >= 0x1F800000u && (a & 0x1FFFFFFFu) < 0x1F800400u ? 0 : (a & 0x1FFFFFFFu) >= 0x1F801000u && (a & 0x1FFFFFFFu) < 0x1F803000u ? 1 : 2]++;
     static const uint8_t size[5] = { 4, 2, 2, 1, 1 };
     const uint32_t kind = kind_bd & 15;
     const int sz = size[kind];
@@ -299,6 +306,8 @@ uint32_t psx_jit_read(uint32_t a, uint32_t kind_bd, uint32_t pc)
 
 int psx_jit_write(uint32_t a, uint32_t v, uint32_t kind_bd, uint32_t pc)
 {
+    psx_stat_wslow++;
+    psx_stat_slow_hist[3 + ((a & 0x1FFFFFFFu) >= 0x1F800000u && (a & 0x1FFFFFFFu) < 0x1F800400u ? 0 : (a & 0x1FFFFFFFu) >= 0x1F801000u && (a & 0x1FFFFFFFu) < 0x1F803000u ? 1 : 2)]++;
     const uint32_t kind = kind_bd & 15;
     const int sz = kind == 0 ? 4 : kind == 1 ? 2 : 1;
     if ((sz == 4 && (a & 3)) || (sz == 2 && (a & 1))) {
@@ -333,8 +342,9 @@ void psx_cpu_run(uint32_t cycles)
         }
         if (psx_jit_on && !psx_hooks && C.next_bd == 0 && C.ld_r == 0) {   /* a block of compiled code, when there is one at the PC */
             const int used = psx_jit_run_block();
-            if (used) { C.cycles += (uint32_t)used; continue; }
+            if (used) { C.cycles += (uint32_t)used; psx_stat_blocks++; psx_stat_jit_instr += (uint32_t)used / PSX_CPI; continue; }
         }
+        psx_stat_interp++;
         const uint32_t pc = C.pc;
         C.in_bd = C.next_bd;
         C.cur_pc = pc;

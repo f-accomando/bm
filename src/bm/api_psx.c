@@ -293,6 +293,7 @@ int l_psx_debug(lua_State *L)
     FIELD("gpu_cmds", d.gpu_cmds); FIELD("dma_runs", d.dma_runs);
     FIELD("us_frame", d.us_frame); FIELD("us_cpu", d.us_cpu); FIELD("us_gpu", d.us_gpu); FIELD("unhandled", d.unhandled);
     FIELD("last_unhandled", d.last_unhandled);
+    FIELD("st_blocks", d.st_blocks); FIELD("st_jit_instr", d.st_jit_instr); FIELD("st_interp", d.st_interp); FIELD("st_exec", d.st_exec); FIELD("st_rslow", d.st_rslow); FIELD("st_wslow", d.st_wslow);
     FIELD("cd_cmds", d.cd_cmds); FIELD("cd_sectors", d.cd_sectors); FIELD("cd_last_cmd", d.cd_last_cmd);
     FIELD("cd_irq_flag", d.cd_irq_flag); FIELD("cd_irq_en", d.cd_irq_en); FIELD("cd_events", d.cd_events); FIELD("cd_read_fail", d.cd_read_fail);
 #undef FIELD
@@ -310,6 +311,8 @@ int l_psx_debug(lua_State *L)
              (unsigned long)kons, (unsigned long)under, (unsigned long)over);
     lua_pushstring(L, buf);
     lua_setfield(L, -2, "audio");
+    lua_pushstring(L, psx_stat_text());
+    lua_setfield(L, -2, "stat_text");
     return 1;
 }
 

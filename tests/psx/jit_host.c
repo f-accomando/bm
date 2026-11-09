@@ -9,6 +9,7 @@ int psx_jit_dump(uint32_t pc, uint32_t *out, int max);
 extern int psx_hooks;
 
 uint8_t *h_ram(void) { return psx_ram; }
+uint8_t *h_scratch(void) { return psx_scratch; }
 void *h_cpu(void) { return &psx_cpu; }
 int h_cpu_size(void) { return (int)sizeof(cpu_t); }
 int h_off_r(void) { return (int)offsetof(cpu_t, r); }

@@ -22,21 +22,23 @@ def build():
     subprocess.check_call(["gcc", "-O1", "-g", "-shared", "-fPIC", "-DPSX_JIT_HOST", "-Isrc/bm", "-o", LIB] + srcs, cwd=ROOT)
 
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_PROT_ALL
-from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R8, UC_ARM_REG_R9, UC_ARM_REG_R10, UC_ARM_REG_R11, UC_ARM_REG_PC
+from unicorn.arm_const import UC_ARM_REG_R4, UC_ARM_REG_R0, UC_ARM_REG_R8, UC_ARM_REG_R9, UC_ARM_REG_R10, UC_ARM_REG_R11, UC_ARM_REG_PC
 
 build()
 L = ctypes.CDLL(LIB)
 L.h_ram.restype = ctypes.c_void_p
 L.h_cpu.restype = ctypes.c_void_p
+L.h_scratch.restype = ctypes.c_void_p
 L.h_dump.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int]
 L.h_interp.argtypes = [ctypes.c_uint32, ctypes.c_int]
 RAM = L.h_ram()
+SCR = L.h_scratch()
 CPU = L.h_cpu()
 CPU_SIZE = L.h_cpu_size()
 OFF_R, OFF_HI, OFF_LO, OFF_PC, OFF_NPC, OFF_NBD = (L.h_off_r(), L.h_off_hi(), L.h_off_lo(), L.h_off_pc(), L.h_off_npc(), L.h_off_nbd())
 
 T_BASE, T_DATA = 0x80010000, 0x80020000
-CODE_AT, CPU_AT, RAM_AT, FLAGS_AT, SENT_AT = 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000
+CODE_AT, CPU_AT, RAM_AT, FLAGS_AT, SENT_AT, SCR_AT = 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000, 0x60000000
 
 def LEN(prog): return len(prog) - 140
 
@@ -55,7 +57,7 @@ class Gen:
     def I(self, op, rs, rt, imm): return (op << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF)
     def simple(self):
         r = self.r
-        k = r.randrange(32)
+        k = r.randrange(36)
         rs, rt, sh = self.src(), self.src(), r.randrange(32)
         rd_ = 0 if r.randrange(12) == 0 else self.reg()
         dt = 0 if r.randrange(12) == 0 else self.reg()
@@ -71,7 +73,8 @@ class Gen:
                  self.I(0x0C + r.randrange(3), rs, dt, imm), self.I(0x0F, 0, dt, imm),
                  self.I(0x23, 29, dt, 0x200 + (bo & ~3)), self.I(r.choice([0x21, 0x25]), 29, dt, 0x200 + (bo & ~1)),
                  self.I(r.choice([0x20, 0x24]), 29, dt, 0x200 + bo), self.I(0x2B, 29, rt, 0x200 + (bo & ~3)),
-                 self.I(0x29, 29, rt, 0x200 + (bo & ~1)), self.I(0x28, 29, rt, 0x200 + bo), self.I(0x09, rs, dt, imm)]
+                 self.I(0x29, 29, rt, 0x200 + (bo & ~1)), self.I(0x28, 29, rt, 0x200 + bo), self.I(0x09, rs, dt, imm),
+                 self.I(0x23, 27, dt, bo & ~3), self.I(0x2B, 27, rt, bo & ~3), self.I(r.choice([0x21, 0x25]), 27, dt, bo & ~1), self.I(r.choice([0x28, 0x29]), 27, rt, bo & ~1)]
         return table[k] & 0xFFFFFFFF
     def slot(self):                          # a delay slot instruction: not a load (a load there lands at once in the recompiler)
         while True:
@@ -112,8 +115,8 @@ class Gen:
 def init_state(rng, length):
     regs = [rng.getrandbits(32) for _ in range(32)]
     # r13 is the jump register of the generated jr/jalr; if a branch skips the lui/ori that set it, the jump goes to the end
-    regs[0] = 0; regs[13] = T_BASE + 4 * length; regs[29] = T_DATA              # the loads and stores use 0x200 +- 0x80 from it
-    return regs, rng.getrandbits(32), rng.getrandbits(32), bytes(rng.getrandbits(8) for _ in range(0x400))
+    regs[0] = 0; regs[13] = T_BASE + 4 * length; regs[27] = 0x1F800200; regs[29] = T_DATA              # the loads and stores use 0x200 +- 0x80 from it
+    return regs, rng.getrandbits(32), rng.getrandbits(32), bytes(rng.getrandbits(8) for _ in range(0x400)), bytes(rng.getrandbits(8) for _ in range(0x400))
 
 def set_cpu_state(base, regs, hi, lo, pc):
     cpu = bytearray(rd(CPU, CPU_SIZE))
@@ -122,17 +125,18 @@ def set_cpu_state(base, regs, hi, lo, pc):
     struct.pack_into("<I", cpu, OFF_PC, pc); struct.pack_into("<I", cpu, OFF_NPC, pc + 4); struct.pack_into("<I", cpu, OFF_NBD, 0)
     return cpu
 
-def run_interp(prog, regs, hi, lo, data):
+def run_interp(prog, regs, hi, lo, data, scr):
     wr(RAM + (T_BASE & 0x1FFFFF), struct.pack("<%dI" % len(prog), *prog))
     wr(RAM + (T_DATA & 0x1FFFFF), data)
+    wr(SCR, scr)
     wr(CPU, bytes(set_cpu_state(CPU, regs, hi, lo, T_BASE)))
     L.h_interp(T_BASE + 4 * LEN(prog), 3000)
     c = rd(CPU, CPU_SIZE)
     if struct.unpack_from("<I", c, OFF_PC)[0] != T_BASE + 4 * LEN(prog): return None      # a loop that does not end (a jump back by a jr whose lui was skipped): not a test
     return ([struct.unpack_from("<I", c, OFF_R + 4 * i)[0] for i in range(32)], struct.unpack_from("<I", c, OFF_HI)[0],
-            struct.unpack_from("<I", c, OFF_LO)[0], rd(RAM + (T_DATA & 0x1FFFFF), 0x400))
+            struct.unpack_from("<I", c, OFF_LO)[0], rd(RAM + (T_DATA & 0x1FFFFF), 0x400) + rd(SCR, 0x400))
 
-def run_jit(prog, regs, hi, lo, data):
+def run_jit(prog, regs, hi, lo, data, scr):
     end = T_BASE + 4 * LEN(prog)
     wr(RAM + (T_BASE & 0x1FFFFF), struct.pack("<%dI" % len(prog), *prog))      # the translator reads the program from the host RAM
     uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
@@ -141,9 +145,11 @@ def run_jit(prog, regs, hi, lo, data):
     uc.mem_map(RAM_AT, 0x200000, UC_PROT_ALL)
     uc.mem_map(FLAGS_AT, 0x4000, UC_PROT_ALL)
     uc.mem_map(SENT_AT, 0x1000, UC_PROT_ALL)
+    uc.mem_map(SCR_AT, 0x1000, UC_PROT_ALL)
     uc.mem_write(RAM_AT, bytes(0x200000))
     uc.mem_write(RAM_AT + (T_BASE & 0x1FFFFF), struct.pack("<%dI" % len(prog), *prog))
     uc.mem_write(RAM_AT + (T_DATA & 0x1FFFFF), data)
+    uc.mem_write(SCR_AT, scr)
     cpu = set_cpu_state(CPU, regs, hi, lo, T_BASE)
     uc.mem_write(CPU_AT, bytes(cpu))
     uc.reg_write(UC_ARM_REG_R11, CPU_AT); uc.reg_write(UC_ARM_REG_R10, RAM_AT); uc.reg_write(UC_ARM_REG_R9, FLAGS_AT)
@@ -157,14 +163,14 @@ def run_jit(prog, regs, hi, lo, data):
         uc.ctl_flush_tb()                                  # Unicorn keeps what it translated: the same address would run the old block
         uc.mem_write(CODE_AT, struct.pack("<%dI" % n, *buf[:n]))
         uc.reg_write(UC_ARM_REG_R8, SENT_AT)
-        uc.reg_write(UC_ARM_REG_R11, CPU_AT); uc.reg_write(UC_ARM_REG_R10, RAM_AT); uc.reg_write(UC_ARM_REG_R9, FLAGS_AT)
+        uc.reg_write(UC_ARM_REG_R11, CPU_AT); uc.reg_write(UC_ARM_REG_R10, RAM_AT); uc.reg_write(UC_ARM_REG_R9, FLAGS_AT); uc.reg_write(UC_ARM_REG_R4, SCR_AT)
         # the block starts with "mov r8, lr": lr is the sentinel
         from unicorn.arm_const import UC_ARM_REG_LR
         uc.reg_write(UC_ARM_REG_LR, SENT_AT)
         uc.emu_start(CODE_AT, SENT_AT)
     c = bytes(uc.mem_read(CPU_AT, CPU_SIZE))
     return ([struct.unpack_from("<I", c, OFF_R + 4 * i)[0] for i in range(32)], struct.unpack_from("<I", c, OFF_HI)[0],
-            struct.unpack_from("<I", c, OFF_LO)[0], bytes(uc.mem_read(RAM_AT + (T_DATA & 0x1FFFFF), 0x400)))
+            struct.unpack_from("<I", c, OFF_LO)[0], bytes(uc.mem_read(RAM_AT + (T_DATA & 0x1FFFFF), 0x400)) + bytes(uc.mem_read(SCR_AT, 0x400)))
 
 def describe(prog, upto):
     return " ".join("%08x" % w for w in prog[:upto])
@@ -178,13 +184,13 @@ def main():
         g = Gen(1000 + t)
         length = 24 + g.r.randrange(40)
         prog = g.program(length)
-        regs, hi, lo, data = init_state(g.r, length)
+        regs, hi, lo, data, scr = init_state(g.r, length)
         L.h_init()
-        a = run_interp(prog, regs, hi, lo, data)
+        a = run_interp(prog, regs, hi, lo, data, scr)
         if a is None: skipped += 1; continue
         L.h_init()
         try:
-            b = run_jit(prog, regs, hi, lo, data)
+            b = run_jit(prog, regs, hi, lo, data, scr)
         except Exception as e:
             print("trial %d: JIT run failed: %s" % (t, e)); bad += 1; continue
         if a != b:
@@ -193,9 +199,9 @@ def main():
                 # the shortest prefix that still differs
                 for l in range(1, length + 1):
                     cut = prog[:l] + [0] * (length - l) + prog[length:]
-                    L.h_init(); x = run_interp(cut, regs, hi, lo, data)
+                    L.h_init(); x = run_interp(cut, regs, hi, lo, data, scr)
                     if x is None: continue
-                    L.h_init(); y = run_jit(cut, regs, hi, lo, data)
+                    L.h_init(); y = run_jit(cut, regs, hi, lo, data, scr)
                     if x != y:
                         diff = [(i, "%08x" % x[0][i], "%08x" % y[0][i]) for i in range(32) if x[0][i] != y[0][i]]
                         print("trial %d: prefix %d differs: regs %s hi %s lo %s data %s" % (t, l, diff, x[1] == y[1], x[2] == y[2], x[3] == y[3]))

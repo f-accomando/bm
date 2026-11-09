@@ -20,6 +20,8 @@ static int exe_pending;
 static uint32_t (*clock_us)(void);
 static uint32_t frames, unhandled, last_unhandled, dma_runs;
 static uint32_t us_frame, us_cpu, us_gpu;
+static uint32_t st_last[6];
+static char st_text[160];
 static char tty[2048];
 static uint32_t tty_len;
 static uint32_t mc[16];                  /* the memory control registers 1F801000.. */
@@ -30,6 +32,7 @@ uint32_t psx_now_us(void) { return clock_us ? clock_us() : 0; }
 void psx_irq_raise(int n) { I_STAT |= 1u << n; psx_irq_poll = 1; }
 void psx_dbg_unhandled(uint32_t a) { unhandled++; last_unhandled = a; }
 const char *psx_tty(void) { return tty; }
+const char *psx_stat_text(void) { return st_text; }
 const uint16_t *psx_vram(void) { return GP.vram; }
 uint32_t psx_reg(int n) { return n < 32 ? C.r[n] : n == 32 ? C.pc : n == 33 ? C.hi : C.lo; }
 uint32_t psx_peek32(uint32_t a) { return *(const uint32_t *)(psx_ram + (a & 0x1FFFFCu)); }
@@ -602,6 +605,24 @@ void psx_frame(uint16_t pad1, uint16_t pad2, int render)
     }
     frames++;
     psx_gpu_field ^= 1;
+    {   /* what the interpreter did for the compiler this frame: the four opcodes with most calls, and the slow accesses */
+        int top[4] = { -1, -1, -1, -1 };
+        for (int k = 0; k < 4; k++) {
+            uint32_t best = 0;
+            for (int i = 0; i < 128; i++) {
+                int used = 0;
+                for (int j = 0; j < k; j++) if (top[j] == i) used = 1;
+                if (!used && psx_stat_exec_hist[i] > best) { best = psx_stat_exec_hist[i]; top[k] = i; }
+            }
+        }
+        int n = snprintf(st_text, sizeof st_text, "exec:");
+        for (int k = 0; k < 4; k++) if (top[k] >= 0) n += snprintf(st_text + n, sizeof st_text - (size_t)n, " %s%02X=%u", top[k] >= 64 ? "fn" : "op", (unsigned)(top[k] & 63), (unsigned)psx_stat_exec_hist[top[k]]);
+        snprintf(st_text + n, sizeof st_text - (size_t)n, "  slow r scr/io/oth %u/%u/%u w %u/%u/%u", (unsigned)psx_stat_slow_hist[0], (unsigned)psx_stat_slow_hist[1], (unsigned)psx_stat_slow_hist[2], (unsigned)psx_stat_slow_hist[3], (unsigned)psx_stat_slow_hist[4], (unsigned)psx_stat_slow_hist[5]);
+        memset(psx_stat_exec_hist, 0, sizeof psx_stat_exec_hist);
+        memset(psx_stat_slow_hist, 0, sizeof psx_stat_slow_hist);
+    }
+    st_last[0] = psx_stat_blocks; st_last[1] = psx_stat_jit_instr; st_last[2] = psx_stat_interp; st_last[3] = psx_stat_exec; st_last[4] = psx_stat_rslow; st_last[5] = psx_stat_wslow;
+    psx_stat_blocks = psx_stat_jit_instr = psx_stat_interp = psx_stat_exec = psx_stat_rslow = psx_stat_wslow = 0;
     (void)render;
     if (clock_us) {
         const uint32_t dt = clock_us() - t0;
@@ -634,5 +655,6 @@ void psx_debug(psx_debug_t *d)
     d->bios = has_bios; d->exe = exe_len != 0;
     d->us_frame = us_frame; d->us_cpu = us_cpu; d->us_gpu = us_gpu;
     psx_cd_debug(d);
+    d->st_blocks = st_last[0]; d->st_jit_instr = st_last[1]; d->st_interp = st_last[2]; d->st_exec = st_last[3]; d->st_rslow = st_last[4]; d->st_wslow = st_last[5];
     d->tty_len = tty_len; d->unhandled = unhandled; d->last_unhandled = last_unhandled;
 }

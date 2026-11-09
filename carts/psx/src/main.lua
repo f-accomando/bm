@@ -164,14 +164,15 @@ function _draw()
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
   if show_fps then
     local d = psx_debug()
-    rectfill(0, 0, 640, 132, 0)
+    rectfill(0, 0, 640, 148, 0)
     print(string.format("%d fps  frame %.1f ms (cpu+gpu %.1f, gpu draw %.1f)  gpu cmds %d  dma %d", stat(2), d.us_frame / 1000, d.us_cpu / 1000, d.us_gpu / 1000, d.gpu_cmds, d.dma_runs), 4, 4, 0x00FF00)
     print(string.format("PC %08X  RA %08X  istat %03X imask %03X  unhandled %d (%08X)", d.pc, d.ra, d.istat, d.imask, d.unhandled, d.last_unhandled), 4, 20, 0x00FF00)
     print(string.format("CD cmds %d last %02X sectors %d fail %d  irq flag %d en %02X  queued %d", d.cd_cmds, d.cd_last_cmd, d.cd_sectors, d.cd_read_fail, d.cd_irq_flag, d.cd_irq_en, d.cd_events), 4, 36, 0x00FF00)
     print(string.format("copy %.1f blit %.1f ms  lua %.0f ms", draw_ms[1], draw_ms[2], stat(1)), 4, 52, 0x00FF00)
     print(d.audio, 4, 68, 0x00FF00)
     print((jit_on and "JIT on  " or "JIT off  ") .. selftest_msg:sub(1, 70), 4, 100, 0xFFFF80)
-    print(selftest_msg:sub(71, 160), 4, 116, 0xFFFF80)
+    print(string.format("a frame: blocks %d  jit instr %d  interp %d  exec %d  rslow %d  wslow %d", d.st_blocks, d.st_jit_instr, d.st_interp, d.st_exec, d.st_rslow, d.st_wslow), 4, 116, 0xFFFF80)
+    print(d.stat_text, 4, 132, 0xFFFF80)
     print(string.format("lba %d loc %d  %s", d.cd_lba, d.cd_loc, d.cd_trace), 4, 84, 0x00FF00)
   end
   local tty = psx_tty()

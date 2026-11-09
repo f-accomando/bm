@@ -63,6 +63,7 @@ typedef struct {
     uint32_t gpu_cmds, gpu_pixels;
     uint32_t dma_runs;
     uint32_t cd_cmds, cd_sectors, cd_last_cmd, cd_irq_flag, cd_irq_en, cd_events, cd_read_fail;
+    uint32_t st_blocks, st_jit_instr, st_interp, st_exec, st_rslow, st_wslow;   /* the CPU in the last frame */
     uint32_t cd_trace[12];     /* the last commands, newest last: cmd | param0 << 8 | param1 << 16 | param2 << 24 */
     uint32_t cd_lba, cd_loc;
     int bios, disc, exe;
@@ -74,6 +75,7 @@ typedef struct {
 void psx_debug(psx_debug_t *d);
 /* the text a program printed with the BIOS calls (kept without a BIOS; the last 2 KB) */
 const char *psx_tty(void);
+const char *psx_stat_text(void);       /* what the CPU did in the last frame, as text (for the debug lines) */
 /* with a BIOS: log what a program prints through the BIOS calls into psx_tty (the BIOS still runs the call). Costs a check per instruction. */
 void psx_log_bios_tty(int on);
 void psx_set_clock(uint32_t (*now_us)(void));

@@ -93,6 +93,9 @@ void psx_jit_ram_written(uint32_t off, uint32_t len);     /* a DMA or a store pu
 void psx_jit_sr_changed(void);                            /* the cache isolation bit may have changed */
 int psx_jit_run_block(void);                              /* runs one block at the PC (cycles used), or 0 if there is none */
 extern uint8_t psx_jit_pageflags[];
+/* what the CPU did in the frame: blocks run, instructions in blocks, instructions by the interpreter, helper calls (the compiler leaves an instruction to the interpreter; a load or store takes the slow way) */
+extern uint32_t psx_stat_exec_hist[128], psx_stat_slow_hist[6];
+extern uint32_t psx_stat_blocks, psx_stat_jit_instr, psx_stat_interp, psx_stat_exec, psx_stat_rslow, psx_stat_wslow;
 /* psx_gte.c */
 void psx_gte_reset(void);
 void psx_gte_command(uint32_t op);
