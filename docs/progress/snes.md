@@ -42,6 +42,7 @@ machine was written again in C. The RGB30 is not measured.
 | `src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
 | `carts/snes/src/main.lua` | the user interface; `carts/snes/build/build.py` packs it (`make build/carts/snes.bm`) |
 | `tests/snes/core_test.c` | 92 checks: the CPU on small programs, DMA, the SPC700 and its boot protocol |
+| `tests/snes/dsp_golden.c` | the S-DSP on random voices: the output of `snes_audio_mix` and the registers hashed, against the table of the code with the integer cubic (`make test-snes-dsp`, `make bench-snes-dsp`); the float cubic that came before differed by at most 2 steps of 16 bit in 720000 samples |
 | `tests/snes/cpu_golden.c` | the CPU and the memory map on random programs (LoROM and HiROM, ROMs of odd sizes, with and without battery RAM): a hash of the registers, the clock and the memories after each frame, against the table of the code before the speed work (`make test-snes-cpu`) |
 | `tests/snes/ppu_equiv.c`, `ppu_ref.c` | the fast PPU against the reference copy of the old one: random states, every line equal (`make test-snes-ppu`); `make bench-snes-ppu` times both |
 | `tests/snes/render_test.py` | the cartridge in bmhost with a test ROM made by `make_testrom.py`: the picture, the sprite, the HDMA bands |
@@ -73,7 +74,7 @@ machine was written again in C. The RGB30 is not measured.
   the loop in assembly, 14804 with the tile cache (-23%); each timer read costs about 6 us, so the real figures are 12100, 9800, 9100 and 7700 us (-36%).
   The memory map is a table of 4 KB pages (`snes_rtab`, `snes_wtab`, `snes_ctab` in `snes_bus.c`): the CPU reads ROM, work RAM and battery RAM with one
   table lookup, the registers take the slow path. On the Pi One a frame of the test build (update, with the machine and the Lua of the test) went from
-  25.25 ms to 22.69 ms (-10%) with the PPU unchanged: the CPU part is about 37% lower. The sound is about 3000 us a frame.
+  25.25 ms to 22.69 ms (-10%) with the PPU unchanged: the CPU part is about 37% lower. The sound (SPC700 and DSP) measured 3017 us a frame, about 1500 us with the timer's own cost taken out; the DSP now takes the envelope steps from a table (the modulo was a library call on the ARM1176) and makes the cubic in 64-bit integers: 2820 us measured, 22.66 to 22.39 ms a frame of the test build (Pi One, 2026-11-09). The SPC700's own loop is the next part to look at.
   The picture is identical byte for byte at frame 3200 after each step (checked on the Pi One).
   The cart makes a picture every 1 to 4 emulated frames, by the speed it measures (`adapt` in `main.lua`: a window of 90 updates; under 57 a second, a
   picture less often; three windows at 58.8 or more, a picture more often). Pi One, 2026-11-09: 58 updates and 30 pictures a second (`SNES_ADAPT=1` makes
