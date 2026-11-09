@@ -43,7 +43,32 @@ int main(int argc, char **argv)
     psx_set_disc(&d);
     psx_log_bios_tty(1);
     for (int i = 0; i < frames; i++) {
-        psx_frame(0, 0, 0);
+        {   /* PSX_PAD="frame:mask,frame:mask": a pad value held from that frame; PSX_SHOT=N writes a picture every N frames */
+            static uint16_t pad;
+            const char *pp = getenv("PSX_PAD");
+            while (pp && *pp) {
+                int fr; unsigned m;
+                if (sscanf(pp, "%d:%x", &fr, &m) == 2 && fr == i) pad = (uint16_t)m;
+                pp = strchr(pp, ',');
+                if (pp) pp++;
+            }
+            psx_frame(pad, 0, 0);
+        }
+        if (getenv("PSX_SHOT") && (i + 1) % atoi(getenv("PSX_SHOT")) == 0) {
+            int w, h;
+            const uint16_t *pc = psx_picture(&w, &h);
+            char name[64];
+            snprintf(name, sizeof name, "build/shot_%05d.ppm", i + 1);
+            FILE *o = fopen(name, "wb");
+            if (o) {
+                fprintf(o, "P6 %d %d 255 ", w, h);
+                for (int k = 0; k < w * h; k++) {
+                    const uint8_t px[3] = { (uint8_t)((pc[k] >> 11) << 3), (uint8_t)(((pc[k] >> 5) & 63) << 2), (uint8_t)((pc[k] & 31) << 3) };
+                    fwrite(px, 1, 3, o);
+                }
+                fclose(o);
+            }
+        }
         if (i % 60 == 59) {
             psx_debug_t s;
             psx_debug(&s);
