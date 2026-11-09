@@ -55,7 +55,7 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 - Integer division uses `//` and modulo uses `%` (floor toward $-\infty$). Float division uses `/` on `f32` operands.
 - Built-in math and conversion functions: `abs(x)`, `min(a, b)`, `max(a, b)` (for `i32` or `f32`), `sqrt(x: f32): f32`, `f32(x: i32): f32`, and `floor(x: f32): i32`.
 - Kernel host functions (Stage 7+): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(x0, y0, x1, y1, col)`, `circ(x, y, r, col)`, `circfill(x, y, r, col)`, `rect(x, y, w, h, col)`, `sfx(id)`, `music(id)`, `time(): f32`, and `print(msg, ...): i32` (up to 5 arguments; first argument `string`).
-- Bare-metal memory and MMIO primitives (Stage 5): `peek(addr: i32): i32` (`ldrb` 8-bit byte), `poke(addr: i32, val: i32)` (`strb`), `peek4(addr: i32): i32` (`ldr` 32-bit word), `poke4(addr: i32, val: i32)` (`str`), `memcpy(dst: i32, src: i32, bytes: i32)`, and `memset(dst: i32, val: i32, bytes: i32)` (high-efficiency native machine routines for framebuffers, DMA buffers, and raw cartridge data).
+- Bare-metal memory and MMIO primitives (Stage 5): `peek(addr: i32): i32` (`ldrb` 8-bit byte), `poke(addr: i32, val: i32)` (`strb`), `peek2(addr: i32): i32` (`ldrh` 16-bit halfword for audio & RGB565), `poke2(addr: i32, val: i32)` (`strh`), `peek4(addr: i32): i32` (`ldr` 32-bit word), `poke4(addr: i32, val: i32)` (`str`), `memcpy(dst: i32, src: i32, bytes: i32)`, and `memset(dst: i32, val: i32, bytes: i32)` (high-efficiency native machine routines for framebuffers, DMA buffers, and raw cartridge data).
 
 ## Statements and operators
 

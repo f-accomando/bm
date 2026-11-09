@@ -135,6 +135,8 @@ primary     = INT | "true" | "false" | "(" expr ")" | NAME "(" [ arg_list ] ")" 
 - Bare-Metal Memory Access & MMIO:
   - `peek(addr: i32): i32` (unsigned byte load, ARMv6 `ldrb`)
   - `poke(addr: i32, val: i32)` (byte store, ARMv6 `strb`)
+  - `peek2(addr: i32): i32` (unsigned halfword load, ARMv6 `ldrh`)
+  - `poke2(addr: i32, val: i32)` (halfword store, ARMv6 `strh`)
   - `peek4(addr: i32): i32` (32-bit word load, ARMv6 `ldr`)
   - `poke4(addr: i32, val: i32)` (32-bit word store, ARMv6 `str`)
   - `memcpy(dst: i32, src: i32, bytes: i32)` (fast native byte copy routine)
@@ -203,8 +205,8 @@ Each function activation in `StackVM` owns:
 | `LT`, `LE`, `GT`, `GE` | — | $a, b \to (a \circ b)$ | Signed integer comparison (`bool`) |
 | `ABS` | — | $a \to |a|$ | Built-in `abs(a)` |
 | `MIN`, `MAX` | — | $a, b \to \min/\max(a,b)$ | Built-in `min(a, b)` / `max(a, b)` |
-| `PEEK`, `PEEK4` | — | $\text{addr} \to v$ | Raw memory load: `PEEK` (byte `ldrb`), `PEEK4` (word `ldr`) |
-| `POKE`, `POKE4` | — | $\text{addr}, v \to$ | Raw memory store: `POKE` (byte `strb`), `POKE4` (word `str`) |
+| `PEEK`, `PEEK2`, `PEEK4` | — | $\text{addr} \to v$ | Raw memory load: `PEEK` (byte `ldrb`), `PEEK2` (halfword `ldrh`), `PEEK4` (word `ldr`) |
+| `POKE`, `POKE2`, `POKE4` | — | $\text{addr}, v \to$ | Raw memory store: `POKE` (byte `strb`), `POKE2` (halfword `strh`), `POKE4` (word `str`) |
 | `MEMCPY` | — | $\text{dst}, \text{src}, n \to$ | Memory block copy |
 | `MEMSET` | — | $\text{dst}, v, n \to$ | Memory block fill |
 | `JMP` | `target` | — | Unconditional jump (`pc = target`) |
