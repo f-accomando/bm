@@ -51,14 +51,14 @@ Clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on (`3d=gpu`). Reports in the bran
 - Result: road B has a case in Yharnam (small functions called thousands of times) and none in Dark Night. The 16 to 22 times of `update_parts` on a PC says little: that function is not the cost.
 - The machine is fuzzed (`tests/typed/vmfuzz.c`): the first version had a loop without the budget (a conditional jump backward); the loader now refuses it.
 - Two ways without an API for each game, measured on the Pi (design document, section 3): `collmap` (the general C: 5.1 us against 29.4 us of Lua, 1.3 us more than the C made for Yharnam) and the `bmvm` machine (14.9 us, 2 times the Lua, data in the cartridge, safe by construction).
-- Yharnam with `blocked` in C (`yharnam_typed`, default on; the C is made by `bmt.py` since 8 Nov 2026): 53.9 fps against 50.5 with the Lua, 0 differences in 80000 calls. Frame 16.8 to 15.6 ms.
-- Typed C against Lua on the Pi (`tests/typed/pi_bench`, `src/bm/api_typed.c`): `blocked` 13.3 times, 29.5 times with the loop in C; `solid_at` 4.5 times; `fdiv` 1.7 times. A call from Lua to C costs about 1 us. Same results as Lua.
+- Yharnam with `blocked` in C (`yharnam_typed`, default on): 53.0 fps against 50.5 with the Lua, 0 differences in 60000 calls. It uses the general `collmap` since 9 Nov 2026; the C made for Yharnam (`typed_y*`, 53.9 fps) and the six fixed `typed_*` functions are removed from the kernel.
+- Typed C against Lua on the Pi (8 Nov 2026, with the fixed functions that are now removed): `blocked` 13.3 times, 29.5 times with the loop in C; `solid_at` 4.5 times; `fdiv` 1.7 times. A call from Lua to C costs about 1 us. Same results as Lua.
 
 ## Open work
 
 Roadmap of a language of bm, a small start. The Lua output stays the reference, and a test compares it with the C.
 
-1. Done: `blocked` of Yharnam is made by `bmt.py` (`tests/typed/yblocked.bmt`, `src/bm/typed_yblocked_gen.h`): 50.5 to 53.5 fps on the Pi, the same as the hand-written C. The subset has `//`, `%`, `floor`, `min`, `max` and calls between typed functions. Next: structs, and a table of the cols that the game fills once (today `typed_ysync` copies a chunk each time).
+1. Done: `blocked` of Yharnam is made by `bmt.py` (`tests/typed/yblocked.bmt`): 50.5 to 53.5 fps on the Pi, the same as the hand-written C. The kernel now has the general form (`tests/typed/collmap.bmt`, `src/bm/typed_collmap_gen.h`). The subset has `//`, `%`, `floor`, `min`, `max` and calls between typed functions. Next: structs, and a table of the cols that the game fills once (today `typed_ysync` copies a chunk each time).
 2. `draw_scene` of Yharnam: the cull in C gave nothing (53.1 against 53.5 fps), and its cost is spread over the sort comparator, the cull, the building tiles and the draw calls (design document, section 3). Do not port a part of it. Options: the whole draw of the objects in C, or a cheaper sort (the comparator is 7.3% of the Lua instructions).
 3. Measure the RGB30 with the same runs.
 4. Complete the subset: structs. Decide the integer overflow first (C wraps at 32 bits, Lua at 64).

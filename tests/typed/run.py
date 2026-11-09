@@ -352,14 +352,6 @@ else:
     vals = [int(v) for v in yc.split()]
     print("typed: blocked of Yharnam (flat arrays, made by bmt.py), %d points: the same in C and in Lua (%d blocked, %d free, %d chunk missing)" % (
         len(vals), vals.count(1), vals.count(0), vals.count(-1)))
-# the C that the kernel compiles (src/bm/typed_yblocked_gen.h) is what bmt.py makes from the source
-gen = os.path.join(ROOT, "src", "bm", "typed_yblocked_gen.h")
-if not os.path.exists(gen) or open(gen, newline="").read().replace("\r\n", "\n") != open(yb_c).read():
-    print("typed: FAIL src/bm/typed_yblocked_gen.h is not what bmt.py makes from tests/typed/yblocked.bmt: "
-          "run python3 scripts/bmt.py tests/typed/yblocked.bmt --c src/bm/typed_yblocked_gen.h")
-    failed += 1
-else:
-    print("typed: the C in the kernel (typed_yblocked_gen.h) is the one bmt.py makes from the source")
 # ---------------------------------------------------------------- 7. blocked of Yharnam on the bmvm machine (bmtvm.py)
 import bmtvm  # noqa: E402
 
@@ -508,6 +500,6 @@ if "no crash" not in fo:
     failed += 1
 else:
     print("typed: %s%s" % (fo.strip(), " (address and undefined-behaviour sanitizers)" if san else ""))
-total = len(BAD) + 12          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames, blocked
+total = len(BAD) + 11          # the bad programs, the good one, the C against the Lua, the native functions against the Lua, the three frames, blocked
 print("typed: %d/%d checks passed" % (total - failed, total) if not failed else "typed: FAILED, %d of %d checks" % (failed, total))
 sys.exit(1 if failed else 0)

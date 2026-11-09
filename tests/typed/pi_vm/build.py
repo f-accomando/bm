@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Builds main.lua of the Pi cartridge that times blocked of Yharnam three ways: the Lua of tests/typed/yblocked.bmt, the C of
-the kernel (typed_yblocked) and the bmvm machine (vm_run). Run:  python3 tests/typed/pi_vm/build.py OUT_DIR
+"""Builds main.lua of the Pi cartridge that times blocked of Yharnam three ways: the Lua of tests/typed/yblocked.bmt, the
+general C of the kernel (collmap) and the bmvm machine (vm_run). Run:  python3 tests/typed/pi_vm/build.py OUT_DIR
 then make the .bm:  python3 scripts/mkbm.py -o OUT_DIR/pi_vm.bm --lua OUT_DIR/main.lua --info tests/typed/pi_vm/bm.info"""
 import os
 import subprocess

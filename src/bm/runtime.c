@@ -1809,8 +1809,6 @@ TIMED(t_pset, OP_SHAPE, l_pset)
 int l_collmap_new(lua_State *L); int l_collmap_chunk(lua_State *L); int l_collmap_blocked(lua_State *L);   /* api_collmap.c (experiment) */
 int l_vm_load(lua_State *L); int l_vm_fn(lua_State *L); int l_vm_buf(lua_State *L); int l_vm_buf_fill(lua_State *L);
 int l_vm_buf_get(lua_State *L); int l_vm_run(lua_State *L); int l_vm_bind(lua_State *L);   /* api_vm.c (experiment) */
-int l_typed_set(lua_State *L); int l_typed_col(lua_State *L); int l_typed_fdiv_c(lua_State *L); int l_typed_solid_at(lua_State *L);
-int l_typed_blocked(lua_State *L); int l_typed_blocked_many(lua_State *L); int l_typed_ysync(lua_State *L); int l_typed_yblocked(lua_State *L);   /* api_typed.c (experiment) */
 static const luaL_Reg api[] = {
     { "video_open", l_video_open },
     { "cls", l_cls }, { "pset", t_pset }, { "pget", l_pget }, { "line", t_line },
@@ -1840,9 +1838,6 @@ static const luaL_Reg api[] = {
     { "collmap_new", l_collmap_new }, { "collmap_chunk", l_collmap_chunk }, { "collmap_blocked", l_collmap_blocked },
     { "vm_load", l_vm_load }, { "vm_fn", l_vm_fn }, { "vm_buf", l_vm_buf }, { "vm_buf_fill", l_vm_buf_fill },
     { "vm_buf_get", l_vm_buf_get }, { "vm_run", l_vm_run }, { "vm_bind", l_vm_bind },
-    { "typed_set", l_typed_set }, { "typed_col", l_typed_col }, { "typed_fdiv", l_typed_fdiv_c }, { "typed_solid_at", l_typed_solid_at },
-    { "typed_blocked", l_typed_blocked }, { "typed_blocked_many", l_typed_blocked_many },
-    { "typed_ysync", l_typed_ysync }, { "typed_yblocked", l_typed_yblocked },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "battery", l_battery }, { "battery_low", l_battery_low },

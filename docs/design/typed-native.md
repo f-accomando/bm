@@ -46,7 +46,7 @@ On the Pi the Lua is a large part of the frame: `fdiv`, `blocked` and `draw_scen
 
 *Dark Night*, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame (update 1.9, draw 2.8, 3D calls 0.2, audio 2.7, GPU wait 0.8), 9549 triangles a frame. The game is within the 60 fps budget; the Lua functions `cam_blocked`, `update_enemies` and `draw_objects` are 0.25 to 0.65 ms each. Typed code would gain under 1 ms here.
 
-**Typed C against Lua on the Pi Zero W** (8 Nov 2026, clean kernel with `src/bm/api_typed.c`, the V3D on, cartridge `tests/typed/pi_bench`). **Pi.** The C is written by hand as `bmt.py` would give it (the data in C arrays); the Lua is the code of `fdiv`, `solid_at` and `blocked` of Yharnam with the game's tables. Same results in both ways (24146, 8947 and 8887 blocked points):
+**Typed C against Lua on the Pi Zero W** (8 Nov 2026, kernel with `src/bm/api_typed.c` (removed on 9 Nov 2026), the V3D on, cartridge `tests/typed/pi_bench`). **Pi.** The C is written by hand as `bmt.py` would give it (the data in C arrays); the Lua is the code of `fdiv`, `solid_at` and `blocked` of Yharnam with the game's tables. Same results in both ways (24146, 8947 and 8887 blocked points):
 
 | Function | Lua | C | C against Lua |
 |---|---|---|---|
@@ -76,7 +76,7 @@ The gain is 6.7% in fps and 1.1 ms a frame. The 13 times of the micro test becom
 | Way | Time of a call | Against Lua | What it needs |
 |---|---|---|---|
 | Lua, the arrays are tables | 29.4 us | 1 | nothing |
-| C of the kernel, made for Yharnam (`typed_yblocked`) | 3.8 us | 7.7 | a change of the kernel for each game |
+| C of the kernel, made for Yharnam (`typed_yblocked`, removed from the kernel on 9 Nov 2026) | 3.8 us | 7.7 | a change of the kernel for each game |
 | C of the kernel, general (`collmap`) | 5.1 us | 5.7 | the geometry as parameters; one function for every game seen from above |
 | bmvm machine (`vm_run`) | 14.9 us | 2.0 | nothing in the kernel for a new game: the code is data in the cartridge |
 
