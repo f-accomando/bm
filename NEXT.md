@@ -2,15 +2,14 @@
 
 State on 9 Nov 2026: `bm-core` holds the Mali work up to bm3d 7.36 plus the face cache of 96 meshes (8 MB) and the resolve in bands on the worker cores. The performance work on Dark Night and Yharnam (Pi and RGB30) is closed. The console runs a test kernel with `mali_split=1`, `gpu3d_queue=2`, `gpu3d_later=1`, `perf=top`.
 
-## 1. The language of bm: stage 1 (learning project)
-- Branch: open `claude/bm-language-front-end` from an up-to-date `bm-core`. The roadmap branch is merged already.
-- Read in this order: the section "A language of bm" in `docs/progress/typed.md` (decisions, nine stages, the program `sum`, the ARMv6 words); `docs/design/typed-native.md` sections 5, 8 and 9 (what `bmt.py` does, where the C is compiled, open questions); the docstring of `scripts/bmt.py` (the subset of Lua and its rules); `src/bm/bmvm.h` (the register machine, for stage 3).
-- Decided by the user: the syntax is the syntax of Lua; the first back end is a bytecode and a VM; the goal is ARMv6 32 bit (A32) for the Pi Zero W; the RGB30 is out; time does not matter. The compiler is new and small: `tools/bml/` in Python, separate from `scripts/bmt.py`.
-- To do, stage 1: lexer, parser, syntax tree and type check for `i32` and `bool`, `local`, `if`, `while`, numeric `for`, `return`, functions that call functions. An error names the line. Write programs with an error and the program `sum` as tests.
-- Then stage 2: a stack VM in Python, `sum(10)` gives 55, random programs give the same result as Lua. Do not start the ARM back end before stage 2 passes.
-- Check the ARMv6 words of `sum` in the roadmap with `qemu-system-arm` or an assembler before you trust them (they were encoded by hand).
-- Open: the overflow of `i32` (C wraps at 32 bit, Lua at 64 bit), and `bmvm` or a new VM for the kernel (stage 3).
-- Close the task as `CLAUDE.md` says: update `## Open work` of `docs/progress/typed.md`, then run `python scripts/docs_audit.py score`. `docs/progress/graphics.md` is over its line limit (122 lines): not part of this work.
+## 1. The language of bm: stage 3 and stage 4 (learning project)
+- Done in stages 1 and 2 (`tools/bml/bml.py`, `tests/bml/run.py`, `make test-bml`, manual in `docs/design/bml-manual.md`):
+  - Stage 1 front end: lexer, parser, syntax tree (AST), type checker (`i32`, `bool`, `local`, `if`/`elseif`/`else`, `while`, `break`, numeric `for`, `return`, `abs`/`min`/`max`, functions calling functions, recursion), and Lua stripper (`--lua`). 23 error checks verify exact line numbers.
+  - Stage 2 stack bytecode and host `StackVM`: `sum(10)` gives 55, `sum(-5..100)`, `tests/bml/features.bml` (347 calls), and 200 random programs (1000 calls) match `luahost`.
+  - The 9 ARMv6 words of `sum` (`E3A01000 ... E12FFF1E`) are verified with `arm-none-eabi-objdump` and `run_armv6_words` on `-5..100`.
+- Next, stage 3: decide the VM of the kernel (`bmvm` in `src/bm/bmvm.h` or a stack VM in C), pack bytecode in a `.bm` section, and load it like `vm_load`.
+- Then stage 4: ARMv6 32-bit (A32, AAPCS) back end in `tools/bml/`, tested with `qemu-system-arm` against Lua.
+- Open: the overflow of `i32` (C/ARM wraps at 32 bit, Lua at 64 bit; `StackVM` supports `--wrap32`), and `bmvm` vs a new VM for stage 3.
 
 ## 2. Mali: other open items (`docs/progress/graphics-mali.md`)
 - See the faces `R3D_SCREEN` of a model drawn by the GPU (Overbit with `RENDERER: GPU`); the 3D Bench has no GPU row for them.

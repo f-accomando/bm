@@ -56,25 +56,25 @@ Clean kernel `v0.2.5-2137-g4ff425ca`, the V3D on (`3d=gpu`). Reports in the bran
 
 ## A language of bm (learning project, started 9 Nov 2026)
 
-This is a project to learn how a compiler works. The time it takes does not matter. The target is native code for the ARMv6 (ARM1176, 32 bit, A32) of the Pi Zero W. The RGB30 (AArch64) is out of this project: the `targets` field of the `.bm` header says "Pi" for a cartridge that carries this code.
+Full manual and specification: [`docs/design/bml-manual.md`](../design/bml-manual.md). The target is native code for the ARMv6 (ARM1176, 32 bit, A32) of the Pi Zero W. The RGB30 (AArch64) is out of this project: the `targets` field of the `.bm` header says "Pi" for a cartridge that carries this code.
 
 Decisions of the user:
 - The syntax is the syntax of Lua (the typed subset of `bmt.py`). One source runs in the Lua VM and in the new compiler. The Lua result is the reference of every test.
 - The first back end is a bytecode and a virtual machine. The ARM back end follows and stays the goal.
-- The compiler is a new small program (`tools/bml/`, Python), separate from `scripts/bmt.py`. It does not replace `bmt.py`.
+- The compiler is `tools/bml/bml.py` (Python), separate from `scripts/bmt.py`. It does not replace `bmt.py`.
 
-Stages. Each stage ends with a test that compares the result with the Lua result.
-1. **Front end.** Lexer, parser, syntax tree, type check. Types `i32` and `bool`, `local`, `if`, `while`, numeric `for`, `return`, functions that call functions. Error messages name the line. Test: programs with an error, and the program `sum` (below).
-2. **Bytecode and VM on the host.** A stack machine in Python. The compiler writes the bytecode, the VM runs it. Test: 55 for `sum(10)`, then random programs against Lua.
-3. **Decide the VM of the kernel.** Use `bmvm` (a register machine, `src/bm/bmvm.h`) or write a new one. The bytecode goes to a section of the `.bm`. The runtime loads it like `vm_load`.
+Stages. Each stage ends with a test that compares the result with the Lua result (`make test-bml`, `tests/bml/run.py`):
+1. **Front end (done).** Lexer, parser, syntax tree, type check in `tools/bml/bml.py`. Types `i32` and `bool`, `local`, `if`/`elseif`/`else`, `while`, `break`, numeric `for`, `return`, `abs`/`min`/`max`, functions that call functions. Error messages name the line (23 negative tests + `tests/bml/sum.bml` and `tests/bml/features.bml`).
+2. **Bytecode and VM on the host (done).** `BytecodeCompiler` and `StackVM` in `tools/bml/bml.py`. `sum(10)` gives 55; `sum(-5..100)`, `tests/bml/features.bml`, and 200 random programs (1000 calls) give the same result as Lua.
+3. **Decide the VM of the kernel (next).** Use `bmvm` (a register machine, `src/bm/bmvm.h`) or write a new one. The bytecode goes to a section of the `.bm`. The runtime loads it like `vm_load`.
 4. **Back end ARMv6.** From the syntax tree to 32 bit words (A32, AAPCS: arguments in `r0`-`r3`, result in `r0`). First an assembler of the words, then a register allocator, then the stack frame for calls. Test with `qemu-system-arm`: same results as Lua.
 5. **Load on the Pi.** The blob goes to RAM that can run code. Clean the D-cache and invalidate the I-cache before the first call. A Lua function (`native_load`, `native_run`, like `vm_load`, `vm_run`) calls it.
-6. **Types and memory.** Arrays, then structs. Decide the overflow of `i32` first: C wraps at 32 bit, Lua at 64 bit. Then `f32` with the VFP of the ARM1176.
+6. **Types and memory.** Arrays, then structs. Decide the overflow of `i32` first: C wraps at 32 bit, Lua at 64 bit (`StackVM` supports `--wrap32`). Then `f32` with the VFP of the ARM1176.
 7. **Standard functions and bm.** A table of kernel functions (`spr`, `rectfill`, `btn`, math) that the native code calls. Strings and tables stay out until this works.
 8. **Games.** Write the movement of the enemies of Dark Night in the language. Measure on the Pi.
 9. **On the console.** Run the compiler on the Pi itself (a large project, last).
 
-The first program of the project, to build and test in stage 1 and 2:
+The first program (`tests/bml/sum.bml`), tested in stages 1 and 2:
 
 ```
 function sum(n: i32): i32
@@ -84,11 +84,11 @@ function sum(n: i32): i32
 end
 ```
 
-The ARMv6 words that stage 4 must write for it (encoded by hand, not run yet): `E3A01000 E3A02001 E1520000 CA000002 E0811002 E2822001 EAFFFFFA E1A00001 E12FFF1E`. Result for `sum(10)`: 55.
+The ARMv6 words that stage 4 must write for it (verified with `arm-none-eabi-objdump` and `run_armv6_words` on `-5..100`): `E3A01000 E3A02001 E1520000 CA000002 E0811002 E2822001 EAFFFFFA E1A00001 E12FFF1E`. Result for `sum(10)`: 55.
 
 ## Open work
 
-Roadmap of a language of bm, a small start. The Lua output stays the reference, and a test compares it with the C.
+Stages 1 and 2 of `tools/bml/bml.py` are complete (`make test-bml`); stage 3 (kernel VM choice: `bmvm` in `src/bm/bmvm.h` vs stack VM) and stage 4 (ARMv6 A32 back end) are next. For `scripts/bmt.py`, the Lua output stays the reference and `make test-typed` compares it with the C.
 
 1. Done: `blocked` of Yharnam is made by `bmt.py` (`tests/typed/yblocked.bmt`): 50.5 to 53.5 fps on the Pi, the same as the hand-written C. The kernel now has the general form (`tests/typed/collmap.bmt`, `src/bm/typed_collmap_gen.h`). The subset has `//`, `%`, `floor`, `min`, `max` and calls between typed functions. Next: structs, and a table of the cols that the game fills once (today `typed_ysync` copies a chunk each time).
 2. `draw_scene` of Yharnam: the cull in C gave nothing (53.1 against 53.5 fps), and its cost is spread over the sort comparator, the cull, the building tiles and the draw calls (design document, section 3). Do not port a part of it. Options: the whole draw of the objects in C, or a cheaper sort (the comparator is 7.3% of the Lua instructions).
