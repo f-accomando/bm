@@ -636,14 +636,19 @@ static void sc_draw_tabs_status(void)
         }
     }
 #ifndef SHELL_CODE_HOST_TEST
-    console_set_status(left, "[Esc] Menu");
+    sc_tab_t *cur = &g_sc.tabs[g_sc.cur_tab];
+    if (cur->err_line > 0 && cur->status[0]) {
+        console_set_status(left, cur->status);
+    } else {
+        console_set_status(left, "[Esc] Menu");
+    }
 #endif
 }
 
 static void sc_draw_editor(void)
 {
     sc_tab_t *t = &g_sc.tabs[g_sc.cur_tab];
-    int rows_avail = g_sc.screen_rows - 2;   /* row 0 is status, row rows-1 is bottom bar */
+    int rows_avail = g_sc.screen_rows - 1;   /* row 0 is tab status, rows 1..rows-1 are editor lines */
     if (rows_avail < 1) rows_avail = 1;
     int cols = g_sc.screen_cols;
 
@@ -680,25 +685,6 @@ static void sc_draw_editor(void)
         console_write(line_buf);
 #endif
     }
-
-    /* Clean bottom status line (row con.rows - 1) */
-    int bot_row = g_sc.screen_rows - 1;
-    char bot[256];
-    const char *synstr = (t->syntax == SC_SYN_B) ? ".b" :
-                         (t->syntax == SC_SYN_LUA) ? ".lua" :
-                         (t->syntax == SC_SYN_C) ? ".c" : ".txt";
-
-    if (t->err_line > 0) {
-        snprintf(bot, sizeof(bot), "\x1b[%d;1H\x1b[7;1;91m ! Riga %d: %s \x1b[0m\x1b[K",
-                 bot_row, t->err_line, t->status);
-    } else {
-        snprintf(bot, sizeof(bot), "\x1b[%d;1H\x1b[7m %s  [%s]  Ln %d/%d, Col %d  │  %s  │  [Esc] Menu \x1b[0m\x1b[K",
-                 bot_row, t->name, synstr, t->cy + 1, t->nlines, t->cx + 1,
-                 t->status[0] ? t->status : "Pronto");
-    }
-#ifndef SHELL_CODE_HOST_TEST
-    console_write(bot);
-#endif
 }
 
 static void sc_draw_popup_menu(void)
@@ -753,7 +739,7 @@ static void sc_draw_popup_menu(void)
 
 static void sc_scroll_to_cursor(sc_tab_t *t)
 {
-    int rows_avail = g_sc.screen_rows - 2;
+    int rows_avail = g_sc.screen_rows - 1;
     if (rows_avail < 1) rows_avail = 1;
     int gw = (t->nlines >= 1000) ? 6 : 5;
     int text_cols = g_sc.screen_cols - gw - 1;
