@@ -117,6 +117,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `nano8` | `bm.info`; `build.py` and `mkdemo.py` in `build/` |
 | `darknight` | `bm.info`; `main.lua`; no sheet, no map file: the map kit `art/maps/clinic.bmk` and the models `art/models/dnhunter.bmm` are merged in by `bmres.py` (rule in the Makefile); `darknight.bme` is the project |
 | `snes` | `bm.info`; `cover.png`; the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `src/bm/snes_*.c` |
+| `psx` | `bm.info`; `cover.png` (made by `build.py` if missing); the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `src/bm/psx_*.c` |
 | `overbit` | `bm.info`; `build.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). |
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |

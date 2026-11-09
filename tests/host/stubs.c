@@ -158,6 +158,18 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
     return 0;
 }
 
+int fat_read_at(const fat_entry_t *e, uint32_t off, uint8_t *dst, size_t len)
+{
+    FILE *f = fopen(paths[(e->cluster - 2) % PATHS], "rb");
+    if (!f) {
+        snprintf(fat_err, sizeof fat_err, "cannot open");
+        return -1;
+    }
+    const int ok = fseek(f, (long)off, SEEK_SET) == 0 && fread(dst, 1, len, f) == len;
+    fclose(f);
+    return ok ? 0 : -1;
+}
+
 #define DIRS 8
 static DIR *dirs[DIRS];
 static char dir_paths[DIRS][512];

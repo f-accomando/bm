@@ -1,0 +1,12 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: bm PSX
+desc: A PlayStation 1 emulator. It plays PS-EXE files and disc images (.cue + .bin, .iso) from the /psx folder of the SD card, with the BIOS you put there. The machine is in C.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: app, emulator, psx
+resolution: 640x360
+targets: pi,rgb30
+input: pad,keyboard
+aspect: any
+min_ram: 256

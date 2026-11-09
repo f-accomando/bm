@@ -429,6 +429,56 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
     return fat_load_part(e, e->size, data, len);
 }
 
+/* A range of a file, read in place (a disc image of 700 MB is never loaded whole). The cluster chain is walked from
+ * a cursor kept from the last call, so a read that follows the previous one costs no walk. */
+int fat_read_at(const fat_entry_t *e, uint32_t off, uint8_t *dst, size_t len)
+{
+    static struct { uint32_t first, idx, cur; } cache;
+    static uint8_t bounce[8 * 512];
+    if (!vol.mounted || e->is_dir || (uint64_t)off + len > e->size) {
+        err = "bad range";
+        return -1;
+    }
+    const uint32_t csize = vol.spc * 512;
+    while (len) {
+        const uint32_t ci = off / csize;
+        if (cache.first != e->cluster || ci < cache.idx) {
+            cache.first = e->cluster;
+            cache.idx = 0;
+            cache.cur = e->cluster;
+        }
+        while (cache.idx < ci) {
+            cache.cur = next_cluster(cache.cur);
+            cache.idx++;
+            if (is_eoc(cache.cur) || cache.cur >= vol.clusters + 2) {
+                cache.first = 0;
+                err = "broken cluster chain";
+                return -1;
+            }
+        }
+        const uint32_t in = off % csize;
+        const uint32_t sec0 = in / 512;
+        uint32_t nsec = (in + (uint32_t)(len < csize ? len : csize) + 511) / 512 - sec0;
+        if (sec0 + nsec > vol.spc)
+            nsec = vol.spc - sec0;
+        if (nsec > 8)
+            nsec = 8;
+        if (sd_read(cluster_lba(cache.cur) + sec0, nsec, bounce)) {
+            err = "SD read error";
+            return -1;
+        }
+        const uint32_t skip = in % 512;
+        size_t n = (size_t)nsec * 512 - skip;
+        if (n > len)
+            n = len;
+        memcpy(dst, bounce + skip, n);
+        dst += n;
+        off += (uint32_t)n;
+        len -= n;
+    }
+    return 0;
+}
+
 /* ---------------------------------------------------------------- lookup */
 
 int fat_find(const char *path, fat_entry_t *e)

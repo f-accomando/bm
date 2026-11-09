@@ -60,6 +60,8 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len);
 /* The same with at most the first `max` bytes (a cartridge's cover: it
  * comes first in the file). */
 int fat_load_part(const fat_entry_t *e, size_t max, uint8_t **data, size_t *len);
+/* Reads len bytes at byte offset off of a file into dst (no whole-file load; 0, or -1 and fat_error()). */
+int fat_read_at(const fat_entry_t *e, uint32_t off, uint8_t *dst, size_t len);
 /* Called after each cluster the two read, if set: the loading screen goes
  * on, the menu's fibers give the CPU back. Nonzero stops the read (it
  * fails, fat_error() "stopped"). */

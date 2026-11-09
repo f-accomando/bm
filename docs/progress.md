@@ -36,6 +36,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `src/rgb30/`, `rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
 | [single-bm](progress/single-bm.md) | one cartridge type, the targets of the header, the faded cover, Market entries | `src/bm/format.c`, `docs/spec/compat-policy.toml`, `src/kernel/library.c` |
 | [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets, verification | `carts/overbit/`, `carts/yharnam/` |
+| [psx](progress/psx.md) | bm PSX: a PlayStation 1 emulator whose machine is C in the kernel (R3000A, GTE, software GPU, CD-ROM, SPU; clean-room core) and a Lua interface; plays PS-EXE files and disc images from `/psx` with the user's BIOS; not run on hardware yet | `carts/psx/`, `tests/psx/` |
 | [snes](progress/snes.md) | bm SNES: a Super Nintendo emulator whose machine is C in the kernel (65C816, SPC700 and DSP with sound, DMA/HDMA, PPU with SIMD and ARM assembly for the Pi) and a Lua interface; plays `.sfc` ROMs from `/sfc` | `carts/snes/`, `tests/snes/` |
 | [smw](progress/smw.md) | native port of Super Mario World for the RGB30 (personal use): ROM extractor, emulator capture, physics reference | `scripts/smw_extract.py`, `scripts/smw_capture.py` |
 | [smw-guide](progress/smw-guide.md) | PDF guide of the SMW port and its redrawn guide edition | `manuals/content/en/smw-guide.md`, `carts/smw/guide/build.py` |

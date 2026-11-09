@@ -1987,6 +1987,8 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw }, { "snes_to_sheet", l_snes_to_sheet },
     { "snes_info", l_snes_info }, { "snes_sram", l_snes_sram }, { "snes_debug", l_snes_debug },
+    { "psx_list", l_psx_list }, { "psx_boot", l_psx_boot }, { "psx_reset", l_psx_reset }, { "psx_frame", l_psx_frame },
+    { "psx_draw", l_psx_draw }, { "psx_info", l_psx_info }, { "psx_debug", l_psx_debug }, { "psx_tty", l_psx_tty },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "font_list", l_font_list }, { "font_read", l_font_read }, { "font_write", l_font_write }, { "font_delete", l_font_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
