@@ -49,7 +49,8 @@ class Console:
     """The transfer port of a console: settings in a dict, as config.c keeps them"""
 
     def __init__(self, knows_c=True, lose_answer=None, queues=False, busy=False, knows_tg=True, no_game=False,
-                 knows_f=True):
+                 knows_f=True, reset_first=0):
+        self.reset_first = reset_first      # the first N connections are closed with no answer (a console busy with the last request)
         self.knows_c = knows_c
         self.knows_f = knows_f              # F (the page on the screen); else BH
         self.knows_tg = knows_tg            # T (screenshot) and G (file of bm/shots); else BH
@@ -85,6 +86,10 @@ class Console:
             c.close()
 
     def one(self, c):
+        if self.reset_first:
+            self.reset_first -= 1
+            c.recv(1)
+            return
         tag, op = self.recv(c, 4), self.recv(c, 1)
         if tag != b"BMXF" or op not in ((b"S", b"P", b"K") + ((b"C",) if self.knows_c else ())
                                         + ((b"T", b"G") if self.knows_tg else ())
@@ -322,6 +327,14 @@ def main():
     check(rc == 1 and "no game drew a frame" in out and not os.path.exists(png), "--shot with no game: NG")
     rc, out = run(Console(knows_tg=False), job=("--shot", png))
     check(rc == 2 and "kernel too old" in out, "--shot on a kernel without T/G: too old")
+    # a console that resets the first connections (it was still answering the last request): the request is repeated and
+    # does NOT end as "kernel too old" (2026-11-09: status after status on the Pi 1)
+    t0 = time.time()
+    rc, out = run(Console(reset_first=2), job=("--shot", png))
+    check(rc == 0 and "kernel too old" not in out and os.path.exists(png), "--shot after 2 reset connections: tried again, done")
+    check(time.time() - t0 < 10, "  it did not wait longer than the retries need")
+    rc, out = run(Console(reset_first=1, knows_tg=False), job=("--shot", png))
+    check(rc == 2 and "kernel too old" in out, "  a reset first, then BH: too old")
 
     # --line: a monitor line from the menu, the output until it is done
     menu = NetConsole("the menu (w a s d, Enter, Esc, 1-4 the tabs; q the monitor, or a line for it: :crc; b3d; send)")

@@ -12,6 +12,7 @@
 #include "drivers/timer.h"
 #include "drivers/watchdog.h"
 #include "kernel/fiber.h"
+#include "kernel/crumbs.h"
 #include "lib/printf.h"
 
 #include "lwip/init.h"
@@ -132,6 +133,21 @@ int net_start(const net_link_t *l)
     return dhcp_start(&nif) == ERR_OK ? 0 : -1;
 }
 
+/* A stretch with no service of the network (the PC sees a console that does not answer). The timer IRQ notes where the
+ * code was every second of it (the interrupted pc); the next poll prints them. */
+static volatile uint32_t gap_t;
+static volatile uint32_t stall_pc[6];
+static volatile unsigned stall_n;
+void net_stall_sample(uint32_t pc)
+{
+    uint32_t t = gap_t;
+    if (!t)
+        return;
+    uint32_t secs = (timer_ticks() - t) / 1000000u;
+    if (secs > stall_n && stall_n < 6)
+        stall_pc[stall_n++] = pc;
+}
+
 static void poll_now(void)
 {
     static uint8_t buf[1536];
@@ -141,6 +157,20 @@ static void poll_now(void)
     if (depth > 1)
         return;
     depth++;
+    {   /* a stretch with no service: the PC sees a console that does not answer. Say how long and what it was doing. */
+        static char prev_what[44];
+        uint32_t now = timer_ticks();
+        uint32_t prev_t = gap_t;
+        if (prev_t && now - prev_t > 400000u) {
+            kprintf("net: not served for %lu ms (up %lu ms), while: %s\n", (unsigned long)((now - prev_t) / 1000),
+                    (unsigned long)crumbs_uptime_ms(), prev_what);
+            for (unsigned i = 0; i < stall_n; i++)
+                kprintf("net:   pc at %us: %08lx\n", i + 1, (unsigned long)stall_pc[i]);
+        }
+        stall_n = 0;
+        gap_t = now;
+        strncpy(prev_what, crumbs_what(), sizeof prev_what - 1);
+    }
     dp->poll();
     int n;
     /* bounded: a busy network must not hold up a game's frame (the

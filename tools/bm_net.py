@@ -97,27 +97,50 @@ def recv_answer(sock, timeout):
     return data
 
 
-def open_request(args, op, dest, data, password):
+def open_request(args, op, dest, data, password, patience=25.0):
     """The request sent to the transfer port: the socket and the console's
-    first answer (OK: the data can go)."""
+    first answer (OK: the data can go).
+    The console serves one request at a time and does not serve the network at all while it loads a game or writes
+    to the card (seconds): a connection that is refused, reset or left without an answer is tried again for
+    `patience` seconds with the same tag. Only a "bad request" (BH) sends the old tag (BM3X: a kernel from before the
+    rename), and only that answer is "too old": an empty answer is a busy console (before, it went to the old tag, got
+    BH from the new kernel and printed "kernel too old", 2026-11-09)."""
     pw = password.encode()
     rest = (op + bytes([len(pw)]) + pw + bytes([len(dest)]) + dest.encode()
             + struct.pack("<II", len(data), zlib.crc32(data) & 0xFFFFFFFF))
-    # a kernel from before the rename only knows the old request tag: it
-    # answers "bad request" or drops the connection (the rest of the
-    # request arrives after it gave up), and the request goes again with that
-    for tag in (b"BMXF", b"BM3X"):
-        sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
+    end = time.time() + patience
+    a = b""
+    while True:
+        sock = None
         try:
-            sock.sendall(tag + rest)
-        except (ConnectionResetError, BrokenPipeError):
-            pass
-        a = recv_answer(sock, 10)
-        if a not in (b"BH", b""):
+            sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
+            sock.sendall(b"BMXF" + rest)
+            a = recv_answer(sock, 10)
+        except (OSError, socket.timeout):
+            a = b""
+        if a:
             break
-        sock.close()
+        if sock:
+            sock.close()
+        if time.time() >= end:
+            break
+        time.sleep(0.5)
+    if a == b"BH" or not a:
+        # a kernel from before the rename only knows the old request tag (it answers BH or drops the connection)
+        if sock:
+            sock.close()
         time.sleep(0.3)
-    return sock, a
+        try:
+            sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
+            sock.sendall(b"BM3X" + rest)
+            a2 = recv_answer(sock, 10)
+        except (OSError, socket.timeout):
+            a2 = b""
+        if a2 not in (b"BH", b""):
+            a = a2
+        elif not a:
+            sock.close()
+    return (sock if sock else socket.socket()), a
 
 
 def transfer(args, op, path, name, password):
@@ -304,6 +327,13 @@ def restart(args, password):
 def shot(args, out, password):
     """--shot: a screenshot of the running game (T), then its file (G)"""
     sock, a = open_request(args, b"T", "", b"", password)
+    # a game that was started a moment ago has not drawn its first frame (it loads, the console serves nothing meanwhile):
+    # with --wait the request goes again until it has, or the seconds are over
+    end = time.time() + (getattr(args, "wait", 0) or 0)
+    while a == b"NG" and time.time() < end:
+        sock.close()
+        time.sleep(1)
+        sock, a = open_request(args, b"T", "", b"", password)
     if a != b"OK":
         sock.close()
         return refused(a)
@@ -534,6 +564,8 @@ def main():
     ap.add_argument("--restart", action="store_true", help="restart the console (the same kernel)")
     ap.add_argument("--shot", metavar="OUT",
                     help="screenshot of the running game, written to OUT (a PNG)")
+    ap.add_argument("--wait", type=float, default=0, metavar="SECONDS",
+                    help="with --shot: ask again for this long while no game has drawn a frame yet")
     ap.add_argument("--frame", metavar="OUT",
                     help="the page on the screen now (the menu, the monitor or a game), written to OUT (a PPM); tools/bm_watch.py repeats it")
     ap.add_argument("--view", type=float, metavar="SECONDS",

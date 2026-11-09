@@ -29,6 +29,7 @@ int  net_wait_ip(uint32_t ms);
 /* Moves frames and lwIP's timers; called from the input loops, cheap when
  * WiFi is off (at most once per millisecond otherwise). */
 void net_poll(void);
+void net_stall_sample(uint32_t pc);   /* from the IRQ entry (vectors.S): where the code was while the network was not served */
 /* One round of the network (frames, timers) and a short pause: for code
  * that waits for an answer (stream.c). Inside a fiber (fiber.h) the pause
  * is the rest of the menu's frame instead; -1 if the fiber was cancelled:

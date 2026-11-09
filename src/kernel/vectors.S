@@ -80,6 +80,8 @@ irq_entry:
     srsdb   sp!, #0x13              @ push lr_irq, spsr_irq on the SVC stack
     cps     #0x13
     push    {r0-r3, r12, lr}        @ 8 words total with the SRS frame
+    ldr     r0, [sp, #24]           @ the interrupted pc (lr_irq of the SRS frame), for net_stall_sample
+    bl      net_stall_sample
     vpush   {d0-d7}
 #ifdef __ARM_NEON
     vpush   {d16-d31}

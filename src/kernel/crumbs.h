@@ -12,6 +12,7 @@
 
 void crumbs_boot(void);             /* reports a previous freeze, starts a new record */
 void crumb(const char *what, const char *name);  /* what is running now (name may be NULL) */
+const char *crumbs_what(void);      /* the text of the last crumb */
 void crumb_frame(uint32_t frame);   /* progress inside it */
 void crumb_tick(uint32_t ms);       /* from the timer: uptime of the record */
 void crumbs_clean_exit(void);       /* before an intentional reboot */

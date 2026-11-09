@@ -231,6 +231,11 @@ void crumb(const char *what, const char *name)
     flush();
 }
 
+const char *crumbs_what(void)
+{
+    return cr_live ? cr.what : "";
+}
+
 void crumb_frame(uint32_t frame)
 {
     watchdog_progress();
@@ -271,6 +276,7 @@ void crumbs_clean_exit(void)
 void crumbs_restart(int halt)
 {
     wifi_leave();
+    crumb("restart: the log to the SD", NULL);   /* a stop in the write is named in the next boot's report */
     watchdog_run_before_reboot();       /* the log to the SD: while the run still counts as running */
     crumbs_clean_exit();
     uart_flush();

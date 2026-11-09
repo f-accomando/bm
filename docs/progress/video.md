@@ -10,6 +10,7 @@ Study: [video-feasibility-2026-10.md](../bench/video-feasibility-2026-10.md). PC
 * The recorder default format is `rle565`. A raw format (`rec_format=rgb565` or `rgb332`) stays readable and writable.
 * A chunk of RLE565 frames ends at 256 frames or at about 256 KB of frame bytes. The frames of a chunk have different sizes, so the index is written after the last frame.
 * Any change of the RLE565 token format needs a new codec number. Keep the old one readable.
+* Keep at most 400 files in `bm/rec` (`MAX_FILES`, `src/bm/rec.c`). Harm: a FAT directory is read from its start for every name; with 5078 files each run start took 4.4 s and each chunk 9 s, and the console served no network meanwhile ([system-net](system-net.md)). Above the limit the recorder stays off and prints why. Copy the folder to the PC and delete it.
 
 ## Open work
 * VID-S3, VID-S4: done on the PC (see the spikes sheet).

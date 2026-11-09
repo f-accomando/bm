@@ -195,6 +195,13 @@ static int get_allowed(const char *p)
     if (strncasecmp(p, "bm/bat", 6) == 0 && p[6] >= '0' && p[6] <= '9' && p[7] >= '0' && p[7] <= '9' &&
         strcasecmp(p + 8, ".csv") == 0)
         return 1;
+    /* a saved report (reports.c, masked when saved): bm/reports/rpt00036.txt; the freeze reports are read from here */
+    if (strncasecmp(p, "bm/reports/rpt", 14) == 0 && strlen(p) == 23 && strcasecmp(p + 19, ".txt") == 0) {
+        for (int i = 14; i < 19; i++)
+            if (p[i] < '0' || p[i] > '9')
+                return 0;
+        return 1;
+    }
     return strncasecmp(p, "bm/shots/", 9) == 0 && p[9] && !strchr(p + 9, '/') && !strstr(p, "..");
 }
 
@@ -592,6 +599,13 @@ static err_t on_accept(void *arg, struct tcp_pcb *pcb, err_t err)
     (void)arg;
     if (err != ERR_OK || !pcb)
         return ERR_VAL;
+    if (peer && st == REPLIED && !reboot_after) {
+        /* The answer to the last request is already out (the 0.3 s before the close only let it leave): a second request
+         * a moment later (status asks twice) must not be reset. Before, the PC saw an empty answer, tried the old
+         * request tag and printed "kernel too old" (2026-11-09). */
+        drop_peer();
+        st = IDLE;
+    }
     if (peer || st != IDLE) {
         tcp_abort(pcb);
         return ERR_ABRT;

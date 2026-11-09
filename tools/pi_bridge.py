@@ -21,6 +21,7 @@ import socket
 import string
 import subprocess
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
@@ -89,6 +90,11 @@ def allowed_dir(path):
 def status(host, pw):
     """up or down (the greeting of the console), the version, the state of the run before (bootprev.txt)"""
     v = bm_net.console_version(host)
+    for _ in range(3):      # a console that loads a game or writes the card serves nothing for seconds: it is not down yet
+        if v is not None:
+            break
+        time.sleep(3)
+        v = bm_net.console_version(host)
     if v is None:
         return "status: down - no answer from %s:%d (off, restarting, frozen, or another client connected)" % (host, bm_net.PORT)
     out_file = os.path.join(ROOT, "out", "pi_" + (DEV + "_" if DEV else "") + "status_bootprev.txt")
@@ -158,7 +164,7 @@ def run(host, pw, req, board="pi"):
     elif op in ("send", "play", "kernel") and allowed(arg):
         cmd = base + ["--" + op, os.path.realpath(arg)]
     elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
-        cmd = base + ["--shot", os.path.realpath(arg)]
+        cmd = base + ["--shot", os.path.realpath(arg), "--wait", "20"]
     elif op == "frame" and arg.lower().endswith(".ppm") and allowed_dir(os.path.dirname(arg) or "."):
         cmd = base + ["--frame", os.path.realpath(arg)]
     elif op == "view" and re.fullmatch(r"([1-9]|[1-5][0-9]|60)(,[1-9][0-9]{1,2}x[1-9][0-9]{1,2})?", arg):
@@ -172,12 +178,12 @@ def run(host, pw, req, board="pi"):
         cmd = base + ["--line", KEY_LINES[arg]]
     elif op == "keys" and arg in KEYS:
         cmd = base + ["--keys", KEYS[arg]]
-    elif op == "logs" and (arg in LOGS or re.fullmatch(r"bat[0-9]{2}", arg)):
+    elif op == "logs" and (arg in LOGS or re.fullmatch(r"bat[0-9]{2}", arg) or re.fullmatch(r"rpt[0-9]{5}", arg)):
         if arg not in LOGS:
-            LOGS[arg] = arg + ".csv"        # the RGB30's battery log (battery.c): bm/bat00.csv ... bm/bat99.csv
+            LOGS[arg] = arg + (".txt" if arg.startswith("rpt") else ".csv")  # battery.c: bm/bat00.csv; reports.c: bm/reports/rpt00036.txt
         out_file = os.path.join(ROOT, "out", "pi_" + (DEV + "_" if DEV else "") + LOGS[arg])
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        cmd = base + ["--get", "bm/" + LOGS[arg], out_file]
+        cmd = base + ["--get", ("bm/reports/" if arg.startswith("rpt") else "bm/") + LOGS[arg], out_file]
     else:
         return "refused: %r" % masked(req)
     try:

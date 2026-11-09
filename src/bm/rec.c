@@ -15,6 +15,9 @@
 #define PAUSE_US    300000              /* after the game's own write to the card */
 #define MIN_RING    (1u << 20)
 #define MAX_RLE_FPC 256u                /* frames in an RLE chunk, at most */
+/* Files in /bm/rec, at most. A FAT directory is read from its start for every name, so a big one stops the console
+ * for seconds (5078 files on the Pi 1: 4.4 s at the start of a run and 9 s for each chunk, 2026-11-09). */
+#define MAX_FILES   400u
 
 static struct {
     int on;
@@ -102,20 +105,28 @@ int rec_due(void)
     return R.on && (int32_t)(timer_ticks() - R.next_due) >= 0;
 }
 
-/* the next free run number: one more than the highest Rnnn in /bm/rec */
+/* the next free run number: one more than the highest Rnnn in /bm/rec; 0 when the folder holds more than MAX_FILES
+ * files (the scan stops there, it does not read the whole folder) */
 static uint32_t next_run(void)
 {
-    uint32_t top = 0;
+    uint32_t top = 0, files = 0;
+    const uint32_t t0 = timer_ticks();
     fat_dir_t d;
     fat_entry_t e;
     if (fat_opendir(&d, REC_DIR) == 0)
-        while (fat_readdir(&d, &e))
+        while (fat_readdir(&d, &e)) {
+            if (++files > MAX_FILES)
+                return 0;
             if ((e.name[0] == 'R' || e.name[0] == 'r') && e.name[1] >= '0' && e.name[1] <= '9' && e.name[2] >= '0' &&
                 e.name[2] <= '9' && e.name[3] >= '0' && e.name[3] <= '9') {
                 const uint32_t n = (uint32_t)((e.name[1] - '0') * 100 + (e.name[2] - '0') * 10 + (e.name[3] - '0'));
                 if (n > top)
                     top = n;
             }
+        }
+    if (timer_ticks() - t0 > 300000u)
+        kprintf("rec: %s holds %u files, read in %u ms\n", REC_DIR, (unsigned)files,
+                (unsigned)((timer_ticks() - t0) / 1000));
     return top + 1;
 }
 
@@ -171,11 +182,12 @@ int rec_start(const rec_cfg_t *cfg)
     }
     R.st.slots = R.nslots;
     R.st.run = next_run();
-    if (R.st.run > 999) {
+    if (R.st.run == 0 || R.st.run > 999) {
         free(R.ring);
         R.ring = NULL;
         free_rows();
-        kprintf("rec: %s holds 999 runs: delete some\n", REC_DIR);
+        kprintf("rec: %s holds over %u files or 999 runs: copy and delete them; the recorder stays off\n", REC_DIR,
+                (unsigned)MAX_FILES);
         return -1;
     }
     R.period = 1000000u / (uint32_t)cfg->fps;
@@ -319,6 +331,8 @@ static void write_one(void)
     const uint32_t t0 = timer_ticks();
     const int rc = R.written + 1 < 10000 ? fat_write_file(REC_DIR, name, s, len) : -1;
     const uint32_t dt = timer_ticks() - t0;
+    if (dt > 1000000u)
+        kprintf("rec: chunk %u (%u KB) took %u ms\n", (unsigned)(R.written + 1), (unsigned)(len / 1024), (unsigned)(dt / 1000));
     if (rc != 0) {
         R.st.chunk_fail++;
         kprintf("rec: chunk %u not written: %s\n", (unsigned)(R.written + 1), R.written + 1 < 10000 ? fat_error() : "10000 chunks");
