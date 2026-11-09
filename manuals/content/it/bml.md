@@ -41,7 +41,7 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 
 | Tipo | Significato | Letterali / Sintassi | Rappresentazione ARMv6 |
 |---|---|---|---|
-| `i32` | Intero con segno a 32 bit (wrap in complemento a 2) | `0`, `42`, `-2147483648`, `2147483647` | Registro generale a 32 bit (`r0`..`r10`) |
+| `i32` | Intero con segno a 32 bit (wrap in complemento a 2) | `0`, `42`, `0x1234`, `0xFFFFFFFF`, `-2147483648`, `2147483647` | Registro generale a 32 bit (`r0`..`r10`) |
 | `bool` | Valore di verità stretto | `true`, `false` | `1` (`true`) o `0` (`false`) in un registro a 32 bit |
 | `f32` | Float IEEE-754 a singola precisione | `0.0`, `1.5`, `-0.25` | Slot GP a 32 bit + coprocessore 10 VFPv2 `s0`..`s1` |
 | `string` | Stringa immutabile e costanti nel segmento `.rodata` | `"testo"`, `'testo'` | Puntatore a 32 bit nel segmento `.rodata` (PIC PC-relative, zero rilocazioni) |
@@ -55,6 +55,7 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 - La divisione intera usa `//` e il modulo usa `%` (arrotondati verso $-\infty$). La divisione float usa `/` su operandi `f32`.
 - Funzioni matematiche e di conversione integrate: `abs(x)`, `min(a, b)`, `max(a, b)` (per `i32` o `f32`), `sqrt(x: f32): f32`, `f32(x: i32): f32` e `floor(x: f32): i32`.
 - Funzioni del kernel (Tappa 7+): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(x0, y0, x1, y1, col)`, `circ(x, y, r, col)`, `circfill(x, y, r, col)`, `rect(x, y, w, h, col)`, `sfx(id)`, `music(id)`, `time(): f32` e `print(msg, ...): i32` (fino a 5 argomenti; primo argomento `string`).
+- Primitive di memoria bare-metal e MMIO (Tappa 5): `peek(addr: i32): i32` (`ldrb` byte a 8 bit), `poke(addr: i32, val: i32)` (`strb`), `peek4(addr: i32): i32` (`ldr` parola a 32 bit), `poke4(addr: i32, val: i32)` (`str`), `memcpy(dst: i32, src: i32, bytes: i32)` e `memset(dst: i32, val: i32, bytes: i32)` (routine macchina native ad alta efficienza per framebuffer, asset e DMA).
 
 ## Istruzioni e operatori
 

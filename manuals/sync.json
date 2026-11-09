@@ -343,8 +343,8 @@
     "title": "Why a language of bm"
    },
    "2": {
-    "en": "b4592d09b4e4",
-    "it": "43ed05ebcb3c",
+    "en": "b0c520313f22",
+    "it": "cbb7c755122e",
     "title": "Syntax and type rules"
    },
    "3": {
@@ -364,10 +364,10 @@
    }
   },
   "sources": {
-   "docs/design/bml-manual.md": "47a191d0178a",
-   "docs/progress/typed.md": "13c0e678e655",
+   "docs/design/bml-manual.md": "68ef6304a522",
+   "docs/progress/typed.md": "3f5749778836",
    "src/bm/bmvm.h": "ba119d71aa28",
-   "tools/bml/bml.py": "045a2365dd47"
+   "tools/bml/bml.py": "4b8314af9e98"
   }
  },
  "boot-os": {

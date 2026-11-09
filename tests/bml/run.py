@@ -28,6 +28,35 @@ os.makedirs(BUILD, exist_ok=True)
 LUA_PRELUDE = """\
 local abs, min, max, floor, sqrt = math.abs, math.min, math.max, math.floor, math.sqrt
 local function f32(x) return x + 0.0 end
+local __mem = {}
+local function peek(addr) return __mem[addr] or 0 end
+local function poke(addr, val) __mem[addr] = val & 255 end
+local function peek4(addr)
+  local b0 = __mem[addr] or 0
+  local b1 = __mem[addr+1] or 0
+  local b2 = __mem[addr+2] or 0
+  local b3 = __mem[addr+3] or 0
+  local v = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
+  if v >= 0x80000000 then v = v - 0x100000000 end
+  return v
+end
+local function poke4(addr, val)
+  __mem[addr]   = val & 255
+  __mem[addr+1] = (val >> 8) & 255
+  __mem[addr+2] = (val >> 16) & 255
+  __mem[addr+3] = (val >> 24) & 255
+end
+local function memcpy(dst, src, n)
+  for i = 0, n - 1 do
+    __mem[dst + i] = __mem[src + i] or 0
+  end
+end
+local function memset(dst, val, n)
+  local b = val & 255
+  for i = 0, n - 1 do
+    __mem[dst + i] = b
+  end
+end
 """
 
 failed = 0
@@ -986,6 +1015,7 @@ vm_s6_out.append(str(tm_vm.call("test_struct_methods", [vec_m, 1.5])))
 vm_s6_out.append(str(int(round(vec_m["x"] * 100))))
 vm_s6_out.append(str(int(round(vec_m["y"] * 100))))
 vm_s6_out.append(str(tm_vm.call("test_bitwise", [0x1234, 0x5678])))
+vm_s6_out.append(str(tm_vm.call("test_memory_ops", [100])))
 
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
@@ -1034,6 +1064,7 @@ print(test_struct_methods(vec_m, 1.5))
 print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
 print(test_bitwise(0x1234, 0x5678))
+print(test_memory_ops(100))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1109,6 +1140,7 @@ print(native_run(mn, "test_struct_methods", vec_m, 1.5))
 print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
 print(native_run(mn, "test_bitwise", 0x1234, 0x5678))
+print(native_run(mn, "test_memory_ops", 100))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1280,6 +1312,14 @@ void c_main(void)
     {{
         int32_t a[2] = {{0x1234, 0x5678}};
         bmnative_call(m, bmnative_find(m, "test_bitwise"), a, 2, &r);
+        put_i32(r);
+    }}
+
+    /* 10. test_memory_ops */
+    {{
+        static uint8_t s_mem_buf[1024];
+        int32_t a[1] = {{(int32_t)(uintptr_t)s_mem_buf}};
+        bmnative_call(m, bmnative_find(m, "test_memory_ops"), a, 1, &r);
         put_i32(r);
     }}
 }}
@@ -2105,6 +2145,7 @@ print(native_run(m_tm, "test_struct_methods", vec_m, 1.5))
 print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
 print(native_run(m_tm, "test_bitwise", 0x1234, 0x5678))
+print(native_run(m_tm, "test_memory_ops", 100))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))

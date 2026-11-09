@@ -126,12 +126,21 @@ primary     = INT | "true" | "false" | "(" expr ")" | NAME "(" [ arg_list ] ")" 
 
 ### 3.5 Built-in Functions
 
-Three intrinsic functions are built into the type checker and lowered directly to single VM opcodes (`ABS`, `MIN`, `MAX`):
-- `abs(x: i32): i32`
-- `min(a: i32, b: i32): i32`
-- `max(a: i32, b: i32): i32`
-
-When running the stripped Lua output (`--lua`), bind them in the Lua prelude via `local abs, min, max = math.abs, math.min, math.max`.
+- Math & Conversion:
+  - `abs(x: i32): i32` or `abs(x: f32): f32`
+  - `min(a: i32, b: i32): i32` or `min(a: f32, b: f32): f32`
+  - `max(a: i32, b: i32): i32` or `max(a: f32, b: f32): f32`
+  - `sqrt(x: f32): f32` (hardware VFPv2 single-precision `vsqrt.f32`)
+  - `f32(x: i32): f32` and `floor(x: f32): i32`
+- Bare-Metal Memory Access & MMIO:
+  - `peek(addr: i32): i32` (unsigned byte load, ARMv6 `ldrb`)
+  - `poke(addr: i32, val: i32)` (byte store, ARMv6 `strb`)
+  - `peek4(addr: i32): i32` (32-bit word load, ARMv6 `ldr`)
+  - `poke4(addr: i32, val: i32)` (32-bit word store, ARMv6 `str`)
+  - `memcpy(dst: i32, src: i32, bytes: i32)` (fast native byte copy routine)
+  - `memset(dst: i32, val: i32, bytes: i32)` (fast native byte fill routine)
+- Kernel Host API (Tappa 7+):
+  - `cls(c)`, `pix(x, y, c)`, `rectfill(x, y, w, h, c)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(...)`, `circ(...)`, `circfill(...)`, `rect(...)`, `sfx(id)`, `music(id)`, `time(): f32`, `print(msg: string, ...): i32`
 
 ---
 
@@ -194,6 +203,10 @@ Each function activation in `StackVM` owns:
 | `LT`, `LE`, `GT`, `GE` | — | $a, b \to (a \circ b)$ | Signed integer comparison (`bool`) |
 | `ABS` | — | $a \to |a|$ | Built-in `abs(a)` |
 | `MIN`, `MAX` | — | $a, b \to \min/\max(a,b)$ | Built-in `min(a, b)` / `max(a, b)` |
+| `PEEK`, `PEEK4` | — | $\text{addr} \to v$ | Raw memory load: `PEEK` (byte `ldrb`), `PEEK4` (word `ldr`) |
+| `POKE`, `POKE4` | — | $\text{addr}, v \to$ | Raw memory store: `POKE` (byte `strb`), `POKE4` (word `str`) |
+| `MEMCPY` | — | $\text{dst}, \text{src}, n \to$ | Memory block copy |
+| `MEMSET` | — | $\text{dst}, v, n \to$ | Memory block fill |
 | `JMP` | `target` | — | Unconditional jump (`pc = target`) |
 | `JZ` | `target` | $\text{cond} \to$ | Pops `cond`; if `False`, sets `pc = target` |
 | `JF_KEEP` | `target` | $b \to b \text{ (jump)} \mid \text{ (fall)}$ | Short-circuit `and`: if TOS is `False`, jumps keeping `False`; else pops `True` |

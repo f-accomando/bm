@@ -109,6 +109,12 @@ enum {
     OP_AGETF,
     OP_ASET,
     OP_ASETF,
+    OP_PEEK,
+    OP_POKE,
+    OP_PEEK4,
+    OP_POKE4,
+    OP_MEMCPY,
+    OP_MEMSET,
     OP_JMP,
     OP_JZ,
     OP_JF_KEEP,
@@ -208,8 +214,12 @@ typedef struct {
     int         npatches;
     int         needs_idivmod;
     int         needs_host_call;
+    int         needs_memcpy;
+    int         needs_memset;
     int         idivmod_word;
     int         host_call_word;
+    int         memcpy_word;
+    int         memset_word;
 
     /* .rodata segment state */
     uint8_t     rodata[4096];
@@ -395,9 +405,26 @@ static void tokenize(bmlc_ctx_t *C)
         t->line = (uint16_t)line;
         t->ptr = s + pos;
 
-        /* Float or integer literal */
+        /* Float or integer literal (including hex 0x...) */
         if ((c >= '0' && c <= '9') || (c == '.' && pos + 1 < n && s[pos + 1] >= '0' && s[pos + 1] <= '9')) {
             size_t start = pos;
+            if (c == '0' && pos + 1 < n && (s[pos + 1] == 'x' || s[pos + 1] == 'X')) {
+                pos += 2;
+                uint64_t iv = 0;
+                while (pos < n) {
+                    char hc = s[pos];
+                    if (hc >= '0' && hc <= '9') iv = (iv << 4) | (uint64_t)(hc - '0');
+                    else if (hc >= 'a' && hc <= 'f') iv = (iv << 4) | (uint64_t)(hc - 'a' + 10);
+                    else if (hc >= 'A' && hc <= 'F') iv = (iv << 4) | (uint64_t)(hc - 'A' + 10);
+                    else break;
+                    pos++;
+                }
+                t->kind = TK_INT;
+                t->ival = (int64_t)iv;
+                t->len = (uint16_t)(pos - start);
+                C->ntoks++;
+                continue;
+            }
             int is_flt = 0;
             uint64_t iv = 0;
             while (pos < n && s[pos] >= '0' && s[pos] <= '9') {
@@ -805,9 +832,9 @@ static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
     }
     if (t->kind == TK_INT) {
         C->ti++;
-        if (t->ival > 0x7FFFFFFFLL)
+        if ((uint64_t)t->ival > 0xFFFFFFFFULL)
             c_fail(C, stmt_line, "integer literal overflows i32");
-        int k = add_const(C, (int32_t)t->ival, stmt_line);
+        int k = add_const(C, (int32_t)(uint32_t)t->ival, stmt_line);
         emit_op(C, OP_PUSH_CONST, k, stmt_line);
         return BMN_I32;
     }
@@ -1196,6 +1223,43 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
             c_fail(C, stmt_line, "'floor' takes 1 f32 argument");
         emit_op(C, OP_FLOOR, 0, stmt_line);
         return BMN_I32;
+    }
+
+    if (strcmp(callee, "peek") == 0) {
+        if (argc != 1 || arg_types[0] != BMN_I32)
+            c_fail(C, stmt_line, "'peek' takes 1 i32 argument");
+        emit_op(C, OP_PEEK, 0, stmt_line);
+        return BMN_I32;
+    }
+    if (strcmp(callee, "poke") == 0) {
+        if (argc != 2 || arg_types[0] != BMN_I32 || arg_types[1] != BMN_I32)
+            c_fail(C, stmt_line, "'poke' takes 2 i32 arguments");
+        emit_op(C, OP_POKE, 0, stmt_line);
+        return BMN_NONE;
+    }
+    if (strcmp(callee, "peek4") == 0) {
+        if (argc != 1 || arg_types[0] != BMN_I32)
+            c_fail(C, stmt_line, "'peek4' takes 1 i32 argument");
+        emit_op(C, OP_PEEK4, 0, stmt_line);
+        return BMN_I32;
+    }
+    if (strcmp(callee, "poke4") == 0) {
+        if (argc != 2 || arg_types[0] != BMN_I32 || arg_types[1] != BMN_I32)
+            c_fail(C, stmt_line, "'poke4' takes 2 i32 arguments");
+        emit_op(C, OP_POKE4, 0, stmt_line);
+        return BMN_NONE;
+    }
+    if (strcmp(callee, "memcpy") == 0) {
+        if (argc != 3 || arg_types[0] != BMN_I32 || arg_types[1] != BMN_I32 || arg_types[2] != BMN_I32)
+            c_fail(C, stmt_line, "'memcpy' takes 3 i32 arguments");
+        emit_op(C, OP_MEMCPY, 0, stmt_line);
+        return BMN_NONE;
+    }
+    if (strcmp(callee, "memset") == 0) {
+        if (argc != 3 || arg_types[0] != BMN_I32 || arg_types[1] != BMN_I32 || arg_types[2] != BMN_I32)
+            c_fail(C, stmt_line, "'memset' takes 3 i32 arguments");
+        emit_op(C, OP_MEMSET, 0, stmt_line);
+        return BMN_NONE;
     }
 
     /* Stage 7+ kernel/host functions: cls, pix, rectfill, spr, btn, btnp, line, circ, circfill, rect, sfx, music, time */
@@ -1823,6 +1887,20 @@ static void emit_str(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
     emit_w(C, (COND_AL << 28) | (0x50u << 20) | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (off & 0xFFFu));
 }
 
+static void emit_ldrb(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
+{
+    uint32_t u_bit = (offset >= 0) ? 1u : 0u;
+    uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
+    emit_w(C, (COND_AL << 28) | (0x55u << 20) | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (off & 0xFFFu));
+}
+
+static void emit_strb(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
+{
+    uint32_t u_bit = (offset >= 0) ? 1u : 0u;
+    uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
+    emit_w(C, (COND_AL << 28) | (0x54u << 20) | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (off & 0xFFFu));
+}
+
 static void emit_branch_patch(bmlc_ctx_t *C, int16_t fn_idx, int16_t target, uint8_t cond, uint8_t is_bl)
 {
     if (C->npatches >= MAX_PATCHES)
@@ -1861,11 +1939,13 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
             t1 = pc + 1; sp1 = sp + 1;
         } else if (op == OP_STORE || op == OP_POP) {
             t1 = pc + 1; sp1 = sp - 1;
-        } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR) {
+        } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR || op == OP_PEEK || op == OP_PEEK4) {
             t1 = pc + 1; sp1 = sp;
+        } else if (op == OP_POKE || op == OP_POKE4) {
+            t1 = pc + 1; sp1 = sp - 2;
         } else if (op >= OP_ADD && op <= OP_AGETF) {
             t1 = pc + 1; sp1 = sp - 1;
-        } else if (op == OP_ASET || op == OP_ASETF) {
+        } else if (op == OP_ASET || op == OP_ASETF || op == OP_MEMCPY || op == OP_MEMSET) {
             t1 = pc + 1; sp1 = sp - 3;
         } else if (op == OP_JMP) {
             t1 = ins.arg; sp1 = sp;
@@ -2206,6 +2286,45 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             emit_str(C, r_val, 12, 0);
             break;
         }
+        case OP_PEEK: {
+            uint32_t r_addr = get_slot_reg(C, s_top - 1, 0);
+            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            emit_ldrb(C, dst, r_addr, 0);
+            put_slot_reg(C, s_top - 1, dst);
+            break;
+        }
+        case OP_POKE: {
+            uint32_t r_addr = get_slot_reg(C, s_top - 2, 0);
+            uint32_t r_val = get_slot_reg(C, s_top - 1, 1);
+            emit_strb(C, r_val, r_addr, 0);
+            break;
+        }
+        case OP_PEEK4: {
+            uint32_t r_addr = get_slot_reg(C, s_top - 1, 0);
+            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            emit_ldr(C, dst, r_addr, 0);
+            put_slot_reg(C, s_top - 1, dst);
+            break;
+        }
+        case OP_POKE4: {
+            uint32_t r_addr = get_slot_reg(C, s_top - 2, 0);
+            uint32_t r_val = get_slot_reg(C, s_top - 1, 1);
+            emit_str(C, r_val, r_addr, 0);
+            break;
+        }
+        case OP_MEMCPY:
+        case OP_MEMSET: {
+            if (op == OP_MEMCPY) C->needs_memcpy = 1;
+            else C->needs_memset = 1;
+            uint32_t r_dst = get_slot_reg(C, s_top - 3, 0);
+            if (r_dst != 0) emit_dp_reg(C, DP_MOV, 0, 0, r_dst, COND_AL, 0, 0, 0);
+            uint32_t r_v_src = get_slot_reg(C, s_top - 2, 1);
+            if (r_v_src != 1) emit_dp_reg(C, DP_MOV, 1, 0, r_v_src, COND_AL, 0, 0, 0);
+            uint32_t r_n = get_slot_reg(C, s_top - 1, 2);
+            if (r_n != 2) emit_dp_reg(C, DP_MOV, 2, 0, r_n, COND_AL, 0, 0, 0);
+            emit_branch_patch(C, (op == OP_MEMCPY) ? -5 : -6, 0, COND_AL, 1);
+            break;
+        }
         case OP_JMP:
             emit_branch_patch(C, (int16_t)fn_idx, (int16_t)ins.arg, COND_AL, 0);
             break;
@@ -2385,6 +2504,37 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
         emit_w(C, 0x00000000u); /* __bml_host_fn_slot */
     }
 
+    if (C->needs_memcpy) {
+        C->memcpy_word = C->nwords;
+        static const uint32_t mc_words[9] = {
+            0xE3520000u, /* cmp r2, #0 */
+            0x012FFF1Eu, /* bxeq lr */
+            0xE5D13000u, /* ldrb r3, [r1, #0] */
+            0xE5C03000u, /* strb r3, [r0, #0] */
+            0xE2811001u, /* add r1, r1, #1 */
+            0xE2800001u, /* add r0, r0, #1 */
+            0xE2522001u, /* subs r2, r2, #1 */
+            0x1AFFFFFAu, /* bne .Lcp */
+            0xE12FFF1Eu  /* bx lr */
+        };
+        for (int i = 0; i < 9; i++) emit_w(C, mc_words[i]);
+    }
+
+    if (C->needs_memset) {
+        C->memset_word = C->nwords;
+        static const uint32_t ms_words[8] = {
+            0xE3520000u, /* cmp r2, #0 */
+            0x012FFF1Eu, /* bxeq lr */
+            0xE20110FFu, /* and r1, r1, #0xFF */
+            0xE5C01000u, /* strb r1, [r0, #0] */
+            0xE2800001u, /* add r0, r0, #1 */
+            0xE2522001u, /* subs r2, r2, #1 */
+            0x1AFFFFFBu, /* bne .Lset */
+            0xE12FFF1Eu  /* bx lr */
+        };
+        for (int i = 0; i < 8; i++) emit_w(C, ms_words[i]);
+    }
+
     /* Resolve inter-function and helper branch patches */
     for (int i = 0; i < C->npatches; i++) {
         c_patch_t *p = &C->patches[i];
@@ -2397,6 +2547,10 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
             target_w = C->idivmod_word;
         else if (p->fn_idx == -4)
             target_w = C->host_call_word;
+        else if (p->fn_idx == -5)
+            target_w = C->memcpy_word;
+        else if (p->fn_idx == -6)
+            target_w = C->memset_word;
         if (target_w >= 0) {
             uint32_t disp = (uint32_t)(target_w - ((int)p->word_idx + 2)) & 0xFFFFFFu;
             C->words[p->word_idx] = ((uint32_t)p->cond << 28) | (5u << 25) | ((uint32_t)p->is_bl << 24) | disp;

@@ -38,6 +38,7 @@ TOKEN_RE = re.compile(
     r"|(?P<comment>--[^\n]*)"
     r"|(?P<string>\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')"
     r"|(?P<float>\d+\.\d*|\.\d+)"
+    r"|(?P<hex>0[xX][0-9a-fA-F]+)"
     r"|(?P<int>\d+)"
     r"|(?P<name>[A-Za-z_]\w*)"
     r"|(?P<op><=|>=|==|~=|<<|>>|//|[-+*/%&|~(),.:\[\]=<>])"
@@ -73,6 +74,12 @@ BUILTINS = {
     "music": (["i32"], None),
     "time": ([], "f32"),
     "print": (["string"], "i32"),
+    "peek": (["i32"], "i32"),
+    "poke": (["i32", "i32"], None),
+    "peek4": (["i32"], "i32"),
+    "poke4": (["i32", "i32"], None),
+    "memcpy": (["i32", "i32", "i32"], None),
+    "memset": (["i32", "i32", "i32"], None),
 }
 
 HOST_FUNCTIONS: Dict[str, Tuple[int, List[str], Optional[str]]] = {
@@ -155,7 +162,12 @@ def tokenize(src: str) -> List[Token]:
         grp = m.lastgroup
         if grp not in ("ws", "comment"):
             text = m.group()
-            kind = "kw" if (grp == "name" and text in KEYWORDS) else grp
+            if grp == "hex":
+                kind = "int"
+            elif grp == "name" and text in KEYWORDS:
+                kind = "kw"
+            else:
+                kind = grp
             toks.append(Token(kind, text, line, m.start(), m.end()))
         pos = m.end()
     line += src.count("\n", last_pos, n)
@@ -813,9 +825,11 @@ class Parser:
         t = self.cur()
         if t.kind == "int":
             self.i += 1
-            val = int(t.text)
-            if val > 0x80000000:
+            val = int(t.text, 0)
+            if val > 0xFFFFFFFF:
                 self.fail(f"integer literal {t.text} overflows i32", t)
+            if val >= 0x80000000:
+                val = val - 0x100000000
             return IntLit(t.line, val)
         if t.kind == "float":
             self.i += 1
@@ -1315,6 +1329,12 @@ OPCODES = (
     "AGETF",        # pops idx, arr; pushes arr[idx] (f32, 1-based)
     "ASET",         # pops val, idx, arr; sets arr[idx] = val (i32/bool, 1-based)
     "ASETF",        # pops val, idx, arr; sets arr[idx] = val (f32, 1-based)
+    "PEEK",         # pops addr; pushes unsigned byte (i32)
+    "POKE",         # pops val, addr; writes byte
+    "PEEK4",        # pops addr; pushes 32-bit word (i32)
+    "POKE4",        # pops val, addr; writes word
+    "MEMCPY",       # pops bytes, src, dst; copies memory
+    "MEMSET",       # pops bytes, val, dst; fills memory
     "JMP",          # arg = target pc; pc = target
     "JZ",           # arg = target pc; pops cond; if not cond: pc = target
     "JF_KEEP",      # arg = target pc; if not TOS: pc = target (keeps False), else pops True
@@ -1705,6 +1725,24 @@ class BytecodeCompiler:
         if call.callee == "floor":
             self.emit("FLOOR")
             return
+        if call.callee == "peek":
+            self.emit("PEEK")
+            return
+        if call.callee == "poke":
+            self.emit("POKE")
+            return
+        if call.callee == "peek4":
+            self.emit("PEEK4")
+            return
+        if call.callee == "poke4":
+            self.emit("POKE4")
+            return
+        if call.callee == "memcpy":
+            self.emit("MEMCPY")
+            return
+        if call.callee == "memset":
+            self.emit("MEMSET")
+            return
         if call.callee in HOST_FUNCTIONS:
             host_id, _, _ = HOST_FUNCTIONS[call.callee]
             packed = (host_id << 8) | (len(call.args) & 0xFF)
@@ -1790,6 +1828,7 @@ class StackVM:
         self.host_by_id: Dict[int, Tuple[str, Optional[str]]] = {
             hid: (name, ret) for name, (hid, _, ret) in HOST_FUNCTIONS.items()
         }
+        self.memory = bytearray(65536)
 
     def _norm(self, x: int) -> int:
         return wrap_i32(x) if self.wrap32 else x
@@ -2054,6 +2093,31 @@ class StackVM:
                     arr[idx - 1] = val
                 else:
                     arr[idx - 1] = self._norm(int(val))
+            elif op == "PEEK":
+                addr = int(stack.pop()) & 0xFFFF
+                stack.append(self.memory[addr])
+            elif op == "POKE":
+                val = int(stack.pop()) & 0xFF
+                addr = int(stack.pop()) & 0xFFFF
+                self.memory[addr] = val
+            elif op == "PEEK4":
+                addr = int(stack.pop()) & 0xFFFF
+                val = struct.unpack("<i", self.memory[addr:addr+4])[0]
+                stack.append(self._norm(val))
+            elif op == "POKE4":
+                val = int(stack.pop())
+                addr = int(stack.pop()) & 0xFFFF
+                self.memory[addr:addr+4] = struct.pack("<i", self._norm(val))
+            elif op == "MEMCPY":
+                n_bytes = int(stack.pop())
+                src = int(stack.pop()) & 0xFFFF
+                dst = int(stack.pop()) & 0xFFFF
+                self.memory[dst:dst+n_bytes] = self.memory[src:src+n_bytes]
+            elif op == "MEMSET":
+                n_bytes = int(stack.pop())
+                val = int(stack.pop()) & 0xFF
+                dst = int(stack.pop()) & 0xFFFF
+                self.memory[dst:dst+n_bytes] = bytes([val]) * n_bytes
             elif op == "JMP":
                 pc = ins.arg
             elif op == "JZ":
@@ -2166,7 +2230,7 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             reach(pc + 1, sp + 1)
         elif op in ("STORE", "POP"):
             reach(pc + 1, sp - 1)
-        elif op in ("NEG", "NOT", "BNOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR"):
+        elif op in ("NEG", "NOT", "BNOT", "ABS", "FNEG", "FABS", "FSQRT", "I2F", "FLOOR", "PEEK", "PEEK4"):
             reach(pc + 1, sp)
         elif op in (
             "ADD", "SUB", "MUL", "IDIV", "IMOD", "BAND", "BOR", "BXOR", "SHL", "SHR",
@@ -2175,7 +2239,9 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             "AGET", "AGETF",
         ):
             reach(pc + 1, sp - 1)
-        elif op in ("ASET", "ASETF"):
+        elif op in ("POKE", "POKE4"):
+            reach(pc + 1, sp - 2)
+        elif op in ("ASET", "ASETF", "MEMCPY", "MEMSET"):
             reach(pc + 1, sp - 3)
         elif op == "JMP":
             reach(ins.arg, sp)
@@ -2594,6 +2660,15 @@ class ARMv6Assembler:
             else:
                 self.dp_imm(DP_ORR, rd, rd, imm12)
 
+    def add_imm(self, rd: int, rn: int, imm8: int, cond: int = COND_AL, s: int = 0, comment: str = "") -> int:
+        return self.dp_imm(DP_ADD, rd, rn, imm8 & 0xFF, cond=cond, s=s, comment=comment)
+
+    def sub_imm(self, rd: int, rn: int, imm8: int, cond: int = COND_AL, s: int = 0, comment: str = "") -> int:
+        return self.dp_imm(DP_SUB, rd, rn, imm8 & 0xFF, cond=cond, s=s, comment=comment)
+
+    def and_imm(self, rd: int, rn: int, imm8: int, cond: int = COND_AL, s: int = 0, comment: str = "") -> int:
+        return self.dp_imm(DP_AND, rd, rn, imm8 & 0xFF, cond=cond, s=s, comment=comment)
+
     def ldr(self, rd: int, rn: int, offset: int = 0, cond: int = COND_AL, comment: str = "") -> int:
         u_bit = 1 if offset >= 0 else 0
         off = abs(offset)
@@ -2606,6 +2681,20 @@ class ARMv6Assembler:
         off = abs(offset)
         assert off <= 0xFFF, f"STR offset out of 12-bit range: {offset}"
         w = (cond << 28) | (0b01010000 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | off
+        return self.emit_word(w, comment)
+
+    def ldrb(self, rd: int, rn: int, offset: int = 0, cond: int = COND_AL, comment: str = "") -> int:
+        u_bit = 1 if offset >= 0 else 0
+        off = abs(offset)
+        assert off <= 0xFFF, f"LDRB offset out of 12-bit range: {offset}"
+        w = (cond << 28) | (0b01010101 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | off
+        return self.emit_word(w, comment)
+
+    def strb(self, rd: int, rn: int, offset: int = 0, cond: int = COND_AL, comment: str = "") -> int:
+        u_bit = 1 if offset >= 0 else 0
+        off = abs(offset)
+        assert off <= 0xFFF, f"STRB offset out of 12-bit range: {offset}"
+        w = (cond << 28) | (0b01010100 << 20) | (u_bit << 23) | ((rn & 0xF) << 16) | ((rd & 0xF) << 12) | off
         return self.emit_word(w, comment)
 
     # -- VFPv2 single-precision (coprocessor 10) instructions for ARM1176JZF-S --
@@ -2737,6 +2826,8 @@ class ARMv6Compiler:
         self.func_offsets: Dict[str, int] = {}
         self.needs_idivmod = False
         self.needs_host_call = False
+        self.needs_memcpy = False
+        self.needs_memset = False
         self.host_slot_word: Optional[int] = None
         self.rodata = bytearray()
         self.str_offsets: Dict[int, int] = {}
@@ -2761,6 +2852,10 @@ class ARMv6Compiler:
             self._emit_idivmod_helper()
         if self.needs_host_call:
             self._emit_host_call_helper()
+        if self.needs_memcpy:
+            self._emit_memcpy_helper()
+        if self.needs_memset:
+            self._emit_memset_helper()
 
         ncode = len(self.asm.words)
         for lit_slot_idx, add_idx, str_off in self.final_str_patches:
@@ -2786,6 +2881,35 @@ class ARMv6Compiler:
         a.bx(14, comment="bx lr")
         a.bind("__bml_host_fn_slot")
         self.host_slot_word = a.emit_word(0, comment="__bml_host_fn_slot (patched by bmnative_load)")
+
+    def _emit_memcpy_helper(self) -> None:
+        """Emits __bml_memcpy: inputs r0 = dst, r1 = src, r2 = bytes; returns r0 = dst."""
+        a = self.asm
+        a.bind("__bml_memcpy")
+        a.cmp_imm(2, 0, comment="cmp r2, #0")
+        a.bx(14, cond=COND_EQ, comment="bxeq lr")
+        a.bind("__memcpy_loop")
+        a.ldrb(3, 1, 0, comment="ldrb r3, [r1, #0]")
+        a.strb(3, 0, 0, comment="strb r3, [r0, #0]")
+        a.add_imm(1, 1, 1, comment="add r1, r1, #1")
+        a.add_imm(0, 0, 1, comment="add r0, r0, #1")
+        a.sub_imm(2, 2, 1, s=1, comment="subs r2, r2, #1")
+        a.b("__memcpy_loop", cond=COND_NE)
+        a.bx(14, comment="bx lr")
+
+    def _emit_memset_helper(self) -> None:
+        """Emits __bml_memset: inputs r0 = dst, r1 = val, r2 = bytes; returns r0 = dst."""
+        a = self.asm
+        a.bind("__bml_memset")
+        a.cmp_imm(2, 0, comment="cmp r2, #0")
+        a.bx(14, cond=COND_EQ, comment="bxeq lr")
+        a.and_imm(1, 1, 0xFF, comment="and r1, r1, #0xFF")
+        a.bind("__memset_loop")
+        a.strb(1, 0, 0, comment="strb r1, [r0, #0]")
+        a.add_imm(0, 0, 1, comment="add r0, r0, #1")
+        a.sub_imm(2, 2, 1, s=1, comment="subs r2, r2, #1")
+        a.b("__memset_loop", cond=COND_NE)
+        a.bx(14, comment="bx lr")
 
     def _emit_idivmod_helper(self) -> None:
         """Emits __bml_idivmod: inputs r0 = a, r1 = b; outputs r0 = floor(a / b), r1 = a % b (0 if b == 0)."""
@@ -3108,6 +3232,36 @@ class ARMv6Compiler:
                 a.dp_imm(DP_SUB, 12, r_idx, 1, comment="idx - 1 (0-based)")
                 a.dp_reg(DP_ADD, 12, r_base, 12, shift_type=0, shift_imm=2, comment="base + (idx - 1) * 4")
                 a.str_w(r_val, 12, 0)
+            elif op == "PEEK":
+                r_addr = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.ldrb(dst, r_addr, 0, comment="peek (ldrb)")
+                put_slot(s_slot(sp - 1), dst)
+            elif op == "POKE":
+                r_addr = get_slot(s_slot(sp - 2), 0)
+                r_val = get_slot(s_slot(sp - 1), 1)
+                a.strb(r_val, r_addr, 0, comment="poke (strb)")
+            elif op == "PEEK4":
+                r_addr = get_slot(s_slot(sp - 1), 0)
+                dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0
+                a.ldr(dst, r_addr, 0, comment="peek4 (ldr)")
+                put_slot(s_slot(sp - 1), dst)
+            elif op == "POKE4":
+                r_addr = get_slot(s_slot(sp - 2), 0)
+                r_val = get_slot(s_slot(sp - 1), 1)
+                a.str_w(r_val, r_addr, 0, comment="poke4 (str)")
+            elif op in ("MEMCPY", "MEMSET"):
+                if op == "MEMCPY":
+                    self.needs_memcpy = True
+                else:
+                    self.needs_memset = True
+                r_dst = get_slot(s_slot(sp - 3), 0)
+                if r_dst != 0: a.mov_reg(0, r_dst)
+                r_val_src = get_slot(s_slot(sp - 2), 1)
+                if r_val_src != 1: a.mov_reg(1, r_val_src)
+                r_n = get_slot(s_slot(sp - 1), 2)
+                if r_n != 2: a.mov_reg(2, r_n)
+                a.bl("__bml_memcpy" if op == "MEMCPY" else "__bml_memset")
             elif op == "JMP":
                 a.b(f"L_{fn.name}_{ins.arg}")
             elif op in ("JZ", "JF_KEEP"):

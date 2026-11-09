@@ -131,3 +131,17 @@ function test_bitwise(a: i32, b: i32): i32
   local prec = a | b & 7 ~ 2 << 1
   return (o + x + n + s1 + s2 + prec) & 65535
 end
+
+function test_memory_ops(base: i32): i32
+  poke(base + 0, 42)
+  poke(base + 1, 255)
+  local b0 = peek(base + 0)
+  local b1 = peek(base + 1)
+  poke4(base + 16, 0x12345678)
+  local w = peek4(base + 16)
+  memset(base + 32, 7, 16)
+  memcpy(base + 64, base + 32, 16)
+  local m0 = peek(base + 64)
+  local m15 = peek(base + 79)
+  return (b0 + b1 + (w & 255) + m0 + m15) & 65535
+end

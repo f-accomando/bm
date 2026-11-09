@@ -348,6 +348,8 @@ static uint32_t f32_to_u32(float f)
     return u;
 }
 
+static uint8_t g_sim_ram[65536];
+
 /* Executes the ARMv6 A32 machine words in m->code on non-ARM hosts (e.g. x86_64 bmhost-bin). */
 static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int32_t *a, const bmnative_buf *bufs, int32_t *ret)
 {
@@ -459,42 +461,84 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
             continue;
         }
 
-        /* 5. Single Data Transfer: LDR / STR Rd, [Rn, #+/-imm12] (bits 27..24 == 0b0101) */
-        if (((w >> 24) & 0xFu) == 0x5u && ((w >> 21) & 3u) == 0u) {
-            const int is_ldr = (int)((w >> 20) & 1u);
-            const int u_bit  = (int)((w >> 23) & 1u);
+        /* 5. Single Data Transfer: LDR / STR / LDRB / STRB Rd, [Rn, #+/-imm12] (bits 27..26 == 0b01, bit 21 == 0) */
+        if (((w >> 26) & 3u) == 1u && ((w >> 25) & 1u) == 0u && ((w >> 21) & 1u) == 0u) {
+            const int is_ldr  = (int)((w >> 20) & 1u);
+            const int is_byte = (int)((w >> 22) & 1u);
+            const int u_bit   = (int)((w >> 23) & 1u);
             const uint32_t rn = (w >> 16) & 0xFu;
             const uint32_t rd = (w >> 12) & 0xFu;
             const uint32_t imm12 = w & 0xFFFu;
             const uint32_t base = (rn == 15u) ? (curr_pc + 8u) : r[rn];
             const uint32_t addr = u_bit ? (base + imm12) : (base - imm12);
-            if ((addr & 3u) != 0)
+            if (!is_byte && (addr & 3u) != 0)
                 return BMN_ERR_TRAP;
             if (rn == 15u) {
-                if (is_ldr && (addr >> 2) < m->ncode) {
+                if (is_ldr && !is_byte && (addr >> 2) < m->ncode) {
                     r[rd] = m->code[addr >> 2];
                     continue;
                 }
                 return BMN_ERR_TRAP;
             }
             const uint32_t seg = addr >> 24;
-            if (seg == 0u) {
+            if (rn == 11u || rn == 13u || (seg == 0u && addr >= 0x4000u)) {
+                /* Virtual call stack */
                 if ((addr >> 2) >= STACK_WORDS)
                     return BMN_ERR_TRAP;
-                if (is_ldr)
-                    r[rd] = stack[addr >> 2];
-                else
-                    stack[addr >> 2] = r[rd];
+                if (is_byte) {
+                    uint8_t *bstack = (uint8_t *)stack;
+                    if (is_ldr)
+                        r[rd] = bstack[addr];
+                    else
+                        bstack[addr] = (uint8_t)r[rd];
+                } else {
+                    if (is_ldr)
+                        r[rd] = stack[addr >> 2];
+                    else
+                        stack[addr >> 2] = r[rd];
+                }
             } else if (seg >= 1u && seg <= BMN_MAX_ARGS && bufs && bufs[seg - 1u].data) {
-                const uint32_t w_off = (addr & 0x00FFFFFFu) >> 2;
-                if (w_off >= bufs[seg - 1u].nwords)
-                    return BMN_ERR_TRAP;
-                if (is_ldr)
-                    r[rd] = bufs[seg - 1u].data[w_off];
-                else
-                    bufs[seg - 1u].data[w_off] = r[rd];
+                /* Host buffer argument */
+                const uint32_t byte_off = addr & 0x00FFFFFFu;
+                if (is_byte) {
+                    if (byte_off >= bufs[seg - 1u].nwords * 4u)
+                        return BMN_ERR_TRAP;
+                    uint8_t *bdata = (uint8_t *)bufs[seg - 1u].data;
+                    if (is_ldr)
+                        r[rd] = bdata[byte_off];
+                    else
+                        bdata[byte_off] = (uint8_t)r[rd];
+                } else {
+                    const uint32_t w_off = byte_off >> 2;
+                    if (w_off >= bufs[seg - 1u].nwords)
+                        return BMN_ERR_TRAP;
+                    if (is_ldr)
+                        r[rd] = bufs[seg - 1u].data[w_off];
+                    else
+                        bufs[seg - 1u].data[w_off] = r[rd];
+                }
             } else {
-                return BMN_ERR_TRAP;
+                /* Simulated flat memory */
+                const uint32_t m_off = addr & 0xFFFFu;
+                if (is_byte) {
+                    if (is_ldr)
+                        r[rd] = g_sim_ram[m_off];
+                    else
+                        g_sim_ram[m_off] = (uint8_t)r[rd];
+                } else {
+                    if (is_ldr) {
+                        uint32_t val = (uint32_t)g_sim_ram[m_off] |
+                                       ((uint32_t)g_sim_ram[(m_off + 1) & 0xFFFFu] << 8) |
+                                       ((uint32_t)g_sim_ram[(m_off + 2) & 0xFFFFu] << 16) |
+                                       ((uint32_t)g_sim_ram[(m_off + 3) & 0xFFFFu] << 24);
+                        r[rd] = val;
+                    } else {
+                        g_sim_ram[m_off] = (uint8_t)(r[rd] & 0xFFu);
+                        g_sim_ram[(m_off + 1) & 0xFFFFu] = (uint8_t)((r[rd] >> 8) & 0xFFu);
+                        g_sim_ram[(m_off + 2) & 0xFFFFu] = (uint8_t)((r[rd] >> 16) & 0xFFu);
+                        g_sim_ram[(m_off + 3) & 0xFFFFu] = (uint8_t)((r[rd] >> 24) & 0xFFu);
+                    }
+                }
             }
             continue;
         }
