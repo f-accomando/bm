@@ -314,3 +314,231 @@ Under this mapping, every Stage 2 stack instruction lowers **1-to-1** to a singl
 - **Stage 7 (Standard Functions and `bm` API)**: Function table allowing native ARMv6 code to call `spr`, `rectfill`, `btn`, and math routines.
 - **Stage 8 (Games)**: Port the enemy movement of Dark Night to BML and measure frame times on the Pi Zero W.
 - **Stage 9 (On the Console)**: Self-hosting / running the compiler on the Pi itself.
+
+---
+
+## 9. Practical Code Examples: BML, Lua, C, and ARMv6 Assembly Side by Side
+
+### 9.1 Example 1: Loop Accumulator (`sum`)
+
+**1. BML Source (`tests/bml/sum.bml`)**:
+```lua
+function sum(n: i32): i32
+  local s = 0
+  for i = 1, n do s = s + i end
+  return s
+end
+```
+
+**2. Plain Lua (`bml.py --lua`)**:
+```lua
+function sum(n)
+  local s = 0
+  for i = 1, n do s = s + i end
+  return s
+end
+```
+
+**3. Equivalent C (`bmt.py --c`)**:
+```c
+int32_t bmt_sum(int32_t n)
+{
+    int32_t s = 0;
+    {
+        int32_t i__end = n;
+        for (int32_t i = 1; i <= i__end; i++) {
+            s = (s + i);
+        }
+    }
+    return s;
+}
+```
+
+**4. ARMv6 A32 Assembly (`bml.py --armv6 --dump-armv6`, 9 words = 36 bytes)**:
+```armasm
+; fn sum @ 0x0000 (r0 = n, r1 = s, r2 = i)
+  0x0000: E3A01000    mov   r1, #0          ; s = 0
+  0x0004: E3A02001    mov   r2, #1          ; i = 1
+  0x0008: E1520000    cmp   r2, r0          ; compare i with n
+  0x000c: CA000002    bgt   0x1c            ; if i > n goto return
+  0x0010: E0811002    add   r1, r1, r2      ; s = s + i
+  0x0014: E2822001    add   r2, r2, #1      ; i = i + 1
+  0x0018: EAFFFFFA    b     0x08            ; repeat loop
+  0x001c: E1A00001    mov   r0, r1          ; return s in r0
+  0x0020: E12FFF1E    bx    lr              ; return to caller
+```
+
+---
+
+### 9.2 Example 2: Value Clamping (`clamp` with `min` / `max`)
+
+**1. BML Source (`tests/bml/features.bml`)**:
+```lua
+function clamp(x: i32, lo: i32, hi: i32): i32
+  return min(max(x, lo), hi)
+end
+```
+
+**2. Equivalent C**:
+```c
+int32_t bmt_clamp(int32_t x, int32_t lo, int32_t hi)
+{
+    return bmt_min_i32(bmt_max_i32(x, lo), hi);
+}
+```
+
+**3. ARMv6 A32 Assembly (`bml.py --armv6`, disassembled with `arm-none-eabi-objdump -d`)**:
+```armasm
+; fn clamp @ 0x004c (r0 = x -> r4, r1 = lo -> r5, r2 = hi -> r6)
+  0x004c: e92d4ff0    push  {r4-r10, fp, lr}
+  0x0050: e1a0b00d    mov   fp, sp
+  0x0054: e3a0c004    mov   ip, #4
+  0x0058: e04dd00c    sub   sp, sp, ip
+  0x005c: e1a04000    mov   r4, r0          ; slot 0 (x)  = r0
+  0x0060: e1a05001    mov   r5, r1          ; slot 1 (lo) = r1
+  0x0064: e1a06002    mov   r6, r2          ; slot 2 (hi) = r2
+  0x0068: e1a07004    mov   r7, r4          ; S[0] = x
+  0x006c: e1a08005    mov   r8, r5          ; S[1] = lo
+  0x0070: e1570008    cmp   r7, r8          ; max(x, lo): compare x with lo
+  0x0074: b1a07008    movlt r7, r8          ; if x < lo: r7 = lo
+  0x0078: e1a08006    mov   r8, r6          ; S[1] = hi
+  0x007c: e1570008    cmp   r7, r8          ; min(..., hi): compare r7 with hi
+  0x0080: c1a07008    movgt r7, r8          ; if r7 > hi: r7 = hi
+  0x0084: e1a00007    mov   r0, r7          ; return value in r0
+  0x0088: eaffffff    b     0x8c
+  0x008c: e1a0d00b    mov   sp, fp
+  0x0090: e8bd8ff0    pop   {r4-r10, fp, pc}
+```
+
+---
+
+### 9.3 Example 3: Greatest Common Divisor (`gcd` with `while`, `abs`, and `%`)
+
+**1. BML Source (`tests/bml/features.bml`)**:
+```lua
+function gcd(a: i32, b: i32): i32
+  a = abs(a)
+  b = abs(b)
+  while b ~= 0 do
+    local r = a % b
+    a = b
+    b = r
+  end
+  return a
+end
+```
+
+**2. Equivalent C**:
+```c
+int32_t bmt_gcd(int32_t a, int32_t b)
+{
+    a = abs(a);
+    b = abs(b);
+    while ((b != 0)) {
+        int32_t r = bmt_imod(a, b);
+        a = b;
+        b = r;
+    }
+    return a;
+}
+```
+
+**3. ARMv6 A32 Assembly (`bml.py --armv6`)**:
+```armasm
+; fn gcd @ 0x0094 (r4 = a, r5 = b, r6 = r)
+  0x0094: e92d4ff0    push  {r4-r10, fp, lr}
+  0x0098: e1a0b00d    mov   fp, sp
+  0x009c: e3a0c004    mov   ip, #4
+  0x00a0: e04dd00c    sub   sp, sp, ip
+  0x00a4: e1a04000    mov   r4, r0          ; a = arg0
+  0x00a8: e1a05001    mov   r5, r1          ; b = arg1
+  0x00ac: e1a07004    mov   r7, r4
+  0x00b0: e3570000    cmp   r7, #0
+  0x00b4: b2677000    rsblt r7, r7, #0      ; abs(a): negate if < 0
+  0x00b8: e1a04007    mov   r4, r7          ; a = abs(a)
+  0x00bc: e1a07005    mov   r7, r5
+  0x00c0: e3570000    cmp   r7, #0
+  0x00c4: b2677000    rsblt r7, r7, #0      ; abs(b): negate if < 0
+  0x00c8: e1a05007    mov   r5, r7          ; b = abs(b)
+; while loop test (0x00cc):
+  0x00cc: e1a07005    mov   r7, r5
+  0x00d0: e3a08000    mov   r8, #0
+  0x00d4: e1570008    cmp   r7, r8          ; compare b with 0
+  0x00d8: e3a07000    mov   r7, #0
+  0x00dc: 13a07001    movne r7, #1          ; r7 = (b ~= 0)
+  0x00e0: e3570000    cmp   r7, #0
+  0x00e4: 0a00000b    beq   0x118           ; exit while if b == 0
+  0x00e8: e1a07004    mov   r7, r4
+  0x00ec: e1a08005    mov   r8, r5
+  0x00f0: e1a00007    mov   r0, r7          ; r0 = a
+  0x00f4: e1a01008    mov   r1, r8          ; r1 = b
+  0x00f8: eb0001b5    bl    __bml_idivmod   ; r0 = a // b, r1 = a % b
+  0x00fc: e1a07001    mov   r7, r1          ; take remainder r1
+  0x0100: e1a06007    mov   r6, r7          ; local r = a % b
+  0x0104: e1a07005    mov   r7, r5
+  0x0108: e1a04007    mov   r4, r7          ; a = b
+  0x010c: e1a07006    mov   r7, r6
+  0x0110: e1a05007    mov   r5, r7          ; b = r
+  0x0114: eaffffec    b     0x00cc          ; jump back to while test
+; loop exit (0x0118):
+  0x0118: e1a07004    mov   r7, r4
+  0x011c: e1a00007    mov   r0, r7          ; return a in r0
+  0x0120: eaffffff    b     0x124
+  0x0124: e1a0d00b    mov   sp, fp
+  0x0128: e8bd8ff0    pop   {r4-r10, fp, pc}
+```
+
+---
+
+### 9.4 Example 4: Double Recursion (`fib`)
+
+**1. BML Source (`tests/bml/features.bml`)**:
+```lua
+function fib(n: i32): i32
+  if n <= 0 then
+    return 0
+  elseif n == 1 then
+    return 1
+  else
+    return fib(n - 1) + fib(n - 2)
+  end
+end
+```
+
+**2. Equivalent C**:
+```c
+int32_t bmt_fib(int32_t n)
+{
+    if ((n <= 0)) {
+        return 0;
+    } else if ((n == 1)) {
+        return 1;
+    } else {
+        return (bmt_fib((n - 1)) + bmt_fib((n - 2)));
+    }
+}
+```
+
+**3. ARMv6 A32 Assembly (recursive `else` branch at `0x0198..0x01e4`)**:
+```armasm
+; else branch of fib (r4 = n):
+  0x0198: e1a05004    mov   r5, r4          ; S[0] = n
+  0x019c: e3a06001    mov   r6, #1          ; S[1] = 1
+  0x01a0: e0455006    sub   r5, r5, r6      ; S[0] = n - 1
+  0x01a4: e1a00005    mov   r0, r5          ; arg0 = n - 1
+  0x01a8: ebffffdf    bl    fn_fib          ; call fib(n - 1)
+  0x01ac: e1a05000    mov   r5, r0          ; S[0] (r5, callee-saved!) = fib(n - 1)
+  0x01b0: e1a06004    mov   r6, r4          ; S[1] = n (r4 was preserved by callee!)
+  0x01b4: e3a07002    mov   r7, #2          ; S[2] = 2
+  0x01b8: e0466007    sub   r6, r6, r7      ; S[1] = n - 2
+  0x01bc: e1a00006    mov   r0, r6          ; arg0 = n - 2
+  0x01c0: ebffffd9    bl    fn_fib          ; call fib(n - 2) (r5 is preserved!)
+  0x01c4: e1a06000    mov   r6, r0          ; S[1] = fib(n - 2)
+  0x01c8: e0855006    add   r5, r5, r6      ; S[0] = fib(n - 1) + fib(n - 2)
+  0x01cc: e1a00005    mov   r0, r5          ; return value in r0
+  0x01d0: ea000002    b     0x01e0          ; jump to epilogue
+  ...
+  0x01e0: e1a0d00b    mov   sp, fp
+  0x01e4: e8bd8ff0    pop   {r4-r10, fp, pc}
+```
+

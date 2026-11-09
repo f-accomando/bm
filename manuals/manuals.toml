@@ -110,3 +110,8 @@ sources = ["carts/smw/src/game.lua", "carts/smw/src/physics.lua", "carts/smw/bui
 id = "graphics-techniques"
 order = 21
 sources = ["docs/PERF-BUDGET.md", "docs/progress/graphics.md", "docs/progress/graphics-mali.md", "docs/progress/graphics-vector.md", "docs/progress/multicore.md", "docs/progress/mali-parity.md", "docs/DRIVERS.md"]
+
+[[manual]]
+id = "bml"
+order = 22
+sources = ["tools/bml/bml.py", "docs/design/bml-manual.md", "docs/progress/typed.md", "src/bm/bmvm.h"]
