@@ -127,7 +127,8 @@ enum {
     OP_CALL,
     OP_CALL_HOST,
     OP_RET,
-    OP_RET0
+    OP_RET0,
+    OP_NEW_ARR
 };
 
 typedef struct {
@@ -139,6 +140,7 @@ typedef struct {
     char     name[32];
     uint8_t  type;
     uint32_t val;
+    uint16_t count;
 } c_const_t;
 
 typedef struct {
@@ -156,6 +158,7 @@ typedef struct {
     uint8_t  ptype[MAX_PARAMS];
     char     lname[MAX_LOCALS][32];
     uint8_t  ltype[MAX_LOCALS];
+    uint16_t lcount[MAX_LOCALS];
     uint16_t code_start;
     uint16_t code_len;
     uint8_t  is_leaf_sum;
@@ -531,7 +534,7 @@ static void tokenize(bmlc_ctx_t *C)
 
         /* Single-character operators */
         {
-            const char *ops = "-+*/%&|~(),.:[]=<>";
+            const char *ops = "-+*/%&|~(),.:[]=<>#";
             int is_op = 0;
             for (int k = 0; ops[k]; k++) {
                 if (ops[k] == c) {
@@ -714,7 +717,9 @@ static void parse_const_decl(bmlc_ctx_t *C)
             C->rodata[C->nrodata++] = 0;
         }
         val = C->nrodata;
+        int elem_count = 0;
         while (cur_tok(C)->kind != TK_EOF && !tok_eq(cur_tok(C), "]")) {
+            elem_count++;
             int e_sign = 1;
             if (accept_tok(C, "-"))
                 e_sign = -1;
@@ -744,11 +749,18 @@ static void parse_const_decl(bmlc_ctx_t *C)
                 break;
         }
         expect_tok(C, "]");
+        c_const_t *cd = &C->const_decls[C->nconst_decls++];
+        bml_copy_str(cd->name, sizeof cd->name, cname);
+        cd->type = ctyp;
+        cd->val = val;
+        cd->count = (uint16_t)elem_count;
+        return;
     } else {
         int sign = 1;
         if (accept_tok(C, "-"))
             sign = -1;
         const token_t *v = cur_tok(C);
+        uint16_t scount = 0;
         if (ctyp == BMN_I32) {
             if (v->kind != TK_INT)
                 c_fail(C, v->line, "expected integer literal for i32 const");
@@ -780,16 +792,18 @@ static void parse_const_decl(bmlc_ctx_t *C)
             if (v->kind != TK_STRING)
                 c_fail(C, v->line, "expected string literal for string const");
             C->ti++;
+            scount = (uint16_t)(v->len >= 2 ? v->len - 2 : 0);
             val = bml_intern_string(C, v->ptr, v->len, v->line);
         } else {
             c_fail(C, cn->line, "unsupported type for const");
         }
+        c_const_t *cd = &C->const_decls[C->nconst_decls++];
+        bml_copy_str(cd->name, sizeof cd->name, cname);
+        cd->type = ctyp;
+        cd->val = val;
+        cd->count = scount;
+        return;
     }
-
-    c_const_t *cd = &C->const_decls[C->nconst_decls++];
-    bml_copy_str(cd->name, sizeof cd->name, cname);
-    cd->type = ctyp;
-    cd->val = val;
 }
 
 static void parse_enum_decl(bmlc_ctx_t *C)
@@ -894,6 +908,27 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
 static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
 {
     const token_t *t = cur_tok(C);
+    if (accept_tok(C, "[")) {
+        if (accept_tok(C, "]"))
+            c_fail(C, stmt_line, "empty array literal not allowed");
+        int count = 0;
+        uint8_t elem_t = BMN_NONE;
+        while (cur_tok(C)->kind != TK_EOF && !tok_eq(cur_tok(C), "]")) {
+            uint8_t et = compile_expr(C, stmt_line);
+            if (count == 0)
+                elem_t = et;
+            else if (et != elem_t)
+                c_fail(C, stmt_line, "array literal element type mismatch");
+            count++;
+            if (!accept_tok(C, ","))
+                break;
+        }
+        expect_tok(C, "]");
+        emit_op(C, OP_NEW_ARR, count, stmt_line);
+        if (elem_t == BMN_F32) return BMN_ARR_F32;
+        if (elem_t == BMN_BOOL) return BMN_ARR_BOOL;
+        return BMN_ARR_I32;
+    }
     if (accept_tok(C, "(")) {
         uint8_t et = compile_expr(C, stmt_line);
         expect_tok(C, ")");
@@ -1090,6 +1125,42 @@ static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
 static uint8_t compile_unary(bmlc_ctx_t *C, int stmt_line)
 {
     const token_t *t = cur_tok(C);
+    if (t->kind == TK_OP && tok_eq(t, "#")) {
+        C->ti++;
+        const token_t *nt = cur_tok(C);
+        if (nt->kind == TK_STRING) {
+            C->ti++;
+            int slen = (int)nt->len >= 2 ? (int)nt->len - 2 : 0;
+            int k = add_const(C, slen, stmt_line);
+            emit_op(C, OP_PUSH_CONST, k, stmt_line);
+            return BMN_I32;
+        }
+        if (nt->kind == TK_NAME) {
+            char name[32];
+            tok_copy_str(nt, name, sizeof name);
+            C->ti++;
+            int cid = find_const(C, name);
+            if (cid >= 0) {
+                if (C->const_decls[cid].type == BMN_ARR_I32 || C->const_decls[cid].type == BMN_ARR_F32 || C->const_decls[cid].type == BMN_STR) {
+                    int k = add_const(C, (int32_t)C->const_decls[cid].count, stmt_line);
+                    emit_op(C, OP_PUSH_CONST, k, stmt_line);
+                    return BMN_I32;
+                }
+                c_fail(C, stmt_line, "cannot take length of non-sequence const '%s'", name);
+            }
+            int lid = find_local(C, name);
+            if (lid >= 0) {
+                if (C->cur_fn->lcount[lid] > 0) {
+                    int k = add_const(C, (int32_t)C->cur_fn->lcount[lid], stmt_line);
+                    emit_op(C, OP_PUSH_CONST, k, stmt_line);
+                    return BMN_I32;
+                }
+                c_fail(C, stmt_line, "cannot take length of '%s'; length operator # requires constant or sized local array", name);
+            }
+            c_fail(C, stmt_line, "'%s' is not declared", name);
+        }
+        c_fail(C, stmt_line, "length operator # requires constant or sized local array");
+    }
     if (t->kind == TK_OP && tok_eq(t, "-")) {
         C->ti++;
         const token_t *next = cur_tok(C);
@@ -1528,6 +1599,7 @@ static int compile_stmt(bmlc_ctx_t *C)
             if (cur_tok(C)->kind == TK_OP && tok_eq(cur_tok(C), ":"))
                 decl_t = parse_type_annotation(C, 1);
             expect_tok(C, "=");
+            int insn_start = C->ninsns;
             uint8_t et = compile_expr(C, line);
             if (decl_t == BMN_NONE && et == BMN_NONE)
                 c_fail(C, line, "expression for '%s' gives no value", vname);
@@ -1539,6 +1611,9 @@ static int compile_stmt(bmlc_ctx_t *C)
                     c_fail(C, line, "cannot put incompatible value in '%s'", vname);
             }
             int slot = alloc_local(C, vname, decl_t != BMN_NONE ? decl_t : et, line);
+            if (C->ninsns > insn_start && C->insns[C->ninsns - 1].op == OP_NEW_ARR) {
+                C->cur_fn->lcount[slot] = (uint16_t)C->insns[C->ninsns - 1].arg;
+            }
             emit_op(C, OP_STORE, slot, line);
             return 0;
         }
@@ -2267,6 +2342,8 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
             t1 = pc + 1; sp1 = sp - 1;
         } else if (op == OP_ASET || op == OP_ASETF || op == OP_MEMCPY || op == OP_MEMSET) {
             t1 = pc + 1; sp1 = sp - 3;
+        } else if (op == OP_NEW_ARR) {
+            t1 = pc + 1; sp1 = sp - ins.arg + 1;
         } else if (op == OP_JMP) {
             t1 = ins.arg; sp1 = sp;
         } else if (op == OP_JZ) {
@@ -2340,7 +2417,12 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
     int max_sp = compute_fn_depths(C, fn);
     int total_slots = (int)fn->nlocals + max_sp + 1;
     int spill_slots = total_slots > 7 ? (total_slots - 7) : 0;
-    int frame_words = spill_slots;
+    int total_arr_words = 0;
+    for (int i = 0; i < fn->code_len; i++) {
+        if (C->insns[fn->code_start + i].op == OP_NEW_ARR)
+            total_arr_words += C->insns[fn->code_start + i].arg;
+    }
+    int frame_words = spill_slots + total_arr_words;
     if ((9 + frame_words) % 2 != 0)
         frame_words++;
     int frame_bytes = frame_words * 4;
@@ -2367,6 +2449,7 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
     }
 
     int n = fn->code_len;
+    int cur_arr_word = 0;
     for (int pc = 0; pc < n; pc++) {
         C->pc_word[pc] = (uint16_t)C->nwords;
         int sp = C->depths[pc];
@@ -2652,6 +2735,19 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             emit_dp_imm(C, DP_SUB, 12, r_idx, 1, COND_AL, 0);
             emit_dp_reg(C, DP_ADD, 12, r_base, 12, COND_AL, 0, 0, 2);
             emit_str(C, r_val, 12, 0);
+            break;
+        }
+        case OP_NEW_ARR: {
+            int n_elems = ins.arg;
+            uint32_t offset = (uint32_t)((spill_slots + cur_arr_word + n_elems) * 4);
+            cur_arr_word += n_elems;
+            emit_mov32(C, 12, offset);
+            emit_dp_reg(C, DP_SUB, 12, 11, 12, COND_AL, 0, 0, 0);
+            for (int j = 0; j < n_elems; j++) {
+                uint32_t val_reg = get_slot_reg(C, s_top - n_elems + j, 0);
+                emit_str(C, val_reg, 12, (int32_t)(j * 4));
+            }
+            put_slot_reg(C, s_top - n_elems, 12);
             break;
         }
         case OP_PEEK: {

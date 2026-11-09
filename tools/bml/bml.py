@@ -41,7 +41,7 @@ TOKEN_RE = re.compile(
     r"|(?P<hex>0[xX][0-9a-fA-F]+)"
     r"|(?P<int>\d+)"
     r"|(?P<name>[A-Za-z_]\w*)"
-    r"|(?P<op><<=|>>=|<=|>=|==|~=|\+=|-=|\*=|&=|\|=|<<|>>|//|[-+*/%&|~(),.:\[\]=<>])"
+    r"|(?P<op><<=|>>=|<=|>=|==|~=|\+=|-=|\*=|&=|\|=|<<|>>|//|[-+*/%&|~(),.:\[\]=<>#])"
 )
 
 KEYWORDS = {
@@ -228,6 +228,12 @@ class StringLit(Expr):
 @dataclass
 class VarExpr(Expr):
     name: str
+
+
+@dataclass
+class ArrayLit(Expr):
+    elements: List[Expr]
+    elem_type: str = field(default="", init=False)
 
 
 @dataclass
@@ -980,6 +986,9 @@ class Parser:
 
     def parse_unary(self) -> Expr:
         t = self.cur()
+        if self.accept("#"):
+            operand = self.parse_unary()
+            return UnaryOp(t.line, "#", operand)
         if self.accept("-"):
             operand = self.parse_unary()
             return UnaryOp(t.line, "-", operand)
@@ -993,6 +1002,19 @@ class Parser:
 
     def parse_primary(self) -> Expr:
         t = self.cur()
+        if self.cur().kind == "op" and self.cur().text == "[":
+            lb = self.expect("[")
+            if self.cur().text == "]":
+                self.fail("empty array literal not allowed", lb)
+            elems: List[Expr] = []
+            while self.cur().kind != "eof" and self.cur().text != "]":
+                elems.append(self.parse_expr())
+                if not self.accept(","):
+                    break
+            rb = self.expect("]")
+            self.cuts.append((lb.start, lb.end, "{"))
+            self.cuts.append((rb.start, rb.end, "}"))
+            return ArrayLit(lb.line, elems)
         if t.kind == "int":
             self.i += 1
             val = int(t.text, 0)
@@ -1082,6 +1104,7 @@ class TypeChecker:
         self.structs: Dict[str, StructDecl] = {}
         self.vars: Dict[str, str] = {}
         self.global_consts: Dict[str, Tuple[str, Any]] = {}
+        self.local_array_sizes: Dict[str, int] = {}
         self.ret_type: Optional[str] = None
         self.loop_depth: int = 0
 
@@ -1106,6 +1129,7 @@ class TypeChecker:
 
     def check_function(self, fn: FuncDecl) -> None:
         self.vars = {}
+        self.local_array_sizes = {}
         param_types: List[str] = []
         for p in fn.params:
             if p.name in self.vars:
@@ -1154,6 +1178,8 @@ class TypeChecker:
             if s.name in self.vars:
                 self.fail(s.line, f"'{s.name}' is declared twice")
             self.vars[s.name] = vt
+            if isinstance(s.expr, ArrayLit):
+                self.local_array_sizes[s.name] = len(s.expr.elements)
             return
 
         if isinstance(s, AssignStmt):
@@ -1302,6 +1328,20 @@ class TypeChecker:
             e.typ = "bool"
             return "bool"
 
+        if isinstance(e, ArrayLit):
+            if not e.elements:
+                self.fail(stmt_line, "empty array literal not allowed")
+            elem_t = self.check_expr(e.elements[0], stmt_line)
+            if elem_t not in ("i32", "f32", "bool"):
+                self.fail(stmt_line, f"unsupported element type '{elem_t}' in array literal")
+            for idx, el in enumerate(e.elements[1:], start=2):
+                t_el = self.check_expr(el, stmt_line)
+                if t_el != elem_t:
+                    self.fail(stmt_line, f"array literal element {idx} is {t_el}, expected {elem_t}")
+            e.elem_type = elem_t
+            e.typ = f"{elem_t}[]"
+            return e.typ
+
         if isinstance(e, VarExpr):
             if e.name in self.vars:
                 e.typ = self.vars[e.name]
@@ -1342,6 +1382,30 @@ class TypeChecker:
             return ""
 
         if isinstance(e, UnaryOp):
+            if e.op == "#":
+                if isinstance(e.operand, VarExpr):
+                    name = e.operand.name
+                    if name in self.global_consts:
+                        ctyp, cval = self.global_consts[name]
+                        if isinstance(cval, (list, str)):
+                            e.typ = "i32"
+                            return "i32"
+                        self.fail(stmt_line, f"cannot take length of non-sequence const '{name}'")
+                    elif name in self.local_array_sizes:
+                        e.typ = "i32"
+                        return "i32"
+                    elif name in self.vars and self.vars[name].endswith("[]"):
+                        self.fail(stmt_line, f"cannot take length of '{name}'; length operator # requires constant or sized local array")
+                    else:
+                        self.fail(stmt_line, f"cannot take length of '{name}'; not an array or string")
+                elif isinstance(e.operand, StringLit):
+                    e.typ = "i32"
+                    return "i32"
+                elif isinstance(e.operand, ArrayLit):
+                    e.typ = "i32"
+                    return "i32"
+                else:
+                    self.fail(stmt_line, "length operator # requires constant or sized local array")
             if e.op == "-" and isinstance(e.operand, IntLit) and e.operand.value == 0x80000000:
                 e.operand.typ = "i32"
                 e.typ = "i32"
@@ -1583,6 +1647,7 @@ OPCODES = (
     "CALL_HOST",    # arg = (host_id << 8) | nargs; pops nargs, calls host/kernel fn, pushes return value (if any)
     "RET",          # pops return value and returns from frame
     "RET0",         # returns None from void function
+    "NEW_ARR",      # arg = n elements; pops n items, pushes array/base ptr
 )
 
 
@@ -1635,6 +1700,8 @@ class BytecodeCompiler:
         }
         self.func_index: Dict[str, int] = {fn.name: idx for idx, fn in enumerate(prog.funcs)}
         self.func_ret: Dict[str, Optional[str]] = {fn.name: fn.ret_type for fn in prog.funcs}
+        self.const_table: Dict[str, Tuple[str, Any]] = {c.name: (c.typ, c.val) for c in prog.consts}
+        self.local_array_sizes: Dict[str, int] = {}
         self.code: List[Insn] = []
         self.slots: Dict[str, int] = {}
         self.local_names: List[str] = []
@@ -1694,6 +1761,7 @@ class BytecodeCompiler:
         self.code = []
         self.slots = {}
         self.local_names = []
+        self.local_array_sizes = {}
         self.break_lists = []
         for p in fn.params:
             self.alloc_slot(p.name)
@@ -1737,6 +1805,8 @@ class BytecodeCompiler:
             self.compile_expr(s.expr)
             slot = self.alloc_slot(s.name)
             self.emit("STORE", slot, s.name)
+            if isinstance(s.expr, ArrayLit):
+                self.local_array_sizes[s.name] = len(s.expr.elements)
             return
 
         if isinstance(s, AssignStmt):
@@ -1935,7 +2005,33 @@ class BytecodeCompiler:
             self.emit("AGETF" if e.typ == "f32" else "AGET", 0, f"{e.base}.{e.field_name}")
             return
 
+        if isinstance(e, ArrayLit):
+            for el in e.elements:
+                self.compile_expr(el)
+            self.emit("NEW_ARR", len(e.elements), f"[{len(e.elements)}]")
+            return
+
         if isinstance(e, UnaryOp):
+            if e.op == "#":
+                length = 0
+                if isinstance(e.operand, VarExpr):
+                    name = e.operand.name
+                    if name in self.const_arrays:
+                        length = len(self.const_arrays[name][1])
+                    elif name in self.const_table:
+                        ctyp, cval = self.const_table[name]
+                        length = len(cval)
+                    elif name in self.local_array_sizes:
+                        length = self.local_array_sizes[name]
+                    else:
+                        raise Error(f"unknown length for '{name}'")
+                elif isinstance(e.operand, StringLit):
+                    length = len(e.operand.value)
+                elif isinstance(e.operand, ArrayLit):
+                    length = len(e.operand.elements)
+                k = self.add_const(length)
+                self.emit("PUSH_CONST", k, f"#{getattr(e.operand, 'name', '')}")
+                return
             if e.op == "-" and isinstance(e.operand, IntLit) and e.operand.value == 0x80000000:
                 k = self.add_const(-2147483648)
                 self.emit("PUSH_CONST", k, "-2147483648")
@@ -2506,6 +2602,10 @@ class StackVM:
                 return stack.pop(), budget
             elif op == "RET0":
                 return None, budget
+            elif op == "NEW_ARR":
+                arr_len = ins.arg
+                items = [stack.pop() for _ in range(arr_len)][::-1]
+                stack.append(items)
             else:
                 raise VMError(f"unknown opcode '{op}'")
 
@@ -2584,6 +2684,8 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             reach(pc + 1, sp - 1)
         elif op in ("POKE", "POKE2", "POKE4", "CLAMP", "FCLAMP", "FLERP"):
             reach(pc + 1, sp - 2)
+        elif op == "NEW_ARR":
+            reach(pc + 1, sp - ins.arg + 1)
         elif op in ("ASET", "ASETF", "MEMCPY", "MEMSET"):
             reach(pc + 1, sp - 3)
         elif op == "JMP":
@@ -3348,9 +3450,8 @@ class ARMv6Compiler:
         depths, max_sp = compute_stack_depths(fn.code, self.mod.funcs)
         total_slots = fn.nlocals + max_sp + 1
         spill_slots = max(0, total_slots - 7)
-        # Keep stack 8-byte aligned: push {r4-r10, fp, lr} pushes 9 registers (36 bytes),
-        # so make frame_bytes % 8 == 4 so (36 + frame_bytes) is a multiple of 8.
-        frame_words = spill_slots
+        total_arr_words = sum(ins.arg for ins in fn.code if ins.op == "NEW_ARR")
+        frame_words = spill_slots + total_arr_words
         if (9 + frame_words) % 2 != 0:
             frame_words += 1
         frame_bytes = frame_words * 4
@@ -3392,6 +3493,7 @@ class ARMv6Compiler:
                 put_slot(i, 0)
 
         epilogue_label = f"__epilogue_{fn.name}"
+        cur_arr_word = 0
 
         for pc, ins in enumerate(fn.code):
             a.bind(f"L_{fn.name}_{pc}")
@@ -3651,6 +3753,16 @@ class ARMv6Compiler:
                 a.dp_imm(DP_SUB, 12, r_idx, 1, comment="idx - 1 (0-based)")
                 a.dp_reg(DP_ADD, 12, r_base, 12, shift_type=0, shift_imm=2, comment="base + (idx - 1) * 4")
                 a.str_w(r_val, 12, 0)
+            elif op == "NEW_ARR":
+                n = ins.arg
+                offset = (spill_slots + cur_arr_word + n) * 4
+                cur_arr_word += n
+                a.mov32(12, offset)
+                a.sub_reg(12, 11, 12, comment=f"r12 = fp - {offset}")
+                for j in range(n):
+                    val_reg = get_slot(s_slot(sp - n + j), 0)
+                    a.str_w(val_reg, 12, j * 4, comment=f"arr[{j + 1}]")
+                put_slot(s_slot(sp - n), 12)
             elif op == "PEEK":
                 r_addr = get_slot(s_slot(sp - 1), 0)
                 dst = 4 + s_slot(sp - 1) if s_slot(sp - 1) < 7 else 0

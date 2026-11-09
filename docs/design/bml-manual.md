@@ -825,6 +825,43 @@ end
 - **Lua Desugaring**: In Lua, constant arrays desugar to standard 1-based local tables (`local TILE_ATTRS = {0, 1, 1, 2, 4, 8}`).
 - **Immutability**: Assigning to a constant array or its elements is rejected at compile time.
 
+#### 9.7.3 Mutable Local Arrays in RAM
+
+Functions can initialize mutable local arrays directly on the stack or in RAM:
+
+```lua
+local arr: i32[] = [10, 20, 30, 40]
+local farr: f32[] = [1.5, 2.5, 3.5]
+
+arr[1] = 99
+farr[2] += 10.0
+```
+
+- **Stack Allocation**: The compiler reserves contiguous words on the stack frame below spill slots, calculates the base address (`fp - offset`), writes the initial elements, and assigns the base pointer to the local variable slot.
+- **Lua Compatibility**: Desugars cleanly to Lua table literals (`local arr = {10, 20, 30, 40}`).
+- **Indexed Access**: Elements are 1-based and accessed via standard `arr[i]` syntax.
+
+#### 9.7.4 Compile-Time Length Operator (`#arr`)
+
+The `#` operator retrieves the length of known-size collections at compile time without runtime overhead:
+
+```lua
+const LUT: i32[] = [10, 20, 30]
+local a: i32[] = [1, 2, 3, 4]
+local len_lut = #LUT      -- Evaluates to 3 at compile time
+local len_a = #a          -- Evaluates to 4 at compile time
+local str_len = #"hello"  -- Evaluates to 5 at compile time
+
+for i = 1, #a do
+  a[i] = a[i] * 2
+end
+```
+
+- **Supported Targets**: Constant arrays, mutable local arrays with known declaration size, string literals, and array literals.
+- **Zero Runtime Cost**: Emitted as an immediate constant (`PUSH_CONST` / `mov rd, #imm`).
+- **Safety**: Applying `#` to non-array scalar types or variables without known compile-time bounds is rejected with a type error.
+
+
 
 
 

@@ -245,6 +245,21 @@ function test_rodata_arrays(idx: i32): i32
   return iv + flr(fv)
 end
 
+function test_local_arrays(idx: i32): i32
+  local a: i32[] = [10, 20, 30, 40, 50]
+  local fa: f32[] = [1.5, 2.5, 3.5, 4.5]
+  local sum = 0
+  for i = 1, #a do
+    sum = sum + a[i]
+  end
+  a[2] = 99
+  fa[idx] = fa[idx] + 10.0
+  local const_len = #TEST_LUT
+  local str_len = #"hello"
+  return sum + a[2] + flr(fa[idx]) + const_len + str_len
+end
+
+
 
 
 

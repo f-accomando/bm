@@ -158,6 +158,12 @@ BAD_PROGRAMS = [
      "const X: i32 = 10\nfunction f(): i32\n  X = 20\n  return X\nend\n", "line 3"),
     ("assigning to const array element",
      "const A: i32[] = [1, 2]\nfunction f(): i32\n  A[1] = 5\n  return A[1]\nend\n", "line 3"),
+    ("length operator on scalar variable",
+     "function f(x: i32): i32\n  return #x\nend\n", "line 2"),
+    ("empty array literal",
+     "function f(): i32\n  local a: i32[] = []\n  return 0\nend\n", "line 2"),
+    ("type mismatch in array literal",
+     "function f(): i32\n  local a: i32[] = [1, 2.5]\n  return 0\nend\n", "line 2"),
 ]
 
 for desc, bad_src, expected_line in BAD_PROGRAMS:
@@ -1055,6 +1061,8 @@ vm_s6_out.append(str(tm_vm.call("test_type_inference", [100])))
 vm_s6_out.append(str(tm_vm.call("test_math_builtins", [12.5])))
 vm_s6_out.append(str(tm_vm.call("test_rodata_arrays", [1])))
 vm_s6_out.append(str(tm_vm.call("test_rodata_arrays", [3])))
+vm_s6_out.append(str(tm_vm.call("test_local_arrays", [1])))
+vm_s6_out.append(str(tm_vm.call("test_local_arrays", [3])))
 
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
@@ -1117,6 +1125,8 @@ print(test_type_inference(100))
 print(test_math_builtins(12.5))
 print(test_rodata_arrays(1))
 print(test_rodata_arrays(3))
+print(test_local_arrays(1))
+print(test_local_arrays(3))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1206,6 +1216,8 @@ print(native_run(mn, "test_type_inference", 100))
 print(native_run(mn, "test_math_builtins", 12.5))
 print(native_run(mn, "test_rodata_arrays", 1))
 print(native_run(mn, "test_rodata_arrays", 3))
+print(native_run(mn, "test_local_arrays", 1))
+print(native_run(mn, "test_local_arrays", 3))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1471,6 +1483,16 @@ void c_main(void)
         put_i32(r);
         a[0] = 3;
         bmnative_call(m, bmnative_find(m, "test_rodata_arrays"), a, 1, &r);
+        put_i32(r);
+    }}
+
+    /* 19. test_local_arrays */
+    {{
+        int32_t a[1] = {{1}};
+        bmnative_call(m, bmnative_find(m, "test_local_arrays"), a, 1, &r);
+        put_i32(r);
+        a[0] = 3;
+        bmnative_call(m, bmnative_find(m, "test_local_arrays"), a, 1, &r);
         put_i32(r);
     }}
 }}
@@ -2310,6 +2332,8 @@ print(native_run(m_tm, "test_type_inference", 100))
 print(native_run(m_tm, "test_math_builtins", 12.5))
 print(native_run(m_tm, "test_rodata_arrays", 1))
 print(native_run(m_tm, "test_rodata_arrays", 3))
+print(native_run(m_tm, "test_local_arrays", 1))
+print(native_run(m_tm, "test_local_arrays", 3))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))
