@@ -27,3 +27,13 @@ A cartridge carries typed hot functions as data, a blob that `scripts/bmtvm.py` 
 | `vm_buf_get(b, i)` | element `i` of `b` |
 | `vm_bind(m, f, buffers...)` | binds the array parameters of function `f`, in order, once |
 | `vm_run(m, f, args...)` | runs `f`; a number for a number parameter, a buffer for an array parameter (none if `f` is bound); gives the result |
+
+## Native ARMv6 loader (experiment)
+
+A cartridge for the Pi Zero W carries a verified `BMN1` module (`tools/bml/bml.py --native`) or raw 32-bit ARMv6 A32 machine words (`--armv6`). `native_load` checks the instructions (no supervisor calls, no coprocessor instructions, all branches inside the module), copies the words into 32-byte-aligned executable RAM, cleans the D-cache (`mcr p15, 0, a, c7, c10, 1`), invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch predictor (`c7, c5, 6`), and executes `DSB` + `ISB` before the first call. Test with `if native_load then`.
+
+| Function | Description |
+|---|---|
+| `native_load(blob)` | a module, or `nil` and the reason |
+| `native_fn(m, name)` | the number of a function, or `nil` |
+| `native_run(m, f, args...)` | runs function `f` (its number from `native_fn` or its name string) with `i32` or `bool` arguments; gives the result |

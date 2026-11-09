@@ -338,8 +338,8 @@
  "bml": {
   "chapters": {
    "1": {
-    "en": "37964b177aad",
-    "it": "d9ee8f155988",
+    "en": "4ad40ecd5417",
+    "it": "8096a48ddbff",
     "title": "Why a language of bm"
    },
    "2": {
@@ -348,26 +348,26 @@
     "title": "Syntax and type rules"
    },
    "3": {
-    "en": "9968eb7103aa",
-    "it": "b9188a8dc40e",
+    "en": "2323e2e3c476",
+    "it": "a8ce78ea7cfe",
     "title": "How the compiler works"
    },
    "4": {
-    "en": "1b78c4226166",
-    "it": "3a9a061e2599",
+    "en": "350116cc58a0",
+    "it": "ec8156ec706e",
     "title": "Practical code examples: BML, C, and ARMv6 ASM"
    },
    "5": {
-    "en": "6ede6a8c9d22",
-    "it": "b9b39a308c06",
+    "en": "e71aa44286e3",
+    "it": "a2724397599d",
     "title": "Try it step by step"
    }
   },
   "sources": {
-   "docs/design/bml-manual.md": "e31ef66362fa",
-   "docs/progress/typed.md": "07f620f3fd1e",
+   "docs/design/bml-manual.md": "a7c4fb00a8fa",
+   "docs/progress/typed.md": "0f94ca4b561b",
    "src/bm/bmvm.h": "ba119d71aa28",
-   "tools/bml/bml.py": "a2758efe8d5c"
+   "tools/bml/bml.py": "f56a733bf615"
   }
  },
  "boot-os": {

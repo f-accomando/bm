@@ -7,7 +7,7 @@ The language of bm uses the typed Lua syntax of scripts/bmt.py so that a single 
      executed by the host StackVM (stage 2), and later to ARMv6 A32 machine words (stage 4).
 
 Usage:
-  python3 tools/bml/bml.py <file.bml> [--check] [--lua <out.lua>] [--dump] [--run <fn> <arg>...] [--wrap32]
+  python3 tools/bml/bml.py <file.b> [--check] [--lua <out.lua>] [--dump] [--run <fn> <arg>...] [--wrap32]
 """
 import argparse
 from dataclasses import dataclass, field
@@ -2011,6 +2011,41 @@ def compile_armv6(src: str, leaf_opt: bool = True) -> ARMv6Module:
     return ARMv6Compiler(prog, mod, leaf_opt=leaf_opt).compile()
 
 
+# Stage 5: Native ARMv6 Container Format (BMN1) for native_load / native_run
+BMN_MAGIC = 0x314E4D42  # "BMN1"
+BMN_NONE = 0
+BMN_I32 = 1
+BMN_BOOL = 2
+
+
+def compile_native_blob(src: str, leaf_opt: bool = True) -> bytes:
+    """Compiles BML source code into a Stage 5 BMN1 binary container for native_load()."""
+    prog = parse_and_check(src)
+    mod = BytecodeCompiler(prog).compile()
+    arm_mod = ARMv6Compiler(prog, mod, leaf_opt=leaf_opt).compile()
+
+    nfn = len(mod.funcs)
+    ncode = len(arm_mod.words)
+    if nfn < 1 or nfn > 512:
+        raise Error(f"native module has {nfn} functions (1..512 allowed)")
+    if ncode < 1 or ncode > 65536:
+        raise Error(f"native module has {ncode} words (1..65536 allowed)")
+
+    out = bytearray(struct.pack("<III", BMN_MAGIC, nfn, ncode))
+    for fn in mod.funcs:
+        name_b = fn.name.encode("ascii")[:31]
+        name_padded = name_b + b"\x00" * (32 - len(name_b))
+        ret_code = BMN_NONE if fn.ret_type is None else (BMN_BOOL if fn.ret_type == "bool" else BMN_I32)
+        ptypes = [0] * 16
+        for i, pt in enumerate(fn.param_types):
+            ptypes[i] = BMN_BOOL if pt == "bool" else BMN_I32
+        word_off = arm_mod.func_offsets[fn.name] // 4
+        out.extend(struct.pack("<32sBBH16BI", name_padded, fn.nparams, ret_code, 0, *ptypes, word_off))
+
+    out.extend(struct.pack(f"<{ncode}I", *arm_mod.words))
+    return bytes(out)
+
+
 def disassemble_armv6(arm_mod: ARMv6Module) -> str:
     """Formats an ARMv6Module as hex words with function boundaries and comments."""
     inv_fn = {off // 4: name for name, off in arm_mod.func_offsets.items()}
@@ -2118,12 +2153,13 @@ def parse_cli_arg(raw: str) -> Union[int, bool]:
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("source", help="path to the .bml source file")
+    ap.add_argument("source", help="path to the .b source file")
     ap.add_argument("--check", action="store_true", help="only run stage 1 (lexer, parser, AST, type check)")
     ap.add_argument("--lua", help="write the stripped plain Lua source to this file")
     ap.add_argument("--dump", action="store_true", help="print the disassembled stage 2 stack bytecode")
     ap.add_argument("--bmvm", help="write the stage 3 kernel bmvm binary blob (.bmv) to this file")
     ap.add_argument("--armv6", help="write the stage 4 ARMv6 A32 machine code (.bin) to this file")
+    ap.add_argument("--native", help="write the stage 5 native ARMv6 container (.bmn) for native_load to this file")
     ap.add_argument("--dump-armv6", action="store_true", help="print the stage 4 ARMv6 A32 words")
     ap.add_argument("--wrap32", action="store_true", help="wrap i32 arithmetic at 32 bits in the stack VM")
     ap.add_argument("--run", nargs="+", metavar=("FN", "ARG"), help="run function FN with arguments in the stack VM")
@@ -2147,6 +2183,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         blob = BMVMCompiler(mod).compile_blob()
         with open(args.bmvm, "wb") as f:
             f.write(blob)
+    if args.native:
+        nblob = compile_native_blob(src)
+        with open(args.native, "wb") as f:
+            f.write(nblob)
     if args.armv6 or args.dump_armv6:
         arm_mod = compile_armv6(src)
         if args.armv6:

@@ -19,14 +19,14 @@ Un gioco sul Raspberry Pi Zero W 1.1 gira su un singolo core ARM1176JZF-S a 1000
 
 ## Una sorgente, quattro bersagli
 
-Un file `.bml` usa la sintassi di Lua con annotazioni di tipo (`: i32`, `: bool`) sui parametri e sul valore di ritorno. Da un solo file `.bml`, `tools/bml/bml.py` produce:
+Un file `.b` usa la sintassi di Lua con annotazioni di tipo (`: i32`, `: bool`) sui parametri e sul valore di ritorno. Da un solo file `.b`, `tools/bml/bml.py` produce:
 
 | Bersaglio | Opzione | Dove gira | Scopo |
 |---|---|---|---|
 | Lua 5.4 standard | `--lua` | `luahost` e la VM Lua della console | Oracolo di riferimento: rimuove `: i32` e `: bool` |
 | VM a stack (Tappa 2) | `--run` / `--dump` | Python sul PC (`StackVM`) | Verifica rapida e ispezione del bytecode |
 | `bmvm` del kernel (Tappa 3) | `--bmvm` | `src/bm/bmvm.c` (`vm_load`, `vm_run`) | Blob sicuro per macchina a registri dentro la cartuccia |
-| ARMv6 A32 nativo (Tappa 4) | `--armv6` / `--dump-armv6` | CPU ARM1176 (`qemu-system-arm`, Pi Zero W) | Parole macchina native a 32 bit (AAPCS) |
+| ARMv6 A32 nativo (Tappe 4-5) | `--armv6` / `--native` | `src/bm/bmnative.c` (`native_load`, `native_run`) | Parole macchina A32 a 32 bit in RAM eseguibile (AAPCS) |
 
 ::: note
 `scripts/bmt.py` traduce la stessa sintassi Lua tipata in C (`--c`) per le funzioni collegate nel kernel (`src/bm/api_collmap.c`). `tools/bml/bml.py` è il compilatore autonomo che genera direttamente bytecode e parole macchina ARMv6 senza un compilatore C.
@@ -74,16 +74,16 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 1. `compute_stack_depths()` calcola l'altezza esatta dello stack di valutazione prima di ogni istruzione.
 2. `BMVMCompiler` mappa i parametri in `R[0..nparams-1]`, le costanti in `R[nparams..nparams+nconst-1]`, i locali in `R[nparams+nconst..]` e gli slot dello stack `S[k]` sopra i locali, generando un blob `BMV1` per `src/bm/bmvm.c`.
 3. `ARMv6Compiler` emette parole macchina ARMv6 A32 a 32 bit secondo l'ABI AAPCS (`r0`..`r3` argomenti, `r0` risultato, registri callee-saved `r4`..`r10` per i primi 7 slot locali/stack e slot `[fp, #-off]` sullo stack per le variabili eccedenti).
-4. [DA COMPLETARE: la Tappa 5 carica il blob binario ARMv6 in RAM eseguibile sul Pi Zero W con pulizia della D-cache e invalidazione della I-cache (`native_load`, `native_run` in `docs/progress/typed.md`)]
+4. `compile_native_blob()` (`--native`) impacchetta il modulo `BMN1` per `src/bm/bmnative.c` (`native_load`, `native_fn`, `native_run`): `bmnative_load` verifica le istruzioni A32, le copia in RAM eseguibile allineata a 32 byte, pulisce la D-cache (`dcache_clean_range`), invalida la I-cache (`mcr p15, 0, a, c7, c5, 1`) e il branch target cache (`c7, c5, 6`), ed esegue `DSB` + `ISB`.
 
 # Esempi pratici di codice: BML, C e ASM ARMv6
 
 ## Esempio 1: Somma in un ciclo (`sum`)
 
-Il ciclo canonico di `tests/bml/sum.bml` somma gli interi da `1` a `n`.
+Il ciclo canonico di `tests/bml/sum.b` somma gli interi da `1` a `n`.
 
 ```lua
--- 1. Sorgente BML (tests/bml/sum.bml)
+-- 1. Sorgente BML (tests/bml/sum.b)
 function sum(n: i32): i32
   local s = 0
   for i = 1, n do s = s + i end
@@ -124,7 +124,7 @@ int32_t bmt_sum(int32_t n)
 `clamp` limita `x` all'intervallo `[lo, hi]` usando le funzioni integrate `min` e `max`, che su ARMv6 diventano mosse condizionali (`movlt`, `movgt`) senza salti.
 
 ```lua
--- 1. Sorgente BML (tests/bml/features.bml)
+-- 1. Sorgente BML (tests/bml/features.b)
 function clamp(x: i32, lo: i32, hi: i32): i32
   return min(max(x, lo), hi)
 end
@@ -164,7 +164,7 @@ int32_t bmt_clamp(int32_t x, int32_t lo, int32_t hi)
 `gcd` usa `abs`, un ciclo `while` e `%`. Poiché l'ARM1176 non ha un'istruzione hardware per la divisione intera, `a % b` chiama la routine A32 di 30 parole `__bml_idivmod`, che restituisce il quoziente floor in `r0` e il modulo floor in `r1`.
 
 ```lua
--- 1. Sorgente BML (tests/bml/features.bml)
+-- 1. Sorgente BML (tests/bml/features.b)
 function gcd(a: i32, b: i32): i32
   a = abs(a)
   b = abs(b)
@@ -217,7 +217,7 @@ int32_t bmt_gcd(int32_t a, int32_t b)
 In `fib(n - 1) + fib(n - 2)`, la prima chiamata ricorsiva lascia il suo risultato in `S[0]`, che è mappato nel registro callee-saved `r5`. Quando parte la seconda `bl fn_fib`, `fn_fib` salva e ripristina `r4`..`r10` sul proprio stack frame, così `r4` (`n`) e `r5` (`fib(n - 1)`) restano intatti senza accessi aggiuntivi in memoria.
 
 ```lua
--- 1. Sorgente BML (tests/bml/features.bml)
+-- 1. Sorgente BML (tests/bml/features.b)
 function fib(n: i32): i32
   if n <= 0 then
     return 0
@@ -260,18 +260,18 @@ int32_t bmt_fib(int32_t n)
 # Prova passo per passo
 
 ::: try
-Compila `tests/bml/sum.bml`, ispeziona il bytecode a stack e le 9 parole macchina ARMv6, eseguilo nella VM e lancia la suite completa sulla CPU ARM1176 emulata:
+Compila `tests/bml/sum.b`, ispeziona il bytecode a stack e le 9 parole macchina ARMv6, eseguilo nella VM e lancia la suite completa sulla CPU ARM1176 emulata:
 
-1. Esegui `python3 tools/bml/bml.py tests/bml/sum.bml --dump --run sum 10`: vedi le 21 istruzioni a stack e il risultato `55`.
-2. Esegui `python3 tools/bml/bml.py tests/bml/sum.bml --dump-armv6`: vedi le 9 parole esadecimali A32 da `0x0000` a `0x0020`.
-3. Esegui `make test-bml`: la suite controlla 23 programmi errati, `sum`, `features` e 200 programmi casuali confrontando Lua, `StackVM`, `bmvm` in C e `qemu-system-arm -cpu arm1176`.
+1. Esegui `python3 tools/bml/bml.py tests/bml/sum.b --dump --run sum 10`: vedi le 21 istruzioni a stack e il risultato `55`.
+2. Esegui `python3 tools/bml/bml.py tests/bml/sum.b --dump-armv6`: vedi le 9 parole esadecimali A32 da `0x0000` a `0x0020`.
+3. Esegui `make test-bml`: la suite controlla 23 programmi errati, `sum`, `features` e 200 programmi casuali confrontando Lua, `StackVM`, `bmvm` in C, `native_load`/`native_run` e `qemu-system-arm -cpu arm1176`.
 :::
 
 ::: copy
 ```
-python3 tools/bml/bml.py tests/bml/sum.bml --dump --run sum 10
-python3 tools/bml/bml.py tests/bml/sum.bml --dump-armv6
-python3 tools/bml/bml.py tests/bml/features.bml --bmvm build/features.bmv
+python3 tools/bml/bml.py tests/bml/sum.b --dump --run sum 10
+python3 tools/bml/bml.py tests/bml/sum.b --dump-armv6
+python3 tools/bml/bml.py tests/bml/features.b --native build/features.bmn
 make test-bml
 ```
 :::

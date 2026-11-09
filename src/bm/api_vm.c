@@ -9,16 +9,23 @@
  *   r = vm_run(m, f, args...)       a number for a number parameter, a buffer for an array parameter (none if f is bound);
  *                                   gives the result
  *   vm_buf_get(b, i)                element i of b
+ *
+ * Native ARMv6 A32 loader (Stage 5 of tools/bml/bml.py):
+ *   m, why = native_load(blob)      loads a BMN1 module or raw ARMv6 words into executable RAM (cleans D-cache, invalidates I-cache)
+ *   f = native_fn(m, "name")        the number of a function, or nil
+ *   r = native_run(m, f, args...)   calls function f (number or "name") with i32/bool arguments and returns its result
  */
 #include <stdlib.h>
 #include <string.h>
 
+#include "bmnative.h"
 #include "bmvm.h"
 #include "lauxlib.h"
 #include "lua.h"
 
-#define MOD_MT "bmvm.mod"
-#define BUF_MT "bmvm.buf"
+#define MOD_MT    "bmvm.mod"
+#define BUF_MT    "bmvm.buf"
+#define NAT_MT    "bmnative.mod"
 #define VM_BUDGET 20000000u
 
 typedef struct {
@@ -216,5 +223,91 @@ int l_vm_run(lua_State *L)
         lua_pushnumber(L, ret.d);
     else
         lua_pushinteger(L, ret.i);
+    return 1;
+}
+
+typedef struct { bmnative_mod *m; } natmod_t;
+
+static int nat_gc(lua_State *L)
+{
+    natmod_t *u = (natmod_t *)luaL_checkudata(L, 1, NAT_MT);
+    bmnative_free(u->m);
+    u->m = NULL;
+    return 0;
+}
+
+int l_native_load(lua_State *L)
+{
+    size_t n;
+    const char *s = luaL_checklstring(L, 1, &n);
+    bmnative_mod *m;
+    const char *why = "";
+    if (bmnative_load(&m, (const uint8_t *)s, n, &why)) {
+        lua_pushnil(L);
+        lua_pushstring(L, why);
+        return 2;
+    }
+    natmod_t *u = (natmod_t *)lua_newuserdatauv(L, sizeof *u, 0);
+    u->m = m;
+    if (luaL_newmetatable(L, NAT_MT)) {
+        lua_pushcfunction(L, nat_gc);
+        lua_setfield(L, -2, "__gc");
+    }
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+int l_native_fn(lua_State *L)
+{
+    natmod_t *u = (natmod_t *)luaL_checkudata(L, 1, NAT_MT);
+    const int f = u->m ? bmnative_find(u->m, luaL_checkstring(L, 2)) : -1;
+    if (f < 0)
+        lua_pushnil(L);
+    else
+        lua_pushinteger(L, f);
+    return 1;
+}
+
+int l_native_run(lua_State *L)
+{
+    natmod_t *u = (natmod_t *)luaL_checkudata(L, 1, NAT_MT);
+    if (!u->m)
+        return luaL_error(L, "native_run: invalid module");
+
+    int fn = -1;
+    if (lua_isinteger(L, 2))
+        fn = (int)lua_tointeger(L, 2);
+    else if (lua_isstring(L, 2))
+        fn = bmnative_find(u->m, lua_tostring(L, 2));
+
+    if (fn < 0 || fn >= u->m->nfn)
+        return luaL_error(L, "native_run: no such function");
+
+    const bmnative_fn *f = &u->m->fn[fn];
+    const int nargs = lua_gettop(L) - 2;
+    if (f->nparams == BMN_VARARGS) {
+        if (nargs < 0 || nargs > BMN_MAX_ARGS)
+            return luaL_error(L, "native_run: takes at most %d arguments", BMN_MAX_ARGS);
+    } else if (nargs != f->nparams) {
+        return luaL_error(L, "native_run: %s takes %d arguments", f->name, f->nparams);
+    }
+
+    int32_t args[BMN_MAX_ARGS];
+    for (int i = 0; i < nargs; i++) {
+        const int li = 3 + i;
+        args[i] = lua_isboolean(L, li) ? lua_toboolean(L, li) : (int32_t)luaL_checkinteger(L, li);
+    }
+
+    int32_t ret = 0;
+    const int e = bmnative_call(u->m, fn, args, nargs, &ret);
+    if (e)
+        return luaL_error(L, "native_run: %s stopped (%d)", f->name, e);
+
+    if (f->ret == BMN_NONE)
+        return 0;
+    if (f->ret == BMN_BOOL)
+        lua_pushboolean(L, ret != 0);
+    else
+        lua_pushinteger(L, ret);
     return 1;
 }

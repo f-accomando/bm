@@ -10,12 +10,13 @@ For project state and rules, see [`docs/progress/typed.md`](../progress/typed.md
 
 BML is a statically typed subset of Lua 5.4 designed for `bm` cartridges on the Raspberry Pi Zero W (BCM2835, ARM1176JZF-S, ARMv6 A32):
 
-1. **Single-Source Dual Execution**: Every valid `.bml` file is also valid Lua 5.4 once its `: <type>` annotations are stripped (`bml.py --lua`). The standard Lua VM is the ground-truth oracle for every test stage.
+1. **Single-Source Dual Execution**: Every valid `.b` file is also valid Lua 5.4 once its `: <type>` annotations are stripped (`bml.py --lua`). The standard Lua VM is the ground-truth oracle for every test stage.
 2. **Explicit Multi-Pass Architecture**: Unlike `scripts/bmt.py` (which emits C text directly during single-pass parsing), `tools/bml/bml.py` separates the compiler into distinct, inspectable stages:
    - **Stage 1 (Front End)**: `Lexer` $\to$ `Parser` $\to$ `AST` $\to$ `TypeChecker` (+ Lua stripper `to_lua`).
    - **Stage 2 (Host Bytecode & VM)**: `BytecodeCompiler` $\to$ `Module` $\to$ `StackVM` (with `--dump` disassembler).
    - **Stage 3 (Kernel VM Back End)**: `BMVMCompiler` (`--bmvm <out.bmv>`), lowering the checked stack IR into a verified `BMV1` register-machine module executed by [`src/bm/bmvm.c`](../../src/bm/bmvm.c) (`vm_load`, `vm_run`).
    - **Stage 4 (ARMv6 A32 Native Back End)**: `ARMv6Assembler` and `ARMv6Compiler` (`--armv6 <out.bin>`, `--dump-armv6`), lowering BML functions directly to 32-bit ARMv6 (A32, AAPCS) machine words and verified on an emulated ARM1176JZF-S CPU via `qemu-system-arm -M versatilepb -cpu arm1176`.
+   - **Stage 5 (Native Pi Loader & Cache Maintenance)**: `compile_native_blob` (`--native <out.bmn>`), packing the verified `BMN1` container loaded by [`src/bm/bmnative.c`](../../src/bm/bmnative.c) and [`src/bm/api_vm.c`](../../src/bm/api_vm.c) (`native_load`, `native_fn`, `native_run`) into 32-byte-aligned executable RAM with CP15 D-cache clean and I-cache invalidate.
 3. **Line-Accurate Diagnostics**: Every lexical, syntactic, or type error reports the 1-based line number of the offending token or statement (`line <N>: <message>`).
 
 ---
@@ -24,23 +25,23 @@ BML is a statically typed subset of Lua 5.4 designed for `bm` cartridges on the 
 
 ```bash
 # 1. Check syntax and types only (Stage 1)
-python3 tools/bml/bml.py tests/bml/sum.bml --check
+python3 tools/bml/bml.py tests/bml/sum.b --check
 
 # 2. Strip type annotations to produce plain Lua
-python3 tools/bml/bml.py tests/bml/sum.bml --lua build/sum.lua
+python3 tools/bml/bml.py tests/bml/sum.b --lua build/sum.lua
 
 # 3. Disassemble the compiled Stage 2 stack bytecode
-python3 tools/bml/bml.py tests/bml/sum.bml --dump
+python3 tools/bml/bml.py tests/bml/sum.b --dump
 
 # 4. Compile and run a function in the Stage 2 StackVM on the host
-python3 tools/bml/bml.py tests/bml/sum.bml --run sum 10
+python3 tools/bml/bml.py tests/bml/sum.b --run sum 10
 # -> 55
 
 # 5. Emit a Stage 3 BMV1 binary module for the kernel's bmvm (src/bm/bmvm.c)
-python3 tools/bml/bml.py tests/bml/features.bml --bmvm build/features.bmv
+python3 tools/bml/bml.py tests/bml/features.b --bmvm build/features.bmv
 
 # 6. Emit and inspect Stage 4 ARMv6 (A32) 32-bit machine words
-python3 tools/bml/bml.py tests/bml/sum.bml --armv6 build/sum.bin --dump-armv6
+python3 tools/bml/bml.py tests/bml/sum.b --armv6 build/sum.bin --dump-armv6
 
 # 7. Run the full verification suite (Stages 1, 2, 3, and 4 on QEMU ARM1176 vs Lua)
 make test-bml
@@ -134,7 +135,7 @@ When running the stripped Lua output (`--lua`), bind them in the Lua prelude via
 
 `Parser` is a recursive-descent parser that produces a `Program` tree while recording byte spans `(start, end)` in `self.cuts` whenever `parse_type_annotation()` consumes `: i32` or `: bool` (on function parameters, function return types, or optional `local x: i32 = ...` declarations).
 
-`to_lua(src)` runs `parse_and_check(src)` first—guaranteeing that ill-typed sources are never emitted—and then slices out `prog.cuts` in reverse order. Because only `: <type>` spans are removed, line numbers in the stripped Lua file match the `.bml` source 1-to-1.
+`to_lua(src)` runs `parse_and_check(src)` first—guaranteeing that ill-typed sources are never emitted—and then slices out `prog.cuts` in reverse order. Because only `: <type>` spans are removed, line numbers in the stripped Lua file match the `.b` source 1-to-1.
 
 ### 4.3 AST Nodes
 
@@ -191,7 +192,7 @@ Each function activation in `StackVM` owns:
 
 ### 5.3 Walkthrough: Compiling and Running `sum(10)`
 
-Source (`tests/bml/sum.bml`):
+Source (`tests/bml/sum.b`):
 ```lua
 function sum(n: i32): i32
   local s = 0
@@ -200,7 +201,7 @@ function sum(n: i32): i32
 end
 ```
 
-Disassembly (`python3 tools/bml/bml.py tests/bml/sum.bml --dump`):
+Disassembly (`python3 tools/bml/bml.py tests/bml/sum.b --dump`):
 ```text
 ; constants: K[0]=0, K[1]=1
 
@@ -303,13 +304,23 @@ Under this mapping, every Stage 2 stack instruction lowers **1-to-1** to a singl
 
 ### 7.3 Verification on `qemu-system-arm -cpu arm1176`
 
-`make test-bml` (`tests/bml/run.py`) compiles `sum.bml` (both 9-word leaf and general frame), `features.bml` (347 calls), and 200 random BML programs (1000 calls) into raw A32 machine words, links them into a freestanding ARMv6 ELF binary (`-march=armv6 -marm`), runs them under `qemu-system-arm -M versatilepb -cpu arm1176 -nographic -semihosting`, and checks that all 1,559 outputs match `luahost` byte-for-byte.
+`make test-bml` (`tests/bml/run.py`) compiles `sum.b` (both 9-word leaf and general frame), `features.b` (347 calls), and 200 random BML programs (1000 calls) into raw A32 machine words, links them into a freestanding ARMv6 ELF binary (`-march=armv6 -marm`), runs them under `qemu-system-arm -M versatilepb -cpu arm1176 -nographic -semihosting`, and checks that all 1,559 outputs match `luahost` byte-for-byte.
+
+### 7.4 Stage 5: Native Pi Loader (`native_load`, `native_fn`, `native_run`) and Cache Maintenance
+
+`tools/bml/bml.py --native <out.bmn>` packs the compiled functions into a `BMN1` (`0x314E4D42`) binary container (`12`-byte header `<III`, `nfn` 56-byte function descriptors `<32sBBH16BI`, and `ncode` 32-bit A32 words). [`src/bm/bmnative.c`](../../src/bm/bmnative.c) and [`src/bm/api_vm.c`](../../src/bm/api_vm.c) expose:
+- `m, why = native_load(blob)`: Accepts either a `BMN1` container or raw 32-bit ARMv6 A32 words (`--armv6`). Validates every instruction word (rejects `SVC`/`SWI`, coprocessor `MCR`/`MRC`/`CDP`/`LDC`/`STC`, `BKPT`, and out-of-range `B`/`BL` targets), copies the words into 32-byte-aligned executable RAM, and calls `bmnative_sync_cache`:
+  1. `dcache_clean_range(code, bytes)` (`mcr p15, 0, a, c7, c10, 1` per 32-byte line + `arm_dsb()`),
+  2. `mcr p15, 0, a, c7, c5, 1` (invalidate I-cache line by MVA),
+  3. `mcr p15, 0, 0, c7, c5, 6` (flush Branch Target Cache),
+  4. `arm_dsb()` + `arm_isb()` (drain write buffer and flush prefetch pipeline).
+- `f = native_fn(m, "name")`: Returns the 0-based function index `0..nfn-1` or `nil`.
+- `r = native_run(m, f, ...)`: Invokes function `f` (index or name string) via the AAPCS ABI on ARM (`#if defined(__arm__)`) or the built-in step-bounded A32 interpreter on non-ARM hosts (`bmhost-bin`), returning an integer or boolean to Lua.
 
 ---
 
-## 8. Next Stages (Stages 5 to 9)
+## 8. Next Stages (Stages 6 to 9)
 
-- **Stage 5 (Load on the Pi)**: Allocate executable RAM in the kernel, clean the D-cache and invalidate the I-cache (`mcr p15, 0, ...`), and expose `native_load` / `native_run` to Lua.
 - **Stage 6 (Types and Memory)**: Arrays and structs; finalize `i32` overflow policy (32-bit two's-complement wrapping on ARMv6/C vs 64-bit Lua integers); add `f32` using the ARM1176 VFPv2 coprocessor.
 - **Stage 7 (Standard Functions and `bm` API)**: Function table allowing native ARMv6 code to call `spr`, `rectfill`, `btn`, and math routines.
 - **Stage 8 (Games)**: Port the enemy movement of Dark Night to BML and measure frame times on the Pi Zero W.
@@ -321,7 +332,7 @@ Under this mapping, every Stage 2 stack instruction lowers **1-to-1** to a singl
 
 ### 9.1 Example 1: Loop Accumulator (`sum`)
 
-**1. BML Source (`tests/bml/sum.bml`)**:
+**1. BML Source (`tests/bml/sum.b`)**:
 ```lua
 function sum(n: i32): i32
   local s = 0
@@ -372,7 +383,7 @@ int32_t bmt_sum(int32_t n)
 
 ### 9.2 Example 2: Value Clamping (`clamp` with `min` / `max`)
 
-**1. BML Source (`tests/bml/features.bml`)**:
+**1. BML Source (`tests/bml/features.b`)**:
 ```lua
 function clamp(x: i32, lo: i32, hi: i32): i32
   return min(max(x, lo), hi)
@@ -414,7 +425,7 @@ int32_t bmt_clamp(int32_t x, int32_t lo, int32_t hi)
 
 ### 9.3 Example 3: Greatest Common Divisor (`gcd` with `while`, `abs`, and `%`)
 
-**1. BML Source (`tests/bml/features.bml`)**:
+**1. BML Source (`tests/bml/features.b`)**:
 ```lua
 function gcd(a: i32, b: i32): i32
   a = abs(a)
@@ -492,7 +503,7 @@ int32_t bmt_gcd(int32_t a, int32_t b)
 
 ### 9.4 Example 4: Double Recursion (`fib`)
 
-**1. BML Source (`tests/bml/features.bml`)**:
+**1. BML Source (`tests/bml/features.b`)**:
 ```lua
 function fib(n: i32): i32
   if n <= 0 then

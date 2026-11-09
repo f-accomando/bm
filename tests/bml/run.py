@@ -4,7 +4,7 @@
   run.py LUAHOST BUILD_DIR
 
 1. Stage 1 (Front end): lexer, parser, AST, and type checker reject invalid programs and name the exact line.
-2. Stage 2 (StackVM): sum(10) == 55, sum(-5..100), features.bml (347 calls), and 200 random programs match Lua.
+2. Stage 2 (StackVM): sum(10) == 55, sum(-5..100), features.b (347 calls), and 200 random programs match Lua.
 3. Stage 3 (Kernel bmvm): compiles sum, features, and 200 random programs to BMV1 blobs and runs them in C (src/bm/bmvm.c).
 4. Stage 4 (ARMv6 A32 back end): compiles sum (both 9-word leaf and general), features, and 200 random programs to
    32-bit ARMv6 machine words and executes them on an emulated ARM1176 CPU in qemu-system-arm against Lua.
@@ -97,7 +97,7 @@ for desc, bad_src, expected_line in BAD_PROGRAMS:
             fail(f"wrong line for '{desc}': expected '{expected_line}', got '{e}'")
 
 # ---------------------------------------------------------------- 2. Stage 1 & 2: sum(10) == 55 and Lua comparison
-sum_path = os.path.join(HERE, "sum.bml")
+sum_path = os.path.join(HERE, "sum.b")
 with open(sum_path, encoding="utf-8") as f:
     sum_src = f.read()
 
@@ -117,8 +117,8 @@ vm_sum_out = [str(sum_vm.call("sum", [n])) for n in range(-5, 101)]
 if lua_sum_out != vm_sum_out:
     fail("sum(-5..100) differs between StackVM and Lua")
 
-# ---------------------------------------------------------------- 3. Stage 2: features.bml against Lua
-feat_path = os.path.join(HERE, "features.bml")
+# ---------------------------------------------------------------- 3. Stage 2: features.b against Lua
+feat_path = os.path.join(HERE, "features.b")
 with open(feat_path, encoding="utf-8") as f:
     feat_src = f.read()
 
@@ -433,7 +433,7 @@ open(feat_in, "w", encoding="utf-8").write(
 )
 bmvm_feat_out = subprocess.check_output([bmvm_host_bin, feat_bmv, feat_in], text=True).strip().splitlines()
 if bmvm_feat_out != lua_feat_out:
-    fail("Stage 3 bmvm features.bml differs from Lua")
+    fail("Stage 3 bmvm features.b differs from Lua")
 
 # 5c. 200 random programs in bmvm
 bmvm_rand_out = []
@@ -486,7 +486,7 @@ if arm_gcc and qemu_arm:
     # 2. General allocator sum(-5..100)
     for n in range(-5, 101):
         call_lines_c.append(f"    put_i32(((fn1_t)&code_sum_gen[0])({n}));")
-    # 3. features.bml (347 calls)
+    # 3. features.b (347 calls)
     for fn_name, args, rk in feat_calls:
         w_off = arm_feat.func_offsets[fn_name] // 4
         c_args = ", ".join(str(int(a)) for a in args)
@@ -599,10 +599,304 @@ void _start(void)
                 fail(f"Stage 4 ARMv6 QEMU mismatch at line #{idx}: Lua={ev}, ARMv6={qv}")
                 break
 
+# ---------------------------------------------------------------- 7. Stage 5: native_load / native_fn / native_run + Pi cache maintenance
+sum_bmn_bytes = bml.compile_native_blob(sum_src, leaf_opt=True)
+sum_raw_bytes = struct.pack("<9I", *bml.SUM_ARMV6_WORDS)
+feat_bmn_bytes = bml.compile_native_blob(feat_src)
+rand_bmn_bytes = bml.compile_native_blob(full_bml)
+
+sum_bmn_path = os.path.join(BUILD, "sum.bmn")
+sum_raw_path = os.path.join(BUILD, "sum_raw.bin")
+feat_bmn_path = os.path.join(BUILD, "features.bmn")
+rand_bmn_path = os.path.join(BUILD, "rand.bmn")
+
+for p, data in (
+    (sum_bmn_path, sum_bmn_bytes),
+    (sum_raw_path, sum_raw_bytes),
+    (feat_bmn_path, feat_bmn_bytes),
+    (rand_bmn_path, rand_bmn_bytes),
+):
+    with open(p, "wb") as f:
+        f.write(data)
+
+# 7a. Host Lua C API test: native_load, native_fn, native_run (src/bm/bmnative.c + src/bm/api_vm.c)
+NATIVE_LUAHOST_C = """\
+#include <stdio.h>
+#include <stdlib.h>
+#include "lua.h"
+#include "lauxlib.h"
+#include "lualib.h"
+
+int l_vm_load(lua_State *L);
+int l_vm_fn(lua_State *L);
+int l_vm_run(lua_State *L);
+int l_native_load(lua_State *L);
+int l_native_fn(lua_State *L);
+int l_native_run(lua_State *L);
+
+int main(int argc, char **argv)
+{
+    if (argc < 2) return 1;
+    lua_State *L = luaL_newstate();
+    luaL_openlibs(L);
+    lua_register(L, "vm_load", l_vm_load);
+    lua_register(L, "vm_fn", l_vm_fn);
+    lua_register(L, "vm_run", l_vm_run);
+    lua_register(L, "native_load", l_native_load);
+    lua_register(L, "native_fn", l_native_fn);
+    lua_register(L, "native_run", l_native_run);
+    if (luaL_dofile(L, argv[1]) != LUA_OK) {
+        fprintf(stderr, "%s\\n", lua_tostring(L, -1));
+        lua_close(L);
+        return 1;
+    }
+    lua_close(L);
+    return 0;
+}
+"""
+native_luahost_c = os.path.join(BUILD, "native_luahost.c")
+native_luahost_bin = os.path.join(BUILD, "native_luahost")
+with open(native_luahost_c, "w", encoding="utf-8") as f:
+    f.write(NATIVE_LUAHOST_C)
+
+lua_dir = os.path.join(ROOT, "third_party", "lua")
+lua_c_files = [
+    os.path.join(lua_dir, fn)
+    for fn in sorted(os.listdir(lua_dir))
+    if fn.endswith(".c") and fn not in ("lua.c", "luac.c")
+]
+subprocess.run(
+    [
+        "gcc", "-O2", "-std=c11", "-DLUA_USE_POSIX",
+        f"-I{os.path.join(ROOT, 'src')}",
+        f"-I{os.path.join(ROOT, 'src', 'bm')}",
+        f"-I{lua_dir}",
+        "-o", native_luahost_bin,
+        native_luahost_c,
+        os.path.join(ROOT, "src", "bm", "bmnative.c"),
+        os.path.join(ROOT, "src", "bm", "api_vm.c"),
+        os.path.join(ROOT, "src", "bm", "bmvm.c"),
+        *lua_c_files,
+        "-lm",
+    ],
+    check=True,
+)
+
+stage5_lua_script = os.path.join(BUILD, "stage5_test.lua")
+with open(stage5_lua_script, "w", encoding="utf-8") as f:
+    f.write(f"""\
+local function read_blob(path)
+  local fh = assert(io.open(path, "rb"))
+  local d = fh:read("*a")
+  fh:close()
+  return d
+end
+
+-- 1. Negative checks on native_load
+assert(native_load("") == nil, "empty blob should fail")
+assert(native_load("BMN1short") == nil, "truncated header should fail")
+assert(native_load("\\x00\\x00\\x00\\xEF") == nil, "SVC instruction should fail")
+assert(native_load("\\x15\\x0F\\x07\\xEE") == nil, "coprocessor MCR should fail")
+assert(native_load("\\x70\\x00\\x20\\xE1") == nil, "BKPT should fail")
+assert(native_load("\\x00\\x01\\x00\\xEA") == nil, "out-of-range branch should fail")
+
+-- 2. Raw ARMv6 blob (sum_raw.bin) + BMN1 container (sum.bmn)
+local m_raw = assert(native_load(read_blob({sum_raw_path!r})))
+local m_sum = assert(native_load(read_blob({sum_bmn_path!r})))
+local f_sum = assert(native_fn(m_sum, "sum"))
+assert(native_fn(m_sum, "nonexistent") == nil)
+
+for n = -5, 100 do
+  local r1 = native_run(m_sum, f_sum, n)
+  local r2 = native_run(m_sum, "sum", n)
+  local r3 = native_run(m_raw, 0, n)
+  assert(r1 == r2 and r1 == r3, "sum mismatch at " .. tostring(n))
+  print(tostring(r1))
+end
+
+-- 3. features.bmn
+local m_feat = assert(native_load(read_blob({feat_bmn_path!r})))
+""")
+    for fn_name, args, _ in feat_calls:
+        lua_args = ", ".join(("true" if a else "false") if isinstance(a, bool) else str(a) for a in args)
+        sep = ", " if lua_args else ""
+        f.write(f'print(tostring(native_run(m_feat, {fn_name!r}{sep}{lua_args})))\n')
+
+    f.write(f'\nlocal m_rand = assert(native_load(read_blob({rand_bmn_path!r})))\n')
+    for fn_name, inputs in call_specs:
+        f.write(f'do local fn = assert(native_fn(m_rand, {fn_name!r}))\n')
+        for a, b, flg in inputs:
+            f.write(f'  print(tostring(native_run(m_rand, fn, {a}, {b}, {"true" if flg else "false"})))\n')
+        f.write('end\n')
+
+stage5_lua_out = subprocess.check_output([native_luahost_bin, stage5_lua_script], text=True).strip().splitlines()
+expected_stage5 = lua_sum_out + lua_feat_out + lua_rand_out
+if stage5_lua_out != expected_stage5:
+    fail(f"Stage 5 native_load/native_run host output differs from Lua ({len(stage5_lua_out)} vs {len(expected_stage5)})")
+
+# 7b. Bare-metal ARM1176 QEMU test of bmnative_load + bmnative_sync_cache (D-cache clean & I-cache invalidate) + bmnative_call
+if arm_gcc and qemu_arm:
+    def fmt_bytes(b: bytes) -> str:
+        return ", ".join(f"0x{x:02X}u" for x in b)
+
+    s5_lines_c = []
+    for n in range(-5, 101):
+        s5_lines_c.append(f"    {{ int32_t a[1] = {{{n}}}, r = 0; if (bmnative_call(m_sum, 0, a, 1, &r) || bmnative_call(m_raw, 0, a, 1, &r)) put_str(\"ERR\\n\"); else put_i32(r); }}")
+    for fn_name, args, rk in feat_calls:
+        c_arr = ", ".join(str(1 if a else 0) if isinstance(a, bool) else str(int(a)) for a in args)
+        arr_decl = f"int32_t a[{max(1, len(args))}] = {{{c_arr if c_arr else '0'}}};"
+        out_fn = "put_bool" if rk == "bool" else "put_i32"
+        s5_lines_c.append(
+            f"    {{ {arr_decl} int32_t r = 0; int fn = bmnative_find(m_feat, \"{fn_name}\"); "
+            f"if (bmnative_call(m_feat, fn, a, {len(args)}, &r)) put_str(\"ERR\\n\"); else {out_fn}(r); }}"
+        )
+    for fn_name, inputs in call_specs:
+        s5_lines_c.append(f"    {{ int fn = bmnative_find(m_rand, \"{fn_name}\");")
+        for a, b, flg in inputs:
+            s5_lines_c.append(
+                f"      {{ int32_t args[3] = {{{a}, {b}, {1 if flg else 0}}}, r = 0; "
+                f"if (bmnative_call(m_rand, fn, args, 3, &r)) put_str(\"ERR\\n\"); else put_i32(r); }}"
+            )
+        s5_lines_c.append("    }")
+
+    QEMU_S5_C = f"""\
+#include <stddef.h>
+#include <stdint.h>
+#include "bm/bmnative.h"
+
+#define UART0 ((volatile uint32_t *)0x101F1000u)
+
+static void put_ch(char c) {{ *UART0 = (uint32_t)(uint8_t)c; }}
+static void put_str(const char *s) {{ while (*s) put_ch(*s++); }}
+static void put_bool(int32_t v) {{ put_str(v ? "true\\n" : "false\\n"); }}
+
+static void put_i32(int32_t v)
+{{
+    char buf[16];
+    uint32_t u = (v < 0) ? (0u - (uint32_t)v) : (uint32_t)v;
+    if (v < 0) put_ch('-');
+    int i = 0;
+    if (u == 0) buf[i++] = '0';
+    while (u > 0) {{
+        buf[i++] = (char)('0' + (u % 10u));
+        u /= 10u;
+    }}
+    while (i > 0) put_ch(buf[--i]);
+    put_ch('\\n');
+}}
+
+/* Minimal freestanding heap and string helpers for bmnative.c + cache.c */
+static uint8_t heap_buf[512 * 1024] __attribute__((aligned(32)));
+static size_t heap_off = 0;
+
+void *calloc(size_t nmemb, size_t size)
+{{
+    size_t total = (nmemb * size + 31u) & ~31u;
+    if (heap_off + total > sizeof(heap_buf)) return NULL;
+    uint8_t *p = &heap_buf[heap_off];
+    heap_off += total;
+    for (size_t i = 0; i < total; i++) p[i] = 0;
+    return p;
+}}
+
+void free(void *p) {{ (void)p; }}
+
+void *memcpy(void *dst, const void *src, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    for (size_t i = 0; i < n; i++) d[i] = s[i];
+    return dst;
+}}
+
+void *memset(void *dst, int c, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    for (size_t i = 0; i < n; i++) d[i] = (uint8_t)c;
+    return dst;
+}}
+
+int strcmp(const char *a, const char *b)
+{{
+    while (*a && *a == *b) {{ a++; b++; }}
+    return (uint8_t)*a - (uint8_t)*b;
+}}
+
+static const uint8_t blob_sum[]  = {{ {fmt_bytes(sum_bmn_bytes)} }};
+static const uint8_t blob_raw[]  = {{ {fmt_bytes(sum_raw_bytes)} }};
+static const uint8_t blob_feat[] = {{ {fmt_bytes(feat_bmn_bytes)} }};
+static const uint8_t blob_rand[] = {{ {fmt_bytes(rand_bmn_bytes)} }};
+
+void c_main(void)
+{{
+    const char *why = "";
+    bmnative_mod *m_sum = NULL, *m_raw = NULL, *m_feat = NULL, *m_rand = NULL;
+    if (bmnative_load(&m_sum, blob_sum, sizeof(blob_sum), &why) != BMN_OK ||
+        bmnative_load(&m_raw, blob_raw, sizeof(blob_raw), &why) != BMN_OK ||
+        bmnative_load(&m_feat, blob_feat, sizeof(blob_feat), &why) != BMN_OK ||
+        bmnative_load(&m_rand, blob_rand, sizeof(blob_rand), &why) != BMN_OK) {{
+        put_str("LOAD_ERR\\n");
+        return;
+    }}
+{chr(10).join(s5_lines_c)}
+    /* Test self-modifying / newly written instruction cache flush on ARM1176:
+     * Replace 'add r1, r1, r2' (0xE0811002) at word 4 of m_raw with 'sub r1, r1, r2' (0xE0411002),
+     * clean D-cache + invalidate I-cache via bmnative_sync_cache, and check sum(10) becomes -55. */
+    m_raw->code[4] = 0xE0411002u;
+    bmnative_sync_cache(m_raw->code, m_raw->ncode * 4u);
+    {{
+        int32_t a10[1] = {{10}}, r = 0;
+        bmnative_call(m_raw, 0, a10, 1, &r);
+        put_i32(r);
+    }}
+}}
+
+__attribute__((naked, section(".text.boot")))
+void _start(void)
+{{
+    __asm__ volatile (
+        "ldr sp, =0x04000000\\n"
+        "bl c_main\\n"
+        "mov r0, #0x18\\n"
+        "ldr r1, =0x20026\\n"
+        "svc 0x00123456\\n"
+        "1: b 1b\\n"
+    );
+}}
+"""
+    qemu_s5_c = os.path.join(BUILD, "armv6_stage5.c")
+    qemu_s5_elf = os.path.join(BUILD, "armv6_stage5.elf")
+    with open(qemu_s5_c, "w", encoding="utf-8") as f:
+        f.write(QEMU_S5_C)
+
+    subprocess.run(
+        [
+            arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
+            f"-I{os.path.join(ROOT, 'src')}",
+            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            "-T", qemu_ld, "-o", qemu_s5_elf,
+            qemu_s5_c,
+            os.path.join(ROOT, "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "src", "arch", "cache.c"),
+            "-lgcc",
+        ],
+        check=True,
+    )
+    qemu_s5_out = subprocess.check_output(
+        [qemu_arm, "-M", "versatilepb", "-cpu", "arm1176", "-nographic", "-semihosting", "-kernel", qemu_s5_elf],
+        text=True,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    ).replace("\r\n", "\n").strip().splitlines()
+
+    expected_s5_qemu = expected_stage5 + ["-55"]
+    if qemu_s5_out != expected_s5_qemu:
+        fail(f"Stage 5 ARM1176 bmnative_load+cache QEMU output differs ({len(qemu_s5_out)} vs {len(expected_s5_qemu)})")
+
 if failed:
     sys.exit(1)
 
 print(
-    f"bml: stages 1-4 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
-    f"{len(feat_calls)} feature calls, and 200 random programs [1000 calls] matched Lua in StackVM, C bmvm, and ARM1176 QEMU)"
+    f"bml: stages 1-5 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
+    f"{len(feat_calls)} feature calls, and 200 random programs [1000 calls] matched Lua in StackVM, C bmvm, native_load/native_run, and ARM1176 QEMU)"
 )

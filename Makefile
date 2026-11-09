@@ -544,7 +544,7 @@ test-typed: $(BUILD)/host/luahost scripts/bmt.py tests/typed/run.py tests/typed/
 
 # The language of bm (tools/bml/bml.py): stage 1 front end (lexer, parser, AST, type checker) and stage 2 stack VM
 # compared against Lua on sum, features and 200 random programs (docs/design/bml-manual.md).
-test-bml: $(BUILD)/host/luahost tools/bml/bml.py tests/bml/run.py tests/bml/sum.bml tests/bml/features.bml
+test-bml: $(BUILD)/host/luahost tools/bml/bml.py tests/bml/run.py tests/bml/sum.b tests/bml/features.b
 	$(PYTHON) -I tests/bml/run.py $< $(BUILD)/bml
 
 # the editors read the model files: the import code of bm Mesh and bm Animator and the kernel's own checks, in bmhost
@@ -741,7 +741,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
              src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \

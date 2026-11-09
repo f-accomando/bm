@@ -1809,6 +1809,7 @@ TIMED(t_pset, OP_SHAPE, l_pset)
 int l_collmap_new(lua_State *L); int l_collmap_chunk(lua_State *L); int l_collmap_blocked(lua_State *L);   /* api_collmap.c (experiment) */
 int l_vm_load(lua_State *L); int l_vm_fn(lua_State *L); int l_vm_buf(lua_State *L); int l_vm_buf_fill(lua_State *L);
 int l_vm_buf_get(lua_State *L); int l_vm_run(lua_State *L); int l_vm_bind(lua_State *L);   /* api_vm.c (experiment) */
+int l_native_load(lua_State *L); int l_native_fn(lua_State *L); int l_native_run(lua_State *L);
 static const luaL_Reg api[] = {
     { "video_open", l_video_open },
     { "cls", l_cls }, { "pset", t_pset }, { "pget", l_pget }, { "line", t_line },
@@ -1838,6 +1839,7 @@ static const luaL_Reg api[] = {
     { "collmap_new", l_collmap_new }, { "collmap_chunk", l_collmap_chunk }, { "collmap_blocked", l_collmap_blocked },
     { "vm_load", l_vm_load }, { "vm_fn", l_vm_fn }, { "vm_buf", l_vm_buf }, { "vm_buf_fill", l_vm_buf_fill },
     { "vm_buf_get", l_vm_buf_get }, { "vm_run", l_vm_run }, { "vm_bind", l_vm_bind },
+    { "native_load", l_native_load }, { "native_fn", l_native_fn }, { "native_run", l_native_run },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_chord", l_devkit_chord }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "battery", l_battery }, { "battery_low", l_battery_low },
