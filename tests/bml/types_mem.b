@@ -95,6 +95,8 @@ end
 const SCALE_EXTRA: f32 = 0.5
 const ENEMY_MAX: i32 = 42
 const FLAG_DEBUG: bool = true
+const TEST_LUT: i32[] = [10, 25, 40, 55, 70]
+const TEST_FLUT: f32[] = [1.5, 2.5, 3.5, 4.5]
 
 enum Direction
   NORTH = 1,
@@ -224,6 +226,23 @@ function test_type_inference(base: i32): i32
   pkt.val = b * 4
   local total = pkt.id + pkt.len + pkt.val
   return total
+end
+
+function test_math_builtins(v: f32): i32
+  local c_int = clamp(15, 0, 10) + clamp(-5, 0, 10) + clamp(7, 0, 10)
+  local c_flt: f32 = clamp(v, 0.0, 10.0)
+  local l_val: f32 = lerp(10.0, 30.0, 0.25)
+  local f_val: i32 = flr(15.8) + flr(-2.1)
+  local s0: f32 = sin(0.0)
+  local c0: f32 = cos(0.0)
+  local at0: f32 = atan2(0.0, 1.0)
+  return c_int + f_val + flr(c_flt) + flr(l_val) + flr(s0) + flr(c0) + flr(at0)
+end
+
+function test_rodata_arrays(idx: i32): i32
+  local iv = TEST_LUT[idx]
+  local fv = TEST_FLUT[idx]
+  return iv + flr(fv)
 end
 
 

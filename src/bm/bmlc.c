@@ -105,6 +105,9 @@ enum {
     OP_FSQRT,
     OP_I2F,
     OP_FLOOR,
+    OP_CLAMP,
+    OP_FCLAMP,
+    OP_FLERP,
     OP_AGET,
     OP_AGETF,
     OP_ASET,
@@ -700,47 +703,87 @@ static void parse_const_decl(bmlc_ctx_t *C)
     if (C->nconst_decls >= 64)
         c_fail(C, kw->line, "too many const declarations");
 
-    uint8_t ctyp = parse_type_annotation(C, 0);
+    uint8_t ctyp = parse_type_annotation(C, 1);
     expect_tok(C, "=");
-    int sign = 1;
-    if (accept_tok(C, "-"))
-        sign = -1;
-    const token_t *v = cur_tok(C);
     uint32_t val = 0;
-    if (ctyp == BMN_I32) {
-        if (v->kind != TK_INT)
-            c_fail(C, v->line, "expected integer literal for i32 const");
-        C->ti++;
-        int32_t iv = (int32_t)(sign * (int64_t)v->ival);
-        memcpy(&val, &iv, 4);
-    } else if (ctyp == BMN_F32) {
-        if (v->kind != TK_FLOAT && v->kind != TK_INT)
-            c_fail(C, v->line, "expected float or integer literal for f32 const");
-        C->ti++;
-        float fv = (v->kind == TK_FLOAT) ? v->fval : (float)v->ival;
-        fv = (float)sign * fv;
-        val = f32_to_bits(fv);
-    } else if (ctyp == BMN_BOOL) {
-        if (sign < 0)
-            c_fail(C, v->line, "unexpected '-' for boolean const");
-        if (v->kind == TK_KW && tok_eq(v, "true")) {
-            val = 1;
-            C->ti++;
-        } else if (v->kind == TK_KW && tok_eq(v, "false")) {
-            val = 0;
-            C->ti++;
-        } else {
-            c_fail(C, v->line, "expected true or false for bool const");
+    if (ctyp == BMN_ARR_I32 || ctyp == BMN_ARR_F32) {
+        expect_tok(C, "[");
+        while ((C->nrodata & 3u) != 0) {
+            if (C->nrodata >= sizeof C->rodata)
+                c_fail(C, kw->line, "rodata buffer overflow");
+            C->rodata[C->nrodata++] = 0;
         }
-    } else if (ctyp == BMN_STR) {
-        if (sign < 0)
-            c_fail(C, v->line, "unexpected '-' for string const");
-        if (v->kind != TK_STRING)
-            c_fail(C, v->line, "expected string literal for string const");
-        C->ti++;
-        val = bml_intern_string(C, v->ptr, v->len, v->line);
+        val = C->nrodata;
+        while (cur_tok(C)->kind != TK_EOF && !tok_eq(cur_tok(C), "]")) {
+            int e_sign = 1;
+            if (accept_tok(C, "-"))
+                e_sign = -1;
+            const token_t *ev = cur_tok(C);
+            if (ctyp == BMN_ARR_I32) {
+                if (ev->kind != TK_INT)
+                    c_fail(C, ev->line, "expected integer literal for i32[] element");
+                C->ti++;
+                int32_t iv = (int32_t)(e_sign * (int64_t)ev->ival);
+                if (C->nrodata + 4 > sizeof C->rodata)
+                    c_fail(C, ev->line, "rodata buffer overflow");
+                memcpy(C->rodata + C->nrodata, &iv, 4);
+                C->nrodata += 4;
+            } else {
+                if (ev->kind != TK_FLOAT && ev->kind != TK_INT)
+                    c_fail(C, ev->line, "expected float or integer literal for f32[] element");
+                C->ti++;
+                float fv = (ev->kind == TK_FLOAT) ? ev->fval : (float)ev->ival;
+                fv = (float)e_sign * fv;
+                uint32_t bits = f32_to_bits(fv);
+                if (C->nrodata + 4 > sizeof C->rodata)
+                    c_fail(C, ev->line, "rodata buffer overflow");
+                memcpy(C->rodata + C->nrodata, &bits, 4);
+                C->nrodata += 4;
+            }
+            if (!accept_tok(C, ","))
+                break;
+        }
+        expect_tok(C, "]");
     } else {
-        c_fail(C, cn->line, "unsupported type for const");
+        int sign = 1;
+        if (accept_tok(C, "-"))
+            sign = -1;
+        const token_t *v = cur_tok(C);
+        if (ctyp == BMN_I32) {
+            if (v->kind != TK_INT)
+                c_fail(C, v->line, "expected integer literal for i32 const");
+            C->ti++;
+            int32_t iv = (int32_t)(sign * (int64_t)v->ival);
+            memcpy(&val, &iv, 4);
+        } else if (ctyp == BMN_F32) {
+            if (v->kind != TK_FLOAT && v->kind != TK_INT)
+                c_fail(C, v->line, "expected float or integer literal for f32 const");
+            C->ti++;
+            float fv = (v->kind == TK_FLOAT) ? v->fval : (float)v->ival;
+            fv = (float)sign * fv;
+            val = f32_to_bits(fv);
+        } else if (ctyp == BMN_BOOL) {
+            if (sign < 0)
+                c_fail(C, v->line, "unexpected '-' for boolean const");
+            if (v->kind == TK_KW && tok_eq(v, "true")) {
+                val = 1;
+                C->ti++;
+            } else if (v->kind == TK_KW && tok_eq(v, "false")) {
+                val = 0;
+                C->ti++;
+            } else {
+                c_fail(C, v->line, "expected true or false for bool const");
+            }
+        } else if (ctyp == BMN_STR) {
+            if (sign < 0)
+                c_fail(C, v->line, "unexpected '-' for string const");
+            if (v->kind != TK_STRING)
+                c_fail(C, v->line, "expected string literal for string const");
+            C->ti++;
+            val = bml_intern_string(C, v->ptr, v->len, v->line);
+        } else {
+            c_fail(C, cn->line, "unsupported type for const");
+        }
     }
 
     c_const_t *cd = &C->const_decls[C->nconst_decls++];
@@ -904,6 +947,19 @@ static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
             } else if (cn->type == BMN_STR) {
                 emit_op(C, OP_PUSH_STR, (int32_t)cn->val, stmt_line);
                 return BMN_STR;
+            } else if (cn->type == BMN_ARR_I32 || cn->type == BMN_ARR_F32) {
+                if (accept_tok(C, "[")) {
+                    emit_op(C, OP_PUSH_STR, (int32_t)cn->val, stmt_line);
+                    uint8_t it = compile_expr(C, stmt_line);
+                    expect_tok(C, "]");
+                    if (it != BMN_I32)
+                        c_fail(C, stmt_line, "array index must be i32");
+                    uint8_t elem_t = (cn->type == BMN_ARR_F32) ? BMN_F32 : BMN_I32;
+                    emit_op(C, (elem_t == BMN_F32) ? OP_AGETF : OP_AGET, 0, stmt_line);
+                    return elem_t;
+                }
+                emit_op(C, OP_PUSH_STR, (int32_t)cn->val, stmt_line);
+                return cn->type;
             }
         }
 
@@ -1020,6 +1076,8 @@ static uint8_t compile_primary(bmlc_ctx_t *C, int stmt_line)
             return ft;
         }
         int slot = find_local(C, name);
+        if (slot < 0)
+            c_fail(C, stmt_line, "'%s' is not declared", name);
         if (slot < 0)
             c_fail(C, stmt_line, "'%s' is not declared", name);
         emit_op(C, OP_LOAD, slot, stmt_line);
@@ -1213,6 +1271,21 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         return (uint8_t)(BMN_STRUCT_BASE | (uint8_t)s_idx);
     }
 
+    int fn_idx = find_func(C, callee);
+    if (fn_idx >= 0) {
+        const c_func_t *target = &C->funcs[fn_idx];
+        if (need_value && target->ret_type == BMN_NONE)
+            c_fail(C, stmt_line, "'%s' gives no value", callee);
+        if (argc != target->nparams)
+            c_fail(C, stmt_line, "'%s' takes %d arguments", callee, target->nparams);
+        for (int i = 0; i < argc; i++) {
+            if (arg_types[i] != target->ptype[i])
+                c_fail(C, stmt_line, "argument %d of '%s' has wrong type", i + 1, callee);
+        }
+        emit_op(C, OP_CALL, (fn_idx << 8) | argc, stmt_line);
+        return target->ret_type;
+    }
+
     if (strcmp(callee, "print") == 0) {
         if (argc < 1 || argc > 5)
             c_fail(C, stmt_line, "'print' takes 1 to 5 arguments");
@@ -1222,21 +1295,34 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         return BMN_I32;
     }
 
-    /* Polymorphic math built-ins: abs, min, max */
-    if (strcmp(callee, "abs") == 0 || strcmp(callee, "min") == 0 || strcmp(callee, "max") == 0) {
-        int want = (strcmp(callee, "abs") == 0) ? 1 : 2;
+    /* Polymorphic math built-ins: abs, min, max, clamp */
+    if (strcmp(callee, "abs") == 0 || strcmp(callee, "min") == 0 || strcmp(callee, "max") == 0 || strcmp(callee, "clamp") == 0) {
+        int want = (strcmp(callee, "abs") == 0) ? 1 : ((strcmp(callee, "clamp") == 0) ? 3 : 2);
         if (argc != want)
             c_fail(C, stmt_line, "'%s' takes %d arguments", callee, want);
         uint8_t t0 = arg_types[0];
-        if ((t0 != BMN_I32 && t0 != BMN_F32) || (want == 2 && arg_types[1] != t0))
+        if (t0 != BMN_I32 && t0 != BMN_F32)
             c_fail(C, stmt_line, "'%s' needs matching i32 or f32 arguments", callee);
+        for (int i = 1; i < want; i++) {
+            if (arg_types[i] != t0)
+                c_fail(C, stmt_line, "'%s' needs matching i32 or f32 arguments", callee);
+        }
         if (strcmp(callee, "abs") == 0)
             emit_op(C, (t0 == BMN_F32) ? OP_FABS : OP_ABS, 0, stmt_line);
         else if (strcmp(callee, "min") == 0)
             emit_op(C, (t0 == BMN_F32) ? OP_FMIN : OP_MIN, 0, stmt_line);
-        else
+        else if (strcmp(callee, "max") == 0)
             emit_op(C, (t0 == BMN_F32) ? OP_FMAX : OP_MAX, 0, stmt_line);
+        else
+            emit_op(C, (t0 == BMN_F32) ? OP_FCLAMP : OP_CLAMP, 0, stmt_line);
         return t0;
+    }
+
+    if (strcmp(callee, "lerp") == 0) {
+        if (argc != 3 || arg_types[0] != BMN_F32 || arg_types[1] != BMN_F32 || arg_types[2] != BMN_F32)
+            c_fail(C, stmt_line, "'lerp' takes 3 f32 arguments (a, b, t)");
+        emit_op(C, OP_FLERP, 0, stmt_line);
+        return BMN_F32;
     }
 
     if (strcmp(callee, "sqrt") == 0) {
@@ -1251,9 +1337,9 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         emit_op(C, OP_I2F, 0, stmt_line);
         return BMN_F32;
     }
-    if (strcmp(callee, "floor") == 0) {
+    if (strcmp(callee, "floor") == 0 || strcmp(callee, "flr") == 0) {
         if (argc != 1 || arg_types[0] != BMN_F32)
-            c_fail(C, stmt_line, "'floor' takes 1 f32 argument");
+            c_fail(C, stmt_line, "'%s' takes 1 f32 argument", callee);
         emit_op(C, OP_FLOOR, 0, stmt_line);
         return BMN_I32;
     }
@@ -1307,26 +1393,30 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         return BMN_NONE;
     }
 
-    /* Stage 7+ kernel/host functions: cls, pix, rectfill, spr, btn, btnp, line, circ, circfill, rect, sfx, music, time */
+    /* Stage 7+ kernel/host functions: cls, pix, rectfill, spr, btn, btnp, line, circ, circfill, rect, sfx, music, time, sin, cos, atan2 */
     static const struct {
         const char *name;
         int         host_id;
         int         nargs;
+        uint8_t     arg_t;
         uint8_t     ret;
     } host_specs[] = {
-        { "cls",      BMN_HOST_CLS,      1, BMN_NONE },
-        { "pix",      BMN_HOST_PIX,      3, BMN_NONE },
-        { "rectfill", BMN_HOST_RECTFILL, 5, BMN_NONE },
-        { "spr",      BMN_HOST_SPR,      3, BMN_NONE },
-        { "btn",      BMN_HOST_BTN,      1, BMN_BOOL },
-        { "btnp",     BMN_HOST_BTNP,     1, BMN_BOOL },
-        { "line",     BMN_HOST_LINE,     5, BMN_NONE },
-        { "circ",     BMN_HOST_CIRC,     4, BMN_NONE },
-        { "circfill", BMN_HOST_CIRCFILL, 4, BMN_NONE },
-        { "rect",     BMN_HOST_RECT,     5, BMN_NONE },
-        { "sfx",      BMN_HOST_SFX,      1, BMN_NONE },
-        { "music",    BMN_HOST_MUSIC,    1, BMN_NONE },
-        { "time",     BMN_HOST_TIME,     0, BMN_F32 },
+        { "cls",      BMN_HOST_CLS,      1, BMN_I32, BMN_NONE },
+        { "pix",      BMN_HOST_PIX,      3, BMN_I32, BMN_NONE },
+        { "rectfill", BMN_HOST_RECTFILL, 5, BMN_I32, BMN_NONE },
+        { "spr",      BMN_HOST_SPR,      3, BMN_I32, BMN_NONE },
+        { "btn",      BMN_HOST_BTN,      1, BMN_I32, BMN_BOOL },
+        { "btnp",     BMN_HOST_BTNP,     1, BMN_I32, BMN_BOOL },
+        { "line",     BMN_HOST_LINE,     5, BMN_I32, BMN_NONE },
+        { "circ",     BMN_HOST_CIRC,     4, BMN_I32, BMN_NONE },
+        { "circfill", BMN_HOST_CIRCFILL, 4, BMN_I32, BMN_NONE },
+        { "rect",     BMN_HOST_RECT,     5, BMN_I32, BMN_NONE },
+        { "sfx",      BMN_HOST_SFX,      1, BMN_I32, BMN_NONE },
+        { "music",    BMN_HOST_MUSIC,    1, BMN_I32, BMN_NONE },
+        { "time",     BMN_HOST_TIME,     0, BMN_I32, BMN_F32 },
+        { "sin",      BMN_HOST_SIN,      1, BMN_F32, BMN_F32 },
+        { "cos",      BMN_HOST_COS,      1, BMN_F32, BMN_F32 },
+        { "atan2",    BMN_HOST_ATAN2,    2, BMN_F32, BMN_F32 },
     };
     for (size_t h = 0; h < sizeof host_specs / sizeof host_specs[0]; h++) {
         if (strcmp(callee, host_specs[h].name) == 0) {
@@ -1335,28 +1425,17 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
             if (argc != host_specs[h].nargs)
                 c_fail(C, stmt_line, "'%s' takes %d arguments", callee, host_specs[h].nargs);
             for (int i = 0; i < argc; i++) {
-                if (arg_types[i] != BMN_I32)
-                    c_fail(C, stmt_line, "'%s' expects i32 arguments", callee);
+                if (arg_types[i] != host_specs[h].arg_t)
+                    c_fail(C, stmt_line, "'%s' expects %s arguments", callee,
+                           (host_specs[h].arg_t == BMN_F32) ? "f32" : "i32");
             }
             emit_op(C, OP_CALL_HOST, (host_specs[h].host_id << 8) | argc, stmt_line);
             return host_specs[h].ret;
         }
     }
 
-    int fn_idx = find_func(C, callee);
-    if (fn_idx < 0)
-        c_fail(C, stmt_line, "'%s' is not a defined function", callee);
-    const c_func_t *target = &C->funcs[fn_idx];
-    if (need_value && target->ret_type == BMN_NONE)
-        c_fail(C, stmt_line, "'%s' gives no value", callee);
-    if (argc != target->nparams)
-        c_fail(C, stmt_line, "'%s' takes %d arguments", callee, target->nparams);
-    for (int i = 0; i < argc; i++) {
-        if (arg_types[i] != target->ptype[i])
-            c_fail(C, stmt_line, "argument %d of '%s' has wrong type", i + 1, callee);
-    }
-    emit_op(C, OP_CALL, (fn_idx << 8) | argc, stmt_line);
-    return target->ret_type;
+    c_fail(C, stmt_line, "'%s' is not a defined function", callee);
+    return BMN_NONE;
 }
 
 static int is_block_stop(const token_t *t, int stop_mask)
@@ -1740,6 +1819,8 @@ static int compile_stmt(bmlc_ctx_t *C)
             return 0;
         }
         if (accept_tok(C, "[")) {
+            if (find_const(C, name) >= 0)
+                c_fail(C, line, "cannot assign to const array '%s'", name);
             int slot = find_local(C, name);
             if (slot < 0)
                 c_fail(C, line, "'%s' is not declared", name);
@@ -1824,6 +1905,8 @@ static int compile_stmt(bmlc_ctx_t *C)
             emit_op(C, (ft == BMN_F32) ? OP_ASETF : OP_ASET, 0, line);
             return 0;
         }
+        if (find_const(C, name) >= 0)
+            c_fail(C, line, "cannot assign to const '%s'", name);
         int slot = find_local(C, name);
         if (slot < 0)
             c_fail(C, line, "'%s' is not declared", name);
@@ -2178,7 +2261,7 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
             t1 = pc + 1; sp1 = sp - 1;
         } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR || op == OP_PEEK || op == OP_PEEK2 || op == OP_PEEK4) {
             t1 = pc + 1; sp1 = sp;
-        } else if (op == OP_POKE || op == OP_POKE2 || op == OP_POKE4) {
+        } else if (op == OP_POKE || op == OP_POKE2 || op == OP_POKE4 || op == OP_CLAMP || op == OP_FCLAMP || op == OP_FLERP) {
             t1 = pc + 1; sp1 = sp - 2;
         } else if (op >= OP_ADD && op <= OP_AGETF) {
             t1 = pc + 1; sp1 = sp - 1;
@@ -2200,7 +2283,7 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
         } else if (op == OP_CALL_HOST) {
             int hid = ins.arg >> 8;
             int argc = ins.arg & 0xFF;
-            int has_ret = (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT);
+            int has_ret = (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT || hid == BMN_HOST_SIN || hid == BMN_HOST_COS || hid == BMN_HOST_ATAN2);
             t1 = pc + 1; sp1 = sp - argc + (has_ret ? 1 : 0);
         }
 
@@ -2489,6 +2572,54 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             put_slot_reg(C, s_top - 2, dst);
             break;
         }
+        case OP_CLAMP: {
+            uint32_t rx  = get_slot_reg(C, s_top - 3, 0);
+            uint32_t rlo = get_slot_reg(C, s_top - 2, 1);
+            uint32_t rhi = get_slot_reg(C, s_top - 1, 2);
+            uint32_t dst = (s_top - 3 < 7) ? (uint32_t)(4 + s_top - 3) : 0u;
+            if (dst != rx) emit_dp_reg(C, DP_MOV, dst, 0, rx, COND_AL, 0, 0, 0);
+            emit_dp_reg(C, DP_CMP, 0, dst, rlo, COND_AL, 1, 0, 0);
+            emit_dp_reg(C, DP_MOV, dst, 0, rlo, COND_LT, 0, 0, 0);
+            emit_dp_reg(C, DP_CMP, 0, dst, rhi, COND_AL, 1, 0, 0);
+            emit_dp_reg(C, DP_MOV, dst, 0, rhi, COND_GT, 0, 0, 0);
+            put_slot_reg(C, s_top - 3, dst);
+            break;
+        }
+        case OP_FCLAMP: {
+            uint32_t rx  = get_slot_reg(C, s_top - 3, 0);
+            uint32_t rlo = get_slot_reg(C, s_top - 2, 1);
+            uint32_t rhi = get_slot_reg(C, s_top - 1, 2);
+            uint32_t dst = (s_top - 3 < 7) ? (uint32_t)(4 + s_top - 3) : 0u;
+            if (dst != rx) emit_dp_reg(C, DP_MOV, dst, 0, rx, COND_AL, 0, 0, 0);
+            emit_w(C, 0xEE000A10u | ((dst & 0xFu) << 12));
+            emit_w(C, 0xEE000A90u | ((rlo & 0xFu) << 12));
+            emit_w(C, 0xEEB40A60u);
+            emit_w(C, 0xEEF1FA10u);
+            emit_dp_reg(C, DP_MOV, dst, 0, rlo, COND_LT, 0, 0, 0);
+            emit_w(C, 0xEE000A10u | ((dst & 0xFu) << 12));
+            emit_w(C, 0xEE000A90u | ((rhi & 0xFu) << 12));
+            emit_w(C, 0xEEB40A60u);
+            emit_w(C, 0xEEF1FA10u);
+            emit_dp_reg(C, DP_MOV, dst, 0, rhi, COND_GT, 0, 0, 0);
+            put_slot_reg(C, s_top - 3, dst);
+            break;
+        }
+        case OP_FLERP: {
+            uint32_t ra = get_slot_reg(C, s_top - 3, 0);
+            uint32_t rb = get_slot_reg(C, s_top - 2, 1);
+            uint32_t rt = get_slot_reg(C, s_top - 1, 2);
+            emit_w(C, 0xEE000A10u | ((rb & 0xFu) << 12));
+            emit_w(C, 0xEE000A90u | ((ra & 0xFu) << 12));
+            emit_w(C, 0xEE300A60u);
+            emit_w(C, 0xEE000A90u | ((rt & 0xFu) << 12));
+            emit_w(C, 0xEE200A20u);
+            emit_w(C, 0xEE000A90u | ((ra & 0xFu) << 12));
+            emit_w(C, 0xEE300A20u);
+            uint32_t dst = (s_top - 3 < 7) ? (uint32_t)(4 + s_top - 3) : 0u;
+            emit_w(C, 0xEE100A10u | ((dst & 0xFu) << 12));
+            put_slot_reg(C, s_top - 3, dst);
+            break;
+        }
         case OP_FEQ: case OP_FNE: case OP_FLT: case OP_FLE: case OP_FGT: case OP_FGE: {
             uint32_t ra = get_slot_reg(C, s_top - 2, 0);
             uint32_t rb = get_slot_reg(C, s_top - 1, 1);
@@ -2633,7 +2764,7 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             emit_mov32(C, 2, (uint32_t)argc);
             emit_branch_patch(C, -4, 0, COND_AL, 1);
             emit_dp_imm(C, DP_ADD, 13, 13, (uint32_t)alloc_bytes, COND_AL, 0);
-            if (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT)
+            if (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT || hid == BMN_HOST_SIN || hid == BMN_HOST_COS || hid == BMN_HOST_ATAN2)
                 put_slot_reg(C, (int)fn->nlocals + base, 0);
             break;
         }
@@ -2744,16 +2875,6 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
             emit_w(C, idiv_tail[i]);
     }
 
-    if (C->needs_host_call) {
-        C->host_call_word = C->nwords;
-        emit_w(C, 0xE59FC00Cu); /* ldr r12, [pc, #12] */
-        emit_w(C, 0xE35C0000u); /* cmp r12, #0 */
-        emit_w(C, 0x112FFF1Cu); /* bxne r12 */
-        emit_w(C, 0xE3A00000u); /* mov r0, #0 */
-        emit_w(C, 0xE12FFF1Eu); /* bx lr */
-        emit_w(C, 0x00000000u); /* __bml_host_fn_slot */
-    }
-
     if (C->needs_memcpy) {
         C->memcpy_word = C->nwords;
         static const uint32_t mc_words[9] = {
@@ -2783,6 +2904,16 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
             0xE12FFF1Eu  /* bx lr */
         };
         for (int i = 0; i < 8; i++) emit_w(C, ms_words[i]);
+    }
+
+    if (C->needs_host_call) {
+        C->host_call_word = C->nwords;
+        emit_w(C, 0xE59FC00Cu); /* ldr r12, [pc, #12] */
+        emit_w(C, 0xE35C0000u); /* cmp r12, #0 */
+        emit_w(C, 0x112FFF1Cu); /* bxne r12 */
+        emit_w(C, 0xE3A00000u); /* mov r0, #0 */
+        emit_w(C, 0xE12FFF1Eu); /* bx lr */
+        emit_w(C, 0x00000000u); /* __bml_host_fn_slot */
     }
 
     /* Resolve inter-function and helper branch patches */

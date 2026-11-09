@@ -481,7 +481,25 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
                 return BMN_ERR_TRAP;
             }
             const uint32_t seg = addr >> 24;
-            if (rn == 11u || rn == 13u || (seg == 0u && addr >= 0x4000u)) {
+            if (m->rodata && addr >= m->ncode * 4u && addr < m->ncode * 4u + m->nrodata) {
+                const uint32_t ro_off = addr - m->ncode * 4u;
+                if (is_byte) {
+                    if (is_ldr)
+                        r[rd] = m->rodata[ro_off];
+                    else
+                        return BMN_ERR_TRAP;
+                } else {
+                    if (ro_off + 4u > m->nrodata)
+                        return BMN_ERR_TRAP;
+                    if (is_ldr) {
+                        uint32_t val;
+                        memcpy(&val, m->rodata + ro_off, 4);
+                        r[rd] = val;
+                    } else {
+                        return BMN_ERR_TRAP;
+                    }
+                }
+            } else if (rn == 11u || rn == 13u || (seg == 0u && addr >= 0x4000u)) {
                 /* Virtual call stack */
                 if ((addr >> 2) >= STACK_WORDS)
                     return BMN_ERR_TRAP;

@@ -73,7 +73,10 @@ enum {
     BMN_HOST_SFX      = 10,
     BMN_HOST_MUSIC    = 11,
     BMN_HOST_TIME     = 12,
-    BMN_HOST_PRINT    = 13
+    BMN_HOST_PRINT    = 13,
+    BMN_HOST_SIN      = 14,
+    BMN_HOST_COS      = 15,
+    BMN_HOST_ATAN2    = 16
 };
 
 typedef int32_t (*bmnative_host_fn)(int32_t host_id, const int32_t *args, int32_t nargs);

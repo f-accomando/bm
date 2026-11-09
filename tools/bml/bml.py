@@ -69,6 +69,12 @@ BUILTINS = {
     "sqrt": (["f32"], "f32"),
     "f32": (["i32"], "f32"),
     "floor": (["f32"], "i32"),
+    "flr": (["f32"], "i32"),
+    "clamp": (["i32", "i32", "i32"], "i32"),
+    "lerp": (["f32", "f32", "f32"], "f32"),
+    "cos": (["f32"], "f32"),
+    "sin": (["f32"], "f32"),
+    "atan2": (["f32", "f32"], "f32"),
     "cls": (["i32"], None),
     "pix": (["i32", "i32", "i32"], None),
     "rectfill": (["i32", "i32", "i32", "i32", "i32"], None),
@@ -108,6 +114,9 @@ HOST_FUNCTIONS: Dict[str, Tuple[int, List[str], Optional[str]]] = {
     "music": (11, ["i32"], None),
     "time": (12, [], "f32"),
     "print": (13, ["string"], "i32"),
+    "sin": (14, ["f32"], "f32"),
+    "cos": (15, ["f32"], "f32"),
+    "atan2": (16, ["f32", "f32"], "f32"),
 }
 
 def unescape_string(raw: str) -> str:
@@ -493,7 +502,7 @@ class Parser:
             self.fail(f"const '{cname.text}' is declared twice", cname)
         type_tok = self.cur()
         cuts_before = len(self.cuts)
-        ctyp = self.parse_type_annotation(allow_composite=False)
+        ctyp = self.parse_type_annotation(allow_composite=True)
         del self.cuts[cuts_before:]
         self.expect("=")
         sign = 1
@@ -501,7 +510,32 @@ class Parser:
         if self.accept("-"):
             sign = -1
         val_tok = self.cur()
-        if ctyp == "i32":
+        if ctyp.endswith("[]"):
+            elem_t = ctyp[:-2]
+            bracket_open = self.expect("[")
+            elements: List[Any] = []
+            while self.cur().kind != "eof" and self.cur().text != "]":
+                e_sign = 1
+                if self.accept("-"):
+                    e_sign = -1
+                e_tok = self.cur()
+                if elem_t == "i32":
+                    if e_tok.kind != "int":
+                        self.fail("expected integer literal for i32[] element", e_tok)
+                    self.i += 1
+                    elements.append(e_sign * int(e_tok.text))
+                elif elem_t == "f32":
+                    if e_tok.kind not in ("float", "int"):
+                        self.fail("expected float literal for f32[] element", e_tok)
+                    self.i += 1
+                    elements.append(f32_round(float(e_sign * float(e_tok.text))))
+                if not self.accept(","):
+                    break
+            bracket_close = self.expect("]")
+            val: Union[int, float, bool, List[Any]] = elements
+            self.cuts.append((bracket_open.start, bracket_open.end, "{"))
+            self.cuts.append((bracket_close.start, bracket_close.end, "}"))
+        elif ctyp == "i32":
             if val_tok.kind != "int":
                 self.fail("expected integer literal for i32 const", val_tok)
             self.i += 1
@@ -1047,6 +1081,7 @@ class TypeChecker:
         self.funcs: Dict[str, Tuple[List[str], Optional[str]]] = {}
         self.structs: Dict[str, StructDecl] = {}
         self.vars: Dict[str, str] = {}
+        self.global_consts: Dict[str, Tuple[str, Any]] = {}
         self.ret_type: Optional[str] = None
         self.loop_depth: int = 0
 
@@ -1056,10 +1091,12 @@ class TypeChecker:
     def check_program(self, prog: Program) -> Program:
         for st in prog.structs:
             self.structs[st.name] = st
+        for c in prog.consts:
+            self.global_consts[c.name] = (c.typ, c.val)
         if not prog.funcs:
             self.fail(1, "program has no functions")
         for fn in prog.funcs:
-            if fn.name in self.funcs or fn.name in BUILTINS:
+            if fn.name in self.funcs:
                 self.fail(fn.line, f"function '{fn.name}' is defined twice")
             param_types = [p.typ for p in fn.params]
             self.funcs[fn.name] = (param_types, fn.ret_type)
@@ -1120,6 +1157,8 @@ class TypeChecker:
             return
 
         if isinstance(s, AssignStmt):
+            if s.name in self.global_consts:
+                self.fail(s.line, f"cannot assign to const '{s.name}'")
             if s.name not in self.vars:
                 self.fail(s.line, f"'{s.name}' is not declared")
             vt = self.vars[s.name]
@@ -1129,6 +1168,8 @@ class TypeChecker:
             return
 
         if isinstance(s, IndexAssignStmt):
+            if s.base in self.global_consts:
+                self.fail(s.line, f"cannot assign to const array '{s.base}'")
             if s.base not in self.vars:
                 self.fail(s.line, f"'{s.base}' is not declared")
             bt = self.vars[s.base]
@@ -1262,15 +1303,21 @@ class TypeChecker:
             return "bool"
 
         if isinstance(e, VarExpr):
-            if e.name not in self.vars:
-                self.fail(stmt_line, f"'{e.name}' is not declared")
-            e.typ = self.vars[e.name]
-            return e.typ
+            if e.name in self.vars:
+                e.typ = self.vars[e.name]
+                return e.typ
+            if e.name in self.global_consts:
+                e.typ = self.global_consts[e.name][0]
+                return e.typ
+            self.fail(stmt_line, f"'{e.name}' is not declared")
 
         if isinstance(e, IndexExpr):
-            if e.base not in self.vars:
+            if e.base in self.vars:
+                bt = self.vars[e.base]
+            elif e.base in self.global_consts:
+                bt = self.global_consts[e.base][0]
+            else:
                 self.fail(stmt_line, f"'{e.base}' is not declared")
-            bt = self.vars[e.base]
             if not bt.endswith("[]"):
                 self.fail(stmt_line, f"'{e.base}' is {bt}, not an array")
             it = self.check_expr(e.index, stmt_line)
@@ -1363,6 +1410,19 @@ class TypeChecker:
         return ""
 
     def check_call(self, call: CallExpr, stmt_line: int, need_value: bool) -> Optional[str]:
+        if call.callee in self.funcs:
+            ptypes, ret = self.funcs[call.callee]
+            if need_value and ret is None:
+                self.fail(stmt_line, f"'{call.callee}' gives no value")
+            if len(call.args) != len(ptypes):
+                self.fail(stmt_line, f"'{call.callee}' takes {len(ptypes)} arguments, not {len(call.args)}")
+            for arg, expected in zip(call.args, ptypes):
+                actual = self.check_expr(arg, stmt_line)
+                if actual != expected:
+                    self.fail(stmt_line, f"'{call.callee}' gets {actual} where {expected} is expected")
+            call.typ = ret
+            return ret
+
         if call.callee == "print":
             if not (1 <= len(call.args) <= 5):
                 self.fail(stmt_line, f"'print' takes 1 to 5 arguments, not {len(call.args)}")
@@ -1376,8 +1436,8 @@ class TypeChecker:
             call.typ = "i32"
             return "i32"
 
-        if call.callee in ("abs", "min", "max"):
-            want_n = 1 if call.callee == "abs" else 2
+        if call.callee in ("abs", "min", "max", "clamp"):
+            want_n = 1 if call.callee == "abs" else (3 if call.callee == "clamp" else 2)
             if len(call.args) != want_n:
                 self.fail(stmt_line, f"'{call.callee}' takes {want_n} arguments, not {len(call.args)}")
             arg_types = [self.check_expr(a, stmt_line) for a in call.args]
@@ -1455,6 +1515,7 @@ OPCODES = (
     "PUSH_CONST",   # arg = constant index k; pushes K[k] (i32)
     "PUSH_FCONST",  # arg = float constant index k; pushes FK[k] (f32)
     "PUSH_STR",     # arg = string index k; pushes str/offset (string)
+    "PUSH_RODATA",  # arg = rodata index/0; pushes pointer to rodata[cname]
     "PUSH_TRUE",    # pushes True
     "PUSH_FALSE",   # pushes False
     "POP",          # discards top of stack
@@ -1499,6 +1560,9 @@ OPCODES = (
     "FSQRT",        # pops a; pushes f32(sqrt(a))
     "I2F",          # pops a (i32); pushes f32(a)
     "FLOOR",        # pops a (f32); pushes i32(floor(a))
+    "CLAMP",        # pops hi, lo, x; pushes min(max(x, lo), hi) (i32)
+    "FCLAMP",       # pops hi, lo, x; pushes min(max(x, lo), hi) (f32)
+    "FLERP",        # pops t, b, a; pushes a + (b - a) * t (f32)
     "AGET",         # pops idx, arr; pushes arr[idx] (i32/bool, 1-based)
     "AGETF",        # pops idx, arr; pushes arr[idx] (f32, 1-based)
     "ASET",         # pops val, idx, arr; sets arr[idx] = val (i32/bool, 1-based)
@@ -1548,6 +1612,7 @@ class Module:
     fconsts: List[float] = field(default_factory=list)
     strings: List[str] = field(default_factory=list)
     structs: Dict[str, StructDecl] = field(default_factory=dict)
+    const_arrays: Dict[str, Tuple[str, List[Any]]] = field(default_factory=dict)
 
 
 class BytecodeCompiler:
@@ -1562,6 +1627,12 @@ class BytecodeCompiler:
         self.strings: List[str] = []
         self.str_map: Dict[str, int] = {}
         self.structs: Dict[str, StructDecl] = {st.name: st for st in prog.structs}
+        self.const_arrays: Dict[str, Tuple[str, List[Any]]] = {
+            c.name: (c.typ, c.val) for c in prog.consts if c.typ.endswith("[]")
+        }
+        self.const_array_index: Dict[str, int] = {
+            c.name: idx for idx, c in enumerate(c for c in prog.consts if c.typ.endswith("[]"))
+        }
         self.func_index: Dict[str, int] = {fn.name: idx for idx, fn in enumerate(prog.funcs)}
         self.func_ret: Dict[str, Optional[str]] = {fn.name: fn.ret_type for fn in prog.funcs}
         self.code: List[Insn] = []
@@ -1616,6 +1687,7 @@ class BytecodeCompiler:
             fconsts=self.fconsts,
             strings=self.strings,
             structs=self.structs,
+            const_arrays=self.const_arrays,
         )
 
     def compile_func(self, fn: FuncDecl) -> CompiledFunc:
@@ -1838,13 +1910,19 @@ class BytecodeCompiler:
             return
 
         if isinstance(e, VarExpr):
+            if e.name in self.const_arrays:
+                self.emit("PUSH_RODATA", self.const_array_index[e.name], e.name)
+                return
             slot = self.slots[e.name]
             self.emit("LOAD", slot, e.name)
             return
 
         if isinstance(e, IndexExpr):
-            slot = self.slots[e.base]
-            self.emit("LOAD", slot, e.base)
+            if e.base in self.const_arrays:
+                self.emit("PUSH_RODATA", self.const_array_index[e.base], e.base)
+            else:
+                slot = self.slots[e.base]
+                self.emit("LOAD", slot, e.base)
             self.compile_expr(e.index)
             self.emit("AGETF" if e.typ == "f32" else "AGET", 0, f"{e.base}[...]")
             return
@@ -1908,6 +1986,11 @@ class BytecodeCompiler:
     def compile_call(self, call: CallExpr) -> None:
         for arg in call.args:
             self.compile_expr(arg)
+        if call.callee in self.func_index:
+            fn_idx = self.func_index[call.callee]
+            packed = (fn_idx << 8) | (len(call.args) & 0xFF)
+            self.emit("CALL", packed, f"{call.callee}/{len(call.args)}")
+            return
         if call.callee in self.structs:
             if len(call.args) == 1:
                 return
@@ -1915,13 +1998,20 @@ class BytecodeCompiler:
             is_f = call.args[0].typ == "f32"
             self.emit(("F" if is_f else "") + call.callee.upper())
             return
+        if call.callee == "clamp":
+            is_f = call.args[0].typ == "f32"
+            self.emit("FCLAMP" if is_f else "CLAMP")
+            return
+        if call.callee == "lerp":
+            self.emit("FLERP")
+            return
         if call.callee == "sqrt":
             self.emit("FSQRT")
             return
         if call.callee == "f32":
             self.emit("I2F")
             return
-        if call.callee == "floor":
+        if call.callee in ("floor", "flr"):
             self.emit("FLOOR")
             return
         if call.callee == "peek":
@@ -2030,6 +2120,12 @@ class StackVM:
         self.wrap32 = wrap32
         self.max_depth = max_depth
         self.host_fns: Dict[str, Any] = dict(host_fns) if host_fns else {}
+        if "sin" not in self.host_fns:
+            self.host_fns["sin"] = lambda r: f32_round(math.sin(r))
+        if "cos" not in self.host_fns:
+            self.host_fns["cos"] = lambda r: f32_round(math.cos(r))
+        if "atan2" not in self.host_fns:
+            self.host_fns["atan2"] = lambda y, x: f32_round(math.atan2(y, x))
         self.host_by_id: Dict[int, Tuple[str, Optional[str]]] = {
             hid: (name, ret) for name, (hid, _, ret) in HOST_FUNCTIONS.items()
         }
@@ -2117,6 +2213,9 @@ class StackVM:
                 stack.append(fconsts[ins.arg])
             elif op == "PUSH_STR":
                 stack.append(self.mod.strings[ins.arg])
+            elif op == "PUSH_RODATA":
+                cname = ins.comment
+                stack.append(self.mod.const_arrays[cname][1])
             elif op == "PUSH_TRUE":
                 stack.append(True)
             elif op == "PUSH_FALSE":
@@ -2274,6 +2373,21 @@ class StackVM:
             elif op == "FLOOR":
                 a = float(stack.pop())
                 stack.append(self._norm(int(math.floor(a))))
+            elif op == "CLAMP":
+                hi = int(stack.pop())
+                lo = int(stack.pop())
+                x = int(stack.pop())
+                stack.append(self._norm(min(max(x, lo), hi)))
+            elif op == "FCLAMP":
+                hi = float(stack.pop())
+                lo = float(stack.pop())
+                x = float(stack.pop())
+                stack.append(f32_round(min(max(x, lo), hi)))
+            elif op == "FLERP":
+                t = float(stack.pop())
+                b = float(stack.pop())
+                a = float(stack.pop())
+                stack.append(f32_round(a + (b - a) * t))
             elif op in ("AGET", "AGETF"):
                 idx = int(stack.pop())
                 arr = stack.pop()
@@ -2453,7 +2567,7 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             elif depths[target] != next_sp:
                 raise Error(f"internal: stack depth mismatch at pc={target}: {depths[target]} vs {next_sp}")
 
-        if op in ("PUSH_CONST", "PUSH_FCONST", "PUSH_STR", "PUSH_TRUE", "PUSH_FALSE", "LOAD"):
+        if op in ("PUSH_CONST", "PUSH_FCONST", "PUSH_STR", "PUSH_RODATA", "PUSH_TRUE", "PUSH_FALSE", "LOAD"):
             if sp + 1 > max_sp:
                 max_sp = sp + 1
             reach(pc + 1, sp + 1)
@@ -2468,7 +2582,7 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             "AGET", "AGETF",
         ):
             reach(pc + 1, sp - 1)
-        elif op in ("POKE", "POKE2", "POKE4"):
+        elif op in ("POKE", "POKE2", "POKE4", "CLAMP", "FCLAMP", "FLERP"):
             reach(pc + 1, sp - 2)
         elif op in ("ASET", "ASETF", "MEMCPY", "MEMSET"):
             reach(pc + 1, sp - 3)
@@ -3078,11 +3192,21 @@ class ARMv6Compiler:
         self.host_slot_word: Optional[int] = None
         self.rodata = bytearray()
         self.str_offsets: Dict[int, int] = {}
+        self.rodata_offsets: Dict[str, int] = {}
         for s_idx, s_val in enumerate(self.mod.strings):
             self.str_offsets[s_idx] = len(self.rodata)
             self.rodata.extend(s_val.encode("utf-8") + b"\x00")
         while len(self.rodata) % 4 != 0:
             self.rodata.append(0)
+        for cname, (ctyp, cvals) in self.mod.const_arrays.items():
+            while len(self.rodata) % 4 != 0:
+                self.rodata.append(0)
+            self.rodata_offsets[cname] = len(self.rodata)
+            for v in cvals:
+                if ctyp == "i32[]":
+                    self.rodata.extend(struct.pack("<i", int(v)))
+                elif ctyp == "f32[]":
+                    self.rodata.extend(struct.pack("<f", float(v)))
         self.final_str_patches: List[Tuple[int, int, int]] = []
 
     def compile(self) -> ARMv6Module:
@@ -3097,12 +3221,12 @@ class ARMv6Compiler:
 
         if self.needs_idivmod:
             self._emit_idivmod_helper()
-        if self.needs_host_call:
-            self._emit_host_call_helper()
         if self.needs_memcpy:
             self._emit_memcpy_helper()
         if self.needs_memset:
             self._emit_memset_helper()
+        if self.needs_host_call:
+            self._emit_host_call_helper()
 
         ncode = len(self.asm.words)
         for lit_slot_idx, add_idx, str_off in self.final_str_patches:
@@ -3292,6 +3416,14 @@ class ARMv6Compiler:
                 add_idx = a.add_reg(dst, 15, dst, comment=f"add r{dst}, pc, r{dst}")
                 pending_str_relocs.append((ldr_idx, add_idx, dst, str_off))
                 put_slot(s_slot(sp), dst)
+            elif op == "PUSH_RODATA":
+                cname = ins.comment
+                ro_off = self.rodata_offsets[cname]
+                dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
+                ldr_idx = a.emit_word(0, comment=f"ldr r{dst}, [pc, #lit] ; rodata {cname}")
+                add_idx = a.add_reg(dst, 15, dst, comment=f"add r{dst}, pc, r{dst}")
+                pending_str_relocs.append((ldr_idx, add_idx, dst, ro_off))
+                put_slot(s_slot(sp), dst)
             elif op == "PUSH_TRUE":
                 dst = 4 + s_slot(sp) if s_slot(sp) < 7 else 0
                 a.dp_imm(DP_MOV, dst, 0, 1)
@@ -3449,6 +3581,46 @@ class ARMv6Compiler:
                 cond_pick_b = COND_GT if op == "FMIN" else COND_LT
                 a.mov_reg(dst, rb, cond=cond_pick_b)
                 put_slot(s_slot(sp - 2), dst)
+            elif op in ("CLAMP", "FCLAMP"):
+                rx = get_slot(s_slot(sp - 3), 0)
+                rlo = get_slot(s_slot(sp - 2), 1)
+                rhi = get_slot(s_slot(sp - 1), 2)
+                dst = 4 + s_slot(sp - 3) if s_slot(sp - 3) < 7 else 0
+                if op == "CLAMP":
+                    if dst != rx:
+                        a.mov_reg(dst, rx)
+                    a.cmp_reg(dst, rlo)
+                    a.mov_reg(dst, rlo, cond=COND_LT)
+                    a.cmp_reg(dst, rhi)
+                    a.mov_reg(dst, rhi, cond=COND_GT)
+                else:
+                    if dst != rx:
+                        a.mov_reg(dst, rx)
+                    a.vmov_s0_r(dst)
+                    a.vmov_s1_r(rlo)
+                    a.vcmp_f32()
+                    a.vmrs_apsr()
+                    a.mov_reg(dst, rlo, cond=COND_LT)
+                    a.vmov_s0_r(dst)
+                    a.vmov_s1_r(rhi)
+                    a.vcmp_f32()
+                    a.vmrs_apsr()
+                    a.mov_reg(dst, rhi, cond=COND_GT)
+                put_slot(s_slot(sp - 3), dst)
+            elif op == "FLERP":
+                ra = get_slot(s_slot(sp - 3), 0)
+                rb = get_slot(s_slot(sp - 2), 1)
+                rt = get_slot(s_slot(sp - 1), 2)
+                dst = 4 + s_slot(sp - 3) if s_slot(sp - 3) < 7 else 0
+                a.vmov_s0_r(rb)
+                a.vmov_s1_r(ra)
+                a.vsub_f32()
+                a.vmov_s1_r(rt)
+                a.vmul_f32()
+                a.vmov_s1_r(ra)
+                a.vadd_f32()
+                a.vmov_r_s0(dst)
+                put_slot(s_slot(sp - 3), dst)
             elif op in ("FEQ", "FNE", "FLT", "FLE", "FGT", "FGE"):
                 ra = get_slot(s_slot(sp - 2), 0)
                 rb = get_slot(s_slot(sp - 1), 1)

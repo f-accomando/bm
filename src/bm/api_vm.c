@@ -306,18 +306,52 @@ static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t n
     static const char *const names[] = {
         "cls", "pix", "rectfill", "spr", "btn",
         "btnp", "line", "circ", "circfill", "rect",
-        "sfx", "music", "time", "print"
+        "sfx", "music", "time", "print",
+        "sin", "cos", "atan2"
     };
     if (host_id < 0 || host_id >= (int)(sizeof names / sizeof names[0]))
         return 0;
     lua_getglobal(L, names[host_id]);
-    if (!lua_isfunction(L, -1) && host_id == BMN_HOST_PIX) {
-        lua_pop(L, 1);
-        lua_getglobal(L, "pset");
+    if (!lua_isfunction(L, -1)) {
+        if (host_id == BMN_HOST_PIX) {
+            lua_pop(L, 1);
+            lua_getglobal(L, "pset");
+        } else if (host_id == BMN_HOST_SIN || host_id == BMN_HOST_COS || host_id == BMN_HOST_ATAN2) {
+            lua_pop(L, 1);
+            lua_getglobal(L, "math");
+            if (lua_istable(L, -1)) {
+                if (host_id == BMN_HOST_ATAN2) {
+                    lua_getfield(L, -1, "atan2");
+                    if (!lua_isfunction(L, -1)) {
+                        lua_pop(L, 1);
+                        lua_getfield(L, -1, "atan");
+                    }
+                } else {
+                    lua_getfield(L, -1, names[host_id]);
+                }
+                lua_remove(L, -2);
+            }
+        }
     }
     if (!lua_isfunction(L, -1)) {
         lua_pop(L, 1);
         return 0;
+    }
+    if (host_id == BMN_HOST_SIN || host_id == BMN_HOST_COS || host_id == BMN_HOST_ATAN2) {
+        for (int32_t i = 0; i < nargs; i++) {
+            float farg = 0.0f;
+            memcpy(&farg, &args[i], 4);
+            lua_pushnumber(L, (lua_Number)farg);
+        }
+        if (lua_pcall(L, nargs, 1, 0) != LUA_OK) {
+            lua_pop(L, 1);
+            return 0;
+        }
+        float val = (float)lua_tonumber(L, -1);
+        lua_pop(L, 1);
+        uint32_t bits = 0;
+        memcpy(&bits, &val, 4);
+        return (int32_t)bits;
     }
     if (host_id == BMN_HOST_PRINT) {
         if (nargs > 0)

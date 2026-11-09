@@ -47,13 +47,13 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 | `string` | Immutable string and constants in `.rodata` segment | `"text"`, `'text'` | 32-bit pointer in `.rodata` segment (PIC PC-relative, zero relocations) |
 | `i32[]`, `bool[]`, `f32[]` | 1-based typed arrays | `a[i]`, `a[i] = v` | Base pointer in 32-bit register (`ldr`/`str` at `base + (i - 1) * 4`) |
 | `struct Name ... end` | Fixed-layout record | `s.field`, `s.field = v` | Pointer to contiguous 32-bit field words (`offset = field_idx * 4`) |
-| `const NAME: type = val` | Zero-cost compile-time constant | `const MAX: i32 = 16`, `const S: string = "ok"` | Inlined as literal constant or `.rodata` offset in machine code |
+| `const NAME: type = val` | Scalar constant or Flash/`.rodata` lookup table array | `const MAX: i32 = 16`, `const LUT: i32[] = [10, 20, 30]`, `const S: string = "ok"` | Inlined as literal constant or PC-relative `.rodata` pointer in machine code |
 | `enum Name ... end` | Sequential integer enumeration | `enum State IDLE = 0, RUN, JUMP end` | Evaluated at compile time as `i32` (`State.RUN`) |
 | `function Struct:method(...)` | Method attached to a struct | `function Vec2f:len_sq(): f32 ... end` | Implicit `self` as first parameter; direct static dispatch (`v:len_sq()`) |
 
 - Conditions in `if`, `elseif`, `while`, `and`, `or`, and `not` must have type `bool`. An `i32` is never implicitly truthy.
 - Integer division uses `//` and modulo uses `%` (floor toward $-\infty$). Float division uses `/` on `f32` operands.
-- Built-in math and conversion functions: `abs(x)`, `min(a, b)`, `max(a, b)` (for `i32` or `f32`), `sqrt(x: f32): f32`, `f32(x: i32): f32`, and `floor(x: f32): i32`.
+- Built-in math and conversion functions for gamedev: `abs(x)`, `min(a, b)`, `max(a, b)`, `clamp(x, lo, hi)` (branchless on `i32` and `f32`), `lerp(a, b, t)` (hardware VFPv2 `f32` linear interpolation), `floor(x: f32): i32` / `flr(x)`, `sqrt(x: f32): f32`, `f32(x: i32): f32`, `sin(rad)`, `cos(rad)`, and `atan2(y, x)`.
 - Kernel host functions (Stage 7+): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(x0, y0, x1, y1, col)`, `circ(x, y, r, col)`, `circfill(x, y, r, col)`, `rect(x, y, w, h, col)`, `sfx(id)`, `music(id)`, `time(): f32`, and `print(msg, ...): i32` (up to 5 arguments; first argument `string`).
 - Bare-metal memory and MMIO primitives (Stage 5): `peek(addr: i32): i32` (`ldrb` 8-bit byte), `poke(addr: i32, val: i32)` (`strb`), `peek2(addr: i32): i32` (`ldrh` 16-bit halfword for audio & RGB565), `poke2(addr: i32, val: i32)` (`strh`), `peek4(addr: i32): i32` (`ldr` 32-bit word), `poke4(addr: i32, val: i32)` (`str`), `memcpy(dst: i32, src: i32, bytes: i32)`, and `memset(dst: i32, val: i32, bytes: i32)` (high-efficiency native machine routines for framebuffers, DMA buffers, and raw cartridge data).
 

@@ -790,5 +790,41 @@ native_run(mod, "move_and_separate", N, bx, bz, bvx, bvz, balive, bout, bcounts)
 | B. Multiple native calls | 8 - 12 us | 34 calls | 34 us bridge overhead | ~1.5x |
 | C. Single call + `vm_buf` | 3 - 4 us | 1 call | 1 us zero-copy bridge | **3.7x - 6.0x faster** |
 
+---
+
+### 9.7 Math Primitives & Constant Arrays in `.rodata`
+
+#### 9.7.1 Gamedev Math Builtins
+
+BML includes hardware-optimized math primitives for 2D/3D game math:
+
+| Builtin | Signature | Description | Machine Implementation |
+|---|---|---|---|
+| `clamp(x, lo, hi)` | `(i32, i32, i32) -> i32` or `(f32, f32, f32) -> f32` | Bounds value `x` between `lo` and `hi` | Branchless conditional move (`cmp`/`movlt`/`movgt` or `vcmp.f32`/`vmrs`) |
+| `lerp(a, b, t)` | `(f32, f32, f32) -> f32` | Linear interpolation `a + (b - a) * t` | VFPv2 single-precision `vsub.f32` + `vmul.f32` + `vadd.f32` |
+| `flr(x)` | `(f32) -> i32` | Floor float to integer (alias of `floor`) | Hardware VFPv2 `vcvt.s32.f32` with floor adjustment |
+| `sin(rad)` | `(f32) -> f32` | Sine of angle in radians | Kernel host call (libm / Lua math bridge) |
+| `cos(rad)` | `(f32) -> f32` | Cosine of angle in radians | Kernel host call (libm / Lua math bridge) |
+| `atan2(y, x)` | `(f32, f32) -> f32` | Arc tangent of $y / x$ with quadrant | Kernel host call (libm / Lua math bridge) |
+
+#### 9.7.2 Constant Arrays in `.rodata`
+
+Precomputed lookup tables (e.g. trigonometry tables, fixed physics coefficients, tile attributes) can be declared as global constants:
+
+```lua
+const SIN_LUT: f32[] = [0.0, 0.7071, 1.0, 0.7071, 0.0]
+const TILE_ATTRS: i32[] = [0, 1, 1, 2, 4, 8]
+
+function get_tile_attr(id: i32): i32
+  return TILE_ATTRS[id]
+end
+```
+
+- **Zero-Allocation**: Array elements are packed directly into the executable binary's `.rodata` segment.
+- **Zero-Cost PC-Relative Addressing**: The base pointer is computed at runtime via `ldr rd, [pc, #lit]` + `add rd, pc, rd`, requiring no dynamic allocation or table hashing.
+- **Lua Desugaring**: In Lua, constant arrays desugar to standard 1-based local tables (`local TILE_ATTRS = {0, 1, 1, 2, 4, 8}`).
+- **Immutability**: Assigning to a constant array or its elements is rejected at compile time.
+
+
 
 

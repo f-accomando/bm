@@ -28,6 +28,11 @@ os.environ["QEMU_AUDIO_DRV"] = "none"
 
 LUA_PRELUDE = """\
 local abs, min, max, floor, sqrt = math.abs, math.min, math.max, math.floor, math.sqrt
+local flr = math.floor
+local sin, cos = math.sin, math.cos
+local atan2 = math.atan2 or math.atan
+local function clamp(x, lo, hi) return (x < lo) and lo or ((x > hi) and hi or x) end
+local function lerp(a, b, t) return a + (b - a) * t end
 local function f32(x) return x + 0.0 end
 local __mem = {}
 local function peek(addr) return __mem[addr] or 0 end
@@ -149,6 +154,10 @@ BAD_PROGRAMS = [
      "function f(c: i32)\n  rectfill(0, 0, 10, c)\nend\n", "line 2"),
     ("wrong argument type to btn",
      "function f(): bool\n  return btn(true)\nend\n", "line 2"),
+    ("assigning to const scalar",
+     "const X: i32 = 10\nfunction f(): i32\n  X = 20\n  return X\nend\n", "line 3"),
+    ("assigning to const array element",
+     "const A: i32[] = [1, 2]\nfunction f(): i32\n  A[1] = 5\n  return A[1]\nend\n", "line 3"),
 ]
 
 for desc, bad_src, expected_line in BAD_PROGRAMS:
@@ -1043,6 +1052,9 @@ vm_s6_out.append(str(tm_vm.call("test_switch_case", [2, 5])))
 vm_s6_out.append(str(tm_vm.call("test_switch_case", [0, 5])))
 vm_s6_out.append(str(tm_vm.call("test_switch_case", [99, 5])))
 vm_s6_out.append(str(tm_vm.call("test_type_inference", [100])))
+vm_s6_out.append(str(tm_vm.call("test_math_builtins", [12.5])))
+vm_s6_out.append(str(tm_vm.call("test_rodata_arrays", [1])))
+vm_s6_out.append(str(tm_vm.call("test_rodata_arrays", [3])))
 
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
@@ -1102,6 +1114,9 @@ print(test_switch_case(2, 5))
 print(test_switch_case(0, 5))
 print(test_switch_case(99, 5))
 print(test_type_inference(100))
+print(test_math_builtins(12.5))
+print(test_rodata_arrays(1))
+print(test_rodata_arrays(3))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1188,6 +1203,9 @@ print(native_run(mn, "test_switch_case", 2, 5))
 print(native_run(mn, "test_switch_case", 0, 5))
 print(native_run(mn, "test_switch_case", 99, 5))
 print(native_run(mn, "test_type_inference", 100))
+print(native_run(mn, "test_math_builtins", 12.5))
+print(native_run(mn, "test_rodata_arrays", 1))
+print(native_run(mn, "test_rodata_arrays", 3))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1270,8 +1288,22 @@ int strcmp(const char *a, const char *b)
 
 static const uint8_t blob_tm[] = {{ {fmt_bytes(tm_bmn_bytes)} }};
 
+static int32_t s6_host_fn(int32_t hid, const int32_t *args, int32_t nargs)
+{{
+    (void)args; (void)nargs;
+    if (hid == BMN_HOST_SIN || hid == BMN_HOST_ATAN2) return 0;
+    if (hid == BMN_HOST_COS) {{
+        float one = 1.0f;
+        uint32_t b = 0;
+        for (size_t i = 0; i < 4; i++) ((char*)&b)[i] = ((char*)&one)[i];
+        return (int32_t)b;
+    }}
+    return 0;
+}}
+
 void c_main(void)
 {{
+    bmnative_set_host_fn(s6_host_fn);
     const char *why = "";
     bmnative_mod *m = NULL;
     if (bmnative_load(&m, blob_tm, sizeof(blob_tm), &why) != BMN_OK) {{
@@ -1420,6 +1452,25 @@ void c_main(void)
         static uint8_t s_inf_buf[256];
         int32_t a[1] = {{(int32_t)(uintptr_t)s_inf_buf}};
         bmnative_call(m, bmnative_find(m, "test_type_inference"), a, 1, &r);
+        put_i32(r);
+    }}
+
+    /* 17. test_math_builtins */
+    {{
+        float fv = 12.5f;
+        int32_t a[1];
+        for (size_t i = 0; i < 4; i++) ((char*)&a[0])[i] = ((char*)&fv)[i];
+        bmnative_call(m, bmnative_find(m, "test_math_builtins"), a, 1, &r);
+        put_i32(r);
+    }}
+
+    /* 18. test_rodata_arrays */
+    {{
+        int32_t a[1] = {{1}};
+        bmnative_call(m, bmnative_find(m, "test_rodata_arrays"), a, 1, &r);
+        put_i32(r);
+        a[0] = 3;
+        bmnative_call(m, bmnative_find(m, "test_rodata_arrays"), a, 1, &r);
         put_i32(r);
     }}
 }}
@@ -2256,6 +2307,9 @@ print(native_run(m_tm, "test_switch_case", 2, 5))
 print(native_run(m_tm, "test_switch_case", 0, 5))
 print(native_run(m_tm, "test_switch_case", 99, 5))
 print(native_run(m_tm, "test_type_inference", 100))
+print(native_run(m_tm, "test_math_builtins", 12.5))
+print(native_run(m_tm, "test_rodata_arrays", 1))
+print(native_run(m_tm, "test_rodata_arrays", 3))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))

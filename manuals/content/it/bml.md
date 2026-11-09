@@ -47,13 +47,13 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 | `string` | Stringa immutabile e costanti nel segmento `.rodata` | `"testo"`, `'testo'` | Puntatore a 32 bit nel segmento `.rodata` (PIC PC-relative, zero rilocazioni) |
 | `i32[]`, `bool[]`, `f32[]` | Array tipati con indice base 1 | `a[i]`, `a[i] = v` | Puntatore base in registro a 32 bit (`ldr`/`str` a `base + (i - 1) * 4`) |
 | `struct Name ... end` | Record a layout fisso | `s.field`, `s.field = v` | Puntatore a parole contigue di 32 bit (`offset = field_idx * 4`) |
-| `const NAME: tipo = val` | Costante a costo zero valutata a compile-time | `const MAX: i32 = 16`, `const S: string = "ok"` | Sostituita con valore immediato o offset `.rodata` nel codice macchina |
+| `const NAME: tipo = val` | Costante scalare o tabella/array preallocata in Flash/`.rodata` | `const MAX: i32 = 16`, `const LUT: i32[] = [10, 20, 30]`, `const S: string = "ok"` | Sostituita con valore immediato o indirizzo PC-relative nel segmento `.rodata` |
 | `enum Name ... end` | Enumerazione di interi sequenziali | `enum State IDLE = 0, RUN, JUMP end` | Valutata a compile-time come `i32` (`State.RUN`) |
 | `function Struct:metodo(...)` | Metodo associato a una struct | `function Vec2f:len_sq(): f32 ... end` | Primo parametro implicito `self`; dispatch statico diretto (`v:len_sq()`) |
 
 - Le condizioni in `if`, `elseif`, `while`, `and`, `or` e `not` devono avere tipo `bool`. Un `i32` non è mai usato implicitamente come booleano.
 - La divisione intera usa `//` e il modulo usa `%` (arrotondati verso $-\infty$). La divisione float usa `/` su operandi `f32`.
-- Funzioni matematiche e di conversione integrate: `abs(x)`, `min(a, b)`, `max(a, b)` (per `i32` o `f32`), `sqrt(x: f32): f32`, `f32(x: i32): f32` e `floor(x: f32): i32`.
+- Funzioni matematiche e di conversione integrate per gamedev: `abs(x)`, `min(a, b)`, `max(a, b)`, `clamp(x, lo, hi)` (branchless su `i32` e `f32`), `lerp(a, b, t)` (interpolazione lineare hardware VFPv2 `f32`), `floor(x: f32): i32` / `flr(x)`, `sqrt(x: f32): f32`, `f32(x: i32): f32`, `sin(rad)`, `cos(rad)` e `atan2(y, x)`.
 - Funzioni del kernel (Tappa 7+): `cls(col)`, `pix(x, y, col)`, `rectfill(x, y, w, h, col)`, `spr(id, x, y)`, `btn(b): bool`, `btnp(b): bool`, `line(x0, y0, x1, y1, col)`, `circ(x, y, r, col)`, `circfill(x, y, r, col)`, `rect(x, y, w, h, col)`, `sfx(id)`, `music(id)`, `time(): f32` e `print(msg, ...): i32` (fino a 5 argomenti; primo argomento `string`).
 - Primitive di memoria bare-metal e MMIO (Tappa 5): `peek(addr: i32): i32` (`ldrb` byte a 8 bit), `poke(addr: i32, val: i32)` (`strb`), `peek2(addr: i32): i32` (`ldrh` halfword a 16 bit per audio e RGB565), `poke2(addr: i32, val: i32)` (`strh`), `peek4(addr: i32): i32` (`ldr` parola a 32 bit), `poke4(addr: i32, val: i32)` (`str`), `memcpy(dst: i32, src: i32, bytes: i32)` e `memset(dst: i32, val: i32, bytes: i32)` (routine macchina native ad alta efficienza per framebuffer, asset e DMA).
 
