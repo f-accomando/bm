@@ -1026,6 +1026,10 @@ vm_s6_out.append(str(int(round(vec_m["x"] * 100))))
 vm_s6_out.append(str(int(round(vec_m["y"] * 100))))
 vm_s6_out.append(str(tm_vm.call("test_bitwise", [0x1234, 0x5678])))
 vm_s6_out.append(str(tm_vm.call("test_memory_ops", [100])))
+vec_c = {"x": 2.0, "y": 3.0}
+arr_c = [5, 6]
+vm_s6_out.append(str(tm_vm.call("test_compound_ops", [10])))
+vm_s6_out.append(str(tm_vm.call("test_compound_struct_array", [vec_c, arr_c, 1])))
 
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
@@ -1075,6 +1079,10 @@ print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
 print(test_bitwise(0x1234, 0x5678))
 print(test_memory_ops(100))
+local vec_c = {x = 2.0, y = 3.0}
+local arr_c = {5, 6}
+print(test_compound_ops(10))
+print(test_compound_struct_array(vec_c, arr_c, 1))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1151,6 +1159,10 @@ print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
 print(native_run(mn, "test_bitwise", 0x1234, 0x5678))
 print(native_run(mn, "test_memory_ops", 100))
+local vec_c = {{x = 2.0, y = 3.0}}
+local arr_c = {{5, 6}}
+print(native_run(mn, "test_compound_ops", 10))
+print(native_run(mn, "test_compound_struct_array", vec_c, arr_c, 1))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1330,6 +1342,22 @@ void c_main(void)
         static uint8_t s_mem_buf[1024];
         int32_t a[1] = {{(int32_t)(uintptr_t)s_mem_buf}};
         bmnative_call(m, bmnative_find(m, "test_memory_ops"), a, 1, &r);
+        put_i32(r);
+    }}
+
+    /* 11. test_compound_ops */
+    {{
+        int32_t a[1] = {{10}};
+        bmnative_call(m, bmnative_find(m, "test_compound_ops"), a, 1, &r);
+        put_i32(r);
+    }}
+
+    /* 12. test_compound_struct_array */
+    {{
+        uint32_t vc[2] = {{f2u(2.0f), f2u(3.0f)}};
+        int32_t arrc[2] = {{5, 6}};
+        int32_t a[3] = {{(int32_t)(uintptr_t)vc, (int32_t)(uintptr_t)arrc, 1}};
+        bmnative_call(m, bmnative_find(m, "test_compound_struct_array"), a, 3, &r);
         put_i32(r);
     }}
 }}
@@ -2156,6 +2184,10 @@ print(math.floor(vec_m.x * 100 + 0.5))
 print(math.floor(vec_m.y * 100 + 0.5))
 print(native_run(m_tm, "test_bitwise", 0x1234, 0x5678))
 print(native_run(m_tm, "test_memory_ops", 100))
+local vec_c = {{x = 2.0, y = 3.0}}
+local arr_c = {{5, 6}}
+print(native_run(m_tm, "test_compound_ops", 10))
+print(native_run(m_tm, "test_compound_struct_array", vec_c, arr_c, 1))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))

@@ -124,6 +124,22 @@ primary     = INT | "true" | "false" | "(" expr ")" | NAME "(" [ arg_list ] ")" 
 | 9 | `*`, `//`, `%` | `i32, i32` | `i32` | Multiplication, floor division toward $-\infty$, floor modulo ($a - (a // b) \times b$) |
 | 10 | `-`, `not`, `~` (unary) | `i32` / `bool` | `i32` / `bool` | Arithmetic negation / logical negation / bitwise NOT |
 
+### 3.4.1 Compound Assignment Operators
+
+The `.b` language supports in-place compound assignments for scalar variables, struct fields (`s.field`), and array elements (`arr[idx]`):
+
+| Operator | Operands | Desugared Form | Notes |
+|---|---|---|---|
+| `+=` | `i32` or `f32` | `target = target + (expr)` | In-place addition |
+| `-=` | `i32` or `f32` | `target = target - (expr)` | In-place subtraction |
+| `*=` | `i32` or `f32` | `target = target * (expr)` | In-place multiplication |
+| `&=` | `i32` | `target = target & (expr)` | Bitwise AND |
+| `\|=` | `i32` | `target = target \| (expr)` | Bitwise OR |
+| `<<=` | `i32` | `target = target << (expr)` | Bitwise shift left |
+| `>>=` | `i32` | `target = target >> (expr)` | Bitwise arithmetic shift right |
+
+Compound assignments are desugared cleanly during Lua generation (`to_lua`), and compiled single-pass directly in the native C compiler `bmlc.c`.
+
 ### 3.5 Built-in Functions
 
 - Math & Conversion:

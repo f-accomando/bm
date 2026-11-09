@@ -64,6 +64,7 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 | Function | `function add(a: i32, b: i32): i32 ... end` | Up to 16 parameters; supports recursion and calls to earlier functions |
 | Local variable | `local s = 0` or `local s: i32 = 0` | Scoped to its enclosing block; cannot shadow an active variable |
 | Assignment | `s = s + i` | Target must be declared and have the exact same type |
+| Compound assignment | `x += 1`, `s.fld *= 2`, `a[i] <<= 4` | Supports `+=`, `-=`, `*=`, `&=`, `|=`, `<<=`, `>>=`; desugared in Lua, native in C |
 | Branch | `if a < b then ... elseif a == b then ... else ... end` | Every condition must be `bool` |
 | While loop | `while b ~= 0 do ... end` | Condition must be `bool`; `break` exits the innermost loop |
 | Numeric for | `for i = 1, n do ... end` or `for i = n, 1, -2 do ... end` | Bounds and optional step are `i32` |

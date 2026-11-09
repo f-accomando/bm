@@ -494,13 +494,30 @@ static void tokenize(bmlc_ctx_t *C)
             continue;
         }
 
-        /* Two-character operators: <=, >=, ==, ~=, //, <<, >> */
+        /* Three-character operators: <<=, >>= */
+        if (pos + 2 < n) {
+            char c2 = s[pos + 1];
+            char c3 = s[pos + 2];
+            if ((c == '<' && c2 == '<' && c3 == '=') ||
+                (c == '>' && c2 == '>' && c3 == '=')) {
+                t->kind = TK_OP;
+                t->len = 3;
+                pos += 3;
+                C->ntoks++;
+                continue;
+            }
+        }
+
+        /* Two-character operators: <=, >=, ==, ~=, //, <<, >>, +=, -=, *=, &=, |= */
         if (pos + 1 < n) {
             char c2 = s[pos + 1];
             if ((c == '<' && c2 == '=') || (c == '>' && c2 == '=') ||
                 (c == '=' && c2 == '=') || (c == '~' && c2 == '=') ||
                 (c == '/' && c2 == '/') ||
-                (c == '<' && c2 == '<') || (c == '>' && c2 == '>')) {
+                (c == '<' && c2 == '<') || (c == '>' && c2 == '>') ||
+                (c == '+' && c2 == '=') || (c == '-' && c2 == '=') ||
+                (c == '*' && c2 == '=') || (c == '&' && c2 == '=') ||
+                (c == '|' && c2 == '=')) {
                 t->kind = TK_OP;
                 t->len = 2;
                 pos += 2;
@@ -1349,6 +1366,60 @@ static int is_block_stop(const token_t *t, int stop_mask)
 
 static int compile_block(bmlc_ctx_t *C, int stop_mask);
 
+static const char *get_compound_op(const token_t *t)
+{
+    if (t->kind != TK_OP) return NULL;
+    if (tok_eq(t, "+=")) return "+=";
+    if (tok_eq(t, "-=")) return "-=";
+    if (tok_eq(t, "*=")) return "*=";
+    if (tok_eq(t, "&=")) return "&=";
+    if (tok_eq(t, "|=")) return "|=";
+    if (tok_eq(t, "<<=")) return "<<=";
+    if (tok_eq(t, ">>=")) return ">>=";
+    return NULL;
+}
+
+static uint8_t emit_compound_binop(bmlc_ctx_t *C, const char *cop, uint8_t lhs_t, uint8_t rhs_t, int line)
+{
+    if (strcmp(cop, "+=") == 0) {
+        if (lhs_t == BMN_I32 && rhs_t == BMN_I32) { emit_op(C, OP_ADD, 0, line); return BMN_I32; }
+        if (lhs_t == BMN_F32 && rhs_t == BMN_F32) { emit_op(C, OP_FADD, 0, line); return BMN_F32; }
+        c_fail(C, line, "'+=' takes matching i32 or f32");
+    }
+    if (strcmp(cop, "-=") == 0) {
+        if (lhs_t == BMN_I32 && rhs_t == BMN_I32) { emit_op(C, OP_SUB, 0, line); return BMN_I32; }
+        if (lhs_t == BMN_F32 && rhs_t == BMN_F32) { emit_op(C, OP_FSUB, 0, line); return BMN_F32; }
+        c_fail(C, line, "'-=' takes matching i32 or f32");
+    }
+    if (strcmp(cop, "*=") == 0) {
+        if (lhs_t == BMN_I32 && rhs_t == BMN_I32) { emit_op(C, OP_MUL, 0, line); return BMN_I32; }
+        if (lhs_t == BMN_F32 && rhs_t == BMN_F32) { emit_op(C, OP_FMUL, 0, line); return BMN_F32; }
+        c_fail(C, line, "'*=' takes matching i32 or f32");
+    }
+    if (strcmp(cop, "&=") == 0) {
+        if (lhs_t != BMN_I32 || rhs_t != BMN_I32) c_fail(C, line, "'&=' takes i32");
+        emit_op(C, OP_BAND, 0, line);
+        return BMN_I32;
+    }
+    if (strcmp(cop, "|=") == 0) {
+        if (lhs_t != BMN_I32 || rhs_t != BMN_I32) c_fail(C, line, "'|=' takes i32");
+        emit_op(C, OP_BOR, 0, line);
+        return BMN_I32;
+    }
+    if (strcmp(cop, "<<=") == 0) {
+        if (lhs_t != BMN_I32 || rhs_t != BMN_I32) c_fail(C, line, "'<<=' takes i32");
+        emit_op(C, OP_SHL, 0, line);
+        return BMN_I32;
+    }
+    if (strcmp(cop, ">>=") == 0) {
+        if (lhs_t != BMN_I32 || rhs_t != BMN_I32) c_fail(C, line, "'>>=' takes i32");
+        emit_op(C, OP_SHR, 0, line);
+        return BMN_I32;
+    }
+    c_fail(C, line, "unknown compound operator");
+    return BMN_NONE;
+}
+
 static int compile_stmt(bmlc_ctx_t *C)
 {
     const token_t *t = cur_tok(C);
@@ -1615,9 +1686,29 @@ static int compile_stmt(bmlc_ctx_t *C)
             expect_tok(C, "]");
             if (it != BMN_I32)
                 c_fail(C, line, "array index must be i32");
+            uint8_t elem_t = (bt == BMN_ARR_F32) ? BMN_F32 : ((bt == BMN_ARR_BOOL) ? BMN_BOOL : BMN_I32);
+            const char *cop = get_compound_op(cur_tok(C));
+            if (cop) {
+                C->ti++;
+                int tmp_idx = find_local(C, "$tmp_idx");
+                if (tmp_idx < 0) {
+                    tmp_idx = alloc_local(C, "$tmp_idx", BMN_I32, line);
+                    C->scope_active[tmp_idx] = 0;
+                }
+                emit_op(C, OP_STORE, tmp_idx, line);
+                emit_op(C, OP_POP, 0, line);
+                emit_op(C, OP_LOAD, slot, line);
+                emit_op(C, OP_LOAD, tmp_idx, line);
+                emit_op(C, OP_LOAD, slot, line);
+                emit_op(C, OP_LOAD, tmp_idx, line);
+                emit_op(C, (elem_t == BMN_F32) ? OP_AGETF : OP_AGET, 0, line);
+                uint8_t vt = compile_expr(C, line);
+                emit_compound_binop(C, cop, elem_t, vt, line);
+                emit_op(C, (elem_t == BMN_F32) ? OP_ASETF : OP_ASET, 0, line);
+                return 0;
+            }
             expect_tok(C, "=");
             uint8_t vt = compile_expr(C, line);
-            uint8_t elem_t = (bt == BMN_ARR_F32) ? BMN_F32 : ((bt == BMN_ARR_BOOL) ? BMN_BOOL : BMN_I32);
             if (vt != elem_t)
                 c_fail(C, line, "array element type mismatch");
             emit_op(C, (elem_t == BMN_F32) ? OP_ASETF : OP_ASET, 0, line);
@@ -1643,12 +1734,26 @@ static int compile_stmt(bmlc_ctx_t *C)
             }
             if (f_idx < 0)
                 c_fail(C, line, "struct '%s' has no field '%s'", st->name, fname);
+            uint8_t ft = st->ftype[f_idx];
+            const char *cop = get_compound_op(cur_tok(C));
+            if (cop) {
+                C->ti++;
+                emit_op(C, OP_LOAD, slot, line);
+                int k = add_const(C, f_idx + 1, line);
+                emit_op(C, OP_PUSH_CONST, k, line);
+                emit_op(C, OP_LOAD, slot, line);
+                emit_op(C, OP_PUSH_CONST, k, line);
+                emit_op(C, (ft == BMN_F32) ? OP_AGETF : OP_AGET, 0, line);
+                uint8_t vt = compile_expr(C, line);
+                emit_compound_binop(C, cop, ft, vt, line);
+                emit_op(C, (ft == BMN_F32) ? OP_ASETF : OP_ASET, 0, line);
+                return 0;
+            }
             expect_tok(C, "=");
             emit_op(C, OP_LOAD, slot, line);
             int k = add_const(C, f_idx + 1, line);
             emit_op(C, OP_PUSH_CONST, k, line);
             uint8_t vt = compile_expr(C, line);
-            uint8_t ft = st->ftype[f_idx];
             if (vt != ft)
                 c_fail(C, line, "field '%s.%s' type mismatch", st->name, fname);
             emit_op(C, (ft == BMN_F32) ? OP_ASETF : OP_ASET, 0, line);
@@ -1657,6 +1762,15 @@ static int compile_stmt(bmlc_ctx_t *C)
         int slot = find_local(C, name);
         if (slot < 0)
             c_fail(C, line, "'%s' is not declared", name);
+        const char *cop = get_compound_op(cur_tok(C));
+        if (cop) {
+            C->ti++;
+            emit_op(C, OP_LOAD, slot, line);
+            uint8_t vt = compile_expr(C, line);
+            emit_compound_binop(C, cop, C->cur_fn->ltype[slot], vt, line);
+            emit_op(C, OP_STORE, slot, line);
+            return 0;
+        }
         expect_tok(C, "=");
         uint8_t et = compile_expr(C, line);
         if (et != C->cur_fn->ltype[slot])

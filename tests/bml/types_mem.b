@@ -147,3 +147,23 @@ function test_memory_ops(base: i32): i32
   local m15 = peek(base + 79)
   return (b0 + b1 + (h & 255) + (w & 255) + m0 + m15) & 65535
 end
+
+function test_compound_ops(x: i32): i32
+  x += 5
+  x -= 2
+  x *= 3
+  x &= 0xFF
+  x |= 0x100
+  x <<= 2
+  x >>= 1
+  return x
+end
+
+function test_compound_struct_array(v: Vec2f, arr: i32[], idx: i32): i32
+  v.x += 1.5
+  v.y *= 2.0
+  arr[idx] += 10
+  arr[idx + 1] *= 3
+  return floor(v.x + v.y) + arr[idx] + arr[idx + 1]
+end
+

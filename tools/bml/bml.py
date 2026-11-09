@@ -41,7 +41,7 @@ TOKEN_RE = re.compile(
     r"|(?P<hex>0[xX][0-9a-fA-F]+)"
     r"|(?P<int>\d+)"
     r"|(?P<name>[A-Za-z_]\w*)"
-    r"|(?P<op><=|>=|==|~=|<<|>>|//|[-+*/%&|~(),.:\[\]=<>])"
+    r"|(?P<op><<=|>>=|<=|>=|==|~=|\+=|-=|\*=|&=|\|=|<<|>>|//|[-+*/%&|~(),.:\[\]=<>])"
 )
 
 KEYWORDS = {
@@ -53,6 +53,15 @@ KEYWORDS = {
 
 TYPES = ("i32", "bool", "f32", "string")
 ARRAY_TYPES = ("i32[]", "bool[]", "f32[]")
+COMPOUND_OPS = {
+    "+=": "+",
+    "-=": "-",
+    "*=": "*",
+    "&=": "&",
+    "|=": "|",
+    "<<=": "<<",
+    ">>=": ">>",
+}
 BUILTINS = {
     "abs": (["i32"], "i32"),
     "min": (["i32", "i32"], "i32"),
@@ -712,15 +721,44 @@ class Parser:
                 return CallStmt(ident.line, CallExpr(ident.line, callee, args))
             if self.accept("["):
                 idx_e = self.parse_expr()
-                self.expect("]")
+                rbracket = self.expect("]")
+                op_tok = self.cur()
+                if op_tok.text in COMPOUND_OPS:
+                    self.i += 1
+                    val_e = self.parse_expr()
+                    bin_op = COMPOUND_OPS[op_tok.text]
+                    target_str = self.src[ident.start:rbracket.end]
+                    self.cuts.append((op_tok.start, op_tok.end, f"= {target_str} {bin_op} ("))
+                    last_tok = self.toks[self.i - 1]
+                    self.cuts.append((last_tok.end, last_tok.end, ")"))
+                    return IndexAssignStmt(ident.line, ident.text, idx_e, BinOp(ident.line, bin_op, IndexExpr(ident.line, ident.text, idx_e), val_e))
                 self.expect("=")
                 val_e = self.parse_expr()
                 return IndexAssignStmt(ident.line, ident.text, idx_e, val_e)
             if self.accept("."):
                 fld = self.expect_name()
+                op_tok = self.cur()
+                if op_tok.text in COMPOUND_OPS:
+                    self.i += 1
+                    val_e = self.parse_expr()
+                    bin_op = COMPOUND_OPS[op_tok.text]
+                    target_str = f"{ident.text}.{fld.text}"
+                    self.cuts.append((op_tok.start, op_tok.end, f"= {target_str} {bin_op} ("))
+                    last_tok = self.toks[self.i - 1]
+                    self.cuts.append((last_tok.end, last_tok.end, ")"))
+                    return FieldAssignStmt(ident.line, ident.text, fld.text, BinOp(ident.line, bin_op, FieldExpr(ident.line, ident.text, fld.text), val_e))
                 self.expect("=")
                 val_e = self.parse_expr()
                 return FieldAssignStmt(ident.line, ident.text, fld.text, val_e)
+            op_tok = self.cur()
+            if op_tok.text in COMPOUND_OPS:
+                self.i += 1
+                e = self.parse_expr()
+                bin_op = COMPOUND_OPS[op_tok.text]
+                self.cuts.append((op_tok.start, op_tok.end, f"= {ident.text} {bin_op} ("))
+                last_tok = self.toks[self.i - 1]
+                self.cuts.append((last_tok.end, last_tok.end, ")"))
+                return AssignStmt(ident.line, ident.text, BinOp(ident.line, bin_op, VarExpr(ident.line, ident.text), e))
             self.expect("=")
             e = self.parse_expr()
             return AssignStmt(ident.line, ident.text, e)
