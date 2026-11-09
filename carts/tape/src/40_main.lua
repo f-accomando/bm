@@ -1,10 +1,11 @@
--- bm Tape main: scene choice, encoders, transport, key strip, exit page.
+-- bm Tape main: pages, keys, encoders, transport, key strip, exit page.
 local SW, SH = 640, 360
-local cur = 1                          -- current scene
+local cur = 1                          -- current page
 local menu = false                     -- the exit page
-local now, last_now = 0, 0
+local now, fno = 0, 0
 local ENC = { { K.Q, K.A }, { K.W, K.S }, { K.E, K.D }, { K.R, K.F } }
 local FKEYS = { K.F1, K.F2, K.F3, K.F4, K.F5, K.F6, K.F7, K.F8 }
+local TRKEYS = { K.D1, K.D2, K.D3, K.D4 }
 local rep = { 0, 0, 0, 0 }             -- frames each encoder key is held (0 = up)
 local REP_FIRST, REP_EVERY = 24, 3     -- auto-repeat: wait 24 frames, then every 3
 
@@ -23,6 +24,7 @@ local function encoders(sc)
       rep[i] = rep[i] + 1
       if rep[i] == 1 or (rep[i] > REP_FIRST and (rep[i] - REP_FIRST) % REP_EVERY == 0) then
         turn(sc.params[i], dir)
+        if sc.push then sc.push(sc, i) end
       end
     end
   end
@@ -31,12 +33,12 @@ end
 local function draw_hints()
   rectfill(0, 320, SW, 40, C.ink)
   line(0, 320, SW - 1, 320, C.dim)
-  print("LEFT/RIGHT SCENE   F1-F8 JUMP   SPACE PLAY/STOP   SHIFT FINE   ESC EXIT", 8, 324, C.mute)
+  print("F1-8 MODULE  TAB PAGE  SPACE PLAY  ENTER REC  1-4 TRACK  SHIFT+N MUTE  ESC EXIT", 8, 324, C.mute)
   local x = 8
   for i, k in ipairs({ "Q/A", "W/S", "E/D", "R/F" }) do
     x = print(k, x, 342, ECOL[i]) + 8
   end
-  print("= ENCODERS 1-4, UP/DOWN, HOLD TO REPEAT", x, 342, C.mute)
+  print("= ENCODERS  [ ] SOUND  -/= OCT  T SET STEP  BKSP CLEAR", x, 342, C.mute)
 end
 
 local function draw_menu()
@@ -52,42 +54,81 @@ function _init()
   screen(SW, SH)
   rawkeys(true)
   engine.init()
-  last_now = time()
+  play_voices(0, 1, 2, 3, 4, 5)          -- the sequencer's notes; the live notes use 6 and 7
+  load_demo()
+end
+
+-- the keys of one frame: page, track, transport, sounds, step edit
+local function keys()
+  local page = PAGES[cur]
+  if pressed(K.RIGHT) then cur = cur % #PAGES + 1 end
+  if pressed(K.LEFT) then cur = (cur - 2) % #PAGES + 1 end
+  for i, k in ipairs(FKEYS) do
+    if pressed(k) then cur = module_page(i) end
+  end
+  if pressed(K.TAB) then cur = tab_page(cur) end
+  for n, k in ipairs(TRKEYS) do
+    if pressed(k) then
+      if shift() then
+        toggle_mute(n)
+      else
+        select_track(n)
+        if n == 1 and PAGES[cur].mod == 1 then cur = module_page(2) end
+      end
+    end
+  end
+  if pressed(K.SPACE) then
+    if tr.run then transport_stop() else transport_start() end
+  end
+  if pressed(K.ENTER) then tr.rec = not tr.rec end
+  if pressed(K.MINUS) then octave(-1) end
+  if pressed(K.EQUALS) then octave(1) end
+  if pressed(K.LB) then next_sound(-1) end
+  if pressed(K.RB) then next_sound(1) end
+  if pressed(K.UP) and page.sc.arrows then page.sc.arrows(1) end
+  if pressed(K.DOWN) and page.sc.arrows then page.sc.arrows(-1) end
+  if page.sc == grid_page then
+    if pressed(K.T) then grid_toggle() end
+    if pressed(K.BKSP) then
+      if shift() then clear_track(S.trk) else clear_step(S.trk, S.cur) end
+    end
+  end
+  play_keys(true)
 end
 
 function _update()
   now = time()
-  local dt = clamp(now - last_now, 0, 0.1)
-  last_now = now
+  fno = fno + 1
   poll()
   if btnp("start") then menu = not menu end       -- Esc reaches the cartridge as Start
   if menu then
     if pressed(K.ENTER) then quit() end
     return
   end
-  if pressed(K.RIGHT) then cur = cur % #scenes + 1 end
-  if pressed(K.LEFT) then cur = (cur - 2) % #scenes + 1 end
-  for i, k in ipairs(FKEYS) do
-    if pressed(k) then cur = i end
-  end
-  if pressed(K.SPACE) then tr.run = not tr.run end
-  if tr.run then tr.pos = tr.pos + dt end
-  encoders(scenes[cur])
+  keys()
+  local sc = PAGES[cur].sc
+  if sc.pull then sc.pull(sc) end
+  encoders(sc)
+  if fno % seq_skip == 0 then seq_update(audio_time()) end
 end
 
 function _draw()
   cls(C.ink)
-  local sc = scenes[cur]
+  local page = PAGES[cur]
+  local sc = page.sc
+  if sc.pull then sc.pull(sc) end
   local v = { sc.params[1].value, sc.params[2].value, sc.params[3].value, sc.params[4].value }
   clipu(0, 14, 320, BOT + 2 - 14)
   sc.draw(now, v)
   clip()
-  frame(sc, scenes, now)
+  frame(page, now)
   draw_hints()
   if menu then draw_menu() end
 end
 
--- Ctrl+Esc, PS or Start+Select: nothing to save in phase 1, so the console may freeze the app
+-- Ctrl+Esc, PS or Start+Select: nothing is saved in phase 2, so the console may freeze the app
 function _exit()
+  live_release()
+  transport_stop()
   return true
 end

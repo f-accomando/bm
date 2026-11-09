@@ -7,6 +7,11 @@ cartridge (.bm) with scripts/mkbm.py.
   python3 carts/tape/build/build.py [outdir]      (default build/tape)
 
 Files written in outdir: main.lua, sheet.png, cover.png, tape.bme, tape.bm.
+
+Test build: with TAPE_TEST=N in the environment (N = 1, 2, 3 ...) the file carts/tape/test/hook.lua goes in at the line --@TEST_HOOK@.
+The cartridge then logs every note the sequencer queues with play_at (lines "TAPE_AT time track note velocity tick",
+time in seconds from the transport start) and updates the sequencer only every N-th frame (tests/tape/timing_test.py).
+Without the variable the line is dropped and the cartridge logs nothing.
 """
 import glob, os, struct, subprocess, sys, zlib
 
@@ -17,6 +22,7 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "build", "tape")
 os.makedirs(OUT, exist_ok=True)
 
 PLACEHOLDER = "--@ENGINE_B@"
+HOOK = "--@TEST_HOOK@"
 CLOSE = "]=====]"           # the long string of 10_engine.lua has level 5: engine.b must not hold this
 
 
@@ -69,6 +75,11 @@ def main():
     if lua.count(PLACEHOLDER) != 1:
         raise SystemExit("main.lua must hold the line %s once" % PLACEHOLDER)
     lua = lua.replace(PLACEHOLDER, engine.rstrip("\n"))
+    n = os.environ.get("TAPE_TEST")
+    hook = open(os.path.join(HERE, "..", "test", "hook.lua")).read().replace("@N@", str(int(n))) if n else ""
+    if lua.count(HOOK) != 1:
+        raise SystemExit("main.lua must hold the line %s once" % HOOK)
+    lua = lua.replace(HOOK, hook.rstrip("\n"))
     open(os.path.join(OUT, "main.lua"), "w").write(lua)
     sheet = os.path.join(OUT, "sheet.png")
     png(sheet, 16, 16, lambda x, y: b"\x00\x00\x00\x00")

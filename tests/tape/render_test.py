@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
-render_test.py - the bm Tape cartridge in bmhost: one picture per scene, plus keys and the error path.
+render_test.py - the bm Tape cartridge in bmhost: pictures of the ten pages and the seven engines, keys, the error path.
 
   python3 tests/tape/render_test.py build/host/bmhost-bin build/carts/tape.bm
 
 bmhost runs the engine (src/bm/bmnative.c emulates ARMv6 on the PC), so native_run executes here.
-Checks: the run ends without a Lua error; each of the nine pictures is not blank, holds the four encoder colours in
-the value strip and shows no engine error; the nine pictures differ; an encoder key and the transport (Space) change
-the picture; a cartridge with a broken engine.b still draws and shows the error text on the status strip.
+Checks: the run ends without a Lua error; each of the 16 pictures (ten pages, the other six engines) is not blank, holds
+the four encoder colours in the value strip and shows no engine error; the pictures differ; PREVIEW is on the four
+preview pages only; Tab and the arrows go to the right pages; for every page and every encoder, turning the encoder
+changes the scene (two runs with the same frames, so the animation is the same); SEQ GRID shows the demo pattern, with
+the rim steps of the native euclid; Space runs the transport; Enter shows REC and a recorded hit lands in the grid;
+the live keys play all 20 sounds without a Lua error; a cartridge with a broken engine.b still draws, shows the error
+text on the status strip, and Space does nothing.
 """
 import hashlib, os, struct, subprocess, sys, tempfile, zlib
 
@@ -16,7 +20,9 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 INK, HOT = (0x0c, 0x08, 0x20), (0xff, 0x6a, 0x3d)
 ENC = [(0x3f, 0xe8, 0xf5), (0xff, 0x4f, 0xae), (0xff, 0xc5, 0x3d), (0xf4, 0xf0, 0xff)]
-F1, RIGHT, SPACE, KEY_E = 0x3A, 0x4F, 0x2C, 0x08
+F1, TAB, RIGHT, LEFT, UP, SPACE, ENTER = 0x3A, 0x2B, 0x4F, 0x50, 0x52, 0x2C, 0x28
+ENCKEYS = [(0x14, 0x04), (0x1A, 0x16), (0x08, 0x07), (0x15, 0x09)]     # Q/A W/S E/D R/F
+KEY_2, KEY_U, RB, KEY_O = 0x1F, 0x18, 0x30, 0x12
 
 
 def read_png(path):
@@ -84,6 +90,27 @@ def run(host, cart, script, shots, seconds):
     return p.returncode, p.stdout + p.stderr
 
 
+def key(frame, usage, n=1, gap=6):
+    """Script lines: the key is down for 2 frames, n times, gap frames apart."""
+    out = []
+    for i in range(n):
+        out += ["%d keys %d" % (frame + gap * i, usage), "%d keys none" % (frame + gap * i + 2)]
+    return out
+
+
+PAGES = ["SYNTH ENGINE", "SYNTH ENVELOPE", "SYNTH FILTER", "DRUM PAD", "SEQ GRID", "TAPE", "MIX", "FX ECHO", "DJ", "TEMPO"]
+PREVIEW = {5, 6, 7, 8}                                  # indexes of the pages that make no sound
+ENGINES = ["FM", "STRING", "PULSE", "CLUSTER", "ORGAN", "VOX", "DIGITAL"]
+# the keys that bring a page up from the start: F1 to F8, Tab inside SYNTH
+GOTO = {0: key(10, F1), 1: key(10, F1) + key(16, TAB), 2: key(10, F1) + key(16, TAB) + key(22, TAB),
+        3: key(10, F1 + 1), 4: key(10, F1 + 2), 5: key(10, F1 + 3), 6: key(10, F1 + 4), 7: key(10, F1 + 5),
+        8: key(10, F1 + 6), 9: key(10, F1 + 7)}
+
+
+def script(lines):
+    return "\n".join(sorted(lines, key=lambda l: int(l.split()[0]))) + "\n"
+
+
 def main():
     host, cart = sys.argv[1:3]
     tmp = tempfile.mkdtemp(prefix="tape-test-")
@@ -93,41 +120,114 @@ def main():
         if not ok: fails.append(name)
         print(("ok   " if ok else "FAIL ") + name)
 
-    # scenes 1-8 by F1-F8, scene 9 by the right arrow after F8; then an encoder, then the transport on scene 5
-    lines = []
-    for i in range(8):
-        at = 30 * (i + 1)
-        lines += ["%d keys %d" % (at, F1 + i), "%d keys none" % (at + 2), "%d shot sc%d" % (at + 20, i + 1)]
-    lines += ["270 keys %d" % RIGHT, "272 keys none", "290 shot sc9",
-              "300 keys %d" % (F1 + 2), "302 keys none", "310 shot env0",
-              "312 keys %d" % KEY_E, "400 keys none", "410 shot env1",
-              "420 keys %d" % (F1 + 4), "422 keys none", "430 shot seq0",
-              "432 keys %d" % SPACE, "434 keys none", "520 shot seq1"]
-    code, out = run(host, cart, "\n".join(lines) + "\n", tmp + "/shots", 9)
-    print(out.strip().splitlines()[-1] if out.strip() else "(no output)")
-    check("bmhost run ends well (no Lua error)", code == 0 and " ok" in out)
-    img = {n: read_png("%s/shots/%s.png" % (tmp, n)) for n in
-           ["sc%d" % i for i in range(1, 10)] + ["env0", "env1", "seq0", "seq1"]}
-    hashes = {}
-    for i in range(1, 10):
-        im = img["sc%d" % i]
-        _, lit = colours(im, 0, 28, 640, 270)
-        check("scene %d: the picture is not blank" % i, lit > 1500)
+    def one(name, lines, seconds=2, shot_at=None):
+        """One run; the picture at the given frame (default: the last line of the script)."""
+        shot_at = shot_at or max(int(l.split()[0]) for l in lines) + 20
+        code, out = run(host, cart, script(lines + ["%d shot %s" % (shot_at, name)]), "%s/shots/%s" % (tmp, name), seconds)
+        if code != 0 or " ok" not in out:
+            check("run %s ends without a Lua error" % name, False)
+            print(out.strip()[-300:])
+        return read_png("%s/shots/%s/%s.png" % (tmp, name, name))
+
+    # ten pages, then the other six engines on the SYNTH ENGINE page (Up changes the engine)
+    img, hashes = {}, {}
+    for i in range(10):
+        img["pg%d" % i] = one("pg%d" % i, GOTO[i], 2)
+    for k in range(1, 7):
+        img["eng%d" % k] = one("eng%d" % k, GOTO[0] + key(20, UP, k), 2)
+    img["eng0"] = img["pg0"]
+    names = ["pg%d" % i for i in range(10)] + ["eng%d" % k for k in range(1, 7)]
+    for n in names:
+        im = img[n]
+        _, lit = colours(im, 0, 54, 640, 270)
+        check("%s: the picture is not blank" % n, lit > 1500)
         strip, _ = colours(im, 0, 276, 640, 316)
         for k, c in enumerate(ENC):
-            check("scene %d: encoder colour %d in the value strip" % (i, k + 1), has(strip, c))
+            check("%s: encoder colour %d in the value strip" % (n, k + 1), has(strip, c))
         err, _ = colours(im, 236, 0, 520, 26)
-        check("scene %d: no engine error on the status strip" % i, not has(err, HOT))
-        hashes[i] = crop_hash(im, 0, 0, 640, 320)
-    check("the nine pictures differ", len(set(hashes.values())) == 9)
-    check("an encoder key changes the value strip", crop_hash(img["env0"], 0, 276, 640, 316) != crop_hash(img["env1"], 0, 276, 640, 316))
-    check("an encoder key changes the scene", crop_hash(img["env0"], 0, 28, 640, 270) != crop_hash(img["env1"], 0, 28, 640, 270))
-    check("Space runs the transport (bar.beat.step changes)", crop_hash(img["seq0"], 420, 0, 520, 26) != crop_hash(img["seq1"], 420, 0, 520, 26))
-    # E(6, 16) from the native engine: pulses at steps 0 3 6 8 11 14 (step 0 is the play head, in hot colour)
-    w, h, bpp, rows = img["seq0"]
-    cell = [tuple(rows[41][(192 + 16 * i + 6) * bpp:(192 + 16 * i + 6) * bpp + 3]) for i in range(16)]
-    pink = [i for i in range(16) if near(cell[i], ENC[1])]
-    check("SEQ GRID shows the euclidean pattern of the native engine (pink cells %s)" % pink, pink == [3, 6, 8, 11, 14])
+        check("%s: no engine error on the status strip" % n, not has(err, HOT))
+        hashes[n] = crop_hash(im, 0, 0, 640, 320)
+    check("the 16 pictures differ", len(set(hashes.values())) == 16)
+    for i in range(10):
+        pv = colours(img["pg%d" % i], 164, 0, 222, 26)[1]
+        check("%s: PREVIEW %s on the status strip" % (PAGES[i], "shown" if i in PREVIEW else "not shown"), (pv > 20) == (i in PREVIEW))
+
+    # Tab and the arrows
+    base = key(10, F1)
+    same = lambda a, b: crop_hash(a, 0, 0, 640, 320) == crop_hash(b, 0, 0, 640, 320)
+    check("Right goes to the next page (as Tab, inside SYNTH)", same(one("right", base + key(16, RIGHT), 2, 50), one("tab", base + key(16, TAB), 2, 50)))
+    check("Left from the first page goes to the last (TEMPO)", same(one("left", base + key(16, LEFT), 2, 50), one("f8", key(10, F1 + 7), 2, 50)))
+    check("Tab in a one-page module stays", same(one("tab2", key(10, F1 + 1) + key(16, TAB), 2, 50), one("f2", key(10, F1 + 1), 2, 50)))
+
+    # every encoder moves its part of the scene: the same frames with the encoder held up or down against none
+    def scene_crop(im):
+        w, h, bpp, rows = im
+        rows = [bytearray(r) for r in rows[28:270]]
+        for y in range(0, 22):                                   # the sound name under the status strip also changes (a star)
+            for x in range(0, 260 * bpp):
+                rows[y][x] = 0
+        return hashlib.md5(b"".join(bytes(r) for r in rows)).hexdigest()
+    for pg in range(10):
+        steps = [(0, [])] if pg != 0 else [(k, key(20, UP, k)) for k in range(7)]
+        for eng, pre in steps:
+            ref = scene_crop(one("ref", GOTO[pg] + pre, 3, 120))
+            for e in range(4):
+                moved = False
+                for d in (0, 1):
+                    hold = ["60 keys %d" % ENCKEYS[e][d], "90 keys none"]
+                    moved = moved or scene_crop(one("enc", GOTO[pg] + pre + hold, 3, 120)) != ref
+                check("%s: encoder %d moves the scene" % (PAGES[pg] + (" " + ENGINES[eng] if pg == 0 else ""), e + 1), moved)
+
+    # SEQ GRID with the demo pattern: track 2 is the bass line; on track 1 (key 1) the rim steps 2 6 9 12 15 come from the native euclid
+    def cells(im):
+        w, h, bpp, rows = im
+        return [tuple(rows[41][(198 + 16 * i) * bpp:(198 + 16 * i) * bpp + 3]) for i in range(16)]
+    c2 = cells(img["pg4"])
+    pink = [i for i in range(16) if near(c2[i], ENC[1])]
+    check("SEQ GRID shows the bass line of track 2, the cursor on step 1 (pink cells %s)" % pink, pink == [3, 6, 8, 11, 14] and near(c2[0], ENC[0]))
+    c1 = cells(one("grid1", GOTO[4] + key(16, 0x1E), 2))
+    pink = [i for i in range(16) if near(c1[i], ENC[1])]
+    check("SEQ GRID shows the beat of track 1 (pink cells %s), with the rim steps of the native euclid" % pink,
+          pink == [2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 14, 15] and near(c1[0], ENC[0]))
+
+    # the transport, REC, and a recorded hit: select track 2, arm REC, start; U (note 4 of the key block) near step 2
+    live = key(5, KEY_2) + key(10, F1 + 2)
+    seq0 = one("seq0", live, 4, 130)
+    seq1 = one("seq1", live + key(40, SPACE), 4, 130)
+    check("Space runs the transport (bar.beat.step changes)", crop_hash(seq0, 420, 0, 520, 26) != crop_hash(seq1, 420, 0, 520, 26))
+    check("REC is not on the status strip before Enter", colours(seq0, 130, 0, 160, 26)[1] == 0)
+    rec = one("rec", live + key(30, ENTER) + key(40, SPACE) + key(71, KEY_U) + key(100, SPACE), 4, 160)
+    check("REC (hot colour) is on the status strip after Enter", has(colours(rec, 130, 0, 160, 26)[0], HOT))
+    ctl = one("ctl", live + key(40, SPACE) + key(71, KEY_U) + key(100, SPACE), 4, 160)
+
+    def lit(im):
+        w, h, bpp, rows = im
+        return [i for i in range(16) if not near(tuple(rows[41][(198 + 16 * i) * bpp:(198 + 16 * i) * bpp + 3]), INK)]
+    check("a hit is recorded on a step of track 2 only with REC on (lit steps %s, without REC %s)" % (lit(rec), lit(ctl)),
+          len(lit(rec)) == len(lit(ctl)) + 1 and set(lit(ctl)) < set(lit(rec)))
+
+    # step edit on SEQ GRID (track 2, brush C2): Q moves the cursor, T toggles a slot, Backspace clears a step, Shift+Backspace the track
+    q, bk, tk = 0x14, 0x2A, 0x17
+    def dark(im):
+        return [i for i in range(16) if near(cells(im)[i], INK)]
+    t_on = one("edit_t", GOTO[4] + key(30, q) + key(40, tk) + key(50, q), 2, 90)
+    check("T puts the brush note into the step at the cursor (step 2 lit: %s)" % (1 not in dark(t_on)), 1 not in dark(t_on) and 1 in dark(img["pg4"]))
+    t_off = one("edit_t2", GOTO[4] + key(30, q) + key(40, tk) + key(50, tk) + key(60, q), 2, 100)
+    check("T on the same note takes it out again", 1 in dark(t_off))
+    clr = one("edit_bk", GOTO[4] + key(30, q, 3) + key(60, bk) + key(70, q), 2, 100)
+    check("Backspace clears the step at the cursor (step 4)", 3 in dark(clr) and 6 not in dark(clr))
+    clr_all = one("edit_sbk", GOTO[4] + key(30, q) + ["50 keys 0xE1 %d" % bk, "52 keys none"] + key(60, q), 2, 100)
+    check("Shift+Backspace clears the track (lit steps %s)" % [i for i in range(16) if i not in dark(clr_all)], [i for i in range(16) if i not in dark(clr_all)] == [2])
+    mute = one("mute", GOTO[4] + ["30 keys 0xE1 %d" % KEY_2, "32 keys none"], 2, 60)
+    check("Shift+2 mutes track 2 (M2 on the status strip)", colours(mute, 480, 0, 520, 26)[1] > 10 and colours(img["pg4"], 480, 0, 520, 26)[1] == 0)
+
+    # the live keys play every sound: ] loads the next sound into the track, a key is held for a moment
+    play = key(5, KEY_2) + key(10, F1)
+    for n in range(21):
+        play += key(20 + 30 * n, RB) + ["%d keys %d" % (24 + 30 * n, KEY_U), "%d keys none" % (40 + 30 * n)]
+    play += key(660, F1 + 1) + key(670, KEY_O)                    # and a pad
+    code, out = run(host, cart, script(play), tmp + "/shots/play", 13)
+    check("the live keys play 21 sounds and a pad without a Lua error", code == 0 and " ok" in out)
 
     # the error path: a broken engine.b must leave the cartridge drawing, with the error text on the status strip
     bad = open(ROOT + "/build/tape/main.lua").read()
@@ -137,11 +237,12 @@ def main():
     subprocess.check_call([sys.executable, ROOT + "/scripts/mkbm.py", "-o", tmp + "/bad.bm", "--lua", tmp + "/main.lua",
                            "--sheet", ROOT + "/build/tape/sheet.png", "--sheet8", "--info", ROOT + "/carts/tape/bm.info"],
                           stdout=subprocess.DEVNULL)
-    code, out = run(host, tmp + "/bad.bm", "30 keys %d\n32 keys none\n60 shot bad\n" % (F1 + 4), tmp + "/badshots", 2)
-    check("error path: the run ends without a Lua error", code == 0 and " ok" in out)
+    badscript = script(key(30, F1 + 2) + key(40, SPACE) + key(50, KEY_U) + ["80 shot bad"])
+    code, out = run(host, tmp + "/bad.bm", badscript, tmp + "/badshots", 2)
+    check("error path: the run ends without a Lua error (Space and a live key included)", code == 0 and " ok" in out)
     im = read_png(tmp + "/badshots/bad.png")
     check("error path: the error text is on the status strip", has(colours(im, 236, 0, 520, 26)[0], HOT))
-    check("error path: the scene still draws", colours(im, 0, 28, 640, 270)[1] > 1500)
+    check("error path: the scene still draws", colours(im, 0, 54, 640, 270)[1] > 1500)
 
     print("tape render: %s (pictures in %s/shots)" % ("FAIL" if fails else "ok", tmp))
     sys.exit(1 if fails else 0)
