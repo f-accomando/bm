@@ -711,6 +711,15 @@ static uint32_t gen_simple(void)
     }
 }
 
+static uint32_t gen_slot(void)                                  /* a delay slot instruction: not a load (a load there lands at once in the recompiler) */
+{
+    for (;;) {
+        const uint32_t w = gen_simple();
+        const uint32_t op = w >> 26;
+        if (op != 0x20 && op != 0x21 && op != 0x23 && op != 0x24 && op != 0x25) return w;
+    }
+}
+
 static int build_program(uint32_t *prog, int len)               /* fills prog[0..len+1]; the end is at index len */
 {
     int k = 0;
@@ -725,11 +734,11 @@ static int build_program(uint32_t *prog, int len)               /* fills prog[0.
             const int o = ops[rndn(8)];
             const int rt = o == 1 ? rtv[rndn(4)] : rsrc();
             prog[k] = I_(o, rsrc(), rt, tgt - (k + 1));
-            prog[k + 1] = gen_simple();
+            prog[k + 1] = gen_slot();
             k += 2;
         } else if (t == 12) {                                   /* j or jal */
             prog[k] = ((rndn(2) ? 2u : 3u) << 26) | (((T_BASE + 4u * (uint32_t)tgt) & 0x0FFFFFFFu) >> 2);
-            prog[k + 1] = gen_simple();
+            prog[k + 1] = gen_slot();
             k += 2;
         } else {                                                /* jr or jalr through r13 */
             const int room = len - (k + 4);
@@ -738,13 +747,13 @@ static int build_program(uint32_t *prog, int len)               /* fills prog[0.
             prog[k] = I_(0x0F, 0, 13, a >> 16);
             prog[k + 1] = I_(0x0D, 13, 13, a & 0xFFFF);
             prog[k + 2] = rndn(2) ? R_(0, 13, 0, 0, 0, 0x08) : R_(0, 13, 0, 31, 0, 0x09);
-            prog[k + 3] = gen_simple();
+            prog[k + 3] = gen_slot();
             k += 4;
         }
     }
     while (k < len) prog[k++] = 0;                              /* nops up to the end */
-    prog[len] = 0x08000000u | (((T_BASE + 4u * (uint32_t)len) & 0x0FFFFFFFu) >> 2);   /* j end */
-    prog[len + 1] = 0;
+    for (int i = 0; i < 140; i++)                               /* past the end: j end, nop, j end, nop ...: a jump that overshoots comes back */
+        prog[len + i] = (i & 1) ? 0 : 0x08000000u | (((T_BASE + 4u * (uint32_t)len) & 0x0FFFFFFFu) >> 2);
     return len;
 }
 
@@ -756,7 +765,7 @@ static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32
     uint32_t regs_a[32], hi_a = 0, lo_a = 0;
     uint8_t data_a[0x400];
     const uint32_t end = T_BASE + 4u * (uint32_t)len;
-    memcpy(psx_ram + (T_BASE & 0x1FFFFF), prog, (size_t)(len + 2) * 4);
+    memcpy(psx_ram + (T_BASE & 0x1FFFFF), prog, (size_t)(len + 140) * 4);
     for (int pass = 0; pass < 2; pass++) {
         memcpy(psx_ram + (T_DATA & 0x1FFFFF), data0, 0x400);
         memcpy(C.r, regs0, 32 * sizeof(uint32_t));
@@ -764,7 +773,9 @@ static int run_pair(const uint32_t *prog, int len, const uint32_t *regs0, uint32
         C.pc = T_BASE; C.npc = T_BASE + 4; C.next_bd = 0; C.in_bd = 0; C.ld_r = 0; C.ld_v = 0; C.jit_exc = 0;
         psx_jit_flush_code();
         psx_jit_on = pass;                                      /* 0: the interpreter, 1: compiled code */
-        for (int steps = 0; C.pc != end && steps < 3000; steps++) psx_cpu_run(1);
+        int steps = 0;
+        for (; C.pc != end && steps < 3000; steps++) psx_cpu_run(1);
+        if (pass == 0 && C.pc != end) return -1;                 /* the program does not end (a jr back whose lui was skipped): not a test */
         if (C.ld_r) { C.r[C.ld_r] = C.ld_v; C.ld_r = 0; }       /* the interpreter stops with the last load not landed yet */
         if (pass == 0) {
             memcpy(regs_a, C.r, sizeof regs_a); hi_a = C.hi; lo_a = C.lo;
@@ -790,27 +801,28 @@ int psx_jit_selftest(int trials, char *msg, int n)
     C.cop0[12] = 0x40000000u;
     for (int t = 0; t < trials; t++) {
         rs_ = 0x1234567u + (uint32_t)t * 7919u;
-        uint32_t prog[80];
+        uint32_t prog[64 + 144];
         const int len = 24 + rndn(40);
         build_program(prog, len);
         uint8_t data0[0x400];
         for (int i = 0; i < 0x400; i++) data0[i] = (uint8_t)rnd32();
         uint32_t regs0[32], hi0 = rnd32(), lo0 = rnd32();
         for (int i = 0; i < 32; i++) regs0[i] = rnd32();
-        regs0[0] = 0; regs0[13] = 0; regs0[29] = T_DATA + 0x200;
+        regs0[0] = 0; regs0[13] = T_BASE + 4u * (uint32_t)len; regs0[29] = T_DATA;      /* the loads and stores use 0x200 +- 0x80 from it */     /* r13: the jump register; if a branch skips the lui/ori that set it, the jump goes to the end */
         int what = 0;
         uint32_t va = 0, vb = 0;
-        if (!run_pair(prog, len, regs0, hi0, lo0, data0, &what, &va, &vb)) continue;
+        const int rp = run_pair(prog, len, regs0, hi0, lo0, data0, &what, &va, &vb);
+        if (rp <= 0) continue;
         if (!bad) {
             /* the shortest prefix that still differs: the instructions after it are nops */
-            uint32_t cut[80];
+            uint32_t cut[64 + 144];
             int minl = len;
             for (int l = 1; l <= len; l++) {
                 memcpy(cut, prog, sizeof cut);
                 for (int k = l; k < len; k++) cut[k] = 0;
                 int w2 = 0;
                 uint32_t a2 = 0, b2 = 0;
-                if (run_pair(cut, len, regs0, hi0, lo0, data0, &w2, &a2, &b2)) { minl = l; what = w2; va = a2; vb = b2; break; }
+                if (run_pair(cut, len, regs0, hi0, lo0, data0, &w2, &a2, &b2) > 0) { minl = l; what = w2; va = a2; vb = b2; break; }
             }
             int k = snprintf(msg, (size_t)n, "t%d prefix %d %s%d %08x/%08x:", t, minl, what == 34 ? "data" : what == 32 ? "hi" : what == 33 ? "lo" : "r", what < 32 ? what : 0, (unsigned)va, (unsigned)vb);
             for (int j = minl - 4 < 0 ? 0 : minl - 4; j < minl && k < n - 10; j++) k += snprintf(msg + k, (size_t)(n - k), " %08x", (unsigned)prog[j]);
