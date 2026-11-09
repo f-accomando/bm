@@ -5110,8 +5110,8 @@ def test_monitor_files(b, opts):
         assert "not removed here" in out, out
         out = _prompt_line(q, "cat nosuch.txt")
         assert "not found" in out, out
-        out = _prompt_line(q, "cp note.txt toolongname.txt")
-        assert "8.3" in out, out
+        out = _prompt_line(q, "cp note.txt anamethatistoolong17.txt")
+        assert "16.3" in out, out
     finally:
         q.close()
 

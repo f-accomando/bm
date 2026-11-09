@@ -1,6 +1,6 @@
 # FAT long names (write, up to 16 characters)
 
-Status: plan. No code is written. Plan made on 2026-10-30 from a read of `src/fs/fat.c` and the tests.
+Status: implemented (2026-11-10). Plan made on 2026-10-30 from a read of `src/fs/fat.c` and the tests.
 
 ## Goal
 

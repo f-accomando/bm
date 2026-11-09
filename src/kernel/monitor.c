@@ -810,9 +810,9 @@ static const mcmd_t commands[] = {
     { .name = "cd", .args = "[PATH]", .help = "go to a folder (no path: the root)", .fn = c_cd },
     { .name = "pwd", .help = "the current folder", .fn = c_pwd },
     { .name = "cat", .args = "FILE", .help = "show a text file (the first 16 KB)", .fn = c_cat },
-    { .name = "cp", .args = "FILE TO", .help = "copy a file (a new name is 8.3)", .fn = c_cp },
+    { .name = "cp", .args = "FILE TO", .help = "copy a file (a new name is 16.3)", .fn = c_cp },
     { .name = "rm", .args = "FILE", .help = "remove a file", .fn = c_rm },
-    { .name = "mkdir", .args = "PATH", .help = "make a folder (8.3 names)", .fn = c_mkdir },
+    { .name = "mkdir", .args = "PATH", .help = "make a folder (16.3 names)", .fn = c_mkdir },
     { .name = "exit", .help = "leave the bm: prompt (back to the shell menu)", .fn = c_exit },
     /* the words of before: same syntax, same output */
     { .name = "b3d", .alias = "bench 3d" },

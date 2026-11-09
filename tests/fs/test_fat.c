@@ -517,6 +517,63 @@ static void test_lowercase(void)
     CHECK(fat_delete("/lc/lower.txt") == 0 && fat_find("/lc/lower.txt", &e) != 0);
 }
 
+static void test_lfn_16_3(void)
+{
+    fat_entry_t e;
+    fat_dir_t d;
+
+    /* 1. Rejected names (> 16 base, invalid characters, trailing space/dot) */
+    CHECK(fat_write_file("/lc", "toolongnameexceeds16.txt", "x", 1) != 0);
+    CHECK(fat_write_file("/lc", "bad*char.txt", "x", 1) != 0);
+    CHECK(fat_write_file("/lc", "trailing. ", "x", 1) != 0);
+    CHECK(fat_write_file("/lc", "trail.", "x", 1) != 0);
+    CHECK(fat_write_file("/lc", " leading.txt", "x", 1) != 0);
+
+    /* 2. Create directory with long name and spaces/parentheses */
+    CHECK(fat_mkdirs("/lc/long folder") == 0);
+    CHECK(fat_find("/lc/long folder", &e) == 0 && e.is_dir && strcmp(e.name, "long folder") == 0);
+    CHECK(fat_opendir(&d, "/lc/long folder") == 0);
+
+    /* 3. Write files with 16.3 names */
+    CHECK(fat_write_file("/lc/long folder", "hunter_lo.bmm", "hunter data", 11) == 0);
+    CHECK(fat_write_file("/lc/long folder", "Il mio gioco.bm", "game data", 9) == 0);
+    CHECK(fat_write_file("/lc/long folder", "File (1).txt", "paren data", 10) == 0);
+
+    /* 4. Read back by long name */
+    CHECK(read_back("/lc/long folder/hunter_lo.bmm", (const uint8_t *)"hunter data", 11));
+    CHECK(read_back("/lc/long folder/Il mio gioco.bm", (const uint8_t *)"game data", 9));
+    CHECK(read_back("/lc/long folder/File (1).txt", (const uint8_t *)"paren data", 10));
+
+    /* 5. Lookup by 8.3 alias */
+    CHECK(fat_find("/lc/long folder/hunter_lo.bmm", &e) == 0);
+    CHECK(e.alias[0] != 0);
+    char alias_path[64];
+    ksnprintf(alias_path, sizeof alias_path, "/lc/long folder/%s", e.alias);
+    CHECK(read_back(alias_path, (const uint8_t *)"hunter data", 11));
+
+    /* 6. Replace content of long name file */
+    CHECK(fat_replace("/lc/long folder/hunter_lo.bmm", "updated hunter", 14) == 0);
+    CHECK(read_back("/lc/long folder/hunter_lo.bmm", (const uint8_t *)"updated hunter", 14));
+
+    /* 7. Directory readdir lists the long name and alias */
+    CHECK(fat_opendir(&d, "/lc/long folder") == 0);
+    int found_hunter = 0, found_game = 0;
+    while (fat_readdir(&d, &e)) {
+        if (strcmp(e.name, "hunter_lo.bmm") == 0) {
+            found_hunter = 1;
+            CHECK(strncmp(e.alias, "HUNTER", 6) == 0);
+        }
+        if (strcmp(e.name, "Il mio gioco.bm") == 0) found_game = 1;
+    }
+    CHECK(found_hunter == 1 && found_game == 1);
+
+    /* 8. Delete by long name and delete by alias */
+    CHECK(fat_delete("/lc/long folder/File (1).txt") == 0);
+    CHECK(fat_find("/lc/long folder/File (1).txt", &e) != 0);
+    CHECK(fat_delete(alias_path) == 0);
+    CHECK(fat_find("/lc/long folder/hunter_lo.bmm", &e) != 0);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) {
@@ -557,6 +614,7 @@ int main(int argc, char **argv)
     test_project();
     test_clock();
     test_lowercase();
+    test_lfn_16_3();
 
     /* 200 files: the directory grows over several clusters */
     for (int i = 0; i < 200; i++) {

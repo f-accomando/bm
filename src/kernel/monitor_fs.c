@@ -1,7 +1,7 @@
 /*
  * The file commands of the bm> prompt: ls, cd, pwd, cat, cp, rm, mkdir (SYS-19, step 2).
  * They use fat.h on the SD card. A word is a path from the current folder, or from the
- * root when it starts with '/'. A new name is an 8.3 name (fat.h).
+ * root when it starts with '/'. A new name is a 16.3 name (fat.h).
  */
 #include "monitor_fs.h"
 #include "fs/fat.h"
@@ -255,7 +255,7 @@ int mfs_mkdir(int argc, char **argv)
     if (path_of(argv[1], path, sizeof path))
         return 1;
     if (fat_mkdirs(path) != 0) {
-        kprintf("mkdir: %s: %s (a name is 8.3)\n", path, fat_error());
+        kprintf("mkdir: %s: %s (a name is 16.3)\n", path, fat_error());
         return 1;
     }
     return 0;
@@ -320,7 +320,7 @@ int mfs_cp(int argc, char **argv)
     }
     free(data);
     if (r != 0) {
-        kprintf("cp: %s: %s (a new name is 8.3)\n", to, fat_error());
+        kprintf("cp: %s: %s (a new name is 16.3)\n", to, fat_error());
         return 1;
     }
     kprintf("copied %lu bytes to %s\n", (unsigned long)len, to);

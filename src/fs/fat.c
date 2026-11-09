@@ -221,6 +221,15 @@ static int name_eq(const char *a, const char *b, size_t n)
     return b[n] == 0;
 }
 
+static int entry_matches(const fat_entry_t *e, const char *name, size_t n)
+{
+    if (name_eq(name, e->name, n))
+        return 1;
+    if (e->alias[0] && name_eq(name, e->alias, n))
+        return 1;
+    return 0;
+}
+
 int fat_opendir(fat_dir_t *d, const char *path)
 {
     if (!vol.mounted) {
@@ -236,7 +245,7 @@ int fat_opendir(fat_dir_t *d, const char *path)
         fat_entry_t e;
         int found = 0;
         while (fat_readdir(d, &e)) {
-            if (e.is_dir && name_eq(path, e.name, n)) {
+            if (e.is_dir && entry_matches(&e, path, n)) {
                 found = 1;
                 break;
             }
@@ -324,6 +333,15 @@ int fat_readdir(fat_dir_t *d, fat_entry_t *e)
             }
         }
         e->name[n] = 0;
+        size_t an = 0;
+        for (int i = 0; i < 8 && de[i] != ' '; i++)
+            e->alias[an++] = (char)de[i];
+        if (de[8] != ' ') {
+            e->alias[an++] = '.';
+            for (int i = 8; i < 11 && de[i] != ' '; i++)
+                e->alias[an++] = (char)de[i];
+        }
+        e->alias[an] = 0;
         e->dir_lba = lba;
         e->dir_off = (uint16_t)(de - s);
         e->is_dir = (de[11] & 0x10) != 0;
@@ -429,7 +447,7 @@ int fat_find(const char *path, fat_entry_t *e)
     if (fat_opendir(&d, dir) != 0)
         return -1;
     while (fat_readdir(&d, e))
-        if (name_eq(name, e->name, strlen(name)))
+        if (entry_matches(e, name, strlen(name)))
             return 0;
     err = "file not found";
     return -1;
@@ -652,43 +670,184 @@ static int zero_cluster(uint32_t c)
     return 0;
 }
 
-/* "config.txt" -> "CONFIG  TXT"; -1 if not a valid 8.3 name. A new name is
- * always written in lowercase, whatever case the caller gives: `g_nt` (byte
- * 12 of the entry) gets 0x08 when the base has a letter and 0x10 when the
- * extension has one. The stored short name stays in capitals, as FAT needs;
- * Windows, Linux and the console show the name in lowercase. */
-static uint8_t g_nt;                    /* the flags of the last to_83 */
-
-static int to_83(const char *name, uint8_t out[11])
+/* 16.3 filename rule (D1):
+ * Base 1 to 16 characters, optional dot, extension 0 to 3 characters.
+ * Allowed: 'A'-'Z', 'a'-'z', '0'-'9', ' ', '_', '-', '~', '(', ')'.
+ * No leading or trailing space or dot. No byte >= 0x80. */
+static int check_163(const char *name, size_t *out_blen, size_t *out_elen)
 {
-    int let_b = 0, let_e = 0;
-    g_nt = 0;
-    memset(out, ' ', 11);
-    int i = 0, n = 0;
-    for (; name[i] && name[i] != '.'; i++, n++) {
-        if (n >= 8) return -1;
-        out[n] = (uint8_t)name[i];
-    }
-    if (n == 0) return -1;
-    if (name[i] == '.') {
-        i++;
-        for (n = 0; name[i]; i++, n++) {
-            if (n >= 3 || name[i] == '.') return -1;
-            out[8 + n] = (uint8_t)name[i];
-        }
-    }
-    for (int k = 0; k < 11; k++) {
-        uint8_t ch = out[k];
-        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
-            if (k < 8) let_b = 1; else let_e = 1;
-        }
-        if (ch >= 'a' && ch <= 'z') out[k] = (uint8_t)(ch - 32);
-        else if (!((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' ||
-                   ch == '-' || ch == ' ' || ch == '~'))
+    if (!name || !*name) return -1;
+    if (name[0] == ' ' || name[0] == '.') return -1;
+
+    size_t blen = 0;
+    while (name[blen] && name[blen] != '.') {
+        unsigned char c = (unsigned char)name[blen];
+        if (c >= 0x80) return -1;
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+              c == ' ' || c == '_' || c == '-' || c == '~' || c == '(' || c == ')'))
             return -1;
+        blen++;
     }
-    g_nt = (uint8_t)((let_b ? 0x08 : 0) | (let_e ? 0x10 : 0));
+    if (blen < 1 || blen > 16) return -1;
+    if (name[blen - 1] == ' ') return -1;
+
+    size_t elen = 0;
+    if (name[blen] == '.') {
+        size_t p = blen + 1;
+        if (!name[p]) return -1;
+        if (name[p] == ' ') return -1;
+        while (name[p]) {
+            unsigned char c = (unsigned char)name[p];
+            if (c >= 0x80 || c == '.') return -1;
+            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                  c == ' ' || c == '_' || c == '-' || c == '~' || c == '(' || c == ')'))
+                return -1;
+            p++;
+            elen++;
+        }
+        if (elen > 3 || name[blen + 1 + elen - 1] == ' ') return -1;
+    }
+
+    if (out_blen) *out_blen = blen;
+    if (out_elen) *out_elen = elen;
     return 0;
+}
+
+/* Strict 8.3 check (D2):
+ * Base 1..8 chars, ext 0..3 chars, no spaces, no parens, only strict 8.3 chars.
+ * A name that fits strict 8.3 stays one 8.3 entry with lowercase flags (as today). */
+static int is_strict_83(const char *name, size_t blen, size_t elen, uint8_t sfn[11], uint8_t *out_nt)
+{
+    if (blen > 8 || elen > 3) return 0;
+
+    int let_b = 0, let_e = 0;
+    for (size_t i = 0; i < blen; i++) {
+        char c = name[i];
+        if (c == ' ' || c == '(' || c == ')') return 0;
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) let_b = 1;
+        else if (!((c >= '0' && c <= '9') || c == '_' || c == '-' || c == '~')) return 0;
+    }
+
+    if (elen > 0) {
+        const char *ep = name + blen + 1;
+        for (size_t i = 0; i < elen; i++) {
+            char c = ep[i];
+            if (c == ' ' || c == '(' || c == ')') return 0;
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) let_e = 1;
+            else if (!((c >= '0' && c <= '9') || c == '_' || c == '-' || c == '~')) return 0;
+        }
+    }
+
+    memset(sfn, ' ', 11);
+    for (size_t i = 0; i < blen; i++) {
+        char c = name[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        sfn[i] = (uint8_t)c;
+    }
+    if (elen > 0) {
+        const char *ep = name + blen + 1;
+        for (size_t i = 0; i < elen; i++) {
+            char c = ep[i];
+            if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+            sfn[8 + i] = (uint8_t)c;
+        }
+    }
+
+    *out_nt = (uint8_t)((let_b ? 0x08 : 0) | (let_e ? 0x10 : 0));
+    return 1;
+}
+
+static int sfn_exists(uint32_t dcluster, const uint8_t sfn[11])
+{
+    fat_dir_t d = { dcluster, 0 };
+    for (;;) {
+        uint32_t lba = dir_entry_lba(&d, d.index);
+        if (!lba) break;
+        const uint8_t *s = sector(lba);
+        if (!s) break;
+        uint32_t off = (d.index % 16) * 32;
+        const uint8_t *de = s + off;
+        if (de[0] == 0x00) break;
+        if (de[0] != 0xE5 && de[11] != 0x0F && !(de[11] & 0x08)) {
+            if (memcmp(de, sfn, 11) == 0)
+                return 1;
+        }
+        d.index++;
+    }
+    return 0;
+}
+
+/* 8.3 alias generator (D3):
+ * Uppercase, strip spaces/dots, non-8.3 chars -> '_', base = chars + ~N (1..99). */
+static int make_alias(uint32_t dcluster, const char *name, size_t blen, size_t elen, uint8_t out_sfn[11])
+{
+    char clean_base[16];
+    size_t cb_len = 0;
+    for (size_t i = 0; i < blen; i++) {
+        char c = name[i];
+        if (c == ' ' || c == '.') continue;
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        else if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '~'))
+            c = '_';
+        clean_base[cb_len++] = c;
+    }
+    if (cb_len == 0) clean_base[cb_len++] = '_';
+
+    uint8_t ext[3] = { ' ', ' ', ' ' };
+    if (elen > 0) {
+        const char *ep = name + blen + 1;
+        for (size_t i = 0; i < elen && i < 3; i++) {
+            char c = ep[i];
+            if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+            else if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '~'))
+                c = '_';
+            ext[i] = (uint8_t)c;
+        }
+    }
+
+    for (int num = 1; num <= 99; num++) {
+        char numstr[8];
+        int nlen = ksnprintf(numstr, sizeof numstr, "~%d", num);
+        int max_base = 8 - nlen;
+        if (max_base < 1) max_base = 1;
+        int take_base = (int)cb_len < max_base ? (int)cb_len : max_base;
+
+        memset(out_sfn, ' ', 11);
+        memcpy(out_sfn, clean_base, take_base);
+        memcpy(out_sfn + take_base, numstr, nlen);
+        memcpy(out_sfn + 8, ext, 3);
+
+        if (!sfn_exists(dcluster, out_sfn))
+            return 0;
+    }
+    err = "too many similar names";
+    return -1;
+}
+
+static const uint8_t lfn_offs[13] = { 1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30 };
+
+static void build_lfn_entry(uint8_t de[32], int seq, int is_last, uint8_t checksum, const char *name, size_t name_len)
+{
+    memset(de, 0, 32);
+    de[0] = (uint8_t)(seq | (is_last ? 0x40 : 0));
+    de[11] = 0x0F;
+    de[12] = 0x00;
+    de[13] = checksum;
+    de[26] = 0x00;
+    de[27] = 0x00;
+
+    size_t start_char = (size_t)(seq - 1) * 13;
+    for (int i = 0; i < 13; i++) {
+        size_t cidx = start_char + i;
+        uint16_t u16;
+        if (cidx < name_len)
+            u16 = (uint8_t)name[cidx];
+        else if (cidx == name_len)
+            u16 = 0x0000;
+        else
+            u16 = 0xFFFF;
+        wr16(de + lfn_offs[i], u16);
+    }
 }
 
 #define FAT_DATE_FIXED ((2026 - 1980) << 9 | 1 << 5 | 1)   /* no clock: 2026-01-01 */
@@ -766,35 +925,81 @@ static int dir_cluster(const char *dir, uint32_t *cluster)
     return 0;
 }
 
-/* Puts a 32-byte entry in the first free slot of the directory, growing
- * it by one cluster if needed. */
-static int add_entry(uint32_t dcluster, const uint8_t de[32])
+/* Puts count 32-byte entries in contiguous free slots of the directory,
+ * growing it by one cluster if needed. D4: writes long pieces first, short entry last. */
+static int add_entries(uint32_t dcluster, const uint8_t *des, int count)
 {
     fat_dir_t d = { dcluster, 0 };
+    uint32_t start_idx = 0;
+    int found_count = 0;
+
     for (;;) {
         uint32_t lba = dir_entry_lba(&d, d.index);
-        if (!lba)
-            break;
+        if (!lba) {
+            if (dcluster == 0) {
+                err = "root directory full";
+                return -1;
+            }
+            uint32_t last = dcluster, c;
+            while (!is_eoc(c = next_cluster(last)))
+                last = c;
+            uint32_t nc;
+            if (pick_free(&nc, 1) || zero_cluster(nc) || set_fat(nc, eoc()) || set_fat(last, nc))
+                return -1;
+            lba = dir_entry_lba(&d, d.index);
+            if (!lba) return -1;
+        }
         const uint8_t *s = sector(lba);
-        if (!s)
-            return -1;
+        if (!s) return -1;
         uint32_t off = (d.index % 16) * 32;
-        if (s[off] == 0x00 || s[off] == 0xE5)
-            return patch_sector(lba, off, de, 32);
+        if (s[off] == 0x00 || s[off] == 0xE5) {
+            if (found_count == 0)
+                start_idx = d.index;
+            found_count++;
+            if (found_count == count)
+                break;
+        } else {
+            found_count = 0;
+        }
         d.index++;
     }
-    if (dcluster == 0) {
-        err = "root directory full";
-        return -1;
+
+    /* D4: Write long pieces first, short entry last. */
+    for (int i = 0; i < count - 1; i++) {
+        uint32_t idx = start_idx + (uint32_t)i;
+        uint32_t lba = dir_entry_lba(&d, idx);
+        uint32_t off = (idx % 16) * 32;
+        if (patch_sector(lba, off, des + i * 32, 32))
+            return -1;
     }
-    /* last cluster of the directory, then a new zeroed one after it */
-    uint32_t last = dcluster, c;
-    while (!is_eoc(c = next_cluster(last)))
-        last = c;
-    uint32_t nc;
-    if (pick_free(&nc, 1) || zero_cluster(nc) || set_fat(nc, eoc()) || set_fat(last, nc))
+    uint32_t last_idx = start_idx + (uint32_t)(count - 1);
+    uint32_t last_lba = dir_entry_lba(&d, last_idx);
+    uint32_t last_off = (last_idx % 16) * 32;
+    return patch_sector(last_lba, last_off, des + (count - 1) * 32, 32);
+}
+
+static int add_named_entry(uint32_t dcluster, const char *name, size_t blen, size_t elen,
+                           uint8_t attr, uint32_t cluster, uint32_t size)
+{
+    uint8_t sfn[11];
+    uint8_t nt = 0;
+    if (is_strict_83(name, blen, elen, sfn, &nt)) {
+        uint8_t de[32];
+        make_entry(de, sfn, attr, cluster, size, nt);
+        return add_entries(dcluster, de, 1);
+    }
+    if (make_alias(dcluster, name, blen, elen, sfn))
         return -1;
-    return patch_sector(cluster_lba(nc), 0, de, 32);
+    size_t nlen = strlen(name);
+    int k = (int)((nlen + 12) / 13);
+    uint8_t des[3 * 32];
+    uint8_t sum = lfn_checksum(sfn);
+    for (int i = 0; i < k; i++) {
+        int seq = k - i;
+        build_lfn_entry(des + i * 32, seq, seq == k, sum, name, nlen);
+    }
+    make_entry(des + k * 32, sfn, attr, cluster, size, 0);
+    return add_entries(dcluster, des, k + 1);
 }
 
 int fat_mkdirs(const char *path)
@@ -825,20 +1030,19 @@ int fat_mkdirs(const char *path)
         fat_dir_t d;
         if (fat_opendir(&d, sofar) == 0)
             continue;                           /* already there */
-        uint8_t name[11];
-        char comp[16];
+        char comp[32];
         if (n >= sizeof comp) {
-            err = "not an 8.3 name";
+            err = "not a 16.3 name";
             return -1;
         }
         memcpy(comp, sofar + len - n, n);
         comp[n] = 0;
-        uint32_t pc, nc;
-        if (to_83(comp, name)) {
-            err = "not an 8.3 name";
+        size_t blen, elen;
+        if (check_163(comp, &blen, &elen)) {
+            err = "not a 16.3 name";
             return -1;
         }
-        const uint8_t nt = g_nt;
+        uint32_t pc, nc;
         if (fsinfo_unknown() || dir_cluster(parent, &pc) || pick_free(&nc, 1) || zero_cluster(nc))
             return -1;
         uint8_t dot[64];
@@ -846,9 +1050,8 @@ int fat_mkdirs(const char *path)
         static const uint8_t n_dotdot[11] = { '.', '.', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
         make_entry(dot, n_dot, 0x10, nc, 0, 0);
         make_entry(dot + 32, n_dotdot, 0x10, pc == vol.root_cluster ? 0 : pc, 0, 0);
-        uint8_t de[32];
-        make_entry(de, name, 0x10, nc, 0, nt);
-        if (patch_sector(cluster_lba(nc), 0, dot, 64) || set_fat(nc, eoc()) || add_entry(pc, de))
+        if (patch_sector(cluster_lba(nc), 0, dot, 64) || set_fat(nc, eoc()) ||
+            add_named_entry(pc, comp, blen, elen, 0x10, nc, 0))
             return -1;
     }
     return 0;
@@ -911,7 +1114,7 @@ static int locate(const char *path, const char *dir, const char *name, fat_entry
     fat_dir_t d;
     dir_open_cluster(&d, *dc);
     while (fat_readdir(&d, e))
-        if (!e->is_dir && name_eq(name, e->name, strlen(name)))
+        if (!e->is_dir && entry_matches(e, name, strlen(name)))
             return 1;
     return 0;
 }
@@ -922,14 +1125,14 @@ static int locate(const char *path, const char *dir, const char *name, fat_entry
  *      one cluster without runs): the CPU may go back to the menu, nonzero
  *      stops (the chain released, the old file as it was)
  *   3. with no tick from here, the file looked up again (locate): its
- *      entry points at the new chain, or a new entry `n83`
+ *      entry points at the new chain, or a new entry (16.3 / LFN or strict 8.3)
  *   4. the old chain released last.
  * A power cut leaves the old file or the new one, at worst lost clusters
  * too. Another writer (the menu's settings, another fiber) may come in at
  * a tick: no cluster is ever free in the FAT while one of the two owns it,
  * and the directory is read and changed in one go. */
-static int store(const char *path, const char *dir, const char *name, const uint8_t n83[11],
-                 uint8_t nt, const void *data, size_t len)
+static int store(const char *path, const char *dir, const char *name,
+                 const void *data, size_t len)
 {
     const uint32_t csize = vol.spc * 512;
     const uint32_t n = (uint32_t)((len + csize - 1) / csize);
@@ -1007,9 +1210,9 @@ static int store(const char *path, const char *dir, const char *name, const uint
         if (patch_sector(e.dir_lba, e.dir_off + 20, f, 12))
             goto out;
     } else {
-        uint8_t de[32];
-        make_entry(de, n83, 0x20, first, (uint32_t)len, nt);
-        if (add_entry(dc, de))
+        size_t blen, elen;
+        check_163(name, &blen, &elen);
+        if (add_named_entry(dc, name, blen, elen, 0x20, first, (uint32_t)len))
             goto out;
     }
     ours = 0;
@@ -1029,20 +1232,19 @@ out:
 
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
 {
-    uint8_t n83[11];
     if (!vol.mounted) {
         err = "not mounted";
         return -1;
     }
-    if (to_83(name, n83)) {
-        err = "not an 8.3 name";
+    size_t blen, elen;
+    if (check_163(name, &blen, &elen)) {
+        err = "not a 16.3 name";
         return -1;
     }
-    const uint8_t nt = g_nt;
     uint32_t dc;
     if (dir_cluster(dir, &dc))
         return -1;
-    return store(NULL, dir, name, n83, nt, data, len);
+    return store(NULL, dir, name, data, len);
 }
 
 int fat_replace(const char *path, const void *data, size_t len)
@@ -1058,7 +1260,7 @@ int fat_replace(const char *path, const void *data, size_t len)
         err = "a directory";
         return -1;
     }
-    return store(path, NULL, NULL, NULL, 0, data, len);
+    return store(path, NULL, NULL, data, len);
 }
 
 int fat_delete(const char *path)
@@ -1087,7 +1289,7 @@ int fat_delete(const char *path)
             err = "file not found";
             return -1;
         }
-        if (!name_eq(name, e.name, strlen(name)))
+        if (!entry_matches(&e, name, strlen(name)))
             continue;
         if (e.is_dir) {
             err = "a directory";

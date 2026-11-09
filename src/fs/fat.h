@@ -11,9 +11,11 @@
 #include <stdint.h>
 
 #define FAT_NAME_MAX 128
+#define FAT_WNAME_MAX 21
 
 typedef struct {
     char name[FAT_NAME_MAX];    /* long name if present, else 8.3; ASCII */
+    char alias[13];             /* 8.3 short name (e.g. "HUNTER~1.BMM"); ASCII */
     uint32_t size;
     uint32_t cluster;
     int is_dir;
