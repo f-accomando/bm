@@ -48,7 +48,7 @@ KEYWORDS = {
     "function", "local", "for", "do", "while", "end",
     "if", "then", "elseif", "else", "return", "break",
     "and", "or", "not", "true", "false", "struct",
-    "const", "enum",
+    "const", "enum", "switch", "case", "default",
 }
 
 TYPES = ("i32", "bool", "f32", "string")
@@ -299,6 +299,20 @@ class IfBranch:
 class IfStmt(Stmt):
     branches: List[IfBranch]
     else_body: Optional[List[Stmt]]
+
+
+@dataclass
+class SwitchCase:
+    line: int
+    val: Expr
+    body: List[Stmt]
+
+
+@dataclass
+class SwitchStmt(Stmt):
+    expr: Expr
+    cases: List[SwitchCase]
+    default_body: Optional[List[Stmt]]
 
 
 @dataclass
@@ -726,6 +740,46 @@ class Parser:
             if t.text == "break":
                 self.i += 1
                 return BreakStmt(t.line)
+            if t.text == "switch":
+                self.i += 1
+                switch_id = getattr(self, "_switch_counter", 0) + 1
+                self._switch_counter = switch_id
+                sw_var = f"__sw_{switch_id}"
+                self.cuts.append((t.start, t.end, f"local {sw_var} = ("))
+                cond = self.parse_expr()
+                do_tok = self.accept("do")
+                if do_tok:
+                    self.cuts.append((do_tok.start, do_tok.end, "); if false then"))
+                else:
+                    last_cond = self.toks[self.i - 1]
+                    self.cuts.append((last_cond.end, last_cond.end, "); if false then"))
+                cases: List[SwitchCase] = []
+                while self.cur().kind == "kw" and self.cur().text == "case":
+                    case_tok = self.expect("case")
+                    self.cuts.append((case_tok.start, case_tok.end, f"elseif {sw_var} == ("))
+                    val_e = self.parse_expr()
+                    then_tok = self.accept("then")
+                    if not then_tok:
+                        then_tok = self.accept(":")
+                    if then_tok:
+                        self.cuts.append((then_tok.start, then_tok.end, ") then"))
+                    else:
+                        last_val = self.toks[self.i - 1]
+                        self.cuts.append((last_val.end, last_val.end, ") then"))
+                    body = self.parse_block({"case", "default", "else", "end"})
+                    cases.append(SwitchCase(case_tok.line, val_e, body))
+                default_body: Optional[List[Stmt]] = None
+                def_tok = self.accept("default")
+                if not def_tok:
+                    def_tok = self.accept("else")
+                if def_tok:
+                    self.cuts.append((def_tok.start, def_tok.end, "else"))
+                    then_tok = self.accept("then") or self.accept(":")
+                    if then_tok:
+                        self.cuts.append((then_tok.start, then_tok.end))
+                    default_body = self.parse_block({"end"})
+                self.expect("end")
+                return SwitchStmt(t.line, cond, cases, default_body)
 
         if t.kind == "name":
             ident = self.expect_name()
@@ -1034,6 +1088,9 @@ class TypeChecker:
             if isinstance(s, IfStmt) and s.else_body is not None:
                 if all(self.block_always_returns(b.body) for b in s.branches) and self.block_always_returns(s.else_body):
                     return True
+            if isinstance(s, SwitchStmt) and s.default_body is not None:
+                if all(self.block_always_returns(c.body) for c in s.cases) and self.block_always_returns(s.default_body):
+                    return True
         return False
 
     def check_block(self, stmts: List[Stmt], stmt_line: int) -> None:
@@ -1116,6 +1173,19 @@ class TypeChecker:
                 self.check_block(br.body, br.line)
             if s.else_body is not None:
                 self.check_block(s.else_body, s.line)
+            return
+
+        if isinstance(s, SwitchStmt):
+            et = self.check_expr(s.expr, s.line)
+            if et not in ("i32", "bool", "string"):
+                self.fail(s.line, f"switch expression must be i32, bool, or string, not {et}")
+            for c in s.cases:
+                vt = self.check_expr(c.val, c.line)
+                if vt != et:
+                    self.fail(c.line, f"case type {vt} does not match switch type {et}")
+                self.check_block(c.body, c.line)
+            if s.default_body is not None:
+                self.check_block(s.default_body, s.line)
             return
 
         if isinstance(s, WhileStmt):
@@ -1628,6 +1698,26 @@ class BytecodeCompiler:
                 self.patch(jz, self.here())
             if s.else_body is not None:
                 self.compile_block(s.else_body)
+            end_pc = self.here()
+            for j in end_jumps:
+                self.patch(j, end_pc)
+            return
+
+        if isinstance(s, SwitchStmt):
+            self.compile_expr(s.expr)
+            tmp_slot = self.alloc_slot(f"$sw_{self.here()}")
+            self.emit("STORE", tmp_slot)
+            end_jumps: List[int] = []
+            for c in s.cases:
+                self.emit("LOAD", tmp_slot)
+                self.compile_expr(c.val)
+                self.emit("EQ")
+                jz_next = self.emit("JZ", 0)
+                self.compile_block(c.body)
+                end_jumps.append(self.emit("JMP", 0))
+                self.patch(jz_next, self.here())
+            if s.default_body is not None:
+                self.compile_block(s.default_body)
             end_pc = self.here()
             for j in end_jumps:
                 self.patch(j, end_pc)

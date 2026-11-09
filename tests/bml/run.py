@@ -1039,6 +1039,9 @@ vm_s6_out.append(str(tm_vm.call("test_compound_ops", [10])))
 vm_s6_out.append(str(tm_vm.call("test_compound_struct_array", [vec_c, arr_c, 1])))
 vm_s6_out.append(str(tm_vm.call("test_struct_ptr", [100])))
 vm_s6_out.append(str(tm_vm.call("test_arr_ptr", [200, 5])))
+vm_s6_out.append(str(tm_vm.call("test_switch_case", [2, 5])))
+vm_s6_out.append(str(tm_vm.call("test_switch_case", [0, 5])))
+vm_s6_out.append(str(tm_vm.call("test_switch_case", [99, 5])))
 
 # 8b. Plain Lua reference oracle (with 32-bit wrap helper for wrap_add/wrap_mul)
 s6_lua_ref_path = os.path.join(BUILD, "stage6_ref.lua")
@@ -1094,6 +1097,9 @@ print(test_compound_ops(10))
 print(test_compound_struct_array(vec_c, arr_c, 1))
 print(test_struct_ptr(100))
 print(test_arr_ptr(200, 5))
+print(test_switch_case(2, 5))
+print(test_switch_case(0, 5))
+print(test_switch_case(99, 5))
 """)
 
 lua_s6_out = subprocess.check_output([LUAHOST, s6_lua_ref_path], text=True).strip().splitlines()
@@ -1176,6 +1182,9 @@ print(native_run(mn, "test_compound_ops", 10))
 print(native_run(mn, "test_compound_struct_array", vec_c, arr_c, 1))
 print(native_run(mn, "test_struct_ptr", 100))
 print(native_run(mn, "test_arr_ptr", 200, 5))
+print(native_run(mn, "test_switch_case", 2, 5))
+print(native_run(mn, "test_switch_case", 0, 5))
+print(native_run(mn, "test_switch_case", 99, 5))
 """)
 
 s6_luahost_out = subprocess.check_output([native_luahost_bin, s6_luahost_script], text=True).strip().splitlines()
@@ -1387,6 +1396,19 @@ void c_main(void)
         static int32_t s_arr_buf[64];
         int32_t a[2] = {{(int32_t)(uintptr_t)s_arr_buf, 5}};
         bmnative_call(m, bmnative_find(m, "test_arr_ptr"), a, 2, &r);
+        put_i32(r);
+    }}
+
+    /* 15. test_switch_case */
+    {{
+        int32_t a[2] = {{2, 5}};
+        bmnative_call(m, bmnative_find(m, "test_switch_case"), a, 2, &r);
+        put_i32(r);
+        a[0] = 0; a[1] = 5;
+        bmnative_call(m, bmnative_find(m, "test_switch_case"), a, 2, &r);
+        put_i32(r);
+        a[0] = 99; a[1] = 5;
+        bmnative_call(m, bmnative_find(m, "test_switch_case"), a, 2, &r);
         put_i32(r);
     }}
 }}
@@ -2219,6 +2241,9 @@ print(native_run(m_tm, "test_compound_ops", 10))
 print(native_run(m_tm, "test_compound_struct_array", vec_c, arr_c, 1))
 print(native_run(m_tm, "test_struct_ptr", 100))
 print(native_run(m_tm, "test_arr_ptr", 200, 5))
+print(native_run(m_tm, "test_switch_case", 2, 5))
+print(native_run(m_tm, "test_switch_case", 0, 5))
+print(native_run(m_tm, "test_switch_case", 99, 5))
 
 -- 5. Compile kernel_fn.b (Stage 7: cls, pix, rectfill, spr, btn) in C via native_compile
 local kf_blob = assert(native_compile(read_text({kf_path!r})))

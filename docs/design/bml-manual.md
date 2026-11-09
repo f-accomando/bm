@@ -148,6 +148,25 @@ The `.b` language supports zero-overhead typed pointers and memory views for bar
 - **Array pointer / memory view**: `local arr: i32[] = addr` or `local farr: f32[] = addr`. Element accesses (`arr[i] = val`) compile directly to `*(addr + (i - 1) * 4)`.
 - **Lua compatibility**: In plain Lua (`to_lua`), struct constructors and `__bml_arr` proxy tables map field and index accesses transparently to `peek4`/`poke4` when passed an integer memory address.
 
+### 3.4.3 Switch Statements and Enum Matching
+
+The `.b` language supports structured multi-way branching via `switch / case / default`:
+
+```lua
+switch expr do
+case val1 then
+    -- statements
+case val2 then
+    -- statements
+default
+    -- fallback statements
+end
+```
+
+- **Semantics**: Evaluates `expr` exactly once and jumps to the matching `case` block without accidental fall-through. Both `default` and `else` are accepted for the fallback clause.
+- **ARMv6 Native**: Compiles single-pass in `bmlc.c` into efficient conditional branches (`CMP` + `BNE` + `B exit`) without jump tables overhead for small-to-medium branches.
+- **Lua Desugaring**: In `to_lua`, cleanly desugars into `local __sw = (expr); if false then elseif __sw == (val1) then ... else ... end`, preserving line numbers and error tracking.
+
 ### 3.5 Built-in Functions
 
 - Math & Conversion:

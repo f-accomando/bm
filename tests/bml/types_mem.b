@@ -193,4 +193,26 @@ function test_arr_ptr(base: i32, n: i32): i32
   return sum
 end
 
+enum Action
+  STOP = 0
+  RUN = 1
+  JUMP = 2
+end
+
+function test_switch_case(act: i32, speed: i32): i32
+  local result: i32 = 0
+  switch act do
+  case Action.STOP then
+    result = 0
+  case Action.RUN then
+    result = speed * 2
+  case Action.JUMP then
+    result = speed * 3 + 10
+  default
+    result = -1
+  end
+  return result
+end
+
+
 

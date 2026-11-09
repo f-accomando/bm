@@ -334,7 +334,7 @@ static int is_keyword(const char *p, size_t n)
         "function", "local", "for", "do", "while", "end",
         "if", "then", "elseif", "else", "return", "break",
         "and", "or", "not", "true", "false", "struct",
-        "const", "enum"
+        "const", "enum", "switch", "case", "default"
     };
     for (size_t i = 0; i < sizeof kws / sizeof kws[0]; i++) {
         if (strlen(kws[i]) == n && memcmp(p, kws[i], n) == 0)
@@ -1368,6 +1368,7 @@ static int is_block_stop(const token_t *t, int stop_mask)
     if ((stop_mask & 1) && tok_eq(t, "end"))    return 1;
     if ((stop_mask & 2) && tok_eq(t, "elseif")) return 1;
     if ((stop_mask & 4) && tok_eq(t, "else"))   return 1;
+    if ((stop_mask & 8) && (tok_eq(t, "case") || tok_eq(t, "default"))) return 1;
     return 0;
 }
 
@@ -1630,6 +1631,56 @@ static int compile_stmt(bmlc_ctx_t *C)
                 c_fail(C, line, "too many breaks in loop");
             C->break_patches[d][C->nbreaks[d]++] = emit_op(C, OP_JMP, 0, line);
             return 0;
+        }
+        if (tok_eq(t, "switch")) {
+            C->ti++;
+            uint8_t st = compile_expr(C, line);
+            if (st != BMN_I32 && st != BMN_BOOL)
+                c_fail(C, line, "switch expression must be i32 or bool");
+            accept_tok(C, "do");
+
+            int tmp_slot = alloc_local(C, "$sw", st, line);
+            C->scope_active[tmp_slot] = 0;
+            emit_op(C, OP_STORE, tmp_slot, line);
+
+            int end_jumps[64];
+            int n_end_jumps = 0;
+            int all_ret = 1;
+
+            while (cur_tok(C)->kind == TK_KW && tok_eq(cur_tok(C), "case")) {
+                int cline = cur_tok(C)->line;
+                C->ti++;
+                emit_op(C, OP_LOAD, tmp_slot, cline);
+                uint8_t vt = compile_expr(C, cline);
+                if (vt != st)
+                    c_fail(C, cline, "case value type mismatch");
+                emit_op(C, OP_EQ, 0, cline);
+                if (!accept_tok(C, "then"))
+                    accept_tok(C, ":");
+                int jz_next = emit_op(C, OP_JZ, 0, cline);
+                int br_ret = compile_block(C, 1 | 2 | 4 | 8);
+                all_ret = all_ret && br_ret;
+                if (n_end_jumps < 64)
+                    end_jumps[n_end_jumps++] = emit_op(C, OP_JMP, 0, cline);
+                patch_jump(C, jz_next, here_pc(C));
+            }
+
+            int has_default = 0;
+            if (cur_tok(C)->kind == TK_KW && (tok_eq(cur_tok(C), "default") || tok_eq(cur_tok(C), "else"))) {
+                has_default = 1;
+                C->ti++;
+                if (!accept_tok(C, "then"))
+                    accept_tok(C, ":");
+                int def_ret = compile_block(C, 1);
+                all_ret = all_ret && def_ret;
+            } else {
+                all_ret = 0;
+            }
+            expect_tok(C, "end");
+            int after = here_pc(C);
+            for (int i = 0; i < n_end_jumps; i++)
+                patch_jump(C, end_jumps[i], after);
+            return has_default && all_ret;
         }
     }
 
