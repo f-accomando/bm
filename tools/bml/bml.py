@@ -57,6 +57,19 @@ BUILTINS = {
     "sqrt": (["f32"], "f32"),
     "f32": (["i32"], "f32"),
     "floor": (["f32"], "i32"),
+    "cls": (["i32"], None),
+    "pix": (["i32", "i32", "i32"], None),
+    "rectfill": (["i32", "i32", "i32", "i32", "i32"], None),
+    "spr": (["i32", "i32", "i32"], None),
+    "btn": (["i32"], "bool"),
+}
+
+HOST_FUNCTIONS: Dict[str, Tuple[int, List[str], Optional[str]]] = {
+    "cls": (0, ["i32"], None),
+    "pix": (1, ["i32", "i32", "i32"], None),
+    "rectfill": (2, ["i32", "i32", "i32", "i32", "i32"], None),
+    "spr": (3, ["i32", "i32", "i32"], None),
+    "btn": (4, ["i32"], "bool"),
 }
 
 
@@ -995,6 +1008,7 @@ OPCODES = (
     "JF_KEEP",      # arg = target pc; if not TOS: pc = target (keeps False), else pops True
     "JT_KEEP",      # arg = target pc; if TOS: pc = target (keeps True), else pops False
     "CALL",         # arg = (fn_index << 8) | nargs; pops nargs, pushes return value (if any)
+    "CALL_HOST",    # arg = (host_id << 8) | nargs; pops nargs, calls host/kernel fn, pushes return value (if any)
     "RET",          # pops return value and returns from frame
     "RET0",         # returns None from void function
 )
@@ -1359,6 +1373,11 @@ class BytecodeCompiler:
         if call.callee == "floor":
             self.emit("FLOOR")
             return
+        if call.callee in HOST_FUNCTIONS:
+            host_id, _, _ = HOST_FUNCTIONS[call.callee]
+            packed = (host_id << 8) | (len(call.args) & 0xFF)
+            self.emit("CALL_HOST", packed, f"host:{call.callee}/{len(call.args)}")
+            return
         fn_idx = self.func_index[call.callee]
         packed = (fn_idx << 8) | (len(call.args) & 0xFF)
         self.emit("CALL", packed, f"{call.callee}/{len(call.args)}")
@@ -1389,6 +1408,8 @@ def disassemble(mod: Module) -> str:
                 lines.append(f"  {pc:04d}  {ins.op:<12} {ins.arg}{note}")
             elif ins.op == "CALL":
                 lines.append(f"  {pc:04d}  {ins.op:<12} fn={ins.arg >> 8}, argc={ins.arg & 0xFF}{note}")
+            elif ins.op == "CALL_HOST":
+                lines.append(f"  {pc:04d}  {ins.op:<12} host={ins.arg >> 8}, argc={ins.arg & 0xFF}{note}")
             else:
                 lines.append(f"  {pc:04d}  {ins.op}{note}")
     return "\n".join(lines) + "\n"
@@ -1420,10 +1441,20 @@ def lua_imod(a: int, b: int) -> int:
 class StackVM:
     """Executes a compiled BML Module on a stack machine (with 32-bit i32 wrapping by default in Stage 6+)."""
 
-    def __init__(self, mod: Module, wrap32: bool = True, max_depth: int = 64):
+    def __init__(
+        self,
+        mod: Module,
+        wrap32: bool = True,
+        max_depth: int = 64,
+        host_fns: Optional[Dict[str, Any]] = None,
+    ):
         self.mod = mod
         self.wrap32 = wrap32
         self.max_depth = max_depth
+        self.host_fns: Dict[str, Any] = dict(host_fns) if host_fns else {}
+        self.host_by_id: Dict[int, Tuple[str, Optional[str]]] = {
+            hid: (name, ret) for name, (hid, _, ret) in HOST_FUNCTIONS.items()
+        }
 
     def _norm(self, x: int) -> int:
         return wrap_i32(x) if self.wrap32 else x
@@ -1692,6 +1723,22 @@ class StackVM:
                 if callee.ret_type is not None:
                     assert ret_val is not None
                     stack.append(ret_val)
+            elif op == "CALL_HOST":
+                host_id = ins.arg >> 8
+                argc = ins.arg & 0xFF
+                call_args = [stack.pop() for _ in range(argc)]
+                call_args.reverse()
+                h_name, h_ret = self.host_by_id[host_id]
+                if h_name in self.host_fns:
+                    res = self.host_fns[h_name](*call_args)
+                else:
+                    res = False if h_ret == "bool" else (0 if h_ret == "i32" else None)
+                if h_ret == "bool":
+                    stack.append(bool(res))
+                elif h_ret == "i32":
+                    stack.append(self._norm(int(res)))
+                elif h_ret == "f32":
+                    stack.append(f32_round(float(res)))
             elif op == "RET":
                 return stack.pop(), budget
             elif op == "RET0":
@@ -1787,6 +1834,11 @@ def compute_stack_depths(code: List[Insn], funcs: Optional[List[CompiledFunc]] =
             has_ret = True
             if funcs is not None and 0 <= fn_idx < len(funcs):
                 has_ret = funcs[fn_idx].ret_type is not None
+            reach(pc + 1, sp - argc + (1 if has_ret else 0))
+        elif op == "CALL_HOST":
+            host_id = ins.arg >> 8
+            argc = ins.arg & 0xFF
+            has_ret = any(hid == host_id and ret is not None for hid, _, ret in HOST_FUNCTIONS.values())
             reach(pc + 1, sp - argc + (1 if has_ret else 0))
         elif op in ("RET", "RET0"):
             pass
@@ -2307,6 +2359,8 @@ class ARMv6Compiler:
         self.asm = ARMv6Assembler()
         self.func_offsets: Dict[str, int] = {}
         self.needs_idivmod = False
+        self.needs_host_call = False
+        self.host_slot_word: Optional[int] = None
 
     def compile(self) -> ARMv6Module:
         for fn_ast, fn_ir in zip(self.prog.funcs, self.mod.funcs):
@@ -2320,9 +2374,23 @@ class ARMv6Compiler:
 
         if self.needs_idivmod:
             self._emit_idivmod_helper()
+        if self.needs_host_call:
+            self._emit_host_call_helper()
 
         self.asm.finalize()
         return ARMv6Module(words=self.asm.words, func_offsets=self.func_offsets, comments=self.asm.comments)
+
+    def _emit_host_call_helper(self) -> None:
+        """Emits __bml_call_host: inputs r0 = host_id, r1 = &args[0], r2 = nargs; returns r0 = result (0 if no handler)."""
+        a = self.asm
+        a.bind("__bml_call_host")
+        a.ldr(12, 15, 12, comment="ldr r12, [pc, #12] (__bml_host_fn_slot)")
+        a.cmp_imm(12, 0, comment="cmp r12, #0")
+        a.bx(12, cond=COND_NE, comment="bxne r12 (tail-call host dispatcher)")
+        a.dp_imm(DP_MOV, 0, 0, 0, comment="mov r0, #0")
+        a.bx(14, comment="bx lr")
+        a.bind("__bml_host_fn_slot")
+        self.host_slot_word = a.emit_word(0, comment="__bml_host_fn_slot (patched by bmnative_load)")
 
     def _emit_idivmod_helper(self) -> None:
         """Emits __bml_idivmod: inputs r0 = a, r1 = b; outputs r0 = floor(a / b), r1 = a % b (0 if b == 0)."""
@@ -2653,6 +2721,25 @@ class ARMv6Compiler:
                     a.dp_imm(DP_ADD, 13, 13, cleanup_bytes)
                 if callee.ret_type is not None:
                     put_slot(s_slot(base), 0)
+            elif op == "CALL_HOST":
+                self.needs_host_call = True
+                host_id = ins.arg >> 8
+                argc = ins.arg & 0xFF
+                base = sp - argc
+                has_ret = any(hid == host_id and ret is not None for hid, _, ret in HOST_FUNCTIONS.values())
+                alloc_words = ((max(1, argc) + 1) // 2) * 2
+                alloc_bytes = alloc_words * 4
+                a.dp_imm(DP_SUB, 13, 13, alloc_bytes, comment=f"host args[{argc}]")
+                for j in range(argc):
+                    rj = get_slot(s_slot(base + j), 0)
+                    a.str_w(rj, 13, j * 4)
+                a.mov32(0, host_id, comment=f"host_id = {host_id}")
+                a.mov_reg(1, 13, comment="r1 = sp (&args[0])")
+                a.mov32(2, argc, comment=f"nargs = {argc}")
+                a.bl("__bml_call_host")
+                a.dp_imm(DP_ADD, 13, 13, alloc_bytes)
+                if has_ret:
+                    put_slot(s_slot(base), 0)
             elif op == "RET":
                 r = get_slot(s_slot(sp - 1), 0)
                 if r != 0:
@@ -2690,7 +2777,8 @@ def compile_native_blob(src: str, leaf_opt: bool = True) -> bytes:
     """Compiles BML source code into a BMN1 binary container for native_load()."""
     prog = parse_and_check(src)
     mod = BytecodeCompiler(prog).compile()
-    arm_mod = ARMv6Compiler(prog, mod, leaf_opt=leaf_opt).compile()
+    arm_comp = ARMv6Compiler(prog, mod, leaf_opt=leaf_opt)
+    arm_mod = arm_comp.compile()
 
     nfn = len(mod.funcs)
     nstruct = len(prog.structs)
@@ -2723,7 +2811,8 @@ def compile_native_blob(src: str, leaf_opt: bool = True) -> bytes:
             return BMN_STRUCT_BASE | struct_idx_map[t]
         raise Error(f"unsupported BMN1 type '{t}'")
 
-    nfn_packed = (nstruct << 16) | nfn
+    host_flag = 0x8000 if arm_comp.host_slot_word is not None else 0
+    nfn_packed = ((nstruct | host_flag) << 16) | nfn
     out = bytearray(struct.pack("<III", BMN_MAGIC, nfn_packed, ncode))
     for fn in mod.funcs:
         name_b = fn.name.encode("ascii")[:31]

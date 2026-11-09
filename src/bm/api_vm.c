@@ -294,6 +294,37 @@ static void push_word_to_lua(lua_State *L, uint32_t w, uint8_t kind)
     }
 }
 
+static lua_State *g_active_lua = NULL;
+
+static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t nargs)
+{
+    lua_State *L = g_active_lua;
+    if (!L)
+        return 0;
+    static const char *const names[5] = { "cls", "pix", "rectfill", "spr", "btn" };
+    if (host_id < 0 || host_id >= 5)
+        return 0;
+    lua_getglobal(L, names[host_id]);
+    if (!lua_isfunction(L, -1)) {
+        lua_pop(L, 1);
+        return 0;
+    }
+    for (int32_t i = 0; i < nargs; i++)
+        lua_pushinteger(L, args[i]);
+    if (host_id == BMN_HOST_BTN) {
+        if (lua_pcall(L, nargs, 1, 0) != LUA_OK) {
+            lua_pop(L, 1);
+            return 0;
+        }
+        int32_t res = lua_toboolean(L, -1) ? 1 : 0;
+        lua_pop(L, 1);
+        return res;
+    }
+    if (lua_pcall(L, nargs, 0, 0) != LUA_OK)
+        lua_pop(L, 1);
+    return 0;
+}
+
 int l_native_run(lua_State *L)
 {
     natmod_t *u = (natmod_t *)luaL_checkudata(L, 1, NAT_MT);
@@ -411,7 +442,15 @@ int l_native_run(lua_State *L)
     }
 
     int32_t ret = 0;
+    lua_State *prev_lua = g_active_lua;
+    bmnative_host_fn prev_host = bmnative_get_host_fn();
+    g_active_lua = L;
+    if (!prev_host)
+        bmnative_set_host_fn(lua_host_dispatch);
     const int e = bmnative_call_buf(u->m, fn, args, bufs, nargs, &ret);
+    if (!prev_host)
+        bmnative_set_host_fn(NULL);
+    g_active_lua = prev_lua;
 
     /* Write back modified array/struct elements to Lua tables or f64 vm_bufs. */
     if (e == BMN_OK) {

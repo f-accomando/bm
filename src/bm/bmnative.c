@@ -12,6 +12,18 @@
 #include <math.h>
 #endif
 
+static bmnative_host_fn g_host_fn = NULL;
+
+void bmnative_set_host_fn(bmnative_host_fn fn)
+{
+    g_host_fn = fn;
+}
+
+bmnative_host_fn bmnative_get_host_fn(void)
+{
+    return g_host_fn;
+}
+
 static uint32_t rd_u32(const uint8_t *p)
 {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
@@ -126,13 +138,15 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
             FAIL("truncated BMN1 header");
         const uint32_t nfn_packed = rd_u32(blob + 4);
         const uint32_t nfn = nfn_packed & 0xFFFFu;
-        const uint32_t nstruct = (nfn_packed >> 16) & 0xFFFFu;
+        const uint32_t nstruct_raw = (nfn_packed >> 16) & 0xFFFFu;
+        const int has_host_stub = (int)((nstruct_raw >> 15) & 1u);
+        const uint32_t nstruct = nstruct_raw & 0x7FFFu;
         const uint32_t ncode = rd_u32(blob + 8);
         if (nfn < 1 || nfn > BMN_MAX_FN)
             FAIL("bad function count");
         if (nstruct > BMN_MAX_STRUCT)
             FAIL("bad struct count");
-        if (ncode < 1 || ncode > BMN_MAX_CODE)
+        if (ncode < 1 || ncode > BMN_MAX_CODE || (has_host_stub && ncode < 6u))
             FAIL("bad code word count");
         const size_t expected_len = 12u + (size_t)nfn * 56u + (size_t)ncode * 4u + (size_t)nstruct * 308u;
         if (len != expected_len)
@@ -140,6 +154,7 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
 
         m->nfn = (int)nfn;
         m->nstruct = (int)nstruct;
+        m->has_host_stub = has_host_stub;
         m->ncode = ncode;
         m->fn = calloc(nfn, sizeof *m->fn);
         if (!m->fn) {
@@ -235,6 +250,11 @@ int bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const cha
         bmnative_free(m);
         return BMN_ERR_BAD;
     }
+
+#if defined(__arm__)
+    if (m->has_host_stub && g_host_fn)
+        m->code[m->ncode - 1u] = (uint32_t)(uintptr_t)g_host_fn;
+#endif
 
     /* Clean D-cache and invalidate I-cache + branch target cache before any call. */
     bmnative_sync_cache(m->code, code_bytes);
@@ -337,6 +357,24 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
         const uint32_t idx = r[15] >> 2;
         if ((r[15] & 3u) != 0 || idx >= m->ncode)
             return BMN_ERR_TRAP;
+
+        /* Stage 7 host function call stub (__bml_call_host at word ncode - 6):
+         * r0 = host_id, r1 = stack byte offset of args[0..nargs-1], r2 = nargs */
+        if (m->has_host_stub && idx == m->ncode - 6u) {
+            int32_t h_args[BMN_MAX_ARGS];
+            const int32_t h_nargs = (int32_t)r[2];
+            if (h_nargs < 0 || h_nargs > BMN_MAX_ARGS || (r[1] & 3u) != 0)
+                return BMN_ERR_TRAP;
+            for (int32_t j = 0; j < h_nargs; j++) {
+                const uint32_t sw = (r[1] >> 2) + (uint32_t)j;
+                if (sw >= STACK_WORDS)
+                    return BMN_ERR_TRAP;
+                h_args[j] = (int32_t)stack[sw];
+            }
+            r[0] = g_host_fn ? (uint32_t)g_host_fn((int32_t)r[0], h_args, h_nargs) : 0u;
+            r[15] = r[14];
+            continue;
+        }
 
         const uint32_t w = m->code[idx];
         const uint32_t curr_pc = r[15];
@@ -633,6 +671,13 @@ int bmnative_call_buf(const bmnative_mod *m, int fn, const int32_t *args, const 
     }
 
 #if defined(__arm__)
+    if (m->has_host_stub) {
+        uint32_t want_fn = (uint32_t)(uintptr_t)g_host_fn;
+        if (m->code[m->ncode - 1u] != want_fn) {
+            m->code[m->ncode - 1u] = want_fn;
+            bmnative_sync_cache(&m->code[m->ncode - 1u], 4u);
+        }
+    }
     bmnative_cfunc_t fp = (bmnative_cfunc_t)(uintptr_t)(&m->code[f->word_off]);
     *ret = fp(
         a[0],  a[1],  a[2],  a[3],

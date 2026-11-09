@@ -58,9 +58,20 @@ typedef struct {
     uint32_t  nwords;                   /* element count in 32-bit words */
 } bmnative_buf;
 
+enum {
+    BMN_HOST_CLS      = 0,
+    BMN_HOST_PIX      = 1,
+    BMN_HOST_RECTFILL = 2,
+    BMN_HOST_SPR      = 3,
+    BMN_HOST_BTN      = 4
+};
+
+typedef int32_t (*bmnative_host_fn)(int32_t host_id, const int32_t *args, int32_t nargs);
+
 typedef struct {
     int              nfn;
     int              nstruct;
+    int              has_host_stub;     /* 1 if code ends with 6-word __bml_call_host stub */
     uint32_t         ncode;
     bmnative_fn     *fn;
     bmnative_struct *structs;
@@ -70,6 +81,10 @@ typedef struct {
 
 /* Clean D-cache and invalidate I-cache + branch predictor over [code, code + bytes). */
 void bmnative_sync_cache(const void *code, size_t bytes);
+
+/* Register/get the kernel host function dispatcher called by __bml_call_host. */
+void bmnative_set_host_fn(bmnative_host_fn fn);
+bmnative_host_fn bmnative_get_host_fn(void);
 
 int  bmnative_load(bmnative_mod **out, const uint8_t *blob, size_t len, const char **why);
 void bmnative_free(bmnative_mod *m);

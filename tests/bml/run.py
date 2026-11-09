@@ -97,6 +97,12 @@ BAD_PROGRAMS = [
      "struct S\n  x: i32\nend\nfunction f(s: S)\n  s.x = true\nend\n", "line 5"),
     ("mixing i32 and f32 in '+'",
      "function f(a: i32, b: f32): f32\n  return a + b\nend\n", "line 2"),
+    ("using void kernel function cls in expression",
+     "function f(c: i32): i32\n  return cls(c)\nend\n", "line 2"),
+    ("wrong argument count to rectfill",
+     "function f(c: i32)\n  rectfill(0, 0, 10, c)\nend\n", "line 2"),
+    ("wrong argument type to btn",
+     "function f(): bool\n  return btn(true)\nend\n", "line 2"),
 ]
 
 for desc, bad_src, expected_line in BAD_PROGRAMS:
@@ -1272,10 +1278,234 @@ void _start(void)
     if qemu_s6_out != lua_s6_out:
         fail(f"Stage 6 ARM1176 VFPv2 QEMU output differs: {qemu_s6_out} vs {lua_s6_out}")
 
+# ---------------------------------------------------------------- 9. Stage 7: Standard functions & bm kernel function table
+kf_path = os.path.join(HERE, "kernel_fn.b")
+with open(kf_path, encoding="utf-8") as f:
+    kf_src = f.read()
+
+kf_mod = bml.compile_source(kf_src)
+kf_bmn_bytes = bml.compile_native_blob(kf_src)
+kf_bmn_path = os.path.join(BUILD, "kernel_fn.bmn")
+open(kf_bmn_path, "wb").write(kf_bmn_bytes)
+
+s7_cases = [
+    (100, 120, 60, 100, 0b0101),  # left + up
+    (7,   235, 25, 100, 0b1001),  # left + down (clamped at 8 and 232)
+    (311, 9,   0,  100, 0b0110),  # right + up (clamped at 312 and 8, 0 bar)
+    (160, 100, 100, 100, 0b0000), # no buttons, full bar
+]
+
+# 9a. StackVM with host_fns table
+vm_s7_out = []
+for px, py, hp, max_hp, btn_mask in s7_cases:
+    draw_log = []
+    host_table = {
+        "cls": lambda c, lg=draw_log: lg.append(f"cls:{c}"),
+        "pix": lambda x, y, c, lg=draw_log: lg.append(f"pix:{x},{y},{c}"),
+        "rectfill": lambda x, y, w, h, c, lg=draw_log: lg.append(f"rectfill:{x},{y},{w},{h},{c}"),
+        "spr": lambda idx, x, y, lg=draw_log: lg.append(f"spr:{idx},{x},{y}"),
+        "btn": lambda b, m=btn_mask: ((m >> b) & 1) != 0,
+    }
+    kf_vm = bml.StackVM(kf_mod, host_fns=host_table)
+    res = kf_vm.call("step_and_draw_hud", [px, py, hp, max_hp])
+    vm_s7_out.extend(draw_log)
+    vm_s7_out.append(f"ret:{res}")
+
+# 9b. Plain Lua reference oracle
+s7_lua_ref_path = os.path.join(BUILD, "stage7_ref.lua")
+with open(s7_lua_ref_path, "w", encoding="utf-8") as f:
+    f.write(LUA_PRELUDE)
+    f.write("""
+local btn_mask = 0
+function cls(c) print("cls:" .. c) end
+function pix(x, y, c) print("pix:" .. x .. "," .. y .. "," .. c) end
+function rectfill(x, y, w, h, c) print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function spr(id, x, y) print("spr:" .. id .. "," .. x .. "," .. y) end
+function btn(b) return ((btn_mask >> b) & 1) ~= 0 end
+""")
+    f.write(bml.to_lua(kf_src))
+    for px, py, hp, max_hp, btn_mask in s7_cases:
+        f.write(f"\nbtn_mask = {btn_mask}\nprint('ret:' .. step_and_draw_hud({px}, {py}, {hp}, {max_hp}))\n")
+
+lua_s7_out = subprocess.check_output([LUAHOST, s7_lua_ref_path], text=True).strip().splitlines()
+if vm_s7_out != lua_s7_out:
+    fail(f"Stage 7 StackVM differs from Lua: {vm_s7_out} vs {lua_s7_out}")
+
+# 9c. Host Lua C API: native_run dispatching __bml_call_host back to Lua globals (cls, pix, rectfill, spr, btn)
+s7_luahost_script = os.path.join(BUILD, "stage7_luahost.lua")
+with open(s7_luahost_script, "w", encoding="utf-8") as f:
+    f.write(f"""\
+local fh = assert(io.open({kf_bmn_path!r}, "rb"))
+local blob = fh:read("*a")
+fh:close()
+local mn = assert(native_load(blob))
+
+local btn_mask = 0
+function cls(c) print("cls:" .. c) end
+function pix(x, y, c) print("pix:" .. x .. "," .. y .. "," .. c) end
+function rectfill(x, y, w, h, c) print("rectfill:" .. x .. "," .. y .. "," .. w .. "," .. h .. "," .. c) end
+function spr(id, x, y) print("spr:" .. id .. "," .. x .. "," .. y) end
+function btn(b) return ((btn_mask >> b) & 1) ~= 0 end
+""")
+    for px, py, hp, max_hp, btn_mask in s7_cases:
+        f.write(f"btn_mask = {btn_mask}\nprint('ret:' .. native_run(mn, 'step_and_draw_hud', {px}, {py}, {hp}, {max_hp}))\n")
+
+s7_luahost_out = subprocess.check_output([native_luahost_bin, s7_luahost_script], text=True).strip().splitlines()
+if s7_luahost_out != lua_s7_out:
+    fail(f"Stage 7 native_run host callback differs from Lua: {s7_luahost_out} vs {lua_s7_out}")
+
+# 9d. Bare-metal ARM1176 QEMU: native ARMv6 BL __bml_call_host -> bmnative_set_host_fn C table
+if arm_gcc and qemu_arm:
+    s7_calls_c = []
+    for px, py, hp, max_hp, btn_mask in s7_cases:
+        s7_calls_c.append(
+            f"    g_btn_mask = {btn_mask}; "
+            f"{{ int32_t a[4] = {{{px}, {py}, {hp}, {max_hp}}}, r = 0; "
+            f"bmnative_call(m, fn, a, 4, &r); put_str(\"ret:\"); put_i32(r); put_ch('\\n'); }}"
+        )
+
+    QEMU_S7_C = f"""\
+#include <stddef.h>
+#include <stdint.h>
+#include "bm/bmnative.h"
+
+#define UART0 ((volatile uint32_t *)0x101F1000u)
+
+static void put_ch(char c) {{ *UART0 = (uint32_t)(uint8_t)c; }}
+static void put_str(const char *s) {{ while (*s) put_ch(*s++); }}
+
+static void put_i32(int32_t v)
+{{
+    char buf[16];
+    uint32_t u = (v < 0) ? (0u - (uint32_t)v) : (uint32_t)v;
+    if (v < 0) put_ch('-');
+    int i = 0;
+    if (u == 0) buf[i++] = '0';
+    while (u > 0) {{
+        buf[i++] = (char)('0' + (u % 10u));
+        u /= 10u;
+    }}
+    while (i > 0) put_ch(buf[--i]);
+}}
+
+static int32_t g_btn_mask = 0;
+
+static int32_t kernel_host_table(int32_t host_id, const int32_t *args, int32_t nargs)
+{{
+    (void)nargs;
+    switch (host_id) {{
+    case BMN_HOST_CLS:
+        put_str("cls:"); put_i32(args[0]); put_ch('\\n');
+        return 0;
+    case BMN_HOST_PIX:
+        put_str("pix:"); put_i32(args[0]); put_ch(','); put_i32(args[1]); put_ch(','); put_i32(args[2]); put_ch('\\n');
+        return 0;
+    case BMN_HOST_RECTFILL:
+        put_str("rectfill:");
+        for (int i = 0; i < 5; i++) {{ if (i) put_ch(','); put_i32(args[i]); }}
+        put_ch('\\n');
+        return 0;
+    case BMN_HOST_SPR:
+        put_str("spr:"); put_i32(args[0]); put_ch(','); put_i32(args[1]); put_ch(','); put_i32(args[2]); put_ch('\\n');
+        return 0;
+    case BMN_HOST_BTN:
+        return (g_btn_mask >> args[0]) & 1;
+    default:
+        return 0;
+    }}
+}}
+
+static uint8_t heap_buf[64 * 1024] __attribute__((aligned(32)));
+static size_t heap_off = 0;
+void *calloc(size_t nmemb, size_t size)
+{{
+    size_t total = (nmemb * size + 31u) & ~31u;
+    if (heap_off + total > sizeof(heap_buf)) return NULL;
+    uint8_t *p = &heap_buf[heap_off];
+    heap_off += total;
+    for (size_t i = 0; i < total; i++) p[i] = 0;
+    return p;
+}}
+void free(void *p) {{ (void)p; }}
+void *memcpy(void *dst, const void *src, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    for (size_t i = 0; i < n; i++) d[i] = s[i];
+    return dst;
+}}
+void *memset(void *dst, int c, size_t n)
+{{
+    uint8_t *d = (uint8_t *)dst;
+    for (size_t i = 0; i < n; i++) d[i] = (uint8_t)c;
+    return dst;
+}}
+int strcmp(const char *a, const char *b)
+{{
+    while (*a && *a == *b) {{ a++; b++; }}
+    return (uint8_t)*a - (uint8_t)*b;
+}}
+
+static const uint8_t blob_kf[] = {{ {fmt_bytes(kf_bmn_bytes)} }};
+
+void c_main(void)
+{{
+    bmnative_set_host_fn(kernel_host_table);
+    const char *why = "";
+    bmnative_mod *m = NULL;
+    if (bmnative_load(&m, blob_kf, sizeof(blob_kf), &why) != BMN_OK) {{
+        put_str("LOAD_ERR\\n");
+        return;
+    }}
+    int fn = bmnative_find(m, "step_and_draw_hud");
+{chr(10).join(s7_calls_c)}
+}}
+
+__attribute__((naked, section(".text.boot")))
+void _start(void)
+{{
+    __asm__ volatile (
+        "ldr sp, =0x04000000\\n"
+        "bl c_main\\n"
+        "mov r0, #0x18\\n"
+        "ldr r1, =0x20026\\n"
+        "svc 0x00123456\\n"
+        "1: b 1b\\n"
+    );
+}}
+"""
+    qemu_s7_c = os.path.join(BUILD, "armv6_stage7.c")
+    qemu_s7_elf = os.path.join(BUILD, "armv6_stage7.elf")
+    with open(qemu_s7_c, "w", encoding="utf-8") as f:
+        f.write(QEMU_S7_C)
+
+    subprocess.run(
+        [
+            arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
+            f"-I{os.path.join(ROOT, 'src')}",
+            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            "-T", qemu_ld, "-o", qemu_s7_elf,
+            qemu_s7_c,
+            os.path.join(ROOT, "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "src", "arch", "cache.c"),
+            "-lgcc",
+        ],
+        check=True,
+    )
+    qemu_s7_out = subprocess.check_output(
+        [qemu_arm, "-M", "versatilepb", "-cpu", "arm1176", "-nographic", "-semihosting", "-kernel", qemu_s7_elf],
+        text=True,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    ).replace("\r\n", "\n").strip().splitlines()
+
+    if qemu_s7_out != lua_s7_out:
+        fail(f"Stage 7 ARM1176 QEMU kernel function table output differs: {qemu_s7_out} vs {lua_s7_out}")
+
 if failed:
     sys.exit(1)
 
 print(
-    f"bml: stages 1-6 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
-    f"{len(feat_calls)} feature calls, 200 random programs [1000 calls], and Stage 6 types_mem.b matched Lua in StackVM, C bmvm, native_run, and ARM1176 VFPv2 QEMU)"
+    f"bml: stages 1-7 passed ({len(BAD_PROGRAMS)} error checks, sum(10)=55, "
+    f"{len(feat_calls)} feature calls, 200 random programs [1000 calls], Stage 6 types_mem.b, and Stage 7 kernel_fn.b matched Lua across StackVM, C, native_run, and ARM1176 QEMU)"
 )
