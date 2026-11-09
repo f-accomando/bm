@@ -307,7 +307,14 @@ static int build_list(const slot_t *o, int n, int en, int wm, fslot_t *out)
 
 /* a screen as three arrays: the colour index (0 = backdrop), the layer (5 = backdrop: the bit of $2131 that stands for it) and whether a sprite allows
  * maths. The layers are painted from the back to the front, so a later one covers an earlier one. */
-static _Alignas(4) uint8_t m_idx[256], m_lay[256], m_om[256], s_idx[256], s_lay[256];
+/* the main screen (idx, lay, om) and the sub screen (sidx, slay) of a line, in one block: the ARM loop of the mix (snes_ppu_arm.S) takes one base register */
+typedef struct { uint8_t idx[256], lay[256], om[256], sidx[256], slay[256]; } mixbuf_t;
+static _Alignas(4) mixbuf_t mbuf;
+#define m_idx mbuf.idx
+#define m_lay mbuf.lay
+#define m_om mbuf.om
+#define s_idx mbuf.sidx
+#define s_lay mbuf.slay
 static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t *om)
 {
     memset(idx, 0, 256); memset(lay, 5, 256);
@@ -332,6 +339,12 @@ static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t
 }
 
 static inline unsigned rgb565(unsigned r, unsigned g, unsigned b) { return (r << 11) | (((g << 1) | (g >> 4)) << 5) | b; }
+
+/* what the mix loop needs, in the order that the ARM loop loads it (snes_ppu_arm.S) */
+typedef struct { const uint32_t *pal8; const uint16_t *lut; const uint32_t *rt, *gt, *bt; uint32_t fix8, mask, mode; } mixctx_t;
+#if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
+void ppu_mix_sub_arm(uint16_t *dst, const mixbuf_t *b, const mixctx_t *c);
+#endif
 
 void ppu_line(int y)
 {
@@ -368,6 +381,7 @@ void ppu_line(int y)
 
     /* the palette as RGB565 with the brightness, and the brightness tables of the channels, kept until the palette or the brightness changes */
     static uint16_t lut[256], rt[32], gt[32], bt[32];
+    static uint32_t rt32[32], gt32[32], bt32[32];     /* the same tables as words: the ARM loop (snes_ppu_arm.S) */
     static uint32_t pal8[256];                          /* the palette as three lanes (red, green, blue) of the colour times 8: the lane maths below */
     static int lut_bright = -1;
     static uint32_t lut_gen;
@@ -381,6 +395,7 @@ void ppu_line(int y)
         for (unsigned c = 0; c < 32; c++) {
             const unsigned v = bright != 15 ? c * (unsigned)bright / 15 : c;
             rt[c] = (uint16_t)rgb565(v, 0, 0); gt[c] = (uint16_t)rgb565(0, v, 0); bt[c] = (uint16_t)rgb565(0, 0, v);
+            rt32[c] = rt[c]; gt32[c] = gt[c]; bt32[c] = bt[c];
         }
         lut_bright = bright; lut_gen = pal_gen;
     }
@@ -414,6 +429,14 @@ void ppu_line(int y)
         }
         const uint32_t fix8 = (uint32_t)S.fixr * 8u | (uint32_t)S.fixg * 8u << 8 | (uint32_t)S.fixb * 8u << 16;
         const int mode_k = (add ? 2 : 0) | (half ? 1 : 0);
+#if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
+        {
+            const mixctx_t cx = { pal8, lut, rt32, gt32, bt32, fix8, mb, (uint32_t)mode_k };
+            ppu_mix_sub_arm(dst, &mbuf, &cx);
+            TLAP(4);
+            return;
+        }
+#endif
         for (int x = 0; x < SNES_W; x++) {              /* the sub screen: the colour behind the pixel; the three channels are one lane operation */
             const int idx = m_idx[x];
             if (!((mb >> m_lay[x]) & m_om[x] & 1)) { dst[x] = lut[idx]; continue; }

@@ -38,6 +38,7 @@ machine was written again in C. The RGB30 is not measured.
 | `src/bm/snes_ppu.c` | the picture, a line at a time: BG modes 0-4 and 7, sprites, windows, colour math, brightness |
 | `src/bm/snes_spc.c` | the SPC700 (all opcodes, three timers, four ports) and the boot ROM protocol as a state machine |
 | `src/bm/snes_dsp.c` | the S-DSP: 8 voices (BRR, pitch, pitch modulation, cubic interpolation, ADSR and GAIN, noise, volumes), a ring of 32 kHz samples, and `snes_audio_mix`, which the console's output calls (`audio_set_ext` in `src/audio/audio.c`) |
+| `src/bm/snes_ppu_arm.S` | the colour mix with a sub screen for the ARM1176 (Pi): the same result as the C loop in `snes_ppu.c`, check on the console |
 | `src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
 | `carts/snes/src/main.lua` | the user interface; `carts/snes/build/build.py` packs it (`make build/carts/snes.bm`) |
 | `tests/snes/core_test.c` | 92 checks: the CPU on small programs, DMA, the SPC700 and its boot protocol |
@@ -63,12 +64,13 @@ machine was written again in C. The RGB30 is not measured.
 
 - Speed: the PPU is done in C with ARMv6 SIMD (a row of 8 tile pixels in two 32-bit words, the layers merged 4 pixels at a time with UADD8 and SEL,
   the colour math of the three channels in one UQADD8, UQSUB8 or UHADD8, a table of mixed colours for the fixed colour, shifts in place of the divides:
-  the ARM1176 has no divide). Pi One, Super Mario World, the test build draws every frame from 600 to 3200 (2600 frames) and sums the parts: the PPU costs
-  19162 us a drawn frame with the code of before, 16863 us now (-12%); each timer read costs about 6 us, so the real figures are 12100 and 9800 us (-19%).
-  The CPU is about 7000 us and the sound 3000 us a frame. The picture is identical byte for byte at frame 3200 (checked on the Pi One). On a PC the PPU
-  is 3 times faster than the first C version (`make bench-snes-ppu`). Next: the colour mix with a sub screen is the biggest part (4700 us of the 9800): a
-  hand-written loop in a `.S` file (the compiler spills registers, about 35 instructions a pixel); then the tile decode (4200 us) and the CPU's most
-  common opcodes. Measure on the RGB30. The draw of the picture is 5.7 ms at 1x (copy 1.1, blit 4.6).
+  the ARM1176 has no divide), and the colour mix with a sub screen is a hand-written loop (`src/bm/snes_ppu_arm.S`, 28 instructions a pixel; the C version
+  stays for the host and is the reference). Pi One, Super Mario World, the test build draws every frame from 600 to 3200 and sums the parts: the PPU costs
+  19162 us a drawn frame with the code of before, 16863 with the SIMD in C, 16152 with the loop in assembly (-16%); each timer read costs about 6 us, so
+  the real figures are 12100, 9800 and 9100 us (-25%). The CPU is about 7000 us and the sound 3000 us a frame. The picture is identical byte for byte at
+  frame 3200 after each step (checked on the Pi One). On a PC the PPU is 3 times faster than the first C version (`make bench-snes-ppu`). Next: the
+  mix is still 47 cycles a pixel (about 3950 us a frame), the tile decode 4200 us, the CPU's most common opcodes (7000 us). Measure on the RGB30.
+  The draw of the picture is 5.7 ms at 1x (copy 1.1, blit 4.6).
 - A test build: `SNES_TEST=1 python3 carts/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /sfc by
   itself and shows the FPS, the times of the parts of a frame, the PPU registers and the first sprites; it draws every frame from 600 to 3200, sums the PPU parts
   (the line `PPU n fr`) and stops at frame 3200 (`SNES_NOHUD=1`: no text, for a picture to compare). With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
