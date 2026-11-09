@@ -85,11 +85,12 @@ typedef struct {
 
 enum {
     MENU_RESUME = 0,
+    MENU_OPEN,
     MENU_SAVE,
     MENU_SAVE_AS,
+    MENU_NEW,
     MENU_RUN,
     MENU_DISASM,
-    MENU_NEW,
     MENU_NEXT_TAB,
     MENU_CLOSE_TAB,
     MENU_EXIT,
@@ -98,15 +99,39 @@ enum {
 
 static const char *const g_menu_labels[MENU_COUNT] = {
     "Riprendi editing",
+    "Apri file...     (Ctrl+O)",
     "Salva            (Ctrl+S)",
     "Salva con nome...",
-    "Esegui .b        (Ctrl+R)",
-    "Disassembla .b   (Ctrl+D)",
     "Nuovo file       (Ctrl+N)",
+    "Compila ed Esegui (F5)",
+    "Disassembla .b   (F7)",
     "Prossimo Tab     (Ctrl+T)",
     "Chiudi Tab",
     "Esci dall'app"
 };
+
+#ifndef FAT_NAME_MAX
+#define FAT_NAME_MAX 128
+#endif
+
+typedef struct {
+    char     name[FAT_NAME_MAX];
+    int      is_dir;
+    uint32_t size;
+} sc_dirent_t;
+
+#define SC_MAX_DIRENTS 128
+
+typedef struct {
+    int         active;
+    char        cur_dir[128];
+    sc_dirent_t entries[SC_MAX_DIRENTS];
+    int         nentries;
+    int         sel;
+    int         top;
+} sc_picker_t;
+
+static sc_picker_t g_picker;
 
 typedef struct {
     sc_tab_t tabs[SC_MAX_TABS];
@@ -363,12 +388,16 @@ static int sc_tab_load(sc_tab_t *t, const char *path)
             sc_tab_set_text(t, (const char *)data, len);
             free(data);
             t->dirty = 0;
-            snprintf(t->status, sizeof(t->status), "Caricato %s (%zu bytes)", t->path, len);
+            char msg[256];
+            snprintf(msg, sizeof(msg), "Caricato %s (%zu bytes)", path, len);
+            snprintf(t->status, sizeof(t->status), "%s", msg);
             return 0;
         }
     }
 #endif
-    snprintf(t->status, sizeof(t->status), "Nuovo file: %s", t->path);
+    char msg[256];
+    snprintf(msg, sizeof(msg), "Nuovo file: %s", path);
+    snprintf(t->status, sizeof(t->status), "%s", msg);
     return 0;
 }
 
@@ -735,6 +764,236 @@ static void sc_draw_popup_menu(void)
 #ifndef SHELL_CODE_HOST_TEST
     console_write(buf);
 #endif
+}
+
+/* ---- File Picker & Directory Browser ---- */
+
+static int sc_dirent_cmp(const void *a, const void *b)
+{
+    const sc_dirent_t *ea = (const sc_dirent_t *)a;
+    const sc_dirent_t *eb = (const sc_dirent_t *)b;
+    if (strcmp(ea->name, "..") == 0) return -1;
+    if (strcmp(eb->name, "..") == 0) return 1;
+    if (ea->is_dir != eb->is_dir) return eb->is_dir - ea->is_dir; /* Dirs first */
+    return strcmp(ea->name, eb->name);
+}
+
+static void sc_picker_refresh(sc_picker_t *p)
+{
+    p->nentries = 0;
+    p->sel = 0;
+    p->top = 0;
+
+    /* Add ".." if not in root "/" */
+    if (strcmp(p->cur_dir, "/") != 0 && strcmp(p->cur_dir, "") != 0) {
+        snprintf(p->entries[p->nentries].name, sizeof(p->entries[p->nentries].name), "..");
+        p->entries[p->nentries].is_dir = 1;
+        p->entries[p->nentries].size = 0;
+        p->nentries++;
+    }
+
+#ifndef SHELL_CODE_HOST_TEST
+    fat_dir_t d;
+    if (fat_opendir(&d, p->cur_dir) == 0) {
+        fat_entry_t e;
+        while (p->nentries < SC_MAX_DIRENTS && fat_readdir(&d, &e)) {
+            if (e.name[0] == '.') continue;
+            snprintf(p->entries[p->nentries].name, sizeof(p->entries[p->nentries].name), "%s", e.name);
+            p->entries[p->nentries].is_dir = e.is_dir;
+            p->entries[p->nentries].size = e.size;
+            p->nentries++;
+        }
+    }
+#else
+    if (p->nentries < SC_MAX_DIRENTS) {
+        snprintf(p->entries[p->nentries].name, sizeof(p->entries[p->nentries].name), "prova.b");
+        p->entries[p->nentries].is_dir = 0;
+        p->entries[p->nentries].size = 124;
+        p->nentries++;
+    }
+#endif
+
+    if (p->nentries > 1) {
+        qsort(p->entries, (size_t)p->nentries, sizeof(sc_dirent_t), sc_dirent_cmp);
+    }
+}
+
+static void sc_picker_open(sc_picker_t *p, const char *start_dir)
+{
+    p->active = 1;
+#ifndef SHELL_CODE_HOST_TEST
+    fat_mkdirs("/code-b");
+#endif
+    if (start_dir && *start_dir) {
+        snprintf(p->cur_dir, sizeof(p->cur_dir), "%s", start_dir);
+    } else {
+        snprintf(p->cur_dir, sizeof(p->cur_dir), "/code-b");
+    }
+    sc_picker_refresh(p);
+}
+
+static void sc_draw_picker(const sc_picker_t *p)
+{
+    int w = 50;
+    if (w > g_sc.screen_cols - 4) w = g_sc.screen_cols - 4;
+    int page = 10;
+    if (page > g_sc.screen_rows - 8) page = g_sc.screen_rows - 8;
+    if (page < 3) page = 3;
+    int h = page + 4;
+    int top = (g_sc.screen_rows - h) / 2;
+    if (top < 1) top = 1;
+    int left = (g_sc.screen_cols - w) / 2;
+    if (left < 1) left = 1;
+
+    char buf[512];
+
+    /* Header */
+    char title[64];
+    snprintf(title, sizeof(title), " Apri: %.24s ", p->cur_dir);
+    int tlen = (int)strlen(title);
+    int rem = w - 4 - tlen;
+    if (rem < 0) rem = 0;
+    int written = snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xda\xc4%s", top, left, title);
+    for (int k = 0; k < rem && written + 1 < (int)sizeof(buf); k++) buf[written++] = (char)0xC4;
+    snprintf(buf + written, sizeof(buf) - (size_t)written, "\xbf\x1b[0m");
+#ifndef SHELL_CODE_HOST_TEST
+    console_write(buf);
+#endif
+
+    /* Empty line */
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3%*s\xb3\x1b[0m", top + 1, left, w - 2, "");
+#ifndef SHELL_CODE_HOST_TEST
+    console_write(buf);
+#endif
+
+    /* Items */
+    for (int i = 0; i < page; i++) {
+        int r = top + 2 + i;
+        int idx = p->top + i;
+        if (idx < p->nentries) {
+            const sc_dirent_t *de = &p->entries[idx];
+            char item_str[64];
+            if (de->is_dir) {
+                if (strcmp(de->name, "..") == 0)
+                    snprintf(item_str, sizeof(item_str), "[..] (Cartella superiore)");
+                else
+                    snprintf(item_str, sizeof(item_str), "<DIR> %s/", de->name);
+            } else {
+                snprintf(item_str, sizeof(item_str), "%-24.24s %6lu B", de->name, (unsigned long)de->size);
+            }
+            int inner_w = w - 8;
+            if (idx == p->sel) {
+                snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3\x1b[1;30;47m > %-*.*s < \x1b[1;97;44m\xb3\x1b[0m",
+                         r, left, inner_w, inner_w, item_str);
+            } else {
+                snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3   %-*.*s   \xb3\x1b[0m",
+                         r, left, inner_w, inner_w, item_str);
+            }
+        } else {
+            snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xb3%*s\xb3\x1b[0m", r, left, w - 2, "");
+        }
+#ifndef SHELL_CODE_HOST_TEST
+        console_write(buf);
+#endif
+    }
+
+    /* Footer */
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH\x1b[1;97;44m\xc0\xc4 [Invio] Apri  [Esc] Annulla ", top + 2 + page, left);
+    written = (int)strlen(buf);
+    int foot_rem = left + w - 1 - (left + 30);
+    for (int k = 0; k < foot_rem && written + 1 < (int)sizeof(buf); k++) buf[written++] = (char)0xC4;
+    snprintf(buf + written, sizeof(buf) - (size_t)written, "\xd9\x1b[0m");
+#ifndef SHELL_CODE_HOST_TEST
+    console_write(buf);
+#endif
+}
+
+static void sc_picker_handle_key(sc_picker_t *p, int c)
+{
+    int page = 10;
+    if (page > g_sc.screen_rows - 8) page = g_sc.screen_rows - 8;
+    if (page < 3) page = 3;
+
+    if (c == 0x1B || c == 'q' || c == 'Q') {
+        p->active = 0;
+        return;
+    }
+    if (c == HID_KEY_UP || c == 'k') {
+        if (p->sel > 0) {
+            p->sel--;
+            if (p->sel < p->top) p->top = p->sel;
+        }
+        return;
+    }
+    if (c == HID_KEY_DOWN || c == 'j') {
+        if (p->sel + 1 < p->nentries) {
+            p->sel++;
+            if (p->sel >= p->top + page) p->top = p->sel - page + 1;
+        }
+        return;
+    }
+    if (c == HID_KEY_PGUP) {
+        p->sel -= page;
+        if (p->sel < 0) p->sel = 0;
+        p->top = p->sel;
+        return;
+    }
+    if (c == HID_KEY_PGDN) {
+        p->sel += page;
+        if (p->sel >= p->nentries) p->sel = (p->nentries > 0) ? p->nentries - 1 : 0;
+        if (p->sel >= p->top + page) p->top = p->sel - page + 1;
+        return;
+    }
+    if (c == '\n' || c == '\r') {
+        if (p->nentries == 0) return;
+        const sc_dirent_t *de = &p->entries[p->sel];
+        if (strcmp(de->name, "..") == 0) {
+            /* Parent directory */
+            char *last = strrchr(p->cur_dir, '/');
+            if (last && last == p->cur_dir) {
+                p->cur_dir[1] = '\0';
+            } else if (last) {
+                *last = '\0';
+            } else {
+                snprintf(p->cur_dir, sizeof(p->cur_dir), "/");
+            }
+            sc_picker_refresh(p);
+            return;
+        }
+        if (de->is_dir) {
+            /* Enter directory */
+            if (strcmp(p->cur_dir, "/") == 0) {
+                snprintf(p->cur_dir, sizeof(p->cur_dir), "/%s", de->name);
+            } else {
+                char tmp[256];
+                snprintf(tmp, sizeof(tmp), "%s/%s", p->cur_dir, de->name);
+                snprintf(p->cur_dir, sizeof(p->cur_dir), "%.127s", tmp);
+            }
+            sc_picker_refresh(p);
+            return;
+        }
+
+        /* File selected: open it! */
+        char full_path[256];
+        if (strcmp(p->cur_dir, "/") == 0) {
+            snprintf(full_path, sizeof(full_path), "/%s", de->name);
+        } else {
+            snprintf(full_path, sizeof(full_path), "%s/%s", p->cur_dir, de->name);
+        }
+        p->active = 0;
+
+        sc_tab_t *cur = &g_sc.tabs[g_sc.cur_tab];
+        if (cur->nlines == 1 && cur->lines[0].len == 0 && !cur->dirty) {
+            sc_tab_load(cur, full_path);
+        } else if (g_sc.ntabs < SC_MAX_TABS) {
+            int new_idx = g_sc.ntabs++;
+            sc_tab_load(&g_sc.tabs[new_idx], full_path);
+            g_sc.cur_tab = new_idx;
+        } else {
+            sc_tab_load(cur, full_path);
+        }
+        return;
+    }
 }
 
 static void sc_scroll_to_cursor(sc_tab_t *t)
@@ -1137,6 +1396,20 @@ static void sc_execute_menu_action(void)
     switch (g_sc.menu_sel) {
     case MENU_RESUME:
         break;
+    case MENU_OPEN: {
+        char dir[128];
+        snprintf(dir, sizeof(dir), "%s", t->path);
+        char *slash = strrchr(dir, '/');
+        if (slash && slash != dir) {
+            *slash = '\0';
+        } else if (slash == dir) {
+            dir[1] = '\0';
+        } else {
+            snprintf(dir, sizeof(dir), "/code-b");
+        }
+        sc_picker_open(&g_picker, dir);
+        break;
+    }
     case MENU_SAVE:
         sc_tab_save(t, NULL);
         break;
@@ -1187,6 +1460,12 @@ static void sc_handle_key(int c)
 {
     sc_tab_t *t = &g_sc.tabs[g_sc.cur_tab];
 
+    /* When file picker is active */
+    if (g_picker.active) {
+        sc_picker_handle_key(&g_picker, c);
+        return;
+    }
+
     /* When popup menu is active */
     if (g_sc.show_menu) {
         if (c == 0x1B || c == 'q' || c == 'Q') {
@@ -1216,6 +1495,16 @@ static void sc_handle_key(int c)
     }
 
     /* Global Hotkeys */
+    if (c == 0x0F) {                    /* Ctrl+O: Open file picker */
+        char dir[128];
+        snprintf(dir, sizeof(dir), "%s", t->path);
+        char *slash = strrchr(dir, '/');
+        if (slash && slash != dir) *slash = '\0';
+        else if (slash == dir) dir[1] = '\0';
+        else snprintf(dir, sizeof(dir), "/code-b");
+        sc_picker_open(&g_picker, dir);
+        return;
+    }
     if (c == 0x13) {                    /* Ctrl+S: Save */
         sc_tab_save(t, NULL);
         return;
@@ -1320,6 +1609,8 @@ int shell_code_open(const char *path)
         sc_draw_editor();
         if (g_sc.show_menu)
             sc_draw_popup_menu();
+        if (g_picker.active)
+            sc_draw_picker(&g_picker);
 
         int c = (unsigned char)input_getc();
         sc_handle_key(c);
@@ -1476,22 +1767,35 @@ int shell_code_test_run(void)
         return 14;
     }
 
-    /* Move down in menu and select Salva */
+    /* Move down in menu and select Apri file */
     sc_handle_key(HID_KEY_DOWN);
     if (g_sc.menu_sel != 1) {
         printf("FAIL: menu navigation down mismatch (%d != 1)\n", g_sc.menu_sel);
         return 15;
     }
-    sc_handle_key('\n'); /* Execute Salva */
-    if (g_sc.show_menu) {
-        printf("FAIL: Salva did not close menu\n");
+    sc_handle_key('\n'); /* Execute Apri file -> opens picker */
+    if (g_sc.show_menu || !g_picker.active) {
+        printf("FAIL: Apri file did not open picker\n");
         return 16;
+    }
+
+    /* In picker: entry 0 is "..", entry 1 is "prova.b". Move down to select "prova.b" */
+    sc_handle_key(HID_KEY_DOWN);
+    if (g_picker.sel != 1) {
+        printf("FAIL: picker navigation down mismatch (%d != 1)\n", g_picker.sel);
+        return 17;
+    }
+    sc_handle_key('\n'); /* Open "prova.b" */
+    if (g_picker.active) {
+        printf("FAIL: picker did not close after selecting file\n");
+        return 18;
     }
 
     /* Draw test */
     sc_draw_tabs_status();
     sc_draw_editor();
     sc_draw_popup_menu();
+    sc_draw_picker(&g_picker);
 
     sc_tab_free(&g_sc.tabs[0]);
     sc_tab_free(&tab);
