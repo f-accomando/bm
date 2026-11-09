@@ -1450,6 +1450,8 @@ static int compile_stmt(bmlc_ctx_t *C)
                 decl_t = parse_type_annotation(C, 1);
             expect_tok(C, "=");
             uint8_t et = compile_expr(C, line);
+            if (decl_t == BMN_NONE && et == BMN_NONE)
+                c_fail(C, line, "expression for '%s' gives no value", vname);
             if (decl_t != BMN_NONE && et != decl_t) {
                 int ok = 0;
                 if (et == BMN_I32 && ((decl_t & BMN_STRUCT_BASE) || (decl_t >= BMN_ARR_I32 && decl_t <= BMN_ARR_F32)))

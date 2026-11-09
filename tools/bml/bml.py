@@ -693,6 +693,8 @@ class Parser:
                 if is_arr:
                     last_tok = self.toks[self.i - 1]
                     self.cuts.append((last_tok.end, last_tok.end, ")"))
+                if decl_type is None and isinstance(e, CallExpr) and e.callee in self.struct_names:
+                    self.cur_struct_vars[v.text] = e.callee
                 return LocalStmt(t.line, v.text, decl_type, e)
             if t.text == "if":
                 self.i += 1
@@ -1109,8 +1111,8 @@ class TypeChecker:
                     self.fail(s.line, f"{et} assigned to '{s.name}' of {s.decl_type}")
                 vt = s.decl_type
             else:
-                if et not in TYPES:
-                    self.fail(s.line, f"local variable '{s.name}' must be i32, bool, or f32, not {et}")
+                if not et:
+                    self.fail(s.line, f"expression for '{s.name}' gives no value")
                 vt = et
             if s.name in self.vars:
                 self.fail(s.line, f"'{s.name}' is declared twice")

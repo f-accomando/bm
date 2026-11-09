@@ -62,7 +62,7 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 | Construct | Example | Rule |
 |---|---|---|
 | Function | `function add(a: i32, b: i32): i32 ... end` | Up to 16 parameters; supports recursion and calls to earlier functions |
-| Local variable | `local s = 0` or `local s: i32 = 0` | Scoped to its enclosing block; cannot shadow an active variable |
+| Local variable | `local s = 0` or `local s: i32 = 0` | Automatic type inference (`local x = expr`) for scalars, structs, and arrays or explicit type; scoped to block |
 | Assignment | `s = s + i` | Target must be declared and have the exact same type |
 | Compound assignment | `x += 1`, `s.fld *= 2`, `a[i] <<= 4` | Supports `+=`, `-=`, `*=`, `&=`, `|=`, `<<=`, `>>=`; desugared in Lua, native in C |
 | Typed pointers / views | `local p: Struct = Struct(addr)`, `local a: i32[] = addr` | Zero-overhead structured access to raw MMIO/framebuffer/DMA memory |

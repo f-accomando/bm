@@ -214,5 +214,18 @@ function test_switch_case(act: i32, speed: i32): i32
   return result
 end
 
+function test_type_inference(base: i32): i32
+  local a = 15
+  local b = 25
+  local diff = b - a
+  local pkt = Packet(base)
+  pkt.id = diff
+  pkt.len = a * 2
+  pkt.val = b * 4
+  local total = pkt.id + pkt.len + pkt.val
+  return total
+end
+
+
 
 

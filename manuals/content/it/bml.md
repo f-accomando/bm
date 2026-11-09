@@ -62,7 +62,7 @@ Il front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) con
 | Costrutto | Esempio | Regola |
 |---|---|---|
 | Funzione | `function add(a: i32, b: i32): i32 ... end` | Fino a 16 parametri; supporta ricorsione e chiamate a funzioni definite sopra |
-| Variabile locale | `local s = 0` o `local s: i32 = 0` | Visibile fino alla fine del blocco; non può oscurare una variabile attiva |
+| Variabile locale | `local s = 0` o `local s: i32 = 0` | Inferenza di tipo automatica (`local x = expr`) per scalari, struct e array o tipo esplicito; visibile fino alla fine del blocco |
 | Assegnamento | `s = s + i` | La variabile deve essere dichiarata e avere lo stesso tipo |
 | Assegnamento composto | `x += 1`, `s.fld *= 2`, `a[i] <<= 4` | Supporta `+=`, `-=`, `*=`, `&=`, `|=`, `<<=`, `>>=`; desugaring per Lua e nativo |
 | Puntatori tipizzati / viste | `local p: Struct = Struct(addr)`, `local a: i32[] = addr` | Accesso strutturato a zero-overhead su memoria MMIO/framebuffer/DMA |

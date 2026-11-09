@@ -167,6 +167,18 @@ end
 - **ARMv6 Native**: Compiles single-pass in `bmlc.c` into efficient conditional branches (`CMP` + `BNE` + `B exit`) without jump tables overhead for small-to-medium branches.
 - **Lua Desugaring**: In `to_lua`, cleanly desugars into `local __sw = (expr); if false then elseif __sw == (val1) then ... else ... end`, preserving line numbers and error tracking.
 
+### 3.4.4 Local Type Inference
+
+Variables declared with `local` can omit explicit type annotations (`local x = expr`):
+- The static type is automatically deduced from the initialization expression:
+  - Integer literal (e.g. `local i = 10`): deduced as `i32`
+  - Floating-point literal (e.g. `local f = 1.5`): deduced as `f32`
+  - Boolean literal (e.g. `local ok = true`): deduced as `bool`
+  - String literal (e.g. `local s = "hello"`): deduced as `string`
+  - Struct constructor (e.g. `local p = Packet(addr)`): deduced as `Packet`
+  - Expression or function result: deduced from the return type of `expr`
+- Type checking remains strictly static: subsequent assignments to the variable must match the inferred type.
+
 ### 3.5 Built-in Functions
 
 - Math & Conversion:
