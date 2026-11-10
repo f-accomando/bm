@@ -1,0 +1,62 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2249-g6a3de09a
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-e7326b_freeze_pi-zero-w_v0.2.5-2249-g6a3de09a.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 342 s after boot, kernel v0.2.5-2249-g6a3de09a, ring 14404, sink on
+--- the last lines printed ---
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+ime used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13681 us, enlarge 0 us, flip 96 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13599 us, enlarge 0 us, flip 95 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13523 us, enlarge 0 us, flip 92 us, free time used 21 us (300 frames)
+menu frame: 1x, a frame averages draw 13752 us, enlarge 0 us, flip 93 us, free time used 21 us (300 frames)
+menu frame: 1x, a frame averages draw 13659 us, enlarge 0 us, flip 92 us, free time used 21 us (300 frames)
+menu frame: 1x, a frame averages draw 13578 us, enlarge 0 us, flip 92 us, free time used 21 us (300 frames)
+menu frame: 1x, a frame averages draw 14751 us, enlarge 0 us, flip 93 us, free time used 20 us (300 frames)
+fiber: reports did not yield: 102.7 ms past its slice
+market: nearby consoles: listening as bm-108
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR CODE (004C)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR 
+market: Checking for new games...
+market: catalog 20261110150204, 29 games
+fiber: market did not yield: 73.8 ms past its slice
+menu idle: 300/300 frames, 428 of 709 ms taken, 105.3 ms past a frame; reports 150 ms (+102.7, stk 7.6/128K, stop 15.4), market 250 ms (+73.8, stk 4.0/128K); min slack -35535 us, paced 0
+menu idle: sd first word <1ms 49 <3ms 3 (max 8.2 ms)
+menu stalls: tls handshake 1x last 156.0 worst 156.0 ms
+menu frame: 1x, a frame averages draw 20958 us, enlarge 0 us, flip 93 us, free time used 1428 us (300 frames)
+menu frame: 1x, a frame averages draw 14409 us, enlarge 0 us, flip 93 us, free time used 21 us (300 frames)
+market: downloading apps/snes/snes.bm (51200 bytes)
+market: apps/snes/snes.bm -> /bm/snes.bm
+market: bm SNES installed
+fiber: market did not yield: 74.3 ms past its slice
+covers: all 23 read
+fiber: reports did not yield: 102.8 ms past its slice
+report: sending session_bm-snes_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-snes_pi-zero-w.txt
+report: sending nodate-413edf_freeze_pi-zero-w_v0.2.5-2249-g6a3de09a.txt
+market: nearby consoles: listening as bm-108
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-413edf_freeze_pi-zero-w_v0.2.5-2249-g6a3de09a.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-413edf_freeze_pi-zero
+menu idle: 300/300 frames, 776 of 678 ms taken, 105.3 ms past a frame; covers 7 ms (+1.9, stk 0.8/16K), reports 574 ms (+102.8, stk 7.6/128K, stop 17.0), market 163 ms (+74.3, stk 4.0/128K); min slack -45278 us, paced 0
+menu idle: sd first word <1ms 99 <3ms 8 (max 8.2 ms)
+menu stalls: tls handshake 1x last 323.1 worst 323.1 ms
+menu frame: 1x, a frame averages draw 18412 us, enlarge 0 us, flip 92 us, free time used 2589 us (300 frames)
+report: sending nodate-413edf_freeze_pi-zero-w_v0.2.5-2249-g6a3de09a.txt
+report: nodate-413edf_freeze_pi-zero-w_v0.2.5-2249-g6a3de09a.txt was there already
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-413edf_freeze_pi-zero-w_v0.2.5-2249-g6a3de09a.txt
+menu idle: 300/300 frames, 345 of 601 ms taken, 101.8 ms past a frame; reports 333 ms (+101.8, stk 7.6/128K); min slack -43182 us, paced 0
+menu idle: sd first word <1ms 31 <3ms 2 (max 8.2 ms)
+menu stalls: tls handshake 1x last 320.2 worst 320.2 ms
+menu frame: 1x, a frame averages draw 16757 us, enlarge 0 us, flip 95 us, free time used 1152 us (300 frames)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2004 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+
+playing snes.bm
+play: /bm/snes.bm (5120
