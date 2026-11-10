@@ -62,18 +62,29 @@ BCM2835_ONLY = {
 }
 
 # --shard K/N: the tests split into N groups of about the same time (the CI
-# runs them on N machines at once). Seconds on the CI (2026-10-05) of the
-# tests over 20 s; the others count 5. A test missing here only makes the
+# runs them on N machines at once). Seconds on the CI (2026-11-10, run of
+# the v0.3.0 tag) of the tests over 15 s; the others count 5. A test missing here only makes the
 # groups less even.
 SLOW = {
-    "test_web_api": 83,
-    "test_chainloader": 70,
-    "test_pad_typing": 48,
-    "test_editor": 39, "test_code_completion": 38, "test_assistant_app": 30,
-    "test_menu_tabs": 31,
-    "test_sdk_suite": 29, "test_monitor_line": 29, "test_market": 23,
-    "test_code_editor": 23, "test_code_modules": 45, "test_update": 22, "test_video_player": 25, "test_bench_stop": 35,
-    "test_nano8": 20, "test_crash_report": 100, "test_sd_games_bm": 15, "test_editor_mouse": 40,
+    "test_chainloader": 214,
+    "test_suite_elastic": 156,
+    "test_crash_report": 87,
+    "test_code_modules": 57,
+    "test_assistant_app": 53,
+    "test_pad_typing": 46,
+    "test_code_completion": 42,
+    "test_editor": 38,
+    "test_sdk_map3d_roundtrip": 33,
+    "test_res_write": 31,
+    "test_code_editor": 29,
+    "test_sdk_suite": 28,
+    "test_monitor_prompt": 25,
+    "test_web_api": 23,
+    "test_sdk_elastic": 21,
+    "test_bench_stop": 20,
+    "test_update": 20,
+    "test_nano8": 20,
+    "test_sound_editor": 17,
 }
 
 

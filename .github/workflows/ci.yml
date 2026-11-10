@@ -112,8 +112,8 @@ jobs:
 
       - name: Install toolchain and QEMU
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
             gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
             qemu-system-arm qemu-user make python3 python3-numpy python3-pil dosfstools mtools
 
@@ -146,8 +146,8 @@ jobs:
 
       - name: Install toolchain and QEMU
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
             gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
             qemu-system-arm qemu-user make python3 python3-numpy python3-pil dosfstools mtools
 
@@ -195,8 +195,8 @@ jobs:
 
       - name: Install toolchain and QEMU
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu picolibc-aarch64-linux-gnu \
             qemu-system-arm make python3 dosfstools mtools
 
@@ -229,8 +229,8 @@ jobs:
         # numpy and Pillow: the games' assets (Overbit's map) are built too;
         # the AArch64 compiler: the RGB30's kernel8.img
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
             gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi make python3 \
             python3-numpy python3-pil gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
             picolibc-aarch64-linux-gnu
