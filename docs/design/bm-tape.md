@@ -6,6 +6,8 @@ bm Tape is one `.bm` app with five jobs: synth, sampler, sequencer, multitrack, 
 
 Status: phase 3 (synth, drums, sequencer, song with TAPE clips, MIX, FX, punch-in effects, save and load; `carts/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. DJ is still the scene of phase 1 (it shows PREVIEW). Section 10 gives the phases.
 
+Development state (source map, build, tests, keys, what is missing): [`bm-tape-dev.md`](bm-tape-dev.md).
+
 ## 1. Principles
 
 1. **One display, one function.** The display shows one scene at a time. Each function has its own scene. The scene is the editor: the picture moves when a value moves.
