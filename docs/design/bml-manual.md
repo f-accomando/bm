@@ -861,6 +861,57 @@ end
 - **Zero Runtime Cost**: Emitted as an immediate constant (`PUSH_CONST` / `mov rd, #imm`).
 - **Safety**: Applying `#` to non-array scalar types or variables without known compile-time bounds is rejected with a type error.
 
+---
+
+## 10. Utility of `.b`, Performance vs. C (GCC/Clang), and Optimization Roadmap
+
+This section documents how `.b` compares to compiled C on the Pi Zero W (ARM1176JZF-S), why `.b` exists in the `bm` cartridge model, and where future compiler improvements should focus.
+
+### 10.1 Where `.b` Sits Today: Lua VM vs. `.b` vs. Compiled C
+
+Although `.b` emits native 32-bit ARMv6 A32 + VFPv2 machine code (via [`tools/bml/bml.py`](../../tools/bml/bml.py) or [`src/bm/bmlc.c`](../../src/bm/bmlc.c)), its performance sits **far above the Lua VM** and **below C compiled with GCC/Clang `-O2`/`-O3`** on general code:
+
+| Aspect | Lua 5.4 VM | `.b` (`bmlc.c` / `ARMv6Compiler`) | C (`gcc -O2/-O3` for ARM1176) |
+|---|---|---|---|
+| **Execution model** | Bytecode interpreter + dynamic boxing | Native ARMv6 A32 + VFPv2 machine words | Native ARMv6 A32 + VFPv2 machine words |
+| **Register allocation** | Virtual stack registers | Fixed slots `0..6` $\to$ `r4..r10`, spills `>= 7` to `[fp, #-off]` | Graph-coloring / SSA across `r0..r12` and `s0..s31` |
+| **VFPv2 (`f32`) handling** | `double` (`f64`) boxed in `TValue` | `vmov` ARM $\leftrightarrow$ `s0`/`s1` on every operation | Values kept in `s0..s31` across loops + `vldr`/`vstr` |
+| **Loop optimizations** | None | `check_canonical_leaf_sum` only (9-word `sum` leaf) | LICM, CSE, unrolling, strength reduction, inlining |
+| **Prologue / epilogue** | Lua C frame | Always `push {r4-r10, fp, lr}` / `pop {r4-r10, fp, pc}` (except canonical `sum`) | Minimal callee-saved set; leaf functions omit stack frames |
+| **Division (`//`, `%`)** | VM opcode | Always calls `__bml_idivmod` (shift-and-subtract) | Constant divisors lowered to multiply + shift |
+| **Array indexing** | Hash/array table lookup | Recomputes `(idx - 1) << 2` on every `OP_AGET`/`OP_ASET` | Pointer induction with pre/post-increment (`ldr r, [p], #4`) |
+| **Bulk memory** | C `memcpy` via API | `OP_MEMCPY`/`OP_MEMSET` emit byte loops (`ldrb`/`strb`) | Word/block transfers (`ldm`/`stm`) |
+| **Math & kernel calls** | Direct C API call | `OP_CALL_HOST` routes through `lua_host_dispatch` | Direct `bl` to C / `libm` |
+
+### 10.2 Why `.b` Still Matters in `bm`
+
+Cartridges (`.bm`) cannot ship arbitrary precompiled C binaries: the kernel enforces a single portable cartridge format and does not link untrusted ELF object files. Within those constraints, `.b` fills a unique niche:
+
+1. **Zero-toolchain native execution on the console**: [`native_compile`](../../src/bm/api_vm.c) compiles `.b` source text directly into `BMN1` ARMv6 machine code in RAM on the Pi Zero W without GCC, Python, or a cross-compiler.
+2. **Verified sandboxing**: [`bmnative_load`](../../src/bm/bmnative.c) (`check_armv6_words`) rejects privileged/coprocessor instructions (allowing only CP10 VFPv2), `SVC`/`SWI`, `BKPT`, and out-of-module branches before synchronizing D-cache/I-cache.
+3. **Eliminating Lua table and bridge bottlenecks**: Passing `vm_buf` pointers once per frame (`native_run`) avoids both Lua table hashing and the ~1 µs per-call Lua $\leftrightarrow$ C crossing cost (e.g. 3.7x–6.0x faster on `move_and_separate` in Section 9.7).
+4. **Single-source portability**: Stripping `: <type>` yields plain Lua 5.4 so the same game source runs on non-ARM hosts (or when native compilation is bypassed) with identical semantics.
+
+### 10.3 Can `.b` Beat Compiled C?
+
+For the **same algorithm with compile-time-known data**, `.b` cannot outperform a mature optimizing C compiler (GCC/Clang): both target the exact same ARM1176 silicon, and GCC/Clang apply decades of SSA passes, pipeline scheduling, and register allocation. On trivial leaf loops (such as `sum`), `.b` reaches **parity** (identical instructions).
+
+However, `.b` has three narrow architectural paths where it can **match or outperform static Ahead-of-Time (AOT) kernel C**:
+
+1. **Runtime specialization (partial evaluation via `native_compile`)**: Kernel C is compiled once ahead of time and must branch on runtime flags, map dimensions, blend modes, or function pointers inside hot loops. Because `native_compile` generates machine code on the console in RAM, a cartridge can synthesize `.b` source with level constants, formulas, or dimensions baked in—eliminating branches and memory loads inside the inner loop *(requires adding constant folding and dead-branch elimination to `bmlc.c`)*.
+2. **Fusing cartridge logic without callback overhead**: Generic C subsystems (particle updaters, collision filters, custom sort comparators) must invoke a callback or return to Lua per element. Compiling the cartridge's custom inner loop as one `.b` function removes indirect calls and Lua crossings.
+3. **Targeted backend primitives**: Emitting ARMv6 integer SIMD (`uadd8`, `sadd16`, `usad8`) or word/block `ldm`/`stm` memory loops directly from `.b` builtins can beat portable scalar C written without compiler intrinsics or inline assembly.
+
+### 10.4 Optimization Roadmap for `bmlc.c` / `ARMv6Compiler`
+
+Ranked by expected speedup on Pi Zero W workloads (`f32` physics/3D loops and tight array scans):
+
+1. **Keep `f32` values in VFP registers (`s0..s31`)**: Avoid `vmov` round-trips between ARM integer registers and `s0`/`s1` on every `OP_FADD`/`OP_FMUL`/compare; load/store directly with `vldr`/`vstr`.
+2. **Minimal prologue/epilogue and generic leaf optimization**: Track which of `r4..r10` and `lr` a function actually modifies and omit unnecessary stack saves/restores.
+3. **Constant folding, dead-branch elimination, and constant division**: Unlock runtime specialization with `native_compile`, fold `const` expressions, and lower division/modulo by known constants (`//`, `%`) to shifts or multiplicative inverses instead of calling `__bml_idivmod`.
+4. **Array induction and word-aligned `memcpy`/`memset`**: Hoist `(base - 4)` outside `for` loops or advance pointers (`+4` per step) instead of recomputing `(idx - 1) << 2` per access; replace the byte-by-byte `ldrb`/`strb` loops in [`bml_compile_native`](../../src/bm/bmlc.c) with word/`ldm`/`stm` copies.
+5. **Small-function inlining and direct C math fast-paths**: Inline small `.b` helpers and expose direct C/VFP entry points for `sin`, `cos`, and `atan2` without routing `OP_CALL_HOST` through `lua_host_dispatch`.
+
 
 
 
