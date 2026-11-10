@@ -228,12 +228,17 @@ def read_ppm(path):
 def load_font(cw=8, ch=16):
     """Glyph bitmaps from src/gfx/font<cw>x<ch>.c, keyed by row bytes."""
     import re
-    src = open(os.path.join(HERE, "..", "src", "gfx", "font%dx%d.c" % (cw, ch))).read()
-    rows = re.findall(r"\{ (0x[0-9a-f]{2}(?:, 0x[0-9a-f]{2}){%d}) \}" % (ch - 1), src)
+    # the menu at 360p and on the RGB30 draws with Inter (font_inter8x16.c), the monitor with the classic 8x16
+    names = ["font%dx%d.c" % (cw, ch)]
+    if (cw, ch) == (8, 16):
+        names.append("font_inter8x16.c")
     table = {}
-    for code, r in enumerate(rows):
-        key = bytes(int(b, 16) for b in r.split(", "))
-        table.setdefault(key, bytes([code]).decode("cp437"))
+    for name in names:
+        src = open(os.path.join(HERE, "..", "src", "gfx", name)).read()
+        rows = re.findall(r"\{ (0x[0-9a-f]{2}(?:, 0x[0-9a-f]{2}){%d}) \}" % (ch - 1), src)
+        for code, r in enumerate(rows):
+            key = bytes(int(b, 16) for b in r.split(", "))
+            table.setdefault(key, bytes([code]).decode("cp437"))
     return table
 
 
