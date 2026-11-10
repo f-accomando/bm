@@ -16,6 +16,14 @@ local menu_open = false
 local menu_sel = 1
 local l2r2_hold = 0
 local music_on = true
+local kprev = {}
+
+local function kedge(u)
+  local now = keydown and keydown(u) or false
+  local e = now and not kprev[u]
+  kprev[u] = now
+  return e
+end
 
 local function build_tiles_and_palettes()
   -- CGRAM Palettes (RGB555):
@@ -232,6 +240,16 @@ local function apply_ppu_mode()
 end
 
 function _init()
+  if rawkeys then rawkeys(true) end
+  if keyhelp then
+    keyhelp({
+      { "w a s d", "D-Pad" },
+      { "u i o p", "Y / X / B / A" },
+      { "q / e", "L1 / R1" },
+      { ", / .", "Select / Start" },
+      { "esc", "App Menu" },
+    }, "bm SNES-16")
+  end
   S16.init(224)
   build_tiles_and_palettes()
   setup_audio()
@@ -251,7 +269,8 @@ end
 local bass_notes = { 1200, 1200, 1500, 1350, 1200, 1600, 1800, 1500 }
 
 function _update()
-  if keyp("escape") then menu_open = not menu_open end
+  local esc_edge = kedge(0x29)
+  if esc_edge then menu_open = not menu_open end
   if btn("l2") and btn("r2") then
     l2r2_hold = l2r2_hold + 1
     if l2r2_hold == 30 then menu_open = not menu_open end
@@ -260,9 +279,9 @@ function _update()
   end
 
   if menu_open then
-    if keyp("up") or btnp("up") then menu_sel = (menu_sel - 2) % 5 + 1 end
-    if keyp("down") or btnp("down") then menu_sel = menu_sel % 5 + 1 end
-    if keyp("return") or keyp("z") or btnp("a") or btnp("b") then
+    if kedge(0x1A) or kedge(0x52) or btnp("up") then menu_sel = (menu_sel - 2) % 5 + 1 end
+    if kedge(0x16) or kedge(0x51) or btnp("down") then menu_sel = menu_sel % 5 + 1 end
+    if kedge(0x28) or kedge(0x12) or kedge(0x13) or btnp("a") or btnp("b") then
       if menu_sel == 1 then
         mode_m7 = not mode_m7
         apply_ppu_mode()
@@ -289,7 +308,7 @@ function _update()
   end
 
   local flags = (mode_m7 and 1 or 0) | (hdma_on and 2 or 0) | (oam_on and 4 or 0)
-  local pad = S16.read_pad(1)
+  local pad = S16.read_pad(1, keydown and keydown(0x29))
   local t0 = time()
   native_run(mod, fn_step, pad, tick, flags, state_buf)
   local dt_us = math.floor((time() - t0) * 1000000 + 0.5)
@@ -309,9 +328,9 @@ function _draw()
   print(string.format("ARM %dus PPU %dus DSP %dus | %s", st.arm_us, st.ppu_us, st.dsp_us, scale_modes[scale_i]), dx + 6, by, 0x8FF7)
 
   if menu_open then
-    local mx, my = math.floor(dx + 48 * sc), math.floor(dy + 40 * sc)
-    rectfill(mx, my, 176, 112, 0x1018)
-    rect(mx, my, 176, 112, 0xFFE0)
+    local mx, my = math.floor(dx + 32 * sc), math.floor(dy + 34 * sc)
+    rectfill(mx, my, 200, 136, 0x1018)
+    rect(mx, my, 200, 136, 0xFFE0)
     local rows = {
       "Scene: " .. (mode_m7 and "Mode1+Mode7" or "Mode1"),
       "HDMA:  " .. (hdma_on and "ON" or "OFF"),
@@ -324,5 +343,6 @@ function _draw()
       local c = (i == menu_sel) and 0x07E0 or 0xFFFF
       print((i == menu_sel and "> " or "  ") .. rows[i], mx + 10, my + 24 + (i - 1) * 16, c)
     end
+    print("WASD UIOP QE ,SEL .STRT", mx + 8, my + 114, 0x8FF7)
   end
 end

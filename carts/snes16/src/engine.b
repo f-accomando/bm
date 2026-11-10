@@ -88,9 +88,17 @@ function step_frame(pad: i32, tick: i32, flags: i32, st: i32[]): i32
   if slime_x < 140 then slime_dir = 1 end
   if slime_x > 340 then slime_dir = -1 end
 
-  -- Mode 7 camera drift
+  -- Select (0x2000): respawn coins
+  if (newly & 0x2000) ~= 0 then
+    st[10] = 7
+    s16_sfx(2, 2, 6400, 90)
+  end
+
+  -- Mode 7 camera drift & L1/R1 (Q/E) rotation
   if (pad & 0x0800) ~= 0 then zpos = zpos + 6 end
   if (pad & 0x0400) ~= 0 then zpos = max(64, zpos - 6) end
+  if (pad & 0x0020) ~= 0 then ang = (ang - 320) & 65535 end
+  if (pad & 0x0010) ~= 0 then ang = (ang + 320) & 65535 end
   if (flags & 1) ~= 0 then
     if facing == 0 then
       ang = (ang + 192) & 65535

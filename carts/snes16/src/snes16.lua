@@ -116,17 +116,39 @@ function S16.wave(kind, nsamples, cycles, amp)
   return t
 end
 
--- Read pad bitmask matching SNES_PAD_* bits in snes.h.
+-- Read pad bitmask matching SNES_PAD_* bits in snes.h (controller + WASD/UIOP/QE/,. keyboard).
 local BTNS = {
   { "b", 0x8000 }, { "y", 0x4000 }, { "select", 0x2000 }, { "start", 0x1000 },
   { "up", 0x0800 }, { "down", 0x0400 }, { "left", 0x0200 }, { "right", 0x0100 },
   { "a", 0x0080 }, { "x", 0x0040 }, { "l1", 0x0020 }, { "r1", 0x0010 },
 }
-function S16.read_pad(player)
+local KB_MAP = {
+  { 0x1A, 0x0800 }, -- W -> Up
+  { 0x16, 0x0400 }, -- S -> Down
+  { 0x04, 0x0200 }, -- A -> Left
+  { 0x07, 0x0100 }, -- D -> Right
+  { 0x18, 0x4000 }, -- U -> Y
+  { 0x0C, 0x0040 }, -- I -> X
+  { 0x12, 0x8000 }, -- O -> B
+  { 0x13, 0x0080 }, -- P -> A
+  { 0x14, 0x0020 }, -- Q -> L1
+  { 0x08, 0x0010 }, -- E -> R1
+  { 0x36, 0x2000 }, -- , -> Select
+  { 0x37, 0x1000 }, -- . -> Start
+}
+function S16.read_pad(player, suppress_start)
   local v = 0
   local p = player or 1
   for i = 1, #BTNS do
-    if btn(BTNS[i][1], p) then v = v | BTNS[i][2] end
+    local b = BTNS[i]
+    if not (suppress_start and b[2] == 0x1000) and btn(b[1], p) then
+      v = v | b[2]
+    end
+  end
+  if p == 1 and keydown then
+    for i = 1, #KB_MAP do
+      if keydown(KB_MAP[i][1]) then v = v | KB_MAP[i][2] end
+    end
   end
   return v
 end
