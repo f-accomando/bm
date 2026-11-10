@@ -25,6 +25,7 @@
 /* Powers the V3D on (mailbox) and checks that it answers. 0, or -1 with
  * the reason in v3d_status() (QEMU has no V3D). */
 int v3d_init(void);
+void v3d_reset(void);
 const char *v3d_status(void);
 
 /* bus address of ARM memory, for the V3D */

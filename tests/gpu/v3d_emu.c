@@ -120,6 +120,7 @@ static uint32_t overflow_bus, overflow_size;
 volatile uint32_t v3d_wait_us;          /* (no waits here: the emulator runs a job at once) */
 
 int v3d_init(void) { return 0; }
+void v3d_reset(void) {}
 const char *v3d_status(void) { return "emulated"; }
 void v3d_set_overflow(uint32_t bus, uint32_t size) { overflow_bus = bus; overflow_size = size; }
 void v3d_set_pool(uint32_t bus, uint32_t size) { (void)bus; (void)size; }

@@ -51,7 +51,7 @@ static inline const font_t *menu_font(int sc)
 {
     const char *mf = config_get("menu_font");
     if (mf && !strcasecmp(mf, "bm"))
-        return sc == 3 ? &font_bm_18x48 : &font_bm_12x32;
+        return sc == 3 ? &font_bm_18x48 : sc == 2 ? &font_bm_12x32 : &font_inter_8x16;
     if (mf && mf[0])
         return font_find(mf);
     return sc == 3 ? &font_console_24x48 : sc == 2 ? &font_console_16x32 : &font_inter_8x16;
@@ -1519,7 +1519,10 @@ int menu_ui_open(framebuffer_t *fb)
             }
         }
     }
-    char_w = menu_font(scale)->width / scale;      /* 8 with the fonts of today; the text grid and the boxes follow it */
+    const font_t *mf = menu_font(scale);
+    char_w = mf->width > 8 ? mf->width / scale : mf->width;      /* 8 with the fonts of today; the text grid and the boxes follow it */
+    if (char_w < 1)
+        char_w = 8;
     cols = bgz > 1 ? 8 : (SW - 16) / (CARD_W + GAP_X);    /* 6 at 640, 3 at 360, 8 in the native layouts */
     foot_y = SH - 44;                       /* 316 at 360 high */
     nrows = (foot_y - PEEK - 100) / PITCH_Y;    /* 2 at 360 high: the same as before */

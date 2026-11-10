@@ -3684,6 +3684,7 @@ static int recover(void)
 {
     G.failed = 0;
     G.open = G.inflight = 0;
+    v3d_reset();
     memset(G.probe, 0x55, JOB_PROBE);
     if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, clear_of(0x07E0), 0, 0, 0, 0)) != 0 ||
         G.probe[PROBE_W * 10 + 10] != 0x07E0) {

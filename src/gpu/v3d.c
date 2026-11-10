@@ -137,6 +137,17 @@ int v3d_init(void)
     return 0;
 }
 
+void v3d_reset(void)
+{
+    if (!ready)
+        return;
+    uint32_t off[1] = { 0 }, on[1] = { 1 };
+    prop_query(PROP_ENABLE_QPU, off, 1);    /* the firmware's reset of QPUs that do not end */
+    prop_query(PROP_ENABLE_QPU, on, 1);
+    timer_delay_ms(1);
+    regs_init();                            /* the reset may have power-cycled the V3D */
+}
+
 const char *v3d_status(void)
 {
     return status;
@@ -462,11 +473,7 @@ static int qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
     wait_add(t0, a0);
     if (r) {
         snapshot();
-        uint32_t off[1] = { 0 }, on[1] = { 1 };
-        prop_query(PROP_ENABLE_QPU, off, 1);    /* the firmware's reset of QPUs that do not end */
-        prop_query(PROP_ENABLE_QPU, on, 1);
-        timer_delay_ms(1);
-        regs_init();                            /* the reset may have power-cycled the V3D */
+        v3d_reset();
     }
     wr(V3D_VPMBASE, 0);
     wr(V3D_SRQCS, SRQ_RESET);
