@@ -8,6 +8,13 @@ Rules for this list:
 - A task that needs the Pi: prepare it, put the exact steps in "Waiting for the user", go on. Only one session uses the Pi. The Pi bridge reads the password from the owner's 0600 file `~/.pi_bridge.pw` or from `BM_PASSWORD`. No agent reads or prints it.
 - The user does the RGB30 tests and the Pi runs. Write the results into the sheets when the user gives them.
 
+## Tests removed from the CI on 2026-11-10 (to fix)
+The CI of `bm-core` was red for more than 100 runs. These tests were removed from the runs so that the v0.3.0 release can go out. Fix each one against the current code, then put it back.
+- Mali: `build/rgb30-host/mali_test` (`tests/rgb30/mali_test.c`, off in `test-mali` of `rgb30.mk`). 180 of 184 checks pass. The 4 that fail are in the backend part: "a texture and a tested triangle add nothing", "3 draws of 1, 2, 1 triangles", "green, red, blue far to near" and "B, C, A, D". The simulated G52 answers JOB_CONFIG_FAULT and DATA_INVALID_FAULT for the vertex and tiler jobs. It is the open work of the depth jobs ([graphics-mali](progress/graphics-mali.md)).
+- Menu and shell (older than the round tab icons of 6 Nov and the bm shell): `test_console_ansi_and_status`, `test_shell_menu`, `test_home_ui`, `test_sdk_template_pi`, `test_usb_mouse`, `test_bt_mouse_classic`, `test_sd_cartridges`, `test_mouse_cart`, `test_make_image` (it also takes 5 minutes). They read tab names and titles from fixed text rows (`screen_text`) that the new menu does not draw.
+- Game: `test_hero` (Hero Stress, the `d` key does not reach `lod=auto`).
+- Not removed, flaky on CI and green locally: `test_editor_mouse`, `test_code_modules`.
+
 ## System, menu and Overbit: tracker (28 Oct 2026)
 Roadmap codes: SYS-21 (native menu layout), SYS-23 (the screen stream), SYS-17 (USB hotplug), SYS-18 (covers), SYS-19 (the shell), SYS-16 (file layout), SYS-15 (remap in the games).
 Done, all in `bm-core`:
