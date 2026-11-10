@@ -333,7 +333,7 @@ def test_console_ansi_and_status(b, opts):
         text = screen_text(q.screendump())
         assert not any("back to the monitor" in l for l in text), "console did not scroll"
         assert text[0].startswith(" bm "), "status bar scrolled away"
-        assert any("unknown command (0x78)" in l for l in text)
+        assert any("unknown command (0x78)" in l for l in text), text
     finally:
         q.close()
 
@@ -498,10 +498,10 @@ def test_lua_out_of_memory(b, opts):
 
 def bar_icons(img):
     """The status icons at the right of the menu bar (M27): the column
-    spans [x0, x1) with light pixels in rows 8-39, right of the tabs (Settings,
+    spans [x0, x1) with light pixels in rows 8-39, right of the tabs (since 2026-11-06 four round icons, the last ends at x 411; Settings,
     the last, ends at x 352)."""
     runs, start = [], None
-    for x in range(362, 640):
+    for x in range(420, 640):
         lit = any(sum(pixel(img, x, y)) > 450 for y in range(8, 40))
         if lit and start is None:
             start = x
