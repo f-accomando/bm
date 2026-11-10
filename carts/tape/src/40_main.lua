@@ -15,6 +15,7 @@ local function turn(p, dir)
 end
 
 local function encoders(sc)
+  if ctrl() then return end                 -- Ctrl+S is a save, not the second encoder
   for i = 1, 4 do
     local up, dn = held[ENC[i][1]], held[ENC[i][2]]
     local dir = (up and 1 or 0) - (dn and 1 or 0)
@@ -30,6 +31,7 @@ local function encoders(sc)
   end
 end
 
+-- the key strip below the display: two lines; the second one ends with the keys of the page
 local function draw_hints()
   rectfill(0, 320, SW, 40, C.ink)
   line(0, 320, SW - 1, 320, C.dim)
@@ -38,7 +40,11 @@ local function draw_hints()
   for i, k in ipairs({ "Q/A", "W/S", "E/D", "R/F" }) do
     x = print(k, x, 342, ECOL[i]) + 8
   end
-  print("= ENCODERS  [ ] SOUND  -/= OCT  T SET STEP  BKSP CLEAR", x, 342, C.mute)
+  local sc = PAGES[cur].sc
+  local tail = "[ ] SOUND -/= OCT ;/' PAT P MODE ZXCV PUNCH"
+  if sc == grid_page then tail = "T SET BKSP CLEAR ;/' PAT P MODE CTRL+S/N SAVE/NEW"
+  elseif sc == tape_page then tail = "T WRITE BKSP CLEAR ;/' PAT P MODE CTRL+S/N SAVE/NEW" end
+  print("= ENC  " .. tail, x, 342, C.mute)
 end
 
 local function draw_menu()
@@ -54,8 +60,10 @@ function _init()
   screen(SW, SH)
   rawkeys(true)
   engine.init()
+  FX.init()
+  MIX.init()
   play_voices(0, 1, 2, 3, 4, 5)          -- the sequencer's notes; the live notes use 6 and 7
-  load_demo()
+  SV.load()
 end
 
 -- the keys of one frame: page, track, transport, sounds, step edit
@@ -81,6 +89,13 @@ local function keys()
     if tr.run then transport_stop() else transport_start() end
   end
   if pressed(K.ENTER) then tr.rec = not tr.rec end
+  if pressed(K.P) and not ctrl() then SONG.mode() end
+  if pressed(K.SEMI) then SONG.pattern(-1) end
+  if pressed(K.QUOTE) then SONG.pattern(1) end
+  if ctrl() then
+    if pressed(K.S) then SV.save() end
+    if pressed(K.N) then SV.new() end
+  end
   if pressed(K.MINUS) then octave(-1) end
   if pressed(K.EQUALS) then octave(1) end
   if pressed(K.LB) then next_sound(-1) end
@@ -92,6 +107,11 @@ local function keys()
     if pressed(K.BKSP) then
       if shift() then clear_track(S.trk) else clear_step(S.trk, S.cur) end
     end
+  elseif page.sc == tape_page then
+    if pressed(K.T) then SONG.write() end
+    if pressed(K.BKSP) then
+      if shift() then SONG.clear_row() else SONG.clear() end
+    end
   end
   play_keys(true)
 end
@@ -102,14 +122,17 @@ function _update()
   poll()
   if btnp("start") then menu = not menu end       -- Esc reaches the cartridge as Start
   if menu then
-    if pressed(K.ENTER) then quit() end
+    if pressed(K.ENTER) then SV.save(); quit() end
     return
   end
   keys()
   local sc = PAGES[cur].sc
   if sc.pull then sc.pull(sc) end
   encoders(sc)
+  PUNCH.update(audio_time())
+  MIX.step(now)
   if fno % seq_skip == 0 then seq_update(audio_time()) end
+  if test_tick then test_tick() end
 end
 
 function _draw()
@@ -126,9 +149,10 @@ function _draw()
   if menu then draw_menu() end
 end
 
--- Ctrl+Esc, PS or Start+Select: nothing is saved in phase 2, so the console may freeze the app
+-- Ctrl+Esc, PS or Start+Select: the song is saved, so the console may freeze the app
 function _exit()
   live_release()
   transport_stop()
+  SV.save()
   return true
 end

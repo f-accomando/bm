@@ -44,9 +44,11 @@ function drum_page.draw(t, v)
 end
 
 -- SEQ GRID: a road with 16 gates ahead of the play head; a lit gate is a step of the track.
+local grid_page
+do
 local NAMES = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }
 local function note_name(n) return NAMES[n % 12 + 1] .. (n // 12 - 1) end
-local grid_page = { name = "SEQ GRID", params = {
+grid_page = { name = "SEQ GRID", params = {
   P("STEP", 1, 16, 1, 1, "%02d"), P("NOTE", 1, 127, 1, 36, function(n) return S.trk == 1 and ("PAD " .. n) or note_name(n) end),
   P("VELOCITY", 1, 127, 1, 100, "%d"), P("GATE", 1, 16, 1, 1, "%d st") } }
 function grid_page.sub() return string.format("T%d  %d STEPS", S.trk, S.len) end
@@ -98,6 +100,8 @@ function grid_page.draw(t, v)
   local top, nmax = 30, tk == 1 and 12 or 127                -- the note ladder: the pink mark is the brush note
   L(12, top, 12, 126, C.dim)
   R(9, 126 - 96 * (v[2] - 1) / (nmax - 1) - 1.5, 6, 3, C.e2, true)
+end
+
 end
 
 -- TEMPO: a pendulum under the sun. It swings once for each beat (the transport's clock when it plays).

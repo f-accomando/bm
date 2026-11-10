@@ -1,5 +1,6 @@
 -- bm Tape playing, recording and step edit. The 12 keys of the KO-II block are the pads of the drum track
--- or 12 semitones above the root of a synth track. Live notes use the voices 6 and 7 in turn.
+-- or 12 semitones above the root of a synth track. Live notes use the voices 6 and 7 in turn. A live note has the
+-- level, the pan and the sends of its track, as a note of the sequencer.
 local PADK = { K.D7, K.D8, K.D9, K.U, K.I, K.O, K.J, K.K, K.L, K.M, K.COMMA, K.DOT }
 local live = { n = 0, held = {}, rec = {} }       -- held[i] = voice of key i; rec[i] = the recorded slot of key i
 
@@ -37,11 +38,13 @@ local function key_on(i)
   if t == 1 then
     local p = PADS[i]
     S.pad = i
-    play(v, p.tone, p.note + p.pitch, PAD_GATE, p.level)
+    play(v, MIX.tone(p.tone, 1, audio_time()), p.note + p.pitch, PAD_GATE, S.lvl[1] * p.level)
+    MIX.hit(1, S.lvl[1])
     rec_hit(1, i, 110, i)
   else
     local note = key_note(t, i)
-    play(v, trk[t].tone, note, 0, S.lvl[t])
+    play(v, MIX.tone(trk[t].tone, t, audio_time()), note, 0, S.lvl[t])
+    MIX.hit(t, S.lvl[t])
     live.held[i] = v
     rec_hit(t, note, 100, i)
   end
@@ -80,13 +83,13 @@ local function audition()
   live.n = live.n + 1
   if t == 1 then
     local p = PADS[S.bn]
-    if p then play(v, p.tone, p.note + p.pitch, PAD_GATE, p.level) end
+    if p then play(v, MIX.tone(p.tone, 1, audio_time()), p.note + p.pitch, PAD_GATE, S.lvl[1] * p.level) end
   else
-    play(v, trk[t].tone, S.bn, 250, S.lvl[t])
+    play(v, MIX.tone(trk[t].tone, t, audio_time()), S.bn, 250, S.lvl[t])
   end
 end
 
--- T on the grid: take the brush note out of the step, or put it in
+-- T on the SEQ GRID page: take the brush note out of the step, or put it in
 local function grid_toggle()
   local t, s = S.trk, S.cur
   local k = find_slot(t, s, S.bn)

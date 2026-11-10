@@ -36,34 +36,43 @@ function meter_fall(levels: i32[], peaks: i32[], n: i32, dt: i32)
   end
 end
 
--- Sequencer window. The step arrays hold 4 tracks x 64 steps x 4 slots, flat: the slot s (0..3) of
--- step p (0..63) of track k (0..3) is at index ((k * 64 + p) * 4 + s) + 1. A note of 0 is an empty slot.
--- 24 ticks make a beat, 6 ticks a step. The pattern is len steps long (clamped to 1..64) and loops.
+-- Song window. The step arrays hold 4 tracks x 8 patterns x 64 steps x 4 slots, flat: the slot s (0..3) of step p (0..63)
+-- of pattern q (1..8) of track k (0..3) is at index (((k * 8 + q - 1) * 64 + p) * 4 + s) + 1. A note of 0 is an empty slot.
+-- The slot table gives the pattern of each song slot: slots[k * stride + j + 1] is the pattern (0 = none, 1..8) that track k
+-- plays in slot j (0..stride - 1). PATTERN mode is the same call with a table of one slot per track (stride 1, loop 0 to 1).
+-- The song loops over the slots lstart .. lend - 1 (lstart clamped to 0..stride - 1, lend to lstart + 1 .. stride).
+-- 24 ticks make a beat, 6 ticks a step. A slot is len steps long (clamped to 1..64). Tick 0 is the start of slot lstart.
 -- swing (clamped to 0..3) delays every second step (p odd) by that many ticks.
 -- A muted track (mutes[k + 1] ~= 0) gives no event.
 -- The events that start in the ticks t0 .. t1 - 1 (absolute, from the play start) go to out as records of
 -- 5 numbers: tick, track (0..3), note, velocity, gate (ticks). Order: tick, then track, then slot.
 -- cap is the number of records out can hold; the function never writes more and returns the count it wrote.
-function seq_window(t0: i32, t1: i32, len: i32, swing: i32, notes: i32[], vels: i32[], gates: i32[],
-                    mutes: i32[], out: i32[], cap: i32): i32
+function song_window(t0: i32, t1: i32, len: i32, swing: i32, slots: i32[], stride: i32, lstart: i32, lend: i32,
+                     notes: i32[], vels: i32[], gates: i32[], mutes: i32[], out: i32[], cap: i32): i32
   local steps = max(1, min(len, 64))
   local sw = max(0, min(swing, 3))
   local plen = steps * 6
+  local st = max(1, stride)
+  local first = max(0, min(lstart, st - 1))
+  local last = max(first + 1, min(lend, st))
+  local total = (last - first) * plen
   local n = 0
   local t = max(0, t0)
   while t < t1 and n < cap do
-    local m = t % plen
-    local p = m // 6
-    local r = m % 6
+    local m = t % total
+    local j = first + m // plen
+    local w = m % plen
+    local p = w // 6
     local want = 0
     if p % 2 == 1 then
       want = sw
     end
-    if r == want then
+    if w % 6 == want then
       for k = 0, 3 do
-        if mutes[k + 1] == 0 then
+        local q = slots[k * st + j + 1]
+        if mutes[k + 1] == 0 and q >= 1 and q <= 8 then
           for s = 0, 3 do
-            local i = (k * 64 + p) * 4 + s + 1
+            local i = ((k * 8 + q - 1) * 64 + p) * 4 + s + 1
             if notes[i] > 0 and n < cap then
               local o = n * 5
               out[o + 1] = t
