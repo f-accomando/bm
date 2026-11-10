@@ -307,7 +307,7 @@ def test_console_ansi_and_status(b, opts):
         _, text = settled_screen(q, lambda i, t: "Monitor" in t[21])
         img = q.screendump()
         text = screen_text(img)
-        assert "Games" in text[1] and "Dev" in text[1], text[1]
+        assert tabs_lit(img) == ["Games"], tabs_lit(img)
         col = text[21].index("Monitor")
         colours = {pixel(img, x, 21 * 16 + y) for x in range(col * 8, col * 8 + 56) for y in range(16)}
         assert any(r > 230 and g > 230 and b > 230 for r, g, b in colours), \
@@ -540,7 +540,7 @@ def wait_icons(q, n, timeout=6.0):
     deadline = time.time() + timeout
     while True:
         shot_ = q.screendump()
-        if ("Games" in screen_text(shot_)[1] and len(bar_icons(shot_)) == n) or time.time() > deadline:
+        if (tabs_lit(shot_) and len(bar_icons(shot_)) == n) or time.time() > deadline:
             return shot_
         time.sleep(0.2)
 
@@ -598,10 +598,10 @@ def tabs_lit(img):
     M25): Market, Games, Dev, Settings, from a pixel of the pill left of
     each name. The Market waits off the screen at the left (2026-10-04): on
     it the tabs are where they were, elsewhere 7 columns to the left."""
-    if sum(pixel(img, 20, 24)) > 600:
-        return ["Market"]
-    places = (("Games", 44), ("Dev", 116), ("Settings", 172))
-    return [name for name, x in places if sum(pixel(img, x, 24)) > 600]
+    # Since 2026-11-06 the tabs are four round icons in the top bar (df050a96):
+    # the lit one has a white ring, read 13 pixels left of its centre.
+    places = (("Market", 241), ("Games", 293), ("Dev", 345), ("Settings", 397))
+    return [name for name, x in places if sum(pixel(img, x - 13, 23)) > 600]
 
 
 def img_tabs(q, want=None):
@@ -640,7 +640,7 @@ def wait_menu(q, timeout=15.0):
     while True:
         img = q.screendump()
         text = screen_text(img)
-        if "Games" in text[1]:
+        if tabs_lit(img):
             return img, text
         if time.time() > deadline:
             os.makedirs("build/diag", exist_ok=True)
@@ -802,7 +802,7 @@ def test_keys_help(b, opts):
             _save_png(img, os.path.join(opts.shots, "keys-help-menu.png"))
         time.sleep(2.0)                         # let go: the menu
         _, text = settled_screen(q, lambda i, t: not any("(F12 held)" in l for l in t), tries=40)
-        assert not any("(F12 held)" in l for l in text) and any("Settings" in l for l in text), "\n".join(text)
+        assert not any("(F12 held)" in l for l in text) and tabs_lit(_), "\n".join(text)
         # in an app: the system's keys, then the app's (keyhelp()): bm Studio
         sendkeys(q, "ctrl-shift-esc")
         q.expect(PROMPT, timeout=10)
@@ -1167,7 +1167,7 @@ def test_home_ui(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        text = screen(["Games", "Dev", "Settings", "AAA saver"])
+        text = screen(["AAA saver"])
         assert "bm" not in text.splitlines()[1] and "pads" not in text, text
         shot_ = q.screendump()
         assert bar_icons(shot_) == [], "no keyboard, pad or network: no icons"
@@ -1203,7 +1203,7 @@ def test_home_ui(b, opts):
         q.expect('"AAA saver" closed, memory freed', timeout=10)
 
         # Close the game closes the panel too: the covers again, with no Resume to come back to
-        text = screen(["Games", "AAA saver", "Options"])    # (the bar shows key chips only)
+        text = screen(["AAA saver", "Options"])    # (the bar shows key chips only)
         assert "Close the game" not in text and "Resume" not in text, text
 
         # the other cartridge leaves the SD card
@@ -5347,11 +5347,11 @@ def test_menu_scale(b, opts):
         for _ in range(30):
             w, h, px = q.screendump()
             text = screen_text((w, h, px))
-            if "Settings" in text[1] and "Astro Wing" in text[4]:
+            if any("Astro Wing" in l for l in text):
                 break
             time.sleep(0.3)
         assert (w, h) == (640, 360), f"screen {w}x{h}"
-        assert "Games" in text[1] and "Settings" in text[1] and "Astro Wing" in text[4], "\n".join(text)
+        assert any("Astro Wing" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png((w, h, px), os.path.join(opts.shots, "menu-360-fallback.png"))
     finally:
@@ -5374,11 +5374,11 @@ def test_menu_scale_360_gpu(b, opts):
         for _ in range(30):
             w, h, px = q.screendump()
             text = screen_text((w, h, px))
-            if "Settings" in text[1] and "Astro Wing" in text[4]:
+            if any("Astro Wing" in l for l in text):
                 break
             time.sleep(0.3)
         assert (w, h) == (640, 360), f"screen {w}x{h}"
-        assert "Games" in text[1] and "Settings" in text[1] and "Astro Wing" in text[4], "\n".join(text)
+        assert any("Astro Wing" in l for l in text), "\n".join(text)
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
