@@ -147,7 +147,7 @@ function _init()
   check(init_count == 1, "_screen ran once before _init (" .. init_count .. ")")
 
   local t, cur = screen_modes()
-  check(type(t) == "table" and #t == (square and 3 or 7), "screen_modes has " .. (square and 3 or 7) .. " modes")
+  check(type(t) == "table" and #t == (square and 3 or 8), "screen_modes has " .. (square and 3 or 8) .. " modes")
   for i = 1, #t do
     local w, h = screen(i)
     check(t[i][1] == w and t[i][2] == h, "screen_modes()[" .. i .. "] is screen(" .. i .. ")")

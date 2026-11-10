@@ -33,6 +33,10 @@ int ksnprintf(char *buf, size_t size, const char *fmt, ...)
     return n;
 }
 
+/* mali.c prints its reports with kprintf and clears a page with g16_cls: not needed here */
+int kprintf(const char *fmt, ...) { (void)fmt; return 0; }
+void g16_cls(g16_t *g, uint16_t c) { (void)g; (void)c; }
+
 /* --- the simulated SoC --- */
 
 #define MEM_PA   0x3fc00000u

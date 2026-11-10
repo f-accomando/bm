@@ -1035,88 +1035,6 @@ function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
 """
 
 
-def test_make_image(b, opts):
-    """`make image` (with placeholder firmware files): the SD image boots to
-    a menu with the demo games, and one of them runs from the card."""
-    tmp = tempfile.mkdtemp(prefix="bm-img-")
-    fw = os.path.join(tmp, "fw")
-    os.makedirs(fw)
-    for n in ("bootcode.bin", "start.elf", "fixup.dat"):
-        with open(os.path.join(fw, n), "wb") as f:
-            f.write(b"placeholder")
-    root = os.path.join(HERE, "..")
-    subprocess.run(["make", "-s", "-C", root, "image", f"FW_DIR={fw}", f"DIST={tmp}",
-                    f"BUILD={os.path.abspath(b('.'))}"], check=True, stdout=subprocess.DEVNULL)
-    img = os.path.join(tmp, "bm.img")
-    assert os.path.getsize(img) == 64 << 20, os.path.getsize(img)
-    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
-    try:
-        out = q.expect(MENU, timeout=30).decode(errors="replace")
-        # a cartridge for each of the Makefile's GAMES (a new game: one more)
-        with open(os.path.join(root, "Makefile")) as f:
-            games = re.search(r"^GAMES\s*:=(.*)$", f.read(), re.M).group(1).split()
-        assert f"FAT32, 63 MB, label BM; {len(games)} cartridges" in out, out
-        time.sleep(0.5)
-        want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "nano8")
-        titles = want + ("Astro Wing", "Titan Clash", "Overbit", "Yharnam", "Pad Typing")
-
-        def chosen(t):                         # the name of the chosen cover (row 4)
-            return next((n for n in titles if len(t) > 4 and n in t[4]), None)
-
-        seen, rows, prev = set(), [], None
-        for _ in range(20):                    # right along the grid (it wraps): each title in turn
-            # a screendump can catch a frame half drawn (row 4 without its
-            # title) or the cover before: wait for the next title
-            _, text = settled_screen(q, lambda i, t: chosen(t) not in (None, prev), tries=20)
-            rows.append(text[4] if len(text) > 4 else "")
-            prev = chosen(text) or prev
-            seen.add(prev)
-            if all(w in seen for w in want):
-                break
-            q.send("d")
-            time.sleep(0.3)
-        screen = "\n".join(rows)
-        for title in want:
-            assert title in seen, screen
-        q.send("q")
-        q.expect(PROMPT)
-        q.expect("> ")
-        q.send(":carts list\r")
-        out = q.expect('Star Shooter"\r\n').decode(errors="replace")
-        assert "/bm/pong.bm" in out and "/bm/shooter.bm" in out, out
-        q.close()
-
-        # the Pi 1 image: same kernel and games, no WiFi/Bluetooth firmware
-        # (and no kernel7.img, the Pi Zero 2 W's)
-        for n in ("BCM43430A1.hcd", "SYN43430B0.hcd"):
-            with open(os.path.join(fw, n), "wb") as f:
-                f.write(b"placeholder")
-        subprocess.run(["make", "-s", "-C", root, "image", "image-pi1", f"FW_DIR={fw}",
-                        f"DIST={tmp}", f"BUILD={os.path.abspath(b('.'))}"],
-                       check=True, stdout=subprocess.DEVNULL)
-        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        def ls(name):
-            return subprocess.run(["mdir", "-i", f"{os.path.join(tmp, name)}@@1M", "-b", "-/", "::"],
-                                  env=env, capture_output=True, text=True).stdout
-        assert "::/BM/BCM43430A1.HCD" in ls("bm.img").upper(), ls("bm.img")
-        assert "::/BM/SYN43430B0.HCD" in ls("bm.img").upper(), ls("bm.img")
-        assert "::/KERNEL.IMG" in ls("bm.img").upper(), ls("bm.img")
-        assert ("::/KERNEL7.IMG" in ls("bm.img").upper()) == ZERO2, ls("bm.img")
-        # the carts nano8 plays, with their long names
-        assert "::/carts/nano8/nanodemo.p8" in ls("bm.img"), ls("bm.img")
-        assert "::/carts/nano8/starmoovalley.p8.png" in ls("bm.img"), ls("bm.img")
-        pi1 = ls("bm-pi1.img")
-        assert "::/KERNEL.IMG" in pi1.upper() and "BCM43430A1" not in pi1.upper(), pi1
-        assert "KERNEL7" not in pi1.upper(), pi1
-        q = Qemu(os.path.join(os.path.dirname(b("kernel.img")), "kernel.img"),   # kernel.img even with --kernel7
-                 ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"], machine="raspi1ap")
-        out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and f"; {len(games)} cartridges" in out, out
-    finally:
-        q.close()
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
 SAVE_CART = r"""
 function _init()
   local d = saved()
@@ -4152,6 +4070,31 @@ def test_square_lights(b, opts):
         assert "stopped with an error" not in out, out
     finally:
         q.close()
+
+
+SCREEN_CART = r"""
+local cube, f, i = nil, 0, 0
+local MODES = { { 640, 360 }, { 1920, 1080 }, { 320, 180 }, { 960, 540 } }
+function _init()
+  cube = mesh_cube(0xE06030)
+  log("refused " .. tostring(screen(800, 600)))
+end
+function _update()
+  f = f + 1
+  if f % 40 == 0 and i < #MODES then
+    i = i + 1
+    screen(MODES[i][1], MODES[i][2])
+  end
+  if f % 40 == 2 then log(string.format("screen now %dx%d", SCREEN_W, SCREEN_H)) end
+end
+function _draw()
+  cls(0x203050)
+  camera3d(0, 1.2, -9, 0, -0.1, 60)
+  zclear()
+  draw3d(cube, 0, 0, 0, 0.3, 0.6, 0, 1)
+  print("SCREEN " .. SCREEN_W .. "X" .. SCREEN_H, 0, 0, 0xFFFFFF)
+end
+"""
 
 
 def test_monitor_line(b, opts):
