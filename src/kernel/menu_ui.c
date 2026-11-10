@@ -62,13 +62,14 @@ static inline const font_t *menu_font(int sc)
 /* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
  * read the screen back) */
 #define BAR_H       48              /* top bar: rows 0-2 */
-#define TITLE_ROW   4               /* name of the selected cartridge */
+#define TITLE_ROW   (bgz > 2 ? 5 : 4)       /* name of the selected cartridge */
 #define CARD_W      MENU_CARD       /* squares, as the bm Suite's icons */
 #define CARD_H      MENU_CARD
 #define RADIUS      0               /* square corners of the covers */
 #define GAP_X       6
 #define PITCH_Y     (CARD_H + GAP_X)
-#define GRID_X0     ((SW - (cols * CARD_W + (cols - 1) * GAP_X)) / 2)
+#define GRID_W      (cols * CARD_W + (cols - 1) * GAP_X)
+#define GRID_X0     ((SW - GRID_W) / 2)
 #define FOOT_Y      foot_y          /* bottom bar (316 at 360 high), text rows 20-21 */
 #define GRID_BOT    FOOT_Y          /* grid clip */
 #define HROW        ((FOOT_Y + 20) / 16)    /* the text row of the key chips in the bottom bar (21 at 360 high) */
@@ -1041,9 +1042,9 @@ static void scroll_mark(int cx, int cy, int dir, uint16_t c)
  * was and sits in the middle (29 Oct 2026) */
 #define PANEL_W     (bgz > 1 ? (SW - 2 * PANEL_X0) / 2 : SW - 2 * PANEL_X0)
 #define PANEL_X     (bgz > 1 ? (SW - PANEL_W) / 2 : PANEL_X0)
-#define PANEL_Y     52
 #define PANEL_EXTRA ((menu_panel_rows() - MENU_PANEL_ROWS) * 32)    /* the taller box of a native layout */
-#define PANEL_H     (310 - PANEL_Y + PANEL_EXTRA)
+#define PANEL_H     (258 + PANEL_EXTRA)
+#define PANEL_Y     (bgz > 1 ? (BAR_H + ((FOOT_Y - BAR_H) - PANEL_H) / 2) : 52)
 #define PANEL_ROW0  6
 #define PANEL_COL   (PANEL_X / CW)
 #define LABEL_COL   (PANEL_COL + 3)
@@ -1058,24 +1059,26 @@ static int by_enter;                    /* Settings: Enter changes a choice (no 
  * values (else only the ">" of a submenu) */
 int menu_panel_rows(void)
 {
-    return bgz > 1 ? MENU_PANEL_ROWS_TALL : MENU_PANEL_ROWS;
+    return bgz > 2 ? 14 : bgz > 1 ? MENU_PANEL_ROWS_TALL : MENU_PANEL_ROWS;
 }
 
 static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, int values)
 {
-    round_rect(x0 - 2, PANEL_Y - 2, w + 4, PANEL_H + 4, 16, c16(C_LINE));
-    round_rect(x0, PANEL_Y, w, PANEL_H, 14, c16(C_BAR));
+    const int py = PANEL_Y;
+    const int ph = PANEL_H;
+    round_rect(x0 - 2, py - 2, w + 4, ph + 4, 16, c16(C_LINE));
+    round_rect(x0, py, w, ph, 14, c16(C_BAR));
     const int col0 = x0 / CW, label_col = col0 + 3, value_end = (x0 + w) / CW - 3;
     char buf[72];
     ksnprintf(buf, sizeof buf, "%s", p->title ? p->title : "");
     if (w / CW - 4 < (int)sizeof buf)
         buf[w / CW - 4] = 0;
-    m_text((col0 + 2) * CW, 4 * 16, buf, c16(faded ? C_DIM : C_TEXT));
-    m_rect(x0 + 16, 88, w - 32, 1, c16(C_LINE));
-    const int prows = menu_panel_rows(), extra = PANEL_EXTRA;
+    m_text((col0 + 2) * CW, py + 12, buf, c16(faded ? C_DIM : C_TEXT));
+    m_rect(x0 + 16, py + 36, w - 32, 1, c16(C_LINE));
+    const int prows = menu_panel_rows();
     for (int i = 0; i < prows && p->top + i < p->n; i++) {
         const menu_row_t *r = &p->rows[p->top + i];
-        int row = PANEL_ROW0 + 2 * i, y = row * 16, sel = p->top + i == p->sel;
+        int y = py + 44 + 32 * i, sel = p->top + i == p->sel;
         zone(x0 + 16, y - 8, w - 32, 32, hit, p->top + i, 1);
         if (sel)
             round_rect(x0 + 16, y - 6, w - 32, 28, 8, faded ? c16(C_LINE) : c16(C_TAB_ON));
@@ -1120,15 +1123,15 @@ static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, 
         m_text((value_end - (int)strlen(buf)) * CW, y, buf, fv);
     }
     if (p->top > 0)
-        scroll_mark(x0 + w - 12, 100, -1, c16(C_DIM));
+        scroll_mark(x0 + w - 12, py + 48, -1, c16(C_DIM));
     if (p->top + prows < p->n)
-        scroll_mark(x0 + w - 12, 268 + extra, 1, c16(C_DIM));
-    m_rect(x0 + 16, 281 + extra, w - 32, 1, c16(C_LINE));
+        scroll_mark(x0 + w - 12, py + ph - 42, 1, c16(C_DIM));
+    m_rect(x0 + 16, py + ph - 29, w - 32, 1, c16(C_LINE));
     if (p->help) {
         ksnprintf(buf, sizeof buf, "%s", p->help);
         if (w / CW - 4 < (int)sizeof buf)
             buf[w / CW - 4] = 0;
-        m_text((col0 + 2) * CW, 18 * 16 + extra, buf, c16(C_DIM));
+        m_text((col0 + 2) * CW, py + ph - 22, buf, c16(C_DIM));
     }
 }
 
@@ -1799,7 +1802,8 @@ static void frame_title(const menu_view_t *v, const menu_item_t *cur)
         sub_w += 3;
         if (v->refresh_label && v->refresh_label[0])
             sub_w += (int)strlen(v->refresh_label) + 4;
-        int scol = SW / CW - sub_w;
+        int right_x = (bgz > 1) ? (GRID_X0 + GRID_W) : SW;
+        int scol = right_x / CW - sub_w;
         round_rect((scol - 2) * CW, TITLE_ROW * 16 - 6, (sub_w + 1) * CW, 28, 14, c16(C_BAR));
         for (int i = 0; i < v->nsubtabs; i++) {
             int sn = (int)strlen(v->subtabs[i]);
@@ -1819,7 +1823,9 @@ static void frame_title(const menu_view_t *v, const menu_item_t *cur)
                 m_text(scol * CW, TITLE_ROW * 16, v->refresh_label, c16(C_DIM));
         }
     }
-    int max_cols = SW / CW - 6 - sub_w;
+    int start_col = (bgz > 1) ? (GRID_X0 / CW) : 3;
+    int right_x = (bgz > 1) ? (GRID_X0 + GRID_W) : SW;
+    int max_cols = (right_x / CW - sub_w) - start_col - 3;
     if (max_cols < 12)
         max_cols = 12;
     if (v->banner) {
@@ -1827,9 +1833,9 @@ static void frame_title(const menu_view_t *v, const menu_item_t *cur)
         ksnprintf(buf, sizeof buf, "%s", v->banner);
         if (max_cols < (int)sizeof buf)
             buf[max_cols] = 0;
-        pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
+        pill_text(start_col, TITLE_ROW, buf, C_DIM, C_PILL);
     } else if (v->n == 0) {
-        pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
+        pill_text(start_col, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
     }
 }
 
@@ -1911,7 +1917,9 @@ static void frame_hints(const menu_view_t *v, const menu_item_t *cur)
 static void frame_ask(const menu_view_t *v)
 {
     const int pw = (WIDE && bgz > 1) ? 520 : (WIDE ? 448 : SW - 32);
-    const int px = (SW - pw) / 2, py = 8 * 16 - 8, ph = 5 * 16 + 16;
+    const int ph = 5 * 16 + 16;
+    const int px = (SW - pw) / 2;
+    const int py = (bgz > 1) ? (BAR_H + ((FOOT_Y - BAR_H) - ph) / 2) : (8 * 16 - 8);
     round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_LINE));
     round_rect(px, py, pw, ph, 12, c16(C_BAR));
     zone(px - 2, py - 2, pw + 4, ph + 4, MENU_HIT_ASK, 0, 1);
@@ -1919,45 +1927,48 @@ static void frame_ask(const menu_view_t *v)
     ksnprintf(q, sizeof q, "%s", v->ask);
     if (pw / CW - 2 < (int)sizeof q - 1)
         q[pw / CW - 2] = 0;
-    m_text((SW / CW - (int)strlen(q)) / 2 * CW, 9 * 16, q, c16(C_TEXT));
+    m_text((SW / CW - (int)strlen(q)) / 2 * CW, py + 24, q, c16(C_TEXT));
     if (v->ask_detail) {
         ksnprintf(q, sizeof q, "%s", v->ask_detail);
         if (pw / CW - 2 < (int)sizeof q - 1)
             q[pw / CW - 2] = 0;
-        m_text((SW / CW - (int)strlen(q)) / 2 * CW, 10 * 16, q, c16(C_DIM));
+        m_text((SW / CW - (int)strlen(q)) / 2 * CW, py + 40, q, c16(C_DIM));
     }
     const char *yes_label = v->ask_yes ? v->ask_yes : "Close it";
+    const int btn_row = (py + 72) / 16;
     chips_dry = 1;
-    int end_col = hint(v, 0, 12, BTN_A, yes_label);
-    end_col = hint(v, end_col + 2, 12, BTN_B, "Cancel");
+    int end_col = hint(v, 0, btn_row, BTN_A, yes_label);
+    end_col = hint(v, end_col + 2, btn_row, BTN_B, "Cancel");
     chips_dry = 0;
     int btn_col = (SW / CW - (end_col - 3)) / 2;
     if (btn_col < px / CW + 2)
         btn_col = px / CW + 2;
-    int c = hint(v, btn_col, 12, BTN_A, yes_label);
-    hint(v, c + 2, 12, BTN_B, "Cancel");
+    int c = hint(v, btn_col, btn_row, BTN_A, yes_label);
+    hint(v, c + 2, btn_row, BTN_B, "Cancel");
 }
 
 /* The system's notice, over everything (a kernel arriving, a restart). */
 static void frame_notice(const menu_view_t *v)
 {
     const int pw = (WIDE && bgz > 1) ? 520 : (WIDE ? 448 : SW - 32);
-    const int px = (SW - pw) / 2, py = 8 * 16 - 8, ph = 5 * 16 + 16;
+    const int ph = 5 * 16 + 16;
+    const int px = (SW - pw) / 2;
+    const int py = (bgz > 1) ? (BAR_H + ((FOOT_Y - BAR_H) - ph) / 2) : (8 * 16 - 8);
     round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_ACCENT));
     round_rect(px, py, pw, ph, 12, c16(C_BAR));
     char q[64];
     ksnprintf(q, sizeof q, "%s", v->notice);
     if (pw / CW - 2 < (int)sizeof q - 1)
         q[pw / CW - 2] = 0;
-    m_text((SW / CW - (int)strlen(q)) / 2 * CW, 9 * 16, q, c16(C_TEXT));
+    m_text((SW / CW - (int)strlen(q)) / 2 * CW, py + 24, q, c16(C_TEXT));
     if (v->notice_detail) {
         ksnprintf(q, sizeof q, "%s", v->notice_detail);
         if (pw / CW - 2 < (int)sizeof q - 1)
             q[pw / CW - 2] = 0;
-        m_text((SW / CW - (int)strlen(q)) / 2 * CW, 10 * 16, q, c16(C_DIM));
+        m_text((SW / CW - (int)strlen(q)) / 2 * CW, py + 40, q, c16(C_DIM));
     }
     if (v->notice_progress >= 0) {
-        const int bx = px + 16, bw = pw - 32, by = 12 * 16 + 4, fill = bw * v->notice_progress / 1000;
+        const int bx = px + 16, bw = pw - 32, by = py + 76, fill = bw * v->notice_progress / 1000;
         round_rect(bx, by, bw, 8, 4, c16(C_LINE));
         if (fill > 8)
             round_rect(bx, by, fill, 8, 4, c16(C_ACCENT));
