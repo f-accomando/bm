@@ -43,6 +43,12 @@ Part of the game API. Index and basics: [API.md](../API.md).
 | `vmeasure(text, [size])` | returns the width and height (`w, h`) in pixels of `text` rendered with the active vector font |
 | `prompt(name, x, y, [small, scale, player, menu])` | a key drawn as a coloured chip (the apps' set, `src/kernel/prompts.c`) with its top left corner at (x, y): 16 pixels high beside the 8×16 text, 12 with `small` (by itself when the font is `"6x12"`), `scale` times bigger (1–8, as `print`); returns the x after the chip. In **upper case** the pad's buttons (`"A"`, `"B"`, `"X"`, `"Y"`, `"START"`, `"SELECT"`, `"L1"`…`"R3"`, `"UP"`, `"UPDOWN"`, `"LEFTRIGHT"`, `"DPAD"`, `"LSTICK"`, `"PS"`, `"TOUCHPAD"`), drawn as on the pad used last: a DS4 (cross, circle, square, triangle, OPTIONS, SHARE) until another one is used, which has them with letters. On the **RGB30** `"A"`, `"B"`, `"X"`, `"Y"` are the console's own buttons (Nintendo layout: X top, A right, B bottom, Y left), a dark button with the letter in its colour: A green, B blue, X red, Y yellow (until a Bluetooth pad is used); `"RGB30_A"`, `"RGB30_B"`, `"RGB30_X"`, `"RGB30_Y"` draw them on any console. In **lower case** the mouse (`"mouse"`; `"mouse_l"` and `"mouse_r"` with the left or the right button in red) and the keyboard's keys, with the names of `keyp()` (`"enter"`, `"esc"`, `"tab"`, `"space"`, `"up"`, `"f1"`…) or a character (`"s"`, `"1"`, `"+"`). `"ok"`, `"back"` and the actions of `keymap()` are their button (on the RGB30 `"ok"` is B and `"back"` A, swapped by `confirm=a`: the chip is the button really pressed). With `player` (1–4, after `scale`: `prompt(name, x, y, small, scale, player)`) the button as that player's controller shows it: the DS4's symbol, a pad's letter or the keyboard key that presses it (`"space"` for A). `prompt(name, [small, scale, player])` without coordinates does not draw: it returns the width and height; with `menu` true (the seventh argument) the menu's set instead: white keys, raised on a lip, always 16 pixels high (`small` is ignored) |
 | `camera([x, y])` | moves all drawing by (−x, −y); without arguments it resets it |
+| `push_matrix()` | pushes the current 2D affine transform matrix onto the stack (16 levels max) |
+| `pop_matrix()` | restores the previous 2D transform matrix from the stack |
+| `translate(dx, dy)` | appends a translation by `(dx, dy)` to the current 2D transform |
+| `rotate(angle)` | appends a clockwise rotation by `angle` radians to the current 2D transform |
+| `scale(sx, [sy])` | appends a scaling by `(sx, sy)` (`sy` defaults to `sx`) to the current 2D transform |
+| `origin()` | resets the 2D transform matrix to identity |
 | `clip([x, y, w, h])` | limits drawing to the rectangle; without arguments the whole screen |
 | `blend([mode, [alpha]])` | sets the active 2D blend mode (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255` or `0.0..1.0`); without arguments returns `mode, alpha` |
 | `palt([c, [transparent]])` | sets transparency for color `c` (`true`/`false`), or sets 16-color mask `palt(mask)`; without arguments resets to default (color 0 transparent) |
@@ -66,10 +72,10 @@ pixel, decoded at loading (Titan Clash: 2048×3376 pixels in 1.7 MB).
 
 | Function | Description |
 |---|---|
-| `spr(n, x, y, [w, h, flip_x, flip_y])` | draws cell `n` (w×h cells, default 1×1), mirrored too |
+| `spr(n, x, y, [w, h, flip_x, flip_y, rz, scale])` | draws cell `n` (`w`×`h` cells, default 1×1), mirrored and optionally rotated by `rz` radians around its centre and scaled by `scale` |
 | `spr_alpha(n, dx, dy, [alpha, wc, hc, flip_x, flip_y])` | draws cell `n` with global 8-bit alpha (0..255, default 255) and per-pixel coverage |
 | `spr_rot(n, dx, dy, rz, [scale, wc, hc])` | rotates cell `n` around its center by `rz` radians with optional scale |
-| `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copies any rectangle of the sheet; with `zoom` (default 1) it draws it bigger (`2`, `3`…) or smaller (`0.5`), pixel by pixel: it covers `sw * zoom` × `sh * zoom` pixels |
+| `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom, rz, ox, oy])` | copies any rectangle of the sheet; with `zoom` (default 1) scales it; with `rz` rotates by `rz` radians around `(ox, oy)` (defaults to center) |
 | `sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy])` | affine 2x2 transform `[a b; c d]` of a sheet rectangle at anchor `(dx, dy)` with origin `(ox, oy)` (defaults to center) |
 | `sspr_alpha(sx, sy, sw, sh, dx, dy, [alpha, flip_x, flip_y])` | draws sheet rectangle with global 8-bit alpha (0..255, default 255) and per-pixel coverage |
 | `sspr_rot(sx, sy, sw, sh, dx, dy, rz, [scale, ox, oy])` | rotates sheet rectangle by `rz` radians around `(ox, oy)` (defaults to center) with optional scale |

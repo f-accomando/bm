@@ -316,6 +316,7 @@ static int l_target_gc(lua_State *L)
                 rt.has_saved_screen = 0;
             }
             rt.cur_target = NULL;
+            target_sync_r3d();
         }
         g16_target_free(&lt->target);
     }
@@ -380,6 +381,7 @@ int l_target(lua_State *L)
             rt.has_saved_screen = 0;
         }
         rt.cur_target = NULL;
+        target_sync_r3d();
         return 0;
     }
     if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "sheet")) {
@@ -394,6 +396,7 @@ int l_target(lua_State *L)
         rt.g.h = rt.sheet.h;
         g16_clip(&rt.g, 0, 0, 0, 0);
         rt.g.cam_x = rt.g.cam_y = 0;
+        target_sync_r3d();
         return 0;
     }
     if (lua_isuserdata(L, 1)) {
@@ -411,6 +414,7 @@ int l_target(lua_State *L)
         rt.g.h = lt->target.h;
         g16_clip(&rt.g, 0, 0, 0, 0);
         rt.g.cam_x = rt.g.cam_y = 0;
+        target_sync_r3d();
         return 0;
     }
     return luaL_error(L, "invalid argument to target([t])");
@@ -1026,8 +1030,17 @@ int l_frameskip(lua_State *L)
 int l_tri(lua_State *L)
 {
     int32_t v[9], *a;
-    for (int i = 0; i < 6; i++)
-        v[i] = ival(L, i + 1);
+    if (rt.xform_active) {
+        for (int i = 0; i < 6; i += 2) {
+            float tx, ty;
+            xform_pt((float)luaL_checknumber(L, i + 1), (float)luaL_checknumber(L, i + 2), &tx, &ty);
+            v[i] = (int32_t)lrintf(tx);
+            v[i + 1] = (int32_t)lrintf(ty);
+        }
+    } else {
+        for (int i = 0; i < 6; i++)
+            v[i] = ival(L, i + 1);
+    }
     if (!lua_isnoneornil(L, 8)) {
         const uint32_t c0 = (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF);
         v[6] = (int32_t)c0;

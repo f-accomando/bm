@@ -21,10 +21,9 @@ Done, all in `bm-core`:
 - `market/about.txt` has the `bench3d` line, so `make market-seed` passes its check.
 
 To do, in this order:
-1. The native layout for Settings, the panels, the title and the tabs (the grid and the chips are done).
-2. SYS-18 (covers in a better resolution), SYS-16 (file layout by type), the headless mode of the shell, SYS-15 (the remap in the other games, with the Overbit pattern).
-3. 3D Bench and free memory with 32 texture slots: only Yharnam is measured.
-4. SYS-17 leftovers: a keyboard behind a hub plugged later (read `port_status`), a mouse alone.
+1. SYS-18 (covers in a better resolution), SYS-16 (file layout by type), the headless mode of the shell, SYS-15 (the remap in the other games, with the Overbit pattern).
+2. 3D Bench and free memory with 32 texture slots: only Yharnam is measured (also verify native `menu_layout=1` Settings/panels/dialogs on TV for SYS-21 default).
+3. SYS-17 leftovers: a keyboard behind a hub plugged later (read `port_status`), a mouse alone.
 
 Chores:
 - `test_sd_sdhc_and_usb_menu` builds a 4 GB image and the WSL `/tmp` is 3.9 GB: run it with a larger temporary folder. Clean `/tmp/bm-*` after a series of tests.

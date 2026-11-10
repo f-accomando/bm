@@ -103,6 +103,12 @@ int l_print(lua_State *L)
 {
     /* read the numeric arguments first: luaL_tolstring pushes a value */
     int x = ival(L, 2), y = ival(L, 3);
+    if (rt.xform_active) {
+        float fx, fy;
+        xform_pt((float)luaL_checknumber(L, 2), (float)luaL_checknumber(L, 3), &fx, &fy);
+        x = (int)lrintf(fx);
+        y = (int)lrintf(fy);
+    }
     uint16_t c = col(L, 4, 0xFFFFFF);
     int scale = oval(L, 5, 1);
     if (scale > 8) scale = 8;
@@ -244,6 +250,12 @@ int l_vfont(lua_State *L)
 int l_vprint(lua_State *L)
 {
     int x = ival(L, 2), y = ival(L, 3);
+    if (rt.xform_active) {
+        float fx, fy;
+        xform_pt((float)luaL_checknumber(L, 2), (float)luaL_checknumber(L, 3), &fx, &fy);
+        x = (int)lrintf(fx);
+        y = (int)lrintf(fy);
+    }
     uint16_t c = col(L, 4, 0xFFFFFF);
     if (!lua_isnoneornil(L, 5)) {
         float sz = (float)luaL_checknumber(L, 5);

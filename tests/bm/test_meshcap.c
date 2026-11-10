@@ -68,9 +68,9 @@ static luaL_Reg *api_names(const char *runtime)
     src[len] = 0;
     char *p = strstr(src, "static const luaL_Reg api[]");
     char *end = p ? strstr(p, "{ NULL, NULL }") : NULL;
-    luaL_Reg *api = calloc(256, sizeof *api);
+    luaL_Reg *api = calloc(512, sizeof *api);
     int n = 0;
-    while (p && end && p < end && n < 255) {
+    while (p && end && p < end && n < 511) {
         char *q = strstr(p, "{ \"");
         if (!q || q > end)
             break;

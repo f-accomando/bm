@@ -496,7 +496,8 @@ int l_draw3d(lua_State *L)
     v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
     r3d_t *r = r3d(L);
     settle2d();                         /* recorded 2D first: the 3D goes over it */
-    zclear_dma_wait(1);
+    if (!rt.cur_target)
+        zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     r3d_draw_flags(r, m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
                    (unsigned)luaL_optinteger(L, 9, 0));
@@ -585,7 +586,8 @@ int l_point3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
     settle2d();                         /* recorded 2D first: the 3D goes over it */
-    zclear_dma_wait(1);
+    if (!rt.cur_target)
+        zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_point(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) }, fnum(L, 4, 0.1f),
                            (uint32_t)luaL_optinteger(L, 5, 0xFFFFFF), (unsigned)luaL_optinteger(L, 6, 0));
@@ -599,7 +601,8 @@ int l_line3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
     settle2d();                         /* recorded 2D first: the 3D goes over it */
-    zclear_dma_wait(1);
+    if (!rt.cur_target)
+        zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_line(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) },
                           (v3_t){ fnum(L, 4, 0), fnum(L, 5, 0), fnum(L, 6, 0) },
@@ -617,7 +620,8 @@ int l_sprite3d(lua_State *L)
     r3d_t *r = r3d(L);
     sheet_commit();
     settle2d();                         /* recorded 2D first: the 3D goes over it */
-    zclear_dma_wait(1);
+    if (!rt.cur_target)
+        zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_sprite(r, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4),
                             (v3_t){ fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0) }, fnum(L, 8, 1),
@@ -673,7 +677,8 @@ int l_particles_draw(lua_State *L)
     }
     r3d_t *r = r3d(L);
     settle2d();
-    zclear_dma_wait(1);
+    if (!rt.cur_target)
+        zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_pfx_draw(r, rt.pfx, fnum(L, 1, 0.1f));
     us3d_add(t0);
@@ -869,12 +874,14 @@ int l_lamp3d(lua_State *L)
 int l_zclear(lua_State *L)
 {
     r3d_t *r = r3d(L);
-    rt.zclear_seen = 1;
-    rt.us3d = 0;
-    if (rt.zclear_dma) {
-        zclear_dma_wait(1);
-        r->tris_in = r->tris_drawn = r->pixels = r->verts = r->impostors = 0;
-        return 0;
+    if (!rt.cur_target) {
+        rt.zclear_seen = 1;
+        rt.us3d = 0;
+        if (rt.zclear_dma) {
+            zclear_dma_wait(1);
+            r->tris_in = r->tris_drawn = r->pixels = r->verts = r->impostors = 0;
+            return 0;
+        }
     }
     r3d_zclear(r);
     return 0;

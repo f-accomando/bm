@@ -56,6 +56,13 @@ enum { PERM_NET, PERM_REPORT, PERM_DOCS, PERM_COUNT };
 
 /* ------------------------------------------------------- the state of the run */
 
+#define XFORM_STACK_MAX 16
+
+typedef struct {
+    float a, b, tx;
+    float c, d, ty;
+} xform2d_t;
+
 typedef struct {
     g16_t g;
     g16_t screen_g;                 /* saved screen graphics state when target() is active */
@@ -188,11 +195,26 @@ typedef struct {
     uint8_t leave_keys;
     uint32_t leave_held;        /* the buttons it took: the game gets them back released */
     uint32_t raw_all;           /* this frame's HID bits, all players and the serial line */
+    xform2d_t xform;            /* active 2D affine matrix */
+    xform2d_t xform_stack[XFORM_STACK_MAX];
+    int xform_depth;
+    uint8_t xform_active;       /* non-zero when xform != identity */
+    uint16_t *target_zbuf;      /* dedicated 16-bit z-buffer for draw3d() into off-screen targets */
+    int target_zbuf_w, target_zbuf_h;
+    uint16_t *saved_r3d_zbuf;
+    const r3d_backend_t *saved_r3d_backend;
+    int r3d_on_target;
 } rt_t;
 
 extern rt_t rt;
 
 /* ------------------------------------------------------- helpers */
+
+static inline void xform_pt(float x, float y, float *ox, float *oy)
+{
+    *ox = rt.xform.a * x + rt.xform.b * y + rt.xform.tx;
+    *oy = rt.xform.c * x + rt.xform.d * y + rt.xform.ty;
+}
 
 static inline uint16_t col(lua_State *L, int idx, uint32_t def)
 {
@@ -594,6 +616,7 @@ int  l_target_clear(lua_State *L);
 int  l_target_free(lua_State *L);
 int  l_target_size(lua_State *L);
 void target_type_init(lua_State *L);
+void target_sync_r3d(void);
 int  l_fillpat(lua_State *L);
 int  l_colmat(lua_State *L);
 int l_rgb(lua_State *L);
@@ -611,6 +634,20 @@ int l_time(lua_State *L);
 int l_stat(lua_State *L);
 int l_frameskip(lua_State *L);
 int l_tri(lua_State *L);
+
+/* procedural math & geometry helpers (api_math.c) */
+int l_noise(lua_State *L);
+int l_fbm(lua_State *L);
+int l_random_normal(lua_State *L);
+int l_gamma_to_linear(lua_State *L);
+int l_linear_to_gamma(lua_State *L);
+int l_bezier(lua_State *L);
+int l_is_convex(lua_State *L);
+int l_triangulate(lua_State *L);
+
+/* 2D rigid body physics (api_phys2d.c) */
+void phys2d_type_init(lua_State *L);
+int l_phys_world(lua_State *L);
 
 /* keys (api_keys.c) */
 int l_keyp(lua_State *L);

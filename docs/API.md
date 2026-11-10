@@ -117,6 +117,8 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/sound.md](api/sound.md) | Sound effects and music · Notes · Instruments, tone, room · The bank |
 | [api/tools.md](api/tools.md) | Keyboard and files · Assistant (M30) |
 | [api/light3d.md](api/light3d.md) | nano8 · Light · Light by levels · 3D (software) · Collision worlds |
+| [api/math.md](api/math.md) | Procedural noise · Bezier curves · Polygon triangulation |
+| [api/physics.md](api/physics.md) | 2D rigid-body physics (`phys_world`) |
 | [api/bmlib.md](api/bmlib.md) | The games' shared library |
 | [api/jobs.md](api/jobs.md) | Pure jobs on the worker cores (`job_run`, `job_poll`) |
 | [api/riff.md](api/riff.md) | Music as patterns |

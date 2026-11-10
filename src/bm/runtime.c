@@ -802,9 +802,164 @@ static int l_cls(lua_State *L)
     return 0;
 }
 
+/* ------------------------------------------------------- 2D transform stack */
+
+static inline void xform_update_active(void)
+{
+    rt.xform_active = (rt.xform.a != 1.0f || rt.xform.b != 0.0f || rt.xform.tx != 0.0f ||
+                       rt.xform.c != 0.0f || rt.xform.d != 1.0f || rt.xform.ty != 0.0f) ? 1 : 0;
+}
+
+static int l_push_matrix(lua_State *L)
+{
+    if (rt.xform_depth >= XFORM_STACK_MAX)
+        return luaL_error(L, "transform stack overflow");
+    rt.xform_stack[rt.xform_depth++] = rt.xform;
+    return 0;
+}
+
+static int l_pop_matrix(lua_State *L)
+{
+    if (rt.xform_depth <= 0)
+        return luaL_error(L, "transform stack underflow");
+    rt.xform = rt.xform_stack[--rt.xform_depth];
+    xform_update_active();
+    return 0;
+}
+
+static int l_translate(lua_State *L)
+{
+    float dx = (float)luaL_checknumber(L, 1);
+    float dy = (float)luaL_optnumber(L, 2, 0.0);
+    rt.xform.tx += rt.xform.a * dx + rt.xform.b * dy;
+    rt.xform.ty += rt.xform.c * dx + rt.xform.d * dy;
+    xform_update_active();
+    return 0;
+}
+
+static int l_rotate(lua_State *L)
+{
+    float ang = (float)luaL_checknumber(L, 1);
+    float cs = cosf(ang), sn = sinf(ang);
+    float na = rt.xform.a * cs + rt.xform.b * sn;
+    float nb = -rt.xform.a * sn + rt.xform.b * cs;
+    float nc = rt.xform.c * cs + rt.xform.d * sn;
+    float nd = -rt.xform.c * sn + rt.xform.d * cs;
+    rt.xform.a = na; rt.xform.b = nb;
+    rt.xform.c = nc; rt.xform.d = nd;
+    xform_update_active();
+    return 0;
+}
+
+static int l_scale(lua_State *L)
+{
+    float sx = (float)luaL_checknumber(L, 1);
+    float sy = (float)luaL_optnumber(L, 2, sx);
+    rt.xform.a *= sx; rt.xform.c *= sx;
+    rt.xform.b *= sy; rt.xform.d *= sy;
+    xform_update_active();
+    return 0;
+}
+
+static int l_origin(lua_State *L)
+{
+    (void)L;
+    rt.xform.a = 1.0f; rt.xform.b = 0.0f; rt.xform.tx = 0.0f;
+    rt.xform.c = 0.0f; rt.xform.d = 1.0f; rt.xform.ty = 0.0f;
+    rt.xform_active = 0;
+    return 0;
+}
+
+/* Emit a transformed closed/filled 2D polygon using rt.xform */
+static void shape2d_xform(lua_State *L, int op)
+{
+    if (op == D2_PSET) {
+        float ox, oy;
+        xform_pt((float)luaL_checknumber(L, 1), (float)luaL_checknumber(L, 2), &ox, &oy);
+        g16_pset(&rt.g, (int)lrintf(ox), (int)lrintf(oy), col(L, 3, 0xFFFFFF));
+        return;
+    }
+    if (op == D2_LINE) {
+        float x0, y0, x1, y1;
+        xform_pt((float)luaL_checknumber(L, 1), (float)luaL_checknumber(L, 2), &x0, &y0);
+        xform_pt((float)luaL_checknumber(L, 3), (float)luaL_checknumber(L, 4), &x1, &y1);
+        g16_line(&rt.g, (int)lrintf(x0), (int)lrintf(y0), (int)lrintf(x1), (int)lrintf(y1), col(L, 5, 0xFFFFFF));
+        return;
+    }
+    if (op == D2_RECT || op == D2_RECTFILL) {
+        float x = (float)luaL_checknumber(L, 1);
+        float y = (float)luaL_checknumber(L, 2);
+        float w = (float)luaL_checknumber(L, 3);
+        float h = (float)luaL_checknumber(L, 4);
+        if (w <= 0.0f || h <= 0.0f) return;
+        float r_w = (op == D2_RECT) ? (w - 1.0f) : w;
+        float r_h = (op == D2_RECT) ? (h - 1.0f) : h;
+        float pts[8];
+        xform_pt(x, y, &pts[0], &pts[1]);
+        xform_pt(x + r_w, y, &pts[2], &pts[3]);
+        xform_pt(x + r_w, y + r_h, &pts[4], &pts[5]);
+        xform_pt(x, y + r_h, &pts[6], &pts[7]);
+        uint16_t c = col(L, 5, 0xFFFFFF);
+        if (op == D2_RECT)
+            g16_poly(&rt.g, pts, 4, c, 1);
+        else
+            g16_polyfill(&rt.g, pts, 4, c, G16_FILL_EVEN_ODD);
+        return;
+    }
+    if (op == D2_CIRC || op == D2_CIRCFILL || op == D2_ELLIPSE || op == D2_ELLIPSEFILL) {
+        float cx = (float)luaL_checknumber(L, 1);
+        float cy = (float)luaL_checknumber(L, 2);
+        float rx = (float)luaL_checknumber(L, 3);
+        float ry = (op == D2_ELLIPSE || op == D2_ELLIPSEFILL) ? (float)luaL_checknumber(L, 4) : rx;
+        uint16_t c = col(L, (op == D2_ELLIPSE || op == D2_ELLIPSEFILL) ? 5 : 4, 0xFFFFFF);
+        enum { SEGS = 24 };
+        float pts[SEGS * 2];
+        for (int i = 0; i < SEGS; i++) {
+            float a = (float)i * (6.28318530718f / (float)SEGS);
+            xform_pt(cx + rx * cosf(a), cy + ry * sinf(a), &pts[i * 2], &pts[i * 2 + 1]);
+        }
+        if (op == D2_CIRC || op == D2_ELLIPSE)
+            g16_poly(&rt.g, pts, SEGS, c, 1);
+        else
+            g16_polyfill(&rt.g, pts, SEGS, c, G16_FILL_EVEN_ODD);
+        return;
+    }
+    /* rrect / rrectfill: approximate corners with transformed poly */
+    float x = (float)luaL_checknumber(L, 1);
+    float y = (float)luaL_checknumber(L, 2);
+    float w = (float)luaL_checknumber(L, 3);
+    float h = (float)luaL_checknumber(L, 4);
+    float r = (float)luaL_optnumber(L, 5, 0);
+    if (r < 0.0f) r = 0.0f;
+    if (r > w * 0.5f) r = w * 0.5f;
+    if (r > h * 0.5f) r = h * 0.5f;
+    float pts[32];
+    int n = 0;
+    const float corner_x[4] = { x + w - r, x + r, x + r, x + w - r };
+    const float corner_y[4] = { y + r, y + r, y + h - r, y + h - r };
+    const float start_a[4]  = { -1.5707963f, -3.1415926f, 1.5707963f, 0.0f };
+    for (int q = 0; q < 4; q++) {
+        for (int s = 0; s < 4; s++) {
+            float a = start_a[q] + (float)s * (1.5707963f / 3.0f);
+            xform_pt(corner_x[q] + r * cosf(a), corner_y[q] + r * sinf(a), &pts[n * 2], &pts[n * 2 + 1]);
+            n++;
+        }
+    }
+    uint16_t c = col(L, 6, 0xFFFFFF);
+    if (op == D2_RRECT)
+        g16_poly(&rt.g, pts, n, c, 1);
+    else
+        g16_polyfill(&rt.g, pts, n, c, G16_FILL_EVEN_ODD);
+}
+
 /* the 2D of pset ... circfill: drawn, or recorded (draw2d) */
 static void shape2d(lua_State *L, int op, int n)
 {
+    if (rt.xform_active) {
+        sync3d();
+        shape2d_xform(L, op);
+        return;
+    }
     int32_t v[6], *a;
     for (int i = 0; i < n - 1; i++)
         v[i] = ival(L, i + 1);
@@ -888,6 +1043,7 @@ static int l_path_move(lua_State *L)
 {
     float x = (float)luaL_checknumber(L, 1);
     float y = (float)luaL_checknumber(L, 2);
+    if (rt.xform_active) xform_pt(x, y, &x, &y);
     g16_path_move_to(&rt.path, x, y);
     return 0;
 }
@@ -896,6 +1052,7 @@ static int l_path_line(lua_State *L)
 {
     float x = (float)luaL_checknumber(L, 1);
     float y = (float)luaL_checknumber(L, 2);
+    if (rt.xform_active) xform_pt(x, y, &x, &y);
     g16_path_line_to(&rt.path, x, y);
     return 0;
 }
@@ -906,6 +1063,7 @@ static int l_path_quad(lua_State *L)
     float cy = (float)luaL_checknumber(L, 2);
     float x = (float)luaL_checknumber(L, 3);
     float y = (float)luaL_checknumber(L, 4);
+    if (rt.xform_active) { xform_pt(cx, cy, &cx, &cy); xform_pt(x, y, &x, &y); }
     g16_path_quad_to(&rt.path, cx, cy, x, y);
     return 0;
 }
@@ -918,6 +1076,11 @@ static int l_path_cubic(lua_State *L)
     float c2y = (float)luaL_checknumber(L, 4);
     float x = (float)luaL_checknumber(L, 5);
     float y = (float)luaL_checknumber(L, 6);
+    if (rt.xform_active) {
+        xform_pt(c1x, c1y, &c1x, &c1y);
+        xform_pt(c2x, c2y, &c2x, &c2y);
+        xform_pt(x, y, &x, &y);
+    }
     g16_path_cubic_to(&rt.path, c1x, c1y, c2x, c2y, x, y);
     return 0;
 }
@@ -929,6 +1092,22 @@ static int l_path_arc(lua_State *L)
     float r = (float)luaL_checknumber(L, 3);
     float a0 = (float)luaL_checknumber(L, 4);
     float a1 = (float)luaL_checknumber(L, 5);
+    if (rt.xform_active) {
+        float da = (a1 - a0);
+        int segs = (int)(fabsf(da) * 6.0f) + 2;
+        if (segs < 4) segs = 4;
+        if (segs > 64) segs = 64;
+        for (int i = 0; i <= segs; i++) {
+            float a = a0 + da * (float)i / (float)segs;
+            float px, py;
+            xform_pt(cx + r * cosf(a), cy + r * sinf(a), &px, &py);
+            if (i == 0 && rt.path.count == 0)
+                g16_path_move_to(&rt.path, px, py);
+            else
+                g16_path_line_to(&rt.path, px, py);
+        }
+        return 0;
+    }
     g16_path_arc(&rt.path, cx, cy, r, a0, a1);
     return 0;
 }
@@ -1042,6 +1221,10 @@ static int l_poly(lua_State *L)
     int count = 0, next_arg = 2;
     float *pts = parse_poly_points(L, &count, &next_arg);
     if (!pts) return 0;
+    if (rt.xform_active) {
+        for (int i = 0; i < count; i++)
+            xform_pt(pts[i * 2], pts[i * 2 + 1], &pts[i * 2], &pts[i * 2 + 1]);
+    }
     uint16_t c = col(L, next_arg, 0xFFFFFF);
     int closed = lua_isboolean(L, next_arg + 1) ? lua_toboolean(L, next_arg + 1) : 1;
     g16_poly(&rt.g, pts, count, c, closed);
@@ -1054,6 +1237,10 @@ static int l_polyfill(lua_State *L)
     int count = 0, next_arg = 2;
     float *pts = parse_poly_points(L, &count, &next_arg);
     if (!pts) return 0;
+    if (rt.xform_active) {
+        for (int i = 0; i < count; i++)
+            xform_pt(pts[i * 2], pts[i * 2 + 1], &pts[i * 2], &pts[i * 2 + 1]);
+    }
     uint16_t c = col(L, next_arg, 0xFFFFFF);
     g16_fill_rule_t rule = parse_fill_rule(L, next_arg + 1);
     g16_polyfill(&rt.g, pts, count, c, rule);
@@ -1121,46 +1308,127 @@ static int l_pget(lua_State *L)
     return 1;
 }
 
+static void sspr_emit_affine(int sx, int sy, int sw, int sh, float dx, float dy,
+                             float a, float b, float c, float d, float ox, float oy)
+{
+    if (rt.xform_active) {
+        float nx, ny;
+        xform_pt(dx, dy, &nx, &ny);
+        float na = rt.xform.a * a + rt.xform.b * c;
+        float nb = rt.xform.a * b + rt.xform.b * d;
+        float nc = rt.xform.c * a + rt.xform.d * c;
+        float nd = rt.xform.c * b + rt.xform.d * d;
+        dx = nx; dy = ny;
+        a = na; b = nb; c = nc; d = nd;
+    }
+    const int32_t v[6] = { sx, sy, sw, sh, (int32_t)lrintf(dx), (int32_t)lrintf(dy) };
+    const float f[6] = { a, b, c, d, ox, oy };
+    int32_t *out_a;
+    sheet_commit();
+    if (draw2d(D2_SSPR_AFFINE, 12, &out_a)) {
+        memcpy(out_a, v, 6 * sizeof(int32_t));
+        memcpy(out_a + 6, f, 6 * sizeof(float));
+    } else {
+        g16_sspr_affine(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], a, b, c, d, ox, oy);
+    }
+}
+
+/* spr(n, x, y, [wc, hc, flip_x, flip_y, rz, scale]) */
 static int l_spr(lua_State *L)
 {
-    const int32_t v[7] = { ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1), lua_toboolean(L, 6),
-                           lua_toboolean(L, 7) };
-    int32_t *a;
-    sheet_commit();
-    if (gpu2d(D2_SPR, v))
+    int top = lua_gettop(L);
+    if (!rt.xform_active && top < 8) {
+        const int32_t v[7] = { ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1), lua_toboolean(L, 6),
+                               lua_toboolean(L, 7) };
+        int32_t *a;
+        sheet_commit();
+        if (gpu2d(D2_SPR, v))
+            return 0;
+        if (draw2d(D2_SPR, 7, &a))
+            memcpy(a, v, sizeof v);
+        else
+            g16_spr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
         return 0;
-    if (draw2d(D2_SPR, 7, &a))
-        memcpy(a, v, sizeof v);
-    else
-        g16_spr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
+    }
+    int n = ival(L, 1);
+    if (!rt.sheet.px || n < 0) return 0;
+    int per_row = rt.sheet.w / G16_CELL;
+    if (per_row <= 0) return 0;
+    int wc = oval(L, 4, 1), hc = oval(L, 5, 1);
+    int fx = lua_toboolean(L, 6), fy = lua_toboolean(L, 7);
+    float rz = (float)luaL_optnumber(L, 8, 0.0);
+    float scale = (float)luaL_optnumber(L, 9, 1.0);
+    if (!rt.xform_active && rz == 0.0f && scale == 1.0f) {
+        const int32_t v[7] = { n, ival(L, 2), ival(L, 3), wc, hc, fx, fy };
+        int32_t *a;
+        sheet_commit();
+        if (gpu2d(D2_SPR, v))
+            return 0;
+        if (draw2d(D2_SPR, 7, &a))
+            memcpy(a, v, sizeof v);
+        else
+            g16_spr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
+        return 0;
+    }
+    int sx = (n % per_row) * G16_CELL, sy = (n / per_row) * G16_CELL;
+    int sw = wc * G16_CELL, sh = hc * G16_CELL;
+    float cs = cosf(rz), sn = sinf(rz);
+    float sx_s = fx ? -scale : scale, sy_s = fy ? -scale : scale;
+    float ox = (float)sw * 0.5f, oy = (float)sh * 0.5f;
+    float dx = (float)luaL_checknumber(L, 2) + ox;
+    float dy = (float)luaL_checknumber(L, 3) + oy;
+    sspr_emit_affine(sx, sy, sw, sh, dx, dy,
+                     sx_s * cs, -sy_s * sn, sx_s * sn, sy_s * cs, ox, oy);
     return 0;
 }
 
-/* sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom]): zoom (default 1)
- * draws it that many times bigger, or smaller below 1 (nearest pixel) */
+/* sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom, rz, ox, oy]) */
 int l_sspr(lua_State *L)
 {
-    const int32_t v[8] = { ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-                           lua_toboolean(L, 7), lua_toboolean(L, 8) };
+    int top = lua_gettop(L);
     const float zoom = (float)luaL_optnumber(L, 9, 1);
-    int32_t *a;
-    sheet_commit();
-    int32_t z[9];
-    memcpy(z, v, sizeof v);
-    memcpy(z + 8, &zoom, sizeof zoom);
-    if (gpu2d(zoom == 1 ? D2_SSPR : D2_SSPR_ZOOM, z))
-        return 0;
-    if (zoom == 1) {
-        if (draw2d(D2_SSPR, 8, &a))
+    const float rz = (float)luaL_optnumber(L, 10, 0);
+    if (!rt.xform_active && (top < 10 || rz == 0.0f)) {
+        const int32_t v[8] = { ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+                               lua_toboolean(L, 7), lua_toboolean(L, 8) };
+        int32_t *a;
+        sheet_commit();
+        int32_t z[9];
+        memcpy(z, v, sizeof v);
+        memcpy(z + 8, &zoom, sizeof zoom);
+        if (gpu2d(zoom == 1 ? D2_SSPR : D2_SSPR_ZOOM, z))
+            return 0;
+        if (zoom == 1) {
+            if (draw2d(D2_SSPR, 8, &a))
+                memcpy(a, v, sizeof v);
+            else
+                g16_sspr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]);
+        } else if (draw2d(D2_SSPR_ZOOM, 9, &a)) {
             memcpy(a, v, sizeof v);
-        else
-            g16_sspr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]);
-    } else if (draw2d(D2_SSPR_ZOOM, 9, &a)) {
-        memcpy(a, v, sizeof v);
-        memcpy(a + 8, &zoom, sizeof zoom);
-    } else {
-        g16_sspr_zoom(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], zoom);
+            memcpy(a + 8, &zoom, sizeof zoom);
+        } else {
+            g16_sspr_zoom(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], zoom);
+        }
+        return 0;
     }
+    int sx = ival(L, 1), sy = ival(L, 2), sw = ival(L, 3), sh = ival(L, 4);
+    int fx = lua_toboolean(L, 7), fy = lua_toboolean(L, 8);
+    float cs = cosf(rz), sn = sinf(rz);
+    float sx_s = fx ? -zoom : zoom, sy_s = fy ? -zoom : zoom;
+    float ox, oy, dx, dy;
+    if (top >= 11) {
+        ox = (float)luaL_optnumber(L, 11, (float)sw * 0.5f);
+        oy = (float)luaL_optnumber(L, 12, (float)sh * 0.5f);
+        dx = (float)luaL_checknumber(L, 5);
+        dy = (float)luaL_checknumber(L, 6);
+    } else {
+        ox = (float)sw * 0.5f;
+        oy = (float)sh * 0.5f;
+        dx = (float)luaL_checknumber(L, 5) + ox * zoom;
+        dy = (float)luaL_checknumber(L, 6) + oy * zoom;
+    }
+    sspr_emit_affine(sx, sy, sw, sh, dx, dy,
+                     sx_s * cs, -sy_s * sn, sx_s * sn, sy_s * cs, ox, oy);
     return 0;
 }
 
@@ -1200,24 +1468,13 @@ static int l_stackv(lua_State *L) { return stack_lua(L, 1); }
 /* sspr_affine(sx, sy, sw, sh, dx, dy, a, b, c, d, [ox, oy]) */
 int l_sspr_affine(lua_State *L)
 {
-    const int32_t v[6] = { ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6) };
-    const float f[6] = {
-        (float)luaL_checknumber(L, 7),
-        (float)luaL_checknumber(L, 8),
-        (float)luaL_checknumber(L, 9),
-        (float)luaL_checknumber(L, 10),
-        (float)luaL_optnumber(L, 11, (float)v[2] * 0.5f),
-        (float)luaL_optnumber(L, 12, (float)v[3] * 0.5f)
-    };
-    int32_t *a;
-    sheet_commit();
-    if (draw2d(D2_SSPR_AFFINE, 12, &a)) {
-        memcpy(a, v, 6 * sizeof(int32_t));
-        memcpy(a + 6, f, 6 * sizeof(float));
-    } else {
-        g16_sspr_affine(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5],
-                        f[0], f[1], f[2], f[3], f[4], f[5]);
-    }
+    int sw = ival(L, 3), sh = ival(L, 4);
+    sspr_emit_affine(ival(L, 1), ival(L, 2), sw, sh,
+                     (float)luaL_checknumber(L, 5), (float)luaL_checknumber(L, 6),
+                     (float)luaL_checknumber(L, 7), (float)luaL_checknumber(L, 8),
+                     (float)luaL_checknumber(L, 9), (float)luaL_checknumber(L, 10),
+                     (float)luaL_optnumber(L, 11, (float)sw * 0.5f),
+                     (float)luaL_optnumber(L, 12, (float)sh * 0.5f));
     return 0;
 }
 
@@ -1242,18 +1499,9 @@ int l_sspr_rot(lua_State *L)
         }
     }
     float c = cosf(rz), sn = sinf(rz);
-    float a = sx_scale * c, b = -sy_scale * sn;
-    float c_mat = sx_scale * sn, d = sy_scale * c;
-    const int32_t v[6] = { ival(L, 1), ival(L, 2), sw, sh, ival(L, 5), ival(L, 6) };
-    const float f[6] = { a, b, c_mat, d, ox, oy };
-    int32_t *out_a;
-    sheet_commit();
-    if (draw2d(D2_SSPR_AFFINE, 12, &out_a)) {
-        memcpy(out_a, v, 6 * sizeof(int32_t));
-        memcpy(out_a + 6, f, 6 * sizeof(float));
-    } else {
-        g16_sspr_affine(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], a, b, c_mat, d, ox, oy);
-    }
+    sspr_emit_affine(ival(L, 1), ival(L, 2), sw, sh,
+                     (float)luaL_checknumber(L, 5), (float)luaL_checknumber(L, 6),
+                     sx_scale * c, -sy_scale * sn, sx_scale * sn, sy_scale * c, ox, oy);
     return 0;
 }
 
@@ -1262,29 +1510,18 @@ int l_spr_rot(lua_State *L)
 {
     int n = ival(L, 1);
     if (!rt.sheet.px || n < 0) return 0;
-    int wc = oval(L, 6, 1);
-    int hc = oval(L, 7, 1);
     int per_row = rt.sheet.w / G16_CELL;
-    int sx = (n % per_row) * G16_CELL;
-    int sy = (n / per_row) * G16_CELL;
-    int sw = wc * G16_CELL;
-    int sh = hc * G16_CELL;
+    if (per_row <= 0) return 0;
+    int wc = oval(L, 6, 1), hc = oval(L, 7, 1);
+    int sx = (n % per_row) * G16_CELL, sy = (n / per_row) * G16_CELL;
+    int sw = wc * G16_CELL, sh = hc * G16_CELL;
     float rz = (float)luaL_optnumber(L, 4, 0);
     float scale = (float)luaL_optnumber(L, 5, 1);
     float c = cosf(rz), sn = sinf(rz);
-    float a = scale * c, b = -scale * sn;
-    float c_mat = scale * sn, d = scale * c;
-    float ox = (float)sw * 0.5f, oy = (float)sh * 0.5f;
-    const int32_t v[6] = { sx, sy, sw, sh, ival(L, 2), ival(L, 3) };
-    const float f[6] = { a, b, c_mat, d, ox, oy };
-    int32_t *out_a;
-    sheet_commit();
-    if (draw2d(D2_SSPR_AFFINE, 12, &out_a)) {
-        memcpy(out_a, v, 6 * sizeof(int32_t));
-        memcpy(out_a + 6, f, 6 * sizeof(float));
-    } else {
-        g16_sspr_affine(&rt.g, &rt.sheet, sx, sy, sw, sh, v[4], v[5], a, b, c_mat, d, ox, oy);
-    }
+    sspr_emit_affine(sx, sy, sw, sh,
+                     (float)luaL_checknumber(L, 2), (float)luaL_checknumber(L, 3),
+                     scale * c, -scale * sn, scale * sn, scale * c,
+                     (float)sw * 0.5f, (float)sh * 0.5f);
     return 0;
 }
 
@@ -1435,20 +1672,63 @@ int impostor_px(int px)
     return px <= 0 ? 0 : px < 2 ? 2 : px > 64 ? 64 : px;
 }
 
+void target_sync_r3d(void)
+{
+    if (!rt.r3d_ready)
+        return;
+    r3d_flush(&rt.r3d);
+    if (rt.cur_target != NULL) {
+        if (!rt.r3d_on_target) {
+            rt.saved_r3d_backend = rt.r3d.backend;
+            rt.r3d.backend = NULL;
+            rt.saved_r3d_zbuf = rt.r3d.zbuf;
+            rt.r3d_on_target = 1;
+        }
+        int w = rt.g.w, h = rt.g.h;
+        if (w > 0 && h > 0 && (!rt.target_zbuf || rt.target_zbuf_w != w || rt.target_zbuf_h != h)) {
+            uint16_t *z = realloc(rt.target_zbuf, (size_t)w * (size_t)h * 2);
+            if (z) {
+                rt.target_zbuf = z;
+                rt.target_zbuf_w = w;
+                rt.target_zbuf_h = h;
+                memset(z, 0, (size_t)w * (size_t)h * 2);
+            }
+        }
+        if (rt.target_zbuf)
+            rt.r3d.zbuf = rt.target_zbuf;
+    } else if (rt.r3d_on_target) {
+        rt.r3d.backend = rt.saved_r3d_backend;
+        rt.r3d.zbuf = rt.saved_r3d_zbuf;
+        rt.r3d_on_target = 0;
+    }
+}
+
 /* the 3D's state made: the z-buffer, the options, and the GPU as the keys say (the first 3D call, or gpu2d_only) */
 static int r3d_boot(void)
 {
     if (rt.r3d_ready)
         return 0;
     {
-        if (r3d_init(&rt.r3d, &rt.g) != 0)
+        g16_t saved_cur_g;
+        int on_t = (rt.cur_target != NULL && rt.has_saved_screen);
+        if (on_t) {
+            saved_cur_g = rt.g;
+            rt.g = rt.screen_g;
+        }
+        if (r3d_init(&rt.r3d, &rt.g) != 0) {
+            if (on_t) rt.g = saved_cur_g;
             return -1;
+        }
         rt.r3d_ready = 1;
         const char *fast = config_get("r3d_fast");
         rt.r3d.fast = !(fast && strcmp(fast, "0") == 0);   /* bm3d 4.9: one matrix, light in the object's axes; on unless r3d_fast=0 (26 Oct 2026) */
         const char *imp = config_get("r3d_impostor");
         rt.r3d.impostor = imp ? impostor_px(atoi(imp)) : 0;   /* far small meshes as one quad: hidden key (SYS-9) */
         gpu3d_maybe();
+        if (on_t) {
+            rt.g = saved_cur_g;
+            target_sync_r3d();
+        }
     }
     return 0;
 }
@@ -1947,6 +2227,8 @@ static const luaL_Reg api[] = {
     { "zboxes", l_zboxes },
     { "sget", l_sget }, { "sset", l_sset }, { "print", t_print }, { "font", l_font },
     { "vfont", l_vfont }, { "vprint", t_vprint }, { "vmeasure", t_vmeasure }, { "camera", l_camera },
+    { "push_matrix", l_push_matrix }, { "pop_matrix", l_pop_matrix }, { "translate", l_translate },
+    { "rotate", l_rotate }, { "scale", l_scale }, { "origin", l_origin },
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "blend", l_blend }, { "palt", l_palt },
     { "target", l_target }, { "target_create", l_target_create }, { "target_blit", l_target_blit },
@@ -1959,6 +2241,10 @@ static const luaL_Reg api[] = {
     { "native_load", l_native_load }, { "native_fn", l_native_fn }, { "native_run", l_native_run }, { "native_compile", l_native_compile },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_chord", l_devkit_chord }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
+    { "noise", l_noise }, { "fbm", l_fbm }, { "random_normal", l_random_normal },
+    { "gamma_to_linear", l_gamma_to_linear }, { "linear_to_gamma", l_linear_to_gamma },
+    { "bezier", l_bezier }, { "is_convex", l_is_convex }, { "triangulate", l_triangulate },
+    { "phys_world", l_phys_world },
     { "battery", l_battery }, { "battery_low", l_battery_low },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
@@ -2102,6 +2388,7 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_setfield(L, -2, "__gc");
     lua_pop(L, 1);
     target_type_init(L);
+    phys2d_type_init(L);
     luaL_newmetatable(L, VIDEO_MT);
     lua_pushcfunction(L, l_clip_gc);
     lua_setfield(L, -2, "__gc");
@@ -2851,6 +3138,7 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
         rt.g.cam_x = rt.screen_g.cam_x; rt.g.cam_y = rt.screen_g.cam_y;
         rt.has_saved_screen = 0;
         rt.cur_target = NULL;
+        target_sync_r3d();
     }
     flush3d(0);
     cls_settle();
@@ -3028,14 +3316,6 @@ static void release(lua_State *L)
         r3d_pfx_free(rt.pfx);
         rt.pfx = NULL;
     }
-    if (rt.r3d_ready)
-        r3d_free(&rt.r3d);
-    rt.r3d_ready = 0;
-    rt.gpu3d_boxed = 0;
-    rt.gpu2d_only = rt.gpu2d_only_checked = 0;
-    rt.gwin_on = 0;
-    if (rt.gwin.px)
-        g16_sheet_free(&rt.gwin);
     if (rt.has_saved_screen) {
         rt.g.px = rt.screen_g.px;
         rt.g.stride = rt.screen_g.stride;
@@ -3046,6 +3326,22 @@ static void release(lua_State *L)
         rt.has_saved_screen = 0;
     }
     rt.cur_target = NULL;
+    if (rt.r3d_on_target) {
+        rt.r3d.backend = rt.saved_r3d_backend;
+        rt.r3d.zbuf = rt.saved_r3d_zbuf;
+        rt.r3d_on_target = 0;
+    }
+    if (rt.r3d_ready)
+        r3d_free(&rt.r3d);
+    rt.r3d_ready = 0;
+    free(rt.target_zbuf);
+    rt.target_zbuf = NULL;
+    rt.target_zbuf_w = rt.target_zbuf_h = 0;
+    rt.gpu3d_boxed = 0;
+    rt.gpu2d_only = rt.gpu2d_only_checked = 0;
+    rt.gwin_on = 0;
+    if (rt.gwin.px)
+        g16_sheet_free(&rt.gwin);
     free_assets();
 }
 
@@ -4522,6 +4818,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         rt.pfx = NULL;
     }
     memset(&rt, 0, sizeof rt);
+    rt.xform.a = 1.0f;
+    rt.xform.d = 1.0f;
     rt.audio_prev = audio_busy_us;     /* stat(17), stat(18) count from this run */
     rt.gpuwait_prev = gpu3d_wait_us();
     n_made = 0;
