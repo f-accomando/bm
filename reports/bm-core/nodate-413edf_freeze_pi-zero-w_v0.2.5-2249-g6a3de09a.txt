@@ -1,0 +1,62 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2249-g6a3de09a
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-413edf_freeze_pi-zero-w_v0.2.5-2249-g6a3de09a.txt
+
+the Pi froze (the watchdog restarted it) while: cartart: the log to the SD, frame 0, 8868 s after boot, kernel v0.2.5-2249-g6a3de09a, ring 31689, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+us (300 frames)
+menu frame: 1x, a frame averages draw 13747 us, enlarge 0 us, flip 98 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13660 us, enlarge 0 us, flip 98 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13573 us, enlarge 0 us, flip 98 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13679 us, enlarge 0 us, flip 98 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13733 us, enlarge 0 us, flip 99 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13658 us, enlarge 0 us, flip 100 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13594 us, enlarge 0 us, flip 99 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 13736 us, enlarge 0 us, flip 98 us, free time used 20 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: Checking for new games...
+menu idle: 300/300 frames, 19 of 482 ms taken, 0.0 ms past a frame; market 13 ms (+0.0, stk 4.0/128K); min slack -29979 us, paced 0
+menu frame: 1x, a frame averages draw 15680 us, enlarge 0 us, flip 97 us, free time used 65 us (300 frames)
+
+playing snes.bm
+play: /bm/snes.bm (40008 bytes)
+load: bm SNES 16 ms (close 0, parse 0, assets+state 2, mode 5, audio 0, lua 6)
+bm: loaded in 31 ms, the splash over at 1800 ms
+bm: splash ticks: 50 frames, longest gap 6814 us at 21 ms (between 0xe6c8c and 0xe6d3c)
+net: not served for 1808 ms (up 8840200 ms), while: cartridge menu
+net:   pc at 1s: 0009d398
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 713 frames, 56.6 fps, 37 dropped
+     update+draw avg 11.99 ms (71% of frame), max 59.64 ms, Lua 80 KB
+     dev kit: Lua peak 1133 KB, data 129 KB, busiest frame 2k instructions, 118 frames over 16.7 ms, 1353 tokens
+     GPU 3D 8812 jobs, 51955 triangles a frame, 120.27 ms a frame (bin 7%), max job 10989 us
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+menu idle: 300/300 frames, 241 of 498 ms taken, 104.6 ms past a frame; reports 180 ms (+104.6, stk 7.6/128K), market 48 ms (+20.7, stk 4.0/128K); min slack -29034 us, paced 0
+menu idle: sd first word <1ms 69 <3ms 5 (max 2.8 ms)
+menu stalls: tls handshake 1x last 352.9 worst 352.9 ms
+menu frame: 1x, a frame averages draw 14978 us, enlarge 0 us, flip 100 us, free time used 804 us (300 frames)
+report: sending session_bm-snes_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.tx
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
+market: nearby consoles: listening as bm-108
+report: sending session_bm-snes_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.tx
+menu idle: 300/300 frames, 377 of 546 ms taken, 104.9 ms past a frame; reports 331 ms (+106.1, stk 7.6/128K, stop 18.2); min slack -37083 us, paced 0
+menu idle: sd first word <1ms 103 (max 2.8 ms)
+menu stalls: tls handshake 1x last 385.5 worst 385.5 ms
+menu frame: 1x, a frame averages draw 15970 us, enlarge 0 us, flip 96 us, free time used 1259 us (300 frames)
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR CODE (004C)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: api.github.com: UNKNOWN ERROR 
+menu idle: 300/300 frames, 150 of 899 ms taken, 103.1 ms past a frame; reports 130 ms (+103.1, stk 7.6/128K, stop 15.4); min slack -73540 us, paced 0
+menu idle: sd first word <1ms 162 (max 2.8 ms)
+menu frame: 1x, a frame averages draw 18397 us, enlarge 0 us, flip 95 us, free time used 500 us (
