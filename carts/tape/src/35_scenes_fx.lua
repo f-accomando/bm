@@ -39,7 +39,7 @@ fxe_page = { name = "FX ECHO", params = {
     for k = n - 1, 0, -1 do
       local u = (k + ph) / n
       local x, y, r = 70 + 180 * (1 - (1 - u) ^ 1.6), 62 - 14 * u, 30 * (1 - u * 0.82)
-      local al = max(0, 1 - u * 1.05) * clamp(0.4 + v[3] * 1.7, 0, 1)
+      local al = max(0, 1 - u * 1.05) * (0.15 + 0.85 * v[3])
       O(x, y, r, r, C.ink, true)
       O(x, y, r, r, fade(k == 0 and ph < 0.25 and C.e4 or C.e2, al))
     end

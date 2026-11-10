@@ -12,9 +12,10 @@ The sound bank holds 24 samples rendered on the PC from Felucca-Engines (scripts
 The bank has samples only: no sound, no sfx, no song. The sounds of the cartridge are tone() tables in the Lua source.
 
 Test build: with TAPE_TEST=N in the environment (N = 1, 2, 3 ...) the file carts/tape/test/hook.lua goes in at the line --@TEST_HOOK@.
-The cartridge then logs every note the sequencer queues with play_at (lines "TAPE_AT time track note velocity tick",
+The cartridge then logs every note the sequencer queues with play_at (lines "TAPE_AT time track note velocity tick level pan room echo chorus",
 time in seconds from the transport start) and updates the sequencer only every N-th frame (tests/tape/timing_test.py).
-Without the variable the line is dropped and the cartridge logs nothing.
+The hook also has F9 (build a test song), F10 (log the state of the song) and logs the level, pan and sends of each note
+(tests/tape/song_test.py). Without the variable the line is dropped and the cartridge logs nothing.
 """
 import glob, os, struct, subprocess, sys, zlib
 

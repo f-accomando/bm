@@ -51,7 +51,8 @@ EDRAW[2] = function(t, v)
   for x = 44, 276, 2 do
     pts[#pts + 1] = { x, 40 + 14 * amp * sin(nodes * PI * (x - 44) / 232) * cos(t * 9) }
   end
-  PL(pts, C.e1, 1 + v[4] * 4)
+  PL(pts, C.e4, 1 + v[4] * 4)                           -- the thickness is the drive (e4)
+  PL(pts, C.e1, 1)                                      -- the nodes are the bright macro (e1)
 end
 
 -- PULSE: a skyline; the width of the towers is the duty, they breathe with the PWM depth,
@@ -164,7 +165,7 @@ end
 
 -- PCM: the sample as a ridge over the horizon (its 32 peaks from audio_samples()). The start gate (encoder 1) cuts the
 -- ridge: the part before it is dim. The sun is the cutoff, the ring around it the resonance, the second line of the
--- ridge (it shakes) the drive. A dot runs along the ridge from the gate: the sample as the voice plays it.
+-- ridge (it shakes) the drive. Each part has the colour of its encoder: start e1, cutoff e2, resonance e3, drive e4. A dot runs along the ridge from the gate: the sample as the voice plays it.
 do
 local PCM_TOP, PCM_X0, PCM_W = 30, 20, 280
 local function ridge_at(m, u)
@@ -179,9 +180,9 @@ EDRAW[8] = function(t, v)
   local info = PCMINFO[tk.sample or PCM_FIRST]
   local m = info and info.meter
   local sy = 98 - 52 * sqrt(clamp(v[2] / 12, 0, 1))
-  sun(160, sy, 24, 0.1, C.e3)
+  sun(160, sy, 24, 0.1, C.e2)
   clipu(0, 0, 320, HZ)
-  O(160, sy, 30 + 12 * v[3], 30 + 12 * v[3], fade(C.e2, 0.2 + 0.8 * v[3]))
+  O(160, sy, 30 + 12 * v[3], 30 + 12 * v[3], fade(C.e3, 0.2 + 0.8 * v[3]))
   clip()
   ground(t)
   local gx = PCM_X0 + PCM_W * v[1]
@@ -198,7 +199,7 @@ EDRAW[8] = function(t, v)
   for i = 1, #pts - 1 do
     local on = pts[i][1] >= gx - 2
     L(pts[i][1], pts[i][2], pts[i + 1][1], pts[i + 1][2], on and C.e1 or C.grid, 1.4)
-    if v[4] > 0.02 and on then L(low[i][1], low[i][2], low[i + 1][1], low[i + 1][2], C.e2, 1) end
+    if v[4] > 0.02 and on then L(low[i][1], low[i][2], low[i + 1][1], low[i + 1][2], C.e4, 1) end
   end
   L(PCM_X0, HZ - 2, PCM_X0 + PCM_W, HZ - 2, C.grid)
   L(gx, PCM_TOP, gx, HZ, C.e1, 1.2)

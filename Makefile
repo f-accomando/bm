@@ -258,7 +258,7 @@ test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_tes
 	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
-# bm Tape (carts/tape): a studio for the Pi: synth, drums and sequencer with sound (phase 2), four preview scenes.
+# bm Tape (carts/tape): a studio for the Pi: synth, drums, sequencer, song (TAPE), MIX, FX and punch-in effects with sound (phase 3), a DJ preview scene.
 # build.py joins carts/tape/src/*.lua, puts engine.b (compiled on the console by native_compile) at its placeholder
 # line, makes the cover and packs the .bme and the .bm. Not in GAMES yet (docs/design/bm-tape.md).
 # The sound bank holds 24 samples rendered on the PC from Felucca-Engines (MIT): build.py calls scripts/felpack.py, which
@@ -280,14 +280,15 @@ $(BUILD)/tape-t%/tape.bm: carts/tape/build/build.py carts/tape/test/hook.lua $(w
 # bm Tape tests: engine.b on the stack VM and as Lua against a Python reference (tests/tape/engine_test.py), the
 # cartridge in bmhost: pictures of every page and engine, keys, recording and the error path (render_test.py), the timing of
 # the sequencer at 60, 20 and 7.5 frames a second (timing_test.py, the exit test of phase 2) and the sound in a WAV
-# (sound_test.py), the 24 PCM sounds of Felucca-Engines: WAV format, peak, SHA-256 against tests/tape/felucca_golden.txt, the
+# (sound_test.py: levels, pan, echo, punch-in effects), the song save and load (song_test.py, the exit test of phase 3), the 24 PCM sounds of Felucca-Engines: WAV format, peak, SHA-256 against tests/tape/felucca_golden.txt, the
 # bank of the cartridge (felucca_test.py). bmhost runs the native engine on the PC.
-test-tape: $(BUILD)/tape/bank.json $(BUILD)/host/luahost $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-t1/tape.bm $(BUILD)/tape-t3/tape.bm $(BUILD)/tape-t8/tape.bm tests/tape/engine_test.py tests/tape/render_test.py tests/tape/timing_test.py tests/tape/sound_test.py tests/tape/felucca_test.py tests/tape/felucca_golden.txt tools/bml/bml.py
+test-tape: $(BUILD)/tape/bank.json $(BUILD)/host/luahost $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-t1/tape.bm $(BUILD)/tape-t3/tape.bm $(BUILD)/tape-t8/tape.bm tests/tape/engine_test.py tests/tape/render_test.py tests/tape/timing_test.py tests/tape/sound_test.py tests/tape/song_test.py tests/tape/felucca_test.py tests/tape/felucca_golden.txt tools/bml/bml.py
 	$(PYTHON) -I tests/tape/engine_test.py $(BUILD)/host/luahost $(BUILD)/tape-test
 	$(PYTHON) -I tests/tape/felucca_test.py $(BUILD)/tape $(BUILD)/carts/tape.bm
 	$(PYTHON) -I tests/tape/render_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm
 	$(PYTHON) -I tests/tape/timing_test.py $(BUILD)/host/bmhost-bin $(BUILD)/tape-t1/tape.bm $(BUILD)/tape-t3/tape.bm $(BUILD)/tape-t8/tape.bm
-	$(PYTHON) -I tests/tape/sound_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-test/demo.wav
+	$(PYTHON) -I tests/tape/song_test.py $(BUILD)/host/bmhost-bin $(BUILD)/tape-t1/tape.bm
+	$(PYTHON) -I tests/tape/sound_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-test/demo.wav $(BUILD)/tape-t1/tape.bm
 
 # The fast PPU against the reference copy (tests/snes/ppu_ref.c): random states, every line equal bit for bit. `make bench-snes-ppu` times both.
 SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
