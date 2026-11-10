@@ -1206,12 +1206,12 @@ $(BUILD)/host/test_config: tests/kernel/test_config.c src/kernel/config.c src/ke
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_config.c src/kernel/config.c src/lib/printf.c src/fs/sdlock.c
 
-$(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/net/cartnet.c src/net/cartnet.h \
+$(BUILD)/host/test_ethnet: tests/kernel/crumbs_stub.c tests/net/test_ethnet.c src/net/net.c src/net/net.h src/net/cartnet.c src/net/cartnet.h \
                            src/kernel/fiber.h src/usb/smsc95xx.c src/usb/smsc95xx.h tests/usb/lan9512_sim.c \
                            tests/usb/lan9512_sim.h $(LWIP_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
-		tests/net/test_ethnet.c src/net/net.c src/net/cartnet.c src/usb/smsc95xx.c tests/usb/lan9512_sim.c $(LWIP_SRCS)
+		tests/net/test_ethnet.c src/net/net.c src/net/cartnet.c src/usb/smsc95xx.c tests/usb/lan9512_sim.c tests/kernel/crumbs_stub.c $(LWIP_SRCS)
 
 $(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/net/*.h src/lib/crc32.c \
                           src/kernel/fiber.h src/kernel/notice.h $(LWIP_SRCS)
