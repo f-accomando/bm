@@ -4,7 +4,7 @@ Name: **bm Tape** (folder `carts/tape`, project `carts/tape/tape.bme`).
 
 bm Tape is one `.bm` app with five jobs: synth, sampler, sequencer, multitrack, and live DJ set. The references are the OP-1 (one display, four colour encoders, a tape) and the EP-133 K.O. II (pads, groups, punch-in effects; bm has `carts/ko2`). All code and all pictures are original.
 
-Status: phase 2 (synth, drums, sequencer, with sound; `carts/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. TAPE, MIX, FX and DJ are still the scenes of phase 1 (they show PREVIEW). Section 10 gives the phases.
+Status: phase 3 (synth, drums, sequencer, song with TAPE clips, MIX, FX, punch-in effects, save and load; `carts/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. DJ is still the scene of phase 1 (it shows PREVIEW). Section 10 gives the phases.
 
 ## 1. Principles
 
@@ -45,10 +45,10 @@ Consequence of the last row: "sampling" means three things here. Load a WAV from
 |---|---|---|---|
 | **SYNTH** | Play and edit one melodic sound. Engine page, envelope page, filter/LFO page, send page. | OP-1 synth | P2 |
 | **DRUM** | 12 pads × 4 groups. A pad is a kit drum, a synth one-shot, or a sample slice. | KO-II | P2 |
-| **SEQ** | Patterns of 16 to 64 steps per track. Three writers: step grid, live record with quantize, riff lane. Per-step lock of two values. | KO-II, riff | P2 |
-| **TAPE** | 4 tracks on a timeline in bars. A track holds clips. A clip is a pattern (events) or a frozen sample (K2). Loop points, punch in, track mute. | OP-1 tape | P3 |
-| **MIX** | 4 track levels, pan, 3 sends, master drive and master level. Meters from K3. | OP-1 mixer | P3 |
-| **FX** | Room, echo, chorus pages. Punch-in effects held on a key: stutter, half speed, filter sweep, crush. | KO-II | P3 |
+| **SEQ** | 8 patterns (A to H) of 16 to 64 steps per track. Three writers: step grid, live record with quantize, riff lane. Per-step lock of two values. | KO-II, riff | P2 (patterns P3) |
+| **TAPE** | 4 tracks on a song of 64 slots. A slot is one pattern length. A clip is a run of equal slots (events); a frozen sample (K2) comes in P5. Loop points, PATTERN and SONG mode, track mute. Real in P3. | OP-1 tape | P3 |
+| **MIX** | 4 track levels and pans (real in P3). The meters follow the queued notes (no K3). Master drive and master level wait for a master bus. | OP-1 mixer | P3 |
+| **FX** | Echo, room and chorus pages with a send for each track (real in P3). Punch-in effects held on a key: stutter, half speed, filter sweep, crush (real in P3). | KO-II | P3 |
 | **DJ** | 2 decks and a crossfader. A deck plays a frozen song or a pattern set. Pitch fader, nudge, cue points, loop, filter, brake. | live set | P6 |
 | **LIB** | Sounds, kits, samples, songs. Read and write the bank, `.bms` resources, and WAV. | bm Sound | P4 |
 
@@ -161,7 +161,7 @@ Measure the fill cost of `S` = 2 on the Pi in phase 1. If a scene costs more tha
 
 ## 5. Controls
 
-Phase 2 keys. The cartridge reads USB keys with `rawkeys(true)`.
+Keys as of phase 3. The cartridge reads USB keys with `rawkeys(true)`.
 
 | Action | USB keyboard (Pi) |
 |---|---|
@@ -179,10 +179,14 @@ Phase 2 keys. The cartridge reads USB keys with `rawkeys(true)`.
 | Record | Enter arms and disarms. `REC` shows on the status strip. |
 | SEQ GRID: toggle a slot | `T` (a step you enter also sounds once) |
 | SEQ GRID: clear | Backspace clears the step, Shift + Backspace the track |
-| Punch-in effect | hold `Z X C V` (phase 3) |
+| Pattern of the current track | `;` previous, `'` next (A to H). SEQ GRID and recording edit the selected pattern. The status strip shows its letter after the track. |
+| Transport mode | `P`: PATTERN (`PAT`, every track loops its pattern) or SONG (`SONG`, the slots between LOOP IN and LOOP OUT). While the transport plays, it starts again from the loop start. |
+| TAPE: write, clear | `T` writes the selected pattern of the current track at the cursor slot; Backspace clears the slot; Shift + Backspace clears the song row of the track |
+| Punch-in effect (hold) | `Z` stutter (the events of the last 1/16 note repeat every 1/16), `X` half speed (the clock runs at half tempo; on release it goes on from where it is), `C` filter sweep (a low pass that falls on every track), `V` crush. A `hot` label on the status strip shows the active effect. |
+| Save, new song | Ctrl + `S` saves. The cartridge also saves on `_exit()` and when the exit page closes it. Ctrl + `N` asks; a second Ctrl + `N` within 2 s starts the demo song. `SAVED` or the error shows on the status strip for 2 s. |
 | Exit page | Esc |
 
-Pages: SYNTH (ENGINE, ENVELOPE, FILTER), DRUM (PAD), SEQ (GRID), TAPE, MIX, FX, DJ, TEMPO.
+Pages: SYNTH (ENGINE, ENVELOPE, FILTER), DRUM (PAD), SEQ (GRID), TAPE, MIX (LEVEL, PAN), FX (ECHO, ROOM, CHORUS), DJ, TEMPO.
 
 Encoders per page in phase 2:
 
@@ -193,6 +197,12 @@ Encoders per page in phase 2:
 | SYNTH FILTER | cutoff | resonance | LFO rate | LFO depth |
 | DRUM PAD (last pad hit) | start | decay (the release: the API has no sample end) | pitch (semitones) | level |
 | SEQ GRID | step cursor | note or pad | velocity | gate (1 to 16 steps) |
+| TAPE | cursor slot | LOOP IN | LOOP OUT | track |
+| MIX LEVEL | level of track 1 | level of track 2 | level of track 3 | level of track 4 |
+| MIX PAN | pan of track 1 (-1 to 1) | pan of track 2 | pan of track 3 | pan of track 4 |
+| FX ECHO | time (50 to 680 ms) | feedback | wet | echo send of the current track |
+| FX ROOM | size | damp | wet | room send of the current track |
+| FX CHORUS | rate | depth | wet | chorus send of the current track |
 | TEMPO | BPM (60 to 200, Shift: 0.1) | swing (0 to 3 ticks) | metronome level | pattern length (16, 32, 48, 64) |
 
 Record: while the transport plays and record is armed, a pad or note key writes into the selected track at the nearest step. A hit in the last half step of the loop goes to step 1. A synth note takes the time the key is held as its gate.
@@ -216,7 +226,7 @@ Rule of `docs/design/bml-manual.md` 9.7: one call per frame, all data in `vm_buf
 
 | Function | Job | Data |
 |---|---|---|
-| `seq_window(t0, t1, ...)` | Scan the step grids of all tracks for the ticks in a time window. Write the events to an output buffer. Lua sends them with `play_at`. | steps, locks, mutes, out |
+| `song_window(t0, t1, ...)` | Scan the song slots and the pattern step arrays of all tracks for the ticks in a time window (PATTERN mode: one slot for each track). Write the events to an output buffer. Lua sends them with `play_at`. | slots, steps, mutes, out |
 | `euclid(k, n, r, out)`, `arp_fill(...)` | Pattern generators | out |
 | `wave_peaks(pcm, n, cols, out)` | Minimum and maximum per column for a waveform picture | PCM, out |
 | `scene_ground(t, s)` | The horizon grid with perspective (needs K4) | - |
@@ -276,6 +286,8 @@ tests/tape/         host tests with bmhost: sequencer timing, voice budget, save
 
 A song is saved under `/bm/save` first. A song file of its own (and its section layout) is a decision for phase 4, with `docs/BM-FORMAT.md` and `python scripts/consistency.py check`.
 
+**Song file (phase 3).** The cartridge writes the song state with `save()` into save slot 1 (`carts/tape/src/29_save.lua`, as `carts/ko2` does). It is a Lua table with `magic = "BMTAPE"` and `ver = 1`. A reader refuses another magic, another version or a wrong shape, and the demo song starts. The fields: `bpm`, `swing`, `len`, `metro`, `song` (mode), `lin`, `lout` (loop slots); `lvl`, `pan`, `send` (room, echo and chorus of each track), `mute`, `sel` (selected pattern of each track); `snd` (the three synth tracks: sound number, engine, edited flag, octave, sample, macros, envelope, filter); `pads` (start, release, pitch and level of the 12 pads); `fx` (room, echo, chorus); `pats` (a text `step,slot,note,velocity,gate;` for each used pattern only); `rows` (a string of digits for each track that stops at the last used slot). A typical song of four tracks is about 3 KB; a slot holds 32 KB at most.
+
 ## 10. Phases
 
 | Phase | Content | Kernel work | Exit test |
@@ -283,7 +295,7 @@ A song is saved under `/bm/save` first. A song file of its own (and its section 
 | P0 | This document and the picture of the scenes | none | the user accepts the scope |
 | P1 | Skeleton: display frame, nine static scenes, encoders, module switch, `engine.b` with `euclid` and `meter_fall`, Lua path | none | the same frame on bmhost and on the Pi; `.b` result equal to Lua |
 | P2 | SYNTH, DRUM, SEQ with `seq_window`; seven engines and 20 sounds | none | a 4-bar pattern gives the same events, on their grid times, at 60, 20 and 7.5 frames a second (`tests/tape/timing_test.py`). bmhost has no frame rate option: the test builds update the sequencer every N-th frame. |
-| P3 | TAPE with event clips, MIX, FX, punch-in effects | K4 | a 4-track song saves, loads, and plays the same |
+| P3 | TAPE with event clips, MIX, FX, punch-in effects, save and load. Kernel work: none (K4 was not needed). | none | a 4-track song saves, loads, and plays the same (`tests/tape/song_test.py`) |
 | P4 | LIB, bank import and export, riff lane, live code | shared bank encoder module | a song made here plays in a game with `music()` |
 | P5 | Run-time samples, WAV load, bounce, scope | K1, K2, K3 | freeze of a track gives its voices back; the frozen track sounds the same |
 | P6 | DJ: two decks, crossfader, cue, loop, brake | master filter (optional) | two songs mixed for 3 minutes with no late note |
