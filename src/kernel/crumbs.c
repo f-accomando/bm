@@ -50,6 +50,10 @@ static int booted;
  * boot before and the timer IRQ (already on) must not write into it (BETA-1 C4) */
 static int cr_live;
 static int crash_noted;                 /* crumbs_crashed() has run in this boot */
+static int prev_fw_dead;                /* previous boot failed on mailbox timeout */
+
+/* Overridden by v3d.c on Pi targets; weak no-op for host tests and RGB30. */
+__attribute__((weak)) void v3d_shutdown(void) {}
 
 static void ring_putc(char c)
 {
@@ -75,6 +79,7 @@ static void flush(void)
 
 void crumbs_boot(void)
 {
+    prev_fw_dead = 0;
     if (cr.magic == MAGIC) {
         cr.what[sizeof cr.what - 1] = 0;
         cr.kernel[sizeof cr.kernel - 1] = 0;
@@ -85,6 +90,8 @@ void crumbs_boot(void)
         if (cr.irq >= 0)
             ksnprintf(irq, sizeof irq, ", inside IRQ %ld", cr.irq);
         last_kind = cr.crashed ? "crash" : "freeze";
+        if (!cr.crashed && strstr(cr.what, "firmware does not answer") != NULL)
+            prev_fw_dead = 1;
         last_len = (size_t)ksnprintf(last, sizeof last, "%s while: %s, frame %lu%s, %lu s after boot, kernel %s, ring %lu, sink %s\n"
                                      "--- the last lines printed ---\n",
                                      cr.crashed ? "a crash (the red screen)" : "the Pi froze (the watchdog restarted it)",
@@ -273,9 +280,15 @@ void crumbs_clean_exit(void)
     flush();
 }
 
+int crumbs_prev_fw_dead(void)
+{
+    return prev_fw_dead;
+}
+
 void crumbs_restart(int halt)
 {
     wifi_leave();
+    v3d_shutdown();
     crumb("restart: the log to the SD", NULL);   /* a stop in the write is named in the next boot's report */
     watchdog_run_before_reboot();       /* the log to the SD: while the run still counts as running */
     crumbs_clean_exit();

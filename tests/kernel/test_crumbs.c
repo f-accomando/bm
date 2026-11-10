@@ -98,6 +98,35 @@ int main(void)
     check(magic_at_hook == 1, "the hook runs before the run is marked as ended");
     check(cr.magic == 0, "then the run is marked as ended");
 
+    /* mailbox dead detection across warm reboot (including partial cr.what prefix) */
+    check(crumbs_prev_fw_dead() == 0, "normal freeze is not fw_dead");
+    memset(&cr, 0, sizeof cr);
+    cr.magic = MAGIC;
+    cr.crashed = 0;
+    snprintf(cr.what, sizeof cr.what, "%s", "VideoCore firmware does not answer (mailbox)");
+    crumbs_boot();
+    check(crumbs_prev_fw_dead() == 1, "VideoCore firmware timeout sets fw_dead");
+
+    memset(&cr, 0, sizeof cr);
+    cr.magic = MAGIC;
+    cr.crashed = 0;
+    snprintf(cr.what, sizeof cr.what, "%s", "bootoCore firmware does not answer (mailbox");
+    crumbs_boot();
+    check(crumbs_prev_fw_dead() == 1, "partial prefix firmware timeout sets fw_dead");
+
+    memset(&cr, 0, sizeof cr);
+    cr.magic = MAGIC;
+    cr.crashed = 1;
+    snprintf(cr.what, sizeof cr.what, "%s", "VideoCore firmware does not answer (mailbox)");
+    crumbs_boot();
+    check(crumbs_prev_fw_dead() == 0, "crash record does not set fw_dead");
+
+    memset(&cr, 0, sizeof cr);
+    cr.magic = MAGIC;
+    snprintf(cr.what, sizeof cr.what, "%s", "boot");
+    crumbs_boot();
+    check(crumbs_prev_fw_dead() == 0, "subsequent normal freeze clears fw_dead");
+
     printf("crumbs: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

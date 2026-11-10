@@ -1,5 +1,6 @@
 #include "menu_ui.h"
 #include "config.h"
+#include "crumbs.h"
 #include "fiber.h"
 #include "icons.h"
 #include "menu_bg.h"
@@ -1461,6 +1462,12 @@ static int screen_open(framebuffer_t *fb)
     bgz = 1;
     gpu_draw = 0;
     gpu_big = 0;
+    if (crumbs_prev_fw_dead()) {
+        /* Previous boot timed out on VideoCore mailbox after V3D init; stay on 360p ARM. */
+        kprintf("menu: 360p on the ARM (safe mode after VideoCore stopped answering)\n");
+        scale = 1;
+        return fb_init_depth(fb, (uint32_t)sw, (uint32_t)sh, 3, 16);
+    }
     /* no key: 720p drawn by the GPU (28 Oct 2026); 1: 360p on the ARM; 4: 360p drawn by the GPU */
     scale = ms && ms[0] == '3' ? 3 : ms && ms[0] == '1' ? 1 : ms && ms[0] == '4' ? 1 : 2;
     const char *ml = config_get("menu_layout");

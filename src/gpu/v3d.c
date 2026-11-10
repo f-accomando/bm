@@ -102,6 +102,9 @@ static void regs_init(void)
     wr(V3D_INTCTL, 0xF);
     wr(V3D_CT0CS, CT_RESET);
     wr(V3D_CT1CS, CT_RESET);
+    wr(V3D_SRQCS, SRQ_RESET);
+    wr(V3D_L2CACTL, L2C_CLEAR);
+    wr(V3D_SLCACTL, 0x0F0F0F0Fu);
     wr(V3D_BFC, 1);
     wr(V3D_RFC, 1);
     dmb();
@@ -131,6 +134,11 @@ int v3d_init(void)
         absent = 1;
         return -1;
     }
+    /* Cycle QPU power once so a warm reset cannot leave stale V3D/QPU state */
+    uint32_t off[1] = { 0 }, on[1] = { 1 };
+    prop_query(PROP_ENABLE_QPU, off, 1);
+    prop_query(PROP_ENABLE_QPU, on, 1);
+    timer_delay_ms(1);
     regs_init();
     status = "ready";
     ready = 1;
@@ -146,6 +154,18 @@ void v3d_reset(void)
     prop_query(PROP_ENABLE_QPU, on, 1);
     timer_delay_ms(1);
     regs_init();                            /* the reset may have power-cycled the V3D */
+}
+
+void v3d_shutdown(void)
+{
+    if (!ready)
+        return;
+    regs_init();
+    uint32_t off[1] = { 0 };
+    prop_query(PROP_ENABLE_QPU, off, 1);
+    timer_delay_ms(1);
+    ready = 0;
+    status = "off";
 }
 
 const char *v3d_status(void)
