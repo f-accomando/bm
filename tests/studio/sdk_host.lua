@@ -439,12 +439,13 @@ local function new_env(arg)
     local data = read_file(host(path))
     if not data then return nil, "no such file" end
     sec, mapc, lnames, mlay, flg = {}, {}, { "main" }, {}, {}
-    local lua = ""
+    local lua, b_src = nil, nil
     for _, s in ipairs(sections_of(data)) do
       local t = s[1]
       if t == 6 and s[2]:sub(1, 4) ~= "BMAU" then t = 8 elseif t == 7 then t = 9 end
       if t == 8 or t == 9 then sec[t] = s[2] end
       if t == 1 then lua = s[2] end
+      if t == 17 then b_src = s[2] end
       if t == 3 then
         local w = string.unpack("<I2", s[2])
         for i = 0, (#s[2] - 4) // 2 - 1 do
@@ -455,8 +456,10 @@ local function new_env(arg)
     end
     local w, h, px = decode_sheet(data)
     sheet = { w = w, h = h, px = px }
+    local lang = (b_src and lua and lua ~= "") and "hybrid" or (b_src and "b" or "lua")
     return { title = data:sub(25, 72):match("^[^\0]*"), author = data:sub(73, 104):match("^[^\0]*"),
-             res = string.unpack("<I2", data, 13) == 320 and "320x180" or "640x360", lua = lua,
+             res = string.unpack("<I2", data, 13) == 320 and "320x180" or "640x360",
+             lua = lua or "", b = b_src, lang = lang,
              sheet_w = w, sheet_h = h, map_w = 256, map_h = 256 }
   end
   E.cart_new = function()
@@ -467,7 +470,7 @@ local function new_env(arg)
   local project_target = dofile(ROOT .. "/tests/studio/project_rules.lua")
   local function exists(p) local f = io.open(host(p), "rb") if f then f:close() end return f ~= nil end
   E.cart_save = function(path, t)
-    assert(type(t.lua) == "string", "cart_save: the code")
+    assert(type(t.lua) == "string" or type(t.b) == "string", "cart_save: the code")
     local moved
     path, moved = project_target(path, exists, function(a, b)
       local fi, fo = assert(io.open(host(a), "rb")), assert(io.open(host(b), "wb"))
@@ -484,8 +487,10 @@ local function new_env(arg)
     end
     local cells = { string.pack("<I2I2", 256, 256) }
     for i = 0, 256 * 256 - 1 do cells[#cells + 1] = string.pack("<I2", mapc[(i // 256) * 4096 + i % 256] or 0) end
-    local secs = { { 1, t.lua }, { 2, string.pack("<I2I2", sheet.w, sheet.h) .. table.concat(px) },
+    local secs = { { 2, string.pack("<I2I2", sheet.w, sheet.h) .. table.concat(px) },
                    { 3, table.concat(cells) } }
+    if type(t.lua) == "string" then table.insert(secs, 1, { 1, t.lua }) end
+    if type(t.b) == "string" then secs[#secs + 1] = { 17, t.b } end
     if sec[8] then secs[#secs + 1] = { 8, sec[8] } end
     if sec[9] then secs[#secs + 1] = { 9, sec[9] } end
     local f = assert(io.open(host(path), "wb"))
@@ -1125,6 +1130,81 @@ do
   local function on_bar(s) for _, t in ipairs(texts) do if t[3] == 320 and t[1] == s then return true end end end
   check(on_bar("terrain") and on_bar("layer") and on_bar("mini"), "map page: the bar has terrain, layer and mini (m) next to the fixed chip")
   key("esc")
+end
+
+-- .b and hybrid Lua+.b workflow: templates, save/load, syntax check, disasm, part switch
+do
+  E.native_compile = function(src)
+    if src:find("BROKEN_B", 1, true) then return nil, "main.b:2: unknown symbol" end
+    return "BMN1TEST", nil
+  end
+  E.native_disasm = function()
+    return { ncode = 4, nfn = 1, lines = { "0000: mov r0, #1", "0004: bx lr" } }
+  end
+  E.tool_lua_check = function(src)
+    local f, err = load(src, "=main.lua")
+    return f ~= nil, err
+  end
+
+  -- clear dirty flag from map test before Ctrl+N
+  key("^S")
+  for _ = 1, 12 do key("\b") end
+  typed("CLRTMP")
+  key("\n")
+
+  -- 9th template: pure .b Game
+  key("^n")
+  for _ = 2, 9 do key("down") end
+  check(sees(".b Game"), "Ctrl+N: .b Game template in list")
+  key("\n")
+  frames(2)
+  check(sees(".b Game") and sees(".b"), "new pure .b project on hub")
+  key("f2")
+  frames(210)
+  check(status():find("[main.b]", 1, true), "pure .b code page status shows [main.b]: " .. status())
+  key("f7")
+  check(sees("compiled OK: 8 bytes BMN1 ARMv6"), "F7: pure .b compile succeeds")
+  key("^D")
+  check(sees("disassembly: main.b") and sees("0000: mov r0, #1"), "Ctrl+Shift+D: disasm dialog")
+  key("esc")
+  key("^S")
+  for _ = 1, 10 do key("\b") end
+  typed("BGAME")
+  key("\n")
+  check(last_save and last_save.path == "/bme/bgame.bme" and last_save.t.lua == false and type(last_save.t.b) == "string",
+        "pure .b project saved with lua=false and b section")
+
+  -- 10th template: Hybrid Lua+.b
+  key("^n")
+  for _ = 2, 10 do key("down") end
+  check(sees("Hybrid Lua+.b"), "Ctrl+N: Hybrid Lua+.b template in list")
+  key("\n")
+  frames(2)
+  check(sees("Hybrid Lua+.b") and sees("Lua+.b"), "new hybrid project on hub")
+  key("f2")
+  frames(210)
+  check(status():find("[main.lua]", 1, true), "hybrid starts on [main.lua]: " .. status())
+  key("f7")
+  check(sees("Lua syntax OK"), "F7: Lua check passes on main.lua")
+  key("f8")
+  frames(210)
+  check(status():find("[main.b]", 1, true), "F8: switches hybrid part to [main.b]: " .. status())
+  key("f8")
+  frames(210)
+  check(status():find("[main.lua]", 1, true), "F8: switches back to [main.lua]: " .. status())
+  key("^S")
+  for _ = 1, 10 do key("\b") end
+  typed("BHYB")
+  key("\n")
+  check(last_save and last_save.path == "/bme/bhyb.bme" and type(last_save.t.lua) == "string" and type(last_save.t.b) == "string",
+        "hybrid project saved with both lua and b sections")
+
+  -- error handling on .b check
+  key("f8")
+  typed("BROKEN_B ")
+  key("f7")
+  check(status():find("main.b:2:", 1, true), "F7: .b compile error sets status: " .. status())
+  E.native_compile, E.native_disasm, E.tool_lua_check = nil, nil, nil
 end
 
 io.write(string.format("sdk_host: %d checks, %d failed\n", checks, fails))

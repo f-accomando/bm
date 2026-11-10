@@ -513,15 +513,16 @@ static int sc_match_kw(const char *tok, int len, const char *const *list, int co
 
 static const char *const b_kw[] = {
     "function", "fn", "end", "local", "if", "then", "else", "elseif",
-    "while", "do", "for", "return", "break", "struct", "const", "enum",
-    "switch", "case", "default", "and", "or", "not"
+    "while", "do", "for", "return", "break", "continue", "struct", "const", "enum",
+    "switch", "case", "default", "and", "or", "not", "true", "false"
 };
 static const char *const b_types[] = {
     "i32", "int", "f32", "bool", "string", "void"
 };
 static const char *const b_builtins[] = {
-    "cls", "pix", "rectfill", "circfill", "spr", "btn", "abs", "min", "max", "sqrt", "floor",
-    "line", "rect", "circ", "peek", "poke", "peek2", "poke2", "peek4", "poke4", "memcpy", "memset", "print"
+    "cls", "pix", "rectfill", "circfill", "spr", "btn", "btnp", "abs", "min", "max", "sqrt", "floor",
+    "flr", "clamp", "lerp", "sin", "cos", "atan2", "line", "rect", "circ", "sfx", "music", "time",
+    "peek", "poke", "peek2", "poke2", "peek4", "poke4", "memcpy", "memset", "print"
 };
 
 #define SC_MAX_DOC_FNS 64

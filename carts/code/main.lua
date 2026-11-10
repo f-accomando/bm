@@ -2537,7 +2537,7 @@ for w in ("and break do else elseif end false for function goto if in local nil 
   KEYWORDS[w] = true
 end
 local B_KEYWORDS, B_TYPES = {}, {}
-for w in ("and break case const default do else elseif end enum fn for function if local not or return struct switch then while"):gmatch("%S+") do
+for w in ("and break case const continue default do else elseif end enum false fn for function if local not or return struct switch then true while"):gmatch("%S+") do
   B_KEYWORDS[w] = true
 end
 for w in ("i32 int f32 bool string void"):gmatch("%S+") do

@@ -684,9 +684,12 @@ end
 local function load_project(path)
   local p, e = cart_load(path)
   if not p then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
+  local lang = p.lang or (p.b and p.lua and p.lua ~= "" and "hybrid") or (p.b and "b") or "lua"
+  local part = (lang == "b" or (lang == "hybrid" and (not p.lua or p.lua == ""))) and "b" or "lua"
   S.proj = { title = p.title, author = p.author, res = p.res, path = path, save = short_path(path),
-             palette = p.palette, kit_info = p.info, lang = p.lang }
-  S.lines = split_lines((p.lang == "b" and (not p.lua or p.lua == "")) and p.b or p.lua)
+             palette = p.palette, kit_info = p.info, lang = lang, part = part,
+             lua_code = p.lua or "", b_code = p.b }
+  S.lines = split_lines(part == "b" and (p.b or "") or (p.lua or ""))
   S.sheet_w, S.sheet_h, S.map_w, S.map_h = p.sheet_w, p.sheet_h, p.map_w, p.map_h
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
   S.err_text, S.err_line = nil, nil
@@ -704,7 +707,12 @@ local function new_project(tp)
   tp = tp or TEMPLATES[1]
   cart_new()
   S.sheet_w, S.sheet_h, S.map_w, S.map_h = 256, 256, 256, 256
-  S.proj = { title = tp.id == "empty" and "New game" or tp.name, author = "", res = "640x360" }
+  local lang = tp.lang or "lua"
+  local part = (lang == "b") and "b" or "lua"
+  S.proj = { title = tp.id == "empty" and "New game" or tp.name, author = "", res = "640x360",
+             lang = lang, part = part,
+             lua_code = lang == "b" and "" or tp.code,
+             b_code = tp.b or (lang == "b" and tp.code or nil) }
   S.lines = split_lines(tp.code)
   if tp.paint then tp.paint() end
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
@@ -716,9 +724,12 @@ end
 
 local function save_project()
   if not S.proj.save then return false, "no name yet: use Save as" end
+  if S.proj.part == "b" then S.proj.b_code = code_text()
+  else S.proj.lua_code = code_text() end
   local opts = { title = S.proj.title, author = S.proj.author, res = S.proj.res }
-  if S.proj.lang == "b" then opts.lua = false; opts.b = code_text()
-  else opts.lua = code_text() end
+  if S.proj.lang == "b" then opts.lua = false; opts.b = S.proj.b_code
+  elseif S.proj.lang == "hybrid" then opts.lua = S.proj.lua_code or ""; opts.b = S.proj.b_code
+  else opts.lua = S.proj.lua_code or ""; opts.b = false end
   local ok, e = cart_save(S.proj.save, opts)
   if ok then
     S.dirty, S.info, S.measuring = false, nil, nil
@@ -788,6 +799,7 @@ end
 -- tries the game: saved first; the SDK comes back to the same page with the
 -- dev kit's numbers of the run (cart_arg().run)
 local function run_project()
+  if P.code and P.code.check_b_silent and not P.code.check_b_silent() then return end
   save_then(function()
     remember()
     cart_run(S.proj.save)
@@ -1023,8 +1035,60 @@ end
 
 -- a new project from a template (Ctrl+N, the menu, n on the project page)
 local function choose_template()
+  local list = {}
+  for i = 1, #TEMPLATES do list[i] = TEMPLATES[i] end
+  for _, tp in ipairs({
+    { id = "b_empty", name = ".b Game", desc = "100% .b native ARMv6 (_init/_update/_draw)", lang = "b", code = [[
+-- my .b game (100% native ARMv6)
+function _init(s: i32[])
+  s[1] = 320
+  s[2] = 180
+end
+
+function _update(s: i32[])
+  if btn(0) then s[1] = s[1] - 2 end
+  if btn(1) then s[1] = s[1] + 2 end
+  if btn(2) then s[2] = s[2] - 2 end
+  if btn(3) then s[2] = s[2] + 2 end
+end
+
+function _draw(s: i32[])
+  cls(0x101828)
+  circfill(s[1], s[2], 12, 0xFFD050)
+  print("hello .b!", 284, 40, 0xFFFFFF)
+end
+]] },
+    { id = "b_hybrid", name = "Hybrid Lua+.b", desc = "Lua loop + native .b module (main.b)", lang = "hybrid", code = [[
+-- hybrid project: Lua calls native .b functions via B.<fn>
+local x = 0
+
+function _init()
+end
+
+function _update()
+  if btn(0) then x = x - 2 end
+  if btn(1) then x = x + 2 end
+end
+
+function _draw()
+  cls(0x101828)
+  local s = B.step_sum(10)
+  circfill(320 + x, 180, 14, 0x70E090)
+  print("B.step_sum(10) = " .. s, 240, 40, 0xFFFFFF)
+end
+]], b = [[
+-- native .b module (compiled on load, called via B.<fn>)
+function step_sum(n: i32): i32
+  local s = 0
+  for i = 1, n do
+    s = s + i
+  end
+  return s
+end
+]] },
+  }) do list[#list + 1] = tp end
   local rows = {}
-  for _, tp in ipairs(TEMPLATES) do
+  for _, tp in ipairs(list) do
     rows[#rows + 1] = { tp.name, function()
       if S.dirty and not D.confirm_new then
         D.confirm_new = true
@@ -1051,10 +1115,15 @@ do
 
   local KEYWORDS = {}
   for w in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%S+") do KEYWORDS[w] = true end
+  local B_SYN = { kw = {}, ty = {} }
+  for w in ("and break case const continue default do else elseif end enum false fn for function if local not or return struct switch then true while"):gmatch("%S+") do B_SYN.kw[w] = true end
+  for w in ("i32 int f32 bool string void"):gmatch("%S+") do B_SYN.ty[w] = true end
+  local function is_b() return S.proj.lang == "b" or S.proj.part == "b" end
   -- bm's API (runtime.c), and in its own colour the 3D
   local API, API3D = {}, {}
-  for w in ([[cls pset pget line rect rectfill circ circfill spr sspr map mget mset fget fset mflags msize mlayers
-    zspr zone zones zboxes sget sset print font
+  for w in ([[cls pset pget pix line rect rectfill circ circfill spr sspr map mget mset fget fset mflags msize mlayers
+    zspr zone zones zboxes sget sset print font abs min max sqrt floor flr clamp lerp sin cos atan2
+    peek poke peek2 poke2 peek4 poke4 memcpy memset
     camera prompt lastinput clip rgb btn btnp players stick time stat code_tokens tri screen log report keyhelp
     battery battery_low
     quit keymap controller online udp_open udp_send udp_recv udp_close net_ip net_resolve save saved keyp keyheld
@@ -1074,7 +1143,9 @@ do
   local seg_cache, seg_count = {}, 0
 
   local function segments(l)
-    local s = seg_cache[l]
+    local b_mode = is_b()
+    local ckey = (b_mode and "b:" or "l:") .. l
+    local s = seg_cache[ckey]
     if s then return s end
     s = {}
     local i, n = 1, #l
@@ -1082,7 +1153,7 @@ do
       local c = l:sub(i, i)
       local j, col
       if c == "-" and l:sub(i + 1, i + 1) == "-" then j, col = n, C_COM
-      elseif c == '"' or c == "'" then
+      elseif c == '"' or (not b_mode and c == "'") then
         j = i + 1
         while j <= n and l:sub(j, j) ~= c do if l:sub(j, j) == "\\" then j = j + 1 end j = j + 1 end
         col = C_STR
@@ -1091,8 +1162,12 @@ do
         j = (l:find("[^%w_]", i) or n + 1) - 1
         local w = l:sub(i, j)
         local pre = i > 4 and l:sub(i - 4, i - 1)
-        col = KEYWORDS[w] and C_KW or API3D[w] and C_3D or API[w] and C_API or
-              (pre == "lib." or pre == "net.") and C_API or C.TEXT   -- bmlib's, bmnet's
+        if b_mode then
+          col = B_SYN.kw[w] and C_KW or B_SYN.ty[w] and C_3D or API[w] and C_API or C.TEXT
+        else
+          col = KEYWORDS[w] and C_KW or API3D[w] and C_3D or API[w] and C_API or
+                (pre == "lib." or pre == "net.") and C_API or C.TEXT   -- bmlib's, bmnet's
+        end
       else j, col = i, C_PUN end
       if j > n then j = n end
       s[#s + 1] = { i, l:sub(i, j), col }
@@ -1100,7 +1175,7 @@ do
     end
     seg_count = seg_count + 1
     if seg_count > 600 then seg_cache, seg_count = {}, 0 end
-    seg_cache[l] = s
+    seg_cache[ckey] = s
     return s
   end
 
@@ -1279,6 +1354,12 @@ do
       code_touched()
     elseif k == "^g" then
       if S.err_line then cy, cx = S.err_line, 0 end
+    elseif k == "f7" then
+      P.code.check()
+    elseif k == "f8" then
+      P.code.switch_part()
+    elseif k == "^D" then
+      P.code.disasm()
     elseif #k == 1 and k:byte() >= 32 then
       snapshot("ins")
       lines[cy] = l:sub(1, cx) .. k .. l:sub(cx + 1)
@@ -1330,7 +1411,8 @@ do
   local function status()
     if S.err_text then return S.err_text, C.ERR end
     local t = tokens_now()
-    return string.format("line %d/%d  col %d", cy, #S.lines, cx + 1) .. (t and ("   " .. t .. " tokens") or "")
+    local tag = S.proj.lang ~= "lua" and ("   [" .. (is_b() and "main.b" or "main.lua") .. "]") or ""
+    return string.format("line %d/%d  col %d", cy, #S.lines, cx + 1) .. (t and ("   " .. t .. " tokens") or "") .. tag
   end
 
   -- the mouse: a click puts the cursor there, the wheel scrolls (the
@@ -1365,9 +1447,101 @@ do
     end
   end
 
+  local function switch_part()
+    if S.proj.lang == "b" then say("pure .b project (no main.lua)", C.DIM); return end
+    if S.proj.lang ~= "hybrid" then
+      S.proj.lang = "hybrid"
+      S.proj.lua_code = code_text()
+      S.proj.b_code = S.proj.b_code or "-- native .b module (called via B.<fn>)\nfunction step_sum(n: i32): i32\n  local s = 0\n  for i = 1, n do\n    s = s + i\n  end\n  return s\nend\n"
+      S.proj.part = "b"
+      S.lines = split_lines(S.proj.b_code)
+      P.code.reset()
+      code_touched()
+      say("added main.b (native ARMv6 module)", C.ACC)
+      return
+    end
+    if S.proj.part == "b" then
+      S.proj.b_code = code_text()
+      S.proj.part = "lua"
+      S.lines = split_lines(S.proj.lua_code or "")
+    else
+      S.proj.lua_code = code_text()
+      S.proj.part = "b"
+      S.lines = split_lines(S.proj.b_code or "")
+    end
+    S.err_text, S.err_line = nil, nil
+    P.code.reset()
+    say("editing " .. (S.proj.part == "b" and "main.b" or "main.lua"), C.ACC)
+  end
+
+  local function set_err(err, b_mode)
+    local msg = tostring(err)
+    local ln = tonumber(msg:match(b_mode and "main%.b:(%d+):" or "main%.lua:(%d+):") or msg:match(":(%d+):"))
+    S.err_text, S.err_line = msg, ln
+    if ln then cy, cx = clamp(ln, 1, #S.lines), 0; clamp_cursor() end
+    say((b_mode and ".b error: " or "Lua error: ") .. (msg:match("^[^\n]*") or msg), C.ERR, 400)
+  end
+
+  local function check_code()
+    if is_b() then
+      if not native_compile then say("native_compile unavailable", C.ERR); return false end
+      local blob, err = native_compile(code_text())
+      if not blob then set_err(err, true); return false end
+      S.err_text, S.err_line = nil, nil
+      say("compiled OK: " .. #blob .. " bytes BMN1 ARMv6", C.ACC)
+      return blob
+    end
+    if not tool_lua_check then say("Lua syntax check unavailable", C.DIM); return true end
+    local ok, err = tool_lua_check(code_text())
+    if not ok then set_err(err, false); return false end
+    S.err_text, S.err_line = nil, nil
+    say("Lua syntax OK", C.ACC)
+    return true
+  end
+
+  local function check_b_silent()
+    if S.proj.lang ~= "b" and S.proj.lang ~= "hybrid" then return true end
+    if not native_compile then return true end
+    local src = is_b() and code_text() or (S.proj.b_code or "")
+    if src == "" then return true end
+    local blob, err = native_compile(src)
+    if not blob then
+      if S.proj.lang == "hybrid" and not is_b() then switch_part() end
+      set_err(err, true)
+      show("code")
+      return false
+    end
+    return true
+  end
+
+  local function disasm_b()
+    local src = is_b() and code_text() or (S.proj.lang == "hybrid" and S.proj.b_code or nil)
+    if not src or src == "" then say("no .b code in this project", C.ERR); return end
+    if not native_compile or not native_disasm then say("native_disasm unavailable", C.ERR); return end
+    local blob, err = native_compile(src)
+    if not blob then
+      if S.proj.lang == "hybrid" and not is_b() then switch_part() end
+      set_err(err, true)
+      return
+    end
+    local d, derr = native_disasm(blob)
+    if not d then say("disasm failed: " .. tostring(derr), C.ERR); return end
+    local rows = { { string.format("BMN1: %d bytes, %d words, %d fn", #blob, d.ncode or 0, d.nfn or 0), function() end } }
+    for _, ln in ipairs(d.lines or {}) do rows[#rows + 1] = { ln, function() end } end
+    D.choose("disassembly: main.b", rows)
+  end
+
   local function menu_items()
     local list = { { "Cut the line", "^x" }, { "Copy the line", "^c" }, { "Paste", "^v" }, { "Duplicate", "^d" },
-                   { "Undo", "^z" } }
+                   { "Undo", "^z" }, "-", { "Compile / Check", "f7" } }
+    if S.proj.lang == "b" or S.proj.lang == "hybrid" then
+      list[#list + 1] = { "Disassemble .b", "^D" }
+    end
+    if S.proj.lang == "hybrid" then
+      list[#list + 1] = { is_b() and "Switch to main.lua" or "Switch to main.b", "f8" }
+    elseif S.proj.lang ~= "b" then
+      list[#list + 1] = { "Add main.b (.b module)", "f8" }
+    end
     if S.err_line then
       list[#list + 1] = { "Go to the error", "^g" }
       list[#list + 1] = { "Explain the error", "f9" }
@@ -1376,7 +1550,8 @@ do
   end
 
   P.code = { key = key, draw = draw, status = status, insert = insert, word_at = word_at, mouse = mouse,
-             menu_items = menu_items,
+             menu_items = menu_items, switch_part = switch_part, check = check_code,
+             check_b_silent = check_b_silent, disasm = disasm_b,
              goto_line = function(n) cy, cx = clamp(n, 1, #S.lines), 0; clamp_cursor() end,
              cursor = function() return cy, cx end,
              reset = function() cx, cy, top, left, undo, last_edit = 0, 1, 1, 0, {}, nil; sl.ay = nil end }
@@ -2999,7 +3174,8 @@ do
   local function draw_hub()
     local p, I = S.proj, S.info
     strip(PANEL_W, p.title, p.author ~= "" and ("by " .. p.author) or "",
-          (p.save or "not saved yet") .. (S.dirty and " (modified)" or "") .. "   " .. p.res)
+          (p.save or "not saved yet") .. (S.dirty and " (modified)" or "") .. "   " .. p.res
+            .. (p.lang == "b" and "   .b" or p.lang == "hybrid" and "   Lua+.b" or ""))
     print("CONTENTS", INFO_X, 48, C.DIM)
     if not I then
       print("measuring...", INFO_X + 96, 64, C.DIM)
@@ -3359,6 +3535,9 @@ local HELP = {
     { "ctrl c / ctrl v", "copy the line / put it above" },
     { "ctrl d", "duplicate the line" },
     { "ctrl g", "go to the error" },
+    { "f7", "compile / check the code" },
+    { "f8", "switch main.lua / main.b" },
+    { "ctrl shift d", "disassemble .b" },
     { "f9", "the assistant explains the error" },
   },
   sprite = {
@@ -3457,6 +3636,9 @@ function _init()
     if a.error then
       S.page, S.last = "code", "code"
       S.err_text = a.error
+      if a.error:match("main%.b:(%d+):") and S.proj.lang == "hybrid" and S.proj.part ~= "b" then
+        P.code.switch_part()
+      end
       S.err_line = tonumber(a.error:match("main%.lua:(%d+):") or a.error:match("main%.b:(%d+):"))
       if S.err_line then P.code.goto_line(S.err_line) end
       say("the game stopped: see the line in red (Ctrl+G jumps there, F9 explains it)", C.ERR, 400)
