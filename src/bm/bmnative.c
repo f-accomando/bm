@@ -960,3 +960,154 @@ int bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs,
 {
     return bmnative_call_buf(m, fn, args, NULL, nargs, ret);
 }
+
+typedef struct {
+    char *p;
+    size_t pos;
+    size_t cap;
+} dis_buf_t;
+
+static void db_ch(dis_buf_t *d, char c)
+{
+    if (d->pos + 1 < d->cap)
+        d->p[d->pos] = c;
+    d->pos++;
+}
+
+static void db_str(dis_buf_t *d, const char *s)
+{
+    while (*s)
+        db_ch(d, *s++);
+}
+
+static void db_uint(dis_buf_t *d, uint32_t v)
+{
+    char tmp[12];
+    int n = 0;
+    if (v == 0) {
+        db_ch(d, '0');
+        return;
+    }
+    while (v > 0) {
+        tmp[n++] = (char)('0' + (v % 10u));
+        v /= 10u;
+    }
+    while (n > 0)
+        db_ch(d, tmp[--n]);
+}
+
+static void db_sint(dis_buf_t *d, int32_t v, int plus_sign)
+{
+    if (v < 0) {
+        db_ch(d, '-');
+        db_uint(d, (uint32_t)(-(int64_t)v));
+    } else {
+        if (plus_sign)
+            db_ch(d, '+');
+        db_uint(d, (uint32_t)v);
+    }
+}
+
+static void db_hex(dis_buf_t *d, uint32_t v, int digits)
+{
+    static const char hd[] = "0123456789ABCDEF";
+    for (int i = digits - 1; i >= 0; i--)
+        db_ch(d, hd[(v >> (i * 4)) & 0xFu]);
+}
+
+static void db_reg(dis_buf_t *d, uint32_t r)
+{
+    db_ch(d, 'r');
+    db_uint(d, r);
+}
+
+void bmnative_disasm_word(uint32_t w, char *buf, size_t cap)
+{
+    if (!buf || cap == 0)
+        return;
+    dis_buf_t d = { buf, 0, cap };
+    static const char *const conds[] = {
+        "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc",
+        "hi", "ls", "ge", "lt", "gt", "le", "", "nv"
+    };
+    const char *cc = conds[(w >> 28) & 0xFu];
+
+    if (((w >> 25) & 7u) == 5u) {
+        int is_bl = (w >> 24) & 1u;
+        int32_t imm24 = (int32_t)(w & 0xFFFFFFu);
+        if (imm24 & 0x800000) imm24 -= 0x1000000;
+        int32_t byte_off = (imm24 + 2) * 4;
+        db_str(&d, is_bl ? "bl" : "b");
+        db_str(&d, cc);
+        db_ch(&d, ' ');
+        db_sint(&d, byte_off, 1);
+    } else if ((w & 0x0FFFFFF0u) == 0x012FFF10u) {
+        int rm = (int)(w & 0xFu);
+        db_str(&d, "bx");
+        db_str(&d, cc);
+        db_ch(&d, ' ');
+        if (rm == 14) db_str(&d, "lr");
+        else db_reg(&d, (uint32_t)rm);
+    } else if ((w & 0x0FFF0000u) == 0x092D0000u) {
+        db_str(&d, "push"); db_str(&d, cc); db_str(&d, " {0x");
+        db_hex(&d, w & 0xFFFFu, 4); db_ch(&d, '}');
+    } else if ((w & 0x0FFF0000u) == 0x08BD0000u) {
+        db_str(&d, "pop"); db_str(&d, cc); db_str(&d, " {0x");
+        db_hex(&d, w & 0xFFFFu, 4); db_ch(&d, '}');
+    } else if ((w & 0x0FC000F0u) == 0x00000090u) {
+        uint32_t rd = (w >> 16) & 0xFu, rn = (w >> 12) & 0xFu, rs = (w >> 8) & 0xFu, rm = w & 0xFu;
+        int is_mla = (int)((w >> 21) & 1u);
+        db_str(&d, is_mla ? "mla" : "mul");
+        db_str(&d, cc); db_ch(&d, ' ');
+        db_reg(&d, rd); db_str(&d, ", "); db_reg(&d, rm); db_str(&d, ", "); db_reg(&d, rs);
+        if (is_mla) { db_str(&d, ", "); db_reg(&d, rn); }
+    } else if (((w >> 26) & 3u) == 0u) {
+        uint32_t op = (w >> 21) & 0xFu;
+        uint32_t rn = (w >> 16) & 0xFu;
+        uint32_t rd = (w >> 12) & 0xFu;
+        static const char *const ops[] = {
+            "and", "eor", "sub", "rsb", "add", "adc", "sbc", "rsc",
+            "tst", "teq", "cmp", "cmn", "orr", "mov", "bic", "mvn"
+        };
+        db_str(&d, ops[op]); db_str(&d, cc); db_ch(&d, ' ');
+        if (op == 13 || op == 15) {
+            db_reg(&d, rd); db_str(&d, ", ");
+            if ((w >> 25) & 1u) {
+                uint32_t rot = ((w >> 8) & 0xFu) * 2u;
+                uint32_t imm = w & 0xFFu;
+                uint32_t val = rot ? ((imm >> rot) | (imm << (32u - rot))) : imm;
+                db_ch(&d, '#'); db_uint(&d, val);
+            } else {
+                db_reg(&d, w & 0xFu);
+            }
+        } else if (op >= 8 && op <= 11) {
+            db_reg(&d, rn); db_str(&d, ", ");
+            if ((w >> 25) & 1u) { db_ch(&d, '#'); db_uint(&d, w & 0xFFu); }
+            else db_reg(&d, w & 0xFu);
+        } else {
+            db_reg(&d, rd); db_str(&d, ", "); db_reg(&d, rn); db_str(&d, ", ");
+            if ((w >> 25) & 1u) { db_ch(&d, '#'); db_uint(&d, w & 0xFFu); }
+            else db_reg(&d, w & 0xFu);
+        }
+    } else if (((w >> 26) & 3u) == 1u) {
+        int is_load = (w >> 20) & 1u;
+        int is_byte = (w >> 22) & 1u;
+        uint32_t rn = (w >> 16) & 0xFu;
+        uint32_t rd = (w >> 12) & 0xFu;
+        uint32_t imm12 = w & 0xFFFu;
+        int is_up = (w >> 23) & 1u;
+        db_str(&d, is_load ? "ldr" : "str");
+        if (is_byte) db_ch(&d, 'b');
+        db_str(&d, cc); db_ch(&d, ' ');
+        db_reg(&d, rd); db_str(&d, ", ["); db_reg(&d, rn); db_str(&d, ", #");
+        if (!is_up) db_ch(&d, '-');
+        db_uint(&d, imm12); db_ch(&d, ']');
+    } else if (((w >> 24) & 0xFu) >= 0xCu && ((w >> 8) & 0xFu) == 10u) {
+        db_str(&d, "vfp"); db_str(&d, cc); db_str(&d, " (cp10) 0x");
+        db_hex(&d, w, 8);
+    } else {
+        db_str(&d, ".word 0x");
+        db_hex(&d, w, 8);
+    }
+    buf[d.pos < cap ? d.pos : cap - 1] = '\0';
+}

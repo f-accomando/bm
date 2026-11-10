@@ -685,8 +685,8 @@ local function load_project(path)
   local p, e = cart_load(path)
   if not p then say("cannot open " .. path .. ": " .. tostring(e), C.ERR); return false end
   S.proj = { title = p.title, author = p.author, res = p.res, path = path, save = short_path(path),
-             palette = p.palette, kit_info = p.info }
-  S.lines = split_lines(p.lua)
+             palette = p.palette, kit_info = p.info, lang = p.lang }
+  S.lines = split_lines((p.lang == "b" and (not p.lua or p.lua == "")) and p.b or p.lua)
   S.sheet_w, S.sheet_h, S.map_w, S.map_h = p.sheet_w, p.sheet_h, p.map_w, p.map_h
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
   S.err_text, S.err_line = nil, nil
@@ -716,8 +716,10 @@ end
 
 local function save_project()
   if not S.proj.save then return false, "no name yet: use Save as" end
-  local ok, e = cart_save(S.proj.save, { title = S.proj.title, author = S.proj.author, res = S.proj.res,
-                                         lua = code_text() })
+  local opts = { title = S.proj.title, author = S.proj.author, res = S.proj.res }
+  if S.proj.lang == "b" then opts.lua = false; opts.b = code_text()
+  else opts.lua = code_text() end
+  local ok, e = cart_save(S.proj.save, opts)
   if ok then
     S.dirty, S.info, S.measuring = false, nil, nil
     if type(e) == "string" then          -- the editable copy of a game, or a new project
@@ -3455,7 +3457,7 @@ function _init()
     if a.error then
       S.page, S.last = "code", "code"
       S.err_text = a.error
-      S.err_line = tonumber(a.error:match("main%.lua:(%d+):"))
+      S.err_line = tonumber(a.error:match("main%.lua:(%d+):") or a.error:match("main%.b:(%d+):"))
       if S.err_line then P.code.goto_line(S.err_line) end
       say("the game stopped: see the line in red (Ctrl+G jumps there, F9 explains it)", C.ERR, 400)
     elseif a.back and a.run then

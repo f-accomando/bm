@@ -16,6 +16,7 @@
  *   f = native_fn(m, "name")        the number of a function, or nil
  *   r = native_run(m, f, args...)   calls function f (number or "name") with i32/bool/f32/array/struct arguments and returns its result
  */
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,6 +25,7 @@
 #include "bmvm.h"
 #include "lauxlib.h"
 #include "lua.h"
+#include "rt_internal.h"
 
 #define MOD_MT    "bmvm.mod"
 #define BUF_MT    "bmvm.buf"
@@ -238,6 +240,18 @@ static int nat_gc(lua_State *L)
     return 0;
 }
 
+int bmnative_lua_push_mod(lua_State *L, void *mod)
+{
+    natmod_t *u = (natmod_t *)lua_newuserdatauv(L, sizeof *u, 0);
+    u->m = (bmnative_mod *)mod;
+    if (luaL_newmetatable(L, NAT_MT)) {
+        lua_pushcfunction(L, nat_gc);
+        lua_setfield(L, -2, "__gc");
+    }
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
 int l_native_load(lua_State *L)
 {
     size_t n;
@@ -249,14 +263,7 @@ int l_native_load(lua_State *L)
         lua_pushstring(L, why);
         return 2;
     }
-    natmod_t *u = (natmod_t *)lua_newuserdatauv(L, sizeof *u, 0);
-    u->m = m;
-    if (luaL_newmetatable(L, NAT_MT)) {
-        lua_pushcfunction(L, nat_gc);
-        lua_setfield(L, -2, "__gc");
-    }
-    lua_setmetatable(L, -2);
-    return 1;
+    return bmnative_lua_push_mod(L, m);
 }
 
 int l_native_fn(lua_State *L)
@@ -298,7 +305,14 @@ static void push_word_to_lua(lua_State *L, uint32_t w, uint8_t kind)
 
 static lua_State *g_active_lua = NULL;
 
-static int32_t lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t nargs)
+lua_State *bmnative_lua_set_state(lua_State *L)
+{
+    lua_State *prev = g_active_lua;
+    g_active_lua = L;
+    return prev;
+}
+
+int32_t bmnative_lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t nargs)
 {
     lua_State *L = g_active_lua;
     if (!L)
@@ -514,7 +528,7 @@ int l_native_run(lua_State *L)
     bmnative_host_fn prev_host = bmnative_get_host_fn();
     g_active_lua = L;
     if (!prev_host)
-        bmnative_set_host_fn(lua_host_dispatch);
+        bmnative_set_host_fn(bmnative_lua_host_dispatch);
     const int e = bmnative_call_buf(u->m, fn, args, bufs, nargs, &ret);
     if (!prev_host)
         bmnative_set_host_fn(NULL);
@@ -576,5 +590,64 @@ int l_native_compile(lua_State *L)
     }
     lua_pushlstring(L, (const char *)blob, blob_len);
     free(blob);
+    return 1;
+}
+
+int l_native_disasm(lua_State *L)
+{
+    size_t n = 0;
+    const char *s = luaL_checklstring(L, 1, &n);
+    bmnative_mod *m = NULL;
+    const char *why = "";
+    if (bmnative_load(&m, (const uint8_t *)s, n, &why) != BMN_OK) {
+        lua_pushnil(L);
+        lua_pushstring(L, why);
+        return 2;
+    }
+
+    lua_newtable(L);
+    lua_pushinteger(L, (lua_Integer)m->ncode);
+    lua_setfield(L, -2, "ncode");
+    lua_pushinteger(L, m->nfn);
+    lua_setfield(L, -2, "nfn");
+    lua_pushinteger(L, (lua_Integer)m->nrodata);
+    lua_setfield(L, -2, "nrodata");
+
+    lua_createtable(L, m->nfn, 0);
+    for (int f = 0; f < m->nfn; f++) {
+        lua_createtable(L, 0, 4);
+        lua_pushstring(L, m->fn[f].name);
+        lua_setfield(L, -2, "name");
+        lua_pushinteger(L, m->fn[f].nparams);
+        lua_setfield(L, -2, "nparams");
+        lua_pushinteger(L, m->fn[f].ret);
+        lua_setfield(L, -2, "ret");
+        lua_pushinteger(L, (lua_Integer)m->fn[f].word_off);
+        lua_setfield(L, -2, "word_off");
+        lua_rawseti(L, -2, f + 1);
+    }
+    lua_setfield(L, -2, "functions");
+
+    lua_newtable(L);
+    int ln = 1;
+    for (uint32_t i = 0; i < m->ncode; i++) {
+        char buf[128];
+        for (int f = 0; f < m->nfn; f++) {
+            if (m->fn[f].word_off == i) {
+                snprintf(buf, sizeof buf, "; function %s(%d params) -> %d @ 0x%04X",
+                         m->fn[f].name, m->fn[f].nparams, m->fn[f].ret, (unsigned)(i * 4u));
+                lua_pushstring(L, buf);
+                lua_rawseti(L, -2, ln++);
+            }
+        }
+        char dstr[64];
+        bmnative_disasm_word(m->code[i], dstr, sizeof dstr);
+        snprintf(buf, sizeof buf, "  0x%04X: %08X  %s", (unsigned)(i * 4u), (unsigned)m->code[i], dstr);
+        lua_pushstring(L, buf);
+        lua_rawseti(L, -2, ln++);
+    }
+    lua_setfield(L, -2, "lines");
+
+    bmnative_free(m);
     return 1;
 }

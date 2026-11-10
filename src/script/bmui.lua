@@ -676,6 +676,16 @@ function U.lua_name_ok(name)
   return type(name) == "string" and name:match("^[%a_][%w_]*$") ~= nil and not LUA_WORDS[name]
 end
 
+local B_WORDS = {}
+for w in ("and break case const default do else elseif end enum false fn for function if i32 int f32 bool string void local not or return struct switch then true while"):gmatch("%S+") do
+  B_WORDS[w] = true
+end
+
+-- a name .b accepts for a variable or a function (not a keyword or primitive type)
+function U.b_name_ok(name)
+  return type(name) == "string" and name:match("^[%a_][%w_]*$") ~= nil and not B_WORDS[name]
+end
+
 -- The Lua modules of one project (APP-8). The code of a project stays ONE
 -- LUA section; a line "--@module NAME" starts a module, which runs to the
 -- next such line. For the cartridge it is a comment, so the game, its bytes

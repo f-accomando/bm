@@ -150,8 +150,9 @@
  * Revision 4 (2026-10-22): the web API for cartridges (web_get, web_poll, web_info, web_body, web_cancel, image_load, file_write), the folder bm/web.
  * Revision 5 (2026-10-25): safe_area(), aspect() and the 720x405 screen() mode.
  * Revision 6 (2026-10-29): a chat model (ai_ask, ai_reply, ai_info, ai_setup, ai_pair, ai_pair_finish), the protected
- * files bm/ai.txt and bm/ca-user.pem. */
-#define BM_SPEC_REV 6
+ * files bm/ai.txt and bm/ca-user.pem.
+ * Revision 7 (2026-11-10): .b language section BM_SEC_B (17), native_disasm(), and pure/hybrid .b cartridges. */
+#define BM_SPEC_REV 7
 
 #include <stddef.h>
 #include <stdint.h>
@@ -175,6 +176,7 @@
 #define BM_SEC_BOXES       14
 #define BM_SEC_DATA        15              /* named blobs of an app: the kernel reads them (bm_data_find) */
 #define BM_SEC_PREVIEW     16              /* a turning picture of a resource file (below); a kernel that does not know it ignores it */
+#define BM_SEC_B           17              /* BML (.b) source code, UTF-8 (compiled on load by bmlc) */
 #define BM_SEC_OLD_ANIM    7               /* the first files of bm Studio (see above) */
 #define BM_LAYERS_MAX      8               /* map layers, the MAP section counted */
 #define BM_LAYER_NAME      16              /* bytes of a layer's name in LAYERS */
@@ -253,6 +255,8 @@ typedef struct {
     uint8_t pixel_format;
     const char *lua;
     uint32_t lua_size;
+    const char *b;                  /* BML (.b) UTF-8 source section, or NULL */
+    uint32_t b_size;
     const uint8_t *sheet_rgba;
     const uint8_t *sheet8;          /* SHEET8 section (from its header), or NULL */
     uint32_t sheet8_size;

@@ -76,7 +76,8 @@ ignored. If a type is repeated, the **last** one wins in the kernel (the Python 
 
 | # | Name | Body | Checked by the kernel |
 |---|---|---|---|
-| 1 | LUA | UTF-8 source | required for a cartridge; any size |
+| 1 | LUA | UTF-8 source | required for a cartridge unless `B` (17) is present; any size |
+| 17 | B | UTF-8 `.b` (BML) source | compiled on load by `bmlc` (standalone `_init`/`_update`/`_draw` or hybrid `_B`/`B.<fn>` with `LUA`) |
 | 2 | SHEET | u16 w, u16 h, RGBA8888 | w, h 1..4096; size exact |
 | 3 | MAP | u16 w, u16 h, w*h u16 cells | w, h nonzero; size exact (no upper bound) |
 | 4 | COVER | u16 w, u16 h, RGBA | w, h 1..512; `mkbm.py` writes 88x88. A resource file (`.bmm`, `.bmi`, `.bmt`, `.bmk`) may hold one too: the still picture of what it holds (`bmpreview.py add`) |

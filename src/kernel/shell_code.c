@@ -18,12 +18,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "bm/bmlc.h"
 #include "bm/bmnative.h"
+#include "lua.h"
+#include "lauxlib.h"
+#include "lualib.h"
 
 #ifndef SHELL_CODE_HOST_TEST
 #include "gfx/console.h"
+#include "gfx/draw.h"
+#include "gfx/font.h"
 #include "drivers/fb.h"
 #include "drivers/timer.h"
 #include "input.h"
@@ -31,6 +37,7 @@
 #include "fs/fat.h"
 #include "lib/printf.h"
 #include "monitor_fs.h"
+#include "script/luavm.h"
 #else
 #ifndef HID_KEY_UP
 #define HID_KEY_UP      0xF0
@@ -92,6 +99,8 @@ enum {
     MENU_SAVE,
     MENU_SAVE_AS,
     MENU_NEW,
+    MENU_NEW_LUA,
+    MENU_CHECK,
     MENU_RUN,
     MENU_DISASM,
     MENU_NEXT_TAB,
@@ -105,7 +114,9 @@ static const char *const g_menu_labels[MENU_COUNT] = {
     "Open File...     (Ctrl+O)",
     "Save             (Ctrl+S)",
     "Save As...",
-    "New File         (Ctrl+N)",
+    "New .b File      (Ctrl+N)",
+    "New .lua File",
+    "Check Syntax     (F6)",
     "Compile & Run    (F5)",
     "Disassemble .b   (F7)",
     "Next Tab         (Ctrl+T)",
@@ -169,7 +180,7 @@ static inline int sc_shift_held(void) { return g_mock_shift; }
 static inline int sc_alt_held(void) { return g_mock_alt; }
 #endif
 
-/* ---- Path Normalization (/code-b/) ---- */
+/* ---- Path Normalization (/code-b/, /code-lua/) ---- */
 
 static void sc_normalize_path(char *dest, size_t dest_cap, const char *src)
 {
@@ -179,19 +190,16 @@ static void sc_normalize_path(char *dest, size_t dest_cap, const char *src)
     }
     const char *ext = strrchr(src, '.');
     int is_b = (ext && strcmp(ext, ".b") == 0);
+    int is_lua = (ext && strcmp(ext, ".lua") == 0);
 
-    if (is_b) {
-        if (src[0] == '/') {
-            snprintf(dest, dest_cap, "%s", src);
-        } else {
-            snprintf(dest, dest_cap, "/code-b/%s", src);
-        }
+    if (src[0] == '/') {
+        snprintf(dest, dest_cap, "%s", src);
+    } else if (is_b) {
+        snprintf(dest, dest_cap, "/code-b/%s", src);
+    } else if (is_lua) {
+        snprintf(dest, dest_cap, "/code-lua/%s", src);
     } else {
-        if (src[0] == '/') {
-            snprintf(dest, dest_cap, "%s", src);
-        } else {
-            snprintf(dest, dest_cap, "/%s", src);
-        }
+        snprintf(dest, dest_cap, "/%s", src);
     }
 }
 
@@ -681,15 +689,32 @@ static int sc_get_autocomplete_suggestion(const sc_tab_t *t, char *out_suffix, s
         }
     }
 
-    /* 2. Language keywords, types, builtins */
-    static const char *const kw_candidates[] = {
+    /* 2. Language keywords, types, builtins (aligned per syntax) */
+    static const char *const kw_b[] = {
         "function", "local", "return", "while", "struct", "break",
         "continue", "switch", "case", "default", "elseif", "else", "then",
-        "rectfill", "circfill", "print", "cls", "spr", "btn", "line",
+        "rectfill", "circfill", "print", "cls", "spr", "btn", "btnp", "line",
+        "circ", "rect", "sfx", "music", "time", "sin", "cos", "atan2",
         "peek", "poke", "peek2", "poke2", "peek4", "poke4", "memcpy", "memset",
-        "i32", "int", "f32", "bool", "string", "void",
+        "i32", "int", "f32", "bool", "string", "void", "const", "enum",
         NULL
     };
+    static const char *const kw_lua[] = {
+        "function", "local", "return", "while", "break", "elseif", "else", "then",
+        "repeat", "until", "true", "false", "nil",
+        "rectfill", "circfill", "print", "cls", "pset", "pix", "spr", "btn", "btnp",
+        "line", "circ", "rect", "sfx", "music", "time", "screen", "SCREEN_W", "SCREEN_H",
+        "ipairs", "pairs", "tostring", "tonumber", "math", "table", "string",
+        NULL
+    };
+    static const char *const kw_c[] = {
+        "int", "void", "char", "float", "double", "static", "const", "return",
+        "while", "struct", "typedef", "enum", "switch", "case", "break", "continue",
+        "uint32_t", "int32_t", "uint8_t", NULL
+    };
+    const char *const *kw_candidates = (t->syntax == SC_SYN_LUA) ? kw_lua
+                                     : (t->syntax == SC_SYN_C)   ? kw_c
+                                                                 : kw_b;
 
     for (int i = 0; kw_candidates[i]; i++) {
         const char *cand = kw_candidates[i];
@@ -713,7 +738,15 @@ static int sc_get_autocomplete_suggestion(const sc_tab_t *t, char *out_suffix, s
 
 static const char *const lua_kw[] = {
     "function", "end", "local", "if", "then", "else", "elseif",
-    "while", "do", "for", "in", "return", "break", "nil", "and", "or", "not"
+    "while", "do", "for", "in", "return", "break", "repeat", "until", "goto",
+    "nil", "and", "or", "not"
+};
+
+static const char *const bm_api_kw[] = {
+    "cls", "pset", "pix", "rectfill", "circfill", "rect", "circ", "line", "spr",
+    "btn", "btnp", "sfx", "music", "time", "print", "screen", "SCREEN_W", "SCREEN_H",
+    "abs", "min", "max", "sqrt", "floor", "sin", "cos", "atan2",
+    "math", "table", "string", "ipairs", "pairs", "tostring", "tonumber"
 };
 
 static const char *const c_kw[] = {
@@ -876,6 +909,11 @@ static void sc_format_line(const sc_tab_t *t, int file_line, int is_cursor_line,
             } else if (t->syntax == SC_SYN_LUA) {
                 if (sc_match_kw(s + start, tok_len, lua_kw, sizeof(lua_kw)/sizeof(lua_kw[0])))
                     color = "\x1b[1;93m";
+                else if (sc_match_kw(s + start, tok_len, bm_api_kw, sizeof(bm_api_kw)/sizeof(bm_api_kw[0])))
+                    color = "\x1b[1;96m";
+                else if ((tok_len == 4 && strncmp(s + start, "true", 4) == 0) ||
+                         (tok_len == 5 && strncmp(s + start, "false", 5) == 0))
+                    color = "\x1b[35m";
                 else if (doc_fns && sc_is_doc_function(doc_fns, s + start, tok_len))
                     color = "\x1b[1;94m";
             } else if (t->syntax == SC_SYN_C) {
@@ -1337,8 +1375,71 @@ static int sc_compile_b(sc_tab_t *t, uint8_t **out_blob, size_t *out_len)
     return 0;
 }
 
-#ifndef SHELL_CODE_HOST_TEST
 static int g_shell_did_draw_gfx = 0;
+
+#ifndef SHELL_CODE_HOST_TEST
+static uint32_t sc_fb_rgb(const framebuffer_t *fb, uint32_t rgb)
+{
+    return fb_color(fb, (uint8_t)((rgb >> 16) & 0xFFu),
+                        (uint8_t)((rgb >> 8) & 0xFFu),
+                        (uint8_t)(rgb & 0xFFu));
+}
+
+static void sc_fb_line(framebuffer_t *fb, int x0, int y0, int x1, int y1, uint32_t col)
+{
+    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    for (;;) {
+        if ((uint32_t)x0 < fb->width && (uint32_t)y0 < fb->height)
+            fb_putpixel(fb, (uint32_t)x0, (uint32_t)y0, col);
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+static void sc_fb_circ(framebuffer_t *fb, int cx, int cy, int r, uint32_t col, int fill)
+{
+    if (r < 0) return;
+    int x = r, y = 0, err = 1 - r;
+    while (x >= y) {
+        if (fill) {
+            int lx0 = cx - x, lx1 = cx + x, ux0 = cx - y, ux1 = cx + y;
+            for (int px = lx0; px <= lx1; px++) {
+                if ((uint32_t)px < fb->width) {
+                    if ((uint32_t)(cy + y) < fb->height) fb_putpixel(fb, (uint32_t)px, (uint32_t)(cy + y), col);
+                    if ((uint32_t)(cy - y) < fb->height) fb_putpixel(fb, (uint32_t)px, (uint32_t)(cy - y), col);
+                }
+            }
+            for (int px = ux0; px <= ux1; px++) {
+                if ((uint32_t)px < fb->width) {
+                    if ((uint32_t)(cy + x) < fb->height) fb_putpixel(fb, (uint32_t)px, (uint32_t)(cy + x), col);
+                    if ((uint32_t)(cy - x) < fb->height) fb_putpixel(fb, (uint32_t)px, (uint32_t)(cy - x), col);
+                }
+            }
+        } else {
+            int pts[8][2] = {
+                {cx + x, cy + y}, {cx - x, cy + y}, {cx + x, cy - y}, {cx - x, cy - y},
+                {cx + y, cy + x}, {cx - y, cy + x}, {cx + y, cy - x}, {cx - y, cy - x}
+            };
+            for (int i = 0; i < 8; i++) {
+                if ((uint32_t)pts[i][0] < fb->width && (uint32_t)pts[i][1] < fb->height)
+                    fb_putpixel(fb, (uint32_t)pts[i][0], (uint32_t)pts[i][1], col);
+            }
+        }
+        y++;
+        if (err < 0) {
+            err += 2 * y + 1;
+        } else {
+            x--;
+            err += 2 * (y - x) + 1;
+        }
+    }
+}
+
+static uint32_t g_sc_prev_btns = 0;
 
 static int32_t shell_code_host_dispatch(int32_t host_id, const int32_t *args, int32_t nargs)
 {
@@ -1347,8 +1448,8 @@ static int32_t shell_code_host_dispatch(int32_t host_id, const int32_t *args, in
 
     switch (host_id) {
     case BMN_HOST_CLS: {
-        uint32_t col = (nargs > 0) ? (uint32_t)args[0] : 0;
-        fb_fill_rect(fb, 0, 0, fb->width, fb->height, col);
+        uint32_t rgb = (nargs > 0) ? (uint32_t)args[0] : 0;
+        fb_fill_rect(fb, 0, 0, fb->width, fb->height, sc_fb_rgb(fb, rgb));
         g_shell_did_draw_gfx = 1;
         return 0;
     }
@@ -1356,7 +1457,7 @@ static int32_t shell_code_host_dispatch(int32_t host_id, const int32_t *args, in
         if (nargs >= 3) {
             uint32_t x = (uint32_t)args[0];
             uint32_t y = (uint32_t)args[1];
-            uint32_t col = (uint32_t)args[2];
+            uint32_t col = sc_fb_rgb(fb, (uint32_t)args[2]);
             if (x < fb->width && y < fb->height)
                 fb_putpixel(fb, x, y, col);
             g_shell_did_draw_gfx = 1;
@@ -1365,16 +1466,64 @@ static int32_t shell_code_host_dispatch(int32_t host_id, const int32_t *args, in
     }
     case BMN_HOST_RECTFILL: {
         if (nargs >= 5) {
-            fb_fill_rect(fb, (uint32_t)args[0], (uint32_t)args[1],
-                         (uint32_t)args[2], (uint32_t)args[3], (uint32_t)args[4]);
+            int x = args[0], y = args[1], w = args[2], h = args[3];
+            if (w > 0 && h > 0 && x < (int)fb->width && y < (int)fb->height) {
+                if (x < 0) { w += x; x = 0; }
+                if (y < 0) { h += y; y = 0; }
+                if (x + w > (int)fb->width) w = (int)fb->width - x;
+                if (y + h > (int)fb->height) h = (int)fb->height - y;
+                if (w > 0 && h > 0)
+                    fb_fill_rect(fb, (uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h,
+                                 sc_fb_rgb(fb, (uint32_t)args[4]));
+            }
+            g_shell_did_draw_gfx = 1;
+        }
+        return 0;
+    }
+    case BMN_HOST_RECT: {
+        if (nargs >= 5) {
+            gfx_rect(fb, args[0], args[1], args[2], args[3], sc_fb_rgb(fb, (uint32_t)args[4]));
+            g_shell_did_draw_gfx = 1;
+        }
+        return 0;
+    }
+    case BMN_HOST_LINE: {
+        if (nargs >= 5) {
+            sc_fb_line(fb, args[0], args[1], args[2], args[3], sc_fb_rgb(fb, (uint32_t)args[4]));
+            g_shell_did_draw_gfx = 1;
+        }
+        return 0;
+    }
+    case BMN_HOST_CIRC: {
+        if (nargs >= 4) {
+            sc_fb_circ(fb, args[0], args[1], args[2], sc_fb_rgb(fb, (uint32_t)args[3]), 0);
+            g_shell_did_draw_gfx = 1;
+        }
+        return 0;
+    }
+    case BMN_HOST_CIRCFILL: {
+        if (nargs >= 4) {
+            sc_fb_circ(fb, args[0], args[1], args[2], sc_fb_rgb(fb, (uint32_t)args[3]), 1);
             g_shell_did_draw_gfx = 1;
         }
         return 0;
     }
     case BMN_HOST_SPR: {
         if (nargs >= 3) {
-            fb_fill_rect(fb, (uint32_t)args[1], (uint32_t)args[2], 8, 8, 0x00FF00FF);
+            fb_fill_rect(fb, (uint32_t)args[1], (uint32_t)args[2], 8, 8, sc_fb_rgb(fb, 0xFF00FF));
             g_shell_did_draw_gfx = 1;
+        }
+        return 0;
+    }
+    case BMN_HOST_PRINT: {
+        if (nargs >= 1) {
+            const char *s = bmnative_get_string(args[0]);
+            int x = (nargs >= 2) ? args[1] : 0;
+            int y = (nargs >= 3) ? args[2] : 0;
+            uint32_t col = (nargs >= 4) ? sc_fb_rgb(fb, (uint32_t)args[3]) : sc_fb_rgb(fb, 0xFFFFFF);
+            int end_x = gfx_text(fb, &font_console_8x16, x, y, s ? s : "", col, sc_fb_rgb(fb, 0));
+            g_shell_did_draw_gfx = 1;
+            return end_x;
         }
         return 0;
     }
@@ -1382,6 +1531,42 @@ static int32_t shell_code_host_dispatch(int32_t host_id, const int32_t *args, in
         uint32_t b = (nargs > 0) ? (uint32_t)args[0] : 0;
         uint32_t btns = hid_buttons();
         return (btns & (1u << b)) ? 1 : 0;
+    }
+    case BMN_HOST_BTNP: {
+        uint32_t b = (nargs > 0) ? (uint32_t)args[0] : 0;
+        uint32_t btns = hid_buttons();
+        uint32_t pressed = btns & ~g_sc_prev_btns;
+        return (pressed & (1u << b)) ? 1 : 0;
+    }
+    case BMN_HOST_TIME: {
+        float sec = (float)timer_ticks() / 1000000.0f;
+        uint32_t bits = 0;
+        memcpy(&bits, &sec, 4);
+        return (int32_t)bits;
+    }
+    case BMN_HOST_SIN: {
+        float a = 0.0f;
+        if (nargs >= 1) memcpy(&a, &args[0], 4);
+        float r = sinf(a);
+        uint32_t bits = 0;
+        memcpy(&bits, &r, 4);
+        return (int32_t)bits;
+    }
+    case BMN_HOST_COS: {
+        float a = 0.0f;
+        if (nargs >= 1) memcpy(&a, &args[0], 4);
+        float r = cosf(a);
+        uint32_t bits = 0;
+        memcpy(&bits, &r, 4);
+        return (int32_t)bits;
+    }
+    case BMN_HOST_ATAN2: {
+        float y = 0.0f, x = 0.0f;
+        if (nargs >= 2) { memcpy(&y, &args[0], 4); memcpy(&x, &args[1], 4); }
+        float r = atan2f(y, x);
+        uint32_t bits = 0;
+        memcpy(&bits, &r, 4);
+        return (int32_t)bits;
     }
     default:
         break;
@@ -1431,6 +1616,452 @@ static void sc_find_fn_name_on_line(const char *s, char *out_name, size_t out_ca
 }
 #endif
 
+static lua_State *sc_lua_newstate(void)
+{
+#ifndef SHELL_CODE_HOST_TEST
+    return luavm_newstate();
+#else
+    return luaL_newstate();
+#endif
+}
+
+static int sc_extract_lua_err_line(const char *msg)
+{
+    if (!msg) return 0;
+    const char *p = strstr(msg, "main.lua:");
+    if (p) return atoi(p + 9);
+    const char *c1 = strchr(msg, ':');
+    if (c1 && isdigit((unsigned char)c1[1])) return atoi(c1 + 1);
+    return 0;
+}
+
+static void sc_jump_to_err_line(sc_tab_t *t, int line)
+{
+    t->err_line = line;
+    if (t->err_line > 0 && t->err_line <= t->nlines) {
+        t->cy = t->err_line - 1;
+        t->cx = 0;
+        sc_scroll_to_cursor(t);
+    }
+}
+
+static int sc_compile_lua(sc_tab_t *t)
+{
+    size_t src_len = 0;
+    char *src = sc_tab_get_text(t, &src_len);
+    if (!src) {
+        snprintf(t->status, sizeof(t->status), "Errore memoria");
+        return -1;
+    }
+
+    lua_State *L = sc_lua_newstate();
+    if (!L) {
+        free(src);
+        snprintf(t->status, sizeof(t->status), "Errore memoria Lua");
+        return -1;
+    }
+
+    int rc = luaL_loadbufferx(L, src, src_len, "=main.lua", "t");
+    free(src);
+
+    if (rc != LUA_OK) {
+        const char *msg = lua_tostring(L, -1);
+        int ln = sc_extract_lua_err_line(msg);
+        sc_jump_to_err_line(t, ln);
+        snprintf(t->status, sizeof(t->status), "Errore Lua: %s", msg ? msg : "syntax error");
+        lua_close(L);
+        return -1;
+    }
+
+    lua_close(L);
+    t->err_line = 0;
+    snprintf(t->status, sizeof(t->status), "Lua OK: %zu bytes", src_len);
+    return 0;
+}
+
+static int sc_lua_cls(lua_State *L)
+{
+    int32_t c = (int32_t)luaL_optinteger(L, 1, 0);
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_CLS, &c, 1);
+#else
+    (void)c;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_pset(lua_State *L)
+{
+    int32_t a[3] = {
+        (int32_t)luaL_checkinteger(L, 1),
+        (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_optinteger(L, 3, 0xFFFFFF)
+    };
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_PIX, a, 3);
+#else
+    (void)a;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_rectfill(lua_State *L)
+{
+    int32_t a[5] = {
+        (int32_t)luaL_checkinteger(L, 1),
+        (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_checkinteger(L, 3),
+        (int32_t)luaL_checkinteger(L, 4),
+        (int32_t)luaL_optinteger(L, 5, 0xFFFFFF)
+    };
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_RECTFILL, a, 5);
+#else
+    (void)a;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_rect(lua_State *L)
+{
+    int32_t a[5] = {
+        (int32_t)luaL_checkinteger(L, 1),
+        (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_checkinteger(L, 3),
+        (int32_t)luaL_checkinteger(L, 4),
+        (int32_t)luaL_optinteger(L, 5, 0xFFFFFF)
+    };
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_RECT, a, 5);
+#else
+    (void)a;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_line(lua_State *L)
+{
+    int32_t a[5] = {
+        (int32_t)luaL_checkinteger(L, 1),
+        (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_checkinteger(L, 3),
+        (int32_t)luaL_checkinteger(L, 4),
+        (int32_t)luaL_optinteger(L, 5, 0xFFFFFF)
+    };
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_LINE, a, 5);
+#else
+    (void)a;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_circ(lua_State *L)
+{
+    int32_t a[4] = {
+        (int32_t)luaL_checkinteger(L, 1),
+        (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_checkinteger(L, 3),
+        (int32_t)luaL_optinteger(L, 4, 0xFFFFFF)
+    };
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_CIRC, a, 4);
+#else
+    (void)a;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_circfill(lua_State *L)
+{
+    int32_t a[4] = {
+        (int32_t)luaL_checkinteger(L, 1),
+        (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_checkinteger(L, 3),
+        (int32_t)luaL_optinteger(L, 4, 0xFFFFFF)
+    };
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_CIRCFILL, a, 4);
+#else
+    (void)a;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_spr(lua_State *L)
+{
+    int32_t a[3] = {
+        (int32_t)luaL_checkinteger(L, 1),
+        (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_checkinteger(L, 3)
+    };
+#ifndef SHELL_CODE_HOST_TEST
+    shell_code_host_dispatch(BMN_HOST_SPR, a, 3);
+#else
+    (void)a;
+    g_shell_did_draw_gfx = 1;
+#endif
+    return 0;
+}
+
+static int sc_lua_print(lua_State *L)
+{
+    const char *s = luaL_checkstring(L, 1);
+    int x = (int)luaL_optinteger(L, 2, 0);
+    int y = (int)luaL_optinteger(L, 3, 0);
+    uint32_t rgb = (uint32_t)luaL_optinteger(L, 4, 0xFFFFFF);
+    int end_x = x;
+#ifndef SHELL_CODE_HOST_TEST
+    framebuffer_t *fb = console_framebuffer();
+    if (fb) {
+        end_x = gfx_text(fb, &font_console_8x16, x, y, s, sc_fb_rgb(fb, rgb), sc_fb_rgb(fb, 0));
+        g_shell_did_draw_gfx = 1;
+    }
+#else
+    (void)s; (void)y; (void)rgb;
+    g_shell_did_draw_gfx = 1;
+#endif
+    lua_pushinteger(L, end_x);
+    return 1;
+}
+
+static int sc_lua_btn(lua_State *L)
+{
+    int32_t b = (int32_t)luaL_optinteger(L, 1, 0);
+#ifndef SHELL_CODE_HOST_TEST
+    lua_pushboolean(L, shell_code_host_dispatch(BMN_HOST_BTN, &b, 1) != 0);
+#else
+    (void)b;
+    lua_pushboolean(L, 0);
+#endif
+    return 1;
+}
+
+static int sc_lua_btnp(lua_State *L)
+{
+    int32_t b = (int32_t)luaL_optinteger(L, 1, 0);
+#ifndef SHELL_CODE_HOST_TEST
+    lua_pushboolean(L, shell_code_host_dispatch(BMN_HOST_BTNP, &b, 1) != 0);
+#else
+    (void)b;
+    lua_pushboolean(L, 0);
+#endif
+    return 1;
+}
+
+static int sc_lua_time(lua_State *L)
+{
+#ifndef SHELL_CODE_HOST_TEST
+    lua_pushnumber(L, (lua_Number)timer_ticks() / 1000000.0);
+#else
+    lua_pushnumber(L, 0.0);
+#endif
+    return 1;
+}
+
+static void sc_lua_hook_limit(lua_State *L, lua_Debug *ar)
+{
+    (void)ar;
+    luaL_error(L, "instruction limit");
+}
+
+static int sc_run_lua(sc_tab_t *t)
+{
+    size_t src_len = 0;
+    char *src = sc_tab_get_text(t, &src_len);
+    if (!src) {
+        snprintf(t->status, sizeof(t->status), "Errore memoria");
+        return -1;
+    }
+
+    lua_State *L = sc_lua_newstate();
+    if (!L) {
+        free(src);
+        snprintf(t->status, sizeof(t->status), "Errore memoria Lua");
+        return -1;
+    }
+
+    static const luaL_Reg libs[] = {
+        { LUA_GNAME, luaopen_base }, { LUA_TABLIBNAME, luaopen_table },
+        { LUA_STRLIBNAME, luaopen_string }, { LUA_MATHLIBNAME, luaopen_math },
+        { LUA_COLIBNAME, luaopen_coroutine }, { LUA_UTF8LIBNAME, luaopen_utf8 },
+        { NULL, NULL },
+    };
+    for (const luaL_Reg *l = libs; l->func; l++) {
+        luaL_requiref(L, l->name, l->func, 1);
+        lua_pop(L, 1);
+    }
+    static const char *const removed[] = { "dofile", "loadfile", "load", NULL };
+    for (const char *const *r = removed; *r; r++) {
+        lua_pushnil(L);
+        lua_setglobal(L, *r);
+    }
+    static const luaL_Reg bm_funcs[] = {
+        { "cls", sc_lua_cls }, { "pset", sc_lua_pset }, { "pix", sc_lua_pset },
+        { "rectfill", sc_lua_rectfill }, { "rect", sc_lua_rect },
+        { "line", sc_lua_line }, { "circ", sc_lua_circ }, { "circfill", sc_lua_circfill },
+        { "spr", sc_lua_spr }, { "print", sc_lua_print },
+        { "btn", sc_lua_btn }, { "btnp", sc_lua_btnp }, { "time", sc_lua_time },
+        { NULL, NULL }
+    };
+    lua_pushglobaltable(L);
+    luaL_setfuncs(L, bm_funcs, 0);
+    lua_pop(L, 1);
+
+    int sw = 640, sh = 360;
+#ifndef SHELL_CODE_HOST_TEST
+    framebuffer_t *fb = console_framebuffer();
+    if (fb) { sw = (int)fb->width; sh = (int)fb->height; }
+#endif
+    lua_pushinteger(L, sw);
+    lua_setglobal(L, "SCREEN_W");
+    lua_pushinteger(L, sh);
+    lua_setglobal(L, "SCREEN_H");
+
+    int rc = luaL_loadbufferx(L, src, src_len, "=main.lua", "t");
+    free(src);
+    if (rc != LUA_OK) {
+        const char *msg = lua_tostring(L, -1);
+        sc_jump_to_err_line(t, sc_extract_lua_err_line(msg));
+        snprintf(t->status, sizeof(t->status), "Errore Lua: %s", msg ? msg : "syntax error");
+        lua_close(L);
+        return -1;
+    }
+
+    g_shell_did_draw_gfx = 0;
+#ifndef SHELL_CODE_HOST_TEST
+    g_sc_prev_btns = hid_buttons();
+    uint32_t t0 = timer_ticks();
+#endif
+    lua_sethook(L, sc_lua_hook_limit, LUA_MASKCOUNT, 5000000);
+    rc = lua_pcall(L, 0, 1, 0);
+#ifndef SHELL_CODE_HOST_TEST
+    uint32_t us = timer_ticks() - t0;
+#else
+    uint32_t us = 0;
+#endif
+    if (rc != LUA_OK) {
+        const char *msg = lua_tostring(L, -1);
+        sc_jump_to_err_line(t, sc_extract_lua_err_line(msg));
+        snprintf(t->status, sizeof(t->status), "Errore runtime Lua: %s", msg ? msg : "error");
+        lua_close(L);
+        return -1;
+    }
+
+    char ret_buf[96] = {0};
+    if (!lua_isnil(L, -1)) {
+        const char *rs = luaL_tolstring(L, -1, NULL);
+        if (rs) snprintf(ret_buf, sizeof(ret_buf), "%s", rs);
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    lua_getglobal(L, "_update");
+    int has_upd = lua_isfunction(L, -1);
+    lua_pop(L, 1);
+    lua_getglobal(L, "_draw");
+    int has_drw = lua_isfunction(L, -1);
+    lua_pop(L, 1);
+
+    if (has_upd || has_drw) {
+        lua_getglobal(L, "_init");
+        if (lua_isfunction(L, -1)) {
+            lua_sethook(L, sc_lua_hook_limit, LUA_MASKCOUNT, 5000000);
+            if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+                const char *msg = lua_tostring(L, -1);
+                sc_jump_to_err_line(t, sc_extract_lua_err_line(msg));
+                snprintf(t->status, sizeof(t->status), "Errore _init: %s", msg ? msg : "error");
+                lua_close(L);
+                return -1;
+            }
+        } else {
+            lua_pop(L, 1);
+        }
+#ifndef SHELL_CODE_HOST_TEST
+        uint32_t frames = 0;
+        for (;;) {
+            int k = input_key();
+            if (k == 0x1B || k == 'q' || k == 'Q') break;
+            if (has_upd) {
+                lua_sethook(L, sc_lua_hook_limit, LUA_MASKCOUNT, 5000000);
+                lua_getglobal(L, "_update");
+                if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+                    const char *msg = lua_tostring(L, -1);
+                    sc_jump_to_err_line(t, sc_extract_lua_err_line(msg));
+                    snprintf(t->status, sizeof(t->status), "Errore _update: %s", msg ? msg : "error");
+                    lua_close(L);
+                    console_clear();
+                    return -1;
+                }
+            }
+            if (has_drw) {
+                lua_sethook(L, sc_lua_hook_limit, LUA_MASKCOUNT, 5000000);
+                lua_getglobal(L, "_draw");
+                if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+                    const char *msg = lua_tostring(L, -1);
+                    sc_jump_to_err_line(t, sc_extract_lua_err_line(msg));
+                    snprintf(t->status, sizeof(t->status), "Errore _draw: %s", msg ? msg : "error");
+                    lua_close(L);
+                    console_clear();
+                    return -1;
+                }
+            }
+            g_sc_prev_btns = hid_buttons();
+            frames++;
+            timer_delay_ms(16);
+        }
+        console_clear();
+        snprintf(t->status, sizeof(t->status), "Lua loop: %lu frames", (unsigned long)frames);
+#else
+        if (has_upd) {
+            lua_getglobal(L, "_update");
+            if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+                const char *msg = lua_tostring(L, -1);
+                sc_jump_to_err_line(t, sc_extract_lua_err_line(msg));
+                snprintf(t->status, sizeof(t->status), "Errore _update: %s", msg ? msg : "error");
+                lua_close(L);
+                return -1;
+            }
+        }
+        if (has_drw) {
+            lua_getglobal(L, "_draw");
+            if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+                const char *msg = lua_tostring(L, -1);
+                sc_jump_to_err_line(t, sc_extract_lua_err_line(msg));
+                snprintf(t->status, sizeof(t->status), "Errore _draw: %s", msg ? msg : "error");
+                lua_close(L);
+                return -1;
+            }
+        }
+        snprintf(t->status, sizeof(t->status), "Lua loop OK (1 frame test)");
+#endif
+    } else {
+#ifndef SHELL_CODE_HOST_TEST
+        if (g_shell_did_draw_gfx) {
+            kprintf("\n\x1b[1;92m-- Grafica Lua disegnata (%lu us). Premi un tasto --\x1b[0m\n", (unsigned long)us);
+            input_getc();
+            console_clear();
+        }
+#endif
+        if (ret_buf[0]) {
+            snprintf(t->status, sizeof(t->status), "Lua = %s [%lu us]", ret_buf, (unsigned long)us);
+        } else {
+            snprintf(t->status, sizeof(t->status), "Lua OK [%lu us]", (unsigned long)us);
+        }
+    }
+
+    t->err_line = 0;
+    lua_close(L);
+    return 0;
+}
+
 static int sc_run_b(sc_tab_t *t, const char *arg_str)
 {
     uint8_t *blob = NULL;
@@ -1445,6 +2076,58 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
         free(blob);
         snprintf(t->status, sizeof(t->status), "Caricamento fallito: %s", why);
         return -1;
+    }
+
+    int init_idx = bmnative_find(m, "_init");
+    int upd_idx = bmnative_find(m, "_update");
+    int drw_idx = bmnative_find(m, "_draw");
+    if (upd_idx >= 0 || drw_idx >= 0) {
+        int32_t b_state[256];
+        memset(b_state, 0, sizeof(b_state));
+        bmnative_buf sbuf = { (uint32_t *)b_state, 256 };
+        bmnative_host_fn prev_host = bmnative_get_host_fn();
+        bmnative_set_host_fn(shell_code_host_dispatch);
+        g_sc_prev_btns = hid_buttons();
+        int err = BMN_OK;
+        int32_t ret = 0;
+        if (init_idx >= 0) {
+            const bmnative_fn *fi = &m->fn[init_idx];
+            if (fi->nparams == 1 && fi->ptype[0] == BMN_ARR_I32)
+                err = bmnative_call_buf(m, init_idx, NULL, &sbuf, 1, &ret);
+            else if (fi->nparams == 0)
+                err = bmnative_call(m, init_idx, NULL, 0, &ret);
+        }
+        uint32_t frames = 0;
+        while (err == BMN_OK) {
+            int k = input_key();
+            if (k == 0x1B || k == 'q' || k == 'Q') break;
+            if (upd_idx >= 0) {
+                const bmnative_fn *fu = &m->fn[upd_idx];
+                if (fu->nparams == 1 && fu->ptype[0] == BMN_ARR_I32)
+                    err = bmnative_call_buf(m, upd_idx, NULL, &sbuf, 1, &ret);
+                else if (fu->nparams == 0)
+                    err = bmnative_call(m, upd_idx, NULL, 0, &ret);
+            }
+            if (err == BMN_OK && drw_idx >= 0) {
+                const bmnative_fn *fd = &m->fn[drw_idx];
+                if (fd->nparams == 1 && fd->ptype[0] == BMN_ARR_I32)
+                    err = bmnative_call_buf(m, drw_idx, NULL, &sbuf, 1, &ret);
+                else if (fd->nparams == 0)
+                    err = bmnative_call(m, drw_idx, NULL, 0, &ret);
+            }
+            g_sc_prev_btns = hid_buttons();
+            frames++;
+            timer_delay_ms(16);
+        }
+        bmnative_set_host_fn(prev_host);
+        console_clear();
+        if (err == BMN_OK)
+            snprintf(t->status, sizeof(t->status), ".b loop: %lu frames", (unsigned long)frames);
+        else
+            snprintf(t->status, sizeof(t->status), "Trap runtime (%d) nel loop .b", err);
+        bmnative_free(m);
+        free(blob);
+        return (err == BMN_OK) ? 0 : -1;
     }
 
     int fn_idx = -1;
@@ -1470,6 +2153,7 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
     }
 
     g_shell_did_draw_gfx = 0;
+    g_sc_prev_btns = hid_buttons();
     bmnative_host_fn prev_host = bmnative_get_host_fn();
     bmnative_set_host_fn(shell_code_host_dispatch);
 
@@ -1506,87 +2190,39 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
 #endif
 }
 
-/* ---- Disassembly Viewer ---- */
-
-static void sc_disasm_armv6_word(uint32_t w, char *buf, size_t cap)
+static int sc_check_syntax(sc_tab_t *t)
 {
-    uint32_t cond = (w >> 28) & 0xFu;
-    static const char *const conds[] = {
-        "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc",
-        "hi", "ls", "ge", "lt", "gt", "le", "", "nv"
-    };
-    const char *cc = conds[cond];
-
-    if (((w >> 25) & 7u) == 5u) {
-        int is_bl = (w >> 24) & 1u;
-        int32_t imm24 = (int32_t)(w & 0xFFFFFFu);
-        if (imm24 & 0x800000) imm24 -= 0x1000000;
-        int32_t byte_off = (imm24 + 2) * 4;
-        snprintf(buf, cap, "%s%s %+d", is_bl ? "bl" : "b", cc, (int)byte_off);
-        return;
+    if (t->syntax == SC_SYN_B) {
+        uint8_t *blob = NULL;
+        size_t blob_len = 0;
+        int rc = sc_compile_b(t, &blob, &blob_len);
+        free(blob);
+        return rc;
     }
-    if ((w & 0x0FFFFFF0u) == 0x012FFF10u) {
-        int rm = w & 0xFu;
-        if (rm == 14) snprintf(buf, cap, "bx%s lr", cc);
-        else snprintf(buf, cap, "bx%s r%d", cc, rm);
-        return;
-    }
-    if ((w & 0x0FFF0000u) == 0x092D0000u) {
-        snprintf(buf, cap, "push%s {0x%04X}", cc, (unsigned)(w & 0xFFFFu));
-        return;
-    }
-    if ((w & 0x0FFF0000u) == 0x08BD0000u) {
-        snprintf(buf, cap, "pop%s {0x%04X}", cc, (unsigned)(w & 0xFFFFu));
-        return;
-    }
-    if (((w >> 26) & 3u) == 0u) {
-        uint32_t op = (w >> 21) & 0xFu;
-        uint32_t rn = (w >> 16) & 0xFu;
-        uint32_t rd = (w >> 12) & 0xFu;
-        static const char *const ops[] = {
-            "and", "eor", "sub", "rsb", "add", "adc", "sbc", "rsc",
-            "tst", "teq", "cmp", "cmn", "orr", "mov", "bic", "mvn"
-        };
-        const char *opname = ops[op];
-        if (op == 13 || op == 15) {
-            if ((w >> 25) & 1u)
-                snprintf(buf, cap, "%s%s r%u, #%u", opname, cc, (unsigned)rd, (unsigned)(w & 0xFFu));
-            else
-                snprintf(buf, cap, "%s%s r%u, r%u", opname, cc, (unsigned)rd, (unsigned)(w & 0xFu));
-            return;
-        }
-        if (op >= 8 && op <= 11) {
-            if ((w >> 25) & 1u)
-                snprintf(buf, cap, "%s%s r%u, #%u", opname, cc, (unsigned)rn, (unsigned)(w & 0xFFu));
-            else
-                snprintf(buf, cap, "%s%s r%u, r%u", opname, cc, (unsigned)rn, (unsigned)(w & 0xFu));
-            return;
-        }
-        if ((w >> 25) & 1u)
-            snprintf(buf, cap, "%s%s r%u, r%u, #%u", opname, cc, (unsigned)rd, (unsigned)rn, (unsigned)(w & 0xFFu));
-        else
-            snprintf(buf, cap, "%s%s r%u, r%u, r%u", opname, cc, (unsigned)rd, (unsigned)rn, (unsigned)(w & 0xFu));
-        return;
-    }
-    if (((w >> 26) & 3u) == 1u) {
-        int is_load = (w >> 20) & 1u;
-        uint32_t rn = (w >> 16) & 0xFu;
-        uint32_t rd = (w >> 12) & 0xFu;
-        uint32_t imm12 = w & 0xFFFu;
-        int is_up = (w >> 23) & 1u;
-        snprintf(buf, cap, "%s%s r%u, [r%u, #%s%u]", is_load ? "ldr" : "str", cc,
-                 (unsigned)rd, (unsigned)rn, is_up ? "" : "-", (unsigned)imm12);
-        return;
-    }
-    if (((w >> 24) & 0xFu) == 0xEu && ((w >> 8) & 0xFu) == 10u) {
-        snprintf(buf, cap, "vfp (cp10) 0x%08X", (unsigned)w);
-        return;
-    }
-    snprintf(buf, cap, ".word 0x%08X", (unsigned)w);
+    if (t->syntax == SC_SYN_LUA)
+        return sc_compile_lua(t);
+    snprintf(t->status, sizeof(t->status), "Controllo sintassi solo per .b e .lua");
+    return 0;
 }
+
+static int sc_run_active(sc_tab_t *t, const char *arg_str)
+{
+    if (t->syntax == SC_SYN_B)
+        return sc_run_b(t, arg_str);
+    if (t->syntax == SC_SYN_LUA)
+        return sc_run_lua(t);
+    snprintf(t->status, sizeof(t->status), "Esecuzione disponibile per file .b e .lua");
+    return -1;
+}
+
+/* ---- Disassembly Viewer ---- */
 
 static void sc_disasm_viewer(sc_tab_t *t)
 {
+    if (t->syntax != SC_SYN_B) {
+        snprintf(t->status, sizeof(t->status), "Disassembly disponibile solo per file .b");
+        return;
+    }
     uint8_t *blob = NULL;
     size_t blob_len = 0;
     if (sc_compile_b(t, &blob, &blob_len) != 0)
@@ -1623,7 +2259,7 @@ static void sc_disasm_viewer(sc_tab_t *t)
 
             uint32_t w = m->code[idx];
             char dstr[64];
-            sc_disasm_armv6_word(w, dstr, sizeof(dstr));
+            bmnative_disasm_word(w, dstr, sizeof(dstr));
             kprintf("  \x1b[90m0x%04X:\x1b[0m \x1b[96m%08X\x1b[0m  %s\r\n", (unsigned)(idx * 4), (unsigned)w, dstr);
         }
 
@@ -1948,8 +2584,11 @@ static void sc_execute_menu_action(void)
         /* Prompt or save */
         sc_tab_save(t, NULL);
         break;
+    case MENU_CHECK:
+        sc_check_syntax(t);
+        break;
     case MENU_RUN:
-        sc_run_b(t, NULL);
+        sc_run_active(t, NULL);
         break;
     case MENU_DISASM:
         sc_disasm_viewer(t);
@@ -1959,6 +2598,15 @@ static void sc_execute_menu_action(void)
             int new_idx = g_sc.ntabs++;
             char new_path[64];
             snprintf(new_path, sizeof(new_path), "/code-b/file%d.b", new_idx + 1);
+            sc_tab_init_empty(&g_sc.tabs[new_idx], new_path);
+            g_sc.cur_tab = new_idx;
+        }
+        break;
+    case MENU_NEW_LUA:
+        if (g_sc.ntabs < SC_MAX_TABS) {
+            int new_idx = g_sc.ntabs++;
+            char new_path[64];
+            snprintf(new_path, sizeof(new_path), "/code-lua/file%d.lua", new_idx + 1);
             sc_tab_init_empty(&g_sc.tabs[new_idx], new_path);
             g_sc.cur_tab = new_idx;
         }
@@ -2064,7 +2712,11 @@ static void sc_handle_key(int c)
         return;
     }
     if (c == 0x12 || c == SC_KEY_F5) {  /* Ctrl+R or F5: Run */
-        sc_run_b(t, NULL);
+        sc_run_active(t, NULL);
+        return;
+    }
+    if (c == HID_KEY_F6) {              /* F6: Check syntax */
+        sc_check_syntax(t);
         return;
     }
     if (c == 0x04 || c == SC_KEY_F7) {  /* Ctrl+D or F7: Disassembly */
@@ -2414,7 +3066,7 @@ int shell_code_test_run(void)
 
     /* Test 9: Disassembly formatting */
     char dis_buf[64];
-    sc_disasm_armv6_word(0xE2810002u, dis_buf, sizeof(dis_buf)); /* add r0, r1, #2 */
+    bmnative_disasm_word(0xE2810002u, dis_buf, sizeof(dis_buf)); /* add r0, r1, #2 */
     if (strstr(dis_buf, "add") == NULL) {
         printf("FAIL: disasm opcode mismatch (%s)\n", dis_buf);
         return 12;
@@ -2623,10 +3275,71 @@ int shell_code_test_run(void)
     bmnative_free(m);
     free(blob);
 
+    /* Test 13: .lua path normalization and syntax detection */
+    sc_normalize_path(norm, sizeof(norm), "demo.lua");
+    if (strcmp(norm, "/code-lua/demo.lua") != 0) {
+        printf("FAIL: lua path norm (%s != /code-lua/demo.lua)\n", norm);
+        return 33;
+    }
+    sc_tab_t lua_tab;
+    sc_tab_init_empty(&lua_tab, "demo.lua");
+    if (lua_tab.syntax != SC_SYN_LUA) {
+        printf("FAIL: lua syntax detection\n");
+        sc_tab_free(&lua_tab);
+        return 34;
+    }
+
+    /* Test 14: Lua syntax check (valid + error line jump) */
+    const char *good_lua =
+        "local function sq(x)\n"
+        "  return x * x\n"
+        "end\n"
+        "cls(0x101828)\n"
+        "return sq(7)\n";
+    sc_tab_set_text(&lua_tab, good_lua, strlen(good_lua));
+    if (sc_compile_lua(&lua_tab) != 0 || lua_tab.err_line != 0) {
+        printf("FAIL: sc_compile_lua valid (%s)\n", lua_tab.status);
+        sc_tab_free(&lua_tab);
+        return 35;
+    }
+    if (sc_run_active(&lua_tab, NULL) != 0 || strstr(lua_tab.status, "49") == NULL) {
+        printf("FAIL: sc_run_lua return value (%s)\n", lua_tab.status);
+        sc_tab_free(&lua_tab);
+        return 36;
+    }
+
+    const char *bad_lua =
+        "local x = 10\n"
+        "local y = (\n"
+        "return x\n";
+    sc_tab_set_text(&lua_tab, bad_lua, strlen(bad_lua));
+    if (sc_compile_lua(&lua_tab) == 0 || lua_tab.err_line < 2) {
+        printf("FAIL: sc_compile_lua error line (%d)\n", lua_tab.err_line);
+        sc_tab_free(&lua_tab);
+        return 37;
+    }
+
+    /* Test 15: Autocomplete differs cleanly between .lua and .b */
+    sc_tab_set_text(&lua_tab, "rectf", 5);
+    lua_tab.cy = 0; lua_tab.cx = 5;
+    if (!sc_try_tab_complete(&lua_tab) || strcmp(lua_tab.lines[0].chars, "rectfill") != 0) {
+        printf("FAIL: lua autocomplete rectfill (%s)\n", lua_tab.lines[0].chars);
+        sc_tab_free(&lua_tab);
+        return 38;
+    }
+    sc_tab_set_text(&lua_tab, "i3", 2);
+    lua_tab.cy = 0; lua_tab.cx = 2;
+    if (sc_try_tab_complete(&lua_tab)) {
+        printf("FAIL: lua tab should not autocomplete .b type i32 (%s)\n", lua_tab.lines[0].chars);
+        sc_tab_free(&lua_tab);
+        return 39;
+    }
+    sc_tab_free(&lua_tab);
+
     free(g_sc.clipboard);
     g_sc.clipboard = NULL;
     sc_tab_free(&g_sc.tabs[0]);
     sc_tab_free(&tab);
-    printf("shell_code tests passed: 12/12 checks ok\n");
+    printf("shell_code tests passed: 15/15 checks ok\n");
     return 0;
 }

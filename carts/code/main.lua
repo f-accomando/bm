@@ -24,7 +24,7 @@ local C_BG, C_PANE, C_BAR, C_LINE = 0x0E1016, 0x14161E, 0x22273A, 0x343B54
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_OK = 0xE0E4F0, 0x6A7290, 0xFFC050, 0xFF6464, 0x70E090
 local C_SEL, C_CUR, C_ERRBG, C_GUT, C_GUTCUR = 0x2E4A8A, 0x1C2131, 0x4A1C24, 0x485068, 0xA8B0C8
 local C_BP = 0xA02C34                      -- a breakpoint's line number (F8)
-local C_KW, C_API, C_STR, C_NUM, C_COM = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x6A7690
+local C_KW, C_API, C_STR, C_NUM, C_COM, C_TYPE = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x6A7690, 0x70E090
 local C_RIFF, C_RIFFBG = 0xFFF0A0, 0x6A4E10       -- the words of the notes sounding
 
 local TEMPLATE = [[
@@ -352,6 +352,79 @@ end
 }
 -- templates: end
 
+local B_TEMPLATES = {
+  { id = "b_empty", name = ".b Game", desc = "100% .b native ARMv6 (_init/_update/_draw)", lang = "b", code = [[
+-- my .b game (100% native ARMv6)
+function _init(s: i32[])
+  s[1] = 320
+  s[2] = 180
+end
+
+function _update(s: i32[])
+  if btn(0) then s[1] = s[1] - 2 end
+  if btn(1) then s[1] = s[1] + 2 end
+  if btn(2) then s[2] = s[2] - 2 end
+  if btn(3) then s[2] = s[2] + 2 end
+end
+
+function _draw(s: i32[])
+  cls(0x101828)
+  circfill(s[1], s[2], 12, 0xFFD050)
+  print("hello .b!", 284, 40, 0xFFFFFF)
+end
+]] },
+  { id = "b_hybrid", name = "Hybrid Lua+.b", desc = "Lua loop + native .b module (main.b)", lang = "hybrid",
+    code = [[
+-- hybrid project: Lua calls native .b functions via B.<fn>
+local x = 0
+
+function _init()
+end
+
+function _update()
+  if btn(0) then x = x - 2 end
+  if btn(1) then x = x + 2 end
+end
+
+function _draw()
+  cls(0x101828)
+  local s = B.step_sum(10)
+  circfill(320 + x, 180, 14, 0x70E090)
+  print("B.step_sum(10) = " .. s, 240, 40, 0xFFFFFF)
+end
+]],
+    b = [[
+-- native .b module (compiled on load, called via B.<fn>)
+function step_sum(n: i32): i32
+  local s = 0
+  for i = 1, n do
+    s = s + i
+  end
+  return s
+end
+]] },
+  { id = "b_file", name = "File .b", desc = "standalone .b script in /code-b/", standalone = true, lang = "b", code = [[
+-- standalone .b script (/code-b/)
+function sum(n: i32): i32
+  local s = 0
+  for i = 1, n do
+    s = s + i
+  end
+  return s
+end
+]] },
+  { id = "lua_file", name = "File .lua", desc = "standalone .lua script in /code-lua/", standalone = true, lang = "lua", code = [[
+-- standalone .lua script (/code-lua/)
+local function sq(x)
+  return x * x
+end
+
+return sq(7)
+]] },
+}
+
+local BL = {}                 -- helpers implemented below once state locals are declared
+
 ------------------------------------------------------------------ state
 
 local tabs = {}               -- {path, name, title, author, res, lines, dirty, undo, redo, err, breaks}
@@ -411,10 +484,15 @@ local function base_name(path) return path:match("[^/]*$") end
 
 local function new_tab(path, text, info)
   info = info or {}
+  local lang = info.lang
+  if not lang then
+    lang = (path and path:lower():match("%.b$")) and "b" or "lua"
+  end
   local t = {
     path = path, name = path and base_name(path) or "untitled",
-    title = info.title or (path and base_name(path):gsub("%.[bB][mM]$", "") or "New game"),
+    title = info.title or (path and base_name(path):gsub("%.[bB][mM][eE]?$", "") or "New game"),
     author = info.author or "", res = info.res or "640x360",
+    lang = lang, standalone = info.standalone or BL.is_standalone(path), b_text = info.b,
     lines = split_lines(text or ""), dirty = false, undo = {}, redo = {},
   }
   if #t.lines == 0 then t.lines[1] = "" end
@@ -449,6 +527,197 @@ end
 local function clamp(t, v)
   v.cy = math.max(1, math.min(#t.lines, v.cy))
   v.cx = math.max(0, math.min(#t.lines[v.cy], v.cx))
+end
+
+function BL.is_standalone(path)
+  if not path then return false end
+  local l = path:lower()
+  return l:match("%.b$") ~= nil or l:match("%.lua$") ~= nil
+end
+
+function BL.tab_lang(t)
+  if not t then return "lua" end
+  if t.mods and t.mods[t.cur] and t.mods[t.cur].lang then return t.mods[t.cur].lang end
+  return t.lang or "lua"
+end
+
+function BL.b_mod_index(t)
+  if not t or not t.mods then return nil end
+  for i, m in ipairs(t.mods) do
+    if m.lang == "b" then return i end
+  end
+  return nil
+end
+
+function BL.cart_texts(t)
+  if t.mods then
+    MOD.flush(t)
+    local lua_mods, b_mod = {}, nil
+    for _, m in ipairs(t.mods) do
+      if m.lang == "b" then b_mod = m else lua_mods[#lua_mods + 1] = m end
+    end
+    local lua_s = #lua_mods > 0 and (table.concat(U.modules_join(lua_mods), "\n") .. "\n") or nil
+    local b_s = b_mod and (table.concat(b_mod.lines, "\n") .. "\n") or nil
+    return lua_s, b_s
+  end
+  local s = table.concat(t.lines, "\n") .. "\n"
+  if t.lang == "b" then return nil, s end
+  return s, nil
+end
+
+function BL.b_text(t)
+  if not t then return nil end
+  if t.mods then
+    MOD.flush(t)
+    for _, m in ipairs(t.mods) do
+      if m.lang == "b" then return table.concat(m.lines, "\n") .. "\n" end
+    end
+    return nil
+  end
+  if t.lang == "b" then return table.concat(t.lines, "\n") .. "\n" end
+  return nil
+end
+
+function BL.compile_b(t, quiet)
+  local src = BL.b_text(t)
+  if not src then
+    if not quiet then say("no .b code in this tab", C_ERR) end
+    return nil, "no .b code"
+  end
+  if not native_compile then
+    if not quiet then say("native_compile unavailable", C_ERR) end
+    return nil, "native_compile unavailable"
+  end
+  local blob, err = native_compile(src)
+  if not blob then
+    local ln = tonumber(tostring(err):match("line (%d+):"))
+    local bi = BL.b_mod_index(t)
+    if bi and t.mods then MOD.switch(t, bi) end
+    t.err = { line = ln, msg = tostring(err), mod = bi }
+    t.lint_lines = ln and { [ln] = true } or nil
+    if ln then
+      local _, v = current()
+      v.cy, v.cx = ln, 0
+      clamp(t, v)
+    end
+    if not quiet then say(".b error: " .. tostring(err), C_ERR, 600) end
+    return nil, err
+  end
+  t.last_bmn = blob
+  t.err, t.lint_lines = nil, nil
+  if not quiet then say("compiled OK: " .. #blob .. " bytes BMN1 ARMv6", C_OK) end
+  return blob
+end
+
+function BL.disasm_b(t)
+  local blob = BL.compile_b(t, true)
+  if not blob then return end
+  if not native_disasm then say("native_disasm unavailable", C_ERR); return end
+  local d, err = native_disasm(blob)
+  if not d then say("disasm failed: " .. tostring(err), C_ERR); return end
+  local lines = { string.format("BMN1: %d bytes, %d words, %d fn", #blob, d.ncode or 0, d.nfn or 0), "" }
+  for _, l in ipairs(d.lines or {}) do lines[#lines + 1] = l end
+  overlay = { kind = "text", title = "Disassembly: " .. (t.name or "main.b"), lines = lines, top = 1 }
+end
+
+function BL.run_standalone(t)
+  if t.lang == "lua" then
+    if not tool_lua_run then say("tool_lua_run unavailable", C_ERR); return end
+    local r = tool_lua_run(text_of(t))
+    if not r.ok then
+      local ln = tonumber(tostring(r.error):match("main%.lua:(%d+):") or tostring(r.error):match(":(%d+):"))
+      t.err = { line = ln, msg = tostring(r.error) }
+      if ln then
+        local _, v = current()
+        v.cy, v.cx = ln, 0
+        clamp(t, v)
+      end
+      say("Lua error: " .. tostring(r.error):match("^[^\n]*"), C_ERR, 600)
+      return
+    end
+    t.err = nil
+    local msg = r.interactive and string.format("Lua loop done [%d us]", r.us or 0)
+             or r.ret and string.format("Lua = %s [%d us]", tostring(r.ret), r.us or 0)
+             or string.format("Lua OK [%d us]", r.us or 0)
+    say(msg, C_OK, 400)
+    return
+  end
+
+  local blob = BL.compile_b(t, true)
+  if not blob then return end
+  local m, lerr = native_load(blob)
+  if not m then say("load failed: " .. tostring(lerr), C_ERR); return end
+
+  local upd, drw, init = native_fn(m, "_update"), native_fn(m, "_draw"), native_fn(m, "_init")
+  if upd or drw then
+    local info = native_disasm and native_disasm(blob)
+    local need_state = false
+    for _, f in ipairs(info and info.functions or {}) do
+      if (f.name == "_init" or f.name == "_update" or f.name == "_draw") and f.nparams == 1 then
+        need_state = true
+      end
+    end
+    local st = need_state and vm_buf and vm_buf("i32", 256) or nil
+    if init then
+      if st then pcall(native_run, m, init, st) else pcall(native_run, m, init) end
+    end
+    BL.preview = { mod = m, init = init, upd = upd, drw = drw, st = st, t0 = time() }
+    say("running .b preview (Esc stops)", C_ACC, 300)
+    return
+  end
+
+  local _, v = current()
+  local cur_line = t.lines[v.cy] or ""
+  local fname = cur_line:match("function%s+[%w_]+%s+([%w_]+)%s*%(")
+             or cur_line:match("function%s+([%w_]+)%s*%(")
+             or cur_line:match("fn%s+[%w_]+%s+([%w_]+)%s*%(")
+             or cur_line:match("fn%s+([%w_]+)%s*%(")
+  local fn = fname and native_fn(m, fname) or native_fn(m, "main") or native_fn(m, "run")
+  local fn_name = fname
+  local nparams = 0
+  if native_disasm then
+    local info = native_disasm(blob)
+    for _, f in ipairs(info and info.functions or {}) do
+      if (not fn and #info.functions > 0 and f == info.functions[1]) or (fn and native_fn(m, f.name) == fn) then
+        fn = native_fn(m, f.name)
+        fn_name = f.name
+        nparams = f.nparams
+        break
+      end
+    end
+  end
+  if not fn then fn, fn_name = 0, "fn0" end
+  local args = {}
+  for k = 1, nparams do args[k] = 10 end
+  local t0 = time()
+  local ok, res = pcall(native_run, m, fn, table.unpack(args))
+  local us = math.floor((time() - t0) * 1000000 + 0.5)
+  if ok then
+    say(string.format("%s() = %s [%d us]", tostring(fn_name), tostring(res), us), C_OK, 400)
+  else
+    say("runtime error: " .. tostring(res), C_ERR, 600)
+  end
+end
+
+BL.B_WORDS = {
+  "function", "fn", "end", "local", "if", "then", "else", "elseif", "while", "do", "for",
+  "return", "break", "continue", "struct", "const", "enum", "switch", "case", "default",
+  "and", "or", "not", "true", "false", "i32", "int", "f32", "bool", "string",
+  "cls", "pix", "rectfill", "circfill", "rect", "circ", "line", "spr", "btn", "btnp",
+  "sfx", "music", "time", "print", "abs", "min", "max", "sqrt", "floor", "flr",
+  "clamp", "lerp", "sin", "cos", "atan2", "peek", "poke", "peek2", "poke2", "peek4", "poke4",
+  "memcpy", "memset",
+}
+
+function BL.suggest_b(before)
+  local pref = before:match("([%a_][%w_]*)$")
+  if not pref or #pref < 2 then return nil end
+  local list = {}
+  for _, w in ipairs(BL.B_WORDS) do
+    if #w > #pref and w:sub(1, #pref) == pref then list[#list + 1] = w end
+  end
+  if #list == 0 then return nil end
+  return { prefix = pref, word = list[1], rest = list[1]:sub(#pref + 1), list = list }
 end
 
 ------------------------------------------------------------------ breakpoints
@@ -515,10 +784,19 @@ end
 local function open_file(path)
   local i = find_tab(path)
   if i then show_tab(i); return true end
-  local c, err = cart_read(path)
-  if not c then say("cannot open " .. path .. ": " .. tostring(err), C_ERR); return false end
-  i = new_tab(path, c.lua, c)
-  MOD.load(tabs[i])
+  if BL.is_standalone(path) then
+    local txt, err = tool_read(path)
+    if not txt then say("cannot open " .. path .. ": " .. tostring(err), C_ERR); return false end
+    local lang = path:lower():match("%.b$") and "b" or "lua"
+    i = new_tab(path, txt, { lang = lang, standalone = true })
+  else
+    local c, err = cart_read(path)
+    if not c then say("cannot open " .. path .. ": " .. tostring(err), C_ERR); return false end
+    local pure_b = (c.lang == "b")
+    local main_txt = pure_b and c.b or c.lua
+    i = new_tab(path, main_txt, { title = c.title, author = c.author, res = c.res, lang = c.lang, b = pure_b and nil or c.b })
+    MOD.load(tabs[i])
+  end
   -- the first empty tab, untouched, gives its place
   local first = tabs[1]
   if #tabs == 2 and not first.path and not first.dirty and #first.undo == 0 and
@@ -537,8 +815,18 @@ end
 local function save_tab(t, path)
   local target = path or t.path
   if not target then return false, "no file name" end
-  local ok, err = cart_write(target, { lua = text_of(t), title = t.title, author = t.author,
-                                       res = t.res, from = t.path })
+  if t.standalone or BL.is_standalone(target) then
+    local ok, err = tool_write(target, text_of(t))
+    if not ok then return false, err end
+    if path then t.path, t.name = path, base_name(path) end
+    t.standalone, t.lang = true, target:lower():match("%.b$") and "b" or "lua"
+    t.dirty = false
+    log("code: saved " .. target)
+    return true
+  end
+  local lua_txt, b_txt = BL.cart_texts(t)
+  local ok, err = cart_write(target, { lua = lua_txt or false, b = b_txt or false,
+                                       title = t.title, author = t.author, res = t.res, from = t.path })
   if not ok then return false, err end
   -- a game is read only: the console wrote its editable copy (a .bme)
   if type(err) == "string" then path, target = err, err end
@@ -557,7 +845,8 @@ local function save_session()
               complete = { on = complete_on, lang = words_lang } }
   local budget = 16000
   for i, t in ipairs(tabs) do
-    local e = { path = t.path, title = t.title, author = t.author, res = t.res }
+    local e = { path = t.path, title = t.title, author = t.author, res = t.res,
+                lang = t.lang, standalone = t.standalone }
     if t.mods then
       MOD.flush(t)
       e.cur, e.mbreaks = t.cur, {}
@@ -569,8 +858,10 @@ local function save_session()
       end
     elseif t.breaks and next(t.breaks) then e.breaks = bp_list(t) end
     if not t.path or t.dirty then
-      local txt = text_of(t)
+      local lua_txt, b_txt = BL.cart_texts(t)
+      local txt = lua_txt or text_of(t)
       if #txt <= budget then e.text, budget = txt, budget - #txt end
+      if b_txt and lua_txt and #b_txt <= budget then e.b, budget = b_txt, budget - #b_txt end
       e.dirty = t.dirty
     end
     s.tabs[i] = e
@@ -596,8 +887,17 @@ local function load_session()
       i = new_tab(e.path, e.text, e)
       tabs[i].dirty = e.dirty or false
     elseif e.path then
-      local c = cart_read(e.path)
-      if c then i = new_tab(e.path, c.lua, c) end
+      if BL.is_standalone(e.path) then
+        local txt = tool_read(e.path)
+        if txt then i = new_tab(e.path, txt, { lang = e.path:lower():match("%.b$") and "b" or "lua", standalone = true }) end
+      else
+        local c = cart_read(e.path)
+        if c then
+          local pure_b = (c.lang == "b")
+          local main_txt = pure_b and c.b or c.lua
+          i = new_tab(e.path, main_txt, { title = c.title, author = c.author, res = c.res, lang = c.lang, b = pure_b and nil or c.b })
+        end
+      end
     end
     if i then MOD.load(tabs[i]) end
     if i and tabs[i].mods and e.mbreaks then
@@ -632,7 +932,10 @@ end
 ------------------------------------------------------------------ editing
 
 local OPENERS = { "then%s*$", "do%s*$", "else%s*$", "repeat%s*$", "{%s*$", "%(%s*$",
-                  "function%s*[%w_.:]*%s*%(.-%)%s*$" }
+                  "function%s*[%w_.:]*%s*%b()%s*$",
+                  "function%s+[%w_.:]+%s*%b()%s*:%s*[%w_%[%]]+%s*$",
+                  "fn%s+[%w_.: ]+%s*%b().*$",
+                  "^%s*struct%s+[%w_]+%s*$", "^%s*enum%s+[%w_]+%s*$" }
 
 local function opens_block(l)
   l = l:gsub("%-%-.*$", "")
@@ -837,8 +1140,13 @@ end
 -- the modules of a tab's code, from the file's lines
 function MOD.load(t)
   local mods = U.modules_split(t.lines)
-  if #mods == 1 and not mods[1].head then return end
+  if #mods == 1 and not mods[1].head and not t.b_text then return end
   t.mods, t.cur = mods, 1
+  if t.b_text then
+    local blines = split_lines(t.b_text)
+    if #blines == 0 then blines[1] = "" end
+    t.mods[#t.mods + 1] = { name = "main.b", lang = "b", lines = blines, virtual = true }
+  end
   MOD.enter(t, 1)
 end
 
@@ -898,12 +1206,14 @@ function MOD.all_breaks(t)
   MOD.flush(t)
   local out, base = {}, 0
   for _, m in ipairs(t.mods) do
-    if m.head then base = base + 1 end
-    local n = U.module_len(m)
-    for l in pairs(m.breaks or {}) do
-      if l <= n then out[#out + 1] = base + l end
+    if m.lang ~= "b" then
+      if m.head then base = base + 1 end
+      local n = U.module_len(m)
+      for l in pairs(m.breaks or {}) do
+        if l <= n then out[#out + 1] = base + l end
+      end
+      base = base + n
     end
-    base = base + n
   end
   table.sort(out)
   return out
@@ -915,12 +1225,20 @@ function MOD.locate(t, line)
   MOD.flush(t)
   local base = 0
   for i, m in ipairs(t.mods) do
-    if m.head then base = base + 1 end
-    local n = U.module_len(m)
-    if line <= base + n then return i, math.max(1, line - base) end
-    base = base + n
+    if m.lang ~= "b" then
+      if m.head then base = base + 1 end
+      local n = U.module_len(m)
+      if line <= base + n then return i, math.max(1, line - base) end
+      base = base + n
+    end
   end
   return #t.mods, math.max(1, U.module_len(t.mods[#t.mods]))
+end
+
+function MOD.locate_b(t, line)
+  local bi = BL.b_mod_index(t)
+  if bi then return bi, line end
+  if t.lang == "b" then return nil, line end
 end
 
 -- find a text in every open tab and every module (Ctrl+Shift+F): the hits
@@ -965,8 +1283,8 @@ end
 -- rename a word as a whole word in every open tab and every module (Ctrl+Shift+H):
 -- strings and comments stay; one undo step per module (Ctrl+Z in each)
 function MOD.rename_all(old, new)
-  if not U.lua_name_ok(old) then say("not a name to rename: " .. tostring(old), C_ERR); return end
-  if not U.lua_name_ok(new) then say("a Lua name: letters, digits, _ ; not a number first, not a keyword", C_ERR); return end
+  if not (U.lua_name_ok(old) or U.b_name_ok(old)) then say("not a name to rename: " .. tostring(old), C_ERR); return end
+  if not (U.lua_name_ok(new) or U.b_name_ok(new)) then say("not a valid identifier: " .. tostring(new), C_ERR); return end
   if old == new then return end
   local n, m_n = 0, 0
   for _, t in ipairs(tabs) do
@@ -1027,6 +1345,10 @@ function MOD.merge(t)
   if not t.mods or t.cur == 1 then say("no module before this one", C_ERR); return end
   MOD.flush(t)
   local m, prev = t.mods[t.cur], t.mods[t.cur - 1]
+  if (m.lang or "lua") ~= (prev.lang or "lua") then
+    say("cannot merge Lua and .b modules", C_ERR)
+    return
+  end
   local pl = U.module_len(prev)
   for i = pl + 1, #prev.lines do prev.lines[i] = nil end
   for i = 1, U.module_len(m) do prev.lines[pl + i] = m.lines[i] end
@@ -1065,8 +1387,14 @@ local function suggest(t, v)
   local p = PLACES[place]
   local before = l:sub(1, v.cx)
   if from then before = p.mark .. before:sub(from) end
-  local c = predict.complete(before, { lang = p.lang or (p.prose and WORD_LANGS[words_lang] or "lua"),
-                                       words = p.weight > 0 and tab_words(t) or nil, words_weight = p.weight })
+  local c
+  if place == "code" and BL.tab_lang(t) == "b" then
+    c = BL.suggest_b(before)
+  end
+  if not c then
+    c = predict.complete(before, { lang = p.lang or (p.prose and WORD_LANGS[words_lang] or "lua"),
+                                   words = p.weight > 0 and tab_words(t) or nil, words_weight = p.weight })
+  end
   if c then c.t, c.cy, c.cx = t, v.cy, v.cx end
   comp = c
 end
@@ -1254,6 +1582,11 @@ local function run_game(stop)
     end
   end
   t.err = nil
+  if t.standalone then
+    BL.run_standalone(t)
+    return
+  end
+  if BL.b_text(t) and not BL.compile_b(t, true) then return end
   save_session()
   riff_stop(true)
   local breaks = MOD.all_breaks(t) or bp_list(t)
@@ -1308,6 +1641,23 @@ end
 -- after a save: the unknown API names of the tab (predict.lint, the rules of
 -- scripts/api_lint.py); the names defined in any tab count as known
 function lint_tab(t)
+  if BL.tab_lang(t) == "b" then
+    BL.compile_b(t, false)
+    return
+  end
+  if t.standalone and t.lang == "lua" and tool_lua_check then
+    local ok, err = tool_lua_check(text_of(t))
+    if not ok then
+      local ln = tonumber(tostring(err):match("main%.lua:(%d+):") or tostring(err):match(":(%d+):"))
+      t.lint_lines = ln and { [ln] = true } or nil
+      t.err = { line = ln, msg = tostring(err) }
+      say("Lua error: " .. tostring(err), C_ERR, 600)
+    else
+      t.lint, t.lint_lines, t.err = nil, nil, nil
+      say("Lua syntax OK", C_OK)
+    end
+    return
+  end
   local p = t.path and t.path:lower()
   if not p or not (p:match("%.bm$") or p:match("%.bme$") or p:match("%.lua$")) then
     t.lint, t.lint_lines = nil, nil
@@ -1341,7 +1691,7 @@ end
 -- Ctrl+Shift+H: the name under the cursor, then the new one
 function MOD.rename_ask(t, v)
   local function ask(old)
-    if not U.lua_name_ok(old) then say("\"" .. old .. "\" is not a name; put the cursor on one", C_ERR); return end
+    if not (U.lua_name_ok(old) or U.b_name_ok(old)) then say("\"" .. old .. "\" is not a name; put the cursor on one", C_ERR); return end
     prompt("Rename \"" .. old .. "\" in the project, new name:", old, function(new) MOD.rename_all(old, new) end)
     overlay.hint = "whole word, every module and tab; strings and comments stay"
   end
@@ -1368,11 +1718,35 @@ local function project_name(name)
   return name
 end
 
+local function standalone_name(name, ext)
+  name = name:lower():gsub("%.[%w]+$", "")
+  if not name:match("^[%w_%-]+$") or #name > 8 then return nil end
+  return name .. "." .. ext
+end
+
 local function new_cart(tpl)
   if not tpl then                    -- first the template, then the name
     local items = {}
     for _, t in ipairs(TEMPLATES) do items[#items + 1] = { label = t.name, desc = t.desc, tpl = t } end
-    overlay = { kind = "files", title = "New project: choose a template (Enter)", items = items, sel = 1, top = 1 }
+    for _, t in ipairs(B_TEMPLATES) do items[#items + 1] = { label = t.name, desc = t.desc, tpl = t } end
+    overlay = { kind = "files", title = "New project / file: choose a template (Enter)", items = items, sel = 1, top = 1 }
+    return
+  end
+  if tpl.standalone then
+    local ext = tpl.lang == "b" and "b" or "lua"
+    local dir = tpl.lang == "b" and "/code-b" or "/code-lua"
+    local n = 1
+    while find_tab(dir .. "/file" .. n .. "." .. ext) or tool_read(dir .. "/file" .. n .. "." .. ext) do n = n + 1 end
+    prompt("New ." .. ext .. " file (8.3 in " .. dir .. "):", "file" .. n .. "." .. ext, function(name)
+      name = standalone_name(name, ext)
+      if not name then say("8.3 name, like demo." .. ext, C_ERR); return end
+      local path = dir .. "/" .. name
+      if tool_read(path) then say(path .. " exists: Ctrl+O opens it", C_ERR); return end
+      local i = new_tab(path, tpl.code, { lang = tpl.lang, standalone = true })
+      tabs[i].dirty = true
+      show_tab(i)
+      say("new: Ctrl+S writes " .. path, C_OK)
+    end)
     return
   end
   local n = 1
@@ -1385,7 +1759,7 @@ local function new_cart(tpl)
     end
     local path = U.project_path(name)
     if cart_read(path) then say(path .. " exists: Ctrl+O opens it", C_ERR); return end
-    local i = new_tab(path, tpl.code, { title = name:gsub("%.bme$", "") })
+    local i = new_tab(path, tpl.code, { title = name:gsub("%.bme$", ""), lang = tpl.lang or "lua", b = tpl.b })
     MOD.load(tabs[i])
     tabs[i].dirty = true
     show_tab(i)
@@ -1394,6 +1768,19 @@ local function new_cart(tpl)
 end
 
 local function save_as(t)
+  if t.standalone then
+    local ext = t.lang == "b" and "b" or "lua"
+    local dir = t.lang == "b" and "/code-b" or "/code-lua"
+    local suggest = t.path and base_name(t.path) or ("file1." .. ext)
+    prompt("Save as (8.3 in " .. dir .. "):", suggest, function(name)
+      name = standalone_name(name, ext)
+      if not name then say("8.3 name, like demo." .. ext, C_ERR); return end
+      local ok, err = save_tab(t, dir .. "/" .. name)
+      say(ok and ("saved " .. t.path) or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
+      if ok then lint_tab(t) end
+    end)
+    return
+  end
   local suggest = t.path and project_name(base_name(t.path)) or "game.bme"
   prompt("Save as (8.3 in /bme):", suggest, function(name)
     name = project_name(name)
@@ -1472,8 +1859,8 @@ function _exit()
 end
 
 local function open_files()
-  local items = { { label = "+ New project...", new = true } }
-  local paths, sizes = U.project_files({ bm = true, bme = true })
+  local items = { { label = "+ New project / file...", new = true } }
+  local paths, sizes = U.project_files({ bm = true, bme = true, b = true, lua = true }, { "/code-b", "/code-lua" })
   for _, path in ipairs(paths) do
     items[#items + 1] = { label = path, size = sizes[path], path = path }
   end
@@ -1487,7 +1874,8 @@ local MENU = {
   { "Modules...", "Ctrl+P" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Find in the project...", "Ctrl+Shift+F" }, { "Rename a word...", "Ctrl+Shift+H" }, { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
-  { "Explain the error", "F9" }, { "Play the music (riff)", "Ctrl+Enter" }, { "Stop the music", "Ctrl+." },
+  { "Explain the error", "F9" }, { "Compile / Check", "" }, { "Disassemble .b", "Ctrl+Shift+D" },
+  { "Play the music (riff)", "Ctrl+Enter" }, { "Stop the music", "Ctrl+." },
   { "Word completion", "" }, { "Words in comments", "" },
   { "Pad typing", "" }, { "Keys", "F12 held" }, { "Screen", "" }, { "Exit", "" },
 }
@@ -1512,7 +1900,27 @@ local function menu_choose(name)
   elseif name == "Save" then save_current()
   elseif name == "Save as..." then save_as(t)
   elseif name == "Close tab" then ask_close(panes[focus].tab)
+  elseif name == "Compile / Check" then lint_tab(t)
   elseif name == "Run the game" then run_game()
+  elseif name == "Disassemble .b" then BL.disasm_b(t)
+  elseif name == "Add / Open main.b" then
+    local bi = BL.b_mod_index(t)
+    if bi then
+      MOD.switch(t, bi)
+    elseif t.standalone or t.lang == "b" then
+      say("already a .b file", C_ACC)
+    else
+      if not t.mods then
+        t.mods, t.cur = { { name = "main", lines = t.lines, undo = t.undo, redo = t.redo, breaks = t.breaks } }, 1
+      end
+      MOD.flush(t)
+      t.mods[#t.mods + 1] = { name = "main.b", lang = "b", virtual = true,
+                              lines = split_lines(B_TEMPLATES[2].b) }
+      t.lang = "hybrid"
+      t.dirty = true
+      MOD.switch(t, #t.mods)
+      say("added main.b (native ARMv6 module)", C_OK)
+    end
   elseif name == "Breakpoint" then toggle_break(t, v)
   elseif name == "Debug from the start" then run_game(true)
   elseif name == "Clear breakpoints" then
@@ -1560,6 +1968,7 @@ end
 function MOD.menu()
   U.menu({ { "Next module", "^p" }, { "Previous module", "^P" }, "-",
            { "New module...", function() menu_choose("New module...") end },
+           { "Add / Open main.b", function() menu_choose("Add / Open main.b") end },
            { "Rename module...", function() menu_choose("Rename module...") end },
            { "Merge into the one before", function() menu_choose("Merge into the one before") end } })
 end
@@ -1609,6 +2018,7 @@ do_command = function(k)
       MOD.find_all(s)
     end, "code")
   elseif k == "^H" then MOD.rename_ask(t, v)
+  elseif k == "^D" then BL.disasm_b(t)
   elseif k == "^g" then find_next(t, v, find_text)
   elseif k == "^h" then
     prompt("Replace:", find_text or word_at(t, v) or "", function(a)
@@ -1765,7 +2175,13 @@ end
 
 local function overlay_key(k)
   local o = overlay
-  if o.kind == "help" or o.kind == "text" then overlay = nil
+  if o.kind == "help" then overlay = nil
+  elseif o.kind == "text" then
+    if k == "up" then o.top = math.max(1, (o.top or 1) - 1)
+    elseif k == "down" then o.top = math.min(math.max(1, #o.lines), (o.top or 1) + 1)
+    elseif k == "pgup" then o.top = math.max(1, (o.top or 1) - 10)
+    elseif k == "pgdn" then o.top = math.min(math.max(1, #o.lines), (o.top or 1) + 10)
+    else overlay = nil end
   elseif o.kind == "prompt" then
     local c = o.comp
     o.comp, o.flash = nil, nil
@@ -2011,8 +2427,11 @@ function _init()
           (mi and " of module " .. t.mods[mi].name or ""), C_ACC, 600)
     elseif a.error then
       local t, v = current()
-      local line = tonumber(a.error:match("main%.lua:(%d+):"))
-      local mi, ml = line and MOD.locate(t, line)
+      local bline = tonumber(a.error:match("main%.b:(%d+):"))
+      local line = bline or tonumber(a.error:match("main%.lua:(%d+):"))
+      local mi, ml
+      if bline then mi, ml = MOD.locate_b(t, line)
+      elseif line then mi, ml = MOD.locate(t, line) end
       if mi then MOD.switch(t, mi); line = ml end
       t.err = { line = line, msg = a.error, mod = mi }
       if line then v.cy, v.cx = line, 0; clamp(t, v) end
@@ -2036,6 +2455,21 @@ function _update()
   mouse_frame()
   if assist.update() then return end
   if U.menu_open() then return end
+  if BL.preview then
+    local k = keyp()
+    while k do
+      if k == "esc" or k == "q" or k == "Q" then BL.preview = nil; say(".b preview stopped", C_ACC); return end
+      k = keyp()
+    end
+    if btnp(8) or btnp(5) then BL.preview = nil; say(".b preview stopped", C_ACC); return end
+    if BL.preview.upd then
+      local ok, err
+      if BL.preview.st then ok, err = pcall(native_run, BL.preview.mod, BL.preview.upd, BL.preview.st)
+      else ok, err = pcall(native_run, BL.preview.mod, BL.preview.upd) end
+      if not ok then BL.preview = nil; say("preview error: " .. tostring(err), C_ERR, 600) end
+    end
+    return
+  end
   local k = keyp()
   local typed
   while k do
@@ -2102,17 +2536,25 @@ local KEYWORDS = {}
 for w in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%S+") do
   KEYWORDS[w] = true
 end
+local B_KEYWORDS, B_TYPES = {}, {}
+for w in ("and break case const default do else elseif end enum fn for function if local not or return struct switch then while"):gmatch("%S+") do
+  B_KEYWORDS[w] = true
+end
+for w in ("i32 int f32 bool string void"):gmatch("%S+") do
+  B_TYPES[w] = true
+end
 local API = {}
 for _, e in ipairs(ai.list("api")) do API[e.id] = true end
-for w in ("math string table ipairs pairs tostring tonumber select type setmetatable"):gmatch("%S+") do
+for w in ("math string table ipairs pairs tostring tonumber select type setmetatable peek poke peek2 poke2 peek4 poke4 memcpy memset clamp lerp flr native_compile native_load native_run native_disasm"):gmatch("%S+") do
   API[w] = true
 end
 
 local seg_cache, seg_n = {}, 0
 
 -- a line in coloured pieces { start column, text, colour }, cached
-local function segments(s)
-  local c = seg_cache[s]
+local function segments(s, lang)
+  local ckey = (lang == "b" and "b:" or "l:") .. s
+  local c = seg_cache[ckey]
   if c then return c end
   c = {}
   local i, n = 1, #s
@@ -2120,14 +2562,18 @@ local function segments(s)
     local ch = s:sub(i, i)
     local j, col
     if s:sub(i, i + 1) == "--" then j, col = n, C_COM
-    elseif ch == '"' or ch == "'" then
+    elseif ch == '"' or (lang ~= "b" and ch == "'") then
       j = i + 1
       while j <= n and s:sub(j, j) ~= ch do j = j + (s:sub(j, j) == "\\" and 2 or 1) end
       col = C_STR
     elseif ch:match("[%a_]") then
       j = (s:find("[^%w_]", i) or n + 1) - 1
       local w = s:sub(i, j)
-      col = KEYWORDS[w] and C_KW or API[w] and C_API or C_TEXT
+      if lang == "b" then
+        col = B_KEYWORDS[w] and C_KW or B_TYPES[w] and C_TYPE or (w == "true" or w == "false") and C_NUM or API[w] and C_API or C_TEXT
+      else
+        col = KEYWORDS[w] and C_KW or API[w] and C_API or C_TEXT
+      end
     elseif ch:match("%d") then
       j = (s:find("[^%w%.]", i) or n + 1) - 1
       col = C_NUM
@@ -2143,7 +2589,7 @@ local function segments(s)
   end
   seg_n = seg_n + 1
   if seg_n > 3000 then seg_cache, seg_n = {}, 0 end
-  seg_cache[s] = c
+  seg_cache[ckey] = c
   return c
 end
 
@@ -2193,7 +2639,7 @@ local function draw_pane(p, c0, ncols, r0, nrows)
     if entry_request(l) then
       print(l:sub(v.left + 1, v.left + tcols), tx, y, C_ACC)
     else
-      for _, sg in ipairs(segments(l)) do
+      for _, sg in ipairs(segments(l, BL.tab_lang(t))) do
         local s0, txt, col = sg[1], sg[2], sg[3]
         local s1 = s0 + #txt - 1
         if s1 > v.left and s0 <= v.left + tcols then
@@ -2403,11 +2849,12 @@ local function draw_overlay()
     local cols = math.min(COLS - 4, 80)
     local rows = math.min(ROWS - 4, #o.lines + 3)
     local c0, r0 = (COLS - cols) // 2, 2
-    draw_box(c0, r0, cols, rows, o.title .. " (any key closes)")
+    draw_box(c0, r0, cols, rows, o.title .. " (Up/Down, any key closes)")
+    local top = o.top or 1
     for i = 1, rows - 2 do
-      local l = o.lines[i]
+      local l = o.lines[top + i - 1]
       if not l then break end
-      print(l:sub(1, cols - 2), (c0 + 1) * CW, (r0 + i) * CH, i == 1 and C_ACC or C_TEXT)
+      print(l:sub(1, cols - 2), (c0 + 1) * CW, (r0 + i) * CH, (top + i - 1) == 1 and C_ACC or C_TEXT)
     end
   elseif o.kind == "help" then
     local half = (#HELP + 1) // 2
@@ -2495,6 +2942,17 @@ end
 
 function _draw()
   LY.poll()
+  if BL.preview then
+    cls(0x0E1016)
+    if BL.preview.drw then
+      local ok, err
+      if BL.preview.st then ok, err = pcall(native_run, BL.preview.mod, BL.preview.drw, BL.preview.st)
+      else ok, err = pcall(native_run, BL.preview.mod, BL.preview.drw) end
+      if not ok then BL.preview = nil; say("preview error: " .. tostring(err), C_ERR, 600) end
+    end
+    print("Esc/q: back to bm Code", 4, H - 14, C_DIM)
+    return
+  end
   U.begin()
   font(FONTS[font_i])
   cls(C_BG)

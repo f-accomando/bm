@@ -7,7 +7,8 @@ Check it with `python scripts/carts_layout.py`: every project with `bm.info` mus
 ```
 carts/<id>/
   bm.info        metadata (INFO section), the single source: see below
-  main.lua       entry point (always this name)
+  main.lua       entry point (Lua)
+  main.b         native .b (BML) module or entry point (optional)
   cover.png      menu cover (optional)
   assets/        sheet.png, map.csv, map_<layer>.csv, flags.csv, sprites.txt, models.bm|glb
                  (the Makefile looks here first, then in carts/<id>/: old games still work)

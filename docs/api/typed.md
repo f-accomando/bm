@@ -38,3 +38,4 @@ A cartridge for the Pi Zero W compiles `.b` source strings on the console with `
 | `native_load(blob)` | a module, or `nil` and the reason |
 | `native_fn(m, name)` | the number of a function, or `nil` |
 | `native_run(m, f, args...)` | runs function `f` (its number from `native_fn` or its name string) with `i32`, `bool`, `f32`, array (`i32[]`, `bool[]`, `f32[]` via Lua table or `vm_buf`), or `struct` arguments; gives the result |
+| `native_disasm(blob)` | decodes a `BMN1` module from `native_compile` into `{ncode, nfn, nrodata, functions, lines}`, or `nil` and the reason |

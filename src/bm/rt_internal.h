@@ -328,6 +328,7 @@ int perm_allowed(int what);
 int sys_ask(const char *const *lines, int n, const char *yes, const char *no);
 void ser(lua_State *L, int idx, int depth);
 int video_to_ram(g16_t *g);
+uint32_t bm_video_present(framebuffer_t *fb, g16_t *g);
 void dbg_line(lua_State *L, lua_Debug *ar);
 int copy_question(const char *game, const char *copy);
 void perf_end(void);
@@ -372,6 +373,8 @@ extern uint8_t *proj_audio, *own_audio;
 extern uint32_t proj_audio_len, own_audio_len;
 extern uint8_t *proj_sheet8;
 extern uint32_t proj_sheet8_len;
+extern uint8_t *proj_b;
+extern uint32_t proj_b_len;
 extern int n_made;
 typedef struct {
     int set, stop, n;
@@ -735,5 +738,16 @@ int l_glb3d(lua_State *L);
 int l_res_write(lua_State *L);
 int l_res_read(lua_State *L);
 int l_cart_sheet(lua_State *L);
+
+/* native .b runtime & editor helpers (api_vm.c, api_editor.c) */
+struct bmnative_mod;
+lua_State *bmnative_lua_set_state(lua_State *L);
+int32_t bmnative_lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t nargs);
+int bmnative_lua_push_mod(lua_State *L, void *mod);
+int l_native_disasm(lua_State *L);
+int l_tool_read(lua_State *L);
+int l_tool_write(lua_State *L);
+int l_tool_lua_check(lua_State *L);
+int l_tool_lua_run(lua_State *L);
 
 #endif

@@ -145,7 +145,8 @@ $(BUILD)/words.lua: $(WORDS_SRC)
 # The key <k> is the cart name.
 c_dir    = $(or $(cdir_$(1)),carts/$(1))
 c_asset  = $(firstword $(wildcard $(call c_dir,$(1))/assets/$(2) $(call c_dir,$(1))/$(2)))
-c_lua    = $(or $(lua_$(1)),$(call c_dir,$(1))/main.lua)
+c_lua    = $(or $(lua_$(1)),$(wildcard $(call c_dir,$(1))/main.lua))
+c_b      = $(or $(b_$(1)),$(wildcard $(call c_dir,$(1))/main.b))
 c_info   = $(if $(noinfo_$(1)),,$(or $(bminfo_$(1)),$(wildcard $(call c_dir,$(1))/bm.info)))
 c_cover  = $(or $(cover_$(1)),$(wildcard $(call c_dir,$(1))/cover.png))
 c_sheet  = $(or $(sheet_$(1)),$(call c_asset,$(1),sheet.png))
@@ -155,13 +156,15 @@ c_flags  = $(call c_asset,$(1),flags.csv)
 c_sprite = $(call c_asset,$(1),sprites.txt)
 c_models = $(or $(models_$(1)),$(call c_asset,$(1),models.bm),$(call c_asset,$(1),models.glb))
 # the files a cart is built from: the prerequisites of its rule
-c_deps   = $(call c_info,$(1)) $(call c_cover,$(1)) $(call c_sheet,$(1)) $(call c_map,$(1)) \
+c_deps   = $(call c_b,$(1)) $(call c_info,$(1)) $(call c_cover,$(1)) $(call c_sheet,$(1)) $(call c_map,$(1)) \
            $(foreach l,$(layers_$(1)),$(call c_layer,$(1),$(l))) $(call c_flags,$(1)) \
            $(call c_sprite,$(1)) $(call c_models,$(1)) $(audio_$(1)) $(if $(audio_$(1)),scripts/bmaudio.py)
 
 define CART_RECIPE
 @mkdir -p $(dir $@)
-$(PYTHON) scripts/mkbm.py -o $@ --lua $< \
+$(PYTHON) scripts/mkbm.py -o $@ \
+	    $(if $(call c_lua,$(1)),--lua $(call c_lua,$(1))) \
+	    $(if $(call c_b,$(1)),--b $(call c_b,$(1))) \
 	    $(if $(call c_info,$(1)),--info $(call c_info,$(1)),--title "$(title_$(1))" --author bm --res $(or $(res_$(1)),640x360)) \
 	    $(if $(call c_cover,$(1)),--cover $(call c_cover,$(1))) \
 	    $(if $(call c_sheet,$(1)),--sheet $(call c_sheet,$(1)) $(if $(sheet8_$(1)),--sheet8)) \
@@ -1596,9 +1599,9 @@ $(BUILD)/host/test_monitor_cmd: tests/kernel/test_monitor_cmd.c src/kernel/monit
 test-shell-code: $(BUILD)/host/test_shell_code
 	$(BUILD)/host/test_shell_code
 
-$(BUILD)/host/test_shell_code: tests/kernel/test_shell_code.c src/kernel/shell_code.c src/kernel/shell_code.h src/bm/bmlc.c src/bm/bmnative.c
+$(BUILD)/host/test_shell_code: tests/kernel/test_shell_code.c src/kernel/shell_code.c src/kernel/shell_code.h src/bm/bmlc.c src/bm/bmnative.c $(LUA_SRCS)
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -DSHELL_CODE_HOST_TEST -Isrc -Isrc/bm -o $@ tests/kernel/test_shell_code.c src/kernel/shell_code.c src/bm/bmlc.c src/bm/bmnative.c -lm
+	$(HOSTCC) -O2 -Wall -Wextra -DSHELL_CODE_HOST_TEST -Isrc -Isrc/bm -Ithird_party/lua -o $@ tests/kernel/test_shell_code.c src/kernel/shell_code.c src/bm/bmlc.c src/bm/bmnative.c $(LUA_SRCS) -lm
 
 # The freeze guard: the timer IRQ pets the watchdog only while the main code makes progress (SYS-2)
 $(BUILD)/host/test_wdguard: tests/kernel/test_wdguard.c src/drivers/watchdog.h src/drivers/mbox.h

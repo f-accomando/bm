@@ -1924,6 +1924,52 @@ static void test_colmat_fillpat(void)
     CHECK(fb[0] == g16_rgb(0, 0, 255), "colmat: red swapped to blue");
 }
 
+static void test_b_section(void)
+{
+    const char *b_code = "function sum(n: i32): i32\n  return n + 1\nend\n";
+    const char *lua_code = "function _draw() cls(0) end\n";
+    bm_put_t put_b = { BM_SEC_B, (const uint8_t *)b_code, (uint32_t)strlen(b_code) };
+    size_t len = 0;
+    uint8_t *pure = bm_rewrite_with(NULL, 0, NULL, 0, "PureB", "bm", 640, &put_b, 1, &len);
+    CHECK(pure != NULL, "bm_rewrite_with pure .b");
+    if (!pure) return;
+
+    bm_cart_t c;
+    char err[128];
+    CHECK(bm_parse(pure, len, &c, err, sizeof err) == 0, "bm_parse pure .b: %s", err);
+    CHECK(c.lua == NULL && c.b != NULL && c.b_size == strlen(b_code), "pure .b fields");
+
+    /* Add Lua to make hybrid */
+    size_t hlen = 0;
+    uint8_t *hybrid = bm_rewrite_with(pure, len, lua_code, strlen(lua_code), "Hybrid", "bm", 640, NULL, 0, &hlen);
+    CHECK(hybrid != NULL, "bm_rewrite_with hybrid");
+    if (hybrid) {
+        CHECK(bm_parse(hybrid, hlen, &c, err, sizeof err) == 0, "bm_parse hybrid: %s", err);
+        CHECK(c.lua != NULL && c.b != NULL, "hybrid has both lua and b");
+
+        /* Remove Lua back to pure .b */
+        bm_put_t rm_lua = { BM_SEC_LUA, NULL, 0 };
+        size_t plen2 = 0;
+        uint8_t *pure2 = bm_rewrite_with(hybrid, hlen, NULL, 0, "PureB2", "bm", 640, &rm_lua, 1, &plen2);
+        CHECK(pure2 != NULL, "bm_rewrite_with remove lua");
+        if (pure2) {
+            CHECK(bm_parse(pure2, plen2, &c, err, sizeof err) == 0, "bm_parse pure2: %s", err);
+            CHECK(c.lua == NULL && c.b != NULL, "pure2 has only b");
+            free(pure2);
+        }
+        free(hybrid);
+    }
+    free(pure);
+
+    /* Resource file must refuse BM_SEC_B */
+    size_t rlen = 0;
+    uint8_t *res = bm_res_build(BM_RES_IMAGE, "bad", "bm", &put_b, 1, &rlen);
+    if (res) {
+        CHECK(bm_parse_any(res, rlen, &c, err, sizeof err) != 0, "BMRES refuses BM_SEC_B");
+        free(res);
+    }
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -1947,6 +1993,7 @@ int main(int argc, char **argv)
     test_data();
     test_render_target();
     test_colmat_fillpat();
+    test_b_section();
     if (argc > 2)
         test_anim_cart(argv[2]);
     if (argc > 3)

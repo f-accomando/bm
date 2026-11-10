@@ -35,7 +35,7 @@ SECTIONS = {
     1: ("LUA", "lua"), 2: ("SHEET", "sprites"), 3: ("MAP", "maps"), 4: ("COVER", "sprites"),
     5: ("SHEET8", "sprites"), 6: ("AUDIO", "audio"), 8: ("MESH", "models"), 9: ("ANIM", "models"),
     10: ("INFO", "meta"), 11: ("SPRITES", "sprites"), 12: ("LAYERS", "maps"), 13: ("FLAGS", "tiles"),
-    14: ("BOXES", "sprites"),
+    14: ("BOXES", "sprites"), 17: ("B", "lua"),
 }
 CATEGORIES = ["sprites", "tiles", "maps", "audio", "models", "lua", "meta", "container"]
 

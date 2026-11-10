@@ -102,7 +102,7 @@ All 9 stages of `tools/bml/bml.py` and the on-console C compiler `src/bm/bmlc.c`
 Other open points:
 
 - Try Pallene on a heavier loop and keep both roads open: the C+Lua hybrid is the baseline (section 3 of the design document).
-- Not done: a loader for native code in a `.bm`. The prototype stays inside the kernel (a function the console registers), so the "one cartridge type" rule holds.
+- `.b` container section (`BM_SEC_B = 17`, `specs.toml` rev 7): pure `.b` (`_init`/`_update`/`_draw` with optional `state: i32[]`) and hybrid Lua+`.b` (`_B` / `B.<fn>`) cartridges compiled on load by `bmlc`, `native_disasm(blob)` (`api_vm.c`, `bmnative_disasm_word` in `bmnative.c`), `tests/bml/test_cart_b.py`.
 
 ## Rules (do not break)
 

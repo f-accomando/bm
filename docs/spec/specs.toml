@@ -34,6 +34,11 @@ rev = 6
 date = "2026-10-29"
 what = "a chat model for cartridges: ai_ask, ai_reply and ai_info (POST <url>/chat/completions in the OpenAI-compatible format, the key added by the kernel and never given to Lua, no redirect for a POST); ai_setup, ai_pair and ai_pair_finish (saved after the kernel's own question); the protected files bm/ai.txt (url, model, key; not bm/config.txt) and bm/ca-user.pem (the user's roots, read after bm/ca.pem); a cartridge that calls them says spec: 6"
 
+[[revision]]
+rev = 7
+date = "2026-11-10"
+what = "section BM_SEC_B (17) for .b (BML) source in .bm/.bme cartridges (pure .b or hybrid Lua+.b), native_disasm(), and standalone .b/.lua tool APIs (tool_read, tool_write, tool_lua_check, tool_lua_run)"
+
 [[item]]
 id = "container-v1"
 since = 1
@@ -289,3 +294,11 @@ status = "implemented"
 platforms = "all"
 where = ["src/bm/bmz.c", "src/bm/bmz.h", "src/kernel/bmz_install.c", "src/kernel/carts.c", "src/rgb30/main.c", "scripts/bmz.py", "docs/BM-FORMAT.md"]
 note = "The .bmz container (docs/BM-FORMAT.md): a zlib-compressed copy of one .bm, .bme or resource file, kept in /bmz and extracted at start into /bm, /bme, /bmm, /bmk, /bmi, /bms, /bmt or /bmc (and with the monitor command bmz). Tested on the PC by make test-bmz (the C reader on good and broken files; the extraction on a FAT image with fsck.vfat and mtools) and both kernels build. Not run on the Pi or the RGB30. The Market and bm_net.py do not make or read it yet; the console does not compress"
+
+[[item]]
+id = "b-lang-section"
+since = 7
+status = "implemented"
+platforms = "all"
+where = ["src/bm/bm.h", "src/bm/format.c", "src/bm/runtime.c", "src/bm/api_vm.c", "src/bm/api_editor.c", "src/bm/bmnative.c", "scripts/mkbm.py", "carts/code/main.lua", "src/kernel/shell_code.c"]
+note = "BM_SEC_B (17) holds UTF-8 .b source in .bm/.bme containers (pure .b cartridges running _init/_update/_draw via bmlc/bmnative, or hybrid Lua+.b cartridges with _B and B.<fn>). Aligns bm Code and shell_code for both .lua and .b editing, syntax checking, running, and ARMv6 disassembly (native_disasm)."

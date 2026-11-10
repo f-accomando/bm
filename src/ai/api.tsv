@@ -360,6 +360,7 @@ music	music(-1, [fade_ms])	sound	stops the music, fading it
 music	music()	sound	while it plays: song, position, step, pattern (to keep in time); otherwise `nil`
 mute	mute(track, [on])	sound	turns off (`on`, the default) or back on a track of the music: layers that come and go
 native_compile	native_compile(src)	typed	compiles `.b` source text into a `BMN1` ARMv6 A32 module in RAM, or `nil` and `"line N: ..."`
+native_disasm	native_disasm(blob)	typed	decodes a `BMN1` module from `native_compile` into `{ncode, nfn, nrodata, functions, lines}`, or `nil` and the reason
 native_fn	native_fn(m, name)	typed	the number of a function, or `nil`
 native_load	native_load(blob)	typed	a module, or `nil` and the reason
 native_run	native_run(m, f, args...)	typed	runs function `f` (its number from `native_fn` or its name string) with `i32`, `bool`, `f32`, array (`i32[]`, `bool[]`, `f32[]` via Lua table or `vm_buf`), or `struct` arguments; gives the result
@@ -508,6 +509,10 @@ textures3d	textures3d([on])	light3d	`on`: `textures3d(false)` makes every `draw3
 time	time()	system	seconds since the cartridge started (with decimals)
 timeslice	timeslice(co, [k])	system	coroutine `co` stops by itself after about `k` thousand Lua instructions in a frame (400 if missing) and `coroutine.resume` returns `true` without values: a long computation goes on in the next frames instead of stopping the cartridge at the instruction limit. `timeslice(nil)` takes it away (nano8 uses it for its cartridges)
 tone	tone(v, sound)	sound	the voice's tone for the `note()`s that follow: the name of a **ready-made instrument** (`"epiano"`, `"pluck"`, `"pad"`, `"kick"`… `instruments()` lists them) or a table in plain units (below). `tone(v)` goes back to the square of a fresh voice
+tool_lua_check	tool_lua_check(src)	tools	bm's tools only: checks Lua syntax via `luaL_loadbufferx` without running it; returns `true`, or `false` and the error message
+tool_lua_run	tool_lua_run(src)	tools	bm's tools only: runs a standalone Lua script in a sandboxed state with the drawing/input APIs and returns `{ok, ret, us, error, interactive}`
+tool_read	tool_read(path)	tools	bm's tools only: reads a standalone `.b` or `.lua` file from the SD card (such as `/code-b/*.b`, `/code-lua/*.lua`) as a string, or `nil` and a message
+tool_write	tool_write(path, text)	tools	bm's tools only: writes a standalone `.b` or `.lua` file on the SD card (making missing folders), returning `true` or `false` and a message
 translate	translate(dx, dy)	draw	appends a translation by `(dx, dy)` to the current 2D transform
 tri	tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])	draw	a filled triangle; with three colours (one per corner) the colour shades from one corner to the other (Gouraud, dithered)
 triangulate	triangulate(points)	math	decomposes a simple polygon into a list of triangles `{ {x1, y1, x2, y2, x3, y3}, ... }` via ear clipping

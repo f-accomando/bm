@@ -53,6 +53,7 @@ import bmmesh  # noqa: E402
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
 SEC_MESH, SEC_ANIM = bmmesh.SEC_MESH, bmmesh.SEC_ANIM
 SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES, SEC_DATA = 11, 12, 13, 14, 15
+SEC_B = 17
 
 
 SEC_INFO = 10
@@ -412,7 +413,7 @@ def sheet8_decode(body):
 
 
 def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=None, sheet_packed=False,
-         audio=None, mesh=None, extra=(), layers=None, flags=None, sprites=None, boxes=None):
+         audio=None, mesh=None, extra=(), layers=None, flags=None, sprites=None, boxes=None, b_src=None):
     """map_: (w, h, cells) of one layer, or layers: [(name, w, h, cells)];
     flags: {cell: flags} of the sheet's cells; sprites: a SPRITES section,
     boxes: a BOXES section (its zones' hitboxes and hurtboxes)"""
@@ -422,7 +423,10 @@ def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=
     if cover:                               # first: the menu reads only the start
         w, h, rgba = cover
         sections.append((SEC_COVER, struct.pack("<HH", w, h) + rgba))
-    sections.append((SEC_LUA, lua))
+    if lua is not None:
+        sections.append((SEC_LUA, lua))
+    if b_src is not None:
+        sections.append((SEC_B, b_src))
     if sheet:
         w, h, rgba = sheet
         if sheet_packed:
@@ -593,6 +597,7 @@ def main():
     ap.add_argument("--min-spec", type=int, default=0, help="minimum spec revision (BM_SPEC_REV)")
     ap.add_argument("--min-width", type=int, default=0, help="minimum screen width in pixels (stored in units of 16)")
     ap.add_argument("--lua")
+    ap.add_argument("--b", help="BML (.b) source code (standalone or alongside --lua)")
     ap.add_argument("--sheet")
     ap.add_argument("--sheet8", action="store_true", help="store the sheet with a palette and runs")
     ap.add_argument("--map", action="append", default=[],
@@ -616,8 +621,8 @@ def main():
     a = ap.parse_args()
     info_body, info = read_info(a.info) if a.info else (None, None)
     if info is not None:
-        if a.src and not a.lua:
-            ap.error("--info goes with --lua, not with --from")
+        if a.src and not a.lua and not a.b:
+            ap.error("--info goes with --lua or --b, not with --from")
         a.title = a.title or info.get("name", "")
         a.author = a.author or info.get("author", "")
         a.res = a.res or info.get("resolution")
@@ -637,14 +642,15 @@ def main():
     a.res_set = a.res is not None
     if not a.res:
         a.res = "640x360"
-    if not a.output or (not a.lua and not a.src):
-        ap.error("specify -o and --lua (or --from SRC -o OUT)")
+    if not a.output or (not a.lua and not a.b and not a.src):
+        ap.error("specify -o and --lua / --b (or --from SRC -o OUT)")
     if a.output.lower().endswith(".b16"):
         ap.error("a .b16 is not written any more: one cartridge type, .bm (its header says the kernels)")
-    if a.src and not a.lua:
+    if a.src and not a.lua and not a.b:
         data, title, res_str = export_from(a.src, a, a.output)
     else:
-        lua = open(a.lua, "rb").read()
+        lua = open(a.lua, "rb").read() if a.lua else None
+        b_src = open(a.b, "rb").read() if a.b else None
         sheet = read_png(a.sheet) if a.sheet else None
         layers = read_layers(a.map) if a.map else None
         flags = read_flags(a.flags) if a.flags else None
@@ -686,7 +692,7 @@ def main():
         sprites, boxes = read_sprite_file(a.sprites, *(sheet[:2] if sheet else (256, 256))) if a.sprites \
             else (None, None)
         data = pack(lua, sheet, None, a.title, a.author, res, cover, a.sheet8, audio, mesh, extra, layers, flags,
-                    sprites, boxes)
+                    sprites, boxes, b_src=b_src)
         if a.output.lower().endswith(".bme"):
             data = mark_project(data)
         if info and info.get("type"):

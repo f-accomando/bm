@@ -99,7 +99,7 @@ static int extras_keep(const uint8_t *d)
     for (unsigned i = 0; i < d[17]; i++) {
         const uint8_t *e = d + BM_HEADER_SIZE + i * 16;
         uint32_t type = rd32le(e), off = rd32le(e + 4), size = rd32le(e + 8);
-        if (type == BM_SEC_LUA || type == BM_SEC_SHEET || type == BM_SEC_SHEET8 ||
+        if (type == BM_SEC_LUA || type == BM_SEC_B || type == BM_SEC_SHEET || type == BM_SEC_SHEET8 ||
             type == BM_SEC_MAP || type == BM_SEC_LAYERS || type == BM_SEC_FLAGS || type == BM_SEC_SPRITES ||
             type == BM_SEC_BOXES || type == BM_SEC_COVER || !size)
             continue;                       /* cart_save writes these from the project */
@@ -313,7 +313,7 @@ static int res_width(const char *res)
 }
 
 static void push_project(lua_State *L, const char *title, const char *author, int w, const char *lua,
-                         size_t lua_len)
+                         size_t lua_len, const char *b_src, size_t b_len)
 {
     lua_newtable(L);
     lua_pushstring(L, title);
@@ -322,8 +322,14 @@ static void push_project(lua_State *L, const char *title, const char *author, in
     lua_setfield(L, -2, "author");
     lua_pushstring(L, rt_res_name(w));
     lua_setfield(L, -2, "res");
-    lua_pushlstring(L, lua, lua_len);
+    lua_pushlstring(L, lua ? lua : "", lua ? lua_len : 0);
     lua_setfield(L, -2, "lua");
+    if (b_src) {
+        lua_pushlstring(L, b_src, b_len);
+        lua_setfield(L, -2, "b");
+    }
+    lua_pushstring(L, (b_src && lua) ? "hybrid" : b_src ? "b" : "lua");
+    lua_setfield(L, -2, "lang");
     lua_pushinteger(L, rt.sheet.w);
     lua_setfield(L, -2, "sheet_w");
     lua_pushinteger(L, rt.sheet.h);
@@ -377,12 +383,13 @@ int l_cart_load(lua_State *L)
     }
     set_copy(&proj_audio, &proj_audio_len, c.audio, c.audio_size);
     set_copy(&proj_sheet8, &proj_sheet8_len, c.sheet8, c.sheet8 ? c.sheet8_size : 0);
+    set_copy(&proj_b, &proj_b_len, c.b, c.b ? c.b_size : 0);
     proj_sheet_drawn = 0;
     char title[49], author[33];
     memcpy(title, c.title, sizeof title);
     memcpy(author, c.author, sizeof author);
     title[48] = author[32] = 0;
-    push_project(L, title, author, c.width, c.lua, c.lua_size);
+    push_project(L, title, author, c.width, c.lua, c.lua_size, c.b, c.b_size);
     if (c.info && c.info_size) {        /* the INFO text: a map kit's object table is in it */
         lua_pushlstring(L, (const char *)c.info, c.info_size);
         lua_setfield(L, -2, "info");
@@ -447,7 +454,7 @@ int l_kit_load(lua_State *L)
     memcpy(title, c.title, sizeof title);
     memcpy(author, c.author, sizeof author);
     title[48] = author[32] = 0;
-    push_project(L, title, author, c.width, "", 0);
+    push_project(L, title, author, c.width, "", 0, NULL, 0);
     if (c.sheet8) {
         const uint8_t *p = c.sheet8;
         int nc = p[4] | p[5] << 8, k = 0;
@@ -714,6 +721,7 @@ int l_cart_new(lua_State *L)
     proj_cover = NULL;
     set_copy(&proj_audio, &proj_audio_len, NULL, 0);
     set_copy(&proj_sheet8, &proj_sheet8_len, NULL, 0);
+    set_copy(&proj_b, &proj_b_len, NULL, 0);
     proj_sheet_drawn = 0;
     extras_free();
     return 0;
@@ -762,8 +770,23 @@ int l_cart_save(lua_State *L)
     const char *title = field(L, 2, "title", ""), *author = field(L, 2, "author", "");
     const char *res = field(L, 2, "res", "640x360");
     lua_getfield(L, 2, "lua");
-    size_t lua_len;
-    const char *lua = luaL_checklstring(L, -1, &lua_len);
+    size_t lua_len = 0;
+    const char *lua = lua_isstring(L, -1) ? luaL_checklstring(L, -1, &lua_len) : NULL;
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "b");
+    int has_b_opt = !lua_isnil(L, -1);
+    size_t b_len = 0;
+    const char *b_src = lua_isstring(L, -1) ? luaL_checklstring(L, -1, &b_len)
+                      : (has_b_opt && !lua_toboolean(L, -1)) ? NULL
+                      : (const char *)proj_b;
+    if (!has_b_opt)
+        b_len = proj_b_len;
+    lua_pop(L, 1);
+    if (!lua && !b_src) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "cart_save: need lua or b code");
+        return 2;
+    }
     int w = res_width(res), h = w == 256 || w == 360 || w == 720 ? w : w * 9 / 16;
 
     char dir[64], name[16];
@@ -787,17 +810,17 @@ int l_cart_save(lua_State *L)
     /* cover (first: the menu reads only the start), code, sheet, map, its
      * layers, the sound bank, the flags, the sheet's named zones and their
      * boxes, then the sections kept from the file (3D models...) */
-    enum { FIXED = 9 };
+    enum { FIXED = 10 };
     const int nsec = FIXED + proj_extras;
     uint32_t sizes[FIXED + PROJ_EXTRA_MAX] = {
-        proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
+        proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, lua ? (uint32_t)lua_len : 0,
         keep8 ? proj_sheet8_len : 4 + sw * sh * 4,
         4 + mw * mh * 2, named ? 8u + (uint32_t)rt.nlayers * BM_LAYER_NAME + (uint32_t)(rt.nlayers - 1) * mw * mh * 2 : 0,
         proj_audio_len, frows ? 4 + per * frows : 0, rt.nzones ? 4u + (uint32_t)rt.nzones * BM_SPRITE_SIZE : 0,
-        rt.nzones && rt.nboxes ? 4u + (uint32_t)rt.nboxes * BM_BOX_SIZE : 0 };
+        rt.nzones && rt.nboxes ? 4u + (uint32_t)rt.nboxes * BM_BOX_SIZE : 0, b_src ? (uint32_t)b_len : 0 };
     uint32_t types[FIXED + PROJ_EXTRA_MAX] = { BM_SEC_COVER, BM_SEC_LUA, keep8 ? BM_SEC_SHEET8 : BM_SEC_SHEET,
                                                BM_SEC_MAP, BM_SEC_LAYERS, BM_SEC_AUDIO, BM_SEC_FLAGS, BM_SEC_SPRITES,
-                                               BM_SEC_BOXES };
+                                               BM_SEC_BOXES, BM_SEC_B };
     for (int i = 0; i < proj_extras; i++) {
         types[FIXED + i] = proj_extra[i].type;
         sizes[FIXED + i] = proj_extra[i].size;
@@ -852,6 +875,8 @@ int l_cart_save(lua_State *L)
             memcpy(p, rt.zones, sizes[i]);
         } else if (i == 8) {
             memcpy(p, rt.boxes, sizes[i]);
+        } else if (i == 9) {
+            memcpy(p, b_src, b_len);
         } else {
             memcpy(p, proj_extra[i - FIXED].data, sizes[i]);
         }
@@ -935,8 +960,14 @@ int l_cart_read(lua_State *L)
     lua_setfield(L, -2, "author");
     lua_pushstring(L, rt_res_name(c.width));
     lua_setfield(L, -2, "res");
-    lua_pushlstring(L, c.lua, c.lua_size);
+    lua_pushlstring(L, c.lua ? c.lua : "", c.lua ? c.lua_size : 0);
     lua_setfield(L, -2, "lua");
+    if (c.b) {
+        lua_pushlstring(L, c.b, c.b_size);
+        lua_setfield(L, -2, "b");
+    }
+    lua_pushstring(L, (c.b && c.lua) ? "hybrid" : c.b ? "b" : "lua");
+    lua_setfield(L, -2, "lang");
     lua_pushinteger(L, (lua_Integer)len);
     lua_setfield(L, -2, "size");
     free(data);
@@ -1584,10 +1615,23 @@ int l_cart_write(lua_State *L)
     if (write_target(L, path, to, sizeof to))
         return 2;
     lua_getfield(L, 2, "lua");
+    int rm_lua = lua_isboolean(L, -1) && !lua_toboolean(L, -1);
     size_t lua_len = 0;
-    const char *lua = lua_isnil(L, -1) ? NULL : luaL_checklstring(L, -1, &lua_len);
-    bm_put_t put[5];
+    const char *lua = lua_isstring(L, -1) ? luaL_checklstring(L, -1, &lua_len) : NULL;
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "b");
+    int rm_b = lua_isboolean(L, -1) && !lua_toboolean(L, -1);
+    size_t b_len = 0;
+    const char *b_src = lua_isstring(L, -1) ? luaL_checklstring(L, -1, &b_len) : NULL;
+    lua_pop(L, 1);
+    bm_put_t put[7];
     int nput = 0;
+    if (rm_lua)
+        put[nput++] = (bm_put_t){ BM_SEC_LUA, NULL, 0 };
+    if (b_src)
+        put[nput++] = (bm_put_t){ BM_SEC_B, (const uint8_t *)b_src, (uint32_t)b_len };
+    else if (rm_b)
+        put[nput++] = (bm_put_t){ BM_SEC_B, NULL, 0 };
     lua_getfield(L, 2, "sections");
     if (!lua_isnil(L, -1)) {
         luaL_checktype(L, -1, LUA_TTABLE);
@@ -1653,9 +1697,9 @@ int l_cart_write(lua_State *L)
     const char *t = field(L, 2, "title", old ? title : name);
     const char *a = field(L, 2, "author", author);
     const char *res = field(L, 2, "res", rt_res_name(c.width));
-    if (!old && !lua) {
+    if (!old && !lua && !b_src) {
         lua_pushboolean(L, 0);
-        lua_pushstring(L, "a new cartridge needs its code (lua)");
+        lua_pushstring(L, "a new cartridge needs its code (lua or b)");
         return 2;
     }
     uint8_t *sheet = NULL;
@@ -2173,5 +2217,287 @@ int l_cart_data(lua_State *L)
         proj_extra[proj_extras++].data = keep;
     }
     lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int tool_path_ok(const char *path, int for_write, char *err, size_t errlen)
+{
+    if (!path || path[0] != '/' || strstr(path, "..")) {
+        ksnprintf(err, errlen, "bad path");
+        return 0;
+    }
+    size_t n = strlen(path);
+    int is_b = n > 2 && strcasecmp(path + n - 2, ".b") == 0;
+    int is_lua = n > 4 && strcasecmp(path + n - 4, ".lua") == 0;
+    if (!is_b && !is_lua) {
+        ksnprintf(err, errlen, "only .b and .lua files");
+        return 0;
+    }
+    if (for_write && (strcasecmp(path, "/bm/ai.txt") == 0 || strcasecmp(path, "/bm/ca-user.pem") == 0)) {
+        ksnprintf(err, errlen, "protected file");
+        return 0;
+    }
+    return 1;
+}
+
+/* tool_read(path) -> string, or nil and a message. Tools only: reads a standalone .b or .lua file. */
+int l_tool_read(lua_State *L)
+{
+    if (!tool_mode)
+        return luaL_error(L, "tool_read: tools only");
+    const char *path = luaL_checkstring(L, 1);
+    char err[64];
+    if (!tool_path_ok(path, 0, err, sizeof err)) {
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    lua_pushlstring(L, (const char *)data, len);
+    free(data);
+    return 1;
+}
+
+/* tool_write(path, text) -> true, or false and a message. Tools only: writes a standalone .b or .lua file. */
+int l_tool_write(lua_State *L)
+{
+    if (!tool_mode)
+        return luaL_error(L, "tool_write: tools only");
+    const char *path = luaL_checkstring(L, 1);
+    size_t len = 0;
+    const char *text = luaL_checklstring(L, 2, &len);
+    char err[64];
+    if (!tool_path_ok(path, 1, err, sizeof err)) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    fat_entry_t e;
+    int ok = 0;
+    if (fat_find(path, &e) == 0 && !e.is_dir) {
+        ok = fat_replace(path, text, len) == 0;
+    } else {
+        char dir[96];
+        const char *slash = strrchr(path, '/');
+        const char *name = slash ? slash + 1 : path;
+        if (slash && slash > path) {
+            size_t dn = (size_t)(slash - path);
+            if (dn >= sizeof dir) dn = sizeof dir - 1;
+            memcpy(dir, path, dn);
+            dir[dn] = 0;
+        } else {
+            ksnprintf(dir, sizeof dir, "/");
+        }
+        ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, text, len) == 0;
+    }
+    if (ok) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, fat_error());
+    return 2;
+}
+
+/* tool_lua_check(src) -> true, or false and error string. */
+int l_tool_lua_check(lua_State *L)
+{
+    if (!tool_mode)
+        return luaL_error(L, "tool_lua_check: tools only");
+    size_t len = 0;
+    const char *src = luaL_checklstring(L, 1, &len);
+    lua_State *tl = luavm_newstate();
+    if (!tl) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "out of memory");
+        return 2;
+    }
+    int rc = luaL_loadbufferx(tl, src, len, "=main.lua", "t");
+    if (rc == LUA_OK) {
+        lua_close(tl);
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    const char *msg = lua_tostring(tl, -1);
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, msg ? msg : "syntax error");
+    lua_close(tl);
+    return 2;
+}
+
+static int tool_lua_quit_flag = 0;
+static int l_tool_sub_quit(lua_State *L)
+{
+    (void)L;
+    tool_lua_quit_flag = 1;
+    return 0;
+}
+
+static int tool_lua_traceback(lua_State *L)
+{
+    const char *msg = lua_tostring(L, 1);
+    luaL_traceback(L, L, msg ? msg : "(error)", 1);
+    return 1;
+}
+
+static void tool_lua_hook(lua_State *L, lua_Debug *ar)
+{
+    (void)ar;
+    if (++rt.hook_count > 1000000u)
+        luaL_error(L, "script instruction limit");
+}
+
+/* tool_lua_run(src) -> { ok=bool, ret=str?, us=int, error=str?, interactive=bool }. */
+int l_tool_lua_run(lua_State *L)
+{
+    if (!tool_mode)
+        return luaL_error(L, "tool_lua_run: tools only");
+    size_t len = 0;
+    const char *src = luaL_checklstring(L, 1, &len);
+    lua_State *tl = luavm_newstate();
+    if (!tl)
+        return luaL_error(L, "out of memory");
+
+    static const luaL_Reg libs[] = {
+        { LUA_GNAME, luaopen_base }, { LUA_TABLIBNAME, luaopen_table },
+        { LUA_STRLIBNAME, luaopen_string }, { LUA_MATHLIBNAME, luaopen_math },
+        { LUA_COLIBNAME, luaopen_coroutine }, { LUA_UTF8LIBNAME, luaopen_utf8 },
+        { NULL, NULL },
+    };
+    for (const luaL_Reg *l = libs; l->func; l++) {
+        luaL_requiref(tl, l->name, l->func, 1);
+        lua_pop(tl, 1);
+    }
+    lua_pushglobaltable(tl);
+    luaL_setfuncs(tl, rt_api(), 0);
+    lua_pop(tl, 1);
+
+    static const char *const strip[] = {
+        "dofile", "loadfile", "load", "cart_run", "cart_tool", "cart_publish",
+        "cart_write", "cart_save", "cart_build", "res_write", "file_write",
+        "tool_read", "tool_write", "tool_lua_check", "tool_lua_run", NULL
+    };
+    for (const char *const *s = strip; *s; s++) {
+        lua_pushnil(tl);
+        lua_setglobal(tl, *s);
+    }
+    lua_pushcfunction(tl, l_tool_sub_quit);
+    lua_setglobal(tl, "quit");
+    lua_pushinteger(tl, rt.g.w);
+    lua_setglobal(tl, "SCREEN_W");
+    lua_pushinteger(tl, rt.g.h);
+    lua_setglobal(tl, "SCREEN_H");
+
+    const g16_t keep_g = rt.g;
+    int keep_quit = rt.quit;
+    tool_lua_quit_flag = 0;
+    rt.hook_count = 0;
+    lua_sethook(tl, tool_lua_hook, LUA_MASKCOUNT, 10000);
+
+    lua_newtable(L);
+    uint32_t t0 = timer_ticks();
+    int rc = luaL_loadbufferx(tl, src, len, "=main.lua", "t");
+    if (rc != LUA_OK) {
+        const char *msg = lua_tostring(tl, -1);
+        lua_pushboolean(L, 0);
+        lua_setfield(L, -2, "ok");
+        lua_pushstring(L, msg ? msg : "syntax error");
+        lua_setfield(L, -2, "error");
+        lua_close(tl);
+        return 1;
+    }
+
+    lua_pushcfunction(tl, tool_lua_traceback);
+    lua_insert(tl, -2);
+    rc = lua_pcall(tl, 0, 1, -2);
+    if (rc != LUA_OK) {
+        const char *msg = lua_tostring(tl, -1);
+        lua_pushboolean(L, 0);
+        lua_setfield(L, -2, "ok");
+        lua_pushstring(L, msg ? msg : "runtime error");
+        lua_setfield(L, -2, "error");
+        lua_close(tl);
+        rt.g = keep_g;
+        rt.quit = keep_quit;
+        return 1;
+    }
+    uint32_t us = timer_ticks() - t0;
+
+    int has_ret = !lua_isnil(tl, -1);
+    const char *ret_str = has_ret ? luaL_tolstring(tl, -1, NULL) : NULL;
+    if (ret_str) {
+        lua_pushstring(L, ret_str);
+        lua_setfield(L, -2, "ret");
+    }
+
+    lua_getglobal(tl, "_update");
+    int has_upd = lua_isfunction(tl, -1);
+    lua_pop(tl, 1);
+    lua_getglobal(tl, "_draw");
+    int has_drw = lua_isfunction(tl, -1);
+    lua_pop(tl, 1);
+
+    if (has_upd || has_drw) {
+        const char *run_err = NULL;
+        lua_getglobal(tl, "_init");
+        if (lua_isfunction(tl, -1)) {
+            rt.hook_count = 0;
+            if (lua_pcall(tl, 0, 0, 0) != LUA_OK)
+                run_err = lua_tostring(tl, -1);
+        } else {
+            lua_pop(tl, 1);
+        }
+        int frames = 0;
+        while (!run_err && !tool_lua_quit_flag && frames < 3600) {
+            if (poll_keys())
+                break;
+            if (has_upd) {
+                rt.hook_count = 0;
+                lua_getglobal(tl, "_update");
+                if (lua_pcall(tl, 0, 0, 0) != LUA_OK) {
+                    run_err = lua_tostring(tl, -1);
+                    break;
+                }
+            }
+            if (has_drw) {
+                rt.hook_count = 0;
+                lua_getglobal(tl, "_draw");
+                if (lua_pcall(tl, 0, 0, 0) != LUA_OK) {
+                    run_err = lua_tostring(tl, -1);
+                    break;
+                }
+            }
+            if (perm_fb)
+                bm_video_present(perm_fb, &rt.g);
+            frames++;
+        }
+        rt.g = keep_g;
+        rt.quit = keep_quit;
+        if (run_err) {
+            lua_pushboolean(L, 0);
+            lua_setfield(L, -2, "ok");
+            lua_pushstring(L, run_err);
+            lua_setfield(L, -2, "error");
+            lua_close(tl);
+            return 1;
+        }
+        lua_pushboolean(L, 1);
+        lua_setfield(L, -2, "interactive");
+    }
+
+    rt.g = keep_g;
+    rt.quit = keep_quit;
+    lua_pushboolean(L, 1);
+    lua_setfield(L, -2, "ok");
+    lua_pushinteger(L, (lua_Integer)us);
+    lua_setfield(L, -2, "us");
+    lua_close(tl);
     return 1;
 }

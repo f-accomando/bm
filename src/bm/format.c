@@ -464,7 +464,7 @@ static const uint32_t res_allowed[BM_RES_KINDS] = {
 #define KNOWN_SECTIONS (BIT(BM_SEC_LUA) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_MAP) | BIT(BM_SEC_COVER) | \
                         BIT(BM_SEC_SHEET8) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_OLD_ANIM) | BIT(BM_SEC_MESH) | \
                         BIT(BM_SEC_ANIM) | BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_LAYERS) | \
-                        BIT(BM_SEC_FLAGS) | BIT(BM_SEC_BOXES) | BIT(BM_SEC_DATA))
+                        BIT(BM_SEC_FLAGS) | BIT(BM_SEC_BOXES) | BIT(BM_SEC_DATA) | BIT(BM_SEC_B))
 
 /* A SPRITES section: the number of zones, or -1 if it is broken. */
 static int sprites_check(const uint8_t *p, uint32_t size)
@@ -631,8 +631,8 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
             return fail(err, errlen, "section out of bounds");
         const uint8_t *p = d + off;
         if (c->kind && type < 32 && (KNOWN_SECTIONS & BIT(type)) && !(res_allowed[c->kind] & BIT(type)))
-            return fail(err, errlen, type == BM_SEC_LUA ? "a resource file never holds code"
-                                                         : "a section this kind of file does not have");
+            return fail(err, errlen, (type == BM_SEC_LUA || type == BM_SEC_B) ? "a resource file never holds code"
+                                                                               : "a section this kind of file does not have");
         switch (type) {
         /* in a cartridge broken INFO or SPRITES are left out (the game
          * plays: they only describe it); a resource file is refused */
@@ -674,6 +674,10 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
         case BM_SEC_LUA:
             c->lua = (const char *)p;
             c->lua_size = size;
+            break;
+        case BM_SEC_B:
+            c->b = (const char *)p;
+            c->b_size = size;
             break;
         case BM_SEC_SHEET:
             if (size < 4) return fail(err, errlen, "bad sheet");
@@ -800,8 +804,8 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
     }
     switch (c->kind) {
     case BM_RES_CART:
-        if (!c->lua)
-            return fail(err, errlen, "no Lua section");
+        if (!c->lua && !c->b)
+            return fail(err, errlen, "no code section");
         break;
     case BM_RES_MODEL:
         if (!c->mesh) return fail(err, errlen, "a models file without MESH");
@@ -1292,6 +1296,16 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
             if (lua) {
                 src[n] = (const uint8_t *)lua;
                 size[n] = (uint32_t)lua_len;
+            } else {
+                int k = 0;
+                while (k < nput && put[k].type != BM_SEC_LUA)
+                    k++;
+                if (k < nput) {
+                    if (used[k]++ || !put[k].data)
+                        continue;               /* taken away (data == NULL), or replaced via put */
+                    src[n] = put[k].data;
+                    size[n] = put[k].size;
+                }
             }
         } else if ((put_mesh && type[n] == BM_SEC_AUDIO && (size[n] < 4 || memcmp(src[n], "BMAU", 4) != 0)) ||
                    (put_anim && type[n] == BM_SEC_OLD_ANIM)) {

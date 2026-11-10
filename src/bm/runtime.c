@@ -47,6 +47,8 @@
 #include "tokens.h"
 #include "profile.h"
 #include "project.h"
+#include "bmlc.h"
+#include "bmnative.h"
 #include "kernel/jobs.h"
 #include "rt_internal.h"
 
@@ -2238,7 +2240,7 @@ static const luaL_Reg api[] = {
     { "collmap_new", l_collmap_new }, { "collmap_chunk", l_collmap_chunk }, { "collmap_blocked", l_collmap_blocked },
     { "vm_load", l_vm_load }, { "vm_fn", l_vm_fn }, { "vm_buf", l_vm_buf }, { "vm_buf_fill", l_vm_buf_fill },
     { "vm_buf_get", l_vm_buf_get }, { "vm_run", l_vm_run }, { "vm_bind", l_vm_bind },
-    { "native_load", l_native_load }, { "native_fn", l_native_fn }, { "native_run", l_native_run }, { "native_compile", l_native_compile },
+    { "native_load", l_native_load }, { "native_fn", l_native_fn }, { "native_run", l_native_run }, { "native_compile", l_native_compile }, { "native_disasm", l_native_disasm },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "devkit_chord", l_devkit_chord }, { "devkit_tris", l_devkit_tris }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "gpu2d_sheet", l_gpu2d_sheet }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "noise", l_noise }, { "fbm", l_fbm }, { "random_normal", l_random_normal },
@@ -2282,6 +2284,7 @@ static const luaL_Reg api[] = {
     { "cart_save", l_cart_save }, { "cart_build", l_cart_build }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_publish", l_cart_publish }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
+    { "tool_read", l_tool_read }, { "tool_write", l_tool_write }, { "tool_lua_check", l_tool_lua_check }, { "tool_lua_run", l_tool_lua_run },
     { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d }, { "glb3d", l_glb3d }, { "res_write", l_res_write }, { "res_read", l_res_read },
     { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
@@ -2448,10 +2451,52 @@ static int traceback(lua_State *L)
     return 1;
 }
 
+static bmnative_mod *cart_bmod;
+static int cart_b_only;
+static int32_t cart_b_state[256];
+static char cart_b_err[320];
+
+static int call_b_hook(lua_State *L, const char *name)
+{
+    if (!cart_bmod)
+        return 0;
+    int fn = bmnative_find(cart_bmod, name);
+    if (fn < 0)
+        return 0;
+    const bmnative_fn *f = &cart_bmod->fn[fn];
+    lua_State *prev_lua = bmnative_lua_set_state(L);
+    bmnative_host_fn prev_host = bmnative_get_host_fn();
+    bmnative_set_host_fn(bmnative_lua_host_dispatch);
+    int32_t ret = 0;
+    int e = BMN_ERR_ARGS;
+    if (f->nparams == 0) {
+        e = bmnative_call(cart_bmod, fn, NULL, 0, &ret);
+    } else if (f->nparams == 1 && f->ptype[0] == BMN_ARR_I32) {
+        bmnative_buf buf = { (uint32_t *)cart_b_state, (uint32_t)(sizeof cart_b_state / sizeof cart_b_state[0]) };
+        e = bmnative_call_buf(cart_bmod, fn, NULL, &buf, 1, &ret);
+    } else {
+        bmnative_set_host_fn(prev_host);
+        bmnative_lua_set_state(prev_lua);
+        ksnprintf(cart_b_err, sizeof cart_b_err, "main.b: %s must take () or (state: i32[])", name);
+        lua_pushstring(L, cart_b_err);
+        return -1;
+    }
+    bmnative_set_host_fn(prev_host);
+    bmnative_lua_set_state(prev_lua);
+    if (e != BMN_OK) {
+        ksnprintf(cart_b_err, sizeof cart_b_err, "main.b: runtime trap (%d) in %s", e, name);
+        lua_pushstring(L, cart_b_err);
+        return -1;
+    }
+    return 0;
+}
+
 /* Calls global `name` if it exists. Returns 0 on success, -1 on error
  * (message left on the stack). */
 static int call_wh(lua_State *L, const char *name, int nargs, int a, int b)
 {
+    if (cart_b_only && nargs == 0)
+        return call_b_hook(L, name);
     lua_pushcfunction(L, traceback);
     if (lua_getglobal(L, name) != LUA_TFUNCTION) {
         lua_pop(L, 2);
@@ -2873,6 +2918,8 @@ uint8_t *proj_audio, *own_audio;
 uint32_t proj_audio_len, own_audio_len;
 uint8_t *proj_sheet8;
 uint32_t proj_sheet8_len;
+uint8_t *proj_b;
+uint32_t proj_b_len;
 int n_made;
 char last_error[512];
 dbg_next_t dbg_next;
@@ -3272,6 +3319,8 @@ static void wait_buttons_up(void)
  * stay as they are; bm_resume() continues from the same frame. */
 static struct {
     lua_State *L;
+    bmnative_mod *bmod;
+    int b_only;
     int active;
     char title[49];
     int w, h;
@@ -3284,6 +3333,8 @@ static struct {
  * closed one is freed with its last frame still shown, then leave_mode). */
 static void release(lua_State *L)
 {
+    cart_bmod = NULL;
+    cart_b_only = 0;
     cartnet_reset();            /* the cartridge's sockets */
     web_reset();                /* its web requests and their results */
     audio_reset();
@@ -4749,6 +4800,10 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     if (suspend) {
         audio_pause(1);                     /* music waits, the bank stays */
         susp.L = L;
+        susp.bmod = cart_bmod;
+        susp.b_only = cart_b_only;
+        cart_bmod = NULL;
+        cart_b_only = 0;
         susp.active = 1;
         susp.w = rt.g.w;                    /* (screen() may have changed it) */
         susp.h = rt.g.h;
@@ -4829,6 +4884,10 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     extras_free();
     set_copy(&proj_audio, &proj_audio_len, NULL, 0);
     set_copy(&proj_sheet8, &proj_sheet8_len, NULL, 0);
+    set_copy(&proj_b, &proj_b_len, NULL, 0);
+    cart_bmod = NULL;
+    cart_b_only = 0;
+    memset(cart_b_state, 0, sizeof cart_b_state);
     proj_sheet_drawn = 0;
     cur = next;                         /* the options of this run, then none */
     bm_next_run(0, 0, -1, 0);
@@ -4907,19 +4966,57 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     rt.start_us = ld_audio;
     rt.hook_count = 0;
     rt.tokens = -1;
-    rt.tokens_src = cart.lua;
-    rt.tokens_len = cart.lua_size;
+    rt.tokens_src = cart.lua ? cart.lua : cart.b;
+    rt.tokens_len = cart.lua ? cart.lua_size : cart.b_size;
     loading_tick();
     sess_reset();                       /* the session report: this cartridge's frames only */
     perf_on = perf_user;                /* the overlay as Settings has it */
     perf_small = 0;
     perf_chord_off = 0;
-    dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
-    chunk_reader_t rd = { cart.lua, cart.lua_size };
-    if (lua_load(L, read_chunk, &rd, "=main.lua", "t") != LUA_OK ||
-        (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
-        call_screen(L) != 0 || call(L, "_init") != 0)
-        error = lua_tostring(L, -1);
+    if (cart.b && cart.b_size > 0) {
+        uint8_t *blob = NULL;
+        size_t blob_len = 0;
+        char berr[256];
+        if (bml_compile_native(cart.b, cart.b_size, &blob, &blob_len, berr, sizeof berr) != 0) {
+            if (strncmp(berr, "line ", 5) == 0) {
+                int ln = atoi(berr + 5);
+                const char *colon = strchr(berr + 5, ':');
+                ksnprintf(cart_b_err, sizeof cart_b_err, "main.b:%d:%s", ln, colon ? colon + 1 : berr);
+            } else {
+                ksnprintf(cart_b_err, sizeof cart_b_err, "main.b: %s", berr);
+            }
+            error = cart_b_err;
+        } else {
+            const char *why = "";
+            if (bmnative_load(&cart_bmod, blob, blob_len, &why) != BMN_OK) {
+                ksnprintf(cart_b_err, sizeof cart_b_err, "main.b: load failed: %s", why);
+                error = cart_b_err;
+            } else {
+                bmnative_lua_push_mod(L, cart_bmod);
+                lua_setglobal(L, "_B");
+                if (cart.lua) {
+                    (void)luaL_dostring(L,
+                        "B = setmetatable({}, { __index = function(_, k) "
+                        "return function(...) return native_run(_B, k, ...) end end })");
+                }
+            }
+            free(blob);
+        }
+    }
+    if (!error) {
+        if (cart.lua) {
+            dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
+            chunk_reader_t rd = { cart.lua, cart.lua_size };
+            if (lua_load(L, read_chunk, &rd, "=main.lua", "t") != LUA_OK ||
+                (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
+                call_screen(L) != 0 || call(L, "_init") != 0)
+                error = lua_tostring(L, -1);
+        } else {
+            cart_b_only = 1;
+            if (call(L, "_init") != 0)
+                error = lua_tostring(L, -1);
+        }
+    }
     {                                   /* ms of each step; "assets" has the state of the state */
         const uint32_t ld_end = timer_ticks();
         kprintf("load: %s %lu ms (close %lu, parse %lu, assets+state %lu, mode %lu, audio %lu, lua %lu)\n", cart.title,
@@ -4952,6 +5049,10 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     perm_fb = fb;
     ksnprintf(perm_title, sizeof perm_title, "%s", susp.title);
     lua_State *L = susp.L;
+    cart_bmod = susp.bmod;
+    cart_b_only = susp.b_only;
+    susp.bmod = NULL;
+    susp.b_only = 0;
     susp.active = 0;
     susp.L = NULL;
     const uint32_t con_w = fb->width, con_h = fb->height;

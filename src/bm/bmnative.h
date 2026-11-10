@@ -108,5 +108,6 @@ int  bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs
 int  bmnative_call_buf(const bmnative_mod *m, int fn, const int32_t *args, const bmnative_buf *bufs, int nargs, int32_t *ret);
 const char *bmnative_get_string(int32_t arg0);
 uint32_t bmnative_last_insns(void);
+void bmnative_disasm_word(uint32_t w, char *buf, size_t cap);
 
 #endif
