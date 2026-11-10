@@ -1,0 +1,683 @@
+bm report
+kind: log
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-11-10 12:16:20
+file: 20261110-121620_log_pi-zero-w_dev.txt
+
+
+bm kernel dev - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 47.0 C
+ARM1176 from SVC, MMU+caches on, heap 420 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+IRQ on: timer 1000 Hz (measured 999 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 17 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 2/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 4 networks
+   1   -63 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -77 dBm  ch  9  WPA2  FASTWEB-325YFF
+   3   -79 dBm  ch  5  WPA2  Wind3 HUB - ED4188
+   4   -86 dBm  ch  3  WPA2  Infostrada-8F1A91
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+gpu3d: the V3D did not finish:
+CT0CS   00000000  CT0CA   42b1809a  CT0EA   42b1809a  CT1CS   00000000
+CT1CA   42b58033  CT1EA   42b58033  PCS     00000004  BFC     00000000
+RFC     00000000  INTCTL  0000000f  BPCA    41d1a080  BPCS    003fd000
+BPOA    42118000  BPOS    00200000  ERRSTAT 00001030  DBGE    00000000
+FDBGO   00000006  FDBGB   1c00001d  FDBGR   595d68fd  FDBGS   1246f1ef
+gpu3d: the GPU did not finish a frame (registers in the log); the 3D is drawn by the ARM again
+gpu3d: the V3D did not finish:
+CT0CS   00000000  CT0CA   42b1809a  CT0EA   42b1809a  CT1CS   00000000
+CT1CA   42b58027  CT1EA   42b58027  PCS     00000004  BFC     00000000
+RFC     00000000  INTCTL  0000000f  BPCA    41d1a080  BPCS    003fd000
+BPOA    42118000  BPOS    00200000  ERRSTAT 00001030  DBGE    00000000
+FDBGO   00000006  FDBGB   1c00001d  FDBGR   595d68fd  FDBGS   1246f1ef
+gpu3d: the GPU stopped answering after a probe (registers in the log); the 3D is drawn by the ARM again
+menu: the GPU cannot draw 3x, 360p on the ARM
+net: not served for 695 ms (up 9300 ms), while: boot
+covers: all 21 read
+menu idle: 300/300 frames, 130 of 2120 ms taken, 1.8 ms past a frame; covers 119 ms (+2.4, stk 0.8/16K); min slack -9731 us, paced 0
+menu idle: sd first word <1ms 146 <3ms 8 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8649 us, enlarge 0 us, flip 91 us, free time used 434 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-10 10:32 UTC
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 7700 us, enlarge 0 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 7695 us, enlarge 0 us, flip 91 us, free time used 36 us (300 frames)
+net: receiving bm/snes16.bm (56284 bytes)...
+net: /bm/snes16.bm received (56284 bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 13.6 ms past its slice
+fiber: netxfer did not yield: 20.3 ms past its slice
+net: saved /bm/snes16.bm on the SD card (56284 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB
+covers: all 22 read
+net: receiving snes16.bm (56284 bytes)...
+net: cartridge received, starting it
+load: bm SNES-16 67 ms (close 0, parse 1, assets+state 13, mode 1, audio 0, lua 51)
+bm: Screenshot saved: bm/shots/bmsn0060.png
+bm: "bm SNES-16" 138870 frames, 51.8 fps, 3 dropped
+     update+draw avg 18.70 ms (112% of frame), max 86.00 ms, Lua 89 KB
+     dev kit: Lua peak 172 KB, data 322 KB, busiest frame 1k instructions, 138195 frames over 16.7 ms, 2884 tokens
+     GPU 3D 24 jobs, 0 triangles a frame, 0.00 ms a frame (bin 11%), max job 37 us
+report: session_bm-snes-16_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: the GPU cannot draw 3x, 360p on the ARM
+fiber: reports did not yield: 9.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 12.9 ms past its slice
+fiber: reports did not yield: 98.6 ms past its slice
+report: sending session_bm-snes-16_pi-zero-w.txt
+menu idle: 300/300 frames, 987 of 2034 ms taken, 101.1 ms past a frame; covers 7 ms (+1.8, stk 0.8/16K), netxfer 44 ms (+20.3, stk 1.8/64K), reports 931 ms (+98.6, stk 7.8/128K); min slack -68170 us, paced 0
+menu idle: sd first word <1ms 160 <3ms 6 (max 1.4 ms)
+menu stalls: tls handshake 1x last 299.2 worst 299.2 ms
+menu frame: 1x, a frame averages draw 8648 us, enlarge 0 us, flip 91 us, free time used 3290 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_bm-snes-16_pi-zero-w.txt
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 18.9 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+fiber: market did not yield: 58.6 ms past its slice
+menu idle: 300/300 frames, 341 of 1552 ms taken, 61.0 ms past a frame; reports 105 ms (+17.3, stk 7.8/128K), market 222 ms (+58.6, stk 2.7/128K); min slack -53808 us, paced 0
+menu idle: sd first word <1ms 51 <3ms 2 (max 1.4 ms)
+menu stalls: tls handshake 1x last 151.2 worst 151.2 ms
+menu frame: 1x, a frame averages draw 10353 us, enlarge 0 us, flip 95 us, free time used 1137 us (300 frames)
+market: catalog 20261110103416, 29 games
+fiber: market did not yield: 101.1 ms past its slice
+market: cover of snes16
+menu idle: 300/300 frames, 569 of 1597 ms taken, 101.4 ms past a frame; market 562 ms (+101.1, stk 4.0/128K); min slack -16471 us, paced 0
+menu idle: sd first word <1ms 272 <3ms 6 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9906 us, enlarge 0 us, flip 93 us, free time used 1899 us (300 frames)
+menu frame: 1x, a frame averages draw 10535 us, enlarge 0 us, flip 95 us, free time used 16 us (300 frames)
+
+playing snes16.bm
+play: /bm/snes16.bm (56284 bytes)
+load: bm SNES-16 77 ms (close 0, parse 1, assets+state 13, mode 5, audio 0, lua 56)
+bm: loaded in 93 ms, the splash over at 1800 ms
+bm: splash ticks: 49 frames, longest gap 7340 us at 93 ms (between 0xcfb60 and 0x94d80)
+net: not served for 1808 ms (up 2728200 ms), while: boot
+net:   pc at 1s: 00094960
+bm: "bm SNES-16" suspended (A on its cover resumes it)
+bm: "bm SNES-16" 440 frames, 57.6 fps, 1 dropped
+     update+draw avg 13.55 ms (81% of frame), max 21.23 ms, Lua 87 KB
+     dev kit: Lua peak 172 KB, data 322 KB, busiest frame 1k instructions, 119 frames over 16.7 ms, 2884 tokens
+report: session_bm-snes-16_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: the GPU cannot draw 3x, 360p on the ARM
+market: nearby consoles: listening as bm-108
+fiber: reports did not yield: 99.6 ms past its slice
+menu idle: 300/300 frames, 361 of 1792 ms taken, 102.1 ms past a frame; reports 348 ms (+99.6, stk 7.8/128K); min slack -13770 us, paced 0
+menu idle: sd first word <1ms 40 <3ms 2 (max 1.4 ms)
+menu stalls: tls handshake 1x last 276.3 worst 276.3 ms
+menu frame: 1x, a frame averages draw 9401 us, enlarge 0 us, flip 95 us, free time used 1203 us (300 frames)
+report: sending session_bm-snes-16_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/unknown/session_bm-snes-16_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/unknown/session_bm-snes-16_pi-zero-w
+bm: "bm SNES-16" closed, memory freed
+menu: closed snes16.bm
+report: sending session_bm-snes-16_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_bm-snes-16_pi-zero-w.txt
+menu idle: 300/300 frames, 1510 of 1941 ms taken, 98.0 ms past a frame; reports 1483 ms (+98.0, stk 7.8/128K, stop 15.7); min slack -11663 us, paced 0
+menu idle: sd first word <1ms 96 <3ms 2 (max 1.4 ms)
+menu stalls: tls handshake 1x last 296.1 worst 296.1 ms
+menu frame: 1x, a frame averages draw 8666 us, enlarge 0 us, flip 91 us, free time used 5036 us (300 frames)
+menu idle: sd first word <1ms 20 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8768 us, enlarge 0 us, flip 92 us, free time used 30 us (300 frames)
+menu idle: sd first word <1ms 72 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9306 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9646 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9564 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9477 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9447 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9640 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9554 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9465 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9494 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9612 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9534 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9445 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9545 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9609 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9524 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9437 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9572 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9583 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9503 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9413 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9628 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9577 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9494 us, enlarge 1 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9426 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9642 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9559 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9474 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9463 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9635 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9546 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9460 us, enlarge 1 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9523 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9610 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9526 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9442 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9564 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9602 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9517 us, enlarge 0 us, flip 94 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9428 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9602 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9576 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9496 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9417 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9650 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9568 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9484 us, enlarge 0 us, flip 91 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9446 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9632 us, enlarge 0 us, flip 89 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9548 us, enlarge 0 us, flip 89 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9464 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9484 us, enlarge 0 us, flip 89 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9625 us, enlarge 0 us, flip 89 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9535 us, enlarge 0 us, flip 89 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9451 us, enlarge 0 us, flip 89 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9536 us, enlarge 0 us, flip 89 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9603 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9518 us, enlarge 0 us, flip 89 us, free time used 14 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9434 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9586 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9600 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9510 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 49 <3ms 1 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9427 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9626 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9573 us, enlarge 1 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9488 us, enlarge 1 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9428 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9656 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9569 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9480 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9487 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+menu idle: sd first word <1ms 50 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9636 us, enlarge 0 us, flip 90 us, free time used 13 us (300 frames)
+net: receiving bm/snes16.bm (57768 bytes)...
+net: /bm/snes16.bm received (57768 bytes): written on the SD card from the menu
+fiber: netxfer did not yield: 101.0 ms past its slice
+net: saved /bm/snes16.bm on the SD card (57768 bytes)
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 18 cartridges; clusters 32 KB
+covers: all 22 read
+net: receiving snes16.bm (57768 bytes)...
+net: cartridge received, starting it
+load: bm SNES-16 68 ms (close 0, parse 1, assets+state 13, mode 1, audio 0, lua 51)
+bm: screen 256x256
+bm: screen 960x540
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+bm: screen 640x360
+bm: screen 256x256
+bm: "bm SNES-16" 81186 frames, 52.0 fps, 2 dropped
+     update+draw avg 18.40 ms (110% of frame), max 26.89 ms, Lua 97 KB
+     dev kit: Lua peak 174 KB, data 450 KB, busiest frame 1k instructions, 78109 frames over 16.7 ms, 3056 tokens
+report: session_bm-snes-16_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: the GPU cannot draw 3x, 360p on the ARM
+report: sending session_bm-snes-16_pi-zero-w.txt
+menu idle: 300/300 frames, 1546 of 1813 ms taken, 107.1 ms past a frame; covers 7 ms (+1.8, stk 0.8/16K), netxfer 122 ms (+101.0, stk 1.9/64K), reports 1405 ms (+98.6, stk 7.8/128K); min slack -68502 us, paced 0
+menu idle: sd first word <1ms 87 <3ms 5 (max 1.4 ms)
+menu stalls: tls handshake 1x last 280.9 worst 280.9 ms
+menu frame: 1x, a frame averages draw 9486 us, enlarge 1 us, flip 95 us, free time used 5153 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_bm-snes-16_pi-zero-w.txt
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 142 of 1635 ms taken, 18.3 ms past a frame; reports 134 ms (+21.1, stk 7.8/128K); min slack -4456 us, paced 0
+menu idle: sd first word <1ms 30 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 10000 us, enlarge 1 us, flip 96 us, free time used 473 us (300 frames)
+menu: menu layout at the next start: Scaled
+menu idle: sd first word <1ms 78 <3ms 3 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9617 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu: menu layout at the next start: Native
+menu: menu size at the next start: 360p (ARM)
+menu: menu size at the next start: 360p (GPU)
+menu: menu size at the next start: 720p (GPU)
+menu: menu size at the next start: 1080p (GPU)
+menu idle: sd first word <1ms 102 <3ms 15 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 10772 us, enlarge 0 us, flip 92 us, free time used 13 us (300 frames)
+menu idle: sd first word <1ms 35 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9262 us, enlarge 0 us, flip 92 us, free time used 24 us (300 frames)
+menu: menu layout at the next start: Scaled
+menu idle: sd first word <1ms 65 <3ms 3 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9567 us, enlarge 0 us, flip 93 us, free time used 13 us (300 frames)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: the GPU cannot draw 3x, 360p on the ARM
+menu idle: sd first word <1ms 10 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9437 us, enlarge 0 us, flip 93 us, free time used 31 us (300 frames)
+menu: menu layout at the next start: Native
+menu idle: sd first word <1ms 60 <3ms 3 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 10309 us, enlarge 0 us, flip 92 us, free time used 16 us (300 frames)
+menu: menu size at the next start: 360p (ARM)
+menu: menu size at the next start: 360p (GPU)
+menu: menu size at the next start: 720p (GPU)
+menu idle: sd first word <1ms 60 <3ms 9 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9799 us, enlarge 0 us, flip 92 us, free time used 24 us (300 frames)
+back to the monitor
+> 
+> 
+> 
+> 
+> > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: the GPU cannot draw 2x, 360p on the ARM
+menu idle: sd first word <1ms 25 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9265 us, enlarge 0 us, flip 93 us, free time used 25 us (300 frames)
+menu: menu size at the next start: 1080p (GPU)
+back to the monitor
+> > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: the GPU cannot draw 3x, 360p on the ARM
+menu idle: sd first word <1ms 50 <3ms 3 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9289 us, enlarge 0 us, flip 93 us, free time used 23 us (300 frames)
+menu frame: 1x, a frame averages draw 8005 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8173 us, enlarge 0 us, flip 92 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8084 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 7997 us, enlarge 0 us, flip 92 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8069 us, enlarge 0 us, flip 92 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8148 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8064 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 7976 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8096 us, enlarge 0 us, flip 92 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8138 us, enlarge 0 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8051 us, enlarge 1 us, flip 91 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 7984 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8148 us, enlarge 0 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8123 us, enlarge 1 us, flip 92 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 8036 us, enlarge 1 us, flip 92 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 7953 us, enlarge 0 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8186 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8109 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8020 us, enlarge 0 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 7999 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8175 us, enlarge 1 us, flip 93 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8092 us, enlarge 0 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8005 us, enlarge 0 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8043 us, enlarge 0 us, flip 92 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 8170 us, enlarge 0 us, flip 94 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8083 us, enlarge 0 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 7998 us, enlarge 0 us, flip 93 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8094 us, enlarge 0 us, flip 92 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8147 us, enlarge 0 us, flip 92 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8062 us, enlarge 0 us, flip 93 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7974 us, enlarge 0 us, flip 92 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8115 us, enlarge 0 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8137 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8049 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 7982 us, enlarge 1 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8170 us, enlarge 0 us, flip 89 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8121 us, enlarge 0 us, flip 90 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8033 us, enlarge 0 us, flip 90 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7971 us, enlarge 0 us, flip 90 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8192 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8103 us, enlarge 0 us, flip 90 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8016 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8023 us, enlarge 0 us, flip 89 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8170 us, enlarge 0 us, flip 90 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8086 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7997 us, enlarge 1 us, flip 89 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8054 us, enlarge 0 us, flip 90 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8162 us, enlarge 1 us, flip 89 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8077 us, enlarge 1 us, flip 90 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8000 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8110 us, enlarge 0 us, flip 90 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8140 us, enlarge 0 us, flip 90 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 8054 us, enlarge 0 us, flip 90 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7969 us, enlarge 0 us, flip 90 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8140 us, enlarge 0 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8126 us, enlarge 1 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8039 us, enlarge 1 us, flip 90 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 7977 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8180 us, enlarge 1 us, flip 91 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8109 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8021 us, enlarge 0 us, flip 90 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7984 us, enlarge 0 us, flip 90 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8180 us, enlarge 0 us, flip 90 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8091 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8004 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8043 us, enlarge 0 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8159 us, enlarge 1 us, flip 90 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8073 us, enlarge 1 us, flip 90 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7985 us, enlarge 1 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8075 us, enlarge 1 us, flip 91 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8149 us, enlarge 1 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8062 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 7994 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8115 us, enlarge 1 us, flip 91 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8126 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8040 us, enlarge 1 us, flip 92 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 7955 us, enlarge 0 us, flip 91 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 8158 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8112 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8026 us, enlarge 0 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 7975 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8184 us, enlarge 0 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8096 us, enlarge 0 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8011 us, enlarge 0 us, flip 91 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 7996 us, enlarge 0 us, flip 91 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8168 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8079 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8002 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8068 us, enlarge 1 us, flip 91 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8150 us, enlarge 1 us, flip 91 us, free time used 50 us (300 frames)
+menu frame: 1x, a frame averages draw 8063 us, enlarge 0 us, flip 91 us, free time used 51 us (300 frames)
+menu frame: 1x, a frame averages draw 7980 us, enlarge 0 us, flip 92 us, free time used 50 us (300 frames)
+menu frame: 1x, a frame averages draw 8093 us, enlarge 0 us, flip 93 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8140 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8053 us, enlarge 1 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 7984 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8136 us, enlarge 0 us, flip 92 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8120 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8033 us, enlarge 1 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7951 us, enlarge 1 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8185 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8108 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8022 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8018 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8180 us, enlarge 0 us, flip 92 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 8094 us, enlarge 0 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8008 us, enlarge 1 us, flip 91 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 8028 us, enlarge 0 us, flip 91 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 8167 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8078 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8001 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8076 us, enlarge 0 us, flip 92 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8147 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8059 us, enlarge 0 us, flip 91 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 7977 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8115 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8137 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8048 us, enlarge 1 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 7981 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8155 us, enlarge 0 us, flip 92 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8115 us, enlarge 0 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8027 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 7957 us, enlarge 0 us, flip 91 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8190 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu: menu size at the next start: 360p (ARM)
+menu: menu size at the next start: 360p (GPU)
+menu: menu size at the next start: 720p (GPU)
+menu idle: sd first word <1ms 80 <3ms 9 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 10239 us, enlarge 0 us, flip 92 us, free time used 17 us (300 frames)
+menu: menu size at the next start: 1080p (GPU)
+menu idle: sd first word <1ms 35 <3ms 3 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9529 us, enlarge 0 us, flip 93 us, free time used 27 us (300 frames)
+back to the monitor
+> 
+> 
+> 
+> 
+> 
+the bm: prompt: 'help' lists the commands; Tab completes, Up repeats, 'exit' or Esc leaves
+bm: menu
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: the GPU cannot draw 3x, 360p on the ARM
+menu frame: 1x, a frame averages draw 8150 us, enlarge 0 us, flip 90 us, free time used 45 us (300 frames)
+
+playing bench3d.bm
+play: /bm/bench3d.bm (451932 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+b3d: 39 rows planned
+load: 3D Bench 86 ms (close 0, parse 15, assets+state 18, mode 5, audio 0, lua 46)
+bm: loaded in 128 ms, the splash over at 1800 ms
+bm: splash ticks: 49 frames, longest gap 8672 us at 104 ms (between 0xcfb60 and 0x1326c0)
+net: not served for 1809 ms (up 5367100 ms), while: monitor line "menu"
+net:   pc at 1s: 00094a94
+b3d spheres ARM n=1 6.69 ms worst 6.84, 25 tri, 56 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=2 4.78 ms worst 4.84, 62 tri, 112 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=3 5.95 ms worst 6.12, 98 tri, 168 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=4 7.55 ms worst 7.97, 131 tri, 224 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=6 6.36 ms worst 6.48, 208 tri, 336 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=9 8.91 ms worst 9.12, 314 tri, 504 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=13 8.94 ms worst 8.97, 493 tri, 728 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=19 9.67 ms worst 9.68, 713 tri, 1064 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=28 11.48 ms worst 11.70, 1065 tri, 1568 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=42 14.57 ms worst 14.80, 1629 tri, 2352 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=63 18.61 ms worst 18.94, 2450 tri, 3528 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=94 23.42 ms worst 23.73, 3681 tri, 5264 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+b3d spheres ARM n=141 30.59 ms worst 30.62, 5530 tri, 7896 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz
+bm: "3D Bench" suspended (A on its cover resumes it)
+bm: "3D Bench" 53 frames, 51.3 fps, 7 dropped
+     update+draw avg 14.22 ms (85% of frame), max 46.66 ms, Lua 143 KB
+     dev kit: Lua peak 166 KB, data 913 KB, busiest frame 6k instructions, 15 frames over 16.7 ms, 6922 tokens
+report: session_3d-bench_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: the GPU cannot draw 3x, 360p on the ARM
+fiber: reports did not yield: 107.7 ms past its slice
+report: sending session_3d-bench_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_3d-bench_pi-zero-w.txt
+menu idle: 300/300 frames, 978 of 1535 ms taken, 110.3 ms past a frame; reports 963 ms (+107.7, stk 7.8/128K); min slack -15000 us, paced 0
+menu idle: sd first word <1ms 65 <3ms 4 (max 2.2 ms)
+menu stalls: tls handshake 1x last 262.6 worst 262.6 ms
+menu frame: 1x, a frame averages draw 10403 us, enlarge 0 us, flip 94 us, free time used 3260 us (300 frames)
+bm: "3D Bench" closed, memory freed
+
+playing darknigh.bm
+play: /bm/darknigh.bm (2139352 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+darknight: 46 objects, 17 enemies (villager 7, huntsman 4, dog 6)
+load: Dark Night 228 ms (close 0, parse 52, assets+state 21, mode 8, audio 11, lua 134)
+bm: loaded in 388 ms, the splash over at 1800 ms
+bm: splash ticks: 49 frames, longest gap 32740 us at 370 ms (between 0xcfb60 and 0xcfb60)
+net: not served for 1812 ms (up 5375300 ms), while: cartridge menu
+net:   pc at 1s: 00094d8c
+bm: "Dark Night" suspended (A on its cover resumes it)
+bm: "Dark Night" 119 frames, 10.4 fps, 119 dropped
+     update+draw avg 95.21 ms (571% of frame), max 111.53 ms, Lua 335 KB
+     dev kit: Lua peak 335 KB, data 2289 KB, busiest frame 25k instructions, 119 frames over 16.7 ms, 11011 tokens
+report: session_dark-night_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: the GPU cannot draw 3x, 360p on the ARM
+fiber: reports did not yield: 119.4 ms past its slice
+report: sending session_dark-night_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_dark-night_pi-zero-w.txt
+bm: "Dark Night" closed, memory freed
+menu: closed darknigh.bm
+menu idle: 300/300 frames, 809 of 1600 ms taken, 122.5 ms past a frame; reports 792 ms (+119.4, stk 7.8/128K); min slack -26099 us, paced 0
+menu idle: sd first word <1ms 182 <3ms 4 (max 2.2 ms)
+menu stalls: tls handshake 1x last 322.0 worst 322.0 ms
+menu frame: 1x, a frame averages draw 10219 us, enlarge 1 us, flip 98 us, free time used 2697 us (300 frames)
+
+playing darknigh.bm
+play: /bm/darknigh.bm (2139352 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+darknight: 46 objects, 17 enemies (villager 7, huntsman 4, dog 6)
+load: Dark Night 224 ms (close 0, parse 52, assets+state 20, mode 5, audio 10, lua 134)
+bm: loaded in 384 ms, the splash over at 1800 ms
+bm: splash ticks: 48 frames, longest gap 32941 us at 366 ms (between 0xcfb60 and 0xcfb60)
+net: not served for 1809 ms (up 5394300 ms), while: cartridge menu
+net:   pc at 1s: 0002d560
+bm: "Dark Night" suspended (A on its cover resumes it)
+bm: "Dark Night" 6 frames, 9.4 fps, 6 dropped
+     update+draw avg 104.56 ms (627% of frame), max 111.53 ms, Lua 242 KB
+     dev kit: Lua peak 242 KB, data 2289 KB, busiest frame 23k instructions, 6 frames over 16.7 ms, 11011 tokens
+menu: the GPU cannot draw 3x, 360p on the ARM
+bm: "Dark Night" closed, memory freed
+menu: closed darknigh.bm
+market: nearby consoles: listening as bm-108
+menu idle: sd first word <1ms 132 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 10067 us, enlarge 1 us, flip 98 us, free time used 32 us (300 frames)
+market: downloading games/darknight/darknight.bm (2193120 bytes)
+menu idle: 300/300 frames, 222 of 1583 ms taken, 51.1 ms past a frame; market 217 ms (+55.8, stk 4.0/128K); min slack -4621 us, paced 0
+menu stalls: tls handshake 1x last 166.2 worst 166.2 ms
+menu frame: 1x, a frame averages draw 10082 us, enlarge 1 us, flip 92 us, free time used 742 us (300 frames)
+menu idle: 300/300 frames, 2056 of 2034 ms taken, 1.4 ms past a frame; market 2049 ms (+1.4, stk 4.0/128K); min slack 4879 us, paced 0
+menu frame: 1x, a frame averages draw 8286 us, enlarge 1 us, flip 96 us, free time used 6854 us (300 frames)
+fiber: market did not yield: 112.6 ms past its slice
+market: games/darknight/darknight.bm -> /bm/darknigh.bm
+market: Dark Night installed
+covers: all 22 read
+menu idle: 300/300 frames, 1387 of 1630 ms taken, 110.1 ms past a frame; covers 7 ms (+1.8, stk 0.8/16K), market 1371 ms (+112.6, stk 4.0/128K); min slack -14308 us, paced 0
+menu idle: sd first word <1ms 127 <3ms 5 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9680 us, enlarge 1 us, flip 93 us, free time used 4624 us (300 frames)
+
+playing darknigh.bm
+play: /bm/darknigh.bm (2193120 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+darknight: 45 objects, 16 enemies (villager 6, huntsman 4, dog 6)
+load: Dark Night 236 ms (close 0, parse 53, assets+state 22, mode 8, audio 11, lua 139)
+bm: loaded in 395 ms, the splash over at 1800 ms
+bm: splash ticks: 48 frames, longest gap 32774 us at 377 ms (between 0x1326c0 and 0xcfb60)
+net: not served for 1809 ms (up 5416800 ms), while: cartridge menu
+net:   pc at 1s: 00094d88
+darknight: door opens
+darknight: door opens
+bm: "Dark Night" 303 frames, 10.6 fps, 302 dropped
+     update+draw avg 92.98 ms (557% of frame), max 116.08 ms, Lua 238 KB
+     dev kit: Lua peak 405 KB, data 2335 KB, busiest frame 28k instructions, 302 frames over 16.7 ms, 11933 tokens
+report: session_dark-night_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: the GPU cannot draw 3x, 360p on the ARM
+report: sending session_dark-night_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_dark-night_pi-zero-w.txt
+menu idle: 300/300 frames, 1105 of 1896 ms taken, 98.0 ms past a frame; reports 1090 ms (+98.0, stk 7.8/128K); min slack -6440 us, paced 0
+menu idle: sd first word <1ms 122 <3ms 4 (max 2.2 ms)
+menu stalls: tls handshake 1x last 313.1 worst 313.1 ms
+menu frame: 1x, a frame averages draw 8895 us, enlarge 0 us, flip 91 us, free time used 3684 us (300 frames)
+menu idle: sd first word <1ms 40 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9419 us, enlarge 0 us, flip 91 us, free time used 21 us (300 frames)
+back to the monitor
+bm: 
+> net: transfer with a wrong password from 192.168.1.97
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+
+net: console opened from 192.168.1.97
+> :
+:log
+: log
