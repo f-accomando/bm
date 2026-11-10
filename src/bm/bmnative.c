@@ -106,6 +106,20 @@ static int check_armv6_words(const uint32_t *code, uint32_t ncode, const char **
             *why = "breakpoint instruction not allowed";
             return BMN_ERR_BAD;
         }
+        /* Validate ARM Block Data Transfer: LDM / STM (bits 27..25 == 0b100). */
+        if (((w >> 25) & 7u) == 4u) {
+            const uint32_t rn = (w >> 16) & 0xFu;
+            const uint32_t reglist = w & 0xFFFFu;
+            const uint32_t s_bit = (w >> 22) & 1u;
+            if (s_bit != 0u || reglist == 0u || rn == 15u) {
+                *why = "block transfer not allowed";
+                return BMN_ERR_BAD;
+            }
+            if ((w & 0x0FFF0000u) != 0x08BD0000u && (reglist & (1u << 15)) != 0u) {
+                *why = "block transfer to pc not allowed";
+                return BMN_ERR_BAD;
+            }
+        }
         /* Check relative branch B / BL targets stay within [0, ncode). */
         if (((w >> 25) & 7u) == 5u) {
             int32_t imm24 = (int32_t)(w & 0xFFFFFFu);
@@ -552,6 +566,52 @@ static int sim_armv6_call(const bmnative_mod *m, uint32_t entry_word, const int3
                     r[13] += 4u;
                 }
             }
+            continue;
+        }
+
+        /* 4b. Generic LDM / STM (bits 27..25 == 0b100) */
+        if (((w >> 25) & 7u) == 4u) {
+            const uint32_t p_bit = (w >> 24) & 1u;
+            const uint32_t u_bit = (w >> 23) & 1u;
+            const uint32_t s_bit = (w >> 22) & 1u;
+            const uint32_t w_bit = (w >> 21) & 1u;
+            const uint32_t l_bit = (w >> 20) & 1u;
+            const uint32_t rn    = (w >> 16) & 0xFu;
+            const uint32_t mask  = w & 0xFFFFu;
+            if (s_bit != 0u || rn == 15u || mask == 0u)
+                return BMN_ERR_TRAP;
+            uint32_t cnt = 0;
+            for (int reg = 0; reg <= 15; reg++) {
+                if (mask & (1u << reg))
+                    cnt++;
+            }
+            uint32_t start_addr = 0, wb_addr = 0;
+            if (u_bit && !p_bit) {
+                start_addr = r[rn];
+                wb_addr = r[rn] + cnt * 4u;
+            } else if (u_bit && p_bit) {
+                start_addr = r[rn] + 4u;
+                wb_addr = r[rn] + cnt * 4u;
+            } else if (!u_bit && p_bit) {
+                start_addr = r[rn] - cnt * 4u;
+                wb_addr = start_addr;
+            } else {
+                start_addr = r[rn] - cnt * 4u + 4u;
+                wb_addr = r[rn] - cnt * 4u;
+            }
+            uint32_t ea = start_addr;
+            for (int reg = 0; reg <= 15; reg++) {
+                if (mask & (1u << reg)) {
+                    uint32_t val = l_bit ? 0u : r[reg];
+                    if (sim_mem_access(m, bufs, stack, curr_pc, rn, ea, (int)l_bit, 0, &val) != BMN_OK)
+                        return BMN_ERR_TRAP;
+                    if (l_bit)
+                        r[reg] = val;
+                    ea += 4u;
+                }
+            }
+            if (w_bit && !(l_bit && (mask & (1u << rn))))
+                r[rn] = wb_addr;
             continue;
         }
 
@@ -1092,6 +1152,31 @@ void bmnative_disasm_word(uint32_t w, char *buf, size_t cap)
     } else if ((w & 0x0FFF0000u) == 0x08BD0000u) {
         db_str(&d, "pop"); db_str(&d, cc); db_str(&d, " {0x");
         db_hex(&d, w & 0xFFFFu, 4); db_ch(&d, '}');
+    } else if (((w >> 25) & 7u) == 4u) {
+        const int is_ldm = (int)((w >> 20) & 1u);
+        const uint32_t p_bit = (w >> 24) & 1u;
+        const uint32_t u_bit = (w >> 23) & 1u;
+        const uint32_t w_bit = (w >> 21) & 1u;
+        const uint32_t rn    = (w >> 16) & 0xFu;
+        const uint32_t mask  = w & 0xFFFFu;
+        db_str(&d, is_ldm ? "ldm" : "stm");
+        db_str(&d, u_bit ? (p_bit ? "ib" : "ia") : (p_bit ? "db" : "da"));
+        db_str(&d, cc);
+        db_ch(&d, ' ');
+        db_reg(&d, rn);
+        if (w_bit)
+            db_ch(&d, '!');
+        db_str(&d, ", {");
+        int first = 1;
+        for (uint32_t reg = 0; reg < 16; reg++) {
+            if (mask & (1u << reg)) {
+                if (!first)
+                    db_str(&d, ", ");
+                db_reg(&d, reg);
+                first = 0;
+            }
+        }
+        db_ch(&d, '}');
     } else if ((w & 0x0FC000F0u) == 0x00000090u) {
         uint32_t rd = (w >> 16) & 0xFu, rn = (w >> 12) & 0xFu, rs = (w >> 8) & 0xFu, rm = w & 0xFu;
         int is_mla = (int)((w >> 21) & 1u);

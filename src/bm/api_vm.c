@@ -16,6 +16,7 @@
  *   f = native_fn(m, "name")        the number of a function, or nil
  *   r = native_run(m, f, args...)   calls function f (number or "name") with i32/bool/f32/array/struct arguments and returns its result
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -322,14 +323,32 @@ int32_t bmnative_lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t
 {
     if (g_fast_host && host_id >= BMN_HOST_S16_BASE)
         return g_fast_host(host_id, args, nargs);
+    if (host_id == BMN_HOST_SIN || host_id == BMN_HOST_COS || host_id == BMN_HOST_ATAN2) {
+        uint32_t bits = 0;
+        if (host_id == BMN_HOST_SIN || host_id == BMN_HOST_COS) {
+            float a = 0.0f;
+            if (nargs >= 1 && args)
+                memcpy(&a, &args[0], 4);
+            float r = (host_id == BMN_HOST_SIN) ? sinf(a) : cosf(a);
+            memcpy(&bits, &r, 4);
+        } else {
+            float y = 0.0f, x = 0.0f;
+            if (nargs >= 2 && args) {
+                memcpy(&y, &args[0], 4);
+                memcpy(&x, &args[1], 4);
+            }
+            float r = atan2f(y, x);
+            memcpy(&bits, &r, 4);
+        }
+        return (int32_t)bits;
+    }
     lua_State *L = g_active_lua;
     if (!L)
         return 0;
     static const char *const names[] = {
         "cls", "pix", "rectfill", "spr", "btn",
         "btnp", "line", "circ", "circfill", "rect",
-        "sfx", "music", "time", "print",
-        "sin", "cos", "atan2"
+        "sfx", "music", "time", "print"
     };
     if (host_id < 0 || host_id >= (int)(sizeof names / sizeof names[0]))
         return 0;
@@ -338,42 +357,11 @@ int32_t bmnative_lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t
         if (host_id == BMN_HOST_PIX) {
             lua_pop(L, 1);
             lua_getglobal(L, "pset");
-        } else if (host_id == BMN_HOST_SIN || host_id == BMN_HOST_COS || host_id == BMN_HOST_ATAN2) {
-            lua_pop(L, 1);
-            lua_getglobal(L, "math");
-            if (lua_istable(L, -1)) {
-                if (host_id == BMN_HOST_ATAN2) {
-                    lua_getfield(L, -1, "atan2");
-                    if (!lua_isfunction(L, -1)) {
-                        lua_pop(L, 1);
-                        lua_getfield(L, -1, "atan");
-                    }
-                } else {
-                    lua_getfield(L, -1, names[host_id]);
-                }
-                lua_remove(L, -2);
-            }
         }
     }
     if (!lua_isfunction(L, -1)) {
         lua_pop(L, 1);
         return 0;
-    }
-    if (host_id == BMN_HOST_SIN || host_id == BMN_HOST_COS || host_id == BMN_HOST_ATAN2) {
-        for (int32_t i = 0; i < nargs; i++) {
-            float farg = 0.0f;
-            memcpy(&farg, &args[i], 4);
-            lua_pushnumber(L, (lua_Number)farg);
-        }
-        if (lua_pcall(L, nargs, 1, 0) != LUA_OK) {
-            lua_pop(L, 1);
-            return 0;
-        }
-        float val = (float)lua_tonumber(L, -1);
-        lua_pop(L, 1);
-        uint32_t bits = 0;
-        memcpy(&bits, &val, 4);
-        return (int32_t)bits;
     }
     if (host_id == BMN_HOST_PRINT) {
         if (nargs > 0)

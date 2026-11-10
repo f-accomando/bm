@@ -30,7 +30,7 @@ A cartridge carries typed hot functions as data, a blob that `scripts/bmtvm.py` 
 
 ## Native ARMv6 compiler and loader (experiment)
 
-A cartridge for the Pi Zero W compiles `.b` source strings on the console with `native_compile(src)` (`src/bm/bmlc.c`) or carries a precompiled `BMN1` module (`tools/bml/bml.py --native`) or raw 32-bit ARMv6 A32 machine words (`--armv6`). `native_load` checks the instructions (no supervisor calls, only VFPv2 coprocessor 10/11 floating-point instructions allowed, all branches inside the module), copies the words into 32-byte-aligned executable RAM, cleans the D-cache (`mcr p15, 0, a, c7, c10, 1`), invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch predictor (`c7, c5, 6`), and executes `DSB` + `ISB` before the first call. Test with `if native_load then`.
+A cartridge for the Pi Zero W compiles `.b` source strings on the console with `native_compile(src)` (`src/bm/bmlc.c`) or carries a precompiled `BMN1` module (`tools/bml/bml.py --native`) or raw 32-bit ARMv6 A32 machine words (`--armv6`). `native_load` checks the instructions (no supervisor calls, only VFPv2 coprocessor 10 single-precision floating-point instructions allowed, all branches inside the module), copies the words into 32-byte-aligned executable RAM, cleans the D-cache (`mcr p15, 0, a, c7, c10, 1`), invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch predictor (`c7, c5, 6`), and executes `DSB` + `ISB` before the first call. Test with `if native_load then`.
 
 | Function | Description |
 |---|---|

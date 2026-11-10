@@ -880,8 +880,8 @@ Although `.b` emits native 32-bit ARMv6 A32 + VFPv2 machine code (via [`tools/bm
 | **Prologue / epilogue** | Lua C frame | `bmlc.c` minimal callee-saved set & zero-frame tiny leaves; `bml.py` pushes `{r4-r10, fp, lr}` | Minimal callee-saved set; leaf functions omit stack frames |
 | **Division (`//`, `%`)** | VM opcode | Power-of-2 constant divisors lowered to `asr`/`and` in `bmlc.c`; general divisors call `__bml_idivmod` | Constant divisors lowered to multiply + shift |
 | **Array indexing** | Hash/array table lookup | `bmlc.c` uses `ldr/str [base_m4, idx, lsl #2]` and `vldr/vstr` on hoisted `base - 4`; `bml.py` computes `(idx - 1) << 2` | Pointer induction with pre/post-increment (`ldr r, [p], #4`) |
-| **Bulk memory** | C `memcpy` via API | `OP_MEMCPY`/`OP_MEMSET` emit byte loops (`ldrb`/`strb`) | Word/block transfers (`ldm`/`stm`) |
-| **Math & kernel calls** | Direct C API call | `OP_CALL_HOST` routes through `lua_host_dispatch` | Direct `bl` to C / `libm` |
+| **Bulk memory** | C `memcpy` via API | `bmlc.c` uses 16-byte `ldmia`/`stmia` + word loops (`__bml_memcpy`/`__bml_memset`); `bml.py` uses byte loops (`ldrb`/`strb`) | Word/block transfers (`ldm`/`stm`) |
+| **Math & kernel calls** | Direct C API call | `bmlc.c` dispatches `sin`/`cos`/`atan2` (`api_vm.c`) and `s16_*` (`snes16.c`) directly in C; other `OP_CALL_HOST` calls route through Lua | Direct `bl` to C / `libm` |
 
 ### 10.2 Why `.b` Still Matters in `bm`
 
@@ -898,7 +898,7 @@ For the **same algorithm with compile-time-known data**, `.b` cannot outperform 
 
 However, `.b` has three narrow architectural paths where it can **match or outperform static Ahead-of-Time (AOT) kernel C**:
 
-1. **Runtime specialization (partial evaluation via `native_compile`)**: Kernel C is compiled once ahead of time and must branch on runtime flags, map dimensions, blend modes, or function pointers inside hot loops. Because `native_compile` generates machine code on the console in RAM, a cartridge can synthesize `.b` source with level constants, formulas, or dimensions baked in—eliminating branches and memory loads inside the inner loop *(requires adding constant folding and dead-branch elimination to `bmlc.c`)*.
+1. **Runtime specialization (partial evaluation via `native_compile`)**: Kernel C is compiled once ahead of time and must branch on runtime flags, map dimensions, blend modes, or function pointers inside hot loops. Because `native_compile` generates machine code on the console in RAM, a cartridge can synthesize `.b` source with level constants, formulas, or dimensions baked in—and `bmlc.c` folds constants and eliminates dead branches inside the inner loop.
 2. **Fusing cartridge logic without callback overhead**: Generic C subsystems (particle updaters, collision filters, custom sort comparators) must invoke a callback or return to Lua per element. Compiling the cartridge's custom inner loop as one `.b` function removes indirect calls and Lua crossings.
 3. **Targeted backend primitives**: Emitting ARMv6 integer SIMD (`uadd8`, `sadd16`, `usad8`) or word/block `ldm`/`stm` memory loops directly from `.b` builtins can beat portable scalar C written without compiler intrinsics or inline assembly.
 
@@ -912,11 +912,10 @@ While general-purpose GCC `-O2`/`-O3` remains hard to beat on arbitrary programs
    - Fold 8-bit rotated constants directly into `add`/`sub`/`cmp`/`cmn`/bitwise immediates, lower `OP_AGET`/`OP_ASET` to `ldr`/`str [base_m4, idx, lsl #2]`, and hoist `base - 4` for unmodified array parameters.
 3. **Minimal prologue/epilogue and generic leaf functions *(done in `bmlc.c`)***:
    - Save/restore only the subset of `r4..r10` (plus `fp`, `lr`) touched by the function, and omit `push`/`pop` entirely (`bx lr`) for leaf functions without calls or callee-saved slots.
-4. **Low-cost local/peephole passes and word-block memory *(partly done in `bmlc.c`)***:
-   - Done: fuse `a + b * c` into `mla` (`i32`) and `vmla.f32`/`vmls.f32` (`f32`), fuse `cmp`/`fcmp` + `jz`, alias `OP_LOAD`, and lower power-of-2 constant `*`, `//`, `%` to shifts/masks (`lsl`, `asr`, `and`/`bic`).
-   - Open: compile-time constant folding and dead-branch elimination (unlocking runtime specialization via `native_compile`), and word/block `ldm`/`stm` transfers for `OP_MEMCPY`/`OP_MEMSET` in [`bml_compile_native`](../../src/bm/bmlc.c).
-5. **Small-function inlining and direct C math fast-paths**:
-   - Inline small `.b` helper functions called inside hot loops and bind `sin`, `cos`, and `atan2` directly to C/VFP implementations instead of routing `OP_CALL_HOST` through [`lua_host_dispatch`](../../src/bm/api_vm.c).
+4. **Low-cost local/peephole passes and word-block memory *(done in `bmlc.c`)***:
+   - Done: compile-time scalar constant propagation/folding, dead-branch elimination (unlocking runtime specialization via `native_compile`), word/block `ldmia`/`stmia` transfers for `OP_MEMCPY`/`OP_MEMSET`, `mla` (`i32`) and `vmla.f32`/`vmls.f32` (`f32`) fusion, `cmp`/`fcmp` + `jz` fusion, `OP_LOAD` aliasing, and power-of-2 constant `*`, `//`, `%` shifts/masks.
+5. **Small-function inlining and direct C math fast-paths *(done in `bmlc.c` + `api_vm.c`)***:
+   - Done: [`optimize_ir`](../../src/bm/bmlc.c) inlines leaf small `.b` helper functions (`code_len <= 48`, no `OP_NEW_ARR`) directly into callers, and [`bmnative_lua_host_dispatch`](../../src/bm/api_vm.c) binds `sin`, `cos`, and `atan2` directly to C `libm` (`sinf`, `cosf`, `atan2f`) without Lua lookups. (Offline PC build-time SSA/graph-coloring/LICM in [`tools/bml/bml.py`](../../tools/bml/bml.py) remains an optional Path B track in §10.5.)
 
 ### 10.5 Two Implementation Paths (Combinable)
 

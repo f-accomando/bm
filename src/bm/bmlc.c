@@ -155,13 +155,13 @@ typedef struct {
     uint8_t  nparams;
     uint8_t  nlocals;
     uint8_t  ret_type;
+    uint8_t  is_leaf_sum;
     uint8_t  ptype[MAX_PARAMS];
     char     lname[MAX_LOCALS][32];
     uint8_t  ltype[MAX_LOCALS];
     uint16_t lcount[MAX_LOCALS];
     uint16_t code_start;
     uint16_t code_len;
-    uint8_t  is_leaf_sum;
     uint32_t word_off;
 } c_func_t;
 
@@ -3173,14 +3173,16 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
     int n = fn->code_len;
     int cur_arr_word = 0;
     for (int pc = 0; pc < n; pc++) {
-        C->pc_word[pc] = (uint32_t)C->nwords;
         int sp = C->depths[pc];
         uint64_t f32_mask = C->stack_f32[pc];
         c_insn_t ins = C->insns[fn->code_start + pc];
         uint8_t op = ins.op;
 
-        if (C->is_target[pc])
+        if (C->is_target[pc]) {
             cg_flush_all_aliases(C, &cg, f32_mask, sp);
+            memset(cg.alias_loc, -1, sizeof cg.alias_loc);
+        }
+        C->pc_word[pc] = (uint32_t)C->nwords;
 
         /* Peephole: OP_PUSH_CONST + array/ALU/compare/branch */
         if (op == OP_PUSH_CONST && pc + 1 < n && !C->is_target[pc + 1]) {
@@ -4027,6 +4029,908 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
     }
 }
 
+/* ---------------------------------------------------------------------------
+ * IR Optimization Passes (Constant Folding & DCE, Small-Function Inlining)
+ * --------------------------------------------------------------------------- */
+
+static inline float bits_to_f32(uint32_t u)
+{
+    float f;
+    memcpy(&f, &u, 4);
+    return f;
+}
+
+static inline int is_f32_nan(uint32_t u)
+{
+    return ((u & 0x7F800000u) == 0x7F800000u) && ((u & 0x007FFFFFu) != 0);
+}
+
+static inline int is_f32_finite(uint32_t u)
+{
+    return (u & 0x7F800000u) != 0x7F800000u;
+}
+
+typedef struct {
+    /* Per-function optimization scratch buffers */
+    uint8_t   is_target[MAX_INSNS + 1];
+    uint8_t   reachable[MAX_INSNS + 1];
+    uint16_t  queue[MAX_INSNS + 1];
+    int16_t   orig_to_new[MAX_INSNS + 1];
+
+    /* Inlining expansion buffer (also reused as compaction scratch) */
+    c_insn_t  out_code[MAX_INSNS];
+
+    uint16_t  snap_start[MAX_FUNCS];
+    uint16_t  snap_lens[MAX_FUNCS];
+    uint8_t   snap_locals[MAX_FUNCS];
+    uint8_t   eligible[MAX_FUNCS];
+    uint8_t   fn_changed[MAX_FUNCS];
+    uint16_t  out_start[MAX_FUNCS];
+    uint16_t  out_lens[MAX_FUNCS];
+
+    int       store_cnt[MAX_LOCALS];
+    int16_t   store_pc[MAX_LOCALS];
+    int       load_cnt[MAX_LOCALS];
+    uint8_t   bb_const_valid[MAX_LOCALS];
+    c_insn_t  bb_const_insn[MAX_LOCALS];
+} opt_scratch_t;
+
+static void recompute_is_target(const c_insn_t *ins, int n, uint8_t *is_target)
+{
+    memset(is_target, 0, (size_t)(n + 1) * sizeof(uint8_t));
+    for (int i = 0; i < n; i++) {
+        uint8_t op = ins[i].op;
+        if (op == OP_JMP || op == OP_JZ || op == OP_JF_KEEP || op == OP_JT_KEEP) {
+            int t = ins[i].arg;
+            if (t >= 0 && t <= n)
+                is_target[t] = 1;
+        }
+    }
+}
+
+static void bml_memmove(void *dst, const void *src, size_t n)
+{
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    if (d < s) {
+        for (size_t i = 0; i < n; i++)
+            d[i] = s[i];
+    } else if (d > s) {
+        for (size_t i = n; i > 0; i--)
+            d[i - 1] = s[i - 1];
+    }
+}
+
+static void fn_delete_insns(c_insn_t *ins, int *len, int start_pc, int count)
+{
+    int n = *len;
+    for (int i = 0; i < n; i++) {
+        uint8_t op = ins[i].op;
+        if (op == OP_JMP || op == OP_JZ || op == OP_JF_KEEP || op == OP_JT_KEEP) {
+            int tgt = ins[i].arg;
+            if (tgt >= start_pc + count)
+                ins[i].arg = tgt - count;
+            else if (tgt >= start_pc)
+                ins[i].arg = start_pc;
+        }
+    }
+    bml_memmove(&ins[start_pc], &ins[start_pc + count], (size_t)(n - (start_pc + count)) * sizeof(c_insn_t));
+    *len = n - count;
+}
+
+static void repack_insns(bmlc_ctx_t *C)
+{
+    int cur = 0;
+    for (int i = 0; i < C->nfuncs; i++) {
+        c_func_t *fn = &C->funcs[i];
+        if (fn->code_start != cur) {
+            bml_memmove(&C->insns[cur], &C->insns[fn->code_start], (size_t)fn->code_len * sizeof(c_insn_t));
+            fn->code_start = (uint16_t)cur;
+        }
+        cur += (int)fn->code_len;
+    }
+    C->ninsns = cur;
+}
+
+static int opt_constant_propagation(bmlc_ctx_t *C, c_func_t *fn, opt_scratch_t *scratch)
+{
+    int changed = 0;
+    c_insn_t *ins = &C->insns[fn->code_start];
+    int n = fn->code_len;
+    uint8_t *is_target = scratch->is_target;
+
+    int first_ctrl = n;
+    for (int pc = 0; pc < n; pc++) {
+        uint8_t op = ins[pc].op;
+        if (is_target[pc] || op == OP_JMP || op == OP_JZ || op == OP_JF_KEEP || op == OP_JT_KEEP ||
+            op == OP_CALL || op == OP_CALL_HOST || op == OP_RET || op == OP_RET0) {
+            first_ctrl = pc;
+            break;
+        }
+    }
+
+    int *store_cnt = scratch->store_cnt;
+    int16_t *store_pc  = scratch->store_pc;
+    int *load_cnt  = scratch->load_cnt;
+
+    for (int s = 0; s < (int)fn->nlocals; s++) {
+        store_cnt[s] = 0;
+        store_pc[s]  = -1;
+        load_cnt[s]  = 0;
+    }
+
+    for (int pc = 0; pc < n; pc++) {
+        uint8_t op = ins[pc].op;
+        int arg = ins[pc].arg;
+        if (op == OP_STORE && arg >= 0 && arg < (int)fn->nlocals) {
+            store_cnt[arg]++;
+            store_pc[arg] = (int16_t)pc;
+        } else if (op == OP_LOAD && arg >= 0 && arg < (int)fn->nlocals) {
+            load_cnt[arg]++;
+        }
+    }
+
+    for (int s = (int)fn->nparams; s < (int)fn->nlocals; s++) {
+        uint8_t t = fn->ltype[s];
+        if (t != BMN_I32 && t != BMN_F32 && t != BMN_BOOL)
+            continue;
+        if (store_cnt[s] == 1) {
+            int spc = (int)store_pc[s];
+            if (spc < first_ctrl && spc > 0 && !is_target[spc] && !is_target[spc - 1]) {
+                c_insn_t lit = ins[spc - 1];
+                if (lit.op == OP_PUSH_CONST || lit.op == OP_PUSH_FCONST ||
+                    lit.op == OP_PUSH_TRUE || lit.op == OP_PUSH_FALSE) {
+                    /* Keep hoisted f32 constants in VFP registers across loops/multi-uses. */
+                    int allow_prop = 1;
+                    if (t == BMN_F32) {
+                        int in_loop = 0;
+                        if (load_cnt[s] > 1) {
+                            allow_prop = 0;
+                        } else {
+                            int lpc = -1;
+                            for (int pc = spc + 1; pc < n; pc++) {
+                                if (ins[pc].op == OP_LOAD && ins[pc].arg == s) {
+                                    lpc = pc;
+                                    break;
+                                }
+                            }
+                            for (int pc = spc + 1; pc < n && lpc >= 0; pc++) {
+                                uint8_t jop = ins[pc].op;
+                                if ((jop == OP_JMP || jop == OP_JZ || jop == OP_JF_KEEP || jop == OP_JT_KEEP) &&
+                                    ins[pc].arg <= pc && lpc >= ins[pc].arg && lpc <= pc) {
+                                    in_loop = 1;
+                                    break;
+                                }
+                            }
+                            if (in_loop)
+                                allow_prop = 0;
+                        }
+                    }
+                    if (allow_prop) {
+                        for (int pc = spc + 1; pc < n; pc++) {
+                            if (ins[pc].op == OP_LOAD && ins[pc].arg == s) {
+                                ins[pc] = lit;
+                                load_cnt[s]--;
+                                changed = 1;
+                            }
+                        }
+                        if (load_cnt[s] == 0 && !is_target[spc] && !is_target[spc - 1]) {
+                            fn_delete_insns(ins, &n, spc - 1, 2);
+                            fn->code_len = (uint16_t)n;
+                            recompute_is_target(ins, n, is_target);
+                            changed = 1;
+                            return changed;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    uint8_t *bb_const_valid = scratch->bb_const_valid;
+    c_insn_t *bb_const_insn = scratch->bb_const_insn;
+    memset(bb_const_valid, 0, (size_t)fn->nlocals * sizeof(uint8_t));
+
+    for (int pc = 0; pc < n; pc++) {
+        if (is_target[pc]) {
+            memset(bb_const_valid, 0, (size_t)fn->nlocals * sizeof(uint8_t));
+        }
+        uint8_t op = ins[pc].op;
+        int arg = ins[pc].arg;
+
+        if (op == OP_LOAD && arg >= 0 && arg < (int)fn->nlocals) {
+            if (bb_const_valid[arg]) {
+                ins[pc] = bb_const_insn[arg];
+                changed = 1;
+            }
+        } else if (op == OP_STORE && arg >= 0 && arg < (int)fn->nlocals) {
+            if (pc > 0 && !is_target[pc]) {
+                uint8_t prev_op = ins[pc - 1].op;
+                uint8_t t = fn->ltype[arg];
+                if ((t == BMN_I32 || t == BMN_F32 || t == BMN_BOOL) &&
+                    (prev_op == OP_PUSH_CONST || prev_op == OP_PUSH_FCONST ||
+                     prev_op == OP_PUSH_TRUE || prev_op == OP_PUSH_FALSE)) {
+                    bb_const_valid[arg] = 1;
+                    bb_const_insn[arg] = ins[pc - 1];
+                } else {
+                    bb_const_valid[arg] = 0;
+                }
+            } else {
+                bb_const_valid[arg] = 0;
+            }
+        } else if (op == OP_JMP || op == OP_JZ || op == OP_JF_KEEP || op == OP_JT_KEEP ||
+                   op == OP_CALL || op == OP_CALL_HOST || op == OP_RET || op == OP_RET0) {
+            memset(bb_const_valid, 0, (size_t)fn->nlocals * sizeof(uint8_t));
+        }
+    }
+
+    return changed;
+}
+
+static int opt_constant_folding(bmlc_ctx_t *C, c_func_t *fn, uint8_t *is_target)
+{
+    int changed = 0;
+    c_insn_t *ins = &C->insns[fn->code_start];
+    int n = fn->code_len;
+
+    for (int i = 0; i < n; i++) {
+        /* Ternary ops: [i], [i+1], [i+2], [i+3] */
+        if (i + 3 < n && !is_target[i+1] && !is_target[i+2] && !is_target[i+3]) {
+            uint8_t op = ins[i+3].op;
+            if (op == OP_CLAMP) {
+                if (ins[i].op == OP_PUSH_CONST && ins[i+1].op == OP_PUSH_CONST && ins[i+2].op == OP_PUSH_CONST) {
+                    int32_t x  = C->consts[ins[i].arg];
+                    int32_t lo = C->consts[ins[i+1].arg];
+                    int32_t hi = C->consts[ins[i+2].arg];
+                    int32_t res = x;
+                    if (res < lo) res = lo;
+                    if (res > hi) res = hi;
+                    ins[i].op = OP_PUSH_CONST;
+                    ins[i].arg = add_const(C, res, 1);
+                    fn_delete_insns(ins, &n, i + 1, 3);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            } else if (op == OP_FCLAMP) {
+                if (ins[i].op == OP_PUSH_FCONST && ins[i+1].op == OP_PUSH_FCONST && ins[i+2].op == OP_PUSH_FCONST) {
+                    uint32_t b0 = C->fconsts[ins[i].arg];
+                    uint32_t b1 = C->fconsts[ins[i+1].arg];
+                    uint32_t b2 = C->fconsts[ins[i+2].arg];
+                    if (!is_f32_nan(b0) && !is_f32_nan(b1) && !is_f32_nan(b2)) {
+                        float x  = bits_to_f32(b0);
+                        float lo = bits_to_f32(b1);
+                        float hi = bits_to_f32(b2);
+                        float res = x;
+                        if (res < lo) res = lo;
+                        if (res > hi) res = hi;
+                        ins[i].op = OP_PUSH_FCONST;
+                        ins[i].arg = add_fconst(C, res, 1);
+                        fn_delete_insns(ins, &n, i + 1, 3);
+                        fn->code_len = (uint16_t)n;
+                        recompute_is_target(ins, n, is_target);
+                        changed = 1;
+                        i--;
+                        continue;
+                    }
+                }
+            } else if (op == OP_FLERP) {
+                if (ins[i].op == OP_PUSH_FCONST && ins[i+1].op == OP_PUSH_FCONST && ins[i+2].op == OP_PUSH_FCONST) {
+                    uint32_t b0 = C->fconsts[ins[i].arg];
+                    uint32_t b1 = C->fconsts[ins[i+1].arg];
+                    uint32_t b2 = C->fconsts[ins[i+2].arg];
+                    if (is_f32_finite(b0) && is_f32_finite(b1) && is_f32_finite(b2)) {
+                        float a = bits_to_f32(b0);
+                        float b = bits_to_f32(b1);
+                        float t = bits_to_f32(b2);
+                        float res = a + (b - a) * t;
+                        uint32_t r_bits = f32_to_bits(res);
+                        if (is_f32_finite(r_bits)) {
+                            ins[i].op = OP_PUSH_FCONST;
+                            ins[i].arg = add_fconst(C, res, 1);
+                            fn_delete_insns(ins, &n, i + 1, 3);
+                            fn->code_len = (uint16_t)n;
+                            recompute_is_target(ins, n, is_target);
+                            changed = 1;
+                            i--;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        /* Binary ops: [i], [i+1], [i+2] */
+        if (i + 2 < n && !is_target[i+1] && !is_target[i+2]) {
+            uint8_t op = ins[i+2].op;
+            if (ins[i].op == OP_PUSH_CONST && ins[i+1].op == OP_PUSH_CONST) {
+                int32_t a = C->consts[ins[i].arg];
+                int32_t b = C->consts[ins[i+1].arg];
+                int folded = 0;
+                int32_t res_i32 = 0;
+                int is_bool = 0;
+                int res_bool = 0;
+
+                switch (op) {
+                case OP_ADD:  res_i32 = (int32_t)((uint32_t)a + (uint32_t)b); folded = 1; break;
+                case OP_SUB:  res_i32 = (int32_t)((uint32_t)a - (uint32_t)b); folded = 1; break;
+                case OP_MUL:  res_i32 = (int32_t)((uint32_t)a * (uint32_t)b); folded = 1; break;
+                case OP_IDIV: {
+                    if (b == 0) {
+                        res_i32 = 0;
+                    } else {
+                        int64_t q = (int64_t)a / (int64_t)b;
+                        int64_t rem = (int64_t)a % (int64_t)b;
+                        if (((a < 0) ^ (b < 0)) && rem != 0)
+                            q -= 1;
+                        res_i32 = (int32_t)q;
+                    }
+                    folded = 1;
+                    break;
+                }
+                case OP_IMOD: {
+                    if (b == 0) {
+                        res_i32 = 0;
+                    } else {
+                        int64_t q = (int64_t)a / (int64_t)b;
+                        int64_t rem = (int64_t)a % (int64_t)b;
+                        if (((a < 0) ^ (b < 0)) && rem != 0)
+                            q -= 1;
+                        res_i32 = (int32_t)((int64_t)a - q * (int64_t)b);
+                    }
+                    folded = 1;
+                    break;
+                }
+                case OP_BAND: res_i32 = (int32_t)((uint32_t)a & (uint32_t)b); folded = 1; break;
+                case OP_BOR:  res_i32 = (int32_t)((uint32_t)a | (uint32_t)b); folded = 1; break;
+                case OP_BXOR: res_i32 = (int32_t)((uint32_t)a ^ (uint32_t)b); folded = 1; break;
+                case OP_SHL: {
+                    if ((uint32_t)b < 32u) {
+                        res_i32 = (int32_t)((uint32_t)a << (uint32_t)b);
+                        folded = 1;
+                    }
+                    break;
+                }
+                case OP_SHR: {
+                    if ((uint32_t)b < 32u) {
+                        uint32_t ub = (uint32_t)b;
+                        res_i32 = (a < 0) ? (int32_t)(~((~(uint32_t)a) >> ub)) : (int32_t)((uint32_t)a >> ub);
+                        folded = 1;
+                    }
+                    break;
+                }
+                case OP_MIN: res_i32 = (a < b) ? a : b; folded = 1; break;
+                case OP_MAX: res_i32 = (a > b) ? a : b; folded = 1; break;
+                case OP_EQ:  is_bool = 1; res_bool = (a == b); folded = 1; break;
+                case OP_NE:  is_bool = 1; res_bool = (a != b); folded = 1; break;
+                case OP_LT:  is_bool = 1; res_bool = (a < b);  folded = 1; break;
+                case OP_LE:  is_bool = 1; res_bool = (a <= b); folded = 1; break;
+                case OP_GT:  is_bool = 1; res_bool = (a > b);  folded = 1; break;
+                case OP_GE:  is_bool = 1; res_bool = (a >= b); folded = 1; break;
+                default: break;
+                }
+
+                if (folded) {
+                    if (is_bool) {
+                        ins[i].op = res_bool ? OP_PUSH_TRUE : OP_PUSH_FALSE;
+                        ins[i].arg = 0;
+                    } else {
+                        ins[i].op = OP_PUSH_CONST;
+                        ins[i].arg = add_const(C, res_i32, 1);
+                    }
+                    fn_delete_insns(ins, &n, i + 1, 2);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            }
+
+            if ((ins[i].op == OP_PUSH_TRUE || ins[i].op == OP_PUSH_FALSE) &&
+                (ins[i+1].op == OP_PUSH_TRUE || ins[i+1].op == OP_PUSH_FALSE)) {
+                int ba = (ins[i].op == OP_PUSH_TRUE);
+                int bb = (ins[i+1].op == OP_PUSH_TRUE);
+                if (op == OP_EQ || op == OP_NE) {
+                    int res_bool = (op == OP_EQ) ? (ba == bb) : (ba != bb);
+                    ins[i].op = res_bool ? OP_PUSH_TRUE : OP_PUSH_FALSE;
+                    ins[i].arg = 0;
+                    fn_delete_insns(ins, &n, i + 1, 2);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            }
+
+            if (ins[i].op == OP_PUSH_FCONST && ins[i+1].op == OP_PUSH_FCONST) {
+                uint32_t b0 = C->fconsts[ins[i].arg];
+                uint32_t b1 = C->fconsts[ins[i+1].arg];
+                if (!is_f32_nan(b0) && !is_f32_nan(b1)) {
+                    float fa = bits_to_f32(b0);
+                    float fb = bits_to_f32(b1);
+                    int folded = 0;
+                    float res_f = 0.0f;
+                    int is_bool = 0;
+                    int res_bool = 0;
+
+                    switch (op) {
+                    case OP_FADD: res_f = fa + fb; folded = 1; break;
+                    case OP_FSUB: res_f = fa - fb; folded = 1; break;
+                    case OP_FMUL: res_f = fa * fb; folded = 1; break;
+                    case OP_FDIV:
+                        if ((b1 & 0x7FFFFFFFu) != 0) {
+                            res_f = fa / fb;
+                            folded = 1;
+                        }
+                        break;
+                    case OP_FMIN: res_f = (fa < fb) ? fa : fb; folded = 1; break;
+                    case OP_FMAX: res_f = (fa > fb) ? fa : fb; folded = 1; break;
+                    case OP_FEQ: is_bool = 1; res_bool = (fa == fb); folded = 1; break;
+                    case OP_FNE: is_bool = 1; res_bool = (fa != fb); folded = 1; break;
+                    case OP_FLT: is_bool = 1; res_bool = (fa < fb);  folded = 1; break;
+                    case OP_FLE: is_bool = 1; res_bool = (fa <= fb); folded = 1; break;
+                    case OP_FGT: is_bool = 1; res_bool = (fa > fb);  folded = 1; break;
+                    case OP_FGE: is_bool = 1; res_bool = (fa >= fb); folded = 1; break;
+                    default: break;
+                    }
+
+                    if (folded) {
+                        if (is_bool) {
+                            ins[i].op = res_bool ? OP_PUSH_TRUE : OP_PUSH_FALSE;
+                            ins[i].arg = 0;
+                        } else {
+                            ins[i].op = OP_PUSH_FCONST;
+                            ins[i].arg = add_fconst(C, res_f, 1);
+                        }
+                        fn_delete_insns(ins, &n, i + 1, 2);
+                        fn->code_len = (uint16_t)n;
+                        recompute_is_target(ins, n, is_target);
+                        changed = 1;
+                        i--;
+                        continue;
+                    }
+                }
+            }
+        }
+
+        /* Unary ops: [i], [i+1] */
+        if (i + 1 < n && !is_target[i+1]) {
+            uint8_t op = ins[i+1].op;
+            if (ins[i].op == OP_PUSH_TRUE || ins[i].op == OP_PUSH_FALSE) {
+                if (op == OP_NOT) {
+                    ins[i].op = (ins[i].op == OP_PUSH_TRUE) ? OP_PUSH_FALSE : OP_PUSH_TRUE;
+                    fn_delete_insns(ins, &n, i + 1, 1);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            } else if (ins[i].op == OP_PUSH_CONST) {
+                int32_t val = C->consts[ins[i].arg];
+                int folded = 0;
+                int32_t res = 0;
+                if (op == OP_NEG) {
+                    res = (int32_t)(-(uint32_t)val);
+                    folded = 1;
+                } else if (op == OP_BNOT) {
+                    res = ~val;
+                    folded = 1;
+                } else if (op == OP_ABS) {
+                    res = (val < 0) ? (int32_t)(-(uint32_t)val) : val;
+                    folded = 1;
+                } else if (op == OP_I2F) {
+                    float fv = (float)val;
+                    ins[i].op = OP_PUSH_FCONST;
+                    ins[i].arg = add_fconst(C, fv, 1);
+                    fn_delete_insns(ins, &n, i + 1, 1);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+                if (folded) {
+                    ins[i].arg = add_const(C, res, 1);
+                    fn_delete_insns(ins, &n, i + 1, 1);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            } else if (ins[i].op == OP_PUSH_FCONST) {
+                uint32_t bits = C->fconsts[ins[i].arg];
+                if (op == OP_FNEG) {
+                    bits ^= 0x80000000u;
+                    ins[i].arg = add_fconst_bits(C, bits, 1);
+                    fn_delete_insns(ins, &n, i + 1, 1);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                } else if (op == OP_FABS) {
+                    bits &= 0x7FFFFFFFu;
+                    ins[i].arg = add_fconst_bits(C, bits, 1);
+                    fn_delete_insns(ins, &n, i + 1, 1);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                } else if (op == OP_FLOOR) {
+                    if (!is_f32_nan(bits)) {
+                        float fv = bits_to_f32(bits);
+                        if (fv >= -2147483648.0f && fv < 2147483648.0f) {
+                            int32_t iv = (int32_t)fv;
+                            if ((float)iv > fv) iv--;
+                            ins[i].op = OP_PUSH_CONST;
+                            ins[i].arg = add_const(C, iv, 1);
+                            fn_delete_insns(ins, &n, i + 1, 1);
+                            fn->code_len = (uint16_t)n;
+                            recompute_is_target(ins, n, is_target);
+                            changed = 1;
+                            i--;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return changed;
+}
+
+static int opt_dead_branches(bmlc_ctx_t *C, c_func_t *fn, uint8_t *is_target)
+{
+    int changed = 0;
+    c_insn_t *ins = &C->insns[fn->code_start];
+    int n = fn->code_len;
+
+    for (int i = 0; i < n; i++) {
+        if (ins[i].op == OP_JMP && ins[i].arg == i + 1) {
+            fn_delete_insns(ins, &n, i, 1);
+            fn->code_len = (uint16_t)n;
+            recompute_is_target(ins, n, is_target);
+            changed = 1;
+            i--;
+            continue;
+        }
+
+        if (i + 1 < n && !is_target[i+1]) {
+            uint8_t op1 = ins[i+1].op;
+            int tgt = ins[i+1].arg;
+            uint8_t op0 = ins[i].op;
+
+            int is_lit_false = (op0 == OP_PUSH_FALSE || (op0 == OP_PUSH_CONST && C->consts[ins[i].arg] == 0));
+            int is_lit_true  = (op0 == OP_PUSH_TRUE  || (op0 == OP_PUSH_CONST && C->consts[ins[i].arg] != 0));
+
+            if (op1 == OP_JZ) {
+                if (is_lit_false) {
+                    ins[i].op = OP_JMP;
+                    ins[i].arg = tgt;
+                    fn_delete_insns(ins, &n, i + 1, 1);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                } else if (is_lit_true) {
+                    fn_delete_insns(ins, &n, i, 2);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            } else if (op1 == OP_JF_KEEP) {
+                if (op0 == OP_PUSH_FALSE) {
+                    ins[i+1].op = OP_JMP;
+                    ins[i+1].arg = tgt;
+                    changed = 1;
+                } else if (op0 == OP_PUSH_TRUE) {
+                    fn_delete_insns(ins, &n, i, 2);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            } else if (op1 == OP_JT_KEEP) {
+                if (op0 == OP_PUSH_TRUE) {
+                    ins[i+1].op = OP_JMP;
+                    ins[i+1].arg = tgt;
+                    changed = 1;
+                } else if (op0 == OP_PUSH_FALSE) {
+                    fn_delete_insns(ins, &n, i, 2);
+                    fn->code_len = (uint16_t)n;
+                    recompute_is_target(ins, n, is_target);
+                    changed = 1;
+                    i--;
+                    continue;
+                }
+            }
+        }
+    }
+    return changed;
+}
+
+static int opt_unreachable_compaction(bmlc_ctx_t *C, c_func_t *fn, opt_scratch_t *scratch)
+{
+    int n = fn->code_len;
+    if (n <= 0) return 0;
+    c_insn_t *ins = &C->insns[fn->code_start];
+    uint8_t *reachable = scratch->reachable;
+    uint16_t *queue = scratch->queue;
+    memset(reachable, 0, (size_t)(n + 1) * sizeof(uint8_t));
+
+    int head = 0, tail = 0;
+    reachable[0] = 1;
+    queue[tail++] = 0;
+
+    while (head < tail) {
+        int pc = (int)queue[head++];
+        uint8_t op = ins[pc].op;
+
+        if (op == OP_JMP) {
+            int t = ins[pc].arg;
+            if (t >= 0 && t < n && !reachable[t]) {
+                reachable[t] = 1;
+                queue[tail++] = (uint16_t)t;
+            }
+        } else if (op == OP_JZ || op == OP_JF_KEEP || op == OP_JT_KEEP) {
+            int t = ins[pc].arg;
+            if (t >= 0 && t < n && !reachable[t]) {
+                reachable[t] = 1;
+                queue[tail++] = (uint16_t)t;
+            }
+            int next = pc + 1;
+            if (next < n && !reachable[next]) {
+                reachable[next] = 1;
+                queue[tail++] = (uint16_t)next;
+            }
+        } else if (op == OP_RET || op == OP_RET0) {
+            /* no successors */
+        } else {
+            int next = pc + 1;
+            if (next < n && !reachable[next]) {
+                reachable[next] = 1;
+                queue[tail++] = (uint16_t)next;
+            }
+        }
+    }
+
+    if (tail == n)
+        return 0;
+
+    int16_t *orig_to_new = scratch->orig_to_new;
+    int new_len = 0;
+    for (int pc = 0; pc < n; pc++) {
+        if (reachable[pc])
+            orig_to_new[pc] = (int16_t)new_len++;
+        else
+            orig_to_new[pc] = -1;
+    }
+    orig_to_new[n] = (int16_t)new_len;
+
+    c_insn_t *out = scratch->out_code;
+    for (int pc = 0; pc < n; pc++) {
+        if (reachable[pc]) {
+            c_insn_t ci = ins[pc];
+            if (ci.op == OP_JMP || ci.op == OP_JZ || ci.op == OP_JF_KEEP || ci.op == OP_JT_KEEP) {
+                int old_t = ci.arg;
+                if (old_t >= 0 && old_t <= n && orig_to_new[old_t] >= 0)
+                    ci.arg = (int)orig_to_new[old_t];
+            }
+            out[orig_to_new[pc]] = ci;
+        }
+    }
+    memcpy(ins, out, (size_t)new_len * sizeof(c_insn_t));
+    fn->code_len = (uint16_t)new_len;
+    return 1;
+}
+
+static void opt_fold_and_dce_fn(bmlc_ctx_t *C, int fn_idx, opt_scratch_t *scratch)
+{
+    c_func_t *fn = &C->funcs[fn_idx];
+    for (int pass = 0; pass < 8; pass++) {
+        int changed = 0;
+        int n = fn->code_len;
+        if (n <= 0) break;
+        c_insn_t *ins = &C->insns[fn->code_start];
+        recompute_is_target(ins, n, scratch->is_target);
+
+        if (opt_constant_propagation(C, fn, scratch)) {
+            changed = 1;
+            n = fn->code_len;
+            ins = &C->insns[fn->code_start];
+            recompute_is_target(ins, n, scratch->is_target);
+        }
+
+        if (opt_constant_folding(C, fn, scratch->is_target)) {
+            changed = 1;
+            n = fn->code_len;
+            ins = &C->insns[fn->code_start];
+            recompute_is_target(ins, n, scratch->is_target);
+        }
+
+        if (opt_dead_branches(C, fn, scratch->is_target)) {
+            changed = 1;
+            n = fn->code_len;
+            ins = &C->insns[fn->code_start];
+            recompute_is_target(ins, n, scratch->is_target);
+        }
+
+        if (opt_unreachable_compaction(C, fn, scratch)) {
+            changed = 1;
+        }
+
+        if (!changed)
+            break;
+    }
+}
+
+static void opt_inline_calls(bmlc_ctx_t *C, opt_scratch_t *scratch)
+{
+    for (int i = 0; i < C->nfuncs; i++) {
+        scratch->snap_start[i] = C->funcs[i].code_start;
+        scratch->snap_lens[i]  = C->funcs[i].code_len;
+        scratch->snap_locals[i]= C->funcs[i].nlocals;
+        scratch->fn_changed[i] = 0;
+
+        int len = (int)scratch->snap_lens[i];
+        int ok = (len > 0 && len <= 48);
+        if (ok) {
+            int start = (int)scratch->snap_start[i];
+            uint8_t tail_op = C->insns[start + len - 1].op;
+            if (tail_op != OP_RET && tail_op != OP_RET0)
+                ok = 0;
+            for (int k = 0; k < len && ok; k++) {
+                uint8_t op = C->insns[start + k].op;
+                if (op == OP_CALL || op == OP_NEW_ARR) {
+                    ok = 0;
+                    break;
+                }
+            }
+        }
+        scratch->eligible[i] = (uint8_t)ok;
+    }
+
+    int out_total = 0;
+    for (int f = 0; f < C->nfuncs; f++) {
+        c_func_t *fn = &C->funcs[f];
+        int f_len = (int)scratch->snap_lens[f];
+        int f_start = (int)scratch->snap_start[f];
+        c_insn_t *out_insns = &scratch->out_code[out_total];
+        int out_len = 0;
+        uint16_t *caller_jump_indices = scratch->queue;
+        int n_caller_jumps = 0;
+        int16_t *orig_to_new = scratch->orig_to_new;
+        int f_changed = 0;
+
+        for (int pc = 0; pc < f_len; pc++) {
+            orig_to_new[pc] = (int16_t)out_len;
+            c_insn_t ins = C->insns[f_start + pc];
+
+            if (ins.op == OP_CALL) {
+                int c_idx = ins.arg >> 8;
+                int argc = ins.arg & 0xFF;
+                int do_inline = (c_idx != f &&
+                                 c_idx >= 0 && c_idx < C->nfuncs &&
+                                 scratch->eligible[c_idx] &&
+                                 (int)fn->nlocals + (int)scratch->snap_locals[c_idx] <= MAX_LOCALS &&
+                                 out_total + out_len + argc + (int)scratch->snap_lens[c_idx] + 4 < MAX_INSNS);
+                if (do_inline) {
+                    f_changed = 1;
+                    int slot_off = (int)fn->nlocals;
+                    int c_nloc = (int)scratch->snap_locals[c_idx];
+                    for (int l = 0; l < c_nloc; l++) {
+                        bml_copy_str(fn->lname[slot_off + l], sizeof fn->lname[slot_off + l], "$in");
+                        fn->ltype[slot_off + l] = C->funcs[c_idx].ltype[l];
+                        fn->lcount[slot_off + l] = C->funcs[c_idx].lcount[l];
+                    }
+                    fn->nlocals += (uint8_t)c_nloc;
+
+                    for (int j = argc - 1; j >= 0; j--) {
+                        out_insns[out_len].op = OP_STORE;
+                        out_insns[out_len].arg = slot_off + j;
+                        out_len++;
+                    }
+
+                    int c_len = (int)scratch->snap_lens[c_idx];
+                    int c_start = (int)scratch->snap_start[c_idx];
+                    int body_start = out_len;
+                    int inline_end = body_start + (c_len - 1);
+                    int16_t callee_to_out[64];
+                    for (int k = 0; k < c_len - 1; k++)
+                        callee_to_out[k] = (int16_t)(body_start + k);
+                    callee_to_out[c_len - 1] = (int16_t)inline_end;
+
+                    for (int k = 0; k < c_len - 1; k++) {
+                        c_insn_t cins = C->insns[c_start + k];
+                        if (cins.op == OP_RET || cins.op == OP_RET0) {
+                            out_insns[out_len].op = OP_JMP;
+                            out_insns[out_len].arg = inline_end;
+                            out_len++;
+                        } else {
+                            if (cins.op == OP_LOAD || cins.op == OP_STORE) {
+                                cins.arg += slot_off;
+                            } else if (cins.op == OP_JMP || cins.op == OP_JZ ||
+                                       cins.op == OP_JF_KEEP || cins.op == OP_JT_KEEP) {
+                                int ctgt = cins.arg;
+                                if (ctgt >= 0 && ctgt <= c_len - 1)
+                                    cins.arg = (int)callee_to_out[ctgt];
+                            }
+                            out_insns[out_len++] = cins;
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            if (ins.op == OP_JMP || ins.op == OP_JZ || ins.op == OP_JF_KEEP || ins.op == OP_JT_KEEP) {
+                caller_jump_indices[n_caller_jumps++] = (uint16_t)out_len;
+            }
+            out_insns[out_len++] = ins;
+        }
+
+        orig_to_new[f_len] = (int16_t)out_len;
+
+        for (int j = 0; j < n_caller_jumps; j++) {
+            int j_idx = (int)caller_jump_indices[j];
+            int old_tgt = out_insns[j_idx].arg;
+            if (old_tgt >= 0 && old_tgt <= f_len)
+                out_insns[j_idx].arg = (int)orig_to_new[old_tgt];
+        }
+
+        scratch->out_start[f] = (uint16_t)out_total;
+        scratch->out_lens[f]  = (uint16_t)out_len;
+        scratch->fn_changed[f]= (uint8_t)f_changed;
+        out_total += out_len;
+    }
+
+    memcpy(C->insns, scratch->out_code, (size_t)out_total * sizeof(c_insn_t));
+    for (int f = 0; f < C->nfuncs; f++) {
+        C->funcs[f].code_start = scratch->out_start[f];
+        C->funcs[f].code_len   = scratch->out_lens[f];
+    }
+    C->ninsns = out_total;
+}
+
+static void optimize_ir(bmlc_ctx_t *C)
+{
+    if (C->nfuncs == 0)
+        return;
+
+    opt_scratch_t *scratch = calloc(1, sizeof *scratch);
+    if (!scratch)
+        c_fail(C, 1, "out of memory");
+
+    /* Stage 1: fold and dce on all functions */
+    for (int i = 0; i < C->nfuncs; i++) {
+        opt_fold_and_dce_fn(C, i, scratch);
+    }
+    repack_insns(C);
+
+    /* Stage 2: small-function inlining */
+    opt_inline_calls(C, scratch);
+
+    /* Stage 3: fold and dce on changed functions */
+    for (int i = 0; i < C->nfuncs; i++) {
+        if (scratch->fn_changed[i]) {
+            opt_fold_and_dce_fn(C, i, scratch);
+        }
+    }
+    repack_insns(C);
+
+    free(scratch);
+}
+
 int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size_t *out_len, char *err_buf, size_t err_cap)
 {
     *out_blob = NULL;
@@ -4065,6 +4969,8 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
     if (C->nfuncs == 0)
         c_fail(C, 1, "program has no functions");
 
+    optimize_ir(C);
+
     for (int i = 0; i < C->nfuncs; i++)
         compile_armv6_fn(C, i);
 
@@ -4089,33 +4995,34 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
 
     if (C->needs_memcpy) {
         C->memcpy_word = C->nwords;
-        static const uint32_t mc_words[9] = {
-            0xE3520000u, /* cmp r2, #0 */
-            0x012FFF1Eu, /* bxeq lr */
-            0xE5D13000u, /* ldrb r3, [r1, #0] */
-            0xE5C03000u, /* strb r3, [r0, #0] */
-            0xE2811001u, /* add r1, r1, #1 */
-            0xE2800001u, /* add r0, r0, #1 */
-            0xE2522001u, /* subs r2, r2, #1 */
-            0x1AFFFFFAu, /* bne .Lcp */
-            0xE12FFF1Eu  /* bx lr */
+        static const uint32_t mc_words[41] = {
+            0xE3520000u, 0xD12FFF1Eu, 0xE0203001u, 0xE3130003u, 0x1A00001Cu,
+            0xE3100003u, 0x0A000006u, 0xE5D13000u, 0xE5C03000u, 0xE2811001u,
+            0xE2800001u, 0xE2522001u, 0x012FFF1Eu, 0xEAFFFFF6u, 0xE3520010u,
+            0xBA000006u, 0xE92D0030u, 0xE8B11038u, 0xE8A01038u, 0xE2422010u,
+            0xE3520010u, 0xAAFFFFFAu, 0xE8BD0030u, 0xE3520004u, 0xBA000006u,
+            0xE5913000u, 0xE5803000u, 0xE2811004u, 0xE2800004u, 0xE2422004u,
+            0xE3520004u, 0xAAFFFFF8u, 0xE3520000u, 0xD12FFF1Eu, 0xE5D13000u,
+            0xE5C03000u, 0xE2811001u, 0xE2800001u, 0xE2522001u, 0xCAFFFFF9u,
+            0xE12FFF1Eu
         };
-        for (int i = 0; i < 9; i++) emit_w(C, mc_words[i]);
+        for (int i = 0; i < 41; i++) emit_w(C, mc_words[i]);
     }
 
     if (C->needs_memset) {
         C->memset_word = C->nwords;
-        static const uint32_t ms_words[8] = {
-            0xE3520000u, /* cmp r2, #0 */
-            0x012FFF1Eu, /* bxeq lr */
-            0xE20110FFu, /* and r1, r1, #0xFF */
-            0xE5C01000u, /* strb r1, [r0, #0] */
-            0xE2800001u, /* add r0, r0, #1 */
-            0xE2522001u, /* subs r2, r2, #1 */
-            0x1AFFFFFBu, /* bne .Lset */
-            0xE12FFF1Eu  /* bx lr */
+        static const uint32_t ms_words[41] = {
+            0xE3520000u, 0xD12FFF1Eu, 0xE20110FFu, 0xE3520004u, 0xBA00001Eu,
+            0xE3100003u, 0x0A000006u, 0xE5C01000u, 0xE2800001u, 0xE2522001u,
+            0x012FFF1Eu, 0xE3520004u, 0xBA000016u, 0xEAFFFFF6u, 0xE1811401u,
+            0xE1811801u, 0xE3520010u, 0xBA000008u, 0xE92D0030u, 0xE1A03001u,
+            0xE1A04001u, 0xE1A0C001u, 0xE8A0101Au, 0xE2422010u, 0xE3520010u,
+            0xAAFFFFFBu, 0xE8BD0030u, 0xE3520004u, 0xBA000004u, 0xE5801000u,
+            0xE2800004u, 0xE2422004u, 0xE3520004u, 0xAAFFFFFAu, 0xE3520000u,
+            0xD12FFF1Eu, 0xE5C01000u, 0xE2800001u, 0xE2522001u, 0xCAFFFFFBu,
+            0xE12FFF1Eu
         };
-        for (int i = 0; i < 8; i++) emit_w(C, ms_words[i]);
+        for (int i = 0; i < 41; i++) emit_w(C, ms_words[i]);
     }
 
     if (C->needs_host_call) {

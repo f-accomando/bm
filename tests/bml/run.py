@@ -723,6 +723,7 @@ int l_native_load(lua_State *L);
 int l_native_fn(lua_State *L);
 int l_native_run(lua_State *L);
 int l_native_compile(lua_State *L);
+int l_native_disasm(lua_State *L);
 
 int main(int argc, char **argv)
 {
@@ -740,6 +741,7 @@ int main(int argc, char **argv)
     lua_register(L, "native_fn", l_native_fn);
     lua_register(L, "native_run", l_native_run);
     lua_register(L, "native_compile", l_native_compile);
+    lua_register(L, "native_disasm", l_native_disasm);
     if (luaL_dofile(L, argv[1]) != LUA_OK) {
         fprintf(stderr, "%s\\n", lua_tostring(L, -1));
         lua_close(L);
@@ -2419,6 +2421,16 @@ do
   local bad_cp15 = string.pack("<I4I4", 0xEE100F10, 0xE12FFF1E)
   local m3, _ = native_load(bad_cp15)
   assert(m3 == nil, "CP15 instruction must be rejected")
+  -- Round-2 LDM/STM sandbox rules
+  local ok_ldm = string.pack("<I4I4I4", 0xE8B11038, 0xE8A01038, 0xE12FFF1E)
+  assert(native_load(ok_ldm) ~= nil, "ldmia/stmia with safe reglist must be accepted")
+  local d_ldm = assert(native_disasm(ok_ldm))
+  assert(d_ldm.lines[2]:match("ldmia%s+r1!"), "ldmia disasm mismatch: " .. tostring(d_ldm.lines[2]))
+  assert(d_ldm.lines[3]:match("stmia%s+r0!"), "stmia disasm mismatch: " .. tostring(d_ldm.lines[3]))
+  assert(native_load(string.pack("<I4I4", 0xE8F11038, 0xE12FFF1E)) == nil, "LDM with S-bit must be rejected")
+  assert(native_load(string.pack("<I4I4", 0xE8BF000F, 0xE12FFF1E)) == nil, "LDM with rn=pc must be rejected")
+  assert(native_load(string.pack("<I4I4", 0xE8B10000, 0xE12FFF1E)) == nil, "LDM with empty reglist must be rejected")
+  assert(native_load(string.pack("<I4I4", 0xE8B18001, 0xE12FFF1E)) == nil, "non-POP LDM with pc must be rejected")
 end
 
 local opt_src = [=[
@@ -2469,6 +2481,52 @@ function deep_vfp_call(base: f32): f32
   local s6: f32 = sum6f(f0, f1, f2, f3, f4, f5)
   return f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9 + f10 + f11 + f12 + f13 + f14 + f15 + f16 + f17 + t + s6
 end
+
+function step_pair(a: i32, b: i32): i32
+  if a < 0 then
+    return -99
+  end
+  return a * 3 + b
+end
+
+function opt_const_and_inline(x: i32, y: f32): i32
+  local mode: i32 = 2 + 3 * 2
+  local fl: i32 = floor(-1.25)
+  local cl: i32 = clamp(50, 10, 20)
+  local dv: i32 = (-7) // 2 + ((-7) % 2) * 10
+  local c: f32 = lerp(1.0, 5.0, 0.25)
+  if mode == 1 or false then
+    return -9999
+  end
+  local acc: i32 = 0
+  if true and (mode == 8) then
+    for i = 0, 4 do
+      acc = acc + step_pair(i, i * 2) - 1
+    end
+  end
+  return acc + x + fl + cl + dv + floor(c + y)
+end
+
+function test_block_mem(base: i32): i32
+  memset(base, 0xAA, 256)
+  memset(base + 16, 0x33, 64)
+  memcpy(base + 96, base + 16, 64)
+  memset(base + 161, 0x55, 21)
+  memcpy(base + 193, base + 161, 21)
+  memcpy(base + 225, base + 162, 17)
+  memset(base + 250, 0x77, 0)
+  memset(base + 250, 0x77, -5)
+  memcpy(base + 250, base, -3)
+  local sum = 0
+  for i = 0, 255 do
+    sum = sum + peek(base + i) * ((i % 7) + 1)
+  end
+  return sum
+end
+
+function trig_mix(a: f32, b: f32): f32
+  return sin(a) * 2.0 + cos(a) * 0.5 + atan2(b, a)
+end
 ]=]
 local opt_blob = assert(native_compile(opt_src))
 local m_opt = assert(native_load(opt_blob))
@@ -2496,6 +2554,46 @@ do
 end
 assert(math.floor(got_dv * 64 + 0.5) == math.floor(exp_dv * 64 + 0.5),
        string.format("deep_vfp_call mismatch got=%s exp=%s", tostring(got_dv), tostring(exp_dv)))
+-- Verify constant folding + dead branch elimination + small-fn inlining + block memcpy/memset + direct C math
+assert(native_run(m_opt, "opt_const_and_inline", 10, 0.75) == 81, "opt_const_and_inline parity mismatch")
+do
+  local d = assert(native_disasm(opt_blob))
+  local in_target = false
+  local checked = 0
+  for _, entry in ipairs(d.lines) do
+    local line = tostring(entry or "")
+    if line:match("^; function opt_const_and_inline%(") then
+      in_target = true
+    elseif in_target and line:match("^; function ") then
+      break
+    elseif in_target then
+      checked = checked + 1
+      assert(not line:match("%sbl%s") and not line:match("^bl%s"), "small function step_pair must be inlined without bl: " .. line)
+    end
+  end
+  assert(checked > 0, "opt_const_and_inline missing in native_disasm")
+end
+do
+  local mem = {{}}
+  for i = 0, 255 do mem[i] = 0xAA end
+  for i = 0, 63 do mem[16 + i] = 0x33 end
+  for i = 0, 63 do mem[96 + i] = mem[16 + i] end
+  for i = 0, 20 do mem[161 + i] = 0x55 end
+  for i = 0, 20 do mem[193 + i] = mem[161 + i] end
+  for i = 0, 16 do mem[225 + i] = mem[162 + i] end
+  local exp_mem = 0
+  for i = 0, 255 do exp_mem = exp_mem + mem[i] * ((i % 7) + 1) end
+  local got_mem = native_run(m_opt, "test_block_mem", 0x200)
+  assert(got_mem == exp_mem, string.format("test_block_mem got=%s exp=%s", tostring(got_mem), tostring(exp_mem)))
+end
+do
+  local save_sin, save_cos, save_math = _G.sin, _G.cos, _G.math
+  local exp_t = save_math.sin(0.6) * 2.0 + save_math.cos(0.6) * 0.5 + (save_math.atan2 or save_math.atan)(-0.4, 0.6)
+  _G.sin, _G.cos, _G.math = nil, nil, nil
+  local got_t = native_run(m_opt, "trig_mix", 0.6, -0.4)
+  _G.sin, _G.cos, _G.math = save_sin, save_cos, save_math
+  assert(math.abs(got_t - exp_t) < 1e-5, string.format("direct C trig_mix got=%s exp=%s", tostring(got_t), tostring(exp_t)))
+end
 """)
 
 s9_luahost_out = subprocess.check_output([native_luahost_bin, s9_luahost_script], text=True).strip().splitlines()
