@@ -615,6 +615,9 @@ test-bml: $(BUILD)/host/luahost tools/bml/bml.py tests/bml/run.py tests/bml/sum.
           src/bm/bmlc.c src/bm/bmlc.h src/bm/bmnative.c src/bm/bmnative.h src/bm/api_vm.c src/bm/bmvm.c
 	$(PYTHON) -I tests/bml/run.py $< $(BUILD)/bml
 
+bench-bml: tests/bml/bench.py tests/bml/darknight_enemy.b src/bm/bmlc.c src/bm/bmlc.h src/bm/bmnative.c src/bm/bmnative.h
+	$(PYTHON) -I tests/bml/bench.py $(BUILD)/bml-bench
+
 # the editors read the model files: the import code of bm Mesh and bm Animator and the kernel's own checks, in bmhost
 test-bmm: $(BUILD)/host/bmhost-bin scripts/check_bmm.py
 	$(PYTHON) scripts/check_bmm.py art/models/hunter.bmm art/models/hunterlo.bmm art/models/dnhunter.bmm art/models/enemies.bmm art/models/dnenemy.bmm
@@ -923,7 +926,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-typed test-bml test-snes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-typed test-bml bench-bml test-snes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \

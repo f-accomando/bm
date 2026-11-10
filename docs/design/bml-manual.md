@@ -874,12 +874,12 @@ Although `.b` emits native 32-bit ARMv6 A32 + VFPv2 machine code (via [`tools/bm
 | Aspect | Lua 5.4 VM | `.b` (`bmlc.c` / `ARMv6Compiler`) | C (`gcc -O2/-O3` for ARM1176) |
 |---|---|---|---|
 | **Execution model** | Bytecode interpreter + dynamic boxing | Native ARMv6 A32 + VFPv2 machine words | Native ARMv6 A32 + VFPv2 machine words |
-| **Register allocation** | Virtual stack registers | Fixed slots `0..6` $\to$ `r4..r10`, spills `>= 7` to `[fp, #-off]` | Graph-coloring / SSA across `r0..r12` and `s0..s31` |
-| **VFPv2 (`f32`) handling** | `double` (`f64`) boxed in `TValue` | `vmov` ARM $\leftrightarrow$ `s0`/`s1` on every operation | Values kept in `s0..s31` across loops + `vldr`/`vstr` |
-| **Loop optimizations** | None | `check_canonical_leaf_sum` only (9-word `sum` leaf) | LICM, CSE, unrolling, strength reduction, inlining |
-| **Prologue / epilogue** | Lua C frame | Always `push {r4-r10, fp, lr}` / `pop {r4-r10, fp, pc}` (except canonical `sum`) | Minimal callee-saved set; leaf functions omit stack frames |
-| **Division (`//`, `%`)** | VM opcode | Always calls `__bml_idivmod` (shift-and-subtract) | Constant divisors lowered to multiply + shift |
-| **Array indexing** | Hash/array table lookup | Recomputes `(idx - 1) << 2` on every `OP_AGET`/`OP_ASET` | Pointer induction with pre/post-increment (`ldr r, [p], #4`) |
+| **Register allocation** | Virtual stack registers | Fixed slots $\to$ `r4..r10` + `s4..s31` (`bmlc.c`), spills to `[fp, #-off]` | Graph-coloring / SSA across `r0..r12` and `s0..s31` |
+| **VFPv2 (`f32`) handling** | `double` (`f64`) boxed in `TValue` | `bmlc.c` keeps `f32` in `s4..s31` with `vldr`/`vstr`/`vpush`/`vpop`/`vmla.f32`; `bml.py` uses `vmov` via ARM regs | Values kept in `s0..s31` across loops + `vldr`/`vstr` |
+| **Loop optimizations** | None | `check_canonical_leaf_sum` + `base - 4` hoisting (`bmlc.c`) | LICM, CSE, unrolling, strength reduction, inlining |
+| **Prologue / epilogue** | Lua C frame | `bmlc.c` minimal callee-saved set & zero-frame tiny leaves; `bml.py` pushes `{r4-r10, fp, lr}` | Minimal callee-saved set; leaf functions omit stack frames |
+| **Division (`//`, `%`)** | VM opcode | Power-of-2 constant divisors lowered to `asr`/`and` in `bmlc.c`; general divisors call `__bml_idivmod` | Constant divisors lowered to multiply + shift |
+| **Array indexing** | Hash/array table lookup | `bmlc.c` uses `ldr/str [base_m4, idx, lsl #2]` and `vldr/vstr` on hoisted `base - 4`; `bml.py` computes `(idx - 1) << 2` | Pointer induction with pre/post-increment (`ldr r, [p], #4`) |
 | **Bulk memory** | C `memcpy` via API | `OP_MEMCPY`/`OP_MEMSET` emit byte loops (`ldrb`/`strb`) | Word/block transfers (`ldm`/`stm`) |
 | **Math & kernel calls** | Direct C API call | `OP_CALL_HOST` routes through `lua_host_dispatch` | Direct `bl` to C / `libm` |
 
@@ -906,21 +906,15 @@ However, `.b` has three narrow architectural paths where it can **match or outpe
 
 While general-purpose GCC `-O2`/`-O3` remains hard to beat on arbitrary programs, closing the gap on `bm`'s target workload (numeric/physics/3D loops on `vm_buf` arrays, targeting ~80–100% of C speed) comes down to **five concrete backend improvements**:
 
-1. **Keep `f32` values in VFPv2 registers (`s4..s31`)**:
-   - *Current bottleneck*: [`compile_armv6_fn`](../../src/bm/bmlc.c) stores `f32` locals in ARM integer registers (`r4..r10`) and emits `vmov` round-trips to `s0`/`s1` on every single float operation, stalling the ARM1176 pipeline.
-   - *Fix*: Allocate `f32` locals and expression temporaries directly in `s4..s31` and load/store `f32[]` arrays with `vldr`/`vstr`.
-   - *Loader requirement*: [`check_armv6_words`](../../src/bm/bmnative.c) currently allows CP10 (VFPv2) only for `top4 == 0xE` (register-to-register `CDP`/`MCR`/`MRC`) and rejects `0xC`/`0xD` (`vldm`/`vstm`, `vldr`/`vstr`); extend it to permit `cp == 10` on `0xC` and `0xD` as well.
-2. **Inline rotated immediates and ARM barrel-shifter indexing**:
-   - *Current bottleneck*: `x + 1` loads `1` into a scratch register before adding; `arr[i]` recomputes `(i - 1) << 2` and adds the base on every access (3 instructions).
-   - *Fix*: Fold 8-bit rotated constants directly into `add`/`sub`/`cmp` immediates (1 instruction). Hoist `(base - 4)` outside `for` loops and use ARMv6's free shifted-index addressing (`ldr rd, [base, idx, lsl #2]`), turning `arr[i]` inside loops into 1 instruction.
-3. **Minimal prologue/epilogue and generic leaf functions**:
-   - *Current bottleneck*: Every function except [`check_canonical_leaf_sum`](../../src/bm/bmlc.c) executes `push {r4-r10, fp, lr}` and `pop {r4-r10, fp, pc}` (saving 9 words even for trivial helpers).
-   - *Fix*: Save/restore only the subset of `r4..r10` actually touched by the function, and let small leaf functions (no `bl` calls) operate purely in `r0..r3, r12` with a bare `bx lr` and zero stack frame.
-4. **Low-cost local/peephole passes and word-block memory**:
-   - Fuse `a + b * c` into `mla` (`i32`) and `vmla.f32` (`f32`).
-   - Add constant folding and dead-branch elimination (unlocking runtime specialization via `native_compile`).
-   - Lower division/modulo (`//`, `%`) by power-of-2 constants to arithmetic shifts/masks instead of calling `__bml_idivmod`.
-   - Replace the byte-by-byte `ldrb`/`strb` loops for `OP_MEMCPY`/`OP_MEMSET` in [`bml_compile_native`](../../src/bm/bmlc.c) with word/block `ldm`/`stm` transfers.
+1. **Keep `f32` values in VFPv2 registers (`s4..s31`) *(done in `bmlc.c` + `bmnative.c`)***:
+   - [`check_armv6_words`](../../src/bm/bmnative.c) and `sim_armv6_call` permit CP10 `0xC`/`0xD` (`vldr`/`vstr`/`vldm`/`vstm`) and `s0..s31`; [`compile_armv6_fn`](../../src/bm/bmlc.c) allocates `f32` locals and stack operands directly in `s4..s31` (using `vpush`/`vpop` on `s16..s31` when needed and loading non-`imm12` float literals from `.rodata` via `vldr`).
+2. **Inline rotated immediates and ARM barrel-shifter indexing *(done in `bmlc.c`)***:
+   - Fold 8-bit rotated constants directly into `add`/`sub`/`cmp`/`cmn`/bitwise immediates, lower `OP_AGET`/`OP_ASET` to `ldr`/`str [base_m4, idx, lsl #2]`, and hoist `base - 4` for unmodified array parameters.
+3. **Minimal prologue/epilogue and generic leaf functions *(done in `bmlc.c`)***:
+   - Save/restore only the subset of `r4..r10` (plus `fp`, `lr`) touched by the function, and omit `push`/`pop` entirely (`bx lr`) for leaf functions without calls or callee-saved slots.
+4. **Low-cost local/peephole passes and word-block memory *(partly done in `bmlc.c`)***:
+   - Done: fuse `a + b * c` into `mla` (`i32`) and `vmla.f32`/`vmls.f32` (`f32`), fuse `cmp`/`fcmp` + `jz`, alias `OP_LOAD`, and lower power-of-2 constant `*`, `//`, `%` to shifts/masks (`lsl`, `asr`, `and`/`bic`).
+   - Open: compile-time constant folding and dead-branch elimination (unlocking runtime specialization via `native_compile`), and word/block `ldm`/`stm` transfers for `OP_MEMCPY`/`OP_MEMSET` in [`bml_compile_native`](../../src/bm/bmlc.c).
 5. **Small-function inlining and direct C math fast-paths**:
    - Inline small `.b` helper functions called inside hot loops and bind `sin`, `cos`, and `atan2` directly to C/VFP implementations instead of routing `OP_CALL_HOST` through [`lua_host_dispatch`](../../src/bm/api_vm.c).
 

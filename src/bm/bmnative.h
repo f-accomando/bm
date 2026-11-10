@@ -107,5 +107,6 @@ int  bmnative_find(const bmnative_mod *m, const char *name);
 int  bmnative_call(const bmnative_mod *m, int fn, const int32_t *args, int nargs, int32_t *ret);
 int  bmnative_call_buf(const bmnative_mod *m, int fn, const int32_t *args, const bmnative_buf *bufs, int nargs, int32_t *ret);
 const char *bmnative_get_string(int32_t arg0);
+uint32_t bmnative_last_insns(void);
 
 #endif

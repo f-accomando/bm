@@ -211,9 +211,11 @@ typedef struct {
     int         break_patches[MAX_LOOP_NEST][MAX_BREAKS];
     int         nbreaks[MAX_LOOP_NEST];
 
-    /* Stack depths for current function */
+    /* Stack depths & type tracking for current function */
     int16_t     depths[MAX_INSNS];
-    uint16_t    pc_word[MAX_INSNS];
+    uint64_t    stack_f32[MAX_INSNS];
+    uint8_t     is_target[MAX_INSNS];
+    uint32_t    pc_word[MAX_INSNS];
 
     /* ARMv6 assembler state */
     uint32_t    words[MAX_WORDS];
@@ -236,7 +238,7 @@ typedef struct {
         uint16_t lit_word_idx;
         uint16_t add_word_idx;
         uint32_t str_off;
-    } str_patches[256];
+    } str_patches[512];
     int         nstr_patches;
 } bmlc_ctx_t;
 
@@ -2179,13 +2181,15 @@ static void parse_func_decl(bmlc_ctx_t *C)
 
 enum {
     COND_EQ = 0x0, COND_NE = 0x1, COND_CS = 0x2, COND_CC = 0x3,
-    COND_MI = 0x4, COND_PL = 0x5, COND_GE = 0xA, COND_LT = 0xB,
-    COND_GT = 0xC, COND_LE = 0xD, COND_AL = 0xE
+    COND_MI = 0x4, COND_PL = 0x5, COND_HI = 0x8, COND_LS = 0x9,
+    COND_GE = 0xA, COND_LT = 0xB, COND_GT = 0xC, COND_LE = 0xD,
+    COND_AL = 0xE
 };
 
 enum {
     DP_AND = 0x0, DP_EOR = 0x1, DP_SUB = 0x2, DP_RSB = 0x3,
-    DP_ADD = 0x4, DP_CMP = 0xA, DP_ORR = 0xC, DP_MOV = 0xD, DP_MVN = 0xF
+    DP_ADD = 0x4, DP_CMP = 0xA, DP_CMN = 0xB, DP_ORR = 0xC,
+    DP_MOV = 0xD, DP_BIC = 0xE, DP_MVN = 0xF
 };
 
 static int emit_w(bmlc_ctx_t *C, uint32_t w)
@@ -2255,6 +2259,13 @@ static void emit_mov32(bmlc_ctx_t *C, uint32_t rd, uint32_t u)
 
 static void emit_ldr(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
 {
+    if (offset < -4095 || offset > 4095) {
+        uint32_t abs_off = (uint32_t)(offset >= 0 ? offset : -offset);
+        emit_mov32(C, 12, abs_off);
+        emit_dp_reg(C, (offset >= 0) ? DP_ADD : DP_SUB, 12, rn, 12, COND_AL, 0, 0, 0);
+        emit_w(C, (COND_AL << 28) | (0x51u << 20) | (1u << 23) | (12u << 16) | ((rd & 0xFu) << 12));
+        return;
+    }
     uint32_t u_bit = (offset >= 0) ? 1u : 0u;
     uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
     emit_w(C, (COND_AL << 28) | (0x51u << 20) | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (off & 0xFFFu));
@@ -2262,9 +2273,31 @@ static void emit_ldr(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
 
 static void emit_str(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
 {
+    if (offset < -4095 || offset > 4095) {
+        uint32_t abs_off = (uint32_t)(offset >= 0 ? offset : -offset);
+        emit_mov32(C, 12, abs_off);
+        emit_dp_reg(C, (offset >= 0) ? DP_ADD : DP_SUB, 12, rn, 12, COND_AL, 0, 0, 0);
+        emit_w(C, (COND_AL << 28) | (0x50u << 20) | (1u << 23) | (12u << 16) | ((rd & 0xFu) << 12));
+        return;
+    }
     uint32_t u_bit = (offset >= 0) ? 1u : 0u;
     uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
     emit_w(C, (COND_AL << 28) | (0x50u << 20) | (u_bit << 23) | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | (off & 0xFFFu));
+}
+
+static void emit_ldr_idx(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, uint32_t rm, uint32_t lsl_imm)
+{
+    emit_w(C, 0xE7900000u | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | ((lsl_imm & 31u) << 7) | (rm & 0xFu));
+}
+
+static void emit_str_idx(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, uint32_t rm, uint32_t lsl_imm)
+{
+    emit_w(C, 0xE7800000u | ((rn & 0xFu) << 16) | ((rd & 0xFu) << 12) | ((lsl_imm & 31u) << 7) | (rm & 0xFu));
+}
+
+static void emit_mla(bmlc_ctx_t *C, uint32_t rd, uint32_t rm, uint32_t rs, uint32_t rn)
+{
+    emit_w(C, 0xE0200090u | ((rd & 0xFu) << 16) | ((rn & 0xFu) << 12) | ((rs & 0xFu) << 8) | (rm & 0xFu));
 }
 
 static void emit_ldrb(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
@@ -2301,6 +2334,118 @@ static void emit_strh(bmlc_ctx_t *C, uint32_t rd, uint32_t rn, int offset)
     emit_w(C, w);
 }
 
+static void emit_vmov_sr(bmlc_ctx_t *C, uint32_t sd, uint32_t rt)
+{
+    uint32_t n = sd & 1u, vn = (sd >> 1) & 0xFu;
+    emit_w(C, 0xEE000A10u | (vn << 16) | ((rt & 0xFu) << 12) | (n << 7));
+}
+
+static void emit_vmov_rs(bmlc_ctx_t *C, uint32_t rt, uint32_t sn)
+{
+    uint32_t n = sn & 1u, vn = (sn >> 1) & 0xFu;
+    emit_w(C, 0xEE100A10u | (vn << 16) | ((rt & 0xFu) << 12) | (n << 7));
+}
+
+static void emit_vfp_dp(bmlc_ctx_t *C, uint32_t base, uint32_t sd, uint32_t sn, uint32_t sm)
+{
+    uint32_t d = sd & 1u, vd = (sd >> 1) & 0xFu;
+    uint32_t n = sn & 1u, vn = (sn >> 1) & 0xFu;
+    uint32_t m = sm & 1u, vm = (sm >> 1) & 0xFu;
+    emit_w(C, base | (d << 22) | (vn << 16) | (vd << 12) | (n << 7) | (m << 5) | vm);
+}
+
+static void emit_vfp_un(bmlc_ctx_t *C, uint32_t base, uint32_t sd, uint32_t sm)
+{
+    uint32_t d = sd & 1u, vd = (sd >> 1) & 0xFu;
+    uint32_t m = sm & 1u, vm = (sm >> 1) & 0xFu;
+    emit_w(C, base | (d << 22) | (vd << 12) | (m << 5) | vm);
+}
+
+static void emit_vmov_ss(bmlc_ctx_t *C, uint32_t sd, uint32_t sm)
+{
+    if (sd != sm)
+        emit_vfp_un(C, 0xEEB00A40u, sd, sm);
+}
+
+static void emit_vcmp(bmlc_ctx_t *C, uint32_t sd, uint32_t sm)
+{
+    emit_vfp_un(C, 0xEEB40A40u, sd, sm);
+}
+
+static void emit_vcmpz(bmlc_ctx_t *C, uint32_t sd)
+{
+    emit_vfp_un(C, 0xEEB50A40u, sd, 0u);
+}
+
+static void emit_vmrs(bmlc_ctx_t *C)
+{
+    emit_w(C, 0xEEF1FA10u);
+}
+
+static void emit_vldr(bmlc_ctx_t *C, uint32_t sd, uint32_t rn, int offset)
+{
+    if (offset < -1020 || offset > 1020) {
+        uint32_t abs_off = (uint32_t)(offset >= 0 ? offset : -offset);
+        emit_mov32(C, 12, abs_off);
+        emit_dp_reg(C, (offset >= 0) ? DP_ADD : DP_SUB, 12, rn, 12, COND_AL, 0, 0, 0);
+        rn = 12u;
+        offset = 0;
+    }
+    uint32_t u_bit = (offset >= 0) ? 1u : 0u;
+    uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
+    uint32_t d = sd & 1u, vd = (sd >> 1) & 0xFu;
+    emit_w(C, 0xED100A00u | (u_bit << 23) | (d << 22) | ((rn & 0xFu) << 16) | (vd << 12) | ((off >> 2) & 0xFFu));
+}
+
+static void emit_vstr(bmlc_ctx_t *C, uint32_t sd, uint32_t rn, int offset)
+{
+    if (offset < -1020 || offset > 1020) {
+        uint32_t abs_off = (uint32_t)(offset >= 0 ? offset : -offset);
+        emit_mov32(C, 12, abs_off);
+        emit_dp_reg(C, (offset >= 0) ? DP_ADD : DP_SUB, 12, rn, 12, COND_AL, 0, 0, 0);
+        rn = 12u;
+        offset = 0;
+    }
+    uint32_t u_bit = (offset >= 0) ? 1u : 0u;
+    uint32_t off = (uint32_t)(offset >= 0 ? offset : -offset);
+    uint32_t d = sd & 1u, vd = (sd >> 1) & 0xFu;
+    emit_w(C, 0xED000A00u | (u_bit << 23) | (d << 22) | ((rn & 0xFu) << 16) | (vd << 12) | ((off >> 2) & 0xFFu));
+}
+
+static void emit_vpush(bmlc_ctx_t *C, uint32_t sd0, uint32_t cnt)
+{
+    uint32_t d = sd0 & 1u, vd = (sd0 >> 1) & 0xFu;
+    emit_w(C, 0xED2D0A00u | (d << 22) | (vd << 12) | (cnt & 0xFFu));
+}
+
+static void emit_vpop(bmlc_ctx_t *C, uint32_t sd0, uint32_t cnt)
+{
+    uint32_t d = sd0 & 1u, vd = (sd0 >> 1) & 0xFu;
+    emit_w(C, 0xECBD0A00u | (d << 22) | (vd << 12) | (cnt & 0xFFu));
+}
+
+static uint32_t add_rodata_f32(bmlc_ctx_t *C, uint32_t fbits)
+{
+    /* Align existing rodata to 4 bytes before scanning/storing word */
+    while ((C->nrodata & 3u) != 0) {
+        if (C->nrodata >= sizeof(C->rodata))
+            c_fail(C, 1, ".rodata segment overflow");
+        C->rodata[C->nrodata++] = 0;
+    }
+    for (uint32_t off = 0; off + 4u <= C->nrodata; off += 4u) {
+        uint32_t w;
+        memcpy(&w, C->rodata + off, 4);
+        if (w == fbits)
+            return off;
+    }
+    if (C->nrodata + 4u > sizeof(C->rodata))
+        c_fail(C, 1, ".rodata segment overflow");
+    uint32_t off = C->nrodata;
+    memcpy(C->rodata + off, &fbits, 4);
+    C->nrodata += 4u;
+    return off;
+}
+
 static void emit_branch_patch(bmlc_ctx_t *C, int16_t fn_idx, int16_t target, uint8_t cond, uint8_t is_bl)
 {
     if (C->npatches >= MAX_PATCHES)
@@ -2314,67 +2459,110 @@ static void emit_branch_patch(bmlc_ctx_t *C, int16_t fn_idx, int16_t target, uin
     p->is_bl = is_bl;
 }
 
+static uint64_t set_mask_bit(uint64_t m, int bit, int is_f32)
+{
+    if (bit < 0 || bit >= 64)
+        return m;
+    if (is_f32) return m | (1ULL << bit);
+    return m & ~(1ULL << bit);
+}
+
 static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
 {
     int n = fn->code_len;
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; i++) {
         C->depths[i] = -1;
+        C->stack_f32[i] = 0;
+        C->is_target[i] = 0;
+    }
+    for (int i = 0; i < n; i++) {
+        c_insn_t ins = C->insns[fn->code_start + i];
+        if (ins.op == OP_JMP || ins.op == OP_JZ || ins.op == OP_JF_KEEP || ins.op == OP_JT_KEEP) {
+            if (ins.arg >= 0 && ins.arg < n)
+                C->is_target[ins.arg] = 1;
+        }
+    }
     uint16_t work[MAX_INSNS];
     int nwork = 0;
     C->depths[0] = 0;
+    C->stack_f32[0] = 0;
     work[nwork++] = 0;
     int max_sp = 0;
 
     while (nwork > 0) {
         int pc = work[--nwork];
         int sp = C->depths[pc];
+        uint64_t m = C->stack_f32[pc];
         if (sp > max_sp)
             max_sp = sp;
         c_insn_t ins = C->insns[fn->code_start + pc];
         uint8_t op = ins.op;
 
         int t1 = -1, sp1 = sp, t2 = -1, sp2 = sp;
-        if (op == OP_PUSH_CONST || op == OP_PUSH_FCONST || op == OP_PUSH_STR || op == OP_PUSH_TRUE || op == OP_PUSH_FALSE || op == OP_LOAD) {
+        uint64_t m1 = m, m2 = m;
+        if (op == OP_PUSH_CONST || op == OP_PUSH_STR || op == OP_PUSH_TRUE || op == OP_PUSH_FALSE) {
             if (sp + 1 > max_sp) max_sp = sp + 1;
-            t1 = pc + 1; sp1 = sp + 1;
+            t1 = pc + 1; sp1 = sp + 1; m1 = set_mask_bit(m, sp, 0);
+        } else if (op == OP_PUSH_FCONST) {
+            if (sp + 1 > max_sp) max_sp = sp + 1;
+            t1 = pc + 1; sp1 = sp + 1; m1 = set_mask_bit(m, sp, 1);
+        } else if (op == OP_LOAD) {
+            if (sp + 1 > max_sp) max_sp = sp + 1;
+            t1 = pc + 1; sp1 = sp + 1; m1 = set_mask_bit(m, sp, fn->ltype[ins.arg] == BMN_F32);
         } else if (op == OP_STORE || op == OP_POP) {
-            t1 = pc + 1; sp1 = sp - 1;
-        } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F || op == OP_FLOOR || op == OP_PEEK || op == OP_PEEK2 || op == OP_PEEK4) {
-            t1 = pc + 1; sp1 = sp;
-        } else if (op == OP_POKE || op == OP_POKE2 || op == OP_POKE4 || op == OP_CLAMP || op == OP_FCLAMP || op == OP_FLERP) {
-            t1 = pc + 1; sp1 = sp - 2;
+            t1 = pc + 1; sp1 = sp - 1; m1 = set_mask_bit(m, sp - 1, 0);
+        } else if (op == OP_FNEG || op == OP_FABS || op == OP_FSQRT || op == OP_I2F) {
+            t1 = pc + 1; sp1 = sp; m1 = set_mask_bit(m, sp - 1, 1);
+        } else if (op == OP_NEG || op == OP_NOT || op == OP_BNOT || op == OP_ABS || op == OP_FLOOR || op == OP_PEEK || op == OP_PEEK2 || op == OP_PEEK4) {
+            t1 = pc + 1; sp1 = sp; m1 = set_mask_bit(m, sp - 1, 0);
+        } else if (op == OP_FCLAMP || op == OP_FLERP) {
+            t1 = pc + 1; sp1 = sp - 2; m1 = set_mask_bit(m, sp - 3, 1);
+        } else if (op == OP_POKE || op == OP_POKE2 || op == OP_POKE4 || op == OP_CLAMP) {
+            t1 = pc + 1; sp1 = sp - 2; m1 = set_mask_bit(m, sp - 3, 0);
+        } else if (op == OP_FADD || op == OP_FSUB || op == OP_FMUL || op == OP_FDIV ||
+                   op == OP_FMIN || op == OP_FMAX || op == OP_AGETF) {
+            t1 = pc + 1; sp1 = sp - 1; m1 = set_mask_bit(m, sp - 2, 1);
         } else if (op >= OP_ADD && op <= OP_AGETF) {
-            t1 = pc + 1; sp1 = sp - 1;
+            t1 = pc + 1; sp1 = sp - 1; m1 = set_mask_bit(m, sp - 2, 0);
         } else if (op == OP_ASET || op == OP_ASETF || op == OP_MEMCPY || op == OP_MEMSET) {
             t1 = pc + 1; sp1 = sp - 3;
         } else if (op == OP_NEW_ARR) {
-            t1 = pc + 1; sp1 = sp - ins.arg + 1;
+            t1 = pc + 1; sp1 = sp - ins.arg + 1; m1 = set_mask_bit(m, sp1 - 1, 0);
         } else if (op == OP_JMP) {
             t1 = ins.arg; sp1 = sp;
         } else if (op == OP_JZ) {
-            t1 = ins.arg; sp1 = sp - 1;
-            t2 = pc + 1;  sp2 = sp - 1;
+            t1 = ins.arg; sp1 = sp - 1; m1 = set_mask_bit(m, sp - 1, 0);
+            t2 = pc + 1;  sp2 = sp - 1; m2 = m1;
         } else if (op == OP_JF_KEEP || op == OP_JT_KEEP) {
-            t1 = ins.arg; sp1 = sp;
-            t2 = pc + 1;  sp2 = sp - 1;
+            t1 = ins.arg; sp1 = sp; m1 = set_mask_bit(m, sp - 1, 0);
+            t2 = pc + 1;  sp2 = sp - 1; m2 = m1;
         } else if (op == OP_CALL) {
             int c_idx = ins.arg >> 8;
             int argc = ins.arg & 0xFF;
             int has_ret = (C->funcs[c_idx].ret_type != BMN_NONE);
+            int is_f32_ret = (C->funcs[c_idx].ret_type == BMN_F32);
             t1 = pc + 1; sp1 = sp - argc + (has_ret ? 1 : 0);
+            if (has_ret) m1 = set_mask_bit(m, sp - argc, is_f32_ret);
         } else if (op == OP_CALL_HOST) {
             int hid = ins.arg >> 8;
             int argc = ins.arg & 0xFF;
             int has_ret = (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT || hid == BMN_HOST_SIN || hid == BMN_HOST_COS || hid == BMN_HOST_ATAN2);
+            int is_f32_ret = (hid == BMN_HOST_TIME || hid == BMN_HOST_SIN || hid == BMN_HOST_COS || hid == BMN_HOST_ATAN2);
             t1 = pc + 1; sp1 = sp - argc + (has_ret ? 1 : 0);
+            if (has_ret) m1 = set_mask_bit(m, sp - argc, is_f32_ret);
         }
+
+        if (sp1 >= 64 || sp2 >= 64)
+            c_fail(C, 1, "expression stack too deep");
 
         if (t1 >= 0 && t1 < n && C->depths[t1] < 0) {
             C->depths[t1] = (int16_t)sp1;
+            C->stack_f32[t1] = (sp1 > 0) ? (m1 & ((sp1 == 64) ? ~0ULL : ((1ULL << sp1) - 1ULL))) : 0ULL;
             work[nwork++] = (uint16_t)t1;
         }
         if (t2 >= 0 && t2 < n && C->depths[t2] < 0) {
             C->depths[t2] = (int16_t)sp2;
+            C->stack_f32[t2] = (sp2 > 0) ? (m2 & ((sp2 == 64) ? ~0ULL : ((1ULL << sp2) - 1ULL))) : 0ULL;
             work[nwork++] = (uint16_t)t2;
         }
     }
@@ -2385,22 +2573,503 @@ static int compute_fn_depths(bmlc_ctx_t *C, const c_func_t *fn)
     return max_sp;
 }
 
-static uint32_t get_slot_reg(bmlc_ctx_t *C, int slot, uint32_t dst_reg)
+typedef struct {
+    int      arm_local_slot[MAX_LOCALS];
+    int      vfp_local_slot[MAX_LOCALS];
+    uint8_t  base_m4[MAX_LOCALS];
+    int      n_arm_locals;
+    int      n_vfp_locals;
+    int      max_arm_slots;
+    int      max_vfp_slots;
+    int      has_user_calls;
+    int      has_any_calls;
+    int      tiny_arm_r3;
+    int      vfp_start;
+    int      vfp_cap;
+    int      n_arm_spills;
+    int      n_vfp_spills;
+    int      vfp_push_cnt;
+    int      arm_callee_cnt;
+    int      has_fp;
+    int      has_lr;
+    int      arm_pushed_words;
+    int      vfp_pushed_words;
+    int      frame_bytes;
+    int      arm_spill_off;
+    int      vfp_spill_off;
+    int      arr_base_off;
+    int32_t  alias_loc[64];
+} fn_cg_t;
+
+static int popcnt_mask(uint64_t m, int d, int want_f32)
 {
-    if (slot < 7)
-        return (uint32_t)(4 + slot);
-    emit_ldr(C, dst_reg, 11, -4 * (slot - 6));
-    return dst_reg;
+    int cnt = 0;
+    for (int i = 0; i < d; i++) {
+        if ((int)((m >> i) & 1ULL) == want_f32)
+            cnt++;
+    }
+    return cnt;
 }
 
-static void put_slot_reg(bmlc_ctx_t *C, int slot, uint32_t src_reg)
+static int cg_arm_reg(const fn_cg_t *cg, int arm_slot)
 {
-    if (slot < 7) {
-        uint32_t target = (uint32_t)(4 + slot);
-        if (src_reg != target)
-            emit_dp_reg(C, DP_MOV, target, 0, src_reg, COND_AL, 0, 0, 0);
+    if (cg->tiny_arm_r3 && arm_slot == 0)
+        return 3;
+    if (arm_slot < 7)
+        return 4 + arm_slot;
+    return -1;
+}
+
+static int cg_vfp_reg(const fn_cg_t *cg, int vfp_slot)
+{
+    if (vfp_slot < cg->vfp_cap)
+        return cg->vfp_start + vfp_slot;
+    return -1;
+}
+
+static int cg_arm_spill_fp_off(const fn_cg_t *cg, int arm_slot)
+{
+    return -(cg->arm_spill_off + 4 * (arm_slot - 7));
+}
+
+static int cg_vfp_spill_fp_off(const fn_cg_t *cg, int vfp_slot)
+{
+    return -(cg->vfp_spill_off + 4 * (vfp_slot - cg->vfp_cap));
+}
+
+static uint32_t cg_get_arm(bmlc_ctx_t *C, const fn_cg_t *cg, int arm_slot, uint32_t scratch_r)
+{
+    int r = cg_arm_reg(cg, arm_slot);
+    if (r >= 0)
+        return (uint32_t)r;
+    emit_ldr(C, scratch_r, 11, cg_arm_spill_fp_off(cg, arm_slot));
+    return scratch_r;
+}
+
+static void cg_put_arm(bmlc_ctx_t *C, const fn_cg_t *cg, int arm_slot, uint32_t src_r)
+{
+    int r = cg_arm_reg(cg, arm_slot);
+    if (r >= 0) {
+        if ((uint32_t)r != src_r)
+            emit_dp_reg(C, DP_MOV, (uint32_t)r, 0, src_r, COND_AL, 0, 0, 0);
     } else {
-        emit_str(C, src_reg, 11, -4 * (slot - 6));
+        emit_str(C, src_r, 11, cg_arm_spill_fp_off(cg, arm_slot));
+    }
+}
+
+static uint32_t cg_arm_dst(const fn_cg_t *cg, int arm_slot, uint32_t fallback_r)
+{
+    int r = cg_arm_reg(cg, arm_slot);
+    return (r >= 0) ? (uint32_t)r : fallback_r;
+}
+
+static uint32_t cg_get_vfp(bmlc_ctx_t *C, const fn_cg_t *cg, int vfp_slot, uint32_t scratch_s)
+{
+    int s = cg_vfp_reg(cg, vfp_slot);
+    if (s >= 0)
+        return (uint32_t)s;
+    emit_vldr(C, scratch_s, 11, cg_vfp_spill_fp_off(cg, vfp_slot));
+    return scratch_s;
+}
+
+static void cg_put_vfp(bmlc_ctx_t *C, const fn_cg_t *cg, int vfp_slot, uint32_t src_s)
+{
+    int s = cg_vfp_reg(cg, vfp_slot);
+    if (s >= 0) {
+        emit_vmov_ss(C, (uint32_t)s, src_s);
+    } else {
+        emit_vstr(C, src_s, 11, cg_vfp_spill_fp_off(cg, vfp_slot));
+    }
+}
+
+static uint32_t cg_vfp_dst(const fn_cg_t *cg, int vfp_slot, uint32_t fallback_s)
+{
+    int s = cg_vfp_reg(cg, vfp_slot);
+    return (s >= 0) ? (uint32_t)s : fallback_s;
+}
+
+static int cg_stk_arm_slot(const fn_cg_t *cg, uint64_t f32_mask, int depth)
+{
+    return cg->n_arm_locals + popcnt_mask(f32_mask, depth, 0);
+}
+
+static int cg_stk_vfp_slot(const fn_cg_t *cg, uint64_t f32_mask, int depth)
+{
+    return cg->n_vfp_locals + popcnt_mask(f32_mask, depth, 1);
+}
+
+static uint32_t cg_read_arm_op(bmlc_ctx_t *C, const fn_cg_t *cg, uint64_t f32_mask, int depth, uint32_t scratch_r)
+{
+    if (cg->alias_loc[depth] >= 0)
+        return cg_get_arm(C, cg, cg->arm_local_slot[(int)cg->alias_loc[depth]], scratch_r);
+    return cg_get_arm(C, cg, cg_stk_arm_slot(cg, f32_mask, depth), scratch_r);
+}
+
+static uint32_t cg_read_vfp_op(bmlc_ctx_t *C, const fn_cg_t *cg, uint64_t f32_mask, int depth, uint32_t scratch_s)
+{
+    if (cg->alias_loc[depth] >= 0)
+        return cg_get_vfp(C, cg, cg->vfp_local_slot[(int)cg->alias_loc[depth]], scratch_s);
+    return cg_get_vfp(C, cg, cg_stk_vfp_slot(cg, f32_mask, depth), scratch_s);
+}
+
+static void cg_flush_alias_idx(bmlc_ctx_t *C, fn_cg_t *cg, uint64_t f32_mask, int depth)
+{
+    int loc = cg->alias_loc[depth];
+    if (loc < 0)
+        return;
+    cg->alias_loc[depth] = -1;
+    if ((f32_mask >> depth) & 1ULL) {
+        uint32_t s = cg_get_vfp(C, cg, cg->vfp_local_slot[loc], 0u);
+        cg_put_vfp(C, cg, cg_stk_vfp_slot(cg, f32_mask, depth), s);
+    } else {
+        uint32_t r = cg_get_arm(C, cg, cg->arm_local_slot[loc], 0u);
+        cg_put_arm(C, cg, cg_stk_arm_slot(cg, f32_mask, depth), r);
+    }
+}
+
+static void cg_flush_all_aliases(bmlc_ctx_t *C, fn_cg_t *cg, uint64_t f32_mask, int limit_sp)
+{
+    for (int d = 0; d < limit_sp; d++) {
+        if (cg->alias_loc[d] >= 0)
+            cg_flush_alias_idx(C, cg, f32_mask, d);
+    }
+}
+
+static void cg_flush_local_aliases(bmlc_ctx_t *C, fn_cg_t *cg, uint64_t f32_mask, int loc, int limit_sp)
+{
+    for (int d = 0; d < limit_sp; d++) {
+        if (cg->alias_loc[d] == loc)
+            cg_flush_alias_idx(C, cg, f32_mask, d);
+    }
+}
+
+static int is_pow2_const(int32_t val, uint32_t *out_shift)
+{
+    if (val <= 0)
+        return 0;
+    uint32_t u = (uint32_t)val;
+    if ((u & (u - 1u)) != 0u)
+        return 0;
+    uint32_t k = 0;
+    while ((u >> k) > 1u)
+        k++;
+    *out_shift = k;
+    return 1;
+}
+
+static uint32_t inv_cond(uint32_t ct)
+{
+    return ct ^ 1u;
+}
+
+static uint32_t arm_cmp_cond(uint8_t op)
+{
+    if (op == OP_EQ) return COND_EQ;
+    if (op == OP_NE) return COND_NE;
+    if (op == OP_LT) return COND_LT;
+    if (op == OP_LE) return COND_LE;
+    if (op == OP_GT) return COND_GT;
+    return COND_GE;
+}
+
+static uint32_t vfp_cmp_cond(uint8_t op)
+{
+    if (op == OP_FEQ) return COND_EQ;
+    if (op == OP_FNE) return COND_NE;
+    if (op == OP_FLT) return COND_MI;
+    if (op == OP_FLE) return COND_LS;
+    if (op == OP_FGT) return COND_GT;
+    return COND_GE;
+}
+
+static uint32_t vfp_cmp_inv_cond(uint8_t op)
+{
+    if (op == OP_FEQ) return COND_NE;
+    if (op == OP_FNE) return COND_EQ;
+    if (op == OP_FLT) return COND_PL;
+    if (op == OP_FLE) return COND_HI;
+    if (op == OP_FGT) return COND_LE;
+    return COND_LT;
+}
+
+static void analyze_fn_cg(bmlc_ctx_t *C, const c_func_t *fn, fn_cg_t *cg)
+{
+    memset(cg, 0, sizeof *cg);
+    memset(cg->alias_loc, -1, sizeof cg->alias_loc);
+
+    int n = fn->code_len;
+    uint8_t stored[MAX_LOCALS];
+    memset(stored, 0, sizeof stored);
+
+    for (int i = 0; i < (int)fn->nlocals; i++) {
+        if (fn->ltype[i] == BMN_F32) {
+            cg->arm_local_slot[i] = -1;
+            cg->vfp_local_slot[i] = cg->n_vfp_locals++;
+        } else {
+            cg->arm_local_slot[i] = cg->n_arm_locals++;
+            cg->vfp_local_slot[i] = -1;
+            if (i < (int)fn->nparams && fn->ltype[i] >= BMN_ARR_I32 && fn->ltype[i] <= BMN_ARR_F32)
+                cg->base_m4[i] = 1;
+        }
+    }
+
+    int max_arm_sp = 0;
+    int max_vfp_sp = 0;
+    int total_arr_words = 0;
+    for (int pc = 0; pc < n; pc++) {
+        c_insn_t ins = C->insns[fn->code_start + pc];
+        uint8_t op = ins.op;
+        int sp = C->depths[pc];
+        uint64_t m = C->stack_f32[pc];
+        int a_cnt = popcnt_mask(m, sp, 0);
+        int v_cnt = popcnt_mask(m, sp, 1);
+        if (a_cnt > max_arm_sp) max_arm_sp = a_cnt;
+        if (v_cnt > max_vfp_sp) max_vfp_sp = v_cnt;
+
+        if (op == OP_NEW_ARR)
+            total_arr_words += ins.arg;
+        else if (op == OP_CALL || op == OP_CALL_HOST) {
+            cg->has_user_calls = 1;
+            cg->has_any_calls = 1;
+        } else if (op == OP_MEMCPY || op == OP_MEMSET) {
+            cg->has_any_calls = 1;
+        } else if (op == OP_IDIV || op == OP_IMOD) {
+            uint32_t sh = 0;
+            int folded = (pc > 0 && C->insns[fn->code_start + pc - 1].op == OP_PUSH_CONST &&
+                          !C->is_target[pc] &&
+                          is_pow2_const(C->consts[C->insns[fn->code_start + pc - 1].arg], &sh));
+            if (!folded)
+                cg->has_any_calls = 1;
+        } else if (op == OP_STORE) {
+            stored[ins.arg] = 1;
+            cg->base_m4[ins.arg] = 0;
+        } else if (op == OP_LOAD && cg->base_m4[ins.arg]) {
+            int sp0 = sp;
+            int ok = 0;
+            for (int q = pc + 1; q < n; q++) {
+                c_insn_t qins = C->insns[fn->code_start + q];
+                int qsp = C->depths[q];
+                if (qsp <= sp0)
+                    break;
+                if (qins.op == OP_JMP || qins.op == OP_JZ || qins.op == OP_JF_KEEP || qins.op == OP_JT_KEEP)
+                    break;
+                if (qsp == sp0 + 2 && (qins.op == OP_AGET || qins.op == OP_AGETF)) {
+                    ok = 1;
+                    break;
+                }
+                if (qsp == sp0 + 3 && (qins.op == OP_ASET || qins.op == OP_ASETF)) {
+                    ok = 1;
+                    break;
+                }
+                if (qsp == sp0 + 1 && (qins.op == OP_RET || qins.op == OP_STORE))
+                    break;
+            }
+            if (!ok)
+                cg->base_m4[ins.arg] = 0;
+        }
+    }
+    for (int i = 0; i < (int)fn->nlocals; i++) {
+        if (stored[i]) cg->base_m4[i] = 0;
+    }
+
+    cg->max_arm_slots = cg->n_arm_locals + max_arm_sp + 1;
+    cg->max_vfp_slots = cg->n_vfp_locals + max_vfp_sp + 1;
+
+    cg->vfp_start = cg->has_user_calls ? 16 : 4;
+    cg->vfp_cap   = cg->has_user_calls ? 16 : 28;
+    cg->n_vfp_spills = (cg->max_vfp_slots > cg->vfp_cap) ? (cg->max_vfp_slots - cg->vfp_cap) : 0;
+
+    if (!cg->has_user_calls && cg->max_vfp_slots > 12) {
+        int s_hi = cg->max_vfp_slots - 12;
+        if (s_hi > 16) s_hi = 16;
+        cg->vfp_push_cnt = ((s_hi + 1) / 2) * 2;
+    } else if (cg->has_user_calls && cg->max_vfp_slots > 0) {
+        int s_hi = cg->max_vfp_slots;
+        if (s_hi > 16) s_hi = 16;
+        cg->vfp_push_cnt = ((s_hi + 1) / 2) * 2;
+    }
+
+    if (!cg->has_any_calls && cg->max_arm_slots <= 1 && total_arr_words == 0 && cg->n_vfp_spills == 0 && (int)fn->nparams <= 4) {
+        cg->tiny_arm_r3 = 1;
+        cg->arm_callee_cnt = 0;
+        cg->n_arm_spills = 0;
+    } else {
+        cg->arm_callee_cnt = (cg->max_arm_slots > 7) ? 7 : cg->max_arm_slots;
+        cg->n_arm_spills   = (cg->max_arm_slots > 7) ? (cg->max_arm_slots - 7) : 0;
+    }
+
+    int stack_params = ((int)fn->nparams > 4) ? 1 : 0;
+    int need_frame = (cg->n_arm_spills > 0 || cg->n_vfp_spills > 0 || total_arr_words > 0 || stack_params);
+    cg->has_fp = need_frame;
+    cg->has_lr = cg->has_any_calls;
+
+    int arm_words = cg->arm_callee_cnt + (cg->has_fp ? 1 : 0) + (cg->has_lr ? 1 : 0);
+    cg->vfp_pushed_words = cg->vfp_push_cnt;
+    int frame_words = cg->n_arm_spills + cg->n_vfp_spills + total_arr_words;
+    if ((cg->has_any_calls || frame_words > 0) && ((arm_words + cg->vfp_pushed_words + frame_words) & 1) != 0)
+        frame_words++;
+
+    cg->arm_pushed_words = arm_words;
+    cg->frame_bytes = frame_words * 4;
+    cg->arm_spill_off = 4;
+    cg->vfp_spill_off = 4 + cg->n_arm_spills * 4;
+    cg->arr_base_off  = cg->vfp_spill_off + cg->n_vfp_spills * 4;
+}
+
+typedef struct {
+    uint16_t ldr_idx;
+    uint16_t add_idx;
+    uint8_t  dst;
+    uint32_t off;
+} reloc_entry_t;
+
+static void emit_push_fconst_to_vfp(
+    bmlc_ctx_t *C,
+    uint32_t dst_s,
+    uint32_t fbits,
+    reloc_entry_t *relocs,
+    int *nrelocs,
+    int max_relocs)
+{
+    if (encode_imm12(fbits) >= 0 || encode_imm12(~fbits) >= 0) {
+        emit_mov32(C, 12, fbits);
+        emit_vmov_sr(C, dst_s, 12);
+        return;
+    }
+    uint32_t ro_off = add_rodata_f32(C, fbits);
+    if (*nrelocs < max_relocs) {
+        uint16_t ldr_idx = (uint16_t)emit_w(C, 0);
+        uint16_t add_idx = (uint16_t)C->nwords;
+        emit_dp_reg(C, DP_ADD, 12, 15, 12, COND_AL, 0, 0, 0);
+        emit_vldr(C, dst_s, 12, 0);
+        relocs[*nrelocs].ldr_idx = ldr_idx;
+        relocs[*nrelocs].add_idx = add_idx;
+        relocs[*nrelocs].dst = 12u;
+        relocs[*nrelocs].off = ro_off;
+        (*nrelocs)++;
+    } else {
+        emit_mov32(C, 12, fbits);
+        emit_vmov_sr(C, dst_s, 12);
+    }
+}
+
+static void emit_arm_cmp_const(bmlc_ctx_t *C, uint32_t ra, int32_t cval)
+{
+    uint32_t u = (uint32_t)cval;
+    int enc = encode_imm12(u);
+    if (enc >= 0) {
+        emit_dp_imm(C, DP_CMP, 0, ra, (uint32_t)enc, COND_AL, 1);
+        return;
+    }
+    int enc_neg = encode_imm12((uint32_t)(-(int64_t)cval));
+    if (enc_neg >= 0) {
+        emit_dp_imm(C, DP_CMN, 0, ra, (uint32_t)enc_neg, COND_AL, 1);
+        return;
+    }
+    emit_mov32(C, 12, u);
+    emit_dp_reg(C, DP_CMP, 0, ra, 12, COND_AL, 1, 0, 0);
+}
+
+static void emit_arm_alu_const(bmlc_ctx_t *C, uint8_t op, uint32_t dst, uint32_t ra, int32_t cval)
+{
+    uint32_t u = (uint32_t)cval;
+    if (op == OP_ADD || op == OP_SUB) {
+        int enc = encode_imm12(u);
+        if (enc >= 0) {
+            emit_dp_imm(C, (op == OP_ADD) ? DP_ADD : DP_SUB, dst, ra, (uint32_t)enc, COND_AL, 0);
+            return;
+        }
+        int enc_neg = encode_imm12((uint32_t)(-(int64_t)cval));
+        if (enc_neg >= 0) {
+            emit_dp_imm(C, (op == OP_ADD) ? DP_SUB : DP_ADD, dst, ra, (uint32_t)enc_neg, COND_AL, 0);
+            return;
+        }
+        emit_mov32(C, 12, u);
+        emit_dp_reg(C, (op == OP_ADD) ? DP_ADD : DP_SUB, dst, ra, 12, COND_AL, 0, 0, 0);
+        return;
+    }
+    if (op == OP_BAND || op == OP_BOR || op == OP_BXOR) {
+        int enc = encode_imm12(u);
+        uint32_t dp = (op == OP_BAND) ? DP_AND : ((op == OP_BOR) ? DP_ORR : DP_EOR);
+        if (enc >= 0) {
+            emit_dp_imm(C, dp, dst, ra, (uint32_t)enc, COND_AL, 0);
+            return;
+        }
+        if (op == OP_BAND) {
+            int enc_inv = encode_imm12(~u);
+            if (enc_inv >= 0) {
+                emit_dp_imm(C, DP_BIC, dst, ra, (uint32_t)enc_inv, COND_AL, 0);
+                return;
+            }
+        }
+        emit_mov32(C, 12, u);
+        emit_dp_reg(C, dp, dst, ra, 12, COND_AL, 0, 0, 0);
+        return;
+    }
+    if (op == OP_SHL || op == OP_SHR) {
+        uint32_t sh = (uint32_t)cval & 31u;
+        if (sh == 0u) {
+            if (dst != ra) emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, 0, 0);
+        } else {
+            emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, (op == OP_SHL) ? 0u : 2u, sh);
+        }
+        return;
+    }
+    if (op == OP_MUL) {
+        if (cval == 0) {
+            emit_dp_imm(C, DP_MOV, dst, 0, 0, COND_AL, 0);
+            return;
+        }
+        uint32_t sh = 0;
+        if (is_pow2_const(cval, &sh)) {
+            if (sh == 0u) {
+                if (dst != ra) emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, 0, 0);
+            } else {
+                emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, 0u, sh);
+            }
+            return;
+        }
+        emit_mov32(C, 12, u);
+        if (dst != ra) {
+            emit_w(C, 0xE0000090u | ((dst & 0xFu) << 16) | (12u << 8) | (ra & 0xFu));
+        } else {
+            emit_w(C, 0xE000009Cu | ((dst & 0xFu) << 16) | ((ra & 0xFu) << 8));
+        }
+        return;
+    }
+    if (op == OP_IDIV) {
+        uint32_t sh = 0;
+        if (is_pow2_const(cval, &sh)) {
+            if (sh == 0u) {
+                if (dst != ra) emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, 0, 0);
+            } else {
+                emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, 2u, sh);
+            }
+            return;
+        }
+    }
+    if (op == OP_IMOD) {
+        uint32_t sh = 0;
+        if (is_pow2_const(cval, &sh)) {
+            if (sh == 0u) {
+                emit_dp_imm(C, DP_MOV, dst, 0, 0, COND_AL, 0);
+                return;
+            }
+            uint32_t mask = (1u << sh) - 1u;
+            int enc = encode_imm12(mask);
+            if (enc >= 0) {
+                emit_dp_imm(C, DP_AND, dst, ra, (uint32_t)enc, COND_AL, 0);
+                return;
+            }
+            int enc_inv = encode_imm12(~mask);
+            if (enc_inv >= 0) {
+                emit_dp_imm(C, DP_BIC, dst, ra, (uint32_t)enc_inv, COND_AL, 0);
+                return;
+            }
+            emit_mov32(C, 12, mask);
+            emit_dp_reg(C, DP_AND, dst, ra, 12, COND_AL, 0, 0, 0);
+            return;
+        }
     }
 }
 
@@ -2419,95 +3088,275 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
         return;
     }
 
-    int max_sp = compute_fn_depths(C, fn);
-    int total_slots = (int)fn->nlocals + max_sp + 1;
-    int spill_slots = total_slots > 7 ? (total_slots - 7) : 0;
-    int total_arr_words = 0;
-    for (int i = 0; i < fn->code_len; i++) {
-        if (C->insns[fn->code_start + i].op == OP_NEW_ARR)
-            total_arr_words += C->insns[fn->code_start + i].arg;
-    }
-    int frame_words = spill_slots + total_arr_words;
-    if ((9 + frame_words) % 2 != 0)
-        frame_words++;
-    int frame_bytes = frame_words * 4;
+    compute_fn_depths(C, fn);
+    fn_cg_t cg;
+    analyze_fn_cg(C, fn, &cg);
 
     int fn_patch_start = C->npatches;
-    struct { uint16_t ldr_idx; uint16_t add_idx; uint8_t dst; uint32_t off; } fn_str_relocs[64];
+    reloc_entry_t fn_str_relocs[256];
     int nfn_str_relocs = 0;
 
-    /* push {r4-r10, fp, lr}; mov fp, sp; sub sp, sp, #frame_bytes */
-    emit_w(C, 0xE92D4FF0u);
-    emit_dp_reg(C, DP_MOV, 11, 0, 13, COND_AL, 0, 0, 0);
-    if (frame_bytes > 0) {
-        emit_mov32(C, 12, (uint32_t)frame_bytes);
-        emit_dp_reg(C, DP_SUB, 13, 13, 12, COND_AL, 0, 0, 0);
+    uint32_t push_mask = 0;
+    for (int i = 0; i < cg.arm_callee_cnt; i++)
+        push_mask |= (1u << (4 + i));
+    if (cg.has_fp)
+        push_mask |= (1u << 11);
+    if (cg.has_lr)
+        push_mask |= (1u << 14);
+    if (push_mask != 0u)
+        emit_w(C, 0xE92D0000u | push_mask);
+    if (cg.vfp_push_cnt > 0)
+        emit_vpush(C, 16u, (uint32_t)cg.vfp_push_cnt);
+    if (cg.has_fp) {
+        emit_dp_reg(C, DP_MOV, 11, 0, 13, COND_AL, 0, 0, 0);
+        if (cg.frame_bytes > 0) {
+            int enc = encode_imm12((uint32_t)cg.frame_bytes);
+            if (enc >= 0) {
+                emit_dp_imm(C, DP_SUB, 13, 13, (uint32_t)enc, COND_AL, 0);
+            } else {
+                emit_mov32(C, 12, (uint32_t)cg.frame_bytes);
+                emit_dp_reg(C, DP_SUB, 13, 13, 12, COND_AL, 0, 0, 0);
+            }
+        }
     }
 
+    int caller_base_off = (cg.arm_pushed_words + cg.vfp_pushed_words) * 4;
     for (int i = 0; i < (int)fn->nparams; i++) {
-        if (i < 4) {
-            put_slot_reg(C, i, (uint32_t)i);
-        } else {
-            emit_ldr(C, 0, 11, 36 + 4 * (i - 4));
-            put_slot_reg(C, i, 0);
+        if (fn->ltype[i] == BMN_F32) {
+            int vs = cg.vfp_local_slot[i];
+            if (i < 4) {
+                uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+                emit_vmov_sr(C, sd, (uint32_t)i);
+                if (cg_vfp_reg(&cg, vs) < 0)
+                    emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+            } else {
+                uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+                emit_vldr(C, sd, 11, caller_base_off + 4 * (i - 4));
+                if (cg_vfp_reg(&cg, vs) < 0)
+                    emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+            }
+        }
+    }
+    for (int i = 0; i < (int)fn->nparams; i++) {
+        if (fn->ltype[i] != BMN_F32) {
+            int as = cg.arm_local_slot[i];
+            if (i < 4) {
+                if (cg.base_m4[i]) {
+                    uint32_t rd = cg_arm_dst(&cg, as, 0u);
+                    emit_dp_imm(C, DP_SUB, rd, (uint32_t)i, 4u, COND_AL, 0);
+                    if (cg_arm_reg(&cg, as) < 0)
+                        emit_str(C, rd, 11, cg_arm_spill_fp_off(&cg, as));
+                } else {
+                    cg_put_arm(C, &cg, as, (uint32_t)i);
+                }
+            } else {
+                uint32_t rd = cg_arm_dst(&cg, as, 0u);
+                emit_ldr(C, rd, 11, caller_base_off + 4 * (i - 4));
+                if (cg.base_m4[i])
+                    emit_dp_imm(C, DP_SUB, rd, rd, 4u, COND_AL, 0);
+                if (cg_arm_reg(&cg, as) < 0)
+                    emit_str(C, rd, 11, cg_arm_spill_fp_off(&cg, as));
+            }
         }
     }
 
     int n = fn->code_len;
     int cur_arr_word = 0;
     for (int pc = 0; pc < n; pc++) {
-        C->pc_word[pc] = (uint16_t)C->nwords;
+        C->pc_word[pc] = (uint32_t)C->nwords;
         int sp = C->depths[pc];
+        uint64_t f32_mask = C->stack_f32[pc];
         c_insn_t ins = C->insns[fn->code_start + pc];
         uint8_t op = ins.op;
-        int s_top = (int)fn->nlocals + sp;
+
+        if (C->is_target[pc])
+            cg_flush_all_aliases(C, &cg, f32_mask, sp);
+
+        /* Peephole: OP_PUSH_CONST + array/ALU/compare/branch */
+        if (op == OP_PUSH_CONST && pc + 1 < n && !C->is_target[pc + 1]) {
+            c_insn_t ins1 = C->insns[fn->code_start + pc + 1];
+            uint8_t op1 = ins1.op;
+            int32_t cval = C->consts[ins.arg];
+            int push_sp = sp + 1;
+            uint64_t m1 = set_mask_bit(f32_mask, sp, 0);
+
+            if ((op1 == OP_AGET || op1 == OP_AGETF) && sp >= 1) {
+                int base_is_m4 = (cg.alias_loc[sp - 1] >= 0 && cg.base_m4[(int)cg.alias_loc[sp - 1]]);
+                int32_t off_b = base_is_m4 ? (cval * 4) : ((cval - 1) * 4);
+                int max_off = (op1 == OP_AGETF) ? 1020 : 4095;
+                if (off_b >= -max_off && off_b <= max_off && (op1 != OP_AGETF || (off_b & 3) == 0)) {
+                    uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+                    cg.alias_loc[sp - 1] = -1;
+                    if (op1 == OP_AGETF) {
+                        int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 1);
+                        uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+                        emit_vldr(C, sd, rb, off_b);
+                        if (cg_vfp_reg(&cg, vs) < 0)
+                            emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+                    } else {
+                        int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+                        uint32_t dst = cg_arm_dst(&cg, as, 0u);
+                        emit_ldr(C, dst, rb, off_b);
+                        if (cg_arm_reg(&cg, as) < 0)
+                            emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
+                    }
+                    C->pc_word[pc + 1] = C->pc_word[pc];
+                    pc++;
+                    continue;
+                }
+            }
+
+            uint32_t tmp_sh = 0;
+            if (sp >= 1 && (op1 == OP_ADD || op1 == OP_SUB || op1 == OP_BAND || op1 == OP_BOR ||
+                            op1 == OP_BXOR || op1 == OP_SHL || op1 == OP_SHR || op1 == OP_MUL ||
+                            ((op1 == OP_IDIV || op1 == OP_IMOD) && is_pow2_const(cval, &tmp_sh)))) {
+                uint32_t ra = cg_read_arm_op(C, &cg, m1, push_sp - 2, 0u);
+                cg.alias_loc[sp - 1] = -1;
+                int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+                uint32_t dst = cg_arm_dst(&cg, as, 0u);
+                emit_arm_alu_const(C, op1, dst, ra, cval);
+                if (cg_arm_reg(&cg, as) < 0)
+                    emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                continue;
+            }
+
+            if (sp >= 1 && op1 >= OP_EQ && op1 <= OP_GE) {
+                uint32_t ra = cg_read_arm_op(C, &cg, m1, push_sp - 2, 0u);
+                cg.alias_loc[sp - 1] = -1;
+                if (pc + 2 < n && !C->is_target[pc + 2] &&
+                    C->insns[fn->code_start + pc + 2].op == OP_JZ) {
+                    cg_flush_all_aliases(C, &cg, f32_mask, sp - 1);
+                    emit_arm_cmp_const(C, ra, cval);
+                    uint32_t inv = inv_cond(arm_cmp_cond(op1));
+                    emit_branch_patch(C, (int16_t)fn_idx, (int16_t)C->insns[fn->code_start + pc + 2].arg, (uint8_t)inv, 0);
+                    C->pc_word[pc + 1] = C->pc_word[pc];
+                    C->pc_word[pc + 2] = C->pc_word[pc];
+                    pc += 2;
+                    continue;
+                }
+                emit_arm_cmp_const(C, ra, cval);
+                int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+                uint32_t dst = cg_arm_dst(&cg, as, 0u);
+                emit_dp_imm(C, DP_MOV, dst, 0, 0, COND_AL, 0);
+                emit_dp_imm(C, DP_MOV, dst, 0, 1, arm_cmp_cond(op1), 0);
+                if (cg_arm_reg(&cg, as) < 0)
+                    emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                continue;
+            }
+        }
+
+        /* Peephole: OP_PUSH_FCONST + OP_STORE directly into f32 local */
+        if (op == OP_PUSH_FCONST && pc + 1 < n && !C->is_target[pc + 1]) {
+            c_insn_t ins1 = C->insns[fn->code_start + pc + 1];
+            uint32_t fbits = C->fconsts[ins.arg];
+            if (ins1.op == OP_STORE && fn->ltype[ins1.arg] == BMN_F32) {
+                cg_flush_local_aliases(C, &cg, f32_mask, ins1.arg, sp);
+                int vs = cg.vfp_local_slot[ins1.arg];
+                uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+                emit_push_fconst_to_vfp(C, sd, fbits, fn_str_relocs, &nfn_str_relocs, 256);
+                if (cg_vfp_reg(&cg, vs) < 0)
+                    emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                continue;
+            }
+            /* Peephole: OP_PUSH_FCONST(0.0) + OP_FEQ..OP_FGE (+ OP_JZ) -> vcmpz */
+            if (fbits == 0u && sp >= 1 && ins1.op >= OP_FEQ && ins1.op <= OP_FGE) {
+                uint32_t sa = cg_read_vfp_op(C, &cg, set_mask_bit(f32_mask, sp, 1), sp - 1, 0u);
+                cg.alias_loc[sp - 1] = -1;
+                emit_vcmpz(C, sa);
+                emit_vmrs(C);
+                if (pc + 2 < n && !C->is_target[pc + 2] &&
+                    C->insns[fn->code_start + pc + 2].op == OP_JZ) {
+                    cg_flush_all_aliases(C, &cg, f32_mask, sp - 1);
+                    uint32_t inv = vfp_cmp_inv_cond(ins1.op);
+                    emit_branch_patch(C, (int16_t)fn_idx, (int16_t)C->insns[fn->code_start + pc + 2].arg, (uint8_t)inv, 0);
+                    C->pc_word[pc + 1] = C->pc_word[pc];
+                    C->pc_word[pc + 2] = C->pc_word[pc];
+                    pc += 2;
+                    continue;
+                }
+                int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+                uint32_t dst = cg_arm_dst(&cg, as, 0u);
+                emit_dp_imm(C, DP_MOV, dst, 0, 0, COND_AL, 0);
+                emit_dp_imm(C, DP_MOV, dst, 0, 1, vfp_cmp_cond(ins1.op), 0);
+                if (cg_arm_reg(&cg, as) < 0)
+                    emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                continue;
+            }
+        }
 
         switch (op) {
         case OP_PUSH_CONST: {
-            uint32_t dst = (s_top < 7) ? (uint32_t)(4 + s_top) : 0u;
+            cg.alias_loc[sp] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             emit_mov32(C, dst, (uint32_t)C->consts[ins.arg]);
-            put_slot_reg(C, s_top, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_PUSH_FCONST: {
-            uint32_t dst = (s_top < 7) ? (uint32_t)(4 + s_top) : 0u;
-            emit_mov32(C, dst, C->fconsts[ins.arg]);
-            put_slot_reg(C, s_top, dst);
+            cg.alias_loc[sp] = -1;
+            int vs = cg_stk_vfp_slot(&cg, f32_mask, sp);
+            uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+            emit_push_fconst_to_vfp(C, sd, C->fconsts[ins.arg], fn_str_relocs, &nfn_str_relocs, 256);
+            if (cg_vfp_reg(&cg, vs) < 0)
+                emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
             break;
         }
         case OP_PUSH_STR: {
-            uint32_t dst = (s_top < 7) ? (uint32_t)(4 + s_top) : 0u;
+            cg.alias_loc[sp] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             uint16_t ldr_idx = (uint16_t)C->nwords;
-            emit_w(C, 0); /* placeholder for ldr dst, [pc, #lit] */
+            emit_w(C, 0);
             uint16_t add_idx = (uint16_t)C->nwords;
             emit_dp_reg(C, DP_ADD, dst, 15, dst, COND_AL, 0, 0, 0);
-            if (nfn_str_relocs < 64) {
+            if (nfn_str_relocs < 256) {
                 fn_str_relocs[nfn_str_relocs].ldr_idx = ldr_idx;
                 fn_str_relocs[nfn_str_relocs].add_idx = add_idx;
                 fn_str_relocs[nfn_str_relocs].dst = (uint8_t)dst;
                 fn_str_relocs[nfn_str_relocs].off = (uint32_t)ins.arg;
                 nfn_str_relocs++;
             }
-            put_slot_reg(C, s_top, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_PUSH_TRUE:
         case OP_PUSH_FALSE: {
-            uint32_t dst = (s_top < 7) ? (uint32_t)(4 + s_top) : 0u;
+            cg.alias_loc[sp] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             emit_dp_imm(C, DP_MOV, dst, 0, (op == OP_PUSH_TRUE) ? 1u : 0u, COND_AL, 0);
-            put_slot_reg(C, s_top, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_POP:
+            cg.alias_loc[sp - 1] = -1;
             break;
-        case OP_LOAD: {
-            uint32_t r = get_slot_reg(C, ins.arg, 0);
-            put_slot_reg(C, s_top, r);
+        case OP_LOAD:
+            cg.alias_loc[sp] = (int32_t)ins.arg;
             break;
-        }
         case OP_STORE: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            put_slot_reg(C, ins.arg, r);
+            cg_flush_local_aliases(C, &cg, f32_mask, ins.arg, sp - 1);
+            if (fn->ltype[ins.arg] == BMN_F32) {
+                uint32_t s = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 0u);
+                cg.alias_loc[sp - 1] = -1;
+                cg_put_vfp(C, &cg, cg.vfp_local_slot[ins.arg], s);
+            } else {
+                uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+                cg.alias_loc[sp - 1] = -1;
+                cg_put_arm(C, &cg, cg.arm_local_slot[ins.arg], r);
+            }
             break;
         }
         case OP_ADD:
@@ -2515,337 +3364,552 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
         case OP_BAND:
         case OP_BOR:
         case OP_BXOR: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
-            uint32_t dp;
-            if (op == OP_ADD) dp = DP_ADD;
-            else if (op == OP_SUB) dp = DP_SUB;
-            else if (op == OP_BAND) dp = DP_AND;
-            else if (op == OP_BOR) dp = DP_ORR;
-            else dp = DP_EOR;
+            uint32_t ra = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 2);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
+            uint32_t dp = (op == OP_ADD) ? DP_ADD : (op == OP_SUB) ? DP_SUB :
+                          (op == OP_BAND) ? DP_AND : (op == OP_BOR) ? DP_ORR : DP_EOR;
             emit_dp_reg(C, dp, dst, ra, rb, COND_AL, 0, 0, 0);
-            put_slot_reg(C, s_top - 2, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_SHL:
         case OP_SHR: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
-            uint32_t shift_type = (op == OP_SHL) ? 0u : 2u; /* 0: LSL, 2: ASR */
-            emit_dp_reg_regshift(C, DP_MOV, dst, 0, ra, shift_type, rb, COND_AL, 0);
-            put_slot_reg(C, s_top - 2, dst);
+            uint32_t ra = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 2);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
+            emit_dp_reg_regshift(C, DP_MOV, dst, 0, ra, (op == OP_SHL) ? 0u : 2u, rb, COND_AL, 0);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_BNOT: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             emit_dp_reg(C, DP_MVN, dst, 0, r, COND_AL, 0, 0, 0);
-            put_slot_reg(C, s_top - 1, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_MUL: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
-            emit_dp_reg(C, DP_MOV, 12, 0, ra, COND_AL, 0, 0, 0);
-            emit_w(C, 0xE000009Cu | ((rb & 0xFu) << 8)); /* mul r0, r12, rb */
-            put_slot_reg(C, s_top - 2, 0);
+            if (sp >= 3 && pc + 1 < n && !C->is_target[pc + 1] &&
+                C->insns[fn->code_start + pc + 1].op == OP_ADD &&
+                ((f32_mask >> (sp - 3)) & 1ULL) == 0ULL) {
+                uint32_t racc = cg_read_arm_op(C, &cg, f32_mask, sp - 3, 2u);
+                uint32_t ra   = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+                uint32_t rb   = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+                cg.alias_loc[sp - 3] = -1;
+                cg.alias_loc[sp - 2] = -1;
+                cg.alias_loc[sp - 1] = -1;
+                int as = cg_stk_arm_slot(&cg, f32_mask, sp - 3);
+                uint32_t dst = cg_arm_dst(&cg, as, 0u);
+                if (dst == ra) {
+                    emit_dp_reg(C, DP_MOV, 12, 0, ra, COND_AL, 0, 0, 0);
+                    ra = 12u;
+                }
+                emit_mla(C, dst, ra, rb, racc);
+                if (cg_arm_reg(&cg, as) < 0)
+                    emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                break;
+            }
+            uint32_t ra = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 2);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
+            if (dst == ra) {
+                emit_dp_reg(C, DP_MOV, 12, 0, ra, COND_AL, 0, 0, 0);
+                ra = 12u;
+            }
+            emit_w(C, 0xE0000090u | ((dst & 0xFu) << 16) | ((rb & 0xFu) << 8) | (ra & 0xFu));
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_IDIV:
         case OP_IMOD: {
             C->needs_idivmod = 1;
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            if (ra != 0) emit_dp_reg(C, DP_MOV, 0, 0, ra, COND_AL, 0, 0, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
-            if (rb != 1) emit_dp_reg(C, DP_MOV, 1, 0, rb, COND_AL, 0, 0, 0);
+            uint32_t ra = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            if (ra != 0u) emit_dp_reg(C, DP_MOV, 0, 0, ra, COND_AL, 0, 0, 0);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            if (rb != 1u) emit_dp_reg(C, DP_MOV, 1, 0, rb, COND_AL, 0, 0, 0);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
             emit_branch_patch(C, -3, 0, COND_AL, 1);
-            put_slot_reg(C, s_top - 2, (op == OP_IDIV) ? 0u : 1u);
+            cg_put_arm(C, &cg, cg_stk_arm_slot(&cg, f32_mask, sp - 2), (op == OP_IDIV) ? 0u : 1u);
             break;
         }
         case OP_NEG: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             emit_dp_imm(C, DP_RSB, dst, r, 0, COND_AL, 0);
-            put_slot_reg(C, s_top - 1, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_NOT: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            if (pc + 1 < n && !C->is_target[pc + 1] &&
+                C->insns[fn->code_start + pc + 1].op == OP_JZ) {
+                cg_flush_all_aliases(C, &cg, f32_mask, sp - 1);
+                emit_dp_imm(C, DP_CMP, 0, r, 0, COND_AL, 1);
+                emit_branch_patch(C, (int16_t)fn_idx, (int16_t)C->insns[fn->code_start + pc + 1].arg, COND_NE, 0);
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                break;
+            }
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             emit_dp_imm(C, DP_CMP, 0, r, 0, COND_AL, 1);
             emit_dp_imm(C, DP_MOV, dst, 0, 1, COND_EQ, 0);
             emit_dp_imm(C, DP_MOV, dst, 0, 0, COND_NE, 0);
-            put_slot_reg(C, s_top - 1, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_ABS: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
+            uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             if (dst != r) emit_dp_reg(C, DP_MOV, dst, 0, r, COND_AL, 0, 0, 0);
             emit_dp_imm(C, DP_CMP, 0, dst, 0, COND_AL, 1);
             emit_dp_imm(C, DP_RSB, dst, dst, 0, COND_LT, 0);
-            put_slot_reg(C, s_top - 1, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_MIN:
         case OP_MAX: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
+            uint32_t ra = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
             emit_dp_reg(C, DP_CMP, 0, ra, rb, COND_AL, 1, 0, 0);
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 2);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             if (dst != ra) emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, 0, 0);
             emit_dp_reg(C, DP_MOV, dst, 0, rb, (op == OP_MIN) ? COND_GT : COND_LT, 0, 0, 0);
-            put_slot_reg(C, s_top - 2, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_EQ: case OP_NE: case OP_LT: case OP_LE: case OP_GT: case OP_GE: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
+            uint32_t ra = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            uint32_t ct = arm_cmp_cond(op);
+            if (pc + 1 < n && !C->is_target[pc + 1] &&
+                C->insns[fn->code_start + pc + 1].op == OP_JZ) {
+                cg_flush_all_aliases(C, &cg, f32_mask, sp - 2);
+                emit_dp_reg(C, DP_CMP, 0, ra, rb, COND_AL, 1, 0, 0);
+                emit_branch_patch(C, (int16_t)fn_idx, (int16_t)C->insns[fn->code_start + pc + 1].arg, (uint8_t)inv_cond(ct), 0);
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                break;
+            }
             emit_dp_reg(C, DP_CMP, 0, ra, rb, COND_AL, 1, 0, 0);
-            uint32_t ct = (op == OP_EQ) ? COND_EQ : (op == OP_NE) ? COND_NE : (op == OP_LT) ? COND_LT :
-                          (op == OP_LE) ? COND_LE : (op == OP_GT) ? COND_GT : COND_GE;
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 2);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             emit_dp_imm(C, DP_MOV, dst, 0, 0, COND_AL, 0);
             emit_dp_imm(C, DP_MOV, dst, 0, 1, ct, 0);
-            put_slot_reg(C, s_top - 2, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
-        case OP_FADD: case OP_FSUB: case OP_FMUL: case OP_FDIV: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
-            emit_w(C, 0xEE000A10u | ((ra & 0xFu) << 12));
-            emit_w(C, 0xEE000A90u | ((rb & 0xFu) << 12));
-            emit_w(C, (op == OP_FADD) ? 0xEE300A20u : (op == OP_FSUB) ? 0xEE300A60u : (op == OP_FMUL) ? 0xEE200A20u : 0xEE800A20u);
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
-            emit_w(C, 0xEE100A10u | ((dst & 0xFu) << 12));
-            put_slot_reg(C, s_top - 2, dst);
+        case OP_FMUL: {
+            if (sp >= 3 && pc + 1 < n && !C->is_target[pc + 1]) {
+                uint8_t next_op = C->insns[fn->code_start + pc + 1].op;
+                if ((next_op == OP_FADD || next_op == OP_FSUB) && ((f32_mask >> (sp - 3)) & 1ULL) != 0ULL) {
+                    uint32_t sa = cg_read_vfp_op(C, &cg, f32_mask, sp - 2, 0u);
+                    uint32_t sb = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 1u);
+                    int vs_acc = cg_stk_vfp_slot(&cg, f32_mask, sp - 3);
+                    uint32_t sd = cg_vfp_dst(&cg, vs_acc, 2u);
+                    if (cg.alias_loc[sp - 3] >= 0) {
+                        uint32_t sacc = cg_read_vfp_op(C, &cg, f32_mask, sp - 3, 2u);
+                        emit_vmov_ss(C, sd, sacc);
+                    } else if (cg_vfp_reg(&cg, vs_acc) < 0) {
+                        emit_vldr(C, 2u, 11, cg_vfp_spill_fp_off(&cg, vs_acc));
+                    }
+                    cg.alias_loc[sp - 3] = -1;
+                    cg.alias_loc[sp - 2] = -1;
+                    cg.alias_loc[sp - 1] = -1;
+                    if (sd != sa && sd != sb) {
+                        emit_vfp_dp(C, (next_op == OP_FADD) ? 0xEE000A00u : 0xEE000A40u, sd, sa, sb);
+                    } else {
+                        emit_vfp_dp(C, 0xEE200A00u, 3u, sa, sb);
+                        emit_vfp_dp(C, (next_op == OP_FADD) ? 0xEE300A00u : 0xEE300A40u, sd, sd, 3u);
+                    }
+                    if (cg_vfp_reg(&cg, vs_acc) < 0)
+                        emit_vstr(C, sd, 11, cg_vfp_spill_fp_off(&cg, vs_acc));
+                    C->pc_word[pc + 1] = C->pc_word[pc];
+                    pc++;
+                    break;
+                }
+            }
+            /* fallthrough to standard f32 binary op */
+        }
+        /* FALLTHROUGH */
+        case OP_FADD: case OP_FSUB: case OP_FDIV: {
+            uint32_t sa = cg_read_vfp_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t sb = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 2);
+            uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+            uint32_t vbase = (op == OP_FADD) ? 0xEE300A00u : (op == OP_FSUB) ? 0xEE300A40u :
+                             (op == OP_FMUL) ? 0xEE200A00u : 0xEE800A00u;
+            emit_vfp_dp(C, vbase, sd, sa, sb);
+            if (cg_vfp_reg(&cg, vs) < 0)
+                emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
             break;
         }
-        case OP_FNEG: case OP_FABS: case OP_FSQRT: case OP_I2F: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            emit_w(C, 0xEE000A10u | ((r & 0xFu) << 12));
-            emit_w(C, (op == OP_FNEG) ? 0xEEB10A40u : (op == OP_FABS) ? 0xEEB00AC0u : (op == OP_FSQRT) ? 0xEEB10AC0u : 0xEEB80AC0u);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
-            emit_w(C, 0xEE100A10u | ((dst & 0xFu) << 12));
-            put_slot_reg(C, s_top - 1, dst);
+        case OP_FNEG: case OP_FABS: case OP_FSQRT: {
+            uint32_t sa = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 1);
+            uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+            uint32_t ubase = (op == OP_FNEG) ? 0xEEB10A40u : (op == OP_FABS) ? 0xEEB00AC0u : 0xEEB10AC0u;
+            emit_vfp_un(C, ubase, sd, sa);
+            if (cg_vfp_reg(&cg, vs) < 0)
+                emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+            break;
+        }
+        case OP_I2F: {
+            uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 1);
+            uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+            emit_vmov_sr(C, sd, r);
+            emit_vfp_un(C, 0xEEB80AC0u, sd, sd);
+            if (cg_vfp_reg(&cg, vs) < 0)
+                emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
             break;
         }
         case OP_FLOOR: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
-            emit_w(C, 0xEE000A10u | ((r & 0xFu) << 12));
-            emit_w(C, 0xEEBD1AC0u);
-            emit_w(C, 0xEE110A10u | ((dst & 0xFu) << 12));
-            emit_w(C, 0xEEB81AC1u);
-            emit_w(C, 0xEE11CA10u);
-            emit_w(C, 0xEE00CA90u);
-            emit_w(C, 0xEEB40A60u);
-            emit_w(C, 0xEEF1FA10u);
-            emit_dp_imm(C, DP_SUB, dst, dst, 1, COND_MI, 0);
-            put_slot_reg(C, s_top - 1, dst);
+            uint32_t sa = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
+            emit_vfp_un(C, 0xEEBD0AC0u, 0u, sa); /* vcvt.s32.f32 s0, sa */
+            emit_vmov_rs(C, dst, 0u);            /* vmov dst, s0 */
+            emit_vfp_un(C, 0xEEB80AC0u, 0u, 0u); /* vcvt.f32.s32 s0, s0 */
+            emit_vcmp(C, sa, 0u);                /* vcmp.f32 sa, s0 */
+            emit_vmrs(C);                        /* vmrs APSR_nzcv, fpscr */
+            emit_dp_imm(C, DP_SUB, dst, dst, 1u, COND_MI, 0);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_FMIN: case OP_FMAX: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
-            emit_w(C, 0xEE000A10u | ((ra & 0xFu) << 12));
-            emit_w(C, 0xEE000A90u | ((rb & 0xFu) << 12));
-            emit_w(C, 0xEEB40A60u);
-            emit_w(C, 0xEEF1FA10u);
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
-            if (dst != ra) emit_dp_reg(C, DP_MOV, dst, 0, ra, COND_AL, 0, 0, 0);
-            emit_dp_reg(C, DP_MOV, dst, 0, rb, (op == OP_FMIN) ? COND_GT : COND_LT, 0, 0, 0);
-            put_slot_reg(C, s_top - 2, dst);
+            uint32_t sa = cg_read_vfp_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t sb = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            emit_vcmp(C, sa, sb);
+            emit_vmrs(C);
+            int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 2);
+            uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+            emit_vmov_ss(C, sd, sa);
+            /* Conditional vmov.f32 sd, sb */
+            {
+                uint32_t cond = (op == OP_FMIN) ? COND_GT : COND_MI;
+                uint32_t d = sd & 1u, vd = (sd >> 1) & 0xFu;
+                uint32_t m = sb & 1u, vm = (sb >> 1) & 0xFu;
+                emit_w(C, (cond << 28) | 0x0EB00A40u | (d << 22) | (vd << 12) | (m << 5) | vm);
+            }
+            if (cg_vfp_reg(&cg, vs) < 0)
+                emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
             break;
         }
         case OP_CLAMP: {
-            uint32_t rx  = get_slot_reg(C, s_top - 3, 0);
-            uint32_t rlo = get_slot_reg(C, s_top - 2, 1);
-            uint32_t rhi = get_slot_reg(C, s_top - 1, 2);
-            uint32_t dst = (s_top - 3 < 7) ? (uint32_t)(4 + s_top - 3) : 0u;
+            uint32_t rx  = cg_read_arm_op(C, &cg, f32_mask, sp - 3, 0u);
+            uint32_t rlo = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 1u);
+            uint32_t rhi = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 2u);
+            cg.alias_loc[sp - 3] = -1;
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 3);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             if (dst != rx) emit_dp_reg(C, DP_MOV, dst, 0, rx, COND_AL, 0, 0, 0);
             emit_dp_reg(C, DP_CMP, 0, dst, rlo, COND_AL, 1, 0, 0);
             emit_dp_reg(C, DP_MOV, dst, 0, rlo, COND_LT, 0, 0, 0);
             emit_dp_reg(C, DP_CMP, 0, dst, rhi, COND_AL, 1, 0, 0);
             emit_dp_reg(C, DP_MOV, dst, 0, rhi, COND_GT, 0, 0, 0);
-            put_slot_reg(C, s_top - 3, dst);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_FCLAMP: {
-            uint32_t rx  = get_slot_reg(C, s_top - 3, 0);
-            uint32_t rlo = get_slot_reg(C, s_top - 2, 1);
-            uint32_t rhi = get_slot_reg(C, s_top - 1, 2);
-            uint32_t dst = (s_top - 3 < 7) ? (uint32_t)(4 + s_top - 3) : 0u;
-            if (dst != rx) emit_dp_reg(C, DP_MOV, dst, 0, rx, COND_AL, 0, 0, 0);
-            emit_w(C, 0xEE000A10u | ((dst & 0xFu) << 12));
-            emit_w(C, 0xEE000A90u | ((rlo & 0xFu) << 12));
-            emit_w(C, 0xEEB40A60u);
-            emit_w(C, 0xEEF1FA10u);
-            emit_dp_reg(C, DP_MOV, dst, 0, rlo, COND_LT, 0, 0, 0);
-            emit_w(C, 0xEE000A10u | ((dst & 0xFu) << 12));
-            emit_w(C, 0xEE000A90u | ((rhi & 0xFu) << 12));
-            emit_w(C, 0xEEB40A60u);
-            emit_w(C, 0xEEF1FA10u);
-            emit_dp_reg(C, DP_MOV, dst, 0, rhi, COND_GT, 0, 0, 0);
-            put_slot_reg(C, s_top - 3, dst);
+            uint32_t sx  = cg_read_vfp_op(C, &cg, f32_mask, sp - 3, 0u);
+            uint32_t slo = cg_read_vfp_op(C, &cg, f32_mask, sp - 2, 1u);
+            uint32_t shi = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 2u);
+            cg.alias_loc[sp - 3] = -1;
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 3);
+            uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+            emit_vmov_ss(C, sd, sx);
+            emit_vcmp(C, sd, slo);
+            emit_vmrs(C);
+            {
+                uint32_t d = sd & 1u, vd = (sd >> 1) & 0xFu;
+                uint32_t m = slo & 1u, vm = (slo >> 1) & 0xFu;
+                emit_w(C, (COND_MI << 28) | 0x0EB00A40u | (d << 22) | (vd << 12) | (m << 5) | vm);
+            }
+            emit_vcmp(C, sd, shi);
+            emit_vmrs(C);
+            {
+                uint32_t d = sd & 1u, vd = (sd >> 1) & 0xFu;
+                uint32_t m = shi & 1u, vm = (shi >> 1) & 0xFu;
+                emit_w(C, (COND_GT << 28) | 0x0EB00A40u | (d << 22) | (vd << 12) | (m << 5) | vm);
+            }
+            if (cg_vfp_reg(&cg, vs) < 0)
+                emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
             break;
         }
         case OP_FLERP: {
-            uint32_t ra = get_slot_reg(C, s_top - 3, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 2, 1);
-            uint32_t rt = get_slot_reg(C, s_top - 1, 2);
-            emit_w(C, 0xEE000A10u | ((rb & 0xFu) << 12));
-            emit_w(C, 0xEE000A90u | ((ra & 0xFu) << 12));
-            emit_w(C, 0xEE300A60u);
-            emit_w(C, 0xEE000A90u | ((rt & 0xFu) << 12));
-            emit_w(C, 0xEE200A20u);
-            emit_w(C, 0xEE000A90u | ((ra & 0xFu) << 12));
-            emit_w(C, 0xEE300A20u);
-            uint32_t dst = (s_top - 3 < 7) ? (uint32_t)(4 + s_top - 3) : 0u;
-            emit_w(C, 0xEE100A10u | ((dst & 0xFu) << 12));
-            put_slot_reg(C, s_top - 3, dst);
+            uint32_t sa = cg_read_vfp_op(C, &cg, f32_mask, sp - 3, 0u);
+            uint32_t sb = cg_read_vfp_op(C, &cg, f32_mask, sp - 2, 1u);
+            uint32_t st = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 2u);
+            cg.alias_loc[sp - 3] = -1;
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            emit_vfp_dp(C, 0xEE300A40u, 3u, sb, sa); /* s3 = b - a */
+            int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 3);
+            uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+            emit_vmov_ss(C, sd, sa);
+            emit_vfp_dp(C, 0xEE000A00u, sd, 3u, st); /* sd += (b - a) * t */
+            if (cg_vfp_reg(&cg, vs) < 0)
+                emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
             break;
         }
         case OP_FEQ: case OP_FNE: case OP_FLT: case OP_FLE: case OP_FGT: case OP_FGE: {
-            uint32_t ra = get_slot_reg(C, s_top - 2, 0);
-            uint32_t rb = get_slot_reg(C, s_top - 1, 1);
-            emit_w(C, 0xEE000A10u | ((ra & 0xFu) << 12));
-            emit_w(C, 0xEE000A90u | ((rb & 0xFu) << 12));
-            emit_w(C, 0xEEB40A60u);
-            emit_w(C, 0xEEF1FA10u);
-            uint32_t ct = (op == OP_FEQ) ? COND_EQ : (op == OP_FNE) ? COND_NE : (op == OP_FLT) ? COND_LT :
-                          (op == OP_FLE) ? COND_LE : (op == OP_FGT) ? COND_GT : COND_GE;
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
+            uint32_t sa = cg_read_vfp_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t sb = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            emit_vcmp(C, sa, sb);
+            emit_vmrs(C);
+            if (pc + 1 < n && !C->is_target[pc + 1] &&
+                C->insns[fn->code_start + pc + 1].op == OP_JZ) {
+                cg_flush_all_aliases(C, &cg, f32_mask, sp - 2);
+                emit_branch_patch(C, (int16_t)fn_idx, (int16_t)C->insns[fn->code_start + pc + 1].arg, (uint8_t)vfp_cmp_inv_cond(op), 0);
+                C->pc_word[pc + 1] = C->pc_word[pc];
+                pc++;
+                break;
+            }
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 2);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
             emit_dp_imm(C, DP_MOV, dst, 0, 0, COND_AL, 0);
-            emit_dp_imm(C, DP_MOV, dst, 0, 1, ct, 0);
-            put_slot_reg(C, s_top - 2, dst);
+            emit_dp_imm(C, DP_MOV, dst, 0, 1, vfp_cmp_cond(op), 0);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
         case OP_AGET: case OP_AGETF: {
-            uint32_t r_base = get_slot_reg(C, s_top - 2, 0);
-            uint32_t r_idx = get_slot_reg(C, s_top - 1, 1);
-            emit_dp_imm(C, DP_SUB, 12, r_idx, 1, COND_AL, 0);
-            emit_dp_reg(C, DP_ADD, 12, r_base, 12, COND_AL, 0, 0, 2);
-            uint32_t dst = (s_top - 2 < 7) ? (uint32_t)(4 + s_top - 2) : 0u;
-            emit_ldr(C, dst, 12, 0);
-            put_slot_reg(C, s_top - 2, dst);
+            int is_m4 = (cg.alias_loc[sp - 2] >= 0 && cg.base_m4[(int)cg.alias_loc[sp - 2]]);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t ri = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            if (op == OP_AGETF) {
+                if (is_m4) {
+                    emit_dp_reg(C, DP_ADD, 12, rb, ri, COND_AL, 0, 0, 2);
+                } else {
+                    emit_dp_imm(C, DP_SUB, 12, ri, 1, COND_AL, 0);
+                    emit_dp_reg(C, DP_ADD, 12, rb, 12, COND_AL, 0, 0, 2);
+                }
+                int vs = cg_stk_vfp_slot(&cg, f32_mask, sp - 2);
+                uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+                emit_vldr(C, sd, 12, 0);
+                if (cg_vfp_reg(&cg, vs) < 0)
+                    emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+            } else {
+                int as = cg_stk_arm_slot(&cg, f32_mask, sp - 2);
+                uint32_t dst = cg_arm_dst(&cg, as, 0u);
+                if (is_m4) {
+                    emit_ldr_idx(C, dst, rb, ri, 2u);
+                } else {
+                    emit_dp_imm(C, DP_SUB, 12, ri, 1, COND_AL, 0);
+                    emit_ldr_idx(C, dst, rb, 12, 2u);
+                }
+                if (cg_arm_reg(&cg, as) < 0)
+                    emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
+            }
             break;
         }
         case OP_ASET: case OP_ASETF: {
-            uint32_t r_base = get_slot_reg(C, s_top - 3, 0);
-            uint32_t r_idx = get_slot_reg(C, s_top - 2, 1);
-            uint32_t r_val = get_slot_reg(C, s_top - 1, 2);
-            emit_dp_imm(C, DP_SUB, 12, r_idx, 1, COND_AL, 0);
-            emit_dp_reg(C, DP_ADD, 12, r_base, 12, COND_AL, 0, 0, 2);
-            emit_str(C, r_val, 12, 0);
+            int is_m4 = (cg.alias_loc[sp - 3] >= 0 && cg.base_m4[(int)cg.alias_loc[sp - 3]]);
+            uint32_t rb = cg_read_arm_op(C, &cg, f32_mask, sp - 3, 0u);
+            uint32_t ri = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 1u);
+            if (op == OP_ASETF) {
+                uint32_t sv = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 0u);
+                cg.alias_loc[sp - 3] = -1;
+                cg.alias_loc[sp - 2] = -1;
+                cg.alias_loc[sp - 1] = -1;
+                if (is_m4) {
+                    emit_dp_reg(C, DP_ADD, 12, rb, ri, COND_AL, 0, 0, 2);
+                } else {
+                    emit_dp_imm(C, DP_SUB, 12, ri, 1, COND_AL, 0);
+                    emit_dp_reg(C, DP_ADD, 12, rb, 12, COND_AL, 0, 0, 2);
+                }
+                emit_vstr(C, sv, 12, 0);
+            } else {
+                uint32_t rv = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 2u);
+                cg.alias_loc[sp - 3] = -1;
+                cg.alias_loc[sp - 2] = -1;
+                cg.alias_loc[sp - 1] = -1;
+                if (is_m4) {
+                    emit_str_idx(C, rv, rb, ri, 2u);
+                } else {
+                    emit_dp_imm(C, DP_SUB, 12, ri, 1, COND_AL, 0);
+                    emit_str_idx(C, rv, rb, 12, 2u);
+                }
+            }
             break;
         }
         case OP_NEW_ARR: {
             int n_elems = ins.arg;
-            uint32_t offset = (uint32_t)((spill_slots + cur_arr_word + n_elems) * 4);
+            int offset = cg.arr_base_off + (cur_arr_word + n_elems) * 4;
             cur_arr_word += n_elems;
-            emit_mov32(C, 12, offset);
+            emit_mov32(C, 12, (uint32_t)offset);
             emit_dp_reg(C, DP_SUB, 12, 11, 12, COND_AL, 0, 0, 0);
             for (int j = 0; j < n_elems; j++) {
-                uint32_t val_reg = get_slot_reg(C, s_top - n_elems + j, 0);
-                emit_str(C, val_reg, 12, (int32_t)(j * 4));
+                int d = sp - n_elems + j;
+                if ((f32_mask >> d) & 1ULL) {
+                    uint32_t sv = cg_read_vfp_op(C, &cg, f32_mask, d, 0u);
+                    emit_vstr(C, sv, 12, j * 4);
+                } else {
+                    uint32_t rv = cg_read_arm_op(C, &cg, f32_mask, d, 0u);
+                    emit_str(C, rv, 12, j * 4);
+                }
+                cg.alias_loc[d] = -1;
             }
-            put_slot_reg(C, s_top - n_elems, 12);
+            cg_put_arm(C, &cg, cg_stk_arm_slot(&cg, f32_mask, sp - n_elems), 12u);
             break;
         }
-        case OP_PEEK: {
-            uint32_t r_addr = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
-            emit_ldrb(C, dst, r_addr, 0);
-            put_slot_reg(C, s_top - 1, dst);
+        case OP_PEEK: case OP_PEEK2: case OP_PEEK4: {
+            uint32_t r_addr = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            int as = cg_stk_arm_slot(&cg, f32_mask, sp - 1);
+            uint32_t dst = cg_arm_dst(&cg, as, 0u);
+            if (op == OP_PEEK) emit_ldrb(C, dst, r_addr, 0);
+            else if (op == OP_PEEK2) emit_ldrh(C, dst, r_addr, 0);
+            else emit_ldr(C, dst, r_addr, 0);
+            if (cg_arm_reg(&cg, as) < 0)
+                emit_str(C, 0u, 11, cg_arm_spill_fp_off(&cg, as));
             break;
         }
-        case OP_POKE: {
-            uint32_t r_addr = get_slot_reg(C, s_top - 2, 0);
-            uint32_t r_val = get_slot_reg(C, s_top - 1, 1);
-            emit_strb(C, r_val, r_addr, 0);
-            break;
-        }
-        case OP_PEEK2: {
-            uint32_t r_addr = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
-            emit_ldrh(C, dst, r_addr, 0);
-            put_slot_reg(C, s_top - 1, dst);
-            break;
-        }
-        case OP_POKE2: {
-            uint32_t r_addr = get_slot_reg(C, s_top - 2, 0);
-            uint32_t r_val = get_slot_reg(C, s_top - 1, 1);
-            emit_strh(C, r_val, r_addr, 0);
-            break;
-        }
-        case OP_PEEK4: {
-            uint32_t r_addr = get_slot_reg(C, s_top - 1, 0);
-            uint32_t dst = (s_top - 1 < 7) ? (uint32_t)(4 + s_top - 1) : 0u;
-            emit_ldr(C, dst, r_addr, 0);
-            put_slot_reg(C, s_top - 1, dst);
-            break;
-        }
-        case OP_POKE4: {
-            uint32_t r_addr = get_slot_reg(C, s_top - 2, 0);
-            uint32_t r_val = get_slot_reg(C, s_top - 1, 1);
-            emit_str(C, r_val, r_addr, 0);
+        case OP_POKE: case OP_POKE2: case OP_POKE4: {
+            uint32_t r_addr = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 0u);
+            uint32_t r_val  = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 1u);
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
+            if (op == OP_POKE) emit_strb(C, r_val, r_addr, 0);
+            else if (op == OP_POKE2) emit_strh(C, r_val, r_addr, 0);
+            else emit_str(C, r_val, r_addr, 0);
             break;
         }
         case OP_MEMCPY:
         case OP_MEMSET: {
             if (op == OP_MEMCPY) C->needs_memcpy = 1;
             else C->needs_memset = 1;
-            uint32_t r_dst = get_slot_reg(C, s_top - 3, 0);
-            if (r_dst != 0) emit_dp_reg(C, DP_MOV, 0, 0, r_dst, COND_AL, 0, 0, 0);
-            uint32_t r_v_src = get_slot_reg(C, s_top - 2, 1);
-            if (r_v_src != 1) emit_dp_reg(C, DP_MOV, 1, 0, r_v_src, COND_AL, 0, 0, 0);
-            uint32_t r_n = get_slot_reg(C, s_top - 1, 2);
-            if (r_n != 2) emit_dp_reg(C, DP_MOV, 2, 0, r_n, COND_AL, 0, 0, 0);
+            cg_flush_all_aliases(C, &cg, f32_mask, sp - 3);
+            uint32_t r_dst   = cg_read_arm_op(C, &cg, f32_mask, sp - 3, 0u);
+            if (r_dst != 0u) emit_dp_reg(C, DP_MOV, 0, 0, r_dst, COND_AL, 0, 0, 0);
+            uint32_t r_v_src = cg_read_arm_op(C, &cg, f32_mask, sp - 2, 1u);
+            if (r_v_src != 1u) emit_dp_reg(C, DP_MOV, 1, 0, r_v_src, COND_AL, 0, 0, 0);
+            uint32_t r_n     = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 2u);
+            if (r_n != 2u) emit_dp_reg(C, DP_MOV, 2, 0, r_n, COND_AL, 0, 0, 0);
+            cg.alias_loc[sp - 3] = -1;
+            cg.alias_loc[sp - 2] = -1;
+            cg.alias_loc[sp - 1] = -1;
             emit_branch_patch(C, (op == OP_MEMCPY) ? -5 : -6, 0, COND_AL, 1);
             break;
         }
         case OP_JMP:
+            cg_flush_all_aliases(C, &cg, f32_mask, sp);
             emit_branch_patch(C, (int16_t)fn_idx, (int16_t)ins.arg, COND_AL, 0);
+            memset(cg.alias_loc, -1, sizeof cg.alias_loc);
             break;
-        case OP_JZ:
-        case OP_JF_KEEP: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
+        case OP_JZ: {
+            uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+            cg.alias_loc[sp - 1] = -1;
+            cg_flush_all_aliases(C, &cg, f32_mask, sp - 1);
             emit_dp_imm(C, DP_CMP, 0, r, 0, COND_AL, 1);
             emit_branch_patch(C, (int16_t)fn_idx, (int16_t)ins.arg, COND_EQ, 0);
             break;
         }
+        case OP_JF_KEEP:
         case OP_JT_KEEP: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
+            cg_flush_all_aliases(C, &cg, f32_mask, sp);
+            uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
             emit_dp_imm(C, DP_CMP, 0, r, 0, COND_AL, 1);
-            emit_branch_patch(C, (int16_t)fn_idx, (int16_t)ins.arg, COND_NE, 0);
+            emit_branch_patch(C, (int16_t)fn_idx, (int16_t)ins.arg, (op == OP_JF_KEEP) ? COND_EQ : COND_NE, 0);
             break;
         }
         case OP_CALL: {
             int c_idx = ins.arg >> 8;
             int argc = ins.arg & 0xFF;
             int base = sp - argc;
+            cg_flush_all_aliases(C, &cg, f32_mask, base);
             int stack_args = argc > 4 ? (argc - 4) : 0;
             int pad_words = (stack_args % 2 == 1) ? 1 : 0;
-            if (pad_words)
-                emit_dp_imm(C, DP_SUB, 13, 13, 4, COND_AL, 0);
-            for (int j = argc - 1; j >= 4; j--) {
-                uint32_t rj = get_slot_reg(C, (int)fn->nlocals + base + j, 0);
-                emit_w(C, 0xE92D0000u | (1u << rj));
+            int alloc_bytes = (stack_args + pad_words) * 4;
+            if (alloc_bytes > 0)
+                emit_dp_imm(C, DP_SUB, 13, 13, (uint32_t)alloc_bytes, COND_AL, 0);
+            for (int j = 4; j < argc; j++) {
+                int d = base + j;
+                if ((f32_mask >> d) & 1ULL) {
+                    uint32_t sj = cg_read_vfp_op(C, &cg, f32_mask, d, 0u);
+                    emit_vstr(C, sj, 13, (j - 4) * 4);
+                } else {
+                    uint32_t rj = cg_read_arm_op(C, &cg, f32_mask, d, 0u);
+                    emit_str(C, rj, 13, (j - 4) * 4);
+                }
             }
             for (int j = 0; j < argc && j < 4; j++) {
-                uint32_t rj = get_slot_reg(C, (int)fn->nlocals + base + j, (uint32_t)j);
-                if (rj != (uint32_t)j)
-                    emit_dp_reg(C, DP_MOV, (uint32_t)j, 0, rj, COND_AL, 0, 0, 0);
+                int d = base + j;
+                if ((f32_mask >> d) & 1ULL) {
+                    uint32_t sj = cg_read_vfp_op(C, &cg, f32_mask, d, 0u);
+                    emit_vmov_rs(C, (uint32_t)j, sj);
+                } else {
+                    uint32_t rj = cg_read_arm_op(C, &cg, f32_mask, d, (uint32_t)j);
+                    if (rj != (uint32_t)j)
+                        emit_dp_reg(C, DP_MOV, (uint32_t)j, 0, rj, COND_AL, 0, 0, 0);
+                }
             }
+            for (int j = 0; j < argc; j++)
+                cg.alias_loc[base + j] = -1;
             emit_branch_patch(C, -2, (int16_t)c_idx, COND_AL, 1);
-            int cleanup = (stack_args + pad_words) * 4;
-            if (cleanup > 0)
-                emit_dp_imm(C, DP_ADD, 13, 13, (uint32_t)cleanup, COND_AL, 0);
-            if (C->funcs[c_idx].ret_type != BMN_NONE)
-                put_slot_reg(C, (int)fn->nlocals + base, 0);
+            if (alloc_bytes > 0)
+                emit_dp_imm(C, DP_ADD, 13, 13, (uint32_t)alloc_bytes, COND_AL, 0);
+            if (C->funcs[c_idx].ret_type == BMN_F32) {
+                int vs = cg_stk_vfp_slot(&cg, f32_mask, base);
+                uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+                emit_vmov_sr(C, sd, 0u);
+                if (cg_vfp_reg(&cg, vs) < 0)
+                    emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+            } else if (C->funcs[c_idx].ret_type != BMN_NONE) {
+                cg_put_arm(C, &cg, cg_stk_arm_slot(&cg, f32_mask, base), 0u);
+            }
             break;
         }
         case OP_CALL_HOST: {
@@ -2853,46 +3917,84 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
             int hid = ins.arg >> 8;
             int argc = ins.arg & 0xFF;
             int base = sp - argc;
+            cg_flush_all_aliases(C, &cg, f32_mask, base);
             int alloc_words = (((argc > 0 ? argc : 1) + 1) / 2) * 2;
             int alloc_bytes = alloc_words * 4;
             emit_dp_imm(C, DP_SUB, 13, 13, (uint32_t)alloc_bytes, COND_AL, 0);
             for (int j = 0; j < argc; j++) {
-                uint32_t rj = get_slot_reg(C, (int)fn->nlocals + base + j, 0);
-                emit_str(C, rj, 13, j * 4);
+                int d = base + j;
+                if ((f32_mask >> d) & 1ULL) {
+                    uint32_t sj = cg_read_vfp_op(C, &cg, f32_mask, d, 0u);
+                    emit_vstr(C, sj, 13, j * 4);
+                } else {
+                    uint32_t rj = cg_read_arm_op(C, &cg, f32_mask, d, 0u);
+                    emit_str(C, rj, 13, j * 4);
+                }
+                cg.alias_loc[d] = -1;
             }
             emit_mov32(C, 0, (uint32_t)hid);
             emit_dp_reg(C, DP_MOV, 1, 0, 13, COND_AL, 0, 0, 0);
             emit_mov32(C, 2, (uint32_t)argc);
             emit_branch_patch(C, -4, 0, COND_AL, 1);
             emit_dp_imm(C, DP_ADD, 13, 13, (uint32_t)alloc_bytes, COND_AL, 0);
-            if (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_TIME || hid == BMN_HOST_PRINT || hid == BMN_HOST_SIN || hid == BMN_HOST_COS || hid == BMN_HOST_ATAN2)
-                put_slot_reg(C, (int)fn->nlocals + base, 0);
+            if (hid == BMN_HOST_TIME || hid == BMN_HOST_SIN || hid == BMN_HOST_COS || hid == BMN_HOST_ATAN2) {
+                int vs = cg_stk_vfp_slot(&cg, f32_mask, base);
+                uint32_t sd = cg_vfp_dst(&cg, vs, 0u);
+                emit_vmov_sr(C, sd, 0u);
+                if (cg_vfp_reg(&cg, vs) < 0)
+                    emit_vstr(C, 0u, 11, cg_vfp_spill_fp_off(&cg, vs));
+            } else if (hid == BMN_HOST_BTN || hid == BMN_HOST_BTNP || hid == BMN_HOST_PRINT) {
+                cg_put_arm(C, &cg, cg_stk_arm_slot(&cg, f32_mask, base), 0u);
+            }
             break;
         }
         case OP_RET: {
-            uint32_t r = get_slot_reg(C, s_top - 1, 0);
-            if (r != 0)
-                emit_dp_reg(C, DP_MOV, 0, 0, r, COND_AL, 0, 0, 0);
-            emit_branch_patch(C, -1, 0, COND_AL, 0);
+            if ((f32_mask >> (sp - 1)) & 1ULL) {
+                uint32_t s = cg_read_vfp_op(C, &cg, f32_mask, sp - 1, 0u);
+                emit_vmov_rs(C, 0u, s);
+            } else {
+                uint32_t r = cg_read_arm_op(C, &cg, f32_mask, sp - 1, 0u);
+                if (r != 0u)
+                    emit_dp_reg(C, DP_MOV, 0, 0, r, COND_AL, 0, 0, 0);
+            }
+            cg.alias_loc[sp - 1] = -1;
+            if (pc != n - 1)
+                emit_branch_patch(C, -1, 0, COND_AL, 0);
+            memset(cg.alias_loc, -1, sizeof cg.alias_loc);
             break;
         }
         case OP_RET0:
-            emit_branch_patch(C, -1, 0, COND_AL, 0);
+            if (pc != n - 1)
+                emit_branch_patch(C, -1, 0, COND_AL, 0);
+            memset(cg.alias_loc, -1, sizeof cg.alias_loc);
             break;
         }
     }
 
     int epilogue_word = C->nwords;
-    C->pc_word[n] = (uint16_t)epilogue_word;
-    emit_dp_reg(C, DP_MOV, 13, 0, 11, COND_AL, 0, 0, 0);
-    emit_w(C, 0xE8BD8FF0u); /* pop {r4-r10, fp, pc} */
+    C->pc_word[n] = (uint32_t)epilogue_word;
+    if (cg.has_fp)
+        emit_dp_reg(C, DP_MOV, 13, 0, 11, COND_AL, 0, 0, 0);
+    if (cg.vfp_push_cnt > 0)
+        emit_vpop(C, 16u, (uint32_t)cg.vfp_push_cnt);
+    if (push_mask != 0u) {
+        if (cg.has_lr) {
+            uint32_t pop_mask = (push_mask & ~(1u << 14)) | (1u << 15);
+            emit_w(C, 0xE8BD0000u | pop_mask);
+        } else {
+            emit_w(C, 0xE8BD0000u | push_mask);
+            emit_w(C, 0xE12FFF1Eu); /* bx lr */
+        }
+    } else {
+        emit_w(C, 0xE12FFF1Eu); /* bx lr */
+    }
 
     for (int k = 0; k < nfn_str_relocs; k++) {
         uint16_t lit_slot_idx = (uint16_t)C->nwords;
-        emit_w(C, 0); /* placeholder for delta */
+        emit_w(C, 0);
         uint32_t lit_offset = (uint32_t)(lit_slot_idx - (fn_str_relocs[k].ldr_idx + 2)) * 4u;
         C->words[fn_str_relocs[k].ldr_idx] = (COND_AL << 28) | (0x51u << 20) | (1u << 23) | (15u << 16) | (((uint32_t)fn_str_relocs[k].dst & 0xFu) << 12) | (lit_offset & 0xFFFu);
-        if (C->nstr_patches < 256) {
+        if (C->nstr_patches < 512) {
             C->str_patches[C->nstr_patches].lit_word_idx = lit_slot_idx;
             C->str_patches[C->nstr_patches].add_word_idx = fn_str_relocs[k].add_idx;
             C->str_patches[C->nstr_patches].str_off = fn_str_relocs[k].off;
@@ -2900,7 +4002,6 @@ static void compile_armv6_fn(bmlc_ctx_t *C, int fn_idx)
         }
     }
 
-    /* Resolve intra-function jump patches now */
     for (int i = fn_patch_start; i < C->npatches; i++) {
         c_patch_t *p = &C->patches[i];
         int target_w = -1;

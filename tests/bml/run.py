@@ -2405,6 +2405,97 @@ print(math.floor(x[1] * 64 + 0.5))
 print(math.floor(z[1] * 64 + 0.5))
 print(math.floor(x[17] * 64 + 0.5))
 print(math.floor(z[17] * 64 + 0.5))
+
+-- 7. Sandbox CP10 0xC/0xD checks & ARMv6 optimizer edge cases (div/mod 2^k, f32 stack args, deep VFP spills)
+do
+  local ok_blob = string.pack("<I4I4I4I4", 0xED900A01, 0xED2D8A02, 0xECBD8A02, 0xE12FFF1E)
+  assert(native_load(ok_blob) ~= nil, "CP10 0xC/0xD vldr/vpush/vpop should be accepted")
+  local bad_vstr_pc = string.pack("<I4I4", 0xED0F0A00, 0xE12FFF1E)
+  local m1, w1 = native_load(bad_vstr_pc)
+  assert(m1 == nil and type(w1) == "string", "vstr relative to pc must be rejected")
+  local bad_cp11 = string.pack("<I4I4", 0xED900B00, 0xE12FFF1E)
+  local m2, _ = native_load(bad_cp11)
+  assert(m2 == nil, "CP11 0xD instruction must be rejected")
+  local bad_cp15 = string.pack("<I4I4", 0xEE100F10, 0xE12FFF1E)
+  local m3, _ = native_load(bad_cp15)
+  assert(m3 == nil, "CP15 instruction must be rejected")
+end
+
+local opt_src = [=[
+function pow2_edge(a: i32, b: i32, c: i32): i32
+  local q1 = a // 2
+  local r1 = a % 2
+  local q2 = a // 4
+  local r2 = a % 4
+  local q3 = a // 1
+  local r3 = a % 1
+  local m0 = b * 0
+  local m8 = b * 8
+  local mac = a + b * c
+  return q1 + r1 * 10 + q2 + r2 * 100 + q3 + r3 + m0 + m8 + mac
+end
+
+function leaf_f(x: f32): f32
+  if x < 0.0 then
+    return -x * 2.0
+  end
+  return x + 1.5
+end
+
+function sum6f(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32): f32
+  return a + b * c + d * e - f
+end
+
+function deep_vfp_call(base: f32): f32
+  local f0: f32 = base + 0.5
+  local f1: f32 = base + 1.0
+  local f2: f32 = base + 1.5
+  local f3: f32 = base + 2.0
+  local f4: f32 = base + 2.5
+  local f5: f32 = base + 3.0
+  local f6: f32 = base + 3.5
+  local f7: f32 = base + 4.0
+  local f8: f32 = base + 4.5
+  local f9: f32 = base + 5.0
+  local f10: f32 = base + 5.5
+  local f11: f32 = base + 6.0
+  local f12: f32 = base + 6.5
+  local f13: f32 = base + 7.0
+  local f14: f32 = base + 7.5
+  local f15: f32 = base + 8.0
+  local f16: f32 = base + 8.5
+  local f17: f32 = base + 9.0
+  local t: f32 = leaf_f(-base)
+  local s6: f32 = sum6f(f0, f1, f2, f3, f4, f5)
+  return f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9 + f10 + f11 + f12 + f13 + f14 + f15 + f16 + f17 + t + s6
+end
+]=]
+local opt_blob = assert(native_compile(opt_src))
+local m_opt = assert(native_load(opt_blob))
+local lua_pow2_ok = function(a, b, c)
+  local v = (a // 2) + (a % 2) * 10 + (a // 4) + (a % 4) * 100 + (a // 1) + (a % 1) + (b * 0) + (b * 8) + (a + b * c)
+  v = v & 0xFFFFFFFF
+  if v >= 0x80000000 then v = v - 0x100000000 end
+  return v
+end
+local opt_cases = {{ {{-1, 3, 5}}, {{-3, -2, 7}}, {{-9, 4, -3}}, {{-2147483648, 0, 1}}, {{17, 5, 9}} }}
+for _, tc in ipairs(opt_cases) do
+  local got = native_run(m_opt, "pow2_edge", tc[1], tc[2], tc[3])
+  local exp = lua_pow2_ok(tc[1], tc[2], tc[3])
+  assert(got == exp, string.format("pow2_edge(%d,%d,%d) got=%s exp=%s", tc[1], tc[2], tc[3], tostring(got), tostring(exp)))
+end
+local got_dv = native_run(m_opt, "deep_vfp_call", 2.0)
+local exp_dv = 0
+do
+  local fs = {{}}
+  for k = 0, 17 do fs[k] = 2.0 + (k + 1) * 0.5 end
+  local t = 4.0
+  local s6 = fs[0] + fs[1] * fs[2] + fs[3] * fs[4] - fs[5]
+  for k = 0, 17 do exp_dv = exp_dv + fs[k] end
+  exp_dv = exp_dv + t + s6
+end
+assert(math.floor(got_dv * 64 + 0.5) == math.floor(exp_dv * 64 + 0.5),
+       string.format("deep_vfp_call mismatch got=%s exp=%s", tostring(got_dv), tostring(exp_dv)))
 """)
 
 s9_luahost_out = subprocess.check_output([native_luahost_bin, s9_luahost_script], text=True).strip().splitlines()
