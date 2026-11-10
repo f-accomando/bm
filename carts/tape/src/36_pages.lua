@@ -1,13 +1,15 @@
--- bm Tape pages (design 3, 5): ten pages in the order of the arrows. F1..F8 jump to the first page of a module;
--- Tab goes to the next page of the module. A preview page is a scene of phase 1 that makes no sound yet.
+-- bm Tape pages (design 3, 5): thirteen pages in the order of the arrows. F1..F8 jump to the first page of a module;
+-- Tab goes to the next page of the module. A preview page is a scene of phase 1 that makes no sound yet (DJ).
 local PAGES = {
   { label = "SYNTH ENGINE", mod = 1, sc = engine_page }, { label = "SYNTH ENVELOPE", mod = 1, sc = env_page },
   { label = "SYNTH FILTER", mod = 1, sc = flt_page }, { label = "DRUM PAD", mod = 2, sc = drum_page },
-  { label = "SEQ GRID", mod = 3, sc = grid_page }, { label = "TAPE", mod = 4, sc = tape_page, preview = true },
-  { label = "MIX", mod = 5, sc = mix_page, preview = true }, { label = "FX ECHO", mod = 6, sc = fx_page, preview = true },
+  { label = "SEQ GRID", mod = 3, sc = grid_page }, { label = "TAPE", mod = 4, sc = tape_page },
+  { label = "MIX LEVEL", mod = 5, sc = mixl_page }, { label = "MIX PAN", mod = 5, sc = mixp_page },
+  { label = "FX ECHO", mod = 6, sc = fxe_page }, { label = "FX ROOM", mod = 6, sc = fxr_page },
+  { label = "FX CHORUS", mod = 6, sc = fxc_page },
   { label = "DJ", mod = 7, sc = dj_page, preview = true }, { label = "TEMPO", mod = 8, sc = tempo_page },
 }
-local MODFIRST = { 1, 4, 5, 6, 7, 8, 9, 10 }
+local MODFIRST = { 1, 4, 5, 6, 7, 9, 12, 13 }
 
 -- the page after cur in the same module (wraps)
 local function tab_page(cur)

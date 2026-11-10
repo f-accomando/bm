@@ -1,8 +1,10 @@
 -- bm Tape sequencer (design 3, 6.1): state, step data, clock. Step data are flat i32 buffers (vm_buf).
 -- The clock follows riff: the transport remembers audio_time() at the start; each frame the notes of the
--- next LOOK seconds are asked of seq_window (engine.b) and queued with play_at, so a frame rate
+-- next LOOK seconds are asked of song_window (engine.b) and queued with play_at, so a frame rate
 -- does not move a note. The sequencer owns the voices 0..5; live playing owns 6 and 7.
-local NSTEP, NSLOT, TPS, TPB = 64, 4, 6, 24      -- steps and slots per track, ticks per step and per beat
+-- A track has 8 patterns (A..H) of NSTEP steps with NSLOT slots. The song is a row of NSONG slots a track; a slot holds
+-- a pattern number (0 = none). PATTERN mode loops the selected pattern of each track; SONG mode plays the slots lin..lout.
+local NSTEP, NSLOT, NPAT, NSONG, TPS, TPB = 64, 4, 8, 64, 6, 24   -- steps, slots, patterns, song slots, ticks per step and beat
 local LOOK, LEAD, CAP = 0.15, 0.06, 128          -- look-ahead s, start delay s, event records per window
 local PAD_GATE = 60                              -- ms a drum pad is held before its release
 
@@ -11,8 +13,16 @@ local S = {
   trk = 2, syn = 2,                              -- selected track, last synth track
   pad = 1,                                       -- last pad hit
   cur = 0, bn = 36, bv = 100, bg = 1,            -- grid cursor (0-based) and brush: note, velocity, gate in steps
-  lvl = { 0.9, 0.9, 0.7, 0.7 },
+  lvl = { 0.9, 0.9, 0.7, 0.7 },                  -- MIX: level and pan (-1..1) of each track
+  pan = { 0, 0, 0, 0 },
+  send = { { 0.16, 0, 0 }, { 0.16, 0, 0 }, { 0.16, 0, 0 }, { 0.16, 0, 0 } },   -- FX: room, echo and chorus send of each track
+  fx = nil,                                      -- FX: { echo = {ms, feedback, wet}, room = {size, damp, wet}, chorus = {rate, depth, wet} }
+  pat = { 1, 1, 1, 1 },                          -- the selected pattern of each track (1..8)
+  song = false,                                  -- SONG mode (false: PATTERN mode)
+  lin = 1, lout = 4, sc = 0,                     -- loop in and out (slots 1..64, out included), TAPE cursor slot (0-based)
 }
+-- the modules of later files: MIX (levels, pan, sends, meters), FX, SONG (slots), SV (save and load), PUNCH (punch-in effects)
+local MIX, FX, SONG, SV, PUNCH = {}, {}, {}, {}, {}
 
 local HAVE_BUF = vm_buf ~= nil
 local function arr(n) return HAVE_BUF and vm_buf("i32", n) or {} end
@@ -24,7 +34,9 @@ local function aset(a, i, v)
   if HAVE_BUF then vm_buf_fill(a, { v }, i) else a[i] = v end
 end
 
-local Q = { notes = arr(4 * NSTEP * NSLOT), vels = arr(4 * NSTEP * NSLOT), gates = arr(4 * NSTEP * NSLOT), mutes = arr(4) }
+local Q = { notes = arr(4 * NPAT * NSTEP * NSLOT), vels = arr(4 * NPAT * NSTEP * NSLOT), gates = arr(4 * NPAT * NSTEP * NSLOT), mutes = arr(4) }
+local SL = arr(4 * NSONG)                        -- the song: SL[(t - 1) * NSONG + j + 1] is the pattern of track t in slot j
+local PSL = arr(4)                               -- PATTERN mode: one slot for each track
 local OUT = arr(5 * CAP)
 
 -- the synth tracks 2..4: a bass, a chord sound, a lead (root note C2, C3, C4)
@@ -36,7 +48,8 @@ end
 for _, p in ipairs(PADS) do p.tone = pad_tone(p) end
 
 -- ---------------------------------------------------------------- step data
-local function sidx(t, s, k) return ((t - 1) * NSTEP + s) * NSLOT + k + 1 end
+-- the step s of the pattern pt (default: the selected one) of track t, slot k
+local function sidx(t, s, k, pt) return (((t - 1) * NPAT + (pt or S.pat[t]) - 1) * NSTEP + s) * NSLOT + k + 1 end
 
 -- the slot of step s of track t that holds note, or nil
 local function find_slot(t, s, note)
@@ -70,7 +83,8 @@ end
 
 local function toggle_mute(t) aset(Q.mutes, t, aget(Q.mutes, t) == 0 and 1 or 0) end
 
--- demo pattern: a 16-step beat on track 1 (pads: 1 kick, 2 snare, 3 hat, 6 rim) and a bass line on track 2
+-- demo: a 16-step beat on track 1 (pads: 1 kick, 2 snare, 3 hat, 6 rim) and a bass line on track 2, both pattern A.
+-- The song row holds the beat in the slots 1..4 and the bass in 2..4; the loop is 1..4.
 local function load_demo()
   for _, s in ipairs({ 0, 4, 8, 10, 12 }) do put(1, s, 1, s == 10 and 80 or 120, TPS) end
   for _, s in ipairs({ 4, 12 }) do put(1, s, 2, 115, TPS) end
@@ -83,13 +97,15 @@ local function load_demo()
   for _, b in ipairs({ { 0, 36, 3 }, { 3, 36, 2 }, { 6, 39, 2 }, { 8, 41, 3 }, { 11, 43, 2 }, { 14, 39, 2 } }) do
     put(2, b[1], b[2], 105, b[3] * TPS)
   end
+  for j = 0, 3 do aset(SL, j + 1, 1) end
+  for j = 1, 3 do aset(SL, NSONG + j + 1, 1) end
 end
 
 -- ---------------------------------------------------------------- clock
 -- tick k is at tr.t0 + (k - tr.tick0) * tr.spt seconds of audio_time(); 24 ticks make a beat
-local tr = { run = false, rec = false, t0 = 0, start = 0, tick0 = 0, spt = 2.5 / 120, bpm = 120, sched = 0, pos = 0 }
+local tr = { run = false, rec = false, t0 = 0, start = 0, tick0 = 0, spt = 2.5 / 120, sched = 0 }
 local CLICK = { wave = "triangle", attack = 1, decay = 30, sustain = 0, release = 20 }
-local at_hook, seq_skip = nil, 1               -- test build only (carts/tape/build/build.py)
+local at_hook, seq_skip, test_tick = nil, 1, nil    -- test build only (carts/tape/build/build.py)
 --@TEST_HOOK@
 
 local function tick_time(k) return tr.t0 + (k - tr.tick0) * tr.spt end
@@ -97,25 +113,44 @@ local function tick_at(time) return tr.tick0 + (time - tr.t0) / tr.spt end
 -- the play head in ticks (0 when stopped)
 local function now_tick() return tr.run and max(0, floor(tick_at(audio_time()))) or 0 end
 
--- one event of seq_window to play_at
+-- one event of song_window to play_at: the tone carries the pan and the sends of the track; the level and the velocity
+-- make the volume. The meter of the tower rises when the note starts.
 local function queue(tick, t, note, vel, gate)
   local when, vol = tick_time(tick), S.lvl[t] * vel / 127
-  if at_hook then at_hook(when - tr.start, t, note, vel, tick) end
+  if at_hook then at_hook(when - tr.start, t, note, vel, tick, vol, S.pan[t], S.send[t][1], S.send[t][2], S.send[t][3]) end
+  MIX.hit(t, vol, when)
   if t == 1 then
     local p = PADS[note]
-    if p then play_at(when, p.tone, p.note + p.pitch, PAD_GATE, vol * p.level, 1) end
+    if p then play_at(when, MIX.tone(p.tone, 1, when), p.note + p.pitch, PAD_GATE, vol * p.level, 1) end
   else
-    play_at(when, trk[t].tone, note, max(10, gate * tr.spt * 1000), vol, 1)
+    play_at(when, MIX.tone(trk[t].tone, t, when), note, max(10, gate * tr.spt * 1000), vol, 1)
   end
 end
 
--- queue the events and the metronome clicks of the ticks a .. b - 1
+-- the slot table of the mode: slots, stride, loop start and end (slots, end excluded)
+local function slot_args()
+  if S.song then return SL, NSONG, S.lin - 1, S.lout end
+  for k = 1, 4 do aset(PSL, k, S.pat[k]) end
+  return PSL, 1, 0, 1
+end
+
+-- the events of the ticks a .. b - 1 in OUT; returns their number (nil without engine)
+local function window(a, b)
+  local sl, stride, ls, le = slot_args()
+  return engine.song_window(a, b, S.len, S.swing, sl, stride, ls, le, Q, OUT, CAP)
+end
+
+-- queue the events and the metronome clicks of the ticks a .. b - 1; a punch-in stutter repeats its window instead
 local function schedule(a, b)
-  local n = engine.seq_window(a, b, S.len, S.swing, Q, OUT, CAP)
-  if not n then return end
-  for i = 0, n - 1 do
-    local o = i * 5
-    queue(aget(OUT, o + 1), aget(OUT, o + 2) + 1, aget(OUT, o + 3), aget(OUT, o + 4), aget(OUT, o + 5))
+  if PUNCH.stut then
+    PUNCH.stutter(a, b, queue)
+  else
+    local n = window(a, b)
+    if not n then return end
+    for i = 0, n - 1 do
+      local o = i * 5
+      queue(aget(OUT, o + 1), aget(OUT, o + 2) + 1, aget(OUT, o + 3), aget(OUT, o + 4), aget(OUT, o + 5))
+    end
   end
   if S.metro > 0 then
     for k = (a + TPB - 1) // TPB * TPB, b - 1, TPB do
@@ -127,21 +162,26 @@ end
 local function transport_start()
   if not engine.mod then return end
   tr.run, tr.t0, tr.tick0, tr.sched = true, audio_time() + LEAD, 0, 0
-  tr.start, tr.spt, tr.bpm = tr.t0, 2.5 / S.bpm, S.bpm
+  tr.start, tr.spt = tr.t0, PUNCH.spt()
 end
 
 local function transport_stop()
-  tr.run, tr.pos = false, 0
+  tr.run = false
+  PUNCH.stut = nil
+  MIX.hits = {}
   play_cancel(1); play_cancel(2)
+end
+
+-- the new seconds a tick lasts from the tick tr.sched on; the notes that are queued keep their times, so the clock has no jump
+local function retime(spt)
+  tr.t0, tr.tick0, tr.spt = tick_time(tr.sched), tr.sched, spt
 end
 
 -- once per frame (every seq_skip-th frame in the test build); now is audio_time()
 local function seq_update(now)
   if not tr.run then return end
-  if S.bpm ~= tr.bpm then                    -- a new tempo: the play head stays where it is
-    tr.t0, tr.tick0, tr.spt, tr.bpm = now, tick_at(now), 2.5 / S.bpm, S.bpm
-  end
-  tr.pos = max(0, tick_at(now) * tr.spt)
+  local want = PUNCH.spt()
+  if want ~= tr.spt then retime(want) end        -- a new tempo or half speed: the play head stays where it is
   local tend = floor(tick_at(now + LOOK)) + 1
   if tend > tr.sched then
     schedule(tr.sched, tend)

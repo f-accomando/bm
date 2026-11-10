@@ -22,7 +22,7 @@ function engine.init()
   if not blob then fail("compile", why) return end
   local m, why2 = native_load(blob)
   if not m then fail("load", why2) return end
-  for _, name in ipairs({ "euclid", "meter_fall", "seq_window" }) do
+  for _, name in ipairs({ "euclid", "meter_fall", "song_window" }) do
     engine.fn[name] = native_fn(m, name)
     if not engine.fn[name] then fail("load", "no function " .. name) return end
   end
@@ -51,12 +51,12 @@ function engine.meter_fall(levels, peaks, n, dt)
   return true
 end
 
--- events that start in the ticks t0 .. t1 - 1 (see seq_window in engine.b); q holds the step arrays, out the records.
--- Returns the number of events, or nil without engine.
-function engine.seq_window(t0, t1, len, swing, q, out, cap)
+-- events that start in the ticks t0 .. t1 - 1 (see song_window in engine.b): sl is the slot table (stride slots a track),
+-- lstart and lend the loop in slots, q the step arrays, out the records. Returns the number of events, or nil without engine.
+function engine.song_window(t0, t1, len, swing, sl, stride, lstart, lend, q, out, cap)
   if not engine.mod then return nil end
-  local ok, n = pcall(native_run, engine.mod, engine.fn.seq_window, t0, t1, len, swing,
+  local ok, n = pcall(native_run, engine.mod, engine.fn.song_window, t0, t1, len, swing, sl, stride, lstart, lend,
                       q.notes, q.vels, q.gates, q.mutes, out, cap)
-  if not ok then fail("seq", n) return nil end
+  if not ok then fail("song", n) return nil end
   return n
 end

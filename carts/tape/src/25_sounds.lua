@@ -2,7 +2,6 @@
 -- An engine is a base tone() table plus four macros. A macro maps one encoder value (in its real unit) to
 -- tone() keys. A macro with an alias lives in the filter (cutoff, res, rate): the FILTER page edits the same value.
 
-local VOWELS = { "a", "e", "i", "o", "u" }
 local CURVES = { "soft", "hard", "fold", "sine", "asym", "cubic" }
 
 -- the filter values of a synth track, in the order of the FILTER page
@@ -14,6 +13,10 @@ local FDEF = {
 }
 local FIDX = { cutoff = 1, res = 2, rate = 3, depth = 4 }
 
+-- the engines; the helpers of the table are local to this block (a chunk holds 200 locals at most)
+local ENGINES
+do
+local VOWELS = { "a", "e", "i", "o", "u" }
 -- a macro: label, range, step, default, format, and the tone() key it sets (or a function(tone, v, i))
 local function M(label, lo, hi, step, def, fmt, to)
   return { label = label, min = lo, max = hi, step = step, def = def, fmt = fmt, to = to }
@@ -29,7 +32,7 @@ local function bar(tn, v, i)
   tn.bars[i] = floor(v + 0.5)
 end
 
-local ENGINES = {
+ENGINES = {
   { name = "FM", base = { wave = "fm" }, macros = {
     M("RATIO", 0.5, 4, 0.05, 2.0, "%.2f", key("ratio")), M("DEPTH", 0, 8, 0.1, 3.4, "%.1f", key("depth")),
     M("FEEDBK", 0, 1, 0.05, 0.2, "%.2f", key("feedback")), M("DECAY", 20, 1000, 10, 180, "%dms", key("mdecay")) } },
@@ -62,15 +65,19 @@ local ENGINES = {
     M("START", 0, 0.9, 0.01, 0, "%.2f", key("begin")), A("cutoff"), A("res"),
     M("DRIVE", 0, 1, 0.01, 0, "%.2f", key("drive")) } },
 }
+end
 local ENGIDX = {}
 for i, e in ipairs(ENGINES) do ENGIDX[e.name] = i end
 
 -- the 20 live synth sounds. macros: the four macro values (false: the macro lives in the filter, see below);
 -- env: attack ms, decay ms, sustain 0..1, release ms; filter: cutoff kHz, resonance, LFO rate Hz, LFO depth (octaves)
+local PCM_FIRST = "PHBRASS"
+local SOUNDS
+do
 local function snd(name, engine, macros, env, filter)
   return { name = name, engine = engine, macros = macros, env = env, filter = filter }
 end
-local SOUNDS = {
+SOUNDS = {
   snd("DX BASS", "FM", { 1.0, 2.2, 0.15, 200 }, { 2, 260, 0.35, 110 }, { 6, 0.15, 0, 0 }),
   snd("GLASS BELL", "FM", { 3.5, 1.6, 0, 900 }, { 1, 1200, 0, 1400 }, { 12, 0.1, 0, 0 }),
   snd("FM KEYS", "FM", { 2.0, 1.4, 0.1, 350 }, { 2, 700, 0.25, 300 }, { 9, 0.1, 0, 0 }),
@@ -102,7 +109,6 @@ local function pcm(name, sample, kind)
   s.sample, s.kind = sample, kind
   return s
 end
-local PCM_FIRST = "PHBRASS"
 local PCM_SOUNDS = {
   pcm("PH BRASS", "PHBRASS", "lead"),
   pcm("PH ORGAN", "PHORGAN", "pad"),
@@ -130,6 +136,7 @@ local PCM_SOUNDS = {
   pcm("NO METAL", "NOMETAL", "fx"),
 }
 for _, s in ipairs(PCM_SOUNDS) do SOUNDS[#SOUNDS + 1] = s end
+end
 -- the bank's samples by name: frames, rate and the 32 peaks (meter) of each, for the PCM scene
 local PCMINFO = {}
 do
@@ -180,9 +187,11 @@ end
 -- the drum kit: pads 1..12 are the KO-II block 7 8 9 / U I O / J K L / M , .
 -- kit pads play the kit's sample at its root note; the others are synth one-shots of the presets.
 -- The API has no sample end control: DECAY is the release (ms) after a short gate.
+local PADS
+do
 local function mkpad(name, sample, note, rel)
   local src = sample and { preset = "kit", sample = sample } or nil
-  return { name = name, sample = sample, src = src, note = note or 60, rel = rel, begin = 0, pitch = 0, level = 0.9 }
+  return { name = name, sample = sample, src = src, note = note or 60, rel = rel, rel0 = rel, begin = 0, pitch = 0, level = 0.9 }
 end
 local function oneshot(name, preset, note, rel)
   local p = mkpad(name, nil, note, rel)
@@ -190,7 +199,7 @@ local function oneshot(name, preset, note, rel)
   return p
 end
 local KIT_ORDER = { "bd", "sd", "hh", "oh", "cp", "rim", "tom", "cb" }
-local PADS = {
+PADS = {
   mkpad("KICK", "bd", 60, 450), mkpad("SNARE", "sd", 60, 300), mkpad("CHAT", "hh", 60, 90), mkpad("OHAT", "oh", 60, 450),
   mkpad("CLAP", "cp", 60, 300), mkpad("RIM", "rim", 60, 120), mkpad("TOM", "tom", 60, 450), mkpad("COWBL", "cb", 60, 300),
   oneshot("PUNCH", "punch", 36, 400), oneshot("CSNARE", "chipsnr", 60, 300),
@@ -207,6 +216,8 @@ do
       end
     end
   end
+end
+
 end
 
 -- the tone of a pad: its source with the pad's start and release

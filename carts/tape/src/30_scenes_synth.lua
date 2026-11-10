@@ -106,6 +106,7 @@ end
 
 -- VOX: a vector mouth; the vowel is its shape, the rays are the cutoff, the wave below turns with the LFO rate,
 -- the mouth pulses with the tremolo
+do
 local MOUTH_W, MOUTH_H = { 56, 52, 56, 28, 20 }, { 46, 30, 9, 40, 18 }   -- width and height of the mouth for a e i o u
 EDRAW[6] = function(t, v)
   ground(t)
@@ -130,8 +131,11 @@ EDRAW[6] = function(t, v)
   R(300, 80 - 30 * v[4], 5, 30 * v[4] + 1, C.e4, true)
 end
 
+end
+
 -- DIGITAL: a wave that breaks into blocks; the block height is the bit depth, the width the coarse value,
 -- the shape of the fold is the curve, the gain the drive
+do
 local SHAPE = {
   function(x) local e = exp(2 * x) return (e - 1) / (e + 1) end,           -- soft
   function(x) return clamp(x, -1, 1) end,                                     -- hard
@@ -156,9 +160,12 @@ EDRAW[7] = function(t, v)
   R(296, 90 - 40 * v[4], 5, 40 * v[4] + 1, C.e4, true)
 end
 
+end
+
 -- PCM: the sample as a ridge over the horizon (its 32 peaks from audio_samples()). The start gate (encoder 1) cuts the
 -- ridge: the part before it is dim. The sun is the cutoff, the ring around it the resonance, the second line of the
 -- ridge (it shakes) the drive. A dot runs along the ridge from the gate: the sample as the voice plays it.
+do
 local PCM_TOP, PCM_X0, PCM_W = 30, 20, 280
 local function ridge_at(m, u)
   if not m then return 0.5 + 0.4 * sin(u * 23) * exp(-u * 2) end
@@ -203,6 +210,8 @@ EDRAW[8] = function(t, v)
   local nm = info and info.name or (tk.sample or PCM_FIRST)
   local secs = info and info.frames and info.rate and info.rate > 0 and info.frames / info.rate or 0
   T(string.format("%s %.2fs", nm, secs), 160, 116, C.e3, "center")
+end
+
 end
 
 -- the ENGINE page: the engine of the synth track S.syn picks the drawing and the macros
