@@ -1973,8 +1973,10 @@ test-spec: $(BUILD)/host/bmhost-bin tests/spec/cart.lua scripts/mkbm.py
 	@printf 'name: spec test\nspec: 999\n' > $(BUILD)/spec/new.info
 	@printf 'name: spec test\nspec: 6\n' > $(BUILD)/spec/six.info
 	@printf 'name: spec test\nspec: 7\n' > $(BUILD)/spec/seven.info
+	@printf 'name: spec test\nspec: 8\n' > $(BUILD)/spec/eight.info
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/six.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/six.info > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/seven.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/seven.info > /dev/null
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/eight.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/eight.info > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/ok.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/ok.info > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/none.bm --lua tests/spec/cart.lua --title none > /dev/null
 	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/new.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/new.info > /dev/null
@@ -1982,8 +1984,9 @@ test-spec: $(BUILD)/host/bmhost-bin tests/spec/cart.lua scripts/mkbm.py
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/none.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "no spec did not run"; exit 1; }
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/new.bm --seconds 1 2>&1 | grep -q "needs revision 999" || { echo "spec 999 was not refused"; exit 1; }
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/six.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 6 did not run"; exit 1; }
-	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/seven.bm --seconds 1 2>&1 | grep -q "needs revision 7" || { echo "spec 7 was not refused"; exit 1; }
-	@echo "spec: 5/5 checks passed"
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/seven.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 7 did not run"; exit 1; }
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/eight.bm --seconds 1 2>&1 | grep -q "needs revision 8" || { echo "spec 8 was not refused"; exit 1; }
+	@echo "spec: 6/6 checks passed"
 # A cartridge's code is Lua text: a section that starts with the bytecode signature is refused (mode "t" in lua_load)
 test-luatext: $(BUILD)/host/bmhost-bin scripts/mkbm.py
 	@mkdir -p $(BUILD)/luatext
